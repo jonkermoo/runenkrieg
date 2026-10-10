@@ -10,7 +10,7 @@ local CHUNK = 32 -- columns per chunk side
 local MATERIAL_COLORS = {
 	Grass = Color3.fromRGB(96, 142, 58),
 	LeafyGrass = Color3.fromRGB(78, 122, 48),
-	Ground = Color3.fromRGB(122, 100, 74),
+	Ground = Color3.fromRGB(138, 118, 88),
 	Mud = Color3.fromRGB(92, 76, 58),
 	Rock = Color3.fromRGB(122, 120, 112),
 }
@@ -77,7 +77,51 @@ function Ground.build(map: any, MT: any): number
 			task.wait()
 		end
 	end
+	Ground.skirt(map)
 	return chunks
+end
+
+-- Flat low-detail ground around the detailed area, plus distant hills for the horizon.
+function Ground.skirt(map: any)
+	local terrain = workspace.Terrain
+	local b, m, sk = map.bounds, map.terrainMargin, map.skirt
+	if not sk then
+		return
+	end
+	local ix0, ix1 = b.minX - m, b.maxX + m
+	local iz0, iz1 = b.minZ - m, b.maxZ + m
+	local ox0, ox1 = ix0 - sk.width, ix1 + sk.width
+	local oz0, oz1 = iz0 - sk.width, iz1 + sk.width
+	local depth = 16
+	local rects = {
+		{ ox0, ox1, oz0, iz0 }, -- north band
+		{ ox0, ox1, iz1, oz1 }, -- south band
+		{ ox0, ix0, iz0, iz1 }, -- west band
+		{ ix1, ox1, iz0, iz1 }, -- east band
+	}
+	for _, r in rects do
+		local x = r[1]
+		while x < r[2] do
+			local w = math.min(512, r[2] - x)
+			local z = r[3]
+			while z < r[4] do
+				local d = math.min(512, r[4] - z)
+				terrain:FillBlock(
+					CFrame.new(x + w / 2, -depth / 2, z + d / 2),
+					Vector3.new(w, depth, d),
+					Enum.Material.Grass
+				)
+				z += d
+			end
+			x += w
+		end
+		task.wait()
+	end
+	for _, h in sk.hills do
+		-- A ball sunk so only a cap of `peak` height shows.
+		terrain:FillBall(Vector3.new(h[1], h[4] - h[3], h[2]), h[3], Enum.Material.Grass)
+		task.wait()
+	end
 end
 
 return Ground

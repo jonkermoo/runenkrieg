@@ -1,97 +1,115 @@
 --!strict
--- Low-poly trees from rotated blocks (faceted look). Placeholder until Blender meshes replace them.
+-- Places low-poly tree meshes from the uploaded tree kit (Config/Assets.TreeKit).
 -- Trunks collide; canopies block shots/sight (CanQuery) but not movement.
 
-local Parts = require(script.Parent.Parts)
+local InsertService = game:GetService("InsertService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Trees = {}
 
-local PINE = { Color3.fromRGB(44, 88, 52), Color3.fromRGB(52, 98, 58), Color3.fromRGB(38, 78, 50) }
-local LEAF = { Color3.fromRGB(78, 140, 56), Color3.fromRGB(92, 150, 60), Color3.fromRGB(70, 126, 52) }
-local BIRCH_LEAF = { Color3.fromRGB(130, 165, 70), Color3.fromRGB(118, 156, 62) }
-local BARK = Color3.fromRGB(96, 70, 50)
-local BIRCH_BARK = Color3.fromRGB(222, 220, 210)
+local PALETTE = {
+	Pine = { Color3.fromRGB(44, 88, 52), Color3.fromRGB(52, 98, 58), Color3.fromRGB(38, 80, 48) },
+	Broadleaf = { Color3.fromRGB(78, 140, 56), Color3.fromRGB(92, 150, 60), Color3.fromRGB(70, 126, 52) },
+	Birch = { Color3.fromRGB(130, 165, 70), Color3.fromRGB(118, 156, 62) },
+}
+local BARK = {
+	Pine = Color3.fromRGB(96, 70, 50),
+	Broadleaf = Color3.fromRGB(104, 78, 56),
+	Birch = Color3.fromRGB(222, 220, 210),
+}
 
-local function pick(list: { Color3 }, v: number): Color3
-	return list[v % #list + 1]
+-- The kit model, loading it into ServerStorage.Assets if this place does not have it yet.
+local function getKit(kitCfg: any): Model
+	local folder = ServerStorage:FindFirstChild("Assets")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Assets"
+		folder.Parent = ServerStorage
+	end
+	local kit = (folder :: Instance):FindFirstChild("TreeKit")
+	if kit and kit:GetAttribute("AssetId") == kitCfg.id then
+		return kit :: Model
+	end
+	if kit then
+		kit:Destroy()
+	end
+	local loaded = InsertService:LoadAsset(kitCfg.id)
+	local model = (loaded:FindFirstChildWhichIsA("Model") or loaded) :: Model
+	model.Name = "TreeKit"
+	model:SetAttribute("AssetId", kitCfg.id)
+	model.Parent = folder
+	if model ~= loaded then
+		loaded:Destroy()
+	end
+	return model
 end
 
-local function canopy(parent: Instance, cf: CFrame, size: Vector3, color: Color3)
-	local p = Parts.box(parent, "Canopy", cf, size, color)
-	p.CanCollide = false
-	p.CanTouch = false
+-- One template Model per variant: pivot at the trunk base, scaled to the kind's target height.
+local function buildTemplates(kitCfg: any): { [string]: { Model } }
+	local kit = getKit(kitCfg)
+	local out = {}
+	for kind, names in kitCfg.variants do
+		out[kind] = {}
+		for _, name in names do
+			local trunk = kit:FindFirstChild(name .. "_Trunk") :: MeshPart
+			local canopy = kit:FindFirstChild(name .. "_Canopy") :: MeshPart
+			assert(trunk and canopy, "tree kit missing " .. name)
+			local m = Instance.new("Model")
+			m.Name = kind
+			for _, src in { trunk, canopy } do
+				local p = src:Clone()
+				p.Anchored = true
+				p.Material = Enum.Material.SmoothPlastic
+				p.CastShadow = true
+				p.CollisionFidelity = Enum.CollisionFidelity.Box
+				if src == canopy then
+					p.Name = "Canopy"
+					p.CanCollide = false
+					p.CanTouch = false
+				else
+					p.Name = "Trunk"
+				end
+				p.Parent = m
+			end
+			local t, c = m:FindFirstChild("Trunk") :: BasePart, m:FindFirstChild("Canopy") :: BasePart
+			local baseY = t.Position.Y - t.Size.Y / 2
+			local topY = c.Position.Y + c.Size.Y / 2
+			m.WorldPivot = CFrame.new(t.Position.X, baseY, t.Position.Z)
+			m:ScaleTo(kitCfg.targetHeight[kind] / (topY - baseY))
+			table.insert(out[kind], m)
+		end
+	end
+	return out
 end
 
-local function trunk(
-	parent: Instance,
-	x: number,
-	gy: number,
-	z: number,
-	w: number,
-	h: number,
-	color: Color3,
-	yaw: number
-)
-	Parts.box(parent, "Trunk", CFrame.new(x, gy - 1 + h / 2, z) * CFrame.Angles(0, yaw, 0), Vector3.new(w, h, w), color)
-end
-
-function Trees.build(parent: Instance, map: any, MT: any): number
+function Trees.build(parent: Instance, map: any, MT: any, assets: any): number
+	local kitCfg = assets.TreeKit
+	local templates = buildTemplates(kitCfg)
 	local placements = MT.trees(map)
-	local count = 0
-	local bucket: Instance? = nil
+	local bucket: Instance = parent
 	for i, t in placements do
 		if (i - 1) % 400 == 0 then
-			bucket = Parts.folder(parent, "Trees_" .. math.floor(i / 400))
+			local f = Instance.new("Folder")
+			f.Name = "Trees_" .. math.floor(i / 400)
+			f.Parent = parent
+			bucket = f
 		end
-		local model = Instance.new("Model")
-		model.Name = t.kind
+		local variants = templates[t.kind]
+		local tree = variants[t.variant % #variants + 1]:Clone()
+		tree:ScaleTo(tree:GetScale() * t.scale)
 		local gy = MT.heightAt(map, t.x, t.z)
-		local yaw = math.rad(t.yaw)
-		local v = t.variant
-		local function r(k: number): number -- deterministic [-1, 1)
-			return MT.hash01(v, k, 9) * 2 - 1
+		tree:PivotTo(CFrame.new(t.x, gy - 0.8, t.z) * CFrame.Angles(0, math.rad(t.yaw), 0))
+		local palette = PALETTE[t.kind]
+		local canopy = tree:FindFirstChild("Canopy") :: BasePart
+		local trunk = tree:FindFirstChild("Trunk") :: BasePart
+		canopy.Color = palette[(t.variant // 7) % #palette + 1]
+		trunk.Color = BARK[t.kind]
+		tree.Parent = bucket
+		if i % 200 == 0 then
+			task.wait()
 		end
-
-		if t.kind == "Pine" then
-			local H = 34 * t.scale
-			trunk(model, t.x, gy, t.z, 1.4 * t.scale, H * 0.45, BARK, yaw)
-			local tiers = if t.far then 2 else 4
-			local y0 = gy + H * 0.22
-			for k = 0, tiers - 1 do
-				local w = H * 0.42 * (1 - k * (0.8 / tiers))
-				local th = H * 0.16
-				local cf = CFrame.new(t.x, y0 + k * H * (0.68 / tiers) + th / 2, t.z)
-					* CFrame.Angles(math.rad(4 * r(k)), yaw + math.rad(45 * k), math.rad(4 * r(k + 10)))
-				canopy(model, cf, Vector3.new(w, th, w), pick(PINE, v + k))
-			end
-		elseif t.kind == "Broadleaf" then
-			local H = 26 * t.scale
-			trunk(model, t.x, gy, t.z, 2 * t.scale, H * 0.6, BARK, yaw)
-			local blocks = if t.far then 1 else 3
-			for k = 1, blocks do
-				local s = H * (0.42 + 0.08 * r(k))
-				local off = if blocks == 1
-					then Vector3.zero
-					else Vector3.new(r(k + 3), r(k + 6) * 0.5, r(k + 9)) * H * 0.13
-				local cf = CFrame.new(Vector3.new(t.x, gy + H * 0.66, t.z) + off)
-					* CFrame.Angles(math.rad(35 * r(k + 12)), math.rad(180 * r(k + 15)), math.rad(35 * r(k + 18)))
-				canopy(model, cf, Vector3.new(s, s * 0.8, s), pick(LEAF, v + k))
-			end
-		else -- Birch
-			local H = 24 * t.scale
-			trunk(model, t.x, gy, t.z, 1 * t.scale, H * 0.75, BIRCH_BARK, yaw)
-			local blocks = if t.far then 1 else 2
-			for k = 1, blocks do
-				local s = H * 0.3
-				local cf = CFrame.new(t.x + r(k) * 1.5, gy + H * (0.55 + 0.15 * k), t.z + r(k + 4) * 1.5)
-					* CFrame.Angles(math.rad(30 * r(k + 8)), math.rad(180 * r(k + 11)), math.rad(30 * r(k + 14)))
-				canopy(model, cf, Vector3.new(s, s * 1.2, s), pick(BIRCH_LEAF, v + k))
-			end
-		end
-		model.Parent = bucket
-		count += 1
 	end
-	return count
+	return #placements
 end
 
 return Trees

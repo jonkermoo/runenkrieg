@@ -1,5 +1,6 @@
 * text=auto eol=lf
 *.ps1 text eol=crlf
-*.rbxm binary
-*.fbx binary
+*.rbxm filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
 *.png binary
+*.blend filter=lfs diff=lfs merge=lfs -text

@@ -1,5 +1,5 @@
 --!strict
--- Dev-only map builder: natural terrain, trees and out-of-bounds panels. Run in Studio edit mode
+-- Dev-only map builder: natural terrain, tree meshes and out-of-bounds panels. Run in Studio edit mode
 -- in the DEV place:
 --   require(game.ServerStorage.Dev.Greybox:Clone()).build("Map1")
 -- Cloning bypasses the require cache so Rojo edits take effect without restarting Studio.
@@ -26,6 +26,7 @@ function Greybox.build(mapName: string): string
 	local Shared = ReplicatedStorage:WaitForChild("Shared")
 	local MT = fresh(Shared.Rules.MapTerrain)
 	local boundaryCfg = fresh(Shared.Config.Boundary)
+	local assets = fresh(Shared.Config.Assets)
 	local map = fresh(Shared.Config.Maps:FindFirstChild(mapName) :: Instance)
 	Parts.reset()
 
@@ -43,7 +44,7 @@ function Greybox.build(mapName: string): string
 	root.Name = mapName
 	root.Parent = workspace
 
-	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT)
+	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, assets)
 	local panels = Features.bounds(root, map, boundaryCfg)
 	Features.testSpawn(root, map, MT)
 	Features.atmosphere()

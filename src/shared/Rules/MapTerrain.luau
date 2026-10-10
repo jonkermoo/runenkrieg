@@ -63,7 +63,10 @@ local function landHeight(map: any, x: number, z: number): number
 	local s = map.seed
 	local n = t.baseAmp * math.noise(x / t.baseScale, z / t.baseScale, s * 0.001)
 		+ t.detailAmp * math.noise(x / t.detailScale, z / t.detailScale, s * 0.001 + 10.5)
-	local h = n + ridgeHeight(map, x)
+	-- Fade relief to flat over the outer half of the margin so the skirt joins seamlessly.
+	local m = map.terrainMargin
+	local edge = 1 - smooth((outside(map.bounds, x, z) - m * 0.5) / (m * 0.45))
+	local h = (n + ridgeHeight(map, x)) * edge
 	local w, baseY = MapTerrain.flattenWeight(map, x, z)
 	return baseY + (h - baseY) * w
 end
@@ -133,7 +136,7 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 	end
 	local s = map.seed * 0.001
 	local patch = math.noise(x / 60, z / 60, s + 40.2)
-	if patch > 0.32 then
+	if patch > map.terrain.patchThreshold then
 		return "Ground"
 	end
 	local forest = math.noise(x / map.trees.forestScale, z / map.trees.forestScale, s + 20.7)

@@ -19,7 +19,21 @@ local Map1 = {
 	name = "Map 1",
 	seed = 1337,
 	bounds = { minX = -150, maxX = 1950, minZ = -400, maxZ = 400 } :: Rect, -- playable area
-	terrainMargin = 300, -- terrain + forest continue past bounds out toward the fog
+	terrainMargin = 300, -- detailed terrain + forest past the bounds; noise fades to flat at its edge
+	-- Low-detail flat skirt beyond the margin plus distant hills, so the world edge never shows.
+	skirt = {
+		width = 1000,
+		hills = {
+			{ -900, -700, 260, 60 },
+			{ 300, -1100, 320, 80 },
+			{ 1300, -1050, 280, 55 },
+			{ 2600, -600, 300, 70 },
+			{ 2700, 500, 260, 50 },
+			{ 1500, 1100, 330, 85 },
+			{ 200, 1050, 280, 60 },
+			{ -950, 450, 300, 75 },
+		}, -- {x, z, radius, peak height}
+	},
 	fogEnd = 600,
 
 	sectors = {
@@ -40,8 +54,9 @@ local Map1 = {
 	terrain = {
 		minY = -28, -- bottom of the voxel slab
 		maxY = 32, -- top of the voxel slab
-		baseAmp = 5, -- rolling hills
-		baseScale = 300,
+		baseAmp = 8, -- rolling hills
+		baseScale = 260,
+		patchThreshold = 0.45, -- dirt patches where patch noise exceeds this
 		detailAmp = 1.2,
 		detailScale = 70,
 	},

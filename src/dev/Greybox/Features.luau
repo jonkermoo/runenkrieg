@@ -63,7 +63,7 @@ end
 function Features.atmosphere()
 	local lighting = game:GetService("Lighting")
 	local atm = lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
-	atm.Density = 0.3
+	atm.Density = 0.38
 	atm.Offset = 0.15
 	atm.Haze = 0.8
 	atm.Glare = 0
