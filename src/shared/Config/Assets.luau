@@ -34,14 +34,14 @@ local Assets = {
 	Categories = { "Foliage", "Buildings", "Props", "Vehicles", "Weapons", "Characters", "VFX" },
 
 	Entries = {
-		Webbing1 = {
+		rig1 = {
 			id = 84046347370958,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/webbing_breadbag.fbx",
-			generator = "tools/blender/gear/webbing.py",
-			description = "Webbing: shoulder bands + belt, two big pouches on the torso's sides under the arms, a wide front pouch.",
-			-- welded to the Torso at each part's offset from the export's Origin marker (variant `breadbag`)
+			source = "assets/characters/gear/rig1.fbx",
+			generator = "tools/blender/gear/rig.py",
+			description = "Rig (pouches only): shoulder bands + belt, two big pouches on the torso's sides under the arms, a wide front pouch.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig1`)
 			fit = {
 				attachment = "Torso",
 				color = { 150, 104, 80 },
@@ -49,14 +49,14 @@ local Assets = {
 				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
 			},
 		},
-		Webbing2 = {
+		rig2 = {
 			id = 82520824821944,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/webbing_canteen.fbx",
-			generator = "tools/blender/gear/webbing.py",
-			description = "Webbing: tab-pouch model - two tall pouches on the bands at chest height, one wide pouch on the front left.",
-			-- welded to the Torso at each part's offset from the export's Origin marker (variant `canteen`)
+			source = "assets/characters/gear/rig2.fbx",
+			generator = "tools/blender/gear/rig.py",
+			description = "Rig: tab-pouch model - two tall pouches on the bands at chest height, one wide pouch on the front left.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig2`)
 			fit = {
 				attachment = "Torso",
 				color = { 150, 104, 80 },
@@ -64,14 +64,14 @@ local Assets = {
 				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
 			},
 		},
-		Webbing3 = {
+		rig3 = {
 			id = 104179782361178,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/webbing_spellbook.fbx",
-			generator = "tools/blender/gear/webbing.py",
-			description = "Webbing: strap-pouch model - two medium pouches out to the torso edges, one big extra-bulky center pouch.",
-			-- welded to the Torso at each part's offset from the export's Origin marker (variant `spellbook`)
+			source = "assets/characters/gear/rig3.fbx",
+			generator = "tools/blender/gear/rig.py",
+			description = "Rig: strap-pouch model - two medium pouches out to the torso edges, one big extra-bulky center pouch.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig3`)
 			fit = {
 				attachment = "Torso",
 				color = { 150, 104, 80 },
@@ -79,7 +79,7 @@ local Assets = {
 				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
 			},
 		},
-		HelmetStahl = {
+		helmet_stahl = {
 			id = 116385902519252,
 			category = "Characters",
 			folder = "Gear",
@@ -90,13 +90,13 @@ local Assets = {
 			-- rim baseline 0.15 below the head center; the back of the skirt is the lowest point
 			fit = { attachment = "HatAttachment", color = { 80, 82, 86 }, brim = -0.27, attach = { 0, 0.31, 0.005 } },
 		},
-		HelmetM33Goggles = {
+		helmet_m33_goggles = {
 			id = 89737787734153,
 			category = "Characters",
 			folder = "Gear",
 			source = "assets/characters/gear/helmet_m33_goggles.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "HelmetM33 with a leather strap and big aviator goggles riding on the front slope; flat blue lenses. Olive team.",
+			description = "helmet_m33 with a leather strap and big aviator goggles riding on the front slope; flat blue lenses. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
@@ -104,7 +104,7 @@ local Assets = {
 				parts = { Strap = { 106, 72, 46 }, Lens = { 86, 150, 214 } },
 			},
 		},
-		HelmetM33 = {
+		helmet_m33 = {
 			id = 96856831451407,
 			category = "Characters",
 			folder = "Gear",
@@ -112,10 +112,10 @@ local Assets = {
 			generator = "tools/blender/gear/helmet.py",
 			description = "M33-style helmet, olive team: rounded dome worn low, rim raised at the front, arched over the ears, "
 				.. "lower at the back; tuck above the rim, sloped sides, rounded crown, 12 sides (216 tris).",
-			-- color = OliveField uniform cloth; brim = the lowest rim point (the back)
+			-- color = uniform2 cloth; brim = the lowest rim point (the back)
 			fit = { attachment = "HatAttachment", color = { 116, 114, 72 }, brim = -0.18 },
 		},
-		HelmetBrodie = {
+		helmet_brodie = {
 			id = 91232491229419,
 			category = "Characters",
 			folder = "Gear",
