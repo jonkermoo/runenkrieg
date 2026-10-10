@@ -2,9 +2,12 @@
 -- Uniform soldier bodies (docs/CHARACTERS.md): every character is the plain blocky R6 body with no
 -- avatar packages, clothing, accessories or face, so hitboxes are fair and everyone reads as a
 -- soldier. The rig type itself is a game setting (Game Settings -> Avatar -> R6); scripts can't set it.
--- Uniform colors and gear are added on top of this body later (nation kits).
+-- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants and skin color.
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local U = require(ReplicatedStorage:WaitForChild("Shared").Config.Uniforms)
 
 local Bodies = {}
 
@@ -19,9 +22,15 @@ function Bodies.apply(character: Model)
 		warned = true
 		warn("[Bodies] character is not R6: set Game Settings -> Avatar -> Avatar Type to R6")
 	end
-	-- a fresh description is the default blocky body: no packages, clothing or accessories
+	-- a fresh description is the default blocky body: no packages or accessories, just the kit
+	local kit = U.Kits[U.Default]
+	local skin = Color3.fromRGB(kit.skin[1], kit.skin[2], kit.skin[3])
 	local desc = Instance.new("HumanoidDescription")
 	desc.Face = 0
+	desc.Shirt = 0
+	desc.Pants = 0
+	desc.HeadColor, desc.TorsoColor = skin, skin
+	desc.LeftArmColor, desc.RightArmColor, desc.LeftLegColor, desc.RightLegColor = skin, skin, skin, skin
 	pcall(function()
 		humanoid:ApplyDescription(desc)
 	end)
@@ -30,6 +39,17 @@ function Bodies.apply(character: Model)
 	if face then
 		face:Destroy() -- faceless (docs/CHARACTERS.md)
 	end
+	for _, c in character:GetChildren() do
+		if c:IsA("Clothing") then
+			c:Destroy()
+		end
+	end
+	local shirt = Instance.new("Shirt")
+	shirt.ShirtTemplate = "rbxassetid://" .. kit.shirt
+	shirt.Parent = character
+	local pants = Instance.new("Pants")
+	pants.PantsTemplate = "rbxassetid://" .. kit.pants
+	pants.Parent = character
 end
 
 function Bodies.start()
