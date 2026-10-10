@@ -19,19 +19,19 @@ local Map1 = {
 	name = "Map 1",
 	seed = 1337,
 	bounds = { minX = -150, maxX = 1950, minZ = -400, maxZ = 400 } :: Rect, -- playable area
-	terrainMargin = 300, -- detailed terrain + forest past the bounds; noise fades to flat at its edge
+	terrainMargin = 420, -- detailed terrain + forest past the bounds; relief fades to flat at its edge
 	-- Low-detail flat skirt beyond the margin plus distant hills, so the world edge never shows.
 	skirt = {
 		width = 1000,
 		hills = {
-			{ -900, -700, 260, 60 },
-			{ 300, -1100, 320, 80 },
-			{ 1300, -1050, 280, 55 },
-			{ 2600, -600, 300, 70 },
-			{ 2700, 500, 260, 50 },
-			{ 1500, 1100, 330, 85 },
-			{ 200, 1050, 280, 60 },
-			{ -950, 450, 300, 75 },
+			{ -1000, -800, 300, 110 },
+			{ 300, -1250, 360, 130 },
+			{ 1300, -1200, 320, 100 },
+			{ 2750, -700, 340, 120 },
+			{ 2850, 600, 300, 95 },
+			{ 1500, 1250, 380, 140 },
+			{ 200, 1200, 320, 105 },
+			{ -1050, 500, 340, 125 },
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
@@ -53,12 +53,29 @@ local Map1 = {
 	-- Terrain shape
 	terrain = {
 		minY = -28, -- bottom of the voxel slab
-		maxY = 32, -- top of the voxel slab
-		baseAmp = 8, -- rolling hills
+		maxY = 96, -- top of the voxel slab (room for the hills outside the bounds)
+		baseAmp = 8, -- broad rolling hills
 		baseScale = 260,
+		midAmp = 3.5, -- swells
+		midScale = 110,
+		detailAmp = 1.4, -- uneven ground
+		detailScale = 45,
+		bumpAmp = 0.5, -- small bumps underfoot
+		bumpScale = 16,
+		moundAmp = 6, -- occasional knolls (cover on open ground)
+		moundScale = 70,
+		moundThreshold = 0.25,
 		patchThreshold = 0.45, -- dirt patches where patch noise exceeds this
-		detailAmp = 1.2,
-		detailScale = 70,
+	},
+	-- More extreme ridged hills outside the bounds, for the view. Unwalkable is fine out there.
+	wild = {
+		start = 30, -- studs outside the bounds before hills begin
+		ramp = 150,
+		fall = 80, -- falls back to flat over the last stretch of the margin
+		amp = 46,
+		scale = 170,
+		roughAmp = 6,
+		roughScale = 40,
 	},
 	-- High ground along the West side, full map width.
 	ridge = { upStart = 500, topStart = 570, topEnd = 690, downEnd = 770, height = 10 },
@@ -92,10 +109,13 @@ local Map1 = {
 		scatterDensity = 0.03,
 		edgeBand = 120, -- dense forest band just outside the bounds
 		edgeDensity = 0.5,
-		outerDensity = 0.12,
+		outerDensity = 0.1,
+		maxSlope = 34, -- no trees on steeper ground (rock faces)
+		footprint = 2, -- trunk radius sampled for the lowest ground
+		sink = 0.8, -- extra depth below the lowest ground
 		sectorClearFrac = 0.4, -- no trees inside this fraction of a sector radius
 		riverClear = 6, -- extra clearance past the river banks
-		maxCount = 4500,
+		maxCount = 5000,
 	},
 }
 

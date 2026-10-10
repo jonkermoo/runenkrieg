@@ -45,11 +45,42 @@ return {
 		end)
 		assert(worst < M.Movement.MaxSlopeAngle, `slope {worst} at {wx},{wz}`)
 	end,
-	["terrain stays inside the voxel slab"] = function()
-		forGrid(16, function(x, z)
-			local h = T.heightAt(Map1, x, z)
-			assert(h > Map1.terrain.minY + 4 and h < Map1.terrain.maxY - 4, `height {h} at {x},{z}`)
+	["terrain stays inside the voxel slab, including the margin"] = function()
+		local m = Map1.terrainMargin
+		for x = b.minX - m, b.maxX + m, 16 do
+			for z = b.minZ - m, b.maxZ + m, 16 do
+				local h = T.heightAt(Map1, x, z)
+				assert(h > Map1.terrain.minY + 4 and h < Map1.terrain.maxY - 4, `height {h} at {x},{z}`)
+			end
+		end
+	end,
+	["hills outside the bounds are dramatic, and flat again at the margin edge"] = function()
+		local m = Map1.terrainMargin
+		local peak = 0
+		for x = b.minX, b.maxX, 20 do
+			for _, z in { b.minZ - 200, b.maxZ + 200, b.minZ - 250, b.maxZ + 250 } do
+				peak = math.max(peak, T.heightAt(Map1, x, z))
+			end
+		end
+		assert(peak > 30, `outer hills only reach {peak}`)
+		for x = b.minX, b.maxX, 50 do
+			local z = b.maxZ + m - 1
+			if not T.isRiver(Map1, x, z) then
+				local h = T.heightAt(Map1, x, z)
+				assert(math.abs(h) < 1.5, `margin edge not flat at x={x}: {h}`)
+			end
+		end
+	end,
+	["ground inside the bounds is uneven, not flat"] = function()
+		-- mean absolute height change over 6 studs, away from reserved flats
+		local sum, n = 0, 0
+		forGrid(23, function(x, z)
+			if x < 1050 and not T.isRiver(Map1, x, z) then
+				sum += math.abs(T.heightAt(Map1, x + 6, z) - T.heightAt(Map1, x, z))
+				n += 1
+			end
 		end)
+		assert(sum / n > 0.25, `ground too flat: {sum / n}`)
 	end,
 	["reserved areas are flat"] = function()
 		for _, r in Map1.reserved do
@@ -92,6 +123,18 @@ return {
 				local d = math.sqrt((t.x - s.x) ^ 2 + (t.z - s.z) ^ 2)
 				assert(d >= s.radius * T2.sectorClearFrac, `tree in {s.id} core`)
 			end
+		end
+	end,
+	["trees never float and never stand on rock faces"] = function()
+		local r = Map1.trees.footprint
+		for i = 1, #trees, 7 do
+			local t = trees[i]
+			local base = T.treeBaseY(Map1, t.x, t.z)
+			for k = 0, 5 do
+				local a = k * math.pi / 3
+				assert(base < T.heightAt(Map1, t.x + r * math.cos(a), t.z + r * math.sin(a)), "trunk floats")
+			end
+			assert(T.slopeAt(Map1, t.x, t.z) <= Map1.trees.maxSlope, "tree on a rock face")
 		end
 	end,
 	["tree count within budget, with forest beyond the bounds"] = function()

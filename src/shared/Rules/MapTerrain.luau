@@ -57,16 +57,43 @@ function MapTerrain.flattenWeight(map: any, x: number, z: number): (number, numb
 	return w, baseY
 end
 
+-- Gentle, walkable unevenness: swells, bumps and occasional mounds.
+local function relief(t: any, s: number, x: number, z: number): number
+	local n = t.baseAmp * math.noise(x / t.baseScale, z / t.baseScale, s)
+		+ t.midAmp * math.noise(x / t.midScale, z / t.midScale, s + 10.5)
+		+ t.detailAmp * math.noise(x / t.detailScale, z / t.detailScale, s + 21.3)
+		+ t.bumpAmp * math.noise(x / t.bumpScale, z / t.bumpScale, s + 32.9)
+	local mound = math.max(0, math.noise(x / t.moundScale, z / t.moundScale, s + 44.1) - t.moundThreshold)
+	return n + t.moundAmp * mound * mound / ((1 - t.moundThreshold) ^ 2)
+end
+
+-- Ridged hills outside the bounds: rise after `start`, peak, then fall back to flat at the margin edge.
+local function wildHeight(map: any, s: number, x: number, z: number): number
+	local w = map.wild
+	if not w then
+		return 0
+	end
+	local out = outside(map.bounds, x, z)
+	if out <= w.start then
+		return 0
+	end
+	local m = map.terrainMargin
+	local k = smooth((out - w.start) / w.ramp) * (1 - smooth((out - (m - w.fall)) / w.fall))
+	if k <= 0 then
+		return 0
+	end
+	local ridged = 1 - math.abs(math.noise(x / w.scale, z / w.scale, s + 60.7))
+	local rough = math.noise(x / w.roughScale, z / w.roughScale, s + 71.3)
+	return k * (w.amp * ridged * ridged + w.roughAmp * rough)
+end
+
 -- Ground height before the river is cut.
 local function landHeight(map: any, x: number, z: number): number
-	local t = map.terrain
-	local s = map.seed
-	local n = t.baseAmp * math.noise(x / t.baseScale, z / t.baseScale, s * 0.001)
-		+ t.detailAmp * math.noise(x / t.detailScale, z / t.detailScale, s * 0.001 + 10.5)
-	-- Fade relief to flat over the outer half of the margin so the skirt joins seamlessly.
+	local s = map.seed * 0.001
+	-- Fade the walkable relief to flat at the margin edge so the skirt joins seamlessly.
 	local m = map.terrainMargin
-	local edge = 1 - smooth((outside(map.bounds, x, z) - m * 0.5) / (m * 0.45))
-	local h = (n + ridgeHeight(map, x)) * edge
+	local edge = 1 - smooth((outside(map.bounds, x, z) - m * 0.6) / (m * 0.38))
+	local h = (relief(map.terrain, s, x, z) + ridgeHeight(map, x)) * edge + wildHeight(map, s, x, z)
 	local w, baseY = MapTerrain.flattenWeight(map, x, z)
 	return baseY + (h - baseY) * w
 end
@@ -126,8 +153,11 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 			return "Ground"
 		end
 	end
-	if MapTerrain.slopeAt(map, x, z) > 32 then
+	local slope = MapTerrain.slopeAt(map, x, z)
+	if slope > 34 then
 		return "Rock"
+	elseif slope > 24 then
+		return "Ground"
 	end
 	for _, res in map.reserved do
 		if inRect(res, x, z, 0) then
@@ -163,6 +193,18 @@ local function hash01(a: number, b: number, c: number): number
 end
 MapTerrain.hash01 = hash01
 
+-- Where a trunk should be planted: the lowest ground under its footprint (so it never floats on a
+-- slope), sunk a little further so voxel smoothing cannot leave a gap.
+function MapTerrain.treeBaseY(map: any, x: number, z: number): number
+	local r = map.trees.footprint
+	local y = MapTerrain.heightAt(map, x, z)
+	for i = 0, 5 do
+		local a = i * math.pi / 3
+		y = math.min(y, MapTerrain.heightAt(map, x + r * math.cos(a), z + r * math.sin(a)))
+	end
+	return y - map.trees.sink
+end
+
 export type Tree = { x: number, z: number, kind: string, scale: number, yaw: number, variant: number, far: boolean }
 
 function MapTerrain.treeDensity(map: any, x: number, z: number): number
@@ -188,6 +230,9 @@ function MapTerrain.treeDensity(map: any, x: number, z: number): number
 		if (x - s.x) ^ 2 + (z - s.z) ^ 2 < (s.radius * T.sectorClearFrac) ^ 2 then
 			return 0
 		end
+	end
+	if MapTerrain.slopeAt(map, x, z) > T.maxSlope then
+		return 0
 	end
 	local out = outside(b, x, z)
 	if out > 0 then

@@ -97,8 +97,7 @@ function Trees.build(parent: Instance, map: any, MT: any, assets: any): number
 		local variants = templates[t.kind]
 		local tree = variants[t.variant % #variants + 1]:Clone()
 		tree:ScaleTo(tree:GetScale() * t.scale)
-		local gy = MT.heightAt(map, t.x, t.z)
-		tree:PivotTo(CFrame.new(t.x, gy - 0.8, t.z) * CFrame.Angles(0, math.rad(t.yaw), 0))
+		tree:PivotTo(CFrame.new(t.x, MT.treeBaseY(map, t.x, t.z), t.z) * CFrame.Angles(0, math.rad(t.yaw), 0))
 		local palette = PALETTE[t.kind]
 		local canopy = tree:FindFirstChild("Canopy") :: BasePart
 		local trunk = tree:FindFirstChild("Trunk") :: BasePart

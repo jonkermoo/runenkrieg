@@ -77,12 +77,12 @@ function Ground.build(map: any, MT: any): number
 			task.wait()
 		end
 	end
-	Ground.skirt(map)
+	Ground.skirt(map, MT)
 	return chunks
 end
 
 -- Flat low-detail ground around the detailed area, plus distant hills for the horizon.
-function Ground.skirt(map: any)
+function Ground.skirt(map: any, MT: any)
 	local terrain = workspace.Terrain
 	local b, m, sk = map.bounds, map.terrainMargin, map.skirt
 	if not sk then
@@ -120,6 +120,27 @@ function Ground.skirt(map: any)
 	for _, h in sk.hills do
 		-- A ball sunk so only a cap of `peak` height shows.
 		terrain:FillBall(Vector3.new(h[1], h[4] - h[3], h[2]), h[3], Enum.Material.Grass)
+		task.wait()
+	end
+	-- Carry the river through the skirt so it flows out into the fog instead of ending at a wall.
+	local r = map.river
+	if r then
+		local seg = 16
+		for _, span in { { oz0, iz0 }, { iz1, oz1 } } do
+			local z = span[1]
+			while z < span[2] do
+				local zc = z + seg / 2
+				local x = MT.riverCenterX(map, zc)
+				local cf = CFrame.new(x, (r.bedY + 4) / 2, zc)
+				terrain:FillBlock(cf, Vector3.new(r.width + 8, 4 - r.bedY, seg + 2), Enum.Material.Air)
+				terrain:FillBlock(
+					CFrame.new(x, (r.bedY - 4 + r.waterY) / 2, zc),
+					Vector3.new(r.width, r.waterY - r.bedY + 4, seg + 2),
+					Enum.Material.Water
+				)
+				z += seg
+			end
+		end
 		task.wait()
 	end
 end
