@@ -2,6 +2,7 @@
 local fs = require("@lune/fs")
 local A = require("../src/shared/Config/Assets")
 local B = require("../src/shared/Config/Buildings")
+local Props = require("../src/shared/Config/Props")
 local F = require("../src/shared/Config/Foliage")
 local S = require("../src/shared/Config/Settings")
 local G = require("../src/shared/Rules/Grass")
@@ -13,7 +14,9 @@ return {
 			if e.generator then
 				assert(fs.isFile(e.generator), `{name}: missing generator {e.generator}`)
 			end
-			if e.template then
+			if e.prop then
+				assert(table.find(Props.Kinds, e.prop), `{name}: unknown prop {e.prop}`)
+			elseif e.template then
 				-- procedural: built from a template, nothing uploaded
 				assert(B.Templates[e.template], `{name}: unknown template {e.template}`)
 				assert(B.Templates[e.template].folder == e.folder, `{name}: folder differs from the template's`)
@@ -30,6 +33,23 @@ return {
 	["every repo asset category folder exists"] = function()
 		for _, c in A.Categories do
 			assert(fs.isDir("assets/" .. string.lower(c)), `missing assets/{string.lower(c)}`)
+		end
+	end,
+	["every prop kind is in the library"] = function()
+		for _, kind in Props.Kinds do
+			local found = false
+			for _, e in A.Entries do
+				if e.prop == kind then
+					found = true
+				end
+			end
+			assert(found, `prop {kind} has no library entry`)
+		end
+		for _, k in Props.BoundaryKinds do
+			assert(table.find(Props.Kinds, k), `boundary kind {k} is not a prop`)
+		end
+		for _, k in Props.YardKinds do
+			assert(table.find(Props.Kinds, k), `yard kind {k} is not a prop`)
 		end
 	end,
 	["every building template is in the library"] = function()

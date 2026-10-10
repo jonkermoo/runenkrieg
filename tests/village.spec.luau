@@ -4,15 +4,16 @@ local B = require("../src/shared/Config/Buildings")
 local Map1 = require("../src/shared/Config/Maps/Map1")
 local MT = require("../src/shared/Rules/MapTerrain")
 local V = require("../src/shared/Rules/Village")
+local P = require("../src/shared/Config/Props")
 
-local layout = V.layout(Map1, B, M, MT)
+local layout = V.layout(Map1, B, M, MT, P)
 local lots = layout.lots
 local cfg = Map1.village
 local pad = B.RoofOverhang
 
 return {
 	["deterministic"] = function()
-		local again = V.layout(Map1, B, M, MT)
+		local again = V.layout(Map1, B, M, MT, P)
 		assert(#again.lots == #lots and again.lots[#lots].x == lots[#lots].x, "layout changed between runs")
 	end,
 	["about 30 buildings, with every style family present"] = function()
@@ -90,5 +91,37 @@ return {
 	end,
 	["props exist"] = function()
 		assert(#layout.poles >= 10 and #layout.signs >= 3 and #layout.cars >= 2 and #layout.fences > 10)
+	end,
+	["boundaries use real prop kinds, never sit on roads, and leave every door's gate open"] = function()
+		for _, f in layout.fences do
+			assert(table.find(P.Kinds, f.kind), `unknown boundary {f.kind}`)
+			for k = 0, 4 do
+				local x = f.a[1] + (f.b[1] - f.a[1]) * k / 4
+				local z = f.a[2] + (f.b[2] - f.a[2]) * k / 4
+				assert(MT.roadDistance(Map1, x, z) >= 0.5, "boundary on a road")
+			end
+		end
+		-- the path straight out of each front door must not cross a boundary
+		for _, l in lots do
+			local rx, rz = -l.fz, l.fx
+			for _, door in B.Templates[l.style].doors or { { center = 0 } } do
+				local px = l.x + rx * door.center + l.fx * (l.depth / 2 + cfg.setback - 1.5)
+				local pz = l.z + rz * door.center + l.fz * (l.depth / 2 + cfg.setback - 1.5)
+				for _, f in layout.fences do
+					local dx, dz = f.b[1] - f.a[1], f.b[2] - f.a[2]
+					local len2 = dx * dx + dz * dz
+					local t = math.clamp(((px - f.a[1]) * dx + (pz - f.a[2]) * dz) / len2, 0, 1)
+					local d = math.sqrt((px - f.a[1] - dx * t) ^ 2 + (pz - f.a[2] - dz * t) ^ 2)
+					assert(d > 1.5, `{l.id} door gate blocked`)
+				end
+			end
+		end
+	end,
+	["yard clutter is real, off roads and outside other plots"] = function()
+		assert(#layout.yard >= 8, `only {#layout.yard} yard props`)
+		for _, y in layout.yard do
+			assert(table.find(P.Kinds, y.kind), `unknown yard prop {y.kind}`)
+			assert(MT.roadDistance(Map1, y.x, y.z) > 0, `{y.kind} on a road`)
+		end
 	end,
 }

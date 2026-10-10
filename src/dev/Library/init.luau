@@ -57,6 +57,19 @@ function Library.ensure(entryName: string): Model
 	local root = folder(ReplicatedStorage, "Assets")
 	local target = folder(folder(root, e.category), e.folder)
 	local existing = target:FindFirstChild(entryName)
+	if e.prop then
+		if existing then
+			existing:Destroy()
+		end
+		local Props = fresh(ServerStorage:WaitForChild("Dev"):WaitForChild("Props"))
+		local model = Props.build(e.prop, { P = fresh(shared().Config.Props), D = fresh(shared().Config.Destruction) })
+		Props.paint(model, fresh(shared().Config.Palette))
+		model.Name = entryName
+		model:SetAttribute("Procedural", true)
+		model:SetAttribute("Description", e.description)
+		model.Parent = target
+		return model
+	end
 	if e.template then
 		-- procedural: always rebuilt from code + config so the library matches the repo
 		if existing then
@@ -126,6 +139,21 @@ local function previewColor(d: BasePart, palette: any)
 	end
 end
 
+-- The library model for an entry, built only if it isn't in the library yet (use for placement).
+function Library.get(entryName: string): Model
+	local A = fresh(shared().Config.Assets)
+	local e = A.Entries[entryName]
+	assert(e, "unknown asset entry " .. entryName)
+	local root = ReplicatedStorage:FindFirstChild("Assets")
+	local f = root and root:FindFirstChild(e.category)
+	f = f and f:FindFirstChild(e.folder)
+	local m = f and f:FindFirstChild(entryName)
+	if m then
+		return m :: Model
+	end
+	return Library.ensure(entryName)
+end
+
 function Library.gallery(): string
 	local A = fresh(shared().Config.Assets)
 	local palette = fresh(shared().Config.Palette)
@@ -156,8 +184,13 @@ function Library.gallery(): string
 	local Buildings = fresh(ServerStorage:WaitForChild("Dev"):WaitForChild("Buildings"))
 	local z = 0
 	local width = 0
+	local propNames = {}
 	for _, name in names do
 		local e = A.Entries[name]
+		if e.prop then
+			table.insert(propNames, name)
+			continue
+		end
 		local src = ReplicatedStorage.Assets[e.category][e.folder][name] :: Model
 		local copy: Model
 		if e.template then
@@ -199,7 +232,7 @@ function Library.gallery(): string
 		end
 		local cf, size = copy:GetBoundingBox()
 		-- small assets (grass) are shown 4x so they are readable; the label says so
-		local zoom = if not e.template and size.Magnitude < 20 then 4 else 1
+		local zoom = if e.category == "Foliage" and size.Magnitude < 20 then 4 else 1
 		if zoom ~= 1 then
 			copy:ScaleTo(copy:GetScale() * zoom)
 			cf, size = copy:GetBoundingBox()
@@ -237,6 +270,33 @@ function Library.gallery(): string
 		)
 		z += padSize.Z + PAD_GAP
 		width = math.max(width, padSize.X)
+	end
+	-- props: one row, side by side, true scale
+	if #propNames > 0 then
+		local x = 4
+		local rowDepth = 0
+		for _, name in propNames do
+			local e = A.Entries[name]
+			local copy = (ReplicatedStorage.Assets[e.category][e.folder][name] :: Model):Clone()
+			local cf, size = copy:GetBoundingBox()
+			local cx = GALLERY_ORIGIN.X + x + size.X / 2
+			local cz = GALLERY_ORIGIN.Z + z + 6
+			copy:PivotTo(CFrame.new(cx - (cf.Position.X - copy:GetPivot().Position.X), 0, cz))
+			copy.Parent = g
+			local pad = Instance.new("Part")
+			pad.Name = "Pad_" .. name
+			pad.Anchored = true
+			pad.Material = Enum.Material.SmoothPlastic
+			pad.Color = Color3.fromRGB(70, 72, 68)
+			pad.Size = Vector3.new(size.X + 3, 1, size.Z + 3)
+			pad.Position = Vector3.new(cx, -0.5, cz)
+			pad.Parent = g
+			label(pad, name, size.Y + 3)
+			x += size.X + 6
+			rowDepth = math.max(rowDepth, size.Z + 3)
+			width = math.max(width, x)
+		end
+		z += rowDepth + 12
 	end
 	-- neutral floor under everything
 	local floor = Instance.new("Part")

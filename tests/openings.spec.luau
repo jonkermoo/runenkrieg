@@ -21,8 +21,8 @@ local function cottageKeepOuts(L: number, chimney: boolean): { { number } }
 	return k
 end
 
-local function check(L: number, keep: { { number } }, door: number?, maxW: number): ({ any }, { any })
-	local sections, openings = O.layout(L, keep, door, Bm.WindowWidth, maxW, cfg)
+local function check(L: number, keep: { { number } }, doors: { any }?, maxW: number): ({ any }, { any })
+	local sections, openings = O.layout(L, keep, doors, Bm.WindowWidth, maxW, cfg)
 	local total = 0
 	for _, s in sections do
 		total += s.w
@@ -59,7 +59,7 @@ end
 
 return {
 	["cottage front: door + a window each side, clear of the corner stones"] = function()
-		local _, o = check(20, cottageKeepOuts(20, false), Bm.DoorWidth, 2)
+		local _, o = check(20, cottageKeepOuts(20, false), { { center = 0, w = Bm.DoorWidth } }, 2)
 		assert(count(o, "door") == 1 and count(o, "window") == 2, `front got {count(o, "window")} windows`)
 	end,
 	["cottage back: two windows"] = function()
@@ -75,5 +75,17 @@ return {
 	["no room means no window"] = function()
 		local _, o = check(3, {}, nil, 2)
 		assert(#o == 0, "a 3-stud wall cannot hold a framed window")
+	end,
+	["long cottage front: two doors and three windows, none overlapping"] = function()
+		local doors = { { center = -6, w = Bm.DoorWidth }, { center = 6, w = Bm.DoorWidth } }
+		local _, o = check(32, cottageKeepOuts(32, false), doors, 3)
+		assert(
+			count(o, "door") == 2 and count(o, "window") == 3,
+			`got {count(o, "door")} doors, {count(o, "window")} windows`
+		)
+	end,
+	["barn: a wide door still leaves the frame clear"] = function()
+		local _, o = check(28, {}, { { center = 0, w = 7, h = 9 } }, 2)
+		assert(count(o, "door") == 1, "barn door missing")
 	end,
 }

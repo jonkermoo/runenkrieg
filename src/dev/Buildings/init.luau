@@ -30,8 +30,9 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 		model,
 		ctx,
 		"Foundation",
-		CFrame.new(0, (floorTop - 1 - 4) / 2, 0),
-		Vector3.new(W + 0.6, floorTop - 1 + 4, Dp + 0.6),
+		-- deep foundation: placed copies sit on the highest ground under the footprint (uneven terrain)
+		CFrame.new(0, (floorTop - 1 - 10) / 2, 0),
+		Vector3.new(W + 0.6, floorTop - 1 + 10, Dp + 0.6),
 		"Foundation"
 	)
 	Geometry.slab(model, ctx, cf, { -W / 2, W / 2, -Dp / 2, Dp / 2 }, floorTop, "Floor", -1, "Floor")
@@ -53,13 +54,17 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 			return { { -L / 2, -inward }, { inward, L / 2 } }
 		end
 		local sideL = Dp - 2 * T
+		local frontDoors = {}
+		for _, d in t.doors or { { center = 0 } } do
+			table.insert(frontDoors, { center = d.center, w = d.w or Bm.DoorWidth, h = d.h or Bm.DoorHeight })
+		end
 		local walls = {
 			{
 				"front",
 				CFrame.new(0, y, -Dp / 2 + T / 2),
 				W,
 				ends(W, W / 2),
-				if story == 0 then Bm.DoorWidth else nil,
+				if story == 0 then frontDoors else nil,
 				2,
 			},
 			{ "back", CFrame.new(0, y, Dp / 2 - T / 2) * CFrame.Angles(0, math.pi, 0), W, ends(W, W / 2), nil, 2 },

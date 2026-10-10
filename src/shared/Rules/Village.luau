@@ -138,10 +138,12 @@ export type Layout = {
 	signs: { any },
 	cars: { any },
 	trees: { any },
+	yard: { any },
 }
 
 -- MT = Rules/MapTerrain (passed in: shared Rules modules cannot require each other in both Lune and Roblox).
-function Village.layout(map: any, B: any, M: any, MT: any): Layout
+-- P = Config/Props (boundary + yard kinds).
+function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 	local cfg = map.village
 	local hash01 = MT.hash01
 	local function roadDistance(x: number, z: number): number
@@ -244,24 +246,79 @@ function Village.layout(map: any, B: any, M: any, MT: any): Layout
 		end
 	end
 
-	-- 3. Front fences or hedges, with a gate gap at the door path
+	-- 3. Plot boundaries (Config/Props.BoundaryKinds): along the front with a gate gap at every door of
+	-- the template, plus side runs back to the house's rear line so yards read as enclosed.
 	local fences = {}
-	for i, l in lots do
-		if not l.special and hash01(i, 3, 31) < 0.75 then
-			local rx, rz = -l.fz, l.fx
-			local d = l.depth / 2 + cfg.setback - 1.5
-			local cx, cz = l.x + l.fx * d, l.z + l.fz * d
-			local half = l.width / 2 + 2
-			local kind = if l.style == "Row" or hash01(i, 3, 32) < 0.6 then "Fence" else "Hedge"
-			for _, side in { -1, 1 } do
-				local inner, outer = 2.5, half
-				table.insert(fences, {
-					kind = kind,
-					a = { cx + rx * side * inner, cz + rz * side * inner },
-					b = { cx + rx * side * outer, cz + rz * side * outer },
-				})
+	local function clearOfRoads(p1: { number }, p2: { number }): boolean
+		for k = 0, 4 do
+			local t = k / 4
+			if roadDistance(p1[1] + (p2[1] - p1[1]) * t, p1[2] + (p2[2] - p1[2]) * t) < 0.6 then
+				return false
 			end
 		end
+		return true
+	end
+	local function add(kind: string, p1: { number }, p2: { number })
+		local len = math.sqrt((p2[1] - p1[1]) ^ 2 + (p2[2] - p1[2]) ^ 2)
+		if len >= 1.5 and clearOfRoads(p1, p2) then
+			table.insert(fences, { kind = kind, a = p1, b = p2 })
+		end
+	end
+	for i, l in lots do
+		if not l.special and hash01(i, 3, 31) < 0.85 then
+			local rx, rz = -l.fz, l.fx
+			local d = l.depth / 2 + cfg.setback - 1.5
+			local half = l.width / 2 + 2
+			local kind = if l.road == "RowStreet" then "PicketFence" else pick(P.BoundaryKinds, hash01(i, 3, 32))
+			local function at(u: number, f: number): { number }
+				return { l.x + rx * u + l.fx * f, l.z + rz * u + l.fz * f }
+			end
+			-- gate gaps over every door (template doors are in local X = frontage, centered on the plot)
+			local gaps = {}
+			for _, door in B.Templates[l.style].doors or { { center = 0 } } do
+				table.insert(gaps, { door.center - 2.6, door.center + 2.6 })
+			end
+			table.sort(gaps, function(g1, g2)
+				return g1[1] < g2[1]
+			end)
+			local u = -half
+			for _, g in gaps do
+				add(kind, at(u, d), at(g[1], d))
+				u = g[2]
+			end
+			add(kind, at(u, d), at(half, d))
+			-- sides, from the front line back to the rear wall line
+			for _, side in { -1, 1 } do
+				add(kind, at(side * half, d), at(side * half, -l.depth / 2))
+			end
+		end
+	end
+
+	-- 3b. Yard clutter beside some houses (Config/Props.YardKinds), clear of roads, plots and the river
+	local yard = {}
+	for i, l in lots do
+		if not l.special and hash01(i, 4, 41) < P.YardChance then
+			local rx, rz = -l.fz, l.fx
+			local side = if hash01(i, 4, 42) < 0.5 then -1 else 1
+			local u = side * (l.width / 2 + 4.5)
+			local f = (hash01(i, 4, 43) - 0.5) * l.depth * 0.5
+			local x, z = l.x + rx * u + l.fx * f, l.z + rz * u + l.fz * f
+			local ok = roadDistance(x, z) > 3 and not MT.isRiver(map, x, z)
+			for j, other in lots do
+				if j ~= i and Village.pointInQuad(x, z, Village.corners(other, B.RoofOverhang + 2)) then
+					ok = false
+				end
+			end
+			if ok then
+				table.insert(
+					yard,
+					{ kind = pick(P.YardKinds, hash01(i, 4, 44)), x = x, z = z, yaw = hash01(i, 4, 45) * 360 }
+				)
+			end
+		end
+	end
+	for _, f in cfg.features or {} do
+		table.insert(yard, { kind = f.kind, x = f.x, z = f.z, yaw = f.yaw or 0 })
 	end
 
 	-- 4. Telegraph poles along one road
@@ -354,7 +411,7 @@ function Village.layout(map: any, B: any, M: any, MT: any): Layout
 		end
 	end
 
-	return { lots = lots, fences = fences, poles = poles, signs = signs, cars = cars, trees = trees }
+	return { lots = lots, fences = fences, poles = poles, signs = signs, cars = cars, trees = trees, yard = yard }
 end
 
 return Village

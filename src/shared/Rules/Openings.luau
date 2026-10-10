@@ -5,15 +5,16 @@
 
 local Openings = {}
 
-export type Opening = { kind: string, w: number, center: number, extent: number }
+export type Opening = { kind: string, w: number, center: number, extent: number, h: number? }
+export type Door = { center: number, w: number, h: number? }
 export type Section = { w: number, opening: Opening? }
 
 -- cfg: { margin, post, sectionWidth }. keepOuts: { {a, b} } in wall-local u.
--- door = clear door width or nil; win = clear window width; maxWindows = cap for this wall.
+-- doors = list of { center, w, h? } (clear width) or nil; win = clear window width; maxWindows = cap.
 function Openings.layout(
 	L: number,
 	keepOuts: { { number } },
-	door: number?,
+	doors: { Door }?,
 	win: number,
 	maxWindows: number,
 	cfg: any
@@ -25,10 +26,10 @@ function Openings.layout(
 		table.insert(blocked, { k[1] - m, k[2] + m })
 	end
 	local openings: { Opening } = {}
-	if door then
-		local ext = door + 2 * post
-		table.insert(openings, { kind = "door", w = door, center = 0, extent = ext })
-		table.insert(blocked, { -ext / 2 - m, ext / 2 + m })
+	for _, d in doors or {} do
+		local ext = d.w + 2 * post
+		table.insert(openings, { kind = "door", w = d.w, center = d.center, extent = ext, h = d.h })
+		table.insert(blocked, { d.center - ext / 2 - m, d.center + ext / 2 + m })
 	end
 	table.sort(blocked, function(a, b)
 		return a[1] < b[1]
@@ -47,7 +48,7 @@ function Openings.layout(
 	end
 	-- windows: as many as fit per span (one per side when there is a door), longest spans first
 	local wext = win + 2 * post
-	local perSpan = if door then 1 else maxWindows
+	local perSpan = if doors and #doors > 0 then 1 else maxWindows
 	table.sort(spans, function(a, b)
 		return (a[2] - a[1]) > (b[2] - b[1])
 	end)

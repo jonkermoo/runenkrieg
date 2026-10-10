@@ -170,7 +170,7 @@ function Geometry.wall(
 				kind = s.opening.kind,
 				w = s.opening.w,
 				bottom = heights[s.opening.kind][1],
-				top = heights[s.opening.kind][2],
+				top = s.opening.h or heights[s.opening.kind][2],
 			}
 			else nil
 		local function box(a: number, b: number, y0: number, y1: number)

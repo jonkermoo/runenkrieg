@@ -172,6 +172,11 @@ local Map1 = {
 		trees = { cell = 18, density = 0.14, roadClear = 5, buildingClear = 6 },
 		poles = { road = "Main", spacing = 48, side = 1 },
 		cars = 3,
+		-- Fixed village features: a well on the church square, a trough at the bridge-head square.
+		features = {
+			{ kind = "Well", x = 1500, z = -40 },
+			{ kind = "Trough", x = 1212, z = 22, yaw = 90 },
+		},
 	},
 
 	-- Trees: jittered grid, density from a forest-noise field. Outer = beyond the bounds.

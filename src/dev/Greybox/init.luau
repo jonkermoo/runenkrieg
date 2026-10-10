@@ -11,6 +11,7 @@ local Parts = require(script.Parts)
 local Ground = require(script.Ground)
 local Trees = require(script.Trees)
 local Features = require(script.Features)
+local VillageBuild = require(script.VillageBuild)
 
 local Greybox = {}
 
@@ -51,14 +52,31 @@ function Greybox.build(mapName: string): string
 	root.Parent = workspace
 
 	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette)
-	-- Village: roads are painted into the terrain by Rules/MapTerrain. Buildings are not built yet
-	-- (to be restyled); their lots stay reserved as clearings that garden trees avoid.
+	-- Village: roads are painted into the terrain by Rules/MapTerrain; buildings + props from the library.
 	local villageStats = ""
 	if map.village then
-		local layout = VillageRules.layout(map, B, M, MT)
+		local P = fresh(Shared.Config.Props)
+		local layout = VillageRules.layout(map, B, M, MT, P)
 		Trees.build(Parts.folder(root, "VillageTrees"), map, MT, treeKit, assets, palette, layout.trees)
-		villageStats =
-			string.format(" Village: roads + %d garden trees, %d lots reserved.", #layout.trees, #layout.lots)
+		local vstats = VillageBuild.build(Parts.folder(root, "Village"), map, layout, {
+			MT = MT,
+			B = B,
+			P = P,
+			D = fresh(Shared.Config.Destruction),
+			palette = palette,
+			RulesD = fresh(Shared.Rules.Destruction),
+			Props = fresh(game:GetService("ServerStorage").Dev.Props),
+			Buildings = fresh(game:GetService("ServerStorage").Dev.Buildings),
+			Library = Library,
+		})
+		villageStats = string.format(
+			" Village: %d buildings, %d boundary runs, %d poles, %d props, %d garden trees.",
+			vstats.buildings,
+			vstats.boundaries,
+			vstats.poles,
+			vstats.props,
+			#layout.trees
+		)
 	end
 	local panels = Features.bounds(root, map, boundaryCfg)
 	Features.testSpawn(root, map, MT)

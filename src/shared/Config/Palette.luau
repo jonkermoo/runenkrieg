@@ -32,12 +32,18 @@ local Palette = {
 			Ochre = { 196, 170, 124 },
 			Stone = { 172, 164, 146 },
 			Brick = { 148, 98, 78 },
+			RedBrick = { 132, 84, 68 },
+			BarnRed = { 126, 72, 58 },
+			TarBoard = { 76, 68, 62 },
+			WhiteBoard = { 212, 206, 190 },
 		},
 		Roofs = {
 			Thatch = { 158, 128, 84 },
 			ThatchDark = { 122, 98, 66 },
 			ThatchWeathered = { 136, 124, 100 },
 			DarkTile = { 90, 78, 72 },
+			Slate = { 84, 86, 92 },
+			RedTile = { 138, 86, 68 },
 		},
 		Trim = { { 82, 66, 54 }, { 104, 86, 68 }, { 70, 60, 54 } }, -- dark weathered wood
 		Doors = { { 112, 88, 64 }, { 80, 92, 72 }, { 112, 62, 52 }, { 84, 92, 102 } },
@@ -52,6 +58,23 @@ local Palette = {
 		Sign = { 210, 196, 162 },
 		Wood = { 104, 82, 62 },
 		ToneJitter = 0.04, -- +-4% per piece: hand-made, not factory-flat
+	},
+	-- Village props (Config/Props), same muted, hand-made look as the houses.
+	Props = {
+		Stone = { 146, 140, 126 },
+		StoneDark = { 118, 112, 100 },
+		Wood = { 112, 88, 66 },
+		WoodDark = { 84, 66, 52 },
+		WoodPale = { 206, 198, 180 }, -- painted pickets
+		Hedge = { 74, 108, 58 },
+		HedgeDark = { 62, 92, 50 },
+		Hay = { 182, 156, 96 },
+		Metal = { 54, 52, 50 },
+		Rubber = { 34, 32, 30 },
+		Water = { 92, 124, 128 },
+		Glass = { 120, 140, 146 },
+		CarBodies = { { 72, 42, 40 }, { 40, 44, 42 }, { 56, 70, 58 }, { 62, 64, 72 } },
+		ToneJitter = 0.05,
 	},
 	-- UI: flat panels, one outline thickness everywhere.
 	UI = {
