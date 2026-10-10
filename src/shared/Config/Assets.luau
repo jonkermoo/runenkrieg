@@ -35,15 +35,15 @@ local Assets = {
 
 	Entries = {
 		HelmetStahl = {
-			id = 92122806867809,
+			id = 116385902519252,
 			category = "Characters",
 			folder = "Gear",
 			source = "assets/characters/gear/helmet_stahl.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "Stahlhelm-style helmet, grey team: deep dome, short front visor, skirt flaring over the ears and "
+			description = "Stahlhelm-style helmet, grey team: deep dome, small forward visor peak, skirt flaring over the ears and "
 				.. "neck; 12 flat sides (216 tris). No national decal (fictional nations).",
 			-- rim baseline 0.15 below the head center; the back of the skirt is the lowest point
-			fit = { attachment = "HatAttachment", color = { 80, 82, 86 }, brim = -0.27, attach = { 0, 0.31, -0.045 } },
+			fit = { attachment = "HatAttachment", color = { 80, 82, 86 }, brim = -0.27, attach = { 0, 0.31, 0.005 } },
 		},
 		HelmetM33Goggles = {
 			id = 89737787734153,
