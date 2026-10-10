@@ -27,7 +27,7 @@ local Assets = {
 
 	Entries = {
 		HelmetM33 = {
-			id = 83957506896297,
+			id = 96856831451407,
 			category = "Characters",
 			folder = "Gear",
 			source = "assets/characters/gear/helmet_m33.fbx",
