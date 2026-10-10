@@ -2,6 +2,7 @@
 -- Places low-poly tree meshes from the uploaded tree kit (Config/Assets.TreeKit).
 -- Trunks collide; canopies block shots/sight (CanQuery) but not movement.
 
+local CollectionService = game:GetService("CollectionService")
 local InsertService = game:GetService("InsertService")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -98,6 +99,7 @@ function Trees.build(parent: Instance, map: any, MT: any, assets: any, palette: 
 		local trunk = tree:FindFirstChild("Trunk") :: BasePart
 		canopy.Color = rgb(colors[(t.variant // 7) % #colors + 1])
 		trunk.Color = rgb(if t.kind == "Birch" then palette.Trees.BirchBark else palette.Trees.Bark)
+		CollectionService:AddTag(tree, "SwayTree") -- Config/TreeSway.Tag; animated by src/client/TreeSway
 		tree.Parent = bucket
 		if i % 200 == 0 then
 			task.wait()

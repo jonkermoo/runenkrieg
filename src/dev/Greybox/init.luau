@@ -61,6 +61,7 @@ function Greybox.build(mapName: string): string
 	local panels = Features.bounds(root, map, boundaryCfg)
 	Features.testSpawn(root, map, MT)
 	Features.atmosphere(palette)
+	Features.wind(fresh(Shared.Config.TreeSway))
 
 	return string.format(
 		"Built %s: terrain %d chunks (%.1fs), %d trees, %d boundary panels, %d parts, %.1fs total.%s",

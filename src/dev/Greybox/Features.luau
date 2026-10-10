@@ -60,6 +60,11 @@ function Features.testSpawn(parent: Instance, map: any, MT: any)
 	sp.Parent = parent
 end
 
+-- Shared wind for grass, particles and tree sway (Config/TreeSway.DefaultWind).
+function Features.wind(cfg: any)
+	workspace.GlobalWind = Vector3.new(cfg.DefaultWind.x, 0, cfg.DefaultWind.z)
+end
+
 function Features.atmosphere(palette: any)
 	local lighting = game:GetService("Lighting")
 	local atm = lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")

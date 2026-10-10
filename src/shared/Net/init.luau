@@ -4,7 +4,9 @@
 
 local RunService = game:GetService("RunService")
 
-local Remotes: { string } = {}
+local Remotes: { string } = {
+	"Explosion", -- server -> clients: (position: Vector3, radius: number, strength: number?) visual response
+}
 local Functions: { string } = {}
 
 local FOLDER_NAME = "Net"
@@ -30,6 +32,12 @@ local function getFolder(): Folder
 		return folder :: Folder
 	end
 	return parent:WaitForChild(FOLDER_NAME .. "Remotes") :: Folder
+end
+
+-- Server: create the remotes folder at startup so clients never wait on it.
+function Net.init()
+	assert(RunService:IsServer(), "Net.init is server-only")
+	getFolder()
 end
 
 function Net.event(name: string): RemoteEvent
