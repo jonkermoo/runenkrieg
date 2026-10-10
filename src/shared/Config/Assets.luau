@@ -16,8 +16,8 @@ export type Entry = {
 	generator: string?, -- script that regenerates the source
 	description: string,
 	variants: { [string]: { string } }?, -- named mesh groups inside the kit
-	-- gear worn as a rigid Accessory: which character attachment it hangs on, its neutral base color (headwear
-	-- is light white-grey and tinted per team at runtime), and `brim`, the height of its bottom edge above the
+	-- gear worn as a rigid Accessory: which character attachment it hangs on, its color (a team's helmet in that
+	-- team's color; light white-grey while it has no team), and `brim`, the height of its bottom edge above the
 	-- head's center (studs)
 	fit: { attachment: string, color: { number }, brim: number }?,
 }
@@ -26,6 +26,17 @@ local Assets = {
 	Categories = { "Foliage", "Buildings", "Props", "Vehicles", "Weapons", "Characters", "VFX" },
 
 	Entries = {
+		HelmetM33 = {
+			id = 87644212512701,
+			category = "Characters",
+			folder = "Gear",
+			source = "assets/characters/gear/helmet_m33.fbx",
+			generator = "tools/blender/gear/helmet.py",
+			description = "M33-style helmet, olive team: rounded dome worn low, rim raised at the front, arched over the ears, "
+				.. "lower at the back (12 flat sides, 240 tris).",
+			-- color = OliveField uniform cloth; brim = the lowest rim point (the back)
+			fit = { attachment = "HatAttachment", color = { 116, 114, 72 }, brim = -0.18 },
+		},
 		HelmetBrodie = {
 			id = 91232491229419,
 			category = "Characters",

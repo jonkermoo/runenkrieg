@@ -18,6 +18,7 @@ local Uniforms = {
 			shirt = 108022442236637, -- decal 118417766232661
 			pants = 78199869429201, -- decal 112322397513846
 			skin = { 226, 176, 104 },
+			headwear = "HelmetM33", -- Config/Assets entry
 		},
 	},
 }
