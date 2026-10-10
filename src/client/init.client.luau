@@ -1,2 +1,2 @@
 --!strict
-print("[runenkrieg] client started")
+require(script.BoundaryFade).start()

@@ -49,23 +49,24 @@ return {
 			assert(s.z - s.radius >= b.minZ and s.z + s.radius <= b.maxZ, `{s.id} out of Z bounds`)
 		end
 	end,
-	["canal lies between Windmill Farm and Canal Bridge zones"] = function()
+	["river lies between the S3 and S4 zones"] = function()
 		local s3, s4 = sectors[4], sectors[5]
-		local c = Map1.canal
-		assert(s3.x + s3.radius < c.x - c.width / 2, "canal cuts into S3")
-		assert(s4.x - s4.radius > c.x + c.width / 2, "canal cuts into S4")
+		local r = Map1.river
+		local reach = r.width / 2 + r.bankWidth + r.meanderAmp
+		assert(s3.x + s3.radius < r.x - reach, "river cuts into S3")
+		assert(s4.x - s4.radius > r.x + reach, "river cuts into S4")
 	end,
-	["canal has a vehicle crossing and infantry alternatives"] = function()
-		local vehicle, infantry = 0, 0
-		for _, x in Map1.canal.crossings do
-			if x.vehicles then
-				vehicle += 1
+	["river has a vehicle-width ford and infantry alternatives"] = function()
+		local wide, narrow = 0, 0
+		for _, f in Map1.river.fords do
+			assert(f.width > M.Character.Width, "ford too narrow for a soldier")
+			if f.width >= 16 then
+				wide += 1
 			else
-				infantry += 1
+				narrow += 1
 			end
-			assert(x.width > M.Character.Width, `{x.name} too narrow for a soldier`)
 		end
-		assert(vehicle >= 1 and infantry >= 2, "need 1+ vehicle crossing and 2+ infantry crossings")
+		assert(wide >= 1 and narrow >= 2, "need 1+ vehicle ford and 2+ infantry fords")
 	end,
 	["map fits the fog: you cannot see HQ to HQ"] = function()
 		assert(dist(sectors[1], sectors[#sectors]) > Map1.fogEnd * 2, "map too small for its fog")

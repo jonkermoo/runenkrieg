@@ -8,7 +8,16 @@
     "ServerScriptService": {
       "Server": { "$path": "src/server" }
     },
+    "ServerStorage": {
+      "Dev": { "$path": "src/dev" }
+    },
     "StarterPlayer": {
+      "$properties": {
+        "CharacterWalkSpeed": 12,
+        "CharacterUseJumpPower": false,
+        "CharacterJumpHeight": 2.5,
+        "CharacterMaxSlopeAngle": 50
+      },
       "StarterPlayerScripts": {
         "Client": { "$path": "src/client" }
       }
