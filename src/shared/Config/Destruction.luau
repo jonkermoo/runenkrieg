@@ -14,6 +14,7 @@ local Destruction = {
 		Brick = { hp = 700, bulletPenetrable = false, flammable = false },
 		Stone = { hp = 1000, bulletPenetrable = false, flammable = false },
 		Tile = { hp = 250, bulletPenetrable = false, flammable = false }, -- roof panels
+		Thatch = { hp = 200, bulletPenetrable = true, flammable = true }, -- thatched roof panels: burns well
 		Glass = { hp = 1, bulletPenetrable = true, flammable = false }, -- window panes: any hit shatters
 		Door = { hp = 150, bulletPenetrable = true, flammable = true }, -- doors: blown off by explosives
 	},

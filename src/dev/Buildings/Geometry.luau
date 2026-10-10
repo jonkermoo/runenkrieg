@@ -1,6 +1,8 @@
 --!strict
--- Building geometry primitives. Every part gets a "Paint" role attribute (Wall, Roof, Trim, Door,
--- Glass, Floor, Stairs, Foundation, Chimney, Metal, Sign, Wood) that Buildings.paint colors later.
+-- Building geometry primitives in the old-village / Pordier style: chunky, slightly hand-made.
+-- Every part gets a "Paint" role (Wall, Roof, Trim, Door, DoorDark, Glass, Floor, Stairs, Foundation,
+-- Quoin, Chimney, Metal, Wood) that Buildings.paint colors later, plus a "Tone" in [-1, 1] on walls,
+-- roofs and doors so pieces sit a few % off each other.
 -- Destructible units are SECTION Models (attributes Kind/Class/Story/MaxHP/HP, tagged).
 -- Wall frames: CFrame at the wall's center line at the story base; local X runs along the wall,
 -- local -Z points OUTSIDE.
@@ -15,10 +17,19 @@ export type Ctx = {
 	B: any, -- Config/Buildings
 	T: number, -- wall thickness
 	class: string, -- wall material class
-	count: number, -- parts created
+	count: number, -- parts created (also seeds the deterministic tone/jitter)
 }
 
 export type Opening = { kind: string, w: number, bottom: number, top: number }
+
+local TONED = { Wall = true, Roof = true, Door = true, DoorDark = true, Quoin = true, Foundation = true }
+
+-- Deterministic pseudo-random in [-1, 1] from the part counter.
+local function jitter(ctx: Ctx, salt: number): number
+	local h = (ctx.count * 7919 + salt * 104729) % 2003
+	return h / 1001.5 - 1
+end
+Geometry.jitter = jitter
 
 function Geometry.part(
 	parent: Instance,
@@ -38,6 +49,9 @@ function Geometry.part(
 	p.Size = size
 	p.CFrame = cf
 	p:SetAttribute("Paint", paint)
+	if TONED[paint] then
+		p:SetAttribute("Tone", jitter(ctx, 3))
+	end
 	p.Parent = parent
 	ctx.count += 1
 	return p
@@ -63,7 +77,7 @@ function Geometry.layout(L: number, sw: number, centerWidth: number?): ({ number
 	if not centerWidth or centerWidth <= sw then
 		local n = math.max(1, math.floor(L / sw))
 		local out = table.create(n, L / n)
-		return out, if n >= 1 then math.floor(n / 2) + 1 else nil
+		return out, math.floor(n / 2) + 1
 	end
 	local side = (L - centerWidth) / 2
 	local k = math.max(1, math.floor(side / sw))
@@ -78,45 +92,68 @@ function Geometry.layout(L: number, sw: number, centerWidth: number?): ({ number
 	return out, k + 1
 end
 
+-- Small deep-set window: glass recessed toward the inside, one chunky cross bar.
 local function glass(parent: Instance, ctx: Ctx, frame: CFrame, c: number, o: Opening, story: number)
 	local g = Geometry.section(parent, ctx, "Glass", "Glass", story)
 	local w, h = o.w, o.top - o.bottom
 	local mid = (o.bottom + o.top) / 2
-	local pane = Geometry.part(g, ctx, "Pane", frame * CFrame.new(c, mid, 0), Vector3.new(w, h, 0.2), "Glass")
-	pane.Transparency = 0.35
+	local z = ctx.T * 0.2 -- recessed
+	local pane = Geometry.part(g, ctx, "Pane", frame * CFrame.new(c, mid, z), Vector3.new(w, h, 0.2), "Glass")
+	pane.Transparency = 0.4
 	pane.CastShadow = false
-	-- glazing bars
-	Geometry.part(g, ctx, "Muntin", frame * CFrame.new(c, mid, -0.12), Vector3.new(0.18, h, 0.12), "Trim")
-	Geometry.part(g, ctx, "Muntin", frame * CFrame.new(c, mid, -0.12), Vector3.new(w, 0.18, 0.12), "Trim")
+	Geometry.part(g, ctx, "Bar", frame * CFrame.new(c, mid, z - 0.15), Vector3.new(0.32, h, 0.2), "Trim")
+	Geometry.part(g, ctx, "Bar", frame * CFrame.new(c, mid, z - 0.15), Vector3.new(w, 0.32, 0.2), "Trim")
 end
 
+-- Plank door: alternating plank tones, two battens, iron strap hinges, ring handle. Openable via the
+-- server (src/server/Doors) about the Hinge attribute.
 local function door(parent: Instance, ctx: Ctx, frame: CFrame, c: number, o: Opening, story: number)
 	local d = Geometry.section(parent, ctx, "Door", "Door", story)
 	CollectionService:AddTag(d, ctx.D.DoorTag)
 	local w, h = o.w - 0.2, o.top - 0.1
-	local hingeU = c - o.w / 2 + 0.1
-	local panel = Geometry.part(
+	local planks = 3
+	local pw = w / planks
+	local left = c - w / 2
+	local middle: BasePart? = nil
+	for i = 1, planks do
+		local px = left + (i - 0.5) * pw
+		local p = Geometry.part(
+			d,
+			ctx,
+			"Plank",
+			frame * CFrame.new(px, h / 2 + 0.05, 0),
+			Vector3.new(pw - 0.06, h - 0.1 * (i % 2), 0.4),
+			if i % 2 == 0 then "DoorDark" else "Door"
+		)
+		if i == 2 then
+			middle = p
+		end
+	end
+	for _, y in { h * 0.25, h * 0.75 } do
+		Geometry.part(d, ctx, "Batten", frame * CFrame.new(c, y, 0.3), Vector3.new(w - 0.3, 0.5, 0.2), "DoorDark")
+		Geometry.part(
+			d,
+			ctx,
+			"Strap",
+			frame * CFrame.new(left + w * 0.3, y, -0.25),
+			Vector3.new(w * 0.55, 0.22, 0.1),
+			"Metal"
+		)
+	end
+	local ring = Geometry.part(
 		d,
 		ctx,
-		"Panel",
-		frame * CFrame.new(hingeU + w / 2, h / 2 + 0.05, 0),
-		Vector3.new(w, h, 0.35),
-		"Door"
+		"Ring",
+		frame * CFrame.new(left + w - 0.6, 3.6, -0.3) * CFrame.Angles(0, math.pi / 2, 0),
+		Vector3.new(0.12, 0.6, 0.6),
+		"Metal"
 	)
-	-- simple raised panels + knob (all move with the door)
-	Geometry.part(
-		d,
-		ctx,
-		"Rail",
-		frame * CFrame.new(hingeU + w / 2, h * 0.5, -0.22),
-		Vector3.new(w - 0.6, 0.25, 0.1),
-		"Trim"
-	)
-	Geometry.part(d, ctx, "Knob", frame * CFrame.new(hingeU + w - 0.5, 3.6, -0.3), Vector3.new(0.3, 0.3, 0.3), "Metal")
-	Geometry.part(d, ctx, "Knob", frame * CFrame.new(hingeU + w - 0.5, 3.6, 0.3), Vector3.new(0.3, 0.3, 0.3), "Metal")
+	ring.Shape = Enum.PartType.Cylinder
+	local panel = middle :: BasePart
+	panel.Name = "Panel"
 	d.PrimaryPart = panel
-	-- hinge = the panel's left edge, in panel space; src/server/Doors rotates the door about it
-	-- (attribute rather than WorldPivot: pivots set from Studio tool contexts don't persist)
+	-- hinge = the door's left edge, in the middle plank's space (the middle plank is centered on the door);
+	-- an attribute rather than WorldPivot, which doesn't persist from Studio tool contexts
 	d:SetAttribute("Hinge", Vector3.new(-w / 2, 0, 0))
 	d:SetAttribute("Open", false)
 	d:SetAttribute("SwingAngle", -90)
@@ -162,38 +199,47 @@ function Geometry.wall(
 			end
 		end
 		if o then
-			local w = math.min(o.w, sw - 0.8)
-			local c = u0 + sw / 2
-			local oo: Opening = { kind = o.kind, w = w, bottom = o.bottom, top = math.min(o.top, H - 0.5) }
+			local w = math.min(o.w, sw - 1)
+			local c = u0 + sw / 2 + jitter(ctx, 11) * 0.3 -- openings not perfectly centered: hand-made
+			local oo: Opening = { kind = o.kind, w = w, bottom = o.bottom, top = math.min(o.top, H - 0.8) }
 			box(u0, c - w / 2, 0, H)
 			box(c + w / 2, u0 + sw, 0, H)
 			box(c - w / 2, c + w / 2, 0, oo.bottom)
 			box(c - w / 2, c + w / 2, oo.top, H)
-			-- trim: lintel + sill (outside face, slightly proud)
+			-- chunky timber frame on the outside face
+			local f = -T / 2 - 0.15
 			Geometry.part(
 				sec,
 				ctx,
 				"Lintel",
-				frame * CFrame.new(c, oo.top + 0.2, -T / 2 - 0.1),
-				Vector3.new(w + 0.8, 0.4, 0.3),
+				frame * CFrame.new(c, oo.top + 0.35, f),
+				Vector3.new(w + 1.3, 0.7, 0.45),
+				"Trim"
+			)
+			Geometry.part(
+				sec,
+				ctx,
+				"Post",
+				frame * CFrame.new(c - w / 2 - 0.25, (oo.bottom + oo.top) / 2, f),
+				Vector3.new(0.5, oo.top - oo.bottom, 0.4),
+				"Trim"
+			)
+			Geometry.part(
+				sec,
+				ctx,
+				"Post",
+				frame * CFrame.new(c + w / 2 + 0.25, (oo.bottom + oo.top) / 2, f),
+				Vector3.new(0.5, oo.top - oo.bottom, 0.4),
 				"Trim"
 			)
 			if oo.kind == "door" then
 				Geometry.part(
 					sec,
 					ctx,
-					"Casing",
-					frame * CFrame.new(c - w / 2 - 0.2, oo.top / 2, -T / 2 - 0.1),
-					Vector3.new(0.4, oo.top, 0.3),
-					"Trim"
-				)
-				Geometry.part(
-					sec,
-					ctx,
-					"Casing",
-					frame * CFrame.new(c + w / 2 + 0.2, oo.top / 2, -T / 2 - 0.1),
-					Vector3.new(0.4, oo.top, 0.3),
-					"Trim"
+					"Doorstep",
+					frame * CFrame.new(c, 0.2, -T / 2 - 0.6),
+					Vector3.new(w + 1.6, 0.4, 1.2),
+					"Foundation"
 				)
 				door(sec, ctx, frame, c, oo, story)
 			else
@@ -201,8 +247,8 @@ function Geometry.wall(
 					sec,
 					ctx,
 					"Sill",
-					frame * CFrame.new(c, oo.bottom - 0.15, -T / 2 - 0.2),
-					Vector3.new(w + 0.8, 0.3, 0.6),
+					frame * CFrame.new(c, oo.bottom - 0.25, -T / 2 - 0.35),
+					Vector3.new(w + 1.1, 0.5, 0.9),
 					"Trim"
 				)
 				glass(sec, ctx, frame, c, oo, story)
@@ -311,7 +357,9 @@ function Geometry.gable(parent: Instance, ctx: Ctx, frame: CFrame, L: number, h:
 	)
 end
 
--- Gabled roof with the ridge along local X. Returns the ridge height above wallTop.
+-- Gabled roof, ridge along local X. "Thatch": thick panels with slightly uneven thickness and tilt,
+-- a rounded ridge roll and rounded eave rolls. "Tile": thin panels + ridge cap.
+-- Returns the ridge height above wallTop.
 function Geometry.roof(
 	parent: Instance,
 	ctx: Ctx,
@@ -319,58 +367,166 @@ function Geometry.roof(
 	W: number,
 	Dp: number,
 	wallTop: number,
-	pitch: number
-): number
+	pitch: number,
+	style: string?
+)
+	local thatch = style == "Thatch"
+	local class = if thatch then "Thatch" else "Tile"
 	local t = math.rad(pitch)
-	local ov = ctx.B.RoofOverhang
+	local ov = if thatch then ctx.B.RoofOverhang + 0.6 else ctx.B.RoofOverhang
+	local th = if thatch then 2.2 else 0.8
+	local gableOv = if thatch then 1.4 else ctx.B.RoofOverhang
 	local h = (Dp / 2) * math.tan(t)
 	local hd = Dp / 2 + ov
 	local sl = hd / math.cos(t)
-	local len = W + 2 * ov
-	local n = math.max(1, math.ceil(len / 8))
+	local len = W + 2 * gableOv
+	local n = math.max(1, math.ceil(len / 7))
 	for _, side in { -1, 1 } do
+		-- panel center on the roof plane, pushed out along the normal so the underside sits on the plane
 		local zc = side * hd / 2
-		local yc = wallTop + h - (hd / 2) * math.tan(t) + 0.4
+		local yc = wallTop + h - (hd / 2) * math.tan(t)
+		local normal = Vector3.new(0, math.cos(t), side * math.sin(t))
 		for i = 0, n - 1 do
-			local sec = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+			local sec = Geometry.section(parent, ctx, "Roof", class, 99)
 			local xc = -len / 2 + (i + 0.5) * len / n
+			local thick = th * (1 + 0.08 * jitter(ctx, 5))
+			local tilt = if thatch then math.rad(0.6 * jitter(ctx, 7)) else 0
+			local pos = Vector3.new(xc, yc, zc) + normal * (thick / 2)
 			Geometry.part(
 				sec,
 				ctx,
 				"Roof",
-				cf * CFrame.new(xc, yc, zc) * CFrame.Angles(side * t, 0, 0),
-				Vector3.new(len / n + 0.02, 0.8, sl),
+				cf * CFrame.new(pos) * CFrame.Angles(side * t + tilt, 0, 0),
+				Vector3.new(len / n + 0.04, thick, sl),
 				"Roof"
 			)
 		end
 	end
-	local cap = Geometry.section(parent, ctx, "Roof", "Tile", 99)
-	Geometry.part(
-		cap,
-		ctx,
-		"Ridge",
-		cf * CFrame.new(0, wallTop + h + 0.75, 0) * CFrame.Angles(math.pi / 4, 0, 0),
-		Vector3.new(len, 1, 1),
-		"Roof"
-	)
+	local cap = Geometry.section(parent, ctx, "Roof", class, 99)
+	if thatch then
+		local ridge = Geometry.part(
+			cap,
+			ctx,
+			"RidgeRoll",
+			cf * CFrame.new(0, wallTop + h + th * 0.75, 0),
+			Vector3.new(len + 0.4, 3, 3),
+			"Roof"
+		)
+		ridge.Shape = Enum.PartType.Cylinder
+		for _, side in { -1, 1 } do
+			local eaveY = wallTop + h - hd * math.tan(t) + th * 0.45
+			local roll = Geometry.part(
+				cap,
+				ctx,
+				"EaveRoll",
+				cf * CFrame.new(0, eaveY, side * (hd - 0.2)),
+				Vector3.new(len, th * 1.15, th * 1.15),
+				"Roof"
+			)
+			roll.Shape = Enum.PartType.Cylinder
+		end
+	else
+		Geometry.part(
+			cap,
+			ctx,
+			"Ridge",
+			cf * CFrame.new(0, wallTop + h + 0.75, 0) * CFrame.Angles(math.pi / 4, 0, 0),
+			Vector3.new(len, 1, 1),
+			"Roof"
+		)
+	end
 	return h
 end
 
+-- Chimney through the roof (tile houses).
 function Geometry.chimney(parent: Instance, ctx: Ctx, cf: CFrame, x: number, z: number, y0: number, y1: number)
 	local sec = Geometry.section(parent, ctx, "Chimney", "Brick", 99)
 	Geometry.part(sec, ctx, "Stack", cf * CFrame.new(x, (y0 + y1) / 2, z), Vector3.new(2.8, y1 - y0, 2.4), "Chimney")
 	Geometry.part(sec, ctx, "Cap", cf * CFrame.new(x, y1 + 0.2, z), Vector3.new(3.2, 0.4, 2.8), "Chimney")
-	for _, dx in { -0.65, 0.65 } do
+end
+
+-- External chimney breast against a gable end (old cottages): wide base up the wall, narrower stack
+-- above the ridge, chunky cap and pots. side = -1 (-X gable) or +1.
+function Geometry.gableChimney(
+	parent: Instance,
+	ctx: Ctx,
+	side: number,
+	W: number,
+	groundY: number,
+	wallTop: number,
+	ridgeTop: number
+)
+	local sec = Geometry.section(parent, ctx, "Chimney", "Brick", 0)
+	local x = side * (W / 2 + 1.1)
+	local breastTop = wallTop + 1.5
+	Geometry.part(
+		sec,
+		ctx,
+		"Breast",
+		CFrame.new(x, (groundY + breastTop) / 2, 0),
+		Vector3.new(2.2, breastTop - groundY, 4.2),
+		"Chimney"
+	)
+	-- sloped shoulder from the breast to the stack
+	Geometry.part(sec, ctx, "Shoulder", CFrame.new(x, breastTop + 0.6, 0), Vector3.new(2.2, 1.2, 3.4), "Chimney")
+	local top = ridgeTop + 3
+	Geometry.part(
+		sec,
+		ctx,
+		"Stack",
+		CFrame.new(x, (breastTop + top) / 2 + 0.6, 0),
+		Vector3.new(2.2, top - breastTop, 2.8),
+		"Chimney"
+	)
+	Geometry.part(sec, ctx, "Cap", CFrame.new(x, top + 0.8, 0), Vector3.new(2.8, 0.5, 3.4), "Chimney")
+	for _, dz in { -0.7, 0.7 } do
 		local pot = Geometry.part(
 			sec,
 			ctx,
 			"Pot",
-			cf * CFrame.new(x + dx, y1 + 0.9, z) * CFrame.Angles(0, 0, math.pi / 2),
-			Vector3.new(1.1, 0.8, 0.8),
+			CFrame.new(x, top + 1.6, dz) * CFrame.Angles(0, 0, math.pi / 2),
+			Vector3.new(1.3, 0.9, 0.9),
 			"Chimney"
 		)
 		pot.Shape = Enum.PartType.Cylinder
 	end
+end
+
+-- Stone corner blocks, alternating long/short up each corner.
+function Geometry.quoins(parent: Instance, ctx: Ctx, W: number, Dp: number, y0: number, y1: number)
+	local sec = Geometry.section(parent, ctx, "Quoins", "Stone", 0)
+	local block = 1.6
+	for _, c in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
+		local k = 0
+		local y = y0
+		while y + block <= y1 + 0.01 do
+			local long = k % 2 == 0
+			local sx = if long then 2.4 else 1.5
+			local sz = if long then 1.5 else 2.4
+			local px = c[1] * (W / 2 - sx / 2 + 0.25)
+			local pz = c[2] * (Dp / 2 - sz / 2 + 0.25)
+			Geometry.part(
+				sec,
+				ctx,
+				"Quoin",
+				CFrame.new(px, y + block / 2, pz),
+				Vector3.new(sx, block - 0.12, sz),
+				"Quoin"
+			)
+			y += block
+			k += 1
+		end
+	end
+end
+
+-- Stone plinth band around the outside of the walls (not inside: it would poke through the floor).
+function Geometry.plinth(parent: Instance, ctx: Ctx, W: number, Dp: number, yTop: number)
+	local o, h = 0.45, yTop + 1.5
+	local y = yTop - h / 2
+	Geometry.part(parent, ctx, "Plinth", CFrame.new(0, y, -Dp / 2 - o / 2), Vector3.new(W + 2 * o, h, o), "Foundation")
+	Geometry.part(parent, ctx, "Plinth", CFrame.new(0, y, Dp / 2 + o / 2), Vector3.new(W + 2 * o, h, o), "Foundation")
+	Geometry.part(parent, ctx, "Plinth", CFrame.new(-W / 2 - o / 2, y, 0), Vector3.new(o, h, Dp), "Foundation")
+	Geometry.part(parent, ctx, "Plinth", CFrame.new(W / 2 + o / 2, y, 0), Vector3.new(o, h, Dp), "Foundation")
 end
 
 return Geometry

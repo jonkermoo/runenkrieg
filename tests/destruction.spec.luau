@@ -31,14 +31,14 @@ return {
 		end
 		local seen = {}
 		for seed = 1, 40 do
-			local s = R.scheme(B.Templates.SmallHouse, P, seed)
+			local s = R.scheme(B.Templates.ThatchCottage, P, seed)
 			seen[s.wall .. s.roof .. s.door] = true
 		end
 		local n = 0
 		for _ in seen do
 			n += 1
 		end
-		assert(n >= 8, `only {n} distinct SmallHouse color schemes`)
+		assert(n >= 8, `only {n} distinct ThatchCottage color schemes`)
 	end,
 	["templates fit their features at the new scale"] = function()
 		local Bm = M.Building

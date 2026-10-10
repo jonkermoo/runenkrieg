@@ -16,7 +16,12 @@ export type Template = {
 	class: string,
 	walls: { string }, -- allowed Palette.Buildings.Walls keys (picked per copy)
 	roofs: { string }, -- allowed Palette.Buildings.Roofs keys
-	chimneys: { number }?, -- local X positions as a fraction of half-width (-1..1)
+	chimneys: { number }?, -- roof chimneys: local X positions as a fraction of half-width (-1..1)
+	gableChimney: number?, -- external chimney breast on the -1 / +1 gable end
+	roofStyle: string?, -- "Thatch" (thick, rounded) or "Tile" (default)
+	wallThickness: number?, -- defaults to WallThickness
+	window: { w: number, bottom: number, top: number }?, -- defaults from Metrics.Building
+	quoins: boolean?, -- stone corner blocks
 	backDoor: boolean?,
 	description: string,
 }
@@ -28,25 +33,31 @@ local Buildings = {
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
-		SmallHouse = {
+		-- Old English thatched cottage (references/village/thatched-cottages-03.png) in Pordier's chunky,
+		-- slightly hand-made style (references/style/pordier-*).
+		ThatchCottage = {
 			folder = "Houses",
 			width = 20,
 			depth = 14,
 			stories = 1,
-			roofPitch = 35,
+			roofPitch = 48,
+			roofStyle = "Thatch",
 			class = "Plaster",
-			walls = { "Whitewash", "Cream", "Sage", "Brick" },
-			roofs = { "DarkTile", "Terracotta", "Slate" },
-			chimneys = { 0.6 },
-			description = "Basic one-story house: front door, windows on every wall, floor + ceiling, gabled roof, chimney.",
+			wallThickness = 1.4,
+			walls = { "Whitewash", "Cream", "Ochre", "Stone" },
+			roofs = { "Thatch", "ThatchDark", "ThatchWeathered" },
+			gableChimney = -1, -- external chimney breast on the -X gable end
+			window = { w = 2.6, bottom = 3.8, top = 6.4 }, -- small, deep-set
+			quoins = true,
+			description = "Thatched one-story cottage: thick rounded thatch, gable chimney, small deep windows, plank door, stone plinth and quoins.",
 		},
 	} :: { [string]: Template },
 
 	-- Village placement: which templates appear along which kind of road (picked by hash).
 	RoadTemplates = {
-		Main = { "SmallHouse" },
-		Lane = { "SmallHouse" },
-		Row = { "SmallHouse" },
+		Main = { "ThatchCottage" },
+		Lane = { "ThatchCottage" },
+		Row = { "ThatchCottage" },
 	},
 }
 

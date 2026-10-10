@@ -21,7 +21,7 @@ return {
 		for _, l in lots do
 			styles[l.style] = true
 		end
-		for _, s in { "SmallHouse" } do
+		for _, s in { "ThatchCottage" } do
 			assert(styles[s], `no {s}`)
 		end
 	end,

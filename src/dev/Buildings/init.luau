@@ -27,7 +27,8 @@ local function plan(
 	doorIndex: number?
 ): { [number]: Geometry.Opening? }
 	local Bm = M.Building
-	local win: Geometry.Opening = { kind = "window", w = 3, bottom = Bm.WindowSill, top = Bm.WindowTop }
+	local tw = t.window or { w = 3, bottom = Bm.WindowSill, top = Bm.WindowTop }
+	local win: Geometry.Opening = { kind = "window", w = tw.w, bottom = tw.bottom, top = tw.top }
 	local out: { [number]: Geometry.Opening? } = {}
 	if side == "front" then
 		for i = 1, n do
@@ -79,6 +80,7 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 		"Foundation"
 	)
 	Geometry.slab(model, ctx, cf, { -W / 2, W / 2, -Dp / 2, Dp / 2 }, floorTop, "Floor", -1, "Floor")
+	Geometry.plinth(model, ctx, W, Dp, floorTop + 0.5)
 
 	local wallCounts = {}
 	local inner = { -W / 2 + T, W / 2 - T, -Dp / 2 + T, Dp / 2 - T }
@@ -120,6 +122,9 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 		model:SetAttribute("WallCount_" .. story, n)
 	end
 	local wallTop = floorTop + t.stories * H
+	if t.quoins then
+		Geometry.quoins(model, ctx, W, Dp, floorTop + 0.5, floorTop + t.stories * H)
+	end
 	-- ceiling: every level has a floor, including the attic floor under the roof
 	Geometry.slab(model, ctx, cf, inner, wallTop, "Floor", t.stories, "Floor")
 	return floorTop, wallTop
@@ -132,7 +137,10 @@ local function roofAndExtras(model: Model, t: any, ctx: Geometry.Ctx, wallTop: n
 		local frame = CFrame.new(side * (W / 2 - T / 2), wallTop, 0) * CFrame.Angles(0, math.pi / 2, 0)
 		Geometry.gable(model, ctx, frame, Dp, (Dp / 2) * math.tan(math.rad(t.roofPitch)), t.stories)
 	end
-	local ridge = Geometry.roof(model, ctx, CFrame.identity, W, Dp, wallTop, t.roofPitch)
+	local ridge = Geometry.roof(model, ctx, CFrame.identity, W, Dp, wallTop, t.roofPitch, t.roofStyle)
+	if t.gableChimney then
+		Geometry.gableChimney(model, ctx, t.gableChimney, W, -1, wallTop, wallTop + ridge)
+	end
 	for _, fx in t.chimneys or {} do
 		Geometry.chimney(model, ctx, CFrame.identity, fx * (W / 2 - 2), Dp / 5, wallTop - 2, wallTop + ridge + 3.5)
 	end
@@ -149,7 +157,7 @@ function Buildings.build(name: string, deps: Deps): Model
 	model:SetAttribute("Repairable", deps.D.NaturalRepairable)
 	CollectionService:AddTag(model, deps.D.BuildingTag)
 	local ctx: Geometry.Ctx =
-		{ D = deps.D, M = deps.M, B = deps.B, T = deps.B.WallThickness, class = t.class, count = 0 }
+		{ D = deps.D, M = deps.M, B = deps.B, T = t.wallThickness or deps.B.WallThickness, class = t.class, count = 0 }
 
 	local _, wallTop = shell(model, t, ctx, deps)
 	roofAndExtras(model, t, ctx, wallTop)
@@ -174,12 +182,19 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 		Metal = rgb(P.Metal),
 		Sign = rgb(P.Sign),
 		Wood = rgb(P.Wood),
+		Quoin = rgb(P.Quoin),
 	}
+	local door = rgb(P.Doors[scheme.door])
+	colors.DoorDark = Color3.new(door.R * 0.86, door.G * 0.86, door.B * 0.86)
+	local jit = P.ToneJitter or 0
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			local role = d:GetAttribute("Paint")
-			if role and colors[role] then
-				d.Color = colors[role]
+			local c = role and colors[role]
+			if c then
+				-- hand-made look: each piece a few % lighter/darker (deterministic Tone from generation)
+				local k = 1 + jit * (d:GetAttribute("Tone") or 0)
+				d.Color = Color3.new(math.clamp(c.R * k, 0, 1), math.clamp(c.G * k, 0, 1), math.clamp(c.B * k, 0, 1))
 			end
 		end
 	end

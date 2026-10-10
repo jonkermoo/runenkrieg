@@ -22,39 +22,36 @@ local Palette = {
 	},
 	-- Grass tufts: a few shades around the terrain grass so tufts read as part of the ground.
 	GrassTufts = { { 112, 148, 74 }, { 100, 136, 68 }, { 124, 156, 80 }, { 94, 128, 64 } },
-	-- Buildings: copies of one template pick a color per role (walls/roof/trim/door) from these,
-	-- so repeated shapes still read as different houses while sharing one tone.
+	-- Buildings: copies of one template pick a color per role (walls/roof/trim/door) from these, so
+	-- repeated shapes read as different houses. Muted, earthy, desaturated (Pordier-like; old English
+	-- villages in references/village). Each wall/roof piece is also shaded a few % off by its Tone.
 	Buildings = {
 		Walls = {
-			Whitewash = { 232, 228, 214 },
-			Cream = { 226, 214, 186 },
-			Sand = { 210, 192, 158 },
-			Sage = { 172, 182, 152 },
-			Stone = { 196, 190, 176 },
-			Brick = { 162, 94, 74 },
-			RedBrick = { 142, 80, 64 },
-			WhiteBoard = { 222, 220, 208 },
-			TarBoard = { 76, 66, 60 },
-			BarnRed = { 140, 72, 58 },
+			Whitewash = { 222, 216, 200 },
+			Cream = { 212, 198, 168 },
+			Ochre = { 196, 170, 124 },
+			Stone = { 172, 164, 146 },
+			Brick = { 148, 98, 78 },
 		},
 		Roofs = {
-			Slate = { 76, 80, 88 },
-			Terracotta = { 152, 86, 66 },
-			Brown = { 106, 82, 68 },
-			DarkTile = { 88, 76, 72 },
-			Moss = { 98, 106, 86 },
+			Thatch = { 158, 128, 84 },
+			ThatchDark = { 122, 98, 66 },
+			ThatchWeathered = { 136, 124, 100 },
+			DarkTile = { 90, 78, 72 },
 		},
-		Trim = { { 240, 236, 226 }, { 76, 66, 60 }, { 100, 76, 60 } },
-		Doors = { { 100, 76, 60 }, { 72, 86, 66 }, { 122, 62, 54 }, { 62, 72, 88 } },
-		Floor = { 124, 98, 74 },
-		Stairs = { 112, 88, 66 },
-		Foundation = { 130, 126, 118 },
-		Chimney = { 142, 84, 66 },
-		Glass = { 156, 190, 198 },
-		GlassTransparency = 0.35,
-		Metal = { 62, 62, 64 },
-		Sign = { 222, 208, 172 },
-		Wood = { 112, 86, 64 },
+		Trim = { { 82, 66, 54 }, { 104, 86, 68 }, { 70, 60, 54 } }, -- dark weathered wood
+		Doors = { { 112, 88, 64 }, { 80, 92, 72 }, { 112, 62, 52 }, { 84, 92, 102 } },
+		Floor = { 120, 96, 72 },
+		Stairs = { 110, 88, 66 },
+		Foundation = { 118, 114, 106 }, -- plinth stones
+		Quoin = { 150, 144, 130 }, -- corner stones
+		Chimney = { 136, 112, 96 }, -- old stone/brick stack
+		Glass = { 138, 160, 166 },
+		GlassTransparency = 0.4,
+		Metal = { 54, 52, 50 }, -- iron hinges, handles
+		Sign = { 210, 196, 162 },
+		Wood = { 104, 82, 62 },
+		ToneJitter = 0.04, -- +-4% per piece: hand-made, not factory-flat
 	},
 	-- UI: flat panels, one outline thickness everywhere.
 	UI = {
