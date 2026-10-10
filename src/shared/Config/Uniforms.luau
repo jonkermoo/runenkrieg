@@ -9,8 +9,8 @@ local Uniforms = {
 	Kits = {
 		SlateTunic = {
 			source = "assets/characters/uniforms/slate_tunic.json",
-			shirt = 114889267050317, -- decal 93943013795667
-			pants = 74782089381227, -- decal 102849901185083
+			shirt = 90270248127078, -- decal 73402373418034
+			pants = 122530732939943, -- decal 98917080892596
 			skin = { 226, 176, 104 },
 		},
 	},
