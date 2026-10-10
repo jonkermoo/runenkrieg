@@ -60,15 +60,16 @@ function Features.testSpawn(parent: Instance, map: any, MT: any)
 	sp.Parent = parent
 end
 
-function Features.atmosphere()
+function Features.atmosphere(palette: any)
 	local lighting = game:GetService("Lighting")
 	local atm = lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere")
 	atm.Density = 0.38
 	atm.Offset = 0.15
 	atm.Haze = 0.8
 	atm.Glare = 0
-	atm.Color = Color3.fromRGB(199, 214, 226)
-	atm.Decay = Color3.fromRGB(106, 130, 150)
+	local a = palette.Atmosphere
+	atm.Color = Color3.fromRGB(a.color[1], a.color[2], a.color[3])
+	atm.Decay = Color3.fromRGB(a.decay[1], a.decay[2], a.decay[3])
 	atm.Parent = lighting
 end
 

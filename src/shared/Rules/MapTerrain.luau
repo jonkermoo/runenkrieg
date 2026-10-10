@@ -21,6 +21,31 @@ local function outside(r: any, x: number, z: number): number
 end
 MapTerrain.outside = outside
 
+local function distToSegment(px: number, pz: number, a: { number }, b: { number }): number
+	local dx, dz = b[1] - a[1], b[2] - a[2]
+	local len2 = dx * dx + dz * dz
+	local t = if len2 == 0 then 0 else math.clamp(((px - a[1]) * dx + (pz - a[2]) * dz) / len2, 0, 1)
+	return math.sqrt((px - a[1] - dx * t) ^ 2 + (pz - a[2] - dz * t) ^ 2)
+end
+
+-- Distance from a point to the nearest village road edge (negative = on the road) and its id.
+function MapTerrain.roadDistance(map: any, x: number, z: number): (number, string?)
+	local v = map.village
+	local best, id = math.huge, nil
+	if not v then
+		return best, id
+	end
+	for _, r in v.roads do
+		for i = 1, #r.points - 1 do
+			local d = distToSegment(x, z, r.points[i], r.points[i + 1]) - r.width / 2
+			if d < best then
+				best, id = d, r.id
+			end
+		end
+	end
+	return best, id
+end
+
 function MapTerrain.riverCenterX(map: any, z: number): number
 	local r = map.river
 	return r.x + r.meanderAmp * math.sin(z / r.meanderLen * 2 * math.pi)
@@ -151,6 +176,12 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 			return "Mud"
 		elseif d <= r.width / 2 + r.bankWidth then
 			return "Ground"
+		end
+	end
+	-- Dirt roads (cheap bounding check first: roads only exist around the village and farm)
+	if map.village and x > 880 and x < 1960 and z > -340 and z < 340 then
+		if MapTerrain.roadDistance(map, x, z) < 0 then
+			return "Sand"
 		end
 	end
 	local slope = MapTerrain.slopeAt(map, x, z)

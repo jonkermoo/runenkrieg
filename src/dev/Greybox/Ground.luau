@@ -7,24 +7,37 @@ local Ground = {}
 local RES = 4
 local CHUNK = 32 -- columns per chunk side
 
-local MATERIAL_COLORS = {
-	Grass = Color3.fromRGB(96, 142, 58),
-	LeafyGrass = Color3.fromRGB(78, 122, 48),
-	Ground = Color3.fromRGB(138, 118, 88),
-	Mud = Color3.fromRGB(92, 76, 58),
-	Rock = Color3.fromRGB(122, 120, 112),
-}
+local function rgb(c: { number }): Color3
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
 
-function Ground.build(map: any, MT: any): number
+-- Flat-color terrain: override each terrain material with an untextured MaterialVariant (no maps),
+-- then color it from the palette. The override also removes grass-blade decoration.
+function Ground.applyPalette(palette: any)
+	local terrain = workspace.Terrain
+	local MaterialService = game:GetService("MaterialService")
+	for name, color in palette.Terrain do
+		local base = (Enum.Material :: any)[name]
+		local variantName = "Flat" .. name
+		local v = MaterialService:FindFirstChild(variantName) or Instance.new("MaterialVariant")
+		v.Name = variantName;
+		(v :: MaterialVariant).BaseMaterial = base
+		v.Parent = MaterialService
+		MaterialService:SetBaseMaterialOverride(base, variantName)
+		terrain:SetMaterialColor(base, rgb(color))
+	end
+	local w = palette.Water
+	terrain.WaterColor = rgb(w.color)
+	terrain.WaterTransparency = w.transparency
+	terrain.WaterReflectance = w.reflectance
+	terrain.WaterWaveSize = w.waveSize
+end
+
+function Ground.build(map: any, MT: any, palette: any): number
 	local terrain = workspace.Terrain
 	terrain:Clear()
 	task.wait()
-	pcall(function()
-		for name, color in MATERIAL_COLORS do
-			terrain:SetMaterialColor((Enum.Material :: any)[name], color)
-		end
-		terrain.Decoration = true -- animated grass blades on Grass
-	end)
+	Ground.applyPalette(palette)
 
 	local b, m, tc = map.bounds, map.terrainMargin, map.terrain
 	local vx0, vx1 = math.floor((b.minX - m) / RES), math.ceil((b.maxX + m) / RES) - 1

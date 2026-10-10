@@ -7,16 +7,9 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Trees = {}
 
-local PALETTE = {
-	Pine = { Color3.fromRGB(44, 88, 52), Color3.fromRGB(52, 98, 58), Color3.fromRGB(38, 80, 48) },
-	Broadleaf = { Color3.fromRGB(78, 140, 56), Color3.fromRGB(92, 150, 60), Color3.fromRGB(70, 126, 52) },
-	Birch = { Color3.fromRGB(130, 165, 70), Color3.fromRGB(118, 156, 62) },
-}
-local BARK = {
-	Pine = Color3.fromRGB(96, 70, 50),
-	Broadleaf = Color3.fromRGB(104, 78, 56),
-	Birch = Color3.fromRGB(222, 220, 210),
-}
+local function rgb(c: { number }): Color3
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
 
 -- The kit model, loading it into ServerStorage.Assets if this place does not have it yet.
 local function getKit(kitCfg: any): Model
@@ -82,10 +75,12 @@ local function buildTemplates(kitCfg: any): { [string]: { Model } }
 	return out
 end
 
-function Trees.build(parent: Instance, map: any, MT: any, assets: any): number
+-- placements defaults to the map's natural trees (Rules/MapTerrain.trees).
+function Trees.build(parent: Instance, map: any, MT: any, assets: any, palette: any, placements: { any }?): number
 	local kitCfg = assets.TreeKit
 	local templates = buildTemplates(kitCfg)
-	local placements = MT.trees(map)
+	placements = placements or MT.trees(map)
+	assert(placements, "no tree placements")
 	local bucket: Instance = parent
 	for i, t in placements do
 		if (i - 1) % 400 == 0 then
@@ -98,11 +93,11 @@ function Trees.build(parent: Instance, map: any, MT: any, assets: any): number
 		local tree = variants[t.variant % #variants + 1]:Clone()
 		tree:ScaleTo(tree:GetScale() * t.scale)
 		tree:PivotTo(CFrame.new(t.x, MT.treeBaseY(map, t.x, t.z), t.z) * CFrame.Angles(0, math.rad(t.yaw), 0))
-		local palette = PALETTE[t.kind]
+		local colors = palette.Trees[t.kind]
 		local canopy = tree:FindFirstChild("Canopy") :: BasePart
 		local trunk = tree:FindFirstChild("Trunk") :: BasePart
-		canopy.Color = palette[(t.variant // 7) % #palette + 1]
-		trunk.Color = BARK[t.kind]
+		canopy.Color = rgb(colors[(t.variant // 7) % #colors + 1])
+		trunk.Color = rgb(if t.kind == "Birch" then palette.Trees.BirchBark else palette.Trees.Bark)
 		tree.Parent = bucket
 		if i % 200 == 0 then
 			task.wait()
