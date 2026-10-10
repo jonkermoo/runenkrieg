@@ -8,19 +8,18 @@ local Metrics = {
 	MetersPerStud = 0.35,
 
 	Character = {
-		-- Measured: default R15, scales 1/1/1/1, BodyType 0, Proportion 0 (2026-10-09).
-		Height = 5.19,
+		-- Measured: default blocky R6 (2026-10-10). Legs 2, torso 2, head 1 (mesh scale 1.25).
+		-- User decision 2026-10-10: R6 for everyone (matches the Pordier references), uniform body.
+		Height = 5.13, -- feet to top of the head mesh
 		Width = 4.0, -- arms included
 		ShoulderWidth = 2.0,
-		Depth = 1.2,
-		HeadCenterHeight = 4.59,
-		ShoulderHeight = 3.76,
-		EyeHeight = 4.49, -- FaceCenterAttachment
+		Depth = 1.0,
+		HeadCenterHeight = 4.5,
+		ShoulderHeight = 4.0,
+		EyeHeight = 4.5, -- FaceCenterAttachment
 		AimMuzzleHeight = 4.3, -- estimate: shouldered rifle, sights at eye
-		HipHeight = 2.0,
-		-- Uniform soldier body applied to every player on spawn (src/server/Bodies). User decision
-		-- 2026-10-10: the standard R15 body for everyone, so hitboxes are fair and buildings fit.
-		Scales = { Height = 1, Width = 1, Depth = 1, Head = 1, BodyType = 0, Proportion = 0 },
+		LegLength = 2.0,
+		MaxStepUp = 1.0, -- estimate: tallest ledge an R6 humanoid walks up without jumping
 	},
 
 	Movement = {

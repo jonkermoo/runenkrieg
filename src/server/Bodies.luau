@@ -1,36 +1,35 @@
 --!strict
--- Uniform soldier bodies (docs/CHARACTERS.md): every character gets the same body scales
--- (Config/Metrics.Character.Scales) when it spawns, so hitboxes are fair and buildings fit. The
--- avatar's clothing and accessories are kept for now; uniforms replace them later.
+-- Uniform soldier bodies (docs/CHARACTERS.md): every character is the plain blocky R6 body with no
+-- avatar packages, clothing, accessories or face, so hitboxes are fair and everyone reads as a
+-- soldier. The rig type itself is a game setting (Game Settings -> Avatar -> R6); scripts can't set it.
+-- Uniform colors and gear are added on top of this body later (nation kits).
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local M = require(ReplicatedStorage:WaitForChild("Shared").Config.Metrics)
 
 local Bodies = {}
+
+local warned = false
 
 function Bodies.apply(character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		return
 	end
-	local s = M.Character.Scales
-	local ok, desc = pcall(function()
-		return humanoid:GetAppliedDescription()
-	end)
-	if not ok or not desc then
-		return
+	if humanoid.RigType ~= Enum.HumanoidRigType.R6 and not warned then
+		warned = true
+		warn("[Bodies] character is not R6: set Game Settings -> Avatar -> Avatar Type to R6")
 	end
-	desc.HeightScale = s.Height
-	desc.WidthScale = s.Width
-	desc.DepthScale = s.Depth
-	desc.HeadScale = s.Head
-	desc.BodyTypeScale = s.BodyType
-	desc.ProportionScale = s.Proportion
+	-- a fresh description is the default blocky body: no packages, clothing or accessories
+	local desc = Instance.new("HumanoidDescription")
+	desc.Face = 0
 	pcall(function()
 		humanoid:ApplyDescription(desc)
 	end)
+	local head = character:FindFirstChild("Head")
+	local face = head and head:FindFirstChildOfClass("Decal")
+	if face then
+		face:Destroy() -- faceless (docs/CHARACTERS.md)
+	end
 end
 
 function Bodies.start()

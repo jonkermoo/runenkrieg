@@ -37,7 +37,7 @@ return {
 		assert(M.Trench.FloorWidth >= M.Character.ShoulderWidth * 2 + 1, "trench too narrow to pass")
 	end,
 	["stairs are climbable"] = function()
-		assert(M.Building.StairRise < M.Character.HipHeight / 2, "stair rise too tall for auto step-up")
+		assert(M.Building.StairRise < M.Character.MaxStepUp, "stair rise too tall for auto step-up")
 		local angle = math.deg(math.atan(M.Building.StairRise / M.Building.StairRun))
 		assert(angle < M.Movement.MaxSlopeAngle, "stair pitch exceeds max slope")
 	end,
