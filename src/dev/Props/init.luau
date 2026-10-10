@@ -148,7 +148,14 @@ end
 
 local function picketBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
 	local c = P.PicketFence
-	part(sec, ctx, "Post", frame * CFrame.new(0, c.height / 2, -len / 2), Vector3.new(0.5, c.height + 0.4, 0.5), "Wood")
+	part(
+		sec,
+		ctx,
+		"Post",
+		frame * CFrame.new(0, c.height / 2 - 0.4, -len / 2),
+		Vector3.new(0.5, c.height + 1.2, 0.5),
+		"Wood"
+	)
 	for _, y in { 0.6, c.height - 0.5 } do
 		part(sec, ctx, "Rail", frame * CFrame.new(0.3, y, 0), Vector3.new(0.18, 0.28, len), "WoodPale")
 	end
@@ -156,7 +163,14 @@ local function picketBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P:
 	for i = 0, n - 1 do
 		local z = -len / 2 + (i + 0.5) * len / n
 		local h = c.height - 0.15 + jitter(ctx, 6) * 0.12
-		part(sec, ctx, "Picket", frame * CFrame.new(0.45, h / 2, z), Vector3.new(0.16, h, 0.5), "WoodPale")
+		part(
+			sec,
+			ctx,
+			"Picket",
+			frame * CFrame.new(0.45, (h - 0.6) / 2, z),
+			Vector3.new(0.16, h + 0.6, 0.5),
+			"WoodPale"
+		)
 	end
 end
 
@@ -235,7 +249,11 @@ function Props.linear(
 	for _, bay in bays(a, b, spec.bay) do
 		local cf = bay[1] :: CFrame
 		local len = bay[2] :: number
-		local y = ground(cf.Position.X, cf.Position.Z)
+		-- highest of the bay's ends and middle, so no part of the bay is buried on a slope; posts,
+		-- pickets and stones reach a little below the bay base to close gaps on the low side
+		local half = cf.LookVector * (len / 2)
+		local p = cf.Position
+		local y = math.max(ground(p.X, p.Z), ground(p.X + half.X, p.Z + half.Z), ground(p.X - half.X, p.Z - half.Z))
 		local frame = CFrame.new(cf.Position.X, y, cf.Position.Z) * cf.Rotation
 		local sec = section(run, ctx, kind, deps.P[kind].class)
 		spec.build(sec, ctx, frame, len, deps.P)

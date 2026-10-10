@@ -9,8 +9,23 @@ local VillageBuild = {}
 function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): { [string]: number }
 	local MT, B, palette = deps.MT, deps.B, deps.palette
 	local propDeps = { P = deps.P, D = deps.D }
+	-- The rendered smooth-terrain surface can sit ~1 stud off the analytic heightAt, so place everything on
+	-- the real surface (raycast against terrain only); fall back to heightAt if the ray misses.
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	params.IgnoreWater = true
 	local function ground(x: number, z: number): number
-		return MT.heightAt(map, x, z)
+		local hit = workspace:Raycast(Vector3.new(x, 300, z), Vector3.new(0, -600, 0), params)
+		return if hit then hit.Position.Y else MT.heightAt(map, x, z)
+	end
+	-- highest real ground under a small footprint (so nothing sinks on a slope)
+	local function groundUnder(x: number, z: number, r: number): number
+		local y = ground(x, z)
+		for _, o in { { r, 0 }, { -r, 0 }, { 0, r }, { 0, -r } } do
+			y = math.max(y, ground(x + o[1], z + o[2]))
+		end
+		return y
 	end
 	local function folder(parent: Instance, name: string): Folder
 		local f = Instance.new("Folder")
@@ -76,7 +91,7 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 	local tops = {}
 	for i, p in layout.poles do
 		local pole = poleTemplate:Clone()
-		local pos = Vector3.new(p.x, ground(p.x, p.z), p.z)
+		local pos = Vector3.new(p.x, groundUnder(p.x, p.z, 0.5), p.z)
 		-- crossarm across the road so the wires run along it
 		pole:PivotTo(CFrame.lookAt(pos, pos + Vector3.new(p.dx, 0, p.dz)) * CFrame.Angles(0, math.pi / 2, 0))
 		pole.Parent = pf
@@ -112,7 +127,9 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 		if carIndex then
 			deps.Props.paint(m, palette, carIndex)
 		end
-		m:PivotTo(CFrame.new(x, ground(x, z), z) * CFrame.Angles(0, math.rad(yaw), 0))
+		local _, size = m:GetBoundingBox()
+		local r = math.max(size.X, size.Z) / 2
+		m:PivotTo(CFrame.new(x, groundUnder(x, z, r), z) * CFrame.Angles(0, math.rad(yaw), 0))
 		m.Parent = props
 		stats.props += 1
 	end
