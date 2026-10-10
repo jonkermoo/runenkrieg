@@ -16,12 +16,24 @@ export type Entry = {
 	generator: string?, -- script that regenerates the source
 	description: string,
 	variants: { [string]: { string } }?, -- named mesh groups inside the kit
+	-- gear worn as a rigid Accessory: which character attachment it hangs on, its flat palette color, and
+	-- `brim`, the height of its bottom edge above the head's center (studs)
+	fit: { attachment: string, color: { number }, brim: number }?,
 }
 
 local Assets = {
 	Categories = { "Foliage", "Buildings", "Props", "Vehicles", "Weapons", "Characters", "VFX" },
 
 	Entries = {
+		HelmetBrodie = {
+			id = 91232491229419,
+			category = "Characters",
+			folder = "Gear",
+			source = "assets/characters/gear/helmet_brodie.fbx",
+			generator = "tools/blender/gear/helmet.py",
+			description = "WW1 Brodie helmet: 10 flat sides, short down-sloping brim (158 tris), 1.76 studs across.",
+			fit = { attachment = "HatAttachment", color = { 104, 104, 72 }, brim = 0.16 },
+		},
 		TreeKit = {
 			id = 78828564935129,
 			category = "Foliage",
