@@ -27,13 +27,13 @@ local Assets = {
 
 	Entries = {
 		HelmetM33 = {
-			id = 86556223355950,
+			id = 103818128908069,
 			category = "Characters",
 			folder = "Gear",
 			source = "assets/characters/gear/helmet_m33.fbx",
 			generator = "tools/blender/gear/helmet.py",
 			description = "M33-style helmet, olive team: rounded dome worn low, rim raised at the front, arched over the ears, "
-				.. "lower at the back; 3 facet bands + flat crown, 12 sides (192 tris).",
+				.. "lower at the back; side band, straight slope, flat crown, 12 sides (168 tris).",
 			-- color = OliveField uniform cloth; brim = the lowest rim point (the back)
 			fit = { attachment = "HatAttachment", color = { 116, 114, 72 }, brim = -0.18 },
 		},
