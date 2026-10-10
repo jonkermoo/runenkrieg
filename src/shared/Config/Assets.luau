@@ -27,12 +27,12 @@ local Assets = {
 
 	Entries = {
 		HelmetM33Goggles = {
-			id = 74015827718823,
+			id = 89737787734153,
 			category = "Characters",
 			folder = "Gear",
 			source = "assets/characters/gear/helmet_m33_goggles.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "HelmetM33 with a leather strap and goggles on the front facets; flat blue lenses. Olive team.",
+			description = "HelmetM33 with a leather strap and big aviator goggles riding on the front slope; flat blue lenses. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
