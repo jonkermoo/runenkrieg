@@ -34,6 +34,51 @@ local Assets = {
 	Categories = { "Foliage", "Buildings", "Props", "Vehicles", "Weapons", "Characters", "VFX" },
 
 	Entries = {
+		Webbing1 = {
+			id = 84046347370958,
+			category = "Characters",
+			folder = "Gear",
+			source = "assets/characters/gear/webbing_breadbag.fbx",
+			generator = "tools/blender/gear/webbing.py",
+			description = "Webbing: shoulder bands + belt, two big pouches on the torso's sides under the arms, a wide front pouch.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (variant `breadbag`)
+			fit = {
+				attachment = "Torso",
+				color = { 150, 104, 80 },
+				brim = 0,
+				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
+			},
+		},
+		Webbing2 = {
+			id = 82520824821944,
+			category = "Characters",
+			folder = "Gear",
+			source = "assets/characters/gear/webbing_canteen.fbx",
+			generator = "tools/blender/gear/webbing.py",
+			description = "Webbing: tab-pouch model - two tall pouches on the bands at chest height, one wide pouch on the front left.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (variant `canteen`)
+			fit = {
+				attachment = "Torso",
+				color = { 150, 104, 80 },
+				brim = 0,
+				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
+			},
+		},
+		Webbing3 = {
+			id = 104179782361178,
+			category = "Characters",
+			folder = "Gear",
+			source = "assets/characters/gear/webbing_spellbook.fbx",
+			generator = "tools/blender/gear/webbing.py",
+			description = "Webbing: strap-pouch model - two medium pouches out to the torso edges, one big extra-bulky center pouch.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (variant `spellbook`)
+			fit = {
+				attachment = "Torso",
+				color = { 150, 104, 80 },
+				brim = 0,
+				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
+			},
+		},
 		HelmetStahl = {
 			id = 116385902519252,
 			category = "Characters",
