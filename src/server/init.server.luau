@@ -32,6 +32,7 @@ for _, p in Players:GetPlayers() do
 	p.CharacterAdded:Connect(assign)
 end
 
+require(script.Bodies).start()
 require(script.Doors).start()
 require(script.DevTools).start()
 

@@ -20,7 +20,6 @@ export type Template = {
 	gableChimney: number?, -- external chimney breast on the -1 / +1 gable end
 	roofStyle: string?, -- "Thatch" (thick, rounded) or "Tile" (default)
 	wallThickness: number?, -- defaults to WallThickness
-	window: { w: number, bottom: number, top: number }?, -- defaults from Metrics.Building
 	quoins: boolean?, -- stone corner blocks
 	backDoor: boolean?,
 	description: string,
@@ -28,6 +27,9 @@ export type Template = {
 
 local Buildings = {
 	RoofOverhang = 1.4,
+	Quoin = { long = 2.0, short = 1.3, block = 1.6 }, -- corner stones
+	OpeningMargin = 0.35, -- clear gap between an opening's frame and any quoin, chimney or other opening
+	FramePost = 0.5, -- width of the timber posts either side of an opening
 	Foundation = 0.6, -- floor top above the highest ground under the footprint
 	WallThickness = 1,
 
@@ -47,7 +49,6 @@ local Buildings = {
 			walls = { "Whitewash", "Cream", "Ochre", "Stone" },
 			roofs = { "Thatch", "ThatchDark", "ThatchWeathered" },
 			gableChimney = -1, -- external chimney breast on the -X gable end
-			window = { w = 2.6, bottom = 3.8, top = 6.4 }, -- small, deep-set
 			quoins = true,
 			description = "Thatched one-story cottage: thick rounded thatch, gable chimney, small deep windows, plank door, stone plinth and quoins.",
 		},

@@ -50,4 +50,16 @@ return {
 	["capture zones do not overlap"] = function()
 		assert(M.Sector.CaptureRadius * 2 < M.Sector.Spacing, "adjacent capture zones overlap")
 	end,
+	["doors and windows are proportional to the soldier body"] = function()
+		local C, Bm = M.Character, M.Building
+		local function near(v: number, target: number, tol: number): boolean
+			return math.abs(v - target) <= tol
+		end
+		assert(near(Bm.DoorWidth, 1.15 * C.Width, 0.15), "door width should be ~1.15 x body width")
+		assert(near(Bm.DoorHeight, 1.3 * C.Height, 0.2), "door height should be ~1.3 x body height")
+		assert(near(Bm.WindowSill, 0.6 * C.Height, 0.2), "window sill should be ~0.6 x body height")
+		assert(near(Bm.WindowTop, 1.2 * C.Height, 0.2), "window top should be ~1.2 x body height")
+		assert(Bm.WindowSill < C.AimMuzzleHeight - 0.5, "rifle must clear the sill when standing")
+		assert(Bm.WindowTop > C.EyeHeight + 1, "eyes must be inside the window opening")
+	end,
 }

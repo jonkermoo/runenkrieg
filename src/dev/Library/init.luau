@@ -67,6 +67,7 @@ function Library.ensure(entryName: string): Model
 			B = fresh(shared().Config.Buildings),
 			D = fresh(shared().Config.Destruction),
 			M = fresh(shared().Config.Metrics),
+			O = fresh(shared().Rules.Openings),
 		}
 		local model = Buildings.build(e.template, deps)
 		model.Name = entryName

@@ -18,6 +18,9 @@ local Metrics = {
 		EyeHeight = 4.49, -- FaceCenterAttachment
 		AimMuzzleHeight = 4.3, -- estimate: shouldered rifle, sights at eye
 		HipHeight = 2.0,
+		-- Uniform soldier body applied to every player on spawn (src/server/Bodies). User decision
+		-- 2026-10-10: the standard R15 body for everyone, so hitboxes are fair and buildings fit.
+		Scales = { Height = 1, Width = 1, Depth = 1, Head = 1, BodyType = 0, Proportion = 0 },
 	},
 
 	Movement = {
@@ -45,10 +48,12 @@ local Metrics = {
 	},
 
 	Building = {
-		DoorWidth = 5.0,
-		DoorHeight = 7.5,
-		WindowSill = 3.5, -- chest height: shoot out while standing
-		WindowTop = 6.5,
+		-- Openings are proportional to the soldier body (tests/metrics.spec.luau enforces the ratios):
+		DoorWidth = 4.6, -- 1.15 x body width (4.0)
+		DoorHeight = 6.8, -- 1.3 x body height (5.19)
+		WindowWidth = 3.4, -- ~0.65 x body height
+		WindowSill = 3.1, -- 0.6 x height: below the aimed muzzle, so you can shoot out standing
+		WindowTop = 6.2, -- 1.2 x height: above eye level
 		StoryHeight = 12.0, -- floor to floor
 		StairRise = 0.8, -- max; actual = StoryHeight / ceil(StoryHeight / StairRise)
 		StairRun = 1.2,

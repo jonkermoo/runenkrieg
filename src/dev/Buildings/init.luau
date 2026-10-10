@@ -11,55 +11,10 @@ local Geometry = require(script.Geometry)
 
 local Buildings = {}
 
-type Deps = { B: any, D: any, M: any }
+type Deps = { B: any, D: any, M: any, O: any } -- O = Rules/Openings
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
-end
-
--- Window/door plan for one wall of one story. sections = widths; doorIndex = the center section.
-local function plan(
-	t: any,
-	M: any,
-	side: string,
-	story: number,
-	n: number,
-	doorIndex: number?
-): { [number]: Geometry.Opening? }
-	local Bm = M.Building
-	local tw = t.window or { w = 3, bottom = Bm.WindowSill, top = Bm.WindowTop }
-	local win: Geometry.Opening = { kind = "window", w = tw.w, bottom = tw.bottom, top = tw.top }
-	local out: { [number]: Geometry.Opening? } = {}
-	if side == "front" then
-		for i = 1, n do
-			if story == 0 and i == doorIndex then
-				out[i] = { kind = "door", w = Bm.DoorWidth, bottom = 0, top = Bm.DoorHeight }
-			elseif story > 0 then
-				if n <= 2 or (i > 1 and i < n) then
-					out[i] = win
-				end
-			elseif (i - (doorIndex or 0)) % 2 == 1 then
-				out[i] = win
-			end
-		end
-	elseif side == "back" then
-		for i = 1, n do
-			if story == 0 and t.backDoor and i == 1 then
-				-- section 1 of the back wall is the building's +X end (the back frame is rotated 180),
-				-- past the end of the stair flight, which starts at -X
-				out[i] = { kind = "door", w = Bm.DoorWidth, bottom = 0, top = Bm.DoorHeight }
-			elseif i % 2 == 0 or n <= 2 then
-				out[i] = win
-			end
-		end
-	else
-		for i = 1, n do
-			if n <= 2 or i == math.floor(n / 2) + 1 then
-				out[i] = win
-			end
-		end
-	end
-	return out
 end
 
 -- Walls (with windows + doors), floors, stairs and ceiling.
@@ -86,29 +41,54 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 	local inner = { -W / 2 + T, W / 2 - T, -Dp / 2 + T, Dp / 2 - T }
 	for story = 0, t.stories - 1 do
 		local y = floorTop + story * H
-		local frontW = M.Building.DoorWidth + 1
-		local frontSections, doorIndex = Geometry.layout(W, D.SectionWidth, if story == 0 then frontW else nil)
-		local backSections = Geometry.layout(W, D.SectionWidth)
-		local sideSections = Geometry.layout(Dp - 2 * T, D.SectionWidth)
+		local Bm = M.Building
+		local ocfg = { margin = B.OpeningMargin, post = B.FramePost, sectionWidth = D.SectionWidth }
+		local heights = { door = { 0, Bm.DoorHeight }, window = { Bm.WindowSill, Bm.WindowTop } }
+		-- keep-outs (wall-local u, symmetric): corner quoins, and the chimney breast on its gable
+		local function ends(L: number, cornerAt: number): { { number } }
+			if not t.quoins then
+				return {}
+			end
+			local inward = cornerAt + 0.25 - B.Quoin.long -- inner edge of the quoins along this wall
+			return { { -L / 2, -inward }, { inward, L / 2 } }
+		end
+		local sideL = Dp - 2 * T
 		local walls = {
-			{ "front", CFrame.new(0, y, -Dp / 2 + T / 2), frontSections },
-			{ "back", CFrame.new(0, y, Dp / 2 - T / 2) * CFrame.Angles(0, math.pi, 0), backSections },
-			{ "left", CFrame.new(-W / 2 + T / 2, y, 0) * CFrame.Angles(0, math.pi / 2, 0), sideSections },
-			{ "right", CFrame.new(W / 2 - T / 2, y, 0) * CFrame.Angles(0, -math.pi / 2, 0), sideSections },
+			{
+				"front",
+				CFrame.new(0, y, -Dp / 2 + T / 2),
+				W,
+				ends(W, W / 2),
+				if story == 0 then Bm.DoorWidth else nil,
+				2,
+			},
+			{ "back", CFrame.new(0, y, Dp / 2 - T / 2) * CFrame.Angles(0, math.pi, 0), W, ends(W, W / 2), nil, 2 },
+			{
+				"left",
+				CFrame.new(-W / 2 + T / 2, y, 0) * CFrame.Angles(0, math.pi / 2, 0),
+				sideL,
+				ends(sideL, Dp / 2),
+				nil,
+				1,
+			},
+			{
+				"right",
+				CFrame.new(W / 2 - T / 2, y, 0) * CFrame.Angles(0, -math.pi / 2, 0),
+				sideL,
+				ends(sideL, Dp / 2),
+				nil,
+				1,
+			},
 		}
+		if t.gableChimney then
+			local w = if t.gableChimney < 0 then walls[3] else walls[4]
+			table.insert(w[4], { -2.1, 2.1 }) -- chimney breast is 4.2 wide, centered on the gable
+		end
 		local count = 0
 		for _, w in walls do
-			local secs = w[3]
-			Geometry.wall(
-				model,
-				ctx,
-				cf * w[2],
-				H,
-				story,
-				secs,
-				plan(t, M, w[1], story, #secs, if w[1] == "front" then doorIndex else nil)
-			)
-			count += #secs
+			local sections = deps.O.layout(w[3], w[4], w[5], Bm.WindowWidth, w[6], ocfg)
+			Geometry.wall(model, ctx, cf * w[2], H, story, sections, heights)
+			count += #sections
 		end
 		wallCounts[story] = count
 		if story >= 1 then

@@ -71,27 +71,6 @@ function Geometry.section(parent: Instance, ctx: Ctx, kind: string, class: strin
 	return m
 end
 
--- Section widths for a wall of length L: ~SectionWidth each; an optional wider center section
--- (for wide doors) is kept whole and the rest split evenly either side.
-function Geometry.layout(L: number, sw: number, centerWidth: number?): ({ number }, number?)
-	if not centerWidth or centerWidth <= sw then
-		local n = math.max(1, math.floor(L / sw))
-		local out = table.create(n, L / n)
-		return out, math.floor(n / 2) + 1
-	end
-	local side = (L - centerWidth) / 2
-	local k = math.max(1, math.floor(side / sw))
-	local out = {}
-	for _ = 1, k do
-		table.insert(out, side / k)
-	end
-	table.insert(out, centerWidth)
-	for _ = 1, k do
-		table.insert(out, side / k)
-	end
-	return out, k + 1
-end
-
 -- Small deep-set window: glass recessed toward the inside, one chunky cross bar.
 local function glass(parent: Instance, ctx: Ctx, frame: CFrame, c: number, o: Opening, story: number)
 	local g = Geometry.section(parent, ctx, "Glass", "Glass", story)
@@ -174,18 +153,26 @@ function Geometry.wall(
 	frame: CFrame,
 	H: number,
 	story: number,
-	sections: { number },
-	openings: { [number]: Opening? }
+	sections: { any }, -- Rules/Openings.layout sections: { w, opening? }
+	heights: { door: { number }, window: { number } } -- {bottom, top} per opening kind
 )
 	local L = 0
-	for _, w in sections do
-		L += w
+	for _, s in sections do
+		L += s.w
 	end
 	local T = ctx.T
 	local u0 = -L / 2
-	for i, sw in sections do
+	for _, s in sections do
+		local sw = s.w
 		local sec = Geometry.section(parent, ctx, "Wall", ctx.class, story)
-		local o = openings[i]
+		local o: Opening? = if s.opening
+			then {
+				kind = s.opening.kind,
+				w = s.opening.w,
+				bottom = heights[s.opening.kind][1],
+				top = heights[s.opening.kind][2],
+			}
+			else nil
 		local function box(a: number, b: number, y0: number, y1: number)
 			if b - a > 0.05 and y1 - y0 > 0.05 then
 				Geometry.part(
@@ -199,8 +186,8 @@ function Geometry.wall(
 			end
 		end
 		if o then
-			local w = math.min(o.w, sw - 1)
-			local c = u0 + sw / 2 + jitter(ctx, 11) * 0.3 -- openings not perfectly centered: hand-made
+			local w = o.w
+			local c = u0 + sw / 2
 			local oo: Opening = { kind = o.kind, w = w, bottom = o.bottom, top = math.min(o.top, H - 0.8) }
 			box(u0, c - w / 2, 0, H)
 			box(c + w / 2, u0 + sw, 0, H)
@@ -495,14 +482,15 @@ end
 -- Stone corner blocks, alternating long/short up each corner.
 function Geometry.quoins(parent: Instance, ctx: Ctx, W: number, Dp: number, y0: number, y1: number)
 	local sec = Geometry.section(parent, ctx, "Quoins", "Stone", 0)
-	local block = 1.6
+	local q = ctx.B.Quoin
+	local block = q.block
 	for _, c in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
 		local k = 0
 		local y = y0
 		while y + block <= y1 + 0.01 do
 			local long = k % 2 == 0
-			local sx = if long then 2.4 else 1.5
-			local sz = if long then 1.5 else 2.4
+			local sx = if long then q.long else q.short
+			local sz = if long then q.short else q.long
 			local px = c[1] * (W / 2 - sx / 2 + 0.25)
 			local pz = c[2] * (Dp / 2 - sz / 2 + 0.25)
 			Geometry.part(
