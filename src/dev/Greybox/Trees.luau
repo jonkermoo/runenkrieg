@@ -1,10 +1,8 @@
 --!strict
--- Places low-poly tree meshes from the uploaded tree kit (Config/Assets.TreeKit).
+-- Places low-poly tree meshes from the library's TreeKit (Config/Assets.Entries.TreeKit).
 -- Trunks collide; canopies block shots/sight (CanQuery) but not movement.
 
 local CollectionService = game:GetService("CollectionService")
-local InsertService = game:GetService("InsertService")
-local ServerStorage = game:GetService("ServerStorage")
 
 local Trees = {}
 
@@ -12,37 +10,10 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
--- The kit model, loading it into ServerStorage.Assets if this place does not have it yet.
-local function getKit(kitCfg: any): Model
-	local folder = ServerStorage:FindFirstChild("Assets")
-	if not folder then
-		folder = Instance.new("Folder")
-		folder.Name = "Assets"
-		folder.Parent = ServerStorage
-	end
-	local kit = (folder :: Instance):FindFirstChild("TreeKit")
-	if kit and kit:GetAttribute("AssetId") == kitCfg.id then
-		return kit :: Model
-	end
-	if kit then
-		kit:Destroy()
-	end
-	local loaded = InsertService:LoadAsset(kitCfg.id)
-	local model = (loaded:FindFirstChildWhichIsA("Model") or loaded) :: Model
-	model.Name = "TreeKit"
-	model:SetAttribute("AssetId", kitCfg.id)
-	model.Parent = folder
-	if model ~= loaded then
-		loaded:Destroy()
-	end
-	return model
-end
-
 -- One template Model per variant: pivot at the trunk base, scaled to the kind's target height.
-local function buildTemplates(kitCfg: any): { [string]: { Model } }
-	local kit = getKit(kitCfg)
+local function buildTemplates(kit: Model, entry: any, heights: any): { [string]: { Model } }
 	local out = {}
-	for kind, names in kitCfg.variants do
+	for kind, names in entry.variants do
 		out[kind] = {}
 		for _, name in names do
 			local trunk = kit:FindFirstChild(name .. "_Trunk") :: MeshPart
@@ -69,7 +40,7 @@ local function buildTemplates(kitCfg: any): { [string]: { Model } }
 			local baseY = t.Position.Y - t.Size.Y / 2
 			local topY = c.Position.Y + c.Size.Y / 2
 			m.WorldPivot = CFrame.new(t.Position.X, baseY, t.Position.Z)
-			m:ScaleTo(kitCfg.targetHeight[kind] / (topY - baseY))
+			m:ScaleTo(heights[kind] / (topY - baseY))
 			table.insert(out[kind], m)
 		end
 	end
@@ -77,9 +48,17 @@ local function buildTemplates(kitCfg: any): { [string]: { Model } }
 end
 
 -- placements defaults to the map's natural trees (Rules/MapTerrain.trees).
-function Trees.build(parent: Instance, map: any, MT: any, assets: any, palette: any, placements: { any }?): number
-	local kitCfg = assets.TreeKit
-	local templates = buildTemplates(kitCfg)
+-- kit = the TreeKit library model (src/dev/Library.ensure("TreeKit")).
+function Trees.build(
+	parent: Instance,
+	map: any,
+	MT: any,
+	kit: Model,
+	assets: any,
+	palette: any,
+	placements: { any }?
+): number
+	local templates = buildTemplates(kit, assets.Entries.TreeKit, assets.TreeTargetHeight)
 	placements = placements or MT.trees(map)
 	assert(placements, "no tree placements")
 	local bucket: Instance = parent

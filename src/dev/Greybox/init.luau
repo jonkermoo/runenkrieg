@@ -31,6 +31,8 @@ function Greybox.build(mapName: string): string
 	local B = fresh(Shared.Config.Buildings)
 	local palette = fresh(Shared.Config.Palette)
 	local VillageRules = fresh(Shared.Rules.Village)
+	local Library = fresh(game:GetService("ServerStorage").Dev.Library)
+	local treeKit = Library.ensure("TreeKit")
 	local map = fresh(Shared.Config.Maps:FindFirstChild(mapName) :: Instance)
 	Parts.reset()
 
@@ -48,13 +50,13 @@ function Greybox.build(mapName: string): string
 	root.Name = mapName
 	root.Parent = workspace
 
-	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, assets, palette)
+	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette)
 	-- Village: roads are painted into the terrain by Rules/MapTerrain. Buildings are not built yet
 	-- (to be restyled); their lots stay reserved as clearings that garden trees avoid.
 	local villageStats = ""
 	if map.village then
 		local layout = VillageRules.layout(map, B, M, MT)
-		Trees.build(Parts.folder(root, "VillageTrees"), map, MT, assets, palette, layout.trees)
+		Trees.build(Parts.folder(root, "VillageTrees"), map, MT, treeKit, assets, palette, layout.trees)
 		villageStats =
 			string.format(" Village: roads + %d garden trees, %d lots reserved.", #layout.trees, #layout.lots)
 	end

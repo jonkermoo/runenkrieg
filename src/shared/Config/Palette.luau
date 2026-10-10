@@ -20,6 +20,17 @@ local Palette = {
 		Bark = { 98, 74, 58 },
 		BirchBark = { 214, 210, 196 },
 	},
+	-- Grass tufts: a few shades around the terrain grass so tufts read as part of the ground.
+	GrassTufts = { { 112, 148, 74 }, { 100, 136, 68 }, { 124, 156, 80 }, { 94, 128, 64 } },
+	-- UI: flat panels, one outline thickness everywhere.
+	UI = {
+		panel = { 44, 50, 42 },
+		button = { 64, 72, 60 },
+		accent = { 120, 150, 80 },
+		outline = { 24, 28, 22 },
+		text = { 236, 232, 220 },
+		stroke = 2,
+	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
 }
 
