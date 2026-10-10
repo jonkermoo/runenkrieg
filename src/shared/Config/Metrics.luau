@@ -19,17 +19,7 @@ local Metrics = {
 		EyeHeight = 4.5, -- FaceCenterAttachment
 		AimMuzzleHeight = 4.3, -- estimate: shouldered rifle, sights at eye
 		LegLength = 2.0,
-		MaxStepUp = 1.0,
-		-- Female body (dev dummy, 2026-10-10; not on players yet): legs 0.2 shorter, thinner arms, and the
-		-- hourglass torso mesh (tools/blender/female_torso.py, mesh model 129802340500096) welded over the
-		-- invisible standard Torso, which stays the hitbox.
-		Female = {
-			Height = 4.93,
-			LegLength = 1.8,
-			ArmSize = { 0.8, 1.9, 0.85 }, -- X, Y, Z studs (standard 1, 2, 1)
-			TorsoMeshAsset = 129802340500096,
-			ArmInset = 0.14, -- arms move in to hug the narrower shoulders (half width 0.86)
-		}, -- estimate: tallest ledge an R6 humanoid walks up without jumping
+		MaxStepUp = 1.0, -- estimate: tallest ledge an R6 humanoid walks up without jumping
 	},
 
 	Movement = {
