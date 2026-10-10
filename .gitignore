@@ -1,0 +1,10 @@
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+build/
+roblox.yml
+sourcemap.json
+.env
+*.blend1
+assets/_cache/
