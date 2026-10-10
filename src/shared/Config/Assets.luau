@@ -18,14 +18,28 @@ export type Entry = {
 	variants: { [string]: { string } }?, -- named mesh groups inside the kit
 	-- gear worn as a rigid Accessory: which character attachment it hangs on, its color (a team's helmet in that
 	-- team's color; light white-grey while it has no team), and `brim`, the height of its bottom edge above the
-	-- head's center (studs)
-	fit: { attachment: string, color: { number }, brim: number }?,
+	-- head's center (studs). `parts` colors extra meshes welded to the handle (one flat color each)
+	fit: { attachment: string, color: { number }, brim: number, parts: { [string]: { number } }? }?,
 }
 
 local Assets = {
 	Categories = { "Foliage", "Buildings", "Props", "Vehicles", "Weapons", "Characters", "VFX" },
 
 	Entries = {
+		HelmetM33Goggles = {
+			id = 74015827718823,
+			category = "Characters",
+			folder = "Gear",
+			source = "assets/characters/gear/helmet_m33_goggles.fbx",
+			generator = "tools/blender/gear/helmet.py",
+			description = "HelmetM33 with a leather strap and goggles on the front facets; flat blue lenses. Olive team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 116, 114, 72 },
+				brim = -0.18,
+				parts = { Strap = { 106, 72, 46 }, Lens = { 86, 150, 214 } },
+			},
+		},
 		HelmetM33 = {
 			id = 96856831451407,
 			category = "Characters",
