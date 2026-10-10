@@ -12,6 +12,7 @@ local Uniforms = {
 			shirt = 111439602118520, -- decal 121662410098818
 			pants = 82001103410866, -- decal 121600662647379
 			skin = { 226, 176, 104 },
+			headwear = "HelmetStahl", -- Config/Assets entry
 		},
 		OliveField = {
 			source = "assets/characters/uniforms/olive_field.json",

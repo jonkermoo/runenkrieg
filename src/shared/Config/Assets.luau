@@ -18,14 +18,33 @@ export type Entry = {
 	variants: { [string]: { string } }?, -- named mesh groups inside the kit
 	-- gear worn as a rigid Accessory: which character attachment it hangs on, its color (a team's helmet in that
 	-- team's color; light white-grey while it has no team), and `brim`, the height of its bottom edge above the
-	-- head's center (studs). `parts` colors extra meshes welded to the handle (one flat color each)
-	fit: { attachment: string, color: { number }, brim: number, parts: { [string]: { number } }? }?,
+	-- head's center (studs). `parts` colors extra meshes welded to the handle (one flat color each). `attach` is the
+	-- exact HatAttachment position in the handle when the mesh isn't front/back symmetric (its bounding-box center
+	-- is off the axis; tools/blender/gear/helmet.py prints it)
+	fit: {
+		attachment: string,
+		color: { number },
+		brim: number,
+		parts: { [string]: { number } }?,
+		attach: { number }?,
+	}?,
 }
 
 local Assets = {
 	Categories = { "Foliage", "Buildings", "Props", "Vehicles", "Weapons", "Characters", "VFX" },
 
 	Entries = {
+		HelmetStahl = {
+			id = 92122806867809,
+			category = "Characters",
+			folder = "Gear",
+			source = "assets/characters/gear/helmet_stahl.fbx",
+			generator = "tools/blender/gear/helmet.py",
+			description = "Stahlhelm-style helmet, grey team: deep dome, short front visor, skirt flaring over the ears and "
+				.. "neck; 12 flat sides (216 tris). No national decal (fictional nations).",
+			-- rim baseline 0.15 below the head center; the back of the skirt is the lowest point
+			fit = { attachment = "HatAttachment", color = { 80, 82, 86 }, brim = -0.27, attach = { 0, 0.31, -0.045 } },
+		},
 		HelmetM33Goggles = {
 			id = 89737787734153,
 			category = "Characters",
