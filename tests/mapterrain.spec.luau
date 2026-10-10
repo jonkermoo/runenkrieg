@@ -82,17 +82,25 @@ return {
 		end)
 		assert(sum / n > 0.25, `ground too flat: {sum / n}`)
 	end,
-	["reserved areas are flat"] = function()
-		for _, r in Map1.reserved do
-			if r.baseY ~= nil then
-				for x = r.minX, r.maxX, 10 do
-					for z = r.minZ, r.maxZ, 10 do
-						if not T.isRiver(Map1, x, z) then
-							assert(math.abs(T.heightAt(Map1, x, z) - r.baseY) < 0.01, `{r.id} not flat at {x},{z}`)
-						end
+	["no flattened areas: the village is as uneven as open ground"] = function()
+		local function roughness(x0: number, x1: number): number
+			local sum, n = 0, 0
+			for x = x0, x1, 23 do
+				for z = b.minZ, b.maxZ, 23 do
+					if not T.isRiver(Map1, x, z) then
+						sum += math.abs(T.heightAt(Map1, x + 6, z) - T.heightAt(Map1, x, z))
+						n += 1
 					end
 				end
 			end
+			return sum / n
+		end
+		local village = roughness(1150, 1900)
+		assert(village > 0.3, `village terrain too flat: {village}`)
+		local open = roughness(-150, 480)
+		assert(open > 0.3, `open ground too flat: {open}`)
+		for _, r in Map1.reserved do
+			assert(r.baseY == nil, `{r.id} is still flattened`)
 		end
 	end,
 	["river is water-deep except at fords, which are wadeable"] = function()

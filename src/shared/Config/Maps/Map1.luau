@@ -56,13 +56,13 @@ local Map1 = {
 		maxY = 96, -- top of the voxel slab (room for the hills outside the bounds)
 		baseAmp = 8, -- broad rolling hills
 		baseScale = 260,
-		midAmp = 3.5, -- swells
+		midAmp = 5, -- swells
 		midScale = 110,
-		detailAmp = 1.4, -- uneven ground
+		detailAmp = 3.2, -- uneven ground
 		detailScale = 45,
-		bumpAmp = 0.5, -- small bumps underfoot
+		bumpAmp = 1.0, -- small bumps underfoot
 		bumpScale = 16,
-		moundAmp = 6, -- occasional knolls (cover on open ground)
+		moundAmp = 7, -- occasional knolls (cover on open ground)
 		moundScale = 70,
 		moundThreshold = 0.25,
 		patchThreshold = 0.45, -- dirt patches where patch noise exceeds this
@@ -96,7 +96,8 @@ local Map1 = {
 	},
 	-- Flat, tree-free areas held for buildings designed later.
 	reserved = {
-		{ id = "Village", minX = 1110, maxX = 1950, minZ = -330, maxZ = 330, falloff = 60, baseY = 0 },
+		-- Natural (not flattened): buildings will sit on foundations. Kept clear of natural trees.
+		{ id = "Village", minX = 1110, maxX = 1950, minZ = -330, maxZ = 330 },
 		{ id = "Farm", minX = 850, maxX = 960, minZ = -30, maxZ = 130, falloff = 30 },
 	},
 
