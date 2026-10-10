@@ -8,3 +8,4 @@ sourcemap.json
 .env
 *.blend1
 assets/_cache/
+__pycache__/
