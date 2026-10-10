@@ -13,6 +13,12 @@ local Uniforms = {
 			pants = 82001103410866, -- decal 121600662647379
 			skin = { 226, 176, 104 },
 		},
+		OliveField = {
+			source = "assets/characters/uniforms/olive_field.json",
+			shirt = 75897172685374, -- decal 79208999260637
+			pants = 78199869429201, -- decal 112322397513846
+			skin = { 226, 176, 104 },
+		},
 	},
 }
 
