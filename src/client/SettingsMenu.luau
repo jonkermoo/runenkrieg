@@ -131,6 +131,11 @@ function SettingsMenu.start()
 
 	gear.Activated:Connect(function()
 		panel.Visible = not panel.Visible
+		local tp = Players.LocalPlayer.PlayerGui:FindFirstChild("DevTeleportMenu")
+		local tpPanel = tp and tp:FindFirstChild("Panel") :: GuiObject?
+		if tpPanel and panel.Visible then
+			tpPanel.Visible = false
+		end
 	end)
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 end

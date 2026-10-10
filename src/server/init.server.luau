@@ -33,5 +33,6 @@ for _, p in Players:GetPlayers() do
 end
 
 require(script.Doors).start()
+require(script.DevTools).start()
 
 print("[runenkrieg] server started")

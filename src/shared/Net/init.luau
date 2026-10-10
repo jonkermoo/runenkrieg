@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 
 local Remotes: { string } = {
 	"Explosion", -- server -> clients: (position: Vector3, radius: number, strength: number?) visual response
+	"DevTeleport", -- client -> server: (destinationId: string); server checks the DevTools attribute
 	"SectionBroken", -- server -> clients: (pieces: {{cf, size, color, t}}, origin: Vector3) debris to spawn
 }
 local Functions: { string } = {}
