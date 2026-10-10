@@ -22,6 +22,40 @@ local Palette = {
 	},
 	-- Grass tufts: a few shades around the terrain grass so tufts read as part of the ground.
 	GrassTufts = { { 112, 148, 74 }, { 100, 136, 68 }, { 124, 156, 80 }, { 94, 128, 64 } },
+	-- Buildings: copies of one template pick a color per role (walls/roof/trim/door) from these,
+	-- so repeated shapes still read as different houses while sharing one tone.
+	Buildings = {
+		Walls = {
+			Whitewash = { 232, 228, 214 },
+			Cream = { 226, 214, 186 },
+			Sand = { 210, 192, 158 },
+			Sage = { 172, 182, 152 },
+			Stone = { 196, 190, 176 },
+			Brick = { 162, 94, 74 },
+			RedBrick = { 142, 80, 64 },
+			WhiteBoard = { 222, 220, 208 },
+			TarBoard = { 76, 66, 60 },
+			BarnRed = { 140, 72, 58 },
+		},
+		Roofs = {
+			Slate = { 76, 80, 88 },
+			Terracotta = { 152, 86, 66 },
+			Brown = { 106, 82, 68 },
+			DarkTile = { 88, 76, 72 },
+			Moss = { 98, 106, 86 },
+		},
+		Trim = { { 240, 236, 226 }, { 76, 66, 60 }, { 100, 76, 60 } },
+		Doors = { { 100, 76, 60 }, { 72, 86, 66 }, { 122, 62, 54 }, { 62, 72, 88 } },
+		Floor = { 124, 98, 74 },
+		Stairs = { 112, 88, 66 },
+		Foundation = { 130, 126, 118 },
+		Chimney = { 142, 84, 66 },
+		Glass = { 156, 190, 198 },
+		GlassTransparency = 0.35,
+		Metal = { 62, 62, 64 },
+		Sign = { 222, 208, 172 },
+		Wood = { 112, 86, 64 },
+	},
 	-- UI: flat panels, one outline thickness everywhere.
 	UI = {
 		panel = { 44, 50, 42 },

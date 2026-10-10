@@ -57,13 +57,31 @@ function Library.ensure(entryName: string): Model
 	local root = folder(ReplicatedStorage, "Assets")
 	local target = folder(folder(root, e.category), e.folder)
 	local existing = target:FindFirstChild(entryName)
+	if e.template then
+		-- procedural: always rebuilt from code + config so the library matches the repo
+		if existing then
+			existing:Destroy()
+		end
+		local Buildings = fresh(ServerStorage:WaitForChild("Dev"):WaitForChild("Buildings"))
+		local deps = {
+			B = fresh(shared().Config.Buildings),
+			D = fresh(shared().Config.Destruction),
+			M = fresh(shared().Config.Metrics),
+		}
+		local model = Buildings.build(e.template, deps)
+		model.Name = entryName
+		model:SetAttribute("Procedural", true)
+		model:SetAttribute("Description", e.description)
+		model.Parent = target
+		return model
+	end
 	if existing and existing:GetAttribute("AssetId") == e.id then
 		return existing :: Model
 	end
 	if existing then
 		existing:Destroy()
 	end
-	local loaded = InsertService:LoadAsset(e.id)
+	local loaded = InsertService:LoadAsset(e.id :: number)
 	local model = (loaded:FindFirstChildWhichIsA("Model") or loaded) :: Model
 	model.Name = entryName
 	model:SetAttribute("AssetId", e.id)
@@ -132,20 +150,55 @@ function Library.gallery(): string
 		return a < b
 	end)
 
+	local Bcfg = fresh(shared().Config.Buildings)
+	local RulesD = fresh(shared().Rules.Destruction)
+	local Buildings = fresh(ServerStorage:WaitForChild("Dev"):WaitForChild("Buildings"))
 	local z = 0
 	local width = 0
 	for _, name in names do
 		local e = A.Entries[name]
 		local src = ReplicatedStorage.Assets[e.category][e.folder][name] :: Model
-		local copy = src:Clone()
-		for _, d in copy:GetDescendants() do
-			if d:IsA("BasePart") then
-				previewColor(d, palette)
+		local copy: Model
+		if e.template then
+			-- buildings: the same template in several color schemes, side by side
+			local t = Bcfg.Templates[e.template]
+			copy = Instance.new("Model")
+			copy.Name = name
+			-- pick seeds whose schemes show different wall AND roof colors
+			local schemes = {}
+			local usedWall, usedRoof = {}, {}
+			for seed = 0, 500 do
+				local sc = RulesD.scheme(t, palette, seed)
+				if not usedWall[sc.wall] and (not usedRoof[sc.roof] or #t.roofs < 3) then
+					usedWall[sc.wall], usedRoof[sc.roof] = true, true
+					table.insert(schemes, sc)
+				end
+				if #schemes == 3 then
+					break
+				end
+			end
+			local x = 0
+			for i, sc in schemes do
+				local v = src:Clone()
+				Buildings.paint(v, sc, palette)
+				v:PivotTo(CFrame.new(x, 0, 0))
+				v.Name = name .. "_" .. i
+				v.Parent = copy
+				x += t.width + 16
+			end
+			-- a new Model's pivot defaults to its bounding-box center; keep ground level (y 0) as the pivot
+			copy.WorldPivot = CFrame.identity
+		else
+			copy = src:Clone()
+			for _, d in copy:GetDescendants() do
+				if d:IsA("BasePart") then
+					previewColor(d, palette)
+				end
 			end
 		end
 		local cf, size = copy:GetBoundingBox()
 		-- small assets (grass) are shown 4x so they are readable; the label says so
-		local zoom = if size.Magnitude < 20 then 4 else 1
+		local zoom = if not e.template and size.Magnitude < 20 then 4 else 1
 		if zoom ~= 1 then
 			copy:ScaleTo(copy:GetScale() * zoom)
 			cf, size = copy:GetBoundingBox()
@@ -160,16 +213,23 @@ function Library.gallery(): string
 		pad.Size = padSize
 		pad.Position = padPos
 		pad.Parent = g
-		copy:PivotTo(copy:GetPivot() + (padPos + Vector3.new(0, 0.5 + size.Y / 2, 0) - cf.Position))
+		if e.template then
+			-- buildings sit with ground level (y 0) on the pad top
+			local minX = cf.Position.X - size.X / 2
+			copy:PivotTo(CFrame.new(GALLERY_ORIGIN.X + 4 - minX, 0, padPos.Z))
+		else
+			copy:PivotTo(copy:GetPivot() + (padPos + Vector3.new(0, 0.5 + size.Y / 2, 0) - cf.Position))
+		end
 		copy.Parent = g
+		local idText = if e.id then "id " .. tostring(e.id) else "procedural, 3 color schemes"
 		label(
 			pad,
 			string.format(
-				"%s  [%s/%s]  id %d%s",
+				"%s  [%s/%s]  %s%s",
 				name,
 				e.category,
 				e.folder,
-				e.id,
+				idText,
 				if zoom ~= 1 then "  (shown 4x)" else ""
 			),
 			size.Y + 4
@@ -177,6 +237,15 @@ function Library.gallery(): string
 		z += padSize.Z + PAD_GAP
 		width = math.max(width, padSize.X)
 	end
+	-- neutral floor under everything
+	local floor = Instance.new("Part")
+	floor.Name = "Floor"
+	floor.Anchored = true
+	floor.Material = Enum.Material.SmoothPlastic
+	floor.Color = Color3.fromRGB(104, 128, 76)
+	floor.Size = Vector3.new(width + 80, 2, z + 80)
+	floor.Position = GALLERY_ORIGIN + Vector3.new(width / 2, -1.2, z / 2 - 20)
+	floor.Parent = g
 	g.Parent = workspace
 	return string.format(
 		"Gallery: %d assets at %s (select Workspace.DevGallery, press F)",
@@ -196,6 +265,21 @@ function Library.sync(): string
 	for name in A.Entries do
 		Library.ensure(name)
 		count += 1
+	end
+	-- prune library models that are no longer in the registry, and emptied subfolders
+	for _, model in root:GetDescendants() do
+		if model:IsA("Model") and (model:GetAttribute("AssetId") or model:GetAttribute("Procedural")) then
+			if not A.Entries[model.Name] then
+				model:Destroy()
+			end
+		end
+	end
+	for _, c in root:GetChildren() do
+		for _, sub in c:GetChildren() do
+			if sub:IsA("Folder") and #sub:GetChildren() == 0 then
+				sub:Destroy()
+			end
+		end
 	end
 	-- legacy location from before the library existed
 	local legacy = ServerStorage:FindFirstChild("Assets")

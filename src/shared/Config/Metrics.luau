@@ -47,10 +47,10 @@ local Metrics = {
 	Building = {
 		DoorWidth = 5.0,
 		DoorHeight = 7.5,
-		WindowSill = 3.5,
+		WindowSill = 3.5, -- chest height: shoot out while standing
 		WindowTop = 6.5,
 		StoryHeight = 12.0, -- floor to floor
-		StairRise = 0.8,
+		StairRise = 0.8, -- max; actual = StoryHeight / ceil(StoryHeight / StairRise)
 		StairRun = 1.2,
 		StairWidthMin = 5.0,
 	},

@@ -4,6 +4,8 @@
 local Destruction = {
 	SectionWidth = 6, -- target wall-section width; each story of each wall splits into ~6-stud sections
 	SectionTag = "DestructibleSection",
+	DoorTag = "Door",
+	BuildingTag = "NaturalBuilding",
 
 	-- Per material class: section HP, whether rifle bullets pass through it, whether fire spreads on it.
 	Materials = {
@@ -12,6 +14,8 @@ local Destruction = {
 		Brick = { hp = 700, bulletPenetrable = false, flammable = false },
 		Stone = { hp = 1000, bulletPenetrable = false, flammable = false },
 		Tile = { hp = 250, bulletPenetrable = false, flammable = false }, -- roof panels
+		Glass = { hp = 1, bulletPenetrable = true, flammable = false }, -- window panes: any hit shatters
+		Door = { hp = 150, bulletPenetrable = true, flammable = true }, -- doors: blown off by explosives
 	},
 
 	-- A story collapses (with every story above it) when its standing wall sections fall below this

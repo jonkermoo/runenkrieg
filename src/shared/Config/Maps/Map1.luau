@@ -164,13 +164,8 @@ local Map1 = {
 		},
 
 		-- Hand-placed landmark buildings. front = direction the door faces.
-		specials = {
-			{ id = "Church", style = "Church", x = 1505, z = -112, front = { 0, 1 } },
-			{ id = "Station", style = "Station", x = 1880, z = -120, front = { 0, 1 } },
-			{ id = "Farmhouse", style = "Farmhouse", x = 880, z = 98, front = { 0, -1 } },
-			{ id = "Barn", style = "Barn", x = 935, z = 112, front = { -1, 0 } },
-			{ id = "Shed", style = "Shed", x = 925, z = 2, front = { 0, 1 } },
-		},
+		-- Hand-placed landmark buildings (church, station, farm...) return one at a time.
+		specials = {},
 
 		railX = 1930,
 

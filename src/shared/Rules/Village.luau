@@ -6,7 +6,7 @@ local Village = {}
 
 export type Lot = {
 	id: string,
-	style: string,
+	style: string, -- Config/Buildings.Templates key
 	x: number, -- center
 	z: number,
 	fx: number, -- unit vector the front (door) faces
@@ -15,21 +15,13 @@ export type Lot = {
 	depth: number,
 	stories: number,
 	storyHeight: number,
-	roofPitch: number,
-	wall: { finish: string, class: string },
-	roof: string,
-	chimneys: number,
-	dormer: boolean,
+	colorSeed: number, -- picks the color scheme for this copy
 	road: string?,
 	special: boolean,
 }
 
 local function pick<T>(list: { T }, u: number): T
 	return list[math.floor(u * #list) + 1]
-end
-
-local function lerpRange(r: { number }, u: number): number
-	return math.floor(r[1] + (r[2] - r[1]) * u + 0.5)
 end
 
 -- Corners of a lot's footprint, inflated by `pad`.
@@ -111,8 +103,9 @@ Village.polylineLength = polylineLength
 local function makeLot(
 	hash01: (number, number, number) -> number,
 	id: string,
-	styleName: string,
-	styles: any,
+	templateName: string,
+	B: any,
+	M: any,
 	seedA: number,
 	seedB: number,
 	x: number,
@@ -120,25 +113,20 @@ local function makeLot(
 	fx: number,
 	fz: number
 ): Lot
-	local st = styles[styleName]
-	local stories = pick(st.stories, hash01(seedA, seedB, 11))
-	local width = lerpRange(st.width, hash01(seedA, seedB, 12))
+	local t = B.Templates[templateName]
+	assert(t, "unknown building template " .. templateName)
 	return {
 		id = id,
-		style = styleName,
+		style = templateName,
 		x = x,
 		z = z,
 		fx = fx,
 		fz = fz,
-		width = width,
-		depth = lerpRange(st.depth, hash01(seedA, seedB, 13)),
-		stories = stories,
-		storyHeight = st.storyHeight,
-		roofPitch = st.roofPitch,
-		wall = pick(st.walls, hash01(seedA, seedB, 14)),
-		roof = pick(st.roofs, hash01(seedA, seedB, 15)),
-		chimneys = pick(st.chimneys, hash01(seedA, seedB, 16)),
-		dormer = stories >= 2 and hash01(seedA, seedB, 17) < st.dormerChance,
+		width = t.width,
+		depth = t.depth,
+		stories = t.stories,
+		storyHeight = t.storyHeight or M.Building.StoryHeight,
+		colorSeed = math.floor(hash01(seedA, seedB, 14) * 100000),
 		special = false,
 	}
 end
@@ -196,7 +184,7 @@ function Village.layout(map: any, B: any, M: any, MT: any): Layout
 
 	-- 1. Hand-placed landmarks
 	for i, s in cfg.specials do
-		local lot = makeLot(hash01, s.id, s.style, B.Styles, 900 + i, 1, s.x, s.z, s.front[1], s.front[2])
+		local lot = makeLot(hash01, s.id, s.style, B, M, 900 + i, 1, s.x, s.z, s.front[1], s.front[2])
 		lot.special = true
 		table.insert(lots, lot)
 	end
@@ -229,11 +217,11 @@ function Village.layout(map: any, B: any, M: any, MT: any): Layout
 				local px, pz, dx, dz = pointAt(road.points, c.s)
 				local nx, nz = -dz * c.side, dx * c.side -- away from the road
 				local styleList = if road.rows
-					then B.RoadStyles.Row
-					elseif road.id == "Main" then B.RoadStyles.Main
-					else B.RoadStyles.Lane
+					then B.RoadTemplates.Row
+					elseif road.id == "Main" then B.RoadTemplates.Main
+					else B.RoadTemplates.Lane
 				local styleName = pick(styleList, hash01(ri, ci, 22))
-				local lot = makeLot(hash01, road.id .. "_" .. ci, styleName, B.Styles, ri, ci, 0, 0, -nx, -nz)
+				local lot = makeLot(hash01, road.id .. "_" .. ci, styleName, B, M, ri, ci, 0, 0, -nx, -nz)
 				local off = road.width / 2 + cfg.setback + lot.depth / 2
 				-- organic roads: small jitter in setback and angle
 				if not road.rows then
@@ -248,12 +236,6 @@ function Village.layout(map: any, B: any, M: any, MT: any): Layout
 					and lot.x < a.maxX - 15
 					and lot.z > a.minZ + 15
 					and lot.z < a.maxZ - 15
-				local twoStoryOk = lot.stories < 2
-					or lot.width - 2 >= lot.storyHeight / M.Building.StairRise * M.Building.StairRun + 3
-				if not twoStoryOk then
-					lot.stories = 1
-					lot.dormer = false
-				end
 				if inArea and fits(lot) then
 					table.insert(lots, lot)
 					placed += 1

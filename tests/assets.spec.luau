@@ -1,6 +1,7 @@
 --!strict
 local fs = require("@lune/fs")
 local A = require("../src/shared/Config/Assets")
+local B = require("../src/shared/Config/Buildings")
 local F = require("../src/shared/Config/Foliage")
 local S = require("../src/shared/Config/Settings")
 local G = require("../src/shared/Rules/Grass")
@@ -9,20 +10,37 @@ return {
 	["every registry entry has a valid category, id and existing source file"] = function()
 		for name, e in A.Entries do
 			assert(table.find(A.Categories, e.category), `{name}: unknown category {e.category}`)
-			assert(type(e.id) == "number" and e.id > 0, `{name}: bad id`)
-			assert(fs.isFile(e.source), `{name}: missing source {e.source}`)
 			if e.generator then
 				assert(fs.isFile(e.generator), `{name}: missing generator {e.generator}`)
 			end
-			assert(
-				string.find(e.source, "assets/" .. string.lower(e.category) .. "/", 1, true) == 1,
-				`{name}: source not under assets/{string.lower(e.category)}/`
-			)
+			if e.template then
+				-- procedural: built from a template, nothing uploaded
+				assert(B.Templates[e.template], `{name}: unknown template {e.template}`)
+				assert(B.Templates[e.template].folder == e.folder, `{name}: folder differs from the template's`)
+			else
+				assert(type(e.id) == "number" and e.id > 0, `{name}: bad id`)
+				assert(e.source and fs.isFile(e.source), `{name}: missing source {e.source}`)
+				assert(
+					string.find(e.source, "assets/" .. string.lower(e.category) .. "/", 1, true) == 1,
+					`{name}: source not under assets/{string.lower(e.category)}/`
+				)
+			end
 		end
 	end,
 	["every repo asset category folder exists"] = function()
 		for _, c in A.Categories do
 			assert(fs.isDir("assets/" .. string.lower(c)), `missing assets/{string.lower(c)}`)
+		end
+	end,
+	["every building template is in the library"] = function()
+		for name in B.Templates do
+			local found = false
+			for _, e in A.Entries do
+				if e.template == name then
+					found = true
+				end
+			end
+			assert(found, `template {name} has no library entry`)
 		end
 	end,
 	["grass quality levels are ordered and the settings offer exactly them"] = function()
