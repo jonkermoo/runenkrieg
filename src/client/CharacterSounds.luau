@@ -1,7 +1,7 @@
 --!strict
--- Mutes Roblox's built-in character sounds listed in Config/Locomotion.MutedSounds (footsteps, jump, landing) on
--- every character. RbxCharacterSounds creates them on each client inside the HumanoidRootPart; it keeps playing
--- them, so they are silenced (volume 0, held there) rather than destroyed.
+-- Sets the volume of Roblox's built-in character sounds listed in Config/Locomotion.SoundVolumes (0 mutes) on every
+-- character. RbxCharacterSounds creates them on each client inside the HumanoidRootPart and keeps playing them, so
+-- they are held at that volume rather than destroyed.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,12 +10,13 @@ local Cfg = require(ReplicatedStorage:WaitForChild("Shared").Config.Locomotion)
 
 local CharacterSounds = {}
 
-local function mute(inst: Instance)
-	if inst:IsA("Sound") and table.find(Cfg.MutedSounds, inst.Name) then
-		inst.Volume = 0
+local function set(inst: Instance)
+	local volume = Cfg.SoundVolumes[inst.Name]
+	if inst:IsA("Sound") and volume then
+		inst.Volume = volume
 		inst:GetPropertyChangedSignal("Volume"):Connect(function()
-			if inst.Volume ~= 0 then
-				inst.Volume = 0
+			if inst.Volume ~= volume then
+				inst.Volume = volume
 			end
 		end)
 	end
@@ -27,9 +28,9 @@ local function watch(character: Model)
 		return
 	end
 	for _, c in root:GetChildren() do
-		mute(c)
+		set(c)
 	end
-	root.ChildAdded:Connect(mute)
+	root.ChildAdded:Connect(set)
 end
 
 function CharacterSounds.start()

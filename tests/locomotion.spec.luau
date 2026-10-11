@@ -28,8 +28,9 @@ return {
 		end
 	end,
 	["Roblox's footsteps are muted, its jump sound is kept"] = function()
-		assert(table.find(L.MutedSounds, "Running"), "Roblox's footstep loop must be muted (Footsteps replaces it)")
-		assert(not table.find(L.MutedSounds, "Jumping"), "the default jump sound stays (user 2026-10-11)")
+		assert(L.SoundVolumes.Running == 0, "Roblox's footstep loop must be muted (Footsteps replaces it)")
+		local jump = L.SoundVolumes.Jumping
+		assert(jump == nil or jump > 0, "the default jump sound stays (user 2026-10-11)")
 	end,
 	["the jump has a cooldown"] = function()
 		assert(M.Movement.JumpCooldown > 0 and M.Movement.JumpCooldown < 1, "jump cooldown should be short")

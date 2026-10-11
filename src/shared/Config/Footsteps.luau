@@ -10,9 +10,9 @@ local Footsteps = {
 	-- each hits on its first frame (checked with an AudioAnalyzer); sounds whose thud comes later read as late steps
 	Sounds = { 75948132493425, 111154292786687, 119989047815622 },
 
-	Volume = 0.05, -- subtle (user 2026-10-11: quieter twice, was 0.2 then 0.1)
-	SprintVolume = 0.07, -- sprint steps land a little harder
-	Pitch = 0.8, -- deeper than the recordings
+	Volume = 0.01, -- subtle (user 2026-10-11: quieter twice, was 0.2 then 0.1)
+	SprintVolume = 0.01, -- sprint steps land a little harder
+	Pitch = 0.6, -- deeper than the recordings
 	PitchJitter = 0.04, -- each step varies by up to this much either way
 	RollOffMin = 5, -- studs: full volume inside this
 	RollOffMax = 50, -- studs: silent past this
