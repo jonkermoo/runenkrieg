@@ -26,7 +26,13 @@ local Metrics = {
 		WalkSpeed = 12,
 		SprintSpeed = 18,
 		AimWalkSpeed = 7,
-		JumpHeight = 2.5, -- low hop only; no vault yet
+		-- Low hop only, no vault yet. JumpHeight is the take-off (Humanoid); near the top the client cuts gravity
+		-- (src/client/Jump) so the peak hangs, which adds ~0.25: the real apex is ~2.8 (user 2026-10-11: a tiny
+		-- bit higher than 2.5, slower peak). tests/metrics.spec.luau keeps it under low cover.
+		JumpHeight = 2.55,
+		JumpApexSpeed = 8, -- the float applies while |vertical speed| is under this (studs/s)
+		JumpApexGravityCut = 0.6, -- share of gravity removed during the float
+		JumpCooldown = 0.4, -- seconds after landing before the next jump
 		MaxSlopeAngle = 50, -- Studio default is 89, which lets players walk up trench walls
 		Gravity = 196.2,
 	},

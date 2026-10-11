@@ -21,6 +21,18 @@ return {
 			assert(a and type(a.id) == "number" and a.id > 0, `missing animation {name}`)
 		end
 	end,
+	["Roblox's footstep and jump sounds are muted"] = function()
+		for _, name in { "Running", "Jumping" } do
+			assert(table.find(L.MutedSounds, name), `{name} must be muted`)
+		end
+	end,
+	["the jump has a cooldown"] = function()
+		assert(M.Movement.JumpCooldown > 0 and M.Movement.JumpCooldown < 1, "jump cooldown should be short")
+		assert(
+			M.Movement.JumpApexGravityCut > 0 and M.Movement.JumpApexGravityCut < 1,
+			"apex float cuts part of gravity"
+		)
+	end,
 	["the default Animate script is replaced"] = function()
 		local project = serde.decode("json", fs.readFile("default.project.json"))
 		local scripts = project.tree.StarterPlayer.StarterCharacterScripts

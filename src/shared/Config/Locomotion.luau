@@ -8,15 +8,19 @@
 local Locomotion = {
 	SprintKeys = { "LeftShift", "RightShift" },
 
+	-- Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart) muted on every
+	-- character (user 2026-10-11: no stepping or jumping audio). Our own movement audio comes later.
+	MutedSounds = { "Running", "Jumping", "Landing" },
+
 	-- Animation asset ids. `speed`: the ground speed the cycle was keyed for (Metrics.Movement); playback is
 	-- scaled by actual speed / speed so the feet keep pace. Roblox's stock R6 ids fill what we haven't made yet.
 	Animations = {
 		idle = { id = 180435571 }, -- Roblox stock R6 idle (placeholder)
-		walk = { id = 131162843658767, speed = 12 },
-		sprint = { id = 102164383274848, speed = 18 },
-		jump = { id = 80629177613698 },
-		fall = { id = 74494614741937 },
-		land = { id = 73026045041116 },
+		walk = { id = 135361337004392, speed = 12 },
+		sprint = { id = 72774459035189, speed = 18 },
+		jump = { id = 82084528203249 },
+		fall = { id = 132452327933827 },
+		land = { id = 88515844098808 },
 		climb = { id = 180436334, speed = 8 }, -- Roblox stock R6 climb (ladders)
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
 	},

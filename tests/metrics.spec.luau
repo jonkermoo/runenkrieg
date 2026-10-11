@@ -2,8 +2,11 @@
 -- Design invariants: if a metric change breaks one of these, the maps and characters drift apart.
 local M = require("../src/shared/Config/Metrics")
 
+-- Real apex: the take-off height plus the extra rise while gravity is cut near the top (src/client/Jump).
 local function hopApex(): number
-	return M.Movement.JumpHeight
+	local mv = M.Movement
+	local w2g = mv.JumpApexSpeed ^ 2 / (2 * mv.Gravity)
+	return mv.JumpHeight + w2g * (1 / (1 - mv.JumpApexGravityCut) - 1)
 end
 
 return {
