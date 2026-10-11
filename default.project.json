@@ -13,9 +13,9 @@
     },
     "StarterPlayer": {
       "$properties": {
-        "CharacterWalkSpeed": 12,
+        "CharacterWalkSpeed": 10,
         "CharacterUseJumpPower": false,
-        "CharacterJumpHeight": 2.55,
+        "CharacterJumpHeight": 2.7,
         "CharacterMaxSlopeAngle": 50
       },
       "StarterPlayerScripts": {

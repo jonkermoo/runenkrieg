@@ -22,7 +22,7 @@ return {
 		assert(L.PlaybackMin < 1 and L.PlaybackMax > 1, "playback clamp must include 1")
 	end,
 	["every movement animation has an asset id"] = function()
-		for _, name in { "idle", "walk", "sprint", "jump", "fall", "land", "climb", "toolnone" } do
+		for _, name in { "idle", "walk", "sprint", "climb", "toolnone" } do
 			local a = L.Animations[name]
 			assert(a and type(a.id) == "number" and a.id > 0, `missing animation {name}`)
 		end

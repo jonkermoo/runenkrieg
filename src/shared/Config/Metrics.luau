@@ -23,13 +23,13 @@ local Metrics = {
 	},
 
 	Movement = {
-		WalkSpeed = 12,
-		SprintSpeed = 18,
+		WalkSpeed = 10, -- user 2026-10-11 (was 12)
+		SprintSpeed = 16, -- user 2026-10-11 (was 18)
 		AimWalkSpeed = 7,
 		-- Low hop only, no vault yet. JumpHeight is the take-off (Humanoid); near the top the client cuts gravity
-		-- (src/client/Jump) so the peak hangs, which adds ~0.25: the real apex is ~2.8 (user 2026-10-11: a tiny
-		-- bit higher than 2.5, slower peak). tests/metrics.spec.luau keeps it under low cover.
-		JumpHeight = 2.55,
+		-- (src/client/Jump) so the peak hangs, which adds ~0.25: the real apex is ~2.95 (user 2026-10-11: higher
+		-- than 2.5 twice, slower peak). tests/metrics.spec.luau keeps it under low cover (3.0).
+		JumpHeight = 2.7,
 		JumpApexSpeed = 8, -- the float applies while |vertical speed| is under this (studs/s)
 		JumpApexGravityCut = 0.6, -- share of gravity removed during the float
 		JumpCooldown = 0.4, -- seconds after landing before the next jump
