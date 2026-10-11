@@ -49,4 +49,7 @@ return {
 		local scripts = project.tree.StarterPlayer.StarterCharacterScripts
 		assert(scripts and scripts.Animate, "StarterCharacterScripts.Animate must override Roblox's default")
 	end,
+	["sprint only forward: the cone excludes pure strafing and backing up"] = function()
+		assert(L.SprintCone >= 20 and L.SprintCone < 90, `SprintCone {L.SprintCone} must be under 90 degrees`)
+	end,
 }

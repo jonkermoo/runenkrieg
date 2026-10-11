@@ -7,6 +7,9 @@
 
 local Locomotion = {
 	SprintKeys = { "LeftShift", "RightShift" },
+	-- Sprint only moving forward relative to the camera (user reference video 2026-10-11): within this angle (degrees)
+	-- of where the camera looks; strafing or backing up with Shift stays a walk (and can aim).
+	SprintCone = 50,
 	AimKeys = { "MouseButton2" }, -- hold to aim down the sights (a weapon in the hands)
 
 	-- Volume of Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart; client
