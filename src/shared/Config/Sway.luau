@@ -36,6 +36,7 @@ local Sway = {
 		WalkSpeed = 10, -- speeds the amplitudes are given at (Metrics.Movement); scaled linearly in between
 		SprintSpeed = 16,
 		Fade = 6, -- how fast the stride sway fades in and out when starting and stopping (per second)
+		Settle = 4, -- how fast the stride works off its offset from the feet after a footstep (per second)
 	},
 
 	-- Breath: always on, a slow loop. First person 3 s (user 2026-10-11: visible but minimal enough not to bother

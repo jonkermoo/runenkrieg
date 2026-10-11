@@ -14,7 +14,6 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
-local Locomotion = require(Shared.Config.Locomotion)
 local W = require(Shared.Config.Weapons)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
@@ -195,10 +194,10 @@ function Viewmodel.start()
 		local track = if type(state) == "string" then r.tracks[state] else nil
 		if track ~= playing then
 			if playing then
-				playing:Stop(Locomotion.HoldFade)
+				playing:Stop(Cfg.ViewmodelFade)
 			end
 			if track then
-				track:Play(Locomotion.HoldFade)
+				track:Play(Cfg.ViewmodelFade)
 			end
 			playing = track
 		end

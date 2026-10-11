@@ -28,10 +28,6 @@ local WeaponCamera = {}
 local HEAD = Vector3.new(0, 1.5, 0) -- head centre above the root (R6)
 local ROBLOX_MIN = 0.5 -- StarterPlayer.CameraMinZoomDistance: Roblox's first person
 
-local function v3(t: { number }): Vector3
-	return Vector3.new(t[1], t[2], t[3])
-end
-
 local function smooth(t: number): number
 	t = math.clamp(t, 0, 1)
 	return t * t * (3 - 2 * t)
@@ -170,14 +166,17 @@ function WeaponCamera.start()
 			end
 			return origin + offset
 		end
-		local rootJoint = root:FindFirstChild("RootJoint") :: Motor6D
-		local torso = root.CFrame * rootJoint.C0 * rootJoint.Transform * rootJoint.C1:Inverse()
 
 		local inside = view == "Aim" or view == "First"
 		local target: Vector3
 		if inside then
-			local neck = (character:FindFirstChild("Torso") :: BasePart):FindFirstChild("Neck") :: Motor6D
-			target = (torso * neck.C0 * neck.Transform * neck.C1:Inverse()) * v3(Cfg.Eye)
+			-- a steady eye on the upright body (lowered when crouched), not the animated head: the sprint's lean threw
+			-- the head, and the camera with it, ~0.7 studs forward going into a sprint. The view's motion is the sway
+			-- layer's small step bob (Sway.camera), as in the user's reference
+			local eye = HEAD + Vector3.new(Cfg.Eye[1], Cfg.Eye[2], 0)
+			target = CFrame.new(root.Position + eye + (if humanoid then humanoid.CameraOffset else Vector3.zero))
+				* CFrame.fromOrientation(0, math.rad(yaw), 0)
+				* Vector3.new(0, 0, Cfg.Eye[3])
 		else
 			shownZoom += (math.max(zoom, Cfg.MinZoom) - shownZoom) * (1 - math.exp(-Cfg.Ease * dt))
 			local o = M.Camera.ShoulderOffset

@@ -2,8 +2,9 @@
 -- The global sway layer (docs/HOLD_AND_CAMERA_RULES.md §3, numbers in Config/Sway). One motion state on the local
 -- client, fed by its sources and read by the first-person viewmodel (src/client/Viewmodel) and the camera
 -- (src/client/WeaponCamera). Local only: others see the third-person animations.
--- Sources: steps (the Footstep markers on the local walk / sprint cycles set the stride phase, so the gun and the
--- view land with the feet), breath, look lag (the gun trails the view), strafe (the gun cants toward the side it
+-- Sources: steps (the stride phase runs continuously at the pace of the walk / sprint / crouch cycle playing, and the
+-- Footstep markers only nudge it toward the feet, so the gun and the view land with the feet without ever jumping:
+-- a phase reset at each marker jerked the gun whenever the pace changed, e.g. into and out of a sprint), breath, look lag (the gun trails the view), strafe (the gun cants toward the side it
 -- moves) and landing (a dip). Scaled by Master, the held item's class weight and, while aiming, the Aim shares.
 -- Sway.viewmodel() is a small turn of the viewmodel about Config/Sway.Pivot (camera space); Sway.camera(view) a small
 -- turn of the camera itself. Later sources (recoil, explosions, damage) add here.
@@ -63,8 +64,10 @@ end
 
 function Sway.start()
 	local player = Players.LocalPlayer
-	-- the stride: phase 0 = left foot down, 0.5 = right foot down (set by the markers), interval = one step
-	local phase, interval, lastStep = 0, 0.5, 0
+	-- the stride: phase 0 = left foot down, 0.5 = right foot down; it advances at the playing cycle's rate (one
+	-- cycle = one stride) and a marker leaves a correction that is worked off gradually
+	local phase, rate, correction = 0, 1, 0
+	local cycles: { AnimationTrack } = {}
 	local stride = 0 -- 0..1, fades in when walking on the ground
 	local breathT = 0
 	local lastYaw: number?, lastPitch: number? = nil, nil
@@ -84,16 +87,13 @@ function Sway.start()
 			local id = track.Animation and track.Animation.AnimationId
 			if (id == WALK or id == SPRINT or id == CROUCH) and not hooked[track] then
 				hooked[track] = true
+				table.insert(cycles, track)
 				track:GetMarkerReachedSignal("Footstep"):Connect(function(side)
 					if track.WeightCurrent < 0.5 then
 						return
 					end
-					local now = os.clock()
-					if now - lastStep < 1 then
-						interval = math.clamp(now - lastStep, 0.18, 0.9)
-					end
-					lastStep = now
-					phase = if side == "Left" then 0 else 0.5
+					local want = if side == "Left" then 0 else 0.5
+					correction = (want - phase + 0.5) % 1 - 0.5 -- the shortest way round
 				end)
 			end
 		end
@@ -140,7 +140,19 @@ function Sway.start()
 		local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
 		local S = Cfg.Stride
 		stride += ((if grounded and speed > 0.75 then 1 else 0) - stride) * (1 - math.exp(-S.Fade * dt))
-		phase = (phase + dt / (2 * interval)) % 1
+		-- the pace of the cycle playing most (walk, sprint or crouch walk)
+		local best: AnimationTrack? = nil
+		for _, t in cycles do
+			if t.IsPlaying and t.Length > 0 and (not best or t.WeightCurrent > best.WeightCurrent) then
+				best = t
+			end
+		end
+		if best then
+			rate = best.Speed / best.Length
+		end
+		local fix = correction * math.min(1, S.Settle * dt)
+		correction -= fix
+		phase = (phase + rate * dt + fix) % 1
 		local g = math.clamp((speed - S.WalkSpeed) / (S.SprintSpeed - S.WalkSpeed), 0, 1)
 		local size = stride * math.min(speed / S.WalkSpeed, 1)
 		local side = lerp(S.walk.side, S.sprint.side, g) * math.sin(TAU * phase) * size

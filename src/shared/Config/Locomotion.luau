@@ -34,9 +34,9 @@ local Locomotion = {
 		sprint = { id = 71642320375175, speed = 16, keyed = 0.56, cycle = 0.72 },
 		climb = { id = 180436334, speed = 8 }, -- Roblox stock R6 climb (ladders)
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
-		-- Crouch (user reference video 2026-10-11): moderate, torso hunched ~35 deg, legs in a low lunge, ~73% height
-		crouchIdle = { id = 70503147288084 },
-		crouchWalk = { id = 91745157225252, speed = 6, keyed = 0.9, cycle = 1.1 },
+		-- Crouch (user 2026-10-11): torso leaning only a little, the left leg forward, the right kneeling; ~79% height
+		crouchIdle = { id = 120013440978528 },
+		crouchWalk = { id = 92823145397992, speed = 6, keyed = 0.9, cycle = 1.1 },
 	},
 
 	IdleBelow = 0.75, -- horizontal speed (studs/s) under which the soldier stands still

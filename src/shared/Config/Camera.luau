@@ -22,6 +22,8 @@ local Camera = {
 	AimFov = 50,
 	Ease = 14, -- how fast the zoom and the FOV follow (per second)
 	Blend = 0.15, -- seconds to move between first and third person (or into the sights)
+	ViewmodelFade = 0.35, -- first-person holds crossfade (ready / carry / aim): their poses are far apart, a quick
+	-- swap looked choppy going into and out of a sprint
 
 	-- First person: the eye in the Head's space (the R6 head is 1.25 big; front face at -0.6). The viewmodel's torso
 	-- sits where the eye is (0, 1.65, -0.45) from it, as in tools/animation/rifle.luau EYE.
