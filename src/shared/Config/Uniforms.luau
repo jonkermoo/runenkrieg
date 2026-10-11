@@ -6,9 +6,10 @@
 
 local Uniforms = {
 	Default = "uniform1", -- until nations are decided, everyone wears this
-	-- Every soldier's face (docs/CHARACTERS.md Faces): the user's own eye image, cut off its white background and
-	-- placed by tools/face/cutout.py (assets/characters/faces/face.png). Image id (decal 96718468152642).
-	Face = 84566462089991,
+	-- Every soldier's face (docs/CHARACTERS.md Faces): the user's eye traced and drawn at 1024x1024, whites rounded on
+	-- the nose side, fitted inside the head's flat front (tools/face/trace.py -> assets/characters/faces/
+	-- face_hq_round.png). Image id (decal 112836590873970).
+	Face = 70938855237782,
 	Kits = {
 		uniform1 = {
 			source = "assets/characters/uniforms/uniform1.json",
