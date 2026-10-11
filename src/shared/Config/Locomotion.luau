@@ -36,8 +36,8 @@ local Locomotion = {
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
 		-- Crouch (user 2026-10-11): torso leaning only a little, the legs pushed up into it (only the shins show), the
 		-- right knee down at idle; the walk alternates like a real walk
-		crouchIdle = { id = 86868560388293 },
-		crouchWalk = { id = 84340207111999, speed = 6, keyed = 0.9, cycle = 1.1 },
+		crouchIdle = { id = 122942988122588 },
+		crouchWalk = { id = 131420645246116, speed = 6, keyed = 1.0, cycle = 1.4 }, -- long, slow strides (user)
 	},
 
 	IdleBelow = 0.75, -- horizontal speed (studs/s) under which the soldier stands still

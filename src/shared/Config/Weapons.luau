@@ -90,7 +90,7 @@ local Weapons: { [string]: Weapon } = {
 			aim = 133970960181165,
 			equip = 101917236691086,
 			crouchReady = 80456739032631,
-			crouchWalk = 110233890674860,
+			crouchWalk = 90228887606612,
 			crouchAim = 137476015651826,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera
