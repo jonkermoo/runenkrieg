@@ -2,7 +2,8 @@
 -- Uniform soldier bodies (docs/CHARACTERS.md): every character is the plain blocky R6 body with no
 -- avatar packages, clothing or accessories, and the one soldier face, so hitboxes are fair and everyone reads as a
 -- soldier. The rig type itself is a game setting (Game Settings -> Avatar -> R6); scripts can't set it.
--- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants and skin color, and puts on the face.
+-- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants and skin color, and puts on the face
+-- (on a "FaceCard" shell welded over the head).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -42,11 +43,34 @@ function Bodies.apply(character: Model)
 				d:Destroy()
 			end
 		end
+		-- the face goes on its own shell over the head, not on the Head: Roblox bakes decals on body parts into the
+		-- character's lower-resolution texture (docs/KNOWN_TRAPS.md), a separate part keeps the full 1024 image
+		local old = character:FindFirstChild("FaceCard")
+		if old then
+			old:Destroy()
+		end
+		local card = Instance.new("Part")
+		card.Name = "FaceCard"
+		card.Size = (head :: BasePart).Size
+		card.Transparency = 1
+		card.CanCollide, card.CanQuery, card.CanTouch, card.Massless = false, false, false, true
+		card.CastShadow = false
+		card.CFrame = (head :: BasePart).CFrame
+		local shape = head:FindFirstChildWhichIsA("SpecialMesh")
+		if shape then
+			local mesh = shape:Clone()
+			mesh.Scale *= 1.01 -- a hair outside the head, so the two surfaces never fight
+			mesh.Parent = card
+		end
 		local face = Instance.new("Decal")
 		face.Name = "face"
 		face.Face = Enum.NormalId.Front
 		face.Texture = "rbxassetid://" .. U.Face
-		face.Parent = head
+		face.Parent = card
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0, weld.Part1 = head :: BasePart, card
+		weld.Parent = card
+		card.Parent = character
 	end
 	for _, c in character:GetChildren() do
 		if c:IsA("Clothing") then
