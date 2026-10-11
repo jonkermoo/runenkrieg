@@ -22,6 +22,6 @@ return {
 	end,
 	["every soldier has the face"] = function()
 		assert(type(U.Face) == "number" and U.Face > 0, "face image id missing")
-		assert(fs.isFile("assets/characters/faces/face_detail.png"), "face source missing")
+		assert(fs.isFile("assets/characters/faces/face.png"), "face source missing")
 	end,
 }
