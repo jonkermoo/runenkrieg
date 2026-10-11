@@ -16,8 +16,8 @@ local Locomotion = {
 	-- scaled by actual speed / speed so the feet keep pace. Roblox's stock R6 ids fill what we haven't made yet.
 	Animations = {
 		idle = { id = 180435571 }, -- Roblox stock R6 idle (placeholder)
-		walk = { id = 135361337004392, speed = 12 },
-		sprint = { id = 72774459035189, speed = 18 },
+		walk = { id = 133173290830038, speed = 12 },
+		sprint = { id = 129090682828738, speed = 18 },
 		jump = { id = 82084528203249 },
 		fall = { id = 132452327933827 },
 		land = { id = 88515844098808 },
@@ -34,6 +34,16 @@ local Locomotion = {
 	AirFade = 0.08, -- into jump / fall
 	LandMinAir = 0.25, -- seconds airborne before a landing plays (a flat hop is ~0.32 s; steps down are shorter)
 	LandWeightMoving = 0.45, -- the landing plays lighter when you land on the move, so the run carries through
+
+	-- Look tilt (user 2026-10-11): the body follows the camera's pitch a little, leaning back when you look up and
+	-- forward when you look down; the head follows more. Share of the camera pitch, capped (degrees).
+	LookTilt = {
+		Torso = 0.2,
+		TorsoMax = 10,
+		Head = 0.35,
+		HeadMax = 20,
+		Smoothing = 12, -- how fast the tilt follows the camera (per second)
+	},
 }
 
 return table.freeze(Locomotion)

@@ -33,6 +33,11 @@ return {
 			"apex float cuts part of gravity"
 		)
 	end,
+	["look tilt is a small share of the camera pitch"] = function()
+		local t = L.LookTilt
+		assert(t.Torso > 0 and t.Torso < t.Head and t.Head < 1, "the head follows the camera more than the body")
+		assert(t.TorsoMax <= 15 and t.HeadMax <= 30, "tilt caps keep the soldier upright")
+	end,
 	["the default Animate script is replaced"] = function()
 		local project = serde.decode("json", fs.readFile("default.project.json"))
 		local scripts = project.tree.StarterPlayer.StarterCharacterScripts
