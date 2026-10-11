@@ -5,7 +5,7 @@
 -- Sources: steps (the stride phase runs continuously at the pace of the walk / sprint / crouch cycle playing, and the
 -- Footstep markers only nudge it toward the feet, so the gun and the view land with the feet without ever jumping:
 -- a phase reset at each marker jerked the gun whenever the pace changed, e.g. into and out of a sprint), breath, look lag (the gun trails the view), strafe (the gun cants toward the side it
--- moves) and landing (a dip). Scaled by Master, the held item's class weight and, while aiming, the Aim shares.
+-- moves), jump (a kick at takeoff, the gun trailing the vertical speed in the air) and landing (a dip). Scaled by Master, the held item's class weight and, while aiming, the Aim shares.
 -- Sway.viewmodel() is a small turn of the viewmodel about Config/Sway.Pivot (camera space); Sway.camera(view) a small
 -- turn of the camera itself. Later sources (recoil, explosions, damage) add here.
 
@@ -76,6 +76,7 @@ function Sway.start()
 	local lagYaw, lagPitch, lagRoll = spring(), spring(), spring()
 	local strafeRoll, strafeShift = spring(), spring()
 	local landing = spring()
+	local jump = spring()
 	local lastVy = 0
 
 	local function attach(character: Model)
@@ -104,7 +105,10 @@ function Sway.start()
 			hook(t)
 		end
 		humanoid.StateChanged:Connect(function(_, new)
-			if new == Enum.HumanoidStateType.Landed then
+			if new == Enum.HumanoidStateType.Jumping then
+				local J = Cfg.Jump
+				jump.v -= J.kick * math.sqrt(J.stiffness) -- an impulse: the gun dips about `kick` degrees as the body leaves
+			elseif new == Enum.HumanoidStateType.Landed then
 				local L = Cfg.Landing
 				local dip = math.min(math.abs(lastVy) * L.pitch, L.max)
 				landing.v -= dip * math.sqrt(L.stiffness) -- an impulse: peaks near `dip` degrees
@@ -191,6 +195,10 @@ function Sway.start()
 		pull(strafeRoll, -St.roll * lateral, St.stiffness, St.damping, dt)
 		pull(strafeShift, St.shift * lateral, St.stiffness, St.damping, dt)
 
+		-- jump: in the air the gun trails the vertical speed (back to rest on the ground)
+		local J = Cfg.Jump
+		pull(jump, if grounded then 0 else math.clamp(-J.gain * vel.Y, -J.max, J.max), J.stiffness, J.damping, dt)
+
 		-- landing
 		local Ld = Cfg.Landing
 		pull(landing, 0, Ld.stiffness, Ld.damping, dt)
@@ -200,9 +208,11 @@ function Sway.start()
 		local turnPitch = (down * share("down") + bPitch * share("breath")) * w
 			+ lagPitch.x * share("lag") * w
 			+ landing.x * share("landing") * m
+			+ jump.x * share("jump") * m
 		local turnYaw = (side * share("side") + bYaw * share("breath") + lagYaw.x * share("lag")) * w
 		local turnRoll = (sroll * share("roll") + lagRoll.x * share("lag")) * w + strafeRoll.x * share("strafe") * m
-		local shift = Vector3.new(strafeShift.x * share("strafe"), landing.x * Ld.drop * share("landing"), 0) * m
+		local lift = landing.x * Ld.drop * share("landing") + jump.x * J.drop * share("jump")
+		local shift = Vector3.new(strafeShift.x * share("strafe"), lift, 0) * m
 		local pivot = Vector3.new(table.unpack(Cfg.Pivot))
 		viewmodel = CFrame.new(pivot + shift)
 			* CFrame.Angles(math.rad(turnPitch), math.rad(turnYaw), math.rad(turnRoll))
