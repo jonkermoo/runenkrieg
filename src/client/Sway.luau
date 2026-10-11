@@ -68,7 +68,9 @@ function Sway.start()
 	-- cycle = one stride) and a marker leaves a correction that is worked off gradually
 	local phase, rate, correction = 0, 1, 0
 	local cycles: { AnimationTrack } = {}
-	local stride = 0 -- 0..1, fades in when walking on the ground
+	-- the speed the step sway follows: a Roblox character stops dead, so the sway eases out instead of following the
+	-- speed (following it snapped the sights back to the centre the moment you stopped, user 2026-10-11)
+	local pace = 0
 	local breathT = 0
 	local lastYaw: number?, lastPitch: number? = nil, nil
 	local lagYaw, lagPitch, lagRoll = spring(), spring(), spring()
@@ -139,7 +141,8 @@ function Sway.start()
 		local speed = Vector3.new(vel.X, 0, vel.Z).Magnitude
 		local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
 		local S = Cfg.Stride
-		stride += ((if grounded and speed > 0.75 then 1 else 0) - stride) * (1 - math.exp(-S.Fade * dt))
+		local want = if grounded and speed > 0.75 then speed else 0
+		pace += (want - pace) * (1 - math.exp(-(if want > pace then S.Fade else S.Return) * dt))
 		-- the pace of the cycle playing most (walk, sprint or crouch walk)
 		local best: AnimationTrack? = nil
 		for _, t in cycles do
@@ -152,9 +155,11 @@ function Sway.start()
 		end
 		local fix = correction * math.min(1, S.Settle * dt)
 		correction -= fix
-		phase = (phase + rate * dt + fix) % 1
-		local g = math.clamp((speed - S.WalkSpeed) / (S.SprintSpeed - S.WalkSpeed), 0, 1)
-		local size = stride * math.min(speed / S.WalkSpeed, 1)
+		-- stopping, the stride slows to a halt as the sway settles: a little follow-through, no swing in place
+		local going = math.clamp(pace / S.Halt, 0, 1)
+		phase = (phase + rate * dt * going + fix) % 1
+		local g = math.clamp((pace - S.WalkSpeed) / (S.SprintSpeed - S.WalkSpeed), 0, 1)
+		local size = math.min(pace / S.WalkSpeed, 1)
 		local side = lerp(S.walk.side, S.sprint.side, g) * math.sin(TAU * phase) * size
 		local down = -lerp(S.walk.down, S.sprint.down, g) * math.cos(2 * TAU * phase) * size
 		local sroll = lerp(S.walk.roll, S.sprint.roll, g) * math.sin(TAU * phase) * size

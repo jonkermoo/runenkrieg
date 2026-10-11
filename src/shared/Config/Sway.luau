@@ -35,7 +35,10 @@ local Sway = {
 		sprint = { side = 11, down = 0.5, roll = 1.5 },
 		WalkSpeed = 10, -- speeds the amplitudes are given at (Metrics.Movement); scaled linearly in between
 		SprintSpeed = 16,
-		Fade = 6, -- how fast the stride sway fades in and out when starting and stopping (per second)
+		Fade = 6, -- how fast the stride sway builds when starting to move (per second)
+		Return = 3, -- how fast it settles back when stopping (per second; ~1 s to the centre): slower, so the sights
+		-- drift back to the crosshair instead of snapping (user 2026-10-11)
+		Halt = 3, -- the stride's rhythm slows to a stop as the settling speed falls under this (studs/s)
 		Settle = 4, -- how fast the stride works off its offset from the feet after a footstep (per second)
 	},
 
