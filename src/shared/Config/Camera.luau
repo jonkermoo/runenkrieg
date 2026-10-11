@@ -1,7 +1,8 @@
 --!strict
 -- The camera (src/client/WeaponCamera; user 2026-10-11). Data only.
--- One zoom range everywhere: MaxZoom is also StarterPlayer.CameraMaxZoomDistance (default.project.json,
--- tests/project.spec), so Roblox's own camera (no weapon in the hands) stops at the same distance.
+-- Zoom (user 2026-10-11, from their screenshots): the shoulder camera (a weapon in the hands) goes out to MaxZoom;
+-- Roblox's own camera (no weapon) a few studs further, to FreeMaxZoom = StarterPlayer.CameraMaxZoomDistance
+-- (default.project.json, tests/project.spec). Drawing a weapon from further out brings the camera in to MaxZoom.
 -- With a weapon in the hands the camera sits over the right shoulder (Metrics.Camera.ShoulderOffset) at the selected
 -- zoom, the body turning with it. Equipping keeps the zoom you had. Zoomed all the way in is first person: the body
 -- is hidden and the viewmodel plays the first-person holds (src/client/Viewmodel). Aiming down the sights (right
@@ -9,7 +10,8 @@
 -- (zooming in, or a wall pulling the camera in).
 
 local Camera = {
-	MaxZoom = 7.5, -- studs from the head, everywhere (user 2026-10-11: their screenshot, measured; was 20)
+	MaxZoom = 7.5, -- studs from the head, weapon in the hands (user 2026-10-11: their screenshot, measured)
+	FreeMaxZoom = 10.5, -- no weapon in the hands: a few studs further out (user 2026-10-11)
 	MinZoom = 2, -- the nearest third-person zoom; one more wheel step in is first person
 	ZoomStep = 0.8, -- each wheel step multiplies the distance by this (in) or divides by it (out)
 	FirstBelow = 1, -- Roblox's camera nearer than this (studs) counts as first person when a weapon is equipped

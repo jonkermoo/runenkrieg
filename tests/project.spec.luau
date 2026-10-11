@@ -14,8 +14,9 @@ return {
 		assert(props.CharacterJumpHeight == M.Movement.JumpHeight, "CharacterJumpHeight drifted from Metrics")
 		assert(props.CharacterMaxSlopeAngle == M.Movement.MaxSlopeAngle, "CharacterMaxSlopeAngle drifted")
 		assert(props.CharacterUseJumpPower == false, "must use JumpHeight, not JumpPower")
-		-- one zoom range everywhere (user 2026-10-11): Roblox's camera and the weapon camera share it
-		assert(props.CameraMaxZoomDistance == Camera.MaxZoom, "CameraMaxZoomDistance drifted from Config/Camera")
+		-- Roblox's camera (no weapon) zooms out to FreeMaxZoom, a few studs past the shoulder camera (user 2026-10-11)
+		assert(props.CameraMaxZoomDistance == Camera.FreeMaxZoom, "CameraMaxZoomDistance drifted from Config/Camera")
+		assert(Camera.FreeMaxZoom > Camera.MaxZoom, "unequipped zooms further out than the shoulder camera")
 	end,
 	["Rojo never manages Workspace"] = function()
 		assert(project.tree.Workspace == nil, "Workspace holds maps; Rojo must not own it")

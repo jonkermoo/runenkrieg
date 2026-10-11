@@ -2,8 +2,9 @@
 -- The camera while a weapon is in the hands (Config/Camera, Metrics.Camera; user 2026-10-11):
 -- - over the right shoulder at the selected zoom, the body turning with it (mouse locked to the centre). The wheel
 --   zooms in and out over the same range Roblox's camera has; one step in from the nearest zoom is first person;
--- - equipping keeps the zoom Roblox's camera had (first person stays first person), putting the weapon away hands
---   the same zoom back to Roblox's camera;
+-- - equipping keeps the zoom Roblox's camera had (first person stays first person; from beyond the shoulder camera's
+--   range it comes in to MaxZoom), putting the weapon away hands the same zoom back to Roblox's camera, whose range
+--   goes a few studs further (FreeMaxZoom);
 -- - aiming down the sights (src/client/Stance) is first person;
 -- - first person (and aiming) hides the whole body from the player: the viewmodel shows the first-person holds
 --   (src/client/Viewmodel). Out of first person the body fades translucent as the camera comes near it (zoomed in,
@@ -105,7 +106,7 @@ function WeaponCamera.start()
 		local d = if zoom <= 0 then ROBLOX_MIN else zoom
 		player.CameraMinZoomDistance, player.CameraMaxZoomDistance = d, d
 		task.delay(0.1, function()
-			player.CameraMinZoomDistance, player.CameraMaxZoomDistance = ROBLOX_MIN, Cfg.MaxZoom
+			player.CameraMinZoomDistance, player.CameraMaxZoomDistance = ROBLOX_MIN, Cfg.FreeMaxZoom
 		end)
 	end
 
