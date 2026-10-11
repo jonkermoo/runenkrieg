@@ -40,6 +40,8 @@ local EYE = Vector3.new(Cfg.Eye[1], 1.5 + Cfg.Eye[2], Cfg.Eye[3])
 local function ghost(p: BasePart)
 	p.Anchored = false
 	p.CanCollide, p.CanQuery, p.CanTouch = false, false, false
+	-- the Humanoid turns CanCollide back on for "Torso"; this group collides with nothing (src/server init)
+	p.CollisionGroup = "Viewmodel"
 	p.CastShadow = false
 	p.Massless = true
 	p.LocalTransparencyModifier = 0

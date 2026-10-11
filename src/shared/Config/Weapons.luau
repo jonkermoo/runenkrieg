@@ -65,8 +65,9 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0.03, 0.075, -0.397 }, -- the open receiver, right side: casings fly out +X/+Y
 		},
 		grip = { 0, -0.06, 0.15 },
-		-- user references 2026-10-11: ready low in front of the stomach, sprint carried across the body, aim shouldered
-		holds = { ready = 116689031458192, carry = 135080055967084, aim = 96566608814080 },
+		-- user references 2026-10-11: ready low in front of the stomach, sprint carried across the body, aim shouldered;
+		-- ready and aim breathe like Roblox's R6 idle (user: match the default sway)
+		holds = { ready = 107914359416034, carry = 135080055967084, aim = 133970960181165 },
 		firstPerson = { ready = 122238707400436, carry = 139044614510117, aim = 109878538050440 },
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },

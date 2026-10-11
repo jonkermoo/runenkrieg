@@ -10,6 +10,12 @@ Net.init()
 PhysicsService:RegisterCollisionGroup("Debris")
 PhysicsService:RegisterCollisionGroup("Characters")
 PhysicsService:CollisionGroupSetCollidable("Debris", "Characters", false)
+-- The first-person viewmodel (src/client/Viewmodel) collides with nothing: its Humanoid forces the "Torso" part
+-- collidable every frame, and that torso sits inside the player's own head (it shoved the character around).
+PhysicsService:RegisterCollisionGroup("Viewmodel")
+for _, g in PhysicsService:GetRegisteredCollisionGroups() do
+	PhysicsService:CollisionGroupSetCollidable("Viewmodel", g.name, false)
+end
 local function assign(character: Model)
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then
