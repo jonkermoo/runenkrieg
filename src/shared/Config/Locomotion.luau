@@ -8,9 +8,10 @@
 local Locomotion = {
 	SprintKeys = { "LeftShift", "RightShift" },
 
-	-- Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart) muted on every
-	-- character (user 2026-10-11: no stepping or jumping audio). Our own movement audio comes later.
-	MutedSounds = { "Running", "Jumping", "Landing" },
+	-- Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart; client side, on
+	-- every client) muted on every character. Footsteps come from src/client/Footsteps (by surface) instead; the
+	-- default jump sound stays (user 2026-10-11).
+	MutedSounds = { "Running", "Landing" },
 
 	-- Animation asset ids. Roblox's stock R6 ids fill what we haven't made yet.
 	-- Ground cycles: `keyed` is the cycle length in the keyframe data (tools/animation/locomotion.luau), `cycle` the

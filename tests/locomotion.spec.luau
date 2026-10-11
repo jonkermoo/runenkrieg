@@ -27,10 +27,9 @@ return {
 			assert(a and type(a.id) == "number" and a.id > 0, `missing animation {name}`)
 		end
 	end,
-	["Roblox's footstep and jump sounds are muted"] = function()
-		for _, name in { "Running", "Jumping" } do
-			assert(table.find(L.MutedSounds, name), `{name} must be muted`)
-		end
+	["Roblox's footsteps are muted, its jump sound is kept"] = function()
+		assert(table.find(L.MutedSounds, "Running"), "Roblox's footstep loop must be muted (Footsteps replaces it)")
+		assert(not table.find(L.MutedSounds, "Jumping"), "the default jump sound stays (user 2026-10-11)")
 	end,
 	["the jump has a cooldown"] = function()
 		assert(M.Movement.JumpCooldown > 0 and M.Movement.JumpCooldown < 1, "jump cooldown should be short")
