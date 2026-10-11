@@ -14,7 +14,7 @@ local Locomotion = {
 	SoundVolumes = {
 		Running = 0, -- Roblox's footstep loop
 		Landing = 0,
-		Jumping = 0.01, -- the default jump sound, kept quiet (user 2026-10-11; Roblox's is 0.65)
+		Jumping = 0.05, -- the default jump sound, kept quiet (user 2026-10-11; Roblox's is 0.65)
 	},
 
 	-- Animation asset ids. Roblox's stock R6 ids fill what we haven't made yet.
@@ -24,8 +24,8 @@ local Locomotion = {
 	-- real walk and run cadence. Tune `cycle` here; no re-upload needed.
 	Animations = {
 		idle = { id = 180435571 }, -- Roblox stock R6 idle (placeholder)
-		walk = { id = 84858012910481, speed = 10, keyed = 0.76, cycle = 1 },
-		sprint = { id = 134283453564965, speed = 16, keyed = 0.56, cycle = 0.72 },
+		walk = { id = 124832466097340, speed = 10, keyed = 0.76, cycle = 1 },
+		sprint = { id = 71642320375175, speed = 16, keyed = 0.56, cycle = 0.72 },
 		climb = { id = 180436334, speed = 8 }, -- Roblox stock R6 climb (ladders)
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
 	},
