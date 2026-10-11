@@ -28,10 +28,11 @@ local Sway = {
 
 	-- Steps: driven by the Footstep markers on the local walk / sprint cycles (the view lands with the feet). A stride
 	-- is two steps. The first-person gun draws a figure 8: side to side once per stride, down at every step.
-	-- Reference: walk side 17 deg p-p and down 3.4 deg p-p; sprint side ~28 and down ~4 deg p-p.
+	-- Reference: walk side 17 deg p-p and down 3.4 deg p-p; sprint side ~28 and down ~4 deg p-p (on screen; `down` is
+	-- smaller than half because the turn about Pivot moves the gun more than the angle itself: measured in play).
 	Stride = {
-		walk = { side = 8, down = 1.7, roll = 2 },
-		sprint = { side = 14, down = 2, roll = 4 },
+		walk = { side = 8, down = 1, roll = 2 },
+		sprint = { side = 11, down = 0.5, roll = 1.5 },
 		WalkSpeed = 10, -- speeds the amplitudes are given at (Metrics.Movement); scaled linearly in between
 		SprintSpeed = 16,
 		Fade = 6, -- how fast the stride sway fades in and out when starting and stopping (per second)
