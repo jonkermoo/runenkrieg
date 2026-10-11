@@ -34,7 +34,7 @@ function Sway.viewmodel(): CFrame
 	return viewmodel
 end
 
--- the camera's own turn for a view ("First", "Aim", "Shoulder", "Free")
+-- the camera's own turn for a view ("First", "Aim", "Shoulder")
 function Sway.camera(view: string?): CFrame
 	local share = view and Cfg.Camera.View[view] or 0
 	return CFrame.Angles(math.rad(camera.pitch * share), 0, math.rad(camera.roll * share))

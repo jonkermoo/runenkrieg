@@ -1,13 +1,14 @@
 --!strict
 -- The camera while a weapon is in the hands (Config/Camera, Metrics.Camera; user 2026-10-11):
--- - equipping locks it over the right shoulder, the body turning with it (mouse locked to the centre);
--- - the mouse wheel steps to first person (forward) or a free third-person orbit (back; the body turns to where it
---   walks, the wheel zooms, and zooming in past the nearest hands back to the shoulder);
--- - aiming down the sights (src/client/Stance) is first person.
--- In first person (and aiming) the camera is the eye; the player's own body arms and weapon are hidden and the
--- viewmodel shows the first-person holds instead (src/client/Viewmodel).
--- Putting the weapon away hands the camera back to Roblox's own. Writes the mode to the character's "CameraMode"
--- attribute (local): "First", "Shoulder", "Free" or "Aim".
+-- - over the right shoulder at the selected zoom, the body turning with it (mouse locked to the centre). The wheel
+--   zooms in and out over the same range Roblox's camera has; one step in from the nearest zoom is first person;
+-- - equipping keeps the zoom Roblox's camera had (first person stays first person), putting the weapon away hands
+--   the same zoom back to Roblox's camera;
+-- - aiming down the sights (src/client/Stance) is first person;
+-- - first person (and aiming) hides the whole body from the player: the viewmodel shows the first-person holds
+--   (src/client/Viewmodel). Out of first person the body fades translucent as the camera comes near it (zoomed in,
+--   or pulled in by a wall), so it never blocks the view.
+-- Writes the view to the character's "CameraMode" attribute (local): "First", "Shoulder" or "Aim".
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -25,6 +26,7 @@ local Sway = require(script.Parent.Sway)
 local WeaponCamera = {}
 
 local HEAD = Vector3.new(0, 1.5, 0) -- head centre above the root (R6)
+local ROBLOX_MIN = 0.5 -- StarterPlayer.CameraMinZoomDistance: Roblox's first person
 
 local function v3(t: { number }): Vector3
 	return Vector3.new(t[1], t[2], t[3])
@@ -39,15 +41,15 @@ function WeaponCamera.start()
 	local player = Players.LocalPlayer
 	local camera = workspace.CurrentCamera
 	local active = false
-	local mode = Cfg.DefaultMode
+	local zoom = 7 -- selected distance; 0 = first person
+	local shownZoom = 7 -- eased toward `zoom`
 	local yaw, pitch = 0, 0 -- degrees
-	local distance = Cfg.FreeDistance
-	-- moving between modes: the camera eases from where it was (relative to the root) to the new spot
+	-- moving between first and third person: the camera eases from where it was (relative to the root)
 	local from: Vector3? = nil
 	local blend = 1
 	local last = Vector3.zero
 	local lastView: any = nil
-	local shown = ""
+	local fade = -1 -- body transparency last written (-1: not yet)
 	local ray = RaycastParams.new()
 	ray.FilterType = Enum.RaycastFilterType.Exclude
 	ray.RespectCanCollide = true
@@ -59,29 +61,26 @@ function WeaponCamera.start()
 		return character, humanoid, root
 	end
 
-	-- What the camera hides from the local player (others always see the whole soldier): in first person and aiming,
-	-- the head with whatever it wears, the arms and the weapon (the viewmodel shows the first-person ones).
-	local function hide(character: Model, view: string)
-		local inside = view == "First" or view == "Aim"
+	-- the whole body (with what it wears and holds) at one local transparency; others always see it whole
+	local function show(character: Model, transparency: number)
+		if transparency == fade then
+			return
+		end
+		fade = transparency
 		for _, d in character:GetDescendants() do
-			if d:IsA("BasePart") then
-				local hidden = inside
-					and (
-						d.Name == "Head"
-						or d.Name == "Left Arm"
-						or d.Name == "Right Arm"
-						or d:FindFirstAncestorOfClass("Accessory") ~= nil
-						or d:FindFirstAncestorOfClass("Tool") ~= nil
-					)
-				d.LocalTransparencyModifier = if hidden then 1 else 0
+			if (d:IsA("BasePart") and d.Name ~= "HumanoidRootPart") or d:IsA("Decal") then
+				(d :: any).LocalTransparencyModifier = transparency
 			end
 		end
 	end
 
 	local function enter()
 		active = true
-		mode = Cfg.DefaultMode
 		local _, _, root = parts()
+		-- keep the zoom Roblox's camera had
+		local d = (camera.CFrame.Position - camera.Focus.Position).Magnitude
+		zoom = if d < Cfg.FirstBelow then 0 else math.clamp(d, Cfg.MinZoom, Cfg.MaxZoom)
+		shownZoom = zoom
 		if root then -- ease in from where Roblox's camera was
 			last = camera.CFrame.Position - root.Position
 			lastView = nil
@@ -89,12 +88,12 @@ function WeaponCamera.start()
 		local look = camera.CFrame.LookVector
 		yaw = math.deg(math.atan2(-look.X, -look.Z))
 		pitch = math.clamp(math.deg(math.asin(look.Y)), -Cfg.PitchLimit, Cfg.PitchLimit)
+		fade = -1
 		camera.CameraType = Enum.CameraType.Scriptable
 	end
 
 	local function leave(character: Model?, humanoid: Humanoid?)
 		active = false
-		shown = ""
 		camera.CameraType = Enum.CameraType.Custom
 		camera.FieldOfView = Cfg.Fov
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -103,30 +102,26 @@ function WeaponCamera.start()
 		end
 		if character then
 			character:SetAttribute("CameraMode", nil)
-			hide(character, "")
+			fade = -1
+			show(character, 0)
 		end
+		-- hand the zoom back: Roblox's camera has no zoom setter, so pin its range for a frame
+		local d = if zoom <= 0 then ROBLOX_MIN else zoom
+		player.CameraMinZoomDistance, player.CameraMaxZoomDistance = d, d
+		task.delay(0.1, function()
+			player.CameraMinZoomDistance, player.CameraMaxZoomDistance = ROBLOX_MIN, Cfg.MaxZoom
+		end)
 	end
 
-	-- wheel: forward toward first person, back toward the free orbit
+	-- wheel: in toward first person, out to MaxZoom
 	ContextActionService:BindActionAtPriority("WeaponCameraZoom", function(_, state, input)
 		if not active or state ~= Enum.UserInputState.Change then
 			return Enum.ContextActionResult.Pass
 		end
-		local i = table.find(Cfg.Modes, mode) or 2
 		if input.Position.Z > 0 then
-			if mode == "Free" then
-				distance -= Cfg.FreeStep
-				if distance < Cfg.FreeMin then
-					distance = Cfg.FreeDistance
-					mode = "Shoulder"
-				end
-			else
-				mode = Cfg.Modes[math.max(1, i - 1)]
-			end
-		elseif mode == "Free" then
-			distance = math.min(distance + Cfg.FreeStep, Cfg.FreeMax)
+			zoom = if zoom <= Cfg.MinZoom + 1e-3 then 0 else math.max(Cfg.MinZoom, zoom * Cfg.ZoomStep)
 		else
-			mode = Cfg.Modes[math.min(#Cfg.Modes, i + 1)]
+			zoom = if zoom <= 0 then Cfg.MinZoom else math.min(Cfg.MaxZoom, zoom / Cfg.ZoomStep)
 		end
 		return Enum.ContextActionResult.Sink
 	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseWheel)
@@ -150,12 +145,9 @@ function WeaponCamera.start()
 		pitch = math.clamp(pitch - delta.Y * sens, -Cfg.PitchLimit, Cfg.PitchLimit)
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 		camera.CFrame = CFrame.new(camera.CFrame.Position) * CFrame.fromOrientation(math.rad(pitch), math.rad(yaw), 0)
-		local facing = aiming or mode ~= "Free"
-		humanoid.AutoRotate = not facing
-		if facing then
-			root.CFrame = CFrame.new(root.Position) * CFrame.fromOrientation(0, math.rad(yaw), 0)
-		end
-		character:SetAttribute("CameraMode", if aiming then "Aim" else mode)
+		humanoid.AutoRotate = false
+		root.CFrame = CFrame.new(root.Position) * CFrame.fromOrientation(0, math.rad(yaw), 0)
+		character:SetAttribute("CameraMode", if aiming then "Aim" elseif zoom <= 0 then "First" else "Shoulder")
 	end)
 
 	-- after the look tilt has posed the gun: place the camera
@@ -177,30 +169,29 @@ function WeaponCamera.start()
 			end
 			return origin + offset
 		end
-		local torso = root.CFrame
-			* (root:FindFirstChild("RootJoint") :: Motor6D).C0
-			* (root:FindFirstChild("RootJoint") :: Motor6D).Transform
-			* (root:FindFirstChild("RootJoint") :: Motor6D).C1:Inverse()
+		local rootJoint = root:FindFirstChild("RootJoint") :: Motor6D
+		local torso = root.CFrame * rootJoint.C0 * rootJoint.Transform * rootJoint.C1:Inverse()
 
+		local inside = view == "Aim" or view == "First"
 		local target: Vector3
-		if view == "Aim" or view == "First" then
+		if inside then
 			local neck = (character:FindFirstChild("Torso") :: BasePart):FindFirstChild("Neck") :: Motor6D
 			target = (torso * neck.C0 * neck.Transform * neck.C1:Inverse()) * v3(Cfg.Eye)
-		elseif view == "Free" then
-			target = clear(head, rotation:VectorToWorldSpace(Vector3.new(0, 0, distance)))
 		else
+			shownZoom += (math.max(zoom, Cfg.MinZoom) - shownZoom) * (1 - math.exp(-Cfg.Ease * dt))
 			local o = M.Camera.ShoulderOffset
 			local shoulder =
 				clear(head, CFrame.fromOrientation(0, math.rad(yaw), 0):VectorToWorldSpace(Vector3.new(o.X, o.Y, o.Z)))
-			target = clear(shoulder, rotation:VectorToWorldSpace(Vector3.new(0, 0, M.Camera.Distance)))
+			target = clear(shoulder, rotation:VectorToWorldSpace(Vector3.new(0, 0, shownZoom)))
 		end
-		-- on a change of view, ease from the last spot (relative to the root), then follow exactly
-		if view ~= lastView then
-			from, blend, lastView = last, 0, view
+		-- between first and third person (and into the sights): a short ease from the last spot, then exact
+		if inside ~= (lastView == "Aim" or lastView == "First") or lastView == nil then
+			from, blend = last, 0
 		end
+		lastView = view
 		local rel = target - root.Position
 		if from and blend < 1 then
-			blend = math.min(1, blend + dt * Cfg.Ease / 3)
+			blend = math.min(1, blend + dt / Cfg.Blend)
 			rel = from:Lerp(rel, smooth(blend))
 		end
 		last = rel
@@ -208,12 +199,14 @@ function WeaponCamera.start()
 		camera.Focus = CFrame.new(head)
 		local fov = if view == "Aim" then Cfg.AimFov else Cfg.Fov
 		camera.FieldOfView += (fov - camera.FieldOfView) * (1 - math.exp(-Cfg.Ease * dt))
-		-- Roblox's camera fades the whole body while the camera is near the head, so this is held every frame there
-		local inside = view == "Aim" or view == "First"
-		if view ~= shown or inside then
-			hide(character, view)
-			shown = view
-		end
+
+		-- the body: gone in first person, fading as the camera nears it otherwise
+		local near = (camera.CFrame.Position - head).Magnitude
+		local t = math.clamp((Cfg.FadeFar - near) / (Cfg.FadeFar - Cfg.FadeNear), 0, 1)
+		local want = if inside then 1 else math.floor(t * Cfg.FadeMax * 20 + 0.5) / 20
+		-- Roblox's camera fades the body too when it thinks the camera is near the head: hold ours every frame
+		fade = -1
+		show(character, want)
 	end)
 end
 

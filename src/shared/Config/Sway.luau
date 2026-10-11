@@ -61,7 +61,7 @@ local Sway = {
 		walk = { pitch = 0.1, roll = 0.04 },
 		sprint = { pitch = 0.08, roll = 0.03 },
 		aim = { pitch = 0.13, roll = 0.02 },
-		View = { First = 1, Aim = 1, Shoulder = 0.25, Free = 0 },
+		View = { First = 1, Aim = 1, Shoulder = 0.25 },
 	},
 }
 
