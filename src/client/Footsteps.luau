@@ -2,7 +2,8 @@
 -- Footstep sounds (Config/Footsteps). Every character's walk / sprint tracks carry "Footstep" markers on the foot
 -- plants; on each client, for every character (its own and other players'), a marker plays one short low step at
 -- that character. Steps in the air (the cycles keep playing through a jump) are skipped. Nothing goes over the
--- network.
+-- network. Each character keeps one ready Sound per step sound and reuses them: a Sound made at the moment of the
+-- step starts ~0.33 s late (it loads first), a ready one in ~0.03 s.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35,6 +36,20 @@ local function attach(character: Model)
 	params.IgnoreWater = false
 	local last = 0
 
+	-- the step sounds, made once and kept loaded
+	local pool: { Sound } = {}
+	for i, id in Cfg.Sounds do
+		local sound = Instance.new("Sound")
+		sound.Name = "Footstep" .. i
+		sound.SoundId = "rbxassetid://" .. id
+		sound.RollOffMode = Enum.RollOffMode.InverseTapered
+		sound.RollOffMinDistance = Cfg.RollOffMin
+		sound.RollOffMaxDistance = Cfg.RollOffMax
+		sound.Parent = root
+		pool[i] = sound
+	end
+	local lastSound = 0
+
 	local function step(track: AnimationTrack)
 		if track.WeightCurrent < 0.5 or humanoid.Health <= 0 then
 			return
@@ -47,21 +62,18 @@ local function attach(character: Model)
 			return -- airborne
 		end
 		last = now
-		local ids = Cfg.Sounds
-		local sound = Instance.new("Sound")
-		sound.Name = "Footstep"
-		sound.SoundId = "rbxassetid://" .. ids[rng:NextInteger(1, #ids)]
+		-- a different sound from the last step, so one still ringing isn't cut off
+		local i = rng:NextInteger(1, #pool)
+		if i == lastSound and #pool > 1 then
+			i = i % #pool + 1
+		end
+		lastSound = i
+		local sound = pool[i]
 		sound.Volume = if track.Animation and track.Animation.AnimationId == SPRINT
 			then Cfg.SprintVolume
 			else Cfg.Volume
 		sound.PlaybackSpeed = Cfg.Pitch + rng:NextNumber(-Cfg.PitchJitter, Cfg.PitchJitter)
-		sound.RollOffMode = Enum.RollOffMode.InverseTapered
-		sound.RollOffMinDistance = Cfg.RollOffMin
-		sound.RollOffMaxDistance = Cfg.RollOffMax
-		sound.Parent = root
-		sound.Ended:Once(function()
-			sound:Destroy()
-		end)
+		sound.TimePosition = 0
 		sound:Play()
 	end
 
