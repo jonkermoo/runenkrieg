@@ -4,7 +4,8 @@
 -- the gun origin, static parts are welded to it, moving parts get Motor6Ds at their pivots, and the Muzzle / Aim /
 -- Eject attachments sit on it (all looking down gun -Z, so sight and fire stay parallel). The whole weapon is
 -- scaled by its Config `scale` about the origin (gun-space numbers in Config are the modelled, unscaled ones).
--- Armory.give(player, name) hands it over as a Tool; the kit's weapon (Config/Uniforms) is given on spawn. While
+-- Armory.give(player, name) hands it over as a Tool into its slot (one weapon per slot: a new primary replaces the
+-- old); on each spawn the player's loadout is given (their pick via Armory.choose, else the kit's weapon). While
 -- the Tool isn't equipped, a copy rides on the body where Config/Weapons `stow` puts it (slung on the back); it
 -- hides while the weapon is in the hands. Both live on the server, so every player sees them.
 -- No motion here: the moving parts only have their Motor6Ds; animation is a later, separate step.
@@ -18,6 +19,8 @@ local U = require(Shared.Config.Uniforms)
 local W = require(Shared.Config.Weapons)
 
 local Armory = {}
+
+local LOADOUT = "Loadout_" -- Player attribute per slot: the weapon the player spawns with
 
 local function v3(p: { number }): Vector3
 	return Vector3.new(p[1], p[2], p[3])
@@ -135,21 +138,24 @@ function Armory.stowed(character: Model, name: string): Model?
 	return model
 end
 
+-- Gives the weapon into its slot as if the player had spawned with it: whatever weapon held that slot (in the
+-- hands, in the backpack or slung) is removed first, so a player carries one weapon per slot (one primary).
+-- Tools can't be dropped, so it stays for the rest of the life.
 function Armory.give(player: Player, name: string): Tool
+	local slot = W[name].slot
 	local backpack = player:WaitForChild("Backpack")
-	for _, t in backpack:GetChildren() do
-		if t:GetAttribute("Weapon") == name then
-			t:Destroy()
+	local character = player.Character
+	for _, holder in { backpack, character } do
+		for _, t in if holder then holder:GetChildren() else {} do
+			local held = t:GetAttribute("Weapon")
+			if t:IsA("Tool") and held and W[held] and W[held].slot == slot then
+				t:Destroy() -- its stowed copy goes with it
+			end
 		end
 	end
 	local tool = Armory.tool(name)
 	tool.Parent = backpack
 
-	local character = player.Character
-	local old = character and character:FindFirstChild("Stowed_" .. name)
-	if old then
-		old:Destroy()
-	end
 	local stowed = character and Armory.stowed(character, name)
 	if character and stowed then
 		local function update()
@@ -161,18 +167,54 @@ function Armory.give(player: Player, name: string): Tool
 		end)
 		update()
 	end
+	player:SetAttribute(LOADOUT .. slot, name)
 	return tool
 end
 
-function Armory.start()
+-- The player's weapon for a slot: their pick ("Loadout_<slot>" on the Player, set by Armory.choose), else the
+-- kit's weapon (primary only; Config/Uniforms).
+function Armory.loadout(player: Player, slot: string): string?
+	local picked = player:GetAttribute(LOADOUT .. slot)
+	if type(picked) == "string" and W[picked] and W[picked].slot == slot then
+		return picked
+	end
 	local kit = U.Kits[U.Default] :: any
-	if not kit.weapon then
-		return -- the default kit carries no weapon yet (teams/nations not decided)
+	return if slot == "Primary" then kit.weapon else nil
+end
+
+-- Makes the weapon the player's pick for its slot: given now (replacing the slot's weapon) and on every respawn.
+function Armory.choose(player: Player, name: string)
+	assert(W[name], "unknown weapon " .. name)
+	player:SetAttribute(LOADOUT .. W[name].slot, name)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		Armory.give(player, name)
+	end
+end
+
+-- Gives every slot of the loadout on each spawn.
+function Armory.start()
+	local function spawned(player: Player, character: Model)
+		character:WaitForChild("Torso", 10)
+		local slots: { [string]: boolean } = {}
+		for _, w in W do
+			slots[w.slot] = true
+		end
+		for slot in slots do
+			local name = Armory.loadout(player, slot)
+			if name then
+				Armory.give(player, name)
+			end
+		end
 	end
 	local function hook(player: Player)
-		player.CharacterAdded:Connect(function()
-			Armory.give(player, kit.weapon)
+		player.CharacterAdded:Connect(function(character)
+			spawned(player, character)
 		end)
+		if player.Character then
+			task.spawn(spawned, player, player.Character)
+		end
 	end
 	Players.PlayerAdded:Connect(hook)
 	for _, p in Players:GetPlayers() do

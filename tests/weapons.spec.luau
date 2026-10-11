@@ -54,6 +54,11 @@ return {
 			assert(m[2] > 0.5, `{name}: a slung weapon points its muzzle up`)
 		end
 	end,
+	["every weapon has a loadout slot"] = function()
+		for name, w in W do
+			assert(w.slot == "Primary", `{name}: unknown slot {w.slot}`)
+		end
+	end,
 	["kit weapons exist"] = function()
 		for kit, k in U.Kits do
 			local wname = (k :: any).weapon

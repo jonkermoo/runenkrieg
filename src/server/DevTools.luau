@@ -1,6 +1,8 @@
 --!strict
 -- Dev teleports: allowed players (Config/DevTools) get the DevTools attribute; the client menu sends a
 -- destination id over Net "DevTeleport" and the server moves the character, standing on the ground.
+-- Dev weapons: the weapon menu sends a weapon name over Net "DevGiveWeapon"; it becomes the player's loadout pick
+-- for its slot (Armory.choose: given now as if spawned with it, and on every respawn).
 -- DevTools.teleport(player, id) is also used directly by tests/demos.
 
 local Players = game:GetService("Players")
@@ -8,7 +10,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Armory = require(script.Parent.Armory)
 local Cfg = require(Shared.Config.DevTools)
+local W = require(Shared.Config.Weapons)
 local Map1 = require(Shared.Config.Maps.Map1)
 local Rules = require(Shared.Rules.DevTeleports)
 local Net = require(Shared.Net)
@@ -76,6 +80,17 @@ function DevTools.start()
 		end
 		last[player] = now
 		DevTools.teleport(player, id)
+	end)
+	Net.event("DevGiveWeapon").OnServerEvent:Connect(function(player: Player, name: any)
+		if player:GetAttribute(Cfg.Attribute) ~= true or type(name) ~= "string" or not W[name] then
+			return
+		end
+		local now = os.clock()
+		if last[player] and now - last[player] < Cfg.CooldownSeconds then
+			return
+		end
+		last[player] = now
+		Armory.choose(player, name)
 	end)
 end
 

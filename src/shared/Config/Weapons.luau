@@ -7,6 +7,9 @@
 export type Weapon = {
 	asset: string, -- Config/Assets entry (the uploaded model)
 	display: string,
+	-- Loadout slot: a soldier carries one weapon per slot, given at spawn and kept for the life (src/server/Armory).
+	-- "Primary" = the main long gun (one primary at a time, user 2026-10-11).
+	slot: string,
 	parts: { [string]: { number } }, -- flat color per mesh part
 	moving: { [string]: { number } }, -- Motor6D pivot per moving part (the rest is welded)
 	hidden: { string }, -- template parts, invisible on the weapon (cloned at runtime)
@@ -25,6 +28,7 @@ local Weapons: { [string]: Weapon } = {
 	rifle_m91 = {
 		asset = "rifle_m91",
 		display = "Carcano M91",
+		slot = "Primary",
 		parts = {
 			Wood = { 142, 74, 42 },
 			Handguard = { 142, 74, 42 },
