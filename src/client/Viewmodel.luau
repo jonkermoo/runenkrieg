@@ -5,6 +5,10 @@
 -- arms with its shirt and body colours, a copy of the held weapon joined to the torso like the real one) fixed to the
 -- camera so the camera is its eye. It plays the weapon's first-person holds (Config/Weapons firstPerson) by the
 -- same "Hold" state as the body (src/client/Locomotion), and moves by the global sway layer (src/client/Sway).
+-- Aiming starts with a brief aim-in (firstPerson.aimIn, 0.2 s: the rifle comes up into the sights) over the aim hold,
+-- while the body plays its third-person aim for everyone. Coming into view (into first person, or aiming from the
+-- shoulder camera) the viewmodel starts in its pose at once: fading in from the rig's rest pose showed the gun rising
+-- from the middle of the screen (user 2026-10-11).
 -- Nothing here replicates; others see the third-person holds.
 
 local ContentProvider = game:GetService("ContentProvider")
@@ -126,8 +130,10 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		local anim = Instance.new("Animation")
 		anim.AnimationId = "rbxassetid://" .. id
 		local t = animator:LoadAnimation(anim)
-		t.Priority = if state == "equip" then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
-		t.Looped = state ~= "equip"
+		-- the equip and the aim-in are one shots over the holds
+		local once = state == "equip" or state == "aimIn"
+		t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
+		t.Looped = not once
 		tracks[state] = t
 	end
 	-- drawn just now (src/client/Locomotion marks the moment): play the rest of the equip
@@ -174,6 +180,11 @@ function Viewmodel.start()
 		if not character or not weapon or (view ~= "First" and view ~= "Aim") then
 			if rig then
 				rig.model.Parent = nil
+				-- out of view the holds stop, so coming back (aiming again) starts afresh with the aim-in
+				for _, t in rig.tracks do
+					t:Stop(0)
+				end
+				playing = nil
 			end
 			if not weapon then
 				drop()
@@ -183,21 +194,35 @@ function Viewmodel.start()
 		if rig and rig.tool ~= weapon.tool then
 			drop()
 		end
+		local appearing = not rig or (rig :: Rig).model.Parent == nil
 		if not rig then
 			rig = build(character, weapon)
 		end
 		local r = rig :: Rig
 		local camera = workspace.CurrentCamera
-		r.root.CFrame = camera.CFrame * Sway.viewmodel() * CFrame.new(-EYE)
+		-- a track started now poses the rig only from the next frame: the frame it comes into view it waits out of
+		-- sight below the camera, or that frame shows the rig's rest pose (the gun in the middle of the screen)
+		local below = if appearing then CFrame.new(0, -50, 0) else CFrame.identity
+		r.root.CFrame = camera.CFrame * below * Sway.viewmodel() * CFrame.new(-EYE)
 		r.model.Parent = camera
 		local state = character:GetAttribute("Hold")
 		local track = if type(state) == "string" then r.tracks[state] else nil
+		local aimIn = r.tracks.aimIn
 		if track ~= playing then
+			-- coming into view: straight into the pose, never faded in from the rig's rest pose
+			local fade = if appearing then 0 else Cfg.ViewmodelFade
+			if state == "aim" and aimIn then
+				-- aiming starts: the brief aim-in carries the gun up into the sights over the aim hold
+				fade = 0
+				aimIn:Play(0)
+			elseif aimIn and aimIn.IsPlaying then
+				aimIn:Stop(fade) -- let go of aim before the gun reached the sights
+			end
 			if playing then
-				playing:Stop(Cfg.ViewmodelFade)
+				playing:Stop(fade)
 			end
 			if track then
-				track:Play(Cfg.ViewmodelFade)
+				track:Play(fade)
 			end
 			playing = track
 		end

@@ -34,8 +34,9 @@ export type Weapon = {
 	},
 	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
 	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
-	-- running motion comes from the sway layer (Config/Sway), not from extra animations.
-	firstPerson: { ready: number, carry: number, aim: number, equip: number },
+	-- running motion comes from the sway layer (Config/Sway), not from extra animations. aimIn: a brief one shot each
+	-- time aiming starts, the gun coming up into the sights over the aim hold (user 2026-10-11).
+	firstPerson: { ready: number, carry: number, aim: number, equip: number, aimIn: number },
 	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
 	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
 	-- the muzzle against Metrics.
@@ -93,12 +94,14 @@ local Weapons: { [string]: Weapon } = {
 			crouchWalk = 90228887606612,
 			crouchAim = 137476015651826,
 		},
-		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera
+		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
+		-- the ready hold up into the sights in 0.2 s
 		firstPerson = {
 			ready = 122238707400436,
 			carry = 114387700921278,
 			aim = 109878538050440,
 			equip = 120043329130240,
+			aimIn = 127708234257716,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },

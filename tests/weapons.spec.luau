@@ -79,7 +79,7 @@ return {
 				local id = w.holds[hold] :: number
 				assert(type(id) == "number" and id > 0, `{name}: no {hold} hold animation`)
 			end
-			for _, hold in { "ready", "carry", "aim", "equip" } do
+			for _, hold in { "ready", "carry", "aim", "equip", "aimIn" } do
 				local first = (w.firstPerson :: any)[hold]
 				assert(type(first) == "number" and first > 0, `{name}: no first-person {hold} hold animation`)
 				assert((w.holds :: any)[hold] ~= first, `{name}: first and third person share the {hold} animation`)
