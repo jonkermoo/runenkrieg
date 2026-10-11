@@ -24,7 +24,6 @@ local Sway = {
 		Potion = 0.3,
 		Staff = 0.8,
 		SpellBook = 0.4,
-		Unarmed = 0.3, -- empty hands: the arm animations carry the motion, the sway only adds a little
 	},
 
 	-- Steps: driven by the Footstep markers on the local walk / sprint cycles (the view lands with the feet). A stride

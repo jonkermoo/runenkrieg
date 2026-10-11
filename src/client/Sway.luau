@@ -125,7 +125,7 @@ function Sway.start()
 		end
 		local weapon = Held.weapon(character)
 		local class = weapon and (W[weapon.name] :: any).class
-		local weight = Cfg.Classes[class or "Unarmed"] or 1
+		local weight = class and Cfg.Classes[class] or 1
 		local aiming = character:GetAttribute("Aiming") == true
 		local A = Cfg.Aim
 		local function share(k: string): number
