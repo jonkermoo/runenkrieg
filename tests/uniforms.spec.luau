@@ -20,10 +20,17 @@ return {
 			end
 		end
 	end,
-	["every soldier has the face"] = function()
-		assert(type(U.Face) == "number" and U.Face > 0, "face image id missing")
-		assert(type(U.FaceClosed) == "number" and U.FaceClosed > 0, "closed face image id missing")
-		assert(fs.isFile("assets/characters/faces/face_dots.png"), "face source missing")
-		assert(fs.isFile("assets/characters/faces/face_dots_closed.png"), "closed face source missing")
+	["a face per health third, each with its closed face"] = function()
+		local files = { healthy = "face_dots", hurt = "face_dots_hurt", wounded = "face_dots_wounded" }
+		assert(#U.Faces == 3, "three health faces")
+		local last = 1
+		for _, f in U.Faces do
+			assert(f.open > 0 and f.closed > 0 and f.open ~= f.closed, `{f.name}: ids missing`)
+			assert(f.above < last, `{f.name}: tiers must go down in health`)
+			last = f.above
+			local stem = "assets/characters/faces/" .. files[f.name]
+			assert(fs.isFile(stem .. ".png") and fs.isFile(stem .. "_closed.png"), `{f.name}: images missing`)
+		end
+		assert(U.Faces[#U.Faces].above == 0, "the last face covers down to 0")
 	end,
 }

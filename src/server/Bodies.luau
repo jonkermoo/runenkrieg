@@ -65,7 +65,7 @@ function Bodies.apply(character: Model)
 		local face = Instance.new("Decal")
 		face.Name = "face"
 		face.Face = Enum.NormalId.Front
-		face.Texture = "rbxassetid://" .. U.Face
+		face.Texture = "rbxassetid://" .. U.Faces[1].open -- spawn at full health
 		face.Parent = card
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0, weld.Part1 = head :: BasePart, card

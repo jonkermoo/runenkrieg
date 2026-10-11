@@ -6,11 +6,17 @@
 
 local Uniforms = {
 	Default = "uniform1", -- until nations are decided, everyone wears this
-	-- Every soldier's face (docs/CHARACTERS.md Faces, user 2026-10-11): two dark brown dot eyes; closed = a line as
-	-- wide as the dot, bowed down the tiniest bit (blinks, death). tools/face/dots.py ->
-	-- assets/characters/faces/face_dots*.png. Image ids (decals 93811347457298, 119614933482657).
-	Face = 90297093549919,
-	FaceClosed = 119896130854019,
+	-- Every soldier's face, one per health third (docs/CHARACTERS.md Faces, user 2026-10-11): two dark brown dot
+	-- eyes; light injuries (scratches) in the middle third; cuts, a bruised shut eye in the bottom third. Each has its
+	-- closed version (blinks, death) with the same injuries. tools/face/dots.py -> assets/characters/faces/face_dots*.png.
+	-- Image ids (decals in docs/CHARACTERS.md). `above`: the face shows while Health / MaxHealth > above.
+	-- !! DEATH: a killed character shows the CLOSED face of the tier it was in last (healthy -> 0 in one hit: the
+	-- !! healthy closed face). Never pick the death face from health 0 (that would always be the wounded one).
+	Faces = {
+		{ name = "healthy", above = 2 / 3, open = 90297093549919, closed = 119896130854019 },
+		{ name = "hurt", above = 1 / 3, open = 89582775899231, closed = 96675291579280 },
+		{ name = "wounded", above = 0, open = 83142357018920, closed = 135774082129880 },
+	},
 	Kits = {
 		uniform1 = {
 			source = "assets/characters/uniforms/uniform1.json",
