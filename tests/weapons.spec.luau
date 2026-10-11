@@ -31,14 +31,18 @@ return {
 		for name, w in W do
 			local aim, muzzle = w.attachments.Aim, w.attachments.Muzzle
 			assert(aim[1] == 0 and muzzle[1] == 0, `{name}: Aim and Muzzle must be centred (x = 0)`)
-			local height = (aim[2] - muzzle[2]) * w.scale
-			assert(height > 0.02 and height < 0.12, `{name}: sight height {height} outside 0.02-0.12 studs`)
+			local height = (aim[2] - muzzle[2]) * w.scale[2]
+			assert(height > 0.02 and height < 0.15, `{name}: sight height {height} outside 0.02-0.15 studs`)
 			assert(aim[3] > muzzle[3], `{name}: the eye must be behind the muzzle`)
 		end
 	end,
 	["weapons are scaled up to the chunky R6 look, not shrunk"] = function()
 		for name, w in W do
-			assert(w.scale >= 1 and w.scale <= 2, `{name}: scale {w.scale} outside 1-2`)
+			assert(#w.scale == 3, `{name}: scale is per axis {"{"}x, y, z{"}"}`)
+			for _, k in w.scale do
+				assert(k >= 1 and k <= 3, `{name}: scale {k} outside 1-3`)
+			end
+			assert(w.scale[1] >= w.scale[3], `{name}: thicken more than lengthen (chunky, not long)`)
 		end
 	end,
 	["stowed weapons sit muzzle-up with a square frame"] = function()

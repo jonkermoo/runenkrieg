@@ -3,7 +3,8 @@
 -- library model (ReplicatedStorage.Assets.Weapons...): the export's Origin marker becomes the invisible Handle at
 -- the gun origin, static parts are welded to it, moving parts get Motor6Ds at their pivots, and the Muzzle / Aim /
 -- Eject attachments sit on it (all looking down gun -Z, so sight and fire stay parallel). The whole weapon is
--- scaled by its Config `scale` about the origin (gun-space numbers in Config are the modelled, unscaled ones).
+-- scaled by its Config `scale` (per gun axis) about the origin (gun-space numbers in Config are the modelled ones).
+-- The parts are axis-aligned with gun space, so scaling their Size per axis can't shear them.
 -- Armory.give(player, name) hands it over as a Tool into its slot (one weapon per slot: a new primary replaces the
 -- old); on each spawn the player's loadout is given (their pick via Armory.choose, else the kit's weapon). While
 -- the Tool isn't equipped, a copy rides on the body where Config/Weapons `stow` puts it (slung on the back); it
@@ -46,7 +47,7 @@ function Armory.build(name: string): Model
 	local origin = model:FindFirstChild("Origin", true) :: BasePart
 	assert(origin, name .. ": the model has no Origin marker")
 	local frame = CFrame.new(origin.Position) -- gun space: origin position, the model's axes
-	local s = w.scale
+	local s = v3(w.scale) -- per gun axis
 	origin.Name = "Handle"
 	origin.Transparency = 1
 	origin.Size = Vector3.new(0.2, 0.2, 0.2)
@@ -108,7 +109,7 @@ function Armory.tool(name: string): Tool
 	tool.Name = w.display
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
-	tool.Grip = CFrame.new(v3(w.grip) * w.scale)
+	tool.Grip = CFrame.new(v3(w.grip) * v3(w.scale))
 	for _, c in model:GetChildren() do
 		c.Parent = tool
 	end
