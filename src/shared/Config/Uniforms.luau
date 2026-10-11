@@ -6,6 +6,9 @@
 
 local Uniforms = {
 	Default = "uniform1", -- until nations are decided, everyone wears this
+	-- Every soldier's face (docs/CHARACTERS.md Faces): the user's eyes with their details, untinted. Image id
+	-- (decal 130361024249524), from tools/face/face.py face_detail.png.
+	Face = 109541192421015,
 	Kits = {
 		uniform1 = {
 			source = "assets/characters/uniforms/uniform1.json",

@@ -1,8 +1,8 @@
 --!strict
 -- Uniform soldier bodies (docs/CHARACTERS.md): every character is the plain blocky R6 body with no
--- avatar packages, clothing, accessories or face, so hitboxes are fair and everyone reads as a
+-- avatar packages, clothing or accessories, and the one soldier face, so hitboxes are fair and everyone reads as a
 -- soldier. The rig type itself is a game setting (Game Settings -> Avatar -> R6); scripts can't set it.
--- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants and skin color.
+-- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants and skin color, and puts on the face.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35,9 +35,18 @@ function Bodies.apply(character: Model)
 		humanoid:ApplyDescription(desc)
 	end)
 	local head = character:FindFirstChild("Head")
-	local face = head and head:FindFirstChildOfClass("Decal")
-	if face then
-		face:Destroy() -- faceless (docs/CHARACTERS.md)
+	if head then
+		-- the avatar's own face goes; the soldier face goes on
+		for _, d in head:GetChildren() do
+			if d:IsA("Decal") then
+				d:Destroy()
+			end
+		end
+		local face = Instance.new("Decal")
+		face.Name = "face"
+		face.Face = Enum.NormalId.Front
+		face.Texture = "rbxassetid://" .. U.Face
+		face.Parent = head
 	end
 	for _, c in character:GetChildren() do
 		if c:IsA("Clothing") then
