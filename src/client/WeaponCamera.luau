@@ -192,14 +192,16 @@ function WeaponCamera.start()
 		lastView = view
 		local rel = target - root.Position
 		if from and blend < 1 then
-			blend = math.min(1, blend + dt / Cfg.Blend)
+			-- into the sights the camera takes as long as the first-person aim-in (src/client/Viewmodel)
+			blend = math.min(1, blend + dt / (if view == "Aim" then Cfg.AimBlend else Cfg.Blend))
 			rel = from:Lerp(rel, smooth(blend))
 		end
 		last = rel
 		camera.CFrame = CFrame.new(root.Position + rel) * rotation * Sway.camera(view) -- its small step bob
 		camera.Focus = CFrame.new(head)
 		local fov = if view == "Aim" then Cfg.AimFov else Cfg.Fov
-		camera.FieldOfView += (fov - camera.FieldOfView) * (1 - math.exp(-Cfg.Ease * dt))
+		local ease = if view == "Aim" then Cfg.AimEase else Cfg.Ease
+		camera.FieldOfView += (fov - camera.FieldOfView) * (1 - math.exp(-ease * dt))
 
 		-- the body: gone in first person, fading as the camera nears it otherwise
 		local near = (camera.CFrame.Position - head).Magnitude

@@ -95,13 +95,13 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 137476015651826,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
-		-- the ready hold up into the sights in 0.2 s
+		-- the ready hold up into the sights in 0.3 s
 		firstPerson = {
 			ready = 122238707400436,
 			carry = 114387700921278,
 			aim = 109878538050440,
 			equip = 120043329130240,
-			aimIn = 127708234257716,
+			aimIn = 78552592923065,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },

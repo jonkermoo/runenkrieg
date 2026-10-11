@@ -23,7 +23,11 @@ local Camera = {
 	Fov = 70,
 	AimFov = 50,
 	Ease = 14, -- how fast the zoom and the FOV follow (per second)
-	Blend = 0.15, -- seconds to move between first and third person (or into the sights)
+	Blend = 0.15, -- seconds to move between first and third person
+	-- into the sights: with the first-person aim-in (0.3 s, Config/Weapons firstPerson.aimIn), not quicker (user
+	-- 2026-10-11: ADS too snappy)
+	AimBlend = 0.25,
+	AimEase = 9, -- how fast the FOV narrows into the sights (per second; ~0.33 s)
 	ViewmodelFade = 0.35, -- first-person holds crossfade (ready / carry / aim): their poses are far apart, a quick
 	-- swap looked choppy going into and out of a sprint
 

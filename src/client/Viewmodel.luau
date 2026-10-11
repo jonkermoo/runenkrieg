@@ -5,7 +5,7 @@
 -- arms with its shirt and body colours, a copy of the held weapon joined to the torso like the real one) fixed to the
 -- camera so the camera is its eye. It plays the weapon's first-person holds (Config/Weapons firstPerson) by the
 -- same "Hold" state as the body (src/client/Locomotion), and moves by the global sway layer (src/client/Sway).
--- Aiming starts with a brief aim-in (firstPerson.aimIn, 0.2 s: the rifle comes up into the sights) over the aim hold,
+-- Aiming starts with a brief aim-in (firstPerson.aimIn, 0.3 s: the rifle comes up into the sights) over the aim hold,
 -- while the body plays its third-person aim for everyone. Coming into view (into first person, or aiming from the
 -- shoulder camera) the viewmodel starts in its pose at once: fading in from the rig's rest pose showed the gun rising
 -- from the middle of the screen (user 2026-10-11).

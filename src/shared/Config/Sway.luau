@@ -57,13 +57,14 @@ local Sway = {
 	-- in the air the gun trails the vertical speed (rising: rides low; falling: floats up), `gain` deg per stud/s,
 	-- capped; `drop` studs of shift per degree. The landing dip below finishes it.
 	-- The jump is short (JumpHeight 2.7: ~0.3 s in the air), so the spring is quick enough to follow it.
-	Jump = { kick = 4, gain = 0.1, max = 4, drop = 0.006, stiffness = 90, damping = 12 },
+	-- Twice the first numbers (user 2026-10-11: jumping must sway more than aim-walking, it was the other way round).
+	Jump = { kick = 8, gain = 0.2, max = 8, drop = 0.006, stiffness = 90, damping = 12 },
 
 	-- Landing: a dip proportional to the fall speed (studs/s), capped.
 	Landing = { pitch = 0.12, drop = 0.006, max = 4, stiffness = 120, damping = 12 },
 
 	-- Aiming down the sights: shares of each source (reference: side sway about a quarter, the step dip stays).
-	Aim = { side = 0.25, down = 1, roll = 0.25, breath = 1, lag = 0.4, strafe = 0.3, jump = 0.75, landing = 0.5 },
+	Aim = { side = 0.25, down = 1, roll = 0.25, breath = 1, lag = 0.4, strafe = 0.3, jump = 1, landing = 1 },
 
 	-- The camera's own small share (reference: walk pitch bob 0.19 deg p-p, roll 0.08; sprint ~0.15; aiming walk
 	-- ~0.27 deg p-p), as amplitudes at the step, scaled by view.
