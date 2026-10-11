@@ -18,6 +18,9 @@ local Uniforms = {
 		{ name = "hurt", above = 1 / 3, open = 107066972986655, closed = 112253898229941 },
 		{ name = "wounded", above = 0, open = 101504668403462, closed = 118275055282013 },
 	},
+	-- Blinking (src/client/Blink): every living character in range shuts its eyes (its tier's closed face) for
+	-- `Closed` seconds, every MinGap..MaxGap seconds, each on its own random rhythm. Local only, nothing replicates.
+	Blink = { MinGap = 2, MaxGap = 6, Closed = 0.12, Range = 80 },
 	Kits = {
 		uniform1 = {
 			source = "assets/characters/uniforms/uniform1.json",

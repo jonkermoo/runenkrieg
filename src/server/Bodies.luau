@@ -8,7 +8,9 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local U = require(ReplicatedStorage:WaitForChild("Shared").Config.Uniforms)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local U = require(Shared.Config.Uniforms)
+local Faces = require(Shared.Rules.Faces)
 
 local Bodies = {}
 
@@ -65,12 +67,12 @@ function Bodies.apply(character: Model)
 		local face = Instance.new("Decal")
 		face.Name = "face"
 		face.Face = Enum.NormalId.Front
-		face.Texture = "rbxassetid://" .. U.Faces[1].open -- spawn at full health
 		face.Parent = card
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0, weld.Part1 = head :: BasePart, card
 		weld.Parent = card
 		card.Parent = character
+		Bodies.followHealth(character, humanoid, face)
 	end
 	for _, c in character:GetChildren() do
 		if c:IsA("Clothing") then
@@ -83,6 +85,36 @@ function Bodies.apply(character: Model)
 	local pants = Instance.new("Pants")
 	pants.PantsTemplate = "rbxassetid://" .. kit.pants
 	pants.Parent = character
+end
+
+-- The face follows health (Rules/Faces): the tier's face while alive; on death the CLOSED face of the tier the
+-- character was in LAST (one hit from full health = the healthy closed face; never picked from health 0).
+-- Writes "FaceTier" (1..3) and "FaceClosed" (dead) on the character for the client blink (src/client/Blink).
+local following: { [Humanoid]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+
+function Bodies.followHealth(character: Model, humanoid: Humanoid, face: Decal)
+	local tier = Faces.tier(humanoid.Health / math.max(humanoid.MaxHealth, 1e-6), U.Faces)
+	local closed = humanoid.Health <= 0
+	local function show()
+		local f = U.Faces[tier]
+		face.Texture = "rbxassetid://" .. (if closed then f.closed else f.open)
+		character:SetAttribute("FaceTier", tier)
+		character:SetAttribute("FaceClosed", closed)
+	end
+	show()
+	if following[humanoid] then
+		return -- the appearance was applied again: the health hook is already there and now drives this new face
+	end
+	following[humanoid] = true
+	humanoid.HealthChanged:Connect(function(health)
+		if closed then
+			return -- dead stays dead
+		end
+		tier, closed = Faces.after(tier, health, humanoid.MaxHealth, U.Faces)
+		local card = character:FindFirstChild("FaceCard")
+		face = (card and card:FindFirstChild("face") :: Decal?) or face
+		show()
+	end)
 end
 
 function Bodies.start()
