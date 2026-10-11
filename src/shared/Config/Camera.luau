@@ -9,7 +9,7 @@
 -- (zooming in, or a wall pulling the camera in).
 
 local Camera = {
-	MaxZoom = 20, -- studs from the head, everywhere (was the rifle's free-orbit limit)
+	MaxZoom = 7.5, -- studs from the head, everywhere (user 2026-10-11: their screenshot, measured; was 20)
 	MinZoom = 2, -- the nearest third-person zoom; one more wheel step in is first person
 	ZoomStep = 0.8, -- each wheel step multiplies the distance by this (in) or divides by it (out)
 	FirstBelow = 1, -- Roblox's camera nearer than this (studs) counts as first person when a weapon is equipped
