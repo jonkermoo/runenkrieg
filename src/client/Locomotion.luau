@@ -2,13 +2,19 @@
 -- Plays the soldier's movement animations on the local character (replaces Roblox's default Animate script;
 -- src/character/Animate calls attach). Tracks played here replicate to every other player.
 -- Idle / walk / sprint picked by horizontal speed, played at the Config cycle length and scaled to the speed. No air
--- animations (user 2026-10-11): jumping or falling keeps the current cycle. Tools: the stock arm-out hold.
+-- animations (user 2026-10-11): jumping or falling keeps the current cycle.
+-- A weapon in the hands plays its hold over the cycle (Config/Weapons holds, Action priority): ready standing and
+-- walking, carry while sprinting, aim while aiming down the sights. The hold is written to the character's "Hold"
+-- attribute (local) for the look tilt and the camera. Other tools: the stock arm-out hold.
 -- Numbers and ids: Config/Locomotion.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Cfg = require(ReplicatedStorage:WaitForChild("Shared").Config.Locomotion)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Cfg = require(Shared.Config.Locomotion)
+local W = require(Shared.Config.Weapons)
+local Held = require(script.Parent.Held)
 
 local Locomotion = {}
 
@@ -29,6 +35,8 @@ function Locomotion.attach(character: Model)
 	for _, t in tracks do
 		t.Looped = true
 	end
+
+	local holds: { [string]: { [string]: AnimationTrack } } = {}
 
 	-- the one base track playing (idle, walk, sprint or climb)
 	local current: string? = nil
@@ -53,24 +61,53 @@ function Locomotion.attach(character: Model)
 			for _, t in tracks do
 				t:Stop(0.1)
 			end
+			for _, set in holds do
+				for _, t in set do
+					t:Stop(0.1)
+				end
+			end
 			current = nil
 		end
 	end)
 
-	local function onChild(child: Instance, added: boolean)
-		if child:IsA("Tool") then
-			if added then
-				tracks.toolnone:Play(0.1)
-			elseif not character:FindFirstChildOfClass("Tool") then
-				tracks.toolnone:Stop(0.1)
+	-- weapon holds, loaded per weapon on first equip
+	local function holdTracks(name: string): { [string]: AnimationTrack }
+		if not holds[name] then
+			holds[name] = {}
+			for hold, id in W[name].holds do
+				local anim = Instance.new("Animation")
+				anim.Name = hold
+				anim.AnimationId = "rbxassetid://" .. id
+				local t = animator:LoadAnimation(anim)
+				t.Priority = Enum.AnimationPriority.Action
+				t.Looped = true
+				holds[name][hold] = t
 			end
 		end
+		return holds[name]
 	end
-	character.ChildAdded:Connect(function(c)
-		onChild(c, true)
-	end)
-	character.ChildRemoved:Connect(function(c)
-		onChild(c, false)
+	-- the one upper-body track playing over the cycle (a weapon hold or the stock tool hold)
+	local upper: AnimationTrack? = nil
+	local function hold(track: AnimationTrack?)
+		if upper == track then
+			return
+		end
+		if upper then
+			upper:Stop(Cfg.HoldFade)
+		end
+		if track then
+			track:Play(Cfg.HoldFade)
+		end
+		upper = track
+	end
+
+	character.ChildAdded:Connect(function(child)
+		-- join the gun to the torso at once (the server does too, a moment later), or it drops for a frame
+		local weapon = child:IsA("Tool") and Held.weapon(character)
+		local torso = character:FindFirstChild("Torso") :: BasePart?
+		if weapon and torso then
+			weapon.hold.Part0 = torso
+		end
 	end)
 
 	local step = RunService.Heartbeat:Connect(function()
@@ -90,6 +127,18 @@ function Locomotion.attach(character: Model)
 				local pace = math.clamp(speed / a.speed, Cfg.PlaybackMin, Cfg.PlaybackMax)
 				tracks[name]:AdjustSpeed(pace * a.keyed / a.cycle)
 			end
+		end
+		local weapon = Held.weapon(character)
+		local holding = if not weapon
+			then nil
+			elseif character:GetAttribute("Aiming") then "aim"
+			elseif current == "sprint" then "carry"
+			else "ready"
+		character:SetAttribute("Hold", holding)
+		if weapon and holding then
+			hold(holdTracks(weapon.name)[holding])
+		else
+			hold(if character:FindFirstChildOfClass("Tool") then tracks.toolnone else nil)
 		end
 	end)
 	character.Destroying:Connect(function()

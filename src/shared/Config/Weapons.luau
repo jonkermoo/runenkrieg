@@ -15,6 +15,16 @@ export type Weapon = {
 	hidden: { string }, -- template parts, invisible on the weapon (cloned at runtime)
 	attachments: { [string]: { number } },
 	grip: { number }, -- where the right hand holds (the wrist behind the trigger guard)
+	-- Hold animations while the weapon is in the hands (tools/animation/rifle.luau; src/client/Locomotion picks one):
+	-- ready (standing and walking), carry (sprinting), aim (aiming down the sights). Both arms reach for the gun.
+	holds: { ready: number, carry: number, aim: number },
+	-- The same holds in first person (user 2026-10-11): played only on the player's own client, on a viewmodel (a
+	-- copy of the arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body.
+	firstPerson: { ready: number, carry: number, aim: number },
+	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
+	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
+	-- the muzzle against Metrics.
+	shouldered: { number },
 	-- Size in game relative to the model, per gun axis { x width, y height, z length }: the blocky R6 soldier carries
 	-- chunky, Pordier-style weapons, thick next to the 1-stud arm (the hand closes round a stock about half its size)
 	-- but only about as long as the soldier is tall, so the cross-section scales more than the length. Every
@@ -55,6 +65,11 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0.03, 0.075, -0.397 }, -- the open receiver, right side: casings fly out +X/+Y
 		},
 		grip = { 0, -0.06, 0.15 },
+		-- user references 2026-10-11: ready low in front of the stomach, sprint carried across the body, aim shouldered
+		holds = { ready = 116689031458192, carry = 135080055967084, aim = 96566608814080 },
+		firstPerson = { ready = 122238707400436, carry = 139044614510117, aim = 109878538050440 },
+		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
+		shouldered = { 0.4, 1.45, -0.6 },
 		-- 2.5x thicker, 1.5x longer (user 2026-10-11: way too small next to the arm): 3.51 -> 5.27 studs long, stock
 		-- 0.36 wide, forend ~0.3 thick, butt ~1 stud (the arm's width)
 		scale = { 2.5, 2.5, 1.5 },

@@ -1,10 +1,12 @@
 --!strict
 -- Weapons in play (.claude/skills/roblox-weapons/SKILL.md, Config/Weapons). Builds a rigged weapon from its
--- library model (ReplicatedStorage.Assets.Weapons...): the export's Origin marker becomes the invisible Handle at
+-- library model (ReplicatedStorage.Assets.Weapons...): the export's Origin marker becomes the invisible "Gun" part at
 -- the gun origin, static parts are welded to it, moving parts get Motor6Ds at their pivots, and the Muzzle / Aim /
 -- Eject attachments sit on it (all looking down gun -Z, so sight and fire stay parallel). The whole weapon is
 -- scaled by its Config `scale` (per gun axis) about the origin (gun-space numbers in Config are the modelled ones).
 -- The parts are axis-aligned with gun space, so scaling their Size per axis can't shear them.
+-- In the hands the Gun part is joined to the Torso by a Motor6D (no Tool grip): the hold animations
+-- (tools/animation/rifle.luau, "Gun" pose) place the gun and point both arms at it.
 -- Armory.give(player, name) hands it over as a Tool into its slot (one weapon per slot: a new primary replaces the
 -- old); on each spawn the player's loadout is given (their pick via Armory.choose, else the kit's weapon). While
 -- the Tool isn't equipped, a copy rides on the body where Config/Weapons `stow` puts it (slung on the back); it
@@ -39,7 +41,7 @@ local function libraryModel(name: string): Model
 	return m :: Model
 end
 
--- A rigged copy of the weapon as a Model (PrimaryPart = Handle).
+-- A rigged copy of the weapon as a Model (PrimaryPart = the Gun part at the gun origin).
 function Armory.build(name: string): Model
 	local w = W[name]
 	local model = libraryModel(name):Clone()
@@ -48,7 +50,7 @@ function Armory.build(name: string): Model
 	assert(origin, name .. ": the model has no Origin marker")
 	local frame = CFrame.new(origin.Position) -- gun space: origin position, the model's axes
 	local s = v3(w.scale) -- per gun axis
-	origin.Name = "Handle"
+	origin.Name = "Gun"
 	origin.Transparency = 1
 	origin.Size = Vector3.new(0.2, 0.2, 0.2)
 	origin.CFrame = frame
@@ -101,15 +103,20 @@ function Armory.build(name: string): Model
 	return model
 end
 
--- The weapon as a Tool (Handle = the gun origin; Grip puts the right hand on the wrist).
+-- The weapon as a Tool. No Handle, so Roblox adds no grip weld: the "Hold" Motor6D joins the Gun part to the
+-- Torso while equipped (Part0 set by Armory.give, and by the owner's client at once, src/client/Locomotion). With
+-- C0 = C1 = identity, the hold animation's "Gun" pose is the gun origin in the torso's space.
 function Armory.tool(name: string): Tool
 	local w = W[name]
 	local model = Armory.build(name)
 	local tool = Instance.new("Tool")
 	tool.Name = w.display
 	tool.CanBeDropped = false
-	tool.RequiresHandle = true
-	tool.Grip = CFrame.new(v3(w.grip) * v3(w.scale))
+	tool.RequiresHandle = false
+	local hold = Instance.new("Motor6D")
+	hold.Name = "Hold"
+	hold.Part1 = model.PrimaryPart
+	hold.Parent = model.PrimaryPart
 	for _, c in model:GetChildren() do
 		c.Parent = tool
 	end
@@ -158,9 +165,12 @@ function Armory.give(player: Player, name: string): Tool
 	tool.Parent = backpack
 
 	local stowed = character and Armory.stowed(character, name)
+	local hold = tool:FindFirstChild("Hold", true) :: Motor6D
 	if character and stowed then
 		local function update()
-			stowed.Parent = if tool.Parent == character then nil else character
+			local held = tool.Parent == character
+			hold.Part0 = if held then character:FindFirstChild("Torso") :: BasePart? else nil
+			stowed.Parent = if held then nil else character
 		end
 		tool:GetPropertyChangedSignal("Parent"):Connect(update)
 		tool.Destroying:Connect(function()

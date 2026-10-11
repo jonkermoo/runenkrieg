@@ -1,6 +1,7 @@
 --!strict
 local A = require("../src/shared/Config/Assets")
 local U = require("../src/shared/Config/Uniforms")
+local M = require("../src/shared/Config/Metrics")
 local W = require("../src/shared/Config/Weapons")
 
 local function rgb(c: { number }): boolean
@@ -69,6 +70,25 @@ return {
 			if wname then
 				assert(W[wname], `{kit}: unknown weapon {wname}`)
 			end
+		end
+	end,
+	["every weapon has its hold animations, in third and first person"] = function()
+		for name, w in W do
+			for _, hold in { "ready", "carry", "aim" } do
+				local id, first = w.holds[hold], w.firstPerson[hold]
+				assert(type(id) == "number" and id > 0, `{name}: no {hold} hold animation`)
+				assert(type(first) == "number" and first > 0, `{name}: no first-person {hold} hold animation`)
+				assert(id ~= first, `{name}: first person and third person share the {hold} animation`)
+			end
+		end
+	end,
+	["the aimed muzzle sits at the AimMuzzleHeight metric"] = function()
+		local torsoCentre = M.Character.LegLength + 1 -- R6: legs, then half the 2-stud torso
+		for name, w in W do
+			local eye = torsoCentre + w.shouldered[2]
+			local muzzle = eye - (w.attachments.Aim[2] - w.attachments.Muzzle[2]) * w.scale[2]
+			assert(math.abs(eye - M.Character.EyeHeight) < 0.1, `{name}: aimed eye at {eye}, not at eye height`)
+			assert(math.abs(muzzle - M.Character.AimMuzzleHeight) < 0.1, `{name}: aimed muzzle at {muzzle}`)
 		end
 	end,
 }

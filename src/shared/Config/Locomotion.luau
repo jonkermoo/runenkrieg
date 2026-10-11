@@ -1,12 +1,13 @@
 --!strict
 -- Soldier movement and its animations (.claude/skills/roblox-animation). Speeds live in Config/Metrics.Movement;
 -- this file holds the controls and the animation set. Data only (Lune tests read it).
--- Sprint (user 2026-10-11): hold Shift, unlimited stamina. No firing or aiming while sprinting (enforced by the
--- weapon code once it exists).
+-- Sprint (user 2026-10-11): hold Shift, unlimited stamina. No firing or aiming while sprinting (src/client/Stance:
+-- Shift wins over aiming; firing, later).
 -- Animations come from tools/animation/locomotion.luau (keyframe data -> build.luau -> .rbxm -> Open Cloud).
 
 local Locomotion = {
 	SprintKeys = { "LeftShift", "RightShift" },
+	AimKeys = { "MouseButton2" }, -- hold to aim down the sights (a weapon in the hands)
 
 	-- Volume of Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart; client
 	-- side, on every client), held on every character; 0 mutes. Sounds not listed keep Roblox's volume. Footsteps
@@ -36,6 +37,7 @@ local Locomotion = {
 	PlaybackMax = 1.4,
 
 	Fade = 0.15, -- crossfade between ground cycles (seconds)
+	HoldFade = 0.12, -- crossfade between weapon holds (ready / carry / aim) and the tool hold
 	-- No jump / fall / land animations (user 2026-10-11): in the air the current idle / walk / sprint keeps playing.
 
 	-- Look tilt (user 2026-10-11): the torso follows the camera's pitch a little, leaning back when you look up and
