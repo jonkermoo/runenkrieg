@@ -33,6 +33,7 @@ for _, p in Players:GetPlayers() do
 end
 
 require(script.Bodies).start()
+require(script.Armory).start()
 require(script.Doors).start()
 require(script.DevTools).start()
 

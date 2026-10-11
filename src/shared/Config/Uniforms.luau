@@ -20,6 +20,7 @@ local Uniforms = {
 			pants = 78199869429201, -- decal 112322397513846
 			skin = { 226, 176, 104 },
 			headwear = "helmet_m33", -- Config/Assets entry
+			weapon = "rifle_m91", -- Config/Weapons entry: the olive team's default rifle
 		},
 	},
 }

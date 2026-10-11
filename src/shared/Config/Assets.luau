@@ -34,6 +34,14 @@ local Assets = {
 	Categories = { "Foliage", "Buildings", "Props", "Vehicles", "Weapons", "Characters", "VFX" },
 
 	Entries = {
+		rifle_m91 = {
+			id = 117583297352653,
+			category = "Weapons",
+			folder = "Rifles",
+			source = "assets/weapons/rifle_m91.fbx",
+			generator = "tools/blender/weapons/export_blend.py",
+			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/rifle_m91.blend). Rigged from Config/Weapons.",
+		},
 		rig1 = {
 			id = 84046347370958,
 			category = "Characters",
