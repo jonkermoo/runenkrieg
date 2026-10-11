@@ -40,7 +40,7 @@ local Metrics = {
 
 	Cover = {
 		HopableLedgeMax = 2.0, -- anything at or below this can be hopped onto
-		LowCoverMin = 3.0, -- blocks movement; the crouched head top is ~4.04 (open: raise this to cover a crouch?)
+		LowCoverMin = 3.0, -- blocks movement; the crouched (idle) head top is ~3.7 (open: raise this to cover a crouch?)
 		FullCoverMin = 5.5, -- hides a standing soldier completely (head top 5.19)
 	},
 
