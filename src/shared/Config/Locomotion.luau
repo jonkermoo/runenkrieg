@@ -19,8 +19,8 @@ local Locomotion = {
 	-- real walk and run cadence. Tune `cycle` here; no re-upload needed.
 	Animations = {
 		idle = { id = 180435571 }, -- Roblox stock R6 idle (placeholder)
-		walk = { id = 133173290830038, speed = 12, keyed = 0.76, cycle = 1.0 },
-		sprint = { id = 129090682828738, speed = 18, keyed = 0.56, cycle = 0.72 },
+		walk = { id = 123937923241778, speed = 10, keyed = 0.76, cycle = 1 },
+		sprint = { id = 115458814155571, speed = 16, keyed = 0.56, cycle = 0.72 },
 		jump = { id = 82084528203249 },
 		fall = { id = 132452327933827 },
 		land = { id = 88515844098808 },
