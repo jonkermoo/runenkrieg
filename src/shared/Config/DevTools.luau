@@ -14,6 +14,8 @@ local DevTools = {
 		{ id = "Village", name = "Village center", x = 1440, z = 30, look = { 1560, 0 } },
 		{ id = "Ford", name = "River ford", x = 1015, z = 6, look = { 1100, 0 } },
 		{ id = "Gallery", name = "Asset gallery", x = 52, z = -2548, y = 3, look = { 52, -2515 }, offMap = true },
+		-- behind the firing line of the test range (Config/Range.Origin), facing downrange
+		{ id = "Range", name = "Test range", x = 1000, z = -2590, y = 3, look = { 1000, -2700 }, offMap = true },
 	},
 
 	CooldownSeconds = 0.5,
