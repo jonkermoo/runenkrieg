@@ -46,7 +46,7 @@ local Assets = {
 			id = 84046347370958,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/rig1.fbx",
+			source = "assets/characters/gear/shared/rigs/rig1.fbx",
 			generator = "tools/blender/gear/rig.py",
 			description = "Rig (pouches only): shoulder bands + belt, two big pouches on the torso's sides under the arms, a wide front pouch.",
 			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig1`)
@@ -61,7 +61,7 @@ local Assets = {
 			id = 82520824821944,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/rig2.fbx",
+			source = "assets/characters/gear/shared/rigs/rig2.fbx",
 			generator = "tools/blender/gear/rig.py",
 			description = "Rig: tab-pouch model - two tall pouches on the bands at chest height, one wide pouch on the front left.",
 			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig2`)
@@ -76,7 +76,7 @@ local Assets = {
 			id = 104179782361178,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/rig3.fbx",
+			source = "assets/characters/gear/shared/rigs/rig3.fbx",
 			generator = "tools/blender/gear/rig.py",
 			description = "Rig: strap-pouch model - two medium pouches out to the torso edges, one big extra-bulky center pouch.",
 			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig3`)
@@ -91,7 +91,7 @@ local Assets = {
 			id = 116385902519252,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/helmet_stahl.fbx",
+			source = "assets/characters/gear/grey/helmets/default/helmet_stahl.fbx",
 			generator = "tools/blender/gear/helmet.py",
 			description = "Stahlhelm-style helmet, grey team: deep dome, small forward visor peak, skirt flaring over the ears and "
 				.. "neck; 12 flat sides (216 tris). No national decal (fictional nations).",
@@ -102,7 +102,7 @@ local Assets = {
 			id = 89737787734153,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/helmet_m33_goggles.fbx",
+			source = "assets/characters/gear/olive/helmets/variants/helmet_m33_goggles.fbx",
 			generator = "tools/blender/gear/helmet.py",
 			description = "helmet_m33 with a leather strap and big aviator goggles riding on the front slope; flat blue lenses. Olive team.",
 			fit = {
@@ -116,7 +116,7 @@ local Assets = {
 			id = 96856831451407,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/helmet_m33.fbx",
+			source = "assets/characters/gear/olive/helmets/default/helmet_m33.fbx",
 			generator = "tools/blender/gear/helmet.py",
 			description = "M33-style helmet, olive team: rounded dome worn low, rim raised at the front, arched over the ears, "
 				.. "lower at the back; tuck above the rim, sloped sides, rounded crown, 12 sides (216 tris).",
@@ -127,7 +127,7 @@ local Assets = {
 			id = 91232491229419,
 			category = "Characters",
 			folder = "Gear",
-			source = "assets/characters/gear/helmet_brodie.fbx",
+			source = "assets/characters/gear/shared/helmets/helmet_brodie.fbx",
 			generator = "tools/blender/gear/helmet.py",
 			description = "WW1 Brodie helmet: 10 flat sides, short down-sloping brim (158 tris), 1.76 studs across.",
 			fit = { attachment = "HatAttachment", color = { 214, 214, 210 }, brim = 0.16 },
