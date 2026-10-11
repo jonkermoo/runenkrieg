@@ -1,7 +1,7 @@
 --!strict
 -- Plays the soldier's movement animations on the local character (replaces Roblox's default Animate script;
 -- src/character/Animate calls attach). Tracks played here replicate to every other player.
--- Ground: idle / walk / sprint picked by horizontal speed, playback scaled to that speed so the feet keep pace.
+-- Ground: idle / walk / sprint picked by horizontal speed, played at the Config cycle length and scaled to the speed.
 -- Air: jump on take-off, fall loop while airborne, a landing after a real drop. Tools: the stock arm-out hold.
 -- Numbers and ids: Config/Locomotion.
 
@@ -113,8 +113,9 @@ function Locomotion.attach(character: Model)
 			local name = if speed < Cfg.IdleBelow then "idle" elseif speed > Cfg.SprintAbove then "sprint" else "walk"
 			play(name, Cfg.Fade)
 			local a = Cfg.Animations[name]
-			if a.speed then
-				tracks[name]:AdjustSpeed(math.clamp(speed / a.speed, Cfg.PlaybackMin, Cfg.PlaybackMax))
+			if a.speed and a.keyed and a.cycle then
+				local pace = math.clamp(speed / a.speed, Cfg.PlaybackMin, Cfg.PlaybackMax)
+				tracks[name]:AdjustSpeed(pace * a.keyed / a.cycle)
 			end
 		elseif state == Enum.HumanoidStateType.Climbing then
 			local climb = Cfg.Animations.climb

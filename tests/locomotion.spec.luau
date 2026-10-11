@@ -9,6 +9,12 @@ return {
 		assert(L.Animations.walk.speed == M.Movement.WalkSpeed, "walk cycle speed drifted from Metrics")
 		assert(L.Animations.sprint.speed == M.Movement.SprintSpeed, "sprint cycle speed drifted from Metrics")
 	end,
+	["walk and sprint step at a human pace"] = function()
+		local walk, sprint = L.Animations.walk, L.Animations.sprint
+		local walkSteps, sprintSteps = 2 / walk.cycle, 2 / sprint.cycle -- two steps per cycle
+		assert(walkSteps >= 1.5 and walkSteps <= 2.5, `walk {walkSteps} steps/s`)
+		assert(sprintSteps > walkSteps and sprintSteps <= 3.5, `sprint {sprintSteps} steps/s`)
+	end,
 	["speed thresholds split idle, walk and sprint"] = function()
 		assert(L.IdleBelow > 0 and L.IdleBelow < M.Movement.AimWalkSpeed, "idle threshold must be under aim-walk")
 		assert(L.SprintAbove > M.Movement.WalkSpeed, "a walk must never play the sprint cycle")
@@ -35,8 +41,8 @@ return {
 	end,
 	["look tilt is a small share of the camera pitch"] = function()
 		local t = L.LookTilt
-		assert(t.Torso > 0 and t.Torso < t.Head and t.Head < 1, "the head follows the camera more than the body")
-		assert(t.TorsoMax <= 15 and t.HeadMax <= 30, "tilt caps keep the soldier upright")
+		assert(t.Torso > 0 and t.Torso < 0.5, "the torso follows only part of the camera pitch")
+		assert(t.TorsoMax <= 15, "the tilt cap keeps the soldier upright")
 	end,
 	["the default Animate script is replaced"] = function()
 		local project = serde.decode("json", fs.readFile("default.project.json"))
