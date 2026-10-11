@@ -2,8 +2,11 @@
 -- Weapons in play (.claude/skills/roblox-weapons/SKILL.md, Config/Weapons). Builds a rigged weapon from its
 -- library model (ReplicatedStorage.Assets.Weapons...): the export's Origin marker becomes the invisible Handle at
 -- the gun origin, static parts are welded to it, moving parts get Motor6Ds at their pivots, and the Muzzle / Aim /
--- Eject attachments sit on it (all looking down gun -Z, so sight and fire stay parallel).
--- Armory.give(player, name) hands it over as a Tool; the kit's weapon (Config/Uniforms) is given on spawn.
+-- Eject attachments sit on it (all looking down gun -Z, so sight and fire stay parallel). The whole weapon is
+-- scaled by its Config `scale` about the origin (gun-space numbers in Config are the modelled, unscaled ones).
+-- Armory.give(player, name) hands it over as a Tool; the kit's weapon (Config/Uniforms) is given on spawn. While
+-- the Tool isn't equipped, a copy rides on the body where Config/Weapons `stow` puts it (slung on the back); it
+-- hides while the weapon is in the hands. Both live on the server, so every player sees them.
 -- No motion here: the moving parts only have their Motor6Ds; animation is a later, separate step.
 
 local Players = game:GetService("Players")
@@ -40,6 +43,7 @@ function Armory.build(name: string): Model
 	local origin = model:FindFirstChild("Origin", true) :: BasePart
 	assert(origin, name .. ": the model has no Origin marker")
 	local frame = CFrame.new(origin.Position) -- gun space: origin position, the model's axes
+	local s = w.scale
 	origin.Name = "Handle"
 	origin.Transparency = 1
 	origin.Size = Vector3.new(0.2, 0.2, 0.2)
@@ -47,6 +51,9 @@ function Armory.build(name: string): Model
 	origin.PivotOffset = CFrame.new() -- the FBX import leaves a rotated pivot on the marker (KNOWN_TRAPS)
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") and p ~= origin then
+			local rel = frame:ToObjectSpace(p.CFrame)
+			p.Size *= s
+			p.CFrame = frame * (rel.Rotation + rel.Position * s)
 			local c = w.parts[p.Name]
 			if c then
 				p.Color = Color3.fromRGB(c[1], c[2], c[3])
@@ -63,12 +70,16 @@ function Armory.build(name: string): Model
 				local m = Instance.new("Motor6D")
 				m.Name = p.Name
 				m.Part0, m.Part1 = origin, p
-				m.C0 = CFrame.new(v3(pivot))
+				m.C0 = CFrame.new(v3(pivot) * s)
 				m.C1 = p.CFrame:ToObjectSpace(frame * m.C0)
 				m.Parent = origin
 			else
-				local weld = Instance.new("WeldConstraint")
+				-- a Weld with the offset written down, not a WeldConstraint: those re-record their offset whenever
+				-- they reactivate (reparenting the stowed copy), and a part that had drifted stays off (KNOWN_TRAPS)
+				local weld = Instance.new("Weld")
+				weld.Name = p.Name
 				weld.Part0, weld.Part1 = origin, p
+				weld.C0 = frame:ToObjectSpace(p.CFrame)
 				weld.Parent = p
 			end
 		end
@@ -78,7 +89,7 @@ function Armory.build(name: string): Model
 	for att, pos in w.attachments do
 		local a = Instance.new("Attachment")
 		a.Name = att
-		a.Position = v3(pos) -- default orientation: looking down -Z, like the gun
+		a.Position = v3(pos) * s -- default orientation: looking down -Z, like the gun
 		a.Parent = origin
 	end
 	model.PrimaryPart = origin
@@ -94,13 +105,34 @@ function Armory.tool(name: string): Tool
 	tool.Name = w.display
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
-	tool.Grip = CFrame.new(v3(w.grip))
+	tool.Grip = CFrame.new(v3(w.grip) * w.scale)
 	for _, c in model:GetChildren() do
 		c.Parent = tool
 	end
 	model:Destroy()
 	tool:SetAttribute("Weapon", name)
 	return tool
+end
+
+-- The weapon's stowed copy on the character (not parented: Armory.give shows it while the Tool is put away).
+function Armory.stowed(character: Model, name: string): Model?
+	local s = W[name].stow
+	local part = character:FindFirstChild(s.part) :: BasePart?
+	if not part then
+		return nil
+	end
+	local model = Armory.build(name)
+	model.Name = "Stowed_" .. name
+	local muzzle, side = v3(s.muzzle).Unit, v3(s.side).Unit
+	-- gun axes in the part's space: +X = side, -Z = muzzle, +Y completes the frame
+	local z = -muzzle
+	local weld = Instance.new("Weld")
+	weld.Name = "Stow"
+	weld.Part0 = part
+	weld.Part1 = model.PrimaryPart
+	weld.C0 = CFrame.fromMatrix(v3(s.at), side, z:Cross(side), z)
+	weld.Parent = model.PrimaryPart
+	return model
 end
 
 function Armory.give(player: Player, name: string): Tool
@@ -112,6 +144,23 @@ function Armory.give(player: Player, name: string): Tool
 	end
 	local tool = Armory.tool(name)
 	tool.Parent = backpack
+
+	local character = player.Character
+	local old = character and character:FindFirstChild("Stowed_" .. name)
+	if old then
+		old:Destroy()
+	end
+	local stowed = character and Armory.stowed(character, name)
+	if character and stowed then
+		local function update()
+			stowed.Parent = if tool.Parent == character then nil else character
+		end
+		tool:GetPropertyChangedSignal("Parent"):Connect(update)
+		tool.Destroying:Connect(function()
+			stowed:Destroy()
+		end)
+		update()
+	end
 	return tool
 end
 

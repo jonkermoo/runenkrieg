@@ -31,9 +31,27 @@ return {
 		for name, w in W do
 			local aim, muzzle = w.attachments.Aim, w.attachments.Muzzle
 			assert(aim[1] == 0 and muzzle[1] == 0, `{name}: Aim and Muzzle must be centred (x = 0)`)
-			local height = aim[2] - muzzle[2]
-			assert(height > 0.02 and height < 0.1, `{name}: sight height {height} outside 0.02-0.1 studs`)
+			local height = (aim[2] - muzzle[2]) * w.scale
+			assert(height > 0.02 and height < 0.12, `{name}: sight height {height} outside 0.02-0.12 studs`)
 			assert(aim[3] > muzzle[3], `{name}: the eye must be behind the muzzle`)
+		end
+	end,
+	["weapons are scaled up to the chunky R6 look, not shrunk"] = function()
+		for name, w in W do
+			assert(w.scale >= 1 and w.scale <= 2, `{name}: scale {w.scale} outside 1-2`)
+		end
+	end,
+	["stowed weapons sit muzzle-up with a square frame"] = function()
+		for name, w in W do
+			local s = w.stow
+			assert(#s.at == 3, `{name}: stow position is not a point`)
+			local m, d = s.muzzle, s.side
+			local function len(v: { number }): number
+				return math.sqrt(v[1] ^ 2 + v[2] ^ 2 + v[3] ^ 2)
+			end
+			assert(math.abs(len(m) - 1) < 1e-3 and math.abs(len(d) - 1) < 1e-3, `{name}: stow axes must be unit length`)
+			assert(math.abs(m[1] * d[1] + m[2] * d[2] + m[3] * d[3]) < 1e-3, `{name}: stow muzzle and side not square`)
+			assert(m[2] > 0.5, `{name}: a slung weapon points its muzzle up`)
 		end
 	end,
 	["kit weapons exist"] = function()
