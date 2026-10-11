@@ -24,9 +24,10 @@ local Camera = {
 	AimFov = 50,
 	Ease = 14, -- how fast the zoom and the FOV follow (per second)
 	Blend = 0.15, -- seconds to move between first and third person
-	-- into the sights: with the first-person aim-in (0.3 s, Config/Weapons firstPerson.aimIn), not quicker (user
-	-- 2026-10-11: ADS too snappy)
-	AimBlend = 0.25,
+	-- into (and out of) the sights from the shoulder: the camera glides in over the shoulder while the body raises
+	-- the rifle, as long as the first-person aim-in (0.3 s, Config/Weapons firstPerson.aimIn) (user 2026-10-11: ADS
+	-- too snappy)
+	AimBlend = 0.3,
 	AimEase = 9, -- how fast the FOV narrows into the sights (per second; ~0.33 s)
 	ViewmodelFade = 0.35, -- first-person holds crossfade (ready / carry / aim): their poses are far apart, a quick
 	-- swap looked choppy going into and out of a sprint
@@ -41,6 +42,10 @@ local Camera = {
 	FadeFar = 5,
 	FadeNear = 2.5,
 	FadeMax = 0.75,
+	-- Gliding into first person or the sights (and out): over the last stretch the viewmodel fades in (and the body
+	-- out) between `far` and `near` studs from the head; the head itself fades out between headFar and headNear, so
+	-- it never fills the view (user 2026-10-11: ADS looked choppy). The eye is ~0.47 from the head's centre.
+	Handover = { far = 2.5, near = 0.6, headFar = 4.5, headNear = 3 },
 
 	-- Third person, local only: the weapon follows the camera's pitch. The torso tilts a little
 	-- (Config/Locomotion.LookTilt) and the arms with the gun turn about the shoulder line for the rest: share of the

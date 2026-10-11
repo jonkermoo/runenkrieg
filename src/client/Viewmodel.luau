@@ -5,10 +5,12 @@
 -- arms with its shirt and body colours, a copy of the held weapon joined to the torso like the real one) fixed to the
 -- camera so the camera is its eye. It plays the weapon's first-person holds (Config/Weapons firstPerson) by the
 -- same "Hold" state as the body (src/client/Locomotion), and moves by the global sway layer (src/client/Sway).
--- Aiming starts with a brief aim-in (firstPerson.aimIn, 0.3 s: the rifle comes up into the sights) over the aim hold,
--- while the body plays its third-person aim for everyone. Coming into view (into first person, or aiming from the
--- shoulder camera) the viewmodel starts in its pose at once: fading in from the rig's rest pose showed the gun rising
--- from the middle of the screen (user 2026-10-11).
+-- It is on while WeaponCamera says "CameraInside" and fades in by its "Handover": gliding in from the shoulder it
+-- fades in over the last stretch to the eye as the body fades out (user 2026-10-11: ADS looked choppy). It never
+-- shows the rig's rest pose (the gun rising from the middle of the screen). Aiming plays a brief aim-in
+-- (firstPerson.aimIn, 0.3 s: the rifle comes up from the ready hold into the sights) over the aim hold, as long as the
+-- camera's glide, while the body plays its third-person aim for everyone. Writes "ViewmodelShown" (local) for
+-- WeaponCamera to hide the body.
 -- Nothing here replicates; others see the third-person holds.
 
 local ContentProvider = game:GetService("ContentProvider")
@@ -53,7 +55,7 @@ local function ghost(p: BasePart)
 	p.LocalTransparencyModifier = 0
 end
 
-type Rig = { model: Model, root: BasePart, tracks: { [string]: AnimationTrack }, tool: Tool }
+type Rig = { model: Model, root: BasePart, tracks: { [string]: AnimationTrack }, tool: Tool, clear: number }
 
 local function build(character: Model, weapon: Held.Weapon): Rig
 	local model = Instance.new("Model")
@@ -143,7 +145,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		tracks.equip:Play(0)
 		tracks.equip.TimePosition = since
 	end
-	return { model = model, root = root, tracks = tracks, tool = weapon.tool }
+	return { model = model, root = root, tracks = tracks, tool = weapon.tool, clear = -1 }
 end
 
 function Viewmodel.start()
@@ -176,8 +178,10 @@ function Viewmodel.start()
 	RunService:BindToRenderStep("Viewmodel", LookTilt.Priority + 2, function()
 		local character = player.Character
 		local weapon = character and Held.weapon(character)
-		local view = character and character:GetAttribute("CameraMode")
-		if not character or not weapon or (view ~= "First" and view ~= "Aim") then
+		if character then
+			character:SetAttribute("ViewmodelShown", rig ~= nil and rig.model.Parent ~= nil)
+		end
+		if not character or not weapon or character:GetAttribute("CameraInside") ~= true then
 			if rig then
 				rig.model.Parent = nil
 				-- out of view the holds stop, so coming back (aiming again) starts afresh with the aim-in
@@ -205,6 +209,17 @@ function Viewmodel.start()
 		local below = if appearing then CFrame.new(0, -50, 0) else CFrame.identity
 		r.root.CFrame = camera.CFrame * below * Sway.viewmodel() * CFrame.new(-EYE)
 		r.model.Parent = camera
+		-- fading in (and out) with the camera's glide to the eye (WeaponCamera's "Handover")
+		local handover = character:GetAttribute("Handover")
+		local clear = 1 - (if type(handover) == "number" then handover else 1)
+		if r.clear ~= clear then
+			r.clear = clear
+			for _, d in r.model:GetDescendants() do
+				if d:IsA("BasePart") then
+					d.LocalTransparencyModifier = clear
+				end
+			end
+		end
 		local state = character:GetAttribute("Hold")
 		local track = if type(state) == "string" then r.tracks[state] else nil
 		local aimIn = r.tracks.aimIn

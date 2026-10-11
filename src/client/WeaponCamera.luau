@@ -9,7 +9,15 @@
 -- - first person (and aiming) hides the whole body from the player: the viewmodel shows the first-person holds
 --   (src/client/Viewmodel). Out of first person the body fades translucent as the camera comes near it (zoomed in,
 --   or pulled in by a wall), so it never blocks the view.
--- Writes the view to the character's "CameraMode" attribute (local): "First", "Shoulder" or "Aim".
+-- - going into first person or the sights from the shoulder is one motion (user 2026-10-11: ADS looked choppy): the
+--   camera glides in over the shoulder while the body raises the rifle (its third-person aim); over the last couple
+--   of studs the body fades out as the viewmodel fades in (both rifles rising from the lower right), the head going
+--   first so it never fills the view. Hiding the body at once showed a floating first-person gun flying through the
+--   empty spot for the whole glide; swapping at the eye jumped the gun (the third-person aim holds it at the right
+--   cheek). Coming out is the same in reverse.
+-- Writes the view to the character's "CameraMode" attribute (local): "First", "Shoulder" or "Aim"; "CameraInside"
+-- (in first person or the sights, or gliding out of them: the viewmodel is on) and "Handover" (0..1, how far the
+-- viewmodel has faded in).
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -44,9 +52,10 @@ function WeaponCamera.start()
 	-- moving between first and third person: the camera eases from where it was (relative to the root)
 	local from: Vector3? = nil
 	local blend = 1
+	local blendTime = 0.15 -- seconds this move takes
 	local last = Vector3.zero
 	local lastView: any = nil
-	local fade = -1 -- body transparency last written (-1: not yet)
+	local gliding = false -- gliding out of first person or the sights (the viewmodel fades out on the way)
 	local ray = RaycastParams.new()
 	ray.FilterType = Enum.RaycastFilterType.Exclude
 	ray.RespectCanCollide = true
@@ -58,15 +67,20 @@ function WeaponCamera.start()
 		return character, humanoid, root
 	end
 
-	-- the whole body (with what it wears and holds) at one local transparency; others always see it whole
-	local function show(character: Model, transparency: number)
-		if transparency == fade then
-			return
-		end
-		fade = transparency
+	-- the whole body (with what it wears and holds) at one local transparency, the head (with its face and hats) at
+	-- its own; others always see it whole
+	local function show(character: Model, body: number, head: number?)
 		for _, d in character:GetDescendants() do
 			if (d:IsA("BasePart") and d.Name ~= "HumanoidRootPart") or d:IsA("Decal") then
-				(d :: any).LocalTransparencyModifier = transparency
+				local part = if d:IsA("Decal") then d.Parent else d
+				local onHead = part ~= nil
+					and (
+						part.Name == "Head"
+						or part.Name == "FaceCard"
+						or part:FindFirstAncestorOfClass("Accessory") ~= nil
+					)
+				local t = if onHead and head then head else body;
+				(d :: any).LocalTransparencyModifier = t
 			end
 		end
 	end
@@ -85,7 +99,6 @@ function WeaponCamera.start()
 		local look = camera.CFrame.LookVector
 		yaw = math.deg(math.atan2(-look.X, -look.Z))
 		pitch = math.clamp(math.deg(math.asin(look.Y)), -Cfg.PitchLimit, Cfg.PitchLimit)
-		fade = -1
 		camera.CameraType = Enum.CameraType.Scriptable
 	end
 
@@ -99,7 +112,8 @@ function WeaponCamera.start()
 		end
 		if character then
 			character:SetAttribute("CameraMode", nil)
-			fade = -1
+			character:SetAttribute("CameraInside", nil)
+			character:SetAttribute("Handover", nil)
 			show(character, 0)
 		end
 		-- hand the zoom back: Roblox's camera has no zoom setter, so pin its range for a frame
@@ -186,14 +200,17 @@ function WeaponCamera.start()
 			target = clear(shoulder, rotation:VectorToWorldSpace(Vector3.new(0, 0, shownZoom)))
 		end
 		-- between first and third person (and into the sights): a short ease from the last spot, then exact
-		if inside ~= (lastView == "Aim" or lastView == "First") or lastView == nil then
+		local wasInside = lastView == "Aim" or lastView == "First"
+		if inside ~= wasInside or lastView == nil then
 			from, blend = last, 0
+			gliding = wasInside and not inside
+			-- into or out of the sights the camera takes as long as the first-person aim-in (src/client/Viewmodel)
+			blendTime = if view == "Aim" or lastView == "Aim" then Cfg.AimBlend else Cfg.Blend
 		end
 		lastView = view
 		local rel = target - root.Position
 		if from and blend < 1 then
-			-- into the sights the camera takes as long as the first-person aim-in (src/client/Viewmodel)
-			blend = math.min(1, blend + dt / (if view == "Aim" then Cfg.AimBlend else Cfg.Blend))
+			blend = math.min(1, blend + dt / blendTime)
 			rel = from:Lerp(rel, smooth(blend))
 		end
 		last = rel
@@ -203,13 +220,26 @@ function WeaponCamera.start()
 		local ease = if view == "Aim" then Cfg.AimEase else Cfg.Ease
 		camera.FieldOfView += (fov - camera.FieldOfView) * (1 - math.exp(-ease * dt))
 
-		-- the body: gone in first person, fading as the camera nears it otherwise
+		-- the body fades as the camera nears it; in (or gliding out of) first person and the sights the viewmodel
+		-- fades in over the last stretch to the eye while the body fades out, the head first
+		if gliding and (not from or blend >= 1) then
+			gliding = false
+		end
 		local near = (camera.CFrame.Position - head).Magnitude
 		local t = math.clamp((Cfg.FadeFar - near) / (Cfg.FadeFar - Cfg.FadeNear), 0, 1)
-		local want = if inside then 1 else math.floor(t * Cfg.FadeMax * 20 + 0.5) / 20
-		-- Roblox's camera fades the body too when it thinks the camera is near the head: hold ours every frame
-		fade = -1
-		show(character, want)
+		local on = inside or gliding
+		local H = Cfg.Handover
+		local handover = if on then math.clamp((H.far - near) / (H.far - H.near), 0, 1) else 0
+		character:SetAttribute("CameraInside", on)
+		character:SetAttribute("Handover", handover)
+		-- fully gone only once the viewmodel is on screen (it says so the frame after it shows)
+		local covered = if character:GetAttribute("ViewmodelShown") == true then 1 else Cfg.FadeMax
+		local body = math.max(math.floor(t * Cfg.FadeMax * 20 + 0.5) / 20, handover * covered)
+		local headFade = if on
+			then math.max(body, math.clamp((H.headFar - near) / (H.headFar - H.headNear), 0, 1))
+			else body
+		-- Roblox's camera fades the body too when it thinks the camera is near the head: ours is written every frame
+		show(character, body, headFade)
 	end)
 end
 
