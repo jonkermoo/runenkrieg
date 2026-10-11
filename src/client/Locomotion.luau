@@ -3,11 +3,13 @@
 -- src/character/Animate calls attach). Tracks played here replicate to every other player.
 -- Idle / walk / sprint picked by horizontal speed, played at the Config cycle length and scaled to the speed. No air
 -- animations (user 2026-10-11): jumping or falling keeps the current cycle.
--- A weapon in the hands plays its hold over the cycle (Config/Weapons holds, Action priority): ready standing and
--- walking, carry while sprinting, aim while aiming down the sights. The hold is written to the character's "Hold"
+-- A weapon in the hands plays its hold over the cycle (Config/Weapons holds, Action priority): ready standing, walk
+-- walking and carry sprinting (both kept in step with the legs), aim while aiming down the sights; drawing it plays
+-- the equip once on top. The hold is written to the character's "Hold"
 -- attribute (local) for the look tilt and the camera. Other tools: the stock arm-out hold.
 -- Numbers and ids: Config/Locomotion.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -79,8 +81,9 @@ function Locomotion.attach(character: Model)
 				anim.Name = hold
 				anim.AnimationId = "rbxassetid://" .. id
 				local t = animator:LoadAnimation(anim)
-				t.Priority = Enum.AnimationPriority.Action
-				t.Looped = true
+				-- the equip is a one shot over the hold that will follow it
+				t.Priority = if hold == "equip" then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
+				t.Looped = hold ~= "equip"
 				holds[name][hold] = t
 			end
 		end
@@ -101,14 +104,47 @@ function Locomotion.attach(character: Model)
 		upper = track
 	end
 
+	-- load a weapon's holds as soon as it is carried, so drawing it (the equip) plays from its first frame
+	local backpack = (Players.LocalPlayer :: Player):FindFirstChildOfClass("Backpack")
+	local function carried(child: Instance)
+		local name = child:IsA("Tool") and child:GetAttribute("Weapon")
+		if type(name) == "string" and W[name] then
+			holdTracks(name)
+		end
+	end
+	if backpack then
+		backpack.ChildAdded:Connect(carried)
+		for _, c in backpack:GetChildren() do
+			carried(c)
+		end
+	end
+
 	character.ChildAdded:Connect(function(child)
 		-- join the gun to the torso at once (the server does too, a moment later), or it drops for a frame
 		local weapon = child:IsA("Tool") and Held.weapon(character)
 		local torso = character:FindFirstChild("Torso") :: BasePart?
 		if weapon and torso then
 			weapon.hold.Part0 = torso
+			-- drawn from the sling: the equip plays once over the hold; the viewmodel starts its own from this moment
+			character:SetAttribute("EquippedAt", os.clock())
+			holdTracks(weapon.name).equip:Play(0.05)
 		end
 	end)
+
+	-- the moving holds keep step with the cycle they ride on (same keyed length, so the same phase)
+	local CYCLE = { walk = "walk", carry = "sprint" }
+	local function keepStep(state: string, track: AnimationTrack)
+		local base = tracks[CYCLE[state]]
+		if not base or not base.IsPlaying or base.Length <= 0 or track.Length <= 0 then
+			return
+		end
+		local want = base.TimePosition / base.Length * track.Length
+		local off = math.abs(track.TimePosition - want)
+		if math.min(off, track.Length - off) > 0.03 then
+			track.TimePosition = want
+		end
+		track:AdjustSpeed(base.Speed)
+	end
 
 	local step = RunService.Heartbeat:Connect(function()
 		local state = humanoid:GetState()
@@ -136,7 +172,13 @@ function Locomotion.attach(character: Model)
 			else "ready"
 		character:SetAttribute("Hold", holding)
 		if weapon and holding then
-			hold(holdTracks(weapon.name)[holding])
+			-- standing still: the ready hold; walking: the walking hold (sprinting: carry already swings)
+			local set = holdTracks(weapon.name)
+			local pick = if holding == "ready" and current == "walk" then "walk" else holding
+			hold(set[pick])
+			if CYCLE[pick] then
+				keepStep(pick, set[pick])
+			end
 		else
 			hold(if character:FindFirstChildOfClass("Tool") then tracks.toolnone else nil)
 		end

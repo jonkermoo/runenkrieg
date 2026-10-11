@@ -75,11 +75,14 @@ return {
 	end,
 	["every weapon has its hold animations, in third and first person"] = function()
 		for name, w in W do
-			for _, hold in { "ready", "carry", "aim" } do
-				local id, first = w.holds[hold], w.firstPerson[hold]
+			for _, hold in { "ready", "walk", "carry", "aim", "equip" } do
+				local id = w.holds[hold] :: number
 				assert(type(id) == "number" and id > 0, `{name}: no {hold} hold animation`)
+			end
+			for _, hold in { "ready", "carry", "aim", "equip" } do
+				local first = (w.firstPerson :: any)[hold]
 				assert(type(first) == "number" and first > 0, `{name}: no first-person {hold} hold animation`)
-				assert(id ~= first, `{name}: first person and third person share the {hold} animation`)
+				assert((w.holds :: any)[hold] ~= first, `{name}: first and third person share the {hold} animation`)
 			end
 		end
 	end,

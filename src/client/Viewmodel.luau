@@ -7,6 +7,7 @@
 -- same "Hold" state as the body (src/client/Locomotion), and moves by the global sway layer (src/client/Sway).
 -- Nothing here replicates; others see the third-person holds.
 
+local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -126,15 +127,36 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		local anim = Instance.new("Animation")
 		anim.AnimationId = "rbxassetid://" .. id
 		local t = animator:LoadAnimation(anim)
-		t.Priority = Enum.AnimationPriority.Action
-		t.Looped = true
+		t.Priority = if state == "equip" then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
+		t.Looped = state ~= "equip"
 		tracks[state] = t
+	end
+	-- drawn just now (src/client/Locomotion marks the moment): play the rest of the equip
+	local drawn = character:GetAttribute("EquippedAt")
+	local since = if type(drawn) == "number" then os.clock() - drawn else math.huge
+	if since < 0.55 then
+		tracks.equip:Play(0)
+		tracks.equip.TimePosition = since
 	end
 	return { model = model, root = root, tracks = tracks, tool = weapon.tool }
 end
 
 function Viewmodel.start()
 	local player = Players.LocalPlayer
+	-- download every weapon animation up front: a hold or equip loading late shows the gun frozen in the torso
+	task.spawn(function()
+		local anims = {}
+		for _, w in W do
+			for _, set in { w.holds, w.firstPerson } do
+				for _, id in set :: any do
+					local a = Instance.new("Animation")
+					a.AnimationId = "rbxassetid://" .. id
+					table.insert(anims, a)
+				end
+			end
+		end
+		ContentProvider:PreloadAsync(anims)
+	end)
 	local rig: Rig? = nil
 	local playing: AnimationTrack? = nil
 

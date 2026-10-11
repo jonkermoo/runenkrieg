@@ -19,11 +19,13 @@ export type Weapon = {
 	attachments: { [string]: { number } },
 	grip: { number }, -- where the right hand holds (the wrist behind the trigger guard)
 	-- Hold animations while the weapon is in the hands (tools/animation/rifle.luau; src/client/Locomotion picks one):
-	-- ready (standing and walking), carry (sprinting), aim (aiming down the sights). Both arms reach for the gun.
-	holds: { ready: number, carry: number, aim: number },
-	-- The same holds in first person (user 2026-10-11): played only on the player's own client, on a viewmodel (a
-	-- copy of the arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body.
-	firstPerson: { ready: number, carry: number, aim: number },
+	-- ready (standing), walk (walking: keeps step with the legs), carry (sprinting: keeps step too), aim (aiming down
+	-- the sights), equip (one shot: drawn from the sling on the back). Both arms reach for the gun.
+	holds: { ready: number, walk: number, carry: number, aim: number, equip: number },
+	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
+	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
+	-- running motion comes from the sway layer (Config/Sway), not from extra animations.
+	firstPerson: { ready: number, carry: number, aim: number, equip: number },
 	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
 	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
 	-- the muzzle against Metrics.
@@ -71,8 +73,20 @@ local Weapons: { [string]: Weapon } = {
 		grip = { 0, -0.06, 0.15 },
 		-- user references 2026-10-11: ready low in front of the stomach, sprint carried across the body, aim shouldered;
 		-- ready and aim breathe like Roblox's R6 idle (user: match the default sway)
-		holds = { ready = 107914359416034, carry = 135080055967084, aim = 133970960181165 },
-		firstPerson = { ready = 122238707400436, carry = 139044614510117, aim = 109878538050440 },
+		holds = {
+			ready = 107914359416034,
+			walk = 100066908716334,
+			carry = 131502421908061, -- swings with the sprint
+			aim = 133970960181165,
+			equip = 130550770601594,
+		},
+		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera
+		firstPerson = {
+			ready = 122238707400436,
+			carry = 114387700921278,
+			aim = 109878538050440,
+			equip = 131035663905184,
+		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
 		-- 2.5x thicker, 1.5x longer (user 2026-10-11: way too small next to the arm): 3.51 -> 5.27 studs long, stock
