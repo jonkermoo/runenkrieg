@@ -37,7 +37,7 @@ local Locomotion = {
 		-- Crouch (user 2026-10-11): torso leaning only a little, the legs pushed up into it (only the shins show), the
 		-- right knee down at idle; the walk alternates like a real walk
 		crouchIdle = { id = 139770444602307 },
-		crouchWalk = { id = 126899007616085, speed = 6, keyed = 1.0, cycle = 1.4 }, -- long, slow strides (user)
+		crouchWalk = { id = 94258753792625, speed = 6, keyed = 1.0, cycle = 1.4 }, -- long, slow strides (user)
 	},
 
 	IdleBelow = 0.75, -- horizontal speed (studs/s) under which the soldier stands still
