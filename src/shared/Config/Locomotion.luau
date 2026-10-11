@@ -20,8 +20,8 @@ local Locomotion = {
 	-- real walk and run cadence. Tune `cycle` here; no re-upload needed.
 	Animations = {
 		idle = { id = 180435571 }, -- Roblox stock R6 idle (placeholder)
-		walk = { id = 123937923241778, speed = 10, keyed = 0.76, cycle = 1 },
-		sprint = { id = 115458814155571, speed = 16, keyed = 0.56, cycle = 0.72 },
+		walk = { id = 105666351229170, speed = 10, keyed = 0.76, cycle = 1 },
+		sprint = { id = 134283453564965, speed = 16, keyed = 0.56, cycle = 0.72 },
 		climb = { id = 180436334, speed = 8 }, -- Roblox stock R6 climb (ladders)
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
 	},

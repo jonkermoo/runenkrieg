@@ -7,10 +7,11 @@
 -- licensed set before release.
 
 local Footsteps = {
-	Sounds = { 121613327190310, 75948132493425, 111154292786687, 119989047815622, 80708016987437 },
+	-- each hits on its first frame (checked with an AudioAnalyzer); sounds whose thud comes later read as late steps
+	Sounds = { 75948132493425, 111154292786687, 119989047815622 },
 
-	Volume = 0.2, -- subtle
-	SprintVolume = 0.28, -- sprint steps land a little harder
+	Volume = 0.1, -- subtle (user 2026-10-11: quieter, was 0.2)
+	SprintVolume = 0.14, -- sprint steps land a little harder
 	Pitch = 0.8, -- deeper than the recordings
 	PitchJitter = 0.04, -- each step varies by up to this much either way
 	RollOffMin = 5, -- studs: full volume inside this
