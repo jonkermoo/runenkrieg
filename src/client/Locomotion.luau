@@ -1,8 +1,9 @@
 --!strict
 -- Plays the soldier's movement animations on the local character (replaces Roblox's default Animate script;
 -- src/character/Animate calls attach). Tracks played here replicate to every other player.
--- Idle / walk / sprint picked by horizontal speed, played at the Config cycle length and scaled to the speed. No air
--- animations (user 2026-10-11): jumping or falling keeps the current cycle.
+-- Idle / walk / sprint picked by horizontal speed (crouch idle / crouch walk while the "Crouching" attribute is set),
+-- played at the Config cycle length and scaled to the speed. No air animations (user 2026-10-11): jumping or falling
+-- keeps the current cycle. Crouched, a weapon plays its crouch holds (crouchReady / crouchWalk / crouchAim).
 -- A weapon in the hands plays its hold over the cycle (Config/Weapons holds, Action priority): ready standing, walk
 -- walking and carry sprinting (both kept in step with the legs), aim while aiming down the sights; drawing it plays
 -- the equip once on top. The hold is written to the character's "Hold"
@@ -132,7 +133,7 @@ function Locomotion.attach(character: Model)
 	end)
 
 	-- the moving holds keep step with the cycle they ride on (same keyed length, so the same phase)
-	local CYCLE = { walk = "walk", carry = "sprint" }
+	local CYCLE = { walk = "walk", carry = "sprint", crouchWalk = "crouchWalk" }
 	local function keepStep(state: string, track: AnimationTrack)
 		local base = tracks[CYCLE[state]]
 		if not base or not base.IsPlaying or base.Length <= 0 or track.Length <= 0 then
@@ -156,7 +157,12 @@ function Locomotion.attach(character: Model)
 			tracks.climb:AdjustSpeed(root.AssemblyLinearVelocity.Y / (climb.speed or 1))
 		else -- on the ground or in the air: the cycle for the horizontal speed
 			local speed = horizontalSpeed()
-			local name = if speed < Cfg.IdleBelow then "idle" elseif speed > Cfg.SprintAbove then "sprint" else "walk"
+			local crouching = character:GetAttribute("Crouching") == true
+			local name = if crouching
+				then (if speed < Cfg.IdleBelow then "crouchIdle" else "crouchWalk")
+				elseif speed < Cfg.IdleBelow then "idle"
+				elseif speed > Cfg.SprintAbove then "sprint"
+				else "walk"
 			play(name, Cfg.Fade)
 			local a = Cfg.Animations[name]
 			if a.speed and a.keyed and a.cycle then
@@ -174,7 +180,15 @@ function Locomotion.attach(character: Model)
 		if weapon and holding then
 			-- standing still: the ready hold; walking: the walking hold (sprinting: carry already swings)
 			local set = holdTracks(weapon.name)
-			local pick = if holding == "ready" and current == "walk" then "walk" else holding
+			local pick = holding
+			if current == "crouchIdle" or current == "crouchWalk" then -- crouched: the holds for the hunched torso
+				pick = if holding == "aim"
+					then "crouchAim"
+					elseif current == "crouchWalk" then "crouchWalk"
+					else "crouchReady"
+			elseif holding == "ready" and current == "walk" then
+				pick = "walk"
+			end
 			hold(set[pick])
 			if CYCLE[pick] then
 				keepStep(pick, set[pick])

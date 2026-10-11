@@ -75,7 +75,7 @@ return {
 	end,
 	["every weapon has its hold animations, in third and first person"] = function()
 		for name, w in W do
-			for _, hold in { "ready", "walk", "carry", "aim", "equip" } do
+			for _, hold in { "ready", "walk", "carry", "aim", "equip", "crouchReady", "crouchWalk", "crouchAim" } do
 				local id = w.holds[hold] :: number
 				assert(type(id) == "number" and id > 0, `{name}: no {hold} hold animation`)
 			end

@@ -16,6 +16,7 @@ local Footsteps = {}
 
 local WALK = "rbxassetid://" .. Loco.Animations.walk.id
 local SPRINT = "rbxassetid://" .. Loco.Animations.sprint.id
+local CROUCH = "rbxassetid://" .. Loco.Animations.crouchWalk.id
 
 local rng = Random.new()
 
@@ -80,7 +81,7 @@ local function attach(character: Model)
 	local hooked: { [AnimationTrack]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 	local function hook(track: AnimationTrack)
 		local id = track.Animation and track.Animation.AnimationId
-		if (id == WALK or id == SPRINT) and not hooked[track] then
+		if (id == WALK or id == SPRINT or id == CROUCH) and not hooked[track] then
 			hooked[track] = true -- a track fires AnimationPlayed on every Play
 			track:GetMarkerReachedSignal("Footstep"):Connect(function()
 				step(track)

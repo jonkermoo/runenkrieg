@@ -21,7 +21,17 @@ export type Weapon = {
 	-- Hold animations while the weapon is in the hands (tools/animation/rifle.luau; src/client/Locomotion picks one):
 	-- ready (standing), walk (walking: keeps step with the legs), carry (sprinting: keeps step too), aim (aiming down
 	-- the sights), equip (one shot: drawn from the sling on the back). Both arms reach for the gun.
-	holds: { ready: number, walk: number, carry: number, aim: number, equip: number },
+	-- Crouched (crouchReady / crouchWalk / crouchAim): the same holds for the hunched torso.
+	holds: {
+		ready: number,
+		walk: number,
+		carry: number,
+		aim: number,
+		equip: number,
+		crouchReady: number,
+		crouchWalk: number,
+		crouchAim: number,
+	},
 	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
 	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
 	-- running motion comes from the sway layer (Config/Sway), not from extra animations.
@@ -79,6 +89,9 @@ local Weapons: { [string]: Weapon } = {
 			carry = 124372088520129, -- swings with the sprint
 			aim = 133970960181165,
 			equip = 101917236691086,
+			crouchReady = 106634213916803,
+			crouchWalk = 124536497058596,
+			crouchAim = 116597841831630,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera
 		firstPerson = {

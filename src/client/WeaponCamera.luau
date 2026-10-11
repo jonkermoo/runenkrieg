@@ -159,7 +159,8 @@ function WeaponCamera.start()
 		end
 		local view = character:GetAttribute("CameraMode")
 		local rotation = CFrame.fromOrientation(math.rad(pitch), math.rad(yaw), 0)
-		local head = root.Position + HEAD
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local head = root.Position + HEAD + (if humanoid then humanoid.CameraOffset else Vector3.zero) -- lower crouched
 		ray.FilterDescendantsInstances = { character }
 		-- a point `offset` from `origin`, stopped short of anything solid in between
 		local function clear(origin: Vector3, offset: Vector3): Vector3

@@ -52,4 +52,11 @@ return {
 	["sprint only forward: the cone excludes pure strafing and backing up"] = function()
 		assert(L.SprintCone >= 20 and L.SprintCone < 90, `SprintCone {L.SprintCone} must be under 90 degrees`)
 	end,
+	["crouch: its walk is keyed at the crouch speed, slower than walking"] = function()
+		local c = L.Animations.crouchWalk
+		assert(c.speed == M.Movement.CrouchSpeed, "crouch walk speed drifted from Metrics")
+		assert(M.Movement.CrouchSpeed < M.Movement.AimWalkSpeed, "crouching is slower than aim-walking")
+		assert(L.Animations.crouchIdle.id > 0 and c.id > 0, "crouch animations need ids")
+		assert(L.CrouchKeys and #L.CrouchKeys > 0, "crouch needs a key")
+	end,
 }

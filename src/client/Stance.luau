@@ -2,9 +2,12 @@
 -- The soldier's stance controls (Config/Locomotion keys; speeds from Config/Metrics.Movement):
 -- - hold Shift to sprint, unlimited stamina (user 2026-10-11), only while moving forward relative to the camera
 --   (user reference video: strafing or backing up with Shift stays a walk; Config/Locomotion.SprintCone);
--- - hold right mouse to aim down the sights while a weapon is in the hands; never while sprinting (Shift wins).
+-- - hold right mouse to aim down the sights while a weapon is in the hands; never while sprinting (Shift wins);
+-- - C toggles crouch (moderate, from the user's reference video); sprinting or jumping stands you up. Crouched, the
+--   camera comes down with the body (Humanoid.CameraOffset follows the torso's drop; src/client/WeaponCamera too).
 -- Sets the local character's Humanoid.WalkSpeed (the client owns its character's physics) and the "Sprinting" /
--- "Aiming" attributes that the animations, the camera and the weapon code read (local only).
+-- "Aiming" / "Crouching" attributes that the animations, the camera and the weapon code read (local only; the
+-- animations they choose replicate).
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -32,7 +35,7 @@ end
 
 function Stance.start()
 	local player = Players.LocalPlayer
-	local sprintHeld, aimHeld = false, false
+	local sprintHeld, aimHeld, crouched = false, false, false
 
 	local cone = math.cos(math.rad(Cfg.SprintCone))
 	-- moving within the cone around where the camera looks (flat), or standing still (Shift down, about to go)
@@ -53,13 +56,18 @@ function Stance.start()
 			return
 		end
 		local sprinting = sprintHeld and forward(humanoid)
+		if sprinting then
+			crouched = false -- a sprint stands you up
+		end
 		local aiming = aimHeld and not sprinting and Held.weapon(character) ~= nil
 		humanoid.WalkSpeed = if sprinting
 			then M.Movement.SprintSpeed
+			elseif crouched then M.Movement.CrouchSpeed
 			elseif aiming then M.Movement.AimWalkSpeed
 			else M.Movement.WalkSpeed
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
+		character:SetAttribute("Crouching", crouched)
 	end
 
 	local function held(flag: (boolean) -> ()): (string, Enum.UserInputState, InputObject) -> Enum.ContextActionResult
@@ -90,8 +98,23 @@ function Stance.start()
 		table.unpack(keys(Cfg.AimKeys))
 	)
 
+	ContextActionService:BindAction("Crouch", function(_, state)
+		if state == Enum.UserInputState.Begin then
+			crouched = not crouched
+			apply()
+		end
+		return Enum.ContextActionResult.Pass
+	end, false, table.unpack(keys(Cfg.CrouchKeys)))
+
 	local function hook(character: Model)
-		character:WaitForChild("Humanoid")
+		local humanoid = character:WaitForChild("Humanoid") :: Humanoid
+		crouched = false
+		humanoid.StateChanged:Connect(function(_, new)
+			if new == Enum.HumanoidStateType.Jumping and crouched then
+				crouched = false -- a jump stands you up
+				apply()
+			end
+		end)
 		apply()
 		-- equipping or putting away a weapon starts or ends aiming while the button stays held
 		character.ChildAdded:Connect(apply)
@@ -102,9 +125,20 @@ function Stance.start()
 		task.spawn(hook, player.Character)
 	end
 	-- the direction changes without any key event (turning the camera, letting go of W)
-	RunService.Heartbeat:Connect(function()
+	-- crouched, the camera comes down with the torso (eased; the drop is read from the animated body)
+	local drop = 0
+	RunService.Heartbeat:Connect(function(dt)
 		if sprintHeld then
 			apply()
+		end
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local torso = character and character:FindFirstChild("Torso") :: BasePart?
+		if humanoid and root and torso then
+			local want = if crouched then math.min(0, torso.Position.Y - root.Position.Y) else 0
+			drop += (want - drop) * (1 - math.exp(-Cfg.CrouchCameraEase * dt))
+			humanoid.CameraOffset = Vector3.new(0, drop, 0)
 		end
 	end)
 end

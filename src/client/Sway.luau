@@ -25,6 +25,7 @@ Sway.Priority = Enum.RenderPriority.Input.Value + 2
 
 local WALK = "rbxassetid://" .. Loco.Animations.walk.id
 local SPRINT = "rbxassetid://" .. Loco.Animations.sprint.id
+local CROUCH = "rbxassetid://" .. Loco.Animations.crouchWalk.id
 local TAU = 2 * math.pi
 
 local viewmodel = CFrame.identity
@@ -81,7 +82,7 @@ function Sway.start()
 		local hooked: { [AnimationTrack]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 		local function hook(track: AnimationTrack)
 			local id = track.Animation and track.Animation.AnimationId
-			if (id == WALK or id == SPRINT) and not hooked[track] then
+			if (id == WALK or id == SPRINT or id == CROUCH) and not hooked[track] then
 				hooked[track] = true
 				track:GetMarkerReachedSignal("Footstep"):Connect(function(side)
 					if track.WeightCurrent < 0.5 then

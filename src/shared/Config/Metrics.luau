@@ -26,6 +26,7 @@ local Metrics = {
 		WalkSpeed = 10, -- user 2026-10-11 (was 12)
 		SprintSpeed = 16, -- user 2026-10-11 (was 18)
 		AimWalkSpeed = 7,
+		CrouchSpeed = 6, -- C toggles crouch (user 2026-10-11, moderate crouch from the reference video)
 		-- Low hop only, no vault yet. JumpHeight is the take-off (Humanoid); near the top the client cuts gravity
 		-- (src/client/Jump) so the peak hangs, which adds ~0.25: the real apex is ~2.95 (user 2026-10-11: higher
 		-- than 2.5 twice, slower peak). tests/metrics.spec.luau keeps it under low cover (3.0).
@@ -39,7 +40,7 @@ local Metrics = {
 
 	Cover = {
 		HopableLedgeMax = 2.0, -- anything at or below this can be hopped onto
-		LowCoverMin = 3.0, -- blocks movement and covers a crouched body (future crouch)
+		LowCoverMin = 3.0, -- blocks movement; the crouched head top is ~3.77 (open: raise this to cover a crouch?)
 		FullCoverMin = 5.5, -- hides a standing soldier completely (head top 5.19)
 	},
 

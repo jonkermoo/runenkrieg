@@ -11,6 +11,8 @@ local Locomotion = {
 	-- of where the camera looks; strafing or backing up with Shift stays a walk (and can aim).
 	SprintCone = 50,
 	AimKeys = { "MouseButton2" }, -- hold to aim down the sights (a weapon in the hands)
+	CrouchKeys = { "C" }, -- toggles crouch; sprinting (Shift, moving forward) or jumping stands you up
+	CrouchCameraEase = 8, -- how fast the camera follows the body down into the crouch and back up (per second)
 
 	-- Volume of Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart; client
 	-- side, on every client), held on every character; 0 mutes. Sounds not listed keep Roblox's volume. Footsteps
@@ -32,6 +34,9 @@ local Locomotion = {
 		sprint = { id = 71642320375175, speed = 16, keyed = 0.56, cycle = 0.72 },
 		climb = { id = 180436334, speed = 8 }, -- Roblox stock R6 climb (ladders)
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
+		-- Crouch (user reference video 2026-10-11): moderate, torso hunched ~35 deg, legs in a low lunge, ~73% height
+		crouchIdle = { id = 70503147288084 },
+		crouchWalk = { id = 91745157225252, speed = 6, keyed = 0.9, cycle = 1.1 },
 	},
 
 	IdleBelow = 0.75, -- horizontal speed (studs/s) under which the soldier stands still
