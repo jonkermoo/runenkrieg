@@ -31,6 +31,12 @@ local Locomotion = {
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
 	},
 
+	-- First person with nothing in the hands (user 2026-10-11: "client side arm animations in first person with nothing
+	-- equipped ... get creative"; tools/animation/hands.luau): only the player sees them, on the viewmodel
+	-- (src/client/Viewmodel). Fists peek in at the bottom corners at idle, swing up into view walking, pump at a
+	-- sprint; walk and sprint keep step with the legs (same lengths as the cycles).
+	FirstPerson = { idle = 83956286622063, walk = 107248258538666, sprint = 114505602986799 },
+
 	IdleBelow = 0.75, -- horizontal speed (studs/s) under which the soldier stands still
 	SprintAbove = 13, -- speed over which the sprint cycle plays (between walk 10 and sprint 16)
 	PlaybackMin = 0.6, -- clamp on the speed-scaled playback rate

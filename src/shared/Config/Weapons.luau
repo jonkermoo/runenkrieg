@@ -75,17 +75,17 @@ local Weapons: { [string]: Weapon } = {
 		-- ready and aim breathe like Roblox's R6 idle (user: match the default sway)
 		holds = {
 			ready = 107914359416034,
-			walk = 100066908716334,
-			carry = 131502421908061, -- swings with the sprint
+			walk = 81116116222571,
+			carry = 124372088520129, -- swings with the sprint
 			aim = 133970960181165,
-			equip = 130550770601594,
+			equip = 101917236691086,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera
 		firstPerson = {
 			ready = 122238707400436,
 			carry = 114387700921278,
 			aim = 109878538050440,
-			equip = 131035663905184,
+			equip = 120043329130240,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
