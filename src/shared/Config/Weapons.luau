@@ -12,8 +12,6 @@ export type Weapon = {
 	hidden: { string }, -- template parts, invisible on the weapon (cloned at runtime)
 	attachments: { [string]: { number } },
 	grip: { number }, -- where the right hand holds (the wrist behind the trigger guard)
-	bolt: { lift: number, travel: number, liftTime: number, slideTime: number }?,
-	trigger: { pull: number, time: number },
 }
 
 local Weapons: { [string]: Weapon } = {
@@ -44,8 +42,6 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0.03, 0.075, -0.397 }, -- the open receiver, right side: casings fly out +X/+Y
 		},
 		grip = { 0, -0.06, 0.15 },
-		bolt = { lift = 90, travel = 0.28, liftTime = 0.12, slideTime = 0.18 }, -- degrees, studs, seconds
-		trigger = { pull = 14, time = 0.05 },
 	},
 }
 

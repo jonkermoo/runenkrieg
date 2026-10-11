@@ -4,10 +4,10 @@
 -- the gun origin, static parts are welded to it, moving parts get Motor6Ds at their pivots, and the Muzzle / Aim /
 -- Eject attachments sit on it (all looking down gun -Z, so sight and fire stay parallel).
 -- Armory.give(player, name) hands it over as a Tool; the kit's weapon (Config/Uniforms) is given on spawn.
+-- No motion here: the moving parts only have their Motor6Ds; animation is a later, separate step.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local A = require(Shared.Config.Assets)
@@ -113,47 +113,6 @@ function Armory.give(player: Player, name: string): Tool
 	local tool = Armory.tool(name)
 	tool.Parent = backpack
 	return tool
-end
-
-local function motor(weapon: Instance, part: string): Motor6D?
-	local handle = weapon:FindFirstChild("Handle")
-	return handle and handle:FindFirstChild(part) :: Motor6D?
-end
-
--- Work the bolt once: lift the handle, pull back, push forward, turn down (Config/Weapons bolt timings).
-function Armory.cycle(weapon: Instance)
-	local name = weapon:GetAttribute("Weapon") :: string
-	local w = W[name]
-	local m = motor(weapon, "Bolt")
-	if not (w and w.bolt and m) then
-		return
-	end
-	local b = w.bolt
-	local base = CFrame.new(v3(w.moving.Bolt))
-	local lifted = base * CFrame.Angles(0, 0, math.rad(b.lift))
-	local back = CFrame.new(Vector3.new(0, 0, b.travel)) * lifted
-	for _, step in { { lifted, b.liftTime }, { back, b.slideTime }, { lifted, b.slideTime }, { base, b.liftTime } } do
-		local t = TweenService:Create(m, TweenInfo.new(step[2], Enum.EasingStyle.Sine), { C0 = step[1] })
-		t:Play()
-		t.Completed:Wait()
-	end
-end
-
--- Pull and release the trigger.
-function Armory.pull(weapon: Instance)
-	local name = weapon:GetAttribute("Weapon") :: string
-	local w = W[name]
-	local m = motor(weapon, "Trigger")
-	if not (w and m) then
-		return
-	end
-	local base = CFrame.new(v3(w.moving.Trigger))
-	local pulled = base * CFrame.Angles(math.rad(-w.trigger.pull), 0, 0) -- the blade swings back (+Z)
-	for _, goal in { pulled, base } do
-		local t = TweenService:Create(m, TweenInfo.new(w.trigger.time), { C0 = goal })
-		t:Play()
-		t.Completed:Wait()
-	end
 end
 
 function Armory.start()
