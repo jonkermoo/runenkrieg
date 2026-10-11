@@ -35,7 +35,7 @@ local Assets = {
 
 	Entries = {
 		rifle_m91 = {
-			id = 117583297352653,
+			id = 124122824797146, -- v2: inside-out faces fixed (v1 117583297352653)
 			category = "Weapons",
 			folder = "Rifles",
 			source = "assets/weapons/rifle_m91.fbx",
