@@ -10,6 +10,9 @@ export type Weapon = {
 	-- Loadout slot: a soldier carries one weapon per slot, given at spawn and kept for the life (src/server/Armory).
 	-- "Primary" = the main long gun (one primary at a time, user 2026-10-11).
 	slot: string,
+	-- Item class (docs/HOLD_AND_CAMERA_RULES.md §1; weights in Config/Sway.Classes): the motion and, later, the holds
+	-- every item of the class shares.
+	class: string,
 	parts: { [string]: { number } }, -- flat color per mesh part
 	moving: { [string]: { number } }, -- Motor6D pivot per moving part (the rest is welded)
 	hidden: { string }, -- template parts, invisible on the weapon (cloned at runtime)
@@ -41,6 +44,7 @@ local Weapons: { [string]: Weapon } = {
 		asset = "rifle_m91",
 		display = "Carcano M91",
 		slot = "Primary",
+		class = "BoltRifle",
 		parts = {
 			Wood = { 142, 74, 42 },
 			Handguard = { 142, 74, 42 },

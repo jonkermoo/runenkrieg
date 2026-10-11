@@ -2,6 +2,7 @@
 local A = require("../src/shared/Config/Assets")
 local U = require("../src/shared/Config/Uniforms")
 local M = require("../src/shared/Config/Metrics")
+local Sway = require("../src/shared/Config/Sway")
 local W = require("../src/shared/Config/Weapons")
 
 local function rgb(c: { number }): boolean
@@ -89,6 +90,13 @@ return {
 			local muzzle = eye - (w.attachments.Aim[2] - w.attachments.Muzzle[2]) * w.scale[2]
 			assert(math.abs(eye - M.Character.EyeHeight) < 0.1, `{name}: aimed eye at {eye}, not at eye height`)
 			assert(math.abs(muzzle - M.Character.AimMuzzleHeight) < 0.1, `{name}: aimed muzzle at {muzzle}`)
+		end
+	end,
+	["every weapon belongs to a class with a sway weight"] = function()
+		for name, w in W do
+			local weight = Sway.Classes[w.class]
+			assert(weight, `{name}: class {w.class} is not in Config/Sway.Classes`)
+			assert(weight > 0 and weight <= 2, `{name}: weight {weight} outside 0-2`)
 		end
 	end,
 }

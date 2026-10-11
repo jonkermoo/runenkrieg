@@ -4,7 +4,8 @@
 -- and weapon are hidden and this viewmodel is shown instead: a client-only R6 copy (invisible torso, the character's
 -- arms with its shirt and body colours, a copy of the held weapon joined to the torso like the real one) fixed to the
 -- camera so the camera is its eye. It plays the weapon's first-person holds (Config/Weapons firstPerson) by the
--- same "Hold" state as the body (src/client/Locomotion). Nothing here replicates; others see the third-person holds.
+-- same "Hold" state as the body (src/client/Locomotion), and moves by the global sway layer (src/client/Sway).
+-- Nothing here replicates; others see the third-person holds.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +17,7 @@ local Locomotion = require(Shared.Config.Locomotion)
 local W = require(Shared.Config.Weapons)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
+local Sway = require(script.Parent.Sway)
 
 local Viewmodel = {}
 
@@ -165,7 +167,7 @@ function Viewmodel.start()
 		end
 		local r = rig :: Rig
 		local camera = workspace.CurrentCamera
-		r.root.CFrame = camera.CFrame * CFrame.new(-EYE)
+		r.root.CFrame = camera.CFrame * Sway.viewmodel() * CFrame.new(-EYE)
 		r.model.Parent = camera
 		local state = character:GetAttribute("Hold")
 		local track = if type(state) == "string" then r.tracks[state] else nil

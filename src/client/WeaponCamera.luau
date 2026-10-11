@@ -20,6 +20,7 @@ local Cfg = require(Shared.Config.Camera)
 local M = require(Shared.Config.Metrics)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
+local Sway = require(script.Parent.Sway)
 
 local WeaponCamera = {}
 
@@ -203,7 +204,7 @@ function WeaponCamera.start()
 			rel = from:Lerp(rel, smooth(blend))
 		end
 		last = rel
-		camera.CFrame = CFrame.new(root.Position + rel) * rotation
+		camera.CFrame = CFrame.new(root.Position + rel) * rotation * Sway.camera(view) -- its small step bob
 		camera.Focus = CFrame.new(head)
 		local fov = if view == "Aim" then Cfg.AimFov else Cfg.Fov
 		camera.FieldOfView += (fov - camera.FieldOfView) * (1 - math.exp(-Cfg.Ease * dt))
