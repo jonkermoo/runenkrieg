@@ -113,13 +113,13 @@ local Assets = {
 			},
 		},
 		helmet_m33_ammo = {
-			id = 136009347680449,
+			id = 98525980411780,
 			category = "Characters",
 			folder = "Gear",
 			source = "assets/characters/gear/olive/helmets/variants/helmet_m33_ammo.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_m33 (unchanged) with a leather band low round the dome and five red shotgun "
-				.. "shells on brass heads in a loop strip at the front. Olive team.",
+				.. "shells on brass heads on the wearer's right, held by a thin flat strap wrapped round each. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
