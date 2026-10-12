@@ -101,7 +101,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 114387700921278,
 			aim = 109878538050440,
 			equip = 120043329130240,
-			aimIn = 78552592923065,
+			aimIn = 116379881119831,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
