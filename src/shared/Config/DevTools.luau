@@ -19,6 +19,18 @@ local DevTools = {
 	},
 
 	CooldownSeconds = 0.5,
+
+	-- Admin panel (src/client/DevAdminMenu, client only: the client moves its own character).
+	Admin = {
+		-- speed multipliers (x the normal walk / sprint / aim / crouch speeds, and the flying speed)
+		SpeedSteps = { 1, 2, 4, 8 },
+		-- flying: studs/s at x1; WASD moves along the camera's view, Space / E up, Q / LeftControl down
+		FlySpeed = 32,
+		FlyUpKeys = { "Space", "E" },
+		FlyDownKeys = { "Q", "LeftControl" },
+		Attribute = "DevSpeed", -- the chosen multiplier, on the Player (read by src/client/Stance)
+		FlyAttribute = "DevFlying", -- on the Player while flying
+	},
 }
 
 return table.freeze(DevTools)

@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
+local Dev = require(Shared.Config.DevTools)
 local M = require(Shared.Config.Metrics)
 local Held = require(script.Parent.Held)
 
@@ -60,11 +61,13 @@ function Stance.start()
 			crouched = false -- a sprint stands you up
 		end
 		local aiming = aimHeld and not sprinting and Held.weapon(character) ~= nil
-		humanoid.WalkSpeed = if sprinting
+		local speed = if sprinting
 			then M.Movement.SprintSpeed
 			elseif crouched then M.Movement.CrouchSpeed
 			elseif aiming then M.Movement.AimWalkSpeed
 			else M.Movement.WalkSpeed
+		-- the dev admin panel's speed multiplier (src/client/DevAdminMenu; 1 when unset)
+		humanoid.WalkSpeed = speed * ((player:GetAttribute(Dev.Admin.Attribute) :: number?) or 1)
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
 		character:SetAttribute("Crouching", crouched)
@@ -121,6 +124,7 @@ function Stance.start()
 		character.ChildRemoved:Connect(apply)
 	end
 	player.CharacterAdded:Connect(hook)
+	player:GetAttributeChangedSignal(Dev.Admin.Attribute):Connect(apply)
 	if player.Character then
 		task.spawn(hook, player.Character)
 	end

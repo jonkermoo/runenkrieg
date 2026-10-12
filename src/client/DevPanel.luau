@@ -1,5 +1,5 @@
 --!strict
--- The look shared by the dev menus (DevTeleportMenu, DevWeaponMenu): a square icon button along the top-right next
+-- The look shared by the dev menus (DevTeleportMenu, DevWeaponMenu, DevAdminMenu): a square icon button along the top-right next
 -- to the settings gear, opening a scrolling panel of thumb-sized rows. Opening one panel closes the others.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,7 +9,7 @@ local Palette = require(ReplicatedStorage:WaitForChild("Shared").Config.Palette)
 local DevPanel = {}
 
 local UI = Palette.UI
-local PANELS = { "SettingsMenu", "DevTeleportMenu", "DevWeaponMenu" } -- ScreenGuis whose "Panel" is closed on open
+local PANELS = { "SettingsMenu", "DevTeleportMenu", "DevWeaponMenu", "DevAdminMenu" } -- ScreenGuis whose "Panel" is closed on open
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
