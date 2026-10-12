@@ -233,6 +233,40 @@ local Assets = {
 				center = { 0, 0.3818, 0.0039 },
 			},
 		},
+		helmet_brodie_goggles = {
+			id = 107628167670818,
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_brodie (unchanged, tipped back) with a leather strap round the dome's slope "
+				.. "and big aviator goggles on the front; flat teal lenses. White team (colours a proposal).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 214, 214, 210 },
+				brim = 0.06,
+				parts = { Strap = { 120, 84, 56 }, Lens = { 72, 176, 150 } },
+				shell = "brodie",
+				center = { 0, 0.3818, 0.0039 },
+			},
+		},
+		helmet_brodie_ammo = {
+			id = 101501598430404,
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_ammo.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_brodie (unchanged, tipped back) with a leather band on the wall above the brim "
+				.. "and five red shotgun shells on steel heads on the wearer's right, held by a thin flat strap. White team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 214, 214, 210 },
+				brim = 0.06,
+				parts = { Band = { 120, 84, 56 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } },
+				shell = "brodie",
+				center = { 0, 0.3818, 0.0039 },
+			},
+		},
 		TreeKit = {
 			id = 78828564935129,
 			category = "Foliage",
