@@ -3,7 +3,8 @@
 --   require(game.ServerStorage.Dev.Library:Clone()).sync()
 -- 1. Mirrors Config/Assets.Entries into ReplicatedStorage.Assets.<Category>.<Folder>.<EntryName>
 --    (loads new or changed ids via InsertService; unchanged entries are kept).
--- 2. Rebuilds Workspace.DevGallery: every library asset on a labeled pad, far outside the map.
+-- 2. Rebuilds Workspace.DevGallery: every library asset on a labeled pad, far outside the map (helmets worn on the
+--    preview hair, helmet on + shot off: src/dev/HairPreview).
 -- Saved with the place; Rojo does not manage ReplicatedStorage.Assets or the gallery.
 
 local InsertService = game:GetService("InsertService")
@@ -34,6 +35,24 @@ local function folder(parent: Instance, name: string): Instance
 	return f :: Instance
 end
 
+-- A folder path inside `parent`: "Gear/Olive/Helmets" nests (Config/Assets `folder`), made as needed.
+local function path(parent: Instance, p: string): Instance
+	local f = parent
+	for _, name in string.split(p, "/") do
+		f = folder(f, name)
+	end
+	return f
+end
+
+-- The same path if it exists, else nil.
+local function find(parent: Instance?, p: string): Instance?
+	local f = parent
+	for _, name in string.split(p, "/") do
+		f = f and f:FindFirstChild(name)
+	end
+	return f
+end
+
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
@@ -55,8 +74,28 @@ function Library.ensure(entryName: string): Model
 	local e = A.Entries[entryName]
 	assert(e, "unknown asset entry " .. entryName)
 	local root = folder(ReplicatedStorage, "Assets")
-	local target = folder(folder(root, e.category), e.folder)
+	local target = path(folder(root, e.category), e.folder)
 	local existing = target:FindFirstChild(entryName)
+	if e.uniform then
+		-- a uniform: the team's Shirt + Pants (Config/Uniforms image ids), rebuilt from config every sync
+		if existing then
+			existing:Destroy()
+		end
+		local kit = fresh(shared().Config.Uniforms).Kits[e.uniform]
+		local model = Instance.new("Model")
+		model.Name = entryName
+		local shirt = Instance.new("Shirt")
+		shirt.ShirtTemplate = "rbxassetid://" .. tostring(kit.shirt)
+		shirt.Parent = model
+		local pants = Instance.new("Pants")
+		pants.PantsTemplate = "rbxassetid://" .. tostring(kit.pants)
+		pants.Parent = model
+		model:SetAttribute("Procedural", true)
+		model:SetAttribute("Source", e.source)
+		model:SetAttribute("Description", e.description)
+		model.Parent = target
+		return model
+	end
 	if e.prop then
 		if existing then
 			existing:Destroy()
@@ -145,8 +184,7 @@ function Library.get(entryName: string): Model
 	local e = A.Entries[entryName]
 	assert(e, "unknown asset entry " .. entryName)
 	local root = ReplicatedStorage:FindFirstChild("Assets")
-	local f = root and root:FindFirstChild(e.category)
-	f = f and f:FindFirstChild(e.folder)
+	local f = find(root and root:FindFirstChild(e.category), e.folder)
 	local m = f and f:FindFirstChild(entryName)
 	if m then
 		return m :: Model
@@ -191,7 +229,10 @@ function Library.gallery(): string
 			table.insert(propNames, name)
 			continue
 		end
-		local src = ReplicatedStorage.Assets[e.category][e.folder][name] :: Model
+		if e.uniform then
+			continue -- clothing only, no shape to show (worn on the DevUniforms dummies)
+		end
+		local src = (find(ReplicatedStorage.Assets[e.category], e.folder) :: Instance)[name] :: Model
 		local copy: Model
 		if e.template then
 			-- buildings: the same template in several color schemes, side by side
@@ -222,6 +263,10 @@ function Library.gallery(): string
 			end
 			-- a new Model's pivot defaults to its bounding-box center; keep ground level (y 0) as the pivot
 			copy.WorldPivot = CFrame.identity
+		elseif e.fit and e.fit.shell then
+			-- helmets: worn on a head over the preview hair, beside the same hair shot off (src/dev/HairPreview)
+			local HairPreview = fresh(ServerStorage:WaitForChild("Dev"):WaitForChild("HairPreview"))
+			copy = HairPreview.pair(name, src, CFrame.identity)
 		else
 			copy = src:Clone()
 			for _, d in copy:GetDescendants() do
@@ -277,7 +322,7 @@ function Library.gallery(): string
 		local rowDepth = 0
 		for _, name in propNames do
 			local e = A.Entries[name]
-			local copy = (ReplicatedStorage.Assets[e.category][e.folder][name] :: Model):Clone()
+			local copy = ((find(ReplicatedStorage.Assets[e.category], e.folder) :: Instance)[name] :: Model):Clone()
 			local cf, size = copy:GetBoundingBox()
 			local cx = GALLERY_ORIGIN.X + x + size.X / 2
 			local cz = GALLERY_ORIGIN.Z + z + 6
@@ -327,19 +372,21 @@ function Library.sync(): string
 		Library.ensure(name)
 		count += 1
 	end
-	-- prune library models that are no longer in the registry, and emptied subfolders
+	-- prune library models no longer in the registry or no longer in their entry's folder (a reorganize), then
+	-- every emptied subfolder, deepest first (category folders stay)
 	for _, model in root:GetDescendants() do
 		if model:IsA("Model") and (model:GetAttribute("AssetId") or model:GetAttribute("Procedural")) then
-			if not A.Entries[model.Name] then
+			local e = A.Entries[model.Name]
+			if not e or model.Parent ~= find(root:FindFirstChild(e.category), e.folder) then
 				model:Destroy()
 			end
 		end
 	end
-	for _, c in root:GetChildren() do
-		for _, sub in c:GetChildren() do
-			if sub:IsA("Folder") and #sub:GetChildren() == 0 then
-				sub:Destroy()
-			end
+	local all = root:GetDescendants()
+	for i = #all, 1, -1 do
+		local f = all[i]
+		if f:IsA("Folder") and f.Parent ~= root and #f:GetChildren() == 0 then
+			f:Destroy()
 		end
 	end
 	-- legacy location from before the library existed

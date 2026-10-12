@@ -34,8 +34,10 @@ local function libraryModel(name: string): Model
 	assert(w, "unknown weapon " .. name)
 	local e = A.Entries[w.asset]
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
-	local f = assets and assets:FindFirstChild(e.category)
-	f = f and f:FindFirstChild(e.folder)
+	local f: Instance? = assets and assets:FindFirstChild(e.category)
+	for _, sub in string.split(e.folder, "/") do -- "Olive/Rifles": weapons sit by team
+		f = f and f:FindFirstChild(sub)
+	end
 	local m = f and f:FindFirstChild(w.asset)
 	assert(m, `weapon model {w.asset} is not in ReplicatedStorage.Assets (run the Library sync in the dev place)`)
 	return m :: Model
