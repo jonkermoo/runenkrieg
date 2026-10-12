@@ -131,6 +131,42 @@ local Assets = {
 				center = { 0, 0.5148, -0.0059 },
 			},
 		},
+		helmet_stahl_goggles = {
+			id = 96839649750928,
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_goggles.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_stahl (unchanged) with a dark leather strap round the dome's slope and big "
+				.. "aviator goggles on the front; flat amber lenses. Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27,
+				attach = { 0, 0.235, 0.006 },
+				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 } },
+				shell = "stahl",
+				center = { 0, 0.5148, -0.0059 },
+			},
+		},
+		helmet_stahl_ammo = {
+			id = 106418173364815,
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_ammo.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_stahl (unchanged) with a dark leather band on the step above the skirt and "
+				.. "five red shotgun shells on gold heads on the wearer's right, held by a thin flat strap. Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27,
+				attach = { 0, 0.235, 0.006 },
+				parts = { Band = { 46, 39, 34 }, Hull = { 150, 54, 44 }, Brass = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.5148, -0.0059 },
+			},
+		},
 		helmet_m33_goggles = {
 			id = 129172538186129,
 			category = "Teams",
