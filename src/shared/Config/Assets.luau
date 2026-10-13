@@ -61,7 +61,7 @@ local Assets = {
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
 		},
 		rifle_smle = {
-			id = 88567651236376, -- v2: solid receiver, no inside-out pieces (v1 100602639751958: see-through, user 2026-10-13)
+			id = 105567477480334, -- v3: left wall at the bolt's top, walls sunk into the wood (v2 88567651236376, v1 100602639751958: see-through, user 2026-10-13)
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
