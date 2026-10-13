@@ -256,6 +256,30 @@ function GunFx.loadout(character: Model, weapon: string, magazine: number)
 	end
 end
 
+-- Throws a loose copy of a part off the gun (a spent case out of the port, a stripper clip off the guides): real
+-- gravity for its flight (a force holding up the rest of Roblox's), gone after a while.
+local function fling(copy: BasePart, gun: BasePart, at: CFrame, push: Vector3)
+	local c = E.Casing
+	copy:ClearAllChildren()
+	copy.Transparency, copy.LocalTransparencyModifier = 0, 0
+	copy.Anchored, copy.CanCollide, copy.CanQuery, copy.CanTouch, copy.Massless = false, true, false, false, false
+	copy.CollisionGroup = "Debris"
+	copy.CFrame = at
+	copy.Parent = fx()
+	copy.AssemblyLinearVelocity = gun.CFrame:VectorToWorldSpace(push) + (gun.AssemblyLinearVelocity or Vector3.zero)
+	copy.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * c.spin
+	local a = Instance.new("Attachment")
+	a.Parent = copy
+	local lift = Instance.new("VectorForce")
+	lift.Attachment0 = a
+	lift.RelativeTo = Enum.ActuatorRelativeTo.World
+	lift.ApplyAtCenterOfMass = true
+	lift.Force = Vector3.new(0, copy.AssemblyMass * (workspace.Gravity - c.gravity), 0)
+	lift.Parent = copy
+	Debris:AddItem(lift, c.flight)
+	Debris:AddItem(copy, c.life)
+end
+
 local function eject(gun: BasePart)
 	local port = gun:FindFirstChild("Eject") :: Attachment?
 	local template = gun.Parent and gun.Parent:FindFirstChild("Casing")
@@ -263,28 +287,12 @@ local function eject(gun: BasePart)
 		return
 	end
 	local c = E.Casing
-	local p = template:Clone()
-	p:ClearAllChildren()
-	p.Transparency, p.LocalTransparencyModifier = 0, 0
-	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.Massless = false, true, false, false, false
-	p.CollisionGroup = "Debris"
-	p.CFrame = CFrame.new(port.WorldPosition) * template.CFrame.Rotation
-	p.Parent = fx()
-	local frame = gun.CFrame
-	p.AssemblyLinearVelocity = frame:VectorToWorldSpace(Vector3.new(c.out, c.up, c.back))
-		+ (gun.AssemblyLinearVelocity or Vector3.zero)
-	p.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * c.spin
-	-- real gravity for the flight: a force holding up the rest of Roblox's
-	local at = Instance.new("Attachment")
-	at.Parent = p
-	local lift = Instance.new("VectorForce")
-	lift.Attachment0 = at
-	lift.RelativeTo = Enum.ActuatorRelativeTo.World
-	lift.ApplyAtCenterOfMass = true
-	lift.Force = Vector3.new(0, p.AssemblyMass * (workspace.Gravity - c.gravity), 0)
-	lift.Parent = p
-	Debris:AddItem(lift, c.flight)
-	Debris:AddItem(p, c.life)
+	fling(
+		template:Clone(),
+		gun,
+		CFrame.new(port.WorldPosition) * template.CFrame.Rotation,
+		Vector3.new(c.out, c.up, c.back)
+	)
 end
 
 local function smooth(u: number): number
@@ -292,8 +300,168 @@ local function smooth(u: number): number
 	return u * u * (3 - 2 * u)
 end
 
--- actions under way and actions cut short (the rifle put away), per Tool
-local running: { [Tool]: RBXScriptConnection } = setmetatable({}, { __mode = "k" }) :: any
+-- ---- the clip in the hand (a reload; user 2026-10-13: the ammo is there, and a reload cut short while holding the
+-- clip still holds it when it carries on) ----
+-- Made from the gun's own clip and rounds, copied: an en-bloc clip with its rounds as they sit in the magazine; a
+-- stripper clip with the magazine's rounds moved up into it (heads against the clip). Its place comes from the
+-- reload's timeline alone (Config/Firing.ReloadCycle), so a reload resumed anywhere shows it where it was: in the
+-- right hand from `grab` (the fist on its top, as the animation brings the hand to the clip's seat), set in by `set`,
+-- pushed down by `clip` (an en-bloc clip into the magazine, where the gun's own clip takes over; a stripper clip's
+-- rounds out of it), the empty stripper clip flying off as the bolt goes forward.
+type PropPart = { part: BasePart, rel: CFrame, round: boolean }
+type Prop = { parts: { PropPart }, gun: BasePart, hand: BasePart?, side: number, flung: boolean }
+
+-- the hand point in an R6 arm (tools/animation/build.luau FIST); the hand pinches the clip from its right side, the
+-- clip's top this far to the gun's left of it (tools/animation/reload.luau SIDE): beside the hand's 1-stud block, not
+-- inside it
+local FIST = Vector3.new(0, -0.8, 0)
+local SIDE = 0.55
+local FIRST_SIDE = 0.85 -- first person (the viewmodel's clip): the hand's block near the camera needs more room
+
+local function makeProp(gun: BasePart, weapon: string): Prop?
+	local w = W[weapon]
+	local r, s = w.reload, w.scale
+	local holder = gun.Parent
+	if not holder then
+		return nil
+	end
+	local rig = if holder:IsA("Tool") then holder.Parent else holder
+	local hand = rig and rig:FindFirstChild("Right Arm") :: BasePart?
+	local clip = holder:FindFirstChild("Clip") :: BasePart?
+	local rounds = holder:FindFirstChild("Rounds") :: BasePart?
+	if not clip then
+		return nil
+	end
+	move(gun, "Clip", CFrame.identity)
+	move(gun, "Rounds", CFrame.identity)
+	local top = CFrame.new(r.clipTop[1] * s[1], r.clipTop[2] * s[2], r.clipTop[3] * s[3])
+	local shift = CFrame.identity
+	if r.entry <= 0 and rounds then
+		local c = gun.CFrame:ToObjectSpace(clip.CFrame)
+		local q = gun.CFrame:ToObjectSpace(rounds.CFrame)
+		shift = CFrame.new(0, c.Y - q.Y, (c.Z - clip.Size.Z / 2) - (q.Z + rounds.Size.Z / 2))
+	end
+	local parts = {}
+	local function add(p: Instance?, round: boolean)
+		if not p or not p:IsA("BasePart") then
+			return
+		end
+		local copy = p:Clone()
+		copy:ClearAllChildren()
+		copy.Name = "Held" .. p.Name
+		copy.Anchored, copy.CanCollide, copy.CanQuery, copy.CanTouch, copy.CastShadow = true, false, false, false, false
+		copy.Transparency, copy.LocalTransparencyModifier = 0, 0
+		local rel = top:Inverse() * (if round then shift else CFrame.identity) * gun.CFrame:ToObjectSpace(p.CFrame)
+		copy.Parent = holder
+		table.insert(parts, { part = copy, rel = rel, round = round })
+	end
+	add(clip, false)
+	add(rounds, true)
+	add(holder:FindFirstChild("Bullets"), true)
+	local side = if holder:IsA("Tool") then SIDE else FIRST_SIDE
+	return { parts = parts, gun = gun, hand = hand, side = side, flung = false }
+end
+
+local function dropProp(prop: Prop)
+	for _, p in prop.parts do
+		p.part:Destroy()
+	end
+	table.clear(prop.parts)
+end
+
+-- the clip at timeline share u of a reload
+local function poseProp(prop: Prop, weapon: string, u: number)
+	local w = W[weapon]
+	local r, s = w.reload, w.scale
+	local C = Cfg.ReloadCycle
+	local gun = prop.gun
+	local seat = gun.CFrame * CFrame.new(r.clipTop[1] * s[1], r.clipTop[2] * s[2], r.clipTop[3] * s[3])
+	local entry = seat * CFrame.new(0, r.entry * s[2], 0)
+	local en = r.entry > 0
+	local topCF: CFrame
+	local drop = 0 -- how far a stripper clip's rounds have gone down out of it
+	if u < C.set then
+		local held = entry
+		if prop.hand then
+			held = CFrame.new(prop.hand.CFrame:PointToWorldSpace(FIST) - gun.CFrame.RightVector * prop.side)
+				* gun.CFrame.Rotation
+		end
+		-- the last stretch settles it exactly onto its place over the guides / the magazine
+		topCF = held:Lerp(entry, smooth((u - (C.set - 0.05)) / 0.05))
+	elseif u < C.clip then
+		local k = smooth((u - C.set) / (C.clip - C.set))
+		if en then
+			topCF = entry:Lerp(seat, k)
+		else
+			topCF = seat
+			drop = k
+		end
+	else
+		topCF = seat
+		drop = 1
+	end
+	local depth = 0.17 * s[2] -- a stripper clip's height: the rounds leave it
+	for _, p in prop.parts do
+		if p.round and not en then
+			p.part.CFrame = topCF * CFrame.new(0, -depth * drop, 0) * p.rel
+			p.part.Transparency = if drop >= 1 then 1 else 0
+		else
+			p.part.CFrame = topCF * p.rel
+		end
+	end
+end
+
+-- ---- the reload animations (tools/animation/reload.luau): the body's (our own, which replicates, or a soldier no
+-- player owns: the animation showcase's dummies) and the first-person viewmodel's ----
+local loaded: { [Animator]: { [number]: AnimationTrack } } = setmetatable({}, { __mode = "k" }) :: any
+
+local function track(animator: Animator, id: number): AnimationTrack
+	local set = loaded[animator]
+	if not set then
+		set = {}
+		loaded[animator] = set
+	end
+	local t = set[id]
+	if not t then
+		local anim = Instance.new("Animation")
+		anim.AnimationId = "rbxassetid://" .. id
+		t = animator:LoadAnimation(anim)
+		t.Priority = Enum.AnimationPriority.Action3
+		t.Looped = false
+		set[id] = t
+	end
+	return t
+end
+
+local function animatorOf(model: Instance?): Animator?
+	local h = model and model:FindFirstChildOfClass("Humanoid")
+	return h and h:FindFirstChildOfClass("Animator")
+end
+
+local function playReload(character: Model, weapon: string, u0: number): { AnimationTrack }
+	local r = W[weapon].reload
+	local list = {}
+	local function start(animator: Animator?, id: number)
+		if not animator or id == 0 then
+			return
+		end
+		local t = track(animator, id)
+		t:Play(if u0 > 0 then 0.15 else 0.1)
+		t.TimePosition = u0 * W[weapon].action.reloadTime
+		table.insert(list, t)
+	end
+	local own = character == Players.LocalPlayer.Character
+	if own or not Players:GetPlayerFromCharacter(character) then
+		start(animatorOf(character), r.body)
+	end
+	if own then
+		start(animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel")), r.firstPerson)
+	end
+	return list
+end
+
+-- actions under way (how to stop each) and actions cut short (the rifle put away), per Tool
+local running: { [Tool]: () -> () } = setmetatable({}, { __mode = "k" }) :: any
 type Cut = { weapon: string, action: string, out: string?, magazine: number, from: number, to: number }
 local cut: { [Tool]: Cut } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -304,11 +472,11 @@ function GunFx.takeCut(tool: Tool): Cut?
 	return c
 end
 
--- The bolt (and clip) through a "Bolt" or "Reload" cycle (Config/Firing BoltCycle / ReloadCycle), playing the span
--- `from`..`to` of its timeline (0..1: the whole action; a bolt held open on an empty rifle stops at `back`, a reload
--- from an open bolt starts there, a resumed action plays its rest). `out`: what the opening bolt throws out
--- ("Casing"); `magazine`: rounds left in the magazine after it. Put away midway, it stops where it is and is kept
--- (GunFx.takeCut) to play out when the rifle is drawn again.
+-- The bolt (and the reload's hands and clip) through a "Bolt" or "Reload" cycle (Config/Firing BoltCycle /
+-- ReloadCycle), playing the span `from`..`to` of its timeline (0..1: the whole action; a bolt held open on an empty
+-- rifle stops at `back`, a reload from an open bolt starts there, a resumed action plays its rest). `out`: what the
+-- opening bolt throws out ("Casing"); `magazine`: rounds left in the magazine after it. Put away midway, it stops where
+-- it is and is kept (GunFx.takeCut) to play out when the rifle is drawn again.
 function GunFx.cycle(
 	character: Model,
 	weapon: string,
@@ -330,33 +498,31 @@ function GunFx.cycle(
 	if time <= 0 then
 		return
 	end
+	local reload = action == "Reload"
 	local turn, travel = math.rad(a.turn), a.travel * s[3]
-	local cycle = if action == "Bolt" then Cfg.BoltCycle else Cfg.ReloadCycle :: any
+	local cycle = if reload then Cfg.ReloadCycle else Cfg.BoltCycle :: any
 	local en = w.ammo.clip == "Enbloc"
 	local rise = Cfg.ClipRise * s[2]
+	-- the bolt: the hand reaches the handle (reload), turns it up, pulls it back; pushes it forward once the case is out
+	-- (Bolt) or the hand is back on it (Reload), turns it down
+	local reach = cycle.reach or 0
+	local fwdFrom = if reload then cycle.knob else cycle.back
+	local openAt = (reach + cycle.up) / 2
 	local t0 = os.clock()
 	-- what already happened before `from` doesn't happen again
-	local opened, ejected = u0 > cycle.up * 0.5, u0 > cycle.back
-	local clipped, seated, closed = u0 > cycle.back, u0 > (cycle.clip or 2), u0 > cycle.forward
-	-- the bolt goes forward after the shot's case is out (Bolt) or after the clip is in (Reload)
-	local fwdFrom = if action == "Bolt" then cycle.back else cycle.clip
+	local opened, ejected = u0 > openAt, u0 > cycle.back
+	local seated, closed = reload and u0 > cycle.clip, u0 > cycle.forward
+	local flungAt = (cycle.knob or 0) + 0.02 -- the bolt starting forward strips the empty clip off the guides
 	local function pose(u: number)
-		-- the bolt: up (turn), back (slide), forward, down
-		local up = smooth(u / cycle.up)
+		local up = smooth((u - reach) / (cycle.up - reach))
 		local back = smooth((u - cycle.up) / (cycle.back - cycle.up))
 		local forward = smooth((u - fwdFrom) / (cycle.forward - fwdFrom))
 		local down = smooth((u - cycle.forward) / (cycle.down - cycle.forward))
 		local angle = turn * (up - down)
 		local slide = travel * (back - forward)
-		-- the clip on a reload: comes down from above between the bolt opening and closing
+		-- the last round fed: the empty en-bloc clip drops out the bottom as the bolt closes
 		local clipY: number? = nil
-		if action == "Reload" then
-			local c = smooth((u - cycle.back) / (cycle.clip - cycle.back))
-			if u >= cycle.back and u < (if en then 2 else cycle.clip) then
-				clipY = rise * (1 - c)
-			end
-		elseif en and magazine == 0 then
-			-- the last round fed: the empty en-bloc clip drops out the bottom as the bolt closes
+		if not reload and en and magazine == 0 then
 			local c = smooth((u - cycle.forward) / (cycle.down - cycle.forward))
 			if u >= cycle.forward then
 				clipY = -rise * c
@@ -372,19 +538,76 @@ function GunFx.cycle(
 			end
 		end
 	end
+
 	if running[tool] then
-		running[tool]:Disconnect()
+		running[tool]()
 	end
 	cut[tool] = nil
+	-- the reload's hands (both views) and its clip, one per gun showing (the body's, the viewmodel's)
+	local tracks = if reload then playReload(character, weapon, u0) else {}
+	local props: { [BasePart]: Prop } = {}
+	local own = character == Players.LocalPlayer.Character
+	if reload and own then
+		character:SetAttribute("Reloading", true) -- src/client/Viewmodel holds its hip turn still meanwhile
+	end
+	local function clips(u: number)
+		if not reload then
+			return
+		end
+		local holding = u >= cycle.grab and (not en or u < cycle.clip)
+		for _, gun in GunFx.guns(character) do
+			local prop = props[gun]
+			if holding and not prop then
+				prop = makeProp(gun, weapon)
+				if prop then
+					props[gun] = prop
+				end
+			end
+			if prop and #prop.parts > 0 then
+				if not holding then
+					dropProp(prop) -- the en-bloc clip is in: the gun's own clip shows from here
+				elseif not en and u >= flungAt and not prop.flung then
+					prop.flung = true
+					for _, p in prop.parts do
+						if not p.round then
+							fling(p.part:Clone(), gun, p.part.CFrame, Vector3.new(4, 9, 1))
+						end
+					end
+					dropProp(prop)
+				else
+					poseProp(prop, weapon, u)
+				end
+			end
+		end
+	end
+	local function finish()
+		for _, prop in props do
+			dropProp(prop)
+		end
+		if reload and own then
+			character:SetAttribute("Reloading", nil)
+		end
+	end
+
 	pose(u0)
+	clips(u0)
 	local conn: RBXScriptConnection
+	local function stop()
+		conn:Disconnect()
+		running[tool] = nil
+		for _, t in tracks do
+			if t.IsPlaying then
+				t:Stop(0.1)
+			end
+		end
+		finish()
+	end
 	conn = RunService.RenderStepped:Connect(function()
 		local u = math.min(u0 + (os.clock() - t0) / time * (u1 - u0), u1)
 		local gun = GunFx.visible(character)
 		if not character.Parent or not gun or tool.Parent ~= character then
 			-- put away (or gone) midway: stop here, keep the rest for when it's drawn again
-			conn:Disconnect()
-			running[tool] = nil
+			stop()
 			if u < u1 then
 				cut[tool] = {
 					weapon = weapon,
@@ -398,7 +621,8 @@ function GunFx.cycle(
 			return
 		end
 		pose(u)
-		if not opened and u >= cycle.up * 0.5 then
+		clips(u)
+		if not opened and u >= openAt then
 			opened = true
 			GunFx.sound(gun, "BoltOpen")
 		end
@@ -408,20 +632,10 @@ function GunFx.cycle(
 				eject(gun)
 			end
 		end
-		if action == "Reload" and not clipped and u >= cycle.back then
-			clipped = true
-			for _, g in GunFx.guns(character) do
-				show(g, "Clip", true)
-				if en then
-					show(g, "Rounds", true)
-					show(g, "Bullets", true)
-				end
-			end
-		end
-		if action == "Reload" and clipped and not seated and u >= cycle.clip then
+		if reload and not seated and u >= cycle.clip then
 			seated = true
 			GunFx.sound(gun, "ClipIn")
-			GunFx.loadout(character, weapon, magazine) -- the rounds are in; a stripper clip comes away
+			GunFx.loadout(character, weapon, magazine) -- the rounds are in (an en-bloc clip with them)
 		end
 		if not closed and u >= cycle.forward then
 			closed = true
@@ -430,6 +644,7 @@ function GunFx.cycle(
 		if u >= u1 then
 			conn:Disconnect()
 			running[tool] = nil
+			finish()
 			if u1 >= 1 then -- closed: every part back at rest (a bolt held open stays back)
 				for _, g in GunFx.guns(character) do
 					move(g, "Bolt", CFrame.identity)
@@ -440,7 +655,7 @@ function GunFx.cycle(
 			GunFx.loadout(character, weapon, magazine)
 		end
 	end)
-	running[tool] = conn
+	running[tool] = stop
 end
 
 return GunFx

@@ -188,7 +188,7 @@ function Viewmodel.start()
 	task.spawn(function()
 		local anims = {}
 		for _, w in W do
-			for _, set in { w.holds, w.firstPerson } do
+			for _, set in { w.holds, w.firstPerson, { w.reload.body, w.reload.firstPerson } } do
 				for _, id in set :: any do
 					local a = Instance.new("Animation")
 					a.AnimationId = "rbxassetid://" .. id
@@ -248,7 +248,10 @@ function Viewmodel.start()
 		local gun = r.model:FindFirstChild("Gun")
 		local muzzle = gun and gun:FindFirstChild("Muzzle") :: Attachment?
 		local rising = r.tracks.aimIn
-		local atHip = character:GetAttribute("Hold") == "ready" and not (rising and rising.IsPlaying)
+		-- (reloading, the rifle is posed by the reload: the turn holds still, src/client/GunFx "Reloading")
+		local atHip = character:GetAttribute("Hold") == "ready"
+			and not (rising and rising.IsPlaying)
+			and character:GetAttribute("Reloading") ~= true
 		if muzzle and atHip then
 			-- the barrel in the rig's own eye frame: its pose, before the turn is applied (the turn rotates that frame),
 			-- moved by the hip shift

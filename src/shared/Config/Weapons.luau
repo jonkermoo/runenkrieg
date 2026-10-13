@@ -60,6 +60,19 @@ export type Weapon = {
 	-- The action, worked by hand (seconds; turn in degrees, travel in modelled studs): the bolt turns its handle up
 	-- by `turn` about its axis (gun Z), then slides back `travel` (+Z) and returns.
 	action: { boltTime: number, reloadTime: number, turn: number, travel: number },
+	-- The reload (Config/Firing.ReloadCycle; user 2026-10-13): where the right hand works, in modelled gun space, and
+	-- the weapon's own reload animations (tools/animation/reload.luau). knob: the bolt handle's knob, bolt closed;
+	-- clipTop: the top of the clip when seated (a stripper clip in the guides, an en-bloc clip in the magazine), where
+	-- the thumb pushes; entry: an en-bloc clip is set this far above its seat and pushed down into the magazine (0: a
+	-- stripper clip sits in the guides and only its rounds go down). body / firstPerson: the animation ids (0 until
+	-- uploaded).
+	reload: {
+		knob: { number },
+		clipTop: { number },
+		entry: number,
+		body: number,
+		firstPerson: number,
+	},
 }
 
 local Weapons: { [string]: Weapon } = {
@@ -97,23 +110,23 @@ local Weapons: { [string]: Weapon } = {
 		-- user references 2026-10-11: ready low in front of the stomach, sprint carried across the body, aim shouldered;
 		-- ready and aim breathe like Roblox's R6 idle (user: match the default sway)
 		holds = {
-			ready = 107914359416034,
-			walk = 81116116222571,
-			carry = 124372088520129, -- swings with the sprint
-			aim = 133970960181165,
-			equip = 101917236691086,
-			crouchReady = 80456739032631,
-			crouchWalk = 90228887606612,
-			crouchAim = 137476015651826,
+			ready = 78002721137460,
+			walk = 124889771920224,
+			carry = 105709189619828, -- swings with the sprint
+			aim = 136351549623920,
+			equip = 116169498023535,
+			crouchReady = 92303129713125,
+			crouchWalk = 87132266042623,
+			crouchAim = 104754199810093,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
 		-- the ready hold up into the sights in 0.3 s
 		firstPerson = {
-			ready = 122238707400436,
-			carry = 114387700921278,
-			aim = 109878538050440,
-			equip = 120043329130240,
-			aimIn = 116379881119831,
+			ready = 112444183702109,
+			carry = 107781105123018,
+			aim = 116060344003850,
+			equip = 118921104577688,
+			aimIn = 88933522621364,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
@@ -135,6 +148,14 @@ local Weapons: { [string]: Weapon } = {
 		-- handle mid-bolt, straight out to the right: turns up a quarter turn, the bolt slides back along the open
 		-- receiver
 		action = { boltTime = 0.9, reloadTime = 2.4, turn = 90, travel = 0.3 },
+		-- the knob at the end of the straight handle, mid-bolt; the clip pushed down from just over the magazine
+		reload = {
+			knob = { 0.12, 0.065, -0.1511 },
+			clipTop = { 0, 0.0614, -0.267 },
+			entry = 0.2,
+			body = 85665510995906,
+			firstPerson = 114783665355868,
+		},
 	},
 	rifle_g98 = {
 		asset = "rifle_g98",
@@ -165,25 +186,24 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0.035, 0.075, -0.3031 }, -- the ejection port, right side
 		},
 		grip = { 0, -0.07, 0.17 }, -- the wrist of the semi-pistol grip, behind the guard
-		-- the Carcano's holds until a class supplies them (docs/HOLD_AND_CAMERA_RULES.md): the two rifles' grip, Aim
-		-- and length are within a few hundredths of a stud
-		holdsOf = "rifle_m91",
+		-- its own holds (user 2026-10-13: hold each gun where appropriate), built from its grip, forend and sights
+		-- (tools/animation/rifle.luau)
 		holds = {
-			ready = 107914359416034,
-			walk = 81116116222571,
-			carry = 124372088520129,
-			aim = 133970960181165,
-			equip = 101917236691086,
-			crouchReady = 80456739032631,
-			crouchWalk = 90228887606612,
-			crouchAim = 137476015651826,
+			ready = 122397590747708,
+			walk = 132355293924259,
+			carry = 111492198362235,
+			aim = 122070726635734,
+			equip = 71450535994230,
+			crouchReady = 81033918313470,
+			crouchWalk = 79212217140130,
+			crouchAim = 96381247209498,
 		},
 		firstPerson = {
-			ready = 122238707400436,
-			carry = 114387700921278,
-			aim = 109878538050440,
-			equip = 120043329130240,
-			aimIn = 116379881119831,
+			ready = 80927013820298,
+			carry = 106294181602498,
+			aim = 115730728635887,
+			equip = 111730436809929,
+			aimIn = 91813569699030,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
@@ -196,6 +216,14 @@ local Weapons: { [string]: Weapon } = {
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a stripper clip in the guides (5 + 1)
 		-- straight handle at the rear of the bolt: turns up a quarter turn, the bolt slides back through the bridge
 		action = { boltTime = 0.9, reloadTime = 2.8, turn = 90, travel = 0.27 },
+		-- the knob at the end of the straight handle at the bolt's rear; the stripper clip in the guides on the bridge
+		reload = {
+			knob = { 0.136, 0.065, -0.0695 },
+			clipTop = { 0, 0.255, -0.1863 },
+			entry = 0,
+			body = 122499300440488,
+			firstPerson = 98144219253549,
+		},
 	},
 	rifle_smle = {
 		asset = "rifle_smle",
@@ -226,25 +254,24 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0.035, 0.075, -0.2533 }, -- the ejection port, right side
 		},
 		grip = { 0, -0.05, 0.15 }, -- the wrist behind the butt socket
-		-- the Carcano's holds until a class supplies them (docs/HOLD_AND_CAMERA_RULES.md); aiming in first person, the
-		-- viewmodel puts this rifle's own sight line on the eye (src/client/Viewmodel), as its sights sit higher
-		holdsOf = "rifle_m91",
+		-- its own holds (user 2026-10-13: hold each gun where appropriate), built from its grip, forend and sights
+		-- (tools/animation/rifle.luau)
 		holds = {
-			ready = 107914359416034,
-			walk = 81116116222571,
-			carry = 124372088520129,
-			aim = 133970960181165,
-			equip = 101917236691086,
-			crouchReady = 80456739032631,
-			crouchWalk = 90228887606612,
-			crouchAim = 137476015651826,
+			ready = 80525771640790,
+			walk = 114188040637314,
+			carry = 119893426125614,
+			aim = 112261684163473,
+			equip = 99227268595174,
+			crouchReady = 134261827381957,
+			crouchWalk = 130726353830006,
+			crouchAim = 115330156920688,
 		},
 		firstPerson = {
-			ready = 122238707400436,
-			carry = 114387700921278,
-			aim = 109878538050440,
-			equip = 120043329130240,
-			aimIn = 116379881119831,
+			ready = 89200022670278,
+			carry = 108888005264242,
+			aim = 116062577227252,
+			equip = 74611252629732,
+			aimIn = 90801944558884,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
@@ -258,6 +285,14 @@ local Weapons: { [string]: Weapon } = {
 		-- the Lee's short lift (60 deg) and cock-on-closing make the fastest bolt; the bolt slides back clear of the
 		-- magazine's top round
 		action = { boltTime = 0.7, reloadTime = 2.8, turn = 60, travel = 0.28 },
+		-- the knob of the bent handle at the bolt's rear, down by the wrist; the charger in the guides on the bridge
+		reload = {
+			knob = { 0.11, -0.0276, 0.0376 },
+			clipTop = { 0, 0.2833, -0.1618 },
+			entry = 0,
+			body = 101808128954188,
+			firstPerson = 122069545639246,
+		},
 	},
 }
 

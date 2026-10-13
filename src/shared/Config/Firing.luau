@@ -28,9 +28,24 @@ local Firing = {
 	-- Bolt cycle timeline, as shares of the weapon's boltTime: handle up, pulled back (the case flies out), pushed
 	-- forward (a round goes into the chamber), turned down.
 	BoltCycle = { up = 0.2, back = 0.45, forward = 0.75, down = 1 },
-	-- Reload timeline, shares of reloadTime: bolt open (up + back), the clip goes in, bolt closed.
-	ReloadCycle = { up = 0.1, back = 0.2, clip = 0.65, forward = 0.85, down = 1 },
-	ClipRise = 0.3, -- studs (model) above its seat that a clip comes in from
+	-- Reload timeline, shares of reloadTime (user 2026-10-13: open the bolt, grab a clip, put it in): the right hand
+	-- reaches the bolt handle, turns it up, pulls it back; goes to the ammo pouch and takes a clip (grab: it is in the
+	-- hand from here); sets it in the guides (an en-bloc clip over the magazine); pushes the rounds down (an en-bloc
+	-- clip goes down with them); back to the handle, pushes the bolt forward (a stripper clip flies out), turns it
+	-- down, and the hand goes back to the grip. The reload animations (tools/animation/reload.luau) and the clip
+	-- (src/client/GunFx) follow this timeline, so a reload cut short resumes with everything where it was.
+	ReloadCycle = {
+		reach = 0.08,
+		up = 0.16,
+		back = 0.26,
+		grab = 0.44,
+		set = 0.58,
+		clip = 0.7,
+		knob = 0.8,
+		forward = 0.88,
+		down = 0.94,
+	},
+	ClipRise = 0.3, -- studs (model) an empty en-bloc clip drops out the bottom
 	-- A rifle put away mid-action (user 2026-10-12): drawn again, the rest of the action plays out `delay` seconds
 	-- after the draw starts (the equip animation, ~0.55 s, and a brief beat), and nothing fires until it's done.
 	Resume = { delay = 0.75 },
