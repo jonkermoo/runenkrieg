@@ -25,9 +25,10 @@ local Firing = {
 	-- magazine is empty. tests/firing.spec checks Config/Weapons ammo.capacity against it.
 	RifleClip = 5,
 
-	-- Bolt cycle timeline, as shares of the weapon's boltTime: handle up, pulled back (the case flies out), pushed
-	-- forward (a round goes into the chamber), turned down.
-	BoltCycle = { up = 0.2, back = 0.45, forward = 0.75, down = 1 },
+	-- Bolt cycle timeline, as shares of the weapon's boltTime: the right hand reaches the handle, turns it up, pulls it
+	-- back (the case flies out), pushes it forward (a round goes into the chamber), turns it down, and goes back to the
+	-- grip. The third-person bolt animations (tools/animation/bolt.luau; user 2026-10-13) are keyed on it.
+	BoltCycle = { reach = 0.12, up = 0.25, back = 0.45, forward = 0.7, down = 0.84 },
 	-- Reload timeline, shares of reloadTime (user 2026-10-13: open the bolt, grab a clip, put it in): the right hand
 	-- reaches the bolt handle, turns it up, pulls it back; goes to the ammo pouch and takes a clip (grab: it is in the
 	-- hand from here); sets it in the guides (an en-bloc clip over the magazine); pushes the rounds down (an en-bloc

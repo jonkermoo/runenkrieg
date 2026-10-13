@@ -438,8 +438,13 @@ local function animatorOf(model: Instance?): Animator?
 	return h and h:FindFirstChildOfClass("Animator")
 end
 
-local function playReload(character: Model, weapon: string, u0: number): { AnimationTrack }
-	local r = W[weapon].reload
+-- The arms for an action, from timeline share u0: a reload in both views; working the bolt in third person only
+-- (aimed: the shouldered variant; any other hold, or a soldier with no hold set such as the showcase's: by `Hold`,
+-- the showcase's bolt dummies aim).
+local function playAction(character: Model, weapon: string, action: string, u0: number): { AnimationTrack }
+	local w = W[weapon]
+	local reload = action == "Reload"
+	local time = if reload then w.action.reloadTime else w.action.boltTime
 	local list = {}
 	local function start(animator: Animator?, id: number)
 		if not animator or id == 0 then
@@ -447,15 +452,21 @@ local function playReload(character: Model, weapon: string, u0: number): { Anima
 		end
 		local t = track(animator, id)
 		t:Play(if u0 > 0 then 0.15 else 0.1)
-		t.TimePosition = u0 * W[weapon].action.reloadTime
+		t.TimePosition = u0 * time
 		table.insert(list, t)
 	end
 	local own = character == Players.LocalPlayer.Character
 	if own or not Players:GetPlayerFromCharacter(character) then
-		start(animatorOf(character), r.body)
+		local body = w.reload.body
+		if not reload then
+			local hold = character:GetAttribute("Hold")
+			local aimed = hold == nil or hold == "aim" or hold == "crouchAim"
+			body = if aimed then w.bolt.aim else w.bolt.ready
+		end
+		start(animatorOf(character), body)
 	end
-	if own then
-		start(animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel")), r.firstPerson)
+	if own and reload then
+		start(animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel")), w.reload.firstPerson)
 	end
 	return list
 end
@@ -544,7 +555,7 @@ function GunFx.cycle(
 	end
 	cut[tool] = nil
 	-- the reload's hands (both views) and its clip, one per gun showing (the body's, the viewmodel's)
-	local tracks = if reload then playReload(character, weapon, u0) else {}
+	local tracks = playAction(character, weapon, action, u0)
 	local props: { [BasePart]: Prop } = {}
 	local own = character == Players.LocalPlayer.Character
 	if reload and own then
@@ -645,6 +656,14 @@ function GunFx.cycle(
 			conn:Disconnect()
 			running[tool] = nil
 			finish()
+			if u1 < 1 then
+				-- stopped short (a bolt held open on an empty rifle): the hand lets go and goes back to the grip
+				for _, t in tracks do
+					if t.IsPlaying then
+						t:Stop(0.25)
+					end
+				end
+			end
 			if u1 >= 1 then -- closed: every part back at rest (a bolt held open stays back)
 				for _, g in GunFx.guns(character) do
 					move(g, "Bolt", CFrame.identity)

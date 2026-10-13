@@ -73,6 +73,10 @@ export type Weapon = {
 		body: number,
 		firstPerson: number,
 	},
+	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
+	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
+	-- hold). 0 until uploaded.
+	bolt: { aim: number, ready: number },
 }
 
 local Weapons: { [string]: Weapon } = {
@@ -149,6 +153,7 @@ local Weapons: { [string]: Weapon } = {
 		-- receiver
 		action = { boltTime = 0.9, reloadTime = 2.4, turn = 90, travel = 0.3 },
 		-- the knob at the end of the straight handle, mid-bolt; the clip pushed down from just over the magazine
+		bolt = { aim = 112665941285389, ready = 88846316947766 },
 		reload = {
 			knob = { 0.12, 0.065, -0.1511 },
 			clipTop = { 0, 0.0614, -0.267 },
@@ -217,6 +222,7 @@ local Weapons: { [string]: Weapon } = {
 		-- straight handle at the rear of the bolt: turns up a quarter turn, the bolt slides back through the bridge
 		action = { boltTime = 0.9, reloadTime = 2.8, turn = 90, travel = 0.27 },
 		-- the knob at the end of the straight handle at the bolt's rear; the stripper clip in the guides on the bridge
+		bolt = { aim = 104911133082414, ready = 95799602076532 },
 		reload = {
 			knob = { 0.136, 0.065, -0.0695 },
 			clipTop = { 0, 0.255, -0.1863 },
@@ -286,6 +292,7 @@ local Weapons: { [string]: Weapon } = {
 		-- magazine's top round
 		action = { boltTime = 0.7, reloadTime = 2.8, turn = 60, travel = 0.28 },
 		-- the knob of the bent handle at the bolt's rear, down by the wrist; the charger in the guides on the bridge
+		bolt = { aim = 111244016757012, ready = 89479225195668 },
 		reload = {
 			knob = { 0.11, -0.0276, 0.0376 },
 			clipTop = { 0, 0.2833, -0.1618 },

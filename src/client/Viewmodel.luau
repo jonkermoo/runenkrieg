@@ -188,7 +188,7 @@ function Viewmodel.start()
 	task.spawn(function()
 		local anims = {}
 		for _, w in W do
-			for _, set in { w.holds, w.firstPerson, { w.reload.body, w.reload.firstPerson } } do
+			for _, set in { w.holds, w.firstPerson, { w.reload.body, w.reload.firstPerson, w.bolt.aim, w.bolt.ready } } do
 				for _, id in set :: any do
 					local a = Instance.new("Animation")
 					a.AnimationId = "rbxassetid://" .. id
