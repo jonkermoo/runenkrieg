@@ -76,6 +76,22 @@ local Palette = {
 		CarBodies = { { 72, 42, 40 }, { 40, 44, 42 }, { 56, 70, 58 }, { 62, 64, 72 } },
 		ToneJitter = 0.05,
 	},
+	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
+	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
+	Magic = {
+		Core = { 235, 250, 255 }, -- the white-hot centre of beams, orbs and flashes
+		Glow = { 120, 200, 255 }, -- the light blue body (Zoltraak, the circle's lines)
+		Deep = { 70, 90, 230 }, -- the deep blue edge
+		Violet = { 150, 90, 255 }, -- the outer haze, sparkles
+		Gold = { 255, 200, 80 }, -- light spikes, holy flashes
+		Ember = { 255, 60, 50 }, -- red glints and bursts
+		Bolt = { 80, 255, 190 }, -- lightning
+		-- the violet "hex" scheme (user reference 2026-10-13: a hot pink-violet capsule beam)
+		HexCore = { 255, 228, 255 },
+		Hex = { 240, 90, 255 },
+		HexDeep = { 170, 40, 220 },
+		HexEdge = { 90, 20, 140 },
+	},
 	-- UI: flat panels, one outline thickness everywhere.
 	UI = {
 		panel = { 44, 50, 42 },

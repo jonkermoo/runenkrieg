@@ -26,6 +26,16 @@ local DevTools = {
 			look = { 627, -2700 },
 			offMap = true,
 		},
+		-- in front of the effects showcase's pads (Config/Vfx.Showcase), facing down the lane
+		{
+			id = "Effects",
+			name = "Effects showcase",
+			x = 399,
+			z = -2680,
+			y = 3,
+			look = { 399, -2760 },
+			offMap = true,
+		},
 	},
 
 	CooldownSeconds = 0.5,
@@ -34,7 +44,7 @@ local DevTools = {
 	Admin = {
 		-- the dev labels (user 2026-10-12: they get in the way while testing): the panel's "Labels" button shows or
 		-- hides every BillboardGui under these Workspace folders, for this player only
-		LabelFolders = { "DevShowcase", "DevRange", "DevGallery", "DevHelmets" },
+		LabelFolders = { "DevShowcase", "DevRange", "DevGallery", "DevHelmets", "DevVfx" },
 		LabelsAttribute = "DevLabelsHidden", -- on the Player while hidden
 		-- speed multipliers (x the normal walk / sprint / aim / crouch speeds, and the flying speed)
 		SpeedSteps = { 1, 2, 4, 8 },
