@@ -77,6 +77,9 @@ export type Weapon = {
 	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
 	-- hold). 0 until uploaded.
 	bolt: { aim: number, ready: number },
+	-- Loading single rounds (stripper-clip rifles with rounds left; Config/Firing.Single, tools/animation/single.luau):
+	-- seat, where a round goes in (its centre pushed onto the top round, modelled gun space); the animation ids.
+	single: { seat: { number }, body: number, firstPerson: number }?,
 }
 
 local Weapons: { [string]: Weapon } = {
@@ -223,6 +226,8 @@ local Weapons: { [string]: Weapon } = {
 		action = { boltTime = 0.9, reloadTime = 2.8, turn = 90, travel = 0.27 },
 		-- the knob at the end of the straight handle at the bolt's rear; the stripper clip in the guides on the bridge
 		bolt = { aim = 104911133082414, ready = 95799602076532 },
+		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
+		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 95730483657941 },
 		reload = {
 			knob = { 0.136, 0.065, -0.0695 },
 			clipTop = { 0, 0.255, -0.1863 },
@@ -293,6 +298,8 @@ local Weapons: { [string]: Weapon } = {
 		action = { boltTime = 0.7, reloadTime = 2.8, turn = 60, travel = 0.28 },
 		-- the knob of the bent handle at the bolt's rear, down by the wrist; the charger in the guides on the bridge
 		bolt = { aim = 111244016757012, ready = 89479225195668 },
+		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
+		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 133640753043197 },
 		reload = {
 			knob = { 0.11, -0.0276, 0.0376 },
 			clipTop = { 0, 0.2833, -0.1618 },

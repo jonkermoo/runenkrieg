@@ -34,6 +34,8 @@ local Showcase = {
 	Actions = {
 		{ action = "Bolt", over = "aim", every = 3, shotFirst = 0.5 }, -- fire, then work the bolt after shotFirst s
 		{ action = "Reload", over = "ready", every = 4.5 },
+		-- single rounds (stripper-clip rifles only): `rounds` thumbed in, then the bolt closes
+		{ action = "Load", over = "ready", every = 4, rounds = 2 },
 	},
 	Tracer = 40, -- studs a showcase shot's tracer runs (it hits nothing)
 

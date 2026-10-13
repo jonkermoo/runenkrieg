@@ -1,7 +1,9 @@
 --!strict
 -- Shooting on the local client (M11; Config/Firing, Rules/Firing; the server decides in src/server/Firing):
 -- - left click fires the held rifle; after a shot the next click works the bolt (by hand, user 2026-10-12); with
---   nothing to fire it clicks empty. R loads a clip. No firing while sprinting.
+--   nothing to fire it clicks empty. R loads a clip into an empty magazine; with rounds left a stripper-clip rifle
+--   loads single rounds until full, and a click stops it after the round in the hand (user 2026-10-13). No firing
+--   while sprinting.
 -- - the shot leaves the muzzle along the barrel, aimed or not (no cursor, no crosshair): aimed, that is the sights'
 --   line, one sight height under it (Config/Weapons aiming contract).
 -- - the client predicts its rifle's state with Rules/Firing and shows everything at once (GunFx: flash, sound,
@@ -43,6 +45,9 @@ local function gunOf(name: string): F.Gun
 		fireTime = Cfg.FireTime,
 		openAt = Cfg.BoltCycle.back,
 		reloadOpenAt = Cfg.ReloadCycle.back,
+		singleOpen = Cfg.Single.open,
+		singleRound = Cfg.Single.round,
+		singleClose = Cfg.Single.close,
 	}
 end
 
@@ -54,6 +59,7 @@ local function adopt(tool: Tool, l: Local)
 		l.state.chambered = tool:GetAttribute("Chambered") == true
 		l.state.spent = tool:GetAttribute("Spent") == true
 		l.state.open = tool:GetAttribute("Open") == true
+		l.state.load = nil -- the server's numbers include any single rounds already in
 	end
 end
 
@@ -84,7 +90,11 @@ local function localState(tool: Tool, name: string): Local
 				task.delay(Cfg.Resume.delay, function()
 					local c = GunFx.takeCut(tool)
 					if c and tool.Parent == character then
-						GunFx.cycle(character, c.weapon, c.action, c.out, c.magazine, c.from, c.to)
+						if c.action == "Load" then
+							GunFx.load(character, c.weapon, c.out, c.from, c.to, c.magazine)
+						else
+							GunFx.cycle(character, c.weapon, c.action, c.out, c.magazine, c.from, c.to)
+						end
 					end
 				end)
 			end
@@ -215,14 +225,16 @@ local function showHud(hud: Hud, l: Local?, now: number)
 	while #hud.slots < l.gun.capacity do
 		table.insert(hud.slots, round(box, 2 + #hud.slots))
 	end
+	local magazine = F.magazineAt(s, now) -- single rounds already pushed in count
 	for i, f in hud.slots do
 		f.Visible = i <= l.gun.capacity
-		slot(f, if i <= s.magazine then "round" else "empty")
+		slot(f, if i <= magazine then "round" else "empty")
 	end
 	slot(hud.chamber, if s.chambered then "round" elseif s.spent then "spent" else "empty")
 	local next = F.next(s, now)
-	hud.hint.Text = if next == "Bolt"
-		then "Click: work the bolt"
+	hud.hint.Text = if next == "Load"
+		then "Click: stop loading"
+		elseif next == "Bolt" then "Click: work the bolt"
 		elseif next == "Dry" or next == "Open" or (s.magazine == 0 and not s.chambered) then "R: load a clip"
 		else ""
 	hud.note.Visible = now < hud.noteUntil
@@ -251,7 +263,16 @@ function Firing.start()
 		end
 		local now = os.clock()
 		local next = F.next(l.state, now)
-		if next == "Fire" then
+		if next == "Load" then
+			-- loading single rounds: stop after the round in the hand, then the bolt closes
+			local k = F.stopLoad(l.state, now)
+			if k then
+				l.sent += 1
+				Net.event("StopLoad"):FireServer()
+				GunFx.loadStop(character, k)
+			end
+			return
+		elseif next == "Fire" then
 			local origin, dir = shotRay(character)
 			if not origin or not dir then
 				return
@@ -288,13 +309,18 @@ function Firing.start()
 			return
 		end
 		local wasOpen = l.state.open
-		local ok, _, out = F.reload(l.state, l.gun, os.clock())
+		local ok, _, out, kind = F.reload(l.state, l.gun, os.clock())
 		if ok then
 			l.sent += 1
 			Net.event("Reload"):FireServer()
-			-- from an open bolt the clip goes straight in
-			local from = if wasOpen then Cfg.ReloadCycle.back else 0
-			GunFx.cycle(character, weapon.name, "Reload", out, l.state.magazine, from, 1)
+			local load = l.state.load
+			if kind == "Load" and load then
+				GunFx.load(character, weapon.name, out, 0, nil, load.room) -- single rounds
+			else
+				-- from an open bolt the clip goes straight in
+				local from = if wasOpen then Cfg.ReloadCycle.back else 0
+				GunFx.cycle(character, weapon.name, "Reload", out, l.state.magazine, from, 1)
+			end
 		end
 	end
 
@@ -318,7 +344,8 @@ function Firing.start()
 				end
 				if shooter == player.Character then
 					if
-						part and (GunFx.isTarget(part) or part.Parent and part.Parent:FindFirstChildOfClass("Humanoid"))
+						part
+						and (GunFx.isTarget(part) or part.Parent and part.Parent:FindFirstChildOfClass("Humanoid"))
 					then
 						local what = if GunFx.isTarget(part)
 							then `{(part.Parent :: Instance).Name} {part.Name}`
@@ -343,7 +370,14 @@ function Firing.start()
 					return
 				end
 				local magazine = tool:GetAttribute("Magazine")
-				GunFx.cycle(shooter, name, action, out, if type(magazine) == "number" then magazine else 0, from, to)
+				local m = if type(magazine) == "number" then magazine else 0
+				if action == "Load" then
+					GunFx.load(shooter, name, out, from or 0, to, W[name].ammo.capacity - m)
+				elseif action == "LoadStop" then
+					GunFx.loadStop(shooter, to or 0)
+				else
+					GunFx.cycle(shooter, name, action, out, m, from, to)
+				end
 			end
 			if delay then
 				task.delay(delay, play) -- drawn again: the rest of the cut action after the draw

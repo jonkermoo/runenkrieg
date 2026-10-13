@@ -47,6 +47,11 @@ local Firing = {
 		down = 0.94,
 	},
 	ClipRise = 0.3, -- studs (model) an empty en-bloc clip drops out the bottom
+	-- Single rounds (user 2026-10-13): a stripper-clip rifle (Gewehr, SMLE) with rounds left in the magazine loads them
+	-- one at a time through the open action (a whole clip only fits an empty magazine): seconds to open the bolt (hand to
+	-- the handle, up, back, then over the magazine), per round (to the pouch, a round, pushed in), to close it (back on
+	-- the handle, forward, down, hand on the grip). A click stops it after the round in the hand.
+	Single = { open = 0.6, round = 0.55, close = 0.7 },
 	-- A rifle put away mid-action (user 2026-10-12): drawn again, the rest of the action plays out `delay` seconds
 	-- after the draw starts (the equip animation, ~0.55 s, and a brief beat), and nothing fires until it's done.
 	Resume = { delay = 0.75 },

@@ -4,6 +4,7 @@ local F = require("../src/shared/Rules/Firing")
 local W = require("../src/shared/Config/Weapons")
 
 local OPEN = { openAt = Cfg.BoltCycle.back, reloadOpenAt = Cfg.ReloadCycle.back }
+local S = Cfg.Single
 local CARCANO: F.Gun = {
 	capacity = 6,
 	clip = "Enbloc",
@@ -12,6 +13,9 @@ local CARCANO: F.Gun = {
 	fireTime = 0.15,
 	openAt = OPEN.openAt,
 	reloadOpenAt = OPEN.reloadOpenAt,
+	singleOpen = S.open,
+	singleRound = S.round,
+	singleClose = S.close,
 }
 local GEWEHR: F.Gun = {
 	capacity = 5,
@@ -21,7 +25,14 @@ local GEWEHR: F.Gun = {
 	fireTime = 0.15,
 	openAt = OPEN.openAt,
 	reloadOpenAt = OPEN.reloadOpenAt,
+	singleOpen = S.open,
+	singleRound = S.round,
+	singleClose = S.close,
 }
+-- when a single load started at `t0` with every round going in ends
+local function loadDone(t0: number, rounds: number): number
+	return t0 + S.open + rounds * S.round + S.close
+end
 
 return {
 	["a full rifle has one round chambered and a full clip in the magazine: Gewehr 5 + 1, Carcano 6 + 1"] = function()
@@ -105,24 +116,19 @@ return {
 		F.pause(idle, 5)
 		assert(F.resume(idle, 9, Cfg.Resume.delay) == 0 and F.fire(idle, GEWEHR, 9), "nothing interrupted: no wait")
 	end,
-	["en-bloc clips go in only when the magazine is empty; stripper clips top it up"] = function()
+	["en-bloc clips go in only when the magazine is empty; a stripper clip only into an empty magazine"] = function()
 		local c = F.new(CARCANO)
 		assert(not F.reload(c, CARCANO, 0), "Carcano: not with rounds left")
 		c.magazine, c.chambered, c.spent = 0, false, true
-		local ok, _, out = F.reload(c, CARCANO, 0)
-		assert(ok and out == "Casing" and c.chambered and c.magazine == 5, "Carcano: clip in, case out, round in")
+		local ok, _, out, kind = F.reload(c, CARCANO, 0)
+		assert(ok and out == "Casing" and kind == "Reload" and c.chambered and c.magazine == 5, "Carcano: clip in")
 		local g = F.new(GEWEHR)
 		assert(not F.reload(g, GEWEHR, 0), "Gewehr: not when full")
-		g.magazine = 2
-		assert(F.reload(g, GEWEHR, 0) and g.magazine == 5, "Gewehr: tops up a part-empty magazine")
-		local g2 = F.new(GEWEHR)
-		g2.magazine = GEWEHR.capacity
-		assert(not F.reload(g2, GEWEHR, 0), "Gewehr: not when full")
-		local g3 = F.new(GEWEHR)
-		g3.magazine = 1
-		assert(F.reload(g3, GEWEHR, 0) and g3.magazine == 5 and g3.chambered, "Gewehr: 5 + the chambered round")
+		g.magazine, g.chambered, g.spent = 0, false, true
+		ok, _, out, kind = F.reload(g, GEWEHR, 0)
+		assert(ok and kind == "Reload" and g.magazine == 4 and g.chambered, "Gewehr: empty -> a whole clip, 4 + 1")
 	end,
-	["the Carcano reloads only with 1 or 0 rounds left; the Gewehr whenever it isn't full"] = function()
+	["the Carcano reloads only with 1 or 0 rounds left"] = function()
 		local c = F.new(CARCANO)
 		c.magazine = 1
 		assert(not F.reload(c, CARCANO, 0), "Carcano: 2 rounds left (1 + 1)")
@@ -131,9 +137,53 @@ return {
 		local e = F.new(CARCANO)
 		e.magazine, e.chambered = 0, false
 		assert(F.reload(e, CARCANO, 0) and F.rounds(e) == 6, "Carcano: 0 left -> 5 + 1 (the clip feeds the chamber)")
+	end,
+	["with rounds left a stripper-clip rifle loads single rounds until full, then closes on one"] = function()
 		local g = F.new(GEWEHR)
-		g.magazine = 4
-		assert(F.reload(g, GEWEHR, 0) and F.rounds(g) == 6, "Gewehr: one shot down, topped up")
+		assert(F.fire(g, GEWEHR, 0))
+		assert(F.bolt(g, GEWEHR, 1)) -- 4 + 1
+		assert(F.fire(g, GEWEHR, 2)) -- 4 + a spent case
+		assert(F.bolt(g, GEWEHR, 3)) -- 3 + 1
+		assert(F.fire(g, GEWEHR, 4)) -- 3 + a spent case: room for 2
+		local ok, _, out, kind = F.reload(g, GEWEHR, 5)
+		assert(ok and kind == "Load" and out == "Casing", "single rounds; the case comes out")
+		assert(F.next(g, 5.2) == "Load", "a click now stops the loading")
+		assert(F.magazineAt(g, 5 + S.open + S.round + 0.01) == 4, "the first round is in after one round's time")
+		local done = loadDone(5, 2)
+		assert(not F.fire(g, GEWEHR, done - 0.05), "busy until the bolt has closed")
+		assert(F.fire(g, GEWEHR, done) and g.magazine == 4 and not g.load, "full (5) and closed on one: 4 + 1, fired")
+	end,
+	["a click stops single loading after the round in the hand"] = function()
+		local g = F.new(GEWEHR)
+		g.magazine = 1 -- 1 + 1: room for 4
+		assert(F.reload(g, GEWEHR, 0))
+		assert(not g.chambered, "opening the bolt throws the live round out")
+		local k = F.stopLoad(g, S.open + S.round * 1.4) -- the second round is in the hand
+		assert(k == 2, `the round in the hand still goes in ({k})`)
+		assert(F.next(g, loadDone(0, 2) - 0.05) == "Busy", "the bolt is closing")
+		assert(
+			F.next(g, loadDone(0, 2)) == "Fire" and g.magazine == 2 and g.chambered,
+			"1 + 2 in, one chambered: 2 + 1"
+		)
+	end,
+	["a live round in the chamber is lost when the bolt opens to load"] = function()
+		local g = F.new(GEWEHR)
+		g.magazine = 3 -- 3 + 1 live
+		local ok, _, out = F.reload(g, GEWEHR, 0)
+		assert(ok and out == "Round", "the live round is thrown out")
+		F.settle(g, loadDone(0, 2))
+		assert(F.rounds(g) == 5, `full magazine, one of it chambered: 4 + 1 (got {F.rounds(g)})`)
+	end,
+	["single loading put away keeps going after the draw"] = function()
+		local g = F.new(GEWEHR)
+		g.magazine = 2 -- room for 3
+		assert(F.reload(g, GEWEHR, 0))
+		F.pause(g, S.open + S.round * 0.5) -- the first round in the hand
+		assert(g.load and g.load.rounds == 1, "the round in the hand will still go in")
+		local left = F.resume(g, 10, Cfg.Resume.delay)
+		assert(left > 0, "the rest plays after the draw")
+		assert(F.next(g, 10 + Cfg.Resume.delay + left - 0.05) == "Busy", "still loading / closing")
+		assert(F.next(g, 10 + Cfg.Resume.delay + left) == "Fire" and g.magazine == 2, "2 + 1 in, closed: 2 + 1")
 	end,
 	["shots must come from the shooter's own rifle, as a unit direction"] = function()
 		assert(F.validShot(5, 1, Cfg.MaxOrigin))

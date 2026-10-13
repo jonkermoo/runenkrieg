@@ -187,7 +187,9 @@ function Showcase.start()
 			end
 		end
 		for _, a in Cfg.Actions do
-			table.insert(items, { kind = "action", weapon = weapon, spec = a })
+			if a.action ~= "Load" or w.single then -- single rounds: only a rifle that loads them
+				table.insert(items, { kind = "action", weapon = weapon, spec = a })
+			end
 		end
 		table.insert(rows, { title = w.display, items = items })
 	end
@@ -253,7 +255,11 @@ function Showcase.start()
 				local tool = arm(m, item.weapon)
 				base(m, "idle")
 				track(m, (w.holds :: any)[a.over], Enum.AnimationPriority.Action, true):Play(0)
-				label(root, if a.action == "Bolt" then "fire + bolt" else "reload", 4, 16, Cfg.LabelRange)
+				local name = if a.action == "Bolt"
+					then "fire + bolt"
+					elseif a.action == "Load" then "single rounds"
+					else "reload"
+				label(root, name, 4, 16, Cfg.LabelRange)
 				task.spawn(function()
 					task.wait(i * 0.3) -- not all in unison
 					while m.Parent do
@@ -262,6 +268,9 @@ function Showcase.start()
 							task.wait(a.shotFirst)
 							Net.event("WeaponAction"):FireAllClients(m, "Bolt", "Casing", 0, 1, nil)
 							task.wait(a.every - a.shotFirst)
+						elseif a.action == "Load" then
+							Net.event("WeaponAction"):FireAllClients(m, "Load", nil, 0, a.rounds, nil)
+							task.wait(a.every)
 						else
 							Net.event("WeaponAction"):FireAllClients(m, "Reload", nil, 0, 1, nil)
 							task.wait(a.every)
