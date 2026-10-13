@@ -52,6 +52,22 @@ local Assets = {
 			generator = "tools/blender/weapons/export_blend.py",
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
+		rifle_g98 = {
+			id = 87306177976563, -- v2: sight line 0.057 over the bore (v1 78115054198721)
+			category = "Weapons",
+			folder = "Grey/Rifles",
+			source = "assets/weapons/grey/rifle_g98.fbx",
+			generator = "tools/blender/weapons/gewehr98.py",
+			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
+		},
+		rifle_smle = {
+			id = 100602639751958,
+			category = "Weapons",
+			folder = "White/Rifles",
+			source = "assets/weapons/white/rifle_smle.fbx",
+			generator = "tools/blender/weapons/smle.py",
+			description = "Lee-Enfield SMLE Mk III, the white team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",

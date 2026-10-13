@@ -78,9 +78,7 @@ local Metrics = {
 	},
 
 	Camera = {
-		ShoulderOffset = { X = 1.75, Y = 1.0, Z = 0 }, -- right/up from head center
-		Distance = 7.0,
-		AimDistance = 0, -- first person when aiming down sights
+		AimDistance = 0, -- a weapon in the hands is first person, aiming too (user 2026-10-12: no shoulder camera)
 	},
 }
 

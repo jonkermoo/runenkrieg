@@ -22,6 +22,9 @@ export type Weapon = {
 	-- ready (standing), walk (walking: keeps step with the legs), carry (sprinting: keeps step too), aim (aiming down
 	-- the sights), equip (one shot: drawn from the sling on the back). Both arms reach for the gun.
 	-- Crouched (crouchReady / crouchWalk / crouchAim): the same holds for the crouched torso.
+	-- holdsOf: the weapon these holds were built for, when borrowed (aimed, src/client/Viewmodel moves the rig by the
+	-- difference between the two weapons' Aim, so this one's own sights sit on the eye)
+	holdsOf: string?,
 	holds: {
 		ready: number,
 		walk: number,
@@ -50,6 +53,13 @@ export type Weapon = {
 	-- space (R6 Torso: +X right, +Y up, front -Z, back face at z +0.5): `at` is the gun origin, `muzzle` the way the
 	-- muzzle points, `side` the way the gun's right side (+X, the bolt handle) faces.
 	stow: { part: string, at: { number }, muzzle: { number }, side: { number } },
+	-- Shooting (Config/Firing, Rules/Firing): rounds per clip and how the clip loads ("Enbloc": the whole clip goes
+	-- into the magazine and drops out the bottom when empty, only reloaded empty; "Stripper": the rounds are pushed
+	-- down out of a clip held in the guides, topping the magazine up).
+	ammo: { capacity: number, clip: string },
+	-- The action, worked by hand (seconds; turn in degrees, travel in modelled studs): the bolt turns its handle up
+	-- by `turn` about its axis (gun Z), then slides back `travel` (+Z) and returns.
+	action: { boltTime: number, reloadTime: number, turn: number, travel: number },
 }
 
 local Weapons: { [string]: Weapon } = {
@@ -79,7 +89,9 @@ local Weapons: { [string]: Weapon } = {
 		attachments = {
 			Muzzle = { 0, 0.0717, -2.483 }, -- bore axis at the muzzle face: bullet origin, flash
 			Aim = { 0, 0.1186, 0.45 }, -- the eye (cheek on the comb), on the sight line: post tip + notch
-			Eject = { 0.03, 0.075, -0.397 }, -- the open receiver, right side: casings fly out +X/+Y
+			-- where the case leaves: in the open receiver at the bolt face pulled back (rest z -0.46 + travel 0.3), the case
+			-- just in front of it (user 2026-10-12: it came out too far forward, at the receiver ring); right side, +X/+Y
+			Eject = { 0.03, 0.075, -0.21 },
 		},
 		grip = { 0, -0.06, 0.15 },
 		-- user references 2026-10-11: ready low in front of the stomach, sprint carried across the body, aim shouldered;
@@ -117,6 +129,135 @@ local Weapons: { [string]: Weapon } = {
 			muzzle = { 0.309, 0.9511, 0 }, -- sin 18, cos 18
 			side = { 0, 0, 1 },
 		},
+		-- its 6-round en-bloc clip: one round more than the other rifles (6 + 1), balanced by reloading only with the
+		-- magazine empty (1 or 0 rounds left; user 2026-10-12)
+		ammo = { capacity = 6, clip = "Enbloc" },
+		-- handle mid-bolt, straight out to the right: turns up a quarter turn, the bolt slides back along the open
+		-- receiver
+		action = { boltTime = 0.9, reloadTime = 2.4, turn = 90, travel = 0.3 },
+	},
+	rifle_g98 = {
+		asset = "rifle_g98",
+		display = "Gewehr 98",
+		slot = "Primary",
+		class = "BoltRifle",
+		parts = {
+			Wood = { 142, 74, 42 },
+			Handguard = { 142, 74, 42 },
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Trigger = { 52, 54, 58 },
+			Clip = { 90, 88, 84 },
+			Rounds = { 196, 160, 84 }, -- the shared rifle round's brass case (tools/blender/weapons/ammo.py)
+			Bullets = { 184, 115, 72 }, -- its copper-jacketed bullet
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.065, -0.0695 }, -- on the bolt's axis, at the handle (straight, out to the right when closed)
+			Trigger = { 0, -0.0897, 0 }, -- the trigger pin
+			Clip = { 0, 0.095, -0.1863 }, -- the stripper clip, in the charger guides on the rear bridge
+		},
+		hidden = { "Casing", "Clip" }, -- the clip shows only while reloading
+		attachments = {
+			Muzzle = { 0, 0.065, -2.5323 },
+			Aim = { 0, 0.1218, 0.45 }, -- on the sight line: barleycorn tip + rear notch, 0.057 over the bore
+			Eject = { 0.035, 0.075, -0.3031 }, -- the ejection port, right side
+		},
+		grip = { 0, -0.07, 0.17 }, -- the wrist of the semi-pistol grip, behind the guard
+		-- the Carcano's holds until a class supplies them (docs/HOLD_AND_CAMERA_RULES.md): the two rifles' grip, Aim
+		-- and length are within a few hundredths of a stud
+		holdsOf = "rifle_m91",
+		holds = {
+			ready = 107914359416034,
+			walk = 81116116222571,
+			carry = 124372088520129,
+			aim = 133970960181165,
+			equip = 101917236691086,
+			crouchReady = 80456739032631,
+			crouchWalk = 90228887606612,
+			crouchAim = 137476015651826,
+		},
+		firstPerson = {
+			ready = 122238707400436,
+			carry = 114387700921278,
+			aim = 109878538050440,
+			equip = 120043329130240,
+			aimIn = 116379881119831,
+		},
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a stripper clip in the guides (5 + 1)
+		-- straight handle at the rear of the bolt: turns up a quarter turn, the bolt slides back through the bridge
+		action = { boltTime = 0.9, reloadTime = 2.8, turn = 90, travel = 0.27 },
+	},
+	rifle_smle = {
+		asset = "rifle_smle",
+		display = "Lee-Enfield SMLE",
+		slot = "Primary",
+		class = "BoltRifle",
+		parts = {
+			Wood = { 142, 74, 42 },
+			Handguard = { 142, 74, 42 },
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Trigger = { 52, 54, 58 },
+			Clip = { 90, 88, 84 },
+			Rounds = { 196, 160, 84 }, -- the shared rifle round's brass case (tools/blender/weapons/ammo.py)
+			Bullets = { 184, 115, 72 }, -- its copper-jacketed bullet
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.065, 0.0376 }, -- on the bolt's axis, at the handle (at the bolt's rear, down to the right when closed)
+			Trigger = { 0, -0.0748, 0 }, -- the trigger pin
+			Clip = { 0, 0.1233, -0.1618 }, -- the charger, in the guides on the bridge
+		},
+		hidden = { "Casing", "Clip" }, -- the charger shows only while reloading
+		attachments = {
+			Muzzle = { 0, 0.065, -2.1899 }, -- flush in the nose cap, over the bayonet boss
+			Aim = { 0, 0.1393, 0.45 }, -- on the sight line: blade tip + rear notch, 0.074 over the bore (the SMLE's high sights)
+			Eject = { 0.035, 0.075, -0.2533 }, -- the ejection port, right side
+		},
+		grip = { 0, -0.05, 0.15 }, -- the wrist behind the butt socket
+		-- the Carcano's holds until a class supplies them (docs/HOLD_AND_CAMERA_RULES.md); aiming in first person, the
+		-- viewmodel puts this rifle's own sight line on the eye (src/client/Viewmodel), as its sights sit higher
+		holdsOf = "rifle_m91",
+		holds = {
+			ready = 107914359416034,
+			walk = 81116116222571,
+			carry = 124372088520129,
+			aim = 133970960181165,
+			equip = 101917236691086,
+			crouchReady = 80456739032631,
+			crouchWalk = 90228887606612,
+			crouchAim = 137476015651826,
+		},
+		firstPerson = {
+			ready = 122238707400436,
+			carry = 114387700921278,
+			aim = 109878538050440,
+			equip = 120043329130240,
+			aimIn = 116379881119831,
+		},
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a charger in the guides (5 + 1); tops up
+		-- the Lee's short lift (60 deg) and cock-on-closing make the fastest bolt; the bolt slides back clear of the
+		-- magazine's top round
+		action = { boltTime = 0.7, reloadTime = 2.8, turn = 60, travel = 0.28 },
 	},
 }
 

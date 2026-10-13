@@ -1,25 +1,15 @@
 --!strict
--- The camera while a weapon is in the hands (Config/Camera, Metrics.Camera; user 2026-10-11):
--- - over the right shoulder at the selected zoom, the body turning with it (mouse locked to the centre). The wheel
---   zooms in and out over the same range Roblox's camera has; one step in from the nearest zoom is first person;
--- - equipping keeps the zoom Roblox's camera had (first person stays first person; from beyond the shoulder camera's
---   range it comes in to MaxZoom), putting the weapon away hands the same zoom back to Roblox's camera, whose range
---   goes a few studs further (FreeMaxZoom);
--- - aiming down the sights (src/client/Stance) is first person;
--- - first person (and aiming) hides the whole body from the player: the viewmodel shows the first-person holds
---   (src/client/Viewmodel). Out of first person the body fades translucent as the camera comes near it (zoomed in,
---   or pulled in by a wall), so it never blocks the view.
--- - going into first person or the sights from the shoulder is one motion (user 2026-10-11: ADS looked choppy): the
---   camera glides in over the shoulder while the body raises the rifle (its third-person aim); over the last couple
---   of studs the body fades out as the viewmodel fades in (both rifles rising from the lower right), the head going
---   first so it never fills the view. Hiding the body at once showed a floating first-person gun flying through the
---   empty spot for the whole glide; swapping at the eye jumped the gun (the third-person aim holds it at the right
---   cheek). Coming out is the same in reverse.
--- Writes the view to the character's "CameraMode" attribute (local): "First", "Shoulder" or "Aim"; "CameraInside"
--- (in first person or the sights, or gliding out of them: the viewmodel is on) and "Handover" (0..1, how far the
--- viewmodel has faded in).
+-- The camera while a weapon is in the hands (Config/Camera; user 2026-10-12: no third-person shoulder camera, a weapon
+-- in the hands is always first person):
+-- - first person at the eye, the body turning with it (mouse locked to the centre, no cursor or crosshair); right
+--   mouse aims down the sights (src/client/Stance), still first person with a narrower view;
+-- - drawing a weapon glides the camera in from wherever Roblox's camera was, the body fading out as the viewmodel
+--   (src/client/Viewmodel) fades in near the eye, the head first so it never fills the view; putting the weapon away
+--   hands Roblox's camera back at the zoom it had;
+-- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds.
+-- Writes the view to the character's "CameraMode" attribute (local): "First" or "Aim"; "CameraInside" (the viewmodel
+-- is on) and "Handover" (0..1, how far the viewmodel has faded in).
 
-local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -27,7 +17,6 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
-local M = require(Shared.Config.Metrics)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
 local Sway = require(script.Parent.Sway)
@@ -46,19 +35,11 @@ function WeaponCamera.start()
 	local player = Players.LocalPlayer
 	local camera = workspace.CurrentCamera
 	local active = false
-	local zoom = 7 -- selected distance; 0 = first person
-	local shownZoom = 7 -- eased toward `zoom`
+	local zoom = 0 -- Roblox's camera distance when the weapon came out (handed back when it goes away)
 	local yaw, pitch = 0, 0 -- degrees
-	-- moving between first and third person: the camera eases from where it was (relative to the root)
+	-- drawing the weapon: the camera eases in from where Roblox's camera was (relative to the root)
 	local from: Vector3? = nil
 	local blend = 1
-	local blendTime = 0.15 -- seconds this move takes
-	local last = Vector3.zero
-	local lastView: any = nil
-	local gliding = false -- gliding out of first person or the sights (the viewmodel fades out on the way)
-	local ray = RaycastParams.new()
-	ray.FilterType = Enum.RaycastFilterType.Exclude
-	ray.RespectCanCollide = true
 
 	local function parts(): (Model?, Humanoid?, BasePart?)
 		local character = player.Character
@@ -88,13 +69,10 @@ function WeaponCamera.start()
 	local function enter()
 		active = true
 		local _, _, root = parts()
-		-- keep the zoom Roblox's camera had
-		local d = (camera.CFrame.Position - camera.Focus.Position).Magnitude
-		zoom = if d < Cfg.FirstBelow then 0 else math.clamp(d, Cfg.MinZoom, Cfg.MaxZoom)
-		shownZoom = zoom
-		if root then -- ease in from where Roblox's camera was
-			last = camera.CFrame.Position - root.Position
-			lastView = nil
+		-- remember Roblox's zoom, and glide in from where its camera was
+		zoom = (camera.CFrame.Position - camera.Focus.Position).Magnitude
+		if root then
+			from, blend = camera.CFrame.Position - root.Position, 0
 		end
 		local look = camera.CFrame.LookVector
 		yaw = math.deg(math.atan2(-look.X, -look.Z))
@@ -107,6 +85,7 @@ function WeaponCamera.start()
 		camera.CameraType = Enum.CameraType.Custom
 		camera.FieldOfView = Cfg.Fov
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		UserInputService.MouseIconEnabled = true
 		if humanoid then
 			humanoid.AutoRotate = true
 		end
@@ -117,25 +96,12 @@ function WeaponCamera.start()
 			show(character, 0)
 		end
 		-- hand the zoom back: Roblox's camera has no zoom setter, so pin its range for a frame
-		local d = if zoom <= 0 then ROBLOX_MIN else zoom
+		local d = math.clamp(zoom, ROBLOX_MIN, Cfg.FreeMaxZoom)
 		player.CameraMinZoomDistance, player.CameraMaxZoomDistance = d, d
 		task.delay(0.1, function()
 			player.CameraMinZoomDistance, player.CameraMaxZoomDistance = ROBLOX_MIN, Cfg.FreeMaxZoom
 		end)
 	end
-
-	-- wheel: in toward first person, out to MaxZoom
-	ContextActionService:BindActionAtPriority("WeaponCameraZoom", function(_, state, input)
-		if not active or state ~= Enum.UserInputState.Change then
-			return Enum.ContextActionResult.Pass
-		end
-		if input.Position.Z > 0 then
-			zoom = if zoom <= Cfg.MinZoom + 1e-3 then 0 else math.max(Cfg.MinZoom, zoom * Cfg.ZoomStep)
-		else
-			zoom = if zoom <= 0 then Cfg.MinZoom else math.min(Cfg.MaxZoom, zoom / Cfg.ZoomStep)
-		end
-		return Enum.ContextActionResult.Sink
-	end, false, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseWheel)
 
 	-- before the look tilt: turn with the mouse, face the body
 	RunService:BindToRenderStep("WeaponCameraInput", Enum.RenderPriority.Input.Value + 1, function()
@@ -155,10 +121,11 @@ function WeaponCamera.start()
 		yaw -= delta.X * sens
 		pitch = math.clamp(pitch - delta.Y * sens, -Cfg.PitchLimit, Cfg.PitchLimit)
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+		UserInputService.MouseIconEnabled = false -- no cursor or crosshair (user 2026-10-12)
 		camera.CFrame = CFrame.new(camera.CFrame.Position) * CFrame.fromOrientation(math.rad(pitch), math.rad(yaw), 0)
 		humanoid.AutoRotate = false
 		root.CFrame = CFrame.new(root.Position) * CFrame.fromOrientation(0, math.rad(yaw), 0)
-		character:SetAttribute("CameraMode", if aiming then "Aim" elseif zoom <= 0 then "First" else "Shoulder")
+		character:SetAttribute("CameraMode", if aiming then "Aim" else "First")
 	end)
 
 	-- after the look tilt has posed the gun: place the camera
@@ -172,72 +139,37 @@ function WeaponCamera.start()
 		local rotation = CFrame.fromOrientation(math.rad(pitch), math.rad(yaw), 0)
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local head = root.Position + HEAD + (if humanoid then humanoid.CameraOffset else Vector3.zero) -- lower crouched
-		ray.FilterDescendantsInstances = { character }
-		-- a point `offset` from `origin`, stopped short of anything solid in between
-		local function clear(origin: Vector3, offset: Vector3): Vector3
-			local hit = workspace:Raycast(origin, offset, ray)
-			if hit then
-				return hit.Position - offset.Unit * Cfg.CollisionMargin
-			end
-			return origin + offset
-		end
-
-		local inside = view == "Aim" or view == "First"
-		local target: Vector3
-		if inside then
-			-- a steady eye on the upright body (lowered when crouched), not the animated head: the sprint's lean threw
-			-- the head, and the camera with it, ~0.7 studs forward going into a sprint. The view's motion is the sway
-			-- layer's small step bob (Sway.camera), as in the user's reference
-			local eye = HEAD + Vector3.new(Cfg.Eye[1], Cfg.Eye[2], 0)
-			target = CFrame.new(root.Position + eye + (if humanoid then humanoid.CameraOffset else Vector3.zero))
-				* CFrame.fromOrientation(0, math.rad(yaw), 0)
-				* Vector3.new(0, 0, Cfg.Eye[3])
-		else
-			shownZoom += (math.max(zoom, Cfg.MinZoom) - shownZoom) * (1 - math.exp(-Cfg.Ease * dt))
-			local o = M.Camera.ShoulderOffset
-			local shoulder =
-				clear(head, CFrame.fromOrientation(0, math.rad(yaw), 0):VectorToWorldSpace(Vector3.new(o.X, o.Y, o.Z)))
-			target = clear(shoulder, rotation:VectorToWorldSpace(Vector3.new(0, 0, shownZoom)))
-		end
-		-- between first and third person (and into the sights): a short ease from the last spot, then exact
-		local wasInside = lastView == "Aim" or lastView == "First"
-		if inside ~= wasInside or lastView == nil then
-			from, blend = last, 0
-			gliding = wasInside and not inside
-			-- into or out of the sights the camera takes as long as the first-person aim-in (src/client/Viewmodel)
-			blendTime = if view == "Aim" or lastView == "Aim" then Cfg.AimBlend else Cfg.Blend
-		end
-		lastView = view
+		-- a steady eye on the upright body (lowered when crouched), not the animated head: the sprint's lean threw the
+		-- head, and the camera with it, ~0.7 studs forward going into a sprint. The view's motion is the sway layer's
+		-- small step bob (Sway.camera), as in the user's reference
+		local eye = HEAD + Vector3.new(Cfg.Eye[1], Cfg.Eye[2], 0)
+		local target = CFrame.new(root.Position + eye + (if humanoid then humanoid.CameraOffset else Vector3.zero))
+			* CFrame.fromOrientation(0, math.rad(yaw), 0)
+			* Vector3.new(0, 0, Cfg.Eye[3])
+		-- drawn just now: a short glide in from where Roblox's camera was, as long as the first-person aim-in
 		local rel = target - root.Position
 		if from and blend < 1 then
-			blend = math.min(1, blend + dt / blendTime)
+			blend = math.min(1, blend + dt / Cfg.AimBlend)
 			rel = from:Lerp(rel, smooth(blend))
 		end
-		last = rel
 		camera.CFrame = CFrame.new(root.Position + rel) * rotation * Sway.camera(view) -- its small step bob
 		camera.Focus = CFrame.new(head)
 		local fov = if view == "Aim" then Cfg.AimFov else Cfg.Fov
 		local ease = if view == "Aim" then Cfg.AimEase else Cfg.Ease
 		camera.FieldOfView += (fov - camera.FieldOfView) * (1 - math.exp(-ease * dt))
 
-		-- the body fades as the camera nears it; in (or gliding out of) first person and the sights the viewmodel
-		-- fades in over the last stretch to the eye while the body fades out, the head first
-		if gliding and (not from or blend >= 1) then
-			gliding = false
-		end
+		-- the body fades as the camera nears it; over the last stretch to the eye the viewmodel fades in while the body
+		-- fades out, the head first
 		local near = (camera.CFrame.Position - head).Magnitude
 		local t = math.clamp((Cfg.FadeFar - near) / (Cfg.FadeFar - Cfg.FadeNear), 0, 1)
-		local on = inside or gliding
 		local H = Cfg.Handover
-		local handover = if on then math.clamp((H.far - near) / (H.far - H.near), 0, 1) else 0
-		character:SetAttribute("CameraInside", on)
+		local handover = math.clamp((H.far - near) / (H.far - H.near), 0, 1)
+		character:SetAttribute("CameraInside", true)
 		character:SetAttribute("Handover", handover)
 		-- fully gone only once the viewmodel is on screen (it says so the frame after it shows)
 		local covered = if character:GetAttribute("ViewmodelShown") == true then 1 else Cfg.FadeMax
 		local body = math.max(math.floor(t * Cfg.FadeMax * 20 + 0.5) / 20, handover * covered)
-		local headFade = if on
-			then math.max(body, math.clamp((H.headFar - near) / (H.headFar - H.headNear), 0, 1))
-			else body
+		local headFade = math.max(body, math.clamp((H.headFar - near) / (H.headFar - H.headNear), 0, 1))
 		-- Roblox's camera fades the body too when it thinks the camera is near the head: ours is written every frame
 		show(character, body, headFade)
 	end)

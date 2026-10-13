@@ -109,6 +109,41 @@ local function takeOff(player: Player)
 	player:SetAttribute(A.FlyAttribute, true)
 end
 
+-- the dev labels (Config/DevTools.Admin.LabelFolders), shown or hidden for this player; labels made later follow
+local labelConns: { RBXScriptConnection } = {}
+local function applyLabels(player: Player)
+	local hidden = player:GetAttribute(A.LabelsAttribute) == true
+	for _, c in labelConns do
+		c:Disconnect()
+	end
+	table.clear(labelConns)
+	local function set(d: Instance)
+		if d:IsA("BillboardGui") then
+			d.Enabled = not hidden
+		end
+	end
+	local function watch(folder: Instance)
+		for _, d in folder:GetDescendants() do
+			set(d)
+		end
+		table.insert(labelConns, folder.DescendantAdded:Connect(set))
+	end
+	for _, name in A.LabelFolders do
+		local f = workspace:FindFirstChild(name)
+		if f then
+			watch(f)
+		end
+	end
+	table.insert(
+		labelConns,
+		workspace.ChildAdded:Connect(function(child)
+			if table.find(A.LabelFolders, child.Name) then
+				watch(child)
+			end
+		end)
+	)
+end
+
 local function build(player: Player): ScreenGui
 	local p = DevPanel.new(player, "DevAdminMenu", "🛠", 3, "Admin (dev)")
 	local function paint(b: TextButton, on: boolean)
@@ -145,6 +180,18 @@ local function build(player: Player): ScreenGui
 	end
 	player:GetAttributeChangedSignal(A.Attribute):Connect(showSpeed)
 	showSpeed()
+	local labels = DevPanel.button(p.panel, "Labels", "Labels: shown", 2 + #A.SpeedSteps)
+	local function showLabels()
+		local hidden = player:GetAttribute(A.LabelsAttribute) == true
+		labels.Text = if hidden then "Labels: hidden" else "Labels: shown"
+		paint(labels, not hidden)
+		applyLabels(player)
+	end
+	labels.Activated:Connect(function()
+		player:SetAttribute(A.LabelsAttribute, if player:GetAttribute(A.LabelsAttribute) == true then nil else true)
+	end)
+	player:GetAttributeChangedSignal(A.LabelsAttribute):Connect(showLabels)
+	showLabels()
 	return p.gui
 end
 

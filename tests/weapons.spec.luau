@@ -34,7 +34,8 @@ return {
 			local aim, muzzle = w.attachments.Aim, w.attachments.Muzzle
 			assert(aim[1] == 0 and muzzle[1] == 0, `{name}: Aim and Muzzle must be centred (x = 0)`)
 			local height = (aim[2] - muzzle[2]) * w.scale[2]
-			assert(height > 0.02 and height < 0.15, `{name}: sight height {height} outside 0.02-0.15 studs`)
+			-- up to 0.2: the SMLE's sights sit high (0.186 in game, user 2026-10-12: the blade must stand out of the cap)
+			assert(height > 0.02 and height < 0.2, `{name}: sight height {height} outside 0.02-0.2 studs`)
 			assert(aim[3] > muzzle[3], `{name}: the eye must be behind the muzzle`)
 		end
 	end,
@@ -93,6 +94,20 @@ return {
 			local muzzle = eye - (w.attachments.Aim[2] - w.attachments.Muzzle[2]) * w.scale[2]
 			assert(math.abs(eye - M.Character.EyeHeight) < 0.1, `{name}: aimed eye at {eye}, not at eye height`)
 			assert(math.abs(muzzle - M.Character.AimMuzzleHeight) < 0.1, `{name}: aimed muzzle at {muzzle}`)
+		end
+	end,
+	["a weapon borrowing holds names the weapon whose holds they are"] = function()
+		for name, w in W do
+			if w.holdsOf then
+				local ref = W[w.holdsOf]
+				assert(ref and not ref.holdsOf, `{name}: holdsOf {w.holdsOf} is not a weapon with its own holds`)
+				for hold, id in w.holds do
+					assert((ref.holds :: any)[hold] == id, `{name}: {hold} is not {w.holdsOf}'s`)
+				end
+				for hold, id in w.firstPerson do
+					assert((ref.firstPerson :: any)[hold] == id, `{name}: first-person {hold} is not {w.holdsOf}'s`)
+				end
+			end
 		end
 	end,
 	["every weapon belongs to a class with a sway weight"] = function()

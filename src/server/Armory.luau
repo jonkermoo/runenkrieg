@@ -169,13 +169,18 @@ function Armory.give(player: Player, name: string): Tool
 	local stowed = character and Armory.stowed(character, name)
 	local hold = tool:FindFirstChild("Hold", true) :: Motor6D
 	if character and stowed then
+		local gone = false -- the tool is being destroyed: its stowed copy goes with it, never back on the body
 		local function update()
+			if gone then
+				return
+			end
 			local held = tool.Parent == character
 			hold.Part0 = if held then character:FindFirstChild("Torso") :: BasePart? else nil
 			stowed.Parent = if held then nil else character
 		end
 		tool:GetPropertyChangedSignal("Parent"):Connect(update)
 		tool.Destroying:Connect(function()
+			gone = true
 			stowed:Destroy()
 		end)
 		update()

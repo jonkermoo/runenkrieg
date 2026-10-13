@@ -14,8 +14,7 @@ local Footsteps = {
 	SprintVolume = 0.01, -- sprint steps land a little harder
 	Pitch = 0.6, -- deeper than the recordings
 	PitchJitter = 0.04, -- each step varies by up to this much either way
-	RollOffMin = 5, -- studs: full volume inside this
-	RollOffMax = 50, -- studs: silent past this
+	-- distance falloff: Config/Audio.Profiles.Footstep (every 3D sound's falloff lives there)
 	GroundProbe = 3.6, -- studs down from the root that count as standing (the root is 3 above the feet)
 	MinInterval = 0.15, -- seconds between two steps of one character (crossfades fire both cycles' markers)
 }

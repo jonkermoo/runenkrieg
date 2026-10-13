@@ -84,6 +84,10 @@ local Palette = {
 		outline = { 24, 28, 22 },
 		text = { 236, 232, 220 },
 		stroke = 2,
+		-- the ammo display (src/client/Firing): a live round, a spent case in the chamber, an empty slot
+		round = { 196, 160, 84 },
+		spent = { 96, 84, 62 },
+		slot = { 30, 34, 28 },
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
 }

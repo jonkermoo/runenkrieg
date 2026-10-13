@@ -16,12 +16,26 @@ local DevTools = {
 		{ id = "Gallery", name = "Asset gallery", x = 52, z = -2548, y = 3, look = { 52, -2515 }, offMap = true },
 		-- behind the firing line of the test range (Config/Range.Origin), facing downrange
 		{ id = "Range", name = "Test range", x = 1000, z = -2590, y = 3, look = { 1000, -2700 }, offMap = true },
+		-- in front of the animation showcase's first row (Config/Showcase), facing the dummies
+		{
+			id = "Showcase",
+			name = "Animation showcase",
+			x = 627,
+			z = -2626,
+			y = 3,
+			look = { 627, -2700 },
+			offMap = true,
+		},
 	},
 
 	CooldownSeconds = 0.5,
 
 	-- Admin panel (src/client/DevAdminMenu, client only: the client moves its own character).
 	Admin = {
+		-- the dev labels (user 2026-10-12: they get in the way while testing): the panel's "Labels" button shows or
+		-- hides every BillboardGui under these Workspace folders, for this player only
+		LabelFolders = { "DevShowcase", "DevRange", "DevGallery", "DevHelmets" },
+		LabelsAttribute = "DevLabelsHidden", -- on the Player while hidden
 		-- speed multipliers (x the normal walk / sprint / aim / crouch speeds, and the flying speed)
 		SpeedSteps = { 1, 2, 4, 8 },
 		-- flying: studs/s at x1; WASD moves along the camera's view, Space / E up, Q / LeftControl down

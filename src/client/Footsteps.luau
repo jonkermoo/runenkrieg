@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = ReplicatedStorage:WaitForChild("Shared").Config
 local Cfg = require(Config.Footsteps)
 local Loco = require(Config.Locomotion)
+local Audio = require(script.Parent.Audio)
 
 local Footsteps = {}
 
@@ -43,9 +44,7 @@ local function attach(character: Model)
 		local sound = Instance.new("Sound")
 		sound.Name = "Footstep" .. i
 		sound.SoundId = "rbxassetid://" .. id
-		sound.RollOffMode = Enum.RollOffMode.InverseTapered
-		sound.RollOffMinDistance = Cfg.RollOffMin
-		sound.RollOffMaxDistance = Cfg.RollOffMax
+		Audio.spatial(sound, "Footstep") -- realistic falloff (Config/Audio)
 		sound.Parent = root
 		pool[i] = sound
 	end

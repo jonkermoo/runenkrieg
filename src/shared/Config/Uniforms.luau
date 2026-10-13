@@ -28,6 +28,7 @@ local Uniforms = {
 			pants = 82001103410866, -- decal 121600662647379
 			skin = { 226, 176, 104 },
 			headwear = "helmet_stahl", -- Config/Assets entry
+			weapon = "rifle_g98", -- Config/Weapons entry: the grey team's default rifle
 		},
 		uniform2 = {
 			source = "assets/teams/olive/uniform/uniform2.json",
