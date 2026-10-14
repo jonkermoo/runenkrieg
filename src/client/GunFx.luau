@@ -283,12 +283,30 @@ function GunFx.loadout(character: Model, weapon: string, magazine: number)
 	end
 end
 
--- A shot lets the hammer fall (a pump gun's rests cocked: it falls 90 degrees forward about its pin; the pump's back
--- stroke cocks it again, GunFx.cycle).
-local HAMMER_FALL = CFrame.Angles(-math.pi / 2, 0, 0)
+-- A shot lets the hammer fall (a pump gun's rests cocked: it falls `hammer.cock` degrees forward about its pin; the
+-- pump's back stroke pushes it down again, GunFx.cycle). `cocked`: 1 at rest, 0 fallen.
+local function hammerAt(w: any, cocked: number): CFrame
+	return CFrame.Angles(-math.rad(w.hammer.cock) * (1 - cocked), 0, 0)
+end
+
+-- A share of the way along a curve of evenly spaced values (Config/Weapons hammer.push).
+local function along(curve: { number }, share: number): number
+	local x = math.clamp(share, 0, 1) * (#curve - 1)
+	local i = math.floor(x)
+	if i >= #curve - 1 then
+		return curve[#curve]
+	end
+	return curve[i + 1] + (curve[i + 2] - curve[i + 1]) * (x - i)
+end
+
 function GunFx.animateHammer(character: Model)
+	local tool = character:FindFirstChildOfClass("Tool")
+	local w = tool and W[tool:GetAttribute("Weapon") :: string]
+	if not w or not w.hammer then
+		return
+	end
 	for _, gun in GunFx.guns(character) do
-		move(gun, "Hammer", HAMMER_FALL)
+		move(gun, "Hammer", hammerAt(w, 0))
 	end
 end
 
@@ -495,9 +513,9 @@ local function animatorOf(model: Instance?): Animator?
 	return h and h:FindFirstChildOfClass("Animator")
 end
 
--- The arms for an action, from timeline share u0: a reload in both views; working the bolt in third person only
--- (aimed: the shouldered variant; any other hold, or a soldier with no hold set such as the showcase's: by `Hold`,
--- the showcase's bolt dummies aim).
+-- The arms for an action, from timeline share u0: a reload, and working the bolt (aimed: the shouldered variant; any
+-- other hold, or a soldier with no hold set such as the showcase's: by `Hold`, the showcase's bolt dummies aim), in
+-- both views.
 local function playAction(character: Model, weapon: string, action: string, u0: number): { AnimationTrack }
 	local w = W[weapon]
 	local reload = action == "Reload"
@@ -526,7 +544,7 @@ local function playAction(character: Model, weapon: string, action: string, u0: 
 	if own and reload then
 		start(viewmodel, w.reload.firstPerson)
 	elseif own and (w.bolt.firstAim or w.bolt.firstReady) then
-		-- a pump gun: the left hand works the pump in first person too
+		-- first person: the viewmodel's hand works the bolt (a pump gun's left hand, the pump)
 		local hold = character:GetAttribute("Hold")
 		local aimed = hold == "aim" or hold == "crouchAim"
 		start(viewmodel, (if aimed then w.bolt.firstAim else w.bolt.firstReady) or 0)
@@ -607,7 +625,8 @@ function GunFx.cycle(
 				clipY = -rise * c
 			end
 		end
-		local cocked = smooth((u - cycle.up) / (cycle.back - cycle.up)) -- the bolt going back pushes the hammer back
+		-- the bolt going back pushes the hammer down ahead of it, by where the bolt is (hammer.push)
+		local cocked = if w.hammer then along(w.hammer.push, back) else back
 		local shellAt: CFrame? = nil
 		if feed then
 			local lift = smooth((u - fwdFrom) / (feedMid - fwdFrom))
@@ -617,8 +636,8 @@ function GunFx.cycle(
 		for _, gun in GunFx.guns(character) do
 			move(gun, "Bolt", CFrame.new(0, 0, slide) * CFrame.Angles(0, 0, angle))
 			move(gun, "Pump", CFrame.new(0, 0, slide))
-			if not reload then
-				move(gun, "Hammer", HAMMER_FALL:Lerp(CFrame.identity, cocked))
+			if not reload and w.hammer then
+				move(gun, "Hammer", hammerAt(w, cocked))
 			end
 			if shellAt and feed then
 				for _, name in feed.parts do

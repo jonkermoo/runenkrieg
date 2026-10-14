@@ -6,7 +6,7 @@
 -- - begin: the staff cast held on left click (Config/Spells stages): the first circle opens at once, each stage
 --   reached opens its larger circle further out along the aim (the last assembles slowly, with a build-up and a
 --   flash when ready), the circles follow the aim, and release fires the reached stage's beam from the first circle
---   through the others; then they disintegrate, outermost first.
+--   through the others; then they disintegrate, outermost first. pulse fires the first stage and keeps the circle.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -48,6 +48,9 @@ export type Cast = {
 	veil: (v: number, older: number?, each: { number }?) -> (),
 	update: (held: number) -> (), -- opens / builds the circles for how long it has been held
 	release: (stage: number, ignore: { Instance }?) -> Vector3?, -- fires that stage's beam; where it landed
+	-- fires the first stage's beam and stays open (quick shots in a row from one circle): any later circle that had
+	-- started opening closes and the hold starts over; where it landed
+	pulse: (ignore: { Instance }?) -> Vector3?,
 	cancel: () -> (), -- closes everything without firing
 }
 
@@ -272,6 +275,24 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam })
 			local _, total = Ray.times(beam)
 			closeAll(n, total - (Vfx.Beams :: any)[beam].Fade + C.CloseAfter)
+			return to
+		end,
+		pulse = function(ignore: { Instance }?): Vector3?
+			if done or not circles[1] then
+				return nil
+			end
+			freeBuild()
+			for i = #circles, 2, -1 do
+				circles[i].close()
+				orbits[i].stop(0)
+				circles[i], orbits[i] = nil, nil
+			end
+			held, buildFrom, isReady = 0, 0, false
+			applyVeil()
+			local beam = S[1].beam
+			local from = centre(1)
+			local to, normal, color = Util.cast(from, current.LookVector, C.Range, ignore)
+			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam })
 			return to
 		end,
 		cancel = function()

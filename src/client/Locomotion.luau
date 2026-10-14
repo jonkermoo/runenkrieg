@@ -86,7 +86,11 @@ function Locomotion.attach(character: Model)
 				local t = animator:LoadAnimation(anim)
 				-- the equip is a one shot over the hold that will follow it; the staff's charge too (its time is set from
 				-- the hold time, below)
-				local once = hold == "equip" or hold == "charge" or hold == "airCharge"
+				local once = hold == "equip"
+					or hold == "charge"
+					or hold == "airCharge"
+					or hold == "chargeTwo"
+					or hold == "airChargeTwo"
 				t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
 				t.Looped = not once
 				holds[name][hold] = t
@@ -207,10 +211,12 @@ function Locomotion.attach(character: Model)
 			end
 			-- the staff's charge: posed at how long the cast has been held (then its ready shake on a loop); floating, the
 			-- one leaning back
+			-- with both hands already on the staff when it started (src/client/StaffAttack "ChargeTwo"), the two-handed one
 			local held = character:GetAttribute("CastHeld")
+			local two = character:GetAttribute("ChargeTwo") == true
 			local charge = if character:GetAttribute("Floating") == true and set.airCharge
-				then set.airCharge
-				else set.charge
+				then (if two and set.airChargeTwo then set.airChargeTwo else set.airCharge)
+				else (if two and set.chargeTwo then set.chargeTwo else set.charge)
 			if charging and charging ~= charge then
 				charging:Stop(Cfg.Fade)
 				charging = nil

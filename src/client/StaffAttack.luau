@@ -26,7 +26,8 @@
 --   for; nothing fires without enough, or while burnt out after a mega shot. Shown by src/client/ManaBar from the
 --   character's "Mana", "ManaLocked", "ManaSmoulder", "ManaCost", "ManaDenied", "ManaRefilled" (local).
 -- Writes local attributes on the character: "SpeedScale" (src/client/Stance), "Casting" (charging), "CastHeld" (how
--- long the charge has been held, for the charge animations), "TwoHands".
+-- long the charge has been held, for the charge animations), "TwoHands", "ChargeTwo" (both hands were already on when
+-- the charge started: the two-handed charge animations).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -219,9 +220,13 @@ function StaffAttack.start()
 				base = if stage == 1 then "quickTwo" else "mediumTwo"
 			end
 			recoil(character, base)
+			local viewmodel = workspace.CurrentCamera:FindFirstChild("Viewmodel")
 			if not aimed then
 				-- first person: a brief flick through the cooldown (the shot has already left)
-				recoil(workspace.CurrentCamera:FindFirstChild("Viewmodel"), "firstQuick")
+				recoil(viewmodel, "firstQuick")
+			elseif stage == 1 then
+				-- aimed: a slight recoil, its own with both hands on the staff (user 2026-10-13)
+				recoil(viewmodel, if twoHands then "firstQuickTwo" else "firstQuickAim")
 			end
 		end
 		if stage == LAST then
@@ -248,6 +253,8 @@ function StaffAttack.start()
 			if c and not pressedAt then
 				pressedAt = os.clock() -- charging from the held circle
 				charged = 0
+				-- both hands already on (after a stage 2 shot): the charge animations start two-handed
+				character:SetAttribute("ChargeTwo", twoHands)
 			elseif not c and Rules.affordable(mana, Cfg.Mana) < 1 then
 				denied(character)
 			end
@@ -300,11 +307,18 @@ function StaffAttack.start()
 		end
 		local stage = math.min(Rules.firing(Cfg.Stages, Cfg.Built, held) or 1, Rules.affordable(mana, Cfg.Mana))
 		if stage < 1 then
-			c.cancel()
+			cast = c -- no mana for it: the circle stays open, nothing fires
 			denied(character)
 			return
 		end
-		c.release(stage, ignoreList(character))
+		if stage == 1 then
+			-- a quick shot from the held circle: it stays open for the next (user 2026-10-13: "the circle should stay
+			-- open [while] quick attacks are fired in succession"); a charge from it opens the later ones again
+			c.pulse(ignoreList(character))
+			cast = c
+		else
+			c.release(stage, ignoreList(character))
+		end
 		Rules.spend(mana, Cfg.Mana, stage, os.clock())
 		spent(character, stage, true)
 	end)
@@ -336,6 +350,7 @@ function StaffAttack.start()
 				character:SetAttribute("Casting", nil)
 				character:SetAttribute("CastHeld", nil)
 				character:SetAttribute("TwoHands", nil)
+				character:SetAttribute("ChargeTwo", nil)
 				character:SetAttribute("ManaCost", nil)
 			end
 			return
@@ -395,6 +410,9 @@ function StaffAttack.start()
 		if now < slowUntil then
 			scale *= slowShare
 		end
+		if character:GetAttribute("Floating") == true then
+			scale = 0 -- floating: no moving about (Staff.Float.brake stops the drift)
+		end
 		character:SetAttribute("SpeedScale", scale)
 		character:SetAttribute("Casting", held ~= nil)
 		character:SetAttribute("CastHeld", held)
@@ -404,8 +422,9 @@ function StaffAttack.start()
 	end)
 
 	-- floating: gravity cancelled by a lift on the root (on top of the jump's own apex lift, src/client/Jump) and the
-	-- body carried to the hover height, then sinking after Float.hover; falling below the takeoff height after floating
-	-- knocks it down. Landing ends it at once.
+	-- body carried to the hover height, then sinking after Float.hover; no moving about meanwhile (the walk keys do
+	-- nothing, the sideways drift dies away: Float.brake); falling below the takeoff height after floating knocks it
+	-- down. Landing ends it at once.
 	-- a root's VectorForce by name: src/client/Jump names its attachment like its force, so FindFirstChild can hand
 	-- back the attachment (KNOWN_TRAPS)
 	local function force(root: BasePart, name: string): VectorForce?
@@ -485,7 +504,9 @@ function StaffAttack.start()
 			-- never faster up than the slow rise (the jump's own push is taken over at once)
 			local vy = math.min(v.Y, F.rise)
 			vy += (want - vy) * (1 - math.exp(-F.follow * level * dt))
-			root.AssemblyLinearVelocity = Vector3.new(v.X, vy, v.Z)
+			-- no moving about: the sideways speed the jump carried in dies away
+			local keep = math.exp(-F.brake * dt)
+			root.AssemblyLinearVelocity = Vector3.new(v.X * keep, vy, v.Z * keep)
 		end
 		-- dropped below where it took off from after floating (sinking, or letting go of aim over a drop): knocked down
 		if floated and airborne and not limp and base and y < base - F.below then

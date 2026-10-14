@@ -41,6 +41,9 @@ export type Weapon = {
 		aimTwo: number?,
 		charge: number?,
 		airCharge: number?, -- the charge while floating in the air (leaning back)
+		-- the same two started with both hands already on the staff ("ChargeTwo": after a stage 2 shot)
+		chargeTwo: number?,
+		airChargeTwo: number?,
 	},
 	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
 	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
@@ -54,10 +57,11 @@ export type Weapon = {
 		aimIn: number?,
 		aimTwo: number?,
 		charge: number?,
+		chargeTwo: number?,
 	},
 	-- The staff's third-person recoils (one shots over the hold fired from; src/client/StaffAttack): quick from the hip,
-	-- quickAim / quickTwo aimed with one or two hands, medium / mediumTwo the stage 2 shot; firstQuick the hip quick
-	-- fire on the first-person viewmodel.
+	-- quickAim / quickTwo aimed with one or two hands, medium / mediumTwo the stage 2 shot; on the first-person
+	-- viewmodel: firstQuick the hip quick fire, firstQuickAim / firstQuickTwo the aimed one (one hand / two).
 	fire: { [string]: number }?,
 	-- First person (src/client/Viewmodel): at the hip the weapon turns about the eye until its line meets the screen
 	-- centre this far out (default Config/Camera.HipConverge; 0 = no turn); aimed, aimConverge does the same (none
@@ -110,8 +114,8 @@ export type Weapon = {
 	}?,
 	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
 	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
-	-- hold). 0 until uploaded. A pump gun's pump (tools/animation/pump.luau) also has its first-person ones, played on
-	-- the viewmodel (`firstAim` aimed, `firstReady` otherwise).
+	-- hold). 0 until uploaded. First person (the rifles: tools/animation/bolt.luau; a pump gun's pump:
+	-- tools/animation/pump.luau), played on the viewmodel: `firstAim` aimed, `firstReady` otherwise.
 	bolt: { aim: number, ready: number, firstAim: number?, firstReady: number? }?,
 	-- Loading single rounds (stripper-clip rifles with rounds left; Config/Firing.Single, tools/animation/single.luau):
 	-- seat, where a round goes in (its centre pushed onto the top round, modelled gun space); the animation ids.
@@ -120,6 +124,10 @@ export type Weapon = {
 	-- A shotgun's shot (user 2026-10-13): `count` pellets in a cone `spread` degrees wide (half angle), each its own
 	-- hitscan ray; full damage to `full` studs, none past `none` (stored for damage, M11: not applied yet).
 	pellets: { count: number, spread: number, full: number, none: number }?,
+	-- An exposed hammer (the "Hammer" part, src/client/GunFx): rests cocked, falls `cock` degrees forward on a shot;
+	-- the bolt going back pushes it down again, `push` giving how far cocked (0..1) at evenly spaced shares of the
+	-- stroke, so the bolt never goes through it (computed by the model's builder, which prints it).
+	hammer: { cock: number, push: { number } }?,
 	-- A pump gun's feed (src/client/GunFx): the shell lying on the carrier (parts `parts`, at rest under the bolt)
 	-- lifts `lift` to the bore line and goes `push` forward into the chamber as the pump comes forward; shown while the
 	-- magazine has shells. The "Pump" part slides with the bolt (action.travel back).
@@ -172,6 +180,9 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			aimTwo = 93168357261336,
 			charge = 104283993044684, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
 			airCharge = 116353482267248, -- in the air (floating): leaning back as it charges
+			-- charging with both hands already on (user 2026-10-13: it went back to one hand first)
+			chargeTwo = 125233260118471,
+			airChargeTwo = 74304002722657,
 			equip = 105902337487636,
 		},
 		-- first person: low on the right, the right forearm rising from the corner, the head turned onto the centre;
@@ -181,9 +192,10 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			carry = 86383295329379,
 			aim = 96292870185836,
 			aimIn = 117766595310610,
-			aimTwo = 101199417865135,
-			charge = 122320875456092,
-			equip = 98544088711976,
+			aimTwo = 139107991867244,
+			charge = 108466726703676,
+			chargeTwo = 121381197496636, -- with both hands already on
+			equip = 80156061468327,
 		},
 		-- first person: standing angled up at the hip (no turn: user 2026-10-13 "upright more ... arms down hands on
 		-- the side"); aimed, its line turned onto the crosshair so the cast's circles sit on it (user: "the staff in line
@@ -196,8 +208,12 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			quickTwo = 88797682738838,
 			medium = 73692498139809,
 			mediumTwo = 116359925903107,
-			-- first person, the hip quick fire: a flick toward the crosshair, settling through the cooldown
-			firstQuick = 127343468816854,
+			-- first person, the hip quick fire: a jab of the head toward the crosshair, settling through the cooldown
+			firstQuick = 80861609176406,
+			-- first person, aimed quick fire: a slight recoil, one hand or both (user 2026-10-13: "when ADS it should just
+			-- be a slight recoil")
+			firstQuickAim = 85129262859161,
+			firstQuickTwo = 80242360718588,
 		},
 		scale = { 1, 1, 1 }, -- modelled in studs at game size (5.3 long, the sleeve 0.43 across)
 		-- slung on the back like the rifles (the same lean), higher up: the foot clears the ground and the head rises
@@ -265,11 +281,39 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 81699754378349,
 		},
 		firstPerson = {
-			ready = 136846592913920,
+			ready = 119185102113053,
 			carry = 124660991401505,
-			aim = 87159735059561,
-			equip = 94150953497550,
-			aimIn = 135111930575943,
+			aim = 85472517302410,
+			equip = 86411519760958,
+			aimIn = 108346522950809,
+		},
+		-- the hammer lies back in its slot (user 2026-10-13: "the hammer is clipping into the shotgun"); push from
+		-- tools/blender/weapons/m1897.py (its ends set to 0 and 1: the bolt's face only touches the fallen hammer)
+		hammer = {
+			cock = 115,
+			push = {
+				0,
+				0.16,
+				0.25,
+				0.395,
+				0.57,
+				0.745,
+				0.825,
+				0.895,
+				0.955,
+				0.97,
+				0.975,
+				0.975,
+				0.975,
+				0.975,
+				0.975,
+				0.975,
+				0.975,
+				0.975,
+				0.975,
+				0.975,
+				1,
+			},
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the rifles: 2.79 -> 4.19 studs long
@@ -310,15 +354,15 @@ local Weapons: { [string]: Weapon } = {
 		bolt = {
 			aim = 79121681696081,
 			ready = 103141305409594,
-			firstAim = 137466381085836,
-			firstReady = 85586779498880,
+			firstAim = 123068697692331,
+			firstReady = 126610154264357,
 		},
 		-- shells go in through the loading port under the receiver (seat: a shell there, pushed up into the tube); the
 		-- action stays shut, so no time to open it
 		single = {
 			seat = { 0, -0.05, -0.2 },
 			body = 84714499624328,
-			firstPerson = 71240298648597,
+			firstPerson = 122157054829974,
 			open = 0.35, -- slower (user 2026-10-13)
 			round = 0.6,
 			close = 0.4,
@@ -371,11 +415,11 @@ local Weapons: { [string]: Weapon } = {
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
 		-- the ready hold up into the sights in 0.3 s
 		firstPerson = {
-			ready = 112444183702109,
+			ready = 120415429367250,
 			carry = 107781105123018,
-			aim = 116060344003850,
-			equip = 118921104577688,
-			aimIn = 88933522621364,
+			aim = 94444327606653,
+			equip = 105963460001801,
+			aimIn = 111730503877557,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
@@ -408,13 +452,19 @@ local Weapons: { [string]: Weapon } = {
 		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob at the end of the straight handle, mid-bolt; the clip pushed down from just over the magazine
-		bolt = { aim = 98946190531261, ready = 91424552679806 }, -- v2: slower, the bolt resting back (2026-10-13)
+		-- v2: slower, the bolt resting back (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
+		bolt = {
+			aim = 98946190531261,
+			ready = 91424552679806,
+			firstAim = 71600393030717,
+			firstReady = 92603270436446,
+		},
 		reload = {
 			knob = { 0.12, 0.065, -0.1511 },
 			clipTop = { 0, 0.0614, -0.267 },
 			entry = 0.2,
 			body = 85665510995906,
-			firstPerson = 114783665355868,
+			firstPerson = 117282437527804,
 		},
 	},
 	rifle_g98 = {
@@ -459,11 +509,11 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 96381247209498,
 		},
 		firstPerson = {
-			ready = 80927013820298,
+			ready = 102402737080974,
 			carry = 106294181602498,
-			aim = 115730728635887,
-			equip = 111730436809929,
-			aimIn = 91813569699030,
+			aim = 70722778630134,
+			equip = 123066272399119,
+			aimIn = 77762769530436,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
@@ -486,15 +536,21 @@ local Weapons: { [string]: Weapon } = {
 		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob at the end of the straight handle at the bolt's rear; the stripper clip in the guides on the bridge
-		bolt = { aim = 128295823529662, ready = 136571491377027 }, -- v2: slower (2026-10-13)
+		-- v2: slower (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
+		bolt = {
+			aim = 128295823529662,
+			ready = 136571491377027,
+			firstAim = 83372159652701,
+			firstReady = 117007270529310,
+		},
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
-		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 95730483657941 },
+		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 131901306057487 },
 		reload = {
 			knob = { 0.136, 0.065, -0.0695 },
 			clipTop = { 0, 0.255, -0.1863 },
 			entry = 0,
 			body = 122499300440488,
-			firstPerson = 98144219253549,
+			firstPerson = 74117864792610,
 		},
 	},
 	rifle_smle = {
@@ -539,11 +595,11 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 115330156920688,
 		},
 		firstPerson = {
-			ready = 89200022670278,
+			ready = 71589430224575,
 			carry = 108888005264242,
-			aim = 116062577227252,
-			equip = 74611252629732,
-			aimIn = 90801944558884,
+			aim = 96309248783570,
+			equip = 88893121669824,
+			aimIn = 117817401540584,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
@@ -567,15 +623,21 @@ local Weapons: { [string]: Weapon } = {
 		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob of the bent handle at the bolt's rear, down by the wrist; the charger in the guides on the bridge
-		bolt = { aim = 111789507011434, ready = 138431199459053 }, -- v2: slower (2026-10-13)
+		-- v2: slower (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
+		bolt = {
+			aim = 111789507011434,
+			ready = 138431199459053,
+			firstAim = 133941155423925,
+			firstReady = 108177354367826,
+		},
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
-		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 133640753043197 },
+		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 104609958068259 },
 		reload = {
 			knob = { 0.11, -0.0276, 0.0376 },
 			clipTop = { 0, 0.2833, -0.1618 },
 			entry = 0,
 			body = 101808128954188,
-			firstPerson = 122069545639246,
+			firstPerson = 138274233820958,
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)
