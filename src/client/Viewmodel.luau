@@ -82,6 +82,10 @@ type Rig = {
 	hip: CFrame, -- the turn that points the barrel at the screen centre (not aiming), eased
 	aimFix: Vector3, -- aimed: the shift that puts this rifle's own sight line on the eye (see aimFix)
 	animator: Animator,
+	-- held in one hand (the staff): its first-person holds don't pose the left arm, which would hang at the rig's rest
+	-- pose and poke into the lower left of the view, so it's hidden until the left hand joins (`leftHidden`)
+	oneHanded: boolean,
+	leftHidden: boolean,
 }
 
 local function build(character: Model, weapon: Held.Weapon): Rig
@@ -160,7 +164,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		anim.AnimationId = "rbxassetid://" .. id
 		local t = animator:LoadAnimation(anim)
 		-- the equip and the aim-in are one shots over the holds
-		local once = state == "equip" or state == "aimIn" or state == "charge"
+		local once = state == "equip" or state == "aimIn" or state == "charge" or state == "chargeTwo"
 		t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
 		t.Looped = not once
 		tracks[state] = t
@@ -181,6 +185,8 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		hip = CFrame.identity,
 		aimFix = aimFix(weapon.name),
 		animator = animator,
+		oneHanded = W[weapon.name].class == "Staff",
+		leftHidden = false,
 	}
 end
 
@@ -335,11 +341,17 @@ function Viewmodel.start()
 		-- fading in (and out) with the camera's glide to the eye (WeaponCamera's "Handover")
 		local handover = character:GetAttribute("Handover")
 		local clear = 1 - (if type(handover) == "number" then handover else 1)
-		if r.clear ~= clear then
-			r.clear = clear
+		-- one-handed: the left arm shows only once the left hand is on the staff (the two-handed aim, or a charge far
+		-- enough along to bring it up: Config/Spells.Staff.LeftShows)
+		local castHeld = character:GetAttribute("CastHeld")
+		local leftHidden = r.oneHanded
+			and character:GetAttribute("TwoHands") ~= true
+			and not (type(castHeld) == "number" and castHeld >= Spells.Staff.LeftShows)
+		if r.clear ~= clear or r.leftHidden ~= leftHidden then
+			r.clear, r.leftHidden = clear, leftHidden
 			for _, d in r.model:GetDescendants() do
 				if d:IsA("BasePart") then
-					d.LocalTransparencyModifier = clear
+					d.LocalTransparencyModifier = if leftHidden and d.Name == "Left Arm" then 1 else clear
 				end
 			end
 		end
@@ -349,8 +361,17 @@ function Viewmodel.start()
 		if state == "aim" and character:GetAttribute("TwoHands") == true and r.tracks.aimTwo then
 			track = r.tracks.aimTwo -- the staff: the left hand joined (src/client/StaffAttack)
 		end
-		-- the staff's charge: posed at how long the cast has been held
-		local charge, held = r.tracks.charge, character:GetAttribute("CastHeld")
+		-- the staff's charge: posed at how long the cast has been held; the two-handed one if both hands were already on
+		-- when it started (src/client/StaffAttack "ChargeTwo")
+		local held = character:GetAttribute("CastHeld")
+		local charge = r.tracks.charge
+		local other = r.tracks.chargeTwo
+		if character:GetAttribute("ChargeTwo") == true and other then
+			charge, other = other, charge
+		end
+		if other and other.IsPlaying then
+			other:Stop(0.1)
+		end
 		if charge then
 			if type(held) == "number" then
 				if not charge.IsPlaying then

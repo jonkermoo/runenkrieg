@@ -49,6 +49,10 @@ local Spells = {
 		-- the left hand joins the staff halfway through the build to stage 3 (user 2026-10-13: "midway have the player
 		-- start using 2 hands"); it stays on until aiming ends, even after a stage 2 shot
 		TwoHands = 1.6,
+		-- first person: the left arm shows (src/client/Viewmodel) from this far into a charge, as the charge animation
+		-- starts bringing it up to the shaft (tools/animation/staff.luau charge keys: 1.2 hanging, 1.6 halfway, 2.0 on); held in one
+		-- hand it's hidden (it hung at the rig's rest pose in the lower left of the view)
+		LeftShows = 1.3,
 		-- the third-person charge keeps shaking at its peak once stage 3 is ready: the animation's last ChargeLoop
 		-- seconds play over and over (tools/animation/staff.luau READY_LOOP)
 		ChargeLoop = 0.6,
@@ -70,6 +74,9 @@ local Spells = {
 			hover = 5,
 			descend = 1.5,
 			below = 0.3,
+			-- no moving about while floating, only up to the hover height (user 2026-10-13: "we cant move freely while
+			-- floating"): the walk keys do nothing and the jump's sideways speed dies away at this rate (per second)
+			brake = 6,
 		},
 		-- (the aiming laser shows only while left click is held: the charge; user 2026-10-13)
 		-- first person, aiming: the cast starts this far past the staff's head along the line to the crosshair, the

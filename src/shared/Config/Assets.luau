@@ -63,7 +63,10 @@ local Assets = {
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
 		},
 		rifle_smle = {
-			id = 113048279523913, -- v4: stock flat beside the action, the bridge on both walls (v1-v3 see-through in first person, user 2026-10-13)
+			-- v5: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
+			-- clipping at the bolt's end and lever); v4 113048279523913: stock flat beside the action, the bridge on both
+			-- walls (v1-v3 see-through in first person)
+			id = 130639053099807,
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
@@ -79,7 +82,9 @@ local Assets = {
 			description = "The mage staff, shared by every team: knotted faceted wood, an iron sleeve at the grip and a foot cap, a metal band and a ring under the head, a cloth binding and a ribbon (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged and colored per team from Config/Weapons (staff_grey / staff_olive / staff_white).",
 		},
 		shotgun_m1897 = {
-			id = 118242502631158, -- v2: the bolt's channel in the receiver's back, 68 bigger holes (v1 112699594475693)
+			-- v3: the hammer in its own slot, cocked lower under the bolt (v2 118242502631158: the bolt's channel in the
+			-- receiver's back, 68 bigger holes; v1 112699594475693)
+			id = 109341050997401,
 			category = "Weapons",
 			folder = "Shared/Shotguns",
 			source = "assets/weapons/shared/shotgun_m1897.fbx",
