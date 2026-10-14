@@ -464,13 +464,19 @@ end
 
 -- ---- the reload animations (tools/animation/reload.luau): the body's (our own, which replicates, or a soldier no
 -- player owns: the animation showcase's dummies) and the first-person viewmodel's ----
-local loaded: { [Animator]: { [number]: AnimationTrack } } = setmetatable({}, { __mode = "k" }) :: any
+-- Loaded once per animator and reused. Held strongly and dropped when the animator goes: a weak-keyed table lost its
+-- entries whenever the Animator's Luau handle was collected (the instance lives on), so every action loaded new tracks
+-- until the showcase dummies hit Roblox's 64-track limit and their reloads stopped playing (KNOWN_TRAPS).
+local loaded: { [Animator]: { [number]: AnimationTrack } } = {}
 
 local function track(animator: Animator, id: number): AnimationTrack
 	local set = loaded[animator]
 	if not set then
 		set = {}
 		loaded[animator] = set
+		animator.Destroying:Connect(function()
+			loaded[animator] = nil
+		end)
 	end
 	local t = set[id]
 	if not t then

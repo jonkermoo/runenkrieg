@@ -172,7 +172,9 @@ function StaffAttack.start()
 	end
 
 	-- the third-person recoils (the staff's Config/Weapons `fire`), loaded per character; first person kicks with Sway.kick
-	local recoils: { [Animator]: { [string]: AnimationTrack } } = setmetatable({}, { __mode = "k" }) :: any
+	-- held strongly, dropped when the animator goes (a weak-keyed cache reloaded tracks into the 64-track limit,
+	-- KNOWN_TRAPS)
+	local recoils: { [Animator]: { [string]: AnimationTrack } } = {}
 	-- a recoil one shot on a rig: the character, or the first-person viewmodel (src/client/Viewmodel)
 	local function recoil(rig: Instance?, name: string)
 		local humanoid = rig and rig:FindFirstChildOfClass("Humanoid")
@@ -183,8 +185,15 @@ function StaffAttack.start()
 		if not animator or not id then
 			return
 		end
-		local set = recoils[animator] or {}
-		recoils[animator] = set
+		local set = recoils[animator]
+		if not set then
+			set = {}
+			recoils[animator] = set
+			local a = animator :: Animator
+			a.Destroying:Connect(function()
+				recoils[a] = nil
+			end)
+		end
 		local t = set[name]
 		if not t then
 			local anim = Instance.new("Animation")
