@@ -23,7 +23,7 @@ end
 
 export type Tuft = { x: number, z: number, variant: number, scale: number, yaw: number, shade: number }
 
--- Tufts for chunk (cx, cz) at a given density (0..1).
+-- Tufts for chunk (cx, cz) at a given density (0..1). `cfg.Salt` (optional) gives a layer its own cells.
 function Grass.chunk(cx: number, cz: number, density: number, cfg: any): { Tuft }
 	local out: { Tuft } = {}
 	if density <= 0 then
@@ -31,18 +31,19 @@ function Grass.chunk(cx: number, cz: number, density: number, cfg: any): { Tuft 
 	end
 	local n = math.floor(cfg.ChunkSize / cfg.Cell)
 	local x0, z0 = cx * cfg.ChunkSize, cz * cfg.ChunkSize
+	local salt = cfg.Salt or 0
 	for i = 0, n - 1 do
 		for j = 0, n - 1 do
 			local gx, gz = cx * n + i, cz * n + j -- global cell ids
-			if hash01(gx, gz, 101) < density then
+			if hash01(gx, gz, 101 + salt) < density then
 				local s = cfg.ScaleRange
 				table.insert(out, {
-					x = x0 + (i + 0.1 + 0.8 * hash01(gx, gz, 102)) * cfg.Cell,
-					z = z0 + (j + 0.1 + 0.8 * hash01(gx, gz, 103)) * cfg.Cell,
-					variant = math.floor(hash01(gx, gz, 104) * 1000),
-					scale = s[1] + (s[2] - s[1]) * hash01(gx, gz, 105),
-					yaw = hash01(gx, gz, 106) * 360,
-					shade = math.floor(hash01(gx, gz, 107) * 1000),
+					x = x0 + (i + 0.1 + 0.8 * hash01(gx, gz, 102 + salt)) * cfg.Cell,
+					z = z0 + (j + 0.1 + 0.8 * hash01(gx, gz, 103 + salt)) * cfg.Cell,
+					variant = math.floor(hash01(gx, gz, 104 + salt) * 1000),
+					scale = s[1] + (s[2] - s[1]) * hash01(gx, gz, 105 + salt),
+					yaw = hash01(gx, gz, 106 + salt) * 360,
+					shade = math.floor(hash01(gx, gz, 107 + salt) * 1000),
 				})
 			end
 		end

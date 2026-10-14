@@ -3,12 +3,14 @@
 -- distance from the GrassQuality setting (Config/Foliage.Levels). Candidates come from Rules/Grass
 -- (deterministic per cell); each is raycast onto the terrain for exact height and material.
 -- Nearby tufts sway in workspace.GlobalWind. Purely visual: no collision, no queries, no shadows.
+-- Two layers, each with its own models, cells, levels and sway: the thick tufts (Config/Foliage, Assets GrassKit) and
+-- the thin, flowy blade patches (Config/Foliage.Blades, Assets GrassBlades; in place of Roblox's terrain grass).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Cfg = require(Shared.Config.Foliage)
+local Foliage = require(Shared.Config.Foliage)
 local Palette = require(Shared.Config.Palette)
 local Assets = require(Shared.Config.Assets)
 local Grass = require(Shared.Rules.Grass)
@@ -21,14 +23,16 @@ type Chunk = { tufts: { Tuft } }
 
 local CHUNKS_PER_TICK = 6 -- spreads loading over frames when the camera jumps
 
-function GrassFoliage.start()
-	local entry = Assets.Entries.GrassKit
+-- One layer: `entryName`'s `variant` meshes, placed by `Cfg` (Config/Foliage or one of its layers), shaded from
+-- `palette`, in workspace.<folderName>.
+local function layer(entryName: string, variant: string, Cfg: any, palette: { { number } }, folderName: string)
+	local entry = Assets.Entries[entryName]
 	local kit = ReplicatedStorage:WaitForChild("Assets")
 		:WaitForChild(entry.category)
 		:WaitForChild(entry.folder)
-		:WaitForChild("GrassKit")
+		:WaitForChild(entryName)
 	local templates: { BasePart } = {}
-	for _, name in entry.variants.Tuft do
+	for _, name in (entry.variants :: any)[variant] do
 		local t = kit:WaitForChild(name) :: BasePart
 		local c = t:Clone()
 		c.Anchored = true
@@ -40,7 +44,7 @@ function GrassFoliage.start()
 		table.insert(templates, c)
 	end
 	local shades = {}
-	for _, s in Palette.GrassTufts do
+	for _, s in palette do
 		table.insert(shades, Color3.fromRGB(s[1], s[2], s[3]))
 	end
 	local grows: { [Enum.Material]: boolean } = {}
@@ -49,7 +53,7 @@ function GrassFoliage.start()
 	end
 
 	local container = Instance.new("Folder")
-	container.Name = "ClientGrass"
+	container.Name = folderName
 	container.Parent = workspace
 
 	local params = RaycastParams.new()
@@ -195,6 +199,11 @@ function GrassFoliage.start()
 			workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
 		end
 	end)
+end
+
+function GrassFoliage.start()
+	task.spawn(layer, "GrassKit", "Tuft", Foliage, Palette.GrassTufts, "ClientGrass")
+	task.spawn(layer, "GrassBlades", "Blade", Foliage.Blades, Palette.GrassBlades, "ClientGrassBlades")
 end
 
 return GrassFoliage

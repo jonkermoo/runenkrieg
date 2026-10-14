@@ -130,6 +130,22 @@ return {
 		local frac = total / (n * 10)
 		assert(frac > 0.42 and frac < 0.58, `density {frac}`)
 	end,
+	["the blade layer: own cells, levels grow, cells fill the chunk"] = function()
+		local B = F.Blades
+		assert(B.ChunkSize % B.Cell == 0 and F.ChunkSize == B.ChunkSize, "blade cells must tile the chunk")
+		local prev = -1
+		for _, name in F.Order do
+			local l = B.Levels[name]
+			assert(l, `blades: missing level {name}`)
+			assert(l.density >= prev, "blades: density must grow with quality")
+			prev = l.density
+		end
+		assert(B.Levels.Off.radius == 0, "blades: Off draws nothing")
+		local tufts = G.chunk(4, 4, 1, F)
+		local blades = G.chunk(4, 4, 1, B)
+		assert(#blades == (B.ChunkSize / B.Cell) ^ 2, "density 1: a blade patch per cell")
+		assert(tufts[1].x ~= blades[1].x, "blades share the tufts' positions")
+	end,
 	["chunksAround covers the radius, nearest first"] = function()
 		local list = G.chunksAround(10, 10, 90, F.ChunkSize)
 		assert(#list > 20, "too few chunks")

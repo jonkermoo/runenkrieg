@@ -22,6 +22,8 @@ local Palette = {
 	},
 	-- Grass tufts: a few shades around the terrain grass so tufts read as part of the ground.
 	GrassTufts = { { 112, 148, 74 }, { 100, 136, 68 }, { 124, 156, 80 }, { 94, 128, 64 } },
+	-- The thin blade patches (Config/Foliage.Blades): a touch lighter, like the terrain grass they replace.
+	GrassBlades = { { 120, 156, 78 }, { 108, 146, 72 }, { 132, 164, 86 }, { 102, 138, 68 } },
 	-- Buildings: copies of one template pick a color per role (walls/roof/trim/door) from these, so
 	-- repeated shapes read as different houses. Muted, earthy, desaturated (Pordier-like; old English
 	-- villages in references/village). Each wall/roof piece is also shaded a few % off by its Tone.

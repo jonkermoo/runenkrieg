@@ -21,6 +21,27 @@ local Foliage = {
 	Order = { "Off", "Low", "Medium", "High" },
 
 	Sway = { amp = 6, freq = 0.8 }, -- degrees, Hz (shares GlobalWind direction with trees)
+
+	-- Thin, flowy blade patches (Config/Assets GrassBlades) as a second layer: they replace Roblox's terrain grass
+	-- decoration (turned off in the place: Terrain -> Decoration), which the user liked but found too dense; it has
+	-- no density setting (user 2026-10-14: "less spaced together maybe cut like half the amount"). Same fields as
+	-- above; `Salt` keeps its cells apart from the tufts'. Same GrassQuality setting.
+	Blades = {
+		ChunkSize = 32,
+		Cell = 2, -- 16 x 16 candidates per chunk
+		Salt = 1000,
+		Materials = { "Grass", "LeafyGrass" },
+		Sink = 0.1,
+		ScaleRange = { 0.85, 1.3 },
+		Levels = {
+			Off = { density = 0, radius = 0, swayRadius = 0 },
+			Low = { density = 0.2, radius = 45, swayRadius = 0 },
+			Medium = { density = 0.32, radius = 60, swayRadius = 25 },
+			High = { density = 0.42, radius = 80, swayRadius = 40 },
+		},
+		UpdateHz = 4,
+		Sway = { amp = 9, freq = 0.9 }, -- thin blades bend further than the tufts
+	},
 }
 
 return table.freeze(Foliage)

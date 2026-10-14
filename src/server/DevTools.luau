@@ -38,7 +38,7 @@ function DevTools.teleport(player: Player, id: string): boolean
 		return false
 	end
 	local ignore: { Instance } = { character }
-	for _, name in { "ClientGrass", "ClientDebris" } do
+	for _, name in { "ClientGrass", "ClientGrassBlades", "ClientDebris" } do
 		local f = workspace:FindFirstChild(name)
 		if f then
 			table.insert(ignore, f)
