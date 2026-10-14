@@ -27,6 +27,7 @@ local Cfg = require(Shared.Config.Firing)
 local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local Net = require(Shared.Net)
+local Helmets = require(script.Parent.Helmets)
 
 local Firing = {}
 
@@ -191,6 +192,9 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 	for _, line in Firing.lines(name, direction, seed or 0) do
 		local result = start or workspace:Raycast(origin, line * Cfg.Range, params)
 		local hit = if result then result.Position else origin + line * Cfg.Range
+		if result and not start then
+			Helmets.hit(result.Instance, result.Position, line) -- a helmet shot off (src/server/Helmets)
+		end
 		table.insert(hits, { hit, result and result.Normal, result and result.Instance })
 	end
 	local first = table.remove(hits, 1) :: any

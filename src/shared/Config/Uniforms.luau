@@ -21,6 +21,39 @@ local Uniforms = {
 	-- Blinking (src/client/Blink): every living character in range shuts its eyes (its tier's closed face) for
 	-- `Closed` seconds, every MinGap..MaxGap seconds, each on its own random rhythm. Local only, nothing replicates.
 	Blink = { MinGap = 2, MaxGap = 6, Closed = 0.12, Range = 80 },
+	-- Looks rolled each life (user 2026-10-14: "a set rotation of colors ... for hair and a separate one for skin. these
+	-- will rotate randomly per spawn"; docs/HAIRS.md): src/server/Bodies picks one skin and one hair color per spawn
+	-- (Rules/Looks: by weight, never the same as the soldier's last life). The skin colors the whole body (the kit's
+	-- `skin` is only the showcase dummies'); the hair color goes on the character as the "HairColor" attribute for the
+	-- hair model. Hair: four natural colors equally likely, white the rare one (user 2026-10-14; 1 of 15).
+	Skins = {
+		{ name = "pale", color = { 240, 210, 184 }, weight = 1 },
+		{ name = "light", color = { 222, 174, 130 }, weight = 1 },
+		{ name = "olive", color = { 196, 150, 104 }, weight = 1 },
+		{ name = "brown", color = { 132, 90, 60 }, weight = 1 }, -- darkest: the dark brown dot eyes must still read
+	},
+	HairColors = {
+		{ name = "black", color = { 34, 28, 26 }, weight = 3.5 },
+		{ name = "brown", color = { 104, 70, 46 }, weight = 3.5 }, -- the helmet previews' hair (src/dev/HairPreview)
+		{ name = "blonde", color = { 214, 182, 120 }, weight = 3.5 },
+		{ name = "ginger", color = { 182, 92, 46 }, weight = 3.5 },
+		{ name = "white", color = { 232, 228, 220 }, weight = 1 }, -- rare
+	},
+	-- The hairstyle, rolled each life like the colors (user 2026-10-14, bald included): Config/Assets `hair_<name>`
+	-- (bareheaded) and `hair_<name>_<shell>` (under that helmet shell). Bald: no hair, only the helmet.
+	Hairs = {
+		{ name = "wolf_cut", weight = 1 },
+		{ name = "low_ponytail", weight = 1 },
+		{ name = "m_wolf", weight = 1 },
+		{ name = "m_slick", weight = 1 },
+		{ name = "m_midpart", weight = 1 },
+		{ name = "bald", weight = 1 },
+	},
+	-- Helmets shot off (user 2026-10-14; docs/HATS.md): a hit in the top half of the head's hitbox (2 x 1 x 1, the R6
+	-- Head part) knocks the worn helmet off; the helmet-on hair is swapped for the original and a loose copy of the
+	-- helmet flies off along the shot (`speed` studs/s, plus `up`), tumbling (`spin` rad/s at most), and is gone after
+	-- `despawn` seconds.
+	HelmetOff = { speed = 18, up = 14, spin = 12, despawn = 10 },
 	Kits = {
 		uniform1 = {
 			source = "assets/teams/grey/uniform/uniform1.json",

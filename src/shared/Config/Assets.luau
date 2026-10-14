@@ -38,6 +38,8 @@ export type Entry = {
 		shell: string?,
 		center: { number }?,
 	}?,
+	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes)
+	hair: { center: { number } }?,
 }
 
 local Assets = {
@@ -146,7 +148,7 @@ local Assets = {
 			},
 		},
 		helmet_stahl = {
-			id = 84488254718914,
+			id = 96961743783144, -- hollow (docs/HATS.md "Hollow helmets"; capped: 84488254718914)
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/default/helmet_stahl.fbx",
@@ -157,14 +159,14 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.27,
-				attach = { 0, 0.235, 0.006 },
+				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
+				attach = { 0, 0.125, 0.006 },
 				shell = "stahl",
 				center = { 0, 0.5148, -0.0059 },
 			},
 		},
 		helmet_stahl_goggles = {
-			id = 96839649750928,
+			id = 136877765689691, -- hollow (docs/HATS.md "Hollow helmets"; capped: 96839649750928)
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_goggles.fbx",
@@ -174,15 +176,15 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.27,
-				attach = { 0, 0.235, 0.006 },
+				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
+				attach = { 0, 0.125, 0.006 },
 				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 } },
 				shell = "stahl",
 				center = { 0, 0.5148, -0.0059 },
 			},
 		},
 		helmet_stahl_ammo = {
-			id = 106418173364815,
+			id = 137594790143815, -- hollow (docs/HATS.md "Hollow helmets"; capped: 106418173364815)
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_ammo.fbx",
@@ -192,15 +194,15 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.27,
-				attach = { 0, 0.235, 0.006 },
+				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
+				attach = { 0, 0.125, 0.006 },
 				parts = { Band = { 46, 39, 34 }, Hull = { 150, 54, 44 }, Brass = { 204, 172, 92 } },
 				shell = "stahl",
 				center = { 0, 0.5148, -0.0059 },
 			},
 		},
 		helmet_m33_goggles = {
-			id = 129172538186129,
+			id = 99499894447280, -- hollow (docs/HATS.md "Hollow helmets"; capped: 129172538186129)
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/variants/helmet_m33_goggles.fbx",
@@ -209,14 +211,14 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
-				brim = -0.18,
+				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
 				parts = { Strap = { 106, 72, 46 }, Lens = { 86, 150, 214 } },
 				shell = "m33",
 				center = { 0, 0.5415, 0 },
 			},
 		},
 		helmet_m33_ammo = {
-			id = 111462508849651,
+			id = 106864180395816, -- hollow (docs/HATS.md "Hollow helmets"; capped: 111462508849651)
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/variants/helmet_m33_ammo.fbx",
@@ -226,14 +228,14 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
-				brim = -0.18,
+				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
 				parts = { Band = { 106, 72, 46 }, Hull = { 150, 54, 44 }, Brass = { 176, 146, 80 } },
 				shell = "m33",
 				center = { 0, 0.5415, 0 },
 			},
 		},
 		helmet_m33 = {
-			id = 89604539658442,
+			id = 90751617241838, -- hollow (docs/HATS.md "Hollow helmets"; capped: 89604539658442)
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/default/helmet_m33.fbx",
@@ -244,13 +246,13 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
-				brim = -0.18,
+				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
 				shell = "m33",
 				center = { 0, 0.5415, 0 },
 			},
 		},
 		helmet_brodie = {
-			id = 93232405386184,
+			id = 111983459615468, -- hollow (docs/HATS.md "Hollow helmets"; capped: 93232405386184)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/default/helmet_brodie.fbx",
@@ -266,7 +268,7 @@ local Assets = {
 			},
 		},
 		helmet_brodie_goggles = {
-			id = 107628167670818,
+			id = 137564109106630, -- hollow (docs/HATS.md "Hollow helmets"; capped: 107628167670818)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles.fbx",
@@ -283,7 +285,7 @@ local Assets = {
 			},
 		},
 		helmet_brodie_ammo = {
-			id = 101501598430404,
+			id = 70619798795232, -- hollow (docs/HATS.md "Hollow helmets"; capped: 101501598430404)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_ammo.fbx",
@@ -455,6 +457,191 @@ local Assets = {
 			prop = "Car",
 			generator = "src/dev/Props/init.luau",
 			description = "Parked 1930s car",
+		},
+		-- Soldier hairs (user 2026-10-14; docs/HAIRS.md): per style the original (`hair_<style>`, worn bareheaded or once
+		-- the helmet is shot off) and one helmet-on hair per helmet shell (`hair_<style>_<shell>`, shaved where the shell
+		-- covers it: tools/blender/gear/hair_under.py). Shop hairs used with their creators' okay: they stay in Roblox
+		-- (files local, ids only here). `hair.center`: the mesh's bounding-box center in head space (Roblox axes; worn
+		-- at head.CFrame * CFrame.new(center)), from tools/hair/export_hairs.py. Recolored per soldier (Config/Uniforms).
+		hair_wolf_cut = {
+			id = 87693191747101,
+			category = "Characters",
+			folder = "Hairs/wolf_cut",
+			source = "assets/characters/hairs/wolf_cut/hair_wolf_cut_bare.fbx",
+			generator = "tools/hair/export_hairs.py",
+			description = "Hair wolf_cut, original (3998 tris). From 18320597179 'Black Stylish Layered Wolf Cut Short Hair' (AvaSky).",
+			hair = { center = { -0.0374, -0.0004, 0.0566 } },
+		},
+		hair_wolf_cut_m33 = {
+			id = 131289307710891,
+			category = "Characters",
+			folder = "Hairs/wolf_cut",
+			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_m33.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair wolf_cut under the m33 helmet: the original shaved where the shell covers it (3820 tris).",
+			hair = { center = { 0.0529, -0.0744, 0.0426 } },
+		},
+		hair_wolf_cut_stahl = {
+			id = 123155634788566,
+			category = "Characters",
+			folder = "Hairs/wolf_cut",
+			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_stahl.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair wolf_cut under the stahl helmet: the original shaved where the shell covers it (3978 tris).",
+			hair = { center = { 0.024, -0.088, 0.0482 } },
+		},
+		hair_wolf_cut_brodie = {
+			id = 75494309088279,
+			category = "Characters",
+			folder = "Hairs/wolf_cut",
+			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_brodie.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair wolf_cut under the brodie helmet: the original shaved where the shell covers it (3937 tris).",
+			hair = { center = { 0.0918, -0.1082, 0.0289 } },
+		},
+		hair_low_ponytail = {
+			id = 102239211504647,
+			category = "Characters",
+			folder = "Hairs/low_ponytail",
+			source = "assets/characters/hairs/low_ponytail/hair_low_ponytail_bare.fbx",
+			generator = "tools/hair/export_hairs.py",
+			description = "Hair low_ponytail, original (3132 tris). From 14401441197 'Low Ponytail (Black)' (YOU LOVE HAIR).",
+			hair = { center = { 0, -0.694, 0.1865 } },
+		},
+		hair_low_ponytail_m33 = {
+			id = 85504697777545,
+			category = "Characters",
+			folder = "Hairs/low_ponytail",
+			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_m33.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair low_ponytail under the m33 helmet: the original shaved where the shell covers it (3131 tris).",
+			hair = { center = { 0, -0.694, 0.1865 } },
+		},
+		hair_low_ponytail_stahl = {
+			id = 108435355713176,
+			category = "Characters",
+			folder = "Hairs/low_ponytail",
+			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_stahl.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair low_ponytail under the stahl helmet: the original shaved where the shell covers it (3131 tris).",
+			hair = { center = { 0, -0.694, 0.1865 } },
+		},
+		hair_low_ponytail_brodie = {
+			id = 131603430842547,
+			category = "Characters",
+			folder = "Hairs/low_ponytail",
+			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_brodie.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair low_ponytail under the brodie helmet: the original shaved where the shell covers it (3131 tris).",
+			hair = { center = { 0, -0.694, 0.1865 } },
+		},
+		hair_m_wolf = {
+			id = 135274996782454,
+			category = "Characters",
+			folder = "Hairs/m_wolf",
+			source = "assets/characters/hairs/m_wolf/hair_m_wolf_bare.fbx",
+			generator = "tools/hair/export_hairs.py",
+			description = "Hair m_wolf, original (3997 tris). From 96306223630485 'Really Messy Emo Wolf Cut Boy Hair' (kwarm).",
+			hair = { center = { 0.0284, 0.167, 0.0506 } },
+		},
+		hair_m_wolf_m33 = {
+			id = 79768541923667,
+			category = "Characters",
+			folder = "Hairs/m_wolf",
+			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_m33.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_wolf under the m33 helmet: the original shaved where the shell covers it (3329 tris).",
+			hair = { center = { 0.0233, 0.0325, 0.0086 } },
+		},
+		hair_m_wolf_stahl = {
+			id = 129400640299639,
+			category = "Characters",
+			folder = "Hairs/m_wolf",
+			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_stahl.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_wolf under the stahl helmet: the original shaved where the shell covers it (3373 tris).",
+			hair = { center = { 0.0354, 0.0146, 0.0608 } },
+		},
+		hair_m_wolf_brodie = {
+			id = 82147726465629,
+			category = "Characters",
+			folder = "Hairs/m_wolf",
+			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_brodie.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_wolf under the brodie helmet: the original shaved where the shell covers it (3242 tris).",
+			hair = { center = { 0.0552, -0.0027, 0.0725 } },
+		},
+		hair_m_slick = {
+			id = 134341339188089,
+			category = "Characters",
+			folder = "Hairs/m_slick",
+			source = "assets/characters/hairs/m_slick/hair_m_slick_bare.fbx",
+			generator = "tools/hair/export_hairs.py",
+			description = "Hair m_slick, original (2963 tris). From 137919482126630 'Beautiful Swoop Hair Male' (Crooner).",
+			hair = { center = { 0.0146, 0.2002, 0.0377 } },
+		},
+		hair_m_slick_m33 = {
+			id = 131478334142059,
+			category = "Characters",
+			folder = "Hairs/m_slick",
+			source = "assets/characters/hairs/m_slick/under/hair_m_slick_m33.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_slick under the m33 helmet: the original shaved where the shell covers it (3061 tris).",
+			hair = { center = { 0.0146, 0.2002, 0.0377 } },
+		},
+		hair_m_slick_stahl = {
+			id = 101353090993134,
+			category = "Characters",
+			folder = "Hairs/m_slick",
+			source = "assets/characters/hairs/m_slick/under/hair_m_slick_stahl.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_slick under the stahl helmet: the original shaved where the shell covers it (3022 tris).",
+			hair = { center = { 0.0146, 0.2002, 0.0377 } },
+		},
+		hair_m_slick_brodie = {
+			id = 80089844700142,
+			category = "Characters",
+			folder = "Hairs/m_slick",
+			source = "assets/characters/hairs/m_slick/under/hair_m_slick_brodie.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_slick under the brodie helmet: the original shaved where the shell covers it (3076 tris).",
+			hair = { center = { 0.0128, 0.2002, 0.0403 } },
+		},
+		hair_m_midpart = {
+			id = 131010005103271,
+			category = "Characters",
+			folder = "Hairs/m_midpart",
+			source = "assets/characters/hairs/m_midpart/hair_m_midpart_bare.fbx",
+			generator = "tools/hair/export_hairs.py",
+			description = "Hair m_midpart, original (3615 tris). From 98001154915857 'Light Brown Sleek Male Hair' (platan).",
+			hair = { center = { -0.0022, 0.1974, -0.0105 } },
+		},
+		hair_m_midpart_m33 = {
+			id = 112252984245351,
+			category = "Characters",
+			folder = "Hairs/m_midpart",
+			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_m33.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_midpart under the m33 helmet: the original shaved where the shell covers it (3923 tris).",
+			hair = { center = { 0.0063, 0.1907, 0.0084 } },
+		},
+		hair_m_midpart_stahl = {
+			id = 86983856412897,
+			category = "Characters",
+			folder = "Hairs/m_midpart",
+			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_stahl.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_midpart under the stahl helmet: the original shaved where the shell covers it (3886 tris).",
+			hair = { center = { 0.0059, 0.1835, 0.0119 } },
+		},
+		hair_m_midpart_brodie = {
+			id = 125363532305753,
+			category = "Characters",
+			folder = "Hairs/m_midpart",
+			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_brodie.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_midpart under the brodie helmet: the original shaved where the shell covers it (3785 tris).",
+			hair = { center = { 0.0392, 0.1886, -0.0056 } },
 		},
 	} :: { [string]: Entry },
 

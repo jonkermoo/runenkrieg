@@ -2,8 +2,9 @@
 -- Uniform soldier bodies (docs/CHARACTERS.md): every character is the plain blocky R6 body with no
 -- avatar packages, clothing or accessories, and the one soldier face, so hitboxes are fair and everyone reads as a
 -- soldier. The rig type itself is a game setting (Game Settings -> Avatar -> R6); scripts can't set it.
--- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants and skin color, and puts on the face
--- (on a "FaceCard" shell welded over the head).
+-- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants, rolls the life's skin and hair colors
+-- (Config/Uniforms Skins / HairColors, Rules/Looks) and hairstyle, puts on the face (on a "FaceCard" shell welded
+-- over the head) and the kit's helmet over the hair (src/server/Helmets).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,10 +12,42 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local U = require(Shared.Config.Uniforms)
 local Faces = require(Shared.Rules.Faces)
+local Looks = require(Shared.Rules.Looks)
+local Helmets = require(script.Parent.Helmets)
 
 local Bodies = {}
 
 local warned = false
+
+-- each player's skin and hair index last life (Rules/Looks: never the same twice in a row)
+local lastLooks: { [Player]: { skin: number, hair: number, style: number } } = {}
+
+local function rgb(c: { number }): Color3
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
+
+-- This life's skin, hair color and hairstyle: rolled once per character (applied again in the same life keeps them),
+-- written as the "Skin" / "Hair" / "HairStyle" attributes (pool names) and "SkinColor" / "HairColor" (Color3).
+local function rollLooks(character: Model): Color3
+	local skin = character:GetAttribute("SkinColor")
+	if typeof(skin) == "Color3" then
+		return skin
+	end
+	local player = Players:GetPlayerFromCharacter(character)
+	local last = player and lastLooks[player]
+	local s = Looks.pick(U.Skins, math.random(), last and last.skin)
+	local h = Looks.pick(U.HairColors, math.random(), last and last.hair)
+	local st = Looks.pick(U.Hairs, math.random(), last and last.style)
+	if player then
+		lastLooks[player] = { skin = s, hair = h, style = st }
+	end
+	character:SetAttribute("HairStyle", U.Hairs[st].name)
+	character:SetAttribute("Skin", U.Skins[s].name)
+	character:SetAttribute("SkinColor", rgb(U.Skins[s].color))
+	character:SetAttribute("Hair", U.HairColors[h].name)
+	character:SetAttribute("HairColor", rgb(U.HairColors[h].color))
+	return rgb(U.Skins[s].color)
+end
 
 function Bodies.apply(character: Model)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -27,7 +60,7 @@ function Bodies.apply(character: Model)
 	end
 	-- a fresh description is the default blocky body: no packages or accessories, just the kit
 	local kit = U.Kits[U.Default]
-	local skin = Color3.fromRGB(kit.skin[1], kit.skin[2], kit.skin[3])
+	local skin = rollLooks(character)
 	local desc = Instance.new("HumanoidDescription")
 	desc.Face = 0
 	desc.Shirt = 0
@@ -85,6 +118,8 @@ function Bodies.apply(character: Model)
 	local pants = Instance.new("Pants")
 	pants.PantsTemplate = "rbxassetid://" .. kit.pants
 	pants.Parent = character
+	-- the helmet stays off once it has been shot off this life
+	Helmets.dress(character, if character:GetAttribute("HelmetOn") == false then nil else kit.headwear)
 end
 
 -- The face follows health (Rules/Faces): the tier's face while alive; on death the CLOSED face of the tier the
@@ -125,6 +160,9 @@ function Bodies.start()
 		end
 	end
 	Players.PlayerAdded:Connect(hook)
+	Players.PlayerRemoving:Connect(function(p)
+		lastLooks[p] = nil
+	end)
 	for _, p in Players:GetPlayers() do
 		hook(p)
 	end
