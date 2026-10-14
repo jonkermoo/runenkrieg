@@ -76,6 +76,14 @@ local Assets = {
 			generator = "tools/blender/weapons/staff.py",
 			description = "The mage staff, shared by every team: knotted faceted wood, an iron sleeve at the grip and a foot cap, a metal band and a ring under the head, a cloth binding and a ribbon (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged and colored per team from Config/Weapons (staff_grey / staff_olive / staff_white).",
 		},
+		shotgun_m1897 = {
+			id = 118242502631158, -- v2: the bolt's channel in the receiver's back, 68 bigger holes (v1 112699594475693)
+			category = "Weapons",
+			folder = "Shared/Shotguns",
+			source = "assets/weapons/shared/shotgun_m1897.fbx",
+			generator = "tools/blender/weapons/m1897.py",
+			description = "Winchester M1897 trench gun, the shotgun of all three teams (built from its trace: tools/blender/weapons/trace/m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",

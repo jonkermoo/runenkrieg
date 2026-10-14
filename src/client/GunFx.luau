@@ -90,6 +90,13 @@ function GunFx.preload()
 	end)
 end
 
+-- The weapon's own sound (Config/Weapons `sounds`, the Gun part's "Weapon" attribute) or Config/Firing's.
+local function soundOf(gun: BasePart, name: string): any
+	local weapon = gun:GetAttribute("Weapon")
+	local w = type(weapon) == "string" and W[weapon] or nil
+	return (w and w.sounds and w.sounds[name]) or (Cfg.Sounds :: any)[name]
+end
+
 function GunFx.sound(gun: BasePart, name: string)
 	local owner = gun:FindFirstAncestorWhichIsA("Model")
 	if owner and owner:GetAttribute("Muted") == true then
@@ -97,7 +104,7 @@ function GunFx.sound(gun: BasePart, name: string)
 	end
 	local s = gun:FindFirstChild("Fx_" .. name) :: Sound?
 	if not s then
-		local c = (Cfg.Sounds :: any)[name]
+		local c = soundOf(gun, name)
 		local made = Instance.new("Sound")
 		made.Name = "Fx_" .. name
 		made.SoundId = "rbxassetid://" .. c.id
@@ -111,7 +118,16 @@ function GunFx.sound(gun: BasePart, name: string)
 		s = made
 	end
 	local snd = s :: Sound
-	local c = (Cfg.Sounds :: any)[name]
+	local c = soundOf(gun, name)
+	if name == "Shot" then
+		-- each shot its own copy (user 2026-10-13: a quick second shot cut the first one off), gone once it has played
+		snd = snd:Clone()
+		snd.Parent = gun
+		snd.Ended:Once(function()
+			snd:Destroy()
+		end)
+		Debris:AddItem(snd, 10)
+	end
 	snd.Volume = c.volume
 	snd.TimePosition = c.start or 0
 	snd:Play()
@@ -208,19 +224,25 @@ function GunFx.kick(character: Model)
 end
 
 -- Everything a shot shows: the shooter's flash and sound, the tracer from the visible muzzle, the hole, the target.
-function GunFx.shot(character: Model, hit: Vector3, normal: Vector3?, part: Instance?)
+-- `more`: a shotgun's other pellets ({ hit, normal, part } each): a tracer, a hole and a target flash apiece.
+function GunFx.shot(character: Model, hit: Vector3, normal: Vector3?, part: Instance?, more: { any }?)
 	local gun = GunFx.visible(character)
+	local muzzle = gun and gun:FindFirstChild("Muzzle") :: Attachment?
 	if gun then
 		GunFx.flash(gun)
 		GunFx.sound(gun, "Shot")
-		local muzzle = gun:FindFirstChild("Muzzle") :: Attachment?
-		if muzzle then
-			GunFx.tracer(muzzle.WorldPosition, hit)
-		end
 	end
 	GunFx.kick(character)
-	GunFx.hole(hit, normal, part)
-	GunFx.targetFlash(part)
+	for _, h in { { hit, normal, part }, table.unpack(more or {}) } do
+		if typeof(h[1]) == "Vector3" then
+			if muzzle then
+				GunFx.tracer(muzzle.WorldPosition, h[1])
+			end
+			GunFx.hole(h[1], h[2], h[3])
+			GunFx.targetFlash(h[3])
+		end
+	end
+	GunFx.animateHammer(character)
 end
 
 -- ---- the action ----
@@ -247,12 +269,26 @@ end
 
 -- Rounds and clips as the magazine stands: an en-bloc clip sits in the magazine with its rounds while it has any; a
 -- stripper clip only shows while loading.
+-- A pump gun's shell on the carrier shows while the tube has shells.
 function GunFx.loadout(character: Model, weapon: string, magazine: number)
-	local en = W[weapon].ammo.clip == "Enbloc"
+	local w = W[weapon]
+	local en = w.ammo.clip == "Enbloc"
 	for _, gun in GunFx.guns(character) do
 		show(gun, "Rounds", magazine > 0)
 		show(gun, "Bullets", magazine > 0)
 		show(gun, "Clip", en and magazine > 0)
+		for _, name in if w.feed then w.feed.parts else {} do
+			show(gun, name, magazine > 0)
+		end
+	end
+end
+
+-- A shot lets the hammer fall (a pump gun's rests cocked: it falls 90 degrees forward about its pin; the pump's back
+-- stroke cocks it again, GunFx.cycle).
+local HAMMER_FALL = CFrame.Angles(-math.pi / 2, 0, 0)
+function GunFx.animateHammer(character: Model)
+	for _, gun in GunFx.guns(character) do
+		move(gun, "Hammer", HAMMER_FALL)
 	end
 end
 
@@ -280,19 +316,34 @@ local function fling(copy: BasePart, gun: BasePart, at: CFrame, push: Vector3)
 	Debris:AddItem(copy, c.life)
 end
 
-local function eject(gun: BasePart)
+-- the weapon's spent case (Config/Weapons `eject`, else "Casing"): several parts go as one piece (a shell's hull
+-- and its brass head), the rest welded to the first
+local function eject(gun: BasePart, weapon: string?)
 	local port = gun:FindFirstChild("Eject") :: Attachment?
-	local template = gun.Parent and gun.Parent:FindFirstChild("Casing")
-	if not port or not template or not template:IsA("BasePart") then
+	local holder = gun.Parent
+	local names = (weapon and W[weapon] and W[weapon].eject) or { "Casing" }
+	local template = holder and holder:FindFirstChild(names[1])
+	if not port or not holder or not template or not template:IsA("BasePart") then
 		return
 	end
 	local c = E.Casing
-	fling(
-		template:Clone(),
-		gun,
-		CFrame.new(port.WorldPosition) * template.CFrame.Rotation,
-		Vector3.new(c.out, c.up, c.back)
-	)
+	local copy = template:Clone()
+	fling(copy, gun, CFrame.new(port.WorldPosition) * template.CFrame.Rotation, Vector3.new(c.out, c.up, c.back))
+	for i = 2, #names do
+		local t = holder:FindFirstChild(names[i])
+		if t and t:IsA("BasePart") then
+			local more = t:Clone()
+			more:ClearAllChildren()
+			more.Transparency, more.LocalTransparencyModifier = 0, 0
+			more.Anchored, more.CanCollide, more.CanQuery, more.CanTouch, more.Massless =
+				false, false, false, false, true
+			more.CFrame = copy.CFrame * template.CFrame:ToObjectSpace(t.CFrame)
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0, weld.Part1 = copy, more
+			weld.Parent = more
+			more.Parent = copy
+		end
+	end
 end
 
 local function smooth(u: number): number
@@ -465,8 +516,14 @@ local function playAction(character: Model, weapon: string, action: string, u0: 
 		end
 		start(animatorOf(character), body)
 	end
+	local viewmodel = animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel"))
 	if own and reload then
-		start(animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel")), w.reload.firstPerson)
+		start(viewmodel, w.reload.firstPerson)
+	elseif own and (w.bolt.firstAim or w.bolt.firstReady) then
+		-- a pump gun: the left hand works the pump in first person too
+		local hold = character:GetAttribute("Hold")
+		local aimed = hold == "aim" or hold == "crouchAim"
+		start(viewmodel, (if aimed then w.bolt.firstAim else w.bolt.firstReady) or 0)
 	end
 	return list
 end
@@ -512,19 +569,23 @@ function GunFx.cycle(
 	end
 	local reload = action == "Reload"
 	local turn, travel = math.rad(a.turn), a.travel * s[3]
-	local cycle = if reload then Cfg.ReloadCycle else Cfg.BoltCycle :: any
+	local cycle = if reload then Cfg.ReloadCycle else (a.cycle or Cfg.BoltCycle) :: any
 	local en = w.ammo.clip == "Enbloc"
 	local rise = Cfg.ClipRise * s[2]
 	-- the bolt: the hand reaches the handle (reload), turns it up, pulls it back; pushes it forward once the case is out
 	-- (Bolt) or the hand is back on it (Reload), turns it down
 	local reach = cycle.reach or 0
-	local fwdFrom = if reload then cycle.knob else cycle.back
+	local fwdFrom = if reload then cycle.knob else (cycle.hold or cycle.back) -- (a pump rests back until `hold`)
 	local openAt = (reach + cycle.up) / 2
 	local t0 = os.clock()
 	-- what already happened before `from` doesn't happen again
 	local opened, ejected = u0 > openAt, u0 > cycle.back
 	local seated, closed = reload and u0 > cycle.clip, u0 > cycle.forward
 	local flungAt = (cycle.knob or 0) + 0.02 -- the bolt starting forward strips the empty clip off the guides
+	-- a pump gun: the shell on the carrier lifts to the bore and goes into the chamber as the pump comes forward (only
+	-- when one is fed: an action held open feeds nothing), the next one shows on the carrier after
+	local feed = if not reload and u1 >= 1 then w.feed else nil
+	local feedMid = (fwdFrom + cycle.forward) / 2
 	local function pose(u: number)
 		local up = smooth((u - reach) / (cycle.up - reach))
 		local back = smooth((u - cycle.up) / (cycle.back - cycle.up))
@@ -540,8 +601,25 @@ function GunFx.cycle(
 				clipY = -rise * c
 			end
 		end
+		local cocked = smooth((u - cycle.up) / (cycle.back - cycle.up)) -- the bolt going back pushes the hammer back
+		local shellAt: CFrame? = nil
+		if feed then
+			local lift = smooth((u - fwdFrom) / (feedMid - fwdFrom))
+			local push = smooth((u - feedMid) / (cycle.forward - feedMid))
+			shellAt = CFrame.new(0, feed.lift * s[2] * lift, -feed.push * s[3] * push)
+		end
 		for _, gun in GunFx.guns(character) do
 			move(gun, "Bolt", CFrame.new(0, 0, slide) * CFrame.Angles(0, 0, angle))
+			move(gun, "Pump", CFrame.new(0, 0, slide))
+			if not reload then
+				move(gun, "Hammer", HAMMER_FALL:Lerp(CFrame.identity, cocked))
+			end
+			if shellAt and feed then
+				for _, name in feed.parts do
+					move(gun, name, shellAt)
+					show(gun, name, u < cycle.forward)
+				end
+			end
 			if clipY then
 				move(gun, "Clip", CFrame.new(0, clipY, 0))
 				if en then
@@ -641,7 +719,7 @@ function GunFx.cycle(
 		if not ejected and u >= cycle.back then
 			ejected = true
 			if out == "Casing" then
-				eject(gun)
+				eject(gun, weapon)
 			end
 		end
 		if reload and not seated and u >= cycle.clip then
@@ -668,8 +746,12 @@ function GunFx.cycle(
 			if u1 >= 1 then -- closed: every part back at rest (a bolt held open stays back)
 				for _, g in GunFx.guns(character) do
 					move(g, "Bolt", CFrame.identity)
+					move(g, "Pump", CFrame.identity)
 					move(g, "Clip", CFrame.identity)
 					move(g, "Rounds", CFrame.identity)
+					for _, name in if w.feed then w.feed.parts else {} do
+						move(g, name, CFrame.identity)
+					end
 				end
 			end
 			GunFx.loadout(character, weapon, magazine)
@@ -689,9 +771,28 @@ local loads: { [Tool]: LoadRun } = setmetatable({}, { __mode = "k" }) :: any
 
 local ROUND_SIDE, FIRST_ROUND_SIDE = 0.55, 0.85 -- the round pinched beside the hand (tools/animation/single.luau)
 
--- a loose round for the hand: the gun's spent-case template with a bullet tip
-local function makeRound(gun: BasePart): { BasePart }?
+-- a loose round for the hand: the gun's spent-case template with a bullet tip; a pump gun's shell: copies of its own
+-- shell parts (Config/Weapons feed)
+local function makeRound(gun: BasePart, weapon: string): { BasePart }?
 	local holder = gun.Parent
+	local feed = W[weapon].feed
+	if holder and feed then
+		local parts = {}
+		for _, name in feed.parts do
+			local t = holder:FindFirstChild(name)
+			if t and t:IsA("BasePart") then
+				local c = t:Clone()
+				c:ClearAllChildren()
+				c.Name = "Held" .. name
+				c.Anchored, c.CanCollide, c.CanQuery, c.CanTouch, c.CastShadow = true, false, false, false, false
+				c.Transparency, c.LocalTransparencyModifier = 0, 0
+				c:SetAttribute("Rel", t.CFrame:ToObjectSpace((holder:FindFirstChild(feed.parts[1]) :: BasePart).CFrame))
+				c.Parent = holder
+				table.insert(parts, c)
+			end
+		end
+		return if #parts > 0 then parts else nil
+	end
 	local case = holder and holder:FindFirstChild("Casing")
 	if not case or not case:IsA("BasePart") then
 		return nil
@@ -718,7 +819,15 @@ end
 local function placeRound(parts: { BasePart }, centre: CFrame)
 	local body, tip = parts[1], parts[2]
 	body.CFrame = centre
-	tip.CFrame = centre * CFrame.new(0, 0, -body.Size.Z / 2)
+	if not tip then
+		return
+	end
+	local rel = tip:GetAttribute("Rel")
+	if typeof(rel) == "CFrame" then -- a shell's head, where it sits on the hull
+		tip.CFrame = centre * rel:Inverse()
+	else
+		tip.CFrame = centre * CFrame.new(0, 0, -body.Size.Z / 2)
+	end
 end
 
 function GunFx.loadStop(character: Model, rounds: number)
@@ -740,6 +849,13 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 	local O, R, CL = SI.open, SI.round, SI.close
 	local s = w.scale
 	local turn, travel = math.rad(w.action.turn), w.action.travel * s[3]
+	O, R, CL = single.open or O, single.round or R, single.close or CL
+	-- loose shells (a pump gun): the action stays shut, unless it was held open ("Open"): then it closes at the end
+	local loose = w.ammo.clip == "Loose"
+	local wasOpen = loose and out == "Open"
+	if loose then
+		out = nil -- nothing comes out of the chamber
+	end
 	local run: LoadRun = { rounds = rounds }
 	local function plan(): number
 		return run.rounds or room
@@ -786,7 +902,10 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 	local function pose(e: number)
 		local cs = closeStart()
 		local angle, slide
-		if e < cs then
+		if loose then
+			angle = 0
+			slide = if wasOpen then travel * (1 - smooth((e - cs) / CL)) else 0
+		elseif e < cs then
 			local u = math.min(e / B, 1) * C.back
 			angle = turn * smooth((u - C.reach) / (C.up - C.reach))
 			slide = travel * smooth((u - C.up) / (C.back - C.up))
@@ -805,9 +924,10 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		local showing = e >= O and e < cs and i < plan() and q >= 0.42
 		for _, gun in GunFx.guns(character) do
 			move(gun, "Bolt", CFrame.new(0, 0, slide) * CFrame.Angles(0, 0, angle))
+			move(gun, "Pump", CFrame.new(0, 0, slide))
 			local parts = roundsHeld[gun]
 			if showing and not parts then
-				parts = makeRound(gun)
+				parts = makeRound(gun, weapon)
 				if parts then
 					roundsHeld[gun] = parts
 				end
@@ -869,7 +989,7 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 			cut[tool] = {
 				weapon = weapon,
 				action = "Load",
-				out = if ejected then nil else out,
+				out = if wasOpen then "Open" elseif ejected then nil else out,
 				magazine = room,
 				from = e,
 				to = k,
@@ -882,7 +1002,9 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		pose(e)
 		if not opened and e >= openAt then
 			opened = true
-			GunFx.sound(gun, "BoltOpen")
+			if not loose then
+				GunFx.sound(gun, "BoltOpen")
+			end
 		end
 		if not ejected and e >= B then
 			ejected = true
@@ -897,12 +1019,15 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		end
 		if not closed and e >= cs + shutAt then
 			closed = true
-			GunFx.sound(gun, "BoltClose")
+			if not loose or wasOpen then
+				GunFx.sound(gun, "BoltClose")
+			end
 		end
 		if e >= total then
 			stop()
 			for _, g in GunFx.guns(character) do
 				move(g, "Bolt", CFrame.identity)
+				move(g, "Pump", CFrame.identity)
 			end
 			GunFx.loadout(character, weapon, 1)
 		end

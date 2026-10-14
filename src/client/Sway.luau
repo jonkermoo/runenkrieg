@@ -71,15 +71,34 @@ local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
 end
 
--- recoil: an impulse on each spring (peaks near the Config amplitude), worked off by the render step
-local recoil = { pitch = spring(), yaw = spring(), back = spring(), camera = spring() }
-function Sway.kick(scale: number?)
+-- recoil: an impulse on each spring (peaks near the Config amplitude), worked off by the render step. A weapon's
+-- `recoil` (Config/Weapons) scales it and builds it up: "heat" goes up by one per shot and cools off over `cool`
+-- seconds; each shot kicks (1 + build x heat) times harder, up to `max`, and the hotter the gun the more the view
+-- also rolls and swings aside (user 2026-10-13: "make the camera sway worse each shot"). A plain number just scales
+-- one kick (the staff: its stage).
+local recoil =
+	{ pitch = spring(), yaw = spring(), back = spring(), camera = spring(), roll = spring(), turn = spring() }
+local heat, heatAt = 0, 0
+function Sway.kick(spec: ({ scale: number, build: number, max: number, cool: number } | number)?)
 	local R = Fire.Recoil
-	local k = math.sqrt(R.stiffness) * (scale or 1)
-	recoil.pitch.v += R.pitch * k
-	recoil.yaw.v += (math.random() * 2 - 1) * R.yaw * k
-	recoil.back.v += R.back * k
-	recoil.camera.v += R.camera * k
+	local k = math.sqrt(R.stiffness)
+	local m = 1
+	if type(spec) == "number" then
+		m = spec
+	elseif spec then
+		local now = os.clock()
+		heat = math.max(0, heat - (now - heatAt) / spec.cool)
+		heatAt = now
+		m = spec.scale * math.min(spec.max, 1 + spec.build * heat)
+		heat += 1
+	end
+	local wild = if type(spec) == "table" then m - 1 else 0 -- past a plain kick: the view rolls and swings aside
+	recoil.pitch.v += R.pitch * k * m
+	recoil.yaw.v += (math.random() * 2 - 1) * R.yaw * k * m
+	recoil.back.v += R.back * k * m
+	recoil.camera.v += R.camera * k * m
+	recoil.roll.v += (math.random() * 2 - 1) * 2 * wild * k
+	recoil.turn.v += (math.random() * 2 - 1) * 1.2 * wild * k
 end
 
 function Sway.start()
@@ -278,8 +297,8 @@ function Sway.start()
 			else { pitch = lerp(C.walk.pitch, C.sprint.pitch, g), roll = lerp(C.walk.roll, C.sprint.roll, g) }
 		local CC = Ch.camera
 		camera.pitch = -cw.pitch * math.cos(2 * TAU * phase) * size * m + recoil.camera.x + sx * CC.pitch
-		camera.yaw = sy * CC.yaw
-		camera.roll = cw.roll * math.sin(TAU * phase) * size * m + sz * CC.roll
+		camera.yaw = sy * CC.yaw + recoil.turn.x
+		camera.roll = cw.roll * math.sin(TAU * phase) * size * m + recoil.roll.x + sz * CC.roll
 	end)
 end
 

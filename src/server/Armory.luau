@@ -43,9 +43,11 @@ local function libraryModel(name: string): Model
 	return m :: Model
 end
 
--- A rigged copy of the weapon as a Model (PrimaryPart = the Gun part at the gun origin).
-function Armory.build(name: string): Model
+-- A rigged copy of the weapon as a Model (PrimaryPart = the Gun part at the gun origin). `kit`: whose colors
+-- (Config/Weapons `kits`, a team's tint over `parts`; default: the kit everyone wears, Config/Uniforms.Default).
+function Armory.build(name: string, kit: string?): Model
 	local w = W[name]
+	local tint = w.kits and w.kits[kit or U.Default] or {}
 	local model = libraryModel(name):Clone()
 	model.Name = name
 	local origin = model:FindFirstChild("Origin", true) :: BasePart
@@ -53,6 +55,7 @@ function Armory.build(name: string): Model
 	local frame = CFrame.new(origin.Position) -- gun space: origin position, the model's axes
 	local s = v3(w.scale) -- per gun axis
 	origin.Name = "Gun"
+	origin:SetAttribute("Weapon", name) -- (src/client/GunFx: the weapon's own sounds, on every copy)
 	origin.Transparency = 1
 	origin.Size = Vector3.new(0.2, 0.2, 0.2)
 	origin.CFrame = frame
@@ -62,7 +65,7 @@ function Armory.build(name: string): Model
 			local rel = frame:ToObjectSpace(p.CFrame)
 			p.Size *= s
 			p.CFrame = frame * (rel.Rotation + rel.Position * s)
-			local c = w.parts[p.Name]
+			local c = tint[p.Name] or w.parts[p.Name]
 			if c then
 				p.Color = Color3.fromRGB(c[1], c[2], c[3])
 			end
