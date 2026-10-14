@@ -26,11 +26,12 @@ local Uniforms = {
 	-- (Rules/Looks: by weight, never the same as the soldier's last life). The skin colors the whole body (the kit's
 	-- `skin` is only the showcase dummies'); the hair color goes on the character as the "HairColor" attribute for the
 	-- hair model. Hair: four natural colors equally likely, white the rare one (user 2026-10-14; 1 of 15).
+	-- darker and warmer than the first set (user 2026-10-14: the first pale washed out to white in the bright light)
 	Skins = {
-		{ name = "pale", color = { 240, 210, 184 }, weight = 1 },
-		{ name = "light", color = { 222, 174, 130 }, weight = 1 },
-		{ name = "olive", color = { 196, 150, 104 }, weight = 1 },
-		{ name = "brown", color = { 132, 90, 60 }, weight = 1 }, -- darkest: the dark brown dot eyes must still read
+		{ name = "pale", color = { 232, 186, 146 }, weight = 1 },
+		{ name = "light", color = { 214, 158, 108 }, weight = 1 },
+		{ name = "olive", color = { 184, 130, 82 }, weight = 1 },
+		{ name = "brown", color = { 120, 78, 50 }, weight = 1 }, -- darkest: the dark brown dot eyes must still read
 	},
 	HairColors = {
 		{ name = "black", color = { 34, 28, 26 }, weight = 3.5 },
