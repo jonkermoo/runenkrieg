@@ -76,6 +76,42 @@ local Palette = {
 		CarBodies = { { 72, 42, 40 }, { 40, 44, 42 }, { 56, 70, 58 }, { 62, 64, 72 } },
 		ToneJitter = 0.05,
 	},
+	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
+	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
+	Magic = {
+		Core = { 235, 250, 255 }, -- the white-hot centre of beams, orbs and flashes
+		Glow = { 120, 200, 255 }, -- the light blue body (Zoltraak, the circle's lines)
+		Deep = { 70, 90, 230 }, -- the deep blue edge
+		Violet = { 150, 90, 255 }, -- the outer haze, sparkles
+		Gold = { 255, 200, 80 }, -- light spikes, holy flashes
+		Ember = { 255, 60, 50 }, -- red glints and bursts
+		Bolt = { 80, 255, 190 }, -- lightning
+		-- the violet "hex" scheme (user reference 2026-10-13: a hot pink-violet capsule beam)
+		HexCore = { 255, 228, 255 },
+		Hex = { 240, 90, 255 },
+		HexDeep = { 170, 40, 220 },
+		HexEdge = { 90, 20, 140 },
+		-- more looks for the magic (Config/Vfx.Schemes; user 2026-10-13: "different color magic ... be creative")
+		EmberCore = { 255, 242, 220 }, -- fire
+		Flame = { 255, 150, 60 },
+		EmberDeep = { 225, 60, 25 },
+		EmberEdge = { 120, 25, 15 },
+		EmberGold = { 255, 205, 90 },
+		VerdantCore = { 230, 255, 235 }, -- jade
+		Verdant = { 90, 240, 150 },
+		VerdantDeep = { 20, 165, 105 },
+		VerdantEdge = { 10, 80, 70 },
+		VerdantLime = { 200, 255, 90 },
+		SolarCore = { 255, 252, 236 }, -- holy gold
+		Solar = { 255, 214, 110 },
+		SolarDeep = { 235, 160, 45 },
+		SolarEdge = { 150, 90, 25 },
+		VoidCore = { 245, 230, 255 }, -- dark magic
+		Void = { 150, 70, 230 },
+		VoidDeep = { 70, 20, 130 },
+		VoidEdge = { 25, 5, 45 },
+		VoidToxic = { 130, 255, 110 },
+	},
 	-- UI: flat panels, one outline thickness everywhere.
 	UI = {
 		panel = { 44, 50, 42 },
@@ -84,6 +120,16 @@ local Palette = {
 		outline = { 24, 28, 22 },
 		text = { 236, 232, 220 },
 		stroke = 2,
+		-- the ammo display (src/client/Firing): a live round, a spent case in the chamber, an empty slot
+		round = { 196, 160, 84 },
+		spent = { 96, 84, 62 },
+		slot = { 30, 34, 28 },
+		-- the staff's mana bar (src/client/ManaBar): the mana, the share the shot being charged will spend, the burnt-out
+		-- bar refilling after a mega shot, a refused shot's flash
+		mana = { 120, 200, 255 },
+		manaSpend = { 235, 250, 255 },
+		manaBurnt = { 118, 72, 150 },
+		manaDenied = { 220, 70, 60 },
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
 }

@@ -36,4 +36,14 @@ return {
 		assert(not T.allowed(Cfg, 1, false))
 		assert(T.find(Map1, Cfg, "Gallery") ~= nil and T.find(Map1, Cfg, "nope") == nil)
 	end,
+	["admin speeds: positive steps including x1, a flying speed and fly keys"] = function()
+		local A = Cfg.Admin
+		assert(table.find(A.SpeedSteps, 1), "x1 (normal speed) must be a step")
+		for i, m in A.SpeedSteps do
+			assert(m > 0, `speed step {m} must be positive`)
+			assert(i == 1 or m > A.SpeedSteps[i - 1], "speed steps must increase")
+		end
+		assert(A.FlySpeed > 0 and #A.FlyUpKeys > 0 and #A.FlyDownKeys > 0, "flying needs a speed and keys")
+		assert(A.Attribute ~= Cfg.Attribute and A.FlyAttribute ~= Cfg.Attribute, "attribute names must differ")
+	end,
 }

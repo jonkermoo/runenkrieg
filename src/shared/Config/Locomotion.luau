@@ -38,6 +38,8 @@ local Locomotion = {
 		-- right knee down at idle; the walk alternates like a real walk
 		crouchIdle = { id = 139770444602307 },
 		crouchWalk = { id = 140224669320052, speed = 6, keyed = 1.0, cycle = 1.4 }, -- long, slow strides (user)
+		-- in the air with the staff aimed (user 2026-10-13): legs loose, drifting (tools/animation/staff.luau)
+		float = { id = 127154488107008 },
 	},
 
 	IdleBelow = 0.75, -- horizontal speed (studs/s) under which the soldier stands still
@@ -47,7 +49,8 @@ local Locomotion = {
 
 	Fade = 0.15, -- crossfade between ground cycles (seconds)
 	HoldFade = 0.12, -- crossfade between weapon holds (ready / carry / aim) and the tool hold
-	-- No jump / fall / land animations (user 2026-10-11): in the air the current idle / walk / sprint keeps playing.
+	-- No jump / fall / land animations (user 2026-10-11): in the air the current idle / walk / sprint keeps playing,
+	-- except floating with the staff aimed ("Floating", src/client/StaffAttack): the float cycle.
 
 	-- Look tilt (user 2026-10-11): the torso follows the camera's pitch a little, leaning back when you look up and
 	-- forward when you look down. Only the torso (with head and arms on it) tilts, about the waist; the legs stay

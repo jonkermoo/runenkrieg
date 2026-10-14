@@ -6,6 +6,7 @@ local Props = require("../src/shared/Config/Props")
 local F = require("../src/shared/Config/Foliage")
 local S = require("../src/shared/Config/Settings")
 local G = require("../src/shared/Rules/Grass")
+local U = require("../src/shared/Config/Uniforms")
 
 return {
 	["every registry entry has a valid category, id and existing source file"] = function()
@@ -14,7 +15,12 @@ return {
 			if e.generator then
 				assert(fs.isFile(e.generator), `{name}: missing generator {e.generator}`)
 			end
-			if e.prop then
+			if e.uniform then
+				-- a uniform: its Shirt + Pants come from Config/Uniforms (image ids), nothing uploaded here
+				assert(U.Kits[e.uniform], `{name}: unknown uniform kit {e.uniform}`)
+				assert(e.source == U.Kits[e.uniform].source, `{name}: source differs from the kit's`)
+				assert(fs.isFile(e.source), `{name}: missing source {e.source}`)
+			elseif e.prop then
 				assert(table.find(Props.Kinds, e.prop), `{name}: unknown prop {e.prop}`)
 			elseif e.template then
 				-- procedural: built from a template, nothing uploaded
@@ -26,6 +32,28 @@ return {
 				assert(
 					string.find(e.source, "assets/" .. string.lower(e.category) .. "/", 1, true) == 1,
 					`{name}: source not under assets/{string.lower(e.category)}/`
+				)
+			end
+		end
+	end,
+	["team gear and weapons sit in their team's library folder, as in the repo"] = function()
+		for name, e in A.Entries do
+			local team = e.source and string.match(e.source, "^assets/teams/(%w+)/")
+				or e.source and string.match(e.source, "^assets/weapons/(%w+)/")
+			if team then
+				local want = string.upper(string.sub(team, 1, 1)) .. string.sub(team, 2) .. "/"
+				assert(string.find(e.folder, want, 1, true) == 1, `{name}: folder {e.folder} should start with {want}`)
+			end
+		end
+	end,
+	["every helmet knows its shell and where the shell part sits"] = function()
+		for name, e in A.Entries do
+			if e.fit and e.fit.attachment == "HatAttachment" then
+				assert(type(e.fit.shell) == "string", `{name}: no fit.shell`)
+				assert(e.fit.center and #e.fit.center == 3, `{name}: fit.center needs 3 numbers`)
+				assert(
+					string.find(name, "helmet_" .. e.fit.shell, 1, true) == 1,
+					`{name}: shell {e.fit.shell} isn't its own`
 				)
 			end
 		end

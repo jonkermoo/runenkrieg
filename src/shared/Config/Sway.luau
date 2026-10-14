@@ -35,11 +35,21 @@ local Sway = {
 		sprint = { side = 11, down = 0.5, roll = 1.5 },
 		WalkSpeed = 10, -- speeds the amplitudes are given at (Metrics.Movement); scaled linearly in between
 		SprintSpeed = 16,
-		Fade = 6, -- how fast the stride sway builds when starting to move (per second)
+		Fade = 6, -- how fast the stride sway builds when starting to move (per second; a critically damped spring of the
+		-- same quickness, so it starts gently: following at once jerked the gun on the first frame of a walk, user
+		-- 2026-10-13)
 		Return = 3, -- how fast it settles back when stopping (per second; ~1 s to the centre): slower, so the sights
 		-- drift back to the crosshair instead of snapping (user 2026-10-11)
 		Halt = 3, -- the stride's rhythm slows to a stop as the settling speed falls under this (studs/s)
 		Settle = 4, -- how fast the stride works off its offset from the feet after a footstep (per second)
+		-- that catch-up never speeds or slows the stride by more than this share of its rhythm, and comes in eased
+		-- (NudgeEase, per second): applied at once it changed the sway's speed in one frame, a twitch at the first
+		-- step after standing still and a small one at every step (user 2026-10-13)
+		NudgeMax = 0.3,
+		NudgeEase = 6,
+		-- the stride's speed follows the cycle's at this rate (per second) instead of at once: walking backwards plays the
+		-- cycle in reverse, and the sway reversed in one frame (user 2026-10-13)
+		RateEase = 8,
 	},
 
 	-- Breath: always on, a slow loop. First person 3 s (user 2026-10-11: visible but minimal enough not to bother
@@ -72,7 +82,18 @@ local Sway = {
 		walk = { pitch = 0.1, roll = 0.04 },
 		sprint = { pitch = 0.08, roll = 0.03 },
 		aim = { pitch = 0.13, roll = 0.02 },
-		View = { First = 1, Aim = 1, Shoulder = 0.25 },
+		View = { First = 1, Aim = 1 },
+	},
+
+	-- Charging a staff spell (src/client/StaffAttack, Sway.shake; user 2026-10-13: "the crazier the camera swaying
+	-- gets", at its peak once stage 3 is ready): a smooth wandering shake of the view and the staff, its size growing
+	-- with the charge as level^grow (degrees at full charge), wandering `rate` times a second. It moves the aim too.
+	Charge = {
+		camera = { pitch = 1.4, yaw = 1.6, roll = 2.2 },
+		viewmodel = { pitch = 2.5, yaw = 2.5, roll = 3 },
+		rate = 0.9,
+		grow = 1.6,
+		ease = 6, -- how fast the shake follows the charge level (per second)
 	},
 }
 

@@ -7,7 +7,9 @@
 -- a phase reset at each marker jerked the gun whenever the pace changed, e.g. into and out of a sprint), breath, look lag (the gun trails the view), strafe (the gun cants toward the side it
 -- moves), jump (a kick at takeoff, the gun trailing the vertical speed in the air) and landing (a dip). Scaled by Master, the held item's class weight and, while aiming, the Aim shares.
 -- Sway.viewmodel() is a small turn of the viewmodel about Config/Sway.Pivot (camera space); Sway.camera(view) a small
--- turn of the camera itself. Later sources (recoil, explosions, damage) add here.
+-- turn of the camera itself. Recoil (Sway.kick, src/client/Firing; Config/Firing.Recoil) kicks the gun up, aside and
+-- back and the view up, on springs. Charging a staff spell (Sway.shake, Config/Sway.Charge) shakes the view and the
+-- staff more and more. Later sources (explosions, damage) add here.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +17,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Sway)
+local Fire = require(Shared.Config.Firing)
 local Loco = require(Shared.Config.Locomotion)
 local W = require(Shared.Config.Weapons)
 local Held = require(script.Parent.Held)
@@ -30,16 +33,22 @@ local CROUCH = "rbxassetid://" .. Loco.Animations.crouchWalk.id
 local TAU = 2 * math.pi
 
 local viewmodel = CFrame.identity
-local camera = { pitch = 0, roll = 0 }
+local camera = { pitch = 0, yaw = 0, roll = 0 }
+local shakeWant, shakeLevel = 0, 0
 
 function Sway.viewmodel(): CFrame
 	return viewmodel
 end
 
--- the camera's own turn for a view ("First", "Aim", "Shoulder")
+-- the camera's own turn for a view ("First", "Aim")
 function Sway.camera(view: string?): CFrame
 	local share = view and Cfg.Camera.View[view] or 0
-	return CFrame.Angles(math.rad(camera.pitch * share), 0, math.rad(camera.roll * share))
+	return CFrame.Angles(math.rad(camera.pitch * share), math.rad(camera.yaw * share), math.rad(camera.roll * share))
+end
+
+-- The charge shake's level, 0..1 (src/client/StaffAttack sets it every frame while charging; 0 when not).
+function Sway.shake(level: number)
+	shakeWant = math.clamp(level, 0, 1)
 end
 
 type Spring = { x: number, v: number }
@@ -62,15 +71,27 @@ local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
 end
 
+-- recoil: an impulse on each spring (peaks near the Config amplitude), worked off by the render step
+local recoil = { pitch = spring(), yaw = spring(), back = spring(), camera = spring() }
+function Sway.kick(scale: number?)
+	local R = Fire.Recoil
+	local k = math.sqrt(R.stiffness) * (scale or 1)
+	recoil.pitch.v += R.pitch * k
+	recoil.yaw.v += (math.random() * 2 - 1) * R.yaw * k
+	recoil.back.v += R.back * k
+	recoil.camera.v += R.camera * k
+end
+
 function Sway.start()
 	local player = Players.LocalPlayer
 	-- the stride: phase 0 = left foot down, 0.5 = right foot down; it advances at the playing cycle's rate (one
 	-- cycle = one stride) and a marker leaves a correction that is worked off gradually
-	local phase, rate, correction = 0, 1, 0
+	local phase, rate, correction, nudge = 0, 1, 0, 0
 	local cycles: { AnimationTrack } = {}
 	-- the speed the step sway follows: a Roblox character stops dead, so the sway eases out instead of following the
 	-- speed (following it snapped the sights back to the centre the moment you stopped, user 2026-10-11)
 	local pace = 0
+	local paceS = spring()
 	local breathT = 0
 	local lastYaw: number?, lastPitch: number? = nil, nil
 	local lagYaw, lagPitch, lagRoll = spring(), spring(), spring()
@@ -127,7 +148,8 @@ function Sway.start()
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local cam = workspace.CurrentCamera
 		if not character or not humanoid or not root or humanoid.Health <= 0 then
-			viewmodel, camera.pitch, camera.roll = CFrame.identity, 0, 0
+			viewmodel, camera.pitch, camera.yaw, camera.roll = CFrame.identity, 0, 0, 0
+			shakeLevel = 0
 			return
 		end
 		local weapon = Held.weapon(character)
@@ -146,7 +168,11 @@ function Sway.start()
 		local grounded = humanoid.FloorMaterial ~= Enum.Material.Air
 		local S = Cfg.Stride
 		local want = if grounded and speed > 0.75 then speed else 0
-		pace += (want - pace) * (1 - math.exp(-(if want > pace then S.Fade else S.Return) * dt))
+		-- a critically damped spring toward the speed: its rise starts at zero slope, so the sway eases in (a plain
+		-- exponential follow jumped to full rise speed on the first frame); 2.15 / omega is its 63% time, as 1 / rate is
+		local omega = 2.15 * (if want > paceS.x then S.Fade else S.Return)
+		pull(paceS, want, omega * omega, 2 * omega, dt)
+		pace = math.max(paceS.x, 0)
 		-- the pace of the cycle playing most (walk, sprint or crouch walk)
 		local best: AnimationTrack? = nil
 		for _, t in cycles do
@@ -155,9 +181,16 @@ function Sway.start()
 			end
 		end
 		if best then
-			rate = best.Speed / best.Length
+			rate += (best.Speed / best.Length - rate) * (1 - math.exp(-S.RateEase * dt))
 		end
-		local fix = correction * math.min(1, S.Settle * dt)
+		-- the catch-up runs as an extra rate, eased in and capped, so the stride's speed never jumps
+		local cap = S.NudgeMax * math.abs(rate)
+		local aim = math.clamp(correction * S.Settle, -cap, cap)
+		nudge += (aim - nudge) * (1 - math.exp(-S.NudgeEase * dt))
+		local fix = nudge * dt
+		if fix * correction > 0 and math.abs(fix) > math.abs(correction) then
+			fix = correction -- never past the feet
+		end
 		correction -= fix
 		-- stopping, the stride slows to a halt as the sway settles: a little follow-through, no swing in place
 		local going = math.clamp(pace / S.Halt, 0, 1)
@@ -204,16 +237,36 @@ function Sway.start()
 		pull(landing, 0, Ld.stiffness, Ld.damping, dt)
 		lastVy = vel.Y
 
+		local R = Fire.Recoil
+		for _, sp in recoil do
+			pull(sp, 0, R.stiffness, R.damping, dt)
+		end
+
+		-- the charge shake: smooth noise per axis, its size following the charge level
+		local Ch = Cfg.Charge
+		shakeLevel += (shakeWant - shakeLevel) * (1 - math.exp(-Ch.ease * dt))
+		local amp = shakeLevel ^ Ch.grow * m
+		local nt = breathT * Ch.rate
+		local function wander(seed: number): number
+			return math.noise(nt, seed) * 2 -- math.noise stays within about +-0.5
+		end
+		local sx, sy, sz = wander(1.7) * amp, wander(5.3) * amp, wander(9.1) * amp
+
 		local w = weight * m
 		local turnPitch = (down * share("down") + bPitch * share("breath")) * w
 			+ lagPitch.x * share("lag") * w
 			+ landing.x * share("landing") * m
 			+ jump.x * share("jump") * m
-		local turnYaw = (side * share("side") + bYaw * share("breath") + lagYaw.x * share("lag")) * w
+		turnPitch += recoil.pitch.x
+		local turnYaw = (side * share("side") + bYaw * share("breath") + lagYaw.x * share("lag")) * w + recoil.yaw.x
 		local turnRoll = (sroll * share("roll") + lagRoll.x * share("lag")) * w + strafeRoll.x * share("strafe") * m
 		local lift = landing.x * Ld.drop * share("landing") + jump.x * J.drop * share("jump")
-		local shift = Vector3.new(strafeShift.x * share("strafe"), lift, 0) * m
+		local shift = Vector3.new(strafeShift.x * share("strafe"), lift, 0) * m + Vector3.new(0, 0, recoil.back.x)
 		local pivot = Vector3.new(table.unpack(Cfg.Pivot))
+		local V = Ch.viewmodel
+		turnPitch += sx * V.pitch
+		turnYaw += sy * V.yaw
+		turnRoll += sz * V.roll
 		viewmodel = CFrame.new(pivot + shift)
 			* CFrame.Angles(math.rad(turnPitch), math.rad(turnYaw), math.rad(turnRoll))
 			* CFrame.new(-pivot)
@@ -223,8 +276,10 @@ function Sway.start()
 		local cw = if aiming
 			then C.aim
 			else { pitch = lerp(C.walk.pitch, C.sprint.pitch, g), roll = lerp(C.walk.roll, C.sprint.roll, g) }
-		camera.pitch = -cw.pitch * math.cos(2 * TAU * phase) * size * m
-		camera.roll = cw.roll * math.sin(TAU * phase) * size * m
+		local CC = Ch.camera
+		camera.pitch = -cw.pitch * math.cos(2 * TAU * phase) * size * m + recoil.camera.x + sx * CC.pitch
+		camera.yaw = sy * CC.yaw
+		camera.roll = cw.roll * math.sin(TAU * phase) * size * m + sz * CC.roll
 	end)
 end
 

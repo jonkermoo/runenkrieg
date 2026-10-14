@@ -42,5 +42,7 @@ require(script.Bodies).start()
 require(script.Armory).start()
 require(script.Doors).start()
 require(script.DevTools).start()
+require(script.Firing).start()
+require(script.Showcase).start()
 
 print("[runenkrieg] server started")

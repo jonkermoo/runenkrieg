@@ -9,6 +9,22 @@ local Remotes: { string } = {
 	"DevTeleport", -- client -> server: (destinationId: string); server checks the DevTools attribute
 	"DevGiveWeapon", -- client -> server: (weapon: string) make it the player's loadout pick; DevTools attribute checked
 	"SectionBroken", -- server -> clients: (pieces: {{cf, size, color, t}}, origin: Vector3) debris to spawn
+	-- Shooting (src/server/Firing, src/client/Firing; Rules/Firing decides on both sides):
+	"Fire", -- client -> server: (origin: Vector3, direction: Vector3) a shot from the held weapon
+	"WorkBolt", -- client -> server: () work the bolt after a shot
+	"Reload", -- client -> server: () load a clip (or single rounds, a stripper-clip rifle with rounds left)
+	"StopLoad", -- client -> server: () stop loading single rounds (after the round in the hand)
+	-- server -> clients: (shooter: Model, weapon: string, origin: Vector3, hit: Vector3, normal: Vector3?, part: BasePart?)
+	-- an accepted shot, for everyone's effects (the shooter has already shown its own)
+	"Shot",
+	-- (action "Load": single rounds, from = seconds into it, to = rounds going in or nil = until full; "LoadStop": to =
+	-- the rounds going in now)
+	-- server -> clients: (shooter: Model, action: "Bolt" | "Reload" | "Load" | "LoadStop", out: string?, from, to,
+	-- delay: number?) the action's parts moving and sounds, for everyone else; out = what the bolt throws from the
+	-- chamber ("Casing"); from / to = the share of the action's timeline to play (a bolt held open stops at its back
+	-- point, a reload from an open bolt starts there, a resumed action plays its rest); delay = wait this long first
+	-- (a rifle drawn again plays out its interrupted action after the draw)
+	"WeaponAction",
 }
 local Functions: { string } = {}
 
