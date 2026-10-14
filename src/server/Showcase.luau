@@ -7,12 +7,15 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Showcase)
 local Loco = require(Shared.Config.Locomotion)
 local U = require(Shared.Config.Uniforms)
 local W = require(Shared.Config.Weapons)
+local Spells = require(Shared.Config.Spells)
+local SpellRules = require(Shared.Rules.Spells)
 local Net = require(Shared.Net)
 local Armory = require(script.Parent.Armory)
 local Bodies = require(script.Parent.Bodies)
@@ -104,9 +107,11 @@ local function arm(m: Model, weapon: string): Tool
 	local hold = tool:FindFirstChild("Hold", true) :: Motor6D
 	hold.Part0 = m:FindFirstChild("Torso") :: BasePart
 	local w = W[weapon]
-	tool:SetAttribute("Magazine", w.ammo.capacity)
-	tool:SetAttribute("Chambered", true)
-	tool:SetAttribute("Spent", false)
+	if w.ammo then
+		tool:SetAttribute("Magazine", w.ammo.capacity)
+		tool:SetAttribute("Chambered", true)
+		tool:SetAttribute("Spent", false)
+	end
 	tool.Parent = m
 	return tool
 end
@@ -187,8 +192,14 @@ function Showcase.start()
 			end
 		end
 		for _, a in Cfg.Actions do
-			if a.action ~= "Load" or w.single then -- single rounds: only a rifle that loads them
+			-- guns only; single rounds: only a rifle that loads them
+			if w.ammo and (a.action ~= "Load" or w.single) then
 				table.insert(items, { kind = "action", weapon = weapon, spec = a })
+			end
+		end
+		if w.class == "Staff" then
+			for _, c in Cfg.Casts do
+				table.insert(items, { kind = "cast", weapon = weapon, spec = c })
 			end
 		end
 		table.insert(rows, { title = w.display, items = items })
@@ -219,9 +230,11 @@ function Showcase.start()
 		sign.Parent = folder
 		label(sign, row.title, 2, 22, 90)
 		for i, item in row.items do
-			local pos = Vector3.new(O.X + (i - 1) * Cfg.Spacing, O.Y + STAND, z)
+			local air = item.kind == "cast" and item.spec.air == true -- a floating caster hovers off the floor
+			local pos = Vector3.new(O.X + (i - 1) * Cfg.Spacing, O.Y + STAND + (if air then Cfg.AirLift else 0), z)
 			-- facing the viewer (+z); action dummies side-on, right side to the viewer, firing along +x
-			local look = if item.kind == "action" then pos + Vector3.new(1, 0, 0) else pos + Vector3.new(0, 0, 1)
+			local side = item.kind == "action" or item.kind == "cast"
+			local look = if side then pos + Vector3.new(1, 0, 0) else pos + Vector3.new(0, 0, 1)
 			local m = dummy(`{row.title} {i}`, CFrame.lookAt(pos, look))
 			local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 			if item.kind == "move" then
@@ -249,6 +262,84 @@ function Showcase.start()
 					t:AdjustSpeed(b.Speed) -- in step with the cycle it rides on
 					label(root, if h.base == "idle" then h.hold else `{h.hold} + {h.base}`, 4, 16, Cfg.LabelRange)
 				end
+			elseif item.kind == "cast" then
+				-- the staff's attack: published as attributes the clients draw the spell from (src/client/CastShow):
+				-- CastHeld while a circle is held (counting up while charging), CastCharging while charging (the laser),
+				-- CastStage + a new CastFire on the shot (CastHip: from the hip)
+				local c = item.spec
+				local w = W[item.weapon]
+				local fire = w.fire :: any
+				arm(m, item.weapon)
+				base(m, if c.air then "float" else "idle")
+				local ready = track(m, w.holds.ready, Enum.AnimationPriority.Action, true)
+				local one = track(m, w.holds.aim :: number, Enum.AnimationPriority.Action, true)
+				local two = track(m, w.holds.aimTwo :: number, Enum.AnimationPriority.Action, true)
+				-- floating: the charge leaning back
+				local chargeId = if c.air then w.holds.airCharge else w.holds.charge
+				local charge = track(m, chargeId :: number, Enum.AnimationPriority.Action2, false)
+				local kicks = {}
+				for _, k in { "quick", "quickAim", "medium", "mediumTwo" } do
+					kicks[k] = track(m, fire[k], Enum.AnimationPriority.Action3, false)
+				end
+				m:SetAttribute("CastShow", true)
+				m:SetAttribute("CastHip", c.hip == true)
+				label(
+					root,
+					if c.hip
+						then "staff: quick fire (hip)"
+						elseif c.air then `staff: floating, stage {c.stage}`
+						else `staff: aimed, stage {c.stage}`,
+					4,
+					16,
+					Cfg.LabelRange
+				)
+				task.spawn(function()
+					task.wait(i * 0.4)
+					local fired = 0
+					local function cast(kick: string)
+						fired += 1
+						m:SetAttribute("CastHeld", nil)
+						m:SetAttribute("CastCharging", nil)
+						m:SetAttribute("CastStage", c.stage)
+						m:SetAttribute("CastFire", fired)
+						kicks[kick]:Play(0.05)
+					end
+					if c.hip then
+						ready:Play(0)
+						while m.Parent do
+							task.wait(c.rest)
+							cast("quick")
+						end
+						return
+					end
+					while m.Parent do
+						one:Play(0.2)
+						two:Stop(0.2)
+						-- aiming: the first circle opens and is held
+						m:SetAttribute("CastHeld", 0)
+						task.wait(c.ready)
+						-- the click, held: charging
+						m:SetAttribute("CastCharging", true)
+						charge:Play(0.1)
+						charge:AdjustSpeed(0)
+						local t0, held, both = os.clock(), 0, false
+						while held < c.held and m.Parent do
+							held = os.clock() - t0
+							local ct = SpellRules.chargeTime(Spells.Stages, Spells.Staff.ChargeLoop, held)
+							charge.TimePosition = math.min(ct, math.max(charge.Length - 0.01, 0))
+							m:SetAttribute("CastHeld", held)
+							if not both and held >= Spells.Staff.TwoHands then
+								both = true
+								two:Play(0.2)
+								one:Stop(0.2)
+							end
+							RunService.Heartbeat:Wait()
+						end
+						charge:Stop(0.1)
+						cast(if c.stage == 1 then "quickAim" elseif both then "mediumTwo" else "medium")
+						task.wait(c.rest)
+					end
+				end)
 			else
 				local a = item.spec
 				local w = W[item.weapon]

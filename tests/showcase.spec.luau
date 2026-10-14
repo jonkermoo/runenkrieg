@@ -27,7 +27,7 @@ return {
 					assert((w.holds :: any)[h.over], `{name}: {h.hold} replays over a missing hold {h.over}`)
 				end
 			end
-			for _, a in Cfg.Actions do
+			for _, a in if w.ammo then Cfg.Actions else {} do -- the actions are a gun's
 				assert((w.holds :: any)[a.over], `{name}: {a.action} plays over a missing hold {a.over}`)
 			end
 		end

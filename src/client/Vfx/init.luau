@@ -9,6 +9,8 @@
 --   Shockwave.play(center, normal), Star.play(pos), Spikes.play(pos)            rings and flashes
 --   Lightning.bolt(from, to, t?), Aura.play(partOrPoint, t)                     lightning
 --   Zoltraak.play(tipCFrame, ignore?, scheme?)                                   the full spell
+--   Pointer.new() -> { set(from, to), hide, free }                               the aiming laser
+--   Orbits.new(count, diameter) -> { move(cf), veil(v), stop(linger?) }          curves orbiting a circle
 --   Util.cast(from, dir, range, ignore?) -> (point, normal, color?)              where a spell lands
 -- Building blocks: Arc (a lightning zigzag), Ring (a ring of curved beams), Pool, Driver.
 -- Colors are Config/Palette.Magic names; schemes are Config/Vfx.Schemes.
@@ -29,4 +31,6 @@ return {
 	Lightning = require(script.Lightning),
 	Aura = require(script.Aura),
 	Zoltraak = require(script.Zoltraak),
+	Pointer = require(script.Pointer),
+	Orbits = require(script.Orbits),
 }

@@ -24,14 +24,22 @@ return {
 			for _, part in w.hidden do
 				assert(w.parts[part], `{name}: hidden part {part} unknown`)
 			end
-			for _, att in { "Muzzle", "Aim", "Eject" } do
-				assert(w.attachments[att], `{name}: missing attachment {att}`)
+			-- every item has a Muzzle (where shots or spells leave, and the line the first-person hip turn aims); guns also
+			-- their sights and ejection port
+			assert(w.attachments.Muzzle, `{name}: missing attachment Muzzle`)
+			if w.ammo then
+				for _, att in { "Aim", "Eject" } do
+					assert(w.attachments[att], `{name}: missing attachment {att}`)
+				end
 			end
 		end
 	end,
 	["line of sight is parallel to the line of fire (the aiming contract)"] = function()
 		for name, w in W do
 			local aim, muzzle = w.attachments.Aim, w.attachments.Muzzle
+			if not aim then
+				continue -- no sights (the staff)
+			end
 			assert(aim[1] == 0 and muzzle[1] == 0, `{name}: Aim and Muzzle must be centred (x = 0)`)
 			local height = (aim[2] - muzzle[2]) * w.scale[2]
 			-- up to 0.2: the SMLE's sights sit high (0.186 in game, user 2026-10-12: the blade must stand out of the cap)
@@ -75,21 +83,49 @@ return {
 		end
 	end,
 	["every weapon has its hold animations, in third and first person"] = function()
+		-- guns have the full set; any item at least ready and equip (a missing hold plays the ready)
+		local ALL = { "ready", "walk", "carry", "aim", "equip", "crouchReady", "crouchWalk", "crouchAim" }
+		local ALL_FIRST = { "ready", "carry", "aim", "equip", "aimIn" }
+		local OPTIONAL = { "aimTwo", "charge", "airCharge" } -- the staff's
 		for name, w in W do
-			for _, hold in { "ready", "walk", "carry", "aim", "equip", "crouchReady", "crouchWalk", "crouchAim" } do
-				local id = w.holds[hold] :: number
+			for _, hold in if w.ammo then ALL else { "ready", "equip" } do
+				local id = (w.holds :: any)[hold]
 				assert(type(id) == "number" and id > 0, `{name}: no {hold} hold animation`)
 			end
-			for _, hold in { "ready", "carry", "aim", "equip", "aimIn" } do
+			for hold, id in w.holds do
+				local known = table.find(ALL, hold) or table.find(OPTIONAL, hold)
+				assert(known and type(id) == "number" and id > 0, `{name}: bad {hold} hold`)
+			end
+			for _, hold in if w.ammo then ALL_FIRST else { "ready", "equip" } do
 				local first = (w.firstPerson :: any)[hold]
 				assert(type(first) == "number" and first > 0, `{name}: no first-person {hold} hold animation`)
+			end
+			for hold, first in w.firstPerson do
+				local known = table.find(ALL_FIRST, hold) or table.find(OPTIONAL, hold)
+				assert(known and first > 0, `{name}: bad first-person {hold} hold`)
 				assert((w.holds :: any)[hold] ~= first, `{name}: first and third person share the {hold} animation`)
+			end
+			-- aiming needs both aim holds; a gun also its sights and the shouldered eye
+			if w.holds.aim then
+				assert(w.firstPerson.aim, `{name}: no first-person aim`)
+				assert(not w.ammo or (w.attachments.Aim and w.shouldered), `{name}: aims without sights`)
+			end
+		end
+	end,
+	["guns have their whole action; other items none of it"] = function()
+		for name, w in W do
+			local parts = { w.action, w.reload, w.bolt, w.shouldered }
+			for i = 1, 4 do
+				assert((parts[i] ~= nil) == (w.ammo ~= nil), `{name}: gun fields must come with ammo, and only with it`)
 			end
 		end
 	end,
 	["the aimed muzzle sits at the AimMuzzleHeight metric"] = function()
 		local torsoCentre = M.Character.LegLength + 1 -- R6: legs, then half the 2-stud torso
 		for name, w in W do
+			if not w.shouldered then
+				continue
+			end
 			local eye = torsoCentre + w.shouldered[2]
 			local muzzle = eye - (w.attachments.Aim[2] - w.attachments.Muzzle[2]) * w.scale[2]
 			assert(math.abs(eye - M.Character.EyeHeight) < 0.1, `{name}: aimed eye at {eye}, not at eye height`)

@@ -250,7 +250,15 @@ function Firing.start()
 		local character = player.Character
 		local weapon = character and Held.weapon(character)
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if not character or not weapon or not humanoid or humanoid.Health <= 0 or not W[weapon.name] then
+		-- only guns fire (an item without ammo, the staff, gets its own attack later)
+		if
+			not character
+			or not weapon
+			or not humanoid
+			or humanoid.Health <= 0
+			or not W[weapon.name]
+			or not W[weapon.name].ammo
+		then
 			return nil, nil, nil
 		end
 		return character, weapon, localState(weapon.tool, weapon.name)
@@ -258,7 +266,13 @@ function Firing.start()
 
 	local function fire()
 		local character, weapon, l = held()
-		if not character or not weapon or not l or character:GetAttribute("Sprinting") == true then
+		if
+			not character
+			or not weapon
+			or not l
+			or character:GetAttribute("Sprinting") == true
+			or character:GetAttribute("Ragdolled") == true
+		then
 			return
 		end
 		local now = os.clock()

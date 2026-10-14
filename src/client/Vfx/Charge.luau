@@ -11,7 +11,8 @@ local Driver = require(script.Parent.Driver)
 
 local Charge = {}
 
-export type Handle = { release: () -> (), move: (pos: Vector3) -> () }
+-- veil(v): see-through by v (0 = solid; the caster's own charge in first person, Config/Spells.Staff.Veil)
+export type Handle = { release: () -> (), move: (pos: Vector3) -> (), veil: (v: number) -> () }
 
 function Charge.start(pos: Vector3, duration: number?, colorName: string?): Handle
 	local t = duration or Cfg.Duration
@@ -44,6 +45,10 @@ function Charge.start(pos: Vector3, duration: number?, colorName: string?): Hand
 
 	local now0 = os.clock()
 	local releasedAt: number? = nil
+	local veil = 0
+	local function seen(x: number): number -- a transparency through the veil
+		return 1 - (1 - x) * (1 - veil)
+	end
 	Driver.add(function(now: number): boolean
 		local rel = releasedAt
 		if rel then
@@ -58,9 +63,9 @@ function Charge.start(pos: Vector3, duration: number?, colorName: string?): Hand
 			end
 			local pop = math.min(a, 1)
 			orb.Size = Vector3.one * Cfg.Orb * (1 + 1.2 * pop)
-			orb.Transparency = pop
+			orb.Transparency = seen(pop)
 			shell.Size = Vector3.one * Cfg.Shell * (1 + 0.8 * pop)
-			shell.Transparency = Cfg.ShellTransparency + (1 - Cfg.ShellTransparency) * pop
+			shell.Transparency = seen(Cfg.ShellTransparency + (1 - Cfg.ShellTransparency) * pop)
 			if light then
 				light.Brightness = Cfg.Light.brightness * (1 - a / 2)
 			end
@@ -70,8 +75,10 @@ function Charge.start(pos: Vector3, duration: number?, colorName: string?): Hand
 		local swell = a * a
 		orb.Size = Vector3.one * math.max(Cfg.Orb * swell, 0.05)
 		shell.Size = Vector3.one * math.max(Cfg.Shell * swell, 0.05)
+		orb.Transparency = seen(0)
+		shell.Transparency = seen(Cfg.ShellTransparency)
 		if light then
-			light.Brightness = Cfg.Light.brightness * swell
+			light.Brightness = Cfg.Light.brightness * swell * (1 - veil)
 		end
 		return true
 	end)
@@ -97,7 +104,15 @@ function Charge.start(pos: Vector3, duration: number?, colorName: string?): Hand
 			(light.Parent :: Attachment).Position = to
 		end
 	end
-	return { release = release, move = move }
+	return {
+		release = release,
+		move = move,
+		veil = function(v: number)
+			veil = v
+			e.Transparency = NumberSequence.new(seen(0.4), seen(0))
+			e.Brightness = 5 * (1 - v)
+		end,
+	}
 end
 
 -- Charges for `duration`, then releases.

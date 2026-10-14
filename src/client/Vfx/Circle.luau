@@ -24,7 +24,14 @@ for name in Runes do
 end
 table.sort(RUNE_NAMES)
 
-export type Handle = { part: Part, close: () -> (), move: (cf: CFrame) -> (), ready: () -> () }
+-- veil(v): see-through by v (0 = solid; the caster's own circles in first person, Config/Spells.Staff.Veil)
+export type Handle = {
+	part: Part,
+	close: () -> (),
+	move: (cf: CFrame) -> (),
+	ready: () -> (),
+	veil: (v: number) -> (),
+}
 
 -- One drawn piece: it fades on its own when the circle disintegrates (`at`: its turn, 0..1 of the dissolve).
 type Piece = { frame: Frame, stroke: UIStroke?, base: number, at: number }
@@ -168,12 +175,15 @@ local function build(d: number, color: Color3): Built
 	}
 end
 
--- Sets each piece's fade for dissolve progress `d` (0 = whole, 1 = all gone).
-local function dissolve(pieces: { Piece }, d: number)
+-- Sets each piece's fade for dissolve progress `d` (0 = whole, 1 = all gone), seen through `veil` (the caster's own
+-- circle in first person). Per piece: a CanvasGroup's GroupTransparency in a SurfaceGui was ignored in play (the
+-- veiled circles drew solid, KNOWN_TRAPS).
+local function dissolve(pieces: { Piece }, d: number, veil: number?)
 	local soft = Cfg.Close.soft
+	local v = veil or 0
 	for _, p in pieces do
 		local f = math.clamp((d - p.at) / soft, 0, 1)
-		local tr = p.base + (1 - p.base) * f
+		local tr = 1 - (1 - (p.base + (1 - p.base) * f)) * (1 - v)
 		local s = p.stroke
 		if s then
 			s.Transparency = tr
@@ -232,6 +242,8 @@ function Circle.open(cf: CFrame, diameter: number?, colorName: string?, appear: 
 
 	local now0 = os.clock()
 	local closedAt: number? = nil
+	local veil = 0
+	local drawnVeil = 0 -- the veil the pieces were last drawn with
 	local function done()
 		part.CFrame = FAR
 		if light then
@@ -269,7 +281,8 @@ function Circle.open(cf: CFrame, diameter: number?, colorName: string?, appear: 
 			transparency = math.clamp((a - C.fadeFrom) / (1 - C.fadeFrom), 0, 1)
 			-- crumbling from the rim in: pieces fade by turn, flecks break off the crumbling edge
 			local dis = math.max(math.min(a / C.dissolve, 1), 1 - assembled)
-			dissolve(built.pieces, dis)
+			dissolve(built.pieces, dis, veil)
+			drawnVeil = veil
 			local want = math.floor(C.flecks * dis)
 			if want > shedCount then
 				local edge = math.max(0.5 * (1 - dis), 0.05) * d * math.max(scale, 0.1)
@@ -284,7 +297,8 @@ function Circle.open(cf: CFrame, diameter: number?, colorName: string?, appear: 
 			assembled = a
 			scale = A.from + (1 - A.from) * (1 - (1 - a) ^ 2)
 			transparency = 0
-			dissolve(built.pieces, 1 - a) -- the reverse of crumbling: the centre first, the rim last
+			dissolve(built.pieces, 1 - a, veil) -- the reverse of crumbling: the centre first, the rim last
+			drawnVeil = veil
 			bright = Cfg.Brightness * (0.6 + 0.4 * a)
 			lit = a
 			-- flecks fly in from round it to its edge
@@ -313,6 +327,10 @@ function Circle.open(cf: CFrame, diameter: number?, colorName: string?, appear: 
 			local x = a - 1
 			scale = 1 + (k + 1) * x * x * x + k * x * x
 			transparency = 1 - math.min(a / 0.6, 1)
+			if veil ~= drawnVeil then
+				dissolve(built.pieces, 0, veil)
+				drawnVeil = veil
+			end
 			local settle = math.clamp((now - now0 - open) / 0.3, 0, 1)
 			bright = Cfg.Brightness * (1 + (Cfg.Flash - 1) * a * (1 - settle))
 			lit = a
@@ -334,10 +352,10 @@ function Circle.open(cf: CFrame, diameter: number?, colorName: string?, appear: 
 			g.GroupTransparency = transparency
 		end
 		for _, gui in built.guis do
-			gui.Brightness = bright
+			gui.Brightness = bright * (1 - 0.5 * veil) -- see-through also glows less (the bloom read as solid)
 		end
 		if light then
-			light.Brightness = Cfg.Light.brightness * lit
+			light.Brightness = Cfg.Light.brightness * lit * (1 - veil)
 		end
 		return true
 	end)
@@ -362,7 +380,15 @@ function Circle.open(cf: CFrame, diameter: number?, colorName: string?, appear: 
 			readyAt = os.clock()
 		end
 	end
-	return { part = part, close = close, move = move, ready = ready }
+	return {
+		part = part,
+		close = close,
+		move = move,
+		ready = ready,
+		veil = function(v: number)
+			veil = v
+		end,
+	}
 end
 
 -- Opens a circle, holds it `hold` seconds, closes it.

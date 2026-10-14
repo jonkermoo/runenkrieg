@@ -275,7 +275,7 @@ local Vfx = {
 			-- still one hitscan shot (user 2026-10-13: "dont hold it out for so long"): a short hold, then the crumble
 			Extend = 0.08,
 			Hold = 0.25,
-			Fade = 1.8,
+			Fade = 2.4, -- dies out a little longer (user 2026-10-13; was 1.8)
 			-- dying out (user 2026-10-13): while it crumbles it sputters (random bright flashes, wilder flicker)
 			-- and little star glints pop on the pieces still there
 			Dying = { sputter = 10, flashBright = 2, flashTime = 0.08, flicker = 0.35, glints = 4, glintLength = 4 },
@@ -377,12 +377,15 @@ local Vfx = {
 	Cast = {
 		-- per stage: its circle (diameter, studs ahead of the tip, how fast it opens) and its beam profile
 		Stages = {
-			-- both a little smaller (user 2026-10-13, twice)
-			{ diameter = 3.8, ahead = 1.2, appear = 0.1, beam = "Quick" }, -- a tap
-			{ diameter = 5.8, ahead = 2.6, appear = 0.15, beam = "Medium" }, -- a slight charge
+			-- both a little smaller (user 2026-10-13, twice); all three a little farther out and a little farther apart
+			-- (user 2026-10-13: in first person they read as a jumble; were 1.2 / 2.6 / 5)
+			-- orbits: how many orbiting curves round the circle (Orbits below); linger: they keep going this long after
+			-- the shot before thinning out (the big blast longest, user 2026-10-13)
+			{ diameter = 3.8, ahead = 1.6, appear = 0.1, beam = "Quick", orbits = 2, linger = 0.15 }, -- a tap
+			{ diameter = 5.8, ahead = 3.4, appear = 0.15, beam = "Medium", orbits = 3, linger = 0.3 }, -- a slight charge
 			-- the full charge (user 2026-10-13: "super exaggerated, a lot larger, a super strong zoltraak"): it starts
 			-- assembling `lead` seconds before its hold time (right after stage 2), so it builds slowly
-			{ diameter = 11, ahead = 5, lead = 2, assemble = true, beam = "Full" },
+			{ diameter = 11, ahead = 6.4, lead = 2, assemble = true, beam = "Full", orbits = 4, linger = 1 },
 		},
 		-- while the last circle assembles: a charge gathers in the first circle and lightning crackles between the first
 		-- and last circles' rims, more of it as the charge builds (redrawn `rate` times a second)
@@ -394,6 +397,56 @@ local Vfx = {
 		Range = 250, -- mid-long range
 		CloseAfter = 0.05, -- the circles start closing this long after the beam starts fading
 		CloseStagger = 0.07, -- each circle closes this much before the one inside it
+	},
+
+	-- Curves orbiting the magic circles (Vfx/Orbits; user 2026-10-13: "additional curves that orbit the circles in
+	-- various locations and speeds ... flashing and staticky too like the laser"). Each: an arc of `segments` dashes
+	-- spanning `span` radians on a ring `radius` times the circle's, its plane tilted `tilt` degrees, set `offset`
+	-- studs along the axis, sweeping at `speed` rad/s (either way). Redrawn `rate` times a second: an orbit shows `on`
+	-- of the time, each dash `dashOn`, widths times a random `flicker`. Widths and offsets are for a `reference`-stud
+	-- circle (scaled with it). `fade`: seconds to thin out once stopped.
+	Orbits = {
+		segments = 9,
+		span = { 0.9, 2.6 },
+		radius = { 1.05, 1.4 },
+		tilt = { 0, 0 }, -- parallel to the circle (user 2026-10-13; tilted up to 55 before)
+		offset = { -0.6, 0.9 },
+		speed = { 0.8, 2.8 },
+		rate = 18,
+		on = 0.88,
+		dashOn = 0.72,
+		flicker = { 0.5, 1.2 },
+		width = 0.05,
+		glow = 0.15,
+		glowTransparency = 0.5,
+		brightness = 3,
+		color = "Glow",
+		core = "Core",
+		reference = 5.8,
+		fade = 0.35,
+	},
+
+	-- The aiming laser (Vfx/Pointer; user 2026-10-13: "a small flashing staticky laser to where you are pointing", and
+	-- reference frames: a straight line of glowing white dashes and gaps, changing all the time, blinking out now and
+	-- then; it goes when the beam fires). From the held cast to the crosshair while aiming the staff. Redrawn `rate`
+	-- times a second: up to `dashes` dashes, each `dash` of the line's length (share, random) after a `gap`; the whole
+	-- line shows `on` of the time. A white core `width` in a `glow` (studs at `1 / perStud` from the camera, in
+	-- proportion to the distance so it stays as thick on screen), each dash's width times a random `flicker`.
+	Pointer = {
+		dashes = 12,
+		dash = { 0.03, 0.14 },
+		gap = { 0.02, 0.1 },
+		on = 0.85,
+		rate = 18,
+		color = "Glow",
+		core = "Core",
+		-- thinner, twice (user 2026-10-13; was 0.035 / 0.12, then 0.022 / 0.07)
+		width = 0.014,
+		glow = 0.045,
+		glowTransparency = 0.5,
+		brightness = 3,
+		perStud = 0.08,
+		flicker = { 0.6, 1.2 },
 	},
 
 	-- The effects showcase (src/client/VfxShowcase), DEV place only: a pad per effect off the map, each playing on a

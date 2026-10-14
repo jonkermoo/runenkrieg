@@ -74,10 +74,10 @@ local function settleLater(tool: Tool, s: F.State)
 	end)
 end
 
--- The weapon's state (a full rifle the first time it's seen).
+-- The weapon's state (a full rifle the first time it's seen); nil for an item that doesn't fire (no ammo: the staff).
 function Firing.entry(tool: Tool): Entry?
 	local name = tool:GetAttribute("Weapon")
-	if type(name) ~= "string" or not W[name] then
+	if type(name) ~= "string" or not W[name] or not W[name].ammo then
 		return nil
 	end
 	local e = states[tool]

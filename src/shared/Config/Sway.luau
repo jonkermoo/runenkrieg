@@ -84,6 +84,17 @@ local Sway = {
 		aim = { pitch = 0.13, roll = 0.02 },
 		View = { First = 1, Aim = 1 },
 	},
+
+	-- Charging a staff spell (src/client/StaffAttack, Sway.shake; user 2026-10-13: "the crazier the camera swaying
+	-- gets", at its peak once stage 3 is ready): a smooth wandering shake of the view and the staff, its size growing
+	-- with the charge as level^grow (degrees at full charge), wandering `rate` times a second. It moves the aim too.
+	Charge = {
+		camera = { pitch = 1.4, yaw = 1.6, roll = 2.2 },
+		viewmodel = { pitch = 2.5, yaw = 2.5, roll = 3 },
+		rate = 0.9,
+		grow = 1.6,
+		ease = 6, -- how fast the shake follows the charge level (per second)
+	},
 }
 
 return table.freeze(Sway)

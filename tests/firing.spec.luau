@@ -191,8 +191,11 @@ return {
 		assert(not F.validShot(5, 3, Cfg.MaxOrigin), "not a unit vector")
 		assert(not F.validShot(0 / 0, 1, Cfg.MaxOrigin), "NaN")
 	end,
-	["every weapon has its ammunition and action"] = function()
+	["every gun has its ammunition and action"] = function()
 		for name, w in W do
+			if not w.ammo and w.class ~= "BoltRifle" then
+				continue -- not a gun (the staff)
+			end
 			local a, act = w.ammo, w.action
 			assert(a and a.capacity >= 1 and (a.clip == "Enbloc" or a.clip == "Stripper"), `{name}: ammo`)
 			assert(act and act.boltTime > 0 and act.reloadTime > act.boltTime, `{name}: action times`)

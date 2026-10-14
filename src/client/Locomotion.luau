@@ -17,6 +17,8 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
 local W = require(Shared.Config.Weapons)
+local Spells = require(Shared.Config.Spells)
+local SpellRules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
 
 local Locomotion = {}
@@ -82,9 +84,11 @@ function Locomotion.attach(character: Model)
 				anim.Name = hold
 				anim.AnimationId = "rbxassetid://" .. id
 				local t = animator:LoadAnimation(anim)
-				-- the equip is a one shot over the hold that will follow it
-				t.Priority = if hold == "equip" then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
-				t.Looped = hold ~= "equip"
+				-- the equip is a one shot over the hold that will follow it; the staff's charge too (its time is set from
+				-- the hold time, below)
+				local once = hold == "equip" or hold == "charge" or hold == "airCharge"
+				t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
+				t.Looped = not once
 				holds[name][hold] = t
 			end
 		end
@@ -92,6 +96,7 @@ function Locomotion.attach(character: Model)
 	end
 	-- the one upper-body track playing over the cycle (a weapon hold or the stock tool hold)
 	local upper: AnimationTrack? = nil
+	local charging: AnimationTrack? = nil -- the staff's charge while it plays
 	local function hold(track: AnimationTrack?)
 		if upper == track then
 			return
@@ -155,6 +160,9 @@ function Locomotion.attach(character: Model)
 			play("climb", Cfg.Fade)
 			local climb = Cfg.Animations.climb
 			tracks.climb:AdjustSpeed(root.AssemblyLinearVelocity.Y / (climb.speed or 1))
+		elseif character:GetAttribute("Floating") == true then
+			-- floating with the staff aimed (src/client/StaffAttack): the float cycle; landing crossfades back
+			play("float", Cfg.Fade)
 		else -- on the ground or in the air: the cycle for the horizontal speed
 			local speed = horizontalSpeed()
 			local crouching = character:GetAttribute("Crouching") == true
@@ -188,13 +196,43 @@ function Locomotion.attach(character: Model)
 					else "crouchReady"
 			elseif holding == "ready" and current == "walk" then
 				pick = "walk"
+			elseif holding == "aim" and character:GetAttribute("TwoHands") == true and set.aimTwo then
+				pick = "aimTwo" -- the staff: the left hand joined (src/client/StaffAttack)
 			end
-			hold(set[pick])
-			if CYCLE[pick] then
-				keepStep(pick, set[pick])
+			-- a hold the item doesn't have (the staff has no run or crouch holds yet) plays its ready
+			local track = set[pick] or set.ready
+			hold(track)
+			if CYCLE[pick] and set[pick] then
+				keepStep(pick, track)
+			end
+			-- the staff's charge: posed at how long the cast has been held (then its ready shake on a loop); floating, the
+			-- one leaning back
+			local held = character:GetAttribute("CastHeld")
+			local charge = if character:GetAttribute("Floating") == true and set.airCharge
+				then set.airCharge
+				else set.charge
+			if charging and charging ~= charge then
+				charging:Stop(Cfg.Fade)
+				charging = nil
+			end
+			if charge and type(held) == "number" and character:GetAttribute("Casting") == true then
+				if not charge.IsPlaying then
+					charge:Play(Cfg.HoldFade)
+				end
+				charge:AdjustSpeed(0)
+				local t = SpellRules.chargeTime(Spells.Stages, Spells.Staff.ChargeLoop, held)
+				charge.TimePosition = math.min(t, math.max(charge.Length - 0.01, 0))
+				charging = charge
+			elseif charging then
+				charging:Stop(0.1)
+				charging = nil
 			end
 		else
 			hold(if character:FindFirstChildOfClass("Tool") then tracks.toolnone else nil)
+			if charging then
+				charging:Stop(0.1)
+				charging = nil
+			end
 		end
 	end)
 	character.Destroying:Connect(function()

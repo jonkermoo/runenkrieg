@@ -24,26 +24,50 @@ export type Weapon = {
 	-- Crouched (crouchReady / crouchWalk / crouchAim): the same holds for the crouched torso.
 	-- holdsOf: the weapon these holds were built for, when borrowed (aimed, src/client/Viewmodel moves the rig by the
 	-- difference between the two weapons' Aim, so this one's own sights sit on the eye)
+	-- Only ready and equip are required: a hold an item doesn't have plays its ready instead (src/client/Locomotion,
+	-- src/client/Viewmodel), and an item without `aim` (no sights: the staff) can't be aimed (src/client/Stance).
 	holdsOf: string?,
 	holds: {
 		ready: number,
-		walk: number,
-		carry: number,
-		aim: number,
+		walk: number?,
+		carry: number?,
+		aim: number?,
 		equip: number,
-		crouchReady: number,
-		crouchWalk: number,
-		crouchAim: number,
+		crouchReady: number?,
+		crouchWalk: number?,
+		crouchAim: number?,
+		-- the staff (src/client/StaffAttack): aimTwo, the two-handed aim once the left hand has joined ("TwoHands");
+		-- charge, a one shot played with its time set to how long the cast has been held ("CastHeld")
+		aimTwo: number?,
+		charge: number?,
+		airCharge: number?, -- the charge while floating in the air (leaning back)
 	},
 	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
 	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
 	-- running motion comes from the sway layer (Config/Sway), not from extra animations. aimIn: a brief one shot each
 	-- time aiming starts, the gun coming up into the sights over the aim hold (user 2026-10-11).
-	firstPerson: { ready: number, carry: number, aim: number, equip: number, aimIn: number },
+	firstPerson: {
+		ready: number,
+		carry: number?,
+		aim: number?,
+		equip: number,
+		aimIn: number?,
+		aimTwo: number?,
+		charge: number?,
+	},
+	-- The staff's third-person recoils (one shots over the hold fired from; src/client/StaffAttack): quick from the hip,
+	-- quickAim / quickTwo aimed with one or two hands, medium / mediumTwo the stage 2 shot; firstQuick the hip quick
+	-- fire on the first-person viewmodel.
+	fire: { [string]: number }?,
+	-- First person (src/client/Viewmodel): at the hip the weapon turns about the eye until its line meets the screen
+	-- centre this far out (default Config/Camera.HipConverge; 0 = no turn); aimed, aimConverge does the same (none
+	-- by default: a gun's sights are on the eye).
+	hipConverge: number?,
+	aimConverge: number?,
 	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
 	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
-	-- the muzzle against Metrics.
-	shouldered: { number },
+	-- the muzzle against Metrics. Sighted weapons only.
+	shouldered: { number }?,
 	-- Size in game relative to the model, per gun axis { x width, y height, z length }: the blocky R6 soldier carries
 	-- chunky, Pordier-style weapons, thick next to the 1-stud arm (the hand closes round a stock about half its size)
 	-- but only about as long as the soldier is tall, so the cross-section scales more than the length. Every
@@ -55,11 +79,12 @@ export type Weapon = {
 	stow: { part: string, at: { number }, muzzle: { number }, side: { number } },
 	-- Shooting (Config/Firing, Rules/Firing): rounds per clip and how the clip loads ("Enbloc": the whole clip goes
 	-- into the magazine and drops out the bottom when empty, only reloaded empty; "Stripper": the rounds are pushed
-	-- down out of a clip held in the guides, topping the magazine up).
-	ammo: { capacity: number, clip: string },
+	-- down out of a clip held in the guides, topping the magazine up). Guns only: an item without `ammo` doesn't fire
+	-- (src/client/Firing, src/server/Firing) and has no action, reload or bolt either.
+	ammo: { capacity: number, clip: string }?,
 	-- The action, worked by hand (seconds; turn in degrees, travel in modelled studs): the bolt turns its handle up
 	-- by `turn` about its axis (gun Z), then slides back `travel` (+Z) and returns.
-	action: { boltTime: number, reloadTime: number, turn: number, travel: number },
+	action: { boltTime: number, reloadTime: number, turn: number, travel: number }?,
 	-- The reload (Config/Firing.ReloadCycle; user 2026-10-13): where the right hand works, in modelled gun space, and
 	-- the weapon's own reload animations (tools/animation/reload.luau). knob: the bolt handle's knob, bolt closed;
 	-- clipTop: the top of the clip when seated (a stripper clip in the guides, an en-bloc clip in the magazine), where
@@ -72,11 +97,11 @@ export type Weapon = {
 		entry: number,
 		body: number,
 		firstPerson: number,
-	},
+	}?,
 	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
 	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
 	-- hold). 0 until uploaded.
-	bolt: { aim: number, ready: number },
+	bolt: { aim: number, ready: number }?,
 	-- Loading single rounds (stripper-clip rifles with rounds left; Config/Firing.Single, tools/animation/single.luau):
 	-- seat, where a round goes in (its centre pushed onto the top round, modelled gun space); the animation ids.
 	single: { seat: { number }, body: number, firstPerson: number }?,
@@ -306,6 +331,79 @@ local Weapons: { [string]: Weapon } = {
 			entry = 0,
 			body = 101808128954188,
 			firstPerson = 122069545639246,
+		},
+	},
+	-- The mage staff (docs/VFX.md; model tools/blender/weapons/staff.py, exported by export_staff.py): carried like the
+	-- rifles (user 2026-10-13: "carry the staff the same way weapons are being carried ... they should share code"),
+	-- one Primary at a time, slung on the back when put away. Gun space: the origin is the iron sleeve's centre, where
+	-- the right hand holds; the head points down -Z. No ammo, sights or moving parts; the spells come later.
+	staff = {
+		asset = "staff",
+		display = "Staff",
+		slot = "Primary",
+		class = "Staff",
+		parts = {
+			Wood = { 110, 72, 44 },
+			Iron = { 74, 76, 80 },
+			Accent = { 176, 141, 62 },
+		},
+		moving = {},
+		hidden = {},
+		attachments = {
+			-- the head's top, along the shaft: the first-person hip turn points this line at the screen centre (user
+			-- 2026-10-13: the staff points where the crosshair would be); later where the spells leave
+			Muzzle = { 0, 0, -2.25 },
+		},
+		grip = { 0, 0, 0 }, -- the middle of the iron sleeve
+		-- user reference 2026-10-13 (Fern, Frieren): idle and walking, low in the right hand at the hip, the shaft
+		-- running front to back with the head forward; the left arm free (tools/animation/staff.luau)
+		-- equip: off the back over the right shoulder (like the rifles'); carry: low at the side while sprinting (no
+		-- firing); aim: the right arm out, the staff level at chest height; aimTwo: both hands, in front of the chest;
+		-- charge: drawn back more and more, the left hand joining halfway to stage 3 (src/client/StaffAttack); no crouch
+		-- holds yet (the ready plays)
+		holds = {
+			ready = 119234625003629,
+			walk = 138414232252986,
+			carry = 112870868696570,
+			aim = 88831510650616,
+			aimTwo = 93168357261336,
+			charge = 104283993044684, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
+			airCharge = 116353482267248, -- in the air (floating): leaning back as it charges
+			equip = 105902337487636,
+		},
+		-- first person: low on the right, the right forearm rising from the corner, the head turned onto the centre;
+		-- aimed (cinematic, user 2026-10-13): thrust out low on the right; the recoil is the sway layer's kick
+		firstPerson = {
+			ready = 126446372546704,
+			carry = 86383295329379,
+			aim = 96292870185836,
+			aimIn = 117766595310610,
+			aimTwo = 101199417865135,
+			charge = 122320875456092,
+			equip = 98544088711976,
+		},
+		-- first person: standing angled up at the hip (no turn: user 2026-10-13 "upright more ... arms down hands on
+		-- the side"); aimed, its line turned onto the crosshair so the cast's circles sit on it (user: "the staff in line
+		-- with the center of the circle")
+		hipConverge = 0,
+		aimConverge = 60,
+		fire = {
+			quick = 75953489387448,
+			quickAim = 101856301139598,
+			quickTwo = 88797682738838,
+			medium = 73692498139809,
+			mediumTwo = 116359925903107,
+			-- first person, the hip quick fire: a flick toward the crosshair, settling through the cooldown
+			firstQuick = 127343468816854,
+		},
+		scale = { 1, 1, 1 }, -- modelled in studs at game size (5.3 long, the sleeve 0.43 across)
+		-- slung on the back like the rifles (the same lean), higher up: the foot clears the ground and the head rises
+		-- over the right shoulder
+		stow = {
+			part = "Torso",
+			at = { 0.3, 0.6, 0.75 },
+			muzzle = { 0.309, 0.9511, 0 }, -- sin 18, cos 18
+			side = { 0, 0, 1 },
 		},
 	},
 }

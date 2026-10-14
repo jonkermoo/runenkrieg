@@ -21,6 +21,8 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
 local W = require(Shared.Config.Weapons)
+local Spells = require(Shared.Config.Spells)
+local SpellRules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
 local Sway = require(script.Parent.Sway)
@@ -158,7 +160,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		anim.AnimationId = "rbxassetid://" .. id
 		local t = animator:LoadAnimation(anim)
 		-- the equip and the aim-in are one shots over the holds
-		local once = state == "equip" or state == "aimIn"
+		local once = state == "equip" or state == "aimIn" or state == "charge"
 		t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
 		t.Looped = not once
 		tracks[state] = t
@@ -192,7 +194,9 @@ function Viewmodel.start()
 				{
 					w.holds,
 					w.firstPerson,
-					{ w.reload.body, w.reload.firstPerson, w.bolt.aim, w.bolt.ready },
+					if w.reload then { w.reload.body, w.reload.firstPerson } else {},
+					if w.bolt then { w.bolt.aim, w.bolt.ready } else {},
+					w.fire or {},
 					if w.single then { w.single.body, w.single.firstPerson } else {},
 				}
 			do
@@ -255,19 +259,27 @@ function Viewmodel.start()
 		local gun = r.model:FindFirstChild("Gun")
 		local muzzle = gun and gun:FindFirstChild("Muzzle") :: Attachment?
 		local rising = r.tracks.aimIn
+		-- per weapon (Config/Weapons hipConverge / aimConverge): the rifles turn at the hip only; the staff stands angled
+		-- up at the hip (no turn) and aimed turns its line onto the crosshair, so the cast's circles sit on it
+		local w = W[weapon.name]
+		local hipD = if w.hipConverge ~= nil then w.hipConverge else Cfg.HipConverge
+		local aimD = w.aimConverge or 0
+		local hold = character:GetAttribute("Hold")
 		-- (reloading, the rifle is posed by the reload: the turn holds still, src/client/GunFx "Reloading")
-		local atHip = character:GetAttribute("Hold") == "ready"
+		local atHip = hipD > 0
+			and hold == "ready"
 			and not (rising and rising.IsPlaying)
 			and character:GetAttribute("Reloading") ~= true
-		if muzzle and atHip then
+		local atAim = aimD > 0 and hold == "aim"
+		if muzzle and (atHip or atAim) then
 			-- the barrel in the rig's own eye frame: its pose, before the turn is applied (the turn rotates that frame),
 			-- moved by the hip shift
 			local frame = r.root.CFrame * CFrame.new(EYE)
-			local p = frame:PointToObjectSpace(muzzle.WorldPosition) + HIP_SHIFT
+			local p = frame:PointToObjectSpace(muzzle.WorldPosition) + (if atHip then HIP_SHIFT else Vector3.zero)
 			local d = frame:VectorToObjectSpace(muzzle.WorldCFrame.LookVector)
-			-- the point on the barrel's line HipConverge from the eye; turning it onto the centre line puts the whole
-			-- line through the screen centre there (turning only the barrel's direction leaves the muzzle swung aside)
-			local D = Cfg.HipConverge
+			-- the point on the barrel's line D from the eye; turning it onto the centre line puts the whole line through
+			-- the screen centre there (turning only the barrel's direction leaves the muzzle swung aside)
+			local D = if atHip then hipD else aimD
 			local b = p:Dot(d)
 			local disc = b * b - (p:Dot(p) - D * D)
 			want = CFrame.identity
@@ -302,16 +314,20 @@ function Viewmodel.start()
 			local function weight(t: AnimationTrack?): number
 				return if t and live[t] then t.WeightCurrent else 0
 			end
-			local wReady, wAim, wCarry = weight(r.tracks.ready), weight(r.tracks.aim), weight(r.tracks.carry)
+			local wReady, wCarry = weight(r.tracks.ready), weight(r.tracks.carry)
+			local wAim = weight(r.tracks.aim) + weight(r.tracks.aimTwo) -- the staff's two-handed aim is an aim too
 			local total = wReady + wAim + wCarry
 			hipness = if total > 0 then wReady / total else 0
 			aimness = if total > 0 then wAim / total else 0
 		end
+		-- the turn and the hip shift count as much as the holds that have them
+		local turned = (if hipD > 0 then hipness else 0) + (if aimD > 0 then aimness else 0)
+		local shift = if hipD > 0 then HIP_SHIFT * hipness else Vector3.zero
 		r.root.CFrame = camera.CFrame
 			* below
 			* Sway.viewmodel()
-			* CFrame.new():Lerp(r.hip, hipness)
-			* CFrame.new(HIP_SHIFT * hipness + r.aimFix * aimness)
+			* CFrame.new():Lerp(r.hip, math.min(turned, 1))
+			* CFrame.new(shift + r.aimFix * aimness)
 			* CFrame.new(-EYE)
 		r.model.Parent = camera
 		-- fading in (and out) with the camera's glide to the eye (WeaponCamera's "Handover")
@@ -326,7 +342,25 @@ function Viewmodel.start()
 			end
 		end
 		local state = character:GetAttribute("Hold")
-		local track = if type(state) == "string" then r.tracks[state] else nil
+		-- a hold the item doesn't have (the staff: no carry or aim yet) plays its ready
+		local track = if type(state) == "string" then r.tracks[state] or r.tracks.ready else nil
+		if state == "aim" and character:GetAttribute("TwoHands") == true and r.tracks.aimTwo then
+			track = r.tracks.aimTwo -- the staff: the left hand joined (src/client/StaffAttack)
+		end
+		-- the staff's charge: posed at how long the cast has been held
+		local charge, held = r.tracks.charge, character:GetAttribute("CastHeld")
+		if charge then
+			if type(held) == "number" then
+				if not charge.IsPlaying then
+					charge:Play(Cfg.ViewmodelFade * 0.5)
+				end
+				charge:AdjustSpeed(0)
+				local t = SpellRules.chargeTime(Spells.Stages, Spells.Staff.ChargeLoop, held)
+				charge.TimePosition = math.min(t, math.max(charge.Length - 0.01, 0))
+			elseif charge.IsPlaying then
+				charge:Stop(0.1)
+			end
+		end
 		local aimIn = r.tracks.aimIn
 		if track ~= playing then
 			-- coming into view: straight into the pose, never faded in from the rig's rest pose

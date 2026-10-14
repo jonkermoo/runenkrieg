@@ -104,6 +104,12 @@ local Palette = {
 		round = { 196, 160, 84 },
 		spent = { 96, 84, 62 },
 		slot = { 30, 34, 28 },
+		-- the staff's mana bar (src/client/ManaBar): the mana, the share the shot being charged will spend, the burnt-out
+		-- bar refilling after a mega shot, a refused shot's flash
+		mana = { 120, 200, 255 },
+		manaSpend = { 235, 250, 255 },
+		manaBurnt = { 118, 72, 150 },
+		manaDenied = { 220, 70, 60 },
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
 }

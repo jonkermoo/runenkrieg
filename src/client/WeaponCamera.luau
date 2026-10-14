@@ -6,7 +6,8 @@
 -- - drawing a weapon glides the camera in from wherever Roblox's camera was, the body fading out as the viewmodel
 --   (src/client/Viewmodel) fades in near the eye, the head first so it never fills the view; putting the weapon away
 --   hands Roblox's camera back at the zoom it had;
--- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds.
+-- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds;
+-- - ragdolled ("Ragdolled", src/client/Ragdoll): the body isn't turned with the view and the eye rides the head.
 -- Writes the view to the character's "CameraMode" attribute (local): "First" or "Aim"; "CameraInside" (the viewmodel
 -- is on) and "Handover" (0..1, how far the viewmodel has faded in).
 
@@ -124,7 +125,9 @@ function WeaponCamera.start()
 		UserInputService.MouseIconEnabled = false -- no cursor or crosshair (user 2026-10-12)
 		camera.CFrame = CFrame.new(camera.CFrame.Position) * CFrame.fromOrientation(math.rad(pitch), math.rad(yaw), 0)
 		humanoid.AutoRotate = false
-		root.CFrame = CFrame.new(root.Position) * CFrame.fromOrientation(0, math.rad(yaw), 0)
+		if character:GetAttribute("Ragdolled") ~= true then -- a ragdoll tumbles freely
+			root.CFrame = CFrame.new(root.Position) * CFrame.fromOrientation(0, math.rad(yaw), 0)
+		end
 		character:SetAttribute("CameraMode", if aiming then "Aim" else "First")
 	end)
 
@@ -148,6 +151,10 @@ function WeaponCamera.start()
 			* Vector3.new(0, 0, Cfg.Eye[3])
 		-- drawn just now: a short glide in from where Roblox's camera was, as long as the first-person aim-in
 		local rel = target - root.Position
+		local headPart = character:FindFirstChild("Head") :: BasePart?
+		if character:GetAttribute("Ragdolled") == true and headPart then
+			rel = headPart.Position - root.Position -- down: the eye goes with the tumbling head
+		end
 		if from and blend < 1 then
 			blend = math.min(1, blend + dt / Cfg.AimBlend)
 			rel = from:Lerp(rel, smooth(blend))

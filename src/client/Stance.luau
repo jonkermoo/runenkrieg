@@ -5,6 +5,8 @@
 -- - hold right mouse to aim down the sights while a weapon is in the hands; never while sprinting (Shift wins);
 -- - C toggles crouch (moderate, from the user's reference video); sprinting or jumping stands you up. Crouched, the
 --   camera comes down with the body (Humanoid.CameraOffset follows the torso's drop; src/client/WeaponCamera too).
+-- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
+--   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set.
 -- Sets the local character's Humanoid.WalkSpeed (the client owns its character's physics) and the "Sprinting" /
 -- "Aiming" / "Crouching" attributes that the animations, the camera and the weapon code read (local only; the
 -- animations they choose replicate).
@@ -18,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
 local Dev = require(Shared.Config.DevTools)
 local M = require(Shared.Config.Metrics)
+local W = require(Shared.Config.Weapons)
 local Held = require(script.Parent.Held)
 
 local Stance = {}
@@ -56,17 +59,24 @@ function Stance.start()
 		if not character or not humanoid then
 			return
 		end
-		local sprinting = sprintHeld and forward(humanoid)
+		-- ragdolled (src/client/Ragdoll): no control at all
+		local limp = character:GetAttribute("Ragdolled") == true
+		local sprinting = sprintHeld and forward(humanoid) and character:GetAttribute("Casting") ~= true and not limp
 		if sprinting then
 			crouched = false -- a sprint stands you up
 		end
-		local aiming = aimHeld and not sprinting and Held.weapon(character) ~= nil
+		-- only an item with an aim hold can be aimed (the staff has no sights)
+		local weapon = Held.weapon(character)
+		local aiming = aimHeld and not sprinting and not limp and weapon ~= nil and W[weapon.name].holds.aim ~= nil
 		local speed = if sprinting
 			then M.Movement.SprintSpeed
 			elseif crouched then M.Movement.CrouchSpeed
 			elseif aiming then M.Movement.AimWalkSpeed
 			else M.Movement.WalkSpeed
-		-- the dev admin panel's speed multiplier (src/client/DevAdminMenu; 1 when unset)
+		-- the staff's slows (1 when unset), and the dev admin panel's speed multiplier (src/client/DevAdminMenu; 1 when
+		-- unset)
+		local scale = character:GetAttribute("SpeedScale")
+		speed *= if type(scale) == "number" then scale else 1
 		humanoid.WalkSpeed = speed * ((player:GetAttribute(Dev.Admin.Attribute) :: number?) or 1)
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
@@ -122,6 +132,9 @@ function Stance.start()
 		-- equipping or putting away a weapon starts or ends aiming while the button stays held
 		character.ChildAdded:Connect(apply)
 		character.ChildRemoved:Connect(apply)
+		character:GetAttributeChangedSignal("SpeedScale"):Connect(apply)
+		character:GetAttributeChangedSignal("Casting"):Connect(apply)
+		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
 	end
 	player.CharacterAdded:Connect(hook)
 	player:GetAttributeChangedSignal(Dev.Admin.Attribute):Connect(apply)

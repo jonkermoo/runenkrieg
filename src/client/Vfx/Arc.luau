@@ -65,6 +65,14 @@ function Arc.show(arc: Arc, on: boolean, scale: number?)
 	end
 end
 
+-- See-through by `v` (0 = solid, 1 = gone): the caster's own charge in first person (Config/Spells.Staff.Veil).
+function Arc.veil(arc: Arc, v: number)
+	local t = NumberSequence.new(v)
+	for _, b in arc.beams do
+		b.Transparency = t
+	end
+end
+
 function Arc.free(arc: Arc)
 	for _, b in arc.beams do
 		Pool.freeBeam(b)
