@@ -107,6 +107,82 @@ export type Weapon = {
 	single: { seat: { number }, body: number, firstPerson: number }?,
 }
 
+-- The mage staff (docs/VFX.md; model tools/blender/weapons/staff.py, exported by export_staff.py): carried like the
+-- rifles (user 2026-10-13: "carry the staff the same way weapons are being carried ... they should share code"),
+-- one Primary at a time, slung on the back when put away. Gun space: the origin is the iron sleeve's centre, where
+-- the right hand holds; the head points down -Z. No ammo, sights or moving parts.
+-- A variant per team (user 2026-10-13: "coloring different variants per team ... make accents on the staff and color
+-- the staff how you see fit"): one model (asset "staff"), its parts colored from the team's own gear: Wood, Iron
+-- (sleeve + foot cap), Accent (the grip's band + the ring under the head), Wrap (the cloth binding under the head),
+-- Ribbon (knotted at the binding's foot).
+local function staff(display: string, colors: { [string]: { number } }): Weapon
+	return {
+		asset = "staff",
+		display = display,
+		slot = "Primary",
+		class = "Staff",
+		parts = colors,
+		moving = {},
+		hidden = {},
+		attachments = {
+			-- the head's top, along the shaft: the first-person hip turn points this line at the screen centre (user
+			-- 2026-10-13: the staff points where the crosshair would be); later where the spells leave
+			Muzzle = { 0, 0, -2.25 },
+		},
+		grip = { 0, 0, 0 }, -- the middle of the iron sleeve
+		-- user reference 2026-10-13 (Fern, Frieren): idle and walking, low in the right hand at the hip, the shaft
+		-- running front to back with the head forward; the left arm free (tools/animation/staff.luau)
+		-- equip: off the back over the right shoulder (like the rifles'); carry: low at the side while sprinting (no
+		-- firing); aim: the right arm out, the staff level at chest height; aimTwo: both hands, in front of the chest;
+		-- charge: drawn back more and more, the left hand joining halfway to stage 3 (src/client/StaffAttack); no crouch
+		-- holds yet (the ready plays)
+		holds = {
+			ready = 119234625003629,
+			walk = 138414232252986,
+			carry = 112870868696570,
+			aim = 88831510650616,
+			aimTwo = 93168357261336,
+			charge = 104283993044684, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
+			airCharge = 116353482267248, -- in the air (floating): leaning back as it charges
+			equip = 105902337487636,
+		},
+		-- first person: low on the right, the right forearm rising from the corner, the head turned onto the centre;
+		-- aimed (cinematic, user 2026-10-13): thrust out low on the right; the recoil is the sway layer's kick
+		firstPerson = {
+			ready = 126446372546704,
+			carry = 86383295329379,
+			aim = 96292870185836,
+			aimIn = 117766595310610,
+			aimTwo = 101199417865135,
+			charge = 122320875456092,
+			equip = 98544088711976,
+		},
+		-- first person: standing angled up at the hip (no turn: user 2026-10-13 "upright more ... arms down hands on
+		-- the side"); aimed, its line turned onto the crosshair so the cast's circles sit on it (user: "the staff in line
+		-- with the center of the circle")
+		hipConverge = 0,
+		aimConverge = 60,
+		fire = {
+			quick = 75953489387448,
+			quickAim = 101856301139598,
+			quickTwo = 88797682738838,
+			medium = 73692498139809,
+			mediumTwo = 116359925903107,
+			-- first person, the hip quick fire: a flick toward the crosshair, settling through the cooldown
+			firstQuick = 127343468816854,
+		},
+		scale = { 1, 1, 1 }, -- modelled in studs at game size (5.3 long, the sleeve 0.43 across)
+		-- slung on the back like the rifles (the same lean), higher up: the foot clears the ground and the head rises
+		-- over the right shoulder
+		stow = {
+			part = "Torso",
+			at = { 0.3, 0.6, 0.75 },
+			muzzle = { 0.309, 0.9511, 0 }, -- sin 18, cos 18
+			side = { 0, 0, 1 },
+		},
+	}
+end
+
 local Weapons: { [string]: Weapon } = {
 	rifle_m91 = {
 		asset = "rifle_m91",
@@ -333,79 +409,28 @@ local Weapons: { [string]: Weapon } = {
 			firstPerson = 122069545639246,
 		},
 	},
-	-- The mage staff (docs/VFX.md; model tools/blender/weapons/staff.py, exported by export_staff.py): carried like the
-	-- rifles (user 2026-10-13: "carry the staff the same way weapons are being carried ... they should share code"),
-	-- one Primary at a time, slung on the back when put away. Gun space: the origin is the iron sleeve's centre, where
-	-- the right hand holds; the head points down -Z. No ammo, sights or moving parts; the spells come later.
-	staff = {
-		asset = "staff",
-		display = "Staff",
-		slot = "Primary",
-		class = "Staff",
-		parts = {
-			Wood = { 110, 72, 44 },
-			Iron = { 74, 76, 80 },
-			Accent = { 176, 141, 62 },
-		},
-		moving = {},
-		hidden = {},
-		attachments = {
-			-- the head's top, along the shaft: the first-person hip turn points this line at the screen centre (user
-			-- 2026-10-13: the staff points where the crosshair would be); later where the spells leave
-			Muzzle = { 0, 0, -2.25 },
-		},
-		grip = { 0, 0, 0 }, -- the middle of the iron sleeve
-		-- user reference 2026-10-13 (Fern, Frieren): idle and walking, low in the right hand at the hip, the shaft
-		-- running front to back with the head forward; the left arm free (tools/animation/staff.luau)
-		-- equip: off the back over the right shoulder (like the rifles'); carry: low at the side while sprinting (no
-		-- firing); aim: the right arm out, the staff level at chest height; aimTwo: both hands, in front of the chest;
-		-- charge: drawn back more and more, the left hand joining halfway to stage 3 (src/client/StaffAttack); no crouch
-		-- holds yet (the ready plays)
-		holds = {
-			ready = 119234625003629,
-			walk = 138414232252986,
-			carry = 112870868696570,
-			aim = 88831510650616,
-			aimTwo = 93168357261336,
-			charge = 104283993044684, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
-			airCharge = 116353482267248, -- in the air (floating): leaning back as it charges
-			equip = 105902337487636,
-		},
-		-- first person: low on the right, the right forearm rising from the corner, the head turned onto the centre;
-		-- aimed (cinematic, user 2026-10-13): thrust out low on the right; the recoil is the sway layer's kick
-		firstPerson = {
-			ready = 126446372546704,
-			carry = 86383295329379,
-			aim = 96292870185836,
-			aimIn = 117766595310610,
-			aimTwo = 101199417865135,
-			charge = 122320875456092,
-			equip = 98544088711976,
-		},
-		-- first person: standing angled up at the hip (no turn: user 2026-10-13 "upright more ... arms down hands on
-		-- the side"); aimed, its line turned onto the crosshair so the cast's circles sit on it (user: "the staff in line
-		-- with the center of the circle")
-		hipConverge = 0,
-		aimConverge = 60,
-		fire = {
-			quick = 75953489387448,
-			quickAim = 101856301139598,
-			quickTwo = 88797682738838,
-			medium = 73692498139809,
-			mediumTwo = 116359925903107,
-			-- first person, the hip quick fire: a flick toward the crosshair, settling through the cooldown
-			firstQuick = 127343468816854,
-		},
-		scale = { 1, 1, 1 }, -- modelled in studs at game size (5.3 long, the sleeve 0.43 across)
-		-- slung on the back like the rifles (the same lean), higher up: the foot clears the ground and the head rises
-		-- over the right shoulder
-		stow = {
-			part = "Torso",
-			at = { 0.3, 0.6, 0.75 },
-			muzzle = { 0.309, 0.9511, 0 }, -- sin 18, cos 18
-			side = { 0, 0, 1 },
-		},
-	},
+	-- The mage staff, a variant per team (team colors: the staff() function above)
+	staff_grey = staff("Staff (Grey)", {
+		Wood = { 84, 60, 44 }, -- dark stained
+		Iron = { 60, 62, 66 },
+		Accent = { 204, 172, 92 }, -- the gold of the tunic's pips
+		Wrap = { 80, 82, 86 }, -- the slate tunic cloth
+		Ribbon = { 40, 76, 60 }, -- the green collar tab
+	}),
+	staff_olive = staff("Staff (Olive)", {
+		Wood = { 128, 86, 52 }, -- warm natural
+		Iron = { 70, 68, 58 },
+		Accent = { 176, 146, 80 }, -- the uniform's brass
+		Wrap = { 150, 104, 80 }, -- leather, as the helmet straps
+		Ribbon = { 116, 114, 72 }, -- the olive cloth
+	}),
+	staff_white = staff("Staff (White)", {
+		Wood = { 178, 154, 118 }, -- pale ash
+		Iron = { 128, 134, 140 }, -- light steel
+		Accent = { 196, 198, 204 }, -- silver
+		Wrap = { 214, 214, 210 }, -- the off-white of the Brodie helmet
+		Ribbon = { 150, 54, 44 }, -- red, against the white
+	}),
 }
 
 return Weapons

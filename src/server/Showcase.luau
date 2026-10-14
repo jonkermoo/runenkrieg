@@ -197,7 +197,7 @@ function Showcase.start()
 				table.insert(items, { kind = "action", weapon = weapon, spec = a })
 			end
 		end
-		if w.class == "Staff" then
+		if weapon == Cfg.CastWeapon then
 			for _, c in Cfg.Casts do
 				table.insert(items, { kind = "cast", weapon = weapon, spec = c })
 			end

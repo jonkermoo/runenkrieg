@@ -55,7 +55,7 @@ local Spells = {
 		-- `bobRate` Hz ("hover to the initial max jump height slowly ... a little higher is fine"). After `hover`
 		-- seconds it sinks at `descend` studs/s. Falling below the height it left the ground from, after floating, knocks
 		-- it down (Config/Ragdoll.Knocks.FloatFall). The float cycle plays; a charge leans back
-		-- (Config/Weapons.staff.holds.airCharge). Landing ends it at once.
+		-- (Config/Weapons staff `holds.airCharge`). Landing ends it at once.
 		-- `below`: how far under the takeoff height counts as fallen below it (landing back level never does)
 		Float = {
 			rise = 3.5,
@@ -71,7 +71,7 @@ local Spells = {
 		-- (the aiming laser shows only while left click is held: the charge; user 2026-10-13)
 		-- first person, aiming: the cast starts this far past the staff's head along the line to the crosshair, the
 		-- circles opening ahead of it facing where the beam will hit, so the staff (turned onto the crosshair,
-		-- Config/Weapons.staff.aimConverge) points through their centres (user 2026-10-13: "the staff in line with the
+		-- Config/Weapons staff `aimConverge`) points through their centres (user 2026-10-13: "the staff in line with the
 		-- center of the circle")
 		Lead = 0.6,
 		-- ...drawn at this size (circles and spacing; user 2026-10-13: "make the first person circle clientside but

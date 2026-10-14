@@ -43,6 +43,7 @@ local Showcase = {
 	-- aiming, every `rest` seconds. Otherwise it aims (the first circle held `ready` seconds), charges for `held`
 	-- seconds (Config/Spells stages: under 0.45 is a click), fires that stage, rests `rest` seconds, again. Side-on
 	-- like the actions; the spells (circles, orbits, laser, beam) drawn by src/client/CastShow.
+	CastWeapon = "staff_grey", -- the attack is shown with one staff (the others' rows show their holds)
 	Casts = {
 		{ stage = 1, hip = true, rest = 1.6 },
 		{ stage = 1, ready = 0.8, held = 0.15, rest = 1.4 },

@@ -153,4 +153,13 @@ return {
 			assert(weight > 0 and weight <= 2, `{name}: weight {weight} outside 0-2`)
 		end
 	end,
+	["every team has its staff, all one model, every part colored"] = function()
+		for _, team in { "grey", "olive", "white" } do
+			local w = W["staff_" .. team]
+			assert(w and w.class == "Staff" and w.asset == "staff", `no {team} staff`)
+			for _, part in { "Wood", "Iron", "Accent", "Wrap", "Ribbon" } do
+				assert(w.parts[part], `{team} staff: no color for {part}`)
+			end
+		end
+	end,
 }

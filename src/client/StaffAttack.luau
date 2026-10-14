@@ -170,13 +170,15 @@ function StaffAttack.start()
 		pointer.hide()
 	end
 
-	-- the third-person recoils (Config/Weapons.staff.fire), loaded per character; first person kicks with Sway.kick
+	-- the third-person recoils (the staff's Config/Weapons `fire`), loaded per character; first person kicks with Sway.kick
 	local recoils: { [Animator]: { [string]: AnimationTrack } } = setmetatable({}, { __mode = "k" }) :: any
 	-- a recoil one shot on a rig: the character, or the first-person viewmodel (src/client/Viewmodel)
 	local function recoil(rig: Instance?, name: string)
 		local humanoid = rig and rig:FindFirstChildOfClass("Humanoid")
 		local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-		local id = (W.staff.fire :: any)[name]
+		local character = player.Character
+		local weapon = character and Held.weapon(character)
+		local id = weapon and (W[weapon.name].fire :: any)[name]
 		if not animator or not id then
 			return
 		end

@@ -69,12 +69,12 @@ local Assets = {
 			description = "Lee-Enfield SMLE Mk III, the white team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
 		},
 		staff = {
-			id = 76699418924814,
+			id = 109018663192748, -- v2: team accents (binding, ribbon, head ring, foot cap), colored per team
 			category = "Weapons",
 			folder = "Shared/Staffs",
 			source = "assets/weapons/shared/staff.fbx",
 			generator = "tools/blender/weapons/staff.py",
-			description = "The mage staff: knotted faceted wood, an iron sleeve at the grip with a brass band (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged from Config/Weapons.",
+			description = "The mage staff, shared by every team: knotted faceted wood, an iron sleeve at the grip and a foot cap, a metal band and a ring under the head, a cloth binding and a ribbon (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged and colored per team from Config/Weapons (staff_grey / staff_olive / staff_white).",
 		},
 		uniform1 = {
 			category = "Teams",
