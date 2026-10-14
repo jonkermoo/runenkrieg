@@ -104,7 +104,8 @@ function StaffAttack.start()
 	local slowUntil, slowShare = 0, 1
 	local twoHands = false
 	local lockedHumanoid: Humanoid? = nil
-	local pointer = Vfx.Pointer.new()
+	local scheme = (VfxCfg.Schemes :: any)[S.Scheme]
+	local pointer = Vfx.Pointer.new(scheme.pointer, scheme.core)
 	local mana = Rules.mana(Cfg.Mana)
 	player.CharacterAdded:Connect(function()
 		mana = Rules.mana(Cfg.Mana) -- a new life starts full
@@ -265,7 +266,7 @@ function StaffAttack.start()
 		local quick = Vfx.Zoltraak.begin(
 			CFrame.lookAt(from, from + dir),
 			HOLDS,
-			nil,
+			S.Scheme,
 			if own then S.ViewScale else 1,
 			if own then S.ViewSpread else 1
 		)
@@ -341,8 +342,13 @@ function StaffAttack.start()
 			local t = aimTip(character, w, ignore)
 			if t then
 				local own = character:GetAttribute("CameraInside") == true -- drawn smaller for the eye
-				cast =
-					Vfx.Zoltraak.begin(t, HOLDS, nil, if own then S.ViewScale else 1, if own then S.ViewSpread else 1)
+				cast = Vfx.Zoltraak.begin(
+					t,
+					HOLDS,
+					S.Scheme,
+					if own then S.ViewScale else 1,
+					if own then S.ViewSpread else 1
+				)
 			end
 		end
 

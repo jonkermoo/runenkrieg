@@ -14,9 +14,9 @@ local Charge = {}
 -- veil(v): see-through by v (0 = solid; the caster's own charge in first person, Config/Spells.Staff.Veil)
 export type Handle = { release: () -> (), move: (pos: Vector3) -> (), veil: (v: number) -> () }
 
-function Charge.start(pos: Vector3, duration: number?, colorName: string?): Handle
+function Charge.start(pos: Vector3, duration: number?, colorName: string?, coreName: string?): Handle
 	local t = duration or Cfg.Duration
-	local color, core = Util.color(colorName or Cfg.Color), Util.color(Cfg.Core)
+	local color, core = Util.color(colorName or Cfg.Color), Util.color(coreName or Cfg.Core)
 	local g = Cfg.Gather
 	local orb = Pool.part(Enum.PartType.Ball, core, Vector3.one * 0.05, CFrame.new(pos))
 	local shell = Pool.part(Enum.PartType.Ball, color, Vector3.one * 0.05, CFrame.new(pos), Cfg.ShellTransparency)

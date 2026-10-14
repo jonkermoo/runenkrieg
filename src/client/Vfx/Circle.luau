@@ -135,8 +135,7 @@ type Spin = { frame: Frame, speed: number }
 -- and handed to the next caster (Config/Vfx.Quality).
 local cache: { [string]: { Built } } = {}
 
-local function build(d: number, color: Color3): Built
-	local accent, haze = Util.color(Cfg.Accent), Util.color(Cfg.Haze.color)
+local function build(d: number, color: Color3, accent: Color3, haze: Color3): Built
 	local size = d * Cfg.PixelsPerStud
 	local scales: { UIScale } = {}
 	local spins: { Spin } = {}
@@ -217,16 +216,27 @@ end
 -- Opens a circle at `cf` (its face looks along cf.LookVector) and keeps it spinning until the handle's close().
 -- `appear`: how fast it opens (default Circle.Appear). `assemble`: it builds up slowly over `appear` instead
 -- (Circle.Assemble: pieces lighting up from the centre out, flecks flying in). The handle's ready() makes it flare
--- and keep pulsing (Circle.Ready).
-function Circle.open(cf: CFrame, diameter: number?, colorName: string?, appear: number?, assemble: boolean?): Handle
+-- and keep pulsing (Circle.Ready). `accentColor` / `hazeColor`: the dots' and the filled haze's colors (a scheme's,
+-- Config/Vfx.Schemes; default Circle.Accent / Haze).
+function Circle.open(
+	cf: CFrame,
+	diameter: number?,
+	colorName: string?,
+	appear: number?,
+	assemble: boolean?,
+	accentColor: string?,
+	hazeColor: string?
+): Handle
 	local d = diameter or Cfg.Diameter
 	local open = appear or Cfg.Appear
 	local name = colorName or Cfg.Color
-	local key = `{d}/{name}`
+	local accentName = accentColor or Cfg.Accent
+	local hazeName = hazeColor or Cfg.Haze.color
+	local key = `{d}/{name}/{accentName}/{hazeName}`
 	local list = cache[key]
 	local c = list and table.remove(list)
 	if not c or not c.part.Parent then
-		c = build(d, Util.color(name))
+		c = build(d, Util.color(name), Util.color(accentName), Util.color(hazeName))
 	end
 	assert(c, "circle")
 	local built: Built = c
@@ -234,7 +244,7 @@ function Circle.open(cf: CFrame, diameter: number?, colorName: string?, appear: 
 	part.CFrame = cf
 	dissolve(built.pieces, if assemble then 1 else 0) -- a reused circle starts whole (or empty, to assemble)
 	local light = Pool.light(cf.Position, Util.color(name), Cfg.Light.range, 0)
-	local fleckColor, fleckAccent = Util.color(name), Util.color(Cfg.Accent)
+	local fleckColor, fleckAccent = Util.color(name), Util.color(accentName)
 	local shedCount = 0
 	local gathered = 0 -- flecks flown in while assembling
 	local assembled = if assemble then 0 else 1 -- how much of it is built (a close crumbles only what's there)

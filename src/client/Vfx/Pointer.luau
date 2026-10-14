@@ -25,8 +25,9 @@ local function range(r: { number }): number
 	return rng:NextNumber(r[1], r[2])
 end
 
-function Pointer.new(): Handle
-	local glowColor, coreColor = Util.color(Cfg.color), Util.color(Cfg.core)
+-- `colorName` / `coreName`: a scheme's pointer and core colors (default Pointer.color / core).
+function Pointer.new(colorName: string?, coreName: string?): Handle
+	local glowColor, coreColor = Util.color(colorName or Cfg.color), Util.color(coreName or Cfg.core)
 	local dashes: { Dash } = {}
 	for i = 1, Cfg.dashes do
 		local a0, a1 = Pool.att(Vector3.zero), Pool.att(Vector3.zero)

@@ -91,6 +91,26 @@ local Palette = {
 		Hex = { 240, 90, 255 },
 		HexDeep = { 170, 40, 220 },
 		HexEdge = { 90, 20, 140 },
+		-- more looks for the magic (Config/Vfx.Schemes; user 2026-10-13: "different color magic ... be creative")
+		EmberCore = { 255, 242, 220 }, -- fire
+		Flame = { 255, 150, 60 },
+		EmberDeep = { 225, 60, 25 },
+		EmberEdge = { 120, 25, 15 },
+		EmberGold = { 255, 205, 90 },
+		VerdantCore = { 230, 255, 235 }, -- jade
+		Verdant = { 90, 240, 150 },
+		VerdantDeep = { 20, 165, 105 },
+		VerdantEdge = { 10, 80, 70 },
+		VerdantLime = { 200, 255, 90 },
+		SolarCore = { 255, 252, 236 }, -- holy gold
+		Solar = { 255, 214, 110 },
+		SolarDeep = { 235, 160, 45 },
+		SolarEdge = { 150, 90, 25 },
+		VoidCore = { 245, 230, 255 }, -- dark magic
+		Void = { 150, 70, 230 },
+		VoidDeep = { 70, 20, 130 },
+		VoidEdge = { 25, 5, 45 },
+		VoidToxic = { 130, 255, 110 },
 	},
 	-- UI: flat panels, one outline thickness everywhere.
 	UI = {

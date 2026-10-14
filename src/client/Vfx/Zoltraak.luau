@@ -132,10 +132,17 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			local s = S[i] :: any
 			if s.assemble then
 				local lead = holds[i] - h -- whatever is left of it (a late update still finishes on time)
-				circles[i] =
-					Circle.open(circleFrame(current, s.ahead * k * sp), s.diameter * k, nil, math.max(lead, 0.05), true)
+				circles[i] = Circle.open(
+					circleFrame(current, s.ahead * k * sp),
+					s.diameter * k,
+					schemeCfg.circle,
+					math.max(lead, 0.05),
+					true,
+					schemeCfg.accent,
+					schemeCfg.haze
+				)
 				buildFrom = h
-				charge = Charge.start(centre(1), math.max(lead, 0.05))
+				charge = Charge.start(centre(1), math.max(lead, 0.05), schemeCfg.charge, schemeCfg.core)
 				local B = C.Build
 				for _ = 1, B.arcs do
 					table.insert(
@@ -151,9 +158,17 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 					)
 				end
 			else
-				circles[i] = Circle.open(circleFrame(current, s.ahead * k * sp), s.diameter * k, nil, s.appear)
+				circles[i] = Circle.open(
+					circleFrame(current, s.ahead * k * sp),
+					s.diameter * k,
+					schemeCfg.circle,
+					s.appear,
+					false,
+					schemeCfg.accent,
+					schemeCfg.haze
+				)
 			end
-			orbits[i] = Orbits.new(s.orbits or 0, s.diameter * k)
+			orbits[i] = Orbits.new(s.orbits or 0, s.diameter * k, schemeCfg.orbit, schemeCfg.core)
 			orbits[i].move(circleFrame(current, s.ahead * k * sp))
 			applyVeil()
 		end
@@ -163,7 +178,7 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 				c.ready()
 			end
 			local c1, cl = centre(1), centre(last)
-			Star.play(c1, nil, C.Ready.star)
+			Star.play(c1, schemeCfg.flash, C.Ready.star)
 			Spikes.play(c1, schemeCfg.flash)
 			Shockwave.play(cl, current.LookVector, schemeCfg.glow, C.Ready.shockwave)
 		end
@@ -252,7 +267,7 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			local from = centre(1)
 			local to, normal, color = Util.cast(from, current.LookVector, C.Range, ignore)
 			if n == last then
-				Star.play(from, nil, C.FireStar)
+				Star.play(from, schemeCfg.flash, C.FireStar)
 			end
 			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam })
 			local _, total = Ray.times(beam)

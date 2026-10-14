@@ -35,8 +35,8 @@ local function range(r: { number }): number
 end
 
 -- `count` orbits round a circle `diameter` studs across.
-function Orbits.new(count: number, diameter: number, colorName: string?): Handle
-	local glowColor, coreColor = Util.color(colorName or Cfg.color), Util.color(Cfg.core)
+function Orbits.new(count: number, diameter: number, colorName: string?, coreName: string?): Handle
+	local glowColor, coreColor = Util.color(colorName or Cfg.color), Util.color(coreName or Cfg.core)
 	local size = diameter / Cfg.reference -- widths and offsets scale with the circle
 	local n = Cfg.segments
 	local orbits: { Orbit } = {}

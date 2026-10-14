@@ -110,4 +110,32 @@ return {
 		assert(found, "no Effects teleport")
 		assert(table.find(DevTools.Admin.LabelFolders, "DevVfx"), "DevVfx labels not hideable")
 	end,
+	["every magic scheme colors every effect, from the palette"] = function()
+		local FIELDS = {
+			"arc",
+			"arcCore",
+			"mist",
+			"flash",
+			"glow",
+			"circle",
+			"accent",
+			"haze",
+			"charge",
+			"core",
+			"orbit",
+			"pointer",
+		}
+		local n = 0
+		for name, sc in Vfx.Schemes do
+			n += 1
+			assert(#sc.layers == 4, `{name}: a beam has 4 layers`)
+			for _, c in sc.layers do
+				assert(Palette.Magic[c], `{name}: layer {c} is not a Palette.Magic color`)
+			end
+			for _, f in FIELDS do
+				assert(Palette.Magic[sc[f]], `{name}.{f}: {sc[f]} is not a Palette.Magic color`)
+			end
+		end
+		assert(n >= 6, "the six looks of the magic")
+	end,
 }

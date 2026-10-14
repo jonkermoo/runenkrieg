@@ -39,6 +39,9 @@ local Spells = {
 	--   is ready you can't move or jump. The camera sway grows the same way (Config/Sway.Charge).
 	-- - Sprinting: no firing and no aiming.
 	Staff = {
+		-- the look of the magic (Config/Vfx.Schemes: Arcane, Hex, Ember, Verdant, Solar, Void; user 2026-10-13: made,
+		-- not yet given to anything)
+		Scheme = "Arcane",
 		Hip = { spread = 2.5, walkSpread = 4 }, -- degrees (half-angle of the cone)
 		Cooldown = { 0.45, 1.0, 2.2 }, -- per fired stage, seconds (stage 3 includes the fall and getting up)
 		Slow = { 0.75, 0.5, 0.35 }, -- walk speed share while it lasts
