@@ -18,6 +18,10 @@ local Camera = {
 	-- drawing a weapon: the camera glides in from Roblox's camera to the eye over this long, as long as the
 	-- first-person aim-in (0.3 s, Config/Weapons firstPerson.aimIn)
 	AimBlend = 0.3,
+	-- putting it away (after its unequip animation, Config/Locomotion.Stow): the camera glides back out from the eye to
+	-- Roblox's camera at the zoom it had over this long, the body fading back in (user 2026-10-14: "smoothly go back to
+	-- where my camera was")
+	LeaveBlend = 0.4,
 	AimEase = 9, -- how fast the FOV narrows into the sights (per second; ~0.33 s)
 	ViewmodelFade = 0.35, -- first-person holds crossfade (ready / carry / aim): their poses are far apart, a quick
 	-- swap looked choppy going into and out of a sprint

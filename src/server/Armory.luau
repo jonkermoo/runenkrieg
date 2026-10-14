@@ -10,7 +10,9 @@
 -- Armory.give(player, name) hands it over as a Tool into its slot (one weapon per slot: a new primary replaces the
 -- old); on each spawn the player's loadout is given (their pick via Armory.choose, else the kit's weapon). While
 -- the Tool isn't equipped, a copy rides on the body where Config/Weapons `stow` puts it (slung on the back); it
--- hides while the weapon is in the hands. Both live on the server, so every player sees them.
+-- hides while the weapon is in the hands. Both live on the server, so every player sees them. Put away with its
+-- unequip animation (the client says so: Net "Stow"), a copy stays in the hands as "Stowing" (joined to the Torso
+-- by its own "Hold" motor, which the animation moves) for Config/Locomotion.Stow.time before the slung copy shows.
 -- No motion here: the moving parts only have their Motor6Ds; animation is a later, separate step.
 
 local Players = game:GetService("Players")
@@ -18,10 +20,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local A = require(Shared.Config.Assets)
+local L = require(Shared.Config.Locomotion)
 local U = require(Shared.Config.Uniforms)
 local W = require(Shared.Config.Weapons)
+local Net = require(Shared.Net)
 
 local Armory = {}
+
+-- when each player last said they're putting their weapon away (Net "Stow")
+local stowNote: { [Player]: number } = {}
 
 local LOADOUT = "Loadout_" -- Player attribute per slot: the weapon the player spawns with
 
@@ -173,17 +180,73 @@ function Armory.give(player: Player, name: string): Tool
 	local hold = tool:FindFirstChild("Hold", true) :: Motor6D
 	if character and stowed then
 		local gone = false -- the tool is being destroyed: its stowed copy goes with it, never back on the body
+		local wasHeld = false
+		local stowing: Model? = nil -- the copy in the hands while it's being put away
+		local token = 0 -- each change of hands; a put-away still under way checks it's still the latest
+		local function clearStowing()
+			if stowing then
+				stowing:Destroy()
+				stowing = nil
+			end
+		end
+		-- put away: a copy in the hands for the unequip animation, the slung copy once it's over
+		local function putAway(t: number)
+			local torso = character:FindFirstChild("Torso") :: BasePart?
+			if torso then
+				local copy = Armory.build(name)
+				copy.Name = "Stowing"
+				local motor = Instance.new("Motor6D")
+				motor.Name = "Hold"
+				motor.Part0 = torso
+				motor.Part1 = copy.PrimaryPart
+				motor.Parent = copy.PrimaryPart
+				copy.Parent = character
+				stowing = copy
+			end
+			task.delay(L.Stow.time, function()
+				if t == token and not gone then
+					clearStowing()
+					stowed.Parent = character
+				end
+			end)
+		end
 		local function update()
 			if gone then
 				return
 			end
 			local held = tool.Parent == character
 			hold.Part0 = if held then character:FindFirstChild("Torso") :: BasePart? else nil
-			stowed.Parent = if held then nil else character
+			token += 1
+			clearStowing()
+			if held then
+				stowed.Parent = nil
+			elseif wasHeld then
+				-- just put away: with its animation if the client says so (the word may come a little before or after the
+				-- Tool moves), else (a ragdoll knock) straight onto the back
+				stowed.Parent = nil
+				local t, t0 = token, os.clock()
+				task.spawn(function()
+					while t == token and not gone do
+						if (stowNote[player] or -math.huge) >= t0 - L.Stow.wait then
+							putAway(t)
+							return
+						end
+						if os.clock() - t0 >= L.Stow.wait then
+							stowed.Parent = character
+							return
+						end
+						task.wait()
+					end
+				end)
+			else
+				stowed.Parent = character
+			end
+			wasHeld = held
 		end
 		tool:GetPropertyChangedSignal("Parent"):Connect(update)
 		tool.Destroying:Connect(function()
 			gone = true
+			clearStowing()
 			stowed:Destroy()
 		end)
 		update()
@@ -238,6 +301,12 @@ function Armory.start()
 		end
 	end
 	Players.PlayerAdded:Connect(hook)
+	Net.event("Stow").OnServerEvent:Connect(function(player: Player)
+		stowNote[player] = os.clock()
+	end)
+	Players.PlayerRemoving:Connect(function(player)
+		stowNote[player] = nil
+	end)
 	for _, p in Players:GetPlayers() do
 		hook(p)
 	end

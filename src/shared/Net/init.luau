@@ -25,6 +25,9 @@ local Remotes: { string } = {
 	-- point, a reload from an open bolt starts there, a resumed action plays its rest); delay = wait this long first
 	-- (a rifle drawn again plays out its interrupted action after the draw)
 	"WeaponAction",
+	-- client -> server: () putting the held weapon away with its unequip animation (src/server/Armory keeps a copy in
+	-- the hands meanwhile; Config/Locomotion.Stow)
+	"Stow",
 }
 local Functions: { string } = {}
 

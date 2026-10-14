@@ -44,6 +44,7 @@ local Rules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
 local Ragdoll = require(script.Parent.Ragdoll)
+local SoundFx = require(script.Parent.SoundFx)
 local Sway = require(script.Parent.Sway)
 local Vfx = require(script.Parent.Vfx)
 local Zoltraak = require(script.Parent.Vfx.Zoltraak)
@@ -112,8 +113,33 @@ function StaffAttack.start()
 		mana = Rules.mana(Cfg.Mana) -- a new life starts full
 	end)
 	-- a shot refused for want of mana: the bar flashes (src/client/ManaBar)
+	-- the staff's sounds (Config/Vfx.Sounds; the circles' and shots' play from Vfx/Zoltraak): the loops running now
+	local Snd = VfxCfg.Sounds
+	SoundFx.preload(Snd, W.staff_grey.sounds or {})
+	local chargeLoop: SoundFx.Loop? = nil
+	local laserLoop: SoundFx.Loop? = nil
+	local floatLoop: SoundFx.Loop? = nil
+	local wasLocked = false
+	-- a loop kept running while `on`, started / stopped as that changes
+	local function keep(loop: SoundFx.Loop?, on: boolean, entry: any, at: Instance?): SoundFx.Loop?
+		if on and not loop and at then
+			return SoundFx.loop(entry, at)
+		elseif not on and loop then
+			loop.stop(entry.fadeOut or 0.15)
+			return nil
+		end
+		return loop
+	end
+	local function rootOf(character: Model?): BasePart?
+		return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	end
+
 	local function denied(character: Model)
 		character:SetAttribute("ManaDenied", os.clock())
+		local root = rootOf(character)
+		if root then
+			SoundFx.play(Snd.Denied, root)
+		end
 	end
 	-- how far the charge has got: it runs with the hold, but waits short of a stage the mana can't pay for yet and
 	-- goes on from there once it can (counted up each frame, so it never jumps ahead when the mana comes in)
@@ -232,6 +258,10 @@ function StaffAttack.start()
 		if stage == LAST then
 			-- the recoil throws the caster back off the aim (a minor knock: up again soon after landing)
 			Ragdoll.knock(character, RagdollCfg.Knocks.StaffRecoil, -workspace.CurrentCamera.CFrame.LookVector)
+			local root = rootOf(character)
+			if root then
+				SoundFx.play(Snd.Knock, root)
+			end
 		end
 	end
 
@@ -339,8 +369,15 @@ function StaffAttack.start()
 			character:SetAttribute("Mana", mana.value)
 			character:SetAttribute("ManaLocked", mana.locked)
 			character:SetAttribute("ManaSmoulder", mana.locked and now - mana.spentAt < B.delay)
+			local root = rootOf(character)
+			if mana.locked and not wasLocked and root then
+				SoundFx.play(Snd.Burnout, root) -- spent to nothing
+			end
 		end
+		wasLocked = mana.locked
 		if not character or not humanoid or humanoid.Health <= 0 or not weapon or not isStaff(weapon) then
+			chargeLoop = keep(chargeLoop, false, Snd.Charge, nil)
+			laserLoop = keep(laserLoop, false, Snd.Laser, nil)
 			drop()
 			twoHands = false
 			Sway.shake(0)
@@ -419,6 +456,16 @@ function StaffAttack.start()
 		character:SetAttribute("TwoHands", twoHands)
 		Sway.shake(if held then Rules.charge(Cfg.Stages, held) else 0)
 		setLock(if held and Rules.charge(Cfg.Stages, held) >= 1 then humanoid else nil)
+		-- the charge hums louder and higher as it builds; the laser crackles while it shows
+		local root = rootOf(character)
+		chargeLoop = keep(chargeLoop, held ~= nil, Snd.Charge, root)
+		local loop = chargeLoop
+		if loop and held then
+			local k = Rules.charge(Cfg.Stages, held)
+			local lo, hi = Snd.Charge.low, Snd.Charge.high
+			loop.set(lo.volume + (hi.volume - lo.volume) * k, lo.pitch + (hi.pitch - lo.pitch) * k)
+		end
+		laserLoop = keep(laserLoop, held ~= nil and cast ~= nil, Snd.Laser, root)
 	end)
 
 	-- floating: gravity cancelled by a lift on the root (on top of the jump's own apex lift, src/client/Jump) and the
@@ -481,6 +528,7 @@ function StaffAttack.start()
 			and character:GetAttribute("Aiming") == true
 		level = if floating then level + (1 - level) * (1 - math.exp(-F.ease * dt)) else 0
 		character:SetAttribute("Floating", if floating then true else nil)
+		floatLoop = keep(floatLoop, floating, Snd.Float, root) -- a low drone while it floats
 		local jump = force(root, "JumpFloat")
 		local already = if jump then jump.Force.Y else 0
 		local cancel = if floating then root.AssemblyMass * workspace.Gravity else 0
@@ -505,8 +553,8 @@ function StaffAttack.start()
 			local vy = math.min(v.Y, F.rise)
 			vy += (want - vy) * (1 - math.exp(-F.follow * level * dt))
 			-- no moving about: the sideways speed the jump carried in dies away
-			local keep = math.exp(-F.brake * dt)
-			root.AssemblyLinearVelocity = Vector3.new(v.X * keep, vy, v.Z * keep)
+			local damp = math.exp(-F.brake * dt)
+			root.AssemblyLinearVelocity = Vector3.new(v.X * damp, vy, v.Z * damp)
 		end
 		-- dropped below where it took off from after floating (sinking, or letting go of aim over a drop): knocked down
 		if floated and airborne and not limp and base and y < base - F.below then

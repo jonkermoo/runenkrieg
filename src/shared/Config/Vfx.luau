@@ -560,6 +560,83 @@ local Vfx = {
 			{ effect = "Cast3", label = "Void (dark, toxic green)", every = 5, scheme = "Void" },
 		},
 	},
+
+	-- The staff's sounds (user 2026-10-14: "arcane hum + crackle", like Frieren's Zoltraak; src/client/SoundFx plays
+	-- them). Placeholders from the Creator Store, all Pro Sound Effects (licensed for Roblox), each envelope measured
+	-- (AudioAnalyzer) and trimmed to the part wanted: `start` / `stop` (seconds in the file), `fade` before the stop,
+	-- `pitch` (playback speed), `loop`, and the falloff profile (Config/Audio). Per-stage lists are { stage 1, 2, 3 }.
+	-- Heard by the caster only for now, like the casts themselves (they aren't replicated yet).
+	Sounds = {
+		-- terrifying, not cute (user 2026-10-14: "make the high pitch noises lower"): everything played well under its
+		-- recorded pitch (slower and heavier too: pitch is playback speed), the bright layers dropped
+		-- a circle opens: the ringy synth rising, slowed into a low groan, lower still for each stage
+		Open = { id = 9125973882, volume = 0.6, start = 0.05, profile = "Spell", pitch = { 0.55, 0.45, 0.35 } },
+		-- the charge: the swirling drone, deep and growing (from `low` to `high` over the charge, Rules/Spells.charge)
+		Charge = {
+			id = 9125898973,
+			volume = 1.1,
+			loop = true,
+			profile = "Hum",
+			low = { volume = 0.2, pitch = 0.45 },
+			high = { volume = 1, pitch = 0.8 },
+		},
+		-- stage 3 ready: the searing crackle, slowed to a snarl
+		Ready = { id = 9116276051, volume = 1, pitch = 0.6, profile = "Spell" },
+		-- the shots: stage 1 the whiplash burst; stage 2 the bigger burst over the zaps; stage 3 the zap at once and the
+		-- deep energy horn from its swell, all slowed down
+		Fire = {
+			{ { id = 9114314919, volume = 1, start = 0.78, stop = 1.6, fade = 0.3, pitch = 0.7, profile = "Spell" } },
+			{
+				{
+					id = 9114314399,
+					volume = 1.2,
+					start = 0.62,
+					stop = 2.7,
+					fade = 0.5,
+					pitch = 0.65,
+					profile = "Spell",
+				},
+				{ id = 9114246605, volume = 0.6, pitch = 0.55, profile = "Spell" },
+			},
+			{
+				{ id = 9119594928, volume = 1.5, pitch = 0.6, profile = "SpellBig" },
+				{
+					id = 9125544480,
+					volume = 2.4,
+					start = 1.55,
+					stop = 6.6,
+					fade = 1.2,
+					pitch = 0.75,
+					profile = "SpellBig",
+				},
+			},
+		},
+		-- where a beam lands: the zap, deeper with the stage
+		Impact = {
+			id = 9119594928,
+			profile = "SpellBig",
+			volume = { 0.6, 1, 1.6 },
+			pitch = { 0.7, 0.55, 0.4 },
+		},
+		-- the aiming laser: the static bursts on a loop, low and quiet
+		Laser = { id = 9119583983, volume = 0.14, start = 0, stop = 0.34, loop = true, pitch = 0.6, profile = "Hum" },
+		-- a shot refused for want of mana: the static, very low and short
+		Denied = { id = 9119583983, volume = 0.4, start = 0, stop = 0.25, fade = 0.1, pitch = 0.4, profile = "Hum" },
+		-- burnt out (the bar spent to nothing): the crackle, very low and dying
+		Burnout = { id = 9116276051, volume = 0.5, pitch = 0.4, stop = 1.0, fade = 0.5, profile = "Hum" },
+		-- floating: the synth drone, deep, fading in and out
+		Float = {
+			id = 9118808568,
+			volume = 0.4,
+			loop = true,
+			pitch = 0.6,
+			profile = "Hum",
+			fadeIn = 0.4,
+			fadeOut = 0.5,
+		},
+		-- thrown back by a stage 3 shot: the airy whomp, heavier
+		Knock = { id = 9120718689, volume = 0.9, start = 0.2, pitch = 0.75, profile = "Hum" },
+	},
 }
 
 return table.freeze(Vfx)

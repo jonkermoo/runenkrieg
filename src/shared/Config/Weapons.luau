@@ -33,6 +33,7 @@ export type Weapon = {
 		carry: number?,
 		aim: number?,
 		equip: number,
+		unequip: number?, -- put away (Config/Locomotion.Stow)
 		crouchReady: number?,
 		crouchWalk: number?,
 		crouchAim: number?,
@@ -54,6 +55,7 @@ export type Weapon = {
 		carry: number?,
 		aim: number?,
 		equip: number,
+		unequip: number?,
 		aimIn: number?,
 		aimTwo: number?,
 		charge: number?,
@@ -136,8 +138,9 @@ export type Weapon = {
 	eject: { string }?,
 	-- Part colors per kit (Config/Uniforms.Kits; user 2026-10-13: "slight coloring differences per team"), over `parts`.
 	kits: { [string]: { [string]: { number } } }?,
-	-- This weapon's own sounds, over Config/Firing.Sounds (same fields: id, volume, start, stop, fade).
-	sounds: { [string]: { [string]: number } }?,
+	-- This weapon's own sounds, over Config/Firing.Sounds (same fields: id, volume, start, stop, fade); Equip / Unequip
+	-- (src/client/SoundFx entries, with a falloff `profile`) play on drawing and putting it away.
+	sounds: { [string]: { [string]: any } }?,
 	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
 	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot).
 	recoil: { scale: number, build: number, max: number, cool: number }?,
@@ -184,6 +187,7 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			chargeTwo = 125233260118471,
 			airChargeTwo = 74304002722657,
 			equip = 105902337487636,
+			unequip = 130701792854486, -- put away onto the back (Config/Locomotion.Stow)
 		},
 		-- first person: low on the right, the right forearm rising from the corner, the head turned onto the centre;
 		-- aimed (cinematic, user 2026-10-13): thrust out low on the right; the recoil is the sway layer's kick
@@ -196,6 +200,7 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			charge = 108466726703676,
 			chargeTwo = 121381197496636, -- with both hands already on
 			equip = 80156061468327,
+			unequip = 79165303145977,
 		},
 		-- first person: standing angled up at the hip (no turn: user 2026-10-13 "upright more ... arms down hands on
 		-- the side"); aimed, its line turned onto the crosshair so the cast's circles sit on it (user: "the staff in line
@@ -216,6 +221,12 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			firstQuickTwo = 80242360718588,
 		},
 		scale = { 1, 1, 1 }, -- modelled in studs at game size (5.3 long, the sleeve 0.43 across)
+		-- drawn and put away (src/client/Locomotion, user 2026-10-14): a wooden swish ("Wood Swish Ruler Whoosh Fast
+		-- Movement In Air", Pro Sound Effects; src/client/SoundFx entries)
+		sounds = {
+			Equip = { id = 9126283592, volume = 0.6, start = 0.05, profile = "Hum" },
+			Unequip = { id = 9126283272, volume = 0.6, profile = "Hum" },
+		},
 		-- slung on the back like the rifles (the same lean), higher up: the foot clears the ground and the head rises
 		-- over the right shoulder
 		stow = {
@@ -276,6 +287,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 122181109482392,
 			aim = 114865521572329,
 			equip = 96966780660102,
+			unequip = 106479819126650, -- put away onto the back (Config/Locomotion.Stow)
 			crouchReady = 125201661584426,
 			crouchWalk = 88611640240958,
 			crouchAim = 81699754378349,
@@ -285,6 +297,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 124660991401505,
 			aim = 85472517302410,
 			equip = 86411519760958,
+			unequip = 92360338634937,
 			aimIn = 108346522950809,
 		},
 		-- the hammer lies back in its slot (user 2026-10-13: "the hammer is clipping into the shotgun"); push from
@@ -408,6 +421,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 105709189619828, -- swings with the sprint
 			aim = 136351549623920,
 			equip = 116169498023535,
+			unequip = 114673290829081, -- put away onto the back (Config/Locomotion.Stow)
 			crouchReady = 92303129713125,
 			crouchWalk = 87132266042623,
 			crouchAim = 104754199810093,
@@ -419,6 +433,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 107781105123018,
 			aim = 94444327606653,
 			equip = 105963460001801,
+			unequip = 102151639999018,
 			aimIn = 111730503877557,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
@@ -504,6 +519,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 111492198362235,
 			aim = 122070726635734,
 			equip = 71450535994230,
+			unequip = 116812363774678, -- put away onto the back (Config/Locomotion.Stow)
 			crouchReady = 81033918313470,
 			crouchWalk = 79212217140130,
 			crouchAim = 96381247209498,
@@ -513,6 +529,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 106294181602498,
 			aim = 70722778630134,
 			equip = 123066272399119,
+			unequip = 126607551609403,
 			aimIn = 77762769530436,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
@@ -590,6 +607,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 119893426125614,
 			aim = 112261684163473,
 			equip = 99227268595174,
+			unequip = 81198522446397, -- put away onto the back (Config/Locomotion.Stow)
 			crouchReady = 134261827381957,
 			crouchWalk = 130726353830006,
 			crouchAim = 115330156920688,
@@ -599,6 +617,7 @@ local Weapons: { [string]: Weapon } = {
 			carry = 108888005264242,
 			aim = 96309248783570,
 			equip = 88893121669824,
+			unequip = 128704204598975,
 			aimIn = 117817401540584,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },

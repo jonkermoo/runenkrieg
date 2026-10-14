@@ -20,6 +20,8 @@ local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
+local Net = require(Shared.Net)
+local SoundFx = require(script.Parent.SoundFx)
 
 local Locomotion = {}
 
@@ -87,6 +89,7 @@ function Locomotion.attach(character: Model)
 				-- the equip is a one shot over the hold that will follow it; the staff's charge too (its time is set from
 				-- the hold time, below)
 				local once = hold == "equip"
+					or hold == "unequip"
 					or hold == "charge"
 					or hold == "airCharge"
 					or hold == "chargeTwo"
@@ -129,16 +132,59 @@ function Locomotion.attach(character: Model)
 		end
 	end
 
+	-- putting a weapon away (Config/Locomotion.Stow): its unequip plays on the body (the server keeps a copy in the
+	-- hands for it, told by Net "Stow") and the viewmodel's ("Stowing" names the weapon; src/client/Viewmodel,
+	-- src/client/WeaponCamera wait for it to end); knocked into a ragdoll it just goes (src/client/Ragdoll)
+	local stowTrack: AnimationTrack? = nil
+	local function endStow()
+		if stowTrack and stowTrack.IsPlaying then
+			stowTrack:Stop(0.1)
+		end
+		stowTrack = nil
+		character:SetAttribute("Stowing", nil)
+	end
+
 	character.ChildAdded:Connect(function(child)
 		-- join the gun to the torso at once (the server does too, a moment later), or it drops for a frame
 		local weapon = child:IsA("Tool") and Held.weapon(character)
 		local torso = character:FindFirstChild("Torso") :: BasePart?
 		if weapon and torso then
+			endStow() -- drawn again while being put away
 			weapon.hold.Part0 = torso
 			-- drawn from the sling: the equip plays once over the hold; the viewmodel starts its own from this moment
 			character:SetAttribute("EquippedAt", os.clock())
 			holdTracks(weapon.name).equip:Play(0.05)
+			local sounds = W[weapon.name].sounds
+			SoundFx.play(sounds and sounds.Equip, torso) -- (the staff's swish)
 		end
+	end)
+	character.ChildRemoved:Connect(function(child)
+		local name = child:IsA("Tool") and child:GetAttribute("Weapon")
+		if
+			type(name) ~= "string"
+			or not W[name]
+			or humanoid.Health <= 0
+			or character:GetAttribute("Ragdolled") == true
+		then
+			return
+		end
+		local track = holdTracks(name).unequip
+		if not track then
+			return -- no unequip animation: straight onto the back, as before
+		end
+		Net.event("Stow"):FireServer()
+		local at = os.clock()
+		character:SetAttribute("Stowing", name)
+		character:SetAttribute("StowedAt", at)
+		track:Play(0.1)
+		stowTrack = track
+		local sounds = W[name].sounds
+		SoundFx.play(sounds and sounds.Unequip, root)
+		task.delay(Cfg.Stow.time, function()
+			if character:GetAttribute("StowedAt") == at and character:GetAttribute("Stowing") == name then
+				endStow()
+			end
+		end)
 	end)
 
 	-- the moving holds keep step with the cycle they ride on (same keyed length, so the same phase)

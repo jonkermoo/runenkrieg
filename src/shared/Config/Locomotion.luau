@@ -49,6 +49,13 @@ local Locomotion = {
 
 	Fade = 0.15, -- crossfade between ground cycles (seconds)
 	HoldFade = 0.12, -- crossfade between weapon holds (ready / carry / aim) and the tool hold
+	-- Putting a weapon away (user 2026-10-14: "an unequip animation where i put my gun back on my back"): the weapon's
+	-- unequip animations play for `time` seconds (body and first person, Config/Weapons holds / firstPerson .unequip)
+	-- while the server keeps a copy in the hands (src/server/Armory) and the camera stays at the eye, then the slung
+	-- copy shows and the camera glides back out (Config/Camera.LeaveBlend). The client says it's putting the weapon
+	-- away (Net "Stow"); a weapon taken away with no word for `wait` seconds (a ragdoll knock) goes straight on the
+	-- back.
+	Stow = { time = 0.55, wait = 0.2 },
 	-- No jump / fall / land animations (user 2026-10-11): in the air the current idle / walk / sprint keeps playing,
 	-- except floating with the staff aimed ("Floating", src/client/StaffAttack): the float cycle.
 

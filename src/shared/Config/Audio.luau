@@ -14,6 +14,12 @@ local Audio = {
 		Mechanism = { ref = 2, max = 60 },
 		-- footsteps (src/client/Footsteps): full within ~1 m, heard to ~20 m
 		Footstep = { ref = 3, max = 60 },
+		-- magic (Config/Vfx.Sounds): a cast and its shot, full within ~2 m, heard to ~140 m
+		Spell = { ref = 6, max = 400 },
+		-- the full-charge blast and where a beam lands: full within ~5 m, carrying like a gunshot
+		SpellBig = { ref = 14, max = 1800 },
+		-- hums and handling (the charge, the laser, floating, drawing the staff): close by only
+		Hum = { ref = 3, max = 60 },
 	},
 }
 

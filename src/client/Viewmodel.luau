@@ -78,6 +78,7 @@ type Rig = {
 	root: BasePart,
 	tracks: { [string]: AnimationTrack },
 	tool: Tool,
+	name: string, -- the weapon (Config/Weapons)
 	clear: number,
 	hip: CFrame, -- the turn that points the barrel at the screen centre (not aiming), eased
 	aimFix: Vector3, -- aimed: the shift that puts this rifle's own sight line on the eye (see aimFix)
@@ -164,7 +165,11 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		anim.AnimationId = "rbxassetid://" .. id
 		local t = animator:LoadAnimation(anim)
 		-- the equip and the aim-in are one shots over the holds
-		local once = state == "equip" or state == "aimIn" or state == "charge" or state == "chargeTwo"
+		local once = state == "equip"
+			or state == "unequip"
+			or state == "aimIn"
+			or state == "charge"
+			or state == "chargeTwo"
 		t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
 		t.Looped = not once
 		tracks[state] = t
@@ -181,6 +186,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		root = root,
 		tracks = tracks,
 		tool = weapon.tool,
+		name = weapon.name,
 		clear = -1,
 		hip = CFrame.identity,
 		aimFix = aimFix(weapon.name),
@@ -231,6 +237,12 @@ function Viewmodel.start()
 	RunService:BindToRenderStep("Viewmodel", LookTilt.Priority + 2, function(dt)
 		local character = player.Character
 		local weapon = character and Held.weapon(character)
+		-- being put away (src/client/Locomotion "Stowing"): the rig stays up and plays its unequip
+		local stowing = false
+		if not weapon and character and rig and character:GetAttribute("Stowing") == rig.name then
+			stowing = true
+			weapon = { tool = rig.tool, name = rig.name } :: any
+		end
 		if character then
 			character:SetAttribute("ViewmodelShown", rig ~= nil and rig.model.Parent ~= nil)
 		end
@@ -358,6 +370,9 @@ function Viewmodel.start()
 		local state = character:GetAttribute("Hold")
 		-- a hold the item doesn't have (the staff: no carry or aim yet) plays its ready
 		local track = if type(state) == "string" then r.tracks[state] or r.tracks.ready else nil
+		if stowing then
+			track = r.tracks.unequip -- put away: off over the shoulder
+		end
 		if state == "aim" and character:GetAttribute("TwoHands") == true and r.tracks.aimTwo then
 			track = r.tracks.aimTwo -- the staff: the left hand joined (src/client/StaffAttack)
 		end
@@ -387,7 +402,7 @@ function Viewmodel.start()
 		local aimIn = r.tracks.aimIn
 		if track ~= playing then
 			-- coming into view: straight into the pose, never faded in from the rig's rest pose
-			local fade = if appearing then 0 else Cfg.ViewmodelFade
+			local fade = if appearing then 0 elseif stowing then 0.1 else Cfg.ViewmodelFade -- (the unequip is short)
 			local out = fade
 			if state == "aim" and aimIn then
 				-- aiming starts: the brief aim-in carries the gun up into the sights over the aim hold

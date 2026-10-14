@@ -5,7 +5,9 @@
 --   mouse aims down the sights (src/client/Stance), still first person with a narrower view;
 -- - drawing a weapon glides the camera in from wherever Roblox's camera was, the body fading out as the viewmodel
 --   (src/client/Viewmodel) fades in near the eye, the head first so it never fills the view; putting the weapon away
---   hands Roblox's camera back at the zoom it had;
+--   stays at the eye while it goes over the shoulder ("Stowing", src/client/Locomotion), then glides back out to
+--   where Roblox's camera was at the zoom it had, the body fading back in (Config/Camera.LeaveBlend), and hands it
+--   back;
 -- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds;
 -- - ragdolled ("Ragdolled", src/client/Ragdoll): the body isn't turned with the view and the eye rides the head.
 -- Writes the view to the character's "CameraMode" attribute (local): "First" or "Aim"; "CameraInside" (the viewmodel
@@ -41,6 +43,10 @@ function WeaponCamera.start()
 	-- drawing the weapon: the camera eases in from where Roblox's camera was (relative to the root)
 	local from: Vector3? = nil
 	local blend = 1
+	-- putting it away: the glide back out (from where the camera was, relative to the root; 0..1)
+	local leaving = false
+	local leaveFrom = Vector3.zero
+	local leaveT = 0
 
 	local function parts(): (Model?, Humanoid?, BasePart?)
 		local character = player.Character
@@ -68,7 +74,7 @@ function WeaponCamera.start()
 	end
 
 	local function enter()
-		active = true
+		active, leaving = true, false
 		local _, _, root = parts()
 		-- remember Roblox's zoom, and glide in from where its camera was
 		zoom = (camera.CFrame.Position - camera.Focus.Position).Magnitude
@@ -81,8 +87,9 @@ function WeaponCamera.start()
 		camera.CameraType = Enum.CameraType.Scriptable
 	end
 
-	local function leave(character: Model?, humanoid: Humanoid?)
-		active = false
+	-- hands Roblox's camera back (at once, or at the end of the glide out)
+	local function finish(character: Model?, humanoid: Humanoid?)
+		active, leaving = false, false
 		camera.CameraType = Enum.CameraType.Custom
 		camera.FieldOfView = Cfg.Fov
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
@@ -104,14 +111,40 @@ function WeaponCamera.start()
 		end)
 	end
 
+	-- the weapon is away: glide back out from the eye (user 2026-10-14: "smoothly go back to where my camera was");
+	-- dead, at once
+	local function leave(character: Model?, humanoid: Humanoid?)
+		local _, _, root = parts()
+		if not character or not humanoid or humanoid.Health <= 0 or not root then
+			finish(character, humanoid)
+			return
+		end
+		active, leaving = false, true
+		leaveFrom, leaveT = camera.CFrame.Position - root.Position, 0
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		UserInputService.MouseIconEnabled = true
+		humanoid.AutoRotate = true
+		character:SetAttribute("CameraMode", nil)
+		character:SetAttribute("CameraInside", nil)
+		character:SetAttribute("Handover", nil)
+	end
+
 	-- before the look tilt: turn with the mouse, face the body
 	RunService:BindToRenderStep("WeaponCameraInput", Enum.RenderPriority.Input.Value + 1, function()
 		local character, humanoid, root = parts()
-		local want = character and humanoid and root and humanoid.Health > 0 and Held.weapon(character) ~= nil
+		-- a weapon in the hands, or one going over the shoulder (src/client/Locomotion "Stowing")
+		local want = character
+			and humanoid
+			and root
+			and humanoid.Health > 0
+			and (Held.weapon(character) ~= nil or character:GetAttribute("Stowing") ~= nil)
 		if want and not active then
 			enter()
 		elseif not want and active then
 			leave(character, humanoid)
+		end
+		if leaving and (not character or not humanoid or humanoid.Health <= 0) then
+			finish(character, humanoid)
 		end
 		if not active or not character or not humanoid or not root then
 			return
@@ -133,9 +166,34 @@ function WeaponCamera.start()
 
 	-- after the look tilt has posed the gun: place the camera
 	RunService:BindToRenderStep("WeaponCameraPlace", LookTilt.Priority + 1, function(dt)
-		local character, _, root = parts()
+		local character, humanoid0, root = parts()
+		if leaving and character and root then
+			-- the glide back out: to where Roblox's camera sits at the zoom it had, looking the same way, the body
+			-- fading back in as the camera leaves the head
+			leaveT = math.min(1, leaveT + dt / Cfg.LeaveBlend)
+			local rotation = CFrame.fromOrientation(math.rad(pitch), math.rad(yaw), 0)
+			local head = root.Position + HEAD
+			local d = math.clamp(zoom, ROBLOX_MIN, Cfg.FreeMaxZoom)
+			local rel = leaveFrom:Lerp(head - rotation.LookVector * d - root.Position, smooth(leaveT))
+			camera.CFrame = CFrame.new(root.Position + rel) * rotation
+			camera.Focus = CFrame.new(head)
+			camera.FieldOfView += (Cfg.Fov - camera.FieldOfView) * (1 - math.exp(-Cfg.Ease * dt))
+			-- (as the glide in: hidden near the eye, the head last to show)
+			local near = (camera.CFrame.Position - head).Magnitude
+			local H = Cfg.Handover
+			local body = math.max(
+				math.clamp((Cfg.FadeFar - near) / (Cfg.FadeFar - Cfg.FadeNear), 0, 1) * Cfg.FadeMax,
+				math.clamp((H.far - near) / (H.far - H.near), 0, 1)
+			)
+			show(character, body, math.max(body, math.clamp((H.headFar - near) / (H.headFar - H.headNear), 0, 1)))
+			if leaveT >= 1 then
+				finish(character, humanoid0)
+			end
+			return
+		end
 		local weapon = character and Held.weapon(character)
-		if not active or not character or not root or not weapon then
+		local stowing = character ~= nil and character:GetAttribute("Stowing") ~= nil
+		if not active or not character or not root or not (weapon or stowing) then
 			return
 		end
 		local view = character:GetAttribute("CameraMode")

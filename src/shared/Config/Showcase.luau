@@ -26,6 +26,7 @@ local Showcase = {
 		{ hold = "crouchWalk", base = "crouchWalk" },
 		{ hold = "crouchAim", base = "crouchIdle" },
 		{ hold = "equip", base = "idle", over = "ready", once = true },
+		{ hold = "unequip", base = "idle", over = "ready", once = true }, -- put away onto the back (user 2026-10-14)
 	},
 	Replay = 2.5,
 	-- the weapon's actions on a loop (src/client/GunFx shows them on every client): a shot and the bolt worked over
