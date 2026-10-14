@@ -42,12 +42,12 @@ local function gunOf(name: string): F.Gun
 		clip = w.ammo.clip,
 		boltTime = w.action.boltTime,
 		reloadTime = w.action.reloadTime,
-		fireTime = Cfg.FireTime,
-		openAt = Cfg.BoltCycle.back,
+		fireTime = w.action.fireTime or Cfg.FireTime,
+		openAt = (w.action.cycle or Cfg.BoltCycle).back,
 		reloadOpenAt = Cfg.ReloadCycle.back,
-		singleOpen = Cfg.Single.open,
-		singleRound = Cfg.Single.round,
-		singleClose = Cfg.Single.close,
+		singleOpen = w.single and w.single.open or Cfg.Single.open,
+		singleRound = w.single and w.single.round or Cfg.Single.round,
+		singleClose = w.single and w.single.close or Cfg.Single.close,
 	}
 end
 
@@ -136,6 +136,21 @@ local function shotRay(character: Model): (Vector3?, Vector3?)
 		return nil, nil
 	end
 	return muzzle.WorldPosition, muzzle.WorldCFrame.LookVector
+end
+
+-- Each pellet's line (a shotgun: Config/Weapons pellets, the pattern from `seed`, as the server casts them) or the
+-- one bullet's.
+local function lines(name: string, direction: Vector3, seed: number): { Vector3 }
+	local p = W[name].pellets
+	if not p then
+		return { direction }
+	end
+	local frame = CFrame.lookAt(Vector3.zero, direction)
+	local out = {}
+	for _, o in F.pellets(seed, p.count, p.spread) do
+		table.insert(out, (frame * CFrame.Angles(math.rad(o[2]), -math.rad(o[1]), 0)).LookVector)
+	end
+	return out
 end
 
 -- ---- the ammo display and the hit note ----
@@ -232,10 +247,13 @@ local function showHud(hud: Hud, l: Local?, now: number)
 	end
 	slot(hud.chamber, if s.chambered then "round" elseif s.spent then "spent" else "empty")
 	local next = F.next(s, now)
+	local loose = l.gun.clip == "Loose"
 	hud.hint.Text = if next == "Load"
 		then "Click: stop loading"
-		elseif next == "Bolt" then "Click: work the bolt"
-		elseif next == "Dry" or next == "Open" or (s.magazine == 0 and not s.chambered) then "R: load a clip"
+		elseif next == "Bolt" then (if loose then "Click: work the pump" else "Click: work the bolt")
+		elseif next == "Dry" or next == "Open" or (s.magazine == 0 and not s.chambered) then (if loose
+			then "R: load shells"
+			else "R: load a clip")
 		else ""
 	hud.note.Visible = now < hud.noteUntil
 end
@@ -279,21 +297,24 @@ function Firing.start()
 			end
 			F.fire(l.state, l.gun, now)
 			l.sent += 1
-			Net.event("Fire"):FireServer(origin, dir)
-			local result = workspace:Raycast(origin, dir * Cfg.Range, excluded(character))
-			GunFx.shot(
-				character,
-				if result then result.Position else origin + dir * Cfg.Range,
-				result and result.Normal,
-				result and result.Instance
-			)
-			Sway.kick()
+			local seed = math.random(1, 2147483646)
+			Net.event("Fire"):FireServer(origin, dir, seed)
+			local params = excluded(character)
+			local hits = {}
+			for _, line in lines(weapon.name, dir, seed) do
+				local result = workspace:Raycast(origin, line * Cfg.Range, params)
+				local hit = if result then result.Position else origin + line * Cfg.Range
+				table.insert(hits, { hit, result and result.Normal, result and result.Instance })
+			end
+			local first = table.remove(hits, 1) :: any
+			GunFx.shot(character, first[1], first[2], first[3], if #hits > 0 then hits else nil)
+			Sway.kick(W[weapon.name].recoil)
 		elseif next == "Bolt" then
 			local _, _, out = F.bolt(l.state, l.gun, now)
 			l.sent += 1
 			Net.event("WorkBolt"):FireServer()
 			-- with nothing left to feed, the bolt stops pulled back (held open)
-			local to = if l.state.open then Cfg.BoltCycle.back else 1
+			local to = if l.state.open then l.gun.openAt else 1
 			GunFx.cycle(character, weapon.name, "Bolt", out, l.state.magazine, 0, to)
 		elseif next == "Dry" then
 			local gun = GunFx.visible(character)
@@ -336,28 +357,44 @@ function Firing.start()
 	end)
 
 	-- the server's shots and actions: everyone else's effects; for our own shots, the hit note
-	Net.event("Shot").OnClientEvent
-		:Connect(
-			function(shooter: Model, _weapon: string, origin: Vector3, hit: Vector3, normal: Vector3?, part: Instance?)
-				if typeof(shooter) ~= "Instance" then
-					return
-				end
-				if shooter == player.Character then
-					if
-						part
-						and (GunFx.isTarget(part) or part.Parent and part.Parent:FindFirstChildOfClass("Humanoid"))
-					then
-						local what = if GunFx.isTarget(part)
-							then `{(part.Parent :: Instance).Name} {part.Name}`
-							else part.Name
-						hud.note.Text = `{what}  ·  {math.floor((hit - origin).Magnitude + 0.5)} studs`
-						hud.noteUntil = os.clock() + Cfg.Effects.HitMarker.time
-					end
-					return
-				end
-				GunFx.shot(shooter, hit, normal, part)
-			end
+	Net.event("Shot").OnClientEvent:Connect(
+		function(
+			shooter: Model,
+			_weapon: string,
+			origin: Vector3,
+			hit: Vector3,
+			normal: Vector3?,
+			part: Instance?,
+			more: { any }?
 		)
+			if typeof(shooter) ~= "Instance" then
+				return
+			end
+			if shooter == player.Character then
+				-- the hit note: the nearest target or soldier any pellet hit
+				local best, bestAt = nil, nil
+				for _, h in { { hit, normal, part }, table.unpack(more or {}) } do
+					local p = h[3]
+					if
+						typeof(p) == "Instance"
+						and (GunFx.isTarget(p) or p.Parent and p.Parent:FindFirstChildOfClass("Humanoid"))
+						and (not bestAt or (h[1] - origin).Magnitude < (bestAt - origin).Magnitude)
+					then
+						best, bestAt = p, h[1]
+					end
+				end
+				if best and bestAt then
+					local what = if GunFx.isTarget(best)
+						then `{(best.Parent :: Instance).Name} {best.Name}`
+						else best.Name
+					hud.note.Text = `{what}  ·  {math.floor((bestAt - origin).Magnitude + 0.5)} studs`
+					hud.noteUntil = os.clock() + Cfg.Effects.HitMarker.time
+				end
+				return
+			end
+			GunFx.shot(shooter, hit, normal, part, more)
+		end
+	)
 	Net.event("WeaponAction").OnClientEvent
 		:Connect(function(shooter: Model, action: string, out: string?, from: number?, to: number?, delay: number?)
 			if typeof(shooter) ~= "Instance" or shooter == player.Character then

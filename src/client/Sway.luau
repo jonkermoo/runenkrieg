@@ -32,7 +32,7 @@ local CROUCH = "rbxassetid://" .. Loco.Animations.crouchWalk.id
 local TAU = 2 * math.pi
 
 local viewmodel = CFrame.identity
-local camera = { pitch = 0, roll = 0 }
+local camera = { pitch = 0, roll = 0, yaw = 0 }
 
 function Sway.viewmodel(): CFrame
 	return viewmodel
@@ -41,7 +41,7 @@ end
 -- the camera's own turn for a view ("First", "Aim")
 function Sway.camera(view: string?): CFrame
 	local share = view and Cfg.Camera.View[view] or 0
-	return CFrame.Angles(math.rad(camera.pitch * share), 0, math.rad(camera.roll * share))
+	return CFrame.Angles(math.rad(camera.pitch * share), math.rad(camera.yaw * share), math.rad(camera.roll * share))
 end
 
 type Spring = { x: number, v: number }
@@ -64,15 +64,31 @@ local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
 end
 
--- recoil: an impulse on each spring (peaks near the Config amplitude), worked off by the render step
-local recoil = { pitch = spring(), yaw = spring(), back = spring(), camera = spring() }
-function Sway.kick()
+-- recoil: an impulse on each spring (peaks near the Config amplitude), worked off by the render step. A weapon's
+-- `recoil` (Config/Weapons) scales it and builds it up: "heat" goes up by one per shot and cools off over `cool`
+-- seconds; each shot kicks (1 + build x heat) times harder, up to `max`, and the hotter the gun the more the view
+-- also rolls and swings aside (user 2026-10-13: "make the camera sway worse each shot").
+local recoil =
+	{ pitch = spring(), yaw = spring(), back = spring(), camera = spring(), roll = spring(), turn = spring() }
+local heat, heatAt = 0, 0
+function Sway.kick(spec: { scale: number, build: number, max: number, cool: number }?)
 	local R = Fire.Recoil
 	local k = math.sqrt(R.stiffness)
-	recoil.pitch.v += R.pitch * k
-	recoil.yaw.v += (math.random() * 2 - 1) * R.yaw * k
-	recoil.back.v += R.back * k
-	recoil.camera.v += R.camera * k
+	local m = 1
+	if spec then
+		local now = os.clock()
+		heat = math.max(0, heat - (now - heatAt) / spec.cool)
+		heatAt = now
+		m = spec.scale * math.min(spec.max, 1 + spec.build * heat)
+		heat += 1
+	end
+	local wild = m - 1 -- how far past a plain kick: the view rolls and swings aside with it
+	recoil.pitch.v += R.pitch * k * m
+	recoil.yaw.v += (math.random() * 2 - 1) * R.yaw * k * m
+	recoil.back.v += R.back * k * m
+	recoil.camera.v += R.camera * k * m
+	recoil.roll.v += (math.random() * 2 - 1) * 2 * wild * k
+	recoil.turn.v += (math.random() * 2 - 1) * 1.2 * wild * k
 end
 
 function Sway.start()
@@ -141,7 +157,7 @@ function Sway.start()
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local cam = workspace.CurrentCamera
 		if not character or not humanoid or not root or humanoid.Health <= 0 then
-			viewmodel, camera.pitch, camera.roll = CFrame.identity, 0, 0
+			viewmodel, camera.pitch, camera.roll, camera.yaw = CFrame.identity, 0, 0, 0
 			return
 		end
 		local weapon = Held.weapon(character)
@@ -255,7 +271,8 @@ function Sway.start()
 			then C.aim
 			else { pitch = lerp(C.walk.pitch, C.sprint.pitch, g), roll = lerp(C.walk.roll, C.sprint.roll, g) }
 		camera.pitch = -cw.pitch * math.cos(2 * TAU * phase) * size * m + recoil.camera.x
-		camera.roll = cw.roll * math.sin(TAU * phase) * size * m
+		camera.roll = cw.roll * math.sin(TAU * phase) * size * m + recoil.roll.x
+		camera.yaw = recoil.turn.x
 	end)
 end
 

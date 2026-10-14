@@ -68,6 +68,14 @@ local Assets = {
 			generator = "tools/blender/weapons/smle.py",
 			description = "Lee-Enfield SMLE Mk III, the white team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
 		},
+		shotgun_m1897 = {
+			id = 118242502631158, -- v2: the bolt's channel in the receiver's back, 68 bigger holes (v1 112699594475693)
+			category = "Weapons",
+			folder = "Shared/Shotguns",
+			source = "assets/weapons/shared/shotgun_m1897.fbx",
+			generator = "tools/blender/weapons/m1897.py",
+			description = "Winchester M1897 trench gun, the shotgun of all three teams (built from its trace: tools/blender/weapons/trace/m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",

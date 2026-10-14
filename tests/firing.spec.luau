@@ -29,6 +29,19 @@ local GEWEHR: F.Gun = {
 	singleRound = S.round,
 	singleClose = S.close,
 }
+-- the M1897 (loose shells, its own load times)
+local PUMP: F.Gun = {
+	capacity = 5,
+	clip = "Loose",
+	boltTime = 0.6,
+	reloadTime = 0,
+	fireTime = 0.15,
+	openAt = OPEN.openAt,
+	reloadOpenAt = OPEN.reloadOpenAt,
+	singleOpen = 0.25,
+	singleRound = 0.45,
+	singleClose = 0.25,
+}
 -- when a single load started at `t0` with every round going in ends
 local function loadDone(t0: number, rounds: number): number
 	return t0 + S.open + rounds * S.round + S.close
@@ -194,15 +207,72 @@ return {
 	["every weapon has its ammunition and action"] = function()
 		for name, w in W do
 			local a, act = w.ammo, w.action
-			assert(a and a.capacity >= 1 and (a.clip == "Enbloc" or a.clip == "Stripper"), `{name}: ammo`)
-			assert(act and act.boltTime > 0 and act.reloadTime > act.boltTime, `{name}: action times`)
-			assert(act.turn > 0 and act.turn <= 120 and act.travel > 0 and act.travel < 0.5, `{name}: bolt throw`)
+			local clips = { Enbloc = true, Stripper = true, Loose = true }
+			assert(a and a.capacity >= 1 and clips[a.clip], `{name}: ammo`)
+			if a.clip == "Loose" then
+				-- a pump gun: shells one at a time (`single`), the pump slides straight back (no turn) with its shell feed
+				assert(act and act.boltTime > 0 and act.turn == 0, `{name}: pump action`)
+				assert(act.travel > 0 and act.travel < 0.5, `{name}: pump stroke`)
+				assert(w.single and w.moving.Pump and w.feed, `{name}: loose shells need single, a Pump and a feed`)
+				for _, part in w.feed.parts do
+					assert(w.moving[part], `{name}: feed part {part} must move`)
+				end
+			else
+				assert(act and act.boltTime > 0 and act.reloadTime > act.boltTime, `{name}: action times`)
+				assert(act.turn > 0 and act.turn <= 120 and act.travel > 0 and act.travel < 0.5, `{name}: bolt throw`)
+			end
 			assert(w.moving.Bolt, `{name}: the bolt must move`)
+			for _, part in w.eject or {} do
+				assert(w.parts[part], `{name}: eject part {part} has no color`)
+			end
+			if w.pellets then
+				local p = w.pellets
+				assert(p.count >= 2 and p.spread > 0 and p.spread < 10 and p.full < p.none, `{name}: pellets`)
+			end
 			if w.class == "BoltRifle" then
 				-- 5 + 1; an en-bloc rifle one more, since it reloads only when empty (user 2026-10-12)
 				local want = Cfg.RifleClip + (if a.clip == "Enbloc" then 1 else 0)
 				assert(a.capacity == want, `{name}: {a.clip} clips hold {want} rounds`)
 			end
 		end
+	end,
+	["loose shells: R loads one at a time, the chamber left alone"] = function()
+		local s = F.new(PUMP)
+		assert(not F.reload(s, PUMP, 0), "full: nothing to load")
+		F.fire(s, PUMP, 0)
+		F.bolt(s, PUMP, 0.5) -- 4 + 1
+		F.fire(s, PUMP, 2)
+		local ok, _, out, kind = F.reload(s, PUMP, 3)
+		assert(ok and kind == "Load" and out == nil, "a fired hull stays in the chamber while loading")
+		assert(s.spent and not s.chambered, "still the hull")
+		F.settle(s, 3 + 0.25 + 0.45 + 0.25)
+		assert(s.magazine == 5 and s.spent, "one shell in; the hull waits for the pump")
+		assert(F.next(s, 4) == "Bolt", "then the next click pumps")
+	end,
+	["loose shells into an empty gun: the open action closes on a shell"] = function()
+		local s = F.new(PUMP)
+		for i = 0, 5 do
+			local t = i * 2
+			F.fire(s, PUMP, t)
+			F.bolt(s, PUMP, t + 0.5)
+		end
+		assert(s.open and s.magazine == 0 and not s.chambered, "empty: the action held open")
+		local ok, _, out = F.reload(s, PUMP, 14)
+		assert(ok and out == "Open", "the load reports the open action")
+		F.settle(s, 14 + 0.25 + 5 * 0.45 + 0.25)
+		assert(s.chambered and s.magazine == 4 and not s.open, "5 shells in, one chambered: 4 + 1")
+	end,
+	["a shotgun pattern: the same from the same seed, inside the cone"] = function()
+		local a, b = F.pellets(12345, 9, 3), F.pellets(12345, 9, 3)
+		assert(#a == 9, "nine pellets")
+		local differs = false
+		for i, o in a do
+			assert(o[1] == b[i][1] and o[2] == b[i][2], "the same seed, the same pattern")
+			assert(math.sqrt(o[1] ^ 2 + o[2] ^ 2) <= 3 + 1e-9, "inside the cone")
+		end
+		for i, o in F.pellets(54321, 9, 3) do
+			differs = differs or o[1] ~= a[i][1]
+		end
+		assert(differs, "another seed, another pattern")
 	end,
 }

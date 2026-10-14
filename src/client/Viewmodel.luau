@@ -192,14 +192,23 @@ function Viewmodel.start()
 				{
 					w.holds,
 					w.firstPerson,
-					{ w.reload.body, w.reload.firstPerson, w.bolt.aim, w.bolt.ready },
+					{
+						w.reload.body,
+						w.reload.firstPerson,
+						w.bolt.aim,
+						w.bolt.ready,
+						w.bolt.firstAim or 0,
+						w.bolt.firstReady or 0,
+					},
 					if w.single then { w.single.body, w.single.firstPerson } else {},
 				}
 			do
 				for _, id in set :: any do
-					local a = Instance.new("Animation")
-					a.AnimationId = "rbxassetid://" .. id
-					table.insert(anims, a)
+					if id ~= 0 then -- 0: not built yet
+						local a = Instance.new("Animation")
+						a.AnimationId = "rbxassetid://" .. id
+						table.insert(anims, a)
+					end
 				end
 			end
 		end

@@ -14,13 +14,16 @@
 --   back (the action takes only until the bolt is open); the reload then starts from the open bolt and closes it.
 -- - put away mid-action (user 2026-10-12): the action's time left is kept (pause); drawn again, it plays out after
 --   the draw (resume), so stowing a rifle never skips a bolt or a reload.
+-- - loose shells (a pump shotgun, clip "Loose"; user 2026-10-13): R always loads one at a time, through the loading
+--   port, the action left shut: what is in the chamber stays (a fired hull still needs the pump). If the chamber was
+--   empty (the action held open), it closes on a shell at the end. The pump is worked like a bolt.
 -- A full rifle: one round chambered and a full clip in the magazine (Gewehr 5 + 1, Carcano 6 + 1; Config/Firing.RifleClip).
 
 local Firing = {}
 
 export type Gun = {
 	capacity: number, -- rounds one clip holds
-	clip: string, -- "Enbloc" | "Stripper"
+	clip: string, -- "Enbloc" | "Stripper" | "Loose" (shells one at a time, the action left shut)
 	boltTime: number,
 	reloadTime: number,
 	fireTime: number,
@@ -85,7 +88,7 @@ function Firing.settle(s: State, now: number)
 	end
 	s.magazine += l.rounds or l.room
 	s.load = nil
-	if not s.chambered and s.magazine > 0 then
+	if not s.chambered and not s.spent and s.magazine > 0 then -- (loose shells: a fired hull waits for the pump)
 		s.magazine -= 1
 		s.chambered = true
 	end
@@ -166,7 +169,7 @@ function Firing.canReload(s: State, gun: Gun): boolean
 end
 
 -- Returns ok, the reason it can't, what came out of the chamber when the bolt opened ("Casing", "Round": a live round
--- thrown out, or nil), and the kind: "Reload" (a clip) or "Load" (single rounds: a stripper-clip rifle with rounds
+-- thrown out, or nil; loose shells: "Open" when the action was held open and closes at the end), and the kind: "Reload" (a clip) or "Load" (single rounds: a stripper-clip rifle with rounds
 -- left).
 function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolean, string?, string?, string?)
 	Firing.settle(s, now)
@@ -175,9 +178,17 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 	elseif not Firing.canReload(s, gun) then
 		return false, if gun.clip == "Enbloc" then "not empty" else "full", nil, nil
 	end
-	if gun.clip == "Stripper" and s.magazine > 0 then
-		local out = if s.spent then "Casing" elseif s.chambered then "Round" else nil
-		s.spent, s.chambered, s.open = false, false, false
+	local loose = gun.clip == "Loose"
+	if loose or (gun.clip == "Stripper" and s.magazine > 0) then
+		local out: string? = nil
+		if loose then
+			-- "Open": the action was held open and closes on a shell at the end (settle); the chamber is left alone
+			out = if s.open then "Open" else nil
+			s.open = false
+		else
+			out = if s.spent then "Casing" elseif s.chambered then "Round" else nil
+			s.spent, s.chambered, s.open = false, false, false
+		end
 		local l: Load = {
 			start = now,
 			room = gun.capacity - s.magazine,
@@ -240,6 +251,27 @@ end
 -- The magazine as it stands at `now`, single rounds pushed in so far included.
 function Firing.magazineAt(s: State, now: number): number
 	return s.magazine + Firing.loadedBy(s, now)
+end
+
+-- A shotgun's pattern (user 2026-10-13): `count` pellet directions in a cone `spread` degrees wide (half angle),
+-- spread evenly over its area, from `seed` (the same on the shooter's client, the server and everyone's effects).
+-- Returns { yaw, pitch } offsets in degrees from the barrel's line (yaw + to the right, pitch + up).
+function Firing.pellets(seed: number, count: number, spread: number): { { number } }
+	local state = math.floor(seed) % 2147483647
+	if state <= 0 then
+		state += 2147483646
+	end
+	local function rand(): number -- Park-Miller: plain numbers, the same everywhere
+		state = (state * 16807) % 2147483647
+		return state / 2147483647
+	end
+	local out = {}
+	for _ = 1, count do
+		local r = spread * math.sqrt(rand())
+		local a = 2 * math.pi * rand()
+		table.insert(out, { r * math.cos(a), r * math.sin(a) })
+	end
+	return out
 end
 
 -- A shot's geometry as the server sees it: the muzzle reported `originDistance` studs from the shooter's head, a

@@ -187,7 +187,8 @@ function Showcase.start()
 			end
 		end
 		for _, a in Cfg.Actions do
-			if a.action ~= "Load" or w.single then -- single rounds: only a rifle that loads them
+			-- single rounds: only a rifle that loads them; a clip reload: not for loose shells (a pump gun)
+			if (a.action ~= "Load" or w.single) and (a.action ~= "Reload" or w.ammo.clip ~= "Loose") then
 				table.insert(items, { kind = "action", weapon = weapon, spec = a })
 			end
 		end

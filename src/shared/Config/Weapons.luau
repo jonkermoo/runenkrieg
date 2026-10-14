@@ -59,7 +59,17 @@ export type Weapon = {
 	ammo: { capacity: number, clip: string },
 	-- The action, worked by hand (seconds; turn in degrees, travel in modelled studs): the bolt turns its handle up
 	-- by `turn` about its axis (gun Z), then slides back `travel` (+Z) and returns.
-	action: { boltTime: number, reloadTime: number, turn: number, travel: number },
+	-- fireTime: after a shot nothing else can start for this long (else Config/Firing.FireTime); cycle: this weapon's
+	-- own bolt timeline (else Config/Firing.BoltCycle; `hold`: the bolt / pump rests back until then before it goes
+	-- forward).
+	action: {
+		boltTime: number,
+		reloadTime: number,
+		turn: number,
+		travel: number,
+		fireTime: number?,
+		cycle: { reach: number, up: number, back: number, hold: number?, forward: number, down: number }?,
+	},
 	-- The reload (Config/Firing.ReloadCycle; user 2026-10-13): where the right hand works, in modelled gun space, and
 	-- the weapon's own reload animations (tools/animation/reload.luau). knob: the bolt handle's knob, bolt closed;
 	-- clipTop: the top of the clip when seated (a stripper clip in the guides, an en-bloc clip in the magazine), where
@@ -75,14 +85,145 @@ export type Weapon = {
 	},
 	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
 	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
-	-- hold). 0 until uploaded.
-	bolt: { aim: number, ready: number },
+	-- hold). 0 until uploaded. A pump gun's pump (tools/animation/pump.luau) also has its first-person ones, played on
+	-- the viewmodel (`firstAim` aimed, `firstReady` otherwise).
+	bolt: { aim: number, ready: number, firstAim: number?, firstReady: number? },
 	-- Loading single rounds (stripper-clip rifles with rounds left; Config/Firing.Single, tools/animation/single.luau):
 	-- seat, where a round goes in (its centre pushed onto the top round, modelled gun space); the animation ids.
-	single: { seat: { number }, body: number, firstPerson: number }?,
+	-- open / round / close: this weapon's own times (else Config/Firing.Single's).
+	single: { seat: { number }, body: number, firstPerson: number, open: number?, round: number?, close: number? }?,
+	-- A shotgun's shot (user 2026-10-13): `count` pellets in a cone `spread` degrees wide (half angle), each its own
+	-- hitscan ray; full damage to `full` studs, none past `none` (stored for damage, M11: not applied yet).
+	pellets: { count: number, spread: number, full: number, none: number }?,
+	-- A pump gun's feed (src/client/GunFx): the shell lying on the carrier (parts `parts`, at rest under the bolt)
+	-- lifts `lift` to the bore line and goes `push` forward into the chamber as the pump comes forward; shown while the
+	-- magazine has shells. The "Pump" part slides with the bolt (action.travel back).
+	feed: { parts: { string }, lift: number, push: number }?,
+	-- The parts thrown out of the port after a shot, as one piece (else { "Casing" }).
+	eject: { string }?,
+	-- Part colors per kit (Config/Uniforms.Kits; user 2026-10-13: "slight coloring differences per team"), over `parts`.
+	kits: { [string]: { [string]: { number } } }?,
+	-- This weapon's own sounds, over Config/Firing.Sounds (same fields: id, volume, start, stop, fade).
+	sounds: { [string]: { [string]: number } }?,
+	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
+	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot).
+	recoil: { scale: number, build: number, max: number, cool: number }?,
 }
 
 local Weapons: { [string]: Weapon } = {
+	-- The shotgun of all three teams (docs/MILESTONES.md W1, user 2026-10-13): one model, the wood tinted per team
+	-- (`kits`). The pump is worked by the next click like a bolt (the "Bolt" action: no turn, the pump and bolt slide
+	-- back `travel` and forward, the shell on the carrier lifts into the chamber); shells go in one at a time through
+	-- the loading port under the receiver, 5 + 1, topping up any time without opening the action (ammo.clip "Loose").
+	shotgun_m1897 = {
+		asset = "shotgun_m1897",
+		display = "Winchester M1897",
+		slot = "Primary",
+		class = "Shotgun",
+		-- the photo's colors (user: "the colors of the top shotgun"), the shell like the helmet bands' shells
+		parts = {
+			Wood = { 112, 64, 60 },
+			Pump = { 78, 46, 44 },
+			Metal = { 104, 92, 96 },
+			Receiver = { 116, 117, 126 },
+			Bore = { 3, 3, 3 },
+			Bolt = { 132, 132, 138 },
+			Hammer = { 96, 95, 93 },
+			Trigger = { 96, 95, 93 },
+			Shell = { 150, 54, 44 },
+			ShellHead = { 176, 146, 80 },
+		},
+		kits = {
+			uniform1 = { Wood = { 88, 56, 48 }, Pump = { 62, 40, 36 } }, -- grey: dark walnut
+			uniform2 = { Wood = { 120, 78, 52 }, Pump = { 86, 56, 38 } }, -- olive: warm brown
+		},
+		moving = {
+			Pump = { 0, -0.0245, -0.9398 }, -- slides back the stroke and forward
+			Bolt = { 0, 0.0755, -0.3501 }, -- the slide in the receiver's top: back with the pump, out over the wrist
+			Hammer = { 0, 0.0281, -0.0395 }, -- its pin: rests cocked, falls 90 deg forward on a shot
+			Trigger = { 0, -0.0877, -0.029 }, -- the trigger pin
+			Shell = { 0, 0.0229, -0.1448 }, -- the shell on the carrier (its head)
+			ShellHead = { 0, 0.0229, -0.1448 }, -- moves with it
+		},
+		hidden = {},
+		attachments = {
+			Muzzle = { 0, 0.065, -1.7735 }, -- the bore on the mount's front face: pellets' origin, flash
+			Aim = { 0, 0.1071, 0.45 }, -- the eye, on the sight line: the bead in the rear sight's notch
+			Eject = { 0.052, 0.0597, -0.2369 }, -- the ejection port, right side
+		},
+		grip = { 0, -0.09, 0.17 }, -- the wrist of the straight stock, behind the guard
+		-- its own holds (tools/animation/rifle.luau, user 2026-10-13): the rifles' poses, the left hand on the pump
+		holds = {
+			ready = 123307446642086,
+			walk = 74378124906474,
+			carry = 122181109482392,
+			aim = 114865521572329,
+			equip = 96966780660102,
+			crouchReady = 125201661584426,
+			crouchWalk = 88611640240958,
+			crouchAim = 81699754378349,
+		},
+		firstPerson = {
+			ready = 136846592913920,
+			carry = 124660991401505,
+			aim = 87159735059561,
+			equip = 94150953497550,
+			aimIn = 135111930575943,
+		},
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the rifles: 2.79 -> 4.19 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		ammo = { capacity = 5, clip = "Loose" }, -- 5 in the tube + 1 (user 2026-10-13)
+		-- the pump: no turn, the stroke 3 1/4 in (the trace's 88 px); reloadTime unused (loose shells only). Slowed
+		-- (user 2026-10-13: "slow down the fire rate ... put delays between stuff"): a beat after the shot before the pump
+		-- can start (fireTime), the hand settles on the pump before it pulls (up), the pump rests back a moment
+		-- (back .. hold), then forward.
+		action = {
+			boltTime = 1.0,
+			reloadTime = 0,
+			turn = 0,
+			travel = 0.232,
+			fireTime = 0.4,
+			cycle = { reach = 0.15, up = 0.3, back = 0.5, hold = 0.62, forward = 0.84, down = 0.92 },
+		},
+		-- Creator Store placeholders like the rifles' (user 2026-10-13: "something more fitting"): "Shotgun Close Shot"
+		-- (ChipTheTrainer2, the rifle shot's creator; no lead-in silence), "shotgun pump back" / "shotgun_pump_forward",
+		-- "Shotgun Shell Insert 3 (SFX)" (YuvoNet)
+		sounds = {
+			Shot = { id = 94645072637721, volume = 2.5 },
+			BoltOpen = { id = 126161725690062, volume = 0.9 },
+			BoltClose = { id = 112863196810371, volume = 0.9 },
+			ClipIn = { id = 128059899217728, volume = 0.8 },
+		},
+		-- a heavier kick than a rifle's, worse with every quick shot (user 2026-10-13)
+		recoil = { scale = 1.6, build = 0.45, max = 2.8, cool = 1.8 },
+		pellets = { count = 9, spread = 3, full = 42, none = 140 }, -- 15 m / 50 m at 0.357 m per stud
+		feed = { parts = { "Shell", "ShellHead" }, lift = 0.042, push = 0.211 },
+		eject = { "Shell", "ShellHead" },
+		-- the pump worked (tools/animation/pump.luau): the left hand rides it back and forward
+		bolt = {
+			aim = 79121681696081,
+			ready = 103141305409594,
+			firstAim = 137466381085836,
+			firstReady = 85586779498880,
+		},
+		-- shells go in through the loading port under the receiver (seat: a shell there, pushed up into the tube); the
+		-- action stays shut, so no time to open it
+		single = {
+			seat = { 0, -0.05, -0.2 },
+			body = 84714499624328,
+			firstPerson = 71240298648597,
+			open = 0.35, -- slower (user 2026-10-13)
+			round = 0.6,
+			close = 0.4,
+		},
+		reload = { knob = { 0, -0.0245, -0.9398 }, clipTop = { 0, -0.05, -0.2 }, entry = 0, body = 0, firstPerson = 0 },
+	},
 	rifle_m91 = {
 		asset = "rifle_m91",
 		display = "Carcano M91",
@@ -154,9 +295,19 @@ local Weapons: { [string]: Weapon } = {
 		ammo = { capacity = 6, clip = "Enbloc" },
 		-- handle mid-bolt, straight out to the right: turns up a quarter turn, the bolt slides back along the open
 		-- receiver
-		action = { boltTime = 0.9, reloadTime = 2.4, turn = 90, travel = 0.3 },
+		-- slowed (user 2026-10-13: "do the same to all the rifles"): a beat after the shot, the bolt resting back
+		action = {
+			boltTime = 1.25,
+			reloadTime = 2.4,
+			turn = 90,
+			travel = 0.3,
+			fireTime = 0.35,
+			cycle = { reach = 0.14, up = 0.27, back = 0.45, hold = 0.55, forward = 0.76, down = 0.88 },
+		},
+		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
+		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob at the end of the straight handle, mid-bolt; the clip pushed down from just over the magazine
-		bolt = { aim = 112665941285389, ready = 88846316947766 },
+		bolt = { aim = 98946190531261, ready = 91424552679806 }, -- v2: slower, the bolt resting back (2026-10-13)
 		reload = {
 			knob = { 0.12, 0.065, -0.1511 },
 			clipTop = { 0, 0.0614, -0.267 },
@@ -223,9 +374,18 @@ local Weapons: { [string]: Weapon } = {
 		},
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a stripper clip in the guides (5 + 1)
 		-- straight handle at the rear of the bolt: turns up a quarter turn, the bolt slides back through the bridge
-		action = { boltTime = 0.9, reloadTime = 2.8, turn = 90, travel = 0.27 },
+		action = {
+			boltTime = 1.25,
+			reloadTime = 2.8,
+			turn = 90,
+			travel = 0.27,
+			fireTime = 0.35,
+			cycle = { reach = 0.14, up = 0.27, back = 0.45, hold = 0.55, forward = 0.76, down = 0.88 },
+		},
+		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
+		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob at the end of the straight handle at the bolt's rear; the stripper clip in the guides on the bridge
-		bolt = { aim = 104911133082414, ready = 95799602076532 },
+		bolt = { aim = 128295823529662, ready = 136571491377027 }, -- v2: slower (2026-10-13)
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
 		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 95730483657941 },
 		reload = {
@@ -295,9 +455,18 @@ local Weapons: { [string]: Weapon } = {
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a charger in the guides (5 + 1); tops up
 		-- the Lee's short lift (60 deg) and cock-on-closing make the fastest bolt; the bolt slides back clear of the
 		-- magazine's top round
-		action = { boltTime = 0.7, reloadTime = 2.8, turn = 60, travel = 0.28 },
+		action = {
+			boltTime = 1.0, -- still the fastest bolt
+			reloadTime = 2.8,
+			turn = 60,
+			travel = 0.28,
+			fireTime = 0.35,
+			cycle = { reach = 0.14, up = 0.27, back = 0.45, hold = 0.55, forward = 0.76, down = 0.88 },
+		},
+		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
+		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob of the bent handle at the bolt's rear, down by the wrist; the charger in the guides on the bridge
-		bolt = { aim = 111244016757012, ready = 89479225195668 },
+		bolt = { aim = 111789507011434, ready = 138431199459053 }, -- v2: slower (2026-10-13)
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
 		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 133640753043197 },
 		reload = {

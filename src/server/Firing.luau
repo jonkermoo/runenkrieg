@@ -2,9 +2,11 @@
 -- Shooting on the server (M11; Config/Firing, Rules/Firing). Each weapon Tool carries its action's state (rounds in
 -- the magazine, a round or a spent case in the chamber), published as Tool attributes ("Magazine", "Chambered",
 -- "Spent") for every client's ammo display and effects. The client predicts; this decides:
--- - Fire(origin, direction): the shooter's held rifle must have a live round chambered and be idle (Rules/Firing,
+-- - Fire(origin, direction, seed): the shooter's held rifle must have a live round chambered and be idle (Rules/Firing,
 --   with Config/Firing.Slack for latency); the muzzle must be near the shooter's head and in sight of it; then the
 --   ray is cast here (hitscan, Config/Firing.Range, the shooter excluded) and the shot goes out to everyone ("Shot").
+--   A shotgun casts one ray per pellet, its pattern from `seed` (Rules/Firing.pellets), the rest of the hits in "Shot"'s
+--   last argument.
 --   No damage yet (user 2026-10-12: damage physics comes later).
 -- - WorkBolt / Reload / StopLoad: the same state machine; accepted actions go out to everyone ("WeaponAction") so the
 --   parts move and the sounds play for all. A Reload with rounds left in a stripper-clip rifle loads single rounds
@@ -41,12 +43,12 @@ function Firing.gun(name: string): F.Gun
 		clip = w.ammo.clip,
 		boltTime = w.action.boltTime,
 		reloadTime = w.action.reloadTime,
-		fireTime = Cfg.FireTime,
-		openAt = Cfg.BoltCycle.back,
+		fireTime = w.action.fireTime or Cfg.FireTime,
+		openAt = (w.action.cycle or Cfg.BoltCycle).back,
 		reloadOpenAt = Cfg.ReloadCycle.back,
-		singleOpen = Cfg.Single.open,
-		singleRound = Cfg.Single.round,
-		singleClose = Cfg.Single.close,
+		singleOpen = w.single and w.single.open or Cfg.Single.open,
+		singleRound = w.single and w.single.round or Cfg.Single.round,
+		singleClose = w.single and w.single.close or Cfg.Single.close,
 	}
 end
 
@@ -100,14 +102,14 @@ function Firing.entry(tool: Tool): Entry?
 				if left > 0 and l and last and last.action == "Load" then
 					-- single rounds: carry on where it stopped (seconds into it), the round in the hand included
 					local from = now + Cfg.Resume.delay - l.start
-					local out = if from < 0.8 * l.open then last.out else nil
+					local out = if last.out == "Open" or from < 0.8 * l.open then last.out else nil
 					Net.event("WeaponAction"):FireAllClients(parent, "Load", out, from, l.rounds, Cfg.Resume.delay)
 					settleLater(tool, made.state)
 				elseif left > 0 and last and last.span > 0 then
 					-- where in its span the action stopped
 					local done = math.clamp(1 - left / last.span, 0, 1)
 					local from = last.from + (last.to - last.from) * done
-					local ejectAt = if last.action == "Bolt" then Cfg.BoltCycle.back else Cfg.ReloadCycle.back
+					local ejectAt = if last.action == "Bolt" then e.gun.openAt else Cfg.ReloadCycle.back
 					local out = if from < ejectAt then last.out else nil -- the case may already be out
 					Net.event("WeaponAction"):FireAllClients(parent, last.action, out, from, last.to, Cfg.Resume.delay)
 				end
@@ -147,7 +149,21 @@ local function allowed(player: Player): boolean
 	return true
 end
 
-local function shoot(player: Player, origin: any, direction: any)
+-- Each pellet's line (a shotgun) or the one bullet's: directions in the barrel's frame turned by the pattern's offsets.
+function Firing.lines(name: string, direction: Vector3, seed: number): { Vector3 }
+	local p = W[name].pellets
+	if not p then
+		return { direction }
+	end
+	local frame = CFrame.lookAt(Vector3.zero, direction)
+	local out = {}
+	for _, o in F.pellets(seed, p.count, p.spread) do
+		table.insert(out, (frame * CFrame.Angles(math.rad(o[2]), -math.rad(o[1]), 0)).LookVector)
+	end
+	return out
+end
+
+local function shoot(player: Player, origin: any, direction: any, seed: any)
 	local character, tool, e = held(player)
 	local head = character and character:FindFirstChild("Head") :: BasePart?
 	if not character or not tool or not e or not head then
@@ -156,6 +172,7 @@ local function shoot(player: Player, origin: any, direction: any)
 	e.seq += 1
 	local ok = typeof(origin) == "Vector3"
 		and typeof(direction) == "Vector3"
+		and (seed == nil or type(seed) == "number")
 		and allowed(player)
 		and F.validShot((origin - head.Position).Magnitude, direction.Magnitude, Cfg.MaxOrigin)
 	if not ok or not F.fire(e.state, e.gun, os.clock(), Cfg.Slack) then
@@ -168,16 +185,17 @@ local function shoot(player: Player, origin: any, direction: any)
 	params.FilterDescendantsInstances = { character }
 	-- the muzzle must be in sight of the head (no shooting from a barrel pushed through a wall)
 	local start = workspace:Raycast(head.Position, origin - head.Position, params)
-	local result = start or workspace:Raycast(origin, direction * Cfg.Range, params)
-	local hit = if result then result.Position else origin + direction * Cfg.Range
-	Net.event("Shot"):FireAllClients(
-		character,
-		tool:GetAttribute("Weapon"),
-		origin,
-		hit,
-		result and result.Normal,
-		result and result.Instance
-	)
+	local name = tool:GetAttribute("Weapon") :: string
+	-- a shotgun's pellets: each its own ray (the first one's hit goes in the usual arguments, the rest in `more`)
+	local hits = {}
+	for _, line in Firing.lines(name, direction, seed or 0) do
+		local result = start or workspace:Raycast(origin, line * Cfg.Range, params)
+		local hit = if result then result.Position else origin + line * Cfg.Range
+		table.insert(hits, { hit, result and result.Normal, result and result.Instance })
+	end
+	local first = table.remove(hits, 1) :: any
+	Net.event("Shot")
+		:FireAllClients(character, name, origin, first[1], first[2], first[3], if #hits > 0 then hits else nil)
 end
 
 local function act(player: Player, action: string)
@@ -213,7 +231,7 @@ local function act(player: Player, action: string)
 		-- the span of the timeline this action plays: a bolt opening on an empty rifle stops when it's back; a reload
 		-- from an open bolt starts there
 		local from = if action == "Reload" and wasOpen then Cfg.ReloadCycle.back else 0
-		local to = if action == "Bolt" and e.state.open then Cfg.BoltCycle.back else 1
+		local to = if action == "Bolt" and e.state.open then e.gun.openAt else 1
 		e.last = {
 			action = action,
 			out = out,
