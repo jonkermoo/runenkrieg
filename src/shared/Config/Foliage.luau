@@ -35,9 +35,10 @@ local Foliage = {
 		ScaleRange = { 0.85, 1.3 },
 		Levels = {
 			Off = { density = 0, radius = 0, swayRadius = 0 },
-			Low = { density = 0.2, radius = 45, swayRadius = 0 },
-			Medium = { density = 0.32, radius = 60, swayRadius = 25 },
-			High = { density = 0.42, radius = 80, swayRadius = 40 },
+			-- fuller (user 2026-10-14: "add some more grass, i just dont want missing patches"; was .2 / .32 / .42)
+			Low = { density = 0.45, radius = 55, swayRadius = 0 },
+			Medium = { density = 0.65, radius = 75, swayRadius = 25 },
+			High = { density = 0.8, radius = 95, swayRadius = 40 },
 		},
 		UpdateHz = 4,
 		Sway = { amp = 9, freq = 0.9 }, -- thin blades bend further than the tufts
