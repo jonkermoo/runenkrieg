@@ -116,7 +116,7 @@ function ShotAudio.heard(shooter: Model, weapon: string, origin: Vector3, hits: 
 		table.insert(ignore, own)
 	end
 	local paths, at = walls(listener, origin, ignore)
-	for _, e in R.echoes(d, paths, H.speed, H.echo.count, H.echo.extra, H.echo.gain) do
+	for _, e in R.echoes(d, paths, H.speed, H.echo.count, H.echo.extra, H.echo.gain, A.Profiles.Report.ref) do
 		local el, em, eh = R.air(paths[e.index][1] + paths[e.index][2], H.air)
 		SoundFx.play(
 			any(far),

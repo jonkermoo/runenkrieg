@@ -70,24 +70,31 @@ function ShotAudio.passGain(off: number, radius: number, edge: number): number
 end
 
 -- Echoes of a shot `direct` studs away, from reflections `paths` ({ to the wall, wall to the listener } each): the
--- strongest `count` whose path is at least `extra` longer than the direct one, loudest first.
+-- strongest `count` whose path is at least `extra` longer than the direct one (the shortest), loudest first. An echo plays from the
+-- wall, so its falloff (1 / distance from `ref`) only counts the wall's distance: `gain` (what the reflection keeps) is
+-- scaled down to the falloff of the whole path.
 function ShotAudio.echoes(
 	direct: number,
 	paths: { { number } },
 	speed: number,
 	count: number,
 	extra: number,
-	gain: number
+	gain: number,
+	ref: number
 ): { Echo }
 	local out: { Echo } = {}
 	for i, p in paths do
 		local path = p[1] + p[2]
 		if path - direct >= extra then
-			table.insert(out, { index = i, delay = path / speed, gain = gain * math.max(direct, 1) / path })
+			table.insert(out, {
+				index = i,
+				delay = path / speed,
+				gain = gain * math.max(p[2], ref) / math.max(path, ref),
+			})
 		end
 	end
-	table.sort(out, function(a, b)
-		return a.gain > b.gain
+	table.sort(out, function(x, y) -- as heard, the shortest path is the loudest
+		return x.delay < y.delay
 	end)
 	while #out > count do
 		table.remove(out)

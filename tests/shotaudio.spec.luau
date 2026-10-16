@@ -61,15 +61,25 @@ return {
 		assert(near(R.passGain(0, 15, 0.3), 1) and near(R.passGain(15, 15, 0.3), 0.3))
 		assert(near(R.passGain(99, 15, 0.3), 0.3) and R.passGain(5, 15, 0.3) > R.passGain(10, 15, 0.3))
 	end,
-	["echoes: longer paths only, quieter than the shot, strongest first, no more than asked"] = function()
+	["echoes: longer paths only, strongest first, no more than asked"] = function()
 		local paths = { { 300, 100 }, { 210, 5 }, { 250, 60 }, { 900, 400 } }
-		local e = R.echoes(200, paths, H.speed, 2, 30, 0.5)
+		local e = R.echoes(200, paths, H.speed, 2, 30, 0.5, 80)
 		assert(#e == 2, "two echoes")
 		assert(e[1].index == 3 and e[2].index == 1, "nearest reflections first (the 15-stud detour is no echo)")
 		for _, x in e do
 			assert(x.gain < 0.5 and x.delay > R.delay(200, H.speed), "quieter and later than the shot")
 		end
-		assert(#R.echoes(200, {}, H.speed, 2, 30, 0.5) == 0)
+		assert(#R.echoes(200, {}, H.speed, 2, 30, 0.5, 80) == 0)
+	end,
+	["an echo off a wall beside the listener is no louder than the whole path allows"] = function()
+		-- a wall 10 studs away, the shot 440 off: the wall's own falloff would play it at full; the path's is 80 / 450
+		local e = R.echoes(440, { { 445, 10 } }, H.speed, 1, 0, 1, 80)
+		assert(near(e[1].gain, 80 / 455, 1e-9), "scaled to the path's falloff")
+		local far = R.echoes(440, { { 300, 300 } }, H.speed, 1, 0, 1, 80)
+		assert(near(far[1].gain, 300 / 600, 1e-9), "a far wall: the rest of the path")
+	end,
+	["an echo comes clearly after the shot"] = function()
+		assert(R.delay(H.echo.extra, H.speed) >= 0.1, "a tenth of a second at least, or it only thickens the shot")
 	end,
 	["echoes look about and around"] = function()
 		assert(H.echo.rays >= 4 and H.echo.count >= 1 and H.echo.gain < 1 and H.echo.dull <= 0)

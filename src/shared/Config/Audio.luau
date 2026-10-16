@@ -39,9 +39,10 @@ local Audio = {
 		-- `edge` at the radius.
 		pass = { radius = 15, clear = 40, bullet = 1960, pellet = 1120, edge = 0.3 },
 		-- echoes: `rays` level rays from the listener out to `range` find walls and hillsides; the strongest `count`
-		-- reflections at least `extra` studs longer than the direct path play the far report from the wall, at `gain`
-		-- times the direct path / the echo's path, a further `dull` dB down on the highs
-		echo = { rays = 8, range = 500, count = 2, extra = 30, gain = 0.5, dull = -8 },
+		-- reflections at least `extra` studs longer than the direct path (0.1 s later: closer ones only thicken the shot, the
+		-- 2026-10-16 test) play the far report from the wall at `gain` (what the reflection keeps; the falloff counts the
+		-- whole path), a further `dull` dB down on the highs
+		echo = { rays = 8, range = 500, count = 2, extra = 100, gain = 0.5, dull = -8 },
 	},
 }
 
