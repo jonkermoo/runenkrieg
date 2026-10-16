@@ -69,7 +69,16 @@ local rng = Random.new()
 -- `scale` sizes the circles and their spacing, `spread` spaces them further still (the caster's own cast in first
 -- person is drawn smaller and further apart, Config/Spells.Staff.ViewScale / ViewSpread; the beam is the same).
 -- Each circle has its orbiting curves (Vfx/Orbits, Config/Vfx.Cast.Stages `orbits`), lingering after the shot.
-function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: number?, spread: number?): Cast
+-- `heard`: how each of its sounds reaches this listener, by where it plays (someone else's cast: late by the distance,
+-- duller far off; src/client/StaffSeen); nil plays them as they are.
+function Zoltraak.begin(
+	tip: CFrame,
+	holds: { number },
+	scheme: string?,
+	scale: number?,
+	spread: number?,
+	heard: ((at: Vector3) -> SoundFx.Mods?)?
+): Cast
 	local k = scale or 1
 	local sp = spread or 1
 	local C = Vfx.Cast
@@ -88,6 +97,15 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 	local last = #S
 	local veil, older = 0, 0
 	local each: { number }? = nil
+	local function sound(entry: any, at: Vector3, stage: number?, after: number?)
+		local mods: SoundFx.Mods? = if heard then heard(at) else nil
+		if after and after > 0 then
+			local m = table.clone(mods or {})
+			m.delay = (m.delay or 0) + after
+			mods = m
+		end
+		SoundFx.play(entry, at, stage, mods)
+	end
 	local function applyVeil()
 		for i, c in circles do
 			-- the newest circle at the veil (or its stage's), each before it `older` more see-through again
@@ -176,7 +194,7 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			orbits[i] = Orbits.new(s.orbits or 0, s.diameter * k, schemeCfg.orbit, schemeCfg.core)
 			orbits[i].move(circleFrame(current, s.ahead * k * sp))
 			applyVeil()
-			SoundFx.play(Snd.Open[i], centre(i), i) -- each circle its own growling burst
+			sound(Snd.Open[i], centre(i), i) -- each circle its own growling burst
 		end
 		if not isReady and circles[last] and h >= holds[last] then
 			isReady = true
@@ -187,7 +205,7 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			Star.play(c1, schemeCfg.flash, C.Ready.star)
 			Spikes.play(c1, schemeCfg.flash)
 			Shockwave.play(cl, current.LookVector, schemeCfg.glow, C.Ready.shockwave)
-			SoundFx.play(Snd.Ready, cl)
+			sound(Snd.Ready, cl)
 		end
 	end
 
@@ -279,8 +297,8 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam })
 			local reach, total = Ray.times(beam)
 			closeAll(n, total - (Vfx.Beams :: any)[beam].Fade + C.CloseAfter)
-			SoundFx.play(Snd.Fire[n], from, n)
-			task.delay(reach, SoundFx.play, Snd.Impact[n], to, n) -- where it lands, as the beam gets there
+			sound(Snd.Fire[n], from, n)
+			sound(Snd.Impact[n], to, n, reach) -- where it lands, as the beam gets there
 			return to
 		end,
 		pulse = function(ignore: { Instance }?): Vector3?
@@ -299,8 +317,8 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			local from = centre(1)
 			local to, normal, color = Util.cast(from, current.LookVector, C.Range, ignore)
 			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam })
-			SoundFx.play(Snd.Fire[1], from, 1)
-			task.delay((Ray.times(beam)), SoundFx.play, Snd.Impact[1], to, 1)
+			sound(Snd.Fire[1], from, 1)
+			sound(Snd.Impact[1], to, 1, (Ray.times(beam)))
 			return to
 		end,
 		cancel = function()

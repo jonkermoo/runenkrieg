@@ -1,7 +1,7 @@
 --!strict
 -- The staff's attack (user 2026-10-13; numbers in Config/Spells.Staff, stages in Config/Spells.Stages, effects
--- Vfx/Zoltraak.begin). Visual only, on the caster's client for now: no damage, others see the animations, not the
--- spells.
+-- Vfx/Zoltraak.begin). Visual and audio only: no damage. Drawn here for the caster; other players draw it from what
+-- this sends (src/client/StaffSeen).
 -- - Not aiming, left click: a quick fire (stage 1) at once from the staff's head toward the crosshair, turned by the
 --   first-person sway (it sways with the steps like a gun barrel) inside a cone (Rules/Spells.spread: wider walking).
 -- - Aiming (right mouse): the first circle opens and is held ready; a click fires it, holding charges stages 2 and 3,
@@ -27,6 +27,9 @@
 -- - Mana (Config/Spells.Mana, Rules/Spells): each shot spends its stage's cost; a charge stops at the stage it can pay
 --   for; nothing fires without enough, or while burnt out after a mega shot. Shown by src/client/ManaBar from the
 --   character's "Mana", "ManaLocked", "ManaSmoulder", "ManaCost", "ManaDenied", "ManaRefilled" (local).
+-- - Others see and hear the cast (src/client/StaffSeen): each circle opened, the aim and charge while held, each shot
+--   and where it lands, a dropped cast and floating go to the server (Net "StaffCast", Config/Spells.Send), which
+--   checks them and passes them on.
 -- Writes local attributes on the character: "SpeedScale" (src/client/Stance), "Casting" (charging), "CastHeld" (how
 -- long the charge has been held, for the charge animations), "TwoHands", "ChargeTwo" (both hands were already on when
 -- the charge started: the two-handed charge animations).
@@ -43,6 +46,8 @@ local RagdollCfg = require(Shared.Config.Ragdoll)
 local VfxCfg = require(Shared.Config.Vfx)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Spells)
+local NetRules = require(Shared.Rules.StaffNet)
+local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -54,6 +59,7 @@ local Zoltraak = require(script.Parent.Vfx.Zoltraak)
 local StaffAttack = {}
 
 local S = Cfg.Staff
+local Send = Cfg.Send
 local RANGE = 1000 -- how far the aim ray looks for what the crosshair is on
 local HOLDS = {}
 for i, s in Cfg.Stages do
@@ -111,6 +117,10 @@ function StaffAttack.start()
 	local scheme = (VfxCfg.Schemes :: any)[S.Scheme]
 	local pointer = Vfx.Pointer.new(scheme.pointer, scheme.core)
 	local mana = Rules.mana(Cfg.Mana)
+	-- the cast shown to others (Net "StaffCast"): when the last "Aim" went
+	local remote = Net.event("StaffCast")
+	local aimSentAt = -math.huge
+	local wasFloating = false
 	player.CharacterAdded:Connect(function()
 		mana = Rules.mana(Cfg.Mana) -- a new life starts full
 	end)
@@ -196,6 +206,7 @@ function StaffAttack.start()
 		local c = cast
 		if c then
 			c.cancel()
+			remote:FireServer("Drop")
 		end
 		cast, pressedAt = nil, nil
 		pointer.hide()
@@ -319,7 +330,10 @@ function StaffAttack.start()
 			if own then S.ViewScale else 1,
 			if own then S.ViewSpread else 1
 		)
-		quick.release(1, ignoreList(character))
+		local landed = quick.release(1, ignoreList(character))
+		if landed then
+			remote:FireServer("Fire", 1, landed, "Hip")
+		end
 		Rules.spend(mana, Cfg.Mana, 1, os.clock())
 		spent(character, 1, false)
 	end)
@@ -347,10 +361,16 @@ function StaffAttack.start()
 		if stage == 1 then
 			-- a quick shot from the held circle: it stays open for the next (user 2026-10-13: "the circle should stay
 			-- open [while] quick attacks are fired in succession"); a charge from it opens the later ones again
-			c.pulse(ignoreList(character))
+			local landed = c.pulse(ignoreList(character))
+			if landed then
+				remote:FireServer("Fire", 1, landed, "Pulse")
+			end
 			cast = c
 		else
-			c.release(stage, ignoreList(character))
+			local landed = c.release(stage, ignoreList(character))
+			if landed then
+				remote:FireServer("Fire", stage, landed, "Release")
+			end
 		end
 		Rules.spend(mana, Cfg.Mana, stage, os.clock())
 		spent(character, stage, true)
@@ -417,6 +437,8 @@ function StaffAttack.start()
 					if own then S.ViewScale else 1,
 					if own then S.ViewSpread else 1
 				)
+				remote:FireServer("Open")
+				aimSentAt = -math.huge -- its aim goes at once
 			end
 		end
 
@@ -441,6 +463,16 @@ function StaffAttack.start()
 				end
 			end
 			c.update(held or 0)
+			-- others: the crosshair point (no further than the server takes), the charge, the stages paid for
+			if NetRules.due(aimSentAt, now, Send.AimRate, 1) then
+				aimSentAt = now
+				local eye = character:FindFirstChild("Head") :: BasePart?
+				local to = aimPoint(ignore)
+				if eye and (to - eye.Position).Magnitude > Send.Reach * 0.9 then
+					to = eye.Position + (to - eye.Position).Unit * Send.Reach * 0.9
+				end
+				remote:FireServer("Aim", to, held, Rules.affordable(mana, Cfg.Mana))
+			end
 			c.veil(S.Veil, S.OlderVeil, S.StageVeils) -- the caster's own view, first or third person
 		else
 			pointer.hide()
@@ -547,6 +579,10 @@ function StaffAttack.start()
 		level = if floating then level + (1 - level) * (1 - math.exp(-F.ease * dt)) else 0
 		character:SetAttribute("Floating", if floating then true else nil)
 		floatLoop = keep(floatLoop, floating, Snd.Float, root) -- a low drone while it floats
+		if floating ~= wasFloating then
+			wasFloating = floating
+			remote:FireServer("Float", floating) -- others hear it too
+		end
 		local jump = force(root, "JumpFloat")
 		local already = if jump then jump.Force.Y else 0
 		local cancel = if floating then root.AssemblyMass * workspace.Gravity else 0
