@@ -5,7 +5,9 @@
 -- `stage`) and a list of entries plays them all at once (layers). Every sound is positional on its falloff profile (src/client/Audio):
 -- on a part or an attachment, or at a point in the world. A ready copy of each sound is made once and cloned per
 -- play (a Sound made at the moment it's needed starts ~0.33 s late, KNOWN_TRAPS), all preloaded up front.
--- play(entry, at, stage?) a one shot; loop(entry, at) a loop with a handle (set volume / pitch, stop with a fade).
+-- play(entry, at, stage?, mods?) a one shot (mods: { volume = a share of the entry's, eq = { low, mid, high } dB on top of
+-- the entry's, delay = seconds before it starts }); loop(entry, at) a loop with a handle (set volume / pitch, stop with a
+-- fade).
 
 local ContentProvider = game:GetService("ContentProvider")
 local Debris = game:GetService("Debris")
@@ -16,6 +18,7 @@ local Audio = require(script.Parent.Audio)
 local SoundFx = {}
 
 export type Entry = { [string]: any }
+export type Mods = { volume: number?, eq: { number }?, delay: number? }
 export type Loop = { set: (volume: number?, pitch: number?) -> (), stop: (fade: number?) -> () }
 
 local templates: { [string]: Sound } = {}
@@ -72,9 +75,24 @@ local function place(sound: Sound, at: Instance | Vector3, life: number?)
 	end
 end
 
-local function one(e: Entry, at: Instance | Vector3, stage: number?)
+local function one(e: Entry, at: Instance | Vector3, stage: number?, mods: Mods?)
+	if mods and mods.delay and mods.delay > 0 then
+		task.delay(mods.delay, one, e, at, stage, { volume = mods.volume, eq = mods.eq })
+		return
+	end
 	local s = template(e):Clone()
 	local volume, pitch = pick(e.volume, stage) or 1, pick(e.pitch, stage) or 1
+	volume *= mods and mods.volume or 1
+	if mods and mods.eq then
+		local q = s:FindFirstChildOfClass("EqualizerSoundEffect")
+		local base = e.eq or { 0, 0, 0 }
+		if not q then
+			q = Instance.new("EqualizerSoundEffect")
+			q.Parent = s
+		end
+		local qq = q :: EqualizerSoundEffect
+		qq.LowGain, qq.MidGain, qq.HighGain = base[1] + mods.eq[1], base[2] + mods.eq[2], base[3] + mods.eq[3]
+	end
 	s.Volume = volume
 	s.PlaybackSpeed = pitch
 	s.TimePosition = e.start or 0
@@ -99,15 +117,15 @@ local function one(e: Entry, at: Instance | Vector3, stage: number?)
 end
 
 -- A one shot (or each layer of a list) at `at`; `stage` picks per-stage volumes and pitches.
-function SoundFx.play(entry: Entry | { Entry }?, at: Instance | Vector3, stage: number?)
+function SoundFx.play(entry: Entry | { Entry }?, at: Instance | Vector3, stage: number?, mods: Mods?)
 	if not entry then
 		return
 	end
 	if (entry :: any).id then
-		one(entry :: Entry, at, stage)
+		one(entry :: Entry, at, stage, mods)
 	else
 		for _, e in entry :: { Entry } do
-			one(e, at, stage)
+			one(e, at, stage, mods)
 		end
 	end
 end

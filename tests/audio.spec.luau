@@ -1,6 +1,7 @@
 --!strict
 local A = require("../src/shared/Config/Audio")
 local Firing = require("../src/shared/Config/Firing")
+local Weapons = require("../src/shared/Config/Weapons")
 
 return {
 	["every falloff profile has a reference distance inside its range"] = function()
@@ -21,11 +22,28 @@ return {
 		assert(math.abs(gain(2 * p.ref) - 0.5) < 1e-9 and gain(p.ref / 2) == 1)
 	end,
 	["every trimmed sound plays a real stretch of its file"] = function()
-		for name, s in Firing.Sounds do
-			local a, b = (s :: any).start or 0, (s :: any).stop or math.huge
+		local function check(name: string, s: any)
+			if not s.id then -- variants
+				for i, v in s do
+					check(`{name}[{i}]`, v)
+				end
+				return
+			end
+			local a, b = s.start or 0, s.stop or math.huge
 			assert(a >= 0 and b > a + 0.1, `{name}: plays {a}-{b} s`)
-			if (s :: any).fade then
-				assert((s :: any).fade < b - a, `{name}: fades longer than it plays`)
+			if s.fade then
+				assert(s.fade < b - a, `{name}: fades longer than it plays`)
+			end
+			if s.lead then
+				assert(s.lead >= 0 and s.lead < b - a, `{name}: its peak is outside what plays`)
+			end
+		end
+		for name, s in Firing.Sounds do
+			check(name, s)
+		end
+		for weapon, w in Weapons do
+			for name, s in (w.sounds or {}) :: any do
+				check(`{weapon}.{name}`, s)
 			end
 		end
 	end,

@@ -40,6 +40,20 @@ local DevTools = {
 
 	CooldownSeconds = 0.5,
 
+	-- Far shooters for hearing shots from the other end (src/server/TestShooter, Config/Audio.Heard): soldiers out at
+	-- the test range's far end (x, z from Config/Range.Origin; -z downrange) firing back up the range in turn, every
+	-- `every` seconds, at a point `aim` (x, y) on the firing line, so the bullets pass close by someone standing there.
+	-- DEV play tests only, while Workspace has the attribute set: workspace:SetAttribute("TestShooter", true).
+	TestShooter = {
+		Attribute = "TestShooter",
+		every = 2.5,
+		aim = { 6, 5 },
+		Shooters = {
+			{ weapon = "rifle_m91", x = 30, z = -460 },
+			{ weapon = "shotgun_m1897", x = 26, z = -460 },
+		},
+	},
+
 	-- Admin panel (src/client/DevAdminMenu, client only: the client moves its own character).
 	Admin = {
 		-- the dev labels (user 2026-10-12: they get in the way while testing): the panel's "Labels" button shows or
