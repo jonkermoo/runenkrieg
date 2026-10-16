@@ -103,6 +103,27 @@ local Spells = {
 		OlderVeil = 0.3,
 		-- a stage 3 shot's knock back into a ragdoll: Config/Ragdoll.Knocks.StaffRecoil
 	},
+
+	-- The cast shown to other players (user 2026-10-16: "the staff audio and visual for other users"; Net "StaffCast",
+	-- src/server/StaffCast, src/client/StaffSeen, Rules/StaffNet). Visual and audio only: no damage, no server hitscan.
+	-- The caster sends "Open" (an aimed circle), "Aim" (crosshair point, charge held, stages paid for) while a cast is
+	-- held, "Fire" (stage, where it lands, how fired), "Drop" and "Float"; the server checks and relays to everyone else.
+	Send = {
+		AimRate = 10, -- "Aim" updates per second at most, while a cast is held
+		AimSlack = 0.5, -- the server takes an "Aim" this share of 1 / AimRate after the last (network bunching)
+		Events = 8, -- every other message: a token bucket per player, this many a second and this burst
+		CooldownSlack = 0.15, -- a "Fire" may come this many seconds before the last stage's cooldown is over
+		-- a "Fire" is still taken this long after the staff left the hands (a stage 3 shot's knockback puts it away, and
+		-- that can reach the server before the shot does); seconds
+		Grace = 0.5,
+		Reach = 400, -- the crosshair / landing point must be within this of the caster's head (studs; beams reach 250)
+		MaxHeld = 10, -- a received charge time is clamped to this (seconds)
+		-- other clients: the charge runs on from the last "Aim" for at most this long (so it doesn't stall between
+		-- updates or run on after a lost one)
+		Ahead = 0.25,
+		Follow = 14, -- how fast a held cast turns to the received crosshair point (per second)
+		Range = 900, -- drawn and heard only within this of the caster (or, for a shot, of where it lands); studs
+	},
 }
 
 return table.freeze(Spells)
