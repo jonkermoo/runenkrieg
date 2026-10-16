@@ -66,6 +66,14 @@ local Locomotion = {
 		Torso = 0.28, -- user 2026-10-11: a bit more apparent (was 0.2 / 10)
 		TorsoMax = 13,
 		Smoothing = 12, -- how fast the tilt follows the camera (per second)
+		-- shown to other players (Net "LookPitch", Rules/LookTilt): the camera pitch and the gun's follow share
+		Send = {
+			Rate = 10, -- updates per second at most, from each client and relayed by the server per soldier
+			Step = 2, -- pitch quantized to this many degrees (a change smaller than this is not sent)
+			FollowStep = 0.1, -- the gun's follow share (Config/Camera.Follow), quantized
+			MaxPitch = 90, -- the server clamps the received pitch to +-this
+			Smoothing = 10, -- how fast other players' soldiers follow the received pitch (per second)
+		},
 	},
 }
 

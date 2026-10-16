@@ -43,6 +43,7 @@ require(script.Armory).start()
 require(script.Doors).start()
 require(script.DevTools).start()
 require(script.Firing).start()
+require(script.LookTilt).start()
 require(script.Showcase).start()
 require(script.TestShooter).start()
 
