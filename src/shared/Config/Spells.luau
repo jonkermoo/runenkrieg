@@ -113,6 +113,9 @@ local Spells = {
 		AimSlack = 0.5, -- the server takes an "Aim" this share of 1 / AimRate after the last (network bunching)
 		Events = 8, -- every other message: a token bucket per player, this many a second and this burst
 		CooldownSlack = 0.15, -- a "Fire" may come this many seconds before the last stage's cooldown is over
+		-- a "Fire" is still taken this long after the staff left the hands (a stage 3 shot's knockback puts it away, and
+		-- that can reach the server before the shot does); seconds
+		Grace = 0.5,
 		Reach = 400, -- the crosshair / landing point must be within this of the caster's head (studs; beams reach 250)
 		MaxHeld = 10, -- a received charge time is clamped to this (seconds)
 		-- other clients: the charge runs on from the last "Aim" for at most this long (so it doesn't stall between

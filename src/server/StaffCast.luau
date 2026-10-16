@@ -19,23 +19,20 @@ local LAST = #Spells.Stages
 
 local StaffCast = {}
 
-type State = { bucket: Rules.Bucket, aimAt: number, fireAt: number?, fireStage: number? }
+type State = { bucket: Rules.Bucket, aimAt: number, fireAt: number?, fireStage: number?, staffAt: number }
 
--- the sender's character and head, alive with a staff drawn
-local function caster(player: Player): (Model?, BasePart?)
+-- the sender's character and head, alive; and whether a staff is drawn
+local function caster(player: Player): (Model?, BasePart?, boolean)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local head = character and character:FindFirstChild("Head") :: BasePart?
 	local tool = character and character:FindFirstChildOfClass("Tool")
 	local name = tool and tool:GetAttribute("Weapon")
-	if not humanoid or humanoid.Health <= 0 or not head or type(name) ~= "string" then
-		return nil, nil
+	if not character or not humanoid or humanoid.Health <= 0 or not head then
+		return nil, nil, false
 	end
-	local w = W[name]
-	if not w or w.class ~= "Staff" then
-		return nil, nil
-	end
-	return character, head
+	local w = type(name) == "string" and W[name]
+	return character, head, w ~= nil and w ~= false and w.class == "Staff"
 end
 
 -- a point near the caster's head, or nil
@@ -63,15 +60,26 @@ function StaffCast.start()
 	end
 
 	remote.OnServerEvent:Connect(function(player, kind, a, b, c)
-		local character, head = caster(player)
+		local character, head, staff = caster(player)
 		if not character or not head or type(kind) ~= "string" then
 			return
 		end
 		local now = os.clock()
 		local s = states[player]
 		if not s then
-			s = { bucket = { tokens = Send.Events, at = now }, aimAt = -math.huge, fireAt = nil, fireStage = nil }
+			s = {
+				bucket = { tokens = Send.Events, at = now },
+				aimAt = -math.huge,
+				fireAt = nil,
+				fireStage = nil,
+				staffAt = -math.huge,
+			}
 			states[player] = s
+		end
+		if staff then
+			s.staffAt = now
+		elseif not (kind == "Fire" and now - s.staffAt <= Send.Grace) then
+			return -- no staff in the hands (a shot just after it was put away still counts)
 		end
 		if kind == "Aim" then
 			if not Rules.due(s.aimAt, now, Send.AimRate, Send.AimSlack) then

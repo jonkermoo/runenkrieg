@@ -55,6 +55,7 @@ type Seen = {
 	heldAt: number,
 	cap: number,
 	floating: boolean,
+	from: Vector3?, -- where the staff's head was last seen (a stage 3 shot's knockback puts the staff away)
 	pointer: Pointer.Handle?,
 	charge: SoundFx.Loop?,
 	chargeStage: number,
@@ -112,6 +113,7 @@ function StaffSeen.start()
 				heldAt = 0,
 				cap = LAST,
 				floating = false,
+				from = nil,
 				pointer = nil,
 				charge = nil,
 				chargeStage = 0,
@@ -181,16 +183,17 @@ function StaffSeen.start()
 
 	local function fire(character: Model, s: Seen, stage: number, target: Vector3, mode: string)
 		local head = staffHead(character)
-		if not head then
+		local from = if head then head.WorldPosition else s.from
+		if not from then
 			return
 		end
 		s.target, s.aimed = target, target
-		local tip = CFrame.lookAt(head.WorldPosition, target)
-		local shown = near(head.WorldPosition) or near(target)
+		local tip = CFrame.lookAt(from, target)
+		local shown = near(from) or near(target)
 		if mode == "Pulse" and s.cast then
 			local c = s.cast :: Zoltraak.Cast
 			c.aim(tip)
-			c.pulse(ignoreFor(character))
+			print("[StaffSeen] pulse", from, target, c.pulse(ignoreFor(character)))
 			s.held = nil
 			return
 		end
@@ -205,7 +208,10 @@ function StaffSeen.start()
 		end
 		if c then
 			c.aim(tip)
-			c.release(if mode == "Release" then stage else 1, ignoreFor(character))
+			local landed = c.release(if mode == "Release" then stage else 1, ignoreFor(character))
+			print("[StaffSeen] fire", mode, stage, head ~= nil, shown, from, target, landed)
+		else
+			print("[StaffSeen] fire not drawn", mode, stage, head ~= nil, shown, from, target)
 		end
 		local root = rootOf(character)
 		if stage == LAST and mode == "Release" and root and shown then
@@ -240,6 +246,7 @@ function StaffSeen.start()
 				open(m, s, head) -- a cast already held when it came into view
 			end
 		elseif kind == "Fire" and type(a) == "number" and typeof(b) == "Vector3" and type(c) == "string" then
+			print("[StaffSeen] got Fire", a, c, head ~= nil)
 			fire(m, s, a, b, c)
 		elseif kind == "Drop" then
 			close(s)
@@ -257,6 +264,9 @@ function StaffSeen.start()
 			end
 			local head = staffHead(character)
 			local root = rootOf(character)
+			if head then
+				s.from = head.WorldPosition
+			end
 			if not head or not root then
 				close(s)
 				s.floating = false
