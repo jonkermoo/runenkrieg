@@ -13,12 +13,13 @@
 -- - A stage 3 shot knocks the caster back into a ragdoll (src/client/Ragdoll, Config/Ragdoll.Knocks.StaffRecoil): no
 --   control until they get up, half a second after landing.
 -- - In first person the caster's own cast starts at the first-person staff's head (aiming: Staff.Lead past it, the
---   staff on the circles' line), drawn smaller (Staff.ViewScale) and see-through while held (Staff.Veil, the older
---   circles more: Staff.OlderVeil); solid once fired.
+--   staff on the circles' line), drawn smaller (Staff.ViewScale). In first and third person alike the caster's own
+--   circles are see-through while held (Staff.Veil, the older circles more: Staff.OlderVeil; user 2026-10-16: third
+--   person too); solid once fired.
 -- - While charging (left click held, aiming), a flickering dashed laser runs from the cast to the crosshair
 --   (Vfx/Pointer): the aim in first person, a warning for whoever it points at. It goes when the beam fires.
--- - Only with the staff drawn (src/client/WeaponCamera: third person by default, first person zoomed all the way in;
---   either way the cast goes toward the screen centre, turned by the sway).
+-- - Only with the staff drawn (src/client/WeaponCamera: always third person; the cast goes toward the screen centre,
+--   turned by the sway).
 -- - No firing or aiming while sprinting (src/client/Stance).
 -- - In the air while aiming: floating (Staff.Float): carried slowly up to the jump's height above where it took off,
 --   hovering; after Float.hover seconds it sinks, and dropping below the takeoff height knocks it down (ragdoll). The
@@ -440,7 +441,7 @@ function StaffAttack.start()
 				end
 			end
 			c.update(held or 0)
-			c.veil(if character:GetAttribute("CameraInside") == true then S.Veil else 0, S.OlderVeil, S.StageVeils)
+			c.veil(S.Veil, S.OlderVeil, S.StageVeils) -- the caster's own view, first or third person
 		else
 			pointer.hide()
 		end

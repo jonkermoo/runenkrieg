@@ -19,35 +19,13 @@ return {
 		end
 		assert(staffs > 0, "no staff found in Config/Weapons")
 	end,
-	["the staff's zoom range sits inside the free camera's and above first person"] = function()
-		assert(S.MaxZoom < Cfg.FreeMaxZoom, "staff max zoom must be lower than with nothing drawn")
-		assert(S.MinZoom > 0 and S.MinZoom < S.AimZoom and S.AimZoom <= S.MaxZoom)
-		assert(S.Fade.near < S.Fade.far and S.Fade.far <= S.MinZoom + S.Shoulder[1])
-	end,
-	["drawing: Roblox's zoom clamped into the range, close in stays first person"] = function()
-		assert(Camera.start(S, 0.5) == 0)
-		assert(Camera.start(S, S.MinZoom) == S.MinZoom)
-		assert(Camera.start(S, 4) == math.min(4, S.MaxZoom))
-		assert(Camera.start(S, Cfg.FreeMaxZoom) == S.MaxZoom)
-	end,
-	["the wheel steps, in past the minimum to first person and back out"] = function()
-		assert(Camera.zoom(S, S.MaxZoom, -3) == S.MaxZoom, "out stops at the max")
-		assert(Camera.zoom(S, S.MaxZoom, 1) == S.MaxZoom - S.ZoomStep)
-		assert(Camera.zoom(S, S.MinZoom, 1) == 0, "in past the min: first person")
-		assert(Camera.zoom(S, 0, 1) == 0, "in from first person stays")
-		assert(Camera.zoom(S, 0, -1) == S.MinZoom, "out of first person lands on the min")
-		assert(Camera.zoom(S, 3, 0) == 3)
-		local d = S.MaxZoom
-		for _ = 1, 50 do
-			d = Camera.zoom(S, d, 1)
-		end
-		assert(d == 0, "scrolling all the way in ends in first person")
-	end,
-	["aiming comes in, never out; first person stays"] = function()
-		assert(Camera.target(S, S.MaxZoom, true) == S.AimZoom)
-		assert(Camera.target(S, S.MinZoom, true) == S.MinZoom)
-		assert(Camera.target(S, S.MaxZoom, false) == S.MaxZoom)
-		assert(Camera.target(S, 0, true) == 0)
+	["the staff's camera sits closer than the free camera's max, aiming closer still"] = function()
+		assert(S.Distance < Cfg.FreeMaxZoom, "the staff's distance must be lower than with nothing drawn")
+		assert(S.AimZoom > 0 and S.AimZoom <= S.Distance)
+		assert(Camera.target(S, false) == S.Distance)
+		assert(Camera.target(S, true) == S.AimZoom)
+		assert(S.EyeBlend > 0 and S.EyeBlend <= S.AimZoom)
+		assert(S.Fade.near < S.Fade.far and S.Fade.far <= S.AimZoom)
 	end,
 	["over the shoulder while firing, centred otherwise"] = function()
 		assert(Camera.shoulder(S, true, false, math.huge))

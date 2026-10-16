@@ -1,7 +1,7 @@
 --!strict
 -- The camera (src/client/WeaponCamera; user 2026-10-11). Data only.
 -- A weapon in the hands is always first person (user 2026-10-12: the third-person shoulder camera is gone), except the
--- staff (ThirdPersonClasses, user 2026-10-16: a third-person orbit, Staff below). In first person the
+-- staff (ThirdPersonClasses, user 2026-10-16: third person only, Staff below). In first person the
 -- body is hidden and the viewmodel plays the first-person holds (src/client/Viewmodel); right mouse aims down the
 -- sights. Without a weapon Roblox's own camera runs, out to FreeMaxZoom = StarterPlayer.CameraMaxZoomDistance
 -- (default.project.json, tests/project.spec); putting a weapon away hands it back at the zoom it had.
@@ -56,15 +56,16 @@ local Camera = {
 
 	-- The staff is exempt from "a weapon in the hands is always first person" (user 2026-10-16): with a weapon of one of
 	-- these classes (Config/Weapons `class`) the camera orbits behind the body, mouse locked to the centre and the body
-	-- turning with it, no crosshair (spells leave toward the screen centre, src/client/StaffAttack). Rules/Camera.
+	-- turning with it, no crosshair (spells leave toward the screen centre, src/client/StaffAttack). No first person and
+	-- no zooming with them (user 2026-10-16: "first person is disabled completely and the camera is locked").
+	-- Rules/Camera.
 	ThirdPersonClasses = { Staff = true },
 	Staff = {
-		-- zoom (studs from the head): drawn, Roblox's zoom clamped into MinZoom..MaxZoom (closer than MinZoom: first
-		-- person); the mouse wheel steps it by ZoomStep, and stepping in past MinZoom goes to first person (the first-person
-		-- staff, as before), out of it back to MinZoom. Lower than FreeMaxZoom (user 2026-10-16).
-		MaxZoom = 6,
-		MinZoom = 1.5,
-		ZoomStep = 1,
+		-- the camera's distance behind the head (studs), fixed: lower than FreeMaxZoom (user 2026-10-16)
+		Distance = 6,
+		-- coming out of the eye (switching from a gun): over this first stretch the camera moves from the eye to behind
+		-- the head
+		EyeBlend = 1.5,
 		-- aiming (right mouse): closer and narrower, still third person
 		AimZoom = 3.5,
 		AimFov = 60,

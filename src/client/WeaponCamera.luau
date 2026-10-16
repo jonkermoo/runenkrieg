@@ -10,11 +10,10 @@
 --   back;
 -- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds;
 -- - ragdolled ("Ragdolled", src/client/Ragdoll): the body isn't turned with the view and the eye rides the head;
--- - the staff (Config/Camera.ThirdPersonClasses, Rules/Camera): third person, orbiting behind the head, the mouse still
---   locked and the body turning with the view, no crosshair. Drawn, it starts at Roblox's zoom clamped to
---   Staff.MaxZoom; the wheel zooms, in past Staff.MinZoom to the first-person staff above and back out. Centred behind
---   the head, over the right shoulder while firing (aiming, charging, a moment after a click); aiming comes in closer
---   with a narrower view. Walls stop the camera (a swept sphere).
+-- - the staff (Config/Camera.ThirdPersonClasses, Rules/Camera): third person only, orbiting behind the head at a fixed
+--   distance (Staff.Distance, no zooming), the mouse still locked and the body turning with the view, no crosshair.
+--   Centred behind the head, over the right shoulder while firing (aiming, charging, a moment after a click); aiming
+--   comes in closer with a narrower view. Walls stop the camera (a swept sphere).
 -- Writes the view to the character's "CameraMode" attribute (local): "First", "Aim", "Third" or "ThirdAim";
 -- "CameraInside" (the viewmodel is on: first person only) and "Handover" (0..1, how far the viewmodel has faded in).
 
@@ -64,11 +63,11 @@ function WeaponCamera.start()
 	local leaving = false
 	local leaveFrom = Vector3.zero
 	local leaveT = 0
-	-- the staff's third person (Config/Camera.Staff): the chosen distance (0: first person), the eased one, the
-	-- shoulder blend (0 centred .. 1 over the right shoulder), the last click
+	-- the staff's third person (Config/Camera.Staff): the eased distance (0: at the eye), the shoulder blend (0 centred
+	-- .. 1 over the right shoulder), the last click
 	local third = false
-	local fresh = false -- just drawn: pick the distance from Roblox's zoom once the weapon is known
-	local distance, current, shoulder = 0, 0, 0
+	local fresh = false -- just drawn: set the view once the weapon is known
+	local current, shoulder = 0, 0
 	local clicked = -math.huge
 	local S = Cfg.Staff
 	local sweep = RaycastParams.new()
@@ -157,13 +156,7 @@ function WeaponCamera.start()
 		character:SetAttribute("Handover", nil)
 	end
 
-	-- the staff in third person: the wheel zooms, a click brings the shoulder view for a moment
-	UserInputService.InputChanged:Connect(function(input, processed)
-		if processed or not active or not third or input.UserInputType ~= Enum.UserInputType.MouseWheel then
-			return
-		end
-		distance = Rules.zoom(S, distance, math.sign(input.Position.Z))
-	end)
+	-- the staff in third person: a click brings the shoulder view for a moment
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if not processed and active and input.UserInputType == Enum.UserInputType.MouseButton1 then
 			clicked = os.clock()
@@ -206,9 +199,8 @@ function WeaponCamera.start()
 			local wants = thirdPerson(weapon)
 			if fresh or wants ~= third then
 				third = wants
-				distance = if third then Rules.start(S, zoom) else 0 -- from Roblox's zoom when it came out
 				if fresh then
-					current = distance
+					current = if third then S.Distance else 0
 				end
 				fresh = false
 			end
@@ -225,10 +217,9 @@ function WeaponCamera.start()
 		if character:GetAttribute("Ragdolled") ~= true then -- a ragdoll tumbles freely
 			root.CFrame = CFrame.new(root.Position) * CFrame.fromOrientation(0, math.rad(yaw), 0)
 		end
-		local outside = third and distance > 0
 		character:SetAttribute(
 			"CameraMode",
-			if outside then (if aiming then "ThirdAim" else "Third") else if aiming then "Aim" else "First"
+			if third then (if aiming then "ThirdAim" else "Third") else if aiming then "Aim" else "First"
 		)
 	end)
 
@@ -282,9 +273,9 @@ function WeaponCamera.start()
 			rel = headPart.Position - root.Position -- down: the eye goes with the tumbling head
 		end
 		-- the staff's third person: out behind the head to the eased distance, over the shoulder while firing; near the
-		-- eye it blends from the eye (first person) to the head centre, so zooming in and out is one smooth move
+		-- eye (coming from a gun) it blends from the eye to the head centre, so the switch is one smooth move
 		local aiming = character:GetAttribute("Aiming") == true
-		local want = Rules.target(S, if third then distance else 0, aiming)
+		local want = if third then Rules.target(S, aiming) else 0
 		current += (want - current) * ease(S.ZoomEase, dt)
 		if want <= 0 and current < 0.02 then
 			current = 0
@@ -293,7 +284,7 @@ function WeaponCamera.start()
 		local side = if third and want > 0 and firing then 1 else 0
 		shoulder += (side - shoulder) * ease(S.ShoulderEase, dt)
 		if current > 0 then
-			local k = math.clamp(current / S.MinZoom, 0, 1)
+			local k = math.clamp(current / S.EyeBlend, 0, 1)
 			local pivot = if ragdolled and headPart then headPart.Position - root.Position else head - root.Position
 			local base = rel:Lerp(pivot, k)
 			local out = rotation.RightVector * (S.Shoulder[1] * shoulder * k)

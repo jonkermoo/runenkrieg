@@ -90,7 +90,7 @@ local Spells = {
 		ViewScale = 0.75,
 		-- ...and spaced this much further apart (user 2026-10-13: "distance the circles more in first person")
 		ViewSpread = 1.05,
-		-- the caster's own circles and charge in first person while held: this see-through (0 = solid, 1 = invisible),
+		-- the caster's own circles and charge while held (first and third person; user 2026-10-16): this see-through (0 = solid, 1 = invisible),
 		-- dimming their glow as much; solid once fired (user 2026-10-13: "translucent in client side first person and
 		-- fully visible once fired"; tuned from captures)
 		-- (user 2026-10-13: "even more transparent, i can still barely see through the circles"; was 0.6)
