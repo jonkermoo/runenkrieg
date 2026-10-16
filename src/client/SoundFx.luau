@@ -1,7 +1,8 @@
 --!strict
 -- Plays the game's effect sounds from their Config entries (Config/Vfx.Sounds and the like): `{ id, volume, start?,
--- stop?, fade?, pitch?, loop?, profile }`, where volume / pitch may be per-stage lists (picked by `stage`) and a list
--- of entries plays them all at once (layers). Every sound is positional on its falloff profile (src/client/Audio):
+-- stop?, fade?, pitch?, loop?, profile, eq? }` (`fade`: down to nothing over its last seconds, at `stop` or the end of
+-- the file; `eq`: { low, mid, high } dB through an equalizer), where volume / pitch may be per-stage lists (picked by
+-- `stage`) and a list of entries plays them all at once (layers). Every sound is positional on its falloff profile (src/client/Audio):
 -- on a part or an attachment, or at a point in the world. A ready copy of each sound is made once and cloned per
 -- play (a Sound made at the moment it's needed starts ~0.33 s late, KNOWN_TRAPS), all preloaded up front.
 -- play(entry, at, stage?) a one shot; loop(entry, at) a loop with a handle (set volume / pitch, stop with a fade).
@@ -30,7 +31,8 @@ end
 
 -- the ready copy for an entry (keyed by its file and trim)
 local function template(e: Entry): Sound
-	local key = `{e.id}:{e.start or 0}:{e.stop or 0}:{e.profile}:{e.loop == true}`
+	local eq = e.eq
+	local key = `{e.id}:{e.start or 0}:{e.stop or 0}:{e.profile}:{e.loop == true}:{eq and table.concat(eq, ",") or ""}`
 	local s = templates[key]
 	if not s then
 		local made = Instance.new("Sound")
@@ -43,6 +45,11 @@ local function template(e: Entry): Sound
 			if made.Looped then
 				made.LoopRegion = made.PlaybackRegion
 			end
+		end
+		if eq then
+			local q = Instance.new("EqualizerSoundEffect")
+			q.LowGain, q.MidGain, q.HighGain = eq[1], eq[2], eq[3]
+			q.Parent = made
 		end
 		made.Parent = holder
 		templates[key] = made
@@ -72,13 +79,16 @@ local function one(e: Entry, at: Instance | Vector3, stage: number?)
 	s.PlaybackSpeed = pitch
 	s.TimePosition = e.start or 0
 	local length = if s.TimeLength > 0 then s.TimeLength else 8 -- (not known yet: a generous guess)
-	local span = ((e.stop or length) - (e.start or 0)) / pitch
+	local span = ((math.min(e.stop or length, length)) - (e.start or 0)) / pitch
 	place(s, at, span + 1)
 	s:Play()
-	if e.stop and e.fade then
+	if e.fade then
 		task.delay(math.max(0, span - e.fade), function()
 			if s.Parent then
-				TweenService:Create(s, TweenInfo.new(e.fade, Enum.EasingStyle.Linear), { Volume = 0 }):Play()
+				local f = math.min(e.fade, span)
+				TweenService
+					:Create(s, TweenInfo.new(f, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Volume = 0 })
+					:Play()
 			end
 		end)
 	end

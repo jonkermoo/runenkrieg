@@ -117,6 +117,7 @@ function StaffAttack.start()
 	local Snd = VfxCfg.Sounds
 	SoundFx.preload(Snd, W.staff_grey.sounds or {})
 	local chargeLoop: SoundFx.Loop? = nil
+	local chargeStage = 0 -- the stage whose hum chargeLoop is
 	local laserLoop: SoundFx.Loop? = nil
 	local floatLoop: SoundFx.Loop? = nil
 	local wasLocked = false
@@ -376,7 +377,11 @@ function StaffAttack.start()
 		end
 		wasLocked = mana.locked
 		if not character or not humanoid or humanoid.Health <= 0 or not weapon or not isStaff(weapon) then
-			chargeLoop = keep(chargeLoop, false, Snd.Charge, nil)
+			if chargeLoop then
+				chargeLoop.stop(Snd.Charge.fade)
+				chargeLoop = nil
+			end
+			chargeStage = 0
 			laserLoop = keep(laserLoop, false, Snd.Laser, nil)
 			drop()
 			twoHands = false
@@ -456,14 +461,25 @@ function StaffAttack.start()
 		character:SetAttribute("TwoHands", twoHands)
 		Sway.shake(if held then Rules.charge(Cfg.Stages, held) else 0)
 		setLock(if held and Rules.charge(Cfg.Stages, held) >= 1 then humanoid else nil)
-		-- the charge hums louder and higher as it builds; the laser crackles while it shows
+		-- the charge: each stage reached its own low hum (crossfading into the next), louder as it builds; the laser
+		-- crackles while it shows
 		local root = rootOf(character)
-		chargeLoop = keep(chargeLoop, held ~= nil, Snd.Charge, root)
+		local want = if held and root then Rules.stage(Cfg.Stages, held) else 0
+		if want ~= chargeStage or (want > 0 and not chargeLoop) then
+			if chargeLoop then
+				chargeLoop.stop(Snd.Charge.fade)
+				chargeLoop = nil
+			end
+			local entry = Snd.Charge.stages[want]
+			if entry and root then
+				chargeLoop = SoundFx.loop(entry, root)
+			end
+			chargeStage = want
+		end
 		local loop = chargeLoop
 		if loop and held then
-			local k = Rules.charge(Cfg.Stages, held)
-			local lo, hi = Snd.Charge.low, Snd.Charge.high
-			loop.set(lo.volume + (hi.volume - lo.volume) * k, lo.pitch + (hi.pitch - lo.pitch) * k)
+			local low = Snd.Charge.low
+			loop.set(low + (1 - low) * Rules.charge(Cfg.Stages, held))
 		end
 		laserLoop = keep(laserLoop, held ~= nil and cast ~= nil, Snd.Laser, root)
 	end)

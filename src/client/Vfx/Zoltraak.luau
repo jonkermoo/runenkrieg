@@ -176,7 +176,7 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			orbits[i] = Orbits.new(s.orbits or 0, s.diameter * k, schemeCfg.orbit, schemeCfg.core)
 			orbits[i].move(circleFrame(current, s.ahead * k * sp))
 			applyVeil()
-			SoundFx.play(Snd.Open, centre(i), i) -- each circle's own ring, lower for the later ones
+			SoundFx.play(Snd.Open[i], centre(i), i) -- each circle its own growling burst
 		end
 		if not isReady and circles[last] and h >= holds[last] then
 			isReady = true
@@ -280,7 +280,7 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			local reach, total = Ray.times(beam)
 			closeAll(n, total - (Vfx.Beams :: any)[beam].Fade + C.CloseAfter)
 			SoundFx.play(Snd.Fire[n], from, n)
-			task.delay(reach, SoundFx.play, Snd.Impact, to, n) -- where it lands, as the beam gets there
+			task.delay(reach, SoundFx.play, Snd.Impact[n], to, n) -- where it lands, as the beam gets there
 			return to
 		end,
 		pulse = function(ignore: { Instance }?): Vector3?
@@ -300,7 +300,7 @@ function Zoltraak.begin(tip: CFrame, holds: { number }, scheme: string?, scale: 
 			local to, normal, color = Util.cast(from, current.LookVector, C.Range, ignore)
 			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam })
 			SoundFx.play(Snd.Fire[1], from, 1)
-			task.delay((Ray.times(beam)), SoundFx.play, Snd.Impact, to, 1)
+			task.delay((Ray.times(beam)), SoundFx.play, Snd.Impact[1], to, 1)
 			return to
 		end,
 		cancel = function()

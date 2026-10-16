@@ -567,75 +567,76 @@ local Vfx = {
 	-- `pitch` (playback speed), `loop`, and the falloff profile (Config/Audio). Per-stage lists are { stage 1, 2, 3 }.
 	-- Heard by the caster only for now, like the casts themselves (they aren't replicated yet).
 	Sounds = {
-		-- terrifying, not cute (user 2026-10-14: "make the high pitch noises lower"): everything played well under its
-		-- recorded pitch (slower and heavier too: pitch is playback speed), the bright layers dropped
-		-- a circle opens: the ringy synth rising, slowed into a low groan, lower still for each stage
-		Open = { id = 9125973882, volume = 0.6, start = 0.05, profile = "Spell", pitch = { 0.55, 0.45, 0.35 } },
-		-- the charge: the swirling drone, deep and growing (from `low` to `high` over the charge, Rules/Spells.charge)
+		-- every sound new (user 2026-10-14: "can you find me completely new sounds? these are pretty bad"; before that
+		-- "terrifying, not cute", "too screechy"): dark, heavy, growling, all Pro Sound Effects (the braam APM), all on
+		-- the Creator Store under Roblox's licence. `eq`: an equalizer (dB lows / mids / highs) cutting any sizzle;
+		-- `fade`: down to nothing over the last seconds (to `stop` or the file's end).
+		-- a circle opens: a growling magic burst, rumbling into a long reverb, a different one per stage
+		-- (Magic Transition 3 / 5 / 6)
+		Open = {
+			{ id = 9116427220, volume = 0.9, pitch = 1, fade = 1.5, profile = "Spell", eq = { 2, 0, -12 } },
+			{ id = 9116427328, volume = 1, pitch = 0.9, fade = 1.5, profile = "Spell", eq = { 2, 0, -12 } },
+			{ id = 9116427399, volume = 1.2, pitch = 0.8, fade = 2, profile = "Spell", eq = { 3, 0, -12 } },
+		},
+		-- the charge: a hum per stage reached, scarier each time (crossfading over `fade` s), growing from `low` to full
+		-- over the whole charge (Rules/Spells.charge): 1 the force field's growl-like phasing, 2 the evil power drone
+		-- (its buzz cut), 3 a creature's nightmare growling
 		Charge = {
-			id = 9125898973,
-			volume = 1.1,
-			loop = true,
-			profile = "Hum",
-			low = { volume = 0.2, pitch = 0.45 },
-			high = { volume = 1, pitch = 0.8 },
+			fade = 0.5,
+			low = 0.4,
+			stages = {
+				{ id = 9116386364, volume = 0.9, loop = true, profile = "Hum" },
+				{ id = 9119412665, volume = 0.6, loop = true, profile = "Hum", eq = { 2, 0, -15 } },
+				{ id = 9113126091, volume = 1.4, pitch = 0.85, loop = true, profile = "Hum", eq = { 3, 0, -10 } },
+			},
 		},
-		-- stage 3 ready: the searing crackle, slowed to a snarl
-		Ready = { id = 9116276051, volume = 1, pitch = 0.6, profile = "Spell" },
-		-- the shots: stage 1 the whiplash burst; stage 2 the bigger burst over the zaps; stage 3 the zap at once and the
-		-- deep energy horn from its swell, all slowed down
+		-- stage 3 ready: a dark low braam (APM "DARK BRAAM 05")
+		Ready = { id = 9043342495, volume = 0.7, fade = 2.5, profile = "Spell" },
+		-- the shots: stage 1 an energy burst growl; stage 2 the disintegrator blast; stage 3 thunder with a lion's roar
+		-- over the disintegrator, dying away slowly
 		Fire = {
-			{ { id = 9114314919, volume = 1, start = 0.78, stop = 1.6, fade = 0.3, pitch = 0.7, profile = "Spell" } },
+			{ { id = 9114315023, volume = 0.9, fade = 1, profile = "Spell", eq = { 3, 0, -12 } } },
+			{ { id = 9114119082, volume = 0.8, start = 0.55, fade = 1, profile = "Spell", eq = { 3, 0, -12 } } },
 			{
-				{
-					id = 9114314399,
-					volume = 1.2,
-					start = 0.62,
-					stop = 2.7,
-					fade = 0.5,
-					pitch = 0.65,
-					profile = "Spell",
-				},
-				{ id = 9114246605, volume = 0.6, pitch = 0.55, profile = "Spell" },
-			},
-			{
-				{ id = 9119594928, volume = 1.5, pitch = 0.6, profile = "SpellBig" },
-				{
-					id = 9125544480,
-					volume = 2.4,
-					start = 1.55,
-					stop = 6.6,
-					fade = 1.2,
-					pitch = 0.75,
-					profile = "SpellBig",
-				},
+				{ id = 9120030350, volume = 1.6, start = 0.4, fade = 2.5, profile = "SpellBig" },
+				{ id = 9114118855, volume = 0.7, start = 0.55, fade = 1.2, profile = "SpellBig", eq = { 3, 0, -12 } },
 			},
 		},
-		-- where a beam lands: the zap, deeper with the stage
+		-- where a beam lands: an explosion, bigger and more violent with the stage, a faint electrical crackle in it for
+		-- the magic (user 2026-10-14: "more explosive than electrical and thunder. do it for all 3")
+		-- 1 a mortar's low thump and a sharp blast bang
+		-- 2 a big heavy searing boom over the bang and the thump
+		-- 3 a huge roaring fire explosion over the searing boom, a sub boom and the bang
 		Impact = {
-			id = 9119594928,
-			profile = "SpellBig",
-			volume = { 0.6, 1, 1.6 },
-			pitch = { 0.7, 0.55, 0.4 },
+			{
+				{ id = 9116973607, volume = 1.2, profile = "SpellBig" },
+				{ id = 9114086424, volume = 0.6, fade = 1.5, profile = "SpellBig", eq = { 3, 0, -6 } },
+				{ id = 9117877271, volume = 0.25, profile = "SpellBig", eq = { 0, 0, -6 } },
+			},
+			{
+				{ id = 9117876706, volume = 1.2, fade = 2, profile = "SpellBig" },
+				{ id = 9114086455, volume = 0.8, fade = 1.5, profile = "SpellBig", eq = { 3, 0, -6 } },
+				{ id = 9116973348, volume = 1.2, profile = "SpellBig" },
+				{ id = 9114235566, volume = 0.4, start = 0.55, fade = 1, profile = "SpellBig", eq = { 0, 0, -6 } },
+			},
+			{
+				{ id = 9114554766, volume = 1.6, fade = 2.5, profile = "SpellBig", eq = { 3, 0, -4 } },
+				{ id = 9117876706, volume = 1.6, fade = 2.5, profile = "SpellBig" },
+				{ id = 9119661508, volume = 1.6, fade = 2, profile = "SpellBig" },
+				{ id = 9114086424, volume = 1, fade = 2, profile = "SpellBig", eq = { 3, 0, -6 } },
+				{ id = 9118067764, volume = 0.4, fade = 1.2, profile = "SpellBig", eq = { 0, 0, -6 } },
+			},
 		},
-		-- the aiming laser: the static bursts on a loop, low and quiet
-		Laser = { id = 9119583983, volume = 0.14, start = 0, stop = 0.34, loop = true, pitch = 0.6, profile = "Hum" },
-		-- a shot refused for want of mana: the static, very low and short
-		Denied = { id = 9119583983, volume = 0.4, start = 0, stop = 0.25, fade = 0.1, pitch = 0.4, profile = "Hum" },
-		-- burnt out (the bar spent to nothing): the crackle, very low and dying
-		Burnout = { id = 9116276051, volume = 0.5, pitch = 0.4, stop = 1.0, fade = 0.5, profile = "Hum" },
-		-- floating: the synth drone, deep, fading in and out
-		Float = {
-			id = 9118808568,
-			volume = 0.4,
-			loop = true,
-			pitch = 0.6,
-			profile = "Hum",
-			fadeIn = 0.4,
-			fadeOut = 0.5,
-		},
-		-- thrown back by a stage 3 shot: the airy whomp, heavier
-		Knock = { id = 9120718689, volume = 0.9, start = 0.2, pitch = 0.75, profile = "Hum" },
+		-- the aiming laser: a low electrical hum with slow rattly pulses, quiet
+		Laser = { id = 9125636146, volume = 0.5, loop = true, profile = "Hum" },
+		-- a shot refused for want of mana: a dull thumpy poof
+		Denied = { id = 9116406610, volume = 0.8, pitch = 0.8, profile = "Hum", eq = { 4, 0, -15 } },
+		-- burnt out (the bar spent to nothing): a synth powering down
+		Burnout = { id = 9119813929, volume = 0.6, start = 0.4, fade = 1, profile = "Hum", eq = { 2, 0, -12 } },
+		-- floating: an eerie howling swirl, fading in and out
+		Float = { id = 9116391746, volume = 0.25, loop = true, profile = "Hum", fadeIn = 0.4, fadeOut = 0.5 },
+		-- thrown back by a stage 3 shot: a heavy air whoosh and thump
+		Knock = { id = 9113077334, volume = 1, start = 0.5, profile = "Hum" },
 	},
 }
 
