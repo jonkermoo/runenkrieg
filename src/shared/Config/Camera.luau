@@ -1,6 +1,7 @@
 --!strict
 -- The camera (src/client/WeaponCamera; user 2026-10-11). Data only.
--- A weapon in the hands is always first person (user 2026-10-12: the third-person shoulder camera is gone): the
+-- A weapon in the hands is always first person (user 2026-10-12: the third-person shoulder camera is gone), except the
+-- staff (ThirdPersonClasses, user 2026-10-16: a third-person orbit, Staff below). In first person the
 -- body is hidden and the viewmodel plays the first-person holds (src/client/Viewmodel); right mouse aims down the
 -- sights. Without a weapon Roblox's own camera runs, out to FreeMaxZoom = StarterPlayer.CameraMaxZoomDistance
 -- (default.project.json, tests/project.spec); putting a weapon away hands it back at the zoom it had.
@@ -52,6 +53,33 @@ local Camera = {
 	-- Gliding in: over the last stretch the viewmodel fades in (and the body out) between `far` and `near` studs from the head; the head itself fades out between headFar and headNear, so
 	-- it never fills the view (user 2026-10-11: ADS looked choppy). The eye is ~0.47 from the head's centre.
 	Handover = { far = 2.5, near = 0.6, headFar = 4.5, headNear = 3 },
+
+	-- The staff is exempt from "a weapon in the hands is always first person" (user 2026-10-16): with a weapon of one of
+	-- these classes (Config/Weapons `class`) the camera orbits behind the body, mouse locked to the centre and the body
+	-- turning with it, no crosshair (spells leave toward the screen centre, src/client/StaffAttack). Rules/Camera.
+	ThirdPersonClasses = { Staff = true },
+	Staff = {
+		-- zoom (studs from the head): drawn, Roblox's zoom clamped into MinZoom..MaxZoom (closer than MinZoom: first
+		-- person); the mouse wheel steps it by ZoomStep, and stepping in past MinZoom goes to first person (the first-person
+		-- staff, as before), out of it back to MinZoom. Lower than FreeMaxZoom (user 2026-10-16).
+		MaxZoom = 6,
+		MinZoom = 1.5,
+		ZoomStep = 1,
+		-- aiming (right mouse): closer and narrower, still third person
+		AimZoom = 3.5,
+		AimFov = 60,
+		-- over the right shoulder while firing (user 2026-10-16): aiming, charging, and for ShoulderHold seconds after a
+		-- click; centred behind the head otherwise. Studs right and up, in the view's axes.
+		Shoulder = { 1.6, 0.35 },
+		ShoulderHold = 1.2,
+		ZoomEase = 10, -- how fast the distance follows (per second)
+		ShoulderEase = 8,
+		-- walls: a sphere this big is swept from the head out to the camera, which stops where it hits (snapping in,
+		-- easing back out with ZoomEase)
+		Radius = 0.4,
+		-- the body (head included) fades as the camera closes in: clear beyond `far`, gone at `near` (studs from the head)
+		Fade = { far = 2, near = 0.75 },
+	},
 
 	-- Third person, local only: the weapon follows the camera's pitch. The torso tilts a little
 	-- (Config/Locomotion.LookTilt) and the arms with the gun turn about the shoulder line for the rest: share of the

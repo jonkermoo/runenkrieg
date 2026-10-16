@@ -17,7 +17,8 @@
 --   circles more: Staff.OlderVeil); solid once fired.
 -- - While charging (left click held, aiming), a flickering dashed laser runs from the cast to the crosshair
 --   (Vfx/Pointer): the aim in first person, a warning for whoever it points at. It goes when the beam fires.
--- - Only with the staff drawn (and the staff always brings the first-person weapon camera, src/client/WeaponCamera).
+-- - Only with the staff drawn (src/client/WeaponCamera: third person by default, first person zoomed all the way in;
+--   either way the cast goes toward the screen centre, turned by the sway).
 -- - No firing or aiming while sprinting (src/client/Stance).
 -- - In the air while aiming: floating (Staff.Float): carried slowly up to the jump's height above where it took off,
 --   hovering; after Float.hover seconds it sinks, and dropping below the takeoff height knocks it down (ragdoll). The

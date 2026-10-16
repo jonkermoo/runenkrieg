@@ -1,6 +1,6 @@
 --!strict
 -- The camera while a weapon is in the hands (Config/Camera; user 2026-10-12: no third-person shoulder camera, a weapon
--- in the hands is always first person):
+-- in the hands is always first person, except the staff: user 2026-10-16, below):
 -- - first person at the eye, the body turning with it (mouse locked to the centre, no cursor or crosshair); right
 --   mouse aims down the sights (src/client/Stance), still first person with a narrower view;
 -- - drawing a weapon glides the camera in from wherever Roblox's camera was, the body fading out as the viewmodel
@@ -9,9 +9,14 @@
 --   where Roblox's camera was at the zoom it had, the body fading back in (Config/Camera.LeaveBlend), and hands it
 --   back;
 -- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds;
--- - ragdolled ("Ragdolled", src/client/Ragdoll): the body isn't turned with the view and the eye rides the head.
--- Writes the view to the character's "CameraMode" attribute (local): "First" or "Aim"; "CameraInside" (the viewmodel
--- is on) and "Handover" (0..1, how far the viewmodel has faded in).
+-- - ragdolled ("Ragdolled", src/client/Ragdoll): the body isn't turned with the view and the eye rides the head;
+-- - the staff (Config/Camera.ThirdPersonClasses, Rules/Camera): third person, orbiting behind the head, the mouse still
+--   locked and the body turning with the view, no crosshair. Drawn, it starts at Roblox's zoom clamped to
+--   Staff.MaxZoom; the wheel zooms, in past Staff.MinZoom to the first-person staff above and back out. Centred behind
+--   the head, over the right shoulder while firing (aiming, charging, a moment after a click); aiming comes in closer
+--   with a narrower view. Walls stop the camera (a swept sphere).
+-- Writes the view to the character's "CameraMode" attribute (local): "First", "Aim", "Third" or "ThirdAim";
+-- "CameraInside" (the viewmodel is on: first person only) and "Handover" (0..1, how far the viewmodel has faded in).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,6 +25,8 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
+local W = require(Shared.Config.Weapons)
+local Rules = require(Shared.Rules.Camera)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
 local Sway = require(script.Parent.Sway)
@@ -32,6 +39,16 @@ local ROBLOX_MIN = 0.5 -- StarterPlayer.CameraMinZoomDistance: Roblox's first pe
 local function smooth(t: number): number
 	t = math.clamp(t, 0, 1)
 	return t * t * (3 - 2 * t)
+end
+
+local function ease(rate: number, dt: number): number
+	return 1 - math.exp(-rate * dt)
+end
+
+-- whether the weapon in the hands gets the third-person camera (the staff)
+local function thirdPerson(weapon: Held.Weapon?): boolean
+	local spec = weapon and (W :: any)[weapon.name]
+	return Rules.thirdPerson(Cfg.ThirdPersonClasses, spec and spec.class)
 end
 
 function WeaponCamera.start()
@@ -47,6 +64,16 @@ function WeaponCamera.start()
 	local leaving = false
 	local leaveFrom = Vector3.zero
 	local leaveT = 0
+	-- the staff's third person (Config/Camera.Staff): the chosen distance (0: first person), the eased one, the
+	-- shoulder blend (0 centred .. 1 over the right shoulder), the last click
+	local third = false
+	local fresh = false -- just drawn: pick the distance from Roblox's zoom once the weapon is known
+	local distance, current, shoulder = 0, 0, 0
+	local clicked = -math.huge
+	local S = Cfg.Staff
+	local sweep = RaycastParams.new()
+	sweep.FilterType = Enum.RaycastFilterType.Exclude
+	sweep.RespectCanCollide = true
 
 	local function parts(): (Model?, Humanoid?, BasePart?)
 		local character = player.Character
@@ -85,6 +112,7 @@ function WeaponCamera.start()
 		yaw = math.deg(math.atan2(-look.X, -look.Z))
 		pitch = math.clamp(math.deg(math.asin(look.Y)), -Cfg.PitchLimit, Cfg.PitchLimit)
 		camera.CameraType = Enum.CameraType.Scriptable
+		fresh, shoulder, clicked = true, 0, -math.huge
 	end
 
 	-- hands Roblox's camera back (at once, or at the end of the glide out)
@@ -129,6 +157,30 @@ function WeaponCamera.start()
 		character:SetAttribute("Handover", nil)
 	end
 
+	-- the staff in third person: the wheel zooms, a click brings the shoulder view for a moment
+	UserInputService.InputChanged:Connect(function(input, processed)
+		if processed or not active or not third or input.UserInputType ~= Enum.UserInputType.MouseWheel then
+			return
+		end
+		distance = Rules.zoom(S, distance, math.sign(input.Position.Z))
+	end)
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if not processed and active and input.UserInputType == Enum.UserInputType.MouseButton1 then
+			clicked = os.clock()
+		end
+	end)
+
+	-- the camera from `origin` (the head) out to `goal`, stopped by walls: a sphere swept between them (world space)
+	local function blocked(character: Model, origin: Vector3, goal: Vector3): Vector3
+		local span = goal - origin
+		if span.Magnitude < 1e-3 then
+			return goal
+		end
+		sweep.FilterDescendantsInstances = { character, camera }
+		local hit = workspace:Spherecast(origin, S.Radius, span, sweep)
+		return if hit then origin + span.Unit * hit.Distance else goal
+	end
+
 	-- before the look tilt: turn with the mouse, face the body
 	RunService:BindToRenderStep("WeaponCameraInput", Enum.RenderPriority.Input.Value + 1, function()
 		local character, humanoid, root = parts()
@@ -149,6 +201,18 @@ function WeaponCamera.start()
 		if not active or not character or not humanoid or not root then
 			return
 		end
+		local weapon = Held.weapon(character)
+		if weapon then -- (putting it away, "Stowing": the view it had stays)
+			local wants = thirdPerson(weapon)
+			if fresh or wants ~= third then
+				third = wants
+				distance = if third then Rules.start(S, zoom) else 0 -- from Roblox's zoom when it came out
+				if fresh then
+					current = distance
+				end
+				fresh = false
+			end
+		end
 		local aiming = character:GetAttribute("Aiming") == true
 		local delta = UserInputService:GetMouseDelta()
 		local sens = Cfg.Sensitivity * (if aiming then Cfg.AimSensitivity else 1)
@@ -161,7 +225,11 @@ function WeaponCamera.start()
 		if character:GetAttribute("Ragdolled") ~= true then -- a ragdoll tumbles freely
 			root.CFrame = CFrame.new(root.Position) * CFrame.fromOrientation(0, math.rad(yaw), 0)
 		end
-		character:SetAttribute("CameraMode", if aiming then "Aim" else "First")
+		local outside = third and distance > 0
+		character:SetAttribute(
+			"CameraMode",
+			if outside then (if aiming then "ThirdAim" else "Third") else if aiming then "Aim" else "First"
+		)
 	end)
 
 	-- after the look tilt has posed the gun: place the camera
@@ -207,25 +275,53 @@ function WeaponCamera.start()
 		local target = CFrame.new(root.Position + eye + (if humanoid then humanoid.CameraOffset else Vector3.zero))
 			* CFrame.fromOrientation(0, math.rad(yaw), 0)
 			* Vector3.new(0, 0, Cfg.Eye[3])
-		-- drawn just now: a short glide in from where Roblox's camera was, as long as the first-person aim-in
 		local rel = target - root.Position
 		local headPart = character:FindFirstChild("Head") :: BasePart?
-		if character:GetAttribute("Ragdolled") == true and headPart then
+		local ragdolled = character:GetAttribute("Ragdolled") == true and headPart ~= nil
+		if ragdolled and headPart then
 			rel = headPart.Position - root.Position -- down: the eye goes with the tumbling head
 		end
+		-- the staff's third person: out behind the head to the eased distance, over the shoulder while firing; near the
+		-- eye it blends from the eye (first person) to the head centre, so zooming in and out is one smooth move
+		local aiming = character:GetAttribute("Aiming") == true
+		local want = Rules.target(S, if third then distance else 0, aiming)
+		current += (want - current) * ease(S.ZoomEase, dt)
+		if want <= 0 and current < 0.02 then
+			current = 0
+		end
+		local firing = Rules.shoulder(S, aiming, character:GetAttribute("Casting") == true, os.clock() - clicked)
+		local side = if third and want > 0 and firing then 1 else 0
+		shoulder += (side - shoulder) * ease(S.ShoulderEase, dt)
+		if current > 0 then
+			local k = math.clamp(current / S.MinZoom, 0, 1)
+			local pivot = if ragdolled and headPart then headPart.Position - root.Position else head - root.Position
+			local base = rel:Lerp(pivot, k)
+			local out = rotation.RightVector * (S.Shoulder[1] * shoulder * k)
+				+ Vector3.yAxis * (S.Shoulder[2] * shoulder * k)
+				- rotation.LookVector * current
+			rel = blocked(character, root.Position + base, root.Position + base + out) - root.Position
+		end
+		-- drawn just now: a short glide in from where Roblox's camera was, as long as the first-person aim-in
 		if from and blend < 1 then
 			blend = math.min(1, blend + dt / Cfg.AimBlend)
 			rel = from:Lerp(rel, smooth(blend))
 		end
 		camera.CFrame = CFrame.new(root.Position + rel) * rotation * Sway.camera(view) -- its small step bob
 		camera.Focus = CFrame.new(head)
-		local fov = if view == "Aim" then Cfg.AimFov else Cfg.Fov
-		local ease = if view == "Aim" then Cfg.AimEase else Cfg.Ease
-		camera.FieldOfView += (fov - camera.FieldOfView) * (1 - math.exp(-ease * dt))
+		local fov = if view == "Aim" then Cfg.AimFov elseif view == "ThirdAim" then S.AimFov else Cfg.Fov
+		local rate = if view == "Aim" or view == "ThirdAim" then Cfg.AimEase else Cfg.Ease
+		camera.FieldOfView += (fov - camera.FieldOfView) * ease(rate, dt)
 
 		-- the body fades as the camera nears it; over the last stretch to the eye the viewmodel fades in while the body
 		-- fades out, the head first
 		local near = (camera.CFrame.Position - head).Magnitude
+		if view == "Third" or view == "ThirdAim" then
+			-- third person: no viewmodel; the whole body fades only once the camera is right at the head
+			character:SetAttribute("CameraInside", false)
+			character:SetAttribute("Handover", 0)
+			show(character, math.clamp((S.Fade.far - near) / (S.Fade.far - S.Fade.near), 0, 1))
+			return
+		end
 		local t = math.clamp((Cfg.FadeFar - near) / (Cfg.FadeFar - Cfg.FadeNear), 0, 1)
 		local H = Cfg.Handover
 		local handover = math.clamp((H.far - near) / (H.far - H.near), 0, 1)

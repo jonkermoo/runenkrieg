@@ -82,7 +82,7 @@ local Sway = {
 		walk = { pitch = 0.1, roll = 0.04 },
 		sprint = { pitch = 0.08, roll = 0.03 },
 		aim = { pitch = 0.13, roll = 0.02 },
-		View = { First = 1, Aim = 1 },
+		View = { First = 1, Aim = 1, Third = 1, ThirdAim = 1 }, -- the staff's third-person views too (Config/Camera.Staff)
 	},
 
 	-- Charging a staff spell (src/client/StaffAttack, Sway.shake; user 2026-10-13: "the crazier the camera swaying
