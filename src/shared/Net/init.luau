@@ -28,6 +28,10 @@ local Remotes: { string } = {
 	-- client -> server: () putting the held weapon away with its unequip animation (src/server/Armory keeps a copy in
 	-- the hands meanwhile; Config/Locomotion.Stow)
 	"Stow",
+	-- The look tilt shown to other players (src/client/LookTilt, src/server/LookTilt; Config/Locomotion.LookTilt.Send):
+	-- client -> server: (pitch: number, follow: number) the camera pitch in degrees and the gun's follow share
+	-- server -> clients: (character: Model, pitch: number, follow: number) clamped and quantized, throttled per soldier
+	"LookPitch",
 }
 local Functions: { string } = {}
 
