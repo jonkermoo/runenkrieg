@@ -16,7 +16,9 @@ echo "== 3/4 lint (selene)"
 selene src || failed+=(selene)
 
 echo "== 4/4 format (stylua --check)"
-StyLua --check src tests || failed+=(stylua)
+# Rokit installs it as `stylua` on Linux, `StyLua` on Windows
+fmt=$(command -v stylua || command -v StyLua)
+"$fmt" --check src tests || failed+=(stylua)
 
 if [ ${#failed[@]} -gt 0 ]; then echo "FAILED: ${failed[*]}"; exit 1; fi
 echo "ALL 4 CHECKS PASSED"
