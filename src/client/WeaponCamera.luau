@@ -307,10 +307,12 @@ function WeaponCamera.start()
 		-- fades out, the head first
 		local near = (camera.CFrame.Position - head).Magnitude
 		if view == "Third" or view == "ThirdAim" then
-			-- third person: no viewmodel; the whole body fades only once the camera is right at the head
+			-- third person: no viewmodel; the whole body fades once the camera is right at the head, and partly over the shoulder
 			character:SetAttribute("CameraInside", false)
 			character:SetAttribute("Handover", 0)
-			show(character, math.clamp((S.Fade.far - near) / (S.Fade.far - S.Fade.near), 0, 1))
+			-- over the shoulder (firing): see-through, so the body doesn't cover the screen centre
+			local close = math.clamp((S.Fade.far - near) / (S.Fade.far - S.Fade.near), 0, 1)
+			show(character, math.max(close, shoulder * S.ShoulderVeil))
 			return
 		end
 		local t = math.clamp((Cfg.FadeFar - near) / (Cfg.FadeFar - Cfg.FadeNear), 0, 1)

@@ -80,6 +80,10 @@ local Camera = {
 		Radius = 0.4,
 		-- the body (head included) fades as the camera closes in: clear beyond `far`, gone at `near` (studs from the head)
 		Fade = { far = 2, near = 0.75 },
+		-- over the shoulder (firing), the whole body (with the staff) goes this see-through for the player, so the head
+		-- and raised arm don't hide the screen centre where the circles and the shot are (user 2026-10-16: "when we are
+		-- in the shoulder cam, make us translucent"); others see it whole. Follows the shoulder slide in and out.
+		ShoulderVeil = 0.6,
 	},
 
 	-- Third person, local only: the weapon follows the camera's pitch. The torso tilts a little
