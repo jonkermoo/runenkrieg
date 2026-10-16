@@ -47,7 +47,7 @@ local function label(parent: BasePart, text: string, offset: number, size: numbe
 end
 
 -- a soldier in the uniform, standing anchored at `cf`
-local function dummy(name: string, cf: CFrame): Model
+local function dummy(name: string, cf: CFrame, parent: Instance?): Model
 	local kit = U.Kits[U.Default]
 	local skin = rgb(kit.skin)
 	local desc = Instance.new("HumanoidDescription")
@@ -67,7 +67,7 @@ local function dummy(name: string, cf: CFrame): Model
 	root.Anchored = true
 	m.PrimaryPart = root -- the model's own pivot is its box centre: place it by the root
 	m:PivotTo(cf)
-	m.Parent = folder
+	m.Parent = parent or folder
 	Bodies.apply(m)
 	return m
 end
@@ -115,6 +115,10 @@ local function arm(m: Model, weapon: string): Tool
 	tool.Parent = m
 	return tool
 end
+
+-- a muted, anchored soldier and a weapon in its hands (src/server/TestShooter uses them too)
+Showcase.dummy = dummy
+Showcase.arm = arm
 
 local function sorted(t: { [string]: any }, first: { string }?): { string }
 	local out, seen = {}, {}

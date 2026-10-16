@@ -90,8 +90,22 @@ local Firing = {
 		BoltClose = { id = 86945427224170, volume = 0.8 }, -- "Rifle Bolt Push 1" (EXPPOINT)
 		ClipIn = { id = 9116321026, volume = 0.7 }, -- "Locking Wrench 7 (SFX)" (Pro Sound Effects)
 		Dry = { id = 114980515844355, volume = 0.6 }, -- "Click"
+		-- Heard by everyone else (src/client/ShotAudio, Config/Audio.Heard), Pro Sound Effects; a list is variants, one
+		-- picked per shot. `start` skips each file's lead-in silence (measured 2026-10-16), `lead` is seconds from
+		-- `start` to the sound's peak (a pass is timed on its peak).
+		-- the far report: "Gun Retort 1 / 2 / 3" ("Distant, Present Decay")
+		Far = {
+			{ id = 9114725082, volume = 1.5, start = 2.14, stop = 6.4, fade = 1.5 },
+			{ id = 9114725318, volume = 1.5, start = 0.86, stop = 4.8, fade = 1.5 },
+			{ id = 9114725314, volume = 1.5, start = 1.1, stop = 4.2, fade = 1.2 },
+		},
+		-- a rifle bullet's supersonic crack going by: "Whip Cracks 1 / 2" (a whip's crack is a small sonic boom)
+		Pass = {
+			{ id = 9120660173, volume = 1.2, start = 0.32, lead = 0.06 },
+			{ id = 9120660382, volume = 1.2, start = 0.3, lead = 0.08 },
+		},
 	},
-	-- distance falloff (Config/Audio): the shot is a Gunshot, the rest of the action is Mechanism
+	-- distance falloff (Config/Audio): the shot is a Gunshot, the far report a Report, the rest of the action Mechanism
 }
 
 return table.freeze(Firing)

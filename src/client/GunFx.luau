@@ -81,6 +81,9 @@ end
 function GunFx.preload()
 	local list = {}
 	for _, s in Cfg.Sounds do
+		if not (s :: any).id then
+			continue -- variants heard by everyone else (src/client/ShotAudio preloads them)
+		end
 		local a = Instance.new("Sound")
 		a.SoundId = "rbxassetid://" .. s.id
 		table.insert(list, a)
@@ -225,12 +228,15 @@ end
 
 -- Everything a shot shows: the shooter's flash and sound, the tracer from the visible muzzle, the hole, the target.
 -- `more`: a shotgun's other pellets ({ hit, normal, part } each): a tracer, a hole and a target flash apiece.
-function GunFx.shot(character: Model, hit: Vector3, normal: Vector3?, part: Instance?, more: { any }?)
+-- `heard`: someone else's shot, whose sound src/client/ShotAudio plays instead.
+function GunFx.shot(character: Model, hit: Vector3, normal: Vector3?, part: Instance?, more: { any }?, heard: boolean?)
 	local gun = GunFx.visible(character)
 	local muzzle = gun and gun:FindFirstChild("Muzzle") :: Attachment?
 	if gun then
 		GunFx.flash(gun)
-		GunFx.sound(gun, "Shot")
+		if not heard then
+			GunFx.sound(gun, "Shot")
+		end
 	end
 	GunFx.kick(character)
 	for _, h in { { hit, normal, part }, table.unpack(more or {}) } do

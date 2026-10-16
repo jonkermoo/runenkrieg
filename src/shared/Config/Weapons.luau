@@ -357,6 +357,16 @@ local Weapons: { [string]: Weapon } = {
 			BoltOpen = { id = 126161725690062, volume = 0.9 },
 			BoltClose = { id = 112863196810371, volume = 0.9 },
 			ClipIn = { id = 128059899217728, volume = 0.8 },
+			-- heard far off (src/client/ShotAudio): "Gun Live Ammunition 1" (Pro Sound Effects, a Mossberg 12 gauge
+			-- "Distant and Low Angle"), cut before the pump's cocking; pellets whiz by: "Bullet Whiz 1 / 2"
+			Far = {
+				{ id = 9114710159, volume = 1.6, stop = 1.4, fade = 0.6 },
+				{ id = 9114712952, volume = 1.6, stop = 1.25, fade = 0.5 },
+			},
+			Pass = {
+				{ id = 9113634361, volume = 1, lead = 0.04 },
+				{ id = 9113634444, volume = 1, start = 0.1, lead = 0.18 },
+			},
 		},
 		-- a heavier kick than a rifle's, worse with every quick shot (user 2026-10-13)
 		recoil = { scale = 1.6, build = 0.45, max = 2.8, cool = 1.8 },

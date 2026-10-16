@@ -20,6 +20,29 @@ local Audio = {
 		SpellBig = { ref = 14, max = 1800 },
 		-- hums and handling (the charge, the laser, floating, drawing the staff): close by only
 		Hum = { ref = 3, max = 60 },
+		-- a far report (Config/Firing.Sounds.Far): the recording already sounds far off, so it plays fuller for longer
+		Report = { ref = 80, max = 2400 },
+	},
+
+	-- Someone else's shot as this listener hears it (src/client/ShotAudio, Rules/ShotAudio). Studs and seconds.
+	Heard = {
+		speed = 960, -- sound travels 343 m/s = 960 studs/s at 0.357 m per stud: a shot 480 studs off arrives 0.5 s late
+		-- the shot's own sound alone up to `near`, crossfading (equal power) into the far report by `far`
+		near = 60,
+		far = 300,
+		min = 0.01, -- a part mixed in at less than this share isn't played
+		-- air and ground take the highs first: dB per stud beyond `from` on the equalizer's low / mid / high bands, never
+		-- below `floor`
+		air = { from = 60, low = 0, mid = -0.012, high = -0.04, floor = { 0, -10, -30 } },
+		-- a bullet passing close by: heard within `radius` of its path, not within `clear` of the muzzle (the report
+		-- covers it there); rifles crack (~700 m/s), a shotgun's pellets whiz (~400 m/s). Volume from 1 on the path to
+		-- `edge` at the radius.
+		pass = { radius = 15, clear = 40, bullet = 1960, pellet = 1120, edge = 0.3 },
+		-- echoes: `rays` level rays from the listener out to `range` find walls and hillsides; the strongest `count`
+		-- reflections at least `extra` studs longer than the direct path (0.1 s later: closer ones only thicken the shot, the
+		-- 2026-10-16 test) play the far report from the wall at `gain` (what the reflection keeps; the falloff counts the
+		-- whole path), a further `dull` dB down on the highs
+		echo = { rays = 8, range = 500, count = 2, extra = 100, gain = 0.5, dull = -8 },
 	},
 }
 

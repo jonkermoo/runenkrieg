@@ -28,6 +28,7 @@ local F = require(Shared.Rules.Firing)
 local Net = require(Shared.Net)
 local GunFx = require(script.Parent.GunFx)
 local Held = require(script.Parent.Held)
+local ShotAudio = require(script.Parent.ShotAudio)
 local Sway = require(script.Parent.Sway)
 
 local Firing = {}
@@ -262,6 +263,7 @@ function Firing.start()
 	local player = Players.LocalPlayer
 	local fireKeys, reloadKeys = bind(Cfg.Keys.Fire), bind(Cfg.Keys.Reload)
 	GunFx.preload()
+	ShotAudio.preload()
 	local hud = buildHud(player)
 
 	local function held(): (Model?, Held.Weapon?, Local?)
@@ -374,7 +376,7 @@ function Firing.start()
 	Net.event("Shot").OnClientEvent:Connect(
 		function(
 			shooter: Model,
-			_weapon: string,
+			weapon: string,
 			origin: Vector3,
 			hit: Vector3,
 			normal: Vector3?,
@@ -406,7 +408,16 @@ function Firing.start()
 				end
 				return
 			end
-			GunFx.shot(shooter, hit, normal, part, more)
+			if type(weapon) == "string" and typeof(origin) == "Vector3" and typeof(hit) == "Vector3" then
+				local ends = { hit }
+				for _, h in more or {} do
+					if typeof(h[1]) == "Vector3" then
+						table.insert(ends, h[1])
+					end
+				end
+				ShotAudio.heard(shooter, weapon, origin, ends)
+			end
+			GunFx.shot(shooter, hit, normal, part, more, true)
 		end
 	)
 	Net.event("WeaponAction").OnClientEvent
