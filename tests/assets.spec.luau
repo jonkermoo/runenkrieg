@@ -8,18 +8,24 @@ local S = require("../src/shared/Config/Settings")
 local G = require("../src/shared/Rules/Grass")
 local U = require("../src/shared/Config/Uniforms")
 
+-- assets/ and tools/ are local only (not in git): without them (CI) the file checks pass and the rest still runs
+local LOCAL = fs.isDir("assets")
+local function isFile(path: string): boolean
+	return not LOCAL or fs.isFile(path)
+end
+
 return {
 	["every registry entry has a valid category, id and existing source file"] = function()
 		for name, e in A.Entries do
 			assert(table.find(A.Categories, e.category), `{name}: unknown category {e.category}`)
 			if e.generator then
-				assert(fs.isFile(e.generator), `{name}: missing generator {e.generator}`)
+				assert(isFile(e.generator), `{name}: missing generator {e.generator}`)
 			end
 			if e.uniform then
 				-- a uniform: its Shirt + Pants come from Config/Uniforms (image ids), nothing uploaded here
 				assert(U.Kits[e.uniform], `{name}: unknown uniform kit {e.uniform}`)
 				assert(e.source == U.Kits[e.uniform].source, `{name}: source differs from the kit's`)
-				assert(fs.isFile(e.source), `{name}: missing source {e.source}`)
+				assert(isFile(e.source), `{name}: missing source {e.source}`)
 			elseif e.prop then
 				assert(table.find(Props.Kinds, e.prop), `{name}: unknown prop {e.prop}`)
 			elseif e.template then
@@ -28,7 +34,7 @@ return {
 				assert(B.Templates[e.template].folder == e.folder, `{name}: folder differs from the template's`)
 			else
 				assert(type(e.id) == "number" and e.id > 0, `{name}: bad id`)
-				assert(e.source and fs.isFile(e.source), `{name}: missing source {e.source}`)
+				assert(e.source and isFile(e.source), `{name}: missing source {e.source}`)
 				assert(
 					string.find(e.source, "assets/" .. string.lower(e.category) .. "/", 1, true) == 1,
 					`{name}: source not under assets/{string.lower(e.category)}/`
@@ -60,7 +66,7 @@ return {
 	end,
 	["every repo asset category folder exists"] = function()
 		for _, c in A.Categories do
-			assert(fs.isDir("assets/" .. string.lower(c)), `missing assets/{string.lower(c)}`)
+			assert(not LOCAL or fs.isDir("assets/" .. string.lower(c)), `missing assets/{string.lower(c)}`)
 		end
 	end,
 	["every prop kind is in the library"] = function()

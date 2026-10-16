@@ -3,13 +3,19 @@ local fs = require("@lune/fs")
 local U = require("../src/shared/Config/Uniforms")
 local A = require("../src/shared/Config/Assets")
 
+-- assets/ and tools/ are local only (not in git): without them (CI) the file checks pass and the rest still runs
+local LOCAL = fs.isDir("assets")
+local function isFile(path: string): boolean
+	return not LOCAL or fs.isFile(path)
+end
+
 return {
 	["the default kit exists and every kit has its sources and ids"] = function()
 		assert(U.Kits[U.Default], "default kit missing")
 		for name, k in U.Kits do
-			assert(fs.isFile(k.source), `{name}: spec missing`)
+			assert(isFile(k.source), `{name}: spec missing`)
 			local stem = string.gsub(k.source, "%.json$", "")
-			assert(fs.isFile(stem .. "_shirt.png") and fs.isFile(stem .. "_pants.png"), `{name}: templates missing`)
+			assert(isFile(stem .. "_shirt.png") and isFile(stem .. "_pants.png"), `{name}: templates missing`)
 			assert(k.shirt > 0 and k.pants > 0 and #k.skin == 3, `{name}: ids or skin missing`)
 			if k.headwear then
 				local e = A.Entries[k.headwear]
@@ -29,7 +35,7 @@ return {
 			assert(f.above < last, `{f.name}: tiers must go down in health`)
 			last = f.above
 			local stem = "assets/characters/faces/" .. files[f.name]
-			assert(fs.isFile(stem .. ".png") and fs.isFile(stem .. "_closed.png"), `{f.name}: images missing`)
+			assert(isFile(stem .. ".png") and isFile(stem .. "_closed.png"), `{f.name}: images missing`)
 		end
 		assert(U.Faces[#U.Faces].above == 0, "the last face covers down to 0")
 	end,

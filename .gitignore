@@ -10,13 +10,14 @@ sourcemap.json
 assets/_cache/
 __pycache__/
 
-# Engine code only on GitHub (user decision 2026-10-10): docs, references, tooling, assets and maps stay local
-.claude/
+# Engine code only on GitHub (user decision 2026-10-10): docs, references, tooling, assets and maps stay local.
+# The check scripts are tracked (CI runs them).
 docs/
 references/
 tools/
-scripts/
+scripts/*
+!scripts/check.ps1
+!scripts/check.sh
 assets/
 maps/
-.mcp.json
 *.md
