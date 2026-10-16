@@ -17,7 +17,7 @@ selene src || failed+=(selene)
 
 echo "== 4/4 format (stylua --check)"
 # Rokit installs it as `stylua` on Linux, `StyLua` on Windows
-fmt=$(command -v stylua || command -v StyLua)
+fmt=$(command -v StyLua || command -v stylua)
 "$fmt" --check src tests || failed+=(stylua)
 
 if [ ${#failed[@]} -gt 0 ]; then echo "FAILED: ${failed[*]}"; exit 1; fi
