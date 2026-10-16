@@ -79,7 +79,7 @@ local Camera = {
 		-- easing back out with ZoomEase)
 		Radius = 0.4,
 		-- the body (head included) fades as the camera closes in: clear beyond `far`, gone at `near` (studs from the head)
-		Fade = { far = 2, near = 0.75 },
+		Fade = { far = 3, near = 0.75 }, -- (far was 2: backed against a wall at ~1.9 the head filled the view, 2026-10-16)
 		-- over the shoulder (firing), the whole body (with the staff) goes this see-through for the player, so the head
 		-- and raised arm don't hide the screen centre where the circles and the shot are (user 2026-10-16: "when we are
 		-- in the shoulder cam, make us translucent"); others see it whole. Follows the shoulder slide in and out.
