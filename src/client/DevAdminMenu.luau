@@ -1,5 +1,7 @@
 --!strict
--- Dev admin menu: a button next to the weapon pin with Fly (on/off) and a speed multiplier (Config/DevTools.Admin).
+-- Dev admin menu: a button next to the weapon pin with Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
+-- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
+-- god mode) and World (the range's test shooters, undo destruction).
 -- Client only: the client owns its character's physics, so it flies and speeds up its own character. Only shown when
 -- the server marked this player with the DevTools attribute.
 -- - Speed: sets the Player's DevSpeed attribute; src/client/Stance multiplies every walk speed by it.
@@ -15,6 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
 local Palette = require(Shared.Config.Palette)
+local Net = require(Shared.Net)
 local DevPanel = require(script.Parent.DevPanel)
 
 local DevAdminMenu = {}
@@ -192,6 +195,55 @@ local function build(player: Player): ScreenGui
 	end)
 	player:GetAttributeChangedSignal(A.LabelsAttribute):Connect(showLabels)
 	showLabels()
+
+	-- You (src/server/DevTools): health steps, death, respawn, god mode, a knock, the helmet off
+	local order = 3 + #A.SpeedSteps
+	local function row(id: string, label: string, action: string, value: any?): TextButton
+		order += 1
+		local b = DevPanel.button(p.panel, id, label, order)
+		b.Activated:Connect(function()
+			Net.event("DevAction"):FireServer(action, value)
+		end)
+		return b
+	end
+	DevPanel.heading(p.panel, "You", order + 1)
+	order += 1
+	for _, h in A.Health do
+		row("Health" .. h, if h >= 100 then `Heal ({h})` else `Health {h}`, "Health", h)
+	end
+	row("Kill", "Kill me", "Kill")
+	row("Respawn", "Respawn now", "Respawn")
+	row("KnockMe", "Knock me", "KnockMe")
+	row("HelmetOff", "Helmet off", "HelmetOff")
+	order += 1
+	local god = DevPanel.button(p.panel, "God", "", order)
+	local function showGod()
+		local on = player:GetAttribute(A.GodAttribute) == true
+		god.Text = if on then "God mode: on" else "God mode: off"
+		paint(god, on)
+	end
+	god.Activated:Connect(function()
+		Net.event("DevAction"):FireServer("God", player:GetAttribute(A.GodAttribute) ~= true)
+	end)
+	player:GetAttributeChangedSignal(A.GodAttribute):Connect(showGod)
+	showGod()
+
+	-- World: the range's test shooters (Config/DevTools.TestShooter), undo destruction (src/server/DevWorld)
+	DevPanel.heading(p.panel, "World", order + 1)
+	order += 2
+	local shooters = DevPanel.button(p.panel, "Shooters", "", order)
+	local S = Cfg.TestShooter.Attribute
+	local function showShooters()
+		local on = workspace:GetAttribute(S) == true
+		shooters.Text = if on then "Test shooters: on" else "Test shooters: off"
+		paint(shooters, on)
+	end
+	shooters.Activated:Connect(function()
+		Net.event("DevAction"):FireServer("Shooters", workspace:GetAttribute(S) ~= true)
+	end)
+	workspace:GetAttributeChangedSignal(S):Connect(showShooters)
+	showShooters()
+	row("Undo", "Undo destruction", "UndoDestruction")
 	return p.gui
 end
 

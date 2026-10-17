@@ -19,6 +19,10 @@ local StaffNet = require(Shared.Rules.StaffNet)
 
 local Ragdoll = {}
 
+-- fired on the server with (character, knock, direction, scale) on every knock: src/server/DevDummies throws its target
+-- dummies with it (they have no client of their own)
+Ragdoll.knocked = Instance.new("BindableEvent")
+
 -- each joint's rest direction in the torso's axes: the limbs hang down, the head stands up
 local ALONG = {
 	["Left Shoulder"] = Vector3.new(0, -1, 0),
@@ -179,6 +183,7 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		-- already down: thrown again, and the settle wait starts over
 		d.since, d.getUp = os.clock(), knock.getUp
 		Net.event("Knock"):FireAllClients(character, name, direction, k)
+		Ragdoll.knocked:Fire(character, name, direction, k)
 		serverThrow(character, knock, direction, k)
 		return
 	end
@@ -190,6 +195,7 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 	-- weapon rides on the body again
 	humanoid:UnequipTools()
 	Net.event("Knock"):FireAllClients(character, name, direction, k)
+	Ragdoll.knocked:Fire(character, name, direction, k)
 	serverThrow(character, knock, direction, k)
 
 	-- down until the body settles, then up after the knock's getUp; a dead body stays down

@@ -1,6 +1,7 @@
 --!strict
--- The look shared by the dev menus (DevTeleportMenu, DevWeaponMenu, DevAdminMenu): a square icon button along the top-right next
--- to the settings gear, opening a scrolling panel of thumb-sized rows. Opening one panel closes the others.
+-- The look shared by the dev menus (DevTeleportMenu, DevWeaponMenu, DevAdminMenu, DevTargetMenu, DevBlastMenu): a square
+-- icon button along the top-right next to the settings gear, opening a scrolling panel of thumb-sized rows. Opening one
+-- panel closes the others.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -9,7 +10,8 @@ local Palette = require(ReplicatedStorage:WaitForChild("Shared").Config.Palette)
 local DevPanel = {}
 
 local UI = Palette.UI
-local PANELS = { "SettingsMenu", "DevTeleportMenu", "DevWeaponMenu", "DevAdminMenu" } -- ScreenGuis whose "Panel" is closed on open
+-- ScreenGuis whose "Panel" is closed on open
+local PANELS = { "SettingsMenu", "DevTeleportMenu", "DevWeaponMenu", "DevAdminMenu", "DevTargetMenu", "DevBlastMenu" }
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -110,6 +112,18 @@ function DevPanel.button(panel: ScrollingFrame, id: string, label: string, order
 	DevPanel.text(b, label, 15)
 	b.Parent = panel
 	return b
+end
+
+-- A small heading between groups of rows.
+function DevPanel.heading(panel: ScrollingFrame, text: string, order: number): TextLabel
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(1, -8, 0, 22)
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.LayoutOrder = order
+	DevPanel.text(label, text, 14)
+	label.Parent = panel
+	return label
 end
 
 return DevPanel

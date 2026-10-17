@@ -8,6 +8,13 @@ local Remotes: { string } = {
 	"Explosion", -- server -> clients: (position: Vector3, radius: number, strength: number?) visual response
 	"DevTeleport", -- client -> server: (destinationId: string); server checks the DevTools attribute
 	"DevGiveWeapon", -- client -> server: (weapon: string) make it the player's loadout pick; DevTools attribute checked
+	-- client -> server: (action: string, value: any, aim: Vector3?) a test action from the dev panels (dummies, blasts,
+	-- health, god mode, test shooters, undo destruction); src/server/DevTools checks the DevTools attribute, the action
+	-- and its value (Rules/DevActions) and the aim point's reach
+	"DevAction",
+	-- server -> clients: (position: Vector3, stage: number?, kg: number?) a dev blast's explosion to show
+	-- (src/client/Vfx/Blast)
+	"DevBlast",
 	"SectionBroken", -- server -> clients: (pieces: {{cf, size, color, t}}, origin: Vector3) debris to spawn
 	-- Shooting (src/server/Firing, src/client/Firing; Rules/Firing decides on both sides):
 	"Fire", -- client -> server: (origin: Vector3, direction: Vector3) a shot from the held weapon
