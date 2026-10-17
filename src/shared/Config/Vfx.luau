@@ -432,15 +432,17 @@ local Vfx = {
 		-- seconds: swells, stays white-hot, fades into the glow (growing `swell` x more as it fades); `start` studs across
 		Fireball = { grow = 0.12, hold = 0.08, fade = 0.35, swell = 0.15, start = 0.5 },
 		Shell = { size = 1.35, transparency = 0.35, fade = 0.55, swell = 0.3 }, -- x the fireball; glow colour
-		-- The cloud: `puffs` (per stage) pale balls (`smoke` colour, flat) `size` x the fireball across, placed in a
-		-- flattened dome `spread` x the fireball wide and `height` x as tall over the hit; each pops in over `appear` s
-		-- (from `from` of its size), keeps swelling to `swell` x and rising `rise` x the fireball per second, and fades
-		-- over its last `fade` share of `life` s. Each puff has `patches` glowing patches: a deep ball (`deep` x the puff,
-		-- pushed `deepOut` x the puff's radius out from its centre) inside a bright one (`rim` x, `rimOut` out), so a
-		-- bright rim rings a deep centre where they break the surface; they burn out by `burn` s: full and solid until
-		-- `hot` of the way, then sinking back in (`sink` of the way), shrinking (`shrink`) and fading. `low`: the lowest puff
-		-- starts this share of `height` up; `stagger`: the last puff pops in this share of `appear` after the first;
-		-- `jitter`: how far a patch strays from facing straight out of the cloud.
+		-- The cloud: `puffs` (per stage) puffs `size` x the fireball across, placed in a flattened dome `spread` x the
+		-- fireball wide and `height` x as tall over the hit; each pops in over `appear` s (from `from` of its size), keeps
+		-- swelling to `swell` x and rising `rise` x the fireball per second, and fades over its last `fade` share of `life`
+		-- s. `low`: the lowest puff starts this share of `height` up; `stagger`: the last puff pops in this share of
+		-- `appear` after the first.
+		-- Each puff a bright inside in a darker rim (user 2026-10-17, with an anime explosion clip: the puffs there are
+		-- bright with darker rims; then "make sure the actual explosion is blue, but not the smoke"): the rim
+		-- (Colors.rim) the puff's full size, the inside (Colors.inside) `inner` of it, moved toward the camera `toward`
+		-- and up `up` (shares of the rim's radius) so it shows in front with the rim round it, thickest underneath. The
+		-- inside stays bright for `hot` of the puff's life, then cools into the rim's colour; the rim darkens `rimDark`
+		-- toward black meanwhile.
 		Cloud = {
 			size = { 0.38, 0.6 },
 			spread = 0.55,
@@ -451,22 +453,26 @@ local Vfx = {
 			rise = 0.12,
 			life = 4,
 			fade = 0.45,
-			patches = { 1, 2 },
-			deep = 0.7,
-			deepOut = 0.53,
-			rim = 0.85,
-			rimOut = 0.36,
-			burn = { 2, 2.8 }, -- (Studio round 3: gone by ~0.6 s at 0.9-1.6, the cloud plain grey after)
-			sink = 0.4,
-			shrink = 0.3,
-			hot = 0.65,
 			low = 0.2,
 			stagger = 0.5,
-			jitter = 0.8,
-			smoke = "Smoke",
-			-- the patches' colours (Studio round 2: a pale glow vanished against the pale puffs): the rim the scheme's
-			-- saturated `haze` colour, glowing; the centre `char`, flat and dark (the reference's dark middles)
-			char = "Abyss",
+			inner = 0.72,
+			toward = 0.34,
+			up = 0.1,
+			hot = 0.4,
+			rimDark = 0.35,
+		},
+		-- The explosion's colours, as roles in the cast's scheme (Config/Vfx.Schemes; Arcane: `glow` the light blue,
+		-- `haze` the deep blue, `flash` the white): user 2026-10-17 "make sure the actual explosion is blue, but not the
+		-- smoke" (a white-hot fireball and pale puffs read white). The smoke column stays grey (Smoke.color). A cannon's
+		-- own scheme gives its fire colours the same way.
+		Colors = {
+			fireball = "glow", -- the fireball, fading into `shell`
+			shell = "haze",
+			inside = "glow", -- each puff's bright inside
+			rim = "haze", -- and its rim
+			spark = "glow", -- the light spikes, the star glint, the sparks' start
+			flames = { "glow", "haze" }, -- from..to
+			embers = { "glow", "haze" },
 		},
 		-- blue flames round the cloud's foot (Roblox's own fire texture, tinted): per stud of fireball, how fast up, life;
 		-- from a slab `box` x the fireball wide and `depth` x deep, `lift` x up; a second lick of `again` as many

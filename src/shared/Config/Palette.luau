@@ -88,9 +88,9 @@ local Palette = {
 		Gold = { 255, 200, 80 }, -- light spikes, holy flashes
 		Ember = { 255, 60, 50 }, -- red glints and bursts
 		Bolt = { 80, 255, 190 }, -- lightning
-		Smoke = { 196, 202, 214 }, -- the staff explosion's billowing cloud (Config/Vfx.Blast.Cloud): pale grey
+		Smoke = { 196, 202, 214 }, -- pale grey (the staff explosion's cloud until 2026-10-17, now blue: Config/Vfx.Blast.Colors)
 		Ash = { 118, 122, 130 }, -- explosion smoke (Config/Vfx.Blast.Smoke): grey, lit by the scene
-		Abyss = { 22, 26, 80 }, -- the dark centre of the cloud's burning patches (flat), in every scheme
+		Abyss = { 22, 26, 80 }, -- deep navy, flat (the explosion cloud's patches until 2026-10-17)
 		-- the violet "hex" scheme (user reference 2026-10-13: a hot pink-violet capsule beam)
 		HexCore = { 255, 228, 255 },
 		Hex = { 240, 90, 255 },

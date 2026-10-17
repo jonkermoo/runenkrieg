@@ -78,8 +78,10 @@ return {
 		assert(Sm.life[1] > Vfx.Blast.Cloud.life * 0.8, "the smoke outlives the cloud")
 		assert(Sm.size[2] > Sm.size[1] and Sm.thick < 1 and Sm.perStud > 0)
 		local C = Vfx.Blast.Cloud
-		assert(C.deepOut + C.deep > 1 and C.rimOut + C.rim > 1, "patches break the puff's surface")
-		assert(C.rim > C.deep and C.rimOut < C.deepOut, "a bright rim round a deep centre")
+		assert(C.inner > 0 and C.inner < 1, "the bright inside is smaller than its rim")
+		assert(C.toward + C.inner > 1, "the bright inside shows in front of its rim")
+		assert(C.inner + C.up < 1, "with the rim showing round it, thickest underneath")
+		assert(C.hot > 0 and C.hot < 1 and C.rimDark >= 0 and C.rimDark <= 1)
 	end,
 	["timings and sizes are positive"] = function()
 		assert(Vfx.Circle.Appear > 0 and Vfx.Circle.Close.time > 0 and Vfx.Circle.Diameter > 0)
