@@ -30,7 +30,8 @@ export type Opts = {
 	normal: Vector3?, -- the surface's normal (default up)
 	debrisColor: Color3?, -- what was hit: chunks of it fly off
 	stage: number?, -- a staff stage 1..3 (default 1): Config/Vfx.Blast.Stages
-	kg: number?, -- or a charge of this many kg of TNT: sized as its real fireball (Config/Vfx.Blast.Charge), all extras
+	kg: number?, -- or a charge of this many kg of TNT: sized as its real fireball (Config/Vfx.Blast.Charge)
+	magic: boolean?, -- a charge with the magic glint and light spikes too (default: a plain explosion)
 }
 
 local SMOKE = "rbxasset://textures/particles/smoke_main.dds" -- Roblox's own smoke texture
@@ -69,7 +70,12 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	if o.kg and o.kg > 0 then
 		local K = Cfg.Charge
 		local d = Blast.fireball(o.kg)
-		st = { fireball = d, rings = K.rings, spikes = true, puffs = math.max(math.round(d * K.puffsPerStud), 3) }
+		st = {
+			fireball = d,
+			rings = K.rings,
+			spikes = o.magic == true,
+			puffs = math.max(math.round(d * K.puffsPerStud), 3),
+		}
 	end
 	local s = (Vfx.Schemes :: any)[o.scheme or Vfx.Ray.Scheme]
 	local normal = (o.normal or Vector3.yAxis).Unit

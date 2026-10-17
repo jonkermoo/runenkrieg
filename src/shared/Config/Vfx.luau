@@ -504,7 +504,7 @@ local Vfx = {
 		Rings = { to = 2.5, gap = 0.12, grow = 0.25, lift = 0.3 }, -- each ring out to `to` x the fireball (+`grow` per ring)
 		Burst = 0.6, -- the impact burst's scale x the fireball / 4
 		-- Any charge (cannon shells later; user 2026-10-17: "explosions will come from cannons later too. keep that in
-		-- mind when saving explosion effects"): Blast.play(pos, { kg = charge, scheme = ... }) sizes the fireball as the
+		-- mind when saving explosion effects"): Blast.play(pos, { kg = charge, scheme = ..., magic = false }) sizes the fireball as the
 		-- real one, D = a x W^b metres (W kg of TNT; ~8 m at 10 kg), with `rings` rings and a puff per `1 / puffsPerStud`
 		-- studs of it. A cannon will want its own scheme (fire colours, dark smoke).
 		Charge = { a = 3.86, b = 0.32, metresPerStud = 0.357, rings = 3, puffsPerStud = 0.65 },
