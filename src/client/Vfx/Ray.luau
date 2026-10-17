@@ -19,6 +19,7 @@ local Pool = require(script.Parent.Pool)
 local Driver = require(script.Parent.Driver)
 local Arc = require(script.Parent.Arc)
 local Ring = require(script.Parent.Ring)
+local Blast = require(script.Parent.Blast)
 local Burst = require(script.Parent.Burst)
 local Flecks = require(script.Parent.Flecks)
 local Star = require(script.Parent.Star)
@@ -32,6 +33,7 @@ export type Opts = {
 	normal: Vector3?, -- the hit surface's normal (default: back along the beam)
 	hitColor: Color3?, -- the hit surface's color, for the debris (default: no debris)
 	profile: string?, -- Config/Vfx.Beams (the quick tap...): overrides Ray's keys
+	blast: number?, -- a staff stage: its explosion (Vfx/Blast, Config/Vfx.Blast) in place of the impact burst
 }
 
 local rng = Random.new()
@@ -330,10 +332,17 @@ function Ray.play(from: Vector3, to: Vector3, opts: Opts?)
 
 		if not impacted and reach >= 1 then
 			impacted = true
-			Burst.play(
-				to,
-				{ scheme = schemeName, normal = o.normal or -dir, debrisColor = o.hitColor, scale = P.Impact }
-			)
+			if o.blast then
+				Blast.play(
+					to,
+					{ scheme = schemeName, normal = o.normal or -dir, debrisColor = o.hitColor, stage = o.blast }
+				)
+			else
+				Burst.play(
+					to,
+					{ scheme = schemeName, normal = o.normal or -dir, debrisColor = o.hitColor, scale = P.Impact }
+				)
+			end
 		end
 
 		if full and now >= nextBolt then

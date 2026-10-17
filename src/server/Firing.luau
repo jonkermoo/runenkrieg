@@ -6,8 +6,7 @@
 --   with Config/Firing.Slack for latency); the muzzle must be near the shooter's head and in sight of it; then the
 --   ray is cast here (hitscan, Config/Firing.Range, the shooter excluded) and the shot goes out to everyone ("Shot").
 --   A shotgun casts one ray per pellet, its pattern from `seed` (Rules/Firing.pellets), the rest of the hits in "Shot"'s
---   last argument.
---   No damage yet (user 2026-10-12: damage physics comes later).
+--   last argument. Each ray that hits a soldier is handed to src/server/Damage (M12) after the helmet check.
 -- - WorkBolt / Reload / StopLoad: the same state machine; accepted actions go out to everyone ("WeaponAction") so the
 --   parts move and the sounds play for all. A Reload with rounds left in a stripper-clip rifle loads single rounds
 --   ("Load"); StopLoad ends it after the round in the hand ("LoadStop"); when it has ended its rounds are settled into
@@ -27,6 +26,7 @@ local Cfg = require(Shared.Config.Firing)
 local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local Net = require(Shared.Net)
+local Damage = require(script.Parent.Damage)
 local Helmets = require(script.Parent.Helmets)
 
 local Firing = {}
@@ -189,14 +189,24 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 	local name = tool:GetAttribute("Weapon") :: string
 	-- a shotgun's pellets: each its own ray (the first one's hit goes in the usual arguments, the rest in `more`)
 	local hits = {}
+	local wounds: { Damage.RayHit } = {}
 	for _, line in Firing.lines(name, direction, seed or 0) do
 		local result = start or workspace:Raycast(origin, line * Cfg.Range, params)
 		local hit = if result then result.Position else origin + line * Cfg.Range
 		if result and not start then
-			Helmets.hit(result.Instance, result.Position, line) -- a helmet shot off (src/server/Helmets)
+			-- a helmet shot off (src/server/Helmets), then the damage (src/server/Damage)
+			local helmet = Helmets.hit(result.Instance, result.Position, line)
+			table.insert(wounds, {
+				part = result.Instance,
+				point = result.Position,
+				direction = line,
+				distance = result.Distance,
+				helmet = helmet,
+			})
 		end
 		table.insert(hits, { hit, result and result.Normal, result and result.Instance })
 	end
+	Damage.shot(character, name, wounds)
 	local first = table.remove(hits, 1) :: any
 	Net.event("Shot")
 		:FireAllClients(character, name, origin, first[1], first[2], first[3], if #hits > 0 then hits else nil)

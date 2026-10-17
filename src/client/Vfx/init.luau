@@ -6,6 +6,7 @@
 --   Charge.start(pos, t?) -> { release } / Charge.play(pos, t?)                 gathering charge
 --   Ray.play(from, to, { scheme?, hold?, normal?, hitColor?, impact? })          the beam (+ its impact)
 --   Burst.play(pos, { scheme?, normal?, debrisColor? })                         impact burst
+--   Blast.play(pos, { scheme?, normal?, debrisColor?, stage? })                 the staff beam's explosion
 --   Shockwave.play(center, normal), Star.play(pos), Spikes.play(pos)            rings and flashes
 --   Lightning.bolt(from, to, t?), Aura.play(partOrPoint, t)                     lightning
 --   Zoltraak.play(tipCFrame, ignore?, scheme?)                                   the full spell
@@ -25,6 +26,7 @@ return {
 	Charge = require(script.Charge),
 	Ray = require(script.Ray),
 	Burst = require(script.Burst),
+	Blast = require(script.Blast),
 	Shockwave = require(script.Shockwave),
 	Star = require(script.Star),
 	Spikes = require(script.Spikes),

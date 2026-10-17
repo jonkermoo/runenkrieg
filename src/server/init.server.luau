@@ -45,6 +45,8 @@ require(script.DevTools).start()
 require(script.Firing).start()
 require(script.LookTilt).start()
 require(script.StaffCast).start()
+require(script.Ragdoll).start()
+require(script.Damage).start()
 require(script.Showcase).start()
 require(script.TestShooter).start()
 

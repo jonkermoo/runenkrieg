@@ -60,4 +60,18 @@ function LookTilt.sanitize(pitch: unknown, follow: unknown, send: Send): (number
 	return p, f
 end
 
+-- A stagger's lean (degrees, + tips the top back) `t` seconds into it: out to `lean` and back over `time`, 0 outside.
+-- `facing`: the hit's flat direction dotted with the soldier's facing (-1 = shot from the front: it tips back; 1 =
+-- from behind: forward); from the side it still tips half way back.
+function LookTilt.stagger(t: number, time: number, lean: number, facing: number): number
+	if t <= 0 or t >= time or time <= 0 then
+		return 0
+	end
+	local way = -math.clamp(facing, -1, 1)
+	if math.abs(way) < 0.5 then
+		way = 0.5
+	end
+	return lean * way * math.sin(math.pi * t / time)
+end
+
 return LookTilt

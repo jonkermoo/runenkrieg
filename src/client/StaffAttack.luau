@@ -42,7 +42,6 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Spells)
 local M = require(Shared.Config.Metrics)
-local RagdollCfg = require(Shared.Config.Ragdoll)
 local VfxCfg = require(Shared.Config.Vfx)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Spells)
@@ -271,7 +270,7 @@ function StaffAttack.start()
 		end
 		if stage == LAST then
 			-- the recoil throws the caster back off the aim (a minor knock: up again soon after landing)
-			Ragdoll.knock(character, RagdollCfg.Knocks.StaffRecoil, -workspace.CurrentCamera.CFrame.LookVector)
+			Ragdoll.knockSelf("StaffRecoil", -workspace.CurrentCamera.CFrame.LookVector)
 			local root = rootOf(character)
 			if root then
 				SoundFx.play(Snd.Knock, root)
@@ -613,7 +612,7 @@ function StaffAttack.start()
 		-- dropped below where it took off from after floating (sinking, or letting go of aim over a drop): knocked down
 		if floated and airborne and not limp and base and y < base - F.below then
 			floated = false
-			Ragdoll.knock(character, RagdollCfg.Knocks.FloatFall, -root.CFrame.LookVector)
+			Ragdoll.knockSelf("FloatFall", -root.CFrame.LookVector)
 		end
 	end)
 

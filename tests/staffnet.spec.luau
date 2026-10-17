@@ -61,6 +61,17 @@ return {
 		assert(N.cooled(0, 3, cd[3] - s, cd, s))
 		assert(N.cooled(0, 1, cd[1], cd, s))
 	end,
+	["a charged shot must have been charged that long since its circle opened"] = function()
+		local st, slack = Cfg.Stages, Send.ChargeSlack
+		assert(N.charged(1, "Hip", nil, 0, st, slack), "a tap needs no charge")
+		assert(not N.charged(3, "Hip", nil, 10, st, slack), "a tap can't be stage 3")
+		assert(not N.charged(2, "Pulse", 0, 10, st, slack), "a pulse is stage 1 only")
+		assert(not N.charged(3, "Release", nil, 10, st, slack), "no circle opened: no charged shot")
+		assert(not N.charged(3, "Release", 0, st[3].hold - slack - 0.1, st, slack), "released too soon")
+		assert(N.charged(3, "Release", 0, st[3].hold, st, slack), "charged in full")
+		assert(N.charged(2, "Release", 5, 5 + st[2].hold, st, slack))
+		assert(not N.charged(4, "Release", 0, 100, st, slack), "no stage 4")
+	end,
 	["the charge runs on between updates, but only so far"] = function()
 		local opens = { 0, 0.45, 2 }
 		assert(N.heldNow(1, 0.1, Send.Ahead, opens, 3) == 1.1)

@@ -414,6 +414,40 @@ local Vfx = {
 		Streaks = { count = 6, speed = { 18, 34 }, length = 2.2, width = 0.22, bend = 1.2, life = 0.45, color = "Core" },
 	},
 
+	-- The staff beam's explosion where it lands (user 2026-10-17: "a bright explosion that matches the color of the beam
+	-- (instead of typical red and orange explosion)"), in place of the plain impact burst; bigger with the stage. All in
+	-- the cast's scheme: a white-hot fireball (flash) swelling to `fireball` studs across, a glow shell round it, a
+	-- lingering glow dome that fades, sparks flung out, embers drifting up, shockwave rings on the ground, a big light;
+	-- the impact burst (Burst, the debris of what was hit) inside it. Stage 3's fireball is about the real one of its
+	-- 10 kg charge (~8 m across, Config/Damage.Blast).
+	Blast = {
+		Stages = {
+			{ fireball = 4, rings = 1, spikes = false },
+			{ fireball = 9, rings = 2, spikes = true },
+			{ fireball = 22, rings = 3, spikes = true },
+		},
+		-- seconds: swells, stays white-hot, fades into the glow (growing `swell` x more as it fades); `start` studs across
+		Fireball = { grow = 0.12, hold = 0.08, fade = 0.35, swell = 0.15, start = 0.5 },
+		Shell = { size = 1.35, transparency = 0.35, fade = 0.55, swell = 0.3 }, -- x the fireball; glow colour
+		Dome = { size = 1.6, transparency = 0.6, fadeIn = 0.1, fade = 1.6 }, -- the lingering glow, x the fireball
+		Light = { range = 3, brightness = 8, time = 1.2, lift = 2, max = 60 }, -- range x the fireball (Roblox caps 60)
+		-- speed x fireball / s; `star`: the stage's glint length x the fireball
+		Sparks = { perStud = 8, speed = { 1.5, 4 }, size = 0.5, life = { 0.4, 1.0 }, drag = 3, brightness = 6 },
+		Embers = {
+			perStud = 3,
+			rise = { 2, 6 },
+			size = 0.3,
+			life = { 1.0, 2.2 },
+			spread = 35,
+			box = 0.6,
+			brightness = 4,
+			drag = 0.5,
+		},
+		Star = 0.6,
+		Rings = { to = 2.5, gap = 0.12, grow = 0.25, lift = 0.3 }, -- each ring out to `to` x the fireball (+`grow` per ring)
+		Burst = 0.6, -- the impact burst's scale x the fireball / 4
+	},
+
 	-- A ring that races outward and thins (lying flat on the ground, or facing any way).
 	Shockwave = { from = 0.5, to = 6, time = 0.4, line = 0.5, color = "Glow", brightness = 2 }, -- radii
 
@@ -472,7 +506,7 @@ local Vfx = {
 		Ready = { star = 9, shockwave = 11 },
 		-- firing the full charge: a bigger glint at the muzzle
 		FireStar = 12,
-		Range = 250, -- mid-long range
+		-- (how far a beam reaches: per stage, Config/Damage.Staff.Range, the same as the server's cast)
 		CloseAfter = 0.05, -- the circles start closing this long after the beam starts fading
 		CloseStagger = 0.07, -- each circle closes this much before the one inside it
 	},
@@ -543,6 +577,8 @@ local Vfx = {
 			{ effect = "Ray", label = "Ray (blue)", every = 1.6 },
 			{ effect = "Ray", label = "Ray (violet)", every = 1.6, scheme = "Hex" },
 			{ effect = "Burst", label = "Impact burst", every = 2 },
+			{ effect = "Blast1", label = "Staff explosion (stage 1)", every = 2 },
+			{ effect = "Blast3", label = "Staff explosion (stage 3)", every = 4 },
 			{ effect = "Shockwave", label = "Shockwave", every = 1.5 },
 			{ effect = "Star", label = "Star glint", every = 1.2 },
 			{ effect = "Spikes", label = "Light spikes", every = 1.5 },
