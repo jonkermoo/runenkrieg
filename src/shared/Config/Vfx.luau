@@ -449,17 +449,17 @@ local Vfx = {
 			from = 0.3,
 			swell = 1.35,
 			rise = 0.12,
-			life = 3.2,
+			life = 4,
 			fade = 0.45,
 			patches = { 1, 2 },
 			deep = 0.7,
 			deepOut = 0.53,
 			rim = 0.85,
 			rimOut = 0.36,
-			burn = { 0.9, 1.6 },
-			sink = 0.6,
+			burn = { 2, 2.8 }, -- (Studio round 3: gone by ~0.6 s at 0.9-1.6, the cloud plain grey after)
+			sink = 0.4,
 			shrink = 0.3,
-			hot = 0.5,
+			hot = 0.65,
 			low = 0.2,
 			stagger = 0.5,
 			jitter = 0.8,
@@ -473,7 +473,7 @@ local Vfx = {
 		Flames = {
 			perStud = 5,
 			speed = { 3, 9 },
-			size = { 3, 7 },
+			size = { 4, 9 },
 			life = { 0.5, 1.1 },
 			box = 1.4, -- wider than the cloud, so they lick out from under it
 			depth = 0.2,
@@ -482,7 +482,9 @@ local Vfx = {
 			drag = 1,
 			spin = 60,
 			again = 0.5,
-			brightness = 5,
+			brightness = 2,
+			-- additive (1) washed the tinted flames out to pale wisps against the sky (Studio round 3): mostly solid colour
+			emission = 0.25,
 		},
 		Light = { range = 3, brightness = 8, time = 1.2, lift = 2, max = 60 }, -- range x the fireball (Roblox caps 60)
 		-- speed x fireball / s; `star`: the stage's glint length x the fireball

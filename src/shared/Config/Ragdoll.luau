@@ -44,6 +44,9 @@ local Ragdoll = {
 	-- A limp body that still stands upright (its torso's up within `upright` of straight up, as cos) `after` seconds
 	-- into a knock is tipped over the way it was thrown (`spin` rad/s): nobody ragdolls standing up
 	Tip = { after = 0.35, upright = 0.85, spin = 6 },
+	-- a dead body belongs to the server (Studio round 3: a headshot kill stood upright): the server throws it itself
+	-- once it owns it, waiting at most this long (s) after the knock for the death to hand it over
+	ServerWait = 0.5,
 	-- the knocks a player may ask for on itself (Net "KnockSelf": the staff's recoil, the float fall)
 	SelfKnocks = { StaffRecoil = true, FloatFall = true },
 	SelfRate = 2, -- "KnockSelf" requests a second at most (and burst)

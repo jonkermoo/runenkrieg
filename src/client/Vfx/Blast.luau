@@ -140,13 +140,18 @@ function Blast.play(pos: Vector3, opts: Opts?)
 		NumberSequenceKeypoint.new(0.4, fl.size[2]),
 		NumberSequenceKeypoint.new(1, 0),
 	})
-	flames.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
+	flames.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.7, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
 	flames.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, glow),
 		ColorSequenceKeypoint.new(0.4, deep),
 		ColorSequenceKeypoint.new(1, char),
 	})
 	flames.Brightness = fl.brightness
+	flames.LightEmission = fl.emission
 	flames.Orientation = Enum.ParticleOrientation.FacingCamera
 	flames.Squash = NumberSequence.new(0)
 	flames.Rotation = NumberRange.new(0, 360)

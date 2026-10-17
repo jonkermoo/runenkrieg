@@ -5,6 +5,8 @@
 -- character's "Ragdolled" attribute set. Net "Knock" goes to every client: the body's owner (its own client: it owns
 -- the physics) throws it and holds the Physics state (src/client/Ragdoll). Once the body has settled it gets up after
 -- the knock's `getUp` seconds, unless it is dead: a dead body stays limp, head on, until it is removed at respawn.
+-- A dead body's physics belongs to the server (Studio round 3: a headshot kill stood upright, its owner's push ignored),
+-- so whenever the server owns the body it throws it, and tips it over if it still stands, itself.
 -- Players knock themselves through Net "KnockSelf" (Config/Ragdoll.SelfKnocks: the staff's recoil, the float fall).
 
 local Players = game:GetService("Players")
@@ -92,6 +94,41 @@ local function loosen(character: Model, torso: BasePart): Down
 	return { made = made, loose = loose, since = os.clock(), getUp = 0 }
 end
 
+-- the server's own throw of a body it owns (a dead one): as src/client/Ragdoll does for its own soldier. The death
+-- that follows the knock (src/server/Damage) hands the body to the server a moment later: a dead body still owned by
+-- its player is waited on for up to Config/Ragdoll.ServerWait seconds.
+local function serverThrow(character: Model, knock: { [string]: number }, direction: Vector3, scale: number)
+	task.defer(function()
+		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local torso = character:FindFirstChild("Torso") :: BasePart?
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if not root or not torso or not humanoid then
+			return
+		end
+		local t0 = os.clock()
+		while root:IsDescendantOf(workspace) and root:GetNetworkOwner() ~= nil do
+			if humanoid.Health > 0 or os.clock() - t0 > Cfg.ServerWait then
+				return -- a living player's client owns it: it throws it
+			end
+			task.wait()
+		end
+		if not root:IsDescendantOf(workspace) then
+			return
+		end
+		local flat = Vector3.new(direction.X, 0, direction.Z)
+		local dir = if flat.Magnitude > 1e-3 then flat.Unit else -root.CFrame.LookVector
+		local axis = Vector3.new(0, 1, 0):Cross(dir)
+		root.AssemblyLinearVelocity = (dir * knock.push + Vector3.new(0, 1, 0) * (knock.lift - (knock.drop or 0)))
+			* scale
+		root.AssemblyAngularVelocity = axis * knock.tumble * scale
+		task.delay(Cfg.Tip.after, function()
+			if torso.Parent and torso:GetNetworkOwner() == nil and torso.CFrame.UpVector.Y > Cfg.Tip.upright then
+				torso.AssemblyAngularVelocity += axis * Cfg.Tip.spin
+			end
+		end)
+	end)
+end
+
 -- Knocks `character` with the Config/Ragdoll.Knocks entry `name`, thrown along `direction` (flat; it also tumbles that
 -- way), `scale` the caller's factor on the push (default 1).
 function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale: number?)
@@ -107,6 +144,7 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		-- already down: thrown again, and the settle wait starts over
 		d.since, d.getUp = os.clock(), knock.getUp
 		Net.event("Knock"):FireAllClients(character, name, direction, k)
+		serverThrow(character, knock, direction, k)
 		return
 	end
 	local made = loosen(character, torso)
@@ -117,6 +155,7 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 	-- weapon rides on the body again
 	humanoid:UnequipTools()
 	Net.event("Knock"):FireAllClients(character, name, direction, k)
+	serverThrow(character, knock, direction, k)
 
 	-- down until the body settles, then up after the knock's getUp; a dead body stays down
 	task.spawn(function()
