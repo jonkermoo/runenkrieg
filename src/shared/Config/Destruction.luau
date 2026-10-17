@@ -24,7 +24,9 @@ local Destruction = {
 	CollapseSupportFraction = 0.35,
 
 	-- Client-side fracture debris (visual only, never replicated, never collides with players).
-	Debris = { chunksPerSection = 6, lifetime = 6, maxLive = 400 },
+	-- They fly for `settle` s, then freeze where they lie (anchored: no physics) and stay `lifetime` s in all (user
+	-- 2026-10-17: destroyed assets "should stay for some time" without lag); past `maxLive` the oldest go first.
+	Debris = { chunksPerSection = 6, settle = 3, lifetime = 60, maxLive = 600 },
 
 	-- Natural map buildings cannot be repaired; only player-built assets can.
 	NaturalRepairable = false,

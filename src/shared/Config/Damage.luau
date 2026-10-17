@@ -62,16 +62,53 @@ local Damage = {
 			Thatch = 20,
 			Door = 20,
 			Wood = 25,
-			Plaster = 28,
-			Brick = 70,
-			Stone = 80,
+			-- sturdier than real masonry (user 2026-10-17): a full beam at a wall blows a 2-3 section hole, a story falls
+			-- after 2-3 of them. At 10 kg: plaster ~10 studs, brick ~6, stone ~5.5 (real walls fail at ~70 kPa, ~19)
+			Plaster = 300,
+			Brick = 900,
+			Stone = 1200,
 		},
 		FailDefault = 30,
 		Weaken = 2,
-		-- trees (Config/TreeSway.Tag): over this a tree snaps at the trunk and falls away from the blast; despawns after
-		Tree = { fail = 60, push = 18, spin = 1.2, despawn = 30 },
-		-- a crater in the terrain: radius = perCubeRoot x W^(1/3) studs (~5 at 10 kg), the ball sunk `sink` x radius
-		Crater = { perCubeRoot = 2.32, sink = 0.45 },
+		-- trees (Config/TreeSway.Tag): at their trunk base over `fail` a tree is felled whole (no stump: the crater is
+		-- there; user 2026-10-17); below it loses its HP (Trees below) like a section: MaxHP x (kPa / fail)^Weaken
+		Tree = { fail = 60 },
+		-- a crater in the terrain (Rules/Blast.craterPlan): radius = perCubeRoot x W^(1/3) studs (~5 at 10 kg), the ball
+		-- sunk `sink` x radius; a low rim of `rim.count` balls of `rim.size` x radius at `rim.at` x radius, sunk
+		-- `rim.sink` x radius under the ground (it rises ~(size - sink) x radius); the ground out to `churn` x radius
+		-- turns from `churnFrom` to `churnTo` (blasted earth: grass is gone at once and never grows back; user: "as the
+		-- battle goes on, there should be little to no grass on the map"). Terrain stays changed (voxels: no upkeep).
+		Crater = {
+			perCubeRoot = 2.32,
+			sink = 0.45,
+			rim = { count = 12, at = 1.15, size = 0.38, sink = 0.2 },
+			churn = 2.2,
+			churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
+			churnTo = "Mud",
+		},
+	},
+
+	-- Tree HP (user 2026-10-17: "trees get HP"; src/server/Trees, Rules/Trees). MaxHP = HP[kind] x the tree's scale.
+	-- Bullets chip the trunk by weapon class (per pellet for a shotgun); blasts as Blast.Tree above. A tree felled by
+	-- bullets falls along the shot and leaves a stump; a blast fells it whole, away from the blast, no stump.
+	Trees = {
+		HP = { Pine = 300, Broadleaf = 360, Birch = 240 }, -- ~30 rifle hits at scale 1
+		Weapons = { BoltRifle = 10, Shotgun = 2 },
+		-- the fall: clients animate it over `time` s; then the server places it where it lies, anchored (no physics:
+		-- user: "stay for some time ... don't lag the server"), as cover for `lifetime` s, at most `maxFallen` on the
+		-- map (the oldest goes first); it sinks into the ground over `sinkTime` s and is removed.
+		-- `tipShare`: how far along its height it rests on the ground (the canopy's top is soft)
+		Fall = {
+			time = 2.2,
+			lifetime = 300,
+			maxFallen = 60,
+			sinkTime = 2.5,
+			sinkDepth = 6,
+			minTilt = 60,
+			maxTilt = 95,
+			tipShare = 0.85,
+		},
+		Stump = { height = 1.2, widthShare = 0.9 }, -- of the trunk's base width
 	},
 
 	-- Respawn after this many seconds: Config/Metrics.Combat.RespawnDelay (Players.RespawnTime).

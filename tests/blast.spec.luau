@@ -49,17 +49,50 @@ return {
 			local hp = Destruction.Materials[class].hp
 			return Blast.sectionDamage(kpa(studs), F[class], hp, B.Weaken) >= hp
 		end
-		assert(breaks("Brick", 17) and breaks("Stone", 16) and not breaks("Brick", 25), "brick / stone ~18")
-		assert(breaks("Wood", 30) and breaks("Plaster", 28) and not breaks("Wood", 40), "wood / plaster ~30")
+		-- sturdier masonry (user 2026-10-17): a full beam at a wall breaks the hit section and its neighbours (~6 studs
+		-- apart), not the whole house
+		assert(breaks("Brick", 5.5) and breaks("Stone", 5) and not breaks("Brick", 7.5), "brick / stone ~6")
+		assert(not breaks("Stone", 6.5), "stone holds past ~6")
+		assert(breaks("Plaster", 9) and not breaks("Plaster", 12), "plaster ~10")
+		assert(breaks("Wood", 30) and not breaks("Wood", 40), "wood ~30")
 		assert(breaks("Glass", 55) and not breaks("Glass", 75), "glass ~60")
-		local worn = Blast.sectionDamage(kpa(25), F.Brick, 700, B.Weaken)
-		assert(worn > 0 and worn < 700, "a brick wall at 25 studs is worn down, not broken")
+		local worn = Blast.sectionDamage(kpa(10), F.Brick, 700, B.Weaken)
+		assert(worn > 0 and worn < 700 / 2, "a brick wall 10 studs off is worn down, not broken")
+		-- a story needs a few blasts: one 12 studs off a section takes under a fifth of it
+		assert(Blast.sectionDamage(kpa(12), F.Brick, 700, B.Weaken) < 700 / 5)
 		assert(Blast.sectionDamage(0, F.Brick, 700, B.Weaken) == 0)
 	end,
 	["a crater about 5 studs across the radius at 10 kg; none without a charge"] = function()
 		local r = Blast.crater(KG, B.Crater.perCubeRoot)
 		assert(r > 4.5 and r < 5.5, `crater {r}`)
 		assert(Blast.crater(0, B.Crater.perCubeRoot) == 0)
-		assert(B.Tree.fail < kpa(18) and B.Tree.fail > kpa(30), "trees snap inside ~20 studs")
+		assert(B.Tree.fail < kpa(18) and B.Tree.fail > kpa(30), "trees felled whole inside ~20 studs")
+	end,
+	["the crater has a low rim round it and churns the ground about twice as far"] = function()
+		local C = B.Crater
+		local plan = Blast.craterPlan(KG, C) :: Blast.CraterPlan
+		assert(plan and #plan.rim == C.rim.count)
+		for _, b in plan.rim do
+			local out = math.sqrt(b.dx * b.dx + b.dz * b.dz)
+			assert(out > plan.radius, "the rim is outside the hole")
+			local rise = b.radius - b.sink
+			assert(rise > 0 and rise < 0.5 * plan.radius, `a low rim: {rise}`)
+		end
+		assert(plan.churn > plan.radius * 1.5 and plan.churn < plan.radius * 3, "churned out to ~2x the hole")
+		assert(Blast.craterPlan(0, C) == nil, "no charge, no crater")
+		-- clients work the churn out from the reach alone, for any charge
+		for _, kg in { 1, 10, 50 } do
+			local reach = Blast.studsAt(B.Reach, kg, B.MetresPerStud)
+			local want = (Blast.craterPlan(kg, C) :: Blast.CraterPlan).churn
+			assert(math.abs(Blast.churnFromReach(reach, B) - want) < 1e-6, `churn at {kg} kg`)
+		end
+		-- churned earth grows no grass
+		local Foliage = require("../src/shared/Config/Foliage")
+		for _, m in Foliage.Materials do
+			assert(m ~= C.churnTo, "churned ground must not grow tufts")
+		end
+		for _, m in Foliage.Blades.Materials do
+			assert(m ~= C.churnTo, "churned ground must not grow blades")
+		end
 	end,
 }

@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
 local W = require(Shared.Config.Weapons)
 local Audio = require(script.Parent.Audio)
+local Impacts = require(script.Parent.Impacts)
 
 local GunFx = {}
 
@@ -226,7 +227,8 @@ function GunFx.kick(character: Model)
 	end)
 end
 
--- Everything a shot shows: the shooter's flash and sound, the tracer from the visible muzzle, the hole, the target.
+-- Everything a shot shows: the shooter's flash and sound, the tracer from the visible muzzle, the hole, what the
+-- surface throws up and leaves from canopies on the way (src/client/Impacts), the target.
 -- `more`: a shotgun's other pellets ({ hit, normal, part } each): a tracer, a hole and a target flash apiece.
 -- `heard`: someone else's shot, whose sound src/client/ShotAudio plays instead.
 function GunFx.shot(character: Model, hit: Vector3, normal: Vector3?, part: Instance?, more: { any }?, heard: boolean?)
@@ -245,6 +247,7 @@ function GunFx.shot(character: Model, hit: Vector3, normal: Vector3?, part: Inst
 				GunFx.tracer(muzzle.WorldPosition, h[1])
 			end
 			GunFx.hole(h[1], h[2], h[3])
+			Impacts.shot(if muzzle then muzzle.WorldPosition else nil, h[1], h[2], h[3])
 			GunFx.targetFlash(h[3])
 		end
 	end

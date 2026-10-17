@@ -14,6 +14,9 @@ local Foliage = require(Shared.Config.Foliage)
 local Palette = require(Shared.Config.Palette)
 local Assets = require(Shared.Config.Assets)
 local Grass = require(Shared.Rules.Grass)
+local Blast = require(Shared.Rules.Blast)
+local DamageCfg = require(Shared.Config.Damage)
+local Net = require(Shared.Net)
 local Settings = require(script.Parent.Settings)
 
 local GrassFoliage = {}
@@ -98,6 +101,37 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 			unload(key)
 		end
 	end
+
+	-- a blast churns the ground round it (src/server/Damage): the grass standing there goes at once (user 2026-10-17:
+	-- "grass should be instantly gone after an explosion"). Checked again once the voxels have arrived.
+	local function scrub(position: Vector3, r: number)
+		local size = Cfg.ChunkSize
+		for cx = math.floor((position.X - r) / size), math.floor((position.X + r) / size) do
+			for cz = math.floor((position.Z - r) / size), math.floor((position.Z + r) / size) do
+				local c = loaded[cx .. ":" .. cz]
+				if c then
+					for i = #c.tufts, 1, -1 do
+						local t = c.tufts[i]
+						if (t.x - position.X) ^ 2 + (t.z - position.Z) ^ 2 <= r * r then
+							local y = t.base.Position.Y
+							local hit = workspace:Raycast(Vector3.new(t.x, y + 12, t.z), Vector3.new(0, -40, 0), params)
+							if not hit or not grows[hit.Material] then
+								t.part:Destroy()
+								table.remove(c.tufts, i)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	-- (Destruction.explode sends a plain radius, not a reach: harmless, scrub only takes tufts off ground that changed)
+	Net.event("Explosion").OnClientEvent:Connect(function(position: Vector3, reach: number)
+		local r = Blast.churnFromReach(reach, DamageCfg.Blast) + Foliage.Scrub.margin
+		for _, after in Foliage.Scrub.after do
+			task.delay(after, scrub, position, r)
+		end
+	end)
 
 	Settings.changed("GrassQuality", function(value)
 		level = Cfg.Levels[value]

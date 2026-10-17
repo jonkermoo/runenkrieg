@@ -8,24 +8,23 @@
 --   from the caster's head toward its aim; the stage's damage and knock, no zones, no falloff; where it lands, the
 --   stage's blast (only the full beam has one).
 -- - Damage.blast: a real-scaled blast (Rules/Blast): soldiers hurt and knocked by the overpressure at their torso, map
---   sections by their class (src/server/Destruction.blast), trees snapped, a crater in the terrain.
+--   sections by their class (src/server/Destruction.blast), trees by their HP (src/server/Trees), a crater with a rim
+--   and churned earth round it.
 -- No one hurts themselves (their blast still knocks them). Health 100 and no regeneration (src/character/Health);
 -- a death is a limp ragdoll (the death face: src/server/Bodies); respawn after Config/Metrics.Combat.RespawnDelay.
 
-local CollectionService = game:GetService("CollectionService")
-local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Damage)
 local Metrics = require(Shared.Config.Metrics)
-local TreeCfg = require(Shared.Config.TreeSway)
 local W = require(Shared.Config.Weapons)
 local Blast = require(Shared.Rules.Blast)
 local Rules = require(Shared.Rules.Damage)
 local Destruction = require(script.Parent.Destruction)
 local Ragdoll = require(script.Parent.Ragdoll)
+local Trees = require(script.Parent.Trees)
 
 local Damage = {}
 
@@ -73,6 +72,9 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 	for _, h in hits do
 		local character, humanoid = victim(h.part)
 		local zone = h.part and Rules.zone(h.part.Name)
+		if not character then
+			Trees.shot(h.part, w.class, h.direction) -- a trunk is chipped (src/server/Trees)
+		end
 		if character and humanoid and zone and character ~= shooter then
 			local share = if pellets then Rules.falloff(h.distance, pellets.full, pellets.none) else 1
 			local z = if h.helmet then "Helmet" else zone
@@ -93,34 +95,62 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 	end
 end
 
--- A tree snaps at the trunk and falls away from the blast (no longer swaying), then despawns.
-local function snap(tree: Model, from: Vector3)
-	local T = Cfg.Blast.Tree
-	CollectionService:RemoveTag(tree, TreeCfg.Tag)
-	local parts = {}
-	for _, d in tree:GetDescendants() do
-		if d:IsA("BasePart") then
-			table.insert(parts, d)
-		end
-	end
-	local root = tree:FindFirstChild("Trunk") :: BasePart? or parts[1]
-	if not root then
+local VOXEL = 4 -- terrain voxel size (studs)
+
+local terrainOnly = RaycastParams.new()
+terrainOnly.FilterType = Enum.RaycastFilterType.Include
+terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
+terrainOnly.IgnoreWater = true
+
+-- The crater of a `kg` charge at `position` (Rules/Blast.craterPlan): a low rim of earth where there is ground near,
+-- the hole, then the ground around churned to blasted earth (the grass on it goes at once: src/client/GrassFoliage).
+-- Terrain changes are voxels: they stay and cost nothing after.
+local function crater(position: Vector3, kg: number)
+	local C = Cfg.Blast.Crater
+	local plan = Blast.craterPlan(kg, C)
+	if not plan then
 		return
 	end
-	for _, p in parts do
-		p.Anchored = false
-		p.CollisionGroup = "Debris"
-		if p ~= root then
-			local w = Instance.new("WeldConstraint")
-			w.Part0, w.Part1 = root, p
-			w.Parent = p
+	local terrain = workspace.Terrain
+	local churnTo = (Enum.Material :: any)[C.churnTo]
+	for _, b in plan.rim do
+		local over = position + Vector3.new(b.dx, plan.radius, b.dz)
+		local hit = workspace:Raycast(over, Vector3.yAxis * -plan.radius * 3, terrainOnly)
+		if hit then
+			terrain:FillBall(hit.Position - Vector3.yAxis * b.sink, b.radius, churnTo)
 		end
 	end
-	root:SetNetworkOwner(nil)
-	local away = flat(root.Position - from)
-	root.AssemblyLinearVelocity = away * T.push
-	root.AssemblyAngularVelocity = Vector3.new(0, 1, 0):Cross(away) * T.spin
-	Debris:AddItem(tree, T.despawn)
+	terrain:FillBall(position - Vector3.yAxis * plan.sink, plan.radius, Enum.Material.Air)
+	-- churn: the voxels near the blast's height within `churn` across
+	local from: { [Enum.Material]: boolean } = {}
+	for _, m in C.churnFrom do
+		from[(Enum.Material :: any)[m]] = true
+	end
+	local reach = Vector3.new(plan.churn, plan.radius * 1.5, plan.churn)
+	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return
+	end
+	local size = mats.Size
+	local corner = region.CFrame.Position - region.Size / 2
+	local changed = false
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
+			if (x - position.X) ^ 2 + (z - position.Z) ^ 2 <= plan.churn * plan.churn then
+				for iy = 1, size.Y do
+					if from[mats[ix][iy][iz]] then
+						mats[ix][iy][iz] = churnTo
+						changed = true
+					end
+				end
+			end
+		end
+	end
+	if changed then
+		terrain:WriteVoxels(region, VOXEL, mats, occs)
+	end
 end
 
 -- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it, never killed: knocked).
@@ -159,20 +189,8 @@ function Damage.blast(position: Vector3, kg: number, by: Model?)
 		local fail = class and (B.Fail :: any)[class] or B.FailDefault
 		return Blast.sectionDamage(kpaAt(d), fail, maxHP, B.Weaken)
 	end)
-	-- trees
-	for _, tree in CollectionService:GetTagged(TreeCfg.Tag) do
-		if tree:IsA("Model") and tree:IsDescendantOf(workspace) then
-			local d = (tree:GetPivot().Position - position).Magnitude
-			if d <= reach and kpaAt(d) >= B.Tree.fail then
-				snap(tree, position)
-			end
-		end
-	end
-	-- the crater
-	local r = Blast.crater(kg, B.Crater.perCubeRoot)
-	if r > 0 then
-		workspace.Terrain:FillBall(position - Vector3.yAxis * r * B.Crater.sink, r, Enum.Material.Air)
-	end
+	Trees.blast(position, reach, kpaAt)
+	crater(position, kg)
 end
 
 -- A staff shot of `stage` from `caster` toward `target`: returns where it lands (the end of its range if it hits

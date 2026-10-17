@@ -68,4 +68,37 @@ function Blast.crater(kg: number, perCubeRoot: number): number
 	return if kg > 0 then perCubeRoot * kg ^ (1 / 3) else 0
 end
 
+-- How far a blast reaching `reach` studs (Damage.blast's search, Config/Damage.Blast.Reach) churns the ground: the same
+-- for every charge, since both grow by its cube root. Clients get only the reach (Net "Explosion").
+function Blast.churnFromReach(reach: number, b: any): number
+	return reach * b.Crater.churn * b.Crater.perCubeRoot * b.MetresPerStud / b.Reach
+end
+
+export type CraterPlan = {
+	radius: number, -- the hole's ball
+	sink: number, -- how far under the blast point the hole's centre is
+	rim: { { dx: number, dz: number, radius: number, sink: number } }, -- balls of earth round it, under the ground
+	churn: number, -- the ground out to here turns to blasted earth
+}
+
+-- The crater a `kg` charge leaves (Config/Damage.Blast.Crater): the hole, its low rim of earth and how far the ground
+-- around is churned. Nothing for no charge.
+function Blast.craterPlan(kg: number, c: any): CraterPlan?
+	local r = Blast.crater(kg, c.perCubeRoot)
+	if r <= 0 then
+		return nil
+	end
+	local rim = {}
+	for i = 1, c.rim.count do
+		local a = (i - 1) / c.rim.count * 2 * math.pi
+		table.insert(rim, {
+			dx = math.cos(a) * c.rim.at * r,
+			dz = math.sin(a) * c.rim.at * r,
+			radius = c.rim.size * r,
+			sink = c.rim.sink * r,
+		})
+	end
+	return { radius = r, sink = c.sink * r, rim = rim, churn = c.churn * r }
+end
+
 return Blast

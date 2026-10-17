@@ -69,7 +69,7 @@ function Ground.build(map: any, MT: any, palette: any): number
 						local y0 = (vy0 + iy - 1) * RES
 						local occ = math.clamp((h - y0) / RES, 0, 1)
 						if occ > 0 then
-							mx[iy][iz] = if h - (y0 + RES) > RES then under else surface
+							mx[iy][iz] = if h - (y0 + RES) > tc.surfaceDepth then under else surface
 							ox[iy][iz] = occ
 						elseif inRiver and y0 < river.waterY then
 							mx[iy][iz] = water

@@ -66,6 +66,9 @@ local Map1 = {
 		moundScale = 70,
 		moundThreshold = 0.25,
 		patchThreshold = 0.45, -- dirt patches where patch noise exceeds this
+		-- the surface material (grass) only in voxels whose top is within this of the ground (was a whole voxel, 4):
+		-- under it is dirt, so a crater shows earth (user 2026-10-17: "dont make the green layer ... so thick")
+		surfaceDepth = 1.5,
 	},
 	-- More extreme ridged hills outside the bounds, for the view. Unwalkable is fine out there.
 	wild = {

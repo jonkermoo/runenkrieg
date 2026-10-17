@@ -1,6 +1,7 @@
 --!strict
 -- Places low-poly tree meshes from the library's TreeKit (Config/Assets.Entries.TreeKit).
--- Trunks collide; canopies block shots/sight (CanQuery) but not movement.
+-- Trunks collide; canopies block sight but not movement or bullets (CanQuery off; user 2026-10-17: "bullets through
+-- leaves").
 
 local CollectionService = game:GetService("CollectionService")
 
@@ -31,6 +32,7 @@ local function buildTemplates(kit: Model, entry: any, heights: any): { [string]:
 					p.Name = "Canopy"
 					p.CanCollide = false
 					p.CanTouch = false
+					p.CanQuery = false
 				else
 					p.Name = "Trunk"
 				end

@@ -5,6 +5,8 @@
 
 local TreeSway = {
 	Tag = "SwayTree", -- CollectionService tag on tree Models (set by the map builder)
+	FallingTag = "FallingTree", -- a felled tree falling (src/server/Trees -> src/client/TreeFall)
+	SinkingTag = "SinkingTree", -- a fallen tree sinking away before it is removed
 	ActiveRadius = 180, -- only trees this close to the camera are animated
 	GridCell = 64,
 	UpdateHz = 40,
