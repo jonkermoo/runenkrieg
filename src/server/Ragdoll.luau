@@ -41,8 +41,9 @@ type Down = {
 }
 local down: { [Model]: Down } = setmetatable({}, { __mode = "k" }) :: any
 
+-- (the "Ragdolled" attribute too: a copy of this module required elsewhere, e.g. from Studio's command bar, sees it)
 function Ragdoll.active(character: Model): boolean
-	return down[character] ~= nil
+	return down[character] ~= nil or character:GetAttribute("Ragdolled") == true
 end
 
 local function loosen(character: Model, torso: BasePart): Down
@@ -115,6 +116,9 @@ end
 -- `hold` s, and every `every` s after `after` it tips a body still standing (user 2026-10-17: "headshots dont ragdoll
 -- with enough force to fall on the ground sometimes").
 local function serverThrow(character: Model, knock: { [string]: number }, direction: Vector3, scale: number)
+	-- the newest knock's throw wins: an older one still watching stops (Studio round 9: two throws fought)
+	local seq = ((character:GetAttribute("KnockSeq") :: number?) or 0) + 1
+	character:SetAttribute("KnockSeq", seq)
 	task.defer(function()
 		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local torso = character:FindFirstChild("Torso") :: BasePart?
@@ -130,7 +134,11 @@ local function serverThrow(character: Model, knock: { [string]: number }, direct
 		local diedAt: number? = nil
 		local thrownAt: number? = nil
 		local tipAt = t0 + T.after
-		while root:IsDescendantOf(workspace) and os.clock() - t0 < T.window do
+		while
+			root:IsDescendantOf(workspace)
+			and os.clock() - t0 < T.window
+			and character:GetAttribute("KnockSeq") == seq
+		do
 			local now = os.clock()
 			if not diedAt and (not humanoid or humanoid.Health <= 0) then
 				diedAt = now

@@ -219,6 +219,7 @@ function Damage.start()
 		humanoid.MaxHealth = Cfg.Health
 		humanoid.Health = Cfg.Health
 		humanoid.Died:Connect(function()
+			task.wait() -- (a hit's own knock comes with its death: let it land first)
 			if not Ragdoll.active(character) then
 				-- died some other way (a fall, a reset): just drops
 				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
