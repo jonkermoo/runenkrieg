@@ -36,7 +36,9 @@ local Ragdoll = {
 		-- standing up")
 		-- (a plain topple: driving it down, `drop` 16 studs/s, folded the legs under a torso that then knelt upright in
 		-- the 2-player test, user 2026-10-17: "they still stand up ragdolled")
-		HeadDrop = { push = 3, lift = 0, tumble = 9, getUp = 0 },
+		-- (thrown along the bullet's travel, away from the shooter; user 2026-10-17: "they need some more knockback on
+		-- headshots, make sure to goes the direction the bullet was coming from")
+		HeadDrop = { push = 12, lift = 2, tumble = 9, getUp = 0 },
 		TorsoDrop = { push = 20, lift = 8, tumble = 8, getUp = 0 },
 		LimbDrop = { push = 10, lift = 4, tumble = 6, getUp = 0 },
 		StaffThrow = { push = 70, lift = 30, tumble = 10, getUp = 1 }, -- a full beam: sent flying
