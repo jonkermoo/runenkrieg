@@ -41,12 +41,11 @@ local Ragdoll = {
 		StaffThrow = { push = 70, lift = 30, tumble = 10, getUp = 1 }, -- a full beam: sent flying
 		BlastThrow = { push = 60, lift = 35, tumble = 10, getUp = 1 }, -- thrown by a blast (away from it)
 	},
-	-- A limp body that still stands upright (its torso's up within `upright` of straight up, as cos) `after` seconds
-	-- into a knock is tipped over the way it was thrown (`spin` rad/s): nobody ragdolls standing up
-	Tip = { after = 0.35, upright = 0.85, spin = 6 },
-	-- a dead body belongs to the server (Studio round 3: a headshot kill stood upright): the server throws it itself
-	-- once it owns it, waiting at most this long (s) after the knock for the death to hand it over
-	ServerWait = 0.5,
+	-- A limp body that still stands upright (its torso's up within `upright` of straight up, as cos) from `after` s
+	-- into a knock is tipped over the way it was thrown (`spin` rad/s, `push` studs/s), again every `every` s while it
+	-- stands, for `window` s, by whichever side simulates it (user 2026-10-17: "headshots dont ragdoll with enough
+	-- force to fall on the ground sometimes"; a dead body passes to the server some time after the death)
+	Tip = { after = 0.3, every = 0.25, window = 3, upright = 0.75, spin = 9, push = 3 },
 	-- the knocks a player may ask for on itself (Net "KnockSelf": the staff's recoil, the float fall)
 	SelfKnocks = { StaffRecoil = true, FloatFall = true },
 	SelfRate = 2, -- "KnockSelf" requests a second at most (and burst)

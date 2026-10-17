@@ -42,9 +42,17 @@ local function throw(character: Model, knock: { [string]: number }, direction: V
 	root.AssemblyAngularVelocity = axis * knock.tumble * scale
 	-- nobody ragdolls standing up: still upright a moment later, it's tipped over the way it was thrown
 	local torso = character:FindFirstChild("Torso") :: BasePart?
-	task.delay(Cfg.Tip.after, function()
-		if torso and torso.Parent and Ragdoll.active(character) and torso.CFrame.UpVector.Y > Cfg.Tip.upright then
-			torso.AssemblyAngularVelocity += axis * Cfg.Tip.spin
+	-- (every `every` s for `window` s, while this client still simulates the body: ReceiveAge 0)
+	local T = Cfg.Tip
+	task.spawn(function()
+		local t0 = os.clock()
+		task.wait(T.after)
+		while torso and torso.Parent and Ragdoll.active(character) and os.clock() - t0 < T.window do
+			if torso.ReceiveAge == 0 and torso.CFrame.UpVector.Y > T.upright then
+				torso.AssemblyAngularVelocity += axis * T.spin
+				torso.AssemblyLinearVelocity += dir * T.push
+			end
+			task.wait(T.every)
 		end
 	end)
 end
