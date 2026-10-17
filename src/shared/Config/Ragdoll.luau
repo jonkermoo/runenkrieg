@@ -34,8 +34,9 @@ local Ragdoll = {
 		Torso = { push = 20, lift = 8, tumble = 8, getUp = 0.8 }, -- a torso hit: medium knockback
 		-- a headshot kill: the body collapses where it stands (user: "on headshots, we should collapse but we ragdoll
 		-- standing up")
-		-- (no push: driven `drop` studs/s down so the loose legs splay and it crumples, then tips over)
-		HeadDrop = { push = 0, lift = 0, drop = 16, tumble = 2, getUp = 0 },
+		-- (a plain topple: driving it down, `drop` 16 studs/s, folded the legs under a torso that then knelt upright in
+		-- the 2-player test, user 2026-10-17: "they still stand up ragdolled")
+		HeadDrop = { push = 3, lift = 0, tumble = 9, getUp = 0 },
 		TorsoDrop = { push = 20, lift = 8, tumble = 8, getUp = 0 },
 		LimbDrop = { push = 10, lift = 4, tumble = 6, getUp = 0 },
 		StaffThrow = { push = 70, lift = 30, tumble = 10, getUp = 1 }, -- a full beam: sent flying

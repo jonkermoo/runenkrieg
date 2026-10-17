@@ -31,7 +31,14 @@ local LIMBS = { "Left Arm", "Right Arm", "Left Leg", "Right Leg" }
 
 -- a body that is down: what was made for it, the joints loosened, and the knock's latest start (a new knock while
 -- down restarts the settle wait)
-type Down = { made: { Instance }, loose: { Motor6D }, since: number, getUp: number }
+type Down = {
+	made: { Instance },
+	loose: { Motor6D },
+	since: number,
+	getUp: number,
+	root: BasePart?, -- the HumanoidRootPart and whether it collided before
+	rootCollides: boolean,
+}
 local down: { [Model]: Down } = setmetatable({}, { __mode = "k" }) :: any
 
 function Ragdoll.active(character: Model): boolean
@@ -91,7 +98,14 @@ local function loosen(character: Model, torso: BasePart): Down
 			table.insert(made, c)
 		end
 	end
-	return { made = made, loose = loose, since = os.clock(), getUp = 0 }
+	-- the invisible root box doesn't touch the ground while down (2-player test: it held a dead torso upright on its
+	-- folded legs)
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local rootCollides = root ~= nil and root.CanCollide
+	if root then
+		root.CanCollide = false
+	end
+	return { made = made, loose = loose, since = os.clock(), getUp = 0, root = root, rootCollides = rootCollides }
 end
 
 -- the server's own throw of a body it owns (a dead one): as src/client/Ragdoll does for its own soldier. The death
@@ -181,6 +195,9 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		end
 		for _, m in made.loose do
 			m.Enabled = true
+		end
+		if made.root then
+			made.root.CanCollide = made.rootCollides
 		end
 		for _, i in made.made do
 			i:Destroy()
