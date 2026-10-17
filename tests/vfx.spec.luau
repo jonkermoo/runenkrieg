@@ -69,6 +69,14 @@ return {
 		assert(math.abs(S[#S].fireball - real) < 4, `stage 3 fireball {S[#S].fireball} vs ~{real}`)
 		local F = Vfx.Blast.Fireball
 		assert(F.grow > 0 and F.hold >= 0 and F.fade > 0 and Vfx.Blast.Cloud.life > F.fade)
+		-- any charge: the real fireball (Charge), ~8 m at 10 kg, bigger with the charge
+		local K = Vfx.Blast.Charge
+		local d10 = K.a * 10 ^ K.b / K.metresPerStud
+		assert(math.abs(d10 * K.metresPerStud - 8) < 0.5, `10 kg fireball {d10 * K.metresPerStud} m`)
+		assert(K.a * 50 ^ K.b > K.a * 10 ^ K.b)
+		local Sm = Vfx.Blast.Smoke
+		assert(Sm.life[1] > Vfx.Blast.Cloud.life * 0.8, "the smoke outlives the cloud")
+		assert(Sm.size[2] > Sm.size[1] and Sm.thick < 1 and Sm.perStud > 0)
 		local C = Vfx.Blast.Cloud
 		assert(C.deepOut + C.deep > 1 and C.rimOut + C.rim > 1, "patches break the puff's surface")
 		assert(C.rim > C.deep and C.rimOut < C.deepOut, "a bright rim round a deep centre")

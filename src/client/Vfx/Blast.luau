@@ -4,7 +4,10 @@
 -- fading into a glow shell, then a billowing cloud of pale puffs with glowing patches burning through them (a bright
 -- rim round a deep centre) that burn out as the cloud rolls up and thins; flames licking round its foot, sparks flung
 -- out, embers drifting up, shockwave rings, a big light, and the impact burst (with the debris of what was hit).
--- Sized by the stage. Pooled pieces, one Driver step.
+-- Then a column of real-looking smoke (Roblox's smoke texture, grey) rolls up and drifts off over several seconds.
+-- Sized by a staff stage, or by a charge in kg (the real fireball's size: cannon shells later, user 2026-10-17:
+-- "explosions will come from cannons later too ... make sure explosion smokes look realistic"). Pooled pieces, one
+-- Driver step.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -26,8 +29,11 @@ export type Opts = {
 	scheme: string?, -- Config/Vfx.Schemes (default: Ray's)
 	normal: Vector3?, -- the surface's normal (default up)
 	debrisColor: Color3?, -- what was hit: chunks of it fly off
-	stage: number?, -- 1..3 (default 1)
+	stage: number?, -- a staff stage 1..3 (default 1): Config/Vfx.Blast.Stages
+	kg: number?, -- or a charge of this many kg of TNT: sized as its real fireball (Config/Vfx.Blast.Charge), all extras
 }
+
+local SMOKE = "rbxasset://textures/particles/smoke_main.dds" -- Roblox's own smoke texture
 
 local rng = Random.new()
 
@@ -51,9 +57,20 @@ local function emitter(cf: CFrame, box: Vector3): ParticleEmitter
 	return e
 end
 
+-- a `kg` charge's fireball, studs across (Config/Vfx.Blast.Charge: D = a x W^b metres)
+function Blast.fireball(kg: number): number
+	local K = Cfg.Charge
+	return K.a * kg ^ K.b / K.metresPerStud
+end
+
 function Blast.play(pos: Vector3, opts: Opts?)
 	local o: Opts = opts or {}
-	local st = Cfg.Stages[math.clamp(o.stage or 1, 1, #Cfg.Stages)]
+	local st: any = Cfg.Stages[math.clamp(o.stage or 1, 1, #Cfg.Stages)]
+	if o.kg and o.kg > 0 then
+		local K = Cfg.Charge
+		local d = Blast.fireball(o.kg)
+		st = { fireball = d, rings = K.rings, spikes = true, puffs = math.max(math.round(d * K.puffsPerStud), 3) }
+	end
 	local s = (Vfx.Schemes :: any)[o.scheme or Vfx.Ray.Scheme]
 	local normal = (o.normal or Vector3.yAxis).Unit
 	local flash, glow, core = Util.color(s.flash), Util.color(s.glow), Util.color(s.core)
@@ -192,8 +209,50 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	embers.Squash = NumberSequence.new(0)
 	embers:Emit(math.round(em.perStud * d))
 
+	-- the smoke column: grey smoke rolling up out of the cloud and drifting off, outliving it
+	local sm = Cfg.Smoke
+	local ash = Util.color(sm.color)
+	local column = Pool.emitter(CFrame.new(pos + normal * d * sm.lift), Vector3.new(d, d * sm.depth, d) * sm.box)
+	column.Shape = Enum.ParticleEmitterShape.Box
+	column.Texture = SMOKE
+	column.Speed = NumberRange.new(sm.rise[1] * d, sm.rise[2] * d)
+	column.Lifetime = NumberRange.new(sm.life[1], sm.life[2])
+	column.SpreadAngle = Vector2.new(sm.spread, sm.spread)
+	column.EmissionDirection = Enum.NormalId.Top
+	column.Drag = sm.drag
+	column.Acceleration = Vector3.new(sm.wind[1], sm.wind[2], sm.wind[3])
+	column.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, d * sm.size[1]),
+		NumberSequenceKeypoint.new(1, d * sm.size[2]),
+	})
+	column.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(sm.fadeIn, sm.thick),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	column.Color = ColorSequence.new(ash)
+	column.LightEmission = 0
+	column.LightInfluence = 1
+	column.Brightness = 1
+	column.Orientation = Enum.ParticleOrientation.FacingCamera
+	column.Squash = NumberSequence.new(0)
+	column.Rotation = NumberRange.new(0, 360)
+	column.RotSpeed = NumberRange.new(-sm.spin, sm.spin)
+	task.delay(sm.delay, function()
+		column:Emit(math.max(math.round(sm.perStud * d), 2))
+	end)
+
 	local fireEnd = F.grow + F.hold + F.fade
-	local total = math.max(fireEnd, Sh.fade + F.grow, C.life + C.appear, L.time, sp.life[2], em.life[2], fl.life[2] * 2)
+	local total = math.max(
+		fireEnd,
+		Sh.fade + F.grow,
+		C.life + C.appear,
+		L.time,
+		sp.life[2],
+		em.life[2],
+		fl.life[2] * 2,
+		sm.delay + sm.life[2]
+	)
 	Driver.add(function(now: number): boolean
 		local t = now - now0
 		if t >= total then
@@ -212,6 +271,8 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			Pool.freeEmitter(sparks)
 			Pool.freeEmitter(embers)
 			Pool.freeEmitter(flames)
+			column.LightInfluence = 0 -- (the pool's default for the other effects)
+			Pool.freeEmitter(column)
 			return false
 		end
 		-- the fireball swells fast, holds white-hot, then fades and takes the glow's colour

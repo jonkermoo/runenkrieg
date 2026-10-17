@@ -503,6 +503,32 @@ local Vfx = {
 		Star = 0.6,
 		Rings = { to = 2.5, gap = 0.12, grow = 0.25, lift = 0.3 }, -- each ring out to `to` x the fireball (+`grow` per ring)
 		Burst = 0.6, -- the impact burst's scale x the fireball / 4
+		-- Any charge (cannon shells later; user 2026-10-17: "explosions will come from cannons later too. keep that in
+		-- mind when saving explosion effects"): Blast.play(pos, { kg = charge, scheme = ... }) sizes the fireball as the
+		-- real one, D = a x W^b metres (W kg of TNT; ~8 m at 10 kg), with `rings` rings and a puff per `1 / puffsPerStud`
+		-- studs of it. A cannon will want its own scheme (fire colours, dark smoke).
+		Charge = { a = 3.86, b = 0.32, metresPerStud = 0.357, rings = 3, puffsPerStud = 0.65 },
+		-- The smoke column (user: "make sure explosion smokes look realistic"): Roblox's smoke texture in `color`, lit by
+		-- the scene, `perStud` x the fireball puffs of it after `delay` s, rising `rise` x the fireball per second from a
+		-- slab `box` x it wide (`depth` deep, `lift` up), growing from `size[1]` to `size[2]` x the fireball, fading in
+		-- to `thick` (transparency) over the first `fadeIn` of its `life`, then out; drifting on the `wind`.
+		Smoke = {
+			color = "Ash",
+			perStud = 1.2,
+			delay = 0.35,
+			rise = { 0.12, 0.3 },
+			box = 0.7,
+			depth = 0.3,
+			lift = 0.3,
+			size = { 0.45, 1.3 },
+			fadeIn = 0.15,
+			thick = 0.25,
+			life = { 3.5, 6 },
+			spread = 18,
+			drag = 0.6,
+			wind = { 1.2, 0.4, 0.5 },
+			spin = 20,
+		},
 	},
 
 	-- A ring that races outward and thins (lying flat on the ground, or facing any way).
