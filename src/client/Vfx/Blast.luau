@@ -146,9 +146,9 @@ function Blast.play(pos: Vector3, opts: Opts?)
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	flames.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, glow),
-		ColorSequenceKeypoint.new(0.4, deep),
-		ColorSequenceKeypoint.new(1, char),
+		ColorSequenceKeypoint.new(0, core),
+		ColorSequenceKeypoint.new(0.3, glow),
+		ColorSequenceKeypoint.new(1, deep),
 	})
 	flames.Brightness = fl.brightness
 	flames.LightEmission = fl.emission
@@ -241,10 +241,12 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			p.part.Transparency = fade
 			local radius = size / 2
 			for _, pa in p.patches do
-				local b = math.clamp(pt / pa.burn, 0, 1) -- burnt out at 1: sunk back in and gone
+				-- full and solid until `hot` of its burn, then sinking back in, shrinking and fading (Studio round 4: sinking
+				-- from the start hid the patches after ~1 s)
+				local b = math.clamp((pt / pa.burn - C.hot) / (1 - C.hot), 0, 1)
 				local sink = 1 - C.sink * b
 				local shrink = 1 - C.shrink * b
-				local gone = math.max(math.clamp((b - C.hot) / (1 - C.hot), 0, 1), fade)
+				local gone = math.max(b, fade)
 				pa.deep.Size = Vector3.one * math.max(size * C.deep * shrink, 0.05)
 				pa.deep.CFrame = CFrame.new(at + pa.dir * radius * C.deepOut * sink)
 				pa.deep.Transparency = gone

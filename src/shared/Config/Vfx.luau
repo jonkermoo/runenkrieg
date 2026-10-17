@@ -437,8 +437,8 @@ local Vfx = {
 		-- (from `from` of its size), keeps swelling to `swell` x and rising `rise` x the fireball per second, and fades
 		-- over its last `fade` share of `life` s. Each puff has `patches` glowing patches: a deep ball (`deep` x the puff,
 		-- pushed `deepOut` x the puff's radius out from its centre) inside a bright one (`rim` x, `rimOut` out), so a
-		-- bright rim rings a deep centre where they break the surface; they burn out by `burn` s: sinking back in
-		-- (`sink` of the way) and shrinking (`shrink`), solid until `hot` of the way, then fading. `low`: the lowest puff
+		-- bright rim rings a deep centre where they break the surface; they burn out by `burn` s: full and solid until
+		-- `hot` of the way, then sinking back in (`sink` of the way), shrinking (`shrink`) and fading. `low`: the lowest puff
 		-- starts this share of `height` up; `stagger`: the last puff pops in this share of `appear` after the first;
 		-- `jitter`: how far a patch strays from facing straight out of the cloud.
 		Cloud = {
@@ -482,9 +482,10 @@ local Vfx = {
 			drag = 1,
 			spin = 60,
 			again = 0.5,
-			brightness = 2,
-			-- additive (1) washed the tinted flames out to pale wisps against the sky (Studio round 3): mostly solid colour
-			emission = 0.25,
+			brightness = 3,
+			-- additive (1) washed the tinted flames out to pale wisps against the sky (Studio round 3), 0.25 with a dark
+			-- tail read as smoke (round 4): white-hot to the glow to the deep blue, half additive
+			emission = 0.55,
 		},
 		Light = { range = 3, brightness = 8, time = 1.2, lift = 2, max = 60 }, -- range x the fireball (Roblox caps 60)
 		-- speed x fireball / s; `star`: the stage's glint length x the fireball
