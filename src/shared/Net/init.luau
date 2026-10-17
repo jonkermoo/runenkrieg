@@ -38,11 +38,20 @@ local Remotes: { string } = {
 	--   "Open" ()                                           an aimed circle opens and is held
 	--   "Aim" (target: Vector3, held: number?, cap: number) the crosshair point, the charge time (nil: not charging),
 	--                                                       the stages paid for; at most Send.AimRate a second
-	--   "Fire" (stage: number, target: Vector3, mode: "Hip" | "Pulse" | "Release") a shot and where it lands
+	--   "Fire" (stage: number, target: Vector3, mode: "Hip" | "Pulse" | "Release") a shot and where it aims; the server
+	--                                                       casts it (Config/Damage.Staff) and relays where it lands
 	--   "Drop" ()                                           the held cast closes without firing
 	--   "Float" (on: boolean)                               floating with the staff aimed, or not
 	-- server -> clients: (caster: Model, kind, ...) the same, checked, to everyone but the caster
 	"StaffCast",
+	-- Knocks (M12; src/server/Ragdoll decides and loosens the joints for everyone, src/client/Ragdoll shows them;
+	-- Config/Ragdoll.Knocks):
+	-- server -> clients: (character: Model, knock: string, direction: Vector3, scale: number) a soldier knocked: its
+	-- owner throws the body
+	"Knock",
+	-- client -> server: (knock: string, direction: Vector3) knock myself (Config/Ragdoll.SelfKnocks: the staff's
+	-- recoil, the float fall); rate limited
+	"KnockSelf",
 }
 local Functions: { string } = {}
 

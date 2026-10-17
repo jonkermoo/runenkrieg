@@ -24,7 +24,8 @@
         "Client": { "$path": "src/client" }
       },
       "StarterCharacterScripts": {
-        "Animate": { "$path": "src/character/Animate.client.luau" }
+        "Animate": { "$path": "src/character/Animate.client.luau" },
+        "Health": { "$path": "src/character/Health.server.luau" }
       }
     }
   }

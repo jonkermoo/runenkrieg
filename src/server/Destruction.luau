@@ -161,4 +161,46 @@ function Destruction.explode(position: Vector3, radius: number, damage: number):
 	return { broken = before - after, damaged = damaged }
 end
 
+-- A blast like a real one (Rules/Blast, Config/Damage.Blast): each section within `reach` studs loses what the
+-- overpressure at its nearest part does to its class (`damageAt(distance, class, maxHP)`); trees and the like get the
+-- visual kick through Net "Explosion". Returns the sections broken and damaged.
+function Destruction.blast(
+	position: Vector3,
+	reach: number,
+	damageAt: (distance: number, class: string?, maxHP: number) -> number
+): { broken: number, damaged: number }
+	Net.event("Explosion"):FireAllClients(position, reach, 1)
+	local nearest: { [Model]: number } = {}
+	for _, part in workspace:GetPartBoundsInRadius(position, reach) do
+		local s = sectionOf(part)
+		if s then
+			local half = math.min(part.Size.X, part.Size.Y, part.Size.Z) / 2
+			local d = math.max(0, (part.Position - position).Magnitude - half)
+			if nearest[s] == nil or d < nearest[s] then
+				nearest[s] = d
+			end
+		end
+	end
+	local broken, damaged = 0, 0
+	for s, d in nearest do
+		if s.Parent then
+			local class = s:GetAttribute("Class")
+			local maxHP = s:GetAttribute("MaxHP")
+			local dmg = damageAt(
+				d,
+				if type(class) == "string" then class else nil,
+				if type(maxHP) == "number" then maxHP else 0
+			)
+			if dmg > 0 then
+				damaged += 1
+				Destruction.damage(s, dmg, position)
+				if not s.Parent then
+					broken += 1
+				end
+			end
+		end
+	end
+	return { broken = broken, damaged = damaged }
+end
+
 return Destruction

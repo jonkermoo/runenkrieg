@@ -77,6 +77,27 @@ function StaffNet.cooled(lastAt: number?, lastStage: number?, now: number, coold
 	return now - lastAt >= (cooldown[lastStage] or 0) - slack
 end
 
+-- server: whether a shot of `stage` fired by `mode` was charged long enough. A tap ("Hip") or a shot from a held
+-- circle ("Pulse") is stage 1 only; a "Release" of stage n needs the circle opened ("Open" at `openAt`) at least that
+-- stage's hold (`stages`, Config/Spells.Stages) before, less `slack` (the charge starts at the press, after the open,
+-- so this never refuses a real charge)
+function StaffNet.charged(
+	stage: number,
+	mode: string,
+	openAt: number?,
+	now: number,
+	stages: { { hold: number } },
+	slack: number
+): boolean
+	if stage <= 1 then
+		return true
+	end
+	if mode ~= "Release" or not openAt or not stages[stage] then
+		return false
+	end
+	return now - openAt >= stages[stage].hold - slack
+end
+
 -- other clients: the charge time to show `since` seconds after an "Aim" said `held`: it runs on for at most `ahead`,
 -- and never into a stage the caster can't pay for (`opens`: when each stage's circle starts to open, `cap` stages paid
 -- for; Rules/Spells.capHeld)

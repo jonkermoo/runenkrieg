@@ -88,6 +88,14 @@ local plays: { [string]: (pad: Vector3, folder: Folder, entry: Entry) -> () } = 
 		local floor = folder:FindFirstChild("Floor") :: BasePart
 		Vfx.Burst.play(Vector3.new(p.X, 0, p.Z), { normal = Vector3.yAxis, debrisColor = floor.Color })
 	end,
+	Blast1 = function(p, folder)
+		local floor = folder:FindFirstChild("Floor") :: BasePart
+		Vfx.Blast.play(Vector3.new(p.X, 0, p.Z), { normal = Vector3.yAxis, debrisColor = floor.Color, stage = 1 })
+	end,
+	Blast3 = function(p, folder)
+		local floor = folder:FindFirstChild("Floor") :: BasePart
+		Vfx.Blast.play(Vector3.new(p.X, 0, p.Z), { normal = Vector3.yAxis, debrisColor = floor.Color, stage = 3 })
+	end,
 	Shockwave = function(p)
 		Vfx.Shockwave.play(Vector3.new(p.X, 0.3, p.Z), Vector3.yAxis)
 	end,

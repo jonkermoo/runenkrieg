@@ -105,7 +105,7 @@ local Spells = {
 	},
 
 	-- The cast shown to other players (user 2026-10-16: "the staff audio and visual for other users"; Net "StaffCast",
-	-- src/server/StaffCast, src/client/StaffSeen, Rules/StaffNet). Visual and audio only: no damage, no server hitscan.
+	-- src/server/StaffCast, src/client/StaffSeen, Rules/StaffNet). The server casts each shot (src/server/Damage, M12).
 	-- The caster sends "Open" (an aimed circle), "Aim" (crosshair point, charge held, stages paid for) while a cast is
 	-- held, "Fire" (stage, where it lands, how fired), "Drop" and "Float"; the server checks and relays to everyone else.
 	Send = {
@@ -113,10 +113,14 @@ local Spells = {
 		AimSlack = 0.5, -- the server takes an "Aim" this share of 1 / AimRate after the last (network bunching)
 		Events = 8, -- every other message: a token bucket per player, this many a second and this burst
 		CooldownSlack = 0.15, -- a "Fire" may come this many seconds before the last stage's cooldown is over
+		-- the server takes a charged "Fire" this many seconds short of its stage's hold since the circle opened (it also
+		-- keeps its own copy of the caster's mana, Config/Spells.Mana / Rules/Spells, and refuses what it can't pay)
+		ChargeSlack = 0.25,
 		-- a "Fire" is still taken this long after the staff left the hands (a stage 3 shot's knockback puts it away, and
 		-- that can reach the server before the shot does); seconds
 		Grace = 0.5,
-		Reach = 400, -- the crosshair / landing point must be within this of the caster's head (studs; beams reach 250)
+		Reach = 600, -- the crosshair / landing point must be within this of the caster's head (studs; beams reach up to 500,
+		-- Config/Damage.Staff.Range)
 		MaxHeld = 10, -- a received charge time is clamped to this (seconds)
 		-- other clients: the charge runs on from the last "Aim" for at most this long (so it doesn't stall between
 		-- updates or run on after a lost one)

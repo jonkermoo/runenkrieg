@@ -1,9 +1,12 @@
 --!strict
 -- Relays each caster's staff cast (src/client/StaffAttack) to the other players, who draw and hear it
--- (src/client/StaffSeen). Visual and audio only: nothing here hits or hurts. Nothing a client sends is trusted as
+-- (src/client/StaffSeen). A shot is cast here (src/server/Damage.staff, M12: damage, knock, the full beam's blast) and
+-- relayed with where it really lands. Nothing a client sends is trusted as
 -- sent (Rules/StaffNet, Config/Spells.Send): the sender must be alive with a staff in the hands; every message type and
 -- value is checked; points must be near the caster's head; "Aim" goes at most AimRate a second, everything else
--- through a token bucket of Events a second; a "Fire" must wait out the last shot's cooldown (less CooldownSlack).
+-- through a token bucket of Events a second; a "Fire" must wait out the last shot's cooldown (less CooldownSlack), be
+-- charged long enough since its circle opened (Rules/StaffNet.charged) and be paid for from the server's own copy of
+-- the caster's mana (Rules/Spells; a new life starts full).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,13 +16,25 @@ local Net = require(Shared.Net)
 local Spells = require(Shared.Config.Spells)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.StaffNet)
+local SpellRules = require(Shared.Rules.Spells)
+local Damage = require(script.Parent.Damage)
 
 local Send = Spells.Send
 local LAST = #Spells.Stages
 
 local StaffCast = {}
 
-type State = { bucket: Rules.Bucket, aimAt: number, fireAt: number?, fireStage: number?, staffAt: number }
+type State = {
+	bucket: Rules.Bucket,
+	aimAt: number,
+	fireAt: number?,
+	fireStage: number?,
+	staffAt: number,
+	openAt: number?, -- when the held circle opened ("Open"), nil once released or dropped
+	mana: SpellRules.Mana,
+	manaAt: number, -- when the mana was last refilled
+	life: Model, -- the character the mana belongs to
+}
 
 -- the sender's character and head, alive; and whether a staff is drawn
 local function caster(player: Player): (Model?, BasePart?, boolean)
@@ -73,8 +88,15 @@ function StaffCast.start()
 				fireAt = nil,
 				fireStage = nil,
 				staffAt = -math.huge,
+				openAt = nil,
+				mana = SpellRules.mana(Spells.Mana),
+				manaAt = now,
+				life = character,
 			}
 			states[player] = s
+		end
+		if s.life ~= character then
+			s.life, s.mana, s.manaAt, s.openAt = character, SpellRules.mana(Spells.Mana), now, nil -- a new life: full
 		end
 		if staff then
 			s.staffAt = now
@@ -97,6 +119,7 @@ function StaffCast.start()
 			return
 		end
 		if kind == "Open" or kind == "Drop" then
+			s.openAt = if kind == "Open" then now else nil
 			relay(player, character, kind)
 		elseif kind == "Float" then
 			if type(a) == "boolean" then
@@ -110,8 +133,20 @@ function StaffCast.start()
 			if not Rules.cooled(s.fireAt, s.fireStage, now, Spells.Staff.Cooldown, Send.CooldownSlack) then
 				return
 			end
+			if not Rules.charged(stage, mode, s.openAt, now, Spells.Stages, Send.ChargeSlack) then
+				return
+			end
+			SpellRules.refill(s.mana, Spells.Mana, now, now - s.manaAt)
+			s.manaAt = now
+			if not SpellRules.spend(s.mana, Spells.Mana, stage, now) then
+				return
+			end
+			if mode == "Release" then
+				s.openAt = nil
+			end
 			s.fireAt, s.fireStage = now, stage
-			relay(player, character, "Fire", stage, target, mode)
+			local landed = Damage.staff(character, stage, target) or target
+			relay(player, character, "Fire", stage, landed, mode)
 		end
 	end)
 

@@ -1,0 +1,3 @@
+--!strict
+-- Replaces Roblox's default "Health" script (StarterCharacterScripts), which heals 1% a second: no regeneration
+-- (M12, Config/Damage). Health is set and lowered only by src/server/Damage.

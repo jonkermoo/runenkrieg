@@ -9,6 +9,8 @@ local EFFECTS = {
 	Charge = true,
 	Ray = true,
 	Burst = true,
+	Blast1 = true,
+	Blast3 = true,
 	Shockwave = true,
 	Star = true,
 	Spikes = true,
@@ -54,6 +56,30 @@ return {
 			end
 		end
 		assert(n >= 12, "too few runes")
+	end,
+	["the staff explosion grows with the stage; stage 3 about the real fireball"] = function()
+		local S = Vfx.Blast.Stages
+		local Damage = require("../src/shared/Config/Damage")
+		assert(#S == #Damage.Staff.Range, "one explosion per stage")
+		for i = 2, #S do
+			assert(S[i].fireball > S[i - 1].fireball and S[i].rings >= S[i - 1].rings, `stage {i} bigger`)
+		end
+		-- a 10 kg TNT fireball is roughly 8 m across: within a few studs
+		local real = 8 / Damage.Blast.MetresPerStud
+		assert(math.abs(S[#S].fireball - real) < 4, `stage 3 fireball {S[#S].fireball} vs ~{real}`)
+		local F = Vfx.Blast.Fireball
+		assert(F.grow > 0 and F.hold >= 0 and F.fade > 0 and Vfx.Blast.Cloud.life > F.fade)
+		-- any charge: the real fireball (Charge), ~8 m at 10 kg, bigger with the charge
+		local K = Vfx.Blast.Charge
+		local d10 = K.a * 10 ^ K.b / K.metresPerStud
+		assert(math.abs(d10 * K.metresPerStud - 8) < 0.5, `10 kg fireball {d10 * K.metresPerStud} m`)
+		assert(K.a * 50 ^ K.b > K.a * 10 ^ K.b)
+		local Sm = Vfx.Blast.Smoke
+		assert(Sm.life[1] > Vfx.Blast.Cloud.life * 0.8, "the smoke outlives the cloud")
+		assert(Sm.size[2] > Sm.size[1] and Sm.thick < 1 and Sm.perStud > 0)
+		local C = Vfx.Blast.Cloud
+		assert(C.deepOut + C.deep > 1 and C.rimOut + C.rim > 1, "patches break the puff's surface")
+		assert(C.rim > C.deep and C.rimOut < C.deepOut, "a bright rim round a deep centre")
 	end,
 	["timings and sizes are positive"] = function()
 		assert(Vfx.Circle.Appear > 0 and Vfx.Circle.Close.time > 0 and Vfx.Circle.Diameter > 0)

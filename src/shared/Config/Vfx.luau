@@ -414,6 +414,123 @@ local Vfx = {
 		Streaks = { count = 6, speed = { 18, 34 }, length = 2.2, width = 0.22, bend = 1.2, life = 0.45, color = "Core" },
 	},
 
+	-- The staff beam's explosion where it lands (user 2026-10-17: "a bright explosion that matches the color of the beam
+	-- (instead of typical red and orange explosion)"; then, with a cartoon explosion reference: "make the explosions
+	-- extra realistic effect wise. kind of like my example (but blue)"), in place of the plain impact burst; bigger with
+	-- the stage. In the cast's scheme: a white-hot fireball (flash) swelling to `fireball` studs across with a glow
+	-- shell, then a billowing cloud of pale puffs (Cloud) with glowing blue patches burning through them (a bright rim
+	-- round a deep centre, like the reference's fire showing through its smoke) that burn out as the cloud rolls up
+	-- and thins; blue flames licking round its foot, sparks flung out, embers drifting up, shockwave rings, a big
+	-- light, and the impact burst (with the debris of what was hit). Stage 3's fireball is about the real one of its
+	-- 10 kg charge (~8 m across, Config/Damage.Blast).
+	Blast = {
+		Stages = {
+			{ fireball = 4, rings = 1, spikes = false, puffs = 4 },
+			{ fireball = 9, rings = 2, spikes = true, puffs = 7 },
+			{ fireball = 22, rings = 3, spikes = true, puffs = 14 },
+		},
+		-- seconds: swells, stays white-hot, fades into the glow (growing `swell` x more as it fades); `start` studs across
+		Fireball = { grow = 0.12, hold = 0.08, fade = 0.35, swell = 0.15, start = 0.5 },
+		Shell = { size = 1.35, transparency = 0.35, fade = 0.55, swell = 0.3 }, -- x the fireball; glow colour
+		-- The cloud: `puffs` (per stage) pale balls (`smoke` colour, flat) `size` x the fireball across, placed in a
+		-- flattened dome `spread` x the fireball wide and `height` x as tall over the hit; each pops in over `appear` s
+		-- (from `from` of its size), keeps swelling to `swell` x and rising `rise` x the fireball per second, and fades
+		-- over its last `fade` share of `life` s. Each puff has `patches` glowing patches: a deep ball (`deep` x the puff,
+		-- pushed `deepOut` x the puff's radius out from its centre) inside a bright one (`rim` x, `rimOut` out), so a
+		-- bright rim rings a deep centre where they break the surface; they burn out by `burn` s: full and solid until
+		-- `hot` of the way, then sinking back in (`sink` of the way), shrinking (`shrink`) and fading. `low`: the lowest puff
+		-- starts this share of `height` up; `stagger`: the last puff pops in this share of `appear` after the first;
+		-- `jitter`: how far a patch strays from facing straight out of the cloud.
+		Cloud = {
+			size = { 0.38, 0.6 },
+			spread = 0.55,
+			height = 0.45,
+			appear = 0.25,
+			from = 0.3,
+			swell = 1.35,
+			rise = 0.12,
+			life = 4,
+			fade = 0.45,
+			patches = { 1, 2 },
+			deep = 0.7,
+			deepOut = 0.53,
+			rim = 0.85,
+			rimOut = 0.36,
+			burn = { 2, 2.8 }, -- (Studio round 3: gone by ~0.6 s at 0.9-1.6, the cloud plain grey after)
+			sink = 0.4,
+			shrink = 0.3,
+			hot = 0.65,
+			low = 0.2,
+			stagger = 0.5,
+			jitter = 0.8,
+			smoke = "Smoke",
+			-- the patches' colours (Studio round 2: a pale glow vanished against the pale puffs): the rim the scheme's
+			-- saturated `haze` colour, glowing; the centre `char`, flat and dark (the reference's dark middles)
+			char = "Abyss",
+		},
+		-- blue flames round the cloud's foot (Roblox's own fire texture, tinted): per stud of fireball, how fast up, life;
+		-- from a slab `box` x the fireball wide and `depth` x deep, `lift` x up; a second lick of `again` as many
+		Flames = {
+			perStud = 5,
+			speed = { 3, 9 },
+			size = { 4, 9 },
+			life = { 0.5, 1.1 },
+			box = 1.4, -- wider than the cloud, so they lick out from under it
+			depth = 0.2,
+			lift = 0.15,
+			spread = 25,
+			drag = 1,
+			spin = 60,
+			again = 0.5,
+			brightness = 3,
+			-- additive (1) washed the tinted flames out to pale wisps against the sky (Studio round 3), 0.25 with a dark
+			-- tail read as smoke (round 4): white-hot to the glow to the deep blue, half additive
+			emission = 0.55,
+		},
+		Light = { range = 3, brightness = 8, time = 1.2, lift = 2, max = 60 }, -- range x the fireball (Roblox caps 60)
+		-- speed x fireball / s; `star`: the stage's glint length x the fireball
+		Sparks = { perStud = 8, speed = { 1.5, 4 }, size = 0.5, life = { 0.4, 1.0 }, drag = 3, brightness = 6 },
+		Embers = {
+			perStud = 3,
+			rise = { 2, 6 },
+			size = 0.3,
+			life = { 1.0, 2.2 },
+			spread = 35,
+			box = 0.6,
+			brightness = 4,
+			drag = 0.5,
+		},
+		Star = 0.6,
+		Rings = { to = 2.5, gap = 0.12, grow = 0.25, lift = 0.3 }, -- each ring out to `to` x the fireball (+`grow` per ring)
+		Burst = 0.6, -- the impact burst's scale x the fireball / 4
+		-- Any charge (cannon shells later; user 2026-10-17: "explosions will come from cannons later too. keep that in
+		-- mind when saving explosion effects"): Blast.play(pos, { kg = charge, scheme = ..., magic = false }) sizes the fireball as the
+		-- real one, D = a x W^b metres (W kg of TNT; ~8 m at 10 kg), with `rings` rings and a puff per `1 / puffsPerStud`
+		-- studs of it. A cannon will want its own scheme (fire colours, dark smoke).
+		Charge = { a = 3.86, b = 0.32, metresPerStud = 0.357, rings = 3, puffsPerStud = 0.65 },
+		-- The smoke column (user: "make sure explosion smokes look realistic"): Roblox's smoke texture in `color`, lit by
+		-- the scene, `perStud` x the fireball puffs of it after `delay` s, rising `rise` x the fireball per second from a
+		-- slab `box` x it wide (`depth` deep, `lift` up), growing from `size[1]` to `size[2]` x the fireball, fading in
+		-- to `thick` (transparency) over the first `fadeIn` of its `life`, then out; drifting on the `wind`.
+		Smoke = {
+			color = "Ash",
+			perStud = 1.2,
+			delay = 0.35,
+			rise = { 0.12, 0.3 },
+			box = 0.7,
+			depth = 0.3,
+			lift = 0.3,
+			size = { 0.45, 1.3 },
+			fadeIn = 0.15,
+			thick = 0.25,
+			life = { 3.5, 6 },
+			spread = 18,
+			drag = 0.6,
+			wind = { 1.2, 0.4, 0.5 },
+			spin = 20,
+		},
+	},
+
 	-- A ring that races outward and thins (lying flat on the ground, or facing any way).
 	Shockwave = { from = 0.5, to = 6, time = 0.4, line = 0.5, color = "Glow", brightness = 2 }, -- radii
 
@@ -472,7 +589,7 @@ local Vfx = {
 		Ready = { star = 9, shockwave = 11 },
 		-- firing the full charge: a bigger glint at the muzzle
 		FireStar = 12,
-		Range = 250, -- mid-long range
+		-- (how far a beam reaches: per stage, Config/Damage.Staff.Range, the same as the server's cast)
 		CloseAfter = 0.05, -- the circles start closing this long after the beam starts fading
 		CloseStagger = 0.07, -- each circle closes this much before the one inside it
 	},
@@ -543,6 +660,8 @@ local Vfx = {
 			{ effect = "Ray", label = "Ray (blue)", every = 1.6 },
 			{ effect = "Ray", label = "Ray (violet)", every = 1.6, scheme = "Hex" },
 			{ effect = "Burst", label = "Impact burst", every = 2 },
+			{ effect = "Blast1", label = "Staff explosion (stage 1)", every = 2 },
+			{ effect = "Blast3", label = "Staff explosion (stage 3)", every = 4 },
 			{ effect = "Shockwave", label = "Shockwave", every = 1.5 },
 			{ effect = "Star", label = "Star glint", every = 1.2 },
 			{ effect = "Spikes", label = "Light spikes", every = 1.5 },
