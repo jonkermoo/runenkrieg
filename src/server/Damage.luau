@@ -126,7 +126,7 @@ local function crater(position: Vector3, kg: number)
 	for _, m in C.churnFrom do
 		from[(Enum.Material :: any)[m]] = true
 	end
-	local reach = Vector3.new(plan.churn, plan.radius * 1.5, plan.churn)
+	local reach = Vector3.new(plan.churn, plan.radius * C.churnDepth, plan.churn)
 	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
 	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
 	if not ok then

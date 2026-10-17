@@ -86,10 +86,11 @@ local function leaves(from: Vector3, to: Vector3)
 	for _, tree in CollectionService:GetTagged(TreeCfg.Tag) do
 		local canopy = tree:FindFirstChild("Canopy") :: BasePart?
 		if canopy then
-			local c = canopy.Position
-			local r = I.Leaf.canopyShare * (canopy.Size.X + canopy.Size.Y + canopy.Size.Z) / 3
-			if (c - mid).Magnitude <= length / 2 + r then
-				local t = Trees.enter(from.X, from.Y, from.Z, d.X, d.Y, d.Z, length, c.X, c.Y, c.Z, r)
+			local half = canopy.Size * I.Leaf.canopyShare / 2
+			if (canopy.Position - mid).Magnitude <= length / 2 + half.Magnitude then
+				local o = canopy.CFrame:PointToObjectSpace(from)
+				local v = canopy.CFrame:VectorToObjectSpace(d)
+				local t = Trees.enterBox(o.X, o.Y, o.Z, v.X, v.Y, v.Z, length, half.X, half.Y, half.Z)
 				if t then
 					burst(I.Leaf, from + d * t, -d, canopy.Color)
 				end
@@ -111,7 +112,8 @@ function Impacts.shot(from: Vector3?, hit: Vector3, normal: Vector3?, part: Inst
 		local r = workspace:Raycast(hit - d, d * 2, probe)
 		local m = if r then r.Material else Enum.Material.Ground
 		if m == Enum.Material.Water then
-			burst(I.Splash, hit, Vector3.yAxis, workspace.Terrain:GetMaterialColor(m))
+			-- (GetMaterialColor doesn't take Water: its colour is Terrain.WaterColor)
+			burst(I.Splash, hit, Vector3.yAxis, workspace.Terrain.WaterColor)
 		elseif DIRT[m] then
 			burst(I.Dirt, hit, normal, workspace.Terrain:GetMaterialColor(m))
 		else

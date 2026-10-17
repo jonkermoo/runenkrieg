@@ -58,8 +58,10 @@ return {
 		assert(breaks("Glass", 55) and not breaks("Glass", 75), "glass ~60")
 		local worn = Blast.sectionDamage(kpa(10), F.Brick, 700, B.Weaken)
 		assert(worn > 0 and worn < 700 / 2, "a brick wall 10 studs off is worn down, not broken")
-		-- a story needs a few blasts: one 12 studs off a section takes under a fifth of it
-		assert(Blast.sectionDamage(kpa(12), F.Brick, 700, B.Weaken) < 700 / 5)
+		-- blasts at one spot widen the hole: one wears a brick section ~8 studs off past half, so the next breaks it
+		local w8 = Blast.sectionDamage(kpa(8), F.Brick, 700, B.Weaken)
+		assert(w8 >= 700 / 2 and w8 < 700, `8 studs: {w8}`)
+		assert(Blast.sectionDamage(kpa(15), F.Brick, 700, B.Weaken) < 700 / 5, "15 studs: little")
 		assert(Blast.sectionDamage(0, F.Brick, 700, B.Weaken) == 0)
 	end,
 	["a crater about 5 studs across the radius at 10 kg; none without a charge"] = function()

@@ -81,13 +81,13 @@ local Firing = {
 		-- `count` bits of `size` studs (a splinter is `long` x that), thrown out of the surface at `speed` studs/s plus
 		-- `up`, falling at `gravity` studs/s^2 (real gravity is 27.5), slowed by `drag` per s, gone after `life` s.
 		-- Their colour is the surface's own (the terrain material's colour, the part's). Leaves fall from the canopy a
-		-- bullet passes through (canopies let bullets through; the ball tested is `canopyShare` of its size).
+		-- bullet passes through (canopies let bullets through; the box tested is `canopyShare` of the canopy's box).
 		Impacts = {
 			Dirt = { count = 6, size = 0.28, speed = 9, up = 12, gravity = 55, drag = 1.5, life = 0.8 },
 			Chip = { count = 5, size = 0.2, speed = 11, up = 6, gravity = 70, drag = 1, life = 0.6 },
 			Splinter = { count = 5, size = 0.14, long = 3.5, speed = 12, up = 5, gravity = 60, drag = 1, life = 0.9 },
 			Splash = { count = 7, size = 0.3, speed = 3, up = 18, gravity = 70, drag = 1, life = 0.7 },
-			Leaf = { count = 5, size = 0.4, speed = 2, up = 0, gravity = 3, drag = 2.5, life = 2.6, canopyShare = 0.4 },
+			Leaf = { count = 5, size = 0.4, speed = 2, up = 0, gravity = 3, drag = 2.5, life = 2.6, canopyShare = 0.85 },
 		},
 		HitMarker = { time = 1.2 }, -- the shooter's note: what was hit, how far
 	},

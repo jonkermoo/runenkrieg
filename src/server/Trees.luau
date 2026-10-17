@@ -75,14 +75,22 @@ local function sink(tree: Model)
 	end)
 end
 
+-- the ground's height at a tree's base (its pivot is sunk under the lowest ground round the trunk)
+local function groundAt(base: Vector3): number
+	local hit = workspace:Raycast(base + Vector3.yAxis * 30, Vector3.yAxis * -60, terrainOnly)
+	return if hit then math.max(hit.Position.Y, base.Y) else base.Y
+end
+
+-- from the sunk base up to `Stump.height` over the ground
 local function stump(tree: Model, trunk: BasePart, base: Vector3)
 	local S = T.Stump
 	local w = math.min(trunk.Size.X, trunk.Size.Z) * S.widthShare
+	local top = groundAt(base) + S.height
 	local p = Instance.new("Part")
 	p.Name = "Stump"
 	p.Shape = Enum.PartType.Cylinder
-	p.Size = Vector3.new(S.height, w, w)
-	p.CFrame = CFrame.new(base + Vector3.yAxis * S.height / 2) * CFrame.Angles(0, 0, math.pi / 2)
+	p.Size = Vector3.new(top - base.Y, w, w)
+	p.CFrame = CFrame.new(Vector3.new(base.X, (base.Y + top) / 2, base.Z)) * CFrame.Angles(0, 0, math.pi / 2)
 	p.Anchored = true
 	p.Material = Enum.Material.SmoothPlastic
 	p.Color = trunk.Color
@@ -99,7 +107,9 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	local F = T.Fall
 	local dir = flat(away)
 	local pivot = tree:GetPivot()
-	local hinge = pivot.Position + if leaveStump then Vector3.yAxis * T.Stump.height else Vector3.zero
+	local hinge = if leaveStump
+		then Vector3.new(pivot.X, groundAt(pivot.Position) + T.Stump.height, pivot.Z)
+		else pivot.Position
 	local h = height(tree)
 	-- the ground under where its top comes down
 	local reach = h * F.tipShare
@@ -156,7 +166,7 @@ function Trees.blast(position: Vector3, reach: number, kpaAt: (number) -> number
 			if d <= reach then
 				hp(tree) -- (sets MaxHP the first time)
 				local full = tree:GetAttribute("MaxHP") :: number
-				local amount, whole = Rules.blastDamage(kpaAt(d), B.Tree.fail, full, B.Weaken)
+				local amount, whole = Rules.blastDamage(kpaAt(d), B.Tree.fail, full, B.Tree.weaken)
 				if amount > 0 then
 					hurt(tree, amount, base - position, false, whole)
 				end

@@ -1,6 +1,6 @@
 --!strict
 -- Trees with HP (Config/Damage.Trees; user 2026-10-17): what a hit or a blast does to one, how far a felled tree tilts
--- to lie on the ground, and where a bullet's line enters a canopy (the leaves let bullets through; the client shows
+-- to lie on the ground, and where a bullet's line enters a canopy's box (the leaves let bullets through; the client shows
 -- falling leaves there). Pure: numbers only.
 
 local Trees = {}
@@ -49,9 +49,9 @@ function Trees.fallTilt(height: number, rise: number, minTilt: number, maxTilt: 
 	return math.clamp(90 - math.deg(math.atan(rise / height)), minTilt, maxTilt)
 end
 
--- where a line from (ox, oy, oz) along unit (dx, dy, dz), `length` long, first enters a ball at (cx, cy, cz) of
--- radius `r`: the distance along it, or nil (a start inside the ball counts as 0)
-function Trees.enter(
+-- where a line from (ox, oy, oz) along unit (dx, dy, dz), `length` long, first enters a box centred on the origin with
+-- half sizes (hx, hy, hz), all in the box's own frame: the distance along it, or nil (a start inside counts as 0)
+function Trees.enterBox(
 	ox: number,
 	oy: number,
 	oz: number,
@@ -59,22 +59,29 @@ function Trees.enter(
 	dy: number,
 	dz: number,
 	length: number,
-	cx: number,
-	cy: number,
-	cz: number,
-	r: number
+	hx: number,
+	hy: number,
+	hz: number
 ): number?
-	local lx, ly, lz = cx - ox, cy - oy, cz - oz
-	local along = lx * dx + ly * dy + lz * dz
-	local d2 = lx * lx + ly * ly + lz * lz - along * along
-	if d2 > r * r then
-		return nil
+	local near, far = 0, length
+	for _, a in { { ox, dx, hx }, { oy, dy, hy }, { oz, dz, hz } } do
+		local o, d, h = a[1], a[2], a[3]
+		if math.abs(d) < 1e-9 then
+			if o < -h or o > h then
+				return nil
+			end
+		else
+			local t1, t2 = (-h - o) / d, (h - o) / d
+			if t1 > t2 then
+				t1, t2 = t2, t1
+			end
+			near, far = math.max(near, t1), math.min(far, t2)
+			if near > far then
+				return nil
+			end
+		end
 	end
-	local t = along - math.sqrt(r * r - d2)
-	if t > length or along + math.sqrt(r * r - d2) < 0 then
-		return nil
-	end
-	return math.max(t, 0)
+	return near
 end
 
 return Trees

@@ -104,7 +104,9 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 
 	-- a blast churns the ground round it (src/server/Damage): the grass standing there goes at once (user 2026-10-17:
 	-- "grass should be instantly gone after an explosion"). Checked again once the voxels have arrived.
-	local function scrub(position: Vector3, r: number)
+	-- `depth`: tufts within `r` across and this far up or down from the blast go whatever the ground says (the server
+	-- churns exactly that: src/server/Damage); the rest go if their ground no longer grows grass
+	local function scrub(position: Vector3, r: number, depth: number)
 		local size = Cfg.ChunkSize
 		for cx = math.floor((position.X - r) / size), math.floor((position.X + r) / size) do
 			for cz = math.floor((position.Z - r) / size), math.floor((position.Z + r) / size) do
@@ -114,8 +116,10 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 						local t = c.tufts[i]
 						if (t.x - position.X) ^ 2 + (t.z - position.Z) ^ 2 <= r * r then
 							local y = t.base.Position.Y
-							local hit = workspace:Raycast(Vector3.new(t.x, y + 12, t.z), Vector3.new(0, -40, 0), params)
-							if not hit or not grows[hit.Material] then
+							local churned = math.abs(y - position.Y) <= depth
+							local hit = not churned
+								and workspace:Raycast(Vector3.new(t.x, y + 12, t.z), Vector3.new(0, -40, 0), params)
+							if churned or not hit or not grows[hit.Material] then
 								t.part:Destroy()
 								table.remove(c.tufts, i)
 							end
@@ -127,9 +131,11 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 	end
 	-- (Destruction.explode sends a plain radius, not a reach: harmless, scrub only takes tufts off ground that changed)
 	Net.event("Explosion").OnClientEvent:Connect(function(position: Vector3, reach: number)
-		local r = Blast.churnFromReach(reach, DamageCfg.Blast) + Foliage.Scrub.margin
+		local C = DamageCfg.Blast.Crater
+		local churn = Blast.churnFromReach(reach, DamageCfg.Blast)
+		scrub(position, churn, churn / C.churn * C.churnDepth + Foliage.Scrub.margin) -- at once
 		for _, after in Foliage.Scrub.after do
-			task.delay(after, scrub, position, r)
+			task.delay(after, scrub, position, churn + Foliage.Scrub.margin, -1)
 		end
 	end)
 

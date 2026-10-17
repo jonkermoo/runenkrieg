@@ -58,7 +58,7 @@ local Damage = {
 		-- below that it loses MaxHP x (kPa / fail)^Weaken (so nearby blasts wear it down). Buildings and props.
 		Fail = {
 			Glass = 8,
-			Tile = 20,
+			Tile = 300, -- a tiled roof loses the panels near the blast (~10 studs), not all of them (was 20, ~21)
 			Thatch = 20,
 			Door = 20,
 			Wood = 25,
@@ -69,10 +69,10 @@ local Damage = {
 			Stone = 1200,
 		},
 		FailDefault = 30,
-		Weaken = 2,
+		Weaken = 1, -- (was 2) each blast wears what it doesn't break, so blasts at one spot widen the hole
 		-- trees (Config/TreeSway.Tag): at their trunk base over `fail` a tree is felled whole (no stump: the crater is
 		-- there; user 2026-10-17); below it loses its HP (Trees below) like a section: MaxHP x (kPa / fail)^Weaken
-		Tree = { fail = 60 },
+		Tree = { fail = 60, weaken = 2 },
 		-- a crater in the terrain (Rules/Blast.craterPlan): radius = perCubeRoot x W^(1/3) studs (~5 at 10 kg), the ball
 		-- sunk `sink` x radius; a low rim of `rim.count` balls of `rim.size` x radius at `rim.at` x radius, sunk
 		-- `rim.sink` x radius under the ground (it rises ~(size - sink) x radius); the ground out to `churn` x radius
@@ -81,8 +81,9 @@ local Damage = {
 		Crater = {
 			perCubeRoot = 2.32,
 			sink = 0.45,
-			rim = { count = 12, at = 1.15, size = 0.38, sink = 0.2 },
+			rim = { count = 12, at = 1.2, size = 0.65, sink = 0.4 }, -- big balls: 4-stud voxels smooth away a thin rim
 			churn = 2.2,
+			churnDepth = 1.5, -- x radius: only ground this far above or below the blast churns (none for a blast up a wall)
 			churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
 			churnTo = "Mud",
 		},

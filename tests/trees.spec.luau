@@ -53,13 +53,14 @@ return {
 		assert(Trees.fallTilt(0, 0, F.minTilt, F.maxTilt) == F.minTilt)
 		assert(F.maxFallen > 0 and F.lifetime > 0 and F.time > 0, "fallen trees stay a while, capped")
 	end,
-	["a bullet's line enters a canopy ball where it should"] = function()
-		-- along +X from the origin, a ball at x = 10 of radius 2: enters at 8
-		local t = Trees.enter(0, 0, 0, 1, 0, 0, 50, 10, 0, 0, 2)
+	["a bullet's line enters a canopy box where it should"] = function()
+		-- along +X from x = -10, a box of half size 2: enters at 8
+		local t = Trees.enterBox(-10, 0, 0, 1, 0, 0, 50, 2, 2, 2)
 		assert(t and math.abs(t - 8) < 1e-9)
-		assert(Trees.enter(0, 0, 0, 1, 0, 0, 5, 10, 0, 0, 2) == nil, "too short")
-		assert(Trees.enter(0, 0, 0, 1, 0, 0, 50, 10, 3, 0, 2) == nil, "passes beside")
-		assert(Trees.enter(0, 0, 0, 1, 0, 0, 50, -10, 0, 0, 2) == nil, "behind the start")
-		assert(Trees.enter(10, 0, 0, 1, 0, 0, 50, 10, 0, 0, 2) == 0, "starts inside")
+		assert(Trees.enterBox(-10, 0, 0, 1, 0, 0, 5, 2, 2, 2) == nil, "too short")
+		assert(Trees.enterBox(-10, 3, 0, 1, 0, 0, 50, 2, 2, 2) == nil, "passes over")
+		assert(Trees.enterBox(-10, 1.9, 0, 1, 0, 0, 50, 2, 2, 2) ~= nil, "low in the box still counts")
+		assert(Trees.enterBox(10, 0, 0, 1, 0, 0, 50, 2, 2, 2) == nil, "behind the start")
+		assert(Trees.enterBox(0, 0, 0, 0, 1, 0, 50, 2, 2, 2) == 0, "starts inside")
 	end,
 }

@@ -21,7 +21,8 @@ local Destruction = {
 
 	-- A story collapses (with every story above it) when its standing wall sections fall below this
 	-- fraction of the original.
-	CollapseSupportFraction = 0.35,
+	-- (was 0.35; user 2026-10-17: 2-3 full blasts at a wall bring a story down)
+	CollapseSupportFraction = 0.6,
 
 	-- Client-side fracture debris (visual only, never replicated, never collides with players).
 	-- They fly for `settle` s, then freeze where they lie (anchored: no physics) and stay `lifetime` s in all (user

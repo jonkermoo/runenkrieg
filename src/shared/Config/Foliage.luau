@@ -24,9 +24,9 @@ local Foliage = {
 
 	Sway = { amp = 6, freq = 0.8 }, -- degrees, Hz (shares GlobalWind direction with trees)
 
-	-- After a blast, tufts on ground that no longer grows grass go (src/client/GrassFoliage): checked `after` s later
-	-- (once the churned voxels have arrived), within the churn radius plus `margin` studs.
-	Scrub = { after = { 0.15, 1 }, margin = 4 },
+	-- After a blast (src/client/GrassFoliage) the tufts on the churned ground go at once; then, `after` s later (once
+	-- the voxels have arrived), any within the churn radius plus `margin` studs whose ground no longer grows grass.
+	Scrub = { after = { 0.5, 3 }, margin = 4 },
 
 	-- Thin, flowy blade patches (Config/Assets GrassBlades) as a second layer: they replace Roblox's terrain grass
 	-- decoration (turned off in the place: Terrain -> Decoration), which the user liked but found too dense; it has
