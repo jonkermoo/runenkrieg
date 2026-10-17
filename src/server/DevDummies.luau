@@ -84,6 +84,18 @@ local function readout(m: Model, text: string)
 	end)
 end
 
+-- every loose part's physics on the server: loosened joints split the body into new assemblies, which Roblox hands to
+-- the nearest player (Studio round 2: dead dummies stood upright, owned by the player, so the server never threw them)
+local function own(m: Model)
+	for _, d in m:GetDescendants() do
+		if d:IsA("BasePart") and not d.Anchored then
+			pcall(function()
+				d:SetNetworkOwner(nil)
+			end)
+		end
+	end
+end
+
 -- the body thrown along `direction` (flat; it tumbles that way), held limp, tipped over if it still stands
 local function throw(m: Model, humanoid: Humanoid, knock: { [string]: number }, direction: Vector3, scale: number)
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -208,7 +220,7 @@ function DevDummies.spawn(spec: Spec): Model?
 	humanoid.AutoRotate = spec.move ~= "Strafe"
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 	root.Anchored = false
-	root:SetNetworkOwner(nil)
+	own(m)
 	CollectionService:AddTag(m, D.Tag)
 
 	local last = humanoid.Health
@@ -226,6 +238,7 @@ function DevDummies.spawn(spec: Spec): Model?
 		end
 	end)
 	humanoid.Died:Connect(function()
+		own(m)
 		task.wait() -- (a hit's own knock comes with its death: let it land first)
 		if not Ragdoll.active(m) then
 			Ragdoll.knock(m, DamageCfg.Knocks.Other, -root.CFrame.LookVector)
@@ -273,6 +286,7 @@ function DevDummies.start()
 		if not specs[m] or not humanoid then
 			return
 		end
+		own(m)
 		throw(m, humanoid, RagdollCfg.Knocks[name] :: any, direction, scale)
 		-- a knock with no damage shows on its own
 		pending[m] = name
