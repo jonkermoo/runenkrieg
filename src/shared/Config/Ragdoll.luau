@@ -17,6 +17,7 @@ local Ragdoll = {
 	still = 2.5,
 	minDown = 0.35,
 	maxDown = 3,
+	Collider = { 0.7, 0.85, 0.7 }, -- each limb's collider while down, x the limb's size (kept off the torso)
 	-- Knocks: how hard each cause throws the body (studs/s back along the push and up, a tumble in rad/s) and how long
 	-- after settling it gets up. Callers scale them by their own factors (strength, distance).
 	Knocks = {

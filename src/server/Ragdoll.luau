@@ -83,7 +83,7 @@ local function loosen(character: Model, torso: BasePart): Down
 		if limb then
 			local c = Instance.new("Part")
 			c.Name = "RagdollCollider"
-			c.Size = limb.Size * Vector3.new(0.7, 0.85, 0.7)
+			c.Size = limb.Size * Vector3.new(Cfg.Collider[1], Cfg.Collider[2], Cfg.Collider[3])
 			c.Transparency = 1
 			c.CanCollide, c.CanQuery, c.CanTouch = true, false, false
 			c.Massless = true

@@ -21,6 +21,7 @@ local Damage = {
 	Knocks = {
 		Alive = { Head = "Limb", Helmet = "Limb", Torso = "Torso", Limb = "Limb" },
 		Killed = { Head = "HeadDrop", Helmet = "HeadDrop", Torso = "TorsoDrop", Limb = "LimbDrop" },
+		Other = "LimbDrop", -- died some other way (a fall, a reset)
 	},
 
 	-- The staff (user 2026-10-17): checked on the server, a sphere cast from the caster's head toward the target, as wide

@@ -223,7 +223,7 @@ function Damage.start()
 			if not Ragdoll.active(character) then
 				-- died some other way (a fall, a reset): just drops
 				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-				Ragdoll.knock(character, "LimbDrop", if root then -root.CFrame.LookVector else Vector3.zero)
+				Ragdoll.knock(character, Cfg.Knocks.Other, if root then -root.CFrame.LookVector else Vector3.zero)
 			end
 		end)
 	end
