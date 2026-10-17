@@ -3,9 +3,7 @@
 -- src/server/Ragdoll). Net "Knock" (character, knock, direction, scale) comes to every client:
 -- - the knocked body's own client (it owns the physics) throws it: the Humanoid goes to the Physics state (no walking,
 --   jumping or standing) while the server's "Ragdolled" attribute is set, and gets up when the server clears it; a
---   stagger is only a small push;
--- - every client leans a stagger's torso away from the hit and back (src/client/LookTilt.stagger), the arms staying on
---   the weapon.
+--   limp body still upright a moment later is tipped over the way it was thrown (Config/Ragdoll.Tip).
 -- "Ragdolled": the camera rides the head and the stance and weapon code take no input (src/client/WeaponCamera,
 -- Stance, StaffAttack, Firing). Ragdoll.knockSelf(name, direction) asks the server to knock the local soldier (the
 -- staff's recoil, the float fall: Net "KnockSelf") and throws it at once, before the joints come loose.
@@ -16,7 +14,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Ragdoll)
 local Net = require(Shared.Net)
-local LookTilt = require(script.Parent.LookTilt)
 
 local Ragdoll = {}
 
@@ -36,16 +33,20 @@ local function throw(character: Model, knock: { [string]: number }, direction: V
 	end
 	local flat = Vector3.new(direction.X, 0, direction.Z)
 	local dir = if flat.Magnitude > 1e-3 then flat.Unit else -root.CFrame.LookVector
-	if knock.stagger then
-		root.AssemblyLinearVelocity += dir * knock.push * scale
-		return
-	end
 	if humanoid.Health > 0 then
 		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 	end
 	root.AssemblyLinearVelocity = (dir * knock.push + Vector3.yAxis * knock.lift) * scale
 	-- tumble the way it's thrown: about the horizontal axis across the push
-	root.AssemblyAngularVelocity = Vector3.new(0, 1, 0):Cross(dir) * knock.tumble * scale
+	local axis = Vector3.new(0, 1, 0):Cross(dir)
+	root.AssemblyAngularVelocity = axis * knock.tumble * scale
+	-- nobody ragdolls standing up: still upright a moment later, it's tipped over the way it was thrown
+	local torso = character:FindFirstChild("Torso") :: BasePart?
+	task.delay(Cfg.Tip.after, function()
+		if torso and torso.Parent and Ragdoll.active(character) and torso.CFrame.UpVector.Y > Cfg.Tip.upright then
+			torso.AssemblyAngularVelocity += axis * Cfg.Tip.spin
+		end
+	end)
 end
 
 -- Knocks the local soldier with the Config/Ragdoll.SelfKnocks entry `name`: thrown now, the server loosens the joints.
@@ -66,9 +67,6 @@ function Ragdoll.start()
 		local knock = Cfg.Knocks[name]
 		if typeof(character) ~= "Instance" or not knock then
 			return
-		end
-		if knock.stagger then
-			LookTilt.stagger(character, direction, knock.lean, knock.time)
 		end
 		if character == player.Character and not asked[character] then
 			throw(character, knock, direction, scale)

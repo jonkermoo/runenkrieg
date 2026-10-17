@@ -15,12 +15,11 @@ local Damage = {
 		Shotgun = { Head = 30, Torso = 20, Limb = 12, Helmet = 10 },
 	},
 
-	-- Every hit knocks (user 2026-10-17: "getting shot any where should trigger a ragdoll. a headshot kill will drop the
-	-- player with little to no ragdoll. a torso will do a medium one and a arm/leg will do a super light one"): the
-	-- Config/Ragdoll.Knocks entry by the zone that took the most damage, alive or killed by it. "Helmet" is the helmet
-	-- hit (alive by the rule above).
+	-- Every hit knocks you to the ground (user 2026-10-17): the Config/Ragdoll.Knocks entry by the zone that took the
+	-- most damage, alive or killed by it: arms / legs / the helmet a slight knockback, the torso a medium one, a
+	-- headshot kill a collapse.
 	Knocks = {
-		Alive = { Head = "Stagger", Helmet = "Stagger", Torso = "Torso", Limb = "Stagger" },
+		Alive = { Head = "Limb", Helmet = "Limb", Torso = "Torso", Limb = "Limb" },
 		Killed = { Head = "HeadDrop", Helmet = "HeadDrop", Torso = "TorsoDrop", Limb = "LimbDrop" },
 	},
 
@@ -31,7 +30,7 @@ local Damage = {
 		Range = { 150, 300, 500 }, -- studs
 		Radius = { 0.5, 0.9, 1.6 }, -- the beam's half width for hits, studs
 		Damage = { 35, 70, 200 },
-		Knock = { "Stagger", "Torso", "StaffThrow" }, -- alive; killed: the Killed knock below
+		Knock = { "Limb", "Torso", "StaffThrow" }, -- alive; killed: the Killed knock below
 		Killed = { "TorsoDrop", "TorsoDrop", "StaffThrow" },
 		-- where a stage's beam lands: a blast (Blast below) of this many kg of TNT; 0 = no blast. Only the full beam
 		-- damages the map (user: "it should destroy the map on a full beam")
@@ -52,7 +51,7 @@ local Damage = {
 		Knocks = {
 			{ above = 29, knock = "BlastThrow" },
 			{ above = 10, knock = "Torso" },
-			{ above = 8.5, knock = "Stagger" },
+			{ above = 8.5, knock = "Limb" },
 		},
 		-- map sections (Config/Destruction.Materials, the section's "Class"): a section fails at its class's overpressure;
 		-- below that it loses MaxHP x (kPa / fail)^Weaken (so nearby blasts wear it down). Buildings and props.

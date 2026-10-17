@@ -64,7 +64,7 @@ return {
 			{ zone = "Limb", amount = 12 },
 		})
 		assert(total == 44 and helmet == 0 and top == "Limb", "two limb pellets beat one torso pellet")
-		assert(Damage.knock(top, false, D.Knocks) == "Stagger", "limb, alive: a stagger")
+		assert(Damage.knock(top, false, D.Knocks) == "Limb", "limb, alive: a slight knockback")
 		assert(Damage.knock("Torso", false, D.Knocks) == "Torso", "torso, alive: a medium ragdoll")
 		assert(Damage.knock("Head", true, D.Knocks) == "HeadDrop", "headshot kill: a drop")
 		assert(Damage.knock(nil, true, D.Knocks) == nil)
@@ -85,10 +85,13 @@ return {
 			assert(Ragdoll.Knocks[b.knock], "blast knock " .. b.knock)
 		end
 	end,
-	["a headshot kill drops with little ragdoll, torso more, limbs least (alive)"] = function()
+	["a headshot kill collapses, torso hits throw further than limbs"] = function()
 		local K = Ragdoll.Knocks
 		assert(K.HeadDrop.push < K.LimbDrop.push and K.LimbDrop.push < K.TorsoDrop.push)
-		assert(K.Stagger.stagger == 1 and K.Torso.stagger == nil, "limb hits stagger, torso hits ragdoll")
+		assert(K.Limb.push < K.Torso.push and K.Torso.push < K.StaffThrow.push, "limbs slight, torso medium, beam big")
+		for name, k in K do
+			assert(k.tumble > 0, `{name}: tips over (nobody ragdolls standing up)`)
+		end
 	end,
 	["the staff: range grows per stage, no falloff, stage 3 kills"] = function()
 		local S = D.Staff

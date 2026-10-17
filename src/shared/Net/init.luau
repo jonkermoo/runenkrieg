@@ -47,7 +47,7 @@ local Remotes: { string } = {
 	-- Knocks (M12; src/server/Ragdoll decides and loosens the joints for everyone, src/client/Ragdoll shows them;
 	-- Config/Ragdoll.Knocks):
 	-- server -> clients: (character: Model, knock: string, direction: Vector3, scale: number) a soldier knocked: its
-	-- owner throws the body (or staggers it), everyone leans a stagger
+	-- owner throws the body
 	"Knock",
 	-- client -> server: (knock: string, direction: Vector3) knock myself (Config/Ragdoll.SelfKnocks: the staff's
 	-- recoil, the float fall); rate limited

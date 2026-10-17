@@ -5,8 +5,6 @@
 -- character's "Ragdolled" attribute set. Net "Knock" goes to every client: the body's owner (its own client: it owns
 -- the physics) throws it and holds the Physics state (src/client/Ragdoll). Once the body has settled it gets up after
 -- the knock's `getUp` seconds, unless it is dead: a dead body stays limp, head on, until it is removed at respawn.
--- A stagger (`stagger` knocks: an arm, leg or helmet hit) loosens nothing: every client leans the torso
--- (src/client/LookTilt) and the owner gives a small push; the weapon stays in the hands.
 -- Players knock themselves through Net "KnockSelf" (Config/Ragdoll.SelfKnocks: the staff's recoil, the float fall).
 
 local Players = game:GetService("Players")
@@ -104,12 +102,6 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		return
 	end
 	local k = scale or 1
-	if knock.stagger then
-		if not down[character] then
-			Net.event("Knock"):FireAllClients(character, name, direction, k)
-		end
-		return
-	end
 	local d = down[character]
 	if d then
 		-- already down: thrown again, and the settle wait starts over

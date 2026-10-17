@@ -26,20 +26,24 @@ local Ragdoll = {
 		-- sinking below the height you floated up from (user 2026-10-13: "if they fall below their initial height,
 		-- they will rag doll"): you just drop, tipping over
 		FloatFall = { push = 2, lift = 0, tumble = 3, getUp = 0.5 },
-		-- Hits (M12, Config/Damage.Knocks; user 2026-10-17: "a headshot kill will drop the player with little to no
-		-- ragdoll. a torso will do a medium one and a arm/leg will do a super light one"):
-		Torso = { push = 9, lift = 3, tumble = 4, getUp = 0.6 }, -- a torso hit, alive: a medium ragdoll
-		HeadDrop = { push = 0.5, lift = 0, tumble = 0.6, getUp = 0 }, -- a headshot kill: just drops
-		TorsoDrop = { push = 9, lift = 3, tumble = 4, getUp = 0 },
-		LimbDrop = { push = 3, lift = 1, tumble = 2, getUp = 0 },
-		StaffThrow = { push = 40, lift = 18, tumble = 8, getUp = 0.8 }, -- a full beam
-		BlastThrow = { push = 32, lift = 20, tumble = 8, getUp = 0.8 }, -- thrown by a blast (away from it)
-		-- the very light knock (arm, leg, helmet): no ragdoll, a stagger: the torso tips `lean` degrees away from the
-		-- shot and back over `time` s, the arms stay on the weapon, first person stays; a small `push` (studs/s)
-		Stagger = { stagger = 1, lean = 14, time = 0.3, push = 3, lift = 0, tumble = 0, getUp = 0 },
+		-- Hits (M12, Config/Damage.Knocks). Every hit puts you on the ground (user 2026-10-17: "when shot in the arm ...
+		-- i want us to ragdoll and have slight knockback (we still must fall on the ground). if we get shot in the torso
+		-- i want us to have medium knockback"; "exaggerate the rag doll. we should be sent back, not just a little
+		-- knock"):
+		Limb = { push = 10, lift = 4, tumble = 6, getUp = 0.5 }, -- an arm, leg or helmet hit: slight knockback
+		Torso = { push = 20, lift = 8, tumble = 8, getUp = 0.8 }, -- a torso hit: medium knockback
+		-- a headshot kill: the body collapses where it stands (user: "on headshots, we should collapse but we ragdoll
+		-- standing up")
+		HeadDrop = { push = 2, lift = 0, tumble = 6, getUp = 0 },
+		TorsoDrop = { push = 20, lift = 8, tumble = 8, getUp = 0 },
+		LimbDrop = { push = 10, lift = 4, tumble = 6, getUp = 0 },
+		StaffThrow = { push = 70, lift = 30, tumble = 10, getUp = 1 }, -- a full beam: sent flying
+		BlastThrow = { push = 60, lift = 35, tumble = 10, getUp = 1 }, -- thrown by a blast (away from it)
 	},
-	-- knocks that aren't a ragdoll (they have `stagger`) and the ones a player may ask for on itself (Net "KnockSelf":
-	-- the staff's recoil, the float fall)
+	-- A limp body that still stands upright (its torso's up within `upright` of straight up, as cos) `after` seconds
+	-- into a knock is tipped over the way it was thrown (`spin` rad/s): nobody ragdolls standing up
+	Tip = { after = 0.35, upright = 0.85, spin = 6 },
+	-- the knocks a player may ask for on itself (Net "KnockSelf": the staff's recoil, the float fall)
 	SelfKnocks = { StaffRecoil = true, FloatFall = true },
 	SelfRate = 2, -- "KnockSelf" requests a second at most (and burst)
 	-- the client shows a knock it asked for at once and waits this long for the server's ragdoll before giving up

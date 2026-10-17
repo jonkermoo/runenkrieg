@@ -68,7 +68,10 @@ return {
 		local real = 8 / Damage.Blast.MetresPerStud
 		assert(math.abs(S[#S].fireball - real) < 4, `stage 3 fireball {S[#S].fireball} vs ~{real}`)
 		local F = Vfx.Blast.Fireball
-		assert(F.grow > 0 and F.hold >= 0 and F.fade > 0 and Vfx.Blast.Dome.fade > F.fade)
+		assert(F.grow > 0 and F.hold >= 0 and F.fade > 0 and Vfx.Blast.Cloud.life > F.fade)
+		local C = Vfx.Blast.Cloud
+		assert(C.deepOut + C.deep > 1 and C.rimOut + C.rim > 1, "patches break the puff's surface")
+		assert(C.rim > C.deep and C.rimOut < C.deepOut, "a bright rim round a deep centre")
 	end,
 	["timings and sizes are positive"] = function()
 		assert(Vfx.Circle.Appear > 0 and Vfx.Circle.Close.time > 0 and Vfx.Circle.Diameter > 0)

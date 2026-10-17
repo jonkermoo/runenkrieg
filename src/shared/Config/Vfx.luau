@@ -415,21 +415,72 @@ local Vfx = {
 	},
 
 	-- The staff beam's explosion where it lands (user 2026-10-17: "a bright explosion that matches the color of the beam
-	-- (instead of typical red and orange explosion)"), in place of the plain impact burst; bigger with the stage. All in
-	-- the cast's scheme: a white-hot fireball (flash) swelling to `fireball` studs across, a glow shell round it, a
-	-- lingering glow dome that fades, sparks flung out, embers drifting up, shockwave rings on the ground, a big light;
-	-- the impact burst (Burst, the debris of what was hit) inside it. Stage 3's fireball is about the real one of its
+	-- (instead of typical red and orange explosion)"; then, with a cartoon explosion reference: "make the explosions
+	-- extra realistic effect wise. kind of like my example (but blue)"), in place of the plain impact burst; bigger with
+	-- the stage. In the cast's scheme: a white-hot fireball (flash) swelling to `fireball` studs across with a glow
+	-- shell, then a billowing cloud of pale puffs (Cloud) with glowing blue patches burning through them (a bright rim
+	-- round a deep centre, like the reference's fire showing through its smoke) that burn out as the cloud rolls up
+	-- and thins; blue flames licking round its foot, sparks flung out, embers drifting up, shockwave rings, a big
+	-- light, and the impact burst (with the debris of what was hit). Stage 3's fireball is about the real one of its
 	-- 10 kg charge (~8 m across, Config/Damage.Blast).
 	Blast = {
 		Stages = {
-			{ fireball = 4, rings = 1, spikes = false },
-			{ fireball = 9, rings = 2, spikes = true },
-			{ fireball = 22, rings = 3, spikes = true },
+			{ fireball = 4, rings = 1, spikes = false, puffs = 4 },
+			{ fireball = 9, rings = 2, spikes = true, puffs = 7 },
+			{ fireball = 22, rings = 3, spikes = true, puffs = 14 },
 		},
 		-- seconds: swells, stays white-hot, fades into the glow (growing `swell` x more as it fades); `start` studs across
 		Fireball = { grow = 0.12, hold = 0.08, fade = 0.35, swell = 0.15, start = 0.5 },
 		Shell = { size = 1.35, transparency = 0.35, fade = 0.55, swell = 0.3 }, -- x the fireball; glow colour
-		Dome = { size = 1.6, transparency = 0.6, fadeIn = 0.1, fade = 1.6 }, -- the lingering glow, x the fireball
+		-- The cloud: `puffs` (per stage) pale balls (`smoke` colour, flat) `size` x the fireball across, placed in a
+		-- flattened dome `spread` x the fireball wide and `height` x as tall over the hit; each pops in over `appear` s
+		-- (from `from` of its size), keeps swelling to `swell` x and rising `rise` x the fireball per second, and fades
+		-- over its last `fade` share of `life` s. Each puff has `patches` glowing patches: a deep ball (`deep` x the puff,
+		-- pushed `deepOut` x the puff's radius out from its centre) inside a bright one (`rim` x, `rimOut` out), so a
+		-- bright rim rings a deep centre where they break the surface; they burn out by `burn` s: sinking back in
+		-- (`sink` of the way) and shrinking (`shrink`), solid until `hot` of the way, then fading. `low`: the lowest puff
+		-- starts this share of `height` up; `stagger`: the last puff pops in this share of `appear` after the first;
+		-- `jitter`: how far a patch strays from facing straight out of the cloud.
+		Cloud = {
+			size = { 0.38, 0.6 },
+			spread = 0.55,
+			height = 0.45,
+			appear = 0.25,
+			from = 0.3,
+			swell = 1.35,
+			rise = 0.12,
+			life = 3.2,
+			fade = 0.45,
+			patches = { 1, 2 },
+			deep = 0.72,
+			deepOut = 0.42,
+			rim = 0.8,
+			rimOut = 0.33,
+			burn = { 0.9, 1.6 },
+			sink = 0.6,
+			shrink = 0.3,
+			hot = 0.5,
+			low = 0.2,
+			stagger = 0.5,
+			jitter = 0.8,
+			smoke = "Smoke",
+		},
+		-- blue flames round the cloud's foot (Roblox's own fire texture, tinted): per stud of fireball, how fast up, life;
+		-- from a slab `box` x the fireball wide and `depth` x deep, `lift` x up; a second lick of `again` as many
+		Flames = {
+			perStud = 4,
+			speed = { 3, 9 },
+			size = { 1.5, 4 },
+			life = { 0.5, 1.1 },
+			box = 0.9,
+			depth = 0.2,
+			lift = 0.15,
+			spread = 25,
+			drag = 1,
+			spin = 60,
+			again = 0.5,
+			brightness = 3,
+		},
 		Light = { range = 3, brightness = 8, time = 1.2, lift = 2, max = 60 }, -- range x the fireball (Roblox caps 60)
 		-- speed x fireball / s; `star`: the stage's glint length x the fireball
 		Sparks = { perStud = 8, speed = { 1.5, 4 }, size = 0.5, life = { 0.4, 1.0 }, drag = 3, brightness = 6 },

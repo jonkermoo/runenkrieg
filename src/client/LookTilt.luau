@@ -9,8 +9,6 @@
 -- Other players see it too: the local soldier's pitch and the gun's follow share go to the server (Net "LookPitch",
 -- quantized and throttled by Config/Locomotion.LookTilt.Send), which relays them; every other soldier is posed the
 -- same way here, easing toward the last pitch received.
--- A stagger (a light hit, M12: src/client/Ragdoll on Net "Knock") tips any soldier's torso away from the hit and back
--- on top of the tilt (LookTilt.stagger; Rules/LookTilt.stagger).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -78,36 +76,9 @@ local function rig(character: Model, timeout: number?): Rig?
 	}
 end
 
--- staggers under way: when each started, how long it lasts, how far it leans, which way it was hit from
-type Stagger = { at: number, time: number, lean: number, facing: number }
-local staggers: { [Model]: Stagger } = setmetatable({}, { __mode = "k" }) :: any
-
--- `character` was hit along `direction` (flat): its torso tips `lean` degrees away and back over `time` seconds.
-function LookTilt.stagger(character: Model, direction: Vector3, lean: number, time: number)
-	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local flat = Vector3.new(direction.X, 0, direction.Z)
-	local look = if root then root.CFrame.LookVector else Vector3.zero
-	local facing = if flat.Magnitude > 1e-3 then flat.Unit:Dot(look) else -1
-	staggers[character] = { at = os.clock(), time = time, lean = lean, facing = facing }
-end
-
--- the stagger's lean now (degrees)
-local function staggerLean(character: Model): number
-	local s = staggers[character]
-	if not s then
-		return 0
-	end
-	local t = os.clock() - s.at
-	if t >= s.time then
-		staggers[character] = nil
-		return 0
-	end
-	return Rules.stagger(t, s.time, s.lean, s.facing)
-end
-
 -- the torso tilted by `angle` and, with a weapon, the arms + gun turned by `turn` (degrees)
 local function pose(r: Rig, angle: number, turn: number)
-	local a = math.rad(angle + staggerLean(r.character))
+	local a = math.rad(angle)
 	local rootJoint = r.rootJoint
 	-- the waist where the animation currently puts it, in the root's space
 	local waist = (r.rootC0 * rootJoint.Transform * rootJoint.C1:Inverse()) * WAIST

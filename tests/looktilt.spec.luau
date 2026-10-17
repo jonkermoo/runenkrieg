@@ -71,11 +71,4 @@ return {
 		assert(Send.MaxPitch > 0 and Send.MaxPitch <= 90)
 		assert(Send.Smoothing > 0)
 	end,
-	["a stagger leans away from the hit and back"] = function()
-		assert(T.stagger(0, 0.3, 14, -1) == 0 and T.stagger(0.3, 0.3, 14, -1) == 0, "nothing at the ends")
-		assert(math.abs(T.stagger(0.15, 0.3, 14, -1) - 14) < 1e-9, "shot from the front: back by the full lean midway")
-		assert(T.stagger(0.15, 0.3, 14, 1) < 0, "from behind: forward")
-		assert(math.abs(T.stagger(0.15, 0.3, 14, 0) - 7) < 1e-9, "from the side: half way back")
-		assert(T.stagger(-1, 0.3, 14, -1) == 0 and T.stagger(0.1, 0, 14, -1) == 0)
-	end,
 }
