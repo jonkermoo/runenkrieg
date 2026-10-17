@@ -110,9 +110,10 @@ end
 
 -- the server's own throw of a body it owns (a dead one): as src/client/Ragdoll does for its own soldier. The death
 -- that follows the knock (src/server/Damage) hands the body to the server some time later, so for Config/Ragdoll.Tip
--- `window` seconds it watches: the first moment it owns the body it throws it, and every `every` s after `after` it
--- tips a body still standing (user 2026-10-17: "headshots dont ragdoll with enough force to fall on the ground
--- sometimes").
+-- `window` seconds it watches: once it owns the body and the death has settled (`settle` s after it; a throw at the
+-- moment of death was lost, Studio round 8: bodies fell out of their own backs) it throws it, holding the throw for
+-- `hold` s, and every `every` s after `after` it tips a body still standing (user 2026-10-17: "headshots dont ragdoll
+-- with enough force to fall on the ground sometimes").
 local function serverThrow(character: Model, knock: { [string]: number }, direction: Vector3, scale: number)
 	task.defer(function()
 		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -123,20 +124,26 @@ local function serverThrow(character: Model, knock: { [string]: number }, direct
 		local flat = Vector3.new(direction.X, 0, direction.Z)
 		local dir = if flat.Magnitude > 1e-3 then flat.Unit else -root.CFrame.LookVector
 		local axis = Vector3.new(0, 1, 0):Cross(dir)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local T = Cfg.Tip
 		local t0 = os.clock()
-		local thrown = false
+		local diedAt: number? = nil
+		local thrownAt: number? = nil
 		local tipAt = t0 + T.after
 		while root:IsDescendantOf(workspace) and os.clock() - t0 < T.window do
+			local now = os.clock()
+			if not diedAt and (not humanoid or humanoid.Health <= 0) then
+				diedAt = now
+			end
 			if root:GetNetworkOwner() == nil then
-				local now = os.clock()
-				if not thrown then
-					thrown = true
+				local settled = diedAt ~= nil and now - diedAt >= T.settle
+				if (not thrownAt and settled) or (thrownAt and now - thrownAt < T.hold) then
+					thrownAt = thrownAt or now
 					local up = knock.lift - (knock.drop or 0)
 					root.AssemblyLinearVelocity = (dir * knock.push + Vector3.new(0, 1, 0) * up) * scale
 					root.AssemblyAngularVelocity = axis * knock.tumble * scale
 					tipAt = math.max(tipAt, now + T.every)
-				elseif now >= tipAt then
+				elseif thrownAt and now >= tipAt then
 					tipAt = now + T.every
 					if torso.CFrame.UpVector.Y > T.upright then
 						torso.AssemblyAngularVelocity += axis * T.spin

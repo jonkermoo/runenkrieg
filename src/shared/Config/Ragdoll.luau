@@ -48,7 +48,8 @@ local Ragdoll = {
 	-- into a knock is tipped over the way it was thrown (`spin` rad/s, `push` studs/s), again every `every` s while it
 	-- stands, for `window` s, by whichever side simulates it (user 2026-10-17: "headshots dont ragdoll with enough
 	-- force to fall on the ground sometimes"; a dead body passes to the server some time after the death)
-	Tip = { after = 0.3, every = 0.25, window = 3, upright = 0.75, spin = 9, push = 3 },
+	-- The server throws a dead body it owns `settle` s after the death, holding the throw for `hold` s.
+	Tip = { after = 0.3, every = 0.25, window = 3, upright = 0.75, spin = 9, push = 3, settle = 0.1, hold = 0.1 },
 	-- the knocks a player may ask for on itself (Net "KnockSelf": the staff's recoil, the float fall)
 	SelfKnocks = { StaffRecoil = true, FloatFall = true },
 	SelfRate = 2, -- "KnockSelf" requests a second at most (and burst)
