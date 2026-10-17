@@ -85,12 +85,12 @@ return {
 			assert(Ragdoll.Knocks[b.knock], "blast knock " .. b.knock)
 		end
 	end,
-	["a headshot kill collapses, torso hits throw further than limbs"] = function()
+	["a headshot kill is thrown back, torso hits throw further than limbs"] = function()
 		local K = Ragdoll.Knocks
-		assert(K.HeadDrop.push < K.LimbDrop.push and K.LimbDrop.push < K.TorsoDrop.push)
+		assert(K.LimbDrop.push < K.TorsoDrop.push, "killed by a limb hit: less than the torso")
 		assert(
-			K.HeadDrop.push < K.Torso.push and K.HeadDrop.tumble >= K.Torso.tumble,
-			"a headshot kill topples in place"
+			K.HeadDrop.push > K.LimbDrop.push and K.HeadDrop.tumble >= K.Torso.tumble,
+			"a headshot kill is thrown back"
 		)
 		assert(K.Limb.push < K.Torso.push and K.Torso.push < K.StaffThrow.push, "limbs slight, torso medium, beam big")
 		for name, k in K do
