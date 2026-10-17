@@ -452,10 +452,10 @@ local Vfx = {
 			life = 3.2,
 			fade = 0.45,
 			patches = { 1, 2 },
-			deep = 0.72,
-			deepOut = 0.42,
-			rim = 0.8,
-			rimOut = 0.33,
+			deep = 0.7,
+			deepOut = 0.53,
+			rim = 0.85,
+			rimOut = 0.36,
 			burn = { 0.9, 1.6 },
 			sink = 0.6,
 			shrink = 0.3,
@@ -464,22 +464,25 @@ local Vfx = {
 			stagger = 0.5,
 			jitter = 0.8,
 			smoke = "Smoke",
+			-- the patches' colours (Studio round 2: a pale glow vanished against the pale puffs): the rim the scheme's
+			-- saturated `haze` colour, glowing; the centre `char`, flat and dark (the reference's dark middles)
+			char = "Abyss",
 		},
 		-- blue flames round the cloud's foot (Roblox's own fire texture, tinted): per stud of fireball, how fast up, life;
 		-- from a slab `box` x the fireball wide and `depth` x deep, `lift` x up; a second lick of `again` as many
 		Flames = {
-			perStud = 4,
+			perStud = 5,
 			speed = { 3, 9 },
-			size = { 1.5, 4 },
+			size = { 3, 7 },
 			life = { 0.5, 1.1 },
-			box = 0.9,
+			box = 1.4, -- wider than the cloud, so they lick out from under it
 			depth = 0.2,
 			lift = 0.15,
 			spread = 25,
 			drag = 1,
 			spin = 60,
 			again = 0.5,
-			brightness = 3,
+			brightness = 5,
 		},
 		Light = { range = 3, brightness = 8, time = 1.2, lift = 2, max = 60 }, -- range x the fireball (Roblox caps 60)
 		-- speed x fireball / s; `star`: the stage's glint length x the fireball

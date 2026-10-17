@@ -36,7 +36,7 @@ local function throw(character: Model, knock: { [string]: number }, direction: V
 	if humanoid.Health > 0 then
 		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 	end
-	root.AssemblyLinearVelocity = (dir * knock.push + Vector3.yAxis * knock.lift) * scale
+	root.AssemblyLinearVelocity = (dir * knock.push + Vector3.yAxis * (knock.lift - (knock.drop or 0))) * scale
 	-- tumble the way it's thrown: about the horizontal axis across the push
 	local axis = Vector3.new(0, 1, 0):Cross(dir)
 	root.AssemblyAngularVelocity = axis * knock.tumble * scale

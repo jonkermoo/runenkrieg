@@ -58,6 +58,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local normal = (o.normal or Vector3.yAxis).Unit
 	local flash, glow, core = Util.color(s.flash), Util.color(s.glow), Util.color(s.core)
 	local deep = Util.color(s.haze)
+	local char = Util.color(s.char or Cfg.Cloud.char)
 	local smoke = Util.color(s.smoke or Cfg.Cloud.smoke)
 	local d = st.fireball
 	local now0 = os.clock()
@@ -109,8 +110,15 @@ function Blast.play(pos: Vector3, opts: Opts?)
 		local out = if (at - pos).Magnitude > 1e-3 then (at - pos).Unit else normal
 		for _ = 1, math.round(between(C.patches)) do
 			table.insert(p.patches, {
-				deep = Pool.part(Enum.PartType.Ball, deep, Vector3.one * 0.05, CFrame.new(at)),
-				rim = Pool.part(Enum.PartType.Ball, glow, Vector3.one * 0.05, CFrame.new(at)),
+				deep = Pool.part(
+					Enum.PartType.Ball,
+					char,
+					Vector3.one * 0.05,
+					CFrame.new(at),
+					0,
+					Enum.Material.SmoothPlastic
+				),
+				rim = Pool.part(Enum.PartType.Ball, deep, Vector3.one * 0.05, CFrame.new(at)),
 				dir = (out + rng:NextUnitVector() * C.jitter).Unit,
 				burn = between(C.burn),
 			})
@@ -134,9 +142,9 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	})
 	flames.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
 	flames.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, core),
-		ColorSequenceKeypoint.new(0.4, glow),
-		ColorSequenceKeypoint.new(1, deep),
+		ColorSequenceKeypoint.new(0, glow),
+		ColorSequenceKeypoint.new(0.4, deep),
+		ColorSequenceKeypoint.new(1, char),
 	})
 	flames.Brightness = fl.brightness
 	flames.Orientation = Enum.ParticleOrientation.FacingCamera

@@ -88,6 +88,7 @@ return {
 	["a headshot kill collapses, torso hits throw further than limbs"] = function()
 		local K = Ragdoll.Knocks
 		assert(K.HeadDrop.push < K.LimbDrop.push and K.LimbDrop.push < K.TorsoDrop.push)
+		assert(K.HeadDrop.push == 0 and (K.HeadDrop.drop or 0) > 0, "a headshot kill crumples where it stands")
 		assert(K.Limb.push < K.Torso.push and K.Torso.push < K.StaffThrow.push, "limbs slight, torso medium, beam big")
 		for name, k in K do
 			assert(k.tumble > 0, `{name}: tips over (nobody ragdolls standing up)`)
