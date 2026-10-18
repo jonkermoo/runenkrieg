@@ -1,6 +1,7 @@
 --!strict
 -- Animates trees near the camera: idle wind sway (canopy pivots on the trunk top, trunk on its base)
 -- plus spring response to explosions (Net "Explosion"). Visual only; trees stay static on the server.
+-- The player's "Tree sway" setting Off (src/client/Settings) stops it: every moved tree goes back to its static pose.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,6 +11,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.TreeSway)
 local S = require(Shared.Rules.TreeSway)
 local Net = require(Shared.Net)
+local Settings = require(script.Parent.Settings)
 
 type Tree = {
 	model: Model,
@@ -128,6 +130,25 @@ function TreeSwayClient.start()
 	local trunkMax, canopyMax = math.rad(Cfg.Trunk.maxLean), math.rad(Cfg.Canopy.maxLean)
 
 	RunService.RenderStepped:Connect(function(dt)
+		if Settings.get("TreeSway") ~= "On" then
+			-- off: put back what moved, once
+			table.clear(parts)
+			table.clear(cframes)
+			for _, t in trees do
+				if t.active or t.kicked then
+					table.insert(parts, t.trunk)
+					table.insert(cframes, t.trunk0)
+					table.insert(parts, t.canopy)
+					table.insert(cframes, t.canopy0)
+					t.active, t.kicked = false, false
+					t.trunkSpring, t.canopySpring = S.newSpring(), S.newSpring()
+				end
+			end
+			if #parts > 0 then
+				workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
+			end
+			return
+		end
 		acc += dt
 		if acc < 1 / Cfg.UpdateHz then
 			return

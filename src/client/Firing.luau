@@ -28,6 +28,7 @@ local F = require(Shared.Rules.Firing)
 local Net = require(Shared.Net)
 local GunFx = require(script.Parent.GunFx)
 local Held = require(script.Parent.Held)
+local Settings = require(script.Parent.Settings)
 local ShotAudio = require(script.Parent.ShotAudio)
 local Sway = require(script.Parent.Sway)
 
@@ -103,17 +104,6 @@ local function localState(tool: Tool, name: string): Local
 		end)
 	end
 	return l :: Local
-end
-
-local function bind(names: { string }): { [any]: boolean }
-	local set = {}
-	for _, k in names do
-		local ok, key = pcall(function()
-			return (Enum.KeyCode :: any)[k]
-		end)
-		set[if ok then key else (Enum.UserInputType :: any)[k]] = true
-	end
-	return set
 end
 
 local function excluded(character: Model): RaycastParams
@@ -253,15 +243,14 @@ local function showHud(hud: Hud, l: Local?, now: number)
 		then "Click: stop loading"
 		elseif next == "Bolt" then (if loose then "Click: work the pump" else "Click: work the bolt")
 		elseif next == "Dry" or next == "Open" or (s.magazine == 0 and not s.chambered) then (if loose
-			then "R: load shells"
-			else "R: load a clip")
+			then `{Settings.get("Key_Reload")}: load shells`
+			else `{Settings.get("Key_Reload")}: load a clip`)
 		else ""
 	hud.note.Visible = now < hud.noteUntil
 end
 
 function Firing.start()
 	local player = Players.LocalPlayer
-	local fireKeys, reloadKeys = bind(Cfg.Keys.Fire), bind(Cfg.Keys.Reload)
 	GunFx.preload()
 	ShotAudio.preload()
 	local hud = buildHud(player)
@@ -365,9 +354,9 @@ function Firing.start()
 		if processed then
 			return
 		end
-		if fireKeys[input.UserInputType] or fireKeys[input.KeyCode] then
+		if Settings.pressed("Key_Fire", input) then -- (the player's keys, src/client/Settings)
 			fire()
-		elseif reloadKeys[input.KeyCode] then
+		elseif Settings.pressed("Key_Reload", input) then
 			reload()
 		end
 	end)

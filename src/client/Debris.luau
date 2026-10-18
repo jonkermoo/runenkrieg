@@ -2,7 +2,7 @@
 -- Client-side fracture debris for broken building sections (Net "SectionBroken"). Visual only:
 -- local parts, never replicated, in the "Debris" collision group (never collides with characters). They fly for
 -- Config.Destruction.Debris.settle s, then freeze where they lie, and stay until `lifetime`; past maxLive the oldest
--- go first.
+-- go first. Both scaled by the player's Debris setting (Config/Settings.DebrisLevels, Rules/Settings.debris).
 
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,6 +10,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local D = require(Shared.Config.Destruction)
 local Net = require(Shared.Net)
+local SettingsCfg = require(Shared.Config.Settings)
+local SettingsRules = require(Shared.Rules.Settings)
+local Settings = require(script.Parent.Settings)
 
 local DebrisClient = {}
 
@@ -17,7 +20,12 @@ local live: { BasePart } = {} -- oldest first
 local container: Folder
 
 local function spawnChunk(cf: CFrame, size: Vector3, color: Color3, transparency: number, origin: Vector3)
-	while #live >= D.Debris.maxLive do
+	local maxLive, lifetime = SettingsRules.debris(
+		(SettingsCfg.DebrisLevels :: any)[Settings.get("Debris")],
+		D.Debris.maxLive,
+		D.Debris.lifetime
+	)
+	while #live >= maxLive do
 		table.remove(live, 1):Destroy()
 	end
 	local p = Instance.new("Part")
@@ -49,7 +57,7 @@ local function spawnChunk(cf: CFrame, size: Vector3, color: Color3, transparency
 			p.Anchored = true
 		end
 	end)
-	Debris:AddItem(p, D.Debris.lifetime + math.random() * 1.5)
+	Debris:AddItem(p, lifetime + math.random() * 1.5)
 end
 
 -- Split a piece into up to `max` chunks along its two longest axes.
