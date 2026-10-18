@@ -91,6 +91,7 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 	local ox, oy, oz = start.X, start.Y, start.Z
 	local vx, vy, vz = Rules.launch(look.X, look.Y, look.Z, Cfg.Throw.loft, Cfg.Types[name].speed)
 	local g = workspace.Gravity
+	local eye = workspace.CurrentCamera.CFrame.Position
 	local prev = Vector3.new(ox, oy, oz)
 	local n = 0
 	local t = 0 -- from the hand itself, so the arc comes in from the edge of the view
@@ -109,7 +110,7 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 		end
 		d.Size = Vector3.one * A.size
 		d.Position = p
-		d.Transparency = A.transparency
+		d.Transparency = if (p - eye).Magnitude < A.near then 1 else A.transparency
 		prev = p
 		t += dt
 	end

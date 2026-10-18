@@ -54,6 +54,7 @@ local Grenades = {
 	-- a dot every 0.05 s left the first 7 studs empty.)
 	Arc = {
 		spacing = 2.5,
+		near = 2, -- no dots this close to the eye (Studio round 5: they showed as a big white blot)
 		dots = 120,
 		time = 4,
 		size = 0.3, -- (Studio round 1: 0.18 at 0.45 see-through was near invisible)
