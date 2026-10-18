@@ -1,5 +1,6 @@
 --!strict
--- Developer tools (teleport menu). Shown only to allowed users, or to anyone in a Studio play test.
+-- Developer tools (teleports, weapons, admin, target dummies, blasts). Shown only to allowed users, or to anyone in a
+-- Studio play test.
 -- The server validates every request (src/server/DevTools).
 
 local DevTools = {
@@ -59,7 +60,7 @@ local DevTools = {
 	Admin = {
 		-- the dev labels (user 2026-10-12: they get in the way while testing): the panel's "Labels" button shows or
 		-- hides every BillboardGui under these Workspace folders, for this player only
-		LabelFolders = { "DevShowcase", "DevRange", "DevGallery", "DevHelmets", "DevVfx" },
+		LabelFolders = { "DevShowcase", "DevRange", "DevGallery", "DevHelmets", "DevVfx", "DevDummies" },
 		LabelsAttribute = "DevLabelsHidden", -- on the Player while hidden
 		-- speed multipliers (x the normal walk / sprint / aim / crouch speeds, and the flying speed)
 		SpeedSteps = { 1, 2, 4, 8 },
@@ -69,6 +70,59 @@ local DevTools = {
 		FlyDownKeys = { "Q", "LeftControl" },
 		Attribute = "DevSpeed", -- the chosen multiplier, on the Player (read by src/client/Stance)
 		FlyAttribute = "DevFlying", -- on the Player while flying
+		-- "You" rows (src/server/DevTools): set your health to one of these (100 = heal; the others reach each face tier)
+		Health = { 100, 75, 50, 25, 10 },
+		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
+		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+	},
+
+	-- Every test action the panels send (Net "DevAction": action, value, aim point), each checked by the server against
+	-- these lists (Rules/DevActions); the aim point must be within `AimReach` studs of the player's character.
+	AimReach = 600,
+
+	-- Target dummies (src/server/DevDummies, src/client/DevTargetMenu): soldiers hurt like players (src/server/Damage
+	-- hurts anything with the tag), knocked and ragdolled, showing the health faces, losing helmets; a dead one lies for
+	-- Config/Metrics.Combat.RespawnDelay and comes back where it was put. Spawned at the aim point, facing the player.
+	Dummies = {
+		Tag = "DevDummy",
+		Folder = "DevDummies", -- in Workspace
+		Max = 16,
+		-- the team kits to dress them in (Config/Uniforms.Kits)
+		Kits = { { kit = "uniform1", name = "Grey" }, { kit = "uniform2", name = "Olive" } },
+		-- Stand; Walk: back and forth along its facing; Strafe: side to side, always facing the way it was put
+		Moves = { "Stand", "Walk", "Strafe" },
+		Patrol = 12, -- studs each way from where it was put
+		WalkSpeed = 10, -- the walk cycle's own speed (Config/Locomotion.Animations.walk)
+		LegTimeout = 6, -- seconds before a blocked leg turns back
+		Arrive = 1, -- studs from a patrol point that count as there
+		Poll = 0.1, -- seconds between patrol checks (and `Poll` x 2 while knocked down)
+		RootHeight = 3, -- the root's height over the ground it stands on
+		-- the hit readout over a dummy's head: the damage, the knock and the health left, for `show` seconds (`width` x
+		-- `tall` px, text `size` px, its outline `stroke` transparency); a knock with no damage shows after `knockWait` s
+		Readout = {
+			show = 4,
+			height = 3.5,
+			size = 18,
+			range = 120,
+			width = 220,
+			tall = 30,
+			stroke = 0.3,
+			knockWait = 0.1,
+		},
+	},
+
+	-- Explosions at the aim point (src/server/DevTools; Net "DevBlast" shows src/client/Vfx/Blast for everyone): a staff
+	-- stage's blast (its Config/Damage.Staff.Charge, the stage's look) or a real charge of `Kg` kilograms of TNT.
+	Blasts = {
+		Stages = { 1, 2, 3 },
+		Kg = { 0.5, 2, 10, 50 },
+		HurtAttribute = "DevBlastHurts", -- on the Player: its own blasts hurt it too (the game: knocked, never hurt)
+	},
+
+	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the
+	-- start of a play test and put back on the button; the terrain inside this box (studs) too, craters filled.
+	World = {
+		Terrain = { min = { -580, -64, -830 }, max = { 2380, 112, 830 } }, -- Config/Maps/Map1 bounds + terrainMargin
 	},
 }
 

@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Damage)
+local DevCfg = require(Shared.Config.DevTools)
 local Metrics = require(Shared.Config.Metrics)
 local W = require(Shared.Config.Weapons)
 local Blast = require(Shared.Rules.Blast)
@@ -28,14 +29,41 @@ local Trees = require(script.Parent.Trees)
 
 local Damage = {}
 
+-- DEV test tools (src/server/DevDummies, src/server/DevTools; Config/DevTools): target dummies (tagged) are hurt like
+-- players' soldiers; a player in god mode is knocked but never hurt.
+local Dev = {
+	dummy = function(model: Model): boolean
+		return CollectionService:HasTag(model, DevCfg.Dummies.Tag)
+	end,
+	god = function(character: Model): boolean
+		local player = Players:GetPlayerFromCharacter(character)
+		return player ~= nil and player:GetAttribute(DevCfg.Admin.GodAttribute) == true
+	end,
+	-- every soldier a blast can reach: the players' characters and the dummies
+	soldiers = function(): { Model }
+		local out: { Model } = {}
+		for _, player in Players:GetPlayers() do
+			if player.Character then
+				table.insert(out, player.Character)
+			end
+		end
+		for _, m in CollectionService:GetTagged(DevCfg.Dummies.Tag) do
+			if m:IsA("Model") and m:IsDescendantOf(workspace) then
+				table.insert(out, m)
+			end
+		end
+		return out
+	end,
+}
+
 -- one ray's hit: the part, where, the ray's direction, how far it flew, whether it took the helmet off
 export type RayHit = { part: Instance?, point: Vector3, direction: Vector3, distance: number, helmet: boolean }
 
--- the player's soldier a part belongs to (its character and Humanoid), or nil (the DEV showcase and test-shooter
--- dummies aren't players: never hurt)
+-- the player's soldier (or DEV target dummy) a part belongs to (its character and Humanoid), or nil (the DEV showcase
+-- and test-shooter dummies aren't players: never hurt)
 local function victim(part: Instance?): (Model?, Humanoid?)
 	local model = part and part.Parent
-	if not model or not model:IsA("Model") or not Players:GetPlayerFromCharacter(model) then
+	if not model or not model:IsA("Model") or not (Players:GetPlayerFromCharacter(model) or Dev.dummy(model)) then
 		return nil, nil
 	end
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
@@ -58,7 +86,7 @@ local function hurt(character: Model, humanoid: Humanoid, left: number, knock: s
 	if knock then
 		Ragdoll.knock(character, knock, direction)
 	end
-	humanoid.Health = left
+	humanoid.Health = if Dev.god(character) then humanoid.Health else left
 end
 
 function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
@@ -163,12 +191,11 @@ function Damage.blast(position: Vector3, kg: number, by: Model?)
 	local function kpaAt(d: number): number
 		return Blast.kpa(d, kg, B)
 	end
-	-- soldiers (players' characters)
-	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local torso = character and character:FindFirstChild("Torso") :: BasePart?
-		if character and humanoid and torso then
+	-- soldiers (players' characters, DEV dummies)
+	for _, character in Dev.soldiers() do
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local torso = character:FindFirstChild("Torso") :: BasePart?
+		if humanoid and torso then
 			local d = (torso.Position - position).Magnitude
 			if d <= reach then
 				local kpa = kpaAt(d)
