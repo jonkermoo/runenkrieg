@@ -175,4 +175,24 @@ return {
 			assert(m ~= C.churnTo, "churned ground must not grow blades")
 		end
 	end,
+	["cover: a blast reaches only the share of a soldier it can see"] = function()
+		local C = B.Cover
+		assert(Blast.exposure(0, 6, C.minShare) == 0, "fully behind cover: nothing")
+		assert(Blast.exposure(6, 6, C.minShare) == 1)
+		assert(Blast.exposure(3, 6, C.minShare) == 0.5)
+		assert(Blast.exposure(1, 0, C.minShare) == 1, "no parts to test: in the open")
+		assert(C.knockShare > C.minShare and C.knockShare <= 1)
+		assert(#C.parts >= 4)
+	end,
+	["each class breaks out to where the pressure falls to its fail pressure"] = function()
+		for class, fail in B.Fail do
+			local r = Blast.reachOf(fail, KG, B)
+			assert(r > 0, class)
+			assert(math.abs(kpa(r) - fail) / fail < 1e-3, `{class}: {kpa(r)} at {r}`)
+		end
+		local brick = Blast.reachOf(B.Fail.Brick, KG, B)
+		assert(brick > 4 and brick < 9, `brick hole ~6: {brick}`)
+		assert(Blast.reachOf(10, 0, B) == 0, "no charge")
+		assert(Blast.reachOf(1e9, KG, B) == 0, "never that strong")
+	end,
 }

@@ -26,6 +26,13 @@ local Destruction = {
 	-- walls are gone)
 	CollapseSupportFraction = 0.25,
 
+	-- A blast breaks a ragged, round-ish hole (user 2026-10-18: building damage "is always a square"): a broken wall
+	-- section of a `kinds` kind is cut into ~`cell`-stud cells; those within the class's fail distance of the blast (at
+	-- least the section's own distance + `minBite`), give or take `jitter` x that, break off, the rest stays standing as
+	-- "Remains" of the section (`remainsHP` x its MaxHP, not counted as a wall for collapse). Each row's cells merge
+	-- into runs, so a ragged edge costs a few parts.
+	Jag = { kinds = { Wall = true, Gable = true }, cell = 1.5, jitter = 0.3, minBite = 2, remainsHP = 0.3 },
+
 	-- Client-side fracture debris (visual only, never replicated, never collides with players).
 	-- They fly for `settle` s, then freeze where they lie (anchored: no physics) and stay `lifetime` s in all (user
 	-- 2026-10-17: destroyed assets "should stay for some time" without lag); past `maxLive` the oldest go first.

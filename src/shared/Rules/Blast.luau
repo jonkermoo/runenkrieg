@@ -102,6 +102,36 @@ function Blast.sectionHit(kpa: number, s: SectionHit): number
 	return amount
 end
 
+-- how far from a `kg` charge the overpressure falls to `kpa` (studs; 0 if it never reaches that)
+function Blast.reachOf(kpa: number, kg: number, cfg: { MetresPerStud: number, AmbientKPa: number }): number
+	if kg <= 0 or Blast.kpa(0, kg, cfg) < kpa then
+		return 0
+	end
+	local lo, hi = 0, 1
+	while Blast.kpa(hi, kg, cfg) >= kpa do
+		hi *= 2
+	end
+	for _ = 1, 40 do
+		local mid = (lo + hi) / 2
+		if Blast.kpa(mid, kg, cfg) >= kpa then
+			lo = mid
+		else
+			hi = mid
+		end
+	end
+	return lo
+end
+
+-- How much of a blast reaches a soldier behind cover (user 2026-10-18): the share of their body parts with a clear
+-- line from the blast (`clear` of `total`); below `minShare`, none. The knock needs at least `knockShare`.
+function Blast.exposure(clear: number, total: number, minShare: number): number
+	if total <= 0 then
+		return 1
+	end
+	local share = math.clamp(clear / total, 0, 1)
+	return if share < minShare then 0 else share
+end
+
 -- the crater's radius (studs) for a `kg` charge
 function Blast.crater(kg: number, perCubeRoot: number): number
 	return if kg > 0 then perCubeRoot * kg ^ (1 / 3) else 0

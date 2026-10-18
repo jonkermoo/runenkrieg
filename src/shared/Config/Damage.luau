@@ -100,6 +100,16 @@ local Damage = {
 		-- section kinds a blast only wears, never breaks: each floor is one slab, so any blast in a room took the whole
 		-- floor (user 2026-10-17: never break, until floors are split into pieces)
 		WearOnly = { Floor = true },
+		-- Cover (user 2026-10-18: "people behind cover arent hurt by explosions, unless their cover got destroyed"): a
+		-- blast hurts and knocks a soldier by the share of these body parts it has a clear line to, cast after it has
+		-- broken what it breaks (so lost cover is no cover). Under `minShare` nothing reaches them; the knock needs
+		-- `knockShare`. Lines skip whatever is within `skip` studs of the blast (the wall it went off against).
+		Cover = {
+			parts = { "Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg" },
+			minShare = 0.17,
+			knockShare = 0.34,
+			skip = 1,
+		},
 		-- classes that break at their fail pressure or not at all, never worn bit by bit (Studio round 1: glass with 1 HP
 		-- added up weaker blasts, so a second stage 2 shot broke windows far off)
 		Brittle = { Glass = true },

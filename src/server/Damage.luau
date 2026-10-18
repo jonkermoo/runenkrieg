@@ -137,6 +137,37 @@ export type BlastOpts = {
 	breaks: { [string]: boolean }?,
 }
 
+-- The share of `character`'s body a blast at `position` has a clear line to (Config/Damage.Blast.Cover): soldiers never
+-- shield each other; whatever is within `skip` studs of the blast (the wall it went off against) is passed through.
+local function exposure(position: Vector3, character: Model, soldiers: { Model }): number
+	local C = Cfg.Blast.Cover
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.IgnoreWater = true
+	local clear, total = 0, 0
+	for _, name in C.parts do
+		local p = character:FindFirstChild(name) :: BasePart?
+		if p then
+			total += 1
+			local skip = table.clone(soldiers)
+			params.FilterDescendantsInstances = skip
+			local line = p.Position - position
+			local hit = workspace:Raycast(position, line, params)
+			local tries = 0
+			while hit and hit.Distance <= C.skip and tries < 3 do
+				table.insert(skip, hit.Instance)
+				params.FilterDescendantsInstances = skip
+				hit = workspace:Raycast(position, line, params)
+				tries += 1
+			end
+			if not hit then
+				clear += 1
+			end
+		end
+	end
+	return Blast.exposure(clear, total, C.minShare)
+end
+
 -- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it, never killed: knocked).
 function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts?)
 	local B = Cfg.Blast
@@ -147,27 +178,6 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	local reach = Blast.studsAt(B.Reach, kg, B.MetresPerStud)
 	local function kpaAt(d: number): number
 		return Blast.kpa(d, kg, B)
-	end
-	-- soldiers (players' characters, DEV dummies)
-	local soldiers: { Model } = if o.soldiers == false then {} else Dev.soldiers()
-	for _, character in soldiers do
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		local torso = character:FindFirstChild("Torso") :: BasePart?
-		if humanoid and torso then
-			local d = (torso.Position - position).Magnitude
-			if d <= reach then
-				local kpa = kpaAt(d)
-				local amount = if character == by then 0 else Blast.soldierDamage(kpa, B.Soldier)
-				local left = math.max(humanoid.Health - amount, 0)
-				local knock = Blast.knock(kpa, B.Knocks)
-				if left <= 0 then
-					knock = B.Knocks[1].knock -- killed by a blast: thrown
-				end
-				if knock or amount > 0 then
-					hurt(character, humanoid, left, knock, flat(torso.Position - position))
-				end
-			end
-		end
 	end
 	-- the map: buildings and props, by their class
 	Destruction.blast(position, reach, function(d, class, maxHP, kind, hp)
@@ -183,6 +193,8 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 			keep = kind ~= nil and (B.WearOnly :: any)[kind] == true,
 			brittle = class ~= nil and (B.Brittle :: any)[class] == true,
 		})
+	end, function(class)
+		return Blast.reachOf(class and (B.Fail :: any)[class] or B.FailDefault, kg, B)
 	end)
 	-- the crater first, so the trees it fells lie on the ground as it is after
 	if o.crater ~= false then
@@ -190,6 +202,29 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	end
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt)
+	end
+	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
+	local soldiers: { Model } = if o.soldiers == false then {} else Dev.soldiers()
+	for _, character in soldiers do
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local torso = character:FindFirstChild("Torso") :: BasePart?
+		if humanoid and torso then
+			local d = (torso.Position - position).Magnitude
+			if d <= reach then
+				local kpa = kpaAt(d)
+				-- behind cover only what reaches them (cast now: cover the blast broke is gone)
+				local share = exposure(position, character, soldiers)
+				local amount = if character == by then 0 else Blast.soldierDamage(kpa, B.Soldier) * share
+				local left = math.max(humanoid.Health - amount, 0)
+				local knock = if share >= B.Cover.knockShare or character == by then Blast.knock(kpa, B.Knocks) else nil
+				if left <= 0 then
+					knock = B.Knocks[1].knock -- killed by a blast: thrown
+				end
+				if knock or amount > 0 then
+					hurt(character, humanoid, left, knock, flat(torso.Position - position))
+				end
+			end
+		end
 	end
 end
 

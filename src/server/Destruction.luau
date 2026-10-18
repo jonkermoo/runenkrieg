@@ -61,6 +61,81 @@ local function breakAll(sections: { Model }, origin: Vector3)
 	end
 end
 
+-- A section broken by a blast at `origin` whose hole reaches `hole` studs: a ragged hole (Config/Destruction.Jag). Each
+-- box part is cut into cells; cells inside the hole (its edge jittered per cell) break off as debris, the rest become
+-- the section's "Remains" (a weaker section, not a wall for collapse). Other parts go if their centre is in the hole.
+local function breakRagged(section: Model, origin: Vector3, hole: number)
+	local J = D.Jag
+	local seed = #section:GetFullName()
+	local pieces: { Piece } = {}
+	local keep: { BasePart } = {}
+	for _, d in section:GetDescendants() do
+		if d:IsA("Part") and d.Shape == Enum.PartType.Block then
+			-- the face is its two biggest axes; cells across it
+			local sz = d.Size
+			local axes = { { "X", sz.X }, { "Y", sz.Y }, { "Z", sz.Z } }
+			table.sort(axes, function(a, b)
+				return a[2] > b[2]
+			end)
+			local ua, va = axes[1][1], axes[2][1]
+			local function local3(u: number, v: number): Vector3
+				local x = { X = 0, Y = 0, Z = 0 }
+				x[ua], x[va] = u - (sz :: any)[ua] / 2, v - (sz :: any)[va] / 2
+				return Vector3.new(x.X, x.Y, x.Z)
+			end
+			local kept, broken = Rules.jag((sz :: any)[ua], (sz :: any)[va], J.cell, function(u, v)
+				local at = d.CFrame * local3(u, v)
+				local n = Rules.noise(math.floor(u / J.cell), math.floor(v / J.cell), seed)
+				return (at - origin).Magnitude <= hole * (1 + J.jitter * (n * 2 - 1))
+			end)
+			local function part(r: Rules.Run): (CFrame, Vector3)
+				local size = { X = sz.X, Y = sz.Y, Z = sz.Z }
+				size[ua], size[va] = r.u1 - r.u0, r.v1 - r.v0
+				return d.CFrame * CFrame.new(local3((r.u0 + r.u1) / 2, (r.v0 + r.v1) / 2)),
+					Vector3.new(size.X, size.Y, size.Z)
+			end
+			for _, r in broken do
+				local cf, size = part(r)
+				table.insert(pieces, { cf = cf, size = size, color = d.Color, t = d.Transparency })
+			end
+			for _, r in kept do
+				local cf, size = part(r)
+				local c = d:Clone()
+				c:ClearAllChildren()
+				c.Size, c.CFrame = size, cf
+				table.insert(keep, c)
+			end
+		elseif d:IsA("BasePart") then
+			if (d.Position - origin).Magnitude <= hole then
+				table.insert(pieces, { cf = d.CFrame, size = d.Size, color = d.Color, t = d.Transparency })
+			else
+				local c = d:Clone()
+				c:ClearAllChildren()
+				table.insert(keep, c)
+			end
+		end
+	end
+	if #pieces > 0 then
+		Net.event("SectionBroken"):FireAllClients(pieces, origin)
+	end
+	if #keep > 0 then
+		local remains = Instance.new("Model")
+		remains.Name = "Remains"
+		local maxHP = (section:GetAttribute("MaxHP") :: number? or 0) * J.remainsHP
+		remains:SetAttribute("Kind", "Remains")
+		remains:SetAttribute("Class", section:GetAttribute("Class"))
+		remains:SetAttribute("Story", section:GetAttribute("Story"))
+		remains:SetAttribute("MaxHP", maxHP)
+		remains:SetAttribute("HP", maxHP)
+		for _, c in keep do
+			c.Parent = remains
+		end
+		remains.Parent = section.Parent
+		CollectionService:AddTag(remains, D.SectionTag)
+	end
+	section:Destroy()
+end
+
 -- Sections that belong directly to this building (not to a nested building such as a tower).
 local function ownSections(building: Model): { Model }
 	local out = {}
@@ -103,7 +178,9 @@ local function checkCollapse(building: Model, origin: Vector3)
 	breakAll(doomed, origin)
 end
 
-function Destruction.damage(section: Model, amount: number, origin: Vector3?)
+-- `hole`: a blast's reach for this section's class (a ragged hole, Config/Destruction.Jag); without it the whole section
+-- breaks
+function Destruction.damage(section: Model, amount: number, origin: Vector3?, hole: number?)
 	if not section.Parent or amount <= 0 then
 		return
 	end
@@ -114,7 +191,12 @@ function Destruction.damage(section: Model, amount: number, origin: Vector3?)
 	end
 	local building = buildingOf(section)
 	local at = origin or section:GetPivot().Position
-	breakAll({ section }, at)
+	local kind = section:GetAttribute("Kind")
+	if origin and hole and type(kind) == "string" and (D.Jag.kinds :: any)[kind] then
+		breakRagged(section, origin, hole)
+	else
+		breakAll({ section }, at)
+	end
 	if building then
 		checkCollapse(building, at)
 	end
@@ -167,7 +249,8 @@ end
 function Destruction.blast(
 	position: Vector3,
 	reach: number,
-	damageAt: (distance: number, class: string?, maxHP: number, kind: string?, hp: number) -> number
+	damageAt: (distance: number, class: string?, maxHP: number, kind: string?, hp: number) -> number,
+	holeAt: ((class: string?) -> number)?
 ): { broken: number, damaged: number }
 	Net.event("Explosion"):FireAllClients(position, reach, 1)
 	local nearest: { [Model]: number } = {}
@@ -197,7 +280,10 @@ function Destruction.blast(
 			)
 			if dmg > 0 then
 				damaged += 1
-				Destruction.damage(s, dmg, position)
+				-- its ragged hole: as far as the blast breaks this class, at least a bite past this section's edge
+				local hole = holeAt
+					and math.max(holeAt(if type(class) == "string" then class else nil), d + D.Jag.minBite)
+				Destruction.damage(s, dmg, position, hole or nil)
 				if not s.Parent then
 					broken += 1
 				end
