@@ -79,6 +79,14 @@ local Palette = {
 		CarBodies = { { 72, 42, 40 }, { 40, 44, 42 }, { 56, 70, 58 }, { 62, 64, 72 } },
 		ToneJitter = 0.05,
 	},
+	-- Bandages and the med pack (Config/Assets "Shared/Bandages", user 2026-10-18), coloured by mesh name; same for
+	-- every team.
+	Medical = {
+		Cloth = { 226, 220, 202 }, -- bandage cloth: the rolls, the unrolling strip, the worn wraps
+		Canvas = { 150, 136, 100 }, -- the med pack's canvas
+		Thread = { 150, 62, 52 }, -- the red tear thread wrapped round the pack
+		Cross = { 72, 140, 72 }, -- the green cross on the pack
+	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
 	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
 	Magic = {

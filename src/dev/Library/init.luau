@@ -272,12 +272,15 @@ function Library.gallery(): string
 			for _, d in copy:GetDescendants() do
 				if d:IsA("BasePart") then
 					previewColor(d, palette)
+					if e.folder == "Shared/Bandages" and palette.Medical[d.Name] then
+						d.Color = rgb(palette.Medical[d.Name])
+					end
 				end
 			end
 		end
 		local cf, size = copy:GetBoundingBox()
-		-- small assets (grass) are shown 4x so they are readable; the label says so
-		local zoom = if e.category == "Foliage" and size.Magnitude < 20 then 4 else 1
+		-- small assets (grass, bandages) are shown 4x so they are readable; the label says so
+		local zoom = if (e.category == "Foliage" or e.folder == "Shared/Bandages") and size.Magnitude < 20 then 4 else 1
 		if zoom ~= 1 then
 			copy:ScaleTo(copy:GetScale() * zoom)
 			cf, size = copy:GetBoundingBox()

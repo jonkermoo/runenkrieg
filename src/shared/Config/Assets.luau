@@ -107,6 +107,54 @@ local Assets = {
 			generator = "tools/clothing/uniform.py",
 			description = "The olive team's uniform: Shirt + Pants images from Config/Uniforms.Kits.uniform2.",
 		},
+		bandage_roll = {
+			id = 97919711807234, -- v2: plain part names (v1 81519541602272)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/bandage_roll.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Rolled bandage held in the hand (mesh Cloth); origin at the roll centre, axis along X.",
+		},
+		dressing_packet = {
+			id = 77548616662657, -- v2: plain part names (v1 98977144276918)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/dressing_packet.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "The med pack: canvas field dressing (Canvas), red tear thread round one end (Thread), green cross on top (Cross).",
+		},
+		bandage_unroll = {
+			id = 135562484794642, -- v2: plain part names (v1 100744010298901)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/bandage_unroll.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage that unrolls for the wrap animation: one skinned mesh (Cloth), bones Root -> Strip1..Strip8 (0.5 studs each), strip straight out toward -Z at rest.",
+		},
+		wrap_arm = {
+			id = 113940896143702, -- v2: plain part names (v1 118691271151526)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_arm.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn on the left arm (forearm, 3 turns); its Origin goes at the arm part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
+		},
+		wrap_leg = {
+			id = 94242164038534, -- v2: plain part names (v1 83469869892044)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_leg.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn on the right leg (thigh, 2 turns); its Origin goes at the leg part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
+		},
+		wrap_head = {
+			id = 111609113227954, -- v4: follows the head's rounded top (v3 75131246502526, v2 120626644598162, v1 93649111980606)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_head.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn round the head (2 crossing turns); its Origin goes at the head part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
+		},
 		rig1 = {
 			id = 84046347370958,
 			category = "Teams",
