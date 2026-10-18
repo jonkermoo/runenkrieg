@@ -7,11 +7,7 @@
 -- Data only.
 
 local Firing = {
-	Keys = {
-		Fire = { "MouseButton1" }, -- fire; after a shot, the same click works the bolt
-		Reload = { "R" },
-	},
-
+	-- (the fire and reload keys are player settings: Config/Settings)
 	Range = 600, -- studs a shot travels (Metrics fog end; effective range 450)
 	FireTime = 0.15, -- after a shot nothing else can start for this long (the shot itself)
 	-- Server checks: timings get this much slack (latency jitter); the reported muzzle must be this close to the
