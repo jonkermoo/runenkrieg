@@ -5,8 +5,8 @@
 -- - felled by a blast: whole, away from it, no stump (the crater is there).
 -- The fall costs the server nothing: it tags the tree FallingTag with where it will lie ("FallTo", clear of the ground
 -- all along it) and every client animates it (src/client/TreeFall); then the server places it there, anchored, as cover
--- (FallenTag): soldiers it lands on are hurt and knocked aside (Damage.crush; the trunk lets them through a moment), the
--- ground dents where it hit, and an uprooted one leaves a pit and a root ball of mud (src/server/Ground). A full beam
+-- (FallenTag): soldiers it lands on are hurt and knocked aside (Damage.crush; the trunk lets them through a moment), it
+-- presses an even imprint into the ground it lies on, and an uprooted one leaves a pit and a root ball of mud (src/server/Ground). A full beam
 -- straight on a trunk shatters it instead (a stump left, the crown drops and sheds). Lying, it has
 -- Fallen.share x its MaxHP again, and bullets and blasts wear that down too. It lies for Fall.lifetime s, at most
 -- Fall.maxFallen at once (the oldest goes first), or until destroyed: tagged SinkingTag, it sinks and fades on the
@@ -24,7 +24,6 @@ local Assets = require(Shared.Config.Assets)
 local Cfg = require(Shared.Config.Damage)
 local TreeCfg = require(Shared.Config.TreeSway)
 local Net = require(Shared.Net)
-local Blast = require(Shared.Rules.Blast)
 local Rules = require(Shared.Rules.Trees)
 local Ground = require(script.Parent.Ground)
 
@@ -228,7 +227,8 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		local at = hinge + dir * x
 		local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
 		if y then
-			local clear = half * (1 - (1 - F.tipClear) * k / F.samples)
+			-- its underside down in its imprint (Fall.Imprint.depth under the ground), tapering toward the top
+			local clear = half * (1 - (1 - F.tipClear) * k / F.samples) - F.Imprint.depth
 			table.insert(samples, { x, y - hinge.Y + clear })
 		end
 	end
@@ -262,19 +262,25 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		tree:PivotTo(lie)
 		CollectionService:AddTag(tree, TreeCfg.FallenTag)
 		shed(tree) -- a felled tree's leaves go to 0 (user)
-		local top = hinge + lie.UpVector * h
 		-- who it lands on
 		if crush then
 			crush(hinge, hinge + lie.UpVector * reach, F.Crush.radius * sc, F.Crush.damage, F.Crush.knock)
 		end
-		-- dents where it hit hard, and the root ball of an uprooted one
-		for _, share in F.dentAt do
-			local at = hinge:Lerp(top, share)
-			local y = Ground.heightAt(at.X, at.Z, at.Y + 10, 40)
-			if y then
-				local plan = Blast.craterPlanFor(F.Dent.radius * sc, F.Dent)
-				Ground.crater(Vector3.new(at.X, y, at.Z), plan, F.Dent)
+		-- its imprint: the ground pressed down evenly wherever it lies on it
+		local I = F.Imprint
+		local cot = 1 / math.tan(tilt)
+		local x = 0
+		while x <= reach do
+			local at = hinge + dir * x
+			local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
+			local bottom = hinge.Y + x * cot - half -- the trunk's underside here
+			if y and bottom - (y - I.depth) <= I.touch then
+				local floor = Vector3.new(at.X, y - I.depth, at.Z)
+				-- a ball whose bottom is the imprint's floor
+				Ground.ball(floor + Vector3.yAxis * I.radius, I.radius, Enum.Material.Air)
+				Ground.churn(floor, I.radius, I.radius, I)
 			end
+			x += I.step
 		end
 		if not leaveStump then
 			local R = F.Roots

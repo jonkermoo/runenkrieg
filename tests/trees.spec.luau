@@ -88,16 +88,15 @@ return {
 			assert(hits >= 2 and hits <= 5, `{kind}: {hits} stage 2 hits fell it`)
 		end
 	end,
-	["landing dents and root balls are big enough to show in 4-stud voxels"] = function()
-		local F = T.Fall
-		local Blast = require("../src/shared/Rules/Blast")
-		local plan = Blast.craterPlanFor(F.Dent.radius * 0.75, F.Dent) :: Blast.CraterPlan
-		assert(plan.radius >= 2, "a dent the voxels keep, even under a small tree")
-		assert(plan.radius - plan.sink > 0, "it reaches below the ground")
-		assert(F.Roots.min >= 2.5, "a root ball the voxels keep")
-		assert(Blast.craterPlanFor(0, F.Dent) == nil)
+	["the imprint and root balls are big enough to show in 4-stud voxels, and even"] = function()
+		local I = T.Fall.Imprint
+		assert(I.radius >= 2.5, "an imprint the voxels keep")
+		assert(I.depth > 0 and I.depth < I.radius, "pressed in, not a hole")
+		local open = math.sqrt(I.radius ^ 2 - (I.radius - I.depth) ^ 2)
+		assert(I.step <= open, "its balls overlap into one even trough")
+		assert(T.Fall.Roots.min >= 2.5, "a root ball the voxels keep")
 		local Foliage = require("../src/shared/Config/Foliage")
-		assert(Foliage.UnderTrunk.radius >= F.Dent.radius * F.Dent.churn - 1e-9, "no grass on the dents' mud")
+		assert(Foliage.UnderTrunk.radius >= open, "no grass in the imprint")
 	end,
 	["a bullet's line enters a canopy box where it should"] = function()
 		-- along +X from x = -10, a box of half size 2: enters at 8

@@ -116,15 +116,15 @@ local Damage = {
 			-- landing: a bounce back of `bounce` degrees settling over `bounceTime` s (src/client/TreeFall)
 			bounce = 3,
 			bounceTime = 0.6,
-			-- dents where it hits hard (user 2026-10-17: "a mini crater ... so it looks like it fell hard"): at these
-			-- shares of its length, a hole of `Dent.radius` x the tree's scale, as a crater (Rules/Blast.craterPlanFor)
-			dentAt = { 0.5, 0.82 },
-			Dent = {
-				radius = 2.8,
-				sink = 0.6,
-				rim = { count = 0, at = 0, size = 0, sink = 0 },
-				churn = 1.6,
-				churnDepth = 1.5,
+			-- its imprint (user 2026-10-17: "not a crater ... a thick imprint", even, the tree not floating): wherever the
+			-- trunk lies on the ground the terrain is pressed down `depth` studs, following the ground, every `step` studs
+			-- along it (balls of `radius`: smaller vanish in 4-stud voxels), the ground in it churned to `churnTo`; the
+			-- trunk lies in it. `touch`: how close to the ground the trunk's underside counts as lying on it.
+			Imprint = {
+				radius = 2.6,
+				depth = 1,
+				step = 2,
+				touch = 0.8,
 				churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
 				churnTo = "Mud",
 			},

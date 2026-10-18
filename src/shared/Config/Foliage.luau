@@ -28,7 +28,7 @@ local Foliage = {
 	-- the voxels have arrived), any within the churn radius plus `margin` studs whose ground no longer grows grass.
 	Scrub = { after = { 0.5, 3 }, margin = 4 },
 	-- no grass under a fallen trunk while it lies there: within `radius` studs of its line (user 2026-10-17)
-	UnderTrunk = { radius = 4.5 }, -- (covers its landing dents' churned ground: Damage.Trees.Fall.Dent)
+	UnderTrunk = { radius = 3 }, -- (covers its imprint: Damage.Trees.Fall.Imprint)
 
 	-- Thin, flowy blade patches (Config/Assets GrassBlades) as a second layer: they replace Roblox's terrain grass
 	-- decoration (turned off in the place: Terrain -> Decoration), which the user liked but found too dense; it has
