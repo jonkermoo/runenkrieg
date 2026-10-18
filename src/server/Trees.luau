@@ -215,8 +215,11 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	local base = pivot.Position
 	local ground = groundAt(base)
 	local half = thickness(trunk) / 2
-	-- snapped: it turns on the stump top; uprooted: on the ground, its butt lying half its thickness up
-	local hinge = Vector3.new(base.X, ground + (if leaveStump then T.Stump.height else half - F.Imprint.depth), base.Z)
+	-- its butt lies pressed into the ground (Fall.Imprint): uprooted, where it stood; snapped, slid off its stump beside
+	-- it (on the stump top it floated over slopes, Studio 2026-10-18)
+	local off = if leaveStump then thickness(trunk) * T.Stump.widthShare / 2 + half else 0
+	local foot = base + dir * off
+	local hinge = Vector3.new(foot.X, groundAt(Vector3.new(foot.X, base.Y, foot.Z)) + half - F.Imprint.depth, foot.Z)
 	local _, size = tree:GetBoundingBox()
 	local h = size.Y
 	-- lie clear of the ground all along it (user 2026-10-17: it "often appears below the map")
@@ -234,10 +237,12 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	end
 	local tilt = math.rad(Rules.clearTilt(samples, F.minTilt, F.maxTilt))
 	local axis = Vector3.new(0, 1, 0):Cross(dir)
-	local turn = CFrame.new(hinge) * CFrame.fromAxisAngle(axis, tilt) * CFrame.new(-hinge)
+	-- turned about its own axis at the hinge's height, then moved over to the hinge
+	local at = Vector3.new(base.X, hinge.Y, base.Z)
+	local turn = CFrame.new(at) * CFrame.fromAxisAngle(axis, tilt) * CFrame.new(-at)
 	-- the butt rests on the hinge: slide it out along the fallen trunk by what sat under the hinge
 	local under = hinge.Y - pivot.Y
-	local lie = CFrame.new(turn:VectorToWorldSpace(Vector3.yAxis) * under) * turn * pivot
+	local lie = CFrame.new(turn:VectorToWorldSpace(Vector3.yAxis) * under + dir * off) * turn * pivot
 	if leaveStump then
 		stump(tree, trunk, base)
 	else
