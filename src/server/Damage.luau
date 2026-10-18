@@ -13,6 +13,7 @@
 -- No one hurts themselves (their blast still knocks them). Health 100 and no regeneration (src/character/Health);
 -- a death is a limp ragdoll (the death face: src/server/Bodies); respawn after Config/Metrics.Combat.RespawnDelay.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
