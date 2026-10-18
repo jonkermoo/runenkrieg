@@ -215,8 +215,11 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	local base = pivot.Position
 	local ground = groundAt(base)
 	local half = thickness(trunk) / 2
-	-- snapped: it turns on the stump top; uprooted: on the ground, its butt lying half its thickness up
-	local hinge = Vector3.new(base.X, ground + (if leaveStump then T.Stump.height else half), base.Z)
+	-- its butt lies pressed into the ground (Fall.Imprint): uprooted, where it stood; snapped, slid off its stump beside
+	-- it (on the stump top it floated over slopes, Studio 2026-10-18)
+	local off = if leaveStump then thickness(trunk) * T.Stump.widthShare / 2 + half else 0
+	local foot = base + dir * off
+	local hinge = Vector3.new(foot.X, groundAt(Vector3.new(foot.X, base.Y, foot.Z)) + half - F.Imprint.depth, foot.Z)
 	local _, size = tree:GetBoundingBox()
 	local h = size.Y
 	-- lie clear of the ground all along it (user 2026-10-17: it "often appears below the map")
@@ -228,16 +231,18 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
 		if y then
 			-- its underside down in its imprint (Fall.Imprint.depth under the ground), tapering toward the top
-			local clear = half * (1 - (1 - F.tipClear) * k / F.samples) - F.Imprint.depth * (1 - k / F.samples)
+			local clear = half * (1 - (1 - F.tipClear) * k / F.samples) - F.Imprint.depth
 			table.insert(samples, { x, y - hinge.Y + clear })
 		end
 	end
 	local tilt = math.rad(Rules.clearTilt(samples, F.minTilt, F.maxTilt))
 	local axis = Vector3.new(0, 1, 0):Cross(dir)
-	local turn = CFrame.new(hinge) * CFrame.fromAxisAngle(axis, tilt) * CFrame.new(-hinge)
+	-- turned about its own axis at the hinge's height, then moved over to the hinge
+	local pin = Vector3.new(base.X, hinge.Y, base.Z)
+	local turn = CFrame.new(pin) * CFrame.fromAxisAngle(axis, tilt) * CFrame.new(-pin)
 	-- the butt rests on the hinge: slide it out along the fallen trunk by what sat under the hinge
 	local under = hinge.Y - pivot.Y
-	local lie = CFrame.new(turn:VectorToWorldSpace(Vector3.yAxis) * under) * turn * pivot
+	local lie = CFrame.new(turn:VectorToWorldSpace(Vector3.yAxis) * under + dir * off) * turn * pivot
 	if leaveStump then
 		stump(tree, trunk, base)
 	else
@@ -270,7 +275,7 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		if crush then
 			crush(hinge, hinge + lie.UpVector * reach, F.Crush.radius * sc, F.Crush.damage, F.Crush.knock)
 		end
-		-- its imprint: the ground pressed down evenly wherever it lies on it
+		-- its imprint: it lies pressed into the ground (above); the ground round it churned to mud where it lies on it
 		local I = F.Imprint
 		local cot = 1 / math.tan(tilt)
 		local x = 0
@@ -279,10 +284,7 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 			local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
 			local bottom = hinge.Y + x * cot - half -- the trunk's underside here
 			if y and bottom - y <= I.touch then
-				local floor = Vector3.new(at.X, y - I.depth, at.Z)
-				-- a ball whose bottom is the imprint's floor
-				Ground.ball(floor + Vector3.yAxis * I.radius, I.radius, Enum.Material.Air)
-				Ground.churn(floor, I.churnRadius, I.radius, I)
+				Ground.churn(Vector3.new(at.X, y, at.Z), I.churnRadius, I.churnDepth, I)
 			end
 			x += I.step
 		end

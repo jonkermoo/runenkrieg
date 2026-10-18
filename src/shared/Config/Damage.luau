@@ -134,16 +134,16 @@ local Damage = {
 			-- landing: a bounce back of `bounce` degrees settling over `bounceTime` s (src/client/TreeFall)
 			bounce = 7, -- (its peak is ~0.43 x this: ~3 degrees)
 			bounceTime = 0.6,
-			-- its imprint (user 2026-10-17: "not a crater ... a thick imprint", even, the tree not floating): wherever the
-			-- trunk lies on the ground the terrain is pressed down `depth` studs, following the ground, every `step` studs
-			-- along it (balls of `radius`: smaller vanish in 4-stud voxels), the ground in it churned to `churnTo`; the
-			-- trunk lies in it. `touch`: how close to the ground the trunk's underside counts as lying on it.
+			-- its imprint (user 2026-10-17: "not a crater ... a thick imprint", even, the tree not floating): the trunk lies
+			-- pressed `depth` studs into the ground all along it, and wherever it lies on the ground (its underside within
+			-- `touch` of it) the ground round it is churned to `churnTo`, `churnRadius` across and `churnDepth` deep, every
+			-- `step` studs. (Carving a 1-stud trough didn't show in 4-stud voxels except on flat ground.)
 			Imprint = {
-				radius = 2.6,
 				depth = 1,
 				step = 2,
 				touch = 0.8,
-				churnRadius = 4.5, -- (the 4-stud voxels round the trough; at 2.6 it stayed mostly Grass)
+				churnRadius = 4.5,
+				churnDepth = 3,
 				churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
 				churnTo = "Mud",
 			},
