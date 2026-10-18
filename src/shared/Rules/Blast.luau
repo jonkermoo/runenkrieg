@@ -42,14 +42,13 @@ function Blast.soldierDamage(kpa: number, s: { from: number, kill: number, max: 
 	return s.max * math.min((kpa - s.from) / (s.kill - s.from), 1)
 end
 
--- the knock at `kpa` (the first entry it is above), or nil
-function Blast.knock(kpa: number, knocks: { { above: number, knock: string } }): string?
-	for _, k in knocks do
-		if kpa > k.above then
-			return k.knock
-		end
+-- how hard a blast that does `damage` (of `max`) flings a soldier: `least` for a scratch up to 1 at `max`; nil when it
+-- does none (Config/Damage.Blast.Fling)
+function Blast.fling(damage: number, max: number, least: number): number?
+	if damage <= 0 or max <= 0 then
+		return nil
 	end
-	return nil
+	return least + (1 - least) * math.min(damage / max, 1)
 end
 
 -- a map section's damage at `kpa`: all of it (`maxHP`) at its class's `fail`, MaxHP x (kpa / fail)^weaken below
@@ -123,7 +122,7 @@ function Blast.reachOf(kpa: number, kg: number, cfg: { MetresPerStud: number, Am
 end
 
 -- How much of a blast reaches a soldier behind cover (user 2026-10-18): the share of their body parts with a clear
--- line from the blast (`clear` of `total`); below `minShare`, none. The knock needs at least `knockShare`.
+-- line from the blast (`clear` of `total`); below `minShare`, none.
 function Blast.exposure(clear: number, total: number, minShare: number): number
 	if total <= 0 then
 		return 1

@@ -81,9 +81,7 @@ return {
 				assert(Ragdoll.Knocks[k], "staff knock " .. k)
 			end
 		end
-		for _, b in D.Blast.Knocks do
-			assert(Ragdoll.Knocks[b.knock], "blast knock " .. b.knock)
-		end
+		assert(Ragdoll.Knocks[D.Blast.Fling.knock], "blast knock " .. D.Blast.Fling.knock)
 	end,
 	["a headshot kill is thrown back, torso hits throw further than limbs"] = function()
 		local K = Ragdoll.Knocks

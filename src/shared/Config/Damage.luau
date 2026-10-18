@@ -67,17 +67,15 @@ local Damage = {
 		AmbientKPa = 101.325,
 		Reach = 12, -- Z beyond which nothing is felt (m / kg^(1/3)); bounds the search (~67 studs at 10 kg)
 		-- soldiers: damage from `from` kPa (0) rising to `kill` kPa (`max` damage, kills from full health). At 10 kg:
-		-- lethal within ~8 studs, ~59 at 10, ~38 at 12, ~19 at 16, ~4 at 30 (user 2026-10-18: "lethal within ~8"; was
-		-- kill 80, lethal to ~16, so a miss by 12 studs killed and threw)
-		Soldier = { from = 8, kill = 540, max = 100 },
-		-- knocks by overpressure, strongest first (Config/Ragdoll.Knocks); below the last: nothing (only hurt). User
-		-- 2026-10-17: "even if you miss your full charge, you should be able to ragdoll only the person you were trying
-		-- to aim at (and the people really close to him)": at 10 kg thrown within ~6 studs, knocked down within ~10 (was
-		-- 29 / 10 / 8.5 kPa: thrown ~30, knocked ~68). Whoever the blast kills is thrown wherever they stood.
-		Knocks = {
-			{ above = 1000, knock = "BlastThrow" },
-			{ above = 320, knock = "Torso" },
-		},
+		-- lethal within ~8 studs, ~69 at 9, ~47 at 10, ~20 at 12, ~5 at 14, nothing from ~15 (user 2026-10-18: "lethal
+		-- within ~8"; then "at points where players take damage from a blast is also when they should ragdoll": damage
+		-- and knocks both end at ~15 studs). Was kill 80, from 8: lethal to ~16, hurt to ~70
+		Soldier = { from = 126, kill = 540, max = 100 },
+		-- whoever a blast hurts is flung away from it, as hard as it hurt them (user 2026-10-18: "the staff lvl 3 charge
+		-- only flings me when im dead. i want it to fling me when it damages me too, scaled to damage"): the `knock`
+		-- (Config/Ragdoll.Knocks) at `least` of its force for the slightest hurt, up to all of it at `max` damage; a
+		-- kill flings in full. (Was knocks by pressure: thrown within ~6 studs, knocked down ~10, light ~15.)
+		Fling = { knock = "BlastThrow", least = 0.3 },
 		-- map sections (Config/Destruction.Materials, the section's "Class"): a section fails at its class's overpressure;
 		-- below that it loses MaxHP x (kPa / fail)^Weaken (so nearby blasts wear it down). Buildings and props.
 		-- User 2026-10-17: "buildings evaporate way too easily ... a stage 3 blast should not crumble a building ... an
@@ -101,13 +99,12 @@ local Damage = {
 		-- floor (user 2026-10-17: never break, until floors are split into pieces)
 		WearOnly = { Floor = true },
 		-- Cover (user 2026-10-18: "people behind cover arent hurt by explosions, unless their cover got destroyed"): a
-		-- blast hurts and knocks a soldier by the share of these body parts it has a clear line to, cast after it has
-		-- broken what it breaks (so lost cover is no cover). Under `minShare` nothing reaches them; the knock needs
-		-- `knockShare`. Lines skip whatever is within `skip` studs of the blast (the wall it went off against).
+		-- blast hurts a soldier by the share of these body parts it has a clear line to, cast after it has broken what
+		-- it breaks (so lost cover is no cover), and flings them as hard as that hurts (Fling above). Under `minShare`
+		-- nothing reaches them. Lines skip whatever is within `skip` studs of the blast (the wall it went off against).
 		Cover = {
 			parts = { "Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg" },
 			minShare = 0.17,
-			knockShare = 0.34,
 			skip = 1,
 		},
 		-- classes that break at their fail pressure or not at all, never worn bit by bit (Studio round 1: glass with 1 HP

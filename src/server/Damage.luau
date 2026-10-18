@@ -79,15 +79,22 @@ local function flat(v: Vector3): Vector3
 end
 
 -- Hurts one soldier: the knock first (so a death goes down with its own knock), then the health.
-local function hurt(character: Model, humanoid: Humanoid, left: number, knock: string?, direction: Vector3)
+local function hurt(
+	character: Model,
+	humanoid: Humanoid,
+	left: number,
+	knock: string?,
+	direction: Vector3,
+	scale: number?
+)
 	if humanoid.Health <= 0 then
 		if knock then
-			Ragdoll.knock(character, knock, direction) -- a body thrown about
+			Ragdoll.knock(character, knock, direction, scale) -- a body thrown about
 		end
 		return
 	end
 	if knock then
-		Ragdoll.knock(character, knock, direction)
+		Ragdoll.knock(character, knock, direction, scale)
 	end
 	humanoid.Health = if Dev.god(character) then humanoid.Health else left
 end
@@ -214,14 +221,14 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 				local kpa = kpaAt(d)
 				-- behind cover only what reaches them (cast now: cover the blast broke is gone)
 				local share = exposure(position, character, soldiers)
-				local amount = if character == by then 0 else Blast.soldierDamage(kpa, B.Soldier) * share
+				-- flung as hard as what gets past cover hurts (your own blast never hurts you, but flings you as hard as
+				-- it would have)
+				local full = Blast.soldierDamage(kpa, B.Soldier) * share
+				local amount = if character == by then 0 else full
 				local left = math.max(humanoid.Health - amount, 0)
-				local knock = if share >= B.Cover.knockShare or character == by then Blast.knock(kpa, B.Knocks) else nil
-				if left <= 0 then
-					knock = B.Knocks[1].knock -- killed by a blast: thrown
-				end
-				if knock or amount > 0 then
-					hurt(character, humanoid, left, knock, flat(torso.Position - position))
+				local scale = if left <= 0 then 1 else Blast.fling(full, B.Soldier.max, B.Fling.least)
+				if scale then
+					hurt(character, humanoid, left, B.Fling.knock, flat(torso.Position - position), scale)
 				end
 			end
 		end

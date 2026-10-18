@@ -106,9 +106,19 @@ local function throw(m: Model, humanoid: Humanoid, knock: { [string]: number }, 
 	local flat = Vector3.new(direction.X, 0, direction.Z)
 	local dir = if flat.Magnitude > 1e-3 then flat.Unit else -root.CFrame.LookVector
 	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-	root.AssemblyLinearVelocity = (dir * knock.push + Vector3.yAxis * (knock.lift - (knock.drop or 0))) * scale
+	local velocity = (dir * knock.push + Vector3.yAxis * (knock.lift - (knock.drop or 0))) * scale
 	local axis = Vector3.new(0, 1, 0):Cross(dir)
-	root.AssemblyAngularVelocity = axis * knock.tumble * scale
+	-- held for Tip.hold s, as src/server/Ragdoll does for a dead body (Studio, staff round 1: set once, a living
+	-- body going limp lost most of it, so every blast throw came out alike)
+	local spin = axis * knock.tumble * scale
+	task.spawn(function()
+		local stopAt = os.clock() + RagdollCfg.Tip.hold
+		repeat
+			root.AssemblyLinearVelocity = velocity
+			root.AssemblyAngularVelocity = spin
+			task.wait()
+		until os.clock() >= stopAt or not root.Parent
+	end)
 	local T = RagdollCfg.Tip
 	task.spawn(function()
 		local t0 = os.clock()
