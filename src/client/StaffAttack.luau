@@ -77,16 +77,22 @@ local function isStaff(weapon: Held.Weapon?): boolean
 	return weapon ~= nil and W[weapon.name] ~= nil and W[weapon.name].class == "Staff"
 end
 
--- the point under the crosshair (the screen centre: the mouse is locked there with a weapon drawn)
-local function aimPoint(ignore: { Instance }): Vector3
+-- the point under the crosshair (the screen centre: the mouse is locked there with a weapon drawn). `past`: the
+-- staff's head; the crosshair's line only counts from level with it, so what lies between the over-the-shoulder camera
+-- and the staff can't turn a shot back toward the player (Studio: shots sent far behind)
+local function aimPoint(ignore: { Instance }, past: Vector3?): Vector3
 	local cam = workspace.CurrentCamera
 	local size = cam.ViewportSize
 	local ray = cam:ViewportPointToRay(size.X / 2, size.Y / 2)
+	local origin = ray.Origin
+	if past then
+		origin += ray.Direction * math.max((past - ray.Origin):Dot(ray.Direction), 0)
+	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = ignore
-	local hit = workspace:Raycast(ray.Origin, ray.Direction * RANGE, params)
-	return if hit then hit.Position else ray.Origin + ray.Direction * RANGE
+	local hit = workspace:Raycast(origin, ray.Direction * RANGE, params)
+	return if hit then hit.Position else origin + ray.Direction * RANGE
 end
 
 -- the staff's head as the player sees it: the first-person viewmodel's while it shows, else the body's
@@ -177,8 +183,8 @@ function StaffAttack.start()
 		if not h then
 			return nil
 		end
-		local to = aimPoint(ignore)
 		local from = h.WorldPosition
+		local to = aimPoint(ignore, from)
 		if character:GetAttribute("CameraInside") == true and (to - from).Magnitude > S.Lead then
 			from += (to - from).Unit * S.Lead
 		end
@@ -318,7 +324,7 @@ function StaffAttack.start()
 		-- toward the crosshair, turned as the first-person staff sways (the sway's turn, in camera space)
 		local from = h.WorldPosition
 		local cam = workspace.CurrentCamera.CFrame
-		local toAim = (aimPoint(ignoreList(character)) - from).Unit
+		local toAim = (aimPoint(ignoreList(character), from) - from).Unit
 		local swayed = cam:VectorToWorldSpace(Sway.viewmodel().Rotation * cam:VectorToObjectSpace(toAim))
 		local dir = cone(swayed, Rules.spread(S.Hip, walking))
 		local own = character:GetAttribute("CameraInside") == true -- drawn smaller for the eye, as the aimed casts
@@ -456,7 +462,7 @@ function StaffAttack.start()
 				c.aim(t)
 				-- the laser only while left click is held (user 2026-10-13)
 				if held then
-					pointer.set(t.Position, aimPoint(ignore))
+					pointer.set(t.Position, aimPoint(ignore, t.Position))
 				else
 					pointer.hide()
 				end
@@ -466,7 +472,7 @@ function StaffAttack.start()
 			if NetRules.due(aimSentAt, now, Send.AimRate, 1) then
 				aimSentAt = now
 				local eye = character:FindFirstChild("Head") :: BasePart?
-				local to = aimPoint(ignore)
+				local to = aimPoint(ignore, t.Position)
 				if eye and (to - eye.Position).Magnitude > Send.Reach * 0.9 then
 					to = eye.Position + (to - eye.Position).Unit * Send.Reach * 0.9
 				end
