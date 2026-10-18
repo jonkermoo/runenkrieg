@@ -29,15 +29,18 @@ return {
 		assert(Blast.scaled(10, 0, B.MetresPerStud) == math.huge, "no charge, no blast")
 		assert(Blast.kpa(10, 0, B) == 0)
 	end,
-	["the full beam at 10 kg: lethal ~18, hurts to ~70, ragdolls the living only within ~10 studs"] = function()
+	["the full beam at 10 kg: lethal ~8, hurts to ~45, ragdolls the living only within ~10 studs"] = function()
 		local S = B.Soldier
-		assert(Blast.soldierDamage(kpa(17), S) >= S.max, "inside ~18 studs: lethal")
-		local mid = Blast.soldierDamage(kpa(30), S)
-		assert(mid > 20 and mid < S.max, `30 studs: heavy, not lethal ({mid})`)
-		assert(Blast.soldierDamage(kpa(60), S) > 0, "60 studs: still hurt")
+		-- user 2026-10-18: "lethal within ~8" (Studio round 1: lethal to ~16 killed and threw a miss by 12 studs)
+		assert(Blast.soldierDamage(kpa(7.5), S) >= S.max, "inside ~8 studs: lethal")
+		local mid = Blast.soldierDamage(kpa(10), S)
+		assert(mid > 40 and mid < S.max, `10 studs: heavy, not lethal ({mid})`)
+		local twelve = Blast.soldierDamage(kpa(12), S)
+		assert(twelve > 25 and twelve < 50, `12 studs: ~38 ({twelve})`)
+		assert(Blast.soldierDamage(kpa(30), S) > 0, "30 studs: still hurt a little")
 		-- user 2026-10-17: only the one aimed at and those really close to them are ragdolled
 		assert(Blast.knock(kpa(5.5), B.Knocks) == "BlastThrow", "5.5 studs: thrown")
-		assert(Blast.knock(kpa(8), B.Knocks) == "Torso", "8 studs: knocked down")
+		assert(Blast.knock(kpa(8.5), B.Knocks) == "Torso", "8.5 studs: knocked down (alive)")
 		assert(Blast.knock(kpa(11), B.Knocks) == nil, "11 studs: hurt, stays up")
 		assert(Blast.knock(kpa(30), B.Knocks) == nil, "30 studs: stays up")
 		assert(Blast.soldierDamage(kpa(80), S) == 0 and Blast.knock(kpa(80), B.Knocks) == nil, "80 studs: nothing")
@@ -106,6 +109,28 @@ return {
 		end
 		left -= shot(left)
 		assert(left <= 0, "the third shot breaks it")
+		-- the wear fades out with distance: a neighbouring section ~5.5 studs off takes little, none past wearReach
+		local function wearAt(d: number): number
+			return Blast.sectionHit(kpa(d, kg), {
+				fail = B.Fail.Brick,
+				maxHP = hp,
+				hp = hp,
+				weaken = B.Weaken,
+				wear = o.wear,
+				wearReach = o.wearReach,
+				distance = d,
+			})
+		end
+		assert(wearAt(5.5) < hp * 0.05, `a neighbour 5.5 studs off: {wearAt(5.5)}`)
+		assert(wearAt(o.wearReach + 1) == 0, "nothing past wearReach")
+		-- glass is brittle: a weaker blast leaves it whole, however many there are (Studio round 1)
+		local function pane(d: number): number
+			return Blast.sectionHit(
+				kpa(d, kg),
+				{ fail = B.Fail.Glass, maxHP = 1, hp = 1, weaken = B.Weaken, brittle = B.Brittle.Glass }
+			)
+		end
+		assert(pane(13) == 1 and pane(20) == 0, "glass breaks near, takes nothing further off")
 		-- stage 1 and the full beam: everything
 		for _, s in { 1, 3 } do
 			local b = St.Blasts[s]

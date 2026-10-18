@@ -132,6 +132,7 @@ export type BlastOpts = {
 	trees: boolean?,
 	crater: boolean?,
 	wear: number?,
+	wearReach: number?,
 	breaks: { [string]: boolean }?,
 }
 
@@ -175,7 +176,10 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 			hp = hp,
 			weaken = B.Weaken,
 			wear = if class and o.breaks and o.breaks[class] then nil else o.wear,
+			wearReach = o.wearReach,
+			distance = d,
 			keep = kind ~= nil and (B.WearOnly :: any)[kind] == true,
+			brittle = class ~= nil and (B.Brittle :: any)[class] == true,
 		})
 	end)
 	-- the crater first, so the trees it fells lie on the ground as it is after

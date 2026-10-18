@@ -40,10 +40,11 @@ local Damage = {
 		-- surrounding glass, but not destroy a building part (maybe damage it)"): `soldiers` hurt and knocked by it
 		-- (stage 2: only by its beam), `trees` felled or stripped by it (every tree near still shakes: Net "Explosion"),
 		-- a `crater`; `wear`: a section loses at most this share of its MaxHP per blast (3 stage 2 shots break one),
-		-- except the classes in `breaks` (glass shatters)
+		-- fading to 0 at `wearReach` studs from the blast (Studio round 1: neighbouring walls broke too), except the
+		-- classes in `breaks` (glass shatters)
 		Blasts = {
 			{ soldiers = true, trees = true, crater = true },
-			{ soldiers = false, trees = false, crater = false, wear = 0.4, breaks = { Glass = true } },
+			{ soldiers = false, trees = false, crater = false, wear = 0.4, wearReach = 6, breaks = { Glass = true } },
 			{ soldiers = true, trees = true, crater = true },
 		},
 	},
@@ -56,8 +57,10 @@ local Damage = {
 		MetresPerStud = 0.357, -- (Config/Weapons: 0.357 m per stud)
 		AmbientKPa = 101.325,
 		Reach = 12, -- Z beyond which nothing is felt (m / kg^(1/3)); bounds the search (~67 studs at 10 kg)
-		-- soldiers: damage from `from` kPa (0) rising to `kill` kPa (`max` damage, kills from full health)
-		Soldier = { from = 8, kill = 80, max = 100 },
+		-- soldiers: damage from `from` kPa (0) rising to `kill` kPa (`max` damage, kills from full health). At 10 kg:
+		-- lethal within ~8 studs, ~59 at 10, ~38 at 12, ~19 at 16, ~4 at 30 (user 2026-10-18: "lethal within ~8"; was
+		-- kill 80, lethal to ~16, so a miss by 12 studs killed and threw)
+		Soldier = { from = 8, kill = 540, max = 100 },
 		-- knocks by overpressure, strongest first (Config/Ragdoll.Knocks); below the last: nothing (only hurt). User
 		-- 2026-10-17: "even if you miss your full charge, you should be able to ragdoll only the person you were trying
 		-- to aim at (and the people really close to him)": at 10 kg thrown within ~6 studs, knocked down within ~10 (was
@@ -88,6 +91,9 @@ local Damage = {
 		-- section kinds a blast only wears, never breaks: each floor is one slab, so any blast in a room took the whole
 		-- floor (user 2026-10-17: never break, until floors are split into pieces)
 		WearOnly = { Floor = true },
+		-- classes that break at their fail pressure or not at all, never worn bit by bit (Studio round 1: glass with 1 HP
+		-- added up weaker blasts, so a second stage 2 shot broke windows far off)
+		Brittle = { Glass = true },
 		-- trees (Config/TreeSway.Tag): at their trunk base over `fail` a tree is felled whole (no stump: the crater is
 		-- there; user 2026-10-17); below it loses its HP (Trees below) like a section: MaxHP x (kPa / fail)^Weaken
 		Tree = { fail = 60, weaken = 2 },

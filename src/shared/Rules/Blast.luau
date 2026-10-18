@@ -69,15 +69,25 @@ export type SectionHit = {
 	hp: number, -- what it has left
 	weaken: number,
 	wear: number?, -- at most this share of maxHP per blast (Config/Damage.Staff.Blasts `wear`), nil: no cap
+	wearReach: number?, -- ...fading to 0 at this many studs from the blast
+	distance: number?, -- the section's distance from the blast (studs), for `wearReach`
 	keep: boolean?, -- never broken, only worn (Config/Damage.Blast.WearOnly): it keeps at least 1 HP
+	brittle: boolean?, -- breaks at `fail` or takes nothing (Config/Damage.Blast.Brittle)
 }
 
--- what a map section loses to a blast at `kpa`: Blast.sectionDamage, capped by a light blast's `wear`, and short of
--- breaking it when it must be kept
+-- what a map section loses to a blast at `kpa`: Blast.sectionDamage (all or nothing when brittle), capped by a light
+-- blast's `wear` (fading out to `wearReach`), and short of breaking it when it must be kept
 function Blast.sectionHit(kpa: number, s: SectionHit): number
 	local amount = Blast.sectionDamage(kpa, s.fail, s.maxHP, s.weaken)
+	if s.brittle and amount < s.maxHP then
+		amount = 0
+	end
 	if s.wear then
-		amount = math.min(amount, s.wear * s.maxHP)
+		local share = s.wear
+		if s.wearReach and s.wearReach > 0 then
+			share *= math.max(0, 1 - (s.distance or 0) / s.wearReach)
+		end
+		amount = math.min(amount, share * s.maxHP)
 	end
 	if s.keep then
 		amount = math.min(amount, math.max(s.hp - 1, 0))
