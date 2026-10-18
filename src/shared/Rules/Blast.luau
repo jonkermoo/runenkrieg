@@ -109,7 +109,7 @@ function Blast.craterPlan(kg: number, c: any): CraterPlan?
 	return Blast.craterPlanFor(Blast.crater(kg, c.perCubeRoot), c)
 end
 
--- the same for a hole of radius `r` (a falling tree's dent: Config/Damage.Trees.Fall.Dent)
+-- the same for a hole of radius `r`
 function Blast.craterPlanFor(r: number, c: any): CraterPlan?
 	if r <= 0 then
 		return nil
