@@ -121,6 +121,12 @@ function Armory.label(name: string, count: number): string
 	return `{W[name].display} x{count}`
 end
 
+-- The "Hold" motor's C1: the item `held` away from the hold's Gun point (Config/Weapons; identity for most).
+function Armory.heldOffset(name: string): CFrame
+	local h = W[name].held
+	return if h then CFrame.new(-h[1], -h[2], -h[3]) else CFrame.identity
+end
+
 -- The weapon as a Tool. No Handle, so Roblox adds no grip weld: the "Hold" Motor6D joins the Gun part to the
 -- Torso while equipped (Part0 set by Armory.give, and by the owner's client at once, src/client/Locomotion). With
 -- C0 = C1 = identity, the hold animation's "Gun" pose is the gun origin in the torso's space.
@@ -133,6 +139,7 @@ function Armory.tool(name: string): Tool
 	tool.RequiresHandle = false
 	local hold = Instance.new("Motor6D")
 	hold.Name = "Hold"
+	hold.C1 = Armory.heldOffset(name)
 	hold.Part1 = model.PrimaryPart
 	hold.Parent = model.PrimaryPart
 	for _, c in model:GetChildren() do

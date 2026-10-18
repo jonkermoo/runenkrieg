@@ -93,11 +93,11 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 	local g = workspace.Gravity
 	local prev = Vector3.new(ox, oy, oz)
 	local n = 0
-	local t = A.step
+	local t = 0 -- from the hand itself, so the arc comes in from the edge of the view
 	while t <= A.time do
 		local x, y, z = Rules.at(t, ox, oy, oz, vx, vy, vz, g)
 		local p = Vector3.new(x, y, z)
-		local hit = workspace:Raycast(prev, p - prev, params)
+		local hit = if t > 0 then workspace:Raycast(prev, p - prev, params) else nil
 		n += 1
 		local d = dot(n)
 		if hit then

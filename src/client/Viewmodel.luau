@@ -150,7 +150,9 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 	copy:Destroy()
 	local hold = model:FindFirstChild("Hold", true) :: Motor6D
 	hold.Part0 = torso
-	hold.C0, hold.C1 = CFrame.identity, CFrame.identity
+	hold.C0 = CFrame.identity
+	local h = W[weapon.name].held -- (as src/server/Armory.heldOffset)
+	hold.C1 = if h then CFrame.new(-h[1], -h[2], -h[3]) else CFrame.identity
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6
