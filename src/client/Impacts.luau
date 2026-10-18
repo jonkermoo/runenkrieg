@@ -12,6 +12,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
 local TreeCfg = require(Shared.Config.TreeSway)
 local Trees = require(Shared.Rules.Trees)
+local Net = require(Shared.Net)
+local TreeSway = require(script.Parent.TreeSway)
 
 local Impacts = {}
 
@@ -99,6 +101,13 @@ local function leaves(from: Vector3, to: Vector3)
 	end
 end
 
+-- `count` leaves falling at `at` in `color` (shedding canopies, src/client/TreeFall)
+function Impacts.leaves(at: Vector3, color: Color3, count: number)
+	for _ = 1, math.max(count // I.Leaf.count, 1) do
+		burst(I.Leaf, at + spread() * 2, -Vector3.yAxis, color)
+	end
+end
+
 -- one bullet's line from `from` to where it landed (`hit`, the surface's `normal`, the `part` it hit)
 function Impacts.shot(from: Vector3?, hit: Vector3, normal: Vector3?, part: Instance?)
 	if from then
@@ -126,6 +135,22 @@ function Impacts.shot(from: Vector3?, hit: Vector3, normal: Vector3?, part: Inst
 end
 
 function Impacts.start()
+	-- a staff beam through or near canopies (src/server/Trees.beam): a shake and leaves, scaled by the stage
+	Net.event("LeavesHit").OnClientEvent:Connect(function(hits: any)
+		if type(hits) ~= "table" then
+			return
+		end
+		local B = I.Beam
+		for _, h in hits do
+			local tree, at, react = h[1], h[2], h[3]
+			local canopy = typeof(tree) == "Instance" and tree:FindFirstChild("Canopy") :: BasePart?
+			if canopy and typeof(at) == "Vector3" and type(react) == "number" then
+				TreeSway.explode(at, B.radius, react * B.kick)
+				Impacts.leaves(at, canopy.Color, math.max(math.floor(B.leaves * react), 1))
+			end
+		end
+	end)
+
 	RunService.RenderStepped:Connect(function(dt)
 		if #bits == 0 then
 			return

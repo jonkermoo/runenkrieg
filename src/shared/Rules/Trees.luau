@@ -34,6 +34,15 @@ function Trees.blastDamage(kpa: number, fail: number, maxHP: number, weaken: num
 	return maxHP * (kpa / fail) ^ weaken, false
 end
 
+-- the leaves' damage from a staff beam of `stage` passing `through` the canopy or only near it
+function Trees.beamLeafDamage(
+	stage: number,
+	through: boolean,
+	leaves: { through: { number }, near: { number } }
+): number
+	return (if through then leaves.through[stage] else leaves.near[stage]) or 0
+end
+
 -- HP left after `amount`, and whether that fells it
 function Trees.after(hp: number, amount: number): (number, boolean)
 	local left = math.max(hp - math.max(amount, 0), 0)

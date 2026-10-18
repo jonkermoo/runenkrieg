@@ -5,7 +5,12 @@
 local RunService = game:GetService("RunService")
 
 local Remotes: { string } = {
-	"Explosion", -- server -> clients: (position: Vector3, radius: number, strength: number?) visual response
+	-- server -> clients: (position: Vector3, radius: number, strength: number?) visual response; from a real-scaled blast
+	-- the radius is its reach (src/server/Damage.blast), from which clients work out the churned ground
+	"Explosion",
+	-- server -> clients: ({ { tree: Model, at: Vector3, react: number } }) a staff beam through or near canopies: shake
+	-- them and drop leaves at `at`, scaled by `react` (src/server/Trees.beam, src/client/Impacts)
+	"LeavesHit",
 	"DevTeleport", -- client -> server: (destinationId: string); server checks the DevTools attribute
 	"DevGiveWeapon", -- client -> server: (weapon: string) make it the player's loadout pick; DevTools attribute checked
 	-- client -> server: (action: string, value: any, aim: Vector3?) a test action from the dev panels (dummies, blasts,

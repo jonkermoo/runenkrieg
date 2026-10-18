@@ -248,6 +248,7 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 			hurt(character, humanoid, left, knock, flat(direction))
 		end
 	end
+	Trees.beam(origin, landed, stage) -- the leaves it passes through or near (src/server/Trees)
 	if result then
 		Damage.blast(landed, S.Charge[stage] or 0, caster)
 	end

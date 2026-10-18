@@ -88,6 +88,12 @@ local Firing = {
 			Splinter = { count = 5, size = 0.14, long = 3.5, speed = 12, up = 5, gravity = 60, drag = 1, life = 0.9 },
 			Splash = { count = 7, size = 0.3, speed = 3, up = 18, gravity = 70, drag = 1, life = 0.7 },
 			Leaf = { count = 5, size = 0.4, speed = 2, up = 0, gravity = 3, drag = 2.5, life = 2.6, canopyShare = 1 },
+			-- a staff beam through a canopy (Net "LeavesHit", x its `react`): this many leaves and a shake of `kick` x the
+			-- explosion kick (Config/TreeSway.Explosion) within `radius` of where it entered
+			Beam = { leaves = 12, kick = 0.35, radius = 10 },
+			-- a canopy shedding (stripped, or its tree felled): `perSecond` bursts of Leaf.count leaves fall from all over
+			-- it while it fades (src/client/TreeFall)
+			Shed = { perSecond = 4 },
 		},
 		HitMarker = { time = 1.2 }, -- the shooter's note: what was hit, how far
 	},

@@ -111,6 +111,25 @@ local Damage = {
 			tipShare = 0.85,
 		},
 		Stump = { height = 1.2, widthShare = 0.9 }, -- of the trunk's base width
+		-- a felled tree lies with `share` x its MaxHP again (user 2026-10-17: "give it continue HP so it can be
+		-- destroyed"): bullets and blasts wear it down; at 0 it sinks and fades away (Fall.sinkTime)
+		Fallen = { share = 0.5 },
+		-- The leaves have HP of their own (user 2026-10-17): HP[kind] x the tree's scale. Bullets never touch them.
+		-- A staff beam through the canopy's box takes `through[stage]`, one passing or landing within `nearDistance[stage]`
+		-- studs of it `near[stage]` (a few stage 2 shots strip a tree); a blast by its overpressure at the canopy: all
+		-- at `blastFail` kPa, (kPa / blastFail)^blastWeaken below. Stripped (or the tree felled: its leaves go to 0),
+		-- the canopy sheds over `shedTime` s on the clients and is removed. `react[stage]`: how hard a beam shakes the
+		-- leaves and how many fall (x the leaf bits, src/client/Impacts), half for a beam only passing near.
+		Leaves = {
+			HP = { Pine = 100, Broadleaf = 120, Birch = 80 },
+			through = { 12, 40, 200 },
+			near = { 5, 30, 120 },
+			nearDistance = { 2, 5, 10 },
+			blastFail = 25,
+			blastWeaken = 1,
+			shedTime = 4,
+			react = { 0.5, 1, 2 },
+		},
 	},
 
 	-- Respawn after this many seconds: Config/Metrics.Combat.RespawnDelay (Players.RespawnTime).

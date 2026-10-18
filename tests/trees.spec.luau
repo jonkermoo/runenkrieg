@@ -63,4 +63,25 @@ return {
 		assert(Trees.enterBox(10, 0, 0, 1, 0, 0, 50, 2, 2, 2) == nil, "behind the start")
 		assert(Trees.enterBox(0, 0, 0, 0, 1, 0, 50, 2, 2, 2) == 0, "starts inside")
 	end,
+	["leaves: a few stage 2 beams strip a tree, a full beam does at once, bullets never"] = function()
+		local L = T.Leaves
+		for kind, hp in L.HP do
+			local through = Trees.beamLeafDamage(2, true, L)
+			local near = Trees.beamLeafDamage(2, false, L)
+			local hits = math.ceil(hp * 1.3 / through) -- the biggest trees (scale ~1.3)
+			assert(hits >= 2 and hits <= 4, `{kind}: {hits} stage 2 beams through`)
+			assert(near > 0 and near <= through, "near takes some, less than through")
+			assert(Trees.beamLeafDamage(3, true, L) >= hp * 1.4, `{kind}: a full beam strips it`)
+			assert(Trees.beamLeafDamage(1, true, L) < through, "stage 1 takes less")
+		end
+		assert(Trees.beamLeafDamage(9, true, L) == 0, "no such stage")
+		assert(Trees.shotDamage("BoltRifle", { Weapons = {} }) == 0)
+		-- a full blast strips leaves further out than it fells trees
+		assert(L.blastFail < D.Blast.Tree.fail)
+		assert(T.Fallen.share > 0 and T.Fallen.share <= 1, "a fallen tree lies with HP again")
+		assert(L.shedTime > 0, "the canopy sheds over time, not at once")
+		for stage = 1, 3 do
+			assert(L.react[stage] and L.nearDistance[stage], `react / near for stage {stage}`)
+		end
+	end,
 }
