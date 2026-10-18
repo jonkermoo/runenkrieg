@@ -40,11 +40,20 @@ local Damage = {
 		-- surrounding glass, but not destroy a building part (maybe damage it)"): `soldiers` hurt and knocked by it
 		-- (stage 2: only by its beam), `trees` felled or stripped by it (every tree near still shakes: Net "Explosion"),
 		-- a `crater`; `wear`: a section loses at most this share of its MaxHP per blast (3 stage 2 shots break one),
-		-- fading to 0 at `wearReach` studs from the blast (Studio round 1: neighbouring walls broke too), except the
-		-- classes in `breaks` (glass shatters)
+		-- in full within `wearFull` studs of the blast (to the section's nearest surface), fading to 0 at `wearReach`
+		-- (Studio rounds 1-2: neighbouring walls ~3 studs off broke too, then lost 20% a shot), except the classes in
+		-- `breaks` (glass shatters)
 		Blasts = {
 			{ soldiers = true, trees = true, crater = true },
-			{ soldiers = false, trees = false, crater = false, wear = 0.4, wearReach = 6, breaks = { Glass = true } },
+			{
+				soldiers = false,
+				trees = false,
+				crater = false,
+				wear = 0.4,
+				wearFull = 1.5,
+				wearReach = 3,
+				breaks = { Glass = true },
+			},
 			{ soldiers = true, trees = true, crater = true },
 		},
 	},

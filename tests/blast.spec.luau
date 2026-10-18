@@ -109,7 +109,7 @@ return {
 		end
 		left -= shot(left)
 		assert(left <= 0, "the third shot breaks it")
-		-- the wear fades out with distance: a neighbouring section ~5.5 studs off takes little, none past wearReach
+		-- the wear fades out with distance (Studio round 2): the hit section in full, a neighbour ~3 studs off nothing
 		local function wearAt(d: number): number
 			return Blast.sectionHit(kpa(d, kg), {
 				fail = B.Fail.Brick,
@@ -117,11 +117,15 @@ return {
 				hp = hp,
 				weaken = B.Weaken,
 				wear = o.wear,
+				wearFull = o.wearFull,
 				wearReach = o.wearReach,
 				distance = d,
 			})
 		end
-		assert(wearAt(5.5) < hp * 0.05, `a neighbour 5.5 studs off: {wearAt(5.5)}`)
+		assert(wearAt(1) == hp * o.wear, "the hit section, ~1 stud off its centre: in full")
+		assert(wearAt(3) == 0, `a neighbour 3 studs off: {wearAt(3)}`)
+		local mid = wearAt((o.wearFull + o.wearReach) / 2)
+		assert(mid > 0 and mid < hp * o.wear, "fading in between")
 		assert(wearAt(o.wearReach + 1) == 0, "nothing past wearReach")
 		-- glass is brittle: a weaker blast leaves it whole, however many there are (Studio round 1)
 		local function pane(d: number): number

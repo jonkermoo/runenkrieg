@@ -132,6 +132,7 @@ export type BlastOpts = {
 	trees: boolean?,
 	crater: boolean?,
 	wear: number?,
+	wearFull: number?,
 	wearReach: number?,
 	breaks: { [string]: boolean }?,
 }
@@ -176,6 +177,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 			hp = hp,
 			weaken = B.Weaken,
 			wear = if class and o.breaks and o.breaks[class] then nil else o.wear,
+			wearFull = o.wearFull,
 			wearReach = o.wearReach,
 			distance = d,
 			keep = kind ~= nil and (B.WearOnly :: any)[kind] == true,
