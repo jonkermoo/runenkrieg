@@ -216,7 +216,7 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	local ground = groundAt(base)
 	local half = thickness(trunk) / 2
 	-- snapped: it turns on the stump top; uprooted: on the ground, its butt lying half its thickness up
-	local hinge = Vector3.new(base.X, ground + (if leaveStump then T.Stump.height else half), base.Z)
+	local hinge = Vector3.new(base.X, ground + (if leaveStump then T.Stump.height else half - F.Imprint.depth), base.Z)
 	local _, size = tree:GetBoundingBox()
 	local h = size.Y
 	-- lie clear of the ground all along it (user 2026-10-17: it "often appears below the map")
@@ -228,7 +228,7 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
 		if y then
 			-- its underside down in its imprint (Fall.Imprint.depth under the ground), tapering toward the top
-			local clear = half * (1 - (1 - F.tipClear) * k / F.samples) - F.Imprint.depth * (1 - k / F.samples)
+			local clear = half * (1 - (1 - F.tipClear) * k / F.samples) - F.Imprint.depth
 			table.insert(samples, { x, y - hinge.Y + clear })
 		end
 	end
@@ -270,7 +270,7 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		if crush then
 			crush(hinge, hinge + lie.UpVector * reach, F.Crush.radius * sc, F.Crush.damage, F.Crush.knock)
 		end
-		-- its imprint: the ground pressed down evenly wherever it lies on it
+		-- its imprint: it lies pressed into the ground (above); the ground round it churned to mud where it lies on it
 		local I = F.Imprint
 		local cot = 1 / math.tan(tilt)
 		local x = 0
@@ -279,10 +279,7 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 			local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
 			local bottom = hinge.Y + x * cot - half -- the trunk's underside here
 			if y and bottom - y <= I.touch then
-				local floor = Vector3.new(at.X, y - I.depth, at.Z)
-				-- a ball whose bottom is the imprint's floor
-				Ground.ball(floor + Vector3.yAxis * I.radius, I.radius, Enum.Material.Air)
-				Ground.churn(floor, I.churnRadius, I.radius, I)
+				Ground.churn(Vector3.new(at.X, y, at.Z), I.churnRadius, I.churnDepth, I)
 			end
 			x += I.step
 		end

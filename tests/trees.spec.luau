@@ -88,12 +88,10 @@ return {
 			assert(hits >= 2 and hits <= 5, `{kind}: {hits} stage 2 hits fell it`)
 		end
 	end,
-	["the imprint and root balls are big enough to show in 4-stud voxels, and even"] = function()
+	["the imprint is even and shallow, and root balls show in 4-stud voxels"] = function()
 		local I = T.Fall.Imprint
-		assert(I.radius >= 2.5, "an imprint the voxels keep")
-		assert(I.depth > 0 and I.depth < I.radius, "pressed in, not a hole")
-		local open = math.sqrt(I.radius ^ 2 - (I.radius - I.depth) ^ 2)
-		assert(I.step <= open, "its balls overlap into one even trough")
+		assert(I.depth > 0 and I.depth <= 1.5, "pressed in about a stud, not buried")
+		assert(I.step < I.churnRadius, "its mud runs on along the trunk")
 		local R = T.Fall.Roots
 		assert(R.min >= 2.2 and R.max >= R.min, "a root ball the voxels keep")
 		local Palette = require("../src/shared/Config/Palette")
@@ -101,7 +99,7 @@ return {
 		assert(roots, "the root material has a palette colour (flat, from Greybox applyPalette)")
 		assert(roots[1] + roots[2] + roots[3] < mud[1] + mud[2] + mud[3], "roots darker than mud")
 		local Foliage = require("../src/shared/Config/Foliage")
-		assert(Foliage.UnderTrunk.radius >= open, "no grass in the imprint")
+		assert(Foliage.UnderTrunk.radius >= 2, "no grass along the trunk")
 	end,
 	["a bullet's line enters a canopy box where it should"] = function()
 		-- along +X from x = -10, a box of half size 2: enters at 8
@@ -167,7 +165,7 @@ return {
 				"near",
 			},
 			[F.Roots] = { "material", "max", "min", "pit", "pitBack", "pitSink", "radius", "rise" },
-			[F.Imprint] = { "churnRadius", "depth", "radius", "step", "touch", "churnFrom", "churnTo" },
+			[F.Imprint] = { "churnRadius", "churnDepth", "depth", "step", "touch", "churnFrom", "churnTo" },
 			[F.Crush] = { "ghost", "ghostMax", "radius", "damage", "knock" },
 			[T.Stump] = { "height", "widthShare" },
 		}
