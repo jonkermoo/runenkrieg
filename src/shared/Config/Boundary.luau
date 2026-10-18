@@ -12,6 +12,9 @@ local Boundary = {
 	-- Flat colour (user 2026-10-18): ForceField's shimmer didn't show on one long wall (Studio: invisible head-on).
 	Material = "SmoothPlastic",
 	MaxOpacity = 0.45,
+	-- drawn this thin (a BlockMesh's scale; it still blocks 1 stud thick): the see-through end faces where a side's two
+	-- pieces meet doubled up into a bright stripe (Studio 2026-10-18)
+	DrawnThickness = 0.02,
 	-- The walls stop characters only: in their own collision group, which collides with nothing else, so every
 	-- raycast and spherecast (aims, bullets, staff beams, shells) passes through (user: "shells and magic can go outside
 	-- the map"). CanQuery off alone doesn't do it: Roblox ignores it while CanCollide is on.

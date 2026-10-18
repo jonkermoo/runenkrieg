@@ -35,6 +35,9 @@ function Features.bounds(parent: Instance, map: any, cfg: any): number
 			local p = Parts.box(folder, "BoundaryPanel", cf, Vector3.new(w, height, 1), color)
 			p.Material = (Enum.Material :: any)[cfg.Material]
 			p.CollisionGroup = cfg.CollisionGroup
+			local mesh = Instance.new("BlockMesh")
+			mesh.Scale = Vector3.new(1, 1, cfg.DrawnThickness)
+			mesh.Parent = p
 			p.Transparency = 1 - cfg.MaxOpacity
 			p.CanQuery = false
 			p.CanTouch = false
