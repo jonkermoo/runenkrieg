@@ -94,7 +94,8 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 	local prev = Vector3.new(ox, oy, oz)
 	local n = 0
 	local t = 0 -- from the hand itself, so the arc comes in from the edge of the view
-	while t <= A.time do
+	local dt = A.spacing / math.max(Vector3.new(vx, vy, vz).Magnitude, 1)
+	while t <= A.time and n < A.dots do
 		local x, y, z = Rules.at(t, ox, oy, oz, vx, vy, vz, g)
 		local p = Vector3.new(x, y, z)
 		local hit = if t > 0 then workspace:Raycast(prev, p - prev, params) else nil
@@ -110,7 +111,7 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 		d.Position = p
 		d.Transparency = A.transparency
 		prev = p
-		t += A.step
+		t += dt
 	end
 	hide(n + 1)
 end

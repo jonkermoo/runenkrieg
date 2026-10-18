@@ -48,10 +48,13 @@ local Grenades = {
 		lever = { carry = 0.5, pop = 15, spin = 20, life = 1.5 },
 	},
 
-	-- The arc preview (src/client/Grenades): dots along the path every `step` seconds of flight, out to the first thing
-	-- it hits or `time` seconds; each dot `size` studs, see-through (Palette.Grenades.Arc), the landing spot bigger.
+	-- The arc preview (src/client/Grenades): a dot every `spacing` studs along the path from the throwing hand (over the
+	-- right shoulder, so it comes in from the top right of the view), out to the first thing it hits, `time` seconds or
+	-- `dots` dots; each dot `size` studs, see-through (Palette.Grenades.Arc), the landing spot bigger. (Studio round 4:
+	-- a dot every 0.05 s left the first 7 studs empty.)
 	Arc = {
-		step = 0.05,
+		spacing = 2.5,
+		dots = 120,
 		time = 4,
 		size = 0.3, -- (Studio round 1: 0.18 at 0.45 see-through was near invisible)
 		landSize = 0.8,
