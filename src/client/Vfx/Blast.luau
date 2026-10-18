@@ -75,6 +75,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			rings = K.rings,
 			spikes = o.magic == true,
 			puffs = math.max(math.round(d * K.puffsPerStud), 3),
+			life = 1,
 		}
 	end
 	local s = (Vfx.Schemes :: any)[o.scheme or Vfx.Ray.Scheme]
@@ -109,6 +110,8 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	end
 
 	local F, Sh, L, C = Cfg.Fireball, Cfg.Shell, Cfg.Light, Cfg.Cloud
+	local lives = st.life or 1 -- the smaller stages' cloud and smoke go sooner
+	local cloudLife = C.life * lives
 	local fireball = Pool.part(Enum.PartType.Ball, fire, Vector3.one * F.start, CFrame.new(pos))
 	local shell = Pool.part(Enum.PartType.Ball, shellColor, Vector3.one * F.start, CFrame.new(pos), Sh.transparency)
 	local light = Pool.light(pos + normal * L.lift, glow, math.min(L.range * d, L.max), L.brightness)
@@ -203,7 +206,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	column.Shape = Enum.ParticleEmitterShape.Box
 	column.Texture = SMOKE
 	column.Speed = NumberRange.new(sm.rise[1] * d, sm.rise[2] * d)
-	column.Lifetime = NumberRange.new(sm.life[1], sm.life[2])
+	column.Lifetime = NumberRange.new(sm.life[1] * lives, sm.life[2] * lives)
 	column.SpreadAngle = Vector2.new(sm.spread, sm.spread)
 	column.EmissionDirection = Enum.NormalId.Top
 	column.Drag = sm.drag
@@ -233,12 +236,12 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local total = math.max(
 		fireEnd,
 		Sh.fade + F.grow,
-		C.life + C.appear,
+		cloudLife + C.appear,
 		L.time,
 		sp.life[2],
 		em.life[2],
 		fl.life[2] * 2,
-		sm.delay + sm.life[2]
+		sm.delay + sm.life[2] * lives
 	)
 	Driver.add(function(now: number): boolean
 		local t = now - now0
@@ -280,13 +283,13 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			end
 			local pop = math.min(pt / C.appear, 1)
 			local grow = C.from + (1 - C.from) * (1 - (1 - pop) ^ 3)
-			local size = p.size * grow * (1 + (C.swell - 1) * math.min(pt / C.life, 1))
+			local fade = math.clamp((pt / cloudLife - (1 - C.fade)) / C.fade, 0, 1)
+			local size = p.size * grow * (1 + (C.swell - 1) * math.min(pt / cloudLife, 1)) * (1 - C.shrink * fade)
 			local at = p.at + Vector3.yAxis * C.rise * d * pt
-			local fade = math.clamp((pt / C.life - (1 - C.fade)) / C.fade, 0, 1)
 			p.part.Size = Vector3.one * size
 			p.part.CFrame = CFrame.new(at)
 			p.part.Transparency = fade
-			local cool = math.clamp((pt / C.life - C.hot) / (1 - C.hot), 0, 1)
+			local cool = math.clamp((pt / cloudLife - C.hot) / (1 - C.hot), 0, 1)
 			p.part.Color = rim:Lerp(Color3.new(), C.rimDark * cool)
 			local toEye = eye - at
 			toEye = if toEye.Magnitude > 1e-3 then toEye.Unit else Vector3.zero

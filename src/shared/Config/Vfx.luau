@@ -424,10 +424,12 @@ local Vfx = {
 	-- light, and the impact burst (with the debris of what was hit). Stage 3's fireball is about the real one of its
 	-- 10 kg charge (~8 m across, Config/Damage.Blast).
 	Blast = {
+		-- `life`: x the cloud's and the smoke's life (user 2026-10-18: "make the smaller attacks fade away faster
+		-- (stage 1 fades fastest, stage 2 a little, stage 3 keep as is)")
 		Stages = {
-			{ fireball = 4, rings = 1, spikes = false, puffs = 4 },
-			{ fireball = 9, rings = 2, spikes = true, puffs = 7 },
-			{ fireball = 22, rings = 3, spikes = true, puffs = 14 },
+			{ fireball = 4, rings = 1, spikes = false, puffs = 4, life = 0.45 },
+			{ fireball = 9, rings = 2, spikes = true, puffs = 7, life = 0.7 },
+			{ fireball = 22, rings = 3, spikes = true, puffs = 14, life = 1 },
 		},
 		-- seconds: swells, stays white-hot, fades into the glow (growing `swell` x more as it fades); `start` studs across
 		Fireball = { grow = 0.12, hold = 0.08, fade = 0.35, swell = 0.15, start = 0.5 },
@@ -460,6 +462,9 @@ local Vfx = {
 			up = 0.1,
 			hot = 0.4,
 			rimDark = 0.35,
+			-- as a puff fades it shrinks to 1 - `shrink` of its size (user 2026-10-18: "make the smoke balls shrink a
+			-- little as they fade away")
+			shrink = 0.3,
 		},
 		-- The explosion's colours, as roles in the cast's scheme (Config/Vfx.Schemes; Arcane: `glow` the light blue,
 		-- `haze` the deep blue, `flash` the white): user 2026-10-17 "make sure the actual explosion is blue, but not the

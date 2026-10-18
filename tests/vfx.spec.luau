@@ -63,7 +63,12 @@ return {
 		assert(#S == #Damage.Staff.Range, "one explosion per stage")
 		for i = 2, #S do
 			assert(S[i].fireball > S[i - 1].fireball and S[i].rings >= S[i - 1].rings, `stage {i} bigger`)
+			-- user 2026-10-18: the smaller stages fade sooner, stage 1 fastest; stage 3 as it was
+			assert(S[i].life > S[i - 1].life and S[i - 1].life > 0, `stage {i - 1} fades sooner`)
 		end
+		assert(S[#S].life == 1, "stage 3 keeps its fade")
+		local shrink = Vfx.Blast.Cloud.shrink
+		assert(shrink > 0 and shrink < 0.6, "the puffs shrink a little as they fade")
 		-- a 10 kg TNT fireball is roughly 8 m across: within a few studs
 		local real = 8 / Damage.Blast.MetresPerStud
 		assert(math.abs(S[#S].fireball - real) < 4, `stage 3 fireball {S[#S].fireball} vs ~{real}`)

@@ -43,6 +43,10 @@ local Damage = {
 		-- in full within `wearFull` studs of the blast (to the section's nearest surface), fading to 0 at `wearReach`
 		-- (Studio rounds 1-2: neighbouring walls ~3 studs off broke too, then lost 20% a shot), except the classes in
 		-- `breaks` (glass shatters)
+		-- your own staff never hurts you (user 2026-10-18: "make sure that your own beam cant kill yourself"): the beam
+		-- and its blast leave the caster out, and a tree it fells doesn't hurt them for this many seconds after the
+		-- shot (it lands Config/Damage.Trees.Fall.time after)
+		SelfSafe = 5,
 		Blasts = {
 			{ soldiers = true, trees = true, crater = true },
 			{
