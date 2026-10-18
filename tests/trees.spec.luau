@@ -2,6 +2,7 @@
 local D = require("../src/shared/Config/Damage")
 local Blast = require("../src/shared/Rules/Blast")
 local Trees = require("../src/shared/Rules/Trees")
+local Rules = Trees
 
 local T = D.Trees
 local B = D.Blast
@@ -43,15 +44,64 @@ return {
 		assert(not whole and amount > 0 and amount < 300)
 		assert(Trees.blastDamage(0, B.Tree.fail, 300, B.Weaken) == 0)
 	end,
-	["a felled tree lies on the ground: flat on the level, less up a slope, more down one"] = function()
+	["a felled tree lies clear of the ground: flat on the level, less up a slope, more down one"] = function()
 		local F = T.Fall
-		assert(Trees.fallTilt(30, 0, F.minTilt, F.maxTilt) == 90)
-		assert(Trees.fallTilt(30, 6, F.minTilt, F.maxTilt) < 90)
-		assert(Trees.fallTilt(30, -3, F.minTilt, F.maxTilt) > 90)
-		assert(Trees.fallTilt(30, 100, F.minTilt, F.maxTilt) == F.minTilt, "clamped")
-		assert(Trees.fallTilt(30, -100, F.minTilt, F.maxTilt) == F.maxTilt, "clamped")
-		assert(Trees.fallTilt(0, 0, F.minTilt, F.maxTilt) == F.minTilt)
+		local function level(rise: number)
+			local samples = {}
+			for k = 1, 10 do
+				table.insert(samples, { k * 3, rise * k / 10 })
+			end
+			return Rules.clearTilt(samples, F.minTilt, F.maxTilt)
+		end
+		assert(level(0) == 90, "flat")
+		assert(level(6) < 90 and level(-3) > 90, "up / down a slope")
+		assert(level(100) == F.minTilt and level(-100) == F.maxTilt, "clamped")
+		-- a bump half way up wins over level ground at the top
+		local bump = Rules.clearTilt({ { 10, 3 }, { 30, 0 } }, F.minTilt, F.maxTilt)
+		assert(math.abs(bump - (90 - math.deg(math.atan(3 / 10)))) < 1e-9, `bump {bump}`)
+		assert(Rules.clearTilt({}, F.minTilt, F.maxTilt) == F.maxTilt, "no ground found: lies flat or a bit down")
 		assert(F.maxFallen > 0 and F.lifetime > 0 and F.time > 0, "fallen trees stay a while, capped")
+	end,
+	["a falling tree pushes soldiers to the side they stand on"] = function()
+		local d, side = Rules.offSegment(5, 2, 0, 0, 10, 0)
+		assert(math.abs(d - 2) < 1e-9 and side == 1)
+		d, side = Rules.offSegment(5, -2, 0, 0, 10, 0)
+		assert(math.abs(d - 2) < 1e-9 and side == -1)
+		d = Rules.offSegment(13, 0, 0, 0, 10, 0)
+		assert(math.abs(d - 3) < 1e-9, "past the top")
+		local C = T.Fall.Crush
+		assert(C.damage > 0 and C.damage < 100, "hurt, not killed outright")
+		assert(C.ghost > 0 and C.ghostMax >= C.ghost)
+		local Ragdoll = require("../src/shared/Config/Ragdoll")
+		assert(Ragdoll.Knocks[C.knock], "a knock Config/Ragdoll knows")
+	end,
+	["a direct full beam shatters a trunk; weaker beams wear it down"] = function()
+		local Dr = T.Direct
+		local amount, blown = Rules.directHit(Dr.shatterFrom, Dr)
+		assert(blown and amount == math.huge)
+		amount, blown = Rules.directHit(2, Dr)
+		assert(not blown and amount > Trees.shotDamage("BoltRifle", T) * 5, "stage 2 hits a trunk hard")
+		amount, blown = Rules.directHit(1, Dr)
+		assert(not blown and amount > 0 and amount < Dr.damage[2])
+		for kind, hp in T.HP do
+			local hits = math.ceil(hp * 1.3 / Dr.damage[2])
+			assert(hits >= 2 and hits <= 5, `{kind}: {hits} stage 2 hits fell it`)
+		end
+	end,
+	["the imprint and root balls are big enough to show in 4-stud voxels, and even"] = function()
+		local I = T.Fall.Imprint
+		assert(I.radius >= 2.5, "an imprint the voxels keep")
+		assert(I.depth > 0 and I.depth < I.radius, "pressed in, not a hole")
+		local open = math.sqrt(I.radius ^ 2 - (I.radius - I.depth) ^ 2)
+		assert(I.step <= open, "its balls overlap into one even trough")
+		local R = T.Fall.Roots
+		assert(R.min >= 2.2 and R.max >= R.min, "a root ball the voxels keep")
+		local Palette = require("../src/shared/Config/Palette")
+		local roots, mud = Palette.Terrain[R.material], Palette.Terrain.Mud
+		assert(roots, "the root material has a palette colour (flat, from Greybox applyPalette)")
+		assert(roots[1] + roots[2] + roots[3] < mud[1] + mud[2] + mud[3], "roots darker than mud")
+		local Foliage = require("../src/shared/Config/Foliage")
+		assert(Foliage.UnderTrunk.radius >= open, "no grass in the imprint")
 	end,
 	["a bullet's line enters a canopy box where it should"] = function()
 		-- along +X from x = -10, a box of half size 2: enters at 8

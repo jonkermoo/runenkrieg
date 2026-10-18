@@ -3,8 +3,11 @@
 -- the overpressure at its trunk base (Config/Damage.Blast.Tree). A tree at 0 HP falls:
 -- - felled by a bullet: along the shot, leaving a stump;
 -- - felled by a blast: whole, away from it, no stump (the crater is there).
--- The fall costs the server nothing: it tags the tree FallingTag with where it will lie ("FallTo") and every client
--- animates it (src/client/TreeFall); then the server places it there, anchored, as cover (FallenTag). Lying, it has
+-- The fall costs the server nothing: it tags the tree FallingTag with where it will lie ("FallTo", clear of the ground
+-- all along it) and every client animates it (src/client/TreeFall); then the server places it there, anchored, as cover
+-- (FallenTag): soldiers it lands on are hurt and knocked aside (Damage.crush; the trunk lets them through a moment), it
+-- presses an even imprint into the ground it lies on, and an uprooted one leaves a pit and a root ball of mud (src/server/Ground). A full beam
+-- straight on a trunk shatters it instead (a stump left, the crown drops and sheds). Lying, it has
 -- Fallen.share x its MaxHP again, and bullets and blasts wear that down too. It lies for Fall.lifetime s, at most
 -- Fall.maxFallen at once (the oldest goes first), or until destroyed: tagged SinkingTag, it sinks and fades on the
 -- clients and is removed.
@@ -13,6 +16,7 @@
 -- 0, or when the tree falls, the canopy is tagged ShedTag: it sheds on the clients over Leaves.shedTime s, then goes.
 
 local CollectionService = game:GetService("CollectionService")
+local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -21,12 +25,25 @@ local Cfg = require(Shared.Config.Damage)
 local TreeCfg = require(Shared.Config.TreeSway)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Trees)
+local Ground = require(script.Parent.Ground)
 
 local Trees = {}
 
 local T = Cfg.Trees
 local L = T.Leaves
 local fallen: { Model } = {} -- oldest first
+local crush: ((Vector3, Vector3, number, number, string) -> ())? = nil -- src/server/Damage.crush
+
+-- a landing trunk lets characters through for a moment (Fall.Crush.ghost), so nobody is pushed into the ground or flung
+local GHOST = "LandingTree"
+PhysicsService:RegisterCollisionGroup(GHOST)
+PhysicsService:RegisterCollisionGroup("Characters")
+PhysicsService:CollisionGroupSetCollidable(GHOST, "Characters", false)
+
+-- what hurts soldiers a tree lands on (Damage registers itself; Trees can't require Damage, which requires Trees)
+function Trees.onCrush(fn: (Vector3, Vector3, number, number, string) -> ())
+	crush = fn
+end
 
 local terrainOnly = RaycastParams.new()
 terrainOnly.FilterType = Enum.RaycastFilterType.Include
@@ -153,45 +170,127 @@ local function stump(tree: Model, trunk: BasePart, base: Vector3)
 	p.Parent = tree.Parent
 end
 
--- `away`: the way it falls; `leaveStump`: felled by a bullet
+local function thickness(trunk: BasePart): number
+	return math.min(trunk.Size.X, trunk.Size.Z)
+end
+
+-- the trunk lets characters through until none is inside it (at least Crush.ghost s, at most ghostMax)
+local function ghostWhileInside(trunk: BasePart)
+	local C = T.Fall.Crush
+	trunk.CollisionGroup = GHOST
+	task.delay(C.ghost, function()
+		local waited = C.ghost
+		while trunk.Parent and waited < C.ghostMax do
+			local inside = false
+			for _, p in workspace:GetPartsInPart(trunk) do
+				if p.CollisionGroup == "Characters" then
+					inside = true
+					break
+				end
+			end
+			if not inside then
+				break
+			end
+			task.wait(0.25)
+			waited += 0.25
+		end
+		if trunk.Parent then
+			trunk.CollisionGroup = "Default"
+		end
+	end)
+end
+
+-- `away`: the way it falls; `leaveStump`: felled by a bullet or a beam (snapped above a stump); else uprooted whole
 local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	local trunk = tree:FindFirstChild("Trunk") :: BasePart?
 	if not trunk then
 		return
 	end
 	local _, full = hp(tree)
+	local sc = scale(tree)
 	CollectionService:RemoveTag(tree, TreeCfg.Tag) -- no more sway (src/client/TreeSway)
 	local F = T.Fall
 	local dir = flat(away)
 	local pivot = tree:GetPivot()
-	local hinge = if leaveStump
-		then Vector3.new(pivot.X, groundAt(pivot.Position) + T.Stump.height, pivot.Z)
-		else pivot.Position
+	local base = pivot.Position
+	local ground = groundAt(base)
+	local half = thickness(trunk) / 2
+	-- snapped: it turns on the stump top; uprooted: on the ground, its butt lying half its thickness up
+	local hinge = Vector3.new(base.X, ground + (if leaveStump then T.Stump.height else half), base.Z)
 	local _, size = tree:GetBoundingBox()
 	local h = size.Y
-	-- the ground under where its top comes down
+	-- lie clear of the ground all along it (user 2026-10-17: it "often appears below the map")
 	local reach = h * F.tipShare
-	local tip = hinge + dir * reach
-	local hit = workspace:Raycast(tip + Vector3.yAxis * 60, Vector3.yAxis * -160, terrainOnly)
-	local rise = if hit then hit.Position.Y - hinge.Y else 0
-	local tilt = math.rad(Rules.fallTilt(reach, rise, F.minTilt, F.maxTilt))
-	local turn = CFrame.new(hinge) * CFrame.fromAxisAngle(Vector3.new(0, 1, 0):Cross(dir), tilt) * CFrame.new(-hinge)
-	-- the butt rests on the stump top: slide it out along the fallen trunk by what sat under the hinge
+	local samples = {}
+	for k = 1, F.samples do
+		local x = reach * k / F.samples
+		local at = hinge + dir * x
+		local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
+		if y then
+			-- its underside down in its imprint (Fall.Imprint.depth under the ground), tapering toward the top
+			local clear = half * (1 - (1 - F.tipClear) * k / F.samples) - F.Imprint.depth
+			table.insert(samples, { x, y - hinge.Y + clear })
+		end
+	end
+	local tilt = math.rad(Rules.clearTilt(samples, F.minTilt, F.maxTilt))
+	local axis = Vector3.new(0, 1, 0):Cross(dir)
+	local turn = CFrame.new(hinge) * CFrame.fromAxisAngle(axis, tilt) * CFrame.new(-hinge)
+	-- the butt rests on the hinge: slide it out along the fallen trunk by what sat under the hinge
 	local under = hinge.Y - pivot.Y
 	local lie = CFrame.new(turn:VectorToWorldSpace(Vector3.yAxis) * under) * turn * pivot
 	if leaveStump then
-		stump(tree, trunk, pivot.Position)
+		stump(tree, trunk, base)
+	else
+		-- uprooted: a pit where the roots were
+		local R = F.Roots
+		local r = math.clamp(thickness(trunk) * R.radius, R.min, R.max)
+		Ground.ball(Vector3.new(base.X, ground - r * 0.5, base.Z) - dir * r * R.pitBack, r * R.pit, Enum.Material.Air)
 	end
 	tree:SetAttribute("FallTo", lie)
 	tree:SetAttribute("FallTime", F.time)
 	tree:SetAttribute("FallLength", h)
+	tree:SetAttribute("FallHinge", hinge)
+	tree:SetAttribute("FallAxis", axis)
+	tree:SetAttribute("Thickness", thickness(trunk))
 	tree:SetAttribute("HP", full * T.Fallen.share) -- it lies with HP again (user: "continue HP")
 	CollectionService:AddTag(tree, TreeCfg.FallingTag)
 	task.delay(F.time, function()
-		if tree.Parent then
-			tree:PivotTo(lie)
-			CollectionService:AddTag(tree, TreeCfg.FallenTag)
-			shed(tree) -- a felled tree's leaves go to 0 (user)
+		if not tree.Parent then
+			return
+		end
+		ghostWhileInside(trunk)
+		tree:PivotTo(lie)
+		CollectionService:AddTag(tree, TreeCfg.FallenTag)
+		shed(tree) -- a felled tree's leaves go to 0 (user)
+		-- who it lands on
+		if crush then
+			crush(hinge, hinge + lie.UpVector * reach, F.Crush.radius * sc, F.Crush.damage, F.Crush.knock)
+		end
+		-- its imprint: the ground pressed down evenly wherever it lies on it
+		local I = F.Imprint
+		local cot = 1 / math.tan(tilt)
+		local x = 0
+		while x <= reach do
+			local at = hinge + dir * x
+			local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
+			local bottom = hinge.Y + x * cot - half -- the trunk's underside here
+			if y and bottom - (y - I.depth) <= I.touch then
+				local floor = Vector3.new(at.X, y - I.depth, at.Z)
+				-- a ball whose bottom is the imprint's floor
+				Ground.ball(floor + Vector3.yAxis * I.radius, I.radius, Enum.Material.Air)
+				Ground.churn(floor, I.radius, I.radius, I)
+			end
+			x += I.step
+		end
+		if not leaveStump then
+			local R = F.Roots
+			local r = math.clamp(thickness(trunk) * R.radius, R.min, R.max)
+			Ground.ball(
+				Vector3.new(hinge.X, ground + r * (R.rise - 1) + half, hinge.Z),
+				r,
+				(Enum.Material :: any)[R.material]
+			)
+			Ground.churn(base, r * 1.5, r, F.Dent)
 		end
 	end)
 	table.insert(fallen, tree)
@@ -199,6 +298,39 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		sink(fallen[1])
 	end
 	task.delay(F.time + F.lifetime, sink, tree)
+end
+
+-- A trunk blown apart where it is (a direct full beam): debris on the clients, a stump left under a standing one, its
+-- crown drops to the ground and sheds, then the tree is gone.
+local function shatter(tree: Model)
+	local trunk = tree:FindFirstChild("Trunk") :: BasePart?
+	if not trunk then
+		return
+	end
+	local wasStanding = standing(tree)
+	CollectionService:RemoveTag(tree, TreeCfg.Tag)
+	CollectionService:RemoveTag(tree, TreeCfg.FallenTag)
+	local i = table.find(fallen, tree)
+	if i then
+		table.remove(fallen, i)
+	end
+	Net.event("SectionBroken"):FireAllClients({
+		{ cf = trunk.CFrame, size = trunk.Size, color = trunk.Color, t = trunk.Transparency },
+	}, trunk.Position)
+	if wasStanding then
+		stump(tree, trunk, tree:GetPivot().Position)
+	end
+	trunk:Destroy()
+	local canopy = tree:FindFirstChild("Canopy") :: BasePart?
+	if canopy then
+		local y = Ground.heightAt(canopy.Position.X, canopy.Position.Z, canopy.Position.Y, 200)
+		local bottom = canopy.Position.Y - canopy.Size.Y / 2
+		tree:SetAttribute("ShedDrop", if y then math.max(bottom - y, 0) else 0)
+		shed(tree)
+	end
+	task.delay(L.shedTime + 0.5, function()
+		tree:Destroy()
+	end)
 end
 
 local function hurt(tree: Model, amount: number, away: Vector3, byBullet: boolean, whole: boolean?)
@@ -225,6 +357,21 @@ function Trees.shot(part: Instance?, class: string?, direction: Vector3)
 		if amount > 0 then
 			hurt(tree, amount, direction, true)
 		end
+	end
+end
+
+-- a staff beam of `stage` hitting `part` straight on along `direction` (Trees.Direct): a trunk loses HP, enough fells it
+-- along the beam above a stump; a full beam shatters it
+function Trees.direct(part: Instance?, stage: number, direction: Vector3)
+	local tree = treeOf(part)
+	if not tree or not part or part.Name ~= "Trunk" then
+		return
+	end
+	local amount, blown = Rules.directHit(stage, T.Direct)
+	if blown then
+		shatter(tree)
+	elseif amount > 0 then
+		hurt(tree, amount, direction, true)
 	end
 end
 

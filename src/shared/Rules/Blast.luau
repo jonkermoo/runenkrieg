@@ -106,7 +106,11 @@ export type CraterPlan = {
 -- The crater a `kg` charge leaves (Config/Damage.Blast.Crater): the hole, its low rim of earth and how far the ground
 -- around is churned. Nothing for no charge.
 function Blast.craterPlan(kg: number, c: any): CraterPlan?
-	local r = Blast.crater(kg, c.perCubeRoot)
+	return Blast.craterPlanFor(Blast.crater(kg, c.perCubeRoot), c)
+end
+
+-- the same for a hole of radius `r` (a falling tree's dent: Config/Damage.Trees.Fall.Dent)
+function Blast.craterPlanFor(r: number, c: any): CraterPlan?
 	if r <= 0 then
 		return nil
 	end
