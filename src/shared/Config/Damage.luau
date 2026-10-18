@@ -129,6 +129,7 @@ local Damage = {
 			blastWeaken = 1,
 			shedTime = 4,
 			react = { 0.5, 1, 2 },
+			nearReact = 0.5, -- x react for a beam only passing near
 		},
 	},
 

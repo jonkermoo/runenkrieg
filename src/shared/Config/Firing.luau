@@ -90,10 +90,11 @@ local Firing = {
 			Leaf = { count = 5, size = 0.4, speed = 2, up = 0, gravity = 3, drag = 2.5, life = 2.6, canopyShare = 1 },
 			-- a staff beam through a canopy (Net "LeavesHit", x its `react`): this many leaves and a shake of `kick` x the
 			-- explosion kick (Config/TreeSway.Explosion) within `radius` of where it entered
-			Beam = { leaves = 12, kick = 0.35, radius = 10 },
+			Beam = { leaves = 12, kick = 0.35, radius = 10, scatter = 2, maxReact = 4 }, -- scatter: studs round the entry
 			-- a canopy shedding (stripped, or its tree felled): `perSecond` bursts of Leaf.count leaves fall from all over
 			-- it while it fades (src/client/TreeFall)
-			Shed = { perSecond = 4 },
+			-- (`spread`: share of the canopy's box they fall from; `endRate`: the rate at the end, x perSecond)
+			Shed = { perSecond = 4, spread = 0.8, endRate = 0.5 },
 		},
 		HitMarker = { time = 1.2 }, -- the shooter's note: what was hit, how far
 	},

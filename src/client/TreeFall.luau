@@ -88,10 +88,10 @@ local function shed(inst: Instance)
 	local owed = 0
 	over(canopy, number(inst, "ShedTime", Damage.Trees.Leaves.shedTime), function(a, dt)
 		canopy.Transparency = a
-		owed += Shed.perSecond * dt * (1 - a * 0.5)
+		owed += Shed.perSecond * dt * (1 - a * (1 - Shed.endRate))
 		while owed >= 1 do
 			owed -= 1
-			local s = canopy.Size * 0.8
+			local s = canopy.Size * Shed.spread
 			local at = canopy.CFrame
 				* Vector3.new((math.random() - 0.5) * s.X, (math.random() - 0.5) * s.Y, (math.random() - 0.5) * s.Z)
 			Impacts.leaves(at, canopy.Color, 1)

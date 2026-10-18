@@ -104,7 +104,7 @@ end
 -- `count` leaves falling at `at` in `color` (shedding canopies, src/client/TreeFall)
 function Impacts.leaves(at: Vector3, color: Color3, count: number)
 	for _ = 1, math.max(count // I.Leaf.count, 1) do
-		burst(I.Leaf, at + spread() * 2, -Vector3.yAxis, color)
+		burst(I.Leaf, at + spread() * I.Beam.scatter, -Vector3.yAxis, color)
 	end
 end
 
@@ -142,9 +142,13 @@ function Impacts.start()
 		end
 		local B = I.Beam
 		for _, h in hits do
-			local tree, at, react = h[1], h[2], h[3]
+			local tree, at, react = nil, nil, nil
+			if type(h) == "table" then
+				tree, at, react = h[1], h[2], h[3]
+			end
 			local canopy = typeof(tree) == "Instance" and tree:FindFirstChild("Canopy") :: BasePart?
 			if canopy and typeof(at) == "Vector3" and type(react) == "number" then
+				react = math.clamp(react, 0, B.maxReact)
 				TreeSway.explode(at, B.radius, react * B.kick)
 				Impacts.leaves(at, canopy.Color, math.max(math.floor(B.leaves * react), 1))
 			end

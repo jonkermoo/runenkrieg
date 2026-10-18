@@ -290,7 +290,7 @@ function Trees.beam(origin: Vector3, landed: Vector3, stage: number)
 					t = Rules.enterBox(o.X, o.Y, o.Z, v.X, v.Y, v.Z, length, h.X, h.Y, h.Z)
 				end
 				if t then
-					local react = (L.react[stage] or 1) * (if through then 1 else 0.5)
+					local react = (L.react[stage] or 1) * (if through then 1 else L.nearReact)
 					table.insert(hits, { tree, origin + d * t, react })
 					hurtLeaves(tree :: Model, Rules.beamLeafDamage(stage, through, L))
 				end
