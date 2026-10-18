@@ -535,7 +535,7 @@ local function playAction(character: Model, weapon: string, action: string, u0: 
 			return
 		end
 		local t = track(animator, id)
-		t:Play(if u0 > 0 then 0.15 else 0.1)
+		t:Play(if u0 > 0 then Cfg.ResumeFade else 0.1)
 		t.TimePosition = u0 * time
 		table.insert(list, t)
 	end
