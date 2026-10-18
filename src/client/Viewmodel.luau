@@ -191,7 +191,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		hip = CFrame.identity,
 		aimFix = aimFix(weapon.name),
 		animator = animator,
-		oneHanded = W[weapon.name].class == "Staff",
+		oneHanded = W[weapon.name].class == "Staff" or W[weapon.name].class == "Grenade",
 		leftHidden = false,
 	}
 end

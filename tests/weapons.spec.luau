@@ -59,6 +59,10 @@ return {
 	["stowed weapons sit muzzle-up with a square frame"] = function()
 		for name, w in W do
 			local s = w.stow
+			if not s then
+				assert(w.class == "Grenade", `{name}: only grenades show nothing on the body when put away`)
+				continue
+			end
 			assert(#s.at == 3, `{name}: stow position is not a point`)
 			local m, d = s.muzzle, s.side
 			local function len(v: { number }): number
@@ -71,7 +75,11 @@ return {
 	end,
 	["every weapon has a loadout slot"] = function()
 		for name, w in W do
-			assert(w.slot == "Primary", `{name}: unknown slot {w.slot}`)
+			assert(w.slot == "Primary" or w.slot == "Grenade", `{name}: unknown slot {w.slot}`)
+			assert(
+				(w.slot == "Grenade") == (w.class == "Grenade"),
+				`{name}: grenades, and only they, go in the Grenade slot`
+			)
 		end
 	end,
 	["kit weapons exist"] = function()
@@ -79,6 +87,10 @@ return {
 			local wname = (k :: any).weapon
 			if wname then
 				assert(W[wname], `{kit}: unknown weapon {wname}`)
+			end
+			local gname = (k :: any).grenade
+			if gname then
+				assert(W[gname] and W[gname].slot == "Grenade", `{kit}: unknown grenade {gname}`)
 			end
 		end
 	end,

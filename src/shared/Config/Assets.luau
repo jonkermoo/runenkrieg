@@ -91,6 +91,31 @@ local Assets = {
 			generator = "tools/blender/weapons/m1897.py",
 			description = "Winchester M1897 trench gun, the shotgun of all three teams (built from its trace: tools/blender/weapons/trace/m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
 		},
+		-- the grenades, one per team (tools/blender/weapons/grenades.py; Config/Weapons, Config/Grenades)
+		grenade_mills = {
+			id = 138444756692849,
+			category = "Weapons",
+			folder = "White/Grenades",
+			source = "assets/weapons/white/grenade_mills.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "Mills bomb No. 5, the white team's grenade (from references/weapons/grenades/mills_*.jpg): six columns of segments, base and filler plugs, the lever, pin and ring. Rigged from Config/Weapons.",
+		},
+		grenade_stick = {
+			id = 76412002834293,
+			category = "Weapons",
+			folder = "Grey/Grenades",
+			source = "assets/weapons/grey/grenade_stick.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "Stielhandgranate M1917, the grey team's grenade (from references/weapons/grenades/stick_am613018_1.jpg): the can head, iron collar, wooden handle and screw cap. Rigged from Config/Weapons.",
+		},
+		grenade_sipe = {
+			id = 97677876339961,
+			category = "Weapons",
+			folder = "Olive/Grenades",
+			source = "assets/weapons/olive/grenade_sipe.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "SIPE, the olive team's grenade (from references/weapons/grenades/sipe_museo.jpg): seven columns of segments, a flat bottom and the fuse tube. Rigged from Config/Weapons.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",

@@ -146,6 +146,8 @@ local Palette = {
 		manaDenied = { 220, 70, 60 },
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
+	-- the grenades' arc preview (src/client/Grenades, Config/Grenades.Arc): faint pale dots, the landing spot the same
+	Grenades = { Arc = { 236, 230, 210 } },
 }
 
 return table.freeze(Palette)
