@@ -243,8 +243,8 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	else
 		-- uprooted: a pit where the roots were
 		local R = F.Roots
-		local r = math.max(thickness(trunk) * R.radius, R.min)
-		Ground.ball(Vector3.new(base.X, ground - r * 0.5, base.Z) - dir * r * 0.6, r * R.pit, Enum.Material.Air)
+		local r = math.clamp(thickness(trunk) * R.radius, R.min, R.max)
+		Ground.ball(Vector3.new(base.X, ground - r * 0.5, base.Z) - dir * r * R.pitBack, r * R.pit, Enum.Material.Air)
 	end
 	tree:SetAttribute("FallTo", lie)
 	tree:SetAttribute("FallTime", F.time)
@@ -284,8 +284,8 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		end
 		if not leaveStump then
 			local R = F.Roots
-			local r = math.max(thickness(trunk) * R.radius, R.min)
-			Ground.ball(hinge - lie.UpVector * r * 0.3 + Vector3.yAxis * r * R.rise, r, Enum.Material.Mud)
+			local r = math.clamp(thickness(trunk) * R.radius, R.min, R.max)
+			Ground.ball(Vector3.new(hinge.X, ground + r * (R.rise - 1) + half, hinge.Z), r, Enum.Material.Mud)
 			Ground.churn(base, r * 1.5, r, F.Dent)
 		end
 	end)

@@ -161,8 +161,9 @@ function Damage.blast(position: Vector3, kg: number, by: Model?)
 		local fail = class and (B.Fail :: any)[class] or B.FailDefault
 		return Blast.sectionDamage(kpaAt(d), fail, maxHP, B.Weaken)
 	end)
-	Trees.blast(position, reach, kpaAt)
+	-- the crater first, so the trees it fells lie on the ground as it is after
 	Ground.crater(position, Blast.craterPlan(kg, B.Crater), B.Crater)
+	Trees.blast(position, reach, kpaAt)
 end
 
 -- A tree landing on soldiers (src/server/Trees): everyone whose torso is within `radius` of the line `a` - `b` (and not

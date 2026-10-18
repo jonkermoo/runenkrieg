@@ -106,7 +106,7 @@ local Damage = {
 			maxFallen = 60,
 			sinkTime = 2.5,
 			sinkDepth = 6,
-			minTilt = 60,
+			minTilt = 25, -- (was 60: an uphill fall stopped there and sank into the slope) it may lean on a hill
 			maxTilt = 95,
 			tipShare = 0.85,
 			-- it lies clear of the ground along its whole length (samples along it): the trunk's half thickness to clear,
@@ -114,7 +114,7 @@ local Damage = {
 			samples = 10,
 			tipClear = 0.2,
 			-- landing: a bounce back of `bounce` degrees settling over `bounceTime` s (src/client/TreeFall)
-			bounce = 3,
+			bounce = 7, -- (its peak is ~0.43 x this: ~3 degrees)
 			bounceTime = 0.6,
 			-- its imprint (user 2026-10-17: "not a crater ... a thick imprint", even, the tree not floating): wherever the
 			-- trunk lies on the ground the terrain is pressed down `depth` studs, following the ground, every `step` studs
@@ -129,9 +129,10 @@ local Damage = {
 				churnTo = "Mud",
 			},
 			-- uprooted (felled whole by a blast): the butt lies on the ground (its half thickness up), with a root ball of
-			-- mud at it (`radius` x the trunk's width, at least `min`: smaller vanishes in 4-stud voxels) and a pit where
-			-- it stood (`pit` x that)
-			Roots = { radius = 1.8, min = 2.6, pit = 0.9, rise = 0.4 },
+			-- mud at it (`radius` x the trunk's width, `min` to `max`: smaller vanishes in 4-stud voxels) and a pit where
+			-- it stood (`pit` x that, `pitBack` x the radius behind the butt)
+			-- (was 1.8 x the width, no cap: 7-9 stud mounds that buried the pit)
+			Roots = { radius = 1, min = 2.6, max = 3.2, pit = 0.9, rise = 0.15, pitBack = 1.1 },
 			-- soldiers under it when it lands: within `radius` (x the scale) of the trunk's line they take `damage` and
 			-- the `knock`, pushed to the side they stand on; the trunk lets characters through for `ghost` s after (and
 			-- longer while one is still inside it, up to `ghostMax`), so nobody is pushed into the ground or flung
