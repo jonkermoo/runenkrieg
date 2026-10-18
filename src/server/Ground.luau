@@ -2,6 +2,10 @@
 -- Changes to the terrain on the server (src/server/Damage blasts, src/server/Trees falls). Terrain changes are voxels:
 -- they stay and cost nothing after.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Blast = require(ReplicatedStorage:WaitForChild("Shared").Rules.Blast)
+
 local Ground = {}
 
 local VOXEL = 4 -- terrain voxel size (studs)
@@ -33,11 +37,45 @@ function Ground.crater(position: Vector3, plan: any, c: any)
 			terrain:FillBall(hit.Position - Vector3.yAxis * b.sink, b.radius, churnTo)
 		end
 	end
-	-- the bowl, disc by disc (a cylinder's axis is its Y)
-	for _, d in plan.discs do
-		terrain:FillCylinder(CFrame.new(position - Vector3.yAxis * d.y), d.height, d.radius, Enum.Material.Air)
-	end
+	Ground.bowl(position, plan.mouth, plan.depth)
 	Ground.churn(position, plan.churn, plan.radius * c.churnDepth, c)
+end
+
+-- The ground within `mouth` of `position` lowered by Blast.bowlDepth, column by column, following its shape (a level cut
+-- left a cliff on the uphill side of a slope, Studio 2026-10-18). Only the ground near the blast's height: `depth` x 3
+-- up or down. Columns with water are left alone.
+function Ground.bowl(position: Vector3, mouth: number, depth: number)
+	local terrain = workspace.Terrain
+	local reach = Vector3.new(mouth, depth * 3, mouth)
+	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return
+	end
+	local size = mats.Size
+	local corner = region.CFrame.Position - region.Size / 2
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
+			local lower = Blast.bowlDepth(math.sqrt((x - position.X) ^ 2 + (z - position.Z) ^ 2), mouth, depth)
+			local wet = false
+			local column = table.create(size.Y, 0)
+			for iy = 1, size.Y do
+				column[iy] = occs[ix][iy][iz]
+				wet = wet or mats[ix][iy][iz] == Enum.Material.Water
+			end
+			if lower > 0 and not wet then
+				local out = Blast.lowerColumn(column, corner.Y, VOXEL, lower)
+				for iy = 1, size.Y do
+					occs[ix][iy][iz] = out[iy]
+					if out[iy] <= 0 then
+						mats[ix][iy][iz] = Enum.Material.Air
+					end
+				end
+			end
+		end
+	end
+	terrain:WriteVoxels(region, VOXEL, mats, occs)
 end
 
 -- the ground within `radius` across and `depth` up or down of `position` turns from c.churnFrom to c.churnTo

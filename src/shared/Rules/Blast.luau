@@ -145,11 +145,35 @@ end
 export type CraterPlan = {
 	radius: number, -- the crater's size (Blast.crater): the rim, churn and depth scale with it
 	mouth: number, -- the bowl's radius at the ground
-	-- the bowl as stacked discs from the top: each { radius, y = its centre under the blast point, height }
-	discs: { { radius: number, y: number, height: number } },
+	depth: number, -- how far it lowers the ground at its centre (a parabola to 0 at the mouth)
 	rim: { { dx: number, dz: number, radius: number, sink: number } }, -- balls of earth round it, under the ground
 	churn: number, -- the ground out to here turns to blasted earth
 }
+
+-- how far a crater's bowl lowers the ground `rho` studs from its centre: `depth` there, a parabola to 0 at `mouth`
+function Blast.bowlDepth(rho: number, mouth: number, depth: number): number
+	if mouth <= 0 or rho >= mouth then
+		return 0
+	end
+	return depth * (1 - (rho / mouth) ^ 2)
+end
+
+-- A column of voxels lowered by `lower` studs, following the ground (the bowl is cut into the ground as it lies, so on a
+-- slope it doesn't leave an uphill cliff): `occs` bottom to top, `y0` the bottom voxel's base, `res` the voxel size.
+-- The surface is where the column's solid fill ends; returns the new occupancies (nothing added, only taken away).
+function Blast.lowerColumn(occs: { number }, y0: number, res: number, lower: number): { number }
+	local filled = 0
+	for _, o in occs do
+		filled += o
+	end
+	local top = y0 + filled * res - lower
+	local out = table.create(#occs, 0)
+	for i, o in occs do
+		local base = y0 + (i - 1) * res
+		out[i] = math.min(o, math.clamp((top - base) / res, 0, 1))
+	end
+	return out
+end
 
 -- The crater a `kg` charge leaves (Config/Damage.Blast.Crater): the hole, its low rim of earth and how far the ground
 -- around is churned. Nothing for no charge.
@@ -172,13 +196,7 @@ function Blast.craterPlanFor(r: number, c: any): CraterPlan?
 			sink = c.rim.sink * r,
 		})
 	end
-	-- a parabolic bowl: at depth z the radius is mouth x sqrt(1 - z / depth)
-	local mouth, depth, n = c.width * r, c.depth * r, c.layers
-	local discs = {}
-	for k = 0, n - 1 do
-		table.insert(discs, { radius = mouth * math.sqrt(1 - k / n), y = (k + 0.5) * depth / n, height = depth / n })
-	end
-	return { radius = r, mouth = mouth, discs = discs, rim = rim, churn = c.churn * r }
+	return { radius = r, mouth = c.width * r, depth = c.depth * r, rim = rim, churn = c.churn * r }
 end
 
 return Blast

@@ -197,27 +197,32 @@ return {
 		assert(Blast.reachOf(10, 0, B) == 0, "no charge")
 		assert(Blast.reachOf(1e9, KG, B) == 0, "never that strong")
 	end,
-	["a crater is a bowl you can walk out of, at any charge"] = function()
+	["a crater is a bowl you can walk out of, at any charge, and follows the ground"] = function()
 		local M = require("../src/shared/Config/Metrics")
 		local steepest = math.tan(math.rad(M.Movement.MaxSlopeAngle))
 		for _, kg in { 0.5, 2, 10, 50, 200 } do
 			local plan = Blast.craterPlan(kg, B.Crater) :: Blast.CraterPlan
-			local discs = plan.discs
-			assert(#discs >= 3)
-			for k = 1, #discs do
-				local d = discs[k]
-				local inner = if k < #discs then discs[k + 1].radius else 0
-				local slope = d.height / math.max(d.radius - inner, 1e-9)
-				assert(slope < steepest * 0.95, `{kg} kg: a wall of {math.deg(math.atan(slope))} deg`)
-				if k > 1 then
-					assert(d.radius < discs[k - 1].radius and d.y > discs[k - 1].y, "narrower going down")
-				end
-			end
-			local deep = discs[#discs].y + discs[#discs].height / 2
-			assert(plan.mouth > deep * 2, `{kg} kg: wider than deep ({plan.mouth} across, {deep} deep)`)
+			-- the steepest the bowl adds to the ground: its slope at the mouth, 2 x depth / mouth
+			local wall = 2 * plan.depth / plan.mouth
+			local hill = math.tan(math.rad(25)) -- the map's steepest walkable ground is ~23 deg (mapterrain.spec)
+			assert(wall + hill < steepest * 0.95, `{kg} kg: a wall of {math.deg(math.atan(wall))} deg on a hillside`)
+			assert(plan.mouth > plan.depth * 2, `{kg} kg: wider than deep`)
+			assert(Blast.bowlDepth(0, plan.mouth, plan.depth) == plan.depth)
+			assert(Blast.bowlDepth(plan.mouth, plan.mouth, plan.depth) == 0)
+			assert(Blast.bowlDepth(plan.mouth / 2, plan.mouth, plan.depth) == plan.depth * 0.75)
 		end
 		local big = Blast.craterPlan(50, B.Crater) :: Blast.CraterPlan
-		local deep = big.discs[#big.discs].y + big.discs[#big.discs].height / 2
-		assert(deep < 8, `50 kg: no pit ({deep} deep)`)
+		assert(big.depth < 8, `50 kg: no pit ({big.depth} deep)`)
+		-- a column 4 voxels high, ground at 10 (2.5 voxels full), lowered by 3: ground at 7
+		local out = Blast.lowerColumn({ 1, 1, 0.5, 0 }, 0, 4, 3)
+		local filled = 0
+		for _, o in out do
+			filled += o
+		end
+		assert(math.abs(filled * 4 - 7) < 1e-9, `lowered to {filled * 4}`)
+		assert(out[1] == 1 and out[4] == 0)
+		-- never adds ground, lowering by 0 changes nothing
+		local same = Blast.lowerColumn({ 1, 0.3, 0 }, 0, 4, 0)
+		assert(same[1] == 1 and math.abs(same[2] - 0.3) < 1e-9 and same[3] == 0)
 	end,
 }
