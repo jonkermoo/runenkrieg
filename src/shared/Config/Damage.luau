@@ -69,18 +69,13 @@ local Damage = {
 		-- soldiers: damage from `from` kPa (0) rising to `kill` kPa (`max` damage, kills from full health). At 10 kg:
 		-- lethal within ~8 studs, ~69 at 9, ~47 at 10, ~20 at 12, ~5 at 14, nothing from ~15 (user 2026-10-18: "lethal
 		-- within ~8"; then "at points where players take damage from a blast is also when they should ragdoll": damage
-		-- and knocks both end at ~15 studs, `from` = the last knock's `above`). Was kill 80, from 8: lethal to ~16, hurt
-		-- to ~70
+		-- and knocks both end at ~15 studs). Was kill 80, from 8: lethal to ~16, hurt to ~70
 		Soldier = { from = 126, kill = 540, max = 100 },
-		-- knocks by overpressure, strongest first (Config/Ragdoll.Knocks); below the last: nothing. User 2026-10-17:
-		-- "even if you miss your full charge, you should be able to ragdoll only the person you were trying to aim at (and
-		-- the people really close to him)": at 10 kg thrown within ~6 studs, knocked down within ~10, a light knock to
-		-- ~15 (was 29 / 10 / 8.5 kPa: thrown ~30, knocked ~68). Whoever the blast kills is thrown wherever they stood.
-		Knocks = {
-			{ above = 1000, knock = "BlastThrow" },
-			{ above = 320, knock = "Torso" },
-			{ above = 126, knock = "Limb" },
-		},
+		-- whoever a blast hurts is flung away from it, as hard as it hurt them (user 2026-10-18: "the staff lvl 3 charge
+		-- only flings me when im dead. i want it to fling me when it damages me too, scaled to damage"): the `knock`
+		-- (Config/Ragdoll.Knocks) at `least` of its force for the slightest hurt, up to all of it at `max` damage; a
+		-- kill flings in full. (Was knocks by pressure: thrown within ~6 studs, knocked down ~10, light ~15.)
+		Fling = { knock = "BlastThrow", least = 0.3 },
 		-- map sections (Config/Destruction.Materials, the section's "Class"): a section fails at its class's overpressure;
 		-- below that it loses MaxHP x (kPa / fail)^Weaken (so nearby blasts wear it down). Buildings and props.
 		-- User 2026-10-17: "buildings evaporate way too easily ... a stage 3 blast should not crumble a building ... an
