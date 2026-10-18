@@ -9,7 +9,14 @@ local Boundary = {
 	TopY = 90,
 	FadeFar = 90, -- invisible beyond this distance
 	FadeNear = 8, -- fully visible at or within this distance
-	MaxOpacity = 0.65,
+	-- Flat colour (user 2026-10-18): ForceField's shimmer didn't show on one long wall (Studio: invisible head-on).
+	Material = "SmoothPlastic",
+	MaxOpacity = 0.45,
+	-- The walls stop characters only: in their own collision group, which collides with nothing else, so every
+	-- raycast and spherecast (aims, bullets, staff beams, shells) passes through (user: "shells and magic can go outside
+	-- the map"). CanQuery off alone doesn't do it: Roblox ignores it while CanCollide is on.
+	CollisionGroup = "Boundary",
+	Blocks = { "Characters" },
 	ColorRGB = { 255, 60, 50 },
 	UpdateHz = 15,
 	Tag = "BoundaryPanel",

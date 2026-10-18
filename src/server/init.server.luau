@@ -16,6 +16,16 @@ PhysicsService:RegisterCollisionGroup("Viewmodel")
 for _, g in PhysicsService:GetRegisteredCollisionGroups() do
 	PhysicsService:CollisionGroupSetCollidable("Viewmodel", g.name, false)
 end
+-- The out-of-bounds walls (Config/Boundary): they stop characters and nothing else, so shots and blasts reach beyond.
+do
+	local B = require(ReplicatedStorage.Shared.Config.Boundary)
+	if not PhysicsService:IsCollisionGroupRegistered(B.CollisionGroup) then
+		PhysicsService:RegisterCollisionGroup(B.CollisionGroup)
+	end
+	for _, g in PhysicsService:GetRegisteredCollisionGroups() do
+		PhysicsService:CollisionGroupSetCollidable(B.CollisionGroup, g.name, table.find(B.Blocks, g.name) ~= nil)
+	end
+end
 local function assign(character: Model)
 	for _, d in character:GetDescendants() do
 		if d:IsA("BasePart") then

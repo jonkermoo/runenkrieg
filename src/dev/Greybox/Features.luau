@@ -11,6 +11,7 @@ local Features = {}
 -- in as the player approaches (src/client/BoundaryFade), one wall per side (in pieces of at most MaxPieceLength). Panels are solid walls for now;
 -- soft bounds (warning + countdown) can replace collision later.
 function Features.bounds(parent: Instance, map: any, cfg: any): number
+	Features.boundaryGroup(cfg)
 	local folder = Parts.folder(parent, "Bounds")
 	local b = map.bounds
 	local color = Color3.fromRGB(cfg.ColorRGB[1], cfg.ColorRGB[2], cfg.ColorRGB[3])
@@ -32,7 +33,8 @@ function Features.bounds(parent: Instance, map: any, cfg: any): number
 			local mid = a + dir * ((i + 0.5) * w)
 			local cf = CFrame.fromMatrix(Vector3.new(mid.X, cfg.BottomY + height / 2, mid.Z), dir, Vector3.yAxis)
 			local p = Parts.box(folder, "BoundaryPanel", cf, Vector3.new(w, height, 1), color)
-			p.Material = Enum.Material.ForceField
+			p.Material = (Enum.Material :: any)[cfg.Material]
+			p.CollisionGroup = cfg.CollisionGroup
 			p.Transparency = 1 - cfg.MaxOpacity
 			p.CanQuery = false
 			p.CanTouch = false
@@ -45,6 +47,20 @@ function Features.bounds(parent: Instance, map: any, cfg: any): number
 		end
 	end
 	return count
+end
+
+-- The walls' collision group: it blocks only Config/Boundary.Blocks (characters), so raycasts and everything else pass.
+-- Also set up by the server at start (src/server/init), since a place may come without it.
+function Features.boundaryGroup(cfg: any)
+	local PhysicsService = game:GetService("PhysicsService")
+	for _, g in { cfg.CollisionGroup, table.unpack(cfg.Blocks) } do
+		if not PhysicsService:IsCollisionGroupRegistered(g) then
+			PhysicsService:RegisterCollisionGroup(g)
+		end
+	end
+	for _, g in PhysicsService:GetRegisteredCollisionGroups() do
+		PhysicsService:CollisionGroupSetCollidable(cfg.CollisionGroup, g.name, table.find(cfg.Blocks, g.name) ~= nil)
+	end
 end
 
 -- Neutral spawn for walking the map before teams exist.
