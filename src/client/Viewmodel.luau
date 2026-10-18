@@ -9,7 +9,8 @@
 -- fades in over the last stretch to the eye as the body fades out (user 2026-10-11: ADS looked choppy). It never
 -- shows the rig's rest pose (the gun rising from the middle of the screen). Aiming plays a brief aim-in
 -- (firstPerson.aimIn, 0.3 s: the rifle comes up from the ready hold into the sights) over the aim hold, as long as the
--- camera's glide, while the body plays its third-person aim for everyone. Writes "ViewmodelShown" (local) for
+-- camera's glide, while the body plays its third-person aim for everyone; letting go plays the aim-out back down
+-- (firstPerson.aimOut, the aim-in backwards), each starting where the other got to. Writes "ViewmodelShown" (local) for
 -- WeaponCamera to hide the body.
 -- Nothing here replicates; others see the third-person holds.
 
@@ -170,10 +171,11 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		local anim = Instance.new("Animation")
 		anim.AnimationId = "rbxassetid://" .. id
 		local t = animator:LoadAnimation(anim)
-		-- the equip and the aim-in are one shots over the holds
+		-- the equip and the aim-in / aim-out are one shots over the holds
 		local once = state == "equip"
 			or state == "unequip"
 			or state == "aimIn"
+			or state == "aimOut"
 			or state == "charge"
 			or state == "chargeTwo"
 		t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
@@ -288,7 +290,7 @@ function Viewmodel.start()
 		local want = r.hip
 		local gun = r.model:FindFirstChild("Gun")
 		local muzzle = gun and gun:FindFirstChild("Muzzle") :: Attachment?
-		local rising = r.tracks.aimIn
+		local rising, falling = r.tracks.aimIn, r.tracks.aimOut
 		-- per weapon (Config/Weapons hipConverge / aimConverge): the rifles turn at the hip only; the staff stands angled
 		-- up at the hip (no turn) and aimed turns its line onto the crosshair, so the cast's circles sit on it
 		local w = W[weapon.name]
@@ -299,6 +301,7 @@ function Viewmodel.start()
 		local atHip = hipD > 0
 			and hold == "ready"
 			and not (rising and rising.IsPlaying)
+			and not (falling and falling.IsPlaying)
 			and character:GetAttribute("Reloading") ~= true
 		local atAim = aimD > 0 and hold == "aim"
 		if muzzle and (atHip or atAim) then
@@ -325,12 +328,13 @@ function Viewmodel.start()
 		-- how much of the pose is the hip (ready) hold and how much the aim, from the tracks themselves, so the hip
 		-- shift and turn and the aimed sight fix blend exactly as the poses crossfade (user 2026-10-13: eased on their
 		-- own they twitched starting to move and going in and out of the sights). The aim-in starts at the ready pose and
-		-- ends in the sights: its progress hands one over to the other.
-		local progress = if rising
-				and rising.IsPlaying
-				and rising.Length > 0
-			then math.clamp(rising.TimePosition / rising.Length, 0, 1)
-			else nil
+		-- ends in the sights: its progress hands one over to the other (the aim-out's the other way).
+		local progress: number? = nil
+		if rising and rising.IsPlaying and rising.Length > 0 then
+			progress = math.clamp(rising.TimePosition / rising.Length, 0, 1)
+		elseif falling and falling.IsPlaying and falling.Length > 0 then
+			progress = 1 - math.clamp(falling.TimePosition / falling.Length, 0, 1)
+		end
 		local hipness, aimness = 1 - (progress or 0), progress or 0
 		if not progress then
 			-- each hold's share of the pose: the holds share one priority, so the pose is their weights' mix. Only the
@@ -409,21 +413,38 @@ function Viewmodel.start()
 				charge:Stop(0.1)
 			end
 		end
-		local aimIn = r.tracks.aimIn
+		local aimIn, aimOut = r.tracks.aimIn, r.tracks.aimOut
 		if track ~= playing then
 			-- coming into view: straight into the pose, never faded in from the rig's rest pose
 			local fade = if appearing then 0 elseif stowing then 0.1 else Cfg.ViewmodelFade -- (the unequip is short)
 			local out = fade
+			-- how far up the gun is between the ready hold (0) and the sights (1), if it is on its way
+			local up = progress
 			if state == "aim" and aimIn then
-				-- aiming starts: the brief aim-in carries the gun up into the sights over the aim hold
+				-- aiming starts: the brief aim-in carries the gun up into the sights over the aim hold (from where the
+				-- aim-out had got to, if it was on its way down)
 				fade = 0
 				aimIn:Play(0)
+				aimIn.TimePosition = (up or 0) * aimIn.Length
+				if aimOut and aimOut.IsPlaying then
+					aimOut:Stop(0)
+				end
 				-- the hold left behind fades out under the aim-in (which covers it) rather than stopping dead: a track
 				-- stopped with no fade keeps weight 1 and, played again, would start from it, snapping the pose when
 				-- aiming ends (KNOWN_TRAPS)
-				out = aimIn.Length * 0.8
+				out = (1 - (up or 0)) * aimIn.Length * Cfg.AimHandoff
+			elseif aimOut and playing == r.tracks.aim and track == r.tracks.ready and not appearing then
+				-- letting go of aim (A1, user 2026-10-18: it only cross-faded): the aim-out carries the gun down into the
+				-- ready hold over it, from where the aim-in had got to if it was still on its way up
+				fade = 0
+				aimOut:Play(0)
+				aimOut.TimePosition = (1 - (up or 1)) * aimOut.Length
+				if aimIn and aimIn.IsPlaying then
+					aimIn:Stop(0)
+				end
+				out = (up or 1) * aimOut.Length * Cfg.AimHandoff
 			elseif aimIn and aimIn.IsPlaying then
-				aimIn:Stop(fade) -- let go of aim before the gun reached the sights
+				aimIn:Stop(fade) -- let go of aim before the gun reached the sights (into a hold without an aim-out)
 			end
 			if playing then
 				playing:Stop(out)

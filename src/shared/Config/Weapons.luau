@@ -57,6 +57,7 @@ export type Weapon = {
 		equip: number,
 		unequip: number?,
 		aimIn: number?,
+		aimOut: number?, -- the aim-in backwards, letting go of aim (A1 2026-10-18)
 		aimTwo: number?,
 		charge: number?,
 		chargeTwo: number?,
@@ -308,6 +309,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 86411519760958,
 			unequip = 92360338634937,
 			aimIn = 108346522950809,
+			aimOut = 118548838358261,
 		},
 		-- the hammer lies back in its slot (user 2026-10-13: "the hammer is clipping into the shotgun"); push from
 		-- tools/blender/weapons/m1897.py (its ends set to 0 and 1: the bolt's face only touches the fallen hammer)
@@ -394,7 +396,7 @@ local Weapons: { [string]: Weapon } = {
 		single = {
 			seat = { 0, -0.05, -0.2 },
 			body = 84714499624328,
-			firstPerson = 122157054829974,
+			firstPerson = 83892112156051,
 			open = 0.35, -- slower (user 2026-10-13)
 			round = 0.6,
 			close = 0.4,
@@ -454,6 +456,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 105963460001801,
 			unequip = 102151639999018,
 			aimIn = 111730503877557,
+			aimOut = 81283833297555,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
@@ -498,7 +501,7 @@ local Weapons: { [string]: Weapon } = {
 			clipTop = { 0, 0.0614, -0.267 },
 			entry = 0.2,
 			body = 85665510995906,
-			firstPerson = 117282437527804,
+			firstPerson = 75633779262187,
 		},
 	},
 	rifle_g98 = {
@@ -550,6 +553,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 123066272399119,
 			unequip = 126607551609403,
 			aimIn = 77762769530436,
+			aimOut = 109549978918090,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
@@ -580,13 +584,13 @@ local Weapons: { [string]: Weapon } = {
 			firstReady = 117007270529310,
 		},
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
-		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 131901306057487 },
+		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 95518071079042 },
 		reload = {
 			knob = { 0.136, 0.065, -0.0695 },
 			clipTop = { 0, 0.255, -0.1863 },
 			entry = 0,
 			body = 122499300440488,
-			firstPerson = 74117864792610,
+			firstPerson = 131003405036443,
 		},
 	},
 	rifle_smle = {
@@ -638,6 +642,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 88893121669824,
 			unequip = 128704204598975,
 			aimIn = 117817401540584,
+			aimOut = 90955676384745,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
@@ -669,13 +674,13 @@ local Weapons: { [string]: Weapon } = {
 			firstReady = 108177354367826,
 		},
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
-		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 104609958068259 },
+		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 125069294394284 },
 		reload = {
 			knob = { 0.11, -0.0276, 0.0376 },
 			clipTop = { 0, 0.2833, -0.1618 },
 			entry = 0,
 			body = 101808128954188,
-			firstPerson = 138274233820958,
+			firstPerson = 136400362363287,
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)
