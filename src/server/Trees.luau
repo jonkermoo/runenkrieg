@@ -238,8 +238,8 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	local tilt = math.rad(Rules.clearTilt(samples, F.minTilt, F.maxTilt))
 	local axis = Vector3.new(0, 1, 0):Cross(dir)
 	-- turned about its own axis at the hinge's height, then moved over to the hinge
-	local at = Vector3.new(base.X, hinge.Y, base.Z)
-	local turn = CFrame.new(at) * CFrame.fromAxisAngle(axis, tilt) * CFrame.new(-at)
+	local pin = Vector3.new(base.X, hinge.Y, base.Z)
+	local turn = CFrame.new(pin) * CFrame.fromAxisAngle(axis, tilt) * CFrame.new(-pin)
 	-- the butt rests on the hinge: slide it out along the fallen trunk by what sat under the hinge
 	local under = hinge.Y - pivot.Y
 	local lie = CFrame.new(turn:VectorToWorldSpace(Vector3.yAxis) * under + dir * off) * turn * pivot
