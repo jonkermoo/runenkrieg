@@ -156,7 +156,7 @@ return {
 		assert(plan and #plan.rim == C.rim.count)
 		for _, b in plan.rim do
 			local out = math.sqrt(b.dx * b.dx + b.dz * b.dz)
-			assert(out > plan.radius, "the rim is outside the hole")
+			assert(out > plan.mouth, "the rim is outside the bowl")
 			local rise = b.radius - b.sink
 			assert(rise > 0 and rise < 0.5 * plan.radius, `a low rim: {rise}`)
 		end
@@ -196,5 +196,28 @@ return {
 		assert(brick > 4 and brick < 9, `brick hole ~6: {brick}`)
 		assert(Blast.reachOf(10, 0, B) == 0, "no charge")
 		assert(Blast.reachOf(1e9, KG, B) == 0, "never that strong")
+	end,
+	["a crater is a bowl you can walk out of, at any charge"] = function()
+		local M = require("../src/shared/Config/Metrics")
+		local steepest = math.tan(math.rad(M.Movement.MaxSlopeAngle))
+		for _, kg in { 0.5, 2, 10, 50, 200 } do
+			local plan = Blast.craterPlan(kg, B.Crater) :: Blast.CraterPlan
+			local discs = plan.discs
+			assert(#discs >= 3)
+			for k = 1, #discs do
+				local d = discs[k]
+				local inner = if k < #discs then discs[k + 1].radius else 0
+				local slope = d.height / math.max(d.radius - inner, 1e-9)
+				assert(slope < steepest * 0.95, `{kg} kg: a wall of {math.deg(math.atan(slope))} deg`)
+				if k > 1 then
+					assert(d.radius < discs[k - 1].radius and d.y > discs[k - 1].y, "narrower going down")
+				end
+			end
+			local deep = discs[#discs].y + discs[#discs].height / 2
+			assert(plan.mouth > deep * 2, `{kg} kg: wider than deep ({plan.mouth} across, {deep} deep)`)
+		end
+		local big = Blast.craterPlan(50, B.Crater) :: Blast.CraterPlan
+		local deep = big.discs[#big.discs].y + big.discs[#big.discs].height / 2
+		assert(deep < 8, `50 kg: no pit ({deep} deep)`)
 	end,
 }

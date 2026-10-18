@@ -118,11 +118,18 @@ local Damage = {
 		-- `rim.sink` x radius under the ground (it rises ~(size - sink) x radius); the ground out to `churn` x radius
 		-- turns from `churnFrom` to `churnTo` (blasted earth: grass is gone at once and never grows back; user: "as the
 		-- battle goes on, there should be little to no grass on the map"). Terrain stays changed (voxels: no upkeep).
+		-- The hole is a wide, shallow bowl you can walk out of (user 2026-10-18: a 50 kg shell's sunk ball left a pit 12
+		-- deep with near-upright walls, "players are unable to get out"): `width` x radius across its mouth, `depth` x
+		-- radius deep, its walls a parabola, cut as `layers` stacked discs (tests/blast.spec keeps the walls under the
+		-- walkable slope). 10 kg: ~17 across, ~3.75 deep; 50 kg: ~29 across, ~6.4 deep.
 		Crater = {
 			perCubeRoot = 2.32,
-			sink = 0.45,
-			-- (Studio: 0.38 / 0.2 at 1.15 left no rim, 0.65 / 0.4 at 1.2 rose 2-2.5 and narrowed the hole)
-			rim = { count = 12, at = 1.35, size = 0.45, sink = 0.4 }, -- (0.5 / 0.35 at 1.35 rose ~2.2 at 6 studs)
+			width = 1.7,
+			depth = 0.75,
+			layers = 6,
+			-- (Studio: 0.38 / 0.2 at 1.15 left no rim, 0.65 / 0.4 at 1.2 rose 2-2.5 and narrowed the hole; 0.45 / 0.4 at
+			-- 1.35 rose ~+0.9..+1.3); now just past the bowl's mouth
+			rim = { count = 14, at = 1.85, size = 0.45, sink = 0.4 },
 			churn = 2.2,
 			churnDepth = 1.5, -- x radius: only ground this far above or below the blast churns (none for a blast up a wall)
 			churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },

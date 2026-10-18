@@ -17,9 +17,9 @@ function Ground.heightAt(x: number, z: number, top: number, depth: number): numb
 	return if hit then hit.Position.Y else nil
 end
 
--- A crater at `position` (Rules/Blast.craterPlan / craterPlanFor; `c` its config: churnFrom, churnTo, churnDepth): a
--- low rim of earth where there is ground near, the hole, then the ground around churned to blasted earth (the grass on
--- it goes: src/client/GrassFoliage).
+-- A crater at `position` (Rules/Blast.craterPlan; `c` its config: churnFrom, churnTo, churnDepth): a low rim of earth
+-- where there is ground near, the bowl, then the ground around churned to blasted earth (the grass on it goes:
+-- src/client/GrassFoliage).
 function Ground.crater(position: Vector3, plan: any, c: any)
 	if not plan then
 		return
@@ -33,7 +33,10 @@ function Ground.crater(position: Vector3, plan: any, c: any)
 			terrain:FillBall(hit.Position - Vector3.yAxis * b.sink, b.radius, churnTo)
 		end
 	end
-	terrain:FillBall(position - Vector3.yAxis * plan.sink, plan.radius, Enum.Material.Air)
+	-- the bowl, disc by disc (a cylinder's axis is its Y)
+	for _, d in plan.discs do
+		terrain:FillCylinder(CFrame.new(position - Vector3.yAxis * d.y), d.height, d.radius, Enum.Material.Air)
+	end
 	Ground.churn(position, plan.churn, plan.radius * c.churnDepth, c)
 end
 

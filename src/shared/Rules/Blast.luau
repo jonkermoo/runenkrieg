@@ -143,8 +143,10 @@ function Blast.churnFromReach(reach: number, b: any): number
 end
 
 export type CraterPlan = {
-	radius: number, -- the hole's ball
-	sink: number, -- how far under the blast point the hole's centre is
+	radius: number, -- the crater's size (Blast.crater): the rim, churn and depth scale with it
+	mouth: number, -- the bowl's radius at the ground
+	-- the bowl as stacked discs from the top: each { radius, y = its centre under the blast point, height }
+	discs: { { radius: number, y: number, height: number } },
 	rim: { { dx: number, dz: number, radius: number, sink: number } }, -- balls of earth round it, under the ground
 	churn: number, -- the ground out to here turns to blasted earth
 }
@@ -170,7 +172,13 @@ function Blast.craterPlanFor(r: number, c: any): CraterPlan?
 			sink = c.rim.sink * r,
 		})
 	end
-	return { radius = r, sink = c.sink * r, rim = rim, churn = c.churn * r }
+	-- a parabolic bowl: at depth z the radius is mouth x sqrt(1 - z / depth)
+	local mouth, depth, n = c.width * r, c.depth * r, c.layers
+	local discs = {}
+	for k = 0, n - 1 do
+		table.insert(discs, { radius = mouth * math.sqrt(1 - k / n), y = (k + 0.5) * depth / n, height = depth / n })
+	end
+	return { radius = r, mouth = mouth, discs = discs, rim = rim, churn = c.churn * r }
 end
 
 return Blast
