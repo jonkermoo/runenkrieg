@@ -2,7 +2,7 @@
 -- Throwing a grenade on the local client (docs/MILESTONES.md G1; Config/Grenades, Rules/Grenade; the server throws it,
 -- src/server/Grenades):
 -- - with a grenade in the hands (Config/Weapons class "Grenade") and some left (the Tool's "Count"), holding the fire
---   key (Settings Key_Fire) shows a faint dotted arc from the throwing hand to where it would land (user: "Arc preview
+--   key (Settings Key_Fire) shows a faint line from the throwing hand to where it would land (user: "Arc preview
 --   line"); releasing throws it along the look (Net "GrenadeThrow"). Putting it away drops the arc unthrown.
 -- - the arc is the throw's own path (Rules/Grenade.hand / launch / at, the same the server uses), drawn until the first
 --   thing it would hit; the bounce and roll after that aren't drawn.
@@ -42,42 +42,51 @@ local function grenade(character: Model?): (Held.Weapon?, string?)
 	return nil, nil
 end
 
--- the dots, pooled (client only, under the camera)
-local dots: { Part } = {}
-local folder: Folder? = nil
+-- the line: one Beam between two attachments on the terrain (client only), bent to the throw's own parabola (a
+-- parabola is a Bezier curve: its control points sit a third of the flight along the velocity at each end)
+local beam: Beam? = nil
+local a0: Attachment? = nil
+local a1: Attachment? = nil
 
-local function dot(i: number): Part
-	local d = dots[i]
-	if not d then
-		if not folder or not folder.Parent then
-			local f = Instance.new("Folder")
-			f.Name = "GrenadeArc"
-			f.Parent = workspace.CurrentCamera
-			folder = f
-		end
+local function line(): (Beam, Attachment, Attachment)
+	if not beam or not beam.Parent or not a0 or not a1 then
 		local c = Palette.Grenades.Arc
-		d = Instance.new("Part")
-		d.Name = "Dot"
-		d.Shape = Enum.PartType.Ball
-		d.Anchored = true
-		d.CanCollide, d.CanQuery, d.CanTouch = false, false, false
-		d.CastShadow = false
-		d.Material = Enum.Material.SmoothPlastic
-		d.Color = Color3.fromRGB(c[1], c[2], c[3])
-		d.Transparency = A.transparency
-		d.Parent = folder
-		dots[i] = d
+		a0 = Instance.new("Attachment")
+		a1 = Instance.new("Attachment")
+		local b = Instance.new("Beam")
+		b.Name = "GrenadeArc"
+		b.Attachment0, b.Attachment1 = a0, a1
+		b.FaceCamera = true
+		b.Segments = A.segments
+		b.Width0, b.Width1 = A.width, A.width
+		b.Color = ColorSequence.new(Color3.fromRGB(c[1], c[2], c[3]))
+		b.Transparency = NumberSequence.new(A.transparency)
+		b.LightEmission = 0
+		b.Enabled = false
+		(a0 :: Attachment).Parent = workspace.Terrain;
+		(a1 :: Attachment).Parent = workspace.Terrain
+		b.Parent = workspace.Terrain
+		beam = b
 	end
-	return d
+	return beam :: Beam, a0 :: Attachment, a1 :: Attachment
 end
 
-local function hide(from: number)
-	for i = from, #dots do
-		dots[i].Transparency = 1
+local function hide()
+	if beam then
+		beam.Enabled = false
 	end
 end
 
--- draws the arc for a throw along `look` from `head`; the dots past the first hit stay hidden
+-- an attachment at `at` whose X axis points along `axis`
+local function along(a: Attachment, at: Vector3, axis: Vector3)
+	local x = if axis.Magnitude > 1e-6 then axis.Unit else Vector3.xAxis
+	local y = x:Cross(Vector3.yAxis)
+	y = if y.Magnitude > 1e-3 then y.Unit else Vector3.zAxis
+	a.WorldCFrame = CFrame.fromMatrix(at, x, y)
+end
+
+-- draws the line for a throw along `look` from `head`: from where it is `near` studs from the eye to the first thing
+-- it would hit (or `time` seconds)
 local function draw(character: Model, head: Vector3, look: Vector3, name: string)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -85,36 +94,52 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 	params.IgnoreWater = false
 	-- the hand, never past a wall between it and the head (as src/server/Grenades.hand)
 	local hx, hy, hz = Rules.hand(head.X, head.Y, head.Z, look.X, look.Y, look.Z, Cfg.Throw.from)
-	local line = Vector3.new(hx, hy, hz) - head
-	local block = workspace:Raycast(head, line, params)
-	local start = head + line * Rules.clearShare(line.Magnitude, block and block.Distance, Cfg.Throw.gap)
+	local reach = Vector3.new(hx, hy, hz) - head
+	local block = workspace:Raycast(head, reach, params)
+	local start = head + reach * Rules.clearShare(reach.Magnitude, block and block.Distance, Cfg.Throw.gap)
 	local ox, oy, oz = start.X, start.Y, start.Z
 	local vx, vy, vz = Rules.launch(look.X, look.Y, look.Z, Cfg.Throw.loft, Cfg.Types[name].speed)
 	local g = workspace.Gravity
 	local eye = workspace.CurrentCamera.CFrame.Position
-	local prev = Vector3.new(ox, oy, oz)
-	local n = 0
-	local t = 0 -- from the hand itself, so the arc comes in from the edge of the view
-	local dt = A.spacing / math.max(Vector3.new(vx, vy, vz).Magnitude, 1)
-	while t <= A.time and n < A.dots do
+	local function at(t: number): Vector3
 		local x, y, z = Rules.at(t, ox, oy, oz, vx, vy, vz, g)
-		local p = Vector3.new(x, y, z)
-		local hit = if t > 0 then workspace:Raycast(prev, p - prev, params) else nil
-		n += 1
-		local d = dot(n)
+		return Vector3.new(x, y, z)
+	end
+	local dt = A.spacing / math.max(Vector3.new(vx, vy, vz).Magnitude, 1)
+	local first: number? = nil -- the first time it's `near` from the eye
+	local last, finish = 0, nil :: Vector3?
+	local prev = at(0)
+	local t = dt
+	while t <= A.time do
+		local p = at(t)
+		local hit = workspace:Raycast(prev, p - prev, params)
 		if hit then
-			d.Size = Vector3.one * A.landSize
-			d.Position = hit.Position
-			d.Transparency = A.transparency
+			last = t - dt + dt * hit.Distance / (p - prev).Magnitude
+			finish = hit.Position
 			break
 		end
-		d.Size = Vector3.one * A.size
-		d.Position = p
-		d.Transparency = if (p - eye).Magnitude < A.near then 1 else A.transparency
+		if not first and (p - eye).Magnitude >= A.near then
+			first = t
+		end
+		last = t
 		prev = p
 		t += dt
 	end
-	hide(n + 1)
+	local t0 = first or 0
+	if last <= t0 then
+		hide()
+		return
+	end
+	local b, s0, s1 = line()
+	local p0, p1 = at(t0), finish or at(last)
+	local v0 = Vector3.new(vx, vy - g * t0, vz)
+	local v1 = Vector3.new(vx, vy - g * last, vz)
+	local third = (last - t0) / 3
+	along(s0, p0, v0)
+	along(s1, p1, v1)
+	b.CurveSize0 = v0.Magnitude * third
+	b.CurveSize1 = v1.Magnitude * third
+	b.Enabled = true
 end
 
 function Grenades.start()
@@ -134,7 +159,7 @@ function Grenades.start()
 			return
 		end
 		aiming = false
-		hide(1)
+		hide()
 		if grenade(player.Character) then
 			Net.event("GrenadeThrow"):FireServer(workspace.CurrentCamera.CFrame.LookVector)
 		end
@@ -148,7 +173,7 @@ function Grenades.start()
 		local head = character and character:FindFirstChild("Head") :: BasePart?
 		if not character or not name or not head then
 			aiming = false -- put away or out: no throw
-			hide(1)
+			hide()
 			return
 		end
 		draw(character, head.Position, workspace.CurrentCamera.CFrame.LookVector, name)

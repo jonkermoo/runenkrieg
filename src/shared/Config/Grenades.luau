@@ -3,7 +3,7 @@
 -- "Grenade" in the "Grenade" slot; Rules/Grenade works the numbers, src/server/Grenades throws and sets them off,
 -- src/client/Grenades shows the arc and sends the throw. Data only.
 -- - Pull the pin and throw: the fuse starts as it leaves the hand, the same for all three, no cooking (user).
--- - Hold the throw button to see a faint dotted arc to where it lands (user: "Arc preview line"); release throws.
+-- - Hold the throw button to see a faint line to where it lands (user: "Arc preview line"); release throws.
 -- - It can't be picked up or thrown back (user).
 -- - The blast is the real charge through Damage.blast (TNT equivalent), plus its fragments (user: "Real + fragments").
 --   It only strips leaves and shakes trees, never fells them (user 2026-10-18).
@@ -48,18 +48,17 @@ local Grenades = {
 		lever = { carry = 0.5, pop = 15, spin = 20, life = 1.5 },
 	},
 
-	-- The arc preview (src/client/Grenades): a dot every `spacing` studs along the path from the throwing hand (over the
-	-- right shoulder, so it comes in from the top right of the view), out to the first thing it hits, `time` seconds or
-	-- `dots` dots; each dot `size` studs, see-through (Palette.Grenades.Arc), the landing spot bigger. (Studio round 4:
-	-- a dot every 0.05 s left the first 7 studs empty.)
+	-- The arc preview (src/client/Grenades): one line (user 2026-10-18: "make the preset line a singular line and not
+	-- dots") along the throw's path from where it is `near` studs from the eye (the hand is over the right shoulder, so
+	-- it comes in from the top right of the view) to the first thing it would hit, or `time` seconds. Found by stepping
+	-- `spacing` studs at a time; drawn `width` studs wide in `segments` pieces, see-through (Palette.Grenades.Arc).
 	Arc = {
 		spacing = 2.5,
-		near = 2, -- no dots this close to the eye (Studio round 5: they showed as a big white blot)
-		dots = 120,
+		near = 2,
 		time = 4,
-		size = 0.3, -- (Studio round 1: 0.18 at 0.45 see-through was near invisible)
-		landSize = 0.8,
-		transparency = 0.15,
+		width = 0.12,
+		segments = 40,
+		transparency = 0.25,
 	},
 
 	-- Per grenade (Config/Weapons name):
