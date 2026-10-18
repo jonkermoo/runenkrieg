@@ -148,7 +148,7 @@ local Assets = {
 			description = "Bandage worn on the right leg (thigh, 2 turns); its Origin goes at the leg part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
 		},
 		wrap_head = {
-			id = 120626644598162, -- v2: plain part names, both turns above the eyes (v1 93649111980606)
+			id = 75131246502526, -- v3: both turns above the eyes (v2 120626644598162, v1 93649111980606)
 			category = "Teams",
 			folder = "Shared/Bandages",
 			source = "assets/teams/shared/bandages/wrap_head.fbx",
