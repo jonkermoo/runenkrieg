@@ -32,9 +32,12 @@ local Grenades = {
 		density = 2,
 		friction = 0.6,
 		elasticity = 0.3,
-		-- Where it lands it thuds: the first touch keeps `land` of its speed along the ground, then rolling loses it at
-		-- `roll` per second (a ball in Roblox never stops rolling by itself; Studio round 1 rolled 275 studs). Swept
-		-- each frame from where it was (`probe` studs past its radius), so a fast throw can't pass through thin ground.
+		-- Where it first hits anything (the ground or a wall: its velocity jumps by more than `impact` studs/s in a frame)
+		-- it thuds, keeping `land` of its speed (Studio round 2: off a wall it flew 14 studs back); on the ground rolling
+		-- loses speed at `roll` per second (a ball in Roblox never stops rolling by itself; round 1 rolled 275 studs).
+		-- Swept each frame from where it was (`probe` studs past its radius under it), so it can't pass through thin
+		-- ground.
+		impact = 20,
 		land = 0.15,
 		roll = 3,
 		probe = 0.15,

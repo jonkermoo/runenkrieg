@@ -85,6 +85,7 @@ type Rig = {
 	clear: number,
 	hip: CFrame, -- the turn that points the barrel at the screen centre (not aiming), eased
 	aimFix: Vector3, -- aimed: the shift that puts this rifle's own sight line on the eye (see aimFix)
+	shift: Vector3, -- the item's own first-person offset (Config/Weapons `firstShift`)
 	animator: Animator,
 	-- held in one hand (the staff): its first-person holds don't pose the left arm, which would hang at the rig's rest
 	-- pose and poke into the lower left of the view, so it's hidden until the left hand joins (`leftHidden`)
@@ -193,6 +194,10 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		clear = -1,
 		hip = CFrame.identity,
 		aimFix = aimFix(weapon.name),
+		shift = (function()
+			local f = W[weapon.name].firstShift
+			return if f then Vector3.new(f[1], f[2], f[3]) else Vector3.zero
+		end)(),
 		animator = animator,
 		oneHanded = W[weapon.name].class == "Staff" or W[weapon.name].class == "Grenade",
 		leftHidden = false,
@@ -350,7 +355,7 @@ function Viewmodel.start()
 			* below
 			* Sway.viewmodel()
 			* CFrame.new():Lerp(r.hip, math.min(turned, 1))
-			* CFrame.new(shift + r.aimFix * aimness)
+			* CFrame.new(shift + r.aimFix * aimness + r.shift)
 			* CFrame.new(-EYE)
 		r.model.Parent = camera
 		-- fading in (and out) with the camera's glide to the eye (WeaponCamera's "Handover")

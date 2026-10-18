@@ -107,7 +107,8 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 	params.FilterDescendantsInstances = { model }
 	params.CollisionGroup = GROUP -- what it can touch (not soldiers)
 	local last = ball.Position
-	local landed = false
+	local was = velocity
+	local thudded = false
 	local step = RunService.Heartbeat:Connect(function(dt)
 		local p, v = ball.Position, ball.AssemblyLinearVelocity
 		local move = p - last
@@ -124,12 +125,19 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 				p = ball.Position
 			end
 		end
+		-- the first thing it hits takes most of its speed
+		if not thudded and (v - (was - Vector3.yAxis * workspace.Gravity * dt)).Magnitude > B.impact then
+			thudded = true
+			v *= B.land
+			ball.AssemblyLinearVelocity = v
+			ball.AssemblyAngularVelocity *= B.land
+		end
 		if workspace:Raycast(p, Vector3.yAxis * -(radius + B.probe), params) then
-			local keep = if landed then math.exp(-B.roll * dt) else B.land
-			landed = true
+			local keep = math.exp(-B.roll * dt)
 			ball.AssemblyLinearVelocity = Vector3.new(v.X * keep, v.Y, v.Z * keep)
 			ball.AssemblyAngularVelocity *= keep
 		end
+		was = ball.AssemblyLinearVelocity
 		last = ball.Position
 	end)
 

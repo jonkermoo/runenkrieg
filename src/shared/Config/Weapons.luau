@@ -70,6 +70,10 @@ export type Weapon = {
 	-- by default: a gun's sights are on the eye).
 	hipConverge: number?,
 	aimConverge: number?,
+	-- First person: the whole viewmodel (arms and item) moved this far in camera space (+X right, +Y up, -Z forward), for
+	-- an item posed by holds made for another (the grenades on the staff's holds: Studio round 2 had the hand and
+	-- grenade below and behind the camera).
+	firstShift: { number }?,
 	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
 	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
 	-- the muzzle against Metrics. Sighted weapons only.
@@ -727,6 +731,7 @@ local function grenade(display: string, asset: string, parts: { [string]: { numb
 			equip = ref.firstPerson.equip,
 		},
 		hipConverge = 0,
+		firstShift = { -0.6, 0.9, -1.2 }, -- the hand and grenade low on the right of the screen
 		-- modelled at real size (0.0028 studs per mm); thick enough for the 1-stud hand, the stick shorter than thick
 		scale = scale,
 	}
