@@ -131,8 +131,9 @@ local Damage = {
 			-- uprooted (felled whole by a blast): the butt lies on the ground (its half thickness up), with a root ball of
 			-- mud at it (`radius` x the trunk's width, `min` to `max`: smaller vanishes in 4-stud voxels) and a pit where
 			-- it stood (`pit` x that, `pitBack` x the radius behind the butt)
-			-- (was 1.8 x the width, no cap: 7-9 stud mounds that buried the pit)
-			Roots = { radius = 1, min = 2.6, max = 3.2, pit = 0.9, rise = 0.15, pitBack = 1.1 },
+			-- (was 1.8 x the width, no cap: 7-9 stud mounds that buried the pit; then 2.6-3.2, user: "a tiny bit smaller")
+			-- `material`: its own terrain material, coloured darker than mud (Config/Palette.Terrain)
+			Roots = { radius = 0.9, min = 2.3, max = 2.8, pit = 0.9, rise = 0.15, pitBack = 1.1, material = "Basalt" },
 			-- soldiers under it when it lands: within `radius` (x the scale) of the trunk's line they take `damage` and
 			-- the `knock`, pushed to the side they stand on; the trunk lets characters through for `ghost` s after (and
 			-- longer while one is still inside it, up to `ghostMax`), so nobody is pushed into the ground or flung

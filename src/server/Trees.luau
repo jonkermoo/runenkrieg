@@ -285,7 +285,11 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		if not leaveStump then
 			local R = F.Roots
 			local r = math.clamp(thickness(trunk) * R.radius, R.min, R.max)
-			Ground.ball(Vector3.new(hinge.X, ground + r * (R.rise - 1) + half, hinge.Z), r, Enum.Material.Mud)
+			Ground.ball(
+				Vector3.new(hinge.X, ground + r * (R.rise - 1) + half, hinge.Z),
+				r,
+				(Enum.Material :: any)[R.material]
+			)
 			Ground.churn(base, r * 1.5, r, F.Dent)
 		end
 	end)

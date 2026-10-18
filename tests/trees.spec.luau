@@ -94,7 +94,12 @@ return {
 		assert(I.depth > 0 and I.depth < I.radius, "pressed in, not a hole")
 		local open = math.sqrt(I.radius ^ 2 - (I.radius - I.depth) ^ 2)
 		assert(I.step <= open, "its balls overlap into one even trough")
-		assert(T.Fall.Roots.min >= 2.5, "a root ball the voxels keep")
+		local R = T.Fall.Roots
+		assert(R.min >= 2.2 and R.max >= R.min, "a root ball the voxels keep")
+		local Palette = require("../src/shared/Config/Palette")
+		local roots, mud = Palette.Terrain[R.material], Palette.Terrain.Mud
+		assert(roots, "the root material has a palette colour (flat, from Greybox applyPalette)")
+		assert(roots[1] + roots[2] + roots[3] < mud[1] + mud[2] + mud[3], "roots darker than mud")
 		local Foliage = require("../src/shared/Config/Foliage")
 		assert(Foliage.UnderTrunk.radius >= open, "no grass in the imprint")
 	end,
