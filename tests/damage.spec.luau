@@ -109,7 +109,7 @@ return {
 		left, knock = Damage.staff(3, 100, S)
 		assert(left == 0 and knock == "StaffThrow", "the full beam kills and throws")
 		assert(Damage.staff(4, 100, S) == nil and Damage.staff(0, 100, S) == nil)
-		assert(S.Charge[1] == 0 and S.Charge[2] == 0 and S.Charge[3] > 0, "only the full beam blasts")
+		assert(S.Charge[1] == 0 and S.Charge[2] > 0 and S.Charge[3] > S.Charge[2], "stage 2 a small blast, 3 a big one")
 	end,
 	["respawn after the agreed delay"] = function()
 		assert(Metrics.Combat.RespawnDelay == 10)

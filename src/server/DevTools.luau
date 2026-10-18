@@ -22,7 +22,6 @@ local DevWorld = require(script.Parent.DevWorld)
 local Helmets = require(script.Parent.Helmets)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Cfg = require(Shared.Config.DevTools)
-local DamageCfg = require(Shared.Config.Damage)
 local W = require(Shared.Config.Weapons)
 local Map1 = require(Shared.Config.Maps.Map1)
 local Rules = require(Shared.Rules.DevTeleports)
@@ -88,7 +87,6 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 	elseif action == "ClearDummies" then
 		DevDummies.clear()
 	elseif (action == "BlastStage" or action == "BlastKg") and aim then
-		local kg = if action == "BlastKg" then value else DamageCfg.Staff.Charge[value]
 		local by = if player:GetAttribute(Cfg.Blasts.HurtAttribute) == true then nil else character
 		Net.event("DevBlast")
 			:FireAllClients(
@@ -96,7 +94,11 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 				if action == "BlastStage" then value else nil,
 				if action == "BlastKg" then value else nil
 			)
-		Damage.blast(aim, kg, by)
+		if action == "BlastKg" then
+			Damage.blast(aim, value, by)
+		else
+			Damage.staffBlast(aim, value, by)
+		end
 	elseif action == "BlastHurts" then
 		player:SetAttribute(Cfg.Blasts.HurtAttribute, if value then true else nil)
 	elseif action == "God" then

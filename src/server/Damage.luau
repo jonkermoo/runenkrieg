@@ -6,7 +6,7 @@
 --   (src/server/Ragdoll).
 -- - Damage.staff: a staff shot (src/server/StaffCast): a sphere cast as wide as the beam, as long as the stage's range,
 --   from the caster's head toward its aim; the stage's damage and knock, no zones, no falloff; where it lands, the
---   stage's blast (only the full beam has one).
+--   stage's blast (Damage.staffBlast: stage 2 a light one for the map only, the full beam a big one).
 -- - Damage.blast: a real-scaled blast (Rules/Blast): soldiers hurt and knocked by the overpressure at their torso, map
 --   sections by their class (src/server/Destruction.blast), trees by their HP (src/server/Trees), a crater with a rim
 --   and churned earth round it.
@@ -182,18 +182,29 @@ local function crater(position: Vector3, kg: number)
 	end
 end
 
+-- What a blast does (Config/Damage.Staff.Blasts); nil: everything, in full.
+export type BlastOpts = {
+	soldiers: boolean?,
+	trees: boolean?,
+	crater: boolean?,
+	wear: number?,
+	breaks: { [string]: boolean }?,
+}
+
 -- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it, never killed: knocked).
-function Damage.blast(position: Vector3, kg: number, by: Model?)
+function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts?)
 	local B = Cfg.Blast
 	if kg <= 0 then
 		return
 	end
+	local o: BlastOpts = opts or {}
 	local reach = Blast.studsAt(B.Reach, kg, B.MetresPerStud)
 	local function kpaAt(d: number): number
 		return Blast.kpa(d, kg, B)
 	end
 	-- soldiers (players' characters, DEV dummies)
-	for _, character in Dev.soldiers() do
+	local soldiers: { Model } = if o.soldiers == false then {} else Dev.soldiers()
+	for _, character in soldiers do
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local torso = character:FindFirstChild("Torso") :: BasePart?
 		if humanoid and torso then
@@ -213,12 +224,28 @@ function Damage.blast(position: Vector3, kg: number, by: Model?)
 		end
 	end
 	-- the map: buildings and props, by their class
-	Destruction.blast(position, reach, function(d, class, maxHP)
-		local fail = class and (B.Fail :: any)[class] or B.FailDefault
-		return Blast.sectionDamage(kpaAt(d), fail, maxHP, B.Weaken)
+	Destruction.blast(position, reach, function(d, class, maxHP, kind, hp)
+		return Blast.sectionHit(kpaAt(d), {
+			fail = class and (B.Fail :: any)[class] or B.FailDefault,
+			maxHP = maxHP,
+			hp = hp,
+			weaken = B.Weaken,
+			wear = if class and o.breaks and o.breaks[class] then nil else o.wear,
+			keep = kind ~= nil and (B.WearOnly :: any)[kind] == true,
+		})
 	end)
-	Trees.blast(position, reach, kpaAt)
-	crater(position, kg)
+	if o.trees ~= false then
+		Trees.blast(position, reach, kpaAt)
+	end
+	if o.crater ~= false then
+		crater(position, kg)
+	end
+end
+
+-- A staff stage's blast at `position` (Config/Damage.Staff.Charge and Blasts), set off by `by`.
+function Damage.staffBlast(position: Vector3, stage: number, by: Model?)
+	local S = Cfg.Staff
+	Damage.blast(position, S.Charge[stage] or 0, by, S.Blasts[stage])
 end
 
 -- A staff shot of `stage` from `caster` toward `target`: returns where it lands (the end of its range if it hits
@@ -250,7 +277,7 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 	end
 	Trees.beam(origin, landed, stage) -- the leaves it passes through or near (src/server/Trees)
 	if result then
-		Damage.blast(landed, S.Charge[stage] or 0, caster)
+		Damage.staffBlast(landed, stage, caster)
 	end
 	return landed
 end
