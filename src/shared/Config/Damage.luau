@@ -33,9 +33,29 @@ local Damage = {
 		Damage = { 35, 70, 200 },
 		Knock = { "Limb", "Torso", "StaffThrow" }, -- alive; killed: the Killed knock below
 		Killed = { "TorsoDrop", "TorsoDrop", "StaffThrow" },
-		-- where a stage's beam lands: a blast (Blast below) of this many kg of TNT; 0 = no blast. Only the full beam
-		-- damages the map (user: "it should destroy the map on a full beam")
-		Charge = { 0, 0, 10 },
+		-- where a stage's beam lands: a blast (Blast below) of this many kg of TNT; 0 = no blast (user: "it should
+		-- destroy the map on a full beam")
+		Charge = { 0, 0.5, 10 },
+		-- what each stage's blast does (user 2026-10-17: "a stage 2 should be capable of causing tree recoil and breaking
+		-- surrounding glass, but not destroy a building part (maybe damage it)"): `soldiers` hurt and knocked by it
+		-- (stage 2: only by its beam), `trees` felled or stripped by it (every tree near still shakes: Net "Explosion"),
+		-- a `crater`; `wear`: a section loses at most this share of its MaxHP per blast (3 stage 2 shots break one),
+		-- in full within `wearFull` studs of the blast (to the section's nearest surface), fading to 0 at `wearReach`
+		-- (Studio rounds 1-2: neighbouring walls ~3 studs off broke too, then lost 20% a shot), except the classes in
+		-- `breaks` (glass shatters)
+		Blasts = {
+			{ soldiers = true, trees = true, crater = true },
+			{
+				soldiers = false,
+				trees = false,
+				crater = false,
+				wear = 0.4,
+				wearFull = 1.5,
+				wearReach = 3,
+				breaks = { Glass = true },
+			},
+			{ soldiers = true, trees = true, crater = true },
+		},
 	},
 
 	-- A blast that behaves like a real one (user 2026-10-17: "scale accordingly to how an explosion would be in real
@@ -46,30 +66,43 @@ local Damage = {
 		MetresPerStud = 0.357, -- (Config/Weapons: 0.357 m per stud)
 		AmbientKPa = 101.325,
 		Reach = 12, -- Z beyond which nothing is felt (m / kg^(1/3)); bounds the search (~67 studs at 10 kg)
-		-- soldiers: damage from `from` kPa (0) rising to `kill` kPa (`max` damage, kills from full health)
-		Soldier = { from = 8, kill = 80, max = 100 },
-		-- knocks by overpressure, strongest first (Config/Ragdoll.Knocks); below the last: nothing
+		-- soldiers: damage from `from` kPa (0) rising to `kill` kPa (`max` damage, kills from full health). At 10 kg:
+		-- lethal within ~8 studs, ~59 at 10, ~38 at 12, ~19 at 16, ~4 at 30 (user 2026-10-18: "lethal within ~8"; was
+		-- kill 80, lethal to ~16, so a miss by 12 studs killed and threw)
+		Soldier = { from = 8, kill = 540, max = 100 },
+		-- knocks by overpressure, strongest first (Config/Ragdoll.Knocks); below the last: nothing (only hurt). User
+		-- 2026-10-17: "even if you miss your full charge, you should be able to ragdoll only the person you were trying
+		-- to aim at (and the people really close to him)": at 10 kg thrown within ~6 studs, knocked down within ~10 (was
+		-- 29 / 10 / 8.5 kPa: thrown ~30, knocked ~68). Whoever the blast kills is thrown wherever they stood.
 		Knocks = {
-			{ above = 29, knock = "BlastThrow" },
-			{ above = 10, knock = "Torso" },
-			{ above = 8.5, knock = "Limb" },
+			{ above = 1000, knock = "BlastThrow" },
+			{ above = 320, knock = "Torso" },
 		},
 		-- map sections (Config/Destruction.Materials, the section's "Class"): a section fails at its class's overpressure;
 		-- below that it loses MaxHP x (kPa / fail)^Weaken (so nearby blasts wear it down). Buildings and props.
+		-- User 2026-10-17: "buildings evaporate way too easily ... a stage 3 blast should not crumble a building ... an
+		-- average building hit by a stage 3 blast should just leave a medium sized crater where it hit". At 10 kg every
+		-- wall, roof, door and prop breaks within ~6 studs (a 1-2 section hole), is worn out to ~15, and glass breaks
+		-- within ~37 (stage 2's 0.5 kg: ~14). Was glass 8 (~72 studs), thatch / door / wood 20-25 (~33), tile / plaster
+		-- 300 (~10), brick 900, stone 1200 (map session's sturdier masonry).
 		Fail = {
-			Glass = 8,
-			Tile = 300, -- a tiled roof loses the panels near the blast (~10 studs), not all of them (was 20, ~21)
-			Thatch = 20,
-			Door = 20,
-			Wood = 25,
-			-- sturdier than real masonry (user 2026-10-17): a full beam at a wall blows a 2-3 section hole, a story falls
-			-- after 2-3 of them. At 10 kg: plaster ~10 studs, brick ~6, stone ~5.5 (real walls fail at ~70 kPa, ~19)
-			Plaster = 300,
-			Brick = 900,
+			Glass = 20,
+			Tile = 1000,
+			Thatch = 1000,
+			Door = 1000,
+			Wood = 1000,
+			Plaster = 1000,
+			Brick = 1000,
 			Stone = 1200,
 		},
-		FailDefault = 30,
+		FailDefault = 1000,
 		Weaken = 1, -- (was 2) each blast wears what it doesn't break, so blasts at one spot widen the hole
+		-- section kinds a blast only wears, never breaks: each floor is one slab, so any blast in a room took the whole
+		-- floor (user 2026-10-17: never break, until floors are split into pieces)
+		WearOnly = { Floor = true },
+		-- classes that break at their fail pressure or not at all, never worn bit by bit (Studio round 1: glass with 1 HP
+		-- added up weaker blasts, so a second stage 2 shot broke windows far off)
+		Brittle = { Glass = true },
 		-- trees (Config/TreeSway.Tag): at their trunk base over `fail` a tree is felled whole (no stump: the crater is
 		-- there; user 2026-10-17); below it loses its HP (Trees below) like a section: MaxHP x (kPa / fail)^Weaken
 		Tree = { fail = 60, weaken = 2 },

@@ -16,8 +16,11 @@ return {
 		assert(
 			R.collapseFrom({ [0] = { initial = 20, standing = 20 }, [1] = { initial = 20, standing = 19 } }, f) == nil
 		)
-		assert(R.collapseFrom({ [0] = { initial = 20, standing = 6 }, [1] = { initial = 20, standing = 2 } }, f) == 0)
-		assert(R.collapseFrom({ [0] = { initial = 20, standing = 15 }, [1] = { initial = 20, standing = 5 } }, f) == 1)
+		assert(R.collapseFrom({ [0] = { initial = 20, standing = 4 }, [1] = { initial = 20, standing = 2 } }, f) == 0)
+		assert(R.collapseFrom({ [0] = { initial = 20, standing = 15 }, [1] = { initial = 20, standing = 4 } }, f) == 1)
+		-- only once nearly all its supports are gone (user 2026-10-17): half the walls down still stands
+		assert(R.collapseFrom({ [0] = { initial = 10, standing = 5 } }, f) == nil, "half the walls: stands")
+		assert(R.collapseFrom({ [0] = { initial = 10, standing = 2 } }, f) == 0, "8 of 10 gone: falls")
 	end,
 	["every template's colors exist in the palette, and copies vary"] = function()
 		for name, t in B.Templates do

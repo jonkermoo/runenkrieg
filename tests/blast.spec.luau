@@ -29,40 +29,118 @@ return {
 		assert(Blast.scaled(10, 0, B.MetresPerStud) == math.huge, "no charge, no blast")
 		assert(Blast.kpa(10, 0, B) == 0)
 	end,
-	["the full beam at 10 kg: lethal ~18, heavy ~30, knocked down ~60 studs"] = function()
+	["the full beam at 10 kg: lethal ~8, hurts to ~45, ragdolls the living only within ~10 studs"] = function()
 		local S = B.Soldier
-		assert(Blast.soldierDamage(kpa(17), S) >= S.max, "inside ~18 studs: lethal")
-		local mid = Blast.soldierDamage(kpa(30), S)
-		assert(mid > 20 and mid < S.max, `30 studs: heavy, not lethal ({mid})`)
-		assert(Blast.knock(kpa(30), B.Knocks) == "BlastThrow" or Blast.knock(kpa(30), B.Knocks) == "Torso")
-		assert(Blast.knock(kpa(25), B.Knocks) == "BlastThrow", "25 studs: thrown")
-		assert(Blast.knock(kpa(55), B.Knocks) ~= nil, "55 studs: still knocked")
+		-- user 2026-10-18: "lethal within ~8" (Studio round 1: lethal to ~16 killed and threw a miss by 12 studs)
+		assert(Blast.soldierDamage(kpa(7.5), S) >= S.max, "inside ~8 studs: lethal")
+		local mid = Blast.soldierDamage(kpa(10), S)
+		assert(mid > 40 and mid < S.max, `10 studs: heavy, not lethal ({mid})`)
+		local twelve = Blast.soldierDamage(kpa(12), S)
+		assert(twelve > 25 and twelve < 50, `12 studs: ~38 ({twelve})`)
+		assert(Blast.soldierDamage(kpa(30), S) > 0, "30 studs: still hurt a little")
+		-- user 2026-10-17: only the one aimed at and those really close to them are ragdolled
+		assert(Blast.knock(kpa(5.5), B.Knocks) == "BlastThrow", "5.5 studs: thrown")
+		assert(Blast.knock(kpa(8.5), B.Knocks) == "Torso", "8.5 studs: knocked down (alive)")
+		assert(Blast.knock(kpa(11), B.Knocks) == nil, "11 studs: hurt, stays up")
+		assert(Blast.knock(kpa(30), B.Knocks) == nil, "30 studs: stays up")
 		assert(Blast.soldierDamage(kpa(80), S) == 0 and Blast.knock(kpa(80), B.Knocks) == nil, "80 studs: nothing")
-		assert(Blast.studsAt(B.Reach, KG, B.MetresPerStud) > 60, "the search reaches past the knock range")
+		assert(Blast.studsAt(B.Reach, KG, B.MetresPerStud) > 60, "the search reaches past the damage range")
 	end,
-	["map sections fail by material: glass far, wood mid, brick and stone close"] = function()
+	["the full beam leaves a hole where it hits, not a ruin"] = function()
 		local F = B.Fail
 		for class in Destruction.Materials do
 			assert(F[class], "a fail pressure for " .. class)
 		end
-		local function breaks(class: string, studs: number): boolean
+		local function hit(class: string, studs: number, kg: number?, opts: any?): number
 			local hp = Destruction.Materials[class].hp
-			return Blast.sectionDamage(kpa(studs), F[class], hp, B.Weaken) >= hp
+			local o = opts or {}
+			return Blast.sectionHit(kpa(studs, kg), {
+				fail = F[class],
+				maxHP = hp,
+				hp = o.hp or hp,
+				weaken = B.Weaken,
+				wear = o.wear,
+				keep = o.keep,
+			})
 		end
-		-- sturdier masonry (user 2026-10-17): a full beam at a wall breaks the hit section and its neighbours (~6 studs
-		-- apart), not the whole house
-		assert(breaks("Brick", 5.5) and breaks("Stone", 5) and not breaks("Brick", 7.5), "brick / stone ~6")
-		assert(not breaks("Stone", 6.5), "stone holds past ~6")
-		assert(breaks("Plaster", 9) and not breaks("Plaster", 12), "plaster ~10")
-		assert(breaks("Wood", 30) and not breaks("Wood", 40), "wood ~30")
-		assert(breaks("Glass", 55) and not breaks("Glass", 75), "glass ~60")
-		local worn = Blast.sectionDamage(kpa(10), F.Brick, 700, B.Weaken)
-		assert(worn > 0 and worn < 700 / 2, "a brick wall 10 studs off is worn down, not broken")
-		-- blasts at one spot widen the hole: one wears a brick section ~8 studs off past half, so the next breaks it
-		local w8 = Blast.sectionDamage(kpa(8), F.Brick, 700, B.Weaken)
-		assert(w8 >= 700 / 2 and w8 < 700, `8 studs: {w8}`)
-		assert(Blast.sectionDamage(kpa(15), F.Brick, 700, B.Weaken) < 700 / 5, "15 studs: little")
+		local function breaks(class: string, studs: number, kg: number?, opts: any?): boolean
+			return hit(class, studs, kg, opts) >= Destruction.Materials[class].hp
+		end
+		-- user 2026-10-17: walls, roofs and doors of every material break only within ~6 studs (a 1-2 section hole)
+		for class in Destruction.Materials do
+			if class ~= "Glass" then
+				assert(breaks(class, 5), `{class}: breaks at 5 studs`)
+				assert(not breaks(class, 7), `{class}: holds at 7 studs`)
+				local worn = hit(class, 12, nil)
+				assert(worn > 0 and worn < Destruction.Materials[class].hp / 3, `{class}: worn a little at 12 studs`)
+			end
+		end
+		assert(breaks("Glass", 35) and not breaks("Glass", 40), "glass ~37")
+		-- floors only wear (each is one slab): even at the blast they keep 1 HP
+		local floor = Destruction.Materials.Wood.hp
+		assert(hit("Wood", 0, nil, { keep = true }) == floor - 1, "a floor at the blast: down to 1 HP")
+		assert(hit("Wood", 0, nil, { keep = true, hp = 1 }) == 0, "a floor at 1 HP takes nothing more")
 		assert(Blast.sectionDamage(0, F.Brick, 700, B.Weaken) == 0)
+	end,
+	["stage 2: a light blast for the map only (glass, a shake for trees, sections worn not broken)"] = function()
+		local St = D.Staff
+		local kg, o = St.Charge[2], St.Blasts[2]
+		assert(kg > 0 and kg < St.Charge[3], "a small charge")
+		assert(o.soldiers == false and o.trees == false and o.crater == false, "nothing but the map")
+		assert(o.breaks and o.breaks.Glass, "glass still shatters")
+		local glass = Blast.sectionHit(kpa(13, kg), { fail = B.Fail.Glass, maxHP = 1, hp = 1, weaken = B.Weaken })
+		assert(glass >= 1, "glass ~14 studs off breaks")
+		assert(
+			Blast.sectionHit(kpa(17, kg), { fail = B.Fail.Glass, maxHP = 1, hp = 1, weaken = B.Weaken }) < 1,
+			"glass 17 studs off holds"
+		)
+		-- a direct hit on a wall: at most `wear` of it (user: 3 shots at one spot break it)
+		local hp = Destruction.Materials.Brick.hp
+		local function shot(left: number): number
+			return Blast.sectionHit(
+				kpa(0, kg),
+				{ fail = B.Fail.Brick, maxHP = hp, hp = left, weaken = B.Weaken, wear = o.wear }
+			)
+		end
+		local left = hp
+		for i = 1, 2 do
+			left -= shot(left)
+			assert(left > 0, `still standing after {i} shots`)
+		end
+		left -= shot(left)
+		assert(left <= 0, "the third shot breaks it")
+		-- the wear fades out with distance (Studio round 2): the hit section in full, a neighbour ~3 studs off nothing
+		local function wearAt(d: number): number
+			return Blast.sectionHit(kpa(d, kg), {
+				fail = B.Fail.Brick,
+				maxHP = hp,
+				hp = hp,
+				weaken = B.Weaken,
+				wear = o.wear,
+				wearFull = o.wearFull,
+				wearReach = o.wearReach,
+				distance = d,
+			})
+		end
+		assert(wearAt(1) == hp * o.wear, "the hit section, ~1 stud off its centre: in full")
+		assert(wearAt(3) == 0, `a neighbour 3 studs off: {wearAt(3)}`)
+		local mid = wearAt((o.wearFull + o.wearReach) / 2)
+		assert(mid > 0 and mid < hp * o.wear, "fading in between")
+		assert(wearAt(o.wearReach + 1) == 0, "nothing past wearReach")
+		-- glass is brittle: a weaker blast leaves it whole, however many there are (Studio round 1)
+		local function pane(d: number): number
+			return Blast.sectionHit(
+				kpa(d, kg),
+				{ fail = B.Fail.Glass, maxHP = 1, hp = 1, weaken = B.Weaken, brittle = B.Brittle.Glass }
+			)
+		end
+		assert(pane(13) == 1 and pane(20) == 0, "glass breaks near, takes nothing further off")
+		-- stage 1 and the full beam: everything
+		for _, s in { 1, 3 } do
+			local b = St.Blasts[s]
+			assert(b.soldiers and b.trees and b.crater and b.wear == nil)
+		end
+		assert(#St.Blasts == #St.Charge)
 	end,
 	["a crater about 5 studs across the radius at 10 kg; none without a charge"] = function()
 		local r = Blast.crater(KG, B.Crater.perCubeRoot)

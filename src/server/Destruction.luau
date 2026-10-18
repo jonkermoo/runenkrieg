@@ -162,12 +162,12 @@ function Destruction.explode(position: Vector3, radius: number, damage: number):
 end
 
 -- A blast like a real one (Rules/Blast, Config/Damage.Blast): each section within `reach` studs loses what the
--- overpressure at its nearest part does to its class (`damageAt(distance, class, maxHP)`); trees and the like get the
--- visual kick through Net "Explosion". Returns the sections broken and damaged.
+-- overpressure at its nearest part does to it (`damageAt(distance, class, maxHP, kind, hp)`); trees and the like get
+-- the visual kick through Net "Explosion". Returns the sections broken and damaged.
 function Destruction.blast(
 	position: Vector3,
 	reach: number,
-	damageAt: (distance: number, class: string?, maxHP: number) -> number
+	damageAt: (distance: number, class: string?, maxHP: number, kind: string?, hp: number) -> number
 ): { broken: number, damaged: number }
 	Net.event("Explosion"):FireAllClients(position, reach, 1)
 	local nearest: { [Model]: number } = {}
@@ -186,10 +186,14 @@ function Destruction.blast(
 		if s.Parent then
 			local class = s:GetAttribute("Class")
 			local maxHP = s:GetAttribute("MaxHP")
+			local kind = s:GetAttribute("Kind")
+			local hp = s:GetAttribute("HP")
 			local dmg = damageAt(
 				d,
 				if type(class) == "string" then class else nil,
-				if type(maxHP) == "number" then maxHP else 0
+				if type(maxHP) == "number" then maxHP else 0,
+				if type(kind) == "string" then kind else nil,
+				if type(hp) == "number" then hp else 0
 			)
 			if dmg > 0 then
 				damaged += 1

@@ -63,6 +63,45 @@ function Blast.sectionDamage(kpa: number, fail: number, maxHP: number, weaken: n
 	return maxHP * (kpa / fail) ^ weaken
 end
 
+export type SectionHit = {
+	fail: number, -- its class's fail pressure (kPa)
+	maxHP: number,
+	hp: number, -- what it has left
+	weaken: number,
+	wear: number?, -- at most this share of maxHP per blast (Config/Damage.Staff.Blasts `wear`), nil: no cap
+	wearFull: number?, -- ...in full within this many studs of the blast
+	wearReach: number?, -- ...fading to 0 at this many
+	distance: number?, -- the section's distance from the blast (studs), for `wearReach`
+	keep: boolean?, -- never broken, only worn (Config/Damage.Blast.WearOnly): it keeps at least 1 HP
+	brittle: boolean?, -- breaks at `fail` or takes nothing (Config/Damage.Blast.Brittle)
+}
+
+-- what a map section loses to a blast at `kpa`: Blast.sectionDamage (all or nothing when brittle), capped by a light
+-- blast's `wear` (in full to `wearFull`, fading out to `wearReach`), and short of breaking it when it must be kept
+function Blast.sectionHit(kpa: number, s: SectionHit): number
+	local amount = Blast.sectionDamage(kpa, s.fail, s.maxHP, s.weaken)
+	if s.brittle and amount < s.maxHP then
+		amount = 0
+	end
+	if s.wear then
+		local share = s.wear
+		if s.wearReach then
+			local full = math.min(s.wearFull or 0, s.wearReach)
+			local d = s.distance or 0
+			if d >= s.wearReach then
+				share = 0
+			elseif d > full then
+				share *= 1 - (d - full) / (s.wearReach - full)
+			end
+		end
+		amount = math.min(amount, share * s.maxHP)
+	end
+	if s.keep then
+		amount = math.min(amount, math.max(s.hp - 1, 0))
+	end
+	return amount
+end
+
 -- the crater's radius (studs) for a `kg` charge
 function Blast.crater(kg: number, perCubeRoot: number): number
 	return if kg > 0 then perCubeRoot * kg ^ (1 / 3) else 0
