@@ -29,22 +29,25 @@ return {
 		assert(Blast.scaled(10, 0, B.MetresPerStud) == math.huge, "no charge, no blast")
 		assert(Blast.kpa(10, 0, B) == 0)
 	end,
-	["the full beam at 10 kg: lethal ~8, hurts to ~45, ragdolls the living only within ~10 studs"] = function()
+	["the full beam at 10 kg: lethal ~8, and whoever it hurts is ragdolled, all within ~15 studs"] = function()
 		local S = B.Soldier
-		-- user 2026-10-18: "lethal within ~8" (Studio round 1: lethal to ~16 killed and threw a miss by 12 studs)
+		-- user 2026-10-18: "lethal within ~8"
 		assert(Blast.soldierDamage(kpa(7.5), S) >= S.max, "inside ~8 studs: lethal")
-		local mid = Blast.soldierDamage(kpa(10), S)
-		assert(mid > 40 and mid < S.max, `10 studs: heavy, not lethal ({mid})`)
-		local twelve = Blast.soldierDamage(kpa(12), S)
-		assert(twelve > 25 and twelve < 50, `12 studs: ~38 ({twelve})`)
-		assert(Blast.soldierDamage(kpa(30), S) > 0, "30 studs: still hurt a little")
-		-- user 2026-10-17: only the one aimed at and those really close to them are ragdolled
+		local ten = Blast.soldierDamage(kpa(10), S)
+		assert(ten > 30 and ten < 70, `10 studs: heavy, not lethal ({ten})`)
+		-- user 2026-10-18: "at points where players take damage from a blast is also when they should ragdoll"
+		assert(S.from == B.Knocks[#B.Knocks].above, "damage and knocks start at the same pressure")
+		for _, d in { 2, 5, 7, 9, 11, 13, 14.5, 15.5, 20, 30, 60 } do
+			local hurt = Blast.soldierDamage(kpa(d), S) > 0
+			local knocked = Blast.knock(kpa(d), B.Knocks) ~= nil
+			assert(hurt == knocked, `{d} studs: hurt {hurt}, knocked {knocked}`)
+		end
+		-- user 2026-10-17: only the one aimed at and those really close to them
 		assert(Blast.knock(kpa(5.5), B.Knocks) == "BlastThrow", "5.5 studs: thrown")
 		assert(Blast.knock(kpa(8.5), B.Knocks) == "Torso", "8.5 studs: knocked down (alive)")
-		assert(Blast.knock(kpa(11), B.Knocks) == nil, "11 studs: hurt, stays up")
-		assert(Blast.knock(kpa(30), B.Knocks) == nil, "30 studs: stays up")
-		assert(Blast.soldierDamage(kpa(80), S) == 0 and Blast.knock(kpa(80), B.Knocks) == nil, "80 studs: nothing")
-		assert(Blast.studsAt(B.Reach, KG, B.MetresPerStud) > 60, "the search reaches past the damage range")
+		assert(Blast.knock(kpa(12), B.Knocks) == "Limb", "12 studs: a light knock")
+		assert(Blast.soldierDamage(kpa(16), S) == 0 and Blast.knock(kpa(16), B.Knocks) == nil, "16 studs: nothing")
+		assert(Blast.studsAt(B.Reach, KG, B.MetresPerStud) > 15, "the search reaches past the damage range")
 	end,
 	["the full beam leaves a hole where it hits, not a ruin"] = function()
 		local F = B.Fail

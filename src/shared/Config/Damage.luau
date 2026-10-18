@@ -67,16 +67,19 @@ local Damage = {
 		AmbientKPa = 101.325,
 		Reach = 12, -- Z beyond which nothing is felt (m / kg^(1/3)); bounds the search (~67 studs at 10 kg)
 		-- soldiers: damage from `from` kPa (0) rising to `kill` kPa (`max` damage, kills from full health). At 10 kg:
-		-- lethal within ~8 studs, ~59 at 10, ~38 at 12, ~19 at 16, ~4 at 30 (user 2026-10-18: "lethal within ~8"; was
-		-- kill 80, lethal to ~16, so a miss by 12 studs killed and threw)
-		Soldier = { from = 8, kill = 540, max = 100 },
-		-- knocks by overpressure, strongest first (Config/Ragdoll.Knocks); below the last: nothing (only hurt). User
-		-- 2026-10-17: "even if you miss your full charge, you should be able to ragdoll only the person you were trying
-		-- to aim at (and the people really close to him)": at 10 kg thrown within ~6 studs, knocked down within ~10 (was
-		-- 29 / 10 / 8.5 kPa: thrown ~30, knocked ~68). Whoever the blast kills is thrown wherever they stood.
+		-- lethal within ~8 studs, ~69 at 9, ~47 at 10, ~20 at 12, ~5 at 14, nothing from ~15 (user 2026-10-18: "lethal
+		-- within ~8"; then "at points where players take damage from a blast is also when they should ragdoll": damage
+		-- and knocks both end at ~15 studs, `from` = the last knock's `above`). Was kill 80, from 8: lethal to ~16, hurt
+		-- to ~70
+		Soldier = { from = 126, kill = 540, max = 100 },
+		-- knocks by overpressure, strongest first (Config/Ragdoll.Knocks); below the last: nothing. User 2026-10-17:
+		-- "even if you miss your full charge, you should be able to ragdoll only the person you were trying to aim at (and
+		-- the people really close to him)": at 10 kg thrown within ~6 studs, knocked down within ~10, a light knock to
+		-- ~15 (was 29 / 10 / 8.5 kPa: thrown ~30, knocked ~68). Whoever the blast kills is thrown wherever they stood.
 		Knocks = {
 			{ above = 1000, knock = "BlastThrow" },
 			{ above = 320, knock = "Torso" },
+			{ above = 126, knock = "Limb" },
 		},
 		-- map sections (Config/Destruction.Materials, the section's "Class"): a section fails at its class's overpressure;
 		-- below that it loses MaxHP x (kPa / fail)^Weaken (so nearby blasts wear it down). Buildings and props.
