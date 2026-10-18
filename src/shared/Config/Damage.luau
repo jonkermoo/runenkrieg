@@ -82,7 +82,7 @@ local Damage = {
 			perCubeRoot = 2.32,
 			sink = 0.45,
 			-- (Studio: 0.38 / 0.2 at 1.15 left no rim, 0.65 / 0.4 at 1.2 rose 2-2.5 and narrowed the hole)
-			rim = { count = 12, at = 1.35, size = 0.5, sink = 0.35 },
+			rim = { count = 12, at = 1.35, size = 0.45, sink = 0.4 }, -- (0.5 / 0.35 at 1.35 rose ~2.2 at 6 studs)
 			churn = 2.2,
 			churnDepth = 1.5, -- x radius: only ground this far above or below the blast churns (none for a blast up a wall)
 			churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
