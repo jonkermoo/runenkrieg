@@ -22,4 +22,13 @@ return {
 	["config sane"] = function()
 		assert(Cfg.FadeNear < Cfg.FadeFar and Cfg.MaxOpacity > 0 and Cfg.MaxOpacity <= 1)
 	end,
+	["each side is one wall, in pieces a part can be (under 2048 studs)"] = function()
+		local Map1 = require("../src/shared/Config/Maps/Map1")
+		local b = Map1.bounds
+		assert(Cfg.MaxPieceLength <= 2048)
+		for _, L in { b.maxX - b.minX, b.maxZ - b.minZ } do
+			local n = math.ceil(L / Cfg.MaxPieceLength)
+			assert(L / n <= 2048 and n <= 2, `a side of {L} in {n} pieces`)
+		end
+	end,
 }

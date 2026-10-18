@@ -8,7 +8,7 @@ local Parts = require(script.Parent.Parts)
 local Features = {}
 
 -- Red force-field panels along every edge of the playable bounds. The client fades each panel
--- in as the player approaches (src/client/BoundaryFade). Panels are solid walls for now;
+-- in as the player approaches (src/client/BoundaryFade), one wall per side (in pieces of at most MaxPieceLength). Panels are solid walls for now;
 -- soft bounds (warning + countdown) can replace collision later.
 function Features.bounds(parent: Instance, map: any, cfg: any): number
 	local folder = Parts.folder(parent, "Bounds")
@@ -26,7 +26,7 @@ function Features.bounds(parent: Instance, map: any, cfg: any): number
 		local a, c = e[1], e[2]
 		local L = (c - a).Magnitude
 		local dir = (c - a).Unit
-		local n = math.ceil(L / cfg.PanelWidth)
+		local n = math.ceil(L / cfg.MaxPieceLength)
 		local w = L / n
 		for i = 0, n - 1 do
 			local mid = a + dir * ((i + 0.5) * w)
@@ -37,6 +37,9 @@ function Features.bounds(parent: Instance, map: any, cfg: any): number
 			p.CanQuery = false
 			p.CanTouch = false
 			p.CastShadow = false
+			-- the whole side, so every piece of it fades alike (src/client/BoundaryFade)
+			p:SetAttribute("SideFrom", a)
+			p:SetAttribute("SideTo", c)
 			CollectionService:AddTag(p, cfg.Tag)
 			count += 1
 		end

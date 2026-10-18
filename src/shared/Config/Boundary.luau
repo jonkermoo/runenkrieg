@@ -1,7 +1,10 @@
 --!strict
 -- Out-of-bounds walls: red force-field panels that fade in as a player approaches.
 local Boundary = {
-	PanelWidth = 40, -- each panel fades on its own, so only the nearby stretch lights up
+	-- One wall per side, fading as one (user 2026-10-18: "one solid object so it doesnt look like multiple blocks";
+	-- was 40-stud panels fading each on its own). A part can't be longer than 2048 studs, so a longer side is cut into
+	-- equal pieces of at most this, all fading together by the distance to the whole side.
+	MaxPieceLength = 2000,
 	BottomY = -40,
 	TopY = 90,
 	FadeFar = 90, -- invisible beyond this distance

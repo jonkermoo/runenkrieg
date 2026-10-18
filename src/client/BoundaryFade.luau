@@ -1,6 +1,6 @@
 --!strict
--- Fades out-of-bounds panels in as the local player approaches. Each panel fades on its own,
--- so only the stretch of wall near the player lights up.
+-- Fades the out-of-bounds walls in as the local player approaches: each side as one wall, by the distance to that side
+-- (its pieces carry the whole side as "SideFrom" / "SideTo"; a panel without them fades on its own).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -49,8 +49,15 @@ function BoundaryFade.start()
 		end
 		local pos = root.Position
 		for _, p in panels do
-			local right = p.CFrame.RightVector
-			local d = Rule.distanceToPanel(pos.X, pos.Z, p.Position.X, p.Position.Z, right.X, right.Z, p.Size.X)
+			local a, b = p:GetAttribute("SideFrom"), p:GetAttribute("SideTo")
+			local d
+			if typeof(a) == "Vector3" and typeof(b) == "Vector3" and (b - a).Magnitude > 0 then
+				local mid, dir = (a + b) / 2, (b - a).Unit
+				d = Rule.distanceToPanel(pos.X, pos.Z, mid.X, mid.Z, dir.X, dir.Z, (b - a).Magnitude)
+			else
+				local right = p.CFrame.RightVector
+				d = Rule.distanceToPanel(pos.X, pos.Z, p.Position.X, p.Position.Z, right.X, right.Z, p.Size.X)
+			end
 			-- Panel base transparency is 1 - MaxOpacity; the modifier scales it toward fully invisible.
 			p.LocalTransparencyModifier = 1 - Rule.fade(d, Cfg.FadeNear, Cfg.FadeFar)
 		end
