@@ -36,10 +36,20 @@ local function throw(character: Model, knock: { [string]: number }, direction: V
 	if humanoid.Health > 0 then
 		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 	end
-	root.AssemblyLinearVelocity = (dir * knock.push + Vector3.yAxis * (knock.lift - (knock.drop or 0))) * scale
+	local velocity = (dir * knock.push + Vector3.yAxis * (knock.lift - (knock.drop or 0))) * scale
 	-- tumble the way it's thrown: about the horizontal axis across the push
 	local axis = Vector3.new(0, 1, 0):Cross(dir)
-	root.AssemblyAngularVelocity = axis * knock.tumble * scale
+	-- held for Tip.hold s, as src/server/Ragdoll does for a dead body (Studio, staff round 1: set once, a living
+	-- body going limp lost most of it, so every blast throw came out alike)
+	local spin = axis * knock.tumble * scale
+	task.spawn(function()
+		local stopAt = os.clock() + Cfg.Tip.hold
+		repeat
+			root.AssemblyLinearVelocity = velocity
+			root.AssemblyAngularVelocity = spin
+			task.wait()
+		until os.clock() >= stopAt or not root.Parent
+	end)
 	-- nobody ragdolls standing up: still upright a moment later, it's tipped over the way it was thrown
 	local torso = character:FindFirstChild("Torso") :: BasePart?
 	-- (every `every` s for `window` s, while this client still simulates the body: ReceiveAge 0)
@@ -99,9 +109,9 @@ function Ragdoll.start()
 		-- a knock asked for that the server never answered: up again
 		humanoid.StateChanged:Connect(function(_, new)
 			if new == Enum.HumanoidStateType.Physics and asked[character] then
-				local until_ = asked[character]
+				local stopAt = asked[character]
 				task.delay(Cfg.SelfWait, function()
-					if asked[character] == until_ and character:GetAttribute("Ragdolled") ~= true then
+					if asked[character] == stopAt and character:GetAttribute("Ragdolled") ~= true then
 						asked[character] = nil
 						if humanoid.Health > 0 then
 							humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
