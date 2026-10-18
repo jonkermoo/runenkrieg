@@ -243,11 +243,17 @@ end
 
 -- A tree landing on soldiers (src/server/Trees): everyone whose torso is within `radius` of the line `a` - `b` (and not
 -- far above or under it) takes `amount` and the `knock`, pushed to the side of the line they stand on.
+-- when each caster's last staff shot was fired (os.clock): what falls out of it can't hurt them for a while
+local castAt: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
+
 function Damage.crush(a: Vector3, b: Vector3, radius: number, amount: number, knock: string)
+	local now = os.clock()
 	for _, character in Dev.soldiers() do
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local torso = character:FindFirstChild("Torso") :: BasePart?
-		if humanoid and torso then
+		-- (a tree your own shot felled lands on you: unhurt, Config/Damage.Staff.SelfSafe)
+		local own = now - (castAt[character] or -math.huge) <= Cfg.Staff.SelfSafe
+		if humanoid and torso and not own then
 			local p = torso.Position
 			local d, side = TreeRules.offSegment(p.X, p.Z, a.X, a.Z, b.X, b.Z)
 			local y = math.max(a.Y, b.Y)
@@ -281,8 +287,9 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 	params.FilterDescendantsInstances = { caster }
 	local result = workspace:Spherecast(origin, radius, direction * range, params)
 	local landed = if result then result.Position else origin + direction * range
+	castAt[caster] = os.clock()
 	local character, humanoid = victim(result and result.Instance)
-	if character and humanoid and humanoid.Health > 0 then
+	if character and humanoid and character ~= caster and humanoid.Health > 0 then
 		local left, knock = Rules.staff(stage, humanoid.Health, S)
 		if left then
 			hurt(character, humanoid, left, knock, flat(direction))

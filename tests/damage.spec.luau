@@ -107,6 +107,10 @@ return {
 		left, knock = Damage.staff(3, 100, S)
 		assert(left == 0 and knock == "StaffThrow", "the full beam kills and throws")
 		assert(Damage.staff(4, 100, S) == nil and Damage.staff(0, 100, S) == nil)
+		assert(
+			S.SelfSafe > D.Trees.Fall.time,
+			"your own felled tree can't hurt you until it has landed (Trees.Fall.time)"
+		)
 		assert(S.Charge[1] == 0 and S.Charge[2] > 0 and S.Charge[3] > S.Charge[2], "stage 2 a small blast, 3 a big one")
 	end,
 	["respawn after the agreed delay"] = function()
