@@ -24,8 +24,10 @@ local Metrics = require(Shared.Config.Metrics)
 local W = require(Shared.Config.Weapons)
 local Blast = require(Shared.Rules.Blast)
 local Rules = require(Shared.Rules.Damage)
+local TreeRules = require(Shared.Rules.Trees)
 local Destruction = require(script.Parent.Destruction)
 local Ragdoll = require(script.Parent.Ragdoll)
+local Ground = require(script.Parent.Ground)
 local Trees = require(script.Parent.Trees)
 
 local Damage = {}
@@ -124,64 +126,6 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 	end
 end
 
-local VOXEL = 4 -- terrain voxel size (studs)
-
-local terrainOnly = RaycastParams.new()
-terrainOnly.FilterType = Enum.RaycastFilterType.Include
-terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
-terrainOnly.IgnoreWater = true
-
--- The crater of a `kg` charge at `position` (Rules/Blast.craterPlan): a low rim of earth where there is ground near,
--- the hole, then the ground around churned to blasted earth (the grass on it goes at once: src/client/GrassFoliage).
--- Terrain changes are voxels: they stay and cost nothing after.
-local function crater(position: Vector3, kg: number)
-	local C = Cfg.Blast.Crater
-	local plan = Blast.craterPlan(kg, C)
-	if not plan then
-		return
-	end
-	local terrain = workspace.Terrain
-	local churnTo = (Enum.Material :: any)[C.churnTo]
-	for _, b in plan.rim do
-		local over = position + Vector3.new(b.dx, plan.radius, b.dz)
-		local hit = workspace:Raycast(over, Vector3.yAxis * -plan.radius * 3, terrainOnly)
-		if hit then
-			terrain:FillBall(hit.Position - Vector3.yAxis * b.sink, b.radius, churnTo)
-		end
-	end
-	terrain:FillBall(position - Vector3.yAxis * plan.sink, plan.radius, Enum.Material.Air)
-	-- churn: the voxels near the blast's height within `churn` across
-	local from: { [Enum.Material]: boolean } = {}
-	for _, m in C.churnFrom do
-		from[(Enum.Material :: any)[m]] = true
-	end
-	local reach = Vector3.new(plan.churn, plan.radius * C.churnDepth, plan.churn)
-	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
-	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
-	if not ok then
-		return
-	end
-	local size = mats.Size
-	local corner = region.CFrame.Position - region.Size / 2
-	local changed = false
-	for ix = 1, size.X do
-		for iz = 1, size.Z do
-			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
-			if (x - position.X) ^ 2 + (z - position.Z) ^ 2 <= plan.churn * plan.churn then
-				for iy = 1, size.Y do
-					if from[mats[ix][iy][iz]] then
-						mats[ix][iy][iz] = churnTo
-						changed = true
-					end
-				end
-			end
-		end
-	end
-	if changed then
-		terrain:WriteVoxels(region, VOXEL, mats, occs)
-	end
-end
-
 -- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it, never killed: knocked).
 function Damage.blast(position: Vector3, kg: number, by: Model?)
 	local B = Cfg.Blast
@@ -218,8 +162,28 @@ function Damage.blast(position: Vector3, kg: number, by: Model?)
 		return Blast.sectionDamage(kpaAt(d), fail, maxHP, B.Weaken)
 	end)
 	Trees.blast(position, reach, kpaAt)
-	crater(position, kg)
+	Ground.crater(position, Blast.craterPlan(kg, B.Crater), B.Crater)
 end
+
+-- A tree landing on soldiers (src/server/Trees): everyone whose torso is within `radius` of the line `a` - `b` (and not
+-- far above or under it) takes `amount` and the `knock`, pushed to the side of the line they stand on.
+function Damage.crush(a: Vector3, b: Vector3, radius: number, amount: number, knock: string)
+	for _, character in Dev.soldiers() do
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local torso = character:FindFirstChild("Torso") :: BasePart?
+		if humanoid and torso then
+			local p = torso.Position
+			local d, side = TreeRules.offSegment(p.X, p.Z, a.X, a.Z, b.X, b.Z)
+			local y = math.max(a.Y, b.Y)
+			if d <= radius and p.Y <= y + radius * 2 and p.Y >= math.min(a.Y, b.Y) - radius * 2 then
+				local along = flat(b - a)
+				local away = Vector3.new(-along.Z, 0, along.X) * side
+				hurt(character, humanoid, math.max(humanoid.Health - amount, 0), knock, away)
+			end
+		end
+	end
+end
+Trees.onCrush(Damage.crush)
 
 -- A staff shot of `stage` from `caster` toward `target`: returns where it lands (the end of its range if it hits
 -- nothing).
@@ -248,7 +212,8 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 			hurt(character, humanoid, left, knock, flat(direction))
 		end
 	end
-	Trees.beam(origin, landed, stage) -- the leaves it passes through or near (src/server/Trees)
+	Trees.direct(result and result.Instance, stage, direction) -- a trunk hit straight on (src/server/Trees)
+	Trees.beam(origin, landed, stage) -- the leaves it passes through or near
 	if result then
 		Damage.blast(landed, S.Charge[stage] or 0, caster)
 	end

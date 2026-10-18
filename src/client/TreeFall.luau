@@ -2,7 +2,9 @@
 -- Felled and stripped trees, on each client (src/server/Trees tags them; no physics, nothing replicated per frame):
 -- - FallingTag: the tree turns from where it stands to its "FallTo" over "FallTime" s, speeding up like a real fall;
 -- - SinkingTag: it goes down "SinkDepth" studs over "SinkTime" s and fades out, before the server removes it;
--- - ShedTag: its canopy fades out over "ShedTime" s while leaves fall from all over it (Config/Firing.Effects.Impacts.
+-- - FallingTag ends with a small bounce back off the ground about "FallHinge" (Fall.bounce);
+-- - ShedTag: its canopy fades out over "ShedTime" s (dropping "ShedDrop" studs first if its trunk shattered) while
+--   leaves fall from all over it (Config/Firing.Effects.Impacts.
 --   Shed), before the server removes the canopy. Not sudden (user 2026-10-17).
 
 local CollectionService = game:GetService("CollectionService")
@@ -54,8 +56,16 @@ local function fall(inst: Instance)
 	end
 	if typeof(to) == "CFrame" then
 		local from = tree:GetPivot()
+		local hinge, axis = tree:GetAttribute("FallHinge"), tree:GetAttribute("FallAxis")
 		over(tree, number(tree, "FallTime", Fall.time), function(a)
 			tree:PivotTo(from:Lerp(to, a * a)) -- starts slow, crashes down
+			if a >= 1 and typeof(hinge) == "Vector3" and typeof(axis) == "Vector3" then
+				-- it bounces back a little off the ground and settles
+				over(tree, Fall.bounceTime, function(u)
+					local back = math.rad(Fall.bounce) * math.sin(math.pi * u) * (1 - u)
+					tree:PivotTo(CFrame.new(hinge) * CFrame.fromAxisAngle(axis, -back) * CFrame.new(-hinge) * to)
+				end)
+			end
 		end)
 	end
 end
@@ -86,8 +96,13 @@ local function shed(inst: Instance)
 		return
 	end
 	local owed = 0
+	local from = canopy.CFrame
+	local drop = number(inst, "ShedDrop", 0) -- its trunk shattered: the crown comes down too
 	over(canopy, number(inst, "ShedTime", Damage.Trees.Leaves.shedTime), function(a, dt)
 		canopy.Transparency = a
+		if drop > 0 then
+			canopy.CFrame = from - Vector3.yAxis * drop * math.min(a * 3, 1) ^ 2
+		end
 		owed += Shed.perSecond * dt * (1 - a * (1 - Shed.endRate))
 		while owed >= 1 do
 			owed -= 1

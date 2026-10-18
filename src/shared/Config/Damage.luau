@@ -109,7 +109,38 @@ local Damage = {
 			minTilt = 60,
 			maxTilt = 95,
 			tipShare = 0.85,
+			-- it lies clear of the ground along its whole length (samples along it): the trunk's half thickness to clear,
+			-- tapering to `tipClear` x that at the top (the crown may press into the ground)
+			samples = 10,
+			tipClear = 0.2,
+			-- landing: a bounce back of `bounce` degrees settling over `bounceTime` s (src/client/TreeFall)
+			bounce = 3,
+			bounceTime = 0.6,
+			-- dents where it hits hard (user 2026-10-17: "a mini crater ... so it looks like it fell hard"): at these
+			-- shares of its length, a hole of `Dent.radius` x the tree's scale, as a crater (Rules/Blast.craterPlanFor)
+			dentAt = { 0.5, 0.82 },
+			Dent = {
+				radius = 2.8,
+				sink = 0.6,
+				rim = { count = 0, at = 0, size = 0, sink = 0 },
+				churn = 1.6,
+				churnDepth = 1.5,
+				churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
+				churnTo = "Mud",
+			},
+			-- uprooted (felled whole by a blast): the butt lies on the ground (its half thickness up), with a root ball of
+			-- mud at it (`radius` x the trunk's width, at least `min`: smaller vanishes in 4-stud voxels) and a pit where
+			-- it stood (`pit` x that)
+			Roots = { radius = 1.8, min = 2.6, pit = 0.9, rise = 0.4 },
+			-- soldiers under it when it lands: within `radius` (x the scale) of the trunk's line they take `damage` and
+			-- the `knock`, pushed to the side they stand on; the trunk lets characters through for `ghost` s after (and
+			-- longer while one is still inside it, up to `ghostMax`), so nobody is pushed into the ground or flung
+			Crush = { radius = 2.5, damage = 60, knock = "Torso", ghost = 1.5, ghostMax = 6 },
 		},
+		-- a staff beam's direct hit on a trunk (standing or lying): `damage[stage]`; from `shatterFrom` the trunk
+		-- shatters (debris, a stump left; the crown drops and sheds) - not the same as a blast at the roots, which fells it
+		-- whole (user 2026-10-17)
+		Direct = { damage = { 40, 120 }, shatterFrom = 3 },
 		Stump = { height = 1.2, widthShare = 0.9 }, -- of the trunk's base width
 		-- a felled tree lies with `share` x its MaxHP again (user 2026-10-17: "give it continue HP so it can be
 		-- destroyed"): bullets and blasts wear it down; at 0 it sinks and fades away (Fall.sinkTime)

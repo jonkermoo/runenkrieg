@@ -49,13 +49,35 @@ function Trees.after(hp: number, amount: number): (number, boolean)
 	return left, left <= 0 and amount > 0
 end
 
--- how far (degrees from upright) a felled tree of `height` tilts so its top rests on the ground, the ground at its
--- top `rise` studs above its base (negative: downhill); clamped to [minTilt, maxTilt]
-function Trees.fallTilt(height: number, rise: number, minTilt: number, maxTilt: number): number
-	if height <= 0 then
-		return minTilt
+-- The tilt (degrees from upright) at which a felled tree lies on the ground without sinking into it: `samples` are
+-- { x, need } pairs, `x` studs out along the fall from its hinge and `need` the height the trunk must clear there (the
+-- ground's rise over the hinge plus the trunk's half thickness). The steepest need wins; clamped to [minTilt, maxTilt].
+function Trees.clearTilt(samples: { { number } }, minTilt: number, maxTilt: number): number
+	local tilt = maxTilt
+	for _, s in samples do
+		if s[1] > 0 then
+			tilt = math.min(tilt, 90 - math.deg(math.atan(s[2] / s[1])))
+		end
 	end
-	return math.clamp(90 - math.deg(math.atan(rise / height)), minTilt, maxTilt)
+	return math.clamp(tilt, minTilt, maxTilt)
+end
+
+-- the distance from (px, pz) to the segment (ax, az) - (bx, bz), and which side of it (+1 left of a -> b, -1 right)
+function Trees.offSegment(px: number, pz: number, ax: number, az: number, bx: number, bz: number): (number, number)
+	local dx, dz = bx - ax, bz - az
+	local len2 = dx * dx + dz * dz
+	local t = if len2 > 0 then math.clamp(((px - ax) * dx + (pz - az) * dz) / len2, 0, 1) else 0
+	local cx, cz = px - (ax + dx * t), pz - (az + dz * t)
+	local side = if dx * (pz - az) - dz * (px - ax) >= 0 then 1 else -1
+	return math.sqrt(cx * cx + cz * cz), side
+end
+
+-- a direct staff hit of `stage` on a trunk: its damage, and whether it shatters the trunk (Trees.Direct)
+function Trees.directHit(stage: number, d: { damage: { number }, shatterFrom: number }): (number, boolean)
+	if stage >= d.shatterFrom then
+		return math.huge, true
+	end
+	return d.damage[stage] or 0, false
 end
 
 -- where a line from (ox, oy, oz) along unit (dx, dy, dz), `length` long, first enters a box centred on the origin with
