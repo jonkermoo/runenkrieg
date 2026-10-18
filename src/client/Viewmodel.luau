@@ -60,6 +60,9 @@ local function aimFix(name: string): Vector3
 		return Vector3.zero
 	end
 	local a, b = w.attachments.Aim, ref.attachments.Aim
+	if not a or not b then
+		return Vector3.zero -- no sights (a grenade borrowing the staff's holds)
+	end
 	return Vector3.new(b[1] * ref.scale[1] - a[1] * w.scale[1], b[2] * ref.scale[2] - a[2] * w.scale[2], 0)
 end
 

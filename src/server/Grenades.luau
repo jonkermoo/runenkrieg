@@ -13,6 +13,7 @@ local Debris = game:GetService("Debris")
 local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Grenades)
@@ -98,7 +99,42 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 	ball.AssemblyLinearVelocity = velocity
 	ball.AssemblyAngularVelocity = Vector3.new(Cfg.Throw.spin, 0, Cfg.Throw.spin * 0.5)
 
+	-- each frame: swept from where it was (a fast throw never passes through thin ground or a wall: it's put back on
+	-- the near side and bounced), and on the ground it thuds (`land`) then rolls to a stop (`roll`)
+	local radius = B.size / 2
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { model }
+	params.CollisionGroup = GROUP -- what it can touch (not soldiers)
+	local last = ball.Position
+	local landed = false
+	local step = RunService.Heartbeat:Connect(function(dt)
+		local p, v = ball.Position, ball.AssemblyLinearVelocity
+		local move = p - last
+		if move.Magnitude > 1e-3 then
+			local hit = workspace:Raycast(last, move + move.Unit * radius, params)
+			if hit then
+				local n = hit.Normal
+				local into = v:Dot(n)
+				if into < 0 then
+					v -= n * into * (1 + B.elasticity)
+				end
+				ball.CFrame = CFrame.new(hit.Position + n * radius)
+				ball.AssemblyLinearVelocity = v
+				p = ball.Position
+			end
+		end
+		if workspace:Raycast(p, Vector3.yAxis * -(radius + B.probe), params) then
+			local keep = if landed then math.exp(-B.roll * dt) else B.land
+			landed = true
+			ball.AssemblyLinearVelocity = Vector3.new(v.X * keep, v.Y, v.Z * keep)
+			ball.AssemblyAngularVelocity *= keep
+		end
+		last = ball.Position
+	end)
+
 	task.delay(Cfg.Fuse, function()
+		step:Disconnect()
 		if not ball.Parent then
 			return
 		end

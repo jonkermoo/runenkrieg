@@ -32,6 +32,12 @@ local Grenades = {
 		density = 2,
 		friction = 0.6,
 		elasticity = 0.3,
+		-- Where it lands it thuds: the first touch keeps `land` of its speed along the ground, then rolling loses it at
+		-- `roll` per second (a ball in Roblox never stops rolling by itself; Studio round 1 rolled 275 studs). Swept
+		-- each frame from where it was (`probe` studs past its radius), so a fast throw can't pass through thin ground.
+		land = 0.15,
+		roll = 3,
+		probe = 0.15,
 		-- the blast goes off this far above where the body lies (out of the ground it rests on)
 		lift = 0.3,
 		-- the Mills's lever flying off: the throw's velocity times `carry`, plus `pop` studs/s up, tumbling `spin`
@@ -44,9 +50,9 @@ local Grenades = {
 	Arc = {
 		step = 0.05,
 		time = 4,
-		size = 0.18,
-		landSize = 0.6,
-		transparency = 0.45,
+		size = 0.3, -- (Studio round 1: 0.18 at 0.45 see-through was near invisible)
+		landSize = 0.8,
+		transparency = 0.15,
 	},
 
 	-- Per grenade (Config/Weapons name):
