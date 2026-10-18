@@ -91,6 +91,25 @@ local Assets = {
 			generator = "tools/blender/weapons/m1897.py",
 			description = "Winchester M1897 trench gun, the shotgun of all three teams (built from its trace: tools/blender/weapons/trace/m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
 		},
+		-- Artillery (user 2026-10-18): player-placed, hard to build, set up in the very back for area damage. Shared
+		-- by every team, painted per team (Config/Palette.Artillery). Moving parts are their own meshes; firing is
+		-- later game code.
+		artillery_qf18 = {
+			id = 123043192837733,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/artillery_qf18.fbx",
+			generator = "tools/blender/artillery/qf18.py",
+			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
+		},
+		artillery_howitzer = {
+			id = 82367327569698,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/artillery_howitzer.fbx",
+			generator = "tools/blender/artillery/howitzer.py",
+			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",
