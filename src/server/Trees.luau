@@ -118,7 +118,9 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	local rise = if hit then hit.Position.Y - hinge.Y else 0
 	local tilt = math.rad(Rules.fallTilt(reach, rise, F.minTilt, F.maxTilt))
 	local turn = CFrame.new(hinge) * CFrame.fromAxisAngle(Vector3.new(0, 1, 0):Cross(dir), tilt) * CFrame.new(-hinge)
-	local lie = turn * pivot
+	-- the butt rests on the stump top: slide it out along the fallen trunk by what sat under the hinge
+	local under = hinge.Y - pivot.Y
+	local lie = CFrame.new(turn:VectorToWorldSpace(Vector3.yAxis) * under) * turn * pivot
 	if leaveStump then
 		stump(tree, trunk, pivot.Position)
 	end
