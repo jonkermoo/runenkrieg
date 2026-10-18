@@ -1,7 +1,8 @@
 --!strict
 -- Client-side fracture debris for broken building sections (Net "SectionBroken"). Visual only:
--- local parts, never replicated, in the "Debris" collision group (never collides with characters),
--- removed after Config.Destruction.Debris.lifetime, capped at maxLive.
+-- local parts, never replicated, in the "Debris" collision group (never collides with characters). They fly for
+-- Config.Destruction.Debris.settle s, then freeze where they lie, and stay until `lifetime`; past maxLive the oldest
+-- go first.
 
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,12 +13,12 @@ local Net = require(Shared.Net)
 
 local DebrisClient = {}
 
-local live = 0
+local live: { BasePart } = {} -- oldest first
 local container: Folder
 
 local function spawnChunk(cf: CFrame, size: Vector3, color: Color3, transparency: number, origin: Vector3)
-	if live >= D.Debris.maxLive then
-		return
+	while #live >= D.Debris.maxLive do
+		table.remove(live, 1):Destroy()
 	end
 	local p = Instance.new("Part")
 	p.Anchored = false
@@ -36,9 +37,17 @@ local function spawnChunk(cf: CFrame, size: Vector3, color: Color3, transparency
 	local push = math.clamp(40 / dist, 0.5, 1) * math.random(18, 34)
 	p.AssemblyLinearVelocity = away.Unit * push + Vector3.new(0, math.random(8, 22), 0)
 	p.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
-	live += 1
+	table.insert(live, p)
 	p.Destroying:Connect(function()
-		live -= 1
+		local i = table.find(live, p)
+		if i then
+			table.remove(live, i)
+		end
+	end)
+	task.delay(D.Debris.settle + math.random() * 0.5, function()
+		if p.Parent then
+			p.Anchored = true
+		end
 	end)
 	Debris:AddItem(p, D.Debris.lifetime + math.random() * 1.5)
 end

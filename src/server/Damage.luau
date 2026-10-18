@@ -8,12 +8,12 @@
 --   from the caster's head toward its aim; the stage's damage and knock, no zones, no falloff; where it lands, the
 --   stage's blast (only the full beam has one).
 -- - Damage.blast: a real-scaled blast (Rules/Blast): soldiers hurt and knocked by the overpressure at their torso, map
---   sections by their class (src/server/Destruction.blast), trees snapped, a crater in the terrain.
+--   sections by their class (src/server/Destruction.blast), trees by their HP (src/server/Trees), a crater with a rim
+--   and churned earth round it.
 -- No one hurts themselves (their blast still knocks them). Health 100 and no regeneration (src/character/Health);
 -- a death is a limp ragdoll (the death face: src/server/Bodies); respawn after Config/Metrics.Combat.RespawnDelay.
 
 local CollectionService = game:GetService("CollectionService")
-local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -21,12 +21,14 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
 local Metrics = require(Shared.Config.Metrics)
-local TreeCfg = require(Shared.Config.TreeSway)
 local W = require(Shared.Config.Weapons)
 local Blast = require(Shared.Rules.Blast)
 local Rules = require(Shared.Rules.Damage)
+local TreeRules = require(Shared.Rules.Trees)
 local Destruction = require(script.Parent.Destruction)
 local Ragdoll = require(script.Parent.Ragdoll)
+local Ground = require(script.Parent.Ground)
+local Trees = require(script.Parent.Trees)
 
 local Damage = {}
 
@@ -101,6 +103,9 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 	for _, h in hits do
 		local character, humanoid = victim(h.part)
 		local zone = h.part and Rules.zone(h.part.Name)
+		if not character then
+			Trees.shot(h.part, w.class, h.direction) -- a trunk is chipped (src/server/Trees)
+		end
 		if character and humanoid and zone and character ~= shooter then
 			local share = if pellets then Rules.falloff(h.distance, pellets.full, pellets.none) else 1
 			local z = if h.helmet then "Helmet" else zone
@@ -119,36 +124,6 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 			hurt(character, e.humanoid, left, Rules.knock(top, left <= 0, Cfg.Knocks), flat(e.direction))
 		end
 	end
-end
-
--- A tree snaps at the trunk and falls away from the blast (no longer swaying), then despawns.
-local function snap(tree: Model, from: Vector3)
-	local T = Cfg.Blast.Tree
-	CollectionService:RemoveTag(tree, TreeCfg.Tag)
-	local parts = {}
-	for _, d in tree:GetDescendants() do
-		if d:IsA("BasePart") then
-			table.insert(parts, d)
-		end
-	end
-	local root = tree:FindFirstChild("Trunk") :: BasePart? or parts[1]
-	if not root then
-		return
-	end
-	for _, p in parts do
-		p.Anchored = false
-		p.CollisionGroup = "Debris"
-		if p ~= root then
-			local w = Instance.new("WeldConstraint")
-			w.Part0, w.Part1 = root, p
-			w.Parent = p
-		end
-	end
-	root:SetNetworkOwner(nil)
-	local away = flat(root.Position - from)
-	root.AssemblyLinearVelocity = away * T.push
-	root.AssemblyAngularVelocity = Vector3.new(0, 1, 0):Cross(away) * T.spin
-	Debris:AddItem(tree, T.despawn)
 end
 
 -- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it, never killed: knocked).
@@ -186,21 +161,30 @@ function Damage.blast(position: Vector3, kg: number, by: Model?)
 		local fail = class and (B.Fail :: any)[class] or B.FailDefault
 		return Blast.sectionDamage(kpaAt(d), fail, maxHP, B.Weaken)
 	end)
-	-- trees
-	for _, tree in CollectionService:GetTagged(TreeCfg.Tag) do
-		if tree:IsA("Model") and tree:IsDescendantOf(workspace) then
-			local d = (tree:GetPivot().Position - position).Magnitude
-			if d <= reach and kpaAt(d) >= B.Tree.fail then
-				snap(tree, position)
+	-- the crater first, so the trees it fells lie on the ground as it is after
+	Ground.crater(position, Blast.craterPlan(kg, B.Crater), B.Crater)
+	Trees.blast(position, reach, kpaAt)
+end
+
+-- A tree landing on soldiers (src/server/Trees): everyone whose torso is within `radius` of the line `a` - `b` (and not
+-- far above or under it) takes `amount` and the `knock`, pushed to the side of the line they stand on.
+function Damage.crush(a: Vector3, b: Vector3, radius: number, amount: number, knock: string)
+	for _, character in Dev.soldiers() do
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local torso = character:FindFirstChild("Torso") :: BasePart?
+		if humanoid and torso then
+			local p = torso.Position
+			local d, side = TreeRules.offSegment(p.X, p.Z, a.X, a.Z, b.X, b.Z)
+			local y = math.max(a.Y, b.Y)
+			if d <= radius and p.Y <= y + radius * 2 and p.Y >= math.min(a.Y, b.Y) - radius * 2 then
+				local along = flat(b - a)
+				local away = Vector3.new(-along.Z, 0, along.X) * side
+				hurt(character, humanoid, math.max(humanoid.Health - amount, 0), knock, away)
 			end
 		end
 	end
-	-- the crater
-	local r = Blast.crater(kg, B.Crater.perCubeRoot)
-	if r > 0 then
-		workspace.Terrain:FillBall(position - Vector3.yAxis * r * B.Crater.sink, r, Enum.Material.Air)
-	end
 end
+Trees.onCrush(Damage.crush)
 
 -- A staff shot of `stage` from `caster` toward `target`: returns where it lands (the end of its range if it hits
 -- nothing).
@@ -229,6 +213,8 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 			hurt(character, humanoid, left, knock, flat(direction))
 		end
 	end
+	Trees.direct(result and result.Instance, stage, direction) -- a trunk hit straight on (src/server/Trees)
+	Trees.beam(origin, landed, stage) -- the leaves it passes through or near
 	if result then
 		Damage.blast(landed, S.Charge[stage] or 0, caster)
 	end

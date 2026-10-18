@@ -6,6 +6,7 @@
 -- Two layers, each with its own models, cells, levels and sway: the thick tufts (Config/Foliage, Assets GrassKit) and
 -- the thin, flowy blade patches (Config/Foliage.Blades, Assets GrassBlades; in place of Roblox's terrain grass).
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -14,6 +15,10 @@ local Foliage = require(Shared.Config.Foliage)
 local Palette = require(Shared.Config.Palette)
 local Assets = require(Shared.Config.Assets)
 local Grass = require(Shared.Rules.Grass)
+local Blast = require(Shared.Rules.Blast)
+local DamageCfg = require(Shared.Config.Damage)
+local Net = require(Shared.Net)
+local TreeCfg = require(Shared.Config.TreeSway)
 local Settings = require(script.Parent.Settings)
 
 local GrassFoliage = {}
@@ -62,6 +67,16 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 	params.IgnoreWater = true
 
 	local loaded: { [string]: Chunk } = {}
+	-- the ground under fallen trunks: { ax, az, bx, bz } lines, no grass within UnderTrunk.radius (user 2026-10-17)
+	local trunks: { [Model]: { number } } = {}
+	local function underTrunk(x: number, z: number): boolean
+		for _, s in trunks do
+			if Grass.nearSegment(x, z, s[1], s[2], s[3], s[4], Foliage.UnderTrunk.radius) then
+				return true
+			end
+		end
+		return false
+	end
 	local level = Cfg.Levels[Settings.get("GrassQuality")]
 	container:SetAttribute("Quality", Settings.get("GrassQuality")) -- debug/test visibility
 
@@ -79,7 +94,7 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 		local chunk: Chunk = { tufts = {} }
 		for _, c in Grass.chunk(cx, cz, level.density, Cfg) do
 			local hit = workspace:Raycast(Vector3.new(c.x, 150, c.z), Vector3.new(0, -400, 0), params)
-			if hit and grows[hit.Material] then
+			if hit and grows[hit.Material] and not underTrunk(c.x, c.z) then
 				local p = templates[c.variant % #templates + 1]:Clone()
 				p.Size *= c.scale
 				p.Color = shades[c.shade % #shades + 1]
@@ -97,6 +112,83 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 		for key in loaded do
 			unload(key)
 		end
+	end
+
+	-- a blast churns the ground round it (src/server/Damage): the grass standing there goes at once (user 2026-10-17:
+	-- "grass should be instantly gone after an explosion"). Checked again once the voxels have arrived.
+	-- `depth`: tufts within `r` across and this far up or down from the blast go whatever the ground says (the server
+	-- churns exactly that: src/server/Damage); the rest go if their ground no longer grows grass
+	local function scrub(position: Vector3, r: number, depth: number)
+		local size = Cfg.ChunkSize
+		for cx = math.floor((position.X - r) / size), math.floor((position.X + r) / size) do
+			for cz = math.floor((position.Z - r) / size), math.floor((position.Z + r) / size) do
+				local c = loaded[cx .. ":" .. cz]
+				if c then
+					for i = #c.tufts, 1, -1 do
+						local t = c.tufts[i]
+						if (t.x - position.X) ^ 2 + (t.z - position.Z) ^ 2 <= r * r then
+							local y = t.base.Position.Y
+							local churned = math.abs(y - position.Y) <= depth
+							local hit = not churned
+								and workspace:Raycast(Vector3.new(t.x, y + 12, t.z), Vector3.new(0, -40, 0), params)
+							if churned or not hit or not grows[hit.Material] then
+								t.part:Destroy()
+								table.remove(c.tufts, i)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	-- (Destruction.explode sends a plain radius, not a reach: harmless, scrub only takes tufts off ground that changed)
+	Net.event("Explosion").OnClientEvent:Connect(function(position: Vector3, reach: number)
+		local C = DamageCfg.Blast.Crater
+		local churn = Blast.churnFromReach(reach, DamageCfg.Blast)
+		scrub(position, churn, churn / C.churn * C.churnDepth + Foliage.Scrub.margin) -- at once
+		for _, after in Foliage.Scrub.after do
+			task.delay(after, scrub, position, churn + Foliage.Scrub.margin, -1)
+		end
+	end)
+
+	local function clearUnder(s: { number })
+		local r = Foliage.UnderTrunk.radius
+		local size = Cfg.ChunkSize
+		for cx = math.floor((math.min(s[1], s[3]) - r) / size), math.floor((math.max(s[1], s[3]) + r) / size) do
+			for cz = math.floor((math.min(s[2], s[4]) - r) / size), math.floor((math.max(s[2], s[4]) + r) / size) do
+				local c = loaded[cx .. ":" .. cz]
+				if c then
+					for i = #c.tufts, 1, -1 do
+						local t = c.tufts[i]
+						if Grass.nearSegment(t.x, t.z, s[1], s[2], s[3], s[4], r) then
+							t.part:Destroy()
+							table.remove(c.tufts, i)
+						end
+					end
+				end
+			end
+		end
+	end
+	local function fallen(inst: Instance)
+		local to, length = inst:GetAttribute("FallTo"), inst:GetAttribute("FallLength")
+		if not inst:IsA("Model") or typeof(to) ~= "CFrame" or type(length) ~= "number" then
+			return
+		end
+		local tree = inst
+		local a = to.Position
+		local b = a + to.UpVector * length
+		local s = { a.X, a.Z, b.X, b.Z }
+		trunks[tree] = s
+		clearUnder(s)
+		tree.Destroying:Connect(function()
+			trunks[tree] = nil
+		end)
+	end
+	CollectionService:GetInstanceAddedSignal(TreeCfg.FallingTag):Connect(function(inst)
+		task.delay(DamageCfg.Trees.Fall.time, fallen, inst) -- once it is down
+	end)
+	for _, inst in CollectionService:GetTagged(TreeCfg.FallingTag) do
+		fallen(inst)
 	end
 
 	Settings.changed("GrassQuality", function(value)

@@ -1,6 +1,8 @@
 --!strict
 require(script.BoundaryFade).start()
 require(script.TreeSway).start()
+require(script.TreeFall).start()
+require(script.Impacts).start()
 require(script.SettingsMenu).start()
 require(script.DevTeleportMenu).start()
 require(script.DevWeaponMenu).start()

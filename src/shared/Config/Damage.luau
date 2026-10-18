@@ -58,20 +58,112 @@ local Damage = {
 		-- below that it loses MaxHP x (kPa / fail)^Weaken (so nearby blasts wear it down). Buildings and props.
 		Fail = {
 			Glass = 8,
-			Tile = 20,
+			Tile = 300, -- a tiled roof loses the panels near the blast (~10 studs), not all of them (was 20, ~21)
 			Thatch = 20,
 			Door = 20,
 			Wood = 25,
-			Plaster = 28,
-			Brick = 70,
-			Stone = 80,
+			-- sturdier than real masonry (user 2026-10-17): a full beam at a wall blows a 2-3 section hole, a story falls
+			-- after 2-3 of them. At 10 kg: plaster ~10 studs, brick ~6, stone ~5.5 (real walls fail at ~70 kPa, ~19)
+			Plaster = 300,
+			Brick = 900,
+			Stone = 1200,
 		},
 		FailDefault = 30,
-		Weaken = 2,
-		-- trees (Config/TreeSway.Tag): over this a tree snaps at the trunk and falls away from the blast; despawns after
-		Tree = { fail = 60, push = 18, spin = 1.2, despawn = 30 },
-		-- a crater in the terrain: radius = perCubeRoot x W^(1/3) studs (~5 at 10 kg), the ball sunk `sink` x radius
-		Crater = { perCubeRoot = 2.32, sink = 0.45 },
+		Weaken = 1, -- (was 2) each blast wears what it doesn't break, so blasts at one spot widen the hole
+		-- trees (Config/TreeSway.Tag): at their trunk base over `fail` a tree is felled whole (no stump: the crater is
+		-- there; user 2026-10-17); below it loses its HP (Trees below) like a section: MaxHP x (kPa / fail)^Weaken
+		Tree = { fail = 60, weaken = 2 },
+		-- a crater in the terrain (Rules/Blast.craterPlan): radius = perCubeRoot x W^(1/3) studs (~5 at 10 kg), the ball
+		-- sunk `sink` x radius; a low rim of `rim.count` balls of `rim.size` x radius at `rim.at` x radius, sunk
+		-- `rim.sink` x radius under the ground (it rises ~(size - sink) x radius); the ground out to `churn` x radius
+		-- turns from `churnFrom` to `churnTo` (blasted earth: grass is gone at once and never grows back; user: "as the
+		-- battle goes on, there should be little to no grass on the map"). Terrain stays changed (voxels: no upkeep).
+		Crater = {
+			perCubeRoot = 2.32,
+			sink = 0.45,
+			-- (Studio: 0.38 / 0.2 at 1.15 left no rim, 0.65 / 0.4 at 1.2 rose 2-2.5 and narrowed the hole)
+			rim = { count = 12, at = 1.35, size = 0.45, sink = 0.4 }, -- (0.5 / 0.35 at 1.35 rose ~2.2 at 6 studs)
+			churn = 2.2,
+			churnDepth = 1.5, -- x radius: only ground this far above or below the blast churns (none for a blast up a wall)
+			churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
+			churnTo = "Mud",
+		},
+	},
+
+	-- Tree HP (user 2026-10-17: "trees get HP"; src/server/Trees, Rules/Trees). MaxHP = HP[kind] x the tree's scale.
+	-- Bullets chip the trunk by weapon class (per pellet for a shotgun); blasts as Blast.Tree above. A tree felled by
+	-- bullets falls along the shot and leaves a stump; a blast fells it whole, away from the blast, no stump.
+	Trees = {
+		HP = { Pine = 300, Broadleaf = 360, Birch = 240 }, -- ~30 rifle hits at scale 1
+		Weapons = { BoltRifle = 10, Shotgun = 2 },
+		-- the fall: clients animate it over `time` s; then the server places it where it lies, anchored (no physics:
+		-- user: "stay for some time ... don't lag the server"), as cover for `lifetime` s, at most `maxFallen` on the
+		-- map (the oldest goes first); it sinks into the ground over `sinkTime` s and is removed.
+		-- `tipShare`: how far along its height it rests on the ground (the canopy's top is soft)
+		Fall = {
+			time = 2.2,
+			lifetime = 300,
+			maxFallen = 60,
+			sinkTime = 2.5,
+			sinkDepth = 6,
+			minTilt = 25, -- (was 60: an uphill fall stopped there and sank into the slope) it may lean on a hill
+			maxTilt = 95,
+			tipShare = 0.85,
+			-- it lies clear of the ground along its whole length (samples along it): the trunk's half thickness to clear,
+			-- tapering to `tipClear` x that at the top (the crown may press into the ground)
+			samples = 10,
+			tipClear = 0.2,
+			-- landing: a bounce back of `bounce` degrees settling over `bounceTime` s (src/client/TreeFall)
+			bounce = 7, -- (its peak is ~0.43 x this: ~3 degrees)
+			bounceTime = 0.6,
+			-- its imprint (user 2026-10-17: "not a crater ... a thick imprint", even, the tree not floating): wherever the
+			-- trunk lies on the ground the terrain is pressed down `depth` studs, following the ground, every `step` studs
+			-- along it (balls of `radius`: smaller vanish in 4-stud voxels), the ground in it churned to `churnTo`; the
+			-- trunk lies in it. `touch`: how close to the ground the trunk's underside counts as lying on it.
+			Imprint = {
+				radius = 2.6,
+				depth = 1,
+				step = 2,
+				touch = 0.8,
+				churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
+				churnTo = "Mud",
+			},
+			-- uprooted (felled whole by a blast): the butt lies on the ground (its half thickness up), with a root ball of
+			-- mud at it (`radius` x the trunk's width, `min` to `max`: smaller vanishes in 4-stud voxels) and a pit where
+			-- it stood (`pit` x that, `pitBack` x the radius behind the butt)
+			-- (was 1.8 x the width, no cap: 7-9 stud mounds that buried the pit; then 2.6-3.2, user: "a tiny bit smaller")
+			-- `material`: its own terrain material, coloured darker than mud (Config/Palette.Terrain)
+			Roots = { radius = 0.9, min = 2.3, max = 2.8, pit = 0.9, rise = 0.15, pitBack = 1.1, material = "Basalt" },
+			-- soldiers under it when it lands: within `radius` (x the scale) of the trunk's line they take `damage` and
+			-- the `knock`, pushed to the side they stand on; the trunk lets characters through for `ghost` s after (and
+			-- longer while one is still inside it, up to `ghostMax`), so nobody is pushed into the ground or flung
+			Crush = { radius = 2.5, damage = 60, knock = "Torso", ghost = 1.5, ghostMax = 6 },
+		},
+		-- a staff beam's direct hit on a trunk (standing or lying): `damage[stage]`; from `shatterFrom` the trunk
+		-- shatters (debris, a stump left; the crown drops and sheds) - not the same as a blast at the roots, which fells it
+		-- whole (user 2026-10-17)
+		Direct = { damage = { 40, 120 }, shatterFrom = 3 },
+		Stump = { height = 1.2, widthShare = 0.9 }, -- of the trunk's base width
+		-- a felled tree lies with `share` x its MaxHP again (user 2026-10-17: "give it continue HP so it can be
+		-- destroyed"): bullets and blasts wear it down; at 0 it sinks and fades away (Fall.sinkTime)
+		Fallen = { share = 0.5 },
+		-- The leaves have HP of their own (user 2026-10-17): HP[kind] x the tree's scale. Bullets never touch them.
+		-- A staff beam through the canopy's box takes `through[stage]`, one passing or landing within `nearDistance[stage]`
+		-- studs of it `near[stage]` (a few stage 2 shots strip a tree); a blast by its overpressure at the canopy: all
+		-- at `blastFail` kPa, (kPa / blastFail)^blastWeaken below. Stripped (or the tree felled: its leaves go to 0),
+		-- the canopy sheds over `shedTime` s on the clients and is removed. `react[stage]`: how hard a beam shakes the
+		-- leaves and how many fall (x the leaf bits, src/client/Impacts), half for a beam only passing near.
+		Leaves = {
+			HP = { Pine = 100, Broadleaf = 120, Birch = 80 },
+			through = { 12, 40, 200 },
+			near = { 5, 30, 120 },
+			nearDistance = { 2, 5, 10 },
+			blastFail = 25,
+			blastWeaken = 1,
+			shedTime = 4,
+			react = { 0.5, 1, 2 },
+			nearReact = 0.5, -- x react for a beam only passing near
+		},
 	},
 
 	-- Respawn after this many seconds: Config/Metrics.Combat.RespawnDelay (Players.RespawnTime).

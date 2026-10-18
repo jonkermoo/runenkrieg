@@ -160,4 +160,12 @@ return {
 		end
 		assert(#G.chunksAround(0, 0, 0, F.ChunkSize) == 0, "Off should load nothing")
 	end,
+	["no grass under a fallen trunk: near its line, not beside it"] = function()
+		local G = require("../src/shared/Rules/Grass")
+		assert(G.nearSegment(5, 1, 0, 0, 10, 0, 2), "beside the middle")
+		assert(not G.nearSegment(5, 3, 0, 0, 10, 0, 2), "too far off")
+		assert(G.nearSegment(11, 0, 0, 0, 10, 0, 2), "just past the end")
+		assert(not G.nearSegment(13, 0, 0, 0, 10, 0, 2), "well past the end")
+		assert(G.nearSegment(0, 1, 0, 0, 0, 0, 2), "a zero-length line")
+	end,
 }

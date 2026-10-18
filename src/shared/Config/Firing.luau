@@ -77,6 +77,25 @@ local Firing = {
 		-- like a stone, user 2026-10-12) for `flight` seconds, then the world's
 		Casing = { out = 9, up = 8, back = 1.5, spin = 25, life = 4, gravity = 27.5, flight = 1.2 },
 		TargetFlash = { color = { 255, 255, 255 }, time = 0.15 },
+		-- What a bullet throws up where it lands, by surface (src/client/Impacts; user 2026-10-17), local to each client:
+		-- `count` bits of `size` studs (a splinter is `long` x that), thrown out of the surface at `speed` studs/s plus
+		-- `up`, falling at `gravity` studs/s^2 (real gravity is 27.5), slowed by `drag` per s, gone after `life` s.
+		-- Their colour is the surface's own (the terrain material's colour, the part's). Leaves fall from the canopy a
+		-- bullet passes through (canopies let bullets through; the box tested is `canopyShare` of the canopy's box).
+		Impacts = {
+			Dirt = { count = 6, size = 0.28, speed = 9, up = 12, gravity = 55, drag = 1.5, life = 0.8 },
+			Chip = { count = 5, size = 0.2, speed = 11, up = 6, gravity = 70, drag = 1, life = 0.6 },
+			Splinter = { count = 5, size = 0.14, long = 3.5, speed = 12, up = 5, gravity = 60, drag = 1, life = 0.9 },
+			Splash = { count = 7, size = 0.3, speed = 3, up = 18, gravity = 70, drag = 1, life = 0.7 },
+			Leaf = { count = 5, size = 0.4, speed = 2, up = 0, gravity = 3, drag = 2.5, life = 2.6, canopyShare = 1 },
+			-- a staff beam through a canopy (Net "LeavesHit", x its `react`): this many leaves and a shake of `kick` x the
+			-- explosion kick (Config/TreeSway.Explosion) within `radius` of where it entered
+			Beam = { leaves = 12, kick = 0.35, radius = 10, scatter = 2, maxReact = 4 }, -- scatter: studs round the entry
+			-- a canopy shedding (stripped, or its tree felled): `perSecond` bursts of Leaf.count leaves fall from all over
+			-- it while it fades (src/client/TreeFall)
+			-- (`spread`: share of the canopy's box they fall from; `endRate`: the rate at the end, x perSecond)
+			Shed = { perSecond = 4, spread = 0.8, endRate = 0.5 },
+		},
 		HitMarker = { time = 1.2 }, -- the shooter's note: what was hit, how far
 	},
 

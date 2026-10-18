@@ -74,4 +74,13 @@ function Grass.chunksAround(x: number, z: number, radius: number, size: number):
 	return out
 end
 
+-- whether (px, pz) lies within `r` of the segment (ax, az) - (bx, bz) (the ground under a fallen trunk)
+function Grass.nearSegment(px: number, pz: number, ax: number, az: number, bx: number, bz: number, r: number): boolean
+	local dx, dz = bx - ax, bz - az
+	local len2 = dx * dx + dz * dz
+	local t = if len2 > 0 then math.clamp(((px - ax) * dx + (pz - az) * dz) / len2, 0, 1) else 0
+	local cx, cz = ax + dx * t - px, az + dz * t - pz
+	return cx * cx + cz * cz <= r * r
+end
+
 return Grass
