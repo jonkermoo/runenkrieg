@@ -46,6 +46,9 @@ local Firing = {
 		forward = 0.88,
 		down = 0.94,
 	},
+	-- An action started partway (a reload from a bolt held open, one resumed after being cut) fades its arms in over
+	-- this long (s), so the rifle travels from the hold into the action's pose (at 0.15 s it lunged; A1 audit 2026-10-18)
+	ResumeFade = 0.3,
 	ClipRise = 0.3, -- studs (model) an empty en-bloc clip drops out the bottom
 	-- Single rounds (user 2026-10-13): a stripper-clip rifle (Gewehr, SMLE) with rounds left in the magazine loads them
 	-- one at a time through the open action (a whole clip only fits an empty magazine): seconds to open the bolt (hand to
