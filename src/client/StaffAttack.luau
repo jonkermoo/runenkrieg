@@ -48,6 +48,7 @@ local Rules = require(Shared.Rules.Spells)
 local NetRules = require(Shared.Rules.StaffNet)
 local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
+local Settings = require(script.Parent.Settings)
 local LookTilt = require(script.Parent.LookTilt)
 local Ragdoll = require(script.Parent.Ragdoll)
 local SoundFx = require(script.Parent.SoundFx)
@@ -279,7 +280,7 @@ function StaffAttack.start()
 	end
 
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		if processed or not Settings.pressed("Key_Fire", input) then -- (the player's fire key)
 			return
 		end
 		local character = player.Character
@@ -338,7 +339,7 @@ function StaffAttack.start()
 	end)
 
 	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		if not Settings.pressed("Key_Fire", input) then
 			return
 		end
 		local c, p = cast, pressedAt
