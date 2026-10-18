@@ -16,7 +16,9 @@ local R = require(Shared.Rules.Settings)
 
 local Profile = {}
 
-type Session = { settings: { [string]: any }, loaded: boolean, dirty: boolean, lastSave: number }
+-- loadFailed: the stored profile couldn't be read, so this session never writes it (settings last the session only),
+-- or the first change would save defaults over the player's real data.
+type Session = { settings: { [string]: any }, loaded: boolean, loadFailed: boolean, dirty: boolean, lastSave: number }
 
 local sessions: { [Player]: Session } = {}
 local store: DataStore? = nil
@@ -26,14 +28,15 @@ local function key(player: Player): string
 end
 
 local function load(player: Player)
-	local s: Session = { settings = {}, loaded = false, dirty = false, lastSave = 0 }
+	local s: Session = { settings = {}, loaded = false, loadFailed = false, dirty = false, lastSave = 0 }
 	sessions[player] = s
 	if store then
 		local ok, data = pcall(function()
 			return (store :: DataStore):GetAsync(key(player))
 		end)
 		if not ok then
-			warn(`[Profile] load failed for {player.UserId}: {data}`)
+			s.loadFailed = true
+			warn(`[Profile] load failed for {player.UserId}, settings last the session only: {data}`)
 		elseif type(data) == "table" then
 			s.settings = R.clean(Cfg.Options :: any, data[Cfg.Field], Cfg.MaxKeyName)
 		end
@@ -49,7 +52,7 @@ end
 
 local function save(player: Player)
 	local s = sessions[player]
-	if not store or not s or not s.loaded or not s.dirty then
+	if not store or not s or not s.loaded or s.loadFailed or not s.dirty then
 		return
 	end
 	s.dirty = false
