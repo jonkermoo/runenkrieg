@@ -6,8 +6,8 @@
 -- The fall costs the server nothing: it tags the tree FallingTag with where it will lie ("FallTo", clear of the ground
 -- all along it) and every client animates it (src/client/TreeFall); then the server places it there, anchored, as cover
 -- (FallenTag): soldiers it lands on are hurt and knocked aside (Damage.crush; the trunk lets them through a moment), it
--- presses an even imprint into the ground it lies on, and an uprooted one leaves a pit and a root ball of mud (src/server/Ground). A full beam
--- straight on a trunk shatters it instead (a stump left, the crown drops and sheds). Lying, it has
+-- presses an even imprint into the ground it lies on, and an uprooted one leaves a pit and a root ball of mud
+-- (src/server/Ground). A full beam straight on a trunk destroys it instead: it falls and fades out (a stump left). Lying, it has
 -- Fallen.share x its MaxHP again, and bullets and blasts wear that down too. It lies for Fall.lifetime s, at most
 -- Fall.maxFallen at once (the oldest goes first), or until destroyed: tagged SinkingTag, it sinks and fades on the
 -- clients and is removed.
@@ -200,8 +200,9 @@ local function ghostWhileInside(trunk: BasePart)
 	end)
 end
 
--- `away`: the way it falls; `leaveStump`: felled by a bullet or a beam (snapped above a stump); else uprooted whole
-local function fell(tree: Model, away: Vector3, leaveStump: boolean)
+-- `away`: the way it falls; `leaveStump`: felled by a bullet or a beam (snapped above a stump); else uprooted whole.
+-- `fadeAway`: destroyed (a full beam on the trunk): it falls and fades out as it lands, leaving nothing but its stump.
+local function fell(tree: Model, away: Vector3, leaveStump: boolean, fadeAway: boolean?)
 	local trunk = tree:FindFirstChild("Trunk") :: BasePart?
 	if not trunk then
 		return
@@ -269,6 +270,13 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		end
 		ghostWhileInside(trunk)
 		tree:PivotTo(lie)
+		if fadeAway then
+			if crush then
+				crush(hinge, hinge + lie.UpVector * reach, F.Crush.radius * sc, F.Crush.damage, F.Crush.knock)
+			end
+			sink(tree) -- fades out where it landed
+			return
+		end
 		CollectionService:AddTag(tree, TreeCfg.FallenTag)
 		shed(tree) -- a felled tree's leaves go to 0 (user)
 		-- who it lands on
@@ -306,37 +314,15 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 	task.delay(F.time + F.lifetime, sink, tree)
 end
 
--- A trunk blown apart where it is (a direct full beam): debris on the clients, a stump left under a standing one, its
--- crown drops to the ground and sheds, then the tree is gone.
-local function shatter(tree: Model)
-	local trunk = tree:FindFirstChild("Trunk") :: BasePart?
-	if not trunk then
-		return
+-- A trunk destroyed outright (a direct full beam; user 2026-10-18: "they should just fall down but fade away"): a
+-- standing tree falls along the beam above its stump and fades out as it lands; a fallen one fades out where it lies.
+-- No debris.
+local function shatter(tree: Model, direction: Vector3)
+	if standing(tree) then
+		fell(tree, direction, true, true)
+	elseif lying(tree) then
+		sink(tree)
 	end
-	local wasStanding = standing(tree)
-	CollectionService:RemoveTag(tree, TreeCfg.Tag)
-	CollectionService:RemoveTag(tree, TreeCfg.FallenTag)
-	local i = table.find(fallen, tree)
-	if i then
-		table.remove(fallen, i)
-	end
-	Net.event("SectionBroken"):FireAllClients({
-		{ cf = trunk.CFrame, size = trunk.Size, color = trunk.Color, t = trunk.Transparency },
-	}, trunk.Position)
-	if wasStanding then
-		stump(tree, trunk, tree:GetPivot().Position)
-	end
-	trunk:Destroy()
-	local canopy = tree:FindFirstChild("Canopy") :: BasePart?
-	if canopy then
-		local y = Ground.heightAt(canopy.Position.X, canopy.Position.Z, canopy.Position.Y, 200)
-		local bottom = canopy.Position.Y - canopy.Size.Y / 2
-		tree:SetAttribute("ShedDrop", if y then math.max(bottom - y, 0) else 0)
-		shed(tree)
-	end
-	task.delay(L.shedTime + 0.5, function()
-		tree:Destroy()
-	end)
 end
 
 local function hurt(tree: Model, amount: number, away: Vector3, byBullet: boolean, whole: boolean?)
@@ -375,7 +361,7 @@ function Trees.direct(part: Instance?, stage: number, direction: Vector3)
 	end
 	local amount, blown = Rules.directHit(stage, T.Direct)
 	if blown then
-		shatter(tree)
+		shatter(tree, direction)
 	elseif amount > 0 then
 		hurt(tree, amount, direction, true)
 	end

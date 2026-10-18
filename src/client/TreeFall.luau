@@ -3,7 +3,7 @@
 -- - FallingTag: the tree turns from where it stands to its "FallTo" over "FallTime" s, speeding up like a real fall;
 -- - SinkingTag: it goes down "SinkDepth" studs over "SinkTime" s and fades out, before the server removes it;
 -- - FallingTag ends with a small bounce back off the ground about "FallHinge" (Fall.bounce);
--- - ShedTag: its canopy fades out over "ShedTime" s (dropping "ShedDrop" studs first if its trunk shattered) while
+-- - ShedTag: its canopy fades out over "ShedTime" s while
 --   leaves fall from all over it (Config/Firing.Effects.Impacts.
 --   Shed), before the server removes the canopy. Not sudden (user 2026-10-17).
 
@@ -96,13 +96,8 @@ local function shed(inst: Instance)
 		return
 	end
 	local owed = 0
-	local from = canopy.CFrame
-	local drop = number(inst, "ShedDrop", 0) -- its trunk shattered: the crown comes down too
 	over(canopy, number(inst, "ShedTime", Damage.Trees.Leaves.shedTime), function(a, dt)
 		canopy.Transparency = a
-		if drop > 0 then
-			canopy.CFrame = from - Vector3.yAxis * drop * math.min(a * 3, 1) ^ 2
-		end
 		owed += Shed.perSecond * dt * (1 - a * (1 - Shed.endRate))
 		while owed >= 1 do
 			owed -= 1
