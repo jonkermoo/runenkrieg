@@ -134,4 +134,47 @@ return {
 			assert(L.react[stage] and L.nearDistance[stage], `react / near for stage {stage}`)
 		end
 	end,
+	["every Config key src/server/Trees reads exists (the checks don't type-check)"] = function()
+		local F = T.Fall
+		local need = {
+			[F] = {
+				"Crush",
+				"Imprint",
+				"Roots",
+				"lifetime",
+				"maxFallen",
+				"maxTilt",
+				"minTilt",
+				"samples",
+				"time",
+				"tipClear",
+				"tipShare",
+				"sinkDepth",
+				"sinkTime",
+				"bounce",
+				"bounceTime",
+			},
+			[T] = { "Direct", "Fall", "Fallen", "Leaves", "Stump", "HP", "Weapons" },
+			[T.Leaves] = {
+				"HP",
+				"blastFail",
+				"blastWeaken",
+				"nearDistance",
+				"nearReact",
+				"react",
+				"shedTime",
+				"through",
+				"near",
+			},
+			[F.Roots] = { "material", "max", "min", "pit", "pitBack", "pitSink", "radius", "rise" },
+			[F.Imprint] = { "churnRadius", "depth", "radius", "step", "touch", "churnFrom", "churnTo" },
+			[F.Crush] = { "ghost", "ghostMax", "radius", "damage", "knock" },
+			[T.Stump] = { "height", "widthShare" },
+		}
+		for t, keys in need do
+			for _, k in keys do
+				assert((t :: any)[k] ~= nil, "missing Config/Damage.Trees key " .. k)
+			end
+		end
+	end,
 }

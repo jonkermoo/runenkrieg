@@ -228,7 +228,7 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
 		if y then
 			-- its underside down in its imprint (Fall.Imprint.depth under the ground), tapering toward the top
-			local clear = half * (1 - (1 - F.tipClear) * k / F.samples) - F.Imprint.depth
+			local clear = half * (1 - (1 - F.tipClear) * k / F.samples) - F.Imprint.depth * (1 - k / F.samples)
 			table.insert(samples, { x, y - hinge.Y + clear })
 		end
 	end
@@ -244,7 +244,11 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 		-- uprooted: a pit where the roots were
 		local R = F.Roots
 		local r = math.clamp(thickness(trunk) * R.radius, R.min, R.max)
-		Ground.ball(Vector3.new(base.X, ground - r * 0.5, base.Z) - dir * r * R.pitBack, r * R.pit, Enum.Material.Air)
+		Ground.ball(
+			Vector3.new(base.X, ground - r * R.pitSink, base.Z) - dir * r * R.pitBack,
+			r * R.pit,
+			Enum.Material.Air
+		)
 	end
 	tree:SetAttribute("FallTo", lie)
 	tree:SetAttribute("FallTime", F.time)
@@ -274,11 +278,11 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 			local at = hinge + dir * x
 			local y = Ground.heightAt(at.X, at.Z, hinge.Y + h, h * 2 + 60)
 			local bottom = hinge.Y + x * cot - half -- the trunk's underside here
-			if y and bottom - (y - I.depth) <= I.touch then
+			if y and bottom - y <= I.touch then
 				local floor = Vector3.new(at.X, y - I.depth, at.Z)
 				-- a ball whose bottom is the imprint's floor
 				Ground.ball(floor + Vector3.yAxis * I.radius, I.radius, Enum.Material.Air)
-				Ground.churn(floor, I.radius, I.radius, I)
+				Ground.churn(floor, I.churnRadius, I.radius, I)
 			end
 			x += I.step
 		end
@@ -290,7 +294,7 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean)
 				r,
 				(Enum.Material :: any)[R.material]
 			)
-			Ground.churn(base, r * 1.5, r, F.Dent)
+			Ground.churn(base, r * 1.5, r, F.Imprint)
 		end
 	end)
 	table.insert(fallen, tree)

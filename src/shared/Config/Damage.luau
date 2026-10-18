@@ -107,7 +107,7 @@ local Damage = {
 			sinkTime = 2.5,
 			sinkDepth = 6,
 			minTilt = 25, -- (was 60: an uphill fall stopped there and sank into the slope) it may lean on a hill
-			maxTilt = 95,
+			maxTilt = 120, -- (was 95: downhill falls floated up to 6.6 over the slope)
 			tipShare = 0.85,
 			-- it lies clear of the ground along its whole length (samples along it): the trunk's half thickness to clear,
 			-- tapering to `tipClear` x that at the top (the crown may press into the ground)
@@ -125,15 +125,26 @@ local Damage = {
 				depth = 1,
 				step = 2,
 				touch = 0.8,
+				churnRadius = 4.5, -- (the 4-stud voxels round the trough; at 2.6 it stayed mostly Grass)
 				churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
 				churnTo = "Mud",
 			},
 			-- uprooted (felled whole by a blast): the butt lies on the ground (its half thickness up), with a root ball of
 			-- mud at it (`radius` x the trunk's width, `min` to `max`: smaller vanishes in 4-stud voxels) and a pit where
-			-- it stood (`pit` x that, `pitBack` x the radius behind the butt)
+			-- it stood (`pit` x that, `pitBack` x the radius behind the butt, its centre `pitSink` x it under the ground)
 			-- (was 1.8 x the width, no cap: 7-9 stud mounds that buried the pit; then 2.6-3.2, user: "a tiny bit smaller")
 			-- `material`: its own terrain material, coloured darker than mud (Config/Palette.Terrain)
-			Roots = { radius = 0.9, min = 2.3, max = 2.8, pit = 0.9, rise = 0.15, pitBack = 1.1, material = "Basalt" },
+			-- (Studio: rise 0.15 topped out +1.6..+3.1 with the voxels, and a 0.9 pit at 1.1 behind didn't show)
+			Roots = {
+				radius = 0.9,
+				min = 2.3,
+				max = 2.8,
+				pit = 1.2,
+				rise = -0.2,
+				pitBack = 1.6,
+				pitSink = 0.4,
+				material = "Basalt",
+			},
 			-- soldiers under it when it lands: within `radius` (x the scale) of the trunk's line they take `damage` and
 			-- the `knock`, pushed to the side they stand on; the trunk lets characters through for `ghost` s after (and
 			-- longer while one is still inside it, up to `ghostMax`), so nobody is pushed into the ground or flung
