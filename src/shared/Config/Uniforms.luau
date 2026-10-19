@@ -63,6 +63,7 @@ local Uniforms = {
 			skin = { 226, 176, 104 },
 			headwear = "helmet_stahl", -- Config/Assets entry
 			weapon = "rifle_g98", -- Config/Weapons entry: the grey team's default rifle
+			grenade = "grenade_stick", -- its grenades (Config/Grenades): the Stielhandgranate
 		},
 		uniform2 = {
 			source = "assets/teams/olive/uniform/uniform2.json",
@@ -71,6 +72,7 @@ local Uniforms = {
 			skin = { 226, 176, 104 },
 			headwear = "helmet_m33", -- Config/Assets entry
 			weapon = "rifle_m91", -- Config/Weapons entry: the olive team's default rifle
+			grenade = "grenade_sipe", -- its grenades (Config/Grenades): the SIPE
 		},
 	},
 }

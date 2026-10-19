@@ -26,6 +26,8 @@ local Camera = {
 	AimEase = 9, -- how fast the FOV narrows into the sights (per second; ~0.33 s)
 	ViewmodelFade = 0.35, -- first-person holds crossfade (ready / carry / aim): their poses are far apart, a quick
 	-- swap looked choppy going into and out of a sprint
+	-- under the aim-in / aim-out (which covers it) the hold left behind fades out over this share of what is left of it
+	AimHandoff = 0.8,
 
 	-- First person, not aiming (user 2026-10-12: hip fire should go about where the screen centre is when standing
 	-- still): the first-person rifle is turned so its barrel meets the centre line this many studs out; sway still

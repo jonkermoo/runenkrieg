@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local A = require(Shared.Config.Assets)
+local G = require(Shared.Config.Grenades)
 local L = require(Shared.Config.Locomotion)
 local U = require(Shared.Config.Uniforms)
 local W = require(Shared.Config.Weapons)
@@ -115,6 +116,17 @@ function Armory.build(name: string, kit: string?): Model
 	return model
 end
 
+-- A grenade Tool's name: the hotbar shows how many are left.
+function Armory.label(name: string, count: number): string
+	return `{W[name].display} x{count}`
+end
+
+-- The "Hold" motor's C1: the item `held` away from the hold's Gun point (Config/Weapons; identity for most).
+function Armory.heldOffset(name: string): CFrame
+	local h = W[name].held
+	return if h then CFrame.new(-h[1], -h[2], -h[3]) else CFrame.identity
+end
+
 -- The weapon as a Tool. No Handle, so Roblox adds no grip weld: the "Hold" Motor6D joins the Gun part to the
 -- Torso while equipped (Part0 set by Armory.give, and by the owner's client at once, src/client/Locomotion). With
 -- C0 = C1 = identity, the hold animation's "Gun" pose is the gun origin in the torso's space.
@@ -127,6 +139,7 @@ function Armory.tool(name: string): Tool
 	tool.RequiresHandle = false
 	local hold = Instance.new("Motor6D")
 	hold.Name = "Hold"
+	hold.C1 = Armory.heldOffset(name)
 	hold.Part1 = model.PrimaryPart
 	hold.Parent = model.PrimaryPart
 	for _, c in model:GetChildren() do
@@ -134,12 +147,20 @@ function Armory.tool(name: string): Tool
 	end
 	model:Destroy()
 	tool:SetAttribute("Weapon", name)
+	if w.class == "Grenade" then
+		tool:SetAttribute("Count", G.Carried) -- how many are left (src/server/Grenades)
+		tool.Name = Armory.label(name, G.Carried)
+	end
 	return tool
 end
 
--- The weapon's stowed copy on the character (not parented: Armory.give shows it while the Tool is put away).
+-- The weapon's stowed copy on the character (not parented: Armory.give shows it while the Tool is put away); nil for
+-- an item that shows nothing on the body (no `stow`: the grenades).
 function Armory.stowed(character: Model, name: string): Model?
 	local s = W[name].stow
+	if not s then
+		return nil
+	end
 	local part = character:FindFirstChild(s.part) :: BasePart?
 	if not part then
 		return nil
@@ -178,7 +199,14 @@ function Armory.give(player: Player, name: string): Tool
 
 	local stowed = character and Armory.stowed(character, name)
 	local hold = tool:FindFirstChild("Hold", true) :: Motor6D
-	if character and stowed then
+	if character and not stowed then
+		-- nothing on the body: only the hold motor follows the hands
+		local function update()
+			hold.Part0 = if tool.Parent == character then character:FindFirstChild("Torso") :: BasePart? else nil
+		end
+		tool:GetPropertyChangedSignal("Parent"):Connect(update)
+		update()
+	elseif character and stowed then
 		local gone = false -- the tool is being destroyed: its stowed copy goes with it, never back on the body
 		local wasHeld = false
 		local stowing: Model? = nil -- the copy in the hands while it's being put away
@@ -256,14 +284,14 @@ function Armory.give(player: Player, name: string): Tool
 end
 
 -- The player's weapon for a slot: their pick ("Loadout_<slot>" on the Player, set by Armory.choose), else the
--- kit's weapon (primary only; Config/Uniforms).
+-- kit's weapon (the primary) or grenade (Config/Uniforms).
 function Armory.loadout(player: Player, slot: string): string?
 	local picked = player:GetAttribute(LOADOUT .. slot)
 	if type(picked) == "string" and W[picked] and W[picked].slot == slot then
 		return picked
 	end
 	local kit = U.Kits[U.Default] :: any
-	return if slot == "Primary" then kit.weapon else nil
+	return if slot == "Primary" then kit.weapon elseif slot == "Grenade" then kit.grenade else nil
 end
 
 -- Makes the weapon the player's pick for its slot: given now (replacing the slot's weapon) and on every respawn.

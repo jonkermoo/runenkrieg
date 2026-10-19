@@ -91,6 +91,50 @@ local Assets = {
 			generator = "tools/blender/weapons/m1897.py",
 			description = "Winchester M1897 trench gun, the shotgun of all three teams (built from its trace: tools/blender/weapons/trace/m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
 		},
+		-- the grenades, one per team (tools/blender/weapons/grenades.py; Config/Weapons, Config/Grenades)
+		grenade_mills = {
+			id = 138444756692849,
+			category = "Weapons",
+			folder = "White/Grenades",
+			source = "assets/weapons/white/grenade_mills.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "Mills bomb No. 5, the white team's grenade (from references/weapons/grenades/mills_*.jpg): six columns of segments, base and filler plugs, the lever, pin and ring. Rigged from Config/Weapons.",
+		},
+		grenade_stick = {
+			id = 76412002834293,
+			category = "Weapons",
+			folder = "Grey/Grenades",
+			source = "assets/weapons/grey/grenade_stick.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "Stielhandgranate M1917, the grey team's grenade (from references/weapons/grenades/stick_am613018_1.jpg): the can head, iron collar, wooden handle and screw cap. Rigged from Config/Weapons.",
+		},
+		grenade_sipe = {
+			id = 97677876339961,
+			category = "Weapons",
+			folder = "Olive/Grenades",
+			source = "assets/weapons/olive/grenade_sipe.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "SIPE, the olive team's grenade (from references/weapons/grenades/sipe_museo.jpg): seven columns of segments, a flat bottom and the fuse tube. Rigged from Config/Weapons.",
+		},
+		-- Artillery (user 2026-10-18): player-placed, hard to build, set up in the very back for area damage. Shared
+		-- by every team, painted per team (Config/Palette.Artillery). Moving parts are their own meshes; firing is
+		-- later game code.
+		artillery_qf18 = {
+			id = 123043192837733,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/artillery_qf18.fbx",
+			generator = "tools/blender/artillery/qf18.py",
+			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
+		},
+		artillery_howitzer = {
+			id = 82367327569698,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/artillery_howitzer.fbx",
+			generator = "tools/blender/artillery/howitzer.py",
+			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",
