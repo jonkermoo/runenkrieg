@@ -2,6 +2,7 @@
 local C = require("../src/shared/Config/Grenades")
 local G = require("../src/shared/Rules/Grenade")
 local W = require("../src/shared/Config/Weapons")
+local Dev = require("../src/shared/Config/DevTools")
 
 local GRAVITY = 196.2 -- Roblox's default workspace.Gravity
 local function near(a: number, b: number, eps: number?): boolean
@@ -79,6 +80,14 @@ return {
 			if w.class == "Grenade" then
 				assert(C.Types[name], name .. " has no Config/Grenades.Types entry")
 			end
+		end
+	end,
+	["the admin panel gives every grenade, and only grenades"] = function()
+		for _, name in Dev.Admin.Grenades do
+			assert(W[name] and W[name].class == "Grenade", name)
+		end
+		for name in C.Types do
+			assert(table.find(Dev.Admin.Grenades, name), name .. " missing from the admin panel")
 		end
 	end,
 	["fuse and count as the user picked"] = function()

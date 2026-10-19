@@ -74,6 +74,9 @@ local DevTools = {
 		Health = { 100, 75, 50, 25, 10 },
 		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
 		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
+		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
+		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },
 	},
 
 	-- Every test action the panels send (Net "DevAction": action, value, aim point), each checked by the server against
