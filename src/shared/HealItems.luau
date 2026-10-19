@@ -213,8 +213,8 @@ function HealItems.clear(state: State)
 end
 
 -- The unrolling bandage's strip (client side, every frame): its free end reaches `length` studs from the roll toward
--- `pin` (the left hand on the patient's limb), the rest still on the roll. Bones are posed relative to the part they
--- hang under, from their pose at rest (captured on the first call).
+-- `pin` (HealItems.pin: the patient's limb being wrapped), the rest still on the roll. Bones are posed relative to
+-- the part they hang under, from their pose at rest (captured on the first call).
 local rest: { [Instance]: { [string]: CFrame } } = setmetatable({}, { __mode = "k" }) :: any
 local BONES = { "Strip1", "Strip2", "Strip3", "Strip4", "Strip5", "Strip6", "Strip7", "Strip8" }
 
@@ -268,6 +268,20 @@ function HealItems.strip(item: Model, pin: Vector3, length: number)
 		b.Transform = CFrame.identity
 		parent = want
 	end
+end
+
+-- Where the strip goes (Studio round 2: the two hands are only ~0.5 apart, too close for a strip to show): the
+-- patient's part getting the next wrap (Config/Healing.Wraps: left arm, right leg, head), else their torso.
+function HealItems.pin(healer: Model): Vector3?
+	local link = healer:FindFirstChild("HealPatient") :: ObjectValue?
+	local patient = link and link.Value
+	if not patient then
+		return nil
+	end
+	local count = patient:GetAttribute("Wraps")
+	local w = Cfg.Wraps[(if type(count) == "number" then count else 0) + 1]
+	local part = (w and patient:FindFirstChild(w.part) or patient:FindFirstChild("Torso")) :: BasePart?
+	return part and part.Position
 end
 
 -- How far the strip is out `elapsed` seconds into a bandage heal (Config/Healing.Unroll).

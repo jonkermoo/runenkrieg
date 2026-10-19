@@ -183,7 +183,7 @@ function Healing.start()
 	bind()
 	Settings.changed("Key_Heal", bind)
 
-	-- every healer's unrolling strip, toward their left hand (bones don't replicate: each client draws them)
+	-- every healer's unrolling strip, toward the patient's limb being wrapped (bones don't replicate: each client draws them)
 	RunService.RenderStepped:Connect(function()
 		for _, p in Players:GetPlayers() do
 			local c = p.Character
@@ -192,13 +192,9 @@ function Healing.start()
 			end
 			local at = c and c:GetAttribute("HealAt")
 			local item = c and c:GetAttribute("Healing") == "Bandage" and c:FindFirstChild("HealItem")
-			local hand = c and c:FindFirstChild("Left Arm") :: BasePart?
-			if item and hand and type(at) == "number" then
-				HealItems.strip(
-					item :: Model,
-					hand.CFrame * Vector3.new(0, -1, 0),
-					HealItems.unrolled(workspace:GetServerTimeNow() - at)
-				)
+			local pin = c and HealItems.pin(c)
+			if item and pin and type(at) == "number" then
+				HealItems.strip(item :: Model, pin, HealItems.unrolled(workspace:GetServerTimeNow() - at))
 			end
 		end
 	end)

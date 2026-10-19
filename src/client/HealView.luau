@@ -128,14 +128,15 @@ local function build(character: Model): Rig
 	}
 end
 
--- Whether `character`'s player is in first person on the free camera (zoomed in within Config/Healing.First.Zoom of the
--- head; a weapon camera is its own thing): the first-person heal shows, and the body isn't turned for them.
+-- Whether the local player is in first person on the free camera (its zoom, camera to focus, under
+-- Config/Healing.First.Zoom; measured from the camera's own focus, not the head, which the crouch moves away: Studio
+-- round 2; a weapon camera is its own thing): the first-person heal shows, and the body isn't turned for them.
 function HealView.isFirst(character: Model?): boolean
-	local head = character and character:FindFirstChild("Head") :: BasePart?
-	if not character or not head or character:GetAttribute("CameraMode") ~= nil then
+	if not character or character:GetAttribute("CameraMode") ~= nil then
 		return false
 	end
-	return (workspace.CurrentCamera.CFrame.Position - head.Position).Magnitude < Cfg.First.Zoom
+	local camera = workspace.CurrentCamera
+	return (camera.CFrame.Position - camera.Focus.Position).Magnitude < Cfg.First.Zoom
 end
 
 function HealView.start()
@@ -213,8 +214,9 @@ function HealView.start()
 		r.root.CFrame = camera.CFrame * CFrame.new(-EYE)
 		-- the items on these arms, through the same steps as the body's (src/shared/HealItems)
 		HealItems.update(r.items, kind, elapsed, r.right, r.left, r.model, true)
-		if kind == "Bandage" and r.items.held then
-			HealItems.strip(r.items.held, r.left.CFrame * Vector3.new(0, -1, 0), HealItems.unrolled(elapsed))
+		local pin = HealItems.pin(c)
+		if kind == "Bandage" and r.items.held and pin then
+			HealItems.strip(r.items.held, pin, HealItems.unrolled(elapsed))
 		end
 	end)
 end
