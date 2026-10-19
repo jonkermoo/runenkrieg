@@ -45,8 +45,10 @@ export type Weapon = {
 		-- the same two started with both hands already on the staff ("ChargeTwo": after a stage 2 shot)
 		chargeTwo: number?,
 		airChargeTwo: number?,
-		-- a grenade (src/client/Grenades): windup, held while the throw's line shows ("Winding"); throw, a one shot from
-		-- it played on release ("ThrownAt"; the grenade leaves the hand Config/Grenades.Throw.release into it)
+		-- a grenade (src/client/Grenades): pin, a one shot on left click ("PinAt": the pin pulled, into the wind-up);
+		-- windup, held while the throw's line shows ("Winding"); throw, a one shot from it played on release
+		-- ("ThrownAt"; the grenade leaves the hand Config/Grenades.Throw.release into it)
+		pin: number?,
 		windup: number?,
 		throw: number?,
 	},
@@ -65,6 +67,7 @@ export type Weapon = {
 		aimTwo: number?,
 		charge: number?,
 		chargeTwo: number?,
+		pin: number?,
 		windup: number?,
 		throw: number?,
 	},
@@ -717,8 +720,9 @@ local Weapons: { [string]: Weapon } = {
 -- the SIPE (olive), each tinted in its team's colours (user: "Team-tinted"). Their own "Grenade" slot, carried by
 -- Config/Grenades.Carried and nothing on the body while put away. Gun space: the origin is the middle of the body (the
 -- stick's: on the handle, where the hand holds), its top (the fuse end) up +Y.
--- Holds: their own (tools/animation/grenade.luau, user 2026-10-19), one-handed: the grenade in the right hand, the left
--- free; drawn back while the throw's line shows, the throw on release; no aim (right click does nothing).
+-- Holds: their own (tools/animation/grenade.luau, user 2026-10-19): both hands on it in the middle; on left click the
+-- pin pulled and drawn back in the right hand while the throw's line shows, the throw on release; no aim (right click
+-- does nothing).
 local function grenade(
 	display: string,
 	asset: string,
@@ -736,22 +740,25 @@ local function grenade(
 		hidden = {},
 		attachments = { Muzzle = { 0, 0, -0.1 } }, -- the hip turn's line (hipConverge 0: unused)
 		grip = { 0, 0, 0 },
-		-- one set for all three (tools/animation/grenade.luau; user 2026-10-19). No unequip: the last one thrown leaves
-		-- the hand empty, and one put away goes straight back on the belt
+		-- one set for all three (tools/animation/grenade.luau v2, user 2026-10-19): held in both hands in the middle, the
+		-- pin pulled on left click, one hand while drawn back, drawn from the pack. No unequip: the last one thrown leaves
+		-- the hand empty, and one put away goes straight back in the pack
 		holds = {
-			ready = 87513731672117,
-			walk = 72019961101383,
-			carry = 140492027408748,
-			windup = 86952381429241,
-			throw = 80303138028176,
-			equip = 97380658835952,
+			ready = 74174242871250,
+			walk = 138141403174512,
+			carry = 122902504748851,
+			pin = 122217562015761,
+			windup = 81849730403208,
+			throw = 84042507032213,
+			equip = 72047351159711,
 		},
 		firstPerson = {
-			ready = 124932391377053,
-			carry = 128945277614351,
-			windup = 81227309666236,
-			throw = 88674791679623,
-			equip = 130111227451167,
+			ready = 140188248624565,
+			carry = 75594106878435,
+			pin = 138745937869755,
+			windup = 119468662516347,
+			throw = 112772902973023,
+			equip = 87678095685131,
 		},
 		hipConverge = 0,
 		held = held,

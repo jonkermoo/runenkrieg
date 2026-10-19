@@ -30,6 +30,11 @@ local Grenades = {
 		release = 0.22,
 		length = 0.6, -- the throw animation's length (seconds): the view stays first person through it ("Throwing")
 	},
+	-- The pin (user 2026-10-19: "make the character pull a pin before letting go of the grenade"): left click plays the
+	-- pin pull (Config/Weapons grenade holds `pin`, `time` seconds: the left hand pulls it at `out`, the right draws back
+	-- into the wind-up); let go before it's done and the throw goes the moment it is. Switching weapons before the
+	-- grenade leaves the hand cancels it all (user: "switching to your gun will cancel the throw sequence").
+	Pin = { time = 0.45, out = 0.25 },
 
 	-- The thrown grenade: a small hitbox (studs) that bounces and rolls a little (user: "bounces and rolls a little").
 	Body = {
