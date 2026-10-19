@@ -87,6 +87,24 @@ local Palette = {
 		Thread = { 150, 62, 52 }, -- the red tear thread wrapped round the pack
 		Cross = { 72, 140, 72 }, -- the green cross on the pack
 	},
+	-- Backpacks (Config/Assets "<Team>/Packs", user 2026-10-18/19), coloured by mesh name. Each team's from its
+	-- uniform: body = a cloth shade, straps = the leather / shoe color, roll = a darker cloth shade. White has no uniform
+	-- yet: its pack takes the Brodie helmet's white-grey.
+	Packs = {
+		pack_tornister = {
+			Body = { 66, 68, 72 },
+			Flap = { 92, 66, 48 },
+			Leather = { 46, 39, 34 },
+			Roll = { 56, 58, 62 },
+		},
+		pack_zaino = { Body = { 132, 128, 86 }, Leather = { 192, 158, 116 }, Roll = { 94, 92, 58 } },
+		pack_p08 = {
+			Body = { 204, 202, 192 },
+			Strap = { 174, 172, 162 },
+			Roll = { 150, 152, 150 },
+			Tin = { 128, 132, 136 },
+		},
+	},
 	-- Artillery (Config/Assets "Shared/Artillery", user 2026-10-18: one model each, painted per team), colored by mesh
 	-- name: the painted parts take the team's Paint, the rest are the same for everyone. The runes and the crystal
 	-- glow (Neon, the magic exception in docs/ART_STYLE.md); the crystal's colour will follow the gun's state.
@@ -107,6 +125,14 @@ local Palette = {
 		BarrelRunes = { 120, 200, 255 },
 		Crystal = { 175, 235, 255 },
 		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
+	},
+	-- The trench spade (Config/Assets "Shared/Shovels", user 2026-10-19): one model for every team, no team colors,
+	-- brass the only accent; colored by mesh name.
+	Shovel = {
+		Wood = { 139, 94, 60 }, -- the D-grip and haft
+		Iron = { 90, 92, 96 }, -- straps, socket, treads, the tongue on the back
+		Blade = { 122, 124, 128 },
+		Brass = { 184, 149, 90 }, -- the collar and rivets
 	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
 	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
