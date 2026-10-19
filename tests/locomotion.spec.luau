@@ -27,6 +27,15 @@ return {
 			assert(a and type(a.id) == "number" and a.id > 0, `missing animation {name}`)
 		end
 	end,
+	["air: take-off, tuck and landing have ids; the landing is lighter on the move"] = function()
+		for _, name in { "jump", "fall", "land" } do
+			local a = L.Animations[name]
+			assert(a and type(a.id) == "number" and a.id > 0, `missing animation {name}`)
+		end
+		local air = L.Air
+		assert(air.LandWeightMoving > 0 and air.LandWeightMoving < air.LandWeight, "a moving landing blends lighter")
+		assert(air.FallDelay > 0 and air.FallDelay < air.LandMinAir, "a step down shows neither the tuck nor a landing")
+	end,
 	["Roblox's footsteps are muted, its jump sound is kept"] = function()
 		assert(L.SoundVolumes.Running == 0, "Roblox's footstep loop must be muted (Footsteps replaces it)")
 		local jump = L.SoundVolumes.Jumping

@@ -28,16 +28,22 @@ local Locomotion = {
 	-- length it plays at when moving at `speed` (Metrics.Movement); playback also scales with actual speed / `speed`.
 	-- Pace (user 2026-10-11: steps were too quick for the speed): walk ~2 steps/s, sprint ~2.8 steps/s, close to a
 	-- real walk and run cadence. Tune `cycle` here; no re-upload needed.
+	-- Style (user 2026-10-18, "burdened veteran"): a soldier under heavy kit: heavy heel-first steps, a small shoulder
+	-- roll, arms hanging low; the sprint a lumbering charge at 2.6 steps/s (was 2.8).
 	Animations = {
-		idle = { id = 180435571 }, -- Roblox stock R6 idle (placeholder)
-		walk = { id = 90079278838820, speed = 10, keyed = 0.76, cycle = 1 },
-		sprint = { id = 71642320375175, speed = 16, keyed = 0.56, cycle = 0.72 },
+		idle = { id = 71032700662557 }, -- 8 s: slumped, slow breath, weight shifts leg to leg, a glance each side
+		walk = { id = 92205569241192, speed = 10, keyed = 0.76, cycle = 1 },
+		sprint = { id = 130475958716124, speed = 16, keyed = 0.56, cycle = 0.77 },
 		climb = { id = 180436334, speed = 8 }, -- Roblox stock R6 climb (ladders)
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
-		-- Crouch (user 2026-10-11): torso leaning only a little, the legs pushed up into it (only the shins show), the
-		-- right knee down at idle; the walk alternates like a real walk
-		crouchIdle = { id = 139770444602307 },
-		crouchWalk = { id = 140224669320052, speed = 6, keyed = 1.0, cycle = 1.4 }, -- long, slow strides (user)
+		-- Crouch (2026-10-18): hunched 28 deg forward, the legs pushed up into the torso (only the shins show), the
+		-- right knee down at idle; the walk a slow creep, each leg drawing a "J" (1.2 steps/s, was 1.4)
+		crouchIdle = { id = 110587356929380 },
+		crouchWalk = { id = 138761604001437, speed = 6, keyed = 1.0, cycle = 1.67 },
+		-- in the air (user 2026-10-18, air poses back): the take-off once, then the tuck on a loop until landing
+		jump = { id = 127631172361702 },
+		fall = { id = 112064982682133 },
+		land = { id = 117973662730647 }, -- once on landing, over the ground cycle
 		-- in the air with the staff aimed (user 2026-10-13): legs loose, drifting (tools/animation/staff.luau)
 		float = { id = 127154488107008 },
 	},
@@ -56,8 +62,20 @@ local Locomotion = {
 	-- away (Net "Stow"); a weapon taken away with no word for `wait` seconds (a ragdoll knock) goes straight on the
 	-- back.
 	Stow = { time = 0.55, wait = 0.2 },
-	-- No jump / fall / land animations (user 2026-10-11): in the air the current idle / walk / sprint keeps playing,
-	-- except floating with the staff aimed ("Floating", src/client/StaffAttack): the float cycle.
+	-- In the air (user 2026-10-18): jumping plays the take-off, then the fall tuck loops until landing (walking off a
+	-- ledge goes straight to the tuck); floating with the staff aimed ("Floating", src/client/StaffAttack) plays the
+	-- float cycle instead. Landing plays the land once over the ground cycle: full weight standing, lighter on the move.
+	Air = {
+		JumpFade = 0.05, -- into the take-off
+		FallFade = 0.1, -- take-off (or ground) into the tuck
+		LandFade = 0.05,
+		-- stepping down a stair or a ledge drops into free fall for a moment: the tuck only after this long falling
+		-- without a jump, and the land only after this long in the air (seconds)
+		FallDelay = 0.15,
+		LandMinAir = 0.3,
+		LandWeight = 1, -- landing standing still
+		LandWeightMoving = 0.4, -- landing on the move (blends with the walk / sprint under it)
+	},
 
 	-- Look tilt (user 2026-10-11): the torso follows the camera's pitch a little, leaning back when you look up and
 	-- forward when you look down. Only the torso (with head and arms on it) tilts, about the waist; the legs stay
