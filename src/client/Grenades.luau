@@ -214,7 +214,15 @@ function Grenades.start()
 			return
 		end
 		releasing = true
-		character:SetAttribute("ThrownAt", os.clock())
+		local at = os.clock()
+		character:SetAttribute("ThrownAt", at)
+		-- the throw plays out even when the last one leaves the hand empty (src/client/WeaponCamera keeps the view)
+		character:SetAttribute("Throwing", true)
+		task.delay(Cfg.Throw.length, function()
+			if character:GetAttribute("ThrownAt") == at then
+				character:SetAttribute("Throwing", nil)
+			end
+		end)
 		task.delay(Cfg.Throw.release, function()
 			releasing = false
 			if player.Character == character and grenade(character) then

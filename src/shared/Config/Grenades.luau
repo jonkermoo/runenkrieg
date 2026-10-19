@@ -28,6 +28,7 @@ local Grenades = {
 		-- seconds into the throw animation the grenade leaves the hand (Config/Weapons grenade holds `throw`;
 		-- tools/animation/grenade.luau RELEASE): the throw is sent to the server then
 		release = 0.22,
+		length = 0.6, -- the throw animation's length (seconds): the view stays first person through it ("Throwing")
 	},
 
 	-- The thrown grenade: a small hitbox (studs) that bounces and rolls a little (user: "bounces and rolls a little").
