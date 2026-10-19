@@ -813,8 +813,27 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0.02, 0.09, -0.2399 }, -- out of the open top
 		},
 		grip = { 0, -0.0558, 0.2966 }, -- the wrist
-		holds = { ready = 0, equip = 0 },
-		firstPerson = { ready = 0, equip = 0 },
+		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
+		holds = {
+			ready = 78935114715227,
+			walk = 91980449729732,
+			carry = 127853993151008,
+			aim = 88789435651072,
+			equip = 123623041335249,
+			unequip = 95030735983080,
+			crouchReady = 92589420335999,
+			crouchWalk = 130112716169185,
+			crouchAim = 114288557763066,
+		},
+		firstPerson = {
+			ready = 80058775294043,
+			carry = 83030861438002,
+			aim = 101487864226501,
+			equip = 86237616911649,
+			unequip = 137358913881476,
+			aimIn = 118453809265581,
+			aimOut = 128498445355922,
+		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
 		stow = {
@@ -841,10 +860,11 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.092, 0.065, -0.2733 }, -- the knob on the slide, bolt closed
 			clipTop = { 0, 0.2842, -0.1133 }, -- the charger's top over the open top
 			entry = 0,
-			body = 0,
-			firstPerson = 0,
-			bodyTwo = 0,
-			firstPersonTwo = 0,
+			-- one charger, and two (the second pressed in before the bolt is let go; tools/animation/reload.luau)
+			body = 95035153496940,
+			firstPerson = 97243964724608,
+			bodyTwo = 82513830118516,
+			firstPersonTwo = 137427835663692,
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)
