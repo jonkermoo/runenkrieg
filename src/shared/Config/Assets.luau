@@ -40,6 +40,9 @@ export type Entry = {
 	}?,
 	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes)
 	hair: { center: { number } }?,
+	-- packs: how much further back (studs) the slung weapons ride over this pack (Config/Weapons `stow`; src/server/
+	-- Armory): the pack's back surface where the weapon crosses it, minus the bare Torso's back (0.5)
+	sling: number?,
 }
 
 local Assets = {
@@ -253,6 +256,7 @@ local Assets = {
 			folder = "Grey/Packs",
 			source = "assets/teams/grey/packs/pack_tornister.fbx",
 			generator = "tools/blender/gear/pack.py",
+			sling = 1.2, -- the flap's straps reach 1.68 (user 2026-10-19: the rifle rides over the pack)
 			description = "German Tornister, the grey team's pack: a boxy canvas body under a hide flap with leather edge bands, "
 				.. "two closure straps, a big blanket roll across the top against the back, shoulder bands (436-488 tris).",
 		},
@@ -262,6 +266,7 @@ local Assets = {
 			folder = "Olive/Packs",
 			source = "assets/teams/olive/packs/pack_zaino.fbx",
 			generator = "tools/blender/gear/pack.py",
+			sling = 1.25, -- the bulging flap and straps reach 1.74 in the middle
 			description = "Italian zaino M1907, the olive team's pack: a soft bulging canvas sack, a flap following the bulge, "
 				.. "two side straps and a centre strap, a big blanket roll across the top, shoulder bands (660 tris).",
 		},
@@ -271,6 +276,7 @@ local Assets = {
 			folder = "White/Packs",
 			source = "assets/teams/white/packs/pack_p08.fbx",
 			generator = "tools/blender/gear/pack.py",
+			sling = 1.1, -- the mess tin and its strap reach 1.59
 			description = "British 1908 web large pack, the white team's: a square web box, a flap two thirds down, two short "
 				.. "straps, a mess tin on the flap, a big blanket roll across the top, shoulder bands (468 tris).",
 		},
