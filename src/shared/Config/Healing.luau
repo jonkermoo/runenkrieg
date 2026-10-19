@@ -32,28 +32,49 @@ local Healing = {
 	},
 
 	-- What the healer holds: a Config/Assets entry welded to the right hand (its Origin `grip` below the arm's centre,
-	-- in the arm's axes), coloured from Config/Palette.Medical by part name.
+	-- in the arm's axes), `scale` times its modelled size (user 2026-10-19: "the models are way too small": chunky like
+	-- the R6 hand), coloured from Config/Palette.Medical by part name.
+	-- The bandage is the unrolling one (its strip pays out toward the left hand: Unroll); the med pack moves to the left
+	-- hand (`leftGrip`) to be opened and its pad (`Pad`) comes out into the right hand (Open).
 	Held = {
-		Bandage = { entry = "bandage_roll", grip = { 0, -1.25, 0 } },
-		MedPack = { entry = "dressing_packet", grip = { 0, -1.25, 0 } },
+		Bandage = { entry = "bandage_unroll", grip = { 0, -1.35, 0 }, scale = 2.2 },
+		MedPack = { entry = "dressing_packet", grip = { 0, -1.3, 0 }, leftGrip = { 0, -1.3, 0 }, scale = 2 },
+		Pad = { entry = "dressing_pad", grip = { 0, -1.25, 0 }, scale = 2 },
 	},
+	-- The strip out of the unrolling bandage (user 2026-10-19: "unrolling bandage partially and applying"): `start`
+	-- studs at the start of the wrap, growing `rate` a second, at most `max` (src/shared/HealItems.strip).
+	Unroll = { start = 0.5, rate = 0.8, max = 3.5 },
 
 	-- Before either item the healer reaches back to the pack for it (user 2026-10-18: "pretend to grab the
 	-- bandage/medkit from behind us"): HealGrab plays for `time` seconds, the item shows in the hand at `take`. The
 	-- patient's health only starts to rise once the healing itself starts (user: "once start performing the actual
-	-- animation where we physically heal them"): after the grab for the bandage, after the grab and the tear
-	-- (`Tear` seconds) for the med pack. A hit, moving apart or the Heal key still stop it before then.
+	-- animation where we physically heal them"): after the grab for the bandage, after the grab and the opening
+	-- (`Open.time`) for the med pack. A hit, moving apart or the Heal key still stop it before then.
 	Grab = { time = 0.7, take = 0.3 },
-	Tear = 0.5,
+	-- Opening the med pack (user 2026-10-19: "opening pack"), seconds into HealOpen: the red thread pulled off (it
+	-- drops), the white pad drawn out into the right hand, the empty pack let fall; dropped pieces go after `fall`.
+	Open = { time = 1.2, thread = 0.45, pad = 0.7, drop = 0.85, fall = 2 },
 
 	-- The healer's animations (tools/animation/healing.luau): upper-body layers over the crouch (the healer crouches
 	-- while healing, at crouch speed, no sprint or aim). The grab from the pack first; then the bandage wraps in
-	-- circles, looping, or the med pack is torn open (`tear`, once) and pressed on (`press`, looping).
+	-- circles, looping, or the med pack is opened (`open`, once) and its pad pressed on (`press`, looping).
 	Animations = {
 		grab = { id = 134857195633344 }, -- HealGrab
 		wrap = { id = 114430068813850 }, -- HealWrap
-		tear = { id = 91459275077815 }, -- HealTear
+		open = { id = 101138649879193 }, -- HealOpen
 		press = { id = 77497388101770 }, -- HealPress
+	},
+	-- First person (user 2026-10-19), only when the player is already zoomed into first person (the free camera within
+	-- `Zoom` studs of the head; user: "only if already in first person"): src/client/HealView's eye-fixed arms play
+	-- these, the hands low in the view at the patient. Elsewhere the third-person animations show as usual.
+	First = {
+		Zoom = 1,
+		Animations = {
+			grab = { id = 128633229513483 }, -- FirstHealGrab
+			wrap = { id = 136543324516095 }, -- FirstHealWrap
+			open = { id = 99079308953762 }, -- FirstHealOpen
+			press = { id = 110065612841817 }, -- FirstHealPress
+		},
 	},
 	Fade = 0.15,
 	Turn = 10, -- the healer turns to face the patient: share of the way per second (exponential)

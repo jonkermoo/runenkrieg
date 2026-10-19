@@ -18,6 +18,8 @@ local DevCfg = require(Shared.Config.DevTools)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Healing)
+local HealItems = require(Shared.HealItems)
+local HealView = require(script.Parent.HealView)
 local Settings = require(script.Parent.Settings)
 
 local Healing = {}
@@ -140,8 +142,8 @@ function Healing.start()
 		if kind == "Bandage" then
 			later(Cfg.Grab.time, "wrap")
 		else
-			later(Cfg.Grab.time, "tear")
-			later(Cfg.Grab.time + Cfg.Tear, "press")
+			later(Cfg.Grab.time, "open")
+			later(Cfg.Grab.time + Cfg.Open.time, "press")
 		end
 	end
 
@@ -181,6 +183,26 @@ function Healing.start()
 	bind()
 	Settings.changed("Key_Heal", bind)
 
+	-- every healer's unrolling strip, toward their left hand (bones don't replicate: each client draws them)
+	RunService.RenderStepped:Connect(function()
+		for _, p in Players:GetPlayers() do
+			local c = p.Character
+			if p == player and HealView.isFirst(c) then
+				continue -- (in first person the body's item is hidden: src/client/HealView draws its own)
+			end
+			local at = c and c:GetAttribute("HealAt")
+			local item = c and c:GetAttribute("Healing") == "Bandage" and c:FindFirstChild("HealItem")
+			local hand = c and c:FindFirstChild("Left Arm") :: BasePart?
+			if item and hand and type(at) == "number" then
+				HealItems.strip(
+					item :: Model,
+					hand.CFrame * Vector3.new(0, -1, 0),
+					HealItems.unrolled(workspace:GetServerTimeNow() - at)
+				)
+			end
+		end
+	end)
+
 	RunService.RenderStepped:Connect(function(dt)
 		local character = player.Character
 		local healing = character and character:GetAttribute("Healing") ~= nil
@@ -207,7 +229,8 @@ function Healing.start()
 				hum.AutoRotate = false
 			end
 		end
-		if mine and theirs then
+		-- (zoomed into first person the player turns themself: src/client/HealView)
+		if mine and theirs and not HealView.isFirst(character) then
 			local flat = Vector3.new(theirs.Position.X - mine.Position.X, 0, theirs.Position.Z - mine.Position.Z)
 			if flat.Magnitude > 1e-3 then
 				local want = CFrame.lookAt(mine.Position, mine.Position + flat)

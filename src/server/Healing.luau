@@ -19,18 +19,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local A = require(Shared.Config.Assets)
 local Cfg = require(Shared.Config.Healing)
 local DevCfg = require(Shared.Config.DevTools)
-local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Healing)
+local HealItems = require(Shared.HealItems)
 local Helmets = require(script.Parent.Helmets)
 local Ragdoll = require(script.Parent.Ragdoll)
 
 local Healing = {}
 
-type Heal = { healer: Model, patient: Model, kind: string, held: Model?, link: ObjectValue, started: number }
+type Heal = { healer: Model, patient: Model, kind: string, items: HealItems.State, link: ObjectValue, started: number }
 
 local heals: { [Model]: Heal } = {} -- by healer
 local lastHit: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
@@ -58,68 +57,16 @@ local function distance(a: Model, b: Model): number
 	return if ra and rb then (ra.Position - rb.Position).Magnitude else math.huge
 end
 
--- The library model of a Config/Assets entry (ReplicatedStorage.Assets, kept by the Library sync), or nil.
-local function library(name: string): Model?
-	local e = A.Entries[name]
-	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
-	f = f and f:FindFirstChild(e.category)
-	for _, part in string.split(e.folder, "/") do
-		f = f and f:FindFirstChild(part)
-	end
-	local m = f and f:FindFirstChild(name)
-	if not m then
-		warn(`[Healing] {name} is not in the asset library: run the Library sync`)
-	end
-	return m :: Model?
-end
-
--- A copy of an entry worn on `part`: its Origin on the part's centre moved by `offset` (part axes); each piece keeps
--- its imported rotation (the FBX pivot is rotated: never PivotTo), coloured from Palette.Medical, welded, no hits.
-local function attach(entry: string, part: BasePart, offset: CFrame, name: string): Model?
-	local src = library(entry)
-	if not src then
-		return nil
-	end
-	local model = src:Clone()
-	local origin = model:FindFirstChild("Origin", true) :: BasePart?
-	if not origin then
-		warn(`[Healing] {entry}: no Origin marker`)
-		return nil
-	end
-	local at = origin.Position
-	origin:Destroy()
-	model.Name = name
-	for _, p in model:GetDescendants() do
-		if p:IsA("BasePart") then
-			p.CFrame = part.CFrame * offset * CFrame.new(p.Position - at) * p.CFrame.Rotation
-			local c = Palette.Medical[p.Name]
-			if c then
-				p.Color = Color3.fromRGB(c[1], c[2], c[3])
-			end
-			p.Material = Enum.Material.SmoothPlastic
-			p.Anchored = false
-			p.CanCollide, p.CanQuery, p.CanTouch, p.Massless = false, false, false, true
-			p.CastShadow = false
-			local w = Instance.new("WeldConstraint")
-			w.Part0, w.Part1 = part, p
-			w.Parent = p
-		end
-	end
-	model.Parent = part.Parent
-	return model
-end
-
 local function stop(healer: Model)
 	local h = heals[healer]
 	if not h then
 		return
 	end
 	heals[healer] = nil
-	if h.held then
-		h.held:Destroy()
-	end
+	HealItems.clear(h.items)
 	h.link:Destroy()
 	healer:SetAttribute("Healing", nil)
+	healer:SetAttribute("HealAt", nil)
 end
 
 -- The patient's next wrap after a finished bandage heal (none after the third).
@@ -131,7 +78,7 @@ local function wrap(patient: Model)
 		return
 	end
 	patient:SetAttribute("Wraps", (if type(count) == "number" then count else 0) + 1)
-	attach(w.entry, part, CFrame.new(), "Wrap_" .. string.gsub(w.part, " ", ""))
+	HealItems.attach(w.entry, part, CFrame.new(), "Wrap_" .. string.gsub(w.part, " ", ""), 1, patient)
 	if w.part == "Head" then
 		patient:SetAttribute("HeadWrap", true)
 		Helmets.shortHair(patient)
@@ -161,7 +108,10 @@ local function start(player: Player, patient: Model)
 	link.Name = "HealPatient"
 	link.Value = target
 	link.Parent = healer
-	heals[healer] = { healer = healer, patient = target, kind = kind, link = link, started = os.clock() }
+	heals[healer] =
+		{ healer = healer, patient = target, kind = kind, items = HealItems.new(), link = link, started = os.clock() }
+	-- when it started, for the clients' timing (the strip, the first-person view)
+	healer:SetAttribute("HealAt", workspace:GetServerTimeNow())
 	healer:SetAttribute("Healing", kind)
 end
 
@@ -187,13 +137,13 @@ local function tick(dt: number)
 			stop(healer)
 			continue
 		end
-		-- the grab from the pack: the item shows in the hand at Grab.take; the health rises only once the healing
-		-- motion starts (Rules.prep)
+		-- the items through the heal (src/shared/HealItems: taken from the pack, the med pack opened); the health rises
+		-- only once the healing motion starts (Rules.prep)
 		local elapsed = os.clock() - h.started
-		if not h.held and elapsed >= Cfg.Grab.take then
-			local arm = healer:FindFirstChild("Right Arm") :: BasePart?
-			local g = Cfg.Held[h.kind]
-			h.held = arm and attach(g.entry, arm, CFrame.new(g.grip[1], g.grip[2], g.grip[3]), "HealItem")
+		local right = healer:FindFirstChild("Right Arm") :: BasePart?
+		local left = healer:FindFirstChild("Left Arm") :: BasePart?
+		if right and left then
+			HealItems.update(h.items, h.kind, elapsed, right, left, healer)
 		end
 		if elapsed < Rules.prep(h.kind, Cfg) then
 			continue

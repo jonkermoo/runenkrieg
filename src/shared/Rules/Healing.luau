@@ -11,7 +11,7 @@ export type Cfg = {
 	Recovery: { cap: number, delay: number, rate: number },
 	Wraps: { { entry: string, part: string } },
 	Grab: { time: number, take: number },
-	Tear: number,
+	Open: { time: number },
 }
 
 -- The item a patient at `health` of `max` gets: the med pack from MedPackFrom up, the bandage below; nil when there is
@@ -24,9 +24,9 @@ function Healing.kind(health: number, max: number, cfg: Cfg): ("MedPack" | "Band
 end
 
 -- Seconds from the start of a heal until the patient's health starts to rise: the grab from the pack, and for the med
--- pack its tear too.
+-- pack its opening too.
 function Healing.prep(kind: string, cfg: Cfg): number
-	return cfg.Grab.time + (if kind == "MedPack" then cfg.Tear else 0)
+	return cfg.Grab.time + (if kind == "MedPack" then cfg.Open.time else 0)
 end
 
 -- Health healed per second (to full: SecondsPerHp a point, so a whole bar takes at most MaxSeconds).

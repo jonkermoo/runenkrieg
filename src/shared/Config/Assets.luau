@@ -175,6 +175,14 @@ local Assets = {
 			generator = "tools/blender/gear/bandages.py",
 			description = "Bandage that unrolls for the wrap animation: one skinned mesh (Cloth), bones Root -> Strip1..Strip8 (0.5 studs each), strip straight out toward -Z at rest.",
 		},
+		dressing_pad = {
+			id = 101528084780164,
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/dressing_pad.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "The med pack's dressing (mesh Cloth): a folded gauze pad with a short tail at each end, drawn out of the pack and pressed on (Config/Healing.Held.Pad).",
+		},
 		wrap_arm = {
 			id = 113940896143702, -- v2: plain part names (v1 118691271151526)
 			category = "Teams",

@@ -27,7 +27,12 @@ return {
 	end,
 	["health only rises once the healing motion starts"] = function()
 		assert(near(H.prep("Bandage", Cfg), Cfg.Grab.time), "bandage: after the grab")
-		assert(near(H.prep("MedPack", Cfg), Cfg.Grab.time + Cfg.Tear), "med pack: after the grab and the tear")
+		assert(near(H.prep("MedPack", Cfg), Cfg.Grab.time + Cfg.Open.time), "med pack: after the grab and the opening")
+		local O = Cfg.Open
+		assert(
+			O.thread < O.pad and O.pad < O.drop and O.drop < O.time,
+			"thread, pad, then the pack dropped, all in the opening"
+		)
 		assert(Cfg.Grab.take > 0 and Cfg.Grab.take < Cfg.Grab.time, "the item shows partway through the grab")
 	end,
 	["a heal step fills toward full and stops there"] = function()
