@@ -21,7 +21,7 @@ export type Weapon = {
 	-- Hold animations while the weapon is in the hands (tools/animation/rifle.luau; src/client/Locomotion picks one):
 	-- ready (standing), walk (walking: keeps step with the legs), carry (sprinting: keeps step too), aim (aiming down
 	-- the sights), equip (one shot: drawn from the sling on the back). Both arms reach for the gun.
-	-- Crouched (crouchReady / crouchWalk / crouchAim): the same holds for the crouched torso.
+	-- Crouched (crouchReady / crouchWalk / crouchAim): the same holds for the crouched torso (hunched 28 deg).
 	-- holdsOf: the weapon these holds were built for, when borrowed (aimed, src/client/Viewmodel moves the rig by the
 	-- difference between the two weapons' Aim, so this one's own sights sit on the eye)
 	-- Only ready and equip are required: a hold an item doesn't have plays its ready instead (src/client/Locomotion,
@@ -288,9 +288,9 @@ local Weapons: { [string]: Weapon } = {
 			aim = 114865521572329,
 			equip = 96966780660102,
 			unequip = 106479819126650, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 125201661584426,
-			crouchWalk = 88611640240958,
-			crouchAim = 81699754378349,
+			crouchReady = 98743463561582,
+			crouchWalk = 83131199816159,
+			crouchAim = 90860802040899,
 		},
 		firstPerson = {
 			ready = 119185102113053,
@@ -432,9 +432,9 @@ local Weapons: { [string]: Weapon } = {
 			aim = 136351549623920,
 			equip = 116169498023535,
 			unequip = 114673290829081, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 92303129713125,
-			crouchWalk = 87132266042623,
-			crouchAim = 104754199810093,
+			crouchReady = 117235237865456,
+			crouchWalk = 77275921083110,
+			crouchAim = 124659519649223,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
 		-- the ready hold up into the sights in 0.3 s
@@ -530,9 +530,9 @@ local Weapons: { [string]: Weapon } = {
 			aim = 122070726635734,
 			equip = 71450535994230,
 			unequip = 116812363774678, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 81033918313470,
-			crouchWalk = 79212217140130,
-			crouchAim = 96381247209498,
+			crouchReady = 105420937472327,
+			crouchWalk = 138227006700932,
+			crouchAim = 95607613119898,
 		},
 		firstPerson = {
 			ready = 102402737080974,
@@ -618,9 +618,9 @@ local Weapons: { [string]: Weapon } = {
 			aim = 112261684163473,
 			equip = 99227268595174,
 			unequip = 81198522446397, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 134261827381957,
-			crouchWalk = 130726353830006,
-			crouchAim = 115330156920688,
+			crouchReady = 95333155518953,
+			crouchWalk = 90238358355813,
+			crouchAim = 77470252454434,
 		},
 		firstPerson = {
 			ready = 71589430224575,
