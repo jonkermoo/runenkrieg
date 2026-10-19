@@ -309,11 +309,23 @@ end
 function Armory.start()
 	local function spawned(player: Player, character: Model)
 		character:WaitForChild("Torso", 10)
-		local slots: { [string]: boolean } = {}
+		local seen: { [string]: boolean } = {}
+		local slots: { string } = {}
 		for _, w in W do
-			slots[w.slot] = true
+			if not seen[w.slot] then
+				seen[w.slot] = true
+				table.insert(slots, w.slot)
+			end
 		end
-		for slot in slots do
+		-- the hotbar numbers follow the order given: the primary always on 1 (Shift+W+2 ghosts on some keyboards, so
+		-- a sprinting draw on 2 never arrives), the rest after it by name
+		table.sort(slots, function(a, b)
+			if (a == "Primary") ~= (b == "Primary") then
+				return a == "Primary"
+			end
+			return a < b
+		end)
+		for _, slot in slots do
 			local name = Armory.loadout(player, slot)
 			if name then
 				Armory.give(player, name)
