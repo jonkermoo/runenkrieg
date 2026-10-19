@@ -108,6 +108,14 @@ local Palette = {
 		Crystal = { 175, 235, 255 },
 		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
 	},
+	-- The trench spade (Config/Assets "Shared/Shovels", user 2026-10-19): one model for every team, no team colors,
+	-- brass the only accent; colored by mesh name.
+	Shovel = {
+		Wood = { 139, 94, 60 }, -- the D-grip and haft
+		Iron = { 90, 92, 96 }, -- straps, socket, treads, the tongue on the back
+		Blade = { 122, 124, 128 },
+		Brass = { 184, 149, 90 }, -- the collar and rivets
+	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
 	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
 	Magic = {
