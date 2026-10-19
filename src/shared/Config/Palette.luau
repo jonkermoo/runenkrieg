@@ -79,6 +79,35 @@ local Palette = {
 		CarBodies = { { 72, 42, 40 }, { 40, 44, 42 }, { 56, 70, 58 }, { 62, 64, 72 } },
 		ToneJitter = 0.05,
 	},
+	-- Bandages and the med pack (Config/Assets "Shared/Bandages", user 2026-10-18), coloured by mesh name; same for
+	-- every team.
+	Medical = {
+		Cloth = { 226, 220, 202 }, -- bandage cloth: the rolls, the unrolling strip, the worn wraps
+		Canvas = { 150, 136, 100 }, -- the med pack's canvas
+		Thread = { 150, 62, 52 }, -- the red tear thread wrapped round the pack
+		Cross = { 72, 140, 72 }, -- the green cross on the pack
+	},
+	-- Artillery (Config/Assets "Shared/Artillery", user 2026-10-18: one model each, painted per team), colored by mesh
+	-- name: the painted parts take the team's Paint, the rest are the same for everyone. The runes and the crystal
+	-- glow (Neon, the magic exception in docs/ART_STYLE.md); the crystal's colour will follow the gun's state.
+	Artillery = {
+		Paint = {
+			Grey = { 82, 86, 88 }, -- slate, as the grey tunic
+			Olive = { 98, 102, 66 },
+			White = { 192, 190, 180 }, -- off-white, as the Brodie helmet
+		},
+		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed" },
+		Tyres = { 58, 58, 60 },
+		Barrel = { 96, 98, 102 },
+		Breech = { 70, 72, 76 },
+		Bore = { 8, 8, 8 },
+		EarthBox = { 120, 86, 54 },
+		Earth = { 112, 90, 62 },
+		BedRunes = { 120, 200, 255 }, -- Magic.Glow
+		BarrelRunes = { 120, 200, 255 },
+		Crystal = { 175, 235, 255 },
+		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
+	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
 	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
 	Magic = {
@@ -138,6 +167,8 @@ local Palette = {
 		manaDenied = { 220, 70, 60 },
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
+	-- the grenades' arc preview (src/client/Grenades, Config/Grenades.Arc): a faint pale line
+	Grenades = { Arc = { 236, 230, 210 } },
 }
 
 return table.freeze(Palette)

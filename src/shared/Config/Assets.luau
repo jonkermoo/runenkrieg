@@ -91,6 +91,50 @@ local Assets = {
 			generator = "tools/blender/weapons/m1897.py",
 			description = "Winchester M1897 trench gun, the shotgun of all three teams (built from its trace: tools/blender/weapons/trace/m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
 		},
+		-- the grenades, one per team (tools/blender/weapons/grenades.py; Config/Weapons, Config/Grenades)
+		grenade_mills = {
+			id = 138444756692849,
+			category = "Weapons",
+			folder = "White/Grenades",
+			source = "assets/weapons/white/grenade_mills.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "Mills bomb No. 5, the white team's grenade (from references/weapons/grenades/mills_*.jpg): six columns of segments, base and filler plugs, the lever, pin and ring. Rigged from Config/Weapons.",
+		},
+		grenade_stick = {
+			id = 76412002834293,
+			category = "Weapons",
+			folder = "Grey/Grenades",
+			source = "assets/weapons/grey/grenade_stick.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "Stielhandgranate M1917, the grey team's grenade (from references/weapons/grenades/stick_am613018_1.jpg): the can head, iron collar, wooden handle and screw cap. Rigged from Config/Weapons.",
+		},
+		grenade_sipe = {
+			id = 97677876339961,
+			category = "Weapons",
+			folder = "Olive/Grenades",
+			source = "assets/weapons/olive/grenade_sipe.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "SIPE, the olive team's grenade (from references/weapons/grenades/sipe_museo.jpg): seven columns of segments, a flat bottom and the fuse tube. Rigged from Config/Weapons.",
+		},
+		-- Artillery (user 2026-10-18): player-placed, hard to build, set up in the very back for area damage. Shared
+		-- by every team, painted per team (Config/Palette.Artillery). Moving parts are their own meshes; firing is
+		-- later game code.
+		artillery_qf18 = {
+			id = 123043192837733,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/artillery_qf18.fbx",
+			generator = "tools/blender/artillery/qf18.py",
+			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
+		},
+		artillery_howitzer = {
+			id = 82367327569698,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/artillery_howitzer.fbx",
+			generator = "tools/blender/artillery/howitzer.py",
+			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",
@@ -106,6 +150,54 @@ local Assets = {
 			source = "assets/teams/olive/uniform/uniform2.json",
 			generator = "tools/clothing/uniform.py",
 			description = "The olive team's uniform: Shirt + Pants images from Config/Uniforms.Kits.uniform2.",
+		},
+		bandage_roll = {
+			id = 97919711807234, -- v2: plain part names (v1 81519541602272)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/bandage_roll.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Rolled bandage held in the hand (mesh Cloth); origin at the roll centre, axis along X.",
+		},
+		dressing_packet = {
+			id = 77548616662657, -- v2: plain part names (v1 98977144276918)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/dressing_packet.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "The med pack: canvas field dressing (Canvas), red tear thread round one end (Thread), green cross on top (Cross).",
+		},
+		bandage_unroll = {
+			id = 135562484794642, -- v2: plain part names (v1 100744010298901)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/bandage_unroll.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage that unrolls for the wrap animation: one skinned mesh (Cloth), bones Root -> Strip1..Strip8 (0.5 studs each), strip straight out toward -Z at rest.",
+		},
+		wrap_arm = {
+			id = 113940896143702, -- v2: plain part names (v1 118691271151526)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_arm.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn on the left arm (forearm, 3 turns); its Origin goes at the arm part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
+		},
+		wrap_leg = {
+			id = 94242164038534, -- v2: plain part names (v1 83469869892044)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_leg.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn on the right leg (thigh, 2 turns); its Origin goes at the leg part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
+		},
+		wrap_head = {
+			id = 111609113227954, -- v4: follows the head's rounded top (v3 75131246502526, v2 120626644598162, v1 93649111980606)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_head.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn round the head (2 crossing turns); its Origin goes at the head part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
 		},
 		rig1 = {
 			id = 84046347370958,

@@ -67,6 +67,12 @@ local Remotes: { string } = {
 	-- client -> server: ({ [key]: value }) the player's settings to save in their profile (src/client/Settings sends,
 	-- src/server/Profile keeps only valid entries, Rules/Settings.clean; rate limited)
 	"SaveSettings",
+	-- Grenades (src/client/Grenades sends, src/server/Grenades checks and throws; Config/Grenades, Rules/Grenade):
+	-- client -> server: (direction: Vector3) throw the held grenade along this look (the server throws it from its own
+	-- view of the head)
+	"GrenadeThrow",
+	-- server -> clients: (position: Vector3, kg: number) a grenade went off: its explosion (src/client/Vfx/Blast)
+	"GrenadeBlast",
 }
 local Functions: { string } = {}
 

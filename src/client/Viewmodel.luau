@@ -61,6 +61,9 @@ local function aimFix(name: string): Vector3
 		return Vector3.zero
 	end
 	local a, b = w.attachments.Aim, ref.attachments.Aim
+	if not a or not b then
+		return Vector3.zero -- no sights (a grenade borrowing the staff's holds)
+	end
 	return Vector3.new(b[1] * ref.scale[1] - a[1] * w.scale[1], b[2] * ref.scale[2] - a[2] * w.scale[2], 0)
 end
 
@@ -83,6 +86,7 @@ type Rig = {
 	clear: number,
 	hip: CFrame, -- the turn that points the barrel at the screen centre (not aiming), eased
 	aimFix: Vector3, -- aimed: the shift that puts this rifle's own sight line on the eye (see aimFix)
+	shift: Vector3, -- the item's own first-person offset (Config/Weapons `firstShift`)
 	animator: Animator,
 	-- held in one hand (the staff): its first-person holds don't pose the left arm, which would hang at the rig's rest
 	-- pose and poke into the lower left of the view, so it's hidden until the left hand joins (`leftHidden`)
@@ -147,7 +151,9 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 	copy:Destroy()
 	local hold = model:FindFirstChild("Hold", true) :: Motor6D
 	hold.Part0 = torso
-	hold.C0, hold.C1 = CFrame.identity, CFrame.identity
+	hold.C0 = CFrame.identity
+	local h = W[weapon.name].held -- (as src/server/Armory.heldOffset)
+	hold.C1 = if h then CFrame.new(-h[1], -h[2], -h[3]) else CFrame.identity
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6
@@ -192,8 +198,12 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		clear = -1,
 		hip = CFrame.identity,
 		aimFix = aimFix(weapon.name),
+		shift = (function()
+			local f = W[weapon.name].firstShift
+			return if f then Vector3.new(f[1], f[2], f[3]) else Vector3.zero
+		end)(),
 		animator = animator,
-		oneHanded = W[weapon.name].class == "Staff",
+		oneHanded = W[weapon.name].class == "Staff" or W[weapon.name].class == "Grenade",
 		leftHidden = false,
 	}
 end
@@ -351,7 +361,7 @@ function Viewmodel.start()
 			* below
 			* Sway.viewmodel()
 			* CFrame.new():Lerp(r.hip, math.min(turned, 1))
-			* CFrame.new(shift + r.aimFix * aimness)
+			* CFrame.new(shift + r.aimFix * aimness + r.shift)
 			* CFrame.new(-EYE)
 		r.model.Parent = camera
 		-- fading in (and out) with the camera's glide to the eye (WeaponCamera's "Handover")

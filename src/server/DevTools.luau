@@ -118,6 +118,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			Ragdoll.knock(character, Cfg.Admin.SelfKnock, -root.CFrame.LookVector)
 		elseif action == "HelmetOff" then
 			Helmets.knockOff(character, -root.CFrame.LookVector)
+		elseif action == "Grenade" then
+			Armory.give(player, value) -- a full count, in place of the grenade carried
 		end
 	end
 end

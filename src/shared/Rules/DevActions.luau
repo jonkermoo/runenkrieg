@@ -43,6 +43,8 @@ function DevActions.valid(cfg: any, action: any, value: any): boolean
 		return type(value) == "boolean"
 	elseif action == "Health" then
 		return table.find(cfg.Admin.Health, value) ~= nil
+	elseif action == "Grenade" then
+		return table.find(cfg.Admin.Grenades, value) ~= nil
 	elseif action == "BlastStage" then
 		return table.find(cfg.Blasts.Stages, value) ~= nil
 	elseif action == "BlastKg" then
