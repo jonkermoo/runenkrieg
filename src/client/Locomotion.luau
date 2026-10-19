@@ -2,8 +2,9 @@
 -- Plays the soldier's movement animations on the local character (replaces Roblox's default Animate script;
 -- src/character/Animate calls attach). Tracks played here replicate to every other player.
 -- Idle / walk / sprint picked by horizontal speed (crouch idle / crouch walk while the "Crouching" attribute is set),
--- played at the Config cycle length and scaled to the speed. No air animations (user 2026-10-11): jumping or falling
--- keeps the current cycle. Crouched, a weapon plays its crouch holds (crouchReady / crouchWalk / crouchAim).
+-- played at the Config cycle length and scaled to the speed. In the air (user 2026-10-18): the take-off after a jump,
+-- then the tuck until landing; the landing plays once over the ground cycle (Config/Locomotion.Air). Crouched, a
+-- weapon plays its crouch holds (crouchReady / crouchWalk / crouchAim).
 -- A weapon in the hands plays its hold over the cycle (Config/Weapons holds, Action priority): ready standing, walk
 -- walking and carry sprinting (both kept in step with the legs), aim while aiming down the sights; drawing it plays
 -- the equip once on top. The hold is written to the character's "Hold"
@@ -39,9 +40,10 @@ function Locomotion.attach(character: Model)
 	end
 	tracks.idle.Priority = Enum.AnimationPriority.Idle
 	tracks.toolnone.Priority = Enum.AnimationPriority.Action
-	for _, t in tracks do
-		t.Looped = true
+	for name, t in tracks do
+		t.Looped = name ~= "jump" and name ~= "land" -- the take-off and the landing play once
 	end
+	local Air = Cfg.Air
 
 	local holds: { [string]: { [string]: AnimationTrack } } = {}
 
@@ -63,7 +65,30 @@ function Locomotion.attach(character: Model)
 		return Vector3.new(v.X, 0, v.Z).Magnitude
 	end
 
+	-- in the air: when the soldier left the ground (nil on it) and whether by a jump
+	local airborneAt: number? = nil
+	local jumped = false
+	local ground: string? = nil -- the last ground cycle: the weapon hold keeps it through a jump
+
 	humanoid.StateChanged:Connect(function(_, new)
+		if new == Enum.HumanoidStateType.Jumping or new == Enum.HumanoidStateType.Freefall then
+			if not airborneAt then
+				airborneAt = os.clock()
+			end
+			if new == Enum.HumanoidStateType.Jumping then
+				jumped = true
+				tracks.land:Stop(Air.JumpFade)
+			end
+		elseif new == Enum.HumanoidStateType.Landed then
+			-- the landing, over the ground cycle the step below crossfades back to; lighter on the move
+			if airborneAt and os.clock() - airborneAt >= Air.LandMinAir then
+				local moving = horizontalSpeed() >= Cfg.IdleBelow
+				tracks.land:Play(Air.LandFade, if moving then Air.LandWeightMoving else Air.LandWeight)
+			end
+			airborneAt, jumped = nil, false
+		else
+			airborneAt, jumped = nil, false
+		end
 		if new == Enum.HumanoidStateType.Dead then
 			for _, t in tracks do
 				t:Stop(0.1)
@@ -218,7 +243,18 @@ function Locomotion.attach(character: Model)
 		elseif character:GetAttribute("Floating") == true then
 			-- floating with the staff aimed (src/client/StaffAttack): the float cycle; landing crossfades back
 			play("float", Cfg.Fade)
-		else -- on the ground or in the air: the cycle for the horizontal speed
+		elseif
+			airborneAt
+			and (state == Enum.HumanoidStateType.Jumping or state == Enum.HumanoidStateType.Freefall)
+			and (jumped or os.clock() - airborneAt >= Air.FallDelay)
+		then
+			-- in the air: the take-off once after a jump, then the tuck
+			if current ~= "jump" and current ~= "fall" then
+				play(if jumped then "jump" else "fall", if jumped then Air.JumpFade else Air.FallFade)
+			elseif current == "jump" and not tracks.jump.IsPlaying then
+				play("fall", Air.FallFade)
+			end
+		else -- on the ground (or just stepped off it): the cycle for the horizontal speed
 			local speed = horizontalSpeed()
 			local crouching = character:GetAttribute("Crouching") == true
 			local name = if crouching
@@ -227,6 +263,7 @@ function Locomotion.attach(character: Model)
 				elseif speed > Cfg.SprintAbove then "sprint"
 				else "walk"
 			play(name, Cfg.Fade)
+			ground = name
 			local a = Cfg.Animations[name]
 			if a.speed and a.keyed and a.cycle then
 				local pace = math.clamp(speed / a.speed, Cfg.PlaybackMin, Cfg.PlaybackMax)
@@ -234,11 +271,13 @@ function Locomotion.attach(character: Model)
 			end
 		end
 		local weapon = Held.weapon(character)
+		-- in the air the hold stays on the ground cycle's (a sprinting jump keeps the carry)
+		local base = if current == "jump" or current == "fall" then ground else current
 		local holding = if not weapon
 			then nil
 			elseif character:GetAttribute("Winding") == true and W[weapon.name].holds.windup then "windup"
 			elseif character:GetAttribute("Aiming") then "aim"
-			elseif current == "sprint" then "carry"
+			elseif base == "sprint" then "carry"
 			else "ready"
 		character:SetAttribute("Hold", holding)
 		if weapon and holding then
@@ -247,12 +286,12 @@ function Locomotion.attach(character: Model)
 			local pick = holding
 			if holding == "windup" then
 				pick = "windup" -- a grenade drawn back (src/client/Grenades), standing or crouched
-			elseif current == "crouchIdle" or current == "crouchWalk" then -- crouched: the holds for the hunched torso
+			elseif base == "crouchIdle" or base == "crouchWalk" then -- crouched: the holds for the hunched torso
 				pick = if holding == "aim"
 					then "crouchAim"
-					elseif current == "crouchWalk" then "crouchWalk"
+					elseif base == "crouchWalk" then "crouchWalk"
 					else "crouchReady"
-			elseif holding == "ready" and current == "walk" then
+			elseif holding == "ready" and base == "walk" then
 				pick = "walk"
 			elseif holding == "aim" and character:GetAttribute("TwoHands") == true and set.aimTwo then
 				pick = "aimTwo" -- the staff: the left hand joined (src/client/StaffAttack)
