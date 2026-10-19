@@ -98,7 +98,8 @@ return {
 		-- guns have the full set; any item at least ready and equip (a missing hold plays the ready)
 		local ALL = { "ready", "walk", "carry", "aim", "equip", "crouchReady", "crouchWalk", "crouchAim" }
 		local ALL_FIRST = { "ready", "carry", "aim", "equip", "aimIn", "aimOut" }
-		local OPTIONAL = { "unequip", "aimTwo", "charge", "airCharge", "chargeTwo", "airChargeTwo" } -- unequip; the staff's
+		-- unequip; the staff's; a grenade's
+		local OPTIONAL = { "unequip", "aimTwo", "charge", "airCharge", "chargeTwo", "airChargeTwo", "windup", "throw" }
 		for name, w in W do
 			for _, hold in if w.ammo then ALL else { "ready", "equip" } do
 				local id = (w.holds :: any)[hold]

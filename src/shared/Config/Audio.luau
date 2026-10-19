@@ -20,6 +20,8 @@ local Audio = {
 		SpellBig = { ref = 14, max = 1800 },
 		-- hums and handling (the charge, the laser, floating, drawing the staff): close by only
 		Hum = { ref = 3, max = 60 },
+		-- a grenade going off (Config/Grenades.Sound): full within ~7 m, then 1/d, heard right across the map
+		Explosion = { ref = 20, max = 2400 },
 		-- a far report (Config/Firing.Sounds.Far): the recording already sounds far off, so it plays fuller for longer
 		Report = { ref = 80, max = 2400 },
 	},

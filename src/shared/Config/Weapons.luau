@@ -45,6 +45,10 @@ export type Weapon = {
 		-- the same two started with both hands already on the staff ("ChargeTwo": after a stage 2 shot)
 		chargeTwo: number?,
 		airChargeTwo: number?,
+		-- a grenade (src/client/Grenades): windup, held while the throw's line shows ("Winding"); throw, a one shot from
+		-- it played on release ("ThrownAt"; the grenade leaves the hand Config/Grenades.Throw.release into it)
+		windup: number?,
+		throw: number?,
 	},
 	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
 	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
@@ -61,6 +65,8 @@ export type Weapon = {
 		aimTwo: number?,
 		charge: number?,
 		chargeTwo: number?,
+		windup: number?,
+		throw: number?,
 	},
 	-- The staff's third-person recoils (one shots over the hold fired from; src/client/StaffAttack): quick from the hip,
 	-- quickAim / quickTwo aimed with one or two hands, medium / mediumTwo the stage 2 shot; on the first-person
@@ -72,12 +78,11 @@ export type Weapon = {
 	hipConverge: number?,
 	aimConverge: number?,
 	-- First person: the whole viewmodel (arms and item) moved this far in camera space (+X right, +Y up, -Z forward), for
-	-- an item posed by holds made for another (the grenades on the staff's holds: Studio round 2 had the hand and
-	-- grenade below and behind the camera).
+	-- an item posed by holds made for another.
 	firstShift: { number }?,
-	-- Where the item's origin sits from the hold's "Gun" point (game studs, gun space), for an item on holds made for
-	-- another: the "Hold" motor's C1 (src/server/Armory, src/client/Viewmodel). The Mills and SIPE on the staff's holds
-	-- sat inside the fist (Studio round 3): pushed out in front of it.
+	-- Where the item's origin sits from the hold's "Gun" point (game studs, gun space): the "Hold" motor's C1
+	-- (src/server/Armory, src/client/Viewmodel). The Mills and SIPE sat inside the fist (Studio round 3): pushed out in
+	-- front of it.
 	held: { number }?,
 	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
 	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
@@ -712,8 +717,8 @@ local Weapons: { [string]: Weapon } = {
 -- the SIPE (olive), each tinted in its team's colours (user: "Team-tinted"). Their own "Grenade" slot, carried by
 -- Config/Grenades.Carried and nothing on the body while put away. Gun space: the origin is the middle of the body (the
 -- stick's: on the handle, where the hand holds), its top (the fuse end) up +Y.
--- Holds: the staff's one-handed ones (holdsOf) until the throw animations are made (the animation session, after the
--- user's go): the grenade low in the right hand, the left free; no aim (right click does nothing).
+-- Holds: their own (tools/animation/grenade.luau, user 2026-10-19), one-handed: the grenade in the right hand, the left
+-- free; drawn back while the throw's line shows, the throw on release; no aim (right click does nothing).
 local function grenade(
 	display: string,
 	asset: string,
@@ -721,7 +726,6 @@ local function grenade(
 	scale: { number },
 	held: { number }?
 ): Weapon
-	local ref = Weapons.staff_grey
 	return {
 		asset = asset,
 		display = display,
@@ -732,21 +736,24 @@ local function grenade(
 		hidden = {},
 		attachments = { Muzzle = { 0, 0, -0.1 } }, -- the hip turn's line (hipConverge 0: unused)
 		grip = { 0, 0, 0 },
-		holdsOf = "staff_grey",
+		-- one set for all three (tools/animation/grenade.luau; user 2026-10-19). No unequip: the last one thrown leaves
+		-- the hand empty, and one put away goes straight back on the belt
 		holds = {
-			ready = ref.holds.ready,
-			walk = ref.holds.walk,
-			carry = ref.holds.carry,
-			equip = ref.holds.equip,
-			unequip = ref.holds.unequip,
+			ready = 87513731672117,
+			walk = 72019961101383,
+			carry = 140492027408748,
+			windup = 86952381429241,
+			throw = 80303138028176,
+			equip = 97380658835952,
 		},
 		firstPerson = {
-			ready = ref.firstPerson.ready,
-			carry = ref.firstPerson.carry,
-			equip = ref.firstPerson.equip,
+			ready = 124932391377053,
+			carry = 128945277614351,
+			windup = 81227309666236,
+			throw = 88674791679623,
+			equip = 130111227451167,
 		},
 		hipConverge = 0,
-		firstShift = { -0.1, 0.5, -1.2 }, -- the hand and grenade low on the right of the screen (Studio rounds 2-3)
 		held = held,
 		-- modelled at real size (0.0028 studs per mm); thick enough for the 1-stud hand, the stick shorter than thick
 		scale = scale,
