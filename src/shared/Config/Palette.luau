@@ -87,6 +87,24 @@ local Palette = {
 		Thread = { 150, 62, 52 }, -- the red tear thread wrapped round the pack
 		Cross = { 72, 140, 72 }, -- the green cross on the pack
 	},
+	-- Backpacks (Config/Assets "<Team>/Packs", user 2026-10-18/19), coloured by mesh name. Each team's from its
+	-- uniform: body = a cloth shade, straps = the leather / shoe color, roll = a darker cloth shade. White has no uniform
+	-- yet: its pack takes the Brodie helmet's white-grey.
+	Packs = {
+		pack_tornister = {
+			Body = { 66, 68, 72 },
+			Flap = { 92, 66, 48 },
+			Leather = { 46, 39, 34 },
+			Roll = { 56, 58, 62 },
+		},
+		pack_zaino = { Body = { 132, 128, 86 }, Leather = { 192, 158, 116 }, Roll = { 94, 92, 58 } },
+		pack_p08 = {
+			Body = { 204, 202, 192 },
+			Strap = { 174, 172, 162 },
+			Roll = { 150, 152, 150 },
+			Tin = { 128, 132, 136 },
+		},
+	},
 	-- Artillery (Config/Assets "Shared/Artillery", user 2026-10-18: one model each, painted per team), colored by mesh
 	-- name: the painted parts take the team's Paint, the rest are the same for everyone. The runes and the crystal
 	-- glow (Neon, the magic exception in docs/ART_STYLE.md); the crystal's colour will follow the gun's state.

@@ -167,6 +167,11 @@ function Armory.stowed(character: Model, name: string): Model?
 	end
 	local model = Armory.build(name)
 	model.Name = "Stowed_" .. name
+	-- over the worn pack (src/server/Packs; the kit's until it is on): further back by the pack's `sling`
+	local worn = character:FindFirstChild("Pack")
+	local pack = worn and worn:GetAttribute("Entry") or (U.Kits[U.Default] :: any).pack
+	local entry = type(pack) == "string" and A.Entries[pack]
+	local at = v3(s.at) + Vector3.new(0, 0, entry and entry.sling or 0)
 	local muzzle, side = v3(s.muzzle).Unit, v3(s.side).Unit
 	-- gun axes in the part's space: +X = side, -Z = muzzle, +Y completes the frame
 	local z = -muzzle
@@ -174,7 +179,7 @@ function Armory.stowed(character: Model, name: string): Model?
 	weld.Name = "Stow"
 	weld.Part0 = part
 	weld.Part1 = model.PrimaryPart
-	weld.C0 = CFrame.fromMatrix(v3(s.at), side, z:Cross(side), z)
+	weld.C0 = CFrame.fromMatrix(at, side, z:Cross(side), z)
 	weld.Parent = model.PrimaryPart
 	return model
 end
