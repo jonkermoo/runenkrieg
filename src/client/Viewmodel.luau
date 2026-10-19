@@ -21,6 +21,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
+local Grenades = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
@@ -92,6 +93,8 @@ type Rig = {
 	-- pose and poke into the lower left of the view, so it's hidden until the left hand joins (`leftHidden`)
 	oneHanded: boolean,
 	leftHidden: boolean,
+	thrown: number?, -- the grenade throw played ("ThrownAt")
+	gone: boolean, -- the thrown grenade has left the hand: its copy hidden for the rest of the throw
 }
 
 local function build(character: Model, weapon: Held.Weapon): Rig
@@ -178,8 +181,12 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 			or state == "aimOut"
 			or state == "charge"
 			or state == "chargeTwo"
-		t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
-		t.Looped = not once
+		-- a grenade's throw: a one shot over its wind-up ("ThrownAt")
+		t.Priority = if state == "throw"
+			then Enum.AnimationPriority.Action3
+			elseif once then Enum.AnimationPriority.Action2
+			else Enum.AnimationPriority.Action
+		t.Looped = not once and state ~= "throw"
 		tracks[state] = t
 	end
 	-- drawn just now (src/client/Locomotion marks the moment): play the rest of the equip
@@ -205,6 +212,8 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		animator = animator,
 		oneHanded = W[weapon.name].class == "Staff" or W[weapon.name].class == "Grenade",
 		leftHidden = false,
+		thrown = character:GetAttribute("ThrownAt") :: number?, -- (one thrown before this rig: not played again)
+		gone = false,
 	}
 end
 
@@ -253,6 +262,11 @@ function Viewmodel.start()
 		local stowing = false
 		if not weapon and character and rig and character:GetAttribute("Stowing") == rig.name then
 			stowing = true
+			weapon = { tool = rig.tool, name = rig.name } :: any
+		end
+		-- the last grenade thrown (its Tool gone): the rig stays up until the throw has played out
+		local throwing = rig and rig.tracks.throw
+		if not weapon and character and rig and throwing and throwing.IsPlaying then
 			weapon = { tool = rig.tool, name = rig.name } :: any
 		end
 		if character then
@@ -373,11 +387,24 @@ function Viewmodel.start()
 		local leftHidden = r.oneHanded
 			and character:GetAttribute("TwoHands") ~= true
 			and not (type(castHeld) == "number" and castHeld >= Spells.Staff.LeftShows)
-		if r.clear ~= clear or r.leftHidden ~= leftHidden then
-			r.clear, r.leftHidden = clear, leftHidden
+		-- a grenade throw (src/client/Grenades marks the moment): played once over the hold; past the release the copy in
+		-- the hand is hidden (the thrown one is in the air)
+		local thrownAt = character:GetAttribute("ThrownAt")
+		local throw = r.tracks.throw
+		if throw and type(thrownAt) == "number" and thrownAt ~= r.thrown then
+			r.thrown = thrownAt
+			throw:Play(0.05)
+		end
+		local gone = throw ~= nil and throw.IsPlaying and throw.TimePosition >= Grenades.Throw.release
+		if r.clear ~= clear or r.leftHidden ~= leftHidden or r.gone ~= gone then
+			r.clear, r.leftHidden, r.gone = clear, leftHidden, gone
 			for _, d in r.model:GetDescendants() do
 				if d:IsA("BasePart") then
-					d.LocalTransparencyModifier = if leftHidden and d.Name == "Left Arm" then 1 else clear
+					local arm = d.Name == "Left Arm" or d.Name == "Right Arm"
+					d.LocalTransparencyModifier = if leftHidden and d.Name == "Left Arm"
+						then 1
+						elseif gone and not arm then 1
+						else clear
 				end
 			end
 		end

@@ -12,6 +12,7 @@ local Grenades = {
 	Fuse = 3, -- seconds from leaving the hand (user: "3s, no throwing back")
 	Carried = 2, -- per life, refilled at respawn (user: "2 per life, own slot")
 	Cooldown = 1, -- seconds before the next one can be thrown (the next grenade into the hand)
+	Own = 1, -- the share of its blast and fragments that hurts the thrower (user 2026-10-19: "Yes, grenades only")
 
 	-- The throw: along the camera's look, lifted `loft` degrees (so a level look still lobs it), at the grenade's own
 	-- `speed` (studs/s, below). From the head, `from` studs out in the camera's space (+X right, +Y up, -Z forward): the
@@ -24,6 +25,9 @@ local Grenades = {
 		-- a wall between the head and the hand: the throw starts this far short of it (never through it)
 		gap = 0.3,
 		spin = 8, -- tumbling in flight, radians/s
+		-- seconds into the throw animation the grenade leaves the hand (Config/Weapons grenade holds `throw`;
+		-- tools/animation/grenade.luau RELEASE): the throw is sent to the server then
+		release = 0.22,
 	},
 
 	-- The thrown grenade: a small hitbox (studs) that bounces and rolls a little (user: "bounces and rolls a little").
@@ -87,15 +91,28 @@ local Grenades = {
 		},
 	},
 
+	-- Phones and tablets (user 2026-10-19: "Hold-release button"): a round throw button, only on touch screens while a
+	-- grenade is out, left of Roblox's jump button. Hold it for the line, lift to throw, slide off it to put the throw
+	-- back. Pixels: `size` across, its bottom-right corner `right` / `bottom` in from the screen's; `press`: the fill's
+	-- transparency while held (0 solid), `idle` otherwise.
+	Touch = { size = 80, right = 200, bottom = 60, idle = 0.35, press = 0.05, text = 14 },
+
 	-- The explosion (src/client/Vfx/Blast, shared with the staff and later cannons): a plain one sized by the charge, in
 	-- the fire scheme (Config/Vfx.Schemes).
 	Vfx = { scheme = "Ember" },
-	-- Its bang (src/client/SoundFx entries): the staff's stage 1 impact without its magic crackle, a mortar's low thump
-	-- and a sharp blast bang (Pro Sound Effects, already in the game: Config/Vfx staff sounds, ASSETS_LICENSES.md).
+	-- Its bang (src/client/SoundFx entries; user 2026-10-19: "make they're sound way more realistic (explosion wise).
+	-- make sure there is no audio cutting"; was the staff's stage 1 impact, a 1 s file that stopped dead): real
+	-- explosions layered, Pro Sound Effects (licensed through Roblox, found with the toolbox search filtered to their
+	-- account, ASSETS_LICENSES.md): the blast, the dirt and debris thrown up and falling, and a low boom whose tail
+	-- rolls away for seconds, each played to its own end.
 	Sound = {
-		{ id = 9116973607, volume = 1.2, profile = "SpellBig" },
-		{ id = 9114086424, volume = 0.6, fade = 1.5, profile = "SpellBig", eq = { 3, 0, -6 } },
+		{ id = 9114362266, volume = 1, profile = "Explosion" }, -- Explosions 4: the blast
+		{ id = 9114086964, volume = 0.8, profile = "Explosion" }, -- Dirt Explosion 2: dirt thrown up and falling
+		{ id = 9114363833, volume = 0.7, profile = "Explosion", eq = { 3, 0, -3 } }, -- Explosive Boom 2: the rolling boom
 	},
+	-- How far off it is heard (Rules/Grenade.heard): late at the speed of sound (Config/Audio.Heard.speed), and
+	-- duller with distance: highs cut and lows lifted (dB), from nothing at `dullFrom` to all of it at `dullFull` studs.
+	Heard = { dullFrom = 60, dullFull = 600, highCut = -14, lowBoost = 4 },
 }
 
 return Grenades

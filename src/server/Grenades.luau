@@ -7,7 +7,8 @@
 -- In flight it is a small bouncing ball (Config/Grenades.Body) carrying the model; it passes through soldiers (its own
 -- collision group), so it can't hit the thrower or be caught. The Mills's pin stays behind and its lever flies off.
 -- Config/Grenades.Fuse seconds after the throw it goes off: Damage.blast with the real charge, its fragments, trees
--- only stripped and shaken (user 2026-10-18), and every client shows the explosion (Net "GrenadeBlast").
+-- only stripped and shaken (user 2026-10-18), the thrower hurt like anyone else (Config/Grenades.Own), and every
+-- client shows the explosion (Net "GrenadeBlast").
 
 local Debris = game:GetService("Debris")
 local PhysicsService = game:GetService("PhysicsService")
@@ -50,7 +51,7 @@ end
 
 local function goOff(position: Vector3, name: string, by: Model?)
 	local t = Cfg.Types[name]
-	Damage.blast(position, t.kg, by, { fell = false, fragments = t.fragments })
+	Damage.blast(position, t.kg, by, { fell = false, fragments = t.fragments, own = Cfg.Own })
 	Net.event("GrenadeBlast"):FireAllClients(position, t.kg)
 end
 

@@ -4,10 +4,15 @@
 -- - with a grenade in the hands (Config/Weapons class "Grenade") and some left (the Tool's "Count"), holding the fire
 --   key (Settings Key_Fire) shows a faint line from the throwing hand to where it would land (user: "Arc preview
 --   line"); releasing throws it along the look (Net "GrenadeThrow"). Putting it away drops the arc unthrown.
+-- - while the line shows the soldier holds the grenade drawn back (the "windup" hold, character attribute "Winding");
+--   releasing plays the throw ("ThrownAt", src/client/Locomotion and src/client/Viewmodel) and the grenade is sent when
+--   it leaves the hand, Config/Grenades.Throw.release into it, along the look at that moment.
+-- - on touch screens a round throw button does the same (Config/Grenades.Touch): hold for the line, lift to throw,
+--   slide off it and lift to put the throw back.
 -- - the arc is the throw's own path (Rules/Grenade.hand / launch / at, the same the server uses), drawn until the first
 --   thing it would hit; the bounce and roll after that aren't drawn.
 -- - every grenade that goes off (Net "GrenadeBlast") shows the shared explosion (src/client/Vfx/Blast) sized by its
---   charge, in Config/Grenades.Vfx's scheme, with its bang.
+--   charge, in Config/Grenades.Vfx's scheme, with its bang: heard late with distance and duller far off.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +20,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local AudioCfg = require(Shared.Config.Audio)
 local Cfg = require(Shared.Config.Grenades)
 local Palette = require(Shared.Config.Palette)
 local W = require(Shared.Config.Weapons)
@@ -142,29 +148,129 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 	b.Enabled = true
 end
 
+local function rgb(c: { number }): Color3
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
+
+-- the touch throw button (Config/Grenades.Touch), hidden until a grenade is out
+local function button(player: Player): (ScreenGui, TextButton)
+	local T, UI = Cfg.Touch, Palette.UI
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "GrenadeThrow"
+	gui.ResetOnSpawn = false
+	gui.Enabled = false
+	local b = Instance.new("TextButton")
+	b.Name = "Throw"
+	b.AnchorPoint = Vector2.new(1, 1)
+	b.Position = UDim2.new(1, -T.right, 1, -T.bottom)
+	b.Size = UDim2.fromOffset(T.size, T.size)
+	b.AutoButtonColor = false
+	b.BorderSizePixel = 0
+	b.BackgroundColor3 = rgb(UI.button)
+	b.BackgroundTransparency = T.idle
+	b.Font = Enum.Font.GothamBold
+	b.Text = "THROW"
+	b.TextSize = T.text
+	b.TextColor3 = rgb(UI.text)
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = b
+	local edge = Instance.new("UIStroke")
+	edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	edge.Thickness = UI.stroke
+	edge.Color = rgb(UI.outline)
+	edge.Parent = b
+	b.Parent = gui
+	gui.Parent = player:WaitForChild("PlayerGui")
+	return gui, b
+end
+
+-- is the screen point `at` on the round button?
+local function onButton(b: GuiObject, at: Vector3): boolean
+	local centre = b.AbsolutePosition + b.AbsoluteSize / 2
+	return (Vector2.new(at.X, at.Y) - centre).Magnitude <= b.AbsoluteSize.X / 2
+end
+
 function Grenades.start()
 	local player = Players.LocalPlayer
 	local aiming = false
+	local releasing = false -- a throw on its way out of the hand
+
+	local function wind(on: boolean)
+		aiming = on
+		local character = player.Character
+		if character then
+			character:SetAttribute("Winding", on)
+		end
+		if not on then
+			hide()
+		end
+	end
+
+	local function throw()
+		wind(false)
+		local character = player.Character
+		if releasing or not character or not grenade(character) then
+			return
+		end
+		releasing = true
+		character:SetAttribute("ThrownAt", os.clock())
+		task.delay(Cfg.Throw.release, function()
+			releasing = false
+			if player.Character == character and grenade(character) then
+				Net.event("GrenadeThrow"):FireServer(workspace.CurrentCamera.CFrame.LookVector)
+			end
+		end)
+	end
+
+	-- touch: the button's own touch, followed until it lifts
+	local touchGui, touchButton = button(player)
+	local finger: InputObject? = nil
+	touchButton.InputBegan:Connect(function(input)
+		if
+			input.UserInputType == Enum.UserInputType.Touch
+			and not finger
+			and not releasing
+			and grenade(player.Character)
+		then
+			finger = input
+			wind(true)
+			touchButton.BackgroundTransparency = Cfg.Touch.press
+		end
+	end)
+	UserInputService.TouchEnded:Connect(function(input)
+		if input ~= finger then
+			return
+		end
+		finger = nil
+		touchButton.BackgroundTransparency = Cfg.Touch.idle
+		if not aiming then
+			return
+		end
+		-- (a touch's Position and the button's AbsolutePosition are both below the top bar inset)
+		if onButton(touchButton, input.Position) then
+			throw()
+		else
+			wind(false) -- slid off: put back
+		end
+	end)
 
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed or not Settings.pressed("Key_Fire", input) then
 			return
 		end
-		if grenade(player.Character) then
-			aiming = true
+		if not releasing and grenade(player.Character) then
+			wind(true)
 		end
 	end)
 	UserInputService.InputEnded:Connect(function(input)
-		if not aiming or not Settings.pressed("Key_Fire", input) then
+		if not aiming or finger or not Settings.pressed("Key_Fire", input) then
 			return
 		end
-		aiming = false
-		hide()
-		if grenade(player.Character) then
-			Net.event("GrenadeThrow"):FireServer(workspace.CurrentCamera.CFrame.LookVector)
-		end
+		throw()
 	end)
 	RunService.RenderStepped:Connect(function()
+		touchGui.Enabled = UserInputService.TouchEnabled and grenade(player.Character) ~= nil
 		if not aiming then
 			return
 		end
@@ -172,8 +278,7 @@ function Grenades.start()
 		local _, name = grenade(character)
 		local head = character and character:FindFirstChild("Head") :: BasePart?
 		if not character or not name or not head then
-			aiming = false -- put away or out: no throw
-			hide()
+			wind(false) -- put away or out: no throw
 			return
 		end
 		draw(character, head.Position, workspace.CurrentCamera.CFrame.LookVector, name)
@@ -181,7 +286,10 @@ function Grenades.start()
 
 	Net.event("GrenadeBlast").OnClientEvent:Connect(function(position: Vector3, kg: number)
 		Vfx.Blast.play(position, { normal = Vector3.yAxis, kg = kg, scheme = Cfg.Vfx.scheme, magic = false })
-		SoundFx.play(Cfg.Sound :: any, position)
+		-- heard late and duller with distance (Rules/Grenade.heard)
+		local d = (workspace.CurrentCamera.CFrame.Position - position).Magnitude
+		local delay, high, low = Rules.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
+		SoundFx.play(Cfg.Sound :: any, position, nil, { delay = delay, eq = { low, 0, high } })
 	end)
 end
 

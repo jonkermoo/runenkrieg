@@ -10,6 +10,18 @@ local function near(a: number, b: number, eps: number?): boolean
 end
 
 return {
+	["a blast is heard late and duller with distance, full and crisp close by"] = function()
+		local h = { dullFrom = 100, dullFull = 500, highCut = -12, lowBoost = 3 }
+		local delay, high, low = G.heard(0, h, 960)
+		assert(delay == 0 and high == 0 and low == 0)
+		delay, high, low = G.heard(480, h, 960)
+		assert(near(delay, 0.5) and near(high, -12 * 0.95) and near(low, 3 * 0.95))
+		delay, high, low = G.heard(5000, h, 960)
+		assert(near(high, -12) and near(low, 3))
+		_, high = G.heard(-5, h, 960)
+		assert(high == 0)
+		assert(C.Heard.dullFull > C.Heard.dullFrom and C.Heard.highCut <= 0)
+	end,
 	["a level look is lifted by the loft, at the grenade's speed"] = function()
 		local vx, vy, vz = G.launch(0, 0, -1, 10, 100)
 		assert(near(vx, 0) and vz < 0)

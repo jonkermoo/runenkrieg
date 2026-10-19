@@ -92,4 +92,14 @@ function Grenade.throwOk(dx: number, dy: number, dz: number, fromHead: number, r
 	return m == m and m > 1e-3 and m < 1e6 and fromHead == fromHead and fromHead <= reach
 end
 
+-- How a blast `d` studs off is heard (Config/Grenades.Heard): `delay` seconds late (sound at `speed` studs/s,
+-- Config/Audio.Heard.speed) and duller
+-- with distance: `high` / `low` dB on the equalizer, from nothing at `dullFrom` to the full `highCut` / `lowBoost` at
+-- `dullFull` (the air soaks up the crack; the boom carries).
+export type Heard = { dullFrom: number, dullFull: number, highCut: number, lowBoost: number }
+function Grenade.heard(d: number, h: Heard, speed: number): (number, number, number)
+	local share = math.clamp((d - h.dullFrom) / (h.dullFull - h.dullFrom), 0, 1)
+	return math.max(d, 0) / speed, h.highCut * share, h.lowBoost * share
+end
+
 return Grenade
