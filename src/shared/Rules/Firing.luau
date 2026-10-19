@@ -220,6 +220,12 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 			s.magazine -= 1
 			s.chambered = true
 		end
+		if gun.clip == "Box" then
+			-- a box: the whole swap even from an open bolt (the box must still come out); "Open": the bolt stays back
+			-- until the plunger lets it go (Config/Firing.BoxCycle)
+			s.busyUntil = now + time
+			return true, nil, if wasOpen then "Open" else nil, "Reload"
+		end
 		s.busyUntil = now + time * (if wasOpen then 1 - gun.reloadOpenAt else 1)
 		return true, nil, nil, if clips > 1 then "Reload2" else "Reload" -- (two chargers: their own timeline)
 	end

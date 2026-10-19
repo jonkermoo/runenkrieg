@@ -268,6 +268,16 @@ return {
 		assert(F.clipsFor(s, WINCHESTER) == 1, "one box")
 		assert(F.reload(s, WINCHESTER, 1) and s.magazine == 15 and F.rounds(s) == 16, "a fresh box: 15 + 1")
 	end,
+	["a box swap from an open bolt takes the whole reload and reports the open bolt"] = function()
+		local s = F.new(WINCHESTER)
+		for i = 0, 15 do
+			F.fire(s, WINCHESTER, i)
+		end
+		assert(s.open, "held open")
+		local ok, _, out = F.reload(s, WINCHESTER, 20)
+		assert(ok and out == "Open", "the bolt stays back until the plunger lets it go")
+		assert(s.busyUntil == 20 + 2.5 and s.magazine == 14 and s.chambered, "the whole swap; 14 + 1")
+	end,
 	["shots must come from the shooter's own rifle, as a unit direction"] = function()
 		assert(F.validShot(5, 1, Cfg.MaxOrigin))
 		assert(not F.validShot(30, 1, Cfg.MaxOrigin), "far from the shooter")

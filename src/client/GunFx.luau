@@ -610,9 +610,13 @@ function GunFx.cycle(
 		return
 	end
 	local auto = action == "Auto"
+	-- a box swapped whole (Config/Firing.BoxCycle); `out` "Open": the bolt held back until the plunger lets it go
+	local box = reload and w.ammo.clip == "Box"
+	local heldOpen = box and out == "Open"
 	local turn, travel = math.rad(a.turn), a.travel * s[3]
 	local cycle = if two
 		then Cfg.ReloadCycleTwo
+		elseif box then Cfg.BoxCycle
 		elseif reload then Cfg.ReloadCycle
 		elseif auto then Cfg.AutoCycle
 		else (a.cycle or Cfg.BoltCycle) :: any
@@ -635,7 +639,7 @@ function GunFx.cycle(
 	local feedMid = (fwdFrom + cycle.forward) / 2
 	local function pose(u: number)
 		local up = smooth((u - reach) / (cycle.up - reach))
-		local back = smooth((u - cycle.up) / (cycle.back - cycle.up))
+		local back = if heldOpen then 1 else smooth((u - cycle.up) / (cycle.back - cycle.up))
 		local forward = smooth((u - fwdFrom) / (cycle.forward - fwdFrom))
 		local down = smooth((u - cycle.forward) / (cycle.down - cycle.forward))
 		local angle = turn * (up - down)
@@ -691,13 +695,86 @@ function GunFx.cycle(
 	-- two chargers: the first one from grab to its push (flung as the hand goes for the second), then the second
 	local second = { grab = cycle.grab2 or 0, set = cycle.set2 or 0, clip = cycle.clip2 or 0 }
 	local passOf: { [BasePart]: number } = {}
+	-- a box swap: the gun's own box (and its rounds) hidden from the drop until the fresh one is seated; the old one
+	-- falls away, the fresh one rides in the right hand (under its bottom, as the animation brings the hand) from the
+	-- pouch to the well's mouth, then goes up in
+	local BOX_PARTS = { "Magazine", "Rounds", "Bullets" }
+	local dropped = u0 > (cycle.drop or 0)
+	local boxProps: { [BasePart]: { { part: BasePart, rel: CFrame } } } = {}
+	local function boxes(u: number)
+		local r = w.reload
+		local away = u >= cycle.drop and u < cycle.seat
+		local inHand = u >= cycle.grab and u < cycle.seat
+		for _, gun in GunFx.guns(character) do
+			local holder = gun.Parent
+			if not holder then
+				continue
+			end
+			if not dropped and u >= cycle.drop then
+				local mag = holder:FindFirstChild("Magazine")
+				if mag and mag:IsA("BasePart") then
+					fling(mag:Clone(), gun, mag.CFrame, Vector3.new(1, -3, 0))
+				end
+			end
+			for _, name in BOX_PARTS do
+				show(gun, name, not away and (name == "Magazine" or magazine > 0))
+			end
+			local list = boxProps[gun]
+			if inHand and not list then
+				list = {}
+				for _, name in BOX_PARTS do
+					local p = holder:FindFirstChild(name)
+					if p and p:IsA("BasePart") then
+						local copy = p:Clone()
+						copy:ClearAllChildren()
+						copy.Name = "Held" .. name
+						copy.Anchored, copy.CanCollide, copy.CanQuery, copy.CanTouch = true, false, false, false
+						copy.CastShadow = false
+						copy.Transparency, copy.LocalTransparencyModifier = 0, 0
+						copy.Parent = holder
+						table.insert(list, { part = copy, rel = gun.CFrame:ToObjectSpace(p.CFrame) })
+					end
+				end
+				boxProps[gun] = list
+			elseif not inHand and list then
+				for _, p in list do
+					p.part:Destroy()
+				end
+				boxProps[gun] = nil
+				list = nil
+			end
+			if list then
+				-- where the seated box would be moved to: the hand under it, then the well's mouth, then up in
+				local rig = if holder:IsA("Tool") then holder.Parent else holder
+				local hand = rig and rig:FindFirstChild("Right Arm") :: BasePart?
+				local g = r.boxGrip or r.clipTop
+				local held = gun.CFrame:PointToWorldSpace(Vector3.new(g[1] * s[1], g[2] * s[2] - 0.5, g[3] * s[3]))
+				local mouth = gun.CFrame.UpVector * (r.entry * s[2])
+				local shift: Vector3
+				if u < cycle.set then
+					local inHandAt = if hand then hand.CFrame:PointToWorldSpace(FIST) - held else mouth
+					shift = inHandAt:Lerp(mouth, smooth((u - (cycle.set - 0.05)) / 0.05))
+				else
+					shift = mouth * (1 - smooth((u - cycle.set) / (cycle.seat - cycle.set)))
+				end
+				for _, p in list do
+					p.part.CFrame = CFrame.new(shift) * gun.CFrame * p.rel
+				end
+			end
+		end
+		dropped = dropped or u >= cycle.drop
+	end
 	local function clips(u: number)
+		if box then
+			boxes(u)
+			return
+		end
 		if not reload then
 			return
 		end
 		local pass = if two and u >= (cycle.clip + cycle.grab2) / 2 then 2 else 1
 		local C = if pass == 2 then second else cycle
-		local fling = if two and pass == 1 then cycle.clip + 0.02 else flungAt
+		local flingAt = if two and pass == 1 then cycle.clip + 0.02 else flungAt
 		local holding = u >= C.grab and (not en or u < C.clip)
 		for _, gun in GunFx.guns(character) do
 			local prop = props[gun]
@@ -716,7 +793,7 @@ function GunFx.cycle(
 			if prop and #prop.parts > 0 then
 				if not holding then
 					dropProp(prop) -- the en-bloc clip is in: the gun's own clip shows from here
-				elseif not en and u >= fling and not prop.flung then
+				elseif not en and u >= flingAt and not prop.flung then
 					prop.flung = true
 					for _, p in prop.parts do
 						if not p.round then
@@ -734,6 +811,15 @@ function GunFx.cycle(
 		for _, prop in props do
 			dropProp(prop)
 		end
+		for gun, list in boxProps do
+			for _, p in list do
+				p.part:Destroy()
+			end
+			for _, name in BOX_PARTS do
+				show(gun, name, name == "Magazine" or magazine > 0)
+			end
+		end
+		table.clear(boxProps)
 		if reload and own then
 			character:SetAttribute("Reloading", nil)
 		end

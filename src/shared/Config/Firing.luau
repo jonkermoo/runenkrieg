@@ -62,6 +62,25 @@ local Firing = {
 		forward = 0.91,
 		down = 0.95,
 	},
+	-- A box swapped whole (W2: the Winchester 1907), shares of reloadTime: the right hand goes under the box (`under`),
+	-- lets it drop (`drop`), takes a fresh one from the pouch (`grab`), sets it at the well's mouth (`set`) and pushes it
+	-- up in (`seat`, = `clip`), back on the grip (`grip`); then the left hand runs the cocking plunger under the barrel:
+	-- reaches it, pulls it (the bolt back at `back`), lets go (`forward`). The box reload animations are keyed on it.
+	BoxCycle = {
+		under = 0.06,
+		drop = 0.14,
+		grab = 0.34,
+		set = 0.5,
+		seat = 0.58,
+		clip = 0.58,
+		grip = 0.66,
+		reach = 0.7,
+		up = 0.74,
+		back = 0.79,
+		knob = 0.81,
+		forward = 0.85,
+		down = 0.86,
+	},
 	-- An action started partway (a reload from a bolt held open, one resumed after being cut) fades its arms in over
 	-- this long (s), so the rifle travels from the hold into the action's pose (at 0.15 s it lunged; A1 audit 2026-10-18)
 	ResumeFade = 0.3,

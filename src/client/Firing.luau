@@ -357,7 +357,7 @@ function Firing.start()
 				GunFx.load(character, weapon.name, out, 0, nil, load.room) -- single rounds
 			else
 				-- from an open bolt the clip goes straight in
-				local from = if wasOpen then Cfg.ReloadCycle.back else 0
+				local from = if wasOpen and l.gun.clip ~= "Box" then Cfg.ReloadCycle.back else 0 -- (a box: the whole swap)
 				GunFx.cycle(character, weapon.name, kind or "Reload", out, l.state.magazine, from, 1) -- ("Reload2": two chargers)
 			end
 		end

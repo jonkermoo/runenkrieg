@@ -139,6 +139,10 @@ export type Weapon = {
 		-- two chargers (W2: the Remington 8 with room for more than 5): their own animations (Config/Firing.ReloadCycleTwo)
 		bodyTwo: number?,
 		firstPersonTwo: number?,
+		-- a box swapped whole (Config/Firing.BoxCycle): where the hand holds it (the bottom of the box, seated) and the
+		-- cocking plunger's tip that the left hand pulls (modelled gun space)
+		boxGrip: { number }?,
+		plunger: { number }?,
 	}?,
 	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
 	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
@@ -865,6 +869,88 @@ local Weapons: { [string]: Weapon } = {
 			firstPerson = 97243964724608,
 			bodyTwo = 82513830118516,
 			firstPersonTwo = 137427835663692,
+		},
+	},
+	-- The white team's Winchester 1907: 15 + 1 from a detachable box swapped whole, the slowest reload (5 s), the
+	-- heaviest (weight 1.25: more sway). The bolt is cocked by the plunger under the barrel.
+	rifle_winchester1907 = {
+		asset = "rifle_winchester1907",
+		display = "Winchester 1907",
+		slot = "Primary",
+		class = "SemiRifle",
+		parts = {
+			Wood = { 142, 74, 42 },
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Trigger = { 52, 54, 58 },
+			Magazine = { 70, 70, 74 },
+			Rounds = { 196, 160, 84 },
+			Bullets = { 184, 115, 72 },
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.065, -0.2763 }, -- on the bolt's axis (with the plunger under the barrel)
+			Trigger = { 0, -0.0953, 0 }, -- the trigger pin
+			Magazine = { 0, -0.0547, -0.2432 }, -- the box's top front, up in the well
+		},
+		hidden = { "Casing" },
+		attachments = {
+			Muzzle = { 0, 0.065, -1.7297 },
+			Aim = { 0, 0.1092, 0.45 }, -- on the sight line, 0.044 over the bore
+			Eject = { 0.035, 0.07, -0.1105 }, -- the port, right side
+		},
+		grip = { 0, -0.0437, 0.2579 }, -- the wrist
+		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
+		holds = {
+			ready = 73304672899408,
+			walk = 126090430964250,
+			carry = 111999360654796,
+			aim = 101963361266005,
+			equip = 80907780600025,
+			unequip = 126852227629568,
+			crouchReady = 79193728467489,
+			crouchWalk = 87796533841238,
+			crouchAim = 74814021261605,
+		},
+		firstPerson = {
+			ready = 110794805321931,
+			carry = 130251720996066,
+			aim = 90503217545668,
+			equip = 82561806594910,
+			unequip = 83666097539320,
+			aimIn = 133832844856773,
+			aimOut = 97729127051200,
+		},
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.85 -> 4.27 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		ammo = { capacity = 15, clip = "Box" }, -- a fresh 15-round box (15 + 1)
+		action = {
+			auto = true,
+			boltTime = 0.12,
+			reloadTime = 5,
+			turn = 0,
+			travel = 0.169,
+			fireTime = 0.35,
+		},
+		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
+		weight = 1.25,
+		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
+		reload = {
+			knob = { 0, -0.0124, -1.2931 }, -- (the plunger's tip)
+			clipTop = { 0, -0.0547, -0.2432 }, -- the box seated
+			entry = -0.25, -- set this far under the well, then pushed up in
+			-- the box dropped, a fresh one pushed up in, the plunger pulled (tools/animation/reload.luau)
+			body = 121279399712953,
+			firstPerson = 124953434083352,
+			boxGrip = { 0, -0.29, -0.164 }, -- the box's bottom, seated
+			plunger = { 0, -0.0124, -1.2931 },
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)
