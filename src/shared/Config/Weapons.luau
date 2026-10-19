@@ -78,8 +78,7 @@ export type Weapon = {
 	hipConverge: number?,
 	aimConverge: number?,
 	-- First person: the whole viewmodel (arms and item) moved this far in camera space (+X right, +Y up, -Z forward), for
-	-- an item posed by holds made for another (the grenades on the staff's holds: Studio round 2 had the hand and
-	-- grenade below and behind the camera).
+	-- an item posed by holds made for another.
 	firstShift: { number }?,
 	-- Where the item's origin sits from the hold's "Gun" point (game studs, gun space): the "Hold" motor's C1
 	-- (src/server/Armory, src/client/Viewmodel). The Mills and SIPE sat inside the fist (Studio round 3): pushed out in
@@ -718,8 +717,8 @@ local Weapons: { [string]: Weapon } = {
 -- the SIPE (olive), each tinted in its team's colours (user: "Team-tinted"). Their own "Grenade" slot, carried by
 -- Config/Grenades.Carried and nothing on the body while put away. Gun space: the origin is the middle of the body (the
 -- stick's: on the handle, where the hand holds), its top (the fuse end) up +Y.
--- Holds: the staff's one-handed ones (holdsOf) until the throw animations are made (the animation session, after the
--- user's go): the grenade low in the right hand, the left free; no aim (right click does nothing).
+-- Holds: their own (tools/animation/grenade.luau, user 2026-10-19), one-handed: the grenade in the right hand, the left
+-- free; drawn back while the throw's line shows, the throw on release; no aim (right click does nothing).
 local function grenade(
 	display: string,
 	asset: string,
