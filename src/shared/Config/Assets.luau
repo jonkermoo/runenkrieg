@@ -141,6 +141,18 @@ local Assets = {
 			generator = "tools/blender/artillery/howitzer.py",
 			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
 		},
+		-- the trench spade for digging and building (user 2026-10-19, design F), shared by every team, colored from
+		-- Config/Palette.Shovel by mesh name. No mechanics yet.
+		shovel = {
+			-- v2: a plain iron tube instead of crossed straps, the foot treads the blade's own shoulders made thicker
+			-- (v1 124738061416580)
+			id = 86334126238475,
+			category = "Weapons",
+			folder = "Shared/Shovels",
+			source = "assets/weapons/shared/shovel.fbx",
+			generator = "tools/blender/weapons/shovel.py",
+			description = "Tread spade, 3.5 studs, small two-handed: a wooden D-grip and haft, a brass collar, a plain iron tube, a tapered socket, a dished blade whose shoulders are thickened into foot treads, and a riveted tongue on its back (meshes Wood, Iron, Blade, Brass). Origin at the D-grip's bar, the blade toward -Z, the scoop's hollow toward +Y.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",

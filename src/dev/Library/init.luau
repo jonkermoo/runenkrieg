@@ -279,6 +279,9 @@ function Library.gallery(): string
 					if e.folder == "Shared/Bandages" and palette.Medical[d.Name] then
 						d.Color = rgb(palette.Medical[d.Name])
 					end
+					if e.folder == "Shared/Shovels" and palette.Shovel[d.Name] then
+						d.Color = rgb(palette.Shovel[d.Name])
+					end
 					if e.folder == "Shared/Artillery" then
 						-- the gallery shows the grey team's paint; the runes and the crystal glow
 						local art = palette.Artillery
