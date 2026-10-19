@@ -60,6 +60,8 @@ local Settings = {
 			format = "%.2fx",
 		},
 		InvertY = { kind = "choice", label = "Invert Y", values = { "Off", "On" }, default = "Off" },
+		-- aim down the sights while the aim key is held, or press once to aim and again to stop (user 2026-10-19)
+		AimMode = { kind = "choice", label = "Aim", values = { "Hold", "Toggle" }, default = "Hold" },
 		SprintMode = { kind = "choice", label = "Sprint", values = { "Hold", "Toggle" }, default = "Hold" },
 		CrouchMode = { kind = "choice", label = "Crouch", values = { "Toggle", "Hold" }, default = "Toggle" },
 
@@ -95,7 +97,10 @@ local Settings = {
 	-- The menu's tabs, in order, and the rows in each.
 	Tabs = {
 		{ name = "Graphics", rows = { "Preset", "GrassQuality", "Shadows", "TreeSway", "Debris", "FieldOfView" } },
-		{ name = "Controls", rows = { "HipSensitivity", "AimSensitivity", "InvertY", "SprintMode", "CrouchMode" } },
+		{
+			name = "Controls",
+			rows = { "HipSensitivity", "AimSensitivity", "InvertY", "AimMode", "SprintMode", "CrouchMode" },
+		},
 		{ name = "Audio", rows = { "MasterVolume", "EffectsVolume" } },
 		{
 			name = "Keybinds",

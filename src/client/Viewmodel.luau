@@ -26,6 +26,7 @@ local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
+local Settings = require(script.Parent.Settings)
 local Sway = require(script.Parent.Sway)
 
 local Viewmodel = {}
@@ -49,6 +50,16 @@ local SHOULDERS = {
 local EYE = Vector3.new(Cfg.Eye[1], 1.5 + Cfg.Eye[2], Cfg.Eye[3])
 -- at the hip the rifle sits this far from where the ready hold puts it (Config/Camera.HipShift: the action in frame)
 local HIP_SHIFT = Vector3.new(Cfg.HipShift[1], Cfg.HipShift[2], Cfg.HipShift[3])
+-- and more with a wider field of view than Config/Camera.Fov (Config/Camera.WideFov), by the player's hip FOV setting
+local WIDE_SHIFT = Vector3.new(Cfg.WideFov.shift[1], Cfg.WideFov.shift[2], Cfg.WideFov.shift[3])
+local function hipShift(): Vector3
+	local function t(fov: number): number
+		return math.tan(math.rad(fov / 2))
+	end
+	local fov = Settings.get("FieldOfView") :: number
+	local u = math.max(0, (t(fov) - t(Cfg.Fov)) / (t(Cfg.WideFov.at) - t(Cfg.Fov)))
+	return HIP_SHIFT + WIDE_SHIFT * u
+end
 
 -- Aimed, a rifle's own sight line goes onto the eye. A rifle borrowing another's holds (Config/Weapons `holdsOf`)
 -- is posed where that rifle's sights sit on the eye; its own Aim is off by the difference (the SMLE's sights are 0.05
@@ -120,7 +131,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		local arm = if source then source:Clone() else Instance.new("Part")
 		arm:ClearAllChildren()
 		arm.Name = name
-		arm.Size = Vector3.new(1, 2, 1)
+		arm.Size = Vector3.new(Cfg.ViewmodelArmWidth, 2, Cfg.ViewmodelArmWidth)
 		ghost(arm)
 		arm.Parent = model
 		local m = Instance.new("Motor6D")
@@ -308,7 +319,7 @@ function Viewmodel.start()
 			-- the barrel in the rig's own eye frame: its pose, before the turn is applied (the turn rotates that frame),
 			-- moved by the hip shift
 			local frame = r.root.CFrame * CFrame.new(EYE)
-			local p = frame:PointToObjectSpace(muzzle.WorldPosition) + (if atHip then HIP_SHIFT else Vector3.zero)
+			local p = frame:PointToObjectSpace(muzzle.WorldPosition) + (if atHip then hipShift() else Vector3.zero)
 			local d = frame:VectorToObjectSpace(muzzle.WorldCFrame.LookVector)
 			-- the point on the barrel's line D from the eye; turning it onto the centre line puts the whole line through
 			-- the screen centre there (turning only the barrel's direction leaves the muzzle swung aside)
@@ -356,7 +367,7 @@ function Viewmodel.start()
 		end
 		-- the turn and the hip shift count as much as the holds that have them
 		local turned = (if hipD > 0 then hipness else 0) + (if aimD > 0 then aimness else 0)
-		local shift = if hipD > 0 then HIP_SHIFT * hipness else Vector3.zero
+		local shift = if hipD > 0 then hipShift() * hipness else Vector3.zero
 		r.root.CFrame = camera.CFrame
 			* below
 			* Sway.viewmodel()

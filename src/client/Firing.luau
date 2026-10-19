@@ -2,8 +2,8 @@
 -- Shooting on the local client (M11; Config/Firing, Rules/Firing; the server decides in src/server/Firing):
 -- - left click fires the held rifle; after a shot the next click works the bolt (by hand, user 2026-10-12); with
 --   nothing to fire it clicks empty. R loads a clip into an empty magazine; with rounds left a stripper-clip rifle
---   loads single rounds until full, and a click stops it after the round in the hand (user 2026-10-13). No firing
---   while sprinting.
+--   loads single rounds until full, and a click or aiming stops it after the round in the hand (user 2026-10-13;
+--   aiming 2026-10-19). No firing while sprinting.
 -- - the shot leaves the muzzle along the barrel, aimed or not (no cursor, no crosshair): aimed, that is the sights'
 --   line, one sight height under it (Config/Weapons aiming contract).
 -- - the client predicts its rifle's state with Rules/Firing and shows everything at once (GunFx: flash, sound,
@@ -273,6 +273,16 @@ function Firing.start()
 		return character, weapon, localState(weapon.tool, weapon.name)
 	end
 
+	-- loading single rounds: stop after the round in the hand, then the bolt closes
+	local function stopLoad(character: Model, l: any, now: number)
+		local k = F.stopLoad(l.state, now)
+		if k then
+			l.sent += 1
+			Net.event("StopLoad"):FireServer()
+			GunFx.loadStop(character, k)
+		end
+	end
+
 	local function fire()
 		local character, weapon, l = held()
 		if
@@ -287,13 +297,7 @@ function Firing.start()
 		local now = os.clock()
 		local next = F.next(l.state, now)
 		if next == "Load" then
-			-- loading single rounds: stop after the round in the hand, then the bolt closes
-			local k = F.stopLoad(l.state, now)
-			if k then
-				l.sent += 1
-				Net.event("StopLoad"):FireServer()
-				GunFx.loadStop(character, k)
-			end
+			stopLoad(character, l, now)
 			return
 		elseif next == "Fire" then
 			local origin, dir = shotRay(character)
@@ -358,6 +362,13 @@ function Firing.start()
 			fire()
 		elseif Settings.pressed("Key_Reload", input) then
 			reload()
+		elseif Settings.pressed("Key_Aim", input) then
+			-- aiming stops single loading as a click does (user 2026-10-19); src/client/Stance holds the aim back until the
+			-- bolt has closed
+			local character, _, l = held()
+			if character and l and F.next(l.state, os.clock()) == "Load" then
+				stopLoad(character, l, os.clock())
+			end
 		end
 	end)
 
