@@ -296,25 +296,25 @@ local Assets = {
 				.. "straps, a mess tin on the flap, a big blanket roll across the top, shoulder bands (468 tris).",
 		},
 		helmet_stahl = {
-			id = 99267975895477, -- reworked 2026-10-19 (docs/HATS.md "Rework")
+			id = 98976523443657, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/default/helmet_stahl.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "Stahlhelm M1916, grey team (reworked 2026-10-19): deep dome, a waist "
-				.. "crease, a concave skirt flaring to a rolled edge, short visor, long neck guard, gold side lugs; "
-				.. "hollow, 12 sides (544 tris). No national decal (fictional nations).",
+			description = "Stahlhelm M1916, grey team (reworked 2026-10-19, traced from a side view): a round crown, tall "
+				.. "straight walls, a long bell-shaped flare into the skirt and neck guard, rolled edge, gold side lugs; hollow, "
+				.. "12 sides (544 tris). No national decal (fictional nations).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = { Lugs = { 204, 172, 92 } },
 				shell = "stahl",
-				center = { 0, 0.5656, 0 },
+				center = { 0, 0.672, -0.034 },
 			},
 		},
 		helmet_stahl_goggles = {
-			id = 119817972077655, -- reworked 2026-10-19 (docs/HATS.md "Rework")
+			id = 96770262181573, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_goggles.fbx",
@@ -324,14 +324,14 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 }, Lugs = { 204, 172, 92 } },
 				shell = "stahl",
-				center = { 0, 0.5656, 0 },
+				center = { 0, 0.672, -0.034 },
 			},
 		},
 		helmet_stahl_ammo = {
-			id = 126774658386936, -- reworked 2026-10-19 (docs/HATS.md "Rework")
+			id = 139604548411760, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_ammo.fbx",
@@ -341,7 +341,7 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = {
 					Band = { 46, 39, 34 },
 					Hull = { 150, 54, 44 },
@@ -349,7 +349,7 @@ local Assets = {
 					Lugs = { 204, 172, 92 },
 				},
 				shell = "stahl",
-				center = { 0, 0.5656, 0 },
+				center = { 0, 0.672, -0.034 },
 			},
 		},
 		helmet_m33_goggles = {
@@ -650,13 +650,13 @@ local Assets = {
 			hair = { center = { 0.0719, -0.0744, 0.0171 } },
 		},
 		hair_wolf_cut_stahl = {
-			id = 75730631487159, -- under the reworked helmets (2026-10-19)
+			id = 77980870742304, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_stahl.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair wolf_cut under the stahl helmet: the original shaved where the shell covers it (3902 tris).",
-			hair = { center = { 0.0425, -0.0661, 0.0436 } },
+			description = "Hair wolf_cut under the stahl helmet: the original shaved where the shell covers it (3831 tris).",
+			hair = { center = { 0.0425, -0.0661, 0.0469 } },
 		},
 		hair_wolf_cut_brodie = {
 			id = 129843447242445, -- under the reworked helmets (2026-10-19)
@@ -686,7 +686,7 @@ local Assets = {
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
 		hair_low_ponytail_stahl = {
-			id = 131310016654682, -- under the reworked helmets (2026-10-19)
+			id = 119763988272799, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_stahl.fbx",
@@ -722,13 +722,13 @@ local Assets = {
 			hair = { center = { 0.0233, 0.0325, 0.0079 } },
 		},
 		hair_m_wolf_stahl = {
-			id = 105305005705475, -- under the reworked helmets (2026-10-19)
+			id = 102730380340187, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_stahl.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_wolf under the stahl helmet: the original shaved where the shell covers it (3619 tris).",
-			hair = { center = { 0.0372, 0.0651, 0.0383 } },
+			description = "Hair m_wolf under the stahl helmet: the original shaved where the shell covers it (3653 tris).",
+			hair = { center = { 0.0372, 0.0456, 0.0428 } },
 		},
 		hair_m_wolf_brodie = {
 			id = 88624757913450, -- under the reworked helmets (2026-10-19)
@@ -758,13 +758,13 @@ local Assets = {
 			hair = { center = { 0.0146, 0.2002, 0.0377 } },
 		},
 		hair_m_slick_stahl = {
-			id = 91267982334775, -- under the reworked helmets (2026-10-19)
+			id = 95201136508172, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/under/hair_m_slick_stahl.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_slick under the stahl helmet: the original shaved where the shell covers it (3026 tris).",
-			hair = { center = { 0.0121, 0.2002, 0.0377 } },
+			description = "Hair m_slick under the stahl helmet: the original shaved where the shell covers it (3065 tris).",
+			hair = { center = { 0.0111, 0.2002, 0.0377 } },
 		},
 		hair_m_slick_brodie = {
 			id = 103230124875311, -- under the reworked helmets (2026-10-19)
@@ -794,13 +794,13 @@ local Assets = {
 			hair = { center = { 0.0066, 0.1907, 0.0081 } },
 		},
 		hair_m_midpart_stahl = {
-			id = 128440472300418, -- under the reworked helmets (2026-10-19)
+			id = 116203809497272, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_stahl.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_midpart under the stahl helmet: the original shaved where the shell covers it (3862 tris).",
-			hair = { center = { 0.0051, 0.1974, 0.0032 } },
+			description = "Hair m_midpart under the stahl helmet: the original shaved where the shell covers it (3917 tris).",
+			hair = { center = { 0.0359, 0.1974, -0.0084 } },
 		},
 		hair_m_midpart_brodie = {
 			id = 121634899652503, -- under the reworked helmets (2026-10-19)
