@@ -165,6 +165,25 @@ local Palette = {
 		manaSpend = { 235, 250, 255 },
 		manaBurnt = { 118, 72, 150 },
 		manaDenied = { 220, 70, 60 },
+		-- the settings menu (src/client/SettingsMenu, src/shared/ui/SettingsMenu.json): gray slate, no hue (user
+		-- 2026-10-19); the picked choice is lighter with a silver line. Lines are `thin`, the panel border `stroke`.
+		Settings = {
+			panel = { 24, 25, 27 },
+			field = { 34, 35, 38 },
+			line = { 74, 76, 81 },
+			lineStrong = { 138, 141, 148 },
+			text = { 214, 215, 218 },
+			textDim = { 128, 131, 138 },
+			title = { 228, 229, 232 },
+			selFill = { 58, 60, 64 },
+			selLine = { 201, 203, 208 },
+			selText = { 255, 255, 255 },
+			accent = { 228, 229, 232 },
+			backdrop = { 0, 0, 0 },
+			backdropTransparency = 0.55,
+			stroke = 2,
+			thin = 1,
+		},
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
 	-- the grenades' arc preview (src/client/Grenades, Config/Grenades.Arc): a faint pale line

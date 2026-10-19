@@ -3,6 +3,9 @@ local Cfg = require("../src/shared/Config/Settings")
 local Foliage = require("../src/shared/Config/Foliage")
 local Camera = require("../src/shared/Config/Camera")
 local R = require("../src/shared/Rules/Settings")
+local Palette = require("../src/shared/Config/Palette")
+local fs = require("@lune/fs")
+local serde = require("@lune/serde")
 
 local O = Cfg.Options :: any
 
@@ -73,6 +76,11 @@ return {
 		local c =
 			R.clean(O, { Shadows = "Off", Debris = "Huge", FieldOfView = 85, Nope = 1, Key_Aim = 5 }, Cfg.MaxKeyName)
 		assert(c.Shadows == "Off" and c.FieldOfView == 85)
+		assert(O.FieldOfView.max == 90, "the field of view tops out at 90")
+		assert(R.clean(O, { FieldOfView = 100 }, Cfg.MaxKeyName).FieldOfView == 90, "a saved wider view loads as 90")
+		assert(R.clean(O, { FieldOfView = -3 }, Cfg.MaxKeyName).FieldOfView == O.FieldOfView.min)
+		assert(R.clean(O, { FieldOfView = 0 / 0 }, Cfg.MaxKeyName).FieldOfView == nil, "NaN")
+		assert(R.clean(O, { FieldOfView = math.huge }, Cfg.MaxKeyName).FieldOfView == nil)
 		assert(c.Debris == nil and c.Nope == nil and c.Key_Aim == nil)
 		assert(next(R.clean(O, "junk", Cfg.MaxKeyName)) == nil)
 		local dup = R.clean(O, { Key_Fire = "F", Key_Reload = "F", Key_Aim = "G" }, Cfg.MaxKeyName)
@@ -141,5 +149,34 @@ return {
 	["saving numbers are sane"] = function()
 		assert(Cfg.SaveRate > 0 and Cfg.AutosaveEvery >= 6 and Cfg.SendDelay >= 1 / Cfg.SaveRate)
 		assert(#Cfg.Store > 0 and #Cfg.Field > 0)
+	end,
+	["the menu spec has a row template for every kind in the tabs, and its colours exist"] = function()
+		local spec = serde.decode("json", fs.readFile("src/shared/ui/SettingsMenu.json"))
+		local ids, colors = {}, {}
+		local function walk(n)
+			ids[n.id] = n
+			for _, key in { "color", "line", "textColor" } do
+				if n[key] then
+					table.insert(colors, n[key])
+				end
+			end
+			for _, c in n.children or {} do
+				walk(c)
+			end
+		end
+		walk(spec.root)
+		local KIND = { choice = "ChoiceRow", slider = "SliderRow", key = "KeyRow" }
+		for _, tab in Cfg.Tabs do
+			for _, key in tab.rows do
+				local tpl = if key == "Preset" then "PresetRow" else KIND[O[key] and O[key].kind]
+				assert(tpl and ids[tpl], `{tab.name}.{key}: no row template`)
+			end
+		end
+		for _, name in colors do
+			assert(Palette.UI.Settings[name], `colour {name} not in Palette.UI.Settings`)
+		end
+		for name in spec.theme.fonts do
+			assert(spec.theme.fonts[name].family, name)
+		end
 	end,
 }
