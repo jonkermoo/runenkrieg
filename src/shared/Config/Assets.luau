@@ -55,7 +55,9 @@ local Assets = {
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
 		rifle_g98 = {
-			id = 87306177976563, -- v2: sight line 0.057 over the bore (v1 78115054198721)
+			-- v3: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
+			-- v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
+			id = 71283772137659,
 			category = "Weapons",
 			folder = "Grey/Rifles",
 			source = "assets/weapons/grey/rifle_g98.fbx",
@@ -63,10 +65,11 @@ local Assets = {
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
 		},
 		rifle_smle = {
-			-- v5: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
+			-- v6: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
+			-- v5 130639053099807: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
 			-- clipping at the bolt's end and lever); v4 113048279523913: stock flat beside the action, the bridge on both
 			-- walls (v1-v3 see-through in first person)
-			id = 130639053099807,
+			id = 89375001951596,
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
