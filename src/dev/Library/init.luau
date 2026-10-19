@@ -272,6 +272,10 @@ function Library.gallery(): string
 			for _, d in copy:GetDescendants() do
 				if d:IsA("BasePart") then
 					previewColor(d, palette)
+					local pack = palette.Packs[name]
+					if pack and pack[d.Name] then
+						d.Color = rgb(pack[d.Name])
+					end
 					if e.folder == "Shared/Bandages" and palette.Medical[d.Name] then
 						d.Color = rgb(palette.Medical[d.Name])
 					end
