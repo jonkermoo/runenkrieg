@@ -215,7 +215,17 @@ end
 -- The unrolling bandage's strip (client side, every frame): its free end reaches `length` studs from the roll toward
 -- `pin` (HealItems.pin: the patient's limb being wrapped), the rest still on the roll. Bones are posed relative to
 -- the part they hang under, from their pose at rest (captured on the first call).
-local rest: { [Instance]: { [string]: CFrame } } = setmetatable({}, { __mode = "k" }) :: any
+-- (a plain table, cleared when the item goes: a weak-keyed one lost an item mid-heal and re-captured the rest from
+-- the posed bones, Studio round 3; docs/KNOWN_TRAPS.md "Weak-keyed caches")
+local rest: { [Instance]: { [string]: CFrame } } = {}
+
+local function forget(item: Instance)
+	item.AncestryChanged:Connect(function()
+		if not item:IsDescendantOf(game) then
+			rest[item] = nil
+		end
+	end)
+end
 local BONES = { "Strip1", "Strip2", "Strip3", "Strip4", "Strip5", "Strip6", "Strip7", "Strip8" }
 
 function HealItems.strip(item: Model, pin: Vector3, length: number)
@@ -236,11 +246,13 @@ function HealItems.strip(item: Model, pin: Vector3, length: number)
 			if not b then
 				warn(`[Healing] {item.Name}: no bone {name}, the strip can't unroll`)
 				rest[item] = {}
+				forget(item)
 				return
 			end
 			r[name] = frame:ToObjectSpace(b.WorldCFrame)
 		end
 		rest[item] = r
+		forget(item)
 	end
 	local s1, s2 = r.Strip1.Position, r.Strip2.Position
 	local seg = (s2 - s1).Magnitude
