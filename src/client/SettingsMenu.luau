@@ -36,20 +36,6 @@ for name, f in T.fonts do
 	FONTS[name] = Font.new(`rbxasset://fonts/families/{f.family}.json`, (Enum.FontWeight :: any)[f.weight])
 end
 
--- phones (touch, short side at most 500 px) use each spec node's `phone` overrides (set in start)
-local phone = false
-
-local function resolve(n: any): any
-	if phone and n.phone then
-		local o = table.clone(n)
-		for k, v in n.phone do
-			o[k] = v
-		end
-		return o
-	end
-	return n
-end
-
 local function find(n: any, id: string): any
 	if n.id == id then
 		return n
@@ -64,13 +50,13 @@ local function find(n: any, id: string): any
 end
 
 local function node(id: string): any
-	return resolve(assert(find(Spec.root, id), id))
+	return assert(find(Spec.root, id), id)
 end
 
 local function role(n: any, r: string): any
 	for _, c in n.children or {} do
 		if c.role == r then
-			return resolve(c)
+			return c
 		end
 	end
 	return nil
@@ -225,7 +211,7 @@ end
 
 -- the first value button in a template's control (its text size and font)
 local function segNode(control: any): any
-	return resolve(control.children[1])
+	return control.children[1]
 end
 
 local function choiceRow(parent: Instance, order: number, key: string)
@@ -369,9 +355,6 @@ end
 
 function SettingsMenu.start()
 	local player = Players.LocalPlayer
-	local view = workspace.CurrentCamera.ViewportSize
-	phone = UserInputService.TouchEnabled and math.min(view.X, view.Y) <= 500
-
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "SettingsMenu"
 	gui.ResetOnSpawn = false

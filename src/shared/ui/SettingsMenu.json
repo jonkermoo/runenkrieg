@@ -1,6 +1,6 @@
 {
 	"name": "SettingsMenu",
-	"_doc": "The settings menu (src/client/SettingsMenu): sizes in reference pixels at theme.scale.referenceHeight, one UIScale, never taller than the GUI area less theme.fitMargin. Colours are Config/Palette UI.Settings names. The four *Row nodes are the row templates by option kind (Config/Settings.Tabs); Seg buttons, Tab buttons and the slider parts here are preview samples, the menu makes one per value / tab. `phone`: overrides on touch screens whose short side is at most 500 px.",
+	"_doc": "The settings menu (src/client/SettingsMenu): sizes in reference pixels at theme.scale.referenceHeight, one UIScale, never taller than the GUI area less theme.fitMargin. Colours are Config/Palette UI.Settings names. Desktop only (no mobile, user 2026-10-19): minTap is a mouse target. The four *Row nodes are the row templates by option kind (Config/Settings.Tabs); Seg buttons, Tab buttons and the slider parts here are preview samples, the menu makes one per value / tab.",
 	"theme": {
 		"scale": {
 			"referenceHeight": 800,
@@ -8,7 +8,7 @@
 			"max": 1.25
 		},
 		"fitMargin": 16,
-		"minTap": 44,
+		"minTap": 32,
 		"minText": 12,
 		"textStroke": 0,
 		"outline": 0,
@@ -71,14 +71,6 @@
 				],
 				"color": "panel",
 				"line": "lineStrong",
-				"phone": {
-					"size": [
-						0,
-						70,
-						0,
-						70
-					]
-				},
 				"children": [
 					{
 						"id": "GearIcon",
@@ -128,14 +120,6 @@
 				],
 				"color": "panel",
 				"line": "line",
-				"phone": {
-					"size": [
-						0,
-						730,
-						0,
-						460
-					]
-				},
 				"children": [
 					{
 						"id": "Title",
@@ -156,21 +140,7 @@
 							-104,
 							0,
 							50
-						],
-						"phone": {
-							"pos": [
-								0,
-								18,
-								0,
-								8
-							],
-							"size": [
-								0,
-								190,
-								0,
-								70
-							]
-						}
+						]
 					},
 					{
 						"id": "Close",
@@ -196,21 +166,7 @@
 						"textSize": 24,
 						"color": "field",
 						"line": "lineStrong",
-						"textColor": "text",
-						"phone": {
-							"pos": [
-								1,
-								-18,
-								0,
-								8
-							],
-							"size": [
-								0,
-								70,
-								0,
-								70
-							]
-						}
+						"textColor": "text"
 					},
 					{
 						"id": "Rule",
@@ -227,15 +183,7 @@
 							0,
 							1
 						],
-						"color": "line",
-						"phone": {
-							"pos": [
-								0,
-								18,
-								0,
-								84
-							]
-						}
+						"color": "line"
 					},
 					{
 						"id": "Tabs",
@@ -253,20 +201,6 @@
 							50
 						],
 						"gap": 6,
-						"phone": {
-							"pos": [
-								0,
-								218,
-								0,
-								8
-							],
-							"size": [
-								1,
-								-326,
-								0,
-								70
-							]
-						},
 						"children": [
 							{
 								"id": "Tab1",
@@ -386,21 +320,6 @@
 							-148
 						],
 						"gap": 10,
-						"phone": {
-							"pos": [
-								0,
-								18,
-								0,
-								94
-							],
-							"size": [
-								1,
-								-36,
-								1,
-								-112
-							],
-							"gap": 8
-						},
 						"children": [
 							{
 								"id": "PresetRow",
@@ -417,20 +336,6 @@
 									0,
 									86
 								],
-								"phone": {
-									"pos": [
-										0,
-										0,
-										0,
-										0
-									],
-									"size": [
-										1,
-										-10,
-										0,
-										70
-									]
-								},
 								"children": [
 									{
 										"id": "PresetName",
@@ -451,15 +356,7 @@
 											0,
 											0,
 											28
-										],
-										"phone": {
-											"size": [
-												0.28,
-												0,
-												1,
-												0
-											]
-										}
+										]
 									},
 									{
 										"id": "PresetControl",
@@ -478,20 +375,6 @@
 											0,
 											50
 										],
-										"phone": {
-											"pos": [
-												0.4,
-												0,
-												0,
-												0
-											],
-											"size": [
-												0.6,
-												0,
-												1,
-												0
-											]
-										},
 										"children": [
 											{
 												"id": "PresetSeg1",
@@ -575,20 +458,6 @@
 									0,
 									86
 								],
-								"phone": {
-									"pos": [
-										0,
-										0,
-										0,
-										78
-									],
-									"size": [
-										1,
-										-10,
-										0,
-										70
-									]
-								},
 								"children": [
 									{
 										"id": "ChoiceName",
@@ -609,15 +478,7 @@
 											0,
 											0,
 											28
-										],
-										"phone": {
-											"size": [
-												0.28,
-												0,
-												1,
-												0
-											]
-										}
+										]
 									},
 									{
 										"id": "ChoiceControl",
@@ -636,20 +497,6 @@
 											0,
 											50
 										],
-										"phone": {
-											"pos": [
-												0.4,
-												0,
-												0,
-												0
-											],
-											"size": [
-												0.6,
-												0,
-												1,
-												0
-											]
-										},
 										"children": [
 											{
 												"id": "ChoiceSeg1",
@@ -754,20 +601,6 @@
 									0,
 									86
 								],
-								"phone": {
-									"pos": [
-										0,
-										0,
-										0,
-										156
-									],
-									"size": [
-										1,
-										-10,
-										0,
-										70
-									]
-								},
 								"children": [
 									{
 										"id": "SliderName",
@@ -788,15 +621,7 @@
 											0,
 											0,
 											28
-										],
-										"phone": {
-											"size": [
-												0.28,
-												0,
-												1,
-												0
-											]
-										}
+										]
 									},
 									{
 										"id": "SliderValue",
@@ -821,25 +646,7 @@
 											0,
 											0,
 											28
-										],
-										"phone": {
-											"anchor": [
-												0,
-												0
-											],
-											"pos": [
-												0.28,
-												0,
-												0,
-												0
-											],
-											"size": [
-												0.1,
-												0,
-												1,
-												0
-											]
-										}
+										]
 									},
 									{
 										"id": "SliderControl",
@@ -858,20 +665,6 @@
 											0,
 											50
 										],
-										"phone": {
-											"pos": [
-												0.4,
-												0,
-												0,
-												0
-											],
-											"size": [
-												0.6,
-												0,
-												1,
-												0
-											]
-										},
 										"children": [
 											{
 												"id": "Track",
@@ -953,20 +746,6 @@
 									0,
 									86
 								],
-								"phone": {
-									"pos": [
-										0,
-										0,
-										0,
-										234
-									],
-									"size": [
-										1,
-										-10,
-										0,
-										70
-									]
-								},
 								"children": [
 									{
 										"id": "KeyName",
@@ -987,15 +766,7 @@
 											0,
 											0,
 											28
-										],
-										"phone": {
-											"size": [
-												0.28,
-												0,
-												1,
-												0
-											]
-										}
+										]
 									},
 									{
 										"id": "Key",
@@ -1017,21 +788,7 @@
 											0,
 											0,
 											50
-										],
-										"phone": {
-											"pos": [
-												0.4,
-												0,
-												0,
-												0
-											],
-											"size": [
-												0.6,
-												0,
-												1,
-												0
-											]
-										}
+										]
 									}
 								]
 							}
