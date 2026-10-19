@@ -58,7 +58,8 @@ function SettingsRules.default(opt: Option, touch: boolean): any
 	return if touch and opt.defaultTouch ~= nil then opt.defaultTouch else opt.default
 end
 
--- Only the valid entries of an untrusted table (a saved profile, a client's save). Never errors.
+-- Only the valid entries of an untrusted table (a saved profile, a client's save). Never errors. A slider number
+-- outside its range (saved before the range shrank) is clamped into it.
 function SettingsRules.clean(options: { [string]: Option }, raw: any, maxKey: number): { [string]: any }
 	local out = {}
 	if type(raw) ~= "table" then
@@ -66,6 +67,9 @@ function SettingsRules.clean(options: { [string]: Option }, raw: any, maxKey: nu
 	end
 	for key, opt in options do
 		local v = raw[key]
+		if opt.kind == "slider" and type(v) == "number" and v == v and math.abs(v) ~= math.huge then
+			v = SettingsRules.snap(opt, v)
+		end
 		if SettingsRules.valid(opt, v, maxKey) then
 			out[key] = v
 		end
