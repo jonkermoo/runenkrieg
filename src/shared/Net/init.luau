@@ -67,6 +67,10 @@ local Remotes: { string } = {
 	-- client -> server: ({ [key]: value }) the player's settings to save in their profile (src/client/Settings sends,
 	-- src/server/Profile keeps only valid entries, Rules/Settings.clean; rate limited)
 	"SaveSettings",
+	-- Healing (H1; src/client/Healing asks, src/server/Healing checks and heals; Config/Healing, Rules/Healing):
+	-- client -> server: ("Start", patient: Model) heal the hurt soldier in reach (never yourself), or ("Stop") stop.
+	-- The healer's "Healing" attribute ("Bandage" | "MedPack", nil when not) and "HealPatient" ObjectValue say how it goes.
+	"Heal",
 }
 local Functions: { string } = {}
 

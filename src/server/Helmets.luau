@@ -106,6 +106,19 @@ local function helmet(entry: string, head: BasePart): Model?
 	return wear(model, head, "Helmet")
 end
 
+-- The shell whose helmet-on hairs fit a soldier with no helmet on (the head wrap, Config/Healing.Wraps): the one they
+-- last wore ("HairShell", set by dress), else the default kit's.
+local function shortShell(character: Model): string?
+	local shell = character:GetAttribute("HairShell")
+	if type(shell) == "string" then
+		return shell
+	end
+	local kit = U.Kits[U.Default]
+	local headwear = kit and kit.headwear
+	local fit = headwear and A.Entries[headwear] and A.Entries[headwear].fit
+	return if fit then (fit :: any).shell else nil
+end
+
 local function clear(character: Model)
 	for _, name in { "Helmet", "Hair" } do
 		local old = character:FindFirstChild(name)
@@ -125,7 +138,15 @@ function Helmets.dress(character: Model, headwear: string?)
 	clear(character)
 	local on = headwear and helmet(headwear, head)
 	local shell = if on and headwear then (A.Entries[headwear].fit :: any).shell else nil
-	local h = hair(character, head, shell)
+	if shell then
+		character:SetAttribute("HairShell", shell)
+	end
+	-- the head wrap on (src/server/Healing): the helmet-on hair even bareheaded
+	local h = hair(
+		character,
+		head,
+		shell or (if character:GetAttribute("HeadWrap") == true then shortShell(character) else nil)
+	)
 	if h then
 		h.Parent = character
 	end
@@ -134,6 +155,23 @@ function Helmets.dress(character: Model, headwear: string?)
 		on.Parent = character
 	end
 	character:SetAttribute("HelmetOn", on ~= nil)
+end
+
+-- The head wrap went on (src/server/Healing): bareheaded, the hair becomes its helmet-on version so the wrap shows and
+-- nothing pokes through (user 2026-10-18); under a helmet it already is.
+function Helmets.shortHair(character: Model)
+	local head = character:FindFirstChild("Head") :: BasePart?
+	if not head or character:GetAttribute("HelmetOn") == true then
+		return
+	end
+	local old = character:FindFirstChild("Hair")
+	if old then
+		old:Destroy()
+	end
+	local h = hair(character, head, shortShell(character))
+	if h then
+		h.Parent = character
+	end
 end
 
 -- A shot hit `part` at `point` going along `direction`: if it is a soldier's Head with the helmet on and the point is
@@ -169,7 +207,7 @@ function Helmets.knockOff(character: Model, direction: Vector3)
 	if old then
 		old:Destroy()
 	end
-	local h = hair(character, head, nil)
+	local h = hair(character, head, if character:GetAttribute("HeadWrap") == true then shortShell(character) else nil)
 	if h then
 		h.Parent = character
 	end

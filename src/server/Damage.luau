@@ -10,7 +10,8 @@
 -- - Damage.blast: a real-scaled blast (Rules/Blast): soldiers hurt and knocked by the overpressure at their torso, map
 --   sections by their class (src/server/Destruction.blast), trees by their HP (src/server/Trees), a crater with a rim
 --   and churned earth round it.
--- No one hurts themselves (their blast still knocks them). Health 100 and no regeneration (src/character/Health);
+-- No one hurts themselves (their blast still knocks them). Health 100; the only regeneration is src/server/Healing's
+-- slow recovery to 70 (Roblox's own Health script is replaced, src/character/Health);
 -- a death is a limp ragdoll (the death face: src/server/Bodies); respawn after Config/Metrics.Combat.RespawnDelay.
 
 local CollectionService = game:GetService("CollectionService")
@@ -28,6 +29,7 @@ local TreeRules = require(Shared.Rules.Trees)
 local Destruction = require(script.Parent.Destruction)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Ground = require(script.Parent.Ground)
+local Healing = require(script.Parent.Healing)
 local Trees = require(script.Parent.Trees)
 
 local Damage = {}
@@ -95,6 +97,9 @@ local function hurt(
 	end
 	if knock then
 		Ragdoll.knock(character, knock, direction, scale)
+	end
+	if not Dev.god(character) then
+		Healing.hit(character) -- a healer hit stops healing (Config/Healing)
 	end
 	humanoid.Health = if Dev.god(character) then humanoid.Health else left
 end
