@@ -136,6 +136,9 @@ export type Weapon = {
 		body: number,
 		firstPerson: number,
 		depth: number?, -- how far a stripper clip's rounds go down out of it (modelled studs; else 0.17)
+		-- two chargers (W2: the Remington 8 with room for more than 5): their own animations (Config/Firing.ReloadCycleTwo)
+		bodyTwo: number?,
+		firstPersonTwo: number?,
 	}?,
 	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
 	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
@@ -779,6 +782,69 @@ local Weapons: { [string]: Weapon } = {
 			body = 98845734063570, -- the knob pulled straight back, the clip thumbed down, the bolt let go (tools/animation/reload.luau)
 			firstPerson = 110440542474829,
 			depth = 0.27, -- 8 rounds in one row
+		},
+	},
+	-- The olive team's Remington Model 8: 10 + 1 from 5-round chargers (one or two pressed in), reload ~3 s, weight 1.1.
+	rifle_remington8 = {
+		asset = "rifle_remington8",
+		display = "Remington Model 8",
+		slot = "Primary",
+		class = "SemiRifle",
+		parts = {
+			Wood = { 142, 74, 42 },
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Trigger = { 52, 54, 58 },
+			Clip = { 90, 88, 84 },
+			Rounds = { 196, 160, 84 },
+			Bullets = { 184, 115, 72 },
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.065, -0.2733 }, -- on the bolt's axis, at the knob (the slide outside the right wall)
+			Trigger = { 0, -0.0541, 0 }, -- the trigger pin
+			Clip = { 0, 0.1142, -0.1133 }, -- the charger over the open top
+		},
+		hidden = { "Casing", "Clip" }, -- the charger shows only while reloading
+		attachments = {
+			Muzzle = { 0, 0.065, -1.8912 },
+			Aim = { 0, 0.1308, 0.45 }, -- on the sight line, 0.066 over the bore
+			Eject = { 0.02, 0.09, -0.2399 }, -- out of the open top
+		},
+		grip = { 0, -0.0558, 0.2966 }, -- the wrist
+		holds = { ready = 0, equip = 0 },
+		firstPerson = { ready = 0, equip = 0 },
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		ammo = { capacity = 10, clip = "Stripper", clipSize = 5 }, -- two 5-round chargers fill it (10 + 1)
+		-- the bolt slides straight back (no turn) and returns by itself; a second charger adds clipTime (3 s in all)
+		action = {
+			auto = true,
+			boltTime = 0.12,
+			reloadTime = 2.4,
+			clipTime = 0.6,
+			turn = 0,
+			travel = 0.133,
+			fireTime = 0.35,
+		},
+		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
+		weight = 1.1,
+		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
+		reload = {
+			knob = { 0.092, 0.065, -0.2733 }, -- the knob on the slide, bolt closed
+			clipTop = { 0, 0.2842, -0.1133 }, -- the charger's top over the open top
+			entry = 0,
+			body = 0,
+			firstPerson = 0,
+			bodyTwo = 0,
+			firstPersonTwo = 0,
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)

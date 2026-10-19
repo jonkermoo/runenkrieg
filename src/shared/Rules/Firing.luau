@@ -201,7 +201,7 @@ end
 
 -- Returns ok, the reason it can't, what came out of the chamber when the bolt opened ("Casing", "Round": a live round
 -- thrown out, or nil; loose shells: "Open" when the action was held open and closes at the end), and the kind: "Reload" (a clip) or "Load" (single rounds: a stripper-clip rifle with rounds
--- left).
+-- left; "Reload2": a semi-automatic pressing in two chargers).
 function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolean, string?, string?, string?)
 	Firing.settle(s, now)
 	if not idle(s, now, slack) then
@@ -212,7 +212,8 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 	if gun.auto then
 		-- fills the magazine (clips pressed in, or a fresh box); a chambered round stays, an open bolt closes on one
 		local wasOpen = s.open
-		local time = gun.reloadTime + (Firing.clipsFor(s, gun) - 1) * (gun.clipTime or 0)
+		local clips = Firing.clipsFor(s, gun)
+		local time = gun.reloadTime + (clips - 1) * (gun.clipTime or 0)
 		s.open = false
 		s.magazine = gun.capacity
 		if not s.chambered then
@@ -220,7 +221,7 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 			s.chambered = true
 		end
 		s.busyUntil = now + time * (if wasOpen then 1 - gun.reloadOpenAt else 1)
-		return true, nil, nil, "Reload"
+		return true, nil, nil, if clips > 1 then "Reload2" else "Reload" -- (two chargers: their own timeline)
 	end
 	local loose = gun.clip == "Loose"
 	if loose or (gun.clip == "Stripper" and s.magazine > 0) then

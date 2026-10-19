@@ -447,11 +447,10 @@ local function dropProp(prop: Prop)
 	table.clear(prop.parts)
 end
 
--- the clip at timeline share u of a reload
-local function poseProp(prop: Prop, weapon: string, u: number)
+-- the clip at timeline share u of a reload (C: its grab / set / clip shares; the second charger's, Reload2)
+local function poseProp(prop: Prop, weapon: string, u: number, C: { grab: number, set: number, clip: number })
 	local w = W[weapon]
 	local r, s = w.reload, w.scale
-	local C = Cfg.ReloadCycle
 	local gun = prop.gun
 	local seat = gun.CFrame * CFrame.new(r.clipTop[1] * s[1], r.clipTop[2] * s[2], r.clipTop[3] * s[3])
 	local entry = seat * CFrame.new(0, r.entry * s[2], 0)
@@ -527,8 +526,12 @@ end
 -- both views.
 local function playAction(character: Model, weapon: string, action: string, u0: number): { AnimationTrack }
 	local w = W[weapon]
-	local reload = action == "Reload"
-	local time = if reload then w.action.reloadTime else w.action.boltTime
+	local two = action == "Reload2" -- (two chargers: their own animations, the reload plus one clipTime)
+	local reload = action == "Reload" or two
+	local time = if two
+		then w.action.reloadTime + (w.action.clipTime or 0)
+		elseif reload then w.action.reloadTime
+		else w.action.boltTime
 	local list = {}
 	if action == "Auto" then
 		return list -- a semi-automatic's action cycles itself: no hand on it
@@ -544,7 +547,7 @@ local function playAction(character: Model, weapon: string, action: string, u0: 
 	end
 	local own = character == Players.LocalPlayer.Character
 	if own or not Players:GetPlayerFromCharacter(character) then
-		local body = w.reload.body
+		local body = if two then w.reload.bodyTwo or 0 else w.reload.body
 		if not reload then
 			local hold = character:GetAttribute("Hold")
 			local aimed = hold == nil or hold == "aim" or hold == "crouchAim"
@@ -554,7 +557,7 @@ local function playAction(character: Model, weapon: string, action: string, u0: 
 	end
 	local viewmodel = animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel"))
 	if own and reload then
-		start(viewmodel, w.reload.firstPerson)
+		start(viewmodel, if two then w.reload.firstPersonTwo or 0 else w.reload.firstPerson)
 	elseif own and (w.bolt.firstAim or w.bolt.firstReady) then
 		-- first person: the viewmodel's hand works the bolt (a pump gun's left hand, the pump)
 		local hold = character:GetAttribute("Hold")
@@ -599,14 +602,20 @@ function GunFx.cycle(
 		return
 	end
 	local u0, u1 = from or 0, to or 1
-	local time = (if action == "Reload" then a.reloadTime else a.boltTime) * (u1 - u0)
+	local two = action == "Reload2" -- a semi-automatic pressing in two chargers (Config/Firing.ReloadCycleTwo)
+	local reload = action == "Reload" or two
+	local whole = if two then a.reloadTime + (a.clipTime or 0) elseif reload then a.reloadTime else a.boltTime
+	local time = whole * (u1 - u0)
 	if time <= 0 then
 		return
 	end
-	local reload = action == "Reload"
 	local auto = action == "Auto"
 	local turn, travel = math.rad(a.turn), a.travel * s[3]
-	local cycle = if reload then Cfg.ReloadCycle elseif auto then Cfg.AutoCycle else (a.cycle or Cfg.BoltCycle) :: any
+	local cycle = if two
+		then Cfg.ReloadCycleTwo
+		elseif reload then Cfg.ReloadCycle
+		elseif auto then Cfg.AutoCycle
+		else (a.cycle or Cfg.BoltCycle) :: any
 	local en = w.ammo.clip == "Enbloc"
 	local rise = Cfg.ClipRise * s[2]
 	-- the bolt: the hand reaches the handle (reload), turns it up, pulls it back; pushes it forward once the case is out
@@ -617,7 +626,8 @@ function GunFx.cycle(
 	local t0 = os.clock()
 	-- what already happened before `from` doesn't happen again
 	local opened, ejected = u0 > openAt, u0 > cycle.back
-	local seated, closed = reload and u0 > cycle.clip, u0 > cycle.forward
+	local seated, closed = reload and u0 > (cycle.clip2 or cycle.clip), u0 > cycle.forward
+	local firstIn = not two or u0 > cycle.clip -- (two chargers: the first one's sound)
 	local flungAt = (cycle.knob or 0) + 0.02 -- the bolt starting forward strips the empty clip off the guides
 	-- a pump gun: the shell on the carrier lifts to the bore and goes into the chamber as the pump comes forward (only
 	-- when one is fed: an action held open feeds nothing), the next one shows on the carrier after
@@ -678,23 +688,35 @@ function GunFx.cycle(
 	if reload and own then
 		character:SetAttribute("Reloading", true) -- src/client/Viewmodel holds its hip turn still meanwhile
 	end
+	-- two chargers: the first one from grab to its push (flung as the hand goes for the second), then the second
+	local second = { grab = cycle.grab2 or 0, set = cycle.set2 or 0, clip = cycle.clip2 or 0 }
+	local passOf: { [BasePart]: number } = {}
 	local function clips(u: number)
 		if not reload then
 			return
 		end
-		local holding = u >= cycle.grab and (not en or u < cycle.clip)
+		local pass = if two and u >= (cycle.clip + cycle.grab2) / 2 then 2 else 1
+		local C = if pass == 2 then second else cycle
+		local fling = if two and pass == 1 then cycle.clip + 0.02 else flungAt
+		local holding = u >= C.grab and (not en or u < C.clip)
 		for _, gun in GunFx.guns(character) do
 			local prop = props[gun]
+			if prop and passOf[gun] ~= pass then
+				dropProp(prop) -- (the first charger is gone: a fresh one for the second)
+				prop = nil
+				props[gun] = nil
+			end
 			if holding and not prop then
 				prop = makeProp(gun, weapon)
 				if prop then
 					props[gun] = prop
+					passOf[gun] = pass
 				end
 			end
 			if prop and #prop.parts > 0 then
 				if not holding then
 					dropProp(prop) -- the en-bloc clip is in: the gun's own clip shows from here
-				elseif not en and u >= flungAt and not prop.flung then
+				elseif not en and u >= fling and not prop.flung then
 					prop.flung = true
 					for _, p in prop.parts do
 						if not p.round then
@@ -703,7 +725,7 @@ function GunFx.cycle(
 					end
 					dropProp(prop)
 				else
-					poseProp(prop, weapon, u)
+					poseProp(prop, weapon, u, C)
 				end
 			end
 		end
@@ -762,7 +784,11 @@ function GunFx.cycle(
 				eject(gun, weapon)
 			end
 		end
-		if reload and not seated and u >= cycle.clip then
+		if two and not firstIn and u >= cycle.clip then
+			firstIn = true
+			GunFx.sound(gun, "ClipIn")
+		end
+		if reload and not seated and u >= (cycle.clip2 or cycle.clip) then
 			seated = true
 			GunFx.sound(gun, "ClipIn")
 			GunFx.loadout(character, weapon, magazine) -- the rounds are in (an en-bloc clip with them)

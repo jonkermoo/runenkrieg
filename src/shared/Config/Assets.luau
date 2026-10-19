@@ -87,6 +87,14 @@ local Assets = {
 			generator = "tools/blender/weapons/mondragon.py",
 			description = "Mondragón FSK 15 semi-automatic rifle, the grey team's (W2; built from its trace: tools/blender/weapons/trace/mondragon.py; review assets/weapons/grey/review/rifle_mondragon_v7.blend). Rigged from Config/Weapons.",
 		},
+		rifle_remington8 = {
+			id = 120790254551949,
+			category = "Weapons",
+			folder = "Olive/Rifles",
+			source = "assets/weapons/olive/rifle_remington8.fbx",
+			generator = "tools/blender/weapons/remington8.py",
+			description = "Remington Model 8 semi-automatic rifle, the olive team's (W2; built from its trace: tools/blender/weapons/trace/remington8.py; review assets/weapons/olive/review/rifle_remington8_v4.blend). Rigged from Config/Weapons.",
+		},
 		staff = {
 			id = 109018663192748, -- v2: team accents (binding, ribbon, head ring, foot cap), colored per team
 			category = "Weapons",

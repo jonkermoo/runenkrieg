@@ -45,6 +45,23 @@ local Firing = {
 	-- A semi-automatic's action after a shot (W2), shares of its boltTime: the bolt flies back (the case out at `back`),
 	-- then returns; nothing turns and no hand moves. On the last round it stops at `back` (held open).
 	AutoCycle = { reach = 0, up = 0.01, back = 0.4, forward = 0.85, down = 1 },
+	-- Two chargers (a semi-automatic with room for more than one, W2: the Remington 8), shares of reloadTime +
+	-- clipTime: the same opening (the same `back`), then a charger taken, set and pushed down, its empty one flung off,
+	-- a second the same way, and the bolt let go. The reload animations' Two variants are keyed on it.
+	ReloadCycleTwo = {
+		reach = 0.08,
+		up = 0.16,
+		back = 0.26,
+		grab = 0.4,
+		set = 0.5,
+		clip = 0.58,
+		grab2 = 0.66,
+		set2 = 0.74,
+		clip2 = 0.8,
+		knob = 0.86,
+		forward = 0.91,
+		down = 0.95,
+	},
 	-- An action started partway (a reload from a bolt held open, one resumed after being cut) fades its arms in over
 	-- this long (s), so the rifle travels from the hold into the action's pose (at 0.15 s it lunged; A1 audit 2026-10-18)
 	ResumeFade = 0.3,

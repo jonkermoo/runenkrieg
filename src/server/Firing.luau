@@ -238,6 +238,9 @@ local function act(player: Player, action: string)
 		return
 	else
 		ok, _, out, kind = F.reload(e.state, e.gun, now, Cfg.Slack)
+		if kind == "Reload2" then
+			action = "Reload2" -- a semi-automatic pressing in two chargers (Config/Firing.ReloadCycleTwo)
+		end
 	end
 	publish(tool, e.state, e.seq)
 	if ok and kind == "Load" then
@@ -247,7 +250,7 @@ local function act(player: Player, action: string)
 	elseif ok then
 		-- the span of the timeline this action plays: a bolt opening on an empty rifle stops when it's back; a reload
 		-- from an open bolt starts there
-		local from = if action == "Reload" and wasOpen then Cfg.ReloadCycle.back else 0
+		local from = if action ~= "Bolt" and wasOpen then Cfg.ReloadCycle.back else 0
 		local to = if action == "Bolt" and e.state.open then e.gun.openAt else 1
 		e.last = {
 			action = action,

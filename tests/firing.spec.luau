@@ -258,7 +258,8 @@ return {
 			F.fire(s, REMINGTON, i) -- 2 + 1
 		end
 		assert(F.clipsFor(s, REMINGTON) == 2, "room for 8: two chargers")
-		F.reload(s, REMINGTON, 10)
+		local _, _, _, kind = F.reload(s, REMINGTON, 10)
+		assert(kind == "Reload2", "two chargers: their own reload")
 		assert(s.magazine == 10 and s.chambered and s.busyUntil == 10 + 2.5 + 0.8, "two chargers take clipTime more")
 	end,
 	["a box rifle swaps the box whole"] = function()
