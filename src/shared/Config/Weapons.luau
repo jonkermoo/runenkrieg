@@ -730,27 +730,26 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0.02, 0.09, -0.2762 }, -- out of the open top
 		},
 		grip = { 0, -0.0072, 0.2151 }, -- the wrist
-		-- (until its own are built: the Gewehr 98's, the nearest in size; tools/animation/rifle.luau)
-		holdsOf = "rifle_g98",
+		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
 		holds = {
-			ready = 122397590747708,
-			walk = 132355293924259,
-			carry = 111492198362235,
-			aim = 122070726635734,
-			equip = 71450535994230,
-			unequip = 116812363774678,
-			crouchReady = 105420937472327,
-			crouchWalk = 138227006700932,
-			crouchAim = 95607613119898,
+			ready = 112960095393177,
+			walk = 103945715390644,
+			carry = 123757042054478,
+			aim = 121378852487384,
+			equip = 127671876904663,
+			unequip = 128045850295250,
+			crouchReady = 80155317422027,
+			crouchWalk = 99368100494126,
+			crouchAim = 112552115265919,
 		},
 		firstPerson = {
-			ready = 102402737080974,
-			carry = 106294181602498,
-			aim = 70722778630134,
-			equip = 123066272399119,
-			unequip = 126607551609403,
-			aimIn = 77762769530436,
-			aimOut = 109549978918090,
+			ready = 99899869193706,
+			carry = 72486322491355,
+			aim = 94272139670262,
+			equip = 104707910768402,
+			unequip = 98957967109125,
+			aimIn = 119968660948192,
+			aimOut = 70887731010016,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
@@ -777,8 +776,8 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.092, 0.065, -0.3492 }, -- the operating knob, bolt closed
 			clipTop = { 0, 0.3695, -0.2151 }, -- the clip's top over the open top
 			entry = 0,
-			body = 0,
-			firstPerson = 0,
+			body = 98845734063570, -- the knob pulled straight back, the clip thumbed down, the bolt let go (tools/animation/reload.luau)
+			firstPerson = 110440542474829,
 			depth = 0.27, -- 8 rounds in one row
 		},
 	},
