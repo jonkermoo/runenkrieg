@@ -40,6 +40,9 @@ export type Entry = {
 	}?,
 	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes)
 	hair: { center: { number } }?,
+	-- packs: how much further back (studs) the slung weapons ride over this pack (Config/Weapons `stow`; src/server/
+	-- Armory): the pack's back surface where the weapon crosses it, minus the bare Torso's back (0.5)
+	sling: number?,
 }
 
 local Assets = {
@@ -55,7 +58,9 @@ local Assets = {
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
 		rifle_g98 = {
-			id = 87306177976563, -- v2: sight line 0.057 over the bore (v1 78115054198721)
+			-- v3: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
+			-- v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
+			id = 71283772137659,
 			category = "Weapons",
 			folder = "Grey/Rifles",
 			source = "assets/weapons/grey/rifle_g98.fbx",
@@ -63,10 +68,11 @@ local Assets = {
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
 		},
 		rifle_smle = {
-			-- v5: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
+			-- v6: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
+			-- v5 130639053099807: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
 			-- clipping at the bolt's end and lever); v4 113048279523913: stock flat beside the action, the bridge on both
 			-- walls (v1-v3 see-through in first person)
-			id = 130639053099807,
+			id = 89375001951596,
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
@@ -134,6 +140,18 @@ local Assets = {
 			source = "assets/weapons/shared/artillery_howitzer.fbx",
 			generator = "tools/blender/artillery/howitzer.py",
 			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
+		},
+		-- the trench spade for digging and building (user 2026-10-19, design F), shared by every team, colored from
+		-- Config/Palette.Shovel by mesh name. No mechanics yet.
+		shovel = {
+			-- v2: a plain iron tube instead of crossed straps, the foot treads the blade's own shoulders made thicker
+			-- (v1 124738061416580)
+			id = 86334126238475,
+			category = "Weapons",
+			folder = "Shared/Shovels",
+			source = "assets/weapons/shared/shovel.fbx",
+			generator = "tools/blender/weapons/shovel.py",
+			description = "Tread spade, 3.5 studs, small two-handed: a wooden D-grip and haft, a brass collar, a plain iron tube, a tapered socket, a dished blade whose shoulders are thickened into foot treads, and a riveted tongue on its back (meshes Wood, Iron, Blade, Brass). Origin at the D-grip's bar, the blade toward -Z, the scoop's hollow toward +Y.",
 		},
 		uniform1 = {
 			category = "Teams",
@@ -243,6 +261,39 @@ local Assets = {
 				brim = 0,
 				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
 			},
+		},
+		-- Backpacks, one per team (user 2026-10-18/19; docs/CHARACTERS.md "Backpacks"): worn on the back of the Torso,
+		-- each part placed at its offset from the export's Origin marker (the Torso center), keeping its imported
+		-- rotation (src/server/Packs). Colored by mesh name from Config/Palette.Packs.
+		pack_tornister = {
+			id = 129063171515330,
+			category = "Teams",
+			folder = "Grey/Packs",
+			source = "assets/teams/grey/packs/pack_tornister.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.2, -- the flap's straps reach 1.68 (user 2026-10-19: the rifle rides over the pack)
+			description = "German Tornister, the grey team's pack: a boxy canvas body under a hide flap with leather edge bands, "
+				.. "two closure straps, a big blanket roll across the top against the back, shoulder bands (436-488 tris).",
+		},
+		pack_zaino = {
+			id = 80208525535625,
+			category = "Teams",
+			folder = "Olive/Packs",
+			source = "assets/teams/olive/packs/pack_zaino.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.25, -- the bulging flap and straps reach 1.74 in the middle
+			description = "Italian zaino M1907, the olive team's pack: a soft bulging canvas sack, a flap following the bulge, "
+				.. "two side straps and a centre strap, a big blanket roll across the top, shoulder bands (660 tris).",
+		},
+		pack_p08 = {
+			id = 132211857076533,
+			category = "Teams",
+			folder = "White/Packs",
+			source = "assets/teams/white/packs/pack_p08.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.1, -- the mess tin and its strap reach 1.59
+			description = "British 1908 web large pack, the white team's: a square web box, a flap two thirds down, two short "
+				.. "straps, a mess tin on the flap, a big blanket roll across the top, shoulder bands (468 tris).",
 		},
 		helmet_stahl = {
 			id = 96961743783144, -- hollow (docs/HATS.md "Hollow helmets"; capped: 84488254718914)
