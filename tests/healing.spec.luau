@@ -25,6 +25,11 @@ return {
 		assert(H.duration(1, 400, Cfg) <= Cfg.MaxSeconds + 1e-9, "a bigger bar still caps at 5 s")
 		assert(H.duration(100, 100, Cfg) == 0, "nothing to heal")
 	end,
+	["health only rises once the healing motion starts"] = function()
+		assert(near(H.prep("Bandage", Cfg), Cfg.Grab.time), "bandage: after the grab")
+		assert(near(H.prep("MedPack", Cfg), Cfg.Grab.time + Cfg.Tear), "med pack: after the grab and the tear")
+		assert(Cfg.Grab.take > 0 and Cfg.Grab.take < Cfg.Grab.time, "the item shows partway through the grab")
+	end,
 	["a heal step fills toward full and stops there"] = function()
 		assert(near(H.step(50, 100, 1, Cfg), 70), "20 a second")
 		assert(H.step(95, 100, 1, Cfg) == 100, "never past full")

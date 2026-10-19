@@ -123,23 +123,25 @@ function Healing.start()
 		if humanoid and kind == nil then
 			humanoid.AutoRotate = true
 		end
+		if kind == nil then
+			return
+		end
+		-- `name` after `delay` seconds, if this heal is still on
+		local function later(delay: number, name: string)
+			task.delay(math.max(delay - Cfg.Fade, 0), function()
+				local t = track(name)
+				if t and turn == token and character:GetAttribute("Healing") == kind then
+					t:Play(Cfg.Fade)
+				end
+			end)
+		end
+		-- the grab from the pack, then the healing itself (the server's health rises from then: Rules.prep)
+		later(0, "grab")
 		if kind == "Bandage" then
-			local t = track("wrap")
-			if t then
-				t:Play(Cfg.Fade)
-			end
-		elseif kind == "MedPack" then
-			local tear, press = track("tear"), track("press")
-			if tear then
-				tear:Play(Cfg.Fade)
-			end
-			if press then
-				task.delay(if tear then math.max(tear.Length - Cfg.Fade, 0) else 0, function()
-					if turn == token and character:GetAttribute("Healing") == "MedPack" then
-						press:Play(Cfg.Fade)
-					end
-				end)
-			end
+			later(Cfg.Grab.time, "wrap")
+		else
+			later(Cfg.Grab.time, "tear")
+			later(Cfg.Grab.time + Cfg.Tear, "press")
 		end
 	end
 

@@ -2,7 +2,8 @@
 -- Healing on the server (H1; Config/Healing, Rules/Healing; docs/MILESTONES.md H1). The only place health goes up:
 -- - Heals: a soldier asks (Net "Heal") to heal the hurt soldier they look at; never themselves (user 2026-10-18). The
 --   server checks reach and that the patient is hurt and alive, picks the item by the patient's health (med pack from
---   70, bandage below), welds it to the healer's right hand and fills the patient's health a share at a time to full.
+--   70, bandage below); the healer reaches back to the pack for it (it shows in the right hand at Grab.take), and once
+--   the healing motion starts (Rules.prep) the patient's health fills a share at a time to full.
 --   It stops (the health healed so far stays) when the healer is hit, the two move Break studs apart, either dies,
 --   the healer asks to stop or draws a weapon. A finished bandage heal puts the patient's next wrap on (left arm,
 --   right leg, head; then no more); the head wrap gives them the helmet-on hair (src/server/Helmets.shortHair).
@@ -29,7 +30,7 @@ local Ragdoll = require(script.Parent.Ragdoll)
 
 local Healing = {}
 
-type Heal = { healer: Model, patient: Model, kind: string, held: Model?, link: ObjectValue }
+type Heal = { healer: Model, patient: Model, kind: string, held: Model?, link: ObjectValue, started: number }
 
 local heals: { [Model]: Heal } = {} -- by healer
 local lastHit: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
@@ -156,14 +157,11 @@ local function start(player: Player, patient: Model)
 		return
 	end
 	hh:UnequipTools()
-	local arm = healer:FindFirstChild("Right Arm") :: BasePart?
-	local g = Cfg.Held[kind]
-	local held = arm and attach(g.entry, arm, CFrame.new(g.grip[1], g.grip[2], g.grip[3]), "HealItem")
 	local link = Instance.new("ObjectValue")
 	link.Name = "HealPatient"
 	link.Value = target
 	link.Parent = healer
-	heals[healer] = { healer = healer, patient = target, kind = kind, held = held, link = link }
+	heals[healer] = { healer = healer, patient = target, kind = kind, link = link, started = os.clock() }
 	healer:SetAttribute("Healing", kind)
 end
 
@@ -187,6 +185,17 @@ local function tick(dt: number)
 			or not Rules.inReach(distance(healer, h.patient), Cfg.Break)
 		then
 			stop(healer)
+			continue
+		end
+		-- the grab from the pack: the item shows in the hand at Grab.take; the health rises only once the healing
+		-- motion starts (Rules.prep)
+		local elapsed = os.clock() - h.started
+		if not h.held and elapsed >= Cfg.Grab.take then
+			local arm = healer:FindFirstChild("Right Arm") :: BasePart?
+			local g = Cfg.Held[h.kind]
+			h.held = arm and attach(g.entry, arm, CFrame.new(g.grip[1], g.grip[2], g.grip[3]), "HealItem")
+		end
+		if elapsed < Rules.prep(h.kind, Cfg) then
 			continue
 		end
 		th.Health = Rules.step(th.Health, th.MaxHealth, dt, Cfg)

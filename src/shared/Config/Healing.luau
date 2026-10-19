@@ -38,10 +38,19 @@ local Healing = {
 		MedPack = { entry = "dressing_packet", grip = { 0, -1.25, 0 } },
 	},
 
+	-- Before either item the healer reaches back to the pack for it (user 2026-10-18: "pretend to grab the
+	-- bandage/medkit from behind us"): HealGrab plays for `time` seconds, the item shows in the hand at `take`. The
+	-- patient's health only starts to rise once the healing itself starts (user: "once start performing the actual
+	-- animation where we physically heal them"): after the grab for the bandage, after the grab and the tear
+	-- (`Tear` seconds) for the med pack. A hit, moving apart or the Heal key still stop it before then.
+	Grab = { time = 0.7, take = 0.3 },
+	Tear = 0.5,
+
 	-- The healer's animations (tools/animation/healing.luau): upper-body layers over the crouch (the healer crouches
-	-- while healing, at crouch speed, no sprint or aim). The bandage wraps in circles, looping; the med pack is torn
-	-- open (`tear`, once) and pressed on (`press`, looping).
+	-- while healing, at crouch speed, no sprint or aim). The grab from the pack first; then the bandage wraps in
+	-- circles, looping, or the med pack is torn open (`tear`, once) and pressed on (`press`, looping).
 	Animations = {
+		grab = { id = 134857195633344 }, -- HealGrab
 		wrap = { id = 114430068813850 }, -- HealWrap
 		tear = { id = 91459275077815 }, -- HealTear
 		press = { id = 77497388101770 }, -- HealPress
