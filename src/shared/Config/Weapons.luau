@@ -190,12 +190,12 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			walk = 138414232252986,
 			carry = 112870868696570,
 			aim = 88831510650616,
-			aimTwo = 93168357261336,
-			charge = 104283993044684, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
-			airCharge = 116353482267248, -- in the air (floating): leaning back as it charges
+			aimTwo = 86681465612273, -- at the right side (user 2026-10-19: "make sure the staff is on our right side")
+			charge = 103451564817751, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
+			airCharge = 128965516186736, -- in the air (floating): leaning back as it charges
 			-- charging with both hands already on (user 2026-10-13: it went back to one hand first)
-			chargeTwo = 125233260118471,
-			airChargeTwo = 74304002722657,
+			chargeTwo = 111875640876355,
+			airChargeTwo = 120791575488143,
 			equip = 105902337487636,
 			unequip = 130701792854486, -- put away onto the back (Config/Locomotion.Stow)
 		},
@@ -220,9 +220,9 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 		fire = {
 			quick = 75953489387448,
 			quickAim = 101856301139598,
-			quickTwo = 88797682738838,
+			quickTwo = 71779282009224,
 			medium = 73692498139809,
-			mediumTwo = 116359925903107,
+			mediumTwo = 139254316829053,
 			-- first person, the hip quick fire: a jab of the head toward the crosshair, settling through the cooldown
 			firstQuick = 80861609176406,
 			-- first person, aimed quick fire: a slight recoil, one hand or both (user 2026-10-13: "when ADS it should just
