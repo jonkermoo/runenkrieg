@@ -28,6 +28,10 @@ local Camera = {
 	-- swap looked choppy going into and out of a sprint
 	-- under the aim-in / aim-out (which covers it) the hold left behind fades out over this share of what is left of it
 	AimHandoff = 0.8,
+	-- the first-person arms' thickness (studs; R6's is 1): slimmer, like a real forearm beside the rifle, as the hand
+	-- works close to the eye (user 2026-10-19: the reload's forearm too big). Their length (2) and joints stay R6's, so
+	-- the hands land where the animations put them. Others see the normal arms.
+	ViewmodelArmWidth = 0.7,
 
 	-- First person, not aiming (user 2026-10-12: hip fire should go about where the screen centre is when standing
 	-- still): the first-person rifle is turned so its barrel meets the centre line this many studs out; sway still

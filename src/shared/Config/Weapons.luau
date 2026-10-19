@@ -492,7 +492,7 @@ local Weapons: { [string]: Weapon } = {
 			clipTop = { 0, 0.0614, -0.267 },
 			entry = 0.2,
 			body = 85665510995906,
-			firstPerson = 75633779262187,
+			firstPerson = 88100725060976,
 		},
 	},
 	rifle_g98 = {
@@ -575,13 +575,13 @@ local Weapons: { [string]: Weapon } = {
 			firstReady = 117007270529310,
 		},
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
-		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 95518071079042 },
+		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 125633536245582 },
 		reload = {
 			knob = { 0.136, 0.065, -0.0695 },
 			clipTop = { 0, 0.255, -0.1863 },
 			entry = 0,
 			body = 122499300440488,
-			firstPerson = 131003405036443,
+			firstPerson = 103984490170296,
 		},
 	},
 	rifle_smle = {
@@ -665,13 +665,13 @@ local Weapons: { [string]: Weapon } = {
 			firstReady = 108177354367826,
 		},
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
-		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 125069294394284 },
+		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 78678430549776 },
 		reload = {
 			knob = { 0.11, -0.0276, 0.0376 },
 			clipTop = { 0, 0.2833, -0.1618 },
 			entry = 0,
 			body = 101808128954188,
-			firstPerson = 136400362363287,
+			firstPerson = 136843033262681,
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)

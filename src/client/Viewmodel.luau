@@ -116,7 +116,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		local arm = if source then source:Clone() else Instance.new("Part")
 		arm:ClearAllChildren()
 		arm.Name = name
-		arm.Size = Vector3.new(1, 2, 1)
+		arm.Size = Vector3.new(Cfg.ViewmodelArmWidth, 2, Cfg.ViewmodelArmWidth)
 		ghost(arm)
 		arm.Parent = model
 		local m = Instance.new("Motor6D")
