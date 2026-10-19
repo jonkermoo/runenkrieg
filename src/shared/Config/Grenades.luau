@@ -92,12 +92,6 @@ local Grenades = {
 		},
 	},
 
-	-- Phones and tablets (user 2026-10-19: "Hold-release button"): a round throw button, only on touch screens while a
-	-- grenade is out, left of Roblox's jump button. Hold it for the line, lift to throw, slide off it to put the throw
-	-- back. Pixels: `size` across, its bottom-right corner `right` / `bottom` in from the screen's; `press`: the fill's
-	-- transparency while held (0 solid), `idle` otherwise.
-	Touch = { size = 80, right = 200, bottom = 60, idle = 0.35, press = 0.05, text = 14 },
-
 	-- The explosion (src/client/Vfx/Blast, shared with the staff and later cannons): a plain one sized by the charge, in
 	-- the fire scheme (Config/Vfx.Schemes).
 	Vfx = { scheme = "Ember" },
