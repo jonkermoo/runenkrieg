@@ -12,6 +12,7 @@ local Damage = {
 	-- A shotgun's numbers are per pellet, with its Config/Weapons `pellets` falloff (full to `full`, none past `none`).
 	Weapons = {
 		BoltRifle = { Head = 200, Torso = 70, Limb = 60, Helmet = 40 }, -- user: torso 70 (2 hits)
+		SemiRifle = { Head = 200, Torso = 55, Limb = 45, Helmet = 40 }, -- W2: so they don't outclass the bolt rifles
 		Shotgun = { Head = 30, Torso = 20, Limb = 12, Helmet = 10 },
 	},
 
@@ -146,7 +147,7 @@ local Damage = {
 	-- bullets falls along the shot and leaves a stump; a blast fells it whole, away from the blast, no stump.
 	Trees = {
 		HP = { Pine = 300, Broadleaf = 360, Birch = 240 }, -- ~30 rifle hits at scale 1
-		Weapons = { BoltRifle = 10, Shotgun = 2 },
+		Weapons = { BoltRifle = 10, SemiRifle = 8, Shotgun = 2 },
 		-- the fall: clients animate it over `time` s; then the server places it where it lies, anchored (no physics:
 		-- user: "stay for some time ... don't lag the server"), as cover for `lifetime` s, at most `maxFallen` on the
 		-- map (the oldest goes first); it sinks into the ground over `sinkTime` s and is removed.

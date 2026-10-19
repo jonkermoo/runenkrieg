@@ -478,7 +478,7 @@ local function poseProp(prop: Prop, weapon: string, u: number)
 		topCF = seat
 		drop = 1
 	end
-	local depth = 0.17 * s[2] -- a stripper clip's height: the rounds leave it
+	local depth = (r.depth or 0.17) * s[2] -- a stripper clip's height: the rounds leave it
 	for _, p in prop.parts do
 		if p.round and not en then
 			p.part.CFrame = topCF * CFrame.new(0, -depth * drop, 0) * p.rel
@@ -530,6 +530,9 @@ local function playAction(character: Model, weapon: string, action: string, u0: 
 	local reload = action == "Reload"
 	local time = if reload then w.action.reloadTime else w.action.boltTime
 	local list = {}
+	if action == "Auto" then
+		return list -- a semi-automatic's action cycles itself: no hand on it
+	end
 	local function start(animator: Animator?, id: number)
 		if not animator or id == 0 then
 			return
@@ -575,7 +578,7 @@ function GunFx.takeCut(tool: Tool): Cut?
 end
 
 -- The bolt (and the reload's hands and clip) through a "Bolt" or "Reload" cycle (Config/Firing BoltCycle /
--- ReloadCycle), playing the span `from`..`to` of its timeline (0..1: the whole action; a bolt held open on an empty
+-- ReloadCycle; a semi-automatic's self-cycling action after a shot: "Auto", AutoCycle), playing the span `from`..`to` of its timeline (0..1: the whole action; a bolt held open on an empty
 -- rifle stops at `back`, a reload from an open bolt starts there, a resumed action plays its rest). `out`: what the
 -- opening bolt throws out ("Casing"); `magazine`: rounds left in the magazine after it. Put away midway, it stops where
 -- it is and is kept (GunFx.takeCut) to play out when the rifle is drawn again.
@@ -596,13 +599,14 @@ function GunFx.cycle(
 		return
 	end
 	local u0, u1 = from or 0, to or 1
-	local time = (if action == "Bolt" then a.boltTime else a.reloadTime) * (u1 - u0)
+	local time = (if action == "Reload" then a.reloadTime else a.boltTime) * (u1 - u0)
 	if time <= 0 then
 		return
 	end
 	local reload = action == "Reload"
+	local auto = action == "Auto"
 	local turn, travel = math.rad(a.turn), a.travel * s[3]
-	local cycle = if reload then Cfg.ReloadCycle else (a.cycle or Cfg.BoltCycle) :: any
+	local cycle = if reload then Cfg.ReloadCycle elseif auto then Cfg.AutoCycle else (a.cycle or Cfg.BoltCycle) :: any
 	local en = w.ammo.clip == "Enbloc"
 	local rise = Cfg.ClipRise * s[2]
 	-- the bolt: the hand reaches the handle (reload), turns it up, pulls it back; pushes it forward once the case is out
@@ -748,7 +752,9 @@ function GunFx.cycle(
 		clips(u)
 		if not opened and u >= openAt then
 			opened = true
-			GunFx.sound(gun, "BoltOpen")
+			if not auto then -- (the shot covers a semi-automatic's own action)
+				GunFx.sound(gun, "BoltOpen")
+			end
 		end
 		if not ejected and u >= cycle.back then
 			ejected = true
@@ -763,7 +769,9 @@ function GunFx.cycle(
 		end
 		if not closed and u >= cycle.forward then
 			closed = true
-			GunFx.sound(gun, "BoltClose")
+			if not auto then
+				GunFx.sound(gun, "BoltClose")
+			end
 		end
 		if u >= u1 then
 			conn:Disconnect()

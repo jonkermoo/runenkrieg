@@ -42,6 +42,9 @@ local Firing = {
 		forward = 0.88,
 		down = 0.94,
 	},
+	-- A semi-automatic's action after a shot (W2), shares of its boltTime: the bolt flies back (the case out at `back`),
+	-- then returns; nothing turns and no hand moves. On the last round it stops at `back` (held open).
+	AutoCycle = { reach = 0, up = 0.01, back = 0.4, forward = 0.85, down = 1 },
 	-- An action started partway (a reload from a bolt held open, one resumed after being cut) fades its arms in over
 	-- this long (s), so the rifle travels from the hold into the action's pose (at 0.15 s it lunged; A1 audit 2026-10-18)
 	ResumeFade = 0.3,

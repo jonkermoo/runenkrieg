@@ -42,6 +42,25 @@ local PUMP: F.Gun = {
 	singleRound = 0.45,
 	singleClose = 0.25,
 }
+-- the semi-automatics (W2): a stripper-clip one, a charger one (two 5-round chargers), a box one
+local function semi(capacity: number, clip: string, clipSize: number?): F.Gun
+	return {
+		capacity = capacity,
+		clip = clip,
+		auto = true,
+		clipSize = clipSize,
+		clipTime = if clipSize then 0.8 else nil,
+		boltTime = 0.12,
+		reloadTime = 2.5,
+		fireTime = 0.35,
+		openAt = OPEN.openAt,
+		reloadOpenAt = OPEN.reloadOpenAt,
+		singleOpen = S.open,
+		singleRound = S.round,
+		singleClose = S.close,
+	}
+end
+local MONDRAGON, REMINGTON, WINCHESTER = semi(8, "Stripper"), semi(10, "Stripper", 5), semi(15, "Box")
 -- when a single load started at `t0` with every round going in ends
 local function loadDone(t0: number, rounds: number): number
 	return t0 + S.open + rounds * S.round + S.close
@@ -198,6 +217,56 @@ return {
 		assert(F.next(g, 10 + Cfg.Resume.delay + left - 0.05) == "Busy", "still loading / closing")
 		assert(F.next(g, 10 + Cfg.Resume.delay + left) == "Fire" and g.magazine == 2, "2 + 1 in, closed: 2 + 1")
 	end,
+	["a semi-automatic fires every click, at most one shot per fireTime"] = function()
+		local s = F.new(MONDRAGON)
+		local ok, _, out = F.fire(s, MONDRAGON, 0)
+		assert(ok and out == "Casing", "the action throws the case out itself")
+		assert(s.chambered and not s.spent and s.magazine == 7, "the next round is in: 7 + 1")
+		assert(F.next(s, 0.2) == "Busy", "too soon")
+		assert(not F.fire(s, MONDRAGON, 0.2), "no second shot within fireTime")
+		assert(F.next(s, 0.35) == "Fire", "no bolt to work: the next click fires")
+	end,
+	["a semi-automatic's bolt stays open after the last round"] = function()
+		local s = F.new(MONDRAGON)
+		for i = 0, 8 do
+			assert(F.fire(s, MONDRAGON, i), `shot {i + 1}`)
+		end
+		assert(s.open and not s.chambered and s.magazine == 0, "held open on the empty magazine")
+		assert(F.next(s, 10) == "Open", "the trigger does nothing")
+		local ok = F.reload(s, MONDRAGON, 10)
+		assert(ok and s.chambered and s.magazine == 7 and not s.open, "a clip in, the bolt closes on a round: 7 + 1")
+		assert(s.busyUntil == 10 + 2.5 * (1 - OPEN.reloadOpenAt), "from the open bolt: the clip goes straight in")
+	end,
+	["a semi-automatic's reload tops up: the chambered round stays"] = function()
+		local s = F.new(MONDRAGON)
+		assert(not F.reload(s, MONDRAGON, 0), "full: nothing to load")
+		F.fire(s, MONDRAGON, 0)
+		F.fire(s, MONDRAGON, 1) -- 6 + 1
+		local ok, _, out, kind = F.reload(s, MONDRAGON, 2)
+		assert(ok and kind == "Reload" and out == nil, "a clip, nothing thrown out")
+		assert(s.magazine == 8 and s.chambered and F.rounds(s) == 9, "full again: 8 + 1")
+		assert(s.busyUntil == 2 + 2.5, "one clip")
+	end,
+	["a charger rifle presses in as many chargers as the room needs"] = function()
+		local s = F.new(REMINGTON)
+		assert(F.rounds(s) == 11, "10 + 1")
+		for i = 0, 3 do
+			F.fire(s, REMINGTON, i) -- 4 shots: 6 + 1
+		end
+		assert(F.clipsFor(s, REMINGTON) == 1, "room for 4: one charger")
+		for i = 4, 7 do
+			F.fire(s, REMINGTON, i) -- 2 + 1
+		end
+		assert(F.clipsFor(s, REMINGTON) == 2, "room for 8: two chargers")
+		F.reload(s, REMINGTON, 10)
+		assert(s.magazine == 10 and s.chambered and s.busyUntil == 10 + 2.5 + 0.8, "two chargers take clipTime more")
+	end,
+	["a box rifle swaps the box whole"] = function()
+		local s = F.new(WINCHESTER)
+		F.fire(s, WINCHESTER, 0)
+		assert(F.clipsFor(s, WINCHESTER) == 1, "one box")
+		assert(F.reload(s, WINCHESTER, 1) and s.magazine == 15 and F.rounds(s) == 16, "a fresh box: 15 + 1")
+	end,
 	["shots must come from the shooter's own rifle, as a unit direction"] = function()
 		assert(F.validShot(5, 1, Cfg.MaxOrigin))
 		assert(not F.validShot(30, 1, Cfg.MaxOrigin), "far from the shooter")
@@ -206,13 +275,19 @@ return {
 	end,
 	["every gun has its ammunition and action"] = function()
 		for name, w in W do
-			if not w.ammo and w.class ~= "BoltRifle" then
+			if not w.ammo and w.class ~= "BoltRifle" and w.class ~= "SemiRifle" then
 				continue -- not a gun (the staff)
 			end
 			local a, act = w.ammo, w.action
-			local clips = { Enbloc = true, Stripper = true, Loose = true }
+			local clips = { Enbloc = true, Stripper = true, Loose = true, Box = true }
 			assert(a and a.capacity >= 1 and clips[a.clip], `{name}: ammo`)
-			if a.clip == "Loose" then
+			if act and act.auto then
+				-- a semi-automatic (W2): the bolt slides straight back by itself, one shot per fireTime
+				assert(w.class == "SemiRifle" and act.turn == 0 and act.travel > 0, `{name}: self-cycling bolt`)
+				assert(act.fireTime and act.fireTime >= 0.35, `{name}: at most one shot every 0.35 s`)
+				assert(act.reloadTime > act.boltTime, `{name}: action times`)
+				assert((a.clipSize or a.capacity) <= a.capacity, `{name}: clip size`)
+			elseif a.clip == "Loose" then
 				-- a pump gun: shells one at a time (`single`), the pump slides straight back (no turn) with its shell feed
 				assert(act and act.boltTime > 0 and act.turn == 0, `{name}: pump action`)
 				assert(act.travel > 0 and act.travel < 0.5, `{name}: pump stroke`)

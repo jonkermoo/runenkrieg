@@ -79,6 +79,14 @@ local Assets = {
 			generator = "tools/blender/weapons/smle.py",
 			description = "Lee-Enfield SMLE Mk III, the white team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
 		},
+		rifle_mondragon = {
+			id = 77357570578798,
+			category = "Weapons",
+			folder = "Grey/Rifles",
+			source = "assets/weapons/grey/rifle_mondragon.fbx",
+			generator = "tools/blender/weapons/mondragon.py",
+			description = "Mondragón FSK 15 semi-automatic rifle, the grey team's (W2; built from its trace: tools/blender/weapons/trace/mondragon.py; review assets/weapons/grey/review/rifle_mondragon_v7.blend). Rigged from Config/Weapons.",
+		},
 		staff = {
 			id = 109018663192748, -- v2: team accents (binding, ribbon, head ring, foot cap), colored per team
 			category = "Weapons",

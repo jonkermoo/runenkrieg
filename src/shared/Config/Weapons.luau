@@ -102,9 +102,14 @@ export type Weapon = {
 	-- into the magazine and drops out the bottom when empty, only reloaded empty; "Stripper": the rounds are pushed
 	-- down out of a clip held in the guides, topping the magazine up). Guns only: an item without `ammo` doesn't fire
 	-- (src/client/Firing, src/server/Firing) and has no action, reload or bolt either.
-	ammo: { capacity: number, clip: string }?,
+	-- A semi-automatic (W2, `action.auto`) always fills the magazine on R: "Stripper" presses in clips of `clipSize`
+	-- rounds (else capacity) from the guides, as many as the room needs; "Box" swaps the detachable box whole.
+	ammo: { capacity: number, clip: string, clipSize: number? }?,
 	-- The action, worked by hand (seconds; turn in degrees, travel in modelled studs): the bolt turns its handle up
 	-- by `turn` about its axis (gun Z), then slides back `travel` (+Z) and returns.
+	-- auto: a semi-automatic (W2, user 2026-10-18): the action cycles itself on a shot over `boltTime` seconds
+	-- (Config/Firing.AutoCycle; no hand on it), every click fires (at most one shot per fireTime); clipTime: seconds
+	-- each clip after the first adds to a reload.
 	-- fireTime: after a shot nothing else can start for this long (else Config/Firing.FireTime); cycle: this weapon's
 	-- own bolt timeline (else Config/Firing.BoltCycle; `hold`: the bolt / pump rests back until then before it goes
 	-- forward).
@@ -114,6 +119,8 @@ export type Weapon = {
 		turn: number,
 		travel: number,
 		fireTime: number?,
+		auto: boolean?,
+		clipTime: number?,
 		cycle: { reach: number, up: number, back: number, hold: number?, forward: number, down: number }?,
 	}?,
 	-- The reload (Config/Firing.ReloadCycle; user 2026-10-13): where the right hand works, in modelled gun space, and
@@ -128,6 +135,7 @@ export type Weapon = {
 		entry: number,
 		body: number,
 		firstPerson: number,
+		depth: number?, -- how far a stripper clip's rounds go down out of it (modelled studs; else 0.17)
 	}?,
 	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
 	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
@@ -159,6 +167,8 @@ export type Weapon = {
 	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
 	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot).
 	recoil: { scale: number, build: number, max: number, cool: number }?,
+	-- Sway weight over the class's (Config/Sway.Classes): a heavier gun sways more and aims in slower (W2).
+	weight: number?,
 }
 
 -- The mage staff (docs/VFX.md; model tools/blender/weapons/staff.py, exported by export_staff.py): carried like the
@@ -686,6 +696,90 @@ local Weapons: { [string]: Weapon } = {
 			entry = 0,
 			body = 101808128954188,
 			firstPerson = 136843033262681,
+		},
+	},
+	-- The semi-automatic rifles, one per team (docs/MILESTONES.md W2, user 2026-10-18): one shot per click, at most one
+	-- every 0.35 s; the action cycles itself (no bolt to work); torso 55 / limbs 45 (Config/Damage SemiRifle); R always
+	-- fills the magazine. Gentle recoil (scale 0.8, build 0.3).
+	-- The grey team's Mondragón (FSK 15): 8 + 1 from 8-round stripper clips, the quickest reload, the lightest.
+	rifle_mondragon = {
+		asset = "rifle_mondragon",
+		display = "Mondragón",
+		slot = "Primary",
+		class = "SemiRifle",
+		parts = {
+			Wood = { 142, 74, 42 },
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Trigger = { 52, 54, 58 },
+			Clip = { 90, 88, 84 },
+			Rounds = { 196, 160, 84 },
+			Bullets = { 184, 115, 72 },
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.065, -0.3492 }, -- on the bolt's axis, at the knob (out to the right through the port)
+			Trigger = { 0, -0.0718, 0 }, -- the trigger pin
+			Clip = { 0, 0.0995, -0.2151 }, -- the stripper clip over the open top
+		},
+		hidden = { "Casing", "Clip" }, -- the clip shows only while reloading
+		attachments = {
+			Muzzle = { 0, 0.065, -2.1709 },
+			Aim = { 0, 0.134, 0.45 }, -- on the sight line, 0.069 over the bore
+			Eject = { 0.02, 0.09, -0.2762 }, -- out of the open top
+		},
+		grip = { 0, -0.0072, 0.2151 }, -- the wrist
+		-- (until its own are built: the Gewehr 98's, the nearest in size; tools/animation/rifle.luau)
+		holdsOf = "rifle_g98",
+		holds = {
+			ready = 122397590747708,
+			walk = 132355293924259,
+			carry = 111492198362235,
+			aim = 122070726635734,
+			equip = 71450535994230,
+			unequip = 116812363774678,
+			crouchReady = 105420937472327,
+			crouchWalk = 138227006700932,
+			crouchAim = 95607613119898,
+		},
+		firstPerson = {
+			ready = 102402737080974,
+			carry = 106294181602498,
+			aim = 70722778630134,
+			equip = 123066272399119,
+			unequip = 126607551609403,
+			aimIn = 77762769530436,
+			aimOut = 109549978918090,
+		},
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		ammo = { capacity = 8, clip = "Stripper" }, -- one 8-round clip fills it (8 + 1)
+		-- the bolt slides straight back (no turn) and returns by itself
+		action = {
+			auto = true,
+			boltTime = 0.12,
+			reloadTime = 2.5,
+			turn = 0,
+			travel = 0.219,
+			fireTime = 0.35,
+		},
+		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
+		weight = 1.0,
+		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
+		reload = {
+			knob = { 0.092, 0.065, -0.3492 }, -- the operating knob, bolt closed
+			clipTop = { 0, 0.3695, -0.2151 }, -- the clip's top over the open top
+			entry = 0,
+			body = 0,
+			firstPerson = 0,
+			depth = 0.27, -- 8 rounds in one row
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)

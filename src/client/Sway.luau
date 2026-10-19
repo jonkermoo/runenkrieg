@@ -172,8 +172,9 @@ function Sway.start()
 			return
 		end
 		local weapon = Held.weapon(character)
-		local class = weapon and (W[weapon.name] :: any).class
-		local weight = class and Cfg.Classes[class] or 1
+		local spec = weapon and (W[weapon.name] :: any)
+		local class = spec and spec.class
+		local weight = spec and spec.weight or class and Cfg.Classes[class] or 1 -- (the gun's own weight first, W2)
 		local aiming = character:GetAttribute("Aiming") == true
 		local A = Cfg.Aim
 		local function share(k: string): number

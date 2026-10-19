@@ -1,6 +1,7 @@
 --!strict
 -- Shooting on the local client (M11; Config/Firing, Rules/Firing; the server decides in src/server/Firing):
--- - left click fires the held rifle; after a shot the next click works the bolt (by hand, user 2026-10-12); with
+-- - left click fires the held rifle; after a shot the next click works the bolt (by hand, user 2026-10-12; a
+--   semi-automatic's action cycles itself, W2: every click fires, at most one shot per fireTime); with
 --   nothing to fire it clicks empty. R loads a clip into an empty magazine; with rounds left a stripper-clip rifle
 --   loads single rounds until full, and a click or aiming stops it after the round in the hand (user 2026-10-13;
 --   aiming 2026-10-19). No firing while sprinting.
@@ -45,6 +46,9 @@ local function gunOf(name: string): F.Gun
 		boltTime = w.action.boltTime,
 		reloadTime = w.action.reloadTime,
 		fireTime = w.action.fireTime or Cfg.FireTime,
+		auto = w.action.auto,
+		clipSize = w.ammo.clipSize,
+		clipTime = w.action.clipTime,
 		openAt = (w.action.cycle or Cfg.BoltCycle).back,
 		reloadOpenAt = Cfg.ReloadCycle.back,
 		singleOpen = w.single and w.single.open or Cfg.Single.open,
@@ -304,7 +308,7 @@ function Firing.start()
 			if not origin or not dir then
 				return
 			end
-			F.fire(l.state, l.gun, now)
+			local _, _, out = F.fire(l.state, l.gun, now)
 			l.sent += 1
 			local seed = math.random(1, 2147483646)
 			Net.event("Fire"):FireServer(origin, dir, seed)
@@ -318,6 +322,11 @@ function Firing.start()
 			local first = table.remove(hits, 1) :: any
 			GunFx.shot(character, first[1], first[2], first[3], if #hits > 0 then hits else nil)
 			Sway.kick(W[weapon.name].recoil)
+			if l.gun.auto then
+				-- the action cycles itself (held open after the last round)
+				local to = if l.state.open then Cfg.AutoCycle.back else 1
+				GunFx.cycle(character, weapon.name, "Auto", out, l.state.magazine, 0, to)
+			end
 		elseif next == "Bolt" then
 			local _, _, out = F.bolt(l.state, l.gun, now)
 			l.sent += 1
@@ -418,6 +427,15 @@ function Firing.start()
 				ShotAudio.heard(shooter, weapon, origin, ends)
 			end
 			GunFx.shot(shooter, hit, normal, part, more, true)
+			local w = type(weapon) == "string" and W[weapon]
+			local tool = shooter:FindFirstChildOfClass("Tool")
+			if w and w.action and w.action.auto and tool then
+				-- a semi-automatic's own action (the server's state is published before the shot goes out)
+				local open = tool:GetAttribute("Open") == true
+				local m = tool:GetAttribute("Magazine")
+				local to = if open then Cfg.AutoCycle.back else 1
+				GunFx.cycle(shooter, weapon, "Auto", "Casing", if type(m) == "number" then m else 0, 0, to)
+			end
 		end
 	)
 	Net.event("WeaponAction").OnClientEvent
