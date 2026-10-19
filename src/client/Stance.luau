@@ -1,9 +1,14 @@
 --!strict
--- The soldier's stance controls (Config/Locomotion keys; speeds from Config/Metrics.Movement):
--- - hold Shift to sprint, unlimited stamina (user 2026-10-11), only while moving forward relative to the camera
+-- The soldier's stance controls (keys and hold / toggle modes are player settings, src/client/Settings; speeds from
+-- Config/Metrics.Movement):
+-- - hold Shift to sprint (or press it once: the "Toggle" sprint mode, off again on the next press, a crouch, or
+--   stopping after moving), unlimited stamina (user 2026-10-11), only while moving forward relative to the camera
 --   (user reference video: strafing or backing up with Shift stays a walk; Config/Locomotion.SprintCone);
--- - hold right mouse to aim down the sights while a weapon is in the hands; never while sprinting (Shift wins);
--- - C toggles crouch (moderate, from the user's reference video); sprinting or jumping stands you up. Crouched, the
+-- - hold right mouse to aim down the sights while a weapon is in the hands (or press it once: the "Toggle" aim mode,
+--   off again on the next press, a sprint, a fall or putting the weapon away); never while sprinting (Shift wins), and not
+--   until a reload or a load has finished (src/client/GunFx "Reloading"; aiming cuts a single load short,
+--   src/client/Firing), so the sights never come up over the loading arms;
+-- - C toggles crouch (or is held: the "Hold" crouch mode) (moderate, from the user's reference video); sprinting or jumping stands you up. Crouched, the
 --   camera comes down with the body (Humanoid.CameraOffset follows the torso's drop; src/client/WeaponCamera too).
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
 --   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set.
@@ -22,24 +27,14 @@ local Dev = require(Shared.Config.DevTools)
 local M = require(Shared.Config.Metrics)
 local W = require(Shared.Config.Weapons)
 local Held = require(script.Parent.Held)
+local Settings = require(script.Parent.Settings)
 
 local Stance = {}
-
-local function keys(names: { string }): { Enum.KeyCode | Enum.UserInputType }
-	local out = {}
-	for _, k in names do
-		-- a key ("LeftShift") or a button ("MouseButton2"); indexing an enum with a name it lacks throws
-		local ok, key = pcall(function()
-			return (Enum.KeyCode :: any)[k]
-		end)
-		table.insert(out, if ok then key else (Enum.UserInputType :: any)[k])
-	end
-	return out
-end
 
 function Stance.start()
 	local player = Players.LocalPlayer
 	local sprintHeld, aimHeld, crouched = false, false, false
+	local sprintMoved = false -- a toggled sprint has moved since it was switched on (stopping then ends it)
 
 	local cone = math.cos(math.rad(Cfg.SprintCone))
 	-- moving within the cone around where the camera looks (flat), or standing still (Shift down, about to go)
@@ -61,13 +56,28 @@ function Stance.start()
 		end
 		-- ragdolled (src/client/Ragdoll): no control at all
 		local limp = character:GetAttribute("Ragdolled") == true
+		if sprintHeld and Settings.get("SprintMode") == "Toggle" then
+			if humanoid.MoveDirection.Magnitude >= Cfg.ToggleSprintMoving then
+				sprintMoved = true
+			elseif sprintMoved then
+				sprintHeld = false -- stopped: a toggled sprint ends
+			end
+		end
 		local sprinting = sprintHeld and forward(humanoid) and character:GetAttribute("Casting") ~= true and not limp
 		if sprinting then
 			crouched = false -- a sprint stands you up
 		end
 		-- only an item with an aim hold can be aimed (the staff has no sights)
 		local weapon = Held.weapon(character)
-		local aiming = aimHeld and not sprinting and not limp and weapon ~= nil and W[weapon.name].holds.aim ~= nil
+		if aimHeld and Settings.get("AimMode") == "Toggle" and (sprinting or limp or not weapon) then
+			aimHeld = false -- a toggled aim ends with a sprint, a fall or the weapon put away
+		end
+		local aiming = aimHeld
+			and not sprinting
+			and not limp
+			and weapon ~= nil
+			and W[weapon.name].holds.aim ~= nil
+			and character:GetAttribute("Reloading") ~= true
 		local speed = if sprinting
 			then M.Movement.SprintSpeed
 			elseif crouched then M.Movement.CrouchSpeed
@@ -94,30 +104,49 @@ function Stance.start()
 			return Enum.ContextActionResult.Pass
 		end
 	end
-	ContextActionService:BindAction(
-		"Sprint",
-		held(function(on)
+	local function sprint(on: boolean)
+		if Settings.get("SprintMode") ~= "Toggle" then
 			sprintHeld = on
-		end),
-		false,
-		table.unpack(keys(Cfg.SprintKeys))
-	)
-	ContextActionService:BindAction(
-		"Aim",
-		held(function(on)
-			aimHeld = on
-		end),
-		false,
-		table.unpack(keys(Cfg.AimKeys))
-	)
-
-	ContextActionService:BindAction("Crouch", function(_, state)
-		if state == Enum.UserInputState.Begin then
-			crouched = not crouched
-			apply()
+		elseif on then
+			sprintHeld, sprintMoved = not sprintHeld, false
 		end
-		return Enum.ContextActionResult.Pass
-	end, false, table.unpack(keys(Cfg.CrouchKeys)))
+	end
+	local function aim(on: boolean)
+		if Settings.get("AimMode") ~= "Toggle" then
+			aimHeld = on
+		elseif on then
+			-- toggled; pressed during a load (which it stops, src/client/Firing) it always means aim once it's done
+			local character = player.Character
+			local loading = character ~= nil and character:GetAttribute("Reloading") == true
+			aimHeld = loading or not aimHeld
+		end
+	end
+	local function crouch(on: boolean)
+		if Settings.get("CrouchMode") == "Hold" then
+			crouched = on
+		elseif on then
+			crouched = not crouched
+		end
+		if crouched and Settings.get("SprintMode") == "Toggle" then
+			sprintHeld = false -- crouching ends a toggled sprint
+		end
+	end
+	-- (re)bound to the player's keys whenever one changes
+	local function bindAll()
+		ContextActionService:BindAction("Sprint", held(sprint), false, Settings.key("Key_Sprint"))
+		ContextActionService:BindAction("Aim", held(aim), false, Settings.key("Key_Aim"))
+		ContextActionService:BindAction("Crouch", held(crouch), false, Settings.key("Key_Crouch"))
+	end
+	bindAll()
+	for _, k in { "Key_Sprint", "Key_Aim", "Key_Crouch" } do
+		Settings.changed(k, bindAll)
+	end
+	for _, k in { "AimMode", "SprintMode", "CrouchMode" } do
+		Settings.changed(k, function()
+			sprintHeld, aimHeld, crouched = false, false, false
+			apply()
+		end)
+	end
 
 	local function hook(character: Model)
 		local humanoid = character:WaitForChild("Humanoid") :: Humanoid
@@ -135,6 +164,7 @@ function Stance.start()
 		character:GetAttributeChangedSignal("SpeedScale"):Connect(apply)
 		character:GetAttributeChangedSignal("Casting"):Connect(apply)
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
+		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
 	end
 	player.CharacterAdded:Connect(hook)
 	player:GetAttributeChangedSignal(Dev.Admin.Attribute):Connect(apply)

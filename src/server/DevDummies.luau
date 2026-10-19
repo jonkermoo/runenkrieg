@@ -19,6 +19,7 @@ local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local Rules = require(Shared.Rules.DevActions)
 local Helmets = require(script.Parent.Helmets)
+local Packs = require(script.Parent.Packs)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
 
@@ -212,6 +213,7 @@ function DevDummies.spawn(spec: Spec): Model?
 		end
 	end
 	Helmets.dress(m, if spec.helmet then kit.headwear else nil)
+	Packs.dress(m, kit.pack)
 	m:SetAttribute("Muted", nil)
 	local function group(d: Instance)
 		if d:IsA("BasePart") then

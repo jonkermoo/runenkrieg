@@ -272,12 +272,31 @@ function Library.gallery(): string
 			for _, d in copy:GetDescendants() do
 				if d:IsA("BasePart") then
 					previewColor(d, palette)
+					local pack = palette.Packs[name]
+					if pack and pack[d.Name] then
+						d.Color = rgb(pack[d.Name])
+					end
+					if e.folder == "Shared/Bandages" and palette.Medical[d.Name] then
+						d.Color = rgb(palette.Medical[d.Name])
+					end
+					if e.folder == "Shared/Shovels" and palette.Shovel[d.Name] then
+						d.Color = rgb(palette.Shovel[d.Name])
+					end
+					if e.folder == "Shared/Artillery" then
+						-- the gallery shows the grey team's paint; the runes and the crystal glow
+						local art = palette.Artillery
+						d.Color =
+							rgb(if table.find(art.Painted, d.Name) then art.Paint.Grey else art[d.Name] or art.Barrel)
+						if table.find(art.Glowing, d.Name) then
+							d.Material = Enum.Material.Neon
+						end
+					end
 				end
 			end
 		end
 		local cf, size = copy:GetBoundingBox()
-		-- small assets (grass) are shown 4x so they are readable; the label says so
-		local zoom = if e.category == "Foliage" and size.Magnitude < 20 then 4 else 1
+		-- small assets (grass, bandages) are shown 4x so they are readable; the label says so
+		local zoom = if (e.category == "Foliage" or e.folder == "Shared/Bandages") and size.Magnitude < 20 then 4 else 1
 		if zoom ~= 1 then
 			copy:ScaleTo(copy:GetScale() * zoom)
 			cf, size = copy:GetBoundingBox()

@@ -59,6 +59,10 @@ return {
 	["stowed weapons sit muzzle-up with a square frame"] = function()
 		for name, w in W do
 			local s = w.stow
+			if not s then
+				assert(w.class == "Grenade", `{name}: only grenades show nothing on the body when put away`)
+				continue
+			end
 			assert(#s.at == 3, `{name}: stow position is not a point`)
 			local m, d = s.muzzle, s.side
 			local function len(v: { number }): number
@@ -71,7 +75,11 @@ return {
 	end,
 	["every weapon has a loadout slot"] = function()
 		for name, w in W do
-			assert(w.slot == "Primary", `{name}: unknown slot {w.slot}`)
+			assert(w.slot == "Primary" or w.slot == "Grenade", `{name}: unknown slot {w.slot}`)
+			assert(
+				(w.slot == "Grenade") == (w.class == "Grenade"),
+				`{name}: grenades, and only they, go in the Grenade slot`
+			)
 		end
 	end,
 	["kit weapons exist"] = function()
@@ -80,13 +88,18 @@ return {
 			if wname then
 				assert(W[wname], `{kit}: unknown weapon {wname}`)
 			end
+			local gname = (k :: any).grenade
+			if gname then
+				assert(W[gname] and W[gname].slot == "Grenade", `{kit}: unknown grenade {gname}`)
+			end
 		end
 	end,
 	["every weapon has its hold animations, in third and first person"] = function()
 		-- guns have the full set; any item at least ready and equip (a missing hold plays the ready)
 		local ALL = { "ready", "walk", "carry", "aim", "equip", "crouchReady", "crouchWalk", "crouchAim" }
-		local ALL_FIRST = { "ready", "carry", "aim", "equip", "aimIn" }
-		local OPTIONAL = { "unequip", "aimTwo", "charge", "airCharge", "chargeTwo", "airChargeTwo" } -- unequip; the staff's
+		local ALL_FIRST = { "ready", "carry", "aim", "equip", "aimIn", "aimOut" }
+		-- unequip; the staff's; a grenade's
+		local OPTIONAL = { "unequip", "aimTwo", "charge", "airCharge", "chargeTwo", "airChargeTwo", "windup", "throw" }
 		for name, w in W do
 			for _, hold in if w.ammo then ALL else { "ready", "equip" } do
 				local id = (w.holds :: any)[hold]

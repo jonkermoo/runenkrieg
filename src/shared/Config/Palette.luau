@@ -79,6 +79,61 @@ local Palette = {
 		CarBodies = { { 72, 42, 40 }, { 40, 44, 42 }, { 56, 70, 58 }, { 62, 64, 72 } },
 		ToneJitter = 0.05,
 	},
+	-- Bandages and the med pack (Config/Assets "Shared/Bandages", user 2026-10-18), coloured by mesh name; same for
+	-- every team.
+	Medical = {
+		Cloth = { 226, 220, 202 }, -- bandage cloth: the rolls, the unrolling strip, the worn wraps
+		Canvas = { 150, 136, 100 }, -- the med pack's canvas
+		Thread = { 150, 62, 52 }, -- the red tear thread wrapped round the pack
+		Cross = { 72, 140, 72 }, -- the green cross on the pack
+	},
+	-- Backpacks (Config/Assets "<Team>/Packs", user 2026-10-18/19), coloured by mesh name. Each team's from its
+	-- uniform: body = a cloth shade, straps = the leather / shoe color, roll = a darker cloth shade. White has no uniform
+	-- yet: its pack takes the Brodie helmet's white-grey.
+	Packs = {
+		pack_tornister = {
+			Body = { 66, 68, 72 },
+			Flap = { 92, 66, 48 },
+			Leather = { 46, 39, 34 },
+			Roll = { 56, 58, 62 },
+		},
+		pack_zaino = { Body = { 132, 128, 86 }, Leather = { 192, 158, 116 }, Roll = { 94, 92, 58 } },
+		pack_p08 = {
+			Body = { 204, 202, 192 },
+			Strap = { 174, 172, 162 },
+			Roll = { 150, 152, 150 },
+			Tin = { 128, 132, 136 },
+		},
+	},
+	-- Artillery (Config/Assets "Shared/Artillery", user 2026-10-18: one model each, painted per team), colored by mesh
+	-- name: the painted parts take the team's Paint, the rest are the same for everyone. The runes and the crystal
+	-- glow (Neon, the magic exception in docs/ART_STYLE.md); the crystal's colour will follow the gun's state.
+	Artillery = {
+		Paint = {
+			Grey = { 82, 86, 88 }, -- slate, as the grey tunic
+			Olive = { 98, 102, 66 },
+			White = { 192, 190, 180 }, -- off-white, as the Brodie helmet
+		},
+		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed" },
+		Tyres = { 58, 58, 60 },
+		Barrel = { 96, 98, 102 },
+		Breech = { 70, 72, 76 },
+		Bore = { 8, 8, 8 },
+		EarthBox = { 120, 86, 54 },
+		Earth = { 112, 90, 62 },
+		BedRunes = { 120, 200, 255 }, -- Magic.Glow
+		BarrelRunes = { 120, 200, 255 },
+		Crystal = { 175, 235, 255 },
+		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
+	},
+	-- The trench spade (Config/Assets "Shared/Shovels", user 2026-10-19): one model for every team, no team colors,
+	-- brass the only accent; colored by mesh name.
+	Shovel = {
+		Wood = { 139, 94, 60 }, -- the D-grip and haft
+		Iron = { 90, 92, 96 }, -- straps, socket, treads, the tongue on the back
+		Blade = { 122, 124, 128 },
+		Brass = { 184, 149, 90 }, -- the collar and rivets
+	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
 	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
 	Magic = {
@@ -136,8 +191,29 @@ local Palette = {
 		manaSpend = { 235, 250, 255 },
 		manaBurnt = { 118, 72, 150 },
 		manaDenied = { 220, 70, 60 },
+		-- the settings menu (src/client/SettingsMenu, src/shared/ui/SettingsMenu.json): gray slate, no hue (user
+		-- 2026-10-19); the picked choice is lighter with a silver line. Lines are `thin`, the panel border `stroke`.
+		Settings = {
+			panel = { 24, 25, 27 },
+			field = { 34, 35, 38 },
+			line = { 74, 76, 81 },
+			lineStrong = { 138, 141, 148 },
+			text = { 214, 215, 218 },
+			textDim = { 128, 131, 138 },
+			title = { 228, 229, 232 },
+			selFill = { 58, 60, 64 },
+			selLine = { 201, 203, 208 },
+			selText = { 255, 255, 255 },
+			accent = { 228, 229, 232 },
+			backdrop = { 0, 0, 0 },
+			backdropTransparency = 0.55,
+			stroke = 2,
+			thin = 1,
+		},
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
+	-- the grenades' arc preview (src/client/Grenades, Config/Grenades.Arc): a faint pale line
+	Grenades = { Arc = { 236, 230, 210 } },
 }
 
 return table.freeze(Palette)

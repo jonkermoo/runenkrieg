@@ -9,7 +9,8 @@
 -- fades in over the last stretch to the eye as the body fades out (user 2026-10-11: ADS looked choppy). It never
 -- shows the rig's rest pose (the gun rising from the middle of the screen). Aiming plays a brief aim-in
 -- (firstPerson.aimIn, 0.3 s: the rifle comes up from the ready hold into the sights) over the aim hold, as long as the
--- camera's glide, while the body plays its third-person aim for everyone. Writes "ViewmodelShown" (local) for
+-- camera's glide, while the body plays its third-person aim for everyone; letting go plays the aim-out back down
+-- (firstPerson.aimOut, the aim-in backwards), each starting where the other got to. Writes "ViewmodelShown" (local) for
 -- WeaponCamera to hide the body.
 -- Nothing here replicates; others see the third-person holds.
 
@@ -20,11 +21,13 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
+local Grenades = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
+local Settings = require(script.Parent.Settings)
 local Sway = require(script.Parent.Sway)
 
 local Viewmodel = {}
@@ -48,6 +51,16 @@ local SHOULDERS = {
 local EYE = Vector3.new(Cfg.Eye[1], 1.5 + Cfg.Eye[2], Cfg.Eye[3])
 -- at the hip the rifle sits this far from where the ready hold puts it (Config/Camera.HipShift: the action in frame)
 local HIP_SHIFT = Vector3.new(Cfg.HipShift[1], Cfg.HipShift[2], Cfg.HipShift[3])
+-- and more with a wider field of view than Config/Camera.Fov (Config/Camera.WideFov), by the player's hip FOV setting
+local WIDE_SHIFT = Vector3.new(Cfg.WideFov.shift[1], Cfg.WideFov.shift[2], Cfg.WideFov.shift[3])
+local function hipShift(): Vector3
+	local function t(fov: number): number
+		return math.tan(math.rad(fov / 2))
+	end
+	local fov = Settings.get("FieldOfView") :: number
+	local u = math.max(0, (t(fov) - t(Cfg.Fov)) / (t(Cfg.WideFov.at) - t(Cfg.Fov)))
+	return HIP_SHIFT + WIDE_SHIFT * u
+end
 
 -- Aimed, a rifle's own sight line goes onto the eye. A rifle borrowing another's holds (Config/Weapons `holdsOf`)
 -- is posed where that rifle's sights sit on the eye; its own Aim is off by the difference (the SMLE's sights are 0.05
@@ -60,6 +73,9 @@ local function aimFix(name: string): Vector3
 		return Vector3.zero
 	end
 	local a, b = w.attachments.Aim, ref.attachments.Aim
+	if not a or not b then
+		return Vector3.zero -- no sights (a grenade borrowing the staff's holds)
+	end
 	return Vector3.new(b[1] * ref.scale[1] - a[1] * w.scale[1], b[2] * ref.scale[2] - a[2] * w.scale[2], 0)
 end
 
@@ -82,11 +98,14 @@ type Rig = {
 	clear: number,
 	hip: CFrame, -- the turn that points the barrel at the screen centre (not aiming), eased
 	aimFix: Vector3, -- aimed: the shift that puts this rifle's own sight line on the eye (see aimFix)
+	shift: Vector3, -- the item's own first-person offset (Config/Weapons `firstShift`)
 	animator: Animator,
 	-- held in one hand (the staff): its first-person holds don't pose the left arm, which would hang at the rig's rest
 	-- pose and poke into the lower left of the view, so it's hidden until the left hand joins (`leftHidden`)
 	oneHanded: boolean,
 	leftHidden: boolean,
+	thrown: number?, -- the grenade throw played ("ThrownAt")
+	gone: boolean, -- the thrown grenade has left the hand: its copy hidden for the rest of the throw
 }
 
 local function build(character: Model, weapon: Held.Weapon): Rig
@@ -115,7 +134,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		local arm = if source then source:Clone() else Instance.new("Part")
 		arm:ClearAllChildren()
 		arm.Name = name
-		arm.Size = Vector3.new(1, 2, 1)
+		arm.Size = Vector3.new(Cfg.ViewmodelArmWidth, 2, Cfg.ViewmodelArmWidth)
 		ghost(arm)
 		arm.Parent = model
 		local m = Instance.new("Motor6D")
@@ -146,7 +165,9 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 	copy:Destroy()
 	local hold = model:FindFirstChild("Hold", true) :: Motor6D
 	hold.Part0 = torso
-	hold.C0, hold.C1 = CFrame.identity, CFrame.identity
+	hold.C0 = CFrame.identity
+	local h = W[weapon.name].held -- (as src/server/Armory.heldOffset)
+	hold.C1 = if h then CFrame.new(-h[1], -h[2], -h[3]) else CFrame.identity
 
 	local humanoid = Instance.new("Humanoid")
 	humanoid.RigType = Enum.HumanoidRigType.R6
@@ -164,14 +185,19 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		local anim = Instance.new("Animation")
 		anim.AnimationId = "rbxassetid://" .. id
 		local t = animator:LoadAnimation(anim)
-		-- the equip and the aim-in are one shots over the holds
+		-- the equip and the aim-in / aim-out are one shots over the holds
 		local once = state == "equip"
 			or state == "unequip"
 			or state == "aimIn"
+			or state == "aimOut"
 			or state == "charge"
 			or state == "chargeTwo"
-		t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
-		t.Looped = not once
+		-- a grenade's throw: a one shot over its wind-up ("ThrownAt")
+		t.Priority = if state == "throw"
+			then Enum.AnimationPriority.Action3
+			elseif once then Enum.AnimationPriority.Action2
+			else Enum.AnimationPriority.Action
+		t.Looped = not once and state ~= "throw"
 		tracks[state] = t
 	end
 	-- drawn just now (src/client/Locomotion marks the moment): play the rest of the equip
@@ -190,9 +216,15 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		clear = -1,
 		hip = CFrame.identity,
 		aimFix = aimFix(weapon.name),
+		shift = (function()
+			local f = W[weapon.name].firstShift
+			return if f then Vector3.new(f[1], f[2], f[3]) else Vector3.zero
+		end)(),
 		animator = animator,
-		oneHanded = W[weapon.name].class == "Staff",
+		oneHanded = W[weapon.name].class == "Staff" or W[weapon.name].class == "Grenade",
 		leftHidden = false,
+		thrown = character:GetAttribute("ThrownAt") :: number?, -- (one thrown before this rig: not played again)
+		gone = false,
 	}
 end
 
@@ -243,6 +275,11 @@ function Viewmodel.start()
 			stowing = true
 			weapon = { tool = rig.tool, name = rig.name } :: any
 		end
+		-- the last grenade thrown (its Tool gone): the rig stays up until the throw has played out
+		local throwing = rig and rig.tracks.throw
+		if not weapon and character and rig and throwing and throwing.IsPlaying then
+			weapon = { tool = rig.tool, name = rig.name } :: any
+		end
 		if character then
 			character:SetAttribute("ViewmodelShown", rig ~= nil and rig.model.Parent ~= nil)
 		end
@@ -278,7 +315,7 @@ function Viewmodel.start()
 		local want = r.hip
 		local gun = r.model:FindFirstChild("Gun")
 		local muzzle = gun and gun:FindFirstChild("Muzzle") :: Attachment?
-		local rising = r.tracks.aimIn
+		local rising, falling = r.tracks.aimIn, r.tracks.aimOut
 		-- per weapon (Config/Weapons hipConverge / aimConverge): the rifles turn at the hip only; the staff stands angled
 		-- up at the hip (no turn) and aimed turns its line onto the crosshair, so the cast's circles sit on it
 		local w = W[weapon.name]
@@ -289,13 +326,14 @@ function Viewmodel.start()
 		local atHip = hipD > 0
 			and hold == "ready"
 			and not (rising and rising.IsPlaying)
+			and not (falling and falling.IsPlaying)
 			and character:GetAttribute("Reloading") ~= true
 		local atAim = aimD > 0 and hold == "aim"
 		if muzzle and (atHip or atAim) then
 			-- the barrel in the rig's own eye frame: its pose, before the turn is applied (the turn rotates that frame),
 			-- moved by the hip shift
 			local frame = r.root.CFrame * CFrame.new(EYE)
-			local p = frame:PointToObjectSpace(muzzle.WorldPosition) + (if atHip then HIP_SHIFT else Vector3.zero)
+			local p = frame:PointToObjectSpace(muzzle.WorldPosition) + (if atHip then hipShift() else Vector3.zero)
 			local d = frame:VectorToObjectSpace(muzzle.WorldCFrame.LookVector)
 			-- the point on the barrel's line D from the eye; turning it onto the centre line puts the whole line through
 			-- the screen centre there (turning only the barrel's direction leaves the muzzle swung aside)
@@ -315,12 +353,13 @@ function Viewmodel.start()
 		-- how much of the pose is the hip (ready) hold and how much the aim, from the tracks themselves, so the hip
 		-- shift and turn and the aimed sight fix blend exactly as the poses crossfade (user 2026-10-13: eased on their
 		-- own they twitched starting to move and going in and out of the sights). The aim-in starts at the ready pose and
-		-- ends in the sights: its progress hands one over to the other.
-		local progress = if rising
-				and rising.IsPlaying
-				and rising.Length > 0
-			then math.clamp(rising.TimePosition / rising.Length, 0, 1)
-			else nil
+		-- ends in the sights: its progress hands one over to the other (the aim-out's the other way).
+		local progress: number? = nil
+		if rising and rising.IsPlaying and rising.Length > 0 then
+			progress = math.clamp(rising.TimePosition / rising.Length, 0, 1)
+		elseif falling and falling.IsPlaying and falling.Length > 0 then
+			progress = 1 - math.clamp(falling.TimePosition / falling.Length, 0, 1)
+		end
 		local hipness, aimness = 1 - (progress or 0), progress or 0
 		if not progress then
 			-- each hold's share of the pose: the holds share one priority, so the pose is their weights' mix. Only the
@@ -342,12 +381,12 @@ function Viewmodel.start()
 		end
 		-- the turn and the hip shift count as much as the holds that have them
 		local turned = (if hipD > 0 then hipness else 0) + (if aimD > 0 then aimness else 0)
-		local shift = if hipD > 0 then HIP_SHIFT * hipness else Vector3.zero
+		local shift = if hipD > 0 then hipShift() * hipness else Vector3.zero
 		r.root.CFrame = camera.CFrame
 			* below
 			* Sway.viewmodel()
 			* CFrame.new():Lerp(r.hip, math.min(turned, 1))
-			* CFrame.new(shift + r.aimFix * aimness)
+			* CFrame.new(shift + r.aimFix * aimness + r.shift)
 			* CFrame.new(-EYE)
 		r.model.Parent = camera
 		-- fading in (and out) with the camera's glide to the eye (WeaponCamera's "Handover")
@@ -359,11 +398,24 @@ function Viewmodel.start()
 		local leftHidden = r.oneHanded
 			and character:GetAttribute("TwoHands") ~= true
 			and not (type(castHeld) == "number" and castHeld >= Spells.Staff.LeftShows)
-		if r.clear ~= clear or r.leftHidden ~= leftHidden then
-			r.clear, r.leftHidden = clear, leftHidden
+		-- a grenade throw (src/client/Grenades marks the moment): played once over the hold; past the release the copy in
+		-- the hand is hidden (the thrown one is in the air)
+		local thrownAt = character:GetAttribute("ThrownAt")
+		local throw = r.tracks.throw
+		if throw and type(thrownAt) == "number" and thrownAt ~= r.thrown then
+			r.thrown = thrownAt
+			throw:Play(0.05)
+		end
+		local gone = throw ~= nil and throw.IsPlaying and throw.TimePosition >= Grenades.Throw.release
+		if r.clear ~= clear or r.leftHidden ~= leftHidden or r.gone ~= gone then
+			r.clear, r.leftHidden, r.gone = clear, leftHidden, gone
 			for _, d in r.model:GetDescendants() do
 				if d:IsA("BasePart") then
-					d.LocalTransparencyModifier = if leftHidden and d.Name == "Left Arm" then 1 else clear
+					local arm = d.Name == "Left Arm" or d.Name == "Right Arm"
+					d.LocalTransparencyModifier = if leftHidden and d.Name == "Left Arm"
+						then 1
+						elseif gone and not arm then 1
+						else clear
 				end
 			end
 		end
@@ -399,21 +451,38 @@ function Viewmodel.start()
 				charge:Stop(0.1)
 			end
 		end
-		local aimIn = r.tracks.aimIn
+		local aimIn, aimOut = r.tracks.aimIn, r.tracks.aimOut
 		if track ~= playing then
 			-- coming into view: straight into the pose, never faded in from the rig's rest pose
 			local fade = if appearing then 0 elseif stowing then 0.1 else Cfg.ViewmodelFade -- (the unequip is short)
 			local out = fade
+			-- how far up the gun is between the ready hold (0) and the sights (1), if it is on its way
+			local up = progress
 			if state == "aim" and aimIn then
-				-- aiming starts: the brief aim-in carries the gun up into the sights over the aim hold
+				-- aiming starts: the brief aim-in carries the gun up into the sights over the aim hold (from where the
+				-- aim-out had got to, if it was on its way down)
 				fade = 0
 				aimIn:Play(0)
+				aimIn.TimePosition = (up or 0) * aimIn.Length
+				if aimOut and aimOut.IsPlaying then
+					aimOut:Stop(0)
+				end
 				-- the hold left behind fades out under the aim-in (which covers it) rather than stopping dead: a track
 				-- stopped with no fade keeps weight 1 and, played again, would start from it, snapping the pose when
 				-- aiming ends (KNOWN_TRAPS)
-				out = aimIn.Length * 0.8
+				out = (1 - (up or 0)) * aimIn.Length * Cfg.AimHandoff
+			elseif aimOut and playing == r.tracks.aim and track == r.tracks.ready and not appearing then
+				-- letting go of aim (A1, user 2026-10-18: it only cross-faded): the aim-out carries the gun down into the
+				-- ready hold over it, from where the aim-in had got to if it was still on its way up
+				fade = 0
+				aimOut:Play(0)
+				aimOut.TimePosition = (1 - (up or 1)) * aimOut.Length
+				if aimIn and aimIn.IsPlaying then
+					aimIn:Stop(0)
+				end
+				out = (up or 1) * aimOut.Length * Cfg.AimHandoff
 			elseif aimIn and aimIn.IsPlaying then
-				aimIn:Stop(fade) -- let go of aim before the gun reached the sights
+				aimIn:Stop(fade) -- let go of aim before the gun reached the sights (into a hold without an aim-out)
 			end
 			if playing then
 				playing:Stop(out)

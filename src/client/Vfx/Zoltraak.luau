@@ -291,7 +291,9 @@ function Zoltraak.begin(
 			local n = math.clamp(stage, 1, #circles)
 			local beam = S[n].beam
 			local from = centre(1)
-			local to, normal, color = Util.cast(from, current.LookVector, Reach[n], ignore)
+			-- traced from the staff's head, not the circle ahead of it: aimed at ground or a wall close by, the circle is
+			-- already in it and a trace from there ran on underground (Studio: stage 1 landing ~145 studs below)
+			local to, normal, color = Util.cast(current.Position, current.LookVector, Reach[n], ignore)
 			if n == last then
 				Star.play(from, schemeCfg.flash, C.FireStar)
 			end
@@ -316,7 +318,7 @@ function Zoltraak.begin(
 			applyVeil()
 			local beam = S[1].beam
 			local from = centre(1)
-			local to, normal, color = Util.cast(from, current.LookVector, Reach[1], ignore)
+			local to, normal, color = Util.cast(current.Position, current.LookVector, Reach[1], ignore)
 			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam, blast = 1 })
 			sound(Snd.Fire[1], from, 1)
 			sound(Snd.Impact[1], to, 1, (Ray.times(beam)))

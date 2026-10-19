@@ -7,11 +7,7 @@
 -- Data only.
 
 local Firing = {
-	Keys = {
-		Fire = { "MouseButton1" }, -- fire; after a shot, the same click works the bolt
-		Reload = { "R" },
-	},
-
+	-- (the fire and reload keys are player settings: Config/Settings)
 	Range = 600, -- studs a shot travels (Metrics fog end; effective range 450)
 	FireTime = 0.15, -- after a shot nothing else can start for this long (the shot itself)
 	-- Server checks: timings get this much slack (latency jitter); the reported muzzle must be this close to the
@@ -46,6 +42,9 @@ local Firing = {
 		forward = 0.88,
 		down = 0.94,
 	},
+	-- An action started partway (a reload from a bolt held open, one resumed after being cut) fades its arms in over
+	-- this long (s), so the rifle travels from the hold into the action's pose (at 0.15 s it lunged; A1 audit 2026-10-18)
+	ResumeFade = 0.3,
 	ClipRise = 0.3, -- studs (model) an empty en-bloc clip drops out the bottom
 	-- Single rounds (user 2026-10-13): a stripper-clip rifle (Gewehr, SMLE) with rounds left in the magazine loads them
 	-- one at a time through the open action (a whole clip only fits an empty magazine): seconds to open the bolt (hand to

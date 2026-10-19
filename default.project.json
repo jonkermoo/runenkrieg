@@ -18,7 +18,8 @@
         "CharacterJumpHeight": 2.7,
         "CharacterMaxSlopeAngle": 50,
         "CameraMaxZoomDistance": 10.5,
-        "CameraMinZoomDistance": 0.5
+        "CameraMinZoomDistance": 0.5,
+        "EnableMouseLockOption": false
       },
       "StarterPlayerScripts": {
         "Client": { "$path": "src/client" }

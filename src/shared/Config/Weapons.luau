@@ -45,6 +45,10 @@ export type Weapon = {
 		-- the same two started with both hands already on the staff ("ChargeTwo": after a stage 2 shot)
 		chargeTwo: number?,
 		airChargeTwo: number?,
+		-- a grenade (src/client/Grenades): windup, held while the throw's line shows ("Winding"); throw, a one shot from
+		-- it played on release ("ThrownAt"; the grenade leaves the hand Config/Grenades.Throw.release into it)
+		windup: number?,
+		throw: number?,
 	},
 	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
 	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
@@ -57,9 +61,12 @@ export type Weapon = {
 		equip: number,
 		unequip: number?,
 		aimIn: number?,
+		aimOut: number?, -- the aim-in backwards, letting go of aim (A1 2026-10-18)
 		aimTwo: number?,
 		charge: number?,
 		chargeTwo: number?,
+		windup: number?,
+		throw: number?,
 	},
 	-- The staff's third-person recoils (one shots over the hold fired from; src/client/StaffAttack): quick from the hip,
 	-- quickAim / quickTwo aimed with one or two hands, medium / mediumTwo the stage 2 shot; on the first-person
@@ -70,6 +77,13 @@ export type Weapon = {
 	-- by default: a gun's sights are on the eye).
 	hipConverge: number?,
 	aimConverge: number?,
+	-- First person: the whole viewmodel (arms and item) moved this far in camera space (+X right, +Y up, -Z forward), for
+	-- an item posed by holds made for another.
+	firstShift: { number }?,
+	-- Where the item's origin sits from the hold's "Gun" point (game studs, gun space): the "Hold" motor's C1
+	-- (src/server/Armory, src/client/Viewmodel). The Mills and SIPE sat inside the fist (Studio round 3): pushed out in
+	-- front of it.
+	held: { number }?,
 	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
 	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
 	-- the muzzle against Metrics. Sighted weapons only.
@@ -82,7 +96,8 @@ export type Weapon = {
 	-- Where the weapon rides on the body when it isn't equipped (src/server/Armory, everyone sees it). In `part`'s
 	-- space (R6 Torso: +X right, +Y up, front -Z, back face at z +0.5): `at` is the gun origin, `muzzle` the way the
 	-- muzzle points, `side` the way the gun's right side (+X, the bolt handle) faces.
-	stow: { part: string, at: { number }, muzzle: { number }, side: { number } },
+	-- None: nothing shows on the body while it's put away (the grenades).
+	stow: { part: string, at: { number }, muzzle: { number }, side: { number } }?,
 	-- Shooting (Config/Firing, Rules/Firing): rounds per clip and how the clip loads ("Enbloc": the whole clip goes
 	-- into the magazine and drops out the bottom when empty, only reloaded empty; "Stripper": the rounds are pushed
 	-- down out of a clip held in the guides, topping the magazine up). Guns only: an item without `ammo` doesn't fire
@@ -180,12 +195,12 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			walk = 138414232252986,
 			carry = 112870868696570,
 			aim = 88831510650616,
-			aimTwo = 93168357261336,
-			charge = 104283993044684, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
-			airCharge = 116353482267248, -- in the air (floating): leaning back as it charges
+			aimTwo = 86681465612273, -- at the right side (user 2026-10-19: "make sure the staff is on our right side")
+			charge = 103451564817751, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
+			airCharge = 128965516186736, -- in the air (floating): leaning back as it charges
 			-- charging with both hands already on (user 2026-10-13: it went back to one hand first)
-			chargeTwo = 125233260118471,
-			airChargeTwo = 74304002722657,
+			chargeTwo = 111875640876355,
+			airChargeTwo = 120791575488143,
 			equip = 105902337487636,
 			unequip = 130701792854486, -- put away onto the back (Config/Locomotion.Stow)
 		},
@@ -210,9 +225,9 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 		fire = {
 			quick = 75953489387448,
 			quickAim = 101856301139598,
-			quickTwo = 88797682738838,
+			quickTwo = 71779282009224,
 			medium = 73692498139809,
-			mediumTwo = 116359925903107,
+			mediumTwo = 139254316829053,
 			-- first person, the hip quick fire: a jab of the head toward the crosshair, settling through the cooldown
 			firstQuick = 80861609176406,
 			-- first person, aimed quick fire: a slight recoil, one hand or both (user 2026-10-13: "when ADS it should just
@@ -299,6 +314,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 86411519760958,
 			unequip = 92360338634937,
 			aimIn = 108346522950809,
+			aimOut = 118548838358261,
 		},
 		-- the hammer lies back in its slot (user 2026-10-13: "the hammer is clipping into the shotgun"); push from
 		-- tools/blender/weapons/m1897.py (its ends set to 0 and 1: the bolt's face only touches the fallen hammer)
@@ -385,7 +401,7 @@ local Weapons: { [string]: Weapon } = {
 		single = {
 			seat = { 0, -0.05, -0.2 },
 			body = 84714499624328,
-			firstPerson = 122157054829974,
+			firstPerson = 83892112156051,
 			open = 0.35, -- slower (user 2026-10-13)
 			round = 0.6,
 			close = 0.4,
@@ -445,6 +461,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 105963460001801,
 			unequip = 102151639999018,
 			aimIn = 111730503877557,
+			aimOut = 81283833297555,
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
@@ -489,7 +506,7 @@ local Weapons: { [string]: Weapon } = {
 			clipTop = { 0, 0.0614, -0.267 },
 			entry = 0.2,
 			body = 85665510995906,
-			firstPerson = 117282437527804,
+			firstPerson = 88100725060976,
 		},
 	},
 	rifle_g98 = {
@@ -541,6 +558,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 123066272399119,
 			unequip = 126607551609403,
 			aimIn = 77762769530436,
+			aimOut = 109549978918090,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
@@ -571,13 +589,13 @@ local Weapons: { [string]: Weapon } = {
 			firstReady = 117007270529310,
 		},
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
-		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 131901306057487 },
+		single = { seat = { 0, 0.035, -0.238 }, body = 81962838082410, firstPerson = 125633536245582 },
 		reload = {
 			knob = { 0.136, 0.065, -0.0695 },
 			clipTop = { 0, 0.255, -0.1863 },
 			entry = 0,
 			body = 122499300440488,
-			firstPerson = 74117864792610,
+			firstPerson = 103984490170296,
 		},
 	},
 	rifle_smle = {
@@ -629,6 +647,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 88893121669824,
 			unequip = 128704204598975,
 			aimIn = 117817401540584,
+			aimOut = 90955676384745,
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
@@ -660,13 +679,13 @@ local Weapons: { [string]: Weapon } = {
 			firstReady = 108177354367826,
 		},
 		-- a round goes in through the open action onto the top round (the magazine's middle round, measured)
-		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 104609958068259 },
+		single = { seat = { 0, 0.035, -0.204 }, body = 76009049286188, firstPerson = 78678430549776 },
 		reload = {
 			knob = { 0.11, -0.0276, 0.0376 },
 			clipTop = { 0, 0.2833, -0.1618 },
 			entry = 0,
 			body = 101808128954188,
-			firstPerson = 138274233820958,
+			firstPerson = 136843033262681,
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)
@@ -692,5 +711,69 @@ local Weapons: { [string]: Weapon } = {
 		Ribbon = { 150, 54, 44 }, -- red, against the white
 	}),
 }
+
+-- The thrown grenades, one per team (docs/MILESTONES.md G1, user 2026-10-18; Config/Grenades for the throw and the
+-- blast; models tools/blender/weapons/grenades.py): the Mills bomb No. 5 (white), the Stielhandgranate M1917 (grey),
+-- the SIPE (olive), each tinted in its team's colours (user: "Team-tinted"). Their own "Grenade" slot, carried by
+-- Config/Grenades.Carried and nothing on the body while put away. Gun space: the origin is the middle of the body (the
+-- stick's: on the handle, where the hand holds), its top (the fuse end) up +Y.
+-- Holds: their own (tools/animation/grenade.luau, user 2026-10-19), one-handed: the grenade in the right hand, the left
+-- free; drawn back while the throw's line shows, the throw on release; no aim (right click does nothing).
+local function grenade(
+	display: string,
+	asset: string,
+	parts: { [string]: { number } },
+	scale: { number },
+	held: { number }?
+): Weapon
+	return {
+		asset = asset,
+		display = display,
+		slot = "Grenade",
+		class = "Grenade",
+		parts = parts,
+		moving = {},
+		hidden = {},
+		attachments = { Muzzle = { 0, 0, -0.1 } }, -- the hip turn's line (hipConverge 0: unused)
+		grip = { 0, 0, 0 },
+		-- one set for all three (tools/animation/grenade.luau; user 2026-10-19). No unequip: the last one thrown leaves
+		-- the hand empty, and one put away goes straight back on the belt
+		holds = {
+			ready = 87513731672117,
+			walk = 72019961101383,
+			carry = 140492027408748,
+			windup = 86952381429241,
+			throw = 80303138028176,
+			equip = 97380658835952,
+		},
+		firstPerson = {
+			ready = 124932391377053,
+			carry = 128945277614351,
+			windup = 81227309666236,
+			throw = 88674791679623,
+			equip = 130111227451167,
+		},
+		hipConverge = 0,
+		held = held,
+		-- modelled at real size (0.0028 studs per mm); thick enough for the 1-stud hand, the stick shorter than thick
+		scale = scale,
+	}
+end
+Weapons.grenade_mills = grenade("Mills Bomb", "grenade_mills", {
+	Body = { 128, 134, 140 }, -- light steel (the white staff's iron; user's pick)
+	Iron = { 60, 62, 66 }, -- base and filler plugs
+	Lever = { 90, 92, 96 },
+	Pin = { 150, 152, 156 }, -- pin and ring
+}, { 2.8, 2.8, 2.8 }, { 0, 0.15, -0.5 })
+Weapons.grenade_stick = grenade("Stielhandgranate", "grenade_stick", {
+	Head = { 80, 82, 86 }, -- the slate tunic cloth (the grey staff's wrap)
+	Collar = { 60, 62, 66 },
+	Handle = { 84, 60, 44 }, -- the grey staff's dark stained wood
+	Cap = { 60, 62, 66 },
+}, { 2.8, 1.8, 2.8 })
+Weapons.grenade_sipe = grenade("SIPE", "grenade_sipe", {
+	Body = { 116, 114, 72 }, -- the olive cloth (the olive staff's ribbon)
+	Fuse = { 70, 68, 58 }, -- the olive staff's iron
+}, { 2.8, 2.6, 2.8 }, { 0, 0.15, -0.5 })
 
 return Weapons

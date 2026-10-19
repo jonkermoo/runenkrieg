@@ -6,12 +6,11 @@
 -- Animations come from tools/animation/locomotion.luau (keyframe data -> build.luau -> .rbxm -> Open Cloud).
 
 local Locomotion = {
-	SprintKeys = { "LeftShift", "RightShift" },
+	-- (the sprint, aim and crouch keys and their hold / toggle modes are player settings: Config/Settings)
 	-- Sprint only moving forward relative to the camera (user reference video 2026-10-11): within this angle (degrees)
 	-- of where the camera looks; strafing or backing up with Shift stays a walk (and can aim).
 	SprintCone = 50,
-	AimKeys = { "MouseButton2" }, -- hold to aim down the sights (a weapon in the hands)
-	CrouchKeys = { "C" }, -- toggles crouch; sprinting (Shift, moving forward) or jumping stands you up
+	ToggleSprintMoving = 0.1, -- a toggled sprint counts as moving above this share of MoveDirection (stopping ends it)
 	CrouchCameraEase = 8, -- how fast the camera follows the body down into the crouch and back up (per second)
 
 	-- Volume of Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart; client

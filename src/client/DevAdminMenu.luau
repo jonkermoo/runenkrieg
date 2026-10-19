@@ -1,7 +1,7 @@
 --!strict
 -- Dev admin menu: a button next to the weapon pin with Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode) and World (the range's test shooters, undo destruction).
+-- god mode), Grenades (give yourself a full count of one) and World (the range's test shooters, undo destruction).
 -- Client only: the client owns its character's physics, so it flies and speeds up its own character. Only shown when
 -- the server marked this player with the DevTools attribute.
 -- - Speed: sets the Player's DevSpeed attribute; src/client/Stance multiplies every walk speed by it.
@@ -16,6 +16,8 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
+local GrenadeCfg = require(Shared.Config.Grenades)
+local W = require(Shared.Config.Weapons)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local DevPanel = require(script.Parent.DevPanel)
@@ -227,6 +229,13 @@ local function build(player: Player): ScreenGui
 	end)
 	player:GetAttributeChangedSignal(A.GodAttribute):Connect(showGod)
 	showGod()
+
+	-- Grenades: give yourself a full count of one (Config/DevTools.Admin.Grenades)
+	DevPanel.heading(p.panel, "Grenades", order + 1)
+	order += 1
+	for _, name in A.Grenades do
+		row("Grenade_" .. name, `Give {W[name].display} x{GrenadeCfg.Carried}`, "Grenade", name)
+	end
 
 	-- World: the range's test shooters (Config/DevTools.TestShooter), undo destruction (src/server/DevWorld)
 	DevPanel.heading(p.panel, "World", order + 1)

@@ -119,8 +119,12 @@ function Locomotion.attach(character: Model)
 					or hold == "airCharge"
 					or hold == "chargeTwo"
 					or hold == "airChargeTwo"
-				t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
-				t.Looped = not once
+				-- a grenade's throw: a one shot over its wind-up (src/client/Grenades "ThrownAt")
+				t.Priority = if hold == "throw"
+					then Enum.AnimationPriority.Action3
+					elseif once then Enum.AnimationPriority.Action2
+					else Enum.AnimationPriority.Action
+				t.Looped = not once and hold ~= "throw"
 				holds[name][hold] = t
 			end
 		end
@@ -227,6 +231,7 @@ function Locomotion.attach(character: Model)
 		track:AdjustSpeed(base.Speed)
 	end
 
+	local thrown: number? = nil -- the last grenade throw played ("ThrownAt")
 	local step = RunService.Heartbeat:Connect(function()
 		local state = humanoid:GetState()
 		if state == Enum.HumanoidStateType.Dead then
@@ -270,6 +275,7 @@ function Locomotion.attach(character: Model)
 		local base = if current == "jump" or current == "fall" then ground else current
 		local holding = if not weapon
 			then nil
+			elseif character:GetAttribute("Winding") == true and W[weapon.name].holds.windup then "windup"
 			elseif character:GetAttribute("Aiming") then "aim"
 			elseif base == "sprint" then "carry"
 			else "ready"
@@ -278,7 +284,9 @@ function Locomotion.attach(character: Model)
 			-- standing still: the ready hold; walking: the walking hold (sprinting: carry already swings)
 			local set = holdTracks(weapon.name)
 			local pick = holding
-			if base == "crouchIdle" or base == "crouchWalk" then -- crouched: the holds for the hunched torso
+			if holding == "windup" then
+				pick = "windup" -- a grenade drawn back (src/client/Grenades), standing or crouched
+			elseif base == "crouchIdle" or base == "crouchWalk" then -- crouched: the holds for the hunched torso
 				pick = if holding == "aim"
 					then "crouchAim"
 					elseif base == "crouchWalk" then "crouchWalk"
@@ -293,6 +301,14 @@ function Locomotion.attach(character: Model)
 			hold(track)
 			if CYCLE[pick] and set[pick] then
 				keepStep(pick, track)
+			end
+			-- a grenade thrown (src/client/Grenades marks the moment): the throw plays once over the hold
+			local at = character:GetAttribute("ThrownAt")
+			if type(at) == "number" and at ~= thrown then
+				thrown = at
+				if set.throw then
+					set.throw:Play(0.05)
+				end
 			end
 			-- the staff's charge: posed at how long the cast has been held (then its ready shake on a loop); floating, the
 			-- one leaning back

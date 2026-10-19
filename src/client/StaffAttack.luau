@@ -48,6 +48,7 @@ local Rules = require(Shared.Rules.Spells)
 local NetRules = require(Shared.Rules.StaffNet)
 local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
+local Settings = require(script.Parent.Settings)
 local LookTilt = require(script.Parent.LookTilt)
 local Ragdoll = require(script.Parent.Ragdoll)
 local SoundFx = require(script.Parent.SoundFx)
@@ -77,16 +78,32 @@ local function isStaff(weapon: Held.Weapon?): boolean
 	return weapon ~= nil and W[weapon.name] ~= nil and W[weapon.name].class == "Staff"
 end
 
--- the point under the crosshair (the screen centre: the mouse is locked there with a weapon drawn)
-local function aimPoint(ignore: { Instance }): Vector3
+-- the point under the crosshair (the screen centre: the mouse is locked there with a weapon drawn). `body`: the
+-- caster's root; a hit behind it (something between the over-the-shoulder camera and the player) doesn't count, the
+-- line goes on from level with it (Studio: shots sent far behind the player)
+local function aimPoint(ignore: { Instance }, body: Vector3?): Vector3
 	local cam = workspace.CurrentCamera
 	local size = cam.ViewportSize
 	local ray = cam:ViewportPointToRay(size.X / 2, size.Y / 2)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = ignore
-	local hit = workspace:Raycast(ray.Origin, ray.Direction * RANGE, params)
-	return if hit then hit.Position else ray.Origin + ray.Direction * RANGE
+	local origin = ray.Origin
+	local hit = workspace:Raycast(origin, ray.Direction * RANGE, params)
+	local ahead = Vector3.new(ray.Direction.X, 0, ray.Direction.Z)
+	if hit and body and ahead.Magnitude > 1e-3 and (hit.Position - body):Dot(ahead.Unit) < 0 then
+		-- from where the line passes level with the body (along the ground)
+		local along = (body - origin):Dot(ahead.Unit) / ahead.Magnitude
+		origin += ray.Direction * math.max(along, 0)
+		hit = workspace:Raycast(origin, ray.Direction * RANGE, params)
+	end
+	return if hit then hit.Position else origin + ray.Direction * RANGE
+end
+
+-- the caster's root position, if any
+local function bodyOf(character: Model): Vector3?
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	return root and root.Position
 end
 
 -- the staff's head as the player sees it: the first-person viewmodel's while it shows, else the body's
@@ -177,8 +194,8 @@ function StaffAttack.start()
 		if not h then
 			return nil
 		end
-		local to = aimPoint(ignore)
 		local from = h.WorldPosition
+		local to = aimPoint(ignore, bodyOf(character))
 		if character:GetAttribute("CameraInside") == true and (to - from).Magnitude > S.Lead then
 			from += (to - from).Unit * S.Lead
 		end
@@ -279,7 +296,7 @@ function StaffAttack.start()
 	end
 
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		if processed or not Settings.pressed("Key_Fire", input) then -- (the player's fire key)
 			return
 		end
 		local character = player.Character
@@ -318,7 +335,7 @@ function StaffAttack.start()
 		-- toward the crosshair, turned as the first-person staff sways (the sway's turn, in camera space)
 		local from = h.WorldPosition
 		local cam = workspace.CurrentCamera.CFrame
-		local toAim = (aimPoint(ignoreList(character)) - from).Unit
+		local toAim = (aimPoint(ignoreList(character), bodyOf(character)) - from).Unit
 		local swayed = cam:VectorToWorldSpace(Sway.viewmodel().Rotation * cam:VectorToObjectSpace(toAim))
 		local dir = cone(swayed, Rules.spread(S.Hip, walking))
 		local own = character:GetAttribute("CameraInside") == true -- drawn smaller for the eye, as the aimed casts
@@ -338,7 +355,7 @@ function StaffAttack.start()
 	end)
 
 	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+		if not Settings.pressed("Key_Fire", input) then
 			return
 		end
 		local c, p = cast, pressedAt
@@ -456,7 +473,7 @@ function StaffAttack.start()
 				c.aim(t)
 				-- the laser only while left click is held (user 2026-10-13)
 				if held then
-					pointer.set(t.Position, aimPoint(ignore))
+					pointer.set(t.Position, aimPoint(ignore, bodyOf(character)))
 				else
 					pointer.hide()
 				end
@@ -466,7 +483,7 @@ function StaffAttack.start()
 			if NetRules.due(aimSentAt, now, Send.AimRate, 1) then
 				aimSentAt = now
 				local eye = character:FindFirstChild("Head") :: BasePart?
-				local to = aimPoint(ignore)
+				local to = aimPoint(ignore, bodyOf(character))
 				if eye and (to - eye.Position).Magnitude > Send.Reach * 0.9 then
 					to = eye.Position + (to - eye.Position).Unit * Send.Reach * 0.9
 				end

@@ -24,6 +24,19 @@ return {
 					`{name}: headwear {k.headwear} is not wearable gear`
 				)
 			end
+			if k.pack then
+				local e = A.Entries[k.pack]
+				assert(e and string.find(e.folder, "/Packs$"), `{name}: pack {k.pack} is not a pack entry`)
+			end
+		end
+	end,
+	["every pack has a palette color for each of its parts"] = function()
+		local P = require("../src/shared/Config/Palette")
+		for name, e in A.Entries do
+			if string.find(e.folder, "/Packs$") then
+				local c = P.Packs[name]
+				assert(c and c.Body and c.Roll, `{name}: Config/Palette.Packs colors missing`)
+			end
 		end
 	end,
 	["a face per health third, each with its closed face"] = function()

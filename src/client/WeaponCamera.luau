@@ -16,6 +16,9 @@
 --   comes in closer with a narrower view. Walls stop the camera (a swept sphere).
 -- Writes the view to the character's "CameraMode" attribute (local): "First", "Aim", "Third" or "ThirdAim";
 -- "CameraInside" (the viewmodel is on: first person only) and "Handover" (0..1, how far the viewmodel has faded in).
+-- Player settings (src/client/Settings): the look sensitivities and Invert Y scale the mouse turn, the field of view
+-- sets the hip view and narrows the aimed ones by the same ratio (Rules/Settings). While the settings menu is open
+-- (the Player's "MenuOpen", src/client/SettingsMenu) the mouse is free and the view doesn't turn.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,6 +29,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Camera)
+local SettingsRules = require(Shared.Rules.Settings)
+local Settings = require(script.Parent.Settings)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
 local Sway = require(script.Parent.Sway)
@@ -38,6 +43,14 @@ local ROBLOX_MIN = 0.5 -- StarterPlayer.CameraMinZoomDistance: Roblox's first pe
 local function smooth(t: number): number
 	t = math.clamp(t, 0, 1)
 	return t * t * (3 - 2 * t)
+end
+
+-- the hip field of view (the player's setting) and an aimed one at it (Rules/Settings.aimFov)
+local function hipFov(): number
+	return Settings.get("FieldOfView") :: number
+end
+local function aimedFov(base: number): number
+	return SettingsRules.aimFov(hipFov(), Cfg.Fov, base)
 end
 
 local function ease(rate: number, dt: number): number
@@ -84,6 +97,10 @@ function WeaponCamera.start()
 	-- the whole body (with what it wears and holds) at one local transparency, the head (with its face and hats) at
 	-- its own; others always see it whole
 	local function show(character: Model, body: number, head: number?)
+		-- seen through, only the outer model shows (user 2026-10-18): under a helmet the hair and the head are hidden
+		-- whenever the head is faded at all, so they never show through the see-through helmet (src/server/Helmets)
+		local helmeted = character:GetAttribute("HelmetOn") == true
+		local hair = character:FindFirstChild("Hair")
 		for _, d in character:GetDescendants() do
 			if (d:IsA("BasePart") and d.Name ~= "HumanoidRootPart") or d:IsA("Decal") then
 				local part = if d:IsA("Decal") then d.Parent else d
@@ -93,7 +110,12 @@ function WeaponCamera.start()
 						or part.Name == "FaceCard"
 						or part:FindFirstAncestorOfClass("Accessory") ~= nil
 					)
-				local t = if onHead and head then head else body;
+				local t = if onHead and head then head else body
+				local inside = part ~= nil
+					and (part.Name == "Head" or part.Name == "FaceCard" or (hair ~= nil and part:IsDescendantOf(hair)))
+				if helmeted and inside and t > 0 then
+					t = 1
+				end
 				(d :: any).LocalTransparencyModifier = t
 			end
 		end
@@ -118,7 +140,7 @@ function WeaponCamera.start()
 	local function finish(character: Model?, humanoid: Humanoid?)
 		active, leaving = false, false
 		camera.CameraType = Enum.CameraType.Custom
-		camera.FieldOfView = Cfg.Fov
+		camera.FieldOfView = hipFov()
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 		UserInputService.MouseIconEnabled = true
 		if humanoid then
@@ -158,7 +180,7 @@ function WeaponCamera.start()
 
 	-- the staff in third person: a click brings the shoulder view for a moment
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if not processed and active and input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if not processed and active and Settings.pressed("Key_Fire", input) then
 			clicked = os.clock()
 		end
 	end)
@@ -177,12 +199,17 @@ function WeaponCamera.start()
 	-- before the look tilt: turn with the mouse, face the body
 	RunService:BindToRenderStep("WeaponCameraInput", Enum.RenderPriority.Input.Value + 1, function()
 		local character, humanoid, root = parts()
-		-- a weapon in the hands, or one going over the shoulder (src/client/Locomotion "Stowing")
+		-- a weapon in the hands, one going over the shoulder (src/client/Locomotion "Stowing") or the last grenade's throw
+		-- playing out after it left the hand (src/client/Grenades "Throwing")
 		local want = character
 			and humanoid
 			and root
 			and humanoid.Health > 0
-			and (Held.weapon(character) ~= nil or character:GetAttribute("Stowing") ~= nil)
+			and (
+				Held.weapon(character) ~= nil
+				or character:GetAttribute("Stowing") ~= nil
+				or character:GetAttribute("Throwing") == true
+			)
 		if want and not active then
 			enter()
 		elseif not want and active then
@@ -206,12 +233,22 @@ function WeaponCamera.start()
 			end
 		end
 		local aiming = character:GetAttribute("Aiming") == true
-		local delta = UserInputService:GetMouseDelta()
-		local sens = Cfg.Sensitivity * (if aiming then Cfg.AimSensitivity else 1)
-		yaw -= delta.X * sens
-		pitch = math.clamp(pitch - delta.Y * sens, -Cfg.PitchLimit, Cfg.PitchLimit)
-		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
-		UserInputService.MouseIconEnabled = false -- no cursor or crosshair (user 2026-10-12)
+		if player:GetAttribute("MenuOpen") == true then
+			-- the settings menu: a free cursor, the view held
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+			UserInputService.MouseIconEnabled = true
+		else
+			local delta = UserInputService:GetMouseDelta()
+			local sx, sy = SettingsRules.look(
+				Cfg.Sensitivity * (if aiming then Cfg.AimSensitivity else 1),
+				Settings.get(if aiming then "AimSensitivity" else "HipSensitivity") :: number,
+				Settings.get("InvertY") == "On"
+			)
+			yaw -= delta.X * sx
+			pitch = math.clamp(pitch - delta.Y * sy, -Cfg.PitchLimit, Cfg.PitchLimit)
+			UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+			UserInputService.MouseIconEnabled = false -- no cursor or crosshair (user 2026-10-12)
+		end
 		camera.CFrame = CFrame.new(camera.CFrame.Position) * CFrame.fromOrientation(math.rad(pitch), math.rad(yaw), 0)
 		humanoid.AutoRotate = false
 		if character:GetAttribute("Ragdolled") ~= true then -- a ragdoll tumbles freely
@@ -236,7 +273,7 @@ function WeaponCamera.start()
 			local rel = leaveFrom:Lerp(head - rotation.LookVector * d - root.Position, smooth(leaveT))
 			camera.CFrame = CFrame.new(root.Position + rel) * rotation
 			camera.Focus = CFrame.new(head)
-			camera.FieldOfView += (Cfg.Fov - camera.FieldOfView) * (1 - math.exp(-Cfg.Ease * dt))
+			camera.FieldOfView += (hipFov() - camera.FieldOfView) * (1 - math.exp(-Cfg.Ease * dt))
 			-- (as the glide in: hidden near the eye, the head last to show)
 			local near = (camera.CFrame.Position - head).Magnitude
 			local H = Cfg.Handover
@@ -251,7 +288,8 @@ function WeaponCamera.start()
 			return
 		end
 		local weapon = character and Held.weapon(character)
-		local stowing = character ~= nil and character:GetAttribute("Stowing") ~= nil
+		local stowing = character ~= nil
+			and (character:GetAttribute("Stowing") ~= nil or character:GetAttribute("Throwing") == true)
 		if not active or not character or not root or not (weapon or stowing) then
 			return
 		end
@@ -299,7 +337,10 @@ function WeaponCamera.start()
 		end
 		camera.CFrame = CFrame.new(root.Position + rel) * rotation * Sway.camera(view) -- its small step bob
 		camera.Focus = CFrame.new(head)
-		local fov = if view == "Aim" then Cfg.AimFov elseif view == "ThirdAim" then S.AimFov else Cfg.Fov
+		local fov = if view == "Aim"
+			then aimedFov(Cfg.AimFov)
+			elseif view == "ThirdAim" then aimedFov(S.AimFov)
+			else hipFov()
 		local rate = if view == "Aim" or view == "ThirdAim" then Cfg.AimEase else Cfg.Ease
 		camera.FieldOfView += (fov - camera.FieldOfView) * ease(rate, dt)
 
@@ -327,6 +368,14 @@ function WeaponCamera.start()
 		local headFade = math.max(body, math.clamp((H.headFar - near) / (H.headFar - H.headNear), 0, 1))
 		-- Roblox's camera fades the body too when it thinks the camera is near the head: ours is written every frame
 		show(character, body, headFade)
+	end)
+
+	-- nothing in the hands: Roblox's camera at the chosen field of view too
+	camera.FieldOfView = hipFov()
+	Settings.changed("FieldOfView", function(v)
+		if not active and not leaving then
+			camera.FieldOfView = v
+		end
 	end)
 end
 

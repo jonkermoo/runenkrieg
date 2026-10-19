@@ -40,6 +40,9 @@ export type Entry = {
 	}?,
 	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes)
 	hair: { center: { number } }?,
+	-- packs: how much further back (studs) the slung weapons ride over this pack (Config/Weapons `stow`; src/server/
+	-- Armory): the pack's back surface where the weapon crosses it, minus the bare Torso's back (0.5)
+	sling: number?,
 }
 
 local Assets = {
@@ -55,7 +58,9 @@ local Assets = {
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
 		rifle_g98 = {
-			id = 87306177976563, -- v2: sight line 0.057 over the bore (v1 78115054198721)
+			-- v3: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
+			-- v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
+			id = 71283772137659,
 			category = "Weapons",
 			folder = "Grey/Rifles",
 			source = "assets/weapons/grey/rifle_g98.fbx",
@@ -63,10 +68,11 @@ local Assets = {
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
 		},
 		rifle_smle = {
-			-- v5: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
+			-- v6: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
+			-- v5 130639053099807: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
 			-- clipping at the bolt's end and lever); v4 113048279523913: stock flat beside the action, the bridge on both
 			-- walls (v1-v3 see-through in first person)
-			id = 130639053099807,
+			id = 89375001951596,
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
@@ -91,6 +97,62 @@ local Assets = {
 			generator = "tools/blender/weapons/m1897.py",
 			description = "Winchester M1897 trench gun, the shotgun of all three teams (built from its trace: tools/blender/weapons/trace/m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
 		},
+		-- the grenades, one per team (tools/blender/weapons/grenades.py; Config/Weapons, Config/Grenades)
+		grenade_mills = {
+			id = 138444756692849,
+			category = "Weapons",
+			folder = "White/Grenades",
+			source = "assets/weapons/white/grenade_mills.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "Mills bomb No. 5, the white team's grenade (from references/weapons/grenades/mills_*.jpg): six columns of segments, base and filler plugs, the lever, pin and ring. Rigged from Config/Weapons.",
+		},
+		grenade_stick = {
+			id = 76412002834293,
+			category = "Weapons",
+			folder = "Grey/Grenades",
+			source = "assets/weapons/grey/grenade_stick.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "Stielhandgranate M1917, the grey team's grenade (from references/weapons/grenades/stick_am613018_1.jpg): the can head, iron collar, wooden handle and screw cap. Rigged from Config/Weapons.",
+		},
+		grenade_sipe = {
+			id = 97677876339961,
+			category = "Weapons",
+			folder = "Olive/Grenades",
+			source = "assets/weapons/olive/grenade_sipe.fbx",
+			generator = "tools/blender/weapons/grenades.py",
+			description = "SIPE, the olive team's grenade (from references/weapons/grenades/sipe_museo.jpg): seven columns of segments, a flat bottom and the fuse tube. Rigged from Config/Weapons.",
+		},
+		-- Artillery (user 2026-10-18): player-placed, hard to build, set up in the very back for area damage. Shared
+		-- by every team, painted per team (Config/Palette.Artillery). Moving parts are their own meshes; firing is
+		-- later game code.
+		artillery_qf18 = {
+			id = 123043192837733,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/artillery_qf18.fbx",
+			generator = "tools/blender/artillery/qf18.py",
+			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
+		},
+		artillery_howitzer = {
+			id = 82367327569698,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/artillery_howitzer.fbx",
+			generator = "tools/blender/artillery/howitzer.py",
+			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
+		},
+		-- the trench spade for digging and building (user 2026-10-19, design F), shared by every team, colored from
+		-- Config/Palette.Shovel by mesh name. No mechanics yet.
+		shovel = {
+			-- v2: a plain iron tube instead of crossed straps, the foot treads the blade's own shoulders made thicker
+			-- (v1 124738061416580)
+			id = 86334126238475,
+			category = "Weapons",
+			folder = "Shared/Shovels",
+			source = "assets/weapons/shared/shovel.fbx",
+			generator = "tools/blender/weapons/shovel.py",
+			description = "Tread spade, 3.5 studs, small two-handed: a wooden D-grip and haft, a brass collar, a plain iron tube, a tapered socket, a dished blade whose shoulders are thickened into foot treads, and a riveted tongue on its back (meshes Wood, Iron, Blade, Brass). Origin at the D-grip's bar, the blade toward -Z, the scoop's hollow toward +Y.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",
@@ -106,6 +168,54 @@ local Assets = {
 			source = "assets/teams/olive/uniform/uniform2.json",
 			generator = "tools/clothing/uniform.py",
 			description = "The olive team's uniform: Shirt + Pants images from Config/Uniforms.Kits.uniform2.",
+		},
+		bandage_roll = {
+			id = 97919711807234, -- v2: plain part names (v1 81519541602272)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/bandage_roll.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Rolled bandage held in the hand (mesh Cloth); origin at the roll centre, axis along X.",
+		},
+		dressing_packet = {
+			id = 77548616662657, -- v2: plain part names (v1 98977144276918)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/dressing_packet.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "The med pack: canvas field dressing (Canvas), red tear thread round one end (Thread), green cross on top (Cross).",
+		},
+		bandage_unroll = {
+			id = 135562484794642, -- v2: plain part names (v1 100744010298901)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/bandage_unroll.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage that unrolls for the wrap animation: one skinned mesh (Cloth), bones Root -> Strip1..Strip8 (0.5 studs each), strip straight out toward -Z at rest.",
+		},
+		wrap_arm = {
+			id = 113940896143702, -- v2: plain part names (v1 118691271151526)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_arm.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn on the left arm (forearm, 3 turns); its Origin goes at the arm part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
+		},
+		wrap_leg = {
+			id = 94242164038534, -- v2: plain part names (v1 83469869892044)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_leg.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn on the right leg (thigh, 2 turns); its Origin goes at the leg part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
+		},
+		wrap_head = {
+			id = 111609113227954, -- v4: follows the head's rounded top (v3 75131246502526, v2 120626644598162, v1 93649111980606)
+			category = "Teams",
+			folder = "Shared/Bandages",
+			source = "assets/teams/shared/bandages/wrap_head.fbx",
+			generator = "tools/blender/gear/bandages.py",
+			description = "Bandage worn round the head (2 crossing turns); its Origin goes at the head part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
 		},
 		rig1 = {
 			id = 84046347370958,
@@ -151,6 +261,39 @@ local Assets = {
 				brim = 0,
 				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
 			},
+		},
+		-- Backpacks, one per team (user 2026-10-18/19; docs/CHARACTERS.md "Backpacks"): worn on the back of the Torso,
+		-- each part placed at its offset from the export's Origin marker (the Torso center), keeping its imported
+		-- rotation (src/server/Packs). Colored by mesh name from Config/Palette.Packs.
+		pack_tornister = {
+			id = 129063171515330,
+			category = "Teams",
+			folder = "Grey/Packs",
+			source = "assets/teams/grey/packs/pack_tornister.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.2, -- the flap's straps reach 1.68 (user 2026-10-19: the rifle rides over the pack)
+			description = "German Tornister, the grey team's pack: a boxy canvas body under a hide flap with leather edge bands, "
+				.. "two closure straps, a big blanket roll across the top against the back, shoulder bands (436-488 tris).",
+		},
+		pack_zaino = {
+			id = 80208525535625,
+			category = "Teams",
+			folder = "Olive/Packs",
+			source = "assets/teams/olive/packs/pack_zaino.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.25, -- the bulging flap and straps reach 1.74 in the middle
+			description = "Italian zaino M1907, the olive team's pack: a soft bulging canvas sack, a flap following the bulge, "
+				.. "two side straps and a centre strap, a big blanket roll across the top, shoulder bands (660 tris).",
+		},
+		pack_p08 = {
+			id = 132211857076533,
+			category = "Teams",
+			folder = "White/Packs",
+			source = "assets/teams/white/packs/pack_p08.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.1, -- the mess tin and its strap reach 1.59
+			description = "British 1908 web large pack, the white team's: a square web box, a flap two thirds down, two short "
+				.. "straps, a mess tin on the flap, a big blanket roll across the top, shoulder bands (468 tris).",
 		},
 		helmet_stahl = {
 			id = 96961743783144, -- hollow (docs/HATS.md "Hollow helmets"; capped: 84488254718914)

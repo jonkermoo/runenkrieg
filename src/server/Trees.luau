@@ -381,7 +381,9 @@ end
 
 -- a blast at `position` reaching `reach` studs; `kpaAt(distance)` its overpressure. A standing tree by its trunk base,
 -- a lying one by its trunk, the leaves by the canopy.
-function Trees.blast(position: Vector3, reach: number, kpaAt: (number) -> number)
+-- felling = false: only the leaves are hurt (a grenade's, Config/Grenades: user 2026-10-18 "a grenade should only strip it
+-- leaves and shake it, no falling"); every client shakes the trees from the blast's "Explosion" anyway.
+function Trees.blast(position: Vector3, reach: number, kpaAt: (number) -> number, felling: boolean?)
 	local B = Cfg.Blast
 	for _, tree in trees() do
 		local trunk = tree:FindFirstChild("Trunk") :: BasePart
@@ -393,7 +395,7 @@ function Trees.blast(position: Vector3, reach: number, kpaAt: (number) -> number
 			local kpa = kpaAt((canopy.Position - position).Magnitude)
 			hurtLeaves(tree, (Rules.blastDamage(kpa, L.blastFail, full, L.blastWeaken)))
 		end
-		if d <= reach then
+		if d <= reach and felling ~= false then
 			local _, full = hp(tree)
 			local amount, whole = Rules.blastDamage(kpaAt(d), B.Tree.fail, full, B.Tree.weaken)
 			if amount > 0 then
