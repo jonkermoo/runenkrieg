@@ -290,7 +290,7 @@ local Assets = {
 		-- each part placed at its offset from the export's Origin marker (the Torso center), keeping its imported
 		-- rotation (src/server/Packs). Colored by mesh name from Config/Palette.Packs.
 		pack_tornister = {
-			id = 129063171515330,
+			id = 121478944791516, -- shorter, thicker roll clear of the stowed rifle and shovel (user 2026-10-20)
 			category = "Teams",
 			folder = "Grey/Packs",
 			source = "assets/teams/grey/packs/pack_tornister.fbx",
@@ -300,7 +300,7 @@ local Assets = {
 				.. "two closure straps, a big blanket roll across the top against the back, shoulder bands (436-488 tris).",
 		},
 		pack_zaino = {
-			id = 80208525535625,
+			id = 95650984386789, -- shorter, thicker roll (user 2026-10-20)
 			category = "Teams",
 			folder = "Olive/Packs",
 			source = "assets/teams/olive/packs/pack_zaino.fbx",
@@ -310,7 +310,7 @@ local Assets = {
 				.. "two side straps and a centre strap, a big blanket roll across the top, shoulder bands (660 tris).",
 		},
 		pack_p08 = {
-			id = 132211857076533,
+			id = 119253478374701, -- shorter, thicker roll (user 2026-10-20)
 			category = "Teams",
 			folder = "White/Packs",
 			source = "assets/teams/white/packs/pack_p08.fbx",

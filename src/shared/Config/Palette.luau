@@ -87,21 +87,20 @@ local Palette = {
 		Thread = { 150, 62, 52 }, -- the red tear thread wrapped round the pack
 		Cross = { 72, 140, 72 }, -- the green cross on the pack
 	},
-	-- Backpacks (Config/Assets "<Team>/Packs", user 2026-10-18/19), coloured by mesh name. Each team's from its
-	-- uniform: body = a cloth shade, straps = the leather / shoe color, roll = a darker cloth shade. White has no uniform
-	-- yet: its pack takes the Brodie helmet's white-grey.
+	-- Backpacks (Config/Assets "<Team>/Packs", user 2026-10-18/19), coloured by mesh name. Never the team's uniform
+	-- colour (user 2026-10-20): tan / sand / khaki canvas bodies, brown leather, dark blanket rolls.
 	Packs = {
 		pack_tornister = {
-			Body = { 66, 68, 72 },
-			Flap = { 92, 66, 48 },
-			Leather = { 46, 39, 34 },
-			Roll = { 56, 58, 62 },
+			Body = { 150, 124, 88 },
+			Flap = { 112, 80, 56 },
+			Leather = { 54, 42, 34 },
+			Roll = { 96, 92, 80 },
 		},
-		pack_zaino = { Body = { 132, 128, 86 }, Leather = { 192, 158, 116 }, Roll = { 94, 92, 58 } },
+		pack_zaino = { Body = { 170, 150, 108 }, Leather = { 112, 82, 58 }, Roll = { 120, 106, 80 } },
 		pack_p08 = {
-			Body = { 204, 202, 192 },
-			Strap = { 174, 172, 162 },
-			Roll = { 150, 152, 150 },
+			Body = { 176, 160, 118 },
+			Strap = { 150, 134, 96 },
+			Roll = { 110, 104, 92 },
 			Tin = { 128, 132, 136 },
 		},
 	},
