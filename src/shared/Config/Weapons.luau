@@ -1013,25 +1013,25 @@ local function grenade(display: string, asset: string, parts: { [string]: { numb
 		hidden = {},
 		attachments = { Muzzle = { 0, 0, -0.1 } }, -- the hip turn's line (hipConverge 0: unused)
 		grip = { 0, 0, 0 },
-		-- one set for all three (tools/animation/grenade.luau v4, user 2026-10-19/20): held in both hands in the middle, the
+		-- one set for all three (tools/animation/grenade.luau v5, user 2026-10-19/20): held in both hands in the middle, the
 		-- pin pulled on left click, one hand while drawn back, drawn from the pack. No unequip: the last one thrown leaves
 		-- the hand empty, and one put away goes straight back in the pack
 		holds = {
-			ready = 85341241367671,
-			walk = 103376681236990,
-			carry = 128879417531597,
-			pin = 133468987193598,
-			windup = 94318817063942,
-			throw = 132835150952578,
-			equip = 75852582571218,
+			ready = 101674499118051,
+			walk = 138117477771357,
+			carry = 107064923054732,
+			pin = 113068527158456,
+			windup = 73841654682321,
+			throw = 93952628639934,
+			equip = 121174700853919,
 		},
 		firstPerson = {
-			ready = 129272403865432,
-			carry = 72384105172278,
-			pin = 111689766914346,
-			windup = 76837711693969,
-			throw = 131677306834670,
-			equip = 131817650633464,
+			ready = 129260927316629,
+			carry = 100984430779823,
+			pin = 79429013550463,
+			windup = 134353781610964,
+			throw = 118069982261298,
+			equip = 75621335657766,
 		},
 		hipConverge = 0,
 		-- modelled at real size (0.0028 studs per mm); thick enough for the 1-stud hand, the stick shorter than thick
