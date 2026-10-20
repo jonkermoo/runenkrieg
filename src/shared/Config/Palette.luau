@@ -105,6 +105,19 @@ local Palette = {
 			Tin = { 128, 132, 136 },
 		},
 	},
+	-- Species ears and tails (Config/Species; user 2026-10-18): the fur takes the soldier's hair colour; these are the
+	-- rest. Inner = the inside of an ear, Tip = the fennec tail's dark tip (user 2026-10-20), Cream = what the cup's fluff
+	-- blends toward
+	-- (FluffShare of the way from the hair colour) so it melts into the fur.
+	Species = {
+		Inner = { 226, 178, 160 },
+		Tip = { 46, 34, 28 },
+		Cream = { 236, 226, 204 },
+		FluffShare = 0.45,
+		-- until the looks arrive ("HairColor" / "SkinColor" unset), the fur and the elf ears take these
+		FallbackHair = { 104, 70, 46 },
+		FallbackSkin = { 214, 158, 108 },
+	},
 	-- Artillery (Config/Assets "Shared/Artillery", user 2026-10-18: one model each, painted per team), colored by mesh
 	-- name: the painted parts take the team's Paint, the rest are the same for everyone. The runes and the crystal
 	-- glow (Neon, the magic exception in docs/ART_STYLE.md); the crystal's colour will follow the gun's state.

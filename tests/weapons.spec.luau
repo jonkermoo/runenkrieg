@@ -174,6 +174,14 @@ return {
 			assert(weight > 0 and weight <= 2, `{name}: weight {weight} outside 0-2`)
 		end
 	end,
+	["the semi-automatics sway more on the move, the biggest magazine most"] = function()
+		local m, r, w = W.rifle_mondragon, W.rifle_remington8, W.rifle_winchester1907
+		assert(m.stride and r.stride and w.stride, "each semi-automatic has its own stride sway")
+		assert(m.stride > 1 and m.stride < r.stride and r.stride < w.stride, "8 < 10 < 15 rounds: more sway each")
+		for name, x in W do
+			assert(not x.stride or x.stride >= 1 and x.stride <= 3, `{name}: stride {x.stride} outside 1-3`)
+		end
+	end,
 	["every team has its staff, all one model, every part colored"] = function()
 		for _, team in { "grey", "olive", "white" } do
 			local w = W["staff_" .. team]
