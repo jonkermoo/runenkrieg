@@ -124,8 +124,10 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 		local p, v = ball.Position, ball.AssemblyLinearVelocity
 		local move = p - last
 		if move.Magnitude > 1e-3 then
+			-- only when it went past the surface this frame (an ordinary contact is the physics' own: put back then, the
+			-- box spun 140-195 rad/s for a frame, Studio 2026-10-20)
 			local hit = workspace:Raycast(last, move + move.Unit * radius, params)
-			if hit then
+			if hit and hit.Distance < move.Magnitude then
 				local n = hit.Normal
 				local into = v:Dot(n)
 				if into < 0 then
