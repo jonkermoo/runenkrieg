@@ -238,10 +238,12 @@ function Viewmodel.start()
 	-- download every weapon animation up front: a hold or equip loading late shows the gun frozen in the torso
 	task.spawn(function()
 		local anims = {}
-		for _, w in W do
+		local Loco = require(Shared.Config.Locomotion)
+		local MovementSet = require(Shared.Rules.MovementSet)
+		for name, w in W do
 			for _, set in
 				{
-					w.holds,
+					MovementSet.holds(Loco, name, w.holds), -- the movement set's own carry and crouched holds
 					w.firstPerson,
 					if w.reload
 						then { w.reload.body, w.reload.firstPerson, w.reload.bodyTwo or 0, w.reload.firstPersonTwo or 0 }
