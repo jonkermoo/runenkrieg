@@ -183,7 +183,23 @@ function HairMotion.start()
 		worn[h] = nil
 	end)
 	-- after the Animator has posed the body this frame, before it is drawn (as SpeciesMotion)
-	RunService.PreSimulation:Connect(step)
+	-- the frame-time check (docs/HAIRS.md): the module's "CostMs" attribute holds the loop's average cost per frame,
+	-- refreshed each second; setting its "Off" attribute stops the sway
+	local spent, frames, since = 0, 0, os.clock()
+	RunService.PreSimulation:Connect(function()
+		if script:GetAttribute("Off") == true then
+			return
+		end
+		local t0 = os.clock()
+		step()
+		spent += os.clock() - t0
+		frames += 1
+		if t0 - since >= 1 then
+			script:SetAttribute("CostMs", math.floor(spent / frames * 1e6 + 0.5) / 1e3)
+			script:SetAttribute("Moving", #near)
+			spent, frames, since = 0, 0, t0
+		end
+	end)
 end
 
 return HairMotion
