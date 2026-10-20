@@ -38,8 +38,9 @@ export type Entry = {
 		shell: string?,
 		center: { number }?,
 	}?,
-	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes)
-	hair: { center: { number } }?,
+	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes); a rigged hair (an Origin marker at
+	-- the head's centre, tools/hair/rig_hair.py) instead says how many bones sway it (src/client/HairMotion)
+	hair: { center: { number }?, bones: number? }?,
 	-- packs: how much further back (studs) the slung weapons ride over this pack (Config/Weapons `stow`; src/server/
 	-- Armory): the pack's back surface where the weapon crosses it, minus the bare Torso's back (0.5)
 	sling: number?,
@@ -703,14 +704,16 @@ local Assets = {
 		-- covers it: tools/blender/gear/hair_under.py). Shop hairs used with their creators' okay: they stay in Roblox
 		-- (files local, ids only here). `hair.center`: the mesh's bounding-box center in head space (Roblox axes; worn
 		-- at head.CFrame * CFrame.new(center)), from tools/hair/export_hairs.py. Recolored per soldier (Config/Uniforms).
+		-- Rigged hairs (2026-10-20: refit over the R6 collar, tools/hair/neck_fit.py; skinned to sway,
+		-- tools/hair/rig_hair.py) are placed by their Origin marker instead and give `hair.bones`.
 		hair_wolf_cut = {
-			id = 87693191747101,
+			id = 113256526579133, -- refit for R6 and rigged (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
-			source = "assets/characters/hairs/wolf_cut/hair_wolf_cut_bare.fbx",
-			generator = "tools/hair/export_hairs.py",
-			description = "Hair wolf_cut, original (3998 tris). From 18320597179 'Black Stylish Layered Wolf Cut Short Hair' (AvaSky).",
-			hair = { center = { -0.0374, -0.0004, 0.0566 } },
+			source = "assets/characters/hairs/wolf_cut/refit/hair_wolf_cut.fbx",
+			generator = "tools/hair/rig_hair.py",
+			description = "Hair wolf_cut, original refit for R6 (tools/hair/neck_fit.py), rigged to sway (3998 tris). From 18320597179 'Black Stylish Layered Wolf Cut Short Hair' (AvaSky).",
+			hair = { bones = 4 },
 		},
 		hair_wolf_cut_m33 = {
 			id = 81126637608696, -- under the reworked helmets (2026-10-19)
@@ -740,13 +743,13 @@ local Assets = {
 			hair = { center = { 0.0894, -0.1081, 0.0565 } },
 		},
 		hair_low_ponytail = {
-			id = 102239211504647,
+			id = 95430462148696, -- refit for R6 and rigged (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
-			source = "assets/characters/hairs/low_ponytail/hair_low_ponytail_bare.fbx",
-			generator = "tools/hair/export_hairs.py",
-			description = "Hair low_ponytail, original (3132 tris). From 14401441197 'Low Ponytail (Black)' (YOU LOVE HAIR).",
-			hair = { center = { 0, -0.694, 0.1865 } },
+			source = "assets/characters/hairs/low_ponytail/refit/hair_low_ponytail.fbx",
+			generator = "tools/hair/rig_hair.py",
+			description = "Hair low_ponytail, original refit for R6 (tools/hair/neck_fit.py), rigged to sway (3132 tris). From 14401441197 'Low Ponytail (Black)' (YOU LOVE HAIR).",
+			hair = { bones = 6 },
 		},
 		hair_low_ponytail_m33 = {
 			id = 73105078497451, -- under the reworked helmets (2026-10-19)
@@ -776,13 +779,13 @@ local Assets = {
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
 		hair_m_wolf = {
-			id = 135274996782454,
+			id = 128481240440323, -- refit for R6 and rigged (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
-			source = "assets/characters/hairs/m_wolf/hair_m_wolf_bare.fbx",
-			generator = "tools/hair/export_hairs.py",
-			description = "Hair m_wolf, original (3997 tris). From 96306223630485 'Really Messy Emo Wolf Cut Boy Hair' (kwarm).",
-			hair = { center = { 0.0284, 0.167, 0.0506 } },
+			source = "assets/characters/hairs/m_wolf/refit/hair_m_wolf.fbx",
+			generator = "tools/hair/rig_hair.py",
+			description = "Hair m_wolf, original refit for R6 (tools/hair/neck_fit.py), rigged to sway (3997 tris). From 96306223630485 'Really Messy Emo Wolf Cut Boy Hair' (kwarm).",
+			hair = { bones = 4 },
 		},
 		hair_m_wolf_m33 = {
 			id = 129691639248404, -- under the reworked helmets (2026-10-19)
@@ -812,13 +815,13 @@ local Assets = {
 			hair = { center = { 0.0552, -0.004, 0.0982 } },
 		},
 		hair_m_slick = {
-			id = 134341339188089,
+			id = 101462156176326, -- refit for R6 and rigged (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_slick",
-			source = "assets/characters/hairs/m_slick/hair_m_slick_bare.fbx",
-			generator = "tools/hair/export_hairs.py",
-			description = "Hair m_slick, original (2963 tris). From 137919482126630 'Beautiful Swoop Hair Male' (Crooner).",
-			hair = { center = { 0.0146, 0.2002, 0.0377 } },
+			source = "assets/characters/hairs/m_slick/refit/hair_m_slick.fbx",
+			generator = "tools/hair/rig_hair.py",
+			description = "Hair m_slick, original refit for R6 (tools/hair/neck_fit.py), rigged to sway (2963 tris). From 137919482126630 'Beautiful Swoop Hair Male' (Crooner).",
+			hair = { bones = 1 },
 		},
 		hair_m_slick_m33 = {
 			id = 97247695571155, -- under the reworked helmets (2026-10-19)
@@ -848,13 +851,13 @@ local Assets = {
 			hair = { center = { 0.0127, 0.1983, 0.0385 } },
 		},
 		hair_m_midpart = {
-			id = 131010005103271,
+			id = 90190575335651, -- refit for R6 and rigged (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
-			source = "assets/characters/hairs/m_midpart/hair_m_midpart_bare.fbx",
-			generator = "tools/hair/export_hairs.py",
-			description = "Hair m_midpart, original (3615 tris). From 98001154915857 'Light Brown Sleek Male Hair' (platan).",
-			hair = { center = { -0.0022, 0.1974, -0.0105 } },
+			source = "assets/characters/hairs/m_midpart/refit/hair_m_midpart.fbx",
+			generator = "tools/hair/rig_hair.py",
+			description = "Hair m_midpart, original refit for R6 (tools/hair/neck_fit.py), rigged to sway (3615 tris). From 98001154915857 'Light Brown Sleek Male Hair' (platan).",
+			hair = { bones = 2 },
 		},
 		hair_m_midpart_m33 = {
 			id = 97399186493745, -- under the reworked helmets (2026-10-19)
