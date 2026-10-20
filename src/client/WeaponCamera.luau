@@ -109,6 +109,7 @@ function WeaponCamera.start()
 						part.Name == "Head"
 						or part.Name == "FaceCard"
 						or part:FindFirstAncestorOfClass("Accessory") ~= nil
+						or part:FindFirstAncestor("Ears") ~= nil -- species ears (src/server/Species)
 					)
 				local t = if onHead and head then head else body
 				local inside = part ~= nil
