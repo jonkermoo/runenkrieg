@@ -134,17 +134,6 @@ function Impacts.shot(from: Vector3?, hit: Vector3, normal: Vector3?, part: Inst
 	end
 end
 
--- `kind`'s bits (Config/Firing.Effects.Impacts shape) thrown up out of the ground at `at`, in the ground's own colour
--- (the shovel's dig: src/client/Shovel)
-function Impacts.dirt(at: Vector3, kind: any)
-	local r = workspace:Raycast(at + Vector3.yAxis, Vector3.yAxis * -2, probe)
-	local m = if r then r.Material else Enum.Material.Ground
-	local color = if m == Enum.Material.Water
-		then workspace.Terrain.WaterColor
-		else workspace.Terrain:GetMaterialColor(if m == Enum.Material.Air then Enum.Material.Ground else m)
-	burst(kind, at, Vector3.yAxis, color)
-end
-
 function Impacts.start()
 	-- a staff beam through or near canopies (src/server/Trees.beam): a shake and leaves, scaled by the stage
 	Net.event("LeavesHit").OnClientEvent:Connect(function(hits: any)

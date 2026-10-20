@@ -1062,7 +1062,7 @@ Weapons.grenade_sipe = grenade("SIPE", "grenade_sipe", {
 -- in its own "Shovel" slot (user 2026-10-20: "a mandatory item on every soldier"), the same for every team, colored as
 -- Config/Palette.Shovel. Gun space: the origin is the D-grip's bar (the right hand), the blade toward -Z. Holds
 -- (tools/animation/shovel.luau): two-handed at port across the chest; left click digs (src/client/Shovel: a chop
--- down into the ground, which lowers it there, src/server/Shovel); no aim. Strapped upright to the pack when put away.
+-- down into the ground, the animation only); no aim. Strapped upright to the pack when put away.
 Weapons.shovel = {
 	asset = "shovel",
 	display = "Shovel",
@@ -1079,14 +1079,14 @@ Weapons.shovel = {
 	attachments = { Muzzle = { 0, 0, -3.42 } }, -- the blade's tip (the hip turn's line: hipConverge 0, unused)
 	grip = { 0, 0, 0 },
 	-- both hands on it throughout (user 2026-10-20); dig: wound up over the right shoulder, swung over the top and down
-	-- into the ground in front
+	-- into the ground in front. v2: the hold steeper, the blade by the left shoulder (Studio round 1: it lay out low)
 	holds = {
-		ready = 106958788763761,
-		walk = 92108104753052,
-		carry = 125775429184790,
-		dig = 89824822382684,
-		equip = 117285476370406,
-		unequip = 82283456133536,
+		ready = 93066917970284, -- v2 (v1 106958788763761)
+		walk = 124545410126279, -- v2 (v1 92108104753052)
+		carry = 82178644834924, -- v2 (v1 125775429184790)
+		dig = 125010045442091, -- v2 (v1 89824822382684)
+		equip = 116916726450237, -- v2 (v1 117285476370406)
+		unequip = 126643995839062, -- v2 (v1 82283456133536)
 	},
 	firstPerson = {
 		ready = 98520178322418,
@@ -1101,7 +1101,7 @@ Weapons.shovel = {
 	-- 10 degrees left, away from the slung rifle's muzzle), its hollow toward the pack (user 2026-10-20: "On the pack")
 	stow = {
 		part = "Torso",
-		at = { -0.35, -0.9, 0.55 },
+		at = { -0.35, -0.45, 0.55 }, -- (Studio 2026-10-20: at -0.9 the D-grip hung below the pack)
 		muzzle = { -0.1736, 0.9848, 0 }, -- sin 10, cos 10
 		side = { -0.9848, -0.1736, 0 },
 	},

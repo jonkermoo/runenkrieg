@@ -59,7 +59,6 @@ require(script.StaffCast).start()
 require(script.Ragdoll).start()
 require(script.Damage).start()
 require(script.Grenades).start()
-require(script.Shovel).start()
 require(script.Showcase).start()
 require(script.TestShooter).start()
 

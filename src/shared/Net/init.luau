@@ -73,11 +73,6 @@ local Remotes: { string } = {
 	"GrenadeThrow",
 	-- server -> clients: (position: Vector3, kg: number) a grenade went off: its explosion (src/client/Vfx/Blast)
 	"GrenadeBlast",
-	-- The shovel (src/client/Shovel sends, src/server/Shovel checks and digs; Config/Shovel, Rules/Shovel):
-	-- client -> server: () the blade strikes the ground now (the server finds where from its own view of the soldier)
-	"Dig",
-	-- server -> clients: (position: Vector3) the ground was dug there: the dirt chips (src/client/Impacts.dirt)
-	"Dug",
 }
 local Functions: { string } = {}
 
