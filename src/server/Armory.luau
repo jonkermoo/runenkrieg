@@ -167,6 +167,12 @@ function Armory.stowed(character: Model, name: string): Model?
 	end
 	local model = Armory.build(name)
 	model.Name = "Stowed_" .. name
+	-- over the worn pack (src/server/Packs; the kit's until it is on): further back by the pack's `sling`, unless
+	-- strapped beside it (`beside`)
+	local worn = character:FindFirstChild("Pack")
+	local pack = worn and worn:GetAttribute("Entry") or (U.Kits[U.Default] :: any).pack
+	local entry = type(pack) == "string" and A.Entries[pack]
+	local at = v3(s.at) + Vector3.new(0, 0, if entry and not s.beside then entry.sling or 0 else 0)
 	local muzzle, side = v3(s.muzzle).Unit, v3(s.side).Unit
 	-- gun axes in the part's space: +X = side, -Z = muzzle, +Y completes the frame
 	local z = -muzzle
@@ -174,7 +180,7 @@ function Armory.stowed(character: Model, name: string): Model?
 	weld.Name = "Stow"
 	weld.Part0 = part
 	weld.Part1 = model.PrimaryPart
-	weld.C0 = CFrame.fromMatrix(v3(s.at), side, z:Cross(side), z)
+	weld.C0 = CFrame.fromMatrix(at, side, z:Cross(side), z)
 	weld.Parent = model.PrimaryPart
 	return model
 end
@@ -284,14 +290,18 @@ function Armory.give(player: Player, name: string): Tool
 end
 
 -- The player's weapon for a slot: their pick ("Loadout_<slot>" on the Player, set by Armory.choose), else the
--- kit's weapon (the primary) or grenade (Config/Uniforms).
+-- kit's weapon (the primary), grenade or shovel (Config/Uniforms; every soldier carries a shovel, user 2026-10-20).
 function Armory.loadout(player: Player, slot: string): string?
 	local picked = player:GetAttribute(LOADOUT .. slot)
 	if type(picked) == "string" and W[picked] and W[picked].slot == slot then
 		return picked
 	end
 	local kit = U.Kits[U.Default] :: any
-	return if slot == "Primary" then kit.weapon elseif slot == "Grenade" then kit.grenade else nil
+	return if slot == "Primary"
+		then kit.weapon
+		elseif slot == "Grenade" then kit.grenade
+		elseif slot == "Shovel" then kit.shovel
+		else nil
 end
 
 -- Makes the weapon the player's pick for its slot: given now (replacing the slot's weapon) and on every respawn.
@@ -309,11 +319,23 @@ end
 function Armory.start()
 	local function spawned(player: Player, character: Model)
 		character:WaitForChild("Torso", 10)
-		local slots: { [string]: boolean } = {}
+		local seen: { [string]: boolean } = {}
+		local slots: { string } = {}
 		for _, w in W do
-			slots[w.slot] = true
+			if not seen[w.slot] then
+				seen[w.slot] = true
+				table.insert(slots, w.slot)
+			end
 		end
-		for slot in slots do
+		-- the hotbar numbers follow the order given: the primary always on 1 (Shift+W+2 ghosts on some keyboards, so
+		-- a sprinting draw on 2 never arrives), the rest after it by name
+		table.sort(slots, function(a, b)
+			if (a == "Primary") ~= (b == "Primary") then
+				return a == "Primary"
+			end
+			return a < b
+		end)
+		for _, slot in slots do
 			local name = Armory.loadout(player, slot)
 			if name then
 				Armory.give(player, name)

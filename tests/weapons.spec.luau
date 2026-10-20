@@ -75,10 +75,14 @@ return {
 	end,
 	["every weapon has a loadout slot"] = function()
 		for name, w in W do
-			assert(w.slot == "Primary" or w.slot == "Grenade", `{name}: unknown slot {w.slot}`)
+			assert(w.slot == "Primary" or w.slot == "Grenade" or w.slot == "Shovel", `{name}: unknown slot {w.slot}`)
 			assert(
 				(w.slot == "Grenade") == (w.class == "Grenade"),
 				`{name}: grenades, and only they, go in the Grenade slot`
+			)
+			assert(
+				(w.slot == "Shovel") == (w.class == "Shovel"),
+				`{name}: shovels, and only they, go in the Shovel slot`
 			)
 		end
 	end,
@@ -92,13 +96,28 @@ return {
 			if gname then
 				assert(W[gname] and W[gname].slot == "Grenade", `{kit}: unknown grenade {gname}`)
 			end
+			-- every soldier carries a shovel (user 2026-10-20)
+			local sname = (k :: any).shovel
+			assert(W[sname] and W[sname].slot == "Shovel", `{kit}: no shovel ({sname})`)
 		end
 	end,
 	["every weapon has its hold animations, in third and first person"] = function()
 		-- guns have the full set; any item at least ready and equip (a missing hold plays the ready)
 		local ALL = { "ready", "walk", "carry", "aim", "equip", "crouchReady", "crouchWalk", "crouchAim" }
 		local ALL_FIRST = { "ready", "carry", "aim", "equip", "aimIn", "aimOut" }
-		local OPTIONAL = { "unequip", "aimTwo", "charge", "airCharge", "chargeTwo", "airChargeTwo" } -- unequip; the staff's
+		-- unequip; the staff's; a grenade's; the shovel's
+		local OPTIONAL = {
+			"unequip",
+			"aimTwo",
+			"charge",
+			"airCharge",
+			"chargeTwo",
+			"airChargeTwo",
+			"pin",
+			"windup",
+			"throw",
+			"dig",
+		}
 		for name, w in W do
 			for _, hold in if w.ammo then ALL else { "ready", "equip" } do
 				local id = (w.holds :: any)[hold]
@@ -163,6 +182,14 @@ return {
 			local weight = Sway.Classes[w.class]
 			assert(weight, `{name}: class {w.class} is not in Config/Sway.Classes`)
 			assert(weight > 0 and weight <= 2, `{name}: weight {weight} outside 0-2`)
+		end
+	end,
+	["the semi-automatics sway more on the move, the biggest magazine most"] = function()
+		local m, r, w = W.rifle_mondragon, W.rifle_remington8, W.rifle_winchester1907
+		assert(m.stride and r.stride and w.stride, "each semi-automatic has its own stride sway")
+		assert(m.stride > 1 and m.stride < r.stride and r.stride < w.stride, "8 < 10 < 15 rounds: more sway each")
+		for name, x in W do
+			assert(not x.stride or x.stride >= 1 and x.stride <= 3, `{name}: stride {x.stride} outside 1-3`)
 		end
 	end,
 	["every team has its staff, all one model, every part colored"] = function()

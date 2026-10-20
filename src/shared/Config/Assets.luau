@@ -40,6 +40,9 @@ export type Entry = {
 	}?,
 	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes)
 	hair: { center: { number } }?,
+	-- packs: how much further back (studs) the slung weapons ride over this pack (Config/Weapons `stow`; src/server/
+	-- Armory): the pack's back surface where the weapon crosses it, minus the bare Torso's back (0.5)
+	sling: number?,
 }
 
 local Assets = {
@@ -55,7 +58,9 @@ local Assets = {
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
 		rifle_g98 = {
-			id = 87306177976563, -- v2: sight line 0.057 over the bore (v1 78115054198721)
+			-- v3: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
+			-- v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
+			id = 71283772137659,
 			category = "Weapons",
 			folder = "Grey/Rifles",
 			source = "assets/weapons/grey/rifle_g98.fbx",
@@ -63,15 +68,40 @@ local Assets = {
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
 		},
 		rifle_smle = {
-			-- v5: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
+			-- v6: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
+			-- v5 130639053099807: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
 			-- clipping at the bolt's end and lever); v4 113048279523913: stock flat beside the action, the bridge on both
 			-- walls (v1-v3 see-through in first person)
-			id = 130639053099807,
+			id = 89375001951596,
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
 			generator = "tools/blender/weapons/smle.py",
 			description = "Lee-Enfield SMLE Mk III, the white team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
+		},
+		rifle_mondragon = {
+			id = 77357570578798,
+			category = "Weapons",
+			folder = "Grey/Rifles",
+			source = "assets/weapons/grey/rifle_mondragon.fbx",
+			generator = "tools/blender/weapons/mondragon.py",
+			description = "Mondragón FSK 15 semi-automatic rifle, the grey team's (W2; built from its trace: tools/blender/weapons/trace/mondragon.py; review assets/weapons/grey/review/rifle_mondragon_v7.blend). Rigged from Config/Weapons.",
+		},
+		rifle_remington8 = {
+			id = 120790254551949,
+			category = "Weapons",
+			folder = "Olive/Rifles",
+			source = "assets/weapons/olive/rifle_remington8.fbx",
+			generator = "tools/blender/weapons/remington8.py",
+			description = "Remington Model 8 semi-automatic rifle, the olive team's (W2; built from its trace: tools/blender/weapons/trace/remington8.py; review assets/weapons/olive/review/rifle_remington8_v4.blend). Rigged from Config/Weapons.",
+		},
+		rifle_winchester1907 = {
+			id = 80789332043518,
+			category = "Weapons",
+			folder = "White/Rifles",
+			source = "assets/weapons/white/rifle_winchester1907.fbx",
+			generator = "tools/blender/weapons/winchester1907.py",
+			description = "Winchester 1907 semi-automatic rifle, the white team's (W2; built from its trace: tools/blender/weapons/trace/winchester1907.py; review assets/weapons/white/review/rifle_winchester1907_v6.blend; a detachable 15-round box). Rigged from Config/Weapons.",
 		},
 		staff = {
 			id = 109018663192748, -- v2: team accents (binding, ribbon, head ring, foot cap), colored per team
@@ -134,6 +164,18 @@ local Assets = {
 			source = "assets/weapons/shared/artillery_howitzer.fbx",
 			generator = "tools/blender/artillery/howitzer.py",
 			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
+		},
+		-- the trench spade for digging and building (user 2026-10-19, design F), shared by every team, colored from
+		-- Config/Palette.Shovel by mesh name. No mechanics yet.
+		shovel = {
+			-- v2: a plain iron tube instead of crossed straps, the foot treads the blade's own shoulders made thicker
+			-- (v1 124738061416580)
+			id = 86334126238475,
+			category = "Weapons",
+			folder = "Shared/Shovels",
+			source = "assets/weapons/shared/shovel.fbx",
+			generator = "tools/blender/weapons/shovel.py",
+			description = "Tread spade, 3.5 studs, small two-handed: a wooden D-grip and haft, a brass collar, a plain iron tube, a tapered socket, a dished blade whose shoulders are thickened into foot treads, and a riveted tongue on its back (meshes Wood, Iron, Blade, Brass). Origin at the D-grip's bar, the blade toward -Z, the scoop's hollow toward +Y.",
 		},
 		uniform1 = {
 			category = "Teams",
@@ -252,159 +294,251 @@ local Assets = {
 				parts = { Leather = { 150, 104, 80 }, Pouch = { 192, 158, 116 }, Metal = { 70, 66, 60 } },
 			},
 		},
+		-- Backpacks, one per team (user 2026-10-18/19; docs/CHARACTERS.md "Backpacks"): worn on the back of the Torso,
+		-- each part placed at its offset from the export's Origin marker (the Torso center), keeping its imported
+		-- rotation (src/server/Packs). Colored by mesh name from Config/Palette.Packs.
+		pack_tornister = {
+			id = 121478944791516, -- shorter, thicker roll clear of the stowed rifle and shovel (user 2026-10-20)
+			category = "Teams",
+			folder = "Grey/Packs",
+			source = "assets/teams/grey/packs/pack_tornister.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.2, -- the flap's straps reach 1.68 (user 2026-10-19: the rifle rides over the pack)
+			description = "German Tornister, the grey team's pack: a boxy canvas body under a hide flap with leather edge bands, "
+				.. "two closure straps, a big blanket roll across the top against the back, shoulder bands (436-488 tris).",
+		},
+		pack_zaino = {
+			id = 95650984386789, -- shorter, thicker roll (user 2026-10-20)
+			category = "Teams",
+			folder = "Olive/Packs",
+			source = "assets/teams/olive/packs/pack_zaino.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.25, -- the bulging flap and straps reach 1.74 in the middle
+			description = "Italian zaino M1907, the olive team's pack: a soft bulging canvas sack, a flap following the bulge, "
+				.. "two side straps and a centre strap, a big blanket roll across the top, shoulder bands (660 tris).",
+		},
+		pack_p08 = {
+			id = 119253478374701, -- shorter, thicker roll (user 2026-10-20)
+			category = "Teams",
+			folder = "White/Packs",
+			source = "assets/teams/white/packs/pack_p08.fbx",
+			generator = "tools/blender/gear/pack.py",
+			sling = 1.1, -- the mess tin and its strap reach 1.59
+			description = "British 1908 web large pack, the white team's: a square web box, a flap two thirds down, two short "
+				.. "straps, a mess tin on the flap, a big blanket roll across the top, shoulder bands (468 tris).",
+		},
 		helmet_stahl = {
-			id = 96961743783144, -- hollow (docs/HATS.md "Hollow helmets"; capped: 84488254718914)
+			id = 98976523443657, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/default/helmet_stahl.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "Stahlhelm-style helmet, grey team: deep dome, small forward visor peak, skirt flaring over the ears and "
-				.. "neck; 12 flat sides (216 tris). No national decal (fictional nations).",
-			-- rim baseline 0.15 below the head center; the back of the skirt is the lowest point
+			description = "Stahlhelm M1916, grey team (reworked 2026-10-19, traced from a side view): a round crown, tall "
+				.. "straight walls, a long bell-shaped flare into the skirt and neck guard, rolled edge, gold side lugs; hollow, "
+				.. "12 sides (544 tris). No national decal (fictional nations).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
-				attach = { 0, 0.125, 0.006 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = { Lugs = { 204, 172, 92 } },
 				shell = "stahl",
-				center = { 0, 0.5148, -0.0059 },
+				center = { 0, 0.672, -0.034 },
 			},
 		},
 		helmet_stahl_goggles = {
-			id = 136877765689691, -- hollow (docs/HATS.md "Hollow helmets"; capped: 96839649750928)
+			id = 96770262181573, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_goggles.fbx",
 			generator = "tools/blender/gear/accessory.py",
-			description = "The default helmet_stahl (unchanged) with a dark leather strap round the dome's slope and big "
-				.. "aviator goggles on the front; flat amber lenses. Grey team.",
+			description = "The default helmet_stahl (unchanged) with a leather strap round the dome and big aviator goggles on "
+				.. "the front; flat amber lenses. Grey team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
-				attach = { 0, 0.125, 0.006 },
-				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 } },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 }, Lugs = { 204, 172, 92 } },
 				shell = "stahl",
-				center = { 0, 0.5148, -0.0059 },
+				center = { 0, 0.672, -0.034 },
 			},
 		},
 		helmet_stahl_ammo = {
-			id = 137594790143815, -- hollow (docs/HATS.md "Hollow helmets"; capped: 106418173364815)
+			id = 139604548411760, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_ammo.fbx",
 			generator = "tools/blender/gear/accessory.py",
-			description = "The default helmet_stahl (unchanged) with a dark leather band on the step above the skirt and "
-				.. "five red shotgun shells on gold heads on the wearer's right, held by a thin flat strap. Grey team.",
+			description = "The default helmet_stahl (unchanged) with a leather band low round the dome and five red shotgun "
+				.. "shells on gold heads on the wearer's right, held by a thin flat strap. Grey team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
-				brim = -0.16, -- raised 0.11 so the eyes show (user 2026-10-13; was -0.27)
-				attach = { 0, 0.125, 0.006 },
-				parts = { Band = { 46, 39, 34 }, Hull = { 150, 54, 44 }, Brass = { 204, 172, 92 } },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = {
+					Band = { 46, 39, 34 },
+					Hull = { 150, 54, 44 },
+					Brass = { 204, 172, 92 },
+					Lugs = { 204, 172, 92 },
+				},
 				shell = "stahl",
-				center = { 0, 0.5148, -0.0059 },
+				center = { 0, 0.672, -0.034 },
 			},
 		},
 		helmet_m33_goggles = {
-			id = 99499894447280, -- hollow (docs/HATS.md "Hollow helmets"; capped: 129172538186129)
+			id = 99354895380972, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/variants/helmet_m33_goggles.fbx",
-			generator = "tools/blender/gear/helmet.py",
-			description = "helmet_m33 with a leather strap and big aviator goggles riding on the front slope; flat blue lenses. Olive team.",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_m33 (unchanged) with a leather strap round the dome and big aviator goggles on "
+				.. "the front; flat blue lenses. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
 				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
-				parts = { Strap = { 106, 72, 46 }, Lens = { 86, 150, 214 } },
+				parts = { Strap = { 106, 72, 46 }, Lens = { 86, 150, 214 }, Lugs = { 176, 146, 80 } },
 				shell = "m33",
-				center = { 0, 0.5415, 0 },
+				center = { 0, 0.5397, 0 },
 			},
 		},
 		helmet_m33_ammo = {
-			id = 106864180395816, -- hollow (docs/HATS.md "Hollow helmets"; capped: 111462508849651)
+			id = 139851230502185, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/variants/helmet_m33_ammo.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_m33 (unchanged) with a leather band low round the dome and five red shotgun "
-				.. "shells on brass heads on the wearer's right, held by a thin flat strap wrapped round each. Olive team.",
+				.. "shells on brass heads on the wearer's right, held by a thin flat strap. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
 				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
-				parts = { Band = { 106, 72, 46 }, Hull = { 150, 54, 44 }, Brass = { 176, 146, 80 } },
+				parts = {
+					Band = { 106, 72, 46 },
+					Hull = { 150, 54, 44 },
+					Brass = { 176, 146, 80 },
+					Lugs = { 176, 146, 80 },
+				},
 				shell = "m33",
-				center = { 0, 0.5415, 0 },
+				center = { 0, 0.5397, 0 },
 			},
 		},
 		helmet_m33 = {
-			id = 90751617241838, -- hollow (docs/HATS.md "Hollow helmets"; capped: 89604539658442)
+			id = 88422809419987, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/default/helmet_m33.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "M33-style helmet, olive team: rounded dome worn low, rim raised at the front, arched over the ears, "
-				.. "lower at the back; tuck above the rim, sloped sides, rounded crown, 12 sides (216 tris).",
-			-- color = uniform2 cloth; brim = the lowest rim point (the back)
+			description = "M33, olive team (reworked 2026-10-19): the approved pre-rework shape (rounded dome worn low, rim "
+				.. "raised at the front, arched over the ears, lower at the back) with a rolled lip and a rib above it, "
+				.. "a brass vent rivet each side; hollow, 12 sides (448 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
 				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
+				parts = { Lugs = { 176, 146, 80 } },
 				shell = "m33",
-				center = { 0, 0.5415, 0 },
+				center = { 0, 0.5397, 0 },
 			},
 		},
 		helmet_brodie = {
-			id = 111983459615468, -- hollow (docs/HATS.md "Hollow helmets"; capped: 93232405386184)
+			id = 104280433784436, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/default/helmet_brodie.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "WW1 Brodie helmet, the future white team's default (user 2026-10-12): 10 flat sides, short "
-				.. "down-sloping brim (158 tris), worn tipped back 8 degrees.",
+			description = "Brodie Mk I, the future white team's default (reworked 2026-10-19): a "
+				.. "rounded bowl, a wide brim sloping to a rolled lip, oval front to back, a crown rivet, worn tipped "
+				.. "back 8 degrees; hollow, 10 sides (280 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 214, 214, 210 },
 				brim = 0.06,
 				shell = "brodie",
-				center = { 0, 0.3818, 0.0039 },
+				center = { 0, 0.3781, 0.0023 },
 			},
 		},
 		helmet_brodie_goggles = {
-			id = 137564109106630, -- hollow (docs/HATS.md "Hollow helmets"; capped: 107628167670818)
+			id = 73432666409046, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles.fbx",
 			generator = "tools/blender/gear/accessory.py",
-			description = "The default helmet_brodie (unchanged, tipped back) with a leather strap round the dome's slope "
-				.. "and big aviator goggles on the front; flat teal lenses. White team (colours a proposal).",
+			description = "The default helmet_brodie (unchanged) with a leather strap round the dome and big aviator goggles on "
+				.. "the front; flat teal lenses. White team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 214, 214, 210 },
 				brim = 0.06,
 				parts = { Strap = { 120, 84, 56 }, Lens = { 72, 176, 150 } },
 				shell = "brodie",
-				center = { 0, 0.3818, 0.0039 },
+				center = { 0, 0.3781, 0.0023 },
 			},
 		},
 		helmet_brodie_ammo = {
-			id = 70619798795232, -- hollow (docs/HATS.md "Hollow helmets"; capped: 101501598430404)
+			id = 78603559603166, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_ammo.fbx",
 			generator = "tools/blender/gear/accessory.py",
-			description = "The default helmet_brodie (unchanged, tipped back) with a leather band on the wall above the brim "
-				.. "and five red shotgun shells on steel heads on the wearer's right, held by a thin flat strap. White team.",
+			description = "The default helmet_brodie (unchanged) with a leather band low round the dome and five red shotgun "
+				.. "shells on steel heads on the wearer's right, held by a thin flat strap. White team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 214, 214, 210 },
 				brim = 0.06,
 				parts = { Band = { 120, 84, 56 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } },
 				shell = "brodie",
-				center = { 0, 0.3818, 0.0039 },
+				center = { 0, 0.3781, 0.0023 },
 			},
+		},
+		-- Species ears and tails (Config/Species, src/server/Species; user 2026-10-18/20): one piece per mesh, named
+		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
+		-- the head's center), tails Torso-local (the Torso's center).
+		ears_katzling = {
+			id = 105362765217637, -- v1 131909248233922 (named pieces clashed)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_katzling.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Katzling cat ears: broad, blunt, the outer edge curving in, thick front to back, a pale inner, "
+				.. "fur tufts in the cup and on the edges, a ruff round each root (408 tris).",
+		},
+		ears_fennek = {
+			id = 135952144124699, -- v1 96521357487348 (named pieces clashed)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_fennek.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Fennek fennec ears: tall (1.3), nearly upright, thick, a pale inner, fur tufts in the cup "
+				.. "and on the edges, a ruff round each root (344 tris).",
+		},
+		ears_alb = {
+			id = 99118164513786, -- v1 96073907474669 (named pieces clashed)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_alb.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Alb elf ears: long skin-coloured blades out of the head's sides, pointing down and back under "
+				.. "the helmet rim (92 tris).",
+		},
+		tail_katzling = {
+			id = 78500799352387, -- v1 93930987857958 (ringed segments)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/tail_katzling.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Katzling cat tail: one smooth tapered mesh hanging behind the legs, curling up at the end in a J, "
+				.. "skinned to 5 bones Tail1-5 (concept A; 2.15 long).",
+		},
+		tail_fennek = {
+			id = 110025158183885, -- v1 89946798239053 (ringed segments)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/tail_fennek.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Fennek fennec tail: one long bushy brush, wolf-shaped, hanging down and back and curving up, a dark "
+				.. "tip mesh, skinned to 5 bones Tail1-5 (2.3 long, 376 tris).",
 		},
 		TreeKit = {
 			id = 78828564935129,
@@ -587,31 +721,31 @@ local Assets = {
 			hair = { center = { -0.0374, -0.0004, 0.0566 } },
 		},
 		hair_wolf_cut_m33 = {
-			id = 131289307710891,
+			id = 81126637608696, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_m33.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair wolf_cut under the m33 helmet: the original shaved where the shell covers it (3820 tris).",
-			hair = { center = { 0.0529, -0.0744, 0.0426 } },
+			description = "Hair wolf_cut under the m33 helmet: the original shaved where the shell covers it (3877 tris).",
+			hair = { center = { 0.0719, -0.0744, 0.0171 } },
 		},
 		hair_wolf_cut_stahl = {
-			id = 123155634788566,
+			id = 77980870742304, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_stahl.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair wolf_cut under the stahl helmet: the original shaved where the shell covers it (3978 tris).",
-			hair = { center = { 0.024, -0.088, 0.0482 } },
+			description = "Hair wolf_cut under the stahl helmet: the original shaved where the shell covers it (3831 tris).",
+			hair = { center = { 0.0425, -0.0661, 0.0469 } },
 		},
 		hair_wolf_cut_brodie = {
-			id = 75494309088279,
+			id = 129843447242445, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_brodie.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair wolf_cut under the brodie helmet: the original shaved where the shell covers it (3937 tris).",
-			hair = { center = { 0.0918, -0.1082, 0.0289 } },
+			description = "Hair wolf_cut under the brodie helmet: the original shaved where the shell covers it (4010 tris).",
+			hair = { center = { 0.0894, -0.1081, 0.0565 } },
 		},
 		hair_low_ponytail = {
 			id = 102239211504647,
@@ -623,7 +757,7 @@ local Assets = {
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
 		hair_low_ponytail_m33 = {
-			id = 85504697777545,
+			id = 73105078497451, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_m33.fbx",
@@ -632,7 +766,7 @@ local Assets = {
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
 		hair_low_ponytail_stahl = {
-			id = 108435355713176,
+			id = 119763988272799, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_stahl.fbx",
@@ -641,12 +775,12 @@ local Assets = {
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
 		hair_low_ponytail_brodie = {
-			id = 131603430842547,
+			id = 82267157155719, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_brodie.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair low_ponytail under the brodie helmet: the original shaved where the shell covers it (3131 tris).",
+			description = "Hair low_ponytail under the brodie helmet: the original shaved where the shell covers it (3129 tris).",
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
 		hair_m_wolf = {
@@ -659,31 +793,31 @@ local Assets = {
 			hair = { center = { 0.0284, 0.167, 0.0506 } },
 		},
 		hair_m_wolf_m33 = {
-			id = 79768541923667,
+			id = 129691639248404, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_m33.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_wolf under the m33 helmet: the original shaved where the shell covers it (3329 tris).",
-			hair = { center = { 0.0233, 0.0325, 0.0086 } },
+			description = "Hair m_wolf under the m33 helmet: the original shaved where the shell covers it (3342 tris).",
+			hair = { center = { 0.0233, 0.0325, 0.0079 } },
 		},
 		hair_m_wolf_stahl = {
-			id = 129400640299639,
+			id = 102730380340187, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_stahl.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_wolf under the stahl helmet: the original shaved where the shell covers it (3373 tris).",
-			hair = { center = { 0.0354, 0.0146, 0.0608 } },
+			description = "Hair m_wolf under the stahl helmet: the original shaved where the shell covers it (3653 tris).",
+			hair = { center = { 0.0372, 0.0456, 0.0428 } },
 		},
 		hair_m_wolf_brodie = {
-			id = 82147726465629,
+			id = 88624757913450, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_brodie.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_wolf under the brodie helmet: the original shaved where the shell covers it (3242 tris).",
-			hair = { center = { 0.0552, -0.0027, 0.0725 } },
+			description = "Hair m_wolf under the brodie helmet: the original shaved where the shell covers it (3083 tris).",
+			hair = { center = { 0.0552, -0.004, 0.0982 } },
 		},
 		hair_m_slick = {
 			id = 134341339188089,
@@ -695,31 +829,31 @@ local Assets = {
 			hair = { center = { 0.0146, 0.2002, 0.0377 } },
 		},
 		hair_m_slick_m33 = {
-			id = 131478334142059,
+			id = 97247695571155, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/under/hair_m_slick_m33.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_slick under the m33 helmet: the original shaved where the shell covers it (3061 tris).",
+			description = "Hair m_slick under the m33 helmet: the original shaved where the shell covers it (3049 tris).",
 			hair = { center = { 0.0146, 0.2002, 0.0377 } },
 		},
 		hair_m_slick_stahl = {
-			id = 101353090993134,
+			id = 95201136508172, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/under/hair_m_slick_stahl.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_slick under the stahl helmet: the original shaved where the shell covers it (3022 tris).",
-			hair = { center = { 0.0146, 0.2002, 0.0377 } },
+			description = "Hair m_slick under the stahl helmet: the original shaved where the shell covers it (3065 tris).",
+			hair = { center = { 0.0111, 0.2002, 0.0377 } },
 		},
 		hair_m_slick_brodie = {
-			id = 80089844700142,
+			id = 103230124875311, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/under/hair_m_slick_brodie.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_slick under the brodie helmet: the original shaved where the shell covers it (3076 tris).",
-			hair = { center = { 0.0128, 0.2002, 0.0403 } },
+			description = "Hair m_slick under the brodie helmet: the original shaved where the shell covers it (3075 tris).",
+			hair = { center = { 0.0127, 0.1983, 0.0385 } },
 		},
 		hair_m_midpart = {
 			id = 131010005103271,
@@ -731,31 +865,31 @@ local Assets = {
 			hair = { center = { -0.0022, 0.1974, -0.0105 } },
 		},
 		hair_m_midpart_m33 = {
-			id = 112252984245351,
+			id = 97399186493745, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_m33.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_midpart under the m33 helmet: the original shaved where the shell covers it (3923 tris).",
-			hair = { center = { 0.0063, 0.1907, 0.0084 } },
+			description = "Hair m_midpart under the m33 helmet: the original shaved where the shell covers it (3997 tris).",
+			hair = { center = { 0.0066, 0.1907, 0.0081 } },
 		},
 		hair_m_midpart_stahl = {
-			id = 86983856412897,
+			id = 116203809497272, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_stahl.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_midpart under the stahl helmet: the original shaved where the shell covers it (3886 tris).",
-			hair = { center = { 0.0059, 0.1835, 0.0119 } },
+			description = "Hair m_midpart under the stahl helmet: the original shaved where the shell covers it (3917 tris).",
+			hair = { center = { 0.0359, 0.1974, -0.0084 } },
 		},
 		hair_m_midpart_brodie = {
-			id = 125363532305753,
+			id = 121634899652503, -- under the reworked helmets (2026-10-19)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_brodie.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_midpart under the brodie helmet: the original shaved where the shell covers it (3785 tris).",
-			hair = { center = { 0.0392, 0.1886, -0.0056 } },
+			description = "Hair m_midpart under the brodie helmet: the original shaved where the shell covers it (3767 tris).",
+			hair = { center = { 0.033, 0.1788, -0.0074 } },
 		},
 	} :: { [string]: Entry },
 

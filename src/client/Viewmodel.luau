@@ -21,11 +21,13 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
+local Grenades = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
+local Settings = require(script.Parent.Settings)
 local Sway = require(script.Parent.Sway)
 
 local Viewmodel = {}
@@ -49,6 +51,16 @@ local SHOULDERS = {
 local EYE = Vector3.new(Cfg.Eye[1], 1.5 + Cfg.Eye[2], Cfg.Eye[3])
 -- at the hip the rifle sits this far from where the ready hold puts it (Config/Camera.HipShift: the action in frame)
 local HIP_SHIFT = Vector3.new(Cfg.HipShift[1], Cfg.HipShift[2], Cfg.HipShift[3])
+-- and more with a wider field of view than Config/Camera.Fov (Config/Camera.WideFov), by the player's hip FOV setting
+local WIDE_SHIFT = Vector3.new(Cfg.WideFov.shift[1], Cfg.WideFov.shift[2], Cfg.WideFov.shift[3])
+local function hipShift(): Vector3
+	local function t(fov: number): number
+		return math.tan(math.rad(fov / 2))
+	end
+	local fov = Settings.get("FieldOfView") :: number
+	local u = math.max(0, (t(fov) - t(Cfg.Fov)) / (t(Cfg.WideFov.at) - t(Cfg.Fov)))
+	return HIP_SHIFT + WIDE_SHIFT * u
+end
 
 -- Aimed, a rifle's own sight line goes onto the eye. A rifle borrowing another's holds (Config/Weapons `holdsOf`)
 -- is posed where that rifle's sights sit on the eye; its own Aim is off by the difference (the SMLE's sights are 0.05
@@ -92,6 +104,11 @@ type Rig = {
 	-- pose and poke into the lower left of the view, so it's hidden until the left hand joins (`leftHidden`)
 	oneHanded: boolean,
 	leftHidden: boolean,
+	thrown: number?, -- the grenade throw played ("ThrownAt")
+	dug: number?, -- the shovel dig played ("DugAt")
+	pinned: number?, -- the grenade pin pull played ("PinAt")
+	pinOut: boolean, -- the Mills's pin pulled: its "Pin" hidden ("PinOut")
+	gone: boolean, -- the thrown grenade has left the hand: its copy hidden for the rest of the throw
 }
 
 local function build(character: Model, weapon: Held.Weapon): Rig
@@ -120,7 +137,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		local arm = if source then source:Clone() else Instance.new("Part")
 		arm:ClearAllChildren()
 		arm.Name = name
-		arm.Size = Vector3.new(1, 2, 1)
+		arm.Size = Vector3.new(Cfg.ViewmodelArmWidth, 2, Cfg.ViewmodelArmWidth)
 		ghost(arm)
 		arm.Parent = model
 		local m = Instance.new("Motor6D")
@@ -178,8 +195,14 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 			or state == "aimOut"
 			or state == "charge"
 			or state == "chargeTwo"
-		t.Priority = if once then Enum.AnimationPriority.Action2 else Enum.AnimationPriority.Action
-		t.Looped = not once
+			or state == "pin"
+		-- a grenade's throw: a one shot over its wind-up ("ThrownAt"); the shovel's dig the same over its hold ("DugAt")
+		local over = state == "throw" or state == "dig"
+		t.Priority = if over
+			then Enum.AnimationPriority.Action3
+			elseif once then Enum.AnimationPriority.Action2
+			else Enum.AnimationPriority.Action
+		t.Looped = not once and not over
 		tracks[state] = t
 	end
 	-- drawn just now (src/client/Locomotion marks the moment): play the rest of the equip
@@ -203,8 +226,13 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 			return if f then Vector3.new(f[1], f[2], f[3]) else Vector3.zero
 		end)(),
 		animator = animator,
-		oneHanded = W[weapon.name].class == "Staff" or W[weapon.name].class == "Grenade",
+		oneHanded = W[weapon.name].class == "Staff",
 		leftHidden = false,
+		thrown = character:GetAttribute("ThrownAt") :: number?, -- (one thrown before this rig: not played again)
+		dug = character:GetAttribute("DugAt") :: number?,
+		pinned = character:GetAttribute("PinAt") :: number?,
+		pinOut = false,
+		gone = false,
 	}
 end
 
@@ -213,12 +241,16 @@ function Viewmodel.start()
 	-- download every weapon animation up front: a hold or equip loading late shows the gun frozen in the torso
 	task.spawn(function()
 		local anims = {}
-		for _, w in W do
+		local Loco = require(Shared.Config.Locomotion)
+		local MovementSet = require(Shared.Rules.MovementSet)
+		for name, w in W do
 			for _, set in
 				{
-					w.holds,
+					MovementSet.holds(Loco, name, w.holds), -- the movement set's own carry and crouched holds
 					w.firstPerson,
-					if w.reload then { w.reload.body, w.reload.firstPerson } else {},
+					if w.reload
+						then { w.reload.body, w.reload.firstPerson, w.reload.bodyTwo or 0, w.reload.firstPersonTwo or 0 }
+						else {},
 					if w.bolt then { w.bolt.aim, w.bolt.ready, w.bolt.firstAim or 0, w.bolt.firstReady or 0 } else {},
 					w.fire or {},
 					if w.single then { w.single.body, w.single.firstPerson } else {},
@@ -253,6 +285,11 @@ function Viewmodel.start()
 		local stowing = false
 		if not weapon and character and rig and character:GetAttribute("Stowing") == rig.name then
 			stowing = true
+			weapon = { tool = rig.tool, name = rig.name } :: any
+		end
+		-- the last grenade thrown (its Tool gone): the rig stays up until the throw has played out
+		local throwing = rig and rig.tracks.throw
+		if not weapon and character and rig and throwing and throwing.IsPlaying then
 			weapon = { tool = rig.tool, name = rig.name } :: any
 		end
 		if character then
@@ -308,7 +345,7 @@ function Viewmodel.start()
 			-- the barrel in the rig's own eye frame: its pose, before the turn is applied (the turn rotates that frame),
 			-- moved by the hip shift
 			local frame = r.root.CFrame * CFrame.new(EYE)
-			local p = frame:PointToObjectSpace(muzzle.WorldPosition) + (if atHip then HIP_SHIFT else Vector3.zero)
+			local p = frame:PointToObjectSpace(muzzle.WorldPosition) + (if atHip then hipShift() else Vector3.zero)
 			local d = frame:VectorToObjectSpace(muzzle.WorldCFrame.LookVector)
 			-- the point on the barrel's line D from the eye; turning it onto the centre line puts the whole line through
 			-- the screen centre there (turning only the barrel's direction leaves the muzzle swung aside)
@@ -356,7 +393,7 @@ function Viewmodel.start()
 		end
 		-- the turn and the hip shift count as much as the holds that have them
 		local turned = (if hipD > 0 then hipness else 0) + (if aimD > 0 then aimness else 0)
-		local shift = if hipD > 0 then HIP_SHIFT * hipness else Vector3.zero
+		local shift = if hipD > 0 then hipShift() * hipness else Vector3.zero
 		r.root.CFrame = camera.CFrame
 			* below
 			* Sway.viewmodel()
@@ -373,11 +410,38 @@ function Viewmodel.start()
 		local leftHidden = r.oneHanded
 			and character:GetAttribute("TwoHands") ~= true
 			and not (type(castHeld) == "number" and castHeld >= Spells.Staff.LeftShows)
-		if r.clear ~= clear or r.leftHidden ~= leftHidden then
-			r.clear, r.leftHidden = clear, leftHidden
+		-- a grenade throw (src/client/Grenades marks the moment): played once over the hold; past the release the copy in
+		-- the hand is hidden (the thrown one is in the air)
+		local thrownAt = character:GetAttribute("ThrownAt")
+		local throw = r.tracks.throw
+		if throw and type(thrownAt) == "number" and thrownAt ~= r.thrown then
+			r.thrown = thrownAt
+			throw:Play(0.05)
+		end
+		-- a dig with the shovel (src/client/Shovel marks the moment): played once over the hold
+		local dugAt = character:GetAttribute("DugAt")
+		if r.tracks.dig and type(dugAt) == "number" and dugAt ~= r.dug then
+			r.dug = dugAt
+			r.tracks.dig:Play(0.05)
+		end
+		local pinAt = character:GetAttribute("PinAt")
+		local pin = r.tracks.pin
+		if pin and type(pinAt) == "number" and pinAt ~= r.pinned then
+			r.pinned = pinAt
+			pin:Play(0.05)
+		end
+		local gone = throw ~= nil and throw.IsPlaying and throw.TimePosition >= Grenades.Throw.release
+		local pinOut = character:GetAttribute("PinOut") == true
+		if r.clear ~= clear or r.leftHidden ~= leftHidden or r.gone ~= gone or r.pinOut ~= pinOut then
+			r.clear, r.leftHidden, r.gone, r.pinOut = clear, leftHidden, gone, pinOut
 			for _, d in r.model:GetDescendants() do
 				if d:IsA("BasePart") then
-					d.LocalTransparencyModifier = if leftHidden and d.Name == "Left Arm" then 1 else clear
+					local arm = d.Name == "Left Arm" or d.Name == "Right Arm"
+					d.LocalTransparencyModifier = if leftHidden and d.Name == "Left Arm"
+						then 1
+						elseif gone and not arm then 1
+						elseif pinOut and d.Name == "Pin" then 1
+						else clear
 				end
 			end
 		end

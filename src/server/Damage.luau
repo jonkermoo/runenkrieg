@@ -141,12 +141,14 @@ end
 
 -- What a blast does (Config/Damage.Staff.Blasts); nil: everything, in full. fell = false: trees only lose leaves and
 -- shake, never fall (a grenade's, Config/Grenades); fragments: a casing's splinters on soldiers, on top of the blast,
--- through the same cover (Rules/Grenade.fragments).
+-- through the same cover (Rules/Grenade.fragments); own: the share of it that hurts whoever set it off (nil: 0, your own
+-- blast never hurts you; a grenade's, Config/Grenades.Own).
 export type BlastOpts = {
 	soldiers: boolean?,
 	trees: boolean?,
 	fell: boolean?,
 	fragments: GrenadeRules.Fragments?,
+	own: number?,
 	crater: boolean?,
 	wear: number?,
 	wearFull: number?,
@@ -185,7 +187,8 @@ function Damage.exposure(position: Vector3, character: Model, soldiers: { Model 
 	return Blast.exposure(clear, total, C.minShare)
 end
 
--- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it, never killed: knocked).
+-- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it only by `opts.own`;
+-- flung all the same).
 function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts?)
 	local B = Cfg.Blast
 	if kg <= 0 then
@@ -231,11 +234,11 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 				local kpa = kpaAt(d)
 				-- behind cover only what reaches them (cast now: cover the blast broke is gone)
 				local share = Damage.exposure(position, character, soldiers)
-				-- flung as hard as what gets past cover hurts (your own blast never hurts you, but flings you as hard as
-				-- it would have); a grenade's fragments add to it, through the same cover
+				-- flung as hard as what gets past cover hurts (your own blast hurts you only by `o.own`, but flings you as
+				-- hard as it would have); a grenade's fragments add to it, through the same cover
 				local splinters = if o.fragments then GrenadeRules.fragments(d, o.fragments) else 0
 				local full = (Blast.soldierDamage(kpa, B.Soldier) + splinters) * share
-				local amount = if character == by then 0 else full
+				local amount = if character == by then full * (o.own or 0) else full
 				local left = math.max(humanoid.Health - amount, 0)
 				local scale = if left <= 0 then 1 else Blast.fling(full, B.Soldier.max, B.Fling.least)
 				if scale then

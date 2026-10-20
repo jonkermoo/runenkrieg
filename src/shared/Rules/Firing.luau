@@ -17,13 +17,23 @@
 -- - loose shells (a pump shotgun, clip "Loose"; user 2026-10-13): R always loads one at a time, through the loading
 --   port, the action left shut: what is in the chamber stays (a fired hull still needs the pump). If the chamber was
 --   empty (the action held open), it closes on a shell at the end. The pump is worked like a bolt.
+-- - semi-automatic (`auto`, W2; user 2026-10-19): the action cycles itself on a shot (the case flies out, the next
+--   round goes in), so every click fires; on the last round the bolt stays open. R always fills the magazine
+--   ("tops up"): a stripper-clip or charger rifle presses in as many clips of `clipSize` as the room needs (each after
+--   the first adds `clipTime`; rounds left over stay on the clip), a box ("Box") is swapped whole. A live round in the
+--   chamber stays there; from an open bolt the reload closes it on a round.
 -- A full rifle: one round chambered and a full clip in the magazine (Gewehr 5 + 1, Carcano 6 + 1; Config/Firing.RifleClip).
 
 local Firing = {}
 
 export type Gun = {
 	capacity: number, -- rounds one clip holds
-	clip: string, -- "Enbloc" | "Stripper" | "Loose" (shells one at a time, the action left shut)
+	clip: string, -- "Enbloc" | "Stripper" | "Loose" (shells one at a time, the action left shut) | "Box" (swapped whole)
+	-- semi-automatic: the action cycles itself on a shot; a reload presses in clips of clipSize rounds (else
+	-- capacity), each one after the first taking clipTime more
+	auto: boolean?,
+	clipSize: number?,
+	clipTime: number?,
 	boltTime: number,
 	reloadTime: number,
 	fireTime: number,
@@ -126,16 +136,37 @@ function Firing.next(s: State, now: number): string
 	return "Dry"
 end
 
-function Firing.fire(s: State, gun: Gun, now: number, slack: number?): (boolean, string?)
+-- Returns ok, the reason it can't, and (semi-automatic) what the action threw out ("Casing").
+function Firing.fire(s: State, gun: Gun, now: number, slack: number?): (boolean, string?, string?)
 	Firing.settle(s, now)
 	if not idle(s, now, slack) then
-		return false, "busy"
+		return false, "busy", nil
 	elseif not s.chambered then
-		return false, if s.spent then "bolt" else "empty"
+		return false, if s.spent then "bolt" else "empty", nil
 	end
 	s.chambered, s.spent = false, true
 	s.busyUntil = now + gun.fireTime
-	return true, nil
+	if gun.auto then
+		-- the action cycles itself: the case out, the next round in, or the bolt held open on the empty magazine
+		s.spent = false
+		if s.magazine > 0 then
+			s.magazine -= 1
+			s.chambered = true
+		else
+			s.open = true
+		end
+		return true, nil, "Casing"
+	end
+	return true, nil, nil
+end
+
+-- How many clips a semi-automatic's reload presses in now (a box: 1).
+function Firing.clipsFor(s: State, gun: Gun): number
+	local room = gun.capacity - s.magazine
+	if gun.clip == "Box" or room <= 0 then
+		return 1
+	end
+	return math.ceil(room / (gun.clipSize or gun.capacity))
 end
 
 -- Returns ok, the reason it can't, and what came out of the chamber ("Casing", "Round" or nil).
@@ -165,18 +196,38 @@ function Firing.canReload(s: State, gun: Gun): boolean
 	if gun.clip == "Enbloc" then
 		return s.magazine == 0
 	end
-	return s.magazine < gun.capacity
+	return s.magazine < gun.capacity or (gun.auto == true and not s.chambered)
 end
 
 -- Returns ok, the reason it can't, what came out of the chamber when the bolt opened ("Casing", "Round": a live round
 -- thrown out, or nil; loose shells: "Open" when the action was held open and closes at the end), and the kind: "Reload" (a clip) or "Load" (single rounds: a stripper-clip rifle with rounds
--- left).
+-- left; "Reload2": a semi-automatic pressing in two chargers).
 function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolean, string?, string?, string?)
 	Firing.settle(s, now)
 	if not idle(s, now, slack) then
 		return false, "busy", nil, nil
 	elseif not Firing.canReload(s, gun) then
 		return false, if gun.clip == "Enbloc" then "not empty" else "full", nil, nil
+	end
+	if gun.auto then
+		-- fills the magazine (clips pressed in, or a fresh box); a chambered round stays, an open bolt closes on one
+		local wasOpen = s.open
+		local clips = Firing.clipsFor(s, gun)
+		local time = gun.reloadTime + (clips - 1) * (gun.clipTime or 0)
+		s.open = false
+		s.magazine = gun.capacity
+		if not s.chambered then
+			s.magazine -= 1
+			s.chambered = true
+		end
+		if gun.clip == "Box" then
+			-- a box: the whole swap even from an open bolt (the box must still come out); "Open": the bolt stays back
+			-- until the plunger lets it go (Config/Firing.BoxCycle)
+			s.busyUntil = now + time
+			return true, nil, if wasOpen then "Open" else nil, "Reload"
+		end
+		s.busyUntil = now + time * (if wasOpen then 1 - gun.reloadOpenAt else 1)
+		return true, nil, nil, if clips > 1 then "Reload2" else "Reload" -- (two chargers: their own timeline)
 	end
 	local loose = gun.clip == "Loose"
 	if loose or (gun.clip == "Stripper" and s.magazine > 0) then

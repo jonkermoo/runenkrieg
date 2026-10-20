@@ -34,7 +34,7 @@ local Settings = {
 			kind = "slider",
 			label = "Field of view",
 			min = 60,
-			max = 100,
+			max = 90, -- (user 2026-10-19; a saved wider view loads as 90: Rules/Settings.clean)
 			step = 1,
 			default = 70,
 			format = "%d",
@@ -60,6 +60,8 @@ local Settings = {
 			format = "%.2fx",
 		},
 		InvertY = { kind = "choice", label = "Invert Y", values = { "Off", "On" }, default = "Off" },
+		-- aim down the sights while the aim key is held, or press once to aim and again to stop (user 2026-10-19)
+		AimMode = { kind = "choice", label = "Aim", values = { "Hold", "Toggle" }, default = "Hold" },
 		SprintMode = { kind = "choice", label = "Sprint", values = { "Hold", "Toggle" }, default = "Hold" },
 		CrouchMode = { kind = "choice", label = "Crouch", values = { "Toggle", "Hold" }, default = "Toggle" },
 
@@ -96,7 +98,10 @@ local Settings = {
 	-- The menu's tabs, in order, and the rows in each.
 	Tabs = {
 		{ name = "Graphics", rows = { "Preset", "GrassQuality", "Shadows", "TreeSway", "Debris", "FieldOfView" } },
-		{ name = "Controls", rows = { "HipSensitivity", "AimSensitivity", "InvertY", "SprintMode", "CrouchMode" } },
+		{
+			name = "Controls",
+			rows = { "HipSensitivity", "AimSensitivity", "InvertY", "AimMode", "SprintMode", "CrouchMode" },
+		},
 		{ name = "Audio", rows = { "MasterVolume", "EffectsVolume" } },
 		{
 			name = "Keybinds",
@@ -104,27 +109,8 @@ local Settings = {
 		},
 	},
 
-	-- The menu (src/client/SettingsMenu), in reference pixels at ReferenceHeight screen pixels tall; one UIScale
-	-- (clamped to MinScale..MaxScale) and never taller than the screen less Margin.
+	-- The menu (src/client/SettingsMenu); its layout, sizes and fonts are the spec src/shared/ui/SettingsMenu.json.
 	Menu = {
-		Width = 440,
-		Height = 500,
-		ReferenceHeight = 800,
-		MinScale = 0.65,
-		MaxScale = 1.25,
-		Margin = 16,
-		Padding = 14,
-		Gap = 6,
-		RowGap = 10,
-		RowHeight = 76,
-		LabelHeight = 22,
-		ControlHeight = 44, -- buttons thumb-sized
-		TrackHeight = 10,
-		KnobSize = 26,
-		ScrollBar = 6,
-		TitleSize = 20,
-		LabelSize = 16,
-		ValueSize = 15,
 		DisplayOrder = 10, -- over the HUD
 		CaptureGuard = 0.3, -- seconds after a key is bound in which its button's click is ignored
 	},

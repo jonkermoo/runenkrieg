@@ -29,9 +29,25 @@ local Firing = {
 	-- reaches the bolt handle, turns it up, pulls it back; goes to the ammo pouch and takes a clip (grab: it is in the
 	-- hand from here); sets it in the guides (an en-bloc clip over the magazine); pushes the rounds down (an en-bloc
 	-- clip goes down with them); back to the handle, pushes the bolt forward (a stripper clip flies out), turns it
-	-- down, and the hand goes back to the grip. The reload animations (tools/animation/reload.luau) and the clip
-	-- (src/client/GunFx) follow this timeline, so a reload cut short resumes with everything where it was.
+	-- down, rests there a beat, and the hand goes back to the grip. The reload animations (tools/animation/reload.luau)
+	-- and the clip (src/client/GunFx) follow this timeline, so a reload cut short resumes with everything where it was.
+	-- v2 (user 2026-10-19: "a little too fast ... give some time after flicking the clip out", every rifle; the clip
+	-- now comes from the pack on the back in third person, a longer reach): every reload 25% longer, a beat (`rest`)
+	-- after the flick. `back` is the same in ReloadCycleTwo (a reload from an open bolt starts there).
 	ReloadCycle = {
+		reach = 0.06,
+		up = 0.12,
+		back = 0.18,
+		grab = 0.38,
+		set = 0.5,
+		clip = 0.6,
+		knob = 0.68,
+		forward = 0.74,
+		down = 0.78,
+		rest = 0.88,
+	},
+	-- Single rounds keep the reload's first timeline (their animations are keyed on it: tools/animation/single.luau)
+	SingleCycle = {
 		reach = 0.08,
 		up = 0.16,
 		back = 0.26,
@@ -42,6 +58,53 @@ local Firing = {
 		forward = 0.88,
 		down = 0.94,
 	},
+	-- A semi-automatic's action after a shot (W2), shares of its boltTime: the bolt flies back (the case out at `back`),
+	-- then returns; nothing turns and no hand moves. On the last round it stops at `back` (held open).
+	AutoCycle = { reach = 0, up = 0.01, back = 0.4, forward = 0.85, down = 1 },
+	-- Two clips (a semi-automatic with room for more than one, W2: the Remington 8's 5-round chargers, the Mondragón's
+	-- 5-round clips topping up the rest, user 2026-10-19), shares of reloadTime +
+	-- clipTime: the same opening (the same `back`), then a charger taken, set and pushed down, its empty one flung off,
+	-- a second the same way, and the bolt let go. The reload animations' Two variants are keyed on it.
+	ReloadCycleTwo = {
+		reach = 0.05,
+		up = 0.11,
+		back = 0.18,
+		grab = 0.31,
+		set = 0.39,
+		clip = 0.46,
+		fling = 0.48, -- the first empty clip flicked off
+		beat = 0.53, -- a beat before the hand goes for the next
+		grab2 = 0.63,
+		set2 = 0.7,
+		clip2 = 0.76,
+		knob = 0.81,
+		forward = 0.85,
+		down = 0.88,
+		rest = 0.94,
+	},
+	-- A box swapped whole (W2: the Winchester 1907), shares of reloadTime: the right hand goes under the box (`under`),
+	-- lets it drop (`drop`), takes a fresh one from the pouch (`grab`), sets it at the well's mouth (`set`) and pushes it
+	-- up in (`seat`, = `clip`), back on the grip (`grip`); then the left hand runs the cocking plunger under the barrel:
+	-- reaches it, pulls it (the bolt back at `back`), lets go (`forward`). The box reload animations are keyed on it.
+	BoxCycle = {
+		under = 0.06,
+		drop = 0.14,
+		grab = 0.34,
+		set = 0.5,
+		seat = 0.58,
+		clip = 0.58,
+		grip = 0.66,
+		reach = 0.7,
+		up = 0.74,
+		back = 0.79,
+		knob = 0.81,
+		forward = 0.85,
+		down = 0.86,
+	},
+	-- The box in the hand (src/client/GunFx): the hand's centre this far (studs) beside the box's side (third person) or
+	-- under its bottom (first person: half the 1-stud hand); the last `blend` of the share before `set` settles it onto
+	-- the well's mouth; the dropped box leaves at `drop` (studs/s, gun space: right, up, back).
+	Box = { hand = 0.5, blend = 0.05, drop = { 1, -3, 0 } },
 	-- An action started partway (a reload from a bolt held open, one resumed after being cut) fades its arms in over
 	-- this long (s), so the rifle travels from the hold into the action's pose (at 0.15 s it lunged; A1 audit 2026-10-18)
 	ResumeFade = 0.3,
@@ -103,7 +166,9 @@ local Firing = {
 		-- "Bolt Action Long Rifle 0m" (ChipTheTrainer2): one point-blank shot with its natural outdoor tail, no ring or
 		-- bolt baked in. Its file starts with 0.36 s of silence: `start` skips it. (Was "Bolt Action Fire", 7700083911:
 		-- a ring at 0.44 s and a bolt cycle at 0.8 s in the file; cutting them cut the shot short, user 2026-10-12.)
-		Shot = { id = 134529004435835, volume = 2.5, start = 0.34 },
+		-- Its tail swells again at ~1.3 s and then hisses (a windy noise floor) until the file stops dead at 3.9 s (user
+		-- 2026-10-19: "rings out some type of wind noise and cuts off"; measured): it ends at 2.3 s, faded over 1 s.
+		Shot = { id = 134529004435835, volume = 2.5, start = 0.34, stop = 2.3, fade = 1 },
 		BoltOpen = { id = 85609660605803, volume = 0.8 }, -- "Rifle Bolt Pull 2" (EXPPOINT)
 		BoltClose = { id = 86945427224170, volume = 0.8 }, -- "Rifle Bolt Push 1" (EXPPOINT)
 		ClipIn = { id = 9116321026, volume = 0.7 }, -- "Locking Wrench 7 (SFX)" (Pro Sound Effects)

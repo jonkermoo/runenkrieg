@@ -28,6 +28,10 @@ local Camera = {
 	-- swap looked choppy going into and out of a sprint
 	-- under the aim-in / aim-out (which covers it) the hold left behind fades out over this share of what is left of it
 	AimHandoff = 0.8,
+	-- the first-person arms' thickness (studs; R6's is 1): slimmer, like a real forearm beside the rifle, as the hand
+	-- works close to the eye (user 2026-10-19: the reload's forearm too big). Their length (2) and joints stay R6's, so
+	-- the hands land where the animations put them. Others see the normal arms.
+	ViewmodelArmWidth = 0.7,
 
 	-- First person, not aiming (user 2026-10-12: hip fire should go about where the screen centre is when standing
 	-- still): the first-person rifle is turned so its barrel meets the centre line this many studs out; sway still
@@ -41,8 +45,14 @@ local Camera = {
 	-- eye; user 2026-10-13: get the bolt in frame): forward, up and a little left, so the top of the action (the bolt
 	-- body and cocking piece, sliding back when worked) shows at the bottom right above the right hand. The handle
 	-- itself sits in the R6 hand on the wrist, so more lift only brings the arm up over the view. The barrel still meets
-	-- the centre line at HipConverge. Eased in and out with HipEase.
-	HipShift = { -0.06, 0.14, -0.25 },
+	-- the centre line at HipConverge. Eased in and out with HipEase. Lowered 0.12 (user 2026-10-19: the hand lower; was
+	-- 0.14 up): the turn keeps the barrel on its line, so the rifle's rear and the hand drop, the muzzle hardly moves.
+	HipShift = { -0.06, 0.02, -0.25 },
+	-- A wider field of view (the player's setting) shrinks the rifle toward the centre and brings the forearm into the
+	-- bottom right (user 2026-10-19: "account for high FOV players"). At the hip the rig moves by `shift` (right, up,
+	-- back from the eye) at `at` degrees, by the share tan(fov / 2) has grown from Fov's toward `at`'s (none at Fov or
+	-- below), so FOV 90 frames like 70 (checked in offline renders, tools/animation/vmrender.py)
+	WideFov = { at = 90, shift = { 0.05, -0.1, 0.2 } },
 
 	-- First person: the eye in the Head's space (the R6 head is 1.25 big; front face at -0.6). The viewmodel's torso
 	-- sits where the eye is (0, 1.65, -0.45) from it, as in tools/animation/rifle.luau EYE.

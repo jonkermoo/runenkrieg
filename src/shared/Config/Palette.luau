@@ -87,6 +87,36 @@ local Palette = {
 		Thread = { 150, 62, 52 }, -- the red tear thread wrapped round the pack
 		Cross = { 72, 140, 72 }, -- the green cross on the pack
 	},
+	-- Backpacks (Config/Assets "<Team>/Packs", user 2026-10-18/19), coloured by mesh name. Never the team's uniform
+	-- colour (user 2026-10-20): tan / sand / khaki canvas bodies, brown leather, dark blanket rolls.
+	Packs = {
+		pack_tornister = {
+			Body = { 150, 124, 88 },
+			Flap = { 112, 80, 56 },
+			Leather = { 54, 42, 34 },
+			Roll = { 96, 92, 80 },
+		},
+		pack_zaino = { Body = { 170, 150, 108 }, Leather = { 112, 82, 58 }, Roll = { 120, 106, 80 } },
+		pack_p08 = {
+			Body = { 176, 160, 118 },
+			Strap = { 150, 134, 96 },
+			Roll = { 110, 104, 92 },
+			Tin = { 128, 132, 136 },
+		},
+	},
+	-- Species ears and tails (Config/Species; user 2026-10-18): the fur takes the soldier's hair colour; these are the
+	-- rest. Inner = the inside of an ear, Tip = the fennec tail's dark tip (user 2026-10-20), Cream = what the cup's fluff
+	-- blends toward
+	-- (FluffShare of the way from the hair colour) so it melts into the fur.
+	Species = {
+		Inner = { 226, 178, 160 },
+		Tip = { 46, 34, 28 },
+		Cream = { 236, 226, 204 },
+		FluffShare = 0.45,
+		-- until the looks arrive ("HairColor" / "SkinColor" unset), the fur and the elf ears take these
+		FallbackHair = { 104, 70, 46 },
+		FallbackSkin = { 214, 158, 108 },
+	},
 	-- Artillery (Config/Assets "Shared/Artillery", user 2026-10-18: one model each, painted per team), colored by mesh
 	-- name: the painted parts take the team's Paint, the rest are the same for everyone. The runes and the crystal
 	-- glow (Neon, the magic exception in docs/ART_STYLE.md); the crystal's colour will follow the gun's state.
@@ -107,6 +137,14 @@ local Palette = {
 		BarrelRunes = { 120, 200, 255 },
 		Crystal = { 175, 235, 255 },
 		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
+	},
+	-- The trench spade (Config/Assets "Shared/Shovels", user 2026-10-19): one model for every team, no team colors,
+	-- brass the only accent; colored by mesh name.
+	Shovel = {
+		Wood = { 139, 94, 60 }, -- the D-grip and haft
+		Iron = { 90, 92, 96 }, -- straps, socket, treads, the tongue on the back
+		Blade = { 122, 124, 128 },
+		Brass = { 184, 149, 90 }, -- the collar and rivets
 	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
 	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
@@ -165,6 +203,25 @@ local Palette = {
 		manaSpend = { 235, 250, 255 },
 		manaBurnt = { 118, 72, 150 },
 		manaDenied = { 220, 70, 60 },
+		-- the settings menu (src/client/SettingsMenu, src/shared/ui/SettingsMenu.json): gray slate, no hue (user
+		-- 2026-10-19); the picked choice is lighter with a silver line. Lines are `thin`, the panel border `stroke`.
+		Settings = {
+			panel = { 24, 25, 27 },
+			field = { 34, 35, 38 },
+			line = { 74, 76, 81 },
+			lineStrong = { 138, 141, 148 },
+			text = { 214, 215, 218 },
+			textDim = { 128, 131, 138 },
+			title = { 228, 229, 232 },
+			selFill = { 58, 60, 64 },
+			selLine = { 201, 203, 208 },
+			selText = { 255, 255, 255 },
+			accent = { 228, 229, 232 },
+			backdrop = { 0, 0, 0 },
+			backdropTransparency = 0.55,
+			stroke = 2,
+			thin = 1,
+		},
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
 	-- the grenades' arc preview (src/client/Grenades, Config/Grenades.Arc): a faint pale line

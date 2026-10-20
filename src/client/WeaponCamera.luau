@@ -109,6 +109,7 @@ function WeaponCamera.start()
 						part.Name == "Head"
 						or part.Name == "FaceCard"
 						or part:FindFirstAncestorOfClass("Accessory") ~= nil
+						or part:FindFirstAncestor("Ears") ~= nil -- species ears (src/server/Species)
 					)
 				local t = if onHead and head then head else body
 				local inside = part ~= nil
@@ -199,12 +200,17 @@ function WeaponCamera.start()
 	-- before the look tilt: turn with the mouse, face the body
 	RunService:BindToRenderStep("WeaponCameraInput", Enum.RenderPriority.Input.Value + 1, function()
 		local character, humanoid, root = parts()
-		-- a weapon in the hands, or one going over the shoulder (src/client/Locomotion "Stowing")
+		-- a weapon in the hands, one going over the shoulder (src/client/Locomotion "Stowing") or the last grenade's throw
+		-- playing out after it left the hand (src/client/Grenades "Throwing")
 		local want = character
 			and humanoid
 			and root
 			and humanoid.Health > 0
-			and (Held.weapon(character) ~= nil or character:GetAttribute("Stowing") ~= nil)
+			and (
+				Held.weapon(character) ~= nil
+				or character:GetAttribute("Stowing") ~= nil
+				or character:GetAttribute("Throwing") == true
+			)
 		if want and not active then
 			enter()
 		elseif not want and active then
@@ -283,7 +289,8 @@ function WeaponCamera.start()
 			return
 		end
 		local weapon = character and Held.weapon(character)
-		local stowing = character ~= nil and character:GetAttribute("Stowing") ~= nil
+		local stowing = character ~= nil
+			and (character:GetAttribute("Stowing") ~= nil or character:GetAttribute("Throwing") == true)
 		if not active or not character or not root or not (weapon or stowing) then
 			return
 		end

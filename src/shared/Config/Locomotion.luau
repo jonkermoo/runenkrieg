@@ -23,22 +23,103 @@ local Locomotion = {
 	},
 
 	-- Animation asset ids. Roblox's stock R6 ids fill what we haven't made yet.
-	-- Ground cycles: `keyed` is the cycle length in the keyframe data (tools/animation/locomotion.luau), `cycle` the
-	-- length it plays at when moving at `speed` (Metrics.Movement); playback also scales with actual speed / `speed`.
-	-- Pace (user 2026-10-11: steps were too quick for the speed): walk ~2 steps/s, sprint ~2.8 steps/s, close to a
-	-- real walk and run cadence. Tune `cycle` here; no re-upload needed.
+	-- Ground cycles: `keyed` is the cycle length in the keyframe data, `cycle` the length it plays at when moving at
+	-- `speed` (Metrics.Movement); playback also scales with actual speed / `speed`. Tune `cycle` here; no re-upload.
+	-- These are shared by both movement sets; each set below adds its own idle / walk / sprint / crouch / air ones
+	-- (Rules/MovementSet).
 	Animations = {
-		idle = { id = 180435571 }, -- Roblox stock R6 idle (placeholder)
-		walk = { id = 90079278838820, speed = 10, keyed = 0.76, cycle = 1 },
-		sprint = { id = 71642320375175, speed = 16, keyed = 0.56, cycle = 0.72 },
 		climb = { id = 180436334, speed = 8 }, -- Roblox stock R6 climb (ladders)
 		toolnone = { id = 182393478 }, -- Roblox stock R6: the right arm holds an equipped tool out
-		-- Crouch (user 2026-10-11): torso leaning only a little, the legs pushed up into it (only the shins show), the
-		-- right knee down at idle; the walk alternates like a real walk
-		crouchIdle = { id = 139770444602307 },
-		crouchWalk = { id = 140224669320052, speed = 6, keyed = 1.0, cycle = 1.4 }, -- long, slow strides (user)
 		-- in the air with the staff aimed (user 2026-10-13): legs loose, drifting (tools/animation/staff.luau)
 		float = { id = 127154488107008 },
+	},
+
+	-- Which movement set plays (user 2026-10-20: "save this current animation, but make a more serious one"): "serious"
+	-- or "veteran". Each has its own torso leans, so the third-person holds that ride a lean (sprint carry, crouched
+	-- holds) are rebuilt per set: `Holds` replaces those Config/Weapons ids by weapon (the veteran set uses Weapons').
+	Set = "serious",
+	Sets = {
+		-- Serious (user 2026-10-20, "combat-ready", arms at the sides; tools/animation/locomotion_serious.luau): restrained,
+		-- a small bob, no shoulder roll or side lean, no head glances (the head turns to the view live, src/client/LookTilt).
+		-- Leans: walk 3, sprint 18, crouch 20. Walk 2.0 steps/s, sprint 2.8, crouch walk 1.2.
+		serious = {
+			Animations = {
+				idle = { id = 93195360424907 }, -- 4 s: feet a little apart, arms at the sides, one slow breath
+				walk = { id = 75341378184097, speed = 10, keyed = 0.76, cycle = 1 },
+				sprint = { id = 91348749956199, speed = 16, keyed = 0.56, cycle = 0.72 },
+				crouchIdle = { id = 100480478844590 },
+				crouchWalk = { id = 117100925469674, speed = 6, keyed = 1.0, cycle = 1.67 },
+				jump = { id = 136481397424505 },
+				fall = { id = 96238825240673 },
+				land = { id = 81188383733947 },
+			},
+			-- the carry built over the 18 deg sprint, the crouched holds over the 20 deg crouch (rifle.luau, grenade.luau and
+			-- staff.luau with those leans)
+			Holds = {
+				rifle_m91 = {
+					carry = 119417853025094,
+					crouchReady = 125300819482628,
+					crouchWalk = 109286771789007,
+					crouchAim = 125788513626290,
+				},
+				rifle_g98 = {
+					carry = 89297360927119,
+					crouchReady = 71279703172364,
+					crouchWalk = 135152899831020,
+					crouchAim = 81865048539698,
+				},
+				rifle_smle = {
+					carry = 131313963233381,
+					crouchReady = 124540600132919,
+					crouchWalk = 136711785310993,
+					crouchAim = 88093230462842,
+				},
+				rifle_mondragon = {
+					carry = 100020439402399,
+					crouchReady = 105675657815195,
+					crouchWalk = 131013849846517,
+					crouchAim = 108054363167309,
+				},
+				rifle_remington8 = {
+					carry = 139712671322785,
+					crouchReady = 86600766705324,
+					crouchWalk = 117233666710960,
+					crouchAim = 138784226712792,
+				},
+				rifle_winchester1907 = {
+					carry = 89132952036365,
+					crouchReady = 137575028944948,
+					crouchWalk = 72212727683637,
+					crouchAim = 88578444180018,
+				},
+				shotgun_m1897 = {
+					carry = 76878677051189,
+					crouchReady = 106243506938923,
+					crouchWalk = 80397196237031,
+					crouchAim = 122339519446187,
+				},
+				grenade_mills = { carry = 88834675278602 },
+				grenade_stick = { carry = 88834675278602 },
+				grenade_sipe = { carry = 88834675278602 },
+				staff_grey = { carry = 99125305553684 },
+				staff_olive = { carry = 99125305553684 },
+				staff_white = { carry = 99125305553684 },
+			},
+		},
+		-- Veteran (user 2026-10-18, "burdened veteran"; tools/animation/locomotion.luau): heavy heel-first steps, a small
+		-- shoulder roll, arms hanging low; the sprint a lumbering charge at 2.6 steps/s; crouch hunched 28 deg.
+		veteran = {
+			Animations = {
+				idle = { id = 71032700662557 }, -- 8 s: slumped, slow breath, weight shifts leg to leg, a glance each side
+				walk = { id = 92205569241192, speed = 10, keyed = 0.76, cycle = 1 },
+				sprint = { id = 130475958716124, speed = 16, keyed = 0.56, cycle = 0.77 },
+				crouchIdle = { id = 110587356929380 },
+				crouchWalk = { id = 138761604001437, speed = 6, keyed = 1.0, cycle = 1.67 },
+				jump = { id = 127631172361702 },
+				fall = { id = 112064982682133 },
+				land = { id = 117973662730647 }, -- once on landing, over the ground cycle
+			},
+		},
 	},
 
 	IdleBelow = 0.75, -- horizontal speed (studs/s) under which the soldier stands still
@@ -55,8 +136,20 @@ local Locomotion = {
 	-- away (Net "Stow"); a weapon taken away with no word for `wait` seconds (a ragdoll knock) goes straight on the
 	-- back.
 	Stow = { time = 0.55, wait = 0.2 },
-	-- No jump / fall / land animations (user 2026-10-11): in the air the current idle / walk / sprint keeps playing,
-	-- except floating with the staff aimed ("Floating", src/client/StaffAttack): the float cycle.
+	-- In the air (user 2026-10-18): jumping plays the take-off, then the fall tuck loops until landing (walking off a
+	-- ledge goes straight to the tuck); floating with the staff aimed ("Floating", src/client/StaffAttack) plays the
+	-- float cycle instead. Landing plays the land once over the ground cycle: full weight standing, lighter on the move.
+	Air = {
+		JumpFade = 0.05, -- into the take-off
+		FallFade = 0.1, -- take-off (or ground) into the tuck
+		LandFade = 0.05,
+		-- stepping down a stair or a ledge drops into free fall for a moment: the tuck only after this long falling
+		-- without a jump, and the land only after this long in the air (seconds)
+		FallDelay = 0.15,
+		LandMinAir = 0.3,
+		LandWeight = 1, -- landing standing still
+		LandWeightMoving = 0.4, -- landing on the move (blends with the walk / sprint under it)
+	},
 
 	-- Look tilt (user 2026-10-11): the torso follows the camera's pitch a little, leaning back when you look up and
 	-- forward when you look down. Only the torso (with head and arms on it) tilts, about the waist; the legs stay

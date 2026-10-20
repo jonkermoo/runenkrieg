@@ -31,7 +31,7 @@ local Remotes: { string } = {
 	"Shot",
 	-- (action "Load": single rounds, from = seconds into it, to = rounds going in or nil = until full; "LoadStop": to =
 	-- the rounds going in now)
-	-- server -> clients: (shooter: Model, action: "Bolt" | "Reload" | "Load" | "LoadStop", out: string?, from, to,
+	-- server -> clients: (shooter: Model, action: "Bolt" | "Reload" | "Reload2" | "Load" | "LoadStop", out: string?, from, to,
 	-- delay: number?) the action's parts moving and sounds, for everyone else; out = what the bolt throws from the
 	-- chamber ("Casing"); from / to = the share of the action's timeline to play (a bolt held open stops at its back
 	-- point, a reload from an open bolt starts there, a resumed action plays its rest); delay = wait this long first

@@ -4,7 +4,8 @@
 -- soldier. The rig type itself is a game setting (Game Settings -> Avatar -> R6); scripts can't set it.
 -- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants, rolls the life's skin and hair colors
 -- (Config/Uniforms Skins / HairColors, Rules/Looks) and hairstyle, puts on the face (on a "FaceCard" shell welded
--- over the head) and the kit's helmet over the hair (src/server/Helmets).
+-- over the head), the kit's helmet over the hair (src/server/Helmets), its pack on the back (src/server/Packs) and its
+-- species' ears and tail (src/server/Species).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -14,6 +15,8 @@ local U = require(Shared.Config.Uniforms)
 local Faces = require(Shared.Rules.Faces)
 local Looks = require(Shared.Rules.Looks)
 local Helmets = require(script.Parent.Helmets)
+local Packs = require(script.Parent.Packs)
+local Species = require(script.Parent.Species)
 
 local Bodies = {}
 
@@ -120,6 +123,9 @@ function Bodies.apply(character: Model)
 	pants.Parent = character
 	-- the helmet stays off once it has been shot off this life
 	Helmets.dress(character, if character:GetAttribute("HelmetOn") == false then nil else kit.headwear)
+	Packs.dress(character, kit.pack)
+	-- the kit's species: ears and a tail (src/server/Species)
+	Species.dress(character, U.Default)
 end
 
 -- The face follows health (Rules/Faces): the tier's face while alive; on death the CLOSED face of the tier the

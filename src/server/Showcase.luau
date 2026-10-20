@@ -13,7 +13,19 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Showcase)
 local Loco = require(Shared.Config.Locomotion)
 local U = require(Shared.Config.Uniforms)
-local W = require(Shared.Config.Weapons)
+local MovementSet = require(Shared.Rules.MovementSet)
+local Anims = MovementSet.animations(Loco) -- the movement set in play (Config/Locomotion.Set)
+-- the weapons with the holds of the movement set in play (its own sprint carry and crouched holds)
+local W = {}
+for name, w in require(Shared.Config.Weapons) :: any do
+	if type(w) == "table" and w.holds then
+		local copy = table.clone(w)
+		copy.holds = MovementSet.holds(Loco, name, w.holds)
+		W[name] = copy
+	else
+		W[name] = w
+	end
+end
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
 local Net = require(Shared.Net)
@@ -93,7 +105,7 @@ end
 
 -- a movement cycle at its game pace (Config/Locomotion keyed / cycle)
 local function base(m: Model, name: string): AnimationTrack
-	local a = (Loco.Animations :: any)[name]
+	local a = (Anims :: any)[name]
 	local t = track(m, a.id, Enum.AnimationPriority.Core, true)
 	t:Play(0)
 	if a.keyed and a.cycle then
@@ -174,7 +186,7 @@ function Showcase.start()
 	-- the rows: movement first, then one per weapon
 	local rows: { { title: string, items: { any } } } = {}
 	local moves = {}
-	for _, name in sorted(Loco.Animations :: any, Cfg.Movement) do
+	for _, name in sorted(Anims :: any, Cfg.Movement) do
 		if not Cfg.Skip[name] then
 			table.insert(moves, { kind = "move", name = name })
 		end
@@ -196,8 +208,14 @@ function Showcase.start()
 			end
 		end
 		for _, a in Cfg.Actions do
-			-- guns only; single rounds: only a rifle that loads them; a clip reload: not for loose shells (a pump gun)
-			if w.ammo and (a.action ~= "Load" or w.single) and (a.action ~= "Reload" or w.ammo.clip ~= "Loose") then
+			-- guns only; single rounds: only a rifle that loads them; a clip reload: not for loose shells (a pump gun);
+			-- working the bolt: not for a semi-automatic (its action cycles itself)
+			if
+				w.ammo
+				and (a.action ~= "Load" or w.single)
+				and (a.action ~= "Reload" or w.ammo.clip ~= "Loose")
+				and (a.action ~= "Bolt" or not (w.action and w.action.auto))
+			then
 				table.insert(items, { kind = "action", weapon = weapon, spec = a })
 			end
 		end

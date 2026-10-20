@@ -27,9 +27,10 @@ local Sway = {}
 -- after the camera has turned with the mouse (src/client/WeaponCamera input), before it is placed
 Sway.Priority = Enum.RenderPriority.Input.Value + 2
 
-local WALK = "rbxassetid://" .. Loco.Animations.walk.id
-local SPRINT = "rbxassetid://" .. Loco.Animations.sprint.id
-local CROUCH = "rbxassetid://" .. Loco.Animations.crouchWalk.id
+local Anims = require(Shared.Rules.MovementSet).animations(Loco) -- the set in play
+local WALK = "rbxassetid://" .. Anims.walk.id
+local SPRINT = "rbxassetid://" .. Anims.sprint.id
+local CROUCH = "rbxassetid://" .. Anims.crouchWalk.id
 local TAU = 2 * math.pi
 
 local viewmodel = CFrame.identity
@@ -172,8 +173,10 @@ function Sway.start()
 			return
 		end
 		local weapon = Held.weapon(character)
-		local class = weapon and (W[weapon.name] :: any).class
-		local weight = class and Cfg.Classes[class] or 1
+		local spec = weapon and (W[weapon.name] :: any)
+		local class = spec and spec.class
+		local weight = spec and spec.weight or class and Cfg.Classes[class] or 1 -- (the gun's own weight first, W2)
+		local strideK = spec and spec.stride or 1 -- the gun's own extra sway on the move (Config/Weapons `stride`)
 		local aiming = character:GetAttribute("Aiming") == true
 		local A = Cfg.Aim
 		local function share(k: string): number
@@ -216,9 +219,9 @@ function Sway.start()
 		phase = (phase + rate * dt * going + fix) % 1
 		local g = math.clamp((pace - S.WalkSpeed) / (S.SprintSpeed - S.WalkSpeed), 0, 1)
 		local size = math.min(pace / S.WalkSpeed, 1)
-		local side = lerp(S.walk.side, S.sprint.side, g) * math.sin(TAU * phase) * size
-		local down = -lerp(S.walk.down, S.sprint.down, g) * math.cos(2 * TAU * phase) * size
-		local sroll = lerp(S.walk.roll, S.sprint.roll, g) * math.sin(TAU * phase) * size
+		local side = lerp(S.walk.side, S.sprint.side, g) * math.sin(TAU * phase) * size * strideK
+		local down = -lerp(S.walk.down, S.sprint.down, g) * math.cos(2 * TAU * phase) * size * strideK
+		local sroll = lerp(S.walk.roll, S.sprint.roll, g) * math.sin(TAU * phase) * size * strideK
 
 		-- breath
 		local B = Cfg.Breath

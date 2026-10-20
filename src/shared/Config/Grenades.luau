@@ -12,6 +12,7 @@ local Grenades = {
 	Fuse = 3, -- seconds from leaving the hand (user: "3s, no throwing back")
 	Carried = 2, -- per life, refilled at respawn (user: "2 per life, own slot")
 	Cooldown = 1, -- seconds before the next one can be thrown (the next grenade into the hand)
+	Own = 1, -- the share of its blast and fragments that hurts the thrower (user 2026-10-19: "Yes, grenades only")
 
 	-- The throw: along the camera's look, lifted `loft` degrees (so a level look still lobs it), at the grenade's own
 	-- `speed` (studs/s, below). From the head, `from` studs out in the camera's space (+X right, +Y up, -Z forward): the
@@ -24,23 +25,30 @@ local Grenades = {
 		-- a wall between the head and the hand: the throw starts this far short of it (never through it)
 		gap = 0.3,
 		spin = 8, -- tumbling in flight, radians/s
+		-- seconds into the throw animation the grenade leaves the hand (Config/Weapons grenade holds `throw`;
+		-- tools/animation/grenade.luau RELEASE): the throw is sent to the server then
+		release = 0.22,
+		length = 0.6, -- the throw animation's length (seconds): the view stays first person through it ("Throwing")
 	},
+	-- The pin (user 2026-10-19: "make the character pull a pin before letting go of the grenade"): left click plays the
+	-- pin pull (Config/Weapons grenade holds `pin`, `time` seconds: the left hand pulls it at `out`, the right draws back
+	-- into the wind-up); let go before it's done and the throw goes the moment it is. Switching weapons before the
+	-- grenade leaves the hand cancels it all (user: "switching to your gun will cancel the throw sequence").
+	Pin = { time = 0.45, out = 0.15 }, -- (out: as the left hand starts pulling; at 0.25 it was already 1.8 studs off, Studio)
 
-	-- The thrown grenade: a small hitbox (studs) that bounces and rolls a little (user: "bounces and rolls a little").
+	-- The thrown grenade (user: "bounces and rolls a little"; 2026-10-20: the old 0.6-stud ball "seems to float and roll
+	-- on the ground, not abiding matter and physics"): its body is the grenade's own bounding box (src/server/Grenades),
+	-- cast iron on dirt: heavy, gripping, a dull bounce. It tumbles end over end in flight (Throw.spin), and on the
+	-- ground it tumbles and slides to a stop by its own friction.
 	Body = {
-		size = 0.6,
 		density = 2,
-		friction = 0.6,
-		elasticity = 0.3,
+		friction = 0.8,
+		elasticity = 0.2,
 		-- Where it first hits anything (the ground or a wall: its velocity jumps by more than `impact` studs/s in a frame)
-		-- it thuds, keeping `land` of its speed (Studio round 2: off a wall it flew 14 studs back); on the ground rolling
-		-- loses speed at `roll` per second (a ball in Roblox never stops rolling by itself; round 1 rolled 275 studs).
-		-- Swept each frame from where it was (`probe` studs past its radius under it), so it can't pass through thin
-		-- ground.
+		-- it thuds, keeping `land` of its speed (Studio round 2: off a wall it flew 14 studs back). Swept each frame from
+		-- where it was, so it can't pass through thin ground.
 		impact = 20,
-		land = 0.15,
-		roll = 3,
-		probe = 0.15,
+		land = 0.25,
 		-- the blast goes off this far above where the body lies (out of the ground it rests on)
 		lift = 0.3,
 		-- the Mills's lever flying off: the throw's velocity times `carry`, plus `pop` studs/s up, tumbling `spin`
@@ -90,12 +98,19 @@ local Grenades = {
 	-- The explosion (src/client/Vfx/Blast, shared with the staff and later cannons): a plain one sized by the charge, in
 	-- the fire scheme (Config/Vfx.Schemes).
 	Vfx = { scheme = "Ember" },
-	-- Its bang (src/client/SoundFx entries): the staff's stage 1 impact without its magic crackle, a mortar's low thump
-	-- and a sharp blast bang (Pro Sound Effects, already in the game: Config/Vfx staff sounds, ASSETS_LICENSES.md).
+	-- Its bang (src/client/SoundFx entries; user 2026-10-19: "make they're sound way more realistic (explosion wise).
+	-- make sure there is no audio cutting"; was the staff's stage 1 impact, a 1 s file that stopped dead): real
+	-- explosions layered, Pro Sound Effects (licensed through Roblox, found with the toolbox search filtered to their
+	-- account, ASSETS_LICENSES.md): the blast, the dirt and debris thrown up and falling, and a low boom whose tail
+	-- rolls away for seconds, each played to its own end.
 	Sound = {
-		{ id = 9116973607, volume = 1.2, profile = "SpellBig" },
-		{ id = 9114086424, volume = 0.6, fade = 1.5, profile = "SpellBig", eq = { 3, 0, -6 } },
+		{ id = 9114362266, volume = 1, profile = "Explosion" }, -- Explosions 4: the blast
+		{ id = 9114086964, volume = 0.8, profile = "Explosion" }, -- Dirt Explosion 2: dirt thrown up and falling
+		{ id = 9114363833, volume = 0.7, profile = "Explosion", eq = { 3, 0, -3 } }, -- Explosive Boom 2: the rolling boom
 	},
+	-- How far off it is heard (Rules/Grenade.heard): late at the speed of sound (Config/Audio.Heard.speed), and
+	-- duller with distance: highs cut and lows lifted (dB), from nothing at `dullFrom` to all of it at `dullFull` studs.
+	Heard = { dullFrom = 60, dullFull = 600, highCut = -14, lowBoost = 4 },
 }
 
 return Grenades

@@ -1,0 +1,801 @@
+{
+	"name": "SettingsMenu",
+	"_doc": "The settings menu (src/client/SettingsMenu): sizes in reference pixels at theme.scale.referenceHeight, one UIScale, never taller than the GUI area less theme.fitMargin. Colours are Config/Palette UI.Settings names. Desktop only (no mobile, user 2026-10-19): minTap is a mouse target. The four *Row nodes are the row templates by option kind (Config/Settings.Tabs); Seg buttons, Tab buttons and the slider parts here are preview samples, the menu makes one per value / tab.",
+	"theme": {
+		"scale": {
+			"referenceHeight": 800,
+			"min": 0.65,
+			"max": 1.25
+		},
+		"fitMargin": 16,
+		"minTap": 32,
+		"minText": 12,
+		"textStroke": 0,
+		"outline": 0,
+		"corner": 4,
+		"scrollBar": 4,
+		"fonts": {
+			"title": {
+				"family": "GrenzeGotisch",
+				"weight": "Regular",
+				"file": "GrenzeGotisch-Regular.ttf"
+			},
+			"body": {
+				"family": "Balthazar",
+				"weight": "Regular",
+				"file": "Balthazar-Regular.ttf"
+			}
+		},
+		"fitNode": "Panel"
+	},
+	"icons": {
+		"gear": "rbxasset://textures/ui/Settings/MenuBarIcons/GameSettingsTab.png"
+	},
+	"preview": {
+		"presetName": "Graphics: Custom",
+		"choiceName": "Tree sway",
+		"sliderName": "Aimed sensitivity",
+		"sliderValue": "3.00x",
+		"keyName": "Settings menu",
+		"keyText": "Press a key (Esc cancels)"
+	},
+	"root": {
+		"id": "Screen",
+		"kind": "group",
+		"size": [
+			1,
+			0,
+			1,
+			0
+		],
+		"children": [
+			{
+				"id": "Gear",
+				"kind": "button",
+				"shape": "diamond",
+				"anchor": [
+					1,
+					0
+				],
+				"pos": [
+					1,
+					-12,
+					0,
+					12
+				],
+				"size": [
+					0,
+					50,
+					0,
+					50
+				],
+				"color": "panel",
+				"line": "lineStrong",
+				"children": [
+					{
+						"id": "GearIcon",
+						"kind": "icon",
+						"icon": "gear",
+						"anchor": [
+							0.5,
+							0.5
+						],
+						"pos": [
+							0.5,
+							0,
+							0.5,
+							0
+						],
+						"size": [
+							0.5,
+							0,
+							0.5,
+							0
+						],
+						"color": "text",
+						"center": true
+					}
+				]
+			},
+			{
+				"id": "Panel",
+				"kind": "panel",
+				"overlay": true,
+				"center": true,
+				"anchor": [
+					0.5,
+					0.5
+				],
+				"pos": [
+					0.5,
+					0,
+					0.5,
+					0
+				],
+				"size": [
+					0,
+					480,
+					0,
+					540
+				],
+				"color": "panel",
+				"line": "line",
+				"children": [
+					{
+						"id": "Title",
+						"kind": "label",
+						"font": "title",
+						"text": "Settings",
+						"textSize": 34,
+						"textColor": "title",
+						"align": "left",
+						"pos": [
+							0,
+							18,
+							0,
+							10
+						],
+						"size": [
+							1,
+							-104,
+							0,
+							50
+						]
+					},
+					{
+						"id": "Close",
+						"kind": "button",
+						"shape": "diamond",
+						"anchor": [
+							1,
+							0
+						],
+						"pos": [
+							1,
+							-18,
+							0,
+							10
+						],
+						"size": [
+							0,
+							50,
+							0,
+							50
+						],
+						"text": "x",
+						"textSize": 24,
+						"color": "field",
+						"line": "lineStrong",
+						"textColor": "text"
+					},
+					{
+						"id": "Rule",
+						"kind": "panel",
+						"pos": [
+							0,
+							18,
+							0,
+							66
+						],
+						"size": [
+							1,
+							-36,
+							0,
+							1
+						],
+						"color": "line"
+					},
+					{
+						"id": "Tabs",
+						"kind": "group",
+						"pos": [
+							0,
+							18,
+							0,
+							72
+						],
+						"size": [
+							1,
+							-36,
+							0,
+							50
+						],
+						"gap": 6,
+						"children": [
+							{
+								"id": "Tab1",
+								"kind": "button",
+								"clear": true,
+								"pos": [
+									0.0,
+									0.0,
+									0,
+									0
+								],
+								"size": [
+									0.25,
+									-4.5,
+									1,
+									0
+								],
+								"text": "Graphics",
+								"textSize": 20,
+								"textColor": "title",
+								"children": [
+									{
+										"id": "Underline",
+										"role": "underline",
+										"kind": "panel",
+										"pos": [
+											0,
+											0,
+											1,
+											-2
+										],
+										"size": [
+											1,
+											0,
+											0,
+											2
+										],
+										"color": "accent"
+									}
+								]
+							},
+							{
+								"id": "Tab2",
+								"kind": "button",
+								"clear": true,
+								"pos": [
+									0.25,
+									1.5,
+									0,
+									0
+								],
+								"size": [
+									0.25,
+									-4.5,
+									1,
+									0
+								],
+								"text": "Controls",
+								"textSize": 20,
+								"textColor": "textDim"
+							},
+							{
+								"id": "Tab3",
+								"kind": "button",
+								"clear": true,
+								"pos": [
+									0.5,
+									3.0,
+									0,
+									0
+								],
+								"size": [
+									0.25,
+									-4.5,
+									1,
+									0
+								],
+								"text": "Audio",
+								"textSize": 20,
+								"textColor": "textDim"
+							},
+							{
+								"id": "Tab4",
+								"kind": "button",
+								"clear": true,
+								"pos": [
+									0.75,
+									4.5,
+									0,
+									0
+								],
+								"size": [
+									0.25,
+									-4.5,
+									1,
+									0
+								],
+								"text": "Keybinds",
+								"textSize": 20,
+								"textColor": "textDim"
+							}
+						]
+					},
+					{
+						"id": "Page",
+						"kind": "group",
+						"pos": [
+							0,
+							18,
+							0,
+							130
+						],
+						"size": [
+							1,
+							-36,
+							1,
+							-148
+						],
+						"gap": 10,
+						"children": [
+							{
+								"id": "PresetRow",
+								"kind": "group",
+								"pos": [
+									0,
+									0,
+									0,
+									0
+								],
+								"size": [
+									1,
+									-10,
+									0,
+									86
+								],
+								"children": [
+									{
+										"id": "PresetName",
+										"role": "name",
+										"kind": "label",
+										"bind": "presetName",
+										"textSize": 20,
+										"textColor": "text",
+										"align": "left",
+										"pos": [
+											0,
+											0,
+											0,
+											0
+										],
+										"size": [
+											0.6,
+											0,
+											0,
+											28
+										]
+									},
+									{
+										"id": "PresetControl",
+										"role": "control",
+										"kind": "group",
+										"gap": 6,
+										"pos": [
+											0,
+											0,
+											0,
+											34
+										],
+										"size": [
+											1,
+											0,
+											0,
+											50
+										],
+										"children": [
+											{
+												"id": "PresetSeg1",
+												"kind": "button",
+												"pos": [
+													0.0,
+													0.0,
+													0,
+													0
+												],
+												"size": [
+													0.3333,
+													-4.0,
+													1,
+													0
+												],
+												"text": "Low",
+												"textSize": 20,
+												"color": "field",
+												"line": "line",
+												"textColor": "text"
+											},
+											{
+												"id": "PresetSeg2",
+												"kind": "button",
+												"pos": [
+													0.3333,
+													2.0,
+													0,
+													0
+												],
+												"size": [
+													0.3333,
+													-4.0,
+													1,
+													0
+												],
+												"text": "Normal",
+												"textSize": 20,
+												"color": "selFill",
+												"line": "selLine",
+												"textColor": "selText"
+											},
+											{
+												"id": "PresetSeg3",
+												"kind": "button",
+												"pos": [
+													0.6667,
+													4.0,
+													0,
+													0
+												],
+												"size": [
+													0.3333,
+													-4.0,
+													1,
+													0
+												],
+												"text": "Beautiful",
+												"textSize": 20,
+												"color": "field",
+												"line": "line",
+												"textColor": "text"
+											}
+										]
+									}
+								]
+							},
+							{
+								"id": "ChoiceRow",
+								"kind": "group",
+								"pos": [
+									0,
+									0,
+									0,
+									96
+								],
+								"size": [
+									1,
+									-10,
+									0,
+									86
+								],
+								"children": [
+									{
+										"id": "ChoiceName",
+										"role": "name",
+										"kind": "label",
+										"bind": "choiceName",
+										"textSize": 20,
+										"textColor": "text",
+										"align": "left",
+										"pos": [
+											0,
+											0,
+											0,
+											0
+										],
+										"size": [
+											0.6,
+											0,
+											0,
+											28
+										]
+									},
+									{
+										"id": "ChoiceControl",
+										"role": "control",
+										"kind": "group",
+										"gap": 6,
+										"pos": [
+											0,
+											0,
+											0,
+											34
+										],
+										"size": [
+											1,
+											0,
+											0,
+											50
+										],
+										"children": [
+											{
+												"id": "ChoiceSeg1",
+												"kind": "button",
+												"pos": [
+													0.0,
+													0.0,
+													0,
+													0
+												],
+												"size": [
+													0.25,
+													-4.5,
+													1,
+													0
+												],
+												"text": "Off",
+												"textSize": 20,
+												"color": "field",
+												"line": "line",
+												"textColor": "text"
+											},
+											{
+												"id": "ChoiceSeg2",
+												"kind": "button",
+												"pos": [
+													0.25,
+													1.5,
+													0,
+													0
+												],
+												"size": [
+													0.25,
+													-4.5,
+													1,
+													0
+												],
+												"text": "Low",
+												"textSize": 20,
+												"color": "field",
+												"line": "line",
+												"textColor": "text"
+											},
+											{
+												"id": "ChoiceSeg3",
+												"kind": "button",
+												"pos": [
+													0.5,
+													3.0,
+													0,
+													0
+												],
+												"size": [
+													0.25,
+													-4.5,
+													1,
+													0
+												],
+												"text": "Medium",
+												"textSize": 20,
+												"color": "selFill",
+												"line": "selLine",
+												"textColor": "selText"
+											},
+											{
+												"id": "ChoiceSeg4",
+												"kind": "button",
+												"pos": [
+													0.75,
+													4.5,
+													0,
+													0
+												],
+												"size": [
+													0.25,
+													-4.5,
+													1,
+													0
+												],
+												"text": "High",
+												"textSize": 20,
+												"color": "field",
+												"line": "line",
+												"textColor": "text"
+											}
+										]
+									}
+								]
+							},
+							{
+								"id": "SliderRow",
+								"kind": "group",
+								"pos": [
+									0,
+									0,
+									0,
+									192
+								],
+								"size": [
+									1,
+									-10,
+									0,
+									86
+								],
+								"children": [
+									{
+										"id": "SliderName",
+										"role": "name",
+										"kind": "label",
+										"bind": "sliderName",
+										"textSize": 20,
+										"textColor": "text",
+										"align": "left",
+										"pos": [
+											0,
+											0,
+											0,
+											0
+										],
+										"size": [
+											0.6,
+											0,
+											0,
+											28
+										]
+									},
+									{
+										"id": "SliderValue",
+										"role": "value",
+										"kind": "label",
+										"bind": "sliderValue",
+										"textSize": 20,
+										"textColor": "title",
+										"align": "right",
+										"anchor": [
+											1,
+											0
+										],
+										"pos": [
+											1,
+											0,
+											0,
+											0
+										],
+										"size": [
+											0.4,
+											0,
+											0,
+											28
+										]
+									},
+									{
+										"id": "SliderControl",
+										"role": "control",
+										"kind": "group",
+										"knob": 22,
+										"pos": [
+											0,
+											0,
+											0,
+											34
+										],
+										"size": [
+											1,
+											0,
+											0,
+											50
+										],
+										"children": [
+											{
+												"id": "Track",
+												"role": "track",
+												"kind": "panel",
+												"pos": [
+													0,
+													11,
+													0.5,
+													-1
+												],
+												"size": [
+													1,
+													-22,
+													0,
+													2
+												],
+												"color": "line"
+											},
+											{
+												"id": "Fill",
+												"role": "fill",
+												"kind": "panel",
+												"overlay": true,
+												"pos": [
+													0,
+													11,
+													0.5,
+													-1
+												],
+												"size": [
+													0.6,
+													-13,
+													0,
+													2
+												],
+												"color": "accent"
+											},
+											{
+												"id": "Knob",
+												"role": "knob",
+												"kind": "panel",
+												"overlay": true,
+												"shape": "diamond",
+												"anchor": [
+													0.5,
+													0.5
+												],
+												"pos": [
+													0.6,
+													0,
+													0.5,
+													0
+												],
+												"size": [
+													0,
+													22,
+													0,
+													22
+												],
+												"color": "accent"
+											}
+										]
+									}
+								]
+							},
+							{
+								"id": "KeyRow",
+								"kind": "group",
+								"pos": [
+									0,
+									0,
+									0,
+									288
+								],
+								"size": [
+									1,
+									-10,
+									0,
+									86
+								],
+								"children": [
+									{
+										"id": "KeyName",
+										"role": "name",
+										"kind": "label",
+										"bind": "keyName",
+										"textSize": 20,
+										"textColor": "text",
+										"align": "left",
+										"pos": [
+											0,
+											0,
+											0,
+											0
+										],
+										"size": [
+											0.6,
+											0,
+											0,
+											28
+										]
+									},
+									{
+										"id": "Key",
+										"role": "control",
+										"kind": "button",
+										"bind": "keyText",
+										"textSize": 20,
+										"color": "field",
+										"line": "line",
+										"textColor": "text",
+										"pos": [
+											0,
+											0,
+											0,
+											34
+										],
+										"size": [
+											1,
+											0,
+											0,
+											50
+										]
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}

@@ -14,11 +14,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
 local DamageCfg = require(Shared.Config.Damage)
 local Loco = require(Shared.Config.Locomotion)
+local Anims = require(Shared.Rules.MovementSet).animations(Loco) -- the movement set in play
 local Metrics = require(Shared.Config.Metrics)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local Rules = require(Shared.Rules.DevActions)
 local Helmets = require(script.Parent.Helmets)
+local Packs = require(script.Parent.Packs)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
 
@@ -139,14 +141,14 @@ local function animate(humanoid: Humanoid)
 	animator.Parent = humanoid
 	local function track(name: string): AnimationTrack
 		local anim = Instance.new("Animation")
-		anim.AnimationId = "rbxassetid://" .. (Loco.Animations :: any)[name].id
+		anim.AnimationId = "rbxassetid://" .. (Anims :: any)[name].id
 		local t = (animator :: Animator):LoadAnimation(anim)
 		t.Priority = Enum.AnimationPriority.Core
 		t.Looped = true
 		return t
 	end
 	local idle, walk = track("idle"), track("walk")
-	local W = Loco.Animations.walk
+	local W = Anims.walk
 	idle:Play(Loco.Fade)
 	humanoid.Running:Connect(function(speed)
 		if speed > Loco.IdleBelow then
@@ -212,6 +214,7 @@ function DevDummies.spawn(spec: Spec): Model?
 		end
 	end
 	Helmets.dress(m, if spec.helmet then kit.headwear else nil)
+	Packs.dress(m, kit.pack)
 	m:SetAttribute("Muted", nil)
 	local function group(d: Instance)
 		if d:IsA("BasePart") then

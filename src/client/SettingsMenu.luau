@@ -3,7 +3,10 @@
 -- (Config/Settings.Tabs): segmented rows for choices, sliders for numbers, a press-a-key button per keybind, and the
 -- graphics preset row (Config/Settings.Presets; "Custom" when the four don't match one). While open the Player's
 -- "MenuOpen" attribute frees the mouse (src/client/WeaponCamera); a click outside the panel closes it.
--- Flat palette colors with one uniform outline thickness (docs/ART_STYLE.md).
+-- Layout, sizes and fonts come from the spec src/shared/ui/SettingsMenu.json (local layout check and preview scripts
+-- read the same file); a row is built from the spec's template for its option's kind, so a new option
+-- only needs its Config/Settings entry and a place in a tab. Look: gray slate, thin lines, square-turned knobs
+-- (Config/Palette UI.Settings; docs/ART_STYLE.md). No CanvasGroup: every element sets its own transparency.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,54 +16,142 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Settings)
 local Palette = require(Shared.Config.Palette)
 local R = require(Shared.Rules.Settings)
+local Spec = require(Shared.ui.SettingsMenu) :: any
 local Settings = require(script.Parent.Settings)
 
 local SettingsMenu = {}
 
-local UI = Palette.UI
+local C = Palette.UI.Settings :: any
+local T = Spec.theme
 local M = Cfg.Menu
 local O = Cfg.Options :: any
 
-local function rgb(c: { number }): Color3
+local function rgb(name: string): Color3
+	local c = C[name]
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
-local function style(obj: GuiObject, fill: { number }, radius: number)
+local FONTS: { [string]: Font } = {}
+for name, f in T.fonts do
+	FONTS[name] = Font.new(`rbxasset://fonts/families/{f.family}.json`, (Enum.FontWeight :: any)[f.weight])
+end
+
+local function find(n: any, id: string): any
+	if n.id == id then
+		return n
+	end
+	for _, c in n.children or {} do
+		local f = find(c, id)
+		if f then
+			return f
+		end
+	end
+	return nil
+end
+
+local function node(id: string): any
+	return assert(find(Spec.root, id), id)
+end
+
+local function role(n: any, r: string): any
+	for _, c in n.children or {} do
+		if c.role == r then
+			return c
+		end
+	end
+	return nil
+end
+
+local function udim(a: { number }): UDim2
+	return UDim2.new(a[1], a[2], a[3], a[4])
+end
+
+-- a spec node's place (its offsets are reference pixels: the UIScale does the rest)
+local function place(obj: GuiObject, n: any)
+	obj.Position = udim(n.pos or { 0, 0, 0, 0 })
+	obj.Size = udim(n.size or { 1, 0, 1, 0 })
+	if n.anchor then
+		obj.AnchorPoint = Vector2.new(n.anchor[1], n.anchor[2])
+	end
+end
+
+-- a flat box: fill, rounded corners and a line (`thickness`: the panel's own `stroke`, else `thin`)
+local function box(obj: GuiObject, fill: string, line: string?, thickness: number?): UIStroke?
 	obj.BackgroundColor3 = rgb(fill)
+	obj.BackgroundTransparency = 0
 	obj.BorderSizePixel = 0
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, radius)
+	corner.CornerRadius = UDim.new(0, T.corner)
 	corner.Parent = obj
+	if not line then
+		return nil
+	end
 	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = UI.stroke
-	stroke.Color = rgb(UI.outline)
+	stroke.Thickness = thickness or C.thin
+	stroke.Color = rgb(line)
 	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	stroke.Parent = obj
+	return stroke
 end
 
-local function text(obj: TextLabel | TextButton, s: string, size: number)
+local ALIGN = { left = Enum.TextXAlignment.Left, right = Enum.TextXAlignment.Right }
+local function text(obj: TextLabel | TextButton, s: string, n: any)
 	obj.Text = s
-	obj.Font = Enum.Font.GothamBold
-	obj.TextSize = size
-	obj.TextColor3 = rgb(UI.text)
+	obj.FontFace = FONTS[n.font or "body"]
+	obj.TextSize = n.textSize
+	obj.TextColor3 = rgb(n.textColor or "text")
+	obj.TextXAlignment = ALIGN[n.align] or Enum.TextXAlignment.Center
 end
 
-local function label(parent: Instance, s: string, size: number, align: Enum.TextXAlignment): TextLabel
+local function label(parent: Instance, s: string, n: any): TextLabel
 	local l = Instance.new("TextLabel")
+	l.Name = n.id
 	l.BackgroundTransparency = 1
-	l.TextXAlignment = align
-	text(l, s, size)
+	place(l, n)
+	text(l, s, n)
 	l.Parent = parent
 	return l
 end
 
-local function button(parent: Instance, s: string, size: number): TextButton
+local function clearButton(parent: Instance, name: string): TextButton
 	local b = Instance.new("TextButton")
-	style(b, UI.button, 8)
-	text(b, s, size)
+	b.Name = name
+	b.Text = ""
 	b.AutoButtonColor = false
+	b.BackgroundTransparency = 1
+	b.BorderSizePixel = 0
 	b.Parent = parent
 	return b
+end
+
+-- a square turned 45 degrees inside a node's box (the close and gear buttons, the slider knob)
+local function diamond(parent: GuiObject, fill: string, line: string?): Frame
+	local d = Instance.new("Frame")
+	d.Name = "Diamond"
+	d.AnchorPoint = Vector2.new(0.5, 0.5)
+	d.Position = UDim2.fromScale(0.5, 0.5)
+	d.Size = UDim2.fromScale(1 / math.sqrt(2), 1 / math.sqrt(2))
+	d.SizeConstraint = Enum.SizeConstraint.RelativeYY
+	d.Rotation = 45
+	d.BackgroundColor3 = rgb(fill)
+	d.BorderSizePixel = 0
+	if line then
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = C.thin
+		stroke.Color = rgb(line)
+		stroke.Parent = d
+	end
+	d.Parent = parent
+	return d
+end
+
+-- the button colours: idle, or picked (also a keybind waiting for its key)
+local function paint(b: TextButton, stroke: UIStroke?, picked: boolean)
+	b.BackgroundColor3 = rgb(if picked then "selFill" else "field")
+	b.TextColor3 = rgb(if picked then "selText" else "text")
+	if stroke then
+		stroke.Color = rgb(if picked then "selLine" else "line")
+	end
 end
 
 -- a key or mouse button as shown
@@ -69,57 +160,64 @@ local function keyName(name: string): string
 	return MOUSE[name] or name
 end
 
--- a row: its name on top, the control below
-local function row(parent: Instance, order: number, name: string): Frame
+-- a row from its kind's template (spec "<Kind>Row"): the row frame, its name label, its control's node
+local function row(parent: Instance, order: number, kind: string, name: string): (Frame, TextLabel, any, any)
+	local tpl = node(kind .. "Row")
 	local r = Instance.new("Frame")
+	r.Name = kind .. "Row"
 	r.BackgroundTransparency = 1
-	r.Size = UDim2.new(1, 0, 0, M.RowHeight)
+	r.Size = udim(tpl.size)
 	r.LayoutOrder = order
 	r.Parent = parent
-	local n = label(r, name, M.LabelSize, Enum.TextXAlignment.Left)
+	local n = label(r, name, role(tpl, "name"))
 	n.Name = "Name"
-	n.Size = UDim2.new(1, 0, 0, M.LabelHeight)
-	return r
+	return r, n, tpl, role(tpl, "control")
 end
 
-local function control(r: Frame): Frame
-	local c = Instance.new("Frame")
-	c.Name = "Control"
-	c.BackgroundTransparency = 1
-	c.Position = UDim2.fromOffset(0, M.LabelHeight + M.Gap)
-	c.Size = UDim2.new(1, 0, 0, M.ControlHeight)
-	c.Parent = r
-	return c
+local function frame(parent: Instance, n: any): Frame
+	local f = Instance.new("Frame")
+	f.Name = "Control"
+	f.BackgroundTransparency = 1
+	place(f, n)
+	f.Parent = parent
+	return f
 end
 
--- one button per value; `current()` says which is lit, `pick(v)` sets it
-local function segmented(c: Frame, values: { string }, pick: (string) -> ()): (string) -> ()
-	local h = Instance.new("UIListLayout")
-	h.FillDirection = Enum.FillDirection.Horizontal
-	h.Padding = UDim.new(0, M.Gap)
-	h.SortOrder = Enum.SortOrder.LayoutOrder
-	h.Parent = c
+-- one button per value, `gap` apart; returns `refresh(current)` that lights the current one
+local function segmented(c: Frame, gap: number, values: { string }, textNode: any, pick: (string) -> ()): (string) -> ()
 	local buttons: { [string]: TextButton } = {}
+	local strokes: { [string]: UIStroke? } = {}
 	local n = #values
 	for i, v in values do
-		local b = button(c, v, M.ValueSize)
-		b.LayoutOrder = i
-		b.Size = UDim2.new(1 / n, -M.Gap * (n - 1) / n, 1, 0)
+		local b = Instance.new("TextButton")
+		b.Name = v
+		b.AutoButtonColor = false
+		b.Position = UDim2.new((i - 1) / n, (i - 1) * gap / n, 0, 0)
+		b.Size = UDim2.new(1 / n, -gap * (n - 1) / n, 1, 0)
+		local stroke = box(b, "field", "line")
+		text(b, v, textNode)
+		b.Parent = c
 		b.Activated:Connect(function()
 			pick(v)
 		end)
-		buttons[v] = b
+		buttons[v], strokes[v] = b, stroke
 	end
 	return function(current: string)
 		for v, b in buttons do
-			b.BackgroundColor3 = rgb(if v == current then UI.accent else UI.button)
+			paint(b, strokes[v], v == current)
 		end
 	end
 end
 
+-- the first value button in a template's control (its text size and font)
+local function segNode(control: any): any
+	return control.children[1]
+end
+
 local function choiceRow(parent: Instance, order: number, key: string)
 	local opt = O[key]
-	local refresh = segmented(control(row(parent, order, opt.label)), opt.values, function(v)
+	local r, _, _, cn = row(parent, order, "Choice", opt.label)
+	local refresh = segmented(frame(r, cn), cn.gap, opt.values, segNode(cn), function(v)
 		Settings.set(key, v)
 	end)
 	refresh(Settings.get(key))
@@ -127,9 +225,8 @@ local function choiceRow(parent: Instance, order: number, key: string)
 end
 
 local function presetRow(parent: Instance, order: number)
-	local r = row(parent, order, Cfg.PresetLabel)
-	local name = r:FindFirstChild("Name") :: TextLabel
-	local refresh = segmented(control(r), Cfg.PresetOrder, function(p)
+	local r, name, _, cn = row(parent, order, "Preset", Cfg.PresetLabel)
+	local refresh = segmented(frame(r, cn), cn.gap, Cfg.PresetOrder, segNode(cn), function(p)
 		for key, v in Cfg.Presets[p] do
 			Settings.set(key, v)
 		end
@@ -147,31 +244,31 @@ end
 
 local function sliderRow(parent: Instance, order: number, key: string)
 	local opt = O[key]
-	local r = row(parent, order, opt.label)
-	local value = label(r, "", M.LabelSize, Enum.TextXAlignment.Right)
-	value.Size = UDim2.new(1, 0, 0, M.LabelHeight)
-	local c = control(r)
-	local track = Instance.new("TextButton") -- (a button: it sinks the click, so the gun doesn't fire)
-	track.Text = ""
-	track.AutoButtonColor = false
-	track.AnchorPoint = Vector2.new(0, 0.5)
-	track.Position = UDim2.new(0, M.KnobSize / 2, 0.5, 0)
-	track.Size = UDim2.new(1, -M.KnobSize, 0, M.TrackHeight)
-	style(track, UI.slot, M.TrackHeight / 2)
-	track.Parent = c
+	local r, _, tpl, cn = row(parent, order, "Slider", opt.label)
+	local value = label(r, "", role(tpl, "value"))
+	local c = frame(r, cn)
+	local line = Instance.new("Frame")
+	line.Name = "Track"
+	place(line, role(cn, "track"))
+	box(line, "line")
+	line.Parent = c
 	local fill = Instance.new("Frame")
-	fill.BackgroundColor3 = rgb(UI.accent)
-	fill.BorderSizePixel = 0
-	fill.Size = UDim2.fromScale(0, 1)
-	local fc = Instance.new("UICorner")
-	fc.CornerRadius = UDim.new(0, M.TrackHeight / 2)
-	fc.Parent = fill
-	fill.Parent = track
+	fill.Name = "Fill"
+	box(fill, "accent")
+	fill.Parent = line
+	local kn = role(cn, "knob")
 	local knob = Instance.new("Frame")
+	knob.Name = "Knob"
+	knob.BackgroundTransparency = 1
 	knob.AnchorPoint = Vector2.new(0.5, 0.5)
-	knob.Size = UDim2.fromOffset(M.KnobSize, M.KnobSize)
-	style(knob, UI.text, M.KnobSize / 2)
-	knob.Parent = track
+	knob.Size = udim(kn.size)
+	knob.ZIndex = 2
+	diamond(knob, "accent").ZIndex = 2
+	knob.Parent = line
+	-- the whole control takes the press (a button: it sinks the click, so the gun doesn't fire)
+	local hit = clearButton(c, "Hit")
+	hit.Size = UDim2.fromScale(1, 1)
+	hit.ZIndex = 3
 
 	local function refresh(v: number)
 		local share = R.share(opt, v)
@@ -184,10 +281,10 @@ local function sliderRow(parent: Instance, order: number, key: string)
 
 	local dragging: InputObject? = nil
 	local function at(x: number)
-		local share = (x - track.AbsolutePosition.X) / math.max(track.AbsoluteSize.X, 1)
+		local share = (x - line.AbsolutePosition.X) / math.max(line.AbsoluteSize.X, 1)
 		Settings.set(key, R.fromShare(opt, share))
 	end
-	track.InputBegan:Connect(function(input)
+	hit.InputBegan:Connect(function(input)
 		local t = input.UserInputType
 		if t == Enum.UserInputType.MouseButton1 or t == Enum.UserInputType.Touch then
 			dragging = input
@@ -226,11 +323,17 @@ local boundAt = -math.huge
 
 local function keyRow(parent: Instance, order: number, key: string, onCapture: (string?) -> ())
 	local opt = O[key]
-	local b = button(control(row(parent, order, opt.label)), "", M.ValueSize)
-	b.Size = UDim2.fromScale(1, 1)
+	local r, _, _, cn = row(parent, order, "Key", opt.label)
+	local b = Instance.new("TextButton")
+	b.Name = "Key"
+	b.AutoButtonColor = false
+	place(b, cn)
+	local stroke = box(b, "field", "line")
+	text(b, "", cn)
+	b.Parent = r
 	local function refresh()
 		b.Text = if capturing == key then "Press a key (Esc cancels)" else keyName(Settings.get(key))
-		b.BackgroundColor3 = rgb(if capturing == key then UI.accent else UI.button)
+		paint(b, stroke, capturing == key)
 	end
 	refresh()
 	Settings.changed(key, refresh)
@@ -242,6 +345,14 @@ local function keyRow(parent: Instance, order: number, key: string, onCapture: (
 	return refresh
 end
 
+-- a diamond button from a spec node: a clear hit box the node's size with the turned square inside
+local function diamondButton(parent: Instance, n: any): TextButton
+	local b = clearButton(parent, n.id)
+	place(b, n)
+	diamond(b, n.color, n.line)
+	return b
+end
+
 function SettingsMenu.start()
 	local player = Players.LocalPlayer
 	local gui = Instance.new("ScreenGui")
@@ -251,69 +362,94 @@ function SettingsMenu.start()
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.DisplayOrder = M.DisplayOrder
 
-	local gear = Instance.new("TextButton")
-	gear.Name = "Gear"
-	gear.AnchorPoint = Vector2.new(1, 0)
-	gear.Position = UDim2.new(1, -12, 0, 12)
-	gear.Size = UDim2.fromOffset(48, 48) -- thumb-sized
-	style(gear, UI.panel, 10)
-	text(gear, "⚙", 26)
-	gear.Parent = gui
+	local gn = node("Gear")
+	local gear = diamondButton(gui, gn)
+	local gi = node("GearIcon")
+	local icon = Instance.new("ImageLabel")
+	icon.Name = "Icon"
+	icon.BackgroundTransparency = 1
+	icon.Image = Spec.icons[gi.icon]
+	icon.ImageColor3 = rgb(gi.color)
+	place(icon, gi)
+	icon.Parent = gear
 
-	-- behind the panel: a click outside it closes the menu (and never reaches the game)
-	local backdrop = Instance.new("TextButton")
-	backdrop.Name = "Backdrop"
-	backdrop.Text = ""
-	backdrop.AutoButtonColor = false
-	backdrop.BackgroundTransparency = 1
+	-- behind the panel: a click outside it closes the menu (and never reaches the game); it dims the game a little
+	local backdrop = clearButton(gui, "Backdrop")
+	backdrop.BackgroundColor3 = rgb("backdrop")
+	backdrop.BackgroundTransparency = C.backdropTransparency
 	backdrop.Size = UDim2.fromScale(1, 1)
 	backdrop.Visible = false
-	backdrop.Parent = gui
 
+	local pn = node("Panel")
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
 	panel.Active = true
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromOffset(M.Width, M.Height)
+	place(panel, pn)
 	panel.Visible = false
-	style(panel, UI.panel, 12)
+	box(panel, pn.color, pn.line, C.stroke)
 	panel.Parent = gui
-	local scale = Instance.new("UIScale")
-	scale.Parent = panel
+	local scales = {}
+	for _, obj in { panel, gear } do
+		local s = Instance.new("UIScale")
+		s.Parent = obj
+		table.insert(scales, s)
+	end
 	local function rescale()
-		-- one scale for the reference height, never taller than the screen
+		-- one scale for the reference height, the panel never taller than the screen
 		local h = gui.AbsoluteSize.Y
-		scale.Scale = math.min(math.clamp(h / M.ReferenceHeight, M.MinScale, M.MaxScale), (h - M.Margin) / M.Height)
+		local s =
+			math.min(math.clamp(h / T.scale.referenceHeight, T.scale.min, T.scale.max), (h - T.fitMargin) / pn.size[4])
+		for _, u in scales do
+			u.Scale = s
+		end
 	end
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
 
-	local pad = Instance.new("UIPadding")
-	for _, side in { "PaddingTop", "PaddingBottom", "PaddingLeft", "PaddingRight" } do
-		(pad :: any)[side] = UDim.new(0, M.Padding)
-	end
-	pad.Parent = panel
+	label(panel, "Settings", node("Title"))
+	local close = diamondButton(panel, node("Close"))
+	local cn = node("Close")
+	local x = Instance.new("TextLabel")
+	x.Name = "X"
+	x.BackgroundTransparency = 1
+	x.Size = UDim2.fromScale(1, 1)
+	x.ZIndex = 2
+	text(x, cn.text, cn)
+	x.Parent = close
+	local rule = Instance.new("Frame")
+	rule.Name = "Rule"
+	place(rule, node("Rule"))
+	rule.BackgroundColor3 = rgb(node("Rule").color)
+	rule.BorderSizePixel = 0
+	rule.Parent = panel
 
-	local title = label(panel, "Settings", M.TitleSize, Enum.TextXAlignment.Left)
-	title.Size = UDim2.new(1, -M.ControlHeight, 0, M.ControlHeight)
-	local close = button(panel, "X", M.ValueSize)
-	close.Name = "Close"
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.fromScale(1, 0)
-	close.Size = UDim2.fromOffset(M.ControlHeight, M.ControlHeight)
-
-	-- the tab bar, and one scrolling page per tab
+	-- the tab bar (clear buttons, the open one bright and underlined), and one scrolling page per tab
+	local tn = node("Tabs")
 	local bar = Instance.new("Frame")
 	bar.Name = "Tabs"
 	bar.BackgroundTransparency = 1
-	bar.Position = UDim2.fromOffset(0, M.ControlHeight + M.Gap * 2)
-	bar.Size = UDim2.new(1, 0, 0, M.ControlHeight)
+	place(bar, tn)
 	bar.Parent = panel
-	local top = M.ControlHeight * 2 + M.Gap * 4
-	local pages: { [string]: ScrollingFrame } = {}
-	local names = {}
-	for _, tab in Cfg.Tabs do
-		table.insert(names, tab.name)
+	local tabNode = node("Tab1")
+	local un = node("Underline")
+	local tabs: { [string]: TextButton } = {}
+	local underlines: { [string]: Frame } = {}
+	local openTab: (string) -> ()
+	local n = #Cfg.Tabs
+	for i, tab in Cfg.Tabs do
+		local b = clearButton(bar, tab.name)
+		b.Position = UDim2.new((i - 1) / n, (i - 1) * tn.gap / n, 0, 0)
+		b.Size = UDim2.new(1 / n, -tn.gap * (n - 1) / n, 1, 0)
+		text(b, tab.name, tabNode)
+		local u = Instance.new("Frame")
+		u.Name = "Underline"
+		place(u, un)
+		u.BackgroundColor3 = rgb(un.color)
+		u.BorderSizePixel = 0
+		u.Parent = b
+		b.Activated:Connect(function()
+			openTab(tab.name)
+		end)
+		tabs[tab.name], underlines[tab.name] = b, u
 	end
 
 	local refreshKeys: { () -> () } = {}
@@ -324,31 +460,25 @@ function SettingsMenu.start()
 		end
 	end
 
-	local openTab: (string) -> ()
-	local showTab = segmented(bar, names, function(name)
-		openTab(name)
-	end)
+	local pg = node("Page")
+	local pages: { [string]: ScrollingFrame } = {}
 	for i, tab in Cfg.Tabs do
 		local page = Instance.new("ScrollingFrame")
 		page.Name = tab.name
 		page.BackgroundTransparency = 1
 		page.BorderSizePixel = 0
-		page.Position = UDim2.fromOffset(0, top)
-		page.Size = UDim2.new(1, 0, 1, -top)
+		place(page, pg)
 		page.CanvasSize = UDim2.new()
 		page.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		page.ScrollingDirection = Enum.ScrollingDirection.Y
-		page.ScrollBarThickness = M.ScrollBar
-		page.ScrollBarImageColor3 = rgb(UI.button)
+		page.ScrollBarThickness = T.scrollBar
+		page.ScrollBarImageColor3 = rgb("lineStrong")
 		page.Visible = i == 1
 		page.Parent = panel
 		local list = Instance.new("UIListLayout")
-		list.Padding = UDim.new(0, M.RowGap)
+		list.Padding = UDim.new(0, pg.gap)
 		list.SortOrder = Enum.SortOrder.LayoutOrder
 		list.Parent = page
-		local inner = Instance.new("UIPadding")
-		inner.PaddingRight = UDim.new(0, M.ScrollBar + M.Gap)
-		inner.Parent = page
 		for order, key in tab.rows do
 			if key == "Preset" then
 				presetRow(page, order)
@@ -363,13 +493,16 @@ function SettingsMenu.start()
 		pages[tab.name] = page
 	end
 	function openTab(name: string)
-		for n, page in pages do
-			page.Visible = n == name
+		for t, page in pages do
+			page.Visible = t == name
 		end
-		showTab(name)
+		for t, b in tabs do
+			b.TextColor3 = rgb(if t == name then "title" else "textDim")
+			underlines[t].Visible = t == name
+		end
 		capture(nil)
 	end
-	openTab(names[1])
+	openTab(Cfg.Tabs[1].name)
 
 	local function setOpen(open: boolean)
 		panel.Visible, backdrop.Visible = open, open
