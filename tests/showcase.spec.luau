@@ -2,6 +2,7 @@
 local Cfg = require("../src/shared/Config/Showcase")
 local Dev = require("../src/shared/Config/DevTools")
 local Loco = require("../src/shared/Config/Locomotion")
+local Anims = require("../src/shared/Rules/MovementSet").animations(Loco)
 local Map1 = require("../src/shared/Config/Maps/Map1")
 local T = require("../src/shared/Rules/DevTeleports")
 local W = require("../src/shared/Config/Weapons")
@@ -14,10 +15,10 @@ return {
 	end,
 	["every showcased hold rides on a real movement cycle"] = function()
 		for _, h in Cfg.Holds do
-			assert((Loco.Animations :: any)[h.base], `{h.hold}: no cycle {h.base}`)
+			assert((Anims :: any)[h.base], `{h.hold}: no cycle {h.base}`)
 		end
 		for _, name in Cfg.Movement do
-			assert((Loco.Animations :: any)[name], `movement {name} missing from Config/Locomotion`)
+			assert((Anims :: any)[name], `movement {name} missing from Config/Locomotion`)
 		end
 	end,
 	["every weapon's holds and the actions' holds exist"] = function()

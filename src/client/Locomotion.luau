@@ -17,6 +17,8 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
+local MovementSet = require(Shared.Rules.MovementSet)
+local Anims = MovementSet.animations(Cfg) -- the movement set in play (Config/Locomotion.Set)
 local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
@@ -32,7 +34,7 @@ function Locomotion.attach(character: Model)
 	local animator = humanoid:WaitForChild("Animator") :: Animator
 
 	local tracks: { [string]: AnimationTrack } = {}
-	for name, a in Cfg.Animations do
+	for name, a in Anims do
 		local anim = Instance.new("Animation")
 		anim.Name = name
 		anim.AnimationId = "rbxassetid://" .. a.id
@@ -106,7 +108,7 @@ function Locomotion.attach(character: Model)
 	local function holdTracks(name: string): { [string]: AnimationTrack }
 		if not holds[name] then
 			holds[name] = {}
-			for hold, id in W[name].holds do
+			for hold, id in MovementSet.holds(Cfg, name, W[name].holds) do
 				local anim = Instance.new("Animation")
 				anim.Name = hold
 				anim.AnimationId = "rbxassetid://" .. id
@@ -238,7 +240,7 @@ function Locomotion.attach(character: Model)
 			return
 		elseif state == Enum.HumanoidStateType.Climbing then
 			play("climb", Cfg.Fade)
-			local climb = Cfg.Animations.climb
+			local climb = Anims.climb
 			tracks.climb:AdjustSpeed(root.AssemblyLinearVelocity.Y / (climb.speed or 1))
 		elseif character:GetAttribute("Floating") == true then
 			-- floating with the staff aimed (src/client/StaffAttack): the float cycle; landing crossfades back
@@ -264,7 +266,7 @@ function Locomotion.attach(character: Model)
 				else "walk"
 			play(name, Cfg.Fade)
 			ground = name
-			local a = Cfg.Animations[name]
+			local a = Anims[name]
 			if a.speed and a.keyed and a.cycle then
 				local pace = math.clamp(speed / a.speed, Cfg.PlaybackMin, Cfg.PlaybackMax)
 				tracks[name]:AdjustSpeed(pace * a.keyed / a.cycle)
