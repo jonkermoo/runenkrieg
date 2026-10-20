@@ -17,6 +17,8 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
+local MovementSet = require(Shared.Rules.MovementSet)
+local Anims = MovementSet.animations(Cfg) -- the movement set in play (Config/Locomotion.Set)
 local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
@@ -32,7 +34,7 @@ function Locomotion.attach(character: Model)
 	local animator = humanoid:WaitForChild("Animator") :: Animator
 
 	local tracks: { [string]: AnimationTrack } = {}
-	for name, a in Cfg.Animations do
+	for name, a in Anims do
 		local anim = Instance.new("Animation")
 		anim.Name = name
 		anim.AnimationId = "rbxassetid://" .. a.id
@@ -106,7 +108,7 @@ function Locomotion.attach(character: Model)
 	local function holdTracks(name: string): { [string]: AnimationTrack }
 		if not holds[name] then
 			holds[name] = {}
-			for hold, id in W[name].holds do
+			for hold, id in MovementSet.holds(Cfg, name, W[name].holds) do
 				local anim = Instance.new("Animation")
 				anim.Name = hold
 				anim.AnimationId = "rbxassetid://" .. id
@@ -119,12 +121,15 @@ function Locomotion.attach(character: Model)
 					or hold == "airCharge"
 					or hold == "chargeTwo"
 					or hold == "airChargeTwo"
-				-- a grenade's throw: a one shot over its wind-up (src/client/Grenades "ThrownAt")
-				t.Priority = if hold == "throw"
+					or hold == "pin"
+				-- a grenade's throw: a one shot over its wind-up (src/client/Grenades "ThrownAt"); the shovel's dig the same
+				-- over its hold (src/client/Shovel "DugAt")
+				local over = hold == "throw" or hold == "dig"
+				t.Priority = if over
 					then Enum.AnimationPriority.Action3
 					elseif once then Enum.AnimationPriority.Action2
 					else Enum.AnimationPriority.Action
-				t.Looped = not once and hold ~= "throw"
+				t.Looped = not once and not over
 				holds[name][hold] = t
 			end
 		end
@@ -232,13 +237,17 @@ function Locomotion.attach(character: Model)
 	end
 
 	local thrown: number? = nil -- the last grenade throw played ("ThrownAt")
+	local dug: number? = nil -- the last shovel dig played ("DugAt")
+	local pinned: number? = nil -- the last pin pull played ("PinAt")
+	local pinning: AnimationTrack? = nil -- the grenade's pin pull and throw while they play (stopped if cancelled)
+	local throwing: AnimationTrack? = nil
 	local step = RunService.Heartbeat:Connect(function()
 		local state = humanoid:GetState()
 		if state == Enum.HumanoidStateType.Dead then
 			return
 		elseif state == Enum.HumanoidStateType.Climbing then
 			play("climb", Cfg.Fade)
-			local climb = Cfg.Animations.climb
+			local climb = Anims.climb
 			tracks.climb:AdjustSpeed(root.AssemblyLinearVelocity.Y / (climb.speed or 1))
 		elseif character:GetAttribute("Floating") == true then
 			-- floating with the staff aimed (src/client/StaffAttack): the float cycle; landing crossfades back
@@ -264,11 +273,18 @@ function Locomotion.attach(character: Model)
 				else "walk"
 			play(name, Cfg.Fade)
 			ground = name
-			local a = Cfg.Animations[name]
+			local a = Anims[name]
 			if a.speed and a.keyed and a.cycle then
 				local pace = math.clamp(speed / a.speed, Cfg.PlaybackMin, Cfg.PlaybackMax)
 				tracks[name]:AdjustSpeed(pace * a.keyed / a.cycle)
 			end
+		end
+		-- a grenade's pin pull or throw cancelled (another weapon drawn before it left the hand: src/client/Grenades)
+		if pinning and pinning.IsPlaying and character:GetAttribute("Winding") ~= true then
+			pinning:Stop(0.1)
+		end
+		if throwing and throwing.IsPlaying and character:GetAttribute("ThrownAt") == nil then
+			throwing:Stop(0.1)
 		end
 		local weapon = Held.weapon(character)
 		-- in the air the hold stays on the ground cycle's (a sprinting jump keeps the carry)
@@ -302,12 +318,29 @@ function Locomotion.attach(character: Model)
 			if CYCLE[pick] and set[pick] then
 				keepStep(pick, track)
 			end
-			-- a grenade thrown (src/client/Grenades marks the moment): the throw plays once over the hold
+			-- a grenade's pin pulled and thrown (src/client/Grenades marks the moments): each plays once over the hold
+			local pinAt = character:GetAttribute("PinAt")
+			if type(pinAt) == "number" and pinAt ~= pinned then
+				pinned = pinAt
+				if set.pin then
+					set.pin:Play(0.05)
+					pinning = set.pin
+				end
+			end
 			local at = character:GetAttribute("ThrownAt")
 			if type(at) == "number" and at ~= thrown then
 				thrown = at
 				if set.throw then
 					set.throw:Play(0.05)
+					throwing = set.throw
+				end
+			end
+			-- a dig with the shovel (src/client/Shovel marks the moment): played once over the hold
+			local dugAt = character:GetAttribute("DugAt")
+			if type(dugAt) == "number" and dugAt ~= dug then
+				dug = dugAt
+				if set.dig then
+					set.dig:Play(0.05)
 				end
 			end
 			-- the staff's charge: posed at how long the cast has been held (then its ready shake on a loop); floating, the
