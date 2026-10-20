@@ -65,6 +65,7 @@ local Uniforms = {
 			pack = "pack_tornister", -- Config/Assets entry, worn on the back (src/server/Packs)
 			weapon = "rifle_g98", -- Config/Weapons entry: the grey team's default rifle
 			grenade = "grenade_stick", -- its grenades (Config/Grenades): the Stielhandgranate
+			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
 		},
 		uniform2 = {
 			source = "assets/teams/olive/uniform/uniform2.json",
@@ -75,6 +76,7 @@ local Uniforms = {
 			pack = "pack_zaino", -- Config/Assets entry, worn on the back (src/server/Packs)
 			weapon = "rifle_m91", -- Config/Weapons entry: the olive team's default rifle
 			grenade = "grenade_sipe", -- its grenades (Config/Grenades): the SIPE
+			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
 		},
 	},
 }

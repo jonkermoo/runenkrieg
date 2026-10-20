@@ -119,12 +119,14 @@ function Locomotion.attach(character: Model)
 					or hold == "airCharge"
 					or hold == "chargeTwo"
 					or hold == "airChargeTwo"
-				-- a grenade's throw: a one shot over its wind-up (src/client/Grenades "ThrownAt")
-				t.Priority = if hold == "throw"
+				-- a grenade's throw: a one shot over its wind-up (src/client/Grenades "ThrownAt"); the shovel's dig the same
+				-- over its hold (src/client/Shovel "DugAt")
+				local over = hold == "throw" or hold == "dig"
+				t.Priority = if over
 					then Enum.AnimationPriority.Action3
 					elseif once then Enum.AnimationPriority.Action2
 					else Enum.AnimationPriority.Action
-				t.Looped = not once and hold ~= "throw"
+				t.Looped = not once and not over
 				holds[name][hold] = t
 			end
 		end
@@ -232,6 +234,7 @@ function Locomotion.attach(character: Model)
 	end
 
 	local thrown: number? = nil -- the last grenade throw played ("ThrownAt")
+	local dug: number? = nil -- the last shovel dig played ("DugAt")
 	local step = RunService.Heartbeat:Connect(function()
 		local state = humanoid:GetState()
 		if state == Enum.HumanoidStateType.Dead then
@@ -308,6 +311,14 @@ function Locomotion.attach(character: Model)
 				thrown = at
 				if set.throw then
 					set.throw:Play(0.05)
+				end
+			end
+			-- a dig with the shovel (src/client/Shovel marks the moment): played once over the hold
+			local dugAt = character:GetAttribute("DugAt")
+			if type(dugAt) == "number" and dugAt ~= dug then
+				dug = dugAt
+				if set.dig then
+					set.dig:Play(0.05)
 				end
 			end
 			-- the staff's charge: posed at how long the cast has been held (then its ready shake on a loop); floating, the

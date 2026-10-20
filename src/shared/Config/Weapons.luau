@@ -49,6 +49,8 @@ export type Weapon = {
 		-- it played on release ("ThrownAt"; the grenade leaves the hand Config/Grenades.Throw.release into it)
 		windup: number?,
 		throw: number?,
+		-- the shovel (src/client/Shovel): dig, a one shot on left click ("DugAt")
+		dig: number?,
 	},
 	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
 	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
@@ -67,6 +69,7 @@ export type Weapon = {
 		chargeTwo: number?,
 		windup: number?,
 		throw: number?,
+		dig: number?,
 	},
 	-- The staff's third-person recoils (one shots over the hold fired from; src/client/StaffAttack): quick from the hip,
 	-- quickAim / quickTwo aimed with one or two hands, medium / mediumTwo the stage 2 shot; on the first-person
@@ -1054,5 +1057,54 @@ Weapons.grenade_sipe = grenade("SIPE", "grenade_sipe", {
 	Body = { 116, 114, 72 }, -- the olive cloth (the olive staff's ribbon)
 	Fuse = { 70, 68, 58 }, -- the olive staff's iron
 }, { 2.8, 2.6, 2.8 }, { 0, 0.15, -0.5 })
+
+-- The shovel (docs/MILESTONES.md SV1; model tools/blender/weapons/shovel.py, asset "shovel"): carried by every soldier
+-- in its own "Shovel" slot (user 2026-10-20: "a mandatory item on every soldier"), the same for every team, colored as
+-- Config/Palette.Shovel. Gun space: the origin is the D-grip's bar (the right hand), the blade toward -Z. Holds
+-- (tools/animation/shovel.luau): two-handed at port across the chest; left click digs (src/client/Shovel: a chop
+-- down into the ground, which lowers it there, src/server/Shovel); no aim. Strapped upright to the pack when put away.
+Weapons.shovel = {
+	asset = "shovel",
+	display = "Shovel",
+	slot = "Shovel",
+	class = "Shovel",
+	parts = {
+		Wood = { 139, 94, 60 }, -- as Config/Palette.Shovel
+		Iron = { 90, 92, 96 },
+		Blade = { 122, 124, 128 },
+		Brass = { 184, 149, 90 },
+	},
+	moving = {},
+	hidden = {},
+	attachments = { Muzzle = { 0, 0, -3.42 } }, -- the blade's tip (the hip turn's line: hipConverge 0, unused)
+	grip = { 0, 0, 0 },
+	-- both hands on it throughout (user 2026-10-20); dig: wound up over the right shoulder, swung over the top and down
+	-- into the ground in front
+	holds = {
+		ready = 106958788763761,
+		walk = 92108104753052,
+		carry = 125775429184790,
+		dig = 89824822382684,
+		equip = 117285476370406,
+		unequip = 82283456133536,
+	},
+	firstPerson = {
+		ready = 98520178322418,
+		carry = 76288857841410,
+		dig = 126655171534139,
+		equip = 135132717039649,
+		unequip = 107708468866719,
+	},
+	hipConverge = 0,
+	scale = { 1, 1, 1 }, -- modelled at game size (3.5 long)
+	-- strapped upright to the back of the pack, the D-grip at the bottom and the blade over the left shoulder (leaning
+	-- 10 degrees left, away from the slung rifle's muzzle), its hollow toward the pack (user 2026-10-20: "On the pack")
+	stow = {
+		part = "Torso",
+		at = { -0.35, -0.9, 0.55 },
+		muzzle = { -0.1736, 0.9848, 0 }, -- sin 10, cos 10
+		side = { -0.9848, -0.1736, 0 },
+	},
+}
 
 return Weapons

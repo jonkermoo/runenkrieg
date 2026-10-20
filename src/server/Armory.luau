@@ -289,14 +289,18 @@ function Armory.give(player: Player, name: string): Tool
 end
 
 -- The player's weapon for a slot: their pick ("Loadout_<slot>" on the Player, set by Armory.choose), else the
--- kit's weapon (the primary) or grenade (Config/Uniforms).
+-- kit's weapon (the primary), grenade or shovel (Config/Uniforms; every soldier carries a shovel, user 2026-10-20).
 function Armory.loadout(player: Player, slot: string): string?
 	local picked = player:GetAttribute(LOADOUT .. slot)
 	if type(picked) == "string" and W[picked] and W[picked].slot == slot then
 		return picked
 	end
 	local kit = U.Kits[U.Default] :: any
-	return if slot == "Primary" then kit.weapon elseif slot == "Grenade" then kit.grenade else nil
+	return if slot == "Primary"
+		then kit.weapon
+		elseif slot == "Grenade" then kit.grenade
+		elseif slot == "Shovel" then kit.shovel
+		else nil
 end
 
 -- Makes the weapon the player's pick for its slot: given now (replacing the slot's weapon) and on every respawn.
