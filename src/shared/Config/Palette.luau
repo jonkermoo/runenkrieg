@@ -137,6 +137,9 @@ local Palette = {
 		BarrelRunes = { 120, 200, 255 },
 		Crystal = { 175, 235, 255 },
 		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
+		-- the gunner's arc line and landing marker (src/client/Artillery, Config/Artillery.Arc)
+		Arc = { 236, 230, 210 },
+		Marker = { 255, 214, 120 },
 	},
 	-- The trench spade (Config/Assets "Shared/Shovels", user 2026-10-19): one model for every team, no team colors,
 	-- brass the only accent; colored by mesh name.

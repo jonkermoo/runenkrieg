@@ -120,6 +120,9 @@ local DevTools = {
 		Stages = { 1, 2, 3 },
 		Kg = { 0.5, 2, 10, 50 },
 		HurtAttribute = "DevBlastHurts", -- on the Player: its own blasts hurt it too (the game: knocked, never hurt)
+		-- artillery to place at the aim point, muzzle away from you (Config/Artillery.Guns; src/server/Artillery), and a
+		-- button removing them all (user 2026-10-20: dev-placed until the build system)
+		Guns = { "artillery_qf18", "artillery_howitzer" },
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the
