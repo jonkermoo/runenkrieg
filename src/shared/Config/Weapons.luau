@@ -178,6 +178,9 @@ export type Weapon = {
 	recoil: { scale: number, build: number, max: number, cool: number }?,
 	-- Sway weight over the class's (Config/Sway.Classes): a heavier gun sways more and aims in slower (W2).
 	weight: number?,
+	-- Extra sway on the move, x the stride sway (src/client/Sway; on top of `weight`): the semi-automatics' price for
+	-- their firepower (user 2026-10-20: "sway more when moving ... the big mag one the worst").
+	stride: number?,
 }
 
 -- The mage staff (docs/VFX.md; model tools/blender/weapons/staff.py, exported by export_staff.py): carried like the
@@ -787,6 +790,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.0,
+		stride = 1.3, -- more sway on the move than a bolt rifle (user 2026-10-20)
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
 		reload = {
 			knob = { 0.092, 0.065, -0.3492 }, -- the operating knob, bolt closed
@@ -871,6 +875,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.1,
+		stride = 1.45,
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
 		reload = {
 			knob = { 0.092, 0.065, -0.2733 }, -- the knob on the slide, bolt closed
@@ -954,6 +959,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.25,
+		stride = 1.7, -- the 15-round box: the worst on the move
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
 		reload = {
 			knob = { 0, -0.0124, -1.2931 }, -- (the plunger's tip)
