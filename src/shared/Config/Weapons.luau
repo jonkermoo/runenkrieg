@@ -477,8 +477,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 114380046068769,
 			carry = 95787766149259, -- swings with the sprint
 			aim = 110368315287864,
-			equip = 79705385914552, -- side strap 2026-10-20 (was 116500778543360)
-			unequip = 85745572213071, -- side strap 2026-10-20 (was 109180311222647)
+			equip = 124015310033042, -- side strap 2026-10-20 (was 116500778543360)
+			unequip = 88330697506858, -- side strap 2026-10-20 (was 109180311222647)
 			crouchReady = 104496542496105,
 			crouchWalk = 95673122474038,
 			crouchAim = 81566215869278,
@@ -502,13 +502,13 @@ local Weapons: { [string]: Weapon } = {
 		-- slung on the back (user references 2026-10-11): flat against the back with the bolt handle out, leaning
 		-- 18 degrees so the thick stock stays inside the torso's width (butt at the upper thigh) while the rifle
 		-- passes clear of the head and rises ~1.3 studs above it over the right shoulder
-		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
 			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
 			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
-			side = { 0.9986, -0.0523, 0 },
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
 			beside = true,
 		},
 		-- its 6-round en-bloc clip: one round more than the other rifles (6 + 1), balanced by reloading only with the
@@ -580,8 +580,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 81215519553940,
 			carry = 119428875830732,
 			aim = 84854636666833,
-			equip = 111185969447329, -- side strap 2026-10-20 (was 72036096088316)
-			unequip = 131043013773171, -- side strap 2026-10-20 (was 93267993854514)
+			equip = 83016244963644, -- side strap 2026-10-20 (was 72036096088316)
+			unequip = 86596227785171, -- side strap 2026-10-20 (was 93267993854514)
 			crouchReady = 78521608205736,
 			crouchWalk = 127233053921696,
 			crouchAim = 85481972800522,
@@ -597,13 +597,13 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
-		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
 			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
 			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
-			side = { 0.9986, -0.0523, 0 },
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
 			beside = true,
 		},
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a stripper clip in the guides (5 + 1)
@@ -673,8 +673,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 86203714250196,
 			carry = 99038350375470,
 			aim = 126169298976361,
-			equip = 81582021785342, -- side strap 2026-10-20 (was 125483711137564)
-			unequip = 116127313474013, -- side strap 2026-10-20 (was 83535543803771)
+			equip = 122486677075875, -- side strap 2026-10-20 (was 125483711137564)
+			unequip = 72546532622710, -- side strap 2026-10-20 (was 83535543803771)
 			crouchReady = 90709952340150,
 			crouchWalk = 80571218794707,
 			crouchAim = 74306635264463,
@@ -690,13 +690,13 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
-		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
 			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
 			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
-			side = { 0.9986, -0.0523, 0 },
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
 			beside = true,
 		},
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a charger in the guides (5 + 1); tops up
@@ -769,8 +769,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 108542242322540,
 			carry = 98671117994210,
 			aim = 91487073174337,
-			equip = 119355553781486, -- side strap 2026-10-20 (was 85502951685731)
-			unequip = 133182307365099, -- side strap 2026-10-20 (was 91443560254621)
+			equip = 85022932312119, -- side strap 2026-10-20 (was 85502951685731)
+			unequip = 127490792634768, -- side strap 2026-10-20 (was 91443560254621)
 			crouchReady = 130402887594771,
 			crouchWalk = 83429616166340,
 			crouchAim = 113687704218134,
@@ -786,13 +786,13 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
-		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
 			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
 			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
-			side = { 0.9986, -0.0523, 0 },
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
 			beside = true,
 		},
 		-- 5-round clips, the rest topped up from a second (user 2026-10-19: "reload in mags of 5, top off the rest")
@@ -858,8 +858,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 121987202386013,
 			carry = 100807971064233,
 			aim = 137523101236015,
-			equip = 90165228962971, -- side strap 2026-10-20 (was 105995501607410)
-			unequip = 117842991783278, -- side strap 2026-10-20 (was 134210763532593)
+			equip = 100756825583522, -- side strap 2026-10-20 (was 105995501607410)
+			unequip = 83214162905811, -- side strap 2026-10-20 (was 134210763532593)
 			crouchReady = 111038619727593,
 			crouchWalk = 121384492532717,
 			crouchAim = 84291737502596,
@@ -875,13 +875,13 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
-		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
 			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
 			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
-			side = { 0.9986, -0.0523, 0 },
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
 			beside = true,
 		},
 		ammo = { capacity = 10, clip = "Stripper", clipSize = 5 }, -- two 5-round chargers fill it (10 + 1)
@@ -947,8 +947,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 130980450387519,
 			carry = 101240368863563,
 			aim = 101485302556328,
-			equip = 128105569414186, -- side strap 2026-10-20 (was 131693072645640)
-			unequip = 87791369557726, -- side strap 2026-10-20 (was 118191915320097)
+			equip = 136660452543204, -- side strap 2026-10-20 (was 131693072645640)
+			unequip = 139690625055378, -- side strap 2026-10-20 (was 118191915320097)
 			crouchReady = 112467029219277,
 			crouchWalk = 72459068643756,
 			crouchAim = 95868975570564,
@@ -964,13 +964,13 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.85 -> 4.27 studs long
-		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
 			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
 			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
-			side = { 0.9986, -0.0523, 0 },
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
 			beside = true,
 		},
 		ammo = { capacity = 15, clip = "Box" }, -- a fresh 15-round box (15 + 1)
