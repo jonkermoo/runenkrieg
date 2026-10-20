@@ -27,9 +27,10 @@ local Sway = {}
 -- after the camera has turned with the mouse (src/client/WeaponCamera input), before it is placed
 Sway.Priority = Enum.RenderPriority.Input.Value + 2
 
-local WALK = "rbxassetid://" .. Loco.Animations.walk.id
-local SPRINT = "rbxassetid://" .. Loco.Animations.sprint.id
-local CROUCH = "rbxassetid://" .. Loco.Animations.crouchWalk.id
+local Anims = require(Shared.Rules.MovementSet).animations(Loco) -- the set in play
+local WALK = "rbxassetid://" .. Anims.walk.id
+local SPRINT = "rbxassetid://" .. Anims.sprint.id
+local CROUCH = "rbxassetid://" .. Anims.crouchWalk.id
 local TAU = 2 * math.pi
 
 local viewmodel = CFrame.identity
