@@ -58,7 +58,7 @@ return {
 					local shell = k.headwear and A.Entries[k.headwear].fit.shell
 					local on = Looks.hairEntry(h.name, shell) :: string
 					local e = A.Entries[on]
-					assert(e and e.hair and #e.hair.center == 3, `{kit}: {on} missing`)
+					assert(e and e.hair and (e.hair.bones or #e.hair.center == 3), `{kit}: {on} missing`)
 				end
 			end
 		end
