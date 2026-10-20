@@ -27,7 +27,7 @@ local Species = {
 		katzling = {
 			ears = "ears_katzling",
 			tail = "tail_katzling",
-			earPivots = { EarR = { 0.37, 0.5, 0.22 }, EarL = { -0.37, 0.5, 0.22 } },
+			earPivots = { EarR = { 0.32, 0.55, 0.22 }, EarL = { -0.32, 0.55, 0.22 } },
 			tailBones = 5,
 			earMotion = 1,
 		},
