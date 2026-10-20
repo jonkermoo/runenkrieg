@@ -106,8 +106,18 @@ return {
 		local ALL = { "ready", "walk", "carry", "aim", "equip", "crouchReady", "crouchWalk", "crouchAim" }
 		local ALL_FIRST = { "ready", "carry", "aim", "equip", "aimIn", "aimOut" }
 		-- unequip; the staff's; a grenade's; the shovel's
-		local OPTIONAL =
-			{ "unequip", "aimTwo", "charge", "airCharge", "chargeTwo", "airChargeTwo", "windup", "throw", "dig" }
+		local OPTIONAL = {
+			"unequip",
+			"aimTwo",
+			"charge",
+			"airCharge",
+			"chargeTwo",
+			"airChargeTwo",
+			"pin",
+			"windup",
+			"throw",
+			"dig",
+		}
 		for name, w in W do
 			for _, hold in if w.ammo then ALL else { "ready", "equip" } do
 				local id = (w.holds :: any)[hold]

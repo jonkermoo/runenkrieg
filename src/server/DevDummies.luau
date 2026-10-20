@@ -14,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
 local DamageCfg = require(Shared.Config.Damage)
 local Loco = require(Shared.Config.Locomotion)
+local Anims = require(Shared.Rules.MovementSet).animations(Loco) -- the movement set in play
 local Metrics = require(Shared.Config.Metrics)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
@@ -140,14 +141,14 @@ local function animate(humanoid: Humanoid)
 	animator.Parent = humanoid
 	local function track(name: string): AnimationTrack
 		local anim = Instance.new("Animation")
-		anim.AnimationId = "rbxassetid://" .. (Loco.Animations :: any)[name].id
+		anim.AnimationId = "rbxassetid://" .. (Anims :: any)[name].id
 		local t = (animator :: Animator):LoadAnimation(anim)
 		t.Priority = Enum.AnimationPriority.Core
 		t.Looped = true
 		return t
 	end
 	local idle, walk = track("idle"), track("walk")
-	local W = Loco.Animations.walk
+	local W = Anims.walk
 	idle:Play(Loco.Fade)
 	humanoid.Running:Connect(function(speed)
 		if speed > Loco.IdleBelow then
