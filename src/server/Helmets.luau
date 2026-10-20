@@ -7,11 +7,14 @@
 -- Helmet and hair are welded to the Head and never take hits themselves (CanQuery off): the hit zones are the Head
 -- part's own box. The character's "HelmetOn" attribute says whether the helmet is still on.
 
+local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local A = require(Shared.Config.Assets)
+local HairCfg = require(Shared.Config.HairMotion)
+local HairSway = require(Shared.Rules.HairMotion)
 local U = require(Shared.Config.Uniforms)
 local Looks = require(Shared.Rules.Looks)
 
@@ -64,15 +67,42 @@ local function hair(character: Model, head: BasePart, shell: string?): Model?
 		return nil
 	end
 	local model = src:Clone()
-	local c = (A.Entries[entry].hair :: any).center
 	local color = character:GetAttribute("HairColor")
+	-- a rigged hair (tools/hair/rig_hair.py) carries an Origin marker at the head's centre: every part keeps its place
+	-- relative to it, so its bones stay where the rig put them; an older hair sits by its bounding-box `center`
+	local origin: BasePart? = nil
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") and p.Name == "Origin" then
+			origin = p
+		end
+	end
+	local frame = origin and CFrame.new(origin.Position)
+	local fit = A.Entries[entry].hair :: any
+	local c = fit and fit.center or { 0, 0, 0 }
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") then
-			p.CFrame = head.CFrame * CFrame.new(c[1], c[2], c[3]) * p.CFrame.Rotation
-			if typeof(color) == "Color3" then
+			p.CFrame = if frame
+				then head.CFrame * frame:ToObjectSpace(p.CFrame)
+				else head.CFrame * CFrame.new(c[1], c[2], c[3]) * p.CFrame.Rotation
+			if p.Name == "Origin" or p.Name == "RootPart" then
+				p.Transparency = 1
+			elseif typeof(color) == "Color3" then
 				p.Color = color
 			end
+		elseif p:IsA("JointInstance") then
+			p:Destroy() -- the importer's joints: wear() welds every part to the head instead
 		end
+	end
+	local bones = 0
+	for _, b in model:GetDescendants() do
+		if b:IsA("Bone") and HairSway.bone(b.Name) then
+			bones += 1
+		end
+	end
+	if bones > 0 then
+		-- moved on every client by src/client/HairMotion, which waits until all `Bones` have replicated
+		model:SetAttribute("Bones", bones)
+		CollectionService:AddTag(model, HairCfg.Tag)
 	end
 	return wear(model, head, "Hair")
 end
