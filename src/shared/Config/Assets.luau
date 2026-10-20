@@ -520,7 +520,7 @@ local Assets = {
 			},
 		},
 		helmet_adrian_visor = {
-			id = 80144134806815,
+			id = 139258592514715, -- front raised 0.1 (2026-10-20: the peak covered half the eyes)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_adrian_visor.fbx",
@@ -531,7 +531,7 @@ local Assets = {
 			fit = {
 				attachment = "HatAttachment",
 				color = { 214, 214, 210 },
-				brim = -0.02, -- the front peak sits 0.11 above the head centre (eyes show)
+				brim = -0.02, -- the front peak sits 0.21 above the head centre (eyes show)
 				parts = { Visor = { 168, 170, 174 } },
 				shell = "adrian",
 				center = { 0, 0.616, 0.0118 },
@@ -793,12 +793,12 @@ local Assets = {
 			hair = { center = { 0.0894, -0.1081, 0.0565 } },
 		},
 		hair_wolf_cut_adrian = {
-			id = 130895081231259, -- under the Adrian (2026-10-20)
+			id = 89084655917210, -- under the Adrian (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_adrian.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair wolf_cut under the adrian helmet: the original shaved where the shell covers it (4029 tris).",
+			description = "Hair wolf_cut under the adrian helmet: the original shaved where the shell covers it (4042 tris).",
 			hair = { center = { 0.0894, -0.0549, 0.0565 } },
 		},
 		hair_low_ponytail = {
@@ -838,7 +838,7 @@ local Assets = {
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
 		hair_low_ponytail_adrian = {
-			id = 82546667416857, -- under the Adrian (2026-10-20)
+			id = 136830466875305, -- under the Adrian (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_adrian.fbx",
@@ -883,13 +883,13 @@ local Assets = {
 			hair = { center = { 0.0552, -0.004, 0.0982 } },
 		},
 		hair_m_wolf_adrian = {
-			id = 75973515417533, -- under the Adrian (2026-10-20)
+			id = 94196204396825, -- under the Adrian (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_adrian.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_wolf under the adrian helmet: the original shaved where the shell covers it (3713 tris).",
-			hair = { center = { 0.0552, 0.124, 0.0982 } },
+			description = "Hair m_wolf under the adrian helmet: the original shaved where the shell covers it (3746 tris).",
+			hair = { center = { 0.0552, 0.124, 0.0969 } },
 		},
 		hair_m_slick = {
 			id = 134341339188089,
@@ -928,13 +928,13 @@ local Assets = {
 			hair = { center = { 0.0127, 0.1983, 0.0385 } },
 		},
 		hair_m_slick_adrian = {
-			id = 93071051966981, -- under the Adrian (2026-10-20)
+			id = 76715202743978, -- under the Adrian (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/under/hair_m_slick_adrian.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_slick under the adrian helmet: the original shaved where the shell covers it (3113 tris).",
-			hair = { center = { 0.0131, 0.2002, 0.0377 } },
+			description = "Hair m_slick under the adrian helmet: the original shaved where the shell covers it (3092 tris).",
+			hair = { center = { 0.0128, 0.2002, 0.0377 } },
 		},
 		hair_m_midpart = {
 			id = 131010005103271,
@@ -973,13 +973,13 @@ local Assets = {
 			hair = { center = { 0.033, 0.1788, -0.0074 } },
 		},
 		hair_m_midpart_adrian = {
-			id = 119119519759228, -- under the Adrian (2026-10-20)
+			id = 99555394312808, -- under the Adrian (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_adrian.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_midpart under the adrian helmet: the original shaved where the shell covers it (3929 tris).",
-			hair = { center = { 0.033, 0.1974, 0.0104 } },
+			description = "Hair m_midpart under the adrian helmet: the original shaved where the shell covers it (4006 tris).",
+			hair = { center = { 0.033, 0.1974, -0.0066 } },
 		},
 	} :: { [string]: Entry },
 
