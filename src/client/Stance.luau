@@ -26,6 +26,7 @@ local Cfg = require(Shared.Config.Locomotion)
 local Dev = require(Shared.Config.DevTools)
 local M = require(Shared.Config.Metrics)
 local W = require(Shared.Config.Weapons)
+local CameraRules = require(Shared.Rules.Camera)
 local Held = require(script.Parent.Held)
 local Settings = require(script.Parent.Settings)
 
@@ -172,8 +173,9 @@ function Stance.start()
 		task.spawn(hook, player.Character)
 	end
 	-- the direction changes without any key event (turning the camera, letting go of W)
-	-- crouched, the camera comes down with the torso (eased; the drop is read from the animated body)
-	local drop = 0
+	-- crouched, the camera comes down with the torso (on a spring, so it starts and stops gently; the drop is read
+	-- from the animated body)
+	local drop, dropSpeed = 0, 0
 	RunService.Heartbeat:Connect(function(dt)
 		if sprintHeld then
 			apply()
@@ -184,7 +186,7 @@ function Stance.start()
 		local torso = character and character:FindFirstChild("Torso") :: BasePart?
 		if humanoid and root and torso then
 			local want = if crouched then math.min(0, torso.Position.Y - root.Position.Y) else 0
-			drop += (want - drop) * (1 - math.exp(-Cfg.CrouchCameraEase * dt))
+			drop, dropSpeed = CameraRules.spring(drop, dropSpeed, want, Cfg.CrouchCameraSpring, dt)
 			humanoid.CameraOffset = Vector3.new(0, drop, 0)
 		end
 	end)

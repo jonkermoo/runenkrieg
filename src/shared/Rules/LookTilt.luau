@@ -47,6 +47,48 @@ function LookTilt.toSend(
 	return p, f
 end
 
+-- The head's turn toward the look (degrees, + to the left like Roblox's yaw): `look` is the camera's yaw from the
+-- torso's facing, `glance` the animation's own neck turn, `current` the head's turn now. Capped so the head with the
+-- glance stays within max; looking round behind (past `behind`), the head stays on the side it is already on rather than
+-- whipping across.
+function LookTilt.headYaw(look: number, glance: number, current: number, max: number, behind: number): number
+	look = (look + 180) % 360 - 180
+	if math.abs(look) > behind and look * current < 0 then
+		look = if current > 0 then max else -max
+	end
+	return math.clamp(look, -max - glance, max - glance)
+end
+
+export type HeadSend = { Rate: number, Step: number, Range: number, Smoothing: number }
+
+-- client: the head's turn to send now (quantized), or nil when unchanged or the last send was too recent
+function LookTilt.yawToSend(
+	yaw: number,
+	last: { yaw: number, at: number },
+	now: number,
+	send: HeadSend,
+	max: number
+): number?
+	if now - last.at < 1 / send.Rate then
+		return nil
+	end
+	local y = LookTilt.quantize(math.clamp(yaw, -max, max), send.Step)
+	return if y == last.yaw then nil else y
+end
+
+-- server: a client's head turn made safe (a finite number, clamped to +-max and quantized), or nil to drop it
+function LookTilt.sanitizeYaw(yaw: unknown, step: number, max: number): number?
+	if type(yaw) ~= "number" or yaw ~= yaw then
+		return nil
+	end
+	return LookTilt.quantize(math.clamp(yaw, -max, max), step)
+end
+
+-- server: whether a soldier `distance` studs away is near enough to see another's head turn
+function LookTilt.inRange(distance: number, range: number): boolean
+	return distance <= range
+end
+
 -- server: a client's raw payload made safe (numbers, finite, clamped, quantized), or nil to drop it
 function LookTilt.sanitize(pitch: unknown, follow: unknown, send: Send): (number?, number?)
 	if type(pitch) ~= "number" or type(follow) ~= "number" then
