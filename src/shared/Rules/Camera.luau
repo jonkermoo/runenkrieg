@@ -54,17 +54,24 @@ function Camera.wrap(angle: number): number
 	return (angle + 180) % 360 - 180
 end
 
--- The body's facing to turn toward with a gun in third person (body, look: yaw in degrees), and whether it is
--- catching up: the head turns first, up to headMax; past that, or when engaged (moving, aiming, just fired), the body
--- turns to face the view, and keeps turning until within settle degrees. The target is unwrapped near `body`.
+-- The body's facing to turn toward with a gun in third person (body, look, heading: yaw in degrees), and whether it
+-- is catching up. Moving (`heading`, the walk direction; user 2026-10-20: "while running, the torso should follow
+-- where the player is directing"), the body faces where it goes, and once it stops it turns to the view. Standing,
+-- the head turns first, up to headMax; past that, or when engaged (just fired), the body turns to face the view, and
+-- keeps turning until within settle degrees. Firing faces the view even on the move. The target is unwrapped near
+-- `body`.
 function Camera.bodyTarget(
 	body: number,
 	look: number,
 	headMax: number,
 	settle: number,
 	engaged: boolean,
-	catching: boolean
+	catching: boolean,
+	heading: number?
 ): (number, boolean)
+	if heading and not engaged then
+		return body + Camera.wrap(heading - body), true -- (stopping: on to the view)
+	end
 	local d = Camera.wrap(look - body)
 	if engaged or math.abs(d) > headMax then
 		catching = true

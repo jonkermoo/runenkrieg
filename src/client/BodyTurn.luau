@@ -3,8 +3,8 @@
 -- the head first and the body catching up). It owns the body's facing in place of Roblox's AutoRotate, each turn a
 -- critically damped spring (Rules/Camera.spring), so the body never snaps round:
 -- - a gun in third person ("CameraMode" "Third", src/client/WeaponCamera, not the staff): the head turns toward the
---   view (src/client/LookTilt) and the body stays, until the view passes the head's limit, or it moves, aims or has
---   just fired; then the body turns to face the view (Rules/Camera.bodyTarget);
+--   view (src/client/LookTilt); moving, the body faces where it walks, and once it stops it turns to the view; standing,
+--   it stays until the view passes the head's limit or it fires, then turns to face the view (Rules/Camera.bodyTarget);
 -- - first person, aiming and the staff: the body faces the view, fast;
 -- - nothing in the hands (Roblox's camera): the body turns to where it walks, or to the view in Roblox's first person
 --   or mouse lock; standing still it stays.
@@ -88,9 +88,10 @@ function BodyTurn.start()
 			if spec and Rules.thirdPerson(Cfg.ThirdPersonClasses, spec.class) then
 				target, rate = yaw + Rules.wrap(look - yaw), T.Face -- the staff: always facing the view
 			else
-				local engaged = moving or os.clock() - fired < T.FireHold
-				target, catching = Rules.bodyTarget(yaw, look, Head.Max, T.Settle, engaged, catching)
-				rate = T.Third
+				local engaged = os.clock() - fired < T.FireHold
+				local heading = if moving then yawOf(humanoid.MoveDirection) else nil
+				target, catching = Rules.bodyTarget(yaw, look, Head.Max, T.Settle, engaged, catching, heading)
+				rate = if heading and not engaged then T.Walk else T.Third
 			end
 		elseif mode ~= nil then -- "First", "Aim", "ThirdAim"
 			target, rate, catching = yaw + Rules.wrap(look - yaw), T.Face, false
