@@ -97,6 +97,13 @@ local function stateOf(character: Model, now: number): State?
 			table.insert(fresh.tail, { bone = bone, rest = rest, x = 0, y = 0 })
 		end
 	end
+	-- the joints replicate after their models: until all of them are here, gather again next frame (Studio round 2:
+	-- an early, empty gather was kept and that soldier never moved)
+	local wantTail = kind and kind.tail and kind.tailBones or 0
+	if (wornEars and #fresh.ears < 2) or (wornTail and #fresh.tail < wantTail) then
+		states[character] = nil
+		return nil
+	end
 	states[character] = fresh
 	return fresh
 end

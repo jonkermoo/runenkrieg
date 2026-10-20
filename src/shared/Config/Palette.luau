@@ -106,11 +106,12 @@ local Palette = {
 		},
 	},
 	-- Species ears and tails (Config/Species; user 2026-10-18): the fur takes the soldier's hair colour; these are the
-	-- rest. Inner = the inside of an ear, Tip = the fennec tail's tip, Cream = what the cup's fluff blends toward
+	-- rest. Inner = the inside of an ear, Tip = the fennec tail's dark tip (user 2026-10-20), Cream = what the cup's fluff
+	-- blends toward
 	-- (FluffShare of the way from the hair colour) so it melts into the fur.
 	Species = {
 		Inner = { 226, 178, 160 },
-		Tip = { 236, 226, 204 },
+		Tip = { 46, 34, 28 },
 		Cream = { 236, 226, 204 },
 		FluffShare = 0.45,
 		-- until the looks arrive ("HairColor" / "SkinColor" unset), the fur and the elf ears take these
