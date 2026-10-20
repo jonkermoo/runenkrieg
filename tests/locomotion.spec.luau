@@ -52,6 +52,14 @@ return {
 			end
 		end
 	end,
+	["transitions blend smoothly, never snap"] = function()
+		-- user 2026-10-20: "make movement always smooth and never snappy"
+		assert(L.Fade >= 0.25 and L.Fade <= 0.5, `ground cycle fade {L.Fade}`)
+		assert(L.HoldFade >= 0.2 and L.HoldFade <= 0.4, `hold fade {L.HoldFade}`)
+		for _, k in { "JumpFade", "FallFade", "LandFade" } do
+			assert(L.Air[k] >= 0.08 and L.Air[k] <= 0.3, `{k} {L.Air[k]}`)
+		end
+	end,
 	["air: take-off, tuck and landing have ids; the landing is lighter on the move"] = function()
 		for _, name in { "jump", "fall", "land" } do
 			local a = A[name]

@@ -51,14 +51,28 @@ function Locomotion.attach(character: Model)
 
 	-- the one base track playing (idle, walk, sprint or climb)
 	local current: string? = nil
+	-- the stepping cycles: switching between them carries the stride across (every one starts on the left foot's
+	-- contact), so the legs blend between matching poses instead of jumping to the start of a new stride
+	local STEPPING = { walk = true, sprint = true, crouchWalk = true }
 	local function play(name: string, fade: number)
 		if current == name then
 			return
 		end
-		if current then
-			tracks[current]:Stop(fade)
+		local from = current and tracks[current]
+		local phase = if from
+				and STEPPING[current]
+				and STEPPING[name]
+				and from.Length > 0
+			then from.TimePosition / from.Length
+			else nil
+		if from then
+			from:Stop(fade)
 		end
-		tracks[name]:Play(fade)
+		local track = tracks[name]
+		track:Play(fade)
+		if phase and track.Length > 0 then
+			track.TimePosition = phase * track.Length
+		end
 		current = name
 	end
 

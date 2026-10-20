@@ -129,8 +129,11 @@ local Locomotion = {
 	PlaybackMin = 0.6, -- clamp on the speed-scaled playback rate
 	PlaybackMax = 1.4,
 
-	Fade = 0.15, -- crossfade between ground cycles (seconds)
-	HoldFade = 0.12, -- crossfade between weapon holds (ready / carry / aim) and the tool hold
+	-- Smooth, never snappy (user 2026-10-20): every change of animation blends over a while. Switching between the
+	-- stepping cycles (walk / sprint / crouch walk) also carries the stride across (the new cycle starts at the same
+	-- point of its step as the old one was), so the legs never jump to a new stride (src/client/Locomotion).
+	Fade = 0.3, -- crossfade between ground cycles (seconds; was 0.15)
+	HoldFade = 0.25, -- crossfade between weapon holds (ready / carry / aim) and the tool hold (was 0.12)
 	-- Putting a weapon away (user 2026-10-14: "an unequip animation where i put my gun back on my back"): the weapon's
 	-- unequip animations play for `time` seconds (body and first person, Config/Weapons holds / firstPerson .unequip)
 	-- while the server keeps a copy in the hands (src/server/Armory) and the camera stays at the eye, then the slung
@@ -142,9 +145,9 @@ local Locomotion = {
 	-- ledge goes straight to the tuck); floating with the staff aimed ("Floating", src/client/StaffAttack) plays the
 	-- float cycle instead. Landing plays the land once over the ground cycle: full weight standing, lighter on the move.
 	Air = {
-		JumpFade = 0.05, -- into the take-off
-		FallFade = 0.1, -- take-off (or ground) into the tuck
-		LandFade = 0.05,
+		JumpFade = 0.1, -- into the take-off (was 0.05)
+		FallFade = 0.2, -- take-off (or ground) into the tuck (was 0.1)
+		LandFade = 0.1, -- (was 0.05)
 		-- stepping down a stair or a ledge drops into free fall for a moment: the tuck only after this long falling
 		-- without a jump, and the land only after this long in the air (seconds)
 		FallDelay = 0.15,
