@@ -7,8 +7,10 @@
 local Spells = {
 	Stages = {
 		{ name = "Quick", hold = 0 }, -- a tap
-		{ name = "Medium", hold = 0.45 },
-		{ name = "Full", hold = 2.6 }, -- noticeably longer to charge (user 2026-10-13, twice)
+		-- longer to get to (user 2026-10-20: "make stage 2 take longer to get to"; was 0.45)
+		{ name = "Medium", hold = 1.0 },
+		-- noticeably longer to charge (user 2026-10-13, twice); 2 s on from stage 2 as before (user 2026-10-20; was 2.6)
+		{ name = "Full", hold = 3.0 },
 	},
 	Built = { Quick = true, Medium = true, Full = true }, -- the stages built so far
 
@@ -46,13 +48,14 @@ local Spells = {
 		Cooldown = { 0.45, 1.0, 2.2 }, -- per fired stage, seconds (stage 3 includes the fall and getting up)
 		Slow = { 0.75, 0.5, 0.35 }, -- walk speed share while it lasts
 		Charge = { from = 0.85, to = 0.3 },
-		-- the left hand joins the staff halfway through the build to stage 3 (user 2026-10-13: "midway have the player
-		-- start using 2 hands"); it stays on until aiming ends, even after a stage 2 shot
-		TwoHands = 1.6,
+		-- the left hand is on the staff once stage 2 is reached (user 2026-10-20: "go to a two hand stance once we got to
+		-- stage 2"; was 1.6, halfway to stage 3), keep at Stages[2].hold; it stays on until aiming ends, even after a stage
+		-- 2 shot
+		TwoHands = 1.0,
 		-- first person: the left arm shows (src/client/Viewmodel) from this far into a charge, as the charge animation
-		-- starts bringing it up to the shaft (tools/animation/staff.luau charge keys: 1.2 hanging, 1.6 halfway, 2.0 on); held in one
+		-- starts bringing it up to the shaft (tools/animation/staff.luau charge keys: 0.6 hanging, 0.8 halfway, 1.0 on); held in one
 		-- hand it's hidden (it hung at the rig's rest pose in the lower left of the view)
-		LeftShows = 1.3,
+		LeftShows = 0.6,
 		-- the third-person charge keeps shaking at its peak once stage 3 is ready: the animation's last ChargeLoop
 		-- seconds play over and over (tools/animation/staff.luau READY_LOOP)
 		ChargeLoop = 0.6,
