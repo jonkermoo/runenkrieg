@@ -84,8 +84,8 @@ export type Weapon = {
 	-- an item posed by holds made for another.
 	firstShift: { number }?,
 	-- Where the item's origin sits from the hold's "Gun" point (game studs, gun space): the "Hold" motor's C1
-	-- (src/server/Armory, src/client/Viewmodel). The Mills and SIPE sat inside the fist (Studio round 3): pushed out in
-	-- front of it.
+	-- (src/server/Armory, src/client/Viewmodel). (The grenades used it until their own holds put them between the
+	-- fists, 2026-10-20.)
 	held: { number }?,
 	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
 	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
@@ -723,13 +723,7 @@ local Weapons: { [string]: Weapon } = {
 -- Holds: their own (tools/animation/grenade.luau, user 2026-10-19): both hands on it in the middle; on left click the
 -- pin pulled and drawn back in the right hand while the throw's line shows, the throw on release; no aim (right click
 -- does nothing).
-local function grenade(
-	display: string,
-	asset: string,
-	parts: { [string]: { number } },
-	scale: { number },
-	held: { number }?
-): Weapon
+local function grenade(display: string, asset: string, parts: { [string]: { number } }, scale: { number }): Weapon
 	return {
 		asset = asset,
 		display = display,
@@ -740,28 +734,27 @@ local function grenade(
 		hidden = {},
 		attachments = { Muzzle = { 0, 0, -0.1 } }, -- the hip turn's line (hipConverge 0: unused)
 		grip = { 0, 0, 0 },
-		-- one set for all three (tools/animation/grenade.luau v2, user 2026-10-19): held in both hands in the middle, the
+		-- one set for all three (tools/animation/grenade.luau v3, user 2026-10-19/20): held in both hands in the middle, the
 		-- pin pulled on left click, one hand while drawn back, drawn from the pack. No unequip: the last one thrown leaves
 		-- the hand empty, and one put away goes straight back in the pack
 		holds = {
-			ready = 74174242871250,
-			walk = 138141403174512,
-			carry = 122902504748851,
-			pin = 122217562015761,
-			windup = 81849730403208,
-			throw = 84042507032213,
-			equip = 72047351159711,
+			ready = 70778779981750,
+			walk = 118877694397768,
+			carry = 108641414983569,
+			pin = 120150050647336,
+			windup = 95383119716367,
+			throw = 140186461901343,
+			equip = 83845944125140,
 		},
 		firstPerson = {
-			ready = 140188248624565,
-			carry = 75594106878435,
-			pin = 138745937869755,
-			windup = 119468662516347,
-			throw = 112772902973023,
-			equip = 87678095685131,
+			ready = 131915333868059,
+			carry = 70599963204770,
+			pin = 89199275649794,
+			windup = 79441930385187,
+			throw = 110184197502732,
+			equip = 77499533560237,
 		},
 		hipConverge = 0,
-		held = held,
 		-- modelled at real size (0.0028 studs per mm); thick enough for the 1-stud hand, the stick shorter than thick
 		scale = scale,
 	}
@@ -771,7 +764,7 @@ Weapons.grenade_mills = grenade("Mills Bomb", "grenade_mills", {
 	Iron = { 60, 62, 66 }, -- base and filler plugs
 	Lever = { 90, 92, 96 },
 	Pin = { 150, 152, 156 }, -- pin and ring
-}, { 2.8, 2.8, 2.8 }, { 0, 0.15, -0.5 })
+}, { 2.8, 2.8, 2.8 })
 Weapons.grenade_stick = grenade("Stielhandgranate", "grenade_stick", {
 	Head = { 80, 82, 86 }, -- the slate tunic cloth (the grey staff's wrap)
 	Collar = { 60, 62, 66 },
@@ -781,6 +774,6 @@ Weapons.grenade_stick = grenade("Stielhandgranate", "grenade_stick", {
 Weapons.grenade_sipe = grenade("SIPE", "grenade_sipe", {
 	Body = { 116, 114, 72 }, -- the olive cloth (the olive staff's ribbon)
 	Fuse = { 70, 68, 58 }, -- the olive staff's iron
-}, { 2.8, 2.6, 2.8 }, { 0, 0.15, -0.5 })
+}, { 2.8, 2.6, 2.8 })
 
 return Weapons
