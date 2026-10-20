@@ -10,6 +10,7 @@
 --   src/client/Firing), so the sights never come up over the loading arms;
 -- - C toggles crouch (or is held: the "Hold" crouch mode) (moderate, from the user's reference video); sprinting or jumping stands you up. Crouched, the
 --   camera comes down with the body (Humanoid.CameraOffset follows the torso's drop; src/client/WeaponCamera too).
+-- - healing someone (the "Healing" attribute, src/server/Healing): crouched at crouch speed, no sprint or aim;
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
 --   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set.
 -- Sets the local character's Humanoid.WalkSpeed (the client owns its character's physics) and the "Sprinting" /
@@ -64,10 +65,17 @@ function Stance.start()
 				sprintHeld = false -- stopped: a toggled sprint ends
 			end
 		end
-		local sprinting = sprintHeld and forward(humanoid) and character:GetAttribute("Casting") ~= true and not limp
+		-- healing someone (src/server/Healing sets "Healing"): crouched at crouch speed, no sprint, no aim
+		local healing = character:GetAttribute("Healing") ~= nil
+		local sprinting = sprintHeld
+			and forward(humanoid)
+			and character:GetAttribute("Casting") ~= true
+			and not limp
+			and not healing
 		if sprinting then
 			crouched = false -- a sprint stands you up
 		end
+		local low = crouched or healing
 		-- only an item with an aim hold can be aimed (the staff has no sights)
 		local weapon = Held.weapon(character)
 		if aimHeld and Settings.get("AimMode") == "Toggle" and (sprinting or limp or not weapon) then
@@ -76,12 +84,13 @@ function Stance.start()
 		local aiming = aimHeld
 			and not sprinting
 			and not limp
+			and not healing
 			and weapon ~= nil
 			and W[weapon.name].holds.aim ~= nil
 			and character:GetAttribute("Reloading") ~= true
 		local speed = if sprinting
 			then M.Movement.SprintSpeed
-			elseif crouched then M.Movement.CrouchSpeed
+			elseif low then M.Movement.CrouchSpeed
 			elseif aiming then M.Movement.AimWalkSpeed
 			else M.Movement.WalkSpeed
 		-- the staff's slows (1 when unset), and the dev admin panel's speed multiplier (src/client/DevAdminMenu; 1 when
@@ -91,7 +100,7 @@ function Stance.start()
 		humanoid.WalkSpeed = speed * ((player:GetAttribute(Dev.Admin.Attribute) :: number?) or 1)
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
-		character:SetAttribute("Crouching", crouched)
+		character:SetAttribute("Crouching", low)
 	end
 
 	local function held(flag: (boolean) -> ()): (string, Enum.UserInputState, InputObject) -> Enum.ContextActionResult
@@ -165,6 +174,7 @@ function Stance.start()
 		character:GetAttributeChangedSignal("SpeedScale"):Connect(apply)
 		character:GetAttributeChangedSignal("Casting"):Connect(apply)
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
+		character:GetAttributeChangedSignal("Healing"):Connect(apply)
 		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
 	end
 	player.CharacterAdded:Connect(hook)
