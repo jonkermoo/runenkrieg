@@ -7,7 +7,7 @@
 --   it stays until the view passes the head's limit or it fires, then turns to face the view (Rules/Camera.bodyTarget);
 -- - first person, aiming and the staff: the body faces the view, fast;
 -- - nothing in the hands (Roblox's camera): the body turns to where it walks, or to the view in Roblox's first person
---   or mouse lock; standing still it stays.
+--   or mouse lock; standing still it stays. Healing someone (src/client/Healing), it faces the patient instead.
 -- Ragdolled, seated, climbing, swimming, knocked down or dead: left alone (nor is it rewritten when nothing turns).
 
 local FREE = {
@@ -98,7 +98,15 @@ function BodyTurn.start()
 		else
 			catching = false
 			local first = (camera.CFrame.Position - camera.Focus.Position).Magnitude < T.FirstBelow
-			if first or UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
+			-- healing someone (src/server/Healing "HealPatient"): out of first person, facing the patient
+			local link = character:GetAttribute("Healing") ~= nil
+				and character:FindFirstChild("HealPatient") :: ObjectValue?
+			local patient = link and link.Value
+			local theirs = patient and patient:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local to = theirs and (theirs.Position - root.Position) * Vector3.new(1, 0, 1)
+			if not first and to and to.Magnitude > 1e-3 then
+				target, rate = yaw + Rules.wrap(yawOf(to) - yaw), T.Face
+			elseif first or UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
 				target = yaw + Rules.wrap(look - yaw)
 			elseif moving then
 				target = yaw + Rules.wrap(yawOf(humanoid.MoveDirection) - yaw)

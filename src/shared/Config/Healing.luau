@@ -77,7 +77,6 @@ local Healing = {
 		},
 	},
 	Fade = 0.15,
-	Turn = 10, -- the healer turns to face the patient: share of the way per second (exponential)
 
 	-- The prompt over the patient's head (src/client/Healing): what it says per item, and its size.
 	Prompt = {

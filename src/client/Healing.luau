@@ -118,13 +118,9 @@ function Healing.start()
 	local turn = 0 -- each heal's own token: a delayed press from an earlier heal never plays
 	local function onHealing(character: Model)
 		local kind = character:GetAttribute("Healing")
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		stopTracks()
 		turn += 1
 		local token = turn
-		if humanoid and kind == nil then
-			humanoid.AutoRotate = true
-		end
 		if kind == nil then
 			return
 		end
@@ -199,7 +195,7 @@ function Healing.start()
 		end
 	end)
 
-	RunService.RenderStepped:Connect(function(dt)
+	RunService.RenderStepped:Connect(function()
 		local character = player.Character
 		local healing = character and character:GetAttribute("Healing") ~= nil
 		local kind
@@ -213,26 +209,7 @@ function Healing.start()
 		if kind then
 			label.Text = `[{Settings.get("Key_Heal")}] {Cfg.Prompt[kind]}`
 		end
-		-- healing: turn to face the patient
-		local link = healing and character and character:FindFirstChild("HealPatient") :: ObjectValue?
-		local patient = link and link.Value :: Model?
-		local mine, theirs = root(character), root(patient)
-		if healing and character then
-			-- this module turns the healer to the patient, not the humanoid (src/client/WeaponCamera hands
-			-- AutoRotate back when the weapon is put away)
-			local hum = character:FindFirstChildOfClass("Humanoid")
-			if hum then
-				hum.AutoRotate = false
-			end
-		end
-		-- (zoomed into first person the player turns themself: src/client/HealView)
-		if mine and theirs and not HealView.isFirst(character) then
-			local flat = Vector3.new(theirs.Position.X - mine.Position.X, 0, theirs.Position.Z - mine.Position.Z)
-			if flat.Magnitude > 1e-3 then
-				local want = CFrame.lookAt(mine.Position, mine.Position + flat)
-				mine.CFrame = mine.CFrame:Lerp(want, 1 - math.exp(-Cfg.Turn * dt))
-			end
-		end
+		-- (facing the patient while healing: src/client/BodyTurn)
 	end)
 end
 
