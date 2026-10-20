@@ -87,23 +87,35 @@ local Palette = {
 		Thread = { 150, 62, 52 }, -- the red tear thread wrapped round the pack
 		Cross = { 72, 140, 72 }, -- the green cross on the pack
 	},
-	-- Backpacks (Config/Assets "<Team>/Packs", user 2026-10-18/19), coloured by mesh name. Each team's from its
-	-- uniform: body = a cloth shade, straps = the leather / shoe color, roll = a darker cloth shade. White has no uniform
-	-- yet: its pack takes the Brodie helmet's white-grey.
+	-- Backpacks (Config/Assets "<Team>/Packs", user 2026-10-18/19), coloured by mesh name. Never the team's uniform
+	-- colour (user 2026-10-20): tan / sand / khaki canvas bodies, brown leather, dark blanket rolls.
 	Packs = {
 		pack_tornister = {
-			Body = { 66, 68, 72 },
-			Flap = { 92, 66, 48 },
-			Leather = { 46, 39, 34 },
-			Roll = { 56, 58, 62 },
+			Body = { 150, 124, 88 },
+			Flap = { 112, 80, 56 },
+			Leather = { 54, 42, 34 },
+			Roll = { 96, 92, 80 },
 		},
-		pack_zaino = { Body = { 132, 128, 86 }, Leather = { 192, 158, 116 }, Roll = { 94, 92, 58 } },
+		pack_zaino = { Body = { 170, 150, 108 }, Leather = { 112, 82, 58 }, Roll = { 120, 106, 80 } },
 		pack_p08 = {
-			Body = { 204, 202, 192 },
-			Strap = { 174, 172, 162 },
-			Roll = { 150, 152, 150 },
+			Body = { 176, 160, 118 },
+			Strap = { 150, 134, 96 },
+			Roll = { 110, 104, 92 },
 			Tin = { 128, 132, 136 },
 		},
+	},
+	-- Species ears and tails (Config/Species; user 2026-10-18): the fur takes the soldier's hair colour; these are the
+	-- rest. Inner = the inside of an ear, Tip = the fennec tail's dark tip (user 2026-10-20), Cream = what the cup's fluff
+	-- blends toward
+	-- (FluffShare of the way from the hair colour) so it melts into the fur.
+	Species = {
+		Inner = { 226, 178, 160 },
+		Tip = { 46, 34, 28 },
+		Cream = { 236, 226, 204 },
+		FluffShare = 0.45,
+		-- until the looks arrive ("HairColor" / "SkinColor" unset), the fur and the elf ears take these
+		FallbackHair = { 104, 70, 46 },
+		FallbackSkin = { 214, 158, 108 },
 	},
 	-- Artillery (Config/Assets "Shared/Artillery", user 2026-10-18: one model each, painted per team), colored by mesh
 	-- name: the painted parts take the team's Paint, the rest are the same for everyone. The runes and the crystal

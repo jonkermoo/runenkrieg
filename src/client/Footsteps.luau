@@ -15,9 +15,10 @@ local Audio = require(script.Parent.Audio)
 
 local Footsteps = {}
 
-local WALK = "rbxassetid://" .. Loco.Animations.walk.id
-local SPRINT = "rbxassetid://" .. Loco.Animations.sprint.id
-local CROUCH = "rbxassetid://" .. Loco.Animations.crouchWalk.id
+local Anims = require(ReplicatedStorage.Shared.Rules.MovementSet).animations(Loco) -- the set in play
+local WALK = "rbxassetid://" .. Anims.walk.id
+local SPRINT = "rbxassetid://" .. Anims.sprint.id
+local CROUCH = "rbxassetid://" .. Anims.crouchWalk.id
 
 local rng = Random.new()
 

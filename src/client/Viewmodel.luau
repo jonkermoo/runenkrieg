@@ -105,6 +105,9 @@ type Rig = {
 	oneHanded: boolean,
 	leftHidden: boolean,
 	thrown: number?, -- the grenade throw played ("ThrownAt")
+	dug: number?, -- the shovel dig played ("DugAt")
+	pinned: number?, -- the grenade pin pull played ("PinAt")
+	pinOut: boolean, -- the Mills's pin pulled: its "Pin" hidden ("PinOut")
 	gone: boolean, -- the thrown grenade has left the hand: its copy hidden for the rest of the throw
 }
 
@@ -192,12 +195,14 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 			or state == "aimOut"
 			or state == "charge"
 			or state == "chargeTwo"
-		-- a grenade's throw: a one shot over its wind-up ("ThrownAt")
-		t.Priority = if state == "throw"
+			or state == "pin"
+		-- a grenade's throw: a one shot over its wind-up ("ThrownAt"); the shovel's dig the same over its hold ("DugAt")
+		local over = state == "throw" or state == "dig"
+		t.Priority = if over
 			then Enum.AnimationPriority.Action3
 			elseif once then Enum.AnimationPriority.Action2
 			else Enum.AnimationPriority.Action
-		t.Looped = not once and state ~= "throw"
+		t.Looped = not once and not over
 		tracks[state] = t
 	end
 	-- drawn just now (src/client/Locomotion marks the moment): play the rest of the equip
@@ -221,9 +226,12 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 			return if f then Vector3.new(f[1], f[2], f[3]) else Vector3.zero
 		end)(),
 		animator = animator,
-		oneHanded = W[weapon.name].class == "Staff" or W[weapon.name].class == "Grenade",
+		oneHanded = W[weapon.name].class == "Staff",
 		leftHidden = false,
 		thrown = character:GetAttribute("ThrownAt") :: number?, -- (one thrown before this rig: not played again)
+		dug = character:GetAttribute("DugAt") :: number?,
+		pinned = character:GetAttribute("PinAt") :: number?,
+		pinOut = false,
 		gone = false,
 	}
 end
@@ -233,10 +241,12 @@ function Viewmodel.start()
 	-- download every weapon animation up front: a hold or equip loading late shows the gun frozen in the torso
 	task.spawn(function()
 		local anims = {}
-		for _, w in W do
+		local Loco = require(Shared.Config.Locomotion)
+		local MovementSet = require(Shared.Rules.MovementSet)
+		for name, w in W do
 			for _, set in
 				{
-					w.holds,
+					MovementSet.holds(Loco, name, w.holds), -- the movement set's own carry and crouched holds
 					w.firstPerson,
 					if w.reload
 						then { w.reload.body, w.reload.firstPerson, w.reload.bodyTwo or 0, w.reload.firstPersonTwo or 0 }
@@ -408,15 +418,29 @@ function Viewmodel.start()
 			r.thrown = thrownAt
 			throw:Play(0.05)
 		end
+		-- a dig with the shovel (src/client/Shovel marks the moment): played once over the hold
+		local dugAt = character:GetAttribute("DugAt")
+		if r.tracks.dig and type(dugAt) == "number" and dugAt ~= r.dug then
+			r.dug = dugAt
+			r.tracks.dig:Play(0.05)
+		end
+		local pinAt = character:GetAttribute("PinAt")
+		local pin = r.tracks.pin
+		if pin and type(pinAt) == "number" and pinAt ~= r.pinned then
+			r.pinned = pinAt
+			pin:Play(0.05)
+		end
 		local gone = throw ~= nil and throw.IsPlaying and throw.TimePosition >= Grenades.Throw.release
-		if r.clear ~= clear or r.leftHidden ~= leftHidden or r.gone ~= gone then
-			r.clear, r.leftHidden, r.gone = clear, leftHidden, gone
+		local pinOut = character:GetAttribute("PinOut") == true
+		if r.clear ~= clear or r.leftHidden ~= leftHidden or r.gone ~= gone or r.pinOut ~= pinOut then
+			r.clear, r.leftHidden, r.gone, r.pinOut = clear, leftHidden, gone, pinOut
 			for _, d in r.model:GetDescendants() do
 				if d:IsA("BasePart") then
 					local arm = d.Name == "Left Arm" or d.Name == "Right Arm"
 					d.LocalTransparencyModifier = if leftHidden and d.Name == "Left Arm"
 						then 1
 						elseif gone and not arm then 1
+						elseif pinOut and d.Name == "Pin" then 1
 						else clear
 				end
 			end

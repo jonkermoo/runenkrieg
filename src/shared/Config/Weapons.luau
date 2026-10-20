@@ -45,10 +45,14 @@ export type Weapon = {
 		-- the same two started with both hands already on the staff ("ChargeTwo": after a stage 2 shot)
 		chargeTwo: number?,
 		airChargeTwo: number?,
-		-- a grenade (src/client/Grenades): windup, held while the throw's line shows ("Winding"); throw, a one shot from
-		-- it played on release ("ThrownAt"; the grenade leaves the hand Config/Grenades.Throw.release into it)
+		-- a grenade (src/client/Grenades): pin, a one shot on left click ("PinAt": the pin pulled, into the wind-up);
+		-- windup, held while the throw's line shows ("Winding"); throw, a one shot from it played on release
+		-- ("ThrownAt"; the grenade leaves the hand Config/Grenades.Throw.release into it)
+		pin: number?,
 		windup: number?,
 		throw: number?,
+		-- the shovel (src/client/Shovel): dig, a one shot on left click ("DugAt")
+		dig: number?,
 	},
 	-- The first-person holds (user 2026-10-11): played only on the player's own client, on a viewmodel (a copy of the
 	-- arms and the weapon fixed to the camera, src/client/Viewmodel); others see `holds` on the body. Walking and
@@ -65,8 +69,10 @@ export type Weapon = {
 		aimTwo: number?,
 		charge: number?,
 		chargeTwo: number?,
+		pin: number?,
 		windup: number?,
 		throw: number?,
+		dig: number?,
 	},
 	-- The staff's third-person recoils (one shots over the hold fired from; src/client/StaffAttack): quick from the hip,
 	-- quickAim / quickTwo aimed with one or two hands, medium / mediumTwo the stage 2 shot; on the first-person
@@ -81,8 +87,8 @@ export type Weapon = {
 	-- an item posed by holds made for another.
 	firstShift: { number }?,
 	-- Where the item's origin sits from the hold's "Gun" point (game studs, gun space): the "Hold" motor's C1
-	-- (src/server/Armory, src/client/Viewmodel). The Mills and SIPE sat inside the fist (Studio round 3): pushed out in
-	-- front of it.
+	-- (src/server/Armory, src/client/Viewmodel). (The grenades used it until their own holds put them between the
+	-- fists, 2026-10-20.)
 	held: { number }?,
 	-- Where the eye (the Aim attachment) sits in the third-person aim hold, in the soldier's upright frame (studs from
 	-- the torso centre: +X right, +Y up, -Z forward; the torso centre is 3 above the feet). tests/weapons.spec checks
@@ -97,7 +103,8 @@ export type Weapon = {
 	-- space (R6 Torso: +X right, +Y up, front -Z, back face at z +0.5): `at` is the gun origin, `muzzle` the way the
 	-- muzzle points, `side` the way the gun's right side (+X, the bolt handle) faces.
 	-- None: nothing shows on the body while it's put away (the grenades).
-	stow: { part: string, at: { number }, muzzle: { number }, side: { number } }?,
+	-- beside: strapped to the side of the pack, so not pushed back by the pack's `sling` (src/server/Armory).
+	stow: { part: string, at: { number }, muzzle: { number }, side: { number }, beside: boolean? }?,
 	-- Shooting (Config/Firing, Rules/Firing): rounds per clip and how the clip loads ("Enbloc": the whole clip goes
 	-- into the magazine and drops out the bottom when empty, only reloaded empty; "Stripper": the rounds are pushed
 	-- down out of a clip held in the guides, topping the magazine up). Guns only: an item without `ammo` doesn't fire
@@ -178,6 +185,9 @@ export type Weapon = {
 	recoil: { scale: number, build: number, max: number, cool: number }?,
 	-- Sway weight over the class's (Config/Sway.Classes): a heavier gun sways more and aims in slower (W2).
 	weight: number?,
+	-- Extra sway on the move, x the stride sway (src/client/Sway; on top of `weight`): the semi-automatics' price for
+	-- their firepower (user 2026-10-20: "sway more when moving ... the big mag one the worst").
+	stride: number?,
 }
 
 -- The mage staff (docs/VFX.md; model tools/blender/weapons/staff.py, exported by export_staff.py): carried like the
@@ -467,8 +477,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 114380046068769,
 			carry = 95787766149259, -- swings with the sprint
 			aim = 110368315287864,
-			equip = 116500778543360,
-			unequip = 109180311222647, -- put away onto the back (Config/Locomotion.Stow)
+			equip = 127686053924548, -- side strap 2026-10-20 (was 116500778543360)
+			unequip = 74478538423124, -- side strap 2026-10-20 (was 109180311222647)
 			crouchReady = 104496542496105,
 			crouchWalk = 95673122474038,
 			crouchAim = 81566215869278,
@@ -492,11 +502,14 @@ local Weapons: { [string]: Weapon } = {
 		-- slung on the back (user references 2026-10-11): flat against the back with the bolt handle out, leaning
 		-- 18 degrees so the thick stock stays inside the torso's width (butt at the upper thigh) while the rifle
 		-- passes clear of the head and rises ~1.3 studs above it over the right shoulder
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 }, -- sin 18, cos 18
-			side = { 0, 0, 1 },
+			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
+			beside = true,
 		},
 		-- its 6-round en-bloc clip: one round more than the other rifles (6 + 1), balanced by reloading only with the
 		-- magazine empty (1 or 0 rounds left; user 2026-10-12)
@@ -567,8 +580,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 81215519553940,
 			carry = 119428875830732,
 			aim = 84854636666833,
-			equip = 72036096088316,
-			unequip = 93267993854514, -- put away onto the back (Config/Locomotion.Stow)
+			equip = 97908657316745, -- side strap 2026-10-20 (was 72036096088316)
+			unequip = 80825573280564, -- side strap 2026-10-20 (was 93267993854514)
 			crouchReady = 78521608205736,
 			crouchWalk = 127233053921696,
 			crouchAim = 85481972800522,
@@ -584,11 +597,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
+			beside = true,
 		},
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a stripper clip in the guides (5 + 1)
 		-- straight handle at the rear of the bolt: turns up a quarter turn, the bolt slides back through the bridge
@@ -657,8 +673,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 86203714250196,
 			carry = 99038350375470,
 			aim = 126169298976361,
-			equip = 125483711137564,
-			unequip = 83535543803771, -- put away onto the back (Config/Locomotion.Stow)
+			equip = 139013019358334, -- side strap 2026-10-20 (was 125483711137564)
+			unequip = 81806140074423, -- side strap 2026-10-20 (was 83535543803771)
 			crouchReady = 90709952340150,
 			crouchWalk = 80571218794707,
 			crouchAim = 74306635264463,
@@ -674,11 +690,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
+			beside = true,
 		},
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a charger in the guides (5 + 1); tops up
 		-- the Lee's short lift (60 deg) and cock-on-closing make the fastest bolt; the bolt slides back clear of the
@@ -750,8 +769,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 108542242322540,
 			carry = 98671117994210,
 			aim = 91487073174337,
-			equip = 85502951685731,
-			unequip = 91443560254621,
+			equip = 114426601068983, -- side strap 2026-10-20 (was 85502951685731)
+			unequip = 91495686258766, -- side strap 2026-10-20 (was 91443560254621)
 			crouchReady = 130402887594771,
 			crouchWalk = 83429616166340,
 			crouchAim = 113687704218134,
@@ -767,11 +786,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
+			beside = true,
 		},
 		-- 5-round clips, the rest topped up from a second (user 2026-10-19: "reload in mags of 5, top off the rest")
 		ammo = { capacity = 8, clip = "Stripper", clipSize = 5 },
@@ -787,6 +809,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.0,
+		stride = 1.3, -- more sway on the move than a bolt rifle (user 2026-10-20)
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
 		reload = {
 			knob = { 0.092, 0.065, -0.3492 }, -- the operating knob, bolt closed
@@ -835,8 +858,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 121987202386013,
 			carry = 100807971064233,
 			aim = 137523101236015,
-			equip = 105995501607410,
-			unequip = 134210763532593,
+			equip = 120151131197951, -- side strap 2026-10-20 (was 105995501607410)
+			unequip = 88422824948262, -- side strap 2026-10-20 (was 134210763532593)
 			crouchReady = 111038619727593,
 			crouchWalk = 121384492532717,
 			crouchAim = 84291737502596,
@@ -852,11 +875,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
+			beside = true,
 		},
 		ammo = { capacity = 10, clip = "Stripper", clipSize = 5 }, -- two 5-round chargers fill it (10 + 1)
 		-- the bolt slides straight back (no turn) and returns by itself; a second charger adds clipTime
@@ -871,6 +897,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.1,
+		stride = 1.45,
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
 		reload = {
 			knob = { 0.092, 0.065, -0.2733 }, -- the knob on the slide, bolt closed
@@ -920,8 +947,8 @@ local Weapons: { [string]: Weapon } = {
 			walk = 130980450387519,
 			carry = 101240368863563,
 			aim = 101485302556328,
-			equip = 131693072645640,
-			unequip = 118191915320097,
+			equip = 139777204769501, -- side strap 2026-10-20 (was 131693072645640)
+			unequip = 106743016019956, -- side strap 2026-10-20 (was 118191915320097)
 			crouchReady = 112467029219277,
 			crouchWalk = 72459068643756,
 			crouchAim = 95868975570564,
@@ -937,11 +964,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.85 -> 4.27 studs long
+		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 0.95, 0.1, 1.35 }, -- up and back off the right thigh, against the bag (2026-10-20)
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { -0.9986, 0.0523, 0 }, -- the bolt toward the bag, the stock and magazine toward the back
+			beside = true,
 		},
 		ammo = { capacity = 15, clip = "Box" }, -- a fresh 15-round box (15 + 1)
 		action = {
@@ -954,6 +984,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.25,
+		stride = 1.7, -- the 15-round box: the worst on the move
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
 		reload = {
 			knob = { 0, -0.0124, -1.2931 }, -- (the plunger's tip)
@@ -996,15 +1027,10 @@ local Weapons: { [string]: Weapon } = {
 -- the SIPE (olive), each tinted in its team's colours (user: "Team-tinted"). Their own "Grenade" slot, carried by
 -- Config/Grenades.Carried and nothing on the body while put away. Gun space: the origin is the middle of the body (the
 -- stick's: on the handle, where the hand holds), its top (the fuse end) up +Y.
--- Holds: their own (tools/animation/grenade.luau, user 2026-10-19), one-handed: the grenade in the right hand, the left
--- free; drawn back while the throw's line shows, the throw on release; no aim (right click does nothing).
-local function grenade(
-	display: string,
-	asset: string,
-	parts: { [string]: { number } },
-	scale: { number },
-	held: { number }?
-): Weapon
+-- Holds: their own (tools/animation/grenade.luau, user 2026-10-19): both hands on it in the middle; on left click the
+-- pin pulled and drawn back in the right hand while the throw's line shows, the throw on release; no aim (right click
+-- does nothing).
+local function grenade(display: string, asset: string, parts: { [string]: { number } }, scale: { number }): Weapon
 	return {
 		asset = asset,
 		display = display,
@@ -1015,25 +1041,27 @@ local function grenade(
 		hidden = {},
 		attachments = { Muzzle = { 0, 0, -0.1 } }, -- the hip turn's line (hipConverge 0: unused)
 		grip = { 0, 0, 0 },
-		-- one set for all three (tools/animation/grenade.luau; user 2026-10-19). No unequip: the last one thrown leaves
-		-- the hand empty, and one put away goes straight back on the belt
+		-- one set for all three (tools/animation/grenade.luau v5, user 2026-10-19/20): held in both hands in the middle, the
+		-- pin pulled on left click, one hand while drawn back, drawn from the pack. No unequip: the last one thrown leaves
+		-- the hand empty, and one put away goes straight back in the pack
 		holds = {
-			ready = 87513731672117,
-			walk = 72019961101383,
-			carry = 140492027408748,
-			windup = 86952381429241,
-			throw = 80303138028176,
-			equip = 97380658835952,
+			ready = 101674499118051,
+			walk = 138117477771357,
+			carry = 107064923054732,
+			pin = 113068527158456,
+			windup = 73841654682321,
+			throw = 93952628639934,
+			equip = 121174700853919,
 		},
 		firstPerson = {
-			ready = 124932391377053,
-			carry = 128945277614351,
-			windup = 81227309666236,
-			throw = 88674791679623,
-			equip = 130111227451167,
+			ready = 129260927316629,
+			carry = 100984430779823,
+			pin = 79429013550463,
+			windup = 134353781610964,
+			throw = 118069982261298,
+			equip = 75621335657766,
 		},
 		hipConverge = 0,
-		held = held,
 		-- modelled at real size (0.0028 studs per mm); thick enough for the 1-stud hand, the stick shorter than thick
 		scale = scale,
 	}
@@ -1043,7 +1071,7 @@ Weapons.grenade_mills = grenade("Mills Bomb", "grenade_mills", {
 	Iron = { 60, 62, 66 }, -- base and filler plugs
 	Lever = { 90, 92, 96 },
 	Pin = { 150, 152, 156 }, -- pin and ring
-}, { 2.8, 2.8, 2.8 }, { 0, 0.15, -0.5 })
+}, { 2.8, 2.8, 2.8 })
 Weapons.grenade_stick = grenade("Stielhandgranate", "grenade_stick", {
 	Head = { 80, 82, 86 }, -- the slate tunic cloth (the grey staff's wrap)
 	Collar = { 60, 62, 66 },
@@ -1053,6 +1081,56 @@ Weapons.grenade_stick = grenade("Stielhandgranate", "grenade_stick", {
 Weapons.grenade_sipe = grenade("SIPE", "grenade_sipe", {
 	Body = { 116, 114, 72 }, -- the olive cloth (the olive staff's ribbon)
 	Fuse = { 70, 68, 58 }, -- the olive staff's iron
-}, { 2.8, 2.6, 2.8 }, { 0, 0.15, -0.5 })
+}, { 2.8, 2.6, 2.8 })
+
+-- The shovel (docs/MILESTONES.md SV1; model tools/blender/weapons/shovel.py, asset "shovel"): carried by every soldier
+-- in its own "Shovel" slot (user 2026-10-20: "a mandatory item on every soldier"), the same for every team, colored as
+-- Config/Palette.Shovel. Gun space: the origin is the D-grip's bar (the right hand), the blade toward -Z. Holds
+-- (tools/animation/shovel.luau): two-handed at port across the chest; left click digs (src/client/Shovel: a chop
+-- down into the ground, the animation only); no aim. Strapped upright to the pack when put away.
+Weapons.shovel = {
+	asset = "shovel",
+	display = "Shovel",
+	slot = "Shovel",
+	class = "Shovel",
+	parts = {
+		Wood = { 139, 94, 60 }, -- as Config/Palette.Shovel
+		Iron = { 90, 92, 96 },
+		Blade = { 122, 124, 128 },
+		Brass = { 184, 149, 90 },
+	},
+	moving = {},
+	hidden = {},
+	attachments = { Muzzle = { 0, 0, -3.42 } }, -- the blade's tip (the hip turn's line: hipConverge 0, unused)
+	grip = { 0, 0, 0 },
+	-- both hands on it throughout (user 2026-10-20); dig: wound up over the right shoulder, swung over the top and down
+	-- into the ground in front. v2: the hold steeper, the blade by the left shoulder (Studio round 1: it lay out low)
+	holds = {
+		ready = 93066917970284, -- v2 (v1 106958788763761)
+		walk = 124545410126279, -- v2 (v1 92108104753052)
+		carry = 82178644834924, -- v2 (v1 125775429184790)
+		dig = 125010045442091, -- v2 (v1 89824822382684)
+		equip = 73623873207874, -- v3: from the left side of the pack (v2 116916726450237)
+		unequip = 98424397379589, -- v3: from the left side of the pack (v2 126643995839062)
+	},
+	firstPerson = {
+		ready = 98520178322418,
+		carry = 76288857841410,
+		dig = 126655171534139,
+		equip = 135132717039649,
+		unequip = 107708468866719,
+	},
+	hipConverge = 0,
+	scale = { 1, 1, 1 }, -- modelled at game size (3.5 long)
+	-- strapped upright on the left side of the pack, the D-grip at the bottom, the blade up, its hollow against the bag
+	-- (user 2026-10-20: "strap it on the left of the bag", then "point straight up"), leaning 3 degrees out
+	stow = {
+		part = "Torso",
+		at = { -0.9, -0.9, 1.15 }, -- up and back off the left thigh, against the bag (2026-10-20)
+		muzzle = { -0.0523, 0.9986, 0 }, -- sin 3, cos 3
+		side = { 0, 0, -1 },
+		beside = true,
+	},
+}
 
 return Weapons

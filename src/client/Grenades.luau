@@ -4,6 +4,8 @@
 -- - with a grenade in the hands (Config/Weapons class "Grenade") and some left (the Tool's "Count"), holding the fire
 --   key (Settings Key_Fire) shows a faint line from the throwing hand to where it would land (user: "Arc preview
 --   line"); releasing throws it along the look (Net "GrenadeThrow"). Putting it away drops the arc unthrown.
+-- - left click first pulls the pin (the "pin" one shot, "PinAt", Config/Grenades.Pin; the Mills's pin hidden once out,
+--   "PinOut"); let go before it's out and the throw goes when it is. Another weapon drawn cancels it all.
 -- - while the line shows the soldier holds the grenade drawn back (the "windup" hold, character attribute "Winding");
 --   releasing plays the throw ("ThrownAt", src/client/Locomotion and src/client/Viewmodel) and the grenade is sent when
 --   it leaves the hand, Config/Grenades.Throw.release into it, along the look at that moment.
@@ -148,16 +150,47 @@ end
 
 function Grenades.start()
 	local player = Players.LocalPlayer
-	local aiming = false
+	local aiming = false -- left click held (or let go, waiting for the pin): the line shows
+	local pinned = math.huge -- when the pin pull ends (os.clock)
+	local wantThrow = false -- let go before the pin was out: throw the moment it is
 	local releasing = false -- a throw on its way out of the hand
 
+	-- the Mills's pin, hidden on the held grenade once pulled (the body here; src/client/Viewmodel its copy, "PinOut")
+	-- (the part itself is kept: put back after another weapon was drawn, it's the grenade's, not the new weapon's)
+	local pulled: BasePart? = nil
+	local function pinOut(character: Model, out: boolean)
+		if character:GetAttribute("PinOut") == (out or nil) then
+			return
+		end
+		character:SetAttribute("PinOut", out or nil)
+		if pulled then
+			pulled.LocalTransparencyModifier = 0
+			pulled = nil
+		end
+		local weapon = Held.weapon(character)
+		local pin = weapon and weapon.tool:FindFirstChild("Pin", true)
+		if out and pin and pin:IsA("BasePart") then
+			pin.LocalTransparencyModifier = 1
+			pulled = pin
+		end
+	end
+
+	-- the pin pulled, drawn back and the line shown (`on`), or all of it dropped: thrown, put away, or another weapon
+	-- drawn (cancelled: the pin pull stops, src/client/Locomotion)
 	local function wind(on: boolean)
 		aiming = on
+		wantThrow = false
 		local character = player.Character
 		if character then
 			character:SetAttribute("Winding", on)
+			if on then
+				local now = os.clock()
+				pinned = now + Cfg.Pin.time
+				character:SetAttribute("PinAt", now)
+			end
 		end
 		if not on then
+			pinned = math.huge
 			hide()
 		end
 	end
@@ -182,6 +215,12 @@ function Grenades.start()
 			releasing = false
 			if player.Character == character and grenade(character) then
 				Net.event("GrenadeThrow"):FireServer(workspace.CurrentCamera.CFrame.LookVector)
+				pinOut(character, false) -- the next one in the hand still has its pin
+			elseif character:GetAttribute("ThrownAt") == at then
+				-- another weapon drawn before it left the hand: no throw, the throw animation stops
+				character:SetAttribute("ThrownAt", nil)
+				character:SetAttribute("Throwing", nil)
+				pinOut(character, false)
 			end
 		end)
 	end
@@ -190,7 +229,7 @@ function Grenades.start()
 		if processed or not Settings.pressed("Key_Fire", input) then
 			return
 		end
-		if not releasing and grenade(player.Character) then
+		if not aiming and not releasing and grenade(player.Character) then
 			wind(true)
 		end
 	end)
@@ -198,7 +237,11 @@ function Grenades.start()
 		if not aiming or not Settings.pressed("Key_Fire", input) then
 			return
 		end
-		throw()
+		if os.clock() >= pinned then
+			throw()
+		else
+			wantThrow = true -- the pin isn't out yet
+		end
 	end)
 	RunService.RenderStepped:Connect(function()
 		if not aiming then
@@ -208,7 +251,18 @@ function Grenades.start()
 		local _, name = grenade(character)
 		local head = character and character:FindFirstChild("Head") :: BasePart?
 		if not character or not name or not head then
-			wind(false) -- put away or out: no throw
+			wind(false) -- put away or another weapon drawn: no throw
+			if character then
+				pinOut(character, false)
+			end
+			return
+		end
+		local now = os.clock()
+		if now >= pinned - Cfg.Pin.time + Cfg.Pin.out then
+			pinOut(character, true)
+		end
+		if wantThrow and now >= pinned then
+			throw()
 			return
 		end
 		draw(character, head.Position, workspace.CurrentCamera.CFrame.LookVector, name)
