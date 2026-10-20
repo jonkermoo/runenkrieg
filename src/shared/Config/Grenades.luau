@@ -34,7 +34,7 @@ local Grenades = {
 	-- pin pull (Config/Weapons grenade holds `pin`, `time` seconds: the left hand pulls it at `out`, the right draws back
 	-- into the wind-up); let go before it's done and the throw goes the moment it is. Switching weapons before the
 	-- grenade leaves the hand cancels it all (user: "switching to your gun will cancel the throw sequence").
-	Pin = { time = 0.45, out = 0.25 },
+	Pin = { time = 0.45, out = 0.15 }, -- (out: as the left hand starts pulling; at 0.25 it was already 1.8 studs off, Studio)
 
 	-- The thrown grenade: a small hitbox (studs) that bounces and rolls a little (user: "bounces and rolls a little").
 	Body = {
