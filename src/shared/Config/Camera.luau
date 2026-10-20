@@ -1,7 +1,8 @@
 --!strict
 -- The camera (src/client/WeaponCamera; user 2026-10-11). Data only.
--- A weapon in the hands is always first person (user 2026-10-12: the third-person shoulder camera is gone), except the
--- staff (ThirdPersonClasses, user 2026-10-16: third person only, Staff below). In first person the
+-- A gun in the hands is first person or over the shoulder by the mouse wheel, aiming always first person (user
+-- 2026-10-20, Gun below; from 2026-10-12 it was always first person); the staff is third person only
+-- (ThirdPersonClasses, user 2026-10-16, Staff below). In first person the
 -- body is hidden and the viewmodel plays the first-person holds (src/client/Viewmodel); right mouse aims down the
 -- sights. Without a weapon Roblox's own camera runs, out to FreeMaxZoom = StarterPlayer.CameraMaxZoomDistance
 -- (default.project.json, tests/project.spec); putting a weapon away hands it back at the zoom it had.
@@ -98,6 +99,55 @@ local Camera = {
 		-- again at once when aiming ends (user 2026-10-16: "instantly be back to full opacity once we let go of right
 		-- click"), and never after a hip click.
 		ShoulderVeil = 0.6,
+	},
+
+	-- A gun in the hands (user 2026-10-20: "allow third person while holding the gun, only forced first person while
+	-- ADS"): the mouse wheel steps the camera between first person and a third-person view over the right shoulder;
+	-- aiming down the sights always glides into first person and back out to the distance chosen. Drawing keeps the
+	-- view Roblox's camera had (first person under FirstBelow studs, else its zoom within MinZoom..MaxZoom); putting the
+	-- gun away hands the chosen distance back. Rules/Camera.wheel.
+	Gun = {
+		MinZoom = 2, -- the nearest third-person distance (studs behind the head); one notch in from here is first person
+		MaxZoom = 7.5, -- the furthest (the old shoulder camera's, user 2026-10-11)
+		Step = 1, -- studs per wheel notch
+		FirstBelow = 1, -- Roblox's camera nearer than this when the gun is drawn: start in first person
+		Shoulder = { 1.6, 0.35 }, -- studs right and up, in the view's axes, so the head never covers the crosshair
+		EyeBlend = 1.5, -- over this first stretch out of the eye the camera moves from the eye to behind the head
+		-- the distance follows a critically damped spring at this rate (per second; never a jump, user 2026-10-20:
+		-- "make movement always smooth and never snappy"): ~0.4 s from first person out to MaxZoom
+		Spring = 12,
+		-- the body (head included) fades only right at the head: clear beyond `far`, gone at `near` (studs from the head),
+		-- the same in third person and gliding into first, in Steps levels (fewer writes)
+		Fade = { far = 1.8, near = 0.7, Steps = 20 },
+	},
+	-- Turning the body (src/client/BodyTurn; user 2026-10-20), each a critically damped spring rate (per second):
+	-- - a gun in third person: the head turns toward the view first (Config/Locomotion.LookTilt.Head.Max); past that,
+	--   or moving, aiming, or for FireHold seconds after a shot, the body turns to face the view until within Settle
+	--   degrees (Rules/Camera.bodyTarget);
+	-- - first person, aiming and the staff: the body faces the view (fast, so others see it turn, not jump);
+	-- - nothing in the hands: the body turns to where it walks (or to the view in Roblox's first person / mouse lock).
+	Turn = {
+		Third = 9,
+		Face = 20,
+		Walk = 10,
+		FireHold = 1.5,
+		Settle = 5,
+		Moving = 0.1, -- share of MoveDirection that counts as moving
+		FirstBelow = 1, -- nothing in the hands: Roblox's camera nearer the head than this (studs) is its first person
+		Still = 0.01, -- degrees (and degrees per second) under which the body is left alone, not rewritten
+	},
+	-- The third-person crosshair (src/client/Crosshair; user 2026-10-20: "small hollow circle (not dot) that can be
+	-- disabled in settings"): only with a gun in third person at the hip, never in first person, aiming or with the
+	-- staff; Config/Settings "Crosshair". Pixels at the screen centre; fades in and out at Fade per second.
+	-- The dark edge under the ring: EdgeWidth pixels wider, at EdgeShare of the ring's opacity.
+	Crosshair = {
+		Size = 14,
+		Thickness = 1.5,
+		Transparency = 0.15,
+		Fade = 12,
+		EdgeWidth = 2,
+		EdgeShare = 0.6,
+		Hidden = 0.01,
 	},
 
 	-- Third person, local only: the weapon follows the camera's pitch. The torso tilts a little

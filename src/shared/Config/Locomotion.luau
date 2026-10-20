@@ -11,7 +11,9 @@ local Locomotion = {
 	-- of where the camera looks; strafing or backing up with Shift stays a walk (and can aim).
 	SprintCone = 50,
 	ToggleSprintMoving = 0.1, -- a toggled sprint counts as moving above this share of MoveDirection (stopping ends it)
-	CrouchCameraEase = 8, -- how fast the camera follows the body down into the crouch and back up (per second)
+	-- the camera follows the body down into the crouch and back up on a critically damped spring at this rate (per
+	-- second; user 2026-10-20: never snappy, so it starts and stops gently)
+	CrouchCameraSpring = 10,
 
 	-- Volume of Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart; client
 	-- side, on every client), held on every character; 0 mutes. Sounds not listed keep Roblox's volume. Footsteps
@@ -83,6 +85,17 @@ local Locomotion = {
 		Torso = 0.28, -- user 2026-10-11: a bit more apparent (was 0.2 / 10)
 		TorsoMax = 13,
 		Smoothing = 12, -- how fast the tilt follows the camera (per second)
+		-- The head turns left and right toward where the camera looks (user 2026-10-20: "heads will now face where you
+		-- look ... only rotate left and right to a realistic angle"; up and down stays the torso's). Degrees from the
+		-- torso's facing, the animation's own neck turn included (the idle's glances); eased at Smoothing per second.
+		-- Others within Send.Range studs see it (Net "HeadYaw": user 2026-10-20, only people nearby), quantized to
+		-- Send.Step, at most Send.Rate a second.
+		Head = {
+			Max = 70,
+			Behind = 90, -- looking round further than this, the head stays on the side it is on
+			Smoothing = 10,
+			Send = { Rate = 10, Step = 3, Range = 120, Smoothing = 10 },
+		},
 		-- shown to other players (Net "LookPitch", Rules/LookTilt): the camera pitch and the gun's follow share
 		Send = {
 			Rate = 10, -- updates per second at most, from each client and relayed by the server per soldier

@@ -71,4 +71,41 @@ return {
 		assert(Send.MaxPitch > 0 and Send.MaxPitch <= 90)
 		assert(Send.Smoothing > 0)
 	end,
+	["the head turns toward the look, capped with the animation's glance"] = function()
+		local max = L.LookTilt.Head.Max
+		assert(T.headYaw(30, 0, 0, max, L.LookTilt.Head.Behind) == 30)
+		assert(T.headYaw(-30, 0, 0, max, L.LookTilt.Head.Behind) == -30)
+		assert(T.headYaw(100, 0, 0, max, L.LookTilt.Head.Behind) == max)
+		assert(T.headYaw(-100, 0, 0, max, L.LookTilt.Head.Behind) == -max)
+		assert(
+			T.headYaw(60, 20, 0, max, L.LookTilt.Head.Behind) == max - 20,
+			"the glance and the turn together stay within the limit"
+		)
+		assert(T.headYaw(-60, -20, 0, max, L.LookTilt.Head.Behind) == -max + 20)
+		assert(T.headYaw(360 + 30, 0, 0, max, L.LookTilt.Head.Behind) == 30, "wrapped")
+	end,
+	["looking round behind, the head stays on its side"] = function()
+		local max = L.LookTilt.Head.Max
+		assert(T.headYaw(-170, 0, max, max, L.LookTilt.Head.Behind) == max, "past behind from the left: stays left")
+		assert(T.headYaw(170, 0, -max, max, L.LookTilt.Head.Behind) == -max)
+		assert(T.headYaw(80, 0, -10, max, L.LookTilt.Head.Behind) == max, "under 90 it may cross")
+	end,
+	["the head turn sent is throttled, quantized and only on change"] = function()
+		local H = L.LookTilt.Head
+		local max = H.Max
+		local y = T.yawToSend(31.4, { yaw = math.huge, at = -math.huge }, 0, H.Send, max)
+		assert(y == T.quantize(31.4, H.Send.Step))
+		assert(T.yawToSend(31.4, { yaw = y :: number, at = -math.huge }, 0, H.Send, max) == nil)
+		assert(T.yawToSend(50, { yaw = 0, at = 0 }, 1 / H.Send.Rate / 2, H.Send, max) == nil)
+		assert(T.yawToSend(500, { yaw = 0, at = -math.huge }, 0, H.Send, max) == T.quantize(max, H.Send.Step))
+	end,
+	["the server clamps a head turn and drops junk"] = function()
+		local H = L.LookTilt.Head
+		assert(T.sanitizeYaw("x", H.Send.Step, H.Max) == nil)
+		assert(T.sanitizeYaw(0 / 0, H.Send.Step, H.Max) == nil)
+		assert(T.sanitizeYaw(1e9, H.Send.Step, H.Max) == T.quantize(H.Max, H.Send.Step))
+		assert(T.sanitizeYaw(-1e9, H.Send.Step, H.Max) == T.quantize(-H.Max, H.Send.Step))
+		assert(T.inRange(H.Send.Range, H.Send.Range) and not T.inRange(H.Send.Range + 1, H.Send.Range))
+		assert(H.Max > 0 and H.Max < 90, "a realistic neck")
+	end,
 }

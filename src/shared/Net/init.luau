@@ -44,6 +44,11 @@ local Remotes: { string } = {
 	-- client -> server: (pitch: number, follow: number) the camera pitch in degrees and the gun's follow share
 	-- server -> clients: (character: Model, pitch: number, follow: number) clamped and quantized, throttled per soldier
 	"LookPitch",
+	-- The head's turn toward the look, shown to soldiers nearby (src/client/LookTilt, src/server/LookTilt;
+	-- Config/Locomotion.LookTilt.Head): client -> server: (yaw: number) degrees from the torso's facing; server ->
+	-- clients within Head.Send.Range: (character: Model, yaw: number) clamped and quantized, throttled per soldier
+	-- (0 once a watcher leaves the range, so the head doesn't stay turned)
+	"HeadYaw",
 	-- The staff cast shown to other players (src/client/StaffAttack sends, src/server/StaffCast checks and relays,
 	-- src/client/StaffSeen shows; Config/Spells.Send, Rules/StaffNet). Visual and audio only.
 	-- client -> server: (kind, ...) with kind and its arguments:

@@ -191,6 +191,8 @@ local Palette = {
 		manaSpend = { 235, 250, 255 },
 		manaBurnt = { 118, 72, 150 },
 		manaDenied = { 220, 70, 60 },
+		-- the third-person crosshair's ring (src/client/Crosshair, Config/Camera.Crosshair), with a dark edge behind it
+		crosshair = { 236, 232, 220 },
 		-- the settings menu (src/client/SettingsMenu, src/shared/ui/SettingsMenu.json): gray slate, no hue (user
 		-- 2026-10-19); the picked choice is lighter with a silver line. Lines are `thin`, the panel border `stroke`.
 		Settings = {
