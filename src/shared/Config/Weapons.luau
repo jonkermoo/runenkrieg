@@ -105,9 +105,14 @@ export type Weapon = {
 	-- into the magazine and drops out the bottom when empty, only reloaded empty; "Stripper": the rounds are pushed
 	-- down out of a clip held in the guides, topping the magazine up). Guns only: an item without `ammo` doesn't fire
 	-- (src/client/Firing, src/server/Firing) and has no action, reload or bolt either.
-	ammo: { capacity: number, clip: string }?,
+	-- A semi-automatic (W2, `action.auto`) always fills the magazine on R: "Stripper" presses in clips of `clipSize`
+	-- rounds (else capacity) from the guides, as many as the room needs; "Box" swaps the detachable box whole.
+	ammo: { capacity: number, clip: string, clipSize: number? }?,
 	-- The action, worked by hand (seconds; turn in degrees, travel in modelled studs): the bolt turns its handle up
 	-- by `turn` about its axis (gun Z), then slides back `travel` (+Z) and returns.
+	-- auto: a semi-automatic (W2, user 2026-10-18): the action cycles itself on a shot over `boltTime` seconds
+	-- (Config/Firing.AutoCycle; no hand on it), every click fires (at most one shot per fireTime); clipTime: seconds
+	-- each clip after the first adds to a reload.
 	-- fireTime: after a shot nothing else can start for this long (else Config/Firing.FireTime); cycle: this weapon's
 	-- own bolt timeline (else Config/Firing.BoltCycle; `hold`: the bolt / pump rests back until then before it goes
 	-- forward).
@@ -117,6 +122,8 @@ export type Weapon = {
 		turn: number,
 		travel: number,
 		fireTime: number?,
+		auto: boolean?,
+		clipTime: number?,
 		cycle: { reach: number, up: number, back: number, hold: number?, forward: number, down: number }?,
 	}?,
 	-- The reload (Config/Firing.ReloadCycle; user 2026-10-13): where the right hand works, in modelled gun space, and
@@ -131,6 +138,16 @@ export type Weapon = {
 		entry: number,
 		body: number,
 		firstPerson: number,
+		depth: number?, -- how far a stripper clip's rounds go down out of it (modelled studs; else 0.17)
+		-- two chargers (W2: the Remington 8 with room for more than 5): their own animations (Config/Firing.ReloadCycleTwo)
+		bodyTwo: number?,
+		firstPersonTwo: number?,
+		-- a box swapped whole (Config/Firing.BoxCycle): where the hand holds it (first person: the bottom of the box;
+		-- third person `boxSide`: its right side, the hand beside it; seated) and the cocking plunger's tip that the left
+		-- hand pulls (modelled gun space)
+		boxGrip: { number }?,
+		boxSide: { number }?,
+		plunger: { number }?,
 	}?,
 	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
 	-- the grip to the knob (reload.knob) and works it; `aim` with the rifle shouldered, `ready` at the hip (any other
@@ -162,6 +179,8 @@ export type Weapon = {
 	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
 	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot).
 	recoil: { scale: number, build: number, max: number, cool: number }?,
+	-- Sway weight over the class's (Config/Sway.Classes): a heavier gun sways more and aims in slower (W2).
+	weight: number?,
 }
 
 -- The mage staff (docs/VFX.md; model tools/blender/weapons/staff.py, exported by export_staff.py): carried like the
@@ -299,16 +318,17 @@ local Weapons: { [string]: Weapon } = {
 		},
 		grip = { 0, -0.09, 0.17 }, -- the wrist of the straight stock, behind the guard
 		-- its own holds (tools/animation/rifle.luau, user 2026-10-13): the rifles' poses, the left hand on the pump
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 123307446642086,
-			walk = 74378124906474,
-			carry = 122181109482392,
-			aim = 114865521572329,
-			equip = 96966780660102,
-			unequip = 106479819126650, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 98743463561582,
-			crouchWalk = 83131199816159,
-			crouchAim = 90860802040899,
+			ready = 138139024493273,
+			walk = 104465302012353,
+			carry = 99351977507616,
+			aim = 136227496577518,
+			equip = 82659479717552,
+			unequip = 102627201784629, -- put away onto the back (Config/Locomotion.Stow)
+			crouchReady = 97174734111193,
+			crouchWalk = 84800064969228,
+			crouchAim = 76914903412671,
 		},
 		firstPerson = {
 			ready = 119185102113053,
@@ -444,16 +464,17 @@ local Weapons: { [string]: Weapon } = {
 		grip = { 0, -0.06, 0.15 },
 		-- user references 2026-10-11: ready low in front of the stomach, sprint carried across the body, aim shouldered;
 		-- ready and aim breathe like Roblox's R6 idle (user: match the default sway)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 78002721137460,
-			walk = 124889771920224,
-			carry = 105709189619828, -- swings with the sprint
-			aim = 136351549623920,
-			equip = 116169498023535,
-			unequip = 114673290829081, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 117235237865456,
-			crouchWalk = 77275921083110,
-			crouchAim = 124659519649223,
+			ready = 86420530930812,
+			walk = 114380046068769,
+			carry = 95787766149259, -- swings with the sprint
+			aim = 110368315287864,
+			equip = 116500778543360,
+			unequip = 109180311222647, -- put away onto the back (Config/Locomotion.Stow)
+			crouchReady = 104496542496105,
+			crouchWalk = 95673122474038,
+			crouchAim = 81566215869278,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
 		-- the ready hold up into the sights in 0.3 s
@@ -488,7 +509,7 @@ local Weapons: { [string]: Weapon } = {
 		-- slowed (user 2026-10-13: "do the same to all the rifles"): a beat after the shot, the bolt resting back
 		action = {
 			boltTime = 1.25,
-			reloadTime = 2.4,
+			reloadTime = 3.0, -- v2: +25% (user 2026-10-19)
 			turn = 90,
 			travel = 0.3,
 			fireTime = 0.35,
@@ -508,8 +529,8 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.12, 0.065, -0.1511 },
 			clipTop = { 0, 0.0614, -0.267 },
 			entry = 0.2,
-			body = 85665510995906,
-			firstPerson = 88100725060976,
+			body = 88369726870929,
+			firstPerson = 75492413402370,
 		},
 	},
 	rifle_g98 = {
@@ -543,16 +564,17 @@ local Weapons: { [string]: Weapon } = {
 		grip = { 0, -0.07, 0.17 }, -- the wrist of the semi-pistol grip, behind the guard
 		-- its own holds (user 2026-10-13: hold each gun where appropriate), built from its grip, forend and sights
 		-- (tools/animation/rifle.luau)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 122397590747708,
-			walk = 132355293924259,
-			carry = 111492198362235,
-			aim = 122070726635734,
-			equip = 71450535994230,
-			unequip = 116812363774678, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 105420937472327,
-			crouchWalk = 138227006700932,
-			crouchAim = 95607613119898,
+			ready = 140551871435218,
+			walk = 81215519553940,
+			carry = 119428875830732,
+			aim = 84854636666833,
+			equip = 72036096088316,
+			unequip = 93267993854514, -- put away onto the back (Config/Locomotion.Stow)
+			crouchReady = 78521608205736,
+			crouchWalk = 127233053921696,
+			crouchAim = 85481972800522,
 		},
 		firstPerson = {
 			ready = 102402737080974,
@@ -575,7 +597,7 @@ local Weapons: { [string]: Weapon } = {
 		-- straight handle at the rear of the bolt: turns up a quarter turn, the bolt slides back through the bridge
 		action = {
 			boltTime = 1.25,
-			reloadTime = 2.8,
+			reloadTime = 3.5, -- v2: +25% (user 2026-10-19)
 			turn = 90,
 			travel = 0.27,
 			fireTime = 0.35,
@@ -597,8 +619,8 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.136, 0.065, -0.0695 },
 			clipTop = { 0, 0.255, -0.1863 },
 			entry = 0,
-			body = 122499300440488,
-			firstPerson = 103984490170296,
+			body = 115167609079331,
+			firstPerson = 117602140790926,
 		},
 	},
 	rifle_smle = {
@@ -632,16 +654,17 @@ local Weapons: { [string]: Weapon } = {
 		grip = { 0, -0.05, 0.15 }, -- the wrist behind the butt socket
 		-- its own holds (user 2026-10-13: hold each gun where appropriate), built from its grip, forend and sights
 		-- (tools/animation/rifle.luau)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 80525771640790,
-			walk = 114188040637314,
-			carry = 119893426125614,
-			aim = 112261684163473,
-			equip = 99227268595174,
-			unequip = 81198522446397, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 95333155518953,
-			crouchWalk = 90238358355813,
-			crouchAim = 77470252454434,
+			ready = 106626345858398,
+			walk = 86203714250196,
+			carry = 99038350375470,
+			aim = 126169298976361,
+			equip = 125483711137564,
+			unequip = 83535543803771, -- put away onto the back (Config/Locomotion.Stow)
+			crouchReady = 90709952340150,
+			crouchWalk = 80571218794707,
+			crouchAim = 74306635264463,
 		},
 		firstPerson = {
 			ready = 71589430224575,
@@ -665,7 +688,7 @@ local Weapons: { [string]: Weapon } = {
 		-- magazine's top round
 		action = {
 			boltTime = 1.0, -- still the fastest bolt
-			reloadTime = 2.8,
+			reloadTime = 3.5, -- v2: +25% (user 2026-10-19)
 			turn = 60,
 			travel = 0.28,
 			fireTime = 0.35,
@@ -687,8 +710,264 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.11, -0.0276, 0.0376 },
 			clipTop = { 0, 0.2833, -0.1618 },
 			entry = 0,
-			body = 101808128954188,
-			firstPerson = 136843033262681,
+			body = 125218307958063,
+			firstPerson = 139832163545234,
+		},
+	},
+	-- The semi-automatic rifles, one per team (docs/MILESTONES.md W2, user 2026-10-18): one shot per click, at most one
+	-- every 0.35 s; the action cycles itself (no bolt to work); torso 55 / limbs 45 (Config/Damage SemiRifle); R always
+	-- fills the magazine. Gentle recoil (scale 0.8, build 0.3).
+	-- The grey team's Mondragón (FSK 15): 8 + 1 from 5-round clips (a second tops up the rest), the lightest.
+	rifle_mondragon = {
+		asset = "rifle_mondragon",
+		display = "Mondragón",
+		slot = "Primary",
+		class = "SemiRifle",
+		parts = {
+			Wood = { 142, 74, 42 },
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Trigger = { 52, 54, 58 },
+			Clip = { 90, 88, 84 },
+			Rounds = { 196, 160, 84 },
+			Bullets = { 184, 115, 72 },
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.065, -0.3492 }, -- on the bolt's axis, at the knob (out to the right through the port)
+			Trigger = { 0, -0.0718, 0 }, -- the trigger pin
+			Clip = { 0, 0.0995, -0.2151 }, -- the stripper clip over the open top
+		},
+		hidden = { "Casing", "Clip" }, -- the clip shows only while reloading
+		attachments = {
+			Muzzle = { 0, 0.065, -2.1709 },
+			Aim = { 0, 0.134, 0.45 }, -- on the sight line, 0.069 over the bore
+			Eject = { 0.02, 0.09, -0.2762 }, -- out of the open top
+		},
+		grip = { 0, -0.0072, 0.2151 }, -- the wrist
+		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
+		holds = {
+			ready = 120834070499659,
+			walk = 108542242322540,
+			carry = 98671117994210,
+			aim = 91487073174337,
+			equip = 85502951685731,
+			unequip = 91443560254621,
+			crouchReady = 130402887594771,
+			crouchWalk = 83429616166340,
+			crouchAim = 113687704218134,
+		},
+		firstPerson = {
+			ready = 99899869193706,
+			carry = 72486322491355,
+			aim = 94272139670262,
+			equip = 104707910768402,
+			unequip = 98957967109125,
+			aimIn = 119968660948192,
+			aimOut = 70887731010016,
+		},
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		-- 5-round clips, the rest topped up from a second (user 2026-10-19: "reload in mags of 5, top off the rest")
+		ammo = { capacity = 8, clip = "Stripper", clipSize = 5 },
+		-- the bolt slides straight back (no turn) and returns by itself
+		action = {
+			auto = true,
+			boltTime = 0.12,
+			reloadTime = 2.8, -- one 5-round clip; two (from empty) 3.7 s
+			clipTime = 0.9,
+			turn = 0,
+			travel = 0.219,
+			fireTime = 0.35,
+		},
+		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
+		weight = 1.0,
+		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
+		reload = {
+			knob = { 0.092, 0.065, -0.3492 }, -- the operating knob, bolt closed
+			clipTop = { 0, 0.3695, -0.2151 }, -- the clip's top over the open top
+			entry = 0,
+			body = 126928019033807, -- the knob pulled straight back, the clip thumbed down, the bolt let go (tools/animation/reload.luau)
+			firstPerson = 124547282113754,
+			firstPersonTwo = 111314271818130,
+			bodyTwo = 101134687311879,
+			depth = 0.27, -- 8 rounds in one row
+		},
+	},
+	-- The olive team's Remington Model 8: 10 + 1 from 5-round chargers (one or two pressed in), reload ~3 s, weight 1.1.
+	rifle_remington8 = {
+		asset = "rifle_remington8",
+		display = "Remington Model 8",
+		slot = "Primary",
+		class = "SemiRifle",
+		parts = {
+			Wood = { 142, 74, 42 },
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Trigger = { 52, 54, 58 },
+			Clip = { 90, 88, 84 },
+			Rounds = { 196, 160, 84 },
+			Bullets = { 184, 115, 72 },
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.065, -0.2733 }, -- on the bolt's axis, at the knob (the slide outside the right wall)
+			Trigger = { 0, -0.0541, 0 }, -- the trigger pin
+			Clip = { 0, 0.1142, -0.1133 }, -- the charger over the open top
+		},
+		hidden = { "Casing", "Clip" }, -- the charger shows only while reloading
+		attachments = {
+			Muzzle = { 0, 0.065, -1.8912 },
+			Aim = { 0, 0.1308, 0.45 }, -- on the sight line, 0.066 over the bore
+			Eject = { 0.02, 0.09, -0.2399 }, -- out of the open top
+		},
+		grip = { 0, -0.0558, 0.2966 }, -- the wrist
+		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
+		holds = {
+			ready = 127699587265989,
+			walk = 121987202386013,
+			carry = 100807971064233,
+			aim = 137523101236015,
+			equip = 105995501607410,
+			unequip = 134210763532593,
+			crouchReady = 111038619727593,
+			crouchWalk = 121384492532717,
+			crouchAim = 84291737502596,
+		},
+		firstPerson = {
+			ready = 80058775294043,
+			carry = 83030861438002,
+			aim = 101487864226501,
+			equip = 86237616911649,
+			unequip = 137358913881476,
+			aimIn = 118453809265581,
+			aimOut = 128498445355922,
+		},
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		ammo = { capacity = 10, clip = "Stripper", clipSize = 5 }, -- two 5-round chargers fill it (10 + 1)
+		-- the bolt slides straight back (no turn) and returns by itself; a second charger adds clipTime
+		action = {
+			auto = true,
+			boltTime = 0.12,
+			reloadTime = 3.1, -- one charger; two 4.0 s (user 2026-10-19: slower)
+			clipTime = 0.9,
+			turn = 0,
+			travel = 0.133,
+			fireTime = 0.35,
+		},
+		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
+		weight = 1.1,
+		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
+		reload = {
+			knob = { 0.092, 0.065, -0.2733 }, -- the knob on the slide, bolt closed
+			clipTop = { 0, 0.2842, -0.1133 }, -- the charger's top over the open top
+			entry = 0,
+			-- one charger, and two (the second pressed in before the bolt is let go; tools/animation/reload.luau)
+			body = 104150957769271,
+			firstPerson = 75746036527426,
+			bodyTwo = 115221448967769,
+			firstPersonTwo = 139715120468537,
+		},
+	},
+	-- The white team's Winchester 1907: 15 + 1 from a detachable box swapped whole, the slowest reload (5 s), the
+	-- heaviest (weight 1.25: more sway). The bolt is cocked by the plunger under the barrel.
+	rifle_winchester1907 = {
+		asset = "rifle_winchester1907",
+		display = "Winchester 1907",
+		slot = "Primary",
+		class = "SemiRifle",
+		parts = {
+			Wood = { 142, 74, 42 },
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Trigger = { 52, 54, 58 },
+			Magazine = { 70, 70, 74 },
+			Rounds = { 196, 160, 84 },
+			Bullets = { 184, 115, 72 },
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.065, -0.2763 }, -- on the bolt's axis (with the plunger under the barrel)
+			Trigger = { 0, -0.0953, 0 }, -- the trigger pin
+			Magazine = { 0, -0.0547, -0.2432 }, -- the box's top front, up in the well
+		},
+		hidden = { "Casing" },
+		attachments = {
+			Muzzle = { 0, 0.065, -1.7297 },
+			Aim = { 0, 0.1092, 0.45 }, -- on the sight line, 0.044 over the bore
+			Eject = { 0.035, 0.07, -0.1105 }, -- the port, right side
+		},
+		grip = { 0, -0.0437, 0.2579 }, -- the wrist
+		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
+		holds = {
+			ready = 93720091175768,
+			walk = 130980450387519,
+			carry = 101240368863563,
+			aim = 101485302556328,
+			equip = 131693072645640,
+			unequip = 118191915320097,
+			crouchReady = 112467029219277,
+			crouchWalk = 72459068643756,
+			crouchAim = 95868975570564,
+		},
+		firstPerson = {
+			ready = 110794805321931,
+			carry = 130251720996066,
+			aim = 90503217545668,
+			equip = 82561806594910,
+			unequip = 83666097539320,
+			aimIn = 133832844856773,
+			aimOut = 97729127051200,
+		},
+		shouldered = { 0.4, 1.45, -0.6 },
+		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.85 -> 4.27 studs long
+		stow = {
+			part = "Torso",
+			at = { 0.5, -0.04, 0.71 },
+			muzzle = { 0.309, 0.9511, 0 },
+			side = { 0, 0, 1 },
+		},
+		ammo = { capacity = 15, clip = "Box" }, -- a fresh 15-round box (15 + 1)
+		action = {
+			auto = true,
+			boltTime = 0.12,
+			reloadTime = 6.5, -- user 2026-10-19: "significantly slower" (was 5)
+			turn = 0,
+			travel = 0.169,
+			fireTime = 0.35,
+		},
+		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
+		weight = 1.25,
+		bolt = { aim = 0, ready = 0 }, -- (no bolt to work)
+		reload = {
+			knob = { 0, -0.0124, -1.2931 }, -- (the plunger's tip)
+			clipTop = { 0, -0.0547, -0.2432 }, -- the box seated
+			entry = -0.25, -- set this far under the well, then pushed up in
+			-- the box dropped, a fresh one pushed up in, the plunger pulled (tools/animation/reload.luau)
+			body = 93383100141861,
+			firstPerson = 132310341907955,
+			boxGrip = { 0, -0.29, -0.164 }, -- the box's bottom, seated
+			boxSide = { 0.03, -0.2, -0.164 }, -- its right side, halfway down
+			plunger = { 0, -0.0124, -1.2931 },
 		},
 	},
 	-- The mage staff, a variant per team (team colors: the staff() function above)

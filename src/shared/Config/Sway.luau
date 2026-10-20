@@ -16,6 +16,7 @@ local Sway = {
 	-- Weight W per item class (HOLD_AND_CAMERA_RULES.md §1; bolt rifle = 1). Scales stride sway, breath and look lag.
 	Classes = {
 		BoltRifle = 1.0,
+		SemiRifle = 1.0, -- each its own over this (Config/Weapons `weight`, W2)
 		AutoRifle = 1.0,
 		Shotgun = 1.1,
 		Sniper = 1.3,

@@ -45,6 +45,9 @@ function Firing.gun(name: string): F.Gun
 		boltTime = w.action.boltTime,
 		reloadTime = w.action.reloadTime,
 		fireTime = w.action.fireTime or Cfg.FireTime,
+		auto = w.action.auto,
+		clipSize = w.ammo.clipSize,
+		clipTime = w.action.clipTime,
 		openAt = (w.action.cycle or Cfg.BoltCycle).back,
 		reloadOpenAt = Cfg.ReloadCycle.back,
 		singleOpen = w.single and w.single.open or Cfg.Single.open,
@@ -110,7 +113,11 @@ function Firing.entry(tool: Tool): Entry?
 					-- where in its span the action stopped
 					local done = math.clamp(1 - left / last.span, 0, 1)
 					local from = last.from + (last.to - last.from) * done
-					local ejectAt = if last.action == "Bolt" then e.gun.openAt else Cfg.ReloadCycle.back
+					-- (a box swap's "Open": the bolt held back until the plunger lets it go)
+					local ejectAt = if last.action == "Bolt"
+						then e.gun.openAt
+						elseif e.gun.clip == "Box" then Cfg.BoxCycle.forward
+						else Cfg.ReloadCycle.back
 					local out = if from < ejectAt then last.out else nil -- the case may already be out
 					Net.event("WeaponAction"):FireAllClients(parent, last.action, out, from, last.to, Cfg.Resume.delay)
 				end
@@ -235,6 +242,9 @@ local function act(player: Player, action: string)
 		return
 	else
 		ok, _, out, kind = F.reload(e.state, e.gun, now, Cfg.Slack)
+		if kind == "Reload2" then
+			action = "Reload2" -- a semi-automatic pressing in two chargers (Config/Firing.ReloadCycleTwo)
+		end
 	end
 	publish(tool, e.state, e.seq)
 	if ok and kind == "Load" then
@@ -244,7 +254,7 @@ local function act(player: Player, action: string)
 	elseif ok then
 		-- the span of the timeline this action plays: a bolt opening on an empty rifle stops when it's back; a reload
 		-- from an open bolt starts there
-		local from = if action == "Reload" and wasOpen then Cfg.ReloadCycle.back else 0
+		local from = if action ~= "Bolt" and wasOpen and e.gun.clip ~= "Box" then Cfg.ReloadCycle.back else 0
 		local to = if action == "Bolt" and e.state.open then e.gun.openAt else 1
 		e.last = {
 			action = action,

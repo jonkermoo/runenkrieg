@@ -196,8 +196,14 @@ function Showcase.start()
 			end
 		end
 		for _, a in Cfg.Actions do
-			-- guns only; single rounds: only a rifle that loads them; a clip reload: not for loose shells (a pump gun)
-			if w.ammo and (a.action ~= "Load" or w.single) and (a.action ~= "Reload" or w.ammo.clip ~= "Loose") then
+			-- guns only; single rounds: only a rifle that loads them; a clip reload: not for loose shells (a pump gun);
+			-- working the bolt: not for a semi-automatic (its action cycles itself)
+			if
+				w.ammo
+				and (a.action ~= "Load" or w.single)
+				and (a.action ~= "Reload" or w.ammo.clip ~= "Loose")
+				and (a.action ~= "Bolt" or not (w.action and w.action.auto))
+			then
 				table.insert(items, { kind = "action", weapon = weapon, spec = a })
 			end
 		end

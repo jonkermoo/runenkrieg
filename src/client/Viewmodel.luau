@@ -243,7 +243,9 @@ function Viewmodel.start()
 				{
 					w.holds,
 					w.firstPerson,
-					if w.reload then { w.reload.body, w.reload.firstPerson } else {},
+					if w.reload
+						then { w.reload.body, w.reload.firstPerson, w.reload.bodyTwo or 0, w.reload.firstPersonTwo or 0 }
+						else {},
 					if w.bolt then { w.bolt.aim, w.bolt.ready, w.bolt.firstAim or 0, w.bolt.firstReady or 0 } else {},
 					w.fire or {},
 					if w.single then { w.single.body, w.single.firstPerson } else {},
