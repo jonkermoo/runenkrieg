@@ -42,14 +42,14 @@ local Showcase = {
 	-- the staff's attack as others see it (user 2026-10-13: "show what the attack looks like in third person on an
 	-- NPC ... the animations along with the visuals", no ragdoll): a dummy per entry. `hip`: the quick fire without
 	-- aiming, every `rest` seconds. Otherwise it aims (the first circle held `ready` seconds), charges for `held`
-	-- seconds (Config/Spells stages: under 0.45 is a click), fires that stage, rests `rest` seconds, again. Side-on
+	-- seconds (Config/Spells stages: under 1.0 is a click), fires that stage, rests `rest` seconds, again. Side-on
 	-- like the actions; the spells (circles, orbits, laser, beam) drawn by src/client/CastShow.
 	CastWeapon = "staff_grey", -- the attack is shown with one staff (the others' rows show their holds)
 	Casts = {
 		{ stage = 1, hip = true, rest = 1.6 },
 		{ stage = 1, ready = 0.8, held = 0.15, rest = 1.4 },
-		{ stage = 2, ready = 0.6, held = 1.1, rest = 3 },
-		{ stage = 3, ready = 0.6, held = 3.0, rest = 4.5 },
+		{ stage = 2, ready = 0.6, held = 1.4, rest = 3 },
+		{ stage = 3, ready = 0.6, held = 3.4, rest = 4.5 },
 		-- floating (user 2026-10-13: "show me the floating air animation in third person too"): hovering `AirLift`
 		-- studs up on the float cycle, charging with the lean back (airCharge)
 		{ stage = 3, ready = 1.2, held = 3.4, rest = 4.5, air = true },

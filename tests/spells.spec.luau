@@ -14,6 +14,7 @@ return {
 		for i = 2, #Cfg.Stages do
 			assert(Cfg.Stages[i].hold > Cfg.Stages[i - 1].hold, `stage {i} holds no longer than {i - 1}`)
 		end
+		assert(Cfg.Stages[2].hold == 1 and Cfg.Stages[3].hold == 3, "stage 2 at 1 s, stage 3 at 3 s (user 2026-10-20)")
 	end,
 	["an unbuilt stage fires the highest built one below it"] = function()
 		local built = { Quick = true }
@@ -41,7 +42,8 @@ return {
 			assert(S.Cooldown[i] > S.Cooldown[i - 1], `stage {i} cooldown`)
 			assert(S.Slow[i] < S.Slow[i - 1], `stage {i} slow`)
 		end
-		assert(S.TwoHands > Cfg.Stages[2].hold and S.TwoHands < Cfg.Stages[3].hold, "two hands join mid stage 3 build")
+		assert(S.TwoHands == Cfg.Stages[2].hold, "two hands on once stage 2 is reached (user 2026-10-20)")
+		assert(S.LeftShows > 0 and S.LeftShows < S.TwoHands, "first person: the left arm shows as it comes up")
 		assert(S.Veil >= 0 and S.Veil < 1)
 		assert(S.OlderVeil >= 0 and S.OlderVeil < 1, "older circles: more see-through, never invisible")
 		for i, v in S.StageVeils do

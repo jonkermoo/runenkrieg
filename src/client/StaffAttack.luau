@@ -9,7 +9,7 @@
 --   cooldown is over. Letting go of aim while charging drops the cast.
 -- - Each shot: a cooldown, and the walk slowed for as long (Cooldown / Slow per stage), standing still or not.
 -- - Charging: the walk slows more and more and the camera shakes more and more (Sway.shake); once stage 3 is ready you
---   can't move or jump. Halfway to stage 3 the left hand joins the staff, until aiming ends ("TwoHands").
+--   can't move or jump. Once stage 2 is reached the left hand is on the staff, until aiming ends ("TwoHands").
 -- - A stage 3 shot knocks the caster back into a ragdoll (src/client/Ragdoll, Config/Ragdoll.Knocks.StaffRecoil): no
 --   control until they get up, half a second after landing.
 -- - In first person the caster's own cast starts at the first-person staff's head (aiming: Staff.Lead past it, the
