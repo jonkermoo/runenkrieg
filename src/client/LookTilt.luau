@@ -9,6 +9,9 @@
 -- Other players see it too: the local soldier's pitch and the gun's follow share go to the server (Net "LookPitch",
 -- quantized and throttled by Config/Locomotion.LookTilt.Send), which relays them; every other soldier is posed the
 -- same way here, easing toward the last pitch received.
+-- The head turns left and right toward the look (Config/Locomotion.LookTilt.Head; user 2026-10-20): the camera's yaw
+-- from the torso's facing, capped with the animation's own neck turn, on the Neck on top of the animations. Soldiers
+-- nearby see it (Net "HeadYaw", relayed only within range by src/server/LookTilt).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -76,8 +79,15 @@ local function rig(character: Model, timeout: number?): Rig?
 	}
 end
 
--- the torso tilted by `angle` and, with a weapon, the arms + gun turned by `turn` (degrees)
-local function pose(r: Rig, angle: number, turn: number)
+-- the animation's own turn of the head left and right (degrees; the idle's glances): R6's Neck turns the head about
+-- its joint Z, which the rest C0 points along the torso's up
+local function glance(r: Rig): number
+	local _, _, z = r.neck.Transform:ToEulerAnglesXYZ()
+	return math.deg(z)
+end
+
+-- the torso tilted by `angle`, with a weapon the arms + gun turned by `turn`, and the head turned by `yaw` (degrees)
+local function pose(r: Rig, angle: number, turn: number, yaw: number)
 	local a = math.rad(angle)
 	local rootJoint = r.rootJoint
 	-- the waist where the animation currently puts it, in the root's space
@@ -100,16 +110,26 @@ local function pose(r: Rig, angle: number, turn: number)
 		weapon.hold.C0 = swing
 	end
 	r.neck.C0 = turned(r.neckC0, r.neckC0.Position, math.rad(turn * CameraCfg.HeadFollow))
+		* CFrame.Angles(0, 0, math.rad(yaw))
 end
 
 local count = 0
 
-local function attach(character: Model, remote: RemoteEvent)
+-- yaw of a look direction (degrees, + to the left like CFrame.fromOrientation's)
+local function yawOf(look: Vector3): number
+	return math.deg(math.atan2(-look.X, -look.Z))
+end
+
+local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteEvent)
 	local cfg = Cfg.LookTilt
+	local H = cfg.Head
 	local r = rig(character) :: Rig
 	local humanoid = r.humanoid
+	local root = character:WaitForChild("HumanoidRootPart") :: BasePart
 	local angle = 0
+	local yaw = 0
 	local last = { pitch = math.huge, follow = math.huge, at = -math.huge } -- a new body always sends
+	local lastYaw = { yaw = math.huge, at = -math.huge }
 
 	count += 1
 	local name = "LookTilt" .. count
@@ -121,9 +141,21 @@ local function attach(character: Model, remote: RemoteEvent)
 		angle += (Rules.torso(pitch, cfg.Torso, cfg.TorsoMax) - angle) * Rules.ease(cfg.Smoothing, dt)
 		local state = character:GetAttribute("Hold")
 		local follow = if Held.weapon(character) and type(state) == "string" then CameraCfg.Follow[state] or 0 else 0
-		pose(r, angle, Rules.weaponTurn(pitch, follow, angle))
+		-- the head toward the look (straight ahead dead or ragdolled)
+		local want = 0
+		if camera and humanoid.Health > 0 and character:GetAttribute("Ragdolled") ~= true then
+			local look = yawOf(camera.CFrame.LookVector) - yawOf(root.CFrame.LookVector)
+			want = Rules.headYaw(look, glance(r), yaw, H.Max, H.Behind)
+		end
+		yaw += (want - yaw) * Rules.ease(H.Smoothing, dt)
+		pose(r, angle, Rules.weaponTurn(pitch, follow, angle), yaw)
 
 		local now = os.clock()
+		local y = Rules.yawToSend(yaw, lastYaw, now, H.Send, H.Max)
+		if y then
+			lastYaw.yaw, lastYaw.at = y, now
+			headRemote:FireServer(y)
+		end
 		local p, f = Rules.toSend(pitch, follow, last, now, cfg.Send)
 		if p and f then
 			last.pitch, last.follow, last.at = p, f, now
@@ -140,22 +172,30 @@ end
 
 -- other players' soldiers: the pitch and follow share last received, and where each is eased to now (kept until the
 -- body is destroyed, so its rest C0s are read once, before any tilt)
-type Other = { rig: Rig?, target: number, targetFollow: number, pitch: number, follow: number }
+type Other = {
+	rig: Rig?,
+	target: number,
+	targetFollow: number,
+	targetYaw: number,
+	pitch: number,
+	follow: number,
+	yaw: number,
+}
 
-local function others(remote: RemoteEvent)
+local function others(remote: RemoteEvent, headRemote: RemoteEvent)
 	local cfg = Cfg.LookTilt
 	local list: { [Model]: Other } = {}
 
-	remote.OnClientEvent:Connect(function(character: Model, pitch: number, follow: number)
+	-- the soldier's entry, made on its first message
+	local function entry(character: Model): Other?
 		if typeof(character) ~= "Instance" or character == Players.LocalPlayer.Character then
-			return
+			return nil
 		end
 		local o = list[character]
 		if o then
-			o.target, o.targetFollow = pitch, follow
-			return
+			return o
 		end
-		local new: Other = { rig = nil, target = pitch, targetFollow = follow, pitch = 0, follow = 0 }
+		local new: Other = { rig = nil, target = 0, targetFollow = 0, targetYaw = 0, pitch = 0, follow = 0, yaw = 0 }
 		list[character] = new
 		task.spawn(function()
 			new.rig = rig(character, WAIT) -- (nil for good if its joints never turned up)
@@ -163,18 +203,35 @@ local function others(remote: RemoteEvent)
 		character.Destroying:Connect(function()
 			list[character] = nil
 		end)
+		return new
+	end
+	remote.OnClientEvent:Connect(function(character: Model, pitch: number, follow: number)
+		local o = entry(character)
+		if o then
+			o.target, o.targetFollow = pitch, follow
+		end
+	end)
+	headRemote.OnClientEvent:Connect(function(character: Model, yaw: number)
+		local o = entry(character)
+		if o then
+			o.targetYaw = yaw
+		end
 	end)
 
 	RunService:BindToRenderStep("LookTiltOthers", LookTilt.Priority, function(dt)
 		local k = Rules.ease(cfg.Send.Smoothing, dt)
+		local ky = Rules.ease(cfg.Head.Send.Smoothing, dt)
 		for character, o in list do
 			local r = o.rig
 			-- (dead: the body keeps its last pose, as the local one does)
 			if r and character.Parent and r.humanoid.Health > 0 then
 				o.pitch += (o.target - o.pitch) * k
 				o.follow += (o.targetFollow - o.follow) * k
+				o.yaw += (o.targetYaw - o.yaw) * ky
 				local angle = Rules.torso(o.pitch, cfg.Torso, cfg.TorsoMax)
-				pose(r, angle, Rules.weaponTurn(o.pitch, o.follow, angle))
+				-- (the turn sent is already capped with the sender's glance; theirs here may differ a little)
+				local yaw = math.clamp(o.yaw, -cfg.Head.Max - glance(r), cfg.Head.Max - glance(r))
+				pose(r, angle, Rules.weaponTurn(o.pitch, o.follow, angle), yaw)
 			end
 		end
 	end)
@@ -183,13 +240,14 @@ end
 function LookTilt.start()
 	local player = Players.LocalPlayer
 	local remote = Net.event("LookPitch")
+	local headRemote = Net.event("HeadYaw")
 	player.CharacterAdded:Connect(function(character)
-		attach(character, remote)
+		attach(character, remote, headRemote)
 	end)
 	if player.Character then
-		task.spawn(attach, player.Character, remote)
+		task.spawn(attach, player.Character, remote, headRemote)
 	end
-	others(remote)
+	others(remote, headRemote)
 end
 
 return LookTilt

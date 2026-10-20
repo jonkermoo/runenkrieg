@@ -385,7 +385,7 @@ local Assets = {
 			},
 		},
 		helmet_m33_goggles = {
-			id = 99354895380972, -- reworked 2026-10-19 (docs/HATS.md "Rework")
+			id = 136907445966779, -- narrowed M33 (2026-10-20; docs/HATS.md "New helmets")
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/variants/helmet_m33_goggles.fbx",
@@ -402,7 +402,7 @@ local Assets = {
 			},
 		},
 		helmet_m33_ammo = {
-			id = 139851230502185, -- reworked 2026-10-19 (docs/HATS.md "Rework")
+			id = 125728031453524, -- narrowed M33 (2026-10-20; docs/HATS.md "New helmets")
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/variants/helmet_m33_ammo.fbx",
@@ -424,14 +424,14 @@ local Assets = {
 			},
 		},
 		helmet_m33 = {
-			id = 88422809419987, -- reworked 2026-10-19 (docs/HATS.md "Rework")
+			id = 97355249592293, -- narrowed M33 (2026-10-20; docs/HATS.md "New helmets")
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/default/helmet_m33.fbx",
 			generator = "tools/blender/gear/helmet.py",
 			description = "M33, olive team (reworked 2026-10-19): the approved pre-rework shape (rounded dome worn low, rim "
 				.. "raised at the front, arched over the ears, lower at the back) with a rolled lip and a rib above it, "
-				.. "a brass vent rivet each side; hollow, 12 sides (448 tris).",
+				.. "a brass vent rivet each side, narrowed side to side (oval 0.86, user 2026-10-20); hollow, 12 sides (448 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
@@ -490,6 +490,59 @@ local Assets = {
 				parts = { Band = { 120, 84, 56 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } },
 				shell = "brodie",
 				center = { 0, 0.3781, 0.0023 },
+			},
+		},
+		-- New helmets (user 2026-10-20: one more per team, "different helmet, different armoring"; docs/HATS.md "New helmets")
+		helmet_stahl_plate = {
+			id = 132394662760568,
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_plate.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_stahl (unchanged) with a heavy brow plate hung on its lugs, arched over the "
+				.. "forehead, in a darker grey. Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = { Plate = { 58, 60, 64 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.672, -0.034 },
+			},
+		},
+		helmet_m33_plate = {
+			id = 71968134222975,
+			category = "Teams",
+			folder = "Olive/Helmets",
+			source = "assets/teams/olive/helmets/variants/helmet_m33_plate.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_m33 (unchanged) with a slim brow plate bolted across the front, in a darker "
+				.. "olive, two brass bolts. Olive team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 116, 114, 72 },
+				brim = -0.13,
+				parts = { Plate = { 90, 90, 56 }, Bolts = { 176, 146, 80 }, Lugs = { 176, 146, 80 } },
+				shell = "m33",
+				center = { 0, 0.5397, 0 },
+			},
+		},
+		helmet_adrian_visor = {
+			id = 139258592514715, -- front raised 0.1 (2026-10-20: the peak covered half the eyes)
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_adrian_visor.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "Adrian M1915, the white team's second helmet (base: assets/teams/white/helmets/default/helmet_adrian.fbx, "
+				.. "helmet.py): a rounded bowl with a crest, a bead and sloping front and back peaks; a three-slat steel "
+				.. "visor hinged up against the bowl, so the face shows. Hollow, 848 tris. White team (colours a proposal).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 214, 214, 210 },
+				brim = -0.02, -- the front peak sits 0.21 above the head centre (eyes show)
+				parts = { Visor = { 168, 170, 174 } },
+				shell = "adrian",
+				center = { 0, 0.616, 0.0118 },
 			},
 		},
 		-- Species ears and tails (Config/Species, src/server/Species; user 2026-10-18/20): one piece per mesh, named
@@ -721,13 +774,13 @@ local Assets = {
 			hair = { center = { -0.0374, -0.0004, 0.0566 } },
 		},
 		hair_wolf_cut_m33 = {
-			id = 81126637608696, -- under the reworked helmets (2026-10-19)
+			id = 87518130879661, -- under the narrowed M33 (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_m33.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair wolf_cut under the m33 helmet: the original shaved where the shell covers it (3877 tris).",
-			hair = { center = { 0.0719, -0.0744, 0.0171 } },
+			description = "Hair wolf_cut under the m33 helmet: the original shaved where the shell covers it (3563 tris).",
+			hair = { center = { 0.0473, -0.0745, 0.0175 } },
 		},
 		hair_wolf_cut_stahl = {
 			id = 77980870742304, -- under the reworked helmets (2026-10-19)
@@ -747,6 +800,15 @@ local Assets = {
 			description = "Hair wolf_cut under the brodie helmet: the original shaved where the shell covers it (4010 tris).",
 			hair = { center = { 0.0894, -0.1081, 0.0565 } },
 		},
+		hair_wolf_cut_adrian = {
+			id = 89084655917210, -- under the Adrian (2026-10-20)
+			category = "Characters",
+			folder = "Hairs/wolf_cut",
+			source = "assets/characters/hairs/wolf_cut/under/hair_wolf_cut_adrian.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair wolf_cut under the adrian helmet: the original shaved where the shell covers it (4042 tris).",
+			hair = { center = { 0.0894, -0.0549, 0.0565 } },
+		},
 		hair_low_ponytail = {
 			id = 102239211504647,
 			category = "Characters",
@@ -757,7 +819,7 @@ local Assets = {
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
 		hair_low_ponytail_m33 = {
-			id = 73105078497451, -- under the reworked helmets (2026-10-19)
+			id = 112931873117597, -- under the narrowed M33 (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_m33.fbx",
@@ -783,6 +845,15 @@ local Assets = {
 			description = "Hair low_ponytail under the brodie helmet: the original shaved where the shell covers it (3129 tris).",
 			hair = { center = { 0, -0.694, 0.1865 } },
 		},
+		hair_low_ponytail_adrian = {
+			id = 136830466875305, -- under the Adrian (2026-10-20)
+			category = "Characters",
+			folder = "Hairs/low_ponytail",
+			source = "assets/characters/hairs/low_ponytail/under/hair_low_ponytail_adrian.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair low_ponytail under the adrian helmet: the original shaved where the shell covers it (3129 tris).",
+			hair = { center = { 0, -0.694, 0.1865 } },
+		},
 		hair_m_wolf = {
 			id = 135274996782454,
 			category = "Characters",
@@ -793,13 +864,13 @@ local Assets = {
 			hair = { center = { 0.0284, 0.167, 0.0506 } },
 		},
 		hair_m_wolf_m33 = {
-			id = 129691639248404, -- under the reworked helmets (2026-10-19)
+			id = 88248527739923, -- under the narrowed M33 (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_m33.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_wolf under the m33 helmet: the original shaved where the shell covers it (3342 tris).",
-			hair = { center = { 0.0233, 0.0325, 0.0079 } },
+			description = "Hair m_wolf under the m33 helmet: the original shaved where the shell covers it (3126 tris).",
+			hair = { center = { 0.0231, 0.0316, 0.0079 } },
 		},
 		hair_m_wolf_stahl = {
 			id = 102730380340187, -- under the reworked helmets (2026-10-19)
@@ -819,6 +890,15 @@ local Assets = {
 			description = "Hair m_wolf under the brodie helmet: the original shaved where the shell covers it (3083 tris).",
 			hair = { center = { 0.0552, -0.004, 0.0982 } },
 		},
+		hair_m_wolf_adrian = {
+			id = 94196204396825, -- under the Adrian (2026-10-20)
+			category = "Characters",
+			folder = "Hairs/m_wolf",
+			source = "assets/characters/hairs/m_wolf/under/hair_m_wolf_adrian.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_wolf under the adrian helmet: the original shaved where the shell covers it (3746 tris).",
+			hair = { center = { 0.0552, 0.124, 0.0969 } },
+		},
 		hair_m_slick = {
 			id = 134341339188089,
 			category = "Characters",
@@ -829,13 +909,13 @@ local Assets = {
 			hair = { center = { 0.0146, 0.2002, 0.0377 } },
 		},
 		hair_m_slick_m33 = {
-			id = 97247695571155, -- under the reworked helmets (2026-10-19)
+			id = 124342835158550, -- under the narrowed M33 (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/under/hair_m_slick_m33.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_slick under the m33 helmet: the original shaved where the shell covers it (3049 tris).",
-			hair = { center = { 0.0146, 0.2002, 0.0377 } },
+			description = "Hair m_slick under the m33 helmet: the original shaved where the shell covers it (3146 tris).",
+			hair = { center = { 0.0044, 0.2002, 0.0377 } },
 		},
 		hair_m_slick_stahl = {
 			id = 95201136508172, -- under the reworked helmets (2026-10-19)
@@ -855,6 +935,15 @@ local Assets = {
 			description = "Hair m_slick under the brodie helmet: the original shaved where the shell covers it (3075 tris).",
 			hair = { center = { 0.0127, 0.1983, 0.0385 } },
 		},
+		hair_m_slick_adrian = {
+			id = 76715202743978, -- under the Adrian (2026-10-20)
+			category = "Characters",
+			folder = "Hairs/m_slick",
+			source = "assets/characters/hairs/m_slick/under/hair_m_slick_adrian.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_slick under the adrian helmet: the original shaved where the shell covers it (3092 tris).",
+			hair = { center = { 0.0128, 0.2002, 0.0377 } },
+		},
 		hair_m_midpart = {
 			id = 131010005103271,
 			category = "Characters",
@@ -865,13 +954,13 @@ local Assets = {
 			hair = { center = { -0.0022, 0.1974, -0.0105 } },
 		},
 		hair_m_midpart_m33 = {
-			id = 97399186493745, -- under the reworked helmets (2026-10-19)
+			id = 77889527861931, -- under the narrowed M33 (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_m33.fbx",
 			generator = "tools/blender/gear/hair_under.py",
-			description = "Hair m_midpart under the m33 helmet: the original shaved where the shell covers it (3997 tris).",
-			hair = { center = { 0.0066, 0.1907, 0.0081 } },
+			description = "Hair m_midpart under the m33 helmet: the original shaved where the shell covers it (3666 tris).",
+			hair = { center = { 0.0194, 0.1901, 0.0093 } },
 		},
 		hair_m_midpart_stahl = {
 			id = 116203809497272, -- under the reworked helmets (2026-10-19)
@@ -890,6 +979,15 @@ local Assets = {
 			generator = "tools/blender/gear/hair_under.py",
 			description = "Hair m_midpart under the brodie helmet: the original shaved where the shell covers it (3767 tris).",
 			hair = { center = { 0.033, 0.1788, -0.0074 } },
+		},
+		hair_m_midpart_adrian = {
+			id = 99555394312808, -- under the Adrian (2026-10-20)
+			category = "Characters",
+			folder = "Hairs/m_midpart",
+			source = "assets/characters/hairs/m_midpart/under/hair_m_midpart_adrian.fbx",
+			generator = "tools/blender/gear/hair_under.py",
+			description = "Hair m_midpart under the adrian helmet: the original shaved where the shell covers it (4006 tris).",
+			hair = { center = { 0.033, 0.1974, -0.0066 } },
 		},
 	} :: { [string]: Entry },
 

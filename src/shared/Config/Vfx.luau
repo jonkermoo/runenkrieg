@@ -590,8 +590,9 @@ local Vfx = {
 			{ diameter = 3.8, ahead = 1.6, appear = 0.1, beam = "Quick", orbits = 2, linger = 0.15 }, -- a tap
 			{ diameter = 5.8, ahead = 3.4, appear = 0.15, beam = "Medium", orbits = 3, linger = 0.3 }, -- a slight charge
 			-- the full charge (user 2026-10-13: "super exaggerated, a lot larger, a super strong zoltraak"): it starts
-			-- assembling `lead` seconds before its hold time (right after stage 2), so it builds slowly
-			{ diameter = 11, ahead = 6.4, lead = 2, assemble = true, beam = "Full", orbits = 4, linger = 1 },
+			-- assembling `lead` seconds before its hold time (right after stage 2's circle has opened), so it builds slowly
+			-- (user 2026-10-20: stage 2 at 1 s, stage 3 at 3 s; was 2 with stage 2 at 0.45)
+			{ diameter = 11, ahead = 6.4, lead = 1.85, assemble = true, beam = "Full", orbits = 4, linger = 1 },
 		},
 		-- while the last circle assembles: a charge gathers in the first circle and lightning crackles between the first
 		-- and last circles' rims, more of it as the charge builds (redrawn `rate` times a second)

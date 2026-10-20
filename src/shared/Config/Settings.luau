@@ -64,6 +64,8 @@ local Settings = {
 		AimMode = { kind = "choice", label = "Aim", values = { "Hold", "Toggle" }, default = "Hold" },
 		SprintMode = { kind = "choice", label = "Sprint", values = { "Hold", "Toggle" }, default = "Hold" },
 		CrouchMode = { kind = "choice", label = "Crouch", values = { "Toggle", "Hold" }, default = "Toggle" },
+		-- the hollow circle at the screen centre with a gun in third person (Config/Camera.Crosshair; user 2026-10-20)
+		Crosshair = { kind = "choice", label = "Crosshair", values = { "On", "Off" }, default = "On" },
 
 		-- Audio, in percent. Each sound group plays at Master x its own share (src/client/Audio).
 		MasterVolume = {
@@ -100,7 +102,15 @@ local Settings = {
 		{ name = "Graphics", rows = { "Preset", "GrassQuality", "Shadows", "TreeSway", "Debris", "FieldOfView" } },
 		{
 			name = "Controls",
-			rows = { "HipSensitivity", "AimSensitivity", "InvertY", "AimMode", "SprintMode", "CrouchMode" },
+			rows = {
+				"HipSensitivity",
+				"AimSensitivity",
+				"InvertY",
+				"AimMode",
+				"SprintMode",
+				"CrouchMode",
+				"Crosshair",
+			},
 		},
 		{ name = "Audio", rows = { "MasterVolume", "EffectsVolume" } },
 		{

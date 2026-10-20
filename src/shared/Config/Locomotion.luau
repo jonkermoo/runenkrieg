@@ -11,7 +11,9 @@ local Locomotion = {
 	-- of where the camera looks; strafing or backing up with Shift stays a walk (and can aim).
 	SprintCone = 50,
 	ToggleSprintMoving = 0.1, -- a toggled sprint counts as moving above this share of MoveDirection (stopping ends it)
-	CrouchCameraEase = 8, -- how fast the camera follows the body down into the crouch and back up (per second)
+	-- the camera follows the body down into the crouch and back up on a critically damped spring at this rate (per
+	-- second; user 2026-10-20: never snappy, so it starts and stops gently)
+	CrouchCameraSpring = 10,
 
 	-- Volume of Roblox's built-in character sounds (RbxCharacterSounds, in each character's HumanoidRootPart; client
 	-- side, on every client), held on every character; 0 mutes. Sounds not listed keep Roblox's volume. Footsteps
@@ -127,8 +129,11 @@ local Locomotion = {
 	PlaybackMin = 0.6, -- clamp on the speed-scaled playback rate
 	PlaybackMax = 1.4,
 
-	Fade = 0.15, -- crossfade between ground cycles (seconds)
-	HoldFade = 0.12, -- crossfade between weapon holds (ready / carry / aim) and the tool hold
+	-- Smooth, never snappy (user 2026-10-20): every change of animation blends over a while. Switching between the
+	-- stepping cycles (walk / sprint / crouch walk) also carries the stride across (the new cycle starts at the same
+	-- point of its step as the old one was), so the legs never jump to a new stride (src/client/Locomotion).
+	Fade = 0.3, -- crossfade between ground cycles (seconds; was 0.15)
+	HoldFade = 0.25, -- crossfade between weapon holds (ready / carry / aim) and the tool hold (was 0.12)
 	-- Putting a weapon away (user 2026-10-14: "an unequip animation where i put my gun back on my back"): the weapon's
 	-- unequip animations play for `time` seconds (body and first person, Config/Weapons holds / firstPerson .unequip)
 	-- while the server keeps a copy in the hands (src/server/Armory) and the camera stays at the eye, then the slung
@@ -140,9 +145,9 @@ local Locomotion = {
 	-- ledge goes straight to the tuck); floating with the staff aimed ("Floating", src/client/StaffAttack) plays the
 	-- float cycle instead. Landing plays the land once over the ground cycle: full weight standing, lighter on the move.
 	Air = {
-		JumpFade = 0.05, -- into the take-off
-		FallFade = 0.1, -- take-off (or ground) into the tuck
-		LandFade = 0.05,
+		JumpFade = 0.1, -- into the take-off (was 0.05)
+		FallFade = 0.2, -- take-off (or ground) into the tuck (was 0.1)
+		LandFade = 0.1, -- (was 0.05)
 		-- stepping down a stair or a ledge drops into free fall for a moment: the tuck only after this long falling
 		-- without a jump, and the land only after this long in the air (seconds)
 		FallDelay = 0.15,
@@ -158,6 +163,17 @@ local Locomotion = {
 		Torso = 0.28, -- user 2026-10-11: a bit more apparent (was 0.2 / 10)
 		TorsoMax = 13,
 		Smoothing = 12, -- how fast the tilt follows the camera (per second)
+		-- The head turns left and right toward where the camera looks (user 2026-10-20: "heads will now face where you
+		-- look ... only rotate left and right to a realistic angle"; up and down stays the torso's). Degrees from the
+		-- torso's facing, the animation's own neck turn included (the idle's glances); eased at Smoothing per second.
+		-- Others within Send.Range studs see it (Net "HeadYaw": user 2026-10-20, only people nearby), quantized to
+		-- Send.Step, at most Send.Rate a second.
+		Head = {
+			Max = 70,
+			Behind = 90, -- looking round further than this, the head stays on the side it is on
+			Smoothing = 10,
+			Send = { Rate = 10, Step = 3, Range = 120, Smoothing = 10 },
+		},
 		-- shown to other players (Net "LookPitch", Rules/LookTilt): the camera pitch and the gun's follow share
 		Send = {
 			Rate = 10, -- updates per second at most, from each client and relayed by the server per soldier
