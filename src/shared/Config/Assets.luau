@@ -743,7 +743,7 @@ local Assets = {
 			hair = { center = { 0.0894, -0.1081, 0.0565 } },
 		},
 		hair_low_ponytail = {
-			id = 95430462148696, -- refit for R6 and rigged (2026-10-20)
+			id = 110950679249754, -- refit for R6, rigged, its tip tucked into the pack (2026-10-20)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/refit/hair_low_ponytail.fbx",
