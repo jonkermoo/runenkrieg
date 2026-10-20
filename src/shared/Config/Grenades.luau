@@ -30,22 +30,25 @@ local Grenades = {
 		release = 0.22,
 		length = 0.6, -- the throw animation's length (seconds): the view stays first person through it ("Throwing")
 	},
+	-- The pin (user 2026-10-19: "make the character pull a pin before letting go of the grenade"): left click plays the
+	-- pin pull (Config/Weapons grenade holds `pin`, `time` seconds: the left hand pulls it at `out`, the right draws back
+	-- into the wind-up); let go before it's done and the throw goes the moment it is. Switching weapons before the
+	-- grenade leaves the hand cancels it all (user: "switching to your gun will cancel the throw sequence").
+	Pin = { time = 0.45, out = 0.15 }, -- (out: as the left hand starts pulling; at 0.25 it was already 1.8 studs off, Studio)
 
-	-- The thrown grenade: a small hitbox (studs) that bounces and rolls a little (user: "bounces and rolls a little").
+	-- The thrown grenade (user: "bounces and rolls a little"; 2026-10-20: the old 0.6-stud ball "seems to float and roll
+	-- on the ground, not abiding matter and physics"): its body is the grenade's own bounding box (src/server/Grenades),
+	-- cast iron on dirt: heavy, gripping, a dull bounce. It tumbles end over end in flight (Throw.spin), and on the
+	-- ground it tumbles and slides to a stop by its own friction.
 	Body = {
-		size = 0.6,
 		density = 2,
-		friction = 0.6,
-		elasticity = 0.3,
+		friction = 0.8,
+		elasticity = 0.2,
 		-- Where it first hits anything (the ground or a wall: its velocity jumps by more than `impact` studs/s in a frame)
-		-- it thuds, keeping `land` of its speed (Studio round 2: off a wall it flew 14 studs back); on the ground rolling
-		-- loses speed at `roll` per second (a ball in Roblox never stops rolling by itself; round 1 rolled 275 studs).
-		-- Swept each frame from where it was (`probe` studs past its radius under it), so it can't pass through thin
-		-- ground.
+		-- it thuds, keeping `land` of its speed (Studio round 2: off a wall it flew 14 studs back). Swept each frame from
+		-- where it was, so it can't pass through thin ground.
 		impact = 20,
-		land = 0.15,
-		roll = 3,
-		probe = 0.15,
+		land = 0.25,
 		-- the blast goes off this far above where the body lies (out of the ground it rests on)
 		lift = 0.3,
 		-- the Mills's lever flying off: the throw's velocity times `carry`, plus `pop` studs/s up, tumbling `spin`

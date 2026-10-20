@@ -4,8 +4,10 @@
 -- isn't throwing faster than Config/Grenades.Cooldown, then throws one from its own view of the head, along that look,
 -- exactly as the client's arc preview drew it (Rules/Grenade.launch). The Tool's "Count" attribute says how many are
 -- left (src/server/Armory gives Config/Grenades.Carried a life); the last one thrown empties the hand.
--- In flight it is a small bouncing ball (Config/Grenades.Body) carrying the model; it passes through soldiers (its own
--- collision group), so it can't hit the thrower or be caught. The Mills's pin stays behind and its lever flies off.
+-- In flight its body is the grenade's own bounding box (Config/Grenades.Body; user 2026-10-20: a ball "seems to float
+-- and roll on the ground, not abiding matter and physics": the stick's ball sat at its handle, the head in the air), so
+-- it lies flat where it stops, tumbling end over end along the throw; it passes through soldiers (its own collision
+-- group), so it can't hit the thrower or be caught. The Mills's pin stays behind and its lever flies off.
 -- Config/Grenades.Fuse seconds after the throw it goes off: Damage.blast with the real charge, its fragments, trees
 -- only stripped and shaken (user 2026-10-18), the thrower hurt like anyone else (Config/Grenades.Own), and every
 -- client shows the explosion (Net "GrenadeBlast").
@@ -57,20 +59,25 @@ end
 
 local function throw(character: Model, name: string, origin: Vector3, velocity: Vector3)
 	local B = Cfg.Body
+	local model = Armory.build(name)
+	model.Name = "Thrown_" .. name
+	local gun = model.PrimaryPart :: BasePart
+	model:PivotTo(CFrame.lookAlong(origin, velocity))
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Massless, d.CanCollide = true, false
+		end
+	end
+	-- the body: a box round the model as it is (the pin, gone below, inside it)
+	local box, size = model:GetBoundingBox()
 	local ball = Instance.new("Part")
 	ball.Name = "Grenade"
-	ball.Shape = Enum.PartType.Ball
-	ball.Size = Vector3.one * B.size
+	ball.Size = size
+	ball.CFrame = box
 	ball.Transparency = 1
 	ball.CustomPhysicalProperties = PhysicalProperties.new(B.density, B.friction, B.elasticity)
 	ball.CollisionGroup = GROUP
 	ball.CanQuery, ball.CanTouch = false, false
-	ball.CFrame = CFrame.lookAlong(origin, velocity)
-
-	local model = Armory.build(name)
-	model.Name = "Thrown_" .. name
-	local gun = model.PrimaryPart :: BasePart
-	model:PivotTo(ball.CFrame)
 	local weld = Instance.new("Weld")
 	weld.Part0, weld.Part1 = ball, gun
 	weld.Parent = ball
@@ -98,11 +105,14 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 
 	ball:SetNetworkOwner(nil) -- the server's physics: no client moves it
 	ball.AssemblyLinearVelocity = velocity
-	ball.AssemblyAngularVelocity = Vector3.new(Cfg.Throw.spin, 0, Cfg.Throw.spin * 0.5)
+	-- end over end: about the throw's own side axis
+	local side = velocity:Cross(Vector3.yAxis)
+	ball.AssemblyAngularVelocity = if side.Magnitude > 1e-3 then side.Unit * -Cfg.Throw.spin else Vector3.zero
 
 	-- each frame: swept from where it was (a fast throw never passes through thin ground or a wall: it's put back on
-	-- the near side and bounced), and on the ground it thuds (`land`) then rolls to a stop (`roll`)
-	local radius = B.size / 2
+	-- the near side and bounced); the first thing it hits takes most of its speed (`land`); the box then tumbles and
+	-- slides to a stop by its own friction
+	local radius = math.min(size.X, size.Y, size.Z) / 2
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { model }
@@ -114,16 +124,17 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 		local p, v = ball.Position, ball.AssemblyLinearVelocity
 		local move = p - last
 		if move.Magnitude > 1e-3 then
+			-- only when it went past the surface this frame (an ordinary contact is the physics' own: put back then, the
+			-- box spun 140-195 rad/s for a frame, Studio 2026-10-20)
 			local hit = workspace:Raycast(last, move + move.Unit * radius, params)
-			if hit then
+			if hit and hit.Distance < move.Magnitude then
 				local n = hit.Normal
 				local into = v:Dot(n)
 				if into < 0 then
 					v -= n * into * (1 + B.elasticity)
 				end
-				ball.CFrame = CFrame.new(hit.Position + n * radius)
+				ball.CFrame = ball.CFrame.Rotation + hit.Position + n * radius
 				ball.AssemblyLinearVelocity = v
-				p = ball.Position
 			end
 		end
 		-- the first thing it hits takes most of its speed
@@ -132,11 +143,6 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 			v *= B.land
 			ball.AssemblyLinearVelocity = v
 			ball.AssemblyAngularVelocity *= B.land
-		end
-		if workspace:Raycast(p, Vector3.yAxis * -(radius + B.probe), params) then
-			local keep = math.exp(-B.roll * dt)
-			ball.AssemblyLinearVelocity = Vector3.new(v.X * keep, v.Y, v.Z * keep)
-			ball.AssemblyAngularVelocity *= keep
 		end
 		was = ball.AssemblyLinearVelocity
 		last = ball.Position

@@ -25,6 +25,7 @@ local Sway = {
 		Potion = 0.3,
 		Staff = 0.8,
 		SpellBook = 0.4,
+		Shovel = 0.6, -- docs/MILESTONES.md SV1
 	},
 
 	-- Steps: driven by the Footstep markers on the local walk / sprint cycles (the view lands with the feet). A stride
