@@ -72,7 +72,8 @@ local Firing = {
 		grab = 0.31,
 		set = 0.39,
 		clip = 0.46,
-		beat = 0.53, -- the first empty clip flicked off (clip + 0.02), a beat before the hand goes for the next
+		fling = 0.48, -- the first empty clip flicked off
+		beat = 0.53, -- a beat before the hand goes for the next
 		grab2 = 0.63,
 		set2 = 0.7,
 		clip2 = 0.76,
@@ -100,6 +101,10 @@ local Firing = {
 		forward = 0.85,
 		down = 0.86,
 	},
+	-- The box in the hand (src/client/GunFx): the hand's centre this far (studs) beside the box's side (third person) or
+	-- under its bottom (first person: half the 1-stud hand); the last `blend` of the share before `set` settles it onto
+	-- the well's mouth; the dropped box leaves at `drop` (studs/s, gun space: right, up, back).
+	Box = { hand = 0.5, blend = 0.05, drop = { 1, -3, 0 } },
 	-- An action started partway (a reload from a bolt held open, one resumed after being cut) fades its arms in over
 	-- this long (s), so the rifle travels from the hold into the action's pose (at 0.15 s it lunged; A1 audit 2026-10-18)
 	ResumeFade = 0.3,

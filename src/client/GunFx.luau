@@ -716,7 +716,8 @@ function GunFx.cycle(
 			if not dropped and u >= cycle.drop then
 				local mag = holder:FindFirstChild("Magazine")
 				if mag and mag:IsA("BasePart") then
-					fling(mag:Clone(), gun, mag.CFrame, Vector3.new(1, -3, 0))
+					local v = Cfg.Box.drop
+					fling(mag:Clone(), gun, mag.CFrame, Vector3.new(v[1], v[2], v[3]))
 				end
 			end
 			for _, name in BOX_PARTS do
@@ -753,13 +754,14 @@ function GunFx.cycle(
 				-- (the body's hand holds it by its right side, the viewmodel's from under it: tools/animation/reload.luau)
 				local bodyHand = holder:IsA("Tool") and r.boxSide ~= nil
 				local g = (if bodyHand then r.boxSide else r.boxGrip) or r.clipTop
-				local off = if bodyHand then Vector3.new(0.5, 0, 0) else Vector3.new(0, -0.5, 0)
+				local off = if bodyHand then Vector3.new(Cfg.Box.hand, 0, 0) else Vector3.new(0, -Cfg.Box.hand, 0)
 				local held = gun.CFrame:PointToWorldSpace(Vector3.new(g[1] * s[1], g[2] * s[2], g[3] * s[3]) + off)
 				local mouth = gun.CFrame.UpVector * (r.entry * s[2])
 				local shift: Vector3
 				if u < cycle.set then
 					local inHandAt = if hand then hand.CFrame:PointToWorldSpace(FIST) - held else mouth
-					shift = inHandAt:Lerp(mouth, smooth((u - (cycle.set - 0.05)) / 0.05))
+					local b = Cfg.Box.blend
+					shift = inHandAt:Lerp(mouth, smooth((u - (cycle.set - b)) / b))
 				else
 					shift = mouth * (1 - smooth((u - cycle.set) / (cycle.seat - cycle.set)))
 				end
@@ -780,7 +782,7 @@ function GunFx.cycle(
 		end
 		local pass = if two and u >= (cycle.clip + cycle.grab2) / 2 then 2 else 1
 		local C = if pass == 2 then second else cycle
-		local flingAt = if two and pass == 1 then cycle.clip + 0.02 else flungAt
+		local flingAt = if two and pass == 1 then cycle.fling else flungAt
 		local holding = u >= C.grab and (not en or u < C.clip)
 		for _, gun in GunFx.guns(character) do
 			local prop = props[gun]
