@@ -139,9 +139,11 @@ export type Weapon = {
 		-- two chargers (W2: the Remington 8 with room for more than 5): their own animations (Config/Firing.ReloadCycleTwo)
 		bodyTwo: number?,
 		firstPersonTwo: number?,
-		-- a box swapped whole (Config/Firing.BoxCycle): where the hand holds it (the bottom of the box, seated) and the
-		-- cocking plunger's tip that the left hand pulls (modelled gun space)
+		-- a box swapped whole (Config/Firing.BoxCycle): where the hand holds it (first person: the bottom of the box;
+		-- third person `boxSide`: its right side, the hand beside it; seated) and the cocking plunger's tip that the left
+		-- hand pulls (modelled gun space)
 		boxGrip: { number }?,
+		boxSide: { number }?,
 		plunger: { number }?,
 	}?,
 	-- Working the bolt after a shot, third person (user 2026-10-13; tools/animation/bolt.luau): the right hand goes from
@@ -313,16 +315,17 @@ local Weapons: { [string]: Weapon } = {
 		},
 		grip = { 0, -0.09, 0.17 }, -- the wrist of the straight stock, behind the guard
 		-- its own holds (tools/animation/rifle.luau, user 2026-10-13): the rifles' poses, the left hand on the pump
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 123307446642086,
-			walk = 74378124906474,
-			carry = 122181109482392,
-			aim = 114865521572329,
-			equip = 96966780660102,
-			unequip = 106479819126650, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 98743463561582,
-			crouchWalk = 83131199816159,
-			crouchAim = 90860802040899,
+			ready = 138139024493273,
+			walk = 104465302012353,
+			carry = 99351977507616,
+			aim = 136227496577518,
+			equip = 82659479717552,
+			unequip = 102627201784629, -- put away onto the back (Config/Locomotion.Stow)
+			crouchReady = 97174734111193,
+			crouchWalk = 84800064969228,
+			crouchAim = 76914903412671,
 		},
 		firstPerson = {
 			ready = 119185102113053,
@@ -458,16 +461,17 @@ local Weapons: { [string]: Weapon } = {
 		grip = { 0, -0.06, 0.15 },
 		-- user references 2026-10-11: ready low in front of the stomach, sprint carried across the body, aim shouldered;
 		-- ready and aim breathe like Roblox's R6 idle (user: match the default sway)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 78002721137460,
-			walk = 124889771920224,
-			carry = 105709189619828, -- swings with the sprint
-			aim = 136351549623920,
-			equip = 116169498023535,
-			unequip = 114673290829081, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 117235237865456,
-			crouchWalk = 77275921083110,
-			crouchAim = 124659519649223,
+			ready = 86420530930812,
+			walk = 114380046068769,
+			carry = 95787766149259, -- swings with the sprint
+			aim = 110368315287864,
+			equip = 116500778543360,
+			unequip = 109180311222647, -- put away onto the back (Config/Locomotion.Stow)
+			crouchReady = 104496542496105,
+			crouchWalk = 95673122474038,
+			crouchAim = 81566215869278,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
 		-- the ready hold up into the sights in 0.3 s
@@ -502,7 +506,7 @@ local Weapons: { [string]: Weapon } = {
 		-- slowed (user 2026-10-13: "do the same to all the rifles"): a beat after the shot, the bolt resting back
 		action = {
 			boltTime = 1.25,
-			reloadTime = 2.4,
+			reloadTime = 3.0, -- v2: +25% (user 2026-10-19)
 			turn = 90,
 			travel = 0.3,
 			fireTime = 0.35,
@@ -522,8 +526,8 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.12, 0.065, -0.1511 },
 			clipTop = { 0, 0.0614, -0.267 },
 			entry = 0.2,
-			body = 85665510995906,
-			firstPerson = 88100725060976,
+			body = 88369726870929,
+			firstPerson = 75492413402370,
 		},
 	},
 	rifle_g98 = {
@@ -557,16 +561,17 @@ local Weapons: { [string]: Weapon } = {
 		grip = { 0, -0.07, 0.17 }, -- the wrist of the semi-pistol grip, behind the guard
 		-- its own holds (user 2026-10-13: hold each gun where appropriate), built from its grip, forend and sights
 		-- (tools/animation/rifle.luau)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 122397590747708,
-			walk = 132355293924259,
-			carry = 111492198362235,
-			aim = 122070726635734,
-			equip = 71450535994230,
-			unequip = 116812363774678, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 105420937472327,
-			crouchWalk = 138227006700932,
-			crouchAim = 95607613119898,
+			ready = 140551871435218,
+			walk = 81215519553940,
+			carry = 119428875830732,
+			aim = 84854636666833,
+			equip = 72036096088316,
+			unequip = 93267993854514, -- put away onto the back (Config/Locomotion.Stow)
+			crouchReady = 78521608205736,
+			crouchWalk = 127233053921696,
+			crouchAim = 85481972800522,
 		},
 		firstPerson = {
 			ready = 102402737080974,
@@ -589,7 +594,7 @@ local Weapons: { [string]: Weapon } = {
 		-- straight handle at the rear of the bolt: turns up a quarter turn, the bolt slides back through the bridge
 		action = {
 			boltTime = 1.25,
-			reloadTime = 2.8,
+			reloadTime = 3.5, -- v2: +25% (user 2026-10-19)
 			turn = 90,
 			travel = 0.27,
 			fireTime = 0.35,
@@ -611,8 +616,8 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.136, 0.065, -0.0695 },
 			clipTop = { 0, 0.255, -0.1863 },
 			entry = 0,
-			body = 122499300440488,
-			firstPerson = 103984490170296,
+			body = 115167609079331,
+			firstPerson = 117602140790926,
 		},
 	},
 	rifle_smle = {
@@ -646,16 +651,17 @@ local Weapons: { [string]: Weapon } = {
 		grip = { 0, -0.05, 0.15 }, -- the wrist behind the butt socket
 		-- its own holds (user 2026-10-13: hold each gun where appropriate), built from its grip, forend and sights
 		-- (tools/animation/rifle.luau)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 80525771640790,
-			walk = 114188040637314,
-			carry = 119893426125614,
-			aim = 112261684163473,
-			equip = 99227268595174,
-			unequip = 81198522446397, -- put away onto the back (Config/Locomotion.Stow)
-			crouchReady = 95333155518953,
-			crouchWalk = 90238358355813,
-			crouchAim = 77470252454434,
+			ready = 106626345858398,
+			walk = 86203714250196,
+			carry = 99038350375470,
+			aim = 126169298976361,
+			equip = 125483711137564,
+			unequip = 83535543803771, -- put away onto the back (Config/Locomotion.Stow)
+			crouchReady = 90709952340150,
+			crouchWalk = 80571218794707,
+			crouchAim = 74306635264463,
 		},
 		firstPerson = {
 			ready = 71589430224575,
@@ -679,7 +685,7 @@ local Weapons: { [string]: Weapon } = {
 		-- magazine's top round
 		action = {
 			boltTime = 1.0, -- still the fastest bolt
-			reloadTime = 2.8,
+			reloadTime = 3.5, -- v2: +25% (user 2026-10-19)
 			turn = 60,
 			travel = 0.28,
 			fireTime = 0.35,
@@ -701,14 +707,14 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.11, -0.0276, 0.0376 },
 			clipTop = { 0, 0.2833, -0.1618 },
 			entry = 0,
-			body = 101808128954188,
-			firstPerson = 136843033262681,
+			body = 125218307958063,
+			firstPerson = 139832163545234,
 		},
 	},
 	-- The semi-automatic rifles, one per team (docs/MILESTONES.md W2, user 2026-10-18): one shot per click, at most one
 	-- every 0.35 s; the action cycles itself (no bolt to work); torso 55 / limbs 45 (Config/Damage SemiRifle); R always
 	-- fills the magazine. Gentle recoil (scale 0.8, build 0.3).
-	-- The grey team's Mondragón (FSK 15): 8 + 1 from 8-round stripper clips, the quickest reload, the lightest.
+	-- The grey team's Mondragón (FSK 15): 8 + 1 from 5-round clips (a second tops up the rest), the lightest.
 	rifle_mondragon = {
 		asset = "rifle_mondragon",
 		display = "Mondragón",
@@ -738,16 +744,17 @@ local Weapons: { [string]: Weapon } = {
 		},
 		grip = { 0, -0.0072, 0.2151 }, -- the wrist
 		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 112960095393177,
-			walk = 103945715390644,
-			carry = 123757042054478,
-			aim = 121378852487384,
-			equip = 127671876904663,
-			unequip = 128045850295250,
-			crouchReady = 80155317422027,
-			crouchWalk = 99368100494126,
-			crouchAim = 112552115265919,
+			ready = 120834070499659,
+			walk = 108542242322540,
+			carry = 98671117994210,
+			aim = 91487073174337,
+			equip = 85502951685731,
+			unequip = 91443560254621,
+			crouchReady = 130402887594771,
+			crouchWalk = 83429616166340,
+			crouchAim = 113687704218134,
 		},
 		firstPerson = {
 			ready = 99899869193706,
@@ -766,12 +773,14 @@ local Weapons: { [string]: Weapon } = {
 			muzzle = { 0.309, 0.9511, 0 },
 			side = { 0, 0, 1 },
 		},
-		ammo = { capacity = 8, clip = "Stripper" }, -- one 8-round clip fills it (8 + 1)
+		-- 5-round clips, the rest topped up from a second (user 2026-10-19: "reload in mags of 5, top off the rest")
+		ammo = { capacity = 8, clip = "Stripper", clipSize = 5 },
 		-- the bolt slides straight back (no turn) and returns by itself
 		action = {
 			auto = true,
 			boltTime = 0.12,
-			reloadTime = 2.5,
+			reloadTime = 2.8, -- one 5-round clip; two (from empty) 3.7 s
+			clipTime = 0.9,
 			turn = 0,
 			travel = 0.219,
 			fireTime = 0.35,
@@ -783,8 +792,10 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0.092, 0.065, -0.3492 }, -- the operating knob, bolt closed
 			clipTop = { 0, 0.3695, -0.2151 }, -- the clip's top over the open top
 			entry = 0,
-			body = 98845734063570, -- the knob pulled straight back, the clip thumbed down, the bolt let go (tools/animation/reload.luau)
-			firstPerson = 110440542474829,
+			body = 126928019033807, -- the knob pulled straight back, the clip thumbed down, the bolt let go (tools/animation/reload.luau)
+			firstPerson = 124547282113754,
+			firstPersonTwo = 111314271818130,
+			bodyTwo = 101134687311879,
 			depth = 0.27, -- 8 rounds in one row
 		},
 	},
@@ -818,16 +829,17 @@ local Weapons: { [string]: Weapon } = {
 		},
 		grip = { 0, -0.0558, 0.2966 }, -- the wrist
 		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 78935114715227,
-			walk = 91980449729732,
-			carry = 127853993151008,
-			aim = 88789435651072,
-			equip = 123623041335249,
-			unequip = 95030735983080,
-			crouchReady = 92589420335999,
-			crouchWalk = 130112716169185,
-			crouchAim = 114288557763066,
+			ready = 127699587265989,
+			walk = 121987202386013,
+			carry = 100807971064233,
+			aim = 137523101236015,
+			equip = 105995501607410,
+			unequip = 134210763532593,
+			crouchReady = 111038619727593,
+			crouchWalk = 121384492532717,
+			crouchAim = 84291737502596,
 		},
 		firstPerson = {
 			ready = 80058775294043,
@@ -847,12 +859,12 @@ local Weapons: { [string]: Weapon } = {
 			side = { 0, 0, 1 },
 		},
 		ammo = { capacity = 10, clip = "Stripper", clipSize = 5 }, -- two 5-round chargers fill it (10 + 1)
-		-- the bolt slides straight back (no turn) and returns by itself; a second charger adds clipTime (3 s in all)
+		-- the bolt slides straight back (no turn) and returns by itself; a second charger adds clipTime
 		action = {
 			auto = true,
 			boltTime = 0.12,
-			reloadTime = 2.4,
-			clipTime = 0.6,
+			reloadTime = 3.1, -- one charger; two 4.0 s (user 2026-10-19: slower)
+			clipTime = 0.9,
 			turn = 0,
 			travel = 0.133,
 			fireTime = 0.35,
@@ -865,10 +877,10 @@ local Weapons: { [string]: Weapon } = {
 			clipTop = { 0, 0.2842, -0.1133 }, -- the charger's top over the open top
 			entry = 0,
 			-- one charger, and two (the second pressed in before the bolt is let go; tools/animation/reload.luau)
-			body = 95035153496940,
-			firstPerson = 97243964724608,
-			bodyTwo = 82513830118516,
-			firstPersonTwo = 137427835663692,
+			body = 104150957769271,
+			firstPerson = 75746036527426,
+			bodyTwo = 115221448967769,
+			firstPersonTwo = 139715120468537,
 		},
 	},
 	-- The white team's Winchester 1907: 15 + 1 from a detachable box swapped whole, the slowest reload (5 s), the
@@ -902,16 +914,17 @@ local Weapons: { [string]: Weapon } = {
 		},
 		grip = { 0, -0.0437, 0.2579 }, -- the wrist
 		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
+		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 73304672899408,
-			walk = 126090430964250,
-			carry = 111999360654796,
-			aim = 101963361266005,
-			equip = 80907780600025,
-			unequip = 126852227629568,
-			crouchReady = 79193728467489,
-			crouchWalk = 87796533841238,
-			crouchAim = 74814021261605,
+			ready = 93720091175768,
+			walk = 130980450387519,
+			carry = 101240368863563,
+			aim = 101485302556328,
+			equip = 131693072645640,
+			unequip = 118191915320097,
+			crouchReady = 112467029219277,
+			crouchWalk = 72459068643756,
+			crouchAim = 95868975570564,
 		},
 		firstPerson = {
 			ready = 110794805321931,
@@ -934,7 +947,7 @@ local Weapons: { [string]: Weapon } = {
 		action = {
 			auto = true,
 			boltTime = 0.12,
-			reloadTime = 5,
+			reloadTime = 6.5, -- user 2026-10-19: "significantly slower" (was 5)
 			turn = 0,
 			travel = 0.169,
 			fireTime = 0.35,
@@ -947,9 +960,10 @@ local Weapons: { [string]: Weapon } = {
 			clipTop = { 0, -0.0547, -0.2432 }, -- the box seated
 			entry = -0.25, -- set this far under the well, then pushed up in
 			-- the box dropped, a fresh one pushed up in, the plunger pulled (tools/animation/reload.luau)
-			body = 121279399712953,
-			firstPerson = 124953434083352,
+			body = 93383100141861,
+			firstPerson = 132310341907955,
 			boxGrip = { 0, -0.29, -0.164 }, -- the box's bottom, seated
+			boxSide = { 0.03, -0.2, -0.164 }, -- its right side, halfway down
 			plunger = { 0, -0.0124, -1.2931 },
 		},
 	},

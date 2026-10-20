@@ -135,8 +135,8 @@ function GunFx.sound(gun: BasePart, name: string)
 	snd.Volume = c.volume
 	snd.TimePosition = c.start or 0
 	snd:Play()
-	if c.stop and c.fade then -- fade out before the cut
-		task.delay(math.max(0, c.stop - c.fade), function()
+	if c.stop and c.fade then -- fade out before the cut (stop is a time in the file: the play began at `start`)
+		task.delay(math.max(0, c.stop - (c.start or 0) - c.fade), function()
 			TweenService:Create(snd, TweenInfo.new(c.fade, Enum.EasingStyle.Linear), { Volume = 0 }):Play()
 		end)
 	end
@@ -699,6 +699,9 @@ function GunFx.cycle(
 	-- falls away, the fresh one rides in the right hand (under its bottom, as the animation brings the hand) from the
 	-- pouch to the well's mouth, then goes up in
 	local BOX_PARTS = { "Magazine", "Rounds", "Bullets" }
+	-- (only the box rides in the hand: the top rounds sit up in the receiver, over it, and floated out of the box, user
+	-- 2026-10-19; they show again once it is seated)
+	local HELD_PARTS = { "Magazine" }
 	local dropped = u0 > (cycle.drop or 0)
 	local boxProps: { [BasePart]: { { part: BasePart, rel: CFrame } } } = {}
 	local function boxes(u: number)
@@ -722,7 +725,7 @@ function GunFx.cycle(
 			local list = boxProps[gun]
 			if inHand and not list then
 				list = {}
-				for _, name in BOX_PARTS do
+				for _, name in HELD_PARTS do
 					local p = holder:FindFirstChild(name)
 					if p and p:IsA("BasePart") then
 						local copy = p:Clone()
@@ -747,8 +750,11 @@ function GunFx.cycle(
 				-- where the seated box would be moved to: the hand under it, then the well's mouth, then up in
 				local rig = if holder:IsA("Tool") then holder.Parent else holder
 				local hand = rig and rig:FindFirstChild("Right Arm") :: BasePart?
-				local g = r.boxGrip or r.clipTop
-				local held = gun.CFrame:PointToWorldSpace(Vector3.new(g[1] * s[1], g[2] * s[2] - 0.5, g[3] * s[3]))
+				-- (the body's hand holds it by its right side, the viewmodel's from under it: tools/animation/reload.luau)
+				local bodyHand = holder:IsA("Tool") and r.boxSide ~= nil
+				local g = (if bodyHand then r.boxSide else r.boxGrip) or r.clipTop
+				local off = if bodyHand then Vector3.new(0.5, 0, 0) else Vector3.new(0, -0.5, 0)
+				local held = gun.CFrame:PointToWorldSpace(Vector3.new(g[1] * s[1], g[2] * s[2], g[3] * s[3]) + off)
 				local mouth = gun.CFrame.UpVector * (r.entry * s[2])
 				local shift: Vector3
 				if u < cycle.set then
@@ -999,7 +1005,7 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 	if not tool or not single then
 		return
 	end
-	local SI, C = Cfg.Single, Cfg.ReloadCycle
+	local SI, C = Cfg.Single, Cfg.SingleCycle
 	local O, R, CL = SI.open, SI.round, SI.close
 	local s = w.scale
 	local turn, travel = math.rad(w.action.turn), w.action.travel * s[3]
