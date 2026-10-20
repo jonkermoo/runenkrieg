@@ -1,7 +1,7 @@
 --!strict
 -- Procedural ear and tail motion (Config/Species.Motion; user 2026-10-18: "procedural motion"). Every client moves
--- every soldier's species joints (src/server/Species: Motor6Ds named EarL / EarR on the Head, Tail1.. down the tail)
--- itself, through each Motor6D's Transform, so nothing replicates: ears drift and now and then one twitches, lie back
+-- every soldier's species joints (src/server/Species: Motor6Ds named EarL / EarR on the Head; the tail's bones Tail1..)
+-- itself, through each joint's Transform, so nothing replicates: ears drift and now and then one twitches, lie back
 -- while sprinting and flatten when hit (flat for good once dead); a tail sways, lifts as its soldier runs and swings
 -- against sideways motion, and hangs limp once dead. Characters beyond Motion.Range from the camera hold still.
 
@@ -20,7 +20,8 @@ local DEG = math.rad(1)
 
 -- one ear's eased angles and twitch timing
 type Ear = { motor: Motor6D, side: number, seed: number, x: number, y: number, z: number, twitchAt: number }
-type Seg = { motor: Motor6D, x: number, y: number }
+-- a tail bone: its rest turn in the Torso's axes (the angles are the Torso's, turned into the bone's own frame)
+type Seg = { bone: Bone, rest: CFrame, x: number, y: number }
 type State = {
 	ears: { Ear },
 	tail: { Seg },
@@ -80,17 +81,20 @@ local function stateOf(character: Model, now: number): State?
 		end
 	end
 	if wornTail then
-		local byNumber: { [number]: Motor6D } = {}
-		for _, m in wornTail:GetDescendants() do
-			if m:IsA("Motor6D") then
-				local n = Rule.segment(m.Name)
+		local byNumber: { [number]: Bone } = {}
+		for _, b in wornTail:GetDescendants() do
+			if b:IsA("Bone") then
+				local n = Rule.segment(Rule.base(b.Name))
 				if n then
-					byNumber[n] = m
+					byNumber[n] = b
 				end
 			end
 		end
+		local torso = fresh.torso
 		for n = 1, #byNumber do
-			table.insert(fresh.tail, { motor = byNumber[n], x = 0, y = 0 })
+			local bone = byNumber[n]
+			local rest = if torso then (torso.CFrame:ToObjectSpace(bone.WorldCFrame)).Rotation else CFrame.identity
+			table.insert(fresh.tail, { bone = bone, rest = rest, x = 0, y = 0 })
 		end
 	end
 	states[character] = fresh
@@ -144,7 +148,7 @@ local function step(dt: number)
 			local x, y = Rule.tailAngles(i, n, now, forward, sideways, if dead then 1 else 0, T)
 			seg.x = Rule.ease(seg.x, x, T.follow, dt)
 			seg.y = Rule.ease(seg.y, y, T.follow, dt)
-			seg.motor.Transform = CFrame.Angles(seg.x * DEG, seg.y * DEG, 0)
+			seg.bone.Transform = seg.rest:Inverse() * CFrame.Angles(seg.x * DEG, seg.y * DEG, 0) * seg.rest
 		end
 	end
 end

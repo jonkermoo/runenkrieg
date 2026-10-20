@@ -1,8 +1,8 @@
 --!strict
 -- Species ears and tails (Config/Species; user 2026-10-18/20). At spawn a soldier of a species gets its ears on the
 -- Head and its tail on the Torso, from the library models (Config/Assets `ears_<species>` / `tail_<species>`). Each
--- ear swings on a Motor6D at its root and each tail segment on one at its joint (the one before it, the first on the
--- Torso), so src/client/SpeciesMotion can move them locally; the rest of an ear (inner, tufts) is welded to it. The
+-- ear swings on a Motor6D at its root and the tail is one skinned mesh bent by its bones, so src/client/SpeciesMotion
+-- can move them locally; the rest of an ear (inner, tufts) is welded to it. The
 -- fur round each ear's root ("Ruff") stays on the head and hides while a helmet is on (it pokes through the shell).
 -- Colours by piece role (Rules/Species.color): the fur the hair colour, the elf ears the skin. Purely visual: no
 -- collisions, never hit (CanQuery off), massless. The character's "Species" attribute says which ("human": none).
@@ -59,7 +59,13 @@ local function pieces(entry: string, character: Model): (Model?, { [string]: Bas
 		return nil, {}, {}
 	end
 	local model = src:Clone()
-	local origin = model:FindFirstChild("Origin", true) :: BasePart?
+	local origin: BasePart? = nil
+	for _, p in model:GetDescendants() do
+		if p:IsA("BasePart") and Rule.base(p.Name) == "Origin" then
+			origin = p
+			break
+		end
+	end
 	if not origin then
 		warn(`[Species] {entry}: the model has no Origin marker`)
 		return nil, {}, {}
@@ -71,7 +77,7 @@ local function pieces(entry: string, character: Model): (Model?, { [string]: Bas
 	local rel: { [string]: CFrame } = {}
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") and p ~= origin then
-			local piece, role = Rule.split(p.Name)
+			local piece, role = Rule.split(Rule.base(p.Name))
 			local c = Rule.color(role, hair, skin, Palette.Species)
 			p.Color = Color3.fromRGB(c[1], c[2], c[3])
 			p.Material = Enum.Material.SmoothPlastic
@@ -82,7 +88,17 @@ local function pieces(entry: string, character: Model): (Model?, { [string]: Bas
 			rel[piece] = frame:ToObjectSpace(p.CFrame)
 		end
 	end
-	origin:Destroy()
+	if origin:FindFirstChildWhichIsA("Bone", true) then
+		-- a skinned model's bones may hang off its Origin marker: keep it, hidden, where it is
+		origin.Transparency = 1
+		origin.Material = Enum.Material.SmoothPlastic
+		origin.Anchored = false
+		origin.CanCollide, origin.CanQuery, origin.CanTouch, origin.Massless = false, false, false, true
+		byName.Origin = origin
+		rel.Origin = frame:ToObjectSpace(origin.CFrame)
+	else
+		origin:Destroy()
+	end
 	return model, byName, rel
 end
 
@@ -132,10 +148,11 @@ local function ears(character: Model, head: BasePart, kind: Kind)
 	model.Parent = character
 end
 
+-- The tail: one smooth skinned mesh (and its tip) welded to the Torso; its bones (Tail1..) bend it, moved by
+-- src/client/SpeciesMotion.
 local function tail(character: Model, torso: BasePart, kind: Kind)
 	local entry = kind.tail
-	local pivots = kind.tailPivots
-	if not entry or not pivots then
+	if not entry then
 		return
 	end
 	local model, byName, rel = pieces(entry, character)
@@ -143,25 +160,17 @@ local function tail(character: Model, torso: BasePart, kind: Kind)
 		return
 	end
 	model.Name = "Tail"
-	local segs: { [number]: string } = {}
-	for piece in byName do
-		local n = Rule.segment(piece)
-		if n then
-			segs[n] = piece
-		else
-			weld(torso, byName[piece], rel[piece])
+	for piece, p in byName do
+		weld(torso, p, rel[piece])
+	end
+	local bones = 0
+	for _, b in model:GetDescendants() do
+		if b:IsA("Bone") and Rule.segment(Rule.base(b.Name)) then
+			bones += 1
 		end
 	end
-	local parent, parentRel = torso, CFrame.identity
-	for n = 1, #pivots do
-		local piece = segs[n]
-		if not piece then
-			warn(`[Species] {entry}: no Tail{n}`)
-			break
-		end
-		local p = byName[piece]
-		motor(`Tail{n}`, parent, parentRel, p, rel[piece], CFrame.new(vec(pivots[n])))
-		parent, parentRel = p, rel[piece]
+	if bones ~= kind.tailBones then
+		warn(`[Species] {entry}: {bones} tail bones, Config/Species says {kind.tailBones}`)
 	end
 	model.Parent = character
 end

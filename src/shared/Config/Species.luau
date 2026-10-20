@@ -10,8 +10,8 @@ export type Kind = {
 	tail: string?, -- Config/Assets entry
 	-- each ear's pivot (its root on the head, head-local studs, Roblox axes): the ear swings round it
 	earPivots: { [string]: { number } },
-	-- each tail segment's joint (where it meets the one before; the first on the Torso), Torso-local studs
-	tailPivots: { { number } }?,
+	-- how many bones (Tail1..) bend the tail's skinned mesh
+	tailBones: number?,
 	-- how much of Motion.Ear this species' ears move (the elf blades barely)
 	earMotion: number,
 }
@@ -28,21 +28,14 @@ local Species = {
 			ears = "ears_katzling",
 			tail = "tail_katzling",
 			earPivots = { EarR = { 0.37, 0.5, 0.22 }, EarL = { -0.37, 0.5, 0.22 } },
-			tailPivots = {
-				{ 0, -0.72, 0.5 },
-				{ 0, -1.0093, 0.8447 },
-				{ 0, -1.1778, 1.262 },
-				{ 0, -1.1632, 1.6817 },
-				{ 0, -0.9791, 2.0592 },
-				{ 0, -0.6913, 2.3371 },
-			},
+			tailBones = 5,
 			earMotion = 1,
 		},
 		fennek = {
 			ears = "ears_fennek",
 			tail = "tail_fennek",
 			earPivots = { EarR = { 0.34, 0.46, 0.22 }, EarL = { -0.34, 0.46, 0.22 } },
-			tailPivots = { { 0, -0.72, 0.5 }, { 0, -0.9722, 0.697 }, { 0, -1.2666, 1.024 }, { 0, -1.4997, 1.3971 } },
+			tailBones = 5,
 			earMotion = 1,
 		},
 		alb = {
@@ -73,12 +66,12 @@ local Species = {
 		Tail = {
 			swayDeg = 7, -- an idle side to side sway, travelling down the tail
 			swayHz = 0.45,
-			phasePerSegment = 0.6, -- radians later per segment
+			phasePerSegment = 0.6, -- radians later per bone
 			liftPerSpeed = 1.2, -- moving forward lifts it, up to `liftMax`
 			liftMax = 20,
 			lagPerSpeed = 2.5, -- moving sideways swings it the other way, up to `lagMax`
 			lagMax = 25,
-			deadDroopDeg = 12, -- each segment hangs this much lower once dead, with no sway
+			deadDroopDeg = 12, -- each bone hangs this much lower once dead, with no sway
 			follow = 6,
 		},
 	},

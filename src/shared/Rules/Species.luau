@@ -17,6 +17,11 @@ function Species.of(kit: string, override: any, cfg: any): string?
 	return cfg.Kits[kit]
 end
 
+-- A part's name without a ".001"-style suffix (an exporter's duplicate-name mark).
+function Species.base(name: string): string
+	return (string.gsub(name, "%.%d+$", ""))
+end
+
 -- A piece's name `<Piece>_<role>` split into the piece and its role ("EarRTufts_Fluff" -> "EarRTufts", "Fluff").
 function Species.split(name: string): (string, string?)
 	local piece, role = string.match(name, "^(.-)_(%a+)$")

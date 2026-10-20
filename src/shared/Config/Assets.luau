@@ -488,7 +488,7 @@ local Assets = {
 		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
 		-- the head's center), tails Torso-local (the Torso's center).
 		ears_katzling = {
-			id = 131909248233922,
+			id = 105362765217637, -- v1 131909248233922 (named pieces clashed)
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/ears_katzling.fbx",
@@ -497,7 +497,7 @@ local Assets = {
 				.. "fur tufts in the cup and on the edges, a ruff round each root (408 tris).",
 		},
 		ears_fennek = {
-			id = 96521357487348,
+			id = 135952144124699, -- v1 96521357487348 (named pieces clashed)
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/ears_fennek.fbx",
@@ -506,7 +506,7 @@ local Assets = {
 				.. "and on the edges, a ruff round each root (344 tris).",
 		},
 		ears_alb = {
-			id = 96073907474669,
+			id = 99118164513786, -- v1 96073907474669 (named pieces clashed)
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/ears_alb.fbx",
@@ -515,20 +515,22 @@ local Assets = {
 				.. "the helmet rim (92 tris).",
 		},
 		tail_katzling = {
-			id = 93930987857958,
+			id = 78500799352387, -- v1 93930987857958 (ringed segments)
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/tail_katzling.fbx",
 			generator = "tools/blender/gear/species.py",
-			description = "Katzling cat tail: six thin tufty segments curving down then up (728 tris).",
+			description = "Katzling cat tail: one smooth tapered mesh hanging behind the legs, curling up at the end in a J, "
+				.. "skinned to 5 bones Tail1-5 (concept A; 2.15 long).",
 		},
 		tail_fennek = {
-			id = 89946798239053,
+			id = 110025158183885, -- v1 89946798239053 (ringed segments)
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/tail_fennek.fbx",
 			generator = "tools/blender/gear/species.py",
-			description = "Fennek fennec tail: four thick bushy segments hanging low, a pale tip (400 tris).",
+			description = "Fennek fennec tail: one long bushy brush, wolf-shaped, hanging down and back and curving up, a dark "
+				.. "tip mesh, skinned to 5 bones Tail1-5 (2.3 long, 376 tris).",
 		},
 		TreeKit = {
 			id = 78828564935129,

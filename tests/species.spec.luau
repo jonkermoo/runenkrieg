@@ -18,9 +18,9 @@ return {
 			assert(kind.earMotion >= 0 and kind.earMotion <= 1, `{name}: earMotion out of 0..1`)
 			if kind.tail then
 				assert(A.Entries[kind.tail], `{name}: tail {kind.tail} not in Config/Assets`)
-				assert(kind.tailPivots and #kind.tailPivots >= 2, `{name}: a tail needs its segment pivots`)
+				assert(kind.tailBones and kind.tailBones >= 2, `{name}: a tail needs its bone count`)
 			else
-				assert(kind.tailPivots == nil, `{name}: tail pivots without a tail`)
+				assert(kind.tailBones == nil, `{name}: tail bones without a tail`)
 			end
 		end
 		for kit, name in Cfg.Kits do
@@ -45,6 +45,9 @@ return {
 	["piece names split into piece, role, ear and segment"] = function()
 		local piece, role = Species.split("EarRTufts_Fluff")
 		assert(piece == "EarRTufts" and role == "Fluff", "split")
+		assert(Species.base("Origin.003") == "Origin" and Species.base("EarR_Fur") == "EarR_Fur", "suffix stripped")
+		local inner, innerRole = Species.split("EarLInner_Inner")
+		assert(inner == "EarLInner" and innerRole == "Inner", "the inner is its own piece, not the ear")
 		local tag, shell, ruff = Species.ear("EarL")
 		assert(tag == "EarL" and shell and not ruff, "the ear itself")
 		tag, shell, ruff = Species.ear("EarRRuff")
