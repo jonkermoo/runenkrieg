@@ -1,0 +1,126 @@
+--!strict
+-- Species rules (Config/Species): which species a soldier is, what colour each piece of its ears and tail takes, and
+-- the procedural motion's angles. Pure: the server (src/server/Species) and client (src/client/SpeciesMotion) feed
+-- it the numbers.
+
+local Species = {}
+
+-- The species for a uniform `kit`, or nil (a plain human). `override` (a player's "Species" attribute: a Kinds name
+-- or "human") wins when it names something real.
+function Species.of(kit: string, override: any, cfg: any): string?
+	if override == "human" then
+		return nil
+	end
+	if type(override) == "string" and cfg.Kinds[override] then
+		return override
+	end
+	return cfg.Kits[kit]
+end
+
+-- A piece's name `<Piece>_<role>` split into the piece and its role ("EarRTufts_Fluff" -> "EarRTufts", "Fluff").
+function Species.split(name: string): (string, string?)
+	local piece, role = string.match(name, "^(.-)_(%a+)$")
+	if not piece then
+		return name, nil
+	end
+	return piece, role
+end
+
+-- Which ear ("EarL" / "EarR") a piece belongs to, or nil; `shell` when it is the ear itself (the part that swings),
+-- `ruff` when it is the fur round the root (stays on the head, hidden under a helmet).
+function Species.ear(piece: string): (string?, boolean, boolean)
+	local tag, rest = string.match(piece, "^(Ear[LR])(.*)$")
+	if not tag then
+		return nil, false, false
+	end
+	return tag, rest == "", rest == "Ruff"
+end
+
+-- The tail segment number of a piece ("Tail3" -> 3), or nil.
+function Species.segment(piece: string): number?
+	local n = string.match(piece, "^Tail(%d+)$")
+	return n and tonumber(n)
+end
+
+-- The colour (0-255 RGB) of a piece with `role`: Fur the hair colour, Fluff the hair colour part way to cream, Skin
+-- the skin tone, Inner / Tip the palette's.
+function Species.color(role: string?, hair: { number }, skin: { number }, palette: any): { number }
+	if role == "Skin" then
+		return skin
+	elseif role == "Fluff" then
+		local k = palette.FluffShare
+		local out = {}
+		for i = 1, 3 do
+			out[i] = math.floor(hair[i] + (palette.Cream[i] - hair[i]) * k + 0.5)
+		end
+		return out
+	elseif role == "Inner" or role == "Tip" then
+		return palette[role]
+	end
+	return hair
+end
+
+-- One ear's wanted angles (degrees about the head's X, Y and Z at its pivot) at time `t`:
+--   side = 1 right / -1 left, seed = its own rhythm, motion = the species' share (Kind.earMotion),
+--   twitch = 0..1 through a twitch (Species.twitch), back = 0..1 lying back (sprinting), flat = 0..1 flattened (hurt;
+--   1 when dead). X tilts the ear back, Y swivels it, Z rolls it out to its side.
+function Species.earAngles(
+	t: number,
+	side: number,
+	seed: number,
+	motion: number,
+	twitch: number,
+	back: number,
+	flat: number,
+	cfg: any
+): (number, number, number)
+	local sway = math.sin((t * cfg.swayHz + seed) * 2 * math.pi) * cfg.swayDeg
+	local x = sway * cfg.swayTilt + back * cfg.sprintBackDeg + flat * cfg.hurtFlatDeg
+	local y = side * (sway * cfg.swaySwivel + twitch * cfg.twitchDeg)
+	local z = -side * flat * cfg.hurtFlatDeg * cfg.flatRoll
+	return x * motion, y * motion, z * motion
+end
+
+-- A twitch's shape over its `time`: up fast, back down, 0 outside.
+function Species.twitch(since: number, time: number): number
+	if since < 0 or since > time then
+		return 0
+	end
+	return math.sin(since / time * math.pi)
+end
+
+-- How flat the ears lie `since` seconds after a hit (1 at the hit, 0 after `time`).
+function Species.hurt(since: number, time: number): number
+	if since < 0 or since >= time then
+		return 0
+	end
+	return 1 - since / time
+end
+
+-- Tail segment `i` of `n`: its wanted angles (degrees about the Torso's X and Y at its joint) at time `t`, moving
+-- `forward` and `sideways` studs/s in the Torso's frame; `dead` 0..1. X < 0 lifts the tail, Y swings it (+ = to the
+-- right of a tail pointing back).
+function Species.tailAngles(
+	i: number,
+	n: number,
+	t: number,
+	forward: number,
+	sideways: number,
+	dead: number,
+	cfg: any
+): (number, number)
+	local live = 1 - dead
+	local sway = math.sin(t * cfg.swayHz * 2 * math.pi - (i - 1) * cfg.phasePerSegment) * cfg.swayDeg
+	local lift = math.clamp(forward * cfg.liftPerSpeed, 0, cfg.liftMax) / n
+	local lag = math.clamp(-sideways * cfg.lagPerSpeed, -cfg.lagMax, cfg.lagMax) / n
+	local x = -lift * live + dead * cfg.deadDroopDeg
+	local y = (sway + lag) * live
+	return x, y
+end
+
+-- Eases `from` toward `to` at `rate` per second over `dt` (frame-rate independent).
+function Species.ease(from: number, to: number, rate: number, dt: number): number
+	return to + (from - to) * math.exp(-rate * dt)
+end
+
+return Species

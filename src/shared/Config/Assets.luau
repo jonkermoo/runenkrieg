@@ -484,6 +484,52 @@ local Assets = {
 				center = { 0, 0.3781, 0.0023 },
 			},
 		},
+		-- Species ears and tails (Config/Species, src/server/Species; user 2026-10-18/20): one piece per mesh, named
+		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
+		-- the head's center), tails Torso-local (the Torso's center).
+		ears_katzling = {
+			id = 131909248233922,
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_katzling.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Katzling cat ears: broad, blunt, the outer edge curving in, thick front to back, a pale inner, "
+				.. "fur tufts in the cup and on the edges, a ruff round each root (408 tris).",
+		},
+		ears_fennek = {
+			id = 96521357487348,
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_fennek.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Fennek fennec ears: tall (1.3), nearly upright, thick, a pale inner, fur tufts in the cup "
+				.. "and on the edges, a ruff round each root (344 tris).",
+		},
+		ears_alb = {
+			id = 96073907474669,
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_alb.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Alb elf ears: long skin-coloured blades out of the head's sides, pointing down and back under "
+				.. "the helmet rim (92 tris).",
+		},
+		tail_katzling = {
+			id = 93930987857958,
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/tail_katzling.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Katzling cat tail: six thin tufty segments curving down then up (728 tris).",
+		},
+		tail_fennek = {
+			id = 89946798239053,
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/tail_fennek.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Fennek fennec tail: four thick bushy segments hanging low, a pale tip (400 tris).",
+		},
 		TreeKit = {
 			id = 78828564935129,
 			category = "Foliage",
