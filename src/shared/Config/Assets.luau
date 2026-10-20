@@ -484,6 +484,54 @@ local Assets = {
 				center = { 0, 0.3781, 0.0023 },
 			},
 		},
+		-- Species ears and tails (Config/Species, src/server/Species; user 2026-10-18/20): one piece per mesh, named
+		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
+		-- the head's center), tails Torso-local (the Torso's center).
+		ears_katzling = {
+			id = 105362765217637, -- v1 131909248233922 (named pieces clashed)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_katzling.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Katzling cat ears: broad, blunt, the outer edge curving in, thick front to back, a pale inner, "
+				.. "fur tufts in the cup and on the edges, a ruff round each root (408 tris).",
+		},
+		ears_fennek = {
+			id = 135952144124699, -- v1 96521357487348 (named pieces clashed)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_fennek.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Fennek fennec ears: tall (1.3), nearly upright, thick, a pale inner, fur tufts in the cup "
+				.. "and on the edges, a ruff round each root (344 tris).",
+		},
+		ears_alb = {
+			id = 99118164513786, -- v1 96073907474669 (named pieces clashed)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/ears_alb.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Alb elf ears: long skin-coloured blades out of the head's sides, pointing down and back under "
+				.. "the helmet rim (92 tris).",
+		},
+		tail_katzling = {
+			id = 78500799352387, -- v1 93930987857958 (ringed segments)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/tail_katzling.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Katzling cat tail: one smooth tapered mesh hanging behind the legs, curling up at the end in a J, "
+				.. "skinned to 5 bones Tail1-5 (concept A; 2.15 long).",
+		},
+		tail_fennek = {
+			id = 110025158183885, -- v1 89946798239053 (ringed segments)
+			category = "Teams",
+			folder = "Shared/Species",
+			source = "assets/teams/shared/species/tail_fennek.fbx",
+			generator = "tools/blender/gear/species.py",
+			description = "Fennek fennec tail: one long bushy brush, wolf-shaped, hanging down and back and curving up, a dark "
+				.. "tip mesh, skinned to 5 bones Tail1-5 (2.3 long, 376 tris).",
+		},
 		TreeKit = {
 			id = 78828564935129,
 			category = "Foliage",
