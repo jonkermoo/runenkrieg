@@ -207,7 +207,7 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 		-- running front to back with the head forward; the left arm free (tools/animation/staff.luau)
 		-- equip: off the back over the right shoulder (like the rifles'); carry: low at the side while sprinting (no
 		-- firing); aim: the right arm out, the staff level at chest height; aimTwo: both hands, in front of the chest;
-		-- charge: drawn back more and more, the left hand joining halfway to stage 3 (src/client/StaffAttack); no crouch
+		-- charge: drawn back more and more, the left hand on by stage 2 (src/client/StaffAttack); no crouch
 		-- holds yet (the ready plays)
 		holds = {
 			ready = 119234625003629,
@@ -215,11 +215,11 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			carry = 112870868696570,
 			aim = 88831510650616,
 			aimTwo = 86681465612273, -- at the right side (user 2026-10-19: "make sure the staff is on our right side")
-			charge = 103451564817751, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
-			airCharge = 128965516186736, -- in the air (floating): leaning back as it charges
+			charge = 73620756613940, -- the arms shake more and more, and keep shaking once ready (user 2026-10-13)
+			airCharge = 103729690954572, -- in the air (floating): leaning back as it charges
 			-- charging with both hands already on (user 2026-10-13: it went back to one hand first)
-			chargeTwo = 111875640876355,
-			airChargeTwo = 120791575488143,
+			chargeTwo = 102656778029004,
+			airChargeTwo = 94943550305563,
 			equip = 105902337487636,
 			unequip = 130701792854486, -- put away onto the back (Config/Locomotion.Stow)
 		},
@@ -231,8 +231,8 @@ local function staff(display: string, colors: { [string]: { number } }): Weapon
 			aim = 96292870185836,
 			aimIn = 117766595310610,
 			aimTwo = 139107991867244,
-			charge = 108466726703676,
-			chargeTwo = 121381197496636, -- with both hands already on
+			charge = 133069843329053,
+			chargeTwo = 125821148482130, -- with both hands already on
 			equip = 80156061468327,
 			unequip = 79165303145977,
 		},
