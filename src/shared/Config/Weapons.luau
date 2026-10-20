@@ -100,7 +100,8 @@ export type Weapon = {
 	-- space (R6 Torso: +X right, +Y up, front -Z, back face at z +0.5): `at` is the gun origin, `muzzle` the way the
 	-- muzzle points, `side` the way the gun's right side (+X, the bolt handle) faces.
 	-- None: nothing shows on the body while it's put away (the grenades).
-	stow: { part: string, at: { number }, muzzle: { number }, side: { number } }?,
+	-- beside: strapped to the side of the pack, so not pushed back by the pack's `sling` (src/server/Armory).
+	stow: { part: string, at: { number }, muzzle: { number }, side: { number }, beside: boolean? }?,
 	-- Shooting (Config/Firing, Rules/Firing): rounds per clip and how the clip loads ("Enbloc": the whole clip goes
 	-- into the magazine and drops out the bottom when empty, only reloaded empty; "Stripper": the rounds are pushed
 	-- down out of a clip held in the guides, topping the magazine up). Guns only: an item without `ammo` doesn't fire
@@ -495,11 +496,14 @@ local Weapons: { [string]: Weapon } = {
 		-- slung on the back (user references 2026-10-11): flat against the back with the bolt handle out, leaning
 		-- 18 degrees so the thick stock stays inside the torso's width (butt at the upper thigh) while the rifle
 		-- passes clear of the head and rises ~1.3 studs above it over the right shoulder
+		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 }, -- sin 18, cos 18
-			side = { 0, 0, 1 },
+			at = { 1.08, -0.4, 1.05 },
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { 0.9986, -0.0523, 0 },
+			beside = true,
 		},
 		-- its 6-round en-bloc clip: one round more than the other rifles (6 + 1), balanced by reloading only with the
 		-- magazine empty (1 or 0 rounds left; user 2026-10-12)
@@ -587,11 +591,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
+		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 1.08, -0.4, 1.05 },
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { 0.9986, -0.0523, 0 },
+			beside = true,
 		},
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a stripper clip in the guides (5 + 1)
 		-- straight handle at the rear of the bolt: turns up a quarter turn, the bolt slides back through the bridge
@@ -677,11 +684,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
+		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 1.08, -0.4, 1.05 },
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { 0.9986, -0.0523, 0 },
+			beside = true,
 		},
 		ammo = { capacity = 5, clip = "Stripper" }, -- 5 rounds pushed down out of a charger in the guides (5 + 1); tops up
 		-- the Lee's short lift (60 deg) and cock-on-closing make the fastest bolt; the bolt slides back clear of the
@@ -770,11 +780,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
+		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 1.08, -0.4, 1.05 },
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { 0.9986, -0.0523, 0 },
+			beside = true,
 		},
 		-- 5-round clips, the rest topped up from a second (user 2026-10-19: "reload in mags of 5, top off the rest")
 		ammo = { capacity = 8, clip = "Stripper", clipSize = 5 },
@@ -855,11 +868,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
+		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 1.08, -0.4, 1.05 },
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { 0.9986, -0.0523, 0 },
+			beside = true,
 		},
 		ammo = { capacity = 10, clip = "Stripper", clipSize = 5 }, -- two 5-round chargers fill it (10 + 1)
 		-- the bolt slides straight back (no turn) and returns by itself; a second charger adds clipTime
@@ -940,11 +956,14 @@ local Weapons: { [string]: Weapon } = {
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.85 -> 4.27 studs long
+		-- strapped upright on the right side of the pack, the bolt out (user 2026-10-20: "strap all the rifles to the right
+		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
 			part = "Torso",
-			at = { 0.5, -0.04, 0.71 },
-			muzzle = { 0.309, 0.9511, 0 },
-			side = { 0, 0, 1 },
+			at = { 1.08, -0.4, 1.05 },
+			muzzle = { 0.0523, 0.9986, 0 }, -- sin 3, cos 3
+			side = { 0.9986, -0.0523, 0 },
+			beside = true,
 		},
 		ammo = { capacity = 15, clip = "Box" }, -- a fresh 15-round box (15 + 1)
 		action = {
@@ -1097,13 +1116,14 @@ Weapons.shovel = {
 	},
 	hipConverge = 0,
 	scale = { 1, 1, 1 }, -- modelled at game size (3.5 long)
-	-- strapped upright to the back of the pack, the D-grip at the bottom and the blade over the left shoulder (leaning
-	-- 10 degrees left, away from the slung rifle's muzzle), its hollow toward the pack (user 2026-10-20: "On the pack")
+	-- strapped upright on the left side of the pack, the D-grip at the bottom, the blade up, its hollow against the bag
+	-- (user 2026-10-20: "strap it on the left of the bag", then "point straight up"), leaning 3 degrees out
 	stow = {
 		part = "Torso",
-		at = { -0.35, -0.45, 0.55 }, -- (Studio 2026-10-20: at -0.9 the D-grip hung below the pack)
-		muzzle = { -0.1736, 0.9848, 0 }, -- sin 10, cos 10
-		side = { -0.9848, -0.1736, 0 },
+		at = { -1.0, -1.2, 0.95 },
+		muzzle = { -0.0523, 0.9986, 0 }, -- sin 3, cos 3
+		side = { 0, 0, -1 },
+		beside = true,
 	},
 }
 
