@@ -133,7 +133,15 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 	})
 	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
 	trail.Parent = core
-	local light = Vfx.Pool.light(origin, rgb(P.color), P.light, 2)
+	local light = Vfx.Pool.light(origin, rgb(P.color), P.light, P.star and P.star.brightness or 2)
+	-- a star (user 2026-10-21: "make the projectile look like a bright star as its flying"): long and short glowing
+	-- spikes out of the core, always square to the camera, turning and twinkling
+	local spikes: { Part } = {}
+	if P.star then
+		for k = 1, P.star.spikes * 2 do
+			spikes[k] = Vfx.Pool.part(Enum.PartType.Block, rgb(P.star.color), Vector3.one, CFrame.new(origin), 0)
+		end
+	end
 	local nextArc = 0
 	local t0 = os.clock()
 	local g = gun.gravity
@@ -148,6 +156,9 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 			a0:Destroy()
 			a1:Destroy()
 			Vfx.Pool.freePart(core)
+			for _, sp in spikes do
+				Vfx.Pool.freePart(sp)
+			end
 			if light then
 				Vfx.Pool.freeLight(light)
 			end
@@ -156,6 +167,19 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 		local p = at(t)
 		local ahead = at(t + 0.02)
 		core.CFrame = CFrame.lookAt(p, ahead)
+		if P.star then
+			local S = P.star
+			local face = CFrame.lookAt(p, workspace.CurrentCamera.CFrame.Position)
+			local spin = math.rad(S.spin * t)
+			local twinkle = 1 + S.twinkle * math.sin(t * 23) * math.sin(t * 7.1)
+			for k, sp in spikes do
+				local long = k % 2 == 1
+				local len = (if long then S.long else S.short) * twinkle
+				local w = if long then S.width else S.width * 0.7
+				sp.Size = Vector3.new(w, len, w)
+				sp.CFrame = face * CFrame.Angles(0, 0, spin + math.pi * (k - 1) / #spikes)
+			end
+		end
 		if light then
 			(light.Parent :: Attachment).WorldPosition = p
 		end
@@ -173,7 +197,12 @@ end
 function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () -> ()
 	local C = F.Charge
 	local time = gun.charge
-	local circle = Vfx.Circle.open(muzzle * CFrame.new(0, 0, -C.ahead), C.circle, C.color, C.appear)
+	-- the layered circles (user 2026-10-21: "a similar multi layer circle animation" to the staff's, "the circles are
+	-- way way WAY bigger"): stacked out from the muzzle along the bore, each opening in its turn through the charge,
+	-- larger the further out, curves orbiting each
+	local circles: { any } = {}
+	local orbits: { any } = {}
+	local opened: { boolean } = {}
 	local orb = Vfx.Charge.start(muzzle.Position, time, C.color)
 	if crystal then
 		Vfx.Aura.play(crystal, time, C.color)
@@ -182,17 +211,40 @@ function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () ->
 	SoundFx.play(C.open :: any, muzzle.Position)
 	local stopped = false
 	local t0 = os.clock()
-	local nextBolt = 0
+	local nextBolt, nextArc = 0, 0
+	local function frame(layer: any): CFrame
+		return muzzle * CFrame.new(0, 0, -layer.ahead)
+	end
 	Vfx.Driver.add(function(now: number): boolean
 		if stopped then
 			return false
 		end
-		local k = math.clamp((now - t0) / time, 0, 1)
+		local t = now - t0
+		local k = math.clamp(t / time, 0, 1)
+		for i, layer in C.layers do
+			if not opened[i] and t >= layer.at * time then
+				opened[i] = true
+				circles[i] =
+					Vfx.Circle.open(frame(layer), layer.diameter, C.color, layer.appear, layer.assemble == true)
+				orbits[i] = Vfx.Orbits.new(layer.orbits, layer.diameter, C.color)
+				orbits[i].move(frame(layer))
+			end
+		end
 		hum.set(C.humVolume * (0.3 + 0.7 * k), C.humPitch[1] + (C.humPitch[2] - C.humPitch[1]) * k)
 		-- lightning from the crystal along the barrel to the muzzle, quicker as it builds
 		if crystal and now >= nextBolt then
 			nextBolt = now + C.boltEvery[1] + (C.boltEvery[2] - C.boltEvery[1]) * k
 			Vfx.Lightning.bolt(crystal.Position, muzzle.Position, C.boltLife, C.color)
+		end
+		-- and between the circles' rims, more as it builds
+		local last = #circles
+		if last >= 2 and now >= nextArc then
+			nextArc = now + C.rimEvery[1] + (C.rimEvery[2] - C.rimEvery[1]) * k
+			local a = math.random() * 2 * math.pi
+			local l0, l1 = C.layers[1], C.layers[last]
+			local p0 = frame(l0) * CFrame.new(math.cos(a) * l0.diameter / 2, math.sin(a) * l0.diameter / 2, 0)
+			local p1 = frame(l1) * CFrame.new(math.cos(a) * l1.diameter / 2, math.sin(a) * l1.diameter / 2, 0)
+			Vfx.Lightning.bolt(p0.Position, p1.Position, C.boltLife, C.color)
 		end
 		return true
 	end)
@@ -203,7 +255,14 @@ function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () ->
 		stopped = true
 		hum.stop(0.15)
 		orb.release()
-		circle.close()
+		-- they crumble outermost first
+		for i = #circles, 1, -1 do
+			local c, o = circles[i], orbits[i]
+			task.delay((#circles - i) * C.closeEach, function()
+				c.close()
+				o.stop(0.2)
+			end)
+		end
 	end
 end
 

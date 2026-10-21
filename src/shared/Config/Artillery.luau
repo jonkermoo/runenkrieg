@@ -74,6 +74,7 @@ export type Gun = {
 		light: number,
 		magic: boolean,
 		static: string?,
+		star: any?,
 	},
 	-- the gunner's camera (user 2026-10-20: "a cinematic lower left angle camera pov"): out at the gun's left, `side` (-
 	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
@@ -138,9 +139,8 @@ local Artillery = {
 	-- across the ground (`ground` studs, when the ground is within `groundReach`); Air: a see-through bubble swelling
 	-- `size` studs over `time` s; Shake: the camera kicked `shot` / `blast` degrees within `reach` / `blastReach` studs
 	-- (x the gun's muzzleScale, x the charge's cube root), dying over `time` s; Static: the magic shell's bolts every
-	-- `every` s, `reach` x its size long, living `life` s; Charge: the howitzer's charge-up (a circle `circle` studs
-	-- across `ahead` past the muzzle, opening over `appear` s; bolts crystal -> muzzle every `boltEvery` s from start to
-	-- end; the hum rising in volume and pitch); Blast: the magic blast's `bolts` leaping out over `spread` s, an aura for
+	-- `every` s, `reach` x its size long, living `life` s; Charge: the howitzer's charge-up (layered circles, below;
+	-- bolts crystal -> muzzle every `boltEvery` s from start to end; the hum rising in volume and pitch); Blast: the magic blast's `bolts` leaping out over `spread` s, an aura for
 	-- `aura` s.
 	Fx = {
 		Shot = { color = "Core", wave = 26, ahead = 2, ground = 30, groundReach = 9 },
@@ -149,9 +149,16 @@ local Artillery = {
 		Static = { every = 0.07, reach = 2.2, life = 0.09 },
 		Charge = {
 			color = "Glow",
-			circle = 9,
-			ahead = 1.5,
-			appear = 0.5,
+			-- the layered circles, stacked out from the muzzle (user 2026-10-21: "multi layer ... way way WAY bigger"): each
+			-- opens at `at` of the charge over `appear` s (the last one assembling), `ahead` studs out, `diameter` across,
+			-- `orbits` curves round it; on the shot they crumble outermost first, `closeEach` s apart
+			layers = {
+				{ at = 0, ahead = 3, diameter = 16, appear = 0.3, orbits = 2 },
+				{ at = 0.3, ahead = 11, diameter = 30, appear = 0.35, orbits = 3 },
+				{ at = 0.55, ahead = 22, diameter = 48, appear = 0.6, orbits = 4, assemble = true },
+			},
+			closeEach = 0.08,
+			rimEvery = { 0.3, 0.06 }, -- lightning between the first and last rims, every this many s (start, end)
 			boltEvery = { 0.35, 0.08 },
 			boltLife = 0.12,
 			hum = { id = 9113126091, volume = 1, loop = true, profile = "Hum", eq = { 3, 0, -10 } },
@@ -394,15 +401,27 @@ local Artillery = {
 				whistleLead = 2.5,
 			},
 			zone = 17, -- 15 kg: lethal to ~9, hurt to ~17
-			-- a blue orb trailing light, static crackling round it
+			-- a bright star (user 2026-10-21: "make the projectile look like a bright star as its flying"): a white-hot core,
+			-- `star.spikes` long and as many short spikes square to the camera, turning `spin` deg/s, twinkling by `twinkle`,
+			-- a strong light; a blue trail of light and static crackling round it
 			shell = {
-				size = 2.2,
-				color = { 120, 200, 255 },
-				tail = { 70, 90, 230 },
-				trail = 1.2,
-				light = 24,
+				size = 2.4,
+				color = { 235, 250, 255 },
+				tail = { 90, 170, 255 },
+				trail = 1.4,
+				light = 40,
 				magic = true,
 				static = "Glow",
+				star = {
+					spikes = 4,
+					long = 9,
+					short = 4.5,
+					width = 0.35,
+					spin = 60,
+					twinkle = 0.25,
+					brightness = 6,
+					color = { 220, 245, 255 },
+				},
 			},
 			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
 			camera = { side = -16, up = 8, back = 18, yaw = 25, pitch = 6, follow = 0.12, fov = 65 },
