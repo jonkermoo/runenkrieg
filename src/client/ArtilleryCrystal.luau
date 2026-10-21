@@ -138,11 +138,23 @@ local function colorAt(glow: number): Color3
 	return rgb(Cfg.ready):Lerp(rgb(Cfg.fired), math.clamp(glow - 1, 0, 1))
 end
 
-function ArtilleryCrystal.update(s: State, now: number, firedAt: number, readyAt: number, reload: number)
+function ArtilleryCrystal.update(
+	s: State,
+	now: number,
+	firedAt: number,
+	readyAt: number,
+	reload: number,
+	braceAt: number,
+	charge: number
+)
 	local clock = os.clock()
 	local dt = math.min(clock - s.last, 0.1)
 	s.last = clock
 	local state, glow, share = Rules.crystal(now, firedAt, readyAt, reload, Cfg)
+	-- charging up for the shot (user 2026-10-21: "a cinematic magic charge up"): over-bright, the runes whirling in
+	local up = now - braceAt
+	local surge = if state ~= "Fired" and up >= 0 and up < charge then up / charge else 0
+	glow += Cfg.surge.glow * surge
 	local color = colorAt(glow)
 	s.crystal.Color = color
 	-- the rune bands follow it, never quite dark
@@ -162,12 +174,12 @@ function ArtilleryCrystal.update(s: State, now: number, firedAt: number, readyAt
 	s.motes.Rate = if state == "Charging" then Cfg.motes * (0.2 + 0.8 * share) elseif state == "Ready" then 2 else 0
 
 	-- the runes circling it
-	s.angle = (s.angle + Cfg.spin * dt) % 360
+	s.angle = (s.angle + Cfg.spin * (1 + Cfg.surge.spin * surge) * dt) % 360
 	local since = now - firedAt
 	local n = #s.runes
 	for i, r in s.runes do
 		local a = math.rad(s.angle + 360 * (i - 1) / n)
-		local out = Cfg.orbit
+		local out = Cfg.orbit * (1 - Cfg.surge.tighten * surge)
 		local fade: number
 		if state == "Fired" then
 			-- scattering outward and fading

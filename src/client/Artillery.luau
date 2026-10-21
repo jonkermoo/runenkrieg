@@ -28,6 +28,7 @@ local Rules = require(Shared.Rules.Artillery)
 local Grenade = require(Shared.Rules.Grenade)
 local Net = require(Shared.Net)
 local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
+local ArtilleryFx = require(script.Parent.ArtilleryFx)
 local Settings = require(script.Parent.Settings)
 local SoundFx = require(script.Parent.SoundFx)
 local Vfx = require(script.Parent.Vfx)
@@ -45,6 +46,7 @@ type Pose = {
 }
 
 local poses: { [Model]: Pose } = {}
+local charging: { [Model]: () -> () } = {} -- a magic gun's charge-up running, its stop
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -90,6 +92,27 @@ local function track(model: Model)
 		p.fx = ArtilleryCrystal.new(model, p.crystal)
 	end
 	poses[model] = p
+	-- the magic gun's charge-up as its gunner braces (the server's "BraceAt"), until the shot
+	if gun.vfx.magic then
+		model:GetAttributeChangedSignal("BraceAt"):Connect(function()
+			local pose = poses[model]
+			if not pose or charging[model] then
+				return
+			end
+			local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, pose.traverse, pose.elevation)
+			local frame = model:GetPivot()
+			local at = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
+			local muzzle = CFrame.lookAt(at, at + frame:VectorToWorldSpace(Vector3.new(dx, dy, dz)))
+			local stop = ArtilleryFx.charge(gun, muzzle, pose.crystal)
+			charging[model] = stop
+			task.delay(gun.charge + 0.5, function()
+				if charging[model] == stop then
+					charging[model] = nil
+					stop()
+				end
+			end)
+		end)
+	end
 end
 
 local function pose(model: Model, p: Pose, dt: number)
@@ -118,7 +141,8 @@ local function pose(model: Model, p: Pose, dt: number)
 		part.CFrame = frames[p.stage[part]] * rest
 	end
 	if p.fx then
-		ArtilleryCrystal.update(p.fx, t, firedAt, readyAt, gun.reload)
+		local braceAt = (model:GetAttribute("BraceAt") :: number?) or -math.huge
+		ArtilleryCrystal.update(p.fx, t, firedAt, readyAt, gun.reload, braceAt, gun.charge)
 	end
 end
 
@@ -550,6 +574,7 @@ function Artillery.start()
 
 	-- on a gun
 	local mine: Model? = nil
+	local bracing = false -- a brace on its way (the howitzer's waits for its charge-up)
 	local wantYaw, wantElevation = 0, 0
 	local sentAt, sentYaw, sentElevation = 0, math.huge, math.huge
 	local snap = true
@@ -629,8 +654,17 @@ function Artillery.start()
 			local character = player.Character
 			if (not readyAt or now() >= readyAt) and character and Cfg.Brace.animation then
 				local tr = oneTrack(character, "brace", Cfg.Brace.animation)
-				if tr and not tr.IsPlaying then -- (a second click while bracing doesn't start it again)
-					tr:Play(0.1)
+				local p = poses[mine]
+				if tr and p and not tr.IsPlaying and not bracing then -- (a second click doesn't start it again)
+					-- its pull ("Fire") lands on the shot: at once for the field gun, after the howitzer's charge-up
+					bracing = true
+					local wait = math.max(p.gun.charge - Cfg.Brace.pull, 0)
+					task.delay(wait, function()
+						tr:Play(0.1)
+					end)
+					task.delay(p.gun.charge + 0.2, function()
+						bracing = false
+					end)
 				end
 			end
 			Net.event("Artillery"):FireServer("Fire")
@@ -753,6 +787,14 @@ function Artillery.start()
 		-- the incoming shell's whistle, for whoever is near where it lands (the path as the server flies it, unscattered
 		-- from here: the server sent the scattered velocity)
 		local landing, flight = trace(origin, velocity, gun.gravity, { model })
+		-- the blast of air round the gun, and the shell itself flying its path
+		ArtilleryFx.shot(gun, origin, velocity)
+		ArtilleryFx.shell(gun, origin, velocity, if landing then flight else Cfg.MaxFlight)
+		local stop = charging[model]
+		if stop then
+			charging[model] = nil
+			stop()
+		end
 		local lead = gun.sound.whistleLead
 		if landing and flight >= lead and (eye - landing).Magnitude <= Cfg.Whistle.reach then
 			SoundFx.play(gun.sound.whistle :: any, landing, nil, { delay = flight - lead })
@@ -771,6 +813,7 @@ function Artillery.start()
 			scheme = gun.vfx.scheme,
 			magic = gun.vfx.magic,
 		})
+		ArtilleryFx.blast(gun, position)
 		local d = (camera.CFrame.Position - position).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
 		SoundFx.play(gun.sound.blast :: any, position, nil, { delay = delay, eq = { low, 0, high } })

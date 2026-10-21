@@ -58,6 +58,19 @@ export type Gun = {
 	muzzleScale: number, -- the muzzle blast's scale (Config/Vfx.Muzzle)
 	loads: boolean?, -- the gunner plays the loading (Load above)
 	sound: { fire: any, far: any, blast: any, whistle: any, whistleLead: number },
+	zone: number, -- the impact zone's radius, studs (Zone above)
+	-- the shell in flight (user 2026-10-21: "a very visual projectile"): a glowing ball `size` studs across in `color`
+	-- (RGB), a trail `trail` s long fading to `tail`, a light `light` studs round; `magic`: static crackling round it in
+	-- `static` (Palette.Magic)
+	shell: {
+		size: number,
+		color: { number },
+		tail: { number },
+		trail: number,
+		light: number,
+		magic: boolean,
+		static: string?,
+	},
 	-- the gunner's camera (user 2026-10-20: "a cinematic lower left angle camera pov"): out at the gun's left, `side` (-
 	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
 	-- the gunner right of centre, the target left of it) and `pitch` up, plus the
@@ -111,8 +124,38 @@ local Artillery = {
 	-- after the click, at its "Fire". Turning (user: "add an animation for turning the weapon too"): while the gun is
 	-- being laid (the aim more than `moving` degrees off its lay) the gunner winds the hand wheel (`crank`, a loop),
 	-- easing in and out over `fade` s. nil: not uploaded yet.
-	Brace = { animation = 110111507484119 :: number? }, -- (the delay is each gun's `charge`)
+	-- (the delay is each gun's `charge`; the brace starts so its pull, `pull` s into it, lands on the shot)
+	Brace = { animation = 110111507484119 :: number?, pull = 0.45 },
 	Turn = { crank = 80321147839061 :: number?, moving = 0.3, fade = 0.2 },
+
+	-- The effects (src/client/ArtilleryFx; user 2026-10-21, see there). Colours are Config/Palette.Magic names, RGB lists
+	-- where said. Shot: pressure waves along the bore (`wave` studs out, starting `ahead` past the muzzle) and a ring blown
+	-- across the ground (`ground` studs, when the ground is within `groundReach`); Air: a see-through bubble swelling
+	-- `size` studs over `time` s; Shake: the camera kicked `shot` / `blast` degrees within `reach` / `blastReach` studs
+	-- (x the gun's muzzleScale, x the charge's cube root), dying over `time` s; Static: the magic shell's bolts every
+	-- `every` s, `reach` x its size long, living `life` s; Charge: the howitzer's charge-up (a circle `circle` studs
+	-- across `ahead` past the muzzle, opening over `appear` s; bolts crystal -> muzzle every `boltEvery` s from start to
+	-- end; the hum rising in volume and pitch); Blast: the magic blast's `bolts` leaping out over `spread` s, an aura for
+	-- `aura` s.
+	Fx = {
+		Shot = { color = "Core", wave = 26, ahead = 2, ground = 30, groundReach = 9 },
+		Air = { size = 14, time = 0.35, transparency = { 0.75, 1 }, color = { 235, 235, 230 } },
+		Shake = { shot = 1.6, reach = 60, blast = 1.2, blastReach = 90, time = 0.6, speed = 55 },
+		Static = { every = 0.07, reach = 2.2, life = 0.09 },
+		Charge = {
+			color = "Glow",
+			circle = 9,
+			ahead = 1.5,
+			appear = 0.5,
+			boltEvery = { 0.35, 0.08 },
+			boltLife = 0.12,
+			hum = { id = 9113126091, volume = 1, loop = true, profile = "Hum", eq = { 3, 0, -10 } },
+			humVolume = 1.4,
+			humPitch = { 0.55, 1.1 },
+			open = { { id = 9116427399, volume = 1.2, pitch = 0.7, fade = 2, profile = "Spell", eq = { 3, 0, -12 } } },
+		},
+		Blast = { color = "Glow", bolts = 10, spread = 0.5, life = 0.18, aura = 1.4 },
+	},
 
 	-- The impact zone (src/client/Artillery; user 2026-10-20: "the impact zone should be showed like a highlight on the
 	-- surface the cannon is going to hit"): a glowing disc (Palette.Artillery.Marker) lying on the ground where it would
@@ -173,6 +216,8 @@ local Artillery = {
 		motes = 14,
 		moteFrom = 3,
 		moteSize = 0.18,
+		-- charging up for the shot: up to `glow` brighter, the runes `spin` x faster, drawn in by `tighten`
+		surge = { glow = 0.7, spin = 6, tighten = 0.4 },
 	},
 
 	-- Sounds (Pro Sound Effects, licensed through Roblox; ASSETS_LICENSES.md), per gun below: `fire` its report up
@@ -255,6 +300,15 @@ local Artillery = {
 				whistleLead = 1.2, -- (its flights are ~0.5-2 s)
 			},
 			zone = 10, -- 0.6 kg: hurt to ~8 by the blast, lethal fragments to 6
+			-- a hot slug trailing grey smoke
+			shell = {
+				size = 0.7,
+				color = { 255, 196, 120 },
+				tail = { 120, 118, 112 },
+				trail = 0.6,
+				light = 10,
+				magic = false,
+			},
 			-- (Studio rounds 5-8: low in the grass, or from behind with the gunner in the middle; worked out from the angles:
 			-- the gun ~25-40 deg right of centre, the gunner ~50, the target ~-30)
 			-- (user 2026-10-21: "closer but from a similar angle we want to be able to see our avatar")
@@ -316,6 +370,16 @@ local Artillery = {
 				whistleLead = 2.5,
 			},
 			zone = 17, -- 15 kg: lethal to ~9, hurt to ~17
+			-- a blue orb trailing light, static crackling round it
+			shell = {
+				size = 2.2,
+				color = { 120, 200, 255 },
+				tail = { 70, 90, 230 },
+				trail = 1.2,
+				light = 24,
+				magic = true,
+				static = "Glow",
+			},
 			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
 			camera = { side = -12, up = 6, back = 14, yaw = 25, pitch = 6, follow = 0.12, fov = 65 },
 		} :: Gun,
