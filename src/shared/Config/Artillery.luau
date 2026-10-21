@@ -79,6 +79,7 @@ export type Gun = {
 	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
 	-- the gunner right of centre, the target left of it) and `pitch` up, plus the
 	-- elevation x `follow` (a high lob stays in view)
+	dig: { depth: number, radius: number, rim: number, rimHeight: number }?, -- dug in when placed (src/server/Artillery)
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
 }
 
@@ -319,11 +320,12 @@ local Artillery = {
 			-- (user 2026-10-21: "closer but from a similar angle we want to be able to see our avatar")
 			camera = { side = -8, up = 4.5, back = 9, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
 		} :: Gun,
-		-- The magic howitzer (A1, BL 9.2-inch at 1.3x): traverse 30 about the racer, recoil 40 in (1.3x), cut short at
-		-- high elevation (the breech would reach the platform: top 3.36, the breech block's low back corner 4.05 behind
-		-- the trunnion and 1.54 under it; 0.46 at 80). A short-arc mortar (user 2026-10-20: "make the howitzer more of a
-		-- short arc mortar weapon"): it only lobs, 45..80 degrees (the real gun stopped at 55), at 340 studs/s: ~590 studs
-		-- at 45 down to ~200 at 80, 2.5-3.4 s in the air.
+		-- The magic howitzer v6 (user 2026-10-21: "look like the big bertha", "no tires ... the turning being controlled by
+		-- giant gears"; tools/blender/artillery/bertha.py, approved v10): a 42 cm siege mortar, its riveted box carriage
+		-- turning all the way round on a giant ring gear, the barrel trunnioned high between its walls. A short-arc mortar
+		-- (user: "make the howitzer more of a short arc mortar weapon"): it only lobs, 45..80 degrees, 160 studs/s under
+		-- its own lighter gravity: ~590 studs at 45 down to ~200 at 80, 5-7 s in the air. Its recoil is cut short at
+		-- high elevation so the gem under the breech clears the turntable (1.84 at 80). Dug in when placed (`dig`).
 		artillery_howitzer = {
 			asset = "artillery_howitzer",
 			name = "Magic howitzer",
@@ -332,11 +334,11 @@ local Artillery = {
 			cradle = { "Cradle" },
 			barrel = { "Barrel", "BarrelRunes", "Bore" },
 			breech = { "Breech", "Crystal" },
-			trunnion = { 0, 8.37, 0.616 },
-			hinge = { 1.12, 7.782, 3.723 },
-			muzzle = { 0, 7.782, -7.054 },
-			boreCentre = 0.148,
-			traverse = 30,
+			trunnion = { 0, 7.4, 0.5 },
+			hinge = { 0, 7.4, 3.1 }, -- (the breech never opens)
+			muzzle = { 0, 7.4, -10.6 },
+			boreCentre = 0.123,
+			traverse = 180, -- right round on its ring gear
 			elevation = { 45, 80 },
 			swing = 3,
 			traverseRate = 5,
@@ -351,15 +353,18 @@ local Artillery = {
 			reload = 30,
 			breechOpen = 100,
 			breechTimes = { 2, 2 },
-			recoil = 3.77,
+			recoil = 2.5,
 			recoilTimes = { 0.12, 2 },
-			recoilClear = { floor = 3.66, along = 4.05, below = 1.54 },
-			-- on the step at the mount's left by the hand wheels (v5, user 2026-10-21: "a small platform you stand on the
-			-- side of the cannon to arm it and control it"; tools/blender/artillery/howitzer.py SIDE)
-			crew = { -3.6, 0.8 },
-			crewY = 2.184, -- the step's top
+			recoilClear = { floor = 1.9, along = 3.75, below = 0 }, -- the gem's point over the turntable (1.6)
+			-- on the step on the carriage's left wall by the hand wheels (user 2026-10-21: "a small platform you stand on the
+			-- side of the cannon to arm it and control it"; bertha.py STEP)
+			crew = { -4.45, 1.4 },
+			crewY = 3.2, -- the step's top
 			crewTurns = true,
 			prompt = 12,
+			-- dug in when placed (user 2026-10-21: "slightly underground to give it cover ... naturally destroy the terrain";
+			-- "Pit to the axle"): a pit `radius` round it `depth` deep, an earth rim `rim` wide and `rimHeight` high round that
+			dig = { depth = 1.5, radius = 10.5, rim = 2.5, rimHeight = 1.2 },
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
@@ -390,7 +395,7 @@ local Artillery = {
 				static = "Glow",
 			},
 			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
-			camera = { side = -12, up = 6, back = 14, yaw = 25, pitch = 6, follow = 0.12, fov = 65 },
+			camera = { side = -16, up = 8, back = 18, yaw = 25, pitch = 6, follow = 0.12, fov = 65 },
 		} :: Gun,
 	},
 }

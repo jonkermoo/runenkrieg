@@ -261,7 +261,20 @@ local function fire(s: State)
 	fly(s, origin, velocity, character)
 end
 
--- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened).
+-- Digs a gun in at `at` (its Config `dig`; user 2026-10-21: "when you build the howitzer, it will be slightly
+-- underground to give it cover (even when spawned, it should naturally destroy the terrain and be more burrowed)"):
+-- an earth rim thrown up round it, the pit carved inside, a level mud floor `depth` under the ground. Returns the floor.
+local function dig(at: Vector3, d: any): Vector3
+	local t = workspace.Terrain
+	local here = CFrame.new(at)
+	t:FillCylinder(here * CFrame.new(0, d.rimHeight / 2, 0), d.rimHeight, d.radius + d.rim, Enum.Material.Ground)
+	local top = d.rimHeight + 8
+	t:FillCylinder(here * CFrame.new(0, (top - d.depth) / 2, 0), top + d.depth, d.radius, Enum.Material.Air)
+	t:FillCylinder(here * CFrame.new(0, -d.depth - 1, 0), 2, d.radius, Enum.Material.Mud)
+	return at - Vector3.new(0, d.depth, 0)
+end
+
+-- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
 function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 	local gun = Cfg.Guns[key]
 	if not gun then
@@ -277,6 +290,9 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 	local flat = Vector3.new(look.X, 0, look.Z)
 	if flat.Magnitude < 1e-3 then
 		flat = Vector3.new(0, 0, -1)
+	end
+	if gun.dig then
+		at = dig(at, gun.dig)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
 	model:SetAttribute("Gun", key)

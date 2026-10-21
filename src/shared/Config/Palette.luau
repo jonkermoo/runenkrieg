@@ -130,6 +130,7 @@ local Palette = {
 		Tyres = { 58, 58, 60 },
 		Barrel = { 96, 98, 102 },
 		Breech = { 70, 72, 76 },
+		RingGear = { 64, 64, 66 }, -- the howitzer's toothed ring (dark steel)
 		Bore = { 8, 8, 8 },
 		EarthBox = { 120, 86, 54 },
 		Earth = { 112, 90, 62 },

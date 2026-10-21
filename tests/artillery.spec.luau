@@ -103,12 +103,14 @@ return {
 	["the howitzer's recoil is cut short at high elevation, never below nothing"] = function()
 		local full = HOW.recoil
 		assert(near(A.recoilLength(full, 0, HOW.trunnion[2], HOW.recoilClear), full))
-		local at55 = A.recoilLength(full, 55, HOW.trunnion[2], HOW.recoilClear)
-		assert(at55 < 1 and at55 >= 0)
+		-- full at its lowest lay, cut short at its highest (Bertha: the gem's point over the turntable)
+		assert(near(A.recoilLength(full, HOW.elevation[1], HOW.trunnion[2], HOW.recoilClear), full))
+		local top = A.recoilLength(full, HOW.elevation[2], HOW.trunnion[2], HOW.recoilClear)
+		assert(top < full and top >= 0)
 		-- the breech's low point stays on or over the floor
 		local c = HOW.recoilClear
-		local a = math.rad(55)
-		local low = HOW.trunnion[2] - (c.along + at55) * math.sin(a) - c.below * math.cos(a)
+		local a = math.rad(HOW.elevation[2])
+		local low = HOW.trunnion[2] - (c.along + top) * math.sin(a) - c.below * math.cos(a)
 		assert(low >= c.floor - 1e-6)
 		assert(A.recoilLength(full, 30, HOW.trunnion[2], c) <= full)
 		assert(near(A.recoilLength(full, 16, QF.trunnion[2], QF.recoilClear), full))
