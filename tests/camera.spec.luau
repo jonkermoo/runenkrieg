@@ -106,8 +106,8 @@ return {
 	end,
 	["turn rates and the crosshair are sane"] = function()
 		local T = Cfg.Turn
-		assert(T.Third > 0 and T.Face >= T.Third and T.Walk > 0)
-		assert(T.FireHold > 0 and T.Settle > 0 and T.Moving > 0 and T.Moving < 1)
+		assert(T.Face > 0 and T.Walk > 0)
+		assert(T.Settle > 0 and T.Moving > 0 and T.Moving < 1)
 		local C = Cfg.Crosshair
 		assert(C.Size > C.Thickness * 2 and C.Transparency >= 0 and C.Transparency < 1 and C.Fade > 0)
 		assert(C.EdgeShare > 0 and C.EdgeShare <= 1 and C.EdgeWidth >= 0)

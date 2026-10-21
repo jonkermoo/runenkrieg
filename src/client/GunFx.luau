@@ -276,6 +276,37 @@ local function show(gun: BasePart, name: string, visible: boolean)
 	end
 end
 
+-- The viewmodel's gun brought back in line with the body's (src/client/Viewmodel, as it comes into view): out of first
+-- person it is out of the DataModel, so an action that played on meanwhile moved only the body's gun and left the copy
+-- where it was (user 2026-10-20: the bolt handle up on a loaded rifle on aiming again).
+function GunFx.match(character: Model, copy: BasePart)
+	local tool = character:FindFirstChildOfClass("Tool")
+	local gun = tool and tool:FindFirstChild("Gun")
+	if not gun or not gun:IsA("BasePart") then
+		return
+	end
+	-- (only the moving parts the actions pose, which carry their rest: not the "Hold" the look tilt swings)
+	for _, m in gun:GetChildren() do
+		local twin = copy:FindFirstChild(m.Name)
+		local rest = m:GetAttribute("RestC0")
+		if m:IsA("Motor6D") and typeof(rest) == "CFrame" and twin and twin:IsA("Motor6D") then
+			twin:SetAttribute("RestC0", rest)
+			twin.C0 = m.C0
+		end
+	end
+	local holder, own = copy.Parent, gun.Parent
+	if not holder or not own then
+		return
+	end
+	local w = W[tostring(gun:GetAttribute("Weapon"))]
+	for _, name in { "Rounds", "Bullets", "Clip", "Magazine", table.unpack(w and w.feed and w.feed.parts or {}) } do
+		local from, to = own:FindFirstChild(name), holder:FindFirstChild(name)
+		if from and to and from:IsA("BasePart") and to:IsA("BasePart") then
+			to.Transparency = from.Transparency
+		end
+	end
+end
+
 -- Rounds and clips as the magazine stands: an en-bloc clip sits in the magazine with its rounds while it has any; a
 -- stripper clip only shows while loading.
 -- A pump gun's shell on the carrier shows while the tube has shells.
@@ -866,10 +897,13 @@ function GunFx.cycle(
 		end
 		pose(u)
 		clips(u)
+		-- the mechanism's sounds on the body's gun: the viewmodel's goes out of the DataModel when the view leaves first
+		-- person, which cut a sound playing on it short (user 2026-10-20)
+		local ear = GunFx.guns(character)[1] or gun
 		if not opened and u >= openAt then
 			opened = true
 			if not auto then -- (the shot covers a semi-automatic's own action)
-				GunFx.sound(gun, "BoltOpen")
+				GunFx.sound(ear, "BoltOpen")
 			end
 		end
 		if not ejected and u >= cycle.back then
@@ -880,17 +914,17 @@ function GunFx.cycle(
 		end
 		if two and not firstIn and u >= cycle.clip then
 			firstIn = true
-			GunFx.sound(gun, "ClipIn")
+			GunFx.sound(ear, "ClipIn")
 		end
 		if reload and not seated and u >= (cycle.clip2 or cycle.clip) then
 			seated = true
-			GunFx.sound(gun, "ClipIn")
+			GunFx.sound(ear, "ClipIn")
 			GunFx.loadout(character, weapon, magazine) -- the rounds are in (an en-bloc clip with them)
 		end
 		if not closed and u >= cycle.forward then
 			closed = true
 			if not auto then
-				GunFx.sound(gun, "BoltClose")
+				GunFx.sound(ear, "BoltClose")
 			end
 		end
 		if u >= u1 then
@@ -1162,10 +1196,11 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		local total = cs + CL
 		e = math.min(e, total)
 		pose(e)
+		local ear = GunFx.guns(character)[1] or gun -- (the mechanism's sounds: as in GunFx.cycle)
 		if not opened and e >= openAt then
 			opened = true
 			if not loose then
-				GunFx.sound(gun, "BoltOpen")
+				GunFx.sound(ear, "BoltOpen")
 			end
 		end
 		if not ejected and e >= B then
@@ -1177,12 +1212,12 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		local k = math.clamp(math.floor((e - O) / R), 0, plan())
 		while pressed < k do
 			pressed += 1
-			GunFx.sound(gun, "ClipIn")
+			GunFx.sound(ear, "ClipIn")
 		end
 		if not closed and e >= cs + shutAt then
 			closed = true
 			if not loose or wasOpen then
-				GunFx.sound(gun, "BoltClose")
+				GunFx.sound(ear, "BoltClose")
 			end
 		end
 		if e >= total then

@@ -25,6 +25,7 @@ local Grenades = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
+local GunFx = require(script.Parent.GunFx)
 local Held = require(script.Parent.Held)
 local LookTilt = require(script.Parent.LookTilt)
 local Settings = require(script.Parent.Settings)
@@ -315,6 +316,12 @@ function Viewmodel.start()
 		local appearing = not rig or (rig :: Rig).model.Parent == nil
 		if not rig then
 			rig = build(character, weapon)
+		elseif appearing then
+			-- back in view: its gun's bolt, clip and rounds as the body's are now (src/client/GunFx.match)
+			local vgun = rig.model:FindFirstChild("Gun")
+			if vgun and vgun:IsA("BasePart") then
+				GunFx.match(character, vgun)
+			end
 		end
 		local r = rig :: Rig
 		local camera = workspace.CurrentCamera
