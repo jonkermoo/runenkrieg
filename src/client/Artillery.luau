@@ -13,6 +13,7 @@
 --   with its sound, heard late and duller far off.
 
 local CollectionService = game:GetService("CollectionService")
+local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -581,19 +582,24 @@ function Artillery.start()
 	local fov = camera.FieldOfView
 	local arcAt = 0
 
-	-- the character's own movement keys are off while on a gun (WASD lays it)
-	local controls: any = nil
-	pcall(function()
-		local module = require((player:WaitForChild("PlayerScripts") :: any):WaitForChild("PlayerModule")) :: any
-		controls = module:GetControls()
-	end)
+	-- the character's own movement keys are off while on a gun (WASD lays it): sunk above the default controls (this
+	-- place has no PlayerModule to disable: Studio round 12); the lay reads the keys itself (UserInputService)
 	local function moveKeys(on: boolean)
-		if controls then
-			if on then
-				controls:Enable()
-			else
-				controls:Disable()
-			end
+		if on then
+			ContextActionService:UnbindAction("ArtilleryKeys")
+		else
+			ContextActionService:BindActionAtPriority(
+				"ArtilleryKeys",
+				function()
+					return Enum.ContextActionResult.Sink
+				end,
+				false,
+				Enum.ContextActionPriority.High.Value,
+				Enum.KeyCode.W,
+				Enum.KeyCode.A,
+				Enum.KeyCode.S,
+				Enum.KeyCode.D
+			)
 		end
 	end
 
