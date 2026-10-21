@@ -25,6 +25,7 @@ local L = require(Shared.Config.Locomotion)
 local U = require(Shared.Config.Uniforms)
 local W = require(Shared.Config.Weapons)
 local Net = require(Shared.Net)
+local Kits = require(script.Parent.Kits)
 
 local Armory = {}
 
@@ -129,10 +130,10 @@ end
 
 -- The weapon as a Tool. No Handle, so Roblox adds no grip weld: the "Hold" Motor6D joins the Gun part to the
 -- Torso while equipped (Part0 set by Armory.give, and by the owner's client at once, src/client/Locomotion). With
--- C0 = C1 = identity, the hold animation's "Gun" pose is the gun origin in the torso's space.
-function Armory.tool(name: string): Tool
+-- C0 = C1 = identity, the hold animation's "Gun" pose is the gun origin in the torso's space. `kit`: whose colors.
+function Armory.tool(name: string, kit: string?): Tool
 	local w = W[name]
-	local model = Armory.build(name)
+	local model = Armory.build(name, kit)
 	local tool = Instance.new("Tool")
 	tool.Name = w.display
 	tool.CanBeDropped = false
@@ -165,12 +166,13 @@ function Armory.stowed(character: Model, name: string): Model?
 	if not part then
 		return nil
 	end
-	local model = Armory.build(name)
+	local kit = Kits.of(character)
+	local model = Armory.build(name, kit)
 	model.Name = "Stowed_" .. name
 	-- over the worn pack (src/server/Packs; the kit's until it is on): further back by the pack's `sling`, unless
 	-- strapped beside it (`beside`)
 	local worn = character:FindFirstChild("Pack")
-	local pack = worn and worn:GetAttribute("Entry") or (U.Kits[U.Default] :: any).pack
+	local pack = worn and worn:GetAttribute("Entry") or (U.Kits[kit] :: any).pack
 	local entry = type(pack) == "string" and A.Entries[pack]
 	local at = v3(s.at) + Vector3.new(0, 0, if entry and not s.beside then entry.sling or 0 else 0)
 	local muzzle, side = v3(s.muzzle).Unit, v3(s.side).Unit
@@ -200,7 +202,7 @@ function Armory.give(player: Player, name: string): Tool
 			end
 		end
 	end
-	local tool = Armory.tool(name)
+	local tool = Armory.tool(name, character and Kits.of(character))
 	tool.Parent = backpack
 
 	local stowed = character and Armory.stowed(character, name)
@@ -227,7 +229,7 @@ function Armory.give(player: Player, name: string): Tool
 		local function putAway(t: number)
 			local torso = character:FindFirstChild("Torso") :: BasePart?
 			if torso then
-				local copy = Armory.build(name)
+				local copy = Armory.build(name, Kits.of(character))
 				copy.Name = "Stowing"
 				local motor = Instance.new("Motor6D")
 				motor.Name = "Hold"
@@ -290,13 +292,15 @@ function Armory.give(player: Player, name: string): Tool
 end
 
 -- The player's weapon for a slot: their pick ("Loadout_<slot>" on the Player, set by Armory.choose), else the
--- kit's weapon (the primary), grenade or shovel (Config/Uniforms; every soldier carries a shovel, user 2026-10-20).
+-- weapon (the primary), grenade or shovel of their kit this life (src/server/Kits, Config/Uniforms; every soldier
+-- carries a shovel, user 2026-10-20).
 function Armory.loadout(player: Player, slot: string): string?
 	local picked = player:GetAttribute(LOADOUT .. slot)
 	if type(picked) == "string" and W[picked] and W[picked].slot == slot then
 		return picked
 	end
-	local kit = U.Kits[U.Default] :: any
+	local character = player.Character
+	local kit = U.Kits[if character then Kits.of(character) else U.Default] :: any
 	return if slot == "Primary"
 		then kit.weapon
 		elseif slot == "Grenade" then kit.grenade

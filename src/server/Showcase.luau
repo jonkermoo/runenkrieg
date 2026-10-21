@@ -58,9 +58,9 @@ local function label(parent: BasePart, text: string, offset: number, size: numbe
 	gui.Parent = parent
 end
 
--- a soldier in the uniform, standing anchored at `cf`
-local function dummy(name: string, cf: CFrame, parent: Instance?): Model
-	local kit = U.Kits[U.Default]
+-- a soldier in uniform `kitName` (default: the default kit), standing anchored at `cf`
+local function dummy(name: string, cf: CFrame, parent: Instance?, kitName: string?): Model
+	local kit = U.Kits[kitName or U.Default]
 	local skin = rgb(kit.skin)
 	local desc = Instance.new("HumanoidDescription")
 	desc.HeadColor, desc.TorsoColor = skin, skin
@@ -75,6 +75,7 @@ local function dummy(name: string, cf: CFrame, parent: Instance?): Model
 	local humanoid = m:FindFirstChildOfClass("Humanoid") :: Humanoid
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	m:SetAttribute("Muted", true) -- their guns make no sound (user 2026-10-12: too loud; src/client/GunFx)
+	m:SetAttribute("Kit", kitName) -- (src/server/Kits: what Bodies dresses it in)
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 	root.Anchored = true
 	m.PrimaryPart = root -- the model's own pivot is its box centre: place it by the root

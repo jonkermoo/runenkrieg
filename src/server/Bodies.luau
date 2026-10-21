@@ -15,6 +15,7 @@ local U = require(Shared.Config.Uniforms)
 local Faces = require(Shared.Rules.Faces)
 local Looks = require(Shared.Rules.Looks)
 local Helmets = require(script.Parent.Helmets)
+local Kits = require(script.Parent.Kits)
 local Packs = require(script.Parent.Packs)
 local Species = require(script.Parent.Species)
 
@@ -62,7 +63,8 @@ function Bodies.apply(character: Model)
 		warn("[Bodies] character is not R6: set Game Settings -> Avatar -> Avatar Type to R6")
 	end
 	-- a fresh description is the default blocky body: no packages or accessories, just the kit
-	local kit = U.Kits[U.Default]
+	local kitName = Kits.of(character) -- (src/server/Kits: the player's kit this life)
+	local kit = U.Kits[kitName]
 	local skin = rollLooks(character)
 	local desc = Instance.new("HumanoidDescription")
 	desc.Face = 0
@@ -125,7 +127,7 @@ function Bodies.apply(character: Model)
 	Helmets.dress(character, if character:GetAttribute("HelmetOn") == false then nil else kit.headwear)
 	Packs.dress(character, kit.pack)
 	-- the kit's species: ears and a tail (src/server/Species)
-	Species.dress(character, U.Default)
+	Species.dress(character, kitName)
 end
 
 -- The face follows health (Rules/Faces): the tier's face while alive; on death the CLOSED face of the tier the

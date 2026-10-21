@@ -91,7 +91,11 @@ local DevTools = {
 		Folder = "DevDummies", -- in Workspace
 		Max = 16,
 		-- the team kits to dress them in (Config/Uniforms.Kits)
-		Kits = { { kit = "uniform1", name = "Grey" }, { kit = "uniform2", name = "Olive" } },
+		Kits = {
+			{ kit = "uniform1", name = "Grey" },
+			{ kit = "uniform2", name = "Olive" },
+			{ kit = "uniform3", name = "White" },
+		},
 		-- Stand; Walk: back and forth along its facing; Strafe: side to side, always facing the way it was put
 		Moves = { "Stand", "Walk", "Strafe" },
 		Patrol = 12, -- studs each way from where it was put
