@@ -114,8 +114,9 @@ function Ground.churn(position: Vector3, radius: number, depth: number, c: any)
 end
 
 -- A gun's pit (src/server/Artillery `dig`): within `radius` of `position` the ground cut down to a level floor `depth`
--- under it (the top voxel left part full, so the floor sits at that height; mud), and a rim of earth `rimHeight` high
--- thrown up round it over the next `rim` studs, peaked in its middle, following the ground. Voxel by voxel with
+-- under it (the top voxel left part full, so the floor sits at that height; mud; filled up to it where the ground falls
+-- away, on a slope), and a rim of earth `rimHeight` high thrown up round it over the next `rim` studs, peaked in its
+-- middle, following the ground (the rim at least two voxels wide, or no voxel centre falls in it: Studio round 13c). Voxel by voxel with
 -- fractional occupancy: a FillCylinder of Air that ends inside a 4-stud voxel cuts nothing (Studio 2026-10-21). A
 -- smooth surface stands at its top voxel's CENTRE + 4 x occupancy (measured in Studio), not its bottom.
 function Ground.pit(position: Vector3, radius: number, depth: number, rim: number, rimHeight: number)
@@ -137,7 +138,8 @@ function Ground.pit(position: Vector3, radius: number, depth: number, rim: numbe
 				for iy = 1, size.Y do
 					local mid = corner.Y + (iy - 0.5) * VOXEL
 					local keep = math.clamp((floor - mid) / VOXEL, 0, 1)
-					if occs[ix][iy][iz] > keep then
+					-- cut down to the floor, and filled up to it where the ground fell away (downhill on a slope)
+					if occs[ix][iy][iz] ~= keep then
 						occs[ix][iy][iz] = keep
 						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
 					end

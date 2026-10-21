@@ -268,6 +268,7 @@ end
 -- the floor.
 local function dig(at: Vector3, d: any): Vector3
 	Ground.pit(at, d.radius, d.depth, d.rim, d.rimHeight)
+	Net.event("GroundDug"):FireAllClients(at, d.radius)
 	return at - Vector3.new(0, d.depth, 0)
 end
 

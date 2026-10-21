@@ -370,7 +370,9 @@ local Artillery = {
 			prompt = 12,
 			-- dug in when placed (user 2026-10-21: "slightly underground to give it cover ... naturally destroy the terrain";
 			-- "Pit to the axle"): a pit `radius` round it `depth` deep, an earth rim `rim` wide and `rimHeight` high round that
-			dig = { depth = 1.5, radius = 10.5, rim = 2.5, rimHeight = 1.2 },
+			-- (Studio round 13c: the level floor must reach past the bed's corners, ~10.2 out, so the pit reaches a voxel
+			-- further; a rim narrower than two voxels never formed)
+			dig = { depth = 1.5, radius = 12.5, rim = 9, rimHeight = 1.8 },
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {

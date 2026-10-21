@@ -92,6 +92,9 @@ local Remotes: { string } = {
 	"ArtilleryShot",
 	-- server -> clients: (position: Vector3, gun: string) a shell went off: its explosion (Config/Artillery.Guns[gun])
 	"ArtilleryBlast",
+	-- server -> clients: (position: Vector3, radius: number) the ground dug out round here (a gun's pit): the grass
+	-- standing there goes (src/client/GrassFoliage)
+	"GroundDug",
 }
 local Functions: { string } = {}
 
