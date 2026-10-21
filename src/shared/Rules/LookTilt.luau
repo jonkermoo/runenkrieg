@@ -1,11 +1,19 @@
 --!strict
 -- The look tilt's maths (src/client/LookTilt, src/server/LookTilt): the torso's share of the camera pitch, the gun's
--- turn about the shoulders for the rest, and the pitch sent to other players (quantized, throttled, and clamped by
--- the server). Angles in degrees.
+-- turn about the shoulders for the rest, the third-person turn onto the crosshair (Config/Camera.Aim3P), and what
+-- other players are sent (quantized, throttled, and clamped by the server). Angles in degrees.
 
 local LookTilt = {}
 
-export type Send = { Rate: number, Step: number, FollowStep: number, MaxPitch: number, Smoothing: number }
+export type Send = {
+	Rate: number,
+	Step: number,
+	FollowStep: number,
+	AimStep: number,
+	MaxPitch: number,
+	Smoothing: number,
+}
+export type Max = { yaw: number, pitch: number }
 
 -- value rounded to the nearest multiple of step
 function LookTilt.quantize(value: number, step: number): number
@@ -28,23 +36,62 @@ function LookTilt.ease(rate: number, dt: number): number
 	return 1 - math.exp(-rate * dt)
 end
 
--- client: what to send now (quantized pitch and follow), or nil when nothing changed or the last send was too recent
+-- ---- third person: the weapon onto the crosshair (Config/Camera.Aim3P) ----
+
+-- yaw and pitch (degrees) of a direction: yaw + to the left of -Z like CFrame.fromOrientation's, pitch + up
+function LookTilt.angles(x: number, y: number, z: number): (number, number)
+	local length = math.sqrt(x * x + y * y + z * z)
+	if length < 1e-9 then
+		return 0, 0
+	end
+	return math.deg(math.atan2(-x, -z)), math.deg(math.asin(math.clamp(y / length, -1, 1)))
+end
+
+-- an angle (degrees) wrapped into -180..180
+function LookTilt.wrap(angle: number): number
+	return (angle + 180) % 360 - 180
+end
+
+-- the yaw and pitch (degrees, capped) that turn a weapon pointing at (yaw, pitch) onto the line at (wantYaw, wantPitch)
+function LookTilt.aimTurn(yaw: number, pitch: number, wantYaw: number, wantPitch: number, max: Max): (number, number)
+	return math.clamp(LookTilt.wrap(wantYaw - yaw), -max.yaw, max.yaw),
+		math.clamp(wantPitch - pitch, -max.pitch, max.pitch)
+end
+
+-- an average angle (degrees) moved a share `k` toward `angle`, the short way round
+function LookTilt.settle(average: number, angle: number, k: number): number
+	return average + LookTilt.wrap(angle - average) * k
+end
+
+-- how far along the crosshair's line (studs from the camera) the weapon points: at what it hits, else `fallback`;
+-- never nearer than `min` past `from` (where the line passes the weapon)
+function LookTilt.aimDistance(hit: number?, from: number, fallback: number, min: number): number
+	return math.max(hit or fallback, from + min)
+end
+
+-- client: what to send now (quantized pitch, follow and the turn onto the crosshair), or nil when nothing changed or
+-- the last send was too recent
 function LookTilt.toSend(
 	pitch: number,
 	follow: number,
-	last: { pitch: number, follow: number, at: number },
+	aimYaw: number,
+	aimPitch: number,
+	last: { pitch: number, follow: number, aimYaw: number, aimPitch: number, at: number },
 	now: number,
-	send: Send
-): (number?, number?)
+	send: Send,
+	max: Max
+): (number?, number?, number?, number?)
 	if now - last.at < 1 / send.Rate then
-		return nil, nil
+		return nil, nil, nil, nil
 	end
 	local p = LookTilt.quantize(math.clamp(pitch, -send.MaxPitch, send.MaxPitch), send.Step)
 	local f = LookTilt.quantize(math.clamp(follow, 0, 1), send.FollowStep)
-	if p == last.pitch and f == last.follow then
-		return nil, nil
+	local ay = LookTilt.quantize(math.clamp(aimYaw, -max.yaw, max.yaw), send.AimStep)
+	local ap = LookTilt.quantize(math.clamp(aimPitch, -max.pitch, max.pitch), send.AimStep)
+	if p == last.pitch and f == last.follow and ay == last.aimYaw and ap == last.aimPitch then
+		return nil, nil, nil, nil
 	end
-	return p, f
+	return p, f, ay, ap
 end
 
 -- The head's turn toward the look (degrees, + to the left like Roblox's yaw): `look` is the camera's yaw from the
@@ -89,17 +136,32 @@ function LookTilt.inRange(distance: number, range: number): boolean
 	return distance <= range
 end
 
--- server: a client's raw payload made safe (numbers, finite, clamped, quantized), or nil to drop it
-function LookTilt.sanitize(pitch: unknown, follow: unknown, send: Send): (number?, number?)
+-- server: a client's raw payload made safe (numbers, finite, clamped, quantized), or nil to drop it; a turn onto the
+-- crosshair that isn't a finite number counts as none
+function LookTilt.sanitize(
+	pitch: unknown,
+	follow: unknown,
+	aimYaw: unknown,
+	aimPitch: unknown,
+	send: Send,
+	max: Max
+): (number?, number?, number, number)
+	local function aim(v: unknown, cap: number): number
+		if type(v) ~= "number" or v ~= v then
+			return 0
+		end
+		return LookTilt.quantize(math.clamp(v, -cap, cap), send.AimStep)
+	end
+	local ay, ap = aim(aimYaw, max.yaw), aim(aimPitch, max.pitch)
 	if type(pitch) ~= "number" or type(follow) ~= "number" then
-		return nil, nil
+		return nil, nil, ay, ap
 	end
 	if pitch ~= pitch or follow ~= follow then -- NaN
-		return nil, nil
+		return nil, nil, ay, ap
 	end
 	local p = LookTilt.quantize(math.clamp(pitch, -send.MaxPitch, send.MaxPitch), send.Step)
 	local f = LookTilt.quantize(math.clamp(follow, 0, 1), send.FollowStep)
-	return p, f
+	return p, f, ay, ap
 end
 
 return LookTilt

@@ -153,6 +153,25 @@ local Camera = {
 	-- pitch the gun follows per hold, and the head's share.
 	Follow = { ready = 1, carry = 0.3, aim = 1 },
 	HeadFollow = 0.6,
+
+	-- Third person: the weapon points at the crosshair (user 2026-10-21: "make the player's gun still aim towards your
+	-- crosshair while in third person ... (keep the same sway rules)"; src/client/LookTilt, Rules/LookTilt.aimTurn). On
+	-- top of Follow, the arms and the weapon turn as one about the shoulders so the barrel (the staff's head) meets the
+	-- point under the crosshair. The animation's own motion of the weapon (breath, stride, recoil) still plays around
+	-- that line: the turn is taken from where the animation points on average (Settle per second), not frame by frame.
+	-- Other players see the same turn (Net "LookPitch").
+	Aim3P = {
+		Modes = { Third = true, ThirdAim = true }, -- the views it works in ("ThirdAim": the staff aimed)
+		States = { ready = 1, aim = 1, carry = 0 }, -- its share per hold (none while sprinting)
+		Ease = 10, -- how fast that share follows (per second)
+		Fallback = 450, -- the crosshair over nothing: a point this far out (HipConverge)
+		-- the crosshair over something nearer than this past the weapon (studs): pointed at this far instead, so a wall
+		-- at the muzzle never swings the weapon round
+		MinDistance = 6,
+		DistanceEase = 8, -- how fast the point's distance follows the crosshair (per second; never a snap)
+		Settle = 2, -- how fast the animation's average pointing is followed (per second)
+		Max = { yaw = 25, pitch = 20 }, -- the largest turn (degrees)
+	},
 }
 
 return table.freeze(Camera)

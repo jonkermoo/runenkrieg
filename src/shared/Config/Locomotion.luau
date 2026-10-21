@@ -174,11 +174,13 @@ local Locomotion = {
 			Smoothing = 10,
 			Send = { Rate = 10, Step = 3, Range = 120, Smoothing = 10 },
 		},
-		-- shown to other players (Net "LookPitch", Rules/LookTilt): the camera pitch and the gun's follow share
+		-- shown to other players (Net "LookPitch", Rules/LookTilt): the camera pitch, the gun's follow share and its
+		-- turn onto the crosshair (Config/Camera.Aim3P, clamped to its Max by the server)
 		Send = {
 			Rate = 10, -- updates per second at most, from each client and relayed by the server per soldier
 			Step = 2, -- pitch quantized to this many degrees (a change smaller than this is not sent)
 			FollowStep = 0.1, -- the gun's follow share (Config/Camera.Follow), quantized
+			AimStep = 1, -- the turn onto the crosshair (yaw and pitch), quantized to this many degrees
 			MaxPitch = 90, -- the server clamps the received pitch to +-this
 			Smoothing = 10, -- how fast other players' soldiers follow the received pitch (per second)
 		},
