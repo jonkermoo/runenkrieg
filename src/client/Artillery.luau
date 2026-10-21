@@ -28,6 +28,7 @@ local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
 local Grenade = require(Shared.Rules.Grenade)
 local Net = require(Shared.Net)
+local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
 local Settings = require(script.Parent.Settings)
 local SoundFx = require(script.Parent.SoundFx)
 local Vfx = require(script.Parent.Vfx)
@@ -39,6 +40,7 @@ type Pose = {
 	rest: { [BasePart]: CFrame }, -- each moving part at rest, in gun space
 	stage: { [BasePart]: number }, -- 1 mount, 2 cradle, 3 barrel, 4 breech
 	crystal: BasePart?,
+	fx: ArtilleryCrystal.State?, -- the howitzer's living crystal
 	traverse: number,
 	elevation: number,
 }
@@ -69,6 +71,7 @@ local function track(model: Model)
 		rest = {},
 		stage = {},
 		crystal = nil,
+		fx = nil,
 		traverse = (model:GetAttribute("Traverse") :: number?) or 0,
 		elevation = (model:GetAttribute("Elevation") :: number?) or 0,
 	}
@@ -83,6 +86,9 @@ local function track(model: Model)
 				end
 			end
 		end
+	end
+	if p.crystal then
+		p.fx = ArtilleryCrystal.new(model, p.crystal)
 	end
 	poses[model] = p
 end
@@ -110,12 +116,8 @@ local function pose(model: Model, p: Pose, dt: number)
 	for part, rest in p.rest do
 		part.CFrame = frames[p.stage[part]] * rest
 	end
-	if p.crystal then
-		local c = Cfg.Crystal
-		local state, glow = Rules.crystal(t, firedAt, readyAt, gun.reload, c)
-		p.crystal.Color = if state == "Fired"
-			then rgb(c.ready):Lerp(rgb(c.fired), glow)
-			else rgb(c.empty):Lerp(rgb(c.ready), glow)
+	if p.fx then
+		ArtilleryCrystal.update(p.fx, t, firedAt, readyAt, gun.reload)
 	end
 end
 
@@ -475,6 +477,10 @@ function Artillery.start()
 			end
 		end)
 		f.ChildRemoved:Connect(function(c)
+			local p = poses[c :: any]
+			if p and p.fx then
+				ArtilleryCrystal.destroy(p.fx)
+			end
 			poses[c :: any] = nil
 			loadings[c :: any] = nil
 		end)

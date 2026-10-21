@@ -117,14 +117,35 @@ return {
 		assert(near(A.breechAt(5, 0, 10, times, 0.3), 1))
 		assert(A.breechAt(9.9, 0, 10, times, 0.3) == 0)
 	end,
-	["the crystal flares, charges, then pulses ready"] = function()
+	["the crystal flares, drains, comes back to life, blooms, then breathes ready"] = function()
 		local c = C.Crystal
 		local state, glow = A.crystal(0.1, 0, 30, 30, c)
-		assert(state == "Fired" and glow > 0.5)
-		state, glow = A.crystal(15, 0, 30, 30, c)
-		assert(state == "Charging" and near(glow, 0.5))
-		state, glow = A.crystal(31, 0, 30, 30, c)
-		assert(state == "Ready" and glow <= 1 and glow >= 1 - c.pulseShare)
+		assert(state == "Fired" and glow > 1)
+		-- just after the flare: nearly dark
+		state, glow = A.crystal(c.flare + 0.05, 0, 30, 30, c)
+		assert(state == "Charging" and glow < 0.2)
+		-- rising overall: late is brighter than early (sampled over a beat)
+		local function mean(t0: number): number
+			local sum = 0
+			for k = 0, 19 do
+				local _, g = A.crystal(t0 + k * 0.1, 0, 30, 30, c)
+				sum += g
+			end
+			return sum / 20
+		end
+		assert(mean(25) > mean(8) and mean(8) > mean(1))
+		for t = 1, 29, 0.37 do
+			local _, g = A.crystal(t, 0, 30, 30, c)
+			assert(g >= 0 and g <= 1)
+		end
+		state, glow = A.crystal(30.1, 0, 30, 30, c)
+		assert(state == "Awake" and glow > 1)
+		state, glow = A.crystal(40, 0, 30, 30, c)
+		assert(state == "Ready" and glow <= 1 and glow >= 1 - c.breath)
+	end,
+	["the runes wake one after another as it charges"] = function()
+		assert(A.runeLit(1, 8, 0, 0.1) == 0 and A.runeLit(1, 8, 0.1, 0.1) == 1)
+		assert(A.runeLit(8, 8, 0.8, 0.1) < 0.5 and A.runeLit(8, 8, 1, 0.1) == 1)
 	end,
 	["a shell comes down to level ground when its height is spent"] = function()
 		local t = A.fall(0, 100, GRAVITY) :: number

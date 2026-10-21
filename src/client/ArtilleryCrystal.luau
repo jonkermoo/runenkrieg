@@ -1,0 +1,202 @@
+--!strict
+-- The magic howitzer's crystal, alive (Config/Artillery.Crystal, Rules/Artillery.crystal; src/client/Artillery runs it
+-- per gun on every client; docs/VFX.md "Artillery"). User 2026-10-20: "make the howitzer loading just a empty colored
+-- crystal and the color slowly returns (make it look nice, like its coming back to life)", "give the crystal more
+-- design and effects. some runes on it works too":
+-- - the crystal (and the barrel's and bed's rune bands with it) flares white-hot on the shot, drains near black, then
+--   life creeps back: sputtering, a heartbeat quickening, the colour filling in; full, it blooms and then breathes;
+-- - a light inside it, as bright as it glows;
+-- - a ring of Elder Futhark runes (Config/Runes strokes, flat lines facing the camera) circling level round it, each
+--   waking in turn as it charges, flickering on; on the shot they scatter outward and fade;
+-- - motes of light drawn into it while it charges.
+--   ArtilleryCrystal.new(model, crystal) -> state; .update(state, now, firedAt, readyAt, reload); .destroy(state)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Cfg = require(Shared.Config.Artillery).Crystal
+local RuneStrokes = require(Shared.Config.Runes)
+local Rules = require(Shared.Rules.Artillery)
+
+local ArtilleryCrystal = {}
+
+local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds" -- Roblox's own sparkle sprite
+local NAMES = { "fehu", "uruz", "thurisaz", "ansuz", "kaunan", "algiz", "sowilo", "tiwaz", "eihwaz", "hagalaz" }
+
+export type State = {
+	crystal: BasePart,
+	bands: { BasePart },
+	light: PointLight,
+	motes: ParticleEmitter,
+	holder: Attachment,
+	runes: { { gui: BillboardGui, strokes: { Frame } } },
+	angle: number,
+	last: number,
+}
+
+local function rgb(c: { number }): Color3
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
+
+-- a rune's strokes as frames in a box `w` x `h` studs (scale units, so they keep their shape at any distance)
+local function drawRune(parent: GuiObject, name: string, w: number, h: number): { Frame }
+	local out = {}
+	local t = Cfg.stroke
+	for _, s in RuneStrokes[name] do
+		local dx, dy = (s[3] - s[1]) * w, (s[4] - s[2]) * h
+		local len = math.sqrt(dx * dx + dy * dy)
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale((s[1] + s[3]) / 2, (s[2] + s[4]) / 2)
+		f.Size = UDim2.fromScale((len + t * h) / w, t)
+		f.Rotation = math.deg(math.atan2(dy, dx))
+		f.BorderSizePixel = 0
+		f.Parent = parent
+		table.insert(out, f)
+	end
+	return out
+end
+
+function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
+	local holder = Instance.new("Attachment")
+	holder.Name = "CrystalFx"
+	holder.Parent = crystal
+	local light = Instance.new("PointLight")
+	light.Shadows = false
+	light.Parent = holder
+	local motes = Instance.new("ParticleEmitter")
+	motes.Texture = SPARKLE
+	motes.Shape = Enum.ParticleEmitterShape.Sphere
+	motes.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+	motes.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
+	motes.Lifetime = NumberRange.new(0.8, 1.2)
+	motes.Speed = NumberRange.new(Cfg.moteFrom / 1.1, Cfg.moteFrom / 0.9)
+	motes.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, Cfg.moteSize),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	motes.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.3, 0),
+		NumberSequenceKeypoint.new(1, 0.2),
+	})
+	motes.LightEmission = 1
+	motes.LightInfluence = 0
+	motes.Rate = 0
+	-- (the sphere the motes start on: `moteFrom` studs out)
+	local box = Instance.new("Part")
+	box.Name = "CrystalMotes"
+	box.Anchored, box.CanCollide, box.CanQuery, box.CanTouch = true, false, false, false
+	box.Transparency = 1
+	box.Size = Vector3.one * Cfg.moteFrom * 2
+	box.Parent = model
+	motes.Parent = box
+
+	local runes = {}
+	local h = Cfg.size
+	local w = h * 0.7
+	for i = 1, Cfg.runes do
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "CrystalRune"
+		gui.Size = UDim2.fromScale(w, h)
+		gui.LightInfluence = 0
+		gui.MaxDistance = 600
+		gui.Adornee = holder
+		local frame = Instance.new("Frame")
+		frame.Size = UDim2.fromScale(1, 1)
+		frame.BackgroundTransparency = 1
+		frame.Parent = gui
+		local strokes = drawRune(frame, NAMES[(i - 1) % #NAMES + 1], w, h)
+		gui.Parent = holder
+		table.insert(runes, { gui = gui, strokes = strokes })
+	end
+
+	local bands = {}
+	for _, name in Cfg.alsoRunes do
+		local b = model:FindFirstChild(name, true)
+		if b and b:IsA("BasePart") then
+			table.insert(bands, b)
+		end
+	end
+	return {
+		crystal = crystal,
+		bands = bands,
+		light = light,
+		motes = motes,
+		holder = holder,
+		runes = runes,
+		angle = 0,
+		last = os.clock(),
+	}
+end
+
+-- the colour for a glow: empty -> ready, past 1 toward white-hot
+local function colorAt(glow: number): Color3
+	if glow <= 1 then
+		return rgb(Cfg.empty):Lerp(rgb(Cfg.ready), math.clamp(glow, 0, 1))
+	end
+	return rgb(Cfg.ready):Lerp(rgb(Cfg.fired), math.clamp(glow - 1, 0, 1))
+end
+
+function ArtilleryCrystal.update(s: State, now: number, firedAt: number, readyAt: number, reload: number)
+	local clock = os.clock()
+	local dt = math.min(clock - s.last, 0.1)
+	s.last = clock
+	local state, glow, share = Rules.crystal(now, firedAt, readyAt, reload, Cfg)
+	local color = colorAt(glow)
+	s.crystal.Color = color
+	-- the rune bands follow it, never quite dark
+	local bandColor = colorAt(math.max(math.min(glow, 1), Cfg.runesFloor))
+	for _, b in s.bands do
+		b.Color = bandColor
+	end
+	local lit = math.clamp(glow, 0, 1.5)
+	s.light.Color = color
+	s.light.Range = Cfg.light.range * math.max(lit, 0.05)
+	s.light.Brightness = Cfg.light.brightness * lit
+
+	-- motes drawn in while charging (more as it fills), a few while ready
+	local box = s.motes.Parent :: BasePart
+	box.CFrame = CFrame.new(s.crystal.Position)
+	s.motes.Color = ColorSequence.new(rgb(Cfg.ready))
+	s.motes.Rate = if state == "Charging" then Cfg.motes * (0.2 + 0.8 * share) elseif state == "Ready" then 2 else 0
+
+	-- the runes circling it
+	s.angle = (s.angle + Cfg.spin * dt) % 360
+	local since = now - firedAt
+	local n = #s.runes
+	for i, r in s.runes do
+		local a = math.rad(s.angle + 360 * (i - 1) / n)
+		local out = Cfg.orbit
+		local fade: number
+		if state == "Fired" then
+			-- scattering outward and fading
+			local k = math.clamp(since / Cfg.flare, 0, 1)
+			out += Cfg.scatter * k
+			fade = k
+		else
+			local on = if state == "Charging" then Rules.runeLit(i, n, share, Cfg.runeFade) else 1
+			-- waking: a flicker before it holds
+			local flick = if on > 0 and on < 1 then 0.5 + 0.5 * math.sin(clock * 40 + i) else 1
+			fade = 1 - on * flick
+		end
+		local bob = Cfg.bob * math.sin(clock * 1.7 + i)
+		r.gui.StudsOffsetWorldSpace = Vector3.new(math.cos(a) * out, bob, math.sin(a) * out)
+		r.gui.Enabled = fade < 0.99
+		local runeColor = colorAt(math.max(glow, 0.6))
+		for _, f in r.strokes do
+			f.BackgroundColor3 = runeColor
+			f.BackgroundTransparency = fade
+		end
+	end
+end
+
+function ArtilleryCrystal.destroy(s: State)
+	s.holder:Destroy()
+	local box = s.motes.Parent
+	if box then
+		box:Destroy()
+	end
+end
+
+return ArtilleryCrystal

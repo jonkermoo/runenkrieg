@@ -135,17 +135,53 @@ function Artillery.breechAt(now: number, firedAt: number, readyAt: number, times
 	return math.min(o, 1 - c)
 end
 
--- The crystal's state and its glow (0 dark .. 1 full) at `now`: "Fired" flaring right after a shot, "Charging" filling
--- with the reload, "Ready" pulsing (Config/Artillery.Crystal).
-function Artillery.crystal(now: number, firedAt: number, readyAt: number, reload: number, c: any): (string, number)
+-- The crystal's state at `now` (Config/Artillery.Crystal; user 2026-10-20: "an empty colored crystal and the color
+-- slowly returns ... like its coming back to life"):
+--   "Fired"    right after the shot: a white-hot flare draining away (`flare` s);
+--   "Charging" drained, then life creeping back: the glow rises slowly (share ^ `curve`), sputtering at first (below
+--              `sputter` of the reload), with heartbeats quickening from `beat[1]` to `beat[2]` a second and fading
+--              into a steady light near the end;
+--   "Awake"    the moment it's full: a bright bloom for `awake` s;
+--   "Ready"    a slow breath.
+-- Returns the state, the glow (0 dark .. 1 full, above 1: white-hot) and the share charged (0..1, the runes lit).
+function Artillery.crystal(
+	now: number,
+	firedAt: number,
+	readyAt: number,
+	reload: number,
+	c: any
+): (string, number, number)
 	if now < readyAt then
 		local since = now - firedAt
 		if since >= 0 and since < c.flare then
-			return "Fired", 1 - since / c.flare
+			local k = since / c.flare
+			return "Fired", (1 - k) * c.flareGlow, 0
 		end
-		return "Charging", Artillery.loaded(now, readyAt, reload)
+		local s = Artillery.loaded(now, readyAt, reload)
+		local e = math.max(since - c.flare, 0)
+		local glow = s ^ c.curve
+		-- the heartbeat: sharp beats, quickening as it fills, strongest midway, gone into the steady glow at the end
+		local rate = c.beat[1] + (c.beat[2] - c.beat[1]) * s / 2 -- (the mean rate so far, for the phase)
+		local beat = math.max(math.sin(2 * math.pi * rate * e), 0) ^ 6
+		glow += c.beatGlow * beat * math.sin(math.pi * math.min(s * 1.15, 1))
+		-- sputtering back to life at first
+		if s < c.sputter then
+			local flick = 0.5 + 0.5 * math.sin(e * 23) * math.sin(e * 7.3)
+			glow *= 1 - (1 - s / c.sputter) * flick
+		end
+		return "Charging", math.clamp(glow, 0, 1), s
 	end
-	return "Ready", 1 - c.pulseShare * (0.5 + 0.5 * math.sin(now * c.pulse))
+	local after = now - readyAt
+	if after < c.awake then
+		return "Awake", 1 + c.awakeGlow * (1 - after / c.awake), 1
+	end
+	return "Ready", 1 - c.breath * (0.5 + 0.5 * math.sin(now * c.pulse)), 1
+end
+
+-- How lit rune `i` of `n` is (0..1) with the crystal `share` charged: each wakes in turn over `fade` of the charge.
+function Artillery.runeLit(i: number, n: number, share: number, fade: number): number
+	local from = (i - 1) / n
+	return math.clamp((share - from) / math.max(fade, 1e-6), 0, 1)
 end
 
 -- Where a shell launched from (ox, oy, oz) at (vx, vy, vz) under `gravity` is at `t` (no drag).

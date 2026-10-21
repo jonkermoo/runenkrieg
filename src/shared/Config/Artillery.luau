@@ -108,15 +108,46 @@ local Artillery = {
 	-- The reload bar (bottom centre while manning; Palette.UI)
 	Bar = { width = 220, height = 12, margin = 90, text = 16 },
 
-	-- The howitzer's crystal by state (Rules/Artillery.crystal): just fired it flares, then dims and fills back up while
-	-- charging, ready it pulses. RGB.
+	-- The howitzer's crystal (src/client/ArtilleryCrystal, Rules/Artillery.crystal; user 2026-10-20: "make the howitzer
+	-- loading just a empty colored crystal and the color slowly returns (make it look nice, like its coming back to
+	-- life)", "give the crystal more design and effects. some runes on it works too"). RGB colours: `empty` drained,
+	-- `ready` full, `fired` white-hot. The flare: `flareGlow` draining over `flare` s. Charging: the glow rises as the
+	-- share ^ `curve`, sputters below `sputter`, heartbeats at `beat` (a second, start to end) adding `beatGlow`; full,
+	-- it blooms `awakeGlow` over `awake` s, then breathes by `breath` at `pulse` rad/s. The barrel's and bed's runes
+	-- (`alsoRunes`) dim and come back with it, never below `runesFloor`. `light`: a point light in it, `range` /
+	-- `brightness` at full glow.
+	-- Round it: `runes` Elder Futhark runes (Config/Runes strokes) circling level round the crystal, `orbit` studs out,
+	-- `size` studs tall, `spin` deg/s, `bob` studs up and down; each wakes in turn as it charges (over `runeFade` of the
+	-- charge), flickering on; all scatter `scatter` studs and fade on the shot. Motes of light drawn into it while it
+	-- charges: up to `motes` a second, from `moteFrom` studs, `moteSize` studs.
 	Crystal = {
-		fired = { 235, 250, 255 },
-		empty = { 30, 50, 80 },
-		ready = { 90, 170, 255 },
-		flare = 0.6, -- seconds of the flare
-		pulse = 2, -- the ready pulse's speed (radians/s)
-		pulseShare = 0.25,
+		empty = { 20, 26, 40 },
+		ready = { 70, 150, 255 },
+		fired = { 225, 245, 255 },
+		flare = 0.6,
+		flareGlow = 1.6,
+		curve = 1.6,
+		sputter = 0.3,
+		beat = { 0.5, 1.6 },
+		beatGlow = 0.35,
+		awake = 0.5,
+		awakeGlow = 0.6,
+		breath = 0.2,
+		pulse = 1.6,
+		alsoRunes = { "BarrelRunes", "BedRunes" },
+		runesFloor = 0.15,
+		light = { range = 14, brightness = 2.5 },
+		runes = 8,
+		orbit = 2.1,
+		size = 0.75,
+		spin = 25,
+		bob = 0.15,
+		runeFade = 0.1,
+		scatter = 2.5,
+		stroke = 0.12, -- a stroke's width, of the rune's height
+		motes = 14,
+		moteFrom = 3,
+		moteSize = 0.18,
 	},
 
 	-- Sounds (Pro Sound Effects, licensed through Roblox; ASSETS_LICENSES.md), per gun below: `fire` its report up
