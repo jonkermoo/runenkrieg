@@ -214,7 +214,8 @@ function ArtilleryCrystal.update(
 			out += Cfg.scatter * k
 			fade = k
 		else
-			local on = if state == "Charging" then Rules.runeLit(i, n, share, Cfg.runeFade) else 1
+			-- (user 2026-10-21: the runes "die when it's reloading"): dark through the reload, back when it's ready
+			local on = if state == "Charging" then 0 else 1
 			-- waking: a flicker before it holds
 			local flick = if on > 0 and on < 1 then 0.5 + 0.5 * math.sin(clock * 40 + i) else 1
 			fade = 1 - on * flick

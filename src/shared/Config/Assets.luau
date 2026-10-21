@@ -159,13 +159,14 @@ local Assets = {
 			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
 		},
 		artillery_howitzer = {
-			-- v6 (user 2026-10-21, approved Bertha v10; was the BL 9.2-inch at 1.3x, 82367327569698)
-			id = 82040723469817,
+			-- v6 (user 2026-10-21: Bertha v11, the bigger cracked gem; v10 82040723469817; before it the BL 9.2-inch at
+			-- 1.3x, 82367327569698)
+			id = 70753419490474,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/artillery_bertha.fbx",
 			generator = "tools/blender/artillery/bertha.py",
-			description = "The magic howitzer: a 42 cm siege mortar of our own after the Big Bertha and the Gamma-Gerat, no wheels: a riveted box carriage turning on a giant toothed ring gear, a layered short barrel trunnioned high between its walls, two silos beside it and a housing under it, a bolted yoke and dial sight, a toothed elevating sector and big spoked hand wheels by the gunner's step, a crew deck and ladder at the back; the gem in a ring of runes on the round breech face, rune bands on the barrel, runes on the bed. Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore + Breech + Crystal recoil.",
+			description = "The magic howitzer: a 42 cm siege mortar of our own after the Big Bertha and the Gamma-Gerat, no wheels: a riveted box carriage turning on a giant toothed ring gear, a layered short barrel trunnioned high between its walls, two silos beside it and a housing under it, a bolted yoke and dial sight, a toothed elevating sector and big spoked hand wheels by the gunner's step, a crew deck and ladder at the back; the cracked, chipped gem (its cracks a part of their own, CrystalCracks) in a ring of runes on the round breech face, rune bands on the barrel, runes on the bed. Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore + Breech + Crystal + CrystalCracks recoil.",
 		},
 		-- the field gun's fixed round (2026-10-20, docs/MILESTONES.md A2): carried by the gunner while loading
 		-- (Config/Artillery.Load), colored from Config/Palette.Artillery by mesh name

@@ -190,8 +190,9 @@ local Artillery = {
 	-- (`alsoRunes`) dim and come back with it, never below `runesFloor`. `light`: a point light in it, `range` /
 	-- `brightness` at full glow.
 	-- Round it: `runes` Elder Futhark runes (Config/Runes strokes) circling level round the crystal, `orbit` studs out,
-	-- `size` studs tall, `spin` deg/s, `bob` studs up and down; each wakes in turn as it charges (over `runeFade` of the
-	-- charge), flickering on; all scatter `scatter` studs and fade on the shot. Motes of light drawn into it while it
+	-- `size` studs tall, `spin` deg/s, `bob` studs up and down; they scatter `scatter` studs and fade on the shot, stay
+	-- dark through the reload (user 2026-10-21: "die when it's reloading") and come back when it's full, whirling faster as
+	-- it charges to fire (`surge.spin`: "spin ... faster when its about to fire"). Motes of light drawn into it while it
 	-- charges: up to `motes` a second, from `moteFrom` studs, `moteSize` studs.
 	Crystal = {
 		empty = { 20, 26, 40 },
@@ -211,18 +212,17 @@ local Artillery = {
 		runesFloor = 0.15,
 		light = { range = 14, brightness = 2.5 },
 		runes = 8,
-		orbit = 2.1,
-		size = 0.75,
+		orbit = 2.9, -- (round the bigger gem)
+		size = 0.9,
 		spin = 25,
 		bob = 0.15,
-		runeFade = 0.1,
 		scatter = 2.5,
 		stroke = 0.12, -- a stroke's width, of the rune's height
 		motes = 14,
 		moteFrom = 3,
 		moteSize = 0.18,
 		-- charging up for the shot: up to `glow` brighter, the runes `spin` x faster, drawn in by `tighten`
-		surge = { glow = 0.7, spin = 6, tighten = 0.4 },
+		surge = { glow = 0.7, spin = 12, tighten = 0.35 },
 		-- a random flicker (user 2026-10-21: "make the flicker random"), like a failing light: drop-outs at `rate` a
 		-- second (charging: from the first to the second as it fills; ready: the third), each `length` s long and
 		-- `depth` deep, and a slow uneven wobble of `wobble`
@@ -331,7 +331,7 @@ local Artillery = {
 		-- turning all the way round on a giant ring gear, the barrel trunnioned high between its walls. A short-arc mortar
 		-- (user: "make the howitzer more of a short arc mortar weapon"): it only lobs, 45..80 degrees, 160 studs/s under
 		-- its own lighter gravity: ~590 studs at 45 down to ~200 at 80, 5-7 s in the air. Its recoil is cut short at
-		-- high elevation so the gem under the breech clears the turntable (1.84 at 80). Dug in when placed (`dig`).
+		-- high elevation so the gem under the breech clears the turntable (~1 at 80). Dug in when placed (`dig`).
 		artillery_howitzer = {
 			asset = "artillery_howitzer",
 			name = "Magic howitzer",
@@ -361,7 +361,7 @@ local Artillery = {
 			breechTimes = { 2, 2 },
 			recoil = 2.5,
 			recoilTimes = { 0.12, 2 },
-			recoilClear = { floor = 1.9, along = 3.75, below = 0 }, -- the gem's point over the turntable (1.6)
+			recoilClear = { floor = 1.9, along = 4.58, below = 0 }, -- the gem's point over the turntable (1.6)
 			-- on the step on the carriage's left wall by the hand wheels (user 2026-10-21: "a small platform you stand on the
 			-- side of the cannon to arm it and control it"; bertha.py STEP)
 			crew = { -4.45, 1.4 },
