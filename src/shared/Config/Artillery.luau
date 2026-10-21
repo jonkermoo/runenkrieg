@@ -117,7 +117,7 @@ local Artillery = {
 	-- animation. the howitzer can be just the crystal"): the gunner's client plays `animation` from `lead` s before
 	-- ready (its "Close" as the breech shuts); every client shows the round (Config/Assets `round`) at the gunner's
 	-- right hand from `take` to `loaded` s into it, its base in the hand, level along the gun. nil animation: none yet.
-	Load = { animation = nil :: number?, lead = 3.45, take = 0.5, loaded = 2.1, round = "round_qf18" },
+	Load = { animation = 77988505499096 :: number?, lead = 3.45, take = 0.5, loaded = 2.1, round = "round_qf18" },
 
 	Guns = {
 		-- QF 18-pounder (A1): traverse 4.5, elevation -5..16 about the trunnion, recoil 46 in, the breech 100 degrees.

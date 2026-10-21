@@ -137,6 +137,11 @@ local Palette = {
 		BarrelRunes = { 120, 200, 255 },
 		Crystal = { 175, 235, 255 },
 		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
+		-- the field gun's round (Config/Assets round_qf18): brass case, copper band, the HE shell's yellow, a steel fuze
+		Case = { 204, 170, 96 },
+		Band = { 184, 115, 72 },
+		Shell = { 200, 168, 52 },
+		Fuze = { 96, 98, 102 },
 		-- the gunner's arc line and landing marker (src/client/Artillery, Config/Artillery.Arc)
 		Arc = { 236, 230, 210 },
 		Marker = { 255, 214, 120 },

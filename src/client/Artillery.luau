@@ -178,6 +178,11 @@ local function load(model: Model, p: Pose, mine: boolean)
 				for _, d in r:GetDescendants() do
 					if d:IsA("BasePart") then
 						d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
+						local c = (Palette.Artillery :: any)[d.Name]
+						if c then
+							d.Color = rgb(c)
+							d.Material = Enum.Material.SmoothPlastic
+						end
 						d.Transparency = if d.Name == "Origin" then 1 else d.Transparency
 					end
 				end

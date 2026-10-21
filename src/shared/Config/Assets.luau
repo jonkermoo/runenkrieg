@@ -166,6 +166,16 @@ local Assets = {
 			generator = "tools/blender/artillery/howitzer.py",
 			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
 		},
+		-- the field gun's fixed round (2026-10-20, docs/MILESTONES.md A2): carried by the gunner while loading
+		-- (Config/Artillery.Load), colored from Config/Palette.Artillery by mesh name
+		round_qf18 = {
+			id = 110166358677668,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/round_qf18.fbx",
+			generator = "tools/blender/artillery/round_qf18.py",
+			description = "QF 18-pounder HE round at real size (1.57 studs): the brass 84 x 292R case, a copper driving band, the yellow shell and a steel nose fuze (meshes Case, Band, Shell, Fuze). Origin at the case head, pointing -Z.",
+		},
 		-- the trench spade for digging and building (user 2026-10-19, design F), shared by every team, colored from
 		-- Config/Palette.Shovel by mesh name. No mechanics yet.
 		shovel = {
