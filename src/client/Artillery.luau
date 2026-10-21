@@ -13,7 +13,6 @@
 --   with its sound, heard late and duller far off.
 
 local CollectionService = game:GetService("CollectionService")
-local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -119,6 +118,86 @@ local function pose(model: Model, p: Pose, dt: number)
 	end
 end
 
+-- the field gun's loading (Config/Artillery.Load): the gunner's own client plays the animation once a reload (it
+-- replicates); every client shows the round at the gunner's right hand while it's carried
+type Loading = { round: Model?, played: number? }
+local loadings: { [Model]: Loading } = {}
+local tracks: { [Model]: AnimationTrack } = {}
+
+local function roundTemplate(): Model?
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	for _, sub in { "Weapons", "Shared", "Artillery", Cfg.Load.round } do
+		f = f and f:FindFirstChild(sub)
+	end
+	return if f and f:IsA("Model") then f else nil
+end
+
+local function load(model: Model, p: Pose, mine: boolean)
+	local L = Cfg.Load
+	if not p.gun.loads or not L.animation then
+		return
+	end
+	local s = loadings[model]
+	if not s then
+		s = {}
+		loadings[model] = s
+	end
+	local firedAt = model:GetAttribute("FiredAt") :: number?
+	local readyAt = model:GetAttribute("ReadyAt") :: number?
+	local id = model:GetAttribute("Gunner") :: number?
+	local gunner = id and Players:GetPlayerByUserId(id)
+	local character = gunner and gunner.Character
+	local arm = character and character:FindFirstChild("Right Arm") :: BasePart?
+	local t = if firedAt and readyAt then now() - (readyAt - L.lead) else -math.huge
+	-- the gunner plays it, once a reload
+	if mine and character and readyAt and t >= 0 and t < 1 and s.played ~= readyAt then
+		s.played = readyAt
+		local animator = character:FindFirstChildOfClass("Humanoid")
+			and (character:FindFirstChildOfClass("Humanoid") :: Humanoid):FindFirstChildOfClass("Animator")
+		if animator then
+			local tr = tracks[character]
+			if not tr then
+				local a = Instance.new("Animation")
+				a.AnimationId = `rbxassetid://{L.animation}`
+				tr = animator:LoadAnimation(a)
+				tracks[character] = tr
+				character.Destroying:Connect(function()
+					tracks[character] = nil
+				end)
+			end
+			tr:Play(0.15)
+			tr.TimePosition = t
+		end
+	end
+	-- the round at the right hand while carried: its base in the hand, level, along the gun
+	if arm and t >= L.take and t < L.loaded then
+		if not s.round then
+			local template = roundTemplate()
+			if template then
+				local r = template:Clone()
+				for _, d in r:GetDescendants() do
+					if d:IsA("BasePart") then
+						d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
+						d.Transparency = if d.Name == "Origin" then 1 else d.Transparency
+					end
+				end
+				local origin = r:FindFirstChild("Origin", true)
+				r.PrimaryPart = if origin and origin:IsA("BasePart") then origin else r.PrimaryPart
+				r.Parent = model
+				s.round = r
+			end
+		end
+		if s.round then
+			local hand = arm.CFrame:PointToWorldSpace(Vector3.new(0, -1, 0))
+			local along = model:GetPivot().Rotation * CFrame.Angles(0, math.rad(p.traverse), 0)
+			s.round:PivotTo(CFrame.new(hand) * along)
+		end
+	elseif s.round then
+		s.round:Destroy()
+		s.round = nil
+	end
+end
+
 -- the gunner's view -------------------------------------------------------------------------------------------------
 
 local beam: Beam? = nil
@@ -199,17 +278,12 @@ local function along(a: Attachment, at: Vector3, axis: Vector3)
 	a.WorldCFrame = CFrame.fromMatrix(at, x, y)
 end
 
--- the arc of a shot with the gun's lay as posed (no scatter), to where it would first hit
-local function drawArc(model: Model, p: Pose, character: Model)
-	local gun = p.gun
-	local pivot = model:GetPivot()
-	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, p.traverse, p.elevation)
-	local o = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
-	local v = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
+-- where a shell from `o` at `v` would first hit, and when (nil: nowhere within MaxFlight / above Arc.floor), past
+-- everything in `skip`
+local function trace(o: Vector3, v: Vector3, skip: { Instance }): (Vector3?, number)
 	local g = workspace.Gravity
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	local skip: { Instance } = { model, character }
 	params.FilterDescendantsInstances = skip
 	params.IgnoreWater = false
 	params.CollisionGroup = "Default"
@@ -230,22 +304,33 @@ local function drawArc(model: Model, p: Pose, character: Model)
 		end
 		return nil
 	end
-	local function at(t: number): Vector3
-		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
-		return Vector3.new(x, y, z)
-	end
 	local step = Cfg.Arc.step
-	local prev, t, last, finish = o, step, 0, nil :: Vector3?
+	local prev, t, last = o, step, 0
 	while t <= Cfg.MaxFlight and prev.Y > Cfg.Arc.floor do
-		local q = at(t)
+		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
+		local q = Vector3.new(x, y, z)
 		local hit = cast(prev, q - prev)
 		if hit then
-			last = t - step + step * hit.Distance / (q - prev).Magnitude
-			finish = hit.Position
-			break
+			return hit.Position, t - step + step * hit.Distance / (q - prev).Magnitude
 		end
 		last, prev = t, q
 		t += step
+	end
+	return nil, last
+end
+
+-- the arc of a shot with the gun's lay as posed (no scatter), to where it would first hit
+local function drawArc(model: Model, p: Pose, character: Model)
+	local gun = p.gun
+	local pivot = model:GetPivot()
+	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, p.traverse, p.elevation)
+	local o = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local v = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
+	local g = workspace.Gravity
+	local finish, last = trace(o, v, { model, character })
+	local function at(t: number): Vector3
+		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
+		return Vector3.new(x, y, z)
 	end
 	local b, s0, s1, gui, label = arcParts()
 	local p1 = finish or at(last)
@@ -274,6 +359,7 @@ function Artillery.start()
 		end)
 		f.ChildRemoved:Connect(function(c)
 			poses[c :: any] = nil
+			loadings[c :: any] = nil
 		end)
 		for _, c in f:GetChildren() do
 			if c:IsA("Model") then
@@ -399,9 +485,11 @@ function Artillery.start()
 				continue
 			end
 			pose(model, p, dt)
-			if model:GetAttribute("Gunner") == player.UserId then
+			local me = model:GetAttribute("Gunner") == player.UserId
+			if me then
 				found = model
 			end
+			load(model, p, me)
 		end
 		if found ~= mine then
 			if mine then
@@ -457,31 +545,25 @@ function Artillery.start()
 		caption.Text = if share >= 1 then "Ready" else "Loading"
 	end)
 
-	-- a shot: the muzzle flash and its report
-	Net.event("ArtilleryShot").OnClientEvent:Connect(function(model: Model, origin: Vector3, _velocity: Vector3)
+	-- a shot: the muzzle blast, its report, and the whistle where it comes down
+	Net.event("ArtilleryShot").OnClientEvent:Connect(function(model: Model, origin: Vector3, velocity: Vector3)
 		local gun = Cfg.Guns[model and model:GetAttribute("Gun") :: any]
 		if not gun then
 			return
 		end
-		local F = Cfg.Flash
-		local ball = Instance.new("Part")
-		ball.Shape = Enum.PartType.Ball
-		ball.Size = Vector3.one * F.size * gun.flash
-		ball.CFrame = CFrame.new(origin)
-		ball.Anchored, ball.CanCollide, ball.CanQuery, ball.CanTouch = true, false, false, false
-		ball.CastShadow = false
-		ball.Material = Enum.Material.Neon
-		ball.Color = rgb(F.color)
-		local light = Instance.new("PointLight")
-		light.Range = F.light
-		light.Brightness = F.brightness
-		light.Color = rgb(F.color)
-		light.Parent = ball
-		ball.Parent = workspace
-		Debris:AddItem(ball, F.time)
-		local d = (camera.CFrame.Position - origin).Magnitude
+		Vfx.Muzzle.play(origin, velocity, gun.muzzleScale)
+		-- the report: up close the gun itself, far off the distant boom
+		local eye = camera.CFrame.Position
+		local d = (eye - origin).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
-		SoundFx.play(Cfg.Sound.fire :: any, origin, nil, { delay = delay, eq = { low, 0, high } })
+		local report = if d > Cfg.FarFrom then gun.sound.far else gun.sound.fire
+		SoundFx.play(report :: any, origin, nil, { delay = delay, eq = { low, 0, high } })
+		-- the incoming shell's whistle, for whoever is near where it lands (the path as the server flies it, unscattered
+		-- from here: the server sent the scattered velocity)
+		local landing, flight = trace(origin, velocity, { model })
+		if landing and (eye - landing).Magnitude <= Cfg.Whistle.reach then
+			SoundFx.play(gun.sound.whistle :: any, landing, nil, { delay = math.max(flight - Cfg.Whistle.lead, 0) })
+		end
 	end)
 
 	-- a shell's blast
@@ -498,7 +580,7 @@ function Artillery.start()
 		})
 		local d = (camera.CFrame.Position - position).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
-		SoundFx.play(Cfg.Sound.blast :: any, position, nil, { delay = delay, eq = { low, 0, high } })
+		SoundFx.play(gun.sound.blast :: any, position, nil, { delay = delay, eq = { low, 0, high } })
 	end)
 end
 

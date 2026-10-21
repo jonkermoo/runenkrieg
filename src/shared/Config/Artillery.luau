@@ -49,7 +49,9 @@ export type Gun = {
 	crew: { number }, -- where the gunner stands (x, z; y from the ground there)
 	prompt: number, -- reach of the E prompt, studs
 	vfx: { scheme: string, magic: boolean },
-	flash: number, -- the muzzle flash's size (x Flash.size)
+	muzzleScale: number, -- the muzzle blast's scale (Config/Vfx.Muzzle)
+	loads: boolean?, -- the gunner plays the loading (Load above)
+	sound: { fire: any, far: any, blast: any, whistle: any },
 	camera: { back: number, up: number, pitch: number, follow: number, fov: number },
 }
 
@@ -103,19 +105,19 @@ local Artillery = {
 		pulseShare = 0.25,
 	},
 
-	-- Sounds (placeholders until real artillery sounds are picked: the grenade's layered blast)
-	Sound = {
-		fire = { { id = 9114362266, volume = 1.4, profile = "Explosion" } },
-		blast = {
-			{ id = 9114362266, volume = 1.4, profile = "Explosion" },
-			{ id = 9114086964, volume = 1, profile = "Explosion" },
-			{ id = 9114363833, volume = 1, profile = "Explosion", eq = { 3, 0, -3 } },
-		},
-	},
-	-- heard late and duller far off (Rules/Grenade.heard, as the grenades')
+	-- Sounds (Pro Sound Effects, licensed through Roblox; ASSETS_LICENSES.md), per gun below: `fire` its report up
+	-- close, `far` heard past `FarFrom` studs instead, `blast` the shell going off; the incoming shell's `whistle` is
+	-- heard within `Whistle.reach` studs of where it lands, starting `Whistle.lead` s before it lands. All late and
+	-- duller far off (Rules/Grenade.heard).
+	Whistle = { reach = 300, lead = 2.6 },
 	Heard = { dullFrom = 80, dullFull = 900, highCut = -14, lowBoost = 5 },
-	-- the muzzle flash: a glowing ball `size` studs across (x the gun's `flash`) for `time` seconds, lighting `light` studs round
-	Flash = { size = 3, time = 0.12, light = 40, brightness = 4, color = { 255, 214, 140 } },
+	FarFrom = 400,
+
+	-- The field gun's loading (tools/animation/artillery.luau; user 2026-10-20: "make the player load the shell as an
+	-- animation. the howitzer can be just the crystal"): the gunner's client plays `animation` from `lead` s before
+	-- ready (its "Close" as the breech shuts); every client shows the round (Config/Assets `round`) at the gunner's
+	-- right hand from `take` to `loaded` s into it, its base in the hand, level along the gun. nil animation: none yet.
+	Load = { animation = nil :: number?, lead = 3.45, take = 0.5, loaded = 2.1, round = "round_qf18" },
 
 	Guns = {
 		-- QF 18-pounder (A1): traverse 4.5, elevation -5..16 about the trunnion, recoil 46 in, the breech 100 degrees.
@@ -147,10 +149,27 @@ local Artillery = {
 			recoil = 3.34,
 			recoilTimes = { 0.08, 1.2 },
 			recoilClear = nil,
-			crew = { -1.3, 2.2 },
+			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail
 			prompt = 8,
 			vfx = { scheme = "Ember", magic = false },
-			flash = 1,
+			muzzleScale = 1,
+			loads = true,
+			sound = {
+				fire = {
+					{ id = 9116973611, volume = 1.4, profile = "Explosion" }, -- Mortar Explosion 3: big, low thump
+					{ id = 9114362266, volume = 0.8, profile = "Explosion" }, -- Explosions 4: the crack and its debris
+				},
+				far = { { id = 9113169432, volume = 1.2, profile = "Explosion" } }, -- Artillery Distant 2
+				blast = {
+					{ id = 9114362266, volume = 1.4, profile = "Explosion" }, -- Explosions 4
+					{ id = 9114086964, volume = 1, profile = "Explosion" }, -- Dirt Explosion 2
+					{ id = 9114363833, volume = 1, profile = "Explosion", eq = { 3, 0, -3 } }, -- Explosive Boom 2
+				},
+				-- Bullet Whiz By 1 (lengthened), slowed into a shell's rushing whine
+				whistle = {
+					{ id = 9113634642, volume = 0.9, profile = "Explosion", pitch = 0.6, stop = 1.6, fade = 0.3 },
+				},
+			},
 			camera = { back = 16, up = 7, pitch = -6, follow = 0.4, fov = 60 },
 		} :: Gun,
 		-- The magic howitzer (A1, BL 9.2-inch at 1.3x): traverse 30 about the racer, elevation 0..55, recoil 40 in (1.3x),
@@ -186,7 +205,22 @@ local Artillery = {
 			crew = { -2.6, 4.6 },
 			prompt = 12,
 			vfx = { scheme = "Arcane", magic = true },
-			flash = 2.2,
+			muzzleScale = 2.2,
+			sound = {
+				fire = {
+					{ id = 9119382515, volume = 1.5, profile = "Explosion" }, -- Sonic Boom 2: a huge single boom
+					{ id = 9116973607, volume = 1.2, profile = "Explosion" }, -- Mortar Explosion 5
+				},
+				far = { { id = 9113169264, volume = 1.4, profile = "Explosion" } }, -- Artillery Distant 1
+				blast = {
+					{ id = 9114362135, volume = 1.5, profile = "Explosion" }, -- Explosions 1: rumbling, punchy
+					{ id = 9114086964, volume = 1.2, profile = "Explosion" }, -- Dirt Explosion 2
+					{ id = 9114363996, volume = 1.2, profile = "Explosion", eq = { 4, 0, -3 } }, -- Explosive Boom 5: the long tail
+				},
+				whistle = {
+					{ id = 9113634642, volume = 1, profile = "Explosion", pitch = 0.45, stop = 1.2, fade = 0.3 },
+				},
+			},
 			camera = { back = 30, up = 14, pitch = -8, follow = 0.4, fov = 60 },
 		} :: Gun,
 	},

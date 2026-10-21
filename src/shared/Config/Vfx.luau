@@ -542,6 +542,51 @@ local Vfx = {
 		},
 	},
 
+	-- A gun's muzzle blast (src/client/Vfx/Muzzle; the artillery, Config/Artillery `muzzle` scale): `Flash` a ball `size`
+	-- studs across in `color` (Palette.Magic) lighting `light` studs at `brightness` for `time` s; `Jet` grey smoke
+	-- thrown out along the bore, `Side` a ring of it puffing out round the muzzle, `Dust` off the ground under it (if
+	-- within `reach`): `count` puffs at `speed` studs/s, slowed by `drag`, spread `spread` degrees, growing from
+	-- `size[1]` to `size[2]` studs, `thick` (transparency) after fading in over `fadeIn` of their `life` (s), drifting
+	-- on the `wind`. Studs and speeds x the gun's scale.
+	Muzzle = {
+		Flash = { size = 3, color = "Gold", light = 40, brightness = 4, time = 0.12 },
+		Jet = {
+			count = 14,
+			speed = { 30, 70 },
+			drag = 4,
+			spread = 12,
+			size = { 1.2, 6 },
+			thick = 0.2,
+			life = { 2.5, 4.5 },
+			color = "Ash",
+		},
+		Side = {
+			count = 10,
+			speed = { 12, 24 },
+			drag = 5,
+			spread = 90,
+			size = { 1, 4.5 },
+			thick = 0.3,
+			life = { 1.5, 3 },
+			color = "Ash",
+		},
+		Dust = {
+			count = 10,
+			speed = { 4, 9 },
+			drag = 2,
+			spread = 70,
+			size = { 1.5, 5 },
+			thick = 0.45,
+			life = { 1.5, 3 },
+			color = "Smoke",
+			reach = 6,
+			width = 6,
+		},
+		fadeIn = 0.08,
+		wind = { 1.2, 0.6, 0.5 },
+		spin = 25,
+	},
+
 	-- A ring that races outward and thins (lying flat on the ground, or facing any way).
 	Shockwave = { from = 0.5, to = 6, time = 0.4, line = 0.5, color = "Glow", brightness = 2 }, -- radii
 
