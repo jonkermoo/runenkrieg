@@ -170,17 +170,18 @@ local Artillery = {
 		-- smoke curling up out of the barrel after the shot (user 2026-10-21: "make smoke come out of the cannons
 		-- (both)"): `rate` puffs a second thinning to none over `time` s, out of the muzzle at `speed` (x the gun's
 		-- muzzleScale), rising `rise` studs/s^2, growing `size` (x the scale), `thick` at its thickest (Palette.Magic)
+		-- (Studio round 15: at rate 9, thick 0.45 it read faint against the sky)
 		Smoke = {
-			time = 7,
-			rate = 9,
+			time = 8,
+			rate = 16,
 			speed = { 1.5, 4 },
-			life = { 2.5, 4.5 },
+			life = { 3, 5 },
 			spread = 18,
 			drag = 0.6,
 			rise = 2.5,
 			wind = { 0.8, 0, 0.4 },
-			size = { 0.6, 3.2 },
-			thick = 0.45,
+			size = { 0.9, 4.5 },
+			thick = 0.2,
 			color = "Ash",
 		},
 	},
