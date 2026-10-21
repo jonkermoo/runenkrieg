@@ -53,7 +53,7 @@ local function libraryModel(name: string): Model
 end
 
 -- A rigged copy of the weapon as a Model (PrimaryPart = the Gun part at the gun origin). `kit`: whose colors
--- (Config/Weapons `kits`, a team's tint over `parts`; default: the kit everyone wears, Config/Uniforms.Default).
+-- (Config/Weapons `kits`, a team's tint over `parts`; default: Config/Uniforms.Default).
 function Armory.build(name: string, kit: string?): Model
 	local w = W[name]
 	local tint = w.kits and w.kits[kit or U.Default] or {}
