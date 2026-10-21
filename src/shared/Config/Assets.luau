@@ -480,7 +480,7 @@ local Assets = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
 				brim = 0.06,
-				parts = { Strap = { 120, 84, 56 }, Lens = { 72, 176, 150 } },
+				parts = { Strap = { 58, 40, 28 }, Lens = { 72, 176, 150 } }, -- dark leather on the chocolate (user 2026-10-21)
 				shell = "brodie",
 				center = { 0, 0.3781, 0.0023 },
 			},
@@ -497,7 +497,7 @@ local Assets = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
 				brim = 0.06,
-				parts = { Band = { 120, 84, 56 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } },
+				parts = { Band = { 58, 40, 28 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } }, -- dark leather band
 				shell = "brodie",
 				center = { 0, 0.3781, 0.0023 },
 			},
