@@ -116,7 +116,8 @@ end
 -- A gun's pit (src/server/Artillery `dig`): within `radius` of `position` the ground cut down to a level floor `depth`
 -- under it (the top voxel left part full, so the floor sits at that height; mud), and a rim of earth `rimHeight` high
 -- thrown up round it over the next `rim` studs, peaked in its middle, following the ground. Voxel by voxel with
--- fractional occupancy: a FillCylinder of Air that ends inside a 4-stud voxel cuts nothing (Studio 2026-10-21).
+-- fractional occupancy: a FillCylinder of Air that ends inside a 4-stud voxel cuts nothing (Studio 2026-10-21). A
+-- smooth surface stands at its top voxel's CENTRE + 4 x occupancy (measured in Studio), not its bottom.
 function Ground.pit(position: Vector3, radius: number, depth: number, rim: number, rimHeight: number)
 	local terrain = workspace.Terrain
 	local reach = Vector3.new(radius + rim, depth + rimHeight + VOXEL * 3, radius + rim)
@@ -134,8 +135,8 @@ function Ground.pit(position: Vector3, radius: number, depth: number, rim: numbe
 			local d = math.sqrt((x - position.X) ^ 2 + (z - position.Z) ^ 2)
 			if d <= radius then
 				for iy = 1, size.Y do
-					local y0 = corner.Y + (iy - 1) * VOXEL
-					local keep = math.clamp((floor - y0) / VOXEL, 0, 1)
+					local mid = corner.Y + (iy - 0.5) * VOXEL
+					local keep = math.clamp((floor - mid) / VOXEL, 0, 1)
 					if occs[ix][iy][iz] > keep then
 						occs[ix][iy][iz] = keep
 						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
@@ -146,15 +147,15 @@ function Ground.pit(position: Vector3, radius: number, depth: number, rim: numbe
 				local top: number? = nil
 				for iy = size.Y, 1, -1 do
 					if occs[ix][iy][iz] > 0 then
-						top = corner.Y + (iy - 1) * VOXEL + occs[ix][iy][iz] * VOXEL
+						top = corner.Y + (iy - 0.5) * VOXEL + occs[ix][iy][iz] * VOXEL
 						break
 					end
 				end
 				if top then
 					local bump = rimHeight * (1 - math.abs(d - radius - rim / 2) / (rim / 2))
 					for iy = 1, size.Y do
-						local y0 = corner.Y + (iy - 1) * VOXEL
-						local want = math.clamp((top + bump - y0) / VOXEL, 0, 1)
+						local mid = corner.Y + (iy - 0.5) * VOXEL
+						local want = math.clamp((top + bump - mid) / VOXEL, 0, 1)
 						if want > occs[ix][iy][iz] then
 							occs[ix][iy][iz] = want
 							if mats[ix][iy][iz] == Enum.Material.Air then
