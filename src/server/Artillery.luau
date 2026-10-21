@@ -9,7 +9,7 @@
 -- - E (its ProximityPrompt) mans it: the gunner stands anchored at the crew spot, weapons put away, until they leave
 --   (Net "Artillery" "Leave"), die or go.
 -- - "Aim" sets the wanted yaw and elevation; the gun works toward them at its rates (Rules/Artillery.lay).
--- - "Fire", loaded: the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
+-- - "Fire", loaded: the gunner braces, Config/Artillery.Brace.delay later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
 --   casts, so nothing thin is passed through) and goes off where it hits: Damage.blast with its charge and fragments,
 --   every client shows it (Net "ArtilleryBlast").
 
@@ -38,6 +38,7 @@ type State = {
 	conns: { RBXScriptConnection },
 	sent: number, -- when the lay was last written out
 	aimed: number, -- when the gunner's last aim was taken
+	bracing: boolean, -- a shot on its way (the gunner bracing)
 }
 
 local guns: { [Model]: State } = {}
@@ -296,6 +297,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 		conns = {},
 		sent = 0,
 		aimed = 0,
+		bracing = false,
 	}
 	guns[model] = s
 	prompt.Triggered:Connect(function(player)
@@ -340,7 +342,21 @@ function Artillery.start()
 				s.want = { yaw = Rules.wrap(a), elevation = b }
 			end
 		elseif kind == "Fire" then
-			fire(s)
+			-- the gunner braces first, the shot goes a moment later (user 2026-10-20: "play that first then fire, a slight
+			-- delay in the shots makes it feel real"); "BraceAt" says when, for the gunner's brace
+			local ready = s.model:GetAttribute("ReadyAt") :: number?
+			if s.bracing or (ready and now() < ready) then
+				return
+			end
+			s.bracing = true
+			s.model:SetAttribute("BraceAt", now())
+			local gunner = s.gunner
+			task.delay(Cfg.Brace.delay, function()
+				s.bracing = false
+				if s.gunner == gunner and guns[s.model] then
+					fire(s)
+				end
+			end)
 		elseif kind == "Leave" then
 			if os.clock() - s.mannedAt >= Cfg.LeaveAfter then
 				leave(s)

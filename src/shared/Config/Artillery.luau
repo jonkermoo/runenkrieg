@@ -98,6 +98,15 @@ local Artillery = {
 		text = 18,
 	},
 
+	-- Firing (user 2026-10-20: "have the character play a brace animation or prepare for loud explosion animation when
+	-- firing (play that first then fire, a slight delay in the shots makes it feel real)"): the gunner plays `animation`
+	-- (tools/animation/artillery.luau ArtilleryBrace: reach for the lever, lean away, pull) and the shot goes `delay` s
+	-- after the click, at its "Fire". Turning (user: "add an animation for turning the weapon too"): while the gun is
+	-- being laid (the aim more than `moving` degrees off its lay) the gunner winds the hand wheel (`crank`, a loop),
+	-- easing in and out over `fade` s. nil: not uploaded yet.
+	Brace = { animation = nil :: number?, delay = 0.45 },
+	Turn = { crank = nil :: number?, moving = 0.3, fade = 0.2 },
+
 	-- The impact zone (src/client/Artillery; user 2026-10-20: "the impact zone should be showed like a highlight on the
 	-- surface the cannon is going to hit"): a glowing disc (Palette.Artillery.Marker) lying on the ground where it would
 	-- land, the gun's `zone` studs in radius (about where its blast still hurts), `fill` transparent, `thickness` thick,

@@ -125,7 +125,7 @@ end
 -- replicates); every client shows the round at the gunner's right hand while it's carried
 type Loading = { round: Model?, played: number? }
 local loadings: { [Model]: Loading } = {}
-local tracks: { [Model]: AnimationTrack } = {}
+local tracks: { [Model]: { [string]: AnimationTrack } } = {}
 
 local function roundTemplate(): Model?
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
@@ -135,24 +135,33 @@ local function roundTemplate(): Model?
 	return if f and f:IsA("Model") then f else nil
 end
 
--- the gunner's loading track, made (and so fetched) ahead of its first play
-local function loadTrack(character: Model): AnimationTrack?
+-- one of the gunner's tracks (`key`: "load", "brace", "crank"), made (and so fetched) ahead of its first play
+local function oneTrack(character: Model, key: string, id: number?): AnimationTrack?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-	if not animator or not Cfg.Load.animation then
+	if not animator or not id then
 		return nil
 	end
-	local tr = tracks[character]
-	if not tr then
-		local a = Instance.new("Animation")
-		a.AnimationId = `rbxassetid://{Cfg.Load.animation}`
-		tr = animator:LoadAnimation(a)
-		tracks[character] = tr
+	local set = tracks[character]
+	if not set then
+		set = {}
+		tracks[character] = set
 		character.Destroying:Connect(function()
 			tracks[character] = nil
 		end)
 	end
+	local tr = (set :: any)[key]
+	if not tr then
+		local a = Instance.new("Animation")
+		a.AnimationId = `rbxassetid://{id}`
+		tr = animator:LoadAnimation(a);
+		(set :: any)[key] = tr
+	end
 	return tr
+end
+
+local function loadTrack(character: Model): AnimationTrack?
+	return oneTrack(character, "load", Cfg.Load.animation)
 end
 
 local function load(model: Model, p: Pose, mine: boolean)
@@ -554,9 +563,10 @@ function Artillery.start()
 			loadings[was].played = nil
 		end
 		local character = player.Character
-		local tr = character and tracks[character]
-		if tr and tr.IsPlaying then
-			tr:Stop(0.2)
+		for _, tr in (character and tracks[character]) or {} do
+			if tr.IsPlaying then
+				tr:Stop(0.2)
+			end
 		end
 		mine = nil
 		hideArc()
@@ -580,8 +590,14 @@ function Artillery.start()
 		camera.CameraType = Enum.CameraType.Scriptable
 		camera.FieldOfView = p.gun.camera.fov
 		gui.Enabled = true
-		if p.gun.loads and player.Character then
-			loadTrack(player.Character) -- fetched now, ready by the first reload (Studio round 2)
+		local character = player.Character
+		if character then
+			-- fetched now, ready by their first play (Studio round 2: the first reload played a 0-length track)
+			if p.gun.loads then
+				loadTrack(character)
+			end
+			oneTrack(character, "brace", Cfg.Brace.animation)
+			oneTrack(character, "crank", Cfg.Turn.crank)
 		end
 	end
 
@@ -605,6 +621,15 @@ function Artillery.start()
 			return
 		end
 		if Settings.pressed("Key_Fire", input) then
+			-- loaded: brace now (the server's shot follows Brace.delay later)
+			local readyAt = mine:GetAttribute("ReadyAt") :: number?
+			local character = player.Character
+			if (not readyAt or now() >= readyAt) and character and Cfg.Brace.animation then
+				local tr = oneTrack(character, "brace", Cfg.Brace.animation)
+				if tr then
+					tr:Play(0.1)
+				end
+			end
 			Net.event("Artillery"):FireServer("Fire")
 		elseif input.KeyCode == Enum.KeyCode.E then
 			Net.event("Artillery"):FireServer("Leave")
@@ -655,6 +680,20 @@ function Artillery.start()
 		then
 			sentAt, sentYaw, sentElevation = t, wantYaw, wantElevation
 			Net.event("Artillery"):FireServer("Aim", wantYaw, wantElevation)
+		end
+
+		-- winding the hand wheel while the gun is being laid
+		local crank = oneTrack(character, "crank", Cfg.Turn.crank)
+		if crank then
+			local _, pivotYaw = model:GetPivot():ToOrientation()
+			local off = math.abs(Rules.wrap(wantYaw - (math.deg(pivotYaw) + p.traverse)))
+				+ math.abs(wantElevation - p.elevation)
+			local turning = off > Cfg.Turn.moving
+			if turning and not crank.IsPlaying then
+				crank:Play(Cfg.Turn.fade)
+			elseif not turning and crank.IsPlaying then
+				crank:Stop(Cfg.Turn.fade)
+			end
 		end
 
 		-- the camera: low at the gun's left rear, looking out past it along the aim, up with the elevation
