@@ -372,7 +372,8 @@ local Artillery = {
 			-- "Pit to the axle"): a pit `radius` round it `depth` deep, an earth rim `rim` wide and `rimHeight` high round that
 			-- (Studio round 13c: the level floor must reach past the bed's corners, ~10.2 out, so the pit reaches a voxel
 			-- further; a rim narrower than two voxels never formed)
-			dig = { depth = 1.5, radius = 12.5, rim = 9, rimHeight = 1.8 },
+			-- (13d: at 12.5 the floor was level to ~9, the bed's corners 0.2-1.2 into the wall on a slope; a 1.8 rim stood ~1.0)
+			dig = { depth = 1.5, radius = 14, rim = 9, rimHeight = 2.8 },
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
