@@ -83,6 +83,9 @@ local Artillery = {
 		step = 0.1, -- seconds of flight between the casts that find where it lands
 		refresh = 0.1, -- seconds between redraws
 		floor = -60, -- below this height (studs) the path is given up (under the map)
+		-- the ground where it comes down unloaded on this client (streaming): asked for again once the landing has moved
+		-- this many studs
+		restream = 100,
 		width = 0.5,
 		segments = 60,
 		transparency = 0.35,

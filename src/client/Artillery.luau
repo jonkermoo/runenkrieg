@@ -340,6 +340,22 @@ local function trace(o: Vector3, v: Vector3, skip: { Instance }): (Vector3?, num
 	return nil, last
 end
 
+-- asks for the map round `at` to be streamed in (where the arc comes down out of sight); one request at a time, and
+-- only for a place `Arc.restream` studs from the last one
+local streaming, streamedAt = false, nil :: Vector3?
+local function stream(at: Vector3)
+	if streaming or (streamedAt and (streamedAt - at).Magnitude < Cfg.Arc.restream) then
+		return
+	end
+	streaming, streamedAt = true, at
+	task.spawn(function()
+		pcall(function()
+			Players.LocalPlayer:RequestStreamAroundAsync(at)
+		end)
+		streaming = false
+	end)
+end
+
 -- the arc of a shot with the gun's lay as posed (no scatter), to where it would first hit
 local function drawArc(model: Model, p: Pose, character: Model)
 	local gun = p.gun
@@ -353,6 +369,17 @@ local function drawArc(model: Model, p: Pose, character: Model)
 		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
 		return Vector3.new(x, y, z)
 	end
+	-- nothing hit: far out the ground may not be streamed in here yet (Studio round 3: the arc fell through it while
+	-- the server's shell hit it). Show where it would come down level with the gun meanwhile, and ask for that ground.
+	local estimated = false
+	if not finish then
+		local base = pivot.Position.Y
+		local t = Rules.fall(o.Y - base, v.Y, g)
+		if t and t <= Cfg.MaxFlight then
+			finish, last, estimated = at(t), t, true
+			stream(finish)
+		end
+	end
 	local b, s0, s1, gui, label = arcParts()
 	local p1 = finish or at(last)
 	local v1 = Vector3.new(v.X, v.Y - g * last, v.Z)
@@ -364,7 +391,7 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	b.Enabled = true
 	gui.Enabled = finish ~= nil
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
-	label.Text = `{math.round(flat * Damage.Blast.MetresPerStud)} m`
+	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
 end
 
 function Artillery.start()

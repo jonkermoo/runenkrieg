@@ -162,6 +162,16 @@ function Artillery.at(
 	return ox + vx * t, oy + vy * t - gravity * t * t / 2, oz + vz * t
 end
 
+-- When a shell launched `height` above a level ground at vertical speed `vy` comes down to it (nil: never).
+function Artillery.fall(height: number, vy: number, gravity: number): number?
+	local d = vy * vy + 2 * gravity * height
+	if gravity <= 0 or d < 0 then
+		return nil
+	end
+	local t = (vy + math.sqrt(d)) / gravity
+	return if t > 0 then t else nil
+end
+
 -- How far it lands on ground level with the muzzle at `elevation` degrees (flat ground, from the ground).
 function Artillery.range(speed: number, elevation: number, gravity: number): number
 	return speed * speed * math.sin(math.rad(2 * elevation)) / gravity

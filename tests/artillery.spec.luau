@@ -117,6 +117,13 @@ return {
 		state, glow = A.crystal(31, 0, 30, 30, c)
 		assert(state == "Ready" and glow <= 1 and glow >= 1 - c.pulseShare)
 	end,
+	["a shell comes down to level ground when its height is spent"] = function()
+		local t = A.fall(0, 100, GRAVITY) :: number
+		assert(near(t, 200 / GRAVITY))
+		local t2 = A.fall(10, 0, GRAVITY) :: number
+		assert(near(0.5 * GRAVITY * t2 * t2, 10))
+		assert(A.fall(-10, 0, GRAVITY) == nil)
+	end,
 	["the server takes only real aims"] = function()
 		assert(A.aimOk(10, 5) and not A.aimOk(0 / 0, 1) and not A.aimOk(1, 100) and not A.aimOk("1", 2))
 	end,
