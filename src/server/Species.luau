@@ -6,6 +6,7 @@
 -- fur round each ear's root ("Ruff") stays on the head and hides while a helmet is on (it pokes through the shell).
 -- Colours by piece role (Rules/Species.color): the fur the hair colour, the elf ears the skin. Purely visual: no
 -- collisions, never hit (CanQuery off), massless. The character's "Species" attribute says which ("human": none).
+-- A bald soldier wears no animal ears, only the tail (Rules/Species.wearsEars; user 2026-10-21).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -207,7 +208,9 @@ function Species.dress(character: Model, kit: string)
 	if not kind or not head or not torso then
 		return
 	end
-	ears(character, head, kind)
+	if Rule.wearsEars(kind, character:GetAttribute("HairStyle")) then -- (a bald soldier: no animal ears)
+		ears(character, head, kind)
+	end
 	tail(character, torso, kind)
 	showRuff(character)
 	if not watching[character] then
