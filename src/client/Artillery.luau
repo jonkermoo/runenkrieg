@@ -832,6 +832,17 @@ function Artillery.start()
 		local d = (camera.CFrame.Position - position).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
 		SoundFx.play(gun.sound.blast :: any, position, nil, { delay = delay, eq = { low, 0, high } })
+		-- its echo, only far off (user 2026-10-21: "it should echo only when you're far")
+		local E = Cfg.Echo
+		local share = math.clamp((d - E.from) / (E.full - E.from), 0, 1)
+		if share > 0.05 then
+			SoundFx.play(
+				gun.sound.echo :: any,
+				position,
+				nil,
+				{ delay = delay + E.lag, volume = share, eq = { low, 0, high } }
+			)
+		end
 	end)
 end
 

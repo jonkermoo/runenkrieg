@@ -61,7 +61,7 @@ export type Gun = {
 	vfx: { scheme: string, magic: boolean },
 	muzzleScale: number, -- the muzzle blast's scale (Config/Vfx.Muzzle)
 	loads: boolean?, -- the gunner plays the loading (Load above)
-	sound: { fire: any, far: any, blast: any, whistle: any, whistleLead: number },
+	sound: { fire: any, far: any, blast: any, echo: any, whistle: any, whistleLead: number },
 	zone: number, -- the impact zone's radius, studs (Zone above)
 	-- the shell in flight (user 2026-10-21: "a very visual projectile"): a glowing ball `size` studs across in `color`
 	-- (RGB), a trail `trail` s long fading to `tail`, a light `light` studs round; `magic`: static crackling round it in
@@ -262,6 +262,9 @@ local Artillery = {
 	-- flight at least that long: a short one comes in under the report; Studio round 2). All late and
 	-- duller far off (Rules/Grenade.heard).
 	Whistle = { reach = 300 },
+	-- a blast's echo (each gun's `sound.echo`): silent within `from` studs, rising to full at `full`, a little after the
+	-- blast itself (`lag` s)
+	Echo = { from = 120, full = 450, lag = 0.25 },
 	Heard = { dullFrom = 80, dullFull = 900, highCut = -14, lowBoost = 5 },
 	FarFrom = 400,
 
@@ -328,11 +331,15 @@ local Artillery = {
 					{ id = 9114362266, volume = 0.8, profile = "Explosion" }, -- Explosions 4: the crack and its debris
 				},
 				far = { { id = 9113169432, volume = 1.2, profile = "Explosion" } }, -- Artillery Distant 2
+				-- dry, heard at every distance (user 2026-10-21: the echo "sounds distorted at the end and it echoes even
+				-- when you're close ... it should echo only when you're far": the flanged Explosive Boom tail is gone)
 				blast = {
 					{ id = 9114362266, volume = 1.4, profile = "Explosion", fade = 1.5 }, -- Explosions 4
 					{ id = 9114086964, volume = 1, profile = "Explosion", fade = 1.5 }, -- Dirt Explosion 2
-					{ id = 9114363833, volume = 1, profile = "Explosion", eq = { 3, 0, -3 }, fade = 3 }, -- Explosive Boom 2
+					{ id = 9116973611, volume = 1, profile = "Explosion" }, -- Mortar Explosion 3: a short low thump
 				},
+				-- the echo rolling back off the land, only far off (Echo below)
+				echo = { { id = 9113169432, volume = 1.3, profile = "Explosion", fade = 2.5 } }, -- Artillery Distant 2
 				-- Bullet Whiz By 1 (lengthened), slowed into a shell's rushing whine
 				whistle = {
 					{ id = 9113634642, volume = 0.9, profile = "Explosion", pitch = 0.6, stop = 0.75, fade = 0.2 },
@@ -418,8 +425,9 @@ local Artillery = {
 				blast = {
 					{ id = 9114362135, volume = 1.5, profile = "Explosion", fade = 1.5 }, -- Explosions 1: rumbling, punchy
 					{ id = 9114086964, volume = 1.2, profile = "Explosion", fade = 1.5 }, -- Dirt Explosion 2
-					{ id = 9114363996, volume = 1.2, profile = "Explosion", eq = { 4, 0, -3 }, fade = 4 }, -- Explosive Boom 5: the long tail
+					{ id = 9116973607, volume = 1.3, profile = "Explosion" }, -- Mortar Explosion 5: a deep low thump
 				},
+				echo = { { id = 9113169264, volume = 1.5, profile = "Explosion", fade = 3 } }, -- Artillery Distant 1
 				whistle = {
 					{ id = 9113634642, volume = 1, profile = "Explosion", pitch = 0.45, stop = 1.15, fade = 0.3 },
 				},
