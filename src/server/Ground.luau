@@ -113,6 +113,65 @@ function Ground.churn(position: Vector3, radius: number, depth: number, c: any)
 	end
 end
 
+-- A gun's pit (src/server/Artillery `dig`): within `radius` of `position` the ground cut down to a level floor `depth`
+-- under it (the top voxel left part full, so the floor sits at that height; mud; filled up to it where the ground falls
+-- away, on a slope), and a rim of earth `rimHeight` high thrown up round it over the next `rim` studs, peaked in its
+-- middle, following the ground (the rim at least two voxels wide, or no voxel centre falls in it: Studio round 13c). Voxel by voxel with
+-- fractional occupancy: a FillCylinder of Air that ends inside a 4-stud voxel cuts nothing (Studio 2026-10-21). A
+-- smooth surface stands at its top voxel's CENTRE + 4 x occupancy (measured in Studio), not its bottom.
+function Ground.pit(position: Vector3, radius: number, depth: number, rim: number, rimHeight: number)
+	local terrain = workspace.Terrain
+	local reach = Vector3.new(radius + rim, depth + rimHeight + VOXEL * 3, radius + rim)
+	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return
+	end
+	local size = mats.Size
+	local corner = region.CFrame.Position - region.Size / 2
+	local floor = position.Y - depth
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
+			local d = math.sqrt((x - position.X) ^ 2 + (z - position.Z) ^ 2)
+			if d <= radius then
+				for iy = 1, size.Y do
+					local mid = corner.Y + (iy - 0.5) * VOXEL
+					local keep = math.clamp((floor - mid) / VOXEL, 0, 1)
+					-- cut down to the floor, and filled up to it where the ground fell away (downhill on a slope)
+					if occs[ix][iy][iz] ~= keep then
+						occs[ix][iy][iz] = keep
+						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
+					end
+				end
+			elseif d <= radius + rim then
+				-- the column's top now, then raised by the rim's height here
+				local top: number? = nil
+				for iy = size.Y, 1, -1 do
+					if occs[ix][iy][iz] > 0 then
+						top = corner.Y + (iy - 0.5) * VOXEL + occs[ix][iy][iz] * VOXEL
+						break
+					end
+				end
+				if top then
+					local bump = rimHeight * (1 - math.abs(d - radius - rim / 2) / (rim / 2))
+					for iy = 1, size.Y do
+						local mid = corner.Y + (iy - 0.5) * VOXEL
+						local want = math.clamp((top + bump - mid) / VOXEL, 0, 1)
+						if want > occs[ix][iy][iz] then
+							occs[ix][iy][iz] = want
+							if mats[ix][iy][iz] == Enum.Material.Air then
+								mats[ix][iy][iz] = Enum.Material.Ground
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	terrain:WriteVoxels(region, VOXEL, mats, occs)
+end
+
 -- a ball of `material` (a tree's root ball of mud), or Air (its pit)
 function Ground.ball(position: Vector3, radius: number, material: Enum.Material)
 	workspace.Terrain:FillBall(position, radius, material)

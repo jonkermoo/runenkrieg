@@ -159,12 +159,24 @@ local Assets = {
 			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
 		},
 		artillery_howitzer = {
-			id = 82367327569698,
+			-- v6 (user 2026-10-21: Bertha v11, the bigger cracked gem; v10 82040723469817; before it the BL 9.2-inch at
+			-- 1.3x, 82367327569698)
+			id = 70753419490474,
 			category = "Weapons",
 			folder = "Shared/Artillery",
-			source = "assets/weapons/shared/artillery_howitzer.fbx",
-			generator = "tools/blender/artillery/howitzer.py",
-			description = "The magic howitzer: a BL 9.2-inch howitzer at 1.3x with glowing rune bands, a focus crystal in the breech and a rune circle round its racer (trace: tools/blender/artillery/trace/howitzer.py). Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore recoil, Breech + Crystal open.",
+			source = "assets/weapons/shared/artillery_bertha.fbx",
+			generator = "tools/blender/artillery/bertha.py",
+			description = "The magic howitzer: a 42 cm siege mortar of our own after the Big Bertha and the Gamma-Gerat, no wheels: a riveted box carriage turning on a giant toothed ring gear, a layered short barrel trunnioned high between its walls, two silos beside it and a housing under it, a bolted yoke and dial sight, a toothed elevating sector and big spoked hand wheels by the gunner's step, a crew deck and ladder at the back; the cracked, chipped gem (its cracks a part of their own, CrystalCracks) in a ring of runes on the round breech face, rune bands on the barrel, runes on the bed. Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore + Breech + Crystal + CrystalCracks recoil.",
+		},
+		-- the field gun's fixed round (2026-10-20, docs/MILESTONES.md A2): carried by the gunner while loading
+		-- (Config/Artillery.Load), colored from Config/Palette.Artillery by mesh name
+		round_qf18 = {
+			id = 110166358677668,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/round_qf18.fbx",
+			generator = "tools/blender/artillery/round_qf18.py",
+			description = "QF 18-pounder HE round at real size (1.57 studs): the brass 84 x 292R case, a copper driving band, the yellow shell and a steel nose fuze (meshes Case, Band, Shell, Fuze). Origin at the case head, pointing -Z.",
 		},
 		-- the trench spade for digging and building (user 2026-10-19, design F), shared by every team, colored from
 		-- Config/Palette.Shovel by mesh name. No mechanics yet.
