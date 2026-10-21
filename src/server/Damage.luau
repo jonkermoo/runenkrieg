@@ -121,7 +121,7 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 		end
 		if character and humanoid and zone and character ~= shooter then
 			local share = if pellets then Rules.falloff(h.distance, pellets.full, pellets.none) else 1
-			local z = if h.helmet then "Helmet" else zone
+			local z = if h.helmet then Rules.helmetZone(h.distance, Cfg.HelmetLethal[w.class]) else zone
 			local entry = per[character]
 			if not entry then
 				entry = { hits = {}, humanoid = humanoid, direction = h.direction }
