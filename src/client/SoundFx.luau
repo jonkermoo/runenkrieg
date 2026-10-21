@@ -104,11 +104,12 @@ local function one(e: Entry, at: Instance | Vector3, stage: number?, mods: Mods?
 	s.PlaybackSpeed = pitch
 	s.TimePosition = e.start or 0
 	-- (its length not known yet: no guess, which cut long tails off mid-sound, user 2026-10-21: "the explosion audio
-	-- cuts out instead of fully fading away"; it's kept until it ends, UNKNOWN_LIFE at most)
+	-- cuts out instead of fully fading away"; it's kept until it ends, UNKNOWN_LIFE at most). A clone reads its length
+	-- only once it is in the world (Studio: 0 right after Clone, known once parented), so it's placed first.
+	place(s, at, UNKNOWN_LIFE + 1)
 	local known = s.TimeLength > 0
 	local length = if known then s.TimeLength else UNKNOWN_LIFE
 	local span = ((math.min(e.stop or length, length)) - (e.start or 0)) / pitch
-	place(s, at, span + 1)
 	s:Play()
 	-- the fade over its last `fade` seconds, timed from its real length (once known, if it wasn't at the start)
 	local function fadeOut(len: number)
