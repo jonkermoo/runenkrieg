@@ -82,6 +82,19 @@ local Remotes: { string } = {
 	"GrenadeThrow",
 	-- server -> clients: (position: Vector3, kg: number) a grenade went off: its explosion (src/client/Vfx/Blast)
 	"GrenadeBlast",
+	-- Artillery (src/client/Artillery sends, src/server/Artillery checks; Config/Artillery, Rules/Artillery). A gun is
+	-- manned with its ProximityPrompt (E). client -> server: (kind, ...) from the gunner:
+	--   "Aim" (yaw: number, elevation: number) the wanted world yaw and elevation in degrees; at most Aim.rate a second
+	--   "Fire" ()                              fire if loaded (the server's own lay, plus scatter)
+	--   "Leave" ()                             get off the gun
+	"Artillery",
+	-- server -> clients: (gun: Model, origin: Vector3, velocity: Vector3) a shot: recoil, flash, sound
+	"ArtilleryShot",
+	-- server -> clients: (position: Vector3, gun: string) a shell went off: its explosion (Config/Artillery.Guns[gun])
+	"ArtilleryBlast",
+	-- server -> clients: (position: Vector3, radius: number) the ground dug out round here (a gun's pit): the grass
+	-- standing there goes (src/client/GrassFoliage)
+	"GroundDug",
 }
 local Functions: { string } = {}
 

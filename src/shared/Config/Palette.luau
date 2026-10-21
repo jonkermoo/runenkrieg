@@ -130,13 +130,23 @@ local Palette = {
 		Tyres = { 58, 58, 60 },
 		Barrel = { 96, 98, 102 },
 		Breech = { 70, 72, 76 },
+		RingGear = { 64, 64, 66 }, -- the howitzer's toothed ring (dark steel)
 		Bore = { 8, 8, 8 },
 		EarthBox = { 120, 86, 54 },
 		Earth = { 112, 90, 62 },
 		BedRunes = { 120, 200, 255 }, -- Magic.Glow
 		BarrelRunes = { 120, 200, 255 },
 		Crystal = { 175, 235, 255 },
-		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
+		CrystalCracks = { 235, 250, 255 }, -- the cracks over the howitzer's gem (src/client/ArtilleryCrystal)
+		Glowing = { "BedRunes", "BarrelRunes", "Crystal", "CrystalCracks" },
+		-- the field gun's round (Config/Assets round_qf18): brass case, copper band, the HE shell's yellow, a steel fuze
+		Case = { 204, 170, 96 },
+		Band = { 184, 115, 72 },
+		Shell = { 200, 168, 52 },
+		Fuze = { 96, 98, 102 },
+		-- the gunner's arc line and landing marker (src/client/Artillery, Config/Artillery.Arc)
+		Arc = { 236, 230, 210 },
+		Marker = { 255, 214, 120 },
 	},
 	-- The trench spade (Config/Assets "Shared/Shovels", user 2026-10-19): one model for every team, no team colors,
 	-- brass the only accent; colored by mesh name.

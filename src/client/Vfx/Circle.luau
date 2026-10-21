@@ -331,18 +331,39 @@ function Circle.open(
 				gathered = want
 			end
 		else
+			-- (user 2026-10-21: the rings "appearing looks too bouncy ... make it appear more magically"; was a back-out
+			-- overshoot): it eases in from a little small with no overshoot while its lines and runes light up piece by
+			-- piece from the centre out to the rim, a few motes of light gathering in to it, and a soft glow swells once
+			-- it is whole, then settles
+			local O = Cfg.Open
 			local a = math.min((now - now0) / open, 1)
-			-- grows with a little overshoot (back-out easing), the lines flashing bright at the end then settling
-			local k = 1.7
-			local x = a - 1
-			scale = 1 + (k + 1) * x * x * x + k * x * x
-			transparency = 1 - math.min(a / 0.6, 1)
-			if veil ~= drawnVeil then
-				dissolve(built.pieces, 0, veil)
+			local e = 1 - (1 - a) ^ 3
+			scale = O.from + (1 - O.from) * e
+			transparency = 1 - math.min(a / O.fadeIn, 1)
+			if a < 1 or veil ~= drawnVeil then
+				dissolve(built.pieces, 1 - math.min(a / O.lightUp, 1), veil)
 				drawnVeil = veil
 			end
-			local settle = math.clamp((now - now0 - open) / 0.3, 0, 1)
-			bright = Cfg.Brightness * (1 + (Cfg.Flash - 1) * a * (1 - settle))
+			local want = math.floor(O.flecks * a)
+			if want > gathered then
+				local cfNow = part.CFrame
+				local r = 0.5 * d * scale
+				for _ = gathered + 1, want do
+					local ang = rng:NextNumber(0, 2 * math.pi)
+					local radial = cfNow.RightVector * math.cos(ang) + cfNow.UpVector * math.sin(ang)
+					Flecks.spawn(
+						cfNow.Position + radial * r * O.fleckFrom,
+						-radial * r * (O.fleckFrom - 1) / O.fleckLife,
+						if rng:NextNumber() < 0.3 then fleckAccent else fleckColor,
+						rng:NextNumber(O.fleckSize[1], O.fleckSize[2]) * math.max(d / Cfg.Diameter, 1), -- (big circles: bigger)
+						O.fleckLife
+					)
+				end
+				gathered = want
+			end
+			local after = math.max(now - now0 - open * O.lightUp, 0)
+			local swell = math.sin(math.clamp(after / O.glowTime, 0, 1) * math.pi)
+			bright = Cfg.Brightness * (0.5 + 0.5 * e) * (1 + (Cfg.Flash - 1) * swell)
 			lit = a
 		end
 		local ready = readyAt
