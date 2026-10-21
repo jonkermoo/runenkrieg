@@ -302,7 +302,8 @@ local Artillery = {
 				whistleLead = 2.5,
 			},
 			zone = 17, -- 15 kg: lethal to ~9, hurt to ~17
-			camera = { side = -24, up = 6, back = 10, yaw = 30, pitch = 8, follow = 0.3, fov = 65 },
+			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
+			camera = { side = -24, up = 6, back = 10, yaw = 30, pitch = 6, follow = 0.12, fov = 65 },
 		} :: Gun,
 	},
 }
