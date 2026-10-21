@@ -4,9 +4,10 @@
 -- - A gun is a copy of its library model (ReplicatedStorage.Assets.Weapons.Shared.Artillery), anchored, painted
 --   (Config/Palette.Artillery), its pivot moved to gun space (found from the Bore disc at rest), standing in the
 --   Workspace folder Config/Artillery.Folder. Its attributes: "Gun" (the Config/Artillery.Guns key), "Traverse",
---   "Elevation" (degrees), "FiredAt", "ReadyAt" (server time), "Gunner" (UserId). The server never moves the moving
---   parts: every client poses them from these (src/client/Artillery). Swinging the whole gun turns its pivot here.
--- - E (its ProximityPrompt) mans it: the gunner stands anchored at the crew spot, weapons put away, until they leave
+--   "Elevation" (degrees), "FiredAt", "ReadyAt" (server time), "Gunner" (UserId). Every client poses the moving parts
+--   from these (src/client/Artillery); the server moves only a turning mount (crewTurns: its gunner stands on it) and,
+--   swinging the whole gun, its pivot. The gunner is welded to what they stand on.
+-- - E (its ProximityPrompt) mans it: the gunner stands welded at the crew spot, weapons put away, until they leave
 --   (Net "Artillery" "Leave"), die or go.
 -- - "Aim" sets the wanted yaw and elevation; the gun works toward them at its rates (Rules/Artillery.lay).
 -- - "Fire", loaded: the gunner braces (the howitzer charges up), the gun's `charge` s later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
@@ -39,7 +40,9 @@ type State = {
 	conns: { RBXScriptConnection },
 	sent: number, -- when the lay was last written out
 	aimed: number, -- when the gunner's last aim was taken
-	crewAt: number, -- the traverse the gunner was last placed for
+	crewAt: number, -- the traverse the mount was last turned to here
+	mountRest: { [BasePart]: CFrame }, -- a turning mount's parts at rest, in gun space (crewTurns: posed here too)
+	weld: WeldConstraint?, -- the gunner held on the gun
 	bracing: boolean, -- a shot on its way (the gunner bracing)
 }
 
@@ -146,6 +149,10 @@ local function leave(s: State)
 	end
 	s.conns = {}
 	s.gunner = nil
+	if s.weld then
+		s.weld:Destroy()
+		s.weld = nil
+	end
 	s.model:SetAttribute("Gunner", nil)
 	s.prompt.Enabled = true
 	local character = player and player.Character
@@ -175,8 +182,18 @@ local function man(s: State, player: Player)
 		return
 	end
 	humanoid:UnequipTools()
-	root.Anchored = true
+	-- held on the part of the gun they stand on (user 2026-10-21: "when turning, the player starts twitching on the
+	-- gun": the server re-placed an anchored root 20 times a second while every client turns the gun smoothly), so on
+	-- every client they ride the gun exactly as it's drawn
 	root.CFrame = spot
+	local holder = if s.gun.crewTurns then part(s.model, s.gun.mount[1]) else part(s.model, s.gun.base)
+	local weld = Instance.new("WeldConstraint")
+	weld.Name = "ArtilleryGunner"
+	weld.Part0 = root
+	weld.Part1 = holder
+	weld.Parent = root
+	s.weld = weld
+	root.Anchored = false
 	s.gunner = player
 	s.mannedAt = os.clock()
 	s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
@@ -326,8 +343,19 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 		sent = 0,
 		aimed = 0,
 		crewAt = 0,
+		mountRest = {},
+		weld = nil,
 		bracing = false,
 	}
+	if gun.crewTurns then
+		local pivot = model:GetPivot()
+		for _, name in gun.mount do
+			local p = model:FindFirstChild(name, true)
+			if p and p:IsA("BasePart") then
+				s.mountRest[p] = pivot:ToObjectSpace(p.CFrame)
+			end
+		end
+	end
 	guns[model] = s
 	prompt.Triggered:Connect(function(player)
 		man(s, player)
@@ -418,14 +446,13 @@ function Artillery.start()
 			if turned then
 				model:PivotTo(CFrame.new(pivot.Position) * CFrame.Angles(0, yaw, 0))
 			end
-			-- the gunner turns with it (and with the mount, standing on it)
-			if turned or (s.gun.crewTurns and math.abs(s.lay.traverse - s.crewAt) > 0.05) then
+			-- a turning mount (the howitzer's, its gunner standing on it) is turned here as well, so the server's gunner
+			-- and its step stand where every client draws them
+			if s.gun.crewTurns and math.abs(s.lay.traverse - s.crewAt) > 0.05 then
 				s.crewAt = s.lay.traverse
-				local character = s.gunner and s.gunner.Character
-				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-				local spot = character and crewSpot(s, character)
-				if root and spot then
-					root.CFrame = spot
+				local frame = model:GetPivot() * CFrame.Angles(0, math.rad(s.lay.traverse), 0)
+				for p, rest in s.mountRest do
+					p.CFrame = frame * rest
 				end
 			end
 		end

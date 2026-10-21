@@ -304,8 +304,11 @@ local Artillery = {
 			gravity = 71.6, -- (745 studs/s under 196.2 before: the same ranges, ~1.7x the flight: up to ~3.5 s)
 			charge = 0.45,
 			breechOpens = true,
-			kg = 0.6,
-			fragments = { lethal = 6, wound = 30, max = 100, near = 60, far = 10 },
+			-- (user 2026-10-21: "the explosives to be a lot more damaging and destructive ... realistic"; was 0.6 kg,
+			-- fragments lethal 6 / wound 30): a shell's lethality is mostly its fragments: a real 18-pdr HE burst kills
+			-- out to ~10 m and wounds to ~25-30 m, and its charge as TNT here is raised to 2.5 kg so it breaks walls
+			kg = 2.5,
+			fragments = { lethal = 12, wound = 40, max = 100, near = 70, far = 15 },
 			scatter = { yaw = 0.8, elevation = 0.25, speed = 0.012 },
 			reload = 10,
 			breechOpen = 100,
@@ -336,7 +339,7 @@ local Artillery = {
 				},
 				whistleLead = 1.2, -- (its flights are ~0.5-2 s)
 			},
-			zone = 10, -- 0.6 kg: hurt to ~8 by the blast, lethal fragments to 6
+			zone = 16, -- lethal fragments to 12, the blast hurting to ~10
 			-- a hot slug trailing grey smoke
 			shell = {
 				size = 0.7,
@@ -349,7 +352,8 @@ local Artillery = {
 			-- (Studio rounds 5-8: low in the grass, or from behind with the gunner in the middle; worked out from the angles:
 			-- the gun ~25-40 deg right of centre, the gunner ~50, the target ~-30)
 			-- (user 2026-10-21: "closer but from a similar angle we want to be able to see our avatar")
-			camera = { side = -8, up = 4.5, back = 9, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
+			camera = { side = -6.5, up = 4, back = 7, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
 		} :: Gun,
 		-- The magic howitzer v6 (user 2026-10-21: "look like the big bertha", "no tires ... the turning being controlled by
 		-- giant gears"; tools/blender/artillery/bertha.py, approved v10): a 42 cm siege mortar, its riveted box carriage
@@ -378,8 +382,11 @@ local Artillery = {
 			gravity = 43.5, -- (340 under 196.2 before: the same ranges, ~2.1x the flight: 5.2 s at 45, 7.2 at 80)
 			charge = 1.8, -- its magic charge-up (user 2026-10-21: "make the howitzer have a cinematic magic charge up")
 			breechOpens = false, -- (user 2026-10-21: "remove the close and opening on the howitzer, leave it closed")
-			kg = 15,
-			fragments = nil,
+			-- (user 2026-10-21: "significantly more damage (close to the 50kg bomb)"; was 15 kg, no fragments): 50 kg,
+			-- like the dev blast menu's 50 kg bomb (lethal by blast to ~14 studs, a crater ~34 across), and a 42 cm
+			-- shell's fragments flying far
+			kg = 50,
+			fragments = { lethal = 18, wound = 60, max = 100, near = 80, far = 20 },
 			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
 			reload = 30,
 			breechOpen = 100,
@@ -418,7 +425,7 @@ local Artillery = {
 				},
 				whistleLead = 2.5,
 			},
-			zone = 17, -- 15 kg: lethal to ~9, hurt to ~17
+			zone = 28, -- 50 kg: lethal by blast to ~14, fragments lethal to 18, the blast hurting to ~26
 			-- a bright four-point star (user 2026-10-21: "a bright 4 point star"): a white-hot core, the spikes (below), a
 			-- strong light; a blue trail of light and static crackling round it
 			shell = {

@@ -82,6 +82,10 @@ local function track(model: Model)
 			local part = model:FindFirstChild(name, true)
 			if part and part:IsA("BasePart") then
 				p.rest[part] = pivot:ToObjectSpace(part.CFrame)
+				if i == 1 and gun.crewTurns then
+					-- the server turns this mount too: its rest is where it stands at traverse 0
+					p.rest[part] = CFrame.Angles(0, -math.rad(p.traverse), 0) * p.rest[part]
+				end
 				p.stage[part] = i
 				if name == "Crystal" then
 					p.crystal = part
