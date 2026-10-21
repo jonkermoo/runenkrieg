@@ -35,6 +35,12 @@ export type Gun = {
 	traverseRate: number, -- degrees/s on the hand wheels
 	elevationRate: number,
 	speed: number, -- muzzle speed, studs/s (game-scaled: real ones overshoot the map; 1 stud = 0.357 m)
+	-- the shell's own gravity, studs/s^2 (user 2026-10-21: "make the projectiles go slower (slow for cannon, way slower for
+	-- howitzer)"): slower shells keep their ranges under a lighter pull (range = speed^2 sin 2e / gravity), so they hang
+	-- in the air longer
+	gravity: number,
+	charge: number, -- seconds from the click to the shot (the brace; the howitzer's magic charge-up)
+	breechOpens: boolean, -- the breech swings open through the reload (not the howitzer's: user 2026-10-21)
 	kg: number, -- the shell's filling as TNT (Damage.blast)
 	fragments: { lethal: number, wound: number, max: number, near: number, far: number }?, -- Rules/Grenade.fragments
 	scatter: { yaw: number, elevation: number, speed: number }, -- the most a shot strays: degrees, degrees, share
@@ -53,8 +59,8 @@ export type Gun = {
 	loads: boolean?, -- the gunner plays the loading (Load above)
 	sound: { fire: any, far: any, blast: any, whistle: any, whistleLead: number },
 	-- the gunner's camera (user 2026-10-20: "a cinematic lower left angle camera pov"): out at the gun's left, `side` (-
-	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun at
-	-- the right of the frame, the gunner just past its edge, the target left of centre) and `pitch` up, plus the
+	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
+	-- the gunner right of centre, the target left of it) and `pitch` up, plus the
 	-- elevation x `follow` (a high lob stays in view)
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
 }
@@ -64,9 +70,10 @@ local Artillery = {
 	-- the paint until teams exist (Config/Palette.Artillery.Paint)
 	Paint = "Grey",
 
-	-- What the gunner sends (Net "Artillery" "Aim"): at most `rate` a second; the mouse lays the gun by `sensitivity`
-	-- degrees per pixel (yaw, elevation)
-	Aim = { rate = 10, sensitivity = { 0.12, 0.06 } },
+	-- Laying (user 2026-10-21: "can you make the cannon turn was wasd?"): A / D turn it, W / S raise and lower it, at the
+	-- gun's own rates (traverse, swing, elevation): held, the aim leads the gun by `lead` degrees; let go, it stops where
+	-- it is. What the gunner sends (Net "Artillery" "Aim"): at most `rate` a second.
+	Aim = { rate = 10, lead = 2 },
 	-- the lay the server writes out to the gun (its attributes, the whole gun's swing) at most this often a second
 	Send = 20,
 	-- clients ease the posed lay toward those (per second), and swing the breech open or shut over `breechSwing` s
@@ -104,7 +111,7 @@ local Artillery = {
 	-- after the click, at its "Fire". Turning (user: "add an animation for turning the weapon too"): while the gun is
 	-- being laid (the aim more than `moving` degrees off its lay) the gunner winds the hand wheel (`crank`, a loop),
 	-- easing in and out over `fade` s. nil: not uploaded yet.
-	Brace = { animation = 110111507484119 :: number?, delay = 0.45 },
+	Brace = { animation = 110111507484119 :: number? }, -- (the delay is each gun's `charge`)
 	Turn = { crank = 80321147839061 :: number?, moving = 0.3, fade = 0.2 },
 
 	-- The impact zone (src/client/Artillery; user 2026-10-20: "the impact zone should be showed like a highlight on the
@@ -212,7 +219,10 @@ local Artillery = {
 			swing = 10,
 			traverseRate = 6,
 			elevationRate = 4,
-			speed = 745,
+			speed = 450,
+			gravity = 71.6, -- (745 studs/s under 196.2 before: the same ranges, ~1.7x the flight: up to ~3.5 s)
+			charge = 0.45,
+			breechOpens = true,
 			kg = 0.6,
 			fragments = { lethal = 6, wound = 30, max = 100, near = 60, far = 10 },
 			scatter = { yaw = 0.8, elevation = 0.25, speed = 0.012 },
@@ -247,7 +257,8 @@ local Artillery = {
 			zone = 10, -- 0.6 kg: hurt to ~8 by the blast, lethal fragments to 6
 			-- (Studio rounds 5-8: low in the grass, or from behind with the gunner in the middle; worked out from the angles:
 			-- the gun ~25-40 deg right of centre, the gunner ~50, the target ~-30)
-			camera = { side = -18, up = 4.5, back = 6, yaw = 30, pitch = 2, follow = 0.4, fov = 60 },
+			-- (user 2026-10-21: "closer but from a similar angle we want to be able to see our avatar")
+			camera = { side = -8, up = 4.5, back = 9, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
 		} :: Gun,
 		-- The magic howitzer (A1, BL 9.2-inch at 1.3x): traverse 30 about the racer, recoil 40 in (1.3x), cut short at
 		-- high elevation (the breech would reach the platform: top 3.36, the breech block's low back corner 4.05 behind
@@ -271,7 +282,10 @@ local Artillery = {
 			swing = 3,
 			traverseRate = 5,
 			elevationRate = 5,
-			speed = 340,
+			speed = 160,
+			gravity = 43.5, -- (340 under 196.2 before: the same ranges, ~2.1x the flight: 5.2 s at 45, 7.2 at 80)
+			charge = 1.8, -- its magic charge-up (user 2026-10-21: "make the howitzer have a cinematic magic charge up")
+			breechOpens = false, -- (user 2026-10-21: "remove the close and opening on the howitzer, leave it closed")
 			kg = 15,
 			fragments = nil,
 			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
@@ -303,7 +317,7 @@ local Artillery = {
 			},
 			zone = 17, -- 15 kg: lethal to ~9, hurt to ~17
 			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
-			camera = { side = -24, up = 6, back = 10, yaw = 30, pitch = 6, follow = 0.12, fov = 65 },
+			camera = { side = -12, up = 6, back = 14, yaw = 25, pitch = 6, follow = 0.12, fov = 65 },
 		} :: Gun,
 	},
 }

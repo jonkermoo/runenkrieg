@@ -70,10 +70,15 @@ return {
 		assert(near(A.yawOf(dx, dz), 30, 1e-6))
 	end,
 	["the agreed ranges: field gun ~1,500 at full elevation, the howitzer a short-arc mortar"] = function()
-		assert(math.abs(A.range(QF.speed, QF.elevation[2], GRAVITY) - 1500) < 50)
+		assert(math.abs(A.range(QF.speed, QF.elevation[2], QF.gravity) - 1500) < 50)
 		assert(HOW.elevation[1] >= 45) -- it only lobs
-		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], GRAVITY) - 590) < 20)
-		assert(A.range(HOW.speed, HOW.elevation[2], GRAVITY) < 250)
+		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 590) < 20)
+		assert(A.range(HOW.speed, HOW.elevation[2], HOW.gravity) < 250)
+		-- slower than under Roblox's gravity (user 2026-10-21): the flights are longer
+		local function flight(g: any, e: number): number
+			return 2 * g.speed * math.sin(math.rad(e)) / g.gravity
+		end
+		assert(flight(QF, 16) > 3 and flight(HOW, 45) > 5)
 	end,
 	["the mortar's breech clears its platform even at full elevation"] = function()
 		local c = HOW.recoilClear

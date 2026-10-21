@@ -102,7 +102,9 @@ local function pose(model: Model, p: Pose, dt: number)
 	local readyAt = (model:GetAttribute("ReadyAt") :: number?) or -math.huge
 	local full = Rules.recoilLength(gun.recoil, p.elevation, gun.trunnion[2], gun.recoilClear)
 	local recoil = Rules.recoilAt(t - firedAt, full, gun.recoilTimes)
-	local open = Rules.breechAt(t, firedAt, readyAt, gun.breechTimes, Cfg.BreechSwing) * gun.breechOpen
+	local open = if gun.breechOpens
+		then Rules.breechAt(t, firedAt, readyAt, gun.breechTimes, Cfg.BreechSwing) * gun.breechOpen
+		else 0
 
 	local pivot = model:GetPivot()
 	local trunnion = CFrame.new(v3(gun.trunnion))
@@ -368,8 +370,7 @@ end
 
 -- where a shell from `o` at `v` would first hit, and when (nil: nowhere within MaxFlight / above Arc.floor), past
 -- everything in `skip`
-local function trace(o: Vector3, v: Vector3, skip: { Instance }): (Vector3?, number, Vector3?)
-	local g = workspace.Gravity
+local function trace(o: Vector3, v: Vector3, g: number, skip: { Instance }): (Vector3?, number, Vector3?)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = skip
@@ -430,8 +431,8 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, p.traverse, p.elevation)
 	local o = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local v = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
-	local g = workspace.Gravity
-	local finish, last, normal = trace(o, v, { model, character })
+	local g = gun.gravity
+	local finish, last, normal = trace(o, v, g, { model, character })
 	local function at(t: number): Vector3
 		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
 		return Vector3.new(x, y, z)
@@ -555,6 +556,22 @@ function Artillery.start()
 	local fov = camera.FieldOfView
 	local arcAt = 0
 
+	-- the character's own movement keys are off while on a gun (WASD lays it)
+	local controls: any = nil
+	pcall(function()
+		local module = require((player:WaitForChild("PlayerScripts") :: any):WaitForChild("PlayerModule")) :: any
+		controls = module:GetControls()
+	end)
+	local function moveKeys(on: boolean)
+		if controls then
+			if on then
+				controls:Enable()
+			else
+				controls:Disable()
+			end
+		end
+	end
+
 	local function getOff()
 		-- the loading stops with the gunner; whoever gets on next picks it up
 		local was = mine
@@ -568,6 +585,7 @@ function Artillery.start()
 			end
 		end
 		mine = nil
+		moveKeys(true)
 		hideArc()
 		gui.Enabled = false
 		camera.CameraType = Enum.CameraType.Custom
@@ -589,6 +607,7 @@ function Artillery.start()
 		camera.CameraType = Enum.CameraType.Scriptable
 		camera.FieldOfView = p.gun.camera.fov
 		gui.Enabled = true
+		moveKeys(false)
 		local character = player.Character
 		if character then
 			-- fetched now, ready by their first play (Studio round 2: the first reload played a 0-length track)
@@ -600,21 +619,6 @@ function Artillery.start()
 		end
 	end
 
-	UserInputService.InputChanged:Connect(function(input)
-		if not mine or input.UserInputType ~= Enum.UserInputType.MouseMovement then
-			return
-		end
-		if player:GetAttribute("MenuOpen") == true then
-			return
-		end
-		local p = poses[mine]
-		if not p then
-			return
-		end
-		local s = Cfg.Aim.sensitivity
-		wantYaw = Rules.wrap(wantYaw - input.Delta.X * s[1])
-		wantElevation = math.clamp(wantElevation - input.Delta.Y * s[2], p.gun.elevation[1], p.gun.elevation[2])
-	end)
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if not mine or processed then
 			return
@@ -671,6 +675,19 @@ function Artillery.start()
 			then Enum.MouseBehavior.Default
 			else Enum.MouseBehavior.LockCenter
 
+		-- WASD lays it (A / D turn, W / S raise / lower) at the gun's own rates: held, the aim leads the lay a little;
+		-- let go, it stops where the gun is
+		local menu = player:GetAttribute("MenuOpen") == true
+		local function held(key: Enum.KeyCode): number
+			return if not menu and UserInputService:IsKeyDown(key) then 1 else 0
+		end
+		local turn = held(Enum.KeyCode.A) - held(Enum.KeyCode.D) -- (+ turns left)
+		local raise = held(Enum.KeyCode.W) - held(Enum.KeyCode.S)
+		local _, pivotYaw = model:GetPivot():ToOrientation()
+		local layYaw = math.deg(pivotYaw) + p.traverse
+		wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
+		wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, gun.elevation[1], gun.elevation[2])
+
 		-- the aim, sent at most Aim.rate a second when it changed
 		local t = os.clock()
 		if
@@ -684,9 +701,7 @@ function Artillery.start()
 		-- winding the hand wheel while the gun is being laid
 		local crank = oneTrack(character, "crank", Cfg.Turn.crank)
 		if crank then
-			local _, pivotYaw = model:GetPivot():ToOrientation()
-			local off = math.abs(Rules.wrap(wantYaw - (math.deg(pivotYaw) + p.traverse)))
-				+ math.abs(wantElevation - p.elevation)
+			local off = math.abs(Rules.wrap(wantYaw - layYaw)) + math.abs(wantElevation - p.elevation)
 			local turning = off > Cfg.Turn.moving
 			if turning and not crank.IsPlaying then
 				crank:Play(Cfg.Turn.fade)
@@ -737,7 +752,7 @@ function Artillery.start()
 		SoundFx.play(report :: any, origin, nil, { delay = delay, eq = { low, 0, high } })
 		-- the incoming shell's whistle, for whoever is near where it lands (the path as the server flies it, unscattered
 		-- from here: the server sent the scattered velocity)
-		local landing, flight = trace(origin, velocity, { model })
+		local landing, flight = trace(origin, velocity, gun.gravity, { model })
 		local lead = gun.sound.whistleLead
 		if landing and flight >= lead and (eye - landing).Magnitude <= Cfg.Whistle.reach then
 			SoundFx.play(gun.sound.whistle :: any, landing, nil, { delay = flight - lead })

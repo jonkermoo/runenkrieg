@@ -9,7 +9,7 @@
 -- - E (its ProximityPrompt) mans it: the gunner stands anchored at the crew spot, weapons put away, until they leave
 --   (Net "Artillery" "Leave"), die or go.
 -- - "Aim" sets the wanted yaw and elevation; the gun works toward them at its rates (Rules/Artillery.lay).
--- - "Fire", loaded: the gunner braces, Config/Artillery.Brace.delay later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
+-- - "Fire", loaded: the gunner braces (the howitzer charges up), the gun's `charge` s later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
 --   casts, so nothing thin is passed through) and goes off where it hits: Damage.blast with its charge and fragments,
 --   every client shows it (Net "ArtilleryBlast").
 
@@ -201,7 +201,7 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 	params.FilterDescendantsInstances = { s.model }
 	params.IgnoreWater = false
 	params.CollisionGroup = "Default" -- the out-of-bounds walls stop only characters
-	local g = workspace.Gravity
+	local g = s.gun.gravity -- (its own: slow shells, same ranges)
 	local t = 0
 	local prev = origin
 	local key, gun = s.key, s.gun
@@ -351,7 +351,7 @@ function Artillery.start()
 			s.bracing = true
 			s.model:SetAttribute("BraceAt", now())
 			local gunner = s.gunner
-			task.delay(Cfg.Brace.delay, function()
+			task.delay(s.gun.charge, function()
 				s.bracing = false
 				if s.gunner == gunner and guns[s.model] then
 					fire(s)
