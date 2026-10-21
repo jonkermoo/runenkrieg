@@ -503,6 +503,11 @@ function Artillery.start()
 	local player = Players.LocalPlayer
 	local camera = workspace.CurrentCamera
 
+	-- every gun's sounds loaded now, so the first shot doesn't hitch or start late
+	for _, gun in Cfg.Guns do
+		SoundFx.preload(gun.sound)
+	end
+
 	-- the guns
 	local function watch(f: Instance)
 		f.ChildAdded:Connect(function(c)

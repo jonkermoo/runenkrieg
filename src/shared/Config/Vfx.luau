@@ -549,36 +549,37 @@ local Vfx = {
 	-- `size[1]` to `size[2]` studs, `thick` (transparency) after fading in over `fadeIn` of their `life` (s), drifting
 	-- on the `wind`. Studs and speeds x the gun's scale.
 	Muzzle = {
-		-- (user 2026-10-21: "way way WAY more effect when the cannon is fired": about twice what it was)
+		-- (user 2026-10-21: "way way WAY more effect when the cannon is fired": the flash twice what it was; the smoke
+		-- only a little more: 80 big puffs a shot in front of the camera dropped Studio to 8 fps, round 12)
 		Flash = { size = 6, color = "Gold", light = 70, brightness = 6, time = 0.16 },
 		Jet = {
-			count = 30,
+			count = 12,
 			speed = { 40, 110 },
 			drag = 4,
 			spread = 14,
-			size = { 2, 11 },
-			thick = 0.15,
-			life = { 3, 6 },
+			size = { 2, 8 },
+			thick = 0.2,
+			life = { 2, 3.5 },
 			color = "Ash",
 		},
 		Side = {
-			count = 24,
+			count = 8,
 			speed = { 20, 45 },
 			drag = 5,
 			spread = 90,
-			size = { 1.5, 8 },
-			thick = 0.25,
-			life = { 2, 4 },
+			size = { 1.5, 6 },
+			thick = 0.3,
+			life = { 1.5, 2.5 },
 			color = "Ash",
 		},
 		Dust = {
-			count = 26,
+			count = 8,
 			speed = { 10, 22 },
 			drag = 2.5,
 			spread = 80,
-			size = { 2.5, 9 },
-			thick = 0.35,
-			life = { 2, 4 },
+			size = { 2.5, 7 },
+			thick = 0.4,
+			life = { 1.5, 2.5 },
 			color = "Smoke",
 			reach = 8,
 			width = 10,
