@@ -695,15 +695,15 @@ function Artillery.start()
 			end
 		end
 
-		-- the camera: low at the gun's left rear, looking out past it along the aim, up with the elevation
+		-- the camera: out at the gun's left, turned right past the aim onto the gun, up with the elevation
 		local c = gun.camera
 		local pivot = model:GetPivot()
 		local rot = CFrame.Angles(0, math.rad(wantYaw), 0)
 		local base = pivot.Position
 		local at = base + rot:VectorToWorldSpace(Vector3.new(c.side, c.up, c.back))
-		local lift = c.rise + math.tan(math.rad(math.max(wantElevation, 0) * c.follow)) * c.ahead
-		local look = base + rot:VectorToWorldSpace(Vector3.new(0, lift, -c.ahead))
-		local goal = CFrame.lookAt(at, look)
+		local goal = CFrame.new(at)
+			* CFrame.Angles(0, math.rad(wantYaw - c.yaw), 0)
+			* CFrame.Angles(math.rad(c.pitch + math.max(wantElevation, 0) * c.follow), 0, 0)
 		camera.CFrame = if snap then goal else camera.CFrame:Lerp(goal, math.min(1, dt * Cfg.CameraEase))
 		snap = false
 
