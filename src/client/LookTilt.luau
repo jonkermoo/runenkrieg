@@ -13,10 +13,12 @@
 -- from the torso's facing, capped with the animation's own neck turn, on the Neck on top of the animations. Soldiers
 -- nearby see it (Net "HeadYaw", relayed only within range by src/server/LookTilt).
 -- Third person (Config/Camera.Aim3P; user 2026-10-21: "make the player's gun still aim towards your crosshair while in
--- third person"): on top of the pitch, the arms and the weapon turn as one about the shoulders so the barrel (the
--- staff's head) meets the point under the crosshair (a ray from the camera through the screen centre). The turn is
--- taken from where the animation points the weapon on average, so its breath, stride and recoil still move it around
--- that line. Shots leave the barrel (src/client/Firing), so they go there too. Others see the turn (Net "LookPitch").
+-- third person"): on top of the pitch, the weapon turns about the right shoulder so the barrel (the staff's head) meets
+-- the point under the crosshair (a ray from the camera through the screen centre), and each arm turns about its own
+-- shoulder so its hand stays where it held the weapon (user 2026-10-21: "make it so the arms move the gun where it
+-- aims"). The turn follows a critically damped spring, never a snap. It is taken from where the animation points the
+-- weapon on average, so its breath, stride and recoil still move it around that line. Shots leave the barrel
+-- (src/client/Firing), so they go there too. Others see the turn (Net "LookPitch").
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,6 +27,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
 local CameraCfg = require(Shared.Config.Camera)
+local CameraRules = require(Shared.Rules.Camera)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.LookTilt)
 local Held = require(script.Parent.Held)
@@ -35,6 +38,7 @@ local WAIST = Vector3.new(0, -1, 0) -- the hip line, in the torso's own space (R
 local SHOULDERS = Vector3.new(0, 0.5, 0) -- a point on the shoulder line (through both shoulder joints, along X)
 local WAIT = 10 -- seconds to wait for another soldier's joints before giving up on it
 local AIM = CameraCfg.Aim3P
+local HAND = Vector3.new(0, -1, 0) -- the hand: the bottom of an R6 arm, in the arm's own space
 -- after Roblox's camera (Free mode and no weapon) and before src/client/WeaponCamera places the camera
 LookTilt.Priority = Enum.RenderPriority.Camera.Value + 1
 
@@ -95,18 +99,54 @@ local function glance(r: Rig): number
 end
 
 -- The turn onto the crosshair, per soldier: where the animation points the weapon on average (degrees, in the torso's
--- space), the turn from there onto the crosshair's line (degrees: the local soldier's from its crosshair, another's as
--- received), and the turn as a rotation.
-type Aim = { gun: BasePart?, yaw: number, pitch: number, turnYaw: number, turnPitch: number, rot: CFrame }
+-- space), the turn from there onto the crosshair's line (degrees: the local soldier's from its crosshair on a spring,
+-- with its speed; another's as received), and the turn as a rotation.
+type Aim = {
+	gun: BasePart?,
+	yaw: number,
+	pitch: number,
+	turnYaw: number,
+	turnPitch: number,
+	speedYaw: number,
+	speedPitch: number,
+	rot: CFrame,
+}
 
 local function newAim(): Aim
-	return { gun = nil, yaw = 0, pitch = 0, turnYaw = 0, turnPitch = 0, rot = CFrame.identity }
+	return {
+		gun = nil,
+		yaw = 0,
+		pitch = 0,
+		turnYaw = 0,
+		turnPitch = 0,
+		speedYaw = 0,
+		speedPitch = 0,
+		rot = CFrame.identity,
+	}
 end
 
--- The weapon's extra turn about the shoulders onto the crosshair (in the torso's space). `bend`: the pitch turn about
--- the shoulders already on it. `point` (the local soldier only): the crosshair's point in the world, turned onto with
--- `weight`; otherwise the turn already in `a` is used.
-local function aimTurn(r: Rig, weapon: Held.Weapon, bend: CFrame, a: Aim, dt: number, point: Vector3?, weight: number)
+-- the shortest rotation taking direction `from` onto `to`
+local function between(from: Vector3, to: Vector3): CFrame
+	local axis = from:Cross(to)
+	if axis.Magnitude < 1e-6 then
+		return CFrame.identity
+	end
+	return CFrame.fromAxisAngle(axis.Unit, math.atan2(axis.Magnitude, from:Dot(to)))
+end
+
+-- The weapon's extra turn onto the crosshair (a rotation in the torso's space, applied about `pivot`). `bend`: the
+-- pitch turn about the shoulders already on it. `point` (the local soldier only): the crosshair's point in the world,
+-- turned onto with `weight` on a spring; otherwise the turn already in `a` is used.
+local function aimTurn(
+	r: Rig,
+	weapon: Held.Weapon,
+	bend: CFrame,
+	pivot: CFrame,
+	a: Aim,
+	dt: number,
+	point: Vector3?,
+	weight: number
+)
 	local muzzle = weapon.gun:FindFirstChild("Muzzle") :: Attachment?
 	if not muzzle then
 		a.gun, a.rot = nil, CFrame.identity
@@ -127,12 +167,12 @@ local function aimTurn(r: Rig, weapon: Held.Weapon, bend: CFrame, a: Aim, dt: nu
 		local rootJoint = r.rootJoint
 		local torso = r.root.CFrame * rootJoint.C0 * rootJoint.Transform * rootJoint.C1:Inverse()
 		-- from the muzzle as last turned
-		local pivot = CFrame.new(SHOULDERS)
 		local from = torso * (pivot * a.rot * pivot:Inverse() * bend * inHold).Position
 		local want = torso:VectorToObjectSpace(point - from)
 		local wy, wp = Rules.angles(want.X, want.Y, want.Z)
 		local ty, tp = Rules.aimTurn(a.yaw, a.pitch, wy, wp, AIM.Max)
-		a.turnYaw, a.turnPitch = ty * weight, tp * weight
+		a.turnYaw, a.speedYaw = CameraRules.spring(a.turnYaw, a.speedYaw, ty * weight, AIM.Spring, dt)
+		a.turnPitch, a.speedPitch = CameraRules.spring(a.turnPitch, a.speedPitch, tp * weight, AIM.Spring, dt)
 	end
 	-- turn the average pointing onto the line: yaw about the torso's up, pitch about the weapon's own side
 	local ay, ap = math.rad(a.yaw), math.rad(a.pitch)
@@ -164,20 +204,32 @@ local function pose(
 		hip.C0 = turned(r.hipC0[i], r.hipC0[i].Position, -a)
 	end
 
-	-- the weapon: the rest of the pitch about the shoulder line, then the turn onto the crosshair about the same point
+	-- the weapon: the rest of the pitch about the shoulder line (arms and weapon as one), then the turn onto the
+	-- crosshair: the weapon about the right shoulder, the right arm with it, the left arm about its own shoulder so its
+	-- hand stays where it held the weapon
 	local weapon = Held.weapon(r.character)
 	if not weapon then
 		turn = 0
 	end
-	local pivot = CFrame.new(SHOULDERS)
-	local bend = pivot * CFrame.Angles(math.rad(turn), 0, 0) * pivot:Inverse()
-	local onto = if weapon then aimTurn(r, weapon, bend, aim, dt, point, weight) else CFrame.identity
-	local swing = pivot * onto * pivot:Inverse() * bend
+	local line = CFrame.new(SHOULDERS)
+	local bend = line * CFrame.Angles(math.rad(turn), 0, 0) * line:Inverse()
+	local pivot = CFrame.new(r.armC0[1].Position) -- the right shoulder (on the shoulder line: the bend keeps it put)
+	local onto = if weapon then aimTurn(r, weapon, bend, pivot, aim, dt, point, weight) else CFrame.identity
+	local swing = pivot * onto * pivot:Inverse()
 	for i, arm in r.arms do
-		arm.C0 = swing * r.armC0[i]
+		local c0 = bend * r.armC0[i]
+		if i == 1 then
+			c0 = swing * c0
+		elseif onto ~= CFrame.identity then
+			local shoulder = c0.Position
+			local hand = (c0 * arm.Transform * arm.C1:Inverse()) * HAND
+			local to = between(hand - shoulder, swing * hand - shoulder)
+			c0 = CFrame.new(shoulder) * to * CFrame.new(-shoulder) * c0
+		end
+		arm.C0 = c0
 	end
 	if weapon then
-		weapon.hold.C0 = swing
+		weapon.hold.C0 = swing * bend
 	end
 	r.neck.C0 = turned(r.neckC0, r.neckC0.Position, math.rad(turn * CameraCfg.HeadFollow))
 		* CFrame.Angles(0, 0, math.rad(yaw))

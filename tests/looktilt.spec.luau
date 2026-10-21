@@ -115,7 +115,7 @@ return {
 		assert(A.Fallback > 100 and A.MinDistance > 0 and A.MinDistance < 20)
 		assert(Max.yaw > 0 and Max.yaw <= 45 and Max.pitch > 0 and Max.pitch <= 45, "a small correction")
 		assert(A.Settle > 0 and A.Settle < 6, "slow enough that the animation's motion still shows")
-		assert(A.Ease > 0 and A.DistanceEase > 0)
+		assert(A.Ease > 0 and A.DistanceEase > 0 and A.Spring > 0 and A.Spring <= 20)
 		assert(A.Modes.Third and not (A.Modes :: any).First and not (A.Modes :: any).Aim, "never in first person")
 		assert(A.States.ready == 1 and A.States.carry == 0)
 		assert(Send.AimStep > 0 and Send.AimStep <= 2)

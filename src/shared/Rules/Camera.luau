@@ -44,9 +44,19 @@ function Camera.drawn(cfg: Gun, zoom: number): number
 	return if zoom < cfg.FirstBelow then 0 else math.clamp(zoom, cfg.MinZoom, cfg.MaxZoom)
 end
 
--- Where a gun's camera heads: first person while aiming, else the distance chosen.
-function Camera.gunTarget(distance: number, aiming: boolean): number
-	return if aiming then 0 else distance
+-- Where a gun's camera heads: first person while aiming, else the distance chosen. `inPlace` (Config/Camera.AimInPlace,
+-- the staff): aiming keeps the distance chosen.
+function Camera.gunTarget(distance: number, aiming: boolean, inPlace: boolean?): number
+	return if aiming and not inPlace then 0 else distance
+end
+
+-- The gun camera's view ("CameraMode"): first person, over the shoulder ("Third"), aimed in first person ("Aim"), or
+-- aimed over the shoulder by a class that aims in place ("ThirdAim").
+function Camera.gunView(distance: number, aiming: boolean, inPlace: boolean?): string
+	if aiming then
+		return if inPlace and distance > 0 then "ThirdAim" else "Aim"
+	end
+	return if distance > 0 then "Third" else "First"
 end
 
 -- An angle brought into -180..180.

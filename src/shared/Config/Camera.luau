@@ -72,7 +72,10 @@ local Camera = {
 	-- turning with it, no crosshair (spells leave toward the screen centre, src/client/StaffAttack). No first person and
 	-- no zooming with them (user 2026-10-16: "first person is disabled completely and the camera is locked").
 	-- Rules/Camera.
-	ThirdPersonClasses = { Staff = true },
+	-- (empty since 2026-10-21: the staff takes the gun's camera, user: "provide the same third person crosshair and
+	-- rules for the staff. override how the staff camera currently behaves and have it the same as the rifle (besides
+	-- first person ADS forced)"; see AimInPlace)
+	ThirdPersonClasses = {},
 	Staff = {
 		-- the camera's distance behind the head (studs), fixed: lower than FreeMaxZoom (user 2026-10-16)
 		Distance = 6,
@@ -120,6 +123,10 @@ local Camera = {
 		-- the same in third person and gliding into first, in Steps levels (fewer writes)
 		Fade = { far = 1.8, near = 0.7, Steps = 20 },
 	},
+	-- Classes (Config/Weapons `class`) that take the gun's camera but aim where the view is (user 2026-10-21: the staff
+	-- "the same as the rifle (besides first person ADS forced)"): aiming over the shoulder stays over the shoulder
+	-- ("ThirdAim", the narrower Staff.AimFov, the crosshair still shown); aiming in first person is first person.
+	AimInPlace = { Staff = true },
 	-- Turning the body (src/client/BodyTurn; user 2026-10-20), each a critically damped spring rate (per second):
 	-- - a gun in third person, first person, aiming and the staff: the body faces the view (Face: fast, so others see
 	--   it turn, not jump; user 2026-10-20: "make the gun always aim towards your general crosshair in third person",
@@ -156,10 +163,12 @@ local Camera = {
 
 	-- Third person: the weapon points at the crosshair (user 2026-10-21: "make the player's gun still aim towards your
 	-- crosshair while in third person ... (keep the same sway rules)"; src/client/LookTilt, Rules/LookTilt.aimTurn). On
-	-- top of Follow, the arms and the weapon turn as one about the shoulders so the barrel (the staff's head) meets the
-	-- point under the crosshair. The animation's own motion of the weapon (breath, stride, recoil) still plays around
-	-- that line: the turn is taken from where the animation points on average (Settle per second), not frame by frame.
-	-- Other players see the same turn (Net "LookPitch").
+	-- top of Follow, the weapon turns about the right shoulder so the barrel (the staff's head) meets the point under
+	-- the crosshair, and each arm turns about its own shoulder to keep its hand on it (user 2026-10-21: "make it so the
+	-- arms move the gun where it aims. it looks really snappy and unnatural"), on a spring (Spring). The animation's own
+	-- motion of the weapon (breath, stride, recoil) still plays around that line: the turn is taken from where the
+	-- animation points on average (Settle per second), not frame by frame. Other players see the same turn (Net
+	-- "LookPitch").
 	Aim3P = {
 		Modes = { Third = true, ThirdAim = true }, -- the views it works in ("ThirdAim": the staff aimed)
 		States = { ready = 1, aim = 1, carry = 0 }, -- its share per hold (none while sprinting)
@@ -170,6 +179,9 @@ local Camera = {
 		MinDistance = 6,
 		DistanceEase = 8, -- how fast the point's distance follows the crosshair (per second; never a snap)
 		Settle = 2, -- how fast the animation's average pointing is followed (per second)
+		-- the turn follows a critically damped spring at this rate (per second; Rules/Camera.spring): a flick of the
+		-- mouse brings the arms round after the view, never in one frame
+		Spring = 8,
 		Max = { yaw = 25, pitch = 20 }, -- the largest turn (degrees)
 	},
 }
