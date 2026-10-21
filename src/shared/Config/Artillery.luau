@@ -104,8 +104,8 @@ local Artillery = {
 	-- after the click, at its "Fire". Turning (user: "add an animation for turning the weapon too"): while the gun is
 	-- being laid (the aim more than `moving` degrees off its lay) the gunner winds the hand wheel (`crank`, a loop),
 	-- easing in and out over `fade` s. nil: not uploaded yet.
-	Brace = { animation = nil :: number?, delay = 0.45 },
-	Turn = { crank = nil :: number?, moving = 0.3, fade = 0.2 },
+	Brace = { animation = 110111507484119 :: number?, delay = 0.45 },
+	Turn = { crank = 80321147839061 :: number?, moving = 0.3, fade = 0.2 },
 
 	-- The impact zone (src/client/Artillery; user 2026-10-20: "the impact zone should be showed like a highlight on the
 	-- surface the cannon is going to hit"): a glowing disc (Palette.Artillery.Marker) lying on the ground where it would
