@@ -492,6 +492,23 @@ local Assets = {
 				center = { 0, 0.3781, 0.0023 },
 			},
 		},
+		helmet_brodie_fennek = {
+			id = 105223519655559, -- 2026-10-21
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "The default helmet_brodie (unchanged) with a hole each side of the crown cut to the Fennek ears' "
+				.. "outline (the oval holes took the whole shallow bowl), a rolled steel ring round each (user 2026-10-21). "
+				.. "Worn by Fennek (Rules/Looks.helmetEntry). White team (856 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 214, 214, 210 },
+				brim = 0.06,
+				shell = "brodie",
+				center = { 0, 0.3873, 0.0023 }, -- the rings raise the box's top a little
+			},
+		},
 		-- New helmets (user 2026-10-20: one more per team, "different helmet, different armoring"; docs/HATS.md "New helmets")
 		helmet_stahl_plate = {
 			id = 132394662760568,
