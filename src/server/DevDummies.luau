@@ -1,6 +1,6 @@
 --!strict
 -- Target dummies for manual tests (Config/DevTools.Dummies; spawned from src/client/DevTargetMenu through
--- src/server/DevTools): soldiers in a team's kit, with or without the helmet, standing, walking back and forth or
+-- src/server/DevTools): soldiers in a team's kit and species, with or without the helmet, standing, walking back and forth or
 -- strafing side to side. src/server/Damage hurts anything with the dummy tag like a player's soldier, so they take real
 -- shots, staff hits and blasts, get knocked and ragdolled, show the health faces (src/server/Bodies) and lose helmets.
 -- They have no client of their own, so the server throws their bodies (as src/client/Ragdoll does for a player) and
@@ -23,6 +23,7 @@ local Helmets = require(script.Parent.Helmets)
 local Packs = require(script.Parent.Packs)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
+local Species = require(script.Parent.Species)
 
 local DevDummies = {}
 
@@ -213,8 +214,9 @@ function DevDummies.spawn(spec: Spec): Model?
 			c.PantsTemplate = "rbxassetid://" .. kit.pants
 		end
 	end
-	Helmets.dress(m, if spec.helmet then kit.headwear else nil)
+	Helmets.dress(m, if spec.helmet then kit.headwear else nil, Species.of(m, spec.kit))
 	Packs.dress(m, kit.pack)
+	Species.dress(m, spec.kit)
 	m:SetAttribute("Muted", nil)
 	local function group(d: Instance)
 		if d:IsA("BasePart") then
