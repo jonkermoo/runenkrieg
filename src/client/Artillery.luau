@@ -13,6 +13,7 @@
 --   with its sound, heard late and duller far off.
 
 local CollectionService = game:GetService("CollectionService")
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -169,8 +170,9 @@ local function load(model: Model, p: Pose, mine: boolean)
 	local character = gunner and gunner.Character
 	local arm = character and character:FindFirstChild("Right Arm") :: BasePart?
 	local t = if firedAt and readyAt then now() - (readyAt - L.lead) else -math.huge
-	-- the gunner plays it, once a reload
-	if mine and character and readyAt and t >= 0 and t < 1 and s.played ~= readyAt then
+	-- the gunner plays it, once a reload, from where the loading is (user 2026-10-20: "make sure the reload animation
+	-- resumes when players go on the cannon during the reload period")
+	if mine and character and readyAt and t >= 0 and t < L.length - 0.1 and s.played ~= readyAt then
 		s.played = readyAt
 		local tr = loadTrack(character)
 		if tr then
@@ -226,6 +228,59 @@ local a0: Attachment? = nil
 local a1: Attachment? = nil
 local marker: BillboardGui? = nil
 local rangeLabel: TextLabel? = nil
+local ringFrame: Frame? = nil
+-- the impact zone (user 2026-10-20: "the impact zone should be showed like a highlight on the surface the cannon is
+-- going to hit"): a glowing disc lying on the ground there, as wide as the shell hurts, and a brighter core pulsing in it
+local zone: { fill: Part, core: Part }? = nil
+
+local function disc(name: string, transparency: number): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Shape = Enum.PartType.Cylinder
+	p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch = true, false, false, false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.Color = rgb(Palette.Artillery.Marker)
+	p.Transparency = transparency
+	p.Parent = workspace.Terrain
+	return p
+end
+
+local function zoneParts(): { fill: Part, core: Part }
+	if not zone or not zone.fill.Parent or not zone.core.Parent then
+		zone = { fill = disc("ArtilleryZone", Cfg.Zone.fill), core = disc("ArtilleryZoneCore", Cfg.Zone.core[1]) }
+	end
+	return zone :: { fill: Part, core: Part }
+end
+
+-- lays the zone on the ground at `at` (its surface's `normal`), `radius` studs across half
+local function showZone(at: Vector3, normal: Vector3, radius: number)
+	local z = zoneParts()
+	local n = if normal.Magnitude > 1e-3 then normal.Unit else Vector3.yAxis
+	local side = n:Cross(Vector3.zAxis)
+	side = if side.Magnitude > 1e-3 then side.Unit else n:Cross(Vector3.xAxis).Unit
+	local cf = CFrame.fromMatrix(at + n * Cfg.Zone.lift, n, side) -- a cylinder's axis is its X
+	local t = Cfg.Zone.thickness
+	z.fill.Size = Vector3.new(t, radius * 2, radius * 2)
+	z.fill.CFrame = cf
+	local k = Cfg.Zone.coreShare
+	z.core.Size = Vector3.new(t * 1.5, radius * 2 * k, radius * 2 * k)
+	z.core.CFrame = cf
+end
+
+local function hideZone()
+	if zone then
+		zone.fill.Transparency, zone.core.Transparency = 1, 1
+	end
+end
+
+-- the core's pulse (every frame while it shows)
+local function pulseZone(clock: number)
+	if zone and zone.fill.Transparency < 1 then
+		local c = Cfg.Zone.core
+		zone.core.Transparency = c[1] + (c[2] - c[1]) * (0.5 + 0.5 * math.sin(clock * Cfg.Zone.pulse))
+	end
+end
 
 local function arcParts(): (Beam, Attachment, Attachment, BillboardGui, TextLabel)
 	if not beam or not beam.Parent then
@@ -265,6 +320,7 @@ local function arcParts(): (Beam, Attachment, Attachment, BillboardGui, TextLabe
 		stroke.Color = rgb(Palette.Artillery.Marker)
 		stroke.Parent = ring
 		ring.Parent = gui
+		ringFrame = ring
 		local label = Instance.new("TextLabel")
 		label.AnchorPoint = Vector2.new(0.5, 1)
 		label.Position = UDim2.fromScale(0.5, 1)
@@ -289,6 +345,7 @@ local function hideArc()
 	if marker then
 		marker.Enabled = false
 	end
+	hideZone()
 end
 
 -- an attachment at `at` whose X axis points along `axis` (the Beam's curve leaves along it)
@@ -301,7 +358,7 @@ end
 
 -- where a shell from `o` at `v` would first hit, and when (nil: nowhere within MaxFlight / above Arc.floor), past
 -- everything in `skip`
-local function trace(o: Vector3, v: Vector3, skip: { Instance }): (Vector3?, number)
+local function trace(o: Vector3, v: Vector3, skip: { Instance }): (Vector3?, number, Vector3?)
 	local g = workspace.Gravity
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -332,12 +389,12 @@ local function trace(o: Vector3, v: Vector3, skip: { Instance }): (Vector3?, num
 		local q = Vector3.new(x, y, z)
 		local hit = cast(prev, q - prev)
 		if hit then
-			return hit.Position, t - step + step * hit.Distance / (q - prev).Magnitude
+			return hit.Position, t - step + step * hit.Distance / (q - prev).Magnitude, hit.Normal
 		end
 		last, prev = t, q
 		t += step
 	end
-	return nil, last
+	return nil, last, nil
 end
 
 -- asks for the map round `at` to be streamed in (where the arc comes down out of sight); one request at a time, and
@@ -364,7 +421,7 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	local o = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local v = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
 	local g = workspace.Gravity
-	local finish, last = trace(o, v, { model, character })
+	local finish, last, normal = trace(o, v, { model, character })
 	local function at(t: number): Vector3
 		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
 		return Vector3.new(x, y, z)
@@ -390,6 +447,18 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	b.CurveSize1 = v1.Magnitude * third
 	b.Enabled = true
 	gui.Enabled = finish ~= nil
+	if finish then
+		showZone(finish, normal or Vector3.yAxis, gun.zone)
+		local z = zoneParts()
+		z.fill.Transparency = Cfg.Zone.fill
+	else
+		hideZone()
+	end
+	-- the ring over it only where the fog would hide the zone
+	if ringFrame then
+		ringFrame.Visible = finish ~= nil
+			and (finish - workspace.CurrentCamera.CFrame.Position).Magnitude > Lighting.FogEnd * 0.8
+	end
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
 	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
 end
@@ -473,6 +542,16 @@ function Artillery.start()
 	local arcAt = 0
 
 	local function getOff()
+		-- the loading stops with the gunner; whoever gets on next picks it up
+		local was = mine
+		if was and loadings[was] then
+			loadings[was].played = nil
+		end
+		local character = player.Character
+		local tr = character and tracks[character]
+		if tr and tr.IsPlaying then
+			tr:Stop(0.2)
+		end
 		mine = nil
 		hideArc()
 		gui.Enabled = false
@@ -572,16 +651,19 @@ function Artillery.start()
 			Net.event("Artillery"):FireServer("Aim", wantYaw, wantElevation)
 		end
 
-		-- the camera: behind and over the gun along the aim, pitched with it
+		-- the camera: low at the gun's left rear, looking out past it along the aim, up with the elevation
 		local c = gun.camera
 		local pivot = model:GetPivot()
 		local rot = CFrame.Angles(0, math.rad(wantYaw), 0)
-		local base = pivot.Position + Vector3.new(0, gun.trunnion[2], 0)
-		local at = base + rot:VectorToWorldSpace(Vector3.new(0, c.up, c.back))
-		local goal = CFrame.new(at) * rot * CFrame.Angles(math.rad(c.pitch + wantElevation * c.follow), 0, 0)
+		local base = pivot.Position
+		local at = base + rot:VectorToWorldSpace(Vector3.new(c.side, c.up, c.back))
+		local lift = c.rise + math.tan(math.rad(math.max(wantElevation, 0) * c.follow)) * c.ahead
+		local look = base + rot:VectorToWorldSpace(Vector3.new(0, lift, -c.ahead))
+		local goal = CFrame.lookAt(at, look)
 		camera.CFrame = if snap then goal else camera.CFrame:Lerp(goal, math.min(1, dt * Cfg.CameraEase))
 		snap = false
 
+		pulseZone(os.clock())
 		-- the arc and its marker (a few times a second is plenty)
 		if t - arcAt >= Cfg.Arc.refresh then
 			arcAt = t

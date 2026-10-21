@@ -266,7 +266,8 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
-	model:SetAttribute("Elevation", 0)
+	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)
+	model:SetAttribute("Elevation", low)
 
 	local spot = Instance.new("Attachment")
 	spot.Name = "Crew"
@@ -288,8 +289,8 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 		key = key,
 		gun = gun,
 		prompt = prompt,
-		lay = { yaw = yaw, traverse = 0, elevation = 0 },
-		want = { yaw = yaw, elevation = 0 },
+		lay = { yaw = yaw, traverse = 0, elevation = low },
+		want = { yaw = yaw, elevation = low },
 		gunner = nil,
 		mannedAt = 0,
 		conns = {},

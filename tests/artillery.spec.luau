@@ -69,9 +69,18 @@ return {
 		local _, _, _, dx, _, dz = A.muzzle(QF, 30, 0)
 		assert(near(A.yawOf(dx, dz), 30, 1e-6))
 	end,
-	["the agreed ranges: field gun ~1,500 at full elevation, howitzer ~2,200 at 45"] = function()
+	["the agreed ranges: field gun ~1,500 at full elevation, the howitzer a short-arc mortar"] = function()
 		assert(math.abs(A.range(QF.speed, QF.elevation[2], GRAVITY) - 1500) < 50)
-		assert(math.abs(A.range(HOW.speed, 45, GRAVITY) - 2200) < 50)
+		assert(HOW.elevation[1] >= 45) -- it only lobs
+		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], GRAVITY) - 590) < 20)
+		assert(A.range(HOW.speed, HOW.elevation[2], GRAVITY) < 250)
+	end,
+	["the mortar's breech clears its platform even at full elevation"] = function()
+		local c = HOW.recoilClear
+		local e = HOW.elevation[2]
+		local r = A.recoilLength(HOW.recoil, e, HOW.trunnion[2], c)
+		local a = math.rad(e)
+		assert(HOW.trunnion[2] - (c.along + r) * math.sin(a) - c.below * math.cos(a) >= c.floor - 1e-6)
 	end,
 	["scatter stays within its most and is nothing for even numbers"] = function()
 		local y, e, s = A.scatter(QF.scatter, { 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 })
