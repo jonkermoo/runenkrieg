@@ -38,6 +38,7 @@ type State = {
 	conns: { RBXScriptConnection },
 	sent: number, -- when the lay was last written out
 	aimed: number, -- when the gunner's last aim was taken
+	crewAt: number, -- the traverse the gunner was last placed for
 	bracing: boolean, -- a shot on its way (the gunner bracing)
 }
 
@@ -107,19 +108,32 @@ end
 
 -- where the gunner's root stands: the crew spot, on whatever is under it, facing along the gun
 local function crewSpot(s: State, character: Model): CFrame?
+	-- (on the mount, the spot turns with its traverse)
 	local pivot = s.model:GetPivot()
+	if s.gun.crewTurns then
+		pivot *= CFrame.Angles(0, math.rad(s.lay.traverse), 0)
+	end
 	local c = s.gun.crew
 	local above = pivot:PointToWorldSpace(Vector3.new(c[1], 20, c[2]))
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character, s.model }
-	local hit = workspace:Raycast(above, Vector3.new(0, -60, 0), params)
 	local leg = character:FindFirstChild("Left Leg") :: BasePart?
 	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not hit or not leg or not root then
+	if not leg or not root then
 		return nil
 	end
-	local y = hit.Position.Y + leg.Size.Y + root.Size.Y / 2
+	local floor: number
+	if s.gun.crewY then
+		floor = pivot:PointToWorldSpace(Vector3.new(c[1], s.gun.crewY, c[2])).Y
+	else
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = { character, s.model }
+		local hit = workspace:Raycast(above, Vector3.new(0, -60, 0), params)
+		if not hit then
+			return nil
+		end
+		floor = hit.Position.Y
+	end
+	local y = floor + leg.Size.Y + root.Size.Y / 2
 	local at = Vector3.new(above.X, y, above.Z)
 	return CFrame.lookAt(at, at + pivot.LookVector)
 end
@@ -297,6 +311,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 		conns = {},
 		sent = 0,
 		aimed = 0,
+		crewAt = 0,
 		bracing = false,
 	}
 	guns[model] = s
@@ -385,9 +400,13 @@ function Artillery.start()
 			local pivot = model:GetPivot()
 			local yaw = math.rad(s.lay.yaw)
 			local _, current = pivot:ToOrientation()
-			if math.abs(Rules.wrap(math.deg(current - yaw))) > 0.01 then
+			local turned = math.abs(Rules.wrap(math.deg(current - yaw))) > 0.01
+			if turned then
 				model:PivotTo(CFrame.new(pivot.Position) * CFrame.Angles(0, yaw, 0))
-				-- the gunner turns with it
+			end
+			-- the gunner turns with it (and with the mount, standing on it)
+			if turned or (s.gun.crewTurns and math.abs(s.lay.traverse - s.crewAt) > 0.05) then
+				s.crewAt = s.lay.traverse
 				local character = s.gunner and s.gunner.Character
 				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 				local spot = character and crewSpot(s, character)

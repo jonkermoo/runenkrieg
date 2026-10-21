@@ -52,7 +52,11 @@ export type Gun = {
 	-- the barrel's recoil is cut short so the breech's lowest point stays over `floor` (y): that point lies `along`
 	-- studs behind the trunnion along the bore and `below` under its axis (Rules/Artillery.recoilAt); nil: always full
 	recoilClear: { floor: number, along: number, below: number }?,
-	crew: { number }, -- where the gunner stands (x, z; y from the ground there)
+	-- where the gunner stands (x, z): on the ground there, or `crewY` up on the gun itself (the server never poses the
+	-- moving parts, so it can't cast onto them); `crewTurns`: on the mount, turning with its traverse (the howitzer's step)
+	crew: { number },
+	crewY: number?,
+	crewTurns: boolean,
 	prompt: number, -- reach of the E prompt, studs
 	vfx: { scheme: string, magic: boolean },
 	muzzleScale: number, -- the muzzle blast's scale (Config/Vfx.Muzzle)
@@ -278,6 +282,7 @@ local Artillery = {
 			recoilTimes = { 0.08, 1.2 },
 			recoilClear = nil,
 			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail
+			crewTurns = false,
 			prompt = 8,
 			vfx = { scheme = "Ember", magic = false },
 			muzzleScale = 1,
@@ -349,7 +354,11 @@ local Artillery = {
 			recoil = 3.77,
 			recoilTimes = { 0.12, 2 },
 			recoilClear = { floor = 3.66, along = 4.05, below = 1.54 },
-			crew = { -2.6, 4.6 },
+			-- on the step at the mount's left by the hand wheels (v5, user 2026-10-21: "a small platform you stand on the
+			-- side of the cannon to arm it and control it"; tools/blender/artillery/howitzer.py SIDE)
+			crew = { -3.6, 0.8 },
+			crewY = 2.184, -- the step's top
+			crewTurns = true,
 			prompt = 12,
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
