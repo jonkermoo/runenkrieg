@@ -130,8 +130,22 @@ local Vfx = {
 		OuterSpin = 24, -- degrees/s, the rings and runes
 		InnerSpin = -40, -- the petals and orbs
 		CenterSpin = 90,
-		Appear = 0.35, -- grows from nothing, the lines flash bright, then settle
-		Flash = 3, -- x brightness at the end of the appear
+		Appear = 0.45, -- how long it takes to appear (Open below)
+		Flash = 1.8, -- x brightness at the glow's height once it is whole
+		-- appearing (user 2026-10-21: "looks too bouncy ... make it appear more magically"): it eases in from `from` of
+		-- its size with no overshoot, fully drawn by `fadeIn` of the appear; its pieces light up from the centre out to
+		-- the rim over `lightUp` of it; `flecks` motes of light gather in from `fleckFrom` x its radius; then a soft glow
+		-- swells and settles over `glowTime` s
+		Open = {
+			from = 0.82,
+			fadeIn = 0.5,
+			lightUp = 0.85,
+			flecks = 26,
+			fleckFrom = 1.5,
+			fleckLife = 0.35,
+			fleckSize = { 0.08, 0.22 },
+			glowTime = 0.45,
+		},
 		-- closing (user 2026-10-13: "make it shrink", "disintegrating as it shrinks away"): a small swell, then it
 		-- collapses to a point, spinning faster and flaring brighter; meanwhile it crumbles piece by piece (each line,
 		-- rune stroke, ring, petal and orb fades on its own, from the rim inward with some randomness) and sheds
@@ -141,7 +155,7 @@ local Vfx = {
 		Assemble = { from = 0.55, flecks = 70, fleckSize = { 0.12, 0.3 }, fleckLife = 0.4, fleckFrom = 1.7 },
 		-- ready (user: "make it obvious when its ready to fire"): a bright flare and a bump in size, then it spins
 		-- faster and keeps pulsing
-		Ready = { flash = 3, flashTime = 0.35, bump = 0.12, spin = 2, pulse = 0.3, rate = 3 },
+		Ready = { flash = 3, flashTime = 0.35, bump = 0.03, spin = 2, pulse = 0.3, rate = 3 }, -- (bump was 0.12: bouncy)
 		Close = {
 			time = 0.55,
 			anticipation = 1.2, -- how much it swells before collapsing (back-in easing)

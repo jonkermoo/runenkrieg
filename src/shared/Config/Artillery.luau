@@ -167,6 +167,22 @@ local Artillery = {
 			open = { { id = 9116427399, volume = 1.2, pitch = 0.7, fade = 2, profile = "Spell", eq = { 3, 0, -12 } } },
 		},
 		Blast = { color = "Glow", bolts = 10, spread = 0.5, life = 0.18, aura = 1.4 },
+		-- smoke curling up out of the barrel after the shot (user 2026-10-21: "make smoke come out of the cannons
+		-- (both)"): `rate` puffs a second thinning to none over `time` s, out of the muzzle at `speed` (x the gun's
+		-- muzzleScale), rising `rise` studs/s^2, growing `size` (x the scale), `thick` at its thickest (Palette.Magic)
+		Smoke = {
+			time = 7,
+			rate = 9,
+			speed = { 1.5, 4 },
+			life = { 2.5, 4.5 },
+			spread = 18,
+			drag = 0.6,
+			rise = 2.5,
+			wind = { 0.8, 0, 0.4 },
+			size = { 0.6, 3.2 },
+			thick = 0.45,
+			color = "Ash",
+		},
 	},
 
 	-- The impact zone (src/client/Artillery; user 2026-10-20: "the impact zone should be showed like a highlight on the
@@ -401,9 +417,8 @@ local Artillery = {
 				whistleLead = 2.5,
 			},
 			zone = 17, -- 15 kg: lethal to ~9, hurt to ~17
-			-- a bright star (user 2026-10-21: "make the projectile look like a bright star as its flying"): a white-hot core,
-			-- `star.spikes` long and as many short spikes square to the camera, turning `spin` deg/s, twinkling by `twinkle`,
-			-- a strong light; a blue trail of light and static crackling round it
+			-- a bright four-point star (user 2026-10-21: "a bright 4 point star"): a white-hot core, the spikes (below), a
+			-- strong light; a blue trail of light and static crackling round it
 			shell = {
 				size = 2.4,
 				color = { 235, 250, 255 },
@@ -412,15 +427,21 @@ local Artillery = {
 				light = 40,
 				magic = true,
 				static = "Glow",
+				-- the anime four-point sparkle: four long tapered spikes `long` studs out, `width` wide at the core; four short
+				-- faint ones `diag` out between them; a soft `halo` ball; `twinkle` the flutter, `spin` deg/s
 				star = {
-					spikes = 4,
-					long = 9,
-					short = 4.5,
-					width = 0.35,
-					spin = 60,
-					twinkle = 0.25,
+					long = 11,
+					width = 1.3,
+					diag = 3.5,
+					diagWidth = 0.5,
+					diagFade = 0.45,
+					halo = 4.5,
+					haloFade = 0.75,
+					twinkle = 0.18,
+					spin = 15,
+					beamBrightness = 8,
 					brightness = 6,
-					color = { 220, 245, 255 },
+					color = { 225, 245, 255 },
 				},
 			},
 			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)

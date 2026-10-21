@@ -25,6 +25,7 @@ local Vfx = require(script.Parent.Vfx)
 local ArtilleryFx = {}
 
 local F = Cfg.Fx
+local SMOKE = "rbxasset://textures/particles/smoke_main.dds" -- Roblox's own smoke texture
 local rng = Random.new()
 
 local function rgb(c: { number }): Color3
@@ -107,6 +108,52 @@ function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3)
 	end
 	bubble(origin + d * S.ahead * k, F.Air.size * k, F.Air.time)
 	shake(origin, F.Shake.shot * k, F.Shake.reach * k)
+	-- smoke curling up out of the barrel after the shot, thinning out (user 2026-10-21: "make smoke come out of the
+	-- cannons (both)")
+	local M = F.Smoke
+	local smoke =
+		Vfx.Pool.emitter(CFrame.lookAt(origin, origin + d) * CFrame.Angles(-math.pi / 2, 0, 0), Vector3.one * 0.3 * k)
+	smoke.Shape = Enum.ParticleEmitterShape.Box
+	smoke.Texture = SMOKE
+	smoke.EmissionDirection = Enum.NormalId.Top
+	smoke.Speed = NumberRange.new(M.speed[1] * k, M.speed[2] * k)
+	smoke.Lifetime = NumberRange.new(M.life[1], M.life[2])
+	smoke.SpreadAngle = Vector2.new(M.spread, M.spread)
+	smoke.Drag = M.drag
+	smoke.Acceleration = Vector3.new(M.wind[1], M.rise, M.wind[3])
+	smoke.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, M.size[1] * k),
+		NumberSequenceKeypoint.new(1, M.size[2] * k),
+	})
+	smoke.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.15, M.thick),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	smoke.Color = ColorSequence.new(Vfx.Util.color(M.color))
+	smoke.LightEmission = 0
+	smoke.LightInfluence = 1
+	smoke.Brightness = 1
+	smoke.Orientation = Enum.ParticleOrientation.FacingCamera
+	smoke.Squash = NumberSequence.new(0)
+	smoke.Rotation = NumberRange.new(0, 360)
+	smoke.RotSpeed = NumberRange.new(-20, 20)
+	smoke.Rate = M.rate
+	smoke.Enabled = true
+	local t0 = os.clock()
+	Vfx.Driver.add(function(now: number): boolean
+		local t = now - t0
+		if t >= M.time then
+			smoke.Enabled = false
+			if t >= M.time + M.life[2] then
+				Vfx.Pool.freeEmitter(smoke)
+				return false
+			end
+			return true
+		end
+		smoke.Rate = M.rate * (1 - t / M.time) ^ 1.5
+		return true
+	end)
 end
 
 -- the shell flying its path for `flight` seconds (the server's own path, the same maths)
@@ -134,13 +181,30 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
 	trail.Parent = core
 	local light = Vfx.Pool.light(origin, rgb(P.color), P.light, P.star and P.star.brightness or 2)
-	-- a star (user 2026-10-21: "make the projectile look like a bright star as its flying"): long and short glowing
-	-- spikes out of the core, always square to the camera, turning and twinkling
-	local spikes: { Part } = {}
+	-- a bright four-point star (user 2026-10-21: "make it a bright 4 point star ... look at some clips from animes"):
+	-- the anime sparkle: four long spikes in a cross, wide at the core and tapering to needle points (beams square to the
+	-- camera), four faint short ones between them, a soft halo round the white-hot core; it twinkles
+	local centre: Attachment? = nil
+	local tips: { Attachment } = {}
+	local spikes: { Beam } = {}
+	local halo: Part? = nil
 	if P.star then
-		for k = 1, P.star.spikes * 2 do
-			spikes[k] = Vfx.Pool.part(Enum.PartType.Block, rgb(P.star.color), Vector3.one, CFrame.new(origin), 0)
+		local S = P.star
+		centre = Vfx.Pool.att(origin)
+		for k = 1, 8 do
+			local long = k % 2 == 1
+			tips[k] = Vfx.Pool.att(origin)
+			spikes[k] = Vfx.Pool.beam(
+				centre :: Attachment,
+				tips[k],
+				rgb(S.color),
+				if long then S.width else S.diagWidth,
+				0,
+				if long then 0 else S.diagFade,
+				S.beamBrightness
+			)
 		end
+		halo = Vfx.Pool.part(Enum.PartType.Ball, rgb(S.color), Vector3.one * S.halo, CFrame.new(origin), S.haloFade)
 	end
 	local nextArc = 0
 	local t0 = os.clock()
@@ -156,8 +220,17 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 			a0:Destroy()
 			a1:Destroy()
 			Vfx.Pool.freePart(core)
-			for _, sp in spikes do
-				Vfx.Pool.freePart(sp)
+			for _, b in spikes do
+				Vfx.Pool.freeBeam(b)
+			end
+			for _, a in tips do
+				Vfx.Pool.freeAtt(a)
+			end
+			if centre then
+				Vfx.Pool.freeAtt(centre)
+			end
+			if halo then
+				Vfx.Pool.freePart(halo)
 			end
 			if light then
 				Vfx.Pool.freeLight(light)
@@ -167,17 +240,21 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 		local p = at(t)
 		local ahead = at(t + 0.02)
 		core.CFrame = CFrame.lookAt(p, ahead)
-		if P.star then
+		if P.star and centre then
 			local S = P.star
-			local face = CFrame.lookAt(p, workspace.CurrentCamera.CFrame.Position)
-			local spin = math.rad(S.spin * t)
-			local twinkle = 1 + S.twinkle * math.sin(t * 23) * math.sin(t * 7.1)
-			for k, sp in spikes do
+			local cam = workspace.CurrentCamera.CFrame
+			local twinkle = 1 + S.twinkle * math.sin(t * 19) * math.sin(t * 6.3)
+			local turn = math.rad(S.spin * t)
+			centre.Position = p
+			for k, a in tips do
 				local long = k % 2 == 1
-				local len = (if long then S.long else S.short) * twinkle
-				local w = if long then S.width else S.width * 0.7
-				sp.Size = Vector3.new(w, len, w)
-				sp.CFrame = face * CFrame.Angles(0, 0, spin + math.pi * (k - 1) / #spikes)
+				local ang = turn + (k - 1) * math.pi / 4
+				local len = (if long then S.long else S.diag) * (if long then twinkle else 2 - twinkle)
+				a.Position = p + (cam.RightVector * math.cos(ang) + cam.UpVector * math.sin(ang)) * len
+			end
+			if halo then
+				halo.CFrame = CFrame.new(p)
+				halo.Size = Vector3.one * S.halo * twinkle
 			end
 		end
 		if light then
