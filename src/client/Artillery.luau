@@ -12,6 +12,7 @@
 -- - every shot flashes at the muzzle with its report, every shell's blast is the shared explosion (src/client/Vfx/Blast)
 --   with its sound, heard late and duller far off.
 
+local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +22,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local AudioCfg = require(Shared.Config.Audio)
 local Cfg = require(Shared.Config.Artillery)
+local TreeSway = require(Shared.Config.TreeSway)
 local Damage = require(Shared.Config.Damage)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
@@ -207,9 +209,27 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	local g = workspace.Gravity
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { model, character }
+	local skip: { Instance } = { model, character }
+	params.FilterDescendantsInstances = skip
 	params.IgnoreWater = false
 	params.CollisionGroup = "Default"
+	-- a cast that passes swaying trees: they sway here, not on the server, so the arc can't stop on one where the shell
+	-- doesn't (Studio round 1: the marker on a trunk, the shell 70 studs past it); it shows where it lands beyond them
+	local function cast(from: Vector3, line: Vector3): RaycastResult?
+		for _ = 1, 8 do
+			local hit = workspace:Raycast(from, line, params)
+			local tree = hit and hit.Instance:FindFirstAncestorWhichIsA("Model")
+			while tree and not CollectionService:HasTag(tree, TreeSway.Tag) do
+				tree = tree:FindFirstAncestorWhichIsA("Model")
+			end
+			if not hit or not tree then
+				return hit
+			end
+			table.insert(skip, tree)
+			params.FilterDescendantsInstances = skip
+		end
+		return nil
+	end
 	local function at(t: number): Vector3
 		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
 		return Vector3.new(x, y, z)
@@ -218,7 +238,7 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	local prev, t, last, finish = o, step, 0, nil :: Vector3?
 	while t <= Cfg.MaxFlight and prev.Y > Cfg.Arc.floor do
 		local q = at(t)
-		local hit = workspace:Raycast(prev, q - prev, params)
+		local hit = cast(prev, q - prev)
 		if hit then
 			last = t - step + step * hit.Distance / (q - prev).Magnitude
 			finish = hit.Position
