@@ -51,7 +51,7 @@ export type Gun = {
 	vfx: { scheme: string, magic: boolean },
 	muzzleScale: number, -- the muzzle blast's scale (Config/Vfx.Muzzle)
 	loads: boolean?, -- the gunner plays the loading (Load above)
-	sound: { fire: any, far: any, blast: any, whistle: any },
+	sound: { fire: any, far: any, blast: any, whistle: any, whistleLead: number },
 	camera: { back: number, up: number, pitch: number, follow: number, fov: number },
 }
 
@@ -107,9 +107,10 @@ local Artillery = {
 
 	-- Sounds (Pro Sound Effects, licensed through Roblox; ASSETS_LICENSES.md), per gun below: `fire` its report up
 	-- close, `far` heard past `FarFrom` studs instead, `blast` the shell going off; the incoming shell's `whistle` is
-	-- heard within `Whistle.reach` studs of where it lands, starting `Whistle.lead` s before it lands. All late and
+	-- heard within `Whistle.reach` studs of where it lands, starting the gun's `whistleLead` s before it lands (only on a
+	-- flight at least that long: a short one comes in under the report; Studio round 2). All late and
 	-- duller far off (Rules/Grenade.heard).
-	Whistle = { reach = 300, lead = 2.6 },
+	Whistle = { reach = 300 },
 	Heard = { dullFrom = 80, dullFull = 900, highCut = -14, lowBoost = 5 },
 	FarFrom = 400,
 
@@ -167,8 +168,9 @@ local Artillery = {
 				},
 				-- Bullet Whiz By 1 (lengthened), slowed into a shell's rushing whine
 				whistle = {
-					{ id = 9113634642, volume = 0.9, profile = "Explosion", pitch = 0.6, stop = 1.6, fade = 0.3 },
+					{ id = 9113634642, volume = 0.9, profile = "Explosion", pitch = 0.6, stop = 0.75, fade = 0.2 },
 				},
+				whistleLead = 1.2, -- (its flights are ~0.5-2 s)
 			},
 			camera = { back = 16, up = 7, pitch = -6, follow = 0.4, fov = 60 },
 		} :: Gun,
@@ -218,8 +220,9 @@ local Artillery = {
 					{ id = 9114363996, volume = 1.2, profile = "Explosion", eq = { 4, 0, -3 } }, -- Explosive Boom 5: the long tail
 				},
 				whistle = {
-					{ id = 9113634642, volume = 1, profile = "Explosion", pitch = 0.45, stop = 1.2, fade = 0.3 },
+					{ id = 9113634642, volume = 1, profile = "Explosion", pitch = 0.45, stop = 1.15, fade = 0.3 },
 				},
+				whistleLead = 2.5,
 			},
 			camera = { back = 30, up = 14, pitch = -8, follow = 0.4, fov = 60 },
 		} :: Gun,

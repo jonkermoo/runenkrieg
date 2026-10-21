@@ -132,6 +132,26 @@ local function roundTemplate(): Model?
 	return if f and f:IsA("Model") then f else nil
 end
 
+-- the gunner's loading track, made (and so fetched) ahead of its first play
+local function loadTrack(character: Model): AnimationTrack?
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	if not animator or not Cfg.Load.animation then
+		return nil
+	end
+	local tr = tracks[character]
+	if not tr then
+		local a = Instance.new("Animation")
+		a.AnimationId = `rbxassetid://{Cfg.Load.animation}`
+		tr = animator:LoadAnimation(a)
+		tracks[character] = tr
+		character.Destroying:Connect(function()
+			tracks[character] = nil
+		end)
+	end
+	return tr
+end
+
 local function load(model: Model, p: Pose, mine: boolean)
 	local L = Cfg.Load
 	if not p.gun.loads or not L.animation then
@@ -152,19 +172,8 @@ local function load(model: Model, p: Pose, mine: boolean)
 	-- the gunner plays it, once a reload
 	if mine and character and readyAt and t >= 0 and t < 1 and s.played ~= readyAt then
 		s.played = readyAt
-		local animator = character:FindFirstChildOfClass("Humanoid")
-			and (character:FindFirstChildOfClass("Humanoid") :: Humanoid):FindFirstChildOfClass("Animator")
-		if animator then
-			local tr = tracks[character]
-			if not tr then
-				local a = Instance.new("Animation")
-				a.AnimationId = `rbxassetid://{L.animation}`
-				tr = animator:LoadAnimation(a)
-				tracks[character] = tr
-				character.Destroying:Connect(function()
-					tracks[character] = nil
-				end)
-			end
+		local tr = loadTrack(character)
+		if tr then
 			tr:Play(0.15)
 			tr.TimePosition = t
 		end
@@ -186,8 +195,15 @@ local function load(model: Model, p: Pose, mine: boolean)
 						d.Transparency = if d.Name == "Origin" then 1 else d.Transparency
 					end
 				end
-				local origin = r:FindFirstChild("Origin", true)
-				r.PrimaryPart = if origin and origin:IsA("BasePart") then origin else r.PrimaryPart
+				-- its pivot from its own shape (Studio round 2: once it hung vertical from the hand): at the case head,
+				-- looking from the case to the fuze
+				local origin = r:FindFirstChild("Origin", true) :: BasePart?
+				local case = r:FindFirstChild("Case", true) :: BasePart?
+				local fuze = r:FindFirstChild("Fuze", true) :: BasePart?
+				if origin and case and fuze then
+					r.PrimaryPart = nil
+					r.WorldPivot = CFrame.lookAt(origin.Position, origin.Position + (fuze.Position - case.Position))
+				end
 				r.Parent = model
 				s.round = r
 			end
@@ -452,6 +468,9 @@ function Artillery.start()
 		camera.CameraType = Enum.CameraType.Scriptable
 		camera.FieldOfView = p.gun.camera.fov
 		gui.Enabled = true
+		if p.gun.loads and player.Character then
+			loadTrack(player.Character) -- fetched now, ready by the first reload (Studio round 2)
+		end
 	end
 
 	UserInputService.InputChanged:Connect(function(input)
@@ -566,8 +585,9 @@ function Artillery.start()
 		-- the incoming shell's whistle, for whoever is near where it lands (the path as the server flies it, unscattered
 		-- from here: the server sent the scattered velocity)
 		local landing, flight = trace(origin, velocity, { model })
-		if landing and (eye - landing).Magnitude <= Cfg.Whistle.reach then
-			SoundFx.play(gun.sound.whistle :: any, landing, nil, { delay = math.max(flight - Cfg.Whistle.lead, 0) })
+		local lead = gun.sound.whistleLead
+		if landing and flight >= lead and (eye - landing).Magnitude <= Cfg.Whistle.reach then
+			SoundFx.play(gun.sound.whistle :: any, landing, nil, { delay = flight - lead })
 		end
 	end)
 
