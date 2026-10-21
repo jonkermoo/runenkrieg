@@ -40,6 +40,13 @@ function Looks.hairEntry(style: string, shell: string?): string?
 	return "hair_" .. style .. (if shell then "_" .. shell else "")
 end
 
+-- The Config/Assets helmet a soldier of `species` wears for the kit's `headwear`: its ear-hole version
+-- (`<headwear>_<species>`, tools/blender/gear/slit.py; user 2026-10-20) when there is one, else the headwear itself.
+function Looks.helmetEntry(headwear: string, species: string?, entries: { [string]: any }): string
+	local holed = species and headwear .. "_" .. species
+	return if holed and entries[holed] then holed else headwear
+end
+
 -- A hit on the head (its point in the Head part's own space) lands on the helmet when it is in the top half of the
 -- head's hitbox (user 2026-10-14: "it should cover the top half of your head hitbox").
 function Looks.onHelmet(local_: { X: number, Y: number, Z: number }): boolean
