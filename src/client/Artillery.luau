@@ -13,7 +13,6 @@
 --   with its sound, heard late and duller far off.
 
 local CollectionService = game:GetService("CollectionService")
-local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -468,7 +467,7 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	-- the ring over it only where the fog would hide the zone
 	if ringFrame then
 		ringFrame.Visible = finish ~= nil
-			and (finish - workspace.CurrentCamera.CFrame.Position).Magnitude > Lighting.FogEnd * 0.8
+			and (finish - workspace.CurrentCamera.CFrame.Position).Magnitude > Cfg.Zone.ringFrom
 	end
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
 	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
@@ -626,7 +625,7 @@ function Artillery.start()
 			local character = player.Character
 			if (not readyAt or now() >= readyAt) and character and Cfg.Brace.animation then
 				local tr = oneTrack(character, "brace", Cfg.Brace.animation)
-				if tr then
+				if tr and not tr.IsPlaying then -- (a second click while bracing doesn't start it again)
 					tr:Play(0.1)
 				end
 			end

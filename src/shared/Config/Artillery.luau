@@ -111,8 +111,17 @@ local Artillery = {
 	-- surface the cannon is going to hit"): a glowing disc (Palette.Artillery.Marker) lying on the ground where it would
 	-- land, the gun's `zone` studs in radius (about where its blast still hurts), `fill` transparent, `thickness` thick,
 	-- `lift` off the surface; a core `coreShare` of it across pulsing between the `core` transparencies at `pulse` rad/s.
-	-- Past the fog only the ring and the range show (the fog hides parts).
-	Zone = { fill = 0.72, core = { 0.45, 0.8 }, coreShare = 0.35, thickness = 0.15, lift = 0.1, pulse = 5 },
+	-- Past `ringFrom` studs from the camera the ring over it shows too (the haze, Map 1's Atmosphere, hides parts far
+	-- off; Lighting.FogEnd isn't it: Studio round 5).
+	Zone = {
+		fill = 0.72,
+		core = { 0.45, 0.8 },
+		coreShare = 0.35,
+		thickness = 0.15,
+		lift = 0.1,
+		pulse = 5,
+		ringFrom = 450,
+	},
 
 	-- The reload bar (bottom centre while manning; Palette.UI)
 	Bar = { width = 220, height = 12, margin = 90, text = 16 },
@@ -236,7 +245,8 @@ local Artillery = {
 				whistleLead = 1.2, -- (its flights are ~0.5-2 s)
 			},
 			zone = 10, -- 0.6 kg: hurt to ~8 by the blast, lethal fragments to 6
-			camera = { side = -7, up = 2.2, back = 7, ahead = 60, rise = 5, follow = 0.5, fov = 60 },
+			-- (Studio round 5: at 2.2 up the grass filled the view and the gunner's pack the right edge)
+			camera = { side = -9, up = 4.5, back = 10, ahead = 60, rise = 3, follow = 0.5, fov = 60 },
 		} :: Gun,
 		-- The magic howitzer (A1, BL 9.2-inch at 1.3x): traverse 30 about the racer, recoil 40 in (1.3x), cut short at
 		-- high elevation (the breech would reach the platform: top 3.36, the breech block's low back corner 4.05 behind
