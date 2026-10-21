@@ -245,8 +245,8 @@ local Artillery = {
 				whistleLead = 1.2, -- (its flights are ~0.5-2 s)
 			},
 			zone = 10, -- 0.6 kg: hurt to ~8 by the blast, lethal fragments to 6
-			-- (Studio round 5: at 2.2 up the grass filled the view and the gunner's pack the right edge)
-			camera = { side = -9, up = 4.5, back = 10, ahead = 60, rise = 3, follow = 0.5, fov = 60 },
+			-- (Studio rounds 5-6: at 2.2 up the grass filled the view; at 9 left the gunner stood in the middle of it)
+			camera = { side = -14, up = 5, back = 8, ahead = 60, rise = 3, follow = 0.5, fov = 60 },
 		} :: Gun,
 		-- The magic howitzer (A1, BL 9.2-inch at 1.3x): traverse 30 about the racer, recoil 40 in (1.3x), cut short at
 		-- high elevation (the breech would reach the platform: top 3.36, the breech block's low back corner 4.05 behind
