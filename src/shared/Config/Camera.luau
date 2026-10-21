@@ -158,7 +158,7 @@ local Camera = {
 	-- Third person, local only: the weapon follows the camera's pitch. The torso tilts a little
 	-- (Config/Locomotion.LookTilt) and the arms with the gun turn about the shoulder line for the rest: share of the
 	-- pitch the gun follows per hold, and the head's share.
-	Follow = { ready = 1, carry = 0.3, aim = 1 },
+	Follow = { ready = 1, carry = 0.3, aim = 1, tuck = 0.3 },
 	HeadFollow = 0.6,
 
 	-- Third person: the weapon points at the crosshair (user 2026-10-21: "make the player's gun still aim towards your

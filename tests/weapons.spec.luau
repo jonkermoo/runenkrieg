@@ -108,6 +108,8 @@ return {
 		-- unequip; the staff's; a grenade's; the shovel's
 		local OPTIONAL = {
 			"unequip",
+			"tuck", -- folded in with the barrel blocked (src/client/Tuck)
+			"crouchTuck",
 			"aimTwo",
 			"charge",
 			"airCharge",

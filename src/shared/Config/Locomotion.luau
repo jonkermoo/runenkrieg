@@ -10,6 +10,18 @@ local Locomotion = {
 	-- Sprint only moving forward relative to the camera (user reference video 2026-10-11): within this angle (degrees)
 	-- of where the camera looks; strafing or backing up with Shift stays a walk (and can aim).
 	SprintCone = 50,
+	-- Folding the gun in (user 2026-10-21: "make avatars fold their gun inwards (as if their hugging it against their
+	-- chest but still at ready ...) whenever the barrel is blocked or about to be collided with"; src/client/Tuck,
+	-- Rules/Tuck): a sphere of `Radius` swept from the right shoulder along the look, as far as the barrel reaches at
+	-- the ready hold plus `Ahead` (about to hit), finds anything in the way; the soldier then holds the "tuck" hold
+	-- (Config/Weapons holds / firstPerson `tuck`) until the way is clear by `Clear` more, and can't aim or fire.
+	Tuck = {
+		Radius = 0.3,
+		Ahead = 0.6, -- studs past the muzzle: folds just before the barrel would touch
+		Clear = 0.5, -- studs further still before it comes back out (no flicker at the edge)
+		Shoulder = { 1, 0.5, 0 }, -- the sweep's start, in the torso's space
+		GripAhead = 0.7, -- the ready hold's grip ahead of the shoulder (studs)
+	},
 	ToggleSprintMoving = 0.1, -- a toggled sprint counts as moving above this share of MoveDirection (stopping ends it)
 	-- the camera follows the body down into the crouch and back up on a critically damped spring at this rate (per
 	-- second; user 2026-10-20: never snappy, so it starts and stops gently)
@@ -60,45 +72,52 @@ local Locomotion = {
 			Holds = {
 				rifle_m91 = {
 					carry = 119417853025094,
-					crouchReady = 125300819482628,
-					crouchWalk = 109286771789007,
+					crouchReady = 136315123666568,
+					crouchWalk = 113288767652439,
 					crouchAim = 125788513626290,
+					crouchTuck = 132650677327308,
 				},
 				rifle_g98 = {
 					carry = 89297360927119,
-					crouchReady = 71279703172364,
-					crouchWalk = 135152899831020,
+					crouchReady = 128009872668539,
+					crouchWalk = 140341474894701,
 					crouchAim = 81865048539698,
+					crouchTuck = 75184218736588,
 				},
 				rifle_smle = {
 					carry = 131313963233381,
-					crouchReady = 124540600132919,
-					crouchWalk = 136711785310993,
+					crouchReady = 72054231730916,
+					crouchWalk = 100516419832508,
 					crouchAim = 88093230462842,
+					crouchTuck = 127147207467670,
 				},
 				rifle_mondragon = {
 					carry = 100020439402399,
-					crouchReady = 105675657815195,
-					crouchWalk = 131013849846517,
+					crouchReady = 106561969997726,
+					crouchWalk = 133463326844299,
 					crouchAim = 108054363167309,
+					crouchTuck = 126878471955941,
 				},
 				rifle_remington8 = {
 					carry = 139712671322785,
-					crouchReady = 86600766705324,
-					crouchWalk = 117233666710960,
+					crouchReady = 95483335801365,
+					crouchWalk = 133779447408753,
 					crouchAim = 138784226712792,
+					crouchTuck = 115286704577287,
 				},
 				rifle_winchester1907 = {
 					carry = 89132952036365,
-					crouchReady = 137575028944948,
-					crouchWalk = 72212727683637,
+					crouchReady = 134458450532849,
+					crouchWalk = 86859355193467,
 					crouchAim = 88578444180018,
+					crouchTuck = 112800624654038,
 				},
 				shotgun_m1897 = {
 					carry = 76878677051189,
-					crouchReady = 106243506938923,
-					crouchWalk = 80397196237031,
+					crouchReady = 117168558988120,
+					crouchWalk = 108497758139278,
 					crouchAim = 122339519446187,
+					crouchTuck = 131431173277700,
 				},
 				grenade_mills = { carry = 88834675278602 },
 				grenade_stick = { carry = 88834675278602 },
