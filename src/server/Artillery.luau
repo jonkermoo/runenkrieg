@@ -23,6 +23,7 @@ local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
 local Net = require(Shared.Net)
 local Damage = require(script.Parent.Damage)
+local Ground = require(script.Parent.Ground)
 
 local Artillery = {}
 
@@ -263,14 +264,10 @@ end
 
 -- Digs a gun in at `at` (its Config `dig`; user 2026-10-21: "when you build the howitzer, it will be slightly
 -- underground to give it cover (even when spawned, it should naturally destroy the terrain and be more burrowed)"):
--- an earth rim thrown up round it, the pit carved inside, a level mud floor `depth` under the ground. Returns the floor.
+-- the pit carved to a level mud floor `depth` under the ground, an earth rim thrown up round it (Ground.pit). Returns
+-- the floor.
 local function dig(at: Vector3, d: any): Vector3
-	local t = workspace.Terrain
-	local here = CFrame.new(at)
-	t:FillCylinder(here * CFrame.new(0, d.rimHeight / 2, 0), d.rimHeight, d.radius + d.rim, Enum.Material.Ground)
-	local top = d.rimHeight + 8
-	t:FillCylinder(here * CFrame.new(0, (top - d.depth) / 2, 0), top + d.depth, d.radius, Enum.Material.Air)
-	t:FillCylinder(here * CFrame.new(0, -d.depth - 1, 0), 2, d.radius, Enum.Material.Mud)
+	Ground.pit(at, d.radius, d.depth, d.rim, d.rimHeight)
 	return at - Vector3.new(0, d.depth, 0)
 end
 
