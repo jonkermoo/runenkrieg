@@ -15,6 +15,10 @@ local Damage = {
 		SemiRifle = { Head = 200, Torso = 55, Limb = 45, Helmet = 40 }, -- W2: so they don't outclass the bolt rifles
 		Shotgun = { Head = 30, Torso = 20, Limb = 12, Helmet = 10 },
 	},
+	-- Up close a helmet doesn't save you (user 2026-10-21: "one shot to the head up close"; bolt rifles only, a hard
+	-- cutoff): within this many studs of the muzzle a helmet hit counts as a head hit (the helmet still comes off).
+	-- Classes not listed: the helmet hit at every range.
+	HelmetLethal = { BoltRifle = 100 } :: { [string]: number },
 
 	-- Every hit knocks you to the ground (user 2026-10-17): the Config/Ragdoll.Knocks entry by the zone that took the
 	-- most damage, alive or killed by it: arms / legs / the helmet a slight knockback, the torso a medium one, a

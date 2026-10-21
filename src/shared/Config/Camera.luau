@@ -121,17 +121,14 @@ local Camera = {
 		Fade = { far = 1.8, near = 0.7, Steps = 20 },
 	},
 	-- Turning the body (src/client/BodyTurn; user 2026-10-20), each a critically damped spring rate (per second):
-	-- - a gun in third person: moving, the body faces where it walks (Walk; user 2026-10-20: "the torso should only
-	--   follow the camera after the character is done moving"), and once it stops turns to the view; standing, the head
-	--   turns toward the view first (Config/Locomotion.LookTilt.Head.Max), and past that, or for FireHold seconds after a
-	--   shot (on the move too), the body turns to face the view until within Settle degrees (Rules/Camera.bodyTarget);
-	-- - first person, aiming and the staff: the body faces the view (fast, so others see it turn, not jump);
-	-- - nothing in the hands: the body turns to where it walks (or to the view in Roblox's first person / mouse lock).
+	-- - a gun in third person, first person, aiming and the staff: the body faces the view (Face: fast, so others see
+	--   it turn, not jump; user 2026-10-20: "make the gun always aim towards your general crosshair in third person",
+	--   which replaced the earlier walk-facing and head-first rule, Rules/Camera.bodyTarget, kept with Settle);
+	-- - nothing in the hands: the body turns to where it walks (Walk; or to the view in Roblox's first person / mouse
+	--   lock).
 	Turn = {
-		Third = 9,
 		Face = 20,
 		Walk = 10,
-		FireHold = 1.5,
 		Settle = 5,
 		Moving = 0.1, -- share of MoveDirection that counts as moving
 		FirstBelow = 1, -- nothing in the hands: Roblox's camera nearer the head than this (studs) is its first person

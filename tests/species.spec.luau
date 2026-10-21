@@ -42,6 +42,19 @@ return {
 		assert(Species.of("uniform1", "human", Cfg) == nil, "override to human")
 		assert(Species.of("uniform1", "dragon", Cfg) == "katzling", "an unknown override is ignored")
 	end,
+	["bald soldiers have no animal ears; elf ears stay"] = function()
+		local K = Cfg.Kinds
+		assert(not Species.wearsEars(K.katzling, "bald"), "bald Katzling: no cat ears")
+		assert(not Species.wearsEars(K.fennek, "bald"), "bald Fennek: no fennec ears")
+		assert(Species.wearsEars(K.alb, "bald"), "bald Alb: elf ears stay")
+		assert(Species.wearsEars(K.katzling, "short"), "with hair: ears")
+		assert(Species.wearsEars(K.katzling, nil), "no hairstyle set: ears")
+		local bald = false
+		for _, h in U.Hairs do
+			bald = bald or h.name == "bald"
+		end
+		assert(bald, 'the hairstyle pool still names "bald"')
+	end,
 	["piece names split into piece, role, ear and segment"] = function()
 		local piece, role = Species.split("EarRTufts_Fluff")
 		assert(piece == "EarRTufts" and role == "Fluff", "split")
