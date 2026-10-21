@@ -137,7 +137,8 @@ local Palette = {
 		BedRunes = { 120, 200, 255 }, -- Magic.Glow
 		BarrelRunes = { 120, 200, 255 },
 		Crystal = { 175, 235, 255 },
-		Glowing = { "BedRunes", "BarrelRunes", "Crystal" },
+		CrystalCracks = { 235, 250, 255 }, -- the cracks over the howitzer's gem (src/client/ArtilleryCrystal)
+		Glowing = { "BedRunes", "BarrelRunes", "Crystal", "CrystalCracks" },
 		-- the field gun's round (Config/Assets round_qf18): brass case, copper band, the HE shell's yellow, a steel fuze
 		Case = { 204, 170, 96 },
 		Band = { 184, 115, 72 },

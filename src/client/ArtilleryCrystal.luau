@@ -20,11 +20,17 @@ local Rules = require(Shared.Rules.Artillery)
 
 local ArtilleryCrystal = {}
 
+local rng = Random.new()
+
 local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds" -- Roblox's own sparkle sprite
 local NAMES = { "fehu", "uruz", "thurisaz", "ansuz", "kaunan", "algiz", "sowilo", "tiwaz", "eihwaz", "hagalaz" }
 
 export type State = {
 	crystal: BasePart,
+	cracks: BasePart?,
+	flickerUntil: number, -- a drop-out running until then
+	flickerDepth: number,
+	seed: number,
 	bands: { BasePart },
 	light: PointLight,
 	motes: ParticleEmitter,
@@ -118,8 +124,13 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 			table.insert(bands, b)
 		end
 	end
+	local cracks = model:FindFirstChild("CrystalCracks", true)
 	return {
 		crystal = crystal,
+		cracks = if cracks and cracks:IsA("BasePart") then cracks else nil,
+		flickerUntil = 0,
+		flickerDepth = 0,
+		seed = math.random() * 100,
 		bands = bands,
 		light = light,
 		motes = motes,
@@ -155,8 +166,24 @@ function ArtilleryCrystal.update(
 	local up = now - braceAt
 	local surge = if state ~= "Fired" and up >= 0 and up < charge then up / charge else 0
 	glow += Cfg.surge.glow * surge
+	-- the random flicker: drop-outs now and then (often as it starts to wake, rarely once ready) and a slow wobble
+	local F = Cfg.flicker
+	if state == "Charging" or state == "Ready" then
+		local rate = if state == "Charging" then F.rate[1] + (F.rate[2] - F.rate[1]) * share else F.rate[3]
+		if clock >= s.flickerUntil and rng:NextNumber() < rate * dt then
+			s.flickerUntil = clock + rng:NextNumber(F.length[1], F.length[2])
+			s.flickerDepth = rng:NextNumber(F.depth[1], F.depth[2])
+		end
+		if clock < s.flickerUntil then
+			glow *= 1 - s.flickerDepth
+		end
+		glow *= 1 - F.wobble * (0.5 + 0.5 * math.noise(clock * 2.3, s.seed))
+	end
 	local color = colorAt(glow)
 	s.crystal.Color = color
+	if s.cracks then
+		s.cracks.Color = colorAt(math.max(glow + Cfg.cracks, 0))
+	end
 	-- the rune bands follow it, never quite dark
 	local bandColor = colorAt(math.max(math.min(glow, 1), Cfg.runesFloor))
 	for _, b in s.bands do

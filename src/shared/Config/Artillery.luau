@@ -200,7 +200,7 @@ local Artillery = {
 		flare = 0.6,
 		flareGlow = 1.6,
 		curve = 1.6,
-		sputter = 0.3,
+		sputter = 0, -- (the sputter is random now: `flicker`)
 		beat = { 0.5, 1.6 },
 		beatGlow = 0.35,
 		awake = 0.5,
@@ -223,6 +223,12 @@ local Artillery = {
 		moteSize = 0.18,
 		-- charging up for the shot: up to `glow` brighter, the runes `spin` x faster, drawn in by `tighten`
 		surge = { glow = 0.7, spin = 6, tighten = 0.4 },
+		-- a random flicker (user 2026-10-21: "make the flicker random"), like a failing light: drop-outs at `rate` a
+		-- second (charging: from the first to the second as it fills; ready: the third), each `length` s long and
+		-- `depth` deep, and a slow uneven wobble of `wobble`
+		flicker = { rate = { 5, 0.8, 0.3 }, length = { 0.04, 0.2 }, depth = { 0.35, 0.9 }, wobble = 0.1 },
+		-- the cracks (its "CrystalCracks" part) burn brighter than the gem by `cracks` of a glow, never darker than empty
+		cracks = 0.45,
 	},
 
 	-- Sounds (Pro Sound Effects, licensed through Roblox; ASSETS_LICENSES.md), per gun below: `fire` its report up
@@ -333,7 +339,7 @@ local Artillery = {
 			mount = { "Mount" },
 			cradle = { "Cradle" },
 			barrel = { "Barrel", "BarrelRunes", "Bore" },
-			breech = { "Breech", "Crystal" },
+			breech = { "Breech", "Crystal", "CrystalCracks" },
 			trunnion = { 0, 7.4, 0.5 },
 			hinge = { 0, 7.4, 3.1 }, -- (the breech never opens)
 			muzzle = { 0, 7.4, -10.6 },
