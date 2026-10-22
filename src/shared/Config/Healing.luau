@@ -3,8 +3,8 @@
 -- src/client/Healing picks the patient and plays the animations. Data only.
 -- You never heal yourself (user: "you cannot heal yourself, you can only heal others"): look at a hurt soldier in
 -- reach and press the Heal key (Config/Settings Key_Heal). At MedPackFrom health or more the med pack is used, below it
--- the bandage (user); both heal to full, a share at a time, unlimited supplies. Everyone can heal anyone until teams
--- (M13), then only teammates.
+-- the bandage (user); both heal to full, a share at a time, unlimited supplies. Only teammates (user 2026-10-22; Rules/Teams:
+-- the same uniform kit until M13 teams).
 
 local Healing = {
 	MedPackFrom = 70, -- the patient's health from which the med pack is used; below it, the bandage
