@@ -532,6 +532,23 @@ local Assets = {
 				center = { 0, 0.3781, 0.0023 },
 			},
 		},
+		helmet_brodie_fennek = {
+			id = 105223519655559, -- 2026-10-21
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "The default helmet_brodie (unchanged) with a hole each side of the crown cut to the Fennek ears' "
+				.. "outline (the oval holes took the whole shallow bowl), a rolled steel ring round each (user 2026-10-21). "
+				.. "Worn by Fennek (Rules/Looks.helmetEntry). White team (856 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 }, -- the brown team's chocolate (white-team branch)
+				brim = 0.06,
+				shell = "brodie",
+				center = { 0, 0.3873, 0.0023 }, -- the rings raise the box's top a little
+			},
+		},
 		-- New helmets (user 2026-10-20: one more per team, "different helmet, different armoring"; docs/HATS.md "New helmets")
 		helmet_stahl_plate = {
 			id = 132394662760568,
@@ -589,13 +606,14 @@ local Assets = {
 		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
 		-- the head's center), tails Torso-local (the Torso's center).
 		ears_katzling = {
-			id = 105362765217637, -- v1 131909248233922 (named pieces clashed)
+			id = 115041129787289, -- v2 105362765217637 (outer edge too big), v1 131909248233922 (named pieces clashed)
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/ears_katzling.fbx",
 			generator = "tools/blender/gear/species.py",
-			description = "Katzling cat ears: broad, blunt, the outer edge curving in, thick front to back, a pale inner, "
-				.. "fur tufts in the cup and on the edges, a ruff round each root (408 tris).",
+			description = "Katzling cat ears: broad, blunt, set in towards the centre, the outer edge curving in, "
+				.. "thick front to back, a pale inner, fur tufts in the cup and on the edges, a ruff round each root "
+				.. "(408 tris).",
 		},
 		ears_fennek = {
 			id = 135952144124699, -- v1 96521357487348 (named pieces clashed)
