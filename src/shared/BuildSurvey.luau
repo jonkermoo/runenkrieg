@@ -27,8 +27,8 @@ terrainOnly.IgnoreWater = false
 function Survey.footprint(piece: Rules.Piece): (Vector3, number)
 	if piece.kind == "Trench" then
 		local T = C.Trench
-		local back = T.back - T.parados.width
-		local front = T.front + M.Trench.FirestepWidth + T.parapet.width
+		local back = T.back - T.cutMargin - T.parados.width
+		local front = T.front + M.Trench.FirestepWidth + T.cutMargin + T.parapet.width
 		return Vector3.new(T.length, M.Trench.Depth, front - back), (front + back) / 2
 	elseif piece.kind == "Sandbags" then
 		return Vector3.new(piece.width, piece.rows * piece.row, piece.depth), 0

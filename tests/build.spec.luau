@@ -96,9 +96,11 @@ return {
 		assert(T.front - T.back == M.Trench.FloorWidth, "the floor is Metrics wide")
 		assert(B.trenchAt(6, 0, seg, T, fw) == -M.Trench.Depth)
 		assert(B.trenchAt(6, T.front + fw, seg, T, fw) == -M.Trench.Depth, "the firestep's room is cut")
-		local bank = B.trenchAt(6, T.front + fw + T.parapet.width / 2, seg, T, fw) :: number
+		local m = T.cutMargin
+		assert(B.trenchAt(6, T.back - m + 0.1, seg, T, fw) == -M.Trench.Depth, "cut a little wider than the planks")
+		local bank = B.trenchAt(6, T.front + fw + m + T.parapet.width / 2, seg, T, fw) :: number
 		assert(near(bank, T.parapet.height), "the parapet peaks in its middle")
-		assert((B.trenchAt(6, T.back - T.parados.width / 2, seg, T, fw) :: number) > 0, "a parados behind")
+		assert((B.trenchAt(6, T.back - m - T.parados.width / 2, seg, T, fw) :: number) > 0, "a parados behind")
 		assert(B.trenchAt(6, 40, seg, T, fw) == nil)
 		-- joined ends: the floor runs on past them
 		assert(B.trenchAt(-T.overlap + 0.1, 0, seg, T, fw) == -M.Trench.Depth)
@@ -112,13 +114,13 @@ return {
 		assert(B.trenchAt(-T.ramp.length - 0.5, mid, seg, T, fw) == nil)
 		-- the exit piece: a ramp out of the back in its middle
 		seg.exit = true
-		h, cutOnly = B.trenchAt(6, T.back - T.ramp.length / 2, seg, T, fw)
+		h, cutOnly = B.trenchAt(6, T.back - m - T.ramp.length / 2, seg, T, fw)
 		assert(h and near(h, -M.Trench.Depth / 2) and cutOnly)
 		-- a third dug: a third deep, banks a third high
 		local part =
 			{ length = 12, depth = M.Trench.Depth / 3, share = 1 / 3, openA = false, openB = false, exit = false }
 		assert(near(B.trenchAt(6, 0, part, T, fw) :: number, -M.Trench.Depth / 3))
-		local low = B.trenchAt(6, T.front + fw + T.parapet.width / 2, part, T, fw) :: number
+		local low = B.trenchAt(6, T.front + fw + T.cutMargin + T.parapet.width / 2, part, T, fw) :: number
 		assert(near(low, T.parapet.height / 3))
 		assert(
 			B.trenchAt(6, 0, { length = 12, depth = 0, share = 0, openA = false, openB = false, exit = false }, T, fw)

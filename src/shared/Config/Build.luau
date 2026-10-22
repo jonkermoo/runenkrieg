@@ -40,6 +40,9 @@ local Build = {
 		-- the profile across the trench, from the back (negative) to the front (positive), studs from the centre line
 		back = -3, -- the back wall (the floor runs from here ...)
 		front = 3, -- (... to here, then the firestep)
+		-- the terrain is cut this much wider than the plank walls each side: voxels are 4 studs, and an earth wall
+		-- between a cut column and a whole one would stand inside the trench
+		cutMargin = 2,
 		parapet = { width = 6, height = 1.6 }, -- earth thrown up past the front wall, peaked in its middle
 		parados = { width = 4, height = 0.6 }, -- a lower bank behind
 		ramp = { length = 10, width = 5 }, -- an open end's ramp up (along the trench), and the exit piece's (out the back)

@@ -127,7 +127,8 @@ function Build.trenchAt(u: number, v: number, seg: Segment, t: any, firestep: nu
 		return nil, false
 	end
 	local frontWall = t.front + firestep
-	local inside = v >= t.back and v <= frontWall
+	local margin = t.cutMargin or 0
+	local inside = v >= t.back - margin and v <= frontWall + margin
 	local within = u >= 0 and u <= L
 	local lowA = if seg.openA then 0 else -t.overlap
 	local highB = if seg.openB then L else L + t.overlap
@@ -146,21 +147,21 @@ function Build.trenchAt(u: number, v: number, seg: Segment, t: any, firestep: nu
 		end
 	end
 	-- the exit piece's ramp out of the back wall
-	if seg.exit and math.abs(u - L / 2) <= ramp.width / 2 and v < t.back and v >= t.back - ramp.length then
-		return -depth * (1 - (t.back - v) / ramp.length), true
+	if seg.exit and math.abs(u - L / 2) <= ramp.width / 2 and v < t.back and v >= t.back - margin - ramp.length then
+		return -depth * math.min(1 - (t.back - margin - v) / ramp.length, 1), true
 	end
 	if not within then
 		return nil, false
 	end
 	-- the parapet in front and the parados behind: banks peaked in their middles
 	local par = t.parapet
-	if v > frontWall and v <= frontWall + par.width then
-		local x = (v - frontWall) / par.width
+	if v > frontWall + margin and v <= frontWall + margin + par.width then
+		local x = (v - frontWall - margin) / par.width
 		return par.height * (1 - math.abs(x * 2 - 1)) * seg.share, false
 	end
 	local pd = t.parados
-	if v < t.back and v >= t.back - pd.width then
-		local x = (t.back - v) / pd.width
+	if v < t.back - margin and v >= t.back - margin - pd.width then
+		local x = (t.back - margin - v) / pd.width
 		return pd.height * (1 - math.abs(x * 2 - 1)) * seg.share, false
 	end
 	return nil, false
