@@ -139,6 +139,17 @@ local function held(player: Player): (Model?, Tool?, Entry?)
 	return character, tool, e
 end
 
+Firing.held = held
+
+-- a butt stroke under way (src/server/Melee): no shot, bolt or reload until the gun is back in the hold
+local strikes: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
+function Firing.strike(character: Model, ends: number)
+	strikes[character] = ends
+end
+local function striking(character: Model): boolean
+	return os.clock() + Cfg.Slack < (strikes[character] or 0)
+end
+
 -- a token bucket per player: RatePerSecond refill, the same burst
 local buckets: { [Player]: { tokens: number, at: number } } = {}
 local function allowed(player: Player): boolean
@@ -182,6 +193,7 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 		and typeof(direction) == "Vector3"
 		and (seed == nil or type(seed) == "number")
 		and allowed(player)
+		and not striking(character)
 		and F.validShot((origin - head.Position).Magnitude, direction.Magnitude, Cfg.MaxOrigin)
 	if not ok or not F.fire(e.state, e.gun, os.clock(), Cfg.Slack) then
 		publish(tool, e.state, e.seq) -- the client resyncs to this
@@ -244,7 +256,7 @@ local function act(player: Player, action: string)
 	local ok, _, out, kind = false, nil, nil, nil
 	local now = os.clock()
 	local wasOpen = e.state.open
-	if not allowed(player) then
+	if not allowed(player) or striking(character) then
 		ok = false
 	elseif action == "Bolt" then
 		ok, _, out = F.bolt(e.state, e.gun, now, Cfg.Slack)

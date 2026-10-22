@@ -25,6 +25,7 @@ local Metrics = require(Shared.Config.Metrics)
 local W = require(Shared.Config.Weapons)
 local Blast = require(Shared.Rules.Blast)
 local GrenadeRules = require(Shared.Rules.Grenade)
+local MeleeRules = require(Shared.Rules.Melee)
 local Rules = require(Shared.Rules.Damage)
 local TreeRules = require(Shared.Rules.Trees)
 local Destruction = require(script.Parent.Destruction)
@@ -140,6 +141,18 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 			hurt(character, e.humanoid, left, Rules.knock(top, left <= 0, Cfg.Knocks), flat(e.direction))
 		end
 	end
+end
+
+-- A butt stroke (src/server/Melee) from `striker` on the body part `part` in `zone` (a helmet hit already took the
+-- helmet off), along `direction`: Config/Damage.Melee's damage and knock. True when it hurt a soldier.
+function Damage.melee(striker: Model, part: BasePart, zone: string, direction: Vector3): boolean
+	local character, humanoid = victim(part)
+	if not character or not humanoid or character == striker or humanoid.Health <= 0 then
+		return false
+	end
+	local left, knock = MeleeRules.hit(zone, humanoid.Health, Cfg.Melee, Cfg.Knocks.Killed, Cfg.HelmetFloor)
+	hurt(character, humanoid, left, knock, flat(direction))
+	return true
 end
 
 -- What a blast does (Config/Damage.Staff.Blasts); nil: everything, in full. fell = false: trees only lose leaves and

@@ -137,8 +137,8 @@ function Locomotion.attach(character: Model)
 					or hold == "airChargeTwo"
 					or hold == "pin"
 				-- a grenade's throw: a one shot over its wind-up (src/client/Grenades "ThrownAt"); the shovel's dig the same
-				-- over its hold (src/client/Shovel "DugAt")
-				local over = hold == "throw" or hold == "dig"
+				-- over its hold (src/client/Shovel "DugAt"), and a gun's butt stroke (src/client/Melee "StruckAt")
+				local over = hold == "throw" or hold == "dig" or hold == "strike"
 				t.Priority = if over
 					then Enum.AnimationPriority.Action3
 					elseif once then Enum.AnimationPriority.Action2
@@ -252,6 +252,8 @@ function Locomotion.attach(character: Model)
 
 	local thrown: number? = nil -- the last grenade throw played ("ThrownAt")
 	local dug: number? = nil -- the last shovel dig played ("DugAt")
+	local struck: number? = nil -- the last butt stroke played ("StruckAt")
+	local striking: AnimationTrack? = nil -- the butt stroke while it plays (stopped if that gun is put away)
 	local pinned: number? = nil -- the last pin pull played ("PinAt")
 	local pinning: AnimationTrack? = nil -- the grenade's pin pull and throw while they play (stopped if cancelled)
 	local throwing: AnimationTrack? = nil
@@ -359,6 +361,18 @@ function Locomotion.attach(character: Model)
 					set.dig:Play(0.05)
 				end
 			end
+			-- a gun's butt stroke (src/client/Melee marks the moment): played once over the hold
+			local struckAt = character:GetAttribute("StruckAt")
+			if type(struckAt) == "number" and struckAt ~= struck then
+				struck = struckAt
+				if set.strike then
+					set.strike:Play(0.05)
+					striking = set.strike
+				end
+			end
+			if striking and striking.IsPlaying and set.strike ~= striking then
+				striking:Stop(0.1) -- another weapon drawn
+			end
 			-- the staff's charge: posed at how long the cast has been held (then its ready shake on a loop); floating, the
 			-- one leaning back
 			-- with both hands already on the staff when it started (src/client/StaffAttack "ChargeTwo"), the two-handed one
@@ -384,6 +398,9 @@ function Locomotion.attach(character: Model)
 				charging = nil
 			end
 		else
+			if striking and striking.IsPlaying then
+				striking:Stop(0.1) -- put away
+			end
 			hold(if character:FindFirstChildOfClass("Tool") then tracks.toolnone else nil)
 			if charging then
 				charging:Stop(0.1)
