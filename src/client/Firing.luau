@@ -360,7 +360,7 @@ function Firing.start()
 			local to = if l.state.open then l.gun.openAt else 1
 			GunFx.cycle(character, weapon.name, "Bolt", out, l.state.magazine, 0, to)
 		elseif next == "Dry" then
-			local gun = GunFx.visible(character)
+			local gun = GunFx.guns(character)[1] -- the body's gun (as GunFx.shot: the viewmodel's can leave mid-sound)
 			if gun then
 				GunFx.sound(gun, "Dry")
 			end
