@@ -11,8 +11,10 @@ local Flinch = {
 	-- 50 kg bomb ~26 -> 64, the 400 kg shell ~51 -> 128; a Mills (splinters to 28) 28 -> 42.
 	kpa = 20,
 	beyond = 1.5,
-	-- the track's weight: 1 at the knock edge (and behind cover inside it), `least` at the outer edge
-	least = 0.6,
+	-- the track's weight: 1 at the knock edge (and behind cover inside it), `least` at the outer edge. 1 for now: under
+	-- full weight the hand blends back toward the idle's and stops short of the helmet (Studio 2026-10-22: at 0.82 the
+	-- hand sat 0.45 out from the brim)
+	least = 1,
 	-- a flinch already playing isn't started again by a blast within this many seconds of it (a barrage)
 	Again = 0.5,
 	Fade = 0.08, -- fade in / out (s)
