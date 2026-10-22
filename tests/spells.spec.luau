@@ -119,4 +119,25 @@ return {
 		assert(Spells.capHeld(opens, 3, 2) == 2)
 		assert(Spells.capHeld(opens, 1, 0.2) == 0.2)
 	end,
+	["each team's magic has its own scheme"] = function()
+		local Vfx = require("../src/shared/Config/Vfx")
+		local Palette = require("../src/shared/Config/Palette")
+		local S = Cfg.Staff
+		local U = require("../src/shared/Config/Uniforms")
+		local used = {}
+		for _, kit in U.Teams do
+			local name = Spells.scheme(kit, S.Teams, S.Scheme)
+			assert(not used[name], "two teams share " .. name)
+			used[name] = true
+			local scheme = (Vfx.Schemes :: any)[name]
+			assert(scheme, "no scheme " .. name)
+			for role, color in scheme do
+				for _, c in (if type(color) == "table" then color else { color }) :: { string } do
+					assert((Palette.Magic :: any)[c], name .. "." .. role .. ": no color " .. c)
+				end
+			end
+		end
+		assert(Spells.scheme(nil, S.Teams, S.Scheme) == S.Scheme, "no kit: the default")
+		assert(Spells.scheme("dummy", S.Teams, S.Scheme) == S.Scheme, "unknown kit: the default")
+	end,
 }
