@@ -22,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
 local Metrics = require(Shared.Config.Metrics)
+local RagdollCfg = require(Shared.Config.Ragdoll)
 local W = require(Shared.Config.Weapons)
 local Blast = require(Shared.Rules.Blast)
 local GrenadeRules = require(Shared.Rules.Grenade)
@@ -95,7 +96,7 @@ local function hurt(
 )
 	if humanoid.Health <= 0 then
 		if knock then
-			Ragdoll.knock(character, knock, direction, scale) -- a body thrown about
+			Ragdoll.knock(character, knock, direction, (scale or 1) * RagdollCfg.corpse) -- a body nudged about
 		end
 		return
 	end
