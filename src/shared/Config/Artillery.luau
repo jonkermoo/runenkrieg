@@ -493,8 +493,11 @@ local Artillery = {
 			-- in the pit behind the gunner's left, 2 under the ground, the gunner ~22 degrees under it; the landing marker is
 			-- drawn over the pit's wall (AlwaysOnTop)
 			-- (user 2026-10-22: "angle the camera way up more? our avatar should look pretty small. we also cant see where
-			-- we are aiming"; was side -10, up 10, back 9, pitch -6, fov 65): high up behind it, over the mound
-			camera = { side = -12, up = 24, back = 20, yaw = 25, pitch = -8, follow = 0.12, fov = 70 },
+			-- we are aiming"; was side -10, up 10, back 9, pitch -6, fov 65): high up behind it, over the mound, looking
+			-- down into the pit: the gunner ~42 degrees under the camera, the landing 0-6 under the horizon at every lay, so
+			-- a steady pitch between them keeps both in view (Studio round 1 at pitch -8 + 0.12 x elevation: the mound's
+			-- near side filled the bottom of the frame and the gunner was under it)
+			camera = { side = -12, up = 24, back = 20, yaw = 25, pitch = -21, follow = 0, fov = 70 },
 		} :: Gun,
 	},
 }
