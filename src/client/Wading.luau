@@ -47,7 +47,7 @@ function Wading.start()
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
 		scale = 1
 		local attachment = Instance.new("Attachment")
-		attachment.Name = "WadeSink"
+		attachment.Name = "WadeSinkAttachment"
 		attachment.Parent = root
 		local f = Instance.new("VectorForce")
 		f.Name = "WadeSink"
@@ -73,9 +73,15 @@ function Wading.start()
 		local feet = root.Position.Y - root.Size.Y / 2 - M.Character.LegLength
 		local surface = surfaceAt(root.Position.X, root.Position.Z, feet)
 		local depth = Rules.depth(surface, feet)
-		local nextScale = Rules.ease(scale, Rules.scale(depth, Cfg.From, Cfg.Full, Cfg.Slow), Cfg.Rate, dt)
-		if math.abs(nextScale - scale) > 1e-3 or (nextScale ~= scale and math.abs(nextScale - 1) < 1e-3) then
-			scale = if math.abs(nextScale - 1) < 1e-3 then 1 else nextScale
+		local target = Rules.scale(depth, Cfg.From, Cfg.Full, Cfg.Slow)
+		scale = Rules.ease(scale, target, Cfg.Rate, dt)
+		if math.abs(scale - target) < 1e-3 then
+			scale = target -- (the ease never quite arrives)
+		end
+		-- written when it has moved enough to matter, or arrived (Stance re-applies the speed on every write)
+		local written = character:GetAttribute("WadeScale")
+		local shown = if type(written) == "number" then written else 1
+		if math.abs(scale - shown) > 1e-2 or (scale == target and scale ~= shown) then
 			character:SetAttribute("WadeScale", if scale == 1 then nil else scale)
 		end
 		-- the water's lift on every part (body, gear, weapon), pushed back down while the soldier stands in it
