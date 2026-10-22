@@ -29,6 +29,8 @@ local Dragging = {}
 
 type Drag = { dragger: Model, body: Model, pull: AlignPosition, made: { Instance } }
 
+local PARTS = { "HumanoidRootPart", "Torso", "Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg" }
+
 local drags: { [Model]: Drag } = {} -- by dragger
 local lastAsk: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -68,17 +70,17 @@ local function state(dragger: Model, dh: Humanoid, body: Model, bh: Humanoid, st
 	}
 end
 
--- The body's physics: the server's while dragged, its player's again after (a dummy's stays the server's).
+-- The body's physics: the server's while dragged, its player's again after (a dummy's stays the server's). Every part:
+-- the loosened joints split a ragdoll into an assembly per limb (src/server/DevDummies, Studio round 2).
 local function own(body: Model, server: boolean)
-	local root = body:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root or not root:IsDescendantOf(workspace) or not root:CanSetNetworkOwnership() then
+	local player = Players:GetPlayerFromCharacter(body)
+	if not server and not player then
 		return
 	end
-	local player = Players:GetPlayerFromCharacter(body)
-	if server then
-		root:SetNetworkOwner(nil)
-	elseif player then
-		root:SetNetworkOwner(player)
+	for _, p in body:GetDescendants() do
+		if p:IsA("BasePart") and not p.Anchored and p:IsDescendantOf(workspace) and p:CanSetNetworkOwnership() then
+			p:SetNetworkOwner(if server then nil else player)
+		end
 	end
 end
 
@@ -156,9 +158,12 @@ local function tick()
 			d.pull.Position = hands.CFrame:PointToWorldSpace(vec(Cfg.Grip))
 		end
 		-- the body's physics stays the server's for the whole drag
-		local root = d.body:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if root and root:GetNetworkOwner() ~= nil then
-			own(d.body, true)
+		for _, name in PARTS do
+			local p = d.body:FindFirstChild(name) :: BasePart?
+			if p and not p.Anchored and p:GetNetworkOwner() ~= nil then
+				own(d.body, true)
+				break
+			end
 		end
 	end
 end
