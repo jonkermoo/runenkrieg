@@ -1,9 +1,9 @@
 --!strict
 -- The third-person crosshair (Config/Camera.Crosshair; user 2026-10-20: "small hollow circle (not dot) that can be
 -- disabled in settings"): a thin ring at the screen centre, where the camera looks, with a dark edge so it reads on
--- sky and ground. Only with a gun out over the shoulder at the hip ("CameraMode" "Third", src/client/WeaponCamera):
--- never in first person, aiming, sprinting, with the staff or with the settings menu open. The player's "Crosshair"
--- setting turns it off. Fades in and out.
+-- sky and ground. Only with a weapon out over the shoulder ("CameraMode" "Third" at the hip, or "ThirdAim": the staff
+-- aimed over the shoulder, user 2026-10-21; src/client/WeaponCamera): never in first person, aiming down the sights,
+-- sprinting or with the settings menu open. The player's "Crosshair" setting turns it off. Fades in and out.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -61,10 +61,11 @@ function Crosshair.start()
 		local character = player.Character
 		local weapon = character and Held.weapon(character)
 		local spec = weapon and (W :: any)[weapon.name]
+		local mode = character and character:GetAttribute("CameraMode")
 		local want = character ~= nil
 			and spec ~= nil
 			and not Rules.thirdPerson(Cfg.ThirdPersonClasses, spec.class)
-			and character:GetAttribute("CameraMode") == "Third"
+			and (mode == "Third" or mode == "ThirdAim")
 			and character:GetAttribute("Sprinting") ~= true
 			and player:GetAttribute("MenuOpen") ~= true
 			and Settings.get("Crosshair") == "On"

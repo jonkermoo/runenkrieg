@@ -33,6 +33,12 @@ function Damage.falloff(distance: number, full: number, none: number): number
 	return 1 - (distance - full) / (none - full)
 end
 
+-- The zone of a hit on a helmet `distance` studs from the muzzle: "Head" within `lethal` (Config/Damage.HelmetLethal; nil:
+-- never), else "Helmet".
+function Damage.helmetZone(distance: number, lethal: number?): string
+	return if lethal and distance <= lethal then "Head" else "Helmet"
+end
+
 -- One ray's damage: the class's number for the zone, times the falloff share (1 without one).
 function Damage.amount(t: Table, zone: string, share: number?): number
 	local base = (t :: any)[zone]

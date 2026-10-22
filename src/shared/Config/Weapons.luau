@@ -37,6 +37,9 @@ export type Weapon = {
 		crouchReady: number?,
 		crouchWalk: number?,
 		crouchAim: number?,
+		-- folded in against the chest with the barrel blocked (src/client/Tuck, Config/Locomotion.Tuck), and crouched
+		tuck: number?,
+		crouchTuck: number?,
 		-- the staff (src/client/StaffAttack): aimTwo, the two-handed aim once the left hand has joined ("TwoHands");
 		-- charge, a one shot played with its time set to how long the cast has been held ("CastHeld")
 		aimTwo: number?,
@@ -66,6 +69,7 @@ export type Weapon = {
 		unequip: number?,
 		aimIn: number?,
 		aimOut: number?, -- the aim-in backwards, letting go of aim (A1 2026-10-18)
+		tuck: number?, -- folded in with the barrel blocked (src/client/Tuck)
 		aimTwo: number?,
 		charge: number?,
 		chargeTwo: number?,
@@ -327,8 +331,8 @@ local Weapons: { [string]: Weapon } = {
 		-- its own holds (tools/animation/rifle.luau, user 2026-10-13): the rifles' poses, the left hand on the pump
 		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 138139024493273,
-			walk = 104465302012353,
+			ready = 101367707858516, -- at the hip (2026-10-21)
+			walk = 133744444432961, -- at the hip (2026-10-21)
 			carry = 99351977507616,
 			aim = 136227496577518,
 			equip = 82659479717552,
@@ -336,6 +340,8 @@ local Weapons: { [string]: Weapon } = {
 			crouchReady = 97174734111193,
 			crouchWalk = 84800064969228,
 			crouchAim = 76914903412671,
+			tuck = 74538057644512, -- folded in, the barrel blocked (2026-10-21)
+			crouchTuck = 131431173277700,
 		},
 		firstPerson = {
 			ready = 119185102113053,
@@ -345,6 +351,7 @@ local Weapons: { [string]: Weapon } = {
 			unequip = 92360338634937,
 			aimIn = 108346522950809,
 			aimOut = 118548838358261,
+			tuck = 133185583190241, -- folded in (2026-10-21)
 		},
 		-- the hammer lies back in its slot (user 2026-10-13: "the hammer is clipping into the shotgun"); push from
 		-- tools/blender/weapons/m1897.py (its ends set to 0 and 1: the bolt's face only touches the fallen hammer)
@@ -473,8 +480,8 @@ local Weapons: { [string]: Weapon } = {
 		-- ready and aim breathe like Roblox's R6 idle (user: match the default sway)
 		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 86420530930812,
-			walk = 114380046068769,
+			ready = 139534313231629, -- at the hip (2026-10-21)
+			walk = 132893491172513, -- at the hip (2026-10-21)
 			carry = 95787766149259, -- swings with the sprint
 			aim = 110368315287864,
 			equip = 127686053924548, -- side strap 2026-10-20 (was 116500778543360)
@@ -482,6 +489,8 @@ local Weapons: { [string]: Weapon } = {
 			crouchReady = 104496542496105,
 			crouchWalk = 95673122474038,
 			crouchAim = 81566215869278,
+			tuck = 95491655827392, -- folded in, the barrel blocked (2026-10-21)
+			crouchTuck = 132650677327308,
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
 		-- the ready hold up into the sights in 0.3 s
@@ -493,6 +502,7 @@ local Weapons: { [string]: Weapon } = {
 			unequip = 102151639999018,
 			aimIn = 111730503877557,
 			aimOut = 81283833297555,
+			tuck = 101761294890610, -- folded in (2026-10-21)
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
@@ -576,8 +586,8 @@ local Weapons: { [string]: Weapon } = {
 		-- (tools/animation/rifle.luau)
 		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 140551871435218,
-			walk = 81215519553940,
+			ready = 113470181734031, -- at the hip (2026-10-21)
+			walk = 138667634904829, -- at the hip (2026-10-21)
 			carry = 119428875830732,
 			aim = 84854636666833,
 			equip = 97908657316745, -- side strap 2026-10-20 (was 72036096088316)
@@ -585,6 +595,8 @@ local Weapons: { [string]: Weapon } = {
 			crouchReady = 78521608205736,
 			crouchWalk = 127233053921696,
 			crouchAim = 85481972800522,
+			tuck = 121330838750280, -- folded in, the barrel blocked (2026-10-21)
+			crouchTuck = 75184218736588,
 		},
 		firstPerson = {
 			ready = 102402737080974,
@@ -594,6 +606,7 @@ local Weapons: { [string]: Weapon } = {
 			unequip = 126607551609403,
 			aimIn = 77762769530436,
 			aimOut = 109549978918090,
+			tuck = 119014287250925, -- folded in (2026-10-21)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
@@ -669,8 +682,8 @@ local Weapons: { [string]: Weapon } = {
 		-- (tools/animation/rifle.luau)
 		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 106626345858398,
-			walk = 86203714250196,
+			ready = 126960587568297, -- at the hip (2026-10-21)
+			walk = 129468543347196, -- at the hip (2026-10-21)
 			carry = 99038350375470,
 			aim = 126169298976361,
 			equip = 139013019358334, -- side strap 2026-10-20 (was 125483711137564)
@@ -678,6 +691,8 @@ local Weapons: { [string]: Weapon } = {
 			crouchReady = 90709952340150,
 			crouchWalk = 80571218794707,
 			crouchAim = 74306635264463,
+			tuck = 140359800426699, -- folded in, the barrel blocked (2026-10-21)
+			crouchTuck = 127147207467670,
 		},
 		firstPerson = {
 			ready = 71589430224575,
@@ -687,6 +702,7 @@ local Weapons: { [string]: Weapon } = {
 			unequip = 128704204598975,
 			aimIn = 117817401540584,
 			aimOut = 90955676384745,
+			tuck = 115039438376162, -- folded in (2026-10-21)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
@@ -765,8 +781,8 @@ local Weapons: { [string]: Weapon } = {
 		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
 		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 120834070499659,
-			walk = 108542242322540,
+			ready = 87362563927334, -- at the hip (2026-10-21)
+			walk = 72591791075002, -- at the hip (2026-10-21)
 			carry = 98671117994210,
 			aim = 91487073174337,
 			equip = 114426601068983, -- side strap 2026-10-20 (was 85502951685731)
@@ -774,6 +790,8 @@ local Weapons: { [string]: Weapon } = {
 			crouchReady = 130402887594771,
 			crouchWalk = 83429616166340,
 			crouchAim = 113687704218134,
+			tuck = 81056645958987, -- folded in, the barrel blocked (2026-10-21)
+			crouchTuck = 126878471955941,
 		},
 		firstPerson = {
 			ready = 99899869193706,
@@ -783,6 +801,7 @@ local Weapons: { [string]: Weapon } = {
 			unequip = 98957967109125,
 			aimIn = 119968660948192,
 			aimOut = 70887731010016,
+			tuck = 87625337746536, -- folded in (2026-10-21)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
@@ -854,8 +873,8 @@ local Weapons: { [string]: Weapon } = {
 		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
 		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 127699587265989,
-			walk = 121987202386013,
+			ready = 117925445760177, -- at the hip (2026-10-21)
+			walk = 112501944799007, -- at the hip (2026-10-21)
 			carry = 100807971064233,
 			aim = 137523101236015,
 			equip = 120151131197951, -- side strap 2026-10-20 (was 105995501607410)
@@ -863,6 +882,8 @@ local Weapons: { [string]: Weapon } = {
 			crouchReady = 111038619727593,
 			crouchWalk = 121384492532717,
 			crouchAim = 84291737502596,
+			tuck = 100963784440638, -- folded in, the barrel blocked (2026-10-21)
+			crouchTuck = 115286704577287,
 		},
 		firstPerson = {
 			ready = 80058775294043,
@@ -872,6 +893,7 @@ local Weapons: { [string]: Weapon } = {
 			unequip = 137358913881476,
 			aimIn = 118453809265581,
 			aimOut = 128498445355922,
+			tuck = 94830473554469, -- folded in (2026-10-21)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
@@ -943,8 +965,8 @@ local Weapons: { [string]: Weapon } = {
 		-- its own holds (tools/animation/rifle.luau; user-approved from previews 2026-10-19)
 		-- third person v3 (user 2026-10-19: the hands hold the gun, the right on the grip, the left on the underbarrel)
 		holds = {
-			ready = 93720091175768,
-			walk = 130980450387519,
+			ready = 139888254198407, -- at the hip (2026-10-21)
+			walk = 80157291932020, -- at the hip (2026-10-21)
 			carry = 101240368863563,
 			aim = 101485302556328,
 			equip = 139777204769501, -- side strap 2026-10-20 (was 131693072645640)
@@ -952,6 +974,8 @@ local Weapons: { [string]: Weapon } = {
 			crouchReady = 112467029219277,
 			crouchWalk = 72459068643756,
 			crouchAim = 95868975570564,
+			tuck = 81776192234329, -- folded in, the barrel blocked (2026-10-21)
+			crouchTuck = 112800624654038,
 		},
 		firstPerson = {
 			ready = 110794805321931,
@@ -961,6 +985,7 @@ local Weapons: { [string]: Weapon } = {
 			unequip = 83666097539320,
 			aimIn = 133832844856773,
 			aimOut = 97729127051200,
+			tuck = 96595656648580, -- folded in (2026-10-21)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.85 -> 4.27 studs long

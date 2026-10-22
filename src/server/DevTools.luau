@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Armory = require(script.Parent.Armory)
+local Artillery = require(script.Parent.Artillery)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
 local DevWorld = require(script.Parent.DevWorld)
@@ -82,6 +83,10 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			face = at + Vector3.new(0, 0, 1)
 		end
 		DevDummies.spawn({ kit = value.kit, helmet = value.helmet, move = value.move, at = CFrame.lookAt(at, face) })
+	elseif action == "PlaceGun" and aim and root then
+		Artillery.place(value, aim, aim - root.Position)
+	elseif action == "ClearGuns" then
+		Artillery.clear()
 	elseif action == "HealDummies" then
 		DevDummies.heal()
 	elseif action == "ClearDummies" then

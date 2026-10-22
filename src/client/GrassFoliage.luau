@@ -141,6 +141,13 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 			end
 		end
 	end
+	-- a gun dug in (src/server/Artillery): every tuft within the pit goes, now and once its voxels have arrived
+	Net.event("GroundDug").OnClientEvent:Connect(function(position: Vector3, radius: number)
+		scrub(position, radius, math.huge)
+		for _, after in Foliage.Scrub.after do
+			task.delay(after, scrub, position, radius, math.huge)
+		end
+	end)
 	-- (Destruction.explode sends a plain radius, not a reach: harmless, scrub only takes tufts off ground that changed)
 	Net.event("Explosion").OnClientEvent:Connect(function(position: Vector3, reach: number)
 		local C = DamageCfg.Blast.Crater

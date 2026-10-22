@@ -2,6 +2,8 @@
 -- Dev blast menu: a button next to the target pin setting off an explosion at the aim point (the middle of the screen:
 -- DevAim; Config/DevTools.Blasts): a staff stage's blast or a real charge in kg. The server does the damage, knocks and
 -- destruction (src/server/Damage.blast) and sends Net "DevBlast" to everyone, shown here (src/client/Vfx/Blast).
+-- The artillery buttons place a field gun or a howitzer at the aim point, muzzle away from you, or remove them all
+-- (src/server/Artillery; E mans one).
 -- "My blasts hurt me": off, your own blast knocks you but never hurts you (as in the game). The menu is only shown when
 -- the server marked this player with the DevTools attribute; every client shows the explosions.
 
@@ -41,6 +43,21 @@ local function build(player: Player): ScreenGui
 			fire("BlastKg", kg)
 		end)
 	end
+	-- artillery at the aim point (src/server/Artillery), and clearing them
+	local names = { artillery_qf18 = "Place field gun", artillery_howitzer = "Place howitzer" }
+	for _, key in B.Guns do
+		order += 1
+		DevPanel.button(p.panel, "Gun_" .. key, names[key] or key, order).Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer("PlaceGun", key, aim)
+			end
+		end)
+	end
+	order += 1
+	DevPanel.button(p.panel, "ClearGuns", "Remove guns", order).Activated:Connect(function()
+		Net.event("DevAction"):FireServer("ClearGuns")
+	end)
 	local hurts = DevPanel.button(p.panel, "Hurts", "", order + 1)
 	local function show()
 		local on = player:GetAttribute(B.HurtAttribute) == true

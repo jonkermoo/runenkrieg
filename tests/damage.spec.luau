@@ -41,6 +41,35 @@ return {
 		assert(shoot(30, { "Helmet", "Torso" }) == 0, "the rest of the shot alone kills: dead")
 		assert(Damage.after(0.5, 40, 40, D.HelmetFloor) == 0.5, "never raised above what was left")
 	end,
+	["a bolt rifle's helmet hit kills up close, a hard cutoff; other classes never"] = function()
+		local edge = D.HelmetLethal.BoltRifle
+		assert(edge == 100, "100 studs (user 2026-10-21)")
+		for k, v in D.HelmetLethal do
+			assert(D.Weapons[k] ~= nil and v > 0, k)
+		end
+		-- a helmet hit by class at a distance, then the health left from full
+		local function helmetShot(class: string, distance: number): (string, number)
+			local z = Damage.helmetZone(distance, D.HelmetLethal[class])
+			local amount = Damage.amount((D.Weapons :: any)[class], z)
+			local total, helmet = Damage.sum({ { zone = z, amount = amount } })
+			return z, Damage.after(D.Health, total, helmet, D.HelmetFloor)
+		end
+		for _, d in { 0, 50, edge - 0.1, edge } do
+			local z, left = helmetShot("BoltRifle", d)
+			assert(z == "Head" and left == 0, "bolt rifle inside: kills at " .. d)
+		end
+		for _, d in { edge + 0.1, 150, 600 } do
+			local z, left = helmetShot("BoltRifle", d)
+			assert(z == "Helmet" and left == D.Health - RIFLE.Helmet, "bolt rifle past: the helmet takes it at " .. d)
+		end
+		for _, class in { "SemiRifle", "Shotgun" } do
+			for _, d in { 0, 50, edge, 600 } do
+				local z, left = helmetShot(class, d)
+				assert(z == "Helmet" and left > 0, class .. " never kills on the helmet, at " .. d)
+			end
+		end
+		assert(Damage.helmetZone(10, nil) == "Helmet", "no number: never")
+	end,
 	["shotgun pellets: full to 15 m, fading to none at 50 m"] = function()
 		local p = W.shotgun_m1897.pellets :: any
 		assert(Damage.falloff(0, p.full, p.none) == 1 and Damage.falloff(p.full, p.full, p.none) == 1)
