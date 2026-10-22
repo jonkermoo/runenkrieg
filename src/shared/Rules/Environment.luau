@@ -119,6 +119,7 @@ function Environment.look(daylight: number, kind: string, w: number, base: Haze,
 	end
 	local rain = if kind == "Rain" then s else 0
 	local cloud = mixColor(W.clouds.color, W.clouds.rainColor, rain)
+	local glow = 4 * d * night * L.dusk.strength * (1 - s) -- (none under fog or rain)
 
 	return {
 		brightness = mix(L.night.brightness, L.day.brightness, d) * sun,
@@ -127,8 +128,8 @@ function Environment.look(daylight: number, kind: string, w: number, base: Haze,
 		exposure = mix(L.night.exposure, L.day.exposure, d),
 		density = density,
 		haze = haze,
-		color = mixColor(color, L.nightHaze.color, night),
-		decay = mixColor(decay, L.nightHaze.decay, night),
+		color = mixColor(mixColor(color, L.nightHaze.color, night), L.dusk.color, glow),
+		decay = mixColor(mixColor(decay, L.nightHaze.decay, night), L.dusk.decay, glow),
 		cloudCover = cover,
 		cloudColor = scaled(cloud, mix(0.25, 1, d)),
 		wet = wet,

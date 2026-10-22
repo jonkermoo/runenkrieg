@@ -20,23 +20,26 @@ local Environment = {
 		sunrise = 6,
 		sunset = 18,
 		startClock = 9, -- the clock when a server starts
-		twilight = 1, -- hours either side of sunrise / sunset over which the light eases between day and night
+		twilight = 1.25, -- hours either side of sunrise / sunset over which the light eases between day and night
 	},
 
-	-- Lighting at full day and at night. Night is moonlit: about 35% of the day's light (user 2026-10-22), bluer.
+	-- Lighting at full day (the DEV place's own, Studio round 1) and at night. Night is moonlit: about 35% of the day's
+	-- light (user 2026-10-22), bluer.
 	Light = {
 		day = {
-			brightness = 2,
-			ambient = { 70, 70, 74 },
-			outdoorAmbient = { 128, 128, 132 },
+			brightness = 3,
+			ambient = { 70, 70, 70 },
+			outdoorAmbient = { 70, 70, 70 },
 			exposure = 0,
 		},
 		night = {
-			brightness = 1.2, -- the moon is far weaker than the sun at the same Brightness
-			ambient = { 26, 30, 44 },
-			outdoorAmbient = { 46, 52, 76 },
-			exposure = -0.35,
+			brightness = 1.5, -- the moon is far weaker than the sun at the same Brightness
+			ambient = { 22, 26, 38 },
+			outdoorAmbient = { 24, 28, 42 },
+			exposure = -0.3,
 		},
+		-- the haze warms around sunrise and sunset, most halfway between day and night
+		dusk = { color = { 236, 176, 138 }, decay = { 170, 104, 92 }, strength = 0.8 },
 		-- the map's haze (Greybox/Features.atmosphere: Config/Palette.Atmosphere) darkens to these at night
 		nightHaze = { color = { 48, 56, 78 }, decay = { 30, 36, 54 } },
 	},
@@ -66,23 +69,24 @@ local Environment = {
 			clouds = 0.95,
 			wet = 0.78, -- terrain colors x this (darker, wet ground)
 		},
-		clouds = { cover = 0.45, density = 0.6, color = { 230, 232, 236 }, rainColor = { 120, 124, 130 } },
+		clouds = { cover = 0.35, density = 0.6, color = { 230, 232, 236 }, rainColor = { 120, 124, 130 } },
 	},
 
 	-- The rain near the camera (src/client/Environment): one pooled emitter that follows the camera
 	Rain = {
-		area = 90, -- studs, the square the drops fall in
-		height = 45, -- studs above the camera they start
-		lead = 0.6, -- s: the area moves ahead of the camera by its velocity x this
-		rate = 1400, -- drops per second at full rain
+		area = 40, -- studs, the square the drops fall in (small and dense: drops far off are lost in the haze anyway)
+		height = 25, -- studs above the camera they start
+		lead = 0.5, -- s: the area moves ahead of the camera by its velocity x this
+		rate = 2600, -- drops per second at full rain
 		speed = 110, -- studs/s, falling
 		wind = 0.4, -- x workspace.GlobalWind, the slant
-		texture = "rbxasset://textures/particles/sparkles_main.dds", -- Roblox's own; squashed into a thin streak
-		size = 0.06,
+		texture = "rbxasset://textures/particles/smoke_main.dds", -- Roblox's own soft blob, stretched into a streak
+		size = 0.12,
 		length = 2.2, -- the drop's stretch (ParticleEmitter.Squash)
-		transparency = 0.45,
+		transparency = 0.25,
+		light = 0.6, -- LightInfluence: the drops darken at night, but stay visible
 		color = { 196, 206, 216 },
-		lifetime = 0.7,
+		lifetime = 0.55,
 		-- under a roof (a part straight above the camera within `roof` studs) the drops stop and the sound dulls
 		roof = 60,
 		-- the rain loop, Roblox-licensed (Pro Sound Effects "Rain Heavy Rainfall Grass Wooden Roof 1", 46 s loop)

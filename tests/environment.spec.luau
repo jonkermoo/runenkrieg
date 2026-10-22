@@ -73,6 +73,14 @@ return {
 		assert(night.outdoorAmbient[3] > night.outdoorAmbient[1], "moonlight is blue")
 		assert(night.color[1] < day.color[1], "the haze darkens at night")
 		assert(day.density == base.density and day.rain == 0 and day.wet == 1, "clear day = the map's own haze")
+		assert(day.brightness == 3 and day.outdoorAmbient[1] == 70, "full day = the DEV place's own lighting")
+		assert(day.color[1] == base.color[1] and night.color[1] < base.color[1])
+	end,
+	["dusk warms the haze, not under rain"] = function()
+		local dusk = E.look(0.5, "Clear", 0, base, Cfg)
+		assert(dusk.color[1] - dusk.color[3] > 20, `dusk haze {dusk.color[1]} {dusk.color[3]}`)
+		local wet = E.look(0.5, "Rain", 1, base, Cfg)
+		assert(wet.color[1] - wet.color[3] < dusk.color[1] - dusk.color[3])
 	end,
 	["fog thickens the haze, rain darkens and wets"] = function()
 		local fog = E.look(1, "Fog", 1, base, Cfg)

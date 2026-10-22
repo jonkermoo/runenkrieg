@@ -69,7 +69,7 @@ local function rainPart(): (BasePart, ParticleEmitter)
 	e.Squash = NumberSequence.new(R.length)
 	e.Transparency = NumberSequence.new(R.transparency)
 	e.Color = ColorSequence.new(rgb(R.color))
-	e.LightInfluence = 1
+	e.LightInfluence = R.light
 	e.LightEmission = 0
 	e.Rate = 0
 	e.Parent = p
