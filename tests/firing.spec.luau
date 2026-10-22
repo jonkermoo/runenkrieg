@@ -364,4 +364,21 @@ return {
 		end
 		assert(differs, "another seed, another pattern")
 	end,
+	["a bullet shatters window glass and goes on, a few panes at most; nothing else"] = function()
+		local D = require("../src/shared/Config/Destruction")
+		local S = Cfg.Shatter
+		assert(S.panes >= 1, "at least one pane")
+		assert(F.shatters("Glass", 0, S), "glass breaks")
+		assert(F.shatters("Glass", S.panes - 1, S), "up to the last pane")
+		assert(not F.shatters("Glass", S.panes, S), "stops after the last pane")
+		assert(not F.shatters(nil, 0, S), "not a building")
+		for class in D.Materials do
+			if class ~= "Glass" then
+				assert(not F.shatters(class, 0, S), `{class} stops the bullet`)
+			end
+		end
+		for class in S.classes do
+			assert(D.Materials[class], `unknown class {class}`)
+		end
+	end,
 }

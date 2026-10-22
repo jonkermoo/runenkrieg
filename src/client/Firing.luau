@@ -16,6 +16,7 @@
 -- - the ammo display (bottom right): the chambered round, then the magazine; a hint when the bolt or a clip is
 --   needed. A hit note shows what the shot hit and how far (the range targets).
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -23,6 +24,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
+local D = require(Shared.Config.Destruction)
 local Palette = require(Shared.Config.Palette)
 local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
@@ -120,6 +122,29 @@ local function excluded(character: Model): RaycastParams
 	end
 	params.FilterDescendantsInstances = list
 	return params
+end
+
+-- The ray a bullet travels, as the server casts it: through window glass (Config/Firing.Shatter; the server breaks
+-- the panes and the shards come from it), stopped by anything else.
+local function cast(origin: Vector3, line: Vector3, params: RaycastParams): RaycastResult?
+	local through: { Instance } = {}
+	local list = params.FilterDescendantsInstances
+	local result
+	for _ = 0, Cfg.Shatter.panes do
+		result = workspace:Raycast(origin, line * Cfg.Range, params)
+		local s = result and result.Instance:FindFirstAncestorWhichIsA("Model")
+		while s and not CollectionService:HasTag(s, D.SectionTag) do
+			s = s:FindFirstAncestorWhichIsA("Model")
+		end
+		local class = s and s:GetAttribute("Class")
+		if not s or not F.shatters(if type(class) == "string" then class else nil, #through, Cfg.Shatter) then
+			break
+		end
+		table.insert(through, s)
+		table.insert(list, s)
+		params.FilterDescendantsInstances = list
+	end
+	return result
 end
 
 -- Where the shot starts and which way it goes: out of the visible gun's muzzle along its barrel (gun -Z), aimed or
@@ -313,10 +338,9 @@ function Firing.start()
 			l.sent += 1
 			local seed = math.random(1, 2147483646)
 			Net.event("Fire"):FireServer(origin, dir, seed)
-			local params = excluded(character)
 			local hits = {}
 			for _, line in lines(weapon.name, dir, seed) do
-				local result = workspace:Raycast(origin, line * Cfg.Range, params)
+				local result = cast(origin, line, excluded(character))
 				local hit = if result then result.Position else origin + line * Cfg.Range
 				table.insert(hits, { hit, result and result.Normal, result and result.Instance })
 			end

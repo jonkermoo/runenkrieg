@@ -15,6 +15,9 @@ local Firing = {
 	Slack = 0.2,
 	MaxOrigin = 9,
 	RatePerSecond = 12,
+	-- A bullet (each pellet too) breaks the building sections of these classes it meets (Config/Destruction.Materials)
+	-- and carries on, through at most `panes` of them (user 2026-10-22: "bullets currently dont break glass").
+	Shatter = { classes = { Glass = true }, panes = 3 },
 
 	-- Rifles (class BoltRifle) load clips of this many rounds and hold one more in the chamber: 5 + 1 (user 2026-10-12,
 	-- for balance). An en-bloc rifle (the Carcano) takes one round more, 6 + 1, because it reloads only once its

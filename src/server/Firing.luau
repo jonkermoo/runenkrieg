@@ -27,6 +27,7 @@ local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local Net = require(Shared.Net)
 local Damage = require(script.Parent.Damage)
+local Destruction = require(script.Parent.Destruction)
 local Helmets = require(script.Parent.Helmets)
 
 local Firing = {}
@@ -198,14 +199,32 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 	local hits = {}
 	local wounds: { Damage.RayHit } = {}
 	for _, line in Firing.lines(name, direction, seed or 0) do
-		local result = start or workspace:Raycast(origin, line * Cfg.Range, params)
+		-- window glass on the way breaks and the bullet carries on (Config/Firing.Shatter; src/server/Destruction);
+		-- `dist` is from the muzzle, for the falloff and the helmet checks
+		local result = start
+		local dist = if start then start.Distance else Cfg.Range
+		if not start then
+			local from, panes = origin, 0
+			while true do
+				result = workspace:Raycast(from, line * (Cfg.Range - (from - origin).Magnitude), params)
+				if
+					not result
+					or panes >= Cfg.Shatter.panes
+					or not Destruction.shot(result.Instance, result.Position)
+				then
+					break
+				end
+				panes += 1
+				from = result.Position + line * 0.01
+			end
+			dist = if result then (result.Position - origin).Magnitude else Cfg.Range
+		end
 		local hit = if result then result.Position else origin + line * Cfg.Range
 		-- a helmet's crown or brim stands out of the Head's hitbox: a shot that meets it before anything else, and not
 		-- going on into that head, hits the head on the helmet (user 2026-10-22: shots at the crown went over)
 		local who, struck, at, far = nil, nil, nil, nil
 		if not start then
-			who, struck, at, far =
-				Helmets.crown(Damage.soldiers(), origin, line, if result then result.Distance else Cfg.Range, character)
+			who, struck, at, far = Helmets.crown(Damage.soldiers(), origin, line, dist, character)
 			if result and result.Instance == struck then
 				who = nil -- (into that head: the usual top-half check below)
 			end
@@ -223,7 +242,7 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 				part = result.Instance,
 				point = result.Position,
 				direction = line,
-				distance = result.Distance,
+				distance = dist,
 				helmet = helmet,
 			})
 		end

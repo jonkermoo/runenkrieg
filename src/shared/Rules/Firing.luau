@@ -336,4 +336,14 @@ function Firing.validShot(originDistance: number, directionLength: number, maxOr
 	return true, nil
 end
 
+-- A shot meeting a building section of `class` after breaking `panes` already: whether it shatters it and carries on
+-- (Config/Firing.Shatter: window glass; user 2026-10-22: "bullets currently dont break glass").
+function Firing.shatters(
+	class: string?,
+	panes: number,
+	shatter: { classes: { [string]: boolean }, panes: number }
+): boolean
+	return class ~= nil and shatter.classes[class] == true and panes < shatter.panes
+end
+
 return Firing
