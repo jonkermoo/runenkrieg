@@ -27,6 +27,7 @@ local Blast = require(Shared.Rules.Blast)
 local GrenadeRules = require(Shared.Rules.Grenade)
 local Rules = require(Shared.Rules.Damage)
 local TreeRules = require(Shared.Rules.Trees)
+local Build = require(script.Parent.Build)
 local Destruction = require(script.Parent.Destruction)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Ground = require(script.Parent.Ground)
@@ -106,6 +107,14 @@ local function hurt(
 		Healing.hit(character) -- a healer hit stops healing (Config/Healing)
 	end
 	humanoid.Health = if Dev.god(character) then humanoid.Health else left
+end
+
+-- `amount` health off a soldier with no knock (src/server/Wire: barbed wire)
+function Damage.hurtBy(character: Model, amount: number)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and amount > 0 and humanoid.Health > 0 then
+		hurt(character, humanoid, math.max(humanoid.Health - amount, 0), nil, Vector3.zero)
+	end
 end
 
 function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
@@ -227,6 +236,10 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
+	-- player-built pieces: trenches cave in, wire is cut (src/server/Build)
+	Build.blast(position, kpaAt, function(kpa)
+		return Blast.reachOf(kpa, kg, B)
+	end)
 	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
 	local soldiers: { Model } = if o.soldiers == false then {} else Dev.soldiers()
 	for _, character in soldiers do

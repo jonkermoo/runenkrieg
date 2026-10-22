@@ -92,6 +92,11 @@ local Remotes: { string } = {
 	"ArtilleryShot",
 	-- server -> clients: (position: Vector3, gun: string) a shell went off: its explosion (Config/Artillery.Guns[gun])
 	"ArtilleryBlast",
+	-- Building (src/client/Build sends, src/server/Build checks; Config/Build, Rules/Build):
+	-- client -> server: ("Place", key: string, at: CFrame) lay a piece's blueprint (the server snaps and checks it), or
+	-- ("Work", piece: Model) a shovel swing at a piece (your team's builds it, another's tears it down)
+	-- server -> client: ("Refused", reason: string) why a piece wasn't laid
+	"Build",
 	-- server -> clients: (position: Vector3, radius: number) the ground dug out round here (a gun's pit): the grass
 	-- standing there goes (src/client/GrassFoliage)
 	"GroundDug",

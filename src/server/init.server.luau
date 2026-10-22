@@ -61,6 +61,8 @@ require(script.Damage).start()
 require(script.Healing).start()
 require(script.Grenades).start()
 require(script.Artillery).start()
+require(script.Build).start()
+require(script.Wire).start()
 require(script.Showcase).start()
 require(script.TestShooter).start()
 

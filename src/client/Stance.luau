@@ -11,6 +11,7 @@
 -- - C toggles crouch (or is held: the "Hold" crouch mode) (moderate, from the user's reference video); sprinting or jumping stands you up. Crouched, the
 --   camera comes down with the body (Humanoid.CameraOffset follows the torso's drop; src/client/WeaponCamera too).
 -- - healing someone (the "Healing" attribute, src/server/Healing): crouched at crouch speed, no sprint or aim;
+-- - in barbed wire (the "Wired" attribute, src/server/Wire): Config/Build.Wire.speed, no sprint, no jump;
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
 --   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set.
 -- Sets the local character's Humanoid.WalkSpeed (the client owns its character's physics) and the "Sprinting" /
@@ -23,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local BuildCfg = require(Shared.Config.Build)
 local Cfg = require(Shared.Config.Locomotion)
 local Dev = require(Shared.Config.DevTools)
 local M = require(Shared.Config.Metrics)
@@ -67,7 +69,10 @@ function Stance.start()
 		end
 		-- healing someone (src/server/Healing sets "Healing"): crouched at crouch speed, no sprint, no aim
 		local healing = character:GetAttribute("Healing") ~= nil
+		-- in barbed wire (src/server/Wire sets "Wired"): a slow wade, no sprint, no jump
+		local wired = character:GetAttribute("Wired") == true
 		local sprinting = sprintHeld
+			and not wired
 			and forward(humanoid)
 			and character:GetAttribute("Casting") ~= true
 			and not limp
@@ -98,6 +103,10 @@ function Stance.start()
 		-- unset)
 		local scale = character:GetAttribute("SpeedScale")
 		speed *= if type(scale) == "number" then scale else 1
+		if wired then
+			speed = math.min(speed, BuildCfg.Wire.speed)
+		end
+		humanoid.JumpHeight = if wired then 0 else M.Movement.JumpHeight
 		humanoid.WalkSpeed = speed * ((player:GetAttribute(Dev.Admin.Attribute) :: number?) or 1)
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
@@ -176,6 +185,7 @@ function Stance.start()
 		character:GetAttributeChangedSignal("Casting"):Connect(apply)
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
 		character:GetAttributeChangedSignal("Healing"):Connect(apply)
+		character:GetAttributeChangedSignal("Wired"):Connect(apply)
 		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
 	end
 	player.CharacterAdded:Connect(hook)
