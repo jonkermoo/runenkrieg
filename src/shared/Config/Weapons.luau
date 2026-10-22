@@ -342,6 +342,7 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 76914903412671,
 			tuck = 74538057644512, -- folded in, the barrel blocked (2026-10-21)
 			crouchTuck = 131431173277700,
+			strike = 124895658997873, -- the butt stroke (Config/Melee, 2026-10-22)
 		},
 		firstPerson = {
 			ready = 119185102113053,
@@ -352,6 +353,7 @@ local Weapons: { [string]: Weapon } = {
 			aimIn = 108346522950809,
 			aimOut = 118548838358261,
 			tuck = 133185583190241, -- folded in (2026-10-21)
+			strike = 131249563039741, -- the butt stroke (2026-10-22)
 		},
 		-- the hammer lies back in its slot (user 2026-10-13: "the hammer is clipping into the shotgun"); push from
 		-- tools/blender/weapons/m1897.py (its ends set to 0 and 1: the bolt's face only touches the fallen hammer)
@@ -491,6 +493,7 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 81566215869278,
 			tuck = 95491655827392, -- folded in, the barrel blocked (2026-10-21)
 			crouchTuck = 132650677327308,
+			strike = 82596373229157, -- the butt stroke (Config/Melee, 2026-10-22)
 		},
 		-- carry: port arms (user reference video); equip: over the right shoulder from behind the camera; aimIn: from
 		-- the ready hold up into the sights in 0.3 s
@@ -503,6 +506,7 @@ local Weapons: { [string]: Weapon } = {
 			aimIn = 111730503877557,
 			aimOut = 81283833297555,
 			tuck = 101761294890610, -- folded in (2026-10-21)
+			strike = 133956793514323, -- the butt stroke (2026-10-22)
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
@@ -597,6 +601,7 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 85481972800522,
 			tuck = 121330838750280, -- folded in, the barrel blocked (2026-10-21)
 			crouchTuck = 75184218736588,
+			strike = 72253688383944, -- the butt stroke (Config/Melee, 2026-10-22)
 		},
 		firstPerson = {
 			ready = 102402737080974,
@@ -607,6 +612,7 @@ local Weapons: { [string]: Weapon } = {
 			aimIn = 77762769530436,
 			aimOut = 109549978918090,
 			tuck = 119014287250925, -- folded in (2026-10-21)
+			strike = 73567308916252, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
@@ -693,6 +699,7 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 74306635264463,
 			tuck = 140359800426699, -- folded in, the barrel blocked (2026-10-21)
 			crouchTuck = 127147207467670,
+			strike = 128522894827196, -- the butt stroke (Config/Melee, 2026-10-22)
 		},
 		firstPerson = {
 			ready = 71589430224575,
@@ -703,6 +710,7 @@ local Weapons: { [string]: Weapon } = {
 			aimIn = 117817401540584,
 			aimOut = 90955676384745,
 			tuck = 115039438376162, -- folded in (2026-10-21)
+			strike = 77290819806919, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
@@ -792,6 +800,7 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 113687704218134,
 			tuck = 81056645958987, -- folded in, the barrel blocked (2026-10-21)
 			crouchTuck = 126878471955941,
+			strike = 125034366666020, -- the butt stroke (Config/Melee, 2026-10-22)
 		},
 		firstPerson = {
 			ready = 99899869193706,
@@ -802,6 +811,7 @@ local Weapons: { [string]: Weapon } = {
 			aimIn = 119968660948192,
 			aimOut = 70887731010016,
 			tuck = 87625337746536, -- folded in (2026-10-21)
+			strike = 135600793931016, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
@@ -884,6 +894,7 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 84291737502596,
 			tuck = 100963784440638, -- folded in, the barrel blocked (2026-10-21)
 			crouchTuck = 115286704577287,
+			strike = 72946692028843, -- the butt stroke (Config/Melee, 2026-10-22)
 		},
 		firstPerson = {
 			ready = 80058775294043,
@@ -894,6 +905,7 @@ local Weapons: { [string]: Weapon } = {
 			aimIn = 118453809265581,
 			aimOut = 128498445355922,
 			tuck = 94830473554469, -- folded in (2026-10-21)
+			strike = 78851384495308, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
@@ -976,6 +988,7 @@ local Weapons: { [string]: Weapon } = {
 			crouchAim = 95868975570564,
 			tuck = 81776192234329, -- folded in, the barrel blocked (2026-10-21)
 			crouchTuck = 112800624654038,
+			strike = 81868680809975, -- the butt stroke (Config/Melee, 2026-10-22)
 		},
 		firstPerson = {
 			ready = 110794805321931,
@@ -986,6 +999,7 @@ local Weapons: { [string]: Weapon } = {
 			aimIn = 133832844856773,
 			aimOut = 97729127051200,
 			tuck = 96595656648580, -- folded in (2026-10-21)
+			strike = 123351849811720, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
 		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.85 -> 4.27 studs long
