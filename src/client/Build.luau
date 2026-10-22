@@ -121,7 +121,7 @@ local function survey(character: Model, root: BasePart)
 	if p.kind == "Trench" and type(team) == "string" then
 		frame, joins = Survey.snap(f, team, frame)
 	end
-	local report = Survey.ground(p, frame)
+	local report = Survey.ground(p, frame, f)
 	frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
 	local ignore: { Instance } = { character }
 	if ghost then

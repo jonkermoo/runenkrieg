@@ -533,7 +533,7 @@ local function place(player: Player, key: any, at: any)
 	if piece.kind == "Trench" then
 		frame, joins = Survey.snap(f, team, frame)
 	end
-	local report = Survey.ground(piece, frame)
+	local report = Survey.ground(piece, frame, f)
 	frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
 	local ok, reason = Rules.canPlace({
 		piece = piece,
@@ -575,8 +575,11 @@ local function place(player: Player, key: any, at: any)
 		local pb = frame.Position + frame.RightVector * half
 		local a = nodeOf(joins.A)
 		local b = nodeOf(joins.B)
-		local ga = if a then nodes[a].at.Y else (Survey.groundAt(pa.X, pa.Z, frame.Position.Y) or frame.Position.Y)
-		local gb = if b then nodes[b].at.Y else (Survey.groundAt(pb.X, pb.Z, frame.Position.Y) or frame.Position.Y)
+		local function groundAt(p: Vector3): number
+			return Survey.dugGround(f, p.X, p.Z) or Survey.groundAt(p.X, p.Z, frame.Position.Y) or frame.Position.Y
+		end
+		local ga = if a then nodes[a].at.Y else groundAt(pa)
+		local gb = if b then nodes[b].at.Y else groundAt(pb)
 		local na = a or nodeAt(Vector3.new(pa.X, ga, pa.Z))
 		local nb = b or nodeAt(Vector3.new(pb.X, gb, pb.Z))
 		if not exitsOk(team, na, nb, piece.exit == true) then
@@ -687,8 +690,13 @@ function Build.blast(position: Vector3, kpaAt: (number) -> number, reachOf: (num
 			local a, b = ends(r)
 			local d = Survey.toSegment(position, a, b)
 			if d <= caveR and kpaAt(d) >= T.caveKPa then
-				local caved = 2 * math.sqrt(math.max(caveR * caveR - d * d, 0))
-				r.work = Rules.caveWork(r.work, r.need, math.min(caved, T.length), T.length)
+				-- the chord of the cave-in's circle along this segment only (Studio round 1: a blast at a joint
+				-- took both whole segments)
+				local rel = Vector3.new(position.X - a.X, 0, position.Z - a.Z)
+				local along = rel:Dot(r.frame.RightVector)
+				local off = math.abs(rel:Dot(r.frame.LookVector) - (T.back + T.front + M.Trench.FirestepWidth) / 2)
+				local caved = Rules.caveSpan(along, off, caveR, T.length)
+				r.work = Rules.caveWork(r.work, r.need, caved, T.length)
 				r.caved = r.caved or {}
 				table.insert(r.caved :: any, { at = position, r = caveR })
 				if r.work <= 0 then

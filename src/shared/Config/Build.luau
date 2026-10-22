@@ -14,7 +14,7 @@ local Build = {
 	-- swings faster than this share of the dig's length (Config/Shovel.Dig.length) are ignored
 	SwingSlack = 0.8,
 	-- a blueprint nobody has worked on goes after this (seconds)
-	BlueprintLife = 60,
+	BlueprintLife = 120,
 	-- live pieces (blueprints count) per player and per team
 	PerPlayer = 8,
 	PerTeam = 150,
@@ -42,9 +42,11 @@ local Build = {
 		front = 3, -- (... to here, then the firestep)
 		-- the terrain is cut this much wider than the plank walls each side: voxels are 4 studs, and an earth wall
 		-- between a cut column and a whole one would stand inside the trench
-		cutMargin = 2,
-		parapet = { width = 6, height = 1.6 }, -- earth thrown up past the front wall, peaked in its middle
-		parados = { width = 4, height = 0.6 }, -- a lower bank behind
+		cutMargin = 3, -- (2 left a knee-high wedge of earth at the foot of the back boards, Studio round 1)
+		-- earth thrown up past the front wall, flat-topped over its middle half (a 1.6 peak 6 wide came out ~0.5 high:
+		-- 4-stud voxel columns fall either side of a narrow peak, Studio round 1)
+		parapet = { width = 8, height = 2 },
+		parados = { width = 6, height = 0.9 }, -- a lower bank behind
 		ramp = { length = 10, width = 5 }, -- an open end's ramp up (along the trench), and the exit piece's (out the back)
 		maxSlope = 22, -- degrees of ground slope along the segment
 		-- the revetment planks and the firestep: wood sections (Config/Damage.Blast.Fail Wood), so blasts break them

@@ -182,6 +182,16 @@ return {
 		assert(B.wireHarm(0.5, 1, C.Wire) == 0 and near(B.wireHarm(5, 0.25, C.Wire), C.Wire.damage / 4))
 		assert(C.Wire.speed < M.Movement.CrouchSpeed)
 	end,
+	["a cave-in covers only the chord inside the segment"] = function()
+		assert(near(B.caveSpan(6, 0, 3, 12), 6))
+		assert(near(B.caveSpan(0, 0, 3, 12), 3), "at an end (a joint): only its own half")
+		assert(near(B.caveSpan(6, 6.2, 9.1, 12), 12) and B.caveSpan(6, 9.1, 9.1, 12) == 0)
+		assert(near(B.caveSpan(12, 6.2, 9.1, 12), math.sqrt(9.1 ^ 2 - 6.2 ^ 2)), "the joint case, Studio round 1")
+		assert(near(B.caveSpan(-20, 0, 3, 12), 0))
+	end,
+	["banks: flat over the middle half"] = function()
+		assert(B.bank(0) == 0 and B.bank(1) == 0 and B.bank(0.5) == 1 and B.bank(0.3) == 1 and near(B.bank(0.125), 0.5))
+	end,
 	["a cave-in costs work by the share of the trench caved"] = function()
 		assert(B.caveWork(8, 8, 6, 12) == 4 and B.caveWork(8, 8, 0, 12) == 8 and B.caveWork(2, 8, 12, 12) == 0)
 	end,

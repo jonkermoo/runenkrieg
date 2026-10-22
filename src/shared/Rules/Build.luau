@@ -108,6 +108,12 @@ function Build.tooSoon(now: number, last: number?, length: number, slack: number
 	return last ~= nil and now - last < length * slack
 end
 
+-- a bank's height share `x` of the way across it (0..1): rising over the first quarter, flat over the middle half,
+-- falling over the last quarter
+function Build.bank(x: number): number
+	return math.clamp(math.min(x, 1 - x) * 4, 0, 1)
+end
+
 export type Segment = {
 	length: number,
 	depth: number, -- how deep it is cut now (the full depth x share)
@@ -156,13 +162,11 @@ function Build.trenchAt(u: number, v: number, seg: Segment, t: any, firestep: nu
 	-- the parapet in front and the parados behind: banks peaked in their middles
 	local par = t.parapet
 	if v > frontWall + margin and v <= frontWall + margin + par.width then
-		local x = (v - frontWall - margin) / par.width
-		return par.height * (1 - math.abs(x * 2 - 1)) * seg.share, false
+		return par.height * Build.bank((v - frontWall - margin) / par.width) * seg.share, false
 	end
 	local pd = t.parados
 	if v < t.back - margin and v >= t.back - margin - pd.width then
-		local x = (t.back - margin - v) / pd.width
-		return pd.height * (1 - math.abs(x * 2 - 1)) * seg.share, false
+		return pd.height * Build.bank((t.back - margin - v) / pd.width) * seg.share, false
 	end
 	return nil, false
 end
@@ -309,6 +313,16 @@ function Build.wireHarm(speed: number, dt: number, w: any): number
 		return 0
 	end
 	return w.damage * dt
+end
+
+-- How much of a trench line of `length` a cave-in of radius `r` covers: the blast `along` studs along it from end A,
+-- `off` studs off it (flat). Only the chord inside the line's own length counts.
+function Build.caveSpan(along: number, off: number, r: number, length: number): number
+	if off >= r then
+		return 0
+	end
+	local half = math.sqrt(r * r - off * off)
+	return math.max(math.clamp(along + half, 0, length) - math.clamp(along - half, 0, length), 0)
 end
 
 -- the work a trench keeps when `caved` studs of its `length` cave in

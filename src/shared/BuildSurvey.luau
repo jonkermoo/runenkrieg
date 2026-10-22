@@ -123,8 +123,36 @@ function Survey.groundAt(x: number, z: number, near: number): (number?, boolean)
 	return hit.Position.Y, hit.Material == Enum.Material.Water
 end
 
--- The ground under a piece's footprint: a grid of samples (5 along, 3 across)
-function Survey.ground(piece: Rules.Piece, frame: CFrame): Report
+-- The ground a trench in `folder` dug away at (x, z), as it was before (its ground line between its ends), or nil when
+-- no trench dug there: its cut, its banks and its ramps. A new trench is surveyed on that ground, not on the hole
+-- (Studio round 1: a trench laid onto a dug trench's end read the hole as "Too steep").
+function Survey.dugGround(folder: Instance?, x: number, z: number): number?
+	if not folder then
+		return nil
+	end
+	local T = C.Trench
+	local fw = M.Trench.FirestepWidth
+	for _, m in folder:GetChildren() do
+		local ea, eb = m:GetAttribute("EndA"), m:GetAttribute("EndB")
+		local frame = m:GetAttribute("Frame")
+		if typeof(ea) == "Vector3" and typeof(eb) == "Vector3" and typeof(frame) == "CFrame" then
+			local rel = Vector3.new(x - ea.X, 0, z - ea.Z)
+			local u = rel:Dot(frame.RightVector)
+			local v = rel:Dot(frame.LookVector)
+			local length = Vector3.new(eb.X - ea.X, 0, eb.Z - ea.Z).Magnitude
+			local behind = T.back - T.cutMargin - math.max(T.parados.width, T.ramp.length)
+			local before = T.front + fw + T.cutMargin + T.parapet.width
+			if u >= -T.ramp.length and u <= length + T.ramp.length and v >= behind and v <= before then
+				return ea.Y + (eb.Y - ea.Y) * math.clamp(u / math.max(length, 1e-3), 0, 1)
+			end
+		end
+	end
+	return nil
+end
+
+-- The ground under a piece's footprint: a grid of samples (5 along, 3 across). With `folder`, a trench is surveyed on
+-- the ground other trenches dug away (Survey.dugGround).
+function Survey.ground(piece: Rules.Piece, frame: CFrame, folder: Instance?): Report
 	local size, offset = Survey.footprint(piece)
 	local cols, rows = 5, 3
 	local heights = {}
@@ -135,6 +163,9 @@ function Survey.ground(piece: Rules.Piece, frame: CFrame): Report
 			local v = (r - 1) / (rows - 1) - 0.5
 			local p = frame.Position + frame.RightVector * (u * size.X) + frame.LookVector * (offset + v * size.Z)
 			local h, wet = Survey.groundAt(p.X, p.Z, frame.Position.Y)
+			if piece.kind == "Trench" then
+				h = Survey.dugGround(folder, p.X, p.Z) or h
+			end
 			if h then
 				table.insert(heights, h)
 				low = math.min(low, h)
@@ -145,7 +176,11 @@ function Survey.ground(piece: Rules.Piece, frame: CFrame): Report
 			water = water or wet
 		end
 	end
-	local centre = Survey.groundAt(frame.Position.X, frame.Position.Z, frame.Position.Y) or frame.Position.Y
+	local centre = (
+		if piece.kind == "Trench" then Survey.dugGround(folder, frame.Position.X, frame.Position.Z) else nil
+	)
+		or Survey.groundAt(frame.Position.X, frame.Position.Z, frame.Position.Y)
+		or frame.Position.Y
 	local slope = Rules.steepest(heights, rows, size.X / (cols - 1), size.Z / (rows - 1))
 	return {
 		heights = heights,
