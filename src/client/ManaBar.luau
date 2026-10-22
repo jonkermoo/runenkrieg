@@ -1,11 +1,12 @@
 --!strict
 -- The staff's mana bar, bottom right (user 2026-10-13: "a mana bar in the bottom right ... 6 quick shots, 3 charged
--- shot, and 1 mega shot"; Config/Spells.Mana, colors Config/Palette.UI). Shown while the staff is drawn, in the ammo
+-- shot, and 1 mega shot"; Config/Spells.Mana, colors Config/Palette.UI). The mana is in the player's team's magic
+-- colour (user 2026-10-22; Config/Spells.Staff.Teams: the scheme's glow, the share to spend its white core). Shown while the staff is drawn, in the ammo
 -- display's place (guns show that instead). Read from the attributes src/client/StaffAttack writes:
 -- - a short plain rectangle, the fill the mana (user 2026-10-13: no guides or text);
 -- - while a cast is held, the part the shot would spend glows white (ManaCost);
 -- - a mega shot burns it out (the extended cooldown, shown): the empty bar smoulders (its edge flickering ember), then
---   refills slowly in a dull violet; full again, it flashes back to blue;
+--   refills slowly in a dull violet; full again, it flashes back to the team's colour;
 -- - a shot refused for want of mana: the edge flashes red and the bar shakes.
 
 local Players = game:GetService("Players")
@@ -15,6 +16,8 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Palette = require(Shared.Config.Palette)
 local Spells = require(Shared.Config.Spells)
+local VfxCfg = require(Shared.Config.Vfx)
+local SpellRules = require(Shared.Rules.Spells)
 local W = require(Shared.Config.Weapons)
 local Held = require(script.Parent.Held)
 
@@ -84,8 +87,15 @@ function ManaBar.start()
 		local shake = if d < 0.3 then math.sin(d * 70) * 4 * (1 - d / 0.3) else 0
 		bar.Position = UDim2.new(1, -MARGIN + shake, 1, -MARGIN)
 
+		local scheme = (VfxCfg.Schemes :: any)[SpellRules.scheme(
+			character:GetAttribute("Kit"),
+			Spells.Staff.Teams,
+			Spells.Staff.Scheme
+		)]
+		local Magic = Palette.Magic :: any
+		spend.BackgroundColor3 = rgb(Magic[scheme.core])
 		fill.Size = UDim2.fromScale(value / max, 1)
-		fill.BackgroundColor3 = rgb(if locked then UI.manaBurnt else UI.mana)
+		fill.BackgroundColor3 = rgb(if locked then UI.manaBurnt else Magic[scheme.glow])
 		-- the share the held cast would spend, pulsing
 		if cost and not locked and value >= cost then
 			spend.Position = UDim2.fromScale((value - cost) / max, 0)

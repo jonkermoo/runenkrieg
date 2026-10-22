@@ -21,6 +21,7 @@ local Burst = require(script.Parent.Burst)
 local Shockwave = require(script.Parent.Shockwave)
 local Spikes = require(script.Parent.Spikes)
 local Star = require(script.Parent.Star)
+local ScreenBlur = require(script.Parent.Parent.ScreenBlur)
 
 local Blast = {}
 
@@ -91,6 +92,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local inside, rim, spark = color(CO.inside), color(CO.rim), color(CO.spark)
 	local glow = Util.color(s.glow)
 	local d = st.fireball
+	ScreenBlur.blast(pos, d) -- the screen blur when it's close (src/client/ScreenBlur)
 	local now0 = os.clock()
 
 	Burst.play(pos, { scheme = o.scheme, normal = normal, debrisColor = o.debrisColor, scale = Cfg.Burst * d / 4 })
