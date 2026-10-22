@@ -119,9 +119,19 @@ end
 -- middle, following the ground (the rim at least two voxels wide, or no voxel centre falls in it: Studio round 13c). Voxel by voxel with
 -- fractional occupancy: a FillCylinder of Air that ends inside a 4-stud voxel cuts nothing (Studio 2026-10-21). A
 -- smooth surface stands at its top voxel's CENTRE + 4 x occupancy (measured in Studio), not its bottom.
-function Ground.pit(position: Vector3, radius: number, depth: number, rim: number, rimHeight: number)
+-- `ramp` (optional): a way in, a lane `width` wide running out along `dir` (flat, unit) from the pit's edge, its floor
+-- rising from the pit's floor to the ground over `length` studs, cut through the rim.
+function Ground.pit(
+	position: Vector3,
+	radius: number,
+	depth: number,
+	rim: number,
+	rimHeight: number,
+	ramp: { dir: Vector3, width: number, length: number }?
+)
 	local terrain = workspace.Terrain
-	local reach = Vector3.new(radius + rim, depth + rimHeight + VOXEL * 3, radius + rim)
+	local out = radius + rim + (if ramp then ramp.length else 0)
+	local reach = Vector3.new(out, depth + rimHeight + VOXEL * 3, out)
 	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
 	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
 	if not ok then
@@ -134,7 +144,23 @@ function Ground.pit(position: Vector3, radius: number, depth: number, rim: numbe
 		for iz = 1, size.Z do
 			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
 			local d = math.sqrt((x - position.X) ^ 2 + (z - position.Z) ^ 2)
-			if d <= radius then
+			local along, across = 0, math.huge
+			if ramp then
+				along = (x - position.X) * ramp.dir.X + (z - position.Z) * ramp.dir.Z
+				across = math.abs((x - position.X) * ramp.dir.Z - (z - position.Z) * ramp.dir.X)
+			end
+			if ramp and d > radius and along > 0 and across <= ramp.width / 2 and along <= radius + ramp.length then
+				-- the ramp: only cut, down to its floor here
+				local slope = floor + depth * math.clamp((along - radius) / ramp.length, 0, 1)
+				for iy = 1, size.Y do
+					local mid = corner.Y + (iy - 0.5) * VOXEL
+					local keep = math.clamp((slope - mid) / VOXEL, 0, 1)
+					if occs[ix][iy][iz] > keep then
+						occs[ix][iy][iz] = keep
+						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
+					end
+				end
+			elseif d <= radius then
 				for iy = 1, size.Y do
 					local mid = corner.Y + (iy - 0.5) * VOXEL
 					local keep = math.clamp((floor - mid) / VOXEL, 0, 1)

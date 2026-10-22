@@ -61,7 +61,7 @@ export type Gun = {
 	vfx: { scheme: string, magic: boolean },
 	muzzleScale: number, -- the muzzle blast's scale (Config/Vfx.Muzzle)
 	loads: boolean?, -- the gunner plays the loading (Load above)
-	sound: { fire: any, far: any, blast: any, whistle: any, whistleLead: number },
+	sound: { fire: any, far: any, blast: any, echo: any, whistle: any, whistleLead: number },
 	zone: number, -- the impact zone's radius, studs (Zone above)
 	-- the shell in flight (user 2026-10-21: "a very visual projectile"): a glowing ball `size` studs across in `color`
 	-- (RGB), a trail `trail` s long fading to `tail`, a light `light` studs round; `magic`: static crackling round it in
@@ -80,7 +80,14 @@ export type Gun = {
 	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
 	-- the gunner right of centre, the target left of it) and `pitch` up, plus the
 	-- elevation x `follow` (a high lob stays in view)
-	dig: { depth: number, radius: number, rim: number, rimHeight: number }?, -- dug in when placed (src/server/Artillery)
+	-- dug in when placed (src/server/Artillery); `ramp`: a way down into the pit behind the gun (Ground.pit)
+	dig: {
+		depth: number,
+		radius: number,
+		rim: number,
+		rimHeight: number,
+		ramp: { width: number, length: number }?,
+	}?,
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
 }
 
@@ -262,6 +269,9 @@ local Artillery = {
 	-- flight at least that long: a short one comes in under the report; Studio round 2). All late and
 	-- duller far off (Rules/Grenade.heard).
 	Whistle = { reach = 300 },
+	-- a blast's echo (each gun's `sound.echo`): silent within `from` studs, rising to full at `full`, a little after the
+	-- blast itself (`lag` s)
+	Echo = { from = 120, full = 450, lag = 0.25 },
 	Heard = { dullFrom = 80, dullFull = 900, highCut = -14, lowBoost = 5 },
 	FarFrom = 400,
 
@@ -304,8 +314,11 @@ local Artillery = {
 			gravity = 71.6, -- (745 studs/s under 196.2 before: the same ranges, ~1.7x the flight: up to ~3.5 s)
 			charge = 0.45,
 			breechOpens = true,
-			kg = 0.6,
-			fragments = { lethal = 6, wound = 30, max = 100, near = 60, far = 10 },
+			-- (user 2026-10-21: "the explosives to be a lot more damaging and destructive ... realistic"; was 0.6 kg,
+			-- fragments lethal 6 / wound 30): a shell's lethality is mostly its fragments: a real 18-pdr HE burst kills
+			-- out to ~10 m and wounds to ~25-30 m, and its charge as TNT here is raised to 2.5 kg so it breaks walls
+			kg = 2.5,
+			fragments = { lethal = 12, wound = 40, max = 100, near = 70, far = 15 },
 			scatter = { yaw = 0.8, elevation = 0.25, speed = 0.012 },
 			reload = 10,
 			breechOpen = 100,
@@ -325,18 +338,22 @@ local Artillery = {
 					{ id = 9114362266, volume = 0.8, profile = "Explosion" }, -- Explosions 4: the crack and its debris
 				},
 				far = { { id = 9113169432, volume = 1.2, profile = "Explosion" } }, -- Artillery Distant 2
+				-- dry, heard at every distance (user 2026-10-21: the echo "sounds distorted at the end and it echoes even
+				-- when you're close ... it should echo only when you're far": the flanged Explosive Boom tail is gone)
 				blast = {
 					{ id = 9114362266, volume = 1.4, profile = "Explosion", fade = 1.5 }, -- Explosions 4
 					{ id = 9114086964, volume = 1, profile = "Explosion", fade = 1.5 }, -- Dirt Explosion 2
-					{ id = 9114363833, volume = 1, profile = "Explosion", eq = { 3, 0, -3 }, fade = 3 }, -- Explosive Boom 2
+					{ id = 9116973611, volume = 1, profile = "Explosion" }, -- Mortar Explosion 3: a short low thump
 				},
+				-- the echo rolling back off the land, only far off (Echo below)
+				echo = { { id = 9113169432, volume = 1.3, profile = "Explosion", fade = 2.5 } }, -- Artillery Distant 2
 				-- Bullet Whiz By 1 (lengthened), slowed into a shell's rushing whine
 				whistle = {
 					{ id = 9113634642, volume = 0.9, profile = "Explosion", pitch = 0.6, stop = 0.75, fade = 0.2 },
 				},
 				whistleLead = 1.2, -- (its flights are ~0.5-2 s)
 			},
-			zone = 10, -- 0.6 kg: hurt to ~8 by the blast, lethal fragments to 6
+			zone = 16, -- lethal fragments to 12, the blast hurting to ~10
 			-- a hot slug trailing grey smoke
 			shell = {
 				size = 0.7,
@@ -349,7 +366,8 @@ local Artillery = {
 			-- (Studio rounds 5-8: low in the grass, or from behind with the gunner in the middle; worked out from the angles:
 			-- the gun ~25-40 deg right of centre, the gunner ~50, the target ~-30)
 			-- (user 2026-10-21: "closer but from a similar angle we want to be able to see our avatar")
-			camera = { side = -8, up = 4.5, back = 9, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
+			camera = { side = -6.5, up = 4, back = 7, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
 		} :: Gun,
 		-- The magic howitzer v6 (user 2026-10-21: "look like the big bertha", "no tires ... the turning being controlled by
 		-- giant gears"; tools/blender/artillery/bertha.py, approved v10): a 42 cm siege mortar, its riveted box carriage
@@ -378,8 +396,18 @@ local Artillery = {
 			gravity = 43.5, -- (340 under 196.2 before: the same ranges, ~2.1x the flight: 5.2 s at 45, 7.2 at 80)
 			charge = 1.8, -- its magic charge-up (user 2026-10-21: "make the howitzer have a cinematic magic charge up")
 			breechOpens = false, -- (user 2026-10-21: "remove the close and opening on the howitzer, leave it closed")
-			kg = 15,
-			fragments = nil,
+			-- (user 2026-10-21: "significantly more damage (close to the 50kg bomb)"; was 15 kg, no fragments): 50 kg,
+			-- like the dev blast menu's 50 kg bomb (lethal by blast to ~14 studs, a crater ~34 across), and a 42 cm
+			-- shell's fragments flying far
+			-- (user 2026-10-22: "a direct hit from the howitzer should destroy an entire house and some of its
+			-- surroundings"): every wall, roof and door class fails at 1,000 kPa (Damage.Blast.Fail, stone 1,200), which a
+			-- charge reaches out to ~0.95 x kg^(1/3) studs. A shell on the ridge of a village cottage (up to 24 x 21, one
+			-- 12-stud story, the ridge ~16 up) has its farthest ground-floor wall sections ~19 studs off: 400 kg breaks walls
+			-- to ~20.7 (stone ~19), so the whole house comes down; round it trees fall to ~72, glass breaks to ~128, a
+			-- crater ~68 across, soldiers die to ~27 by blast and are hurt to ~51 (was 50 kg: walls to ~10, a hole in one
+			-- side; Studio round 1 at 250 kg: walls to ~17.7 took 19 of a cottage's 38 sections, a wall stood)
+			kg = 400,
+			fragments = { lethal = 18, wound = 60, max = 100, near = 80, far = 20 },
 			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
 			reload = 30,
 			breechOpen = 100,
@@ -399,7 +427,12 @@ local Artillery = {
 			-- further; a rim narrower than two voxels never formed)
 			-- (13d-e: the voxel columns along an axis sit 10.2 and 14.14 out, so a pit under 14.2 stops at the first and the
 			-- bed's corners ~10.2 out end up in its wall; at 2.8 the rim stands ~1.6)
-			dig = { depth = 1.5, radius = 15, rim = 9, rimHeight = 2.8 },
+			-- (user 2026-10-22: "have the howitzer really dug down. only the barrel should really be exposed"; was 1.5): the
+			-- carriage walls' crowns stand 9.3 over the bed's underside (bertha.py) and the cradle round the barrel rose to
+			-- 15.3 at 45 degrees (Studio round 1 at 9.5 deep: 3.3 over the ground), so at 12 only the barrel rises out of the
+			-- ground, and the rim covers the rest; a ramp `width` wide climbs out behind the gun over `length` studs (~20
+			-- degrees; at least two voxels wide, as the rim)
+			dig = { depth = 12, radius = 15, rim = 9, rimHeight = 2.8, ramp = { width = 10, length = 33 } },
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
@@ -411,14 +444,15 @@ local Artillery = {
 				blast = {
 					{ id = 9114362135, volume = 1.5, profile = "Explosion", fade = 1.5 }, -- Explosions 1: rumbling, punchy
 					{ id = 9114086964, volume = 1.2, profile = "Explosion", fade = 1.5 }, -- Dirt Explosion 2
-					{ id = 9114363996, volume = 1.2, profile = "Explosion", eq = { 4, 0, -3 }, fade = 4 }, -- Explosive Boom 5: the long tail
+					{ id = 9116973607, volume = 1.3, profile = "Explosion" }, -- Mortar Explosion 5: a deep low thump
 				},
+				echo = { { id = 9113169264, volume = 1.5, profile = "Explosion", fade = 3 } }, -- Artillery Distant 1
 				whistle = {
 					{ id = 9113634642, volume = 1, profile = "Explosion", pitch = 0.45, stop = 1.15, fade = 0.3 },
 				},
 				whistleLead = 2.5,
 			},
-			zone = 17, -- 15 kg: lethal to ~9, hurt to ~17
+			zone = 51, -- 400 kg: lethal by blast to ~27, the blast hurting to ~51
 			-- a bright four-point star (user 2026-10-21: "a bright 4 point star"): a white-hot core, the spikes (below), a
 			-- strong light; a blue trail of light and static crackling round it
 			shell = {
@@ -447,7 +481,11 @@ local Artillery = {
 				},
 			},
 			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
-			camera = { side = -16, up = 8, back = 18, yaw = 25, pitch = 6, follow = 0.12, fov = 65 },
+			-- (dug 12 down; was side -16, up 8, back 18, pitch 6: that put it inside the ground round the pit, and from up
+			-- over the ground, Studio round 2, the rim hid the gunner, who stands >30 degrees under any line over it): down
+			-- in the pit behind the gunner's left, 2 under the ground, the gunner ~22 degrees under it; the landing marker is
+			-- drawn over the pit's wall (AlwaysOnTop)
+			camera = { side = -10, up = 10, back = 9, yaw = 25, pitch = -6, follow = 0.12, fov = 65 },
 		} :: Gun,
 	},
 }
