@@ -49,11 +49,12 @@ local Damage = {
 		-- (Studio rounds 1-2: neighbouring walls ~3 studs off broke too, then lost 20% a shot), except the classes in
 		-- `breaks` (glass shatters)
 		-- your own staff never hurts you (user 2026-10-18: "make sure that your own beam cant kill yourself"): the beam
-		-- and its blast leave the caster out, and a tree it fells doesn't hurt them for this many seconds after the
-		-- shot (it lands Config/Damage.Trees.Fall.time after)
+		-- and its blast leave the caster out (its blast doesn't throw them either, `ownFling`: user 2026-10-21, a
+		-- point-blank stage 3 threw its caster to their death), and a tree it fells doesn't hurt them for this many
+		-- seconds after the shot (it lands Config/Damage.Trees.Fall.time after)
 		SelfSafe = 5,
 		Blasts = {
-			{ soldiers = true, trees = true, crater = true },
+			{ soldiers = true, trees = true, crater = true, ownFling = false },
 			{
 				soldiers = false,
 				trees = false,
@@ -63,7 +64,7 @@ local Damage = {
 				wearReach = 3,
 				breaks = { Glass = true },
 			},
-			{ soldiers = true, trees = true, crater = true },
+			{ soldiers = true, trees = true, crater = true, ownFling = false },
 		},
 	},
 

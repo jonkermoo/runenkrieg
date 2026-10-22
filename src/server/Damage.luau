@@ -149,6 +149,7 @@ export type BlastOpts = {
 	fell: boolean?,
 	fragments: GrenadeRules.Fragments?,
 	own: number?,
+	ownFling: boolean?, -- false: the one who set it off isn't thrown by it either (the staff's)
 	crater: boolean?,
 	wear: number?,
 	wearFull: number?,
@@ -238,9 +239,13 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 				-- hard as it would have); a grenade's fragments add to it, through the same cover
 				local splinters = if o.fragments then GrenadeRules.fragments(d, o.fragments) else 0
 				local full = (Blast.soldierDamage(kpa, B.Soldier) + splinters) * share
-				local amount = if character == by then full * (o.own or 0) else full
+				local own = character == by
+				local amount = if own then full * (o.own or 0) else full
 				local left = math.max(humanoid.Health - amount, 0)
 				local scale = if left <= 0 then 1 else Blast.fling(full, B.Soldier.max, B.Fling.least)
+				if own and o.ownFling == false and left > 0 then
+					scale = nil -- (user 2026-10-21: a point-blank staff blast threw its own caster to their death)
+				end
 				if scale then
 					hurt(character, humanoid, left, B.Fling.knock, flat(torso.Position - position), scale)
 				end
@@ -328,6 +333,18 @@ function Damage.start()
 		humanoid.MaxHealth = Cfg.Health
 		humanoid.Health = Cfg.Health
 		humanoid.Died:Connect(function()
+			-- your own staff never kills you (Config/Damage.Staff.SelfSafe): if a caster dies soon after their own shot
+			-- anyway, say how, so the way through is found (user 2026-10-21)
+			local since = os.clock() - (castAt[character] or -math.huge)
+			if since <= Cfg.Staff.SelfSafe then
+				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				local at = if root then tostring(root.Position) else "no root (fell out of the world?)"
+				local after = string.format("%.1f", since)
+				local limp = Ragdoll.active(character)
+				warn(
+					`[Damage] {character.Name} died {after} s after their own staff shot: at {at}, health {humanoid.Health}, ragdolled {limp}`
+				)
+			end
 			task.wait() -- (a hit's own knock comes with its death: let it land first)
 			if not Ragdoll.active(character) then
 				-- died some other way (a fall, a reset): just drops
