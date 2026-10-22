@@ -2,7 +2,8 @@
 -- Digging with the shovel on the local client (docs/MILESTONES.md SV1; Config/Shovel): with a shovel in the hands
 -- (Config/Weapons class "Shovel"), the fire key (Settings Key_Fire) digs: the character attribute "DugAt" marks the
 -- moment and src/client/Locomotion (third person, seen by everyone) and src/client/Viewmodel (first person) play the
--- dig once over the hold. A click during a dig is ignored. The animation only: the ground isn't changed.
+-- dig once over the hold. A click during a dig is ignored, and in build mode (src/client/Build) a click lays a piece
+-- instead. A swing builds or tears down the piece in front of you (src/client/Build sends it).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +12,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Shovel)
 local W = require(Shared.Config.Weapons)
+local Build = require(script.Parent.Build)
 local Held = require(script.Parent.Held)
 local Settings = require(script.Parent.Settings)
 
@@ -19,7 +21,7 @@ local Shovel = {}
 function Shovel.start()
 	local player = Players.LocalPlayer
 	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or not Settings.pressed("Key_Fire", input) then
+		if processed or not Settings.pressed("Key_Fire", input) or Build.active() then
 			return
 		end
 		local character = player.Character

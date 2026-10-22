@@ -164,6 +164,13 @@ local Palette = {
 		Blade = { 122, 124, 128 },
 		Brass = { 184, 149, 90 }, -- the collar and rivets
 	},
+	-- Player-built pieces (Config/Build, src/server/Build): flat colours until the meshes come
+	Build = {
+		Sandbag = { 176, 156, 114 }, -- hessian; each bag's tone jittered by Config/Build.Sandbags.shade
+		Plank = { 112, 88, 66 }, -- revetment planks and the firestep
+		Picket = { 84, 66, 52 },
+		Wire = { 58, 56, 54 },
+	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
 	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
 	Magic = {

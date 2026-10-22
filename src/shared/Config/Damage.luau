@@ -110,6 +110,9 @@ local Damage = {
 			Plaster = 1000,
 			Brick = 1000,
 			Stone = 1200,
+			-- player-built sandbags (Config/Build): earth soaks a blast; a grenade at the foot takes one column
+			-- (~1.3 studs), the staff's full beam ~5, the howitzer ~17
+			Sandbag = 1500,
 		},
 		FailDefault = 1000,
 		Weaken = 1, -- (was 2) each blast wears what it doesn't break, so blasts at one spot widen the hole
