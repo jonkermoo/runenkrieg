@@ -5,7 +5,8 @@
 -- onHelmet; src/server/Firing) knocks the helmet off: the helmet-on hair is swapped for the original and a loose copy of
 -- the helmet flies off along the shot and despawns (Config/Uniforms HelmetOff).
 -- Helmet and hair are welded to the Head and never take hits themselves (CanQuery off): the hit zones are the Head
--- part's own box. The character's "HelmetOn" attribute says whether the helmet is still on.
+-- part's own box, plus the worn helmet's shape where it stands out of it (Helmets.crown: the crown and the brim; user
+-- 2026-10-22). The character's "HelmetOn" attribute says whether the helmet is still on.
 
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
@@ -182,9 +183,46 @@ function Helmets.dress(character: Model, headwear: string?)
 	end
 	if on then
 		on:SetAttribute("Entry", headwear)
+		-- its box in the head's space, for shots that pass over or beside the head (Helmets.crown)
+		local box, size = on:GetBoundingBox()
+		on:SetAttribute("HitBox", head.CFrame:ToObjectSpace(box))
+		on:SetAttribute("HitSize", size)
 		on.Parent = character
 	end
 	character:SetAttribute("HelmetOn", on ~= nil)
+end
+
+-- A shot along `line` (unit) from `origin` that meets a worn helmet's shape (Rules/Looks.crownAt) within `reach` studs,
+-- among `soldiers` (not `shooter`): the nearest, as its character, Head, the point and its distance; or nil.
+function Helmets.crown(
+	soldiers: { Model },
+	origin: Vector3,
+	line: Vector3,
+	reach: number,
+	shooter: Model
+): (Model?, BasePart?, Vector3?, number?)
+	local best: number? = nil
+	local who: Model?, at: BasePart? = nil, nil
+	for _, character in soldiers do
+		if character == shooter or character:GetAttribute("HelmetOn") ~= true then
+			continue
+		end
+		local head = character:FindFirstChild("Head") :: BasePart?
+		local worn = character:FindFirstChild("Helmet")
+		local rel, size = worn and worn:GetAttribute("HitBox"), worn and worn:GetAttribute("HitSize")
+		if not head or typeof(rel) ~= "CFrame" or typeof(size) ~= "Vector3" then
+			continue
+		end
+		local box = head.CFrame * rel
+		local t = Looks.crownAt(box:PointToObjectSpace(origin), box:VectorToObjectSpace(line), size / 2)
+		if t and t <= reach and (not best or t < best) then
+			best, who, at = t, character, head
+		end
+	end
+	if not best then
+		return nil, nil, nil, nil
+	end
+	return who, at, origin + line * best, best
 end
 
 -- The head wrap went on (src/server/Healing): bareheaded, the hair becomes its helmet-on version so the wrap shows and

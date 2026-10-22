@@ -62,6 +62,9 @@ local Dev = {
 	end,
 }
 
+-- every soldier a shot or blast can reach (src/server/Firing: the helmets' crowns)
+Damage.soldiers = Dev.soldiers
+
 -- one ray's hit: the part, where, the ray's direction, how far it flew, whether it took the helmet off
 export type RayHit = { part: Instance?, point: Vector3, direction: Vector3, distance: number, helmet: boolean }
 
