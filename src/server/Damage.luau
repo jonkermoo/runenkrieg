@@ -29,6 +29,7 @@ local GrenadeRules = require(Shared.Rules.Grenade)
 local Rules = require(Shared.Rules.Damage)
 local TreeRules = require(Shared.Rules.Trees)
 local Destruction = require(script.Parent.Destruction)
+local Flinch = require(script.Parent.Flinch)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Ground = require(script.Parent.Ground)
 local Healing = require(script.Parent.Healing)
@@ -230,7 +231,9 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
 	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
-	local soldiers: { Model } = if o.soldiers == false then {} else Dev.soldiers()
+	local everyone = Dev.soldiers()
+	local soldiers: { Model } = if o.soldiers == false then {} else everyone
+	local knocked: { [Model]: boolean } = {}
 	for _, character in soldiers do
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local torso = character:FindFirstChild("Torso") :: BasePart?
@@ -252,11 +255,14 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 					scale = nil -- (user 2026-10-21: a point-blank staff blast threw its own caster to their death)
 				end
 				if scale then
+					knocked[character] = true
 					hurt(character, humanoid, left, B.Fling.knock, flat(torso.Position - position), scale)
 				end
 			end
 		end
 	end
+	-- everyone else near it, with nothing in the hands, ducks and holds the helmet (src/server/Flinch)
+	Flinch.blast(position, kg, o.fragments and o.fragments.wound, knocked, everyone)
 end
 
 -- A staff stage's blast at `position` (Config/Damage.Staff.Charge and Blasts), set off by `by`.

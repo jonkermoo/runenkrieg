@@ -95,6 +95,9 @@ local Remotes: { string } = {
 	-- server -> clients: (position: Vector3, radius: number) the ground dug out round here (a gun's pit): the grass
 	-- standing there goes (src/client/GrassFoliage)
 	"GroundDug",
+	-- server -> one client: (weight: number) a blast near that player's soldier, outside its knock reach: flinch
+	-- (src/server/Flinch decides, src/client/Flinch plays it on the own character, so everyone sees it; Config/Flinch)
+	"Flinch",
 }
 local Functions: { string } = {}
 
