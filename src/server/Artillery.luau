@@ -7,8 +7,8 @@
 --   "Elevation" (degrees), "FiredAt", "ReadyAt" (server time), "Gunner" (UserId). Every client poses the moving parts
 --   from these (src/client/Artillery); the server moves only a turning mount (crewTurns: its gunner stands on it) and,
 --   swinging the whole gun, its pivot. The gunner is welded to what they stand on.
--- - E (its ProximityPrompt) mans it: the gunner stands welded at the crew spot, weapons put away, until they leave
---   (Net "Artillery" "Leave"), die or go.
+-- - E (its ProximityPrompt) mans it: the gunner stands welded at the crew spot, platform-standing, weapons put away,
+--   until they leave (Net "Artillery" "Leave"), die or go.
 -- - "Aim" sets the wanted yaw and elevation; the gun works toward them at its rates (Rules/Artillery.lay).
 -- - "Fire", loaded: the gunner braces (the howitzer charges up), the gun's `charge` s later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
 --   casts, so nothing thin is passed through) and goes off where it hits: Damage.blast with its charge and fragments,
@@ -160,6 +160,10 @@ local function leave(s: State)
 	if root then
 		root.Anchored = false
 	end
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.PlatformStand = false
+	end
 end
 
 local function man(s: State, player: Player)
@@ -194,6 +198,10 @@ local function man(s: State, player: Player)
 	weld.Parent = root
 	s.weld = weld
 	root.Anchored = false
+	-- and platform-standing (user 2026-10-22: "the field cannon is unoperable. the character starts tweaking out with
+	-- the cannon. it only fixes when you have fly on": the dev Fly platform-stands): held by the weld, the humanoid
+	-- still tried to stand and walk on the ground under it, fighting the gun
+	humanoid.PlatformStand = true
 	s.gunner = player
 	s.mannedAt = os.clock()
 	s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
@@ -281,11 +289,12 @@ end
 
 -- Digs a gun in at `at` (its Config `dig`; user 2026-10-21: "when you build the howitzer, it will be slightly
 -- underground to give it cover (even when spawned, it should naturally destroy the terrain and be more burrowed)"):
--- the pit carved to a level mud floor `depth` under the ground, an earth rim thrown up round it (Ground.pit). Returns
--- the floor.
-local function dig(at: Vector3, d: any): Vector3
-	Ground.pit(at, d.radius, d.depth, d.rim, d.rimHeight)
-	Net.event("GroundDug"):FireAllClients(at, d.radius)
+-- the pit carved to a level mud floor `depth` under the ground, an earth rim thrown up round it and a ramp down into it
+-- behind the gun (`back`, flat; Ground.pit). Returns the floor.
+local function dig(at: Vector3, d: any, back: Vector3): Vector3
+	local ramp = d.ramp and { dir = back, width = d.ramp.width, length = d.ramp.length }
+	Ground.pit(at, d.radius, d.depth, d.rim, d.rimHeight, ramp)
+	Net.event("GroundDug"):FireAllClients(at, d.radius + d.rim + (if ramp then ramp.length else 0))
 	return at - Vector3.new(0, d.depth, 0)
 end
 
@@ -307,7 +316,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 		flat = Vector3.new(0, 0, -1)
 	end
 	if gun.dig then
-		at = dig(at, gun.dig)
+		at = dig(at, gun.dig, -flat.Unit)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
 	model:SetAttribute("Gun", key)
