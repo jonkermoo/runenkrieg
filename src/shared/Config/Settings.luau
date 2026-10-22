@@ -39,6 +39,8 @@ local Settings = {
 			default = 70,
 			format = "%d",
 		},
+		-- the short blur when a bullet passes close or something blows up nearby (Config/ScreenBlur; user 2026-10-22)
+		ScreenBlur = { kind = "choice", label = "Screen blur", values = { "On", "Off" }, default = "On" },
 
 		-- Controls. Sensitivities multiply Config/Camera.Sensitivity / AimSensitivity.
 		HipSensitivity = {
@@ -99,7 +101,10 @@ local Settings = {
 
 	-- The menu's tabs, in order, and the rows in each.
 	Tabs = {
-		{ name = "Graphics", rows = { "Preset", "GrassQuality", "Shadows", "TreeSway", "Debris", "FieldOfView" } },
+		{
+			name = "Graphics",
+			rows = { "Preset", "GrassQuality", "Shadows", "TreeSway", "Debris", "FieldOfView", "ScreenBlur" },
+		},
 		{
 			name = "Controls",
 			rows = {

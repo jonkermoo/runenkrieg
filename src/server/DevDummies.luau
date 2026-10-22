@@ -224,6 +224,7 @@ function DevDummies.spawn(spec: Spec): Model?
 	humanoid.MaxHealth = DamageCfg.Health
 	humanoid.Health = DamageCfg.Health
 	humanoid.WalkSpeed = D.WalkSpeed
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false) -- soldiers never swim (src/client/Wading)
 	humanoid.AutoRotate = spec.move ~= "Strafe"
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 	root.Anchored = false

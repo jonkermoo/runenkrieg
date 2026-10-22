@@ -14,6 +14,7 @@ local A = require(Shared.Config.Audio)
 local Firing = require(Shared.Config.Firing)
 local W = require(Shared.Config.Weapons)
 local R = require(Shared.Rules.ShotAudio)
+local ScreenBlur = require(script.Parent.ScreenBlur)
 local SoundFx = require(script.Parent.SoundFx)
 
 local H = A.Heard
@@ -99,6 +100,9 @@ function ShotAudio.heard(shooter: Model, weapon: string, origin: Vector3, hits: 
 		if p and (not best or p.off < best.off) then
 			best = p
 		end
+	end
+	if best then
+		ScreenBlur.pass(best.off, best.along / bullet) -- blurs the screen as it goes by (src/client/ScreenBlur)
 	end
 	local pass = any(sounds(weapon, "Pass", "Gunshot"))
 	if best and pass then
