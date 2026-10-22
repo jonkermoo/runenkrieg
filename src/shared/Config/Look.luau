@@ -7,11 +7,12 @@
 --     saturation / contrast / brightness (-1..1, 0 = unchanged) and tint (RGB, white = none).
 --   bloom: intensity, size, threshold. The threshold stays 2 at every level: only HDR-bright magic and flashes glow
 --     (Config/Vfx), never the flat colours.
---   sunRays: intensity by day (fades to 0 at night), spread. nil = no rays.
+--   sunRays: intensity by day (fades to 0 at night), spread; they replace the place's own SunRays. nil = the place's
+--     rays stay as they are.
 --   diffuse / specular: Lighting.EnvironmentDiffuseScale / EnvironmentSpecularScale (sky light on the shaded side of
 --     each facet / sky reflections; nearly free).
---   quality: Lighting.PrioritizeLightingQuality (softer, better shadows; costs GPU).
 -- Off keeps the place's own Lighting (its Bloom keeps the magic glowing) and adds nothing.
+-- (Lighting.PrioritizeLightingQuality and LightingStyle can't be set by a game script, only on the place in Studio.)
 -- Data only.
 
 local Look = {
@@ -29,7 +30,6 @@ local Look = {
 			sunRays = nil,
 			diffuse = 0.5,
 			specular = 0,
-			quality = false,
 		},
 		-- Kept close to neutral: the Beautiful setting's own cinematic layer (src/client/Cinematic) adds its film look.
 		Beautiful = {
@@ -41,7 +41,6 @@ local Look = {
 			sunRays = { intensity = 0.06, spread = 0.6 },
 			diffuse = 1,
 			specular = 0.15,
-			quality = true,
 		},
 	},
 }

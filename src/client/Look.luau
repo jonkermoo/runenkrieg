@@ -1,8 +1,9 @@
 --!strict
 -- The player's Effects setting (src/client/Settings): the screen look per level (Config/Look) on this client only.
 -- Adds "Look_Grade" (ColorCorrection, blended day to night by the sun's height: Rules/Grade), "Look_Bloom" and
--- "Look_SunRays" to Lighting and sets the sky light scales. Off puts back the place's own Lighting (its Bloom keeps
--- the magic glowing). The Beautiful setting's cinematic layer (src/client/Cinematic) adds its own effects on top.
+-- "Look_SunRays" to Lighting (in place of the place's own Bloom, and its SunRays where the level has rays) and sets the
+-- sky light scales. Off puts back the place's own Lighting (its Bloom keeps the magic glowing). The Beautiful
+-- setting's cinematic layer (src/client/Cinematic) adds its own effects on top.
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,12 +28,14 @@ function Look.start()
 	local base = {
 		diffuse = Lighting.EnvironmentDiffuseScale,
 		specular = Lighting.EnvironmentSpecularScale,
-		quality = Lighting.PrioritizeLightingQuality,
 	}
 	local placeBlooms: { [BloomEffect]: boolean } = {}
+	local placeRays: { [SunRaysEffect]: boolean } = {}
 	for _, fx in Lighting:GetChildren() do
 		if fx:IsA("BloomEffect") then
 			placeBlooms[fx] = fx.Enabled
+		elseif fx:IsA("SunRaysEffect") then
+			placeRays[fx] = fx.Enabled
 		end
 	end
 
@@ -61,15 +64,18 @@ function Look.start()
 	local function apply(v: string)
 		level = (Cfg.Levels :: any)[v]
 		local on = level ~= nil
+		local ownRays = on and level.sunRays ~= nil
 		for fx, enabled in placeBlooms do
 			fx.Enabled = enabled and not on
 		end
+		for fx, enabled in placeRays do
+			fx.Enabled = enabled and not ownRays
+		end
 		grade.Enabled = on
 		bloom.Enabled = on
-		rays.Enabled = on and level.sunRays ~= nil
+		rays.Enabled = ownRays
 		Lighting.EnvironmentDiffuseScale = if on then level.diffuse else base.diffuse
 		Lighting.EnvironmentSpecularScale = if on then level.specular else base.specular
-		Lighting.PrioritizeLightingQuality = if on then level.quality else base.quality
 		if on then
 			bloom.Intensity = level.bloom.intensity
 			bloom.Size = level.bloom.size
