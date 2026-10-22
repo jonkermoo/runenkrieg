@@ -255,7 +255,8 @@ local Artillery = {
 		cracks = 0.45,
 	},
 
-	-- Sounds (Pro Sound Effects, licensed through Roblox; ASSETS_LICENSES.md), per gun below: `fire` its report up
+	-- Sounds (Pro Sound Effects, licensed through Roblox; ASSETS_LICENSES.md), per gun below (the blasts each fade over
+	-- their last `fade` seconds, so their tails die away; user 2026-10-21: "the explosion audio cuts out"): `fire` its report up
 	-- close, `far` heard past `FarFrom` studs instead, `blast` the shell going off; the incoming shell's `whistle` is
 	-- heard within `Whistle.reach` studs of where it lands, starting the gun's `whistleLead` s before it lands (only on a
 	-- flight at least that long: a short one comes in under the report; Studio round 2). All late and
@@ -325,9 +326,9 @@ local Artillery = {
 				},
 				far = { { id = 9113169432, volume = 1.2, profile = "Explosion" } }, -- Artillery Distant 2
 				blast = {
-					{ id = 9114362266, volume = 1.4, profile = "Explosion" }, -- Explosions 4
-					{ id = 9114086964, volume = 1, profile = "Explosion" }, -- Dirt Explosion 2
-					{ id = 9114363833, volume = 1, profile = "Explosion", eq = { 3, 0, -3 } }, -- Explosive Boom 2
+					{ id = 9114362266, volume = 1.4, profile = "Explosion", fade = 1.5 }, -- Explosions 4
+					{ id = 9114086964, volume = 1, profile = "Explosion", fade = 1.5 }, -- Dirt Explosion 2
+					{ id = 9114363833, volume = 1, profile = "Explosion", eq = { 3, 0, -3 }, fade = 3 }, -- Explosive Boom 2
 				},
 				-- Bullet Whiz By 1 (lengthened), slowed into a shell's rushing whine
 				whistle = {
@@ -408,9 +409,9 @@ local Artillery = {
 				},
 				far = { { id = 9113169264, volume = 1.4, profile = "Explosion" } }, -- Artillery Distant 1
 				blast = {
-					{ id = 9114362135, volume = 1.5, profile = "Explosion" }, -- Explosions 1: rumbling, punchy
-					{ id = 9114086964, volume = 1.2, profile = "Explosion" }, -- Dirt Explosion 2
-					{ id = 9114363996, volume = 1.2, profile = "Explosion", eq = { 4, 0, -3 } }, -- Explosive Boom 5: the long tail
+					{ id = 9114362135, volume = 1.5, profile = "Explosion", fade = 1.5 }, -- Explosions 1: rumbling, punchy
+					{ id = 9114086964, volume = 1.2, profile = "Explosion", fade = 1.5 }, -- Dirt Explosion 2
+					{ id = 9114363996, volume = 1.2, profile = "Explosion", eq = { 4, 0, -3 }, fade = 4 }, -- Explosive Boom 5: the long tail
 				},
 				whistle = {
 					{ id = 9113634642, volume = 1, profile = "Explosion", pitch = 0.45, stop = 1.15, fade = 0.3 },

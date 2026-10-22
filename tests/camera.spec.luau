@@ -6,18 +6,27 @@ local Camera = require("../src/shared/Rules/Camera")
 local S = Cfg.Staff
 
 return {
-	["only the staff gets the third-person camera"] = function()
-		assert(Camera.thirdPerson(Cfg.ThirdPersonClasses, "Staff"))
+	["the staff takes the gun's camera and aims in place; guns aim in first person"] = function()
+		assert(not Camera.thirdPerson(Cfg.ThirdPersonClasses, "Staff"))
 		assert(not Camera.thirdPerson(Cfg.ThirdPersonClasses, "BoltRifle"))
 		assert(not Camera.thirdPerson(Cfg.ThirdPersonClasses, nil))
+		assert(not Camera.thirdPerson(Cfg.AimInPlace, "BoltRifle"))
 		local staffs = 0
 		for name, w in Weapons :: any do
 			if type(w) == "table" and w.class == "Staff" then
 				staffs += 1
-				assert(Camera.thirdPerson(Cfg.ThirdPersonClasses, w.class), name)
+				assert(Camera.thirdPerson(Cfg.AimInPlace, w.class), name)
 			end
 		end
 		assert(staffs > 0, "no staff found in Config/Weapons")
+	end,
+	["the gun camera's view: aiming in place stays over the shoulder"] = function()
+		assert(Camera.gunView(5, false) == "Third" and Camera.gunView(0, false) == "First")
+		assert(Camera.gunView(5, true) == "Aim" and Camera.gunView(0, true) == "Aim")
+		assert(Camera.gunView(5, true, true) == "ThirdAim")
+		assert(Camera.gunView(0, true, true) == "Aim", "in first person the staff aims in first person")
+		assert(Camera.gunTarget(5, true, true) == 5)
+		assert(Camera.gunTarget(5, true, false) == 0)
 	end,
 	["the staff's camera sits closer than the free camera's max, aiming closer still"] = function()
 		assert(S.Distance < Cfg.FreeMaxZoom, "the staff's distance must be lower than with nothing drawn")

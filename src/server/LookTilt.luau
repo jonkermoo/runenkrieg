@@ -1,6 +1,6 @@
 --!strict
--- Relays each soldier's look tilt (src/client/LookTilt) to the other players. The client's pitch is never trusted as
--- sent: Rules/LookTilt.sanitize drops anything that isn't a number and clamps and quantizes the rest. Only the latest
+-- Relays each soldier's look tilt (src/client/LookTilt: the pitch, the gun's follow share and its third-person turn
+-- onto the crosshair, Config/Camera.Aim3P) to the other players. The client's numbers are never trusted as sent: Rules/LookTilt.sanitize drops anything that isn't a number and clamps and quantizes the rest. Only the latest
 -- value per player is kept, and it goes out at most Config/Locomotion.LookTilt.Send.Rate times a second, so a client
 -- sending faster gains nothing.
 -- The head's turn (Net "HeadYaw", Config/Locomotion.LookTilt.Head) goes the same way, but only to soldiers within
@@ -16,10 +16,11 @@ local Tilt = require(Shared.Config.Locomotion).LookTilt
 local Send = Tilt.Send
 local Head = Tilt.Head
 local Rules = require(Shared.Rules.LookTilt)
+local Aim = require(Shared.Config.Camera).Aim3P
 
 local LookTilt = {}
 
-type Entry = { pitch: number, follow: number, dirty: boolean, at: number }
+type Entry = { pitch: number, follow: number, aimYaw: number, aimPitch: number, dirty: boolean, at: number }
 
 function LookTilt.start()
 	local remote = Net.event("LookPitch")
@@ -41,16 +42,16 @@ function LookTilt.start()
 		end
 	end)
 
-	remote.OnServerEvent:Connect(function(player, pitch, follow)
-		local p, f = Rules.sanitize(pitch, follow, Send)
+	remote.OnServerEvent:Connect(function(player, pitch, follow, aimYaw, aimPitch)
+		local p, f, ay, ap = Rules.sanitize(pitch, follow, aimYaw, aimPitch, Send, Aim.Max)
 		if not p or not f then
 			return
 		end
 		local e = latest[player]
 		if not e then
-			latest[player] = { pitch = p, follow = f, dirty = true, at = 0 }
-		elseif e.pitch ~= p or e.follow ~= f then
-			e.pitch, e.follow, e.dirty = p, f, true
+			latest[player] = { pitch = p, follow = f, aimYaw = ay, aimPitch = ap, dirty = true, at = 0 }
+		elseif e.pitch ~= p or e.follow ~= f or e.aimYaw ~= ay or e.aimPitch ~= ap then
+			e.pitch, e.follow, e.aimYaw, e.aimPitch, e.dirty = p, f, ay, ap, true
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
@@ -83,7 +84,7 @@ function LookTilt.start()
 				e.dirty, e.at = false, now
 				for _, other in Players:GetPlayers() do
 					if other ~= player then
-						remote:FireClient(other, character, e.pitch, e.follow)
+						remote:FireClient(other, character, e.pitch, e.follow, e.aimYaw, e.aimPitch)
 					end
 				end
 			end

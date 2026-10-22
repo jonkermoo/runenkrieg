@@ -83,6 +83,7 @@ function Stance.start()
 		end
 		local aiming = aimHeld
 			and not sprinting
+			and character:GetAttribute("Blocked") ~= true -- the gun folded in (src/client/Tuck)
 			and not limp
 			and not healing
 			and weapon ~= nil

@@ -12,10 +12,10 @@
 --   back;
 -- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds;
 -- - ragdolled ("Ragdolled", src/client/Ragdoll): the body isn't turned with the view and the eye rides the head;
--- - the staff (Config/Camera.ThirdPersonClasses, Rules/Camera): third person only, orbiting behind the head at a fixed
---   distance (Staff.Distance, no zooming), the mouse still locked and the body turning with the view, no crosshair.
---   Centred behind the head, over the right shoulder while firing (aiming, charging, a moment after a click); aiming
---   comes in closer with a narrower view. Walls stop the camera (a swept sphere).
+-- - the staff (user 2026-10-21): the gun's camera, wheel, shoulder view and crosshair, but aiming stays in the view it
+--   is in (Config/Camera.AimInPlace): over the shoulder it is "ThirdAim" with a narrower view. (The old staff-only
+--   orbit, Config/Camera.ThirdPersonClasses, Rules/Camera.target / shoulder, now has no class: centred behind the head
+--   at a fixed distance, over the right shoulder while firing.) Walls stop the camera (a swept sphere).
 -- Writes the view to the character's "CameraMode" attribute (local): "First", "Aim", "Third" or "ThirdAim" (a gun
 -- over the shoulder is "Third" while the camera is out past Handover.far, "First" nearer);
 -- "CameraInside" (the viewmodel is on: first person only) and "Handover" (0..1, how far the viewmodel has faded in).
@@ -60,10 +60,16 @@ local function ease(rate: number, dt: number): number
 	return 1 - math.exp(-rate * dt)
 end
 
--- whether the weapon in the hands gets the third-person camera (the staff)
+-- whether the weapon in the hands gets the third-person-only camera (Config/Camera.ThirdPersonClasses)
 local function thirdPerson(weapon: Held.Weapon?): boolean
 	local spec = weapon and (W :: any)[weapon.name]
 	return Rules.thirdPerson(Cfg.ThirdPersonClasses, spec and spec.class)
+end
+
+-- whether the weapon in the hands aims where the view is, not always in first person (the staff)
+local function inPlace(weapon: Held.Weapon?): boolean
+	local spec = weapon and (W :: any)[weapon.name]
+	return Rules.thirdPerson(Cfg.AimInPlace, spec and spec.class)
 end
 
 function WeaponCamera.start()
@@ -278,14 +284,9 @@ function WeaponCamera.start()
 		-- (the body turns toward the view in src/client/BodyTurn)
 		-- a gun is "Third" as soon as it heads out over the shoulder (the chosen distance, not the moving one, so the mode
 		-- never flickers while the spring settles)
-		local out = not aiming and gunZoom > 0
 		character:SetAttribute(
 			"CameraMode",
-			if third
-				then (if aiming then "ThirdAim" else "Third")
-				elseif aiming then "Aim"
-				elseif out then "Third"
-				else "First"
+			if third then (if aiming then "ThirdAim" else "Third") else Rules.gunView(gunZoom, aiming, inPlace(weapon))
 		)
 	end)
 
@@ -343,7 +344,7 @@ function WeaponCamera.start()
 		-- always over the shoulder, first person while aiming), on a spring; near the eye it blends from the eye to the
 		-- head centre, so going in or out is one smooth move
 		local aiming = character:GetAttribute("Aiming") == true
-		local want = if third then Rules.target(S, aiming) else Rules.gunTarget(gunZoom, aiming)
+		local want = if third then Rules.target(S, aiming) else Rules.gunTarget(gunZoom, aiming, inPlace(weapon))
 		current, currentSpeed = Rules.spring(current, currentSpeed, want, if third then S.ZoomEase else G.Spring, dt)
 		if current < 0.02 and want <= 0 then
 			current, currentSpeed = 0, 0
@@ -395,11 +396,12 @@ function WeaponCamera.start()
 		local GF = G.Fade
 		local close = math.clamp((GF.far - near) / (GF.far - GF.near), 0, 1)
 		local H = Cfg.Handover
-		local handover = if view == "Third" then 0 else math.clamp((H.far - near) / (H.far - H.near), 0, 1)
-		character:SetAttribute("CameraInside", view ~= "Third")
+		local outside = view == "Third" or view == "ThirdAim"
+		local handover = if outside then 0 else math.clamp((H.far - near) / (H.far - H.near), 0, 1)
+		character:SetAttribute("CameraInside", not outside)
 		character:SetAttribute("Handover", handover)
 		-- in first person fully gone only once the viewmodel is on screen (it says so the frame after it shows)
-		local covered = if view == "Third" or character:GetAttribute("ViewmodelShown") == true then 1 else Cfg.FadeMax
+		local covered = if outside or character:GetAttribute("ViewmodelShown") == true then 1 else Cfg.FadeMax
 		local body = math.max(math.min(close, covered), handover * covered)
 		-- Roblox's camera fades the body too when it thinks the camera is near the head: ours is written every frame
 		show(character, math.floor(body * GF.Steps + 0.5) / GF.Steps)

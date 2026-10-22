@@ -61,7 +61,8 @@ local function template(e: Entry): Sound
 	return s
 end
 
--- where a sound sits: on a part / attachment, or at a point (an attachment of its own, gone with the sound)
+-- where a sound sits: on a part / attachment, or at a point (an attachment of its own, gone with the sound: when it
+-- ends, or after `life` seconds at the latest)
 local function place(sound: Sound, at: Instance | Vector3, life: number?)
 	if typeof(at) == "Vector3" then
 		local a = Instance.new("Attachment")
@@ -69,11 +70,17 @@ local function place(sound: Sound, at: Instance | Vector3, life: number?)
 		a.WorldPosition = at
 		a.Parent = workspace.Terrain
 		sound.Parent = a
+		sound.Destroying:Once(function()
+			a:Destroy()
+		end)
 		Debris:AddItem(a, life or 10)
 	else
 		sound.Parent = at :: Instance
 	end
 end
+
+-- the longest a one shot is kept when its file's length isn't known yet (it ends itself sooner: Ended)
+local UNKNOWN_LIFE = 60
 
 local function one(e: Entry, at: Instance | Vector3, stage: number?, mods: Mods?)
 	if mods and mods.delay and mods.delay > 0 then
@@ -96,19 +103,37 @@ local function one(e: Entry, at: Instance | Vector3, stage: number?, mods: Mods?
 	s.Volume = volume
 	s.PlaybackSpeed = pitch
 	s.TimePosition = e.start or 0
-	local length = if s.TimeLength > 0 then s.TimeLength else 8 -- (not known yet: a generous guess)
+	-- (its length not known yet: no guess, which cut long tails off mid-sound, user 2026-10-21: "the explosion audio
+	-- cuts out instead of fully fading away"; it's kept until it ends, UNKNOWN_LIFE at most). A clone reads its length
+	-- only once it is in the world (Studio: 0 right after Clone, known once parented), so it's placed first.
+	place(s, at, UNKNOWN_LIFE + 1)
+	local known = s.TimeLength > 0
+	local length = if known then s.TimeLength else UNKNOWN_LIFE
 	local span = ((math.min(e.stop or length, length)) - (e.start or 0)) / pitch
-	place(s, at, span + 1)
 	s:Play()
-	if e.fade then
-		task.delay(math.max(0, span - e.fade), function()
+	-- the fade over its last `fade` seconds, timed from its real length (once known, if it wasn't at the start)
+	local function fadeOut(len: number)
+		local stop = ((math.min(e.stop or len, len)) - (e.start or 0)) / pitch
+		local f = math.min(e.fade, stop)
+		local wait = math.max(0, stop - f - (s.TimePosition - (e.start or 0)) / pitch)
+		task.delay(wait, function()
 			if s.Parent then
-				local f = math.min(e.fade, span)
 				TweenService
 					:Create(s, TweenInfo.new(f, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Volume = 0 })
 					:Play()
 			end
 		end)
+	end
+	if e.fade then
+		if known then
+			fadeOut(length)
+		else
+			s:GetPropertyChangedSignal("TimeLength"):Once(function()
+				if s.TimeLength > 0 then
+					fadeOut(s.TimeLength)
+				end
+			end)
+		end
 	end
 	s.Ended:Once(function()
 		s:Destroy()
