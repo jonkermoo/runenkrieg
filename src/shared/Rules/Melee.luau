@@ -6,12 +6,13 @@ local Damage = if typeof(script) == "Instance" then require(script.Parent.Damage
 
 local Melee = {}
 
--- What stops a strike: the gun's action under way (a bolt, a reload, single rounds going in), ragdolled, the gun folded
--- in against a wall, already striking.
-export type Hands = { busy: boolean?, ragdolled: boolean?, blocked: boolean?, striking: boolean? }
+-- What stops a strike: the gun's action under way (a bolt, a reload, single rounds going in), ragdolled, already
+-- striking. The gun folded in (src/client/Tuck "Blocked") doesn't: a soldier close in front folds it, and that is just
+-- where the butt stroke is for (Studio 2026-10-22: blocked up to ~6.5 studs, past the strike's reach).
+export type Hands = { busy: boolean?, ragdolled: boolean?, striking: boolean? }
 
 function Melee.free(h: Hands): boolean
-	return not (h.busy or h.ragdolled or h.blocked or h.striking)
+	return not (h.busy or h.ragdolled or h.striking)
 end
 
 -- A strike `cooldown` seconds after the last one (nil: none yet) at `now`, `slack` seconds early allowed (latency).

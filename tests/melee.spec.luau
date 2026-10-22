@@ -53,7 +53,7 @@ return {
 	end,
 	["the hands must be free"] = function()
 		assert(Melee.free({}))
-		for _, k in { "busy", "ragdolled", "blocked", "striking" } do
+		for _, k in { "busy", "ragdolled", "striking" } do
 			assert(not Melee.free({ [k] = true } :: any), k)
 		end
 	end,

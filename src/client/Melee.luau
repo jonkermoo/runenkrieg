@@ -1,9 +1,9 @@
 --!strict
 -- A gun's butt stroke on the local client (Config/Melee, Rules/Melee; the server decides in src/server/Melee): with a
 -- gun in the hands (Config/Weapons `ammo`) the melee key (Settings Key_Melee) strikes, unless the action is under way
--- (src/client/Firing.busy), ragdolled, folded in against a wall (src/client/Tuck "Blocked"), already striking or the
--- cooldown hasn't passed. Aiming or sprinting, the strike drops the aim and the sprint (src/client/Stance reads
--- "Striking") and they come back after it if still held.
+-- (src/client/Firing.busy), ragdolled, already striking or the cooldown hasn't passed; folded in (src/client/Tuck
+-- "Blocked": someone close in front) it strikes all the same. Aiming or sprinting, the strike drops the aim and the
+-- sprint (src/client/Stance reads "Striking") and they come back after it if still held.
 -- "StruckAt" marks the moment: src/client/Locomotion (third person, seen by everyone) and src/client/Viewmodel (first
 -- person) play the strike once over the hold. At the impact the direction goes to the server ("Melee"), unless the gun
 -- was put away meanwhile; "Striking" lasts until the gun is back in the hold (no shot, bolt or reload meanwhile).
@@ -33,7 +33,11 @@ end
 
 function Melee.start()
 	local player = Players.LocalPlayer
-	SoundFx.preload(Cfg.Sounds)
+	local picked = {}
+	for name in Cfg.Sounds do
+		picked[name] = sound(name) -- (none while its id is 0)
+	end
+	SoundFx.preload(picked)
 	local last: number? = nil
 
 	UserInputService.InputBegan:Connect(function(input, processed)
@@ -52,7 +56,6 @@ function Melee.start()
 			or not Rules.free({
 				busy = Firing.busy(),
 				ragdolled = character:GetAttribute("Ragdolled") == true,
-				blocked = character:GetAttribute("Blocked") == true,
 				striking = character:GetAttribute("Striking") == true,
 			})
 		then
