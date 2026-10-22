@@ -294,6 +294,7 @@ function Firing.start()
 			or not weapon
 			or not l
 			or character:GetAttribute("Sprinting") == true
+			or character:GetAttribute("Blocked") == true -- folded in against a wall (src/client/Tuck)
 			or character:GetAttribute("Ragdolled") == true
 		then
 			return

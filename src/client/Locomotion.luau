@@ -306,6 +306,7 @@ function Locomotion.attach(character: Model)
 		local holding = if not weapon
 			then nil
 			elseif character:GetAttribute("Winding") == true and W[weapon.name].holds.windup then "windup"
+			elseif character:GetAttribute("Blocked") == true and base ~= "sprint" then "tuck" -- (src/client/Tuck)
 			elseif character:GetAttribute("Aiming") then "aim"
 			elseif base == "sprint" then "carry"
 			else "ready"
@@ -319,6 +320,7 @@ function Locomotion.attach(character: Model)
 			elseif base == "crouchIdle" or base == "crouchWalk" then -- crouched: the holds for the hunched torso
 				pick = if holding == "aim"
 					then "crouchAim"
+					elseif holding == "tuck" then "crouchTuck"
 					elseif base == "crouchWalk" then "crouchWalk"
 					else "crouchReady"
 			elseif holding == "ready" and base == "walk" then
