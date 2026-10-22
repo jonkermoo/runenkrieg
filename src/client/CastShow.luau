@@ -1,7 +1,7 @@
 --!strict
 -- The staff casts in the animation showcase (src/server/Showcase "cast" dummies, Config/Showcase.Casts; DEV place):
 -- the server charges each dummy and publishes the cast as attributes; this draws the spell on every client the way
--- others would see a caster (Vfx/Zoltraak at full size, solid): the circles and their orbits open from the staff's
+-- others would see a caster (Vfx/Zoltraak at full size, solid, in its kit's team colours): the circles and their orbits open from the staff's
 -- head while "CastHeld" is set (counting up while charging), the aiming laser runs ahead while "CastCharging", and a
 -- new "CastFire" releases "CastStage" straight ahead (a hip quick fire: opened and released at once). Only near the
 -- camera (Config/Vfx.Showcase.Range).
@@ -12,6 +12,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Showcase)
 local Spells = require(Shared.Config.Spells)
+local SpellRules = require(Shared.Rules.Spells)
 local VfxCfg = require(Shared.Config.Vfx)
 local Vfx = require(script.Parent.Vfx)
 
@@ -27,7 +28,18 @@ local AHEAD = 120 -- how far the laser runs when it points at nothing
 local function watch(m: Model)
 	local cast: any = nil
 	local fired = m:GetAttribute("CastFire") or 0
-	local pointer = Vfx.Pointer.new()
+	-- the dummy's team's magic (Config/Spells.Staff.Teams by its "Kit"), the laser in it
+	local schemeName = SpellRules.scheme(m:GetAttribute("Kit"), Spells.Staff.Teams, Spells.Staff.Scheme)
+	local function newPointer()
+		local s = (VfxCfg.Schemes :: any)[schemeName]
+		return Vfx.Pointer.new(s.pointer, s.core)
+	end
+	local pointer = newPointer()
+	m:GetAttributeChangedSignal("Kit"):Connect(function()
+		schemeName = SpellRules.scheme(m:GetAttribute("Kit"), Spells.Staff.Teams, Spells.Staff.Scheme)
+		pointer.free()
+		pointer = newPointer()
+	end)
 	local conn: RBXScriptConnection
 	conn = RunService.RenderStepped:Connect(function()
 		if not m.Parent then
@@ -50,7 +62,7 @@ local function watch(m: Model)
 		local near = (workspace.CurrentCamera.CFrame.Position - from).Magnitude < VfxCfg.Showcase.Range
 		if type(held) == "number" then
 			if not cast and near then
-				cast = Vfx.Zoltraak.begin(tip, HOLDS)
+				cast = Vfx.Zoltraak.begin(tip, HOLDS, schemeName)
 			end
 			if cast then
 				cast.aim(tip)
@@ -67,7 +79,7 @@ local function watch(m: Model)
 		if f ~= fired then
 			fired = f
 			if not cast and near then
-				cast = Vfx.Zoltraak.begin(tip, HOLDS) -- a hip quick fire: opened and fired at once
+				cast = Vfx.Zoltraak.begin(tip, HOLDS, schemeName) -- a hip quick fire: opened and fired at once
 			end
 			if cast then
 				local stage = m:GetAttribute("CastStage")

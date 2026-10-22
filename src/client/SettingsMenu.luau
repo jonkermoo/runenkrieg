@@ -1,7 +1,7 @@
 --!strict
 -- Settings menu: a gear button (top right) or the Settings key (Key_Settings) opens a centred panel with tabs
 -- (Config/Settings.Tabs): segmented rows for choices, sliders for numbers, a press-a-key button per keybind, and the
--- graphics preset row (Config/Settings.Presets; "Custom" when the four don't match one). While open the Player's
+-- graphics preset row (Config/Settings.Presets; "Custom" when the five don't match one). While open the Player's
 -- "MenuOpen" attribute frees the mouse (src/client/WeaponCamera); a click outside the panel closes it.
 -- Layout, sizes and fonts come from the spec src/shared/ui/SettingsMenu.json (local layout check and preview scripts
 -- read the same file); a row is built from the spec's template for its option's kind, so a new option

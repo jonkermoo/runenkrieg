@@ -130,8 +130,18 @@ function StaffAttack.start()
 	local slowUntil, slowShare = 0, 1
 	local twoHands = false
 	local lockedHumanoid: Humanoid? = nil
-	local scheme = (VfxCfg.Schemes :: any)[S.Scheme]
+	-- the magic's look: the team's (Config/Spells.Staff.Teams by the "Kit" the server gives each life), the laser in it
+	local schemeName = S.Scheme
+	local scheme = (VfxCfg.Schemes :: any)[schemeName]
 	local pointer = Vfx.Pointer.new(scheme.pointer, scheme.core)
+	local function team(character: Model)
+		local name = Rules.scheme(character:GetAttribute("Kit"), S.Teams, S.Scheme)
+		if name ~= schemeName then
+			schemeName, scheme = name, (VfxCfg.Schemes :: any)[name]
+			pointer.free()
+			pointer = Vfx.Pointer.new(scheme.pointer, scheme.core)
+		end
+	end
 	local mana = Rules.mana(Cfg.Mana)
 	-- the cast shown to others (Net "StaffCast"): when the last "Aim" went
 	local remote = Net.event("StaffCast")
@@ -342,7 +352,7 @@ function StaffAttack.start()
 		local quick = Vfx.Zoltraak.begin(
 			CFrame.lookAt(from, from + dir),
 			HOLDS,
-			S.Scheme,
+			schemeName,
 			if own then S.ViewScale else 1,
 			if own then S.ViewSpread else 1
 		)
@@ -404,6 +414,7 @@ function StaffAttack.start()
 		end
 		chargeStep(math.min(dt, 0.1))
 		if character then
+			team(character)
 			local B = Cfg.Mana.burnout
 			character:SetAttribute("Mana", mana.value)
 			character:SetAttribute("ManaLocked", mana.locked)
@@ -449,7 +460,7 @@ function StaffAttack.start()
 				cast = Vfx.Zoltraak.begin(
 					t,
 					HOLDS,
-					S.Scheme,
+					schemeName,
 					if own then S.ViewScale else 1,
 					if own then S.ViewSpread else 1
 				)

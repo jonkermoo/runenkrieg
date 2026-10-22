@@ -13,7 +13,8 @@
 -- - healing someone (the "Healing" attribute, src/server/Healing): crouched at crouch speed, no sprint or aim;
 -- - in barbed wire (the "Wired" attribute, src/server/Wire): Config/Build.Wire.speed, no sprint, no jump;
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
---   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set.
+--   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set;
+-- - hip-deep water slows every pace by the character's "WadeScale" attribute (src/client/Wading).
 -- Sets the local character's Humanoid.WalkSpeed (the client owns its character's physics) and the "Sprinting" /
 -- "Aiming" / "Crouching" attributes that the animations, the camera and the weapon code read (local only; the
 -- animations they choose replicate).
@@ -103,6 +104,8 @@ function Stance.start()
 		-- unset)
 		local scale = character:GetAttribute("SpeedScale")
 		speed *= if type(scale) == "number" then scale else 1
+		local wade = character:GetAttribute("WadeScale")
+		speed *= if type(wade) == "number" then wade else 1
 		if wired then
 			speed = math.min(speed, BuildCfg.Wire.speed)
 		end
@@ -182,6 +185,7 @@ function Stance.start()
 		character.ChildAdded:Connect(apply)
 		character.ChildRemoved:Connect(apply)
 		character:GetAttributeChangedSignal("SpeedScale"):Connect(apply)
+		character:GetAttributeChangedSignal("WadeScale"):Connect(apply)
 		character:GetAttributeChangedSignal("Casting"):Connect(apply)
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
 		character:GetAttributeChangedSignal("Healing"):Connect(apply)

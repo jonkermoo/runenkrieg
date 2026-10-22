@@ -2,9 +2,9 @@
 -- Other players' staff casts as this player sees and hears them (user 2026-10-16: "the staff audio and visual for other
 -- users"; Net "StaffCast" relayed by src/server/StaffCast from each caster's src/client/StaffAttack; Config/Spells.Send,
 -- Rules/StaffNet). Visual and audio only.
--- - The cast is Vfx/Zoltraak at full size and solid (no veil: that's the caster's own view), opening from the staff's
---   head on the caster's body and turned to the caster's crosshair point (eased, Send.Follow). While charging, the
---   charge runs on from each "Aim" (at most Send.Ahead, never into a stage not paid for), the circles open and the
+-- - The cast is Vfx/Zoltraak at full size and solid (no veil: that's the caster's own view) in the caster's team's
+--   colours (schemeOf), opening from the staff's head on the caster's body and turned to the caster's crosshair point
+--   (eased, Send.Follow). While charging, the charge runs on from each "Aim" (at most Send.Ahead, never into a stage not paid for), the circles open and the
 --   build-up runs as for the caster, and the dashed laser points at the crosshair.
 -- - Shots: "Hip" opens and fires at once; "Pulse" fires stage 1 from the held circle, which stays; "Release" fires the
 --   stage and closes the cast (a cast not seen opening is opened to that stage first). The beam is aimed at where it
@@ -94,13 +94,17 @@ local function rootOf(character: Model): BasePart?
 	return character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
+-- the caster's team's magic (Config/Spells.Staff.Teams by its "Kit"): the same colours it sees itself
+local function schemeOf(character: Model): string
+	return Spells.scheme(character:GetAttribute("Kit"), S.Teams, S.Scheme)
+end
+
 local function ignoreFor(character: Model): { Instance }
 	return { character, workspace.CurrentCamera }
 end
 
 function StaffSeen.start()
 	local seen: { [Model]: Seen } = {}
-	local scheme = (VfxCfg.Schemes :: any)[S.Scheme]
 
 	local function stateOf(character: Model): Seen
 		local s = seen[character]
@@ -178,7 +182,7 @@ function StaffSeen.start()
 	local function open(character: Model, s: Seen, head: Attachment)
 		close(s)
 		s.aimed = s.target
-		s.cast = Vfx.Zoltraak.begin(tipOf(character, s, head), HOLDS, S.Scheme, 1, 1, heard)
+		s.cast = Vfx.Zoltraak.begin(tipOf(character, s, head), HOLDS, schemeOf(character), 1, 1, heard)
 	end
 
 	local function fire(character: Model, s: Seen, stage: number, target: Vector3, mode: string)
@@ -201,7 +205,7 @@ function StaffSeen.start()
 		s.cast, s.held = nil, nil
 		stopLoops(s)
 		if not c and shown then
-			c = Vfx.Zoltraak.begin(tip, HOLDS, S.Scheme, 1, 1, heard)
+			c = Vfx.Zoltraak.begin(tip, HOLDS, schemeOf(character), 1, 1, heard)
 			if mode == "Release" then
 				(c :: Zoltraak.Cast).update(HOLDS[stage]) -- not seen opening: opened to the stage at once
 			end
@@ -293,6 +297,7 @@ function StaffSeen.start()
 			-- the laser to the crosshair while charging
 			if held and target then
 				if not s.pointer then
+					local scheme = (VfxCfg.Schemes :: any)[schemeOf(character)]
 					s.pointer = Vfx.Pointer.new(scheme.pointer, scheme.core)
 				end
 				(s.pointer :: Pointer.Handle).set(tip.Position, target)
