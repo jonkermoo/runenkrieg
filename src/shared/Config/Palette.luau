@@ -194,6 +194,18 @@ local Palette = {
 		VoidDeep = { 70, 20, 130 },
 		VoidEdge = { 25, 5, 45 },
 		VoidToxic = { 130, 255, 110 },
+		-- the teams' magic (Config/Spells.Staff.Teams; user 2026-10-22: "make magic color different based on teams"): the
+		-- grey team keeps the frost blue above (Core / Glow / Deep / Violet); the olive team a brass gold, a lemon gold
+		-- kept off the orange of grenade and gun fire (Ember); the white-brown team a rose crimson, as its staff's red
+		-- ribbon. Brightest gold, middle blue, darkest crimson: apart for red-green colour-blind eyes too.
+		BrassCore = { 255, 250, 225 },
+		Brass = { 255, 210, 70 },
+		BrassDeep = { 215, 160, 25 },
+		BrassEdge = { 140, 105, 20 },
+		CrimsonCore = { 255, 235, 240 },
+		Crimson = { 255, 70, 100 },
+		CrimsonDeep = { 200, 20, 60 },
+		CrimsonEdge = { 110, 10, 45 },
 	},
 	-- UI: flat panels, one outline thickness everywhere.
 	UI = {
@@ -209,6 +221,7 @@ local Palette = {
 		slot = { 30, 34, 28 },
 		-- the staff's mana bar (src/client/ManaBar): the mana, the share the shot being charged will spend, the burnt-out
 		-- bar refilling after a mega shot, a refused shot's flash
+		-- (`mana` / `manaSpend` the start; the bar takes the player's team magic colours: Config/Spells.Staff.Teams)
 		mana = { 120, 200, 255 },
 		manaSpend = { 235, 250, 255 },
 		manaBurnt = { 118, 72, 150 },

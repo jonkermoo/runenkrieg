@@ -1,6 +1,7 @@
 --!strict
--- Healing others (H1; Config/Healing, Rules/Healing; src/server/Healing decides and heals). You never heal yourself:
--- the hurt soldier in reach nearest your look gets a prompt over the head ("[H] Bandage" below 70 health, "[H] Med
+-- Healing others (H1; Config/Healing, Rules/Healing; src/server/Healing decides and heals). You never heal yourself,
+-- only teammates (Rules/Teams: the same "Kit"; an enemy gets no prompt and the key does nothing on them): the hurt
+-- teammate in reach nearest your look gets a prompt over the head ("[H] Bandage" below 70 health, "[H] Med
 -- pack" from 70); the Heal key (Config/Settings Key_Heal) asks the server to start, and again to stop. While the
 -- server's "Healing" attribute is on the local soldier: crouched at crouch speed (src/client/Stance), turned to face
 -- the patient ("HealPatient"), playing the item's animations (the bandage wraps in circles; the med pack is torn open,
@@ -18,6 +19,7 @@ local DevCfg = require(Shared.Config.DevTools)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Healing)
+local Teams = require(Shared.Rules.Teams)
 local HealItems = require(Shared.HealItems)
 local HealView = require(script.Parent.HealView)
 local Settings = require(script.Parent.Settings)
@@ -32,7 +34,7 @@ local function root(m: Model?): BasePart?
 	return m and m:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
--- The hurt soldier in Range nearest the camera's look (within PickCone degrees), and the item they'd get.
+-- The hurt teammate in Range nearest the camera's look (within PickCone degrees), and the item they'd get.
 local function pick(me: Model): (Model?, string?)
 	local mine = root(me)
 	if not mine then
@@ -43,6 +45,9 @@ local function pick(me: Model): (Model?, string?)
 	local function consider(m: Instance?)
 		if not m or m == me or not m:IsA("Model") or not m:IsDescendantOf(workspace) then
 			return
+		end
+		if not Teams.same(me:GetAttribute("Kit"), m:GetAttribute("Kit")) then
+			return -- teammates only
 		end
 		local h = m:FindFirstChildOfClass("Humanoid")
 		local r = root(m)

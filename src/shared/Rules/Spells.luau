@@ -120,4 +120,9 @@ function Spells.capHeld(opens: { number }, stages: number, held: number): number
 	return if next then math.min(held, math.max(next - 0.01, 0)) else held
 end
 
+-- the look of a caster's magic: its kit's team scheme (Config/Spells.Staff.Teams), else `default`
+function Spells.scheme(kit: any, teams: { [string]: string }, default: string): string
+	return if type(kit) == "string" and teams[kit] then teams[kit] else default
+end
+
 return Spells
