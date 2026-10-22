@@ -41,8 +41,14 @@ local Spells = {
 	--   is ready you can't move or jump. The camera sway grows the same way (Config/Sway.Charge).
 	-- - Sprinting: no firing and no aiming.
 	Staff = {
-		-- the look of the magic (Config/Vfx.Schemes: Arcane, Hex, Ember, Verdant, Solar, Void; user 2026-10-13: made,
-		-- not yet given to anything)
+		-- the look of the magic (Config/Vfx.Schemes): each caster's team's, by the kit it wears (the character's "Kit"
+		-- attribute, Config/Uniforms.Kits; user 2026-10-22: "make magic color different based on teams (choose colors
+		-- wisely)"), seen the same by everyone; its mana bar too. `Scheme` for anyone else.
+		Teams = {
+			uniform1 = "Arcane", -- grey (Katzling): frost blue
+			uniform2 = "Brass", -- olive (Alb): brass gold
+			uniform3 = "Crimson", -- white-brown (Fennek): rose crimson
+		},
 		Scheme = "Arcane",
 		Hip = { spread = 2.5, walkSpread = 4 }, -- degrees (half-angle of the cone)
 		Cooldown = { 0.45, 1.0, 2.2 }, -- per fired stage, seconds (stage 3 includes the fall and getting up)

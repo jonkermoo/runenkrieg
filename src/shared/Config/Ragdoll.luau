@@ -45,12 +45,20 @@ local Ragdoll = {
 		StaffThrow = { push = 70, lift = 30, tumble = 10, getUp = 1 }, -- a full beam: sent flying
 		BlastThrow = { push = 60, lift = 35, tumble = 10, getUp = 1 }, -- thrown by a blast (away from it)
 	},
+	-- a hit on a body already dead takes this share of its knock: a nudge, not a throw (user 2026-10-22: "reduce the
+	-- knockback on shooting fallen/dead npc's")
+	corpse = 0.2,
 	-- A limp body that still stands upright (its torso's up within `upright` of straight up, as cos) from `after` s
 	-- into a knock is tipped over the way it was thrown (`spin` rad/s, `push` studs/s), again every `every` s while it
 	-- stands, for `window` s, by whichever side simulates it (user 2026-10-17: "headshots dont ragdoll with enough
 	-- force to fall on the ground sometimes"; a dead body passes to the server some time after the death)
 	-- The server throws a dead body it owns `settle` s after the death, holding the throw for `hold` s.
 	Tip = { after = 0.3, every = 0.25, window = 3, upright = 0.75, spin = 9, push = 3, settle = 0.1, hold = 0.1 },
+	-- A hit that hurts keeps a live soldier down longer the more it took (Rules/Ragdoll.getUp; user 2026-10-22: "add
+	-- longer ragdolls for more damage taken"): the get-up wait runs from `floor` s at no damage up to `ceiling` s at
+	-- `full` damage and more, in a straight line, never shorter than the knock's own `getUp`. A knock that does no
+	-- damage (the staff's recoil, the float fall, your own blast's throw) keeps its own `getUp`.
+	ByDamage = { floor = 0.5, ceiling = 2.5, full = 90 },
 	-- the knocks a player may ask for on itself (Net "KnockSelf": the staff's recoil, the float fall)
 	SelfKnocks = { StaffRecoil = true, FloatFall = true },
 	SelfRate = 2, -- "KnockSelf" requests a second at most (and burst)
