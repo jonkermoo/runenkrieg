@@ -7,8 +7,8 @@
 --   in front of the head (a box, not a sphere cast: a sphere cast misses whoever it starts inside, a soldier pressed
 --   against you); the part nearest the strike's line wins, if the head has a clear line to it (no strikes through a
 --   wall). A helmeted head loses its helmet (src/server/Helmets) and takes the "Helmet" numbers.
--- - then src/server/Damage.melee, and "Struck" to everyone (the sounds). Nothing in reach: what the line meets
---   ("Surface") or nothing. Until the gun is back in the hold src/server/Firing takes no shot, bolt or reload.
+-- - then src/server/Damage.melee, and "Struck" to everyone (the swing sound). Until the gun is back in the hold
+--   src/server/Firing takes no shot, bolt or reload.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -97,10 +97,7 @@ local function strike(player: Player, direction: any)
 	Firing.strike(character, now + Cfg.Strike.length - Cfg.Strike.impact)
 	local origin = head.Position
 	local part = target(character, origin, dir)
-	local what: string? = nil
-	local point = origin + dir * Cfg.Hit.reach
 	if part then
-		point = part.Position
 		local zone = DamageRules.zone(part.Name) :: string
 		local victim = part.Parent :: Model
 		if zone == "Head" and victim:GetAttribute("HelmetOn") == true then
@@ -108,17 +105,8 @@ local function strike(player: Player, direction: any)
 			zone = "Helmet"
 		end
 		Damage.melee(character, part, zone, dir)
-		what = if zone == "Helmet" then "Helmet" else "Body"
-	else
-		local ray = RaycastParams.new()
-		ray.FilterType = Enum.RaycastFilterType.Exclude
-		ray.FilterDescendantsInstances = { character }
-		local result = workspace:Raycast(origin, dir * Cfg.Hit.reach, ray)
-		if result then
-			point, what = result.Position, "Surface"
-		end
 	end
-	Net.event("Struck"):FireAllClients(character, point, what)
+	Net.event("Struck"):FireAllClients(character)
 end
 
 function Melee.start()

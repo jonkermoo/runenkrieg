@@ -7,7 +7,8 @@
 -- "StruckAt" marks the moment: src/client/Locomotion (third person, seen by everyone) and src/client/Viewmodel (first
 -- person) play the strike once over the hold. At the impact the direction goes to the server ("Melee"), unless the gun
 -- was put away meanwhile; "Striking" lasts until the gun is back in the hold (no shot, bolt or reload meanwhile).
--- Everyone's sounds come from the server's "Struck": the swing, then what it hit.
+-- The swing sound (Config/Melee.Swing): the striker's own as the butt comes forward, everyone else's on the server's
+-- "Struck".
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,19 +26,9 @@ local SoundFx = require(script.Parent.SoundFx)
 
 local Melee = {}
 
--- a sound entry, or nil while it has no file yet (id 0)
-local function sound(name: string): SoundFx.Entry?
-	local e = (Cfg.Sounds :: any)[name]
-	return if e and e.id ~= 0 then e else nil
-end
-
 function Melee.start()
 	local player = Players.LocalPlayer
-	local picked = {}
-	for name in Cfg.Sounds do
-		picked[name] = sound(name) -- (none while its id is 0)
-	end
-	SoundFx.preload(picked)
+	SoundFx.preload({ Swing = Cfg.Swing })
 	local last: number? = nil
 
 	UserInputService.InputBegan:Connect(function(input, processed)
@@ -65,6 +56,10 @@ function Melee.start()
 		local tool = weapon.tool
 		character:SetAttribute("Striking", true)
 		character:SetAttribute("StruckAt", now)
+		local head = character:FindFirstChild("Head")
+		if head then
+			SoundFx.play(Cfg.Swing, head, nil, { delay = Cfg.Swing.delay })
+		end
 		task.delay(Cfg.Strike.impact, function()
 			if tool.Parent == character and character:GetAttribute("StruckAt") == now then
 				Net.event("Melee"):FireServer(workspace.CurrentCamera.CFrame.LookVector)
@@ -77,19 +72,14 @@ function Melee.start()
 		end)
 	end)
 
-	-- everyone's strikes: the swing, then what it hit
-	Net.event("Struck").OnClientEvent:Connect(function(striker: Model, point: Vector3, what: string?)
-		if typeof(striker) ~= "Instance" or typeof(point) ~= "Vector3" then
+	-- everyone else's strikes: the swing
+	Net.event("Struck").OnClientEvent:Connect(function(striker: Model)
+		if typeof(striker) ~= "Instance" or striker == player.Character then
 			return
 		end
 		local head = striker:FindFirstChild("Head")
-		local swing = sound("Swing")
-		if head and swing then
-			SoundFx.play(swing, head)
-		end
-		local hit = if type(what) == "string" then sound(what) else nil
-		if hit then
-			SoundFx.play(hit, point)
+		if head then
+			SoundFx.play(Cfg.Swing, head)
 		end
 	end)
 end

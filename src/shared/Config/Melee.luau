@@ -14,13 +14,10 @@ local Melee = {
 	-- where the soldier faces (flat), and the strike within `slack` seconds of the cooldown (latency)
 	Hit = { reach = 5.5, radius = 1.2, cone = 35, slack = 0.15 },
 
-	-- the swing and the hit, heard by everyone (Config/Audio profile `Mechanism`); ids 0: not picked yet
-	Sounds = {
-		Swing = { id = 0, volume = 0.8, profile = "Mechanism" },
-		Body = { id = 0, volume = 1.2, profile = "Mechanism" }, -- the butt on a soldier
-		Helmet = { id = 0, volume = 1.2, profile = "Mechanism" }, -- on a helmet (it comes off)
-		Surface = { id = 0, volume = 1, profile = "Mechanism" }, -- on a wall, a tree, the ground
-	},
+	-- the swing, heard by everyone (Config/Audio profile `Mechanism`): "Wood Whoosh Slicing Air Quick Swings 1"
+	-- (ProSoundEffects; user 2026-10-22: "just a swinging sound is good", no hit sounds). The striker hears it `delay`
+	-- seconds after the key (as the butt comes forward), everyone else when the server has the strike ("Struck")
+	Swing = { id = 9120972444, volume = 0.8, profile = "Mechanism", delay = 0.1 },
 }
 
 return table.freeze(Melee)
