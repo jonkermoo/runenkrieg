@@ -75,6 +75,12 @@ local function idle(s: State, now: number, slack: number?): boolean
 	return now + (slack or 0) >= s.busyUntil
 end
 
+-- Whether the action is under way at `now` (a shot's fire time, the bolt, a reload, single rounds going in); `slack`
+-- seconds early counts as done (latency).
+function Firing.busy(s: State, now: number, slack: number?): boolean
+	return not idle(s, now, slack)
+end
+
 local function loadEnd(l: Load): number
 	return l.start + l.open + (l.rounds or l.room) * l.round + l.close
 end

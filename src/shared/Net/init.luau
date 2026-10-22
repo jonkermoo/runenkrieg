@@ -37,6 +37,12 @@ local Remotes: { string } = {
 	-- point, a reload from an open bolt starts there, a resumed action plays its rest); delay = wait this long first
 	-- (a rifle drawn again plays out its interrupted action after the draw)
 	"WeaponAction",
+	-- A gun's butt stroke (src/client/Melee, src/server/Melee; Config/Melee):
+	-- client -> server: (direction: Vector3) the butt lands now, along this direction (flat, where the striker faces)
+	-- server -> clients: (striker: Model, point: Vector3, what: "Body" | "Helmet" | "Surface" | nil) an accepted strike
+	-- and what it hit (nil: nothing), for everyone's sounds
+	"Melee",
+	"Struck",
 	-- client -> server: () putting the held weapon away with its unequip animation (src/server/Armory keeps a copy in
 	-- the hands meanwhile; Config/Locomotion.Stow)
 	"Stow",

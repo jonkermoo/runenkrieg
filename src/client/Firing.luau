@@ -278,6 +278,15 @@ local function showHud(hud: Hud, l: Local?, now: number)
 	hud.note.Visible = now < hud.noteUntil
 end
 
+-- Whether the local soldier's gun is working its action now (a shot's fire time, the bolt, a reload, single rounds
+-- going in): src/client/Melee strikes only with the hands free.
+local busyNow: () -> boolean = function()
+	return false
+end
+function Firing.busy(): boolean
+	return busyNow()
+end
+
 function Firing.start()
 	local player = Players.LocalPlayer
 	GunFx.preload()
@@ -302,6 +311,11 @@ function Firing.start()
 		return character, weapon, localState(weapon.tool, weapon.name)
 	end
 
+	busyNow = function()
+		local _, _, l = held()
+		return l ~= nil and F.busy(l.state, os.clock())
+	end
+
 	-- loading single rounds: stop after the round in the hand, then the bolt closes
 	local function stopLoad(character: Model, l: any, now: number)
 		local k = F.stopLoad(l.state, now)
@@ -321,6 +335,7 @@ function Firing.start()
 			or character:GetAttribute("Sprinting") == true
 			or character:GetAttribute("Blocked") == true -- folded in against a wall (src/client/Tuck)
 			or character:GetAttribute("Ragdolled") == true
+			or character:GetAttribute("Striking") == true -- a butt stroke (src/client/Melee)
 		then
 			return
 		end
@@ -369,7 +384,7 @@ function Firing.start()
 
 	local function reload()
 		local character, weapon, l = held()
-		if not character or not weapon or not l then
+		if not character or not weapon or not l or character:GetAttribute("Striking") == true then
 			return
 		end
 		local wasOpen = l.state.open

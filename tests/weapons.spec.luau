@@ -119,6 +119,7 @@ return {
 			"windup",
 			"throw",
 			"dig",
+			"strike", -- a gun's butt stroke (src/client/Melee)
 		}
 		for name, w in W do
 			for _, hold in if w.ammo then ALL else { "ready", "equip" } do

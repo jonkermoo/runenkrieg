@@ -72,7 +72,10 @@ function Stance.start()
 		-- healing someone (src/server/Healing sets "Healing"): crouched at crouch speed, no sprint, no aim
 		local healing = character:GetAttribute("Healing") ~= nil
 		local dragging = character:GetAttribute("Dragging") == true -- (src/server/Dragging) slow, no sprint, no aim
+		-- a butt stroke (src/client/Melee "Striking"): no sprint and no aim until it's back in the hold
+		local striking = character:GetAttribute("Striking") == true
 		local sprinting = sprintHeld
+			and not striking
 			and forward(humanoid)
 			and character:GetAttribute("Casting") ~= true
 			and not limp
@@ -96,6 +99,7 @@ function Stance.start()
 			and weapon ~= nil
 			and W[weapon.name].holds.aim ~= nil
 			and character:GetAttribute("Reloading") ~= true
+			and not striking
 		local speed = if dragging
 			then DragCfg.Speed
 			elseif sprinting then M.Movement.SprintSpeed
@@ -189,6 +193,7 @@ function Stance.start()
 		character:GetAttributeChangedSignal("Healing"):Connect(apply)
 		character:GetAttributeChangedSignal("Dragging"):Connect(apply)
 		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
+		character:GetAttributeChangedSignal("Striking"):Connect(apply) -- (and through a butt stroke)
 	end
 	player.CharacterAdded:Connect(hook)
 	player:GetAttributeChangedSignal(Dev.Admin.Attribute):Connect(apply)
