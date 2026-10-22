@@ -32,7 +32,10 @@ local Armory = {}
 -- when each player last said they're putting their weapon away (Net "Stow")
 local stowNote: { [Player]: number } = {}
 
-local LOADOUT = "Loadout_" -- Player attribute per slot: the weapon the player spawns with
+local LOADOUT = "Loadout_" -- Player attribute per slot: the weapon the player carries now (the dev menu shows it)
+-- Player attribute per slot: the weapon picked in the dev menu (Armory.choose), given on every spawn in place of the
+-- kit's. Kept apart from LOADOUT so a life's kit weapon never sticks to the next life's kit (each team its own).
+local PICK = "Pick_"
 
 local function v3(p: { number }): Vector3
 	return Vector3.new(p[1], p[2], p[3])
@@ -291,11 +294,11 @@ function Armory.give(player: Player, name: string): Tool
 	return tool
 end
 
--- The player's weapon for a slot: their pick ("Loadout_<slot>" on the Player, set by Armory.choose), else the
+-- The player's weapon for a slot: their pick ("Pick_<slot>" on the Player, set by Armory.choose), else the
 -- weapon (the primary), grenade or shovel of their kit this life (src/server/Kits, Config/Uniforms; every soldier
 -- carries a shovel, user 2026-10-20).
 function Armory.loadout(player: Player, slot: string): string?
-	local picked = player:GetAttribute(LOADOUT .. slot)
+	local picked = player:GetAttribute(PICK .. slot)
 	if type(picked) == "string" and W[picked] and W[picked].slot == slot then
 		return picked
 	end
@@ -311,7 +314,7 @@ end
 -- Makes the weapon the player's pick for its slot: given now (replacing the slot's weapon) and on every respawn.
 function Armory.choose(player: Player, name: string)
 	assert(W[name], "unknown weapon " .. name)
-	player:SetAttribute(LOADOUT .. W[name].slot, name)
+	player:SetAttribute(PICK .. W[name].slot, name)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid and humanoid.Health > 0 then
