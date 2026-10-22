@@ -503,7 +503,7 @@ local Assets = {
 				.. "Worn by Fennek (Rules/Looks.helmetEntry). White team (856 tris).",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 214, 214, 210 },
+				color = { 96, 70, 50 }, -- the brown team's chocolate (white-team branch)
 				brim = 0.06,
 				shell = "brodie",
 				center = { 0, 0.3873, 0.0023 }, -- the rings raise the box's top a little
