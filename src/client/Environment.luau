@@ -70,7 +70,7 @@ local function rainPart(): (BasePart, ParticleEmitter)
 	e.Transparency = NumberSequence.new(R.transparency)
 	e.Color = ColorSequence.new(rgb(R.color))
 	e.LightInfluence = R.light
-	e.LightEmission = 0
+	e.LightEmission = R.glow
 	e.Rate = 0
 	e.Parent = p
 	p.Parent = workspace.CurrentCamera

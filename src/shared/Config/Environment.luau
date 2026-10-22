@@ -81,10 +81,13 @@ local Environment = {
 		speed = 110, -- studs/s, falling
 		wind = 0.4, -- x workspace.GlobalWind, the slant
 		texture = "rbxasset://textures/particles/smoke_main.dds", -- Roblox's own soft blob, stretched into a streak
-		size = 0.12,
-		length = 2.2, -- the drop's stretch (ParticleEmitter.Squash)
+		size = 0.23,
+		-- the drop's stretch (ParticleEmitter.Squash): negative stretches it along the fall with VelocityParallel
+		-- (+2.2 made flat horizontal flecks, Studio round 2)
+		length = -2.2,
 		transparency = 0.25,
 		light = 0.6, -- LightInfluence: the drops darken at night, but stay visible
+		glow = 0.12, -- LightEmission
 		color = { 196, 206, 216 },
 		lifetime = 0.55,
 		-- under a roof (a part straight above the camera within `roof` studs) the drops stop and the sound dulls
