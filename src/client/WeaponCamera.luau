@@ -104,8 +104,9 @@ function WeaponCamera.start()
 	-- the whole body (with what it wears and holds) at one local transparency, the head (with its face and hats) at
 	-- its own; others always see it whole
 	local function show(character: Model, body: number, head: number?)
-		-- seen through, only the outer model shows (user 2026-10-18): under a helmet the hair and the head are hidden
-		-- whenever the head is faded at all, so they never show through the see-through helmet (src/server/Helmets)
+		-- seen through, only the outer model shows (user 2026-10-18): under a helmet the hair, the head and the species
+		-- ears (user 2026-10-21: they showed through it aiming in) are hidden whenever the head is faded at all, so they
+		-- never show through the see-through helmet (src/server/Helmets)
 		local helmeted = character:GetAttribute("HelmetOn") == true
 		local hair = character:FindFirstChild("Hair")
 		for _, d in character:GetDescendants() do
@@ -120,7 +121,12 @@ function WeaponCamera.start()
 					)
 				local t = if onHead and head then head else body
 				local inside = part ~= nil
-					and (part.Name == "Head" or part.Name == "FaceCard" or (hair ~= nil and part:IsDescendantOf(hair)))
+					and (
+						part.Name == "Head"
+						or part.Name == "FaceCard"
+						or (hair ~= nil and part:IsDescendantOf(hair))
+						or part:FindFirstAncestor("Ears") ~= nil
+					)
 				if helmeted and inside and t > 0 then
 					t = 1
 				end
