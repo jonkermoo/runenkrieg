@@ -481,9 +481,11 @@ local Artillery = {
 				},
 			},
 			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
-			-- (dug 12 down: `up` is over the pit's floor, so 8 put the camera inside the ground round the pit; was up 8,
-			-- pitch 6; looking a little down into the pit at the gunner)
-			camera = { side = -16, up = 20, back = 18, yaw = 25, pitch = -3, follow = 0.12, fov = 65 },
+			-- (dug 12 down; was side -16, up 8, back 18, pitch 6: that put it inside the ground round the pit, and from up
+			-- over the ground, Studio round 2, the rim hid the gunner, who stands >30 degrees under any line over it): down
+			-- in the pit behind the gunner's left, 2 under the ground, the gunner ~22 degrees under it; the landing marker is
+			-- drawn over the pit's wall (AlwaysOnTop)
+			camera = { side = -10, up = 10, back = 9, yaw = 25, pitch = -6, follow = 0.12, fov = 65 },
 		} :: Gun,
 	},
 }
