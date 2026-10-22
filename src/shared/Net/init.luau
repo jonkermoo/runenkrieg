@@ -76,6 +76,10 @@ local Remotes: { string } = {
 	-- client -> server: ("Start", patient: Model) heal the hurt soldier in reach (never yourself), or ("Stop") stop.
 	-- The healer's "Healing" attribute ("Bandage" | "MedPack", nil when not) and "HealPatient" ObjectValue say how it goes.
 	"Heal",
+	-- Dragging (src/client/Dragging asks, src/server/Dragging checks and drags; Config/Dragging, Rules/Dragging):
+	-- client -> server: ("Start", body: Model) drag the downed teammate in reach, or ("Stop") let go.
+	-- The dragger's "Dragging" attribute and "DragBody" ObjectValue, the body's "Dragged" attribute say how it goes.
+	"Drag",
 	-- Grenades (src/client/Grenades sends, src/server/Grenades checks and throws; Config/Grenades, Rules/Grenade):
 	-- client -> server: (direction: Vector3) throw the held grenade along this look (the server throws it from its own
 	-- view of the head)

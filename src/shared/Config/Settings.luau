@@ -104,6 +104,7 @@ local Settings = {
 		Key_Sprint = { kind = "key", label = "Sprint", default = "LeftShift" },
 		Key_Crouch = { kind = "key", label = "Crouch", default = "C" },
 		Key_Heal = { kind = "key", label = "Heal", default = "H" }, -- heal the hurt soldier you look at (Config/Healing)
+		Key_Drag = { kind = "key", label = "Drag", default = "G" }, -- drag the downed teammate you look at (Config/Dragging)
 		Key_Settings = { kind = "key", label = "Settings menu", default = "P" }, -- opens this menu (frees the mouse)
 	},
 
@@ -128,7 +129,16 @@ local Settings = {
 		{ name = "Audio", rows = { "MasterVolume", "EffectsVolume" } },
 		{
 			name = "Keybinds",
-			rows = { "Key_Fire", "Key_Aim", "Key_Reload", "Key_Sprint", "Key_Crouch", "Key_Heal", "Key_Settings" },
+			rows = {
+				"Key_Fire",
+				"Key_Aim",
+				"Key_Reload",
+				"Key_Sprint",
+				"Key_Crouch",
+				"Key_Heal",
+				"Key_Drag",
+				"Key_Settings",
+			},
 		},
 	},
 
