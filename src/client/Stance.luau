@@ -11,6 +11,8 @@
 -- - C toggles crouch (or is held: the "Hold" crouch mode) (moderate, from the user's reference video); sprinting or jumping stands you up. Crouched, the
 --   camera comes down with the body (Humanoid.CameraOffset follows the torso's drop; src/client/WeaponCamera too).
 -- - healing someone (the "Healing" attribute, src/server/Healing): crouched at crouch speed, no sprint or aim;
+-- - dragging a teammate (the "Dragging" attribute, src/server/Dragging): crouched at Config/Dragging.Speed, no sprint
+--   or aim;
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
 --   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set.
 -- Sets the local character's Humanoid.WalkSpeed (the client owns its character's physics) and the "Sprinting" /
@@ -25,6 +27,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
 local Dev = require(Shared.Config.DevTools)
+local DragCfg = require(Shared.Config.Dragging)
 local M = require(Shared.Config.Metrics)
 local W = require(Shared.Config.Weapons)
 local CameraRules = require(Shared.Rules.Camera)
@@ -67,15 +70,17 @@ function Stance.start()
 		end
 		-- healing someone (src/server/Healing sets "Healing"): crouched at crouch speed, no sprint, no aim
 		local healing = character:GetAttribute("Healing") ~= nil
+		local dragging = character:GetAttribute("Dragging") == true -- (src/server/Dragging) slow, no sprint, no aim
 		local sprinting = sprintHeld
 			and forward(humanoid)
 			and character:GetAttribute("Casting") ~= true
 			and not limp
 			and not healing
+			and not dragging
 		if sprinting then
 			crouched = false -- a sprint stands you up
 		end
-		local low = crouched or healing
+		local low = crouched or healing or dragging
 		-- only an item with an aim hold can be aimed (the staff has no sights)
 		local weapon = Held.weapon(character)
 		if aimHeld and Settings.get("AimMode") == "Toggle" and (sprinting or limp or not weapon) then
@@ -86,11 +91,13 @@ function Stance.start()
 			and character:GetAttribute("Blocked") ~= true -- the gun folded in (src/client/Tuck)
 			and not limp
 			and not healing
+			and not dragging
 			and weapon ~= nil
 			and W[weapon.name].holds.aim ~= nil
 			and character:GetAttribute("Reloading") ~= true
-		local speed = if sprinting
-			then M.Movement.SprintSpeed
+		local speed = if dragging
+			then DragCfg.Speed
+			elseif sprinting then M.Movement.SprintSpeed
 			elseif low then M.Movement.CrouchSpeed
 			elseif aiming then M.Movement.AimWalkSpeed
 			else M.Movement.WalkSpeed
@@ -176,6 +183,7 @@ function Stance.start()
 		character:GetAttributeChangedSignal("Casting"):Connect(apply)
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
 		character:GetAttributeChangedSignal("Healing"):Connect(apply)
+		character:GetAttributeChangedSignal("Dragging"):Connect(apply)
 		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
 	end
 	player.CharacterAdded:Connect(hook)

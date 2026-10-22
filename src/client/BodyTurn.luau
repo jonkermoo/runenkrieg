@@ -6,7 +6,8 @@
 --   2026-10-20: "make the gun always aim towards your general crosshair in third person"): the body faces the view,
 --   fast, walking sideways or back included;
 -- - nothing in the hands (Roblox's camera): the body turns to where it walks, or to the view in Roblox's first person
---   or mouse lock; standing still it stays. Healing someone (src/client/Healing), it faces the patient instead.
+--   or mouse lock; standing still it stays. Healing someone (src/client/Healing), it faces the patient instead;
+--   dragging a teammate (src/server/Dragging "DragBody"), it faces the body, in first person too (walking backwards).
 -- Ragdolled, seated, climbing, swimming, knocked down or dead: left alone (nor is it rewritten when nothing turns).
 
 local FREE = {
@@ -76,10 +77,14 @@ function BodyTurn.start()
 			-- healing someone (src/server/Healing "HealPatient"): out of first person, facing the patient
 			local link = character:GetAttribute("Healing") ~= nil
 				and character:FindFirstChild("HealPatient") :: ObjectValue?
-			local patient = link and link.Value
+			-- dragging a teammate (src/server/Dragging "DragBody"): facing the body, first person too
+			local drag = character:GetAttribute("Dragging") == true
+				and character:FindFirstChild("DragBody") :: ObjectValue?
+			local holder = drag or link
+			local patient = holder and holder.Value
 			local theirs = patient and patient:FindFirstChild("HumanoidRootPart") :: BasePart?
 			local to = theirs and (theirs.Position - root.Position) * Vector3.new(1, 0, 1)
-			if not first and to and to.Magnitude > 1e-3 then
+			if (drag or not first) and to and to.Magnitude > 1e-3 then
 				target, rate = yaw + Rules.wrap(yawOf(to) - yaw), T.Face
 			elseif first or UserInputService.MouseBehavior == Enum.MouseBehavior.LockCenter then
 				target = yaw + Rules.wrap(look - yaw)
