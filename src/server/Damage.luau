@@ -100,7 +100,8 @@ local function hurt(
 		return
 	end
 	if knock then
-		Ragdoll.knock(character, knock, direction, scale)
+		-- down longer the harder it hurt (Config/Ragdoll.ByDamage; god mode too, by what it would have taken)
+		Ragdoll.knock(character, knock, direction, scale, humanoid.Health - left)
 	end
 	if not Dev.god(character) then
 		Healing.hit(character) -- a healer hit stops healing (Config/Healing)
