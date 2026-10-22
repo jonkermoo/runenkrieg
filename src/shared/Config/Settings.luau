@@ -7,13 +7,21 @@
 
 local Settings = {
 	Options = {
-		-- Graphics. The preset row (Presets below) sets the four marked "preset" together.
+		-- Graphics. The preset row (Presets below) sets the five marked "preset" together.
 		GrassQuality = {
 			kind = "choice",
 			label = "Grass",
 			values = { "Off", "Low", "Medium", "High" }, -- Config/Foliage.Levels
 			default = "Medium",
 			defaultTouch = "Low",
+		},
+		-- the screen look: colour grade, bloom, sun rays, sky light (Config/Look, src/client/Look)
+		Effects = {
+			kind = "choice",
+			label = "Lighting effects",
+			values = { "Off", "Normal", "Beautiful" },
+			default = "Normal",
+			defaultTouch = "Off",
 		},
 		Shadows = { kind = "choice", label = "Shadows", values = { "Off", "On" }, default = "On", defaultTouch = "Off" },
 		TreeSway = {
@@ -103,7 +111,7 @@ local Settings = {
 	Tabs = {
 		{
 			name = "Graphics",
-			rows = { "Preset", "GrassQuality", "Shadows", "TreeSway", "Debris", "FieldOfView", "ScreenBlur" },
+			rows = { "Preset", "GrassQuality", "Effects", "Shadows", "TreeSway", "Debris", "FieldOfView", "ScreenBlur" },
 		},
 		{
 			name = "Controls",
@@ -135,9 +143,9 @@ local Settings = {
 	PresetLabel = "Graphics",
 	PresetOrder = { "Low", "Normal", "Beautiful" },
 	Presets = {
-		Low = { GrassQuality = "Low", Shadows = "Off", TreeSway = "Off", Debris = "Low" },
-		Normal = { GrassQuality = "Medium", Shadows = "On", TreeSway = "On", Debris = "Medium" },
-		Beautiful = { GrassQuality = "High", Shadows = "On", TreeSway = "On", Debris = "High" },
+		Low = { GrassQuality = "Low", Effects = "Off", Shadows = "Off", TreeSway = "Off", Debris = "Low" },
+		Normal = { GrassQuality = "Medium", Effects = "Normal", Shadows = "On", TreeSway = "On", Debris = "Medium" },
+		Beautiful = { GrassQuality = "High", Effects = "Beautiful", Shadows = "On", TreeSway = "On", Debris = "High" },
 	},
 
 	-- Client debris (src/client/Debris): shares of Config/Destruction.Debris maxLive and lifetime.
