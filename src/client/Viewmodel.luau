@@ -298,11 +298,17 @@ function Viewmodel.start()
 		end
 		if not character or not weapon or character:GetAttribute("CameraInside") ~= true then
 			if rig then
-				rig.model.Parent = nil
-				-- out of view the holds stop, so coming back (aiming again) starts afresh with the aim-in
+				-- out of view the holds stop, so coming back (aiming again) starts afresh with the aim-in; so do the
+				-- actions src/client/GunFx plays on it (a reload, the bolt): out of the DataModel a track stands still, so
+				-- one left playing came back with the rig and played the rest of a reload long done over the aim (the
+				-- gun gone from view, user 2026-10-22). Stopped before the rig leaves, while the animator still steps
+				for _, t in rig.animator:GetPlayingAnimationTracks() do
+					t:Stop(0)
+				end
 				for _, t in rig.tracks do
 					t:Stop(0)
 				end
+				rig.model.Parent = nil
 				playing = nil
 			end
 			if not weapon then
