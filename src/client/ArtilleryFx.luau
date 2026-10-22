@@ -4,21 +4,22 @@
 -- effect when the cannon is fired. give it recoil air effects", "make the howitzer have a cinematic magic charge up",
 -- "make the explosions have a staticky effect (charge up, projectile, explosion) kind of like the beam":
 -- - shot(gun, origin, dir): on top of the muzzle blast (Vfx.Muzzle) a pressure wave racing out along the bore, a
---   flat ring blown across the ground, a clear air bubble swelling from the muzzle, and a shake for whoever is near;
+--   flat ring blown across the ground, a clear air bubble swelling from the muzzle, and a shake for whoever is near
+--   (src/client/CameraShake);
 -- - shell(gun, origin, velocity, flight): the shell flying its path: the field gun's a hot slug trailing smoke, the
 --   howitzer's a blue orb trailing light with static crackling round it;
 -- - charge(gun, model, muzzle, crystal): the howitzer's charge-up before the shot: a magic circle opening at the
 --   muzzle, energy gathering in it, lightning running from the crystal to the muzzle, static on the crystal, a rising
 --   hum; returns a stop called at the shot;
 -- - blast(gun, position): the howitzer's static after its explosion: bolts leaping out across the ground and a
---   crackling aura; and a shake for whoever is near (both guns).
+--   crackling aura (the shake for whoever is near comes with the explosion, src/client/CameraShake).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Artillery)
 local Rules = require(Shared.Rules.Artillery)
+local CameraShake = require(script.Parent.CameraShake)
 local SoundFx = require(script.Parent.SoundFx)
 local Vfx = require(script.Parent.Vfx)
 
@@ -30,43 +31,6 @@ local rng = Random.new()
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
-end
-
--- the camera shake: kicks added up, each decaying; applied after the camera has been placed
-local kicks: { { at: number, size: number } } = {}
-local shaking = false
-local function shake(at: Vector3, size: number, reach: number)
-	local d = (workspace.CurrentCamera.CFrame.Position - at).Magnitude
-	if d >= reach then
-		return
-	end
-	table.insert(kicks, { at = os.clock(), size = size * (1 - d / reach) ^ 2 })
-	if shaking then
-		return
-	end
-	shaking = true
-	RunService:BindToRenderStep("ArtilleryShake", Enum.RenderPriority.Camera.Value + 5, function()
-		local now = os.clock()
-		local sx, sy = 0, 0
-		for i = #kicks, 1, -1 do
-			local k = kicks[i]
-			local t = now - k.at
-			if t > F.Shake.time then
-				table.remove(kicks, i)
-			else
-				local a = k.size * (1 - t / F.Shake.time) ^ 2
-				sx += a * math.sin(t * F.Shake.speed * 1.3)
-				sy += a * math.cos(t * F.Shake.speed)
-			end
-		end
-		if #kicks == 0 then
-			shaking = false
-			RunService:UnbindFromRenderStep("ArtilleryShake")
-			return
-		end
-		local cam = workspace.CurrentCamera
-		cam.CFrame = cam.CFrame * CFrame.Angles(math.rad(sy), math.rad(sx), 0)
-	end)
 end
 
 -- a quick swelling see-through ball (the air thrown out by the blast)
@@ -107,7 +71,7 @@ function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3)
 		Vfx.Shockwave.play(ground.Position + Vector3.new(0, 0.2, 0), Vector3.yAxis, S.color, S.ground * k)
 	end
 	bubble(origin + d * S.ahead * k, F.Air.size * k, F.Air.time)
-	shake(origin, F.Shake.shot * k, F.Shake.reach * k)
+	CameraShake.kick(origin, F.Shake.shot * k, F.Shake.reach * k)
 	-- smoke curling up out of the barrel after the shot, thinning out (user 2026-10-21: "make smoke come out of the
 	-- cannons (both)")
 	local M = F.Smoke
@@ -343,9 +307,8 @@ function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () ->
 	end
 end
 
--- the howitzer's static after its blast: bolts leaping out over the ground, a crackling aura (and, any gun, a shake)
+-- the howitzer's static after its blast: bolts leaping out over the ground, a crackling aura (its shake: Vfx/Blast)
 function ArtilleryFx.blast(gun: any, position: Vector3)
-	shake(position, F.Shake.blast * math.max(gun.kg, 1) ^ (1 / 3), F.Shake.blastReach * math.max(gun.kg, 1) ^ (1 / 3))
 	if not gun.vfx.magic then
 		return
 	end
