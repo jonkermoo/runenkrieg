@@ -31,7 +31,13 @@ end
 
 -- Puts `entry`'s pack on the character (replacing any old one); nil takes it off.
 function Packs.dress(character: Model, entry: string?)
-	local old = character:FindFirstChild("Pack")
+	Packs.wear(character, "Pack", entry, entry and Palette.Packs[entry] or {})
+end
+
+-- Puts `entry`'s gear on the Torso as the model `name` (replacing any old one; nil takes it off), each part colored
+-- by its mesh name from `colors`. Shared with src/server/Rigs.
+function Packs.wear(character: Model, name: string, entry: string?, colors: { [string]: { number } })
+	local old = character:FindFirstChild(name)
 	if old then
 		old:Destroy()
 	end
@@ -41,14 +47,13 @@ function Packs.dress(character: Model, entry: string?)
 		return
 	end
 	local model = src:Clone()
-	model.Name = "Pack"
+	model.Name = name
 	local origin = model:FindFirstChild("Origin", true) :: BasePart?
 	if not origin then
 		warn(`[Packs] {entry}: the model has no Origin marker`)
 		return
 	end
 	local frame = CFrame.new(origin.Position) -- Torso space: the Origin's position, the model's axes
-	local colors = Palette.Packs[entry] or {}
 	for _, p in model:GetDescendants() do
 		if p:IsA("BasePart") and p ~= origin then
 			local rel = frame:ToObjectSpace(p.CFrame)

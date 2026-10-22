@@ -53,6 +53,15 @@ local Uniforms = {
 		{ name = "m_midpart", weight = 1 },
 		{ name = "bald", weight = 1 },
 	},
+	-- Rigs (bandolier webbing, pouches only: Config/Assets rig1-3, docs/CHARACTERS.md; user 2026-10-22: "start using
+	-- the random bandolier rigs (use different coloring per team)"): one rolled each life like the looks (Rules/Looks:
+	-- by weight, never the soldier's last), worn over the uniform by src/server/Rigs, colored by the kit
+	-- (Config/Palette.Rigs).
+	Rigs = {
+		{ name = "rig1", weight = 1 },
+		{ name = "rig2", weight = 1 },
+		{ name = "rig3", weight = 1 },
+	},
 	-- Helmets shot off (user 2026-10-14; docs/HATS.md): a hit in the top half of the head's hitbox (2 x 1 x 1, the R6
 	-- Head part) knocks the worn helmet off; the helmet-on hair is swapped for the original and a loose copy of the
 	-- helmet flies off along the shot (`speed` studs/s, plus `up`), tumbling (`spin` rad/s at most), and is gone after
