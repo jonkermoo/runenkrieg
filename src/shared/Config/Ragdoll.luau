@@ -45,6 +45,9 @@ local Ragdoll = {
 		StaffThrow = { push = 70, lift = 30, tumble = 10, getUp = 1 }, -- a full beam: sent flying
 		BlastThrow = { push = 60, lift = 35, tumble = 10, getUp = 1 }, -- thrown by a blast (away from it)
 	},
+	-- a hit on a body already dead takes this share of its knock: a nudge, not a throw (user 2026-10-22: "reduce the
+	-- knockback on shooting fallen/dead npc's")
+	corpse = 0.2,
 	-- A limp body that still stands upright (its torso's up within `upright` of straight up, as cos) from `after` s
 	-- into a knock is tipped over the way it was thrown (`spin` rad/s, `push` studs/s), again every `every` s while it
 	-- stands, for `window` s, by whichever side simulates it (user 2026-10-17: "headshots dont ragdoll with enough
