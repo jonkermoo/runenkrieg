@@ -401,12 +401,12 @@ local Artillery = {
 			-- shell's fragments flying far
 			-- (user 2026-10-22: "a direct hit from the howitzer should destroy an entire house and some of its
 			-- surroundings"): every wall, roof and door class fails at 1,000 kPa (Damage.Blast.Fail, stone 1,200), which a
-			-- charge reaches out to ~0.95 x kg^(1/3) studs. A shell on the roof of an average cottage (22 x 14, one 12-stud
-			-- story, the roof hit ~16 up) has its farthest ground-floor wall sections ~16 studs off: 250 kg breaks walls to
-			-- ~17.7 (stone ~16.3), so the whole house comes down and the collapse rule (Destruction) takes what's left of a
-			-- bigger one; round it trees fall to ~61, glass breaks to ~110, a crater ~58 across, soldiers die to ~23 by blast
-			-- and are hurt to ~44 (was 50 kg: walls to ~10, a hole in one side)
-			kg = 250,
+			-- charge reaches out to ~0.95 x kg^(1/3) studs. A shell on the ridge of a village cottage (up to 24 x 21, one
+			-- 12-stud story, the ridge ~16 up) has its farthest ground-floor wall sections ~19 studs off: 400 kg breaks walls
+			-- to ~20.7 (stone ~19), so the whole house comes down; round it trees fall to ~72, glass breaks to ~128, a
+			-- crater ~68 across, soldiers die to ~27 by blast and are hurt to ~51 (was 50 kg: walls to ~10, a hole in one
+			-- side; Studio round 1 at 250 kg: walls to ~17.7 took 19 of a cottage's 38 sections, a wall stood)
+			kg = 400,
 			fragments = { lethal = 18, wound = 60, max = 100, near = 80, far = 20 },
 			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
 			reload = 30,
@@ -428,10 +428,11 @@ local Artillery = {
 			-- (13d-e: the voxel columns along an axis sit 10.2 and 14.14 out, so a pit under 14.2 stops at the first and the
 			-- bed's corners ~10.2 out end up in its wall; at 2.8 the rim stands ~1.6)
 			-- (user 2026-10-22: "have the howitzer really dug down. only the barrel should really be exposed"; was 1.5): the
-			-- carriage walls' crowns stand 9.3 over the bed's underside (bertha.py), so at 9.5 only the barrel (its trunnion
-			-- 7.4 up) rises out of the ground, and the rim covers the rest; a ramp `width` wide climbs out behind the gun over
-			-- `length` studs (~20 degrees; at least two voxels wide, as the rim)
-			dig = { depth = 9.5, radius = 15, rim = 9, rimHeight = 2.8, ramp = { width = 10, length = 26 } },
+			-- carriage walls' crowns stand 9.3 over the bed's underside (bertha.py) and the cradle round the barrel rose to
+			-- 15.3 at 45 degrees (Studio round 1 at 9.5 deep: 3.3 over the ground), so at 12 only the barrel rises out of the
+			-- ground, and the rim covers the rest; a ramp `width` wide climbs out behind the gun over `length` studs (~20
+			-- degrees; at least two voxels wide, as the rim)
+			dig = { depth = 12, radius = 15, rim = 9, rimHeight = 2.8, ramp = { width = 10, length = 33 } },
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
@@ -451,7 +452,7 @@ local Artillery = {
 				},
 				whistleLead = 2.5,
 			},
-			zone = 44, -- 250 kg: lethal by blast to ~23, the blast hurting to ~44
+			zone = 51, -- 400 kg: lethal by blast to ~27, the blast hurting to ~51
 			-- a bright four-point star (user 2026-10-21: "a bright 4 point star"): a white-hot core, the spikes (below), a
 			-- strong light; a blue trail of light and static crackling round it
 			shell = {
@@ -480,9 +481,9 @@ local Artillery = {
 				},
 			},
 			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
-			-- (dug 9.5 down: `up` is over the pit's floor, so 8 put the camera inside the ground round the pit; was up 8,
-			-- pitch 6)
-			camera = { side = -16, up = 17.5, back = 18, yaw = 25, pitch = 0, follow = 0.12, fov = 65 },
+			-- (dug 12 down: `up` is over the pit's floor, so 8 put the camera inside the ground round the pit; was up 8,
+			-- pitch 6; looking a little down into the pit at the gunner)
+			camera = { side = -16, up = 20, back = 18, yaw = 25, pitch = -3, follow = 0.12, fov = 65 },
 		} :: Gun,
 	},
 }
