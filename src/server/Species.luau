@@ -3,7 +3,8 @@
 -- Head and its tail on the Torso, from the library models (Config/Assets `ears_<species>` / `tail_<species>`). Each
 -- ear swings on a Motor6D at its root and the tail is one skinned mesh bent by its bones, so src/client/SpeciesMotion
 -- can move them locally; the rest of an ear (inner, tufts) is welded to it. The
--- fur round each ear's root ("Ruff") stays on the head and hides while a helmet is on (it pokes through the shell).
+-- fur round each ear's root ("Ruff") stays on the head and hides while a helmet is on (it pokes through the shell); the
+-- ears themselves come out through the holes of the species' helmet (src/server/Helmets).
 -- Colours by piece role (Rules/Species.color): the fur the hair colour, the elf ears the skin. Purely visual: no
 -- collisions, never hit (CanQuery off), massless. The character's "Species" attribute says which ("human": none).
 -- A bald soldier wears no animal ears, only the tail (Rules/Species.wearsEars; user 2026-10-21).
@@ -190,6 +191,12 @@ local function showRuff(character: Model)
 	end
 end
 
+-- The species `character` spawns as in uniform `kit` (the player's "Species" attribute wins), or nil: a plain human.
+function Species.of(character: Model, kit: string): string?
+	local player = Players:GetPlayerFromCharacter(character)
+	return Rule.of(kit, player and player:GetAttribute("Species"), Cfg)
+end
+
 -- Spawn: the species of uniform `kit` (or the player's "Species" attribute) on the character, after its helmet
 -- (src/server/Helmets sets "HelmetOn") and its looks ("HairColor", "SkinColor": src/server/Bodies).
 function Species.dress(character: Model, kit: string)
@@ -199,8 +206,7 @@ function Species.dress(character: Model, kit: string)
 			old:Destroy()
 		end
 	end
-	local player = Players:GetPlayerFromCharacter(character)
-	local name = Rule.of(kit, player and player:GetAttribute("Species"), Cfg)
+	local name = Species.of(character, kit)
 	character:SetAttribute("Species", name or "human")
 	local kind = name and Cfg.Kinds[name]
 	local head = character:FindFirstChild("Head") :: BasePart?

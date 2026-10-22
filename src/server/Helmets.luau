@@ -159,14 +159,18 @@ local function clear(character: Model)
 	end
 end
 
--- Spawn: the kit's helmet (if any) over the helmet-on hair, or the original hair bareheaded. Reads the character's
+-- Spawn: the kit's helmet (if any) over the helmet-on hair, or the original hair bareheaded. A soldier of `species`
+-- wears the helmet's ear-hole version when there is one (Rules/Looks.helmetEntry). Reads the character's
 -- "HairStyle" and "HairColor" attributes (src/server/Bodies rolls them).
-function Helmets.dress(character: Model, headwear: string?)
+function Helmets.dress(character: Model, headwear: string?, species: string?)
 	local head = character:FindFirstChild("Head") :: BasePart?
 	if not head then
 		return
 	end
 	clear(character)
+	if headwear then
+		headwear = Looks.helmetEntry(headwear, species, A.Entries)
+	end
 	local on = headwear and helmet(headwear, head)
 	local shell = if on and headwear then (A.Entries[headwear].fit :: any).shell else nil
 	if shell then

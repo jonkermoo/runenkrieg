@@ -397,6 +397,24 @@ local Assets = {
 				center = { 0, 0.672, -0.034 },
 			},
 		},
+		helmet_stahl_katzling = {
+			id = 139562349895399, -- 2026-10-20
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "The default helmet_stahl (unchanged) with an oval hole each side of the crown for the Katzling "
+				.. "cat ears, a rolled steel ring round each (user 2026-10-20). Worn by Katzlings (Rules/Looks.helmetEntry). "
+				.. "Grey team (1134 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = { Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 }, -- the rings raise the box's top a little
+			},
+		},
 		helmet_m33_goggles = {
 			id = 136907445966779, -- narrowed M33 (2026-10-20; docs/HATS.md "New helmets")
 			category = "Teams",

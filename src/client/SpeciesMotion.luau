@@ -1,16 +1,18 @@
 --!strict
 -- Procedural ear and tail motion (Config/Species.Motion; user 2026-10-18: "procedural motion"). Every client moves
--- every soldier's species joints (src/server/Species: Motor6Ds named EarL / EarR on the Head; the tail's bones Tail1..)
+-- every soldier's (and dev dummy's) species joints (src/server/Species: Motor6Ds named EarL / EarR on the Head; the tail's bones Tail1..)
 -- itself, through each joint's Transform, so nothing replicates: ears drift and now and then one twitches, lie back
 -- while sprinting and flatten when hit (flat for good once dead); a tail sways, lifts as its soldier runs and swings
 -- against sideways motion, and hangs limp once dead. Characters beyond Motion.Range from the camera hold still.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Species)
+local DevTools = require(Shared.Config.DevTools)
 local Rule = require(Shared.Rules.Species)
 
 local SpeciesMotion = {}
@@ -112,8 +114,14 @@ local function step(dt: number)
 	local now = os.clock()
 	local camera = workspace.CurrentCamera
 	local eye = camera and camera.CFrame.Position or Vector3.zero
+	local characters: { Instance } = CollectionService:GetTagged(DevTools.Dummies.Tag)
 	for _, player in Players:GetPlayers() do
-		local character = player.Character
+		if player.Character then
+			table.insert(characters, player.Character)
+		end
+	end
+	for _, c in characters do
+		local character: Model? = if c:IsA("Model") then c else nil
 		local s = character and stateOf(character, now)
 		local torso = s and s.torso
 		if not character or not s or not torso then

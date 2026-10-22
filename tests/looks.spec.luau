@@ -64,6 +64,20 @@ return {
 		end
 		assert(Looks.hairEntry("bald", "stahl") == nil, "bald wears no hair")
 	end,
+	["a species wears its ear-hole helmet when there is one"] = function()
+		assert(Looks.helmetEntry("helmet_stahl", "katzling", A.Entries) == "helmet_stahl_katzling", "katzling: holes")
+		assert(Looks.helmetEntry("helmet_stahl", nil, A.Entries) == "helmet_stahl", "human: the plain helmet")
+		assert(Looks.helmetEntry("helmet_m33", "alb", A.Entries) == "helmet_m33", "no holed version: the plain one")
+		local S = require("../src/shared/Config/Species")
+		for kit, species in S.Kits do
+			local k = U.Kits[kit]
+			local e = k and k.headwear and A.Entries[Looks.helmetEntry(k.headwear, species, A.Entries)]
+			assert(
+				not k or not k.headwear or (e and e.fit and e.fit.shell == A.Entries[k.headwear].fit.shell),
+				`{kit}: the species' helmet keeps the kit's shell (its helmet-on hairs fit)`
+			)
+		end
+	end,
 	["the helmet covers the top half of the head's hitbox"] = function()
 		assert(Looks.onHelmet({ X = 0.9, Y = 0.01, Z = -0.5 }), "just above the middle: helmet")
 		assert(not Looks.onHelmet({ X = 0, Y = -0.01, Z = -0.5 }), "just below: head")

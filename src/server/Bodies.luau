@@ -122,7 +122,11 @@ function Bodies.apply(character: Model)
 	pants.PantsTemplate = "rbxassetid://" .. kit.pants
 	pants.Parent = character
 	-- the helmet stays off once it has been shot off this life
-	Helmets.dress(character, if character:GetAttribute("HelmetOn") == false then nil else kit.headwear)
+	Helmets.dress(
+		character,
+		if character:GetAttribute("HelmetOn") == false then nil else kit.headwear,
+		Species.of(character, U.Default)
+	)
 	Packs.dress(character, kit.pack)
 	-- the kit's species: ears and a tail (src/server/Species)
 	Species.dress(character, U.Default)
