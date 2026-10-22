@@ -237,7 +237,9 @@ function GunFx.shot(character: Model, hit: Vector3, normal: Vector3?, part: Inst
 	if gun then
 		GunFx.flash(gun)
 		if not heard then
-			GunFx.sound(gun, "Shot")
+			-- on the body's gun, as the mechanism's sounds (GunFx.cycle): the viewmodel's goes out of the DataModel when
+			-- aiming ends, which cut the shot playing on it short (user 2026-10-22)
+			GunFx.sound(GunFx.guns(character)[1] or gun, "Shot")
 		end
 	end
 	GunFx.kick(character)
