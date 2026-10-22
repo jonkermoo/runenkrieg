@@ -20,11 +20,12 @@ export type Kind = {
 }
 
 local Species = {
-	-- uniform kit (Config/Uniforms.Kits) -> species; kits not listed are plain humans. The white team (Fennek) has no
-	-- kit yet. Testing: a player's "Species" attribute (a Kinds name or "human") wins, applied at the next spawn.
+	-- uniform kit (Config/Uniforms.Kits) -> species; kits not listed are plain humans. Testing: a player's "Species"
+	-- attribute (a Kinds name or "human") wins, applied at the next spawn.
 	Kits = {
 		uniform1 = "katzling", -- grey
 		uniform2 = "alb", -- olive
+		uniform3 = "fennek", -- white
 	} :: { [string]: string },
 	Kinds = {
 		katzling = {

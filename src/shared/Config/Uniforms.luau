@@ -1,11 +1,14 @@
 --!strict
--- Soldier uniforms (uniform1 = slate/grey team, uniform2 = olive team): Shirt + Pants templates painted by
--- tools/clothing/uniform.py from assets/teams/<team>/uniform/<name>.json, uploaded with Open Cloud. Ids here are IMAGE ids (resolved
--- from the uploaded Decal in Studio, see docs/KNOWN_TRAPS.md); decal ids are kept for reference.
+-- Soldier uniforms (uniform1 = slate/grey team, uniform2 = olive team, uniform3 = chocolate/white team): Shirt + Pants
+-- templates painted by tools/clothing/uniform.py from assets/teams/<team>/uniform/<name>.json, uploaded with Open Cloud.
+-- Ids here are IMAGE ids (resolved from the uploaded Decal, see docs/KNOWN_TRAPS.md); decal ids are kept for reference.
 -- Skin shows through the transparent hands and the head; 3D gear (helmet, belt, pouches) goes on top.
 
 local Uniforms = {
-	Default = "uniform1", -- until nations are decided, everyone wears this
+	Default = "uniform1", -- the showcase dummies' kit, and anyone's whose kit is unknown
+	-- The kits a player spawns in (user 2026-10-21: "make it spawn with its gear and randomization"): one at random each
+	-- life, each equally likely, until teams are chosen (src/server/Kits; a player's "Kit" attribute pins one).
+	Teams = { "uniform1", "uniform2", "uniform3" },
 	-- Every soldier's face, one per health third (docs/CHARACTERS.md Faces, user 2026-10-11): two dark brown dot
 	-- eyes; two minor cuts and a light bruise in the middle third; a bigger cheek cut, a gnarly cut across the shut
 	-- right eye and a darker bruise in the bottom third (realistic injuries, simple cartoon look). Each has its
@@ -76,6 +79,17 @@ local Uniforms = {
 			pack = "pack_zaino", -- Config/Assets entry, worn on the back (src/server/Packs)
 			weapon = "rifle_m91", -- Config/Weapons entry: the olive team's default rifle
 			grenade = "grenade_sipe", -- its grenades (Config/Grenades): the SIPE
+			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
+		},
+		uniform3 = {
+			source = "assets/teams/white/uniform/uniform3.json",
+			shirt = 74678155009631, -- decal 121824214820196
+			pants = 81809122965783, -- decal 97802189527419
+			skin = { 226, 176, 104 },
+			headwear = "helmet_brodie", -- Config/Assets entry
+			pack = "pack_p08", -- Config/Assets entry, worn on the back (src/server/Packs)
+			weapon = "rifle_smle", -- Config/Weapons entry: the white team's default rifle (British, as its Brodie)
+			grenade = "grenade_mills", -- its grenades (Config/Grenades): the Mills bomb
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
 		},
 	},

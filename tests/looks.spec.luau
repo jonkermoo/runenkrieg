@@ -78,6 +78,25 @@ return {
 			)
 		end
 	end,
+	["a player spawns in one of the team kits, kept for the life"] = function()
+		assert(#U.Teams >= 2, "kits to roll from")
+		for _, k in U.Teams do
+			assert(U.Kits[k], `{k}: Teams names a missing kit`)
+		end
+		local seen = {}
+		for i = 0, 99 do
+			local k = Looks.kit(nil, nil, U.Teams, i / 100, U.Kits)
+			assert(U.Kits[k], "rolled a missing kit")
+			seen[k] = true
+		end
+		for _, k in U.Teams do
+			assert(seen[k], `{k}: never rolled`)
+		end
+		assert(Looks.kit(nil, nil, U.Teams, 0.9999, U.Kits) == U.Teams[#U.Teams], "the end of the roll: the last")
+		assert(Looks.kit("uniform3", "uniform1", U.Teams, 0, U.Kits) == "uniform3", "this life's kit stays")
+		assert(Looks.kit(nil, "uniform3", U.Teams, 0, U.Kits) == "uniform3", "the player's pinned kit")
+		assert(Looks.kit("nope", 7, U.Teams, 0, U.Kits) == U.Teams[1], "junk attributes: rolled")
+	end,
 	["the helmet covers the top half of the head's hitbox"] = function()
 		assert(Looks.onHelmet({ X = 0.9, Y = 0.01, Z = -0.5 }), "just above the middle: helmet")
 		assert(not Looks.onHelmet({ X = 0, Y = -0.01, Z = -0.5 }), "just below: head")

@@ -18,6 +18,7 @@ local HairCfg = require(Shared.Config.HairMotion)
 local HairSway = require(Shared.Rules.HairMotion)
 local U = require(Shared.Config.Uniforms)
 local Looks = require(Shared.Rules.Looks)
+local Kits = require(script.Parent.Kits)
 
 local Helmets = {}
 
@@ -138,13 +139,13 @@ local function helmet(entry: string, head: BasePart): Model?
 end
 
 -- The shell whose helmet-on hairs fit a soldier with no helmet on (the head wrap, Config/Healing.Wraps): the one they
--- last wore ("HairShell", set by dress), else the default kit's.
+-- last wore ("HairShell", set by dress), else their kit's (src/server/Kits).
 local function shortShell(character: Model): string?
 	local shell = character:GetAttribute("HairShell")
 	if type(shell) == "string" then
 		return shell
 	end
-	local kit = U.Kits[U.Default]
+	local kit = U.Kits[Kits.of(character)]
 	local headwear = kit and kit.headwear
 	local fit = headwear and A.Entries[headwear] and A.Entries[headwear].fit
 	return if fit then (fit :: any).shell else nil

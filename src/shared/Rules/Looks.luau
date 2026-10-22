@@ -32,6 +32,19 @@ function Looks.pick(pool: { Look }, r: number, avoid: number?): number
 	return last
 end
 
+-- The uniform kit a soldier wears this life (src/server/Kits): `current` (the character's "Kit", rolled earlier this
+-- life) when it names one of `kits`, else `override` (the player's "Kit", for testing) when it does, else the entry of
+-- `pool` at the roll `r` in [0, 1), each equally likely.
+function Looks.kit(current: any, override: any, pool: { string }, r: number, kits: { [string]: any }): string
+	if type(current) == "string" and kits[current] then
+		return current
+	end
+	if type(override) == "string" and kits[override] then
+		return override
+	end
+	return pool[math.clamp(math.floor(r * #pool) + 1, 1, #pool)]
+end
+
 -- The Config/Assets hair entry a soldier wears: `style` under the helmet `shell` (nil: bareheaded); nil when bald.
 -- Where a ray first meets a worn helmet's shape: the ellipsoid filling its box (user 2026-10-22: a shot at a helmet's
 -- crown missed, because the top of every helmet stands above the Head's hitbox). `o` and `d` are the ray's start and

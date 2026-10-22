@@ -20,10 +20,8 @@ local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local Rules = require(Shared.Rules.DevActions)
 local Helmets = require(script.Parent.Helmets)
-local Packs = require(script.Parent.Packs)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
-local Species = require(script.Parent.Species)
 
 local DevDummies = {}
 
@@ -205,18 +203,12 @@ function DevDummies.spawn(spec: Spec): Model?
 		return nil
 	end
 	count += 1
-	local m = Showcase.dummy(`Dummy {count} ({Rules.kitName(Cfg, spec.kit)})`, spec.at, f)
+	-- dressed in the kit by Bodies (uniform, helmet, pack, species: src/server/Kits)
+	local m = Showcase.dummy(`Dummy {count} ({Rules.kitName(Cfg, spec.kit)})`, spec.at, f, spec.kit)
 	specs[m] = spec
-	for _, c in m:GetChildren() do
-		if c:IsA("Shirt") then
-			c.ShirtTemplate = "rbxassetid://" .. kit.shirt
-		elseif c:IsA("Pants") then
-			c.PantsTemplate = "rbxassetid://" .. kit.pants
-		end
+	if not spec.helmet then
+		Helmets.dress(m, nil)
 	end
-	Helmets.dress(m, if spec.helmet then kit.headwear else nil, Species.of(m, spec.kit))
-	Packs.dress(m, kit.pack)
-	Species.dress(m, spec.kit)
 	m:SetAttribute("Muted", nil)
 	local function group(d: Instance)
 		if d:IsA("BasePart") then
