@@ -200,6 +200,22 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 	for _, line in Firing.lines(name, direction, seed or 0) do
 		local result = start or workspace:Raycast(origin, line * Cfg.Range, params)
 		local hit = if result then result.Position else origin + line * Cfg.Range
+		-- a helmet's crown or brim stands out of the Head's hitbox: a shot that meets it before anything else, and not
+		-- going on into that head, hits the head on the helmet (user 2026-10-22: shots at the crown went over)
+		local who, struck, at, far = nil, nil, nil, nil
+		if not start then
+			who, struck, at, far =
+				Helmets.crown(Damage.soldiers(), origin, line, if result then result.Distance else Cfg.Range, character)
+			if result and result.Instance == struck then
+				who = nil -- (into that head: the usual top-half check below)
+			end
+		end
+		if who and struck and at and far then
+			Helmets.knockOff(who, line)
+			table.insert(wounds, { part = struck, point = at, direction = line, distance = far, helmet = true })
+			table.insert(hits, { at, -line, struck })
+			continue
+		end
 		if result and not start then
 			-- a helmet shot off (src/server/Helmets), then the damage (src/server/Damage)
 			local helmet = Helmets.hit(result.Instance, result.Position, line)

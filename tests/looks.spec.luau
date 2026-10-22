@@ -68,4 +68,26 @@ return {
 		assert(Looks.onHelmet({ X = 0.9, Y = 0.01, Z = -0.5 }), "just above the middle: helmet")
 		assert(not Looks.onHelmet({ X = 0, Y = -0.01, Z = -0.5 }), "just below: head")
 	end,
+	["a shot meets a helmet's crown where it stands out of the head"] = function()
+		local function v(x: number, y: number, z: number)
+			return { X = x, Y = y, Z = z }
+		end
+		local half = v(1, 0.6, 1.1) -- about a Stahlhelm's box (head space, Studio 2026-10-22)
+		local function near(a: number?, b: number)
+			return a ~= nil and math.abs(a - b) < 1e-6
+		end
+		-- straight on at the centre: the front of the shell, half.Z short of the box's middle
+		assert(near(Looks.crownAt(v(0, 0, -20), v(0, 0, 1), half), 20 - 1.1), "head on: the front of the shell")
+		-- over the top of the head's own box (y 0.5 in head space is the box's 0.3 here): still on the dome
+		assert(Looks.crownAt(v(0, 0.5, -20), v(0, 0, 1), half) ~= nil, "a crown shot hits the dome")
+		-- from the side through the brim edge
+		assert(Looks.crownAt(v(-20, 0, 0), v(1, 0, 0), half) ~= nil, "from the side")
+		-- above the dome, and past its sides: a miss
+		assert(Looks.crownAt(v(0, 0.61, -20), v(0, 0, 1), half) == nil, "over the top: miss")
+		assert(Looks.crownAt(v(1.01, 0, -20), v(0, 0, 1), half) == nil, "beside it: miss")
+		-- pointing away, or starting inside: nothing
+		assert(Looks.crownAt(v(0, 0, -20), v(0, 0, -1), half) == nil, "pointing away")
+		assert(Looks.crownAt(v(0, 0, 0), v(0, 0, 1), half) == nil, "from inside")
+		assert(Looks.crownAt(v(0, 0, -20), v(0, 0, 1), v(0, 1, 1)) == nil, "a flat box: nothing")
+	end,
 }
