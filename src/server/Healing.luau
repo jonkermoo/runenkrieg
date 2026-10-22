@@ -1,7 +1,8 @@
 --!strict
 -- Healing on the server (H1; Config/Healing, Rules/Healing; docs/MILESTONES.md H1). The only place health goes up:
--- - Heals: a soldier asks (Net "Heal") to heal the hurt soldier they look at; never themselves (user 2026-10-18). The
---   server checks reach and that the patient is hurt and alive, picks the item by the patient's health (med pack from
+-- - Heals: a soldier asks (Net "Heal") to heal the hurt soldier they look at; never themselves (user 2026-10-18), only
+--   a teammate (user 2026-10-22: the same kit, Rules/Teams; DEV dummies by their own kit). The
+--   server checks the team, reach and that the patient is hurt and alive, picks the item by the patient's health (med pack from
 --   70, bandage below); the healer reaches back to the pack for it (it shows in the right hand at Grab.take), and once
 --   the healing motion starts (Rules.prep) the patient's health fills a share at a time to full.
 --   It stops (the health healed so far stays) when the healer is hit, the two move Break studs apart, either dies,
@@ -23,8 +24,10 @@ local Cfg = require(Shared.Config.Healing)
 local DevCfg = require(Shared.Config.DevTools)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Healing)
+local Teams = require(Shared.Rules.Teams)
 local HealItems = require(Shared.HealItems)
 local Helmets = require(script.Parent.Helmets)
+local Kits = require(script.Parent.Kits)
 local Ragdoll = require(script.Parent.Ragdoll)
 
 local Healing = {}
@@ -90,6 +93,9 @@ local function start(player: Player, patient: Model)
 	local target, th = soldier(patient)
 	if not healer or not hh or not target or not th or target == healer or heals[healer] then
 		return
+	end
+	if not Teams.same(Kits.of(healer), Kits.of(target)) then
+		return -- teammates only
 	end
 	if hh.Health <= 0 or not able(healer) or not Rules.inReach(distance(healer, target), Cfg.Range, Cfg.StartSlack) then
 		return
