@@ -21,6 +21,9 @@ local Burst = require(script.Parent.Burst)
 local Shockwave = require(script.Parent.Shockwave)
 local Spikes = require(script.Parent.Spikes)
 local Star = require(script.Parent.Star)
+local CameraShake = require(script.Parent.Parent.CameraShake)
+local ShakeCfg = require(ReplicatedStorage:WaitForChild("Shared").Config.CameraShake)
+local ShakeRules = require(ReplicatedStorage:WaitForChild("Shared").Rules.CameraShake)
 
 local Blast = {}
 
@@ -91,6 +94,8 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local inside, rim, spark = color(CO.inside), color(CO.rim), color(CO.spark)
 	local glow = Util.color(s.glow)
 	local d = st.fireball
+	-- every explosion shakes the camera once, by its charge (a staff stage's as Config/CameraShake.Stages)
+	CameraShake.blast(pos, if o.kg and o.kg > 0 then o.kg else ShakeRules.stageKg(o.stage or 1, ShakeCfg.Stages))
 	local now0 = os.clock()
 
 	Burst.play(pos, { scheme = o.scheme, normal = normal, debrisColor = o.debrisColor, scale = Cfg.Burst * d / 4 })

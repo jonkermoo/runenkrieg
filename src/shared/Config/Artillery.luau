@@ -144,15 +144,15 @@ local Artillery = {
 	-- The effects (src/client/ArtilleryFx; user 2026-10-21, see there). Colours are Config/Palette.Magic names, RGB lists
 	-- where said. Shot: pressure waves along the bore (`wave` studs out, starting `ahead` past the muzzle) and a ring blown
 	-- across the ground (`ground` studs, when the ground is within `groundReach`); Air: a see-through bubble swelling
-	-- `size` studs over `time` s; Shake: the camera kicked `shot` / `blast` degrees within `reach` / `blastReach` studs
-	-- (x the gun's muzzleScale, x the charge's cube root), dying over `time` s; Static: the magic shell's bolts every
+	-- `size` studs over `time` s; Shake: the shot kicks the camera `shot` degrees within `reach` studs (x the gun's
+	-- muzzleScale; its blast shakes as every explosion, Config/CameraShake); Static: the magic shell's bolts every
 	-- `every` s, `reach` x its size long, living `life` s; Charge: the howitzer's charge-up (layered circles, below;
 	-- bolts crystal -> muzzle every `boltEvery` s from start to end; the hum rising in volume and pitch); Blast: the magic blast's `bolts` leaping out over `spread` s, an aura for
 	-- `aura` s.
 	Fx = {
 		Shot = { color = "Core", wave = 26, ahead = 2, ground = 30, groundReach = 9 },
 		Air = { size = 14, time = 0.35, transparency = { 0.75, 1 }, color = { 235, 235, 230 } },
-		Shake = { shot = 1.6, reach = 60, blast = 1.2, blastReach = 90, time = 0.6, speed = 55 },
+		Shake = { shot = 1.6, reach = 60 },
 		Static = { every = 0.07, reach = 2.2, life = 0.09 },
 		Charge = {
 			color = "Glow",
