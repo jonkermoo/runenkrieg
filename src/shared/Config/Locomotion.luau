@@ -148,6 +148,20 @@ local Locomotion = {
 	PlaybackMin = 0.6, -- clamp on the speed-scaled playback rate
 	PlaybackMax = 1.4,
 
+	-- Water (user 2026-10-22: "remove swimming. just slow players down when they are submerged hip below in water";
+	-- src/client/Wading, Rules/Wading): soldiers never swim (Roblox's Swimming state is off) and walk on the bottom,
+	-- the water's lift cancelled by a downward force on the root. From hip-deep water (`From`, studs over the feet) the
+	-- walk / sprint / crouch speed eases down to `Slow` of itself at `Full` (chest-deep) and deeper; the slow follows
+	-- the depth at `Rate` per second, so wading in and out is gentle. The walk cycle keeps playing (slower, down to
+	-- PlaybackMin).
+	Wading = {
+		From = 2, -- the hip (Metrics.Character.LegLength)
+		Full = 3.5, -- about the chest
+		Slow = 0.6, -- walk 10 -> 6, sprint 16 -> 9.6, crouch 6 -> 3.6
+		Rate = 4,
+		Sink = 1.05, -- share of the estimated lift pushed back down (a touch over 1: the feet stay on the bed)
+	},
+
 	-- Smooth, never snappy (user 2026-10-20): every change of animation blends over a while. Switching between the
 	-- stepping cycles (walk / sprint / crouch walk) also carries the stride across (the new cycle starts at the same
 	-- point of its step as the old one was), so the legs never jump to a new stride (src/client/Locomotion).

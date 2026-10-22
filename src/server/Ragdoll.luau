@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Ragdoll)
 local Net = require(Shared.Net)
+local RagdollRules = require(Shared.Rules.Ragdoll)
 local StaffNet = require(Shared.Rules.StaffNet)
 
 local Ragdoll = {}
@@ -170,8 +171,9 @@ local function serverThrow(character: Model, knock: { [string]: number }, direct
 end
 
 -- Knocks `character` with the Config/Ragdoll.Knocks entry `name`, thrown along `direction` (flat; it also tumbles that
--- way), `scale` the caller's factor on the push (default 1).
-function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale: number?)
+-- way), `scale` the caller's factor on the push (default 1), `damage` the health the hit took (a live soldier stays down
+-- longer the more it took, Config/Ragdoll.ByDamage; nil: none).
+function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale: number?, damage: number?)
 	local knock = Cfg.Knocks[name] :: any
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local torso = character:FindFirstChild("Torso") :: BasePart?
@@ -179,17 +181,18 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		return
 	end
 	local k = scale or 1
+	local getUp = RagdollRules.getUp(knock.getUp, damage, Cfg.ByDamage)
 	local d = down[character]
 	if d then
-		-- already down: thrown again, and the settle wait starts over
-		d.since, d.getUp = os.clock(), knock.getUp
+		-- already down: thrown again, and the settle wait starts over (the longer of the two get-up waits)
+		d.since, d.getUp = os.clock(), math.max(d.getUp, getUp)
 		Net.event("Knock"):FireAllClients(character, name, direction, k)
 		Ragdoll.knocked:Fire(character, name, direction, k)
 		serverThrow(character, knock, direction, k)
 		return
 	end
 	local made = loosen(character, torso)
-	made.getUp = knock.getUp
+	made.getUp = getUp
 	down[character] = made
 	character:SetAttribute("Ragdolled", true)
 	-- whatever was in the hands is put away (user 2026-10-13: "make ragdolling unequip whatever you had"): a slung

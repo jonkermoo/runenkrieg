@@ -14,7 +14,8 @@
 -- - dragging a teammate (the "Dragging" attribute, src/server/Dragging): crouched at Config/Dragging.Speed, no sprint
 --   or aim;
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
---   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set.
+--   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set;
+-- - hip-deep water slows every pace by the character's "WadeScale" attribute (src/client/Wading).
 -- Sets the local character's Humanoid.WalkSpeed (the client owns its character's physics) and the "Sprinting" /
 -- "Aiming" / "Crouching" attributes that the animations, the camera and the weapon code read (local only; the
 -- animations they choose replicate).
@@ -105,6 +106,8 @@ function Stance.start()
 		-- unset)
 		local scale = character:GetAttribute("SpeedScale")
 		speed *= if type(scale) == "number" then scale else 1
+		local wade = character:GetAttribute("WadeScale")
+		speed *= if type(wade) == "number" then wade else 1
 		humanoid.WalkSpeed = speed * ((player:GetAttribute(Dev.Admin.Attribute) :: number?) or 1)
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
@@ -180,6 +183,7 @@ function Stance.start()
 		character.ChildAdded:Connect(apply)
 		character.ChildRemoved:Connect(apply)
 		character:GetAttributeChangedSignal("SpeedScale"):Connect(apply)
+		character:GetAttributeChangedSignal("WadeScale"):Connect(apply)
 		character:GetAttributeChangedSignal("Casting"):Connect(apply)
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
 		character:GetAttributeChangedSignal("Healing"):Connect(apply)
