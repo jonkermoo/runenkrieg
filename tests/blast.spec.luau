@@ -189,13 +189,15 @@ return {
 	["a near miss hits in full, cover or not; further out cover counts again"] = function()
 		local C = B.Cover
 		-- user 2026-10-23: "a grenade or staff explosion that missed a few studs away should kill"
-		for _, d in { 0, 2, 3, 4 } do
+		for _, d in { 0, 2, 3, 4, 5 } do
 			assert(not Blast.coverCounts(d, C.near), `{d} studs: no cover`)
 		end
-		for _, d in { 4.5, 6, 20 } do
+		for _, d in { 5.5, 6.5, 20 } do
 			assert(Blast.coverCounts(d, C.near), `{d} studs: cover counts`)
 		end
-		assert(C.near >= 3 and C.near <= 5, "a few studs")
+		assert(C.near >= 3 and C.near <= 6, "a few studs")
+		-- a blast on the ground 4 studs off, torso ~2.7 up
+		assert(not Blast.coverCounts(math.sqrt(4 ^ 2 + 2.7 ^ 2), C.near), "4 studs off on the ground: no cover")
 		assert(C.near > C.skip, "wider than the skipped wall")
 		-- the full beam kills there outright (and the grenades by their fragments, Config/Grenades)
 		assert(Blast.soldierDamage(kpa(C.near), B.Soldier) >= B.Soldier.max, "the full beam kills inside `near`")
@@ -208,6 +210,8 @@ return {
 			assert(r > 1.6 and r < 2.6, `{name}: own blast lethal to {r}`)
 			-- inside `near` (no cover) its fragments kill too
 			assert(g.fragments.lethal >= B.Cover.near, `{name}: fragments lethal inside near`)
+			-- on the ground 4 studs off (torso ~2.7 up) its fragments kill
+			assert(g.fragments.lethal >= math.sqrt(4 ^ 2 + 2.7 ^ 2), `{name}: kills 4 studs off on the ground`)
 		end
 		local r = Blast.reachOf(S.kill, KG, B)
 		assert(r > 8.5 and r < 9.5, `full beam lethal to {r}`)

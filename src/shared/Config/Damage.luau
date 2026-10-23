@@ -125,12 +125,13 @@ local Damage = {
 		-- it breaks (so lost cover is no cover), and flings them as hard as that hurts (Fling above). Under `minShare`
 		-- nothing reaches them. Lines skip whatever is within `skip` studs of the blast (the wall it went off against).
 		-- Within `near` studs of the torso cover doesn't count (user 2026-10-23: "a grenade or staff explosion that
-		-- missed a few studs away should kill"; a blast lying on the ground lost its lines to bumps and grass).
+		-- missed a few studs away should kill"; a blast lying on the ground lost its lines to bumps and grass). 5: a
+		-- blast 4 studs off on the ground is ~4.8 from the torso (~2.7 up).
 		Cover = {
 			parts = { "Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg" },
 			minShare = 0.17,
 			skip = 1,
-			near = 4,
+			near = 5,
 		},
 		-- classes that break at their fail pressure or not at all, never worn bit by bit (Studio round 1: glass with 1 HP
 		-- added up weaker blasts, so a second stage 2 shot broke windows far off)
