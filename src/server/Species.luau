@@ -7,7 +7,7 @@
 -- ears themselves come out through the holes of the species' helmet (src/server/Helmets).
 -- Colours by piece role (Rules/Species.color): the fur the hair colour, the elf ears the skin. Purely visual: no
 -- collisions, never hit (CanQuery off), massless. The character's "Species" attribute says which ("human": none).
--- A bald soldier wears no animal ears, only the tail (Rules/Species.wearsEars; user 2026-10-21).
+-- A bald soldier is no species: a plain human with the plain helmet (Rules/Species.of; user 2026-10-23).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -194,7 +194,7 @@ end
 -- The species `character` spawns as in uniform `kit` (the player's "Species" attribute wins), or nil: a plain human.
 function Species.of(character: Model, kit: string): string?
 	local player = Players:GetPlayerFromCharacter(character)
-	return Rule.of(kit, player and player:GetAttribute("Species"), Cfg)
+	return Rule.of(kit, player and player:GetAttribute("Species"), Cfg, character:GetAttribute("HairStyle"))
 end
 
 -- Spawn: the species of uniform `kit` (or the player's "Species" attribute) on the character, after its helmet
@@ -214,9 +214,7 @@ function Species.dress(character: Model, kit: string)
 	if not kind or not head or not torso then
 		return
 	end
-	if Rule.wearsEars(kind, character:GetAttribute("HairStyle")) then -- (a bald soldier: no animal ears)
-		ears(character, head, kind)
-	end
+	ears(character, head, kind)
 	tail(character, torso, kind)
 	showRuff(character)
 	if not watching[character] then

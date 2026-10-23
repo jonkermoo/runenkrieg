@@ -42,13 +42,13 @@ return {
 		assert(Species.of("uniform1", "human", Cfg) == nil, "override to human")
 		assert(Species.of("uniform1", "dragon", Cfg) == "katzling", "an unknown override is ignored")
 	end,
-	["bald soldiers have no animal ears; elf ears stay"] = function()
-		local K = Cfg.Kinds
-		assert(not Species.wearsEars(K.katzling, "bald"), "bald Katzling: no cat ears")
-		assert(not Species.wearsEars(K.fennek, "bald"), "bald Fennek: no fennec ears")
-		assert(Species.wearsEars(K.alb, "bald"), "bald Alb: elf ears stay")
-		assert(Species.wearsEars(K.katzling, "short"), "with hair: ears")
-		assert(Species.wearsEars(K.katzling, nil), "no hairstyle set: ears")
+	["a bald soldier is never a species"] = function()
+		for _, kit in { "uniform1", "uniform2", "uniform3" } do
+			assert(Species.of(kit, nil, Cfg, "bald") == nil, `{kit}: bald is human`)
+		end
+		assert(Species.of("uniform1", "fennek", Cfg, "bald") == nil, "bald beats a species override")
+		assert(Species.of("uniform1", nil, Cfg, "m_midpart") == "katzling", "with hair: the kit's species")
+		assert(Species.of("uniform1", nil, Cfg, nil) == "katzling", "no hairstyle set: the kit's species")
 		local bald = false
 		for _, h in U.Hairs do
 			bald = bald or h.name == "bald"

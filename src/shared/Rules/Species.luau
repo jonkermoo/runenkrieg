@@ -6,21 +6,16 @@
 local Species = {}
 
 -- The species for a uniform `kit`, or nil (a plain human). `override` (a player's "Species" attribute: a Kinds name
--- or "human") wins when it names something real.
-function Species.of(kit: string, override: any, cfg: any): string?
-	if override == "human" then
+-- or "human") wins when it names something real. A bald soldier (`hairStyle`, the "HairStyle" attribute) is never a
+-- species, so no ears, no tail and the plain helmet (user 2026-10-23: "bald people can't be a species").
+function Species.of(kit: string, override: any, cfg: any, hairStyle: any): string?
+	if override == "human" or hairStyle == "bald" then
 		return nil
 	end
 	if type(override) == "string" and cfg.Kinds[override] then
 		return override
 	end
 	return cfg.Kits[kit]
-end
-
--- Whether a soldier of `kind` with hairstyle `hairStyle` (the "HairStyle" attribute, src/server/Bodies) wears its
--- ears: animal ears are fur, so a bald soldier has none (user 2026-10-21); the tail stays.
-function Species.wearsEars(kind: any, hairStyle: any): boolean
-	return not (kind.animalEars and hairStyle == "bald")
 end
 
 -- A part's name without a ".001"-style suffix (an exporter's duplicate-name mark).
