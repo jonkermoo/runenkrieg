@@ -93,8 +93,8 @@ local Grenades = {
 		grenade_stick = {
 			speed = 139,
 			kg = 0.17,
-			-- (lethal 4 -> 5, user 2026-10-23: a stick 3-4 studs off on the ground left ~50; the torso is ~2.7 up)
-			fragments = { lethal = 5, wound = 14, max = 100, near = 50, far = 10 },
+			-- (lethal 4 -> 6, user 2026-10-23: a stick 3-4 studs off on the ground left ~50; the torso is ~2.4-3.3 up)
+			fragments = { lethal = 6, wound = 14, max = 100, near = 50, far = 10 },
 			pitch = 0.9, -- its bang's pitch (Sound below)
 		},
 	},

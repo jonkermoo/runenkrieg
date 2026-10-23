@@ -228,8 +228,8 @@ return {
 			assert(r > 1.6 and r < 2.6, `{name}: own blast lethal to {r}`)
 			-- inside `near` (no cover) its fragments kill too
 			assert(g.fragments.lethal >= B.Cover.near, `{name}: fragments lethal inside near`)
-			-- on the ground 4 studs off (torso ~2.7 up) its fragments kill
-			assert(g.fragments.lethal >= math.sqrt(4 ^ 2 + 2.7 ^ 2), `{name}: kills 4 studs off on the ground`)
+			-- on the ground 4 studs off (the torso up to ~3.5 up on a slope) its fragments kill
+			assert(g.fragments.lethal >= math.sqrt(4 ^ 2 + 3.5 ^ 2), `{name}: kills 4 studs off on the ground`)
 		end
 		local r = Blast.reachOf(S.kill, KG, B)
 		assert(r > 8.5 and r < 9.5, `full beam lethal to {r}`)
