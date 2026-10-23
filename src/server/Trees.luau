@@ -7,7 +7,8 @@
 -- all along it) and every client animates it (src/client/TreeFall); then the server places it there, anchored, as cover
 -- (FallenTag): soldiers it lands on are hurt and knocked aside (Damage.crush; the trunk lets them through a moment), it
 -- presses an even imprint into the ground it lies on, and an uprooted one leaves a pit and a root ball of mud
--- (src/server/Ground). A full beam straight on a trunk destroys it instead: it falls and fades out (a stump left). Lying, it has
+-- (src/server/Ground). A full beam straight on a trunk destroys it instead: it falls and fades out (a stump left); a blast
+-- of Blast.Tree.splinter at it blows it apart (debris, a stump left). Lying, it has
 -- Fallen.share x its MaxHP again, and bullets and blasts wear that down too. It lies for Fall.lifetime s, at most
 -- Fall.maxFallen at once (the oldest goes first), or until destroyed: tagged SinkingTag, it sinks and fades on the
 -- clients and is removed.
@@ -25,6 +26,7 @@ local Cfg = require(Shared.Config.Damage)
 local TreeCfg = require(Shared.Config.TreeSway)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Trees)
+local BlastRules = require(Shared.Rules.Blast)
 local Ground = require(script.Parent.Ground)
 
 local Trees = {}
@@ -325,6 +327,50 @@ local function shatter(tree: Model, direction: Vector3)
 	end
 end
 
+-- A tree blown apart by a blast at `origin` (Config/Damage.Blast.Tree.splinter; user 2026-10-23: extreme damage
+-- destroys, like the building sections): the trunk bursts into wood chunks thrown from the blast, the rest of it
+-- (canopy) drops in pieces where it was, a standing one leaves its stump. Debris on every client (Net "SectionBroken").
+local function splinter(tree: Model, origin: Vector3)
+	local trunk = tree:FindFirstChild("Trunk") :: BasePart?
+	if not trunk then
+		return
+	end
+	if standing(tree) then
+		stump(tree, trunk, tree:GetPivot().Position)
+	end
+	local pieces = {}
+	for _, d in tree:GetDescendants() do
+		if d:IsA("BasePart") and d.Transparency < 1 then
+			if d == trunk then
+				table.insert(pieces, { cf = d.CFrame, size = d.Size, color = d.Color, t = 0 })
+			else
+				-- the canopy in halves along each long side, so it drops as pieces, not slabs
+				local n = Vector3.new(d.Size.X > 6 and 2 or 1, d.Size.Y > 6 and 2 or 1, d.Size.Z > 6 and 2 or 1)
+				local cell = d.Size / n
+				for i = 0, n.X - 1 do
+					for j = 0, n.Y - 1 do
+						for k = 0, n.Z - 1 do
+							local off = (Vector3.new(i, j, k) + Vector3.one * 0.5) * cell - d.Size / 2
+							table.insert(
+								pieces,
+								{ cf = d.CFrame * CFrame.new(off), size = cell, color = d.Color, t = 0, m = "fall" }
+							)
+						end
+					end
+				end
+			end
+		end
+	end
+	if #pieces > 0 then
+		Net.event("SectionBroken"):FireAllClients(pieces, origin)
+	end
+	local i = table.find(fallen, tree)
+	if i then
+		table.remove(fallen, i)
+	end
+	tree:Destroy()
+end
+
 local function hurt(tree: Model, amount: number, away: Vector3, byBullet: boolean, whole: boolean?)
 	local now = hp(tree)
 	local left, gone = Rules.after(now, amount)
@@ -397,8 +443,11 @@ function Trees.blast(position: Vector3, reach: number, kpaAt: (number) -> number
 		end
 		if d <= reach and felling ~= false then
 			local _, full = hp(tree)
-			local amount, whole = Rules.blastDamage(kpaAt(d), B.Tree.fail, full, B.Tree.weaken)
-			if amount > 0 then
+			local kpa = kpaAt(d)
+			local amount, whole = Rules.blastDamage(kpa, B.Tree.fail, full, B.Tree.weaken)
+			if BlastRules.band(kpa, B.Tree.fail, B.Tree.splinter) == "destroy" then
+				splinter(tree, position)
+			elseif amount > 0 then
 				hurt(tree, amount, at - position, false, whole)
 			end
 		end

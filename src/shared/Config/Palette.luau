@@ -61,6 +61,7 @@ local Palette = {
 		Sign = { 210, 196, 162 },
 		Wood = { 104, 82, 62 },
 		ToneJitter = 0.04, -- +-4% per piece: hand-made, not factory-flat
+		Dust = { 200, 192, 176 }, -- a pulverised section's puff (src/client/Debris), half way from its own colour
 	},
 	-- Village props (Config/Props), same muted, hand-made look as the houses.
 	Props = {

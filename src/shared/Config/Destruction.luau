@@ -49,6 +49,27 @@ local Destruction = {
 		maxLive = 600,
 		Rest = { still = 1.5, spin = 2, time = 0.4, maxFly = 15, every = 0.1 },
 		wakeMargin = 1.5,
+		-- how hard each kind of piece is thrown (Config/Damage.Blast.Destroy bands; user 2026-10-23): x the old blast
+		-- throw (18-34 studs/s away, 8-22 up, less from far off). Crumpled chunks drop near where they were; glass
+		-- shatters as before; a piece that lost its support (or a collapsing story) only drops.
+		Push = { crumple = 0.25, glass = 1, fall = 0, dust = 1.3 },
+		-- a pulverised piece: `shards` small chunks of at most `shard` studs, thrown hard and gone after `shardLife` s
+		-- (no lasting rubble), and a puff of dust (Config/Palette.Buildings.Dust, `tint` of the way from its own colour)
+		-- per ~`puffEvery` studs of its length (1 to 3), `puffSize` x its size (at most `puffMax`) growing `grow` x and
+		-- fading from `alpha` over `puffTime` s; at most `maxPuffs` per break.
+		Dust = {
+			shards = 2,
+			shard = 0.8,
+			shardLife = 2,
+			puffEvery = 4,
+			puffSize = 0.6,
+			puffMax = 4,
+			grow = 2.2,
+			alpha = 0.35,
+			puffTime = 1.2,
+			tint = 0.5,
+			maxPuffs = 30,
+		},
 	},
 
 	-- Natural map buildings cannot be repaired; only player-built assets can.

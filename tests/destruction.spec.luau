@@ -6,6 +6,22 @@ local P = require("../src/shared/Config/Palette")
 local R = require("../src/shared/Rules/Destruction")
 
 return {
+	["a ragged hole in three bands: pulverised middle, crumpled ring, the rest kept"] = function()
+		local bands = R.jagBands(6, 6, 1.5, function(u, v)
+			local r = math.sqrt((u - 3) ^ 2 + (v - 3) ^ 2)
+			return if r <= 1.2 then 2 elseif r <= 2.5 then 1 else 0
+		end)
+		local function area(runs: { any }?): number
+			local a = 0
+			for _, r in runs or {} do
+				a += (r.u1 - r.u0) * (r.v1 - r.v0)
+			end
+			return a
+		end
+		assert(area(bands[2]) > 0 and area(bands[1]) > 0 and area(bands[0]) > 0, "all three bands")
+		assert(math.abs(area(bands[0]) + area(bands[1]) + area(bands[2]) - 36) < 1e-6, "the face, all of it")
+		assert(area(bands[1]) > area(bands[2]), "the ring is bigger than the middle")
+	end,
 	["debris freezes only once at rest, or after maxFly"] = function()
 		local r = D.Debris.Rest
 		local still, freeze = R.rested(20, 0, 0, 0.1, 0.1, r)

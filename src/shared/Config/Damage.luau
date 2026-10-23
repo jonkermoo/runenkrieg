@@ -116,6 +116,23 @@ local Damage = {
 			Sandbag = 1500,
 		},
 		FailDefault = 1000,
+		-- ...and is destroyed outright from these (Rules/Blast.band; user 2026-10-23: "blocks should crumple after a
+		-- certain damage amount, but if it has extreme damage (for example, a howitzer or a direct explosive hit) it should
+		-- get destroyed ... make it scale depending on material"; table approved the same day). Between `Fail` and these a
+		-- section crumples: it breaks into chunks that drop near where they were; from these it is pulverised: a puff of
+		-- dust and a few shards that are gone in seconds, no lasting rubble (src/client/Debris). A ragged hole
+		-- (Config/Destruction.Jag) gets a pulverised middle and a crumpled ring. Classes not listed only crumple (glass
+		-- shatters). Reach (stick grenade / staff 10 kg / howitzer 340 kg): 2000 ~1.1 / 4.3 / 14.1 studs, 3000 ~0.9 / 3.5 /
+		-- 11.4, 5000 ~0.7 / 2.7 / 8.6, 6000 ~0.6 / 2.4 / 7.7 (crumple at 1000: ~1.6 / 6.1 / 19.6).
+		Destroy = {
+			Thatch = 2000,
+			Wood = 3000,
+			Door = 3000,
+			Tile = 3000,
+			Plaster = 3000,
+			Brick = 5000,
+			Stone = 6000,
+		},
 		Weaken = 1, -- (was 2) each blast wears what it doesn't break, so blasts at one spot widen the hole
 		-- section kinds a blast only wears, never breaks: each floor is one slab, so any blast in a room took the whole
 		-- floor (user 2026-10-17: never break, until floors are split into pieces)
@@ -137,8 +154,10 @@ local Damage = {
 		-- added up weaker blasts, so a second stage 2 shot broke windows far off)
 		Brittle = { Glass = true },
 		-- trees (Config/TreeSway.Tag): at their trunk base over `fail` a tree is felled whole (no stump: the crater is
-		-- there; user 2026-10-17); below it loses its HP (Trees below) like a section: MaxHP x (kPa / fail)^Weaken
-		Tree = { fail = 60, weaken = 2 },
+		-- there; user 2026-10-17); below it loses its HP (Trees below) like a section: MaxHP x (kPa / fail)^Weaken. From
+		-- `splinter` it is destroyed (user 2026-10-23, with the section bands above): the trunk bursts into wood chunks,
+		-- the canopy drops in pieces, a stump stays (staff 10 kg ~7.6 studs, howitzer ~24.7; grenades never fell trees)
+		Tree = { fail = 60, weaken = 2, splinter = 600 },
 		-- a crater in the terrain (Rules/Blast.craterPlan): radius = perCubeRoot x W^(1/3) studs (~5 at 10 kg), the ball
 		-- sunk `sink` x radius; a low rim of `rim.count` balls of `rim.size` x radius at `rim.at` x radius, sunk
 		-- `rim.sink` x radius under the ground (it rises ~(size - sink) x radius); the ground out to `churn` x radius

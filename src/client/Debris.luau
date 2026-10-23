@@ -4,16 +4,20 @@
 -- rest (Config.Destruction.Debris.Rest), then freeze where they lie, and stay until `lifetime`; past maxLive the oldest
 -- go first. A frozen chunk wakes and falls again when what it may lie on goes (another chunk, a broken section), so
 -- nothing is left floating. maxLive and lifetime are scaled by the player's Debris setting (Config/Settings.DebrisLevels,
--- Rules/Settings.debris).
+-- Rules/Settings.debris). How a piece goes (its `m`, Config/Damage.Blast.Destroy): crumpled chunks drop near where they
+-- were, a piece that lost its support only drops, glass shatters outward, and a pulverised piece ("dust") leaves a puff
+-- of dust and a few shards that are gone in seconds.
 
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local D = require(Shared.Config.Destruction)
 local Net = require(Shared.Net)
+local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Destruction)
 local SettingsCfg = require(Shared.Config.Settings)
 local SettingsRules = require(Shared.Rules.Settings)
@@ -40,7 +44,7 @@ local function wake(p: BasePart)
 	moving[p] = { part = p, flying = 0, still = 0 }
 end
 
--- `gentle`: falls where it was (it lost its support) instead of being flung from `origin`
+-- `push`: how hard it is thrown from `origin` (Config/Destruction.Debris.Push; 0: it only drops)
 local function spawnChunk(
 	cf: CFrame,
 	size: Vector3,
@@ -49,7 +53,7 @@ local function spawnChunk(
 	origin: Vector3,
 	lifetime: number,
 	maxLive: number,
-	gentle: boolean
+	push: number
 )
 	while #live >= maxLive do
 		table.remove(live, 1):Destroy()
@@ -66,13 +70,13 @@ local function spawnChunk(
 	p.CFrame = cf
 	p.CollisionGroup = "Debris"
 	p.Parent = container
-	if gentle then
+	if push <= 0 then
 		p.AssemblyAngularVelocity = Vector3.new(math.random(-2, 2), math.random(-2, 2), math.random(-2, 2))
 	else
 		local away = cf.Position - origin
 		local dist = math.max(away.Magnitude, 1)
-		local push = math.clamp(40 / dist, 0.5, 1) * math.random(18, 34)
-		p.AssemblyLinearVelocity = away.Unit * push + Vector3.new(0, math.random(8, 22), 0)
+		local speed = math.clamp(40 / dist, 0.5, 1) * math.random(18, 34)
+		p.AssemblyLinearVelocity = (away.Unit * speed + Vector3.new(0, math.random(8, 22), 0)) * push
 		p.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
 	end
 	table.insert(live, p)
@@ -99,7 +103,7 @@ local function fracture(
 	max: number,
 	lifetime: number,
 	maxLive: number,
-	gentle: boolean
+	push: number
 )
 	local axes = { { "X", size.X }, { "Y", size.Y }, { "Z", size.Z } }
 	table.sort(axes, function(a, b)
@@ -120,10 +124,56 @@ local function fracture(
 					(k + 0.5) * cs.Z - size.Z / 2
 				)
 				-- slightly shrink so chunks don't start interpenetrating
-				spawnChunk(cf * CFrame.new(off), cs * 0.92, color, t, origin, lifetime, maxLive, gentle)
+				spawnChunk(cf * CFrame.new(off), cs * 0.92, color, t, origin, lifetime, maxLive, push)
 			end
 		end
 	end
+end
+
+-- a pulverised piece (Debris.Dust): a few small shards thrown hard and soon gone, and puffs of dust along it; `puffs` is
+-- how many this break may still show. Returns the puffs left.
+local function pulverise(
+	cf: CFrame,
+	size: Vector3,
+	color: Color3,
+	origin: Vector3,
+	maxLive: number,
+	puffs: number
+): number
+	local U = D.Debris.Dust
+	local shard = Vector3.new(math.min(size.X, U.shard), math.min(size.Y, U.shard), math.min(size.Z, U.shard))
+	for _ = 1, U.shards do
+		local off =
+			Vector3.new((math.random() - 0.5) * size.X, (math.random() - 0.5) * size.Y, (math.random() - 0.5) * size.Z)
+		spawnChunk(cf * CFrame.new(off), shard, color, 0, origin, U.shardLife, maxLive, D.Debris.Push.dust)
+	end
+	local long = math.max(size.X, size.Y, size.Z)
+	local n = math.min(math.clamp(math.floor(long / U.puffEvery), 1, 3), puffs)
+	local axis = if long == size.X then Vector3.xAxis elseif long == size.Y then Vector3.yAxis else Vector3.zAxis
+	local dust = color:Lerp(Color3.fromRGB(table.unpack(Palette.Buildings.Dust)), U.tint)
+	local s = math.min(math.min(size.X, size.Y, size.Z) + long / n, U.puffMax / U.puffSize) * U.puffSize
+	for i = 1, n do
+		local p = Instance.new("Part")
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Material = Enum.Material.SmoothPlastic
+		p.Color = dust
+		p.Transparency = U.alpha
+		p.Size = Vector3.one * s
+		local at = cf * (axis * long * ((i - 0.5) / n - 0.5))
+		p.CFrame = CFrame.new(at) * CFrame.Angles(math.random() * 6.28, math.random() * 6.28, math.random() * 6.28)
+		p.Parent = container
+		TweenService:Create(
+			p,
+			TweenInfo.new(U.puffTime, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Size = p.Size * U.grow, Transparency = 1 }
+		):Play()
+		Debris:AddItem(p, U.puffTime)
+	end
+	return puffs - n
 end
 
 -- every `Rest.every` s: flying chunks at rest freeze; frozen chunks near anything that went wake
@@ -184,9 +234,11 @@ function DebrisClient.start()
 			end
 		end
 	end)
-	-- pieces: { cf, size, color, t, fall? } (fall: it lost its support and drops where it was)
+	-- pieces: { cf, size, color, t, m? } (m: nil crumpled, "fall" lost its support, "dust" pulverised)
 	Net.event("SectionBroken").OnClientEvent:Connect(function(pieces: { any }, origin: Vector3)
 		local per = D.Debris.chunksPerSection
+		local Push = D.Debris.Push
+		local puffs = D.Debris.Dust.maxPuffs
 		local maxLive, lifetime = SettingsRules.debris(
 			(SettingsCfg.DebrisLevels :: any)[Settings.get("Debris")],
 			D.Debris.maxLive,
@@ -197,11 +249,15 @@ function DebrisClient.start()
 		for _, piece in pieces do
 			-- the section went: whatever lay on it falls
 			went(piece.cf.Position, piece.size.Magnitude / 2)
-			local gentle = piece.fall == true
-			if piece.t > 0.1 then
-				fracture(piece.cf, piece.size, piece.color, piece.t, origin, 9, lifetime, maxLive, gentle) -- glass: more, smaller shards
+			if piece.m == "dust" and piece.t <= 0.1 then
+				puffs = pulverise(piece.cf, piece.size, piece.color, origin, maxLive, puffs)
+			elseif piece.t > 0.1 then
+				-- glass: more, smaller shards
+				local push = if piece.m == "fall" then Push.fall else Push.glass
+				fracture(piece.cf, piece.size, piece.color, piece.t, origin, 9, lifetime, maxLive, push)
 			else
-				fracture(piece.cf, piece.size, piece.color, piece.t, origin, per, lifetime, maxLive, gentle)
+				local push = if piece.m == "fall" then Push.fall else Push.crumple
+				fracture(piece.cf, piece.size, piece.color, piece.t, origin, per, lifetime, maxLive, push)
 			end
 		end
 	end)

@@ -23,29 +23,40 @@ end
 
 export type Run = { u0: number, u1: number, v0: number, v1: number }
 
--- A face `w` x `h` (u across, v up, both from its corner) cut into a grid of about `cell` studs: the cells where
--- `gone(u, v)` (at the cell's centre) is true break off, the rest stay. Each row's neighbouring cells of a kind are
--- merged into runs, so a ragged edge costs a few parts. Returns the runs kept and the runs broken.
-function Destruction.jag(w: number, h: number, cell: number, gone: (number, number) -> boolean): ({ Run }, { Run })
+-- A face `w` x `h` (u across, v up, both from its corner) cut into a grid of about `cell` studs, each cell given a band
+-- by `bandOf(u, v)` (at the cell's centre; 0 = stays). Each row's neighbouring cells of a band are merged into runs, so
+-- a ragged edge costs a few parts. Returns the runs of each band (bands with none are missing).
+function Destruction.jagBands(
+	w: number,
+	h: number,
+	cell: number,
+	bandOf: (number, number) -> number
+): { [number]: { Run } }
 	local nu, nv = math.max(math.ceil(w / cell - 1e-9), 1), math.max(math.ceil(h / cell - 1e-9), 1)
 	local cu, cv = w / nu, h / nv
-	local kept, broken = {}, {}
+	local out: { [number]: { Run } } = {}
 	for j = 0, nv - 1 do
 		local start, was = 0, nil
 		for i = 0, nu do
-			local now = if i < nu then gone((i + 0.5) * cu, (j + 0.5) * cv) else nil
+			local now = if i < nu then bandOf((i + 0.5) * cu, (j + 0.5) * cv) else nil
 			if now ~= was then
 				if was ~= nil then
-					table.insert(
-						if was then broken else kept,
-						{ u0 = start * cu, u1 = i * cu, v0 = j * cv, v1 = (j + 1) * cv }
-					)
+					out[was] = out[was] or {}
+					table.insert(out[was], { u0 = start * cu, u1 = i * cu, v0 = j * cv, v1 = (j + 1) * cv })
 				end
 				start, was = i, now
 			end
 		end
 	end
-	return kept, broken
+	return out
+end
+
+-- The same with two bands: the cells where `gone(u, v)` break off, the rest stay. Returns the runs kept and broken.
+function Destruction.jag(w: number, h: number, cell: number, gone: (number, number) -> boolean): ({ Run }, { Run })
+	local bands = Destruction.jagBands(w, h, cell, function(u, v)
+		return if gone(u, v) then 1 else 0
+	end)
+	return bands[0] or {}, bands[1] or {}
 end
 
 function Destruction.collapseFrom(
