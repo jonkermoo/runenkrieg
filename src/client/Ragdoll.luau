@@ -106,6 +106,12 @@ function Ragdoll.start()
 				humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
 			end
 		end)
+		-- dragged by a teammate (src/server/Dragging holds the body's physics), and let go while still down: limp here too
+		character:GetAttributeChangedSignal("Dragged"):Connect(function()
+			if character:GetAttribute("Ragdolled") == true and humanoid.Health > 0 then
+				humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+			end
+		end)
 		-- a knock asked for that the server never answered: up again
 		humanoid.StateChanged:Connect(function(_, new)
 			if new == Enum.HumanoidStateType.Physics and asked[character] then

@@ -20,6 +20,14 @@ local Damage = {
 	-- Classes not listed: the helmet hit at every range.
 	HelmetLethal = { BoltRifle = 100 } :: { [string]: number },
 
+	-- A gun's butt stroke (Config/Melee, user-approved 2026-10-22): by zone as a shot's; a bare head goes down in one,
+	-- the torso in two; the helmet comes off (never fatal by itself, HelmetFloor). Knocks: alive, the head, helmet and
+	-- torso a medium one, a limb a slight one; killed, the zone's drop (Knocks.Killed).
+	Melee = {
+		Damage = { Head = 100, Torso = 50, Limb = 35, Helmet = 35 },
+		Knocks = { Head = "Torso", Helmet = "Torso", Torso = "Torso", Limb = "Limb" },
+	},
+
 	-- Every hit knocks you to the ground (user 2026-10-17): the Config/Ragdoll.Knocks entry by the zone that took the
 	-- most damage, alive or killed by it: arms / legs / the helmet a slight knockback, the torso a medium one, a
 	-- headshot kill a collapse.
@@ -102,6 +110,9 @@ local Damage = {
 			Plaster = 1000,
 			Brick = 1000,
 			Stone = 1200,
+			-- player-built sandbags (Config/Build): earth soaks a blast; a grenade at the foot takes one column
+			-- (~1.3 studs), the staff's full beam ~5, the howitzer ~17
+			Sandbag = 1500,
 		},
 		FailDefault = 1000,
 		Weaken = 1, -- (was 2) each blast wears what it doesn't break, so blasts at one spot widen the hole

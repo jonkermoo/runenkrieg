@@ -107,6 +107,7 @@ type Rig = {
 	leftHidden: boolean,
 	thrown: number?, -- the grenade throw played ("ThrownAt")
 	dug: number?, -- the shovel dig played ("DugAt")
+	struck: number?, -- the butt stroke played ("StruckAt")
 	pinned: number?, -- the grenade pin pull played ("PinAt")
 	pinOut: boolean, -- the Mills's pin pulled: its "Pin" hidden ("PinOut")
 	gone: boolean, -- the thrown grenade has left the hand: its copy hidden for the rest of the throw
@@ -197,8 +198,9 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 			or state == "charge"
 			or state == "chargeTwo"
 			or state == "pin"
-		-- a grenade's throw: a one shot over its wind-up ("ThrownAt"); the shovel's dig the same over its hold ("DugAt")
-		local over = state == "throw" or state == "dig"
+		-- a grenade's throw: a one shot over its wind-up ("ThrownAt"); the shovel's dig the same over its hold ("DugAt"),
+		-- and a gun's butt stroke ("StruckAt", src/client/Melee)
+		local over = state == "throw" or state == "dig" or state == "strike"
 		t.Priority = if over
 			then Enum.AnimationPriority.Action3
 			elseif once then Enum.AnimationPriority.Action2
@@ -231,6 +233,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 		leftHidden = false,
 		thrown = character:GetAttribute("ThrownAt") :: number?, -- (one thrown before this rig: not played again)
 		dug = character:GetAttribute("DugAt") :: number?,
+		struck = character:GetAttribute("StruckAt") :: number?,
 		pinned = character:GetAttribute("PinAt") :: number?,
 		pinOut = false,
 		gone = false,
@@ -436,6 +439,12 @@ function Viewmodel.start()
 		if r.tracks.dig and type(dugAt) == "number" and dugAt ~= r.dug then
 			r.dug = dugAt
 			r.tracks.dig:Play(0.05)
+		end
+		-- a gun's butt stroke (src/client/Melee marks the moment): played once over the hold
+		local struckAt = character:GetAttribute("StruckAt")
+		if r.tracks.strike and type(struckAt) == "number" and struckAt ~= r.struck then
+			r.struck = struckAt
+			r.tracks.strike:Play(0.05)
 		end
 		local pinAt = character:GetAttribute("PinAt")
 		local pin = r.tracks.pin

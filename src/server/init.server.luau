@@ -49,18 +49,23 @@ for _, p in Players:GetPlayers() do
 end
 
 require(script.Profile).start() -- (the saved settings)
+require(script.Environment).start()
 require(script.Bodies).start() -- (dresses the helmet and hair: script.Helmets)
 require(script.Armory).start()
 require(script.Doors).start()
 require(script.DevTools).start()
 require(script.Firing).start()
+require(script.Melee).start()
 require(script.LookTilt).start()
 require(script.StaffCast).start()
 require(script.Ragdoll).start()
 require(script.Damage).start()
 require(script.Healing).start()
+require(script.Dragging).start()
 require(script.Grenades).start()
 require(script.Artillery).start()
+require(script.Build).start()
+require(script.Wire).start()
 require(script.Showcase).start()
 require(script.TestShooter).start()
 

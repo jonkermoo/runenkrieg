@@ -144,15 +144,15 @@ local Artillery = {
 	-- The effects (src/client/ArtilleryFx; user 2026-10-21, see there). Colours are Config/Palette.Magic names, RGB lists
 	-- where said. Shot: pressure waves along the bore (`wave` studs out, starting `ahead` past the muzzle) and a ring blown
 	-- across the ground (`ground` studs, when the ground is within `groundReach`); Air: a see-through bubble swelling
-	-- `size` studs over `time` s; Shake: the camera kicked `shot` / `blast` degrees within `reach` / `blastReach` studs
-	-- (x the gun's muzzleScale, x the charge's cube root), dying over `time` s; Static: the magic shell's bolts every
+	-- `size` studs over `time` s; Shake: the shot kicks the camera `shot` degrees within `reach` studs (x the gun's
+	-- muzzleScale; its blast shakes as every explosion, Config/CameraShake); Static: the magic shell's bolts every
 	-- `every` s, `reach` x its size long, living `life` s; Charge: the howitzer's charge-up (layered circles, below;
 	-- bolts crystal -> muzzle every `boltEvery` s from start to end; the hum rising in volume and pitch); Blast: the magic blast's `bolts` leaping out over `spread` s, an aura for
 	-- `aura` s.
 	Fx = {
 		Shot = { color = "Core", wave = 26, ahead = 2, ground = 30, groundReach = 9 },
 		Air = { size = 14, time = 0.35, transparency = { 0.75, 1 }, color = { 235, 235, 230 } },
-		Shake = { shot = 1.6, reach = 60, blast = 1.2, blastReach = 90, time = 0.6, speed = 55 },
+		Shake = { shot = 1.6, reach = 60 },
 		Static = { every = 0.07, reach = 2.2, life = 0.09 },
 		Charge = {
 			color = "Glow",
@@ -367,7 +367,8 @@ local Artillery = {
 			-- the gun ~25-40 deg right of centre, the gunner ~50, the target ~-30)
 			-- (user 2026-10-21: "closer but from a similar angle we want to be able to see our avatar")
 			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
-			camera = { side = -6.5, up = 4, back = 7, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			-- (user 2026-10-22: "have the cannon further back and up more"; was up 4, back 7)
+			camera = { side = -6.5, up = 5.5, back = 10, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
 		} :: Gun,
 		-- The magic howitzer v6 (user 2026-10-21: "look like the big bertha", "no tires ... the turning being controlled by
 		-- giant gears"; tools/blender/artillery/bertha.py, approved v10): a 42 cm siege mortar, its riveted box carriage
@@ -406,7 +407,10 @@ local Artillery = {
 			-- to ~20.7 (stone ~19), so the whole house comes down; round it trees fall to ~72, glass breaks to ~128, a
 			-- crater ~68 across, soldiers die to ~27 by blast and are hurt to ~51 (was 50 kg: walls to ~10, a hole in one
 			-- side; Studio round 1 at 250 kg: walls to ~17.7 took 19 of a cottage's 38 sections, a wall stood)
-			kg = 400,
+			-- (user 2026-10-22: "lower how big the explosion is a tiny bit"; was 400 kg): 340 kg, every reach x0.95 (the
+			-- cube root): walls to ~19.6 (stone ~18), trees to ~68, glass to ~121, a crater ~64 across, soldiers die to
+			-- ~26 by blast and are hurt to ~48
+			kg = 340,
 			fragments = { lethal = 18, wound = 60, max = 100, near = 80, far = 20 },
 			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
 			reload = 30,
@@ -432,7 +436,10 @@ local Artillery = {
 			-- 15.3 at 45 degrees (Studio round 1 at 9.5 deep: 3.3 over the ground), so at 12 only the barrel rises out of the
 			-- ground, and the rim covers the rest; a ramp `width` wide climbs out behind the gun over `length` studs (~20
 			-- degrees; at least two voxels wide, as the rim)
-			dig = { depth = 12, radius = 15, rim = 9, rimHeight = 2.8, ramp = { width = 10, length = 33 } },
+			-- (user 2026-10-22: "lift the mortal ... formed on a hill (mortal should not be as deep but have same cover)"; was
+			-- depth 12, rim 9, rimHeight 2.8): half as deep, on a mound of earth thrown up round it, so the cover stands as
+			-- high over the bed as before (14.8)
+			dig = { depth = 6, radius = 15, rim = 14, rimHeight = 8.8, ramp = { width = 10, length = 33 } },
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
@@ -452,7 +459,7 @@ local Artillery = {
 				},
 				whistleLead = 2.5,
 			},
-			zone = 51, -- 400 kg: lethal by blast to ~27, the blast hurting to ~51
+			zone = 48, -- 340 kg: lethal by blast to ~26, the blast hurting to ~48 (400 kg: 27 and 51)
 			-- a bright four-point star (user 2026-10-21: "a bright 4 point star"): a white-hot core, the spikes (below), a
 			-- strong light; a blue trail of light and static crackling round it
 			shell = {
@@ -485,7 +492,12 @@ local Artillery = {
 			-- over the ground, Studio round 2, the rim hid the gunner, who stands >30 degrees under any line over it): down
 			-- in the pit behind the gunner's left, 2 under the ground, the gunner ~22 degrees under it; the landing marker is
 			-- drawn over the pit's wall (AlwaysOnTop)
-			camera = { side = -10, up = 10, back = 9, yaw = 25, pitch = -6, follow = 0.12, fov = 65 },
+			-- (user 2026-10-22: "angle the camera way up more? our avatar should look pretty small. we also cant see where
+			-- we are aiming"; was side -10, up 10, back 9, pitch -6, fov 65): high up behind it, over the mound, looking
+			-- down into the pit: the gunner ~42 degrees under the camera, the landing 0-6 under the horizon at every lay, so
+			-- a steady pitch between them keeps both in view (Studio round 1 at pitch -8 + 0.12 x elevation: the mound's
+			-- near side filled the bottom of the frame and the gunner was under it)
+			camera = { side = -12, up = 24, back = 20, yaw = 25, pitch = -21, follow = 0, fov = 70 },
 		} :: Gun,
 	},
 }

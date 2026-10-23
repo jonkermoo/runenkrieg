@@ -11,6 +11,9 @@
 -- - C toggles crouch (or is held: the "Hold" crouch mode) (moderate, from the user's reference video); sprinting or jumping stands you up. Crouched, the
 --   camera comes down with the body (Humanoid.CameraOffset follows the torso's drop; src/client/WeaponCamera too).
 -- - healing someone (the "Healing" attribute, src/server/Healing): crouched at crouch speed, no sprint or aim;
+-- - dragging a teammate (the "Dragging" attribute, src/server/Dragging): crouched at Config/Dragging.Speed, no sprint
+--   or aim;
+-- - in barbed wire (the "Wired" attribute, src/server/Wire): Config/Build.Wire.speed, no sprint, no jump;
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
 --   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set;
 -- - hip-deep water slows every pace by the character's "WadeScale" attribute (src/client/Wading).
@@ -24,8 +27,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local BuildCfg = require(Shared.Config.Build)
 local Cfg = require(Shared.Config.Locomotion)
 local Dev = require(Shared.Config.DevTools)
+local DragCfg = require(Shared.Config.Dragging)
 local M = require(Shared.Config.Metrics)
 local W = require(Shared.Config.Weapons)
 local CameraRules = require(Shared.Rules.Camera)
@@ -68,15 +73,23 @@ function Stance.start()
 		end
 		-- healing someone (src/server/Healing sets "Healing"): crouched at crouch speed, no sprint, no aim
 		local healing = character:GetAttribute("Healing") ~= nil
+		local dragging = character:GetAttribute("Dragging") == true -- (src/server/Dragging) slow, no sprint, no aim
+		-- a butt stroke (src/client/Melee "Striking"): no sprint and no aim until it's back in the hold
+		local striking = character:GetAttribute("Striking") == true
+		-- in barbed wire (src/server/Wire sets "Wired"): a slow wade, no sprint, no jump
+		local wired = character:GetAttribute("Wired") == true
 		local sprinting = sprintHeld
+			and not striking
+			and not wired
 			and forward(humanoid)
 			and character:GetAttribute("Casting") ~= true
 			and not limp
 			and not healing
+			and not dragging
 		if sprinting then
 			crouched = false -- a sprint stands you up
 		end
-		local low = crouched or healing
+		local low = crouched or healing or dragging
 		-- only an item with an aim hold can be aimed (the staff has no sights)
 		local weapon = Held.weapon(character)
 		if aimHeld and Settings.get("AimMode") == "Toggle" and (sprinting or limp or not weapon) then
@@ -87,11 +100,14 @@ function Stance.start()
 			and character:GetAttribute("Blocked") ~= true -- the gun folded in (src/client/Tuck)
 			and not limp
 			and not healing
+			and not dragging
 			and weapon ~= nil
 			and W[weapon.name].holds.aim ~= nil
 			and character:GetAttribute("Reloading") ~= true
-		local speed = if sprinting
-			then M.Movement.SprintSpeed
+			and not striking
+		local speed = if dragging
+			then DragCfg.Speed
+			elseif sprinting then M.Movement.SprintSpeed
 			elseif low then M.Movement.CrouchSpeed
 			elseif aiming then M.Movement.AimWalkSpeed
 			else M.Movement.WalkSpeed
@@ -101,6 +117,10 @@ function Stance.start()
 		speed *= if type(scale) == "number" then scale else 1
 		local wade = character:GetAttribute("WadeScale")
 		speed *= if type(wade) == "number" then wade else 1
+		if wired then
+			speed = math.min(speed, BuildCfg.Wire.speed)
+		end
+		humanoid.JumpHeight = if wired then 0 else M.Movement.JumpHeight
 		humanoid.WalkSpeed = speed * ((player:GetAttribute(Dev.Admin.Attribute) :: number?) or 1)
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
@@ -180,7 +200,10 @@ function Stance.start()
 		character:GetAttributeChangedSignal("Casting"):Connect(apply)
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
 		character:GetAttributeChangedSignal("Healing"):Connect(apply)
+		character:GetAttributeChangedSignal("Dragging"):Connect(apply)
+		character:GetAttributeChangedSignal("Wired"):Connect(apply)
 		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
+		character:GetAttributeChangedSignal("Striking"):Connect(apply) -- (and through a butt stroke)
 	end
 	player.CharacterAdded:Connect(hook)
 	player:GetAttributeChangedSignal(Dev.Admin.Attribute):Connect(apply)

@@ -101,9 +101,13 @@ local Settings = {
 		Key_Fire = { kind = "key", label = "Fire", default = "MouseButton1" }, -- after a shot, the same click works the bolt
 		Key_Aim = { kind = "key", label = "Aim", default = "MouseButton2" }, -- aim down the sights (a weapon in the hands)
 		Key_Reload = { kind = "key", label = "Reload", default = "R" },
+		Key_Melee = { kind = "key", label = "Melee", default = "V" }, -- a gun's butt stroke (Config/Melee)
 		Key_Sprint = { kind = "key", label = "Sprint", default = "LeftShift" },
 		Key_Crouch = { kind = "key", label = "Crouch", default = "C" },
 		Key_Heal = { kind = "key", label = "Heal", default = "H" }, -- heal the hurt soldier you look at (Config/Healing)
+		Key_Drag = { kind = "key", label = "Drag", default = "G" }, -- drag the downed teammate you look at (Config/Dragging)
+		Key_Build = { kind = "key", label = "Build mode", default = "B" }, -- the shovel in the hands (Config/Build)
+		Key_BuildTurn = { kind = "key", label = "Turn piece", default = "T" }, -- in build mode
 		Key_Settings = { kind = "key", label = "Settings menu", default = "P" }, -- opens this menu (frees the mouse)
 	},
 
@@ -128,7 +132,19 @@ local Settings = {
 		{ name = "Audio", rows = { "MasterVolume", "EffectsVolume" } },
 		{
 			name = "Keybinds",
-			rows = { "Key_Fire", "Key_Aim", "Key_Reload", "Key_Sprint", "Key_Crouch", "Key_Heal", "Key_Settings" },
+			rows = {
+				"Key_Fire",
+				"Key_Aim",
+				"Key_Reload",
+				"Key_Melee",
+				"Key_Sprint",
+				"Key_Crouch",
+				"Key_Heal",
+				"Key_Drag",
+				"Key_Build",
+				"Key_BuildTurn",
+				"Key_Settings",
+			},
 		},
 	},
 

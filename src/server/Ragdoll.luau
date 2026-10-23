@@ -7,6 +7,7 @@
 -- the knock's `getUp` seconds, unless it is dead: a dead body stays limp, head on, until it is removed at respawn.
 -- A dead body's physics belongs to the server (Studio round 3: a headshot kill stood upright, its owner's push ignored),
 -- so whenever the server owns the body it throws it, and tips it over if it still stands, itself.
+-- A body being dragged (src/server/Dragging, the "Dragged" attribute) doesn't get up until it is let go.
 -- Players knock themselves through Net "KnockSelf" (Config/Ragdoll.SelfKnocks: the staff's recoil, the float fall).
 
 local Players = game:GetService("Players")
@@ -205,11 +206,14 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 	task.spawn(function()
 		while character.Parent do
 			task.wait()
+			if character:GetAttribute("Dragged") == true then
+				made.since = os.clock() -- dragged (src/server/Dragging): not up until let go, then the wait starts over
+			end
 			local t = os.clock() - made.since
 			if t >= Cfg.maxDown or (t >= Cfg.minDown and torso.AssemblyLinearVelocity.Magnitude < Cfg.still) then
 				local since = made.since
 				task.wait(made.getUp)
-				if made.since == since then
+				if made.since == since and character:GetAttribute("Dragged") ~= true then
 					break -- (knocked again meanwhile: the wait starts over)
 				end
 			end

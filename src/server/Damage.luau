@@ -26,9 +26,12 @@ local RagdollCfg = require(Shared.Config.Ragdoll)
 local W = require(Shared.Config.Weapons)
 local Blast = require(Shared.Rules.Blast)
 local GrenadeRules = require(Shared.Rules.Grenade)
+local MeleeRules = require(Shared.Rules.Melee)
 local Rules = require(Shared.Rules.Damage)
 local TreeRules = require(Shared.Rules.Trees)
+local Build = require(script.Parent.Build)
 local Destruction = require(script.Parent.Destruction)
+local Flinch = require(script.Parent.Flinch)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Ground = require(script.Parent.Ground)
 local Healing = require(script.Parent.Healing)
@@ -110,6 +113,14 @@ local function hurt(
 	humanoid.Health = if Dev.god(character) then humanoid.Health else left
 end
 
+-- `amount` health off a soldier with no knock (src/server/Wire: barbed wire)
+function Damage.hurtBy(character: Model, amount: number)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and amount > 0 and humanoid.Health > 0 then
+		hurt(character, humanoid, math.max(humanoid.Health - amount, 0), nil, Vector3.zero)
+	end
+end
+
 function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 	local w = W[weapon]
 	local t = w and Cfg.Weapons[w.class]
@@ -142,6 +153,18 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 			hurt(character, e.humanoid, left, Rules.knock(top, left <= 0, Cfg.Knocks), flat(e.direction))
 		end
 	end
+end
+
+-- A butt stroke (src/server/Melee) from `striker` on the body part `part` in `zone` (a helmet hit already took the
+-- helmet off), along `direction`: Config/Damage.Melee's damage and knock. True when it hurt a soldier.
+function Damage.melee(striker: Model, part: BasePart, zone: string, direction: Vector3): boolean
+	local character, humanoid = victim(part)
+	if not character or not humanoid or character == striker or humanoid.Health <= 0 then
+		return false
+	end
+	local left, knock = MeleeRules.hit(zone, humanoid.Health, Cfg.Melee, Cfg.Knocks.Killed, Cfg.HelmetFloor)
+	hurt(character, humanoid, left, knock, flat(direction))
+	return true
 end
 
 -- What a blast does (Config/Damage.Staff.Blasts); nil: everything, in full. fell = false: trees only lose leaves and
@@ -229,8 +252,14 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
+	-- player-built pieces: trenches cave in, wire is cut (src/server/Build)
+	Build.blast(position, kpaAt, function(kpa)
+		return Blast.reachOf(kpa, kg, B)
+	end)
 	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
-	local soldiers: { Model } = if o.soldiers == false then {} else Dev.soldiers()
+	local everyone = Dev.soldiers()
+	local soldiers: { Model } = if o.soldiers == false then {} else everyone
+	local knocked: { [Model]: boolean } = {}
 	for _, character in soldiers do
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local torso = character:FindFirstChild("Torso") :: BasePart?
@@ -252,11 +281,14 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 					scale = nil -- (user 2026-10-21: a point-blank staff blast threw its own caster to their death)
 				end
 				if scale then
+					knocked[character] = true
 					hurt(character, humanoid, left, B.Fling.knock, flat(torso.Position - position), scale)
 				end
 			end
 		end
 	end
+	-- everyone else near it, with nothing in the hands, ducks and holds the helmet (src/server/Flinch)
+	Flinch.blast(position, kg, o.fragments and o.fragments.wound, knocked, everyone)
 end
 
 -- A staff stage's blast at `position` (Config/Damage.Staff.Charge and Blasts), set off by `by`.

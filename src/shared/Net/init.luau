@@ -37,6 +37,12 @@ local Remotes: { string } = {
 	-- point, a reload from an open bolt starts there, a resumed action plays its rest); delay = wait this long first
 	-- (a rifle drawn again plays out its interrupted action after the draw)
 	"WeaponAction",
+	-- A gun's butt stroke (src/client/Melee, src/server/Melee; Config/Melee):
+	-- client -> server: (direction: Vector3) the butt lands now, along this direction (flat, where the striker faces)
+	-- server -> clients: (striker: Model, point: Vector3, what: "Body" | "Helmet" | "Surface" | nil) an accepted strike
+	-- and what it hit (nil: nothing), for everyone's sounds
+	"Melee",
+	"Struck",
 	-- client -> server: () putting the held weapon away with its unequip animation (src/server/Armory keeps a copy in
 	-- the hands meanwhile; Config/Locomotion.Stow)
 	"Stow",
@@ -76,6 +82,10 @@ local Remotes: { string } = {
 	-- client -> server: ("Start", patient: Model) heal the hurt soldier in reach (never yourself), or ("Stop") stop.
 	-- The healer's "Healing" attribute ("Bandage" | "MedPack", nil when not) and "HealPatient" ObjectValue say how it goes.
 	"Heal",
+	-- Dragging (src/client/Dragging asks, src/server/Dragging checks and drags; Config/Dragging, Rules/Dragging):
+	-- client -> server: ("Start", body: Model) drag the downed teammate in reach, or ("Stop") let go.
+	-- The dragger's "Dragging" attribute and "DragBody" ObjectValue, the body's "Dragged" attribute say how it goes.
+	"Drag",
 	-- Grenades (src/client/Grenades sends, src/server/Grenades checks and throws; Config/Grenades, Rules/Grenade):
 	-- client -> server: (direction: Vector3) throw the held grenade along this look (the server throws it from its own
 	-- view of the head)
@@ -92,9 +102,17 @@ local Remotes: { string } = {
 	"ArtilleryShot",
 	-- server -> clients: (position: Vector3, gun: string) a shell went off: its explosion (Config/Artillery.Guns[gun])
 	"ArtilleryBlast",
+	-- Building (src/client/Build sends, src/server/Build checks; Config/Build, Rules/Build):
+	-- client -> server: ("Place", key: string, at: CFrame) lay a piece's blueprint (the server snaps and checks it), or
+	-- ("Work", piece: Model) a shovel swing at a piece (your team's builds it, another's tears it down)
+	-- server -> client: ("Refused", reason: string) why a piece wasn't laid
+	"Build",
 	-- server -> clients: (position: Vector3, radius: number) the ground dug out round here (a gun's pit): the grass
 	-- standing there goes (src/client/GrassFoliage)
 	"GroundDug",
+	-- server -> one client: (weight: number) a blast near that player's soldier, outside its knock reach: flinch
+	-- (src/server/Flinch decides, src/client/Flinch plays it on the own character, so everyone sees it; Config/Flinch)
+	"Flinch",
 }
 local Functions: { string } = {}
 

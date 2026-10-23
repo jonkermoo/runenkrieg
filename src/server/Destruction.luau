@@ -3,6 +3,7 @@
 -- removes broken sections; clients get one SectionBroken event per break and spawn their own debris.
 --   Destruction.damage(section, amount, origin?)
 --   Destruction.explode(position, radius, damage) -- also kicks trees via Net "Explosion"
+--   Destruction.shot(part, point) -- a bullet meeting `part`: glass breaks (Config/Firing.Shatter)
 -- Stateless (all state lives in attributes), so it can be required from anywhere on the server.
 
 local CollectionService = game:GetService("CollectionService")
@@ -10,6 +11,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local D = require(Shared.Config.Destruction)
+local Shatter = require(Shared.Config.Firing).Shatter
+local Shots = require(Shared.Rules.Firing)
 local Rules = require(Shared.Rules.Destruction)
 local Net = require(Shared.Net)
 
@@ -200,6 +203,18 @@ function Destruction.damage(section: Model, amount: number, origin: Vector3?, ho
 	if building then
 		checkCollapse(building, at)
 	end
+end
+
+-- A bullet meeting `part` at `point`: a section of a Config/Firing.Shatter class (window glass) breaks at once (its
+-- shards on every client) and true is returned, so the bullet carries on; anything else stops it (false).
+function Destruction.shot(part: Instance, point: Vector3): boolean
+	local s = sectionOf(part)
+	local class = s and s:GetAttribute("Class")
+	if not s or not Shots.shatters(if type(class) == "string" then class else nil, 0, Shatter) then
+		return false
+	end
+	Destruction.damage(s, math.max(s:GetAttribute("HP") :: number? or 1, 1), point)
+	return true
 end
 
 function Destruction.explode(position: Vector3, radius: number, damage: number): { broken: number, damaged: number }

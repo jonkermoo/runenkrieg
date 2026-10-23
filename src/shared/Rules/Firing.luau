@@ -75,6 +75,12 @@ local function idle(s: State, now: number, slack: number?): boolean
 	return now + (slack or 0) >= s.busyUntil
 end
 
+-- Whether the action is under way at `now` (a shot's fire time, the bolt, a reload, single rounds going in); `slack`
+-- seconds early counts as done (latency).
+function Firing.busy(s: State, now: number, slack: number?): boolean
+	return not idle(s, now, slack)
+end
+
 local function loadEnd(l: Load): number
 	return l.start + l.open + (l.rounds or l.room) * l.round + l.close
 end
@@ -334,6 +340,16 @@ function Firing.validShot(originDistance: number, directionLength: number, maxOr
 		return false, "direction"
 	end
 	return true, nil
+end
+
+-- A shot meeting a building section of `class` after breaking `panes` already: whether it shatters it and carries on
+-- (Config/Firing.Shatter: window glass; user 2026-10-22: "bullets currently dont break glass").
+function Firing.shatters(
+	class: string?,
+	panes: number,
+	shatter: { classes: { [string]: boolean }, panes: number }
+): boolean
+	return class ~= nil and shatter.classes[class] == true and panes < shatter.panes
 end
 
 return Firing
