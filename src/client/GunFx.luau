@@ -113,7 +113,10 @@ function GunFx.sound(gun: BasePart, name: string)
 		made.Name = "Fx_" .. name
 		made.SoundId = "rbxassetid://" .. c.id
 		made.Volume = c.volume
-		Audio.spatial(made, if name == "Shot" then "Gunshot" else "Mechanism") -- realistic falloff (Config/Audio)
+		-- realistic falloff (Config/Audio); this player's own gun's action from wherever the camera is
+		local me = Players.LocalPlayer.Character -- (an ancestor check: a Tool is a Model too, so `owner` is the Tool)
+		local own = me ~= nil and gun:IsDescendantOf(me)
+		Audio.spatial(made, if name == "Shot" then "Gunshot" elseif own then "OwnMechanism" else "Mechanism")
 		if c.start or c.stop then -- only part of the file (KNOWN_TRAPS: store sounds carry extra noises)
 			made.PlaybackRegionsEnabled = true
 			made.PlaybackRegion = NumberRange.new(c.start or 0, c.stop or 600)

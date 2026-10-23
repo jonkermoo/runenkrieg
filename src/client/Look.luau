@@ -2,8 +2,7 @@
 -- The player's Effects setting (src/client/Settings): the screen look per level (Config/Look) on this client only.
 -- Adds "Look_Grade" (ColorCorrection, blended day to night by the sun's height: Rules/Grade), "Look_Bloom" and
 -- "Look_SunRays" to Lighting (in place of the place's own Bloom, and its SunRays where the level has rays) and sets the
--- sky light scales. Off puts back the place's own Lighting (its Bloom keeps the magic glowing). The Beautiful
--- setting's cinematic layer (src/client/Cinematic) adds its own effects on top.
+-- sky light scales. Off puts back the place's own Lighting (its Bloom keeps the magic glowing).
 
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

@@ -31,14 +31,15 @@ local Look = {
 			diffuse = 0.5,
 			specular = 0,
 		},
-		-- Kept close to neutral: the Beautiful setting's own cinematic layer (src/client/Cinematic) adds its film look.
+		-- The "Golden" cinematic grade (user 2026-10-22): warm late-afternoon light and gently richer colour by day,
+		-- cool moonlight at night. No blur or vignette (user 2026-10-23: Beautiful is shaders and effects only).
 		Beautiful = {
 			grade = {
-				day = { saturation = 0.1, contrast = 0.08, brightness = 0, tint = { 255, 248, 238 } },
-				night = { saturation = -0.08, contrast = 0.06, brightness = 0, tint = { 228, 236, 255 } },
+				day = { saturation = 0.12, contrast = 0.14, brightness = 0.02, tint = { 255, 232, 204 } },
+				night = { saturation = -0.12, contrast = 0.1, brightness = 0, tint = { 218, 226, 255 } },
 			},
 			bloom = { intensity = 1, size = 32, threshold = 2 },
-			sunRays = { intensity = 0.06, spread = 0.6 },
+			sunRays = { intensity = 0.07, spread = 0.75 },
 			diffuse = 1,
 			specular = 0.15,
 		},
