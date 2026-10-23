@@ -108,67 +108,142 @@ function Build.tooSoon(now: number, last: number?, length: number, slack: number
 	return last ~= nil and now - last < length * slack
 end
 
--- a bank's height share `x` of the way across it (0..1): rising over the first quarter, flat over the middle half,
--- falling over the last quarter
-function Build.bank(x: number): number
-	return math.clamp(math.min(x, 1 - x) * 4, 0, 1)
+-- Trenches v2 (Config/Build.Trench, src/server/Trenches). A trench is made of blocks along straight runs; inside a block
+-- `u` runs along it from end A (0) to end B (`length`) and `v` across it, from its centre line.
+
+-- the half width across the top of a trench's walls
+function Build.trenchTop(t: any): number
+	return t.floor + t.depth / math.tan(math.rad(t.wallAngle))
 end
 
-export type Segment = {
+-- A run `length` long split into blocks of at most `block` and at least `minBlock` studs, all the same length: a list of
+-- { from, to } along the run. nil when the run is shorter than one block may be.
+function Build.planBlocks(length: number, block: number, minBlock: number): { { from: number, to: number } }?
+	if length < minBlock - 1e-6 then
+		return nil
+	end
+	local n = math.max(math.ceil(length / block - 1e-6), 1)
+	local each = length / n
+	local out = {}
+	for i = 1, n do
+		table.insert(out, { from = (i - 1) * each, to = i * each })
+	end
+	return out
+end
+
+export type BlockShape = {
 	length: number,
-	depth: number, -- how deep it is cut now (the full depth x share)
-	share: number, -- how far it is dug: stage / stages (the banks rise with it)
-	openA: boolean, -- an open end at u = 0 (a ramp up out of it)
-	openB: boolean, -- at u = length
-	exit: boolean, -- the exit piece: a ramp out of the back in its middle
+	extA: number, -- how far its hole runs on past end A where another trench joins there (0 at a dead end)
+	extB: number,
+	deadA: boolean, -- a dead end: the walls close round it
+	deadB: boolean,
 }
 
--- The trench's ground at a point `u` along it (0 at end A, `length` at end B) and `v` across it (back negative, front
--- positive), as a height relative to the ground there before it was dug: negative where it is cut, positive where earth
--- is thrown up. Second result: only cut, never fill (ramps through banks). nil: untouched.
--- `t` is Config/Build.Trench, `firestep` Config/Metrics.Trench.FirestepWidth.
-function Build.trenchAt(u: number, v: number, seg: Segment, t: any, firestep: number): (number?, boolean)
-	local L, depth = seg.length, seg.depth
-	if depth <= 0 then
-		return nil, false
+-- How far a point (`u` along a block, `v` across) is from the block's floor centre in the trench's own sense: |v| along
+-- the block and on past a joined end; round a dead end, the floor's edge plus the distance past it (the end wall
+-- curves round like the sides). nil past a joined end's reach.
+function Build.trenchReach(u: number, v: number, b: BlockShape, floor: number): number?
+	local av = math.abs(v)
+	if u >= 0 and u <= b.length then
+		return av
 	end
-	local frontWall = t.front + firestep
-	local margin = t.cutMargin or 0
-	local inside = v >= t.back - margin and v <= frontWall + margin
-	local within = u >= 0 and u <= L
-	local lowA = if seg.openA then 0 else -t.overlap
-	local highB = if seg.openB then L else L + t.overlap
-	-- the floor (on past a joined end, so corners meet)
-	if inside and u >= lowA and u <= highB then
-		return -depth, false
+	local past = if u < 0 then -u else u - b.length
+	local dead = if u < 0 then b.deadA else b.deadB
+	local ext = if u < 0 then b.extA else b.extB
+	if dead then
+		return floor + math.sqrt(math.max(av - floor, 0) ^ 2 + past * past)
 	end
-	-- an open end's ramp, rising out along the trench
-	local ramp = t.ramp
-	if math.abs(v - (t.back + frontWall) / 2) <= ramp.width / 2 then
-		if seg.openA and u < 0 and u >= -ramp.length then
-			return -depth * (1 + u / ramp.length), true
+	return if past <= ext then av else nil
+end
+
+-- A trench's ground at reach `r` from its floor centre (Build.trenchReach), relative to the ground there before:
+-- negative where it is cut (`share` of the full depth: the floor, then walls rising at the wall angle to the top), positive
+-- where earth is thrown up as the bank past the top (a hump), nil beyond.
+function Build.trenchProfile(r: number, share: number, t: any): number?
+	if share <= 0 then
+		return nil
+	end
+	local depth = t.depth * share
+	local top = Build.trenchTop(t)
+	if r <= t.floor then
+		return -depth
+	end
+	if r <= top then
+		return -depth * (1 - (r - t.floor) / (top - t.floor))
+	end
+	if r <= top + t.bank.width then
+		return t.bank.height * share * math.sin(math.pi * (r - top) / t.bank.width)
+	end
+	return nil
+end
+
+-- The angle (degrees) a trench line bends at a joint: `ox, oz` out of the old block's end, `nx, nz` from the joint
+-- into the new one (flat, unit). 0 is straight on.
+function Build.bend(ox: number, oz: number, nx: number, nz: number): number
+	return math.deg(math.acos(math.clamp(ox * nx + oz * nz, -1, 1)))
+end
+
+-- the stage a block shows at `work` (0 = only the plan; Config/Build.Trench.stages)
+function Build.trenchStage(work: number, stages: { number }): number
+	local stage = 0
+	for i, at in stages do
+		if work >= at then
+			stage = i
 		end
-		if seg.openB and u > L and u <= L + ramp.length then
-			return -depth * (1 - (u - L) / ramp.length), true
+	end
+	return stage
+end
+
+-- Where a segment from (ax, az) to (bx, bz) runs inside a rectangle (centre cx, cz; unit axis ux, uz along it; half
+-- sizes hu along and hv across): the share of the segment from 0 to 1 where it enters and leaves it, or nil.
+function Build.clipRect(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	cx: number,
+	cz: number,
+	ux: number,
+	uz: number,
+	hu: number,
+	hv: number
+): (number?, number?)
+	-- the segment in the rectangle's own frame
+	local function local2(x: number, z: number): (number, number)
+		local dx, dz = x - cx, z - cz
+		return dx * ux + dz * uz, -dx * uz + dz * ux
+	end
+	local pu, pv = local2(ax, az)
+	local qu, qv = local2(bx, bz)
+	local du, dv = qu - pu, qv - pv
+	local t0, t1 = 0, 1
+	for _, e in { { -du, pu + hu }, { du, hu - pu }, { -dv, pv + hv }, { dv, hv - pv } } do
+		local p, q = e[1], e[2]
+		if math.abs(p) < 1e-9 then
+			if q < 0 then
+				return nil, nil
+			end
+		else
+			local r = q / p
+			if p < 0 then
+				t0 = math.max(t0, r)
+			else
+				t1 = math.min(t1, r)
+			end
 		end
 	end
-	-- the exit piece's ramp out of the back wall
-	if seg.exit and math.abs(u - L / 2) <= ramp.width / 2 and v < t.back and v >= t.back - margin - ramp.length then
-		return -depth * math.min(1 - (t.back - margin - v) / ramp.length, 1), true
+	if t0 > t1 then
+		return nil, nil
 	end
-	if not within then
-		return nil, false
+	return t0, t1
+end
+
+-- the work a blast's cave-in takes off a block: its share of the length caved, never more than `maxShare` of a block
+function Build.caveLoss(need: number, caved: number, length: number, maxShare: number): number
+	if length <= 0 or caved <= 0 then
+		return 0
 	end
-	-- the parapet in front and the parados behind: banks peaked in their middles
-	local par = t.parapet
-	if v > frontWall + margin and v <= frontWall + margin + par.width then
-		return par.height * Build.bank((v - frontWall - margin) / par.width) * seg.share, false
-	end
-	local pd = t.parados
-	if v < t.back - margin and v >= t.back - margin - pd.width then
-		return pd.height * Build.bank((t.back - margin - v) / pd.width) * seg.share, false
-	end
-	return nil, false
+	return math.min(math.ceil(need * math.clamp(caved / length, 0, 1)), math.floor(need * maxShare))
 end
 
 -- A voxel column's occupancies (bottom to top, voxels `res` tall starting at `y0`) set so the surface stands at
@@ -192,76 +267,6 @@ function Build.columnTop(occs: { number }, y0: number, res: number): number?
 		end
 	end
 	return nil
-end
-
--- Trench lines: segments `{ a, b, length, exit }` joined where they share an end node id. An end node only one
--- segment uses is open (a ramp up). Returns the farthest any point of the trench lies from a way out, walking along
--- it: an open end, or an exit piece's middle.
-function Build.farthestFromExit(segs: { { a: number, b: number, length: number, exit: boolean? } }): number
-	local uses: { [number]: number } = {}
-	for _, s in segs do
-		uses[s.a] = (uses[s.a] or 0) + 1
-		uses[s.b] = (uses[s.b] or 0) + 1
-	end
-	-- the graph: end nodes, plus a middle node per exit piece (keys above every end id)
-	local edges: { [number]: { { to: number, len: number } } } = {}
-	local function link(x: number, y: number, len: number)
-		edges[x] = edges[x] or {}
-		edges[y] = edges[y] or {}
-		table.insert(edges[x], { to = y, len = len })
-		table.insert(edges[y], { to = x, len = len })
-	end
-	local top = 0
-	for id in uses do
-		top = math.max(top, id)
-	end
-	local dist: { [number]: number } = {}
-	local spans: { { x: number, y: number, len: number } } = {}
-	for i, s in segs do
-		if s.exit then
-			local mid = top + i
-			link(s.a, mid, s.length / 2)
-			link(mid, s.b, s.length / 2)
-			table.insert(spans, { x = s.a, y = mid, len = s.length / 2 })
-			table.insert(spans, { x = mid, y = s.b, len = s.length / 2 })
-			dist[mid] = 0
-		else
-			link(s.a, s.b, s.length)
-			table.insert(spans, { x = s.a, y = s.b, len = s.length })
-		end
-	end
-	for id, n in uses do
-		if n == 1 then
-			dist[id] = 0
-		end
-	end
-	-- shortest walks from every way out (few nodes: a plain relaxation is enough)
-	local changed = true
-	while changed do
-		changed = false
-		for x, list in edges do
-			local dx = dist[x]
-			if dx then
-				for _, e in list do
-					local d = dx + e.len
-					if dist[e.to] == nil or d < dist[e.to] - 1e-9 then
-						dist[e.to] = d
-						changed = true
-					end
-				end
-			end
-		end
-	end
-	local worst = 0
-	for _, sp in spans do
-		local dx, dy = dist[sp.x], dist[sp.y]
-		if dx == nil or dy == nil then
-			return math.huge -- a closed loop with no way out
-		end
-		-- the farthest point along this span from either end's nearest way out
-		worst = math.max(worst, (dx + dy + sp.len) / 2)
-	end
-	return worst
 end
 
 export type Bag = { column: number, row: number, x: number, y: number, width: number, height: number }
@@ -323,14 +328,6 @@ function Build.caveSpan(along: number, off: number, r: number, length: number): 
 	end
 	local half = math.sqrt(r * r - off * off)
 	return math.max(math.clamp(along + half, 0, length) - math.clamp(along - half, 0, length), 0)
-end
-
--- the work a trench keeps when `caved` studs of its `length` cave in
-function Build.caveWork(work: number, need: number, caved: number, length: number): number
-	if length <= 0 then
-		return work
-	end
-	return math.max(work - math.ceil(need * math.clamp(caved / length, 0, 1)), 0)
 end
 
 return Build

@@ -90,43 +90,6 @@ return {
 		assert(not B.tooSoon(10, nil, 0.85, 0.8))
 		assert(B.tooSoon(10.5, 10, 0.85, 0.8) and not B.tooSoon(10.7, 10, 0.85, 0.8))
 	end,
-	["the trench profile: Metrics depth, floor, firestep room, banks and ramps"] = function()
-		local seg = { length = 12, depth = M.Trench.Depth, share = 1, openA = false, openB = false, exit = false }
-		local fw = M.Trench.FirestepWidth
-		assert(T.front - T.back == M.Trench.FloorWidth, "the floor is Metrics wide")
-		assert(B.trenchAt(6, 0, seg, T, fw) == -M.Trench.Depth)
-		assert(B.trenchAt(6, T.front + fw, seg, T, fw) == -M.Trench.Depth, "the firestep's room is cut")
-		local m = T.cutMargin
-		assert(B.trenchAt(6, T.back - m + 0.1, seg, T, fw) == -M.Trench.Depth, "cut a little wider than the planks")
-		local bank = B.trenchAt(6, T.front + fw + m + T.parapet.width / 2, seg, T, fw) :: number
-		assert(near(bank, T.parapet.height), "the parapet peaks in its middle")
-		assert((B.trenchAt(6, T.back - m - T.parados.width / 2, seg, T, fw) :: number) > 0, "a parados behind")
-		assert(B.trenchAt(6, 40, seg, T, fw) == nil)
-		-- joined ends: the floor runs on past them
-		assert(B.trenchAt(-T.overlap + 0.1, 0, seg, T, fw) == -M.Trench.Depth)
-		assert(B.trenchAt(12 + T.overlap - 0.1, 0, seg, T, fw) == -M.Trench.Depth)
-		assert(B.trenchAt(-T.overlap - 0.5, 0, seg, T, fw) == nil)
-		-- an open end ramps up out of it, only cutting
-		seg.openA = true
-		local mid = (T.back + T.front + fw) / 2
-		local h, cutOnly = B.trenchAt(-T.ramp.length / 2, mid, seg, T, fw)
-		assert(h and near(h, -M.Trench.Depth / 2) and cutOnly)
-		assert(B.trenchAt(-T.ramp.length - 0.5, mid, seg, T, fw) == nil)
-		-- the exit piece: a ramp out of the back in its middle
-		seg.exit = true
-		h, cutOnly = B.trenchAt(6, T.back - m - T.ramp.length / 2, seg, T, fw)
-		assert(h and near(h, -M.Trench.Depth / 2) and cutOnly)
-		-- a third dug: a third deep, banks a third high
-		local part =
-			{ length = 12, depth = M.Trench.Depth / 3, share = 1 / 3, openA = false, openB = false, exit = false }
-		assert(near(B.trenchAt(6, 0, part, T, fw) :: number, -M.Trench.Depth / 3))
-		local low = B.trenchAt(6, T.front + fw + T.cutMargin + T.parapet.width / 2, part, T, fw) :: number
-		assert(near(low, T.parapet.height / 3))
-		assert(
-			B.trenchAt(6, 0, { length = 12, depth = 0, share = 0, openA = false, openB = false, exit = false }, T, fw)
-				== nil
-		)
-	end,
 	["a voxel column shaped to a height: cut and filled, or only cut"] = function()
 		-- 4 voxels of 4 from y = 0
 		local col = { 1, 1, 1, 0.5 }
@@ -137,32 +100,6 @@ return {
 		local cut = B.shapeColumn({ 0, 0, 0, 0 }, 0, 4, 8, true)
 		assert(cut[2] == 0, "only cutting never fills")
 		assert(near(B.columnTop({ 1, 1, 0.5, 0 }, 0, 4) :: number, 12) and B.columnTop({ 0, 0 }, 0, 4) == nil)
-	end,
-	["trench lines: every point within the exit spacing of a way out"] = function()
-		local L = C.Trench.length
-		-- one segment: both ends open
-		assert(near(B.farthestFromExit({ { a = 1, b = 2, length = L } }), L / 2))
-		-- five in a line (60): the middle is 30 from either end
-		local line = {}
-		for i = 1, 5 do
-			table.insert(line, { a = i, b = i + 1, length = L })
-		end
-		assert(near(B.farthestFromExit(line), 30) and B.farthestFromExit(line) <= M.Trench.MaxExitSpacing)
-		-- six: 36, too far, unless one is an exit piece
-		table.insert(line, { a = 6, b = 7, length = L })
-		assert(near(B.farthestFromExit(line), 36))
-		line[3].exit = true
-		assert(B.farthestFromExit(line) <= M.Trench.MaxExitSpacing)
-		-- a closed loop of four with no exit piece has no way out
-		local loop = {
-			{ a = 1, b = 2, length = L },
-			{ a = 2, b = 3, length = L },
-			{ a = 3, b = 4, length = L },
-			{ a = 4, b = 1, length = L },
-		}
-		assert(B.farthestFromExit(loop) == math.huge)
-		loop[1].exit = true
-		assert(near(B.farthestFromExit(loop), 24))
 	end,
 	["sandbag courses: bonded rows, the loophole left out, all inside the wall"] = function()
 		local high = B.piece("HighWall", C.Pieces) :: any
@@ -189,10 +126,56 @@ return {
 		assert(near(B.caveSpan(12, 6.2, 9.1, 12), math.sqrt(9.1 ^ 2 - 6.2 ^ 2)), "the joint case, Studio round 1")
 		assert(near(B.caveSpan(-20, 0, 3, 12), 0))
 	end,
-	["banks: flat over the middle half"] = function()
-		assert(B.bank(0) == 0 and B.bank(1) == 0 and B.bank(0.5) == 1 and B.bank(0.3) == 1 and near(B.bank(0.125), 0.5))
+	["trenches v2: blocks of a plan, all the same length, none too short"] = function()
+		local T = C.Trench
+		local b = B.planBlocks(60, T.block, T.minBlock) :: any
+		assert(#b == 5 and near(b[5].to, 60) and near(b[1].to - b[1].from, 12))
+		b = B.planBlocks(30, T.block, T.minBlock) :: any
+		assert(#b == 3 and near(b[1].to, 10))
+		b = B.planBlocks(8, T.block, T.minBlock) :: any
+		assert(#b == 1 and near(b[1].to, 8))
+		assert(B.planBlocks(5, T.block, T.minBlock) == nil)
+		assert(T.maxPlan / T.block == 5)
 	end,
-	["a cave-in costs work by the share of the trench caved"] = function()
-		assert(B.caveWork(8, 8, 6, 12) == 4 and B.caveWork(8, 8, 0, 12) == 8 and B.caveWork(2, 8, 12, 12) == 0)
+	["trenches v2: the shape: floor, 60 degree walls too steep to walk, banks"] = function()
+		local T = C.Trench
+		local top = B.trenchTop(T)
+		assert(near(top, T.floor + T.depth / math.tan(math.rad(60))))
+		assert(T.wallAngle > M.Movement.MaxSlopeAngle, "the walls can't be walked up")
+		assert(T.depth >= M.Cover.FullCoverMin, "full cover on the floor")
+		assert(B.trenchProfile(0, 1, T) == -T.depth and B.trenchProfile(T.floor, 1, T) == -T.depth)
+		assert(near(B.trenchProfile((T.floor + top) / 2, 1, T) :: number, -T.depth / 2))
+		local bank = B.trenchProfile(top + T.bank.width / 2, 1, T) :: number
+		assert(near(bank, T.bank.height))
+		assert(B.trenchProfile(top + T.bank.width + 0.1, 1, T) == nil and B.trenchProfile(1, 0, T) == nil)
+		assert(near(B.trenchProfile(0, 1 / 3, T) :: number, -T.depth / 3), "a third dug")
+	end,
+	["trenches v2: reach along a block, past a joined end, round a dead end"] = function()
+		local shape = { length = 12, extA = 4, extB = 0, deadA = false, deadB = true }
+		assert(B.trenchReach(6, -2, shape, 3) == 2)
+		assert(B.trenchReach(-3, 1, shape, 3) == 1 and B.trenchReach(-5, 1, shape, 3) == nil, "joined: on by its reach")
+		assert(B.trenchReach(14, 1, shape, 3) == 5, "dead end: the floor's edge plus the distance past it")
+		assert(near(B.trenchReach(15, 7, shape, 3) :: number, 3 + 5), "round the corner")
+	end,
+	["trenches v2: stages by work"] = function()
+		local st = C.Trench.stages
+		assert(B.trenchStage(0, st) == 0 and B.trenchStage(3, st) == 1 and B.trenchStage(7, st) == 2)
+		assert(B.trenchStage(C.Trench.work, st) == #st and st[#st] == C.Trench.work)
+		assert(#C.Trench.depthByStage == #st and C.Trench.depthByStage[#st] == 1)
+	end,
+	["trenches v2: a segment through a rectangle"] = function()
+		-- a rectangle at the origin along x, 6 long each way, 2 across each way; a segment along x through it
+		local t0, t1 = B.clipRect(-10, 0, 10, 0, 0, 0, 1, 0, 6, 2)
+		assert(t0 and t1 and near(t0, 0.2) and near(t1, 0.8))
+		assert(B.clipRect(-10, 5, 10, 5, 0, 0, 1, 0, 6, 2) == nil, "passes beside it")
+		-- turned 90 degrees: the rectangle along z
+		t0, t1 = B.clipRect(-10, 0, 10, 0, 0, 0, 0, 1, 6, 2)
+		assert(t0 and t1 and near(t0, 0.4) and near(t1, 0.6))
+		t0 = B.clipRect(0, 0, 1, 0, 0, 0, 1, 0, 6, 2)
+		assert(t0 == 0, "starting inside")
+	end,
+	["trenches v2: a blast never takes more than half a block"] = function()
+		assert(B.caveLoss(8, 12, 12, 0.5) == 4 and B.caveLoss(8, 3, 12, 0.5) == 2 and B.caveLoss(8, 0, 12, 0.5) == 0)
+		assert(C.Trench.cave.maxShare <= 0.5)
 	end,
 }

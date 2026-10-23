@@ -3,16 +3,15 @@
 -- (the build-mode ghost, src/client/Build) and the server (src/server/Build, which decides). Reads the world, so it
 -- lives outside Rules.
 --
--- A piece's frame: its centre on the ground, RightVector along its width (a trench's length, end A at -length/2, end
--- B at +length/2), LookVector to its front (the side it faces the enemy from). Laid pieces carry attributes: "Piece"
--- (Config/Build key), "Team", "Frame" (CFrame), "Size" (Vector3: width, height, depth), and trenches "EndA" / "EndB"
--- (Vector3 on the ground) and "OpenA" / "OpenB" (no other trench joined there).
+-- A piece's frame: its centre on the ground, RightVector along its width, LookVector to its front. Laid pieces carry
+-- attributes: "Piece" (Config/Build key), "Team", "Frame" (CFrame), "Size" (Vector3: width, height, depth). Trench
+-- blocks (src/server/Trenches) carry "Kind" = "TrenchBlock", "Team", "BlockA" / "BlockB" (their ends on the ground),
+-- "LinkA" / "LinkB" ("end", "tee" or "" for a dead end), "Work", "Need".
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Build)
-local M = require(Shared.Config.Metrics)
 local Rules = require(Shared.Rules.Build)
 
 local Survey = {}
@@ -22,18 +21,12 @@ terrainOnly.FilterType = Enum.RaycastFilterType.Include
 terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
 terrainOnly.IgnoreWater = false
 
--- a piece's footprint: width (along RightVector), height, depth (along LookVector), and its centre's offset to the
--- front from the frame (a trench's band runs from its back wall to its parapet)
-function Survey.footprint(piece: Rules.Piece): (Vector3, number)
-	if piece.kind == "Trench" then
-		local T = C.Trench
-		local back = T.back - T.cutMargin - T.parados.width
-		local front = T.front + M.Trench.FirestepWidth + T.cutMargin + T.parapet.width
-		return Vector3.new(T.length, M.Trench.Depth, front - back), (front + back) / 2
-	elseif piece.kind == "Sandbags" then
-		return Vector3.new(piece.width, piece.rows * piece.row, piece.depth), 0
+-- a piece's footprint: width (along RightVector), height, depth (along LookVector)
+function Survey.footprint(piece: Rules.Piece): Vector3
+	if piece.kind == "Sandbags" then
+		return Vector3.new(piece.width, piece.rows * piece.row, piece.depth)
 	end
-	return Vector3.new(piece.width, piece.height, piece.depth), 0
+	return Vector3.new(piece.width, piece.height, piece.depth)
 end
 
 -- the frame flattened to a yaw at `at`
@@ -45,68 +38,8 @@ function Survey.frame(at: Vector3, look: Vector3): CFrame
 	return CFrame.lookAt(at, at + flat.Unit)
 end
 
--- The trench ends of `team` no other trench has joined, as { model, end = "A" | "B", at }
-function Survey.freeEnds(folder: Instance?, team: string): { { model: Model, which: string, at: Vector3 } }
-	local out = {}
-	if not folder then
-		return out
-	end
-	for _, m in folder:GetChildren() do
-		if m:IsA("Model") and m:GetAttribute("Team") == team and m:GetAttribute("EndA") then
-			for _, which in { "A", "B" } do
-				local at = m:GetAttribute("End" .. which)
-				if m:GetAttribute("Open" .. which) == true and typeof(at) == "Vector3" then
-					table.insert(out, { model = m, which = which, at = at })
-				end
-			end
-		end
-	end
-	return out
-end
-
-local function flatDistance(a: Vector3, b: Vector3): number
-	return Vector3.new(a.X - b.X, 0, a.Z - b.Z).Magnitude
-end
-
--- A trench frame moved so that one of its ends meets a free end of the team's trench within Config/Build.Trench.snap
--- (its yaw kept). Returns the frame and the joins: { A = free end?, B = free end? }.
-function Survey.snap(folder: Instance?, team: string, frame: CFrame): (CFrame, { [string]: any })
-	local half = C.Trench.length / 2
-	local ends = Survey.freeEnds(folder, team)
-	local best, bestD, mine = nil, C.Trench.snap, nil
-	for _, e in ends do
-		for _, which in { "A", "B" } do
-			local p = frame.Position + frame.RightVector * (if which == "A" then -half else half)
-			local d = flatDistance(p, e.at)
-			if d < bestD then
-				best, bestD, mine = e, d, which
-			end
-		end
-	end
-	local joins: { [string]: any } = {}
-	if best and mine then
-		local p = frame.Position + frame.RightVector * (if mine == "A" then -half else half)
-		local shift = Vector3.new(best.at.X - p.X, 0, best.at.Z - p.Z)
-		frame = frame + shift
-		joins[mine] = best
-		-- the other end may land on another free end too (closing a gap)
-		local other = if mine == "A" then "B" else "A"
-		local q = frame.Position + frame.RightVector * (if other == "A" then -half else half)
-		for _, e in ends do
-			if e ~= best and e.model ~= best.model and flatDistance(q, e.at) < C.Trench.snap * 0.5 then
-				joins[other] = e
-				break
-			end
-		end
-	end
-	return frame, joins
-end
-
 export type Report = {
 	heights: { number },
-	rows: number,
-	dx: number,
-	dz: number,
 	ground: boolean,
 	water: boolean,
 	slope: number,
@@ -123,37 +56,9 @@ function Survey.groundAt(x: number, z: number, near: number): (number?, boolean)
 	return hit.Position.Y, hit.Material == Enum.Material.Water
 end
 
--- The ground a trench in `folder` dug away at (x, z), as it was before (its ground line between its ends), or nil when
--- no trench dug there: its cut, its banks and its ramps. A new trench is surveyed on that ground, not on the hole
--- (Studio round 1: a trench laid onto a dug trench's end read the hole as "Too steep").
-function Survey.dugGround(folder: Instance?, x: number, z: number): number?
-	if not folder then
-		return nil
-	end
-	local T = C.Trench
-	local fw = M.Trench.FirestepWidth
-	for _, m in folder:GetChildren() do
-		local ea, eb = m:GetAttribute("EndA"), m:GetAttribute("EndB")
-		local frame = m:GetAttribute("Frame")
-		if typeof(ea) == "Vector3" and typeof(eb) == "Vector3" and typeof(frame) == "CFrame" then
-			local rel = Vector3.new(x - ea.X, 0, z - ea.Z)
-			local u = rel:Dot(frame.RightVector)
-			local v = rel:Dot(frame.LookVector)
-			local length = Vector3.new(eb.X - ea.X, 0, eb.Z - ea.Z).Magnitude
-			local behind = T.back - T.cutMargin - math.max(T.parados.width, T.ramp.length)
-			local before = T.front + fw + T.cutMargin + T.parapet.width
-			if u >= -T.ramp.length and u <= length + T.ramp.length and v >= behind and v <= before then
-				return ea.Y + (eb.Y - ea.Y) * math.clamp(u / math.max(length, 1e-3), 0, 1)
-			end
-		end
-	end
-	return nil
-end
-
--- The ground under a piece's footprint: a grid of samples (5 along, 3 across). With `folder`, a trench is surveyed on
--- the ground other trenches dug away (Survey.dugGround).
-function Survey.ground(piece: Rules.Piece, frame: CFrame, folder: Instance?): Report
-	local size, offset = Survey.footprint(piece)
+-- The ground under a piece's footprint: a grid of samples (5 along, 3 across)
+function Survey.ground(piece: Rules.Piece, frame: CFrame): Report
+	local size = Survey.footprint(piece)
 	local cols, rows = 5, 3
 	local heights = {}
 	local ground, water, low = true, false, math.huge
@@ -161,11 +66,8 @@ function Survey.ground(piece: Rules.Piece, frame: CFrame, folder: Instance?): Re
 		for c = 1, cols do
 			local u = (c - 1) / (cols - 1) - 0.5
 			local v = (r - 1) / (rows - 1) - 0.5
-			local p = frame.Position + frame.RightVector * (u * size.X) + frame.LookVector * (offset + v * size.Z)
+			local p = frame.Position + frame.RightVector * (u * size.X) + frame.LookVector * (v * size.Z)
 			local h, wet = Survey.groundAt(p.X, p.Z, frame.Position.Y)
-			if piece.kind == "Trench" then
-				h = Survey.dugGround(folder, p.X, p.Z) or h
-			end
 			if h then
 				table.insert(heights, h)
 				low = math.min(low, h)
@@ -176,47 +78,31 @@ function Survey.ground(piece: Rules.Piece, frame: CFrame, folder: Instance?): Re
 			water = water or wet
 		end
 	end
-	local centre = (
-		if piece.kind == "Trench" then Survey.dugGround(folder, frame.Position.X, frame.Position.Z) else nil
-	)
-		or Survey.groundAt(frame.Position.X, frame.Position.Z, frame.Position.Y)
-		or frame.Position.Y
-	local slope = Rules.steepest(heights, rows, size.X / (cols - 1), size.Z / (rows - 1))
+	local centre = Survey.groundAt(frame.Position.X, frame.Position.Z, frame.Position.Y) or frame.Position.Y
 	return {
 		heights = heights,
-		rows = rows,
-		dx = size.X / (cols - 1),
-		dz = size.Z / (rows - 1),
 		ground = ground,
 		water = water,
-		slope = slope,
+		slope = Rules.steepest(heights, rows, size.X / (cols - 1), size.Z / (rows - 1)),
 		low = if low == math.huge then frame.Position.Y else low,
 		centre = centre,
 	}
 end
 
 -- the closest distance between a point and the segment a-b, flat
-local function toSegment(p: Vector3, a: Vector3, b: Vector3): number
+function Survey.toSegment(p: Vector3, a: Vector3, b: Vector3): number
 	local ab = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
 	local ap = Vector3.new(p.X - a.X, 0, p.Z - a.Z)
 	local len2 = ab:Dot(ab)
 	local t = if len2 > 0 then math.clamp(ap:Dot(ab) / len2, 0, 1) else 0
 	return (ap - ab * t).Magnitude
 end
-Survey.toSegment = toSegment
 
--- Whether a piece laid at `frame` (ground `low`) runs into anything: parts standing over its footprint (buildings,
--- trees, props, other pieces, soldiers) or, for a trench, another trench it isn't joined to. `ignore` is left out of
--- the part search (the client's ghost).
-function Survey.blocked(
-	piece: Rules.Piece,
-	frame: CFrame,
-	low: number,
-	folder: Instance?,
-	joins: { [string]: any }?,
-	ignore: { Instance }?
-): boolean
-	local size, offset = Survey.footprint(piece)
+-- Whether a piece laid at `frame` (ground `low`) runs into anything standing over its footprint (buildings, trees,
+-- props, other pieces, soldiers). Trench blocks don't count: sandbags and wire go on their banks. `ignore` is left out
+-- of the search (the client's ghost).
+function Survey.blocked(piece: Rules.Piece, frame: CFrame, low: number, ignore: { Instance }?): boolean
+	local size = Survey.footprint(piece)
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	local skip: { Instance } = { workspace.Terrain }
@@ -224,57 +110,27 @@ function Survey.blocked(
 		table.insert(skip, i)
 	end
 	params.FilterDescendantsInstances = skip
-	local tall = if piece.kind == "Trench" then 5 else size.Y
 	local box = CFrame.fromMatrix(
-		Vector3.new(frame.Position.X, low + 0.8 + tall / 2, frame.Position.Z) + frame.LookVector * offset,
+		Vector3.new(frame.Position.X, low + 0.8 + size.Y / 2, frame.Position.Z),
 		frame.RightVector,
 		Vector3.yAxis
 	)
-	-- a trench's banks are wide: only its cut band has to be clear of parts
-	local across = if piece.kind == "Trench" then C.Trench.front + M.Trench.FirestepWidth - C.Trench.back else size.Z
-	for _, part in workspace:GetPartBoundsInBox(box, Vector3.new(size.X, tall, across), params) do
+	for _, part in workspace:GetPartBoundsInBox(box, size, params) do
 		local model = part:FindFirstAncestorWhichIsA("Model")
 		local soldier = model and model:FindFirstChildOfClass("Humanoid") ~= nil
-		if part.CanCollide or soldier then
-			-- (a trench under laid sandbags or wire is fine: those are checked from their side)
-			if not (piece.kind == "Trench" and folder and part:IsDescendantOf(folder)) then
-				return true
-			end
-		end
-	end
-	if piece.kind ~= "Trench" or not folder then
-		return false
-	end
-	-- other trenches: no closer than the cut band's width, except next to the end it joins
-	local half = C.Trench.length / 2
-	local a = frame.Position - frame.RightVector * half
-	local b = frame.Position + frame.RightVector * half
-	local width = C.Trench.front + M.Trench.FirestepWidth - C.Trench.back
-	for _, m in folder:GetChildren() do
-		local ea, eb = m:GetAttribute("EndA"), m:GetAttribute("EndB")
-		if m:IsA("Model") and typeof(ea) == "Vector3" and typeof(eb) == "Vector3" then
-			for i = 0, 8 do
-				local p = a:Lerp(b, i / 8)
-				local nearJoin = false
-				for _, j in joins or {} do
-					if j.model == m and flatDistance(p, j.at) < width + C.Trench.overlap then
-						nearJoin = true
-					end
-				end
-				if not nearJoin and toSegment(p, ea, eb) < width then
-					return true
-				end
-			end
+		local trench = model and model:GetAttribute("Kind") == "TrenchBlock"
+		if (part.CanCollide or soldier) and not trench then
+			return true
 		end
 	end
 	return false
 end
 
--- how far `p` is from a laid piece (flat): from a trench's centre line, or from the edge of another piece's box
+-- how far `p` is from a laid piece (flat): from a trench block's line, or from the edge of another piece's box
 function Survey.distanceTo(model: Instance, p: Vector3): number
-	local ea, eb = model:GetAttribute("EndA"), model:GetAttribute("EndB")
-	if typeof(ea) == "Vector3" and typeof(eb) == "Vector3" then
-		return toSegment(p, ea, eb)
+	local a, b = model:GetAttribute("BlockA"), model:GetAttribute("BlockB")
+	if typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+		return Survey.toSegment(p, a, b)
 	end
 	local frame, size = model:GetAttribute("Frame"), model:GetAttribute("Size")
 	if typeof(frame) ~= "CFrame" or typeof(size) ~= "Vector3" then
@@ -284,6 +140,46 @@ function Survey.distanceTo(model: Instance, p: Vector3): number
 	local dx = math.max(math.abs(l.X) - size.X / 2, 0)
 	local dz = math.max(math.abs(l.Z) - size.Z / 2, 0)
 	return math.sqrt(dx * dx + dz * dz)
+end
+
+-- For the trench planner's ghost: where a plan's end at `p` would go, as the server snaps it (src/server/Trenches): onto
+-- a free end of the team's trench within Trench.joinReach ("end"), onto a block's centre line when `p` is on its side
+-- ("tee"), else where it is. Also the block it joins and, for an end, the way out of that end (flat unit).
+function Survey.trenchSnap(folder: Instance?, team: string, p: Vector3): (Vector3, string?, Model?, Vector3?)
+	if not folder then
+		return p, nil, nil, nil
+	end
+	local T = C.Trench
+	local top = Rules.trenchTop(T)
+	local best: Model?, bestAt: Vector3?, bestOut: Vector3?, bestD = nil, nil, nil, T.joinReach
+	for _, m in folder:GetChildren() do
+		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
+		if m:IsA("Model") and m:GetAttribute("Team") == team and typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+			local dir = Vector3.new(b.X - a.X, 0, b.Z - a.Z).Unit
+			for _, e in { { a, m:GetAttribute("LinkA"), -dir }, { b, m:GetAttribute("LinkB"), dir } } do
+				local d = Vector3.new(p.X - e[1].X, 0, p.Z - e[1].Z).Magnitude
+				if (e[2] == nil or e[2] == "") and d < bestD then
+					best, bestAt, bestOut, bestD = m, e[1], e[3], d
+				end
+			end
+		end
+	end
+	if best and bestAt then
+		return bestAt, "end", best, bestOut
+	end
+	for _, m in folder:GetChildren() do
+		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
+		if m:IsA("Model") and m:GetAttribute("Team") == team and typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+			local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+			local dir = flat.Unit
+			local rel = Vector3.new(p.X - a.X, 0, p.Z - a.Z)
+			local u, v = rel:Dot(dir), rel:Dot(Vector3.new(-dir.Z, 0, dir.X))
+			if u >= 0 and u <= flat.Magnitude and math.abs(v) <= top then
+				return a:Lerp(b, u / flat.Magnitude), "tee", m, nil
+			end
+		end
+	end
+	return p, nil, nil, nil
 end
 
 return Survey

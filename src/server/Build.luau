@@ -1,15 +1,14 @@
 --!strict
--- Player building on the server (phase 4.4 stage 1; Config/Build, Rules/Build, shared/BuildSurvey). The client lays a
--- blueprint (Net "Build" "Place": the piece and where); the server snaps it, surveys the ground, checks the rules and
--- the caps, and lays it in Workspace[Config/Build.Folder]. Every shovel swing at a piece (Net "Build" "Work") adds a
--- unit of work for its own team and takes one off for another; the piece rises in stages as it is worked and is torn
--- down at 0 (a trench filled in). A blueprint nobody works on goes after Config/Build.BlueprintLife.
--- - Trenches are cut into the terrain, voxel by voxel, from the ground as it was before any trench touched it (kept
---   per voxel), so joining, caving in and filling are all the same reshape of the live trenches over the ground.
---   When done, plank revetments and a firestep go in: Wood sections (src/server/Destruction breaks them).
+-- Player building on the server (phase 4.4; Config/Build, Rules/Build, shared/BuildSurvey). The client lays a
+-- blueprint (Net "Build" "Place": the piece and where); the server surveys the ground, checks the rules and the caps,
+-- and lays it in Workspace[Config/Build.Folder]. Trenches are planned and dug in src/server/Trenches (Net "Build"
+-- "Plan": start and end).
+-- Every shovel swing (Net "Build" "Work", the target and the shovel's mode, user 2026-10-23):
+-- - Build at your team's piece adds a unit of work; it rises in stages and stands at full work;
+-- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
 -- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
 -- - Barbed wire: pickets and strands nothing queries (bullets pass); src/server/Wire slows and hurts soldiers in it.
--- Build.blast (from src/server/Damage.blast): a big enough blast caves a trench in round it and cuts wire.
+-- Build.blast (from src/server/Damage.blast): a big enough blast caves trenches in and cuts wire.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -18,18 +17,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Build)
 local D = require(Shared.Config.Destruction)
-local M = require(Shared.Config.Metrics)
 local Palette = require(Shared.Config.Palette)
 local ShovelCfg = require(Shared.Config.Shovel)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Build)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
+local Trees = require(script.Parent.Trees)
+local Trenches = require(script.Parent.Trenches)
 
 local Build = {}
-
-local VOXEL = 4
-local T = C.Trench
 
 type Rec = {
 	model: Model,
@@ -38,25 +35,14 @@ type Rec = {
 	owner: number,
 	work: number,
 	need: number,
-	built: boolean, -- has stood once (a trench keeps its full depth until torn down)
+	built: boolean, -- has stood once
 	born: number,
 	worked: number,
 	frame: CFrame,
-	-- trenches
-	a: number?, -- end node ids
-	b: number?,
-	floorA: number?, -- the ground line's height at each end
-	floorB: number?,
-	caved: { { at: Vector3, r: number } }?,
 }
 
 local recs: { [Model]: Rec } = {}
 local lastSwing: { [Player]: number } = {}
--- trench end nodes: where they are, their ground height
-local nodes: { [number]: { at: Vector3 } } = {}
-local nextNode = 0
--- the ground before any trench: per voxel ("x,y,z" in voxel units), { occupancy, material }
-local original: { [string]: { o: number, m: Enum.Material } } = {}
 
 local function rgb(c: { number }, jitter: number?): Color3
 	local k = 1 + (jitter or 0)
@@ -88,148 +74,6 @@ local function refuse(player: Player, reason: string)
 	Net.event("Build"):FireClient(player, "Refused", reason)
 end
 
--- the trench line's ends (on the ground) and its unit direction, flat
-local function ends(r: Rec): (Vector3, Vector3)
-	local half = T.length / 2
-	local a = r.frame.Position - r.frame.RightVector * half
-	local b = r.frame.Position + r.frame.RightVector * half
-	return Vector3.new(a.X, r.floorA or a.Y, a.Z), Vector3.new(b.X, r.floorB or b.Y, b.Z)
-end
-
-local function uses(id: number?): number
-	local n = 0
-	for _, r in recs do
-		if id and (r.a == id or r.b == id) then
-			n += 1
-		end
-	end
-	return n
-end
-
-local function trenchSegment(r: Rec): Rules.Segment
-	local share = if r.built then 1 else Rules.stageOf(r.work, r.need, T.stages) / T.stages
-	return {
-		length = T.length,
-		depth = M.Trench.Depth * share,
-		share = share,
-		openA = uses(r.a) <= 1,
-		openB = uses(r.b) <= 1,
-		exit = r.piece.exit == true,
-	}
-end
-
-local function publishEnds(r: Rec)
-	local a, b = ends(r)
-	r.model:SetAttribute("EndA", a)
-	r.model:SetAttribute("EndB", b)
-	r.model:SetAttribute("OpenA", uses(r.a) <= 1)
-	r.model:SetAttribute("OpenB", uses(r.b) <= 1)
-end
-
--- Reshapes the terrain round `centre` (within `reach`, flat) to the ground before any trench, cut and banked by every
--- live trench there. Only voxels some trench ever touched go back; the rest stay as they are (craters, other digs).
-local function reshape(centre: Vector3, reach: number)
-	local terrain = workspace.Terrain
-	local half = Vector3.new(reach, M.Trench.Depth + T.parapet.height + VOXEL * 4, reach)
-	local region = Region3.new(centre - half, centre + half):ExpandToGrid(VOXEL)
-	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
-	if not ok then
-		return
-	end
-	local size = mats.Size
-	local corner = region.CFrame.Position - region.Size / 2
-	-- (whole voxel numbers: the region is on the grid)
-	local gx, gy, gz = math.round(corner.X / VOXEL), math.round(corner.Y / VOXEL), math.round(corner.Z / VOXEL)
-	-- the live trenches that can reach this region
-	local near = {}
-	for _, r in recs do
-		if r.piece.kind == "Trench" and (r.frame.Position - centre).Magnitude <= reach + T.length + T.ramp.length then
-			local a, b = ends(r)
-			table.insert(near, { r = r, seg = trenchSegment(r), a = a, b = b })
-		end
-	end
-	local fw = M.Trench.FirestepWidth
-	for ix = 1, size.X do
-		for iz = 1, size.Z do
-			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
-			-- the column back to the ground before any trench (where one touched it)
-			local column = table.create(size.Y, 0)
-			for iy = 1, size.Y do
-				local key = `{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`
-				local o = original[key]
-				if o then
-					occs[ix][iy][iz] = o.o
-					mats[ix][iy][iz] = o.m
-				end
-				column[iy] = occs[ix][iy][iz]
-			end
-			-- what the trenches want here: the deepest cut wins, else the highest bank
-			local cut: number? = nil
-			local bank: number? = nil
-			local top = Rules.columnTop(column, corner.Y, VOXEL)
-			for _, n in near do
-				local r: Rec = n.r
-				local p = Vector3.new(x, 0, z)
-				local rel = p - Vector3.new(n.a.X, 0, n.a.Z)
-				local u = rel:Dot(r.frame.RightVector)
-				local v = rel:Dot(r.frame.LookVector)
-				local caved = false
-				for _, cv in r.caved or {} do
-					if Vector3.new(x - cv.at.X, 0, z - cv.at.Z).Magnitude <= cv.r then
-						caved = true
-					end
-				end
-				local h, _cutOnly = Rules.trenchAt(u, v, n.seg, T, fw)
-				if h and not caved then
-					-- the ground line between the ends (on past them for ramps and joins)
-					local line = n.a.Y + (n.b.Y - n.a.Y) * math.clamp(u / T.length, -1, 2)
-					if h < 0 then
-						local want = line + h
-						cut = if cut then math.min(cut, want) else want
-					elseif top then
-						local want = top + h
-						bank = if bank then math.max(bank, want) else want
-					end
-				end
-			end
-			if cut or bank then
-				-- keep the ground as it was before we change it
-				for iy = 1, size.Y do
-					local key = `{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`
-					if not original[key] then
-						original[key] = { o = occs[ix][iy][iz], m = mats[ix][iy][iz] }
-					end
-				end
-				if cut then
-					local out = Rules.shapeColumn(column, corner.Y, VOXEL, cut, true)
-					for iy = 1, size.Y do
-						if out[iy] < occs[ix][iy][iz] then
-							occs[ix][iy][iz] = out[iy]
-							mats[ix][iy][iz] = if out[iy] <= 0 then Enum.Material.Air else Enum.Material.Mud
-						end
-					end
-				elseif bank then
-					local out = Rules.shapeColumn(column, corner.Y, VOXEL, bank, false)
-					for iy = 1, size.Y do
-						if out[iy] > occs[ix][iy][iz] then
-							occs[ix][iy][iz] = out[iy]
-							if mats[ix][iy][iz] == Enum.Material.Air then
-								mats[ix][iy][iz] = Enum.Material.Ground
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-	terrain:WriteVoxels(region, VOXEL, mats, occs)
-	Net.event("GroundDug"):FireAllClients(centre, reach)
-end
-
-local function reshapeTrench(r: Rec)
-	reshape(r.frame.Position + r.frame.LookVector * ((T.back + T.front) / 2), T.length / 2 + T.ramp.length + VOXEL)
-end
-
 local function newPart(model: Instance, name: string, size: Vector3, cf: CFrame, color: Color3): Part
 	local p = Instance.new("Part")
 	p.Name = name
@@ -256,51 +100,6 @@ local function section(parent: Instance, name: string, kind: string, class: stri
 	s.Parent = parent
 	CollectionService:AddTag(s, D.SectionTag)
 	return s
-end
-
--- a trench's revetments and firestep (once it stands; again after a cave-in if they were broken)
-local function revet(r: Rec)
-	if r.model:FindFirstChild("Revetment") then
-		return
-	end
-	local holder = Instance.new("Folder")
-	holder.Name = "Revetment"
-	holder.Parent = r.model
-	local a, b = ends(r)
-	local depth = M.Trench.Depth
-	local fw = M.Trench.FirestepWidth
-	local th = T.plankThickness
-	local along = b - a
-	local front = r.frame.LookVector
-	local function plank(name: string, v: number, from: number, height: number, width: number)
-		-- a board along the trench between its floor ends, `v` across, from `from` over the floor, `height` tall
-		local mid = (a + b) / 2 + front * v + Vector3.new(0, -depth + from + height / 2, 0)
-		local cf = CFrame.lookAt(mid, mid + along, Vector3.yAxis)
-		local s = section(holder, name, "Revetment", "Wood", T.plankHP)
-		newPart(s, name, Vector3.new(width, height, along.Magnitude), cf, rgb(Palette.Build.Plank))
-	end
-	local exitGap = r.piece.exit == true
-	if exitGap then
-		-- the back wall in two boards either side of the exit's ramp
-		local gap = T.ramp.width
-		local len = (along.Magnitude - gap) / 2
-		for i, sign in { -1, 1 } do
-			local centre = (a + b) / 2 + along.Unit * sign * (gap / 2 + len / 2)
-			local mid = centre + front * (T.back - th / 2) + Vector3.new(0, -depth / 2 + 0.15, 0)
-			local s = section(holder, "Back" .. i, "Revetment", "Wood", T.plankHP)
-			newPart(
-				s,
-				"Back" .. i,
-				Vector3.new(th, depth + 0.3, len),
-				CFrame.lookAt(mid, mid + along, Vector3.yAxis),
-				rgb(Palette.Build.Plank)
-			)
-		end
-	else
-		plank("Back", T.back - th / 2, 0, depth + 0.3, th)
-	end
-	plank("Firestep", T.front + fw / 2, 0, M.Trench.FirestepHeight, fw)
-	plank("Front", T.front + fw + th / 2, 0, depth + 0.3, th)
 end
 
 -- the bags of a sandbag wall: the rows up to `stage` stand, the rest ghosted
@@ -397,47 +196,12 @@ local function showWire(r: Rec)
 	r.model:SetAttribute("Armed", r.built)
 end
 
--- the outline of a trench still to be dug: a flat band on the ground
-local function outline(r: Rec, ground: number)
-	local size = Survey.footprint(r.piece)
-	local across = T.front + M.Trench.FirestepWidth - T.back
-	local p = newPart(
-		r.model,
-		"Outline",
-		Vector3.new(size.X, 0.2, across),
-		CFrame.new(r.frame.Position.X, ground + 0.1, r.frame.Position.Z)
-			* r.frame.Rotation
-			* CFrame.new(0, 0, -((T.back + T.front + M.Trench.FirestepWidth) / 2)),
-		rgb(Palette.Build.Plank)
-	)
-	p.Transparency = C.GhostTransparency
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-end
-
 -- shows a piece as its work stands now
 local function apply(r: Rec)
 	r.model:SetAttribute("Work", r.work)
 	r.model:SetAttribute("Built", r.built)
 	local kind = r.piece.kind
-	if kind == "Trench" then
-		reshapeTrench(r)
-		local outlined = r.model:FindFirstChild("Outline")
-		if r.built then
-			if outlined then
-				outlined:Destroy()
-			end
-			if r.work >= r.need then
-				-- (after a cave-in, boards the blast broke go back in)
-				local old = r.model:FindFirstChild("Revetment")
-				if old and #old:GetChildren() < (if r.piece.exit then 4 else 3) then
-					old:Destroy()
-				end
-				revet(r)
-			end
-		end
-	elseif kind == "Sandbags" then
+	if kind == "Sandbags" then
 		showSandbags(
 			r,
 			if r.built and r.work >= r.need then r.piece.rows else Rules.stageOf(r.work, r.need, r.piece.rows)
@@ -455,7 +219,7 @@ local function remove(r: Rec, debris: boolean)
 	if debris then
 		local pieces = {}
 		for _, d in r.model:GetDescendants() do
-			if d:IsA("BasePart") and d.Transparency < 1 and d.Name ~= "Outline" then
+			if d:IsA("BasePart") and d.Transparency < 1 then
 				table.insert(pieces, { cf = d.CFrame, size = d.Size, color = d.Color, t = d.Transparency })
 			end
 		end
@@ -464,16 +228,6 @@ local function remove(r: Rec, debris: boolean)
 		end
 	end
 	r.model:Destroy()
-	if r.piece.kind == "Trench" then
-		-- the trench filled in; the trenches it was joined to get their open ends back
-		reshapeTrench(r)
-		for _, o in recs do
-			if o.piece.kind == "Trench" and (o.a == r.a or o.a == r.b or o.b == r.a or o.b == r.b) then
-				publishEnds(o)
-				reshapeTrench(o)
-			end
-		end
-	end
 end
 
 local function count(team: string, owner: number?): number
@@ -486,64 +240,35 @@ local function count(team: string, owner: number?): number
 	return n
 end
 
--- the team's trench lines with a new segment between nodes `a` and `b`, for the exit rule
-local function exitsOk(team: string, a: number, b: number, exit: boolean): boolean
-	local segs = {}
-	for _, r in recs do
-		if r.team == team and r.piece.kind == "Trench" and r.a and r.b then
-			table.insert(segs, { a = r.a, b = r.b, length = T.length, exit = r.piece.exit == true })
-		end
+-- the soldier's character, root and team when they hold the shovel
+local function digger(player: Player): (Model?, BasePart?, string?)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not character or not root or not holdsShovel(character) then
+		return nil, nil, nil
 	end
-	table.insert(segs, { a = a, b = b, length = T.length, exit = exit })
-	return Rules.farthestFromExit(segs) <= M.Trench.MaxExitSpacing
-end
-
-local function nodeAt(at: Vector3): number
-	nextNode += 1
-	nodes[nextNode] = { at = at }
-	return nextNode
-end
-
-local function nodeOf(join: any): number?
-	local r = join and recs[join.model]
-	if not r then
-		return nil
-	end
-	return if join.which == "A" then r.a else r.b
+	return character, root, teamOf(character)
 end
 
 -- Lays a blueprint (Net "Build" "Place")
 local function place(player: Player, key: any, at: any)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local character, root, team = digger(player)
 	local piece = Rules.piece(key, C.Pieces)
-	if not character or not root or not piece or typeof(at) ~= "CFrame" then
-		return
-	end
-	if not holdsShovel(character) then
-		return
-	end
-	local team = teamOf(character)
-	if not team then
+	if not character or not root or not team or not piece or typeof(at) ~= "CFrame" or piece.kind == "Trench" then
 		return
 	end
 	local frame = Survey.frame(at.Position, at.LookVector)
-	local f = folder()
-	local joins: { [string]: any } = {}
-	if piece.kind == "Trench" then
-		frame, joins = Survey.snap(f, team, frame)
-	end
-	local report = Survey.ground(piece, frame, f)
+	local report = Survey.ground(piece, frame)
 	frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
 	local ok, reason = Rules.canPlace({
 		piece = piece,
 		distance = (root.Position - frame.Position).Magnitude,
 		reach = C.Reach + 2, -- (the client's ghost checks C.Reach; slack for movement since)
 		slope = report.slope,
-		maxSlope = piece.maxSlope or T.maxSlope,
+		maxSlope = piece.maxSlope or C.Trench.maxSlope,
 		ground = report.ground,
 		water = report.water,
-		overlap = Survey.blocked(piece, frame, report.low, f, joins),
+		overlap = Survey.blocked(piece, frame, report.low),
 		mine = count(team, player.UserId),
 		team = count(team, nil),
 		perPlayer = C.PerPlayer,
@@ -553,6 +278,7 @@ local function place(player: Player, key: any, at: any)
 		refuse(player, reason or "Can't build here")
 		return
 	end
+	local f = folder()
 	local model = Instance.new("Model")
 	model.Name = piece.key
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
@@ -569,56 +295,18 @@ local function place(player: Player, key: any, at: any)
 		worked = now,
 		frame = frame,
 	}
-	if piece.kind == "Trench" then
-		local half = T.length / 2
-		local pa = frame.Position - frame.RightVector * half
-		local pb = frame.Position + frame.RightVector * half
-		local a = nodeOf(joins.A)
-		local b = nodeOf(joins.B)
-		local function groundAt(p: Vector3): number
-			return Survey.dugGround(f, p.X, p.Z) or Survey.groundAt(p.X, p.Z, frame.Position.Y) or frame.Position.Y
-		end
-		local ga = if a then nodes[a].at.Y else groundAt(pa)
-		local gb = if b then nodes[b].at.Y else groundAt(pb)
-		local na = a or nodeAt(Vector3.new(pa.X, ga, pa.Z))
-		local nb = b or nodeAt(Vector3.new(pb.X, gb, pb.Z))
-		if not exitsOk(team, na, nb, piece.exit == true) then
-			if not a then
-				nodes[na] = nil
-			end
-			if not b then
-				nodes[nb] = nil
-			end
-			refuse(player, `Needs a way out every {M.Trench.MaxExitSpacing} studs: lay a trench exit`)
-			return
-		end
-		r.a, r.b, r.floorA, r.floorB = na, nb, ga, gb
-		r.caved = {}
-		outline(r, report.centre)
-	elseif piece.kind == "Sandbags" then
+	if piece.kind == "Sandbags" then
 		layoutSandbags(r, report.low)
 	else
 		layoutWire(r, report.low)
 	end
-	local size, _ = Survey.footprint(piece)
 	model:SetAttribute("Piece", piece.key)
 	model:SetAttribute("Team", team)
 	model:SetAttribute("Need", r.need)
 	model:SetAttribute("Frame", frame)
-	model:SetAttribute("Size", size)
+	model:SetAttribute("Size", Survey.footprint(piece))
 	recs[model] = r
 	model.Parent = f
-	if piece.kind == "Trench" then
-		publishEnds(r)
-		-- the trenches it joined lose their open ends there
-		for _, j in joins do
-			local o = recs[j.model]
-			if o then
-				publishEnds(o)
-				reshapeTrench(o)
-			end
-		end
-	end
 	apply(r)
 	-- a sandbag wall goes when its last column is broken
 	if piece.kind == "Sandbags" then
@@ -633,32 +321,63 @@ local function place(player: Player, key: any, at: any)
 	end
 end
 
--- A shovel swing at a piece (Net "Build" "Work")
-local function work(player: Player, model: any)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not character or not root or typeof(model) ~= "Instance" or not model:IsA("Model") then
+-- Plans a trench (Net "Build" "Plan": its start and end on the ground)
+local function plan(player: Player, a: any, b: any)
+	local character, root, team = digger(player)
+	if not character or not root or not team or typeof(a) ~= "Vector3" or typeof(b) ~= "Vector3" then
 		return
 	end
-	local r = recs[model]
-	local team = teamOf(character)
-	if not r or not team or not holdsShovel(character) then
+	local reason = Trenches.plan(player, team, root, a, b)
+	if reason then
+		refuse(player, reason)
+	end
+end
+
+-- A shovel swing (Net "Build" "Work"): at a piece, a trench block or a tree, in the shovel's mode
+local function work(player: Player, target: any, mode: any)
+	local character, root, team = digger(player)
+	if not character or not root or not team or typeof(target) ~= "Instance" then
+		return
+	end
+	if mode ~= "Build" and mode ~= "Destroy" then
 		return
 	end
 	local now = os.clock()
 	if Rules.tooSoon(now, lastSwing[player], ShovelCfg.Dig.length, C.SwingSlack) then
 		return
 	end
-	if Survey.distanceTo(model, root.Position) > C.SwingReach then
+	-- a trench block
+	local blk = Trenches.blockOf(target)
+	if blk then
+		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
+			lastSwing[player] = now
+			Trenches.work(blk, team, mode)
+		end
 		return
 	end
-	lastSwing[player] = now
+	-- a tree (Destroy only)
+	if
+		mode == "Destroy"
+		and target:IsA("BasePart")
+		and (target.Position - root.Position).Magnitude <= C.SwingReach + 4
+	then
+		if Trees.chop(target, root.Position) then
+			lastSwing[player] = now
+		end
+		return
+	end
+	-- a piece
+	local r = if target:IsA("Model") then recs[target] else nil
+	if not r or Survey.distanceTo(target, root.Position) > C.SwingReach then
+		return
+	end
 	local own = team == r.team
-	if own and r.work >= r.need then
+	if mode == "Build" and (not own or r.work >= r.need) then
 		return -- (repairs come later)
 	end
+	lastSwing[player] = now
 	local was = r.work
-	local left, gone = Rules.swing(r.work, r.need, own)
+	local left, gone = Rules.swing(r.work, r.need, mode == "Build")
 	if gone then
 		remove(r, r.built)
 		return
@@ -667,11 +386,8 @@ local function work(player: Player, model: any)
 	r.worked = now
 	if r.work >= r.need then
 		r.built = true
-		if r.caved and #r.caved > 0 then
-			r.caved = {} -- dug out again
-		end
 	end
-	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else T.stages
+	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
 	if Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages) or r.work >= r.need then
 		apply(r)
 	else
@@ -680,40 +396,24 @@ local function work(player: Player, model: any)
 end
 
 -- A blast at `position` (src/server/Damage.blast, after the crater): `kpaAt(studs)` its overpressure, `reachOf(kpa)`
--- how far it reaches that. Trenches cave in round it, wire within reach of Wire.failKPa is cut.
+-- how far it reaches that. Trenches cave in round it (src/server/Trenches), wire within reach of Wire.failKPa is cut.
 function Build.blast(position: Vector3, kpaAt: (number) -> number, reachOf: (number) -> number)
-	local caveR = reachOf(T.caveKPa)
+	Trenches.blast(position, kpaAt, reachOf)
 	local wireR = reachOf(C.Wire.failKPa)
+	local cut = {}
 	for _, r in recs do
-		local kind = r.piece.kind
-		if kind == "Trench" and r.work > 0 then
-			local a, b = ends(r)
-			local d = Survey.toSegment(position, a, b)
-			if d <= caveR and kpaAt(d) >= T.caveKPa then
-				-- the chord of the cave-in's circle along this segment only (Studio round 1: a blast at a joint
-				-- took both whole segments)
-				local rel = Vector3.new(position.X - a.X, 0, position.Z - a.Z)
-				local along = rel:Dot(r.frame.RightVector)
-				local off = math.abs(rel:Dot(r.frame.LookVector) - (T.back + T.front + M.Trench.FirestepWidth) / 2)
-				local caved = Rules.caveSpan(along, off, caveR, T.length)
-				r.work = Rules.caveWork(r.work, r.need, caved, T.length)
-				r.caved = r.caved or {}
-				table.insert(r.caved :: any, { at = position, r = caveR })
-				if r.work <= 0 then
-					remove(r, false)
-				else
-					apply(r)
-				end
-			end
-		elseif kind == "Wire" then
+		if r.piece.kind == "Wire" then
 			local frame = r.model:GetAttribute("Frame") :: CFrame
 			local l = frame:PointToObjectSpace(position)
 			local dx = math.max(math.abs(l.X) - r.piece.width / 2, 0)
 			local d = math.sqrt(dx * dx + l.Z * l.Z + math.max(l.Y - r.piece.height, 0) ^ 2)
 			if d <= wireR then
-				remove(r, true)
+				table.insert(cut, r)
 			end
 		end
+	end
+	for _, r in cut do
+		remove(r, true)
 	end
 end
 
@@ -733,7 +433,7 @@ function Build.wires(): { { frame: CFrame, size: Vector3 } }
 	return out
 end
 
--- Removes every piece (dev: the admin panel's undo); the trenches filled in
+-- Removes every piece and trench (dev: the admin panel's undo)
 function Build.clear()
 	local list = {}
 	for _, r in recs do
@@ -742,15 +442,19 @@ function Build.clear()
 	for _, r in list do
 		remove(r, false)
 	end
+	Trenches.clear()
 end
 
 function Build.start()
 	folder()
+	Trenches.start()
 	Net.event("Build").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)
 		if kind == "Place" then
 			place(player, a, b)
+		elseif kind == "Plan" then
+			plan(player, a, b)
 		elseif kind == "Work" then
-			work(player, a)
+			work(player, a, b)
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)

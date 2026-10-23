@@ -4,8 +4,9 @@
 -- Rules/Build decides, src/server/Build builds, src/client/Build shows build mode. Data only.
 --
 -- Build mode: the shovel in the hands, Key_Build toggles it; the mouse wheel picks a piece, Key_BuildTurn turns it,
--- a click lays its blueprint. Each dig swing at a blueprint of your team adds one unit of work; at `work` it stands.
--- A swing at another team's piece takes one off; at 0 it is torn down (a trench filled in).
+-- a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user 2026-10-23): a Build swing at
+-- a piece of your team adds one unit of work; at `work` it stands. A Destroy swing at any piece, any team's, takes one
+-- off; at 0 it is torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
 
 local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
@@ -27,34 +28,47 @@ local Build = {
 	-- the turn step (degrees) for Key_BuildTurn and a mouse wheel notch with Shift
 	TurnStep = 15,
 
-	-- Trenches (Config/Metrics.Trench sizes): a segment is `length` long, carved into the terrain in `stages` cuts as
-	-- it is worked; the floor 6 wide, a firestep in front, earth thrown up as a parapet in front, plank revetments.
-	-- Ends within `snap` of a free end of your team's trench join it (the cut runs on past a joined end by `overlap`
-	-- so corners meet). Every point of a trench line must be within Metrics MaxExitSpacing of a way out: an open end
-	-- (a ramp up out of the trench) or an exit piece (a ramp out of the back).
+	-- Trenches v2 (user 2026-10-23; design page https://claude.ai/artifact/FRZKPxjdaq3nXAzFwWwFb6): carved into the
+	-- terrain like the howitzer's pit (user: "I really like how the mortar dug out is like ... make it like that"),
+	-- src/server/Trenches. A plan is one straight run, click start, click end (src/client/Build), up to `maxPlan`
+	-- studs, split into blocks of up to `block` studs (at least `minBlock`); the plan is pegged out with markers
+	-- everyone sees. Each block is dug on its own: `work` swings, deeper at each stage. A plan's end on a free end of a
+	-- trench joins it end to end (up to `maxBend` off straight); on a block's side, a T. A plan may not cross a trench
+	-- (user: "connect the trench then continue from the other side").
 	Trench = {
-		length = 12,
-		snap = 4,
-		overlap = 3.5,
-		stages = 3,
-		-- the profile across the trench, from the back (negative) to the front (positive), studs from the centre line
-		back = -3, -- the back wall (the floor runs from here ...)
-		front = 3, -- (... to here, then the firestep)
-		-- the terrain is cut this much wider than the plank walls each side: voxels are 4 studs, and an earth wall
-		-- between a cut column and a whole one would stand inside the trench
-		cutMargin = 3, -- (2 left a knee-high wedge of earth at the foot of the back boards, Studio round 1)
-		-- earth thrown up past the front wall, flat-topped over its middle half (a 1.6 peak 6 wide came out ~0.5 high:
-		-- 4-stud voxel columns fall either side of a narrow peak, Studio round 1)
-		parapet = { width = 8, height = 2 },
-		parados = { width = 6, height = 0.9 }, -- a lower bank behind
-		ramp = { length = 10, width = 5 }, -- an open end's ramp up (along the trench), and the exit piece's (out the back)
-		maxSlope = 22, -- degrees of ground slope along the segment
-		-- the revetment planks and the firestep: wood sections (Config/Damage.Blast.Fail Wood), so blasts break them
-		plankThickness = 0.4,
-		plankHP = 300,
-		-- a blast that reaches the trench line at this overpressure caves it in there: the ground put back within
-		-- the class's reach (Rules/Blast.reachOf), and the trench loses work by the share of its length caved
-		caveKPa = 400,
+		block = 12,
+		minBlock = 6,
+		maxPlan = 60,
+		firstReach = 14, -- the first click this close to you
+		joinReach = 4, -- a plan's end this close to a free end joins it
+		maxBend = 135,
+		maxSlope = 22, -- degrees of ground slope along the run
+		planLife = 180, -- seconds an undug plan stays
+		swingReach = 8, -- a swing works the block whose line is this close, in front of you
+		work = 8,
+		stages = { 3, 6, 8 }, -- the work at which each stage is reached
+		depthByStage = { 1 / 3, 2 / 3, 1 }, -- share of the full depth
+		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
+		-- earth thrown up as a bank along both edges (the pit's rim)
+		floor = 3,
+		depth = 5.5,
+		wallAngle = 60,
+		bank = { width = 5, height = 1.2 },
+		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
+		scar = { depth = 0.6 },
+		-- markers: pegs every `every` studs along both top edges, string between, a flag at each end
+		markers = { every = 3, peg = { 0.2, 0.9 }, flag = 2.2, string = 0.06 },
+		-- the plank path on the floor: slats about `every` apart across it, scrambled; some missing
+		path = { every = 0.9, length = { 2.2, 3.0 }, width = 0.5, thickness = 0.14, missing = 0.12, turn = 14 },
+		-- boards laid on the walls now and then: up to `perWall` patches a block side, `boards` each
+		wallPlanks = { chance = 0.5, perWall = 2, boards = { 2, 4 }, length = { 2.2, 3.8 }, width = 0.6 },
+		-- a blast caving the trench in: the share of a block's work one blast can take at most, a pile of earth
+		cave = { kPa = 400, maxShare = 0.5, pile = 3.2 },
+		-- clods knocked off the walls each destroy swing (client debris)
+		clods = { perSwing = 6, size = { 0.5, 1.2 } },
+		-- the wall grip (src/client/TrenchWall): on a trench wall steeper than walkable you stop instead of sliding,
+		-- can move along it at `along` x walk speed, slide down by pushing down it, and jump hops you up it
+		grip = { minAngle = 48, maxAngle = 80, along = 0.5, hopUp = 26, hopIn = 6, regrip = 0.3 },
 	},
 
 	-- Every piece you can lay, in the order the build menu lists them.
@@ -62,15 +76,8 @@ local Build = {
 		{
 			key = "Trench",
 			name = "Trench",
-			kind = "Trench",
+			kind = "Trench", -- planned by two clicks, dug block by block (Trench above)
 			work = 8,
-		},
-		{
-			key = "TrenchExit",
-			name = "Trench exit",
-			kind = "Trench",
-			exit = true, -- a ramp out of the back wall in its middle
-			work = 10,
 		},
 		{
 			key = "LowWall",

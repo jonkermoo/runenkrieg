@@ -352,6 +352,22 @@ function Trees.shot(part: Instance?, class: string?, direction: Vector3)
 	end
 end
 
+-- a shovel's Destroy swing at the tree `part` belongs to, from `from` (src/server/Build): a share of its MaxHP
+-- (Config/Damage.Trees.Chop.swings fell it), falling away from the swing and leaving a stump. Whether it was a tree.
+function Trees.chop(part: Instance?, from: Vector3): boolean
+	local tree = treeOf(part)
+	if not tree or not standing(tree) then
+		return false
+	end
+	local trunk = tree:FindFirstChild("Trunk")
+	if not trunk or not trunk:IsA("BasePart") then
+		return false
+	end
+	local _, max = hp(tree)
+	hurt(tree, max / T.Chop.swings + 1e-6, flat(trunk.Position - from), true)
+	return true
+end
+
 -- a staff beam of `stage` hitting `part` straight on along `direction` (Trees.Direct): a trunk loses HP, enough fells it
 -- along the beam above a stump; a full beam shatters it
 function Trees.direct(part: Instance?, stage: number, direction: Vector3)
