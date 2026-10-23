@@ -32,7 +32,7 @@ local Look = {
 			specular = 0,
 		},
 		-- The "Golden" cinematic grade (user 2026-10-22): warm late-afternoon light and gently richer colour by day,
-		-- cool moonlight at night. The cinematic layer (src/client/Cinematic) adds depth of field and a vignette.
+		-- cool moonlight at night. No blur or vignette (user 2026-10-23: Beautiful is shaders and effects only).
 		Beautiful = {
 			grade = {
 				day = { saturation = 0.12, contrast = 0.14, brightness = 0.02, tint = { 255, 232, 204 } },
