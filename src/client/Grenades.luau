@@ -12,7 +12,7 @@
 -- - the arc is the throw's own path (Rules/Grenade.hand / launch / at, the same the server uses), drawn until the first
 --   thing it would hit; the bounce and roll after that aren't drawn.
 -- - every grenade that goes off (Net "GrenadeBlast") shows the shared explosion (src/client/Vfx/Blast) sized by its
---   charge, in Config/Grenades.Vfx's scheme, with its bang: heard late with distance and duller far off.
+--   charge, in Config/Grenades.Vfx's scheme, with its bang at its own pitch: heard late with distance and duller far off.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -149,6 +149,7 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 end
 
 function Grenades.start()
+	SoundFx.preload({ Bang = Cfg.Sound })
 	local player = Players.LocalPlayer
 	local aiming = false -- left click held (or let go, waiting for the pin): the line shows
 	local pinned = math.huge -- when the pin pull ends (os.clock)
@@ -268,12 +269,19 @@ function Grenades.start()
 		draw(character, head.Position, workspace.CurrentCamera.CFrame.LookVector, name)
 	end)
 
-	Net.event("GrenadeBlast").OnClientEvent:Connect(function(position: Vector3, kg: number)
+	Net.event("GrenadeBlast").OnClientEvent:Connect(function(position: Vector3, kg: number, name: string)
 		Vfx.Blast.play(position, { normal = Vector3.yAxis, kg = kg, scheme = Cfg.Vfx.scheme, magic = false })
-		-- heard late and duller with distance (Rules/Grenade.heard)
+		-- its bang at the grenade's own pitch, heard late and duller with distance (Rules/Grenade.heard)
+		local t = Cfg.Types[name]
+		local bang = {}
+		for _, layer in Cfg.Sound do
+			local e = table.clone(layer :: any)
+			e.pitch = (e.pitch or 1) * (t and t.pitch or 1)
+			table.insert(bang, e)
+		end
 		local d = (workspace.CurrentCamera.CFrame.Position - position).Magnitude
 		local delay, high, low = Rules.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
-		SoundFx.play(Cfg.Sound :: any, position, nil, { delay = delay, eq = { low, 0, high } })
+		SoundFx.play(bang :: any, position, nil, { delay = delay, eq = { low, 0, high } })
 	end)
 end
 
