@@ -177,6 +177,24 @@ return {
 			assert(m ~= C.churnTo, "churned ground must not grow blades")
 		end
 	end,
+	["a crater scale sizes the hole and its rim, not the churn; the howitzer's is about half"] = function()
+		local C = B.Crater
+		local full = Blast.craterPlan(50, C) :: Blast.CraterPlan
+		local half = Blast.craterPlan(50, C, 0.5) :: Blast.CraterPlan
+		assert(math.abs(half.radius - full.radius / 2) < 1e-9)
+		assert(math.abs(half.mouth - full.mouth / 2) < 1e-9 and math.abs(half.depth - full.depth / 2) < 1e-9)
+		assert(math.abs(half.rim[1].radius - full.rim[1].radius / 2) < 1e-9, "the rim shrinks with it")
+		assert(half.churn == full.churn, "the ground churns as far as the blast's (clients clear grass by reach)")
+		local same = Blast.craterPlan(50, C, 1) :: Blast.CraterPlan
+		assert(same.mouth == full.mouth and same.depth == full.depth)
+		local Artillery = require("../src/shared/Config/Artillery")
+		local h = Artillery.Guns.artillery_howitzer
+		local plan = Blast.craterPlan(h.kg, C, h.craterScale) :: Blast.CraterPlan
+		local across = 2 * plan.mouth
+		assert(across > 28 and across < 36, `howitzer crater ~32 across: {across}`)
+		assert(plan.depth > 4 and plan.depth < 6, `howitzer crater ~5 deep: {plan.depth}`)
+		assert(Artillery.Guns.artillery_qf18.craterScale == nil, "the field gun's crater is its charge's own")
+	end,
 	["cover: a blast reaches only the share of a soldier it can see"] = function()
 		local C = B.Cover
 		assert(Blast.exposure(0, 6, C.minShare) == 0, "fully behind cover: nothing")
