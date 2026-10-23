@@ -50,14 +50,17 @@ local Build = {
 		depthByStage = { 1 / 3, 2 / 3, 1 }, -- share of the full depth
 		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
 		-- earth thrown up as a bank along both edges (the pit's rim)
-		floor = 3,
+		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
+		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
+		floor = 3.5,
 		depth = 5.5,
-		wallAngle = 60,
+		wallAngle = 68,
 		bank = { width = 5, height = 1.2 },
 		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
 		scar = { depth = 0.6 },
 		-- markers: pegs every `every` studs along both top edges, string between, a flag at each end
-		markers = { every = 3, peg = { 0.2, 0.9 }, flag = 2.2, string = 0.06 },
+		-- (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
+		markers = { every = 3, peg = { 0.25, 1.6 }, flag = 3, string = 0.08 },
 		-- the plank path on the floor: slats about `every` apart across it, scrambled; some missing
 		path = { every = 0.9, length = { 2.2, 3.0 }, width = 0.5, thickness = 0.14, missing = 0.12, turn = 14 },
 		-- boards laid on the walls now and then: up to `perWall` patches a block side, `boards` each
@@ -68,7 +71,19 @@ local Build = {
 		clods = { perSwing = 6, size = { 0.5, 1.2 } },
 		-- the wall grip (src/client/TrenchWall): on a trench wall steeper than walkable you stop instead of sliding,
 		-- can move along it at `along` x walk speed, slide down by pushing down it, and jump hops you up it
-		grip = { minAngle = 48, maxAngle = 80, along = 0.5, hopUp = 26, hopIn = 6, regrip = 0.3 },
+		-- `reach`: how far under the root it looks for the wall (an R6 root stands ~3 over the ground: its 2.2 never
+		-- reached it, Studio round t1023-2101); the softened carve has parts under 50 degrees, so it grips from `minAngle`,
+		-- but not within `floorClear` of the floor
+		grip = {
+			minAngle = 35,
+			maxAngle = 80,
+			along = 0.5,
+			hopUp = 26,
+			hopIn = 6,
+			regrip = 0.3,
+			reach = 4.5,
+			floorClear = 0.6,
+		},
 	},
 
 	-- Every piece you can lay, in the order the build menu lists them.

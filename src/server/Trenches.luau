@@ -127,6 +127,9 @@ local function shareOf(blk: Block): number
 	if blk.built and not blk.falling then
 		return 1
 	end
+	if blk.falling then
+		return blk.work / T.work -- (falling in: shallower every swing)
+	end
 	local stage = Rules.trenchStage(blk.work, T.stages)
 	return if stage > 0 then T.depthByStage[stage] else 0
 end
@@ -738,14 +741,13 @@ function Trenches.work(blk: Block, team: string, mode: string)
 		end
 		blk.work -= 1
 		blk.worked = os.clock()
-		local first = not blk.falling
 		blk.falling = true
 		clods(blk, T.clods.perSwing)
 		if blk.work <= 0 then
 			finish(blk, true)
 			return
 		end
-		apply(blk, first or Rules.trenchStage(blk.work, T.stages) ~= was)
+		apply(blk, true) -- (it falls in a little every swing)
 	end
 end
 

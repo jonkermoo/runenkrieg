@@ -29,6 +29,7 @@ terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
 terrainOnly.IgnoreWater = true
 
 -- whether `p` (a point on the ground) is on a trench block's wall: within its top width of its line, below its edge
+-- and clear of its floor
 local function inTrench(p: Vector3): boolean
 	local f = workspace:FindFirstChild(C.Folder)
 	if not f then
@@ -37,7 +38,11 @@ local function inTrench(p: Vector3): boolean
 	for _, m in f:GetChildren() do
 		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
 		if typeof(a) == "Vector3" and typeof(b) == "Vector3" and (m:GetAttribute("Work") :: number? or 0) > 0 then
-			if Survey.toSegment(p, a, b) <= TOP + 1 and p.Y < math.max(a.Y, b.Y) - 0.3 then
+			local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+			local u = math.clamp(Vector3.new(p.X - a.X, 0, p.Z - a.Z):Dot(flat.Unit) / flat.Magnitude, 0, 1)
+			local line = a.Y + (b.Y - a.Y) * u
+			local floor = line - T.depth
+			if Survey.toSegment(p, a, b) <= TOP + 1 and p.Y < line - 0.3 and p.Y > floor + G.floorClear then
 				return true
 			end
 		end
@@ -73,11 +78,7 @@ local function attach(character: Model)
 			hold.Enabled = false
 			return
 		end
-		local hit = workspace:Raycast(
-			root.Position,
-			Vector3.new(0, -(humanoid.HipHeight + root.Size.Y / 2 + 1.2), 0),
-			terrainOnly
-		)
+		local hit = workspace:Raycast(root.Position, Vector3.new(0, -G.reach, 0), terrainOnly)
 		if not hit then
 			hold.Enabled = false
 			return
