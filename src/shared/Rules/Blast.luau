@@ -131,6 +131,12 @@ function Blast.exposure(clear: number, total: number, minShare: number): number
 	return if share < minShare then 0 else share
 end
 
+-- Whether cover counts for a soldier whose torso is `distance` studs from a blast (user 2026-10-23: "a grenade or staff
+-- explosion that missed a few studs away should kill"): within `near` it hits in full, bumps and grass in the way or not.
+function Blast.coverCounts(distance: number, near: number): boolean
+	return distance > near
+end
+
 -- the crater's radius (studs) for a `kg` charge
 function Blast.crater(kg: number, perCubeRoot: number): number
 	return if kg > 0 then perCubeRoot * kg ^ (1 / 3) else 0
@@ -176,9 +182,15 @@ function Blast.lowerColumn(occs: { number }, y0: number, res: number, lower: num
 end
 
 -- The crater a `kg` charge leaves (Config/Damage.Blast.Crater): the hole, its low rim of earth and how far the ground
--- around is churned. Nothing for no charge.
-function Blast.craterPlan(kg: number, c: any): CraterPlan?
-	return Blast.craterPlanFor(Blast.crater(kg, c.perCubeRoot), c)
+-- around is churned. Nothing for no charge. `scale` (nil: 1) sizes the hole and its rim only: the ground churns as far
+-- as the blast's (clients clear the grass by its reach, Blast.churnFromReach).
+function Blast.craterPlan(kg: number, c: any, scale: number?): CraterPlan?
+	local r = Blast.crater(kg, c.perCubeRoot)
+	local plan = Blast.craterPlanFor(r * (scale or 1), c)
+	if plan then
+		plan.churn = c.churn * r
+	end
+	return plan
 end
 
 -- the same for a hole of radius `r`

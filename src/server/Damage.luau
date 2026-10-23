@@ -179,6 +179,7 @@ export type BlastOpts = {
 	own: number?,
 	ownFling: boolean?, -- false: the one who set it off isn't thrown by it either (the staff's)
 	crater: boolean?,
+	craterScale: number?, -- the hole's size (Rules/Blast.craterPlan; nil: 1): the howitzer's, Config/Artillery
 	wear: number?,
 	wearFull: number?,
 	wearReach: number?,
@@ -186,9 +187,13 @@ export type BlastOpts = {
 }
 
 -- The share of `character`'s body a blast at `position` has a clear line to (Config/Damage.Blast.Cover): soldiers never
--- shield each other; whatever is within `skip` studs of the blast (the wall it went off against) is passed through.
-function Damage.exposure(position: Vector3, character: Model, soldiers: { Model }): number
+-- shield each other; whatever is within `skip` studs of the blast (the wall it went off against) is passed through;
+-- within `near` studs of the torso (`distance`) all of it.
+function Damage.exposure(position: Vector3, character: Model, soldiers: { Model }, distance: number): number
 	local C = Cfg.Blast.Cover
+	if not Blast.coverCounts(distance, C.near) then
+		return 1
+	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.IgnoreWater = true
@@ -247,7 +252,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	end)
 	-- the crater first, so the trees it fells lie on the ground as it is after
 	if o.crater ~= false then
-		Ground.crater(position, Blast.craterPlan(kg, B.Crater), B.Crater)
+		Ground.crater(position, Blast.craterPlan(kg, B.Crater, o.craterScale), B.Crater)
 	end
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
@@ -268,7 +273,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 			if d <= reach or (o.fragments and d <= o.fragments.wound) then
 				local kpa = kpaAt(d)
 				-- behind cover only what reaches them (cast now: cover the blast broke is gone)
-				local share = Damage.exposure(position, character, soldiers)
+				local share = Damage.exposure(position, character, soldiers, d)
 				-- flung as hard as what gets past cover hurts (your own blast hurts you only by `o.own`, but flings you as
 				-- hard as it would have); a grenade's fragments add to it, through the same cover
 				local splinters = if o.fragments then GrenadeRules.fragments(d, o.fragments) else 0

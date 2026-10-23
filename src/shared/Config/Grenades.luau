@@ -82,31 +82,35 @@ local Grenades = {
 			speed = 128,
 			kg = 0.071,
 			fragments = { lethal = 8, wound = 28, max = 100, near = 60, far = 10 },
+			pitch = 1.1, -- its bang's pitch (Sound below)
 		},
 		grenade_sipe = {
 			speed = 128,
 			kg = 0.1,
 			fragments = { lethal = 7, wound = 25, max = 100, near = 60, far = 10 },
+			pitch = 1, -- its bang's pitch (Sound below)
 		},
 		grenade_stick = {
 			speed = 139,
 			kg = 0.17,
-			fragments = { lethal = 4, wound = 14, max = 100, near = 50, far = 10 },
+			-- (lethal 4 -> 6, user 2026-10-23: a stick 3-4 studs off on the ground left ~50; the torso is ~2.4-3.3 up)
+			fragments = { lethal = 6, wound = 14, max = 100, near = 50, far = 10 },
+			pitch = 0.9, -- its bang's pitch (Sound below)
 		},
 	},
 
 	-- The explosion (src/client/Vfx/Blast, shared with the staff and later cannons): a plain one sized by the charge, in
 	-- the fire scheme (Config/Vfx.Schemes).
 	Vfx = { scheme = "Ember" },
-	-- Its bang (src/client/SoundFx entries; user 2026-10-19: "make they're sound way more realistic (explosion wise).
-	-- make sure there is no audio cutting"; was the staff's stage 1 impact, a 1 s file that stopped dead): real
-	-- explosions layered, Pro Sound Effects (licensed through Roblox, found with the toolbox search filtered to their
-	-- account, ASSETS_LICENSES.md): the blast, the dirt and debris thrown up and falling, and a low boom whose tail
-	-- rolls away for seconds, each played to its own end.
+	-- Its bang (src/client/SoundFx entries, played to their own ends; user 2026-10-19: "make they're sound way more
+	-- realistic (explosion wise). make sure there is no audio cutting"): two takes of a dirt explosion layered, Pro Sound
+	-- Effects (licensed through Roblox, found with the toolbox search filtered to their account, ASSETS_LICENSES.md), each
+	-- grenade pitched by its charge (Types above: the Mills highest, the stick lowest). Dry at every distance (user
+	-- 2026-10-23: "grenades have the same echoing issue as cannons ... it's also the same sound, which shouldn't be"; was
+	-- the field gun's Explosions 4 and Dirt Explosion 2 under the flanged Explosive Boom 2 tail; the user picked these two).
 	Sound = {
-		{ id = 9114362266, volume = 1, profile = "Explosion" }, -- Explosions 4: the blast
-		{ id = 9114086964, volume = 0.8, profile = "Explosion" }, -- Dirt Explosion 2: dirt thrown up and falling
-		{ id = 9114363833, volume = 0.7, profile = "Explosion", eq = { 3, 0, -3 } }, -- Explosive Boom 2: the rolling boom
+		{ id = 9114086424, volume = 1, profile = "Explosion" }, -- Dirt Explosion 2, take a
+		{ id = 9114086744, volume = 0.9, profile = "Explosion" }, -- Dirt Explosion 2, take b
 	},
 	-- How far off it is heard (Rules/Grenade.heard): late at the speed of sound (Config/Audio.Heard.speed), and
 	-- duller with distance: highs cut and lows lifted (dB), from nothing at `dullFrom` to all of it at `dullFull` studs.
