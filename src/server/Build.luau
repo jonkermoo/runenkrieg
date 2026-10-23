@@ -733,6 +733,11 @@ function Build.wires(): { { frame: CFrame, size: Vector3 } }
 	return out
 end
 
+-- whether a trench ever touched voxel `key` ("x,y,z" in voxel units): src/server/Ground never refills it
+function Build.dug(key: string): boolean
+	return original[key] ~= nil
+end
+
 -- Removes every piece (dev: the admin panel's undo); the trenches filled in
 function Build.clear()
 	local list = {}
