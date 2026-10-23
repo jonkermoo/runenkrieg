@@ -254,7 +254,7 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 		if hit then
 			conn:Disconnect()
 			local at = hit.Position + hit.Normal * 0.3
-			Damage.blast(at, gun.kg, by, { fragments = gun.fragments })
+			Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
 			Net.event("ArtilleryBlast"):FireAllClients(at, key)
 		elseif t > Cfg.MaxFlight then
 			conn:Disconnect()

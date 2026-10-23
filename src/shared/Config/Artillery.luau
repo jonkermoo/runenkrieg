@@ -42,6 +42,7 @@ export type Gun = {
 	charge: number, -- seconds from the click to the shot (the brace; the howitzer's magic charge-up)
 	breechOpens: boolean, -- the breech swings open through the reload (not the howitzer's: user 2026-10-21)
 	kg: number, -- the shell's filling as TNT (Damage.blast)
+	craterScale: number?, -- its crater's size against a charge's own (Rules/Blast.craterPlan; nil: 1)
 	fragments: { lethal: number, wound: number, max: number, near: number, far: number }?, -- Rules/Grenade.fragments
 	scatter: { yaw: number, elevation: number, speed: number }, -- the most a shot strays: degrees, degrees, share
 	reload: number, -- seconds from a shot to the next
@@ -411,6 +412,10 @@ local Artillery = {
 			-- cube root): walls to ~19.6 (stone ~18), trees to ~68, glass to ~121, a crater ~64 across, soldiers die to
 			-- ~26 by blast and are hurt to ~48
 			kg = 340,
+			-- (user 2026-10-23: "lower the crater of the howitzer cannon even more? a few shots from multiple people could
+			-- clear out an entire section"; was ~65 across, ~9.7 deep): half the hole, ~32 across and ~5 deep; its damage,
+			-- reach, mud and broken buildings stay the 340 kg blast's
+			craterScale = 0.5,
 			fragments = { lethal = 18, wound = 60, max = 100, near = 80, far = 20 },
 			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
 			reload = 30,
