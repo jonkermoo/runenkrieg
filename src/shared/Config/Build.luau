@@ -56,7 +56,7 @@ local Build = {
 		-- earth thrown up as a bank along both edges (the pit's rim)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
-		floor = 3.5,
+		floor = 5.25, -- (user 2026-10-23: "make the actual trenches bigger": 1.5x wider)
 		depth = 5.5,
 		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
 		wallAngle = 55,
@@ -78,8 +78,11 @@ local Build = {
 			width = 0.7,
 			thickness = 0.3,
 		},
-		-- a blast fills a square in: from `from` kPa at the square's line it loses HP, all of it at `full`
-		blast = { from = 150, full = 900 },
+		-- a blast fills a square in: from `from` kPa it loses HP, all of it at `full`. Inside the trench the pressure is
+		-- taken at the blast's distance past the floor's edge; within `zone` trench widths past the top edge (user
+		-- 2026-10-23: "the hitbox should extend out about another trench size") as if it went off `edge` studs away
+		-- (a grenade takes about a third, a shell fills it); further out, `edge` plus how far past the zone
+		blast = { from = 150, full = 900, zone = 1, edge = 2.5 },
 		-- clods knocked off the walls each destroy swing (client debris)
 		clods = { perSwing = 6, size = { 0.5, 1.2 } },
 	},

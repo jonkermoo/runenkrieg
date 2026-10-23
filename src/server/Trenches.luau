@@ -735,7 +735,8 @@ function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: 
 	local hit = {}
 	for _, blk in blocks do
 		if live(blk) and blk.hp > 0 then
-			local loss = Rules.trenchBlast(kpaAt(Survey.toSegment(position, blk.a, blk.b)), H.max, K.from, K.full)
+			local d = Rules.trenchBlastDistance(Survey.toSegment(position, blk.a, blk.b), T)
+			local loss = Rules.trenchBlast(kpaAt(d), H.max, K.from, K.full)
 			if loss > 0 then
 				blk.hp = math.max(blk.hp - loss, 0)
 				blk.falling = true

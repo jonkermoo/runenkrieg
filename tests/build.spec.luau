@@ -171,6 +171,17 @@ return {
 		)
 		assert(near(B.trenchBlast((K.from + K.full) / 2, H.max, K.from, K.full), H.max / 2))
 	end,
+	["trenches v2: a blast near the trench counts as at its edge, inside as past the floor's edge"] = function()
+		local T = C.Trench
+		local top = B.trenchTop(T)
+		assert(B.trenchBlastDistance(0, T) == 0 and B.trenchBlastDistance(T.floor + 1, T) == 1)
+		assert(B.trenchBlastDistance(top + 1, T) == T.blast.edge, "in the zone: as at the edge")
+		local zone = top + T.blast.zone * 2 * top
+		assert(
+			B.trenchBlastDistance(zone - 0.1, T) == T.blast.edge
+				and near(B.trenchBlastDistance(zone + 3, T), T.blast.edge + 3)
+		)
+	end,
 	["trenches v2: a segment through a rectangle"] = function()
 		-- a rectangle at the origin along x, 6 long each way, 2 across each way; a segment along x through it
 		local t0, t1 = B.clipRect(-10, 0, 10, 0, 0, 0, 1, 0, 6, 2)

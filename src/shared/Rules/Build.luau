@@ -200,6 +200,22 @@ function Build.trenchSwing(hp: number, max: number, swing: number, build: boolea
 	return math.max(left, 0), left <= 0
 end
 
+-- How far a blast `d` studs from a trench square's line counts as being from it (Config/Build.Trench.blast): inside the
+-- trench, its distance past the floor's edge; in the zone of `zone` trench widths past the top edge, `edge`; further
+-- out, `edge` plus how far past the zone.
+function Build.trenchBlastDistance(d: number, t: any): number
+	local top = Build.trenchTop(t)
+	local B = t.blast
+	if d <= top then
+		return math.min(math.max(d - t.floor, 0), B.edge)
+	end
+	local zone = top + B.zone * 2 * top
+	if d <= zone then
+		return B.edge
+	end
+	return B.edge + (d - zone)
+end
+
 -- the HP a blast takes off a square: none under `from` kPa at its line, all of it (`max`) at `full`
 function Build.trenchBlast(kpa: number, max: number, from: number, full: number): number
 	if kpa <= from then
