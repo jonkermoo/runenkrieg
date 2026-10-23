@@ -179,6 +179,7 @@ export type BlastOpts = {
 	own: number?,
 	ownFling: boolean?, -- false: the one who set it off isn't thrown by it either (the staff's)
 	crater: boolean?,
+	craterScale: number?, -- the hole's size (Rules/Blast.craterPlan; nil: 1): the howitzer's, Config/Artillery
 	wear: number?,
 	wearFull: number?,
 	wearReach: number?,
@@ -251,7 +252,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	end)
 	-- the crater first, so the trees it fells lie on the ground as it is after
 	if o.crater ~= false then
-		Ground.crater(position, Blast.craterPlan(kg, B.Crater), B.Crater)
+		Ground.crater(position, Blast.craterPlan(kg, B.Crater, o.craterScale), B.Crater)
 	end
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)

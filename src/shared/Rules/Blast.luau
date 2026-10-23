@@ -182,9 +182,15 @@ function Blast.lowerColumn(occs: { number }, y0: number, res: number, lower: num
 end
 
 -- The crater a `kg` charge leaves (Config/Damage.Blast.Crater): the hole, its low rim of earth and how far the ground
--- around is churned. Nothing for no charge.
-function Blast.craterPlan(kg: number, c: any): CraterPlan?
-	return Blast.craterPlanFor(Blast.crater(kg, c.perCubeRoot), c)
+-- around is churned. Nothing for no charge. `scale` (nil: 1) sizes the hole and its rim only: the ground churns as far
+-- as the blast's (clients clear the grass by its reach, Blast.churnFromReach).
+function Blast.craterPlan(kg: number, c: any, scale: number?): CraterPlan?
+	local r = Blast.crater(kg, c.perCubeRoot)
+	local plan = Blast.craterPlanFor(r * (scale or 1), c)
+	if plan then
+		plan.churn = c.churn * r
+	end
+	return plan
 end
 
 -- the same for a hole of radius `r`
