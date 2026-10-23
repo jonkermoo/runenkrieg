@@ -38,22 +38,23 @@ local function buildingOf(i: Instance): Model?
 	return m
 end
 
-type Piece = { cf: CFrame, size: Vector3, color: Color3, t: number }
+-- `fall`: it lost its support and drops where it was (src/client/Debris), not flung by a blast
+type Piece = { cf: CFrame, size: Vector3, color: Color3, t: number, fall: boolean? }
 
-local function collect(model: Instance, out: { Piece })
+local function collect(model: Instance, out: { Piece }, fall: boolean?)
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
-			table.insert(out, { cf = d.CFrame, size = d.Size, color = d.Color, t = d.Transparency })
+			table.insert(out, { cf = d.CFrame, size = d.Size, color = d.Color, t = d.Transparency, fall = fall })
 		end
 	end
 end
 
 -- Remove sections and tell clients to show debris (one event for the whole batch).
-local function breakAll(sections: { Model }, origin: Vector3)
+local function breakAll(sections: { Model }, origin: Vector3, fall: boolean?)
 	local pieces: { Piece } = {}
 	for _, s in sections do
 		if s.Parent then
-			collect(s, pieces)
+			collect(s, pieces, fall)
 		end
 	end
 	if #pieces > 0 then
@@ -181,6 +182,137 @@ local function checkCollapse(building: Model, origin: Vector3)
 	breakAll(doomed, origin)
 end
 
+-- Support (user 2026-10-23: "anything not supported should fall"): every piece of a building must hang together with
+-- the ground through the pieces it touches (Rules/Destruction.unsupported). Each section is one piece, its nested
+-- sections with it; a section's Remains is one piece per part (a ragged hole can cut them apart); the building's parts
+-- outside any section (foundation, plinth) and the ground slab (Story -1) are on the ground. What hangs on nothing
+-- drops where it is as debris; a story losing its walls that way can still collapse.
+local function unsupported(building: Model): ({ Model }, { BasePart })
+	local nodes: { { BasePart } } = {}
+	local owner: { [number]: Model } = {}
+	local grounded: { [number]: boolean } = {}
+	local nodeOf: { [BasePart]: number } = {}
+	local function add(parts: { BasePart }, section: Model?, ground: boolean)
+		table.insert(nodes, parts)
+		local i = #nodes
+		if section then
+			owner[i] = section
+		end
+		grounded[i] = ground or nil
+		for _, p in parts do
+			nodeOf[p] = i
+		end
+	end
+	for _, s in ownSections(building) do
+		if not isSection(s.Parent) then
+			local ground = s:GetAttribute("Story") == -1
+			local parts = {}
+			for _, d in s:GetDescendants() do
+				if d:IsA("BasePart") then
+					table.insert(parts, d)
+				end
+			end
+			if s:GetAttribute("Kind") == "Remains" and not ground then
+				for _, p in parts do
+					add({ p }, nil, false)
+				end
+			elseif #parts > 0 then
+				add(parts, s, ground)
+			end
+		end
+	end
+	local base = {}
+	for _, d in building:GetDescendants() do
+		if d:IsA("BasePart") and not nodeOf[d] then
+			table.insert(base, d)
+		end
+	end
+	if #base > 0 then
+		add(base, nil, true)
+	end
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { building }
+	local links: { { number } } = {}
+	for i, parts in nodes do
+		if not grounded[i] then
+			local seen = {}
+			links[i] = links[i] or {}
+			for _, p in parts do
+				for _, hit in workspace:GetPartBoundsInBox(p.CFrame, p.Size + Vector3.one * D.SupportTouch, params) do
+					local j = nodeOf[hit :: BasePart]
+					if j and j ~= i and not seen[j] then
+						seen[j] = true
+						table.insert(links[i], j)
+						-- (links go both ways: a grounded piece isn't queried; repeats are harmless)
+						links[j] = links[j] or {}
+						table.insert(links[j], i)
+					end
+				end
+			end
+		end
+	end
+	local sections, parts = {}, {}
+	for _, i in Rules.unsupported(#nodes, links, grounded) do
+		if owner[i] then
+			table.insert(sections, owner[i])
+		else
+			table.insert(parts, nodes[i][1])
+		end
+	end
+	return sections, parts
+end
+
+local function dropUnsupported(building: Model, origin: Vector3)
+	for _ = 1, 3 do
+		if not building.Parent then
+			return
+		end
+		local sections, parts = unsupported(building)
+		if #sections == 0 and #parts == 0 then
+			return
+		end
+		local pieces: { Piece } = {}
+		for _, s in sections do
+			collect(s, pieces, true)
+		end
+		local emptied: { [Instance]: boolean } = {}
+		for _, p in parts do
+			table.insert(pieces, { cf = p.CFrame, size = p.Size, color = p.Color, t = p.Transparency, fall = true })
+			if p.Parent then
+				emptied[p.Parent] = true
+			end
+		end
+		Net.event("SectionBroken"):FireAllClients(pieces, origin)
+		for _, s in sections do
+			s:Destroy()
+		end
+		for _, p in parts do
+			p:Destroy()
+		end
+		for remains in emptied do
+			if remains.Parent and not remains:FindFirstChildWhichIsA("BasePart", true) then
+				remains:Destroy()
+			end
+		end
+		checkCollapse(building, origin)
+	end
+end
+
+-- buildings that lost something this frame: checked for unsupported pieces once, after the whole blast
+local unsettled: { [Model]: Vector3 } = {}
+
+local function settleLater(building: Model, origin: Vector3)
+	if unsettled[building] then
+		return
+	end
+	unsettled[building] = origin
+	task.defer(function()
+		unsettled[building] = nil
+		dropUnsupported(building, origin)
+	end)
+end
+
 -- `hole`: a blast's reach for this section's class (a ragged hole, Config/Destruction.Jag); without it the whole section
 -- breaks
 function Destruction.damage(section: Model, amount: number, origin: Vector3?, hole: number?)
@@ -202,6 +334,7 @@ function Destruction.damage(section: Model, amount: number, origin: Vector3?, ho
 	end
 	if building then
 		checkCollapse(building, at)
+		settleLater(building, at)
 	end
 end
 

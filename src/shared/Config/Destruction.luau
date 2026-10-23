@@ -26,6 +26,10 @@ local Destruction = {
 	-- walls are gone)
 	CollapseSupportFraction = 0.25,
 
+	-- Support (src/server/Destruction, user 2026-10-23: "anything not supported should fall"): pieces of a building count
+	-- as touching within this many studs of each other; what has no chain of touching pieces down to the ground drops.
+	SupportTouch = 0.25,
+
 	-- A blast breaks a ragged, round-ish hole (user 2026-10-18: building damage "is always a square"): a broken wall
 	-- section of a `kinds` kind is cut into ~`cell`-stud cells; those within the class's fail distance of the blast (at
 	-- least the section's own distance + `minBite`), give or take `jitter` x that, break off, the rest stays standing as
@@ -34,9 +38,18 @@ local Destruction = {
 	Jag = { kinds = { Wall = true, Gable = true }, cell = 1.5, jitter = 0.3, minBite = 2, remainsHP = 0.3 },
 
 	-- Client-side fracture debris (visual only, never replicated, never collides with players).
-	-- They fly for `settle` s, then freeze where they lie (anchored: no physics) and stay `lifetime` s in all (user
-	-- 2026-10-17: destroyed assets "should stay for some time" without lag); past `maxLive` the oldest go first.
-	Debris = { chunksPerSection = 6, settle = 3, lifetime = 60, maxLive = 600 },
+	-- They fly until at rest (`Rest`, Rules/Destruction.rested, checked every `Rest.every` s), then freeze where they lie
+	-- (anchored: no physics) and stay `lifetime` s in all (user 2026-10-17: destroyed assets "should stay for some time"
+	-- without lag); past `maxLive` the oldest go first. A frozen chunk wakes and falls again when what it may lie on
+	-- goes (a chunk under it, a broken section; Rules/Destruction.leanedOn within `wakeMargin` studs). Was: frozen 3 s
+	-- after the break wherever it was (user 2026-10-23: "blown up buildings should not have floating blocks").
+	Debris = {
+		chunksPerSection = 6,
+		lifetime = 60,
+		maxLive = 600,
+		Rest = { still = 1.5, spin = 2, time = 0.4, maxFly = 15, every = 0.1 },
+		wakeMargin = 1.5,
+	},
 
 	-- Natural map buildings cannot be repaired; only player-built assets can.
 	NaturalRepairable = false,

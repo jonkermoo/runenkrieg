@@ -6,6 +6,34 @@ local P = require("../src/shared/Config/Palette")
 local R = require("../src/shared/Rules/Destruction")
 
 return {
+	["debris freezes only once at rest, or after maxFly"] = function()
+		local r = D.Debris.Rest
+		local still, freeze = R.rested(20, 0, 0, 0.1, 0.1, r)
+		assert(still == 0 and not freeze, "flying: not frozen")
+		still, freeze = R.rested(0.2, 0.1, r.time - 0.1, 1, 0.1, r)
+		assert(freeze, "still for long enough: frozen")
+		still, freeze = R.rested(0.2, 0.1, 0, 1, 0.1, r)
+		assert(not freeze, "only just stopped: not yet")
+		still, freeze = R.rested(r.still + 1, 0, r.time, 1, 0.1, r)
+		assert(still == 0 and not freeze, "moving again resets it")
+		local _, capped = R.rested(10, 10, 0, r.maxFly, 0.1, r)
+		assert(capped, "frozen after maxFly whatever it does")
+	end,
+	["a frozen chunk wakes when what is under or beside it goes, not what is above"] = function()
+		assert(R.leanedOn(0, 2, 0, 1, 1.5), "on top of it")
+		assert(R.leanedOn(2, 0, 0, 1, 1.5), "beside it")
+		assert(not R.leanedOn(0, -3, 0, 1, 1.5), "below it")
+		assert(not R.leanedOn(6, 0, 0, 1, 1.5), "far from it")
+	end,
+	["unsupported: pieces with no chain to the ground"] = function()
+		-- 1 ground, 2 on 1, 3 on 2, 4 alone, 5 on 4
+		local links = { { 2 }, { 1, 3 }, { 2 }, { 5 }, { 4 } }
+		local out = R.unsupported(5, links, { [1] = true })
+		table.sort(out)
+		assert(#out == 2 and out[1] == 4 and out[2] == 5, "the hanging pair drops")
+		assert(#R.unsupported(3, { { 2 }, { 3 }, {} }, { [1] = true }) == 0, "a chain of three holds")
+		assert(#R.unsupported(2, {}, {}) == 2, "nothing on the ground: all drop")
+	end,
 	["blast damage: full at center, zero at the edge, monotonic"] = function()
 		assert(R.blastDamage(0, 20, 500) == 500)
 		assert(R.blastDamage(20, 20, 500) == 0 and R.blastDamage(30, 20, 500) == 0)

@@ -1,30 +1,56 @@
 --!strict
 -- Client-side fracture debris for broken building sections (Net "SectionBroken"). Visual only:
--- local parts, never replicated, in the "Debris" collision group (never collides with characters). They fly for
--- Config.Destruction.Debris.settle s, then freeze where they lie, and stay until `lifetime`; past maxLive the oldest
--- go first. Both scaled by the player's Debris setting (Config/Settings.DebrisLevels, Rules/Settings.debris).
+-- local parts, never replicated, in the "Debris" collision group (never collides with characters). They fly until at
+-- rest (Config.Destruction.Debris.Rest), then freeze where they lie, and stay until `lifetime`; past maxLive the oldest
+-- go first. A frozen chunk wakes and falls again when what it may lie on goes (another chunk, a broken section), so
+-- nothing is left floating. maxLive and lifetime are scaled by the player's Debris setting (Config/Settings.DebrisLevels,
+-- Rules/Settings.debris).
 
+local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local D = require(Shared.Config.Destruction)
 local Net = require(Shared.Net)
+local Rules = require(Shared.Rules.Destruction)
 local SettingsCfg = require(Shared.Config.Settings)
 local SettingsRules = require(Shared.Rules.Settings)
 local Settings = require(script.Parent.Settings)
 
 local DebrisClient = {}
 
+type Chunk = { part: BasePart, flying: number, still: number }
+
 local live: { BasePart } = {} -- oldest first
+local moving: { [BasePart]: Chunk } = {} -- flying, not yet at rest
+local frozen: { [BasePart]: boolean } = {}
+local gone: { { at: Vector3, radius: number } } = {} -- what went this frame (frozen chunks near it wake)
 local container: Folder
 
-local function spawnChunk(cf: CFrame, size: Vector3, color: Color3, transparency: number, origin: Vector3)
-	local maxLive, lifetime = SettingsRules.debris(
-		(SettingsCfg.DebrisLevels :: any)[Settings.get("Debris")],
-		D.Debris.maxLive,
-		D.Debris.lifetime
-	)
+-- something at `at` (`radius` its bounding radius) went: chunks frozen on it wake next frame
+local function went(at: Vector3, radius: number)
+	table.insert(gone, { at = at, radius = radius })
+end
+
+local function wake(p: BasePart)
+	frozen[p] = nil
+	p.Anchored = false
+	moving[p] = { part = p, flying = 0, still = 0 }
+end
+
+-- `gentle`: falls where it was (it lost its support) instead of being flung from `origin`
+local function spawnChunk(
+	cf: CFrame,
+	size: Vector3,
+	color: Color3,
+	transparency: number,
+	origin: Vector3,
+	lifetime: number,
+	maxLive: number,
+	gentle: boolean
+)
 	while #live >= maxLive do
 		table.remove(live, 1):Destroy()
 	end
@@ -40,28 +66,41 @@ local function spawnChunk(cf: CFrame, size: Vector3, color: Color3, transparency
 	p.CFrame = cf
 	p.CollisionGroup = "Debris"
 	p.Parent = container
-	local away = cf.Position - origin
-	local dist = math.max(away.Magnitude, 1)
-	local push = math.clamp(40 / dist, 0.5, 1) * math.random(18, 34)
-	p.AssemblyLinearVelocity = away.Unit * push + Vector3.new(0, math.random(8, 22), 0)
-	p.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
+	if gentle then
+		p.AssemblyAngularVelocity = Vector3.new(math.random(-2, 2), math.random(-2, 2), math.random(-2, 2))
+	else
+		local away = cf.Position - origin
+		local dist = math.max(away.Magnitude, 1)
+		local push = math.clamp(40 / dist, 0.5, 1) * math.random(18, 34)
+		p.AssemblyLinearVelocity = away.Unit * push + Vector3.new(0, math.random(8, 22), 0)
+		p.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
+	end
 	table.insert(live, p)
+	moving[p] = { part = p, flying = 0, still = 0 }
 	p.Destroying:Connect(function()
 		local i = table.find(live, p)
 		if i then
 			table.remove(live, i)
 		end
+		moving[p] = nil
+		frozen[p] = nil
+		went(p.Position, p.Size.Magnitude / 2)
 	end)
-	task.delay(D.Debris.settle + math.random() * 0.5, function()
-		if p.Parent then
-			p.Anchored = true
-		end
-	end)
-	Debris:AddItem(p, lifetime + math.random() * 1.5)
+	Debris:AddItem(p, lifetime)
 end
 
 -- Split a piece into up to `max` chunks along its two longest axes.
-local function fracture(cf: CFrame, size: Vector3, color: Color3, t: number, origin: Vector3, max: number)
+local function fracture(
+	cf: CFrame,
+	size: Vector3,
+	color: Color3,
+	t: number,
+	origin: Vector3,
+	max: number,
+	lifetime: number,
+	maxLive: number,
+	gentle: boolean
+)
 	local axes = { { "X", size.X }, { "Y", size.Y }, { "Z", size.Z } }
 	table.sort(axes, function(a, b)
 		return a[2] > b[2]
@@ -81,7 +120,44 @@ local function fracture(cf: CFrame, size: Vector3, color: Color3, t: number, ori
 					(k + 0.5) * cs.Z - size.Z / 2
 				)
 				-- slightly shrink so chunks don't start interpenetrating
-				spawnChunk(cf * CFrame.new(off), cs * 0.92, color, t, origin)
+				spawnChunk(cf * CFrame.new(off), cs * 0.92, color, t, origin, lifetime, maxLive, gentle)
+			end
+		end
+	end
+end
+
+-- every `Rest.every` s: flying chunks at rest freeze; frozen chunks near anything that went wake
+local function step(dt: number)
+	local R = D.Debris.Rest
+	for p, c in moving do
+		c.flying += dt
+		local freeze
+		c.still, freeze = Rules.rested(
+			p.AssemblyLinearVelocity.Magnitude,
+			p.AssemblyAngularVelocity.Magnitude,
+			c.still,
+			c.flying,
+			dt,
+			R
+		)
+		if freeze then
+			moving[p] = nil
+			frozen[p] = true
+			p.Anchored = true
+		end
+	end
+	if #gone > 0 then
+		local list = gone
+		gone = {}
+		local margin = D.Debris.wakeMargin
+		for p in frozen do
+			local at = p.Position
+			for _, g in list do
+				local o = at - g.at
+				if Rules.leanedOn(o.X, o.Y, o.Z, g.radius, margin) then
+					wake(p)
+					break
+				end
 			end
 		end
 	end
@@ -91,13 +167,41 @@ function DebrisClient.start()
 	container = Instance.new("Folder")
 	container.Name = "ClientDebris"
 	container.Parent = workspace
+	local acc = 0
+	RunService.Heartbeat:Connect(function(dt)
+		acc += dt
+		if acc >= D.Debris.Rest.every then
+			step(acc)
+			acc = 0
+		end
+	end)
+	-- any section gone (broken, swapped for its Remains, collapsed): what lay on it falls
+	CollectionService:GetInstanceRemovedSignal(D.SectionTag):Connect(function(m)
+		if m:IsA("Model") then
+			local ok, cf, size = pcall(m.GetBoundingBox, m)
+			if ok then
+				went(cf.Position, size.Magnitude / 2)
+			end
+		end
+	end)
+	-- pieces: { cf, size, color, t, fall? } (fall: it lost its support and drops where it was)
 	Net.event("SectionBroken").OnClientEvent:Connect(function(pieces: { any }, origin: Vector3)
 		local per = D.Debris.chunksPerSection
+		local maxLive, lifetime = SettingsRules.debris(
+			(SettingsCfg.DebrisLevels :: any)[Settings.get("Debris")],
+			D.Debris.maxLive,
+			D.Debris.lifetime
+		)
+		-- one lifetime for the batch: a heap goes at once, not chunk by chunk from under the rest
+		lifetime += math.random() * 1.5
 		for _, piece in pieces do
+			-- the section went: whatever lay on it falls
+			went(piece.cf.Position, piece.size.Magnitude / 2)
+			local gentle = piece.fall == true
 			if piece.t > 0.1 then
-				fracture(piece.cf, piece.size, piece.color, piece.t, origin, 9) -- glass: more, smaller shards
+				fracture(piece.cf, piece.size, piece.color, piece.t, origin, 9, lifetime, maxLive, gentle) -- glass: more, smaller shards
 			else
-				fracture(piece.cf, piece.size, piece.color, piece.t, origin, per)
+				fracture(piece.cf, piece.size, piece.color, piece.t, origin, per, lifetime, maxLive, gentle)
 			end
 		end
 	end)

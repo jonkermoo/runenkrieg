@@ -63,6 +63,57 @@ function Destruction.collapseFrom(
 	return lowest
 end
 
+-- A flying debris chunk (Config/Destruction.Debris.Rest) moving slower than `still` studs/s and turning slower than
+-- `spin` rad/s for `time` s is at rest and freezes; one still moving after `maxFly` s freezes anyway. Returns how long
+-- it has been still and whether to freeze it now.
+function Destruction.rested(
+	speed: number,
+	spin: number,
+	stillFor: number,
+	flying: number,
+	dt: number,
+	r: { still: number, spin: number, time: number, maxFly: number }
+): (number, boolean)
+	stillFor = if speed <= r.still and spin <= r.spin then stillFor + dt else 0
+	return stillFor, stillFor >= r.time or flying >= r.maxFly
+end
+
+-- Whether a frozen chunk `dx, dy, dz` studs from the centre of something gone (`radius` its bounding radius) may have
+-- rested on it: within `radius` + `margin` of it and not below its bottom. Such a chunk wakes and falls again.
+function Destruction.leanedOn(dx: number, dy: number, dz: number, radius: number, margin: number): boolean
+	return dy >= -radius and dx * dx + dy * dy + dz * dz <= (radius + margin) ^ 2
+end
+
+-- Support (user 2026-10-23: "anything not supported should fall"): `n` pieces, `links[i]` the pieces touching piece i,
+-- `grounded[i]` true for a piece on the ground. Returns the pieces with no chain of touching pieces to the ground.
+function Destruction.unsupported(n: number, links: { { number } }, grounded: { [number]: boolean }): { number }
+	local seen: { [number]: boolean } = {}
+	local queue = {}
+	for i = 1, n do
+		if grounded[i] then
+			seen[i] = true
+			table.insert(queue, i)
+		end
+	end
+	local head = 1
+	while head <= #queue do
+		for _, j in links[queue[head]] or {} do
+			if not seen[j] then
+				seen[j] = true
+				table.insert(queue, j)
+			end
+		end
+		head += 1
+	end
+	local out = {}
+	for i = 1, n do
+		if not seen[i] then
+			table.insert(out, i)
+		end
+	end
+	return out
+end
+
 export type Scheme = { wall: string, roof: string, trim: number, door: number }
 
 -- Deterministic color scheme for one copy of a template: wall + roof keys from the template's allowed
