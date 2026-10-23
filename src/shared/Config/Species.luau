@@ -14,9 +14,6 @@ export type Kind = {
 	tailBones: number?,
 	-- how much of Motion.Ear this species' ears move (the elf blades barely)
 	earMotion: number,
-	-- furred animal ears: left off a bald soldier (user 2026-10-21: "make animal ears not appear on bald people";
-	-- Rules/Species.wearsEars). The elf ears are skin and stay.
-	animalEars: boolean,
 }
 
 local Species = {
@@ -34,7 +31,6 @@ local Species = {
 			earPivots = { EarR = { 0.32, 0.55, 0.22 }, EarL = { -0.32, 0.55, 0.22 } },
 			tailBones = 5,
 			earMotion = 1,
-			animalEars = true,
 		},
 		fennek = {
 			ears = "ears_fennek",
@@ -42,13 +38,11 @@ local Species = {
 			earPivots = { EarR = { 0.34, 0.46, 0.22 }, EarL = { -0.34, 0.46, 0.22 } },
 			tailBones = 5,
 			earMotion = 1,
-			animalEars = true,
 		},
 		alb = {
 			ears = "ears_alb",
 			earPivots = { EarR = { 0.6, -0.12, 0.06 }, EarL = { -0.6, -0.12, 0.06 } },
 			earMotion = 0.35,
-			animalEars = false,
 		},
 	} :: { [string]: Kind },
 	-- Procedural motion (degrees, seconds, studs/s). Characters farther than `Range` studs from the camera hold still.
