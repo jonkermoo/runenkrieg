@@ -29,12 +29,12 @@ return {
 		assert(Blast.scaled(10, 0, B.MetresPerStud) == math.huge, "no charge, no blast")
 		assert(Blast.kpa(10, 0, B) == 0)
 	end,
-	["the full beam at 10 kg: lethal ~8, and whoever it hurts is ragdolled, all within ~15 studs"] = function()
+	["the full beam at 10 kg: lethal ~9, and whoever it hurts is ragdolled, all within ~15 studs"] = function()
 		local S = B.Soldier
-		-- user 2026-10-18: "lethal within ~8"
-		assert(Blast.soldierDamage(kpa(7.5), S) >= S.max, "inside ~8 studs: lethal")
+		-- user 2026-10-18: "lethal within ~8"; 2026-10-23: near misses should kill, ~9
+		assert(Blast.soldierDamage(kpa(8.8), S) >= S.max, "inside ~9 studs: lethal")
 		local ten = Blast.soldierDamage(kpa(10), S)
-		assert(ten > 30 and ten < 70, `10 studs: heavy, not lethal ({ten})`)
+		assert(ten > 50 and ten < 90, `10 studs: heavy, not lethal ({ten})`)
 		-- user 2026-10-18: flung whenever it hurts, as hard as it hurts
 		local F = B.Fling
 		assert(Blast.fling(0, S.max, F.least) == nil, "no damage, no fling")
@@ -203,6 +203,36 @@ return {
 		assert(Blast.exposure(1, 0, C.minShare) == 1, "no parts to test: in the open")
 		assert(C.minShare > 0 and C.minShare < 1)
 		assert(#C.parts >= 4)
+	end,
+	["a near miss hits in full, cover or not; further out cover counts again"] = function()
+		local C = B.Cover
+		-- user 2026-10-23: "a grenade or staff explosion that missed a few studs away should kill"
+		for _, d in { 0, 2, 3, 4, 5 } do
+			assert(not Blast.coverCounts(d, C.near), `{d} studs: no cover`)
+		end
+		for _, d in { 5.5, 6.5, 20 } do
+			assert(Blast.coverCounts(d, C.near), `{d} studs: cover counts`)
+		end
+		assert(C.near >= 3 and C.near <= 6, "a few studs")
+		-- a blast on the ground 4 studs off, torso ~2.7 up
+		assert(not Blast.coverCounts(math.sqrt(4 ^ 2 + 2.7 ^ 2), C.near), "4 studs off on the ground: no cover")
+		assert(C.near > C.skip, "wider than the skipped wall")
+		-- the full beam kills there outright (and the grenades by their fragments, Config/Grenades)
+		assert(Blast.soldierDamage(kpa(C.near), B.Soldier) >= B.Soldier.max, "the full beam kills inside `near`")
+	end,
+	["a grenade's own blast kills out to ~2 studs, the full beam to ~9"] = function()
+		local G = require("../src/shared/Config/Grenades")
+		local S = B.Soldier
+		for name, g in G.Types do
+			local r = Blast.reachOf(S.kill, g.kg, B)
+			assert(r > 1.6 and r < 2.6, `{name}: own blast lethal to {r}`)
+			-- inside `near` (no cover) its fragments kill too
+			assert(g.fragments.lethal >= B.Cover.near, `{name}: fragments lethal inside near`)
+			-- on the ground 4 studs off (the torso up to ~3.5 up on a slope) its fragments kill
+			assert(g.fragments.lethal >= math.sqrt(4 ^ 2 + 3.5 ^ 2), `{name}: kills 4 studs off on the ground`)
+		end
+		local r = Blast.reachOf(S.kill, KG, B)
+		assert(r > 8.5 and r < 9.5, `full beam lethal to {r}`)
 	end,
 	["each class breaks out to where the pressure falls to its fail pressure"] = function()
 		for class, fail in B.Fail do

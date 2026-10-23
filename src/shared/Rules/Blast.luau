@@ -131,6 +131,12 @@ function Blast.exposure(clear: number, total: number, minShare: number): number
 	return if share < minShare then 0 else share
 end
 
+-- Whether cover counts for a soldier whose torso is `distance` studs from a blast (user 2026-10-23: "a grenade or staff
+-- explosion that missed a few studs away should kill"): within `near` it hits in full, bumps and grass in the way or not.
+function Blast.coverCounts(distance: number, near: number): boolean
+	return distance > near
+end
+
 -- the crater's radius (studs) for a `kg` charge
 function Blast.crater(kg: number, perCubeRoot: number): number
 	return if kg > 0 then perCubeRoot * kg ^ (1 / 3) else 0

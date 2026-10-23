@@ -85,10 +85,11 @@ local Damage = {
 		AmbientKPa = 101.325,
 		Reach = 12, -- Z beyond which nothing is felt (m / kg^(1/3)); bounds the search (~67 studs at 10 kg)
 		-- soldiers: damage from `from` kPa (0) rising to `kill` kPa (`max` damage, kills from full health). At 10 kg:
-		-- lethal within ~8 studs, ~69 at 9, ~47 at 10, ~20 at 12, ~5 at 14, nothing from ~15 (user 2026-10-18: "lethal
-		-- within ~8"; then "at points where players take damage from a blast is also when they should ragdoll": damage
-		-- and knocks both end at ~15 studs). Was kill 80, from 8: lethal to ~16, hurt to ~70
-		Soldier = { from = 126, kill = 540, max = 100 },
+		-- lethal within ~9 studs, ~72 at 10, ~31 at 12, ~8 at 14, nothing from ~15; a grenade's own blast kills to
+		-- ~1.8-2.3 (user 2026-10-18: "lethal within ~8"; then "at points where players take damage from a blast is also
+		-- when they should ragdoll": damage and knocks both end at ~15 studs; 2026-10-23: near misses should kill, kill
+		-- 540 -> 400, was lethal to ~8). Was kill 80, from 8: lethal to ~16, hurt to ~70
+		Soldier = { from = 126, kill = 400, max = 100 },
 		-- whoever a blast hurts is flung away from it, as hard as it hurt them (user 2026-10-18: "the staff lvl 3 charge
 		-- only flings me when im dead. i want it to fling me when it damages me too, scaled to damage"): the `knock`
 		-- (Config/Ragdoll.Knocks) at `least` of its force for the slightest hurt, up to all of it at `max` damage; a
@@ -123,10 +124,14 @@ local Damage = {
 		-- blast hurts a soldier by the share of these body parts it has a clear line to, cast after it has broken what
 		-- it breaks (so lost cover is no cover), and flings them as hard as that hurts (Fling above). Under `minShare`
 		-- nothing reaches them. Lines skip whatever is within `skip` studs of the blast (the wall it went off against).
+		-- Within `near` studs of the torso cover doesn't count (user 2026-10-23: "a grenade or staff explosion that
+		-- missed a few studs away should kill"; a blast lying on the ground lost its lines to bumps and grass). 5: a
+		-- blast 4 studs off on the ground is ~4.8 from the torso (~2.7 up).
 		Cover = {
 			parts = { "Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg" },
 			minShare = 0.17,
 			skip = 1,
+			near = 5,
 		},
 		-- classes that break at their fail pressure or not at all, never worn bit by bit (Studio round 1: glass with 1 HP
 		-- added up weaker blasts, so a second stage 2 shot broke windows far off)
