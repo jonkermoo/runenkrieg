@@ -23,8 +23,10 @@ local Environment = {
 		twilight = 1.25, -- hours either side of sunrise / sunset over which the light eases between day and night
 	},
 
-	-- Lighting at full day (the DEV place's own, Studio round 1) and at night. Night is moonlit: about 35% of the day's
-	-- light (user 2026-10-22), bluer.
+	-- Lighting at full day (the DEV place's own, Studio round 1) and at night. Night is moonlit and bluer: about two
+	-- thirds of the day's fill light, so soldiers stay visible at the darkest point (user 2026-10-23: "night time is
+	-- too dark. players should be visible even at peak darkness"; was 35%: brightness 1.5, ambient 22/26/38, outdoor
+	-- 24/28/42, exposure -0.3).
 	Light = {
 		day = {
 			brightness = 3,
@@ -33,10 +35,10 @@ local Environment = {
 			exposure = 0,
 		},
 		night = {
-			brightness = 1.5, -- the moon is far weaker than the sun at the same Brightness
-			ambient = { 22, 26, 38 },
-			outdoorAmbient = { 24, 28, 42 },
-			exposure = -0.3,
+			brightness = 2, -- the moon is far weaker than the sun at the same Brightness
+			ambient = { 48, 52, 68 },
+			outdoorAmbient = { 54, 58, 76 },
+			exposure = 0,
 		},
 		-- the haze warms around sunrise and sunset, most halfway between day and night
 		dusk = { color = { 236, 176, 138 }, decay = { 170, 104, 92 }, strength = 0.8 },
