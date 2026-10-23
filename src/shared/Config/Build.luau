@@ -59,7 +59,7 @@ local Build = {
 		floor = 5.25, -- (user 2026-10-23: "make the actual trenches bigger": 1.5x wider)
 		depth = 5.5,
 		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
-		wallAngle = 55,
+		wallAngle = 70, -- (user 2026-10-23: steeper, "it could be either deeper or less slopy")
 		bank = { width = 5, height = 1.2 },
 		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
 		scar = { depth = 0.6 },
