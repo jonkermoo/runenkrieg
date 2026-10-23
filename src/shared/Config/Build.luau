@@ -56,7 +56,7 @@ local Build = {
 		-- earth thrown up as a bank along both edges (the pit's rim)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
-		floor = 5.25, -- (user 2026-10-23: "make the actual trenches bigger": 1.5x wider)
+		floor = 4.25, -- (user 2026-10-23: 1.5x wider, then "a little more narrow")
 		depth = 5.5,
 		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
 		wallAngle = 70, -- (user 2026-10-23: steeper, "it could be either deeper or less slopy")
