@@ -67,9 +67,17 @@ local Build = {
 		-- (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
 		markers = { peg = { 0.25, 1.6 }, flag = 3, string = 0.08 },
 		-- the plank path on the floor: slats about `every` apart across it, scrambled; some missing
-		path = { every = 0.9, length = { 2.2, 3.0 }, width = 0.5, thickness = 0.14, missing = 0.12, turn = 14 },
+		path = { every = 0.9, length = { 2.2, 3.0 }, width = 0.55, thickness = 0.3, missing = 0.12, turn = 14 },
 		-- boards laid on the walls now and then: up to `perWall` patches a square side, `boards` each
-		wallPlanks = { chance = 0.2, perWall = 1, boards = { 2, 4 }, length = { 2.2, 3.8 }, width = 0.6 },
+		-- (planks "about 1/4 to 1/3 thick", user 2026-10-23)
+		wallPlanks = {
+			chance = 0.5,
+			perWall = 1,
+			boards = { 2, 4 },
+			length = { 2.4, 3.8 },
+			width = 0.7,
+			thickness = 0.3,
+		},
 		-- a blast fills a square in: from `from` kPa at the square's line it loses HP, all of it at `full`
 		blast = { from = 150, full = 900 },
 		-- clods knocked off the walls each destroy swing (client debris)

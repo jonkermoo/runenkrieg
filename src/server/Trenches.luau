@@ -382,7 +382,7 @@ local function planks(blk: Block)
 					local from = at(blk, pu, 0) - Vector3.new(0, T.depth - h, 0)
 					local hit = workspace:Raycast(from, blk.across * s * (TOP + 2), terrainOnly)
 					if hit then
-						local pos = hit.Position + hit.Normal * 0.1
+						local pos = hit.Position + hit.Normal * (W.thickness / 2)
 						local cf = CFrame.lookAt(pos, pos + blk.dir, hit.Normal)
 							* CFrame.Angles(
 								(rng:NextNumber() - 0.5) * 0.1,
@@ -392,7 +392,7 @@ local function planks(blk: Block)
 						part(
 							holder,
 							"Board",
-							Vector3.new(W.width, 0.16, len - rng:NextNumber() * 0.6),
+							Vector3.new(W.width, W.thickness, len - rng:NextNumber() * 0.6),
 							cf,
 							tone(),
 							false
