@@ -39,8 +39,7 @@ local Remotes: { string } = {
 	"WeaponAction",
 	-- A gun's butt stroke (src/client/Melee, src/server/Melee; Config/Melee):
 	-- client -> server: (direction: Vector3) the butt lands now, along this direction (flat, where the striker faces)
-	-- server -> clients: (striker: Model, point: Vector3, what: "Body" | "Helmet" | "Surface" | nil) an accepted strike
-	-- and what it hit (nil: nothing), for everyone's sounds
+	-- server -> clients: (striker: Model) an accepted strike, for everyone's swing sound
 	"Melee",
 	"Struck",
 	-- client -> server: () putting the held weapon away with its unequip animation (src/server/Armory keeps a copy in
