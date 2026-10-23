@@ -137,10 +137,10 @@ return {
 		assert(B.planBlocks(5, T.block, T.minBlock) == nil)
 		assert(T.maxPlan / T.block == 5)
 	end,
-	["trenches v2: the shape: floor, 60 degree walls too steep to walk, banks"] = function()
+	["trenches v2: the shape: floor, walls too steep to walk, banks"] = function()
 		local T = C.Trench
 		local top = B.trenchTop(T)
-		assert(near(top, T.floor + T.depth / math.tan(math.rad(60))))
+		assert(near(top, T.floor + T.depth / math.tan(math.rad(T.wallAngle))))
 		assert(T.wallAngle > M.Movement.MaxSlopeAngle, "the walls can't be walked up")
 		assert(T.depth >= M.Cover.FullCoverMin, "full cover on the floor")
 		assert(B.trenchProfile(0, 1, T) == -T.depth and B.trenchProfile(T.floor, 1, T) == -T.depth)
