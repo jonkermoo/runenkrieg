@@ -208,12 +208,37 @@ local function surveyPlan(character: Model, root: BasePart)
 		end
 	end
 	current = { a = a, b = aim, ok = ok, reason = reason }
-	local mid = (a + aim) / 2
-	local cf = CFrame.lookAt(
-		Vector3.new(mid.X, math.max(a.Y, aim.Y) + 0.3, mid.Z),
-		Vector3.new(aim.X, math.max(a.Y, aim.Y) + 0.3, aim.Z)
-	)
-	showGhost("TrenchPlan", cf, Vector3.new(2 * TOP, 0.3, math.max(length, 0.5)), ok)
+	-- one box per square, gaps between, so each square shows (user 2026-10-23: "have a string during planning for each
+	-- square too")
+	local spans = Rules.planBlocks(math.max(length, T.minBlock), T.block, T.minBlock) or {}
+	if not ghost or ghostFor ~= "TrenchPlan" or #(ghost :: Model):GetChildren() ~= #spans then
+		clearGhost()
+		local made = Instance.new("Model")
+		made.Name = "BuildGhost"
+		for _ = 1, #spans do
+			local box = Instance.new("Part")
+			box.Anchored = true
+			box.CanCollide = false
+			box.CanQuery = false
+			box.CanTouch = false
+			box.CastShadow = false
+			box.Material = Enum.Material.SmoothPlastic
+			box.Transparency = C.Ghost.transparency
+			box.Parent = made
+		end
+		made.Parent = workspace.CurrentCamera
+		ghost, ghostFor = made, "TrenchPlan"
+	end
+	local boxes = (ghost :: Model):GetChildren()
+	local y = math.max(a.Y, aim.Y) + 0.3
+	local dir = if length > 0.01 then flat.Unit else Vector3.new(0, 0, -1)
+	for i, span in spans do
+		local mid = a + dir * ((span.from + span.to) / 2)
+		local box = boxes[i] :: Part
+		box.Color = rgb(if ok then C.Ghost.ok else C.Ghost.bad)
+		box.Size = Vector3.new(2 * TOP, 0.3, math.max(span.to - span.from - 0.35, 0.2))
+		box.CFrame = CFrame.lookAt(Vector3.new(mid.X, y, mid.Z), Vector3.new(mid.X + dir.X, y, mid.Z + dir.Z))
+	end
 end
 
 -- what a swing goes to: the trench block or piece in reach most in front of you, or (Destroy) a tree you face
@@ -400,18 +425,21 @@ function Build.start()
 			local m = target(character, root)
 			local modeText = `{mode} ({keyName("Key_Reload")})`
 			if m and m:IsA("Model") then
-				local work, need = m:GetAttribute("Work"), m:GetAttribute("Need")
-				local name = if m:GetAttribute("Kind") == "TrenchBlock"
-					then "Trench"
+				local block = m:GetAttribute("Kind") == "TrenchBlock"
+				local work = m:GetAttribute(if block then "HP" else "Work")
+				local need = m:GetAttribute(if block then "MaxHP" else "Need")
+				local name = if block
+					then "Trench square"
 					else ((Rules.piece(m:GetAttribute("Piece"), C.Pieces) or { name = "Piece" }) :: any).name
 				if type(work) == "number" and type(need) == "number" then
 					local ours = m:GetAttribute("Team") == character:GetAttribute("Kit")
 					local mine = if ours then name else `Enemy {string.lower(name)}`
+					local of = if block then `HP {work} / {need}` else `{work} / {need}`
 					text = if mode == "Destroy"
-						then `{modeText}  ·  {mine}  ·  {work} / {need}  ·  dig to fill it in`
+						then `{modeText}  ·  {mine}  ·  {of}  ·  dig to fill it in`
 						elseif not ours then `{modeText}  ·  {mine}: switch to Destroy`
-						elseif work >= need then `{modeText}  ·  {name}  ·  done`
-						else `{modeText}  ·  {name}  ·  {work} / {need}  ·  dig to build`
+						elseif work >= need then `{modeText}  ·  {name}  ·  dug`
+						else `{modeText}  ·  {name}  ·  {of}  ·  dig to build`
 				end
 			elseif m then
 				text = `{modeText}  ·  Tree  ·  dig to chop it`

@@ -2,17 +2,19 @@
 -- Trenches v2 on the server (Config/Build.Trench, Rules/Build; design page https://claude.ai/artifact/FRZKPxjdaq3nXAzFwWwFb6).
 -- Carved into the terrain like the howitzer's pit (src/server/Ground.pit; user 2026-10-23: "I really like how the
 -- mortar dug out is like"): mud floor and walls, earth thrown up as a bank along both edges.
--- - A plan (Net "Build" "Plan", start, end) is one straight run, split into blocks (Rules.planBlocks), pegged out with
---   markers everyone sees. Its ends join a free end of the team's trench (end to end, up to Trench.maxBend) or the
---   side of one of its blocks (a T); it may not cross a trench. Undug plans go after Trench.planLife.
--- - Each block is dug on its own (Trenches.work, from src/server/Build): Build swings add work, deeper at each stage;
---   at full work the plank path goes down the floor and boards go on the walls now and then (seeded per block).
--- - Destroy swings (any team's trench) take work off: the block falls apart (clods off the walls, shallower,
---   churned earth) and at 0 is a scar, a lumpy dip of churned earth that stays.
--- - Blasts (Trenches.blast, from src/server/Build.blast) cave a dug block in: at most half a block's work, a pile of
---   earth on the floor, the boards near it knocked off; dug back to full, the pile goes.
+-- - A plan (Net "Build" "Plan", start, end) is one straight run, split into squares (Rules.planBlocks; user
+--   2026-10-23: "you have to dig each stud", "make each square of a trench distinct"), each pegged out with its own
+--   string outline everyone sees until it is dug full. Its ends join a free end of the team's trench (end to end, up
+--   to Trench.maxBend) or the side of one of its squares (a T); it may not cross a trench. Undug plans go after
+--   Trench.planLife.
+-- - Each square has HP like any structure, and its depth is its HP (user: "they have hp. how dug in they are are
+--   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build); at full HP the plank path goes
+--   down its floor and boards go on its walls now and then (seeded per square).
+-- - Destroy swings (any team's trench) and blasts (Trenches.blast, from src/server/Build.blast, by the overpressure
+--   at the square) take HP off: it falls in (clods off the walls, shallower, churned earth); at 0 it is a scar, a
+--   lumpy dip of churned earth that stays.
 -- The terrain is reshaped from the ground as it was before any trench touched it (kept per voxel), so digging,
--- joining, falling in and scars are all the one union of every block's profile over that ground.
+-- joining, falling in and scars are all the one union of every square's profile over that ground.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -40,11 +42,9 @@ export type Block = {
 	dir: Vector3, -- flat unit, A to B
 	across: Vector3, -- flat unit, to the block's left
 	length: number,
-	work: number,
-	built: boolean, -- reached full work (it keeps its full depth through cave-ins)
-	falling: boolean, -- being filled in (Destroy swings since it was last full)
+	hp: number, -- its depth: hp / Trench.hp.max of the full depth
+	falling: boolean, -- lost HP since it was last full (churned earth, its planks off)
 	scar: boolean,
-	piles: { Vector3 },
 	linkA: Link?,
 	linkB: Link?,
 	run: { Block },
@@ -106,32 +106,26 @@ local function live(blk: Block?): boolean
 	return blk ~= nil and blocks[blk.id] == blk and not blk.scar
 end
 
+-- how deep a square is cut now: its HP's share of the full depth
+local function shareOf(blk: Block): number
+	return if blk.scar then 0 else blk.hp / T.hp.max
+end
+
 local function shapeOf(blk: Block): Rules.BlockShape
 	local function ext(link: Link?): (number, boolean)
-		if not link or not live(link.other) then
-			return 0, true
+		if not link or not live(link.other) or link.other.hp <= 0 then
+			return 0, true -- a dead end: the walls close round it (also against an undug neighbour)
 		end
-		-- a T reaches the other trench's centre line already; an end join runs on to fill the corner
-		return if link.kind == "tee" then 0 else TOP, false
+		-- a T reaches the other trench's centre line already; straight on, the next square takes over at the joint; at
+		-- a bend the hole runs on to fill the outside of the corner, where the other square is at least as deep
+		if link.kind == "tee" or link.other.dir:Dot(blk.dir) > 0.995 or shareOf(link.other) < shareOf(blk) then
+			return 0, false
+		end
+		return TOP, false
 	end
 	local extA, deadA = ext(blk.linkA)
 	local extB, deadB = ext(blk.linkB)
 	return { length = blk.length, extA = extA, extB = extB, deadA = deadA, deadB = deadB }
-end
-
--- how deep the block is cut now: full once built (unless falling in), else by the stage of its work
-local function shareOf(blk: Block): number
-	if blk.scar then
-		return 0
-	end
-	if blk.built and not blk.falling then
-		return 1
-	end
-	if blk.falling then
-		return blk.work / T.work -- (falling in: shallower every swing)
-	end
-	local stage = Rules.trenchStage(blk.work, T.stages)
-	return if stage > 0 then T.depthByStage[stage] else 0
 end
 
 local function publish(blk: Block)
@@ -139,8 +133,8 @@ local function publish(blk: Block)
 	if not m then
 		return
 	end
-	m:SetAttribute("Work", blk.work)
-	m:SetAttribute("Built", blk.built)
+	m:SetAttribute("HP", math.floor(blk.hp + 0.5))
+	m:SetAttribute("MaxHP", T.hp.max)
 	m:SetAttribute("Falling", blk.falling)
 	local function linkName(l: Link?): string
 		return if l and live(l.other) then l.kind else ""
@@ -150,8 +144,7 @@ local function publish(blk: Block)
 end
 
 -- Reshapes the terrain round `centre` (within `reach`, flat): back to the ground before any trench where one touched
--- it, then cut by every block there (the deepest cut wins), banks thrown up where nothing cuts, scars as shallow dips,
--- and the cave-in piles on top.
+-- it, then cut by every square there (the deepest cut wins), banks thrown up where nothing cuts, scars as shallow dips.
 local function reshape(centre: Vector3, reach: number)
 	local terrain = workspace.Terrain
 	local half = Vector3.new(reach, T.depth + T.bank.height + VOXEL * 4, reach)
@@ -248,12 +241,6 @@ local function reshape(centre: Vector3, reach: number)
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
-	-- the cave-in piles of the blocks here
-	for _, n in near do
-		for _, p in n.blk.piles do
-			terrain:FillBall(p, T.cave.pile, Enum.Material.Ground)
-		end
-	end
 	Net.event("GroundDug"):FireAllClients(centre, reach)
 end
 
@@ -281,7 +268,8 @@ local function clods(blk: Block, n: number)
 	Net.event("SectionBroken"):FireAllClients(pieces, at(blk, blk.length / 2, 0))
 end
 
--- the pegs and string of a block still to be dug, and a flag at each end of its run
+-- a square still to be dug: a peg at each corner of its outline (its top edges) with string round it, and a flag at
+-- each end of its run
 local function markers(blk: Block)
 	local m = blk.model :: Model
 	local old = m:FindFirstChild("Markers")
@@ -293,35 +281,31 @@ local function markers(blk: Block)
 	holder.Parent = m
 	local M = T.markers
 	local peg = rgb(Palette.Build.Picket)
-	for _, s in { -1, 1 } do
-		local prev: Vector3? = nil
-		local n = math.max(math.floor(blk.length / M.every + 0.5), 1)
-		for i = 0, n do
-			local g = at(blk, blk.length * i / n, s * TOP)
-			local hit = workspace:Raycast(g + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), terrainOnly)
-			local base = if hit then hit.Position else g
-			local top = base + Vector3.new(0, M.peg[2] - 0.15, 0)
-			part(
-				holder,
-				"Peg",
-				Vector3.new(M.peg[1], M.peg[2], M.peg[1]),
-				CFrame.new(base + Vector3.new(0, M.peg[2] / 2 - 0.15, 0)),
-				peg,
-				false
-			)
-			if prev then
-				local mid = (prev + top) / 2
-				part(
-					holder,
-					"String",
-					Vector3.new(M.string, M.string, (top - prev).Magnitude),
-					CFrame.lookAt(mid, top),
-					rgb(Palette.Build.String),
-					false
-				)
-			end
-			prev = top
-		end
+	local corners = {}
+	for _, c in { { 0, -TOP }, { blk.length, -TOP }, { blk.length, TOP }, { 0, TOP } } do
+		local g = at(blk, c[1], c[2])
+		local hit = workspace:Raycast(g + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), terrainOnly)
+		local base = if hit then hit.Position else g
+		part(
+			holder,
+			"Peg",
+			Vector3.new(M.peg[1], M.peg[2], M.peg[1]),
+			CFrame.new(base + Vector3.new(0, M.peg[2] / 2 - 0.15, 0)),
+			peg,
+			false
+		)
+		table.insert(corners, base + Vector3.new(0, M.peg[2] - 0.15, 0))
+	end
+	for i = 1, 4 do
+		local p0, p1 = corners[i], corners[i % 4 + 1]
+		part(
+			holder,
+			"String",
+			Vector3.new(M.string, M.string, (p1 - p0).Magnitude),
+			CFrame.lookAt((p0 + p1) / 2, p1),
+			rgb(Palette.Build.String),
+			false
+		)
 	end
 	-- flags at the run's ends
 	local first, last = blk.run[1], blk.run[#blk.run]
@@ -420,7 +404,7 @@ local function planks(blk: Block)
 	end
 end
 
--- shows a block as its work stands
+-- shows a square as its HP stands
 local function apply(blk: Block, reshapeIt: boolean)
 	if reshapeIt then
 		reshapeBlock(blk)
@@ -429,15 +413,15 @@ local function apply(blk: Block, reshapeIt: boolean)
 	if not m then
 		return
 	end
-	local markersOn = blk.work < T.work and not blk.built
+	local markersOn = blk.hp < T.hp.max and not blk.falling
 	local pegs = m:FindFirstChild("Markers")
 	if markersOn and not pegs then
 		markers(blk)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the planks lie in a block that stands whole (not falling in, not caved in)
-	local full = blk.built and not blk.falling and #blk.piles == 0
+	-- the planks lie in a square dug full that hasn't lost HP since
+	local full = blk.hp >= T.hp.max and not blk.falling
 	local boards = m:FindFirstChild("Planks")
 	if full and not boards then
 		planks(blk)
@@ -635,11 +619,9 @@ function Trenches.plan(player: Player, team: string, root: BasePart, a0: Vector3
 			dir = dir,
 			across = Vector3.new(-dir.Z, 0, dir.X),
 			length = span.to - span.from,
-			work = 0,
-			built = false,
+			hp = 0,
 			falling = false,
 			scar = false,
-			piles = {},
 			linkA = nil,
 			linkB = nil,
 			run = run,
@@ -687,7 +669,6 @@ function Trenches.plan(player: Player, team: string, root: BasePart, a0: Vector3
 		m.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 		m:SetAttribute("Kind", KIND)
 		m:SetAttribute("Team", team)
-		m:SetAttribute("Need", T.work)
 		m:SetAttribute("BlockA", blk.a)
 		m:SetAttribute("BlockB", blk.b)
 		m:SetAttribute("Owner", player.UserId)
@@ -709,79 +690,65 @@ function Trenches.distance(blk: Block, p: Vector3): number
 	return Survey.toSegment(p, blk.a, blk.b)
 end
 
--- One swing at a block (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds a unit
--- to your team's block; Destroy takes one off any team's.
+-- One swing at a square (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds HP to your
+-- team's square; Destroy takes it off any team's (an undug plan's square is pulled up).
 function Trenches.work(blk: Block, team: string, mode: string)
 	if not live(blk) then
 		return
 	end
-	local was = Rules.trenchStage(blk.work, T.stages)
+	local H = T.hp
 	if mode == "Build" then
-		if team ~= blk.team or blk.work >= T.work then
+		if team ~= blk.team or blk.hp >= H.max then
 			return
 		end
-		blk.work += 1
+		blk.hp = Rules.trenchSwing(blk.hp, H.max, H.swing, true)
 		blk.worked = os.clock()
 		for _, o in blk.run do
 			o.worked = blk.worked -- (the plan stays while it's being dug)
 		end
-		if blk.work >= T.work then
-			local wasFull = blk.built and not blk.falling and #blk.piles == 0
-			blk.built = true
+		if blk.hp >= H.max then
 			blk.falling = false
-			blk.piles = {}
-			apply(blk, not wasFull)
-			return
 		end
-		apply(blk, not blk.built and Rules.trenchStage(blk.work, T.stages) ~= was)
-	else
-		if blk.work <= 0 then
-			finish(blk, false) -- a plan pulled up
-			return
-		end
-		blk.work -= 1
-		blk.worked = os.clock()
-		blk.falling = true
-		clods(blk, T.clods.perSwing)
-		if blk.work <= 0 then
-			finish(blk, true)
-			return
-		end
-		apply(blk, true) -- (it falls in a little every swing)
-	end
-end
-
--- A blast at `position` (src/server/Build.blast): `kpaAt(studs)` its overpressure, `reachOf(kpa)` how far it reaches
--- that. Dug blocks within the cave-in pressure cave in round it.
-function Trenches.blast(position: Vector3, kpaAt: (number) -> number, reachOf: (number) -> number)
-	local caveR = reachOf(T.cave.kPa)
-	if caveR <= 0 then
+		apply(blk, true)
 		return
 	end
+	if blk.hp <= 0 then
+		finish(blk, false) -- a plan pulled up
+		return
+	end
+	local left, gone = Rules.trenchSwing(blk.hp, H.max, H.swing, false)
+	blk.hp = left
+	blk.worked = os.clock()
+	blk.falling = true
+	clods(blk, T.clods.perSwing)
+	if gone then
+		finish(blk, true)
+		return
+	end
+	apply(blk, true) -- (it falls in a little every swing)
+end
+
+-- A blast at `position` (src/server/Build.blast): `kpaAt(studs)` its overpressure. Every dug square loses HP by the
+-- overpressure at its line (Rules.trenchBlast): it falls in by that much.
+function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: (number) -> number)
+	local K, H = T.blast, T.hp
 	local hit = {}
 	for _, blk in blocks do
-		if live(blk) and blk.work > 0 then
-			local d = Survey.toSegment(position, blk.a, blk.b)
-			if d <= caveR and kpaAt(d) >= T.cave.kPa then
-				local rel = Vector3.new(position.X - blk.a.X, 0, position.Z - blk.a.Z)
-				local along, off = rel:Dot(blk.dir), math.abs(rel:Dot(blk.across))
-				local caved = Rules.caveSpan(along, off, caveR, blk.length)
-				local loss = Rules.caveLoss(T.work, caved, blk.length, T.cave.maxShare)
-				if loss > 0 then
-					blk.work = math.max(blk.work - loss, 0)
-					local u = math.clamp(along, 1, blk.length - 1)
-					table.insert(blk.piles, at(blk, u, 0) - Vector3.new(0, T.depth * shareOf(blk), 0))
-					table.insert(hit, blk)
-				end
+		if live(blk) and blk.hp > 0 then
+			local loss = Rules.trenchBlast(kpaAt(Survey.toSegment(position, blk.a, blk.b)), H.max, K.from, K.full)
+			if loss > 0 then
+				blk.hp = math.max(blk.hp - loss, 0)
+				blk.falling = true
+				table.insert(hit, blk)
 			end
 		end
 	end
 	for _, blk in hit do
-		clods(blk, T.clods.perSwing * 2)
-		if blk.work <= 0 then
+		clods(blk, T.clods.perSwing)
+		if blk.hp <= 0 then
 			finish(blk, true)
 		else
-			apply(blk, true) -- (its planks come off: it isn't whole)
+			apply(blk, true)
 		end
 	end
 end
@@ -812,7 +779,7 @@ function Trenches.start()
 			local now = os.clock()
 			local stale = {}
 			for _, blk in blocks do
-				if live(blk) and blk.work <= 0 and not blk.built and now - blk.worked > T.planLife then
+				if live(blk) and blk.hp <= 0 and not blk.falling and now - blk.worked > T.planLife then
 					table.insert(stale, blk)
 				end
 			end

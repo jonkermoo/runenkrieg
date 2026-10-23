@@ -37,7 +37,7 @@ local function inTrench(p: Vector3): boolean
 	end
 	for _, m in f:GetChildren() do
 		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
-		if typeof(a) == "Vector3" and typeof(b) == "Vector3" and (m:GetAttribute("Work") :: number? or 0) > 0 then
+		if typeof(a) == "Vector3" and typeof(b) == "Vector3" and (m:GetAttribute("HP") :: number? or 0) > 0 then
 			local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
 			local u = math.clamp(Vector3.new(p.X - a.X, 0, p.Z - a.Z):Dot(flat.Unit) / flat.Magnitude, 0, 1)
 			local line = a.Y + (b.Y - a.Y) * u
@@ -71,23 +71,39 @@ local function attach(character: Model)
 	params.FilterDescendantsInstances = { workspace.Terrain }
 	local wall: RaycastResult? = nil
 	local freeUntil = 0
+	local lostAt = 0 -- when the wall was last lost under the grip (it keeps hold for G.grace)
 
 	local step = RunService.Heartbeat:Connect(function()
-		wall = nil
 		if humanoid.Health <= 0 or character:GetAttribute("Ragdolled") == true or os.clock() < freeUntil then
+			wall = nil
 			hold.Enabled = false
 			return
 		end
+		-- the wall lost under you (edging along its lumps): keep hold a moment before letting go
+		local function lose()
+			if hold.Enabled then
+				if lostAt == 0 then
+					lostAt = os.clock()
+				end
+				if os.clock() - lostAt < G.grace then
+					return -- (still holding, as it was)
+				end
+			end
+			wall = nil
+			hold.Enabled = false
+			lostAt = 0
+		end
 		local hit = workspace:Raycast(root.Position, Vector3.new(0, -G.reach, 0), terrainOnly)
 		if not hit then
-			hold.Enabled = false
+			lose()
 			return
 		end
 		local angle = math.deg(math.acos(math.clamp(hit.Normal.Y, -1, 1)))
 		if angle < G.minAngle or angle > G.maxAngle or not inTrench(hit.Position) then
-			hold.Enabled = false
+			lose()
 			return
 		end
+		lostAt = 0
 		wall = hit
 		-- the wall's run along it (flat) and its way down (flat)
 		local down = Vector3.new(hit.Normal.X, 0, hit.Normal.Z)

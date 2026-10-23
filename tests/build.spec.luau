@@ -119,23 +119,15 @@ return {
 		assert(B.wireHarm(0.5, 1, C.Wire) == 0 and near(B.wireHarm(5, 0.25, C.Wire), C.Wire.damage / 4))
 		assert(C.Wire.speed < M.Movement.CrouchSpeed)
 	end,
-	["a cave-in covers only the chord inside the segment"] = function()
-		assert(near(B.caveSpan(6, 0, 3, 12), 6))
-		assert(near(B.caveSpan(0, 0, 3, 12), 3), "at an end (a joint): only its own half")
-		assert(near(B.caveSpan(6, 6.2, 9.1, 12), 12) and B.caveSpan(6, 9.1, 9.1, 12) == 0)
-		assert(near(B.caveSpan(12, 6.2, 9.1, 12), math.sqrt(9.1 ^ 2 - 6.2 ^ 2)), "the joint case, Studio round 1")
-		assert(near(B.caveSpan(-20, 0, 3, 12), 0))
-	end,
-	["trenches v2: blocks of a plan, all the same length, none too short"] = function()
+	["trenches v2: squares of a plan, all the same length, none too short"] = function()
 		local T = C.Trench
 		local b = B.planBlocks(60, T.block, T.minBlock) :: any
-		assert(#b == 5 and near(b[5].to, 60) and near(b[1].to - b[1].from, 12))
-		b = B.planBlocks(30, T.block, T.minBlock) :: any
-		assert(#b == 3 and near(b[1].to, 10))
-		b = B.planBlocks(8, T.block, T.minBlock) :: any
-		assert(#b == 1 and near(b[1].to, 8))
-		assert(B.planBlocks(5, T.block, T.minBlock) == nil)
-		assert(T.maxPlan / T.block == 5)
+		assert(#b == 15 and near(b[15].to, 60) and near(b[1].to - b[1].from, 4))
+		b = B.planBlocks(10, T.block, T.minBlock) :: any
+		assert(#b == 3 and near(b[1].to, 10 / 3))
+		b = B.planBlocks(3, T.block, T.minBlock) :: any
+		assert(#b == 1 and near(b[1].to, 3))
+		assert(B.planBlocks(1, T.block, T.minBlock) == nil)
 	end,
 	["trenches v2: the shape: floor, walls too steep to walk, banks"] = function()
 		local T = C.Trench
@@ -157,11 +149,24 @@ return {
 		assert(B.trenchReach(14, 1, shape, 3) == 5, "dead end: the floor's edge plus the distance past it")
 		assert(near(B.trenchReach(15, 7, shape, 3) :: number, 3 + 5), "round the corner")
 	end,
-	["trenches v2: stages by work"] = function()
-		local st = C.Trench.stages
-		assert(B.trenchStage(0, st) == 0 and B.trenchStage(3, st) == 1 and B.trenchStage(7, st) == 2)
-		assert(B.trenchStage(C.Trench.work, st) == #st and st[#st] == C.Trench.work)
-		assert(#C.Trench.depthByStage == #st and C.Trench.depthByStage[#st] == 1)
+	["trenches v2: a square's HP: three Build swings dig it, Destroy swings fill it, blasts by pressure"] = function()
+		local H = C.Trench.hp
+		local hp = 0
+		for _ = 1, 3 do
+			hp = B.trenchSwing(hp, H.max, H.swing, true)
+		end
+		assert(hp == H.max, "three swings dig a square")
+		local gone
+		hp, gone = B.trenchSwing(hp, H.max, H.swing, false)
+		assert(hp == H.max - H.swing and not gone)
+		hp, gone = B.trenchSwing(10, H.max, H.swing, false)
+		assert(hp == 0 and gone)
+		local K = C.Trench.blast
+		assert(
+			B.trenchBlast(K.from, H.max, K.from, K.full) == 0
+				and B.trenchBlast(K.full * 2, H.max, K.from, K.full) == H.max
+		)
+		assert(near(B.trenchBlast((K.from + K.full) / 2, H.max, K.from, K.full), H.max / 2))
 	end,
 	["trenches v2: a segment through a rectangle"] = function()
 		-- a rectangle at the origin along x, 6 long each way, 2 across each way; a segment along x through it
@@ -173,9 +178,5 @@ return {
 		assert(t0 and t1 and near(t0, 0.4) and near(t1, 0.6))
 		t0 = B.clipRect(0, 0, 1, 0, 0, 0, 1, 0, 6, 2)
 		assert(t0 == 0, "starting inside")
-	end,
-	["trenches v2: a blast never takes more than half a block"] = function()
-		assert(B.caveLoss(8, 12, 12, 0.5) == 4 and B.caveLoss(8, 3, 12, 0.5) == 2 and B.caveLoss(8, 0, 12, 0.5) == 0)
-		assert(C.Trench.cave.maxShare <= 0.5)
 	end,
 }

@@ -35,19 +35,23 @@ local Build = {
 	-- everyone sees. Each block is dug on its own: `work` swings, deeper at each stage. A plan's end on a free end of a
 	-- trench joins it end to end (up to `maxBend` off straight); on a block's side, a T. A plan may not cross a trench
 	-- (user: "connect the trench then continue from the other side").
+	-- Squares (user 2026-10-23: "you have to dig each stud", "make each square of a trench distinct", "trenches should
+	-- be treated like other structures. they have hp. how dug in they are are determined by hp"): a run is split into
+	-- squares of `block` studs (the terrain's 4-stud voxels are the finest it can carve), each pegged out with its own
+	-- string outline until it is dug full, and each with HP: its depth is HP / MaxHP of the full depth.
 	Trench = {
-		block = 12,
-		minBlock = 6,
+		block = 4,
+		minBlock = 2,
 		maxPlan = 60,
 		firstReach = 14, -- the first click this close to you
 		joinReach = 4, -- a plan's end this close to a free end joins it
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
 		planLife = 180, -- seconds an undug plan stays
-		swingReach = 8, -- a swing works the block whose line is this close, in front of you
-		work = 8,
-		stages = { 3, 6, 8 }, -- the work at which each stage is reached
-		depthByStage = { 1 / 3, 2 / 3, 1 }, -- share of the full depth
+		swingReach = 8, -- a swing works the square whose line is this close, in front of you
+		-- a square's HP: a Build swing adds `swing` (up to `max`), a Destroy swing takes `swing` off; blasts take HP by
+		-- their overpressure at the square (Blast below)
+		hp = { max = 100, swing = 34 },
 		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
 		-- earth thrown up as a bank along both edges (the pit's rim)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
@@ -60,13 +64,13 @@ local Build = {
 		scar = { depth = 0.6 },
 		-- markers: pegs every `every` studs along both top edges, string between, a flag at each end
 		-- (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
-		markers = { every = 3, peg = { 0.25, 1.6 }, flag = 3, string = 0.08 },
+		markers = { peg = { 0.25, 1.6 }, flag = 3, string = 0.08 },
 		-- the plank path on the floor: slats about `every` apart across it, scrambled; some missing
 		path = { every = 0.9, length = { 2.2, 3.0 }, width = 0.5, thickness = 0.14, missing = 0.12, turn = 14 },
-		-- boards laid on the walls now and then: up to `perWall` patches a block side, `boards` each
-		wallPlanks = { chance = 0.5, perWall = 2, boards = { 2, 4 }, length = { 2.2, 3.8 }, width = 0.6 },
-		-- a blast caving the trench in: the share of a block's work one blast can take at most, a pile of earth
-		cave = { kPa = 400, maxShare = 0.5, pile = 3.2 },
+		-- boards laid on the walls now and then: up to `perWall` patches a square side, `boards` each
+		wallPlanks = { chance = 0.2, perWall = 1, boards = { 2, 4 }, length = { 2.2, 3.8 }, width = 0.6 },
+		-- a blast fills a square in: from `from` kPa at the square's line it loses HP, all of it at `full`
+		blast = { from = 150, full = 900 },
 		-- clods knocked off the walls each destroy swing (client debris)
 		clods = { perSwing = 6, size = { 0.5, 1.2 } },
 		-- the wall grip (src/client/TrenchWall): on a trench wall steeper than walkable you stop instead of sliding,
@@ -79,8 +83,11 @@ local Build = {
 			maxAngle = 80,
 			along = 0.5,
 			hopUp = 26,
-			hopIn = 6,
+			-- (6 alone didn't carry a hop up the wall; with W held one hop got out, Studio round 2)
+			hopIn = 11,
 			regrip = 0.3,
+			-- keep gripping this long after the wall is lost under you (edging along dropped it 23 times in 4 s)
+			grace = 0.25,
 			reach = 4.5,
 			floorClear = 0.6,
 		},

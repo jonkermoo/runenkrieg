@@ -183,15 +183,21 @@ function Build.bend(ox: number, oz: number, nx: number, nz: number): number
 	return math.deg(math.acos(math.clamp(ox * nx + oz * nz, -1, 1)))
 end
 
--- the stage a block shows at `work` (0 = only the plan; Config/Build.Trench.stages)
-function Build.trenchStage(work: number, stages: { number }): number
-	local stage = 0
-	for i, at in stages do
-		if work >= at then
-			stage = i
-		end
+-- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
+function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
+	if build then
+		return math.min(hp + swing, max), false
 	end
-	return stage
+	local left = hp - swing
+	return math.max(left, 0), left <= 0
+end
+
+-- the HP a blast takes off a square: none under `from` kPa at its line, all of it (`max`) at `full`
+function Build.trenchBlast(kpa: number, max: number, from: number, full: number): number
+	if kpa <= from then
+		return 0
+	end
+	return max * math.min((kpa - from) / (full - from), 1)
 end
 
 -- Where a segment from (ax, az) to (bx, bz) runs inside a rectangle (centre cx, cz; unit axis ux, uz along it; half
@@ -236,14 +242,6 @@ function Build.clipRect(
 		return nil, nil
 	end
 	return t0, t1
-end
-
--- the work a blast's cave-in takes off a block: its share of the length caved, never more than `maxShare` of a block
-function Build.caveLoss(need: number, caved: number, length: number, maxShare: number): number
-	if length <= 0 or caved <= 0 then
-		return 0
-	end
-	return math.min(math.ceil(need * math.clamp(caved / length, 0, 1)), math.floor(need * maxShare))
 end
 
 -- A voxel column's occupancies (bottom to top, voxels `res` tall starting at `y0`) set so the surface stands at
@@ -318,16 +316,6 @@ function Build.wireHarm(speed: number, dt: number, w: any): number
 		return 0
 	end
 	return w.damage * dt
-end
-
--- How much of a trench line of `length` a cave-in of radius `r` covers: the blast `along` studs along it from end A,
--- `off` studs off it (flat). Only the chord inside the line's own length counts.
-function Build.caveSpan(along: number, off: number, r: number, length: number): number
-	if off >= r then
-		return 0
-	end
-	local half = math.sqrt(r * r - off * off)
-	return math.max(math.clamp(along + half, 0, length) - math.clamp(along - half, 0, length), 0)
 end
 
 return Build
