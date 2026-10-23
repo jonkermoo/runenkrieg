@@ -119,15 +119,18 @@ return {
 		assert(B.wireHarm(0.5, 1, C.Wire) == 0 and near(B.wireHarm(5, 0.25, C.Wire), C.Wire.damage / 4))
 		assert(C.Wire.speed < M.Movement.CrouchSpeed)
 	end,
-	["trenches v2: squares of a plan, all the same length, none too short"] = function()
+	["trenches v2: fixed segments, the leftover blended or a partial segment"] = function()
 		local T = C.Trench
-		local b = B.planBlocks(60, T.block, T.minBlock) :: any
-		assert(#b == 15 and near(b[15].to, 60) and near(b[1].to - b[1].from, 4))
-		b = B.planBlocks(10, T.block, T.minBlock) :: any
-		assert(#b == 3 and near(b[1].to, 10 / 3))
-		b = B.planBlocks(3, T.block, T.minBlock) :: any
-		assert(#b == 1 and near(b[1].to, 3))
-		assert(B.planBlocks(1, T.block, T.minBlock) == nil)
+		assert(T.block == 8)
+		local b = B.planBlocks(56, 8, T.minBlock) :: any
+		assert(#b == 7 and near(b[7].to, 56) and near(b[1].to - b[1].from, 8), "whole segments")
+		b = B.planBlocks(59, 8, T.minBlock) :: any
+		assert(#b == 7 and near(b[7].to - b[7].from, 11), "3 left over (under half) blends into the last")
+		b = B.planBlocks(60, 8, T.minBlock) :: any
+		assert(#b == 8 and near(b[8].to - b[8].from, 4) and near(b[7].to, 56), "4 left over is a partial segment")
+		b = B.planBlocks(5, 8, T.minBlock) :: any
+		assert(#b == 1 and near(b[1].to, 5), "shorter than a segment: one partial")
+		assert(B.planBlocks(1, 8, T.minBlock) == nil)
 	end,
 	["trenches v2: the shape: floor, walls too steep to walk, banks"] = function()
 		local T = C.Trench

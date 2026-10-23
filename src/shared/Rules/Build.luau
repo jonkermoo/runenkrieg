@@ -116,17 +116,25 @@ function Build.trenchTop(t: any): number
 	return t.floor + t.depth / math.tan(math.rad(t.wallAngle))
 end
 
--- A run `length` long split into blocks of at most `block` and at least `minBlock` studs, all the same length: a list of
--- { from, to } along the run. nil when the run is shorter than one block may be.
+-- A run `length` long split into segments of a fixed `block` studs (user 2026-10-23: "make each segment a fixed size.
+-- if you plan to make a trench that isnt a fixed size, then it will blend with the last segment or become a partial
+-- segment"): what's left over goes onto the last segment when it's under half a segment, else it is a partial segment
+-- of its own; a run shorter than a segment is one partial segment. A list of { from, to } along the run; nil when the
+-- run is shorter than `minBlock`.
 function Build.planBlocks(length: number, block: number, minBlock: number): { { from: number, to: number } }?
 	if length < minBlock - 1e-6 then
 		return nil
 	end
-	local n = math.max(math.ceil(length / block - 1e-6), 1)
-	local each = length / n
+	local n = math.floor(length / block + 1e-6)
+	local left = length - n * block
 	local out = {}
 	for i = 1, n do
-		table.insert(out, { from = (i - 1) * each, to = i * each })
+		table.insert(out, { from = (i - 1) * block, to = i * block })
+	end
+	if n == 0 or left >= block / 2 then
+		table.insert(out, { from = n * block, to = length })
+	elseif left > 1e-6 then
+		out[n].to = length -- (blends into the last segment)
 	end
 	return out
 end

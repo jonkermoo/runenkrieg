@@ -35,12 +35,12 @@ local Build = {
 	-- everyone sees. Each block is dug on its own: `work` swings, deeper at each stage. A plan's end on a free end of a
 	-- trench joins it end to end (up to `maxBend` off straight); on a block's side, a T. A plan may not cross a trench
 	-- (user: "connect the trench then continue from the other side").
-	-- Squares (user 2026-10-23: "you have to dig each stud", "make each square of a trench distinct", "trenches should
-	-- be treated like other structures. they have hp. how dug in they are are determined by hp"): a run is split into
-	-- squares of `block` studs (the terrain's 4-stud voxels are the finest it can carve), each pegged out with its own
-	-- string outline until it is dug full, and each with HP: its depth is HP / MaxHP of the full depth.
+	-- Segments (user 2026-10-23: "make each segment a fixed size", "make each segment distinct", "trenches should be
+	-- treated like other structures. they have hp. how dug in they are are determined by hp"): a run is split into
+	-- segments of `block` studs, each pegged out with its own string outline until it is dug full, and each with HP:
+	-- its depth is HP / MaxHP of the full depth.
 	Trench = {
-		block = 4,
+		block = 8, -- (user 2026-10-23: fixed 8-stud segments; Rules.planBlocks for the leftover)
 		minBlock = 2,
 		maxPlan = 60,
 		firstReach = 14, -- the first click this close to you
@@ -58,7 +58,8 @@ local Build = {
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
 		floor = 3.5,
 		depth = 5.5,
-		wallAngle = 68,
+		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
+		wallAngle = 55,
 		bank = { width = 5, height = 1.2 },
 		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
 		scar = { depth = 0.6 },
@@ -73,24 +74,6 @@ local Build = {
 		blast = { from = 150, full = 900 },
 		-- clods knocked off the walls each destroy swing (client debris)
 		clods = { perSwing = 6, size = { 0.5, 1.2 } },
-		-- the wall grip (src/client/TrenchWall): on a trench wall steeper than walkable you stop instead of sliding,
-		-- can move along it at `along` x walk speed, slide down by pushing down it, and jump hops you up it
-		-- `reach`: how far under the root it looks for the wall (an R6 root stands ~3 over the ground: its 2.2 never
-		-- reached it, Studio round t1023-2101); the softened carve has parts under 50 degrees, so it grips from `minAngle`,
-		-- but not within `floorClear` of the floor
-		grip = {
-			minAngle = 35,
-			maxAngle = 80,
-			along = 0.5,
-			hopUp = 26,
-			-- (6 alone didn't carry a hop up the wall; with W held one hop got out, Studio round 2)
-			hopIn = 11,
-			regrip = 0.3,
-			-- keep gripping this long after the wall is lost under you (edging along dropped it 23 times in 4 s)
-			grace = 0.25,
-			reach = 4.5,
-			floorClear = 0.6,
-		},
 	},
 
 	-- Every piece you can lay, in the order the build menu lists them.
