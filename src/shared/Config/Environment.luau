@@ -43,6 +43,9 @@ local Environment = {
 			outdoorAmbient = { 84, 88, 110 },
 			exposure = 1.6,
 		},
+		-- the light (brightness, ambient, exposure) is fully night from this daylight share down (0.5: sunset / sunrise),
+		-- so the minutes after sunset are never darker than midnight; the haze still eases over the whole twilight
+		nightBy = 0.5,
 		-- the haze warms around sunrise and sunset, most halfway between day and night
 		dusk = { color = { 236, 176, 138 }, decay = { 170, 104, 92 }, strength = 0.8 },
 		-- the map's haze (Greybox/Features.atmosphere: Config/Palette.Atmosphere) darkens to these at night

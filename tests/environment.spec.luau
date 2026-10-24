@@ -77,6 +77,16 @@ return {
 		assert(day.brightness == 3 and day.outdoorAmbient[1] == 70, "full day = the DEV place's own lighting")
 		assert(day.color[1] == base.color[1] and night.color[1] < base.color[1])
 	end,
+	["the night light is in by sunset, so just after it is never darker than midnight"] = function()
+		local L = Cfg.Light
+		local sunset, midnight = E.look(L.nightBy, "Clear", 0, base, Cfg), E.look(0, "Clear", 0, base, Cfg)
+		assert(
+			sunset.exposure == midnight.exposure and sunset.brightness == midnight.brightness,
+			"night light by sunset"
+		)
+		local before = E.look(0.75, "Clear", 0, base, Cfg)
+		assert(before.exposure > L.day.exposure and before.exposure < L.night.exposure, "eases in before sunset")
+	end,
 	["dusk warms the haze, not under rain"] = function()
 		local dusk = E.look(0.5, "Clear", 0, base, Cfg)
 		assert(dusk.color[1] - dusk.color[3] > 20, `dusk haze {dusk.color[1]} {dusk.color[3]}`)
