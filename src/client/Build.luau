@@ -50,6 +50,11 @@ function Build.active(): boolean
 	return active
 end
 
+-- the shovel's mode, "Build" or "Destroy" (src/client/Shovel swings by it)
+function Build.mode(): string
+	return mode
+end
+
 local function shovelHeld(character: Model?): boolean
 	local weapon = Held.weapon(character)
 	return weapon ~= nil and W[weapon.name] ~= nil and W[weapon.name].class == "Shovel"

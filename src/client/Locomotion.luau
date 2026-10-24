@@ -138,7 +138,7 @@ function Locomotion.attach(character: Model)
 					or hold == "pin"
 				-- a grenade's throw: a one shot over its wind-up (src/client/Grenades "ThrownAt"); the shovel's dig the same
 				-- over its hold (src/client/Shovel "DugAt"), and a gun's butt stroke (src/client/Melee "StruckAt")
-				local over = hold == "throw" or hold == "dig" or hold == "strike"
+				local over = hold == "throw" or hold == "dig" or hold == "chip" or hold == "strike"
 				t.Priority = if over
 					then Enum.AnimationPriority.Action3
 					elseif once then Enum.AnimationPriority.Action2
@@ -251,7 +251,7 @@ function Locomotion.attach(character: Model)
 	end
 
 	local thrown: number? = nil -- the last grenade throw played ("ThrownAt")
-	local dug: number? = nil -- the last shovel dig played ("DugAt")
+	local dug: number? = nil -- the last shovel swing played ("DugAt")
 	local struck: number? = nil -- the last butt stroke played ("StruckAt")
 	local striking: AnimationTrack? = nil -- the butt stroke while it plays (stopped if that gun is put away)
 	local pinned: number? = nil -- the last pin pull played ("PinAt")
@@ -353,12 +353,14 @@ function Locomotion.attach(character: Model)
 					throwing = set.throw
 				end
 			end
-			-- a dig with the shovel (src/client/Shovel marks the moment): played once over the hold
+			-- a swing of the shovel (src/client/Shovel marks the moment and the mode): played once over the hold, the dig
+			-- in Build, the chip in Destroy
 			local dugAt = character:GetAttribute("DugAt")
 			if type(dugAt) == "number" and dugAt ~= dug then
 				dug = dugAt
-				if set.dig then
-					set.dig:Play(0.05)
+				local swing = if character:GetAttribute("DugMode") == "Destroy" then set.chip else set.dig
+				if swing then
+					swing:Play(0.05)
 				end
 			end
 			-- a gun's butt stroke (src/client/Melee marks the moment): played once over the hold

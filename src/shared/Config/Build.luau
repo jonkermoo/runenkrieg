@@ -12,7 +12,7 @@ local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
 	Reach = 14,
 	SwingReach = 8,
-	-- swings faster than this share of the dig's length (Config/Shovel.Dig.length) are ignored
+	-- swings faster than this share of the swing's length (Config/Shovel.Dig / Chip by the mode) are ignored
 	SwingSlack = 0.8,
 	-- a blueprint nobody has worked on goes after this (seconds)
 	BlueprintLife = 120,

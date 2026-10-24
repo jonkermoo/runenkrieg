@@ -106,7 +106,7 @@ type Rig = {
 	oneHanded: boolean,
 	leftHidden: boolean,
 	thrown: number?, -- the grenade throw played ("ThrownAt")
-	dug: number?, -- the shovel dig played ("DugAt")
+	dug: number?, -- the shovel swing played ("DugAt")
 	struck: number?, -- the butt stroke played ("StruckAt")
 	pinned: number?, -- the grenade pin pull played ("PinAt")
 	pinOut: boolean, -- the Mills's pin pulled: its "Pin" hidden ("PinOut")
@@ -200,7 +200,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 			or state == "pin"
 		-- a grenade's throw: a one shot over its wind-up ("ThrownAt"); the shovel's dig the same over its hold ("DugAt"),
 		-- and a gun's butt stroke ("StruckAt", src/client/Melee)
-		local over = state == "throw" or state == "dig" or state == "strike"
+		local over = state == "throw" or state == "dig" or state == "chip" or state == "strike"
 		t.Priority = if over
 			then Enum.AnimationPriority.Action3
 			elseif once then Enum.AnimationPriority.Action2
@@ -434,11 +434,13 @@ function Viewmodel.start()
 			r.thrown = thrownAt
 			throw:Play(0.05)
 		end
-		-- a dig with the shovel (src/client/Shovel marks the moment): played once over the hold
+		-- a swing of the shovel (src/client/Shovel marks the moment and the mode): played once over the hold, the dig
+		-- in Build, the chip in Destroy
 		local dugAt = character:GetAttribute("DugAt")
-		if r.tracks.dig and type(dugAt) == "number" and dugAt ~= r.dug then
+		local swing = if character:GetAttribute("DugMode") == "Destroy" then r.tracks.chip else r.tracks.dig
+		if swing and type(dugAt) == "number" and dugAt ~= r.dug then
 			r.dug = dugAt
-			r.tracks.dig:Play(0.05)
+			swing:Play(0.05)
 		end
 		-- a gun's butt stroke (src/client/Melee marks the moment): played once over the hold
 		local struckAt = character:GetAttribute("StruckAt")
