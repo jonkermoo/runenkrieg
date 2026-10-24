@@ -49,6 +49,17 @@ function Environment.clockAt(elapsed: number, day: any): number
 	return h % 24
 end
 
+-- The server time the clock runs from (`elapsed` is measured from it) so that it reads `clock` at server time `at`.
+function Environment.startFor(clock: number, at: number, day: any): number
+	return at - (Environment.phaseOf(clock, day) - Environment.phaseOf(day.startClock, day))
+end
+
+-- The clock at server time `now` for a day that started at `dayStart`; while paused (`pausedAt`: the time it
+-- stopped) it stays at what it read then.
+function Environment.clockNow(now: number, dayStart: number, pausedAt: number?, day: any): number
+	return Environment.clockAt((pausedAt or now) - dayStart, day)
+end
+
 local function smooth(x: number): number
 	x = math.clamp(x, 0, 1)
 	return x * x * (3 - 2 * x)
@@ -75,6 +86,11 @@ end
 -- A length from `range` ({min, max}) by a roll `u` (0-1).
 function Environment.span(u: number, range: any): number
 	return range.min + math.clamp(u, 0, 1) * (range.max - range.min)
+end
+
+-- The (from, to) server times of an event shown at full strength at `now` (its fade in already over) for `seconds`.
+function Environment.fullNow(now: number, seconds: number, fade: number): (number, number)
+	return now - fade, now + seconds
 end
 
 -- An event's strength at `now`: 0 before `from` and after `to`, easing in and out over `fade` seconds.
