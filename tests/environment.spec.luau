@@ -66,10 +66,10 @@ return {
 		local short = E.strength(105, 100, 110, fade) -- shorter than two fades: peaks in the middle
 		assert(short == 1, `{short}`)
 	end,
-	["night is about two thirds of the day's fill light (soldiers stay visible), and bluer"] = function()
+	["night is about 80-85% of the day's fill light (soldiers stay visible), and bluer"] = function()
 		local day, night = E.look(1, "Clear", 0, base, Cfg), E.look(0, "Clear", 0, base, Cfg)
 		local k = night.outdoorAmbient[1] / day.outdoorAmbient[1]
-		assert(k > 0.6 and k < 0.85, `night outdoor ambient x{k}`)
+		assert(k >= 0.8 and k <= 0.85, `night outdoor ambient x{k}`)
 		assert(night.outdoorAmbient[3] > night.outdoorAmbient[1], "moonlight is blue")
 		assert(night.color[1] < day.color[1], "the haze darkens at night")
 		assert(day.density == base.density and day.rain == 0 and day.wet == 1, "clear day = the map's own haze")
