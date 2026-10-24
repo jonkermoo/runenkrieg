@@ -92,6 +92,13 @@ function Destruction.rested(
 	return stillFor, freeze, not freeze and flying >= r.maxFly
 end
 
+-- Whether a chunk come to rest `height` studs over the ground or floor under it (what isn't debris) stands on a pile of
+-- other chunks too tall to leave (a column: Studio 2026-10-24, corner stones spawned block on block stood 6-8 studs
+-- tall): over `pillar` studs, while it has been knocked over fewer than `tries` times, it is knocked over again.
+function Destruction.topples(height: number?, knocked: number, pillar: number, tries: number): boolean
+	return height ~= nil and height > pillar and knocked < tries
+end
+
 -- Whether a frozen chunk `dx, dy, dz` studs from the centre of something gone (`radius` its bounding radius) may have
 -- rested on it: within `radius` + `margin` of it and not below its bottom. Such a chunk wakes and falls again.
 function Destruction.leanedOn(dx: number, dy: number, dz: number, radius: number, margin: number): boolean

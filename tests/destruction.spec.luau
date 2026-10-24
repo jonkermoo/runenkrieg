@@ -38,6 +38,13 @@ return {
 		assert(not select(3, R.rested(0, 0, 0, 1, 0.1, r)), "kept while it may still come to rest")
 		assert(r.still < 1, "frozen only when all but stopped (a chunk frozen at 1.25 studs/s hung in the air)")
 	end,
+	["a chunk at rest high on a pile of chunks is knocked over, a few times at most"] = function()
+		local P = D.Debris.Pillar
+		assert(R.topples(P.height + 1, 0, P.height, P.tries), "a column: knocked over")
+		assert(not R.topples(P.height - 1, 0, P.height, P.tries), "a low heap stays")
+		assert(not R.topples(nil, 0, P.height, P.tries), "nothing under it within reach: leave it")
+		assert(not R.topples(P.height + 1, P.tries, P.height, P.tries), "after `tries` it stays where it is")
+	end,
 	["a frozen chunk wakes when what is under or beside it goes, not what is above"] = function()
 		assert(R.leanedOn(0, 2, 0, 1, 1.5), "on top of it")
 		assert(R.leanedOn(2, 0, 0, 1, 1.5), "beside it")

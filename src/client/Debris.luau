@@ -27,7 +27,7 @@ local Settings = require(script.Parent.Settings)
 
 local DebrisClient = {}
 
-type Chunk = { part: BasePart, flying: number, still: number }
+type Chunk = { part: BasePart, flying: number, still: number, knocked: number }
 
 local live: { BasePart } = {} -- oldest first
 local moving: { [BasePart]: Chunk } = {} -- flying, not yet at rest
@@ -43,7 +43,17 @@ end
 local function wake(p: BasePart)
 	frozen[p] = nil
 	p.Anchored = false
-	moving[p] = { part = p, flying = 0, still = 0 }
+	moving[p] = { part = p, flying = 0, still = 0, knocked = 0 }
+end
+
+-- how far a chunk's bottom is above the ground or floor under it (not debris, not characters), or nil if nothing is
+-- within reach
+local below = RaycastParams.new()
+below.FilterType = Enum.RaycastFilterType.Exclude
+local function heightOver(p: BasePart): number?
+	local bottom = p.Position.Y - p.Size.Magnitude / 2
+	local hit = workspace:Raycast(p.Position, Vector3.yAxis * -(p.Size.Magnitude + D.Debris.Pillar.height * 3), below)
+	return if hit then bottom - hit.Position.Y else nil
 end
 
 -- `push`: how hard it is thrown from `origin` (Config/Destruction.Debris.Push; 0: it only drops, nudged to a side).
@@ -89,7 +99,7 @@ local function spawnChunk(
 	p.AssemblyAngularVelocity = spin
 	if not brief then
 		table.insert(live, p)
-		moving[p] = { part = p, flying = 0, still = 0 }
+		moving[p] = { part = p, flying = 0, still = 0, knocked = 0 }
 	end
 	p.Destroying:Connect(function()
 		local i = table.find(live, p)
@@ -200,7 +210,17 @@ local function step(dt: number)
 			dt,
 			R
 		)
-		if freeze then
+		local P = D.Debris.Pillar
+		if freeze and Rules.topples(heightOver(p), c.knocked, P.height, P.tries) then
+			-- standing on a column of chunks: knocked over, and it settles again
+			local a = math.random() * 2 * math.pi
+			p.AssemblyLinearVelocity = Vector3.new(math.cos(a), 0.3, math.sin(a)) * P.push
+			p.AssemblyAngularVelocity = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5)
+				* 2
+				* P.spin
+			c.knocked += 1
+			c.still, c.flying = 0, 0
+		elseif freeze then
 			moving[p] = nil
 			frozen[p] = true
 			p.Anchored = true
@@ -229,6 +249,7 @@ function DebrisClient.start()
 	container = Instance.new("Folder")
 	container.Name = "ClientDebris"
 	container.Parent = workspace
+	below.FilterDescendantsInstances = { container }
 	local acc = 0
 	RunService.Heartbeat:Connect(function(dt)
 		acc += dt

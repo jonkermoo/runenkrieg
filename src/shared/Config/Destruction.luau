@@ -55,6 +55,10 @@ local Destruction = {
 		-- frame bars froze on the old ground 4-5 studs over a howitzer crater): frozen chunks over the churned ground
 		-- (Rules/Blast.churnFromReach) wake again this many seconds after the blast
 		craterWake = { 1, 3 },
+		-- a chunk come to rest over `height` studs above the ground or floor under it (a pile of chunks: corner stones
+		-- spawned block on block stood as 6-8 stud columns, Studio 2026-10-24) is knocked over instead of frozen: `push`
+		-- studs/s to a random side, `spin` rad/s, at most `tries` times (Rules/Destruction.topples)
+		Pillar = { height = 4, push = 12, spin = 6, tries = 3 },
 		-- how hard each kind of piece is thrown (Config/Damage.Blast.Destroy bands; user 2026-10-23): x the old blast
 		-- throw (18-34 studs/s away, 8-22 up, less from far off). Crumpled chunks drop near where they were; glass
 		-- shatters as before; a piece that lost its support (or a collapsing story) only drops. Every chunk also gets a
