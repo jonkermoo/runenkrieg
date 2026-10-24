@@ -168,7 +168,17 @@ local Palette = {
 	-- Player-built pieces (Config/Build, src/server/Build): flat colours until the meshes come
 	Build = {
 		Sandbag = { 176, 156, 114 }, -- hessian; each bag's tone jittered by Config/Build.Sandbags.shade
-		Plank = { 112, 88, 66 }, -- revetment planks and the firestep
+		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
+		PlankDark = { 98, 74, 52 },
+		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:
+		-- "match the color of the mud"): Wall<i> takes wall shade (i - 1) % 3 + 1 and its chunks the chunk shade of the
+		-- same number; Floor<i> and its chunks
+		TrenchWall = { 1.0, 1.08, 0.93 },
+		TrenchWallChunks = { 0.95, 1.03, 0.98 },
+		TrenchFloor = 0.92,
+		TrenchFloorChunks = 0.98,
+		String = { 236, 232, 220 }, -- a trench plan's markers
+		Flag = { 196, 176, 104 },
 		Picket = { 84, 66, 52 },
 		Wire = { 58, 56, 54 },
 	},

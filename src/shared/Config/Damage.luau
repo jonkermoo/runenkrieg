@@ -206,6 +206,8 @@ local Damage = {
 	Trees = {
 		HP = { Pine = 300, Broadleaf = 360, Birch = 240 }, -- ~30 rifle hits at scale 1
 		Weapons = { BoltRifle = 10, SemiRifle = 8, Shotgun = 2 },
+		-- a shovel's Destroy swings (src/server/Build, Trees.chop; user 2026-10-23): this many fell a tree of any size
+		Chop = { swings = 10 },
 		-- the fall: clients animate it over `time` s; then the server places it where it lies, anchored (no physics:
 		-- user: "stay for some time ... don't lag the server"), as cover for `lifetime` s, at most `maxFallen` on the
 		-- map (the oldest goes first); it sinks into the ground over `sinkTime` s and is removed.

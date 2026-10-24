@@ -4,8 +4,9 @@
 -- Rules/Build decides, src/server/Build builds, src/client/Build shows build mode. Data only.
 --
 -- Build mode: the shovel in the hands, Key_Build toggles it; the mouse wheel picks a piece, Key_BuildTurn turns it,
--- a click lays its blueprint. Each dig swing at a blueprint of your team adds one unit of work; at `work` it stands.
--- A swing at another team's piece takes one off; at 0 it is torn down (a trench filled in).
+-- a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user 2026-10-23): a Build swing at
+-- a piece of your team adds one unit of work; at `work` it stands. A Destroy swing at any piece, any team's, takes one
+-- off; at 0 it is torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
 
 local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
@@ -27,34 +28,84 @@ local Build = {
 	-- the turn step (degrees) for Key_BuildTurn and a mouse wheel notch with Shift
 	TurnStep = 15,
 
-	-- Trenches (Config/Metrics.Trench sizes): a segment is `length` long, carved into the terrain in `stages` cuts as
-	-- it is worked; the floor 6 wide, a firestep in front, earth thrown up as a parapet in front, plank revetments.
-	-- Ends within `snap` of a free end of your team's trench join it (the cut runs on past a joined end by `overlap`
-	-- so corners meet). Every point of a trench line must be within Metrics MaxExitSpacing of a way out: an open end
-	-- (a ramp up out of the trench) or an exit piece (a ramp out of the back).
+	-- Trenches v2 (user 2026-10-23; design page https://claude.ai/artifact/FRZKPxjdaq3nXAzFwWwFb6): carved into the
+	-- terrain like the howitzer's pit (user: "I really like how the mortar dug out is like ... make it like that"),
+	-- src/server/Trenches. A plan is one straight run, click start, click end (src/client/Build), up to `maxPlan`
+	-- studs, split into blocks of up to `block` studs (at least `minBlock`); the plan is pegged out with markers
+	-- everyone sees. Each block is dug on its own: `work` swings, deeper at each stage. A plan's end on a free end of a
+	-- trench joins it end to end (up to `maxBend` off straight); on a block's side, a T. A plan may not cross a trench
+	-- (user: "connect the trench then continue from the other side").
+	-- Segments (user 2026-10-23: "make each segment a fixed size", "make each segment distinct", "trenches should be
+	-- treated like other structures. they have hp. how dug in they are are determined by hp"): a run is split into
+	-- segments of `block` studs, each pegged out with its own string outline until it is dug full, and each with HP:
+	-- its depth is HP / MaxHP of the full depth.
 	Trench = {
-		length = 12,
-		snap = 4,
-		overlap = 3.5,
-		stages = 3,
-		-- the profile across the trench, from the back (negative) to the front (positive), studs from the centre line
-		back = -3, -- the back wall (the floor runs from here ...)
-		front = 3, -- (... to here, then the firestep)
-		-- the terrain is cut this much wider than the plank walls each side: voxels are 4 studs, and an earth wall
-		-- between a cut column and a whole one would stand inside the trench
-		cutMargin = 3, -- (2 left a knee-high wedge of earth at the foot of the back boards, Studio round 1)
-		-- earth thrown up past the front wall, flat-topped over its middle half (a 1.6 peak 6 wide came out ~0.5 high:
-		-- 4-stud voxel columns fall either side of a narrow peak, Studio round 1)
-		parapet = { width = 8, height = 2 },
-		parados = { width = 6, height = 0.9 }, -- a lower bank behind
-		ramp = { length = 10, width = 5 }, -- an open end's ramp up (along the trench), and the exit piece's (out the back)
-		maxSlope = 22, -- degrees of ground slope along the segment
-		-- the revetment planks and the firestep: wood sections (Config/Damage.Blast.Fail Wood), so blasts break them
-		plankThickness = 0.4,
-		plankHP = 300,
-		-- a blast that reaches the trench line at this overpressure caves it in there: the ground put back within
-		-- the class's reach (Rules/Blast.reachOf), and the trench loses work by the share of its length caved
-		caveKPa = 400,
+		block = 8, -- (user 2026-10-23: fixed 8-stud segments; Rules.planBlocks for the leftover)
+		minBlock = 2,
+		maxPlan = 60,
+		-- the first click this close to you, and when the plan is laid you within this of either end (you may walk along
+		-- it while planning; the planner shows it red with the reason as soon as you're too far, user 2026-10-24)
+		firstReach = 14,
+		joinReach = 4, -- a plan's end this close to a free end joins it
+		-- a new trench keeps this far (between centre lines) from every other trench, except near the end where it joins
+		-- one (user 2026-10-24: "you shouldnt be able to build a new trench within a certain distance of another trench
+		-- unless you're extending")
+		spacing = 16,
+		maxBend = 135,
+		maxSlope = 22, -- degrees of ground slope along the run
+		planLife = 180, -- seconds an undug plan stays
+		swingReach = 8, -- a swing works the square whose line is this close, in front of you
+		-- a square's HP: a Build swing adds `swing` (up to `max`), a Destroy swing takes `destroy` off; blasts take HP by
+		-- their overpressure at the square (Blast below). Once dug full it is buried by what it loses: full depth down to
+		-- `hold`% HP, then filled in with the rest (80%: a little earth in it; 5-10%: nearly level, unusable), its pieces
+		-- under the fill (user 2026-10-24: "an 80% trench should start visibly filling a little bit, but not an unusable
+		-- amount"; "way way more durable")
+		-- (5 Build swings dig a square: "make building take a bit longer", user 2026-10-24)
+		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
+		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
+		-- earth thrown up as a bank along both edges (the pit's rim)
+		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
+		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
+		floor = 4.25, -- (user 2026-10-23: 1.5x wider, then "a little more narrow")
+		depth = 5.5,
+		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
+		wallAngle = 70, -- (user 2026-10-23: steeper, "it could be either deeper or less slopy")
+		bank = { width = 5, height = 1.2 },
+		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
+		scar = { depth = 0.6 },
+		-- markers: pegs every `every` studs along both top edges, string between, a flag at each end
+		-- (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
+		markers = { peg = { 0.25, 1.6 }, flag = 3, string = 0.08 },
+		-- the dirt pieces of a square dug full (Config/Assets trench_pieces, tools/blender/trench/trench_pieces.py; user
+		-- 2026-10-23: "make wide variety of random wall and floor segments ... and include wood on the wall ones"): one
+		-- wall a side (Wall1..`walls`) and a floor (Floor1..`floors`), rolled from its seed (Rules.trenchPieces); the
+		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
+		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
+		pieces = { segment = 8, walls = 8, floors = 4, wood = { 5, 6, 7, 8 }, woodChance = 0.25 },
+	},
+
+	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and
+	-- weapons will do damage to a trench too, but just not a lot. most of it will be explosives. grenades and staffs
+	-- should do the least, howitzer the most"): `hit`, the % of a trench square's or a sandbag column's max HP it takes,
+	-- in full within `edge` studs of it (the entry's own `edge` if it has one; a trench: its hole, walls and banks, so a blast on the bank counts; user:
+	-- "make the ground around each segment to also be part of the trench hit box"), fading to nothing at `reach`;
+	-- `wire`, the % of a barbed wire's HP. Bullets only by a direct hit. A blast nobody named (DEV tools) by its
+	-- charge: the first of `byCharge` it is no bigger than. (A Destroy swing is Trench.hp.destroy.)
+	Structures = {
+		edge = 2,
+		wireHP = 100,
+		bullet = { hit = 0.2, wire = 0 }, -- (about 500 hits bury a trench)
+		grenade = { hit = 3, reach = 6, wire = 15 },
+		staff1 = { hit = 0.5, reach = 4, wire = 0 },
+		staff2 = { hit = 1.5, reach = 6, wire = 5 },
+		staff3 = { hit = 4, reach = 10, wire = 15 },
+		field = { hit = 33, reach = 10, edge = 3, wire = 100 }, -- (three bury a trench)
+		howitzer = { hit = 93, reach = 20, edge = 8, wire = 100 }, -- (buries it at once, 7% left)
+		byCharge = {
+			{ kg = 0.5, source = "grenade" },
+			{ kg = 5, source = "field" },
+			{ kg = math.huge, source = "howitzer" },
+		},
 	},
 
 	-- Every piece you can lay, in the order the build menu lists them.
@@ -62,15 +113,8 @@ local Build = {
 		{
 			key = "Trench",
 			name = "Trench",
-			kind = "Trench",
+			kind = "Trench", -- planned by two clicks, dug block by block (Trench above)
 			work = 8,
-		},
-		{
-			key = "TrenchExit",
-			name = "Trench exit",
-			kind = "Trench",
-			exit = true, -- a ramp out of the back wall in its middle
-			work = 10,
 		},
 		{
 			key = "LowWall",
@@ -117,8 +161,8 @@ local Build = {
 
 	-- Barbed wire: anyone inside its box (both teams) is "Wired": walks at `speed`, can't sprint or jump
 	-- (src/client/Stance), and loses `damage` health a second while moving faster than `moving` studs/s. Bullets pass
-	-- (its parts aren't queried); a blast cuts it at `failKPa` or more at its line.
-	Wire = { speed = 3, damage = 4, moving = 1, tick = 0.25, failKPa = 60 },
+	-- (its parts aren't queried); blasts wear it down and cut it (Structures above).
+	Wire = { speed = 3, damage = 4, moving = 1, tick = 0.25 },
 }
 
 return table.freeze(Build)

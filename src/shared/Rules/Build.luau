@@ -108,67 +108,260 @@ function Build.tooSoon(now: number, last: number?, length: number, slack: number
 	return last ~= nil and now - last < length * slack
 end
 
--- a bank's height share `x` of the way across it (0..1): rising over the first quarter, flat over the middle half,
--- falling over the last quarter
-function Build.bank(x: number): number
-	return math.clamp(math.min(x, 1 - x) * 4, 0, 1)
+-- Trenches v2 (Config/Build.Trench, src/server/Trenches). A trench is made of blocks along straight runs; inside a block
+-- `u` runs along it from end A (0) to end B (`length`) and `v` across it, from its centre line.
+
+-- the half width across the top of a trench's walls
+function Build.trenchTop(t: any): number
+	return t.floor + t.depth / math.tan(math.rad(t.wallAngle))
 end
 
-export type Segment = {
+-- A run `length` long split into segments of a fixed `block` studs (user 2026-10-23: "make each segment a fixed size.
+-- if you plan to make a trench that isnt a fixed size, then it will blend with the last segment or become a partial
+-- segment"): what's left over goes onto the last segment when it's under half a segment, else it is a partial segment
+-- of its own; a run shorter than a segment is one partial segment. A list of { from, to } along the run; nil when the
+-- run is shorter than `minBlock`.
+function Build.planBlocks(length: number, block: number, minBlock: number): { { from: number, to: number } }?
+	if length < minBlock - 1e-6 then
+		return nil
+	end
+	local n = math.floor(length / block + 1e-6)
+	local left = length - n * block
+	local out = {}
+	for i = 1, n do
+		table.insert(out, { from = (i - 1) * block, to = i * block })
+	end
+	if n == 0 or left >= block / 2 then
+		table.insert(out, { from = n * block, to = length })
+	elseif left > 1e-6 then
+		out[n].to = length -- (blends into the last segment)
+	end
+	return out
+end
+
+export type BlockShape = {
 	length: number,
-	depth: number, -- how deep it is cut now (the full depth x share)
-	share: number, -- how far it is dug: stage / stages (the banks rise with it)
-	openA: boolean, -- an open end at u = 0 (a ramp up out of it)
-	openB: boolean, -- at u = length
-	exit: boolean, -- the exit piece: a ramp out of the back in its middle
+	extA: number, -- how far its hole runs on past end A where another trench joins there (0 at a dead end)
+	extB: number,
+	deadA: boolean, -- a dead end: the walls close round it
+	deadB: boolean,
 }
 
--- The trench's ground at a point `u` along it (0 at end A, `length` at end B) and `v` across it (back negative, front
--- positive), as a height relative to the ground there before it was dug: negative where it is cut, positive where earth
--- is thrown up. Second result: only cut, never fill (ramps through banks). nil: untouched.
--- `t` is Config/Build.Trench, `firestep` Config/Metrics.Trench.FirestepWidth.
-function Build.trenchAt(u: number, v: number, seg: Segment, t: any, firestep: number): (number?, boolean)
-	local L, depth = seg.length, seg.depth
-	if depth <= 0 then
-		return nil, false
+-- How far a point (`u` along a block, `v` across) is from the block's floor centre in the trench's own sense: |v| along
+-- the block and on past a joined end; round a dead end, the floor's edge plus the distance past it (the end wall
+-- curves round like the sides). nil past a joined end's reach.
+function Build.trenchReach(u: number, v: number, b: BlockShape, floor: number): number?
+	local av = math.abs(v)
+	if u >= 0 and u <= b.length then
+		return av
 	end
-	local frontWall = t.front + firestep
-	local margin = t.cutMargin or 0
-	local inside = v >= t.back - margin and v <= frontWall + margin
-	local within = u >= 0 and u <= L
-	local lowA = if seg.openA then 0 else -t.overlap
-	local highB = if seg.openB then L else L + t.overlap
-	-- the floor (on past a joined end, so corners meet)
-	if inside and u >= lowA and u <= highB then
-		return -depth, false
+	local past = if u < 0 then -u else u - b.length
+	local dead = if u < 0 then b.deadA else b.deadB
+	local ext = if u < 0 then b.extA else b.extB
+	if dead then
+		return floor + math.sqrt(math.max(av - floor, 0) ^ 2 + past * past)
 	end
-	-- an open end's ramp, rising out along the trench
-	local ramp = t.ramp
-	if math.abs(v - (t.back + frontWall) / 2) <= ramp.width / 2 then
-		if seg.openA and u < 0 and u >= -ramp.length then
-			return -depth * (1 + u / ramp.length), true
+	return if past <= ext then av else nil
+end
+
+-- A trench's ground at reach `r` from its floor centre (Build.trenchReach), relative to the ground there before:
+-- negative where it is cut (`share` of the full depth: the floor, then walls rising at the wall angle to the top), positive
+-- where earth is thrown up as the bank past the top (a hump), nil beyond.
+function Build.trenchProfile(r: number, share: number, t: any): number?
+	if share <= 0 then
+		return nil
+	end
+	local depth = t.depth * share
+	local top = Build.trenchTop(t)
+	if r <= t.floor then
+		return -depth
+	end
+	if r <= top then
+		return -depth * (1 - (r - t.floor) / (top - t.floor))
+	end
+	if r <= top + t.bank.width then
+		return t.bank.height * share * math.sin(math.pi * (r - top) / t.bank.width)
+	end
+	return nil
+end
+
+-- The angle (degrees) a trench line bends at a joint: `ox, oz` out of the old block's end, `nx, nz` from the joint
+-- into the new one (flat, unit). 0 is straight on.
+function Build.bend(ox: number, oz: number, nx: number, nz: number): number
+	return math.deg(math.acos(math.clamp(ox * nx + oz * nz, -1, 1)))
+end
+
+-- A 0..1 hash of a square's seed (the same on every run), `salt` picking which roll.
+local function roll(seed: number, salt: number): number
+	local x = math.sin(seed * 12.9898 + salt * 78.233) * 43758.5453
+	return x - math.floor(x)
+end
+
+export type TrenchPieces = { walls: { number }, ends: { number }, floor: number, flip: boolean }
+
+-- A trench square's dirt pieces (Config/Build.Trench.pieces `p`), rolled from its seed: the wall on each side (1 its
+-- left, 2 its right), a plain wall for each dead end (1 end A, 2 end B), the floor, and whether the floor is laid
+-- turned round. A side gets a wood wall (plank steps) at
+-- `woodChance`, but not where the square before it in the run (`prevSeed`) rolled one on that side.
+function Build.trenchPieces(seed: number, prevSeed: number?, p: any): TrenchPieces
+	local plain, wood = {}, {}
+	for i = 1, p.walls do
+		table.insert(if table.find(p.wood, i) then wood else plain, i)
+	end
+	local walls = {}
+	for side = 1, 2 do
+		local isWood = roll(seed, side) < p.woodChance and not (prevSeed and roll(prevSeed, side) < p.woodChance)
+		local from = if isWood then wood else plain
+		walls[side] = from[math.floor(roll(seed, side + 2) * #from) + 1]
+	end
+	return {
+		walls = walls,
+		ends = { plain[math.floor(roll(seed, 7) * #plain) + 1], plain[math.floor(roll(seed, 8) * #plain) + 1] },
+		floor = math.floor(roll(seed, 5) * p.floors) + 1,
+		flip = roll(seed, 6) < 0.5,
+	}
+end
+
+-- How deep a trench square is cut (0..1 of the full depth) at `hp`: while it's being dug, its HP's share; once it has
+-- been dug full (`built`), full depth down to `h.hold`% HP, then buried with what's left.
+function Build.trenchDepth(hp: number, built: boolean, h: any): number
+	if built then
+		return math.clamp(hp / (h.max * h.hold / 100), 0, 1)
+	end
+	return math.clamp(hp / h.max, 0, 1)
+end
+
+-- The longest run of free samples (`blocked[i]` false), as the first and last index, or nil when all are blocked. A
+-- trench square's side wall is laid only along that stretch, not where it would stand in another trench's hole.
+function Build.longestFree(blocked: { boolean }): (number?, number?)
+	local best0, best1, run0 = nil, nil, nil
+	for i = 1, #blocked do
+		if not blocked[i] then
+			run0 = run0 or i
+			if not best0 or i - run0 > best1 - best0 then
+				best0, best1 = run0, i
+			end
+		else
+			run0 = nil
 		end
-		if seg.openB and u > L and u <= L + ramp.length then
-			return -depth * (1 - (u - L) / ramp.length), true
+	end
+	return best0, best1
+end
+
+-- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat) to any of `segs` (other trenches' squares,
+-- { ax, az, bx, bz } each), leaving out the stretch within `spacing` of an end that joins a trench (`joinA`, `joinB`).
+function Build.tooClose(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	joinA: boolean,
+	joinB: boolean,
+	segs: { { number } },
+	spacing: number
+): boolean
+	local length = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	local n = math.max(math.ceil(length), 1)
+	for i = 0, n do
+		local t = i / n
+		local along = t * length
+		if not ((joinA and along < spacing) or (joinB and length - along < spacing)) then
+			local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
+			for _, s in segs do
+				local dx, dz = s[3] - s[1], s[4] - s[2]
+				local len2 = dx * dx + dz * dz
+				local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
+				if (px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2 < spacing * spacing then
+					return true
+				end
+			end
 		end
 	end
-	-- the exit piece's ramp out of the back wall
-	if seg.exit and math.abs(u - L / 2) <= ramp.width / 2 and v < t.back and v >= t.back - margin - ramp.length then
-		return -depth * math.min(1 - (t.back - margin - v) / ramp.length, 1), true
+	return false
+end
+
+-- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
+function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
+	if build then
+		return math.min(hp + swing, max), false
 	end
-	if not within then
-		return nil, false
+	local left = hp - swing
+	return math.max(left, 0), left <= 0
+end
+
+-- What a blast is to built things (Config/Build.Structures `s`): its named `key`'s entry, or by its `kg` charge.
+function Build.structureSource(key: string?, kg: number, s: any): any
+	if key and s[key] then
+		return s[key]
 	end
-	-- the parapet in front and the parados behind: banks peaked in their middles
-	local par = t.parapet
-	if v > frontWall + margin and v <= frontWall + margin + par.width then
-		return par.height * Build.bank((v - frontWall - margin) / par.width) * seg.share, false
+	for _, c in s.byCharge do
+		if kg <= c.kg then
+			return s[c.source]
+		end
 	end
-	local pd = t.parados
-	if v < t.back - margin and v >= t.back - margin - pd.width then
-		return pd.height * Build.bank((t.back - margin - v) / pd.width) * seg.share, false
+	return s.howitzer
+end
+
+-- The % of a built thing's max HP that `src` (a Config/Build.Structures entry; `hit` or another field as `amount`)
+-- takes `d` studs from it (0: on or in it): in full within `edge`, fading to 0 at `src.reach`; with no reach (a bullet)
+-- only on it.
+function Build.structureHit(d: number, src: any, edge: number, amount: number?): number
+	local full = amount or src.hit
+	if not src.reach then
+		return if d <= 0 then full else 0
 	end
-	return nil, false
+	local e = src.edge or edge
+	if d <= e then
+		return full
+	end
+	if d >= src.reach then
+		return 0
+	end
+	return full * (1 - (d - e) / (src.reach - e))
+end
+
+-- Where a segment from (ax, az) to (bx, bz) runs inside a rectangle (centre cx, cz; unit axis ux, uz along it; half
+-- sizes hu along and hv across): the share of the segment from 0 to 1 where it enters and leaves it, or nil.
+function Build.clipRect(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	cx: number,
+	cz: number,
+	ux: number,
+	uz: number,
+	hu: number,
+	hv: number
+): (number?, number?)
+	-- the segment in the rectangle's own frame
+	local function local2(x: number, z: number): (number, number)
+		local dx, dz = x - cx, z - cz
+		return dx * ux + dz * uz, -dx * uz + dz * ux
+	end
+	local pu, pv = local2(ax, az)
+	local qu, qv = local2(bx, bz)
+	local du, dv = qu - pu, qv - pv
+	local t0, t1 = 0, 1
+	for _, e in { { -du, pu + hu }, { du, hu - pu }, { -dv, pv + hv }, { dv, hv - pv } } do
+		local p, q = e[1], e[2]
+		if math.abs(p) < 1e-9 then
+			if q < 0 then
+				return nil, nil
+			end
+		else
+			local r = q / p
+			if p < 0 then
+				t0 = math.max(t0, r)
+			else
+				t1 = math.min(t1, r)
+			end
+		end
+	end
+	if t0 > t1 then
+		return nil, nil
+	end
+	return t0, t1
 end
 
 -- A voxel column's occupancies (bottom to top, voxels `res` tall starting at `y0`) set so the surface stands at
@@ -192,76 +385,6 @@ function Build.columnTop(occs: { number }, y0: number, res: number): number?
 		end
 	end
 	return nil
-end
-
--- Trench lines: segments `{ a, b, length, exit }` joined where they share an end node id. An end node only one
--- segment uses is open (a ramp up). Returns the farthest any point of the trench lies from a way out, walking along
--- it: an open end, or an exit piece's middle.
-function Build.farthestFromExit(segs: { { a: number, b: number, length: number, exit: boolean? } }): number
-	local uses: { [number]: number } = {}
-	for _, s in segs do
-		uses[s.a] = (uses[s.a] or 0) + 1
-		uses[s.b] = (uses[s.b] or 0) + 1
-	end
-	-- the graph: end nodes, plus a middle node per exit piece (keys above every end id)
-	local edges: { [number]: { { to: number, len: number } } } = {}
-	local function link(x: number, y: number, len: number)
-		edges[x] = edges[x] or {}
-		edges[y] = edges[y] or {}
-		table.insert(edges[x], { to = y, len = len })
-		table.insert(edges[y], { to = x, len = len })
-	end
-	local top = 0
-	for id in uses do
-		top = math.max(top, id)
-	end
-	local dist: { [number]: number } = {}
-	local spans: { { x: number, y: number, len: number } } = {}
-	for i, s in segs do
-		if s.exit then
-			local mid = top + i
-			link(s.a, mid, s.length / 2)
-			link(mid, s.b, s.length / 2)
-			table.insert(spans, { x = s.a, y = mid, len = s.length / 2 })
-			table.insert(spans, { x = mid, y = s.b, len = s.length / 2 })
-			dist[mid] = 0
-		else
-			link(s.a, s.b, s.length)
-			table.insert(spans, { x = s.a, y = s.b, len = s.length })
-		end
-	end
-	for id, n in uses do
-		if n == 1 then
-			dist[id] = 0
-		end
-	end
-	-- shortest walks from every way out (few nodes: a plain relaxation is enough)
-	local changed = true
-	while changed do
-		changed = false
-		for x, list in edges do
-			local dx = dist[x]
-			if dx then
-				for _, e in list do
-					local d = dx + e.len
-					if dist[e.to] == nil or d < dist[e.to] - 1e-9 then
-						dist[e.to] = d
-						changed = true
-					end
-				end
-			end
-		end
-	end
-	local worst = 0
-	for _, sp in spans do
-		local dx, dy = dist[sp.x], dist[sp.y]
-		if dx == nil or dy == nil then
-			return math.huge -- a closed loop with no way out
-		end
-		-- the farthest point along this span from either end's nearest way out
-		worst = math.max(worst, (dx + dy + sp.len) / 2)
-	end
-	return worst
 end
 
 export type Bag = { column: number, row: number, x: number, y: number, width: number, height: number }
@@ -313,24 +436,6 @@ function Build.wireHarm(speed: number, dt: number, w: any): number
 		return 0
 	end
 	return w.damage * dt
-end
-
--- How much of a trench line of `length` a cave-in of radius `r` covers: the blast `along` studs along it from end A,
--- `off` studs off it (flat). Only the chord inside the line's own length counts.
-function Build.caveSpan(along: number, off: number, r: number, length: number): number
-	if off >= r then
-		return 0
-	end
-	local half = math.sqrt(r * r - off * off)
-	return math.max(math.clamp(along + half, 0, length) - math.clamp(along - half, 0, length), 0)
-end
-
--- the work a trench keeps when `caved` studs of its `length` cave in
-function Build.caveWork(work: number, need: number, caved: number, length: number): number
-	if length <= 0 then
-		return work
-	end
-	return math.max(work - math.ceil(need * math.clamp(caved / length, 0, 1)), 0)
 end
 
 return Build
