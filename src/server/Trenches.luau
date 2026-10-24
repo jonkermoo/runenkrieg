@@ -11,8 +11,8 @@
 --   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build); at full HP its dirt pieces go in
 --   (Config/Assets trench_pieces): a wall each side and a floor rolled from its seed (Rules.trenchPieces), some walls
 --   with plank steps, a wall across a dead end, none where another trench tees in.
--- - Destroy swings (any team's trench) and blasts (Trenches.blast, from src/server/Build.blast, by the overpressure
---   at the square) take HP off: it is buried (filled in with mud, no clods thrown); at 0 it is a scar, a
+-- - Destroy swings (any team's trench), blasts and bullets (Trenches.blast / Trenches.shot, from src/server/Build, by
+--   Config/Build.Structures) take HP off: it is buried (filled in with mud, no clods thrown); at 0 it is a scar, a
 --   lumpy dip of churned earth that stays.
 -- The terrain is reshaped from the ground as it was before any trench touched it (kept per voxel), so digging,
 -- joining, falling in and scars are all the one union of every square's profile over that ground.
@@ -835,32 +835,55 @@ function Trenches.work(blk: Block, team: string, mode: string)
 	apply(blk, true) -- (it falls in a little every swing)
 end
 
--- A blast at `position` (src/server/Build.blast): `kpaAt(studs)` its overpressure. Every dug square loses HP by the
--- overpressure at its line (Rules.trenchBlast): it falls in by that much.
-function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: (number) -> number)
-	local K, H = T.blast, T.hp
-	local hit = {}
-	for _, blk in blocks do
-		if live(blk) and blk.hp > 0 then
-			local d = Rules.trenchBlastDistance(Survey.toSegment(position, blk.a, blk.b), T)
-			local loss = Rules.trenchBlast(kpaAt(d), H.max, K)
-			if loss > 0 then
-				blk.hp = math.max(blk.hp - loss, 0)
-				blk.falling = true
-				table.insert(hit, blk)
-			end
-		end
+-- A square loses `amount` HP to a blast or a bullet (Config/Build.Structures): buried by that much (reshaped only when
+-- its depth changes: a bullet's chip doesn't), filled in to a scar at 0
+local function harm(blk: Block, amount: number)
+	if amount <= 0 or not live(blk) or blk.hp <= 0 then
+		return
 	end
-	for _, blk in hit do
-		if blk.hp <= 0 then
-			finish(blk, true)
-		else
-			apply(blk, true)
-		end
+	local before = shareOf(blk)
+	blk.hp = math.max(blk.hp - amount, 0)
+	blk.falling = true
+	if blk.hp <= 0 then
+		finish(blk, true)
+	else
+		apply(blk, math.abs(shareOf(blk) - before) > 0.005)
 	end
 end
 
--- Removes every trench and scar, the ground put back (dev: the admin panel's undo)
+-- A blast at `position` (src/server/Build.blast) of `src` (a Config/Build.Structures entry): every dug square takes its
+-- share by how far the blast is from its ground (its hole, walls and banks: 0 on or in them)
+function Trenches.blast(position: Vector3, src: any)
+	local S = C.Structures
+	local hit = {}
+	for _, blk in blocks do
+		if live(blk) and blk.hp > 0 then
+			local d = math.max(Survey.toSegment(position, blk.a, blk.b) - TOP - T.bank.width, 0)
+			local share = Rules.structureHit(d, src, S.edge)
+			if share > 0 then
+				table.insert(hit, { blk = blk, amount = T.hp.max * share / 100 })
+			end
+		end
+	end
+	for _, h in hit do
+		harm(h.blk, h.amount)
+	end
+end
+
+-- A bullet meeting `part`: a dug square's piece loses Structures.bullet; whether it was one
+function Trenches.shot(struck: Instance): boolean
+	local m = struck:FindFirstAncestorWhichIsA("Model")
+	while m and not byModel[m] do
+		m = m:FindFirstAncestorWhichIsA("Model")
+	end
+	local blk = m and byModel[m]
+	if not blk then
+		return false
+	end
+	harm(blk, T.hp.max * C.Structures.bullet.hit / 100)
+	return true
+end
+
 -- whether `p` is within `extra` of a trench's ground (its hole, walls and banks; flat): blasts' craters stop short of it
 -- (src/server/Ground; user 2026-10-24: "craters stop at the trench")
 function Trenches.near(p: Vector3, extra: number): boolean
@@ -877,6 +900,7 @@ function Trenches.dug(key: string): boolean
 	return original[key] ~= nil
 end
 
+-- Removes every trench and scar, the ground put back (dev: the admin panel's undo)
 function Trenches.clear()
 	local list = {}
 	for _, blk in blocks do

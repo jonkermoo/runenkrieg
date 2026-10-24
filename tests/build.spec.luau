@@ -166,15 +166,6 @@ return {
 		assert(hp == H.max - H.swing and not gone)
 		hp, gone = B.trenchSwing(10, H.max, H.swing, false)
 		assert(hp == 0 and gone)
-		local K = C.Trench.blast
-		assert(B.trenchBlast(K.from, H.max, K) == 0 and near(B.trenchBlast(K.full * 2, H.max, K), H.max * K.cap))
-		-- at the edge (2.5 studs): a grenade ~230-340 kPa, a 2.5 kg field gun shell ~2400, the 340 kg howitzer far over
-		local grenade = B.trenchBlast(344, H.max, K)
-		local field = B.trenchBlast(2400, H.max, K)
-		local howitzer = B.trenchBlast(50000, H.max, K)
-		assert(grenade > 1 and grenade < 6, `a grenade only wears it down ({grenade})`)
-		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
-		assert(howitzer >= 90 and howitzer < H.max, `the howitzer buries it but leaves it standing ({howitzer})`)
 	end,
 	["trenches v2: a built square is buried by what it loses: a little at 80%, nearly level at 5-10%"] = function()
 		local H = C.Trench.hp
@@ -223,16 +214,27 @@ return {
 		end
 		assert(wood / total > 0.1 and wood / total < P.woodChance + 0.05, `wood walls now and then ({wood} of {total})`)
 	end,
-	["trenches v2: a blast near the trench counts as at its edge, inside as past the floor's edge"] = function()
-		local T = C.Trench
-		local top = B.trenchTop(T)
-		assert(B.trenchBlastDistance(0, T) == 0 and B.trenchBlastDistance(T.floor + 1, T) == 1)
-		assert(B.trenchBlastDistance(top + 1, T) == T.blast.edge, "in the zone: as at the edge")
-		local zone = top + T.blast.zone * 2 * top
+	["built things: each weapon takes its share, grenades and staffs least, the howitzer most"] = function()
+		local S = C.Structures
+		local function at(key: string?, kg: number, d: number): number
+			return B.structureHit(d, B.structureSource(key, kg, S), S.edge)
+		end
 		assert(
-			B.trenchBlastDistance(zone - 0.1, T) == T.blast.edge
-				and near(B.trenchBlastDistance(zone + 3, T), T.blast.edge + 3)
+			at("grenade", 0.1, 0) < 5 and at("grenade", 0.1, 0) > 0,
+			"a grenade, even inside the trench, only wears it"
 		)
+		assert(at("staff3", 10, 0) < 5, "a full staff beam is no bigger than a grenade or so, for all its 10 kg")
+		local field = at(nil, 2.5, 1)
+		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
+		local howitzer = at(nil, 340, 3)
+		assert(howitzer >= 90 and howitzer < 100, `the howitzer buries it but leaves some ({howitzer})`)
+		assert(
+			at("bullet", 0, 0) > 0 and at("bullet", 0, 0) < 0.5 and at("bullet", 0, 1) == 0,
+			"a bullet: on it, a little"
+		)
+		assert(at("grenade", 0.1, S.grenade.reach) == 0, "nothing past its reach")
+		assert(near(at("grenade", 0.1, (S.edge + S.grenade.reach) / 2), S.grenade.hit / 2), "fading out")
+		assert(B.structureHit(0, S.field, S.edge, S.field.wire) >= 100, "a shell cuts wire")
 	end,
 	["trenches v2: a segment through a rectangle"] = function()
 		-- a rectangle at the origin along x, 6 long each way, 2 across each way; a segment along x through it

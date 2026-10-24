@@ -257,30 +257,35 @@ function Build.trenchSwing(hp: number, max: number, swing: number, build: boolea
 	return math.max(left, 0), left <= 0
 end
 
--- How far a blast `d` studs from a trench square's line counts as being from it (Config/Build.Trench.blast): inside the
--- trench, its distance past the floor's edge; in the zone of `zone` trench widths past the top edge, `edge`; further
--- out, `edge` plus how far past the zone.
-function Build.trenchBlastDistance(d: number, t: any): number
-	local top = Build.trenchTop(t)
-	local B = t.blast
-	if d <= top then
-		return math.min(math.max(d - t.floor, 0), B.edge)
+-- What a blast is to built things (Config/Build.Structures `s`): its named `key`'s entry, or by its `kg` charge.
+function Build.structureSource(key: string?, kg: number, s: any): any
+	if key and s[key] then
+		return s[key]
 	end
-	local zone = top + B.zone * 2 * top
-	if d <= zone then
-		return B.edge
+	for _, c in s.byCharge do
+		if kg <= c.kg then
+			return s[c.source]
+		end
 	end
-	return B.edge + (d - zone)
+	return s.howitzer
 end
 
--- the HP a blast takes off a square (`b`: Config/Build.Trench.blast): none under `b.from` kPa at its line, rising with
--- the log of the pressure (to the power `b.curve`) to `b.cap` of `max` at `b.full`
-function Build.trenchBlast(kpa: number, max: number, b: any): number
-	if kpa <= b.from then
+-- The % of a built thing's max HP that `src` (a Config/Build.Structures entry; `hit` or another field as `amount`)
+-- takes `d` studs from it (0: on or in it): in full within `edge`, fading to 0 at `src.reach`; with no reach (a bullet)
+-- only on it.
+function Build.structureHit(d: number, src: any, edge: number, amount: number?): number
+	local full = amount or src.hit
+	if not src.reach then
+		return if d <= 0 then full else 0
+	end
+	local e = src.edge or edge
+	if d <= e then
+		return full
+	end
+	if d >= src.reach then
 		return 0
 	end
-	local t = math.min(math.log(kpa / b.from) / math.log(b.full / b.from), 1)
-	return max * b.cap * t ^ b.curve
+	return full * (1 - (d - e) / (src.reach - e))
 end
 
 -- Where a segment from (ax, az) to (bx, bz) runs inside a rectangle (centre cx, cz; unit axis ux, uz along it; half
