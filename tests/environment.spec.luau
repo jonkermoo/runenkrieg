@@ -101,4 +101,17 @@ return {
 		local half = E.look(1, "Rain", 0.5, base, Cfg)
 		assert(half.density > base.density and half.density < rain.density)
 	end,
+	["setting the clock reads that time, now and while paused"] = function()
+		for _, h in { 0, 6, 12, 18, 21.5 } do
+			local start = E.startFor(h, 500, Day)
+			assert(near(E.clockNow(500, start, nil, Day), h, 1e-4), `set {h}: {E.clockNow(500, start, nil, Day)}`)
+			assert(near(E.clockNow(900, start, 500, Day), h, 1e-4), "a paused clock stays")
+			assert(not near(E.clockNow(900, start, nil, Day), h, 1e-2), "a running clock moves on")
+		end
+	end,
+	["a dev event starts at full strength and lasts its time"] = function()
+		local from, to = E.fullNow(1000, 600, Cfg.Weather.fade)
+		assert(near(E.strength(1000, from, to, Cfg.Weather.fade), 1), "full at once")
+		assert(E.strength(1000 + 600, from, to, Cfg.Weather.fade) == 0, "over after its time")
+	end,
 }

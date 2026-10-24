@@ -77,6 +77,19 @@ local DevTools = {
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
 		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },
+		-- "Time" rows (user 2026-10-24: "add time cycle to the admin menu"): jump the clock to one of these hours
+		-- (src/server/Environment.setClock, for everyone) and pause / resume the day cycle
+		Times = {
+			{ name = "Dawn", hours = 6 },
+			{ name = "Noon", hours = 12 },
+			{ name = "Dusk", hours = 18 },
+			{ name = "Midnight", hours = 0 },
+		},
+		-- "Weather" rows (user 2026-10-24: "can we add weather admin panels too"): start one of these now at full
+		-- strength (no fade in) for `WeatherSeconds` (src/server/Environment.forceNow, for everyone; "Clear" ends the
+		-- event), and switch the random weather rolls off / on so a light check isn't spoiled by fog
+		Weather = { "Clear", "Fog", "Rain" },
+		WeatherSeconds = 600,
 	},
 
 	-- Every test action the panels send (Net "DevAction": action, value, aim point), each checked by the server against

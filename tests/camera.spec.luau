@@ -20,6 +20,12 @@ return {
 		end
 		assert(staffs > 0, "no staff found in Config/Weapons")
 	end,
+	["the shovel keeps Roblox's camera, out past first person; guns and the staff don't"] = function()
+		assert(Camera.thirdPerson(Cfg.FreeClasses, Weapons.shovel.class))
+		assert(not Camera.thirdPerson(Cfg.FreeClasses, "BoltRifle"))
+		assert(not Camera.thirdPerson(Cfg.FreeClasses, "Staff"))
+		assert(Cfg.FreeMinZoom > 0.5 and Cfg.FreeMinZoom < Cfg.FreeMaxZoom)
+	end,
 	["the gun camera's view: aiming in place stays over the shoulder"] = function()
 		assert(Camera.gunView(5, false) == "Third" and Camera.gunView(0, false) == "First")
 		assert(Camera.gunView(5, true) == "Aim" and Camera.gunView(0, true) == "Aim")
