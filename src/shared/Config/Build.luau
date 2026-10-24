@@ -49,9 +49,11 @@ local Build = {
 		maxSlope = 22, -- degrees of ground slope along the run
 		planLife = 180, -- seconds an undug plan stays
 		swingReach = 8, -- a swing works the square whose line is this close, in front of you
-		-- a square's HP: a Build swing adds `swing` (up to `max`), a Destroy swing takes `swing` off; blasts take HP by
-		-- their overpressure at the square (Blast below)
-		hp = { max = 100, swing = 34 },
+		-- a square's HP: a Build swing adds `swing` (up to `max`), a Destroy swing takes `destroy` off; blasts take HP by
+		-- their overpressure at the square (Blast below). Once dug full it keeps its full shape and pieces until its HP
+		-- is below `cave`, then caves in with what's left (user 2026-10-24: "the trenches break too easily. make it start
+		-- burrowing at a way lower % after it's been built. it also should be way way more durable")
+		hp = { max = 100, swing = 34, destroy = 4, cave = 30 },
 		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
 		-- earth thrown up as a bank along both edges (the pit's rim)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
@@ -76,7 +78,8 @@ local Build = {
 		-- taken at the blast's distance past the floor's edge; within `zone` trench widths past the top edge (user
 		-- 2026-10-23: "the hitbox should extend out about another trench size") as if it went off `edge` studs away
 		-- (a grenade takes about a third, a shell fills it); further out, `edge` plus how far past the zone
-		blast = { from = 150, full = 900, zone = 1, edge = 2.5 },
+		-- (a blast at `full` takes `share` of the HP: way more durable, user 2026-10-24)
+		blast = { from = 150, full = 900, zone = 1, edge = 2.5, share = 0.15 },
 		-- clods knocked off the walls each destroy swing (client debris)
 		clods = { perSwing = 6, size = { 0.5, 1.2 } },
 	},

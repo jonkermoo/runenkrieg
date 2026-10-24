@@ -45,7 +45,8 @@ export type Block = {
 	across: Vector3, -- flat unit, to the block's right
 	length: number,
 	hp: number, -- its depth: hp / Trench.hp.max of the full depth
-	falling: boolean, -- lost HP since it was last full (churned earth, its pieces off)
+	falling: boolean, -- lost HP since it was last full
+	built: boolean, -- dug full once: it keeps its full shape until its HP is below Trench.hp.cave
 	scar: boolean,
 	linkA: Link?,
 	linkB: Link?,
@@ -110,7 +111,7 @@ end
 
 -- how deep a square is cut now: its HP's share of the full depth
 local function shareOf(blk: Block): number
-	return if blk.scar then 0 else blk.hp / T.hp.max
+	return if blk.scar then 0 else Rules.trenchDepth(blk.hp, blk.built, T.hp)
 end
 
 local function shapeOf(blk: Block): Rules.BlockShape
@@ -201,7 +202,7 @@ local function reshape(centre: Vector3, reach: number)
 						if h and h < 0 then
 							local want = line + h
 							if not cut or want < cut then
-								cut, churned = want, blk.falling
+								cut, churned = want, blk.falling and n.share < 1
 							end
 						elseif h and h > 0 and top then
 							bank = math.max(bank or -math.huge, top + h)
@@ -526,8 +527,8 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the dirt pieces lie in a square dug full that hasn't lost HP since
-	local full = blk.hp >= T.hp.max and not blk.falling
+	-- the dirt pieces lie in a square dug full while it keeps its full shape (HP above Trench.hp.cave)
+	local full = blk.built and shareOf(blk) >= 1
 	if full then
 		pieces(blk)
 	else
@@ -718,6 +719,7 @@ function Trenches.plan(player: Player, team: string, root: BasePart, a0: Vector3
 			length = span.to - span.from,
 			hp = 0,
 			falling = false,
+			built = false,
 			scar = false,
 			linkA = nil,
 			linkB = nil,
@@ -805,6 +807,7 @@ function Trenches.work(blk: Block, team: string, mode: string)
 		end
 		if blk.hp >= H.max then
 			blk.falling = false
+			blk.built = true
 		end
 		apply(blk, true)
 		return
@@ -813,7 +816,7 @@ function Trenches.work(blk: Block, team: string, mode: string)
 		finish(blk, false) -- a plan pulled up
 		return
 	end
-	local left, gone = Rules.trenchSwing(blk.hp, H.max, H.swing, false)
+	local left, gone = Rules.trenchSwing(blk.hp, H.max, H.destroy, false)
 	blk.hp = left
 	blk.worked = os.clock()
 	blk.falling = true
@@ -833,7 +836,7 @@ function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: 
 	for _, blk in blocks do
 		if live(blk) and blk.hp > 0 then
 			local d = Rules.trenchBlastDistance(Survey.toSegment(position, blk.a, blk.b), T)
-			local loss = Rules.trenchBlast(kpaAt(d), H.max, K.from, K.full)
+			local loss = Rules.trenchBlast(kpaAt(d), H.max, K.from, K.full) * K.share
 			if loss > 0 then
 				blk.hp = math.max(blk.hp - loss, 0)
 				blk.falling = true

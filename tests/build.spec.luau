@@ -171,6 +171,13 @@ return {
 		)
 		assert(near(B.trenchBlast((K.from + K.full) / 2, H.max, K.from, K.full), H.max / 2))
 	end,
+	["trenches v2: a built square keeps its full depth until its HP is below the cave share"] = function()
+		local H = C.Trench.hp
+		assert(near(B.trenchDepth(H.max / 2, false, H), 0.5), "digging: depth is the HP's share")
+		assert(B.trenchDepth(H.cave, true, H) == 1 and B.trenchDepth(H.max - H.destroy, true, H) == 1, "built: full")
+		assert(near(B.trenchDepth(H.cave / 2, true, H), 0.5) and B.trenchDepth(0, true, H) == 0, "then caves in")
+		assert(H.destroy < H.swing and C.Trench.blast.share < 0.5, "much harder to break than to dig")
+	end,
 	["trenches v2: each square rolls its walls and floor, wood walls now and then but never twice in a row"] = function()
 		local P = C.Trench.pieces
 		local wood, total, prev = 0, 0, nil

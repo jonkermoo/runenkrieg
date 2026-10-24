@@ -222,6 +222,15 @@ function Build.trenchPieces(seed: number, prevSeed: number?, p: any): TrenchPiec
 	}
 end
 
+-- How deep a trench square is cut (0..1 of the full depth) at `hp`: while it's being dug, its HP's share; once it has
+-- been dug full (`built`), full depth until its HP is below `h.cave`, then caving in with what's left.
+function Build.trenchDepth(hp: number, built: boolean, h: any): number
+	if built then
+		return math.clamp(hp / h.cave, 0, 1)
+	end
+	return math.clamp(hp / h.max, 0, 1)
+end
+
 -- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
 function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
 	if build then
