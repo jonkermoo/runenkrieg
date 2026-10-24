@@ -12,6 +12,7 @@
 --   back;
 -- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds;
 -- - ragdolled ("Ragdolled", src/client/Ragdoll): the body isn't turned with the view and the eye rides the head;
+-- - the shovel (Config/Camera.FreeClasses, user 2026-10-24): none of this; Roblox's own camera and a free cursor;
 -- - the staff (user 2026-10-21): the gun's camera, wheel, shoulder view and crosshair, but aiming stays in the view it
 --   is in (Config/Camera.AimInPlace): over the shoulder it is "ThirdAim" with a narrower view. (The old staff-only
 --   orbit, Config/Camera.ThirdPersonClasses, Rules/Camera.target / shoulder, now has no class: centred behind the head
@@ -64,6 +65,12 @@ end
 local function thirdPerson(weapon: Held.Weapon?): boolean
 	local spec = weapon and (W :: any)[weapon.name]
 	return Rules.thirdPerson(Cfg.ThirdPersonClasses, spec and spec.class)
+end
+
+-- whether a weapon is held with Roblox's own camera and a free cursor (Config/Camera.FreeClasses)
+local function free(name: string): boolean
+	local spec = (W :: any)[name]
+	return Rules.thirdPerson(Cfg.FreeClasses, spec and spec.class)
 end
 
 -- whether the weapon in the hands aims where the view is, not always in first person (the staff)
@@ -231,14 +238,17 @@ function WeaponCamera.start()
 	RunService:BindToRenderStep("WeaponCameraInput", Enum.RenderPriority.Input.Value + 1, function()
 		local character, humanoid, root = parts()
 		-- a weapon in the hands, one going over the shoulder (src/client/Locomotion "Stowing") or the last grenade's throw
-		-- playing out after it left the hand (src/client/Grenades "Throwing")
+		-- playing out after it left the hand (src/client/Grenades "Throwing"); not an item held with Roblox's camera
+		-- (Config/Camera.FreeClasses: the shovel)
+		local held = character and Held.weapon(character)
+		local stowing = character and character:GetAttribute("Stowing")
 		local want = character
 			and humanoid
 			and root
 			and humanoid.Health > 0
 			and (
-				Held.weapon(character) ~= nil
-				or character:GetAttribute("Stowing") ~= nil
+				(held ~= nil and not free(held.name))
+				or (type(stowing) == "string" and not free(stowing))
 				or character:GetAttribute("Throwing") == true
 			)
 		if want and not active then

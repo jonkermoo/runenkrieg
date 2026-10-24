@@ -20,6 +20,7 @@ local Cfg = require(Shared.Config.Locomotion)
 local MovementSet = require(Shared.Rules.MovementSet)
 local Anims = MovementSet.animations(Cfg) -- the movement set in play (Config/Locomotion.Set)
 local W = require(Shared.Config.Weapons)
+local ShovelCfg = require(Shared.Config.Shovel)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
@@ -145,6 +146,12 @@ function Locomotion.attach(character: Model)
 					else Enum.AnimationPriority.Action
 				t.Looped = not once and not over
 				holds[name][hold] = t
+				-- the shovel's swings held down run one into the next: a second track of each to blend across
+				if hold == "dig" or hold == "chip" then
+					local again = animator:LoadAnimation(anim)
+					again.Priority, again.Looped = t.Priority, t.Looped
+					holds[name][hold .. "Again"] = again
+				end
 			end
 		end
 		return holds[name]
@@ -252,6 +259,7 @@ function Locomotion.attach(character: Model)
 
 	local thrown: number? = nil -- the last grenade throw played ("ThrownAt")
 	local dug: number? = nil -- the last shovel swing played ("DugAt")
+	local swinging: AnimationTrack? = nil -- that swing's track
 	local struck: number? = nil -- the last butt stroke played ("StruckAt")
 	local striking: AnimationTrack? = nil -- the butt stroke while it plays (stopped if that gun is put away)
 	local pinned: number? = nil -- the last pin pull played ("PinAt")
@@ -354,13 +362,23 @@ function Locomotion.attach(character: Model)
 				end
 			end
 			-- a swing of the shovel (src/client/Shovel marks the moment and the mode): played once over the hold, the dig
-			-- in Build, the chip in Destroy
+			-- in Build, the chip in Destroy. Held down, a swing starts while the last still plays: it starts past its
+			-- ready pose (Config/Shovel `skip`) and blends in as the last fades, on the other of its two tracks
 			local dugAt = character:GetAttribute("DugAt")
 			if type(dugAt) == "number" and dugAt ~= dug then
 				dug = dugAt
-				local swing = if character:GetAttribute("DugMode") == "Destroy" then set.chip else set.dig
+				local destroy = character:GetAttribute("DugMode") == "Destroy"
+				local kind = if destroy then "chip" else "dig"
+				local swing = if set[kind] and set[kind].IsPlaying then set[kind .. "Again"] else set[kind]
 				if swing then
-					swing:Play(0.05)
+					if swinging and swinging.IsPlaying then
+						swinging:Stop(ShovelCfg.ChainFade)
+						swing:Play(ShovelCfg.ChainFade)
+						swing.TimePosition = (if destroy then ShovelCfg.Chip else ShovelCfg.Dig).skip
+					else
+						swing:Play(0.05)
+					end
+					swinging = swing
 				end
 			end
 			-- a gun's butt stroke (src/client/Melee marks the moment): played once over the hold

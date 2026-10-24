@@ -343,8 +343,8 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local now = os.clock()
-	local length = if mode == "Destroy" then ShovelCfg.Chip.length else ShovelCfg.Dig.length
-	if Rules.tooSoon(now, lastSwing[player], length, C.SwingSlack) then
+	local cycle = if mode == "Destroy" then ShovelCfg.Chip.cycle else ShovelCfg.Dig.cycle
+	if Rules.tooSoon(now, lastSwing[player], cycle, C.SwingSlack) then
 		return
 	end
 	-- a trench block

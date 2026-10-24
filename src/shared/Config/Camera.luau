@@ -76,6 +76,10 @@ local Camera = {
 	-- rules for the staff. override how the staff camera currently behaves and have it the same as the rifle (besides
 	-- first person ADS forced)"; see AimInPlace)
 	ThirdPersonClasses = {},
+	-- items held with Roblox's own camera and a free cursor, as with nothing in the hands (src/client/WeaponCamera
+	-- leaves them alone), and that never tilt with the camera's pitch (src/client/LookTilt): the shovel (user 2026-10-24:
+	-- "we should have a free mouse when the shovel is out ... i can look up or down but the animation will be the same")
+	FreeClasses = { Shovel = true },
 	Staff = {
 		-- the camera's distance behind the head (studs), fixed: lower than FreeMaxZoom (user 2026-10-16)
 		Distance = 6,

@@ -1,14 +1,14 @@
 --!strict
 -- Build mode on the local client (Config/Build; the server decides: src/server/Build, src/server/Trenches). With the
 -- shovel in the hands:
--- - Key_Build opens build mode. The mouse wheel picks the piece. A piece's ghost follows the crosshair on the ground,
---   green where it can go and red with the reason where not (shared/BuildSurvey, the same survey the server runs);
---   Key_BuildTurn turns it (Shift turns back), a click lays its blueprint (Net "Build" "Place"). A trench is planned
---   with two clicks: the start, then the end (the outline follows the crosshair between them, snapped as the server
+-- - Key_Build opens build mode. The mouse wheel picks the piece (Roblox's camera holds its zoom meanwhile). A piece's
+--   ghost follows the mouse cursor on the ground, green where it can go and red with the reason where not
+--   (shared/BuildSurvey, the same survey the server runs); Key_BuildTurn turns it (Shift turns back), a click lays its blueprint (Net "Build" "Place"). A trench is planned
+--   with two clicks: the start, then the end (the outline follows the cursor between them, snapped as the server
 --   will snap it), sent as Net "Build" "Plan"; right click drops the start. Laying leaves build mode.
 -- - Key_Reload switches the shovel between Build and Destroy (user 2026-10-23). Out of build mode each dig swing
---   (src/client/Shovel "DugAt") goes to what you face in reach (Net "Build" "Work" with the mode): a piece or trench
---   block, or in Destroy mode a tree.
+--   (src/client/Shovel "DugAt") goes to what the soldier faces in reach (Net "Build" "Work" with the mode): a piece or
+--   trench block, or in Destroy mode a tree.
 -- A line at the bottom of the screen says what is going on.
 
 local Players = game:GetService("Players")
@@ -18,6 +18,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Build)
+local CameraCfg = require(Shared.Config.Camera)
 local Palette = require(Shared.Config.Palette)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Build)
@@ -31,6 +32,7 @@ local Build = {}
 local T = C.Trench
 local TOP = Rules.trenchTop(T)
 
+local ZOOM_MIN = 0.5 -- StarterPlayer.CameraMinZoomDistance (as src/client/WeaponCamera)
 local active = false
 local index = 1
 local turn = 0
@@ -102,13 +104,16 @@ local function showGhost(key: string, cf: CFrame, size: Vector3, ok: boolean)
 	box.Color = rgb(if ok then C.Ghost.ok else C.Ghost.bad)
 end
 
--- where the crosshair meets the world (not the soldier, not the ghost)
+-- where the mouse cursor meets the world (not the soldier, not the ghost): the shovel is held with a free cursor
+-- (Config/Camera.FreeClasses)
 local function aimHit(character: Model, reach: number): RaycastResult?
 	local cam = workspace.CurrentCamera
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { character, cam }
-	return workspace:Raycast(cam.CFrame.Position, cam.CFrame.LookVector * reach, params)
+	local at = UserInputService:GetMouseLocation()
+	local ray = cam:ViewportPointToRay(at.X, at.Y)
+	return workspace:Raycast(ray.Origin, ray.Direction * reach, params)
 end
 
 local function surveyPiece(character: Model, root: BasePart)
@@ -256,7 +261,7 @@ end
 -- what a swing goes to: the trench block or piece in reach most in front of you, or (Destroy) a tree you face
 local function target(character: Model, root: BasePart): Instance?
 	local f = workspace:FindFirstChild(C.Folder)
-	local look = workspace.CurrentCamera.CFrame.LookVector
+	local look = root.CFrame.LookVector -- the way the soldier faces (the cursor is free)
 	local flat = Vector3.new(look.X, 0, look.Z)
 	local best, bestScore = nil, -math.huge
 	if f then
@@ -326,11 +331,24 @@ function Build.start()
 	local player = Players.LocalPlayer
 	local label = hud(player)
 
+	-- the mouse wheel picks the piece in build mode, so Roblox's camera (the shovel's, Config/Camera.FreeClasses) holds
+	-- its zoom meanwhile
+	local function holdZoom(on: boolean)
+		local camera = workspace.CurrentCamera
+		if on and camera then
+			local d = (camera.CFrame.Position - camera.Focus.Position).Magnitude
+			player.CameraMinZoomDistance, player.CameraMaxZoomDistance = d, d
+		else
+			player.CameraMinZoomDistance, player.CameraMaxZoomDistance = ZOOM_MIN, CameraCfg.FreeMaxZoom
+		end
+	end
+
 	local function leave()
 		active = false
 		current = nil
 		planStart = nil
 		clearGhost()
+		holdZoom(false)
 	end
 
 	UserInputService.InputBegan:Connect(function(input, processed)
@@ -345,6 +363,7 @@ function Build.start()
 			elseif shovelHeld(character) then
 				active = true
 				turn = 0
+				holdZoom(true)
 			end
 		elseif not active and Settings.pressed("Key_Reload", input) and shovelHeld(character) then
 			mode = if mode == "Build" then "Destroy" else "Build"
