@@ -136,7 +136,11 @@ return {
 		local T = C.Trench
 		local top = B.trenchTop(T)
 		assert(near(top, T.floor + T.depth / math.tan(math.rad(T.wallAngle))))
-		assert(T.wallAngle > 48 and T.wallAngle < 70, "between the first walls (70) and the walkable 48")
+		assert(T.wallAngle > 48 and T.wallAngle < 70, "between the first walls (70) and 48")
+		assert(
+			T.wallAngle < M.Movement.MaxSlopeAngle,
+			"the walls can be walked up, hard (the dirt heap stops you at the top)"
+		)
 		assert(T.spacing >= 2 * (top + T.bank.width), "two trenches' parapets and banks don't overlap")
 		assert(T.depth >= M.Cover.FullCoverMin, "full cover on the floor")
 		assert(B.trenchProfile(0, 1, T) == -T.depth and B.trenchProfile(T.floor, 1, T) == -T.depth)
