@@ -9,6 +9,14 @@
 
 local Camera = {
 	FreeMaxZoom = 10.5, -- no weapon in the hands: Roblox's camera zooms out this far (user 2026-10-11)
+	-- Classes (Config/Weapons `class`) that keep Roblox's own camera, as with empty hands (user 2026-10-24: "make it so
+	-- your camera doesnt get locked with a shovel out"; the design's
+	-- option A): a free cursor, right drag turns, the wheel zooms from FreeMinZoom out (third person only: the
+	-- first-person holds belong to the weapon camera's viewmodel). src/client/Build aims at the cursor with one.
+	-- They never tilt with the camera's pitch either (src/client/LookTilt; user 2026-10-24: "i can look up or down but
+	-- the animation will be the same").
+	FreeClasses = { Shovel = true },
+	FreeMinZoom = 4,
 
 	Sensitivity = 0.4, -- degrees of turn per pixel of mouse movement
 	AimSensitivity = 0.6, -- share of that while aiming down the sights
@@ -76,10 +84,6 @@ local Camera = {
 	-- rules for the staff. override how the staff camera currently behaves and have it the same as the rifle (besides
 	-- first person ADS forced)"; see AimInPlace)
 	ThirdPersonClasses = {},
-	-- items held with Roblox's own camera and a free cursor, as with nothing in the hands (src/client/WeaponCamera
-	-- leaves them alone), and that never tilt with the camera's pitch (src/client/LookTilt): the shovel (user 2026-10-24:
-	-- "we should have a free mouse when the shovel is out ... i can look up or down but the animation will be the same")
-	FreeClasses = { Shovel = true },
 	Staff = {
 		-- the camera's distance behind the head (studs), fixed: lower than FreeMaxZoom (user 2026-10-16)
 		Distance = 6,
