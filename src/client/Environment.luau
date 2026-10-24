@@ -2,7 +2,8 @@
 -- Draws the time of day and the weather the server keeps (src/server/Environment's Workspace attributes,
 -- Config/Environment, Rules/Environment) on this client: Lighting's clock, light and ambient, the map's Atmosphere
 -- thickening for fog and rain and darkening at night, the clouds, darker (wet) terrain in the rain, and the rain itself:
--- one emitter over the camera (local, under the camera; the drops stop under a roof) and a looping rain sound.
+-- one emitter over the camera (local, under the camera; the drops stop under a roof) and the rain sounds: a rain loop
+-- outdoors, the rain on the roof (and the outdoor loop dulled) under one.
 -- Every client reads the same attributes and the server time, so all players see the same sky. Lighting writes here
 -- are local; the post-processing (Bloom, ColorCorrection) and the graphics presets belong to other modules.
 
@@ -77,17 +78,22 @@ local function rainPart(): (BasePart, ParticleEmitter)
 	return p, e
 end
 
-local function rainSound(): (Sound, EqualizerSoundEffect)
+local function loop(name: string, id: number): Sound
 	local s = Instance.new("Sound")
-	s.Name = "Rain"
-	s.SoundId = `rbxassetid://{R.sound.id}`
+	s.Name = name
+	s.SoundId = `rbxassetid://{id}`
 	s.Looped = true
 	s.Volume = 0
 	s.SoundGroup = Audio.effects()
+	s.Parent = SoundService
+	return s
+end
+
+local function rainSound(): (Sound, EqualizerSoundEffect)
+	local s = loop("Rain", R.sound.id)
 	local eq = Instance.new("EqualizerSoundEffect")
 	eq.LowGain, eq.MidGain, eq.HighGain = 0, 0, 0
 	eq.Parent = s
-	s.Parent = SoundService
 	return s, eq
 end
 
@@ -116,6 +122,7 @@ function Environment.start()
 
 	local part, emitter = rainPart()
 	local sound, eq = rainSound()
+	local roofSound = loop("RainRoof", R.roofSound.id)
 	local rain, covered = 0, false
 	local cast = RaycastParams.new()
 	cast.FilterType = Enum.RaycastFilterType.Exclude
@@ -147,8 +154,19 @@ function Environment.start()
 		rain = l.rain
 	end
 
+	-- moves `s`'s volume toward `target` by `step`, playing it only while it is heard
+	local function toward(s: Sound, target: number, step: number)
+		local v = s.Volume
+		s.Volume = if target > v then math.min(target, v + step) else math.max(target, v - step)
+		if s.Volume > 0 and not s.IsPlaying then
+			s:Play()
+		elseif s.Volume <= 0 and s.IsPlaying then
+			s:Stop()
+		end
+	end
+
 	local last, lastRoof = 0, 0
-	RunService:BindToRenderStep("EnvironmentRain", Enum.RenderPriority.Camera.Value + 1, function()
+	RunService:BindToRenderStep("EnvironmentRain", Enum.RenderPriority.Camera.Value + 1, function(dt: number)
 		local now = os.clock()
 		if now - last >= 1 / Cfg.UpdateHz then
 			last = now
@@ -182,14 +200,10 @@ function Environment.start()
 		part.CFrame = CFrame.lookAt(at, at + fall:Cross(Vector3.xAxis).Unit, -fall) -- (its -Y, the Bottom face, falls)
 		emitter.Rate = if covered then 0 else R.rate * rain
 
-		local vol = R.sound.volume * rain * (if covered then R.sound.covered else 1)
-		sound.Volume = vol
+		local step = R.soundFade * dt
+		toward(sound, R.sound.volume * rain * (if covered then R.sound.covered else 1), step)
+		toward(roofSound, if covered then R.roofSound.volume * rain else 0, step)
 		eq.HighGain = if covered then R.sound.coveredHigh else 0
-		if vol > 0 and not sound.IsPlaying then
-			sound:Play()
-		elseif vol <= 0 and sound.IsPlaying then
-			sound:Stop()
-		end
 	end)
 end
 
