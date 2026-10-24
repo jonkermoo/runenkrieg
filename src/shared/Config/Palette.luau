@@ -172,10 +172,9 @@ local Palette = {
 		PlankDark = { 98, 74, 52 },
 		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:
 		-- "match the color of the mud"): Wall<i> takes wall shade (i - 1) % 3 + 1 and its chunks the chunk shade of the
-		-- same number, its parapet that shade too; Floor<i> and its chunks
+		-- same number; Floor<i> and its chunks
 		TrenchWall = { 1.0, 1.08, 0.93 },
 		TrenchWallChunks = { 0.95, 1.03, 0.98 },
-		TrenchParapet = { 0.9, 0.97, 0.92 },
 		TrenchFloor = 0.92,
 		TrenchFloorChunks = 0.98,
 		-- a trench plan's markers (user 2026-10-24): the cord

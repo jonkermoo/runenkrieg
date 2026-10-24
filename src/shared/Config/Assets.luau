@@ -194,15 +194,14 @@ local Assets = {
 		-- a trench's dirt pieces (user 2026-10-23, trenches v2; tools/blender/trench/contact_sheet.py renders them all):
 		-- built per square dug full by src/server/Trenches, colored from Config/Palette.Build by mesh name
 		trench_pieces = {
-			-- v3: walls at 48 degrees (walkable) and a thick parapet block on each wall's top edge (user 2026-10-24); v2
-			-- 78446214415283 (the dirt slabs end about a stud past their segment), v1 119101711809071
-			id = 80264039854445,
+			-- v2: the dirt slabs end about a stud past their segment, not up to 7 into a joining trench (v1 119101711809071)
+			id = 78446214415283,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",
 			generator = "tools/blender/trench/trench_pieces.py",
 			fidelity = "Hull",
-			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch; every wall a Wall<i>Parapet, one or two thick blocks on the ground along its top edge that collide), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
+			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
 		},
 		uniform1 = {
 			category = "Teams",

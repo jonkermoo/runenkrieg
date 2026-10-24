@@ -132,13 +132,11 @@ return {
 		assert(#b == 1 and near(b[1].to, 5), "shorter than a segment: one partial")
 		assert(B.planBlocks(1, 8, T.minBlock) == nil)
 	end,
-	["trenches v2: the shape: floor, walls walkable but steep, banks"] = function()
+	["trenches v2: the shape: floor, walls too steep to walk, banks"] = function()
 		local T = C.Trench
 		local top = B.trenchTop(T)
 		assert(near(top, T.floor + T.depth / math.tan(math.rad(T.wallAngle))))
-		assert(T.wallAngle < M.Movement.MaxSlopeAngle, "the walls can be walked up (the parapet stops you at the top)")
-		assert(T.wallAngle >= 40, "but they are steep")
-		assert(T.spacing >= 2 * (top + T.bank.width), "two trenches' parapets and banks don't overlap")
+		assert(T.wallAngle > M.Movement.MaxSlopeAngle, "the walls can't be walked up")
 		assert(T.depth >= M.Cover.FullCoverMin, "full cover on the floor")
 		assert(B.trenchProfile(0, 1, T) == -T.depth and B.trenchProfile(T.floor, 1, T) == -T.depth)
 		assert(near(B.trenchProfile((T.floor + top) / 2, 1, T) :: number, -T.depth / 2))
