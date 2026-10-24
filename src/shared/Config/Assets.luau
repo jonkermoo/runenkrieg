@@ -20,6 +20,7 @@ export type Entry = {
 	generator: string?, -- script that regenerates the source
 	description: string,
 	variants: { [string]: { string } }?, -- named mesh groups inside the kit
+	fidelity: string?, -- the meshes' CollisionFidelity (set by the Library sync: a running game can't set it)
 	-- gear worn as a rigid Accessory: which character attachment it hangs on, its color (a team's helmet in that
 	-- team's color; light white-grey while it has no team), and `brim`, the height of its bottom edge above the
 	-- head's center (studs). `parts` colors extra meshes welded to the handle (one flat color each). `attach` is the
@@ -189,6 +190,17 @@ local Assets = {
 			source = "assets/weapons/shared/shovel.fbx",
 			generator = "tools/blender/weapons/shovel.py",
 			description = "Tread spade, 3.5 studs, small two-handed: a wooden D-grip and haft, a brass collar, a plain iron tube, a tapered socket, a dished blade whose shoulders are thickened into foot treads, and a riveted tongue on its back (meshes Wood, Iron, Blade, Brass). Origin at the D-grip's bar, the blade toward -Z, the scoop's hollow toward +Y.",
+		},
+		-- a trench's dirt pieces (user 2026-10-23, trenches v2; tools/blender/trench/contact_sheet.py renders them all):
+		-- built per square dug full by src/server/Trenches, colored from Config/Palette.Build by mesh name
+		trench_pieces = {
+			id = 119101711809071,
+			category = "Build",
+			folder = "Trench",
+			source = "assets/build/trench_pieces.fbx",
+			generator = "tools/blender/trench/trench_pieces.py",
+			fidelity = "Hull",
+			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
 		},
 		uniform1 = {
 			category = "Teams",

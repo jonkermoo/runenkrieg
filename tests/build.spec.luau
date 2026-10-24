@@ -171,6 +171,34 @@ return {
 		)
 		assert(near(B.trenchBlast((K.from + K.full) / 2, H.max, K.from, K.full), H.max / 2))
 	end,
+	["trenches v2: each square rolls its walls and floor, wood walls now and then but never twice in a row"] = function()
+		local P = C.Trench.pieces
+		local wood, total, prev = 0, 0, nil
+		local seen = {}
+		for seed = 1, 400 do
+			local r = B.trenchPieces(seed * 7919, prev, P)
+			local again = B.trenchPieces(seed * 7919, prev, P)
+			assert(r.walls[1] == again.walls[1] and r.floor == again.floor and r.flip == again.flip, "same seed, same roll")
+			assert(r.floor >= 1 and r.floor <= P.floors)
+			assert(not table.find(P.wood, r.ends[1]) and not table.find(P.wood, r.ends[2]), "dead ends are plain")
+			for side = 1, 2 do
+				local w = r.walls[side]
+				assert(w >= 1 and w <= P.walls)
+				seen[w] = true
+				total += 1
+				if table.find(P.wood, w) then
+					wood += 1
+					local before = prev and B.trenchPieces(prev, nil, P)
+					assert(not (before and table.find(P.wood, before.walls[side])), "no wood twice in a row on a side")
+				end
+			end
+			prev = seed * 7919
+		end
+		for i = 1, P.walls do
+			assert(seen[i], `wall {i} comes up`)
+		end
+		assert(wood / total > 0.1 and wood / total < P.woodChance + 0.05, `wood walls now and then ({wood} of {total})`)
+	end,
 	["trenches v2: a blast near the trench counts as at its edge, inside as past the floor's edge"] = function()
 		local T = C.Trench
 		local top = B.trenchTop(T)

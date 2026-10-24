@@ -66,18 +66,12 @@ local Build = {
 		-- markers: pegs every `every` studs along both top edges, string between, a flag at each end
 		-- (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
 		markers = { peg = { 0.25, 1.6 }, flag = 3, string = 0.08 },
-		-- the plank path on the floor: slats about `every` apart across it, scrambled; some missing
-		path = { every = 0.9, length = { 2.2, 3.0 }, width = 0.55, thickness = 0.3, missing = 0.12, turn = 14 },
-		-- boards laid on the walls now and then: up to `perWall` patches a square side, `boards` each
-		-- (planks "about 1/4 to 1/3 thick", user 2026-10-23)
-		wallPlanks = {
-			chance = 0.5,
-			perWall = 1,
-			boards = { 2, 4 },
-			length = { 2.4, 3.8 },
-			width = 0.7,
-			thickness = 0.3,
-		},
+		-- the dirt pieces of a square dug full (Config/Assets trench_pieces, tools/blender/trench/trench_pieces.py; user
+		-- 2026-10-23: "make wide variety of random wall and floor segments ... and include wood on the wall ones"): one
+		-- wall a side (Wall1..`walls`) and a floor (Floor1..`floors`), rolled from its seed (Rules.trenchPieces); the
+		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
+		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
+		pieces = { segment = 8, walls = 8, floors = 4, wood = { 5, 6, 7, 8 }, woodChance = 0.25 },
 		-- a blast fills a square in: from `from` kPa it loses HP, all of it at `full`. Inside the trench the pressure is
 		-- taken at the blast's distance past the floor's edge; within `zone` trench widths past the top edge (user
 		-- 2026-10-23: "the hitbox should extend out about another trench size") as if it went off `edge` studs away

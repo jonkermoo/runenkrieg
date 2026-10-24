@@ -8,8 +8,9 @@
 --   to Trench.maxBend) or the side of one of its squares (a T); it may not cross a trench. Undug plans go after
 --   Trench.planLife.
 -- - Each square has HP like any structure, and its depth is its HP (user: "they have hp. how dug in they are are
---   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build); at full HP the plank path goes
---   down its floor and boards go on its walls now and then (seeded per square).
+--   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build); at full HP its dirt pieces go in
+--   (Config/Assets trench_pieces): a wall each side and a floor rolled from its seed (Rules.trenchPieces), some walls
+--   with plank steps, a wall across a dead end, none where another trench tees in.
 -- - Destroy swings (any team's trench) and blasts (Trenches.blast, from src/server/Build.blast, by the overpressure
 --   at the square) take HP off: it falls in (clods off the walls, shallower, churned earth); at 0 it is a scar, a
 --   lumpy dip of churned earth that stays.
@@ -19,6 +20,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Assets = require(Shared.Config.Assets)
 local C = require(Shared.Config.Build)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Build)
@@ -43,7 +45,7 @@ export type Block = {
 	across: Vector3, -- flat unit, to the block's left
 	length: number,
 	hp: number, -- its depth: hp / Trench.hp.max of the full depth
-	falling: boolean, -- lost HP since it was last full (churned earth, its planks off)
+	falling: boolean, -- lost HP since it was last full (churned earth, its pieces off)
 	scar: boolean,
 	linkA: Link?,
 	linkB: Link?,
@@ -334,73 +336,145 @@ local function markers(blk: Block)
 	end
 end
 
--- the plank path down the floor and boards on the walls now and then, rolled from the block's seed
-local function planks(blk: Block)
+-- The dirt pieces' library model (ReplicatedStorage.Assets, kept by the Library sync) and where each mesh sits from its
+-- Origin (piece space), found once
+local kit: Model? = nil
+local offsets: { [string]: CFrame } = {}
+local function pieceKit(): Model?
+	if kit then
+		return kit
+	end
+	local e = Assets.Entries.trench_pieces
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	f = f and f:FindFirstChild(e.category)
+	for _, sub in string.split(e.folder, "/") do
+		f = f and f:FindFirstChild(sub)
+	end
+	local m = f and f:FindFirstChild("trench_pieces")
+	local origin = m and m:FindFirstChild("Origin")
+	if not (m and origin and origin:IsA("BasePart")) then
+		warn("[Trenches] trench_pieces is not in the asset library: run the Library sync (CLAUDE.md)")
+		return nil
+	end
+	for _, d in m:GetChildren() do
+		if d:IsA("BasePart") then
+			offsets[d.Name] = origin.CFrame:ToObjectSpace(d.CFrame)
+		end
+	end
+	kit = m :: Model
+	return kit
+end
+
+local function pieceColor(name: string): Color3
+	local B = Palette.Build
+	local i = tonumber(string.match(name, "^Wall(%d+)"))
+	if string.find(name, "PlanksDark") then
+		return rgb(B.PlankDark)
+	elseif string.find(name, "Planks") then
+		return rgb(B.Plank)
+	elseif i then
+		local tone = (i - 1) % #B.TrenchWall + 1
+		return rgb(if string.find(name, "Chunks") then B.TrenchWallChunks[tone] else B.TrenchWall[tone])
+	end
+	return rgb(if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor)
+end
+
+-- the sides of a square another trench tees into (1 its left, 2 its right): no wall there
+local function teeSides(blk: Block): { boolean }
+	local open = { false, false }
+	for _, o in blocks do
+		if o ~= blk and live(o) then
+			for _, e in { { o.linkA, o.a }, { o.linkB, o.b } } do
+				local l: Link? = e[1]
+				if l and l.kind == "tee" and l.other == blk then
+					open[if (e[2] - blk.a):Dot(blk.across) >= 0 then 1 else 2] = true
+				end
+			end
+		end
+	end
+	return open
+end
+
+-- A square's dirt pieces: a wall each side and a floor (Rules.trenchPieces), a plain wall across each dead end, laid in
+-- piece space (x along, y up from the floor, z out of the trench) on the square's floor, stretched along a short one.
+-- Rebuilt only when its ends or tees change.
+local function pieces(blk: Block)
 	local m = blk.model :: Model
-	local old = m:FindFirstChild("Planks")
+	local k = pieceKit()
+	if not k then
+		return
+	end
+	local shape = shapeOf(blk)
+	local open = teeSides(blk)
+	local sig = `{shape.deadA}{shape.deadB}{open[1]}{open[2]}`
+	local old = m:FindFirstChild("Pieces")
+	if old and old:GetAttribute("Sig") == sig then
+		return
+	end
 	if old then
 		old:Destroy()
 	end
 	local holder = Instance.new("Folder")
-	holder.Name = "Planks"
+	holder.Name = "Pieces"
+	holder:SetAttribute("Sig", sig)
 	holder.Parent = m
-	local rng = Random.new(blk.seed)
-	local tones = { Palette.Build.Plank, Palette.Build.PlankDark, Palette.Build.PlankPale }
-	local function tone(): Color3
-		return rgb(tones[rng:NextInteger(1, #tones)], 0.92 + rng:NextNumber() * 0.16)
+	local P = T.pieces
+	local i = table.find(blk.run, blk)
+	local prev = if i and i > 1 then blk.run[i - 1] else nil
+	local roll = Rules.trenchPieces(blk.seed, prev and prev.seed, P)
+	local down = Vector3.new(0, T.depth, 0)
+	local function floorAt(u: number, v: number): Vector3
+		return at(blk, u, v) - down
 	end
-	local P = T.path
-	-- the path: slats across the floor, scrambled, a few missing, each laid on the mud where it is
-	local u = P.every / 2
-	while u < blk.length do
-		if rng:NextNumber() > P.missing then
-			local c = at(blk, u + (rng:NextNumber() - 0.5) * 0.2, (rng:NextNumber() - 0.5) * 0.6)
-			local hit = workspace:Raycast(c + Vector3.new(0, 3, 0), Vector3.new(0, -T.depth - 6, 0), terrainOnly)
-			if hit then
-				local len = P.length[1] + rng:NextNumber() * (P.length[2] - P.length[1])
-				local turn = math.rad((rng:NextNumber() - 0.5) * 2 * P.turn)
-				local look = (blk.across * math.cos(turn) + blk.dir * math.sin(turn)).Unit
-				local pos = hit.Position + hit.Normal * (P.thickness / 2)
-				local cf = CFrame.lookAt(pos, pos + look, hit.Normal)
-					* CFrame.Angles(0, 0, (rng:NextNumber() - 0.5) * 0.08)
-				part(holder, "Slat", Vector3.new(P.width, P.thickness, len), cf, tone(), false)
-			end
-		end
-		u += P.every * (0.85 + rng:NextNumber() * 0.3)
+	local along = (floorAt(blk.length, 0) - floorAt(0, 0)).Unit
+	local right = -blk.across
+	-- a frame at `origin`: piece x along `x`, z out of the trench `z` (flat), y up square to both
+	local function frame(origin: Vector3, x: Vector3, z: Vector3): CFrame
+		return CFrame.fromMatrix(origin, x, z:Cross(x).Unit, z)
 	end
-	-- boards on the walls: a patch of a few laid across the wall, now and then
-	local W = T.wallPlanks
-	for _, s in { -1, 1 } do
-		for _ = 1, W.perWall do
-			if rng:NextNumber() < W.chance then
-				local pu = 1.5 + rng:NextNumber() * math.max(blk.length - 3, 0)
-				local n = rng:NextInteger(W.boards[1], W.boards[2])
-				local len = W.length[1] + rng:NextNumber() * (W.length[2] - W.length[1])
-				local h0 = 0.8 + rng:NextNumber() * (T.depth - 1.5 - n * 0.6)
-				for i = 0, n - 1 do
-					local h = h0 + i * 0.62
-					local from = at(blk, pu, 0) - Vector3.new(0, T.depth - h, 0)
-					local hit = workspace:Raycast(from, blk.across * s * (TOP + 2), terrainOnly)
-					if hit then
-						local pos = hit.Position + hit.Normal * (W.thickness / 2)
-						local cf = CFrame.lookAt(pos, pos + blk.dir, hit.Normal)
-							* CFrame.Angles(
-								(rng:NextNumber() - 0.5) * 0.1,
-								(rng:NextNumber() - 0.5) * 0.1,
-								(rng:NextNumber() - 0.5) * 0.12
-							)
-						part(
-							holder,
-							"Board",
-							Vector3.new(W.width, W.thickness, len - rng:NextNumber() * 0.6),
-							cf,
-							tone(),
-							false
-						)
-					end
-				end
-			end
+	local function place(name: string, cf: CFrame, stretch: number)
+		local src = k:FindFirstChild(name)
+		local off = offsets[name]
+		if not (src and src:IsA("BasePart") and off) then
+			return
 		end
+		local p = src:Clone()
+		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
+		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
+		p.Color = pieceColor(name)
+		local base = not (string.find(name, "Chunks") or string.find(name, "Planks"))
+		p.Anchored = true
+		p.CanCollide = base
+		p.CanQuery = base
+		p.CanTouch = false
+		p.Parent = holder
+	end
+	local function wall(n: number, cf: CFrame, stretch: number)
+		for _, suffix in { "", "Chunks", "Planks", "PlanksDark" } do
+			place(`Wall{n}{suffix}`, cf, stretch)
+		end
+	end
+	local stretch = blk.length / P.segment
+	-- side walls: the right one runs from the start, the left one turned round from the end
+	if not open[2] then
+		wall(roll.walls[2], frame(floorAt(0, -T.floor), along, right), stretch)
+	end
+	if not open[1] then
+		wall(roll.walls[1], frame(floorAt(blk.length, T.floor), -along, blk.across), stretch)
+	end
+	local floorCf = if roll.flip
+		then frame(floorAt(blk.length, 0), -along, blk.across)
+		else frame(floorAt(0, 0), along, right)
+	place(`Floor{roll.floor}`, floorCf, stretch)
+	place(`Floor{roll.floor}Chunks`, floorCf, stretch)
+	-- dead ends: a plain wall across the floor
+	local across = 2 * T.floor / P.segment
+	local flat = Vector3.new(along.X, 0, along.Z).Unit
+	if shape.deadA then
+		wall(roll.ends[1], frame(floorAt(0, T.floor), right, -flat), across)
+	end
+	if shape.deadB then
+		wall(roll.ends[2], frame(floorAt(blk.length, -T.floor), blk.across, flat), across)
 	end
 end
 
@@ -420,13 +494,15 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the planks lie in a square dug full that hasn't lost HP since
+	-- the dirt pieces lie in a square dug full that hasn't lost HP since
 	local full = blk.hp >= T.hp.max and not blk.falling
-	local boards = m:FindFirstChild("Planks")
-	if full and not boards then
-		planks(blk)
-	elseif not full and boards then
-		boards:Destroy()
+	if full then
+		pieces(blk)
+	else
+		local old = m:FindFirstChild("Pieces")
+		if old then
+			old:Destroy()
+		end
 	end
 	publish(blk)
 end

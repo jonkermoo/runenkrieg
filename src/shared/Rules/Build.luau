@@ -191,6 +191,37 @@ function Build.bend(ox: number, oz: number, nx: number, nz: number): number
 	return math.deg(math.acos(math.clamp(ox * nx + oz * nz, -1, 1)))
 end
 
+-- A 0..1 hash of a square's seed (the same on every run), `salt` picking which roll.
+local function roll(seed: number, salt: number): number
+	local x = math.sin(seed * 12.9898 + salt * 78.233) * 43758.5453
+	return x - math.floor(x)
+end
+
+export type TrenchPieces = { walls: { number }, ends: { number }, floor: number, flip: boolean }
+
+-- A trench square's dirt pieces (Config/Build.Trench.pieces `p`), rolled from its seed: the wall on each side (1 its
+-- left, 2 its right), a plain wall for each dead end (1 end A, 2 end B), the floor, and whether the floor is laid
+-- turned round. A side gets a wood wall (plank steps) at
+-- `woodChance`, but not where the square before it in the run (`prevSeed`) rolled one on that side.
+function Build.trenchPieces(seed: number, prevSeed: number?, p: any): TrenchPieces
+	local plain, wood = {}, {}
+	for i = 1, p.walls do
+		table.insert(if table.find(p.wood, i) then wood else plain, i)
+	end
+	local walls = {}
+	for side = 1, 2 do
+		local isWood = roll(seed, side) < p.woodChance and not (prevSeed and roll(prevSeed, side) < p.woodChance)
+		local from = if isWood then wood else plain
+		walls[side] = from[math.floor(roll(seed, side + 2) * #from) + 1]
+	end
+	return {
+		walls = walls,
+		ends = { plain[math.floor(roll(seed, 7) * #plain) + 1], plain[math.floor(roll(seed, 8) * #plain) + 1] },
+		floor = math.floor(roll(seed, 5) * p.floors) + 1,
+		flip = roll(seed, 6) < 0.5,
+	}
+end
+
 -- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
 function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
 	if build then

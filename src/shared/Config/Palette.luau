@@ -167,9 +167,14 @@ local Palette = {
 	-- Player-built pieces (Config/Build, src/server/Build): flat colours until the meshes come
 	Build = {
 		Sandbag = { 176, 156, 114 }, -- hessian; each bag's tone jittered by Config/Build.Sandbags.shade
-		Plank = { 112, 88, 66 }, -- planks: a trench's path and wall boards
-		PlankDark = { 86, 66, 50 },
-		PlankPale = { 150, 120, 88 },
+		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
+		PlankDark = { 98, 74, 52 },
+		-- a trench's dirt pieces (tools/blender/trench): Wall<i> takes wall tone (i - 1) % 3 + 1 and its chunks the
+		-- chunk tone of the same number; Floor<i> and its chunks
+		TrenchWall = { { 138, 108, 76 }, { 156, 126, 92 }, { 116, 89, 63 } },
+		TrenchWallChunks = { { 124, 96, 66 }, { 142, 112, 80 }, { 132, 102, 72 } },
+		TrenchFloor = { 92, 70, 52 },
+		TrenchFloorChunks = { 106, 82, 60 },
 		Earth = { 118, 94, 68 }, -- clods knocked off a trench's walls
 		String = { 236, 232, 220 }, -- a trench plan's markers
 		Flag = { 196, 176, 104 },
