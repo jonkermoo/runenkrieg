@@ -231,6 +231,23 @@ function Build.trenchDepth(hp: number, built: boolean, h: any): number
 	return math.clamp(hp / h.max, 0, 1)
 end
 
+-- The longest run of free samples (`blocked[i]` false), as the first and last index, or nil when all are blocked. A
+-- trench square's side wall is laid only along that stretch, not where it would stand in another trench's hole.
+function Build.longestFree(blocked: { boolean }): (number?, number?)
+	local best0, best1, run0 = nil, nil, nil
+	for i = 1, #blocked do
+		if not blocked[i] then
+			run0 = run0 or i
+			if not best0 or i - run0 > best1 - best0 then
+				best0, best1 = run0, i
+			end
+		else
+			run0 = nil
+		end
+	end
+	return best0, best1
+end
+
 -- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
 function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
 	if build then

@@ -185,6 +185,13 @@ return {
 		assert(B.trenchDepth(10, true, H) < 0.12 and B.trenchDepth(0, true, H) == 0, "10%: nearly level")
 		assert(H.destroy < H.swing, "much harder to break than to dig")
 	end,
+	["trenches v2: a side wall keeps to the longest stretch clear of other trenches"] = function()
+		local a, b = B.longestFree({ true, false, false, true, false, false, false, true })
+		assert(a == 5 and b == 7, "the longest run")
+		a, b = B.longestFree({ false, false, false })
+		assert(a == 1 and b == 3, "all clear")
+		assert(B.longestFree({ true, true }) == nil, "all blocked")
+	end,
 	["trenches v2: each square rolls its walls and floor, wood walls now and then but never twice in a row"] = function()
 		local P = C.Trench.pieces
 		local wood, total, prev = 0, 0, nil

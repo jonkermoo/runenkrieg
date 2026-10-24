@@ -368,20 +368,33 @@ local function pieceColor(name: string): Color3
 	return Color3.new(math.min(mud.R * shade, 1), math.min(mud.G * shade, 1), math.min(mud.B * shade, 1))
 end
 
--- the sides of a square another trench tees into (1 toward its `across`, 2 away): no wall there
-local function teeSides(blk: Block): { boolean }
-	local open = { false, false }
-	for _, o in blocks do
-		if o ~= blk and live(o) and o.hp > 0 then
-			for _, e in { { o.linkA, o.a }, { o.linkB, o.b } } do
-				local l: Link? = e[1]
-				if l and l.kind == "tee" and l.other == blk then
-					open[if (e[2] - blk.a):Dot(blk.across) >= 0 then 1 else 2] = true
+-- Where a side wall of `blk` can stand (`sign` 1 toward its `across`, -1 away): the longest stretch along it (from, to;
+-- studs from end A) whose foot isn't in another dug trench's floor (a branch starts on the trench it joins, a bend's
+-- inside crosses the next square; user 2026-10-24: "when segmenting off it creates walls"), or nil
+local SPAN_STEP = 0.5
+local function wallSpan(blk: Block, sign: number): (number?, number?)
+	local blocked = {}
+	local n = math.max(math.ceil(blk.length / SPAN_STEP), 1)
+	for i = 0, n do
+		local p = at(blk, blk.length * i / n, sign * (T.floor + 0.5))
+		local inside = false
+		for _, o in blocks do
+			if o ~= blk and live(o) and o.hp > 0 then
+				local rel = Vector3.new(p.X - o.a.X, 0, p.Z - o.a.Z)
+				local u, v = rel:Dot(o.dir), rel:Dot(o.across)
+				if u > -0.25 and u < o.length + 0.25 and math.abs(v) < T.floor + 0.25 then
+					inside = true
+					break
 				end
 			end
 		end
+		blocked[i + 1] = inside
 	end
-	return open
+	local i0, i1 = Rules.longestFree(blocked)
+	if not (i0 and i1) or (i1 - i0) * blk.length / n < 2 then
+		return nil, nil
+	end
+	return blk.length * (i0 - 1) / n, blk.length * (i1 - 1) / n
 end
 
 -- A square's dirt pieces: a wall each side and a floor (Rules.trenchPieces), a plain wall across each dead end, laid in
@@ -394,8 +407,12 @@ local function pieces(blk: Block)
 		return
 	end
 	local shape = shapeOf(blk)
-	local open = teeSides(blk)
-	local sig = `{shape.deadA}{shape.deadB}{open[1]}{open[2]}`
+	local spans = {}
+	for side, sign in { 1, -1 } do
+		local u0, u1 = wallSpan(blk, sign)
+		spans[side] = { u0, u1 }
+	end
+	local sig = `{shape.deadA}{shape.deadB}{spans[1][1]},{spans[1][2]},{spans[2][1]},{spans[2][2]}`
 	local old = m:FindFirstChild("Pieces")
 	if old and old:GetAttribute("Sig") == sig then
 		return
@@ -420,7 +437,7 @@ local function pieces(blk: Block)
 	-- a frame with piece z out of the trench along `out` (flat) and x the way that keeps it right-handed with y up: a
 	-- side wall or the floor runs along the square (tilted with its ground line) from whichever end that x starts at, a
 	-- dead end's wall across the floor from its edge. Studio round 6: y came out upside down with x picked by hand.
-	local function frame(out: Vector3, ending: boolean, onLine: boolean?): CFrame
+	local function frame(out: Vector3, ending: boolean, onLine: boolean?, u0: number?, u1: number?): CFrame
 		local x = Vector3.new(0, 1, 0):Cross(out)
 		local origin
 		if ending then
@@ -428,7 +445,8 @@ local function pieces(blk: Block)
 		else
 			local fromStart = x:Dot(flat) > 0
 			x = if fromStart then along else -along
-			origin = floorAt(if fromStart then 0 else blk.length, if onLine then 0 else out:Dot(blk.across) * T.floor)
+			local u = if fromStart then u0 or 0 else u1 or blk.length
+			origin = floorAt(u, if onLine then 0 else out:Dot(blk.across) * T.floor)
 		end
 		return CFrame.fromMatrix(origin, x, out:Cross(x).Unit, out)
 	end
@@ -455,10 +473,12 @@ local function pieces(blk: Block)
 		end
 	end
 	local stretch = blk.length / P.segment
-	-- side walls (side 1 toward `across`, 2 away from it), the floor on the centre line turned either way
+	-- side walls (side 1 toward `across`, 2 away from it) along their clear stretch, the floor on the centre line turned
+	-- either way
 	for side, sign in { 1, -1 } do
-		if not open[side] then
-			wall(roll.walls[side], frame(blk.across * sign, false), stretch)
+		local u0, u1 = spans[side][1], spans[side][2]
+		if u0 and u1 then
+			wall(roll.walls[side], frame(blk.across * sign, false, false, u0, u1), (u1 - u0) / P.segment)
 		end
 	end
 	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true)
@@ -518,11 +538,15 @@ local function apply(blk: Block, reshapeIt: boolean)
 			old:Destroy()
 		end
 	end
-	-- its neighbours' dead-end walls go once it is dug into, and their side wall where it tees in (user 2026-10-24:
-	-- "when you build the next segment it doesnt take down the original wall")
-	for _, o in linked(blk) do
-		if o.model and o.model:FindFirstChild("Pieces") then
-			pieces(o)
+	-- the built squares round it: their dead-end walls go once it is dug into, their side walls step back from its hole
+	-- (user 2026-10-24: "when you build the next segment it doesnt take down the original wall")
+	local mid = (blk.a + blk.b) / 2
+	for _, o in blocks do
+		if o ~= blk and o.model and o.model:FindFirstChild("Pieces") then
+			local reach = (blk.length + o.length) / 2 + 2 * TOP
+			if Vector3.new(mid.X - (o.a.X + o.b.X) / 2, 0, mid.Z - (o.a.Z + o.b.Z) / 2).Magnitude <= reach then
+				pieces(o)
+			end
 		end
 	end
 	publish(blk)
