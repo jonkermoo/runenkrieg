@@ -155,8 +155,9 @@ local Damage = {
 		Brittle = { Glass = true },
 		-- trees (Config/TreeSway.Tag): at their trunk base over `fail` a tree is felled whole (no stump: the crater is
 		-- there; user 2026-10-17); below it loses its HP (Trees below) like a section: MaxHP x (kPa / fail)^Weaken. From
-		-- `splinter` it is destroyed (user 2026-10-23, with the section bands above): the trunk bursts into wood chunks,
-		-- the canopy drops in pieces, a stump stays (staff 10 kg ~7.6 studs, howitzer ~24.7; grenades never fell trees)
+		-- `splinter` it is destroyed (user 2026-10-23, with the section bands above; 2026-10-24: "some trees that take too
+		-- much damage should just disappear"): gone in a puff of splinters, no trunk, no stump (staff 10 kg ~7.6 studs,
+		-- howitzer ~24.7; grenades never fell trees). Trees felled farther out lie on the ground as the crater left it.
 		Tree = { fail = 60, weaken = 2, splinter = 600 },
 		-- a crater in the terrain (Rules/Blast.craterPlan): radius = perCubeRoot x W^(1/3) studs (~5 at 10 kg), the ball
 		-- sunk `sink` x radius; a low rim of `rim.count` balls of `rim.size` x radius at `rim.at` x radius, sunk
@@ -263,7 +264,9 @@ local Damage = {
 		-- shatters (debris, a stump left; the crown drops and sheds) - not the same as a blast at the roots, which fells it
 		-- whole (user 2026-10-17)
 		Direct = { damage = { 40, 120 }, shatterFrom = 3 },
-		Stump = { height = 1.2, widthShare = 0.9 }, -- of the trunk's base width
+		-- of the trunk's base width; a stump whose bottom is less than `floatTolerance` under the ground after a blast
+		-- (a crater dug it out) is removed, not left floating
+		Stump = { height = 1.2, widthShare = 0.9, floatTolerance = 0.5 },
 		-- a felled tree lies with `share` x its MaxHP again (user 2026-10-17: "give it continue HP so it can be
 		-- destroyed"): bullets and blasts wear it down; at 0 it sinks and fades away (Fall.sinkTime)
 		Fallen = { share = 0.5 },

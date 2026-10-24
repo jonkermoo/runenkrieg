@@ -8,7 +8,7 @@
 -- (FallenTag): soldiers it lands on are hurt and knocked aside (Damage.crush; the trunk lets them through a moment), it
 -- presses an even imprint into the ground it lies on, and an uprooted one leaves a pit and a root ball of mud
 -- (src/server/Ground). A full beam straight on a trunk destroys it instead: it falls and fades out (a stump left); a blast
--- of Blast.Tree.splinter at it blows it apart (debris, a stump left). Lying, it has
+-- of Blast.Tree.splinter at it blows it away (a puff of splinters, nothing left). Lying, it has
 -- Fallen.share x its MaxHP again, and bullets and blasts wear that down too. It lies for Fall.lifetime s, at most
 -- Fall.maxFallen at once (the oldest goes first), or until destroyed: tagged SinkingTag, it sinks and fades on the
 -- clients and is removed.
@@ -150,26 +150,32 @@ local function sink(tree: Model)
 	end)
 end
 
--- the ground's height at a tree's base (its pivot is sunk under the lowest ground round the trunk)
+-- the ground's height at a tree's base, as it is now (its pivot is sunk under the lowest ground round the trunk, but a
+-- crater can take the ground below that: user 2026-10-24, trees felled into a howitzer crater lay floating over it)
 local function groundAt(base: Vector3): number
 	local hit = workspace:Raycast(base + Vector3.yAxis * 30, Vector3.yAxis * -60, terrainOnly)
-	return if hit then math.max(hit.Position.Y, base.Y) else base.Y
+	return if hit then hit.Position.Y else base.Y
 end
 
--- from the sunk base up to `Stump.height` over the ground
+local stumps: { BasePart } = {}
+
+-- from under the ground (the sunk base, or deeper where a crater took the ground away) up to `Stump.height` over it
 local function stump(tree: Model, trunk: BasePart, base: Vector3)
 	local S = T.Stump
 	local w = math.min(trunk.Size.X, trunk.Size.Z) * S.widthShare
-	local top = groundAt(base) + S.height
+	local ground = groundAt(base)
+	local top = ground + S.height
+	local bottom = math.min(base.Y, ground - 1)
 	local p = Instance.new("Part")
 	p.Name = "Stump"
 	p.Shape = Enum.PartType.Cylinder
-	p.Size = Vector3.new(top - base.Y, w, w)
-	p.CFrame = CFrame.new(Vector3.new(base.X, (base.Y + top) / 2, base.Z)) * CFrame.Angles(0, 0, math.pi / 2)
+	p.Size = Vector3.new(top - bottom, w, w)
+	p.CFrame = CFrame.new(Vector3.new(base.X, (bottom + top) / 2, base.Z)) * CFrame.Angles(0, 0, math.pi / 2)
 	p.Anchored = true
 	p.Material = Enum.Material.SmoothPlastic
 	p.Color = trunk.Color
 	p.Parent = tree.Parent
+	table.insert(stumps, p)
 end
 
 local function thickness(trunk: BasePart): number
@@ -328,37 +334,18 @@ local function shatter(tree: Model, direction: Vector3)
 end
 
 -- A tree blown apart by a blast at `origin` (Config/Damage.Blast.Tree.splinter; user 2026-10-23: extreme damage
--- destroys, like the building sections): the trunk bursts into wood chunks thrown from the blast, the rest of it
--- (canopy) drops in pieces where it was, a standing one leaves its stump. Debris on every client (Net "SectionBroken").
+-- destroys, like the building sections; 2026-10-24: "a direct hit from a howitzer should destroy the trees hit directly
+-- from the blast"): it is gone, no trunk and no stump, only a puff of splinters (pulverised debris, "dust", on every
+-- client: Net "SectionBroken").
 local function splinter(tree: Model, origin: Vector3)
 	local trunk = tree:FindFirstChild("Trunk") :: BasePart?
 	if not trunk then
 		return
 	end
-	if standing(tree) then
-		stump(tree, trunk, tree:GetPivot().Position)
-	end
 	local pieces = {}
 	for _, d in tree:GetDescendants() do
 		if d:IsA("BasePart") and d.Transparency < 1 then
-			if d == trunk then
-				table.insert(pieces, { cf = d.CFrame, size = d.Size, color = d.Color, t = 0 })
-			else
-				-- the canopy in halves along each long side, so it drops as pieces, not slabs
-				local n = Vector3.new(d.Size.X > 6 and 2 or 1, d.Size.Y > 6 and 2 or 1, d.Size.Z > 6 and 2 or 1)
-				local cell = d.Size / n
-				for i = 0, n.X - 1 do
-					for j = 0, n.Y - 1 do
-						for k = 0, n.Z - 1 do
-							local off = (Vector3.new(i, j, k) + Vector3.one * 0.5) * cell - d.Size / 2
-							table.insert(
-								pieces,
-								{ cf = d.CFrame * CFrame.new(off), size = cell, color = d.Color, t = 0, m = "fall" }
-							)
-						end
-					end
-				end
-			end
+			table.insert(pieces, { cf = d.CFrame, size = d.Size, color = d.Color, t = 0, m = "dust" })
 		end
 	end
 	if #pieces > 0 then
@@ -449,6 +436,19 @@ function Trees.blast(position: Vector3, reach: number, kpaAt: (number) -> number
 				splinter(tree, position)
 			elseif amount > 0 then
 				hurt(tree, amount, at - position, false, whole)
+			end
+		end
+	end
+	-- stumps the blast's crater left standing over nothing go too
+	for i = #stumps, 1, -1 do
+		local p = stumps[i]
+		if not p.Parent then
+			table.remove(stumps, i)
+		elseif (p.Position - position).Magnitude <= reach then
+			local bottom = p.Position.Y - p.Size.X / 2
+			if groundAt(p.Position) < bottom + T.Stump.floatTolerance then
+				table.remove(stumps, i)
+				p:Destroy()
 			end
 		end
 	end
