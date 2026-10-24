@@ -120,6 +120,11 @@ function Locomotion.attach(character: Model)
 	end)
 
 	local swinging: AnimationTrack? = nil -- the shovel's swing looping (src/client/Shovel "Digging")
+	-- the swing playing, or none; "Swinging" (local) while one plays, so the soldier stands (src/client/Stance)
+	local function swingWith(track: AnimationTrack?)
+		swinging = track
+		character:SetAttribute("Swinging", if track then true else nil)
+	end
 
 	-- weapon holds, loaded per weapon on first equip
 	local function holdTracks(name: string): { [string]: AnimationTrack }
@@ -162,7 +167,7 @@ function Locomotion.attach(character: Model)
 						local want = if hold == "chip" then "Destroy" else "Build"
 						if t == swinging and character:GetAttribute("Digging") ~= want then
 							t:Stop(ShovelCfg.Leave)
-							swinging = nil
+							swingWith(nil)
 						end
 					end)
 				end
@@ -377,13 +382,13 @@ function Locomotion.attach(character: Model)
 			-- from the ready, the dig in Build, the chip in Destroy; let go, it stops at its "Rest" marker (above)
 			if swinging and (not swinging.IsPlaying or (swinging ~= set.dig and swinging ~= set.chip)) then
 				swinging:Stop(0.1) -- (put away)
-				swinging = nil
+				swingWith(nil)
 			end
 			local digging = character:GetAttribute("Digging")
 			local swing = if digging == "Destroy" then set.chip elseif digging == "Build" then set.dig else nil
 			if swing and not swinging then
 				swing:Play(ShovelCfg.Enter)
-				swinging = swing
+				swingWith(swing)
 			end
 			-- a gun's butt stroke (src/client/Melee marks the moment): played once over the hold
 			local struckAt = character:GetAttribute("StruckAt")
@@ -427,7 +432,7 @@ function Locomotion.attach(character: Model)
 			end
 			if swinging then
 				swinging:Stop(0.1) -- the shovel put away
-				swinging = nil
+				swingWith(nil)
 			end
 			hold(if character:FindFirstChildOfClass("Tool") then tracks.toolnone else nil)
 			if charging then
