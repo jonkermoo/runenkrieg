@@ -7,7 +7,8 @@
 -- (the DevTools attribute, Rules/DevActions: the action, its value from the Config lists, the aim point's reach) and
 -- done: target dummies (src/server/DevDummies), blasts at the aim point (src/server/Damage.blast; Net "DevBlast" shows
 -- the explosion to everyone), your health / death / respawn / god mode / knock / helmet, the range's test shooters
--- (src/server/TestShooter) and undo destruction (src/server/DevWorld).
+-- (src/server/TestShooter), undo destruction (src/server/DevWorld) and the clock (src/server/Environment: set the time,
+-- pause the day cycle).
 -- DevTools.teleport(player, id) is also used directly by tests/demos.
 
 local Players = game:GetService("Players")
@@ -20,6 +21,7 @@ local Artillery = require(script.Parent.Artillery)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
 local DevWorld = require(script.Parent.DevWorld)
+local Environment = require(script.Parent.Environment)
 local Helmets = require(script.Parent.Helmets)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Cfg = require(Shared.Config.DevTools)
@@ -112,6 +114,10 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(Cfg.TestShooter.Attribute, if value then true else nil)
 	elseif action == "UndoDestruction" then
 		DevWorld.undo()
+	elseif action == "Clock" then
+		Environment.setClock(value)
+	elseif action == "ClockPaused" then
+		Environment.pause(value)
 	elseif action == "Respawn" then
 		player:LoadCharacter()
 	elseif humanoid and character and root and humanoid.Health > 0 then

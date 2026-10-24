@@ -1,7 +1,8 @@
 --!strict
 -- Dev admin menu: a button next to the weapon pin with Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode), Grenades (give yourself a full count of one) and World (the range's test shooters, undo destruction).
+-- god mode), Grenades (give yourself a full count of one), World (the range's test shooters, undo destruction) and Time
+-- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle; for everyone, src/server/Environment).
 -- Client only: the client owns its character's physics, so it flies and speeds up its own character. Only shown when
 -- the server marked this player with the DevTools attribute.
 -- - Speed: sets the Player's DevSpeed attribute; src/client/Stance multiplies every walk speed by it.
@@ -16,6 +17,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
+local EnvCfg = require(Shared.Config.Environment)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
 local Palette = require(Shared.Config.Palette)
@@ -253,6 +255,26 @@ local function build(player: Player): ScreenGui
 	workspace:GetAttributeChangedSignal(S):Connect(showShooters)
 	showShooters()
 	row("Undo", "Undo destruction", "UndoDestruction")
+
+	-- Time: jump the clock (Config/DevTools.Admin.Times), pause / resume the day cycle (src/server/Environment)
+	DevPanel.heading(p.panel, "Time", order + 1)
+	order += 1
+	for _, t in A.Times do
+		row("Time_" .. t.name, `{t.name} ({string.format("%02d:00", t.hours)})`, "Clock", t.hours)
+	end
+	order += 1
+	local pause = DevPanel.button(p.panel, "ClockPaused", "", order)
+	local P = EnvCfg.Attributes.paused
+	local function showPause()
+		local on = workspace:GetAttribute(P) ~= nil
+		pause.Text = if on then "Day cycle: paused" else "Day cycle: running"
+		paint(pause, not on)
+	end
+	pause.Activated:Connect(function()
+		Net.event("DevAction"):FireServer("ClockPaused", workspace:GetAttribute(P) == nil)
+	end)
+	workspace:GetAttributeChangedSignal(P):Connect(showPause)
+	showPause()
 	return p.gui
 end
 

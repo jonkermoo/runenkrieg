@@ -49,6 +49,17 @@ function Environment.clockAt(elapsed: number, day: any): number
 	return h % 24
 end
 
+-- The server time the clock runs from (`elapsed` is measured from it) so that it reads `clock` at server time `at`.
+function Environment.startFor(clock: number, at: number, day: any): number
+	return at - (Environment.phaseOf(clock, day) - Environment.phaseOf(day.startClock, day))
+end
+
+-- The clock at server time `now` for a day that started at `dayStart`; while paused (`pausedAt`: the time it
+-- stopped) it stays at what it read then.
+function Environment.clockNow(now: number, dayStart: number, pausedAt: number?, day: any): number
+	return Environment.clockAt((pausedAt or now) - dayStart, day)
+end
+
 local function smooth(x: number): number
 	x = math.clamp(x, 0, 1)
 	return x * x * (3 - 2 * x)

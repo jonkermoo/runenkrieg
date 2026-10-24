@@ -3,7 +3,8 @@
 -- when the day started and the current weather event (its kind and the server times it fades in from and out by) as
 -- Workspace attributes; each client draws the light, haze and rain from them (src/client/Environment). The server
 -- never writes Lighting itself: a replicated ClockTime would jerk every client's own smooth one.
--- Dev (Studio command bar in play): `setClock(hours)`, `force(kind, seconds?)`.
+-- Dev (Studio command bar in play, and the admin panel's Time rows through src/server/DevTools): `setClock(hours)`,
+-- `pause(on)`, `force(kind, seconds?)`.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -29,10 +30,28 @@ local function set(kind: string, from: number, to: number)
 	workspace:SetAttribute(A.to, to)
 end
 
--- Sets the clock now to `hours` (it keeps running from there).
+local function pausedAt(): number?
+	local p = workspace:GetAttribute(A.paused)
+	return if typeof(p) == "number" then p else nil
+end
+
+-- Sets the clock now to `hours` (it keeps running from there, or stays there while paused).
 function Environment.setClock(hours: number)
-	local back = Rules.phaseOf(hours, Cfg.Day) - Rules.phaseOf(Cfg.Day.startClock, Cfg.Day)
-	workspace:SetAttribute(A.dayStart, now() - back)
+	workspace:SetAttribute(A.dayStart, Rules.startFor(hours, pausedAt() or now(), Cfg.Day))
+end
+
+-- Stops the clock where it is (`on`) or lets it run on from there.
+function Environment.pause(on: boolean)
+	local p = pausedAt()
+	if on and not p then
+		workspace:SetAttribute(A.paused, now())
+	elseif not on and p then
+		local start = workspace:GetAttribute(A.dayStart)
+		if typeof(start) == "number" then
+			workspace:SetAttribute(A.dayStart, start + now() - p)
+		end
+		workspace:SetAttribute(A.paused, nil)
+	end
 end
 
 -- Starts `kind` ("Fog", "Rain", "Clear") now for `seconds` (a rolled length if nil); the rolls carry on after it.

@@ -66,6 +66,14 @@ return {
 		assert(not A.valid(Cfg, "Dummy", { kit = d.kit, helmet = "yes", move = "Walk" }))
 		assert(not A.valid(Cfg, "Dummy", { kit = d.kit, helmet = true, move = "Fly" }))
 		assert(not A.valid(Cfg, "Dummy", "uniform1"))
+		assert(A.valid(Cfg, "Clock", Cfg.Admin.Times[1].hours) and not A.valid(Cfg, "Clock", 13.5))
+		assert(not A.valid(Cfg, "Clock", nil) and not A.valid(Cfg, "Clock", "12"))
+		assert(A.valid(Cfg, "ClockPaused", true) and not A.valid(Cfg, "ClockPaused", nil))
+	end,
+	["admin times: named hours on the clock"] = function()
+		for _, t in Cfg.Admin.Times do
+			assert(type(t.name) == "string" and t.hours >= 0 and t.hours < 24, `bad time {t.name}`)
+		end
 	end,
 	["dev actions: the aim point must be a real point within reach"] = function()
 		assert(A.inReach(Cfg, 0, 0, 0) and A.inReach(Cfg, Cfg.AimReach, 0, 0))

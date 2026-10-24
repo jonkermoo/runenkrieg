@@ -18,7 +18,7 @@ local PLAIN = table.freeze({
 	UndoDestruction = true,
 	ClearGuns = true,
 })
-local SWITCHES = table.freeze({ God = true, BlastHurts = true, Shooters = true })
+local SWITCHES = table.freeze({ God = true, BlastHurts = true, Shooters = true, ClockPaused = true })
 
 local function finite(n: any): boolean
 	return type(n) == "number" and n == n and n > -math.huge and n < math.huge
@@ -46,6 +46,13 @@ function DevActions.valid(cfg: any, action: any, value: any): boolean
 		return table.find(cfg.Admin.Health, value) ~= nil
 	elseif action == "Grenade" then
 		return table.find(cfg.Admin.Grenades, value) ~= nil
+	elseif action == "Clock" then
+		for _, t in cfg.Admin.Times do
+			if t.hours == value then
+				return true
+			end
+		end
+		return false
 	elseif action == "BlastStage" then
 		return table.find(cfg.Blasts.Stages, value) ~= nil
 	elseif action == "BlastKg" then

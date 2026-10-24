@@ -77,6 +77,14 @@ local DevTools = {
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
 		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },
+		-- "Time" rows (user 2026-10-24: "add time cycle to the admin menu"): jump the clock to one of these hours
+		-- (src/server/Environment.setClock, for everyone) and pause / resume the day cycle
+		Times = {
+			{ name = "Dawn", hours = 6 },
+			{ name = "Noon", hours = 12 },
+			{ name = "Dusk", hours = 18 },
+			{ name = "Midnight", hours = 0 },
+		},
 	},
 
 	-- Every test action the panels send (Net "DevAction": action, value, aim point), each checked by the server against
