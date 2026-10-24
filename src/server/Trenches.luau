@@ -432,7 +432,7 @@ local function pieces(blk: Block)
 	-- side wall or the floor runs along the square (tilted with its ground line) from whichever end that x starts at, a
 	-- dead end's wall across the floor from its edge. Studio round 6: y came out upside down with x picked by hand.
 	local function frame(out: Vector3, ending: boolean, onLine: boolean?): CFrame
-		local x = Vector3.yAxis:Cross(out)
+		local x = Vector3.new(0, 1, 0):Cross(out)
 		local origin
 		if ending then
 			origin = floorAt(if out:Dot(flat) < 0 then 0 else blk.length, 0) - x * T.floor
