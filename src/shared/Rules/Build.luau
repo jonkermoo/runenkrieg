@@ -103,6 +103,19 @@ function Build.swing(work: number, need: number, ownTeam: boolean): (number, boo
 	return math.max(left, 0), left <= 0
 end
 
+-- The shortest time between two strikes of the shovel (Config/Shovel): one swing let go of at its rest and the next
+-- started at once, of either mode: the rest of the first, less its strike, and the strike of the next.
+function Build.strikeGap(swings: { { strike: number, rest: number, length: number } }): number
+	local gap = math.huge
+	for _, a in swings do
+		gap = math.min(gap, a.length)
+		for _, b in swings do
+			gap = math.min(gap, a.rest - a.strike + b.strike)
+		end
+	end
+	return gap
+end
+
 -- whether a swing comes too soon after the last (`slack` x the dig's length)
 function Build.tooSoon(now: number, last: number?, length: number, slack: number): boolean
 	return last ~= nil and now - last < length * slack

@@ -28,6 +28,9 @@ local Trenches = require(script.Parent.Trenches)
 
 local Build = {}
 
+-- the shortest time between two shovel strikes (a swing comes too soon under SwingSlack of it)
+local GAP = Rules.strikeGap({ ShovelCfg.Dig, ShovelCfg.Chip })
+
 type Rec = {
 	model: Model,
 	piece: Rules.Piece,
@@ -343,8 +346,7 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local now = os.clock()
-	local cycle = if mode == "Destroy" then ShovelCfg.Chip.cycle else ShovelCfg.Dig.cycle
-	if Rules.tooSoon(now, lastSwing[player], cycle, C.SwingSlack) then
+	if Rules.tooSoon(now, lastSwing[player], GAP, C.SwingSlack) then
 		return
 	end
 	-- a trench block

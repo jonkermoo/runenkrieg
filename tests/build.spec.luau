@@ -86,6 +86,14 @@ return {
 		w, gone = B.swing(0, 8, false) -- a blueprint with no work yet
 		assert(w == 0 and gone)
 	end,
+	["the shovel's strikes: the shortest gap is a chip let go of and a dig started at once"] = function()
+		local dig = { length = 2.6, strike = 0.45, rest = 1.82 }
+		local chip = { length = 1.5, strike = 0.5, rest = 1.0 }
+		assert(near(B.strikeGap({ dig }), 1.82), "a dig let go of and another started")
+		assert(near(B.strikeGap({ chip }), 1.0))
+		assert(near(B.strikeGap({ dig, chip }), 0.95), "chip rest 1.0 - strike 0.5 + dig strike 0.45")
+		assert(near(B.strikeGap({ { length = 0.5, strike = 0.1, rest = 0.9 } }), 0.5), "never longer than a swing")
+	end,
 	["swings faster than the dig are ignored"] = function()
 		assert(not B.tooSoon(10, nil, 0.85, 0.8))
 		assert(B.tooSoon(10.5, 10, 0.85, 0.8) and not B.tooSoon(10.7, 10, 0.85, 0.8))

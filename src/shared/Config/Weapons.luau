@@ -54,7 +54,7 @@ export type Weapon = {
 		pin: number?,
 		windup: number?,
 		throw: number?,
-		-- the shovel (src/client/Shovel): a one shot on left click ("DugAt") by its mode ("DugMode"): dig in Build,
+		-- the shovel (src/client/Shovel): looped while the fire key is held ("Digging") by its mode: dig in Build,
 		-- chip in Destroy
 		dig: number?,
 		chip: number?,
@@ -1129,7 +1129,7 @@ Weapons.grenade_sipe = grenade("SIPE", "grenade_sipe", {
 -- in its own "Shovel" slot (user 2026-10-20: "a mandatory item on every soldier"), the same for every team, colored as
 -- Config/Palette.Shovel. Gun space: the origin is the D-grip's bar (the right hand), the blade toward -Z. Holds
 -- (tools/animation/shovel.luau): two-handed at port across the chest; left click digs (src/client/Shovel), by the
--- shovel's mode (src/client/Build): in Build a scoop thrown over the right shoulder, in Destroy a stab; no aim.
+-- shovel's mode (src/client/Build): in Build a dig tossed over the shoulder, in Destroy a charged strike; no aim.
 -- Strapped upright to the pack when put away.
 Weapons.shovel = {
 	asset = "shovel",
@@ -1147,16 +1147,17 @@ Weapons.shovel = {
 	attachments = { Muzzle = { 0, 0, -3.42 } }, -- the blade's tip (the hip turn's line: hipConverge 0, unused)
 	grip = { 0, 0, 0 },
 	-- both hands on it throughout (user 2026-10-20). v2: the hold steeper, the blade by the left shoulder (Studio round
-	-- 1: it lay out low). dig (Build mode): driven into the ground at an angle, levered up and thrown over the right
-	-- shoulder; chip (Destroy mode): raised and stabbed down into the ground, back up (user 2026-10-24)
+	-- 1: it lay out low). dig (Build mode) and chip (Destroy mode): looped while the fire key is held (user 2026-10-24)
 	holds = {
 		ready = 93066917970284, -- v2 (v1 106958788763761)
 		walk = 124545410126279, -- v2 (v1 92108104753052)
 		carry = 82178644834924, -- v2 (v1 125775429184790)
-		-- round 2 (user 2026-10-24): dug in and thrown over the right shoulder; one stab down and back up (round 1:
-		-- dig 121891930009756, chip 70819512791404; the overhead chop: v2 125010045442091, v1 89824822382684)
-		dig = 126075345861171,
-		chip = 99240838965732,
+		-- round 3 (user 2026-10-24), loops played while the fire key is held (src/client/Shovel): dig, driven steeply
+		-- into the ground, levered up and tossed over the right shoulder; chip, a charged strike into the ground. Both
+		-- feet planted. (Round 2: dig 126075345861171, chip 99240838965732; round 1: dig 121891930009756, chip
+		-- 70819512791404; the overhead chop: v2 125010045442091, v1 89824822382684)
+		dig = 130779516436249,
+		chip = 137676342121657,
 		equip = 73623873207874, -- v3: from the left side of the pack (v2 116916726450237)
 		unequip = 98424397379589, -- v3: from the left side of the pack (v2 126643995839062)
 	},
