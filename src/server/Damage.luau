@@ -184,6 +184,7 @@ export type BlastOpts = {
 	wearFull: number?,
 	wearReach: number?,
 	breaks: { [string]: boolean }?,
+	structure: string?, -- what it is to built things (a Config/Build.Structures key; nil: by its charge)
 }
 
 -- The share of `character`'s body a blast at `position` has a clear line to (Config/Damage.Blast.Cover): soldiers never
@@ -235,6 +236,9 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	end
 	-- the map: buildings and props, by their class
 	Destruction.blast(position, reach, function(d, class, maxHP, kind, hp)
+		if class == "Sandbag" then
+			return 0 -- (built sandbags take Config/Build.Structures: Build.blast below)
+		end
 		return Blast.sectionHit(kpaAt(d), {
 			fail = class and (B.Fail :: any)[class] or B.FailDefault,
 			maxHP = maxHP,
@@ -257,10 +261,8 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
-	-- player-built pieces: trenches cave in, wire is cut (src/server/Build)
-	Build.blast(position, kpaAt, function(kpa)
-		return Blast.reachOf(kpa, kg, B)
-	end)
+	-- player-built pieces: trenches buried, sandbags and wire worn down (src/server/Build, Config/Build.Structures)
+	Build.blast(position, kg, o.structure)
 	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
 	local everyone = Dev.soldiers()
 	local soldiers: { Model } = if o.soldiers == false then {} else everyone
@@ -299,7 +301,9 @@ end
 -- A staff stage's blast at `position` (Config/Damage.Staff.Charge and Blasts), set off by `by`.
 function Damage.staffBlast(position: Vector3, stage: number, by: Model?)
 	local S = Cfg.Staff
-	Damage.blast(position, S.Charge[stage] or 0, by, S.Blasts[stage])
+	local opts = table.clone(S.Blasts[stage] or {}) :: any
+	opts.structure = `staff{stage}`
+	Damage.blast(position, S.Charge[stage] or 0, by, opts)
 end
 
 -- A tree landing on soldiers (src/server/Trees): everyone whose torso is within `radius` of the line `a` - `b` (and not

@@ -418,10 +418,21 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	team = if type(team) == "string" then team else ""
 	local aim, aimKind, aimModel, aimOut = Survey.trenchSnap(f, team, hit.Position)
 	local ok, reason = true, nil
+	-- every trench square's line, for the spacing rule (Rules.tooClose; the server's check, Trenches.plan)
+	local segs = {}
+	for _, m in (if f then f:GetChildren() else {}) do
+		local ba, bb = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
+		if typeof(ba) == "Vector3" and typeof(bb) == "Vector3" then
+			table.insert(segs, { ba.X, ba.Z, bb.X, bb.Z })
+		end
+	end
+	local spacingMsg = "Too close to another trench: extend it instead"
 	if not planStart then
 		local far = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z).Magnitude > T.firstReach
 		if far then
 			ok, reason = false, `Too far: start within {T.firstReach} studs of you`
+		elseif not aimKind and Rules.tooClose(aim.X, aim.Z, aim.X, aim.Z, false, false, segs, T.spacing) then
+			ok, reason = false, spacingMsg
 		end
 		current = { a = aim, ok = ok, reason = reason }
 		planInfo = nil
@@ -450,6 +461,9 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	local tooFar = math.min(away(a), away(aim)) > T.firstReach
 	if ok and tooFar then
 		ok, reason = false, `Too far: stand within {T.firstReach} studs of either end`
+	end
+	if ok and Rules.tooClose(a.X, a.Z, aim.X, aim.Z, aKind ~= nil, aimKind ~= nil, segs, T.spacing) then
+		ok, reason = false, spacingMsg
 	end
 	if ok and length > 0.1 then
 		local dir = flat.Unit
