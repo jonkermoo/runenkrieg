@@ -353,7 +353,7 @@ local function pieceKit(): Model?
 	local m = f and f:FindFirstChild("trench_pieces")
 	local origin = m and m:FindFirstChild("Origin")
 	if not (m and origin and origin:IsA("BasePart")) then
-		warn("[Trenches] trench_pieces is not in the asset library: run the Library sync (CLAUDE.md)")
+		warn("[Trenches] trench_pieces is not in the asset library: run the Library sync in the dev place")
 		return nil
 	end
 	for _, d in m:GetChildren() do
