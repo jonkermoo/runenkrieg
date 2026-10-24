@@ -47,6 +47,10 @@ local Build = {
 		-- it while planning; the planner shows it red with the reason as soon as you're too far, user 2026-10-24)
 		firstReach = 14,
 		joinReach = 4, -- a plan's end this close to a free end joins it
+		-- a new trench keeps this far (between centre lines) from every other trench, except near the end where it joins
+		-- one (user 2026-10-24: "you shouldnt be able to build a new trench within a certain distance of another trench
+		-- unless you're extending")
+		spacing = 16,
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
 		planLife = 180, -- seconds an undug plan stays

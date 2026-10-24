@@ -597,7 +597,9 @@ local function snap(p: Vector3, team: string): (Vector3, Link?)
 			local rel = Vector3.new(p.X - blk.a.X, 0, p.Z - blk.a.Z)
 			local u, v = rel:Dot(blk.dir), rel:Dot(blk.across)
 			if u >= 0 and u <= blk.length and math.abs(v) <= TOP then
-				return at(blk, u, 0), { kind = "tee", other = blk }
+				-- at its floor's edge on that side: a branch only opens that wall and runs out from it (user 2026-10-24:
+				-- "when extending from sides, you dont add anything within the existing trench")
+				return at(blk, u, if v >= 0 then T.floor else -T.floor), { kind = "tee", other = blk }
 			end
 		end
 	end
@@ -672,6 +674,16 @@ function Trenches.plan(player: Player, team: string, root: BasePart, a0: Vector3
 				end
 			end
 		end
+	end
+	-- not alongside another trench, except where it joins one
+	local segs = {}
+	for _, blk in blocks do
+		if live(blk) then
+			table.insert(segs, { blk.a.X, blk.a.Z, blk.b.X, blk.b.Z })
+		end
+	end
+	if Rules.tooClose(a.X, a.Z, b.X, b.Z, linkA ~= nil, linkB ~= nil, segs, T.spacing) then
+		return "Too close to another trench: extend it instead"
 	end
 	-- the ground along it: no water, not too steep along, nothing standing in the way
 	local samples = math.max(math.ceil(length / 3), 1)

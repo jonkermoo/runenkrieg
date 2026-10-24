@@ -248,6 +248,38 @@ function Build.longestFree(blocked: { boolean }): (number?, number?)
 	return best0, best1
 end
 
+-- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat) to any of `segs` (other trenches' squares,
+-- { ax, az, bx, bz } each), leaving out the stretch within `spacing` of an end that joins a trench (`joinA`, `joinB`).
+function Build.tooClose(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	joinA: boolean,
+	joinB: boolean,
+	segs: { { number } },
+	spacing: number
+): boolean
+	local length = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	local n = math.max(math.ceil(length), 1)
+	for i = 0, n do
+		local t = i / n
+		local along = t * length
+		if not ((joinA and along < spacing) or (joinB and length - along < spacing)) then
+			local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
+			for _, s in segs do
+				local dx, dz = s[3] - s[1], s[4] - s[2]
+				local len2 = dx * dx + dz * dz
+				local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
+				if (px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2 < spacing * spacing then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
 -- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
 function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
 	if build then

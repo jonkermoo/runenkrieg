@@ -176,6 +176,18 @@ return {
 		assert(B.trenchDepth(10, true, H) < 0.12 and B.trenchDepth(0, true, H) == 0, "10%: nearly level")
 		assert(H.destroy < H.swing, "much harder to break than to dig")
 	end,
+	["trenches v2: a new trench keeps its distance from others unless it joins one"] = function()
+		local S = C.Trench.spacing
+		local other = { { 0, 0, 24, 0 } }
+		assert(B.tooClose(0, S - 1, 24, S - 1, false, false, other, S), "alongside, too near")
+		assert(not B.tooClose(0, S + 1, 24, S + 1, false, false, other, S), "far enough")
+		-- a branch off its side: starts at the wall and runs out; only its first `spacing` studs may be near
+		local w = C.Trench.floor
+		assert(not B.tooClose(12, w, 12, w + 30, true, false, other, S), "a branch off the side")
+		assert(B.tooClose(12, w, 12, w + 30, false, false, other, S), "the same, not joined")
+		-- leaving an end but bending back alongside
+		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S), "doubling back alongside")
+	end,
 	["trenches v2: a side wall keeps to the longest stretch clear of other trenches"] = function()
 		local a, b = B.longestFree({ true, false, false, true, false, false, false, true })
 		assert(a == 5 and b == 7, "the longest run")
