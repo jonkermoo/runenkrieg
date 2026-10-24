@@ -9,8 +9,8 @@
 --   leaves build mode.
 -- - The trench planner's ghost (Config/Build.Plan; user 2026-10-24: "make the entire planning thing better and more
 --   stylish", design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ) previews what the server will peg out: per
---   square a chalk cord, a faint fill with the dug floor's band, ghost stakes; the marker flag (shared/TrenchFlag)
---   see-through at both ends; a length tag over the end; and the reach circles of Trench.firstReach dashed on the
+--   square a chalk cord, a faint fill with the dug floor's band, ghost stakes (one at the cursor before the first
+--   click; no flags, user 2026-10-24); a length tag over the end; and the reach circles of Trench.firstReach dashed on the
 --   ground (round you before the first click, round both ends after it), red when you're too far.
 -- - Key_Reload switches the shovel between Build and Destroy (user 2026-10-23). Out of build mode each dig swing
 --   (src/client/Shovel "DugAt") goes to what you point at in reach (Net "Build" "Work" with the mode): a piece or
@@ -29,7 +29,6 @@ local Palette = require(Shared.Config.Palette)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Build)
 local Survey = require(Shared.BuildSurvey)
-local TrenchFlag = require(Shared.TrenchFlag)
 local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
 local Settings = require(script.Parent.Settings)
@@ -77,7 +76,7 @@ type Square = { fill: Part, floor: Part, cords: { Part }, pegs: { Part }, shown:
 type Plan = {
 	model: Model,
 	squares: { Square },
-	flags: { Model },
+	start: Part,
 	rings: { { Part } },
 	anchor: Part,
 	tag: BillboardGui,
@@ -159,14 +158,8 @@ local function makePlan(player: Player): Plan
 	local m = Instance.new("Model")
 	m.Name = "BuildGhost"
 	m.Parent = workspace.CurrentCamera
-	local flags = {}
-	for i = 1, 2 do
-		local f = TrenchFlag.make()
-		f.Name = if i == 1 then "Start" else "End"
-		TrenchFlag.fade(f, 1)
-		f.Parent = m
-		flags[i] = f
-	end
+	local start = ghostPart(m)
+	start.Name = "Start"
 	local rings = {}
 	for i = 1, 2 do
 		local dashes = {}
@@ -210,7 +203,7 @@ local function makePlan(player: Player): Plan
 	return {
 		model = m,
 		squares = {},
-		flags = flags,
+		start = start,
 		rings = rings,
 		anchor = anchor,
 		tag = tag,
@@ -304,7 +297,7 @@ local function surveyPiece(character: Model, root: BasePart)
 	showGhost(p.key, CFrame.new(frame.Position.X, report.low + size.Y / 2, frame.Position.Z) * frame.Rotation, size, ok)
 end
 
--- draw the planner's ghost: the squares along `dir` from `a` (none before the first click), the flags, the reach
+-- draw the planner's ghost: the squares along `dir` from `a` (before the first click, a stake at `a`), the reach
 -- circles and the tag
 local function drawPlan(
 	player: Player,
@@ -380,20 +373,11 @@ local function drawPlan(
 			s.pegs[k].Transparency = see(P.cordSee)
 		end
 	end
-	-- the flags: at the start and at the end (or at the cursor before the first click), pennants flying out
-	local camRight = workspace.CurrentCamera.CFrame.RightVector
-	local side = Vector3.new(camRight.X, 0, camRight.Z)
-	side = if side.Magnitude > 0.01 then side.Unit else Vector3.xAxis
-	local ends: { { at: Vector3, out: Vector3 } } = if b
-		then { { at = a, out = -dir }, { at = b, out = dir } }
-		else { { at = a, out = side } }
-	for i, f in p.flags do
-		local e = ends[i]
-		if e then
-			f:PivotTo(CFrame.fromMatrix(Vector3.new(e.at.X, e.at.Y, e.at.Z), e.out, Vector3.yAxis))
-		end
-		TrenchFlag.fade(f, if e then P.flag else 1)
-	end
+	-- before the first click, one ghost stake at the cursor where the start would go
+	p.start.Size = Vector3.new(P.peg[1], P.peg[2], P.peg[1])
+	p.start.CFrame = CFrame.new(a + Vector3.new(0, P.peg[2] / 2 - 0.1, 0))
+	p.start.Color = chalk
+	p.start.Transparency = if b then 1 else P.cordSee
 	-- the reach circles: round you before the first click, round both ends after it (the one you're in brighter)
 	local function away(q: Vector3): number
 		return Vector3.new(root.Position.X - q.X, 0, root.Position.Z - q.Z).Magnitude

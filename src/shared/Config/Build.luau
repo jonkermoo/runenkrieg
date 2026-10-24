@@ -29,8 +29,8 @@ local Build = {
 	-- stylish", design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ), a preview of the stakes and cord the
 	-- server lays: per square a faint fill (Ghost ok / bad, `fill` see-through) with the dug floor's band in it
 	-- (`floor`), a chalk cord round it (`cord` wide, `cordSee` see-through; Palette.Build.Chalk, ChalkBad when it can't
-	-- go), `gap` between squares, ghost stakes (`peg`: width, height); the marker flag at both ends `flag` see-through;
-	-- squares fade in and out at `fade` per second. Reach circles (Trench.firstReach) dashed on the ground: `dashes`
+	-- go), `gap` between squares, ghost stakes (`peg`: width, height, one at the cursor before the
+	-- first click; no flags, user 2026-10-24: "lets just do the stakes"); squares fade in and out at `fade` per second. Reach circles (Trench.firstReach) dashed on the ground: `dashes`
 	-- dashes, each `dash` of its step, `ringWidth` wide; the one you stand in `near` see-through, the other `far`. The
 	-- length tag floats `tag` studs over the end.
 	Plan = {
@@ -40,7 +40,6 @@ local Build = {
 		cordSee = 0.1,
 		gap = 0.3,
 		peg = { 0.22, 1.0 },
-		flag = 0.45,
 		fade = 12,
 		dashes = 44,
 		dash = 0.55,
@@ -95,8 +94,8 @@ local Build = {
 		scar = { depth = 0.6 },
 		-- markers (src/server/Trenches; user 2026-10-24, design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): a
 		-- stake (width, height) at each corner of a square, its top `top` studs painted (Palette.Build.PegTop), cord
-		-- `string` wide between the stake tops sagging by `sag` of its length (a Beam's curve), the marker flag
-		-- (shared/TrenchFlag) at each end of the run. (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
+		-- `string` wide between the stake tops sagging by `sag` of its length (a Beam's curve); no flags
+		-- (user 2026-10-24: "i dont think we need a flag. lets just do the stakes"). (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
 		markers = { peg = { 0.25, 1.6 }, top = 0.3, string = 0.08, sag = 0.035 },
 		-- the dirt pieces of a square dug full (Config/Assets trench_pieces, tools/blender/trench/trench_pieces.py; user
 		-- 2026-10-23: "make wide variety of random wall and floor segments ... and include wood on the wall ones"): one

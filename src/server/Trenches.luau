@@ -25,7 +25,6 @@ local C = require(Shared.Config.Build)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Build)
 local Survey = require(Shared.BuildSurvey)
-local TrenchFlag = require(Shared.TrenchFlag)
 local Net = require(Shared.Net)
 
 local Trenches = {}
@@ -255,8 +254,8 @@ end
 
 -- a square still to be dug (user 2026-10-24: "make the entire planning thing better and more stylish"; design page
 -- https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): a stake at each corner of its outline (its top edges), its top
--- painted, with cord round it sagging a little between the stake tops (Beams), and the marker flag (shared/TrenchFlag)
--- at each end of its run, the pennant flying out from the run
+-- painted, with cord round it sagging a little between the stake tops (Beams). No flags (user 2026-10-24: "i dont
+-- think we need a flag. lets just do the stakes")
 local function markers(blk: Block)
 	local m = blk.model :: Model
 	local old = m:FindFirstChild("Markers")
@@ -309,18 +308,6 @@ local function markers(blk: Block)
 		cord.Transparency = NumberSequence.new(0)
 		cord.LightInfluence = 1
 		cord.Parent = holder
-	end
-	local first, last = blk.run[1], blk.run[#blk.run]
-	for _, e in { { first, 0, -1 }, { last, last.length, 1 } } do
-		if e[1] == blk then
-			local g = at(blk, e[2], 0)
-			local hit = workspace:Raycast(g + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), terrainOnly)
-			local base = if hit then hit.Position else g
-			local flag = TrenchFlag.make()
-			flag.Name = "Flag"
-			flag:PivotTo(CFrame.fromMatrix(base, blk.dir * e[3], Vector3.yAxis))
-			flag.Parent = holder
-		end
 	end
 end
 

@@ -176,16 +176,14 @@ local Palette = {
 		TrenchWallChunks = { 0.95, 1.03, 0.98 },
 		TrenchFloor = 0.92,
 		TrenchFloorChunks = 0.98,
-		-- a trench plan's markers (user 2026-10-24, design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): the cord,
-		-- the stakes with a painted top (`PegTop`), and the marker flag (Config/Assets marker_flag) by mesh name: one
-		-- signal red pennant with a white band for everyone ("one signal red flag with a white band for everyone")
+		-- a trench plan's markers (user 2026-10-24, design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): the cord
+		-- and the stakes with a painted top (`PegTop`)
 		String = { 236, 232, 220 },
 		PegTop = { 236, 230, 210 },
 		-- the planner's chalk cord and reach circles (src/client/Build, Config/Build.Plan; Artillery.Arc's colour, so
 		-- planning and gunnery read as one family), and their colour where the plan can't go
 		Chalk = { 236, 230, 210 },
 		ChalkBad = { 236, 120, 104 },
-		Flag = { Pole = { 107, 82, 56 }, Brass = { 184, 149, 90 }, Pennant = { 184, 58, 46 }, Band = { 241, 236, 224 } },
 		Picket = { 84, 66, 52 },
 		Wire = { 58, 56, 54 },
 	},
