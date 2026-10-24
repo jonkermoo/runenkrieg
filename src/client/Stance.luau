@@ -209,6 +209,7 @@ function Stance.start()
 		character:GetAttributeChangedSignal("Wired"):Connect(apply)
 		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
 		character:GetAttributeChangedSignal("Striking"):Connect(apply) -- (and through a butt stroke)
+		character:GetAttributeChangedSignal("Swinging"):Connect(apply) -- a shovel swing stops you, and its end frees you
 	end
 	player.CharacterAdded:Connect(hook)
 	player:GetAttributeChangedSignal(Dev.Admin.Attribute):Connect(apply)
