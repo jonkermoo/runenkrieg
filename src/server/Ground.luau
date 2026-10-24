@@ -1,14 +1,42 @@
 --!strict
 -- Changes to the terrain on the server (src/server/Damage blasts, src/server/Trees falls). Terrain changes are voxels:
--- they stay and cost nothing after.
+-- they stay and cost nothing after, except craters, which fill back in over a few minutes (Rules/Refill,
+-- Config/Damage.Blast.Crater.Refill); dug ground (gun pits here, trenches: src/server/Build) never does.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Blast = require(ReplicatedStorage:WaitForChild("Shared").Rules.Blast)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local DamageCfg = require(Shared.Config.Damage)
+local Blast = require(Shared.Rules.Blast)
+local Refill = require(Shared.Rules.Refill)
 
 local Ground = {}
 
 local VOXEL = 4 -- terrain voxel size (studs)
+
+-- Craters filling back in. Per voxel ("x,y,z" in voxel units) a blast changed: what it was before the first blast there
+-- (`bo`, `bm`), what the latest one left (`fo`, `fm`) and that crater's id. Per crater: when it was made (os.clock, moved
+-- back when the cap starts it early), its voxels' box (`lo`, `hi`, voxel units) and keys, and the share filled so far.
+type Voxel = { bo: number, bm: Enum.Material, fo: number, fm: Enum.Material, id: number }
+type Crater = { id: number, born: number, lo: Vector3, hi: Vector3, keys: { string }, share: number }
+local voxels: { [string]: Voxel } = {}
+local craters: { Crater } = {} -- oldest first
+local nextCrater = 0
+-- gun pits' voxels (Ground.pit), never refilled; trenches' come from src/server/Build (Ground.start)
+local pitted: { [string]: boolean } = {}
+local trenched: (string) -> boolean = function(_key: string)
+	return false
+end
+
+local function dug(key: string): boolean
+	return pitted[key] == true or trenched(key)
+end
+
+-- a region's corner voxel in voxel units (the region is on the grid), and the corner
+local function gridOf(region: Region3): (number, number, number, Vector3)
+	local corner = region.CFrame.Position - region.Size / 2
+	return math.round(corner.X / VOXEL), math.round(corner.Y / VOXEL), math.round(corner.Z / VOXEL), corner
+end
 
 local terrainOnly = RaycastParams.new()
 terrainOnly.FilterType = Enum.RaycastFilterType.Include
@@ -24,12 +52,24 @@ end
 -- A crater at `position` (Rules/Blast.craterPlan; `c` its config: churnFrom, churnTo, churnDepth): a low rim of earth
 -- where there is ground near, the bowl, then the ground around churned to blasted earth (the grass on it goes:
 -- src/client/GrassFoliage).
+-- Every voxel it changes is kept to fill back in (Ground.record); first, `c.Refill.rimFill` of what older craters under
+-- its thrown earth still lack is put back.
 function Ground.crater(position: Vector3, plan: any, c: any)
 	if not plan then
 		return
 	end
 	local terrain = workspace.Terrain
 	local churnTo = (Enum.Material :: any)[c.churnTo]
+	local first = plan.rim[1]
+	local outer = if first then first.radius + Vector3.new(first.dx, 0, first.dz).Magnitude else plan.mouth
+	local across = math.max(plan.churn, plan.mouth, outer)
+	local up = math.max(plan.depth * 3, plan.radius * c.churnDepth, plan.radius * 2 + outer)
+	local reach = Vector3.new(across, up, across)
+	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+	local ok, mats0, occs0 = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if c.Refill and ok then
+		Ground.rimFill(position, region, plan.mouth, outer, c.Refill.rimFill)
+	end
 	for _, b in plan.rim do
 		local over = position + Vector3.new(b.dx, plan.radius, b.dz)
 		local hit = workspace:Raycast(over, Vector3.yAxis * -plan.radius * 3, terrainOnly)
@@ -39,6 +79,164 @@ function Ground.crater(position: Vector3, plan: any, c: any)
 	end
 	Ground.bowl(position, plan.mouth, plan.depth)
 	Ground.churn(position, plan.churn, plan.radius * c.churnDepth, c)
+	if c.Refill and ok then
+		Ground.record(region, mats0, occs0, c.Refill)
+	end
+end
+
+-- Older craters' voxels in `region` under a new blast's thrown earth (past its `mouth`, out to `outer`, flat, round
+-- `position`) get `share` of what they lack put back, as mud.
+function Ground.rimFill(position: Vector3, region: Region3, mouth: number, outer: number, share: number)
+	local terrain = workspace.Terrain
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return
+	end
+	local gx, gy, gz, corner = gridOf(region)
+	local size = mats.Size
+	local changed = false
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
+			if Refill.underRim(math.sqrt((x - position.X) ^ 2 + (z - position.Z) ^ 2), mouth, outer) then
+				for iy = 1, size.Y do
+					local key = `{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`
+					local v = voxels[key]
+					if v and not dug(key) then
+						local o = Refill.rimFilled(occs[ix][iy][iz], v.bo, share)
+						if o > occs[ix][iy][iz] then
+							occs[ix][iy][iz] = o
+							if mats[ix][iy][iz] == Enum.Material.Air then
+								mats[ix][iy][iz] = Enum.Material.Mud
+							end
+							changed = true
+						end
+					end
+				end
+			end
+		end
+	end
+	if changed then
+		terrain:WriteVoxels(region, VOXEL, mats, occs)
+	end
+end
+
+-- A new crater: every voxel of `region` that differs from before the blast (`mats0`, `occs0`) fills back in from how it
+-- is now. A voxel an older crater had keeps the ground from before that one and is this crater's now. Past
+-- `r.maxCraters` still waiting, the oldest start filling now.
+function Ground.record(region: Region3, mats0: any, occs0: any, r: any)
+	local terrain = workspace.Terrain
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return
+	end
+	nextCrater += 1
+	local crater: Crater =
+		{ id = nextCrater, born = os.clock(), lo = Vector3.zero, hi = Vector3.zero, keys = {}, share = 0 }
+	local gx, gy, gz = gridOf(region)
+	local size = mats.Size
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for ix = 1, size.X do
+		for iy = 1, size.Y do
+			for iz = 1, size.Z do
+				local o, m = occs[ix][iy][iz], mats[ix][iy][iz]
+				local o0, m0 = occs0[ix][iy][iz], mats0[ix][iy][iz]
+				if math.abs(o - o0) > 1e-3 or m ~= m0 then
+					local at = Vector3.new(gx + ix - 1, gy + iy - 1, gz + iz - 1)
+					local key = `{at.X},{at.Y},{at.Z}`
+					if not dug(key) then
+						local v = voxels[key]
+						if v then
+							v.fo, v.fm, v.id = o, m, crater.id
+						else
+							voxels[key] = { bo = o0, bm = m0, fo = o, fm = m, id = crater.id }
+						end
+						table.insert(crater.keys, key)
+						lo, hi = lo:Min(at), hi:Max(at)
+					end
+				end
+			end
+		end
+	end
+	if #crater.keys == 0 then
+		return
+	end
+	crater.lo, crater.hi = lo, hi
+	table.insert(craters, crater)
+	local now = os.clock()
+	local waiting = {}
+	for _, k in craters do
+		if now - k.born < r.delay then
+			table.insert(waiting, k)
+		end
+	end
+	for i = 1, Refill.overCap(#waiting, r.maxCraters) do
+		local k = waiting[i]
+		k.born = now - Refill.startNow(now - k.born, r)
+	end
+end
+
+-- Writes crater `k`'s voxels `share` filled back (its mud gone when `done`); returns how many voxels its box holds.
+-- Voxels a later crater took are left to that one, dug ones as they are (and forgotten).
+local function refillCrater(k: Crater, share: number, done: boolean): number
+	local terrain = workspace.Terrain
+	local region = Region3.new(k.lo * VOXEL, (k.hi + Vector3.one) * VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return 0
+	end
+	local size = mats.Size
+	for _, key in k.keys do
+		local v = voxels[key]
+		if v and v.id == k.id then
+			if dug(key) then
+				voxels[key] = nil
+			else
+				local at = string.split(key, ",")
+				local ix = (tonumber(at[1]) :: number) - k.lo.X + 1
+				local iy = (tonumber(at[2]) :: number) - k.lo.Y + 1
+				local iz = (tonumber(at[3]) :: number) - k.lo.Z + 1
+				local o = Refill.occupancy(v.fo, v.bo, share)
+				occs[ix][iy][iz] = o
+				mats[ix][iy][iz] = Refill.material(o, v.bm, v.fm, done, Enum.Material.Air, Enum.Material.Mud)
+				if done then
+					voxels[key] = nil
+				end
+			end
+		end
+	end
+	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	return size.X * size.Y * size.Z
+end
+
+-- Starts the craters filling back in: every `tick` s each crater due a step is written, oldest first, at most `budget`
+-- voxels a tick (the rest next tick). `isTrench`: whether a trench touched a voxel (src/server/Build.dug).
+function Ground.start(isTrench: (string) -> boolean)
+	trenched = isTrench
+	task.spawn(function()
+		while true do
+			local r = DamageCfg.Blast.Crater.Refill
+			task.wait(r.tick)
+			local now = os.clock()
+			local left = r.budget
+			local i = 1
+			while i <= #craters and left > 0 do
+				local k = craters[i]
+				local age = now - k.born
+				if Refill.done(age, r) then
+					left -= refillCrater(k, 1, true)
+					table.remove(craters, i)
+				else
+					local share = Refill.share(age, r)
+					if share > k.share then
+						left -= refillCrater(k, share, false)
+						k.share = share
+					end
+					i += 1
+				end
+			end
+		end
+	end)
 end
 
 -- The ground within `mouth` of `position` lowered by Blast.bowlDepth, column by column, following its shape (a level cut
@@ -140,6 +338,7 @@ function Ground.pit(
 	local size = mats.Size
 	local corner = region.CFrame.Position - region.Size / 2
 	local floor = position.Y - depth
+	local gx, gy, gz = gridOf(region)
 	for ix = 1, size.X do
 		for iz = 1, size.Z do
 			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
@@ -149,7 +348,18 @@ function Ground.pit(
 				along = (x - position.X) * ramp.dir.X + (z - position.Z) * ramp.dir.Z
 				across = math.abs((x - position.X) * ramp.dir.Z - (z - position.Z) * ramp.dir.X)
 			end
-			if ramp and d > radius and along > 0 and across <= ramp.width / 2 and along <= radius + ramp.length then
+			local inRamp = ramp ~= nil
+				and d > radius
+				and along > 0
+				and across <= ramp.width / 2
+				and along <= radius + ramp.length
+			if inRamp or d <= radius + rim then
+				-- dug: no crater here fills back in, now or later
+				for iy = 1, size.Y do
+					pitted[`{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`] = true
+				end
+			end
+			if ramp and inRamp then
 				-- the ramp: only cut, down to its floor here
 				local slope = floor + depth * math.clamp((along - radius) / ramp.length, 0, 1)
 				for iy = 1, size.Y do
