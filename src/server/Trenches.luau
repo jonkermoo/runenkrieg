@@ -365,6 +365,8 @@ local function pieceKit(): Model?
 	return kit
 end
 
+-- the dirt in the terrain's mud colour, each piece shaded off it (user 2026-10-24: "make the trench match the color of
+-- the mud"); planks their own wood
 local function pieceColor(name: string): Color3
 	local B = Palette.Build
 	local i = tonumber(string.match(name, "^Wall(%d+)"))
@@ -372,18 +374,23 @@ local function pieceColor(name: string): Color3
 		return rgb(B.PlankDark)
 	elseif string.find(name, "Planks") then
 		return rgb(B.Plank)
-	elseif i then
-		local tone = (i - 1) % #B.TrenchWall + 1
-		return rgb(if string.find(name, "Chunks") then B.TrenchWallChunks[tone] else B.TrenchWall[tone])
 	end
-	return rgb(if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor)
+	local shade
+	if i then
+		local tone = (i - 1) % #B.TrenchWall + 1
+		shade = if string.find(name, "Chunks") then B.TrenchWallChunks[tone] else B.TrenchWall[tone]
+	else
+		shade = if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor
+	end
+	local mud = workspace.Terrain:GetMaterialColor(Enum.Material.Mud)
+	return Color3.new(math.min(mud.R * shade, 1), math.min(mud.G * shade, 1), math.min(mud.B * shade, 1))
 end
 
 -- the sides of a square another trench tees into (1 toward its `across`, 2 away): no wall there
 local function teeSides(blk: Block): { boolean }
 	local open = { false, false }
 	for _, o in blocks do
-		if o ~= blk and live(o) then
+		if o ~= blk and live(o) and o.hp > 0 then
 			for _, e in { { o.linkA, o.a }, { o.linkB, o.b } } do
 				local l: Link? = e[1]
 				if l and l.kind == "tee" and l.other == blk then
@@ -485,6 +492,24 @@ local function pieces(blk: Block)
 	end
 end
 
+local function linked(blk: Block): { Block }
+	local out = {}
+	for _, l in { blk.linkA, blk.linkB } do
+		if l and live(l.other) then
+			table.insert(out, l.other)
+		end
+	end
+	-- and the blocks whose ends join this one
+	for _, o in blocks do
+		for _, l in { o.linkA, o.linkB } do
+			if l and l.other == blk and o ~= blk then
+				table.insert(out, o)
+			end
+		end
+	end
+	return out
+end
+
 -- shows a square as its HP stands
 local function apply(blk: Block, reshapeIt: boolean)
 	if reshapeIt then
@@ -511,25 +536,14 @@ local function apply(blk: Block, reshapeIt: boolean)
 			old:Destroy()
 		end
 	end
+	-- its neighbours' dead-end walls go once it is dug into, and their side wall where it tees in (user 2026-10-24:
+	-- "when you build the next segment it doesnt take down the original wall")
+	for _, o in linked(blk) do
+		if o.model and o.model:FindFirstChild("Pieces") then
+			pieces(o)
+		end
+	end
 	publish(blk)
-end
-
-local function linked(blk: Block): { Block }
-	local out = {}
-	for _, l in { blk.linkA, blk.linkB } do
-		if l and live(l.other) then
-			table.insert(out, l.other)
-		end
-	end
-	-- and the blocks whose ends join this one
-	for _, o in blocks do
-		for _, l in { o.linkA, o.linkB } do
-			if l and l.other == blk and o ~= blk then
-				table.insert(out, o)
-			end
-		end
-	end
-	return out
 end
 
 -- a block gone (an undug plan pulled up) or filled in to a scar: the blocks joined to it close up
