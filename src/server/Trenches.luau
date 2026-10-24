@@ -25,6 +25,7 @@ local C = require(Shared.Config.Build)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Build)
 local Survey = require(Shared.BuildSurvey)
+local TrenchFlag = require(Shared.TrenchFlag)
 local Net = require(Shared.Net)
 
 local Trenches = {}
@@ -252,8 +253,10 @@ local function reshapeBlock(blk: Block)
 	reshape(mid, blk.length / 2 + TOP + T.bank.width + VOXEL)
 end
 
--- a square still to be dug: a peg at each corner of its outline (its top edges) with string round it, and a flag at
--- each end of its run
+-- a square still to be dug (user 2026-10-24: "make the entire planning thing better and more stylish"; design page
+-- https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): a stake at each corner of its outline (its top edges), its top
+-- painted, with cord round it sagging a little between the stake tops (Beams), and the marker flag (shared/TrenchFlag)
+-- at each end of its run, the pennant flying out from the run
 local function markers(blk: Block)
 	local m = blk.model :: Model
 	local old = m:FindFirstChild("Markers")
@@ -264,56 +267,59 @@ local function markers(blk: Block)
 	holder.Name = "Markers"
 	holder.Parent = m
 	local M = T.markers
-	local peg = rgb(Palette.Build.Picket)
-	local corners = {}
+	local tops: { Attachment } = {}
 	for _, c in { { 0, -TOP }, { blk.length, -TOP }, { blk.length, TOP }, { 0, TOP } } do
 		local g = at(blk, c[1], c[2])
 		local hit = workspace:Raycast(g + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), terrainOnly)
 		local base = if hit then hit.Position else g
-		part(
+		local stake = part(
 			holder,
 			"Peg",
 			Vector3.new(M.peg[1], M.peg[2], M.peg[1]),
 			CFrame.new(base + Vector3.new(0, M.peg[2] / 2 - 0.15, 0)),
-			peg,
+			rgb(Palette.Build.Picket),
 			false
 		)
-		table.insert(corners, base + Vector3.new(0, M.peg[2] - 0.15, 0))
-	end
-	for i = 1, 4 do
-		local p0, p1 = corners[i], corners[i % 4 + 1]
 		part(
 			holder,
-			"String",
-			Vector3.new(M.string, M.string, (p1 - p0).Magnitude),
-			CFrame.lookAt((p0 + p1) / 2, p1),
-			rgb(Palette.Build.String),
+			"PegTop",
+			Vector3.new(M.peg[1] + 0.03, M.top, M.peg[1] + 0.03),
+			CFrame.new(base + Vector3.new(0, M.peg[2] - 0.15 - M.top / 2, 0)),
+			rgb(Palette.Build.PegTop),
 			false
 		)
+		-- the cord's end: its axis down, so each Beam's curve sags (CurveSize0 down from one end, CurveSize1 from the other)
+		local a = Instance.new("Attachment")
+		a.Position = Vector3.new(0, M.peg[2] / 2 - 0.05, 0)
+		a.Axis, a.SecondaryAxis = Vector3.new(0, -1, 0), Vector3.new(1, 0, 0)
+		a.Parent = stake
+		table.insert(tops, a)
 	end
-	-- flags at the run's ends
+	for i = 1, 4 do
+		local a0, a1 = tops[i], tops[i % 4 + 1]
+		local sag = M.sag * (a1.WorldPosition - a0.WorldPosition).Magnitude
+		local cord = Instance.new("Beam")
+		cord.Name = "String"
+		cord.Attachment0, cord.Attachment1 = a0, a1
+		cord.Width0, cord.Width1 = M.string, M.string
+		cord.CurveSize0, cord.CurveSize1 = sag, -sag
+		cord.Segments = 8
+		cord.FaceCamera = true
+		cord.Color = ColorSequence.new(rgb(Palette.Build.String))
+		cord.Transparency = NumberSequence.new(0)
+		cord.LightInfluence = 1
+		cord.Parent = holder
+	end
 	local first, last = blk.run[1], blk.run[#blk.run]
-	for _, e in { { first, 0 }, { last, last.length } } do
+	for _, e in { { first, 0, -1 }, { last, last.length, 1 } } do
 		if e[1] == blk then
 			local g = at(blk, e[2], 0)
 			local hit = workspace:Raycast(g + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), terrainOnly)
 			local base = if hit then hit.Position else g
-			part(
-				holder,
-				"Pole",
-				Vector3.new(0.12, M.flag, 0.12),
-				CFrame.new(base + Vector3.new(0, M.flag / 2, 0)),
-				peg,
-				false
-			)
-			part(
-				holder,
-				"Flag",
-				Vector3.new(0.05, 0.6, 0.9),
-				CFrame.new(base + Vector3.new(0, M.flag - 0.35, 0)) * CFrame.new(blk.across * 0.45),
-				rgb(Palette.Build.Flag),
-				false
-			)
+			local flag = TrenchFlag.make()
+			flag.Name = "Flag"
+			flag:PivotTo(CFrame.fromMatrix(base, blk.dir * e[3], Vector3.yAxis))
+			flag.Parent = holder
 		end
 	end
 end
