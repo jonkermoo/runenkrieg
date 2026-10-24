@@ -15,7 +15,9 @@
 -- - the staff (user 2026-10-21): the gun's camera, wheel, shoulder view and crosshair, but aiming stays in the view it
 --   is in (Config/Camera.AimInPlace): over the shoulder it is "ThirdAim" with a narrower view. (The old staff-only
 --   orbit, Config/Camera.ThirdPersonClasses, Rules/Camera.target / shoulder, now has no class: centred behind the head
---   at a fixed distance, over the right shoulder while firing.) Walls stop the camera (a swept sphere).
+--   at a fixed distance, over the right shoulder while firing.) Walls stop the camera (a swept sphere);
+-- - the shovel (Config/Camera.FreeClasses, user 2026-10-24): none of this, Roblox's own camera stays as with empty
+--   hands, held no nearer than FreeMinZoom.
 -- Writes the view to the character's "CameraMode" attribute (local): "First", "Aim", "Third" or "ThirdAim" (a gun
 -- over the shoulder is "Third" while the camera is out past Handover.far, "First" nearer);
 -- "CameraInside" (the viewmodel is on: first person only) and "Handover" (0..1, how far the viewmodel has faded in).
@@ -66,6 +68,18 @@ local function thirdPerson(weapon: Held.Weapon?): boolean
 	return Rules.thirdPerson(Cfg.ThirdPersonClasses, spec and spec.class)
 end
 
+-- whether a weapon (by name) keeps Roblox's own camera (Config/Camera.FreeClasses: the shovel)
+local function free(name: any): boolean
+	local spec = type(name) == "string" and (W :: any)[name]
+	return Rules.thirdPerson(Cfg.FreeClasses, spec and spec.class)
+end
+
+-- the nearest Roblox's camera may come: further out with a free-camera weapon in the hands
+local function minZoom(character: Model?): number
+	local weapon = Held.weapon(character)
+	return if weapon and free(weapon.name) then Cfg.FreeMinZoom else ROBLOX_MIN
+end
+
 -- whether the weapon in the hands aims where the view is, not always in first person (the staff)
 local function inPlace(weapon: Held.Weapon?): boolean
 	local spec = weapon and (W :: any)[weapon.name]
@@ -85,6 +99,7 @@ function WeaponCamera.start()
 	local leaving = false
 	local leaveFrom = Vector3.zero
 	local leaveT = 0
+	local pinned = false -- the zoom handed back is held for a moment (finish)
 	-- the staff's third person (Config/Camera.Staff): the eased distance (0: at the eye), the shoulder blend (0 centred
 	-- .. 1 over the right shoulder), the last click
 	local third = false
@@ -171,10 +186,12 @@ function WeaponCamera.start()
 			show(character, 0)
 		end
 		-- hand the zoom back: Roblox's camera has no zoom setter, so pin its range for a frame
-		local d = math.clamp(zoom, ROBLOX_MIN, Cfg.FreeMaxZoom)
+		local d = math.clamp(zoom, minZoom(character), Cfg.FreeMaxZoom)
 		player.CameraMinZoomDistance, player.CameraMaxZoomDistance = d, d
+		pinned = true
 		task.delay(0.1, function()
-			player.CameraMinZoomDistance, player.CameraMaxZoomDistance = ROBLOX_MIN, Cfg.FreeMaxZoom
+			pinned = false
+			player.CameraMinZoomDistance, player.CameraMaxZoomDistance = minZoom(player.Character), Cfg.FreeMaxZoom
 		end)
 	end
 
@@ -231,16 +248,25 @@ function WeaponCamera.start()
 	RunService:BindToRenderStep("WeaponCameraInput", Enum.RenderPriority.Input.Value + 1, function()
 		local character, humanoid, root = parts()
 		-- a weapon in the hands, one going over the shoulder (src/client/Locomotion "Stowing") or the last grenade's throw
-		-- playing out after it left the hand (src/client/Grenades "Throwing")
+		-- playing out after it left the hand (src/client/Grenades "Throwing"); not the shovel (Config/Camera.FreeClasses:
+		-- Roblox's camera stays, held out at FreeMinZoom)
+		local held = Held.weapon(character)
+		local stowing = character and character:GetAttribute("Stowing")
 		local want = character
 			and humanoid
 			and root
 			and humanoid.Health > 0
 			and (
-				Held.weapon(character) ~= nil
-				or character:GetAttribute("Stowing") ~= nil
+				(held ~= nil and not free(held.name))
+				or (stowing ~= nil and not free(stowing))
 				or character:GetAttribute("Throwing") == true
 			)
+		if not active and not leaving and not pinned then
+			local near = minZoom(character)
+			if player.CameraMinZoomDistance ~= near then
+				player.CameraMinZoomDistance = near
+			end
+		end
 		if want and not active then
 			enter()
 		elseif not want and active then
@@ -299,7 +325,7 @@ function WeaponCamera.start()
 			leaveT = math.min(1, leaveT + dt / Cfg.LeaveBlend)
 			local rotation = CFrame.fromOrientation(math.rad(pitch), math.rad(yaw), 0)
 			local head = root.Position + HEAD
-			local d = math.clamp(zoom, ROBLOX_MIN, Cfg.FreeMaxZoom)
+			local d = math.clamp(zoom, minZoom(character), Cfg.FreeMaxZoom)
 			local rel = leaveFrom:Lerp(head - rotation.LookVector * d - root.Position, smooth(leaveT))
 			camera.CFrame = CFrame.new(root.Position + rel) * rotation
 			camera.Focus = CFrame.new(head)

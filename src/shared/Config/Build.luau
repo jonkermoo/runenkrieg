@@ -25,6 +25,32 @@ local Build = {
 	GhostTransparency = 0.75,
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
 	Ghost = { ok = { 120, 200, 120 }, bad = { 220, 80, 70 }, transparency = 0.55 },
+	-- the trench planner's ghost (src/client/Build; user 2026-10-24: "make the entire planning thing better and more
+	-- stylish", design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ), a preview of the stakes and cord the
+	-- server lays: per square a faint fill (Ghost ok / bad, `fill` see-through) with the dug floor's band in it
+	-- (`floor`), a chalk cord round it (`cord` wide, `cordSee` see-through; Palette.Build.Chalk, ChalkBad when it can't
+	-- go), `gap` between squares, ghost stakes (`peg`: width, height, one at the cursor before the
+	-- first click; no flags, user 2026-10-24: "lets just do the stakes"); squares fade in and out at `fade` per second. Reach circles (Trench.firstReach) dashed on the ground: `dashes`
+	-- dashes, each `dash` of its step, `ringWidth` wide; the one you stand in `near` see-through, the other `far`. The
+	-- length tag floats `tag` studs over the end.
+	Plan = {
+		fill = 0.82,
+		floor = 0.7,
+		cord = 0.14,
+		cordSee = 0.1,
+		gap = 0.3,
+		peg = { 0.22, 1.0 },
+		fade = 12,
+		dashes = 44,
+		dash = 0.55,
+		ringWidth = 0.18,
+		near = 0.2,
+		far = 0.6,
+		tag = 4.6,
+		-- the action icon over each end (user 2026-10-24: "one icon for new trenches, one more extending"): a round badge
+		-- `size` studs across on a chalk pin `height` studs tall
+		badge = { height = 2.4, size = 1.4 },
+	},
 	-- the turn step (degrees) for Key_BuildTurn and a mouse wheel notch with Shift
 	TurnStep = 15,
 
@@ -73,9 +99,11 @@ local Build = {
 		bank = { width = 5, height = 1.2 },
 		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
 		scar = { depth = 0.6 },
-		-- markers: pegs every `every` studs along both top edges, string between, a flag at each end
-		-- (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
-		markers = { peg = { 0.25, 1.6 }, flag = 3, string = 0.08 },
+		-- markers (src/server/Trenches; user 2026-10-24, design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): a
+		-- stake (width, height) at each corner of a square, its top `top` studs painted (Palette.Build.PegTop), cord
+		-- `string` wide between the stake tops sagging by `sag` of its length (a Beam's curve); no flags
+		-- (user 2026-10-24: "i dont think we need a flag. lets just do the stakes"). (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)
+		markers = { peg = { 0.25, 1.6 }, top = 0.3, string = 0.08, sag = 0.035 },
 		-- the dirt pieces of a square dug full (Config/Assets trench_pieces, tools/blender/trench/trench_pieces.py; user
 		-- 2026-10-23: "make wide variety of random wall and floor segments ... and include wood on the wall ones"): one
 		-- wall a side (Wall1..`walls`) and a floor (Floor1..`floors`), rolled from its seed (Rules.trenchPieces); the
