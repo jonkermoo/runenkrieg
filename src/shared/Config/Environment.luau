@@ -27,6 +27,9 @@ local Environment = {
 	-- of the day's fill light, so soldiers stay visible at the darkest point (user 2026-10-23: "night time is too dark.
 	-- players should be visible even at peak darkness"; 2026-10-24: "still way too dark", make it 80-85%; was 35%:
 	-- brightness 1.5, ambient 22/26/38, outdoor 24/28/42, exposure -0.3; then two thirds: 2, 48/52/68, 54/58/76, 0).
+	-- Studio round 1 (2.4, 56/60/76, 58/62/80, exposure 0) still rendered ~13% of noon on screen: Roblox's moon lights far
+	-- less than the sun at the same Brightness, so night lifts the exposure and puts the ambient (what lights the
+	-- backlit fronts) above the day's.
 	Light = {
 		day = {
 			brightness = 3,
@@ -36,9 +39,9 @@ local Environment = {
 		},
 		night = {
 			brightness = 2.4, -- the moon is far weaker than the sun at the same Brightness
-			ambient = { 56, 60, 76 },
-			outdoorAmbient = { 58, 62, 80 },
-			exposure = 0,
+			ambient = { 80, 84, 102 },
+			outdoorAmbient = { 84, 88, 110 },
+			exposure = 1.6,
 		},
 		-- the haze warms around sunrise and sunset, most halfway between day and night
 		dusk = { color = { 236, 176, 138 }, decay = { 170, 104, 92 }, strength = 0.8 },
