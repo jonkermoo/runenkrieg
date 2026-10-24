@@ -47,6 +47,10 @@ local Build = {
 		-- it while planning; the planner shows it red with the reason as soon as you're too far, user 2026-10-24)
 		firstReach = 14,
 		joinReach = 4, -- a plan's end this close to a free end joins it
+		-- a new trench keeps this far (between centre lines) from every other trench, except near the end where it joins
+		-- one (user 2026-10-24: "you shouldnt be able to build a new trench within a certain distance of another trench
+		-- unless you're extending")
+		spacing = 16,
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
 		planLife = 180, -- seconds an undug plan stays
@@ -78,14 +82,30 @@ local Build = {
 		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
 		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
 		pieces = { segment = 8, walls = 8, floors = 4, wood = { 5, 6, 7, 8 }, woodChance = 0.25 },
-		-- a blast buries a square: from `from` kPa it loses HP, rising with the pressure on a log scale (to the power
-		-- `curve`) to `cap` of its HP at `full`. Inside the trench the pressure is taken at the blast's distance past the
-		-- floor's edge; within `zone` trench widths past the top edge (user 2026-10-23: "the hitbox should extend out
-		-- about another trench size") as if it went off `edge` studs away; further out, `edge` plus how far past the zone.
-		-- At the edge (user 2026-10-24): a grenade ~4% ("grenades alone should not bury a trench, but maybe damage it over
-		-- time"), a field gun ~33% ("a few field cannons should bury a trench"), the howitzer leaves 7% ("instantly bury a
-		-- trench (maybe not destroy it ...)")
-		blast = { from = 150, full = 30000, curve = 1.6, cap = 0.93, zone = 1, edge = 2.5 },
+	},
+
+	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and
+	-- weapons will do damage to a trench too, but just not a lot. most of it will be explosives. grenades and staffs
+	-- should do the least, howitzer the most"): `hit`, the % of a trench square's or a sandbag column's max HP it takes,
+	-- in full within `edge` studs of it (the entry's own `edge` if it has one; a trench: its hole, walls and banks, so a blast on the bank counts; user:
+	-- "make the ground around each segment to also be part of the trench hit box"), fading to nothing at `reach`;
+	-- `wire`, the % of a barbed wire's HP. Bullets only by a direct hit. A blast nobody named (DEV tools) by its
+	-- charge: the first of `byCharge` it is no bigger than. (A Destroy swing is Trench.hp.destroy.)
+	Structures = {
+		edge = 2,
+		wireHP = 100,
+		bullet = { hit = 0.2, wire = 0 }, -- (about 500 hits bury a trench)
+		grenade = { hit = 3, reach = 6, wire = 15 },
+		staff1 = { hit = 0.5, reach = 4, wire = 0 },
+		staff2 = { hit = 1.5, reach = 6, wire = 5 },
+		staff3 = { hit = 4, reach = 10, wire = 15 },
+		field = { hit = 33, reach = 10, edge = 3, wire = 100 }, -- (three bury a trench)
+		howitzer = { hit = 93, reach = 20, edge = 8, wire = 100 }, -- (buries it at once, 7% left)
+		byCharge = {
+			{ kg = 0.5, source = "grenade" },
+			{ kg = 5, source = "field" },
+			{ kg = math.huge, source = "howitzer" },
+		},
 	},
 
 	-- Every piece you can lay, in the order the build menu lists them.
@@ -141,8 +161,8 @@ local Build = {
 
 	-- Barbed wire: anyone inside its box (both teams) is "Wired": walks at `speed`, can't sprint or jump
 	-- (src/client/Stance), and loses `damage` health a second while moving faster than `moving` studs/s. Bullets pass
-	-- (its parts aren't queried); a blast cuts it at `failKPa` or more at its line.
-	Wire = { speed = 3, damage = 4, moving = 1, tick = 0.25, failKPa = 60 },
+	-- (its parts aren't queried); blasts wear it down and cut it (Structures above).
+	Wire = { speed = 3, damage = 4, moving = 1, tick = 0.25 },
 }
 
 return table.freeze(Build)

@@ -66,15 +66,26 @@ return {
 		local short = E.strength(105, 100, 110, fade) -- shorter than two fades: peaks in the middle
 		assert(short == 1, `{short}`)
 	end,
-	["night is about a third of the day's light, and bluer"] = function()
+	["night is about 80-85% of the day's fill light (soldiers stay visible), and bluer"] = function()
 		local day, night = E.look(1, "Clear", 0, base, Cfg), E.look(0, "Clear", 0, base, Cfg)
 		local k = night.outdoorAmbient[1] / day.outdoorAmbient[1]
-		assert(k > 0.3 and k < 0.4, `night outdoor ambient x{k}`)
+		assert(k >= 0.8, `night outdoor ambient x{k}`)
+		assert(night.exposure > day.exposure, "night lifts the exposure: the moon lights far less than the sun")
 		assert(night.outdoorAmbient[3] > night.outdoorAmbient[1], "moonlight is blue")
 		assert(night.color[1] < day.color[1], "the haze darkens at night")
 		assert(day.density == base.density and day.rain == 0 and day.wet == 1, "clear day = the map's own haze")
 		assert(day.brightness == 3 and day.outdoorAmbient[1] == 70, "full day = the DEV place's own lighting")
 		assert(day.color[1] == base.color[1] and night.color[1] < base.color[1])
+	end,
+	["the night light is in by sunset, so just after it is never darker than midnight"] = function()
+		local L = Cfg.Light
+		local sunset, midnight = E.look(L.nightBy, "Clear", 0, base, Cfg), E.look(0, "Clear", 0, base, Cfg)
+		assert(
+			sunset.exposure == midnight.exposure and sunset.brightness == midnight.brightness,
+			"night light by sunset"
+		)
+		local before = E.look(0.75, "Clear", 0, base, Cfg)
+		assert(before.exposure > L.day.exposure and before.exposure < L.night.exposure, "eases in before sunset")
 	end,
 	["dusk warms the haze, not under rain"] = function()
 		local dusk = E.look(0.5, "Clear", 0, base, Cfg)

@@ -8,7 +8,8 @@
 -- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
 -- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
 -- - Barbed wire: pickets and strands nothing queries (bullets pass); src/server/Wire slows and hurts soldiers in it.
--- Build.blast (from src/server/Damage.blast): a big enough blast caves trenches in and cuts wire.
+-- Build.blast (from src/server/Damage.blast) and Build.shot (src/server/Firing): weapons wear down trenches, sandbags
+-- and wire by Config/Build.Structures.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -23,6 +24,7 @@ local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Build)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
+local Destruction = require(script.Parent.Destruction)
 local Trees = require(script.Parent.Trees)
 local Trenches = require(script.Parent.Trenches)
 
@@ -42,6 +44,7 @@ type Rec = {
 	born: number,
 	worked: number,
 	frame: CFrame,
+	hp: number?, -- barbed wire: what blasts have left of Structures.wireHP
 }
 
 local recs: { [Model]: Rec } = {}
@@ -398,25 +401,57 @@ local function work(player: Player, target: any, mode: any)
 	end
 end
 
--- A blast at `position` (src/server/Damage.blast, after the crater): `kpaAt(studs)` its overpressure, `reachOf(kpa)`
--- how far it reaches that. Trenches cave in round it (src/server/Trenches), wire within reach of Wire.failKPa is cut.
-function Build.blast(position: Vector3, kpaAt: (number) -> number, reachOf: (number) -> number)
-	Trenches.blast(position, kpaAt, reachOf)
-	local wireR = reachOf(C.Wire.failKPa)
+-- A blast at `position` (src/server/Damage.blast, after the crater) of `kg`, `key` what it is to built things (a
+-- Config/Build.Structures key; nil: by its charge): trenches are buried (src/server/Trenches), sandbag columns and wire
+-- worn down, each by how far it is from the blast.
+function Build.blast(position: Vector3, kg: number, key: string?)
+	local S = C.Structures
+	local src = Rules.structureSource(key, kg, S)
+	Trenches.blast(position, src)
 	local cut = {}
 	for _, r in recs do
+		local frame = r.model:GetAttribute("Frame") :: CFrame
 		if r.piece.kind == "Wire" then
-			local frame = r.model:GetAttribute("Frame") :: CFrame
 			local l = frame:PointToObjectSpace(position)
 			local dx = math.max(math.abs(l.X) - r.piece.width / 2, 0)
-			local d = math.sqrt(dx * dx + l.Z * l.Z + math.max(l.Y - r.piece.height, 0) ^ 2)
-			if d <= wireR then
+			local dz = math.max(math.abs(l.Z) - r.piece.depth / 2, 0)
+			local d = math.sqrt(dx * dx + dz * dz + math.max(l.Y - r.piece.height, 0) ^ 2)
+			r.hp = (r.hp or S.wireHP) - S.wireHP * Rules.structureHit(d, src, S.edge, src.wire) / 100
+			if (r.hp :: number) <= 0 then
 				table.insert(cut, r)
+			end
+		elseif r.piece.kind == "Sandbags" then
+			-- each column of bags by how far the blast is from it (Destruction leaves class Sandbag to this)
+			for _, c in r.model:GetChildren() do
+				if CollectionService:HasTag(c, D.SectionTag) and c:IsA("Model") then
+					local cf, size = c:GetBoundingBox()
+					local l = cf:PointToObjectSpace(position)
+					local d = Vector3.new(
+						math.max(math.abs(l.X) - size.X / 2, 0),
+						math.max(math.abs(l.Y) - size.Y / 2, 0),
+						math.max(math.abs(l.Z) - size.Z / 2, 0)
+					).Magnitude
+					local share = Rules.structureHit(d, src, S.edge)
+					if share > 0 then
+						Destruction.damage(c, (c:GetAttribute("MaxHP") :: number) * share / 100, position)
+					end
+				end
 			end
 		end
 	end
 	for _, r in cut do
 		remove(r, true)
+	end
+end
+
+-- A bullet meeting `part` (src/server/Firing): a trench square or a sandbag column loses Structures.bullet
+function Build.shot(part: Instance)
+	if Trenches.shot(part) then
+		return
+	end
+	local s = part.Parent
+	if s and s:IsA("Model") and s:GetAttribute("Class") == "Sandbag" then
+		Destruction.damage(s, (s:GetAttribute("MaxHP") :: number) * C.Structures.bullet.hit / 100)
 	end
 end
 

@@ -175,7 +175,9 @@ function Survey.trenchSnap(folder: Instance?, team: string, p: Vector3): (Vector
 			local rel = Vector3.new(p.X - a.X, 0, p.Z - a.Z)
 			local u, v = rel:Dot(dir), rel:Dot(Vector3.new(-dir.Z, 0, dir.X))
 			if u >= 0 and u <= flat.Magnitude and math.abs(v) <= top then
-				return a:Lerp(b, u / flat.Magnitude), "tee", m, nil
+				-- at its floor's edge on that side (Trenches.snap)
+				local side = Vector3.new(-dir.Z, 0, dir.X) * (if v >= 0 then T.floor else -T.floor)
+				return a:Lerp(b, u / flat.Magnitude) + side, "tee", m, nil
 			end
 		end
 	end

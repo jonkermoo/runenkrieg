@@ -244,6 +244,55 @@ function Build.trenchDepth(hp: number, built: boolean, h: any): number
 	return math.clamp(hp / h.max, 0, 1)
 end
 
+-- The longest run of free samples (`blocked[i]` false), as the first and last index, or nil when all are blocked. A
+-- trench square's side wall is laid only along that stretch, not where it would stand in another trench's hole.
+function Build.longestFree(blocked: { boolean }): (number?, number?)
+	local best0, best1, run0 = nil, nil, nil
+	for i = 1, #blocked do
+		if not blocked[i] then
+			run0 = run0 or i
+			if not best0 or i - run0 > best1 - best0 then
+				best0, best1 = run0, i
+			end
+		else
+			run0 = nil
+		end
+	end
+	return best0, best1
+end
+
+-- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat) to any of `segs` (other trenches' squares,
+-- { ax, az, bx, bz } each), leaving out the stretch within `spacing` of an end that joins a trench (`joinA`, `joinB`).
+function Build.tooClose(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	joinA: boolean,
+	joinB: boolean,
+	segs: { { number } },
+	spacing: number
+): boolean
+	local length = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	local n = math.max(math.ceil(length), 1)
+	for i = 0, n do
+		local t = i / n
+		local along = t * length
+		if not ((joinA and along < spacing) or (joinB and length - along < spacing)) then
+			local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
+			for _, s in segs do
+				local dx, dz = s[3] - s[1], s[4] - s[2]
+				local len2 = dx * dx + dz * dz
+				local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
+				if (px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2 < spacing * spacing then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
 -- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
 function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
 	if build then
@@ -253,30 +302,35 @@ function Build.trenchSwing(hp: number, max: number, swing: number, build: boolea
 	return math.max(left, 0), left <= 0
 end
 
--- How far a blast `d` studs from a trench square's line counts as being from it (Config/Build.Trench.blast): inside the
--- trench, its distance past the floor's edge; in the zone of `zone` trench widths past the top edge, `edge`; further
--- out, `edge` plus how far past the zone.
-function Build.trenchBlastDistance(d: number, t: any): number
-	local top = Build.trenchTop(t)
-	local B = t.blast
-	if d <= top then
-		return math.min(math.max(d - t.floor, 0), B.edge)
+-- What a blast is to built things (Config/Build.Structures `s`): its named `key`'s entry, or by its `kg` charge.
+function Build.structureSource(key: string?, kg: number, s: any): any
+	if key and s[key] then
+		return s[key]
 	end
-	local zone = top + B.zone * 2 * top
-	if d <= zone then
-		return B.edge
+	for _, c in s.byCharge do
+		if kg <= c.kg then
+			return s[c.source]
+		end
 	end
-	return B.edge + (d - zone)
+	return s.howitzer
 end
 
--- the HP a blast takes off a square (`b`: Config/Build.Trench.blast): none under `b.from` kPa at its line, rising with
--- the log of the pressure (to the power `b.curve`) to `b.cap` of `max` at `b.full`
-function Build.trenchBlast(kpa: number, max: number, b: any): number
-	if kpa <= b.from then
+-- The % of a built thing's max HP that `src` (a Config/Build.Structures entry; `hit` or another field as `amount`)
+-- takes `d` studs from it (0: on or in it): in full within `edge`, fading to 0 at `src.reach`; with no reach (a bullet)
+-- only on it.
+function Build.structureHit(d: number, src: any, edge: number, amount: number?): number
+	local full = amount or src.hit
+	if not src.reach then
+		return if d <= 0 then full else 0
+	end
+	local e = src.edge or edge
+	if d <= e then
+		return full
+	end
+	if d >= src.reach then
 		return 0
 	end
-	local t = math.min(math.log(kpa / b.from) / math.log(b.full / b.from), 1)
-	return max * b.cap * t ^ b.curve
+	return full * (1 - (d - e) / (src.reach - e))
 end
 
 -- Where a segment from (ax, az) to (bx, bz) runs inside a rectangle (centre cx, cz; unit axis ux, uz along it; half

@@ -27,6 +27,7 @@ local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local Net = require(Shared.Net)
 local Damage = require(script.Parent.Damage)
+local Build = require(script.Parent.Build)
 local Destruction = require(script.Parent.Destruction)
 local Helmets = require(script.Parent.Helmets)
 
@@ -232,6 +233,9 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 			dist = if result then (result.Position - origin).Magnitude else Cfg.Range
 		end
 		local hit = if result then result.Position else origin + line * Cfg.Range
+		if result then
+			Build.shot(result.Instance) -- built things are chipped a little (Config/Build.Structures.bullet)
+		end
 		-- a helmet's crown or brim stands out of the Head's hitbox: a shot that meets it before anything else, and not
 		-- going on into that head, hits the head on the helmet (user 2026-10-22: shots at the crown went over)
 		local who, struck, at, far = nil, nil, nil, nil
