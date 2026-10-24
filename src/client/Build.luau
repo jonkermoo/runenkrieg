@@ -154,7 +154,7 @@ local function surveyPlan(character: Model, root: BasePart)
 	local ok, reason = true, nil
 	if not planStart then
 		if Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z).Magnitude > T.firstReach then
-			ok, reason = false, "Too far"
+			ok, reason = false, `Too far: start within {T.firstReach} studs of you`
 		end
 		current = { a = aim, ok = ok, reason = reason }
 		showGhost("TrenchStart", CFrame.new(aim + Vector3.new(0, 0.6, 0)), Vector3.new(1.2, 1.2, 1.2), ok)
@@ -172,6 +172,13 @@ local function surveyPlan(character: Model, root: BasePart)
 	end
 	if length < T.minBlock then
 		ok, reason = false, "Too short"
+	end
+	-- laid only while you stand near one of its ends (the server's check, Trenches.plan)
+	local function away(p: Vector3): number
+		return Vector3.new(root.Position.X - p.X, 0, root.Position.Z - p.Z).Magnitude
+	end
+	if ok and math.min(away(a), away(aim)) > T.firstReach then
+		ok, reason = false, `Too far: stand within {T.firstReach} studs of either end`
 	end
 	if ok and length > 0.1 then
 		local dir = flat.Unit

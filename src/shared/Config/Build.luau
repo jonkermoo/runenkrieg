@@ -43,7 +43,9 @@ local Build = {
 		block = 8, -- (user 2026-10-23: fixed 8-stud segments; Rules.planBlocks for the leftover)
 		minBlock = 2,
 		maxPlan = 60,
-		firstReach = 14, -- the first click this close to you
+		-- the first click this close to you, and when the plan is laid you within this of either end (you may walk along
+		-- it while planning; the planner shows it red with the reason as soon as you're too far, user 2026-10-24)
+		firstReach = 14,
 		joinReach = 4, -- a plan's end this close to a free end joins it
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
