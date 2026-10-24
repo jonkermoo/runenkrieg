@@ -844,8 +844,8 @@ function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: 
 			end
 		end
 	end
+	-- (no clods thrown: user 2026-10-24, "i dont want these blocks appearing just beacuse theres an axplosion")
 	for _, blk in hit do
-		clods(blk, T.clods.perSwing)
 		if blk.hp <= 0 then
 			finish(blk, true)
 		else

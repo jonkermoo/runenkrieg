@@ -80,7 +80,7 @@ local Build = {
 		-- (a grenade takes about a third, a shell fills it); further out, `edge` plus how far past the zone
 		-- (a blast at `full` takes `share` of the HP: way more durable, user 2026-10-24)
 		blast = { from = 150, full = 900, zone = 1, edge = 2.5, share = 0.15 },
-		-- clods knocked off the walls each destroy swing (client debris)
+		-- clods knocked off the walls each destroy swing (client debris; not by blasts)
 		clods = { perSwing = 6, size = { 0.5, 1.2 } },
 	},
 
