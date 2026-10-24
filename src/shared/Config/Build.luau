@@ -54,7 +54,8 @@ local Build = {
 		-- `hold`% HP, then filled in with the rest (80%: a little earth in it; 5-10%: nearly level, unusable), its pieces
 		-- under the fill (user 2026-10-24: "an 80% trench should start visibly filling a little bit, but not an unusable
 		-- amount"; "way way more durable")
-		hp = { max = 100, swing = 34, destroy = 4, hold = 95 },
+		-- (5 Build swings dig a square: "make building take a bit longer", user 2026-10-24)
+		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
 		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
 		-- earth thrown up as a bank along both edges (the pit's rim)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a

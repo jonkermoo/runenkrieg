@@ -152,13 +152,15 @@ return {
 		assert(B.trenchReach(14, 1, shape, 3) == 5, "dead end: the floor's edge plus the distance past it")
 		assert(near(B.trenchReach(15, 7, shape, 3) :: number, 3 + 5), "round the corner")
 	end,
-	["trenches v2: a square's HP: three Build swings dig it, Destroy swings fill it, blasts by pressure"] = function()
+	["trenches v2: a square's HP: five Build swings dig it, Destroy swings fill it, blasts by pressure"] = function()
 		local H = C.Trench.hp
 		local hp = 0
-		for _ = 1, 3 do
+		for _ = 1, 4 do
 			hp = B.trenchSwing(hp, H.max, H.swing, true)
 		end
-		assert(hp == H.max, "three swings dig a square")
+		assert(hp < H.max, "four swings aren't enough")
+		hp = B.trenchSwing(hp, H.max, H.swing, true)
+		assert(hp == H.max, "five swings dig a square")
 		local gone
 		hp, gone = B.trenchSwing(hp, H.max, H.swing, false)
 		assert(hp == H.max - H.swing and not gone)
