@@ -66,15 +66,26 @@ return {
 		local short = E.strength(105, 100, 110, fade) -- shorter than two fades: peaks in the middle
 		assert(short == 1, `{short}`)
 	end,
-	["night is about a third of the day's light, and bluer"] = function()
+	["night is about 80-85% of the day's fill light (soldiers stay visible), and bluer"] = function()
 		local day, night = E.look(1, "Clear", 0, base, Cfg), E.look(0, "Clear", 0, base, Cfg)
 		local k = night.outdoorAmbient[1] / day.outdoorAmbient[1]
-		assert(k > 0.3 and k < 0.4, `night outdoor ambient x{k}`)
+		assert(k >= 0.8, `night outdoor ambient x{k}`)
+		assert(night.exposure > day.exposure, "night lifts the exposure: the moon lights far less than the sun")
 		assert(night.outdoorAmbient[3] > night.outdoorAmbient[1], "moonlight is blue")
 		assert(night.color[1] < day.color[1], "the haze darkens at night")
 		assert(day.density == base.density and day.rain == 0 and day.wet == 1, "clear day = the map's own haze")
 		assert(day.brightness == 3 and day.outdoorAmbient[1] == 70, "full day = the DEV place's own lighting")
 		assert(day.color[1] == base.color[1] and night.color[1] < base.color[1])
+	end,
+	["the night light is in by sunset, so just after it is never darker than midnight"] = function()
+		local L = Cfg.Light
+		local sunset, midnight = E.look(L.nightBy, "Clear", 0, base, Cfg), E.look(0, "Clear", 0, base, Cfg)
+		assert(
+			sunset.exposure == midnight.exposure and sunset.brightness == midnight.brightness,
+			"night light by sunset"
+		)
+		local before = E.look(0.75, "Clear", 0, base, Cfg)
+		assert(before.exposure > L.day.exposure and before.exposure < L.night.exposure, "eases in before sunset")
 	end,
 	["dusk warms the haze, not under rain"] = function()
 		local dusk = E.look(0.5, "Clear", 0, base, Cfg)
@@ -89,5 +100,18 @@ return {
 		assert(rain.rain == 1 and rain.wet < 1 and rain.brightness < E.look(1, "Clear", 0, base, Cfg).brightness)
 		local half = E.look(1, "Rain", 0.5, base, Cfg)
 		assert(half.density > base.density and half.density < rain.density)
+	end,
+	["setting the clock reads that time, now and while paused"] = function()
+		for _, h in { 0, 6, 12, 18, 21.5 } do
+			local start = E.startFor(h, 500, Day)
+			assert(near(E.clockNow(500, start, nil, Day), h, 1e-4), `set {h}: {E.clockNow(500, start, nil, Day)}`)
+			assert(near(E.clockNow(900, start, 500, Day), h, 1e-4), "a paused clock stays")
+			assert(not near(E.clockNow(900, start, nil, Day), h, 1e-2), "a running clock moves on")
+		end
+	end,
+	["a dev event starts at full strength and lasts its time"] = function()
+		local from, to = E.fullNow(1000, 600, Cfg.Weather.fade)
+		assert(near(E.strength(1000, from, to, Cfg.Weather.fade), 1), "full at once")
+		assert(E.strength(1000 + 600, from, to, Cfg.Weather.fade) == 0, "over after its time")
 	end,
 }

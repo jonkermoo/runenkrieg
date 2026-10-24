@@ -26,6 +26,10 @@ local Destruction = {
 	-- walls are gone)
 	CollapseSupportFraction = 0.25,
 
+	-- Support (src/server/Destruction, user 2026-10-23: "anything not supported should fall"): pieces of a building count
+	-- as touching within this many studs of each other; what has no chain of touching pieces down to the ground drops.
+	SupportTouch = 0.25,
+
 	-- A blast breaks a ragged, round-ish hole (user 2026-10-18: building damage "is always a square"): a broken wall
 	-- section of a `kinds` kind is cut into ~`cell`-stud cells; those within the class's fail distance of the blast (at
 	-- least the section's own distance + `minBite`), give or take `jitter` x that, break off, the rest stays standing as
@@ -34,9 +38,54 @@ local Destruction = {
 	Jag = { kinds = { Wall = true, Gable = true }, cell = 1.5, jitter = 0.3, minBite = 2, remainsHP = 0.3 },
 
 	-- Client-side fracture debris (visual only, never replicated, never collides with players).
-	-- They fly for `settle` s, then freeze where they lie (anchored: no physics) and stay `lifetime` s in all (user
-	-- 2026-10-17: destroyed assets "should stay for some time" without lag); past `maxLive` the oldest go first.
-	Debris = { chunksPerSection = 6, settle = 3, lifetime = 60, maxLive = 600 },
+	-- They fly until at rest (`Rest`, Rules/Destruction.rested, checked every `Rest.every` s), then freeze where they lie
+	-- (anchored: no physics) and stay `lifetime` s in all (user 2026-10-17: destroyed assets "should stay for some time"
+	-- without lag); past `maxLive` the oldest go first. A frozen chunk wakes and falls again when what it may lie on
+	-- goes (a chunk under it, a broken section; Rules/Destruction.leanedOn within `wakeMargin` studs). Was: frozen 3 s
+	-- after the break wherever it was (user 2026-10-23: "blown up buildings should not have floating blocks").
+	Debris = {
+		chunksPerSection = 6,
+		lifetime = 60,
+		maxLive = 600,
+		-- (was still 1.5 / spin 2: Studio 2026-10-24 froze a chunk 1.3 studs over the one under it, caught at 1.25 studs/s
+		-- as it began to fall)
+		Rest = { still = 0.3, spin = 0.5, time = 0.4, after = 0.5, maxFly = 15, every = 0.1 },
+		wakeMargin = 1.5,
+		-- a blast's crater reaches the clients after its debris (big terrain edits replicate slowly; Studio 2026-10-24:
+		-- frame bars froze on the old ground 4-5 studs over a howitzer crater): frozen chunks over the churned ground
+		-- (Rules/Blast.churnFromReach) wake again this many seconds after the blast
+		craterWake = { 1, 3 },
+		-- a chunk come to rest over `height` studs above the ground or floor under it (a pile of chunks: corner stones
+		-- spawned block on block stood as 6-8 stud columns, Studio 2026-10-24) is knocked over instead of frozen: `push`
+		-- studs/s to a random side, `spin` rad/s, at most `tries` times (Rules/Destruction.topples)
+		Pillar = { height = 4, push = 12, spin = 6, tries = 3 },
+		-- how hard each kind of piece is thrown (Config/Damage.Blast.Destroy bands; user 2026-10-23): x the old blast
+		-- throw (18-34 studs/s away, 8-22 up, less from far off). Crumpled chunks drop near where they were; glass
+		-- shatters as before; a piece that lost its support (or a collapsing story) only drops. Every chunk also gets a
+		-- nudge of up to `fallNudge` studs/s to a random side and `fallSpin` rad/s, so it tumbles into a heap (straight
+		-- down, a chimney froze as a 15-stud column of loose chunks and corner stones in 5-8 stud columns: Studio
+		-- 2026-10-24).
+		Push = { crumple = 0.25, glass = 1, dust = 1.3 },
+		fallNudge = 8,
+		fallSpin = 5,
+		-- a pulverised piece: `shards` small chunks of at most `shard` studs, thrown hard and gone after `shardLife` s
+		-- (no lasting rubble), and a puff of dust (Config/Palette.Buildings.Dust, `tint` of the way from its own colour)
+		-- per ~`puffEvery` studs of its length (1 to 3), `puffSize` x its size (at most `puffMax`) growing `grow` x and
+		-- fading from `alpha` over `puffTime` s; at most `maxPuffs` per break.
+		Dust = {
+			shards = 2,
+			shard = 0.8,
+			shardLife = 2,
+			puffEvery = 4,
+			puffSize = 0.6,
+			puffMax = 4,
+			grow = 2.2,
+			alpha = 0.35,
+			puffTime = 1.2,
+			tint = 0.5,
+			maxPuffs = 30,
+		},
+	},
 
 	-- Natural map buildings cannot be repaired; only player-built assets can.
 	NaturalRepairable = false,

@@ -26,7 +26,7 @@ local Build = {
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
 	Ghost = { ok = { 120, 200, 120 }, bad = { 220, 80, 70 }, transparency = 0.55 },
 	-- the trench planner's ghost (src/client/Build; user 2026-10-24: "make the entire planning thing better and more
-	-- stylish", design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ), a preview of the stakes and cord the
+	-- stylish"), a preview of the stakes and cord the
 	-- server lays: per square a faint fill (Ghost ok / bad, `fill` see-through) with the dug floor's band in it
 	-- (`floor`), a chalk cord round it (`cord` wide, `cordSee` see-through; Palette.Build.Chalk, ChalkBad when it can't
 	-- go), `gap` between squares, ghost stakes (`peg`: width, height, one at the cursor before the
@@ -54,7 +54,7 @@ local Build = {
 	-- the turn step (degrees) for Key_BuildTurn and a mouse wheel notch with Shift
 	TurnStep = 15,
 
-	-- Trenches v2 (user 2026-10-23; design page https://claude.ai/artifact/FRZKPxjdaq3nXAzFwWwFb6): carved into the
+	-- Trenches v2 (user 2026-10-23): carved into the
 	-- terrain like the howitzer's pit (user: "I really like how the mortar dug out is like ... make it like that"),
 	-- src/server/Trenches. A plan is one straight run, click start, click end (src/client/Build), up to `maxPlan`
 	-- studs, split into blocks of up to `block` studs (at least `minBlock`); the plan is pegged out with markers
@@ -99,7 +99,7 @@ local Build = {
 		bank = { width = 5, height = 1.2 },
 		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
 		scar = { depth = 0.6 },
-		-- markers (src/server/Trenches; user 2026-10-24, design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): a
+		-- markers (src/server/Trenches; user 2026-10-24): a
 		-- stake (width, height) at each corner of a square, its top `top` studs painted (Palette.Build.PegTop), cord
 		-- `string` wide between the stake tops sagging by `sag` of its length (a Beam's curve); no flags
 		-- (user 2026-10-24: "i dont think we need a flag. lets just do the stakes"). (0.9 high pegs were lost in the tall grass, Studio round t1023-2101)

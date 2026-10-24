@@ -11,6 +11,30 @@ local function kpa(studs: number, kg: number?): number
 end
 
 return {
+	["damage bands: wear, crumple, destroy, scaled by material"] = function()
+		assert(Blast.band(500, 1000, 3000) == "wear")
+		assert(Blast.band(1000, 1000, 3000) == "crumple")
+		assert(Blast.band(3000, 1000, 3000) == "destroy")
+		assert(Blast.band(1e6, 20, nil) == "crumple", "no destroy band: only crumples")
+		for class, destroy in B.Destroy do
+			local fail = B.Fail[class] or B.FailDefault
+			assert(destroy > fail, `{class}: destroyed only past where it crumples`)
+		end
+		local function reach(class: string, kg: number): number
+			return Blast.reachOf(B.Destroy[class], kg, B)
+		end
+		-- weaker materials are destroyed farther out
+		assert(reach("Thatch", KG) > reach("Plaster", KG) and reach("Plaster", KG) > reach("Brick", KG))
+		assert(reach("Brick", KG) > reach("Stone", KG))
+		-- a howitzer shell pulverises plaster to ~11 studs, the staff's full beam ~3.5, a stick grenade under a stud
+		local how = 340
+		assert(math.abs(reach("Plaster", how) - 11.4) < 0.5)
+		assert(math.abs(reach("Plaster", KG) - 3.5) < 0.3)
+		assert(reach("Plaster", 0.17) < 1)
+		-- trees: felled before splintered; the full beam splinters within ~7.6 studs
+		assert(B.Tree.splinter > B.Tree.fail)
+		assert(math.abs(Blast.reachOf(B.Tree.splinter, KG, B) - 7.6) < 0.4)
+	end,
 	["Kinney-Graham overpressure matches published values"] = function()
 		-- Kinney & Graham (ambient 1 atm): Z = 3 -> ~0.8 bar, Z = 5 -> ~0.29 bar, Z = 10 -> ~0.1 bar
 		local function near(z: number, want: number, tol: number)

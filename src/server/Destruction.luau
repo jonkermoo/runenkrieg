@@ -1,7 +1,7 @@
 --!strict
 -- Server-authoritative building destruction (docs/DESTRUCTION.md). The server owns section HP and
 -- removes broken sections; clients get one SectionBroken event per break and spawn their own debris.
---   Destruction.damage(section, amount, origin?)
+--   Destruction.damage(section, amount, origin?, cut?)
 --   Destruction.explode(position, radius, damage) -- also kicks trees via Net "Explosion"
 --   Destruction.shot(part, point) -- a bullet meeting `part`: glass breaks (Config/Firing.Shatter)
 -- Stateless (all state lives in attributes), so it can be required from anywhere on the server.
@@ -38,22 +38,28 @@ local function buildingOf(i: Instance): Model?
 	return m
 end
 
-type Piece = { cf: CFrame, size: Vector3, color: Color3, t: number }
+-- How a piece goes (src/client/Debris): nil crumples (chunks that drop near where it was), "fall" lost its support (drops
+-- where it was), "dust" was pulverised (a puff of dust and a few shards, gone in seconds). Config/Damage.Blast.Destroy.
+type Piece = { cf: CFrame, size: Vector3, color: Color3, t: number, m: string? }
 
-local function collect(model: Instance, out: { Piece })
+local function piece(p: BasePart, m: string?): Piece
+	return { cf = p.CFrame, size = p.Size, color = p.Color, t = p.Transparency, m = m }
+end
+
+local function collect(model: Instance, out: { Piece }, m: string?)
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
-			table.insert(out, { cf = d.CFrame, size = d.Size, color = d.Color, t = d.Transparency })
+			table.insert(out, piece(d, m))
 		end
 	end
 end
 
 -- Remove sections and tell clients to show debris (one event for the whole batch).
-local function breakAll(sections: { Model }, origin: Vector3)
+local function breakAll(sections: { Model }, origin: Vector3, m: string?)
 	local pieces: { Piece } = {}
 	for _, s in sections do
 		if s.Parent then
-			collect(s, pieces)
+			collect(s, pieces, m)
 		end
 	end
 	if #pieces > 0 then
@@ -65,9 +71,10 @@ local function breakAll(sections: { Model }, origin: Vector3)
 end
 
 -- A section broken by a blast at `origin` whose hole reaches `hole` studs: a ragged hole (Config/Destruction.Jag). Each
--- box part is cut into cells; cells inside the hole (its edge jittered per cell) break off as debris, the rest become
--- the section's "Remains" (a weaker section, not a wall for collapse). Other parts go if their centre is in the hole.
-local function breakRagged(section: Model, origin: Vector3, hole: number)
+-- box part is cut into cells; cells inside the hole (its edge jittered per cell) break off as debris, pulverised within
+-- `dust` studs (Config/Damage.Blast.Destroy) and crumpled beyond, the rest become the section's "Remains" (a weaker
+-- section, not a wall for collapse). Other parts go if their centre is in the hole.
+local function breakRagged(section: Model, origin: Vector3, hole: number, dust: number)
 	local J = D.Jag
 	local seed = #section:GetFullName()
 	local pieces: { Piece } = {}
@@ -86,10 +93,11 @@ local function breakRagged(section: Model, origin: Vector3, hole: number)
 				x[ua], x[va] = u - (sz :: any)[ua] / 2, v - (sz :: any)[va] / 2
 				return Vector3.new(x.X, x.Y, x.Z)
 			end
-			local kept, broken = Rules.jag((sz :: any)[ua], (sz :: any)[va], J.cell, function(u, v)
+			local bands = Rules.jagBands((sz :: any)[ua], (sz :: any)[va], J.cell, function(u, v)
 				local at = d.CFrame * local3(u, v)
 				local n = Rules.noise(math.floor(u / J.cell), math.floor(v / J.cell), seed)
-				return (at - origin).Magnitude <= hole * (1 + J.jitter * (n * 2 - 1))
+				local r = (at - origin).Magnitude / (1 + J.jitter * (n * 2 - 1))
+				return if r <= dust then 2 elseif r <= hole then 1 else 0
 			end)
 			local function part(r: Rules.Run): (CFrame, Vector3)
 				local size = { X = sz.X, Y = sz.Y, Z = sz.Z }
@@ -97,11 +105,16 @@ local function breakRagged(section: Model, origin: Vector3, hole: number)
 				return d.CFrame * CFrame.new(local3((r.u0 + r.u1) / 2, (r.v0 + r.v1) / 2)),
 					Vector3.new(size.X, size.Y, size.Z)
 			end
-			for _, r in broken do
-				local cf, size = part(r)
-				table.insert(pieces, { cf = cf, size = size, color = d.Color, t = d.Transparency })
+			for band, m in { [1] = "", [2] = "dust" } do
+				for _, r in bands[band] or {} do
+					local cf, size = part(r)
+					table.insert(
+						pieces,
+						{ cf = cf, size = size, color = d.Color, t = d.Transparency, m = if m ~= "" then m else nil }
+					)
+				end
 			end
-			for _, r in kept do
+			for _, r in bands[0] or {} do
 				local cf, size = part(r)
 				local c = d:Clone()
 				c:ClearAllChildren()
@@ -109,8 +122,9 @@ local function breakRagged(section: Model, origin: Vector3, hole: number)
 				table.insert(keep, c)
 			end
 		elseif d:IsA("BasePart") then
-			if (d.Position - origin).Magnitude <= hole then
-				table.insert(pieces, { cf = d.CFrame, size = d.Size, color = d.Color, t = d.Transparency })
+			local r = (d.Position - origin).Magnitude
+			if r <= hole then
+				table.insert(pieces, piece(d, if r <= dust then "dust" else nil))
 			else
 				local c = d:Clone()
 				c:ClearAllChildren()
@@ -178,12 +192,146 @@ local function checkCollapse(building: Model, origin: Vector3)
 		end
 	end
 	building:SetAttribute("CollapsedFrom", from)
-	breakAll(doomed, origin)
+	breakAll(doomed, origin, "fall") -- (a story losing its walls comes down where it stood)
 end
 
--- `hole`: a blast's reach for this section's class (a ragged hole, Config/Destruction.Jag); without it the whole section
--- breaks
-function Destruction.damage(section: Model, amount: number, origin: Vector3?, hole: number?)
+-- Support (user 2026-10-23: "anything not supported should fall"): every piece of a building must hang together with
+-- the ground through the pieces it touches (Rules/Destruction.unsupported). Each section is one piece, its nested
+-- sections with it; a section's Remains is one piece per part (a ragged hole can cut them apart); the building's parts
+-- outside any section (foundation, plinth) and the ground slab (Story -1) are on the ground. What hangs on nothing
+-- drops where it is as debris; a story losing its walls that way can still collapse.
+local function unsupported(building: Model): ({ Model }, { BasePart })
+	local nodes: { { BasePart } } = {}
+	local owner: { [number]: Model } = {}
+	local grounded: { [number]: boolean } = {}
+	local nodeOf: { [BasePart]: number } = {}
+	local function add(parts: { BasePart }, section: Model?, ground: boolean)
+		table.insert(nodes, parts)
+		local i = #nodes
+		if section then
+			owner[i] = section
+		end
+		grounded[i] = ground or nil
+		for _, p in parts do
+			nodeOf[p] = i
+		end
+	end
+	for _, s in ownSections(building) do
+		if not isSection(s.Parent) then
+			local ground = s:GetAttribute("Story") == -1
+			local parts = {}
+			for _, d in s:GetDescendants() do
+				if d:IsA("BasePart") then
+					table.insert(parts, d)
+				end
+			end
+			if s:GetAttribute("Kind") == "Remains" and not ground then
+				for _, p in parts do
+					add({ p }, nil, false)
+				end
+			elseif #parts > 0 then
+				add(parts, s, ground)
+			end
+		end
+	end
+	local base = {}
+	for _, d in building:GetDescendants() do
+		if d:IsA("BasePart") and not nodeOf[d] then
+			table.insert(base, d)
+		end
+	end
+	if #base > 0 then
+		add(base, nil, true)
+	end
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { building }
+	local links: { { number } } = {}
+	for i, parts in nodes do
+		if not grounded[i] then
+			local seen = {}
+			links[i] = links[i] or {}
+			for _, p in parts do
+				for _, hit in workspace:GetPartBoundsInBox(p.CFrame, p.Size + Vector3.one * D.SupportTouch, params) do
+					local j = nodeOf[hit :: BasePart]
+					if j and j ~= i and not seen[j] then
+						seen[j] = true
+						table.insert(links[i], j)
+						-- (links go both ways: a grounded piece isn't queried; repeats are harmless)
+						links[j] = links[j] or {}
+						table.insert(links[j], i)
+					end
+				end
+			end
+		end
+	end
+	local sections, parts = {}, {}
+	for _, i in Rules.unsupported(#nodes, links, grounded) do
+		if owner[i] then
+			table.insert(sections, owner[i])
+		else
+			table.insert(parts, nodes[i][1])
+		end
+	end
+	return sections, parts
+end
+
+local function dropUnsupported(building: Model, origin: Vector3)
+	for _ = 1, 3 do
+		if not building.Parent then
+			return
+		end
+		local sections, parts = unsupported(building)
+		if #sections == 0 and #parts == 0 then
+			return
+		end
+		local pieces: { Piece } = {}
+		for _, s in sections do
+			collect(s, pieces, "fall")
+		end
+		local emptied: { [Instance]: boolean } = {}
+		for _, p in parts do
+			table.insert(pieces, piece(p, "fall"))
+			if p.Parent then
+				emptied[p.Parent] = true
+			end
+		end
+		Net.event("SectionBroken"):FireAllClients(pieces, origin)
+		for _, s in sections do
+			s:Destroy()
+		end
+		for _, p in parts do
+			p:Destroy()
+		end
+		for remains in emptied do
+			if remains.Parent and not remains:FindFirstChildWhichIsA("BasePart", true) then
+				remains:Destroy()
+			end
+		end
+		checkCollapse(building, origin)
+	end
+end
+
+-- buildings that lost something this frame: checked for unsupported pieces once, after the whole blast
+local unsettled: { [Model]: Vector3 } = {}
+
+local function settleLater(building: Model, origin: Vector3)
+	if unsettled[building] then
+		return
+	end
+	unsettled[building] = origin
+	task.defer(function()
+		unsettled[building] = nil
+		dropUnsupported(building, origin)
+	end)
+end
+
+-- How a blast breaks a section (Destruction.blast): `hole` its reach for this section's class (a ragged hole,
+-- Config/Destruction.Jag), `dust` how far it pulverises it (Config/Damage.Blast.Destroy; 0: never), `distance` the
+-- section's own distance from it. Without one the whole section crumples.
+export type Cut = { hole: number, dust: number, distance: number }
+
+function Destruction.damage(section: Model, amount: number, origin: Vector3?, cut: Cut?)
 	if not section.Parent or amount <= 0 then
 		return
 	end
@@ -195,13 +343,14 @@ function Destruction.damage(section: Model, amount: number, origin: Vector3?, ho
 	local building = buildingOf(section)
 	local at = origin or section:GetPivot().Position
 	local kind = section:GetAttribute("Kind")
-	if origin and hole and type(kind) == "string" and (D.Jag.kinds :: any)[kind] then
-		breakRagged(section, origin, hole)
+	if origin and cut and type(kind) == "string" and (D.Jag.kinds :: any)[kind] then
+		breakRagged(section, origin, cut.hole, cut.dust)
 	else
-		breakAll({ section }, at)
+		breakAll({ section }, at, if cut and cut.distance <= cut.dust then "dust" else nil)
 	end
 	if building then
 		checkCollapse(building, at)
+		settleLater(building, at)
 	end
 end
 
@@ -265,7 +414,8 @@ function Destruction.blast(
 	position: Vector3,
 	reach: number,
 	damageAt: (distance: number, class: string?, maxHP: number, kind: string?, hp: number) -> number,
-	holeAt: ((class: string?) -> number)?
+	holeAt: ((class: string?) -> number)?,
+	dustAt: ((class: string?) -> number)?
 ): { broken: number, damaged: number }
 	Net.event("Explosion"):FireAllClients(position, reach, 1)
 	local nearest: { [Model]: number } = {}
@@ -295,10 +445,17 @@ function Destruction.blast(
 			)
 			if dmg > 0 then
 				damaged += 1
-				-- its ragged hole: as far as the blast breaks this class, at least a bite past this section's edge
-				local hole = holeAt
-					and math.max(holeAt(if type(class) == "string" then class else nil), d + D.Jag.minBite)
-				Destruction.damage(s, dmg, position, hole or nil)
+				-- its ragged hole: as far as the blast breaks this class, at least a bite past this section's edge; its middle
+				-- pulverised as far as the blast destroys this class
+				local c = if type(class) == "string" then class else nil
+				local cut: Cut? = if holeAt
+					then {
+						hole = math.max(holeAt(c), d + D.Jag.minBite),
+						dust = if dustAt then dustAt(c) else 0,
+						distance = d,
+					}
+					else nil
+				Destruction.damage(s, dmg, position, cut)
 				if not s.Parent then
 					broken += 1
 				end

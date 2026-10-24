@@ -10,7 +10,7 @@
 local Camera = {
 	FreeMaxZoom = 10.5, -- no weapon in the hands: Roblox's camera zooms out this far (user 2026-10-11)
 	-- Classes (Config/Weapons `class`) that keep Roblox's own camera, as with empty hands (user 2026-10-24: "make it so
-	-- your camera doesnt get locked with a shovel out"; design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ
+	-- your camera doesnt get locked with a shovel out"; the design's
 	-- option A): a free cursor, right drag turns, the wheel zooms from FreeMinZoom out (third person only: the
 	-- first-person holds belong to the weapon camera's viewmodel). src/client/Build aims at the cursor with one.
 	FreeClasses = { Shovel = true },

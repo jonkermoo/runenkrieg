@@ -49,6 +49,17 @@ function Environment.clockAt(elapsed: number, day: any): number
 	return h % 24
 end
 
+-- The server time the clock runs from (`elapsed` is measured from it) so that it reads `clock` at server time `at`.
+function Environment.startFor(clock: number, at: number, day: any): number
+	return at - (Environment.phaseOf(clock, day) - Environment.phaseOf(day.startClock, day))
+end
+
+-- The clock at server time `now` for a day that started at `dayStart`; while paused (`pausedAt`: the time it
+-- stopped) it stays at what it read then.
+function Environment.clockNow(now: number, dayStart: number, pausedAt: number?, day: any): number
+	return Environment.clockAt((pausedAt or now) - dayStart, day)
+end
+
 local function smooth(x: number): number
 	x = math.clamp(x, 0, 1)
 	return x * x * (3 - 2 * x)
@@ -75,6 +86,11 @@ end
 -- A length from `range` ({min, max}) by a roll `u` (0-1).
 function Environment.span(u: number, range: any): number
 	return range.min + math.clamp(u, 0, 1) * (range.max - range.min)
+end
+
+-- The (from, to) server times of an event shown at full strength at `now` (its fade in already over) for `seconds`.
+function Environment.fullNow(now: number, seconds: number, fade: number): (number, number)
+	return now - fade, now + seconds
 end
 
 -- An event's strength at `now`: 0 before `from` and after `to`, easing in and out over `fade` seconds.
@@ -120,12 +136,15 @@ function Environment.look(daylight: number, kind: string, w: number, base: Haze,
 	local rain = if kind == "Rain" then s else 0
 	local cloud = mixColor(W.clouds.color, W.clouds.rainColor, rain)
 	local glow = 4 * d * night * L.dusk.strength * (1 - s) -- (none under fog or rain)
+	-- the light itself reaches its night values by `nightBy` of the twilight (sunset), not at its end: the sun is gone at
+	-- sunset, and the half-blended light left the minutes after it darker than midnight (Studio 2026-10-24)
+	local lit = math.clamp((d - L.nightBy) / (1 - L.nightBy), 0, 1)
 
 	return {
-		brightness = mix(L.night.brightness, L.day.brightness, d) * sun,
-		ambient = mixColor(L.night.ambient, L.day.ambient, d),
-		outdoorAmbient = mixColor(L.night.outdoorAmbient, L.day.outdoorAmbient, d),
-		exposure = mix(L.night.exposure, L.day.exposure, d),
+		brightness = mix(L.night.brightness, L.day.brightness, lit) * sun,
+		ambient = mixColor(L.night.ambient, L.day.ambient, lit),
+		outdoorAmbient = mixColor(L.night.outdoorAmbient, L.day.outdoorAmbient, lit),
+		exposure = mix(L.night.exposure, L.day.exposure, lit),
 		density = density,
 		haze = haze,
 		color = mixColor(mixColor(color, L.nightHaze.color, night), L.dusk.color, glow),
