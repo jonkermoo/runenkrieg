@@ -32,8 +32,10 @@ return {
 		assert(not freeze, "only just stopped: not yet")
 		still, freeze = R.rested(r.still + 1, 0, r.time, 1, 0.1, r)
 		assert(still == 0 and not freeze, "moving again resets it")
-		local _, capped = R.rested(10, 10, 0, r.maxFly, 0.1, r)
-		assert(capped, "frozen after maxFly whatever it does")
+		local _, frozen, letGo = R.rested(10, 10, 0, r.maxFly, 0.1, r)
+		assert(not frozen and letGo, "still moving after maxFly: let go, never frozen in the air")
+		assert(not select(3, R.rested(0, 0, 0, 1, 0.1, r)), "kept while it may still come to rest")
+		assert(r.still < 1, "frozen only when all but stopped (a chunk frozen at 1.25 studs/s hung in the air)")
 	end,
 	["a frozen chunk wakes when what is under or beside it goes, not what is above"] = function()
 		assert(R.leanedOn(0, 2, 0, 1, 1.5), "on top of it")

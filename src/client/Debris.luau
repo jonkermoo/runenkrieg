@@ -44,7 +44,8 @@ local function wake(p: BasePart)
 	moving[p] = { part = p, flying = 0, still = 0 }
 end
 
--- `push`: how hard it is thrown from `origin` (Config/Destruction.Debris.Push; 0: it only drops)
+-- `push`: how hard it is thrown from `origin` (Config/Destruction.Debris.Push; 0: it only drops, nudged to a side).
+-- `brief`: a pulverised piece's shard, gone in seconds: never frozen and no part of the maxLive count.
 local function spawnChunk(
 	cf: CFrame,
 	size: Vector3,
@@ -53,9 +54,10 @@ local function spawnChunk(
 	origin: Vector3,
 	lifetime: number,
 	maxLive: number,
-	push: number
+	push: number,
+	brief: boolean?
 )
-	while #live >= maxLive do
+	while not brief and #live >= maxLive do
 		table.remove(live, 1):Destroy()
 	end
 	local p = Instance.new("Part")
@@ -71,7 +73,10 @@ local function spawnChunk(
 	p.CollisionGroup = "Debris"
 	p.Parent = container
 	if push <= 0 then
-		p.AssemblyAngularVelocity = Vector3.new(math.random(-2, 2), math.random(-2, 2), math.random(-2, 2))
+		local a, n, s = math.random() * 2 * math.pi, D.Debris.fallNudge * math.random(), D.Debris.fallSpin
+		p.AssemblyLinearVelocity = Vector3.new(math.cos(a) * n, 0, math.sin(a) * n)
+		p.AssemblyAngularVelocity =
+			Vector3.new((math.random() * 2 - 1) * s, (math.random() * 2 - 1) * s, (math.random() * 2 - 1) * s)
 	else
 		local away = cf.Position - origin
 		local dist = math.max(away.Magnitude, 1)
@@ -79,8 +84,10 @@ local function spawnChunk(
 		p.AssemblyLinearVelocity = (away.Unit * speed + Vector3.new(0, math.random(8, 22), 0)) * push
 		p.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
 	end
-	table.insert(live, p)
-	moving[p] = { part = p, flying = 0, still = 0 }
+	if not brief then
+		table.insert(live, p)
+		moving[p] = { part = p, flying = 0, still = 0 }
+	end
 	p.Destroying:Connect(function()
 		local i = table.find(live, p)
 		if i then
@@ -145,7 +152,7 @@ local function pulverise(
 	for _ = 1, U.shards do
 		local off =
 			Vector3.new((math.random() - 0.5) * size.X, (math.random() - 0.5) * size.Y, (math.random() - 0.5) * size.Z)
-		spawnChunk(cf * CFrame.new(off), shard, color, 0, origin, U.shardLife, maxLive, D.Debris.Push.dust)
+		spawnChunk(cf * CFrame.new(off), shard, color, 0, origin, U.shardLife, maxLive, D.Debris.Push.dust, true)
 	end
 	local long = math.max(size.X, size.Y, size.Z)
 	local n = math.min(math.clamp(math.floor(long / U.puffEvery), 1, 3), puffs)
@@ -181,8 +188,8 @@ local function step(dt: number)
 	local R = D.Debris.Rest
 	for p, c in moving do
 		c.flying += dt
-		local freeze
-		c.still, freeze = Rules.rested(
+		local freeze, letGo
+		c.still, freeze, letGo = Rules.rested(
 			p.AssemblyLinearVelocity.Magnitude,
 			p.AssemblyAngularVelocity.Magnitude,
 			c.still,
@@ -194,6 +201,8 @@ local function step(dt: number)
 			moving[p] = nil
 			frozen[p] = true
 			p.Anchored = true
+		elseif letGo then
+			moving[p] = nil -- (left to the physics engine: it sleeps once it stops)
 		end
 	end
 	if #gone > 0 then
@@ -253,10 +262,10 @@ function DebrisClient.start()
 				puffs = pulverise(piece.cf, piece.size, piece.color, origin, maxLive, puffs)
 			elseif piece.t > 0.1 then
 				-- glass: more, smaller shards
-				local push = if piece.m == "fall" then Push.fall else Push.glass
+				local push = if piece.m == "fall" then 0 else Push.glass
 				fracture(piece.cf, piece.size, piece.color, piece.t, origin, 9, lifetime, maxLive, push)
 			else
-				local push = if piece.m == "fall" then Push.fall else Push.crumple
+				local push = if piece.m == "fall" then 0 else Push.crumple
 				fracture(piece.cf, piece.size, piece.color, piece.t, origin, per, lifetime, maxLive, push)
 			end
 		end
