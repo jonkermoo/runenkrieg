@@ -438,6 +438,11 @@ function Build.dug(key: string): boolean
 	return Trenches.dug(key)
 end
 
+-- whether `p` is within `extra` of a trench's ground (src/server/Ground keeps craters off it)
+function Build.nearTrench(p: Vector3, extra: number): boolean
+	return Trenches.near(p, extra)
+end
+
 -- Removes every piece and trench (dev: the admin panel's undo)
 function Build.clear()
 	local list = {}

@@ -46,7 +46,7 @@ export type Block = {
 	length: number,
 	hp: number, -- its depth: hp / Trench.hp.max of the full depth
 	falling: boolean, -- lost HP since it was last full
-	built: boolean, -- dug full once: it keeps its full shape until its HP is below Trench.hp.cave
+	built: boolean, -- dug full once: from then on it is buried by the HP it loses (Rules.trenchDepth)
 	scar: boolean,
 	linkA: Link?,
 	linkB: Link?,
@@ -202,7 +202,7 @@ local function reshape(centre: Vector3, reach: number)
 						if h and h < 0 then
 							local want = line + h
 							if not cut or want < cut then
-								cut, churned = want, blk.falling and n.share < 1
+								cut, churned = want, false -- (filled in as mud, the colour of its pieces)
 							end
 						elseif h and h > 0 and top then
 							bank = math.max(bank or -math.huge, top + h)
@@ -527,8 +527,8 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the dirt pieces lie in a square dug full while it keeps its full shape (HP above Trench.hp.cave)
-	local full = blk.built and shareOf(blk) >= 1
+	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP
+	local full = blk.built
 	if full then
 		pieces(blk)
 	else
@@ -836,7 +836,7 @@ function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: 
 	for _, blk in blocks do
 		if live(blk) and blk.hp > 0 then
 			local d = Rules.trenchBlastDistance(Survey.toSegment(position, blk.a, blk.b), T)
-			local loss = Rules.trenchBlast(kpaAt(d), H.max, K.from, K.full) * K.share
+			local loss = Rules.trenchBlast(kpaAt(d), H.max, K)
 			if loss > 0 then
 				blk.hp = math.max(blk.hp - loss, 0)
 				blk.falling = true
@@ -855,6 +855,17 @@ function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: 
 end
 
 -- Removes every trench and scar, the ground put back (dev: the admin panel's undo)
+-- whether `p` is within `extra` of a trench's ground (its hole, walls and banks; flat): blasts' craters stop short of it
+-- (src/server/Ground; user 2026-10-24: "craters stop at the trench")
+function Trenches.near(p: Vector3, extra: number): boolean
+	for _, blk in blocks do
+		if live(blk) and blk.hp > 0 and Survey.toSegment(p, blk.a, blk.b) <= TOP + T.bank.width + extra then
+			return true
+		end
+	end
+	return false
+end
+
 -- whether a trench ever touched voxel `key` ("x,y,z" in voxel units)
 function Trenches.dug(key: string): boolean
 	return original[key] ~= nil

@@ -50,10 +50,11 @@ local Build = {
 		planLife = 180, -- seconds an undug plan stays
 		swingReach = 8, -- a swing works the square whose line is this close, in front of you
 		-- a square's HP: a Build swing adds `swing` (up to `max`), a Destroy swing takes `destroy` off; blasts take HP by
-		-- their overpressure at the square (Blast below). Once dug full it keeps its full shape and pieces until its HP
-		-- is below `cave`, then caves in with what's left (user 2026-10-24: "the trenches break too easily. make it start
-		-- burrowing at a way lower % after it's been built. it also should be way way more durable")
-		hp = { max = 100, swing = 34, destroy = 4, cave = 30 },
+		-- their overpressure at the square (Blast below). Once dug full it is buried by what it loses: full depth down to
+		-- `hold`% HP, then filled in with the rest (80%: a little earth in it; 5-10%: nearly level, unusable), its pieces
+		-- under the fill (user 2026-10-24: "an 80% trench should start visibly filling a little bit, but not an unusable
+		-- amount"; "way way more durable")
+		hp = { max = 100, swing = 34, destroy = 4, hold = 95 },
 		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
 		-- earth thrown up as a bank along both edges (the pit's rim)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
@@ -74,12 +75,14 @@ local Build = {
 		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
 		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
 		pieces = { segment = 8, walls = 8, floors = 4, wood = { 5, 6, 7, 8 }, woodChance = 0.25 },
-		-- a blast fills a square in: from `from` kPa it loses HP, all of it at `full`. Inside the trench the pressure is
-		-- taken at the blast's distance past the floor's edge; within `zone` trench widths past the top edge (user
-		-- 2026-10-23: "the hitbox should extend out about another trench size") as if it went off `edge` studs away
-		-- (a grenade takes about a third, a shell fills it); further out, `edge` plus how far past the zone
-		-- (a blast at `full` takes `share` of the HP: way more durable, user 2026-10-24)
-		blast = { from = 150, full = 900, zone = 1, edge = 2.5, share = 0.15 },
+		-- a blast buries a square: from `from` kPa it loses HP, rising with the pressure on a log scale (to the power
+		-- `curve`) to `cap` of its HP at `full`. Inside the trench the pressure is taken at the blast's distance past the
+		-- floor's edge; within `zone` trench widths past the top edge (user 2026-10-23: "the hitbox should extend out
+		-- about another trench size") as if it went off `edge` studs away; further out, `edge` plus how far past the zone.
+		-- At the edge (user 2026-10-24): a grenade ~4% ("grenades alone should not bury a trench, but maybe damage it over
+		-- time"), a field gun ~33% ("a few field cannons should bury a trench"), the howitzer leaves 7% ("instantly bury a
+		-- trench (maybe not destroy it ...)")
+		blast = { from = 150, full = 30000, curve = 1.6, cap = 0.93, zone = 1, edge = 2.5 },
 		-- clods knocked off the walls each destroy swing (client debris; not by blasts)
 		clods = { perSwing = 6, size = { 0.5, 1.2 } },
 	},

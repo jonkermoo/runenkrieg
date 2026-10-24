@@ -223,10 +223,10 @@ function Build.trenchPieces(seed: number, prevSeed: number?, p: any): TrenchPiec
 end
 
 -- How deep a trench square is cut (0..1 of the full depth) at `hp`: while it's being dug, its HP's share; once it has
--- been dug full (`built`), full depth until its HP is below `h.cave`, then caving in with what's left.
+-- been dug full (`built`), full depth down to `h.hold`% HP, then buried with what's left.
 function Build.trenchDepth(hp: number, built: boolean, h: any): number
 	if built then
-		return math.clamp(hp / h.cave, 0, 1)
+		return math.clamp(hp / (h.max * h.hold / 100), 0, 1)
 	end
 	return math.clamp(hp / h.max, 0, 1)
 end
@@ -256,12 +256,14 @@ function Build.trenchBlastDistance(d: number, t: any): number
 	return B.edge + (d - zone)
 end
 
--- the HP a blast takes off a square: none under `from` kPa at its line, all of it (`max`) at `full`
-function Build.trenchBlast(kpa: number, max: number, from: number, full: number): number
-	if kpa <= from then
+-- the HP a blast takes off a square (`b`: Config/Build.Trench.blast): none under `b.from` kPa at its line, rising with
+-- the log of the pressure (to the power `b.curve`) to `b.cap` of `max` at `b.full`
+function Build.trenchBlast(kpa: number, max: number, b: any): number
+	if kpa <= b.from then
 		return 0
 	end
-	return max * math.min((kpa - from) / (full - from), 1)
+	local t = math.min(math.log(kpa / b.from) / math.log(b.full / b.from), 1)
+	return max * b.cap * t ^ b.curve
 end
 
 -- Where a segment from (ax, az) to (bx, bz) runs inside a rectangle (centre cx, cz; unit axis ux, uz along it; half

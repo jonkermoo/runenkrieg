@@ -165,18 +165,23 @@ return {
 		hp, gone = B.trenchSwing(10, H.max, H.swing, false)
 		assert(hp == 0 and gone)
 		local K = C.Trench.blast
-		assert(
-			B.trenchBlast(K.from, H.max, K.from, K.full) == 0
-				and B.trenchBlast(K.full * 2, H.max, K.from, K.full) == H.max
-		)
-		assert(near(B.trenchBlast((K.from + K.full) / 2, H.max, K.from, K.full), H.max / 2))
+		assert(B.trenchBlast(K.from, H.max, K) == 0 and near(B.trenchBlast(K.full * 2, H.max, K), H.max * K.cap))
+		-- at the edge (2.5 studs): a grenade ~230-340 kPa, a 2.5 kg field gun shell ~2400, the 340 kg howitzer far over
+		local grenade = B.trenchBlast(344, H.max, K)
+		local field = B.trenchBlast(2400, H.max, K)
+		local howitzer = B.trenchBlast(50000, H.max, K)
+		assert(grenade > 1 and grenade < 6, `a grenade only wears it down ({grenade})`)
+		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
+		assert(howitzer >= 90 and howitzer < H.max, `the howitzer buries it but leaves it standing ({howitzer})`)
 	end,
-	["trenches v2: a built square keeps its full depth until its HP is below the cave share"] = function()
+	["trenches v2: a built square is buried by what it loses: a little at 80%, nearly level at 5-10%"] = function()
 		local H = C.Trench.hp
 		assert(near(B.trenchDepth(H.max / 2, false, H), 0.5), "digging: depth is the HP's share")
-		assert(B.trenchDepth(H.cave, true, H) == 1 and B.trenchDepth(H.max - H.destroy, true, H) == 1, "built: full")
-		assert(near(B.trenchDepth(H.cave / 2, true, H), 0.5) and B.trenchDepth(0, true, H) == 0, "then caves in")
-		assert(H.destroy < H.swing and C.Trench.blast.share < 0.5, "much harder to break than to dig")
+		assert(B.trenchDepth(H.max - H.destroy, true, H) == 1, "a swing's damage doesn't show")
+		local at80 = B.trenchDepth(80, true, H)
+		assert(at80 > 0.75 and at80 < 0.9, `80%: a little filled ({at80})`)
+		assert(B.trenchDepth(10, true, H) < 0.12 and B.trenchDepth(0, true, H) == 0, "10%: nearly level")
+		assert(H.destroy < H.swing, "much harder to break than to dig")
 	end,
 	["trenches v2: each square rolls its walls and floor, wood walls now and then but never twice in a row"] = function()
 		local P = C.Trench.pieces
