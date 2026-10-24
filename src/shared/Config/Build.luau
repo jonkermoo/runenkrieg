@@ -71,6 +71,9 @@ local Build = {
 		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
 		wallAngle = 70, -- (user 2026-10-23: steeper, "it could be either deeper or less slopy")
 		bank = { width = 5, height = 1.2 },
+		-- a bullet meeting the ground this close round a square's hole, walls and banks hits the square (studs; the
+		-- terrain is carved in 4-stud voxels, so a shot at a wall often meets the ground just in front of its slab)
+		shotSlack = 2,
 		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
 		scar = { depth = 0.6 },
 		-- markers: pegs every `every` studs along both top edges, string between, a flag at each end

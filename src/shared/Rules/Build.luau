@@ -185,6 +185,13 @@ function Build.trenchProfile(r: number, share: number, t: any): number?
 	return nil
 end
 
+-- Whether a point `d` studs (flat) from a trench square's line and `dy` above its ground line there is in that square's
+-- dirt: its hole, walls and banks, from under its floor to over its bank, `slack` more each way (the terrain is carved
+-- in 4-stud voxels). A bullet meeting the ground there hits the square (src/server/Trenches.shot).
+function Build.inTrenchGround(d: number, dy: number, t: any, slack: number): boolean
+	return d <= Build.trenchTop(t) + t.bank.width + slack and dy >= -(t.depth + slack) and dy <= t.bank.height + slack
+end
+
 -- The angle (degrees) a trench line bends at a joint: `ox, oz` out of the old block's end, `nx, nz` from the joint
 -- into the new one (flat, unit). 0 is straight on.
 function Build.bend(ox: number, oz: number, nx: number, nz: number): number

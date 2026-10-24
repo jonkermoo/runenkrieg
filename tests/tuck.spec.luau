@@ -22,6 +22,16 @@ return {
 		assert(T.blocked(4 + C.Ahead + C.Clear * 0.5, 4, C.Ahead, C.Clear, true), "folded: stays until clear")
 		assert(not T.blocked(4 + C.Ahead + C.Clear + 0.01, 4, C.Ahead, C.Clear, true))
 	end,
+	["trench dirt folds the gun only head on and at the barrel's reach"] = function()
+		local f = C.TrenchFacing
+		assert(not T.trenchBlocked(nil, 1, 4, f, C.Clear, false))
+		assert(T.trenchBlocked(3, 0.95, 4, f, C.Clear, false), "straight into a wall at point blank")
+		assert(not T.trenchBlocked(3, 0.3, 4, f, C.Clear, false), "a sloped wall glanced along the trench")
+		assert(not T.trenchBlocked(2, -0.5, 4, f, C.Clear, false), "the floor or the parapet, aiming out")
+		assert(not T.trenchBlocked(4 + 0.1, 0.95, 4, f, C.Clear, false), "no about-to-hit margin in a trench")
+		assert(T.trenchBlocked(4 + C.Clear * 0.5, 0.95, 4, f, C.Clear, true), "folded: stays until clear")
+		assert(f > 0.5 and f < 1)
+	end,
 	["tuck settings are sane"] = function()
 		assert(C.Radius > 0 and C.Radius < 1)
 		assert(C.Ahead >= 0 and C.Ahead < 2 and C.Clear > 0 and C.Clear < 2)

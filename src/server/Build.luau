@@ -441,9 +441,10 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 	end
 end
 
--- A bullet meeting `part` (src/server/Firing): a trench square or a sandbag column loses Structures.bullet
-function Build.shot(part: Instance)
-	if Trenches.shot(part) then
+-- A bullet meeting `part` at `point` (src/server/Firing): a trench square (a piece, or the ground in it) or a sandbag
+-- column loses Structures.bullet
+function Build.shot(part: Instance, point: Vector3)
+	if Trenches.shot(part, point) then
 		return
 	end
 	local s = part.Parent

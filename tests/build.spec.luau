@@ -145,6 +145,19 @@ return {
 		assert(B.trenchProfile(top + T.bank.width + 0.1, 1, T) == nil and B.trenchProfile(1, 0, T) == nil)
 		assert(near(B.trenchProfile(0, 1 / 3, T) :: number, -T.depth / 3), "a third dug")
 	end,
+	["trenches v2: a bullet meeting the ground in a square's hole, walls or banks hits it"] = function()
+		local T = C.Trench
+		local s = T.shotSlack
+		local edge = B.trenchTop(T) + T.bank.width
+		assert(B.inTrenchGround(0, -T.depth, T, s), "the floor")
+		assert(B.inTrenchGround(T.floor + 0.5, -T.depth + 1, T, s), "the foot of a wall")
+		assert(B.inTrenchGround(edge, T.bank.height, T, s), "the bank's far edge")
+		assert(B.inTrenchGround(edge + s - 0.01, 0, T, s), "within the slack")
+		assert(not B.inTrenchGround(edge + s + 0.01, 0, T, s), "the meadow past it")
+		assert(not B.inTrenchGround(2, -T.depth - s - 0.01, T, s), "deep under it")
+		assert(not B.inTrenchGround(2, T.bank.height + s + 0.01, T, s), "a hill over it")
+		assert(s > 0 and s <= 4)
+	end,
 	["trenches v2: reach along a block, past a joined end, round a dead end"] = function()
 		local shape = { length = 12, extA = 4, extB = 0, deadA = false, deadB = true }
 		assert(B.trenchReach(6, -2, shape, 3) == 2)

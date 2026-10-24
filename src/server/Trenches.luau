@@ -882,13 +882,27 @@ function Trenches.blast(position: Vector3, src: any)
 	end
 end
 
--- A bullet meeting `part`: a dug square's piece loses Structures.bullet; whether it was one
-function Trenches.shot(struck: Instance): boolean
+-- A bullet meeting `part` at `point`: a dug square loses Structures.bullet when it is one of its pieces, or the ground
+-- in its hole, walls or banks (Rules.inTrenchGround; the nearest square's: the carved terrain round a slab is what a
+-- shot at a wall often meets, Studio round t1024-1602-59df); whether it was one
+function Trenches.shot(struck: Instance, point: Vector3?): boolean
 	local m = struck:FindFirstAncestorWhichIsA("Model")
 	while m and not byModel[m] do
 		m = m:FindFirstAncestorWhichIsA("Model")
 	end
 	local blk = m and byModel[m]
+	if not blk and struck == workspace.Terrain and point then
+		local best = math.huge
+		for _, o in blocks do
+			if live(o) and o.hp > 0 then
+				local d = Survey.toSegment(point, o.a, o.b)
+				local u = math.clamp((point - o.a):Dot(o.dir), 0, o.length)
+				if d < best and Rules.inTrenchGround(d, point.Y - at(o, u, 0).Y, T, T.shotSlack) then
+					blk, best = o, d
+				end
+			end
+		end
+	end
 	if not blk then
 		return false
 	end
