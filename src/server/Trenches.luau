@@ -831,6 +831,11 @@ function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: 
 end
 
 -- Removes every trench and scar, the ground put back (dev: the admin panel's undo)
+-- whether a trench ever touched voxel `key` ("x,y,z" in voxel units)
+function Trenches.dug(key: string): boolean
+	return original[key] ~= nil
+end
+
 function Trenches.clear()
 	local list = {}
 	for _, blk in blocks do

@@ -178,7 +178,10 @@ return {
 		for seed = 1, 400 do
 			local r = B.trenchPieces(seed * 7919, prev, P)
 			local again = B.trenchPieces(seed * 7919, prev, P)
-			assert(r.walls[1] == again.walls[1] and r.floor == again.floor and r.flip == again.flip, "same seed, same roll")
+			assert(
+				r.walls[1] == again.walls[1] and r.floor == again.floor and r.flip == again.flip,
+				"same seed, same roll"
+			)
 			assert(r.floor >= 1 and r.floor <= P.floors)
 			assert(not table.find(P.wood, r.ends[1]) and not table.find(P.wood, r.ends[2]), "dead ends are plain")
 			for side = 1, 2 do

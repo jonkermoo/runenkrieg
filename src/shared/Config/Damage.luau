@@ -143,7 +143,7 @@ local Damage = {
 		-- sunk `sink` x radius; a low rim of `rim.count` balls of `rim.size` x radius at `rim.at` x radius, sunk
 		-- `rim.sink` x radius under the ground (it rises ~(size - sink) x radius); the ground out to `churn` x radius
 		-- turns from `churnFrom` to `churnTo` (blasted earth: grass is gone at once and never grows back; user: "as the
-		-- battle goes on, there should be little to no grass on the map"). Terrain stays changed (voxels: no upkeep).
+		-- battle goes on, there should be little to no grass on the map"), until it fills back in (`Refill`).
 		-- The hole is a wide, shallow bowl you can walk out of (user 2026-10-18: a 50 kg shell's sunk ball left a pit 12
 		-- deep with near-upright walls, "players are unable to get out"): `width` x radius across its mouth, `depth` x
 		-- radius deep at its centre, a parabola to the mouth, pressed into the ground as it lies (on a slope too: a level
@@ -160,6 +160,23 @@ local Damage = {
 			churnDepth = 1.5, -- x radius: only ground this far above or below the blast churns (none for a blast up a wall)
 			churnFrom = { "Grass", "LeafyGrass", "Ground", "Sand" },
 			churnTo = "Mud",
+			-- Craters fill back in (Rules/Refill, src/server/Ground; user 2026-10-23: "during long battles i dont want
+			-- the map to disappear because of craters", picked 2 + 5 + 2 min and a cap of 40): `delay` s after the blast
+			-- the ground eases back to what it was in `steps` even steps over `time` s, then stays mud `mud` s more (a
+			-- fresh blast there restarts it from the ground as it is). With more than `maxCraters` waiting, the oldest
+			-- starts filling now. A blast's thrown earth puts back `rimFill` of what an older crater under it lacks.
+			-- Trenches and gun pits never refill. The server checks every `tick` s and writes at most `budget` voxels a
+			-- tick (the rest wait for the next).
+			Refill = {
+				delay = 120,
+				time = 300,
+				mud = 120,
+				steps = 20,
+				maxCraters = 40,
+				rimFill = 0.5,
+				tick = 1,
+				budget = 40000,
+			},
 		},
 	},
 
