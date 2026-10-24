@@ -5,8 +5,8 @@
 --   green where it can go and red with the reason where not (shared/BuildSurvey, the same survey the server runs);
 --   Key_BuildTurn turns it (Shift turns back), a click lays its blueprint (Net "Build" "Place"). A trench is planned
 --   with two clicks: the start, then the end (the plan follows the cursor between them, snapped as the server will
---   snap it), sent as Net "Build" "Plan"; a short right click drops the start (a right drag turns the camera). Laying
---   leaves build mode.
+--   snap it), sent as Net "Build" "Plan". Key_BuildExit (Q) leaves build mode, dropping a start (right mouse stays
+--   Roblox's camera turn). Laying leaves build mode.
 -- - The trench planner's ghost (Config/Build.Plan; user 2026-10-24: "make the entire planning thing better and more
 --   stylish", design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ) previews what the server will peg out: per
 --   square a chalk cord, a faint fill with the dug floor's band, ghost stakes (no flags, user 2026-10-24); an icon
@@ -39,8 +39,6 @@ local T = C.Trench
 local P = C.Plan
 local TOP = Rules.trenchTop(T)
 local HUD = Palette.UI.BuildHud
-local TAP = 0.3 -- a right click shorter than this (seconds), moving the mouse less than TAP_MOVE pixels, is "back"
-local TAP_MOVE = 8
 
 local active = false
 local index = 1
@@ -60,6 +58,11 @@ end
 -- whether build mode is open (src/client/Shovel: a click then lays a piece instead of digging)
 function Build.active(): boolean
 	return active
+end
+
+-- the shovel's mode, "Build" or "Destroy" (src/client/Shovel swings by it)
+function Build.mode(): string
+	return mode
 end
 
 local function shovelHeld(character: Model?): boolean
@@ -793,16 +796,14 @@ function Build.start()
 		clearGhost()
 	end
 
-	-- a right click: short and still it means "back" (a right drag turns Roblox's camera)
-	local rightAt: number? = nil
-	local rightMoved = 0
-
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then
 			return
 		end
 		local character = player.Character
 		local trench = piece().kind == "Trench"
+		-- (Key_BuildExit leaves build mode: right mouse is Roblox's camera turn, user 2026-10-24: "because right click is
+		-- cancel, players are unable to change their camera angle while planning. make it Q to exit plan mode")
 		if Settings.pressed("Key_Build", input) then
 			if active then
 				leave()
@@ -829,29 +830,11 @@ function Build.start()
 			elseif current and current.reason then
 				notice = { text = current.reason, untilAt = os.clock() + 1.5 }
 			end
-		elseif active and input.UserInputType == Enum.UserInputType.MouseButton2 then
-			rightAt, rightMoved = os.clock(), 0
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton2 or not rightAt then
-			return
-		end
-		local tap = os.clock() - rightAt < TAP and rightMoved < TAP_MOVE
-		rightAt = nil
-		if not active or not tap then
-			return
-		end
-		if planStart then
-			planStart = nil -- drop the start
-		else
+		elseif active and Settings.pressed("Key_BuildExit", input) then
 			leave()
 		end
 	end)
 	UserInputService.InputChanged:Connect(function(input, processed)
-		if rightAt and input.UserInputType == Enum.UserInputType.MouseMovement then
-			rightMoved += input.Delta.Magnitude
-		end
 		if not active or processed or input.UserInputType ~= Enum.UserInputType.MouseWheel then
 			return
 		end
@@ -895,6 +878,7 @@ function Build.start()
 		end
 		local state: string?, title, line: string?, keys: { Key } = nil, "", nil, {}
 		local fire, build, reload = keyName("Key_Fire"), keyName("Key_Build"), keyName("Key_Reload")
+		local exit = keyName("Key_BuildExit")
 		if active and character and root then
 			local p = piece()
 			if p.kind == "Trench" then
@@ -903,10 +887,10 @@ function Build.start()
 					local info = planInfo
 					title = "Trench · pick the end"
 					line = if info then `{math.floor(info.length + 0.5)} studs · {info.squares} squares` else nil
-					keys = { { fire, "lay the plan" }, { "RMB", "back" }, { build, "done" } }
+					keys = { { fire, "lay the plan" }, { exit, "exit" } }
 				else
 					title = "Trench · pick the start"
-					keys = { { fire, "lay the start" }, { "Wheel", "piece" }, { build, "done" } }
+					keys = { { fire, "lay the start" }, { "Wheel", "piece" }, { exit, "exit" } }
 				end
 			else
 				surveyPiece(character, root)
@@ -915,7 +899,7 @@ function Build.start()
 					{ fire, "lay" },
 					{ "Wheel", "piece" },
 					{ keyName("Key_BuildTurn"), "turn" },
-					{ build, "done" },
+					{ exit, "exit" },
 				}
 			end
 			state = "ok"
