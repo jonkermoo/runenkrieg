@@ -109,4 +109,9 @@ return {
 			assert(not near(E.clockNow(900, start, nil, Day), h, 1e-2), "a running clock moves on")
 		end
 	end,
+	["a dev event starts at full strength and lasts its time"] = function()
+		local from, to = E.fullNow(1000, 600, Cfg.Weather.fade)
+		assert(near(E.strength(1000, from, to, Cfg.Weather.fade), 1), "full at once")
+		assert(E.strength(1000 + 600, from, to, Cfg.Weather.fade) == 0, "over after its time")
+	end,
 }

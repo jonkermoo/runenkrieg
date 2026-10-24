@@ -4,7 +4,7 @@
 -- Workspace attributes; each client draws the light, haze and rain from them (src/client/Environment). The server
 -- never writes Lighting itself: a replicated ClockTime would jerk every client's own smooth one.
 -- Dev (Studio command bar in play, and the admin panel's Time rows through src/server/DevTools): `setClock(hours)`,
--- `pause(on)`, `force(kind, seconds?)`.
+-- `pause(on)`, `force(kind, seconds?)`, and the admin panel's Weather rows: `forceNow(kind, seconds)`, `calm(on)`.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -61,6 +61,18 @@ function Environment.force(kind: string, seconds: number?)
 	set(kind, t, t + (seconds or Rules.span(rng:NextNumber(), W.duration)))
 end
 
+-- Starts `kind` at full strength right away (no fade in) for `seconds`; "Clear" ends any event now.
+function Environment.forceNow(kind: string, seconds: number)
+	turn += 1
+	local from, to = Rules.fullNow(now(), seconds, W.fade)
+	set(kind, from, to)
+end
+
+-- Stops (`on`) or restarts the random weather rolls; an event already on runs out.
+function Environment.calm(on: boolean)
+	workspace:SetAttribute(A.calm, if on then true else nil)
+end
+
 local function roll()
 	while true do
 		local mine = turn
@@ -68,7 +80,7 @@ local function roll()
 		local to = workspace:GetAttribute(A.to)
 		local wait = if typeof(to) == "number" and to > t then to - t else 0
 		task.wait(wait + Rules.span(rng:NextNumber(), W.clear))
-		if turn == mine then
+		if turn == mine and workspace:GetAttribute(A.calm) ~= true then
 			local kind = Rules.pick(rng:NextNumber(), W.odds)
 			if kind ~= "Clear" then
 				local from = now()

@@ -69,6 +69,17 @@ return {
 		assert(A.valid(Cfg, "Clock", Cfg.Admin.Times[1].hours) and not A.valid(Cfg, "Clock", 13.5))
 		assert(not A.valid(Cfg, "Clock", nil) and not A.valid(Cfg, "Clock", "12"))
 		assert(A.valid(Cfg, "ClockPaused", true) and not A.valid(Cfg, "ClockPaused", nil))
+		assert(
+			A.valid(Cfg, "Weather", "Fog") and A.valid(Cfg, "Weather", "Clear") and not A.valid(Cfg, "Weather", "Snow")
+		)
+		assert(not A.valid(Cfg, "Weather", nil) and A.valid(Cfg, "WeatherCalm", false))
+	end,
+	["admin weather: the kinds Config/Environment knows, for a positive time"] = function()
+		local Env = require("../src/shared/Config/Environment")
+		for _, kind in Cfg.Admin.Weather do
+			assert(kind == "Clear" or Env.Weather[kind], `unknown weather {kind}`)
+		end
+		assert(Cfg.Admin.WeatherSeconds > 0)
 	end,
 	["admin times: named hours on the clock"] = function()
 		for _, t in Cfg.Admin.Times do

@@ -88,6 +88,11 @@ function Environment.span(u: number, range: any): number
 	return range.min + math.clamp(u, 0, 1) * (range.max - range.min)
 end
 
+-- The (from, to) server times of an event shown at full strength at `now` (its fade in already over) for `seconds`.
+function Environment.fullNow(now: number, seconds: number, fade: number): (number, number)
+	return now - fade, now + seconds
+end
+
 -- An event's strength at `now`: 0 before `from` and after `to`, easing in and out over `fade` seconds.
 function Environment.strength(now: number, from: number, to: number, fade: number): number
 	if now <= from or now >= to then

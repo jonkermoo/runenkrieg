@@ -2,7 +2,8 @@
 -- Dev admin menu: a button next to the weapon pin with Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
 -- god mode), Grenades (give yourself a full count of one), World (the range's test shooters, undo destruction) and Time
--- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle; for everyone, src/server/Environment).
+-- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
+-- weather off / on); Time and Weather are for everyone (src/server/Environment).
 -- Client only: the client owns its character's physics, so it flies and speeds up its own character. Only shown when
 -- the server marked this player with the DevTools attribute.
 -- - Speed: sets the Player's DevSpeed attribute; src/client/Stance multiplies every walk speed by it.
@@ -275,6 +276,26 @@ local function build(player: Player): ScreenGui
 	end)
 	workspace:GetAttributeChangedSignal(P):Connect(showPause)
 	showPause()
+
+	-- Weather: one of Config/DevTools.Admin.Weather at full strength now, the random rolls off / on
+	DevPanel.heading(p.panel, "Weather", order + 1)
+	order += 1
+	for _, kind in A.Weather do
+		row("Weather_" .. kind, if kind == "Clear" then "Clear sky now" else `{kind} now`, "Weather", kind)
+	end
+	order += 1
+	local calm = DevPanel.button(p.panel, "WeatherCalm", "", order)
+	local C = EnvCfg.Attributes.calm
+	local function showCalm()
+		local off = workspace:GetAttribute(C) == true
+		calm.Text = if off then "Random weather: off" else "Random weather: on"
+		paint(calm, not off)
+	end
+	calm.Activated:Connect(function()
+		Net.event("DevAction"):FireServer("WeatherCalm", workspace:GetAttribute(C) ~= true)
+	end)
+	workspace:GetAttributeChangedSignal(C):Connect(showCalm)
+	showCalm()
 	return p.gui
 end
 

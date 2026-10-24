@@ -8,7 +8,7 @@
 -- done: target dummies (src/server/DevDummies), blasts at the aim point (src/server/Damage.blast; Net "DevBlast" shows
 -- the explosion to everyone), your health / death / respawn / god mode / knock / helmet, the range's test shooters
 -- (src/server/TestShooter), undo destruction (src/server/DevWorld) and the clock (src/server/Environment: set the time,
--- pause the day cycle).
+-- pause the day cycle; start fog / rain / clear sky now, the random weather off / on).
 -- DevTools.teleport(player, id) is also used directly by tests/demos.
 
 local Players = game:GetService("Players")
@@ -118,6 +118,10 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		Environment.setClock(value)
 	elseif action == "ClockPaused" then
 		Environment.pause(value)
+	elseif action == "Weather" then
+		Environment.forceNow(value, Cfg.Admin.WeatherSeconds)
+	elseif action == "WeatherCalm" then
+		Environment.calm(value)
 	elseif action == "Respawn" then
 		player:LoadCharacter()
 	elseif humanoid and character and root and humanoid.Health > 0 then
