@@ -249,6 +249,9 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		})
 	end, function(class)
 		return Blast.reachOf(class and (B.Fail :: any)[class] or B.FailDefault, kg, B)
+	end, function(class)
+		local destroy = class and (B.Destroy :: any)[class]
+		return if destroy then Blast.reachOf(destroy, kg, B) else 0
 	end)
 	-- the crater first, so the trees it fells lie on the ground as it is after
 	if o.crater ~= false then
