@@ -42,6 +42,11 @@ local Remotes: { string } = {
 	-- server -> clients: (striker: Model) an accepted strike, for everyone's swing sound
 	"Melee",
 	"Struck",
+	-- A shovel swing's sounds (src/client/Locomotion at its markers, src/client/Shovel, src/server/Build;
+	-- Config/Shovel.Sounds):
+	-- client -> server: (kind: "Dig" | "Toss" | "Chip") the swing makes that sound now (the swinger hears its own at once)
+	-- server -> clients: (character: Model, kind) for everyone else
+	"Dug",
 	-- client -> server: () putting the held weapon away with its unequip animation (src/server/Armory keeps a copy in
 	-- the hands meanwhile; Config/Locomotion.Stow)
 	"Stow",

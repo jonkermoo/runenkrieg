@@ -5,7 +5,8 @@
 -- src/client/Locomotion (seen by everyone) loops that mode's swing, the dig or the chip, marking each strike with
 -- "DugAt" and "DugMode" (src/client/Build sends the hit). Let go and the swing playing goes on to its rest, then
 -- settles to the ready (user 2026-10-24). In build mode (src/client/Build) a click lays a piece instead, and never
--- digs too; swinging, the soldier stands still (src/client/Stance).
+-- digs too; swinging, the soldier stands still (src/client/Stance). Each swing has its sounds (Config/Shovel.Sounds):
+-- the swinger's own play at the animation's markers, everyone else's come through the server (Net "Dug").
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,10 +14,13 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Cfg = require(Shared.Config.Shovel)
 local W = require(Shared.Config.Weapons)
+local Net = require(Shared.Net)
 local Build = require(script.Parent.Build)
 local Held = require(script.Parent.Held)
 local Settings = require(script.Parent.Settings)
+local SoundFx = require(script.Parent.SoundFx)
 
 local Shovel = {}
 
@@ -32,6 +36,15 @@ end
 
 function Shovel.start()
 	local player = Players.LocalPlayer
+	SoundFx.preload(Cfg.Sounds)
+	-- everyone else's swing sounds (src/server/Build passes them on; the swinger's own play in src/client/Locomotion)
+	Net.event("Dug").OnClientEvent:Connect(function(character: any, kind: any)
+		local root = typeof(character) == "Instance" and character:FindFirstChild("HumanoidRootPart")
+		local entry = type(kind) == "string" and (Cfg.Sounds :: any)[kind]
+		if root and entry then
+			SoundFx.play(entry, root)
+		end
+	end)
 	local held = false
 	local running = false
 

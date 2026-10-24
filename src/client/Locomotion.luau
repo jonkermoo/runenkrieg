@@ -156,13 +156,22 @@ function Locomotion.attach(character: Model)
 				t.Looped = not once and not over
 				holds[name][hold] = t
 				if swing then
+					-- its sound now: the swinger's own at once, everyone else's through the server (src/client/Shovel)
+					local function sound(kind: string)
+						SoundFx.play(ShovelCfg.Sounds[kind], root)
+						Net.event("Dug"):FireServer(kind)
+					end
 					t:GetMarkerReachedSignal("Strike"):Connect(function()
 						if t == swinging then
 							character:SetAttribute("DugMode", if hold == "chip" then "Destroy" else "Build")
 							character:SetAttribute("DugAt", os.clock())
+							sound(if hold == "chip" then "Chip" else "Dig")
 						end
 					end)
 					t:GetMarkerReachedSignal("Rest"):Connect(function()
+						if t == swinging and hold == "dig" then
+							sound("Toss") -- (the dig's rest is the toss)
+						end
 						-- let go (or switched mode): settle to the ready from here (the other mode starts next step)
 						local want = if hold == "chip" then "Destroy" else "Build"
 						if t == swinging and character:GetAttribute("Digging") ~= want then
