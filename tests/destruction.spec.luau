@@ -32,6 +32,7 @@ return {
 		assert(not freeze, "only just stopped: not yet")
 		still, freeze = R.rested(r.still + 1, 0, r.time, 1, 0.1, r)
 		assert(still == 0 and not freeze, "moving again resets it")
+		assert(R.rested(0, 0, 0, r.after / 2, 0.1, r) == 0, "not yet loose long enough to count")
 		local _, frozen, letGo = R.rested(10, 10, 0, r.maxFly, 0.1, r)
 		assert(not frozen and letGo, "still moving after maxFly: let go, never frozen in the air")
 		assert(not select(3, R.rested(0, 0, 0, 1, 0.1, r)), "kept while it may still come to rest")

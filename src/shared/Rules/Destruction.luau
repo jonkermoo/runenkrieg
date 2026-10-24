@@ -75,18 +75,19 @@ function Destruction.collapseFrom(
 end
 
 -- A flying debris chunk (Config/Destruction.Debris.Rest) moving slower than `still` studs/s and turning slower than
--- `spin` rad/s for `time` s is at rest and freezes. One still moving after `maxFly` s is never frozen (frozen while
--- moving, it hung in the air: Studio 2026-10-24): it is let go, left to the physics engine, which puts it to sleep once
--- it stops. Returns how long it has been still, whether to freeze it now, and whether to let it go.
+-- `spin` rad/s for `time` s is at rest and freezes; its first `after` s don't count (it may not have started to fall
+-- yet). One still moving after `maxFly` s is never frozen (frozen while moving, it hung in the air: Studio 2026-10-24):
+-- it is let go, left to the physics engine, which puts it to sleep once it stops. Returns how long it has been still,
+-- whether to freeze it now, and whether to let it go.
 function Destruction.rested(
 	speed: number,
 	spin: number,
 	stillFor: number,
 	flying: number,
 	dt: number,
-	r: { still: number, spin: number, time: number, maxFly: number }
+	r: { still: number, spin: number, time: number, after: number, maxFly: number }
 ): (number, boolean, boolean)
-	stillFor = if speed <= r.still and spin <= r.spin then stillFor + dt else 0
+	stillFor = if flying >= r.after and speed <= r.still and spin <= r.spin then stillFor + dt else 0
 	local freeze = stillFor >= r.time
 	return stillFor, freeze, not freeze and flying >= r.maxFly
 end

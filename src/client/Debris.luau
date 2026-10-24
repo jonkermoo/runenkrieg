@@ -17,6 +17,8 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local D = require(Shared.Config.Destruction)
 local Net = require(Shared.Net)
+local Blast = require(Shared.Rules.Blast)
+local DamageCfg = require(Shared.Config.Damage)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Destruction)
 local SettingsCfg = require(Shared.Config.Settings)
@@ -72,18 +74,19 @@ local function spawnChunk(
 	p.CFrame = cf
 	p.CollisionGroup = "Debris"
 	p.Parent = container
-	if push <= 0 then
-		local a, n, s = math.random() * 2 * math.pi, D.Debris.fallNudge * math.random(), D.Debris.fallSpin
-		p.AssemblyLinearVelocity = Vector3.new(math.cos(a) * n, 0, math.sin(a) * n)
-		p.AssemblyAngularVelocity =
-			Vector3.new((math.random() * 2 - 1) * s, (math.random() * 2 - 1) * s, (math.random() * 2 - 1) * s)
-	else
+	-- a nudge to a random side and a tumble, so nothing comes down as a neat stack
+	local a, n, s = math.random() * 2 * math.pi, D.Debris.fallNudge * math.random(), D.Debris.fallSpin
+	local v = Vector3.new(math.cos(a) * n, 0, math.sin(a) * n)
+	local spin = Vector3.new((math.random() * 2 - 1) * s, (math.random() * 2 - 1) * s, (math.random() * 2 - 1) * s)
+	if push > 0 then
 		local away = cf.Position - origin
 		local dist = math.max(away.Magnitude, 1)
 		local speed = math.clamp(40 / dist, 0.5, 1) * math.random(18, 34)
-		p.AssemblyLinearVelocity = (away.Unit * speed + Vector3.new(0, math.random(8, 22), 0)) * push
-		p.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
+		v += (away.Unit * speed + Vector3.new(0, math.random(8, 22), 0)) * push
+		spin += Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8)) * math.min(push, 1)
 	end
+	p.AssemblyLinearVelocity = v
+	p.AssemblyAngularVelocity = spin
 	if not brief then
 		table.insert(live, p)
 		moving[p] = { part = p, flying = 0, still = 0 }
@@ -232,6 +235,13 @@ function DebrisClient.start()
 		if acc >= D.Debris.Rest.every then
 			step(acc)
 			acc = 0
+		end
+	end)
+	-- a blast's crater: what froze on the ground it took away falls once the new ground has arrived
+	Net.event("Explosion").OnClientEvent:Connect(function(position: Vector3, reach: number)
+		local churn = Blast.churnFromReach(reach, DamageCfg.Blast)
+		for _, after in D.Debris.craterWake do
+			task.delay(after, went, position, churn)
 		end
 	end)
 	-- any section gone (broken, swapped for its Remains, collapsed): what lay on it falls

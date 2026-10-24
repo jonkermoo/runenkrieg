@@ -49,13 +49,18 @@ local Destruction = {
 		maxLive = 600,
 		-- (was still 1.5 / spin 2: Studio 2026-10-24 froze a chunk 1.3 studs over the one under it, caught at 1.25 studs/s
 		-- as it began to fall)
-		Rest = { still = 0.3, spin = 0.5, time = 0.4, maxFly = 15, every = 0.1 },
+		Rest = { still = 0.3, spin = 0.5, time = 0.4, after = 0.5, maxFly = 15, every = 0.1 },
 		wakeMargin = 1.5,
+		-- a blast's crater reaches the clients after its debris (big terrain edits replicate slowly; Studio 2026-10-24:
+		-- frame bars froze on the old ground 4-5 studs over a howitzer crater): frozen chunks over the churned ground
+		-- (Rules/Blast.churnFromReach) wake again this many seconds after the blast
+		craterWake = { 1, 3 },
 		-- how hard each kind of piece is thrown (Config/Damage.Blast.Destroy bands; user 2026-10-23): x the old blast
 		-- throw (18-34 studs/s away, 8-22 up, less from far off). Crumpled chunks drop near where they were; glass
-		-- shatters as before; a piece that lost its support (or a collapsing story) drops with a nudge of up to
-		-- `fallNudge` studs/s to a random side and `fallSpin` rad/s, so it tumbles into a heap (straight down, a chimney
-		-- froze as a 15-stud column of loose chunks: Studio 2026-10-24).
+		-- shatters as before; a piece that lost its support (or a collapsing story) only drops. Every chunk also gets a
+		-- nudge of up to `fallNudge` studs/s to a random side and `fallSpin` rad/s, so it tumbles into a heap (straight
+		-- down, a chimney froze as a 15-stud column of loose chunks and corner stones in 5-8 stud columns: Studio
+		-- 2026-10-24).
 		Push = { crumple = 0.25, glass = 1, dust = 1.3 },
 		fallNudge = 8,
 		fallSpin = 5,
