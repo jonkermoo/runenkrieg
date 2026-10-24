@@ -36,5 +36,6 @@ return {
 		assert(C.Radius > 0 and C.Radius < 1)
 		assert(C.Ahead >= 0 and C.Ahead < 2 and C.Clear > 0 and C.Clear < 2)
 		assert(#C.Shoulder == 3 and C.GripAhead > 0)
+		assert(#C.TrenchFrom == 3 and C.TrenchFrom[2] > C.Shoulder[2], "near trench dirt the sweep starts higher")
 	end,
 }

@@ -194,8 +194,9 @@ local Assets = {
 		-- a trench's dirt pieces (user 2026-10-23, trenches v2; tools/blender/trench/contact_sheet.py renders them all):
 		-- built per square dug full by src/server/Trenches, colored from Config/Palette.Build by mesh name
 		trench_pieces = {
-			-- v2: the dirt slabs end about a stud past their segment, not up to 7 into a joining trench (v1 119101711809071)
-			id = 78446214415283,
+			-- v4 (user 2026-10-24): walls at 59 degrees and a thick heap of dirt (Wall<i>Parapet) on each wall's top edge,
+			-- the trench otherwise as v2 (v3 80264039854445 was another session's, dropped; v2 78446214415283)
+			id = 139463386134488,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",
