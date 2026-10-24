@@ -72,7 +72,9 @@ local Build = {
 		-- the first click this close to you, and when the plan is laid you within this of either end (you may walk along
 		-- it while planning; the planner shows it red with the reason as soon as you're too far, user 2026-10-24)
 		firstReach = 14,
-		joinReach = 4, -- a plan's end this close to a free end joins it
+		-- a plan's end this close to a free end joins it (8 since the wider 59 degree walls: 4 was easy to miss, user
+		-- 2026-10-24: "the trenches dont connect")
+		joinReach = 8,
 		-- a new trench keeps this far (between centre lines) from every other trench, except near the end where it joins
 		-- one (user 2026-10-24: "you shouldnt be able to build a new trench within a certain distance of another trench
 		-- unless you're extending"; 32 since the parapets: two trenches' parapets just meet)
@@ -90,8 +92,8 @@ local Build = {
 		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
 		-- the shape: floor half width, depth, walls at `wallAngle` (Metrics MaxSlopeAngle decides whether you can walk
 		-- up them), earth thrown up as a bank along both edges (the pit's rim) under each wall's parapet (Config/Assets
-		-- trench_pieces Wall<i>Parapet: a thick heap of dirt growing out of the wall's top edge, about 3.2 to 3.7 over the
-		-- ground, a 74 degree face toward the trench: too steep to walk up and too tall to jump, cover to shoot over)
+		-- trench_pieces Wall<i>Parapet: a thick heap of dirt just behind the wall's top edge, about 2.1 to 2.5 over the
+		-- ground, a 74 degree face toward the trench: too steep to walk up, chest high cover to shoot over)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
 		floor = 4.25, -- (user 2026-10-23: 1.5x wider, then "a little more narrow")

@@ -143,7 +143,7 @@ function Survey.distanceTo(model: Instance, p: Vector3): number
 end
 
 -- For the trench planner's ghost: where a plan's end at `p` would go, as the server snaps it (src/server/Trenches): onto
--- a free end of the team's trench within Trench.joinReach ("end"), onto a block's centre line when `p` is on its side
+-- a free end of the team's trench within Trench.joinReach ("end"), onto a block's floor edge on the side `p` is on
 -- ("tee"), else where it is. Also the block it joins and, for an end, the way out of that end (flat unit).
 function Survey.trenchSnap(folder: Instance?, team: string, p: Vector3): (Vector3, string?, Model?, Vector3?)
 	if not folder then

@@ -195,8 +195,9 @@ local Assets = {
 		-- built per square dug full by src/server/Trenches, colored from Config/Palette.Build by mesh name
 		trench_pieces = {
 			-- v4 (user 2026-10-24): walls at 59 degrees and a thick heap of dirt (Wall<i>Parapet) on each wall's top edge,
-			-- the trench otherwise as v2 (v3 80264039854445 was another session's, dropped; v2 78446214415283)
-			id = 139463386134488,
+			-- the trench otherwise as v2 (v3 80264039854445 was another session's, dropped; v2 78446214415283); v5: the heaps
+			-- lower and set back behind the wall's top, off its slabs and planks (v4 139463386134488)
+			id = 107262926311515,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",
