@@ -32,6 +32,7 @@ function Tuck.start()
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	local shoulder = Vector3.new(table.unpack(Cfg.Shoulder))
+	local aimFrom = Vector3.new(table.unpack(Cfg.TrenchFrom))
 	local reaches: { [string]: number } = {}
 
 	-- the weapon's reach from the shoulder (once per weapon)
@@ -104,11 +105,25 @@ function Tuck.start()
 			local look = camera.CFrame.LookVector
 			local hit = workspace:Spherecast(from, Cfg.Radius, look * length, params)
 			if hit and trenchDirt(hit) then
-				-- trench dirt folds the gun only head on and at the barrel's reach; past it, the sweep goes on without the
-				-- ground and the trenches for anything else in the way
-				blocked =
-					Rules.trenchBlocked(hit.Distance, -hit.Normal:Dot(look), reach, Cfg.TrenchFacing, Cfg.Clear, was)
-				if not blocked then
+				-- near trench dirt the sweep runs along the shouldered gun's line instead (over a parapet the soldier rests
+				-- the rifle on), and trench dirt folds the gun only head on and at the barrel's reach; past it, the sweep
+				-- goes on without the ground and the trenches for anything else in the way
+				from = torso.CFrame * aimFrom
+				hit = workspace:Spherecast(from, Cfg.Radius, look * length, params)
+				if hit and not trenchDirt(hit) then
+					blocked = Rules.blocked(hit.Distance, reach, Cfg.Ahead, Cfg.Clear, was)
+				else
+					blocked = hit ~= nil
+						and Rules.trenchBlocked(
+							hit.Distance,
+							-hit.Normal:Dot(look),
+							reach,
+							Cfg.TrenchFacing,
+							Cfg.Clear,
+							was
+						)
+				end
+				if hit and not blocked and trenchDirt(hit) then
 					local built = workspace:FindFirstChild(BuildCfg.Folder)
 					table.insert(ignore, workspace.Terrain)
 					for _, m in (if built then built:GetChildren() else {}) do

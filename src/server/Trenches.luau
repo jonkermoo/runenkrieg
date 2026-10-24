@@ -353,7 +353,10 @@ local function pieceColor(name: string): Color3
 	local shade
 	if i then
 		local tone = (i - 1) % #B.TrenchWall + 1
-		shade = if string.find(name, "Chunks") then B.TrenchWallChunks[tone] else B.TrenchWall[tone]
+		shade = if string.find(name, "Parapet")
+			then B.TrenchParapet[tone]
+			elseif string.find(name, "Chunks") then B.TrenchWallChunks[tone]
+			else B.TrenchWall[tone]
 	else
 		shade = if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor
 	end
@@ -461,7 +464,8 @@ local function pieces(blk: Block)
 		p.Parent = holder
 	end
 	local function wall(n: number, cf: CFrame, stretch: number)
-		for _, suffix in { "", "Chunks", "Planks", "PlanksDark" } do
+		-- (the parapet, one or two thick blocks on the ground along its top edge, collides: Config/Build.Trench)
+		for _, suffix in { "", "Chunks", "Planks", "PlanksDark", "Parapet" } do
 			place(`Wall{n}{suffix}`, cf, stretch)
 		end
 	end

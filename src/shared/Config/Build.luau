@@ -75,8 +75,8 @@ local Build = {
 		joinReach = 4, -- a plan's end this close to a free end joins it
 		-- a new trench keeps this far (between centre lines) from every other trench, except near the end where it joins
 		-- one (user 2026-10-24: "you shouldnt be able to build a new trench within a certain distance of another trench
-		-- unless you're extending")
-		spacing = 16,
+		-- unless you're extending"; 32 since the parapets: two trenches' parapets just meet)
+		spacing = 32,
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
 		planLife = 180, -- seconds an undug plan stays
@@ -88,14 +88,18 @@ local Build = {
 		-- amount"; "way way more durable")
 		-- (5 Build swings dig a square: "make building take a bit longer", user 2026-10-24)
 		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
-		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
-		-- earth thrown up as a bank along both edges (the pit's rim)
+		-- the shape: floor half width, depth, walls at `wallAngle` (walkable but steep: under Metrics MaxSlopeAngle 50),
+		-- earth thrown up as a bank along both edges (the pit's rim) under each wall's parapet (Config/Assets
+		-- trench_pieces Wall<i>Parapet: one or two thick blocks on the ground along the wall's top edge, about 3.3 to 3.9
+		-- high, a 78 degree face toward the trench: too steep to walk up and too tall to jump, cover to shoot over)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
 		floor = 4.25, -- (user 2026-10-23: 1.5x wider, then "a little more narrow")
 		depth = 5.5,
 		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
-		wallAngle = 70, -- (user 2026-10-23: steeper, "it could be either deeper or less slopy")
+		-- (user 2026-10-23: steeper, 70, "it could be either deeper or less slopy"; 2026-10-24: "make this less steep
+		-- (just a bit) so our character can walk out of (not smoothly and easily of course)")
+		wallAngle = 48,
 		bank = { width = 5, height = 1.2 },
 		-- a bullet meeting the ground this close round a square's hole, walls and banks hits the square (studs; the
 		-- terrain is carved in 4-stud voxels, so a shot at a wall often meets the ground just in front of its slab)
