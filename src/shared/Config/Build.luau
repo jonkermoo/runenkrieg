@@ -47,6 +47,9 @@ local Build = {
 		near = 0.2,
 		far = 0.6,
 		tag = 4.6,
+		-- the action icon over each end (user 2026-10-24: "one icon for new trenches, one more extending"): a round badge
+		-- `size` studs across on a chalk pin `height` studs tall
+		badge = { height = 2.4, size = 1.4 },
 	},
 	-- the turn step (degrees) for Key_BuildTurn and a mouse wheel notch with Shift
 	TurnStep = 15,

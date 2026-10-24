@@ -9,8 +9,8 @@
 --   leaves build mode.
 -- - The trench planner's ghost (Config/Build.Plan; user 2026-10-24: "make the entire planning thing better and more
 --   stylish", design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ) previews what the server will peg out: per
---   square a chalk cord, a faint fill with the dug floor's band, ghost stakes (one at the cursor before the first
---   click; no flags, user 2026-10-24); a length tag over the end; and the reach circles of Trench.firstReach dashed on the
+--   square a chalk cord, a faint fill with the dug floor's band, ghost stakes (no flags, user 2026-10-24); an icon
+--   over each end, a new trench or extending one; a length tag over the end; and the reach circles of Trench.firstReach dashed on the
 --   ground (round you before the first click, round both ends after it), red when you're too far.
 -- - Key_Reload switches the shovel between Build and Destroy (user 2026-10-23). Out of build mode each dig swing
 --   (src/client/Shovel "DugAt") goes to what you point at in reach (Net "Build" "Work" with the mode): a piece or
@@ -73,10 +73,13 @@ end
 
 -- the trench planner's ghost: its model and the pieces drawn each frame
 type Square = { fill: Part, floor: Part, cords: { Part }, pegs: { Part }, shown: number }
+-- an action icon over a point being placed (user 2026-10-24: "add an icon for what action you're doing instead of a
+-- green square. one icon for new trenches, one more extending"): a round badge on a chalk pin
+type Badge = { gui: BillboardGui, anchor: Part, pin: Part, ring: UIStroke, new: Frame, extend: Frame }
 type Plan = {
 	model: Model,
 	squares: { Square },
-	start: Part,
+	badges: { Badge },
 	rings: { { Part } },
 	anchor: Part,
 	tag: BillboardGui,
@@ -93,6 +96,9 @@ local function clearGhost()
 	if plan then
 		plan.model:Destroy()
 		plan.tag:Destroy()
+		for _, bd in plan.badges do
+			bd.gui:Destroy()
+		end
 		plan = nil
 	end
 	planInfo = nil
@@ -154,12 +160,73 @@ end
 local TITLE = Font.new("rbxasset://fonts/families/Oswald.json", Enum.FontWeight.Bold)
 local BODY = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium)
 
+-- a shape in an icon, in the badge's unit square (x, y, width, height), rotated by `rotation` degrees
+local function shape(parent: Instance, x: number, y: number, w: number, h: number, color: { number }, rotation: number?)
+	local f = Instance.new("Frame")
+	f.BorderSizePixel = 0
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Position = UDim2.fromScale(x + w / 2, y + h / 2)
+	f.Size = UDim2.fromScale(w, h)
+	f.Rotation = rotation or 0
+	f.BackgroundColor3 = rgb(color)
+	f.Parent = parent
+end
+
+local function icon(parent: Instance, name: string): Frame
+	local f = Instance.new("Frame")
+	f.Name = name
+	f.BackgroundTransparency = 1
+	f.Size = UDim2.fromScale(1, 1)
+	f.Parent = parent
+	return f
+end
+
+local function badge(player: Player, model: Model): Badge
+	local anchor = ghostPart(model)
+	local pin = ghostPart(model)
+	pin.Color = rgb(Palette.Build.Chalk)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "BuildPlanIcon"
+	gui.Adornee = anchor
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.Size = UDim2.fromScale(P.badge.size, P.badge.size) -- (studs: it sits on the pin at any distance)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, P.badge.height + P.badge.size / 2, 0)
+	gui.Enabled = false
+	local disc = Instance.new("Frame")
+	disc.Size = UDim2.fromScale(1, 1)
+	disc.BackgroundColor3 = rgb(HUD.panel)
+	disc.BackgroundTransparency = 0.12
+	disc.Parent = gui
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = disc
+	local ring = Instance.new("UIStroke")
+	ring.Thickness = 3
+	ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	ring.Parent = disc
+	local chalk, dim = Palette.Build.Chalk, Palette.Build.IconDim
+	-- new trench: a stake (its top dim) and a plus
+	local new = icon(disc, "New")
+	shape(new, 0.276, 0.237, 0.092, 0.5, chalk)
+	shape(new, 0.276, 0.237, 0.092, 0.105, dim)
+	shape(new, 0.5, 0.447, 0.29, 0.079, chalk)
+	shape(new, 0.605, 0.342, 0.079, 0.29, chalk)
+	-- extend: a trench piece (dim) and an arrow leading on from it
+	local extend = icon(disc, "Extend")
+	shape(extend, 0.158, 0.368, 0.237, 0.263, dim)
+	shape(extend, 0.44, 0.46, 0.33, 0.079, chalk)
+	shape(extend, 0.57, 0.377, 0.26, 0.079, chalk, 40)
+	shape(extend, 0.57, 0.543, 0.26, 0.079, chalk, -40)
+	gui.Parent = player:WaitForChild("PlayerGui")
+	return { gui = gui, anchor = anchor, pin = pin, ring = ring, new = new, extend = extend }
+end
+
 local function makePlan(player: Player): Plan
 	local m = Instance.new("Model")
 	m.Name = "BuildGhost"
 	m.Parent = workspace.CurrentCamera
-	local start = ghostPart(m)
-	start.Name = "Start"
+	local badges = { badge(player, m), badge(player, m) }
 	local rings = {}
 	for i = 1, 2 do
 		local dashes = {}
@@ -203,7 +270,7 @@ local function makePlan(player: Player): Plan
 	return {
 		model = m,
 		squares = {},
-		start = start,
+		badges = badges,
 		rings = rings,
 		anchor = anchor,
 		tag = tag,
@@ -297,8 +364,8 @@ local function surveyPiece(character: Model, root: BasePart)
 	showGhost(p.key, CFrame.new(frame.Position.X, report.low + size.Y / 2, frame.Position.Z) * frame.Rotation, size, ok)
 end
 
--- draw the planner's ghost: the squares along `dir` from `a` (before the first click, a stake at `a`), the reach
--- circles and the tag
+-- draw the planner's ghost: the squares along `dir` from `a` (none before the first click), the action icons over
+-- the ends (`kinds`: what each joins, nil for a new trench), the reach circles and the tag
 local function drawPlan(
 	player: Player,
 	character: Model,
@@ -308,6 +375,7 @@ local function drawPlan(
 	spans: { { from: number, to: number } },
 	ok: boolean,
 	tooFar: boolean,
+	kinds: { string? },
 	dt: number
 )
 	if not plan then
@@ -373,11 +441,22 @@ local function drawPlan(
 			s.pegs[k].Transparency = see(P.cordSee)
 		end
 	end
-	-- before the first click, one ghost stake at the cursor where the start would go
-	p.start.Size = Vector3.new(P.peg[1], P.peg[2], P.peg[1])
-	p.start.CFrame = CFrame.new(a + Vector3.new(0, P.peg[2] / 2 - 0.1, 0))
-	p.start.Color = chalk
-	p.start.Transparency = if b then 1 else P.cordSee
+	-- the action icons: over the cursor before the first click, over both ends after it; a new trench or extending one
+	-- (an end on a trench: Survey.trenchSnap's "end" or "tee")
+	local points: { Vector3 } = if b then { a, b } else { a }
+	for i, bd in p.badges do
+		local at = points[i]
+		bd.gui.Enabled = at ~= nil
+		bd.pin.Transparency = if at then P.cordSee else 1
+		if at then
+			bd.anchor.CFrame = CFrame.new(at)
+			bd.pin.Size = Vector3.new(0.07, P.badge.height, 0.07)
+			bd.pin.CFrame = CFrame.new(at + Vector3.new(0, P.badge.height / 2, 0))
+			bd.ring.Color = rgb(if ok then HUD.ok else HUD.bad)
+			local joins = kinds[i] ~= nil
+			bd.new.Visible, bd.extend.Visible = not joins, joins
+		end
+	end
 	-- the reach circles: round you before the first click, round both ends after it (the one you're in brighter)
 	local function away(q: Vector3): number
 		return Vector3.new(root.Position.X - q.X, 0, root.Position.Z - q.Z).Magnitude
@@ -436,7 +515,7 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 		end
 		current = { a = aim, ok = ok, reason = reason }
 		planInfo = nil
-		drawPlan(player, character, root, aim, nil, {}, ok, far, dt)
+		drawPlan(player, character, root, aim, nil, {}, ok, far, { aimKind }, dt)
 		return
 	end
 	local a, aKind, aModel, aOut = Survey.trenchSnap(f, team, planStart)
@@ -504,7 +583,7 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	-- each square too")
 	local spans = Rules.planBlocks(math.max(length, T.minBlock), T.block, T.minBlock) or {}
 	planInfo = { length = length, squares = #spans, clamped = clamped }
-	drawPlan(player, character, root, a, aim, spans, ok, tooFar, dt)
+	drawPlan(player, character, root, a, aim, spans, ok, tooFar, { aKind, aimKind }, dt)
 end
 
 -- what a swing goes to: the trench block or piece in reach most toward the cursor, or (Destroy) a tree you point at
