@@ -42,7 +42,7 @@ export type Block = {
 	a: Vector3, -- end A on the ground (its height is the ground line's there)
 	b: Vector3,
 	dir: Vector3, -- flat unit, A to B
-	across: Vector3, -- flat unit, to the block's left
+	across: Vector3, -- flat unit, to the block's right
 	length: number,
 	hp: number, -- its depth: hp / Trench.hp.max of the full depth
 	falling: boolean, -- lost HP since it was last full (churned earth, its pieces off)
@@ -379,7 +379,7 @@ local function pieceColor(name: string): Color3
 	return rgb(if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor)
 end
 
--- the sides of a square another trench tees into (1 its left, 2 its right): no wall there
+-- the sides of a square another trench tees into (1 toward its `across`, 2 away): no wall there
 local function teeSides(blk: Block): { boolean }
 	local open = { false, false }
 	for _, o in blocks do
@@ -427,10 +427,21 @@ local function pieces(blk: Block)
 		return at(blk, u, v) - down
 	end
 	local along = (floorAt(blk.length, 0) - floorAt(0, 0)).Unit
-	local right = -blk.across
-	-- a frame at `origin`: piece x along `x`, z out of the trench `z` (flat), y up square to both
-	local function frame(origin: Vector3, x: Vector3, z: Vector3): CFrame
-		return CFrame.fromMatrix(origin, x, z:Cross(x).Unit, z)
+	local flat = blk.dir
+	-- a frame with piece z out of the trench along `out` (flat) and x the way that keeps it right-handed with y up: a
+	-- side wall or the floor runs along the square (tilted with its ground line) from whichever end that x starts at, a
+	-- dead end's wall across the floor from its edge. Studio round 6: y came out upside down with x picked by hand.
+	local function frame(out: Vector3, ending: boolean, onLine: boolean?): CFrame
+		local x = Vector3.yAxis:Cross(out)
+		local origin
+		if ending then
+			origin = floorAt(if out:Dot(flat) < 0 then 0 else blk.length, 0) - x * T.floor
+		else
+			local fromStart = x:Dot(flat) > 0
+			x = if fromStart then along else -along
+			origin = floorAt(if fromStart then 0 else blk.length, if onLine then 0 else out:Dot(blk.across) * T.floor)
+		end
+		return CFrame.fromMatrix(origin, x, out:Cross(x).Unit, out)
 	end
 	local function place(name: string, cf: CFrame, stretch: number)
 		local src = k:FindFirstChild(name)
@@ -455,26 +466,22 @@ local function pieces(blk: Block)
 		end
 	end
 	local stretch = blk.length / P.segment
-	-- side walls: the right one runs from the start, the left one turned round from the end
-	if not open[2] then
-		wall(roll.walls[2], frame(floorAt(0, -T.floor), along, right), stretch)
+	-- side walls (side 1 toward `across`, 2 away from it), the floor on the centre line turned either way
+	for side, sign in { 1, -1 } do
+		if not open[side] then
+			wall(roll.walls[side], frame(blk.across * sign, false), stretch)
+		end
 	end
-	if not open[1] then
-		wall(roll.walls[1], frame(floorAt(blk.length, T.floor), -along, blk.across), stretch)
-	end
-	local floorCf = if roll.flip
-		then frame(floorAt(blk.length, 0), -along, blk.across)
-		else frame(floorAt(0, 0), along, right)
+	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true)
 	place(`Floor{roll.floor}`, floorCf, stretch)
 	place(`Floor{roll.floor}Chunks`, floorCf, stretch)
 	-- dead ends: a plain wall across the floor
 	local across = 2 * T.floor / P.segment
-	local flat = Vector3.new(along.X, 0, along.Z).Unit
 	if shape.deadA then
-		wall(roll.ends[1], frame(floorAt(0, T.floor), right, -flat), across)
+		wall(roll.ends[1], frame(-flat, true), across)
 	end
 	if shape.deadB then
-		wall(roll.ends[2], frame(floorAt(blk.length, -T.floor), blk.across, flat), across)
+		wall(roll.ends[2], frame(flat, true), across)
 	end
 end
 
