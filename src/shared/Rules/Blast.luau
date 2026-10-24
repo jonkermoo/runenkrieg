@@ -62,6 +62,17 @@ function Blast.sectionDamage(kpa: number, fail: number, maxHP: number, weaken: n
 	return maxHP * (kpa / fail) ^ weaken
 end
 
+-- What a blast at `kpa` does to a section or a tree (user 2026-10-23: "blocks should crumple after a certain damage
+-- amount, but if it has extreme damage ... it should get destroyed ... make it scale depending on material"): "wear"
+-- below its class's `fail` (it only loses HP), "crumple" from there (it breaks into chunks that drop), "destroy" from
+-- `destroy` (pulverised: dust, no lasting rubble); a class with no `destroy` never goes past crumple.
+function Blast.band(kpa: number, fail: number, destroy: number?): "wear" | "crumple" | "destroy"
+	if destroy and kpa >= destroy then
+		return "destroy"
+	end
+	return if kpa >= fail then "crumple" else "wear"
+end
+
 export type SectionHit = {
 	fail: number, -- its class's fail pressure (kPa)
 	maxHP: number,

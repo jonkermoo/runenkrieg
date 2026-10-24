@@ -167,7 +167,7 @@ return {
 			[F.Roots] = { "material", "max", "min", "pit", "pitBack", "pitSink", "radius", "rise" },
 			[F.Imprint] = { "churnRadius", "churnDepth", "depth", "step", "touch", "churnFrom", "churnTo" },
 			[F.Crush] = { "ghost", "ghostMax", "radius", "damage", "knock" },
-			[T.Stump] = { "height", "widthShare" },
+			[T.Stump] = { "height", "widthShare", "floatTolerance" },
 		}
 		for t, keys in need do
 			for _, k in keys do

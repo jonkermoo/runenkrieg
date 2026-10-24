@@ -120,12 +120,15 @@ function Environment.look(daylight: number, kind: string, w: number, base: Haze,
 	local rain = if kind == "Rain" then s else 0
 	local cloud = mixColor(W.clouds.color, W.clouds.rainColor, rain)
 	local glow = 4 * d * night * L.dusk.strength * (1 - s) -- (none under fog or rain)
+	-- the light itself reaches its night values by `nightBy` of the twilight (sunset), not at its end: the sun is gone at
+	-- sunset, and the half-blended light left the minutes after it darker than midnight (Studio 2026-10-24)
+	local lit = math.clamp((d - L.nightBy) / (1 - L.nightBy), 0, 1)
 
 	return {
-		brightness = mix(L.night.brightness, L.day.brightness, d) * sun,
-		ambient = mixColor(L.night.ambient, L.day.ambient, d),
-		outdoorAmbient = mixColor(L.night.outdoorAmbient, L.day.outdoorAmbient, d),
-		exposure = mix(L.night.exposure, L.day.exposure, d),
+		brightness = mix(L.night.brightness, L.day.brightness, lit) * sun,
+		ambient = mixColor(L.night.ambient, L.day.ambient, lit),
+		outdoorAmbient = mixColor(L.night.outdoorAmbient, L.day.outdoorAmbient, lit),
+		exposure = mix(L.night.exposure, L.day.exposure, lit),
 		density = density,
 		haze = haze,
 		color = mixColor(mixColor(color, L.nightHaze.color, night), L.dusk.color, glow),
