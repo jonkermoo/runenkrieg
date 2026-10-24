@@ -176,7 +176,6 @@ local Palette = {
 		TrenchWallChunks = { 0.95, 1.03, 0.98 },
 		TrenchFloor = 0.92,
 		TrenchFloorChunks = 0.98,
-		Earth = { 118, 94, 68 }, -- clods knocked off a trench's walls
 		String = { 236, 232, 220 }, -- a trench plan's markers
 		Flag = { 196, 176, 104 },
 		Picket = { 84, 66, 52 },

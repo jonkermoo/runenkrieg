@@ -84,8 +84,6 @@ local Build = {
 		-- time"), a field gun ~33% ("a few field cannons should bury a trench"), the howitzer leaves 7% ("instantly bury a
 		-- trench (maybe not destroy it ...)")
 		blast = { from = 150, full = 30000, curve = 1.6, cap = 0.93, zone = 1, edge = 2.5 },
-		-- clods knocked off the walls each destroy swing (client debris; not by blasts)
-		clods = { perSwing = 6, size = { 0.5, 1.2 } },
 	},
 
 	-- Every piece you can lay, in the order the build menu lists them.

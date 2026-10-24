@@ -12,7 +12,7 @@
 --   (Config/Assets trench_pieces): a wall each side and a floor rolled from its seed (Rules.trenchPieces), some walls
 --   with plank steps, a wall across a dead end, none where another trench tees in.
 -- - Destroy swings (any team's trench) and blasts (Trenches.blast, from src/server/Build.blast, by the overpressure
---   at the square) take HP off: it falls in (clods off the walls, shallower, churned earth); at 0 it is a scar, a
+--   at the square) take HP off: it is buried (filled in with mud, no clods thrown); at 0 it is a scar, a
 --   lumpy dip of churned earth that stays.
 -- The terrain is reshaped from the ground as it was before any trench touched it (kept per voxel), so digging,
 -- joining, falling in and scars are all the one union of every square's profile over that ground.
@@ -250,25 +250,6 @@ end
 local function reshapeBlock(blk: Block)
 	local mid = (blk.a + blk.b) / 2
 	reshape(mid, blk.length / 2 + TOP + T.bank.width + VOXEL)
-end
-
--- clods knocked off the walls: client debris (src/client/Debris), earth coloured
-local function clods(blk: Block, n: number)
-	local pieces = {}
-	for _ = 1, n do
-		local s = if math.random() < 0.5 then -1 else 1
-		local u = math.random() * blk.length
-		local h = 1 + math.random() * (T.depth - 1.5)
-		local p = at(blk, u, s * (T.floor + (TOP - T.floor) * h / T.depth)) - Vector3.new(0, T.depth - h, 0)
-		local size = T.clods.size[1] + math.random() * (T.clods.size[2] - T.clods.size[1])
-		table.insert(pieces, {
-			cf = CFrame.new(p) * CFrame.Angles(math.random() * 3, math.random() * 3, 0),
-			size = Vector3.new(size, size * 0.8, size),
-			color = rgb(Palette.Build.Earth, 0.85 + math.random() * 0.25),
-			t = 0,
-		})
-	end
-	Net.event("SectionBroken"):FireAllClients(pieces, at(blk, blk.length / 2, 0))
 end
 
 -- a square still to be dug: a peg at each corner of its outline (its top edges) with string round it, and a flag at
@@ -820,7 +801,6 @@ function Trenches.work(blk: Block, team: string, mode: string)
 	blk.hp = left
 	blk.worked = os.clock()
 	blk.falling = true
-	clods(blk, T.clods.perSwing)
 	if gone then
 		finish(blk, true)
 		return
@@ -844,7 +824,6 @@ function Trenches.blast(position: Vector3, kpaAt: (number) -> number, _reachOf: 
 			end
 		end
 	end
-	-- (no clods thrown: user 2026-10-24, "i dont want these blocks appearing just beacuse theres an axplosion")
 	for _, blk in hit do
 		if blk.hp <= 0 then
 			finish(blk, true)
