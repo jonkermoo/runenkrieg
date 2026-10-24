@@ -8,7 +8,7 @@
 --   snap it), sent as Net "Build" "Plan"; a short right click drops the start (a right drag turns the camera). Laying
 --   leaves build mode.
 -- - The trench planner's ghost (Config/Build.Plan; user 2026-10-24: "make the entire planning thing better and more
---   stylish", design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ) previews what the server will peg out: per
+--   stylish") previews what the server will peg out: per
 --   square a chalk cord, a faint fill with the dug floor's band, ghost stakes (no flags, user 2026-10-24); an icon
 --   over each end, a new trench or extending one; a length tag over the end; and the reach circles of Trench.firstReach dashed on the
 --   ground (round you before the first click, round both ends after it), red when you're too far.

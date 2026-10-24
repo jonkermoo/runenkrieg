@@ -177,7 +177,7 @@ local Palette = {
 		TrenchWallChunks = { 0.95, 1.03, 0.98 },
 		TrenchFloor = 0.92,
 		TrenchFloorChunks = 0.98,
-		-- a trench plan's markers (user 2026-10-24, design page https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): the cord
+		-- a trench plan's markers (user 2026-10-24): the cord
 		-- and the stakes with a painted top (`PegTop`)
 		String = { 236, 232, 220 },
 		PegTop = { 236, 230, 210 },
@@ -259,8 +259,7 @@ local Palette = {
 		manaSpend = { 235, 250, 255 },
 		manaBurnt = { 118, 72, 150 },
 		manaDenied = { 220, 70, 60 },
-		-- the build HUD panel (src/client/Build; user 2026-10-24, design page
-		-- https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): the panel, its edge (go / no-go / the shovel out, not
+		-- the build HUD panel (src/client/Build; user 2026-10-24): the panel, its edge (go / no-go / the shovel out, not
 		-- planning), the title (red when it can't go), the line beside it, the key caps and their hints
 		BuildHud = {
 			panel = { 24, 29, 32 },

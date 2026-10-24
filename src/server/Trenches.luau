@@ -1,5 +1,5 @@
 --!strict
--- Trenches v2 on the server (Config/Build.Trench, Rules/Build; design page https://claude.ai/artifact/FRZKPxjdaq3nXAzFwWwFb6).
+-- Trenches v2 on the server (Config/Build.Trench, Rules/Build).
 -- Carved into the terrain like the howitzer's pit (src/server/Ground.pit; user 2026-10-23: "I really like how the
 -- mortar dug out is like"): mud floor and walls, earth thrown up as a bank along both edges.
 -- - A plan (Net "Build" "Plan", start, end) is one straight run, split into squares (Rules.planBlocks; user
@@ -252,8 +252,8 @@ local function reshapeBlock(blk: Block)
 	reshape(mid, blk.length / 2 + TOP + T.bank.width + VOXEL)
 end
 
--- a square still to be dug (user 2026-10-24: "make the entire planning thing better and more stylish"; design page
--- https://claude.ai/artifact/Peh9x7PLAo9wXuEca4aWQQ): a stake at each corner of its outline (its top edges), its top
+-- a square still to be dug (user 2026-10-24: "make the entire planning thing better and more stylish"): a stake at
+-- each corner of its outline (its top edges), its top
 -- painted, with cord round it sagging a little between the stake tops (Beams). No flags (user 2026-10-24: "i dont
 -- think we need a flag. lets just do the stakes")
 local function markers(blk: Block)

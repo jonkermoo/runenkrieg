@@ -1,5 +1,5 @@
 --!strict
--- Soldier movement and its animations (.claude/skills/roblox-animation). Speeds live in Config/Metrics.Movement;
+-- Soldier movement and its animations. Speeds live in Config/Metrics.Movement;
 -- this file holds the controls and the animation set. Data only (Lune tests read it).
 -- Sprint (user 2026-10-11): hold Shift, unlimited stamina. No firing or aiming while sprinting (src/client/Stance:
 -- Shift wins over aiming; firing, later).
