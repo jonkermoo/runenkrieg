@@ -1,5 +1,5 @@
 --!strict
--- Weapons (.claude/skills/roblox-weapons/SKILL.md). Every position is in gun space, in studs, relative to the
+-- Weapons. Every position is in gun space, in studs, relative to the
 -- export's Origin marker (the gun origin, at the trigger): +X right, +Y up, -Z toward the muzzle.
 -- Aiming contract: the Aim camera and the bullet both travel along gun -Z, so the line of sight is parallel to the
 -- line of fire and the shot lands one sight height (Aim.y - Muzzle.y) below the point of aim at every range.

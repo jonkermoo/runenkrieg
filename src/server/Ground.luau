@@ -27,6 +27,10 @@ local pitted: { [string]: boolean } = {}
 local trenched: (string) -> boolean = function(_key: string)
 	return false
 end
+-- whether a point is within some studs of a trench's ground (src/server/Build.nearTrench): craters stop short of it
+local nearTrench: (Vector3, number) -> boolean = function(_p: Vector3, _extra: number)
+	return false
+end
 
 local function dug(key: string): boolean
 	return pitted[key] == true or trenched(key)
@@ -73,7 +77,7 @@ function Ground.crater(position: Vector3, plan: any, c: any)
 	for _, b in plan.rim do
 		local over = position + Vector3.new(b.dx, plan.radius, b.dz)
 		local hit = workspace:Raycast(over, Vector3.yAxis * -plan.radius * 3, terrainOnly)
-		if hit then
+		if hit and not nearTrench(hit.Position, b.radius) then
 			terrain:FillBall(hit.Position - Vector3.yAxis * b.sink, b.radius, churnTo)
 		end
 	end
@@ -210,9 +214,13 @@ local function refillCrater(k: Crater, share: number, done: boolean): number
 end
 
 -- Starts the craters filling back in: every `tick` s each crater due a step is written, oldest first, at most `budget`
--- voxels a tick (the rest next tick). `isTrench`: whether a trench touched a voxel (src/server/Build.dug).
-function Ground.start(isTrench: (string) -> boolean)
+-- voxels a tick (the rest next tick). `isTrench`: whether a trench touched a voxel (src/server/Build.dug); `near`:
+-- whether a point is within some studs of a trench's ground (src/server/Build.nearTrench), where craters stop.
+function Ground.start(isTrench: (string) -> boolean, near: ((Vector3, number) -> boolean)?)
 	trenched = isTrench
+	if near then
+		nearTrench = near
+	end
 	task.spawn(function()
 		while true do
 			local r = DamageCfg.Blast.Crater.Refill
@@ -262,7 +270,7 @@ function Ground.bowl(position: Vector3, mouth: number, depth: number)
 				column[iy] = occs[ix][iy][iz]
 				wet = wet or mats[ix][iy][iz] == Enum.Material.Water
 			end
-			if lower > 0 and not wet then
+			if lower > 0 and not wet and not nearTrench(Vector3.new(x, position.Y, z), VOXEL / 2) then
 				local out = Blast.lowerColumn(column, corner.Y, VOXEL, lower)
 				for iy = 1, size.Y do
 					occs[ix][iy][iz] = out[iy]
@@ -296,7 +304,8 @@ function Ground.churn(position: Vector3, radius: number, depth: number, c: any)
 	for ix = 1, size.X do
 		for iz = 1, size.Z do
 			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
-			if (x - position.X) ^ 2 + (z - position.Z) ^ 2 <= radius * radius then
+			local inside = (x - position.X) ^ 2 + (z - position.Z) ^ 2 <= radius * radius
+			if inside and not nearTrench(Vector3.new(x, position.Y, z), VOXEL / 2) then
 				for iy = 1, size.Y do
 					if from[mats[ix][iy][iz]] then
 						mats[ix][iy][iz] = churnTo

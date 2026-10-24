@@ -37,7 +37,7 @@ local function library(name: string): Model?
 	end
 	local m = f and f:FindFirstChild(name)
 	if not m then
-		warn(`[Helmets] {name} is not in the asset library: run the Library sync (CLAUDE.md)`)
+		warn(`[Helmets] {name} is not in the asset library: run the Library sync (src/dev/Library)`)
 		return nil
 	end
 	return m :: Model

@@ -58,11 +58,14 @@ local function rgb(c: { number }): Color3
 end
 
 -- Art rule: every library mesh is anchored SmoothPlastic (colors are applied where it's used).
-local function normalize(model: Instance)
+local function normalize(model: Instance, fidelity: string?)
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.Anchored = true
 			d.Material = Enum.Material.SmoothPlastic
+			if fidelity and d:IsA("MeshPart") then
+				d.CollisionFidelity = (Enum.CollisionFidelity :: any)[fidelity]
+			end
 		end
 	end
 end
@@ -140,7 +143,7 @@ function Library.ensure(entryName: string): Model
 	model:SetAttribute("AssetId", e.id)
 	model:SetAttribute("Source", e.source)
 	model:SetAttribute("Description", e.description)
-	normalize(model)
+	normalize(model, e.fidelity)
 	model.Parent = target
 	if model ~= loaded then
 		loaded:Destroy()

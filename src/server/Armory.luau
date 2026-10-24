@@ -1,5 +1,5 @@
 --!strict
--- Weapons in play (.claude/skills/roblox-weapons/SKILL.md, Config/Weapons). Builds a rigged weapon from its
+-- Weapons in play (Config/Weapons). Builds a rigged weapon from its
 -- library model (ReplicatedStorage.Assets.Weapons...): the export's Origin marker becomes the invisible "Gun" part at
 -- the gun origin, static parts are welded to it, moving parts get Motor6Ds at their pivots, and the Muzzle / Aim /
 -- Eject attachments sit on it (all looking down gun -Z, so sight and fire stay parallel). The whole weapon is

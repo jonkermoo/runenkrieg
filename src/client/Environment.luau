@@ -122,7 +122,8 @@ function Environment.start()
 
 	local function look()
 		local t = workspace:GetServerTimeNow()
-		local clock = Rules.clockAt(t - num(A.dayStart, t), Cfg.Day)
+		local paused = workspace:GetAttribute(A.paused)
+		local clock = Rules.clockNow(t, num(A.dayStart, t), if typeof(paused) == "number" then paused else nil, Cfg.Day)
 		local kind = workspace:GetAttribute(A.weather)
 		local w = Rules.strength(t, num(A.from, 0), num(A.to, 0), Cfg.Weather.fade)
 		local l =

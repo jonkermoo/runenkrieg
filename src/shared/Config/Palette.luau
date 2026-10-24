@@ -168,7 +168,24 @@ local Palette = {
 	-- Player-built pieces (Config/Build, src/server/Build): flat colours until the meshes come
 	Build = {
 		Sandbag = { 176, 156, 114 }, -- hessian; each bag's tone jittered by Config/Build.Sandbags.shade
-		Plank = { 112, 88, 66 }, -- revetment planks and the firestep
+		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
+		PlankDark = { 98, 74, 52 },
+		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:
+		-- "match the color of the mud"): Wall<i> takes wall shade (i - 1) % 3 + 1 and its chunks the chunk shade of the
+		-- same number; Floor<i> and its chunks
+		TrenchWall = { 1.0, 1.08, 0.93 },
+		TrenchWallChunks = { 0.95, 1.03, 0.98 },
+		TrenchFloor = 0.92,
+		TrenchFloorChunks = 0.98,
+		-- a trench plan's markers (user 2026-10-24): the cord
+		-- and the stakes with a painted top (`PegTop`)
+		String = { 236, 232, 220 },
+		PegTop = { 236, 230, 210 },
+		-- the planner's chalk cord and reach circles (src/client/Build, Config/Build.Plan; Artillery.Arc's colour, so
+		-- planning and gunnery read as one family), and their colour where the plan can't go
+		Chalk = { 236, 230, 210 },
+		ChalkBad = { 236, 120, 104 },
+		IconDim = { 154, 166, 159 }, -- the planner's action icons: the stake's top, the trench piece
 		Picket = { 84, 66, 52 },
 		Wire = { 58, 56, 54 },
 	},
@@ -242,6 +259,20 @@ local Palette = {
 		manaSpend = { 235, 250, 255 },
 		manaBurnt = { 118, 72, 150 },
 		manaDenied = { 220, 70, 60 },
+		-- the build HUD panel (src/client/Build; user 2026-10-24): the panel, its edge (go / no-go / the shovel out, not
+		-- planning), the title (red when it can't go), the line beside it, the key caps and their hints
+		BuildHud = {
+			panel = { 24, 29, 32 },
+			ok = { 108, 191, 123 },
+			bad = { 226, 96, 79 },
+			idle = { 217, 180, 90 },
+			title = { 238, 240, 234 },
+			titleBad = { 255, 180, 168 },
+			sub = { 201, 210, 204 },
+			key = { 238, 240, 234 },
+			keyText = { 32, 38, 42 },
+			hint = { 184, 194, 188 },
+		},
 		-- the third-person crosshair's ring (src/client/Crosshair, Config/Camera.Crosshair), with a dark edge behind it
 		crosshair = { 236, 232, 220 },
 		-- the settings menu (src/client/SettingsMenu, src/shared/ui/SettingsMenu.json): gray slate, no hue (user
