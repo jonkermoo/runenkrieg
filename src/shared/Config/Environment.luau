@@ -11,6 +11,8 @@ local Environment = {
 		weather = "EnvWeather", -- "Clear" / "Fog" / "Rain"
 		from = "EnvWeatherFrom", -- server time the event starts fading in
 		to = "EnvWeatherTo", -- server time it has faded out
+		paused = "EnvClockPaused", -- dev: the server time the clock stopped at (none while it runs)
+		calm = "EnvWeatherCalm", -- dev: true while no random weather is rolled
 	},
 
 	-- One full day in 20 min (user 2026-10-22): 14 min from sunrise to sunset, 6 min of night.

@@ -3,7 +3,8 @@
 -- when the day started and the current weather event (its kind and the server times it fades in from and out by) as
 -- Workspace attributes; each client draws the light, haze and rain from them (src/client/Environment). The server
 -- never writes Lighting itself: a replicated ClockTime would jerk every client's own smooth one.
--- Dev (Studio command bar in play): `setClock(hours)`, `force(kind, seconds?)`.
+-- Dev (Studio command bar in play, and the admin panel's Time rows through src/server/DevTools): `setClock(hours)`,
+-- `pause(on)`, `force(kind, seconds?)`, and the admin panel's Weather rows: `forceNow(kind, seconds)`, `calm(on)`.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -29,10 +30,28 @@ local function set(kind: string, from: number, to: number)
 	workspace:SetAttribute(A.to, to)
 end
 
--- Sets the clock now to `hours` (it keeps running from there).
+local function pausedAt(): number?
+	local p = workspace:GetAttribute(A.paused)
+	return if typeof(p) == "number" then p else nil
+end
+
+-- Sets the clock now to `hours` (it keeps running from there, or stays there while paused).
 function Environment.setClock(hours: number)
-	local back = Rules.phaseOf(hours, Cfg.Day) - Rules.phaseOf(Cfg.Day.startClock, Cfg.Day)
-	workspace:SetAttribute(A.dayStart, now() - back)
+	workspace:SetAttribute(A.dayStart, Rules.startFor(hours, pausedAt() or now(), Cfg.Day))
+end
+
+-- Stops the clock where it is (`on`) or lets it run on from there.
+function Environment.pause(on: boolean)
+	local p = pausedAt()
+	if on and not p then
+		workspace:SetAttribute(A.paused, now())
+	elseif not on and p then
+		local start = workspace:GetAttribute(A.dayStart)
+		if typeof(start) == "number" then
+			workspace:SetAttribute(A.dayStart, start + now() - p)
+		end
+		workspace:SetAttribute(A.paused, nil)
+	end
 end
 
 -- Starts `kind` ("Fog", "Rain", "Clear") now for `seconds` (a rolled length if nil); the rolls carry on after it.
@@ -42,6 +61,18 @@ function Environment.force(kind: string, seconds: number?)
 	set(kind, t, t + (seconds or Rules.span(rng:NextNumber(), W.duration)))
 end
 
+-- Starts `kind` at full strength right away (no fade in) for `seconds`; "Clear" ends any event now.
+function Environment.forceNow(kind: string, seconds: number)
+	turn += 1
+	local from, to = Rules.fullNow(now(), seconds, W.fade)
+	set(kind, from, to)
+end
+
+-- Stops (`on`) or restarts the random weather rolls; an event already on runs out.
+function Environment.calm(on: boolean)
+	workspace:SetAttribute(A.calm, if on then true else nil)
+end
+
 local function roll()
 	while true do
 		local mine = turn
@@ -49,7 +80,7 @@ local function roll()
 		local to = workspace:GetAttribute(A.to)
 		local wait = if typeof(to) == "number" and to > t then to - t else 0
 		task.wait(wait + Rules.span(rng:NextNumber(), W.clear))
-		if turn == mine then
+		if turn == mine and workspace:GetAttribute(A.calm) ~= true then
 			local kind = Rules.pick(rng:NextNumber(), W.odds)
 			if kind ~= "Clear" then
 				local from = now()
