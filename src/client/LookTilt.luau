@@ -30,6 +30,7 @@ local CameraCfg = require(Shared.Config.Camera)
 local CameraRules = require(Shared.Rules.Camera)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.LookTilt)
+local Weapons = require(Shared.Config.Weapons)
 local Held = require(script.Parent.Held)
 
 local LookTilt = {}
@@ -170,7 +171,8 @@ local function aimTurn(
 		local from = torso * (pivot * a.rot * pivot:Inverse() * bend * inHold).Position
 		local want = torso:VectorToObjectSpace(point - from)
 		local wy, wp = Rules.angles(want.X, want.Y, want.Z)
-		local ty, tp = Rules.aimTurn(a.yaw, a.pitch, wy, wp, AIM.Max)
+		local class = Weapons[weapon.name] and Weapons[weapon.name].class
+		local ty, tp = Rules.aimTurn(a.yaw, a.pitch, wy, wp, (AIM.ClassMax :: any)[class] or AIM.Max)
 		a.turnYaw, a.speedYaw = CameraRules.spring(a.turnYaw, a.speedYaw, ty * weight, AIM.Spring, dt)
 		a.turnPitch, a.speedPitch = CameraRules.spring(a.turnPitch, a.speedPitch, tp * weight, AIM.Spring, dt)
 	end
@@ -321,7 +323,7 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 			lastYaw.yaw, lastYaw.at = y, now
 			headRemote:FireServer(y)
 		end
-		local p, f, ay, ap = Rules.toSend(pitch, follow, aim.turnYaw, aim.turnPitch, last, now, cfg.Send, AIM.Max)
+		local p, f, ay, ap = Rules.toSend(pitch, follow, aim.turnYaw, aim.turnPitch, last, now, cfg.Send, AIM.Limit)
 		if p and f and ay and ap then
 			last.pitch, last.follow, last.aimYaw, last.aimPitch, last.at = p, f, ay, ap, now
 			remote:FireServer(p, f, ay, ap)
