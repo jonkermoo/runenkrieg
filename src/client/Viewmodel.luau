@@ -311,6 +311,14 @@ function Viewmodel.start()
 				for _, t in rig.tracks do
 					t:Stop(0)
 				end
+				-- a strike, throw, dig or pin pulled out of view (third person) is seen there: coming back into first
+				-- person doesn't play it a second time
+				if character then
+					rig.thrown = character:GetAttribute("ThrownAt") :: number?
+					rig.dug = character:GetAttribute("DugAt") :: number?
+					rig.struck = character:GetAttribute("StruckAt") :: number?
+					rig.pinned = character:GetAttribute("PinAt") :: number?
+				end
 				rig.model.Parent = nil
 				playing = nil
 			end

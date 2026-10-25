@@ -333,7 +333,6 @@ function Firing.start()
 			or not weapon
 			or not l
 			or character:GetAttribute("Sprinting") == true
-			or character:GetAttribute("Blocked") == true -- folded in against a wall (src/client/Tuck)
 			or character:GetAttribute("Ragdolled") == true
 			or character:GetAttribute("Striking") == true -- a butt stroke (src/client/Melee)
 		then
@@ -341,6 +340,11 @@ function Firing.start()
 		end
 		local now = os.clock()
 		local next = F.next(l.state, now)
+		-- folded in against a wall (src/client/Tuck): no trigger pull, but the bolt still works and single loading still
+		-- stops (the action plays over the tuck hold)
+		if character:GetAttribute("Blocked") == true and (next == "Fire" or next == "Dry") then
+			return
+		end
 		if next == "Load" then
 			stopLoad(character, l, now)
 			return
