@@ -5,8 +5,8 @@
 -- arms with its shirt and body colours, a copy of the held weapon joined to the torso like the real one) fixed to the
 -- camera so the camera is its eye. It plays the weapon's first-person holds (Config/Weapons firstPerson) by the
 -- same "Hold" state as the body (src/client/Locomotion), and moves by the global sway layer (src/client/Sway).
--- It is on while WeaponCamera says "CameraInside" and fades in by its "Handover": gliding in from the shoulder it
--- fades in over the last stretch to the eye as the body fades out (user 2026-10-11: ADS looked choppy). It never
+-- It is on while WeaponCamera says "CameraInside" and shows by its "Handover": at once when the camera is inside the
+-- head, as the body hides (user 2026-10-25: no fades). It never
 -- shows the rig's rest pose (the gun rising from the middle of the screen). Aiming plays a brief aim-in
 -- (firstPerson.aimIn, 0.3 s: the rifle comes up from the ready hold into the sights) over the aim hold, as long as the
 -- camera's glide, while the body plays its third-person aim for everyone; letting go plays the aim-out back down
@@ -433,7 +433,7 @@ function Viewmodel.start()
 			* CFrame.new(shift + r.aimFix * aimness + r.shift)
 			* CFrame.new(-EYE)
 		r.model.Parent = camera
-		-- fading in (and out) with the camera's glide to the eye (WeaponCamera's "Handover")
+		-- shown once the camera is inside the head (WeaponCamera's "Handover": 0 or 1, no fade)
 		local handover = character:GetAttribute("Handover")
 		local clear = 1 - (if type(handover) == "number" then handover else 1)
 		-- one-handed: the left arm shows only once the left hand is on the staff (the two-handed aim, or a charge far

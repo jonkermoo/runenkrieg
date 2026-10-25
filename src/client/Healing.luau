@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Healing)
 local DevCfg = require(Shared.Config.DevTools)
+local Stow = require(Shared.Config.Locomotion).Stow
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Healing)
@@ -171,8 +172,24 @@ function Healing.start()
 		local character = player.Character
 		if character and character:GetAttribute("Healing") ~= nil then
 			Net.event("Heal"):FireServer("Stop")
-		elseif target then
-			Net.event("Heal"):FireServer("Start", target)
+		elseif target and character then
+			-- the weapon in the hands goes away first, its unequip played out (src/client/Locomotion "Stowing"; user
+			-- 2026-10-25: an animation has to finish before anything else), then the heal starts
+			local patient = target
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if humanoid and character:FindFirstChildOfClass("Tool") then
+				humanoid:UnequipTools()
+			end
+			task.spawn(function()
+				local t0 = os.clock()
+				task.wait() -- (the put-away starts on the Tool leaving)
+				while character:GetAttribute("Stowing") ~= nil and os.clock() - t0 < Stow.time * 2 do
+					task.wait()
+				end
+				if character.Parent and character:GetAttribute("Healing") == nil then
+					Net.event("Heal"):FireServer("Start", patient)
+				end
+			end)
 		else
 			return Enum.ContextActionResult.Pass
 		end
