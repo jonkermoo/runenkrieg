@@ -186,7 +186,10 @@ local Palette = {
 		-- planning and gunnery read as one family), and their colour where the plan can't go
 		Chalk = { 236, 230, 210 },
 		ChalkBad = { 236, 120, 104 },
-		Focus = { 236, 230, 210 }, -- the faint light on the trench square in focus (Config/Build.Focus)
+		-- the faint light on the trench square in focus (Config/Build.Focus): a dug one, and one still staked out
+		-- (user 2026-10-25: "can the outline of strings be green instead of white, but keep trench outlines white")
+		Focus = { 236, 230, 210 },
+		FocusPlan = { 120, 214, 104 },
 		IconDim = { 154, 166, 159 }, -- the planner's action icons: the stake's top, the trench piece
 		Picket = { 84, 66, 52 },
 		Wire = { 58, 56, 54 },

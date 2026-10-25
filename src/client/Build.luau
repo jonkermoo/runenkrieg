@@ -978,6 +978,10 @@ function Build.start()
 		if glow.Adornee ~= lit then
 			glow.Adornee = lit
 		end
+		if lit then
+			local c = rgb(if lit:FindFirstChild("Markers") then Palette.Build.FocusPlan else Palette.Build.Focus)
+			glow.FillColor, glow.OutlineColor = c, c
+		end
 		glow.Enabled = lit ~= nil
 	end)
 end

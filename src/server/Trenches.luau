@@ -287,9 +287,11 @@ local function markers(blk: Block)
 			rgb(Palette.Build.PegTop),
 			false
 		)
-		-- the cord's end: its axis down, so each Beam's curve sags (CurveSize0 down from one end, CurveSize1 from the other)
+		-- the cord's end, tied round the stake just under its painted top (not through it, user 2026-10-25: "some
+		-- clipping issues with the wire and stick"): its axis down, so each Beam's curve sags (CurveSize0 down from one
+		-- end, CurveSize1 from the other)
 		local a = Instance.new("Attachment")
-		a.Position = Vector3.new(0, M.peg[2] / 2 - 0.05, 0)
+		a.Position = Vector3.new(0, M.peg[2] / 2 - M.top - 0.08, 0)
 		a.Axis, a.SecondaryAxis = Vector3.new(0, -1, 0), Vector3.new(1, 0, 0)
 		a.Parent = stake
 		table.insert(tops, a)
