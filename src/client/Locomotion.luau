@@ -192,7 +192,23 @@ function Locomotion.attach(character: Model)
 		character:SetAttribute("Stowing", nil)
 	end
 
+	-- something taken out while a weapon is still going over the shoulder (user 2026-10-25: "an animation has to finish
+	-- (fully putting gun back) before they can do anything else"): back into the backpack, and drawn once it's away
+	local waiting: Tool? = nil
+	local bouncing: { [Instance]: boolean } = {}
+
 	character.ChildAdded:Connect(function(child)
+		if child:IsA("Tool") and character:GetAttribute("Stowing") ~= nil and backpack then
+			waiting = child
+			bouncing[child] = true
+			task.defer(function()
+				if child.Parent == character then
+					child.Parent = backpack
+				end
+				bouncing[child] = nil
+			end)
+			return
+		end
 		-- join the gun to the torso at once (the server does too, a moment later), or it drops for a frame
 		local weapon = child:IsA("Tool") and Held.weapon(character)
 		local torso = character:FindFirstChild("Torso") :: BasePart?
@@ -209,7 +225,8 @@ function Locomotion.attach(character: Model)
 	character.ChildRemoved:Connect(function(child)
 		local name = child:IsA("Tool") and child:GetAttribute("Weapon")
 		if
-			type(name) ~= "string"
+			bouncing[child]
+			or type(name) ~= "string"
 			or not W[name]
 			or humanoid.Health <= 0
 			or character:GetAttribute("Ragdolled") == true
@@ -231,6 +248,19 @@ function Locomotion.attach(character: Model)
 		task.delay(Cfg.Stow.time, function()
 			if character:GetAttribute("StowedAt") == at and character:GetAttribute("Stowing") == name then
 				endStow()
+				-- away: what was taken out meanwhile comes out now
+				local next = waiting
+				waiting = nil
+				if
+					next
+					and next.Parent == backpack
+					and humanoid.Health > 0
+					and character:GetAttribute("Ragdolled") ~= true
+					and character:GetAttribute("Healing") == nil
+					and not character:FindFirstChildOfClass("Tool")
+				then
+					humanoid:EquipTool(next)
+				end
 			end
 		end)
 	end)
