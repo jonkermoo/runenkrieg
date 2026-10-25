@@ -448,12 +448,25 @@ local function pieces(blk: Block)
 		local t = math.tan(math.rad(Rules.bend(out.X, out.Z, leave.X, leave.Z)) / 2)
 		return if heap then HEAP_BACK * math.min(t, 1) else TOP * math.min(t, 1.5)
 	end
-	local wallExt = { runOn(blk.linkA, shape.deadA, blk.dir, false), runOn(blk.linkB, shape.deadB, -blk.dir, false) }
-	local heapExt = { runOn(blk.linkA, shape.deadA, blk.dir, true), runOn(blk.linkB, shape.deadB, -blk.dir, true) }
+	-- an end toward a square still to be dug (dug out of order) stays open: no wall across, nothing run on into it; the
+	-- walls join when that square is dug (user 2026-10-24: "whenever i build not in order, it forms walls")
+	local function pending(link: Link?): boolean
+		return link ~= nil and live(link.other) and link.other.hp <= 0
+	end
+	local closeA = shape.deadA and not pending(blk.linkA)
+	local closeB = shape.deadB and not pending(blk.linkB)
+	local wallExt = {
+		if shape.deadA and not closeA then 0 else runOn(blk.linkA, closeA, blk.dir, false),
+		if shape.deadB and not closeB then 0 else runOn(blk.linkB, closeB, -blk.dir, false),
+	}
+	local heapExt = {
+		if shape.deadA and not closeA then 0 else runOn(blk.linkA, closeA, blk.dir, true),
+		if shape.deadB and not closeB then 0 else runOn(blk.linkB, closeB, -blk.dir, true),
+	}
 	-- each side's walls and dirt heaps, along the stretches clear of other trenches (the heap stands well back, so it
 	-- keeps clear of their holes and walls all the way back, not just their floors)
 	local walls, heaps = {}, {}
-	local sig = `{shape.deadA}{shape.deadB}`
+	local sig = `{closeA}{closeB}`
 	for side, sign in { 1, -1 } do
 		walls[side] = sideSpans(blk, sign, WALL_PROBES, wallExt)
 		heaps[side] = sideSpans(blk, sign, HEAP_PROBES, heapExt)
@@ -524,6 +537,15 @@ local function pieces(blk: Block)
 		end
 	end
 	local stretch = blk.length / P.segment
+	-- a long stretch (run on round a sharp bend) laid as several pieces about a segment long, not one stretched far
+	local function pieceRuns(u0: number, u1: number): { { number } }
+		local count = math.max(math.round((u1 - u0) / (P.segment * 1.25)), 1)
+		local runs = {}
+		for c = 0, count - 1 do
+			table.insert(runs, { u0 + (u1 - u0) * c / count, u0 + (u1 - u0) * (c + 1) / count })
+		end
+		return runs
+	end
 	-- side walls (side 1 toward `across`, 2 away from it) along their clear stretches, a corner piece where one stops
 	-- short of another trench (on the wall's slope, from where its top stops down to where its foot could have gone),
 	-- the heaps along theirs, the floor on the centre line turned either way
@@ -531,7 +553,9 @@ local function pieces(blk: Block)
 		local n = roll.walls[side]
 		local out = blk.across * sign
 		for _, s in walls[side] do
-			wall(n, frame(out, false, false, s.u0, s.u1), (s.u1 - s.u0) / P.segment)
+			for _, c in pieceRuns(s.u0, s.u1) do
+				wall(n, frame(out, false, false, c[1], c[2]), (c[2] - c[1]) / P.segment)
+			end
 			for _, e in { { s.u0, s.gap0 }, { s.u1, s.gap1 } } do
 				if e[2] > 0.3 then
 					place("Corner", frame(out, false, false, e[1], e[1]), (e[2] + 0.5) / RUN, `Wall{n}`)
@@ -539,7 +563,9 @@ local function pieces(blk: Block)
 			end
 		end
 		for _, s in heaps[side] do
-			place(`Wall{n}Parapet`, frame(out, false, false, s.u0, s.u1), (s.u1 - s.u0) / P.segment)
+			for _, c in pieceRuns(s.u0, s.u1) do
+				place(`Wall{n}Parapet`, frame(out, false, false, c[1], c[2]), (c[2] - c[1]) / P.segment)
+			end
 		end
 	end
 	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true)
@@ -548,7 +574,7 @@ local function pieces(blk: Block)
 	-- dead ends: a plain wall across, as wide as the trench at the top (its foot runs on behind the side walls) and its
 	-- heap (a thick pile of dirt behind its top edge that collides: Config/Build.Trench) wider still, over the side
 	-- heaps' ends
-	for e, dead in { shape.deadA, shape.deadB } do
+	for e, dead in { closeA, closeB } do
 		if dead then
 			local out = if e == 1 then -flat else flat
 			wall(roll.ends[e], frame(out, true, false, TOP), 2 * TOP / P.segment)
