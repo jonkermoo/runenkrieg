@@ -52,6 +52,7 @@ local current: { frame: CFrame?, a: Vector3?, b: Vector3?, ok: boolean, reason: 
 local planStart: Vector3? = nil
 local planInfo: { length: number, squares: number, clamped: boolean }? = nil
 local notice: { text: string, untilAt: number }? = nil
+local focus: Model? = nil -- the trench square the plan snaps to (extending or branching off), lit faintly
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -496,6 +497,7 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	local team = character:GetAttribute("Kit")
 	team = if type(team) == "string" then team else ""
 	local aim, aimKind, aimModel, aimOut = Survey.trenchSnap(f, team, hit.Position)
+	focus = aimModel
 	local ok, reason = true, nil
 	-- every trench square's line, for the spacing rule (Rules.tooClose; the server's check, Trenches.plan)
 	local segs = {}
@@ -519,6 +521,7 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 		return
 	end
 	local a, aKind, aModel, aOut = Survey.trenchSnap(f, team, planStart)
+	focus = aimModel or aModel
 	local flat = Vector3.new(aim.X - a.X, 0, aim.Z - a.Z)
 	local length = flat.Magnitude
 	-- keep the end within a plan's length
@@ -886,7 +889,19 @@ function Build.start()
 		hook(player.Character)
 	end
 
+	-- the faint light on the trench square in focus
+	local glow = Instance.new("Highlight")
+	glow.Name = "BuildFocus"
+	glow.FillColor = rgb(Palette.Build.Focus)
+	glow.OutlineColor = rgb(Palette.Build.Focus)
+	glow.FillTransparency = C.Focus.fill
+	glow.OutlineTransparency = C.Focus.outline
+	glow.DepthMode = Enum.HighlightDepthMode.Occluded
+	glow.Enabled = false
+	glow.Parent = workspace.CurrentCamera -- (client only)
+
 	RunService.RenderStepped:Connect(function(dt)
+		focus = nil
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local holding = shovelHeld(character)
@@ -927,6 +942,9 @@ function Build.start()
 			state = "idle"
 			local other = if mode == "Build" then "Destroy" else "Build"
 			local m = target(character, root)
+			if m and m:IsA("Model") and m:GetAttribute("Kind") == "TrenchBlock" then
+				focus = m
+			end
 			title = mode
 			keys = { { fire, "dig" }, { reload, `switch to {other}` }, { build, "build" } }
 			if m and m:IsA("Model") then
@@ -956,6 +974,11 @@ function Build.start()
 			title, line = split(notice.text)
 		end
 		panel.set(state, title, line, keys)
+		local lit = if active and piece().kind ~= "Trench" then nil else focus
+		if glow.Adornee ~= lit then
+			glow.Adornee = lit
+		end
+		glow.Enabled = lit ~= nil
 	end)
 end
 

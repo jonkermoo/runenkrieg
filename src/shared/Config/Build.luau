@@ -12,6 +12,9 @@ local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
 	Reach = 14,
 	SwingReach = 8,
+	-- the trench square you're working, extending or branching off is lit faintly (a Highlight in Palette.Build.Focus:
+	-- its fill and outline transparency; user 2026-10-25: "a slight slight indicator for which segment you are focused on")
+	Focus = { fill = 0.93, outline = 0.6 },
 	-- swings faster than this share of the dig's length (Config/Shovel.Dig.length) are ignored
 	SwingSlack = 0.8,
 	-- a blueprint nobody has worked on goes after this (seconds)
