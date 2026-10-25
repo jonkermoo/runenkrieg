@@ -283,7 +283,9 @@ local function markers(blk: Block)
 			holder,
 			"PegTop",
 			Vector3.new(M.peg[1] + 0.03, M.top, M.peg[1] + 0.03),
-			CFrame.new(base + Vector3.new(0, M.peg[2] - 0.15 - M.top / 2, 0)),
+			-- (its top a little under the stake's, so the two faces don't fight: user 2026-10-25 "make sure that the white
+			-- clearly goes under or below the top of the stick")
+			CFrame.new(base + Vector3.new(0, M.peg[2] - 0.15 - M.top / 2 - 0.05, 0)),
 			rgb(Palette.Build.PegTop),
 			false
 		)
