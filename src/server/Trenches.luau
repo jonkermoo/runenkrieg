@@ -672,10 +672,10 @@ local function finish(blk: Block, scar: boolean)
 end
 
 -- the block whose free end `which` is nearest `p` (within Trench.joinReach), or the block whose side `p` is on
-local function snap(p: Vector3, team: string): (Vector3, Link?)
+local function snap(p: Vector3, _team: string): (Vector3, Link?)
 	local best: Block?, bestWhich: string?, bestD = nil, nil, T.joinReach
 	for _, blk in blocks do
-		if live(blk) and blk.team == team then
+		if live(blk) then
 			for _, which in { "A", "B" } do
 				local link = if which == "A" then blk.linkA else blk.linkB
 				local e = if which == "A" then blk.a else blk.b
@@ -691,7 +691,7 @@ local function snap(p: Vector3, team: string): (Vector3, Link?)
 		return e, { kind = "end", other = best, which = bestWhich }
 	end
 	for _, blk in blocks do
-		if live(blk) and blk.team == team then
+		if live(blk) then
 			local rel = Vector3.new(p.X - blk.a.X, 0, p.Z - blk.a.Z)
 			local u, v = rel:Dot(blk.dir), rel:Dot(blk.across)
 			if u >= 0 and u <= blk.length and math.abs(v) <= TOP then
@@ -907,15 +907,16 @@ function Trenches.distance(blk: Block, p: Vector3): number
 	return Survey.toSegment(p, blk.a, blk.b)
 end
 
--- One swing at a square (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds HP to your
--- team's square; Destroy takes it off any team's (an undug plan's square is pulled up).
-function Trenches.work(blk: Block, team: string, mode: string)
+-- One swing at a square (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds HP to any
+-- square, Destroy takes it off (an undug plan's square is pulled up). (Any trench: a soldier's kit is rolled each life,
+-- so after a respawn your own trench was another kit's; user 2026-10-25: "you should be able to fix/edit any trench")
+function Trenches.work(blk: Block, _team: string, mode: string)
 	if not live(blk) then
 		return
 	end
 	local H = T.hp
 	if mode == "Build" then
-		if team ~= blk.team or blk.hp >= H.max then
+		if blk.hp >= H.max then
 			return
 		end
 		blk.hp = Rules.trenchSwing(blk.hp, H.max, H.swing, true)

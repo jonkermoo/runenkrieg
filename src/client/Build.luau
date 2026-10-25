@@ -955,7 +955,8 @@ function Build.start()
 					then "Trench square"
 					else ((Rules.piece(m:GetAttribute("Piece"), C.Pieces) or { name = "Piece" }) :: any).name
 				if type(work) == "number" and type(need) == "number" then
-					local ours = m:GetAttribute("Team") == character:GetAttribute("Kit")
+					-- (any trench square is yours to work: Trenches.work)
+					local ours = block or m:GetAttribute("Team") == character:GetAttribute("Kit")
 					local mine = if ours then name else `Enemy {string.lower(name)}`
 					local of = if block then `HP {work} / {need}` else `{work} / {need}`
 					title = `{mode} · {mine}`
