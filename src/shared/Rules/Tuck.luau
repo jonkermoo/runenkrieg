@@ -18,4 +18,22 @@ function Tuck.blocked(hit: number?, reach: number, ahead: number, clear: number,
 	return hit < reach + ahead + (if was then clear else 0)
 end
 
+-- The same for trench dirt (its walls, floor, banks and the ground carved round them): only a surface the look meets
+-- nearly head on (`facing`, the cosine between the look and into the surface, at least `minFacing`) within the
+-- barrel's own reach folds it; the sloped walls, the floor and the parapet a look along or out of the trench glances
+-- past don't (Studio round t1024-1602-59df: the rifle stayed folded inside a trench).
+function Tuck.trenchBlocked(
+	hit: number?,
+	facing: number,
+	reach: number,
+	minFacing: number,
+	clear: number,
+	was: boolean
+): boolean
+	if hit == nil or facing < minFacing then
+		return false
+	end
+	return hit < reach + (if was then clear else 0)
+end
+
 return Tuck

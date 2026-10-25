@@ -132,11 +132,16 @@ return {
 		assert(#b == 1 and near(b[1].to, 5), "shorter than a segment: one partial")
 		assert(B.planBlocks(1, 8, T.minBlock) == nil)
 	end,
-	["trenches v2: the shape: floor, walls too steep to walk, banks"] = function()
+	["trenches v2: the shape: floor, walls walkable but steep, banks"] = function()
 		local T = C.Trench
 		local top = B.trenchTop(T)
 		assert(near(top, T.floor + T.depth / math.tan(math.rad(T.wallAngle))))
-		assert(T.wallAngle > M.Movement.MaxSlopeAngle, "the walls can't be walked up")
+		assert(T.wallAngle > 48 and T.wallAngle < 70, "between the first walls (70) and 48")
+		assert(
+			T.wallAngle < M.Movement.MaxSlopeAngle,
+			"the walls can be walked up, hard (the dirt heap stops you at the top)"
+		)
+		assert(T.spacing >= 2 * (top + T.bank.width), "two trenches' parapets and banks don't overlap")
 		assert(T.depth >= M.Cover.FullCoverMin, "full cover on the floor")
 		assert(B.trenchProfile(0, 1, T) == -T.depth and B.trenchProfile(T.floor, 1, T) == -T.depth)
 		assert(near(B.trenchProfile((T.floor + top) / 2, 1, T) :: number, -T.depth / 2))
@@ -144,6 +149,19 @@ return {
 		assert(near(bank, T.bank.height))
 		assert(B.trenchProfile(top + T.bank.width + 0.1, 1, T) == nil and B.trenchProfile(1, 0, T) == nil)
 		assert(near(B.trenchProfile(0, 1 / 3, T) :: number, -T.depth / 3), "a third dug")
+	end,
+	["trenches v2: a bullet meeting the ground in a square's hole, walls or banks hits it"] = function()
+		local T = C.Trench
+		local s = T.shotSlack
+		local edge = B.trenchTop(T) + T.bank.width
+		assert(B.inTrenchGround(0, -T.depth, T, s), "the floor")
+		assert(B.inTrenchGround(T.floor + 0.5, -T.depth + 1, T, s), "the foot of a wall")
+		assert(B.inTrenchGround(edge, T.bank.height, T, s), "the bank's far edge")
+		assert(B.inTrenchGround(edge + s - 0.01, 0, T, s), "within the slack")
+		assert(not B.inTrenchGround(edge + s + 0.01, 0, T, s), "the meadow past it")
+		assert(not B.inTrenchGround(2, -T.depth - s - 0.01, T, s), "deep under it")
+		assert(not B.inTrenchGround(2, T.bank.height + s + 0.01, T, s), "a hill over it")
+		assert(s > 0 and s <= 4)
 	end,
 	["trenches v2: reach along a block, past a joined end, round a dead end"] = function()
 		local shape = { length = 12, extA = 4, extB = 0, deadA = false, deadB = true }
@@ -188,12 +206,12 @@ return {
 		-- leaving an end but bending back alongside
 		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S), "doubling back alongside")
 	end,
-	["trenches v2: a side wall keeps to the longest stretch clear of other trenches"] = function()
-		local a, b = B.longestFree({ true, false, false, true, false, false, false, true })
-		assert(a == 5 and b == 7, "the longest run")
-		a, b = B.longestFree({ false, false, false })
-		assert(a == 1 and b == 3, "all clear")
-		assert(B.longestFree({ true, true }) == nil, "all blocked")
+	["trenches v2: a side wall keeps to the stretches clear of other trenches, either side of a branch"] = function()
+		local runs = B.freeRuns({ true, false, false, true, false, false, false, true })
+		assert(#runs == 2 and runs[1][1] == 2 and runs[1][2] == 3 and runs[2][1] == 5 and runs[2][2] == 7, "both runs")
+		runs = B.freeRuns({ false, false, false })
+		assert(#runs == 1 and runs[1][1] == 1 and runs[1][2] == 3, "all clear")
+		assert(#B.freeRuns({ true, true }) == 0, "all blocked")
 	end,
 	["trenches v2: each square rolls its walls and floor, wood walls now and then but never twice in a row"] = function()
 		local P = C.Trench.pieces

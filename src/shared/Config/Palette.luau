@@ -172,9 +172,10 @@ local Palette = {
 		PlankDark = { 98, 74, 52 },
 		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:
 		-- "match the color of the mud"): Wall<i> takes wall shade (i - 1) % 3 + 1 and its chunks the chunk shade of the
-		-- same number; Floor<i> and its chunks
+		-- same number, its parapet that shade too; Floor<i> and its chunks
 		TrenchWall = { 1.0, 1.08, 0.93 },
 		TrenchWallChunks = { 0.95, 1.03, 0.98 },
+		TrenchParapet = { 0.9, 0.97, 0.92 },
 		TrenchFloor = 0.92,
 		TrenchFloorChunks = 0.98,
 		-- a trench plan's markers (user 2026-10-24): the cord
@@ -185,6 +186,10 @@ local Palette = {
 		-- planning and gunnery read as one family), and their colour where the plan can't go
 		Chalk = { 236, 230, 210 },
 		ChalkBad = { 236, 120, 104 },
+		-- the faint light on the trench square in focus (Config/Build.Focus): a dug one, and one still staked out
+		-- (user 2026-10-25: "can the outline of strings be green instead of white, but keep trench outlines white")
+		Focus = { 236, 230, 210 },
+		FocusPlan = { 120, 214, 104 },
 		IconDim = { 154, 166, 159 }, -- the planner's action icons: the stake's top, the trench piece
 		Picket = { 84, 66, 52 },
 		Wire = { 58, 56, 54 },

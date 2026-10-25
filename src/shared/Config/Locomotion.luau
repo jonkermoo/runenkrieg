@@ -21,6 +21,12 @@ local Locomotion = {
 		Clear = 0.5, -- studs further still before it comes back out (no flicker at the edge)
 		Shoulder = { 1, 0.5, 0 }, -- the sweep's start, in the torso's space
 		GripAhead = 0.7, -- the ready hold's grip ahead of the shoulder (studs)
+		-- trench dirt folds the gun only when the look meets it this head on (cosine; 0.75: within about 40 degrees)
+		-- and within the barrel's reach (Rules/Tuck.trenchBlocked)
+		TrenchFacing = 0.75,
+		-- near trench dirt the sweep starts here instead (torso space): the shouldered gun's height (Metrics
+		-- AimMuzzleHeight 4.3: the torso's centre is 3 up), so a rifle rested on a trench's parapet doesn't fold
+		TrenchFrom = { 1, 1.3, 0 },
 	},
 	ToggleSprintMoving = 0.1, -- a toggled sprint counts as moving above this share of MoveDirection (stopping ends it)
 	-- the camera follows the body down into the crouch and back up on a critically damped spring at this rate (per
