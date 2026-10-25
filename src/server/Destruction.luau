@@ -3,7 +3,7 @@
 -- removes broken sections; clients get one SectionBroken event per break and spawn their own debris.
 --   Destruction.damage(section, amount, origin?, cut?)
 --   Destruction.explode(position, radius, damage) -- also kicks trees via Net "Explosion"
---   Destruction.shot(part, point) -- a bullet meeting `part`: glass breaks (Config/Firing.Shatter)
+--   Destruction.shot(part, point, line) -- a bullet meeting `part`: glass breaks (Config/Firing.Shatter)
 -- Stateless (all state lives in attributes), so it can be required from anywhere on the server.
 
 local CollectionService = game:GetService("CollectionService")
@@ -39,7 +39,8 @@ local function buildingOf(i: Instance): Model?
 end
 
 -- How a piece goes (src/client/Debris): nil crumples (chunks that drop near where it was), "fall" lost its support (drops
--- where it was), "dust" was pulverised (a puff of dust and a few shards, gone in seconds). Config/Damage.Blast.Destroy.
+-- where it was), "dust" was pulverised (a puff of dust and a few shards, gone in seconds), "shot" a pane a bullet broke
+-- (shards thrown on along the bullet). Config/Damage.Blast.Destroy.
 type Piece = { cf: CFrame, size: Vector3, color: Color3, t: number, m: string? }
 
 local function piece(p: BasePart, m: string?): Piece
@@ -354,15 +355,22 @@ function Destruction.damage(section: Model, amount: number, origin: Vector3?, cu
 	end
 end
 
--- A bullet meeting `part` at `point`: a section of a Config/Firing.Shatter class (window glass) breaks at once (its
--- shards on every client) and true is returned, so the bullet carries on; anything else stops it (false).
-function Destruction.shot(part: Instance, point: Vector3): boolean
+-- A bullet going along `line` (a unit vector) meeting `part` at `point`: a section of a Config/Firing.Shatter class
+-- (window glass) breaks at once (its shards on every client, thrown on the way the bullet went) and true is returned,
+-- so the bullet carries on; anything else stops it (false).
+function Destruction.shot(part: Instance, point: Vector3, line: Vector3): boolean
 	local s = sectionOf(part)
 	local class = s and s:GetAttribute("Class")
 	if not s or not Shots.shatters(if type(class) == "string" then class else nil, 0, Shatter) then
 		return false
 	end
-	Destruction.damage(s, math.max(s:GetAttribute("HP") :: number? or 1, 1), point)
+	s:SetAttribute("HP", 0)
+	local building = buildingOf(s)
+	breakAll({ s }, point - line * Shatter.behind, "shot")
+	if building then
+		checkCollapse(building, point)
+		settleLater(building, point)
+	end
 	return true
 end
 
