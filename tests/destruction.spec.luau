@@ -45,10 +45,10 @@ return {
 		assert(not R.topples(nil, 0, P.height, P.tries), "nothing under it within reach: leave it")
 		assert(not R.topples(P.height + 1, P.tries, P.height, P.tries), "after `tries` it stays where it is")
 	end,
-	["a window pane shatters into small shards, a wall piece into a few chunks"] = function()
+	["a window pane shatters into a handful of shards, a wall piece into a few chunks"] = function()
 		local G = D.Debris.Glass
 		local a, b = R.fractureCounts(4, 3, G.cell, G.max)
-		assert(a * b >= 12 and a * b <= G.max, "a 4 x 3 pane: a dozen shards or more, never over max")
+		assert(a * b >= 4 and a * b <= G.max, "a 4 x 3 pane: a handful of shards, never over max")
 		local c, d = R.fractureCounts(4, 3, D.Debris.cell, D.Debris.chunksPerSection)
 		assert(c * d == 1, "at wall-chunk size a pane stays one piece (the old look)")
 		local e, f = R.fractureCounts(0.5, 0.2, G.cell, G.max)

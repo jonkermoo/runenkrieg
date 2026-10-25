@@ -47,9 +47,11 @@ local Destruction = {
 		chunksPerSection = 6,
 		-- a broken piece is cut into ~`cell`-stud chunks (at most chunksPerSection); glass into ~`Glass.cell`-stud shards
 		-- (at most `Glass.max` per pane; user 2026-10-25: "the glass just breaks off, not shatters": at 2.5-stud chunks
-		-- a window pane came off in one piece)
+		-- a window pane came off in one piece), and a `Glass.brief` share of them is gone after `Glass.briefLife` s (no
+		-- part of maxLive; user 2026-10-25: 0.6-stud shards were too many, "make glass shards break in bigger pieces or
+		-- have some disappear")
 		cell = 2.5,
-		Glass = { cell = 0.6, max = 30 },
+		Glass = { cell = 1.2, max = 8, brief = 0.5, briefLife = 1.5 },
 		lifetime = 60,
 		maxLive = 600,
 		-- (was still 1.5 / spin 2: Studio 2026-10-24 froze a chunk 1.3 studs over the one under it, caught at 1.25 studs/s

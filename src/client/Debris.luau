@@ -113,7 +113,8 @@ local function spawnChunk(
 	Debris:AddItem(p, lifetime)
 end
 
--- Split a piece into ~`cell`-stud chunks along its two longest axes, up to `max` of them (Rules/Destruction.fractureCounts).
+-- Split a piece into ~`cell`-stud chunks along its two longest axes, up to `max` of them (Rules/Destruction.fractureCounts);
+-- a `brief` share of them (glass) is gone after `briefLife` s.
 local function fracture(
 	cf: CFrame,
 	size: Vector3,
@@ -124,7 +125,9 @@ local function fracture(
 	max: number,
 	lifetime: number,
 	maxLive: number,
-	push: number
+	push: number,
+	brief: number?,
+	briefLife: number?
 )
 	local axes = { { "X", size.X }, { "Y", size.Y }, { "Z", size.Z } }
 	table.sort(axes, function(a, b)
@@ -144,7 +147,9 @@ local function fracture(
 					(k + 0.5) * cs.Z - size.Z / 2
 				)
 				-- slightly shrink so chunks don't start interpenetrating
-				spawnChunk(cf * CFrame.new(off), cs * 0.92, color, t, origin, lifetime, maxLive, push)
+				local short = brief ~= nil and math.random() < brief
+				local life = if short then briefLife or lifetime else lifetime
+				spawnChunk(cf * CFrame.new(off), cs * 0.92, color, t, origin, life, maxLive, push, short)
 			end
 		end
 	end
@@ -295,7 +300,20 @@ function DebrisClient.start()
 			elseif piece.t > 0.1 then
 				-- glass: small shards
 				local push = if piece.m == "fall" then 0 elseif piece.m == "shot" then Push.shot else Push.glass
-				fracture(piece.cf, piece.size, piece.color, piece.t, origin, G.cell, G.max, lifetime, maxLive, push)
+				fracture(
+					piece.cf,
+					piece.size,
+					piece.color,
+					piece.t,
+					origin,
+					G.cell,
+					G.max,
+					lifetime,
+					maxLive,
+					push,
+					G.brief,
+					G.briefLife
+				)
 			else
 				local push = if piece.m == "fall" then 0 else Push.crumple
 				fracture(piece.cf, piece.size, piece.color, piece.t, origin, cell, per, lifetime, maxLive, push)
