@@ -85,7 +85,9 @@ local Build = {
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
 		planLife = 180, -- seconds an undug plan stays
-		swingReach = 8, -- a swing works the square whose line is this close, in front of you
+		-- a swing works the square whose line is this close, in front of you (19: from anywhere on its dirt, out to the
+		-- skirt past its heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox")
+		swingReach = 19,
 		-- a square's HP: a Build swing adds `swing` (up to `max`), a Destroy swing takes `destroy` off; blasts take HP by
 		-- their overpressure at the square (Blast below). Once dug full it is buried by what it loses: full depth down to
 		-- `hold`% HP, then filled in with the rest (80%: a little earth in it; 5-10%: nearly level, unusable), its pieces
@@ -126,9 +128,10 @@ local Build = {
 		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
 		pieces = { segment = 8, walls = 8, floors = 4, wood = { 5, 6, 7, 8 }, woodChance = 0.25 },
 		-- where pieces meet (src/server/Trenches; user 2026-10-24: "make sure that the joints connect by the walls"): how far
-		-- out past a wall's top edge its dirt heap reaches (heaps keep that whole depth out of other trenches), and how
-		-- much further the side heaps run on round a dead end and its heap reaches past the side walls' tops
-		joins = { heapReach = 9, deadEndHeap = 3 },
+		-- out past a wall's top edge its dirt heap and the skirt behind it reach (they keep that whole depth out of other
+		-- trenches; the skirt since 2026-10-25, trench_pieces v8 Wall<i>Apron), and how much further the side heaps run on
+		-- round a dead end and its heap reaches past the side walls' tops
+		joins = { heapReach = 11, deadEndHeap = 3 },
 	},
 
 	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and

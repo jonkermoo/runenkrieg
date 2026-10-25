@@ -198,8 +198,9 @@ local Assets = {
 			-- the trench otherwise as v2 (v3 80264039854445 was another session's, dropped; v2 78446214415283); v5: the heaps
 			-- lower and set back behind the wall's top, off its slabs and planks (v4 139463386134488); v6: the heaps a little
 			-- closer to the wall's top (v5 107262926311515); v7: the heaps right on the wall's top and a Corner piece
-			-- where a wall stops at a joining trench (v6 122327305436244)
-			id = 82070975213659,
+			-- where a wall stops at a joining trench (v6 122327305436244); v8: a skirt of low dirt slabs past each heap,
+			-- Wall<i>Apron (v7 82070975213659)
+			id = 94215187575150,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",

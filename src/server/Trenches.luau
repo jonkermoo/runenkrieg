@@ -361,7 +361,7 @@ local function pieceColor(name: string): Color3
 	local shade
 	if i then
 		local tone = (i - 1) % #B.TrenchWall + 1
-		shade = if string.find(name, "Parapet")
+		shade = if string.find(name, "Parapet") or string.find(name, "Apron")
 			then B.TrenchParapet[tone]
 			elseif string.find(name, "Chunks") then B.TrenchWallChunks[tone]
 			else B.TrenchWall[tone]
@@ -572,7 +572,9 @@ local function pieces(blk: Block)
 		end
 		for _, s in heaps[side] do
 			for _, c in pieceRuns(s.u0, s.u1) do
-				place(`Wall{n}Parapet`, frame(out, false, false, c[1], c[2]), (c[2] - c[1]) / P.segment)
+				local cf = frame(out, false, false, c[1], c[2])
+				place(`Wall{n}Parapet`, cf, (c[2] - c[1]) / P.segment)
+				place(`Wall{n}Apron`, cf, (c[2] - c[1]) / P.segment) -- (the skirt of dirt behind it)
 			end
 		end
 	end
@@ -587,11 +589,9 @@ local function pieces(blk: Block)
 			local out = if e == 1 then -flat else flat
 			wall(roll.ends[e], frame(out, true, false, TOP), 2 * TOP / P.segment)
 			for _, start in { TOP + T.joins.deadEndHeap, 0 } do -- in two, so its slabs aren't stretched long
-				place(
-					`Wall{roll.ends[e]}Parapet`,
-					frame(out, true, false, start),
-					(TOP + T.joins.deadEndHeap) / P.segment
-				)
+				local cf = frame(out, true, false, start)
+				place(`Wall{roll.ends[e]}Parapet`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
+				place(`Wall{roll.ends[e]}Apron`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
 			end
 		end
 	end
@@ -1015,11 +1015,13 @@ function Trenches.shot(struck: Instance, point: Vector3?): boolean
 	return true
 end
 
--- whether `p` is within `extra` of a trench's ground (its hole, walls and banks; flat): blasts' craters stop short of it
--- (src/server/Ground; user 2026-10-24: "craters stop at the trench")
+-- whether `p` is within `extra` of a trench's ground (its hole, walls, banks and the dirt heaped and spread past them,
+-- out to its skirt; flat): blasts' craters stop short of it (src/server/Ground; user 2026-10-24: "craters stop at the
+-- trench"; 2026-10-25 out to the skirt, so a crater doesn't cut under it)
 function Trenches.near(p: Vector3, extra: number): boolean
+	local outer = math.max(TOP + T.bank.width, HEAP_BACK)
 	for _, blk in blocks do
-		if live(blk) and blk.hp > 0 and Survey.toSegment(p, blk.a, blk.b) <= TOP + T.bank.width + extra then
+		if live(blk) and blk.hp > 0 and Survey.toSegment(p, blk.a, blk.b) <= outer + extra then
 			return true
 		end
 	end
