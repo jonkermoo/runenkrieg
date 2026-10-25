@@ -623,8 +623,9 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP
-	local full = blk.built
+	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP; well buried it is just
+	-- earth, its pieces gone
+	local full = blk.built and blk.hp >= T.hp.max * T.hp.bare / 100
 	if full then
 		pieces(blk)
 	else

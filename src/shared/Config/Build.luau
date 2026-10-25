@@ -89,7 +89,9 @@ local Build = {
 		-- under the fill (user 2026-10-24: "an 80% trench should start visibly filling a little bit, but not an unusable
 		-- amount"; "way way more durable")
 		-- (5 Build swings dig a square: "make building take a bit longer", user 2026-10-24)
-		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
+		-- (a square buried under `bare`% HP loses its dirt pieces: it just fills with earth, its neighbours add no walls,
+		-- user 2026-10-25: "just make it fill, no need to add additional walls"; dug back up past it, they return)
+		hp = { max = 100, swing = 20, destroy = 4, hold = 95, bare = 75 },
 		-- the shape: floor half width, depth, walls at `wallAngle` (Metrics MaxSlopeAngle decides whether you can walk
 		-- up them), earth thrown up as a bank along both edges (the pit's rim) under each wall's parapet (Config/Assets
 		-- trench_pieces Wall<i>Parapet: a thick heap of dirt just behind the wall's top edge, about 2.1 to 2.5 over the
