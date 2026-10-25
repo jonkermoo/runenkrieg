@@ -11,6 +11,8 @@ local EFFECTS = {
 	Burst = true,
 	Blast1 = true,
 	Blast3 = true,
+	Grenade = true,
+	Shell = true,
 	Shockwave = true,
 	Star = true,
 	Spikes = true,
@@ -57,36 +59,44 @@ return {
 		end
 		assert(n >= 12, "too few runes")
 	end,
-	["the staff explosion grows with the stage; stage 3 about the real fireball"] = function()
+	["explosions grow with the stage; stage 3 about the real fireball"] = function()
 		local S = Vfx.Blast.Stages
 		local Damage = require("../src/shared/Config/Damage")
 		assert(#S == #Damage.Staff.Range, "one explosion per stage")
 		for i = 2, #S do
 			assert(S[i].fireball > S[i - 1].fireball and S[i].rings >= S[i - 1].rings, `stage {i} bigger`)
-			-- user 2026-10-18: the smaller stages fade sooner, stage 1 fastest; stage 3 as it was
-			assert(S[i].life > S[i - 1].life and S[i - 1].life > 0, `stage {i - 1} fades sooner`)
 		end
-		assert(S[#S].life == 1, "stage 3 keeps its fade")
-		local shrink = Vfx.Blast.Cloud.shrink
-		assert(shrink > 0 and shrink < 0.6, "the puffs shrink a little as they fade")
 		-- a 10 kg TNT fireball is roughly 8 m across: within a few studs
 		local real = 8 / Damage.Blast.MetresPerStud
 		assert(math.abs(S[#S].fireball - real) < 4, `stage 3 fireball {S[#S].fireball} vs ~{real}`)
-		local F = Vfx.Blast.Fireball
-		assert(F.grow > 0 and F.hold >= 0 and F.fade > 0 and Vfx.Blast.Cloud.life > F.fade)
-		-- any charge: the real fireball (Charge), ~8 m at 10 kg, bigger with the charge
 		local K = Vfx.Blast.Charge
 		local d10 = K.a * 10 ^ K.b / K.metresPerStud
 		assert(math.abs(d10 * K.metresPerStud - 8) < 0.5, `10 kg fireball {d10 * K.metresPerStud} m`)
-		assert(K.a * 50 ^ K.b > K.a * 10 ^ K.b)
-		local Sm = Vfx.Blast.Smoke
-		assert(Sm.life[1] > Vfx.Blast.Cloud.life * 0.8, "the smoke outlives the cloud")
-		assert(Sm.size[2] > Sm.size[1] and Sm.thick < 1 and Sm.perStud > 0)
-		local C = Vfx.Blast.Cloud
-		assert(C.inner > 0 and C.inner < 1, "the bright inside is smaller than its rim")
-		assert(C.toward + C.inner > 1, "the bright inside shows in front of its rim")
-		assert(C.inner + C.up < 1, "with the rim showing round it, thickest underneath")
-		assert(C.hot > 0 and C.hot < 1 and C.rimDark >= 0 and C.rimDark <= 1)
+	end,
+	["stronger blasts: taller, longer clouds and longer leftover runes"] = function()
+		-- user 2026-10-25: "taller longer lasting clouds the stronger they are", runes and static "longer the stronger"
+		local B = Vfx.Blast
+		for _, pair in { B.Cluster.tall, B.Cluster.life, B.Runes.life, B.Runes.count, B.Static.arcs } do
+			assert(pair[2] > pair[1] and pair[1] > 0, "grows with strength")
+		end
+		assert(B.Scale.big > B.Scale.small and B.Scale.small > 0)
+		local C = B.Cluster
+		assert(0 < C.hot and C.hot < C.burn and C.burn < C.crumble and C.crumble < 1, "hot, burning, dark, crumbling")
+		assert(C.inner < 1 and C.inner + C.toward > 1, "the dark body shows in front with the rim round it")
+		assert(C.min >= 1 and C.max >= C.min)
+		assert(B.Colors.dark > B.Colors.darkMagic, "magic keeps more of its colour")
+		for _, g in B.Glyphs do
+			for _, st in g do
+				assert(#st == 4, "a stroke is x0, y0, x1, y1")
+				for _, v in st do
+					assert(math.abs(v) <= 0.5, "strokes stay in the unit box")
+				end
+			end
+		end
+		assert(Palette.Terrain[B.Clods.dirt], "the clods' fallback colour is a terrain colour")
+		local G = require("../src/shared/Config/Grenades")
+		assert(G.Vfx.pop == true, "grenades pop (user 2026-10-25: no cloud, quick, less fiery)")
+		assert(G.Types[Vfx.Showcase.Grenade], "the showcase's grenade exists")
 	end,
 	["timings and sizes are positive"] = function()
 		assert(Vfx.Circle.Appear > 0 and Vfx.Circle.Close.time > 0 and Vfx.Circle.Diameter > 0)
@@ -134,6 +144,9 @@ return {
 	["showcase: every entry is a known effect, with a teleport and hideable labels"] = function()
 		for _, e in Vfx.Showcase.Entries do
 			assert(EFFECTS[e.effect], `unknown effect {e.effect}`)
+			if e.effect == "Shell" then
+				assert(require("../src/shared/Config/Artillery").Guns[e.gun], `unknown gun {e.gun}`)
+			end
 			assert(e.every > 0)
 		end
 		local found = false

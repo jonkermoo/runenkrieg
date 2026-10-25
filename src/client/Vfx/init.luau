@@ -6,7 +6,7 @@
 --   Charge.start(pos, t?) -> { release } / Charge.play(pos, t?)                 gathering charge
 --   Ray.play(from, to, { scheme?, hold?, normal?, hitColor?, impact? })          the beam (+ its impact)
 --   Burst.play(pos, { scheme?, normal?, debrisColor? })                         impact burst
---   Blast.play(pos, { scheme?, normal?, debrisColor?, stage? })                 the staff beam's explosion
+--   Blast.play(pos, { scheme?, normal?, debrisColor?, stage? | kg?, magic?, pop? })  every explosion
 --   Muzzle.play(origin, direction, scale?)                                      a gun's muzzle blast
 --   Shockwave.play(center, normal), Star.play(pos), Spikes.play(pos)            rings and flashes
 --   Lightning.bolt(from, to, t?), Aura.play(partOrPoint, t)                     lightning
