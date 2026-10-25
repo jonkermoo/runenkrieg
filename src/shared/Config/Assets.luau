@@ -619,23 +619,24 @@ local Assets = {
 		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
 		-- the head's center), tails Torso-local (the Torso's center).
 		ears_katzling = {
-			id = 115041129787289, -- v2 105362765217637 (outer edge too big), v1 131909248233922 (named pieces clashed)
+			id = 111077377219346, -- v4 2026-10-25; v3 115041129787289, v2 105362765217637, v1 131909248233922
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/ears_katzling.fbx",
 			generator = "tools/blender/gear/species.py",
 			description = "Katzling cat ears: broad, blunt, set in towards the centre, the outer edge curving in, "
-				.. "thick front to back, a pale inner, fur tufts in the cup and on the edges, a ruff round each root "
-				.. "(408 tris).",
+				.. "thick at the back, the front an open bowl behind thin rims filled with a fan of pink and cream fur "
+				.. "blades spilling over the outer edge (user 2026-10-25), a ruff round each root (908 tris).",
 		},
 		ears_fennek = {
-			id = 135952144124699, -- v1 96521357487348 (named pieces clashed)
+			id = 132682474762597, -- v3 (2026-10-25); v2 135952144124699, v1 96521357487348 (named pieces clashed)
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/ears_fennek.fbx",
 			generator = "tools/blender/gear/species.py",
-			description = "Fennek fennec ears: tall (1.3), nearly upright, thick, a pale inner, fur tufts in the cup "
-				.. "and on the edges, a ruff round each root (344 tris).",
+			description = "Fennek fennec ears: tall (1.3), nearly upright, thick at the back, the front an open bowl "
+				.. "behind thin rims filled with a fan of pink and cream fur blades spilling over the outer edge (user "
+				.. "2026-10-25), a ruff round each root (812 tris).",
 		},
 		ears_alb = {
 			id = 99118164513786, -- v1 96073907474669 (named pieces clashed)
