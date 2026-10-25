@@ -54,6 +54,10 @@ local Remotes: { string } = {
 	-- clients within Head.Send.Range: (character: Model, yaw: number) clamped and quantized, throttled per soldier
 	-- (0 once a watcher leaves the range, so the head doesn't stay turned)
 	"HeadYaw",
+	-- The gun pulled back near a wall, shown to other players (src/client/Tuck sends, src/server/LookTilt relays,
+	-- src/client/LookTilt poses; Config/Locomotion.Tuck): client -> server: (pull: number) the share 0..1; server ->
+	-- clients: (character: Model, pull: number) clamped and quantized, throttled per soldier
+	"GunPull",
 	-- The staff cast shown to other players (src/client/StaffAttack sends, src/server/StaffCast checks and relays,
 	-- src/client/StaffSeen shows; Config/Spells.Send, Rules/StaffNet). Visual and audio only.
 	-- client -> server: (kind, ...) with kind and its arguments:

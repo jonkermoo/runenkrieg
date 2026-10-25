@@ -18,4 +18,41 @@ function Tuck.blocked(hit: number?, reach: number, ahead: number, clear: number,
 	return hit < reach + ahead + (if was then clear else 0)
 end
 
+-- How far the gun is pulled back toward the shoulder, as a share of `give` (0: not at all, 1: all the way): from
+-- `ahead` past the muzzle in, by how far the barrel would reach into what was hit.
+function Tuck.pull(hit: number?, reach: number, ahead: number, give: number): number
+	if hit == nil or give <= 0 then
+		return 0
+	end
+	return math.clamp((reach + ahead - hit) / give, 0, 1)
+end
+
+-- Whether the gun folds: only against a surface the look meets head on (`facing`, the cosine between the look and
+-- into the surface, at least `minFacing`; folded, down to minFacing - facingClear), and only when even pulled back by
+-- `give` the barrel would be within `ahead` of it (folded: until clear by `clear` more).
+function Tuck.folds(
+	hit: number?,
+	facing: number,
+	reach: number,
+	ahead: number,
+	give: number,
+	clear: number,
+	minFacing: number,
+	facingClear: number,
+	was: boolean
+): boolean
+	if facing < minFacing - (if was then facingClear else 0) then
+		return false
+	end
+	return Tuck.blocked(hit, reach - give, ahead, clear, was)
+end
+
+-- server: a pull share received from a client, clamped to 0..1 and quantized to `step`; nil if it isn't a number
+function Tuck.sanitizePull(pull: any, step: number): number?
+	if type(pull) ~= "number" or pull ~= pull then
+		return nil
+	end
+	return math.floor(math.clamp(pull, 0, 1) / step + 0.5) * step
+end
+
 return Tuck

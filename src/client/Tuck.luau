@@ -7,6 +7,10 @@
 -- play the weapon's "tuck" hold (the body's replicates). Folded, the soldier can't aim (src/client/Stance) or fire
 -- (src/client/Firing), and the third-person turn onto the crosshair lets go (src/client/LookTilt). Only weapons that
 -- have a tuck hold (Config/Weapons holds.tuck) fold.
+-- Before folding the gun pulls back toward the shoulder along its line, still aimed and firing (user 2026-10-25): the
+-- local "Pull" attribute (0..1, eased) poses it in src/client/Viewmodel and src/client/LookTilt, and goes to the other
+-- players (Net "GunPull"). It folds only when even pulled all the way back it would be in the way, and only against a
+-- surface faced head on (Rules/Tuck.folds).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +20,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion).Tuck
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Tuck)
+local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
 
 local Tuck = {}
@@ -40,8 +45,13 @@ function Tuck.start()
 		return r
 	end
 
-	RunService.Heartbeat:Connect(function()
+	-- the pull-back share now (eased) and what others were last sent of it
+	local pull, sent, sentAt = 0, -1, -math.huge
+	local remote = Net.event("GunPull")
+
+	RunService.Heartbeat:Connect(function(dt)
 		local character = player.Character
+		local want = 0
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local torso = character and character:FindFirstChild("Torso") :: BasePart?
 		local weapon = character and Held.weapon(character)
@@ -71,11 +81,29 @@ function Tuck.start()
 			end
 			params.FilterDescendantsInstances = ignore
 			local length = reach + Cfg.Ahead + Cfg.Clear
-			local hit = workspace:Spherecast(from, Cfg.Radius, camera.CFrame.LookVector * length, params)
-			blocked = Rules.blocked(if hit then hit.Distance else nil, reach, Cfg.Ahead, Cfg.Clear, was)
+			local look = camera.CFrame.LookVector
+			local hit = workspace:Spherecast(from, Cfg.Radius, look * length, params)
+			local d = if hit then hit.Distance else nil
+			local facing = if hit then -hit.Normal:Dot(look) else 0
+			blocked = Rules.folds(d, facing, reach, Cfg.Ahead, Cfg.Give, Cfg.Clear, Cfg.Facing, Cfg.FacingClear, was)
+			-- (folded, the tuck hold poses the gun: no pull on top)
+			want = if blocked then 0 else Rules.pull(d, reach, Cfg.Ahead, Cfg.Give)
 		end
 		if blocked ~= was then
 			character:SetAttribute("Blocked", blocked)
+		end
+		pull += (want - pull) * (1 - math.exp(-Cfg.Ease * dt))
+		if pull < 1e-3 and want == 0 then
+			pull = 0
+		end
+		if character:GetAttribute("Pull") ~= pull then
+			character:SetAttribute("Pull", pull) -- src/client/Viewmodel, src/client/LookTilt
+		end
+		local now = os.clock()
+		local q = Rules.sanitizePull(pull, Cfg.Send.Step) :: number
+		if q ~= sent and now - sentAt >= 1 / Cfg.Send.Rate then
+			sent, sentAt = q, now
+			remote:FireServer(q)
 		end
 	end)
 end

@@ -15,12 +15,28 @@ local Locomotion = {
 	-- Rules/Tuck): a sphere of `Radius` swept from the right shoulder along the look, as far as the barrel reaches at
 	-- the ready hold plus `Ahead` (about to hit), finds anything in the way; the soldier then holds the "tuck" hold
 	-- (Config/Weapons holds / firstPerson `tuck`) until the way is clear by `Clear` more, and can't aim or fire.
+	-- Pulled back first (user 2026-10-25: "the gun comes close to your shoulder, but still points to where its aiming
+	-- ... this is supposed to be a realism visual feature, not something that actually makes the game hard"): from
+	-- `Ahead` out the gun slides back toward the shoulder along its line, still aimed and still firing, up to `Give`
+	-- studs; it folds only when even pulled back that far the barrel would be in the way, and only against a surface
+	-- the look meets head on (`Facing`). A wall glanced along only pulls it back.
 	Tuck = {
 		Radius = 0.3,
-		Ahead = 0.6, -- studs past the muzzle: folds just before the barrel would touch
+		Ahead = 0.6, -- studs past the muzzle: the pull-back starts just before the barrel would touch
 		Clear = 0.5, -- studs further still before it comes back out (no flicker at the edge)
 		Shoulder = { 1, 0.5, 0 }, -- the sweep's start, in the torso's space
 		GripAhead = 0.7, -- the ready hold's grip ahead of the shoulder (studs)
+		Give = 2, -- studs the gun can come back before it folds
+		Facing = 0.6, -- folds only on a surface the look meets this head on (cosine between the look and into it: ~53 deg)
+		FacingClear = 0.1, -- folded, it stays so down to Facing minus this (no flicker turning along a wall)
+		Ease = 12, -- how fast the pull-back follows (per second)
+		-- how far the pulled-back gun is shown moving at the full pull (studs; the barrel may meet the wall a little
+		-- before it folds: the server stops a shot at a wall between the head and the muzzle)
+		Body = 0.4, -- third person: the gun and arms slide back along the barrel
+		First = 0.5, -- first person at the hip: the viewmodel comes back toward the eye
+		FirstAim = 0.12, -- first person aimed (the sight stays in front of the eye)
+		-- shown to other players (Net "GunPull"): the pull share quantized to Step, at most Rate a second
+		Send = { Rate = 10, Step = 0.1 },
 	},
 	ToggleSprintMoving = 0.1, -- a toggled sprint counts as moving above this share of MoveDirection (stopping ends it)
 	-- the camera follows the body down into the crouch and back up on a critically damped spring at this rate (per

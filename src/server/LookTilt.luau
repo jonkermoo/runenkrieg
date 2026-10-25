@@ -5,6 +5,8 @@
 -- sending faster gains nothing.
 -- The head's turn (Net "HeadYaw", Config/Locomotion.LookTilt.Head) goes the same way, but only to soldiers within
 -- Head.Send.Range of the turner (user 2026-10-20: only people nearby); a watcher who leaves the range gets 0 once.
+-- The gun pulled back near a wall (Net "GunPull", src/client/Tuck; Config/Locomotion.Tuck.Send) goes to everyone like
+-- the tilt, clamped and quantized by Rules/Tuck.sanitizePull.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,6 +19,8 @@ local Send = Tilt.Send
 local Head = Tilt.Head
 local Rules = require(Shared.Rules.LookTilt)
 local Aim = require(Shared.Config.Camera).Aim3P
+local PullSend = require(Shared.Config.Locomotion).Tuck.Send
+local TuckRules = require(Shared.Rules.Tuck)
 
 local LookTilt = {}
 
@@ -54,8 +58,25 @@ function LookTilt.start()
 			e.pitch, e.follow, e.aimYaw, e.aimPitch, e.dirty = p, f, ay, ap, true
 		end
 	end)
+	-- the gun pulled back near a wall (src/client/Tuck): each soldier's latest share, relayed the same way
+	local pullRemote = Net.event("GunPull")
+	local pulls: { [Player]: { pull: number, dirty: boolean, at: number } } = {}
+	pullRemote.OnServerEvent:Connect(function(player, pull)
+		local v = TuckRules.sanitizePull(pull, PullSend.Step)
+		if not v then
+			return
+		end
+		local e = pulls[player]
+		if not e then
+			pulls[player] = { pull = v, dirty = true, at = 0 }
+		elseif e.pull ~= v then
+			e.pull, e.dirty = v, true
+		end
+	end)
+
 	Players.PlayerRemoving:Connect(function(player)
 		latest[player] = nil
+		pulls[player] = nil
 		heads[player] = nil
 		for _, h in heads do
 			h.sent[player] = nil
@@ -64,10 +85,14 @@ function LookTilt.start()
 	local function joined(player: Player)
 		player.CharacterAdded:Connect(function()
 			latest[player] = nil -- a new body starts upright
+			pulls[player] = nil
 			heads[player] = nil
 		end)
 		-- a new player hears everyone's current tilt
 		for _, e in latest do
+			e.dirty = true
+		end
+		for _, e in pulls do
 			e.dirty = true
 		end
 	end
@@ -85,6 +110,17 @@ function LookTilt.start()
 				for _, other in Players:GetPlayers() do
 					if other ~= player then
 						remote:FireClient(other, character, e.pitch, e.follow, e.aimYaw, e.aimPitch)
+					end
+				end
+			end
+		end
+		for player, e in pulls do
+			local character = player.Character
+			if e.dirty and character and now - e.at >= 1 / PullSend.Rate then
+				e.dirty, e.at = false, now
+				for _, other in Players:GetPlayers() do
+					if other ~= player then
+						pullRemote:FireClient(other, character, e.pull)
 					end
 				end
 			end
