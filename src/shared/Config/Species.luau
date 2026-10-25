@@ -28,14 +28,14 @@ local Species = {
 		katzling = {
 			ears = "ears_katzling",
 			tail = "tail_katzling",
-			earPivots = { EarR = { 0.32, 0.55, 0.22 }, EarL = { -0.32, 0.55, 0.22 } },
+			earPivots = { EarR = { 0.64, 0.74, -0.08 }, EarL = { -0.64, 0.74, -0.08 } },
 			tailBones = 5,
 			earMotion = 1,
 		},
 		fennek = {
 			ears = "ears_fennek",
 			tail = "tail_fennek",
-			earPivots = { EarR = { 0.34, 0.46, 0.22 }, EarL = { -0.34, 0.46, 0.22 } },
+			earPivots = { EarR = { 0.64, 0.7, -0.08 }, EarL = { -0.64, 0.7, -0.08 } },
 			tailBones = 5,
 			earMotion = 1,
 		},
