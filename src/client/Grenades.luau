@@ -11,6 +11,8 @@
 --   it leaves the hand, Config/Grenades.Throw.release into it, along the look at that moment.
 -- - the arc is the throw's own path (Rules/Grenade.hand / launch / at, the same the server uses), drawn until the first
 --   thing it would hit; the bounce and roll after that aren't drawn.
+-- - every thrown grenade (Net "GrenadeFlight") moves along the path the server worked out (src/server/GrenadeFlight),
+--   on the server's clock, its thunk (Config/Grenades.Thunk) at each hit loud enough to hear.
 -- - every grenade that goes off (Net "GrenadeBlast") shows the shared explosion (src/client/Vfx/Blast) sized by its
 --   charge, in Config/Grenades.Vfx's scheme, with its bang at its own pitch: heard late with distance and duller far off.
 
@@ -148,8 +150,81 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 	b.Enabled = true
 end
 
+-- the thrown grenades in the air or rolling: each one's model put on its path every frame
+type Flying = {
+	model: Model,
+	at: number,
+	times: { number },
+	frames: { CFrame },
+	thunks: { { t: number, share: number, at: Vector3 } },
+	pitch: number,
+	seg: number,
+	heard: number,
+}
+local flying: { Flying } = {}
+
+local function thunk(f: Flying, share: number, at: Vector3)
+	local T = Cfg.Thunk
+	local e = table.clone(T.sounds[math.random(#T.sounds)] :: any)
+	local lo, hi = T.pitchRange[1], T.pitchRange[2]
+	e.pitch = f.pitch * (lo + (hi - lo) * math.random())
+	SoundFx.play(e, at, nil, { volume = share })
+end
+
+local function fly()
+	local now = workspace:GetServerTimeNow()
+	for i = #flying, 1, -1 do
+		local f = flying[i]
+		local t = now - f.at
+		if not f.model.Parent then
+			table.remove(flying, i)
+			continue
+		end
+		-- its thunks as it reaches them (one heard too late to match the hit is left out)
+		while f.heard <= #f.thunks and f.thunks[f.heard].t <= t do
+			local h = f.thunks[f.heard]
+			if t - h.t <= Cfg.Thunk.late then
+				thunk(f, h.share, h.at)
+			end
+			f.heard += 1
+		end
+		local times, frames = f.times, f.frames
+		if t >= times[#times] then
+			f.model:PivotTo(frames[#frames])
+			if f.heard > #f.thunks then
+				table.remove(flying, i)
+			end
+			continue
+		end
+		while f.seg < #times - 1 and times[f.seg + 1] <= t do
+			f.seg += 1
+		end
+		local t0, t1 = times[f.seg], times[f.seg + 1]
+		local k = if t1 > t0 then math.clamp((t - t0) / (t1 - t0), 0, 1) else 1
+		f.model:PivotTo(frames[f.seg]:Lerp(frames[f.seg + 1], k))
+	end
+end
+
 function Grenades.start()
-	SoundFx.preload({ Bang = Cfg.Sound })
+	SoundFx.preload({ Bang = Cfg.Sound, Thunk = Cfg.Thunk.sounds })
+	Net.event("GrenadeFlight").OnClientEvent
+		:Connect(function(model: Model?, at: number, times: { number }, frames: { CFrame }, thunks: any, name: string)
+			if typeof(model) ~= "Instance" or not (model :: Instance):IsA("Model") or #times < 1 then
+				return
+			end
+			local t = Cfg.Types[name]
+			table.insert(flying, {
+				model = model :: Model,
+				at = at,
+				times = times,
+				frames = frames,
+				thunks = thunks,
+				pitch = t and t.pitch or 1,
+				seg = 1,
+				heard = 1,
+			})
+		end)
+	RunService.RenderStepped:Connect(fly)
 	local player = Players.LocalPlayer
 	local aiming = false -- left click held (or let go, waiting for the pin): the line shows
 	local pinned = math.huge -- when the pin pull ends (os.clock)
