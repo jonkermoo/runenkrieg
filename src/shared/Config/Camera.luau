@@ -8,11 +8,16 @@
 -- (default.project.json, tests/project.spec); putting a weapon away hands it back at the zoom it had.
 
 local Camera = {
-	FreeMaxZoom = 10.5, -- no weapon in the hands: Roblox's camera zooms out this far (user 2026-10-11)
+	-- no weapon in the hands (and the shovel, FreeClasses): Roblox's camera zooms out this far (user 2026-10-25, from
+	-- their screenshot: "make unequipped / shovel this zoom max zoom
+	-- angle"; it was 10.5 from 2026-10-11)
+	FreeMaxZoom = 9,
 	-- Classes (Config/Weapons `class`) that keep Roblox's own camera, as with empty hands (user 2026-10-24: "make it so
 	-- your camera doesnt get locked with a shovel out"; the design's
 	-- option A): a free cursor, right drag turns, the wheel zooms from FreeMinZoom out (third person only: the
 	-- first-person holds belong to the weapon camera's viewmodel). src/client/Build aims at the cursor with one.
+	-- They never tilt with the camera's pitch either (src/client/LookTilt; user 2026-10-24: "i can look up or down but
+	-- the animation will be the same").
 	FreeClasses = { Shovel = true },
 	FreeMinZoom = 4,
 
@@ -65,13 +70,9 @@ local Camera = {
 	-- sits where the eye is (0, 1.65, -0.45) from it, as in tools/animation/rifle.luau EYE.
 	Eye = { 0, 0.15, -0.45 },
 
-	-- Gliding in, the body fades as the camera nears the head: clear beyond FadeFar, FadeMax at FadeNear.
-	FadeFar = 5,
-	FadeNear = 2.5,
-	FadeMax = 0.75,
-	-- Gliding in: over the last stretch the viewmodel fades in (and the body out) between `far` and `near` studs from the head; the head itself fades out between headFar and headNear, so
-	-- it never fills the view (user 2026-10-11: ADS looked choppy). The eye is ~0.47 from the head's centre.
-	Handover = { far = 2.5, near = 0.6, headFar = 4.5, headNear = 3 },
+	-- Gliding in: the camera nearer the head than `near` studs is inside it, where the body hides and the viewmodel shows,
+	-- both at once (user 2026-10-25: no fades but a wall's). The eye is ~0.47 from the head's centre.
+	Handover = { near = 0.6 },
 
 	-- The staff is exempt from "a weapon in the hands is always first person" (user 2026-10-16): with a weapon of one of
 	-- these classes (Config/Weapons `class`) the camera orbits behind the body, mouse locked to the centre and the body
@@ -100,14 +101,9 @@ local Camera = {
 		-- walls: a sphere this big is swept from the head out to the camera, which stops where it hits (snapping in,
 		-- easing back out with ZoomEase)
 		Radius = 0.4,
-		-- the body (head included) fades as the camera closes in: clear beyond `far`, gone at `near` (studs from the head)
+		-- a wall pushing the camera in: the body (head included) fades as it closes in, clear beyond `far`, gone at `near`
+		-- (studs from the head); never otherwise (user 2026-10-25: no see-through body aimed over the shoulder any more)
 		Fade = { far = 3, near = 0.75 }, -- (far was 2: backed against a wall at ~1.9 the head filled the view, 2026-10-16)
-		-- aimed (right mouse) over the shoulder, the whole body (with the staff) goes this see-through for the player, so
-		-- the head and raised arm don't hide the screen centre where the circles and the shot are (user 2026-10-16: "when
-		-- we are in the shoulder cam, make us translucent"); others see it whole. Fades in with the shoulder slide; solid
-		-- again at once when aiming ends (user 2026-10-16: "instantly be back to full opacity once we let go of right
-		-- click"), and never after a hip click.
-		ShoulderVeil = 0.6,
 	},
 
 	-- A gun in the hands (user 2026-10-20: "allow third person while holding the gun, only forced first person while
@@ -117,7 +113,9 @@ local Camera = {
 	-- gun away hands the chosen distance back. Rules/Camera.wheel.
 	Gun = {
 		MinZoom = 2, -- the nearest third-person distance (studs behind the head); one notch in from here is first person
-		MaxZoom = 7.5, -- the furthest (the old shoulder camera's, user 2026-10-11)
+		-- the furthest (user 2026-10-25, from their screenshot: "make equipped weapon this"; it was 7.5, the old
+		-- shoulder camera's)
+		MaxZoom = 4.5,
 		Step = 1, -- studs per wheel notch
 		FirstBelow = 1, -- Roblox's camera nearer than this when the gun is drawn: start in first person
 		Shoulder = { 1.6, 0.35 }, -- studs right and up, in the view's axes, so the head never covers the crosshair
@@ -125,8 +123,8 @@ local Camera = {
 		-- the distance follows a critically damped spring at this rate (per second; never a jump, user 2026-10-20:
 		-- "make movement always smooth and never snappy"): ~0.4 s from first person out to MaxZoom
 		Spring = 12,
-		-- the body (head included) fades only right at the head: clear beyond `far`, gone at `near` (studs from the head),
-		-- the same in third person and gliding into first, in Steps levels (fewer writes)
+		-- a wall pushing the camera in: the body (head included) fades right at the head, clear beyond `far`, gone at
+		-- `near` (studs from the head), in Steps levels (fewer writes); never otherwise (user 2026-10-25)
 		Fade = { far = 1.8, near = 0.7, Steps = 20 },
 	},
 	-- Classes (Config/Weapons `class`) that take the gun's camera but aim where the view is (user 2026-10-21: the staff
@@ -189,6 +187,11 @@ local Camera = {
 		-- mouse brings the arms round after the view, never in one frame
 		Spring = 8,
 		Max = { yaw = 25, pitch = 20 }, -- the largest turn (degrees)
+		-- a class's own largest turn, by Config/Weapons `class`: the staff's head stays on its cast's laser in every pose
+		-- (user 2026-10-25: the staff pointed off its laser; the two-handed charge twists the body 25-30 deg right)
+		ClassMax = { Staff = { yaw = 60, pitch = 60 } },
+		-- the most any weapon turns (Max and every ClassMax within it): what goes to the others, what the server takes
+		Limit = { yaw = 60, pitch = 60 },
 	},
 }
 

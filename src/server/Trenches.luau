@@ -266,7 +266,7 @@ local function markers(blk: Block)
 	holder.Name = "Markers"
 	holder.Parent = m
 	local M = T.markers
-	local tops: { Attachment } = {}
+	local stakes: { BasePart } = {}
 	for _, c in { { 0, -TOP }, { blk.length, -TOP }, { blk.length, TOP }, { 0, TOP } } do
 		local g = at(blk, c[1], c[2])
 		local hit = workspace:Raycast(g + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), terrainOnly)
@@ -283,19 +283,29 @@ local function markers(blk: Block)
 			holder,
 			"PegTop",
 			Vector3.new(M.peg[1] + 0.03, M.top, M.peg[1] + 0.03),
-			CFrame.new(base + Vector3.new(0, M.peg[2] - 0.15 - M.top / 2, 0)),
+			-- (its top a little under the stake's, so the two faces don't fight: user 2026-10-25 "make sure that the white
+			-- clearly goes under or below the top of the stick")
+			CFrame.new(base + Vector3.new(0, M.peg[2] - 0.15 - M.top / 2 - 0.05, 0)),
 			rgb(Palette.Build.PegTop),
 			false
 		)
-		-- the cord's end: its axis down, so each Beam's curve sags (CurveSize0 down from one end, CurveSize1 from the other)
+		table.insert(stakes, stake)
+	end
+	-- a cord's end, tied on the side of the stake it leaves from, just under the painted top (not through the stake,
+	-- user 2026-10-25: "some clipping issues with the wire and stick"): its axis down, so each Beam's curve sags
+	-- (CurveSize0 down from one end, CurveSize1 from the other)
+	local function tie(stake: BasePart, toward: BasePart): Attachment
+		local flat = Vector3.new(toward.Position.X - stake.Position.X, 0, toward.Position.Z - stake.Position.Z)
+		local side = if flat.Magnitude > 1e-3 then flat.Unit * (M.peg[1] / 2 + M.string / 2) else Vector3.zero
 		local a = Instance.new("Attachment")
-		a.Position = Vector3.new(0, M.peg[2] / 2 - 0.05, 0)
+		a.Position = Vector3.new(side.X, M.peg[2] / 2 - M.top - 0.08, side.Z)
 		a.Axis, a.SecondaryAxis = Vector3.new(0, -1, 0), Vector3.new(1, 0, 0)
 		a.Parent = stake
-		table.insert(tops, a)
+		return a
 	end
 	for i = 1, 4 do
-		local a0, a1 = tops[i], tops[i % 4 + 1]
+		local s0, s1 = stakes[i], stakes[i % 4 + 1]
+		local a0, a1 = tie(s0, s1), tie(s1, s0)
 		local sag = M.sag * (a1.WorldPosition - a0.WorldPosition).Magnitude
 		local cord = Instance.new("Beam")
 		cord.Name = "String"
@@ -353,7 +363,10 @@ local function pieceColor(name: string): Color3
 	local shade
 	if i then
 		local tone = (i - 1) % #B.TrenchWall + 1
-		shade = if string.find(name, "Chunks") then B.TrenchWallChunks[tone] else B.TrenchWall[tone]
+		shade = if string.find(name, "Parapet") or string.find(name, "Apron")
+			then B.TrenchParapet[tone]
+			elseif string.find(name, "Chunks") then B.TrenchWallChunks[tone]
+			else B.TrenchWall[tone]
 	else
 		shade = if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor
 	end
@@ -361,33 +374,65 @@ local function pieceColor(name: string): Color3
 	return Color3.new(math.min(mud.R * shade, 1), math.min(mud.G * shade, 1), math.min(mud.B * shade, 1))
 end
 
--- Where a side wall of `blk` can stand (`sign` 1 toward its `across`, -1 away): the longest stretch along it (from, to;
--- studs from end A) whose foot isn't in another dug trench's floor (a branch starts on the trench it joins, a bend's
--- inside crosses the next square; user 2026-10-24: "when segmenting off it creates walls"), or nil
+-- Where a side wall or dirt heap of `blk` can stand (`sign` 1 toward its `across`, -1 away): each stretch along it (u0,
+-- u1: studs from end A, running on up to `ext` { A, B } past each end) where none of its `probes` is in another dug
+-- trench; a probe { off, keep } is the point `off` out from the centre line, kept further than `keep` from the other's
+-- line. A wall keeps its foot out of the other's floor and its top edge out of the other's hole, so where trenches join
+-- it stops at the other trench's wall line and stands in neither the opening nor the other trench (user 2026-10-24:
+-- "make sure that the joints connect by the walls"); `gap0`, `gap1`: how much further its foot could have run on there
+-- (a corner piece fills it). Only stretches on the square itself count.
 local SPAN_STEP = 0.5
-local function wallSpan(blk: Block, sign: number): (number?, number?)
-	local blocked = {}
-	local n = math.max(math.ceil(blk.length / SPAN_STEP), 1)
-	for i = 0, n do
-		local p = at(blk, blk.length * i / n, sign * (T.floor + 0.5))
-		local inside = false
-		for _, o in blocks do
-			if o ~= blk and live(o) and o.hp > 0 then
-				local rel = Vector3.new(p.X - o.a.X, 0, p.Z - o.a.Z)
-				local u, v = rel:Dot(o.dir), rel:Dot(o.across)
-				if u > -0.25 and u < o.length + 0.25 and math.abs(v) < T.floor + 0.25 then
-					inside = true
-					break
+local RUN = TOP - T.floor -- how far a wall leans back from its foot to its top edge
+local HEAP_BACK = TOP + T.joins.heapReach -- how far out the back of a dirt heap reaches
+local WALL_PROBES = { { T.floor + 0.5, T.floor + 0.25 }, { TOP - 0.3, TOP - 0.5 } }
+local HEAP_PROBES = { { TOP + 0.4, TOP + 0.3 }, { TOP + 4.5, TOP + 0.3 }, { HEAP_BACK, TOP + 0.3 } }
+type Span = { u0: number, u1: number, gap0: number, gap1: number }
+local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: { number }): { Span }
+	local from, to = -ext[1], blk.length + ext[2]
+	local n = math.max(math.ceil((to - from) / SPAN_STEP), 1)
+	local function uAt(i: number): number
+		return from + (to - from) * (i - 1) / n
+	end
+	local blocked, footBlocked = {}, {}
+	for i = 1, n + 1 do
+		for k, probe in probes do
+			local p = at(blk, uAt(i), sign * probe[1])
+			local inside = false
+			for _, o in blocks do
+				if o ~= blk and live(o) and o.hp > 0 then
+					local rel = Vector3.new(p.X - o.a.X, 0, p.Z - o.a.Z)
+					local u, v = rel:Dot(o.dir), rel:Dot(o.across)
+					if u > -0.25 and u < o.length + 0.25 and math.abs(v) < probe[2] then
+						inside = true
+						break
+					end
+				end
+			end
+			if inside then
+				blocked[i] = true
+				if k == 1 then
+					footBlocked[i] = true
 				end
 			end
 		end
-		blocked[i + 1] = inside
+		blocked[i] = blocked[i] or false
+		footBlocked[i] = footBlocked[i] or false
 	end
-	local i0, i1 = Rules.longestFree(blocked)
-	if not (i0 and i1) or (i1 - i0) * blk.length / n < 2 then
-		return nil, nil
+	local function gap(i: number, step: number): number
+		local j = i
+		while footBlocked[j + step] == false and blocked[j + step] do
+			j += step
+		end
+		return math.abs(j - i) * (to - from) / n
 	end
-	return blk.length * (i0 - 1) / n, blk.length * (i1 - 1) / n
+	local out = {}
+	for _, r in Rules.freeRuns(blocked) do
+		local u0, u1 = uAt(r[1]), uAt(r[2])
+		if u1 - u0 >= 1.5 and u1 > 0.5 and u0 < blk.length - 0.5 then
+			table.insert(out, { u0 = u0, u1 = u1, gap0 = gap(r[1], -1), gap1 = gap(r[2], 1) })
+		end
+	end
+	return out
 end
 
 -- A square's dirt pieces: a wall each side and a floor (Rules.trenchPieces), a plain wall across each dead end, laid in
@@ -400,12 +445,48 @@ local function pieces(blk: Block)
 		return
 	end
 	local shape = shapeOf(blk)
-	local spans = {}
-	for side, sign in { 1, -1 } do
-		local u0, u1 = wallSpan(blk, sign)
-		spans[side] = { u0, u1 }
+	-- how far the side pieces run on past an end: round the outside of a bend to meet the next square's (on the inside
+	-- the other's hole cuts them back), round a dead end to meet the wall across it
+	local function runOn(link: Link?, dead: boolean, leave: Vector3, heap: boolean): number
+		if dead then
+			return if heap then RUN + T.joins.deadEndHeap else RUN
+		elseif not link or link.kind ~= "end" then
+			return 0
+		end
+		local o = link.other
+		local out = if link.which == "A" then -o.dir else o.dir
+		local t = math.tan(math.rad(Rules.bend(out.X, out.Z, leave.X, leave.Z)) / 2)
+		return if heap then HEAP_BACK * math.min(t, 1) else TOP * math.min(t, 1.5)
 	end
-	local sig = `{shape.deadA}{shape.deadB}{spans[1][1]},{spans[1][2]},{spans[2][1]},{spans[2][2]}`
+	-- an end toward a square still to be dug (dug out of order) stays open: no wall across, nothing run on into it; the
+	-- walls join when that square is dug (user 2026-10-24: "whenever i build not in order, it forms walls")
+	local function pending(link: Link?): boolean
+		return link ~= nil and live(link.other) and link.other.hp <= 0
+	end
+	local closeA = shape.deadA and not pending(blk.linkA)
+	local closeB = shape.deadB and not pending(blk.linkB)
+	local wallExt = {
+		if shape.deadA and not closeA then 0 else runOn(blk.linkA, closeA, blk.dir, false),
+		if shape.deadB and not closeB then 0 else runOn(blk.linkB, closeB, -blk.dir, false),
+	}
+	local heapExt = {
+		if shape.deadA and not closeA then 0 else runOn(blk.linkA, closeA, blk.dir, true),
+		if shape.deadB and not closeB then 0 else runOn(blk.linkB, closeB, -blk.dir, true),
+	}
+	-- each side's walls and dirt heaps, along the stretches clear of other trenches (the heap stands well back, so it
+	-- keeps clear of their holes and walls all the way back, not just their floors)
+	local walls, heaps = {}, {}
+	local sig = `{closeA}{closeB}`
+	for side, sign in { 1, -1 } do
+		walls[side] = sideSpans(blk, sign, WALL_PROBES, wallExt)
+		heaps[side] = sideSpans(blk, sign, HEAP_PROBES, heapExt)
+		for _, list in { walls[side], heaps[side] } do
+			for _, s in list do
+				sig ..= `|{s.u0},{s.u1},{s.gap0},{s.gap1}`
+			end
+			sig ..= ";"
+		end
+	end
 	local old = m:FindFirstChild("Pieces")
 	if old and old:GetAttribute("Sig") == sig then
 		return
@@ -434,7 +515,7 @@ local function pieces(blk: Block)
 		local x = Vector3.new(0, 1, 0):Cross(out)
 		local origin
 		if ending then
-			origin = floorAt(if out:Dot(flat) < 0 then 0 else blk.length, 0) - x * T.floor
+			origin = floorAt(if out:Dot(flat) < 0 then 0 else blk.length, 0) - x * (u0 or T.floor)
 		else
 			local fromStart = x:Dot(flat) > 0
 			x = if fromStart then along else -along
@@ -443,7 +524,7 @@ local function pieces(blk: Block)
 		end
 		return CFrame.fromMatrix(origin, x, out:Cross(x).Unit, out)
 	end
-	local function place(name: string, cf: CFrame, stretch: number)
+	local function place(name: string, cf: CFrame, stretch: number, tone: string?)
 		local src = k:FindFirstChild(name)
 		local off = offsets[name]
 		if not (src and src:IsA("BasePart") and off) then
@@ -452,7 +533,7 @@ local function pieces(blk: Block)
 		local p = src:Clone()
 		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
 		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
-		p.Color = pieceColor(name)
+		p.Color = pieceColor(tone or name)
 		local base = not (string.find(name, "Chunks") or string.find(name, "Planks"))
 		p.Anchored = true
 		p.CanCollide = base
@@ -466,24 +547,55 @@ local function pieces(blk: Block)
 		end
 	end
 	local stretch = blk.length / P.segment
-	-- side walls (side 1 toward `across`, 2 away from it) along their clear stretch, the floor on the centre line turned
-	-- either way
+	-- a long stretch (run on round a sharp bend) laid as several pieces about a segment long, not one stretched far
+	local function pieceRuns(u0: number, u1: number): { { number } }
+		local count = math.max(math.round((u1 - u0) / (P.segment * 1.25)), 1)
+		local runs = {}
+		for c = 0, count - 1 do
+			table.insert(runs, { u0 + (u1 - u0) * c / count, u0 + (u1 - u0) * (c + 1) / count })
+		end
+		return runs
+	end
+	-- side walls (side 1 toward `across`, 2 away from it) along their clear stretches, a corner piece where one stops
+	-- short of another trench (on the wall's slope, from where its top stops down to where its foot could have gone),
+	-- the heaps along theirs, the floor on the centre line turned either way
 	for side, sign in { 1, -1 } do
-		local u0, u1 = spans[side][1], spans[side][2]
-		if u0 and u1 then
-			wall(roll.walls[side], frame(blk.across * sign, false, false, u0, u1), (u1 - u0) / P.segment)
+		local n = roll.walls[side]
+		local out = blk.across * sign
+		for _, s in walls[side] do
+			for _, c in pieceRuns(s.u0, s.u1) do
+				wall(n, frame(out, false, false, c[1], c[2]), (c[2] - c[1]) / P.segment)
+			end
+			for _, e in { { s.u0, s.gap0 }, { s.u1, s.gap1 } } do
+				if e[2] > 0.3 then
+					place("Corner", frame(out, false, false, e[1], e[1]), (e[2] + 0.5) / RUN, `Wall{n}`)
+				end
+			end
+		end
+		for _, s in heaps[side] do
+			for _, c in pieceRuns(s.u0, s.u1) do
+				local cf = frame(out, false, false, c[1], c[2])
+				place(`Wall{n}Parapet`, cf, (c[2] - c[1]) / P.segment)
+				place(`Wall{n}Apron`, cf, (c[2] - c[1]) / P.segment) -- (the skirt of dirt behind it)
+			end
 		end
 	end
 	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true)
 	place(`Floor{roll.floor}`, floorCf, stretch)
 	place(`Floor{roll.floor}Chunks`, floorCf, stretch)
-	-- dead ends: a plain wall across the floor
-	local across = 2 * T.floor / P.segment
-	if shape.deadA then
-		wall(roll.ends[1], frame(-flat, true), across)
-	end
-	if shape.deadB then
-		wall(roll.ends[2], frame(flat, true), across)
+	-- dead ends: a plain wall across, as wide as the trench at the top (its foot runs on behind the side walls) and its
+	-- heap (a thick pile of dirt behind its top edge that collides: Config/Build.Trench) wider still, over the side
+	-- heaps' ends
+	for e, dead in { closeA, closeB } do
+		if dead then
+			local out = if e == 1 then -flat else flat
+			wall(roll.ends[e], frame(out, true, false, TOP), 2 * TOP / P.segment)
+			for _, start in { TOP + T.joins.deadEndHeap, 0 } do -- in two, so its slabs aren't stretched long
+				local cf = frame(out, true, false, start)
+				place(`Wall{roll.ends[e]}Parapet`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
+				place(`Wall{roll.ends[e]}Apron`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
+			end
+		end
 	end
 end
 
@@ -521,8 +633,9 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP
-	local full = blk.built
+	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP; well buried it is just
+	-- earth, its pieces gone
+	local full = blk.built and blk.hp >= T.hp.max * T.hp.bare / 100
 	if full then
 		pieces(blk)
 	else
@@ -567,10 +680,10 @@ local function finish(blk: Block, scar: boolean)
 end
 
 -- the block whose free end `which` is nearest `p` (within Trench.joinReach), or the block whose side `p` is on
-local function snap(p: Vector3, team: string): (Vector3, Link?)
+local function snap(p: Vector3, _team: string): (Vector3, Link?)
 	local best: Block?, bestWhich: string?, bestD = nil, nil, T.joinReach
 	for _, blk in blocks do
-		if live(blk) and blk.team == team then
+		if live(blk) then
 			for _, which in { "A", "B" } do
 				local link = if which == "A" then blk.linkA else blk.linkB
 				local e = if which == "A" then blk.a else blk.b
@@ -586,7 +699,7 @@ local function snap(p: Vector3, team: string): (Vector3, Link?)
 		return e, { kind = "end", other = best, which = bestWhich }
 	end
 	for _, blk in blocks do
-		if live(blk) and blk.team == team then
+		if live(blk) then
 			local rel = Vector3.new(p.X - blk.a.X, 0, p.Z - blk.a.Z)
 			local u, v = rel:Dot(blk.dir), rel:Dot(blk.across)
 			if u >= 0 and u <= blk.length and math.abs(v) <= TOP then
@@ -802,15 +915,16 @@ function Trenches.distance(blk: Block, p: Vector3): number
 	return Survey.toSegment(p, blk.a, blk.b)
 end
 
--- One swing at a square (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds HP to your
--- team's square; Destroy takes it off any team's (an undug plan's square is pulled up).
-function Trenches.work(blk: Block, team: string, mode: string)
+-- One swing at a square (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds HP to any
+-- square, Destroy takes it off (an undug plan's square is pulled up). (Any trench: a soldier's kit is rolled each life,
+-- so after a respawn your own trench was another kit's; user 2026-10-25: "you should be able to fix/edit any trench")
+function Trenches.work(blk: Block, _team: string, mode: string)
 	if not live(blk) then
 		return
 	end
 	local H = T.hp
 	if mode == "Build" then
-		if team ~= blk.team or blk.hp >= H.max then
+		if blk.hp >= H.max then
 			return
 		end
 		blk.hp = Rules.trenchSwing(blk.hp, H.max, H.swing, true)
@@ -875,13 +989,27 @@ function Trenches.blast(position: Vector3, src: any)
 	end
 end
 
--- A bullet meeting `part`: a dug square's piece loses Structures.bullet; whether it was one
-function Trenches.shot(struck: Instance): boolean
+-- A bullet meeting `part` at `point`: a dug square loses Structures.bullet when it is one of its pieces, or the ground
+-- in its hole, walls or banks (Rules.inTrenchGround; the nearest square's: the carved terrain round a slab is what a
+-- shot at a wall often meets, Studio round t1024-1602-59df); whether it was one
+function Trenches.shot(struck: Instance, point: Vector3?): boolean
 	local m = struck:FindFirstAncestorWhichIsA("Model")
 	while m and not byModel[m] do
 		m = m:FindFirstAncestorWhichIsA("Model")
 	end
 	local blk = m and byModel[m]
+	if not blk and struck == workspace.Terrain and point then
+		local best = math.huge
+		for _, o in blocks do
+			if live(o) and o.hp > 0 then
+				local d = Survey.toSegment(point, o.a, o.b)
+				local u = math.clamp((point - o.a):Dot(o.dir), 0, o.length)
+				if d < best and Rules.inTrenchGround(d, point.Y - at(o, u, 0).Y, T, T.shotSlack) then
+					blk, best = o, d
+				end
+			end
+		end
+	end
 	if not blk then
 		return false
 	end
@@ -889,11 +1017,13 @@ function Trenches.shot(struck: Instance): boolean
 	return true
 end
 
--- whether `p` is within `extra` of a trench's ground (its hole, walls and banks; flat): blasts' craters stop short of it
--- (src/server/Ground; user 2026-10-24: "craters stop at the trench")
+-- whether `p` is within `extra` of a trench's ground (its hole, walls, banks and the dirt heaped and spread past them,
+-- out to its skirt; flat): blasts' craters stop short of it (src/server/Ground; user 2026-10-24: "craters stop at the
+-- trench"; 2026-10-25 out to the skirt, so a crater doesn't cut under it)
 function Trenches.near(p: Vector3, extra: number): boolean
+	local outer = math.max(TOP + T.bank.width, HEAP_BACK)
 	for _, blk in blocks do
-		if live(blk) and blk.hp > 0 and Survey.toSegment(p, blk.a, blk.b) <= TOP + T.bank.width + extra then
+		if live(blk) and blk.hp > 0 and Survey.toSegment(p, blk.a, blk.b) <= outer + extra then
 			return true
 		end
 	end

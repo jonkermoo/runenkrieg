@@ -9,6 +9,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Cfg = require(ReplicatedStorage:WaitForChild("Shared").Config.Vfx).Showcase
 local Spells = require(ReplicatedStorage:WaitForChild("Shared").Config.Spells)
+local Grenades = require(ReplicatedStorage:WaitForChild("Shared").Config.Grenades)
+local Artillery = require(ReplicatedStorage:WaitForChild("Shared").Config.Artillery)
 local Vfx = require(script.Parent.Vfx)
 
 local VfxShowcase = {}
@@ -71,7 +73,7 @@ local function dummy(parent: Instance, at: Vector3): Part
 	return torso
 end
 
-type Entry = { effect: string, label: string, every: number, scheme: string? }
+type Entry = { effect: string, label: string, every: number, scheme: string?, gun: string? }
 
 local plays: { [string]: (pad: Vector3, folder: Folder, entry: Entry) -> () } = {
 	Circle = function(p)
@@ -95,6 +97,19 @@ local plays: { [string]: (pad: Vector3, folder: Folder, entry: Entry) -> () } = 
 	Blast3 = function(p, folder)
 		local floor = folder:FindFirstChild("Floor") :: BasePart
 		Vfx.Blast.play(Vector3.new(p.X, 0, p.Z), { normal = Vector3.yAxis, debrisColor = floor.Color, stage = 3 })
+	end,
+	-- the grenade, the field gun's shell and the howitzer's, as in play (Config/Grenades, Config/Artillery)
+	Grenade = function(p)
+		local G = Grenades.Vfx
+		local kg = (Grenades.Types :: any)[Cfg.Grenade].kg
+		Vfx.Blast.play(Vector3.new(p.X, 0, p.Z), { normal = Vector3.yAxis, kg = kg, scheme = G.scheme, pop = G.pop })
+	end,
+	Shell = function(p, _, entry)
+		local gun = (Artillery.Guns :: any)[entry.gun]
+		Vfx.Blast.play(
+			Vector3.new(p.X, 0, p.Z),
+			{ normal = Vector3.yAxis, kg = gun.kg, scheme = gun.vfx.scheme, magic = gun.vfx.magic }
+		)
 	end,
 	Shockwave = function(p)
 		Vfx.Shockwave.play(Vector3.new(p.X, 0.3, p.Z), Vector3.yAxis)

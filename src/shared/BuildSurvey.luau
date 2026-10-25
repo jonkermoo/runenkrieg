@@ -143,9 +143,9 @@ function Survey.distanceTo(model: Instance, p: Vector3): number
 end
 
 -- For the trench planner's ghost: where a plan's end at `p` would go, as the server snaps it (src/server/Trenches): onto
--- a free end of the team's trench within Trench.joinReach ("end"), onto a block's centre line when `p` is on its side
+-- a free end of any trench within Trench.joinReach ("end"), onto a block's floor edge on the side `p` is on
 -- ("tee"), else where it is. Also the block it joins and, for an end, the way out of that end (flat unit).
-function Survey.trenchSnap(folder: Instance?, team: string, p: Vector3): (Vector3, string?, Model?, Vector3?)
+function Survey.trenchSnap(folder: Instance?, _team: string, p: Vector3): (Vector3, string?, Model?, Vector3?)
 	if not folder then
 		return p, nil, nil, nil
 	end
@@ -154,7 +154,7 @@ function Survey.trenchSnap(folder: Instance?, team: string, p: Vector3): (Vector
 	local best: Model?, bestAt: Vector3?, bestOut: Vector3?, bestD = nil, nil, nil, T.joinReach
 	for _, m in folder:GetChildren() do
 		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
-		if m:IsA("Model") and m:GetAttribute("Team") == team and typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+		if m:IsA("Model") and typeof(a) == "Vector3" and typeof(b) == "Vector3" then
 			local dir = Vector3.new(b.X - a.X, 0, b.Z - a.Z).Unit
 			for _, e in { { a, m:GetAttribute("LinkA"), -dir }, { b, m:GetAttribute("LinkB"), dir } } do
 				local d = Vector3.new(p.X - e[1].X, 0, p.Z - e[1].Z).Magnitude
@@ -169,7 +169,7 @@ function Survey.trenchSnap(folder: Instance?, team: string, p: Vector3): (Vector
 	end
 	for _, m in folder:GetChildren() do
 		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
-		if m:IsA("Model") and m:GetAttribute("Team") == team and typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+		if m:IsA("Model") and typeof(a) == "Vector3" and typeof(b) == "Vector3" then
 			local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
 			local dir = flat.Unit
 			local rel = Vector3.new(p.X - a.X, 0, p.Z - a.Z)

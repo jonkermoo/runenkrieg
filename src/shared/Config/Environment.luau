@@ -102,8 +102,14 @@ local Environment = {
 		lifetime = 0.55,
 		-- under a roof (a part straight above the camera within `roof` studs) the drops stop and the sound dulls
 		roof = 60,
-		-- the rain loop, Roblox-licensed (Pro Sound Effects "Rain Heavy Rainfall Grass Wooden Roof 1", 46 s loop)
-		sound = { id = 9112853422, volume = 0.7, covered = 0.45, coveredHigh = -18 },
+		-- the rain loop outdoors, rain only (user 2026-10-24: "there seems to be a metallic sound with the rain. I just
+		-- want the rain sound"), Roblox-licensed (Pro Sound Effects "Heavy Rain 1", 56 s loop); under a roof it plays
+		-- quieter and dulled
+		sound = { id = 9112794265, volume = 0.7, covered = 0.3, coveredHigh = -18 },
+		-- under a roof, the rain on the roof over it (user 2026-10-24: "lets use this sound for the roof of buildings when
+		-- its raining"), Roblox-licensed (Pro Sound Effects "Rain Heavy Rainfall Grass Wooden Roof 1", 46 s loop)
+		roofSound = { id = 9112853422, volume = 0.6 },
+		soundFade = 3, -- volume per second the two loops move toward their targets (no jump at a doorway)
 	},
 
 	UpdateHz = 30, -- light and haze updates per second
