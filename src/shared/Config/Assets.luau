@@ -852,39 +852,39 @@ local Assets = {
 			hair = { bones = 4 },
 		},
 		hair_wolf_cut_m33 = {
-			id = 88902820201340, -- from the R6 refit, rigged (2026-10-20)
+			id = 123448780807622, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/refit/under/hair_wolf_cut_m33.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair wolf_cut under the m33 helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3574 tris).",
+			description = "Hair wolf_cut under the m33 helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (4120 tris).",
 			hair = { bones = 4 },
 		},
 		hair_wolf_cut_stahl = {
-			id = 102492590962052, -- from the R6 refit, rigged (2026-10-20)
+			id = 126575598777569, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/refit/under/hair_wolf_cut_stahl.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair wolf_cut under the stahl helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3836 tris).",
+			description = "Hair wolf_cut under the stahl helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (4041 tris).",
 			hair = { bones = 4 },
 		},
 		hair_wolf_cut_brodie = {
-			id = 100738510581067, -- from the R6 refit, rigged (2026-10-20)
+			id = 105749681226529, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/refit/under/hair_wolf_cut_brodie.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair wolf_cut under the brodie helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (4010 tris).",
+			description = "Hair wolf_cut under the brodie helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (4081 tris).",
 			hair = { bones = 4 },
 		},
 		hair_wolf_cut_adrian = {
-			id = 125743116115820, -- from the R6 refit, rigged (2026-10-20)
+			id = 123251126579214, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/refit/under/hair_wolf_cut_adrian.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair wolf_cut under the adrian helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (4042 tris).",
+			description = "Hair wolf_cut under the adrian helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (4128 tris).",
 			hair = { bones = 4 },
 		},
 		hair_low_ponytail = {
@@ -897,39 +897,39 @@ local Assets = {
 			hair = { bones = 6 },
 		},
 		hair_low_ponytail_m33 = {
-			id = 112940209257214, -- from the R6 refit, rigged (2026-10-20)
+			id = 84344600264282, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/refit/under/hair_low_ponytail_m33.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair low_ponytail under the m33 helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3131 tris).",
+			description = "Hair low_ponytail under the m33 helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (3131 tris).",
 			hair = { bones = 6 },
 		},
 		hair_low_ponytail_stahl = {
-			id = 85526459114823, -- from the R6 refit, rigged (2026-10-20)
+			id = 90405510880679, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/refit/under/hair_low_ponytail_stahl.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair low_ponytail under the stahl helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3131 tris).",
+			description = "Hair low_ponytail under the stahl helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (3131 tris).",
 			hair = { bones = 6 },
 		},
 		hair_low_ponytail_brodie = {
-			id = 97782330786571, -- from the R6 refit, rigged (2026-10-20)
+			id = 121945792439071, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/refit/under/hair_low_ponytail_brodie.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair low_ponytail under the brodie helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3129 tris).",
+			description = "Hair low_ponytail under the brodie helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (3128 tris).",
 			hair = { bones = 6 },
 		},
 		hair_low_ponytail_adrian = {
-			id = 121977287341879, -- from the R6 refit, rigged (2026-10-20)
+			id = 138177862745285, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/refit/under/hair_low_ponytail_adrian.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair low_ponytail under the adrian helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3129 tris).",
+			description = "Hair low_ponytail under the adrian helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (3120 tris).",
 			hair = { bones = 6 },
 		},
 		hair_m_wolf = {
@@ -942,39 +942,39 @@ local Assets = {
 			hair = { bones = 4 },
 		},
 		hair_m_wolf_m33 = {
-			id = 120458849546405, -- from the R6 refit, rigged (2026-10-20)
+			id = 130290503905273, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/refit/under/hair_m_wolf_m33.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_wolf under the m33 helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3126 tris).",
+			description = "Hair m_wolf under the m33 helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (4029 tris).",
 			hair = { bones = 4 },
 		},
 		hair_m_wolf_stahl = {
-			id = 84893039759092, -- from the R6 refit, rigged (2026-10-20)
+			id = 77828511561744, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/refit/under/hair_m_wolf_stahl.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_wolf under the stahl helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3655 tris).",
+			description = "Hair m_wolf under the stahl helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (4006 tris).",
 			hair = { bones = 4 },
 		},
 		hair_m_wolf_brodie = {
-			id = 125484365524686, -- from the R6 refit, rigged (2026-10-20)
+			id = 129064284848538, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/refit/under/hair_m_wolf_brodie.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_wolf under the brodie helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3083 tris).",
+			description = "Hair m_wolf under the brodie helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (4052 tris).",
 			hair = { bones = 4 },
 		},
 		hair_m_wolf_adrian = {
-			id = 127472434206756, -- from the R6 refit, rigged (2026-10-20)
+			id = 73310907494805, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/refit/under/hair_m_wolf_adrian.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_wolf under the adrian helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3746 tris).",
+			description = "Hair m_wolf under the adrian helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (4050 tris).",
 			hair = { bones = 4 },
 		},
 		hair_m_slick = {
@@ -987,39 +987,39 @@ local Assets = {
 			hair = { bones = 1 },
 		},
 		hair_m_slick_m33 = {
-			id = 130115593443729, -- from the R6 refit, rigged (2026-10-20)
+			id = 134547063480081, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/refit/under/hair_m_slick_m33.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_slick under the m33 helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3146 tris).",
+			description = "Hair m_slick under the m33 helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (2963 tris).",
 			hair = { bones = 1 },
 		},
 		hair_m_slick_stahl = {
-			id = 128090834982729, -- from the R6 refit, rigged (2026-10-20)
+			id = 113448809911258, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/refit/under/hair_m_slick_stahl.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_slick under the stahl helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3065 tris).",
+			description = "Hair m_slick under the stahl helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (2963 tris).",
 			hair = { bones = 1 },
 		},
 		hair_m_slick_brodie = {
-			id = 120987050449324, -- from the R6 refit, rigged (2026-10-20)
+			id = 134275329770818, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/refit/under/hair_m_slick_brodie.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_slick under the brodie helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3075 tris).",
+			description = "Hair m_slick under the brodie helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (2963 tris).",
 			hair = { bones = 1 },
 		},
 		hair_m_slick_adrian = {
-			id = 135740648564426, -- from the R6 refit, rigged (2026-10-20)
+			id = 80420827998687, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/refit/under/hair_m_slick_adrian.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_slick under the adrian helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3092 tris).",
+			description = "Hair m_slick under the adrian helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (2958 tris).",
 			hair = { bones = 1 },
 		},
 		hair_m_midpart = {
@@ -1032,39 +1032,39 @@ local Assets = {
 			hair = { bones = 2 },
 		},
 		hair_m_midpart_m33 = {
-			id = 74832724807765, -- from the R6 refit, rigged (2026-10-20)
+			id = 101953247018810, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/refit/under/hair_m_midpart_m33.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_midpart under the m33 helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3666 tris).",
+			description = "Hair m_midpart under the m33 helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (3641 tris).",
 			hair = { bones = 2 },
 		},
 		hair_m_midpart_stahl = {
-			id = 80292075224913, -- from the R6 refit, rigged (2026-10-20)
+			id = 75942769614215, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/refit/under/hair_m_midpart_stahl.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_midpart under the stahl helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3917 tris).",
+			description = "Hair m_midpart under the stahl helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (3615 tris).",
 			hair = { bones = 2 },
 		},
 		hair_m_midpart_brodie = {
-			id = 128884779637628, -- from the R6 refit, rigged (2026-10-20)
+			id = 88318588737841, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/refit/under/hair_m_midpart_brodie.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_midpart under the brodie helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (3767 tris).",
+			description = "Hair m_midpart under the brodie helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (3649 tris).",
 			hair = { bones = 2 },
 		},
 		hair_m_midpart_adrian = {
-			id = 125741154599113, -- from the R6 refit, rigged (2026-10-20)
+			id = 87287081645234, -- tucked under the shell, nothing below the rim lost (2026-10-24)
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/refit/under/hair_m_midpart_adrian.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_midpart under the adrian helmet: the R6 refit shaved where the shell covers it (tools/blender/gear/hair_under.py), rigged to sway (4006 tris).",
+			description = "Hair m_midpart under the adrian helmet: the R6 refit tucked in under the shell (tools/blender/gear/hair_tuck.py), then shaved where it still pokes through (hair_under.py), rigged to sway (3683 tris).",
 			hair = { bones = 2 },
 		},
 	} :: { [string]: Entry },
