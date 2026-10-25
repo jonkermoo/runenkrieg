@@ -18,8 +18,11 @@ local Flinch = {
 	-- a flinch already playing isn't started again by a blast within this many seconds of it (a barrage)
 	Again = 0.5,
 	Fade = 0.08, -- fade in / out (s)
-	-- tools/animation/flinch.luau (FlinchOne approved 2026-10-22): 0.95 s, Action2, root, arms and head
-	Animation = { id = 125428718743530 },
+	-- tools/animation/flinch.luau (FlinchOne approved 2026-10-22), 0.95 s, Action2, split in two (user 2026-10-25:
+	-- crouched, the old one stood the soldier up and he floated): the hand to the helmet and the head's duck, over any
+	-- stance (arms and head only); and the torso's small dip, only standing still and upright (`Dip`; root only)
+	Animation = { id = 92646693297394 },
+	Dip = { id = 133653464187124 }, -- standing still: under Config/Locomotion.IdleBelow
 }
 
 return table.freeze(Flinch)

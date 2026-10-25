@@ -108,6 +108,8 @@ local Settings = {
 		Key_Drag = { kind = "key", label = "Drag", default = "G" }, -- drag the downed teammate you look at (Config/Dragging)
 		Key_Build = { kind = "key", label = "Build mode", default = "B" }, -- the shovel in the hands (Config/Build)
 		Key_BuildTurn = { kind = "key", label = "Turn piece", default = "T" }, -- in build mode
+		-- leaves build mode (user 2026-10-24: "make it Q to exit plan mode"; right mouse turns the shovel's camera)
+		Key_BuildExit = { kind = "key", label = "Exit build mode", default = "Q" },
 		Key_Settings = { kind = "key", label = "Settings menu", default = "P" }, -- opens this menu (frees the mouse)
 	},
 
@@ -143,6 +145,7 @@ local Settings = {
 				"Key_Drag",
 				"Key_Build",
 				"Key_BuildTurn",
+				"Key_BuildExit",
 				"Key_Settings",
 			},
 		},

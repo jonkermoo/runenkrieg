@@ -101,6 +101,14 @@ return {
 		y, p = T.aimTurn(0, 0, 80, -80, Max)
 		assert(y == Max.yaw and p == -Max.pitch)
 	end,
+	["every weapon's largest turn is within what is sent and taken"] = function()
+		assert(Max.yaw <= A.Limit.yaw and Max.pitch <= A.Limit.pitch)
+		for _, m in A.ClassMax :: any do
+			assert(m.yaw <= A.Limit.yaw and m.pitch <= A.Limit.pitch)
+		end
+		local y, p = T.aimTurn(0, 0, 50, -50, A.ClassMax.Staff)
+		assert(near(y, 50) and near(p, -50), "the staff turns past the guns' cap")
+	end,
 	["the average pointing settles the short way round"] = function()
 		assert(near(T.settle(10, 20, 0.5), 15))
 		assert(near(T.wrap(T.settle(170, -170, 0.5)), -180), "through 180, not back through 0")

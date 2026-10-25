@@ -1,39 +1,90 @@
 --!strict
 -- Digging with the shovel on the local client (docs/MILESTONES.md SV1; Config/Shovel): with a shovel in the hands
--- (Config/Weapons class "Shovel"), the fire key (Settings Key_Fire) digs: the character attribute "DugAt" marks the
--- moment and src/client/Locomotion (third person, seen by everyone) and src/client/Viewmodel (first person) play the
--- dig once over the hold. A click during a dig is ignored, and in build mode (src/client/Build) a click lays a piece
--- instead. A swing builds or tears down the piece in front of you (src/client/Build sends it).
+-- (Config/Weapons class "Shovel"), holding the fire key (Settings Key_Fire) swings it: the character attribute
+-- "Digging" names the shovel's mode (src/client/Build: "Build" or "Destroy") while the key is held, and
+-- src/client/Locomotion (seen by everyone) loops that mode's swing, the dig or the chip, marking each strike with
+-- "DugAt" and "DugMode" (src/client/Build sends the hit). Let go and the swing playing goes on to its rest, then
+-- settles to the ready (user 2026-10-24). In build mode (src/client/Build) a click lays a piece instead, and never
+-- digs too; swinging, the soldier stands still (src/client/Stance). Each swing has its sounds (Config/Shovel.Sounds):
+-- the swinger's own play at the animation's markers, everyone else's come through the server (Net "Dug").
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Shovel)
 local W = require(Shared.Config.Weapons)
+local Net = require(Shared.Net)
 local Build = require(script.Parent.Build)
 local Held = require(script.Parent.Held)
 local Settings = require(script.Parent.Settings)
+local SoundFx = require(script.Parent.SoundFx)
 
 local Shovel = {}
 
+-- whether this character can swing the shovel now
+local function ready(character: Model?): boolean
+	local weapon = Held.weapon(character)
+	return character ~= nil
+		and weapon ~= nil
+		and W[weapon.name] ~= nil
+		and W[weapon.name].class == "Shovel"
+		and not Build.active()
+end
+
 function Shovel.start()
 	local player = Players.LocalPlayer
-	UserInputService.InputBegan:Connect(function(input, processed)
-		if processed or not Settings.pressed("Key_Fire", input) or Build.active() then
-			return
+	SoundFx.preload(Cfg.Sounds)
+	-- everyone else's swing sounds (src/server/Build passes them on; the swinger's own play in src/client/Locomotion)
+	Net.event("Dug").OnClientEvent:Connect(function(character: any, kind: any)
+		local root = typeof(character) == "Instance" and character:FindFirstChild("HumanoidRootPart")
+		local entry = type(kind) == "string" and (Cfg.Sounds :: any)[kind]
+		if root and entry then
+			SoundFx.play(entry, root)
 		end
+	end)
+	local held = false
+	local running = false
+
+	-- while the fire key is held: "Digging" follows the mode (R switches it mid swing), gone when the shovel can't swing
+	local function run()
+		running = true
 		local character = player.Character
-		local weapon = Held.weapon(character)
-		if not character or not weapon or not W[weapon.name] or W[weapon.name].class ~= "Shovel" then
+		while held do
+			character = player.Character
+			if character then
+				character:SetAttribute("Digging", if ready(character) then Build.mode() else nil)
+			end
+			task.wait()
+		end
+		if character then
+			character:SetAttribute("Digging", nil)
+		end
+		running = false
+	end
+
+	-- build mode as it was last frame: the click that lays a plan also leaves build mode, and may reach here after
+	-- src/client/Build has handled it (user 2026-10-24: "if you left click to accept a plan, you dig as well")
+	local building = false
+	RunService.Heartbeat:Connect(function()
+		building = Build.active()
+	end)
+
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if processed or not Settings.pressed("Key_Fire", input) or building or not ready(player.Character) then
 			return
 		end
-		local last = character:GetAttribute("DugAt")
-		if type(last) == "number" and os.clock() - last < Cfg.Dig.length then
-			return
+		held = true
+		if not running then
+			task.spawn(run)
 		end
-		character:SetAttribute("DugAt", os.clock())
+	end)
+	UserInputService.InputEnded:Connect(function(input)
+		if Settings.pressed("Key_Fire", input) then
+			held = false
+		end
 	end)
 end
 

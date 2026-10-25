@@ -2,6 +2,7 @@
 local D = require("../src/shared/Config/Damage")
 local G = require("../src/shared/Config/Grenades")
 local F = require("../src/shared/Config/Flinch")
+local L = require("../src/shared/Config/Locomotion")
 local Blast = require("../src/shared/Rules/Blast")
 local Flinch = require("../src/shared/Rules/Flinch")
 
@@ -50,5 +51,12 @@ return {
 		assert(Flinch.weight(20, 15, 38, true, false, false, F) == nil, "knocked")
 		assert(Flinch.weight(20, 15, 38, false, true, false, F) == nil, "something in the hands")
 		assert(Flinch.weight(20, 15, 38, false, false, true, F) == nil, "ragdolled or dead")
+	end,
+	["the torso dips only standing still and upright, so a crouch never stands up"] = function()
+		assert(Flinch.dips(0, false, true, L.IdleBelow), "standing still: dips")
+		assert(not Flinch.dips(0, true, true, L.IdleBelow), "crouched: the crouch keeps its lowered torso")
+		assert(not Flinch.dips(10, false, true, L.IdleBelow), "walking: the stride keeps its body")
+		assert(not Flinch.dips(0, false, false, L.IdleBelow), "in the air: no dip")
+		assert(F.Dip.id > 0 and F.Animation.id ~= F.Dip.id, "the hand and the dip are separate tracks")
 	end,
 }

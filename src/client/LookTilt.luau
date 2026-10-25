@@ -5,7 +5,8 @@
 -- planted. Applied on top of the animations through the RootJoint and hip C0s.
 -- With a weapon in the hands (Config/Camera.Follow): the arms and the gun turn about the shoulder line for the rest
 -- of the pitch, so the weapon points where the camera looks, and the head follows part of the way. (In first person
--- the player sees the viewmodel instead, src/client/Viewmodel.)
+-- the player sees the viewmodel instead, src/client/Viewmodel.) An item in Config/Camera.FreeClasses (the shovel)
+-- takes no pitch at all: its swings are the same wherever you look.
 -- Other players see it too: the local soldier's pitch and the gun's follow share go to the server (Net "LookPitch",
 -- quantized and throttled by Config/Locomotion.LookTilt.Send), which relays them; every other soldier is posed the
 -- same way here, easing toward the last pitch received.
@@ -26,11 +27,14 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
+local TuckCfg = Cfg.Tuck
 local CameraCfg = require(Shared.Config.Camera)
 local CameraRules = require(Shared.Rules.Camera)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.LookTilt)
+local Weapons = require(Shared.Config.Weapons)
 local Held = require(script.Parent.Held)
+local W = require(Shared.Config.Weapons)
 
 local LookTilt = {}
 
@@ -170,7 +174,8 @@ local function aimTurn(
 		local from = torso * (pivot * a.rot * pivot:Inverse() * bend * inHold).Position
 		local want = torso:VectorToObjectSpace(point - from)
 		local wy, wp = Rules.angles(want.X, want.Y, want.Z)
-		local ty, tp = Rules.aimTurn(a.yaw, a.pitch, wy, wp, AIM.Max)
+		local class = Weapons[weapon.name] and Weapons[weapon.name].class
+		local ty, tp = Rules.aimTurn(a.yaw, a.pitch, wy, wp, (AIM.ClassMax :: any)[class] or AIM.Max)
 		a.turnYaw, a.speedYaw = CameraRules.spring(a.turnYaw, a.speedYaw, ty * weight, AIM.Spring, dt)
 		a.turnPitch, a.speedPitch = CameraRules.spring(a.turnPitch, a.speedPitch, tp * weight, AIM.Spring, dt)
 	end
@@ -184,7 +189,7 @@ local function aimTurn(
 end
 
 -- the torso tilted by `angle`, with a weapon the arms + gun turned by `turn` (and onto the crosshair by `aim`), and the
--- head turned by `yaw` (degrees)
+-- head turned by `yaw` (degrees); the gun and arms slid `pull` studs back along the barrel (near a wall, src/client/Tuck)
 local function pose(
 	r: Rig,
 	angle: number,
@@ -193,7 +198,8 @@ local function pose(
 	aim: Aim,
 	dt: number,
 	point: Vector3?,
-	weight: number
+	weight: number,
+	pull: number
 )
 	local a = math.rad(angle)
 	local rootJoint = r.rootJoint
@@ -216,6 +222,13 @@ local function pose(
 	local pivot = CFrame.new(r.armC0[1].Position) -- the right shoulder (on the shoulder line: the bend keeps it put)
 	local onto = if weapon then aimTurn(r, weapon, bend, pivot, aim, dt, point, weight) else CFrame.identity
 	local swing = pivot * onto * pivot:Inverse()
+	-- pulled back near a wall: the gun and both arms slide back along the barrel as one, still pointing the same way
+	local back = CFrame.identity
+	local muzzle = weapon and weapon.gun:FindFirstChild("Muzzle") :: Attachment?
+	if weapon and muzzle and pull > 0 then
+		local hold = weapon.hold
+		back = CFrame.new(-(swing * bend * hold.Transform * hold.C1:Inverse() * muzzle.CFrame).LookVector * pull)
+	end
 	for i, arm in r.arms do
 		local c0 = bend * r.armC0[i]
 		if i == 1 then
@@ -226,10 +239,10 @@ local function pose(
 			local to = between(hand - shoulder, swing * hand - shoulder)
 			c0 = CFrame.new(shoulder) * to * CFrame.new(-shoulder) * c0
 		end
-		arm.C0 = c0
+		arm.C0 = back * c0
 	end
 	if weapon then
-		weapon.hold.C0 = swing * bend
+		weapon.hold.C0 = back * swing * bend
 	end
 	r.neck.C0 = turned(r.neckC0, r.neckC0.Position, math.rad(turn * CameraCfg.HeadFollow))
 		* CFrame.Angles(0, 0, math.rad(yaw))
@@ -281,7 +294,12 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 	local name = "LookTilt" .. count
 	RunService:BindToRenderStep(name, LookTilt.Priority, function(dt)
 		local camera = workspace.CurrentCamera
-		local pitch = if camera and humanoid.Health > 0
+		-- (none with an item that ignores where you look: Config/Camera.FreeClasses, the shovel)
+		local weapon = Held.weapon(character)
+		local free = weapon ~= nil and CameraRules.thirdPerson(CameraCfg.FreeClasses, (W :: any)[weapon.name].class)
+		local pitch = if camera
+				and humanoid.Health > 0
+				and not free
 			then math.deg(math.asin(math.clamp(camera.CFrame.LookVector.Y, -1, 1)))
 			else 0
 		angle += (Rules.torso(pitch, cfg.Torso, cfg.TorsoMax) - angle) * Rules.ease(cfg.Smoothing, dt)
@@ -313,7 +331,9 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 				math.exp(math.log(distance) + (math.log(d) - math.log(distance)) * Rules.ease(AIM.DistanceEase, dt))
 			point = ray.Origin + ray.Direction * distance
 		end
-		pose(r, angle, Rules.weaponTurn(pitch, follow, angle), yaw, aim, dt, point, weight)
+		local pulled = character:GetAttribute("Pull")
+		local pull = if type(pulled) == "number" then pulled * TuckCfg.Body else 0
+		pose(r, angle, Rules.weaponTurn(pitch, follow, angle), yaw, aim, dt, point, weight, pull)
 
 		local now = os.clock()
 		local y = Rules.yawToSend(yaw, lastYaw, now, H.Send, H.Max)
@@ -321,7 +341,7 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 			lastYaw.yaw, lastYaw.at = y, now
 			headRemote:FireServer(y)
 		end
-		local p, f, ay, ap = Rules.toSend(pitch, follow, aim.turnYaw, aim.turnPitch, last, now, cfg.Send, AIM.Max)
+		local p, f, ay, ap = Rules.toSend(pitch, follow, aim.turnYaw, aim.turnPitch, last, now, cfg.Send, AIM.Limit)
 		if p and f and ay and ap then
 			last.pitch, last.follow, last.aimYaw, last.aimPitch, last.at = p, f, ay, ap, now
 			remote:FireServer(p, f, ay, ap)
@@ -348,9 +368,11 @@ type Other = {
 	follow: number,
 	yaw: number,
 	aim: Aim,
+	targetPull: number,
+	pull: number,
 }
 
-local function others(remote: RemoteEvent, headRemote: RemoteEvent)
+local function others(remote: RemoteEvent, headRemote: RemoteEvent, pullRemote: RemoteEvent)
 	local cfg = Cfg.LookTilt
 	local list: { [Model]: Other } = {}
 
@@ -374,6 +396,8 @@ local function others(remote: RemoteEvent, headRemote: RemoteEvent)
 			follow = 0,
 			yaw = 0,
 			aim = newAim(),
+			targetPull = 0,
+			pull = 0,
 		}
 		list[character] = new
 		task.spawn(function()
@@ -399,6 +423,12 @@ local function others(remote: RemoteEvent, headRemote: RemoteEvent)
 			o.targetYaw = yaw
 		end
 	end)
+	pullRemote.OnClientEvent:Connect(function(character: Model, pull: number)
+		local o = entry(character)
+		if o then
+			o.targetPull = pull
+		end
+	end)
 
 	RunService:BindToRenderStep("LookTiltOthers", LookTilt.Priority, function(dt)
 		local k = Rules.ease(cfg.Send.Smoothing, dt)
@@ -412,10 +442,21 @@ local function others(remote: RemoteEvent, headRemote: RemoteEvent)
 				o.yaw += (o.targetYaw - o.yaw) * ky
 				o.aim.turnYaw += (o.targetAimYaw - o.aim.turnYaw) * k
 				o.aim.turnPitch += (o.targetAimPitch - o.aim.turnPitch) * k
+				o.pull += (o.targetPull - o.pull) * k
 				local angle = Rules.torso(o.pitch, cfg.Torso, cfg.TorsoMax)
 				-- (the turn sent is already capped with the sender's glance; theirs here may differ a little)
 				local yaw = math.clamp(o.yaw, -cfg.Head.Max - glance(r), cfg.Head.Max - glance(r))
-				pose(r, angle, Rules.weaponTurn(o.pitch, o.follow, angle), yaw, o.aim, dt, nil, 1)
+				pose(
+					r,
+					angle,
+					Rules.weaponTurn(o.pitch, o.follow, angle),
+					yaw,
+					o.aim,
+					dt,
+					nil,
+					1,
+					o.pull * TuckCfg.Body
+				)
 			end
 		end
 	end)
@@ -431,7 +472,7 @@ function LookTilt.start()
 	if player.Character then
 		task.spawn(attach, player.Character, remote, headRemote)
 	end
-	others(remote, headRemote)
+	others(remote, headRemote, Net.event("GunPull"))
 end
 
 return LookTilt

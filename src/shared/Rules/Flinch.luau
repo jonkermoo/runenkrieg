@@ -39,4 +39,11 @@ function Flinch.weight(
 	return 1 - (1 - f.least) * (d - knock) / (outer - knock)
 end
 
+-- Whether the torso dips too (the "Dip" track; user 2026-10-25): only standing still (horizontal `speed` under
+-- `below`), upright (not `crouching`) and on the ground. Moving or crouched, the cycle keeps the body: the dip's root
+-- keys would override it (the crouch's lowered torso stood up and floated).
+function Flinch.dips(speed: number, crouching: boolean, grounded: boolean, below: number): boolean
+	return grounded and not crouching and speed < below
+end
+
 return Flinch

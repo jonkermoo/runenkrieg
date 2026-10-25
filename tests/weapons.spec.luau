@@ -119,6 +119,7 @@ return {
 			"windup",
 			"throw",
 			"dig",
+			"chip",
 			"strike", -- a gun's butt stroke (src/client/Melee)
 		}
 		for name, w in W do

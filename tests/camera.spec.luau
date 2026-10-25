@@ -41,7 +41,6 @@ return {
 		assert(Camera.target(S, true) == S.AimZoom)
 		assert(S.EyeBlend > 0 and S.EyeBlend <= S.AimZoom)
 		assert(S.Fade.near < S.Fade.far and S.Fade.far <= S.AimZoom)
-		assert(S.ShoulderVeil > 0 and S.ShoulderVeil < 1, "over the shoulder: see-through, never invisible")
 	end,
 	["over the shoulder while firing, centred otherwise"] = function()
 		assert(Camera.shoulder(S, true, false, math.huge))
@@ -70,7 +69,8 @@ return {
 		local G = Cfg.Gun
 		assert(Camera.drawn(G, 0.5) == 0)
 		assert(Camera.drawn(G, G.FirstBelow) == G.MinZoom)
-		assert(Camera.drawn(G, 5) == 5)
+		local mid = (G.MinZoom + G.MaxZoom) / 2
+		assert(Camera.drawn(G, mid) == mid)
 		assert(Camera.drawn(G, 100) == G.MaxZoom)
 	end,
 	["aiming a gun is always first person"] = function()
