@@ -34,7 +34,9 @@ local Metrics = {
 		JumpApexSpeed = 8, -- the float applies while |vertical speed| is under this (studs/s)
 		JumpApexGravityCut = 0.6, -- share of gravity removed during the float
 		JumpCooldown = 0.4, -- seconds after landing before the next jump
-		MaxSlopeAngle = 50, -- Studio default is 89, which lets players walk up trench walls
+		-- (Studio default is 89; 60 since 2026-10-24: "raise the walk limit to 60 so the walls are walkable but hard", the
+		-- trench walls at Config/Build.Trench.wallAngle 59, their dirt heaps steeper)
+		MaxSlopeAngle = 60,
 		Gravity = 196.2,
 	},
 

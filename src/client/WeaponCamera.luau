@@ -5,11 +5,11 @@
 --   src/client/Crosshair); right mouse aims down the sights (src/client/Stance), always first person with a narrower
 --   view, gliding back out to the distance chosen when it ends. Every distance change follows a spring. The body's
 --   facing is src/client/BodyTurn's (third person: the head turns first, the body catches up);
--- - drawing a weapon glides the camera in from wherever Roblox's camera was, the body fading out as the viewmodel
---   (src/client/Viewmodel) fades in near the eye, the head first so it never fills the view; putting the weapon away
---   stays at the eye while it goes over the shoulder ("Stowing", src/client/Locomotion), then glides back out to
---   where Roblox's camera was at the zoom it had, the body fading back in (Config/Camera.LeaveBlend), and hands it
---   back;
+-- - drawing a weapon glides the camera in from wherever Roblox's camera was; inside the head the body hides and the
+--   viewmodel (src/client/Viewmodel) shows, at once; putting the weapon away stays at the eye while it goes over the
+--   shoulder ("Stowing", src/client/Locomotion), then glides back out to where Roblox's camera was at the zoom it had
+--   (Config/Camera.LeaveBlend), the body solid again as soon as the camera leaves the head, and hands it back;
+-- - the body is never seen through (user 2026-10-25), except as a wall pushes the camera in toward the head;
 -- - the whole body stays hidden from the player while inside: the viewmodel shows the first-person holds;
 -- - ragdolled ("Ragdolled", src/client/Ragdoll): the body isn't turned with the view and the eye rides the head;
 -- - the staff (user 2026-10-21): the gun's camera, wheel, shoulder view and crosshair, but aiming stays in the view it
@@ -19,8 +19,8 @@
 -- - the shovel (Config/Camera.FreeClasses, user 2026-10-24): none of this, Roblox's own camera stays as with empty
 --   hands, held no nearer than FreeMinZoom.
 -- Writes the view to the character's "CameraMode" attribute (local): "First", "Aim", "Third" or "ThirdAim" (a gun
--- over the shoulder is "Third" while the camera is out past Handover.far, "First" nearer);
--- "CameraInside" (the viewmodel is on: first person only) and "Handover" (0..1, how far the viewmodel has faded in).
+-- over the shoulder is "Third", "First" nearer); "CameraInside" (the viewmodel is on: first person only) and
+-- "Handover" (1 once the camera is inside the head: the viewmodel shows).
 -- Player settings (src/client/Settings): the look sensitivities and Invert Y scale the mouse turn, the field of view
 -- sets the hip view and narrows the aimed ones by the same ratio (Rules/Settings). While the settings menu is open
 -- (the Player's "MenuOpen", src/client/SettingsMenu) the mouse is free and the view doesn't turn.
@@ -233,15 +233,16 @@ function WeaponCamera.start()
 		zoom = if gunZoom > 0 then gunZoom else ROBLOX_MIN
 	end)
 
-	-- the camera from `origin` (the head) out to `goal`, stopped by walls: a sphere swept between them (world space)
-	local function blocked(character: Model, origin: Vector3, goal: Vector3): Vector3
+	-- the camera from `origin` (the head) out to `goal`, stopped by walls: a sphere swept between them (world space);
+	-- and whether a wall stopped it
+	local function blocked(character: Model, origin: Vector3, goal: Vector3): (Vector3, boolean)
 		local span = goal - origin
 		if span.Magnitude < 1e-3 then
-			return goal
+			return goal, false
 		end
 		sweep.FilterDescendantsInstances = { character, camera }
 		local hit = workspace:Spherecast(origin, S.Radius, span, sweep)
-		return if hit then origin + span.Unit * hit.Distance else goal
+		return if hit then origin + span.Unit * hit.Distance else goal, hit ~= nil
 	end
 
 	-- before the look tilt: turn with the mouse, face the body
@@ -330,14 +331,10 @@ function WeaponCamera.start()
 			camera.CFrame = CFrame.new(root.Position + rel) * rotation
 			camera.Focus = CFrame.new(head)
 			camera.FieldOfView += (hipFov() - camera.FieldOfView) * (1 - math.exp(-Cfg.Ease * dt))
-			-- (as the glide in: hidden near the eye, the head last to show)
+			-- no fade (user 2026-10-25: only a wall in the camera's way sees through the body): hidden while the camera is
+			-- still inside the head, solid from there out
 			local near = (camera.CFrame.Position - head).Magnitude
-			local H = Cfg.Handover
-			local body = math.max(
-				math.clamp((Cfg.FadeFar - near) / (Cfg.FadeFar - Cfg.FadeNear), 0, 1) * Cfg.FadeMax,
-				math.clamp((H.far - near) / (H.far - H.near), 0, 1)
-			)
-			show(character, body, math.max(body, math.clamp((H.headFar - near) / (H.headFar - H.headNear), 0, 1)))
+			show(character, if near < Cfg.Handover.near then 1 else 0)
 			if leaveT >= 1 then
 				finish(character, humanoid0)
 			end
@@ -376,6 +373,7 @@ function WeaponCamera.start()
 			current, currentSpeed = 0, 0
 		end
 		current = math.max(current, 0)
+		local walled = false -- a wall stopped the camera short this frame (the only time the body is seen through)
 		local firing = Rules.shoulder(S, aiming, character:GetAttribute("Casting") == true, os.clock() - clicked)
 		local side = if want > 0 and (not third or firing) then 1 else 0
 		shoulder += (side - shoulder) * ease(S.ShoulderEase, dt)
@@ -387,7 +385,9 @@ function WeaponCamera.start()
 			local out = rotation.RightVector * (over[1] * shoulder * k)
 				+ Vector3.yAxis * (over[2] * shoulder * k)
 				- rotation.LookVector * current
-			rel = blocked(character, root.Position + base, root.Position + base + out) - root.Position
+			local at
+			at, walled = blocked(character, root.Position + base, root.Position + base + out)
+			rel = at - root.Position
 		end
 		-- drawn just now: a short glide in from where Roblox's camera was, as long as the first-person aim-in
 		if from and blend < 1 then
@@ -403,32 +403,28 @@ function WeaponCamera.start()
 		local rate = if view == "Aim" or view == "ThirdAim" then Cfg.AimEase else Cfg.Ease
 		camera.FieldOfView += (fov - camera.FieldOfView) * ease(rate, dt)
 
-		-- the body fades as the camera nears it; over the last stretch to the eye the viewmodel fades in while the body
-		-- fades out, the head first
+		-- the body is solid (user 2026-10-25: "the transparency thing should only happen when a wall is blocking the
+		-- camera ... remove it everywhere else (zooming in manually, unequipping weapons, staff, etc)"): it fades only
+		-- as a wall pushes the camera in toward the head
 		local near = (camera.CFrame.Position - head).Magnitude
 		if third then
-			-- the staff's third person: no viewmodel; the whole body fades once the camera is right at the head, and partly while aimed
+			-- the staff's third person: no viewmodel
 			character:SetAttribute("CameraInside", false)
 			character:SetAttribute("Handover", 0)
-			-- aimed over the shoulder: see-through, so the body doesn't cover the screen centre; solid again the moment
-			-- right mouse is let go (not after a hip click)
 			local close = math.clamp((S.Fade.far - near) / (S.Fade.far - S.Fade.near), 0, 1)
-			show(character, math.max(close, if aiming then shoulder * S.ShoulderVeil else 0))
+			show(character, if walled then close else 0)
 			return
 		end
-		-- a gun: the whole body solid over the shoulder, fading only right at the head (Gun.Fade, the same going in and
-		-- out, so nothing jumps when the view switches); in first person the viewmodel fades in over the last stretch
-		-- to the eye ("Third": none)
+		-- a gun: in first person the body is hidden and the viewmodel shown at once when the camera gets inside the head
+		-- (Handover.near), no fade either way; it stays hidden until the viewmodel is on screen (it says so the frame
+		-- after it shows), and is solid till then
 		local GF = G.Fade
-		local close = math.clamp((GF.far - near) / (GF.far - GF.near), 0, 1)
-		local H = Cfg.Handover
+		local close = if walled then math.clamp((GF.far - near) / (GF.far - GF.near), 0, 1) else 0
 		local outside = view == "Third" or view == "ThirdAim"
-		local handover = if outside then 0 else math.clamp((H.far - near) / (H.far - H.near), 0, 1)
+		local inside = not outside and near < Cfg.Handover.near
 		character:SetAttribute("CameraInside", not outside)
-		character:SetAttribute("Handover", handover)
-		-- in first person fully gone only once the viewmodel is on screen (it says so the frame after it shows)
-		local covered = if outside or character:GetAttribute("ViewmodelShown") == true then 1 else Cfg.FadeMax
-		local body = math.max(math.min(close, covered), handover * covered)
+		character:SetAttribute("Handover", if inside then 1 else 0)
+		local body = if inside and character:GetAttribute("ViewmodelShown") == true then 1 else close
 		-- Roblox's camera fades the body too when it thinks the camera is near the head: ours is written every frame
 		show(character, math.floor(body * GF.Steps + 0.5) / GF.Steps)
 	end)

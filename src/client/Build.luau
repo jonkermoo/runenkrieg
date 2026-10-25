@@ -5,8 +5,8 @@
 --   green where it can go and red with the reason where not (shared/BuildSurvey, the same survey the server runs);
 --   Key_BuildTurn turns it (Shift turns back), a click lays its blueprint (Net "Build" "Place"). A trench is planned
 --   with two clicks: the start, then the end (the plan follows the cursor between them, snapped as the server will
---   snap it), sent as Net "Build" "Plan"; a short right click drops the start (a right drag turns the camera). Laying
---   leaves build mode.
+--   snap it), sent as Net "Build" "Plan". Key_BuildExit (Q) leaves build mode, dropping a start (right mouse stays
+--   Roblox's camera turn). Laying leaves build mode.
 -- - The trench planner's ghost (Config/Build.Plan; user 2026-10-24: "make the entire planning thing better and more
 --   stylish") previews what the server will peg out: per
 --   square a chalk cord, a faint fill with the dug floor's band, ghost stakes (no flags, user 2026-10-24); an icon
@@ -39,8 +39,6 @@ local T = C.Trench
 local P = C.Plan
 local TOP = Rules.trenchTop(T)
 local HUD = Palette.UI.BuildHud
-local TAP = 0.3 -- a right click shorter than this (seconds), moving the mouse less than TAP_MOVE pixels, is "back"
-local TAP_MOVE = 8
 
 local active = false
 local index = 1
@@ -52,6 +50,7 @@ local current: { frame: CFrame?, a: Vector3?, b: Vector3?, ok: boolean, reason: 
 local planStart: Vector3? = nil
 local planInfo: { length: number, squares: number, clamped: boolean }? = nil
 local notice: { text: string, untilAt: number }? = nil
+local focus: Model? = nil -- the trench square the plan snaps to (extending or branching off), lit faintly
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -60,6 +59,11 @@ end
 -- whether build mode is open (src/client/Shovel: a click then lays a piece instead of digging)
 function Build.active(): boolean
 	return active
+end
+
+-- the shovel's mode, "Build" or "Destroy" (src/client/Shovel swings by it)
+function Build.mode(): string
+	return mode
 end
 
 local function shovelHeld(character: Model?): boolean
@@ -496,6 +500,7 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	local team = character:GetAttribute("Kit")
 	team = if type(team) == "string" then team else ""
 	local aim, aimKind, aimModel, aimOut = Survey.trenchSnap(f, team, hit.Position)
+	focus = aimModel
 	local ok, reason = true, nil
 	-- every trench square's line, for the spacing rule (Rules.tooClose; the server's check, Trenches.plan)
 	local segs = {}
@@ -519,6 +524,7 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 		return
 	end
 	local a, aKind, aModel, aOut = Survey.trenchSnap(f, team, planStart)
+	focus = aimModel or aModel
 	local flat = Vector3.new(aim.X - a.X, 0, aim.Z - a.Z)
 	local length = flat.Magnitude
 	-- keep the end within a plan's length
@@ -793,16 +799,14 @@ function Build.start()
 		clearGhost()
 	end
 
-	-- a right click: short and still it means "back" (a right drag turns Roblox's camera)
-	local rightAt: number? = nil
-	local rightMoved = 0
-
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed then
 			return
 		end
 		local character = player.Character
 		local trench = piece().kind == "Trench"
+		-- (Key_BuildExit leaves build mode: right mouse is Roblox's camera turn, user 2026-10-24: "because right click is
+		-- cancel, players are unable to change their camera angle while planning. make it Q to exit plan mode")
 		if Settings.pressed("Key_Build", input) then
 			if active then
 				leave()
@@ -829,29 +833,11 @@ function Build.start()
 			elseif current and current.reason then
 				notice = { text = current.reason, untilAt = os.clock() + 1.5 }
 			end
-		elseif active and input.UserInputType == Enum.UserInputType.MouseButton2 then
-			rightAt, rightMoved = os.clock(), 0
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType ~= Enum.UserInputType.MouseButton2 or not rightAt then
-			return
-		end
-		local tap = os.clock() - rightAt < TAP and rightMoved < TAP_MOVE
-		rightAt = nil
-		if not active or not tap then
-			return
-		end
-		if planStart then
-			planStart = nil -- drop the start
-		else
+		elseif active and Settings.pressed("Key_BuildExit", input) then
 			leave()
 		end
 	end)
 	UserInputService.InputChanged:Connect(function(input, processed)
-		if rightAt and input.UserInputType == Enum.UserInputType.MouseMovement then
-			rightMoved += input.Delta.Magnitude
-		end
 		if not active or processed or input.UserInputType ~= Enum.UserInputType.MouseWheel then
 			return
 		end
@@ -886,7 +872,19 @@ function Build.start()
 		hook(player.Character)
 	end
 
+	-- the faint light on the trench square in focus
+	local glow = Instance.new("Highlight")
+	glow.Name = "BuildFocus"
+	glow.FillColor = rgb(Palette.Build.Focus)
+	glow.OutlineColor = rgb(Palette.Build.Focus)
+	glow.FillTransparency = C.Focus.fill
+	glow.OutlineTransparency = C.Focus.outline
+	glow.DepthMode = Enum.HighlightDepthMode.Occluded
+	glow.Enabled = false
+	glow.Parent = workspace.CurrentCamera -- (client only)
+
 	RunService.RenderStepped:Connect(function(dt)
+		focus = nil
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local holding = shovelHeld(character)
@@ -895,6 +893,7 @@ function Build.start()
 		end
 		local state: string?, title, line: string?, keys: { Key } = nil, "", nil, {}
 		local fire, build, reload = keyName("Key_Fire"), keyName("Key_Build"), keyName("Key_Reload")
+		local exit = keyName("Key_BuildExit")
 		if active and character and root then
 			local p = piece()
 			if p.kind == "Trench" then
@@ -903,10 +902,10 @@ function Build.start()
 					local info = planInfo
 					title = "Trench · pick the end"
 					line = if info then `{math.floor(info.length + 0.5)} studs · {info.squares} squares` else nil
-					keys = { { fire, "lay the plan" }, { "RMB", "back" }, { build, "done" } }
+					keys = { { fire, "lay the plan" }, { exit, "exit" } }
 				else
 					title = "Trench · pick the start"
-					keys = { { fire, "lay the start" }, { "Wheel", "piece" }, { build, "done" } }
+					keys = { { fire, "lay the start" }, { "Wheel", "piece" }, { exit, "exit" } }
 				end
 			else
 				surveyPiece(character, root)
@@ -915,7 +914,7 @@ function Build.start()
 					{ fire, "lay" },
 					{ "Wheel", "piece" },
 					{ keyName("Key_BuildTurn"), "turn" },
-					{ build, "done" },
+					{ exit, "exit" },
 				}
 			end
 			state = "ok"
@@ -927,6 +926,9 @@ function Build.start()
 			state = "idle"
 			local other = if mode == "Build" then "Destroy" else "Build"
 			local m = target(character, root)
+			if m and m:IsA("Model") and m:GetAttribute("Kind") == "TrenchBlock" then
+				focus = m
+			end
 			title = mode
 			keys = { { fire, "dig" }, { reload, `switch to {other}` }, { build, "build" } }
 			if m and m:IsA("Model") then
@@ -937,7 +939,8 @@ function Build.start()
 					then "Trench square"
 					else ((Rules.piece(m:GetAttribute("Piece"), C.Pieces) or { name = "Piece" }) :: any).name
 				if type(work) == "number" and type(need) == "number" then
-					local ours = m:GetAttribute("Team") == character:GetAttribute("Kit")
+					-- (any trench square is yours to work: Trenches.work)
+					local ours = block or m:GetAttribute("Team") == character:GetAttribute("Kit")
 					local mine = if ours then name else `Enemy {string.lower(name)}`
 					local of = if block then `HP {work} / {need}` else `{work} / {need}`
 					title = `{mode} · {mine}`
@@ -956,6 +959,25 @@ function Build.start()
 			title, line = split(notice.text)
 		end
 		panel.set(state, title, line, keys)
+		local lit = if active and piece().kind ~= "Trench" then nil else focus
+		if glow.Adornee ~= lit then
+			-- a staked-out square's cords take the light's green too (a Highlight doesn't draw Beams), back after
+			for _, m in { glow.Adornee, lit } do
+				local marks = m and m:FindFirstChild("Markers")
+				for _, cord in (if marks then marks:GetChildren() else {}) do
+					if cord:IsA("Beam") then
+						cord.Color =
+							ColorSequence.new(rgb(if m == lit then Palette.Build.FocusPlan else Palette.Build.String))
+					end
+				end
+			end
+			glow.Adornee = lit
+		end
+		if lit then
+			local c = rgb(if lit:FindFirstChild("Markers") then Palette.Build.FocusPlan else Palette.Build.Focus)
+			glow.FillColor, glow.OutlineColor = c, c
+		end
+		glow.Enabled = lit ~= nil
 	end)
 end
 

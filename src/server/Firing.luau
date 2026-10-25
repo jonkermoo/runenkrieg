@@ -234,7 +234,7 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 		end
 		local hit = if result then result.Position else origin + line * Cfg.Range
 		if result then
-			Build.shot(result.Instance) -- built things are chipped a little (Config/Build.Structures.bullet)
+			Build.shot(result.Instance, result.Position) -- built things are chipped a little (Config/Build.Structures.bullet)
 		end
 		-- a helmet's crown or brim stands out of the Head's hitbox: a shot that meets it before anything else, and not
 		-- going on into that head, hits the head on the helmet (user 2026-10-22: shots at the crown went over)

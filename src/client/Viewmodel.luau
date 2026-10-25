@@ -5,8 +5,8 @@
 -- arms with its shirt and body colours, a copy of the held weapon joined to the torso like the real one) fixed to the
 -- camera so the camera is its eye. It plays the weapon's first-person holds (Config/Weapons firstPerson) by the
 -- same "Hold" state as the body (src/client/Locomotion), and moves by the global sway layer (src/client/Sway).
--- It is on while WeaponCamera says "CameraInside" and fades in by its "Handover": gliding in from the shoulder it
--- fades in over the last stretch to the eye as the body fades out (user 2026-10-11: ADS looked choppy). It never
+-- It is on while WeaponCamera says "CameraInside" and shows by its "Handover": at once when the camera is inside the
+-- head, as the body hides (user 2026-10-25: no fades). It never
 -- shows the rig's rest pose (the gun rising from the middle of the screen). Aiming plays a brief aim-in
 -- (firstPerson.aimIn, 0.3 s: the rifle comes up from the ready hold into the sights) over the aim hold, as long as the
 -- camera's glide, while the body plays its third-person aim for everyone; letting go plays the aim-out back down
@@ -22,6 +22,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
 local Grenades = require(Shared.Config.Grenades)
+local TuckCfg = require(Shared.Config.Locomotion).Tuck
 local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
@@ -106,7 +107,7 @@ type Rig = {
 	oneHanded: boolean,
 	leftHidden: boolean,
 	thrown: number?, -- the grenade throw played ("ThrownAt")
-	dug: number?, -- the shovel dig played ("DugAt")
+	dug: number?, -- the shovel swing played ("DugAt")
 	struck: number?, -- the butt stroke played ("StruckAt")
 	pinned: number?, -- the grenade pin pull played ("PinAt")
 	pinOut: boolean, -- the Mills's pin pulled: its "Pin" hidden ("PinOut")
@@ -200,7 +201,7 @@ local function build(character: Model, weapon: Held.Weapon): Rig
 			or state == "pin"
 		-- a grenade's throw: a one shot over its wind-up ("ThrownAt"); the shovel's dig the same over its hold ("DugAt"),
 		-- and a gun's butt stroke ("StruckAt", src/client/Melee)
-		local over = state == "throw" or state == "dig" or state == "strike"
+		local over = state == "throw" or state == "dig" or state == "chip" or state == "strike"
 		t.Priority = if over
 			then Enum.AnimationPriority.Action3
 			elseif once then Enum.AnimationPriority.Action2
@@ -311,6 +312,14 @@ function Viewmodel.start()
 				for _, t in rig.tracks do
 					t:Stop(0)
 				end
+				-- a strike, throw, dig or pin pulled out of view (third person) is seen there: coming back into first
+				-- person doesn't play it a second time
+				if character then
+					rig.thrown = character:GetAttribute("ThrownAt") :: number?
+					rig.dug = character:GetAttribute("DugAt") :: number?
+					rig.struck = character:GetAttribute("StruckAt") :: number?
+					rig.pinned = character:GetAttribute("PinAt") :: number?
+				end
 				rig.model.Parent = nil
 				playing = nil
 			end
@@ -410,14 +419,21 @@ function Viewmodel.start()
 		-- the turn and the hip shift count as much as the holds that have them
 		local turned = (if hipD > 0 then hipness else 0) + (if aimD > 0 then aimness else 0)
 		local shift = if hipD > 0 then hipShift() * hipness else Vector3.zero
+		-- near a wall the gun comes back toward the eye, still pointing ahead (src/client/Tuck "Pull"); aimed only a
+		-- little, so the sight stays in front of the eye
+		local pulled = character:GetAttribute("Pull")
+		local back = if type(pulled) == "number"
+			then pulled * (TuckCfg.First + (TuckCfg.FirstAim - TuckCfg.First) * aimness)
+			else 0
 		r.root.CFrame = camera.CFrame
 			* below
 			* Sway.viewmodel()
+			* CFrame.new(0, 0, back)
 			* CFrame.new():Lerp(r.hip, math.min(turned, 1))
 			* CFrame.new(shift + r.aimFix * aimness + r.shift)
 			* CFrame.new(-EYE)
 		r.model.Parent = camera
-		-- fading in (and out) with the camera's glide to the eye (WeaponCamera's "Handover")
+		-- shown once the camera is inside the head (WeaponCamera's "Handover": 0 or 1, no fade)
 		local handover = character:GetAttribute("Handover")
 		local clear = 1 - (if type(handover) == "number" then handover else 1)
 		-- one-handed: the left arm shows only once the left hand is on the staff (the two-handed aim, or a charge far
@@ -434,11 +450,13 @@ function Viewmodel.start()
 			r.thrown = thrownAt
 			throw:Play(0.05)
 		end
-		-- a dig with the shovel (src/client/Shovel marks the moment): played once over the hold
+		-- a swing of the shovel (src/client/Shovel marks the moment and the mode): played once over the hold, the dig
+		-- in Build, the chip in Destroy
 		local dugAt = character:GetAttribute("DugAt")
-		if r.tracks.dig and type(dugAt) == "number" and dugAt ~= r.dug then
+		local swing = if character:GetAttribute("DugMode") == "Destroy" then r.tracks.chip else r.tracks.dig
+		if swing and type(dugAt) == "number" and dugAt ~= r.dug then
 			r.dug = dugAt
-			r.tracks.dig:Play(0.05)
+			swing:Play(0.05)
 		end
 		-- a gun's butt stroke (src/client/Melee marks the moment): played once over the hold
 		local struckAt = character:GetAttribute("StruckAt")
