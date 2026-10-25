@@ -103,9 +103,11 @@ return {
 		end
 		assert(B.Smoke.life[1] > B.Cluster.life[1], "the grey smoke outlives the coloured balls")
 		assert(B.Runes.float[2] > 0 and B.Runes.each[1] > B.Runes.appear, "runes float up and fade")
-		assert(B.Pop.flash > 0 and B.Pop.orbLife > B.Pop.time, "the grenade's orb outlasts its flash")
+		-- user: "the grenade needs more blast and effects"
+		assert(B.Pop.rings >= 1 and B.Pop.sparks > 1 and B.Pop.clods > 1, "the grenade's ring, sparks and dirt")
+		assert(B.Pop.smokeLife > 0, "the grenade's grey smoke")
 		local G = require("../src/shared/Config/Grenades")
-		assert(G.Vfx.pop == true, "grenades pop (user 2026-10-25: no cloud, quick, less fiery)")
+		assert(G.Vfx.pop == true, "grenades get their own small explosion (Pop)")
 		assert(G.Types[Vfx.Showcase.Grenade], "the showcase's grenade exists")
 	end,
 	["timings and sizes are positive"] = function()

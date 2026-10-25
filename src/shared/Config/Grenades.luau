@@ -100,8 +100,8 @@ local Grenades = {
 	},
 
 	-- The explosion (src/client/Vfx/Blast, shared with the staff and the artillery): sized by the charge, in the fire
-	-- scheme (Config/Vfx.Schemes); `pop`: the quick pop, no cloud (user 2026-10-25: "a quick explosion, less aggressive
-	-- and 'fiery' looking")
+	-- scheme (Config/Vfx.Schemes); `pop`: the grenade's own small explosion (Config/Vfx.Blast.Pop; user 2026-10-25: "a
+	-- quick explosion, less aggressive and 'fiery' looking", then "the grenade needs more blast and effects")
 	Vfx = { scheme = "Ember", pop = true },
 	-- Its bang (src/client/SoundFx entries, played to their own ends; user 2026-10-19: "make they're sound way more
 	-- realistic (explosion wise). make sure there is no audio cutting"): two takes of a dirt explosion layered, Pro Sound

@@ -633,26 +633,22 @@ local Vfx = {
 			fadeIn = 0.12,
 			spin = 30,
 		},
-		-- The grenade's pop (user: "too fast and non visible. exaggerate it a bit more"): a flash `flash` x D across for
-		-- `time` s (light `range` x D for `light` s), a hot orb `orb` x D for `orbLife` s, `sparks` sparks a stud of D for
-		-- `sparkLife` s; its dust (Dust) x `dust` as many, x `dustSize` as big, living x `dustLife`; its clods (Clods) x
-		-- `clods`, thrown x `throw` as fast; a faint dust ring: `ring` puffs racing out flat at `ringSpeed` x D^0.5
-		-- studs/s. No cloud, no glowing rings.
+		-- The grenade (user: "too fast and non visible. exaggerate it a bit more", then "the grenade needs more blast
+		-- and effects": a bigger, longer orb with a few burning balls, a grey smoke puff, more dirt and sparks, a
+		-- shockwave ring back): the same explosion as a shell at its own small D, no spikes, `rings` ground rings, x
+		-- `sparks` sparks, its light x `light`, the grey smoke living `smokeLife` s; its dust (Dust) x `dust` as many, x
+		-- `dustSize` as big, living x `dustLife`; its dirt (Clods) x `clods`, thrown x `throw` as fast; a faint dust
+		-- ring: `ring` puffs racing out flat at `ringSpeed` x D^0.5 studs/s.
 		Pop = {
-			flash = 0.85,
-			time = 0.15,
-			range = 3,
-			brightness = 6,
-			light = 0.3,
-			orb = 0.45,
-			orbLife = 0.25,
-			sparks = 2,
-			sparkLife = { 0.2, 0.5 },
-			dust = 2.2,
-			dustSize = 1.4,
+			rings = 1,
+			sparks = 2.5,
+			light = 1.5,
+			smokeLife = 3,
+			dust = 1.6,
+			dustSize = 1.2,
 			dustLife = 1.8,
-			clods = 1.3,
-			throw = 1.3,
+			clods = 2,
+			throw = 1.4,
 			ring = 14,
 			ringSpeed = 5,
 		},

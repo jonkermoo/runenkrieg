@@ -3,7 +3,8 @@
 -- the inital blast orb", "more variety of gray smoke", runes that "float and fade", grenades "exaggerate it a bit
 -- more"; then "for the actual explosion, we can use the orbs. but for smoke and other effects ... not blocks"). Two
 -- looks:
--- - the pop (grenades): a flash, a small hot orb, sparks, a brown dust puff and a faint dust ring, dirt thrown up;
+-- - the pop (grenades; then "the grenade needs more blast and effects"): the cluster below at the grenade's small
+--   size, no spikes, one ring, with more dirt, sparks and light, a short grey smoke, a brown dust puff and a dust ring;
 -- - the cluster (the staff's stages, shells): a white flash and spikes, sparks, ground rings, the orb sitting on the
 --   hit inside a low dome of round balls that burn, cool dark with a glowing rim and dissolve into dark smoke and
 --   falling dirt; grey smoke of several shades rolling up and drifting off; dirt thrown up, dust round the foot.
@@ -260,20 +261,12 @@ local function freeAll(list: { ParticleEmitter })
 	end
 end
 
--- the grenade's pop: not fiery, but big enough to see
-local function pop(pos: Vector3, normal: Vector3, d: number, s: any, dirt: Color3)
-	local P = Cfg.Pop
-	local hot, fire = Util.color(s.flash), Util.color(s.glow)
-	local now0 = os.clock()
-	local flash = Pool.part(Enum.PartType.Ball, hot, Vector3.one * 0.05, CFrame.new(pos + normal * d * 0.15))
-	local orb = Pool.part(Enum.PartType.Ball, hot, Vector3.one * 0.05, CFrame.new(pos + normal * d * P.orb * 0.3))
-	local light = Pool.light(pos + normal * Cfg.Flash.lift, hot, math.min(P.range * d, Cfg.Flash.max), P.brightness)
-	local sp = sparks(pos, d, P.sparks * d, P.sparkLife, hot, fire)
-	local du = dust(pos, normal, d, dirt, P.dust, P.dustSize, P.dustLife)
-	-- the faint dust ring racing out flat
-	local D = Cfg.Dust
+-- the grenade's faint dust ring racing out flat (Config/Vfx.Blast.Pop)
+local function dustRing(pos: Vector3, normal: Vector3, d: number, dirt: Color3): ParticleEmitter
+	local P, D = Cfg.Pop, Cfg.Dust
+	local side = across(normal)
 	local ring = smoky(
-		CFrame.new(pos + normal * 0.3),
+		CFrame.fromMatrix(pos + normal * 0.3, side, normal),
 		Vector3.new(d * 0.2, 0.1, d * 0.2),
 		dirt:Lerp(Color3.new(1, 1, 1), D.light)
 	)
@@ -288,34 +281,7 @@ local function pop(pos: Vector3, normal: Vector3, d: number, s: any, dirt: Color
 	})
 	ring.Transparency = puffy((1 + D.thick) / 2, D.fadeIn, 1 - D.fadeIn)
 	ring:Emit(P.ring)
-	local thrown, flight = dirtUp(pos, normal, d, dirt, P.clods, P.throw)
-	local total = math.max(P.light, P.orbLife, P.sparkLife[2], D.life[2] * P.dustLife, flight)
-	Driver.add(function(now: number): boolean
-		local t = now - now0
-		if t >= total then
-			Pool.freePart(flash)
-			Pool.freePart(orb)
-			if light then
-				Pool.freeLight(light)
-			end
-			freeEmitter(sp)
-			freeEmitter(du)
-			freeEmitter(ring)
-			freeAll(thrown)
-			return false
-		end
-		local a = math.min(t / P.time, 1)
-		flash.Size = Vector3.one * math.max(d * P.flash * ease(a * 1.6), 0.05)
-		flash.Transparency = a
-		local o = math.min(t / P.orbLife, 1)
-		orb.Size = Vector3.one * math.max(d * P.orb * ease(o * 3), 0.05)
-		orb.Color = hot:Lerp(fire, o)
-		orb.Transparency = o ^ 2
-		if light then
-			light.Brightness = P.brightness * (1 - math.min(t / P.light, 1)) ^ 2
-		end
-		return true
-	end)
+	return ring
 end
 
 -- magic's leftover: runes spawning at random round the hit, floating up and fading, static crackling between them
@@ -470,9 +436,12 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	-- every explosion shakes the camera once, by its charge (a staff stage's as Config/CameraShake.Stages)
 	CameraShake.blast(pos, if charge then o.kg :: number else ShakeRules.stageKg(o.stage or 1, ShakeCfg.Stages))
 	local dirt = dirtOf(pos, normal, o.debrisColor)
-	if o.pop then
-		pop(pos, normal, d, s, dirt)
-		return
+	-- the grenade: the same explosion, small, with more dirt, sparks and light, its own smoke time and a dust ring
+	local P = Cfg.Pop
+	local popping = o.pop == true
+	if popping then
+		st = { fireball = d, rings = P.rings, spikes = false }
+		magic = false
 	end
 
 	local CO = Cfg.Colors
@@ -488,7 +457,8 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	-- the flash, spikes, sparks and rings
 	local F = Cfg.Flash
 	local flash = Pool.part(Enum.PartType.Ball, hot, Vector3.one * 0.05, CFrame.new(pos + normal * d * 0.2))
-	local light = Pool.light(pos + normal * F.lift, fire, math.min(F.range * d, F.max), F.brightness)
+	local glare = F.brightness * (if popping then P.light else 1)
+	local light = Pool.light(pos + normal * F.lift, fire, math.min(F.range * d, F.max), glare)
 	if st.spikes then
 		Spikes.play(pos + normal * d * 0.2, spark)
 		if magic then
@@ -496,7 +466,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 		end
 	end
 	local sp = Cfg.Sparks
-	local sparked = sparks(pos, d, sp.perStud * d, sp.life, hot, Util.color(spark))
+	local sparked = sparks(pos, d, sp.perStud * d * (if popping then P.sparks else 1), sp.life, hot, Util.color(spark))
 	for i = 1, st.rings do
 		task.delay((i - 1) * Cfg.Rings.gap, function()
 			Shockwave.play(
@@ -542,7 +512,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 
 	-- grey smoke of several shades over the dome, rolling up and drifting off: one emitter per shade
 	local SM = Cfg.Smoke
-	local smokeLife = lerp(SM.life[1], SM.life[2], strength)
+	local smokeLife = if popping then P.smokeLife else lerp(SM.life[1], SM.life[2], strength)
 	local smokeRise = d * lerp(SM.rise[1], SM.rise[2], strength)
 	local smokeCount = math.round(lerp(SM.count[1], SM.count[2], strength))
 	local smokeBox = CFrame.new(pos + normal * tall * (1 + SM.low) / 2 + normal * d * 0.2)
@@ -612,8 +582,11 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	puffs.LightInfluence = 0
 
 	local longer = lerp(1, Cfg.Dust.longer, strength)
-	local du = dust(pos, normal, d, dirt, 1, 1, longer)
-	local thrown, flight = dirtUp(pos, normal, d, dirt, 1, 1)
+	local du = if popping
+		then dust(pos, normal, d, dirt, P.dust, P.dustSize, P.dustLife)
+		else dust(pos, normal, d, dirt, 1, 1, longer)
+	local ring = if popping then dustRing(pos, normal, d, dirt) else nil
+	local thrown, flight = dirtUp(pos, normal, d, dirt, if popping then P.clods else 1, if popping then P.throw else 1)
 	if magic then
 		task.delay(Cfg.Runes.delay, runes, pos, normal, d, strength, s)
 	end
@@ -627,7 +600,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 		SM.from * life + SM.appear + smokeLife,
 		sp.life[2],
 		rainOff + R.life[2],
-		Cfg.Dust.life[2] * longer,
+		Cfg.Dust.life[2] * (if popping then P.dustLife else longer),
 		flight
 	)
 	Driver.add(function(now: number): boolean
@@ -650,13 +623,16 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			freeEmitter(flakes)
 			freeEmitter(puffs)
 			freeEmitter(du)
+			if ring then
+				freeEmitter(ring)
+			end
 			return false
 		end
 		local fa = math.min(t / F.time, 1)
 		flash.Size = Vector3.one * math.max(d * F.size * ease(fa * 1.5), 0.05)
 		flash.Transparency = fa
 		if light then
-			light.Brightness = F.brightness * (1 - math.min(t / F.light, 1)) ^ 2
+			light.Brightness = glare * (1 - math.min(t / F.light, 1)) ^ 2
 		end
 		rain.Enabled = t >= rainOn and t < rainOff
 
