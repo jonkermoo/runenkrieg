@@ -17,7 +17,7 @@
         "CharacterUseJumpPower": false,
         "CharacterJumpHeight": 2.7,
         "CharacterMaxSlopeAngle": 50,
-        "CameraMaxZoomDistance": 10.5,
+        "CameraMaxZoomDistance": 9,
         "CameraMinZoomDistance": 0.5,
         "EnableMouseLockOption": false
       },

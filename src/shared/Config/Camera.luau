@@ -8,7 +8,10 @@
 -- (default.project.json, tests/project.spec); putting a weapon away hands it back at the zoom it had.
 
 local Camera = {
-	FreeMaxZoom = 10.5, -- no weapon in the hands: Roblox's camera zooms out this far (user 2026-10-11)
+	-- no weapon in the hands (and the shovel, FreeClasses): Roblox's camera zooms out this far (user 2026-10-25, from
+	-- their screenshot: "make unequipped / shovel this zoom max zoom
+	-- angle"; it was 10.5 from 2026-10-11)
+	FreeMaxZoom = 9,
 	-- Classes (Config/Weapons `class`) that keep Roblox's own camera, as with empty hands (user 2026-10-24: "make it so
 	-- your camera doesnt get locked with a shovel out"; the design's
 	-- option A): a free cursor, right drag turns, the wheel zooms from FreeMinZoom out (third person only: the
@@ -117,7 +120,9 @@ local Camera = {
 	-- gun away hands the chosen distance back. Rules/Camera.wheel.
 	Gun = {
 		MinZoom = 2, -- the nearest third-person distance (studs behind the head); one notch in from here is first person
-		MaxZoom = 7.5, -- the furthest (the old shoulder camera's, user 2026-10-11)
+		-- the furthest (user 2026-10-25, from their screenshot: "make equipped weapon this"; it was 7.5, the old
+		-- shoulder camera's)
+		MaxZoom = 4.5,
 		Step = 1, -- studs per wheel notch
 		FirstBelow = 1, -- Roblox's camera nearer than this when the gun is drawn: start in first person
 		Shoulder = { 1.6, 0.35 }, -- studs right and up, in the view's axes, so the head never covers the crosshair
