@@ -70,7 +70,8 @@ return {
 		local G = Cfg.Gun
 		assert(Camera.drawn(G, 0.5) == 0)
 		assert(Camera.drawn(G, G.FirstBelow) == G.MinZoom)
-		assert(Camera.drawn(G, 5) == 5)
+		local mid = (G.MinZoom + G.MaxZoom) / 2
+		assert(Camera.drawn(G, mid) == mid)
 		assert(Camera.drawn(G, 100) == G.MaxZoom)
 	end,
 	["aiming a gun is always first person"] = function()
