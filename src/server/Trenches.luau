@@ -368,17 +368,21 @@ end
 -- studs from end A) whose foot isn't in another dug trench's floor (a branch starts on the trench it joins, a bend's
 -- inside crosses the next square; user 2026-10-24: "when segmenting off it creates walls"), or nil
 local SPAN_STEP = 0.5
-local function wallSpan(blk: Block, sign: number): (number?, number?)
+-- `off`: how far out from the centre line the piece stands (its foot), `clear`: how far from another trench's line it
+-- must keep (a wall's foot: out of its floor; a dirt heap, well back: out of its hole and walls, user 2026-10-24: "this
+-- is how your trenches used to connect. make it like this")
+local function wallSpan(blk: Block, sign: number, off: number?, clear: number?): (number?, number?)
 	local blocked = {}
 	local n = math.max(math.ceil(blk.length / SPAN_STEP), 1)
+	local keep = clear or T.floor + 0.25
 	for i = 0, n do
-		local p = at(blk, blk.length * i / n, sign * (T.floor + 0.5))
+		local p = at(blk, blk.length * i / n, sign * (off or T.floor + 0.5))
 		local inside = false
 		for _, o in blocks do
 			if o ~= blk and live(o) and o.hp > 0 then
 				local rel = Vector3.new(p.X - o.a.X, 0, p.Z - o.a.Z)
 				local u, v = rel:Dot(o.dir), rel:Dot(o.across)
-				if u > -0.25 and u < o.length + 0.25 and math.abs(v) < T.floor + 0.25 then
+				if u > -0.25 and u < o.length + 0.25 and math.abs(v) < keep then
 					inside = true
 					break
 				end
@@ -403,12 +407,17 @@ local function pieces(blk: Block)
 		return
 	end
 	local shape = shapeOf(blk)
-	local spans = {}
+	-- each side's wall and its dirt heap, along the stretch clear of other trenches (the heap stands well back, so it
+	-- keeps clear of their holes and walls, not just their floors)
+	local spans, heaps = {}, {}
 	for side, sign in { 1, -1 } do
 		local u0, u1 = wallSpan(blk, sign)
 		spans[side] = { u0, u1 }
+		local h0, h1 = wallSpan(blk, sign, TOP + 3, TOP + 0.5)
+		heaps[side] = { h0, h1 }
 	end
 	local sig = `{shape.deadA}{shape.deadB}{spans[1][1]},{spans[1][2]},{spans[2][1]},{spans[2][2]}`
+		.. `,{heaps[1][1]},{heaps[1][2]},{heaps[2][1]},{heaps[2][2]}`
 	local old = m:FindFirstChild("Pieces")
 	if old and old:GetAttribute("Sig") == sig then
 		return
@@ -463,10 +472,13 @@ local function pieces(blk: Block)
 		p.CanTouch = false
 		p.Parent = holder
 	end
-	local function wall(n: number, cf: CFrame, stretch: number)
-		-- (the parapet, one or two thick blocks on the ground along its top edge, collides: Config/Build.Trench)
-		for _, suffix in { "", "Chunks", "Planks", "PlanksDark", "Parapet" } do
+	local function wall(n: number, cf: CFrame, stretch: number, heap: boolean)
+		-- (the parapet, a thick heap of dirt behind its top edge, collides: Config/Build.Trench)
+		for _, suffix in { "", "Chunks", "Planks", "PlanksDark" } do
 			place(`Wall{n}{suffix}`, cf, stretch)
+		end
+		if heap then
+			place(`Wall{n}Parapet`, cf, stretch)
 		end
 	end
 	local stretch = blk.length / P.segment
@@ -475,7 +487,12 @@ local function pieces(blk: Block)
 	for side, sign in { 1, -1 } do
 		local u0, u1 = spans[side][1], spans[side][2]
 		if u0 and u1 then
-			wall(roll.walls[side], frame(blk.across * sign, false, false, u0, u1), (u1 - u0) / P.segment)
+			wall(roll.walls[side], frame(blk.across * sign, false, false, u0, u1), (u1 - u0) / P.segment, false)
+		end
+		local h0, h1 = heaps[side][1], heaps[side][2]
+		if h0 and h1 then
+			local cf = frame(blk.across * sign, false, false, h0, h1)
+			place(`Wall{roll.walls[side]}Parapet`, cf, (h1 - h0) / P.segment)
 		end
 	end
 	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true)
@@ -484,10 +501,10 @@ local function pieces(blk: Block)
 	-- dead ends: a plain wall across the floor
 	local across = 2 * T.floor / P.segment
 	if shape.deadA then
-		wall(roll.ends[1], frame(-flat, true), across)
+		wall(roll.ends[1], frame(-flat, true), across, true)
 	end
 	if shape.deadB then
-		wall(roll.ends[2], frame(flat, true), across)
+		wall(roll.ends[2], frame(flat, true), across, true)
 	end
 end
 

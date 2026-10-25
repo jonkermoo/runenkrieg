@@ -196,8 +196,9 @@ local Assets = {
 		trench_pieces = {
 			-- v4 (user 2026-10-24): walls at 59 degrees and a thick heap of dirt (Wall<i>Parapet) on each wall's top edge,
 			-- the trench otherwise as v2 (v3 80264039854445 was another session's, dropped; v2 78446214415283); v5: the heaps
-			-- lower and set back behind the wall's top, off its slabs and planks (v4 139463386134488)
-			id = 107262926311515,
+			-- lower and set back behind the wall's top, off its slabs and planks (v4 139463386134488); v6: the heaps a little
+			-- closer to the wall's top (v5 107262926311515)
+			id = 122327305436244,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",
