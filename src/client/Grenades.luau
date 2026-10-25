@@ -270,7 +270,10 @@ function Grenades.start()
 	end)
 
 	Net.event("GrenadeBlast").OnClientEvent:Connect(function(position: Vector3, kg: number, name: string)
-		Vfx.Blast.play(position, { normal = Vector3.yAxis, kg = kg, scheme = Cfg.Vfx.scheme, magic = false })
+		Vfx.Blast.play(
+			position,
+			{ normal = Vector3.yAxis, kg = kg, scheme = Cfg.Vfx.scheme, magic = false, pop = Cfg.Vfx.pop }
+		)
 		-- its bang at the grenade's own pitch, heard late and duller with distance (Rules/Grenade.heard)
 		local t = Cfg.Types[name]
 		local bang = {}
