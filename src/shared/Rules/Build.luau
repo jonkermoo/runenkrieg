@@ -238,21 +238,20 @@ function Build.trenchDepth(hp: number, built: boolean, h: any): number
 	return math.clamp(hp / h.max, 0, 1)
 end
 
--- The longest run of free samples (`blocked[i]` false), as the first and last index, or nil when all are blocked. A
--- trench square's side wall is laid only along that stretch, not where it would stand in another trench's hole.
-function Build.longestFree(blocked: { boolean }): (number?, number?)
-	local best0, best1, run0 = nil, nil, nil
-	for i = 1, #blocked do
-		if not blocked[i] then
+-- Every run of free samples (`blocked[i]` false), as { first, last } index, in order. A trench square's side wall and
+-- dirt heap are laid along each such stretch, not where they would stand in another trench's hole (a branch joining
+-- the middle of a square leaves its wall on both sides of the opening).
+function Build.freeRuns(blocked: { boolean }): { { number } }
+	local runs, run0 = {}, nil
+	for i = 1, #blocked + 1 do
+		if i <= #blocked and not blocked[i] then
 			run0 = run0 or i
-			if not best0 or i - run0 > best1 - best0 then
-				best0, best1 = run0, i
-			end
-		else
+		elseif run0 then
+			table.insert(runs, { run0, i - 1 })
 			run0 = nil
 		end
 	end
-	return best0, best1
+	return runs
 end
 
 -- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat) to any of `segs` (other trenches' squares,

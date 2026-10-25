@@ -206,12 +206,12 @@ return {
 		-- leaving an end but bending back alongside
 		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S), "doubling back alongside")
 	end,
-	["trenches v2: a side wall keeps to the longest stretch clear of other trenches"] = function()
-		local a, b = B.longestFree({ true, false, false, true, false, false, false, true })
-		assert(a == 5 and b == 7, "the longest run")
-		a, b = B.longestFree({ false, false, false })
-		assert(a == 1 and b == 3, "all clear")
-		assert(B.longestFree({ true, true }) == nil, "all blocked")
+	["trenches v2: a side wall keeps to the stretches clear of other trenches, either side of a branch"] = function()
+		local runs = B.freeRuns({ true, false, false, true, false, false, false, true })
+		assert(#runs == 2 and runs[1][1] == 2 and runs[1][2] == 3 and runs[2][1] == 5 and runs[2][2] == 7, "both runs")
+		runs = B.freeRuns({ false, false, false })
+		assert(#runs == 1 and runs[1][1] == 1 and runs[1][2] == 3, "all clear")
+		assert(#B.freeRuns({ true, true }) == 0, "all blocked")
 	end,
 	["trenches v2: each square rolls its walls and floor, wood walls now and then but never twice in a row"] = function()
 		local P = C.Trench.pieces

@@ -120,6 +120,10 @@ local Build = {
 		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
 		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
 		pieces = { segment = 8, walls = 8, floors = 4, wood = { 5, 6, 7, 8 }, woodChance = 0.25 },
+		-- where pieces meet (src/server/Trenches; user 2026-10-24: "make sure that the joints connect by the walls"): how far
+		-- out past a wall's top edge its dirt heap reaches (heaps keep that whole depth out of other trenches), and how
+		-- much further the side heaps run on round a dead end and its heap reaches past the side walls' tops
+		joins = { heapReach = 9, deadEndHeap = 3 },
 	},
 
 	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and
