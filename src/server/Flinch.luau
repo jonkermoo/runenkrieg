@@ -23,19 +23,24 @@ function Flinch.busy(character: Model): boolean
 		or character:GetAttribute("Healing") ~= nil
 end
 
--- a dummy's flinch track (plain table, dropped with its animator: docs/KNOWN_TRAPS.md, the 64-track limit)
-local tracks: { [Animator]: AnimationTrack } = {}
-local function dummyTrack(humanoid: Humanoid): AnimationTrack?
+-- a dummy's flinch tracks, the hand and the dip (plain table, dropped with its animator: docs/KNOWN_TRAPS.md, the
+-- 64-track limit). DEV dummies stand still, so they dip too.
+local tracks: { [Animator]: { AnimationTrack } } = {}
+local function dummyTracks(humanoid: Humanoid): { AnimationTrack }?
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
 		return nil
 	end
 	if not tracks[animator] then
-		local a = Instance.new("Animation")
-		a.AnimationId = "rbxassetid://" .. Cfg.Animation.id
-		local t = animator:LoadAnimation(a)
-		t.Priority = Enum.AnimationPriority.Action2
-		tracks[animator] = t
+		local set = {}
+		for _, id in { Cfg.Animation.id, Cfg.Dip.id } do
+			local a = Instance.new("Animation")
+			a.AnimationId = "rbxassetid://" .. id
+			local t = animator:LoadAnimation(a)
+			t.Priority = Enum.AnimationPriority.Action2
+			table.insert(set, t)
+		end
+		tracks[animator] = set
 		animator.Destroying:Once(function()
 			tracks[animator] = nil
 		end)
@@ -66,8 +71,7 @@ function Flinch.blast(position: Vector3, kg: number, wound: number?, knocked: { 
 		if player then
 			Net.event("Flinch"):FireClient(player, weight)
 		else
-			local t = dummyTrack(humanoid)
-			if t then
+			for _, t in dummyTracks(humanoid) or {} do
 				t:Play(Cfg.Fade, weight)
 			end
 		end
