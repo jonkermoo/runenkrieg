@@ -48,6 +48,16 @@ return {
 		assert(T.sanitizePull(5, 0.1) == 1 and T.sanitizePull(-3, 0.1) == 0)
 		assert(math.abs((T.sanitizePull(0.44, 0.1) :: number) - 0.4) < 1e-9)
 	end,
+	["trench dirt folds the gun only head on and at the barrel's reach"] = function()
+		local f = C.TrenchFacing
+		assert(not T.trenchBlocked(nil, 1, 4, f, C.Clear, false))
+		assert(T.trenchBlocked(3, 0.95, 4, f, C.Clear, false), "straight into a wall at point blank")
+		assert(not T.trenchBlocked(3, 0.3, 4, f, C.Clear, false), "a sloped wall glanced along the trench")
+		assert(not T.trenchBlocked(2, -0.5, 4, f, C.Clear, false), "the floor or the parapet, aiming out")
+		assert(not T.trenchBlocked(4 + 0.1, 0.95, 4, f, C.Clear, false), "no about-to-hit margin in a trench")
+		assert(T.trenchBlocked(4 + C.Clear * 0.5, 0.95, 4, f, C.Clear, true), "folded: stays until clear")
+		assert(f > 0.5 and f < 1)
+	end,
 	["tuck settings are sane"] = function()
 		assert(C.Radius > 0 and C.Radius < 1)
 		assert(C.Ahead >= 0 and C.Ahead < 2 and C.Clear > 0 and C.Clear < 2)
@@ -55,5 +65,6 @@ return {
 		assert(C.Give > 0 and C.Facing > 0 and C.Facing <= 1 and C.FacingClear >= 0 and C.Ease > 0)
 		assert(C.Body >= 0 and C.First >= 0 and C.FirstAim >= 0 and C.FirstAim <= C.First)
 		assert(C.Send.Rate > 0 and C.Send.Step > 0 and C.Send.Step <= 1)
+		assert(#C.TrenchFrom == 3 and C.TrenchFrom[2] > C.Shoulder[2], "near trench dirt the sweep starts higher")
 	end,
 }

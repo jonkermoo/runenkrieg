@@ -12,6 +12,9 @@ local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
 	Reach = 14,
 	SwingReach = 8,
+	-- the trench square you're working, extending or branching off is lit faintly (a Highlight in Palette.Build.Focus:
+	-- its fill and outline transparency; user 2026-10-25: "a slight slight indicator for which segment you are focused on")
+	Focus = { fill = 0.93, outline = 0.6 },
 	-- swings faster than this share of the dig's length (Config/Shovel.Dig.length) are ignored
 	SwingSlack = 0.8,
 	-- a blueprint nobody has worked on goes after this (seconds)
@@ -72,31 +75,45 @@ local Build = {
 		-- the first click this close to you, and when the plan is laid you within this of either end (you may walk along
 		-- it while planning; the planner shows it red with the reason as soon as you're too far, user 2026-10-24)
 		firstReach = 14,
-		joinReach = 4, -- a plan's end this close to a free end joins it
+		-- a plan's end this close to a free end joins it (8 since the wider 59 degree walls: 4 was easy to miss, user
+		-- 2026-10-24: "the trenches dont connect")
+		joinReach = 8,
 		-- a new trench keeps this far (between centre lines) from every other trench, except near the end where it joins
 		-- one (user 2026-10-24: "you shouldnt be able to build a new trench within a certain distance of another trench
-		-- unless you're extending")
-		spacing = 16,
+		-- unless you're extending"; 32 since the parapets: two trenches' parapets just meet)
+		spacing = 32,
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
 		planLife = 180, -- seconds an undug plan stays
-		swingReach = 8, -- a swing works the square whose line is this close, in front of you
+		-- a swing works the square whose line is this close, in front of you (19: from anywhere on its dirt, out to the
+		-- skirt past its heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox")
+		swingReach = 19,
 		-- a square's HP: a Build swing adds `swing` (up to `max`), a Destroy swing takes `destroy` off; blasts take HP by
 		-- their overpressure at the square (Blast below). Once dug full it is buried by what it loses: full depth down to
 		-- `hold`% HP, then filled in with the rest (80%: a little earth in it; 5-10%: nearly level, unusable), its pieces
 		-- under the fill (user 2026-10-24: "an 80% trench should start visibly filling a little bit, but not an unusable
 		-- amount"; "way way more durable")
 		-- (5 Build swings dig a square: "make building take a bit longer", user 2026-10-24)
-		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
-		-- the shape: floor half width, depth, walls at `wallAngle` (too steep to walk up: Metrics MaxSlopeAngle 50),
-		-- earth thrown up as a bank along both edges (the pit's rim)
+		-- (a square buried under `bare`% HP loses its dirt pieces: it just fills with earth, its neighbours add no walls,
+		-- user 2026-10-25: "just make it fill, no need to add additional walls"; dug back up past it, they return)
+		hp = { max = 100, swing = 20, destroy = 4, hold = 95, bare = 75 },
+		-- the shape: floor half width, depth, walls at `wallAngle` (Metrics MaxSlopeAngle decides whether you can walk
+		-- up them), earth thrown up as a bank along both edges (the pit's rim) under each wall's parapet (Config/Assets
+		-- trench_pieces Wall<i>Parapet: a thick heap of dirt just behind the wall's top edge, about 2.1 to 2.5 over the
+		-- ground, a 74 degree face toward the trench: too steep to walk up, chest high cover to shoot over)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
 		floor = 4.25, -- (user 2026-10-23: 1.5x wider, then "a little more narrow")
 		depth = 5.5,
 		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
-		wallAngle = 70, -- (user 2026-10-23: steeper, "it could be either deeper or less slopy")
+		-- (user 2026-10-23: steeper, 70, "it could be either deeper or less slopy"; 2026-10-24: "make this less steep
+		-- (just a bit) so our character can walk out of (not smoothly and easily of course)", 48, then "make the slope
+		-- more aggressive. have an inbetween from what we had before and now")
+		wallAngle = 59,
 		bank = { width = 5, height = 1.2 },
+		-- a bullet meeting the ground this close round a square's hole, walls and banks hits the square (studs; the
+		-- terrain is carved in 4-stud voxels, so a shot at a wall often meets the ground just in front of its slab)
+		shotSlack = 2,
 		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
 		scar = { depth = 0.6 },
 		-- markers (src/server/Trenches; user 2026-10-24): a
@@ -110,6 +127,11 @@ local Build = {
 		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
 		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
 		pieces = { segment = 8, walls = 8, floors = 4, wood = { 5, 6, 7, 8 }, woodChance = 0.25 },
+		-- where pieces meet (src/server/Trenches; user 2026-10-24: "make sure that the joints connect by the walls"): how far
+		-- out past a wall's top edge its dirt heap and the skirt behind it reach (they keep that whole depth out of other
+		-- trenches; the skirt since 2026-10-25, trench_pieces v8 Wall<i>Apron), and how much further the side heaps run on
+		-- round a dead end and its heap reaches past the side walls' tops
+		joins = { heapReach = 11, deadEndHeap = 3 },
 	},
 
 	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and

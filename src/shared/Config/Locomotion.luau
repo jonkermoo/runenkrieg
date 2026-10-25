@@ -37,6 +37,12 @@ local Locomotion = {
 		FirstAim = 0.12, -- first person aimed (the sight stays in front of the eye)
 		-- shown to other players (Net "GunPull"): the pull share quantized to Step, at most Rate a second
 		Send = { Rate = 10, Step = 0.1 },
+		-- trench dirt folds the gun only when the look meets it this head on (cosine; 0.75: within about 40 degrees)
+		-- and within the barrel's reach (Rules/Tuck.trenchBlocked)
+		TrenchFacing = 0.75,
+		-- near trench dirt the sweep starts here instead (torso space): the shouldered gun's height (Metrics
+		-- AimMuzzleHeight 4.3: the torso's centre is 3 up), so a rifle rested on a trench's parapet doesn't fold
+		TrenchFrom = { 1, 1.3, 0 },
 	},
 	ToggleSprintMoving = 0.1, -- a toggled sprint counts as moving above this share of MoveDirection (stopping ends it)
 	-- the camera follows the body down into the crouch and back up on a critically damped spring at this rate (per
