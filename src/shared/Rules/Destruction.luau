@@ -99,6 +99,13 @@ function Destruction.topples(height: number?, knocked: number, pillar: number, t
 	return height ~= nil and height > pillar and knocked < tries
 end
 
+-- How a broken piece splits into debris: `a` and `b` its two longest sides, cut into ~`cell`-stud chunks, at most `max`
+-- in all. Returns the chunks along `a` and along `b` (at least 1 each).
+function Destruction.fractureCounts(a: number, b: number, cell: number, max: number): (number, number)
+	local n1 = math.clamp(math.floor(a / cell), 1, max)
+	return n1, math.clamp(math.floor(b / cell), 1, math.max(1, max // n1))
+end
+
 -- Whether a frozen chunk `dx, dy, dz` studs from the centre of something gone (`radius` its bounding radius) may have
 -- rested on it: within `radius` + `margin` of it and not below its bottom. Such a chunk wakes and falls again.
 function Destruction.leanedOn(dx: number, dy: number, dz: number, radius: number, margin: number): boolean

@@ -45,6 +45,11 @@ local Destruction = {
 	-- after the break wherever it was (user 2026-10-23: "blown up buildings should not have floating blocks").
 	Debris = {
 		chunksPerSection = 6,
+		-- a broken piece is cut into ~`cell`-stud chunks (at most chunksPerSection); glass into ~`Glass.cell`-stud shards
+		-- (at most `Glass.max` per pane; user 2026-10-25: "the glass just breaks off, not shatters": at 2.5-stud chunks
+		-- a window pane came off in one piece)
+		cell = 2.5,
+		Glass = { cell = 0.6, max = 30 },
 		lifetime = 60,
 		maxLive = 600,
 		-- (was still 1.5 / spin 2: Studio 2026-10-24 froze a chunk 1.3 studs over the one under it, caught at 1.25 studs/s
@@ -64,8 +69,8 @@ local Destruction = {
 		-- shatters as before; a piece that lost its support (or a collapsing story) only drops. Every chunk also gets a
 		-- nudge of up to `fallNudge` studs/s to a random side and `fallSpin` rad/s, so it tumbles into a heap (straight
 		-- down, a chimney froze as a 15-stud column of loose chunks and corner stones in 5-8 stud columns: Studio
-		-- 2026-10-24).
-		Push = { crumple = 0.25, glass = 1, dust = 1.3 },
+		-- 2026-10-24). A pane a bullet breaks: its shards go `shot` x that, on along the bullet (Config/Firing.Shatter).
+		Push = { crumple = 0.25, glass = 1, dust = 1.3, shot = 0.35 },
 		fallNudge = 8,
 		fallSpin = 5,
 		-- a pulverised piece: `shards` small chunks of at most `shard` studs, thrown hard and gone after `shardLife` s

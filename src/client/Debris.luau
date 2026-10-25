@@ -5,8 +5,8 @@
 -- go first. A frozen chunk wakes and falls again when what it may lie on goes (another chunk, a broken section), so
 -- nothing is left floating. maxLive and lifetime are scaled by the player's Debris setting (Config/Settings.DebrisLevels,
 -- Rules/Settings.debris). How a piece goes (its `m`, Config/Damage.Blast.Destroy): crumpled chunks drop near where they
--- were, a piece that lost its support only drops, glass shatters outward, and a pulverised piece ("dust") leaves a puff
--- of dust and a few shards that are gone in seconds.
+-- were, a piece that lost its support only drops, glass shatters into small shards (a pane a bullet broke: on along
+-- the bullet), and a pulverised piece ("dust") leaves a puff of dust and a few shards that are gone in seconds.
 
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
@@ -113,13 +113,14 @@ local function spawnChunk(
 	Debris:AddItem(p, lifetime)
 end
 
--- Split a piece into up to `max` chunks along its two longest axes.
+-- Split a piece into ~`cell`-stud chunks along its two longest axes, up to `max` of them (Rules/Destruction.fractureCounts).
 local function fracture(
 	cf: CFrame,
 	size: Vector3,
 	color: Color3,
 	t: number,
 	origin: Vector3,
+	cell: number,
 	max: number,
 	lifetime: number,
 	maxLive: number,
@@ -129,8 +130,7 @@ local function fracture(
 	table.sort(axes, function(a, b)
 		return a[2] > b[2]
 	end)
-	local n1 = math.clamp(math.floor(axes[1][2] / 2.5), 1, max)
-	local n2 = math.clamp(math.floor(axes[2][2] / 2.5), 1, math.max(1, max // n1))
+	local n1, n2 = Rules.fractureCounts(axes[1][2], axes[2][2], cell, max)
 	local counts = { X = 1, Y = 1, Z = 1 }
 	counts[axes[1][1]] = n1
 	counts[axes[2][1]] = n2
@@ -274,9 +274,10 @@ function DebrisClient.start()
 			end
 		end
 	end)
-	-- pieces: { cf, size, color, t, m? } (m: nil crumpled, "fall" lost its support, "dust" pulverised)
+	-- pieces: { cf, size, color, t, m? } (m: nil crumpled, "fall" lost its support, "dust" pulverised, "shot" a pane a
+	-- bullet broke)
 	Net.event("SectionBroken").OnClientEvent:Connect(function(pieces: { any }, origin: Vector3)
-		local per = D.Debris.chunksPerSection
+		local per, cell, G = D.Debris.chunksPerSection, D.Debris.cell, D.Debris.Glass
 		local Push = D.Debris.Push
 		local puffs = D.Debris.Dust.maxPuffs
 		local maxLive, lifetime = SettingsRules.debris(
@@ -292,12 +293,12 @@ function DebrisClient.start()
 			if piece.m == "dust" and piece.t <= 0.1 then
 				puffs = pulverise(piece.cf, piece.size, piece.color, origin, maxLive, puffs)
 			elseif piece.t > 0.1 then
-				-- glass: more, smaller shards
-				local push = if piece.m == "fall" then 0 else Push.glass
-				fracture(piece.cf, piece.size, piece.color, piece.t, origin, 9, lifetime, maxLive, push)
+				-- glass: small shards
+				local push = if piece.m == "fall" then 0 elseif piece.m == "shot" then Push.shot else Push.glass
+				fracture(piece.cf, piece.size, piece.color, piece.t, origin, G.cell, G.max, lifetime, maxLive, push)
 			else
 				local push = if piece.m == "fall" then 0 else Push.crumple
-				fracture(piece.cf, piece.size, piece.color, piece.t, origin, per, lifetime, maxLive, push)
+				fracture(piece.cf, piece.size, piece.color, piece.t, origin, cell, per, lifetime, maxLive, push)
 			end
 		end
 	end)
