@@ -196,6 +196,11 @@ local Camera = {
 		-- mouse brings the arms round after the view, never in one frame
 		Spring = 8,
 		Max = { yaw = 25, pitch = 20 }, -- the largest turn (degrees)
+		-- a class's own largest turn, by Config/Weapons `class`: the staff's head stays on its cast's laser in every pose
+		-- (user 2026-10-25: the staff pointed off its laser; the two-handed charge twists the body 25-30 deg right)
+		ClassMax = { Staff = { yaw = 60, pitch = 60 } },
+		-- the most any weapon turns (Max and every ClassMax within it): what goes to the others, what the server takes
+		Limit = { yaw = 60, pitch = 60 },
 	},
 }
 

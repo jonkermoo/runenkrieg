@@ -43,7 +43,7 @@ function LookTilt.start()
 	end)
 
 	remote.OnServerEvent:Connect(function(player, pitch, follow, aimYaw, aimPitch)
-		local p, f, ay, ap = Rules.sanitize(pitch, follow, aimYaw, aimPitch, Send, Aim.Max)
+		local p, f, ay, ap = Rules.sanitize(pitch, follow, aimYaw, aimPitch, Send, Aim.Limit)
 		if not p or not f then
 			return
 		end
