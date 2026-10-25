@@ -223,7 +223,7 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 				if
 					not result
 					or panes >= Cfg.Shatter.panes
-					or not Destruction.shot(result.Instance, result.Position)
+					or not Destruction.shot(result.Instance, result.Position, line)
 				then
 					break
 				end

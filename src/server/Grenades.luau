@@ -4,11 +4,11 @@
 -- isn't throwing faster than Config/Grenades.Cooldown, then throws one from its own view of the head, along that look,
 -- exactly as the client's arc preview drew it (Rules/Grenade.launch). The Tool's "Count" attribute says how many are
 -- left (src/server/Armory gives Config/Grenades.Carried a life); the last one thrown empties the hand.
--- In flight its body is the grenade's own bounding box (Config/Grenades.Body; user 2026-10-20: a ball "seems to float
--- and roll on the ground, not abiding matter and physics": the stick's ball sat at its handle, the head in the air), so
--- it lies flat where it stops, tumbling end over end along the throw; it passes through soldiers (its own collision
--- group), so it can't hit the thrower or be caught. The Mills's pin stays behind and its lever flies off.
--- Config/Grenades.Fuse seconds after the throw it goes off: Damage.blast with the real charge, its fragments, trees
+-- Its whole path (tumbling in the air, a small bounce, a short roll to rest) is worked out here as it leaves the hand
+-- (src/server/GrenadeFlight, Config/Grenades.Motion) and sent to every client to play (Net "GrenadeFlight"); it passes
+-- through soldiers (its own collision group), so it can't hit the thrower or be caught. The Mills's pin stays behind and
+-- its lever flies off.
+-- Config/Grenades.Fuse seconds after the throw it goes off where the path ends: Damage.blast with the real charge, its fragments, trees
 -- only stripped and shaken (user 2026-10-18), the thrower hurt like anyone else (Config/Grenades.Own), and every
 -- client shows the explosion (Net "GrenadeBlast").
 
@@ -16,7 +16,6 @@ local Debris = game:GetService("Debris")
 local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Grenades)
@@ -25,6 +24,7 @@ local Rules = require(Shared.Rules.Grenade)
 local Net = require(Shared.Net)
 local Armory = require(script.Parent.Armory)
 local Damage = require(script.Parent.Damage)
+local Flight = require(script.Parent.GrenadeFlight)
 
 local Grenades = {}
 
@@ -61,28 +61,7 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 	local B = Cfg.Body
 	local model = Armory.build(name)
 	model.Name = "Thrown_" .. name
-	local gun = model.PrimaryPart :: BasePart
 	model:PivotTo(CFrame.lookAlong(origin, velocity))
-	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.Massless, d.CanCollide = true, false
-		end
-	end
-	-- the body: a box round the model as it is (the pin, gone below, inside it)
-	local box, size = model:GetBoundingBox()
-	local ball = Instance.new("Part")
-	ball.Name = "Grenade"
-	ball.Size = size
-	ball.CFrame = box
-	ball.Transparency = 1
-	ball.CustomPhysicalProperties = PhysicalProperties.new(B.density, B.friction, B.elasticity)
-	ball.CollisionGroup = GROUP
-	ball.CanQuery, ball.CanTouch = false, false
-	local weld = Instance.new("Weld")
-	weld.Part0, weld.Part1 = ball, gun
-	weld.Parent = ball
-	ball.Parent = model
-	model.Parent = workspace
 
 	-- the pin stays in the hand; the lever flies off (the striker is free)
 	local pin = model:FindFirstChild("Pin")
@@ -103,59 +82,37 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 		Debris:AddItem(lever, L.life)
 	end
 
-	ball:SetNetworkOwner(nil) -- the server's physics: no client moves it
-	ball.AssemblyLinearVelocity = velocity
-	-- end over end: about the throw's own side axis
-	local side = velocity:Cross(Vector3.yAxis)
-	ball.AssemblyAngularVelocity = if side.Magnitude > 1e-3 then side.Unit * -Cfg.Throw.spin else Vector3.zero
-
-	-- each frame: swept from where it was (a fast throw never passes through thin ground or a wall: it's put back on
-	-- the near side and bounced); the first thing it hits takes most of its speed (`land`); the box then tumbles and
-	-- slides to a stop by its own friction
-	local radius = math.min(size.X, size.Y, size.Z) / 2
+	-- held still on the server: every client moves it along the path (src/client/Grenades), here it only jumps to the end
+	-- once it's there (for anyone who joins late)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored, d.CanCollide = true, false
+		end
+	end
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	local body, box = Flight.body(model)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { model }
 	params.CollisionGroup = GROUP -- what it can touch (not soldiers)
-	local last = ball.Position
-	local was = velocity
-	local thudded = false
-	local step = RunService.Heartbeat:Connect(function(dt)
-		local p, v = ball.Position, ball.AssemblyLinearVelocity
-		local move = p - last
-		if move.Magnitude > 1e-3 then
-			-- only when it went past the surface this frame (an ordinary contact is the physics' own: put back then, the
-			-- box spun 140-195 rad/s for a frame, Studio 2026-10-20)
-			local hit = workspace:Raycast(last, move + move.Unit * radius, params)
-			if hit and hit.Distance < move.Magnitude then
-				local n = hit.Normal
-				local into = v:Dot(n)
-				if into < 0 then
-					v -= n * into * (1 + B.elasticity)
-				end
-				ball.CFrame = ball.CFrame.Rotation + hit.Position + n * radius
-				ball.AssemblyLinearVelocity = v
-			end
+	params.RespectCanCollide = true
+	params.IgnoreWater = true
+	local path = Flight.path(body, box, velocity, Cfg.Types[name].motion, params, workspace.Gravity, Cfg.Fuse)
+	model.Parent = workspace
+	Net.event("GrenadeFlight")
+		:FireAllClients(model, workspace:GetServerTimeNow(), path.times, path.frames, path.thunks, name)
+	task.delay(path.times[#path.times], function()
+		if model.Parent then
+			model:PivotTo(path.frames[#path.frames])
 		end
-		-- the first thing it hits takes most of its speed
-		if not thudded and (v - (was - Vector3.yAxis * workspace.Gravity * dt)).Magnitude > B.impact then
-			thudded = true
-			v *= B.land
-			ball.AssemblyLinearVelocity = v
-			ball.AssemblyAngularVelocity *= B.land
-		end
-		was = ball.AssemblyLinearVelocity
-		last = ball.Position
 	end)
 
 	task.delay(Cfg.Fuse, function()
-		step:Disconnect()
-		if not ball.Parent then
+		if not model.Parent then
 			return
 		end
-		local at = ball.Position + Vector3.yAxis * B.lift
 		model:Destroy()
-		goOff(at, name, character)
+		goOff(path.rest + Vector3.yAxis * B.lift, name, character)
 	end)
 end
 

@@ -24,7 +24,6 @@ local Grenades = {
 		reach = 4,
 		-- a wall between the head and the hand: the throw starts this far short of it (never through it)
 		gap = 0.3,
-		spin = 8, -- tumbling in flight, radians/s
 		-- seconds into the throw animation the grenade leaves the hand (Config/Weapons grenade holds `throw`;
 		-- tools/animation/grenade.luau RELEASE): the throw is sent to the server then
 		release = 0.22,
@@ -36,24 +35,56 @@ local Grenades = {
 	-- grenade leaves the hand cancels it all (user: "switching to your gun will cancel the throw sequence").
 	Pin = { time = 0.45, out = 0.15 }, -- (out: as the left hand starts pulling; at 0.25 it was already 1.8 studs off, Studio)
 
-	-- The thrown grenade (user: "bounces and rolls a little"; 2026-10-20: the old 0.6-stud ball "seems to float and roll
-	-- on the ground, not abiding matter and physics"): its body is the grenade's own bounding box (src/server/Grenades),
-	-- cast iron on dirt: heavy, gripping, a dull bounce. It tumbles end over end in flight (Throw.spin), and on the
-	-- ground it tumbles and slides to a stop by its own friction.
+	-- The thrown grenade (user: "bounces and rolls a little"; 2026-10-25: "i still want it to move a little, just
+	-- realistically. small bounce and rolling"): its whole path is worked out on the server at the throw
+	-- (src/server/GrenadeFlight, Rules/Grenade.hit / roll / rests) and played back on every client, not left to Roblox's
+	-- physics (its box spun wildly off contacts, then, damped, stopped dead, 2026-10-20 / 25).
 	Body = {
-		density = 2,
-		friction = 0.8,
-		elasticity = 0.2,
-		-- Where it first hits anything (the ground or a wall: its velocity jumps by more than `impact` studs/s in a frame)
-		-- it thuds, keeping `land` of its speed (Studio round 2: off a wall it flew 14 studs back). Swept each frame from
-		-- where it was, so it can't pass through thin ground.
-		impact = 20,
-		land = 0.25,
 		-- the blast goes off this far above where the body lies (out of the ground it rests on)
 		lift = 0.3,
 		-- the Mills's lever flying off: the throw's velocity times `carry`, plus `pop` studs/s up, tumbling `spin`
 		-- radians/s; gone after `life` seconds
 		lever = { carry = 0.5, pop = 15, spin = 20, life = 1.5 },
+	},
+
+	-- Its flight, bounces and roll (src/server/GrenadeFlight; per grenade: Types[name].motion below). In the air it flies
+	-- the throw's arc (workspace.Gravity, as the arc preview), tumbling end over end along the throw. Each thing it hits
+	-- bounces it off at the type's `bounce` share of its speed into the surface (times `wall` off a surface steeper than
+	-- `ground`), keeping `first` of its speed along the surface on the first hit and `keep` on later ones, its tumble
+	-- times `spinKeep`. Once a bounce off the ground would be slower than `settle` it lies on its side, its long axis
+	-- across the way it goes (turning to it over `blend` seconds), and rolls: slowed by `resist` studs/s per second,
+	-- downhill pulled at real gravity (`gravity`: Roblox's 196 is ~7x real and rolled it off every slope), sliding
+	-- along its long axis slowed by `slide`. It rests once slower than `stop` on ground no steeper than `grip` (the
+	-- slope's sine, ~21 degrees); on steeper ground it rolls on down.
+	Motion = {
+		step = 1 / 120, -- seconds per step of the server's working-out
+		sample = 1 / 30, -- seconds between the frames sent to clients (every hit gets its own frame too)
+		ground = 0.6, -- a surface whose normal is at least this far up is ground (~53 degrees); steeper is a wall
+		wall = 0.6,
+		gravity = 27.5, -- 9.81 m/s^2 at 0.357 m per stud
+		blend = 0.12,
+		stop = 0.8,
+		grip = 0.36,
+		skin = 0.02, -- studs kept off a surface it touches
+		probe = 0.4, -- studs past its radius it looks under itself for the ground while rolling
+	},
+
+	-- The thunk where it hits something (user 2026-10-25: "add a thunk sound for when a grenade hits something"): one of
+	-- `sounds` (src/client/SoundFx entries) at random, louder the harder it hits: none below `quiet` studs/s into the
+	-- surface (rolling along never thunks), `soft` of the volume just above it, full from `loud`; pitched by the grenade's own
+	-- `pitch` (Types below) times a random share within `pitchRange`. Pro Sound Effects (licensed through Roblox,
+	-- ASSETS_LICENSES.md): a rock on hard dirt, three takes, each one clean hit.
+	Thunk = {
+		quiet = 5,
+		loud = 80,
+		soft = 0.25,
+		late = 0.25, -- seconds: a thunk reached later than this (the path arrived late) isn't played
+		pitchRange = { 0.92, 1.08 },
+		sounds = {
+			{ id = 9118616114, volume = 1, profile = "Footstep" }, -- Rock Impact Dirt Hard Muted Thuds 1
+			{ id = 9118616398, volume = 1, profile = "Footstep" }, -- Rock Impact Dirt Hard Muted Thuds 2
+			{ id = 9118598240, volume = 0.9, profile = "Footstep" }, -- Rock Hit Dirt Impact 12
+		},
 	},
 
 	-- The arc preview (src/client/Grenades): one line (user 2026-10-18: "make the preset line a singular line and not
@@ -77,18 +108,41 @@ local Grenades = {
 	-- `max` damage within `lethal` studs, then `near` falling to `far` at `wound`, none beyond (user: "lethal within
 	-- about 8 studs, wounding to about 28"). The cast-iron Mills and SIPE throw fragments; the stick's thin can is mostly
 	-- blast, so its fragments reach less.
+	-- motion: its tumble in the air (`spin`, radians/s) and how it bounces and rolls (Motion above): the stick turns end
+	-- over end fast and rolls only a little across its handle; the egg-shaped Mills and the round SIPE spin slowly and
+	-- roll further.
 	Types = {
 		grenade_mills = {
 			speed = 128,
 			kg = 0.071,
 			fragments = { lethal = 8, wound = 28, max = 100, near = 60, far = 10 },
 			pitch = 1.1, -- its bang's pitch (Sound below)
+			motion = {
+				spin = 5,
+				first = 0.2,
+				keep = 0.7,
+				bounce = 0.3,
+				settle = 8,
+				spinKeep = 0.5,
+				resist = 9,
+				slide = 30,
+			},
 		},
 		grenade_sipe = {
 			speed = 128,
 			kg = 0.1,
 			fragments = { lethal = 7, wound = 25, max = 100, near = 60, far = 10 },
 			pitch = 1, -- its bang's pitch (Sound below)
+			motion = {
+				spin = 4,
+				first = 0.22,
+				keep = 0.7,
+				bounce = 0.3,
+				settle = 8,
+				spinKeep = 0.5,
+				resist = 7,
+				slide = 7,
+			},
 		},
 		grenade_stick = {
 			speed = 139,
@@ -96,6 +150,16 @@ local Grenades = {
 			-- (lethal 4 -> 6, user 2026-10-23: a stick 3-4 studs off on the ground left ~50; the torso is ~2.4-3.3 up)
 			fragments = { lethal = 6, wound = 14, max = 100, near = 50, far = 10 },
 			pitch = 0.9, -- its bang's pitch (Sound below)
+			motion = {
+				spin = 12,
+				first = 0.15,
+				keep = 0.6,
+				bounce = 0.25,
+				settle = 8,
+				spinKeep = 0.4,
+				resist = 14,
+				slide = 40,
+			},
 		},
 	},
 

@@ -98,6 +98,10 @@ local Remotes: { string } = {
 	-- client -> server: (direction: Vector3) throw the held grenade along this look (the server throws it from its own
 	-- view of the head)
 	"GrenadeThrow",
+	-- server -> clients: (model: Model, at: number, times: { number }, frames: { CFrame }, thunks: { { t, share, at } },
+	-- name: string) a thrown grenade's whole path (src/server/GrenadeFlight) from server time `at`: the model's pivot at
+	-- each time and its thunks, played back by every client
+	"GrenadeFlight",
 	-- server -> clients: (position: Vector3, kg: number) a grenade went off: its explosion (src/client/Vfx/Blast)
 	"GrenadeBlast",
 	-- Artillery (src/client/Artillery sends, src/server/Artillery checks; Config/Artillery, Rules/Artillery). A gun is

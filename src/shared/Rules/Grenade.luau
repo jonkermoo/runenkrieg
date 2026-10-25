@@ -1,6 +1,7 @@
 --!strict
 -- A thrown grenade's maths (Config/Grenades; src/server/Grenades, src/client/Grenades): the throw's velocity from the
--- look, the path it flies (the arc preview and the server's throw agree), and its fragments' damage by distance.
+-- look, the path it flies (the arc preview and the server's throw agree), its bounces, roll and thunk, and its
+-- fragments' damage by distance.
 -- Plain numbers (x, y, z), so Lune can test it.
 
 local Grenade = {}
@@ -84,6 +85,37 @@ function Grenade.fragments(d: number, f: Fragments): number
 	end
 	local k = (d - f.lethal) / (f.wound - f.lethal)
 	return f.near + (f.far - f.near) * k
+end
+
+-- One hit (Config/Grenades.Motion; src/server/GrenadeFlight): `into` studs/s into the surface, `along` along it. It
+-- comes off at `bounce` of `into` (0 when that is under `settle`: it stays on the surface) keeping `keep` of `along`.
+-- Returns (speed away from the surface, speed along it).
+function Grenade.hit(into: number, along: number, keep: number, bounce: number, settle: number): (number, number)
+	local out = math.max(into, 0) * bounce
+	if out < settle then
+		out = 0
+	end
+	return out, math.max(along, 0) * keep
+end
+
+-- How loud its thunk is for a hit `into` studs/s into the surface (Config/Grenades.Thunk): 0 below `quiet`, `soft`
+-- just above it, rising to 1 at `loud`.
+function Grenade.thunk(into: number, quiet: number, loud: number, soft: number): number
+	if into < quiet then
+		return 0
+	end
+	local k = math.clamp((into - quiet) / math.max(loud - quiet, 1e-6), 0, 1)
+	return soft + (1 - soft) * k
+end
+
+-- Rolling: its speed after `dt` seconds slowed by `resist` studs/s per second (never below 0).
+function Grenade.roll(speed: number, resist: number, dt: number): number
+	return math.max(speed - resist * dt, 0)
+end
+
+-- At rest: slower than `stop` on ground whose slope (its sine) is no more than `grip`.
+function Grenade.rests(speed: number, slope: number, stop: number, grip: number): boolean
+	return speed <= stop and slope <= grip
 end
 
 -- The server's check of a throw: the direction must be a real one and the hand near the head.

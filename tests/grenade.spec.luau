@@ -10,6 +10,38 @@ local function near(a: number, b: number, eps: number?): boolean
 end
 
 return {
+	["a hit bounces it off at its share, or keeps it on the surface when that is too slow"] = function()
+		local out, along = G.hit(100, 50, 0.2, 0.3, 8)
+		assert(near(out, 30) and near(along, 10))
+		out, along = G.hit(20, 10, 0.5, 0.3, 8)
+		assert(out == 0 and near(along, 5))
+		out, along = G.hit(-5, -3, 0.5, 0.3, 8)
+		assert(out == 0 and along == 0)
+	end,
+	["the thunk is silent below quiet, soft above it, full from loud"] = function()
+		assert(G.thunk(4, 5, 80, 0.25) == 0)
+		assert(near(G.thunk(5, 5, 80, 0.25), 0.25))
+		assert(near(G.thunk(80, 5, 80, 0.25), 1) and near(G.thunk(500, 5, 80, 0.25), 1))
+		local mid = G.thunk(42.5, 5, 80, 0.25)
+		assert(mid > 0.25 and mid < 1)
+	end,
+	["rolling slows to a stop and never backwards"] = function()
+		assert(near(G.roll(10, 14, 0.5), 3))
+		assert(G.roll(1, 14, 1) == 0)
+		assert(G.rests(0.5, 0.1, 0.8, 0.36) and not G.rests(0.5, 0.5, 0.8, 0.36) and not G.rests(2, 0, 0.8, 0.36))
+	end,
+	["every grenade bounces small and settles: bounce under 1, a settle speed, it rests on gentle slopes"] = function()
+		assert(C.Motion.grip > 0 and C.Motion.grip < 1 and C.Motion.step <= C.Motion.sample)
+		assert(C.Thunk.loud > C.Thunk.quiet and #C.Thunk.sounds > 0)
+		for name, t in C.Types do
+			local m = t.motion
+			assert(m, name .. " has no motion")
+			assert(m.bounce > 0 and m.bounce < 1 and m.first <= m.keep and m.keep < 1, name)
+			assert(m.settle > 0 and m.resist > 0 and m.slide > 0 and m.spin > 0, name)
+		end
+		-- the stick rolls less than the round ones
+		assert(C.Types.grenade_stick.motion.resist > C.Types.grenade_sipe.motion.resist)
+	end,
 	["a blast is heard late and duller with distance, full and crisp close by"] = function()
 		local h = { dullFrom = 100, dullFull = 500, highCut = -12, lowBoost = 3 }
 		local delay, high, low = G.heard(0, h, 960)
