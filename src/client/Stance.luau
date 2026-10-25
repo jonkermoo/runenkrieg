@@ -17,6 +17,7 @@
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
 --   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set;
 -- - hip-deep water slows every pace by the character's "WadeScale" attribute (src/client/Wading).
+-- - swinging the shovel ("Swinging", src/client/Locomotion) stops you: no walking or jumping until the swing ends.
 -- Sets the local character's Humanoid.WalkSpeed (the client owns its character's physics) and the "Sprinting" /
 -- "Aiming" / "Crouching" attributes that the animations, the camera and the weapon code read (local only; the
 -- animations they choose replicate).
@@ -105,8 +106,12 @@ function Stance.start()
 			and W[weapon.name].holds.aim ~= nil
 			and character:GetAttribute("Reloading") ~= true
 			and not striking
-		local speed = if dragging
-			then DragCfg.Speed
+		-- swinging the shovel (src/client/Locomotion "Swinging"): standing still to dig (user 2026-10-24: "players should
+		-- not be able to move mid shovel animation")
+		local swinging = character:GetAttribute("Swinging") == true
+		local speed = if swinging
+			then 0
+			elseif dragging then DragCfg.Speed
 			elseif sprinting then M.Movement.SprintSpeed
 			elseif low then M.Movement.CrouchSpeed
 			elseif aiming then M.Movement.AimWalkSpeed
@@ -120,7 +125,7 @@ function Stance.start()
 		if wired then
 			speed = math.min(speed, BuildCfg.Wire.speed)
 		end
-		humanoid.JumpHeight = if wired then 0 else M.Movement.JumpHeight
+		humanoid.JumpHeight = if wired or swinging then 0 else M.Movement.JumpHeight
 		humanoid.WalkSpeed = speed * ((player:GetAttribute(Dev.Admin.Attribute) :: number?) or 1)
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
@@ -204,6 +209,7 @@ function Stance.start()
 		character:GetAttributeChangedSignal("Wired"):Connect(apply)
 		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
 		character:GetAttributeChangedSignal("Striking"):Connect(apply) -- (and through a butt stroke)
+		character:GetAttributeChangedSignal("Swinging"):Connect(apply) -- a shovel swing stops you, and its end frees you
 	end
 	player.CharacterAdded:Connect(hook)
 	player:GetAttributeChangedSignal(Dev.Admin.Attribute):Connect(apply)

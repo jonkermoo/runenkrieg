@@ -30,6 +30,9 @@ local Trenches = require(script.Parent.Trenches)
 
 local Build = {}
 
+-- the shortest time between two shovel strikes (a swing comes too soon under SwingSlack of it)
+local GAP = Rules.strikeGap({ ShovelCfg.Dig, ShovelCfg.Chip })
+
 type Rec = {
 	model: Model,
 	piece: Rules.Piece,
@@ -346,7 +349,7 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local now = os.clock()
-	if Rules.tooSoon(now, lastSwing[player], ShovelCfg.Dig.length, C.SwingSlack) then
+	if Rules.tooSoon(now, lastSwing[player], GAP, C.SwingSlack) then
 		return
 	end
 	-- a trench block
@@ -491,9 +494,29 @@ function Build.clear()
 	Trenches.clear()
 end
 
+-- a shovel swing's sound (Net "Dug"), passed on to everyone else
+local lastSound: { [Player]: number } = {}
+local function dug(player: Player, kind: any)
+	if kind ~= "Dig" and kind ~= "Toss" and kind ~= "Chip" then
+		return
+	end
+	local character = digger(player)
+	local now = os.clock()
+	if not character or (lastSound[player] and now - lastSound[player] < ShovelCfg.SoundGap) then
+		return
+	end
+	lastSound[player] = now
+	for _, p in Players:GetPlayers() do
+		if p ~= player then
+			Net.event("Dug"):FireClient(p, character, kind)
+		end
+	end
+end
+
 function Build.start()
 	folder()
 	Trenches.start()
+	Net.event("Dug").OnServerEvent:Connect(dug)
 	Net.event("Build").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)
 		if kind == "Place" then
 			place(player, a, b)
@@ -505,6 +528,7 @@ function Build.start()
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		lastSwing[player] = nil
+		lastSound[player] = nil
 	end)
 	-- blueprints nobody worked on
 	task.spawn(function()

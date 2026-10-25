@@ -15,7 +15,7 @@ local Build = {
 	-- the trench square you're working, extending or branching off is lit faintly (a Highlight in Palette.Build.Focus:
 	-- its fill and outline transparency; user 2026-10-25: "a slight slight indicator for which segment you are focused on")
 	Focus = { fill = 0.93, outline = 0.6 },
-	-- swings faster than this share of the dig's length (Config/Shovel.Dig.length) are ignored
+	-- swings faster than this share of the shortest time between two strikes (Rules/Build.strikeGap) are ignored
 	SwingSlack = 0.8,
 	-- a blueprint nobody has worked on goes after this (seconds)
 	BlueprintLife = 120,

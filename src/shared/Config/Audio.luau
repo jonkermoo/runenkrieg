@@ -16,6 +16,8 @@ local Audio = {
 		-- 9.3 studs off the gun, so it stays full over the near third-person views and only a little quieter (~0.6) scrolled
 		-- all the way out (user 2026-10-22: a reload kicked out of first person dropped to ~a fifth and seemed cut off)
 		OwnMechanism = { ref = 5.5, max = 60 },
+		-- a shovel biting into the ground or tossing its dirt (Config/Shovel.Sounds): full within ~1.4 m, heard to ~40 m
+		Dig = { ref = 4, max = 120 },
 		-- footsteps (src/client/Footsteps): full within ~1 m, heard to ~20 m
 		Footstep = { ref = 3, max = 60 },
 		-- magic (Config/Vfx.Sounds): a cast and its shot, full within ~2 m, heard to ~140 m

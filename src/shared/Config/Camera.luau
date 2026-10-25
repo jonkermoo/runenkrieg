@@ -13,6 +13,8 @@ local Camera = {
 	-- your camera doesnt get locked with a shovel out"; the design's
 	-- option A): a free cursor, right drag turns, the wheel zooms from FreeMinZoom out (third person only: the
 	-- first-person holds belong to the weapon camera's viewmodel). src/client/Build aims at the cursor with one.
+	-- They never tilt with the camera's pitch either (src/client/LookTilt; user 2026-10-24: "i can look up or down but
+	-- the animation will be the same").
 	FreeClasses = { Shovel = true },
 	FreeMinZoom = 4,
 

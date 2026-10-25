@@ -20,6 +20,7 @@ local Cfg = require(Shared.Config.Locomotion)
 local MovementSet = require(Shared.Rules.MovementSet)
 local Anims = MovementSet.animations(Cfg) -- the movement set in play (Config/Locomotion.Set)
 local W = require(Shared.Config.Weapons)
+local ShovelCfg = require(Shared.Config.Shovel)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
 local Held = require(script.Parent.Held)
@@ -118,6 +119,13 @@ function Locomotion.attach(character: Model)
 		end
 	end)
 
+	local swinging: AnimationTrack? = nil -- the shovel's swing looping (src/client/Shovel "Digging")
+	-- the swing playing, or none; "Swinging" (local) while one plays, so the soldier stands (src/client/Stance)
+	local function swingWith(track: AnimationTrack?)
+		swinging = track
+		character:SetAttribute("Swinging", if track then true else nil)
+	end
+
 	-- weapon holds, loaded per weapon on first equip
 	local function holdTracks(name: string): { [string]: AnimationTrack }
 		if not holds[name] then
@@ -138,13 +146,40 @@ function Locomotion.attach(character: Model)
 					or hold == "pin"
 				-- a grenade's throw: a one shot over its wind-up (src/client/Grenades "ThrownAt"); the shovel's dig the same
 				-- over its hold (src/client/Shovel "DugAt"), and a gun's butt stroke (src/client/Melee "StruckAt")
-				local over = hold == "throw" or hold == "dig" or hold == "strike"
-				t.Priority = if over
+				-- the shovel's swings loop over the hold while the fire key is held (src/client/Shovel "Digging")
+				local swing = hold == "dig" or hold == "chip"
+				local over = hold == "throw" or hold == "strike"
+				t.Priority = if over or swing
 					then Enum.AnimationPriority.Action3
 					elseif once then Enum.AnimationPriority.Action2
 					else Enum.AnimationPriority.Action
 				t.Looped = not once and not over
 				holds[name][hold] = t
+				if swing then
+					-- its sound now: the swinger's own at once, everyone else's through the server (src/client/Shovel)
+					local function sound(kind: string)
+						SoundFx.play(ShovelCfg.Sounds[kind], root)
+						Net.event("Dug"):FireServer(kind)
+					end
+					t:GetMarkerReachedSignal("Strike"):Connect(function()
+						if t == swinging then
+							character:SetAttribute("DugMode", if hold == "chip" then "Destroy" else "Build")
+							character:SetAttribute("DugAt", os.clock())
+							sound(if hold == "chip" then "Chip" else "Dig")
+						end
+					end)
+					t:GetMarkerReachedSignal("Rest"):Connect(function()
+						if t == swinging and hold == "dig" then
+							sound("Toss") -- (the dig's rest is the toss)
+						end
+						-- let go (or switched mode): settle to the ready from here (the other mode starts next step)
+						local want = if hold == "chip" then "Destroy" else "Build"
+						if t == swinging and character:GetAttribute("Digging") ~= want then
+							t:Stop(ShovelCfg.Leave)
+							swingWith(nil)
+						end
+					end)
+				end
 			end
 		end
 		return holds[name]
@@ -251,7 +286,6 @@ function Locomotion.attach(character: Model)
 	end
 
 	local thrown: number? = nil -- the last grenade throw played ("ThrownAt")
-	local dug: number? = nil -- the last shovel dig played ("DugAt")
 	local struck: number? = nil -- the last butt stroke played ("StruckAt")
 	local striking: AnimationTrack? = nil -- the butt stroke while it plays (stopped if that gun is put away)
 	local pinned: number? = nil -- the last pin pull played ("PinAt")
@@ -353,13 +387,17 @@ function Locomotion.attach(character: Model)
 					throwing = set.throw
 				end
 			end
-			-- a dig with the shovel (src/client/Shovel marks the moment): played once over the hold
-			local dugAt = character:GetAttribute("DugAt")
-			if type(dugAt) == "number" and dugAt ~= dug then
-				dug = dugAt
-				if set.dig then
-					set.dig:Play(0.05)
-				end
+			-- the shovel held swinging (src/client/Shovel "Digging", the mode): its swing loops over the hold, blending up
+			-- from the ready, the dig in Build, the chip in Destroy; let go, it stops at its "Rest" marker (above)
+			if swinging and (not swinging.IsPlaying or (swinging ~= set.dig and swinging ~= set.chip)) then
+				swinging:Stop(0.1) -- (put away)
+				swingWith(nil)
+			end
+			local digging = character:GetAttribute("Digging")
+			local swing = if digging == "Destroy" then set.chip elseif digging == "Build" then set.dig else nil
+			if swing and not swinging then
+				swing:Play(ShovelCfg.Enter)
+				swingWith(swing)
 			end
 			-- a gun's butt stroke (src/client/Melee marks the moment): played once over the hold
 			local struckAt = character:GetAttribute("StruckAt")
@@ -400,6 +438,10 @@ function Locomotion.attach(character: Model)
 		else
 			if striking and striking.IsPlaying then
 				striking:Stop(0.1) -- put away
+			end
+			if swinging then
+				swinging:Stop(0.1) -- the shovel put away
+				swingWith(nil)
 			end
 			hold(if character:FindFirstChildOfClass("Tool") then tracks.toolnone else nil)
 			if charging then

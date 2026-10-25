@@ -5,7 +5,8 @@
 -- planted. Applied on top of the animations through the RootJoint and hip C0s.
 -- With a weapon in the hands (Config/Camera.Follow): the arms and the gun turn about the shoulder line for the rest
 -- of the pitch, so the weapon points where the camera looks, and the head follows part of the way. (In first person
--- the player sees the viewmodel instead, src/client/Viewmodel.)
+-- the player sees the viewmodel instead, src/client/Viewmodel.) An item in Config/Camera.FreeClasses (the shovel)
+-- takes no pitch at all: its swings are the same wherever you look.
 -- Other players see it too: the local soldier's pitch and the gun's follow share go to the server (Net "LookPitch",
 -- quantized and throttled by Config/Locomotion.LookTilt.Send), which relays them; every other soldier is posed the
 -- same way here, easing toward the last pitch received.
@@ -31,6 +32,7 @@ local CameraRules = require(Shared.Rules.Camera)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.LookTilt)
 local Held = require(script.Parent.Held)
+local W = require(Shared.Config.Weapons)
 
 local LookTilt = {}
 
@@ -281,7 +283,12 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 	local name = "LookTilt" .. count
 	RunService:BindToRenderStep(name, LookTilt.Priority, function(dt)
 		local camera = workspace.CurrentCamera
-		local pitch = if camera and humanoid.Health > 0
+		-- (none with an item that ignores where you look: Config/Camera.FreeClasses, the shovel)
+		local weapon = Held.weapon(character)
+		local free = weapon ~= nil and CameraRules.thirdPerson(CameraCfg.FreeClasses, (W :: any)[weapon.name].class)
+		local pitch = if camera
+				and humanoid.Health > 0
+				and not free
 			then math.deg(math.asin(math.clamp(camera.CFrame.LookVector.Y, -1, 1)))
 			else 0
 		angle += (Rules.torso(pitch, cfg.Torso, cfg.TorsoMax) - angle) * Rules.ease(cfg.Smoothing, dt)
