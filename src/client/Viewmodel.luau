@@ -22,6 +22,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
 local Grenades = require(Shared.Config.Grenades)
+local TuckCfg = require(Shared.Config.Locomotion).Tuck
 local W = require(Shared.Config.Weapons)
 local Spells = require(Shared.Config.Spells)
 local SpellRules = require(Shared.Rules.Spells)
@@ -311,6 +312,14 @@ function Viewmodel.start()
 				for _, t in rig.tracks do
 					t:Stop(0)
 				end
+				-- a strike, throw, dig or pin pulled out of view (third person) is seen there: coming back into first
+				-- person doesn't play it a second time
+				if character then
+					rig.thrown = character:GetAttribute("ThrownAt") :: number?
+					rig.dug = character:GetAttribute("DugAt") :: number?
+					rig.struck = character:GetAttribute("StruckAt") :: number?
+					rig.pinned = character:GetAttribute("PinAt") :: number?
+				end
 				rig.model.Parent = nil
 				playing = nil
 			end
@@ -410,9 +419,16 @@ function Viewmodel.start()
 		-- the turn and the hip shift count as much as the holds that have them
 		local turned = (if hipD > 0 then hipness else 0) + (if aimD > 0 then aimness else 0)
 		local shift = if hipD > 0 then hipShift() * hipness else Vector3.zero
+		-- near a wall the gun comes back toward the eye, still pointing ahead (src/client/Tuck "Pull"); aimed only a
+		-- little, so the sight stays in front of the eye
+		local pulled = character:GetAttribute("Pull")
+		local back = if type(pulled) == "number"
+			then pulled * (TuckCfg.First + (TuckCfg.FirstAim - TuckCfg.First) * aimness)
+			else 0
 		r.root.CFrame = camera.CFrame
 			* below
 			* Sway.viewmodel()
+			* CFrame.new(0, 0, back)
 			* CFrame.new():Lerp(r.hip, math.min(turned, 1))
 			* CFrame.new(shift + r.aimFix * aimness + r.shift)
 			* CFrame.new(-EYE)

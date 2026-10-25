@@ -557,6 +557,28 @@ local function animatorOf(model: Instance?): Animator?
 	return h and h:FindFirstChildOfClass("Animator")
 end
 
+-- The viewmodel's Animator while the rig is in view (src/client/Viewmodel takes it out of the DataModel in third
+-- person and stops its tracks): an action under way picks its first-person arms up where it is when the rig comes back.
+local function viewmodelAnimator(): Animator?
+	return animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel"))
+end
+
+-- The first-person arms for an action (0: none): the reload's, or the hand working the bolt (aimed: the shouldered
+-- variant; a pump gun's left hand, the pump).
+local function firstAction(character: Model, weapon: string, action: string): number
+	local w = W[weapon]
+	if action == "Reload2" then
+		return w.reload.firstPersonTwo or 0
+	elseif action == "Reload" then
+		return w.reload.firstPerson
+	elseif action == "Auto" or not w.bolt then
+		return 0
+	end
+	local hold = character:GetAttribute("Hold")
+	local aimed = hold == "aim" or hold == "crouchAim"
+	return (if aimed then w.bolt.firstAim else w.bolt.firstReady) or 0
+end
+
 -- The arms for an action, from timeline share u0: a reload, and working the bolt (aimed: the shouldered variant; any
 -- other hold, or a soldier with no hold set such as the showcase's: by `Hold`, the showcase's bolt dummies aim), in
 -- both views.
@@ -591,14 +613,8 @@ local function playAction(character: Model, weapon: string, action: string, u0: 
 		end
 		start(animatorOf(character), body)
 	end
-	local viewmodel = animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel"))
-	if own and reload then
-		start(viewmodel, if two then w.reload.firstPersonTwo or 0 else w.reload.firstPerson)
-	elseif own and (w.bolt.firstAim or w.bolt.firstReady) then
-		-- first person: the viewmodel's hand works the bolt (a pump gun's left hand, the pump)
-		local hold = character:GetAttribute("Hold")
-		local aimed = hold == "aim" or hold == "crouchAim"
-		start(viewmodel, (if aimed then w.bolt.firstAim else w.bolt.firstReady) or 0)
+	if own then
+		start(viewmodelAnimator(), firstAction(character, weapon, action))
 	end
 	return list
 end
@@ -871,6 +887,8 @@ function GunFx.cycle(
 
 	pose(u0)
 	clips(u0)
+	-- (whether the viewmodel was in view: playAction gave it its arms if it was)
+	local shown = own and viewmodelAnimator() ~= nil
 	local conn: RBXScriptConnection
 	local function stop()
 		conn:Disconnect()
@@ -899,6 +917,23 @@ function GunFx.cycle(
 				}
 			end
 			return
+		end
+		-- back in first person midway (the action started in third person, or the view went out and back): the
+		-- viewmodel's arms carry on from here
+		if own then
+			local vm = viewmodelAnimator()
+			if vm and not shown and u < u1 then
+				local id = firstAction(character, weapon, action)
+				if id ~= 0 then
+					local t = track(vm, id)
+					t:Play(0)
+					t.TimePosition = u * whole
+					if not table.find(tracks, t) then
+						table.insert(tracks, t)
+					end
+				end
+			end
+			shown = vm ~= nil
 		end
 		pose(u)
 		clips(u)
@@ -1096,7 +1131,7 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		start(animatorOf(character), single.body)
 	end
 	if own then
-		start(animatorOf(workspace.CurrentCamera:FindFirstChild("Viewmodel")), single.firstPerson)
+		start(viewmodelAnimator(), single.firstPerson)
 	end
 	local roundsHeld: { [BasePart]: { BasePart } } = {}
 
@@ -1200,6 +1235,19 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		local cs = closeStart()
 		local total = cs + CL
 		e = math.min(e, total)
+		-- in first person the viewmodel's arms load too, even if the load began in third person or the view went out
+		-- and back (out of view its tracks were stopped); pose sets their time
+		local vm = if own and single.firstPerson ~= 0 then viewmodelAnimator() else nil
+		if vm then
+			local t = track(vm, single.firstPerson)
+			if not t.IsPlaying then
+				t:Play(0)
+				t:AdjustSpeed(0)
+				if not table.find(tracks, t) then
+					table.insert(tracks, t)
+				end
+			end
+		end
 		pose(e)
 		local ear = GunFx.guns(character)[1] or gun -- (the mechanism's sounds: as in GunFx.cycle)
 		if not opened and e >= openAt then

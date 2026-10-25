@@ -27,6 +27,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
+local TuckCfg = Cfg.Tuck
 local CameraCfg = require(Shared.Config.Camera)
 local CameraRules = require(Shared.Rules.Camera)
 local Net = require(Shared.Net)
@@ -188,7 +189,7 @@ local function aimTurn(
 end
 
 -- the torso tilted by `angle`, with a weapon the arms + gun turned by `turn` (and onto the crosshair by `aim`), and the
--- head turned by `yaw` (degrees)
+-- head turned by `yaw` (degrees); the gun and arms slid `pull` studs back along the barrel (near a wall, src/client/Tuck)
 local function pose(
 	r: Rig,
 	angle: number,
@@ -197,7 +198,8 @@ local function pose(
 	aim: Aim,
 	dt: number,
 	point: Vector3?,
-	weight: number
+	weight: number,
+	pull: number
 )
 	local a = math.rad(angle)
 	local rootJoint = r.rootJoint
@@ -220,6 +222,13 @@ local function pose(
 	local pivot = CFrame.new(r.armC0[1].Position) -- the right shoulder (on the shoulder line: the bend keeps it put)
 	local onto = if weapon then aimTurn(r, weapon, bend, pivot, aim, dt, point, weight) else CFrame.identity
 	local swing = pivot * onto * pivot:Inverse()
+	-- pulled back near a wall: the gun and both arms slide back along the barrel as one, still pointing the same way
+	local back = CFrame.identity
+	local muzzle = weapon and weapon.gun:FindFirstChild("Muzzle") :: Attachment?
+	if weapon and muzzle and pull > 0 then
+		local hold = weapon.hold
+		back = CFrame.new(-(swing * bend * hold.Transform * hold.C1:Inverse() * muzzle.CFrame).LookVector * pull)
+	end
 	for i, arm in r.arms do
 		local c0 = bend * r.armC0[i]
 		if i == 1 then
@@ -230,10 +239,10 @@ local function pose(
 			local to = between(hand - shoulder, swing * hand - shoulder)
 			c0 = CFrame.new(shoulder) * to * CFrame.new(-shoulder) * c0
 		end
-		arm.C0 = c0
+		arm.C0 = back * c0
 	end
 	if weapon then
-		weapon.hold.C0 = swing * bend
+		weapon.hold.C0 = back * swing * bend
 	end
 	r.neck.C0 = turned(r.neckC0, r.neckC0.Position, math.rad(turn * CameraCfg.HeadFollow))
 		* CFrame.Angles(0, 0, math.rad(yaw))
@@ -322,7 +331,9 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 				math.exp(math.log(distance) + (math.log(d) - math.log(distance)) * Rules.ease(AIM.DistanceEase, dt))
 			point = ray.Origin + ray.Direction * distance
 		end
-		pose(r, angle, Rules.weaponTurn(pitch, follow, angle), yaw, aim, dt, point, weight)
+		local pulled = character:GetAttribute("Pull")
+		local pull = if type(pulled) == "number" then pulled * TuckCfg.Body else 0
+		pose(r, angle, Rules.weaponTurn(pitch, follow, angle), yaw, aim, dt, point, weight, pull)
 
 		local now = os.clock()
 		local y = Rules.yawToSend(yaw, lastYaw, now, H.Send, H.Max)
@@ -357,9 +368,11 @@ type Other = {
 	follow: number,
 	yaw: number,
 	aim: Aim,
+	targetPull: number,
+	pull: number,
 }
 
-local function others(remote: RemoteEvent, headRemote: RemoteEvent)
+local function others(remote: RemoteEvent, headRemote: RemoteEvent, pullRemote: RemoteEvent)
 	local cfg = Cfg.LookTilt
 	local list: { [Model]: Other } = {}
 
@@ -383,6 +396,8 @@ local function others(remote: RemoteEvent, headRemote: RemoteEvent)
 			follow = 0,
 			yaw = 0,
 			aim = newAim(),
+			targetPull = 0,
+			pull = 0,
 		}
 		list[character] = new
 		task.spawn(function()
@@ -408,6 +423,12 @@ local function others(remote: RemoteEvent, headRemote: RemoteEvent)
 			o.targetYaw = yaw
 		end
 	end)
+	pullRemote.OnClientEvent:Connect(function(character: Model, pull: number)
+		local o = entry(character)
+		if o then
+			o.targetPull = pull
+		end
+	end)
 
 	RunService:BindToRenderStep("LookTiltOthers", LookTilt.Priority, function(dt)
 		local k = Rules.ease(cfg.Send.Smoothing, dt)
@@ -421,10 +442,21 @@ local function others(remote: RemoteEvent, headRemote: RemoteEvent)
 				o.yaw += (o.targetYaw - o.yaw) * ky
 				o.aim.turnYaw += (o.targetAimYaw - o.aim.turnYaw) * k
 				o.aim.turnPitch += (o.targetAimPitch - o.aim.turnPitch) * k
+				o.pull += (o.targetPull - o.pull) * k
 				local angle = Rules.torso(o.pitch, cfg.Torso, cfg.TorsoMax)
 				-- (the turn sent is already capped with the sender's glance; theirs here may differ a little)
 				local yaw = math.clamp(o.yaw, -cfg.Head.Max - glance(r), cfg.Head.Max - glance(r))
-				pose(r, angle, Rules.weaponTurn(o.pitch, o.follow, angle), yaw, o.aim, dt, nil, 1)
+				pose(
+					r,
+					angle,
+					Rules.weaponTurn(o.pitch, o.follow, angle),
+					yaw,
+					o.aim,
+					dt,
+					nil,
+					1,
+					o.pull * TuckCfg.Body
+				)
 			end
 		end
 	end)
@@ -440,7 +472,7 @@ function LookTilt.start()
 	if player.Character then
 		task.spawn(attach, player.Character, remote, headRemote)
 	end
-	others(remote, headRemote)
+	others(remote, headRemote, Net.event("GunPull"))
 end
 
 return LookTilt
