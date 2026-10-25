@@ -201,6 +201,8 @@ local Palette = {
 		Bolt = { 80, 255, 190 }, -- lightning
 		Smoke = { 196, 202, 214 }, -- pale grey (the staff explosion's cloud until 2026-10-17, now blue: Config/Vfx.Blast.Colors)
 		Ash = { 118, 122, 130 }, -- explosion smoke (Config/Vfx.Blast.Smoke): grey, lit by the scene
+		SmokeDark = { 84, 86, 92 }, -- darker explosion smoke (Config/Vfx.Blast.Smoke)
+		Soot = { 48, 48, 52 }, -- the darkest explosion smoke
 		Abyss = { 22, 26, 80 }, -- deep navy, flat (the explosion cloud's patches until 2026-10-17)
 		-- the violet "hex" scheme (user reference 2026-10-13: a hot pink-violet capsule beam)
 		HexCore = { 255, 228, 255 },

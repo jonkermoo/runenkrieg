@@ -76,7 +76,7 @@ return {
 	["stronger blasts: taller, longer clouds and longer leftover runes"] = function()
 		-- user 2026-10-25: "taller longer lasting clouds the stronger they are", runes and static "longer the stronger"
 		local B = Vfx.Blast
-		for _, pair in { B.Cluster.tall, B.Cluster.life, B.Runes.life, B.Runes.count, B.Static.arcs } do
+		for _, pair in { B.Cluster.tall, B.Cluster.life, B.Smoke.life, B.Runes.life, B.Runes.count, B.Static.arcs } do
 			assert(pair[2] > pair[1] and pair[1] > 0, "grows with strength")
 		end
 		assert(B.Scale.big > B.Scale.small and B.Scale.small > 0)
@@ -94,6 +94,16 @@ return {
 			end
 		end
 		assert(Palette.Terrain[B.Clods.dirt], "the clods' fallback colour is a terrain colour")
+		-- round 2 (user: "the cloud is too high", "i liked the inital blast orb", "more variety of gray smoke")
+		assert(B.Cluster.tall[2] <= 1.5, "a low dome, not a column into the sky")
+		assert(B.Orb.size > 0 and B.Orb.core < 1 and B.Orb.hold > 0, "the orb stays a moment on the hit")
+		assert(#B.Smoke.shades >= 3, "several greys")
+		for _, g in B.Smoke.shades do
+			assert(Palette.Magic[g], `smoke shade {g} is a Palette.Magic colour`)
+		end
+		assert(B.Smoke.life[1] > B.Cluster.life[1], "the grey smoke outlives the coloured balls")
+		assert(B.Runes.float[2] > 0 and B.Runes.each[1] > B.Runes.appear, "runes float up and fade")
+		assert(B.Pop.flash > 0 and B.Pop.orbLife > B.Pop.time, "the grenade's orb outlasts its flash")
 		local G = require("../src/shared/Config/Grenades")
 		assert(G.Vfx.pop == true, "grenades pop (user 2026-10-25: no cloud, quick, less fiery)")
 		assert(G.Types[Vfx.Showcase.Grenade], "the showcase's grenade exists")

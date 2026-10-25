@@ -463,12 +463,17 @@ local Vfx = {
 	-- clip: grenades "a quick explosion, less aggressive and 'fiery' looking", no cloud and no big shockwave; shells and
 	-- magic "taller longer lasting clouds the stronger they are"; magic keeps its colours and leaves "rune / electricity
 	-- static that stays behind (longer the stronger it is)"; every explosion throws dirt that falls back, "realistic".
-	-- Read from the clip: a white flash and spikes, a cluster of round balls white-hot then orange, turning black with a
-	-- glowing rim, crumbling into falling flakes. Two looks:
-	-- - the pop (grenades: Blast.play's `pop`): a short flash, a few sparks, a brown dust puff, thrown clods (Pop);
-	-- - the cluster (everything else): flash, spikes, sparks, ground rings, the ball cluster (Cluster), clods, fine dirt
-	--   raining out of the cloud (Rain), settling dust (Dust); magic also leaves glowing runes on the ground with static
-	--   crackling between them (Runes, Static).
+	-- Round 2 (the user on the first build): "the cloud is too high and unrealistic, i liked the inital blast orb";
+	-- "more variety of gray smoke that appears with the colored smoke"; runes "random and float and fade", the static
+	-- "random, but connected with the runes"; grenades "too fast and non visible. exaggerate it a bit more". Then the
+	-- design was agreed before building (a big orb at the hit, a low dome, grey smoke mixed in, floating runes).
+	-- Two looks:
+	-- - the pop (grenades: Blast.play's `pop`): a flash, a small hot orb, sparks, a brown dust puff and a faint dust ring,
+	--   thrown clods (Pop);
+	-- - the cluster (everything else): flash, spikes, sparks, ground rings, the orb (Orb) inside a low dome of balls
+	--   cooling dark with a glowing rim (Cluster), grey smoke balls rolling up and drifting off (Smoke), clods, fine
+	--   dirt raining out of the cloud (Rain), settling dust (Dust); magic also leaves runes floating up off the ground
+	--   with static crackling between them (Runes, Static).
 	-- `fireball` (studs, D) sizes everything; a charge's D is its real fireball (Charge). How strong it reads (how tall,
 	-- how long) goes from 0 at D = Scale.small to 1 at D = Scale.big on a log scale: staff stage 1 (D 4) is 0, the field
 	-- gun (2.5 kg, D ~14.5) ~0.45, staff stage 3 (D 22) ~0.6, the howitzer (340 kg, D ~70) 1. A pair { a, b } is the value
@@ -498,7 +503,12 @@ local Vfx = {
 			staticCore = "arcCore",
 		},
 		-- the first flash: a ball `size` x D across, gone in `time` s; a light `range` x D (Roblox caps 60) for `light` s
-		Flash = { size = 0.75, time = 0.14, range = 3, brightness = 8, light = 0.9, lift = 2, max = 60 },
+		Flash = { size = 0.75, time = 0.14, range = 3, brightness = 8, light = 1.2, lift = 2, max = 60 },
+		-- The orb (user: "i liked the inital blast orb that appears where it blew up"): a ball `size` x D across sitting
+		-- on the hit (`sink` of it below the ground), swelling over `grow` s, white-hot (its core `core` of it) in a
+		-- burning shell, holding `hold` s, then cooling to the rim colour and fading over `fade` s while it swells
+		-- `swell` x more.
+		Orb = { size = 1, core = 0.7, sink = 0.15, grow = 0.12, hold = 0.3, fade = 0.45, swell = 0.15 },
 		Star = 0.6, -- the star glint's length x D
 		Rings = { to = 1.6, gap = 0.12, grow = 0.25, lift = 0.3 }, -- each ring out to `to` x D (+`grow` per ring)
 		-- sparks flung out (speed x D / s), slowing, then falling under `gravity`
@@ -512,33 +522,52 @@ local Vfx = {
 			gravity = 30,
 			brightness = 6,
 		},
-		-- The ball cluster: `perStud` balls a stud of D (`min`..`max`), each `size` x D across (x 1 + `topSwell` at the
-		-- top), in a column `tall` x D high narrowing to `narrow` of its foot's `spread` x D radius. Each flies out from
-		-- the centre to its place over `grow` s, the higher ones `stagger` s later (rolling up), drifting up `rise` x D a
-		-- second. Over its `life` s: white-hot to `fire` until `hot` of it, the body cooling to dark and the rim from fire
-		-- to the rim colour by `burn`, the rim dimming `rimFade` toward dark by `crumble`, then it crumbles away (shrinks
-		-- and throws flakes, Rain). `jitter`: each ball's timing shifted up to this share (the blotchy look). The body is
-		-- `inner` of the ball, moved `toward` (share of the radius) the camera so the rim shows round it.
+		-- The low dome of balls round the orb: `perStud` balls a stud of D (`min`..`max`), each `size` x D across, in a
+		-- dome `tall` x D high (user: "too high and unrealistic": was 0.45-2.2) narrowing to `narrow` of its foot's
+		-- `spread` x D radius. Each flies out from the centre to its place over `grow` s, the higher ones `stagger` s
+		-- later, drifting up `rise` x D a second. Over its `life` s: white-hot to `fire` until `hot` of it, the body
+		-- cooling to dark and the rim from fire to the rim colour by `burn`, the rim dimming `rimFade` toward dark by
+		-- `crumble`, then it crumbles away (shrinks and throws flakes, Rain). `jitter`: each ball's timing shifted up to
+		-- this share (the blotchy look). The body is `inner` of the ball, moved `toward` (share of the radius) the camera
+		-- so the rim shows round it.
 		Cluster = {
-			perStud = 0.6,
+			perStud = 0.5,
 			min = 4,
-			max = 26,
-			size = { 0.3, 0.48 },
-			topSwell = 0.35,
-			spread = 0.42,
-			tall = { 0.45, 2.2 },
-			narrow = 0.55,
-			grow = 0.16,
-			stagger = { 0.15, 0.6 },
-			rise = { 0.04, 0.1 },
-			life = { 1.3, 6 },
-			hot = 0.1,
-			burn = 0.38,
+			max = 18,
+			size = { 0.3, 0.45 },
+			spread = 0.55,
+			tall = { 0.35, 1.2 },
+			narrow = 0.6,
+			grow = 0.18,
+			stagger = { 0.1, 0.35 },
+			rise = { 0.03, 0.05 },
+			life = { 1.3, 4 },
+			hot = 0.12,
+			burn = 0.4,
 			crumble = 0.72,
 			rimFade = 0.6,
 			jitter = 0.18,
 			inner = 0.9,
 			toward = 0.14,
+		},
+		-- Grey smoke mixed in (user: "more variety of gray smoke that appears with the colored smoke"): `share` as many
+		-- balls as the dome, flat SmoothPlastic in the `shades` (Palette.Magic) at random, each `size` x D across, placed
+		-- over the dome's upper half (`low`..1 of its height, `spread` x D out), appearing from `from` of the dome's life
+		-- over `appear` s (staggered), rolling up `rise` x D a second, swelling to `swell` x, drifting on the `wind`
+		-- (studs/s), living `life` s and thinning over its last `fade` share.
+		Smoke = {
+			share = 0.8,
+			shades = { "Smoke", "Ash", "SmokeDark", "Soot" },
+			size = { 0.28, 0.45 },
+			low = 0.4,
+			spread = 0.5,
+			from = 0.2,
+			appear = 0.6,
+			rise = { 0.06, 0.04 },
+			swell = 1.6,
+			wind = { 1.2, 0.3, 0.5 },
+			life = { 2, 8 },
+			fade = 0.55,
 		},
 		-- Clods of the ground (the hit thing's colour, else what's under the blast, else `dirt`), shaded x `shade`:
 		-- `perStud` a stud of D (`min`..`max`), `size` x D^`sizePow` studs, thrown at `speed` x D^0.5 studs/s (at most
@@ -560,7 +589,7 @@ local Vfx = {
 			shade = { 0.75, 1.05 },
 		},
 		-- Fine dirt raining out of the cloud (the clip's falling flakes, made realistic): dark specks of the clods'
-		-- colour x `shade`, from a box over the cloud, `rate` x D a second (at most `max`) from `from` of the cluster's
+		-- colour x `shade`, from a box over the cloud, `rate` x D a second (at most `max`) from `from` of the dome's
 		-- life for `last` of it, falling under `gravity`, each `size` studs, `life` s; a crumbling ball throws `flakes`.
 		Rain = {
 			rate = 1.6,
@@ -591,38 +620,54 @@ local Vfx = {
 			fadeIn = 0.12,
 			spin = 30,
 		},
-		-- The grenade's pop: a flash `flash` x D across for `time` s (light `range` x D for `light` s), `sparks` sparks
-		-- a stud of D for `sparkLife` s, its dust (Dust) x `dust`, its clods (Clods) x `clods`; no rings, no cloud.
+		-- The grenade's pop (user: "too fast and non visible. exaggerate it a bit more"): a flash `flash` x D across for
+		-- `time` s (light `range` x D for `light` s), a hot orb `orb` x D for `orbLife` s, `sparks` sparks a stud of D for
+		-- `sparkLife` s; its dust (Dust) x `dust` as many, x `dustSize` as big, living x `dustLife`; its clods (Clods) x
+		-- `clods`, thrown x `throw` as fast; a faint dust ring: `ring` puffs racing out flat at `ringSpeed` x D^0.5
+		-- studs/s. No cloud, no glowing rings.
 		Pop = {
-			flash = 0.55,
-			time = 0.09,
-			range = 2.5,
-			brightness = 5,
-			light = 0.18,
-			sparks = 1.5,
-			sparkLife = { 0.12, 0.3 },
-			dust = 1.3,
-			clods = 0.8,
+			flash = 0.85,
+			time = 0.15,
+			range = 3,
+			brightness = 6,
+			light = 0.3,
+			orb = 0.45,
+			orbLife = 0.25,
+			sparks = 2,
+			sparkLife = { 0.2, 0.5 },
+			dust = 2.2,
+			dustSize = 1.4,
+			dustLife = 1.8,
+			clods = 1.3,
+			throw = 1.3,
+			ring = 14,
+			ringSpeed = 5,
 		},
-		-- Magic's leftover runes: `count` Elder Futhark runes (Glyphs) lying flat round the hit `radius` x D out, each
-		-- `size` x D tall (`least`..`most` studs), stroked `line` x their size (at least `thinnest`), appearing over
-		-- `appear` s from `delay` s, burning `life` s, fading over their last `fade` share, flickering `flicker`.
+		-- Magic's leftover runes (user: "random and float and fade"): `count` Elder Futhark runes (Glyphs), spawning one
+		-- after another over `life` s at random spots within `radius` x D of the hit, each `size` x D tall (`least`..`most`
+		-- studs), stroked `line` x their size (at least `thinnest`), tilted up to `tilt` degrees off the ground, turning
+		-- `turn` degrees/s, floating up `float` x its size a second for `each` s, fading in over `appear` and out over its
+		-- last `fade` share, flickering `flicker`. The first spawns `delay` s after the blast.
 		Runes = {
-			count = { 3, 8 },
-			radius = { 0.3, 0.55 },
-			size = { 0.12, 0.08 },
+			count = { 4, 14 },
+			radius = { 0.45, 0.7 },
+			size = { 0.18, 0.1 },
 			least = 1.2,
 			most = 7,
 			line = 0.09,
 			thinnest = 0.12,
-			lift = 0.06,
+			lift = 0.3,
+			tilt = 55,
+			turn = 30,
+			float = { 0.25, 0.6 },
+			each = { 1.2, 2.4 },
 			delay = 0.25,
 			appear = 0.25,
+			fade = 0.4,
 			life = { 1.8, 8 },
-			fade = 0.35,
 			flicker = 0.3,
 		},
-		-- Strokes of each rune, { x0, y0, x1, y1 } in a unit box (y up, away from the hit)
+		-- Strokes of each rune, { x0, y0, x1, y1 } in a unit box (y up the rune)
 		Glyphs = {
 			{ { -0.2, -0.5, -0.2, 0.5 }, { -0.2, 0.1, 0.25, 0.4 }, { -0.2, -0.15, 0.25, 0.15 } }, -- fehu
 			{ { -0.25, -0.5, -0.25, 0.5 }, { -0.25, 0.5, 0.25, 0.2 }, { 0.25, 0.2, 0.25, -0.5 } }, -- uruz
@@ -635,14 +680,16 @@ local Vfx = {
 			{ { 0.2, 0.5, -0.2, 0.15 }, { -0.2, 0.15, 0.2, -0.15 }, { 0.2, -0.15, -0.2, -0.5 } }, -- sowilo
 			{ { 0, 0.4, 0.3, 0 }, { 0.3, 0, 0, -0.4 }, { 0, -0.4, -0.3, 0 }, { -0.3, 0, 0, 0.4 } }, -- ingwaz
 		},
-		-- static crackling between the runes while they burn: `arcs` arcs of `segments`, wandering `jag` studs, `width`
-		-- wide, `lift` up, redrawn every `refresh` s, each shown `on` of the time; a light flickering up to `light`
+		-- Static between the runes (user: "random, but connected with the runes"): `arcs` arcs of `segments`, each
+		-- redrawn every `refresh` s between a random showing rune and another within `reach` x D (or down to the ground
+		-- under it when none is near), wandering `jag` studs, `width` wide, shown `on` of the time; a light flickering
+		-- up to `light` over `range` x the runes' spread
 		Static = {
 			arcs = { 1, 4 },
 			segments = 5,
+			reach = 0.5,
 			jag = 0.7,
 			width = 0.14,
-			lift = 0.3,
 			refresh = 0.07,
 			on = 0.6,
 			brightness = 6,
