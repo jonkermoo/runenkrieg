@@ -549,44 +549,57 @@ local Vfx = {
 			jitter = 0.18,
 			inner = 0.9,
 			toward = 0.14,
+			-- a crumbling ball dissolves into `puffs` puffs of dark smoke (its body colour), `puff` x its size across
+			-- growing x `grow2`, rising `rising` x its size a second, living `puffLife` s
+			puffs = 4,
+			puff = 0.55,
+			grow2 = 1.8,
+			rising = 0.4,
+			puffLife = { 0.8, 1.6 },
 		},
-		-- Grey smoke mixed in (user: "more variety of gray smoke that appears with the colored smoke"): `share` as many
-		-- balls as the dome, flat SmoothPlastic in the `shades` (Palette.Magic) at random, each `size` x D across, placed
-		-- over the dome's upper half (`low`..1 of its height, `spread` x D out), appearing from `from` of the dome's life
-		-- over `appear` s (staggered), rolling up `rise` x D a second, swelling to `swell` x, drifting on the `wind`
-		-- (studs/s), living `life` s and thinning over its last `fade` share.
+		-- Grey smoke mixed in (user: "more variety of gray smoke that appears with the colored smoke"; then "for smoke
+		-- and other effects, can we use actual effects and not blocks?"): Roblox's smoke texture, lit by the scene, one
+		-- emitter per shade in `shades` (Palette.Magic), `count` puffs between them, from a box over the dome's upper half
+		-- (`low`..1 of its height, `spread` x D wide), let out over `appear` s from `from` of the dome's life; each
+		-- growing from `size[1]` to `size[2]` x D, rising `rise` x D a second (slowed by `drag`), drifting on the `wind`
+		-- (studs/s^2), turning up to `spin` degrees/s, `thick` (transparency) after fading in over `fadeIn`, living
+		-- `life` s (x 0.75..1) and thinning over its last `fade` share.
 		Smoke = {
-			share = 0.8,
 			shades = { "Smoke", "Ash", "SmokeDark", "Soot" },
-			size = { 0.28, 0.45 },
-			low = 0.4,
-			spread = 0.5,
+			count = { 8, 40 },
+			low = 0.3,
+			spread = 0.9,
 			from = 0.2,
 			appear = 0.6,
-			rise = { 0.06, 0.04 },
-			swell = 1.6,
+			size = { 0.3, 0.75 },
+			rise = { 0.08, 0.05 },
+			drag = 0.4,
 			wind = { 1.2, 0.3, 0.5 },
-			life = { 2, 8 },
+			spin = 20,
+			thick = 0.15,
+			fadeIn = 0.1,
 			fade = 0.55,
+			life = { 2, 8 },
 		},
-		-- Clods of the ground (the hit thing's colour, else what's under the blast, else `dirt`), shaded x `shade`:
-		-- `perStud` a stud of D (`min`..`max`), `size` x D^`sizePow` studs, thrown at `speed` x D^0.5 studs/s (at most
-		-- `fastest`), `up` share upward, tumbling, falling under `gravity`; landed ones `rest` s then shrink away over `sink`.
+		-- Dirt thrown up (user: "not blocks"): soft clumps of the ground (the hit thing's colour, else what's under the
+		-- blast, else `dirt`) in two shades x `shade`, `perStud` a stud of D (`min`..`max`), `size` x D^`sizePow` studs,
+		-- thrown at `speed` x D^0.5 studs/s (at most `fastest`) within `spread` degrees of straight up, falling under
+		-- `gravity`, living about as long as their flight back down x `airtime`, then fading over their last `fade`.
 		Clods = {
-			perStud = 1.1,
-			min = 6,
-			max = 36,
-			size = { 0.18, 0.5 },
+			perStud = 1.4,
+			min = 8,
+			max = 50,
+			size = { 0.3, 0.7 },
 			sizePow = 0.35,
 			speed = { 5, 12 },
 			fastest = 70,
-			up = 0.75,
+			spread = 40,
 			gravity = 80,
-			spin = 10,
-			rest = 1.2,
-			sink = 0.5,
+			airtime = 0.95,
+			fade = 0.25,
+			spin = 90,
 			dirt = "Mud", -- Palette.Terrain
-			shade = { 0.75, 1.05 },
+			shade = { 0.7, 1.0 },
 		},
 		-- Fine dirt raining out of the cloud (the clip's falling flakes, made realistic): dark specks of the clods'
 		-- colour x `shade`, from a box over the cloud, `rate` x D a second (at most `max`) from `from` of the dome's
@@ -666,6 +679,11 @@ local Vfx = {
 			fade = 0.4,
 			life = { 1.8, 8 },
 			flicker = 0.3,
+			-- drawn as camera-facing beams (user: "not blocks"): a soft halo `halo` x the stroke wide at `haloSee`
+			-- (transparency) round a solid line, `brightness` (Beam: above ~3 washes to white)
+			halo = 2.6,
+			haloSee = 0.55,
+			brightness = 2,
 		},
 		-- Strokes of each rune, { x0, y0, x1, y1 } in a unit box (y up the rune)
 		Glyphs = {

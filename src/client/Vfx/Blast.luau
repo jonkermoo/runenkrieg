@@ -1,14 +1,16 @@
 --!strict
 -- Every explosion (Config/Vfx.Blast; user 2026-10-25, with a stylised explosion clip, then a second round: "i liked
 -- the inital blast orb", "more variety of gray smoke", runes that "float and fade", grenades "exaggerate it a bit
--- more"). Two looks:
--- - the pop (grenades): a flash, a small hot orb, sparks, a brown dust puff and a faint dust ring, clods of the ground;
+-- more"; then "for the actual explosion, we can use the orbs. but for smoke and other effects ... not blocks"). Two
+-- looks:
+-- - the pop (grenades): a flash, a small hot orb, sparks, a brown dust puff and a faint dust ring, dirt thrown up;
 -- - the cluster (the staff's stages, shells): a white flash and spikes, sparks, ground rings, the orb sitting on the
---   hit inside a low dome of round balls that burn, cool dark with a glowing rim and crumble into falling dirt; grey
---   smoke balls of several shades rolling up and drifting off; clods thrown up and settling, dust round the foot.
---   Magic keeps the cast's colours and leaves runes floating up off the ground and fading, with static crackling
---   between them. Taller and longer with the blast's strength.
--- Sized by a staff stage, or by a charge in kg (its real fireball). Pooled pieces, one Driver step per explosion.
+--   hit inside a low dome of round balls that burn, cool dark with a glowing rim and dissolve into dark smoke and
+--   falling dirt; grey smoke of several shades rolling up and drifting off; dirt thrown up, dust round the foot.
+--   Magic keeps the cast's colours and leaves runes (glowing beam lines) floating up off the ground and fading, with
+--   static crackling between them. Taller and longer with the blast's strength.
+-- The orb and the balls are parts; smoke, dirt and dust are particles. Sized by a staff stage, or by a charge in kg
+-- (its real fireball). Pooled pieces, one Driver step per explosion.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -33,7 +35,7 @@ local Blast = {}
 export type Opts = {
 	scheme: string?, -- Config/Vfx.Schemes (default: Ray's)
 	normal: Vector3?, -- the surface's normal (default up)
-	debrisColor: Color3?, -- what was hit: the clods take its colour
+	debrisColor: Color3?, -- what was hit: the dirt takes its colour
 	stage: number?, -- a staff stage 1..3 (default 1): Config/Vfx.Blast.Stages
 	kg: number?, -- or a charge of this many kg of TNT: sized as its real fireball (Config/Vfx.Blast.Charge)
 	magic: boolean?, -- a charge with the magic glint, spikes and runes (default: a plain explosion; a stage is magic)
@@ -52,11 +54,9 @@ type Ball = {
 	size: number,
 	start: number,
 	shift: number,
-	flaked: boolean,
+	crumbled: boolean,
 }
-type Puff = { part: Part, at: Vector3, size: number, start: number, life: number }
-type Clod = { part: Part, p0: Vector3, v: Vector3, spin: Vector3, size: Vector3, floor: number?, landed: number? }
-type Stroke = { part: Part, offset: CFrame }
+type Stroke = { a0: Attachment, a1: Attachment, halo: Beam, line: Beam, p0: Vector3, p1: Vector3 }
 type Rune = {
 	strokes: { Stroke },
 	at: Vector3,
@@ -115,12 +115,33 @@ local function emitter(cf: CFrame, box: Vector3): ParticleEmitter
 	return e
 end
 
+-- a smoke-textured emitter lit by the scene (smoke, dust, dirt)
+local function smoky(cf: CFrame, box: Vector3, color: Color3): ParticleEmitter
+	local e = emitter(cf, box)
+	e.Texture = SMOKE
+	e.Color = ColorSequence.new(color)
+	e.LightEmission = 0
+	e.LightInfluence = 1
+	e.Rotation = NumberRange.new(0, 360)
+	return e
+end
+
 local function freeEmitter(e: ParticleEmitter)
 	-- (the pool's defaults for the other effects)
 	e.LightInfluence = 0
 	e.Shape = Enum.ParticleEmitterShape.Box
 	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
 	Pool.freeEmitter(e)
+end
+
+-- fades in over `fadeIn`, holds at `thick`, thins over the last `fade`
+local function puffy(thick: number, fadeIn: number, fade: number): NumberSequence
+	return NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(fadeIn, thick),
+		NumberSequenceKeypoint.new(math.max(1 - fade, fadeIn + 0.01), thick),
+		NumberSequenceKeypoint.new(1, 1),
+	})
 end
 
 -- the colour of what's under the blast (else the hit thing's, else plain mud)
@@ -177,8 +198,11 @@ local function dust(
 ): ParticleEmitter
 	local du = Cfg.Dust
 	local root = math.sqrt(d)
-	local e = emitter(CFrame.new(pos + normal * d * 0.05), Vector3.new(d * 0.3, 0.2, d * 0.3))
-	e.Texture = SMOKE
+	local e = smoky(
+		CFrame.new(pos + normal * d * 0.05),
+		Vector3.new(d * 0.3, 0.2, d * 0.3),
+		dirt:Lerp(Color3.new(1, 1, 1), du.light)
+	)
 	e.Speed = NumberRange.new(du.speed[1] * root, du.speed[2] * root)
 	e.Lifetime = NumberRange.new(du.life[1] * longer, du.life[2] * longer)
 	e.SpreadAngle = Vector2.new(du.spread, du.spread)
@@ -187,79 +211,52 @@ local function dust(
 		NumberSequenceKeypoint.new(0, d * du.size[1] * big),
 		NumberSequenceKeypoint.new(1, d * du.size[2] * big),
 	})
-	e.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(du.fadeIn, du.thick),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	e.Color = ColorSequence.new(dirt:Lerp(Color3.new(1, 1, 1), du.light))
-	e.LightEmission = 0
-	e.LightInfluence = 1
-	e.Rotation = NumberRange.new(0, 360)
+	e.Transparency = puffy(du.thick, du.fadeIn, 1 - du.fadeIn)
 	e.RotSpeed = NumberRange.new(-du.spin, du.spin)
 	e:Emit(math.clamp(math.round(du.count * root * k), 2, du.max))
 	return e
 end
 
--- clods of the ground thrown up (`k` x the count, `fast` x the speed); they tumble, land and sink away
-local function clods(pos: Vector3, normal: Vector3, d: number, dirt: Color3, k: number, fast: number): { Clod }
+-- dirt thrown up from the hit (`k` x the count, `fast` x the speed): soft clumps in two shades, falling back and
+-- fading about as they land; returns the emitters and how long they last
+local function dirtUp(
+	pos: Vector3,
+	normal: Vector3,
+	d: number,
+	dirt: Color3,
+	k: number,
+	fast: number
+): ({ ParticleEmitter }, number)
 	local cl = Cfg.Clods
-	local floor = if normal.Y > 0.5 then pos.Y else nil
-	local list: { Clod } = {}
-	local scale = d ^ cl.sizePow
-	for _ = 1, math.clamp(math.round(cl.perStud * d * k), cl.min, cl.max) do
-		local dir = (normal * cl.up + rng:NextUnitVector() * (1 - cl.up)).Unit
-		local size = Vector3.new(between(cl.size), between(cl.size), between(cl.size)) * scale
-		table.insert(list, {
-			part = Pool.part(
-				Enum.PartType.Block,
-				shaded(dirt, between(cl.shade)),
-				size,
-				CFrame.new(pos),
-				0,
-				Enum.Material.SmoothPlastic
-			),
-			p0 = pos + normal * 0.3,
-			v = dir * math.min(between(cl.speed) * math.sqrt(d) * fast, cl.fastest),
-			spin = rng:NextUnitVector() * cl.spin,
-			size = size,
-			floor = floor,
+	local root = math.sqrt(d)
+	local lo = math.min(cl.speed[1] * root * fast, cl.fastest)
+	local hi = math.min(cl.speed[2] * root * fast, cl.fastest)
+	local size = d ^ cl.sizePow
+	local n = math.clamp(math.round(cl.perStud * d * k), cl.min, cl.max)
+	local list: { ParticleEmitter } = {}
+	local side = across(normal)
+	local up = CFrame.fromMatrix(pos + normal * 0.3, side, normal) -- the emitter's top faces along the normal
+	for i, shade in cl.shade do
+		local e = smoky(up, Vector3.new(d * 0.15, 0.2, d * 0.15), shaded(dirt, shade))
+		e.Speed = NumberRange.new(lo, hi)
+		e.SpreadAngle = Vector2.new(cl.spread, cl.spread)
+		e.Acceleration = Vector3.new(0, -cl.gravity, 0)
+		e.Lifetime = NumberRange.new(2 * lo / cl.gravity * cl.airtime, 2 * hi / cl.gravity * cl.airtime)
+		e.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, cl.size[2] * size),
+			NumberSequenceKeypoint.new(1, cl.size[1] * size),
 		})
+		e.Transparency = puffy(0, 0.02, cl.fade)
+		e.RotSpeed = NumberRange.new(-cl.spin, cl.spin)
+		e:Emit(math.max(math.round(n / #cl.shade), 1) + (if i == 1 then n % #cl.shade else 0))
+		table.insert(list, e)
 	end
-	return list
+	return list, 2 * hi / cl.gravity
 end
 
--- moves the clods; true while any is still showing
-local function moveClods(list: { Clod }, t: number): boolean
-	local cl = Cfg.Clods
-	local any = false
-	for _, c in list do
-		local tt = if c.landed then c.landed else t
-		local p = c.p0 + c.v * tt + Vector3.new(0, -0.5 * cl.gravity * tt * tt, 0)
-		local floor = c.floor
-		if floor and not c.landed and tt > 0.05 and p.Y < floor + c.size.Y / 2 then
-			c.landed = t
-		end
-		if floor and c.landed then
-			p = Vector3.new(p.X, floor + c.size.Y / 2, p.Z)
-		end
-		local r = c.spin * tt
-		local gone = if c.landed then math.clamp((t - c.landed - cl.rest) / cl.sink, 0, 1) else 0
-		-- no floor (a wall): it falls until its time is up
-		if not floor and t > cl.rest * 2 then
-			gone = math.clamp((t - cl.rest * 2) / cl.sink, 0, 1)
-		end
-		c.part.CFrame = CFrame.new(p) * CFrame.Angles(r.X, r.Y, r.Z)
-		c.part.Size = c.size * math.max(1 - gone, 0.01)
-		c.part.Transparency = if gone >= 1 then 1 else 0
-		any = any or gone < 1
-	end
-	return any
-end
-
-local function freeClods(list: { Clod })
-	for _, c in list do
-		Pool.freePart(c.part)
+local function freeAll(list: { ParticleEmitter })
+	for _, e in list do
+		freeEmitter(e)
 	end
 end
 
@@ -274,32 +271,39 @@ local function pop(pos: Vector3, normal: Vector3, d: number, s: any, dirt: Color
 	local sp = sparks(pos, d, P.sparks * d, P.sparkLife, hot, fire)
 	local du = dust(pos, normal, d, dirt, P.dust, P.dustSize, P.dustLife)
 	-- the faint dust ring racing out flat
-	local ring = emitter(CFrame.new(pos + normal * 0.3), Vector3.new(d * 0.2, 0.1, d * 0.2))
+	local D = Cfg.Dust
+	local ring = smoky(
+		CFrame.new(pos + normal * 0.3),
+		Vector3.new(d * 0.2, 0.1, d * 0.2),
+		dirt:Lerp(Color3.new(1, 1, 1), D.light)
+	)
 	ring.Shape = Enum.ParticleEmitterShape.Cylinder
 	ring.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
-	ring.Texture = SMOKE
 	ring.Speed = NumberRange.new(P.ringSpeed * math.sqrt(d) * 0.8, P.ringSpeed * math.sqrt(d))
-	ring.Drag = Cfg.Dust.drag
-	ring.Lifetime = NumberRange.new(Cfg.Dust.life[1], Cfg.Dust.life[2])
+	ring.Drag = D.drag
+	ring.Lifetime = NumberRange.new(D.life[1], D.life[2])
 	ring.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, d * Cfg.Dust.size[1]),
-		NumberSequenceKeypoint.new(1, d * Cfg.Dust.size[2]),
+		NumberSequenceKeypoint.new(0, d * D.size[1]),
+		NumberSequenceKeypoint.new(1, d * D.size[2]),
 	})
-	ring.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(Cfg.Dust.fadeIn, (1 + Cfg.Dust.thick) / 2),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	ring.Color = ColorSequence.new(dirt:Lerp(Color3.new(1, 1, 1), Cfg.Dust.light))
-	ring.LightEmission = 0
-	ring.LightInfluence = 1
-	ring.Rotation = NumberRange.new(0, 360)
+	ring.Transparency = puffy((1 + D.thick) / 2, D.fadeIn, 1 - D.fadeIn)
 	ring:Emit(P.ring)
-	local thrown = clods(pos, normal, d, dirt, P.clods, P.throw)
-	local cl = Cfg.Clods
-	local total = math.max(P.light, P.orbLife, P.sparkLife[2], Cfg.Dust.life[2] * P.dustLife)
+	local thrown, flight = dirtUp(pos, normal, d, dirt, P.clods, P.throw)
+	local total = math.max(P.light, P.orbLife, P.sparkLife[2], D.life[2] * P.dustLife, flight)
 	Driver.add(function(now: number): boolean
 		local t = now - now0
+		if t >= total then
+			Pool.freePart(flash)
+			Pool.freePart(orb)
+			if light then
+				Pool.freeLight(light)
+			end
+			freeEmitter(sp)
+			freeEmitter(du)
+			freeEmitter(ring)
+			freeAll(thrown)
+			return false
+		end
 		local a = math.min(t / P.time, 1)
 		flash.Size = Vector3.one * math.max(d * P.flash * ease(a * 1.6), 0.05)
 		flash.Transparency = a
@@ -309,19 +313,6 @@ local function pop(pos: Vector3, normal: Vector3, d: number, s: any, dirt: Color
 		orb.Transparency = o ^ 2
 		if light then
 			light.Brightness = P.brightness * (1 - math.min(t / P.light, 1)) ^ 2
-		end
-		local showing = moveClods(thrown, t)
-		if t >= total and (not showing or t > total + cl.rest * 3) then
-			Pool.freePart(flash)
-			Pool.freePart(orb)
-			if light then
-				Pool.freeLight(light)
-			end
-			freeEmitter(sp)
-			freeEmitter(du)
-			freeEmitter(ring)
-			freeClods(thrown)
-			return false
 		end
 		return true
 	end)
@@ -348,12 +339,14 @@ local function runes(pos: Vector3, normal: Vector3, d: number, strength: number,
 			* CFrame.Angles(math.rad(rng:NextNumber(-R.tilt, R.tilt)), 0, 0)
 		local strokes: { Stroke } = {}
 		for _, st in Cfg.Glyphs[rng:NextInteger(1, #Cfg.Glyphs)] do
-			local p0 = Vector3.new(st[1], 0, -st[2]) * size
-			local p1 = Vector3.new(st[3], 0, -st[4]) * size
-			local length = (p1 - p0).Magnitude + line
+			local a0, a1 = Pool.att(at), Pool.att(at)
 			table.insert(strokes, {
-				part = Pool.part(Enum.PartType.Block, glow, Vector3.new(line, line * 0.4, length), CFrame.new(at), 1),
-				offset = CFrame.lookAt((p0 + p1) / 2, p1, Vector3.yAxis),
+				a0 = a0,
+				a1 = a1,
+				halo = Pool.beam(a0, a1, glow, line * R.halo, line * R.halo, 1, R.brightness, 0.6),
+				line = Pool.beam(a0, a1, glow, line, line, 1, R.brightness),
+				p0 = Vector3.new(st[1], 0, -st[2]) * size,
+				p1 = Vector3.new(st[3], 0, -st[4]) * size,
 			})
 		end
 		table.insert(list, {
@@ -386,7 +379,10 @@ local function runes(pos: Vector3, normal: Vector3, d: number, strength: number,
 		if t >= total then
 			for _, r in list do
 				for _, st in r.strokes do
-					Pool.freePart(st.part)
+					Pool.freeBeam(st.halo)
+					Pool.freeBeam(st.line)
+					Pool.freeAtt(st.a0)
+					Pool.freeAtt(st.a1)
 				end
 			end
 			for _, a in arcs do
@@ -402,20 +398,28 @@ local function runes(pos: Vector3, normal: Vector3, d: number, strength: number,
 		for _, r in list do
 			local rt = t - r.start
 			local u = rt / r.life
+			local was = r.show
 			r.show = if rt <= 0 or u >= 1
 				then 0
 				else math.min(rt / R.appear, 1) * (1 - math.clamp((u - (1 - R.fade)) / R.fade, 0, 1))
 			if r.show <= 0 then
-				for _, st in r.strokes do
-					st.part.Transparency = 1
+				if was > 0 then
+					for _, st in r.strokes do
+						st.halo.Enabled, st.line.Enabled = false, false
+					end
 				end
 				continue
 			end
 			r.now = r.at + normal * r.float * rt
 			local cf = CFrame.new(r.now) * r.turn * CFrame.Angles(0, r.spin * rt, 0)
+			local see = 1 - r.show * (1 - R.flicker * rng:NextNumber())
+			local seq = NumberSequence.new(see)
+			local haloSeq = NumberSequence.new(R.haloSee + (1 - R.haloSee) * see)
 			for _, st in r.strokes do
-				st.part.CFrame = cf * st.offset
-				st.part.Transparency = 1 - r.show * (1 - R.flicker * rng:NextNumber())
+				st.a0.Position = cf * st.p0
+				st.a1.Position = cf * st.p1
+				st.line.Transparency = seq
+				st.halo.Transparency = haloSeq
 			end
 			if r.show > 0.3 then
 				table.insert(live, r)
@@ -532,44 +536,54 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			size = size,
 			start = f * stagger,
 			shift = rng:NextNumber(-C.jitter, C.jitter),
-			flaked = false,
+			crumbled = false,
 		})
 	end
 
-	-- grey smoke of several shades over the dome, rolling up and drifting off
+	-- grey smoke of several shades over the dome, rolling up and drifting off: one emitter per shade
 	local SM = Cfg.Smoke
 	local smokeLife = lerp(SM.life[1], SM.life[2], strength)
 	local smokeRise = d * lerp(SM.rise[1], SM.rise[2], strength)
-	local wind = Vector3.new(SM.wind[1], SM.wind[2], SM.wind[3])
-	local puffs: { Puff } = {}
-	local m = math.max(math.round(n * SM.share), 2)
-	for i = 1, m do
-		local a = rng:NextNumber(0, 2 * math.pi)
-		local r = SM.spread * d * math.sqrt(rng:NextNumber())
-		local up = tall * rng:NextNumber(SM.low, 1) + d * 0.2
-		local shade = Util.color(SM.shades[rng:NextInteger(1, #SM.shades)])
-		table.insert(puffs, {
-			part = Pool.part(
-				Enum.PartType.Ball,
-				shade,
-				Vector3.one * 0.05,
-				CFrame.new(orbAt),
-				1,
-				Enum.Material.SmoothPlastic
-			),
-			at = pos + (side * math.cos(a) + other * math.sin(a)) * r + normal * up,
-			size = d * between(SM.size),
-			start = SM.from * life + (i - 1) / m * SM.appear,
-			life = smokeLife * rng:NextNumber(0.75, 1),
+	local smokeCount = math.round(lerp(SM.count[1], SM.count[2], strength))
+	local smokeBox = CFrame.new(pos + normal * tall * (1 + SM.low) / 2 + normal * d * 0.2)
+	local smokes: { ParticleEmitter } = {}
+	for _, shade in SM.shades do
+		local e = smoky(
+			smokeBox,
+			Vector3.new(SM.spread * d, math.max(tall * (1 - SM.low), 1), SM.spread * d),
+			Util.color(shade)
+		)
+		e.Speed = NumberRange.new(smokeRise * 0.6, smokeRise * 1.4)
+		e.SpreadAngle = Vector2.new(25, 25)
+		e.Drag = SM.drag
+		e.Acceleration = Vector3.new(SM.wind[1], SM.wind[2], SM.wind[3])
+		e.Lifetime = NumberRange.new(smokeLife * 0.75, smokeLife)
+		e.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, d * SM.size[1]),
+			NumberSequenceKeypoint.new(1, d * SM.size[2]),
 		})
+		e.Transparency = puffy(SM.thick, SM.fadeIn, SM.fade)
+		e.RotSpeed = NumberRange.new(-SM.spin, SM.spin)
+		table.insert(smokes, e)
+	end
+	-- let out a few at a time over `appear` s
+	local smokeSteps = math.max(math.ceil(smokeCount / #smokes), 1)
+	for k = 1, smokeSteps do
+		task.delay(SM.from * life + (k - 1) / smokeSteps * SM.appear, function()
+			for _, e in smokes do
+				e:Emit(1)
+			end
+		end)
 	end
 
-	-- fine dirt raining out of the cloud, and the flakes of the crumbling balls
+	-- fine dirt raining out of the cloud
 	local R = Cfg.Rain
 	local footprint = C.spread * d * 2
-	local rain =
-		emitter(CFrame.new(pos + normal * tall * 0.7), Vector3.new(footprint, math.max(tall * 0.5, 1), footprint))
-	rain.Texture = SMOKE
+	local rain = smoky(
+		CFrame.new(pos + normal * tall * 0.7),
+		Vector3.new(footprint, math.max(tall * 0.5, 1), footprint),
+		shaded(dirt, R.shade)
+	)
 	rain.Speed = NumberRange.new(0, 1)
 	rain.SpreadAngle = Vector2.new(180, 180)
 	rain.Lifetime = NumberRange.new(R.life[1], R.life[2])
@@ -578,13 +592,9 @@ function Blast.play(pos: Vector3, opts: Opts?)
 		NumberSequenceKeypoint.new(0, R.size[2]),
 		NumberSequenceKeypoint.new(1, R.size[1]),
 	})
-	rain.Color = ColorSequence.new(shaded(dirt, R.shade))
-	rain.LightEmission = 0
-	rain.LightInfluence = 1
-	rain.Rotation = NumberRange.new(0, 360)
 	rain.Rate = math.min(R.rate * d, R.max)
-	local flakes = emitter(CFrame.new(pos), Vector3.one * 0.5)
-	flakes.Texture = SMOKE
+	-- the balls dissolving: dark smoke puffs and dirt flakes where each crumbles
+	local flakes = smoky(CFrame.new(pos), Vector3.one * 0.5, dark)
 	flakes.Speed = NumberRange.new(0, 2)
 	flakes.SpreadAngle = Vector2.new(180, 180)
 	flakes.Lifetime = NumberRange.new(R.life[1], R.life[2])
@@ -593,13 +603,17 @@ function Blast.play(pos: Vector3, opts: Opts?)
 		NumberSequenceKeypoint.new(0, R.size[2] * 1.5),
 		NumberSequenceKeypoint.new(1, R.size[1]),
 	})
-	flakes.Color = ColorSequence.new(dark)
-	flakes.LightEmission = 0
-	flakes.Rotation = NumberRange.new(0, 360)
+	flakes.LightInfluence = 0
+	local puffs = smoky(CFrame.new(pos), Vector3.one * 0.5, dark)
+	puffs.SpreadAngle = Vector2.new(180, 180)
+	puffs.Lifetime = NumberRange.new(C.puffLife[1], C.puffLife[2])
+	puffs.Transparency = puffy(0.1, 0.05, 0.6)
+	puffs.RotSpeed = NumberRange.new(-SM.spin, SM.spin)
+	puffs.LightInfluence = 0
 
 	local longer = lerp(1, Cfg.Dust.longer, strength)
 	local du = dust(pos, normal, d, dirt, 1, 1, longer)
-	local thrown = clods(pos, normal, d, dirt, 1, 1)
+	local thrown, flight = dirtUp(pos, normal, d, dirt, 1, 1)
 	if magic then
 		task.delay(Cfg.Runes.delay, runes, pos, normal, d, strength, s)
 	end
@@ -609,16 +623,16 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local total = math.max(
 		F.light,
 		orbEnd,
-		stagger + life + C.grow,
+		stagger + life + C.grow + C.puffLife[2],
 		SM.from * life + SM.appear + smokeLife,
 		sp.life[2],
 		rainOff + R.life[2],
-		Cfg.Dust.life[2] * longer
+		Cfg.Dust.life[2] * longer,
+		flight
 	)
 	Driver.add(function(now: number): boolean
 		local t = now - now0
-		local showing = moveClods(thrown, t)
-		if t >= total and (not showing or t > total + Cfg.Clods.rest * 3) then
+		if t >= total then
 			Pool.freePart(flash)
 			Pool.freePart(orb)
 			Pool.freePart(core)
@@ -629,14 +643,13 @@ function Blast.play(pos: Vector3, opts: Opts?)
 				Pool.freePart(b.rim)
 				Pool.freePart(b.body)
 			end
-			for _, p in puffs do
-				Pool.freePart(p.part)
-			end
+			freeAll(smokes)
+			freeAll(thrown)
 			freeEmitter(sparked)
 			freeEmitter(rain)
 			freeEmitter(flakes)
+			freeEmitter(puffs)
 			freeEmitter(du)
-			freeClods(thrown)
 			return false
 		end
 		local fa = math.min(t / F.time, 1)
@@ -668,7 +681,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			local u = math.clamp(bt / life + b.shift, 0, 1)
 			local out = ease(bt / C.grow)
 			local at = b.from:Lerp(b.at, out) + Vector3.yAxis * rise * bt
-			-- white-hot, burning, the body cooling dark inside a glowing rim, the rim dimming, then crumbling away
+			-- white-hot, burning, the body cooling dark inside a glowing rim, the rim dimming, then dissolving away
 			local rimColor, bodyColor
 			if u < C.hot then
 				rimColor = hot:Lerp(fire, u / C.hot)
@@ -683,12 +696,20 @@ function Blast.play(pos: Vector3, opts: Opts?)
 				bodyColor = dark
 			end
 			local gone = math.clamp((u - C.crumble) / (1 - C.crumble), 0, 1)
-			if gone > 0 and not b.flaked then
-				b.flaked = true
-				local box = flakes.Parent :: Part
-				box.CFrame = CFrame.new(at)
-				box.Size = Vector3.one * b.size * 0.7
+			if gone > 0 and not b.crumbled then
+				b.crumbled = true
+				for _, e in { flakes, puffs } do
+					local box = e.Parent :: Part
+					box.CFrame = CFrame.new(at)
+					box.Size = Vector3.one * b.size * 0.6
+				end
 				flakes:Emit(R.flakes)
+				puffs.Speed = NumberRange.new(b.size * C.rising * 0.5, b.size * C.rising)
+				puffs.Size = NumberSequence.new({
+					NumberSequenceKeypoint.new(0, b.size * C.puff),
+					NumberSequenceKeypoint.new(1, b.size * C.puff * C.grow2),
+				})
+				puffs:Emit(C.puffs)
 			end
 			local size = math.max(b.size * (0.35 + 0.65 * out) * (1 - gone ^ 2), 0.05)
 			local see = if gone >= 1 then 1 else gone * 0.5
@@ -702,20 +723,6 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			b.body.CFrame = CFrame.new(at + toEye * C.toward * size / 2)
 			b.body.Color = bodyColor
 			b.body.Transparency = see
-		end
-
-		-- the grey smoke: pops out of the dome, rolls up, swells, drifts and thins
-		for _, p in puffs do
-			local pt = t - p.start
-			if pt <= 0 then
-				continue
-			end
-			local u = math.min(pt / p.life, 1)
-			local out = ease(pt / C.grow)
-			local fade = math.clamp((u - (1 - SM.fade)) / SM.fade, 0, 1)
-			p.part.Size = Vector3.one * math.max(p.size * out * (1 + (SM.swell - 1) * u), 0.05)
-			p.part.CFrame = CFrame.new(orbAt:Lerp(p.at, out) + normal * smokeRise * pt + wind * pt)
-			p.part.Transparency = if u >= 1 then 1 else fade
 		end
 		return true
 	end)
