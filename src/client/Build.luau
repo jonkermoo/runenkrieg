@@ -977,6 +977,16 @@ function Build.start()
 		panel.set(state, title, line, keys)
 		local lit = if active and piece().kind ~= "Trench" then nil else focus
 		if glow.Adornee ~= lit then
+			-- a staked-out square's cords take the light's green too (a Highlight doesn't draw Beams), back after
+			for _, m in { glow.Adornee, lit } do
+				local marks = m and m:FindFirstChild("Markers")
+				for _, cord in (if marks then marks:GetChildren() else {}) do
+					if cord:IsA("Beam") then
+						cord.Color =
+							ColorSequence.new(rgb(if m == lit then Palette.Build.FocusPlan else Palette.Build.String))
+					end
+				end
+			end
 			glow.Adornee = lit
 		end
 		if lit then

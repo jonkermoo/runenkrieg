@@ -266,7 +266,7 @@ local function markers(blk: Block)
 	holder.Name = "Markers"
 	holder.Parent = m
 	local M = T.markers
-	local tops: { Attachment } = {}
+	local stakes: { BasePart } = {}
 	for _, c in { { 0, -TOP }, { blk.length, -TOP }, { blk.length, TOP }, { 0, TOP } } do
 		local g = at(blk, c[1], c[2])
 		local hit = workspace:Raycast(g + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), terrainOnly)
@@ -287,17 +287,23 @@ local function markers(blk: Block)
 			rgb(Palette.Build.PegTop),
 			false
 		)
-		-- the cord's end, tied round the stake just under its painted top (not through it, user 2026-10-25: "some
-		-- clipping issues with the wire and stick"): its axis down, so each Beam's curve sags (CurveSize0 down from one
-		-- end, CurveSize1 from the other)
+		table.insert(stakes, stake)
+	end
+	-- a cord's end, tied on the side of the stake it leaves from, just under the painted top (not through the stake,
+	-- user 2026-10-25: "some clipping issues with the wire and stick"): its axis down, so each Beam's curve sags
+	-- (CurveSize0 down from one end, CurveSize1 from the other)
+	local function tie(stake: BasePart, toward: BasePart): Attachment
+		local flat = Vector3.new(toward.Position.X - stake.Position.X, 0, toward.Position.Z - stake.Position.Z)
+		local side = if flat.Magnitude > 1e-3 then flat.Unit * (M.peg[1] / 2 + M.string / 2) else Vector3.zero
 		local a = Instance.new("Attachment")
-		a.Position = Vector3.new(0, M.peg[2] / 2 - M.top - 0.08, 0)
+		a.Position = Vector3.new(side.X, M.peg[2] / 2 - M.top - 0.08, side.Z)
 		a.Axis, a.SecondaryAxis = Vector3.new(0, -1, 0), Vector3.new(1, 0, 0)
 		a.Parent = stake
-		table.insert(tops, a)
+		return a
 	end
 	for i = 1, 4 do
-		local a0, a1 = tops[i], tops[i % 4 + 1]
+		local s0, s1 = stakes[i], stakes[i % 4 + 1]
+		local a0, a1 = tie(s0, s1), tie(s1, s0)
 		local sag = M.sag * (a1.WorldPosition - a0.WorldPosition).Magnitude
 		local cord = Instance.new("Beam")
 		cord.Name = "String"
