@@ -227,7 +227,6 @@ function Ground.start(isTrench: (string) -> boolean, near: ((Vector3, number) ->
 			task.wait(r.tick)
 			local now = os.clock()
 			local left = r.budget
-			local perfT0 = os.clock()
 			local i = 1
 			while i <= #craters and left > 0 do
 				local k = craters[i]
@@ -243,10 +242,6 @@ function Ground.start(isTrench: (string) -> boolean, near: ((Vector3, number) ->
 					end
 					i += 1
 				end
-			end
-			local perfMs = (os.clock() - perfT0) * 1000
-			if perfMs > 4 then
-				print(`[Perf] refill {math.round(perfMs)}ms craters={#craters} voxels={r.budget - left}`)
 			end
 		end
 	end)

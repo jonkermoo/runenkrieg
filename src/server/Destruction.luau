@@ -323,9 +323,7 @@ local function settleLater(building: Model, origin: Vector3)
 	unsettled[building] = origin
 	task.defer(function()
 		unsettled[building] = nil
-		local perfT0 = os.clock()
 		dropUnsupported(building, origin)
-		print(`[Perf] settle {building.Name} {math.round((os.clock() - perfT0) * 1000)}ms`)
 	end)
 end
 
