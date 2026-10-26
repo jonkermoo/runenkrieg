@@ -3,7 +3,8 @@
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
 -- god mode), Grenades (give yourself a full count of one), World (the range's test shooters, undo destruction) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
--- weather off / on); Time and Weather are for everyone (src/server/Environment).
+-- weather off / on); Time and Weather are for everyone (src/server/Environment). Last the Cinematic rows for filming
+-- (src/client/DevCinematic): one switch hides every item, a row per item. Settings Key_AdminPanel (F2) opens / closes it.
 -- Client only: the client owns its character's physics, so it flies and speeds up its own character. Only shown when
 -- the server marked this player with the DevTools attribute.
 -- - Speed: sets the Player's DevSpeed attribute; src/client/Stance multiplies every walk speed by it.
@@ -24,6 +25,8 @@ local W = require(Shared.Config.Weapons)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local DevPanel = require(script.Parent.DevPanel)
+local DevCinematic = require(script.Parent.DevCinematic)
+local Settings = require(script.Parent.Settings)
 
 local DevAdminMenu = {}
 
@@ -117,10 +120,11 @@ local function takeOff(player: Player)
 	player:SetAttribute(A.FlyAttribute, true)
 end
 
--- the dev labels (Config/DevTools.Admin.LabelFolders), shown or hidden for this player; labels made later follow
+-- the dev labels (Config/DevTools.Admin.LabelFolders), shown or hidden for this player (also by the cinematic "DevUi");
+-- labels made later follow
 local labelConns: { RBXScriptConnection } = {}
 local function applyLabels(player: Player)
-	local hidden = player:GetAttribute(A.LabelsAttribute) == true
+	local hidden = player:GetAttribute(A.LabelsAttribute) == true or DevCinematic.hidden(player, "DevUi")
 	for _, c in labelConns do
 		c:Disconnect()
 	end
@@ -152,7 +156,7 @@ local function applyLabels(player: Player)
 	)
 end
 
-local function build(player: Player): ScreenGui
+local function build(player: Player): DevPanel.Panel
 	local p = DevPanel.new(player, "DevAdminMenu", "🛠", 3, "Admin (dev)")
 	local function paint(b: TextButton, on: boolean)
 		b.BackgroundColor3 = Color3.fromRGB(table.unpack(if on then Palette.UI.accent else Palette.UI.button))
@@ -296,23 +300,71 @@ local function build(player: Player): ScreenGui
 	end)
 	workspace:GetAttributeChangedSignal(C):Connect(showCalm)
 	showCalm()
-	return p.gui
+
+	-- Cinematic (Config/DevTools.Admin.Cinematic): the switch hides every item (or shows them all again once all are
+	-- hidden), each row one item
+	local items = A.Cinematic.Items
+	DevPanel.heading(p.panel, "Cinematic", order + 1)
+	order += 2
+	local switch = DevPanel.button(p.panel, "Cinematic", "", order)
+	local rows: { [string]: TextButton } = {}
+	local function showCinematic(): boolean
+		local all = true
+		for _, item in items do
+			local on = DevCinematic.hidden(player, item.id)
+			all = all and on
+			rows[item.id].Text = `{item.label}: {if on then "hidden" else "shown"}`
+			paint(rows[item.id], not on)
+		end
+		switch.Text = if all then "Cinematic: on" else "Cinematic: off"
+		paint(switch, all)
+		return all
+	end
+	for _, item in items do
+		order += 1
+		local b = DevPanel.button(p.panel, "Cinematic_" .. item.id, "", order)
+		b.Activated:Connect(function()
+			DevCinematic.set(player, item.id, not DevCinematic.hidden(player, item.id))
+		end)
+		rows[item.id] = b
+	end
+	switch.Activated:Connect(function()
+		local all = showCinematic()
+		for _, item in items do
+			DevCinematic.set(player, item.id, not all)
+		end
+	end)
+	for _, item in items do
+		player:GetAttributeChangedSignal(A.Cinematic.AttributePrefix .. item.id):Connect(showCinematic)
+	end
+	player:GetAttributeChangedSignal(A.Cinematic.AttributePrefix .. "DevUi"):Connect(function()
+		applyLabels(player)
+	end)
+	showCinematic()
+	return p
 end
 
 function DevAdminMenu.start()
 	local player = Players.LocalPlayer
-	local gui: ScreenGui? = nil
+	local panel: DevPanel.Panel? = nil
 	local function refresh()
 		local allowed = player:GetAttribute(Cfg.Attribute) == true
-		if allowed and not gui then
-			gui = build(player)
-		elseif not allowed and gui then
+		if allowed and not panel then
+			panel = build(player)
+		elseif not allowed and panel then
 			land(player)
 			player:SetAttribute(A.Attribute, nil)
-			gui:Destroy()
-			gui = nil
+			DevCinematic.clear(player)
+			panel.gui:Destroy()
+			panel = nil
 		end
 	end
+	DevCinematic.start(player)
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if panel and not processed and Settings.pressed("Key_AdminPanel", input) then
+			panel.toggle()
+		end
+	end)
 	player:GetAttributeChangedSignal(Cfg.Attribute):Connect(refresh)
 	player.CharacterAdded:Connect(function()
 		land(player) -- a new body starts on the ground

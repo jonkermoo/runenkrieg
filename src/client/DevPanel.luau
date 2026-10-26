@@ -1,7 +1,7 @@
 --!strict
 -- The look shared by the dev menus (DevTeleportMenu, DevWeaponMenu, DevAdminMenu, DevTargetMenu, DevBlastMenu): a square
 -- icon button along the top-right next to the settings gear, opening a scrolling panel of thumb-sized rows. Opening one
--- panel closes the others.
+-- panel closes the others. `toggle` opens / closes a panel as its pin does (the admin panel's Key_AdminPanel).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -12,6 +12,7 @@ local DevPanel = {}
 local UI = Palette.UI
 -- ScreenGuis whose "Panel" is closed on open
 local PANELS = { "SettingsMenu", "DevTeleportMenu", "DevWeaponMenu", "DevAdminMenu", "DevTargetMenu", "DevBlastMenu" }
+DevPanel.Panels = PANELS
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -37,7 +38,7 @@ function DevPanel.text(obj: TextLabel | TextButton, s: string, size: number)
 	obj.TextColor3 = rgb(UI.text)
 end
 
-export type Panel = { gui: ScreenGui, panel: ScrollingFrame, title: TextLabel }
+export type Panel = { gui: ScreenGui, panel: ScrollingFrame, title: TextLabel, toggle: () -> () }
 
 -- `slot`: position along the top bar counting left from the settings gear (1 = right next to it).
 function DevPanel.new(player: Player, name: string, icon: string, slot: number, title: string): Panel
@@ -85,7 +86,7 @@ function DevPanel.new(player: Player, name: string, icon: string, slot: number, 
 	label.LayoutOrder = 0
 	label.Parent = panel
 
-	pin.Activated:Connect(function()
+	local function toggle()
 		panel.Visible = not panel.Visible
 		if panel.Visible then
 			-- close the other panels, so they never overlap
@@ -97,9 +98,10 @@ function DevPanel.new(player: Player, name: string, icon: string, slot: number, 
 				end
 			end
 		end
-	end)
+	end
+	pin.Activated:Connect(toggle)
 	gui.Parent = player:WaitForChild("PlayerGui")
-	return { gui = gui, panel = panel, title = label }
+	return { gui = gui, panel = panel, title = label, toggle = toggle }
 end
 
 -- A row button in a panel.

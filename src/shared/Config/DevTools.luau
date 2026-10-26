@@ -90,6 +90,30 @@ local DevTools = {
 		-- event), and switch the random weather rolls off / on so a light check isn't spoiled by fog
 		Weather = { "Clear", "Fog", "Rain" },
 		WeatherSeconds = 600,
+		-- "Cinematic" rows for filming (user 2026-10-26; src/client/DevCinematic, this player only): one switch hides
+		-- every item, a row per item hides that one. The admin panel itself opens and closes with Settings Key_AdminPanel.
+		Cinematic = {
+			Items = {
+				{ id = "Hud", label = "Game HUD" },
+				{ id = "RobloxUi", label = "Roblox UI" }, -- chat, player list, top bar
+				{ id = "DevUi", label = "Dev buttons" }, -- the dev pins, the settings gear, the dev labels
+				{ id = "NameTags", label = "Name tags" }, -- names and health bars over heads
+			},
+			AttributePrefix = "DevCinematic", -- "DevCinematic<id>" on the Player while that item is hidden
+			-- the game HUD: ScreenGuis and BillboardGuis under the PlayerGui, kept off while hidden
+			HudGuis = {
+				"Crosshair",
+				"AmmoHud",
+				"ManaBar",
+				"HealPrompt",
+				"DragPrompt",
+				"BuildHud",
+				"BuildPlanIcon",
+				"BuildPlanTag",
+				"ArtilleryBar",
+				"ArtilleryMarker",
+			},
+		},
 	},
 
 	-- Every test action the panels send (Net "DevAction": action, value, aim point), each checked by the server against

@@ -111,6 +111,8 @@ local Settings = {
 		-- leaves build mode (user 2026-10-24: "make it Q to exit plan mode"; right mouse turns the shovel's camera)
 		Key_BuildExit = { kind = "key", label = "Exit build mode", default = "Q" },
 		Key_Settings = { kind = "key", label = "Settings menu", default = "P" }, -- opens this menu (frees the mouse)
+		-- opens / closes the dev admin panel (user 2026-10-26); `devOnly`: the row shows only to dev players
+		Key_AdminPanel = { kind = "key", label = "Admin panel", default = "F2", devOnly = true },
 	},
 
 	-- The menu's tabs, in order, and the rows in each.
@@ -147,6 +149,7 @@ local Settings = {
 				"Key_BuildTurn",
 				"Key_BuildExit",
 				"Key_Settings",
+				"Key_AdminPanel",
 			},
 		},
 	},

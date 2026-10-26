@@ -12,6 +12,7 @@ export type Option = {
 	default: any,
 	defaultTouch: any?,
 	format: string?,
+	devOnly: boolean?, -- shown in the menu only to dev players
 }
 
 -- A slider's value: clamped into its range and rounded to its step (from min).
