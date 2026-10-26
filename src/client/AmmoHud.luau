@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HudCfg = require(Shared.Config.Hud)
+local GunOutlines = require(Shared.Config.GunOutlines)
 local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local HudKit = require(script.Parent.HudKit)
@@ -95,7 +96,6 @@ type View = {
 	view: ViewportFrame,
 	camera: Camera,
 	cut: Model,
-	ghosts: { { src: BasePart, part: BasePart } }, -- the gun's body, faint (posed as the gun's own parts are)
 	dia: number, -- a round's width (studs)
 	boltParts: { { part: BasePart, rel: CFrame } }, -- the drawn bolt, about its face
 	handle: { stem: BasePart, knob: BasePart, at: CFrame }?,
@@ -200,7 +200,6 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		view = view,
 		camera = camera,
 		cut = cut,
-		ghosts = {},
 		dia = 0,
 		boltParts = {},
 		handle = nil,
@@ -424,21 +423,6 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 	for i, p in v.mag do
 		v.magAt[i] = p.CFrame
 	end
-	-- the gun's body, faint behind it all (user 2026-10-26: "keep the body of the gun in the visual somehow, but dont
-	-- overshadow the bullets and the mechanism"): its own parts in one dull colour, see-through, set back
-	local ghost = HudKit.rgb("ghost")
-	for _, name in G.ghost.parts do
-		local p = part(name)
-		if p then
-			local c = p:Clone()
-			anchored(c)
-			c.Color = ghost
-			c.Material = Enum.Material.SmoothPlastic
-			c.Transparency = G.ghost.see
-			c.Parent = cut
-			table.insert(v.ghosts, { src = p, part = c })
-		end
-	end
 
 	local P, L = G.shapes, v.length
 	local dia = L / 4
@@ -446,6 +430,31 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		dia = if v.tube then liveSources[1].Size.Y else liveSources[1].Size.X * (if pieceScale then pieceScale.X else 1)
 	end
 	v.dia = dia
+	-- the gun's body, drawn behind it all as its traced outline in thin lines (user 2026-10-26: "keep the body of the
+	-- gun in the visual somehow, but dont overshadow the bullets and the mechanism", "dont use the physical model for
+	-- the body. maybe you can trace it and create a design"; Config/GunOutlines)
+	local O = G.outline
+	local width = O.width * dia
+	for _, line in (GunOutlines :: any)[weapon] or {} do
+		local n = #line // 2
+		for i = 1, n do
+			local j = i % n + 1
+			local a = Vector3.new(-O.back, line[i * 2] * s[2], line[i * 2 - 1] * s[3])
+			local b = Vector3.new(-O.back, line[j * 2] * s[2], line[j * 2 - 1] * s[3])
+			local len = (b - a).Magnitude
+			if len > 1e-4 then
+				local seg = Instance.new("Part")
+				seg.Name = "Outline"
+				seg.Material = Enum.Material.SmoothPlastic
+				seg.Color = HudKit.rgb("outline")
+				seg.Size = Vector3.new(width, width, len + width)
+				seg.CFrame = CFrame.lookAt((a + b) / 2, b)
+				anchored(seg)
+				seg.Transparency = O.see
+				seg.Parent = cut
+			end
+		end
+	end
 	-- the barrel's breech end, from the chamber's mouth forward, and the channel behind it the bolt slides back in
 	local barrel = Vector3.new(dia, dia * P.barrel.height, L * P.barrel.length)
 	slab(v.chamber * CFrame.new(0, 0, -barrel.Z / 2), barrel, "steel")
@@ -542,10 +551,6 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		d = math.max(0, v.gun.CFrame:ToObjectSpace(v.bolt.CFrame).Z - v.boltRest)
 	end
 	local open = d > v.travel * G.openFrom
-	for _, g in v.ghosts do
-		g.part.CFrame = CFrame.new(-G.ghost.back, 0, 0) * v.gun.CFrame:ToObjectSpace(g.src.CFrame)
-		g.part.Transparency = if g.src.Transparency >= 1 then 1 else G.ghost.see
-	end
 	-- the drawn bolt: back as far as the gun's, its handle up as far as the gun's has turned
 	local boltAt = v.chamber * CFrame.new(0, 0, d)
 	for _, q in v.boltParts do

@@ -294,7 +294,7 @@ local Palette = {
 			steel = { 62, 66, 70 },
 			bolt = { 120, 124, 130 },
 			follower = { 150, 120, 62 },
-			ghost = { 70, 78, 70 },
+			outline = { 150, 124, 70 },
 			viewAmbient = { 150, 150, 150 },
 			viewLight = { 255, 244, 224 },
 		},
