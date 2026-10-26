@@ -102,6 +102,9 @@ local DevTools = {
 				{ id = "NameTags", label = "Name tags" }, -- names and health bars over heads
 			},
 			AttributePrefix = "DevCinematic", -- "DevCinematic<id>" on the Player while that item is hidden
+			-- hiding the Roblox UI also takes Roblox's hotbar and its number keys away; while hidden these keys still
+			-- equip / unequip the tools in hotbar order (user 2026-10-26: "it should just hide")
+			HotbarKeys = { "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine" },
 			-- the game HUD: ScreenGuis and BillboardGuis under the PlayerGui, kept off while hidden
 			HudGuis = {
 				"Crosshair",
