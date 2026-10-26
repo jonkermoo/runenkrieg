@@ -258,17 +258,6 @@ local Palette = {
 		outline = { 24, 28, 22 },
 		text = { 236, 232, 220 },
 		stroke = 2,
-		-- the ammo display (src/client/Firing): a live round, a spent case in the chamber, an empty slot
-		round = { 196, 160, 84 },
-		spent = { 96, 84, 62 },
-		slot = { 30, 34, 28 },
-		-- the staff's mana bar (src/client/ManaBar): the mana, the share the shot being charged will spend, the burnt-out
-		-- bar refilling after a mega shot, a refused shot's flash
-		-- (`mana` / `manaSpend` the start; the bar takes the player's team magic colours: Config/Spells.Staff.Teams)
-		mana = { 120, 200, 255 },
-		manaSpend = { 235, 250, 255 },
-		manaBurnt = { 118, 72, 150 },
-		manaDenied = { 220, 70, 60 },
 		-- the build HUD panel (src/client/Build; user 2026-10-24): the panel, its edge (go / no-go / the shovel out, not
 		-- planning), the title (red when it can't go), the line beside it, the key caps and their hints
 		BuildHud = {
@@ -282,6 +271,25 @@ local Palette = {
 			key = { 238, 240, 234 },
 			keyText = { 32, 38, 42 },
 			hint = { 184, 194, 188 },
+		},
+		-- the combat HUD, quartermaster's brass (Config/Hud, src/shared/ui/CombatHud.json): the panel's dark field, its
+		-- brass rim and rivets, the name plate and its stamped letters, the count, the hint plate (red, the next thing to
+		-- do), the stage lamps dark, the rock with no mana, the readouts
+		Hud = {
+			field = { 24, 28, 22 },
+			window = { 14, 16, 13 },
+			brass = { 196, 160, 84 },
+			brassDark = { 120, 96, 50 },
+			plateText = { 34, 28, 18 },
+			count = { 222, 186, 104 },
+			countLow = { 220, 96, 70 },
+			hint = { 68, 30, 24 },
+			hintEdge = { 210, 80, 60 },
+			hintText = { 255, 214, 196 },
+			lampOff = { 30, 34, 30 },
+			rockEmpty = { 70, 74, 80 },
+			readout = { 236, 232, 220 },
+			ready = { 150, 200, 110 },
 		},
 		-- the third-person crosshair's ring (src/client/Crosshair, Config/Camera.Crosshair), with a dark edge behind it
 		crosshair = { 236, 232, 220 },

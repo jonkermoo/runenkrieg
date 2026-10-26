@@ -220,9 +220,6 @@ local Artillery = {
 		ringFrom = 450,
 	},
 
-	-- The reload bar (bottom centre while manning; Palette.UI)
-	Bar = { width = 220, height = 12, margin = 90, text = 16 },
-
 	-- The howitzer's crystal (src/client/ArtilleryCrystal, Rules/Artillery.crystal; user 2026-10-20: "make the howitzer
 	-- loading just a empty colored crystal and the color slowly returns (make it look nice, like its coming back to
 	-- life)", "give the crystal more design and effects. some runes on it works too"). RGB colours: `empty` drained,

@@ -169,6 +169,16 @@ local Assets = {
 			generator = "tools/blender/artillery/bertha.py",
 			description = "The magic howitzer: a 42 cm siege mortar of our own after the Big Bertha and the Gamma-Gerat, no wheels: a riveted box carriage turning on a giant toothed ring gear, a layered short barrel trunnioned high between its walls, two silos beside it and a housing under it, a bolted yoke and dial sight, a toothed elevating sector and big spoked hand wheels by the gunner's step, a crew deck and ladder at the back; the cracked, chipped gem (its cracks a part of their own, CrystalCracks) in a ring of runes on the round breech face, rune bands on the barrel, runes on the bed. Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore + Breech + Crystal + CrystalCracks recoil.",
 		},
+		-- the shared rifle round (user 2026-10-26: the combat HUD shows each round on its own, Config/Hud.Round): the
+		-- model every rifle's magazine rounds and casing are made from
+		ammo_rifle = {
+			id = 74015378077606,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_rifle.fbx",
+			generator = "tools/blender/weapons/ammo.py",
+			description = "The shared rifle round at the rifles' modelled scale: a loaded round (Case + Bullet, case head at the Origin, pointing -Z) and a spent Casing beside it (x +0.05).",
+		},
 		-- the field gun's fixed round (2026-10-20, docs/MILESTONES.md A2): carried by the gunner while loading
 		-- (Config/Artillery.Load), colored from Config/Palette.Artillery by mesh name
 		round_qf18 = {

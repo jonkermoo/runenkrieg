@@ -1,0 +1,600 @@
+{
+	"name": "CombatHud",
+	"_doc": "The combat HUD, quartermaster's brass (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). Three panels, one shown at a time: the gun's (bottom right), the staff's in the same place, the artillery crew's (bottom centre). Each `model` node is a ViewportFrame drawing the cut-away. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. Desktop only.",
+	"theme": {
+		"palette": "Hud",
+		"scale": {
+			"referenceHeight": 800,
+			"min": 0.65,
+			"max": 1.25
+		},
+		"fitMargin": 16,
+		"minTap": 32,
+		"minText": 12,
+		"textStroke": 0,
+		"outline": 2,
+		"corner": 6,
+		"scrollBar": 4,
+		"fonts": {
+			"title": {
+				"family": "GrenzeGotisch",
+				"weight": "Regular",
+				"file": "GrenzeGotisch-Regular.ttf"
+			},
+			"body": {
+				"family": "Balthazar",
+				"weight": "Regular",
+				"file": "Balthazar-Regular.ttf"
+			}
+		},
+		"rivet": 5
+	},
+	"preview": {
+		"weapon": "Winchester M1897",
+		"count": "15+1",
+		"hint": "R: new magazine",
+		"staff": "Staff",
+		"gun": "QF 18-pounder",
+		"elevation": "Elev +16.0°",
+		"traverse": "Trav -4.5°",
+		"status": "Charging"
+	},
+	"root": {
+		"id": "Screen",
+		"kind": "group",
+		"size": [
+			1,
+			0,
+			1,
+			0
+		],
+		"children": [
+			{
+				"id": "Gun",
+				"kind": "panel",
+				"overlay": true,
+				"rivets": true,
+				"anchor": [
+					1,
+					1
+				],
+				"pos": [
+					1,
+					-24,
+					1,
+					-24
+				],
+				"size": [
+					0,
+					360,
+					0,
+					186
+				],
+				"color": "field",
+				"line": "brass",
+				"children": [
+					{
+						"id": "GunView",
+						"kind": "model",
+						"pos": [
+							0,
+							10,
+							0,
+							20
+						],
+						"size": [
+							1,
+							-20,
+							1,
+							-30
+						],
+						"color": "window"
+					},
+					{
+						"id": "GunPlate",
+						"kind": "panel",
+						"overlay": true,
+						"center": true,
+						"anchor": [
+							0.5,
+							0
+						],
+						"pos": [
+							0.5,
+							0,
+							0,
+							-12
+						],
+						"size": [
+							0,
+							196,
+							0,
+							26
+						],
+						"color": "brass",
+						"line": "brassDark",
+						"children": [
+							{
+								"id": "GunName",
+								"kind": "label",
+								"font": "title",
+								"bind": "weapon",
+								"text": "",
+								"textSize": 18,
+								"textColor": "plateText",
+								"center": true,
+								"anchor": [
+									0.5,
+									0.5
+								],
+								"pos": [
+									0.5,
+									0,
+									0.5,
+									0
+								],
+								"size": [
+									1,
+									-12,
+									1,
+									0
+								]
+							}
+						]
+					},
+					{
+						"id": "Count",
+						"kind": "label",
+						"overlay": true,
+						"font": "title",
+						"bind": "count",
+						"text": "",
+						"textSize": 28,
+						"textColor": "count",
+						"align": "right",
+						"anchor": [
+							1,
+							1
+						],
+						"pos": [
+							1,
+							-14,
+							1,
+							-8
+						],
+						"size": [
+							0,
+							92,
+							0,
+							32
+						]
+					},
+					{
+						"id": "Hint",
+						"kind": "panel",
+						"overlay": true,
+						"anchor": [
+							0,
+							1
+						],
+						"pos": [
+							0,
+							14,
+							1,
+							-12
+						],
+						"size": [
+							0,
+							200,
+							0,
+							26
+						],
+						"color": "hint",
+						"line": "hintEdge",
+						"children": [
+							{
+								"id": "HintText",
+								"kind": "label",
+								"font": "body",
+								"bind": "hint",
+								"text": "",
+								"textSize": 16,
+								"textColor": "hintText",
+								"center": true,
+								"anchor": [
+									0.5,
+									0.5
+								],
+								"pos": [
+									0.5,
+									0,
+									0.5,
+									0
+								],
+								"size": [
+									1,
+									-10,
+									1,
+									0
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"id": "Staff",
+				"kind": "panel",
+				"overlay": true,
+				"rivets": true,
+				"anchor": [
+					1,
+					1
+				],
+				"pos": [
+					1,
+					-24,
+					1,
+					-24
+				],
+				"size": [
+					0,
+					196,
+					0,
+					210
+				],
+				"color": "field",
+				"line": "brass",
+				"children": [
+					{
+						"id": "StaffView",
+						"kind": "model",
+						"pos": [
+							0,
+							10,
+							0,
+							20
+						],
+						"size": [
+							1,
+							-20,
+							1,
+							-62
+						],
+						"color": "window"
+					},
+					{
+						"id": "StaffPlate",
+						"kind": "panel",
+						"overlay": true,
+						"center": true,
+						"anchor": [
+							0.5,
+							0
+						],
+						"pos": [
+							0.5,
+							0,
+							0,
+							-12
+						],
+						"size": [
+							0,
+							150,
+							0,
+							26
+						],
+						"color": "brass",
+						"line": "brassDark",
+						"children": [
+							{
+								"id": "StaffName",
+								"kind": "label",
+								"font": "title",
+								"bind": "staff",
+								"text": "",
+								"textSize": 18,
+								"textColor": "plateText",
+								"center": true,
+								"anchor": [
+									0.5,
+									0.5
+								],
+								"pos": [
+									0.5,
+									0,
+									0.5,
+									0
+								],
+								"size": [
+									1,
+									-12,
+									1,
+									0
+								]
+							}
+						]
+					},
+					{
+						"id": "Lamps",
+						"kind": "group",
+						"center": true,
+						"anchor": [
+							0.5,
+							1
+						],
+						"pos": [
+							0.5,
+							0,
+							1,
+							-12
+						],
+						"size": [
+							0,
+							112,
+							0,
+							26
+						],
+						"children": [
+							{
+								"id": "Lamp1",
+								"kind": "panel",
+								"round": true,
+								"pos": [
+									0,
+									0,
+									0,
+									0
+								],
+								"size": [
+									0,
+									26,
+									0,
+									26
+								],
+								"color": "lampOff",
+								"line": "brass"
+							},
+							{
+								"id": "Lamp2",
+								"kind": "panel",
+								"round": true,
+								"pos": [
+									0,
+									43,
+									0,
+									0
+								],
+								"size": [
+									0,
+									26,
+									0,
+									26
+								],
+								"color": "lampOff",
+								"line": "brass"
+							},
+							{
+								"id": "Lamp3",
+								"kind": "panel",
+								"round": true,
+								"pos": [
+									0,
+									86,
+									0,
+									0
+								],
+								"size": [
+									0,
+									26,
+									0,
+									26
+								],
+								"color": "lampOff",
+								"line": "brass"
+							}
+						]
+					}
+				]
+			},
+			{
+				"id": "Artillery",
+				"kind": "panel",
+				"overlay": true,
+				"rivets": true,
+				"center": true,
+				"anchor": [
+					0.5,
+					1
+				],
+				"pos": [
+					0.5,
+					0,
+					1,
+					-24
+				],
+				"size": [
+					0,
+					470,
+					0,
+					200
+				],
+				"color": "field",
+				"line": "brass",
+				"children": [
+					{
+						"id": "ArtilleryView",
+						"kind": "model",
+						"pos": [
+							0,
+							10,
+							0,
+							20
+						],
+						"size": [
+							0,
+							290,
+							1,
+							-30
+						],
+						"color": "window"
+					},
+					{
+						"id": "ArtilleryPlate",
+						"kind": "panel",
+						"overlay": true,
+						"center": true,
+						"anchor": [
+							0.5,
+							0
+						],
+						"pos": [
+							0.5,
+							0,
+							0,
+							-12
+						],
+						"size": [
+							0,
+							220,
+							0,
+							26
+						],
+						"color": "brass",
+						"line": "brassDark",
+						"children": [
+							{
+								"id": "ArtilleryName",
+								"kind": "label",
+								"font": "title",
+								"bind": "gun",
+								"text": "",
+								"textSize": 18,
+								"textColor": "plateText",
+								"center": true,
+								"anchor": [
+									0.5,
+									0.5
+								],
+								"pos": [
+									0.5,
+									0,
+									0.5,
+									0
+								],
+								"size": [
+									1,
+									-12,
+									1,
+									0
+								]
+							}
+						]
+					},
+					{
+						"id": "Readouts",
+						"kind": "group",
+						"pos": [
+							0,
+							312,
+							0,
+							30
+						],
+						"size": [
+							0,
+							146,
+							1,
+							-42
+						],
+						"children": [
+							{
+								"id": "Elevation",
+								"kind": "label",
+								"font": "body",
+								"bind": "elevation",
+								"text": "",
+								"textSize": 20,
+								"textColor": "readout",
+								"align": "left",
+								"pos": [
+									0,
+									0,
+									0,
+									0
+								],
+								"size": [
+									1,
+									0,
+									0,
+									28
+								]
+							},
+							{
+								"id": "Traverse",
+								"kind": "label",
+								"font": "body",
+								"bind": "traverse",
+								"text": "",
+								"textSize": 20,
+								"textColor": "readout",
+								"align": "left",
+								"pos": [
+									0,
+									0,
+									0,
+									34
+								],
+								"size": [
+									1,
+									0,
+									0,
+									28
+								]
+							},
+							{
+								"id": "Status",
+								"kind": "label",
+								"font": "title",
+								"bind": "status",
+								"text": "",
+								"textSize": 22,
+								"textColor": "count",
+								"align": "left",
+								"pos": [
+									0,
+									0,
+									0,
+									78
+								],
+								"size": [
+									1,
+									0,
+									0,
+									30
+								]
+							},
+							{
+								"id": "Load",
+								"kind": "bar",
+								"pos": [
+									0,
+									0,
+									0,
+									114
+								],
+								"size": [
+									1,
+									0,
+									0,
+									12
+								],
+								"color": "window",
+								"line": "brassDark"
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}

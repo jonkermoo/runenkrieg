@@ -14,7 +14,7 @@ local Spells = {
 	},
 	Built = { Quick = true, Medium = true, Full = true }, -- the stages built so far
 
-	-- Mana (src/client/StaffAttack, the bar: src/client/ManaBar; user 2026-10-13: "fits 6 quick shots, 3 charged shot,
+	-- Mana (src/client/StaffAttack, shown by src/client/StaffHud; user 2026-10-13: "fits 6 quick shots, 3 charged shot,
 	-- and 1 mega shot ... after 1 mega shot you need to fully reload the bar before firing", and an extended cooldown
 	-- for the mega shot). In quick-shot units: `max`, `cost` per stage. A charge stops at the highest stage you can pay
 	-- for and waits there until the mana is in (refilling while it waits); with too little for a quick shot nothing
