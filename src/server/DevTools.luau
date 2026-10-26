@@ -6,7 +6,7 @@
 -- Test actions: the target, blast and admin panels send Net "DevAction" (action, value, aim point); each is checked here
 -- (the DevTools attribute, Rules/DevActions: the action, its value from the Config lists, the aim point's reach) and
 -- done: target dummies (src/server/DevDummies), blasts at the aim point (src/server/Damage.blast; Net "DevBlast" shows
--- the explosion to everyone), your health / death / respawn / god mode / knock / helmet, the range's test shooters
+-- the explosion to everyone), your health / death / respawn / team (respawn as it) / god mode / knock / helmet, the range's test shooters
 -- (src/server/TestShooter), undo destruction (src/server/DevWorld) and the clock (src/server/Environment: set the time,
 -- pause the day cycle; start fog / rain / clear sky now, the random weather off / on).
 -- DevTools.teleport(player, id) is also used directly by tests/demos.
@@ -124,6 +124,10 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		Environment.calm(value)
 	elseif action == "Respawn" then
 		player:LoadCharacter()
+	elseif action == "Team" then
+		-- the pinned kit (src/server/Kits reads it on every spawn), then a new body in it now
+		player:SetAttribute("Kit", if value == Cfg.Admin.Random then nil else value)
+		player:LoadCharacter()
 	elseif humanoid and character and root and humanoid.Health > 0 then
 		if action == "Health" then
 			humanoid.Health = math.min(value, humanoid.MaxHealth)
@@ -141,7 +145,7 @@ end
 
 function DevTools.start()
 	local function setup(player: Player)
-		local allowed = Rules.allowed(Cfg, player.UserId, RunService:IsStudio())
+		local allowed = Rules.allowed(Cfg, player.UserId, RunService:IsStudio(), game.PlaceId)
 		player:SetAttribute(Cfg.Attribute, allowed)
 	end
 	Players.PlayerAdded:Connect(setup)
