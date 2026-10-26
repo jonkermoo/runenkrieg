@@ -245,6 +245,9 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 				who = nil -- (into that head: the usual top-half check below)
 			end
 		end
+		if who and Damage.spares(character, who) then
+			who = nil -- (a teammate's helmet stays on: Config/Damage.FriendlyFire)
+		end
 		if who and struck and at and far then
 			Helmets.knockOff(who, line)
 			table.insert(wounds, { part = struck, point = at, direction = line, distance = far, helmet = true })
@@ -253,7 +256,8 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 		end
 		if result and not start then
 			-- a helmet shot off (src/server/Helmets), then the damage (src/server/Damage)
-			local helmet = Helmets.hit(result.Instance, result.Position, line)
+			local mate = Damage.spares(character, result.Instance.Parent)
+			local helmet = not mate and Helmets.hit(result.Instance, result.Position, line)
 			table.insert(wounds, {
 				part = result.Instance,
 				point = result.Position,

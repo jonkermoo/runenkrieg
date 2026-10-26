@@ -34,10 +34,12 @@ return {
 			end
 		end
 	end,
-	["access: creator always, anyone in Studio, nobody else live"] = function()
+	["access: creator always, anyone in Studio or the DEV place, nobody else live"] = function()
 		assert(T.allowed(Cfg, 180563380, false))
 		assert(T.allowed(Cfg, 1, true))
 		assert(not T.allowed(Cfg, 1, false))
+		assert(T.allowed(Cfg, 1, false, Cfg.DevPlaceId), "every playtester in the DEV place")
+		assert(not T.allowed(Cfg, 1, false, 71611711100478), "nobody else in the live place")
 		assert(T.find(Map1, Cfg, "Gallery") ~= nil and T.find(Map1, Cfg, "nope") == nil)
 	end,
 	["admin speeds: positive steps including x1, a flying speed and fly keys"] = function()
@@ -58,6 +60,8 @@ return {
 		assert(A.valid(Cfg, "Kill", nil) and not A.valid(Cfg, "Kill", true))
 		assert(A.valid(Cfg, "Grenade", Cfg.Admin.Grenades[1]) and not A.valid(Cfg, "Grenade", "rifle_g98"))
 		assert(not A.valid(Cfg, "Grenade", nil))
+		assert(A.valid(Cfg, "Team", Cfg.Dummies.Kits[1].kit) and A.valid(Cfg, "Team", Cfg.Admin.Random))
+		assert(not A.valid(Cfg, "Team", "uniform9") and not A.valid(Cfg, "Team", nil))
 		assert(A.valid(Cfg, "God", false) and not A.valid(Cfg, "God", nil) and not A.valid(Cfg, "God", 1))
 		assert(not A.valid(Cfg, "Nope", nil) and not A.valid(Cfg, 5, nil) and not A.valid(Cfg, nil, nil))
 		local d = { kit = Cfg.Dummies.Kits[1].kit, helmet = true, move = "Walk" }

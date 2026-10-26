@@ -45,6 +45,8 @@ function DevActions.valid(cfg: any, action: any, value: any): boolean
 		return type(value) == "boolean"
 	elseif action == "Health" then
 		return table.find(cfg.Admin.Health, value) ~= nil
+	elseif action == "Team" then
+		return value == cfg.Admin.Random or kitOf(cfg, value) ~= nil
 	elseif action == "Grenade" then
 		return table.find(cfg.Admin.Grenades, value) ~= nil
 	elseif action == "Weather" then

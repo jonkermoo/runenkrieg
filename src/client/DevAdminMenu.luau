@@ -1,7 +1,8 @@
 --!strict
 -- Dev admin menu: a button next to the weapon pin with Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode), Grenades (give yourself a full count of one), World (the range's test shooters, undo destruction) and Time
+-- god mode), Team (respawn now as grey / olive / white, kept until changed, or random again), Grenades (give yourself
+-- a full count of one), World (the range's test shooters, undo destruction) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
 -- weather off / on); Time and Weather are for everyone (src/server/Environment).
 -- Client only: the client owns its character's physics, so it flies and speeds up its own character. Only shown when
@@ -232,6 +233,25 @@ local function build(player: Player): ScreenGui
 	end)
 	player:GetAttributeChangedSignal(A.GodAttribute):Connect(showGod)
 	showGod()
+
+	-- Team: respawn now as one of Config/DevTools.Dummies.Kits, kept on every respawn (the Player's "Kit" attribute,
+	-- src/server/Kits), or random again; the pinned one lit
+	DevPanel.heading(p.panel, "Team", order + 1)
+	order += 1
+	local teams: { [string]: TextButton } = {}
+	for _, k in Cfg.Dummies.Kits do
+		teams[k.kit] = row("Team_" .. k.kit, `Respawn as {k.name}`, "Team", k.kit)
+	end
+	teams[A.Random] = row("Team_Random", "Random team each life", "Team", A.Random)
+	local function showTeam()
+		local pinned = player:GetAttribute("Kit")
+		local current = if type(pinned) == "string" and teams[pinned] then pinned else A.Random
+		for kit, b in teams do
+			paint(b, kit == current)
+		end
+	end
+	player:GetAttributeChangedSignal("Kit"):Connect(showTeam)
+	showTeam()
 
 	-- Grenades: give yourself a full count of one (Config/DevTools.Admin.Grenades)
 	DevPanel.heading(p.panel, "Grenades", order + 1)

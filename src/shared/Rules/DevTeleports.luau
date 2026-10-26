@@ -41,8 +41,10 @@ function DevTeleports.find(map: any, cfg: any, id: string): Dest?
 	return nil
 end
 
-function DevTeleports.allowed(cfg: any, userId: number, isStudio: boolean): boolean
-	return (cfg.AllowInStudio and isStudio) or table.find(cfg.AllowedUserIds, userId) ~= nil
+function DevTeleports.allowed(cfg: any, userId: number, isStudio: boolean, placeId: number?): boolean
+	return (cfg.AllowInStudio and isStudio)
+		or (cfg.AllowInDevPlace and placeId == cfg.DevPlaceId)
+		or table.find(cfg.AllowedUserIds, userId) ~= nil
 end
 
 return DevTeleports

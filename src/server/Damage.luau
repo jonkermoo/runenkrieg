@@ -10,7 +10,7 @@
 -- - Damage.blast: a real-scaled blast (Rules/Blast): soldiers hurt and knocked by the overpressure at their torso, map
 --   sections by their class (src/server/Destruction.blast), trees by their HP (src/server/Trees), a crater with a rim
 --   and churned earth round it.
--- No one hurts themselves (their blast still knocks them). Health 100; the only regeneration is src/server/Healing's
+-- No one hurts themselves (their blast still knocks them), nor a teammate (Config/Damage.FriendlyFire off: Damage.spares). Health 100; the only regeneration is src/server/Healing's
 -- slow recovery to 70 (Roblox's own Health script is replaced, src/character/Health);
 -- a death is a limp ragdoll (the death face: src/server/Bodies); respawn after Config/Metrics.Combat.RespawnDelay.
 
@@ -27,6 +27,7 @@ local W = require(Shared.Config.Weapons)
 local Blast = require(Shared.Rules.Blast)
 local GrenadeRules = require(Shared.Rules.Grenade)
 local MeleeRules = require(Shared.Rules.Melee)
+local Teams = require(Shared.Rules.Teams)
 local Rules = require(Shared.Rules.Damage)
 local TreeRules = require(Shared.Rules.Trees)
 local Build = require(script.Parent.Build)
@@ -35,6 +36,7 @@ local Flinch = require(script.Parent.Flinch)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Ground = require(script.Parent.Ground)
 local Healing = require(script.Parent.Healing)
+local Kits = require(script.Parent.Kits)
 local Trees = require(script.Parent.Trees)
 
 local Damage = {}
@@ -81,6 +83,18 @@ local function victim(part: Instance?): (Model?, Humanoid?)
 	end
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	return if humanoid then model else nil, humanoid
+end
+
+-- Whether a hit from `by` spares the soldier `character` (players' characters and DEV dummies): a teammate, the same
+-- kit (Rules/Teams.spared), while Config/Damage.FriendlyFire is off. Never `by` itself (its own rules) or anything else.
+function Damage.spares(by: Model?, character: Instance?): boolean
+	if not by or not character or character == by or not character:IsA("Model") then
+		return false
+	end
+	if not (Players:GetPlayerFromCharacter(character) or Dev.dummy(character)) then
+		return false
+	end
+	return Teams.spared(Kits.of(by), Kits.of(character), Cfg.FriendlyFire)
 end
 
 local function flat(v: Vector3): Vector3
@@ -135,7 +149,7 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 		if not character then
 			Trees.shot(h.part, w.class, h.direction) -- a trunk is chipped (src/server/Trees)
 		end
-		if character and humanoid and zone and character ~= shooter then
+		if character and humanoid and zone and character ~= shooter and not Damage.spares(shooter, character) then
 			local share = if pellets then Rules.falloff(h.distance, pellets.full, pellets.none) else 1
 			local z = if h.helmet then Rules.helmetZone(h.distance, Cfg.HelmetLethal[w.class]) else zone
 			local entry = per[character]
@@ -159,7 +173,13 @@ end
 -- helmet off), along `direction`: Config/Damage.Melee's damage and knock. True when it hurt a soldier.
 function Damage.melee(striker: Model, part: BasePart, zone: string, direction: Vector3): boolean
 	local character, humanoid = victim(part)
-	if not character or not humanoid or character == striker or humanoid.Health <= 0 then
+	if
+		not character
+		or not humanoid
+		or character == striker
+		or humanoid.Health <= 0
+		or Damage.spares(striker, character)
+	then
 		return false
 	end
 	local left, knock = MeleeRules.hit(zone, humanoid.Health, Cfg.Melee, Cfg.Knocks.Killed, Cfg.HelmetFloor)
@@ -273,7 +293,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	for _, character in soldiers do
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local torso = character:FindFirstChild("Torso") :: BasePart?
-		if humanoid and torso then
+		if humanoid and torso and not Damage.spares(by, character) then -- (a teammate's blast: unhurt, not thrown)
 			local d = (torso.Position - position).Magnitude
 			if d <= reach or (o.fragments and d <= o.fragments.wound) then
 				local kpa = kpaAt(d)
@@ -357,7 +377,13 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 	local landed = if result then result.Position else origin + direction * range
 	castAt[caster] = os.clock()
 	local character, humanoid = victim(result and result.Instance)
-	if character and humanoid and character ~= caster and humanoid.Health > 0 then
+	if
+		character
+		and humanoid
+		and character ~= caster
+		and humanoid.Health > 0
+		and not Damage.spares(caster, character)
+	then
 		local left, knock = Rules.staff(stage, humanoid.Health, S)
 		if left then
 			hurt(character, humanoid, left, knock, flat(direction))
