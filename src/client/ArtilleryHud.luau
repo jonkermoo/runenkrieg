@@ -2,8 +2,9 @@
 -- The gun crew's panel, quartermaster's brass (Config/Hud.Artillery; layout src/shared/ui/CombatHud.json
 -- "Artillery"; user 2026-10-26: "similar chamber concept for the field cannon and similar crystal concept for the
 -- artillery"). Shown while I'm on a gun (its "Gunner" is me), bottom centre:
--- - a cut-away drawn live in a ViewportFrame: the gun's own breech parts (Hud.Artillery.show) copied from the gun and
---   posed every frame as src/client/Artillery poses them, seen from the gun's mount (so the barrel's elevation and
+-- - a cut-away drawn live in a ViewportFrame: the whole gun copied, posed every frame as src/client/Artillery poses
+--   it, every part as see-through as the next (user 2026-10-26: "make it general transparency, i should be able to see
+--   the inside of the gun (besides the round and the crystal)"), seen from the gun's mount (so the barrel's elevation and
 --   recoil show, and the breech swinging open); the field gun's round (Config/Artillery.Load.round) sits in its
 --   chamber, slides in as the loader puts it in (Load.loaded), and the fired case is thrown out as the breech opens;
 --   the howitzer's living crystal (src/client/ArtilleryCrystal) glows in it as it does on the gun;
@@ -122,11 +123,11 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 		end
 	end
 	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") and table.find(A.show, d.Name) then
+		if d:IsA("BasePart") and not table.find(A.skip, d.Name) then
 			local c = d:Clone()
 			anchored(c)
 			c.Parent = cut
-			v.copies[d] = { part = c, see = (A.see :: any)[d.Name] or 0 }
+			v.copies[d] = { part = c, see = if table.find(A.solid, d.Name) then 0 else A.see }
 			local r = rest(d.Name)
 			if r and table.find(A.frame, d.Name) then
 				grow(r, d.Size)

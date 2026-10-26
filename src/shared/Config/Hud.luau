@@ -116,9 +116,11 @@ local Hud = {
 	Artillery = {
 		fov = 12,
 		margin = 0.1,
-		-- the field gun's cut-away: the parts shown (any the gun has), how see-through, the box framed
-		show = { "Barrel", "Bore", "Breech", "Cradle", "Crystal", "CrystalCracks" },
-		see = { Barrel = 0.6, Cradle = 0.75, Bore = 1 },
+		-- the cut-away: the whole gun, every part `see` see-through (user 2026-10-26: "make it general transparency")
+		-- but the `solid` ones (the round is solid too) and the `skip` ones (not drawn); the box framed
+		see = 0.62,
+		solid = { "Crystal", "CrystalCracks" },
+		skip = { "Origin", "Bore" },
 		frame = { "Breech", "Crystal" },
 		-- around the framed parts, studs: how far behind the breech and ahead of it the view reaches
 		reach = { back = 2.2, front = 1.6 },
