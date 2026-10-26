@@ -27,6 +27,25 @@ local Hud = {
 		-- the flat shapes behind the magazine and the chamber (round lengths, but `thick` in studs): `pad` round the
 		-- ammo, the brass edge `edge` wider, `back` behind the rounds, `see` how see-through
 		slab = { thick = 0.01, pad = 0.06, edge = 0.03, back = 0.12, see = 0.1 },
+		-- the drawn parts (lengths in round lengths, widths in round widths): the barrel's breech end round the chamber,
+		-- the channel the bolt slides in, the bolt (its handle `handleAt` of the way back, swinging from `down` to `up`
+		-- degrees as the gun's bolt turns), the follower plate (`gap` round widths under the last round)
+		shapes = {
+			barrel = { length = 1.3, height = 1.7 },
+			channel = { height = 1.3 },
+			bolt = {
+				length = 0.9,
+				height = 1.15,
+				handleAt = 0.8,
+				handle = 1.7,
+				out = 1.2, -- (round widths toward the camera: the handle is on the gun's right)
+				stem = 0.45,
+				knob = 0.95,
+				down = -40, -- (down and back at rest, up and back turned)
+				up = -160,
+			},
+			follower = { width = 1.1, thick = 0.35, length = 0.7, gap = 0.25 },
+		},
 		stagger = 0.42, -- a double stack's rounds, side to side, in round diameters (when they sit closer than `double`)
 		double = 0.95, -- rounds closer than this many diameters apart are a double stack
 		tubeStep = 1.02, -- a pump gun's tube: shell lengths from one shell to the next

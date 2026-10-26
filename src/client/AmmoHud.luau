@@ -95,6 +95,12 @@ type View = {
 	view: ViewportFrame,
 	camera: Camera,
 	cut: Model,
+	dia: number, -- a round's width (studs)
+	boltParts: { { part: BasePart, rel: CFrame } }, -- the drawn bolt, about its face
+	handle: { stem: BasePart, knob: BasePart, at: CFrame }?,
+	boltTurn: number, -- radians the gun's bolt turns its handle up
+	boltRestCF: CFrame,
+	follower: BasePart,
 	mag: { BasePart }, -- the magazine's flat shapes (face, brass edge), as they sit with the gun's rounds at rest
 	magAt: { CFrame },
 	conns: { RBXScriptConnection },
@@ -193,6 +199,12 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		view = view,
 		camera = camera,
 		cut = cut,
+		dia = 0,
+		boltParts = {},
+		handle = nil,
+		boltTurn = 0,
+		boltRestCF = CFrame.identity,
+		follower = nil :: any,
 		mag = {},
 		magAt = {},
 		conns = {},
@@ -316,10 +328,6 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		local face = if bolt then v.boltRest - bolt.Size.Z / 2 else 0
 		v.chamber = CFrame.new(0, y, face)
 	end
-	-- the chamber's channel: the round's length, and the bolt's travel behind it (the case pulled back)
-	local chamberBox = v.chamber * CFrame.new(0, 0, (v.travel - v.length) / 2)
-	local chamberSize = Vector3.new(v.length / 4, v.length / 4, v.length + v.travel)
-	box = grow(box, chamberBox, chamberSize)
 
 	-- the magazine's slots
 	local cap = w.ammo.capacity
@@ -375,11 +383,23 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		end
 	end
 
-	-- the flat shapes the ammo sits in (no gun parts: user 2026-10-26, "only the ammo has to use real models"): a
-	-- slab behind the magazine and behind the chamber, each on a brass-edged one a little bigger
-	local function slab(cf: CFrame, size: Vector3): { BasePart }
+	-- the plain shapes the ammo sits in (no gun parts: user 2026-10-26, "only the ammo has to use real models", "can
+	-- you still show the bolt, magazine, and chamber?"): flat slabs behind the magazine, the barrel's breech end round
+	-- the chamber and the channel the bolt slides in, each on a brass-edged one a little bigger; the bolt a block
+	-- with its handle; the magazine's follower a plate under its last round
+	local function block(name: string, color: string, size: Vector3): BasePart
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Material = Enum.Material.SmoothPlastic
+		p.Color = HudKit.rgb(color)
+		p.Size = size
+		anchored(p)
+		p.Parent = cut
+		return p
+	end
+	local function slab(cf: CFrame, size: Vector3, color: string?): { BasePart }
 		local out = {}
-		for i, look in { { "magazine", 0 }, { "brassDark", G.slab.edge } } do
+		for i, look in { { color or "magazine", 0 }, { "brassDark", G.slab.edge } } do
 			local p = Instance.new("Part")
 			p.Name = "Slab"
 			p.Material = Enum.Material.SmoothPlastic
@@ -402,7 +422,51 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 	for i, p in v.mag do
 		v.magAt[i] = p.CFrame
 	end
-	slab(chamberBox, chamberSize)
+	local P, L = G.shapes, v.length
+	local dia = L / 4
+	if liveSources[1] then
+		dia = if v.tube then liveSources[1].Size.Y else liveSources[1].Size.X * (if pieceScale then pieceScale.X else 1)
+	end
+	v.dia = dia
+	-- the barrel's breech end, from the chamber's mouth forward, and the channel behind it the bolt slides back in
+	local barrel = Vector3.new(dia, dia * P.barrel.height, L * P.barrel.length)
+	slab(v.chamber * CFrame.new(0, 0, -barrel.Z / 2), barrel, "steel")
+	local channel = Vector3.new(dia, dia * P.channel.height, L * P.bolt.length + v.travel)
+	slab(v.chamber * CFrame.new(0, 0, channel.Z / 2), channel)
+	box = grow(
+		box,
+		v.chamber * CFrame.new(0, 0, (channel.Z - barrel.Z) / 2),
+		Vector3.new(dia, barrel.Y, channel.Z + barrel.Z)
+	)
+	-- the bolt: its face at the case head, its handle at the back (turned up as the gun's bolt turns)
+	local B = P.bolt
+	local body = block("Bolt", "bolt", Vector3.new(dia, dia * B.height, L * B.length))
+	v.boltParts = { { part = body, rel = CFrame.new(0, 0, L * B.length / 2) } }
+	v.boltTurn = math.rad(w.action.turn or 0)
+	if v.boltTurn > 0 then
+		local stem = block("Handle", "bolt", Vector3.new(dia * B.stem, dia * B.handle, dia * B.stem))
+		local knob = block("Knob", "bolt", Vector3.one * dia * B.knob)
+		knob.Shape = Enum.PartType.Ball
+		-- (on the right: in front of the rounds)
+		v.handle = { stem = stem, knob = knob, at = CFrame.new(dia * B.out, 0, L * B.length * B.handleAt) }
+		box = grow(
+			box,
+			CFrame.new(v.chamber.X, v.chamber.Y, v.chamber.Z + L * B.length / 2),
+			Vector3.new(dia, dia * B.handle * 2.2, L * B.length)
+		)
+	end
+	if bolt then
+		v.boltRestCF = restRel(gun, bolt)
+	end
+	-- the follower
+	local Fo = P.follower
+	v.follower = block(
+		"Follower",
+		"follower",
+		if v.tube
+			then Vector3.new(dia * Fo.width, dia * Fo.width, dia * Fo.thick)
+			else Vector3.new(dia * Fo.width, dia * Fo.thick, L * Fo.length)
+	)
 	box = grow(box, magBox, magSize + Vector3.new(0, 2, 2) * G.slab.pad * v.length)
 
 	local b = box or grow(nil, CFrame.identity, Vector3.one)
@@ -449,6 +513,21 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		d = math.max(0, v.gun.CFrame:ToObjectSpace(v.bolt.CFrame).Z - v.boltRest)
 	end
 	local open = d > v.travel * G.openFrom
+	-- the drawn bolt: back as far as the gun's, its handle up as far as the gun's has turned
+	local boltAt = v.chamber * CFrame.new(0, 0, d)
+	for _, q in v.boltParts do
+		q.part.CFrame = boltAt * q.rel
+	end
+	local h = v.handle
+	if h and v.bolt then
+		local r = v.boltRestCF.Rotation:Inverse() * v.gun.CFrame:ToObjectSpace(v.bolt.CFrame).Rotation
+		local spun = math.abs(math.atan2(r.RightVector.Y, r.RightVector.X))
+		local turned = math.clamp(spun / v.boltTurn, 0, 1)
+		local B = G.shapes.bolt
+		local pivot = boltAt * h.at * CFrame.Angles(math.rad(B.down + (B.up - B.down) * turned), 0, 0)
+		h.stem.CFrame = pivot * CFrame.new(0, -h.stem.Size.Y / 2, 0)
+		h.knob.CFrame = pivot * CFrame.new(0, -h.stem.Size.Y, 0)
+	end
 	local truth = if state.chambered then "round" elseif state.spent then "case" else nil
 	if not open then
 		v.wasOpen, v.carry, v.fed, v.pending, v.maxD = false, nil, true, false, 0
@@ -551,6 +630,16 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 			hide(r)
 		end
 	end
+	-- the follower under the last round (at the top when empty), pushing them up
+	local Fo = G.shapes.follower
+	if v.tube then
+		v.follower.CFrame = slotCF(v, count + 1 + v.lift, count, count) * CFrame.new(0, 0, -v.length * Fo.gap)
+	else
+		local under = slotCF(v, math.max(count, 1) + v.lift, count, count)
+		local drop = if count == 0 then -Fo.gap - 0.5 else Fo.gap + 0.5
+		v.follower.CFrame = under * CFrame.new(0, -v.dia * drop, -v.length * Fo.length / 2)
+	end
+	v.follower.Transparency = if (gun.clip == "Enbloc" or gun.clip == "Box") and not visible then 1 else 0
 
 	-- the magazine's shapes: with the gun's rounds (an en-bloc clip coming in, a box swapped), gone while a clip or a
 	-- box is out of the gun; an empty en-bloc clip drops out of the bottom as its last round goes up
