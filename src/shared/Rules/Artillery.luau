@@ -57,7 +57,8 @@ local function aboutY(x: number, y: number, z: number, deg: number): (number, nu
 	return x * c + z * s, y, -x * s + z * c
 end
 
--- The muzzle point and the bore's unit direction in gun space for a traverse and elevation.
+-- The muzzle point and the direction the shell leaves in (gun space) for a traverse and elevation: the bore's, raised
+-- by the gun's unseen `aimTilt` degrees (Config/Artillery).
 function Artillery.muzzle(
 	gun: any,
 	traverse: number,
@@ -66,7 +67,7 @@ function Artillery.muzzle(
 	local m, t = gun.muzzle, gun.trunnion
 	local x, y, z = aboutX(m[1], m[2], m[3], t, elevation)
 	x, y, z = aboutY(x, y, z, traverse)
-	local dx, dy, dz = aboutX(0, 0, -1, { 0, 0, 0 }, elevation)
+	local dx, dy, dz = aboutX(0, 0, -1, { 0, 0, 0 }, elevation + (gun.aimTilt or 0))
 	dx, dy, dz = aboutY(dx, dy, dz, traverse)
 	return x, y, z, dx, dy, dz
 end

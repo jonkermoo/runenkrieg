@@ -640,12 +640,21 @@ local function blast(position: Vector3, kg: number, structure: string?)
 			continue
 		end
 		local cf, size = model:GetBoundingBox()
-		local l = cf:PointToObjectSpace(position)
-		local d = Vector3.new(
-			math.max(math.abs(l.X) - size.X / 2, 0),
-			math.max(math.abs(l.Y) - size.Y / 2, 0),
-			math.max(math.abs(l.Z) - size.Z / 2, 0)
-		).Magnitude
+		local function off(c: CFrame, sz: Vector3): number
+			local l = c:PointToObjectSpace(position)
+			return Vector3.new(
+				math.max(math.abs(l.X) - sz.X / 2, 0),
+				math.max(math.abs(l.Y) - sz.Y / 2, 0),
+				math.max(math.abs(l.Z) - sz.Z / 2, 0)
+			).Magnitude
+		end
+		local d = off(cf, size)
+		-- its platform: a flat pad round its foot that counts as the gun (Config `platform`)
+		local pf = s.gun.platform
+		if pf then
+			local foot = cf * CFrame.new(0, (pf.thick - size.Y) / 2, 0)
+			d = math.min(d, off(foot, Vector3.new(size.X + 2 * pf.pad, pf.thick, size.Z + 2 * pf.pad)))
+		end
 		local amount = Rules.gunHit(d, src, H.direct)
 		if amount > 0 then
 			s.hp = math.max(s.hp - amount, 0)

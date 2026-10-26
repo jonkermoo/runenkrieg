@@ -93,6 +93,11 @@ export type Gun = {
 		slabs: boolean?,
 	}?,
 	hp: number, -- what it takes to wreck it (Hits, Wreck)
+	-- the shell leaves this many degrees over the bore, unseen (Rules/Artillery.muzzle); nil: along it
+	aimTilt: number?,
+	-- a flat pad round its base that counts as the gun for hits (Hits): `pad` studs out past its footprint, `thick` studs
+	-- up from its foot; nil: the gun alone
+	platform: { pad: number, thick: number }?,
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
 }
 
@@ -397,6 +402,12 @@ local Artillery = {
 			recoilTimes = { 0.08, 1.2 },
 			recoilClear = nil,
 			hp = 100,
+			-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
+			-- hit enemy sectors)"; picked: the shortest shot ~300 studs, one sector): +8 on every shot, so -5..16 on the
+			-- dial throws 3..24: ~300 to ~2,100 studs
+			aimTilt = 8,
+			-- (user 2026-10-26: "add a platform hitbox for the cannon"; picked: the ground it stands on counts as the gun)
+			platform = { pad = 3, thick = 1.5 },
 			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail
 			crewTurns = false,
 			prompt = 8,

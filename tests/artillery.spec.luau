@@ -8,6 +8,8 @@ local function near(a: number, b: number, eps: number?): boolean
 	return math.abs(a - b) <= (eps or 1e-6)
 end
 local QF, HOW = C.Guns.artillery_qf18, C.Guns.artillery_howitzer
+local BORE = table.clone(QF) :: any -- the field gun with its shell leaving along the bore (no aimTilt)
+BORE.aimTilt = nil
 
 return {
 	["every gun names a real asset and sane limits"] = function()
@@ -50,27 +52,34 @@ return {
 		assert(near(s.elevation, QF.elevationRate))
 	end,
 	["level and straight the muzzle is the model's, along -Z"] = function()
-		local x, y, z, dx, dy, dz = A.muzzle(QF, 0, 0)
+		local x, y, z, dx, dy, dz = A.muzzle(BORE, 0, 0)
 		assert(near(x, QF.muzzle[1]) and near(y, QF.muzzle[2]) and near(z, QF.muzzle[3]))
 		assert(near(dx, 0) and near(dy, 0) and near(dz, -1))
 	end,
 	["elevation lifts the muzzle about the trunnion, traverse turns it left"] = function()
-		local _, y, _, _, dy = A.muzzle(QF, 0, 16)
+		local _, y, _, _, dy = A.muzzle(BORE, 0, 16)
 		assert(y > QF.muzzle[2] and near(dy, math.sin(math.rad(16))))
-		local _, _, _, dx = A.muzzle(QF, 4.5, 0)
+		local _, _, _, dx = A.muzzle(BORE, 4.5, 0)
 		assert(dx < 0)
 		-- the muzzle stays as far from the trunnion
 		local t = QF.trunnion
-		local x2, y2, z2 = A.muzzle(QF, 0, 12)
+		local x2, y2, z2 = A.muzzle(BORE, 0, 12)
 		local d0 = math.sqrt((QF.muzzle[2] - t[2]) ^ 2 + (QF.muzzle[3] - t[3]) ^ 2)
 		assert(near(math.sqrt(x2 ^ 2 + (y2 - t[2]) ^ 2 + (z2 - t[3]) ^ 2), d0, 1e-6))
 	end,
 	["yawOf agrees with the traverse's turn"] = function()
-		local _, _, _, dx, _, dz = A.muzzle(QF, 30, 0)
+		local _, _, _, dx, _, dz = A.muzzle(BORE, 30, 0)
 		assert(near(A.yawOf(dx, dz), 30, 1e-6))
 	end,
 	["the agreed ranges: field gun ~1,500 at full elevation, the howitzer a short-arc mortar"] = function()
-		assert(math.abs(A.range(QF.speed, QF.elevation[2], QF.gravity) - 1500) < 50)
+		-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
+		-- hit enemy sectors)", the shortest ~300: one sector): the shell leaves aimTilt over the bore
+		local tilt = QF.aimTilt :: number
+		local low = A.range(QF.speed, QF.elevation[1] + tilt, QF.gravity)
+		assert(tilt > 0 and tilt <= 10 and math.abs(low - 300) < 20, low)
+		local _, _, _, _, dy = A.muzzle(QF, 0, 0)
+		assert(near(dy, math.sin(math.rad(tilt))))
+		assert(A.range(QF.speed, QF.elevation[2] + tilt, QF.gravity) > 1500)
 		assert(HOW.elevation[1] >= 45) -- it only lobs
 		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 590) < 20)
 		assert(A.range(HOW.speed, HOW.elevation[2], HOW.gravity) < 250)
