@@ -8,9 +8,9 @@
 -- - burnt out by a stage 3 shot (Config/Spells.Mana.burnout): it flickers, dropping out, until it's usable again;
 --   full again, a white flash;
 -- - a shot refused for want of mana: the panel shakes;
--- - three lamps under it, Zoltraak's stages: dimly lit while the mana could pay for that stage, bright as a held charge
---   reaches it (the reached one pulsing).
--- Read from the attributes src/client/StaffAttack writes ("Mana", "ManaLocked", "ManaCost", "ManaDenied",
+-- - full again, it pops (a quick swell and a white flash); otherwise nothing but its brightness says how full it is
+--   (user 2026-10-26: "just make the circle have a pop animation once its fully charged. no other indicator").
+-- Read from the attributes src/client/StaffAttack writes ("Mana", "ManaLocked", "ManaDenied",
 -- "ManaRefilled").
 
 local Players = game:GetService("Players")
@@ -86,12 +86,11 @@ function StaffHud.start()
 	view.CurrentCamera = camera
 	local rock: Rock? = nil
 	local home = panel.panel.Position
-	local lamps = { panel.node.Lamp1, panel.node.Lamp2, panel.node.Lamp3 }
 	local max = Spells.Mana.max
-	local costs = Spells.Mana.cost
 	local flickerUntil, nextFlicker = 0, 0
 	local rng = Random.new()
 	local angle = 0
+	local wasFull, fullAt = true, -math.huge
 
 	RunService.RenderStepped:Connect(function(dt)
 		local character = player.Character
@@ -108,7 +107,6 @@ function StaffHud.start()
 		local now = os.clock()
 		local value = (character:GetAttribute("Mana") :: number?) or max
 		local locked = character:GetAttribute("ManaLocked") == true
-		local cost = character:GetAttribute("ManaCost") :: number?
 		local deniedAt = (character:GetAttribute("ManaDenied") :: number?) or -math.huge
 		local refilledAt = (character:GetAttribute("ManaRefilled") :: number?) or -math.huge
 
@@ -139,8 +137,16 @@ function StaffHud.start()
 				bright *= S.flicker.depth
 			end
 		end
-		local r = now - refilledAt
+		-- full again: a pop (a quick swell and a white flash); full is the rock at its brightest, nothing else says so
+		if value >= max and not wasFull then
+			fullAt = now
+		end
+		wasFull = value >= max
+		local r = now - math.max(refilledAt, fullAt)
 		local flash = if r < S.flash then 1 - r / S.flash else 0
+		local u = (now - fullAt) / S.pop.time
+		local swell = if u < 1 then 1 + S.pop.size * math.sin(u * math.pi) * (1 - u) else 1
+		camera.FieldOfView = S.fov / swell
 
 		if rock then
 			angle += math.rad(S.spin) * dt
@@ -152,28 +158,6 @@ function StaffHud.start()
 				q.part.Color = empty:Lerp(base, bright):Lerp(Color3.new(1, 1, 1), flash)
 				q.part.Transparency = S.empty * (1 - bright)
 			end
-		end
-
-		-- the stage lamps
-		local stage = 0
-		if cost then
-			for i, c in costs do
-				if c == cost then
-					stage = i
-				end
-			end
-		end
-		for i, lamp in lamps do
-			local color = rgb(UI.lampOff)
-			if i <= stage then
-				local pulse = if i == stage
-					then 1 - S.pulseDepth * (1 + math.sin(now * S.stagePulse * math.pi * 2)) / 2
-					else 1
-				color = rgb(UI.lampOff):Lerp(core, pulse)
-			elseif not locked and value >= costs[i] then
-				color = rgb(UI.lampOff):Lerp(glow, S.lampIdle)
-			end
-			lamp.BackgroundColor3 = color
 		end
 	end)
 end

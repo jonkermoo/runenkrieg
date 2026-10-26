@@ -104,10 +104,7 @@ local Hud = {
 		flicker = { every = 0.18, jitter = 0.5, time = 0.07, depth = 0.15 },
 		flash = 0.4, -- full again: a white flash fading over this
 		shake = { time = 0.3, size = 5, speed = 70 }, -- a refused shot
-		-- the three stage lamps under it (Zoltraak's stages) light as the charge reaches each
-		stagePulse = 6, -- cycles a second the reached lamp pulses while held, by `pulseDepth` of its light
-		pulseDepth = 0.25,
-		lampIdle = 0.55, -- a stage the mana could pay for: its lamp lit this share
+		pop = { time = 0.35, size = 0.25 }, -- full again: the rock swells by `size` and back over `time` s
 		tilt = 12, -- degrees the rock leans toward the camera
 		margin = 0.05,
 		fit = 0.62, -- the view frames a cube this share of the rock's diagonal (it turns inside it)

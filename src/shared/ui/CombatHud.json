@@ -30,7 +30,6 @@
 		"rivet": 5
 	},
 	"preview": {
-		"count": "15+1",
 		"hint": "R: new magazine",
 		"elevation": "Elev +16.0°",
 		"traverse": "Trav -4.5°",
@@ -86,33 +85,6 @@
 							-20
 						],
 						"color": "window"
-					},
-					{
-						"id": "Count",
-						"kind": "label",
-						"overlay": true,
-						"font": "title",
-						"bind": "count",
-						"text": "",
-						"textSize": 28,
-						"textColor": "count",
-						"align": "right",
-						"anchor": [
-							1,
-							1
-						],
-						"pos": [
-							1,
-							-14,
-							1,
-							-8
-						],
-						"size": [
-							0,
-							92,
-							0,
-							32
-						]
 					},
 					{
 						"id": "Hint",
@@ -186,7 +158,7 @@
 					0,
 					196,
 					0,
-					210
+					186
 				],
 				"color": "field",
 				"line": "brass",
@@ -204,89 +176,9 @@
 							1,
 							-20,
 							1,
-							-52
+							-20
 						],
 						"color": "window"
-					},
-					{
-						"id": "Lamps",
-						"kind": "group",
-						"center": true,
-						"anchor": [
-							0.5,
-							1
-						],
-						"pos": [
-							0.5,
-							0,
-							1,
-							-12
-						],
-						"size": [
-							0,
-							112,
-							0,
-							26
-						],
-						"children": [
-							{
-								"id": "Lamp1",
-								"kind": "panel",
-								"round": true,
-								"pos": [
-									0,
-									0,
-									0,
-									0
-								],
-								"size": [
-									0,
-									26,
-									0,
-									26
-								],
-								"color": "lampOff",
-								"line": "brass"
-							},
-							{
-								"id": "Lamp2",
-								"kind": "panel",
-								"round": true,
-								"pos": [
-									0,
-									43,
-									0,
-									0
-								],
-								"size": [
-									0,
-									26,
-									0,
-									26
-								],
-								"color": "lampOff",
-								"line": "brass"
-							},
-							{
-								"id": "Lamp3",
-								"kind": "panel",
-								"round": true,
-								"pos": [
-									0,
-									86,
-									0,
-									0
-								],
-								"size": [
-									0,
-									26,
-									0,
-									26
-								],
-								"color": "lampOff",
-								"line": "brass"
-							}
-						]
 					}
 				]
 			},
