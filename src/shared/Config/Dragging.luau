@@ -6,7 +6,8 @@
 -- again to let go. Teammates only (Rules/Teams). While dragging: walking slowly, no sprint, jump or aim, nothing in the
 -- hands, crouched (bent over the body), facing the one dragged. The dragged soldier never gets up mid-drag: once let go, the usual settle and
 -- get-up wait starts over (src/server/Ragdoll). It ends on the Drag key, the dragger knocked down, hit or dead, the
--- dragged soldier dead, a weapon drawn, a heal started, or the body caught Break studs behind.
+-- dragged soldier dead, a weapon drawn, a heal started, or the body caught Break studs behind. Once it ends, the
+-- dragger takes out again whatever they held before the drag (user 2026-10-26), if their hands are still free.
 
 local Dragging = {
 	Range = 6, -- studs between the two soldiers' roots to start a drag (and the prompt shows)
@@ -16,10 +17,13 @@ local Dragging = {
 	AskGap = 0.25, -- seconds between a player's drag requests the server takes (rate limit)
 	Speed = 5, -- the dragger's (crouched) walk speed (studs/s; crouch-walk is 6, walk 10)
 
-	-- The pull: an AlignPosition from the dragged body's collar (`Collar`, in the Torso's axes: its top) to a point by
-	-- the dragger's hands (`Grip`, in the HumanoidRootPart's axes: low, in front). It pulls the body only (the dragger
-	-- isn't yanked back), at most `MaxForce`, so the body slides with its legs trailing and still catches on walls.
-	Collar = { 0, 0.9, 0 },
+	-- The pull: an AlignPosition from each of the dragged body's `Legs` at its ankle (`Ankle`, in the leg's axes: its
+	-- bottom) to a point by the dragger's hands (`Grip`, in the HumanoidRootPart's axes: low, in front). By the legs
+	-- (user 2026-10-26: by the collar the dragger stood on the body and floated), so the body trails away from the
+	-- dragger head last. It pulls the body only (the dragger isn't yanked back), at most `MaxForce` in all (shared by
+	-- the legs), so the body slides and still catches on walls.
+	Legs = { "Left Leg", "Right Leg" },
+	Ankle = { 0, -0.9, 0 },
 	Grip = { 0, -1.85, -1.4 }, -- (where the DragPull hands hold)
 	MaxForce = 6000,
 	MaxVelocity = 12, -- studs/s the collar may chase the grip at
