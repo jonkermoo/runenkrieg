@@ -78,6 +78,7 @@ local function prompt(): BillboardGui
 	gui.Size = UDim2.fromOffset(P.Size[1], P.Size[2])
 	gui.StudsOffsetWorldSpace = Vector3.new(0, P.Above, 0)
 	gui.AlwaysOnTop = true
+	gui.ResetOnSpawn = false -- made once: a respawn would delete it for good (no prompt after the first death)
 	gui.Enabled = false
 	local t = Instance.new("TextLabel")
 	t.Name = "Text"
