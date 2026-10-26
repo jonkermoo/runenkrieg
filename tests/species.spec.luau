@@ -82,28 +82,19 @@ return {
 			assert(f[i] >= lo and f[i] <= hi and f[i] == math.floor(f[i]), "fluff between hair and cream")
 		end
 	end,
-	["ears: still at rest, back when sprinting, flat and out when hurt, a twitch swivels"] = function()
-		local E = Cfg.Motion.Ear
-		local quiet = table.clone(E)
-		quiet.swayDeg = 0
-		local x, y, z = Species.earAngles(0, 1, 0, 1, 0, 0, 0, quiet)
-		assert(x == 0 and y == 0 and z == 0, "rest")
-		x = Species.earAngles(0, 1, 0, 1, 0, 1, 0, quiet)
-		assert(near(x, E.sprintBackDeg), "sprinting lies back")
-		local xr, _, zr = Species.earAngles(0, 1, 0, 1, 0, 0, 1, quiet)
-		local _, _, zl = Species.earAngles(0, -1, 0, 1, 0, 0, 1, quiet)
-		assert(xr > 0 and zr < 0 and zl > 0, "flat: back, and each ear rolls out to its own side")
-		local _, yr = Species.earAngles(0, 1, 0, 1, 1, 0, 0, quiet)
-		local _, yl = Species.earAngles(0, -1, 0, 1, 1, 0, 0, quiet)
-		assert(near(yr, E.twitchDeg) and near(yl, -E.twitchDeg), "a twitch swivels each ear its own way")
-		local xs = Species.earAngles(0, 1, 0, 0.5, 0, 1, 0, quiet)
-		assert(near(xs, E.sprintBackDeg * 0.5), "the species' share scales it")
-	end,
-	["twitch and hurt curves"] = function()
-		assert(Species.twitch(-0.1, 0.2) == 0 and Species.twitch(0.3, 0.2) == 0, "outside a twitch")
-		assert(near(Species.twitch(0.1, 0.2), 1), "the twitch peaks halfway")
-		assert(Species.hurt(0, 0.8) == 1 and Species.hurt(0.8, 0.8) == 0, "hurt eases from 1 to 0")
-		assert(Species.hurt(-math.huge, 0.8) == 0, "never hit")
+	["ears: only sway, each its own way, scaled by the species' share"] = function()
+		local E = table.clone(Cfg.Motion.Ear)
+		E.swayDeg = 0
+		local x, y = Species.earAngles(0, 1, 0, 1, E)
+		assert(x == 0 and y == 0, "rest")
+		E.swayDeg = 2
+		local t = 0.25 / E.swayHz -- the sway's peak
+		local xr, yr = Species.earAngles(t, 1, 0, 1, E)
+		local xl, yl = Species.earAngles(t, -1, 0, 1, E)
+		assert(near(xr, 2 * E.swayTilt) and near(xl, xr), "the drift tilts both ears alike")
+		assert(near(yr, 2 * E.swaySwivel) and near(yl, -yr), "and swivels each ear its own way")
+		local xs = Species.earAngles(t, 1, 0, 0.5, E)
+		assert(near(xs, xr * 0.5), "the species' share scales it")
 	end,
 	["tail: lifts running forward, swings against sideways motion, droops dead, stays within limits"] = function()
 		local T = table.clone(Cfg.Motion.Tail)
