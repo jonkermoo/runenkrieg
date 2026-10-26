@@ -10,6 +10,17 @@ local function near(a: number, b: number, eps: number?): boolean
 end
 
 return {
+	["the thunk carries past a full throw (Footstep's falloff went silent at 60 studs)"] = function()
+		local A = require("../src/shared/Config/Audio")
+		local far = 0
+		for _, t in C.Types do
+			far = math.max(far, G.range(t.speed, 45, GRAVITY))
+		end
+		for _, e in C.Thunk.sounds do
+			local p = A.Profiles[e.profile]
+			assert(p and p.max > far * 2, "the thunk is heard a full throw away")
+		end
+	end,
 	["a hit bounces it off at its share, or keeps it on the surface when that is too slow"] = function()
 		local out, along = G.hit(100, 50, 0.2, 0.3, 8)
 		assert(near(out, 30) and near(along, 10))
