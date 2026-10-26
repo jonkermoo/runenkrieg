@@ -2,7 +2,9 @@
 -- Dev cinematic settings for filming (the admin panel's "Cinematic" rows, Config/DevTools.Admin.Cinematic), this player
 -- only. Each item is hidden while the Player has its "DevCinematic<id>" attribute:
 -- - Hud: the game's HUD guis (HudGuis) kept off; whatever their owner sets meanwhile comes back when shown again.
--- - RobloxUi: every Roblox core gui (chat, player list, backpack...) and the top bar; each comes back as it was.
+-- - RobloxUi: every Roblox core gui (chat, player list, backpack...) and the top bar; each comes back as it was. The
+--   hotbar's number keys (HotbarKeys) still equip / unequip the tools meanwhile, in the order they arrived as the
+--   hotbar orders them.
 -- - DevUi: the dev pins and the settings gear; the other dev panels close. The admin panel stays where F2 puts it
 --   (Settings Key_AdminPanel), and src/client/DevAdminMenu hides the dev labels too.
 -- - NameTags: the names and health bars over every humanoid's head.
@@ -10,6 +12,7 @@
 -- DevCinematic.clear(player).
 
 local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
@@ -98,6 +101,47 @@ local function hideCore(on: boolean)
 	end
 end
 
+-- the hidden hotbar's keys: the tools in the order they first came to this player (weak keys)
+local arrived: { [Tool]: number } = setmetatable({}, { __mode = "k" }) :: any
+local arrivals = 0
+
+local function stamp(d: Instance)
+	if d:IsA("Tool") and not arrived[d] then
+		arrivals += 1
+		arrived[d] = arrivals
+	end
+end
+
+local function hotbarKey(player: Player, input: InputObject)
+	local slot = table.find(C.HotbarKeys, input.KeyCode.Name)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if not slot or not character or not humanoid or not backpack then
+		return
+	end
+	local tools: { Tool } = {}
+	for _, holder in { backpack, character } do
+		for _, t in holder:GetChildren() do
+			if t:IsA("Tool") then
+				stamp(t)
+				table.insert(tools, t)
+			end
+		end
+	end
+	table.sort(tools, function(a, b)
+		return arrived[a] < arrived[b]
+	end)
+	local tool = tools[slot]
+	if not tool then
+		return
+	elseif tool.Parent == character then
+		humanoid:UnequipTools()
+	else
+		humanoid:EquipTool(tool)
+	end
+end
+
 -- NameTags: each humanoid's display before hiding (weak keys: a removed body is forgotten)
 type Tag = { distance: Enum.HumanoidDisplayDistanceType, health: Enum.HumanoidHealthDisplayType }
 local tags: { [Humanoid]: Tag } = setmetatable({}, { __mode = "k" }) :: any
@@ -170,6 +214,24 @@ function DevCinematic.start(player: Player)
 	playerGui.ChildRemoved:Connect(function(child)
 		if child:IsA("LayerCollector") and held[child] then
 			release(child)
+		end
+	end)
+
+	-- every tool's arrival (in the backpack or straight into the hands), for the hidden hotbar's order
+	player.DescendantAdded:Connect(stamp)
+	for _, d in player:GetDescendants() do
+		stamp(d)
+	end
+	local function watchCharacter(character: Model)
+		character.ChildAdded:Connect(stamp)
+	end
+	player.CharacterAdded:Connect(watchCharacter)
+	if player.Character then
+		watchCharacter(player.Character)
+	end
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if not processed and coreBefore and coreBefore[Enum.CoreGuiType.Backpack] then
+			hotbarKey(player, input)
 		end
 	end)
 
