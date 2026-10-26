@@ -35,16 +35,25 @@ local Hud = {
 			channel = { height = 1.3 },
 			bolt = {
 				length = 0.9,
-				height = 1.15,
+				height = 1.05, -- (the body's width)
+				cock = 0.2, -- the cocking piece behind it: its length, and width
+				cockWidth = 0.75,
 				handleAt = 0.8,
 				handle = 1.7,
 				out = 1.2, -- (round widths toward the camera: the handle is on the gun's right)
-				stem = 0.45,
+				stem = 0.38,
 				knob = 0.95,
 				down = -40, -- (down and back at rest, up and back turned)
 				up = -160,
 			},
 			follower = { width = 1.1, thick = 0.35, length = 0.7, gap = 0.25 },
+		},
+		-- the gun's body behind it all: these parts (any it has) in Palette.UI.Hud.ghost, see-through, set `back` studs
+		-- away from the camera
+		ghost = {
+			parts = { "Metal", "Wood", "Handguard", "Receiver", "Pump", "Magazine", "Trigger" },
+			see = 0.78,
+			back = 0.35,
 		},
 		stagger = 0.42, -- a double stack's rounds, side to side, in round diameters (when they sit closer than `double`)
 		double = 0.95, -- rounds closer than this many diameters apart are a double stack

@@ -95,6 +95,7 @@ type View = {
 	view: ViewportFrame,
 	camera: Camera,
 	cut: Model,
+	ghosts: { { src: BasePart, part: BasePart } }, -- the gun's body, faint (posed as the gun's own parts are)
 	dia: number, -- a round's width (studs)
 	boltParts: { { part: BasePart, rel: CFrame } }, -- the drawn bolt, about its face
 	handle: { stem: BasePart, knob: BasePart, at: CFrame }?,
@@ -199,6 +200,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		view = view,
 		camera = camera,
 		cut = cut,
+		ghosts = {},
 		dia = 0,
 		boltParts = {},
 		handle = nil,
@@ -422,6 +424,22 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 	for i, p in v.mag do
 		v.magAt[i] = p.CFrame
 	end
+	-- the gun's body, faint behind it all (user 2026-10-26: "keep the body of the gun in the visual somehow, but dont
+	-- overshadow the bullets and the mechanism"): its own parts in one dull colour, see-through, set back
+	local ghost = HudKit.rgb("ghost")
+	for _, name in G.ghost.parts do
+		local p = part(name)
+		if p then
+			local c = p:Clone()
+			anchored(c)
+			c.Color = ghost
+			c.Material = Enum.Material.SmoothPlastic
+			c.Transparency = G.ghost.see
+			c.Parent = cut
+			table.insert(v.ghosts, { src = p, part = c })
+		end
+	end
+
 	local P, L = G.shapes, v.length
 	local dia = L / 4
 	if liveSources[1] then
@@ -438,13 +456,24 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		v.chamber * CFrame.new(0, 0, (channel.Z - barrel.Z) / 2),
 		Vector3.new(dia, barrel.Y, channel.Z + barrel.Z)
 	)
-	-- the bolt: its face at the case head, its handle at the back (turned up as the gun's bolt turns)
+	-- the bolt, a simple 3D piece of its own (user 2026-10-26: "dont use real models for the bolts. create a simple but
+	-- 3d design"): a round body, its face at the case head, the cocking piece behind it, its handle (a rod and a ball
+	-- knob) at the back, turned up as the gun's bolt turns
 	local B = P.bolt
-	local body = block("Bolt", "bolt", Vector3.new(dia, dia * B.height, L * B.length))
-	v.boltParts = { { part = body, rel = CFrame.new(0, 0, L * B.length / 2) } }
+	local along = CFrame.Angles(0, math.pi / 2, 0) -- (a cylinder's axis is its X: turned onto the gun's Z)
+	local body = block("Bolt", "bolt", Vector3.new(L * B.length, dia * B.height, dia * B.height))
+	body.Shape = Enum.PartType.Cylinder
+	local cock = block("CockingPiece", "steel", Vector3.new(L * B.cock, dia * B.cockWidth, dia * B.cockWidth))
+	cock.Shape = Enum.PartType.Cylinder
+	v.boltParts = {
+		{ part = body, rel = CFrame.new(0, 0, L * B.length / 2) * along },
+		{ part = cock, rel = CFrame.new(0, 0, L * (B.length + B.cock / 2)) * along },
+	}
+	box = grow(box, CFrame.new(v.chamber.Position), Vector3.new(dia, dia, L * (B.length + B.cock) * 2))
 	v.boltTurn = math.rad(w.action.turn or 0)
 	if v.boltTurn > 0 then
-		local stem = block("Handle", "bolt", Vector3.new(dia * B.stem, dia * B.handle, dia * B.stem))
+		local stem = block("Handle", "bolt", Vector3.new(dia * B.handle, dia * B.stem, dia * B.stem))
+		stem.Shape = Enum.PartType.Cylinder
 		local knob = block("Knob", "bolt", Vector3.one * dia * B.knob)
 		knob.Shape = Enum.PartType.Ball
 		-- (on the right: in front of the rounds)
@@ -513,6 +542,10 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		d = math.max(0, v.gun.CFrame:ToObjectSpace(v.bolt.CFrame).Z - v.boltRest)
 	end
 	local open = d > v.travel * G.openFrom
+	for _, g in v.ghosts do
+		g.part.CFrame = CFrame.new(-G.ghost.back, 0, 0) * v.gun.CFrame:ToObjectSpace(g.src.CFrame)
+		g.part.Transparency = if g.src.Transparency >= 1 then 1 else G.ghost.see
+	end
 	-- the drawn bolt: back as far as the gun's, its handle up as far as the gun's has turned
 	local boltAt = v.chamber * CFrame.new(0, 0, d)
 	for _, q in v.boltParts do
@@ -525,8 +558,8 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		local turned = math.clamp(spun / v.boltTurn, 0, 1)
 		local B = G.shapes.bolt
 		local pivot = boltAt * h.at * CFrame.Angles(math.rad(B.down + (B.up - B.down) * turned), 0, 0)
-		h.stem.CFrame = pivot * CFrame.new(0, -h.stem.Size.Y / 2, 0)
-		h.knob.CFrame = pivot * CFrame.new(0, -h.stem.Size.Y, 0)
+		h.stem.CFrame = pivot * CFrame.new(0, -h.stem.Size.X / 2, 0) * CFrame.Angles(0, 0, math.pi / 2)
+		h.knob.CFrame = pivot * CFrame.new(0, -h.stem.Size.X, 0)
 	end
 	local truth = if state.chambered then "round" elseif state.spent then "case" else nil
 	if not open then
