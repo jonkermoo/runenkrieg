@@ -1,6 +1,6 @@
 --!strict
--- Artillery on the server (docs/MILESTONES.md A2; Config/Artillery, Rules/Artillery): places the guns (dev menu for
--- now), mans them, lays them and flies their shells.
+-- Artillery on the server (docs/MILESTONES.md A2; Config/Artillery, Rules/Artillery): places the guns (the dev menu,
+-- and players' shovels: src/server/Build stands them), mans them, lays them and flies their shells.
 -- - A gun is a copy of its library model (ReplicatedStorage.Assets.Weapons.Shared.Artillery), anchored, painted
 --   (Config/Palette.Artillery), its pivot moved to gun space (found from the Bore disc at rest), standing in the
 --   Workspace folder Config/Artillery.Folder. Its attributes: "Gun" (the Config/Artillery.Guns key), "Traverse",
@@ -468,25 +468,59 @@ local function dig(at: Vector3, d: any, back: Vector3): (Vector3, Model?)
 	return at - Vector3.new(0, d.depth, 0), pit
 end
 
--- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
-function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
+-- a copy of a gun's library model, painted (`paint`: a Config/Palette.Artillery.Paint key, nil: Config/Artillery.Paint),
+-- its pivot in gun space
+local function copyOf(gun: Cfg.Gun, key: string, paintKey: string?): Model
+	local model = library(gun.asset):Clone()
+	model.Name = key
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- clients pose it whole
+	paint(model, if paintKey and Palette.Artillery.Paint[paintKey] then paintKey else Cfg.Paint)
+	local base = part(model, gun.base)
+	model.PrimaryPart = base
+	base.PivotOffset = base.CFrame:ToObjectSpace(gunSpace(model, gun))
+	return model
+end
+
+-- A gun's blueprint (src/server/Build): the gun see-through (`transparency`), nothing to stand on, shoot or touch, in
+-- `paint`; not a gun (no "Gun", nobody mans it). Pivot it to where the gun would stand.
+function Artillery.ghost(key: string, paintKey: string?, transparency: number): Model?
 	local gun = Cfg.Guns[key]
 	if not gun then
 		return nil
 	end
-	local model = library(gun.asset):Clone()
-	model.Name = key
-	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- clients pose it whole
-	paint(model, Cfg.Paint)
-	local base = part(model, gun.base)
-	model.PrimaryPart = base
-	base.PivotOffset = base.CFrame:ToObjectSpace(gunSpace(model, gun))
+	local model = copyOf(gun, key, paintKey)
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Transparency = math.max(d.Transparency, transparency)
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			d.CastShadow = false
+		end
+	end
+	return model
+end
+
+-- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
+-- `opts`: `paint` (a Config/Palette.Artillery.Paint key: a player-built gun in its team's paint); `dug`: its pit is
+-- already carved round `at` (src/server/Build digs a built gun's pit stage by stage), only its slabs laid here.
+function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint: string?, dug: boolean? }?): Model?
+	local gun = Cfg.Guns[key]
+	if not gun then
+		return nil
+	end
+	local model = copyOf(gun, key, opts and opts.paint)
+	local base = model.PrimaryPart :: BasePart
 	local flat = Vector3.new(look.X, 0, look.Z)
 	if flat.Magnitude < 1e-3 then
 		flat = Vector3.new(0, 0, -1)
 	end
 	local pit: Model? = nil
-	if gun.dig then
+	if gun.dig and opts and opts.dug then
+		local d = gun.dig
+		pit = if d.slabs and d.wall then slabs(at, d, -flat.Unit) else nil
+		at -= Vector3.new(0, d.depth, 0)
+	elseif gun.dig then
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))

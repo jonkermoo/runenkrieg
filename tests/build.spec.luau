@@ -36,7 +36,7 @@ return {
 		for _, p in C.Pieces do
 			assert(type(p.key) == "string" and not seen[p.key], p.key)
 			seen[p.key] = true
-			assert(p.kind == "Trench" or p.kind == "Sandbags" or p.kind == "Wire", p.key)
+			assert(p.kind == "Trench" or p.kind == "Sandbags" or p.kind == "Wire" or p.kind == "Gun", p.key)
 			assert(type(p.name) == "string" and p.work >= 1, p.key)
 		end
 		assert(B.piece("LowWall", C.Pieces) ~= nil and B.piece("Nope", C.Pieces) == nil and B.piece(5, C.Pieces) == nil)
@@ -61,8 +61,32 @@ return {
 		assert(why({ water = true }) == "Not in water")
 		assert(why({ slope = 21 }) == "Too steep")
 		assert(why({ overlap = true }) == "In the way")
+		assert(why({ gunGap = true }) == "Too close to another gun")
+		assert(why({ nearTrench = true }) == "Too close to a trench")
 		assert(why({ mine = C.PerPlayer }) == "You have too many pieces")
 		assert(why({ team = C.PerTeam }) == "Your team has too many pieces")
+	end,
+	["guns: one per kind within its spacing, any two their clears apart; both teams build both"] = function()
+		local field = B.piece("FieldGun", C.Pieces) :: any
+		local how = B.piece("Howitzer", C.Pieces) :: any
+		assert(field.spacing == 60 and how.spacing == 120 and field.work == 20 and how.work == 40)
+		assert(not B.gunsClear(59, true, 60, 9, 9) and B.gunsClear(60, true, 60, 9, 9))
+		assert(B.gunsClear(50, false, 60, 9, 36) and not B.gunsClear(44, false, 60, 9, 36))
+		for _, kit in { "uniform1", "uniform2", "uniform3" } do
+			assert(C.Guns.paint[kit] ~= nil, kit)
+		end
+	end,
+	["guns: stand at full work, stay until under standsFrom, the pit deepens by stage"] = function()
+		local s = C.Guns.standsFrom
+		assert(not B.gunStands(false, 39, 40, s) and B.gunStands(false, 40, 40, s))
+		assert(
+			B.gunStands(true, 31, 40, s) and not B.gunStands(true, 30, 40, s),
+			"10 Destroy swings of 40 take it down"
+		)
+		assert(B.gunStands(true, 16, 20, s) and not B.gunStands(true, 15, 20, s), "5 of 20")
+		assert(not B.gunStands(false, 35, 40, s), "a gun taken apart stands again only at full work")
+		assert(B.pitShare(true, 30, 40, 8) == 1 and B.pitShare(false, 0, 40, 8) == 0)
+		assert(near(B.pitShare(false, 20, 40, 8), 0.5) and near(B.pitShare(false, 39, 40, 8), 7 / 8))
 	end,
 	["slopes: level is 0, a rise equal to the span is 45, the steepest pair wins"] = function()
 		assert(near(B.slope(3, 3, 4), 0) and near(B.slope(0, 4, 4), 45) and B.slope(0, 1, 0) == 90)

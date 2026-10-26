@@ -320,6 +320,51 @@ function Ground.churn(position: Vector3, radius: number, depth: number, c: any)
 	end
 end
 
+-- the ground under a pit to come (Ground.pit's `base`): its region read once, at the pit's full size
+export type PitBase = { region: Region3, mats: any, occs: any }
+
+local function copy(grid: any): any
+	local out = table.create(#grid)
+	for x = 1, #grid do
+		local plane = grid[x]
+		local p = table.create(#plane)
+		for y = 1, #plane do
+			p[y] = table.clone(plane[y])
+		end
+		out[x] = p
+	end
+	out.Size = grid.Size -- (ReadVoxels' grids carry their size)
+	return out
+end
+
+-- Reads the ground a pit (Ground.pit's arguments, at its full depth) will reach, to dig it in stages; nil when it
+-- can't be read.
+function Ground.pitBase(
+	position: Vector3,
+	radius: number,
+	depth: number,
+	rim: number,
+	rimHeight: number,
+	ramp: { length: number }?,
+	wall: number?
+): PitBase?
+	local terrain = workspace.Terrain
+	local lean = if wall then 1 / math.tan(math.rad(wall)) else 0
+	local out = radius + depth * lean + rim + (if ramp then ramp.length else 0)
+	local reach = Vector3.new(out, depth + rimHeight + VOXEL * 3, out)
+	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return nil
+	end
+	return { region = region, mats = mats, occs = occs }
+end
+
+-- Puts the ground back as `base` read it (a built gun's pit filled in)
+function Ground.restore(base: PitBase)
+	workspace.Terrain:WriteVoxels(base.region, VOXEL, base.mats, base.occs)
+end
+
 -- A gun's pit (src/server/Artillery `dig`): within `radius` of `position` the ground cut down to a level floor `depth`
 -- under it (the top voxel left part full, so the floor sits at that height; mud; filled up to it where the ground falls
 -- away, on a slope), and a rim of earth `rimHeight` high thrown up round it over the next `rim` studs, peaked in its
@@ -330,6 +375,8 @@ end
 -- rising from the pit's floor to the ground over `length` studs, cut through the rim.
 -- `wall` (optional, degrees): the pit's wall (and the ramp's sides) lean back at this angle from the floor's edge up to
 -- the ground, where the rim starts (a trench's wall: Config/Build.Trench.wallAngle); nil: cut straight down.
+-- `base` (optional, Ground.pitBase): the ground as it was before any of this pit, which it is dug into afresh (a
+-- player-built gun's pit deepening stage by stage, src/server/Build).
 -- Returns how far out from `position` it reached.
 function Ground.pit(
 	position: Vector3,
@@ -338,17 +385,24 @@ function Ground.pit(
 	rim: number,
 	rimHeight: number,
 	ramp: { dir: Vector3, width: number, length: number }?,
-	wall: number?
+	wall: number?,
+	base: PitBase?
 ): number
 	local terrain = workspace.Terrain
 	local lean = if wall then 1 / math.tan(math.rad(wall)) else 0 -- studs out per stud up
 	local top = radius + depth * lean -- the wall's top edge, on the ground
 	local out = top + rim + (if ramp then ramp.length else 0)
-	local reach = Vector3.new(out, depth + rimHeight + VOXEL * 3, out)
-	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
-	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
-	if not ok then
-		return out
+	local region, mats, occs
+	if base then
+		region, mats, occs = base.region, copy(base.mats), copy(base.occs)
+	else
+		local reach = Vector3.new(out, depth + rimHeight + VOXEL * 3, out)
+		region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+		local ok
+		ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+		if not ok then
+			return out
+		end
 	end
 	local size = mats.Size
 	local corner = region.CFrame.Position - region.Size / 2
