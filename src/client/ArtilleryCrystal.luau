@@ -33,6 +33,7 @@ export type State = {
 	cracks: BasePart?,
 	flickerUntil: number, -- a drop-out running until then
 	flickerDepth: number,
+	flareUntil: number, -- knocked out: a weak flare running until then
 	seed: number,
 	bands: { BasePart },
 	halos: { BasePart }, -- the carved runes' halos (Palette.Artillery.Halos)
@@ -174,6 +175,7 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 		cracks = if cracks and cracks:IsA("BasePart") then cracks else nil,
 		flickerUntil = 0,
 		flickerDepth = 0,
+		flareUntil = 0,
 		seed = math.random() * 100,
 		bands = bands,
 		halos = halos,
@@ -201,12 +203,20 @@ function ArtilleryCrystal.update(
 	readyAt: number,
 	reload: number,
 	braceAt: number,
-	charge: number
+	charge: number,
+	hurt: number?, -- the share of its HP gone (Config/Artillery.Crystal.dying)
+	broken: boolean? -- knocked out: no charge, a dying sputter
 )
 	local clock = os.clock()
 	local dt = math.min(clock - s.last, 0.1)
 	s.last = clock
 	local state, glow, share = Rules.crystal(now, firedAt, readyAt, reload, Cfg)
+	local Dy = Cfg.dying
+	local dying = math.clamp(((hurt or 0) - Dy.from) / (1 - Dy.from), 0, 1)
+	if broken then
+		state, glow, share = "Ready", Dy.glow, 1
+		braceAt = -math.huge
+	end
 	-- charging up for the shot (user 2026-10-21: "a cinematic magic charge up"): over-bright, the runes whirling in
 	local up = now - braceAt
 	local surge = if state ~= "Fired" and up >= 0 and up < charge then up / charge else 0
@@ -215,16 +225,32 @@ function ArtilleryCrystal.update(
 	local F = Cfg.flicker
 	if state == "Charging" or state == "Ready" then
 		local rate = if state == "Charging" then F.rate[1] + (F.rate[2] - F.rate[1]) * share else F.rate[3]
+		rate += Dy.rate * dying
 		if clock >= s.flickerUntil and rng:NextNumber() < rate * dt then
 			s.flickerUntil = clock + rng:NextNumber(F.length[1], F.length[2])
-			s.flickerDepth = rng:NextNumber(F.depth[1], F.depth[2])
+			local deep = F.depth[2] + (Dy.depth[1] - F.depth[2]) * dying
+			s.flickerDepth = rng:NextNumber(math.min(F.depth[1] + (Dy.depth[2] - F.depth[1]) * dying, deep), deep)
 		end
 		if clock < s.flickerUntil then
 			glow *= 1 - s.flickerDepth
 		end
 		glow *= 1 - F.wobble * (0.5 + 0.5 * math.noise(clock * 2.3, s.seed))
 	end
+	if broken then
+		-- knocked out: mostly black, a weak flare now and then
+		if clock >= s.flareUntil and rng:NextNumber() < dt / Dy.flareEvery then
+			s.flareUntil = clock + Dy.flareLength
+		end
+		if clock < s.flareUntil then
+			glow = Dy.flare
+		elseif math.noise(clock * 3.1, s.seed) * 0.5 + 0.5 < Dy.blackout then
+			glow = 0
+		end
+	end
 	local color = colorAt(glow)
+	if dying > 0 then
+		color = color:Lerp(rgb(Dy.tint), dying * 0.5)
+	end
 	s.crystal.Color = color
 	if s.cracks then
 		s.cracks.Color = colorAt(math.max(glow + Cfg.cracks, 0))

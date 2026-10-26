@@ -20,6 +20,7 @@
 -- - A dug-in gun's pit is lined with trench dirt slabs (Config/Artillery.Slabs, the trench kit: src/server/Trenches),
 --   laid rough, in the Workspace folder Config/Artillery.PitFolder, gone with the gun.
 
+local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -56,6 +57,7 @@ type State = {
 	stage: number, -- its Config/Artillery.Wreck stage (0: unhurt)
 	broken: boolean, -- past Wreck.unusable: nobody can man it
 	colors: { [BasePart]: Color3 }, -- as painted
+	holes: number, -- shell holes punched in it so far (Wreck.holes)
 	upright: CFrame?, -- its pivot before it first leaned
 	lean: number, -- which way it leans (radians round its up axis)
 	pit: Model?, -- its pit's slabs
@@ -650,6 +652,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		stage = 0,
 		broken = false,
 		colors = colors,
+		holes = 0,
 		upright = nil,
 		lean = random:NextNumber(0, 2 * math.pi),
 		pit = pit,
@@ -696,16 +699,152 @@ local function turnMount(s: State)
 	end
 end
 
--- A gun's look at its Wreck stage: scorched toward Palette.Artillery.Scorched (its glow dead once unusable), knocked
--- out of action from Wreck.unusable, leaning and sunk (Config/Artillery.Wreck).
+-- the Damage folder a gun's holes go in (src/client/Artillery carries each with the part named by its "On")
+local function damageFolder(model: Model): Folder
+	local f = model:FindFirstChild("Damage")
+	if not f then
+		f = Instance.new("Folder")
+		f.Name = "Damage"
+		f.Parent = model
+	end
+	return f :: Folder
+end
+
+local function bare(
+	name: string,
+	size: Vector3,
+	cf: CFrame,
+	color: Color3,
+	parent: Instance,
+	shape: Enum.PartType?
+): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Anchored = true
+	p.CanCollide, p.CanQuery, p.CanTouch = false, false, false
+	p.Material = Enum.Material.SmoothPlastic
+	if shape then
+		p.Shape = shape
+	end
+	p.Size = size
+	p.CFrame = cf
+	p.Color = color
+	p.Parent = parent
+	return p
+end
+
+-- One shell hole punched into the gun where a ray from round it meets one of its `wreckParts`: a dark disc in the
+-- surface and a ring of torn metal flaps bent out round it, in that part's own colour gone dark
+local function punch(s: State)
+	local W = Cfg.Wreck
+	local gun = s.gun
+	local targets = {}
+	for _, name in gun.wreckParts do
+		local p = s.model:FindFirstChild(name, true)
+		if p and p:IsA("BasePart") then
+			table.insert(targets, p)
+		end
+	end
+	if #targets == 0 then
+		return
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = targets
+	local cf, size = s.model:GetBoundingBox()
+	local reach = size.Magnitude
+	for _ = 1, 8 do
+		local inside = Vector3.new(
+			random:NextNumber(-0.4, 0.4) * size.X,
+			random:NextNumber(-0.2, 0.4) * size.Y,
+			random:NextNumber(-0.4, 0.4) * size.Z
+		)
+		local into = cf:PointToWorldSpace(inside)
+		local from = into + random:NextUnitVector() * reach
+		local hit = workspace:Raycast(from, (into - from).Unit * reach * 1.5, params)
+		if hit and hit.Instance:IsA("BasePart") then
+			local on = hit.Instance :: BasePart
+			local d = random:NextNumber(gun.holeSize[1], gun.holeSize[2])
+			local face = CFrame.lookAt(hit.Position, hit.Position + hit.Normal)
+			local holes = damageFolder(s.model)
+			local dark = on.Color:Lerp(rgb(Palette.Artillery.Scorched), 0.6)
+			local disc = face * CFrame.Angles(0, math.rad(90), 0)
+			local parts = {
+				bare(
+					"Hole",
+					Vector3.new(W.holeDepth, d, d),
+					disc,
+					rgb(Palette.Artillery.Hole),
+					holes,
+					Enum.PartType.Cylinder
+				),
+			}
+			for k = 1, W.petals do
+				local a = 2 * math.pi * (k + random:NextNumber(-0.25, 0.25)) / W.petals
+				local flap = face
+					* CFrame.Angles(0, 0, a)
+					* CFrame.new(0, d * 0.45, 0)
+					* CFrame.Angles(math.rad(-random:NextNumber(25, 55)), 0, 0)
+					* CFrame.new(0, d * 0.15, -0.02)
+				table.insert(parts, bare("Flap", Vector3.new(d * 0.3, d * 0.35, W.holeDepth), flap, dark, holes))
+			end
+			for _, p in parts do
+				p:SetAttribute("On", on.Name)
+				p:SetAttribute("Offset", on.CFrame:ToObjectSpace(p.CFrame))
+			end
+			return
+		end
+	end
+end
+
+-- the accent pieces of `roles` (Palette.Artillery.Roles) blown off: each hidden, a loose copy tumbling away
+local function blowOff(s: State, roles: { string })
+	local D = Cfg.Wreck.debris
+	local centre = s.model:GetPivot().Position
+	for _, d in s.model:GetDescendants() do
+		if not d:IsA("BasePart") or d.Transparency >= 1 then
+			continue
+		end
+		for _, role in roles do
+			if #d.Name > #role and string.sub(d.Name, -#role) == role then
+				local loose = d:Clone()
+				loose.Anchored = false
+				loose.CanCollide, loose.CanQuery, loose.CanTouch = true, false, false
+				loose.CollisionGroup = "Debris"
+				loose.Parent = workspace
+				local out = (d.Position - centre) * Vector3.new(1, 0, 1)
+				local dir = (if out.Magnitude > 1e-3 then out.Unit else random:NextUnitVector())
+					+ Vector3.new(0, 1.2, 0)
+				loose.AssemblyLinearVelocity = dir.Unit * random:NextNumber(D.speed[1], D.speed[2])
+				loose.AssemblyAngularVelocity = random:NextUnitVector() * D.spin
+				Debris:AddItem(loose, D.life)
+				d.Transparency = 1
+				break
+			end
+		end
+	end
+end
+
+-- A gun's look at its Wreck stage: scorched toward Palette.Artillery.Scorched, holed and stripped of its accents
+-- (Wreck.holes, Wreck.lose), knocked out of action from Wreck.unusable, its glow dead from Wreck.dark, leaning and sunk
+-- (Config/Artillery.Wreck).
 local function wreck(s: State)
 	local W = Cfg.Wreck
 	local art = Palette.Artillery
 	local stage = s.stage
 	local broken = stage >= W.unusable
+	local dark = stage >= W.dark
 	local scorched, dead = rgb(art.Scorched), rgb(art.Dead)
+	for _ = s.holes + 1, W.holes[stage] or 0 do
+		punch(s)
+	end
+	s.holes = math.max(s.holes, W.holes[stage] or 0)
+	blowOff(s, W.lose[stage] or {})
+	if dark then
+		s.model:SetAttribute("Dead", true)
+	end
 	for p, c in s.colors do
-		if broken and table.find(art.Glowing, p.Name) then
+		if dark and table.find(art.Glowing, p.Name) then
 			p.Color = dead
 			p.Material = Enum.Material.SmoothPlastic
 			if table.find(art.Halos, p.Name) then

@@ -40,6 +40,7 @@ type Pose = {
 	gun: Cfg.Gun,
 	rest: { [BasePart]: CFrame }, -- each moving part at rest, in gun space
 	stage: { [BasePart]: number }, -- 1 mount, 2 cradle, 3 barrel, 4 breech
+	named: { [string]: BasePart }, -- the moving parts by name (a shell hole rides the one its "On" names)
 	crystal: BasePart?,
 	fx: ArtilleryCrystal.State?, -- the howitzer's living crystal
 	traverse: number,
@@ -72,6 +73,7 @@ local function track(model: Model)
 		gun = gun,
 		rest = {},
 		stage = {},
+		named = {},
 		crystal = nil,
 		fx = nil,
 		traverse = (model:GetAttribute("Traverse") :: number?) or 0,
@@ -82,6 +84,7 @@ local function track(model: Model)
 			local part = model:FindFirstChild(name, true)
 			if part and part:IsA("BasePart") then
 				p.rest[part] = pivot:ToObjectSpace(part.CFrame)
+				p.named[name] = part
 				if i == 1 and gun.crewTurns then
 					-- the server turns this mount too: its rest is where it stands at traverse 0
 					p.rest[part] = CFrame.Angles(0, -math.rad(p.traverse), 0) * p.rest[part]
@@ -145,8 +148,19 @@ local function pose(model: Model, p: Pose, dt: number)
 	for part, rest in p.rest do
 		part.CFrame = frames[p.stage[part]] * rest
 	end
-	if p.fx and model:GetAttribute("Broken") then
-		-- knocked out (src/server/Artillery, Config/Artillery.Wreck): the crystal dies, its glow dark as the server left it
+	-- its shell holes (src/server/Artillery, Config/Artillery.Wreck) ride the moving part each was punched into
+	local damage = model:FindFirstChild("Damage")
+	if damage then
+		for _, h in damage:GetChildren() do
+			local on, offset = h:GetAttribute("On"), h:GetAttribute("Offset")
+			local part = type(on) == "string" and p.named[on] or nil
+			if part and typeof(offset) == "CFrame" and h:IsA("BasePart") then
+				h.CFrame = part.CFrame * offset
+			end
+		end
+	end
+	if p.fx and model:GetAttribute("Dead") then
+		-- wrecked (src/server/Artillery, Config/Artillery.Wreck.dark): the crystal dies, its glow dark as the server left it
 		ArtilleryCrystal.destroy(p.fx)
 		p.fx = nil
 		local art = Palette.Artillery
@@ -159,7 +173,20 @@ local function pose(model: Model, p: Pose, dt: number)
 		end
 	elseif p.fx then
 		local braceAt = (model:GetAttribute("BraceAt") :: number?) or -math.huge
-		ArtilleryCrystal.update(p.fx, t, firedAt, readyAt, gun.reload, braceAt, gun.charge)
+		-- hurt, its light sputters toward death (Config/Artillery.Crystal.dying)
+		local hp = model:GetAttribute("HP")
+		local hurt = if type(hp) == "number" then 1 - math.clamp(hp / gun.hp, 0, 1) else 0
+		ArtilleryCrystal.update(
+			p.fx,
+			t,
+			firedAt,
+			readyAt,
+			gun.reload,
+			braceAt,
+			gun.charge,
+			hurt,
+			model:GetAttribute("Broken") == true
+		)
 	end
 end
 

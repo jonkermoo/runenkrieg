@@ -98,6 +98,9 @@ export type Gun = {
 	-- a flat pad round its base that counts as the gun for hits (Hits): `pad` studs out past its footprint, `thick` studs
 	-- up from its foot; nil: the gun alone
 	platform: { pad: number, thick: number }?,
+	-- the parts shell holes are punched into as it is damaged (Wreck), and the holes' size range (studs)
+	wreckParts: { string },
+	holeSize: { number },
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
@@ -286,6 +289,22 @@ local Artillery = {
 		-- second (charging: from the first to the second as it fills; ready: the third), each `length` s long and
 		-- `depth` deep, and a slow uneven wobble of `wobble`
 		flicker = { rate = { 5, 0.8, 0.3 }, length = { 0.04, 0.2 }, depth = { 0.35, 0.9 }, wobble = 0.1 },
+		-- dying (user 2026-10-26: "make the lights flicker more deathly when its low HP"): hurt past `from` of its HP,
+		-- the drop-outs come up to `rate` more a second, `depth` deep (from the second up to the first); knocked out
+		-- (Wreck.unusable) it no longer charges or fires but sputters on, holding at `glow` and black for `blackout` of
+		-- the time, now and then a weak flare of `flare` lasting `flareLength` s (`flareEvery` s apart on average), the
+		-- light toward `tint` (RGB); at Wreck.dark it dies
+		dying = {
+			from = 0.2,
+			rate = 7,
+			depth = { 1, 0.5 },
+			glow = 0.35,
+			blackout = 0.55,
+			flare = 0.9,
+			flareLength = 0.1,
+			flareEvery = 1.6,
+			tint = { 150, 70, 110 },
+		},
 		-- the cracks (its "CrystalCracks" part) burn brighter than the gem by `cracks` of a glow, never darker than empty
 		cracks = 0.45,
 	},
@@ -344,9 +363,21 @@ local Artillery = {
 	-- full; from stage `unusable` nobody can man it (its gunner is thrown off), its barrel knocked down to its lowest lay
 	-- and up to `knock` degrees round, the howitzer's crystal dead. Each stage scorches it `scorch[i]` of the way to
 	-- Palette.Artillery.Scorched, leans it `tilt[i]` degrees and sinks it `sink[i]` studs.
+	-- Physically damaged too (user 2026-10-26: "make the physical model look damaged throughout each phase too? along
+	-- with the darkening. make the lights flicker more deathly when its low HP"): by stage i it has `holes[i]` shell
+	-- holes punched into its `wreckParts` (each gun's: torn holes of its `holeSize`, `petals` metal flaps bent out round
+	-- each), and the accent pieces of the roles in `lose[i]` (Palette.Artillery.Roles) are blown off, tumbling away as
+	-- debris for `debris.life` s; its glow sputters on (src/client/ArtilleryCrystal, Crystal.dying) until stage `dark`,
+	-- when it dies.
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		unusable = 2,
+		dark = 4,
+		holes = { 2, 5, 9, 14 },
+		lose = { {}, { "Kit" }, { "Kit", "Marking" }, { "Kit", "Marking", "Trim" } },
+		petals = 3,
+		holeDepth = 0.06,
+		debris = { life = 8, speed = { 8, 16 }, spin = 8 },
 		knock = 12,
 		scorch = { 0.25, 0.45, 0.65, 0.85 },
 		tilt = { 0, 1.5, 4, 9 },
@@ -426,6 +457,8 @@ local Artillery = {
 			aimTilt = 8,
 			-- (user 2026-10-26: "add a platform hitbox for the cannon"; picked: the ground it stands on counts as the gun)
 			platform = { pad = 3, thick = 1.5 },
+			wreckParts = { "Carriage", "Wheels", "Mount" }, -- (the mount turns at most 4.5 degrees)
+			holeSize = { 0.3, 0.6 },
 			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail
 			crewTurns = false,
 			prompt = 8,
@@ -566,6 +599,8 @@ local Artillery = {
 				slabs = true,
 			},
 			hp = 240,
+			wreckParts = { "Bed", "Mount", "Cradle" }, -- (the moving ones carried by src/client/Artillery)
+			holeSize = { 0.7, 1.4 },
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
