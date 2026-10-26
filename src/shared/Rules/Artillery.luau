@@ -57,7 +57,8 @@ local function aboutY(x: number, y: number, z: number, deg: number): (number, nu
 	return x * c + z * s, y, -x * s + z * c
 end
 
--- The muzzle point and the bore's unit direction in gun space for a traverse and elevation.
+-- The muzzle point and the direction the shell leaves in (gun space) for a traverse and elevation: the bore's, raised
+-- by the gun's unseen `aimTilt` degrees (Config/Artillery).
 function Artillery.muzzle(
 	gun: any,
 	traverse: number,
@@ -66,7 +67,7 @@ function Artillery.muzzle(
 	local m, t = gun.muzzle, gun.trunnion
 	local x, y, z = aboutX(m[1], m[2], m[3], t, elevation)
 	x, y, z = aboutY(x, y, z, traverse)
-	local dx, dy, dz = aboutX(0, 0, -1, { 0, 0, 0 }, elevation)
+	local dx, dy, dz = aboutX(0, 0, -1, { 0, 0, 0 }, elevation + (gun.aimTilt or 0))
 	dx, dy, dz = aboutY(dx, dy, dz, traverse)
 	return x, y, z, dx, dy, dz
 end
@@ -221,6 +222,43 @@ function Artillery.aimOk(yaw: any, elevation: any): boolean
 		and elevation == elevation
 		and math.abs(yaw) <= 1e6
 		and math.abs(elevation) <= 90
+end
+
+-- What a blast is to the guns (Config/Artillery.Hits `h`): its named `key`'s entry, or by its `kg` charge.
+function Artillery.hitSource(key: string?, kg: number, h: any): any
+	if key and h[key] then
+		return h[key]
+	end
+	for _, c in h.byCharge do
+		if kg <= c.kg then
+			return h[c.source]
+		end
+	end
+	return h.howitzer
+end
+
+-- The HP a gun loses to `src` (a Config/Artillery.Hits entry) going off `d` studs from its box: all of `src.direct`
+-- within `direct` studs (a direct hit), past that `src.near` fading to nothing at `src.reach`.
+function Artillery.gunHit(d: number, src: any, direct: number): number
+	if d <= direct then
+		return src.direct
+	end
+	if d >= src.reach or src.reach <= direct then
+		return 0
+	end
+	return src.near * (1 - (d - direct) / (src.reach - direct))
+end
+
+-- A gun's damage stage (Config/Artillery.Wreck `at`: % of full HP, falling): 0 unhurt, else the last stage it is down to.
+function Artillery.wreckStage(hp: number, max: number, at: { number }): number
+	local share = if max > 0 then hp / max * 100 else 0
+	local stage = 0
+	for i, p in at do
+		if share <= p then
+			stage = i
+		end
+	end
+	return stage
 end
 
 return Artillery

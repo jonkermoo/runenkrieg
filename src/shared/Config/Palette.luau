@@ -148,6 +148,9 @@ local Palette = {
 		Crystal = { 175, 235, 255 },
 		CrystalCracks = { 235, 250, 255 }, -- the cracks over the howitzer's gem (src/client/ArtilleryCrystal)
 		Glowing = { "BedRunes", "BarrelRunes", "Crystal", "CrystalCracks" },
+		-- a damaged gun is scorched toward this (Config/Artillery.Wreck), its glowing parts dead at `Dead`
+		Scorched = { 34, 30, 28 },
+		Dead = { 30, 36, 46 },
 		-- the field gun's round (Config/Assets round_qf18): brass case, copper band, the HE shell's yellow, a steel fuze
 		Case = { 204, 170, 96 },
 		Band = { 184, 115, 72 },
