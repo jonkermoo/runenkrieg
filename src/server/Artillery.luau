@@ -514,96 +514,58 @@ function Artillery.parts(key: string, paintKey: string?): Model?
 	return model
 end
 
--- each built gun's parts at rest in gun space (Artillery.parts copies, before they are posed), by group
-type Group = { names: { string }, at: number, laid: { number }?, parts: { [BasePart]: CFrame }, centre: Vector3 }
-local assemblies: { [Model]: { Group } } = setmetatable({}, { __mode = "k" }) :: any
+-- each built gun's parts at rest in gun space (Artillery.parts copies, before they are posed), the quarter each appears
+-- at (Config/Artillery.Assembly; nil: never while built) and the stage of the gun that moves it (1 mount ... 4 breech)
+type Built = { rest: { [BasePart]: CFrame }, at: { [BasePart]: number }, moves: { [BasePart]: number } }
+local built: { [Model]: Built } = setmetatable({}, { __mode = "k" }) :: any
 
-local function groupsOf(model: Model, gun: Cfg.Gun): { Group }
-	local got = assemblies[model]
+local function builtOf(model: Model, gun: Cfg.Gun): Built
+	local got = built[model]
 	if got then
 		return got
 	end
 	local pivot = model:GetPivot()
-	local groups: { Group } = {}
-	for _, g in gun.assembly do
-		table.insert(groups, { names = g.names, at = g.at, laid = g.laid, parts = {}, centre = Vector3.zero })
-	end
+	local b: Built = { rest = {}, at = {}, moves = {} }
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
-			-- the group with the longest name it starts with (BarrelRunes with Barrel)
-			local best, length = nil, 0
-			for _, g in groups do
+			b.rest[d] = pivot:ToObjectSpace(d.CFrame)
+			-- its group: the longest name it starts with (BarrelRunes with Barrel)
+			local length = 0
+			for _, g in gun.assembly do
 				for _, name in g.names do
 					if #name > length and string.sub(d.Name, 1, #name) == name then
-						best, length = g, #name
+						b.at[d], length = g.at, #name
 					end
 				end
 			end
-			if best then
-				best.parts[d] = pivot:ToObjectSpace(d.CFrame)
-			else
-				d.Transparency = 1 -- (nothing in the config names it: never seen half built)
+			for i, names in { gun.mount, gun.cradle, gun.barrel, gun.breech } do
+				if table.find(names, d.Name) then
+					b.moves[d] = i
+				end
 			end
 		end
 	end
-	for _, g in groups do
-		local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
-		for p, rest in g.parts do
-			lo, hi = lo:Min(rest.Position - p.Size / 2), hi:Max(rest.Position + p.Size / 2)
-		end
-		g.centre = if lo.X <= hi.X then (lo + hi) / 2 else Vector3.zero
-	end
-	assemblies[model] = groups
-	return groups
+	built[model] = b
+	return b
 end
 
 -- Poses a gun being built (Artillery.parts) standing at `at` with `quarters` of Config/Artillery.Assembly.quarters
--- fitted: each group fitted by then in place, the rest lying on the ground where its `laid` says.
+-- done: each group in place once its quarter is done, unseen before; the barrel at the gun's lowest lay.
 function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: number)
 	local gun = Cfg.Guns[key]
 	if not gun then
 		return
 	end
-	local A = Cfg.Assembly
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { workspace.Terrain }
-	for _, g in groupsOf(model, gun) do
-		local laid = g.laid
-		if g.at <= quarters or not laid then
-			for p, rest in g.parts do
-				p.CFrame = at * rest
-			end
-			continue
-		end
-		local turn = CFrame.Angles(math.rad(laid[3]), math.rad(laid[4]), math.rad(laid[5]))
-		local local_ = CFrame.new(laid[1], 0, laid[2]) * turn * CFrame.new(-g.centre)
-		-- its lowest corner down onto the ground under it (the floor `at` stands on where no ground is found)
-		local low = math.huge
-		for p, rest in g.parts do
-			local cf, h = at * local_ * rest, p.Size / 2
-			for _, c in
-				{
-					Vector3.new(1, 1, 1),
-					Vector3.new(1, 1, -1),
-					Vector3.new(1, -1, 1),
-					Vector3.new(-1, 1, 1),
-					Vector3.new(1, -1, -1),
-					Vector3.new(-1, 1, -1),
-					Vector3.new(-1, -1, 1),
-					Vector3.new(-1, -1, -1),
-				}
-			do
-				low = math.min(low, cf:PointToWorldSpace(h * c).Y)
-			end
-		end
-		local over = at:PointToWorldSpace(Vector3.new(laid[1], 0, laid[2]))
-		local hit = workspace:Raycast(over + Vector3.new(0, A.ray, 0), Vector3.new(0, -2 * A.ray, 0), params)
-		local ground = if hit then hit.Position.Y else at.Position.Y
-		local lift = CFrame.new(0, ground + A.lift - low, 0)
-		for p, rest in g.parts do
-			p.CFrame = lift * at * local_ * rest
-		end
+	local b = builtOf(model, gun)
+	local t = gun.trunnion
+	local trunnion = CFrame.new(t[1], t[2], t[3])
+	local lay = trunnion
+		* CFrame.Angles(math.rad(math.clamp(0, gun.elevation[1], gun.elevation[2])), 0, 0)
+		* trunnion:Inverse()
+	for p, rest in b.rest do
+		local shown = b.at[p] ~= nil and b.at[p] <= quarters
+		p.Transparency = if shown then 0 else 1
+		p.CFrame = at * (if (b.moves[p] or 0) >= 2 then lay * rest else rest)
 	end
 end
 
