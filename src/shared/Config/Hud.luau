@@ -28,8 +28,9 @@ local Hud = {
 		see = {
 			Metal = 0.62,
 			Receiver = 0.58,
-			Wood = 0.86,
-			Handguard = 0.86,
+			Wood = 0.9,
+			Handguard = 0.9,
+			Pump = 0.55,
 			Magazine = 0.55,
 			Clip = 0.3,
 			Trigger = 0.5,
@@ -54,14 +55,20 @@ local Hud = {
 		drop = { time = 0.55, fall = 3, tilt = 35 }, -- (tilt: degrees it tips as it falls)
 		-- a round's length and width (studs) until the weapon's own are known
 		fallback = { length = 0.2, width = 0.03 },
-		-- per weapon (modelled studs, gun space): the tube under the barrel, its first shell's head and the step
-		-- forward between shells, from the shell on the carrier at rest; where a chambered shell's head sits
-		-- (tools/blender/weapons/m1897.py: tube row 59 px, its rear 528 px, the breech face 548 px; shell row 42 px,
-		-- head 628 px; 0.00263 studs a px)
+		-- the stack's step down, in round diameters: the gun's own rounds' spacing where it is at least `tight`, else
+		-- `pitch` (a detachable box spreads them down to its bottom, `floor` diameters above it)
+		tight = 0.5,
+		pitch = 0.62,
+		floor = 0.3,
+		-- per weapon (modelled studs, gun space): where a chambered round's head sits (else the gun's own case
+		-- template's head: every rifle but the Carcano, whose template is short) and a pump gun's tube, its first
+		-- shell's head (forward of the shell on the carrier) (tools/blender/weapons/m1897.py: tube row 59 px, its
+		-- rear 528 px, the breech face 548 px, the bore row 26 px; 0.00263 studs a px)
 		weapons = {
+			rifle_m91 = { chamber = { 0, 0.0715, -0.47 } },
 			shotgun_m1897 = {
-				tube = { 0, -0.0447, -0.263 },
-				chamber = { 0, 0.0421, -0.21 },
+				tube = { 0, -0.0218, -0.4078 },
+				chamber = { 0, 0.065, -0.355 },
 			},
 		},
 		-- a hint plate's line by what the click would do (Rules/Firing.next) and the reload; {key}: the reload key
@@ -91,6 +98,7 @@ local Hud = {
 		lampIdle = 0.55, -- a stage the mana could pay for: its lamp lit this share
 		tilt = 12, -- degrees the rock leans toward the camera
 		margin = 0.05,
+		fit = 0.62, -- the view frames a cube this share of the rock's diagonal (it turns inside it)
 		-- the rock: the howitzer's cracked gem (Config/Assets artillery_howitzer, its Crystal + CrystalCracks)
 		model = { "Weapons", "Shared", "Artillery", "artillery_howitzer" },
 		parts = { "Crystal", "CrystalCracks" },

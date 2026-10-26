@@ -261,7 +261,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 	local box: Box? = nil
 	for _, name in G.frame do
 		local p = part(name)
-		if p then
+		if p and not table.find(w.hidden, name) then -- (a stripper clip shows only while loading, high over the guides)
 			box = grow(box, restRel(gun, p), p.Size)
 		end
 	end
@@ -337,17 +337,20 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		end
 	end
 
-	-- the chamber: the round's head at the bolt face closed, on the bore's line (a weapon's own `chamber` from its
-	-- shell on the carrier)
-	local bore = part("Bore")
-	local boreY = if bore then restRel(gun, bore).Y else 0
-	if v.tube and own and own.chamber and liveSources[1] then
+	-- the chamber: the round's head at the bolt face closed, where the gun's own case template sits (a weapon's own
+	-- `chamber`, gun space, else that template's head, else the bolt's face on the bore's line)
+	local template = part("Casing")
+	if own and own.chamber then
 		local c = own.chamber
-		v.chamber = CFrame.new(carrier.Position + Vector3.new(c[1] * s[1], c[2] * s[2], c[3] * s[3]))
+		v.chamber = CFrame.new(c[1] * s[1], c[2] * s[2], c[3] * s[3])
+	elseif template then
+		local r = restRel(gun, template)
+		v.chamber = CFrame.new(r.X, r.Y, r.Z + template.Size.Z / 2)
 	else
-		local eject = gun:FindFirstChild("Eject") :: Attachment?
-		local z = if eject then eject.Position.Z - v.travel else v.boltRest
-		v.chamber = CFrame.new(0, boreY, z)
+		local bore = part("Bore")
+		local y = if bore then restRel(gun, bore).Y else 0
+		local face = if bolt then v.boltRest - bolt.Size.Z / 2 else 0
+		v.chamber = CFrame.new(0, y, face)
 	end
 	box = grow(box, v.chamber * CFrame.new(0, 0, -v.length / 2), Vector3.new(v.length / 4, v.length / 4, v.length))
 
@@ -357,8 +360,10 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		table.insert(v.rounds, newLive())
 	end
 	if v.tube then
-		local t = own and own.tube or { 0, 0, -v.length }
-		local first = carrier * CFrame.new(t[1] * s[1], t[2] * s[2], t[3] * s[3])
+		local t = own and own.tube
+		local first = if t
+			then CFrame.new(t[1] * s[1], t[2] * s[2], t[3] * s[3])
+			else carrier * CFrame.new(0, 0, -v.length)
 		local step = v.length * G.tubeStep
 		v.slot = function(k: number)
 			return first * CFrame.new(0, 0, -(k - 1) * step)
@@ -375,18 +380,30 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 			d = liveSources[1].Size.X * (if pieceScale then pieceScale.X else 1)
 		end
 		if merged then
+			-- the stack top-aligned where the gun's own rounds sit, a step apart: spread down a detachable box (its
+			-- bottom), as the gun's rounds are spaced if that is roomy enough, else Hud.Gun.pitch
 			local rest = restRel(gun, merged)
 			v.follow, v.followRest = merged, rest
 			local size = merged.Size
 			local top = rest.Y + size.Y / 2 - d / 2
-			local pitch = if cap > 1 then (size.Y - d) / (cap - 1) else 0
+			local bottom = rest.Y - size.Y / 2 + d / 2
+			local box2 = part("Magazine")
+			if box2 then
+				local m = restRel(gun, box2)
+				bottom = math.min(bottom, m.Y - box2.Size.Y / 2 + d / 2 + d * G.floor)
+			end
+			local pitch = if cap > 1 then (top - bottom) / (cap - 1) else 0
+			if not box2 and pitch < d * G.tight then
+				pitch = d * G.pitch
+			end
 			local stagger = if pitch < d * G.double then G.stagger * d else 0
 			local head = rest.Z + size.Z / 2
 			v.slot = function(k: number, count: number, i: number)
 				local side = if (count - i) % 2 == 0 then 1 else -1
 				return CFrame.new(rest.X + side * stagger, top - (k - 1) * pitch, head)
 			end
-			box = grow(box, rest, size)
+			local depth = (cap - 1) * pitch + d
+			box = grow(box, CFrame.new(rest.X, top + d / 2 - depth / 2, rest.Z), Vector3.new(size.X, depth, size.Z))
 		end
 	end
 

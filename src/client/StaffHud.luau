@@ -67,7 +67,7 @@ local function makeRock(view: ViewportFrame, camera: Camera): Rock?
 		view,
 		camera,
 		CFrame.identity,
-		Vector3.one * size.Magnitude,
+		Vector3.one * size.Magnitude * S.fit,
 		Vector3.zAxis,
 		Vector3.yAxis,
 		S.fov,
