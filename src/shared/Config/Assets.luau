@@ -425,21 +425,21 @@ local Assets = {
 			},
 		},
 		helmet_stahl_katzling = {
-			id = 98085579449296, -- 2026-10-25, holes for the reference ears; v1 139562349895399 (2026-10-20)
+			id = 88658020114991, -- 2026-10-25, holes for the rooted reference ears; v1 139562349895399 (2026-10-20)
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_katzling.fbx",
 			generator = "tools/blender/gear/slit.py",
 			description = "The default helmet_stahl (unchanged) with an oval hole each side of the crown, cut round the "
 				.. "Katzling ears' shell and fur blades (--tufts), a rolled steel ring round each (user 2026-10-20/25). "
-				.. "Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1148 tris).",
+				.. "Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1130 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = { Lugs = { 204, 172, 92 } },
 				shell = "stahl",
-				center = { 0, 0.6871, -0.034 }, -- the rings sit on the dome's sides: the box is the default's
+				center = { 0, 0.6835, -0.034 }, -- the rings sit on the dome's sides: the box is the default's
 			},
 		},
 		helmet_m33_goggles = {
@@ -551,20 +551,20 @@ local Assets = {
 			},
 		},
 		helmet_brodie_fennek = {
-			id = 81180789718176, -- 2026-10-25, holes for the reference ears; v1 105223519655559 (2026-10-21)
+			id = 108652845162963, -- 2026-10-25, holes for the rooted reference ears; v1 105223519655559 (2026-10-21)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_fennek.fbx",
 			generator = "tools/blender/gear/slit.py",
 			description = "The default helmet_brodie (unchanged) with a hole each side of the crown cut to the Fennek ears' "
 				.. "outline, shell and fur blades (--shape hull --tufts), a rolled steel ring round each (user "
-				.. "2026-10-21/25). Worn by Fennek (Rules/Looks.helmetEntry). White team (852 tris).",
+				.. "2026-10-21/25). Worn by Fennek (Rules/Looks.helmetEntry). White team (848 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- the brown team's chocolate (white-team branch)
 				brim = 0.06,
 				shell = "brodie",
-				center = { 0, 0.3781, 0.0023 }, -- the rings sit on the dome's sides: the box is the default's
+				center = { 0, 0.3902, 0.0023 }, -- the rings sit on the dome's sides: the box is the default's
 			},
 		},
 		-- New helmets (user 2026-10-20: one more per team, "different helmet, different armoring"; docs/HATS.md "New helmets")
@@ -624,23 +624,23 @@ local Assets = {
 		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
 		-- the head's center), tails Torso-local (the Torso's center).
 		ears_katzling = {
-			id = 76028910772870, -- v5 2026-10-25; v3 115041129787289, v2 105362765217637, v1 131909248233922
+			id = 111195693660590, -- v6 2026-10-25; v3 115041129787289, v2 105362765217637, v1 131909248233922
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/ears_katzling.fbx",
 			generator = "tools/blender/gear/ears_ref.py",
 			description = "Katzling cat ears from the user's reference hair (shell and fur blades of catalog "
-				.. "116579723315238, scaled 1.2 / 1.6 deep / 1.25 tall, raised): an open shell in the hair colour, a fan "
-				.. "of pink and cream blades inside (user 2026-10-25; 1180 tris).",
+				.. "116579723315238, scaled 1.2 / 1.6 deep / 1.25 tall, its root sunk into the head): an open shell in the "
+				.. "hair colour, a fan of pink and cream blades inside (user 2026-10-25; 1180 tris).",
 		},
 		ears_fennek = {
-			id = 110523717991145, -- v4 2026-10-25; v2 135952144124699, v1 96521357487348 (named pieces clashed)
+			id = 133114690983265, -- v5 2026-10-25; v2 135952144124699, v1 96521357487348 (named pieces clashed)
 			category = "Teams",
 			folder = "Shared/Species",
 			source = "assets/teams/shared/species/ears_fennek.fbx",
 			generator = "tools/blender/gear/ears_ref.py",
 			description = "Fennek fennec ears: the Katzling's reference ear (catalog 116579723315238) taller and "
-				.. "narrower (1.0 / 1.8 deep / 1.6 tall, raised): an open shell in the hair colour, a fan of pink and "
+				.. "narrower (1.0 / 1.8 deep / 1.6 tall, its root sunk into the head): an open shell in the hair colour, a fan of pink and "
 				.. "cream blades inside (user 2026-10-25; 1180 tris).",
 		},
 		ears_alb = {
