@@ -290,6 +290,7 @@ local Palette = {
 			rockEmpty = { 70, 74, 80 },
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
+			magazine = { 40, 44, 40 },
 			viewAmbient = { 150, 150, 150 },
 			viewLight = { 255, 244, 224 },
 		},

@@ -3,9 +3,9 @@
 -- sequence is like ... use actual parts from the weapon"; "show the chamber, the shell empty if fired, an animation of
 -- the chamber / bolt moving and have the magazine box be the actual magazine (semi transparent showing ammo and show
 -- ammo going up)"). Brass-rimmed panels, each with a cut-away of the real thing drawn live in a ViewportFrame:
--- - guns (src/client/AmmoHud): the held weapon's own parts seen from its right, the action see-through, every part
---   posed as on the gun (the bolt working, the clip going in, the pump), its rounds one by one (the shared round,
---   Config/Assets ammo_rifle) rising in the magazine, the round or the fired case in the chamber riding the bolt;
+-- - guns (src/client/AmmoHud): only the ammo, real models (its rounds one by one, the shared round Config/Assets
+--   ammo_rifle, rising in the magazine; the round or the fired case in the chamber riding the bolt) in flat
+--   brass-edged shapes;
 -- - the staff (src/client/StaffHud): a magic rock in the team's colour, faded when empty, bright when full,
 --   flickering while it can't be used (burnt out by a stage 3 shot);
 -- - artillery (src/client/ArtilleryHud): the field gun's breech cut away with its round, the howitzer's crystal.
@@ -24,21 +24,9 @@ local Hud = {
 	Gun = {
 		fov = 8, -- the viewport camera's lens (narrow: near flat, a drawing more than a photo)
 		margin = 0.12, -- share of the framed box added round it
-		-- the cut-away: how see-through each part is (a part not named is solid)
-		see = {
-			Metal = 0.62,
-			Receiver = 0.58,
-			Wood = 0.9,
-			Handguard = 0.9,
-			Pump = 0.55,
-			Magazine = 0.55,
-			Clip = 0.3,
-			Trigger = 0.5,
-		},
-		-- never shown: the invisible origin, templates, and the merged rounds the HUD's own rounds stand in for
-		skip = { "Gun", "Origin", "Casing", "Rounds", "Bullets", "Bore" },
-		-- the box framed: these parts at rest (any the gun has), the chamber and the magazine's rounds
-		frame = { "Bolt", "Clip", "Magazine", "Shell", "Receiver" },
+		-- the flat shapes behind the magazine and the chamber (round lengths, but `thick` in studs): `pad` round the
+		-- ammo, the brass edge `edge` wider, `back` behind the rounds, `see` how see-through
+		slab = { thick = 0.01, pad = 0.06, edge = 0.03, back = 0.12, see = 0.1 },
 		stagger = 0.42, -- a double stack's rounds, side to side, in round diameters (when they sit closer than `double`)
 		double = 0.95, -- rounds closer than this many diameters apart are a double stack
 		tubeStep = 1.02, -- a pump gun's tube: shell lengths from one shell to the next
