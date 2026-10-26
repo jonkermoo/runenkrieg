@@ -135,4 +135,14 @@ return {
 			assert(W.min[i] < W.max[i], "the terrain box needs min < max")
 		end
 	end,
+	["admin dig steps: a normal one, shares up to the whole, each a valid DigStep and nothing else"] = function()
+		local seen0 = false
+		for _, st in Cfg.Admin.Dig.steps do
+			assert(st.share >= 0 and st.share <= 1, st.name)
+			seen0 = seen0 or st.share == 0
+			assert(A.valid(Cfg, "DigStep", st.share), st.name)
+		end
+		assert(seen0, "a normal step")
+		assert(not A.valid(Cfg, "DigStep", 0.33) and not A.valid(Cfg, "DigStep", "Full"))
+	end,
 }

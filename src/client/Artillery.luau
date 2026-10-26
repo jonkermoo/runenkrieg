@@ -9,8 +9,9 @@
 --   that shows an arc (like grenade) and where it will explode (it will be innacurate)"); the mouse lays it (Net
 --   "Artillery" "Aim"), the fire key fires, E gets off. The arc is the gun's lay as it is, without the scatter; the
 --   marker and the range show past the fog. The crew's panel at the bottom is src/client/ArtilleryHud.
--- - every shot flashes at the muzzle with its report, every shell's blast is the shared explosion (src/client/Vfx/Blast)
---   with its sound, heard late and duller far off.
+-- - every shot flashes at the muzzle with its report (src/client/ArtilleryFx), the whole gun jolting back and settling
+--   (Config/Artillery.Fx.Jolt); every shell's blast is the shared explosion (src/client/Vfx/Blast) with its sound,
+--   heard late and duller far off.
 
 local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -44,6 +45,12 @@ type Pose = {
 	fx: ArtilleryCrystal.State?, -- the howitzer's living crystal
 	traverse: number,
 	elevation: number,
+	-- the jolt after a shot (Config/Artillery.Fx.Jolt): the shot's FiredAt, the pivot then, every other part's place
+	-- then and where it was last put (a part the server moves meanwhile is left to it)
+	joltOf: number?,
+	home: CFrame?,
+	still: { [BasePart]: CFrame }?,
+	put: { [BasePart]: CFrame }?,
 }
 
 local poses: { [Model]: Pose } = {}
@@ -120,6 +127,24 @@ local function track(model: Model)
 	end
 end
 
+-- whether the server has moved `part` since the jolt last put it at `put`
+local function moved(part: BasePart, put: CFrame?): boolean
+	return not put or not part.Parent or (part.Position - put.Position).Magnitude > 1e-3
+end
+
+-- the jolt over: every part back where it stood (unless the server has moved it meanwhile)
+local function settle(p: Pose)
+	local still, put = p.still, p.put
+	if still and put then
+		for part, cf in still do
+			if not moved(part, put[part]) then
+				part.CFrame = cf
+			end
+		end
+	end
+	p.still, p.put, p.home = nil, nil, nil
+end
+
 local function pose(model: Model, p: Pose, dt: number)
 	local gun = p.gun
 	local k = math.min(1, dt * Cfg.Smooth)
@@ -135,6 +160,37 @@ local function pose(model: Model, p: Pose, dt: number)
 		else 0
 
 	local pivot = model:GetPivot()
+	-- the whole gun jolts back and its nose up, then settles
+	local J = if gun.vfx.magic then Cfg.Fx.Jolt.Magic else Cfg.Fx.Jolt.Field
+	local since = t - firedAt
+	if since >= 0 and since < J.time and not model:GetAttribute("Broken") then
+		if p.joltOf ~= firedAt then
+			settle(p)
+			local still, put = {}, {}
+			for _, d in model:GetDescendants() do
+				if d:IsA("BasePart") and not p.rest[d] then
+					still[d], put[d] = d.CFrame, d.CFrame
+				end
+			end
+			p.joltOf, p.home, p.still, p.put = firedAt, pivot, still, put
+		end
+		local home, still, put = p.home :: CFrame, p.still, p.put
+		if still and put then
+			local j = Rules.joltAt(since, J)
+			pivot = home * CFrame.new(0, 0, J.back * j) * CFrame.Angles(math.rad(J.lift) * j, 0, 0)
+			for part, cf in still do
+				if moved(part, put[part]) then
+					still[part], put[part] = nil, nil
+				else
+					local to = pivot * home:ToObjectSpace(cf)
+					part.CFrame = to
+					put[part] = to
+				end
+			end
+		end
+	elseif p.still then
+		settle(p)
+	end
 	local trunnion = CFrame.new(v3(gun.trunnion))
 	local hinge = CFrame.new(v3(gun.hinge))
 	local frames = {}
@@ -759,7 +815,6 @@ function Artillery.start()
 		if not gun then
 			return
 		end
-		Vfx.Muzzle.play(origin, velocity, gun.muzzleScale)
 		-- the report: up close the gun itself, far off the distant boom
 		local eye = camera.CFrame.Position
 		local d = (eye - origin).Magnitude
@@ -769,8 +824,14 @@ function Artillery.start()
 		-- the incoming shell's whistle, for whoever is near where it lands (the path as the server flies it, unscattered
 		-- from here: the server sent the scattered velocity)
 		local landing, flight = trace(origin, velocity, gun.gravity, { model })
-		-- the blast of air round the gun, and the shell itself flying its path
+		-- the muzzle blast and the air, smoke and sound round the gun, the gunner's view kicked wide, and the shell
+		-- itself flying its path
 		ArtilleryFx.shot(gun, origin, velocity)
+		if mine == model then
+			ArtilleryFx.punch(gun, function()
+				return mine == model
+			end)
+		end
 		ArtilleryFx.shell(gun, origin, velocity, if landing then flight else Cfg.MaxFlight)
 		local stop = charging[model]
 		if stop then

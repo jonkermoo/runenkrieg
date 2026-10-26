@@ -31,6 +31,17 @@ end
 local T = table.clone(C.Trench) :: any
 
 return {
+	["an admin dig step works its share of the whole, rounded up, never less than a normal swing"] = function()
+		assert(B.digAmount(20, 100, nil) == 20 and B.digAmount(20, 100, 0) == 20)
+		assert(B.digAmount(1, 20, 0.25) == 5 and B.digAmount(1, 40, 0.1) == 4 and B.digAmount(1, 3, 0.1) == 1)
+		assert(B.digAmount(4, 100, 0.5) == 50 and B.digAmount(20, 100, 0.1) == 20)
+		local w, gone = B.swing(0, 20, true, B.digAmount(1, 20, 1))
+		assert(w == 20 and not gone)
+		w, gone = B.swing(20, 20, false, B.digAmount(1, 20, 0.5))
+		assert(w == 10 and not gone)
+		w, gone = B.swing(10, 20, false, 10)
+		assert(w == 0 and gone)
+	end,
 	["every piece has a key, a kind, a name and work; keys are unique"] = function()
 		local seen = {}
 		for _, p in C.Pieces do

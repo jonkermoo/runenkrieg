@@ -108,6 +108,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		end
 	elseif action == "BlastHurts" then
 		player:SetAttribute(Cfg.Blasts.HurtAttribute, if value then true else nil)
+	elseif action == "DigStep" then
+		player:SetAttribute(Cfg.Admin.Dig.attribute, if value > 0 then value else nil)
 	elseif action == "God" then
 		player:SetAttribute(Cfg.Admin.GodAttribute, if value then true else nil)
 	elseif action == "Shooters" then

@@ -264,6 +264,27 @@ local function build(player: Player): DevPanel.Panel
 		row("Grenade_" .. name, `Give {W[name].display} x{GrenadeCfg.Carried}`, "Grenade", name)
 	end
 
+	-- Shovel: how much each of your swings works (Config/DevTools.Admin.Dig), the chosen one lit
+	DevPanel.heading(p.panel, "Shovel", order + 1)
+	order += 1
+	local digs: { [number]: TextButton } = {}
+	for _, s in A.Dig.steps do
+		digs[s.share] = row(
+			"Dig_" .. s.name,
+			if s.share == 0 then "Dig: normal swings" else `Dig: {s.name} a swing`,
+			"DigStep",
+			s.share
+		)
+	end
+	local function showDig()
+		local share = player:GetAttribute(A.Dig.attribute)
+		for v, b in digs do
+			paint(b, v == (if type(share) == "number" then share else 0))
+		end
+	end
+	player:GetAttributeChangedSignal(A.Dig.attribute):Connect(showDig)
+	showDig()
+
 	-- World: the range's test shooters (Config/DevTools.TestShooter), undo destruction (src/server/DevWorld)
 	DevPanel.heading(p.panel, "World", order + 1)
 	order += 2

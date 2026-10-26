@@ -92,6 +92,19 @@ local DevTools = {
 		-- event), and switch the random weather rolls off / on so a light check isn't spoiled by fog
 		Weather = { "Clear", "Fog", "Rain" },
 		WeatherSeconds = 600,
+		-- "Shovel" rows (user 2026-10-26: "an admin shovel that lets me choose my increments of digging"): each of your
+		-- shovel swings, Build or Destroy, works this share of a piece's full work or a trench square's full HP (rounded
+		-- up; at least a normal swing's); "Normal" (0) is the game's own. On the Player while not normal (src/server/Build).
+		Dig = {
+			attribute = "DevDigStep",
+			steps = {
+				{ name = "Normal", share = 0 },
+				{ name = "10%", share = 0.1 },
+				{ name = "25%", share = 0.25 },
+				{ name = "50%", share = 0.5 },
+				{ name = "Full", share = 1 },
+			},
+		},
 		-- "Cinematic" rows for filming (user 2026-10-26; src/client/DevCinematic, this player only): one switch hides
 		-- every item, a row per item hides that one. The admin panel itself opens and closes with Settings Key_AdminPanel.
 		Cinematic = {

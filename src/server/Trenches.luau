@@ -927,7 +927,7 @@ end
 -- One swing at a square (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds HP to any
 -- square, Destroy takes it off (an undug plan's square is pulled up). (Any trench: a soldier's kit is rolled each life,
 -- so after a respawn your own trench was another kit's; user 2026-10-25: "you should be able to fix/edit any trench")
-function Trenches.work(blk: Block, _team: string, mode: string)
+function Trenches.work(blk: Block, _team: string, mode: string, share: number?)
 	if not live(blk) then
 		return
 	end
@@ -936,7 +936,7 @@ function Trenches.work(blk: Block, _team: string, mode: string)
 		if blk.hp >= H.max then
 			return
 		end
-		blk.hp = Rules.trenchSwing(blk.hp, H.max, H.swing, true)
+		blk.hp = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.swing, H.max, share), true)
 		blk.worked = os.clock()
 		for _, o in blk.run do
 			o.worked = blk.worked -- (the plan stays while it's being dug)
@@ -952,7 +952,7 @@ function Trenches.work(blk: Block, _team: string, mode: string)
 		finish(blk, false) -- a plan pulled up
 		return
 	end
-	local left, gone = Rules.trenchSwing(blk.hp, H.max, H.destroy, false)
+	local left, gone = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.destroy, H.max, share), false)
 	blk.hp = left
 	blk.worked = os.clock()
 	blk.falling = true

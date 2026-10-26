@@ -3,11 +3,15 @@
 -- "Artillery"). User 2026-10-21: "can you give a very visual projectile that comes out of them", "way way WAY more
 -- effect when the cannon is fired. give it recoil air effects", "make the howitzer have a cinematic magic charge up",
 -- "make the explosions have a staticky effect (charge up, projectile, explosion) kind of like the beam":
--- - shot(gun, origin, dir): on top of the muzzle blast (Vfx.Muzzle) a pressure wave racing out along the bore, a
---   flat ring blown across the ground, a clear air bubble swelling from the muzzle, and a shake for whoever is near
---   (src/client/CameraShake);
--- - shell(gun, origin, velocity, flight): the shell flying its path: the field gun's a hot slug trailing smoke, the
---   howitzer's a blue orb trailing light with static crackling round it;
+-- - shot(gun, origin, dir): the muzzle blast in its beats (Vfx.Muzzle: fireball, flash, glint, smoke jet and ring,
+--   embers, dust), a pressure wave racing out along the bore, a flat ring blown across the ground, a clear air bubble
+--   swelling from the muzzle, a shake for whoever is near (src/client/CameraShake), smoke curling out of the barrel
+--   and a bank of it hanging in front, and the sound layers after the report (user 2026-10-26: "improve the cannon
+--   firing animations. give it more effect, make it super 'visual' and appealing"); far off only the muzzle's flash;
+-- - punch(gun, manning): the gunner's view widening for a moment on the shot;
+-- - shell(gun, origin, velocity, flight): the shell flying its path: the field gun's a hot slug trailing smoke that
+--   corkscrews off it at first and shedding sparks, the howitzer's a blue orb trailing light with static crackling
+--   round it;
 -- - charge(gun, model, muzzle, crystal): the howitzer's charge-up before the shot: a magic circle opening at the
 --   muzzle, energy gathering in it, lightning running from the crystal to the muzzle, static on the crystal, a rising
 --   hum; returns a stop called at the shot;
@@ -57,9 +61,138 @@ local function bubble(at: Vector3, size: number, time: number)
 	end)
 end
 
+-- a smoke emitter at `cf` (its top face out), Roblox's smoke lit by the scene; `M` as Fx.Smoke (x the scale `k`)
+local function smoke(cf: CFrame, box: Vector3, M: any, k: number): ParticleEmitter
+	local e = Vfx.Pool.emitter(cf, box)
+	e.Shape = Enum.ParticleEmitterShape.Box
+	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	e.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
+	e.Texture = SMOKE
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Speed = NumberRange.new(M.speed[1] * k, M.speed[2] * k)
+	e.Lifetime = NumberRange.new(M.life[1], M.life[2])
+	e.SpreadAngle = Vector2.new(M.spread or 180, M.spread or 180)
+	e.Drag = M.drag or 0.6
+	e.Acceleration = Vector3.new(M.wind[1], M.rise, M.wind[3])
+	e.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, M.size[1] * k),
+		NumberSequenceKeypoint.new(1, M.size[2] * k),
+	})
+	e.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.15, M.thick),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	e.Color = ColorSequence.new(Vfx.Util.color(M.color))
+	e.LightEmission = 0
+	e.LightInfluence = 1
+	e.Brightness = 1
+	e.Orientation = Enum.ParticleOrientation.FacingCamera
+	e.Squash = NumberSequence.new(0)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(-20, 20)
+	return e
+end
+
+-- glowing motes (Roblox's sparkle) of `size` studs out of the box at `cf`, living `life` s, drifting up to `speed`
+local function motes(
+	cf: CFrame,
+	box: Vector3,
+	color: Color3,
+	size: number,
+	life: { number },
+	speed: number
+): ParticleEmitter
+	local e = Vfx.Pool.emitter(cf, box)
+	e.Shape = Enum.ParticleEmitterShape.Box
+	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	e.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
+	e.Texture = Vfx.Util.SPARKLE
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Speed = NumberRange.new(0, speed)
+	e.Lifetime = NumberRange.new(life[1], life[2])
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Drag = 1
+	e.Acceleration = Vector3.zero
+	e.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.3, size),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	e.Transparency = NumberSequence.new(0)
+	e.Color = ColorSequence.new(color)
+	e.LightEmission = 1
+	e.LightInfluence = 0
+	e.Brightness = 3
+	e.Orientation = Enum.ParticleOrientation.FacingCamera
+	e.Squash = NumberSequence.new(0)
+	e.Rotation = NumberRange.new(0, 360)
+	e.RotSpeed = NumberRange.new(0, 0)
+	return e
+end
+
+-- an emitter running at `rate` from `from` s for `time` s (thinning out by `thin`, a power; 0 keeps it steady), then
+-- freed once its last puffs are gone
+local function run(e: ParticleEmitter, rate: number, from: number, time: number, life: number, thin: number)
+	local t0 = os.clock()
+	e.Rate = 0
+	e.Enabled = false
+	Vfx.Driver.add(function(now: number): boolean
+		local t = now - t0 - from
+		if t < 0 then
+			return true
+		elseif t >= time then
+			e.Enabled = false
+			if t >= time + life then
+				Vfx.Pool.freeEmitter(e)
+				return false
+			end
+			return true
+		end
+		e.Enabled = true
+		e.Rate = rate * (1 - t / time) ^ thin
+		return true
+	end)
+end
+
+-- the gunner's view widening for a moment on the shot (Fx.Punch), while `manning()` holds
+function ArtilleryFx.punch(gun: any, manning: () -> boolean)
+	local P = F.Punch
+	local camera = workspace.CurrentCamera
+	local base = gun.camera.fov
+	local size = P.fov * math.sqrt(gun.muzzleScale)
+	local t0 = os.clock()
+	Vfx.Driver.add(function(now: number): boolean
+		if not manning() then
+			return false
+		end
+		local a = (now - t0) / P.time
+		if a >= 1 then
+			camera.FieldOfView = base
+			return false
+		end
+		camera.FieldOfView = base + size * (1 - a) ^ 2
+		return true
+	end)
+end
+
 function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3)
 	local k = gun.muzzleScale
 	local d = if dir.Magnitude > 1e-6 then dir.Unit else Vector3.zAxis
+	local look = if gun.vfx.magic then "Magic" else "Field"
+	local near = (workspace.CurrentCamera.CFrame.Position - origin).Magnitude <= F.far
+	-- the muzzle's own beats: fireball, flash, glint, jet, smoke ring, embers, dust (Vfx/Muzzle)
+	Vfx.Muzzle.play(origin, d, k, look, near)
+	CameraShake.kick(origin, F.Shake.shot * k, F.Shake.reach * k)
+	-- smoke curling up out of the barrel after the shot, thinning out (user 2026-10-21: "make smoke come out of the
+	-- cannons (both)")
+	local M = F.Smoke
+	local wisp =
+		smoke(CFrame.lookAt(origin, origin + d) * CFrame.Angles(-math.pi / 2, 0, 0), Vector3.one * 0.3 * k, M, k)
+	run(wisp, M.rate, 0, M.time, M.life[2], 1.5)
+	if not near then
+		return
+	end
 	local S = F.Shot
 	-- the pressure wave racing out along the bore, twice, and a ring blown flat across the ground
 	Vfx.Shockwave.play(origin + d * S.ahead * k, d, S.color, S.wave * k)
@@ -71,53 +204,50 @@ function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3)
 		Vfx.Shockwave.play(ground.Position + Vector3.new(0, 0.2, 0), Vector3.yAxis, S.color, S.ground * k)
 	end
 	bubble(origin + d * S.ahead * k, F.Air.size * k, F.Air.time)
-	CameraShake.kick(origin, F.Shake.shot * k, F.Shake.reach * k)
-	-- smoke curling up out of the barrel after the shot, thinning out (user 2026-10-21: "make smoke come out of the
-	-- cannons (both)")
-	local M = F.Smoke
-	local smoke =
-		Vfx.Pool.emitter(CFrame.lookAt(origin, origin + d) * CFrame.Angles(-math.pi / 2, 0, 0), Vector3.one * 0.3 * k)
-	smoke.Shape = Enum.ParticleEmitterShape.Box
-	smoke.Texture = SMOKE
-	smoke.EmissionDirection = Enum.NormalId.Top
-	smoke.Speed = NumberRange.new(M.speed[1] * k, M.speed[2] * k)
-	smoke.Lifetime = NumberRange.new(M.life[1], M.life[2])
-	smoke.SpreadAngle = Vector2.new(M.spread, M.spread)
-	smoke.Drag = M.drag
-	smoke.Acceleration = Vector3.new(M.wind[1], M.rise, M.wind[3])
-	smoke.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, M.size[1] * k),
-		NumberSequenceKeypoint.new(1, M.size[2] * k),
-	})
-	smoke.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 1),
-		NumberSequenceKeypoint.new(0.15, M.thick),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	smoke.Color = ColorSequence.new(Vfx.Util.color(M.color))
-	smoke.LightEmission = 0
-	smoke.LightInfluence = 1
-	smoke.Brightness = 1
-	smoke.Orientation = Enum.ParticleOrientation.FacingCamera
-	smoke.Squash = NumberSequence.new(0)
-	smoke.Rotation = NumberRange.new(0, 360)
-	smoke.RotSpeed = NumberRange.new(-20, 20)
-	smoke.Rate = M.rate
-	smoke.Enabled = true
-	local t0 = os.clock()
-	Vfx.Driver.add(function(now: number): boolean
-		local t = now - t0
-		if t >= M.time then
-			smoke.Enabled = false
-			if t >= M.time + M.life[2] then
-				Vfx.Pool.freeEmitter(smoke)
-				return false
-			end
-			return true
-		end
-		smoke.Rate = M.rate * (1 - t / M.time) ^ 1.5
-		return true
-	end)
+	-- the smoke bank hanging low in front, and on the magic gun its motes twinkling in it
+	local B = F.Bank
+	local flat = Vector3.new(d.X, 0, d.Z)
+	flat = if flat.Magnitude > 1e-3 then flat.Unit else Vector3.xAxis
+	local foot = if ground then ground.Position else origin
+	local at = CFrame.new(foot + flat * B.ahead * k + Vector3.new(0, k, 0))
+	local box = Vector3.new(B.width * k, 1, B.width * k)
+	run(smoke(at, box, B, k), B.rate, B.at, B.time, B.life[2], 0)
+	if gun.vfx.magic then
+		local G = B.sparkle
+		run(motes(at, box, Vfx.Util.color(G.color), G.size * k, G.life, 2), G.rate, B.at, B.time * 2, G.life[2], 0)
+	end
+	-- the sound layers after the report: the recoil's clank, the dirt pattering down, the barrel running home
+	for _, layer in F.Sound[look] do
+		SoundFx.play(layer.sound :: any, origin, nil, { delay = layer.at })
+	end
+	SoundFx.play(F.Sound.runout[look] :: any, origin, nil, { delay = gun.recoilTimes[1] + gun.recoilTimes[2] })
+end
+
+-- the shells' trails (a Trail across two attachments), kept for the next shell instead of built for each one
+type TrailKit = { trail: Trail, a0: Attachment, a1: Attachment }
+local trails: { TrailKit } = {}
+
+local function trailOn(core: Part): TrailKit
+	local kit = table.remove(trails)
+	if not kit then
+		local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+		local trail = Instance.new("Trail")
+		trail.Attachment0, trail.Attachment1 = a0, a1
+		trail.FaceCamera = true
+		kit = { trail = trail, a0 = a0, a1 = a1 }
+	end
+	local k = kit :: TrailKit
+	k.a0.Parent, k.a1.Parent, k.trail.Parent = core, core, core
+	k.trail:Clear()
+	k.trail.Enabled = true
+	return k
+end
+
+local function trailOff(kit: TrailKit)
+	kit.trail.Enabled = false
+	kit.trail:Clear()
+	kit.trail.Parent, kit.a0.Parent, kit.a1.Parent = nil, nil, nil
+	table.insert(trails, kit)
 end
 
 -- the shell flying its path for `flight` seconds (the server's own path, the same maths)
@@ -126,16 +256,11 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 	local core =
 		Vfx.Pool.part(Enum.PartType.Ball, rgb(P.color), Vector3.one * P.size, CFrame.new(origin), 0, Enum.Material.Neon)
 	-- its trail: two attachments across it, a Trail fading behind
-	local a0 = Instance.new("Attachment")
-	a0.Position = Vector3.new(0, P.size * 0.4, 0)
-	a0.Parent = core
-	local a1 = Instance.new("Attachment")
-	a1.Position = Vector3.new(0, -P.size * 0.4, 0)
-	a1.Parent = core
-	local trail = Instance.new("Trail")
-	trail.Attachment0, trail.Attachment1 = a0, a1
+	local kit = trailOn(core)
+	local trail = kit.trail
+	kit.a0.Position = Vector3.new(0, P.size * 0.4, 0)
+	kit.a1.Position = Vector3.new(0, -P.size * 0.4, 0)
 	trail.Lifetime = P.trail
-	trail.FaceCamera = true
 	trail.LightEmission = if P.magic then 1 else 0.6
 	trail.Color = ColorSequence.new(rgb(P.color), rgb(P.tail))
 	trail.Transparency = NumberSequence.new({
@@ -143,7 +268,28 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.2) })
-	trail.Parent = core
+	-- the field shell's smoke corkscrewing off it at first, and the sparks it sheds
+	local C = F.Corkscrew
+	local screw: ParticleEmitter? = nil
+	local sparks: ParticleEmitter? = nil
+	if not P.magic then
+		local e = smoke(CFrame.new(origin), Vector3.one * 0.2, {
+			speed = { 0, 0.5 },
+			life = C.life,
+			wind = { 0, 0, 0 },
+			rise = 0.5,
+			size = C.size,
+			thick = C.thick,
+			color = C.color,
+		}, 1)
+		e.Rate = C.rate
+		e.Enabled = true
+		screw = e
+		local m = motes(CFrame.new(origin), Vector3.one * 0.2, rgb(P.color), P.size * 0.3, { 0.2, 0.4 }, 6)
+		m.Rate = C.sparks
+		m.Enabled = true
+		sparks = m
+	end
 	local light = Vfx.Pool.light(origin, rgb(P.color), P.light, P.star and P.star.brightness or 2)
 	-- a bright four-point star (user 2026-10-21: "make it a bright 4 point star ... look at some clips from animes"):
 	-- the anime sparkle: four long spikes in a cross, wide at the core and tapering to needle points (beams square to the
@@ -180,10 +326,15 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 	Vfx.Driver.add(function(now: number): boolean
 		local t = now - t0
 		if t >= flight then
-			trail:Destroy()
-			a0:Destroy()
-			a1:Destroy()
+			trailOff(kit)
 			Vfx.Pool.freePart(core)
+			for _, e in { screw, sparks } do
+				local em = e :: ParticleEmitter
+				em.Enabled = false
+				task.delay(C.life[2], function()
+					Vfx.Pool.freeEmitter(em)
+				end)
+			end
 			for _, b in spikes do
 				Vfx.Pool.freeBeam(b)
 			end
@@ -204,6 +355,19 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 		local p = at(t)
 		local ahead = at(t + 0.02)
 		core.CFrame = CFrame.lookAt(p, ahead)
+		if screw then
+			if t >= C.time then
+				screw.Enabled = false
+			else
+				local turn = t * C.turns * 2 * math.pi
+				local around = core.CFrame:VectorToWorldSpace(Vector3.new(math.cos(turn), math.sin(turn), 0))
+				local box = screw.Parent :: Part
+				box.CFrame = CFrame.new(p + around * C.radius)
+			end
+		end
+		if sparks then
+			(sparks.Parent :: Part).CFrame = CFrame.new(p)
+		end
 		if P.star and centre then
 			local S = P.star
 			local cam = workspace.CurrentCamera.CFrame

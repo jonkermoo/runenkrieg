@@ -58,6 +58,13 @@ function DevActions.valid(cfg: any, action: any, value: any): boolean
 			end
 		end
 		return false
+	elseif action == "DigStep" then
+		for _, s in cfg.Admin.Dig.steps do
+			if s.share == value then
+				return true
+			end
+		end
+		return false
 	elseif action == "BlastStage" then
 		return table.find(cfg.Blasts.Stages, value) ~= nil
 	elseif action == "BlastKg" then
