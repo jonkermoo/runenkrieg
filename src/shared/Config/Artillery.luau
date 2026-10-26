@@ -99,6 +99,10 @@ export type Gun = {
 	-- up from its foot; nil: the gun alone
 	platform: { pad: number, thick: number }?,
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
+	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
+	-- one), each fitted at quarter `at` of the work (4: with the gun standing), lying before that at `laid`: its centre
+	-- at gun-space x, z (on the ground found there) turned pitch, yaw, roll degrees; nil laid: in place from the start
+	assembly: { { names: { string }, at: number, laid: { number }? } },
 }
 
 local Artillery = {
@@ -219,6 +223,13 @@ local Artillery = {
 		pulse = 5,
 		ringFrom = 450,
 	},
+
+	-- Building a gun with the shovel (src/server/Build, src/server/Artillery.assemble; user 2026-10-26: "the artillery
+	-- will look broken down when first placed and assembled slowly in quarters phases"): its parts lie about on the
+	-- ground when it is laid out and are fitted a group at a time as the work passes each quarter (each gun's
+	-- `assembly`), the gun standing whole at full work. Laid parts rest `lift` studs over the ground found by a ray from
+	-- `ray` studs over them; none can be touched, stood on or shot.
+	Assembly = { quarters = 4, lift = 0.02, ray = 60 },
 
 	-- The reload bar (bottom centre while manning; Palette.UI)
 	Bar = { width = 220, height = 12, margin = 90, text = 16 },
@@ -372,9 +383,10 @@ local Artillery = {
 			asset = "artillery_qf18",
 			name = "QF 18-pounder",
 			base = "Carriage",
-			mount = { "Mount" },
-			cradle = { "Cradle" },
-			barrel = { "Barrel", "Bore" },
+			-- (each part's accent pieces, Palette.Artillery.Roles, ride with it)
+			mount = { "Mount", "MountTrim", "MountFittings", "MountMarking" },
+			cradle = { "Cradle", "CradleFittings" },
+			barrel = { "Barrel", "Bore", "BarrelTrim", "BarrelFittings" },
 			breech = { "Breech" },
 			trunnion = { 0, 2.544, -0.266 },
 			hinge = { 0.457, 2.855, 2.398 },
@@ -451,6 +463,15 @@ local Artillery = {
 			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
 			-- (user 2026-10-22: "have the cannon further back and up more"; was up 4, back 7)
 			camera = { side = -6.5, up = 5.5, back = 10, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			-- the trail and its wheels first, then the shield and mount, the cradle, the barrel and breech last: laid out
+			-- round it, the trail down on its axle, the wheels stood in a row on its right, the shield face up on its left
+			assembly = {
+				{ names = { "Carriage" }, at = 1, laid = { 0, 3.6, -11, 0, 0 } },
+				{ names = { "Wheels", "Tyres" }, at = 1, laid = { 3.8, -2.4, 0, 90, 4 } },
+				{ names = { "Mount" }, at = 2, laid = { -3.6, -2.6, 80, 12, 0 } },
+				{ names = { "Cradle" }, at = 3, laid = { -3.2, 4.6, 0, 8, 0 } },
+				{ names = { "Barrel", "Bore", "Breech" }, at = 4, laid = { 3.4, 5, 0, -6, 0 } },
+			},
 		} :: Gun,
 		-- The magic howitzer v6 (user 2026-10-21: "look like the big bertha", "no tires ... the turning being controlled by
 		-- giant gears"; tools/blender/artillery/bertha.py, approved v10): a 42 cm siege mortar, its riveted box carriage
@@ -462,9 +483,9 @@ local Artillery = {
 			asset = "artillery_howitzer",
 			name = "Magic howitzer",
 			base = "Bed",
-			mount = { "Mount" },
-			cradle = { "Cradle" },
-			barrel = { "Barrel", "BarrelRunes", "Bore" },
+			mount = { "Mount", "MountTrim", "MountFittings", "MountKit", "MountMarking" },
+			cradle = { "Cradle", "CradleTrim" },
+			barrel = { "Barrel", "BarrelRunes", "Bore", "BarrelTrim" },
 			breech = { "Breech", "Crystal", "CrystalCracks" },
 			trunnion = { 0, 7.4, 0.5 },
 			hinge = { 0, 7.4, 3.1 }, -- (the breech never opens)
@@ -599,6 +620,15 @@ local Artillery = {
 			-- near side filled the bottom of the frame and the gunner was under it)
 			-- (dug 10.5 down, was 6: `up` 4.5 higher, so it stands as high over the ground as before; was 24)
 			camera = { side = -12, up = 28.5, back = 20, yaw = 25, pitch = -21, follow = 0, fov = 70 },
+			-- the bed down in its pit from the start, then the ring gear, the carriage, the cradle, the barrel and gem last:
+			-- laid out on the mound round the pit (left, front, right)
+			assembly = {
+				{ names = { "Bed" }, at = 0 },
+				{ names = { "RingGear" }, at = 1, laid = { -23, 2, 0, 0, 5 } },
+				{ names = { "Mount" }, at = 2, laid = { 0, -24, 0, 90, 0 } },
+				{ names = { "Cradle" }, at = 3, laid = { 23, 6, 0, 0, 0 } },
+				{ names = { "Barrel", "Bore", "Breech", "Crystal" }, at = 4, laid = { 22, -12, 0, 20, 0 } },
+			},
 		} :: Gun,
 	},
 }

@@ -136,6 +136,32 @@ local Palette = {
 			White = { 192, 190, 180 }, -- off-white, as the Brodie helmet
 		},
 		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed" },
+		-- the small pieces (user 2026-10-26: "more micro designs and accents/secondary colors on the artillery ... make it
+		-- different per team"): a mesh named <part><Role> (MountTrim, CarriageFittings, ...) takes its team's colour for
+		-- that role: Trim bands and edging, Fittings rivets, bolts, caps, data plates and chains, Kit the tool and ammo
+		-- boxes, Marking the team's stripe. Grey: black iron and oxblood (as its blackened leather); Olive: brown leather
+		-- and ochre; White: khaki web, brass and navy.
+		Roles = { "Trim", "Fittings", "Kit", "Marking" },
+		Team = {
+			Grey = {
+				Trim = { 36, 38, 40 },
+				Fittings = { 120, 122, 126 },
+				Kit = { 74, 58, 46 },
+				Marking = { 138, 46, 40 },
+			},
+			Olive = {
+				Trim = { 120, 88, 60 },
+				Fittings = { 78, 72, 64 },
+				Kit = { 136, 104, 72 },
+				Marking = { 196, 160, 72 },
+			},
+			White = {
+				Trim = { 150, 134, 96 },
+				Fittings = { 176, 146, 82 },
+				Kit = { 112, 90, 64 },
+				Marking = { 54, 70, 112 },
+			},
+		},
 		Tyres = { 58, 58, 60 },
 		Barrel = { 96, 98, 102 },
 		Breech = { 70, 72, 76 },

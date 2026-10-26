@@ -950,11 +950,18 @@ function Build.start()
 					local ours = block or m:GetAttribute("Team") == character:GetAttribute("Kit")
 					local mine = if ours then name else `Enemy {string.lower(name)}`
 					local of = if block then `HP {work} / {need}` else `{work} / {need}`
+					-- a standing gun's own HP (src/server/Build mirrors it onto its holder), as a trench square's
+					local hp, max = m:GetAttribute("HP"), m:GetAttribute("MaxHP")
+					local gunHp = if not block
+							and type(hp) == "number"
+							and type(max) == "number"
+						then `HP {math.ceil(hp)} / {max}`
+						else nil
 					title = `{mode} · {mine}`
 					line = if mode == "Destroy"
-						then `{of} · dig to fill it in`
-						elseif not ours then "switch to Destroy"
-						elseif work >= need then "dug"
+						then `{gunHp or of} · dig to {if block then "fill it in" else "take it apart"}`
+						elseif not ours then if gunHp then `{gunHp} · switch to Destroy` else "switch to Destroy"
+						elseif work >= need then gunHp or "dug"
 						else `{of} · dig to build`
 				end
 			elseif m then

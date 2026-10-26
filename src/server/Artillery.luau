@@ -91,15 +91,30 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
--- the team's paint on the painted parts, the rest by mesh name; the runes and the crystal glow
+-- a mesh's team colour by the role its name ends in (Palette.Artillery.Roles: MountTrim, CarriageFittings, ...)
+local function roleColor(name: string, team: string): { number }?
+	local art = Palette.Artillery
+	for _, role in art.Roles do
+		if #name > #role and string.sub(name, -#role) == role then
+			return (art.Team[team] :: any)[role]
+		end
+	end
+	return nil
+end
+
+-- the team's paint on the painted parts, its accent colours on the accent pieces, the rest by mesh name; the runes and
+-- the crystal glow
 local function paint(model: Model, team: string)
 	local art = Palette.Artillery
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			d.Anchored = true
 			d.Material = Enum.Material.SmoothPlastic
-			d.Color =
-				rgb(if table.find(art.Painted, d.Name) then art.Paint[team] else (art :: any)[d.Name] or art.Barrel)
+			d.Color = rgb(
+				if table.find(art.Painted, d.Name)
+					then art.Paint[team]
+					else roleColor(d.Name, team) or (art :: any)[d.Name] or art.Barrel
+			)
 			if table.find(art.Glowing, d.Name) then
 				d.Material = Enum.Material.Neon
 			end
@@ -481,9 +496,9 @@ local function copyOf(gun: Cfg.Gun, key: string, paintKey: string?): Model
 	return model
 end
 
--- A gun's blueprint (src/server/Build): the gun see-through (`transparency`), nothing to stand on, shoot or touch, in
--- `paint`; not a gun (no "Gun", nobody mans it). Pivot it to where the gun would stand.
-function Artillery.ghost(key: string, paintKey: string?, transparency: number): Model?
+-- A gun being built (src/server/Build; Config/Artillery.Assembly): a copy of it in `paint`, nothing to stand on, shoot or
+-- touch, posed by Artillery.assemble. Not a gun (no "Gun", nobody mans it).
+function Artillery.parts(key: string, paintKey: string?): Model?
 	local gun = Cfg.Guns[key]
 	if not gun then
 		return nil
@@ -491,14 +506,105 @@ function Artillery.ghost(key: string, paintKey: string?, transparency: number): 
 	local model = copyOf(gun, key, paintKey)
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
-			d.Transparency = math.max(d.Transparency, transparency)
 			d.CanCollide = false
 			d.CanQuery = false
 			d.CanTouch = false
-			d.CastShadow = false
 		end
 	end
 	return model
+end
+
+-- each built gun's parts at rest in gun space (Artillery.parts copies, before they are posed), by group
+type Group = { names: { string }, at: number, laid: { number }?, parts: { [BasePart]: CFrame }, centre: Vector3 }
+local assemblies: { [Model]: { Group } } = setmetatable({}, { __mode = "k" }) :: any
+
+local function groupsOf(model: Model, gun: Cfg.Gun): { Group }
+	local got = assemblies[model]
+	if got then
+		return got
+	end
+	local pivot = model:GetPivot()
+	local groups: { Group } = {}
+	for _, g in gun.assembly do
+		table.insert(groups, { names = g.names, at = g.at, laid = g.laid, parts = {}, centre = Vector3.zero })
+	end
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			-- the group with the longest name it starts with (BarrelRunes with Barrel)
+			local best, length = nil, 0
+			for _, g in groups do
+				for _, name in g.names do
+					if #name > length and string.sub(d.Name, 1, #name) == name then
+						best, length = g, #name
+					end
+				end
+			end
+			if best then
+				best.parts[d] = pivot:ToObjectSpace(d.CFrame)
+			else
+				d.Transparency = 1 -- (nothing in the config names it: never seen half built)
+			end
+		end
+	end
+	for _, g in groups do
+		local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+		for p, rest in g.parts do
+			lo, hi = lo:Min(rest.Position - p.Size / 2), hi:Max(rest.Position + p.Size / 2)
+		end
+		g.centre = if lo.X <= hi.X then (lo + hi) / 2 else Vector3.zero
+	end
+	assemblies[model] = groups
+	return groups
+end
+
+-- Poses a gun being built (Artillery.parts) standing at `at` with `quarters` of Config/Artillery.Assembly.quarters
+-- fitted: each group fitted by then in place, the rest lying on the ground where its `laid` says.
+function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: number)
+	local gun = Cfg.Guns[key]
+	if not gun then
+		return
+	end
+	local A = Cfg.Assembly
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	for _, g in groupsOf(model, gun) do
+		local laid = g.laid
+		if g.at <= quarters or not laid then
+			for p, rest in g.parts do
+				p.CFrame = at * rest
+			end
+			continue
+		end
+		local turn = CFrame.Angles(math.rad(laid[3]), math.rad(laid[4]), math.rad(laid[5]))
+		local local_ = CFrame.new(laid[1], 0, laid[2]) * turn * CFrame.new(-g.centre)
+		-- its lowest corner down onto the ground under it (the floor `at` stands on where no ground is found)
+		local low = math.huge
+		for p, rest in g.parts do
+			local cf, h = at * local_ * rest, p.Size / 2
+			for _, c in
+				{
+					Vector3.new(1, 1, 1),
+					Vector3.new(1, 1, -1),
+					Vector3.new(1, -1, 1),
+					Vector3.new(-1, 1, 1),
+					Vector3.new(1, -1, -1),
+					Vector3.new(-1, 1, -1),
+					Vector3.new(-1, -1, 1),
+					Vector3.new(-1, -1, -1),
+				}
+			do
+				low = math.min(low, cf:PointToWorldSpace(h * c).Y)
+			end
+		end
+		local over = at:PointToWorldSpace(Vector3.new(laid[1], 0, laid[2]))
+		local hit = workspace:Raycast(over + Vector3.new(0, A.ray, 0), Vector3.new(0, -2 * A.ray, 0), params)
+		local ground = if hit then hit.Position.Y else at.Position.Y
+		local lift = CFrame.new(0, ground + A.lift - low, 0)
+		for p, rest in g.parts do
+			p.CFrame = lift * at * local_ * rest
+		end
+	end
 end
 
 -- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
