@@ -150,9 +150,11 @@ local function draw(character: Model, head: Vector3, look: Vector3, name: string
 	b.Enabled = true
 end
 
--- the thrown grenades in the air or rolling: each one's model put on its path every frame
+-- the thrown grenades in the air or rolling: each one's model put on its path every frame, once it has reached this
+-- client (found by its "Flight" number: the path can come first); its thunks play either way
 type Flying = {
-	model: Model,
+	flight: number,
+	model: Model?,
 	at: number,
 	times: { number },
 	frames: { CFrame },
@@ -176,7 +178,8 @@ local function fly()
 	for i = #flying, 1, -1 do
 		local f = flying[i]
 		local t = now - f.at
-		if not f.model.Parent then
+		local model = f.model
+		if model and not model.Parent then
 			table.remove(flying, i)
 			continue
 		end
@@ -190,7 +193,9 @@ local function fly()
 		end
 		local times, frames = f.times, f.frames
 		if t >= times[#times] then
-			f.model:PivotTo(frames[#frames])
+			if model then
+				model:PivotTo(frames[#frames])
+			end
 			if f.heard > #f.thunks then
 				table.remove(flying, i)
 			end
@@ -201,20 +206,33 @@ local function fly()
 		end
 		local t0, t1 = times[f.seg], times[f.seg + 1]
 		local k = if t1 > t0 then math.clamp((t - t0) / (t1 - t0), 0, 1) else 1
-		f.model:PivotTo(frames[f.seg]:Lerp(frames[f.seg + 1], k))
+		if model then
+			model:PivotTo(frames[f.seg]:Lerp(frames[f.seg + 1], k))
+		end
 	end
 end
 
 function Grenades.start()
 	SoundFx.preload({ Bang = Cfg.Sound, Thunk = Cfg.Thunk.sounds })
+	local function thrown(child: Instance): Model?
+		return if child:IsA("Model") and child:GetAttribute("Flight") ~= nil then child else nil
+	end
 	Net.event("GrenadeFlight").OnClientEvent
-		:Connect(function(model: Model?, at: number, times: { number }, frames: { CFrame }, thunks: any, name: string)
-			if typeof(model) ~= "Instance" or not (model :: Instance):IsA("Model") or #times < 1 then
+		:Connect(function(flight: number, at: number, times: { number }, frames: { CFrame }, thunks: any, name: string)
+			if type(flight) ~= "number" or #times < 1 then
 				return
+			end
+			local model: Model? = nil
+			for _, child in workspace:GetChildren() do
+				local m = thrown(child)
+				if m and m:GetAttribute("Flight") == flight then
+					model = m
+				end
 			end
 			local t = Cfg.Types[name]
 			table.insert(flying, {
-				model = model :: Model,
+				flight = flight,
+				model = model,
 				at = at,
 				times = times,
 				frames = frames,
@@ -224,6 +242,18 @@ function Grenades.start()
 				heard = 1,
 			})
 		end)
+	-- a thrown grenade's model reaching this client after its path
+	workspace.ChildAdded:Connect(function(child)
+		local m = thrown(child)
+		if not m then
+			return
+		end
+		for _, f in flying do
+			if not f.model and f.flight == m:GetAttribute("Flight") then
+				f.model = m
+			end
+		end
+	end)
 	RunService.RenderStepped:Connect(fly)
 	local player = Players.LocalPlayer
 	local aiming = false -- left click held (or let go, waiting for the pin): the line shows
