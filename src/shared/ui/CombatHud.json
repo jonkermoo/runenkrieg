@@ -25,14 +25,17 @@
 				"family": "Balthazar",
 				"weight": "Regular",
 				"file": "Balthazar-Regular.ttf"
+			},
+			"plain": {
+				"family": "SourceSansPro",
+				"weight": "Bold",
+				"file": "SourceSansPro-Bold.ttf"
 			}
 		}
 	},
 	"preview": {
 		"hint": "R: new magazine",
-		"elevation": "Elev +16.0°",
-		"traverse": "Trav -4.5°",
-		"status": "Charging"
+		"timer": "99.9%"
 	},
 	"root": {
 		"id": "Screen",
@@ -176,22 +179,21 @@
 				"id": "Artillery",
 				"kind": "panel",
 				"overlay": true,
-				"center": true,
 				"anchor": [
-					0.5,
+					1,
 					1
 				],
 				"pos": [
-					0.5,
-					0,
+					1,
+					-24,
 					1,
 					-24
 				],
 				"size": [
 					0,
-					470,
+					360,
 					0,
-					200
+					186
 				],
 				"children": [
 					{
@@ -204,112 +206,38 @@
 							10
 						],
 						"size": [
-							0,
-							290,
+							1,
+							-20,
 							1,
 							-20
 						]
 					},
 					{
-						"id": "Readouts",
-						"kind": "group",
+						"id": "Timer",
+						"kind": "label",
+						"overlay": true,
+						"font": "plain",
+						"bind": "timer",
+						"text": "",
+						"textSize": 22,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "right",
+						"anchor": [
+							1,
+							1
+						],
 						"pos": [
-							0,
-							312,
-							0,
-							30
+							1,
+							-14,
+							1,
+							-8
 						],
 						"size": [
 							0,
-							146,
-							1,
-							-42
-						],
-						"children": [
-							{
-								"id": "Elevation",
-								"kind": "label",
-								"font": "body",
-								"bind": "elevation",
-								"text": "",
-								"textSize": 20,
-								"textColor": "readout",
-								"align": "left",
-								"pos": [
-									0,
-									0,
-									0,
-									0
-								],
-								"size": [
-									1,
-									0,
-									0,
-									28
-								]
-							},
-							{
-								"id": "Traverse",
-								"kind": "label",
-								"font": "body",
-								"bind": "traverse",
-								"text": "",
-								"textSize": 20,
-								"textColor": "readout",
-								"align": "left",
-								"pos": [
-									0,
-									0,
-									0,
-									34
-								],
-								"size": [
-									1,
-									0,
-									0,
-									28
-								]
-							},
-							{
-								"id": "Status",
-								"kind": "label",
-								"font": "title",
-								"bind": "status",
-								"text": "",
-								"textSize": 22,
-								"textColor": "count",
-								"align": "left",
-								"pos": [
-									0,
-									0,
-									0,
-									78
-								],
-								"size": [
-									1,
-									0,
-									0,
-									30
-								]
-							},
-							{
-								"id": "Load",
-								"kind": "bar",
-								"pos": [
-									0,
-									0,
-									0,
-									114
-								],
-								"size": [
-									1,
-									0,
-									0,
-									12
-								],
-								"color": "window",
-								"line": "brassDark"
-							}
+							100,
+							0,
+							28
 						]
 					}
 				]

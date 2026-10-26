@@ -337,7 +337,6 @@ local a0: Attachment? = nil
 local a1: Attachment? = nil
 local marker: BillboardGui? = nil
 local rangeLabel: TextLabel? = nil
-local ringFrame: Frame? = nil
 -- the impact zone (user 2026-10-20: "the impact zone should be showed like a highlight on the surface the cannon is
 -- going to hit"): a glowing disc lying on the ground there, as wide as the shell hurts, and a brighter core pulsing in it
 local zone: { fill: Part, core: Part }? = nil
@@ -362,10 +361,11 @@ local function zoneParts(): { fill: Part, core: Part }
 	return zone :: { fill: Part, core: Part }
 end
 
--- lays the zone on the ground at `at` (its surface's `normal`), `radius` studs across half
-local function showZone(at: Vector3, normal: Vector3, radius: number)
+-- lays the zone at `at`, `radius` studs across half, always level (user 2026-10-26: "make it flat at all times, dont
+-- make it parallel to the surface its on")
+local function showZone(at: Vector3, radius: number)
 	local z = zoneParts()
-	local n = if normal.Magnitude > 1e-3 then normal.Unit else Vector3.yAxis
+	local n = Vector3.yAxis
 	local side = n:Cross(Vector3.zAxis)
 	side = if side.Magnitude > 1e-3 then side.Unit else n:Cross(Vector3.xAxis).Unit
 	local cf = CFrame.fromMatrix(at + n * Cfg.Zone.lift, n, side) -- a cylinder's axis is its X
@@ -418,18 +418,7 @@ local function arcParts(): (Beam, Attachment, Attachment, BillboardGui, TextLabe
 		gui.LightInfluence = 0
 		gui.Size = UDim2.fromOffset(A.marker * 4, A.marker + A.text * 1.6)
 		gui.Enabled = false
-		local ring = Instance.new("Frame")
-		ring.AnchorPoint = Vector2.new(0.5, 0)
-		ring.Position = UDim2.fromScale(0.5, 0)
-		ring.Size = UDim2.fromOffset(A.marker, A.marker)
-		ring.BackgroundTransparency = 1
-		Instance.new("UICorner", ring).CornerRadius = UDim.new(0.5, 0)
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = A.ring
-		stroke.Color = rgb(Palette.Artillery.Marker)
-		stroke.Parent = ring
-		ring.Parent = gui
-		ringFrame = ring
+		-- (no ring over it: user 2026-10-26, "remove the yellow circle, just show the meter and the explosion shadow")
 		local label = Instance.new("TextLabel")
 		label.AnchorPoint = Vector2.new(0.5, 1)
 		label.Position = UDim2.fromScale(0.5, 1)
@@ -529,7 +518,7 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	local o = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local v = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
 	local g = gun.gravity
-	local finish, last, normal = trace(o, v, g, { model, character })
+	local finish, last = trace(o, v, g, { model, character })
 	local function at(t: number): Vector3
 		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
 		return Vector3.new(x, y, z)
@@ -556,16 +545,11 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	b.Enabled = true
 	gui.Enabled = finish ~= nil
 	if finish then
-		showZone(finish, normal or Vector3.yAxis, gun.zone)
+		showZone(finish, gun.zone)
 		local z = zoneParts()
 		z.fill.Transparency = Cfg.Zone.fill
 	else
 		hideZone()
-	end
-	-- the ring over it only where the fog would hide the zone
-	if ringFrame then
-		ringFrame.Visible = finish ~= nil
-			and (finish - workspace.CurrentCamera.CFrame.Position).Magnitude > Cfg.Zone.ringFrom
 	end
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
 	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`

@@ -1,14 +1,15 @@
 --!strict
 -- The gun crew's panel, quartermaster's brass (Config/Hud.Artillery; layout src/shared/ui/CombatHud.json
 -- "Artillery"; user 2026-10-26: "similar chamber concept for the field cannon and similar crystal concept for the
--- artillery"). Shown while I'm on a gun (its "Gunner" is me), bottom centre:
+-- artillery"). Shown while I'm on a gun (its "Gunner" is me), bottom right:
 -- - a cut-away drawn live in a ViewportFrame: the whole gun copied, posed every frame as src/client/Artillery poses
 --   it, every part as see-through as the next (user 2026-10-26: "make it general transparency, i should be able to see
 --   the inside of the gun (besides the round and the crystal)"), seen from the gun's mount (so the barrel's elevation and
 --   recoil show, and the breech swinging open); the field gun's round (Config/Artillery.Load.round) sits in its
 --   chamber, slides in as the loader puts it in (Load.loaded), and the fired case is thrown out as the breech opens;
 --   the howitzer's living crystal (src/client/ArtilleryCrystal) glows in it as it does on the gun;
--- - its elevation and traverse, and how far the reload has got (Loading / Charging / Ready); no panel or background.
+-- - how far the reload has got, a plain percentage in tenths (nothing once it can fire); no panel or background, at the
+--   bottom right like the gun's.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -67,6 +68,8 @@ type View = {
 	case: Piece?,
 	length: number,
 	thrownFor: number, -- the shot whose case has been thrown out
+	gem: HudKit.Crystal?, -- the howitzer's crystal
+	gemSources: { BasePart },
 	throws: { Throw },
 }
 
@@ -97,6 +100,8 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 		case = nil,
 		length = 1,
 		thrownFor = -math.huge,
+		gem = nil,
+		gemSources = {},
 		throws = {},
 	}
 	local function rest(name: string): CFrame?
@@ -127,11 +132,27 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			anchored(c)
 			c.Parent = cut
 			v.copies[d] = { part = c, see = if table.find(A.solid, d.Name) then 0 else A.see }
-			local r = rest(d.Name)
-			if r and table.find(A.frame, d.Name) then
-				grow(r, d.Size)
-			end
 		end
+	end
+	-- framed on the first of Hud.Artillery.frame the gun has (the howitzer's crystal, the field gun's breech)
+	for _, name in A.frame do
+		local r = rest(name)
+		local p = model:FindFirstChild(name, true)
+		if r and p and p:IsA("BasePart") then
+			grow(r, p.Size)
+			break
+		end
+	end
+	-- the crystal's look (src/client/HudKit.shine)
+	local gems = {}
+	for src, c in v.copies do
+		if table.find(A.solid, src.Name) then
+			table.insert(gems, c.part)
+			table.insert(v.gemSources, src)
+		end
+	end
+	if #gems > 0 then
+		v.gem = HudKit.crystal(gems)
 	end
 
 	-- the field gun's round, and its case for after the shot
@@ -166,12 +187,12 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 		end
 		grow(v.chamber * CFrame.new(0, 0, -v.length / 2), Vector3.new(A.chamberWidth, A.chamberWidth, v.length))
 	end
-	if box then
+	if box and gun.breechOpens then
 		-- reach behind the breech (the case thrown out, the round coming in) and in front of it
 		local b = box :: any
 		b.hi = b.hi + Vector3.new(0, 0, A.reach.back)
 		b.lo = b.lo - Vector3.new(0, 0, A.reach.front)
-	else
+	elseif not box then
 		grow(v.chamber, Vector3.one * 2)
 	end
 	local b = box :: any
@@ -187,7 +208,7 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 	return v
 end
 
-local function update(v: View, t: number, clock: number)
+local function update(v: View, t: number, clock: number, camera: Camera)
 	-- gun space now: the mount's rest undone (it turns with the traverse; the view turns with it)
 	local ref = if v.mount then v.mount.CFrame * v.mountRest:Inverse() else v.model:GetPivot()
 	for src, c in v.copies do
@@ -195,6 +216,15 @@ local function update(v: View, t: number, clock: number)
 		c.part.Color = src.Color
 		c.part.Material = src.Material
 		c.part.Transparency = 1 - (1 - src.Transparency) * (1 - c.see)
+	end
+	if v.gem then
+		local readyAt = (v.model:GetAttribute("ReadyAt") :: number?) or -math.huge
+		local full = Rules.loaded(t, readyAt, v.gun.reload) >= 1
+		local colors = {}
+		for _, src in v.gemSources do
+			table.insert(colors, src.Color)
+		end
+		HudKit.shine(v.gem, full, colors, clock, camera)
 	end
 	local round, case = v.round, v.case
 	if not round or not case then
@@ -288,22 +318,13 @@ function ArtilleryHud.start()
 			return
 		end
 		local t = workspace:GetServerTimeNow()
-		update(v, t, os.clock())
+		update(v, t, os.clock(), camera)
 
-		local gun = v.gun
-		local elevation = (model:GetAttribute("Elevation") :: number?) or 0
-		local traverse = (model:GetAttribute("Traverse") :: number?) or 0
-		panel.set("elevation", string.format(A.text.elevation, elevation))
-		panel.set("traverse", string.format(A.text.traverse, traverse))
+		-- how far the reload has got, in tenths of a percent, until it can fire again (user 2026-10-26: "a simple text
+		-- timer that just displays the percentage until it can fire again(by tenths). no ready text, no bar")
 		local readyAt = (model:GetAttribute("ReadyAt") :: number?) or -math.huge
-		local share = Rules.loaded(t, readyAt, gun.reload)
-		local status = if model:GetAttribute("Broken")
-			then A.text.broken
-			elseif share >= 1 then A.text.ready
-			elseif gun.vfx.magic then A.text.charging
-			else A.text.loading
-		panel.set("status", status)
-		panel.fill("Load", share, HudKit.rgb(if share >= 1 then "ready" else "brass"))
+		local share = Rules.loaded(t, readyAt, v.gun.reload)
+		panel.set("timer", if share >= 1 then "" else string.format(A.timer, math.floor(share * 1000) / 10))
 	end)
 end
 

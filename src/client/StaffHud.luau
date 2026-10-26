@@ -4,9 +4,9 @@
 -- recharging after a stage 3 blast to signify that its no usable)"). Shown while the staff is drawn, in the gun
 -- display's place. A brass panel, bottom right, with a magic rock turning in a ViewportFrame: the howitzer's cracked
 -- gem (Hud.Staff.model) in the player's team magic colour (Config/Spells.Staff.Teams):
--- - as bright as the mana is full: faded and see-through when empty, solid and glowing when full;
--- - burnt out by a stage 3 shot (Config/Spells.Mana.burnout): it flickers, dropping out, until it's usable again;
---   full again, a white flash;
+-- - hollow grey and flickering while it recharges (burnt out by a stage 3 shot, Config/Spells.Mana.burnout, or
+--   refilling), bright and solid when full (src/client/HudKit.shine, a black outline round it); full again, a white
+--   flash;
 -- - a shot refused for want of mana: the panel shakes;
 -- - full again, it pops (a quick swell and a white flash); otherwise nothing but its brightness says how full it is
 --   (user 2026-10-26: "just make the circle have a pop animation once its fully charged. no other indicator").
@@ -35,7 +35,7 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
-type Rock = { model: Model, parts: { { part: BasePart, rel: CFrame } }, size: Vector3 }
+type Rock = { model: Model, parts: { { part: BasePart, rel: CFrame } }, size: Vector3, crystal: HudKit.Crystal }
 
 -- the rock: copies of the gem's parts, centred on the first
 local function makeRock(view: ViewportFrame, camera: Camera): Rock?
@@ -62,7 +62,11 @@ local function makeRock(view: ViewportFrame, camera: Camera): Rock?
 		end
 	end
 	model.Parent = view
-	local size = first.Size
+	-- centred on the gem's own middle (its bounding box), not its pivot
+	local centre, size = model:GetBoundingBox()
+	for _, q in parts do
+		q.rel = centre:ToObjectSpace(first.CFrame * q.rel)
+	end
 	HudKit.frameBox(
 		view,
 		camera,
@@ -73,12 +77,15 @@ local function makeRock(view: ViewportFrame, camera: Camera): Rock?
 		S.fov,
 		S.margin
 	)
-	return { model = model, parts = parts, size = size }
+	local list = {}
+	for _, q in parts do
+		table.insert(list, q.part)
+	end
+	return { model = model, parts = parts, size = size, crystal = HudKit.crystal(list) }
 end
 
 function StaffHud.start()
 	local player = Players.LocalPlayer
-	local UI = Palette.UI.Hud :: any
 	local panel = HudKit.panel("Staff", "StaffHud")
 	local view = panel.node.StaffView :: ViewportFrame
 	local camera = Instance.new("Camera")
@@ -87,8 +94,6 @@ function StaffHud.start()
 	local rock: Rock? = nil
 	local home = panel.panel.Position
 	local max = Spells.Mana.max
-	local flickerUntil, nextFlicker = 0, 0
-	local rng = Random.new()
 	local angle = 0
 	local wasFull, fullAt = true, -math.huge
 
@@ -122,20 +127,7 @@ function StaffHud.start()
 		)]
 		local Magic = Palette.Magic :: any
 		local glow, core = rgb(Magic[scheme.glow]), rgb(Magic[scheme.core])
-		local empty = rgb(UI.rockEmpty)
-		local share = math.clamp(value / max, 0, 1)
 
-		-- burnt out: drop-outs at random, the glow down to a share while one lasts
-		local bright = share
-		if locked then
-			if now >= nextFlicker then
-				flickerUntil = now + S.flicker.time
-				nextFlicker = now + S.flicker.every * (1 + S.flicker.jitter * (2 * rng:NextNumber() - 1))
-			end
-			if now < flickerUntil then
-				bright *= S.flicker.depth
-			end
-		end
 		-- full again: a pop (a quick swell and a white flash); full is the rock at its brightest, nothing else says so
 		if value >= max and not wasFull then
 			fullAt = now
@@ -151,12 +143,12 @@ function StaffHud.start()
 			angle += math.rad(S.spin) * dt
 			local bob = math.sin(now * S.bob.speed * math.pi * 2) * S.bob.height * rock.size.Magnitude
 			local at = CFrame.new(0, bob, 0) * CFrame.Angles(0, angle, 0) * CFrame.Angles(math.rad(S.tilt), 0, 0)
-			for i, q in rock.parts do
+			for _, q in rock.parts do
 				q.part.CFrame = at * q.rel
-				local base = if i == 1 then glow else core
-				q.part.Color = empty:Lerp(base, bright):Lerp(Color3.new(1, 1, 1), flash)
-				q.part.Transparency = S.empty * (1 - bright)
 			end
+			-- hollow grey and flickering until it's full (burnt out or refilling), then bright, solid and popping
+			local full = value >= max and not locked
+			HudKit.shine(rock.crystal, full, { glow:Lerp(Color3.new(1, 1, 1), flash), core }, now, camera)
 		end
 	end)
 end

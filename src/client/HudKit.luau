@@ -10,7 +10,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local HudCfg = require(Shared.Config.Hud)
+local HudCfg = require(Shared.Config.Hud) :: any
 local Palette = require(Shared.Config.Palette)
 local Spec = require(Shared.ui.CombatHud) :: any
 
@@ -189,6 +189,66 @@ function HudKit.panel(id: string, guiName: string): Panel
 			end
 		end,
 	}
+end
+
+-- A crystal in a cut-away (the staff's rock, the howitzer's gem; Config/Hud.Crystal; user 2026-10-26: "just give it a
+-- hallow gray look and flicker as it recharges. give it a black outline as well so it doesnt become unclear during
+-- gameplay", "make the crystal more clear (more opacity) when its fully charged"). HudKit.crystal(parts) -> state;
+-- HudKit.shine(state, full, color, now, camera): its look this frame (`color`: the colour full, per part), each
+-- part's black outline a copy pushed back from the camera and grown to show round it.
+export type Crystal = { parts: { BasePart }, outlines: { BasePart }, flickerUntil: number, nextFlicker: number }
+
+local CR = HudCfg.Crystal
+local rng = Random.new()
+
+function HudKit.crystal(parts: { BasePart }): Crystal
+	local outlines = {}
+	for _, p in parts do
+		local o = p:Clone()
+		o:ClearAllChildren()
+		o.Name = p.Name .. "Outline"
+		o.Color = Color3.new()
+		o.Material = Enum.Material.SmoothPlastic
+		o.Transparency = 0
+		o.Parent = p.Parent
+		table.insert(outlines, o)
+	end
+	return { parts = parts, outlines = outlines, flickerUntil = 0, nextFlicker = 0 }
+end
+
+function HudKit.shine(c: Crystal, full: boolean, colors: { Color3 }, now: number, camera: Camera)
+	local bright = 1
+	if not full then
+		-- recharging: drop-outs at random
+		local f = CR.flicker
+		if now >= c.nextFlicker then
+			c.flickerUntil = now + f.time
+			c.nextFlicker = now + f.every * (1 + f.jitter * (2 * rng:NextNumber() - 1))
+		end
+		bright = if now < c.flickerUntil then f.depth else 1
+	end
+	local grey = rgb("crystalHollow")
+	local eye = camera.CFrame.Position
+	for i, p in c.parts do
+		if full then
+			p.Color = colors[i] or colors[1]
+			p.Material = Enum.Material.Neon
+			p.Transparency = CR.full
+		else
+			p.Color = Color3.new():Lerp(grey, bright)
+			p.Material = Enum.Material.SmoothPlastic
+			p.Transparency = CR.hollow
+		end
+		local o = c.outlines[i]
+		if o then
+			local away = p.Position - eye
+			local d = away.Magnitude
+			local push = p.Size.Magnitude * CR.outline.push
+			o.CFrame = p.CFrame + away.Unit * push
+			o.Size = p.Size * ((d + push) / math.max(d, 1e-3)) * CR.outline.grow
+			o.Transparency = if p.Transparency >= 1 then 1 else 0
+		end
+	end
 end
 
 -- A cut-away's camera: looking at `box` (centre CFrame + size, in the viewport's space) square on from `from`

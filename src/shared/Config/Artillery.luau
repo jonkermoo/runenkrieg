@@ -137,8 +137,7 @@ local Artillery = {
 		width = 0.5,
 		segments = 60,
 		transparency = 0.35,
-		marker = 46, -- the ring's size in pixels, its line `ring` thick, the range's text `text` high
-		ring = 3,
+		marker = 46, -- the range label's box (pixels), its text `text` high (no ring: user 2026-10-26)
 		text = 18,
 	},
 
@@ -283,9 +282,8 @@ local Artillery = {
 	-- The impact zone (src/client/Artillery; user 2026-10-20: "the impact zone should be showed like a highlight on the
 	-- surface the cannon is going to hit"): a glowing disc (Palette.Artillery.Marker) lying on the ground where it would
 	-- land, the gun's `zone` studs in radius (about where its blast still hurts), `fill` transparent, `thickness` thick,
-	-- `lift` off the surface; a core `coreShare` of it across pulsing between the `core` transparencies at `pulse` rad/s.
-	-- Past `ringFrom` studs from the camera the ring over it shows too (the haze, Map 1's Atmosphere, hides parts far
-	-- off; Lighting.FogEnd isn't it: Studio round 5).
+	-- `lift` off the surface (always level: user 2026-10-26, "make it flat at all times"); a core `coreShare` of it
+	-- across pulsing between the `core` transparencies at `pulse` rad/s.
 	Zone = {
 		fill = 0.72,
 		core = { 0.45, 0.8 },
@@ -293,7 +291,6 @@ local Artillery = {
 		thickness = 0.15,
 		lift = 0.1,
 		pulse = 5,
-		ringFrom = 450,
 	},
 
 	-- The howitzer's crystal (src/client/ArtilleryCrystal, Rules/Artillery.crystal; user 2026-10-20: "make the howitzer

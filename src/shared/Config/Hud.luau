@@ -97,14 +97,21 @@ local Hud = {
 		},
 	},
 
+	-- a crystal in a cut-away (src/client/HudKit.shine: the staff's rock, the howitzer's gem): until it's full, hollow
+	-- (`hollow` see-through, Palette.UI.Hud.crystalHollow) and flickering (drop-outs every `every` s or so, `jitter` of
+	-- that either way, each `time` s, to `depth` of its light); full, bright and `full` see-through; its black outline
+	-- a copy pushed `push` of its size back from the camera, grown by `grow`
+	Crystal = {
+		hollow = 0.3,
+		full = 0,
+		flicker = { every = 0.22, jitter = 0.5, time = 0.08, depth = 0.35 },
+		outline = { push = 0.6, grow = 1.1 },
+	},
+
 	Staff = {
 		fov = 20,
 		spin = 24, -- degrees a second the rock turns
 		bob = { height = 0.04, speed = 1.4 }, -- its float (share of its size, cycles a second)
-		empty = 0.72, -- the rock's transparency with no mana (full: 0)
-		-- burnt out (a stage 3 shot, Config/Spells.Mana.burnout): drop-outs every `every` s or so, each `time` s, down
-		-- to `depth` of its glow (`jitter`: the gaps vary by this share either way)
-		flicker = { every = 0.18, jitter = 0.5, time = 0.07, depth = 0.15 },
 		flash = 0.4, -- full again: a white flash fading over this
 		shake = { time = 0.3, size = 5, speed = 70 }, -- a refused shot
 		pop = { time = 0.35, size = 0.25 }, -- full again: the rock swells by `size` and back over `time` s
@@ -124,7 +131,7 @@ local Hud = {
 		see = 0.62,
 		solid = { "Crystal", "CrystalCracks" },
 		skip = { "Origin", "Bore" },
-		frame = { "Breech", "Crystal" },
+		frame = { "Crystal", "Breech" }, -- (the first of these the gun has: the howitzer's view centres on its crystal)
 		-- around the framed parts, studs: how far behind the breech and ahead of it the view reaches
 		reach = { back = 2.2, front = 1.6 },
 		-- the round in the chamber (field gun; gun space at rest): its head this far behind the hinge's z, on the bore
@@ -140,14 +147,7 @@ local Hud = {
 			default = { from = { 1, 0, 0 } },
 			artillery_howitzer = { from = { 0.45, 0.3, 1 } },
 		},
-		text = {
-			elevation = "Elev %+.1f°",
-			traverse = "Trav %+.1f°",
-			ready = "Ready",
-			loading = "Loading",
-			charging = "Charging",
-			broken = "Knocked out",
-		},
+		timer = "%.1f%%", -- the reload's share until it can fire, in tenths of a percent
 	},
 }
 
