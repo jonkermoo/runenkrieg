@@ -10,7 +10,7 @@ return {
 			local spec = C.Scaffold[key]
 			assert(spec, key)
 			local pieces = S.pieces(spec, C.Scaffold.Sizes)
-			assert(#pieces > 10, key)
+			assert(#pieces >= 6, key)
 			for _, p in pieces do
 				assert(p.w > 0 and p.h > 0, key)
 				assert(Palette.Build.Scaffold[p.color], p.color)
@@ -23,8 +23,7 @@ return {
 		end
 	end,
 	["the tripod's poles meet over its centre, its feet on the floor"] = function()
-		local spec = C.Scaffold.artillery_qf18
-		local t = spec.tripod
+		local t = { x = 0, z = -1, height = 7, spread = 3.6, turn = 90, hook = 3.9 }
 		local pieces = S.pieces({ tripod = t }, C.Scaffold.Sizes)
 		for k = 1, 3 do
 			local p = pieces[k]

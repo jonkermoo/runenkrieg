@@ -262,31 +262,30 @@ local Build = {
 	-- feet `spread` out (the first `turn` degrees from +X), a rope and hook hanging to `hook`; `crates` (`size` across,
 	-- high, long), `planks` (`count` stacked, `length` long), `sawhorses`. Nothing in it can be stood on, touched or shot.
 	Scaffold = {
+		-- (user 2026-10-26: "make it more subtle please"; was a 7-stud tripod over the field gun, a 20-stud one and a
+		-- two-level 10.5-stud scaffold round the howitzer, posts 0.35)
 		Sizes = {
-			post = 0.35, -- the frame's posts, ledgers, walk boards (`board` wide, `plank` thick)
-			ledger = 0.2,
-			board = 1.2,
-			plank = 0.15,
-			pole = 0.25, -- the tripod's poles, `overshoot` past their lashing, the lashing `lash` up and down, its block,
-			overshoot = 0.5, -- the rope and the hook
-			lash = 0.3,
-			block = 0.5,
-			rope = 0.08,
-			hook = 0.4,
-			horse = { length = 2.2, height = 1.4, beam = 0.25, splay = 0.45 },
+			post = 0.25, -- the frame's posts, ledgers, walk boards (`board` wide, `plank` thick)
+			ledger = 0.15,
+			board = 1,
+			plank = 0.12,
+			pole = 0.2, -- the tripod's poles, `overshoot` past their lashing, the lashing `lash` up and down, its block,
+			overshoot = 0.4, -- the rope and the hook
+			lash = 0.25,
+			block = 0.4,
+			rope = 0.07,
+			hook = 0.35,
+			horse = { length = 1.8, height = 1.1, beam = 0.2, splay = 0.35 },
 		},
 		artillery_qf18 = {
-			tripod = { x = 0, z = -1, height = 7, spread = 3.6, turn = 90, hook = 3.9 },
-			crates = { { x = -3.4, z = 2.4, yaw = 15, size = { 1.6, 0.9, 1 } } },
-			planks = { { x = 3.4, z = 4.6, yaw = -6, count = 4, length = 4.5 } },
-			sawhorses = { { x = -3.2, z = 6.2, yaw = 80 } },
+			crates = { { x = -3, z = 2.6, yaw = 15, size = { 1.2, 0.7, 0.8 } } },
+			planks = { { x = 2.9, z = 4.8, yaw = -6, count = 2, length = 3.5 } },
 		},
 		artillery_howitzer = {
-			frame = { x = 0, z = 0.3, width = 17, depth = 19, bays = 3, height = 10.5, levels = { 4.5, 9 } },
-			tripod = { x = 0, z = -2, height = 20, spread = 9, turn = 90, hook = 13 },
-			crates = { { x = -11, z = -2, yaw = 10, size = { 2.2, 1.2, 1.4 } } },
-			planks = { { x = 11, z = 5, yaw = 10, count = 5, length = 6 } },
-			sawhorses = { { x = -11, z = 6, yaw = 0 } },
+			frame = { x = 0, z = 0.3, width = 16, depth = 18, bays = 2, height = 5.2, levels = { 4.2 } },
+			crates = { { x = -10.5, z = -2, yaw = 10, size = { 1.6, 0.9, 1.1 } } },
+			planks = { { x = 10.5, z = 5, yaw = 10, count = 3, length = 5 } },
+			sawhorses = { { x = -10.5, z = 6, yaw = 0 } },
 		},
 	},
 
