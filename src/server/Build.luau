@@ -28,6 +28,7 @@ local Palette = require(Shared.Config.Palette)
 local ShovelCfg = require(Shared.Config.Shovel)
 local ArtilleryCfg = require(Shared.Config.Artillery)
 local W = require(Shared.Config.Weapons)
+local DevCfg = require(Shared.Config.DevTools)
 local Rules = require(Shared.Rules.Build)
 local Scaffold = require(Shared.Rules.Scaffold)
 local Survey = require(Shared.BuildSurvey)
@@ -101,6 +102,12 @@ local function holdsShovel(character: Model): boolean
 	local tool = character:FindFirstChildOfClass("Tool")
 	local name = tool and tool:GetAttribute("Weapon")
 	return type(name) == "string" and W[name] ~= nil and W[name].class == "Shovel"
+end
+
+-- a dev player's admin dig step (Config/DevTools.Admin.Dig, set by src/server/DevTools), nil for everyone else
+local function digShare(player: Player): number?
+	local share = player:GetAttribute(DevCfg.Admin.Dig.attribute)
+	return if player:GetAttribute(DevCfg.Attribute) == true and type(share) == "number" then share else nil
 end
 
 local function refuse(player: Player, reason: string)
@@ -525,7 +532,7 @@ local function work(player: Player, target: any, mode: any)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
 			lastSwing[player] = now
-			Trenches.work(blk, team, mode)
+			Trenches.work(blk, team, mode, digShare(player))
 		end
 		return
 	end
@@ -551,7 +558,7 @@ local function work(player: Player, target: any, mode: any)
 	end
 	lastSwing[player] = now
 	local was = r.work
-	local left, gone = Rules.swing(r.work, r.need, mode == "Build")
+	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(1, r.need, digShare(player)))
 	if gone then
 		remove(r, r.built and r.piece.kind ~= "Gun") -- (a gun piece leaves no rubble)
 		return

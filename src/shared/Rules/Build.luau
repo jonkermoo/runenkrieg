@@ -101,13 +101,23 @@ function Build.stageOf(work: number, need: number, stages: number): number
 	return math.clamp(math.floor(work / need * stages + 1e-9), 0, stages)
 end
 
--- One shovel swing on a piece at `work` of `need`: your own team's adds one (up to `need`), another team's takes one
--- off. Returns the new work and whether the piece is gone (another team's swing took the last unit).
-function Build.swing(work: number, need: number, ownTeam: boolean): (number, boolean)
-	if ownTeam then
-		return math.min(work + 1, need), false
+-- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
+-- never less than `normal`
+function Build.digAmount(normal: number, full: number, share: number?): number
+	if type(share) ~= "number" or share <= 0 then
+		return normal
 	end
-	local left = work - 1
+	return math.max(normal, math.ceil(full * share - 1e-9))
+end
+
+-- One shovel swing on a piece at `work` of `need`: your own team's adds `amount` (nil: one; up to `need`), another
+-- team's takes it off. Returns the new work and whether the piece is gone (another team's swing took the last unit).
+function Build.swing(work: number, need: number, ownTeam: boolean, amount: number?): (number, boolean)
+	local n = amount or 1
+	if ownTeam then
+		return math.min(work + n, need), false
+	end
+	local left = work - n
 	return math.max(left, 0), left <= 0
 end
 

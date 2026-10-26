@@ -135,12 +135,13 @@ local function hurtLeaves(tree: Model, amount: number)
 end
 
 local function sink(tree: Model)
-	if not tree.Parent or CollectionService:HasTag(tree, TreeCfg.SinkingTag) then
-		return
-	end
+	-- off the list first, gone or not (a tree removed some other way, e.g. the DEV "Undo destruction", stayed on it)
 	local i = table.find(fallen, tree)
 	if i then
 		table.remove(fallen, i)
+	end
+	if not tree.Parent or CollectionService:HasTag(tree, TreeCfg.SinkingTag) then
+		return
 	end
 	tree:SetAttribute("SinkDepth", T.Fall.sinkDepth)
 	tree:SetAttribute("SinkTime", T.Fall.sinkTime)
@@ -316,8 +317,10 @@ local function fell(tree: Model, away: Vector3, leaveStump: boolean, fadeAway: b
 		end
 	end)
 	table.insert(fallen, tree)
+	-- (taken off before sinking: an entry sink skipped spun this loop until the script timed out, the blast's
+	-- effects never sent; Studio 2026-10-26)
 	while #fallen > F.maxFallen do
-		sink(fallen[1])
+		sink(table.remove(fallen, 1) :: Model)
 	end
 	task.delay(F.time + F.lifetime, sink, tree)
 end

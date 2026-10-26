@@ -101,6 +101,18 @@ function Artillery.recoilAt(t: number, full: number, times: { number }): number
 	return full * (1 - k) * (1 - k)
 end
 
+-- The share of the whole gun's jolt `t` s after the shot (Config/Artillery.Fx.Jolt `J`): up to 1 over `rise` s, then
+-- a wobble dying away (overshooting a little past rest), 0 before the shot and after `time` s.
+function Artillery.joltAt(t: number, J: any): number
+	if t < 0 or t >= J.time then
+		return 0
+	elseif t < J.rise then
+		return t / J.rise
+	end
+	local s = t - J.rise
+	return math.exp(-s * J.damp) * math.cos(s * J.wobble)
+end
+
 -- The longest recoil at `elevation` keeping the breech's lowest point over `clear.floor` (Config recoilClear), at
 -- most `full`; nil `clear`: always full.
 function Artillery.recoilLength(full: number, elevation: number, trunnionY: number, clear: any?): number
