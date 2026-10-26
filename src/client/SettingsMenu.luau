@@ -14,6 +14,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Settings)
+local DevCfg = require(Shared.Config.DevTools)
 local Palette = require(Shared.Config.Palette)
 local R = require(Shared.Rules.Settings)
 local Spec = require(Shared.ui.SettingsMenu) :: any
@@ -337,6 +338,15 @@ local function keyRow(parent: Instance, order: number, key: string, onCapture: (
 	end
 	refresh()
 	Settings.changed(key, refresh)
+	if opt.devOnly then
+		-- (the server marks dev players with the DevTools attribute, maybe after the menu is built)
+		local player = Players.LocalPlayer
+		local function showRow()
+			r.Visible = player:GetAttribute(DevCfg.Attribute) == true
+		end
+		player:GetAttributeChangedSignal(DevCfg.Attribute):Connect(showRow)
+		showRow()
+	end
 	b.Activated:Connect(function()
 		if os.clock() - boundAt > M.CaptureGuard then
 			onCapture(if capturing == key then nil else key)
