@@ -152,9 +152,10 @@ local Assets = {
 		-- by every team, painted per team (Config/Palette.Artillery). Moving parts are their own meshes; firing is
 		-- later game code.
 		artillery_qf18 = {
-			-- v3 (user 2026-10-26: the shield's top flap flat, was tilted forward; team accent pieces <part>Trim /
-			-- Fittings / Kit / Marking, Config/Palette.Artillery.Team; before it 123043192837733)
-			id = 114781083776162,
+			-- v4 (user 2026-10-26: round rivets, the handspike "tail" gone; v3 114781083776162: the shield's top flap flat,
+			-- was tilted forward; team accent pieces <part>Trim / Fittings / Kit / Marking, Config/Palette.Artillery.Team;
+			-- before it 123043192837733)
+			id = 96409235868239,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/artillery_qf18.fbx",
@@ -162,10 +163,11 @@ local Assets = {
 			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
 		},
 		artillery_howitzer = {
-			-- v7 (user 2026-10-26: team accent pieces <part>Trim / Fittings / Kit / Marking, Config/Palette.Artillery.Team;
-			-- v6 70753419490474, Bertha v11, the bigger cracked gem; v10 82040723469817; before it the BL 9.2-inch at 1.3x,
-			-- 82367327569698)
-			id = 127169406913245,
+			-- v8 (user 2026-10-26: curved brush-stroke runes with glowing halos, BedRunesGlow / BarrelRunesGlow; round
+			-- rivets; v7 127169406913245: team accent pieces <part>Trim / Fittings / Kit / Marking,
+			-- Config/Palette.Artillery.Team; v6 70753419490474, Bertha v11, the bigger cracked gem; v10 82040723469817;
+			-- before it the BL 9.2-inch at 1.3x, 82367327569698)
+			id = 98289221398793,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/artillery_bertha.fbx",
