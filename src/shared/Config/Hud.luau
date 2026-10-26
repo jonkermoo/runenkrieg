@@ -48,7 +48,7 @@ local Hud = {
 			},
 			follower = { width = 1.1, thick = 0.35, length = 0.7, gap = 0.25 },
 		},
-		-- the gun's body behind it all: its traced outline (Config/GunOutlines) in lines `width` round widths thick, in
+		-- the gun's body behind it all: its traced silhouette (Config/GunOutlines) in a line `width` round widths thick, in
 		-- Palette.UI.Hud.outline, `see` see-through, set `back` studs away from the camera
 		outline = { width = 0.11, see = 0.3, back = 0.35 },
 		stagger = 0.42, -- a double stack's rounds, side to side, in round diameters (when they sit closer than `double`)
