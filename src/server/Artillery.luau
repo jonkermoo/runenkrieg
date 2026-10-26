@@ -271,9 +271,10 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 			conn:Disconnect()
 			local at = hit.Position + hit.Normal * 0.3
 			print(`[Perf] shell hit t={math.round(t * 100) / 100}s lateBy={math.round((now() - firedAt - t) * 1000)}ms`)
-			Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
+			-- every client's blast first, so it shows even if the damage below fails or runs long
 			Net.event("ArtilleryBlast"):FireAllClients(at, key)
 			print("[Perf] ArtilleryBlast sent")
+			Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
 		elseif t > Cfg.MaxFlight then
 			conn:Disconnect()
 		end
