@@ -81,9 +81,9 @@ local Grenades = {
 		late = 0.25, -- seconds: a thunk reached later than this (the path arrived late) isn't played
 		pitchRange = { 0.92, 1.08 },
 		sounds = {
-			{ id = 9118616114, volume = 1, profile = "Footstep" }, -- Rock Impact Dirt Hard Muted Thuds 1
-			{ id = 9118616398, volume = 1, profile = "Footstep" }, -- Rock Impact Dirt Hard Muted Thuds 2
-			{ id = 9118598240, volume = 0.9, profile = "Footstep" }, -- Rock Hit Dirt Impact 12
+			{ id = 9118616114, volume = 1, profile = "Thunk" }, -- Rock Impact Dirt Hard Muted Thuds 1
+			{ id = 9118616398, volume = 1, profile = "Thunk" }, -- Rock Impact Dirt Hard Muted Thuds 2
+			{ id = 9118598240, volume = 0.9, profile = "Thunk" }, -- Rock Hit Dirt Impact 12
 		},
 	},
 
