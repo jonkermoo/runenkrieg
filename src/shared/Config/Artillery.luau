@@ -260,7 +260,14 @@ local Artillery = {
 		awakeGlow = 0.6,
 		breath = 0.2,
 		pulse = 1.6,
-		alsoRunes = { "BarrelRunes", "BedRunes" },
+		alsoRunes = { "BarrelRunes", "BedRunes", "BarrelRunesGlow", "BedRunesGlow" },
+		-- the runes' halos (Palette.Artillery.Halos) breathe with the glow: `transparency` lit .. dark, a shimmer of
+		-- `shimmer` at `rate` rad/s (user 2026-10-26: "give all the current rune symbols more life")
+		halo = { transparency = { 0.55, 0.92 }, shimmer = 0.08, rate = 2.3 },
+		-- the orbiting runes' strokes (user: "more ... curve. it looks too blocky"): each bows `bow` of its length off
+		-- true (alternate strokes the other way) in `pieces` rounded pieces, swelling to `swell` x the stroke in its
+		-- middle and thinning to `tip` x at its ends; a halo `halo` x as wide, `haloFade` more see-through, under it
+		strokes = { bow = 0.1, pieces = 3, swell = 1.2, tip = 0.55, halo = 2.4, haloFade = 0.6 },
 		runesFloor = 0.15,
 		light = { range = 14, brightness = 2.5 },
 		runes = 8,
@@ -483,7 +490,7 @@ local Artillery = {
 			base = "Bed",
 			mount = { "Mount", "MountTrim", "MountFittings", "MountKit", "MountMarking" },
 			cradle = { "Cradle", "CradleTrim" },
-			barrel = { "Barrel", "BarrelRunes", "Bore", "BarrelTrim" },
+			barrel = { "Barrel", "BarrelRunes", "BarrelRunesGlow", "Bore", "BarrelTrim" },
 			breech = { "Breech", "Crystal", "CrystalCracks" },
 			trunnion = { 0, 7.4, 0.5 },
 			hinge = { 0, 7.4, 3.1 }, -- (the breech never opens)

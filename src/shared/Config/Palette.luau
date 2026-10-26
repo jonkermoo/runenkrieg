@@ -140,26 +140,28 @@ local Palette = {
 		-- different per team"): a mesh named <part><Role> (MountTrim, CarriageFittings, ...) takes its team's colour for
 		-- that role: Trim bands and edging, Fittings rivets, bolts, caps, data plates and chains, Kit the tool and ammo
 		-- boxes, Marking the team's stripe. Grey: black iron and oxblood (as its blackened leather); Olive: brown leather
-		-- and ochre; White: khaki web, brass and navy.
+		-- and ochre; White: khaki web, brass and navy. (User 2026-10-26: "make sure everything blends in well": the
+		-- fittings and stripes toned toward the paint; were Grey 120 steel / 138,46,40, Olive 196,160,72, White
+		-- 176,146,82 / 54,70,112.)
 		Roles = { "Trim", "Fittings", "Kit", "Marking" },
 		Team = {
 			Grey = {
 				Trim = { 36, 38, 40 },
-				Fittings = { 120, 122, 126 },
+				Fittings = { 100, 103, 107 },
 				Kit = { 74, 58, 46 },
-				Marking = { 138, 46, 40 },
+				Marking = { 120, 48, 42 },
 			},
 			Olive = {
 				Trim = { 120, 88, 60 },
 				Fittings = { 78, 72, 64 },
 				Kit = { 136, 104, 72 },
-				Marking = { 196, 160, 72 },
+				Marking = { 170, 140, 72 },
 			},
 			White = {
 				Trim = { 150, 134, 96 },
-				Fittings = { 176, 146, 82 },
+				Fittings = { 160, 136, 86 },
 				Kit = { 112, 90, 64 },
-				Marking = { 54, 70, 112 },
+				Marking = { 70, 82, 112 },
 			},
 		},
 		Tyres = { 58, 58, 60 },
@@ -173,7 +175,13 @@ local Palette = {
 		BarrelRunes = { 120, 200, 255 },
 		Crystal = { 175, 235, 255 },
 		CrystalCracks = { 235, 250, 255 }, -- the cracks over the howitzer's gem (src/client/ArtilleryCrystal)
-		Glowing = { "BedRunes", "BarrelRunes", "Crystal", "CrystalCracks" },
+		-- the runes' halos (user 2026-10-26: "give all the current rune symbols more life"): wide see-through copies
+		-- of the strokes under them, glowing; `HaloTransparency` while lit (src/client/ArtilleryCrystal pulses it)
+		BedRunesGlow = { 120, 200, 255 },
+		BarrelRunesGlow = { 120, 200, 255 },
+		Halos = { "BedRunesGlow", "BarrelRunesGlow" },
+		HaloTransparency = 0.65,
+		Glowing = { "BedRunes", "BarrelRunes", "BedRunesGlow", "BarrelRunesGlow", "Crystal", "CrystalCracks" },
 		-- a damaged gun is scorched toward this (Config/Artillery.Wreck), its glowing parts dead at `Dead`
 		Scorched = { 34, 30, 28 },
 		Dead = { 30, 36, 46 },

@@ -118,6 +118,10 @@ local function paint(model: Model, team: string)
 			if table.find(art.Glowing, d.Name) then
 				d.Material = Enum.Material.Neon
 			end
+			if table.find(art.Halos, d.Name) then
+				d.Transparency = art.HaloTransparency
+				d.CastShadow = false
+			end
 		end
 	end
 end
@@ -516,7 +520,12 @@ end
 
 -- each built gun's parts at rest in gun space (Artillery.parts copies, before they are posed), the quarter each appears
 -- at (Config/Artillery.Assembly; nil: never while built) and the stage of the gun that moves it (1 mount ... 4 breech)
-type Built = { rest: { [BasePart]: CFrame }, at: { [BasePart]: number }, moves: { [BasePart]: number } }
+type Built = {
+	rest: { [BasePart]: CFrame },
+	at: { [BasePart]: number },
+	moves: { [BasePart]: number },
+	alpha: { [BasePart]: number }, -- its own transparency (the runes' halos)
+}
 local built: { [Model]: Built } = setmetatable({}, { __mode = "k" }) :: any
 
 local function builtOf(model: Model, gun: Cfg.Gun): Built
@@ -525,10 +534,11 @@ local function builtOf(model: Model, gun: Cfg.Gun): Built
 		return got
 	end
 	local pivot = model:GetPivot()
-	local b: Built = { rest = {}, at = {}, moves = {} }
+	local b: Built = { rest = {}, at = {}, moves = {}, alpha = {} }
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			b.rest[d] = pivot:ToObjectSpace(d.CFrame)
+			b.alpha[d] = d.Transparency
 			-- its group: the longest name it starts with (BarrelRunes with Barrel)
 			local length = 0
 			for _, g in gun.assembly do
@@ -564,7 +574,7 @@ function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: num
 		* trunnion:Inverse()
 	for p, rest in b.rest do
 		local shown = b.at[p] ~= nil and b.at[p] <= quarters
-		p.Transparency = if shown then 0 else 1
+		p.Transparency = if shown then b.alpha[p] else 1
 		p.CFrame = at * (if (b.moves[p] or 0) >= 2 then lay * rest else rest)
 	end
 end
@@ -698,6 +708,9 @@ local function wreck(s: State)
 		if broken and table.find(art.Glowing, p.Name) then
 			p.Color = dead
 			p.Material = Enum.Material.SmoothPlastic
+			if table.find(art.Halos, p.Name) then
+				p.Transparency = 1 -- (a dead rune has no glow)
+			end
 		else
 			p.Color = c:Lerp(scorched, W.scorch[stage] or 0)
 		end
