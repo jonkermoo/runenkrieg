@@ -152,10 +152,13 @@ local Assets = {
 		-- by every team, painted per team (Config/Palette.Artillery). Moving parts are their own meshes; firing is
 		-- later game code.
 		artillery_qf18 = {
+			-- v5 (user 2026-10-26: a round breech ring and a round collar round the barrel, the slide stepped down and
+			-- shorter, a satchel strapped to the trail's side, no sight post, axle boxes or linch pins, an open muzzle;
+			-- v4 96409235868239)
 			-- v4 (user 2026-10-26: round rivets, the handspike "tail" gone; v3 114781083776162: the shield's top flap flat,
 			-- was tilted forward; team accent pieces <part>Trim / Fittings / Kit / Marking, Config/Palette.Artillery.Team;
 			-- before it 123043192837733)
-			id = 96409235868239,
+			id = 117442240826066,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/artillery_qf18.fbx",
