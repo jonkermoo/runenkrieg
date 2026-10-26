@@ -275,7 +275,22 @@ local Build = {
 			block = 0.4,
 			rope = 0.07,
 			hook = 0.35,
-			horse = { length = 1.8, height = 1.1, beam = 0.2, splay = 0.35 },
+			braceLift = 0.3, -- the frame's braces start this far up a post
+			lashWidth = 1.6, -- the lashing, block and hook across (x their size)
+			blockShape = { 0.6, 0.4 },
+			hookShape = { 0.5, 0.25 },
+			-- a crate: its lid `lid` past it, battens `batten` thick `battenAt` of its width out, a mallet on top (its
+			-- handle from x, z, at height, to x, z, as shares of the crate) and its head
+			crate = {
+				lid = 0.06,
+				batten = 0.12,
+				battenAt = 0.3,
+				handle = { 0.35, 0.1, 0.06, 0.15, 0.15 },
+				handleWidth = 0.1,
+				head = { turn = 30, at = { 0.1, 0.22 }, size = { 0.5, 0.3, 0.3 } },
+			},
+			pile = { turn = 2, shift = 0.08 }, -- each plank turned and shifted off the one under it
+			horse = { length = 1.8, height = 1.1, beam = 0.2, splay = 0.35, inset = 0.2, leg = 0.12 },
 		},
 		artillery_qf18 = {
 			crates = { { x = -3, z = 2.6, yaw = 15, size = { 1.2, 0.7, 0.8 } } },

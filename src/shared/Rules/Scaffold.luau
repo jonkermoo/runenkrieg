@@ -60,8 +60,8 @@ function Scaffold.pieces(spec: { [string]: any }, sizes: { [string]: any }): { P
 				local lo, hi = if k % 2 == 1 then 0 else f.levels[1], if k % 2 == 1 then f.levels[1] else 0
 				add(
 					out,
-					{ f.x + sx * (hx + S.post), lo + 0.3, zs[k] },
-					{ f.x + sx * (hx + S.post), hi + 0.3, zs[k + 1] },
+					{ f.x + sx * (hx + S.post), lo + S.braceLift, zs[k] },
+					{ f.x + sx * (hx + S.post), hi + S.braceLift, zs[k + 1] },
 					S.ledger,
 					S.ledger,
 					"Pole"
@@ -96,8 +96,8 @@ function Scaffold.pieces(spec: { [string]: any }, sizes: { [string]: any }): { P
 			out,
 			{ t.x, t.height - S.lash, t.z },
 			{ t.x, t.height + S.lash, t.z },
-			S.pole * 1.6,
-			S.pole * 1.6,
+			S.pole * S.lashWidth,
+			S.pole * S.lashWidth,
 			"Rope",
 			{ 1, 0, 0 }
 		)
@@ -105,32 +105,57 @@ function Scaffold.pieces(spec: { [string]: any }, sizes: { [string]: any }): { P
 			out,
 			{ t.x, t.height - S.lash - S.block, t.z },
 			{ t.x, t.height - S.lash, t.z },
-			S.block * 0.6,
-			S.block * 0.4,
+			S.block * S.blockShape[1],
+			S.block * S.blockShape[2],
 			"Iron",
 			{ 1, 0, 0 }
 		)
 		add(out, { t.x, t.hook, t.z }, { t.x, t.height - S.lash - S.block, t.z }, S.rope, S.rope, "Rope", { 1, 0, 0 })
-		add(out, { t.x, t.hook - S.hook, t.z }, { t.x, t.hook, t.z }, S.hook * 0.5, S.hook * 0.25, "Iron", { 1, 0, 0 })
+		add(
+			out,
+			{ t.x, t.hook - S.hook, t.z },
+			{ t.x, t.hook, t.z },
+			S.hook * S.hookShape[1],
+			S.hook * S.hookShape[2],
+			"Iron",
+			{ 1, 0, 0 }
+		)
 	end
+	local K = S.crate
 	for _, c in spec.crates or {} do
 		-- a tool crate, its lid, two battens and a mallet lying on it
 		local s = c.size
 		box(out, c.x, c.z, c.yaw, { 0, s[2] / 2, 0 }, s, "Crate")
-		box(out, c.x, c.z, c.yaw, { 0, s[2] + S.plank / 2, 0 }, { s[1] + 0.06, S.plank, s[3] + 0.06 }, "CrateDark")
-		for _, lx in { -s[1] * 0.3, s[1] * 0.3 } do
-			box(out, c.x, c.z, c.yaw, { lx, s[2] / 2, 0 }, { 0.12, s[2] - 0.1, s[3] + 0.04 }, "CrateDark")
+		box(out, c.x, c.z, c.yaw, { 0, s[2] + S.plank / 2, 0 }, { s[1] + K.lid, S.plank, s[3] + K.lid }, "CrateDark")
+		for _, lx in { -s[1] * K.battenAt, s[1] * K.battenAt } do
+			box(
+				out,
+				c.x,
+				c.z,
+				c.yaw,
+				{ lx, s[2] / 2, 0 },
+				{ K.batten, s[2] - K.batten, s[3] + K.batten / 3 },
+				"CrateDark"
+			)
 		end
 		local top = s[2] + S.plank
 		add(
 			out,
-			at(c.x, c.z, c.yaw, -s[1] * 0.35, top + 0.06, -s[3] * 0.1),
-			at(c.x, c.z, c.yaw, s[1] * 0.15, top + 0.06, s[3] * 0.15),
-			0.1,
-			0.1,
+			at(c.x, c.z, c.yaw, -s[1] * K.handle[1], top + K.handle[3], -s[3] * K.handle[2]),
+			at(c.x, c.z, c.yaw, s[1] * K.handle[4], top + K.handle[3], s[3] * K.handle[5]),
+			K.handleWidth,
+			K.handleWidth,
 			"Pole"
 		)
-		box(out, c.x, c.z, c.yaw + 30, { 0.1, top + 0.15, 0.22 }, { 0.5, 0.3, 0.3 }, "Pole")
+		box(
+			out,
+			c.x,
+			c.z,
+			c.yaw + K.head.turn,
+			{ K.head.at[1], top + K.head.size[2] / 2, K.head.at[2] },
+			K.head.size,
+			"Pole"
+		)
 	end
 	for _, p in spec.planks or {} do
 		-- a pile of planks, each a little off the one under it
@@ -139,8 +164,8 @@ function Scaffold.pieces(spec: { [string]: any }, sizes: { [string]: any }): { P
 				out,
 				p.x,
 				p.z,
-				p.yaw + (k % 2) * 4 - 2,
-				{ (k % 3 - 1) * 0.08, S.plank * (k + 0.5), 0 },
+				p.yaw + ((k % 2) * 2 - 1) * S.pile.turn,
+				{ (k % 3 - 1) * S.pile.shift, S.plank * (k + 0.5), 0 },
 				{ S.board, S.plank, p.length },
 				"Board"
 			)
@@ -150,14 +175,14 @@ function Scaffold.pieces(spec: { [string]: any }, sizes: { [string]: any }): { P
 		-- a beam on two pairs of splayed legs
 		local half, y = S.horse.length / 2, S.horse.height
 		box(out, h.x, h.z, h.yaw, { 0, y, 0 }, { S.horse.beam, S.horse.beam, S.horse.length }, "Pole")
-		for _, lz in { -half + 0.2, half - 0.2 } do
+		for _, lz in { -half + S.horse.inset, half - S.horse.inset } do
 			for _, sx in { -1, 1 } do
 				add(
 					out,
 					at(h.x, h.z, h.yaw, sx * S.horse.splay, 0, lz),
 					at(h.x, h.z, h.yaw, 0, y, lz),
-					0.12,
-					0.12,
+					S.horse.leg,
+					S.horse.leg,
 					"Pole"
 				)
 			end
