@@ -1,6 +1,7 @@
 --!strict
 -- Builds one panel of the combat HUD from its spec (src/shared/ui/CombatHud.json; colours Config/Palette.UI.Hud):
--- brass-rimmed boxes, stamped labels, ViewportFrames for the cut-aways (`model` nodes), a bar, each in its own
+-- no panels (user 2026-10-26: "no background or color or even a panel"): labels, ViewportFrames for the cut-aways
+-- (`model` nodes, see-through) and a bar, each in its own
 -- ScreenGui (src/client/AmmoHud, StaffHud, ArtilleryHud; Config/DevTools.Admin.Cinematic.HudGuis hides them by name).
 -- Offsets are reference pixels: one UIScale per panel does the rest.
 --   HudKit.panel(id, guiName) -> { gui, panel, node: { [id]: GuiObject }, set(bind, text), fill(id, share) }
@@ -11,7 +12,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HudCfg = require(Shared.Config.Hud)
 local Palette = require(Shared.Config.Palette)
-local Uniforms = require(Shared.Config.Uniforms)
 local Spec = require(Shared.ui.CombatHud) :: any
 
 local HudKit = {}
@@ -56,6 +56,11 @@ local function place(obj: GuiObject, n: any)
 end
 
 local function box(obj: GuiObject, n: any)
+	if not n.color then
+		obj.BackgroundTransparency = 1 -- (no colour: nothing behind it)
+		obj.BorderSizePixel = 0
+		return
+	end
 	obj.BackgroundColor3 = rgb(n.color)
 	obj.BackgroundTransparency = 0
 	obj.BorderSizePixel = 0
@@ -71,26 +76,6 @@ local function box(obj: GuiObject, n: any)
 	end
 end
 
--- the four brass rivets in a panel's corners
-local function rivets(obj: GuiObject)
-	local r = T.rivet
-	for _, at in { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } } do
-		local d = Instance.new("Frame")
-		d.Name = "Rivet"
-		d.AnchorPoint = Vector2.new(at[1], at[2])
-		d.Position = UDim2.new(at[1], (1 - 2 * at[1]) * r, at[2], (1 - 2 * at[2]) * r)
-		d.Size = UDim2.fromOffset(r, r)
-		d.BackgroundColor3 = rgb("brassDark")
-		d.BorderSizePixel = 0
-		d:AddTag("HudRivet")
-		d.ZIndex = 3
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
-		corner.Parent = d
-		d.Parent = obj
-	end
-end
-
 local ALIGN = { left = Enum.TextXAlignment.Left, right = Enum.TextXAlignment.Right }
 
 export type Panel = {
@@ -99,7 +84,6 @@ export type Panel = {
 	node: { [string]: GuiObject },
 	set: (bind: string, text: string) -> (),
 	fill: (id: string, share: number, color: Color3?) -> (),
-	team: (kit: any) -> (),
 }
 
 function HudKit.panel(id: string, guiName: string): Panel
@@ -109,6 +93,8 @@ function HudKit.panel(id: string, guiName: string): Panel
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.Enabled = false
+	-- (children over their parents: with Global layering a panel's own background drew over the cut-away in it)
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	local nodes: { [string]: GuiObject } = {}
 	local binds: { [string]: TextLabel } = {}
 	local fills: { [string]: Frame } = {}
@@ -123,21 +109,22 @@ function HudKit.panel(id: string, guiName: string): Panel
 			l.TextSize = n.textSize
 			l.TextColor3 = rgb(n.textColor)
 			l.TextXAlignment = ALIGN[n.align] or Enum.TextXAlignment.Center
+			if n.stroke then
+				l.TextStrokeColor3 = rgb(n.stroke)
+				l.TextStrokeTransparency = 0
+			end
 			if n.bind then
 				binds[n.bind] = l
 			end
 			obj = l
 		elseif n.kind == "model" then
 			local v = Instance.new("ViewportFrame")
-			v.BackgroundColor3 = rgb(n.color)
+			v.BackgroundTransparency = 1 -- (the cut-away floats over the game)
 			v.BorderSizePixel = 0
 			v.Ambient = rgb("viewAmbient")
 			v.LightColor = rgb("viewLight")
 			local l = HudCfg.Light
 			v.LightDirection = Vector3.new(l[1], l[2], l[3])
-			local corner = Instance.new("UICorner")
-			corner.CornerRadius = UDim.new(0, T.corner)
-			corner.Parent = v
 			obj = v
 		elseif n.kind == "group" then
 			local g = Instance.new("Frame")
@@ -157,9 +144,6 @@ function HudKit.panel(id: string, guiName: string): Panel
 				corner.CornerRadius = UDim.new(0, T.corner)
 				corner.Parent = fill
 				fills[n.id] = fill
-			end
-			if n.rivets then
-				rivets(f)
 			end
 			obj = f
 		end
@@ -185,34 +169,10 @@ function HudKit.panel(id: string, guiName: string): Panel
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	rescale()
 
-	-- the team's colours on the box (its field, rim and rivets), whenever the kit changes
-	local kitNow: any = false
-	local function team(kit: any)
-		if kit == kitNow then
-			return
-		end
-		kitNow = kit
-		local t = (C.Teams :: any)[kit] or C.Teams[Uniforms.Default]
-		local function c3(c: { number }): Color3
-			return Color3.fromRGB(c[1], c[2], c[3])
-		end
-		panel.BackgroundColor3 = c3(t.field)
-		local stroke = panel:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Color = c3(t.rim)
-		end
-		for _, d in panel:GetChildren() do
-			if d:HasTag("HudRivet") then
-				(d :: Frame).BackgroundColor3 = c3(t.rivet)
-			end
-		end
-	end
-
 	return {
 		gui = gui,
 		panel = panel,
 		node = nodes,
-		team = team,
 		set = function(bind: string, text: string)
 			local l = binds[bind]
 			if l and l.Text ~= text then

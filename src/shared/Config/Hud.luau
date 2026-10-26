@@ -26,7 +26,10 @@ local Hud = {
 		margin = 0.12, -- share of the framed box added round it
 		-- the flat shapes behind the magazine and the chamber (round lengths, but `thick` in studs): `pad` round the
 		-- ammo, the brass edge `edge` wider, `back` behind the rounds, `see` how see-through
-		slab = { thick = 0.01, pad = 0.06, edge = 0.03, back = 0.12, see = 0.1 },
+		-- (`see`: the chamber's and the bolt's channel, see-through; `mag`: the magazine, solid; user 2026-10-26: "have
+		-- everything see through (except the bolt, mag, bullets, and the outline of the gun of course)")
+		slab = { thick = 0.01, pad = 0.06, edge = 0.03, back = 0.12, see = 0.8, mag = 0 },
+		cut = { inset = 0.02 }, -- the lines closing the outline off sit this share inside the view's edges
 		-- the drawn parts (lengths in round lengths, widths in round widths): the barrel's breech end round the chamber,
 		-- the channel the bolt slides in, the bolt (its handle `handleAt` of the way back, swinging from `down` to `up`
 		-- degrees as the gun's bolt turns), the follower plate (`gap` round widths under the last round)
@@ -50,7 +53,7 @@ local Hud = {
 		},
 		-- the gun's body behind it all: its traced silhouette (Config/GunOutlines) in a line `width` round widths thick, in
 		-- Palette.UI.Hud.outline, `see` see-through, set `back` studs away from the camera
-		outline = { width = 0.11, see = 0.3, back = 0.35 },
+		outline = { width = 0.11, see = 0, back = 0.35 },
 		stagger = 0.42, -- a double stack's rounds, side to side, in round diameters (when they sit closer than `double`)
 		double = 0.95, -- rounds closer than this many diameters apart are a double stack
 		tubeStep = 1.02, -- a pump gun's tube: shell lengths from one shell to the next

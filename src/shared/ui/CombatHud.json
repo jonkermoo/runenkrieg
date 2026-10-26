@@ -1,6 +1,6 @@
 {
 	"name": "CombatHud",
-	"_doc": "The combat HUD, quartermaster's brass (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). Three panels in the player's team colours (Palette.UI.Hud.Teams), no titles, one shown at a time: the gun's (bottom right), the staff's in the same place, the artillery crew's (bottom centre). Each `model` node is a ViewportFrame drawing the cut-away. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. Desktop only.",
+	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away (`model`, a ViewportFrame) floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. Desktop only.",
 	"theme": {
 		"palette": "Hud",
 		"scale": {
@@ -26,8 +26,7 @@
 				"weight": "Regular",
 				"file": "Balthazar-Regular.ttf"
 			}
-		},
-		"rivet": 5
+		}
 	},
 	"preview": {
 		"hint": "R: new magazine",
@@ -49,7 +48,6 @@
 				"id": "Gun",
 				"kind": "panel",
 				"overlay": true,
-				"rivets": true,
 				"anchor": [
 					1,
 					1
@@ -66,8 +64,6 @@
 					0,
 					186
 				],
-				"color": "field",
-				"line": "brass",
 				"children": [
 					{
 						"id": "GunView",
@@ -83,8 +79,7 @@
 							-20,
 							1,
 							-20
-						],
-						"color": "window"
+						]
 					},
 					{
 						"id": "Hint",
@@ -106,8 +101,6 @@
 							0,
 							26
 						],
-						"color": "hint",
-						"line": "hintEdge",
 						"children": [
 							{
 								"id": "HintText",
@@ -133,7 +126,8 @@
 									-10,
 									1,
 									0
-								]
+								],
+								"stroke": "hint"
 							}
 						]
 					}
@@ -143,7 +137,6 @@
 				"id": "Staff",
 				"kind": "panel",
 				"overlay": true,
-				"rivets": true,
 				"anchor": [
 					1,
 					1
@@ -160,8 +153,6 @@
 					0,
 					186
 				],
-				"color": "field",
-				"line": "brass",
 				"children": [
 					{
 						"id": "StaffView",
@@ -177,8 +168,7 @@
 							-20,
 							1,
 							-20
-						],
-						"color": "window"
+						]
 					}
 				]
 			},
@@ -186,7 +176,6 @@
 				"id": "Artillery",
 				"kind": "panel",
 				"overlay": true,
-				"rivets": true,
 				"center": true,
 				"anchor": [
 					0.5,
@@ -204,8 +193,6 @@
 					0,
 					200
 				],
-				"color": "field",
-				"line": "brass",
 				"children": [
 					{
 						"id": "ArtilleryView",
@@ -221,8 +208,7 @@
 							290,
 							1,
 							-20
-						],
-						"color": "window"
+						]
 					},
 					{
 						"id": "Readouts",

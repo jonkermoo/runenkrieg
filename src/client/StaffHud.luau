@@ -103,7 +103,6 @@ function StaffHud.start()
 		if not rock then
 			rock = makeRock(view, camera)
 		end
-		panel.team(character:GetAttribute("Kit"))
 		local now = os.clock()
 		local value = (character:GetAttribute("Mana") :: number?) or max
 		local locked = character:GetAttribute("ManaLocked") == true

@@ -11,8 +11,8 @@
 --   as the gun's rounds do (an en-bloc clip coming in, a box swapped), and an empty en-bloc clip drops out;
 -- - the chamber: the live round, or the fired case; as the gun's bolt (src/client/GunFx moves it) comes back the case
 --   rides back with it and is thrown out, and closing pushes the next round up out of the magazine into the chamber;
--- - a red plate saying what to do next (no count: user 2026-10-26, "no need for the number of bullets"); the box in
---   the team's colours.
+-- - a red line saying what to do next (no count: user 2026-10-26, "no need for the number of bullets"); no panel or
+--   background: the cut-away floats over the game, the gun's outline closed off where the view cuts it.
 -- src/client/Firing feeds it the predicted state every frame (AmmoHud.show).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -399,7 +399,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		p.Parent = cut
 		return p
 	end
-	local function slab(cf: CFrame, size: Vector3, color: string?): { BasePart }
+	local function slab(cf: CFrame, size: Vector3, color: string?, see: number?): { BasePart }
 		local out = {}
 		for i, look in { { color or "magazine", 0 }, { "brassDark", G.slab.edge } } do
 			local p = Instance.new("Part")
@@ -413,13 +413,13 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 			)
 			p.CFrame = cf * CFrame.new(-G.slab.back * v.length - i * G.slab.thick, 0, 0)
 			anchored(p)
-			p.Transparency = G.slab.see
+			p.Transparency = see or G.slab.see
 			p.Parent = cut
 			out[i] = p
 		end
 		return out
 	end
-	v.mag = slab(magBox, magSize)
+	v.mag = slab(magBox, magSize, nil, G.slab.mag)
 	v.magAt = {}
 	for i, p in v.mag do
 		v.magAt[i] = p.CFrame
@@ -458,7 +458,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 	end
 	-- the barrel's breech end, from the chamber's mouth forward, and the channel behind it the bolt slides back in
 	local barrel = Vector3.new(dia, dia * P.barrel.height, L * P.barrel.length)
-	slab(v.chamber * CFrame.new(0, 0, -barrel.Z / 2), barrel, "steel")
+	slab(v.chamber * CFrame.new(0, 0, -barrel.Z / 2), barrel, "steel", G.slab.see)
 	local channel = Vector3.new(dia, dia * P.channel.height, L * P.bolt.length + v.travel)
 	slab(v.chamber * CFrame.new(0, 0, channel.Z / 2), channel)
 	box = grow(
@@ -511,8 +511,84 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 	local b = box or grow(nil, CFrame.identity, Vector3.one)
 	local centre = CFrame.new((b.lo + b.hi) / 2)
 	local size = b.hi - b.lo
+	-- where the view cuts the gun's outline, a line closes it off (user 2026-10-26: "just cut off the models where
+	-- they are with a verticle line (or horizontal if applicable)"): along each edge of the view, between the outline's
+	-- crossings of it
+	local OL = G.outline
+	local cuts: { BasePart } = {}
+	local function line(from: Vector3, to: Vector3, name: string): BasePart?
+		local len = (to - from).Magnitude
+		if len < 1e-4 then
+			return nil
+		end
+		local seg = Instance.new("Part")
+		seg.Name = name
+		seg.Material = Enum.Material.SmoothPlastic
+		seg.Color = HudKit.rgb("outline")
+		seg.Size = Vector3.new(OL.width * v.dia, OL.width * v.dia, len + OL.width * v.dia)
+		seg.CFrame = CFrame.lookAt((from + to) / 2, to)
+		anchored(seg)
+		seg.Transparency = OL.see
+		seg.Parent = cut
+		return seg
+	end
+	local function cutLines()
+		for _, c in cuts do
+			c:Destroy()
+		end
+		table.clear(cuts)
+		local poly = (GunOutlines :: any)[weapon]
+		if not poly then
+			return
+		end
+		-- the view's edges where the outline lies (it is `back` behind the gun's plane), a little inside
+		local eye = camera.CFrame.Position
+		local aspect = math.max(view.AbsoluteSize.X, 1) / math.max(view.AbsoluteSize.Y, 1)
+		local halfH = math.tan(math.rad(camera.FieldOfView / 2)) * (eye.X + OL.back) * (1 - G.cut.inset)
+		local halfW = halfH * aspect
+		local y0, y1, z0, z1 = eye.Y - halfH, eye.Y + halfH, eye.Z - halfW, eye.Z + halfW
+		for _, pts in poly do
+			local n = #pts // 2
+			local function at(i: number): (number, number) -- (z, y) in gun space
+				return pts[i * 2 - 1] * s[3], pts[i * 2] * s[2]
+			end
+			-- a vertical edge at z = e: the outline's crossings up it, paired inside to outside
+			for _, e in { z0, z1 } do
+				local ys = {}
+				for i = 1, n do
+					local za, ya = at(i)
+					local zb, yb = at(i % n + 1)
+					if (za - e) * (zb - e) < 0 then
+						table.insert(ys, ya + (yb - ya) * (e - za) / (zb - za))
+					end
+				end
+				table.sort(ys)
+				for k = 1, #ys - 1, 2 do
+					local lo, hi = math.clamp(ys[k], y0, y1), math.clamp(ys[k + 1], y0, y1)
+					table.insert(cuts, line(Vector3.new(-OL.back, lo, e), Vector3.new(-OL.back, hi, e), "Cut") :: any)
+				end
+			end
+			-- a horizontal edge at y = e
+			for _, e in { y0, y1 } do
+				local zs = {}
+				for i = 1, n do
+					local za, ya = at(i)
+					local zb, yb = at(i % n + 1)
+					if (ya - e) * (yb - e) < 0 then
+						table.insert(zs, za + (zb - za) * (e - ya) / (yb - ya))
+					end
+				end
+				table.sort(zs)
+				for k = 1, #zs - 1, 2 do
+					local lo, hi = math.clamp(zs[k], z0, z1), math.clamp(zs[k + 1], z0, z1)
+					table.insert(cuts, line(Vector3.new(-OL.back, e, lo), Vector3.new(-OL.back, e, hi), "Cut") :: any)
+				end
+			end
+		end
+	end
 	local function frame()
 		HudKit.frameBox(view, camera, centre, size, Vector3.xAxis, Vector3.yAxis, G.fov, G.margin)
+		cutLines()
 	end
 	frame()
 	table.insert(v.conns, view:GetPropertyChangedSignal("AbsoluteSize"):Connect(frame))
@@ -686,7 +762,7 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 	local away = (gun.clip == "Enbloc" or gun.clip == "Box") and not visible
 	for i, p in v.mag do
 		p.CFrame = delta * v.magAt[i]
-		p.Transparency = if away then 1 else G.slab.see
+		p.Transparency = if away then 1 else G.slab.mag
 	end
 	if gun.clip == "Enbloc" then
 		if v.clipWas and away and count == 0 then
@@ -722,7 +798,7 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		end
 		for _, q in f.piece.parts do
 			q.part.CFrame = cf * q.rel
-			q.part.Transparency = if f.kind == "clip" then G.slab.see + (1 - G.slab.see) * fade else fade
+			q.part.Transparency = if f.kind == "clip" then G.slab.mag + (1 - G.slab.mag) * fade else fade
 		end
 	end
 end
@@ -757,8 +833,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 	end
 	update(current :: View, state, gun, now, os.clock())
 
-	-- the box in the team's colours, and the hint
-	p.team(tool.Parent and (tool.Parent :: Instance):GetAttribute("Kit"))
+	-- the hint
 	local next = F.next(state, now)
 	local key = Settings.get("Key_Reload")
 	local H = G.hints

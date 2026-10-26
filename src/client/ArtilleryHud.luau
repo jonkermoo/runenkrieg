@@ -8,8 +8,7 @@
 --   recoil show, and the breech swinging open); the field gun's round (Config/Artillery.Load.round) sits in its
 --   chamber, slides in as the loader puts it in (Load.loaded), and the fired case is thrown out as the breech opens;
 --   the howitzer's living crystal (src/client/ArtilleryCrystal) glows in it as it does on the gun;
--- - its elevation and traverse, and how far the reload has got (Loading / Charging / Ready); the box in the team's
---   colours.
+-- - its elevation and traverse, and how far the reload has got (Loading / Charging / Ready); no panel or background.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -292,7 +291,6 @@ function ArtilleryHud.start()
 		update(v, t, os.clock())
 
 		local gun = v.gun
-		panel.team(player.Character and player.Character:GetAttribute("Kit"))
 		local elevation = (model:GetAttribute("Elevation") :: number?) or 0
 		local traverse = (model:GetAttribute("Traverse") :: number?) or 0
 		panel.set("elevation", string.format(A.text.elevation, elevation))
