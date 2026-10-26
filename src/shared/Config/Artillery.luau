@@ -81,19 +81,24 @@ export type Gun = {
 	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
 	-- the gunner right of centre, the target left of it) and `pitch` up, plus the
 	-- elevation x `follow` (a high lob stays in view)
-	-- dug in when placed (src/server/Artillery); `ramp`: a way down into the pit behind the gun (Ground.pit)
+	-- dug in when placed (src/server/Artillery); `ramp`: a way down into the pit behind the gun (Ground.pit); `wall`: the
+	-- pit's walls lean back at this many degrees (nil: cut straight down); `slabs`: trench dirt slabs laid on them (Slabs)
 	dig: {
 		depth: number,
 		radius: number,
 		rim: number,
 		rimHeight: number,
 		ramp: { width: number, length: number }?,
+		wall: number?,
+		slabs: boolean?,
 	}?,
+	hp: number, -- what it takes to wreck it (Hits, Wreck)
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
 }
 
 local Artillery = {
 	Folder = "Artillery", -- the Workspace folder the guns stand in
+	PitFolder = "ArtilleryPits", -- and their pits' trench slabs
 	-- the paint until teams exist (Config/Palette.Artillery.Paint)
 	Paint = "Grey",
 
@@ -291,6 +296,70 @@ local Artillery = {
 		round = "round_qf18",
 	},
 
+	-- What hits do to the guns themselves (src/server/Artillery, Rules/Artillery.gunHit; user 2026-10-25: "the hotbox
+	-- should be similar, direct hits more, surround areas (the mound / nearby terrain) should do less"; "a direct cannon
+	-- hit or two should destroy a field gun. it should take 4+ DIRECT cannon shots to destroy the howitzer"): HP off a
+	-- gun's `hp` by what went off. A blast within `direct` studs of the gun's box is a direct hit and takes `direct`; past
+	-- that (its pit, its mound, the ground round it) it takes `near` at most, fading to nothing at `reach`. Bullets do
+	-- nothing. A blast nobody named (DEV tools) by its charge: the first of `byCharge` it is no bigger than (as
+	-- Config/Build.Structures).
+	Hits = {
+		direct = 1.5,
+		grenade = { direct = 8, near = 1, reach = 6 },
+		staff1 = { direct = 1, near = 0, reach = 3 },
+		staff2 = { direct = 3, near = 0.5, reach = 5 },
+		staff3 = { direct = 10, near = 2, reach = 10 },
+		field = { direct = 60, near = 8, reach = 12 }, -- (a field gun: two; the howitzer: four)
+		howitzer = { direct = 150, near = 25, reach = 30 }, -- (a field gun at once; the howitzer: two)
+		byCharge = {
+			{ kg = 0.5, source = "grenade" },
+			{ kg = 5, source = "field" },
+			{ kg = math.huge, source = "howitzer" },
+		},
+	},
+	-- A damaged gun (user 2026-10-25: "once it gets to a critical percentage (let's say 50%) it becomes unusable, but not
+	-- completely wrecked. make it 4 stages, each at 25%, each more damaged"): stage i once its HP is down to `at[i]`% of
+	-- full; from stage `unusable` nobody can man it (its gunner is thrown off), its barrel knocked down to its lowest lay
+	-- and up to `knock` degrees round, the howitzer's crystal dead. Each stage scorches it `scorch[i]` of the way to
+	-- Palette.Artillery.Scorched, leans it `tilt[i]` degrees and sinks it `sink[i]` studs.
+	Wreck = {
+		at = { 75, 50, 25, 0 },
+		unusable = 2,
+		knock = 12,
+		scorch = { 0.25, 0.45, 0.65, 0.85 },
+		tilt = { 0, 1.5, 4, 9 },
+		sink = { 0, 0, 0.3, 0.7 },
+	},
+	-- The trench dirt slabs on a dug-in gun's pit (`dig.slabs`; Config/Assets trench_pieces, as a trench's walls; user
+	-- 2026-10-25: "add the described trench style on it", "still pretty messy and disorganized"): rough slabs round the
+	-- pit's wall in `rows` uneven rows, each slab `turn` of the way round (radians, a range), `height` studs up its slope
+	-- (a range), its rows `rowStep` apart, leaning off true by up to `jitter` (radians: yaw, roll), shifted by up to
+	-- `shift` studs, `extra` studs longer than its share (a range); `gap` of them left out; `parapet` of the top row with
+	-- a heap of dirt behind it. The ramp's sides get slabs where they stand `rampMin` high or more (`rampLength` long, a
+	-- range, at most `rampHeight` high); the floor a few loose floor pieces, `floorGap` of a grid left out. The slabs'
+	-- variants (Wall1..8, some with planks) are rolled from `walls`.
+	Slabs = {
+		rows = 2,
+		turn = { 0.3, 0.45 },
+		height = { 5.2, 6.5 },
+		rowStep = 5,
+		jitter = { 0.12, 0.08 },
+		shift = 0.8,
+		extra = { 1, 3 },
+		gap = 0.2,
+		parapet = 0.55,
+		mouth = 0.42, -- radians either side of the ramp left open
+		walls = { 1, 2, 3, 4, 1, 2, 3, 4, 5, 7 },
+		rampMin = 2,
+		rampLength = { 6, 9 },
+		rampHeight = 7,
+		rampGap = 0.25,
+		floorGrid = 4,
+		floorStep = 7.4,
+		floorGap = 0.35,
+		floorTurn = 0.25,
+	},
+
 	Guns = {
 		-- QF 18-pounder (A1): traverse 4.5, elevation -5..16 about the trunnion, recoil 46 in, the breech 100 degrees.
 		-- 745 studs/s: ~1,500 studs at 16 degrees (Map 1 HQ to HQ 1,800), ~2 s in the air.
@@ -327,6 +396,7 @@ local Artillery = {
 			recoil = 3.34,
 			recoilTimes = { 0.08, 1.2 },
 			recoilClear = nil,
+			hp = 100,
 			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail
 			crewTurns = false,
 			prompt = 8,
@@ -444,7 +514,21 @@ local Artillery = {
 			-- (user 2026-10-22: "lift the mortal ... formed on a hill (mortal should not be as deep but have same cover)"; was
 			-- depth 12, rim 9, rimHeight 2.8): half as deep, on a mound of earth thrown up round it, so the cover stands as
 			-- high over the bed as before (14.8)
-			dig = { depth = 6, radius = 15, rim = 14, rimHeight = 8.8, ramp = { width = 10, length = 33 } },
+			-- (user 2026-10-25: "push the howitzer down so there isnt as big of a mound. the mound should be player height or
+			-- less. then add the described trench style on it"; "a ramp that slowly goes to floor level"; was depth 6,
+			-- rimHeight 8.8, ramp 33 long, walls cut straight down): 10.5 deep under a 4.5 mound, the same cover over the
+			-- bed (15); the walls leaning back at a trench's 59 degrees with rough trench slabs on them (Slabs), the floor
+			-- still 15 round; the ramp 40 long (~15 degrees)
+			dig = {
+				depth = 10.5,
+				radius = 15,
+				rim = 14,
+				rimHeight = 4.5,
+				ramp = { width = 10, length = 40 },
+				wall = 59,
+				slabs = true,
+			},
+			hp = 240,
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
@@ -502,7 +586,8 @@ local Artillery = {
 			-- down into the pit: the gunner ~42 degrees under the camera, the landing 0-6 under the horizon at every lay, so
 			-- a steady pitch between them keeps both in view (Studio round 1 at pitch -8 + 0.12 x elevation: the mound's
 			-- near side filled the bottom of the frame and the gunner was under it)
-			camera = { side = -12, up = 24, back = 20, yaw = 25, pitch = -21, follow = 0, fov = 70 },
+			-- (dug 10.5 down, was 6: `up` 4.5 higher, so it stands as high over the ground as before; was 24)
+			camera = { side = -12, up = 28.5, back = 20, yaw = 25, pitch = -21, follow = 0, fov = 70 },
 		} :: Gun,
 	},
 }

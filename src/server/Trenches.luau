@@ -374,6 +374,15 @@ local function pieceColor(name: string): Color3
 	return Color3.new(math.min(mud.R * shade, 1), math.min(mud.G * shade, 1), math.min(mud.B * shade, 1))
 end
 
+-- The dirt pieces' library model and each mesh's place from its Origin (piece space: x along, y up, z out of the hole),
+-- and a piece's colour, for other dug holes (src/server/Artillery's gun pits)
+function Trenches.pieceKit(): (Model?, { [string]: CFrame })
+	return pieceKit(), offsets
+end
+function Trenches.pieceColor(name: string): Color3
+	return pieceColor(name)
+end
+
 -- Where a side wall or dirt heap of `blk` can stand (`sign` 1 toward its `across`, -1 away): each stretch along it (u0,
 -- u1: studs from end A, running on up to `ext` { A, B } past each end) where none of its `probes` is in another dug
 -- trench; a probe { off, keep } is the point `off` out from the centre line, kept further than `keep` from the other's

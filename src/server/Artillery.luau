@@ -13,6 +13,12 @@
 -- - "Fire", loaded: the gunner braces (the howitzer charges up), the gun's `charge` s later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
 --   casts, so nothing thin is passed through) and goes off where it hits: Damage.blast with its charge and fragments,
 --   every client shows it (Net "ArtilleryBlast").
+-- - Every blast wears the guns down (Damage.onBlast; Config/Artillery.Hits): a direct hit on a gun takes a lot, one on
+--   its pit, mound or the ground round it little. Its HP ("HP") falls through the Config/Artillery.Wreck stages
+--   ("Stage"): scorched, then unusable ("Broken": its gunner thrown off, the prompt gone, the barrel knocked down, the
+--   howitzer's crystal dead), leaning and sinking more each stage; at 0 a wreck that stays.
+-- - A dug-in gun's pit is lined with trench dirt slabs (Config/Artillery.Slabs, the trench kit: src/server/Trenches),
+--   laid rough, in the Workspace folder Config/Artillery.PitFolder, gone with the gun.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,6 +31,8 @@ local Rules = require(Shared.Rules.Artillery)
 local Net = require(Shared.Net)
 local Damage = require(script.Parent.Damage)
 local Ground = require(script.Parent.Ground)
+local Trenches = require(script.Parent.Trenches)
+local TrenchCfg = require(Shared.Config.Build).Trench
 
 local Artillery = {}
 
@@ -44,6 +52,13 @@ type State = {
 	mountRest: { [BasePart]: CFrame }, -- a turning mount's parts at rest, in gun space (crewTurns: posed here too)
 	weld: WeldConstraint?, -- the gunner held on the gun
 	bracing: boolean, -- a shot on its way (the gunner bracing)
+	hp: number,
+	stage: number, -- its Config/Artillery.Wreck stage (0: unhurt)
+	broken: boolean, -- past Wreck.unusable: nobody can man it
+	colors: { [BasePart]: Color3 }, -- as painted
+	upright: CFrame?, -- its pivot before it first leaned
+	lean: number, -- which way it leans (radians round its up axis)
+	pit: Model?, -- its pit's slabs
 }
 
 local guns: { [Model]: State } = {}
@@ -154,7 +169,7 @@ local function leave(s: State)
 		s.weld = nil
 	end
 	s.model:SetAttribute("Gunner", nil)
-	s.prompt.Enabled = true
+	s.prompt.Enabled = not s.broken
 	local character = player and player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then
@@ -167,7 +182,7 @@ local function leave(s: State)
 end
 
 local function man(s: State, player: Player)
-	if s.gunner then
+	if s.gunner or s.broken then
 		return
 	end
 	for _, other in guns do
@@ -268,7 +283,7 @@ local function fire(s: State)
 	local character = player and player.Character
 	local t = now()
 	local ready = s.model:GetAttribute("ReadyAt") :: number?
-	if not character or (ready and t < ready) then
+	if not character or s.broken or (ready and t < ready) then
 		return
 	end
 	local gun = s.gun
@@ -287,15 +302,170 @@ local function fire(s: State)
 	fly(s, origin, velocity, character)
 end
 
+local function pitFolder(): Folder
+	local f = workspace:FindFirstChild(Cfg.PitFolder)
+	if not f then
+		f = Instance.new("Folder")
+		f.Name = Cfg.PitFolder
+		f.Parent = workspace
+	end
+	return f :: Folder
+end
+
+-- The ground's height over the pit's centre (flat ground) `along` the ramp's way out and `across` it, as Ground.pit
+-- leaves it (`lean`: studs out per stud up of its walls)
+local function surface(d: any, lean: number, along: number, across: number): number
+	local r = math.sqrt(along * along + across * across)
+	local top = d.radius + d.depth * lean
+	local z = 0
+	if r <= d.radius then
+		z = -d.depth
+	elseif r <= top then
+		z = -d.depth + (r - d.radius) / lean
+	elseif r <= top + d.rim then
+		z = d.rimHeight * (1 - math.abs(r - top - d.rim / 2) / (d.rim / 2))
+	end
+	if d.ramp and along > 0 and along <= d.radius + d.ramp.length then
+		local side = math.max(across - d.ramp.width / 2, 0)
+		local lane = -d.depth + d.depth * math.clamp((along - d.radius) / d.ramp.length, 0, 1) + side / lean
+		z = math.min(z, lane)
+	end
+	return z
+end
+
+-- Lines a gun's pit (centre `at` on the ground, the ramp out along `back`) with rough trench dirt slabs
+-- (Config/Artillery.Slabs; the trench kit, src/server/Trenches): uneven rows round its leaning wall, the ramp's sides
+-- where they're deep, a few loose floor pieces off the gun's bed. Rolled from where it stands, so the same every time.
+local function slabs(at: Vector3, d: any, back: Vector3): Model?
+	local kit, offsets = Trenches.pieceKit()
+	if not kit then
+		return nil
+	end
+	local S = Cfg.Slabs
+	local rng = Random.new(math.floor(at.X) * 7919 + math.floor(at.Z) * 104729)
+	local lean = 1 / math.tan(math.rad(d.wall))
+	local up = Vector3.yAxis
+	local side = back:Cross(up).Unit -- across the ramp
+	local holder = Instance.new("Model")
+	holder.Name = "Pit"
+	local function place(name: string, cf: CFrame, stretch: number, k: number)
+		local src = kit:FindFirstChild(name)
+		local off = offsets[name]
+		if not (src and src:IsA("BasePart") and off) then
+			return
+		end
+		local p = src:Clone()
+		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y * k, src.Size.Z * k)
+		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y * k, off.Position.Z * k) * off.Rotation
+		p.Color = Trenches.pieceColor(name)
+		p.Material = Enum.Material.SmoothPlastic
+		local base = not (string.find(name, "Chunks") or string.find(name, "Planks"))
+		p.Anchored = true
+		p.CanCollide = base
+		p.CanQuery = base
+		p.CanTouch = false
+		p.Parent = holder
+	end
+	local function jitter(range: number): number
+		return rng:NextNumber(-range, range)
+	end
+	-- a wall slab with its foot's start at `foot`, leaning back out along `out` (flat), `length` along it from there,
+	-- `height` up its slope, turned off true by `yaw` and `roll`; `heap`: a trench parapet behind its top
+	local function slab(
+		foot: Vector3,
+		out: Vector3,
+		length: number,
+		height: number,
+		yaw: number,
+		roll: number,
+		heap: boolean
+	)
+		local cf = CFrame.fromMatrix(foot, up:Cross(out), up, out) * CFrame.Angles(0, yaw, roll)
+		local stretch = length / TrenchCfg.pieces.segment
+		local n = S.walls[rng:NextInteger(1, #S.walls)]
+		for _, suffix in { "", "Chunks", "Planks", "PlanksDark" } do
+			place(`Wall{n}{suffix}`, cf, stretch, height / TrenchCfg.depth)
+		end
+		if heap then
+			place(`Wall{n}Parapet`, cf * CFrame.new(0, height - TrenchCfg.depth, 0), stretch, 1)
+		end
+	end
+	-- round the wall, the ramp's mouth left open
+	local a = S.mouth
+	while a < 2 * math.pi - S.mouth - S.turn[1] do
+		local step = rng:NextNumber(S.turn[1], S.turn[2])
+		local m = a + step / 2
+		local out = back * math.cos(m) + side * math.sin(m)
+		local x = up:Cross(out)
+		for row = 0, S.rows - 1 do
+			if rng:NextNumber() >= S.gap then
+				local h0 = math.max(row * S.rowStep + rng:NextNumber(-S.shift, S.shift * 0.75), 0)
+				local r = d.radius + h0 * lean + rng:NextNumber(-S.shift * 0.6, S.shift * 0.4)
+				local length = 2 * r * math.tan(step / 2) + rng:NextNumber(S.extra[1], S.extra[2])
+				local foot = at + out * r + up * (h0 - d.depth) - x * (length / 2)
+				local height = rng:NextNumber(S.height[1], S.height[2])
+				local heap = row == S.rows - 1 and rng:NextNumber() < S.parapet
+				slab(foot, out, length, height, jitter(S.jitter[1]), jitter(S.jitter[2]), heap)
+			end
+		end
+		a += step
+	end
+	-- the ramp's sides, where they stand high enough
+	if d.ramp then
+		local w = d.ramp.width / 2
+		local pitch = math.atan(d.depth / d.ramp.length)
+		local y = d.radius + 1
+		while y < d.radius + d.ramp.length do
+			local length = rng:NextNumber(S.rampLength[1], S.rampLength[2])
+			local mid = y + length / 2
+			local floor = surface(d, lean, mid, 0)
+			local height = surface(d, lean, mid, w + S.rampHeight * lean + 2) - floor
+			for _, sx in { -1, 1 } do
+				if rng:NextNumber() >= S.rampGap and height >= S.rampMin then
+					local out = side * sx
+					local forward = up:Cross(out):Dot(back) > 0
+					local along = if forward then y else y + length
+					local foot = at + back * along + out * (w + jitter(0.3)) + up * surface(d, lean, along, 0)
+					local roll = if forward then pitch else -pitch
+					slab(foot, out, length, math.min(height, S.rampHeight), jitter(S.jitter[1] * 0.5), roll, false)
+				end
+			end
+			y += length * rng:NextNumber(0.85, 1.05)
+		end
+	end
+	-- a few loose floor pieces, none under the bed
+	local n = S.floorGrid
+	local segment = TrenchCfg.pieces.segment
+	for i = 1, n do
+		for j = 1, n do
+			local u, v = (i - (n + 1) / 2) * S.floorStep, (j - (n + 1) / 2) * S.floorStep
+			local r = math.sqrt(u * u + v * v)
+			if rng:NextNumber() >= S.floorGap and r > S.floorStep * 1.2 and r < d.radius - S.floorStep / 2 then
+				local centre = at + back * u + side * v + up * (0.05 - d.depth)
+				local turn = rng:NextNumber(-S.floorTurn, S.floorTurn) + rng:NextInteger(0, 1) * math.pi / 2
+				local cf = CFrame.fromMatrix(centre, up:Cross(back), up, back)
+					* CFrame.Angles(0, turn, 0)
+					* CFrame.new(-segment / 2, 0, 0)
+				local f = rng:NextInteger(1, TrenchCfg.pieces.floors)
+				place(`Floor{f}`, cf, 1, 1)
+				place(`Floor{f}Chunks`, cf, 1, 1)
+			end
+		end
+	end
+	holder.Parent = pitFolder()
+	return holder
+end
+
 -- Digs a gun in at `at` (its Config `dig`; user 2026-10-21: "when you build the howitzer, it will be slightly
 -- underground to give it cover (even when spawned, it should naturally destroy the terrain and be more burrowed)"):
 -- the pit carved to a level mud floor `depth` under the ground, an earth rim thrown up round it and a ramp down into it
--- behind the gun (`back`, flat; Ground.pit). Returns the floor.
-local function dig(at: Vector3, d: any, back: Vector3): Vector3
+-- behind the gun (`back`, flat; Ground.pit), its walls lined with trench slabs (`slabs`). Returns the floor and the slabs.
+local function dig(at: Vector3, d: any, back: Vector3): (Vector3, Model?)
 	local ramp = d.ramp and { dir = back, width = d.ramp.width, length = d.ramp.length }
-	Ground.pit(at, d.radius, d.depth, d.rim, d.rimHeight, ramp)
-	Net.event("GroundDug"):FireAllClients(at, d.radius + d.rim + (if ramp then ramp.length else 0))
-	return at - Vector3.new(0, d.depth, 0)
+	local out = Ground.pit(at, d.radius, d.depth, d.rim, d.rimHeight, ramp, d.wall)
+	Net.event("GroundDug"):FireAllClients(at, out)
+	local pit = if d.slabs and d.wall then slabs(at, d, back) else nil
+	return at - Vector3.new(0, d.depth, 0), pit
 end
 
 -- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
@@ -315,14 +485,23 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 	if flat.Magnitude < 1e-3 then
 		flat = Vector3.new(0, 0, -1)
 	end
+	local pit: Model? = nil
 	if gun.dig then
-		at = dig(at, gun.dig, -flat.Unit)
+		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
 	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)
 	model:SetAttribute("Elevation", low)
+	model:SetAttribute("HP", gun.hp)
+	model:SetAttribute("Stage", 0)
+	local colors = {}
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			colors[d] = d.Color
+		end
+	end
 
 	local spot = Instance.new("Attachment")
 	spot.Name = "Crew"
@@ -355,6 +534,13 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 		mountRest = {},
 		weld = nil,
 		bracing = false,
+		hp = gun.hp,
+		stage = 0,
+		broken = false,
+		colors = colors,
+		upright = nil,
+		lean = random:NextNumber(0, 2 * math.pi),
+		pit = pit,
 	}
 	if gun.crewTurns then
 		local pivot = model:GetPivot()
@@ -373,6 +559,9 @@ function Artillery.place(key: string, at: Vector3, look: Vector3): Model?
 		if s.gunner then
 			leave(s)
 		end
+		if s.pit then
+			s.pit:Destroy()
+		end
 		guns[model] = nil
 	end)
 	return model
@@ -382,6 +571,92 @@ end
 function Artillery.clear()
 	for model in guns do
 		model:Destroy()
+	end
+end
+
+-- a turning mount (the howitzer's, its gunner standing on it) posed here as well at its traverse, so the server's gunner
+-- and its step stand where every client draws them
+local function turnMount(s: State)
+	s.crewAt = s.lay.traverse
+	local frame = s.model:GetPivot() * CFrame.Angles(0, math.rad(s.lay.traverse), 0)
+	for p, rest in s.mountRest do
+		p.CFrame = frame * rest
+	end
+end
+
+-- A gun's look at its Wreck stage: scorched toward Palette.Artillery.Scorched (its glow dead once unusable), knocked
+-- out of action from Wreck.unusable, leaning and sunk (Config/Artillery.Wreck).
+local function wreck(s: State)
+	local W = Cfg.Wreck
+	local art = Palette.Artillery
+	local stage = s.stage
+	local broken = stage >= W.unusable
+	local scorched, dead = rgb(art.Scorched), rgb(art.Dead)
+	for p, c in s.colors do
+		if broken and table.find(art.Glowing, p.Name) then
+			p.Color = dead
+			p.Material = Enum.Material.SmoothPlastic
+		else
+			p.Color = c:Lerp(scorched, W.scorch[stage] or 0)
+		end
+	end
+	if broken and not s.broken then
+		s.broken = true
+		s.model:SetAttribute("Broken", true)
+		if s.gunner then
+			leave(s)
+		end
+		s.prompt.Enabled = false
+		-- the barrel knocked down to its lowest lay and round a little
+		local gun = s.gun
+		local knock = math.min(W.knock, gun.traverse)
+		s.lay = {
+			yaw = s.lay.yaw,
+			traverse = math.clamp(s.lay.traverse + random:NextNumber(-knock, knock), -gun.traverse, gun.traverse),
+			elevation = gun.elevation[1],
+		}
+		s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
+		s.model:SetAttribute("Traverse", math.round(s.lay.traverse * 100) / 100)
+		s.model:SetAttribute("Elevation", s.lay.elevation)
+		if gun.crewTurns then
+			turnMount(s)
+		end
+	end
+	local tilt, sink = W.tilt[stage] or 0, W.sink[stage] or 0
+	if tilt > 0 or sink > 0 then
+		s.upright = s.upright or s.model:GetPivot()
+		local axis = Vector3.new(math.cos(s.lean), 0, math.sin(s.lean))
+		s.model:PivotTo(CFrame.new(0, -sink, 0) * (s.upright :: CFrame) * CFrame.fromAxisAngle(axis, math.rad(tilt)))
+	end
+end
+
+-- A blast at `position` (Damage.onBlast; `structure`: what set it off, a Config/Artillery.Hits key, nil: by its `kg`)
+-- wears each gun down by how far it is from the gun's box (Config/Artillery.Hits).
+local function blast(position: Vector3, kg: number, structure: string?)
+	local H = Cfg.Hits
+	local src = Rules.hitSource(structure, kg, H)
+	for model, s in guns do
+		if s.hp <= 0 then
+			continue
+		end
+		local cf, size = model:GetBoundingBox()
+		local l = cf:PointToObjectSpace(position)
+		local d = Vector3.new(
+			math.max(math.abs(l.X) - size.X / 2, 0),
+			math.max(math.abs(l.Y) - size.Y / 2, 0),
+			math.max(math.abs(l.Z) - size.Z / 2, 0)
+		).Magnitude
+		local amount = Rules.gunHit(d, src, H.direct)
+		if amount > 0 then
+			s.hp = math.max(s.hp - amount, 0)
+			model:SetAttribute("HP", math.round(s.hp * 10) / 10)
+			local stage = Rules.wreckStage(s.hp, s.gun.hp, Cfg.Wreck.at)
+			if stage ~= s.stage then
+				s.stage = stage
+				model:SetAttribute("Stage", stage)
+				wreck(s)
+			end
+		end
 	end
 end
 
@@ -395,6 +670,7 @@ local function stateOf(player: Player): State?
 end
 
 function Artillery.start()
+	Damage.onBlast(blast)
 	Net.event("Artillery").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)
 		local s = stateOf(player)
 		if not s then
@@ -458,11 +734,7 @@ function Artillery.start()
 			-- a turning mount (the howitzer's, its gunner standing on it) is turned here as well, so the server's gunner
 			-- and its step stand where every client draws them
 			if s.gun.crewTurns and math.abs(s.lay.traverse - s.crewAt) > 0.05 then
-				s.crewAt = s.lay.traverse
-				local frame = model:GetPivot() * CFrame.Angles(0, math.rad(s.lay.traverse), 0)
-				for p, rest in s.mountRest do
-					p.CFrame = frame * rest
-				end
+				turnMount(s)
 			end
 		end
 	end)

@@ -223,4 +223,41 @@ function Artillery.aimOk(yaw: any, elevation: any): boolean
 		and math.abs(elevation) <= 90
 end
 
+-- What a blast is to the guns (Config/Artillery.Hits `h`): its named `key`'s entry, or by its `kg` charge.
+function Artillery.hitSource(key: string?, kg: number, h: any): any
+	if key and h[key] then
+		return h[key]
+	end
+	for _, c in h.byCharge do
+		if kg <= c.kg then
+			return h[c.source]
+		end
+	end
+	return h.howitzer
+end
+
+-- The HP a gun loses to `src` (a Config/Artillery.Hits entry) going off `d` studs from its box: all of `src.direct`
+-- within `direct` studs (a direct hit), past that `src.near` fading to nothing at `src.reach`.
+function Artillery.gunHit(d: number, src: any, direct: number): number
+	if d <= direct then
+		return src.direct
+	end
+	if d >= src.reach or src.reach <= direct then
+		return 0
+	end
+	return src.near * (1 - (d - direct) / (src.reach - direct))
+end
+
+-- A gun's damage stage (Config/Artillery.Wreck `at`: % of full HP, falling): 0 unhurt, else the last stage it is down to.
+function Artillery.wreckStage(hp: number, max: number, at: { number }): number
+	local share = if max > 0 then hp / max * 100 else 0
+	local stage = 0
+	for i, p in at do
+		if share <= p then
+			stage = i
+		end
+	end
+	return stage
+end
+
 return Artillery

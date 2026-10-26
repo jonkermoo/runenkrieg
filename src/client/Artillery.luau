@@ -145,7 +145,19 @@ local function pose(model: Model, p: Pose, dt: number)
 	for part, rest in p.rest do
 		part.CFrame = frames[p.stage[part]] * rest
 	end
-	if p.fx then
+	if p.fx and model:GetAttribute("Broken") then
+		-- knocked out (src/server/Artillery, Config/Artillery.Wreck): the crystal dies, its glow dark as the server left it
+		ArtilleryCrystal.destroy(p.fx)
+		p.fx = nil
+		local art = Palette.Artillery
+		local dead = Color3.fromRGB(art.Dead[1], art.Dead[2], art.Dead[3])
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and table.find(art.Glowing, d.Name) then
+				d.Color = dead
+				d.Material = Enum.Material.SmoothPlastic
+			end
+		end
+	elseif p.fx then
 		local braceAt = (model:GetAttribute("BraceAt") :: number?) or -math.huge
 		ArtilleryCrystal.update(p.fx, t, firedAt, readyAt, gun.reload, braceAt, gun.charge)
 	end

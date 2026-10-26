@@ -222,6 +222,13 @@ function Damage.exposure(position: Vector3, character: Model, soldiers: { Model 
 	return Blast.exposure(clear, total, C.minShare)
 end
 
+-- Calls `watch(position, kg, structure)` for every blast, after the map and built things took theirs (src/server/Artillery
+-- wears its guns down by it; it can't be required here: it requires this).
+local watchers: { (Vector3, number, string?) -> () } = {}
+function Damage.onBlast(watch: (Vector3, number, string?) -> ())
+	table.insert(watchers, watch)
+end
+
 -- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it only by `opts.own`;
 -- flung all the same).
 function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts?)
@@ -266,6 +273,10 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	end
 	-- player-built pieces: trenches buried, sandbags and wire worn down (src/server/Build, Config/Build.Structures)
 	Build.blast(position, kg, o.structure)
+	-- and whatever else watches blasts (the guns: src/server/Artillery)
+	for _, watch in watchers do
+		watch(position, kg, o.structure)
+	end
 	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
 	local everyone = Dev.soldiers()
 	local soldiers: { Model } = if o.soldiers == false then {} else everyone

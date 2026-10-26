@@ -164,4 +164,30 @@ return {
 	["the server takes only real aims"] = function()
 		assert(A.aimOk(10, 5) and not A.aimOk(0 / 0, 1) and not A.aimOk(1, 100) and not A.aimOk("1", 2))
 	end,
+	["direct hits wreck a field gun in two and the howitzer in four; near-misses only chip"] = function()
+		local H = C.Hits
+		local field = A.hitSource(nil, QF.kg, H)
+		assert(field == H.field and A.hitSource(nil, HOW.kg, H) == H.howitzer)
+		assert(A.hitSource("grenade", 0.3, H) == H.grenade and A.hitSource("staff3", 10, H) == H.staff3)
+		local hit = A.gunHit(0, field, H.direct)
+		assert(QF.hp / hit > 1 and QF.hp / hit <= 2) -- "a direct cannon hit or two"
+		assert(math.ceil(HOW.hp / hit) >= 4) -- "4+ DIRECT cannon shots"
+		assert(A.gunHit(H.direct + 0.01, field, H.direct) < hit / 5) -- the ground beside it: far less
+		assert(A.gunHit(field.reach, field, H.direct) == 0)
+		assert(A.gunHit(H.direct + 2, field, H.direct) > A.gunHit(H.direct + 6, field, H.direct))
+		assert(A.gunHit(0, A.hitSource(nil, HOW.kg, H), H.direct) >= QF.hp) -- a howitzer shell on a field gun
+	end,
+	["a gun's damage stages every 25%, unusable from half"] = function()
+		local at = C.Wreck.at
+		assert(A.wreckStage(100, 100, at) == 0 and A.wreckStage(76, 100, at) == 0)
+		assert(A.wreckStage(75, 100, at) == 1 and A.wreckStage(50, 100, at) == 2)
+		assert(A.wreckStage(24, 100, at) == 3 and A.wreckStage(0, 100, at) == 4)
+		assert(C.Wreck.unusable == 2 and at[C.Wreck.unusable] == 50) -- user 2026-10-25: "let's say 50%"
+		assert(#C.Wreck.scorch == #at and #C.Wreck.tilt == #at and #C.Wreck.sink == #at)
+	end,
+	["the howitzer's mound is player height or less"] = function()
+		local d = HOW.dig :: any
+		assert(d.rimHeight <= 5) -- user 2026-10-25: "the mound should be player height or less"
+		assert(d.depth + d.rimHeight >= 14.8) -- as much cover over the bed as before
+	end,
 }
