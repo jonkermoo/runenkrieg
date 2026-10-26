@@ -118,12 +118,13 @@ function Build.gunsClear(d: number, sameKind: boolean, spacing: number, clearA: 
 end
 
 -- Whether a built gun stands at `work` of `need`: it stands up at full work and stays until the work falls under
--- `standsFrom` of it (Config/Build.Guns), then is a blueprint again until full once more.
+-- `standsFrom` of it or less (Config/Build.Guns: a quarter off, 5 Destroy swings of 20), then is a blueprint again until
+-- full once more.
 function Build.gunStands(standing: boolean, work: number, need: number, standsFrom: number): boolean
 	if work >= need then
 		return true
 	end
-	if work < need * standsFrom then
+	if work <= need * standsFrom + 1e-9 then
 		return false
 	end
 	return standing

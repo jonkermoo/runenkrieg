@@ -246,7 +246,7 @@ local Build = {
 		},
 	},
 
-	-- Built guns: a gun stands once its work is full and stays (manned, firing) until Destroy swings take its work under
+	-- Built guns: a gun stands once its work is full and stays (manned, firing) until Destroy swings take its work down to
 	-- `standsFrom` of it (user 2026-10-26: Destroy takes a gun apart like any piece); then it is a blueprint again, its
 	-- pit filling back as the work falls, gone at 0. `paint`: each kit's gun paint (Config/Palette.Artillery.Paint).
 	Guns = {

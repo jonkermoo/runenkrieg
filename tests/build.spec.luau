@@ -79,7 +79,11 @@ return {
 	["guns: stand at full work, stay until under standsFrom, the pit deepens by stage"] = function()
 		local s = C.Guns.standsFrom
 		assert(not B.gunStands(false, 39, 40, s) and B.gunStands(false, 40, 40, s))
-		assert(B.gunStands(true, 30, 40, s) and not B.gunStands(true, 29, 40, s))
+		assert(
+			B.gunStands(true, 31, 40, s) and not B.gunStands(true, 30, 40, s),
+			"10 Destroy swings of 40 take it down"
+		)
+		assert(B.gunStands(true, 16, 20, s) and not B.gunStands(true, 15, 20, s), "5 of 20")
 		assert(not B.gunStands(false, 35, 40, s), "a gun taken apart stands again only at full work")
 		assert(B.pitShare(true, 30, 40, 8) == 1 and B.pitShare(false, 0, 40, 8) == 0)
 		assert(near(B.pitShare(false, 20, 40, 8), 0.5) and near(B.pitShare(false, 39, 40, 8), 7 / 8))
