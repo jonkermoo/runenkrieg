@@ -9,6 +9,20 @@ local function near(a: number, b: number): boolean
 end
 
 return {
+	["a body settles at maxDown, or once still after minDown; a dragged one counts as still"] = function()
+		assert(not R.settled(0, 0, false, C), "not before minDown")
+		assert(not R.settled(C.minDown, C.still + 1, false, C), "still moving")
+		assert(R.settled(C.minDown, C.still - 0.1, false, C), "still")
+		assert(R.settled(C.minDown, C.still + 10, true, C), "dragged: the pull's speed")
+		assert(not R.settled(0, 0, true, C), "dragged, before minDown")
+		assert(R.settled(C.maxDown, C.still + 10, false, C), "maxDown")
+	end,
+	["a dragged soldier breaks free only once the knock's stand-up time has passed"] = function()
+		assert(not R.served(nil, 2, 100), "not settled yet")
+		assert(not R.served(10, 2, 11.9), "the get-up wait not over")
+		assert(R.served(10, 2, 12), "over")
+		assert(R.served(10, 0, 10), "no wait")
+	end,
 	["a knock that does no damage keeps its own get-up time"] = function()
 		assert(R.getUp(C.Knocks.StaffRecoil.getUp, nil, B) == C.Knocks.StaffRecoil.getUp, "the staff's recoil")
 		assert(R.getUp(C.Knocks.FloatFall.getUp, 0, B) == C.Knocks.FloatFall.getUp, "the float fall")

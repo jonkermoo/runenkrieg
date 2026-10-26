@@ -106,6 +106,8 @@ local Settings = {
 		Key_Crouch = { kind = "key", label = "Crouch", default = "C" },
 		Key_Heal = { kind = "key", label = "Heal", default = "H" }, -- heal the hurt soldier you look at (Config/Healing)
 		Key_Drag = { kind = "key", label = "Drag", default = "G" }, -- drag the downed teammate you look at (Config/Dragging)
+		-- dragged by a teammate: break free and stand, once your stand-up time is over (user 2026-10-26; Config/Dragging)
+		Key_DragEscape = { kind = "key", label = "Break free of a drag", default = "Space" },
 		Key_Build = { kind = "key", label = "Build mode", default = "B" }, -- the shovel in the hands (Config/Build)
 		Key_BuildTurn = { kind = "key", label = "Turn piece", default = "T" }, -- in build mode
 		-- leaves build mode (user 2026-10-24: "make it Q to exit plan mode"; right mouse turns the shovel's camera)
@@ -145,6 +147,7 @@ local Settings = {
 				"Key_Crouch",
 				"Key_Heal",
 				"Key_Drag",
+				"Key_DragEscape",
 				"Key_Build",
 				"Key_BuildTurn",
 				"Key_BuildExit",

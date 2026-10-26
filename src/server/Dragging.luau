@@ -5,7 +5,9 @@
 -- AlignPosition pulls the body's collar to the dragger's hands. Only the body is pulled, with a capped force, so it
 -- slides with its legs trailing and still catches on walls. (A one-attachment pull whose goal the server moves to the
 -- hands every frame: a constraint between the two bodies would give both one network owner.) While "Dragged" is on, the body doesn't get up
--- (src/server/Ragdoll); once let go the usual settle and get-up wait starts over.
+-- (src/server/Ragdoll); once let go the usual settle and get-up wait starts over. The dragged soldier breaks free and
+-- stands (Net "Drag" "Escape", Config/Settings Key_DragEscape) only once their knock's own stand-up time is over: the
+-- drag never shortens it (src/server/Ragdoll.served).
 -- It lets go (Rules/Dragging.keep) on the Drag key, the dragger knocked down or dead, the body dead or up, a weapon
 -- drawn, a heal or a staff cast started, or the body caught Break studs behind; the player gets their body's physics
 -- back. The dragger's "Dragging" attribute and "DragBody" ObjectValue tell the clients (src/client/Dragging: the slow
@@ -181,6 +183,17 @@ function Dragging.start()
 			local c = player.Character
 			if c then
 				stop(c)
+			end
+		elseif action == "Escape" then
+			-- the dragged soldier breaks free, only once their knock's stand-up time is over (Ragdoll.served)
+			local c = player.Character
+			if c and c:GetAttribute("Dragged") == true and Ragdoll.served(c) then
+				for dragger, d in drags do
+					if d.body == c then
+						stop(dragger)
+					end
+				end
+				Ragdoll.rise(c)
 			end
 		end
 	end)
