@@ -254,6 +254,42 @@ local Build = {
 		paint = { uniform1 = "Grey", uniform2 = "Olive", uniform3 = "White" },
 	},
 
+	-- The building site round a gun being built (Rules/Scaffold, src/server/Build; user 2026-10-26: "include building
+	-- structures (scaffolds, tools, etc) while the artillery is under construction"): it stands from the gun's laying
+	-- out until the gun stands, and comes back when it is taken apart. Gun space on the floor the gun is built on (studs,
+	-- right +X, back +Z; yaw degrees, + turns left). `frame`: a scaffold round it, posts `bays` bays down its long sides
+	-- `height` high, ledgers and walk boards at each of `levels`; `tripod`: three poles over it lashed `height` up, their
+	-- feet `spread` out (the first `turn` degrees from +X), a rope and hook hanging to `hook`; `crates` (`size` across,
+	-- high, long), `planks` (`count` stacked, `length` long), `sawhorses`. Nothing in it can be stood on, touched or shot.
+	Scaffold = {
+		Sizes = {
+			post = 0.35, -- the frame's posts, ledgers, walk boards (`board` wide, `plank` thick)
+			ledger = 0.2,
+			board = 1.2,
+			plank = 0.15,
+			pole = 0.25, -- the tripod's poles, `overshoot` past their lashing, the lashing `lash` up and down, its block,
+			overshoot = 0.5, -- the rope and the hook
+			lash = 0.3,
+			block = 0.5,
+			rope = 0.08,
+			hook = 0.4,
+			horse = { length = 2.2, height = 1.4, beam = 0.25, splay = 0.45 },
+		},
+		artillery_qf18 = {
+			tripod = { x = 0, z = -1, height = 7, spread = 3.6, turn = 90, hook = 3.9 },
+			crates = { { x = -3.4, z = 2.4, yaw = 15, size = { 1.6, 0.9, 1 } } },
+			planks = { { x = 3.4, z = 4.6, yaw = -6, count = 4, length = 4.5 } },
+			sawhorses = { { x = -3.2, z = 6.2, yaw = 80 } },
+		},
+		artillery_howitzer = {
+			frame = { x = 0, z = 0.3, width = 17, depth = 19, bays = 3, height = 10.5, levels = { 4.5, 9 } },
+			tripod = { x = 0, z = -2, height = 20, spread = 9, turn = 90, hook = 13 },
+			crates = { { x = -11, z = -2, yaw = 10, size = { 2.2, 1.2, 1.4 } } },
+			planks = { { x = 11, z = 5, yaw = 10, count = 5, length = 6 } },
+			sawhorses = { { x = -11, z = 6, yaw = 0 } },
+		},
+	},
+
 	-- Sandbags: each column a section of class "Sandbag" (Config/Damage.Blast.Fail), shovels tear the whole piece down
 	Sandbags = { columnHP = 400, shade = 0.06 },
 

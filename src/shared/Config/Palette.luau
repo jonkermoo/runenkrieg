@@ -220,6 +220,16 @@ local Palette = {
 		Focus = { 236, 230, 210 },
 		FocusPlan = { 120, 214, 104 },
 		IconDim = { 154, 166, 159 }, -- the planner's action icons: the stake's top, the trench piece
+		-- the building site round a gun being built (Config/Build.Scaffold, Rules/Scaffold): weathered poles, paler boards,
+		-- hemp rope, iron, the tool crate
+		Scaffold = {
+			Pole = { 112, 88, 64 },
+			Board = { 150, 120, 84 },
+			Rope = { 176, 152, 106 },
+			Iron = { 58, 56, 54 },
+			Crate = { 128, 98, 66 },
+			CrateDark = { 96, 72, 50 },
+		},
 		Picket = { 84, 66, 52 },
 		Wire = { 58, 56, 54 },
 	},
