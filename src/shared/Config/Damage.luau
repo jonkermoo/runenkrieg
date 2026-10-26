@@ -5,6 +5,9 @@
 local Damage = {
 	Health = 100, -- every soldier's health; no regeneration (src/character/Health replaces Roblox's)
 	HelmetFloor = 1, -- the health a helmet hit leaves at least (never fatal by itself)
+	-- teammates hurting each other (user 2026-10-26: off): false = shots, butt strokes, staff beams and blasts (grenades,
+	-- staff, artillery) do nothing to the shooter's teammates (Rules/Teams.spared: no damage, no knock, no helmet off)
+	FriendlyFire = false,
 
 	-- Damage by weapon class (Config/Weapons `class`) and hit zone (Rules/Damage.zone): the head, the torso (the
 	-- HumanoidRootPart counts as torso), the limbs; `helmet` = a hit on the helmet's half of the head with the helmet on

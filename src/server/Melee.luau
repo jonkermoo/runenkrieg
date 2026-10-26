@@ -100,7 +100,7 @@ local function strike(player: Player, direction: any)
 	if part then
 		local zone = DamageRules.zone(part.Name) :: string
 		local victim = part.Parent :: Model
-		if zone == "Head" and victim:GetAttribute("HelmetOn") == true then
+		if zone == "Head" and victim:GetAttribute("HelmetOn") == true and not Damage.spares(character, victim) then
 			Helmets.knockOff(victim, dir)
 			zone = "Helmet"
 		end
