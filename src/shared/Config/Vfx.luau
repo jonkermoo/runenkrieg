@@ -757,6 +757,81 @@ local Vfx = {
 		fadeIn = 0.08,
 		wind = { 1.2, 0.6, 0.5 },
 		spin = 25,
+		-- The shot timed in beats (user 2026-10-26: "improve the cannon firing animations. give it more effect, make it
+		-- super 'visual' and appealing"; the beat plan approved as a design preview). Each gun picks a look (`Looks`,
+		-- Palette.Magic names): `fire` the fireball's layers outer to core, `flash` the ball and its light, `glint` the
+		-- star, `embers` the burning grains, `ring` the glowing rune ring inside the smoke ring (nil: none).
+		-- `Fire`: the fireball shooting out along the bore, `length` studs long and `width` wide at the muzzle for `time`
+		-- s, its layers `layer` x as wide inward, beam `brightness` (the core alone additive: `emission` for the rest),
+		-- swelling from `grow[1]` to `grow[2]` of its length; `tongues` flames fanned up to `fan` degrees off the bore,
+		-- `tongue` x the fireball's length. `Glint` a star `length` studs over the muzzle.
+		-- `Ring`: the smoke ring thrown forward, `count` puffs round a ring `radius` studs, flung at `speed` (outward,
+		-- forward) studs/s and slowed by `drag`. `Rune`: the glowing ring rolling out with it, `ahead` studs forward and
+		-- `radius` studs across at the end of its `time` s, `ticks` marks round its rim `tick` studs long, spinning `spin`
+		-- deg/s, `line` wide, `brightness`. `Embers`: `count` grains of `size` studs at `speed` within `spread` degrees of
+		-- the bore, falling under `gravity`, living `life` s. `Fan`: dust swept forward across the ground in front of
+		-- the muzzle (with `Dust`), `count` puffs aimed `lift` degrees up off the ground.
+		-- Studs and speeds x the gun's scale.
+		Looks = {
+			Field = {
+				fire = { "EmberDeep", "Flame", "EmberGold", "EmberCore" },
+				flash = "EmberGold",
+				glint = "EmberCore",
+				embers = "EmberGold",
+				ring = nil :: string?,
+			},
+			Magic = {
+				fire = { "Deep", "Glow", "Glow", "Core" },
+				flash = "Core",
+				glint = "Core",
+				embers = "Glow",
+				ring = "Glow" :: string?,
+			},
+		},
+		Fire = {
+			length = 5,
+			width = 2.6,
+			time = 0.09,
+			layer = 0.62,
+			brightness = 2.5,
+			emission = 0.15,
+			grow = { 0.55, 1 },
+			tongues = 5,
+			fan = 28,
+			tongue = 0.75,
+		},
+		Glint = { length = 7 },
+		Ring = {
+			count = 12,
+			radius = 0.8,
+			speed = { 16, 55 },
+			drag = 3.5,
+			size = { 1.6, 5 },
+			thick = 0.3,
+			life = { 1.3, 1.8 },
+			color = "Ash",
+		},
+		Rune = { time = 1.4, ahead = 14, radius = 5, ticks = 12, tick = 0.9, spin = 90, line = 0.3, brightness = 2.5 },
+		Embers = {
+			count = 22,
+			size = 0.18,
+			speed = { 30, 80 },
+			spread = 22,
+			gravity = 60,
+			drag = 1.5,
+			life = { 0.4, 1 },
+		},
+		Fan = {
+			count = 10,
+			speed = { 18, 45 },
+			drag = 2.5,
+			spread = 55,
+			size = { 3, 9 },
+			thick = 0.45,
+			life = { 1.2, 2.4 },
+			color = "Smoke",
+			lift = 12,
+		},
 	},
 
 	-- A ring that races outward and thins (lying flat on the ground, or facing any way).

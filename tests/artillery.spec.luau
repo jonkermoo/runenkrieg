@@ -199,4 +199,22 @@ return {
 		assert(d.rimHeight <= 5) -- user 2026-10-25: "the mound should be player height or less"
 		assert(d.depth + d.rimHeight >= 14.8) -- as much cover over the bed as before
 	end,
+	["the whole gun's jolt kicks back, settles and is done after its time"] = function()
+		for _, J in C.Fx.Jolt do
+			assert(A.joltAt(-0.1, J) == 0 and A.joltAt(J.time, J) == 0)
+			assert(near(A.joltAt(J.rise, J), 1))
+			assert(math.abs(A.joltAt(J.time - 1e-3, J)) < 0.05, "settled before it stops")
+		end
+	end,
+	["the shot's looks and layers use real colours and every gun's look"] = function()
+		local Palette = require("../src/shared/Config/Palette")
+		local V = require("../src/shared/Config/Vfx").Muzzle
+		for name, L in V.Looks do
+			for _, c in { L.flash, L.glint, L.embers, L.ring or L.flash, table.unpack(L.fire) } do
+				assert((Palette.Magic :: any)[c], `{name}: {c}`)
+			end
+			assert(C.Fx.Sound[name] and C.Fx.Sound.runout[name] and C.Fx.Jolt[name], name)
+		end
+		assert(V.Looks.Field.ring == nil and V.Looks.Magic.ring, "only the magic gun's smoke ring has runes")
+	end,
 }

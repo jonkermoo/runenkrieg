@@ -163,7 +163,83 @@ local Artillery = {
 	Fx = {
 		Shot = { color = "Core", wave = 26, ahead = 2, ground = 30, groundReach = 9 },
 		Air = { size = 14, time = 0.35, transparency = { 0.75, 1 }, color = { 235, 235, 230 } },
-		Shake = { shot = 1.6, reach = 60 },
+		Shake = { shot = 2.2, reach = 70 },
+		-- The shot in beats (user 2026-10-26: "improve the cannon firing animations. give it more effect, make it super
+		-- 'visual' and appealing"; approved as a design preview, with the FOV punch and only sounds already in the
+		-- game). The muzzle's own beats are Config/Vfx.Muzzle (its look: Magic for a magic gun, else Field). Past `far`
+		-- studs from the camera a shot draws only its flash, fireball, glint and jet.
+		-- Punch: the gunner's view widens `fov` degrees (x the square root of the gun's muzzleScale) and eases back
+		-- over `time` s.
+		-- Jolt: the whole gun kicks `back` studs and its nose `lift` degrees, `rise` s in, then settles in a wobble at
+		-- `wobble` rad/s dying away at `damp` a second, done after `time` s (client only, the models untouched).
+		-- Bank: the smoke hanging in front after the shot: from `at` s for `time` s, `rate` puffs a second out of a box
+		-- `width` studs wide `ahead` studs in front at the ground (x the scale), `speed` studs/s, rising `rise`, drifting
+		-- on the `wind`, growing `size`, `thick` at its thickest; the magic gun's has `sparkle` (motes of its colour
+		-- twinkling in it, `rate` a second).
+		-- Corkscrew: the field shell's smoke spiralling off it for its first `time` s, `radius` studs round the path at
+		-- `turns` a second, `rate` puffs a second; `sparks` sparks shed off it a second.
+		-- Sound: layers after the report, each `at` s after the shot (the recoil's clank on its buffer, the dirt
+		-- pattering down; `runout` as the barrel runs home, at the end of the gun's recoil).
+		far = 300,
+		Punch = { fov = 4, time = 0.2 },
+		Jolt = {
+			Field = { back = 0.35, lift = 1.5, rise = 0.04, wobble = 28, damp = 9, time = 0.6 },
+			Magic = { back = 0.15, lift = 0.35, rise = 0.06, wobble = 22, damp = 7, time = 0.8 },
+		},
+		Bank = {
+			at = 0.25,
+			time = 1.5,
+			rate = 6,
+			width = 14,
+			ahead = 10,
+			speed = { 0.5, 2 },
+			life = { 4, 6 },
+			rise = 0.4,
+			wind = { 1.2, 0, 0.6 },
+			size = { 5, 13 },
+			thick = 0.55,
+			color = "Ash",
+			sparkle = { rate = 14, life = { 0.8, 1.6 }, size = 0.3, color = "Glow" },
+		},
+		Corkscrew = {
+			time = 0.6,
+			radius = 0.5,
+			turns = 6,
+			rate = 50,
+			life = { 0.6, 1 },
+			size = { 0.5, 2 },
+			thick = 0.4,
+			color = "Ash",
+			sparks = 40,
+		},
+		Sound = {
+			Field = {
+				-- Locking Wrench 7, slowed: the recoil hitting its buffer, then the barrel running home
+				{ at = 0.03, sound = { id = 9116321026, volume = 1.3, pitch = 0.45, profile = "Mechanism" } },
+				-- Rock Impact Dirt Hard Muted Thuds 2: the dirt thrown up pattering down
+				{ at = 0.3, sound = { id = 9118616398, volume = 0.7, profile = "Thunk" } },
+			},
+			Magic = {
+				{ at = 0.04, sound = { id = 9116321026, volume = 1.5, pitch = 0.3, profile = "Mechanism" } },
+				{ at = 0.3, sound = { id = 9118616398, volume = 0.8, profile = "Thunk" } },
+				-- the staff's spell swell, slowed: the magic ringing on after the shot
+				{
+					at = 0,
+					sound = {
+						id = 9116427220,
+						volume = 1,
+						pitch = 0.6,
+						fade = 1.5,
+						profile = "Spell",
+						eq = { 2, 0, -12 },
+					},
+				},
+			},
+			runout = {
+				Field = { id = 9116321026, volume = 0.8, pitch = 0.6, profile = "Mechanism" },
+				Magic = { id = 9116321026, volume = 1, pitch = 0.4, profile = "Mechanism" },
+			},
+		},
 		Static = { every = 0.07, reach = 2.2, life = 0.09 },
 		Charge = {
 			color = "Glow",
