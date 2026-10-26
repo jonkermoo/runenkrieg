@@ -320,29 +320,89 @@ function Ground.churn(position: Vector3, radius: number, depth: number, c: any)
 	end
 end
 
+-- the ground under a pit to come (Ground.pit's `base`): its region read once, at the pit's full size
+export type PitBase = { region: Region3, mats: any, occs: any }
+
+local function copy(grid: any): any
+	local out = table.create(#grid)
+	for x = 1, #grid do
+		local plane = grid[x]
+		local p = table.create(#plane)
+		for y = 1, #plane do
+			p[y] = table.clone(plane[y])
+		end
+		out[x] = p
+	end
+	out.Size = grid.Size -- (ReadVoxels' grids carry their size)
+	return out
+end
+
+-- Reads the ground a pit (Ground.pit's arguments, at its full depth) will reach, to dig it in stages; nil when it
+-- can't be read.
+function Ground.pitBase(
+	position: Vector3,
+	radius: number,
+	depth: number,
+	rim: number,
+	rimHeight: number,
+	ramp: { length: number }?,
+	wall: number?
+): PitBase?
+	local terrain = workspace.Terrain
+	local lean = if wall then 1 / math.tan(math.rad(wall)) else 0
+	local out = radius + depth * lean + rim + (if ramp then ramp.length else 0)
+	local reach = Vector3.new(out, depth + rimHeight + VOXEL * 3, out)
+	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return nil
+	end
+	return { region = region, mats = mats, occs = occs }
+end
+
+-- Puts the ground back as `base` read it (a built gun's pit filled in)
+function Ground.restore(base: PitBase)
+	workspace.Terrain:WriteVoxels(base.region, VOXEL, base.mats, base.occs)
+end
+
 -- A gun's pit (src/server/Artillery `dig`): within `radius` of `position` the ground cut down to a level floor `depth`
 -- under it (the top voxel left part full, so the floor sits at that height; mud; filled up to it where the ground falls
 -- away, on a slope), and a rim of earth `rimHeight` high thrown up round it over the next `rim` studs, peaked in its
 -- middle, following the ground (the rim at least two voxels wide, or no voxel centre falls in it: Studio round 13c). Voxel by voxel with
 -- fractional occupancy: a FillCylinder of Air that ends inside a 4-stud voxel cuts nothing (Studio 2026-10-21). A
 -- smooth surface stands at its top voxel's CENTRE + 4 x occupancy (measured in Studio), not its bottom.
--- `ramp` (optional): a way in, a lane `width` wide running out along `dir` (flat, unit) from the pit's edge, its floor
+-- `ramp` (optional): a way in, a lane `width` wide running out along `dir` (flat, unit) from the floor's edge, its floor
 -- rising from the pit's floor to the ground over `length` studs, cut through the rim.
+-- `wall` (optional, degrees): the pit's wall (and the ramp's sides) lean back at this angle from the floor's edge up to
+-- the ground, where the rim starts (a trench's wall: Config/Build.Trench.wallAngle); nil: cut straight down.
+-- `base` (optional, Ground.pitBase): the ground as it was before any of this pit, which it is dug into afresh (a
+-- player-built gun's pit deepening stage by stage, src/server/Build).
+-- Returns how far out from `position` it reached.
 function Ground.pit(
 	position: Vector3,
 	radius: number,
 	depth: number,
 	rim: number,
 	rimHeight: number,
-	ramp: { dir: Vector3, width: number, length: number }?
-)
+	ramp: { dir: Vector3, width: number, length: number }?,
+	wall: number?,
+	base: PitBase?
+): number
 	local terrain = workspace.Terrain
-	local out = radius + rim + (if ramp then ramp.length else 0)
-	local reach = Vector3.new(out, depth + rimHeight + VOXEL * 3, out)
-	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
-	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
-	if not ok then
-		return
+	local lean = if wall then 1 / math.tan(math.rad(wall)) else 0 -- studs out per stud up
+	local top = radius + depth * lean -- the wall's top edge, on the ground
+	local out = top + rim + (if ramp then ramp.length else 0)
+	local region, mats, occs
+	if base then
+		region, mats, occs = base.region, copy(base.mats), copy(base.occs)
+	else
+		local reach = Vector3.new(out, depth + rimHeight + VOXEL * 3, out)
+		region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+		local ok
+		ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+		if not ok then
+			return out
+		end
 	end
 	local size = mats.Size
 	local corner = region.CFrame.Position - region.Size / 2
@@ -352,57 +412,47 @@ function Ground.pit(
 		for iz = 1, size.Z do
 			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
 			local d = math.sqrt((x - position.X) ^ 2 + (z - position.Z) ^ 2)
-			local along, across = 0, math.huge
-			if ramp then
-				along = (x - position.X) * ramp.dir.X + (z - position.Z) * ramp.dir.Z
-				across = math.abs((x - position.X) * ramp.dir.Z - (z - position.Z) * ramp.dir.X)
+			-- how low this column is cut (nil: not), and whether it is the floor (filled up to it as well)
+			local cut: number? = nil
+			local level = d <= radius
+			if level then
+				cut = floor
+			elseif d <= top then
+				cut = floor + (d - radius) / lean
 			end
-			local inRamp = ramp ~= nil
-				and d > radius
-				and along > 0
-				and across <= ramp.width / 2
-				and along <= radius + ramp.length
-			if inRamp or d <= radius + rim then
+			local inRamp = false
+			if ramp then
+				local along = (x - position.X) * ramp.dir.X + (z - position.Z) * ramp.dir.Z
+				local across = math.abs((x - position.X) * ramp.dir.Z - (z - position.Z) * ramp.dir.X)
+				local side = across - ramp.width / 2
+				if along > 0 and along <= radius + ramp.length and (side <= 0 or (wall and side <= depth * lean)) then
+					local slope = floor + depth * math.clamp((along - radius) / ramp.length, 0, 1)
+					local lane = slope + (if side > 0 then side / lean else 0)
+					inRamp = side <= 0
+					cut = if cut then math.min(cut, lane) else lane
+				end
+			end
+			local raise = not level and not inRamp and d > top and d <= top + rim
+			if cut or raise then
 				-- dug: no crater here fills back in, now or later
 				for iy = 1, size.Y do
 					pitted[`{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`] = true
 				end
 			end
-			if ramp and inRamp then
-				-- the ramp: only cut, down to its floor here
-				local slope = floor + depth * math.clamp((along - radius) / ramp.length, 0, 1)
-				for iy = 1, size.Y do
-					local mid = corner.Y + (iy - 0.5) * VOXEL
-					local keep = math.clamp((slope - mid) / VOXEL, 0, 1)
-					if occs[ix][iy][iz] > keep then
-						occs[ix][iy][iz] = keep
-						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
-					end
-				end
-			elseif d <= radius then
-				for iy = 1, size.Y do
-					local mid = corner.Y + (iy - 0.5) * VOXEL
-					local keep = math.clamp((floor - mid) / VOXEL, 0, 1)
-					-- cut down to the floor, and filled up to it where the ground fell away (downhill on a slope)
-					if occs[ix][iy][iz] ~= keep then
-						occs[ix][iy][iz] = keep
-						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
-					end
-				end
-			elseif d <= radius + rim then
+			if raise then
 				-- the column's top now, then raised by the rim's height here
-				local top: number? = nil
+				local ground: number? = nil
 				for iy = size.Y, 1, -1 do
 					if occs[ix][iy][iz] > 0 then
-						top = corner.Y + (iy - 0.5) * VOXEL + occs[ix][iy][iz] * VOXEL
+						ground = corner.Y + (iy - 0.5) * VOXEL + occs[ix][iy][iz] * VOXEL
 						break
 					end
 				end
-				if top then
-					local bump = rimHeight * (1 - math.abs(d - radius - rim / 2) / (rim / 2))
+				if ground then
+					local bump = rimHeight * (1 - math.abs(d - top - rim / 2) / (rim / 2))
 					for iy = 1, size.Y do
 						local mid = corner.Y + (iy - 0.5) * VOXEL
-						local want = math.clamp((top + bump - mid) / VOXEL, 0, 1)
+						local want = math.clamp((ground + bump - mid) / VOXEL, 0, 1)
 						if want > occs[ix][iy][iz] then
 							occs[ix][iy][iz] = want
 							if mats[ix][iy][iz] == Enum.Material.Air then
@@ -412,9 +462,21 @@ function Ground.pit(
 					end
 				end
 			end
+			if cut then
+				for iy = 1, size.Y do
+					local mid = corner.Y + (iy - 0.5) * VOXEL
+					local keep = math.clamp((cut - mid) / VOXEL, 0, 1)
+					-- cut down to it; the floor also filled up to it where the ground fell away (downhill on a slope)
+					if occs[ix][iy][iz] > keep or (level and occs[ix][iy][iz] ~= keep) then
+						occs[ix][iy][iz] = keep
+						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
+					end
+				end
+			end
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	return out
 end
 
 -- a ball of `material` (a tree's root ball of mud), or Air (its pit)

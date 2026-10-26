@@ -30,6 +30,10 @@ local Grenades = {}
 
 local GROUP = "Grenades"
 
+-- each thrown grenade's number, on its model ("Flight") and in its Net "GrenadeFlight" (the model itself may not have
+-- reached a client yet when the path does)
+local flights = 0
+
 -- The hand it leaves from (Rules/Grenade.hand): as the client's camera would put it, looking along `look`; never
 -- past a wall between the head and the hand (Rules/Grenade.clearShare; src/client/Grenades draws from the same point).
 function Grenades.hand(character: Model, head: Vector3, look: Vector3): Vector3
@@ -98,9 +102,11 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 	params.RespectCanCollide = true
 	params.IgnoreWater = true
 	local path = Flight.path(body, box, velocity, Cfg.Types[name].motion, params, workspace.Gravity, Cfg.Fuse)
+	flights += 1
+	model:SetAttribute("Flight", flights)
 	model.Parent = workspace
 	Net.event("GrenadeFlight")
-		:FireAllClients(model, workspace:GetServerTimeNow(), path.times, path.frames, path.thunks, name)
+		:FireAllClients(flights, workspace:GetServerTimeNow(), path.times, path.frames, path.thunks, name)
 	task.delay(path.times[#path.times], function()
 		if model.Parent then
 			model:PivotTo(path.frames[#path.frames])

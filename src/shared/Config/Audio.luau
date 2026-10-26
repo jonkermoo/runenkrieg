@@ -20,6 +20,10 @@ local Audio = {
 		Dig = { ref = 4, max = 120 },
 		-- footsteps (src/client/Footsteps): full within ~1 m, heard to ~20 m
 		Footstep = { ref = 3, max = 60 },
+		-- a thrown grenade's thunk where it lands (Config/Grenades.Thunk): full within ~4 m, heard to ~110 m, so one that
+		-- lands a full throw off (~80-100 studs) is still heard, quietly (on Footstep it was silent past 60 studs, user
+		-- 2026-10-25: "i dont hear it")
+		Thunk = { ref = 12, max = 300 },
 		-- magic (Config/Vfx.Sounds): a cast and its shot, full within ~2 m, heard to ~140 m
 		Spell = { ref = 6, max = 400 },
 		-- the full-charge blast and where a beam lands: full within ~5 m, carrying like a gunshot

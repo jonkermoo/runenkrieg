@@ -8,6 +8,11 @@
 -- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
 -- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
 -- - Barbed wire: pickets and strands nothing queries (bullets pass); src/server/Wire slows and hurts soldiers in it.
+-- - Guns (Config/Build.Pieces kind "Gun"; Config/Build.Guns): a holder model in the folder (what swings go to) with the
+--   gun see-through in it (src/server/Artillery.ghost); a howitzer's pit (Ground.pit from the ground as it was) deepens
+--   with each stage, the blueprint down on its floor. At full work the real gun stands (src/server/Artillery.place, in
+--   the team's paint); taken apart (Rules.gunStands) it is a blueprint again, its pit filling back, the ground as it was
+--   at 0.
 -- Build.blast (from src/server/Damage.blast) and Build.shot (src/server/Firing): weapons wear down trenches, sandbags
 -- and wire by Config/Build.Structures.
 
@@ -20,11 +25,13 @@ local C = require(Shared.Config.Build)
 local D = require(Shared.Config.Destruction)
 local Palette = require(Shared.Config.Palette)
 local ShovelCfg = require(Shared.Config.Shovel)
+local ArtilleryCfg = require(Shared.Config.Artillery)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Build)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
 local Destruction = require(script.Parent.Destruction)
+local Ground = require(script.Parent.Ground)
 local Trees = require(script.Parent.Trees)
 local Trenches = require(script.Parent.Trenches)
 
@@ -45,9 +52,25 @@ type Rec = {
 	worked: number,
 	frame: CFrame,
 	hp: number?, -- barbed wire: what blasts have left of Structures.wireHP
+	-- a gun piece: where the gun stands (on the ground before its pit), its blueprint or the gun standing, its pit's
+	-- ground as it was (Ground.pitBase) and the share of it dug now
+	at: CFrame?,
+	ghost: Model?,
+	gun: Model?,
+	standing: boolean?,
+	pitBase: Ground.PitBase?,
+	dug: number?,
 }
 
+-- src/server/Artillery, handed in at start (it needs Damage, which needs this)
+type Guns = {
+	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
+	ghost: (string, string?, number) -> Model?,
+}
+local guns: Guns? = nil
+
 local recs: { [Model]: Rec } = {}
+local showGun: (Rec) -> ()
 local lastSwing: { [Player]: number } = {}
 
 local function rgb(c: { number }, jitter: number?): Color3
@@ -202,21 +225,6 @@ local function showWire(r: Rec)
 	r.model:SetAttribute("Armed", r.built)
 end
 
--- shows a piece as its work stands now
-local function apply(r: Rec)
-	r.model:SetAttribute("Work", r.work)
-	r.model:SetAttribute("Built", r.built)
-	local kind = r.piece.kind
-	if kind == "Sandbags" then
-		showSandbags(
-			r,
-			if r.built and r.work >= r.need then r.piece.rows else Rules.stageOf(r.work, r.need, r.piece.rows)
-		)
-	elseif kind == "Wire" then
-		showWire(r)
-	end
-end
-
 local function remove(r: Rec, debris: boolean)
 	if not recs[r.model] then
 		return
@@ -233,7 +241,102 @@ local function remove(r: Rec, debris: boolean)
 			Net.event("SectionBroken"):FireAllClients(pieces, r.frame.Position)
 		end
 	end
+	-- a gun piece: the gun goes, its pit filled back in
+	local gun = r.gun
+	r.gun = nil
+	if gun then
+		gun:Destroy()
+	end
+	if r.pitBase and (r.dug or 0) > 0 then
+		Ground.restore(r.pitBase)
+		Net.event("GroundDug"):FireAllClients(r.frame.Position, r.piece.depth)
+	end
 	r.model:Destroy()
+end
+
+-- a gun piece as its work stands: its pit dug to its stage, then its blueprint on the pit's floor or the gun standing
+-- there (Rules.gunStands, Rules.pitShare)
+showGun = function(r: Rec)
+	local p = r.piece
+	local gunCfg = ArtilleryCfg.Guns[p.gun]
+	local at = r.at :: CFrame
+	if not guns or not gunCfg then
+		return
+	end
+	r.standing = Rules.gunStands(r.standing == true, r.work, r.need, C.Guns.standsFrom)
+	local share = Rules.pitShare(r.standing == true, r.work, r.need, p.stages)
+	local d = gunCfg.dig
+	if d and share ~= r.dug then
+		local back = -at.LookVector
+		local ramp = d.ramp and { dir = back, width = d.ramp.width, length = d.ramp.length }
+		r.pitBase = r.pitBase or Ground.pitBase(at.Position, d.radius, d.depth, d.rim, d.rimHeight, ramp, d.wall)
+		local base = r.pitBase
+		if base then
+			if share > 0 then
+				local out =
+					Ground.pit(at.Position, d.radius, d.depth * share, d.rim, d.rimHeight * share, ramp, d.wall, base)
+				Net.event("GroundDug"):FireAllClients(at.Position, out)
+			else
+				Ground.restore(base)
+				Net.event("GroundDug"):FireAllClients(at.Position, p.depth)
+			end
+		end
+		r.dug = share
+	end
+	local paint = C.Guns.paint[r.team]
+	if r.standing then
+		if not r.gun then
+			if r.ghost then
+				r.ghost:Destroy()
+				r.ghost = nil
+			end
+			local gun = guns.place(p.gun, at.Position, at.LookVector, { paint = paint, dug = d ~= nil })
+			r.gun = gun
+			if gun then
+				gun:SetAttribute("Piece", p.key)
+				-- gone some other way (the dev tools' clear): the piece goes too
+				gun.Destroying:Connect(function()
+					if r.gun == gun then
+						r.gun = nil
+						remove(r, false)
+					end
+				end)
+			end
+		end
+		return
+	end
+	if r.gun then
+		local gun = r.gun
+		r.gun = nil
+		gun:Destroy()
+	end
+	if not r.ghost then
+		r.ghost = guns.ghost(p.gun, paint, C.GhostTransparency)
+		if r.ghost then
+			r.ghost.Parent = r.model
+		end
+	end
+	if r.ghost then
+		local floor = at.Position - Vector3.new(0, if d then d.depth * share else 0, 0)
+		r.ghost:PivotTo(CFrame.lookAt(floor, floor + at.LookVector))
+	end
+end
+
+-- shows a piece as its work stands now
+local function apply(r: Rec)
+	r.model:SetAttribute("Work", r.work)
+	r.model:SetAttribute("Built", r.built)
+	local kind = r.piece.kind
+	if kind == "Sandbags" then
+		showSandbags(
+			r,
+			if r.built and r.work >= r.need then r.piece.rows else Rules.stageOf(r.work, r.need, r.piece.rows)
+		)
+	elseif kind == "Wire" then
+		showWire(r)
+	elseif kind == "Gun" then
+		showGun(r)
+	end
 end
 
 local function count(team: string, owner: number?): number
@@ -264,17 +367,28 @@ local function place(player: Player, key: any, at: any)
 		return
 	end
 	local frame = Survey.frame(at.Position, at.LookVector)
+	-- (a gun: `frame` the gun, `box` the ground it needs; any other piece: the same)
+	local gunAt: CFrame? = nil
+	if piece.kind == "Gun" then
+		local y = Survey.groundAt(frame.Position.X, frame.Position.Z, frame.Position.Y) or frame.Position.Y
+		gunAt = CFrame.new(frame.Position.X, y, frame.Position.Z) * frame.Rotation
+		frame = Survey.box(piece, gunAt :: CFrame)
+	end
 	local report = Survey.ground(piece, frame)
 	frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
+	local f = folder()
+	local gunPiece = gunAt ~= nil
 	local ok, reason = Rules.canPlace({
 		piece = piece,
-		distance = (root.Position - frame.Position).Magnitude,
+		distance = (root.Position - (if gunAt then gunAt.Position else frame.Position)).Magnitude,
 		reach = C.Reach + 2, -- (the client's ghost checks C.Reach; slack for movement since)
 		slope = report.slope,
 		maxSlope = piece.maxSlope or C.Trench.maxSlope,
 		ground = report.ground,
 		water = report.water,
-		overlap = Survey.blocked(piece, frame, report.low),
+		overlap = Survey.blocked(piece, frame, report.low, { character }),
+		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
+		nearTrench = gunPiece and Survey.nearTrench(piece, frame, f),
 		mine = count(team, player.UserId),
 		team = count(team, nil),
 		perPlayer = C.PerPlayer,
@@ -284,7 +398,6 @@ local function place(player: Player, key: any, at: any)
 		refuse(player, reason or "Can't build here")
 		return
 	end
-	local f = folder()
 	local model = Instance.new("Model")
 	model.Name = piece.key
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
@@ -300,10 +413,11 @@ local function place(player: Player, key: any, at: any)
 		born = now,
 		worked = now,
 		frame = frame,
+		at = gunAt,
 	}
 	if piece.kind == "Sandbags" then
 		layoutSandbags(r, report.low)
-	else
+	elseif piece.kind == "Wire" then
 		layoutWire(r, report.low)
 	end
 	model:SetAttribute("Piece", piece.key)
@@ -311,6 +425,9 @@ local function place(player: Player, key: any, at: any)
 	model:SetAttribute("Need", r.need)
 	model:SetAttribute("Frame", frame)
 	model:SetAttribute("Size", Survey.footprint(piece))
+	if gunAt then
+		model:SetAttribute("At", gunAt)
+	end
 	recs[model] = r
 	model.Parent = f
 	apply(r)
@@ -385,7 +502,7 @@ local function work(player: Player, target: any, mode: any)
 	local was = r.work
 	local left, gone = Rules.swing(r.work, r.need, mode == "Build")
 	if gone then
-		remove(r, r.built)
+		remove(r, r.built and r.piece.kind ~= "Gun") -- (a gun piece leaves no rubble)
 		return
 	end
 	r.work = left
@@ -394,7 +511,11 @@ local function work(player: Player, target: any, mode: any)
 		r.built = true
 	end
 	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
-	if Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages) or r.work >= r.need then
+	if
+		r.piece.kind == "Gun"
+		or Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages)
+		or r.work >= r.need
+	then
 		apply(r)
 	else
 		r.model:SetAttribute("Work", r.work)
@@ -513,7 +634,8 @@ local function dug(player: Player, kind: any)
 	end
 end
 
-function Build.start()
+function Build.start(artillery: Guns)
+	guns = artillery
 	folder()
 	Trenches.start()
 	Net.event("Dug").OnServerEvent:Connect(dug)

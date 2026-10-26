@@ -8,6 +8,8 @@ local function near(a: number, b: number, eps: number?): boolean
 	return math.abs(a - b) <= (eps or 1e-6)
 end
 local QF, HOW = C.Guns.artillery_qf18, C.Guns.artillery_howitzer
+local BORE = table.clone(QF) :: any -- the field gun with its shell leaving along the bore (no aimTilt)
+BORE.aimTilt = nil
 
 return {
 	["every gun names a real asset and sane limits"] = function()
@@ -50,27 +52,34 @@ return {
 		assert(near(s.elevation, QF.elevationRate))
 	end,
 	["level and straight the muzzle is the model's, along -Z"] = function()
-		local x, y, z, dx, dy, dz = A.muzzle(QF, 0, 0)
+		local x, y, z, dx, dy, dz = A.muzzle(BORE, 0, 0)
 		assert(near(x, QF.muzzle[1]) and near(y, QF.muzzle[2]) and near(z, QF.muzzle[3]))
 		assert(near(dx, 0) and near(dy, 0) and near(dz, -1))
 	end,
 	["elevation lifts the muzzle about the trunnion, traverse turns it left"] = function()
-		local _, y, _, _, dy = A.muzzle(QF, 0, 16)
+		local _, y, _, _, dy = A.muzzle(BORE, 0, 16)
 		assert(y > QF.muzzle[2] and near(dy, math.sin(math.rad(16))))
-		local _, _, _, dx = A.muzzle(QF, 4.5, 0)
+		local _, _, _, dx = A.muzzle(BORE, 4.5, 0)
 		assert(dx < 0)
 		-- the muzzle stays as far from the trunnion
 		local t = QF.trunnion
-		local x2, y2, z2 = A.muzzle(QF, 0, 12)
+		local x2, y2, z2 = A.muzzle(BORE, 0, 12)
 		local d0 = math.sqrt((QF.muzzle[2] - t[2]) ^ 2 + (QF.muzzle[3] - t[3]) ^ 2)
 		assert(near(math.sqrt(x2 ^ 2 + (y2 - t[2]) ^ 2 + (z2 - t[3]) ^ 2), d0, 1e-6))
 	end,
 	["yawOf agrees with the traverse's turn"] = function()
-		local _, _, _, dx, _, dz = A.muzzle(QF, 30, 0)
+		local _, _, _, dx, _, dz = A.muzzle(BORE, 30, 0)
 		assert(near(A.yawOf(dx, dz), 30, 1e-6))
 	end,
 	["the agreed ranges: field gun ~1,500 at full elevation, the howitzer a short-arc mortar"] = function()
-		assert(math.abs(A.range(QF.speed, QF.elevation[2], QF.gravity) - 1500) < 50)
+		-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
+		-- hit enemy sectors)", the shortest ~300: one sector): the shell leaves aimTilt over the bore
+		local tilt = QF.aimTilt :: number
+		local low = A.range(QF.speed, QF.elevation[1] + tilt, QF.gravity)
+		assert(tilt > 0 and tilt <= 10 and math.abs(low - 300) < 20, low)
+		local _, _, _, _, dy = A.muzzle(QF, 0, 0)
+		assert(near(dy, math.sin(math.rad(tilt))))
+		assert(A.range(QF.speed, QF.elevation[2] + tilt, QF.gravity) > 1500)
 		assert(HOW.elevation[1] >= 45) -- it only lobs
 		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 590) < 20)
 		assert(A.range(HOW.speed, HOW.elevation[2], HOW.gravity) < 250)
@@ -163,5 +172,31 @@ return {
 	end,
 	["the server takes only real aims"] = function()
 		assert(A.aimOk(10, 5) and not A.aimOk(0 / 0, 1) and not A.aimOk(1, 100) and not A.aimOk("1", 2))
+	end,
+	["direct hits wreck a field gun in two and the howitzer in four; near-misses only chip"] = function()
+		local H = C.Hits
+		local field = A.hitSource(nil, QF.kg, H)
+		assert(field == H.field and A.hitSource(nil, HOW.kg, H) == H.howitzer)
+		assert(A.hitSource("grenade", 0.3, H) == H.grenade and A.hitSource("staff3", 10, H) == H.staff3)
+		local hit = A.gunHit(0, field, H.direct)
+		assert(QF.hp / hit > 1 and QF.hp / hit <= 2) -- "a direct cannon hit or two"
+		assert(math.ceil(HOW.hp / hit) >= 4) -- "4+ DIRECT cannon shots"
+		assert(A.gunHit(H.direct + 0.01, field, H.direct) < hit / 5) -- the ground beside it: far less
+		assert(A.gunHit(field.reach, field, H.direct) == 0)
+		assert(A.gunHit(H.direct + 2, field, H.direct) > A.gunHit(H.direct + 6, field, H.direct))
+		assert(A.gunHit(0, A.hitSource(nil, HOW.kg, H), H.direct) >= QF.hp) -- a howitzer shell on a field gun
+	end,
+	["a gun's damage stages every 25%, unusable from half"] = function()
+		local at = C.Wreck.at
+		assert(A.wreckStage(100, 100, at) == 0 and A.wreckStage(76, 100, at) == 0)
+		assert(A.wreckStage(75, 100, at) == 1 and A.wreckStage(50, 100, at) == 2)
+		assert(A.wreckStage(24, 100, at) == 3 and A.wreckStage(0, 100, at) == 4)
+		assert(C.Wreck.unusable == 2 and at[C.Wreck.unusable] == 50) -- user 2026-10-25: "let's say 50%"
+		assert(#C.Wreck.scorch == #at and #C.Wreck.tilt == #at and #C.Wreck.sink == #at)
+	end,
+	["the howitzer's mound is player height or less"] = function()
+		local d = HOW.dig :: any
+		assert(d.rimHeight <= 5) -- user 2026-10-25: "the mound should be player height or less"
+		assert(d.depth + d.rimHeight >= 14.8) -- as much cover over the bed as before
 	end,
 }

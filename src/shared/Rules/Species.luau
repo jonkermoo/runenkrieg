@@ -66,41 +66,13 @@ function Species.color(role: string?, hair: { number }, skin: { number }, palett
 	return hair
 end
 
--- One ear's wanted angles (degrees about the head's X, Y and Z at its pivot) at time `t`:
---   side = 1 right / -1 left, seed = its own rhythm, motion = the species' share (Kind.earMotion),
---   twitch = 0..1 through a twitch (Species.twitch), back = 0..1 lying back (sprinting), flat = 0..1 flattened (hurt;
---   1 when dead). X tilts the ear back, Y swivels it, Z rolls it out to its side.
-function Species.earAngles(
-	t: number,
-	side: number,
-	seed: number,
-	motion: number,
-	twitch: number,
-	back: number,
-	flat: number,
-	cfg: any
-): (number, number, number)
+-- One ear's wanted angles (degrees about the head's X and Y at its pivot) at time `t`: only an idle sway (user
+-- 2026-10-25: twitching, lying back and flattening poked the ears out through the helmet holes).
+--   side = 1 right / -1 left, seed = its own rhythm, motion = the species' share (Kind.earMotion).
+--   X tilts the ear back, Y swivels it.
+function Species.earAngles(t: number, side: number, seed: number, motion: number, cfg: any): (number, number)
 	local sway = math.sin((t * cfg.swayHz + seed) * 2 * math.pi) * cfg.swayDeg
-	local x = sway * cfg.swayTilt + back * cfg.sprintBackDeg + flat * cfg.hurtFlatDeg
-	local y = side * (sway * cfg.swaySwivel + twitch * cfg.twitchDeg)
-	local z = -side * flat * cfg.hurtFlatDeg * cfg.flatRoll
-	return x * motion, y * motion, z * motion
-end
-
--- A twitch's shape over its `time`: up fast, back down, 0 outside.
-function Species.twitch(since: number, time: number): number
-	if since < 0 or since > time then
-		return 0
-	end
-	return math.sin(since / time * math.pi)
-end
-
--- How flat the ears lie `since` seconds after a hit (1 at the hit, 0 after `time`).
-function Species.hurt(since: number, time: number): number
-	if since < 0 or since >= time then
-		return 0
-	end
-	return 1 - since / time
+	return sway * cfg.swayTilt * motion, side * sway * cfg.swaySwivel * motion
 end
 
 -- Tail segment `i` of `n`: its wanted angles (degrees about the Torso's X and Y at its joint) at time `t`, moving
