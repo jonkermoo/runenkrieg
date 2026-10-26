@@ -9,6 +9,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local HudCfg = require(Shared.Config.Hud)
 local Palette = require(Shared.Config.Palette)
 local Spec = require(Shared.ui.CombatHud) :: any
 
@@ -127,9 +128,10 @@ function HudKit.panel(id: string, guiName: string): Panel
 			local v = Instance.new("ViewportFrame")
 			v.BackgroundColor3 = rgb(n.color)
 			v.BorderSizePixel = 0
-			v.Ambient = Color3.fromRGB(150, 150, 150)
-			v.LightColor = Color3.fromRGB(255, 244, 224)
-			v.LightDirection = Vector3.new(-0.4, -1, -0.6)
+			v.Ambient = rgb("viewAmbient")
+			v.LightColor = rgb("viewLight")
+			local l = HudCfg.Light
+			v.LightDirection = Vector3.new(l[1], l[2], l[3])
 			local corner = Instance.new("UICorner")
 			corner.CornerRadius = UDim.new(0, T.corner)
 			corner.Parent = v

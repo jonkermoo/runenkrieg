@@ -133,7 +133,7 @@ function StaffHud.start()
 		if locked then
 			if now >= nextFlicker then
 				flickerUntil = now + S.flicker.time
-				nextFlicker = now + S.flicker.every * (0.5 + rng:NextNumber())
+				nextFlicker = now + S.flicker.every * (1 + S.flicker.jitter * (2 * rng:NextNumber() - 1))
 			end
 			if now < flickerUntil then
 				bright *= S.flicker.depth

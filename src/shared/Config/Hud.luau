@@ -15,6 +15,12 @@ local Hud = {
 	-- the shared round's library model (Config/Assets ammo_rifle: Case + Bullet, the spent Casing, Origin at the head)
 	Round = { "Weapons", "Shared", "Ammo", "ammo_rifle" },
 
+	-- the cut-aways' light (the ViewportFrames: a direction; its colours in Palette.UI.Hud viewAmbient / viewLight)
+	Light = { -0.4, -1, -0.6 },
+
+	-- the hit note (src/client/Firing): what a shot hit and how far, over the screen centre
+	HitNote = { textSize = 16, stroke = 0.5, y = -40, size = { 300, 20 } },
+
 	Gun = {
 		fov = 8, -- the viewport camera's lens (narrow: near flat, a drawing more than a photo)
 		margin = 0.12, -- share of the framed box added round it
@@ -45,7 +51,9 @@ local Hud = {
 		fade = 0.6, -- share of a throw or a drop after which it fades out
 		spentShade = 0.35, -- a fired shotgun hull, darker by this share
 		-- an empty en-bloc clip dropping out of the bottom: seconds, how far (clip heights)
-		drop = { time = 0.55, fall = 3 },
+		drop = { time = 0.55, fall = 3, tilt = 35 }, -- (tilt: degrees it tips as it falls)
+		-- a round's length and width (studs) until the weapon's own are known
+		fallback = { length = 0.2, width = 0.03 },
 		-- per weapon (modelled studs, gun space): the tube under the barrel, its first shell's head and the step
 		-- forward between shells, from the shell on the carrier at rest; where a chambered shell's head sits
 		-- (tools/blender/weapons/m1897.py: tube row 59 px, its rear 528 px, the breech face 548 px; shell row 42 px,
@@ -73,8 +81,8 @@ local Hud = {
 		bob = { height = 0.04, speed = 1.4 }, -- its float (share of its size, cycles a second)
 		empty = 0.72, -- the rock's transparency with no mana (full: 0)
 		-- burnt out (a stage 3 shot, Config/Spells.Mana.burnout): drop-outs every `every` s or so, each `time` s, down
-		-- to `depth` of its glow
-		flicker = { every = 0.18, time = 0.07, depth = 0.15 },
+		-- to `depth` of its glow (`jitter`: the gaps vary by this share either way)
+		flicker = { every = 0.18, jitter = 0.5, time = 0.07, depth = 0.15 },
 		flash = 0.4, -- full again: a white flash fading over this
 		shake = { time = 0.3, size = 5, speed = 70 }, -- a refused shot
 		-- the three stage lamps under it (Zoltraak's stages) light as the charge reaches each
@@ -99,6 +107,7 @@ local Hud = {
 		reach = { back = 2.2, front = 1.6 },
 		-- the round in the chamber (field gun; gun space at rest): its head this far behind the hinge's z, on the bore
 		chamberBack = 0.05,
+		chamberWidth = 0.3, -- (studs: the round's box framed)
 		slide = 0.35, -- seconds the round takes to go in (it goes in at Config/Artillery.Load.loaded)
 		fly = { time = 0.6, back = 1.6, up = 0.8, turns = 1 }, -- the fired case thrown out as the breech opens
 		openAt = 0.5, -- share of the breech's swing at which the case leaves

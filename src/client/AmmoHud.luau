@@ -221,7 +221,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		flying = {},
 		clipWas = false,
 		frozen = nil,
-		length = 0.2,
+		length = G.fallback.length,
 		last = os.clock(),
 	}
 
@@ -363,10 +363,14 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		v.slot = function(k: number)
 			return first * CFrame.new(0, 0, -(k - 1) * step)
 		end
-		box = grow(box, first * CFrame.new(0, 0, -(cap - 1) * step / 2), Vector3.new(0.05, 0.05, cap * step))
+		box = grow(
+			box,
+			first * CFrame.new(0, 0, -(cap - 1) * step / 2),
+			Vector3.new(v.length / 4, v.length / 4, cap * step)
+		)
 	else
 		local merged = part("Rounds")
-		local d = 0.03
+		local d = G.fallback.width
 		if liveSources[1] then
 			d = liveSources[1].Size.X * (if pieceScale then pieceScale.X else 1)
 		end
@@ -571,10 +575,12 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		local fade = math.clamp((u - G.fade) / (1 - G.fade), 0, 1)
 		local cf
 		if f.kind == "clip" then
-			cf = f.from * CFrame.new(0, -G.drop.fall * f.size * u * u, 0) * CFrame.Angles(u * 0.6, 0, 0)
+			cf = f.from
+				* CFrame.new(0, -G.drop.fall * f.size * u * u, 0)
+				* CFrame.Angles(u * math.rad(G.drop.tilt), 0, 0)
 		else
 			local fl = G.fly
-			cf = CFrame.new(0, fl.up * f.size * 4 * u * (1 - u * 0.75), fl.back * f.size * u)
+			cf = CFrame.new(0, fl.up * f.size * 4 * u * (1 - u), fl.back * f.size * u)
 				* f.from
 				* CFrame.Angles(-u * fl.turns * math.pi * 2, 0, 0)
 		end

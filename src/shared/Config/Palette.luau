@@ -290,6 +290,8 @@ local Palette = {
 			rockEmpty = { 70, 74, 80 },
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
+			viewAmbient = { 150, 150, 150 },
+			viewLight = { 255, 244, 224 },
 		},
 		-- the third-person crosshair's ring (src/client/Crosshair, Config/Camera.Crosshair), with a dark edge behind it
 		crosshair = { 236, 232, 220 },

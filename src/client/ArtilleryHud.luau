@@ -163,7 +163,7 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			local _, size = rt:GetBoundingBox()
 			v.length = math.max(size.X, size.Y, size.Z)
 		end
-		grow(v.chamber * CFrame.new(0, 0, -v.length / 2), Vector3.new(0.3, 0.3, v.length))
+		grow(v.chamber * CFrame.new(0, 0, -v.length / 2), Vector3.new(A.chamberWidth, A.chamberWidth, v.length))
 	end
 	if box then
 		-- reach behind the breech (the case thrown out, the round coming in) and in front of it
