@@ -105,6 +105,12 @@ export type Gun = {
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
 	assembly: { { names: { string }, at: number } },
+	-- gears turning as it is laid (src/client/Artillery; user 2026-10-26: "animate the gears turning as well when we
+	-- rotate the gun left and right. make sure its accurate and biting each teeth accurately"): `part` (one of its
+	-- `mount`) spins about gun-space `axis` ("X", "Y" or "Z") through `centre`, `ratio` degrees per degree of its
+	-- `by` ("traverse" or "elevation"): the tooth ratio of the pair it meshes (tools/blender/artillery/bertha.py
+	-- prints them); nil: none
+	gears: { { part: string, centre: { number }, axis: string, by: string, ratio: number } }?,
 }
 
 local Artillery = {
@@ -346,7 +352,7 @@ local Artillery = {
 		awakeGlow = 0.6,
 		breath = 0.2,
 		pulse = 1.6,
-		alsoRunes = { "BarrelRunes", "BedRunes" },
+		alsoRunes = { "BarrelRunes" }, -- (the bed's runes are gone: user 2026-10-26)
 		-- the orbiting runes' strokes (user 2026-10-26: "more ... curve. it looks too blocky"; their halos taken off
 		-- again: "it makes the runes indecipherable"): each bows `bow` of its length off true (alternate strokes the
 		-- other way) in `pieces` rounded pieces, swelling to `swell` x the stroke in its middle, `tip` x at its ends
@@ -601,7 +607,37 @@ local Artillery = {
 			asset = "artillery_howitzer",
 			name = "Magic howitzer",
 			base = "Bed",
-			mount = { "Mount", "MountTrim", "MountFittings", "MountKit", "MountMarking" },
+			mount = {
+				"Mount",
+				"MountTrim",
+				"MountFittings",
+				"MountKit",
+				"MountMarking",
+				"TraversePinion",
+				"TraverseWheel",
+				"ElevationPinion",
+				"ElevationWheel",
+			},
+			-- the traverse pinion rolls round the 60-tooth ring gear (10 teeth: 6 turns to the gun's one), its hand wheel
+			-- on its shaft; the elevating pinion (8 teeth) meshes the cradle's 50-tooth sector, against it (bertha.py)
+			gears = {
+				{ part = "TraversePinion", centre = { -5.576, 1.09, -4.515 }, axis = "Y", by = "traverse", ratio = 6 },
+				{ part = "TraverseWheel", centre = { -5.576, 4.4, -1.2 }, axis = "Z", by = "traverse", ratio = 6 },
+				{
+					part = "ElevationPinion",
+					centre = { -3.81, 3.973, -0.104 },
+					axis = "X",
+					by = "elevation",
+					ratio = -6.25,
+				},
+				{
+					part = "ElevationWheel",
+					centre = { -4.15, 3.973, -0.104 },
+					axis = "X",
+					by = "elevation",
+					ratio = -6.25,
+				},
+			},
 			cradle = { "Cradle", "CradleTrim" },
 			barrel = { "Barrel", "BarrelRunes", "Bore", "BarrelTrim" },
 			breech = { "Breech", "Crystal", "CrystalCracks" },
@@ -743,7 +779,7 @@ local Artillery = {
 			-- the bed and its ring gear first, then the carriage, the cradle, the barrel, the breech and gem last
 			assembly = {
 				{ names = { "Bed", "RingGear" }, at = 0 },
-				{ names = { "Mount" }, at = 1 },
+				{ names = { "Mount", "Traverse", "Elevation" }, at = 1 },
 				{ names = { "Cradle" }, at = 2 },
 				{ names = { "Barrel", "Bore" }, at = 3 },
 				{ names = { "Breech", "Crystal" }, at = 4 },

@@ -135,7 +135,7 @@ local Palette = {
 			Olive = { 98, 102, 66 },
 			White = { 192, 190, 180 }, -- off-white, as the Brodie helmet
 		},
-		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed" },
+		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed", "TraverseWheel", "ElevationWheel" },
 		-- the small pieces (user 2026-10-26: "more micro designs and accents/secondary colors on the artillery ... make it
 		-- different per team"): a mesh named <part><Role> (MountTrim, CarriageFittings, ...) takes its team's colour for
 		-- that role: Trim bands and edging, Fittings rivets, bolts, caps, data plates and chains, Kit the tool and ammo
@@ -167,7 +167,9 @@ local Palette = {
 		Tyres = { 58, 58, 60 },
 		Barrel = { 96, 98, 102 },
 		Breech = { 70, 72, 76 },
-		RingGear = { 64, 64, 66 }, -- the howitzer's toothed ring (dark steel)
+		RingGear = { 64, 64, 66 }, -- the howitzer's toothed ring (dark steel), and the pinions meshing it
+		TraversePinion = { 64, 64, 66 },
+		ElevationPinion = { 64, 64, 66 },
 		Bore = { 8, 8, 8 },
 		EarthBox = { 120, 86, 54 },
 		Earth = { 112, 90, 62 },

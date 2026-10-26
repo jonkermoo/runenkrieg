@@ -204,6 +204,19 @@ local function pose(model: Model, p: Pose, dt: number)
 	for part, rest in p.rest do
 		part.CFrame = frames[p.stage[part]] * rest
 	end
+	-- its gears turning with the lay, each by its tooth ratio about its own axis (Config/Artillery `gears`)
+	for _, g in gun.gears or {} do
+		local part = p.named[g.part]
+		if part then
+			local spin = math.rad(g.ratio * (if g.by == "traverse" then p.traverse else p.elevation))
+			local turn = if g.axis == "X"
+				then CFrame.Angles(spin, 0, 0)
+				elseif g.axis == "Y" then CFrame.Angles(0, spin, 0)
+				else CFrame.Angles(0, 0, spin)
+			local c = CFrame.new(v3(g.centre))
+			part.CFrame = frames[1] * c * turn * c:Inverse() * p.rest[part]
+		end
+	end
 	-- its shell holes (src/server/Artillery, Config/Artillery.Wreck) ride the moving part each was punched into
 	local damage = model:FindFirstChild("Damage")
 	if damage then
