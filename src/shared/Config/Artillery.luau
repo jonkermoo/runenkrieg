@@ -233,6 +233,13 @@ local Artillery = {
 	-- The parts can't be touched, stood on or shot; the barrel sits at the gun's lowest lay.
 	Assembly = { quarters = 4 },
 
+	-- The earth a gun stands on, part of the gun (user 2026-10-26: "the ground below the howitzer can be destroyed ...
+	-- make sure its part of the model so it has a hitbox. same applies for the field cannon"): a block of earth under
+	-- its footprint, `pad` studs out past it, from the ground it stands on down `depth` studs, in Palette.Terrain
+	-- `color`; when blasts carve the terrain away round and under it, the gun still stands on it, and it counts as the
+	-- gun for hits (its box).
+	Ground = { pad = 0.5, depth = 5, color = "Mud" },
+
 	-- The reload bar (bottom centre while manning; Palette.UI)
 	Bar = { width = 220, height = 12, margin = 90, text = 16 },
 
@@ -263,14 +270,11 @@ local Artillery = {
 		awakeGlow = 0.6,
 		breath = 0.2,
 		pulse = 1.6,
-		alsoRunes = { "BarrelRunes", "BedRunes", "BarrelRunesGlow", "BedRunesGlow" },
-		-- the runes' halos (Palette.Artillery.Halos) breathe with the glow: `transparency` lit .. dark, a shimmer of
-		-- `shimmer` at `rate` rad/s (user 2026-10-26: "give all the current rune symbols more life")
-		halo = { transparency = { 0.55, 0.92 }, shimmer = 0.08, rate = 2.3 },
-		-- the orbiting runes' strokes (user: "more ... curve. it looks too blocky"): each bows `bow` of its length off
-		-- true (alternate strokes the other way) in `pieces` rounded pieces, swelling to `swell` x the stroke in its
-		-- middle and thinning to `tip` x at its ends; a halo `halo` x as wide, `haloFade` more see-through, under it
-		strokes = { bow = 0.1, pieces = 3, swell = 1.2, tip = 0.55, halo = 2.4, haloFade = 0.6 },
+		alsoRunes = { "BarrelRunes", "BedRunes" },
+		-- the orbiting runes' strokes (user 2026-10-26: "more ... curve. it looks too blocky"; their halos taken off
+		-- again: "it makes the runes indecipherable"): each bows `bow` of its length off true (alternate strokes the
+		-- other way) in `pieces` rounded pieces, swelling to `swell` x the stroke in its middle, `tip` x at its ends
+		strokes = { bow = 0.1, pieces = 3, swell = 1.2, tip = 0.55 },
 		runesFloor = 0.15,
 		light = { range = 14, brightness = 2.5 },
 		runes = 8,
@@ -523,7 +527,7 @@ local Artillery = {
 			base = "Bed",
 			mount = { "Mount", "MountTrim", "MountFittings", "MountKit", "MountMarking" },
 			cradle = { "Cradle", "CradleTrim" },
-			barrel = { "Barrel", "BarrelRunes", "BarrelRunesGlow", "Bore", "BarrelTrim" },
+			barrel = { "Barrel", "BarrelRunes", "Bore", "BarrelTrim" },
 			breech = { "Breech", "Crystal", "CrystalCracks" },
 			trunnion = { 0, 7.4, 0.5 },
 			hinge = { 0, 7.4, 3.1 }, -- (the breech never opens)

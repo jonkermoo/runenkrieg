@@ -175,13 +175,7 @@ local Palette = {
 		BarrelRunes = { 120, 200, 255 },
 		Crystal = { 175, 235, 255 },
 		CrystalCracks = { 235, 250, 255 }, -- the cracks over the howitzer's gem (src/client/ArtilleryCrystal)
-		-- the runes' halos (user 2026-10-26: "give all the current rune symbols more life"): wide see-through copies
-		-- of the strokes under them, glowing; `HaloTransparency` while lit (src/client/ArtilleryCrystal pulses it)
-		BedRunesGlow = { 120, 200, 255 },
-		BarrelRunesGlow = { 120, 200, 255 },
-		Halos = { "BedRunesGlow", "BarrelRunesGlow" },
-		HaloTransparency = 0.65,
-		Glowing = { "BedRunes", "BarrelRunes", "BedRunesGlow", "BarrelRunesGlow", "Crystal", "CrystalCracks" },
+		Glowing = { "BedRunes", "BarrelRunes", "Crystal", "CrystalCracks" },
 		-- a damaged gun is scorched toward this (Config/Artillery.Wreck), its glowing parts dead at `Dead`
 		Scorched = { 34, 30, 28 },
 		Hole = { 20, 18, 17 }, -- a shell hole's dark inside (Config/Artillery.Wreck)

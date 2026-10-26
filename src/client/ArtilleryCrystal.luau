@@ -6,10 +6,9 @@
 -- - the crystal (and the barrel's and bed's rune bands with it) flares white-hot on the shot, drains near black, then
 --   life creeps back: sputtering, a heartbeat quickening, the colour filling in; full, it blooms and then breathes;
 -- - a light inside it, as bright as it glows;
--- - a ring of Elder Futhark runes (Config/Runes strokes, curved rounded brush strokes with a soft halo, facing the
+-- - a ring of Elder Futhark runes (Config/Runes strokes, curved rounded brush strokes, facing the
 --   camera) circling level round it, each waking in turn as it charges, flickering on; on the shot they scatter outward
 --   and fade;
--- - the halos under the barrel's and bed's carved runes breathing with the glow and shimmering;
 -- - motes of light drawn into it while it charges.
 --   ArtilleryCrystal.new(model, crystal) -> state; .update(state, now, firedAt, readyAt, reload); .destroy(state)
 
@@ -17,7 +16,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Artillery).Crystal
-local Palette = require(Shared.Config.Palette)
 local RuneStrokes = require(Shared.Config.Runes)
 local Rules = require(Shared.Rules.Artillery)
 
@@ -36,11 +34,10 @@ export type State = {
 	flareUntil: number, -- knocked out: a weak flare running until then
 	seed: number,
 	bands: { BasePart },
-	halos: { BasePart }, -- the carved runes' halos (Palette.Artillery.Halos)
 	light: PointLight,
 	motes: ParticleEmitter,
 	holder: Attachment,
-	runes: { { gui: BillboardGui, strokes: { Frame }, halos: { Frame } } },
+	runes: { { gui: BillboardGui, strokes: { Frame } } },
 	angle: number,
 	last: number,
 }
@@ -67,9 +64,9 @@ local function piece(parent: GuiObject, x0: number, y0: number, x1: number, y1: 
 end
 
 -- a rune's strokes in a box `w` x `h` studs (scale units, so they keep their shape at any distance): each bowed into a
--- curve of rounded pieces, swelling in the middle (Cfg.strokes), a wide faint halo under it
-local function drawRune(parent: GuiObject, name: string, w: number, h: number): ({ Frame }, { Frame })
-	local strokes, halos = {}, {}
+-- curve of rounded pieces, swelling in the middle (Cfg.strokes)
+local function drawRune(parent: GuiObject, name: string, w: number, h: number): { Frame }
+	local strokes = {}
 	local C = Cfg.strokes
 	for k, s in RuneStrokes[name] do
 		local du, dv = s[3] - s[1], s[4] - s[2]
@@ -88,17 +85,10 @@ local function drawRune(parent: GuiObject, name: string, w: number, h: number): 
 			local x0, y0 = at(t0)
 			local x1, y1 = at(t1)
 			local thick = Cfg.stroke * (C.tip + (C.swell - C.tip) * math.sin(math.pi * (t0 + t1) / 2))
-			table.insert(halos, piece(parent, x0, y0, x1, y1, w, h, thick * C.halo))
 			table.insert(strokes, piece(parent, x0, y0, x1, y1, w, h, thick))
 		end
 	end
-	for _, f in halos do
-		f.ZIndex = 1
-	end
-	for _, f in strokes do
-		f.ZIndex = 2
-	end
-	return strokes, halos
+	return strokes
 end
 
 function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
@@ -150,9 +140,9 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 		frame.Size = UDim2.fromScale(1, 1)
 		frame.BackgroundTransparency = 1
 		frame.Parent = gui
-		local strokes, halos = drawRune(frame, NAMES[(i - 1) % #NAMES + 1], w, h)
+		local strokes = drawRune(frame, NAMES[(i - 1) % #NAMES + 1], w, h)
 		gui.Parent = holder
-		table.insert(runes, { gui = gui, strokes = strokes, halos = halos })
+		table.insert(runes, { gui = gui, strokes = strokes })
 	end
 
 	local bands = {}
@@ -160,13 +150,6 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 		local b = model:FindFirstChild(name, true)
 		if b and b:IsA("BasePart") then
 			table.insert(bands, b)
-		end
-	end
-	local halos = {}
-	for _, name in Palette.Artillery.Halos do
-		local b = model:FindFirstChild(name, true)
-		if b and b:IsA("BasePart") then
-			table.insert(halos, b)
 		end
 	end
 	local cracks = model:FindFirstChild("CrystalCracks", true)
@@ -178,7 +161,6 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 		flareUntil = 0,
 		seed = math.random() * 100,
 		bands = bands,
-		halos = halos,
 		light = light,
 		motes = motes,
 		holder = holder,
@@ -260,16 +242,6 @@ function ArtilleryCrystal.update(
 	for _, b in s.bands do
 		b.Color = bandColor
 	end
-	-- their halos breathe with it and shimmer
-	local H = Cfg.halo
-	local lift = math.clamp(glow, 0, 1)
-	local shimmer = H.shimmer * math.sin(clock * H.rate + s.seed)
-	for _, b in s.halos do
-		if b.Transparency < 1 then -- (unseen while built, or dead)
-			b.Transparency =
-				math.clamp(H.transparency[2] + (H.transparency[1] - H.transparency[2]) * lift + shimmer, 0, 0.99)
-		end
-	end
 	local lit = math.clamp(glow, 0, 1.5)
 	s.light.Color = color
 	s.light.Range = Cfg.light.range * math.max(lit, 0.05)
@@ -308,11 +280,6 @@ function ArtilleryCrystal.update(
 		for _, f in r.strokes do
 			f.BackgroundColor3 = runeColor
 			f.BackgroundTransparency = fade
-		end
-		local haloFade = 1 - (1 - fade) * (1 - Cfg.strokes.haloFade)
-		for _, f in r.halos do
-			f.BackgroundColor3 = runeColor
-			f.BackgroundTransparency = haloFade
 		end
 	end
 end

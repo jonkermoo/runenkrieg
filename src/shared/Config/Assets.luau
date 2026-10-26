@@ -163,11 +163,12 @@ local Assets = {
 			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
 		},
 		artillery_howitzer = {
-			-- v8 (user 2026-10-26: curved brush-stroke runes with glowing halos, BedRunesGlow / BarrelRunesGlow; round
-			-- rivets; v7 127169406913245: team accent pieces <part>Trim / Fittings / Kit / Marking,
+			-- v9 (user 2026-10-26: curved brush-stroke runes, their halos taken off again: "it makes the runes
+			-- indecipherable"; v8 98289221398793 had them); round rivets; v7 127169406913245: team accent pieces <part>Trim
+			-- / Fittings / Kit / Marking,
 			-- Config/Palette.Artillery.Team; v6 70753419490474, Bertha v11, the bigger cracked gem; v10 82040723469817;
 			-- before it the BL 9.2-inch at 1.3x, 82367327569698)
-			id = 98289221398793,
+			id = 120030284881139,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/artillery_bertha.fbx",

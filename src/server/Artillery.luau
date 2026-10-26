@@ -120,10 +120,6 @@ local function paint(model: Model, team: string)
 			if table.find(art.Glowing, d.Name) then
 				d.Material = Enum.Material.Neon
 			end
-			if table.find(art.Halos, d.Name) then
-				d.Transparency = art.HaloTransparency
-				d.CastShadow = false
-			end
 		end
 	end
 end
@@ -526,7 +522,7 @@ type Built = {
 	rest: { [BasePart]: CFrame },
 	at: { [BasePart]: number },
 	moves: { [BasePart]: number },
-	alpha: { [BasePart]: number }, -- its own transparency (the runes' halos)
+	alpha: { [BasePart]: number }, -- its own transparency
 }
 local built: { [Model]: Built } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -575,10 +571,49 @@ function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: num
 		* CFrame.Angles(math.rad(math.clamp(0, gun.elevation[1], gun.elevation[2])), 0, 0)
 		* trunnion:Inverse()
 	for p, rest in b.rest do
-		local shown = b.at[p] ~= nil and b.at[p] <= quarters
+		-- (user 2026-10-26: "the runes shouldn't be active until the cannon is built": nothing glows while built)
+		local shown = b.at[p] ~= nil and b.at[p] <= quarters and not table.find(Palette.Artillery.Glowing, p.Name)
 		p.Transparency = if shown then b.alpha[p] else 1
 		p.CFrame = at * (if (b.moves[p] or 0) >= 2 then lay * rest else rest)
 	end
+end
+
+-- The earth block a placed gun stands on (Config/Artillery.Ground): under its footprint in gun space, from the ground
+-- (the pivot) down, part of the gun
+local function standOn(model: Model)
+	local G = Cfg.Ground
+	local pivot = model:GetPivot()
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			local half = d.Size / 2
+			for _, c in
+				{
+					Vector3.new(1, 1, 1),
+					Vector3.new(1, 1, -1),
+					Vector3.new(1, -1, 1),
+					Vector3.new(-1, 1, 1),
+					Vector3.new(1, -1, -1),
+					Vector3.new(-1, 1, -1),
+					Vector3.new(-1, -1, 1),
+					Vector3.new(-1, -1, -1),
+				}
+			do
+				local l = pivot:PointToObjectSpace(d.CFrame:PointToWorldSpace(half * c))
+				lo, hi = lo:Min(l), hi:Max(l)
+			end
+		end
+	end
+	local p = Instance.new("Part")
+	p.Name = "Ground"
+	p.Anchored = true
+	p.CanCollide, p.CanQuery, p.CanTouch = true, true, false
+	p.Material = Enum.Material.SmoothPlastic
+	p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+	p.Color = rgb((Palette.Terrain :: any)[G.color])
+	p.Size = Vector3.new(hi.X - lo.X + 2 * G.pad, G.depth, hi.Z - lo.Z + 2 * G.pad)
+	p.CFrame = pivot * CFrame.new((lo.X + hi.X) / 2, -G.depth / 2 - 0.02, (lo.Z + hi.Z) / 2)
+	p.Parent = model
 end
 
 -- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
@@ -604,6 +639,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
+	standOn(model)
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
 	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)
@@ -847,9 +883,6 @@ local function wreck(s: State)
 		if dark and table.find(art.Glowing, p.Name) then
 			p.Color = dead
 			p.Material = Enum.Material.SmoothPlastic
-			if table.find(art.Halos, p.Name) then
-				p.Transparency = 1 -- (a dead rune has no glow)
-			end
 		else
 			p.Color = c:Lerp(scorched, W.scorch[stage] or 0)
 		end
@@ -904,10 +937,12 @@ local function blast(position: Vector3, kg: number, structure: string?)
 		end
 		local d = off(cf, size)
 		-- its platform: a flat pad round its foot that counts as the gun (Config `platform`)
+		-- (from the top of the earth it stands on, Config/Artillery.Ground)
 		local pf = s.gun.platform
-		if pf then
-			local foot = cf * CFrame.new(0, (pf.thick - size.Y) / 2, 0)
-			d = math.min(d, off(foot, Vector3.new(size.X + 2 * pf.pad, pf.thick, size.Z + 2 * pf.pad)))
+		local ground = model:FindFirstChild("Ground")
+		if pf and ground and ground:IsA("BasePart") then
+			local top = ground.CFrame * CFrame.new(0, (ground.Size.Y + pf.thick) / 2, 0)
+			d = math.min(d, off(top, Vector3.new(ground.Size.X + 2 * pf.pad, pf.thick, ground.Size.Z + 2 * pf.pad)))
 		end
 		local amount = Rules.gunHit(d, src, H.direct)
 		if amount > 0 then
