@@ -257,6 +257,11 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		return
 	end
 	local o: BlastOpts = opts or {}
+	local perfT0 = os.clock()
+	local perf = {}
+	local function mark(name: string)
+		table.insert(perf, `{name}={math.round((os.clock() - perfT0) * 1000)}`)
+	end
 	local reach = Blast.studsAt(B.Reach, kg, B.MetresPerStud)
 	local function kpaAt(d: number): number
 		return Blast.kpa(d, kg, B)
@@ -284,19 +289,24 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		local destroy = class and (B.Destroy :: any)[class]
 		return if destroy then Blast.reachOf(destroy, kg, B) else 0
 	end)
+	mark("destr")
 	-- the crater first, so the trees it fells lie on the ground as it is after
 	if o.crater ~= false then
 		Ground.crater(position, Blast.craterPlan(kg, B.Crater, o.craterScale), B.Crater)
 	end
+	mark("crater")
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
 	-- player-built pieces: trenches buried, sandbags and wire worn down (src/server/Build, Config/Build.Structures)
+	mark("trees")
 	Build.blast(position, kg, o.structure)
+	mark("build")
 	-- and whatever else watches blasts (the guns: src/server/Artillery)
 	for _, watch in watchers do
 		watch(position, kg, o.structure)
 	end
+	mark("watch")
 	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
 	local everyone = Dev.soldiers()
 	local soldiers: { Model } = if o.soldiers == false then {} else everyone
@@ -330,6 +340,8 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	end
 	-- everyone else near it, with nothing in the hands, ducks and holds the helmet (src/server/Flinch)
 	Flinch.blast(position, kg, o.fragments and o.fragments.wound, knocked, everyone)
+	mark("soldiers")
+	print(`[Perf] blast {kg}kg {table.concat(perf, " ")} ms`)
 end
 
 -- A staff stage's blast at `position` (Config/Damage.Staff.Charge and Blasts), set off by `by`.

@@ -78,6 +78,7 @@ function DevWorld.save()
 end
 
 function DevWorld.undo()
+	local perfT0 = os.clock()
 	for _, s in saved do
 		if s.live then
 			s.live:Destroy()
@@ -86,9 +87,13 @@ function DevWorld.undo()
 		fresh.Parent = s.parent
 		s.live = fresh
 	end
+	local perfT1 = os.clock()
 	if terrain and corner then
 		workspace.Terrain:PasteRegion(terrain, corner, true)
 	end
+	print(
+		`[Perf] undo copies={math.round((perfT1 - perfT0) * 1000)}ms paste={math.round((os.clock() - perfT1) * 1000)}ms`
+	)
 	print(`[DevWorld] put back {#saved} buildings, sections and trees`)
 end
 
