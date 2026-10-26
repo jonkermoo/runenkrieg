@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HudCfg = require(Shared.Config.Hud)
 local Palette = require(Shared.Config.Palette)
+local Uniforms = require(Shared.Config.Uniforms)
 local Spec = require(Shared.ui.CombatHud) :: any
 
 local HudKit = {}
@@ -81,6 +82,7 @@ local function rivets(obj: GuiObject)
 		d.Size = UDim2.fromOffset(r, r)
 		d.BackgroundColor3 = rgb("brassDark")
 		d.BorderSizePixel = 0
+		d:AddTag("HudRivet")
 		d.ZIndex = 3
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0.5, 0)
@@ -97,6 +99,7 @@ export type Panel = {
 	node: { [string]: GuiObject },
 	set: (bind: string, text: string) -> (),
 	fill: (id: string, share: number, color: Color3?) -> (),
+	team: (kit: any) -> (),
 }
 
 function HudKit.panel(id: string, guiName: string): Panel
@@ -182,10 +185,34 @@ function HudKit.panel(id: string, guiName: string): Panel
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	rescale()
 
+	-- the team's colours on the box (its field, rim and rivets), whenever the kit changes
+	local kitNow: any = false
+	local function team(kit: any)
+		if kit == kitNow then
+			return
+		end
+		kitNow = kit
+		local t = (C.Teams :: any)[kit] or C.Teams[Uniforms.Default]
+		local function c3(c: { number }): Color3
+			return Color3.fromRGB(c[1], c[2], c[3])
+		end
+		panel.BackgroundColor3 = c3(t.field)
+		local stroke = panel:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Color = c3(t.rim)
+		end
+		for _, d in panel:GetChildren() do
+			if d:HasTag("HudRivet") then
+				(d :: Frame).BackgroundColor3 = c3(t.rivet)
+			end
+		end
+	end
+
 	return {
 		gui = gui,
 		panel = panel,
 		node = nodes,
+		team = team,
 		set = function(bind: string, text: string)
 			local l = binds[bind]
 			if l and l.Text ~= text then

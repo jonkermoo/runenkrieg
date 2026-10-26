@@ -1,6 +1,6 @@
 {
 	"name": "CombatHud",
-	"_doc": "The combat HUD, quartermaster's brass (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). Three panels, one shown at a time: the gun's (bottom right), the staff's in the same place, the artillery crew's (bottom centre). Each `model` node is a ViewportFrame drawing the cut-away. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. Desktop only.",
+	"_doc": "The combat HUD, quartermaster's brass (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). Three panels in the player's team colours (Palette.UI.Hud.Teams), no titles, one shown at a time: the gun's (bottom right), the staff's in the same place, the artillery crew's (bottom centre). Each `model` node is a ViewportFrame drawing the cut-away. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. Desktop only.",
 	"theme": {
 		"palette": "Hud",
 		"scale": {
@@ -30,11 +30,8 @@
 		"rivet": 5
 	},
 	"preview": {
-		"weapon": "Winchester M1897",
 		"count": "15+1",
 		"hint": "R: new magazine",
-		"staff": "Staff",
-		"gun": "QF 18-pounder",
 		"elevation": "Elev +16.0°",
 		"traverse": "Trav -4.5°",
 		"status": "Charging"
@@ -80,67 +77,15 @@
 							0,
 							10,
 							0,
-							20
+							10
 						],
 						"size": [
 							1,
 							-20,
 							1,
-							-30
+							-20
 						],
 						"color": "window"
-					},
-					{
-						"id": "GunPlate",
-						"kind": "panel",
-						"overlay": true,
-						"center": true,
-						"anchor": [
-							0.5,
-							0
-						],
-						"pos": [
-							0.5,
-							0,
-							0,
-							-12
-						],
-						"size": [
-							0,
-							196,
-							0,
-							26
-						],
-						"color": "brass",
-						"line": "brassDark",
-						"children": [
-							{
-								"id": "GunName",
-								"kind": "label",
-								"font": "title",
-								"bind": "weapon",
-								"text": "",
-								"textSize": 18,
-								"textColor": "plateText",
-								"center": true,
-								"anchor": [
-									0.5,
-									0.5
-								],
-								"pos": [
-									0.5,
-									0,
-									0.5,
-									0
-								],
-								"size": [
-									1,
-									-12,
-									1,
-									0
-								]
-							}
-						]
 					},
 					{
 						"id": "Count",
@@ -253,67 +198,15 @@
 							0,
 							10,
 							0,
-							20
+							10
 						],
 						"size": [
 							1,
 							-20,
 							1,
-							-62
+							-52
 						],
 						"color": "window"
-					},
-					{
-						"id": "StaffPlate",
-						"kind": "panel",
-						"overlay": true,
-						"center": true,
-						"anchor": [
-							0.5,
-							0
-						],
-						"pos": [
-							0.5,
-							0,
-							0,
-							-12
-						],
-						"size": [
-							0,
-							150,
-							0,
-							26
-						],
-						"color": "brass",
-						"line": "brassDark",
-						"children": [
-							{
-								"id": "StaffName",
-								"kind": "label",
-								"font": "title",
-								"bind": "staff",
-								"text": "",
-								"textSize": 18,
-								"textColor": "plateText",
-								"center": true,
-								"anchor": [
-									0.5,
-									0.5
-								],
-								"pos": [
-									0.5,
-									0,
-									0.5,
-									0
-								],
-								"size": [
-									1,
-									-12,
-									1,
-									0
-								]
-							}
-						]
 					},
 					{
 						"id": "Lamps",
@@ -429,67 +322,15 @@
 							0,
 							10,
 							0,
-							20
+							10
 						],
 						"size": [
 							0,
 							290,
 							1,
-							-30
+							-20
 						],
 						"color": "window"
-					},
-					{
-						"id": "ArtilleryPlate",
-						"kind": "panel",
-						"overlay": true,
-						"center": true,
-						"anchor": [
-							0.5,
-							0
-						],
-						"pos": [
-							0.5,
-							0,
-							0,
-							-12
-						],
-						"size": [
-							0,
-							220,
-							0,
-							26
-						],
-						"color": "brass",
-						"line": "brassDark",
-						"children": [
-							{
-								"id": "ArtilleryName",
-								"kind": "label",
-								"font": "title",
-								"bind": "gun",
-								"text": "",
-								"textSize": 18,
-								"textColor": "plateText",
-								"center": true,
-								"anchor": [
-									0.5,
-									0.5
-								],
-								"pos": [
-									0.5,
-									0,
-									0.5,
-									0
-								],
-								"size": [
-									1,
-									-12,
-									1,
-									0
-								]
-							}
-						]
 					},
 					{
 						"id": "Readouts",

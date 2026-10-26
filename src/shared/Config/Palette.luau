@@ -295,6 +295,13 @@ local Palette = {
 			bolt = { 120, 124, 130 },
 			follower = { 150, 120, 62 },
 			outline = { 150, 124, 70 },
+			-- each team's box (user 2026-10-26: "make it the team coloring"; by the "Kit": Config/Uniforms): its field,
+			-- its rim and rivets, as the uniforms (grey: slate; olive: olive drab; white: chocolate and off-white)
+			Teams = {
+				uniform1 = { field = { 28, 31, 34 }, rim = { 128, 136, 144 }, rivet = { 84, 90, 96 } },
+				uniform2 = { field = { 28, 32, 22 }, rim = { 150, 156, 96 }, rivet = { 98, 102, 62 } },
+				uniform3 = { field = { 38, 29, 23 }, rim = { 200, 190, 170 }, rivet = { 120, 92, 70 } },
+			},
 			viewAmbient = { 150, 150, 150 },
 			viewLight = { 255, 244, 224 },
 		},

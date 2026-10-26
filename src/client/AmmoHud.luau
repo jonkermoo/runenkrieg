@@ -11,7 +11,7 @@
 --   as the gun's rounds do (an en-bloc clip coming in, a box swapped), and an empty en-bloc clip drops out;
 -- - the chamber: the live round, or the fired case; as the gun's bolt (src/client/GunFx moves it) comes back the case
 --   rides back with it and is thrown out, and closing pushes the next round up out of the magazine into the chamber;
--- - the weapon's name on a brass plate, the count (magazine + chamber), and a red plate saying what to do next.
+-- - the count (magazine + chamber), and a red plate saying what to do next; the box in the team's colours.
 -- src/client/Firing feeds it the predicted state every frame (AmmoHud.show).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -756,8 +756,8 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 	end
 	update(current :: View, state, gun, now, os.clock())
 
-	-- the plates
-	p.set("weapon", W[weapon].display)
+	-- the box in the team's colours, the count and the hint
+	p.team(tool.Parent and (tool.Parent :: Instance):GetAttribute("Kit"))
 	local total = F.magazineAt(state, now) + (if state.chambered then 1 else 0)
 	p.set("count", `{F.magazineAt(state, now)}+{if state.chambered then 1 else 0}`)
 	local countLabel = p.node.Count :: TextLabel
