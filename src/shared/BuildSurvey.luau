@@ -6,12 +6,14 @@
 -- A piece's frame: its centre on the ground, RightVector along its width, LookVector to its front. Laid pieces carry
 -- attributes: "Piece" (Config/Build key), "Team", "Frame" (CFrame), "Size" (Vector3: width, height, depth). Trench
 -- blocks (src/server/Trenches) carry "Kind" = "TrenchBlock", "Team", "BlockA" / "BlockB" (their ends on the ground),
--- "LinkA" / "LinkB" ("end", "tee" or "" for a dead end), "Work", "Need".
+-- "LinkA" / "LinkB" ("end", "tee" or "" for a dead end), "Work", "Need". A gun piece's "Frame" is its footprint's
+-- centre (Survey.box); "At" (CFrame) is the gun itself, on the ground, looking out along the muzzle.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Build)
+local ArtilleryCfg = require(Shared.Config.Artillery)
 local Rules = require(Shared.Rules.Build)
 
 local Survey = {}
@@ -27,6 +29,11 @@ function Survey.footprint(piece: Rules.Piece): Vector3
 		return Vector3.new(piece.width, piece.rows * piece.row, piece.depth)
 	end
 	return Vector3.new(piece.width, piece.height, piece.depth)
+end
+
+-- the centre of a piece's footprint laid at `frame` (a gun's lies `back` studs behind it)
+function Survey.box(piece: Rules.Piece, frame: CFrame): CFrame
+	return frame * CFrame.new(0, 0, piece.back or 0)
 end
 
 -- the frame flattened to a yaw at `at`
@@ -100,7 +107,8 @@ end
 
 -- Whether a piece laid at `frame` (ground `low`) runs into anything standing over its footprint (buildings, trees,
 -- props, other pieces, soldiers). Trench blocks don't count: sandbags and wire go on their banks. `ignore` is left out
--- of the search (the client's ghost).
+-- of the search (the builder, the client's ghost). Soldiers don't stop a gun (its ground is wide: they step aside or
+-- fall in its pit).
 function Survey.blocked(piece: Rules.Piece, frame: CFrame, low: number, ignore: { Instance }?): boolean
 	local size = Survey.footprint(piece)
 	local params = OverlapParams.new()
@@ -119,8 +127,63 @@ function Survey.blocked(piece: Rules.Piece, frame: CFrame, low: number, ignore: 
 		local model = part:FindFirstAncestorWhichIsA("Model")
 		local soldier = model and model:FindFirstChildOfClass("Humanoid") ~= nil
 		local trench = model and model:GetAttribute("Kind") == "TrenchBlock"
-		if (part.CanCollide or soldier) and not trench then
+		local stops = if soldier then piece.kind ~= "Gun" else part.CanCollide
+		if stops and not trench then
 			return true
+		end
+	end
+	return false
+end
+
+-- Whether a gun piece laid with its gun at `at` comes too close to another gun (Rules.gunsClear): the guns standing
+-- in Config/Artillery.Folder ("Gun" their Config/Artillery key) and the gun pieces laid in `structures` ("At").
+-- `skip`: a gun piece left out (the client's own).
+function Survey.gunGap(piece: Rules.Piece, at: Vector3, structures: Instance?, skip: Instance?): boolean
+	local function clash(gun: any, p: Vector3): boolean
+		local other: any = nil
+		for _, q in C.Pieces do
+			if q.kind == "Gun" and q.gun == gun then
+				other = q
+			end
+		end
+		local d = Vector3.new(p.X - at.X, 0, p.Z - at.Z).Magnitude
+		return not Rules.gunsClear(d, gun == piece.gun, piece.spacing, piece.clear, if other then other.clear else 0)
+	end
+	local guns = workspace:FindFirstChild(ArtilleryCfg.Folder)
+	for _, m in (if guns then guns:GetChildren() else {}) do
+		if m:IsA("Model") and m:GetAttribute("Gun") ~= nil and clash(m:GetAttribute("Gun"), m:GetPivot().Position) then
+			return true
+		end
+	end
+	for _, m in (if structures then structures:GetChildren() else {}) do
+		local p = Rules.piece(m:GetAttribute("Piece"), C.Pieces)
+		local spot = m:GetAttribute("At")
+		-- (a standing built gun is in the Artillery folder as well: the same spot, the same verdict)
+		if m ~= skip and p and p.kind == "Gun" and typeof(spot) == "CFrame" and clash(p.gun, spot.Position) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Whether a trench (any block in `structures`, planned or dug) runs within a gun piece's `trenchGap` of its footprint
+-- at `box` (Survey.box): from the trench's line, its half width over the walls and its bank, then the gap.
+function Survey.nearTrench(piece: Rules.Piece, box: CFrame, structures: Instance?): boolean
+	local T = C.Trench
+	local reach = Rules.trenchTop(T) + T.bank.width + (piece.trenchGap or 0)
+	local hx, hz = piece.width / 2, piece.depth / 2
+	for _, m in (if structures then structures:GetChildren() else {}) do
+		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
+		if typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+			local steps = math.max(math.ceil((b - a).Magnitude), 1)
+			for i = 0, steps do
+				local l = box:PointToObjectSpace(a:Lerp(b, i / steps))
+				local dx = math.max(math.abs(l.X) - hx, 0)
+				local dz = math.max(math.abs(l.Z) - hz, 0)
+				if dx * dx + dz * dz < reach * reach then
+					return true
+				end
+			end
 		end
 	end
 	return false

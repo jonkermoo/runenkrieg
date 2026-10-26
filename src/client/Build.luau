@@ -343,29 +343,36 @@ local function surveyPiece(character: Model, root: BasePart)
 	end
 	local look = aimRay().Direction
 	local frame = Survey.frame(hit.Position, CFrame.Angles(0, math.rad(turn), 0):VectorToWorldSpace(look))
-	local report = Survey.ground(p, frame)
-	frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
+	-- (a gun: the click is where the gun goes, its ghost the ground it needs: Survey.box)
+	local gun = p.kind == "Gun"
+	local at = frame.Position
+	local box = Survey.box(p, frame)
+	local report = Survey.ground(p, box)
+	box = CFrame.new(box.Position.X, report.centre, box.Position.Z) * box.Rotation
 	local ignore: { Instance } = { character }
 	if ghost then
 		table.insert(ignore, ghost)
 	end
+	local f = workspace:FindFirstChild(C.Folder)
 	local ok, reason = Rules.canPlace({
 		piece = p,
-		distance = (root.Position - frame.Position).Magnitude,
+		distance = (root.Position - (if gun then at else box.Position)).Magnitude,
 		reach = C.Reach,
 		slope = report.slope,
 		maxSlope = p.maxSlope or T.maxSlope,
 		ground = report.ground,
 		water = report.water,
-		overlap = Survey.blocked(p, frame, report.low, ignore),
+		overlap = Survey.blocked(p, box, report.low, ignore),
+		gunGap = gun and Survey.gunGap(p, at, f),
+		nearTrench = gun and Survey.nearTrench(p, box, f),
 		mine = 0, -- (the caps are the server's to check)
 		team = 0,
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
 	})
-	current = { frame = frame, ok = ok, reason = reason }
+	current = { frame = if gun then frame else box, ok = ok, reason = reason }
 	local size = Survey.footprint(p)
-	showGhost(p.key, CFrame.new(frame.Position.X, report.low + size.Y / 2, frame.Position.Z) * frame.Rotation, size, ok)
+	showGhost(p.key, CFrame.new(box.Position.X, report.low + size.Y / 2, box.Position.Z) * box.Rotation, size, ok)
 end
 
 -- draw the planner's ghost: the squares along `dir` from `a` (none before the first click), the action icons over

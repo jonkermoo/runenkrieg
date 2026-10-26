@@ -53,6 +53,8 @@ export type Placing = {
 	ground: boolean, -- every sample found terrain under it
 	water: boolean, -- water under any sample
 	overlap: boolean, -- it overlaps a building, another piece or a soldier
+	gunGap: boolean?, -- a gun: too close to another gun (Build.gunsClear)
+	nearTrench: boolean?, -- a gun: a trench within its trenchGap
 	mine: number, -- the builder's live pieces
 	team: number, -- the team's live pieces
 	perPlayer: number,
@@ -75,6 +77,12 @@ function Build.canPlace(p: Placing): (boolean, string?)
 	end
 	if p.overlap then
 		return false, "In the way"
+	end
+	if p.gunGap then
+		return false, "Too close to another gun"
+	end
+	if p.nearTrench then
+		return false, "Too close to a trench"
 	end
 	if p.mine >= p.perPlayer then
 		return false, "You have too many pieces"
@@ -101,6 +109,32 @@ function Build.swing(work: number, need: number, ownTeam: boolean): (number, boo
 	end
 	local left = work - 1
 	return math.max(left, 0), left <= 0
+end
+
+-- Whether two guns `d` studs apart are far enough apart (Config/Build.Pieces kind "Gun"): of one kind, `spacing`;
+-- any two, their `clear`s together
+function Build.gunsClear(d: number, sameKind: boolean, spacing: number, clearA: number, clearB: number): boolean
+	return d >= clearA + clearB and (not sameKind or d >= spacing)
+end
+
+-- Whether a built gun stands at `work` of `need`: it stands up at full work and stays until the work falls under
+-- `standsFrom` of it (Config/Build.Guns), then is a blueprint again until full once more.
+function Build.gunStands(standing: boolean, work: number, need: number, standsFrom: number): boolean
+	if work >= need then
+		return true
+	end
+	if work < need * standsFrom then
+		return false
+	end
+	return standing
+end
+
+-- How much of a gun's pit is dug (0..1): all of it while the gun stands, else its stage of `stages`
+function Build.pitShare(standing: boolean, work: number, need: number, stages: number): number
+	if standing then
+		return 1
+	end
+	return Build.stageOf(work, need, stages) / math.max(stages, 1)
 end
 
 -- The shortest time between two strikes of the shovel (Config/Shovel): one swing let go of at its rest and the next

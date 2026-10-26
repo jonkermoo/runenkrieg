@@ -204,6 +204,54 @@ local Build = {
 			pickets = 4,
 			maxSlope = 30,
 		},
+		-- The guns (user 2026-10-26: "add building the artilleries to shovels"; Config/Artillery.Guns `gun`, src/server/
+		-- Artillery stands them): every team builds both, in its own paint (Guns.paint). The blueprint is the gun
+		-- see-through; `work` Build swings stand it (user: field 20, howitzer 40), the howitzer's pit (its Config/
+		-- Artillery `dig`) dug deeper at each of `stages` (user: "deeper with each stage"). A gun keeps `spacing` studs from
+		-- every other gun of its kind, any team's (user: "cannons cant be placed within certain distances of another,
+		-- howitzer with howitzer": 60 and 120), and `clear` + the other's `clear` from any gun. `width` x `depth` (`height`
+		-- high) is the ground it needs clear and gentle, its centre `back` studs behind the gun (the howitzer's: its pit to
+		-- the wall tops and the ramp behind); no trench within `trenchGap` of it (the howitzer's: its earth rim).
+		{
+			key = "FieldGun",
+			name = "Field gun",
+			kind = "Gun",
+			gun = "artillery_qf18",
+			work = 20,
+			stages = 4,
+			width = 7,
+			depth = 15,
+			height = 5,
+			back = 2,
+			maxSlope = 15,
+			spacing = 60,
+			clear = 9,
+			trenchGap = 2,
+		},
+		{
+			key = "Howitzer",
+			name = "Magic howitzer",
+			kind = "Gun",
+			gun = "artillery_howitzer",
+			work = 40,
+			stages = 8,
+			width = 44,
+			depth = 78,
+			height = 6,
+			back = 17,
+			maxSlope = 12,
+			spacing = 120,
+			clear = 36,
+			trenchGap = 14,
+		},
+	},
+
+	-- Built guns: a gun stands once its work is full and stays (manned, firing) until Destroy swings take its work under
+	-- `standsFrom` of it (user 2026-10-26: Destroy takes a gun apart like any piece); then it is a blueprint again, its
+	-- pit filling back as the work falls, gone at 0. `paint`: each kit's gun paint (Config/Palette.Artillery.Paint).
+	Guns = {
+		standsFrom = 0.75,
+		paint = { uniform1 = "Grey", uniform2 = "Olive", uniform3 = "White" },
 	},
 
 	-- Sandbags: each column a section of class "Sandbag" (Config/Damage.Blast.Fail), shovels tear the whole piece down
