@@ -114,6 +114,26 @@ export type Gun = {
 	-- set up in an MG nest (Config/Build.Nest) instead of on its own: no building site of its own (Config/Build.Scaffold),
 	-- and it fires bullets, not shells; nil: an artillery piece
 	nest: boolean?,
+	-- a nest gun's own ground kept from craters (Artillery.onGround): x, z from its pivot, lo and hi (it stands on its
+	-- nest's mount bag, no earth under it)
+	nestGround: { lo: { number }, hi: { number } }?,
+	-- a machine gun's own firing (the MG nest's; src/server/Artillery, src/client/Artillery, Rules/Artillery mg*): held
+	-- fire at `rate` rounds a minute from a box of `box` (the gun's `reload` swaps it, on the reload key or once it is
+	-- empty), each a bullet out to `range` studs hurting as Config/Damage.Weapons[`class`]; it strays `spread.min`
+	-- degrees, growing `spread.per` of the way to `spread.max` a shot and settling back at `spread.recover` of it a
+	-- second; the gunner looks from `eye` (gun space, through the rear sight, turning and lifting with the gun) at `fov`,
+	-- the mouse laying it `look` degrees a pixel; `shot` its report (Config/Audio profile Gunshot)
+	mg: {
+		rate: number,
+		box: number,
+		range: number,
+		class: string,
+		spread: { min: number, max: number, per: number, recover: number },
+		eye: { number },
+		fov: number,
+		look: number,
+		shot: any,
+	}?,
 	-- part names coloured so instead of by Palette.Artillery (the MG's gunmetal body and its belt); nil: none
 	colors: { [string]: { number } }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
@@ -816,6 +836,7 @@ local Artillery = {
 			asset = "mg08",
 			name = "MG 08",
 			nest = true,
+			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
 			mount = { "Mount", "MountTrim", "MountFittings", "MountKit", "Belt", "Rounds", "Bullets" },
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
@@ -841,7 +862,7 @@ local Artillery = {
 			breechTimes = { 0, 0 },
 			recoil = 0,
 			recoilTimes = { 0.05, 0.1 },
-			crew = { 0, 3.9 }, -- (behind the grips; the gunner crouches)
+			crew = { 0, 3.3 }, -- (behind the grips)
 			crewTurns = true,
 			prompt = 7,
 			vfx = { scheme = "Ember", magic = false },
@@ -860,6 +881,20 @@ local Artillery = {
 			repair = 7,
 			wreckParts = { "Mount", "Cradle" },
 			holeSize = { 0.08, 0.16 },
+			-- (the design: 450 a minute, a box of 100, a 12 s box reload, 0.6 degrees growing to 1.5 over a long burst;
+			-- the eye half a stud behind the rear peep ring, the ring sight's line at y 1.78; the report a placeholder,
+			-- the rifles' shot cut short)
+			mg = {
+				rate = 450,
+				box = 100,
+				range = 600, -- (as far as a rifle shot: Config/Firing.Range, the fog)
+				class = "MachineGun",
+				spread = { min = 0.6, max = 1.5, per = 0.06, recover = 0.3 }, -- (hot after ~50 rounds held, cool ~3 s after)
+				eye = { 0, 1.78, 2.44 },
+				fov = 60,
+				look = 0.12,
+				shot = { id = 134529004435835, volume = 1.8, start = 0.34, stop = 0.9, fade = 0.4, profile = "Gunshot" },
+			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
 			colors = {

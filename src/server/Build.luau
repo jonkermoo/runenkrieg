@@ -365,7 +365,7 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 end
 
 -- an MG nest as its HP stands (Rules.nestShown): its first bags laid, the rest ghosted (nothing blocks or is hit), its
--- gun set up by quarters
+-- gun set up by quarters, the real gun standing once it is whole
 local function showNest(r: Rec)
 	local s = r.model:FindFirstChild("Nest")
 	local rows = 0
@@ -384,8 +384,45 @@ local function showNest(r: Rec)
 			c.CanQuery = up
 		end
 	end
-	if guns and r.parts and r.at then
-		guns.assemble(r.parts, r.piece.gun, r.at, quarters)
+	if not guns or not r.at then
+		return
+	end
+	local p = r.piece
+	-- set up whole: the real gun stands there (src/server/Artillery: manned, laid and fired; its own HP); worn back
+	-- below that, it is in parts again
+	if quarters >= C.Nest.quarters then
+		if not r.gun then
+			if r.parts then
+				r.parts:Destroy()
+				r.parts = nil
+			end
+			local gun = guns.place(p.gun, r.at.Position, r.at.LookVector, { paint = C.Guns.paint[r.team] })
+			r.gun = gun
+			if gun then
+				gun:SetAttribute("Piece", p.key)
+				-- gone some other way (the dev tools' clear): set up again from parts next time
+				gun.Destroying:Connect(function()
+					if r.gun == gun then
+						r.gun = nil
+					end
+				end)
+			end
+		end
+		return
+	end
+	if r.gun then
+		local gun = r.gun
+		r.gun = nil
+		gun:Destroy()
+	end
+	if not r.parts then
+		r.parts = guns.parts(p.gun, C.Guns.paint[r.team])
+		if r.parts then
+			r.parts.Parent = r.model
+		end
+	end
+	if r.parts then
+		guns.assemble(r.parts, p.gun, r.at, quarters)
 	end
 end
 
@@ -1041,7 +1078,7 @@ local function work(player: Player, target: any, mode: any)
 		apply(r)
 		return
 	end
-	if mode == "Build" and r.gun and r.built then
+	if mode == "Build" and r.piece.kind == "Gun" and r.gun and r.built then
 		-- fixing a standing gun, any team's (Config/Artillery.Repair; user 2026-10-27: "make it so you can fix a
 		-- artillery by digging too ... its fine if the cannon looks buried, as long as it gets flattenned out again once
 		-- its fixed", "enemie teams should be able to repair and fix enemie trenches and artillery")
@@ -1072,7 +1109,7 @@ local function work(player: Player, target: any, mode: any)
 		end
 		return
 	end
-	if mode == "Destroy" and r.gun and r.built and guns then
+	if mode == "Destroy" and r.piece.kind == "Gun" and r.gun and r.built and guns then
 		-- a standing gun loses HP to the shovel as to any damage (Artillery.harm), as many swings as fix it; a swing that
 		-- takes it to 0, or at a wreck weapons left at 0, and it is gone (Config/Build.Guns)
 		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]

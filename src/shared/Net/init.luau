@@ -111,11 +111,16 @@ local Remotes: { string } = {
 	--   "Aim" (yaw: number, elevation: number) the wanted world yaw and elevation in degrees; at most Aim.rate a second
 	--   "Fire" ()                              fire if loaded (the server's own lay, plus scatter)
 	--   "Leave" ()                             get off the gun
+	--   "Trigger" (down: boolean)              a machine gun's fire held down or let go (Config/Artillery.Guns `mg`)
+	--   "Reload" ()                            a machine gun's box swapped early
 	"Artillery",
 	-- server -> clients: (gun: Model, origin: Vector3, velocity: Vector3) a shot: recoil, flash, sound
 	"ArtilleryShot",
 	-- server -> clients: (position: Vector3, gun: string) a shell went off: its explosion (Config/Artillery.Guns[gun])
 	"ArtilleryBlast",
+	-- server -> clients: (gun: Model, origin: Vector3, hit: Vector3, normal: Vector3?, part: Instance?) a machine gun's
+	-- bullet: the flash and report at the muzzle, the tracer, the hole
+	"MGShot",
 	-- Building (src/client/Build sends, src/server/Build checks; Config/Build, Rules/Build):
 	-- client -> server: ("Place", key: string, at: CFrame) lay a piece's blueprint (the server checks it);
 	-- ("Plan", start: Vector3, finish: Vector3) plan a trench run (src/server/Trenches snaps and checks it);
