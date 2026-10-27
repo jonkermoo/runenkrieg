@@ -7,7 +7,8 @@
 -- - Build at your team's piece adds a unit of work; it rises in stages and stands at full work;
 -- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
 -- - Sandbag piles: Config/Assets sandbag_pile's bags in one "Sandbag" section, on HP (Config/Build.Sandbags.hp): laid
---   with its first bag down, Build swings add HP, Destroy swings and weapons take it, its bags standing by HP.
+--   at stage 1 (scraped ground, empty sacks), Build swings add HP, Destroy swings and weapons take it, its bags
+--   standing by HP.
 -- - Barbed wire: Config/Assets barbed_wire's meshes in three looks (Rules.wireLook: on the ground, standing, broken),
 --   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. Once it has stood,
 --   swings go to its HP (Rules.wireSwing): Destroy breaks it then takes it away, its team's Build stands it back up.
@@ -157,16 +158,22 @@ local function section(parent: Instance, name: string, kind: string, class: stri
 	return s
 end
 
--- the bags of a sandbag pile: the first `stage` stand, the rest ghosted
+-- the bags of a sandbag pile: the first `stage` stand, the rest ghosted; stage 1's scraped ground always shows, its
+-- empty sacks only while no bag stands
 local function showSandbags(r: Rec, stage: number)
 	for _, s in r.model:GetChildren() do
 		for _, p in s:GetChildren() do
 			if p:IsA("BasePart") then
-				local row = p:GetAttribute("Row") :: number
-				local up = row <= stage
-				p.Transparency = if up then 0 else C.GhostTransparency
-				p.CanCollide = up
-				p.CanQuery = up -- (bullets pass through the ghost)
+				local look = p:GetAttribute("Look")
+				if look == "Sacks" then
+					p.Transparency = if stage == 0 then 0 else 1
+				elseif look ~= "Ground" then
+					local row = p:GetAttribute("Row") :: number
+					local up = row <= stage
+					p.Transparency = if up then 0 else C.GhostTransparency
+					p.CanCollide = up
+					p.CanQuery = up -- (bullets pass through the ghost)
+				end
 			end
 		end
 	end
@@ -203,8 +210,9 @@ local function libraryKit(key: string): (Model?, { [string]: CFrame })
 	return m :: Model, offsets
 end
 
--- a sandbag pile (Config/Build.Pieces `bags`): its meshes from the library in one section, each with the "Row" of its bag
--- (Rules.pileBag) so it stands and ghosts like a wall's row (showSandbags); false when the library has no pile
+-- a sandbag pile (Config/Build.Pieces `bags`): its meshes from the library in one section, each bag's with the "Row" of
+-- its bag (Rules.pileBag) so it stands and ghosts by stage (showSandbags), stage 1's (`stage1`) with its "Look"; false
+-- when the library has no pile
 local function layoutPile(r: Rec, ground: number): boolean
 	local p = r.piece
 	local kit, offsets = libraryKit(p.asset)
@@ -227,6 +235,19 @@ local function layoutPile(r: Rec, ground: number): boolean
 				else rgb(Palette.Build.Sandbag, jitter)
 			part.CFrame = base * offset
 			part:SetAttribute("Row", bag)
+			part.Parent = s
+		elseif offset and d:IsA("BasePart") and (d.Name == p.stage1.ground or d.Name == p.stage1.sacks) then
+			-- stage 1: on the ground, blocking nothing (soldiers walk and bullets pass over it)
+			local part = d:Clone()
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.Material = Enum.Material.SmoothPlastic
+			local isGround = d.Name == p.stage1.ground
+			part.Color = rgb(if isGround then Palette.Build.SandbagPatch else Palette.Build.SandbagSacks)
+			part.CFrame = r.frame * offset -- (on the ground at its centre, not sunk with the bags)
+			part:SetAttribute("Look", if isGround then "Ground" else "Sacks")
 			part.Parent = s
 		end
 	end
@@ -524,7 +545,7 @@ local function place(player: Player, key: any, at: any)
 	model.Name = piece.key
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	local now = os.clock()
-	-- (a sandbag pile's work is its HP: laid with its first bag down, Config/Build.Sandbags.hp)
+	-- (a sandbag pile's work is its HP: laid at stage 1, Config/Build.Sandbags.hp)
 	local bags = piece.kind == "Sandbags"
 	local r: Rec = {
 		model = model,
@@ -902,7 +923,7 @@ function Build.start(artillery: Guns)
 			local now = os.clock()
 			local stale = {}
 			for _, r in recs do
-				-- (a sandbag pile is laid with its first bag down: untouched while it has no more than that)
+				-- (a sandbag pile is laid at stage 1: untouched while it has no more than that)
 				local laid = if r.piece.kind == "Sandbags" then C.Sandbags.hp.place else 0
 				if r.work <= laid and not r.built and now - r.worked > C.BlueprintLife then
 					table.insert(stale, r)

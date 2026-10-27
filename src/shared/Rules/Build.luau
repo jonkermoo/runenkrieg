@@ -105,13 +105,13 @@ function Build.stageOf(work: number, need: number, stages: number): number
 	return math.clamp(math.floor(work / need * stages + 1e-9), 0, stages)
 end
 
--- How many of a sandbag pile's `bags` bags stand at `hp` of `max` (Config/Build.Sandbags.hp): its share of them,
--- rounded up, so one stands from the moment it is laid until its HP is gone
+-- How many of a sandbag pile's `bags` bags stand at `hp` of `max` (Config/Build.Sandbags.hp): its HP in `bags` + 1
+-- equal bands, the first stage 1 (no bag: the scraped ground and empty sacks), each band above it a bag more
 function Build.pileBags(hp: number, max: number, bags: number): number
 	if hp <= 0 or max <= 0 then
 		return 0
 	end
-	return math.clamp(math.ceil(hp / max * bags - 1e-9), 1, bags)
+	return math.clamp(math.ceil(hp / max * (bags + 1) - 1e-9) - 1, 0, bags)
 end
 
 -- A shovel swing at a sandbag pile with `hp` (Config/Build.Sandbags.hp `h`): Build adds `h.swing` up to `h.max`,

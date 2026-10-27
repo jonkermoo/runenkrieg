@@ -191,6 +191,9 @@ local Build = {
 			kind = "Sandbags",
 			asset = "sandbag_pile",
 			bags = { "Bag1", "Bag2", "Bag3" },
+			-- stage 1's meshes: the scraped ground (under it the whole time) and the empty sacks (until a bag is filled);
+			-- neither blocks anything
+			stage1 = { ground = "Patch", sacks = "Sacks" },
 			width = 8.3,
 			height = 3.68,
 			depth = 1.7,
@@ -311,11 +314,13 @@ local Build = {
 	-- Sandbag piles: one section of class "Sandbag" (Config/Damage.Blast.Fail) with `hp.max` HP, set `sink` studs into the
 	-- ground (uneven ground shows no gap), each bag's tone jittered by `shade`. On HP, like every structure (user
 	-- 2026-10-27: "all structures follow an HP strucutre, not how many digs", "stage 1 should always be when its placed
-	-- ... like a cannon, where if its placed, something will always be down"): laid at `hp.place` (the first bag down),
+	-- ... like a cannon, where if its placed, something will always be down"): laid at `hp.place` (stage 1, below),
 	-- a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`;
 	-- weapons take Structures above; its bags stand by HP (Rules.pileBags: one at least while it has any), gone at 0.
-	-- (30, 65, 100: one bag, two, all three)
-	Sandbags = { hp = { max = 100, place = 30, swing = 35, destroy = 10 }, shade = 0.06, sink = 0.15 },
+	-- Stage 1 (user 2026-10-27: "a new stage 1, where no sandbags are placed, that way we can have 1 new sandbag per
+	-- dig"): laid, the pile is its scraped ground and empty sacks (Pieces `stage1`); each Build swing then fills a bag
+	-- (25 laid, 50, 75, 100: no bag, one, two, all three).
+	Sandbags = { hp = { max = 100, place = 25, swing = 25, destroy = 10 }, shade = 0.06, sink = 0.15 },
 
 	-- Barbed wire (user 2026-10-27): its meshes are
 	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
