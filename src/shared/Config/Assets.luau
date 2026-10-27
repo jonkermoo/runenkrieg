@@ -240,6 +240,43 @@ local Assets = {
 			fidelity = "Hull",
 			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
 		},
+		-- the sandbag pile (user 2026-10-27: pillow bags, two under one, "give it some firmth"): each bag its own mesh, so
+		-- a pile is built a bag at a time; colored from Config/Palette.Build by mesh name. v2: stage 1, the scraped Patch
+		-- and the empty Sacks ("a new stage 1, where no sandbags are placed"; v1 92308983969194)
+		sandbag_pile = {
+			id = 104301953084157,
+			category = "Props",
+			folder = "Sandbags",
+			source = "assets/props/sandbag_pile.fbx",
+			generator = "tools/blender/sandbags/pile.py",
+			fidelity = "Hull",
+			description = "A pile of three pillow sandbags in piece space (x along the pile, y up from the ground, z toward the defenders behind it, Origin at the foot's centre): Bag1 and Bag2 side by side on the ground (3.6 long, 1.6 deep, ties pointing outward), Bag3 centred on them, its underside settled into the joint; Bag<i>Cord the tie round each bag's neck; stage 1: Patch, the ground scraped flat under the pile (its top 0.05 up), and Sacks, three empty sacks folded at the +x end. 7.2 wide plus the ears, 3.68 high, the bottom row's top 1.96.",
+		},
+		hesco = {
+			-- v3 (user round 5: "make another flat model for when it has just been placed": stage 0; approved "the flat
+			-- just-placed look is right"); v2 132136802135276: 5.25 high ("just barely the players height"); v1
+			-- 70847550749595 was 4 high, approved in Blender: "the inside looks right"
+			id = 111641075459224,
+			category = "Props",
+			folder = "Build",
+			source = "assets/props/hesco.fbx",
+			generator = "tools/blender/hesco/hesco.py",
+			fidelity = "Hull",
+			description = "The Hesco barrier, 6 x 6 x 5.25 studs, in piece space (footprint centred on the Origin on the ground), one set of pieces per stage: stage 0 just laid at 0 HP (Scrape0 the scraped ground, Pack0 + Wire0 the unit lying folded flat), stages s = 1-4: Wire<s> (mesh, rim, corner coils), Liner<s> (slack liner above the dirt, stages 1-3), LinerFull<s> (liner under the dirt, stages 2-4), Earth<s>, Damp<s>, Clods<s>, Stones<s> (the dirt and what lies on it, stages 2-4), Flaps1 + Piles1 (stage 1). Only the Earth blocks: the wire and liner stop nothing (user 2026-10-27).",
+		},
+		-- a trench bridge's planks (user 2026-10-27; tools/blender/bridge/bridge_pieces.py renders them on the trench pieces):
+		-- built by src/server/Build per bridge, colored from Config/Palette.Build by mesh name
+		bridge_pieces = {
+			-- v2: the deck boards laid on the stringers' tops (they floated), the sills and stringers straight and level
+			-- (v1 121849607058281)
+			id = 76835404637067,
+			category = "Props",
+			folder = "Bridge",
+			source = "assets/props/bridge_pieces.fbx",
+			generator = "tools/blender/bridge/bridge_pieces.py",
+			fidelity = "Box",
+			description = "A trench bridge's planks in piece space (origin on the square's centre line at ground level, x along the trench over one 8-stud square, z across it, y up; deck top 3.1, heap crest to crest 19.2; Origin at 0): variants Bridge1-6, each Bridge<v>Frame (+Dark: sills on the heaps, spliced stringers), Bridge<v>Boards (+Dark: stage 1's deck boards), Bridge<v>More (+Dark: the boards stage 2 adds). Every board modelled with grain grooves engraved on its face.",
+		},
 		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown
 		-- at a time
 		barbed_wire = {

@@ -33,8 +33,15 @@ local nearTrench: (Vector3, number) -> boolean = function(_p: Vector3, _extra: n
 	return false
 end
 
--- whether a point stands on a gun's ground (src/server/Artillery.onGround): craters never carve it away
-local guarded: (Vector3) -> boolean = function(_p: Vector3)
+-- whether a point stands on a gun's ground (src/server/Artillery.onGround) or a Hesco barrier's (src/server/Build.onHesco):
+-- craters never carve it away
+local guards: { (Vector3) -> boolean } = {}
+local function guarded(p: Vector3): boolean
+	for _, on in guards do
+		if on(p) then
+			return true
+		end
+	end
 	return false
 end
 
@@ -219,11 +226,11 @@ local function refillCrater(k: Crater, share: number, done: boolean): number
 	return size.X * size.Y * size.Z
 end
 
--- Keeps craters off the guns' ground (user 2026-10-27: "the ground beneath artilleries are still not indestructible.
--- its fine if the cannon looks buried"): no bowl is cut where `on` says a point stands on a gun's ground; the earth a
--- blast throws up may still land on it.
+-- Keeps craters off ground something stands on (user 2026-10-27: "the ground beneath artilleries are still not
+-- indestructible. its fine if the cannon looks buried"; the Hesco barriers' too): no bowl is cut where any `on` says a
+-- point is guarded; the earth a blast throws up may still land on it. Each call adds one.
 function Ground.guard(on: (Vector3) -> boolean)
-	guarded = on
+	table.insert(guards, on)
 end
 
 -- Starts the craters filling back in: every `tick` s each crater due a step is written, oldest first, at most `budget`
