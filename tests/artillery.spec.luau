@@ -180,7 +180,9 @@ return {
 		assert(A.hitSource("grenade", 0.3, H) == H.grenade and A.hitSource("staff3", 10, H) == H.staff3)
 		local hit = A.gunHit(0, field, H.direct)
 		assert(QF.hp / hit > 1 and QF.hp / hit <= 2) -- "a direct cannon hit or two"
-		assert(math.ceil(HOW.hp / hit) >= 4) -- "4+ DIRECT cannon shots"
+		assert(math.ceil(HOW.hp / (hit / HOW.armour)) >= 4) -- "4+ DIRECT cannon shots"
+		-- every gun on the 100 scale like every structure (its armour keeping the howitzer's old 240 in hits)
+		assert(QF.hp == 100 and HOW.hp == 100 and (QF.armour or 1) == 1 and near(HOW.hp * HOW.armour, 240))
 		assert(A.gunHit(H.direct + 0.01, field, H.direct) < hit / 5) -- the ground beside it: far less
 		assert(A.gunHit(field.reach, field, H.direct) == 0)
 		assert(A.gunHit(H.direct + 2, field, H.direct) > A.gunHit(H.direct + 6, field, H.direct))

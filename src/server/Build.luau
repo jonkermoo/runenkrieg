@@ -3,22 +3,24 @@
 -- blueprint (Net "Build" "Place": the piece and where); the server surveys the ground, checks the rules and the caps,
 -- and lays it in Workspace[Config/Build.Folder]. Trenches are planned and dug in src/server/Trenches (Net "Build"
 -- "Plan": start and end).
+-- Every structure is on HP 0..100 (user 2026-10-27: "all structures follow an HP strucutre, not how many digs"), its
+-- "Work" attribute (and "HP" / "MaxHP" for the shovel's panel); laid at 0 with its first stage down at once, gone with
+-- nothing left once a Destroy swing or a hit takes it to 0 (user: "remove the crumble. 0 hp should just disappear").
 -- Every shovel swing (Net "Build" "Work", the target and the shovel's mode, user 2026-10-23):
--- - Build at your team's piece adds a unit of work; it rises in stages and stands at full work;
--- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
+-- - Build at your team's piece adds its swing's HP (Rules.hpSwing); it rises in stages and stands at full HP;
+-- - Destroy at any piece, any team's, takes HP off; at 0 it is gone; at a tree it chops it (src/server/Trees).
 -- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
 -- - Barbed wire: Config/Assets barbed_wire's meshes in three looks (Rules.wireLook: on the ground, standing, broken),
---   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. Once it has stood,
---   swings go to its HP (Rules.wireSwing): Destroy breaks it then takes it away, its team's Build stands it back up.
+--   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. On HP (Wire.hp).
 -- - Hesco barriers (kind "Hesco"; Config/Build.Hesco): on HP (its work is its HP), laid with the empty perimeter
 --   standing; the model's pieces for the stage its HP stands at (Rules.hescoStage: the perimeter, then the dirt rising,
 --   slumping as it wears), cloned from the asset library; only the dirt collides and stops bullets; gone at 0.
 -- - Guns (Config/Build.Pieces kind "Gun"; Config/Build.Guns): a holder model in the folder (what swings go to) with the
---   gun's parts in it (src/server/Artillery.parts), laid out on the ground and fitted a quarter of the work at a time
---   (Artillery.assemble, Config/Artillery.Assembly), a building site round them (Rules/Scaffold); a howitzer's pit (Ground.pit from the ground as it was) deepens
---   with each stage, the parts down on its floor. At full work the real gun stands (src/server/Artillery.place, in the
---   team's paint), its HP shown on the holder ("HP", "MaxHP") for the shovel's panel; taken apart (Rules.gunStands) it
---   is in parts again, its pit filling back, the ground as it was at 0.
+--   gun's parts in it (src/server/Artillery.parts), laid out on the ground and fitted a quarter of its HP at a time
+--   (Artillery.assemble, Config/Artillery.Assembly), a building site round them (Rules/Scaffold); a howitzer's pit
+--   (Ground.pit from the ground as it was) deepens with each stage, the parts down on its floor. At full HP the real gun
+--   stands (src/server/Artillery.place, in the team's paint) and its HP is the gun's own, mirrored on the holder; weapons
+--   leave it a wreck at 0, a shovel's Destroy swing at 0 takes it away, its pit filled back.
 -- - Bridges (Config/Build.Bridge): laid on a trench square (Survey.bridgeSpot), its planks the Config/Assets
 --   bridge_pieces layout its seed rolls, stretched to the square's length; on HP (Bridge.hp): laid at stage 1, Build
 --   swings add HP, Destroy swings and weapons take it, its boards standing by HP (Rules.bridgeStage). At 0, or once its
@@ -66,18 +68,16 @@ type Rec = {
 	born: number,
 	worked: number,
 	frame: CFrame,
-	hp: number?, -- barbed wire: what blasts and Destroy swings have left of Structures.wireHP
 	grassed: boolean?, -- barbed wire: the grass under it cleared
 	base: CFrame?, -- a Hesco barrier: its footprint's centre on the lowest ground under it
 	shown: number?, -- a Hesco barrier: the stage its pieces show
 	stageParts: { [number]: { BasePart } }?, -- a Hesco barrier: every stage's pieces, laid out once
-	-- a gun piece: where the gun stands (on the ground before its pit), its blueprint or the gun standing, its pit's
-	-- ground as it was (Ground.pitBase) and the share of it dug now
+	-- a gun piece: where the gun stands (on the ground before its pit), its blueprint or the gun standing (once it has
+	-- stood, `built`), its pit's ground as it was (Ground.pitBase) and the share of it dug now
 	at: CFrame?,
 	parts: Model?,
 	site: Model?, -- its scaffold and tools while it is built (Config/Build.Scaffold)
 	gun: Model?,
-	standing: boolean?,
 	pitBase: Ground.PitBase?,
 	dug: number?,
 	square: Model?, -- a bridge: the trench square it is on
@@ -269,15 +269,15 @@ local function layoutWire(r: Rec, ground: number)
 	end
 end
 
--- the wire's look (Rules.wireLook): bundled on the ground from the moment it is laid, standing at full work, broken
--- under half HP; it slows and hurts only standing ("Armed"). The grass goes from under it as it is laid.
+-- the wire's look (Rules.wireLook): bundled on the ground from the moment it is laid, standing at full HP, broken
+-- under half HP once it has stood; it slows and hurts only standing ("Armed"). The grass goes from under it as it is
+-- laid.
 local function showWire(r: Rec)
 	local holder = r.model:FindFirstChild("Wire")
 	if not holder then
 		return
 	end
-	local maxHP = C.Structures.wireHP
-	local look = Rules.wireLook(r.built, r.work, r.need, r.hp or maxHP, maxHP, C.Wire)
+	local look = Rules.wireLook(r.built, r.work, r.need, C.Wire)
 	for _, p in holder:GetChildren() do
 		if p:IsA("BasePart") then
 			p.Transparency = if p:GetAttribute("Look") == look then 0 else 1
@@ -489,24 +489,14 @@ local function showBridge(r: Rec)
 	end
 end
 
-local function remove(r: Rec, debris: boolean)
+-- a piece goes: simply gone, nothing left (user 2026-10-27: "remove the crumble. 0 hp should just disappear")
+local function remove(r: Rec)
 	if not recs[r.model] then
 		return
 	end
 	recs[r.model] = nil
 	for _, c in r.watch or {} do
 		c:Disconnect()
-	end
-	if debris then
-		local pieces = {}
-		for _, d in r.model:GetDescendants() do
-			if d:IsA("BasePart") and d.Transparency < 1 then
-				table.insert(pieces, { cf = d.CFrame, size = d.Size, color = d.Color, t = d.Transparency })
-			end
-		end
-		if #pieces > 0 then
-			Net.event("SectionBroken"):FireAllClients(pieces, r.frame.Position)
-		end
 	end
 	-- a gun piece: the gun goes, its pit filled back in
 	local gun = r.gun
@@ -526,7 +516,7 @@ local function wearHesco(r: Rec, amount: number)
 	r.work = math.max(r.work - amount, 0)
 	r.model:SetAttribute("Work", r.work)
 	if r.work <= 0 then
-		remove(r, false)
+		remove(r)
 	else
 		showHesco(r)
 	end
@@ -557,8 +547,8 @@ local function buildSite(spec: { [string]: any }): Model
 	return model
 end
 
--- a gun piece as its work stands: its pit dug to its stage, then its parts on the pit's floor, fitted to the quarter of
--- the work done, or the gun standing there (Rules.gunStands, Rules.pitShare)
+-- a gun piece as its HP stands: its pit dug to its stage, then its parts on the pit's floor, fitted to the quarter of
+-- its HP, or the gun standing there once it has stood (Rules.pitShare)
 showGun = function(r: Rec)
 	local p = r.piece
 	local gunCfg = ArtilleryCfg.Guns[p.gun]
@@ -566,8 +556,7 @@ showGun = function(r: Rec)
 	if not guns or not gunCfg then
 		return
 	end
-	r.standing = Rules.gunStands(r.standing == true, r.work, r.need, C.Guns.standsFrom)
-	local share = Rules.pitShare(r.standing == true, r.work, r.need, p.stages)
+	local share = Rules.pitShare(r.built, r.work, r.need, p.stages)
 	local d = gunCfg.dig
 	if d and share ~= r.dug then
 		local back = -at.LookVector
@@ -587,7 +576,7 @@ showGun = function(r: Rec)
 		r.dug = share
 	end
 	local paint = C.Guns.paint[r.team]
-	if r.standing then
+	if r.built then
 		if not r.gun then
 			if r.parts then
 				r.parts:Destroy()
@@ -600,30 +589,33 @@ showGun = function(r: Rec)
 			r.gun = gun
 			if gun then
 				gun:SetAttribute("Piece", p.key)
-				-- its HP on the holder, for the shovel's panel (src/client/Build)
+				-- the holder's link to it: the shovel's light goes round the gun itself (src/client/Build)
+				local link = r.model:FindFirstChild("Gun") :: ObjectValue? or Instance.new("ObjectValue")
+				link.Name = "Gun"
+				link.Value = gun
+				link.Parent = r.model
+				-- its HP is the gun's own now (Config/Artillery.Guns `hp`: 100), mirrored on the holder for the shovel's
+				-- panel (src/client/Build)
 				local function hp()
-					r.model:SetAttribute("HP", gun:GetAttribute("HP"))
+					local v = gun:GetAttribute("HP")
+					if type(v) == "number" and recs[r.model] then
+						r.work = v
+						r.model:SetAttribute("Work", v)
+						r.model:SetAttribute("HP", v)
+					end
 				end
-				r.model:SetAttribute("MaxHP", gunCfg.hp)
 				hp()
 				gun:GetAttributeChangedSignal("HP"):Connect(hp)
 				-- gone some other way (the dev tools' clear): the piece goes too
 				gun.Destroying:Connect(function()
 					if r.gun == gun then
 						r.gun = nil
-						remove(r, false)
+						remove(r)
 					end
 				end)
 			end
 		end
 		return
-	end
-	if r.gun then
-		local gun = r.gun
-		r.gun = nil
-		gun:Destroy()
-		r.model:SetAttribute("HP", nil)
-		r.model:SetAttribute("MaxHP", nil)
 	end
 	if not r.parts then
 		r.parts = guns.parts(p.gun, paint)
@@ -647,10 +639,13 @@ showGun = function(r: Rec)
 	end
 end
 
--- shows a piece as its work stands now
+-- shows a piece as its HP stands now
 local function apply(r: Rec)
 	r.model:SetAttribute("Work", r.work)
 	r.model:SetAttribute("Built", r.built)
+	-- (every structure's HP out of its max, for the shovel's panel, src/client/Build)
+	r.model:SetAttribute("HP", r.work)
+	r.model:SetAttribute("MaxHP", r.need)
 	local kind = r.piece.kind
 	if kind == "Sandbags" then
 		showSandbags(
@@ -754,9 +749,9 @@ local function place(player: Player, key: any, at: any)
 		piece = piece,
 		team = team,
 		owner = player.UserId,
-		-- (a Hesco barrier's and a bridge's work is their HP, Config/Build.Hesco.hp / Bridge.hp)
-		work = if piece.kind == "Hesco" then C.Hesco.hp.place elseif bridge then C.Bridge.hp.place else 0,
-		need = if piece.kind == "Hesco" then C.Hesco.hp.max elseif bridge then C.Bridge.hp.max else piece.work,
+		-- (its work is its HP: laid at its `place`, Rules.hpOf)
+		work = (Rules.hpOf(piece, C) or { place = 0 }).place,
+		need = (Rules.hpOf(piece, C) or { max = piece.work }).max,
 		built = bridge, -- (a bridge stands, crossable, from the moment it is laid)
 		born = now,
 		worked = now,
@@ -793,7 +788,7 @@ local function place(player: Player, key: any, at: any)
 			local hp, max = square:GetAttribute("HP"), square:GetAttribute("MaxHP")
 			local buried = type(hp) == "number" and type(max) == "number" and hp < max * C.Trench.hp.bare / 100
 			if recs[model] and (buried or not square.Parent) then
-				remove(r, false)
+				remove(r)
 			end
 		end
 		r.watch = { square:GetAttributeChangedSignal("HP"):Connect(check), square.AncestryChanged:Connect(check) }
@@ -806,7 +801,7 @@ local function place(player: Player, key: any, at: any)
 					return
 				end
 			end
-			remove(r, false)
+			remove(r)
 		end)
 	end
 end
@@ -874,9 +869,9 @@ local function work(player: Player, target: any, mode: any)
 		local h = C.Hesco.hp
 		local share = digShare(player)
 		local step = if share then Rules.digAmount(1, h.max, share) else nil
-		local left, gone = Rules.hescoSwing(r.work, build, h, step)
+		local left, gone = Rules.hpSwing(r.work, build, h, step)
 		if gone then
-			remove(r, false)
+			remove(r)
 			return
 		end
 		r.work = left
@@ -888,7 +883,7 @@ local function work(player: Player, target: any, mode: any)
 		apply(r)
 		return
 	end
-	if mode == "Build" and r.gun and r.standing then
+	if mode == "Build" and r.gun and r.built then
 		-- fixing a standing gun, any team's (Config/Artillery.Repair; user 2026-10-27: "make it so you can fix a
 		-- artillery by digging too ... its fine if the cannon looks buried, as long as it gets flattenned out again once
 		-- its fixed", "enemie teams should be able to repair and fix enemie trenches and artillery")
@@ -919,34 +914,21 @@ local function work(player: Player, target: any, mode: any)
 		end
 		return
 	end
-	if mode == "Destroy" and r.gun and r.standing and guns then
-		-- a standing gun loses HP to the shovel as to any damage (Artillery.harm), as many swings as fix it; only a
-		-- wreck at 0 is taken apart, swing by swing, below
+	if mode == "Destroy" and r.gun and r.built and guns then
+		-- a standing gun loses HP to the shovel as to any damage (Artillery.harm), as many swings as fix it; a swing that
+		-- takes it to 0, or at a wreck weapons left at 0, and it is gone (Config/Build.Guns)
 		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
-		if g and guns.harm(r.gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player))) then
-			lastSwing[player] = now
-			return
-		end
-	end
-	-- a wire that has stood: swings go to its HP (Destroy breaks it, then takes it away; its team's Build stands a
-	-- broken one back up)
-	if r.piece.kind == "Wire" and r.built then
-		local maxHP = C.Structures.wireHP
-		local hp = r.hp or maxHP
-		if mode == "Build" and (not own or not Rules.wireBroken(hp, maxHP, C.Wire)) then
+		local hp = r.gun:GetAttribute("HP")
+		if not g or type(hp) ~= "number" then
 			return
 		end
 		lastSwing[player] = now
-		local left, gone = Rules.wireSwing(hp, maxHP, mode == "Build", C.Wire)
+		local step = Rules.digAmount(g.hp / g.repair, g.hp, digShare(player))
+		local _, gone = Rules.hpSwing(hp, false, { max = g.hp }, step)
 		if gone then
-			remove(r, false)
-			return
-		end
-		r.hp = left
-		r.worked = now
-		apply(r)
-		if mode == "Destroy" then
-			shakeWire(r, root.Position)
+			remove(r)
+		else
+			guns.harm(r.gun, step)
 		end
 		return
 	end
@@ -965,7 +947,7 @@ local function work(player: Player, target: any, mode: any)
 		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, digShare(player))
 		local left, gone = Rules.trenchSwing(r.work, h.max, step, build)
 		if gone then
-			remove(r, false)
+			remove(r)
 			return
 		end
 		r.work = left
@@ -977,10 +959,34 @@ local function work(player: Player, target: any, mode: any)
 		apply(r)
 		return
 	end
+	-- barbed wire, a gun being built: swings work its HP (Rules.hpOf); its team's Build swings repair a wire too
+	local h = Rules.hpOf(r.piece, C)
+	if h then
+		local build = mode == "Build"
+		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, digShare(player))
+		local left, gone = Rules.hpSwing(r.work, build, h, step)
+		if gone then
+			remove(r)
+			return
+		end
+		r.work = left
+		r.worked = now
+		if r.work >= r.need then
+			if not r.paid then
+				Loadouts.award(player, "Piece") -- (once per piece)
+			end
+			r.built, r.paid = true, true
+		end
+		apply(r)
+		if r.piece.kind == "Wire" and not build and r.built then
+			shakeWire(r, root.Position)
+		end
+		return
+	end
 	local was = r.work
 	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(1, r.need, digShare(player)))
 	if gone then
-		remove(r, r.built and r.piece.kind ~= "Gun") -- (a gun piece leaves no rubble)
+		remove(r) -- (at 0 it is simply gone)
 		return
 	end
 	r.work = left
@@ -992,12 +998,7 @@ local function work(player: Player, target: any, mode: any)
 		r.built, r.paid = true, true
 	end
 	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
-	if
-		r.piece.kind == "Gun"
-		or r.piece.kind == "Wire" -- (its look changes on every swing: Rules.wireLook)
-		or Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages)
-		or r.work >= r.need
-	then
+	if Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages) or r.work >= r.need then
 		apply(r)
 	else
 		r.model:SetAttribute("Work", r.work)
@@ -1037,13 +1038,13 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			local dx = math.max(math.abs(l.X) - r.piece.width / 2, 0)
 			local dz = math.max(math.abs(l.Z) - r.piece.depth / 2, 0)
 			local d = math.sqrt(dx * dx + dz * dz + math.max(l.Y - r.piece.height, 0) ^ 2)
-			local hit = S.wireHP * Rules.structureHit(d, src, S.edge, src.wire) / 100
+			local hit = r.need * Rules.structureHit(d, src, S.edge, src.wire) / 100
 			if hit > 0 then
-				r.hp = (r.hp or S.wireHP) - hit
-				if (r.hp :: number) <= 0 then
+				r.work -= hit
+				if r.work <= 0 then
 					table.insert(cut, r)
 				else
-					showWire(r) -- (worn under half it lies broken)
+					apply(r) -- (worn under half, once it has stood, it lies broken)
 					shakeWire(r, position)
 				end
 			end
@@ -1080,7 +1081,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 		end
 	end
 	for _, r in cut do
-		remove(r, r.piece.kind ~= "Bridge") -- (a bridge at 0 is simply gone)
+		remove(r) -- (at 0 it is simply gone)
 	end
 	for _, w in worn do
 		wearHesco(w.r, w.amount)
@@ -1157,7 +1158,7 @@ function Build.clear()
 		table.insert(list, r)
 	end
 	for _, r in list do
-		remove(r, false)
+		remove(r)
 	end
 	Trenches.clear()
 end
@@ -1216,7 +1217,7 @@ function Build.start(artillery: Guns)
 				end
 			end
 			for _, r in stale do
-				remove(r, false)
+				remove(r)
 			end
 		end
 	end)

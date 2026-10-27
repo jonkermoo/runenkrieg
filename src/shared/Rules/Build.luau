@@ -124,14 +124,34 @@ function Build.onFootprint(lx: number, lz: number, width: number, depth: number,
 	return math.abs(lx) <= width / 2 + margin and math.abs(lz) <= depth / 2 + margin
 end
 
--- A shovel swing at a Hesco barrier with `hp` (Config/Build.Hesco.hp `h`): Build adds `h.swing` up to `h.max`,
--- Destroy takes `h.destroy`; `step` in place of either (an admin dig step). Returns its HP and whether it is gone.
-function Build.hescoSwing(hp: number, build: boolean, h: any, step: number?): (number, boolean)
+-- A shovel swing at a structure with `hp` (every structure is on HP 0..`h.max`, laid at `h.place`: Config/Build
+-- Hesco.hp, Wire.hp, ...): Build adds `h.swing` up to `h.max`, Destroy takes `h.destroy`; `step` in place of either (an
+-- admin dig step, a gun's own swing). Returns its HP and whether it is gone: a Destroy swing that takes it to 0 or past,
+-- one at a piece just laid at 0 included.
+function Build.hpSwing(hp: number, build: boolean, h: any, step: number?): (number, boolean)
 	if build then
 		return math.min(h.max, hp + (step or h.swing)), false
 	end
 	local left = hp - (step or h.destroy)
 	return math.max(left, 0), left <= 0
+end
+
+export type Hp = { max: number, place: number, swing: number, destroy: number }
+
+-- A piece's HP (Config/Build `c`): its max, what it is laid at, what a Build swing adds and a Destroy swing takes. A gun
+-- while it is built: Guns.hp, its piece's own `swing` both ways (its old count of swings each way). Nil for a piece
+-- that is not on HP (a trench square keeps its own, Trench.hp).
+function Build.hpOf(p: Piece, c: any): Hp?
+	if p.kind == "Gun" then
+		return { max = c.Guns.hp.max, place = c.Guns.hp.place, swing = p.swing, destroy = p.swing }
+	end
+	local own = if p.kind == "Wire"
+		then c.Wire
+		elseif p.kind == "Hesco" then c.Hesco
+		elseif p.kind == "Bridge" then c.Bridge
+		elseif p.kind == "Sandbags" then c.Sandbags
+		else nil
+	return own and own.hp
 end
 
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
@@ -160,25 +180,13 @@ function Build.gunsClear(d: number, sameKind: boolean, spacing: number, clearA: 
 	return d >= clearA + clearB and (not sameKind or d >= spacing)
 end
 
--- Whether a built gun stands at `work` of `need`: it stands up at full work and stays until the work falls under
--- `standsFrom` of it or less (Config/Build.Guns: a quarter off, 5 Destroy swings of 20), then is a blueprint again until
--- full once more.
-function Build.gunStands(standing: boolean, work: number, need: number, standsFrom: number): boolean
-	if work >= need then
-		return true
-	end
-	if work <= need * standsFrom + 1e-9 then
-		return false
-	end
-	return standing
-end
-
--- How much of a gun's pit is dug (0..1): all of it while the gun stands, else its stage of `stages`
-function Build.pitShare(standing: boolean, work: number, need: number, stages: number): number
-	if standing then
+-- How much of a gun's pit is dug (0..1): all of it once the gun has stood, else the stage of `stages` its `hp` of
+-- `max` has reached (0 just laid)
+function Build.pitShare(stood: boolean, hp: number, max: number, stages: number): number
+	if stood then
 		return 1
 	end
-	return Build.stageOf(work, need, stages) / math.max(stages, 1)
+	return Build.stageOf(hp, max, stages) / math.max(stages, 1)
 end
 
 -- The shortest time between two strikes of the shovel (Config/Shovel): one swing let go of at its rest and the next
@@ -637,9 +645,9 @@ function Build.wireRattles(speed: number, w: any): boolean
 	return speed > w.moving
 end
 
--- How a barbed wire looks (Config/Build.Wire): "Bundle" from the moment it is laid until its work is full (user
--- 2026-10-27: "make it like the artilleries where placing it places it at stage 1 ... make it also occur at 0"), "Standing" at
--- full work, and once it has stood, "Broken" under `w.broken` of its HP (it then slows and hurts nobody)
+-- How a barbed wire looks (Config/Build.Wire): "Bundle" from the moment it is laid, at 0 HP, until its HP is full (user
+-- 2026-10-27: "make it like the artilleries where placing it places it at stage 1 ... make it also occur at 0"),
+-- "Standing" at full HP, and once it has stood, "Broken" under `w.broken` of its HP (it then slows and hurts nobody)
 export type WireLook = "Bundle" | "Standing" | "Broken"
 
 -- whether a wire that has stood is broken: under `w.broken` of its HP
@@ -647,21 +655,11 @@ function Build.wireBroken(hp: number, maxHP: number, w: any): boolean
 	return hp < maxHP * w.broken
 end
 
-function Build.wireLook(built: boolean, work: number, need: number, hp: number, maxHP: number, w: any): WireLook
-	if built then
+function Build.wireLook(stood: boolean, hp: number, maxHP: number, w: any): WireLook
+	if stood then
 		return if Build.wireBroken(hp, maxHP, w) then "Broken" else "Standing"
 	end
-	return if work >= need then "Standing" else "Bundle"
-end
-
--- A shovel swing at a wire that has stood (`build`: a Build swing by its team, else a Destroy swing): its HP after,
--- and whether it is gone. A Build swing stands a broken wire back up at full HP and leaves a standing one as it is.
-function Build.wireSwing(hp: number, maxHP: number, build: boolean, w: any): (number, boolean)
-	if build then
-		return if Build.wireBroken(hp, maxHP, w) then maxHP else hp, false
-	end
-	local left = math.max(hp - w.destroy, 0)
-	return left, left <= 0
+	return if hp >= maxHP then "Standing" else "Bundle"
 end
 
 -- How far a shaken wire is pushed `t` seconds into a shake (Config/Build.Wire: `shake` long, `wobble` studs, `rate` Hz):

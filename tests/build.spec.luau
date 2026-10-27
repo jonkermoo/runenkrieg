@@ -56,7 +56,10 @@ return {
 					or p.kind == "Bridge",
 				p.key
 			)
-			assert(type(p.name) == "string" and (p.kind == "Hesco" or p.work >= 1), p.key)
+			-- (every piece but a trench square and the old sandbag walls is on HP out of 100, Rules.hpOf)
+			local h = B.hpOf(p, C)
+			assert(type(p.name) == "string" and (h ~= nil or p.work >= 1), p.key)
+			assert(h == nil or (h.max == 100 and h.place >= 0 and h.swing > 0 and h.destroy > 0), p.key)
 		end
 		assert(B.piece("LowWall", C.Pieces) ~= nil and B.piece("Nope", C.Pieces) == nil and B.piece(5, C.Pieces) == nil)
 	end,
@@ -94,15 +97,15 @@ return {
 		assert(B.hescoStage(0.01, hp.max, 4) == 1, "the perimeter stands while it has any HP")
 		local v, gone, swings = hp.place, false, 0
 		while v < hp.max do
-			v, gone = B.hescoSwing(v, true, hp)
+			v, gone = B.hpSwing(v, true, hp)
 			swings += 1
 		end
 		assert(v == hp.max and not gone and swings >= 4 and swings <= 8, `built up in a few swings ({swings})`)
-		v, gone = B.hescoSwing(hp.destroy, false, hp)
+		v, gone = B.hpSwing(hp.destroy, false, hp)
 		assert(v == 0 and gone, "a Destroy swing takes the last of it")
-		v = B.hescoSwing(hp.max, false, hp, 40)
+		v = B.hpSwing(hp.max, false, hp, 40)
 		assert(v == hp.max - 40, "an admin step")
-		v, gone = B.hescoSwing(0, false, hp)
+		v, gone = B.hpSwing(0, false, hp)
 		assert(v == 0 and gone, "a Destroy swing at a barrier just laid takes it away")
 		-- the ground it keeps from craters (user round 5: "the ground below the barrier and the surround (the hitbox)")
 		local m = C.Hesco.ground
@@ -130,24 +133,37 @@ return {
 	["guns: one per kind within its spacing, any two their clears apart; both teams build both"] = function()
 		local field = B.piece("FieldGun", C.Pieces) :: any
 		local how = B.piece("Howitzer", C.Pieces) :: any
-		assert(field.spacing == 60 and how.spacing == 120 and field.work == 20 and how.work == 40)
+		assert(field.spacing == 60 and how.spacing == 120)
 		assert(not B.gunsClear(59, true, 60, 9, 9) and B.gunsClear(60, true, 60, 9, 9))
 		assert(B.gunsClear(50, false, 60, 9, 36) and not B.gunsClear(44, false, 60, 9, 36))
 		for _, kit in { "uniform1", "uniform2", "uniform3" } do
 			assert(C.Guns.paint[kit] ~= nil, kit)
 		end
 	end,
-	["guns: stand at full work, stay until under standsFrom, the pit deepens by stage"] = function()
-		local s = C.Guns.standsFrom
-		assert(not B.gunStands(false, 39, 40, s) and B.gunStands(false, 40, 40, s))
-		assert(
-			B.gunStands(true, 31, 40, s) and not B.gunStands(true, 30, 40, s),
-			"10 Destroy swings of 40 take it down"
-		)
-		assert(B.gunStands(true, 16, 20, s) and not B.gunStands(true, 15, 20, s), "5 of 20")
-		assert(not B.gunStands(false, 35, 40, s), "a gun taken apart stands again only at full work")
-		assert(B.pitShare(true, 30, 40, 8) == 1 and B.pitShare(false, 0, 40, 8) == 0)
-		assert(near(B.pitShare(false, 20, 40, 8), 0.5) and near(B.pitShare(false, 39, 40, 8), 7 / 8))
+	["guns: on HP, laid at 0, the same swings as before to stand, the pit deepens by stage"] = function()
+		for key, swings in { FieldGun = 20, Howitzer = 40 } do
+			local p = B.piece(key, C.Pieces) :: any
+			local h = B.hpOf(p, C) :: B.Hp
+			assert(h.max == 100 and h.place == 0, key)
+			local hp, gone, n = h.place, false, 0
+			while hp < h.max do
+				hp, gone = B.hpSwing(hp, true, h)
+				n += 1
+			end
+			assert(n == swings and not gone, `{key}: {swings} Build swings ({n})`)
+			n = 0
+			while not gone do
+				hp, gone = B.hpSwing(hp, false, h)
+				n += 1
+			end
+			assert(n == swings, `{key}: as many Destroy swings take it apart while it is built ({n})`)
+			assert(B.pitShare(false, h.place, h.max, p.stages) == 0, "laid: the pit not dug yet")
+		end
+		assert(B.pitShare(true, 0, 100, 8) == 1, "a gun that has stood keeps its pit, a wreck at 0 too")
+		assert(near(B.pitShare(false, 50, 100, 8), 0.5) and near(B.pitShare(false, 99, 100, 8), 7 / 8))
+		-- a standing gun at 0 (a wreck weapons left): the next Destroy swing takes it away
+		local _, gone = B.hpSwing(0, false, { max = 100 }, 10)
+		assert(gone)
 	end,
 	["slopes: level is 0, a rise equal to the span is 45, the steepest pair wins"] = function()
 		assert(near(B.slope(3, 3, 4), 0) and near(B.slope(0, 4, 4), 45) and B.slope(0, 1, 0) == 90)
@@ -239,17 +255,18 @@ return {
 	end,
 	["the wire: 8 x 4, 3/5 of a soldier high, too high to hop, 2 swings"] = function()
 		local w = B.piece("Wire", C.Pieces) :: any
-		assert(w.width == 8 and w.depth == 4 and w.work == 2)
+		local h = C.Wire.hp
+		assert(w.width == 8 and w.depth == 4 and h.place == 0 and math.ceil(h.max / h.swing - 1e-9) == 2)
 		assert(near(w.height, M.Character.Height * 3 / 5, 0.05), "3/5 of a soldier")
 		assert(w.height > M.Movement.JumpHeight, "can't be hopped")
 	end,
-	["the wire: looks by work and HP"] = function()
-		local W, hp = C.Wire, C.Structures.wireHP
-		assert(B.wireLook(false, 0, 2, hp, hp, W) == "Bundle", "laid, it is on the ground at once, before any swing")
-		assert(B.wireLook(false, 1, 2, hp, hp, W) == "Bundle")
-		assert(B.wireLook(false, 2, 2, hp, hp, W) == "Standing")
-		assert(B.wireLook(true, 2, 2, hp * W.broken, hp, W) == "Standing", "at half HP it still stands")
-		assert(B.wireLook(true, 2, 2, hp * W.broken - 1, hp, W) == "Broken", "under half it is broken")
+	["the wire: looks by HP"] = function()
+		local W, hp = C.Wire, C.Wire.hp.max
+		assert(B.wireLook(false, 0, hp, W) == "Bundle", "laid at 0, it is on the ground at once, before any swing")
+		assert(B.wireLook(false, hp / 2, hp, W) == "Bundle")
+		assert(B.wireLook(false, hp, hp, W) == "Standing")
+		assert(B.wireLook(true, hp * W.broken, hp, W) == "Standing", "at half HP it still stands")
+		assert(B.wireLook(true, hp * W.broken - 1, hp, W) == "Broken", "under half it is broken")
 	end,
 	["the wire: a shake wobbles within its size and comes to rest"] = function()
 		local W = C.Wire
@@ -262,14 +279,16 @@ return {
 		assert(math.abs(B.wireShake(W.shake * 0.99, W)) < W.wobble * 0.01, "it dies away")
 	end,
 	["the wire: 2 Destroy swings, broken then gone; 1 Build swing stands it back up"] = function()
-		local W, hp = C.Wire, C.Structures.wireHP
-		local left, gone = B.wireSwing(hp, hp, false, W)
-		assert(not gone and B.wireLook(true, 2, 2, left, hp, W) == "Broken", "one swing breaks it")
-		local up = B.wireSwing(left, hp, true, W)
-		assert(up == hp, "a Build swing stands it back up")
-		left, gone = B.wireSwing(left, hp, false, W)
+		local W, h = C.Wire, C.Wire.hp
+		local left, gone = B.hpSwing(h.max, false, h)
+		assert(not gone and B.wireLook(true, left, h.max, W) == "Broken", "one swing breaks it")
+		local up = B.hpSwing(left, true, h)
+		assert(B.wireLook(true, up, h.max, W) == "Standing", "a Build swing stands it back up")
+		left, gone = B.hpSwing(left, false, h)
 		assert(gone and left == 0, "the second swing takes it away")
-		assert(B.wireSwing(hp, hp, true, W) == hp, "a Build swing on a standing wire does nothing")
+		assert(B.hpSwing(h.max, true, h) == h.max, "never over its max")
+		_, gone = B.hpSwing(h.place, false, h)
+		assert(gone, "a Destroy swing at a wire just laid takes it away")
 	end,
 	["trenches v2: fixed segments, the leftover blended or a partial segment"] = function()
 		local T = C.Trench
