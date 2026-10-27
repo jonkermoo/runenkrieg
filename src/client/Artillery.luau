@@ -12,6 +12,11 @@
 -- - every shot flashes at the muzzle with its report (src/client/ArtilleryFx), the whole gun jolting back and settling
 --   (Config/Artillery.Fx.Jolt); every shell's blast is the shared explosion (src/client/Vfx/Blast) with its sound,
 --   heard late and duller far off.
+-- - a machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08): the gunner looks through its ring sight in first
+--   person (the eye turning and lifting with the gun, Rules/Artillery.eye; my own body unseen), the mouse lays it
+--   (`mg.look` degrees a pixel, within its traverse and elevation), the fire key held fires (Net "Artillery"
+--   "Trigger"), the reload key swaps the box ("Reload"); no arc. Everyone's bullets ("MGShot"): the flash and report at
+--   the muzzle, the tracer, the hole (src/client/GunFx).
 
 local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -31,6 +36,7 @@ local Grenade = require(Shared.Rules.Grenade)
 local Net = require(Shared.Net)
 local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
 local ArtilleryFx = require(script.Parent.ArtilleryFx)
+local GunFx = require(script.Parent.GunFx)
 local Settings = require(script.Parent.Settings)
 local SoundFx = require(script.Parent.SoundFx)
 local Vfx = require(script.Parent.Vfx)
@@ -602,6 +608,9 @@ function Artillery.start()
 	-- every gun's sounds loaded now, so the first shot doesn't hitch or start late
 	for _, gun in Cfg.Guns do
 		SoundFx.preload(gun.sound)
+		if gun.mg then
+			SoundFx.preload({ Shot = gun.mg.shot })
+		end
 	end
 
 	-- the guns
@@ -683,6 +692,12 @@ function Artillery.start()
 		mine = nil
 		moveKeys(true)
 		hideArc()
+		-- (a machine gun's first person hid my own body)
+		for _, d in (character and character:GetDescendants()) or {} do
+			if d:IsA("BasePart") then
+				d.LocalTransparencyModifier = 0
+			end
+		end
 		camera.CameraType = Enum.CameraType.Custom
 		camera.FieldOfView = fov
 		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
@@ -700,7 +715,7 @@ function Artillery.start()
 		snap = true
 		fov = camera.FieldOfView
 		camera.CameraType = Enum.CameraType.Scriptable
-		camera.FieldOfView = p.gun.camera.fov
+		camera.FieldOfView = if p.gun.mg then p.gun.mg.fov else p.gun.camera.fov
 		moveKeys(false)
 		local character = player.Character
 		if character then
@@ -717,7 +732,12 @@ function Artillery.start()
 		if not mine or processed then
 			return
 		end
-		if Settings.pressed("Key_Fire", input) then
+		local mg = poses[mine] and poses[mine].gun.mg
+		if mg and Settings.pressed("Key_Fire", input) then
+			Net.event("Artillery"):FireServer("Trigger", true)
+		elseif mg and Settings.pressed("Key_Reload", input) then
+			Net.event("Artillery"):FireServer("Reload")
+		elseif Settings.pressed("Key_Fire", input) then
 			-- loaded: brace now (the server's shot follows Brace.delay later)
 			local readyAt = mine:GetAttribute("ReadyAt") :: number?
 			local character = player.Character
@@ -739,6 +759,12 @@ function Artillery.start()
 			Net.event("Artillery"):FireServer("Fire")
 		elseif input.KeyCode == Enum.KeyCode.E then
 			Net.event("Artillery"):FireServer("Leave")
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if mine and poses[mine] and poses[mine].gun.mg and Settings.pressed("Key_Fire", input) then
+			Net.event("Artillery"):FireServer("Trigger", false)
 		end
 	end)
 
@@ -788,8 +814,15 @@ function Artillery.start()
 		local raise = held(Enum.KeyCode.W) - held(Enum.KeyCode.S)
 		local _, pivotYaw = model:GetPivot():ToOrientation()
 		local layYaw = math.deg(pivotYaw) + p.traverse
-		wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
-		wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, gun.elevation[1], gun.elevation[2])
+		local mg = gun.mg
+		if mg then
+			-- the mouse lays a machine gun, straight off, within its stops (no swinging past them)
+			local delta = if menu then Vector2.zero else UserInputService:GetMouseDelta()
+			wantYaw, wantElevation = Rules.mgLay(wantYaw, wantElevation, math.deg(pivotYaw), delta.X, delta.Y, gun)
+		else
+			wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
+			wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, gun.elevation[1], gun.elevation[2])
+		end
 
 		-- the aim, sent at most Aim.rate a second when it changed
 		local t = os.clock()
@@ -799,6 +832,23 @@ function Artillery.start()
 		then
 			sentAt, sentYaw, sentElevation = t, wantYaw, wantElevation
 			Net.event("Artillery"):FireServer("Aim", wantYaw, wantElevation)
+		end
+
+		-- a machine gun: first person through its ring sight, the eye riding the gun as it is drawn; my own body unseen
+		if mg then
+			local pivot = model:GetPivot()
+			local ex, ey, ez = Rules.eye(gun, p.traverse, p.elevation)
+			camera.CFrame = pivot
+				* CFrame.new(ex, ey, ez)
+				* CFrame.Angles(0, math.rad(p.traverse), 0)
+				* CFrame.Angles(math.rad(p.elevation), 0, 0)
+			for _, d in character:GetDescendants() do
+				if d:IsA("BasePart") then
+					d.LocalTransparencyModifier = 1
+				end
+			end
+			snap = false
+			return
 		end
 
 		-- winding the hand wheel while the gun is being laid
@@ -867,6 +917,24 @@ function Artillery.start()
 			SoundFx.play(gun.sound.whistle :: any, landing, nil, { delay = flight - lead })
 		end
 	end)
+
+	-- a machine gun's bullet: the flash and report at the muzzle, the tracer, the hole where it struck
+	Net.event("MGShot").OnClientEvent
+		:Connect(function(model: Model, origin: Vector3, hit: Vector3, normal: Vector3?, part: Instance?)
+			local gun = Cfg.Guns[model and model:GetAttribute("Gun") :: any]
+			local mg = gun and gun.mg
+			if not mg or typeof(origin) ~= "Vector3" or typeof(hit) ~= "Vector3" then
+				return
+			end
+			SoundFx.play(mg.shot, origin)
+			-- (just the muzzle's flash: the guns' whole blast, smoke and shockwaves, is too much 7 times a second)
+			local near = (camera.CFrame.Position - origin).Magnitude <= Cfg.Fx.far
+			Vfx.Muzzle.play(origin, (hit - origin).Unit, gun.muzzleScale, "Field", near)
+			GunFx.tracer(origin, hit)
+			if part then
+				GunFx.hole(hit, normal, part)
+			end
+		end)
 
 	-- a shell's blast
 	Net.event("ArtilleryBlast").OnClientEvent:Connect(function(position: Vector3, key: string)

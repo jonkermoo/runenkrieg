@@ -17,6 +17,11 @@
 --   its pit, mound or the ground round it little. Its HP ("HP") falls through the Config/Artillery.Wreck stages
 --   ("Stage"): scorched, then unusable ("Broken": its gunner thrown off, the prompt gone, the barrel knocked down, the
 --   howitzer's crystal dead), leaning and sinking more each stage; at 0 a wreck that stays.
+-- - A machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08; set up by src/server/Build): no earth under it
+--   (it stands on its mount bag); "Trigger" held fires bullets at its rate from its box ("Rounds"), each cast from the
+--   muzzle along its lay plus a stray growing with its heat, hurting as a rifle shot does (src/server/Damage, by its
+--   `class`), chipping built things (Build.shot) and breaking glass on the way; everyone sees it ("MGShot"). An empty
+--   box, or "Reload", swaps it over the gun's `reload` ("ReadyAt"), then it is full again.
 -- - A dug-in gun's pit is lined with trench dirt slabs (Config/Artillery.Slabs, the trench kit: src/server/Trenches),
 --   laid rough, in the Workspace folder Config/Artillery.PitFolder, gone with the gun.
 -- - The ground a gun stands on is never carved by craters (Ground.guard; earth thrown up may land on it). The field gun
@@ -30,10 +35,14 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Artillery)
+local FiringCfg = require(Shared.Config.Firing)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
 local Net = require(Shared.Net)
 local Damage = require(script.Parent.Damage)
+local Build = require(script.Parent.Build)
+local Destruction = require(script.Parent.Destruction)
+local Helmets = require(script.Parent.Helmets)
 local Ground = require(script.Parent.Ground)
 local Trenches = require(script.Parent.Trenches)
 local TrenchCfg = require(Shared.Config.Build).Trench
@@ -66,6 +75,12 @@ type State = {
 	-- the ground it stands on (Artillery.onGround): its pivot as placed and the box under it (x, z in gun space)
 	ground: { at: CFrame, lo: { number }, hi: { number } },
 	pit: Model?, -- its pit's slabs
+	-- a machine gun (Config/Artillery.Guns `mg`): its fire held down, its heat (Rules.mgHeat), when its next shot is
+	-- due, and a box reload under way
+	trigger: boolean,
+	heat: number,
+	nextShot: number,
+	reloading: boolean,
 }
 
 local guns: { [Model]: State } = {}
@@ -184,6 +199,7 @@ end
 
 local function leave(s: State)
 	local player = s.gunner
+	s.trigger = false
 	for _, c in s.conns do
 		c:Disconnect()
 	end
@@ -326,6 +342,98 @@ local function fire(s: State)
 	s.model:SetAttribute("ReadyAt", t + gun.reload)
 	Net.event("ArtilleryShot"):FireAllClients(s.model, origin, velocity)
 	fly(s, origin, velocity, character)
+end
+
+-- A machine gun's box reload: unable to fire for the gun's `reload`, then full again
+local function reloadBox(s: State)
+	local mg = s.gun.mg
+	if not mg or s.reloading or s.broken or (s.model:GetAttribute("Rounds") :: number? or 0) >= mg.box then
+		return
+	end
+	s.reloading = true
+	s.trigger = false
+	s.model:SetAttribute("ReadyAt", now() + s.gun.reload)
+	task.delay(s.gun.reload, function()
+		s.reloading = false
+		if guns[s.model] then
+			s.model:SetAttribute("Rounds", mg.box)
+		end
+	end)
+end
+
+-- A machine gun's bullet: from the muzzle along the gun's lay plus its stray, cast against the world (glass on the way
+-- broken and passed, Config/Firing.Shatter), its wound handed to src/server/Damage
+local function bullet(s: State, character: Model)
+	local gun = s.gun
+	local mg = gun.mg :: any
+	local dYaw, dElev = Rules.mgStray(Rules.mgSpread(s.heat, mg.spread), random:NextNumber(), random:NextNumber())
+	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, s.lay.traverse + dYaw, s.lay.elevation + dElev)
+	local pivot = s.model:GetPivot()
+	local origin = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local line = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)).Unit
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { s.model, character }
+	local from, panes, result = origin, 0, nil
+	while true do
+		result = workspace:Raycast(from, line * (mg.range - (from - origin).Magnitude), params)
+		if
+			not result
+			or panes >= FiringCfg.Shatter.panes
+			or not Destruction.shot(result.Instance, result.Position, line)
+		then
+			break
+		end
+		panes += 1
+		from = result.Position + line * 0.01
+	end
+	local hit = if result then result.Position else origin + line * mg.range
+	if result then
+		Build.shot(result.Instance, result.Position)
+		local mate = Damage.spares(character, result.Instance.Parent)
+		local helmet = not mate and Helmets.hit(result.Instance, result.Position, line)
+		Damage.shot(character, mg.class, {
+			{
+				part = result.Instance,
+				point = result.Position,
+				direction = line,
+				distance = (result.Position - origin).Magnitude,
+				helmet = helmet,
+			},
+		})
+	end
+	Net.event("MGShot"):FireAllClients(s.model, origin, hit, result and result.Normal, result and result.Instance)
+end
+
+-- A machine gun at work this frame: its heat settling, and while its fire is held, its shots as they fall due
+local function machineGun(s: State, dt: number)
+	local mg = s.gun.mg
+	if not mg then
+		return
+	end
+	local t = now()
+	local shots = 0
+	local character = s.gunner and s.gunner.Character
+	local rounds = s.model:GetAttribute("Rounds") :: number? or 0
+	if s.trigger and character and not s.broken then
+		local gap = Rules.mgInterval(mg.rate)
+		s.nextShot = math.max(s.nextShot, t - gap) -- (no burst of shots saved up while it was quiet)
+		while s.nextShot <= t and Rules.mgReady(rounds, s.model:GetAttribute("ReadyAt") :: number?, t) do
+			s.nextShot += gap
+			rounds -= 1
+			shots += 1
+			s.heat = Rules.mgHeat(s.heat, 1, 0, mg.spread)
+			bullet(s, character)
+		end
+		if shots > 0 then
+			s.model:SetAttribute("Rounds", rounds)
+			s.model:SetAttribute("FiredAt", t)
+		end
+		if rounds <= 0 then
+			reloadBox(s) -- (an empty box is swapped at once)
+		end
+	end
+	s.heat = Rules.mgHeat(s.heat, 0, dt, mg.spread)
 end
 
 local function pitFolder(): Folder
@@ -676,13 +784,22 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
-	local under, over = standOn(model, gun)
+	-- (a machine gun stands on its nest's mount bag: no earth, a little box of ground kept from craters)
+	local under, over
+	if gun.nestGround then
+		under, over = gun.nestGround.lo, gun.nestGround.hi
+	else
+		under, over = standOn(model, gun)
+	end
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
 	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)
 	model:SetAttribute("Elevation", low)
 	model:SetAttribute("HP", gun.hp)
 	model:SetAttribute("Stage", 0)
+	if gun.mg then
+		model:SetAttribute("Rounds", gun.mg.box)
+	end
 	local colors = {}
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
@@ -730,6 +847,10 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		lean = random:NextNumber(0, 2 * math.pi),
 		pit = pit,
 		ground = { at = model:GetPivot(), lo = under, hi = over },
+		trigger = false,
+		heat = 0,
+		nextShot = 0,
+		reloading = false,
 	}
 	if gun.crewTurns then
 		local pivot = model:GetPivot()
@@ -1081,7 +1202,13 @@ function Artillery.start()
 				s.aimed = t
 				s.want = { yaw = Rules.wrap(a), elevation = b }
 			end
-		elseif kind == "Fire" then
+		elseif kind == "Trigger" then
+			if s.gun.mg then
+				s.trigger = a == true
+			end
+		elseif kind == "Reload" then
+			reloadBox(s)
+		elseif kind == "Fire" and not s.gun.mg then
 			-- the gunner braces first, the shot goes a moment later (user 2026-10-20: "play that first then fire, a slight
 			-- delay in the shots makes it feel real"); "BraceAt" says when, for the gunner's brace
 			local ready = s.model:GetAttribute("ReadyAt") :: number?
@@ -1112,6 +1239,9 @@ function Artillery.start()
 	RunService.Heartbeat:Connect(function(dt)
 		local t = os.clock()
 		for model, s in guns do
+			if s.gun.mg then
+				machineGun(s, dt)
+			end
 			if not s.gunner then
 				continue
 			end

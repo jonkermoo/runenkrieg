@@ -168,22 +168,24 @@ end
 
 function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 	attacks(shooter)
+	-- a held weapon (Config/Weapons) by its class, or a class itself (a mounted gun's: Config/Artillery.Guns `mg.class`)
 	local w = W[weapon]
-	local t = w and Cfg.Weapons[w.class]
+	local class = if w then w.class else weapon
+	local t = Cfg.Weapons[class]
 	if not t then
 		return
 	end
-	local pellets = w.pellets
+	local pellets = w and w.pellets
 	local per: { [Model]: { hits: { Rules.Hit }, humanoid: Humanoid, direction: Vector3 } } = {}
 	for _, h in hits do
 		local character, humanoid = victim(h.part)
 		local zone = h.part and Rules.zone(h.part.Name)
 		if not character then
-			Trees.shot(h.part, w.class, h.direction) -- a trunk is chipped (src/server/Trees)
+			Trees.shot(h.part, class, h.direction) -- a trunk is chipped (src/server/Trees)
 		end
 		if character and humanoid and zone and character ~= shooter and not Damage.spares(shooter, character) then
 			local share = if pellets then Rules.falloff(h.distance, pellets.full, pellets.none) else 1
-			local z = if h.helmet then Rules.helmetZone(h.distance, Cfg.HelmetLethal[w.class]) else zone
+			local z = if h.helmet then Rules.helmetZone(h.distance, Cfg.HelmetLethal[class]) else zone
 			local entry = per[character]
 			if not entry then
 				entry = { hits = {}, humanoid = humanoid, direction = h.direction }
