@@ -136,7 +136,16 @@ local Hud = {
 		glow = { rings = { 0.5, 0.72, 0.95 }, see = { 0.72, 0.84, 0.92 }, curve = 1.6 },
 		-- motes circling it: how many, radians a second, the orbit (share of the view's width; `squash` its height),
 		-- its wobble, pixels across, `see` see-through and `light` toward white
-		motes = { count = 7, speed = 0.9, radius = 0.42, squash = 0.32, wobble = 0.05, size = 5, see = 0.15, light = 0.35 },
+		motes = {
+			count = 7,
+			speed = 0.9,
+			radius = 0.42,
+			squash = 0.32,
+			wobble = 0.05,
+			size = 5,
+			see = 0.15,
+			light = 0.35,
+		},
 	},
 
 	Staff = {
