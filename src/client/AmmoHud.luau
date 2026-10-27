@@ -1,25 +1,26 @@
 --!strict
--- The gun's ammo display, quartermaster's brass (Config/Hud.Gun; layout src/shared/ui/CombatHud.json "Gun"; user
--- 2026-10-26: "show the chamber, the shell empty if fired, an animation of the chamber / bolt moving and have the
--- magazine box be the actual magazine (semi transparent showing ammo and show ammo going up). same for the shotgun,
--- show the tube, then the chamber"). A brass panel, bottom right, with a cut-away of the held weapon drawn live in a
--- ViewportFrame, seen from its right side. Only the ammo is a real model (user 2026-10-26: "make it much simpler ...
--- only the ammo has to use real models"); the magazine and the chamber are flat brass-edged shapes:
--- - the magazine's rounds one by one (the shared round, Config/Assets ammo_rifle) stacked as the gun's own merged
---   rounds sit, rising a round each time one is fed; rounds pushed down out of a clip settle in from the top; a pump
---   gun's shells (copies of its own) end to end in the tube, stepping back toward the receiver; the magazine moves
---   as the gun's rounds do (an en-bloc clip coming in, a box swapped), and an empty en-bloc clip drops out;
--- - the chamber: the live round, or the fired case; as the gun's bolt (src/client/GunFx moves it) comes back the case
---   rides back with it and is thrown out, and closing pushes the next round up out of the magazine into the chamber;
--- - a red line saying what to do next (no count: user 2026-10-26, "no need for the number of bullets"); no panel or
---   background: the cut-away floats over the game, the gun's outline closed off where the view cuts it.
+-- The gun's ammo display (Config/Hud.Gun; layout src/shared/ui/CombatHud.json "Gun"): a three-quarter cut-away of the
+-- held weapon's action, bottom right, drawn live in two ViewportFrames with one camera (user 2026-10-26: "make it 3d and
+-- off angle", "only keep this part clear (the bullet, bolt, magwell)", "make everything else just a simple shadow
+-- sillouette", "make sure the animations are accurate, doesnt clip, and plays well in reload animation"):
+-- - GunShadow: the gun's own parts in one flat colour, the whole layer see-through (one even shadow, no overlaps);
+-- - GunView over it, the clear parts:
+--   - the bolt, a simple 3D piece (a round body, its lugs, the cocking piece, its handle out to the gun's own knob),
+--     moving exactly as the gun's Bolt part does (src/client/GunFx moves it; turned, slid back);
+--   - the rounds (the shared round, Config/Assets ammo_rifle; a pump gun's own shells) one by one in the magazine,
+--     staggered as a double stack, rising a round each time one is fed; the round or the fired case in the chamber,
+--     pulled back by the bolt and thrown out; the next round pushed by the bolt's face up out of the magazine into
+--     the chamber; a stripper clip's rounds coming down into the well; an empty en-bloc clip dropping out;
+--   - the magazine well, an open box with its near side cut away, its follower and spring; a detachable box moves
+--     with the gun's own rounds (swapped), an en-bloc clip comes in with them.
+--   Nothing passes through anything: the stack sits under the bolt and its heads ahead of the open bolt's face.
+-- - a red line saying what to do next.
 -- src/client/Firing feeds it the predicted state every frame (AmmoHud.show).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HudCfg = require(Shared.Config.Hud)
-local GunOutlines = require(Shared.Config.GunOutlines)
 local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local HudKit = require(script.Parent.HudKit)
@@ -55,7 +56,7 @@ local function restRel(gun: BasePart, part: BasePart): CFrame
 	return gun.CFrame:ToObjectSpace(part.CFrame)
 end
 
--- a gun-space box (centre, size) grown to take in another
+-- a gun-space box grown to take in another (centre, size)
 type Box = { lo: Vector3, hi: Vector3 }
 local function grow(b: Box?, cf: CFrame, size: Vector3): Box
 	local h = size / 2
@@ -95,33 +96,45 @@ type View = {
 	weapon: string,
 	gun: BasePart,
 	view: ViewportFrame,
+	shadowView: ViewportFrame,
 	camera: Camera,
+	shadowCamera: Camera,
 	cut: Model,
+	shade: Model,
+	shadows: { { part: BasePart, source: BasePart } }, -- the gun's body, flat, following its parts
 	dia: number, -- a round's width (studs)
+	-- the bolt
 	boltParts: { { part: BasePart, rel: CFrame } }, -- the drawn bolt, about its face
-	handle: { stem: BasePart, knob: BasePart, at: CFrame }?,
-	boltTurn: number, -- radians the gun's bolt turns its handle up
+	handle: { stem: BasePart, knob: BasePart, pivot: Vector3, at: Vector3 }?, -- (rest, gun space)
 	boltRestCF: CFrame,
-	follower: BasePart,
-	mag: { BasePart }, -- the magazine's flat shapes (face, brass edge), as they sit with the gun's rounds at rest
-	magAt: { CFrame },
-	conns: { RBXScriptConnection },
-	-- the magazine: rounds (or shells) one by one
+	bolt: BasePart?,
+	boltRest: number, -- its z at rest
+	travel: number,
+	-- the magazine
 	rounds: { Piece },
+	held: { Piece }, -- a stripper clip's rounds coming down
+	strip: BasePart?,
 	slot: (k: number, count: number, i: number) -> CFrame, -- gun space: the round `i` of `count` at slot k (1: top)
+	headZ: number, -- the stack's heads, gun space
+	midX: number, -- the stack's middle, side to side
+	pitch: number,
+	shift: number, -- how far the stack sits below the gun's own rounds (no clipping under the bolt)
 	follow: BasePart?, -- the stack moves with this part (the gun's merged rounds) from its rest
 	followRest: CFrame,
 	tube: boolean,
 	shown: number, -- the count drawn
 	lift: number, -- slots the stack is still to rise (+) or settle (-)
+	follower: BasePart,
+	spring: { BasePart },
+	floor: BasePart?, -- the well's floor (the spring's foot)
+	mag: { BasePart }, -- the parts that move with the gun's rounds (a box's well, an en-bloc clip)
+	magAt: { CFrame },
+	conns: { RBXScriptConnection },
 	-- the chamber
 	chamber: CFrame, -- gun space: the round's head there, closed
 	live: Piece,
 	case: Piece,
 	feed: Piece,
-	bolt: BasePart?,
-	boltRest: number, -- its z at rest
-	travel: number,
 	wasOpen: boolean,
 	carry: string?, -- what the opening bolt pulls back ("case" / "round")
 	maxD: number,
@@ -181,51 +194,69 @@ local function destroy(v: View)
 		c:Disconnect()
 	end
 	v.cut:Destroy()
+	v.shade:Destroy()
 end
 
-local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFrame): View
+local function camera(view: ViewportFrame): Camera
+	local c = view:FindFirstChildOfClass("Camera") or Instance.new("Camera")
+	c.Parent = view
+	view.CurrentCamera = c
+	return c
+end
+
+local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFrame, shadowView: ViewportFrame): View
 	local w = W[weapon]
 	local s = w.scale
 	local scale = Vector3.new(s[1], s[2], s[3])
 	local own = G.weapons[weapon] :: any
 	local cut = Instance.new("Model")
 	cut.Name = "Cutaway"
-	local camera = view:FindFirstChildOfClass("Camera") or Instance.new("Camera")
-	camera.Parent = view
-	view.CurrentCamera = camera
+	local shade = Instance.new("Model")
+	shade.Name = "Shadow"
 
 	local v: View = {
 		tool = tool,
 		weapon = weapon,
 		gun = gun,
 		view = view,
-		camera = camera,
+		shadowView = shadowView,
+		camera = camera(view),
+		shadowCamera = camera(shadowView),
 		cut = cut,
+		shade = shade,
+		shadows = {},
 		dia = 0,
 		boltParts = {},
 		handle = nil,
-		boltTurn = 0,
 		boltRestCF = CFrame.identity,
-		follower = nil :: any,
-		mag = {},
-		magAt = {},
-		conns = {},
+		bolt = nil,
+		boltRest = 0,
+		travel = w.action.travel * s[3],
 		rounds = {},
+		held = {},
+		strip = nil,
 		slot = function()
 			return CFrame.identity
 		end,
+		headZ = 0,
+		midX = 0,
+		pitch = 0,
+		shift = 0,
 		follow = nil,
 		followRest = CFrame.identity,
 		tube = w.ammo.clip == "Loose",
 		shown = 0,
 		lift = 0,
+		follower = nil :: any,
+		spring = {},
+		floor = nil,
+		mag = {},
+		magAt = {},
+		conns = {},
 		chamber = CFrame.identity,
 		live = { parts = {}, model = cut },
 		case = { parts = {}, model = cut },
 		feed = { parts = {}, model = cut },
-		bolt = nil,
-		boltRest = 0,
-		travel = w.action.travel * s[3],
 		wasOpen = false,
 		carry = nil,
 		maxD = 0,
@@ -243,12 +274,48 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		local p = tool:FindFirstChild(name)
 		return if p and p:IsA("BasePart") then p else nil
 	end
-	local box: Box? = nil
 	local bolt = part("Bolt")
 	if bolt then
 		v.bolt = bolt
-		local r = restRel(gun, bolt)
-		v.boltRest = r.Z
+		v.boltRestCF = restRel(gun, bolt)
+		v.boltRest = v.boltRestCF.Z
+	end
+
+	-- the shadow: every other part of the gun, one flat colour (the layer's lights: ambient only)
+	local skip: { [string]: boolean } = {}
+	for _, name in G.clear do
+		skip[name] = true
+	end
+	for _, name in w.feed and w.feed.parts or {} do
+		skip[name] = true
+	end
+	for _, p in tool:GetDescendants() do
+		if p:IsA("BasePart") and not skip[p.Name] then
+			local c = p:Clone()
+			anchored(c)
+			if c:IsA("MeshPart") then
+				c.TextureID = ""
+			end
+			c.Material = Enum.Material.SmoothPlastic
+			c.Color = HudKit.rgb("shadow")
+			c.Parent = shade
+			table.insert(v.shadows, { part = c, source = p })
+		end
+	end
+	shadowView.Ambient = HudKit.rgb("shadowAmbient")
+	shadowView.LightColor = HudKit.rgb("shadowLight")
+	shadowView.ImageTransparency = G.shadow.see
+	if not shadowView:FindFirstChildOfClass("UIGradient") then
+		-- (fading out toward the stock and the muzzle)
+		local fade = Instance.new("UIGradient")
+		local e = G.shadow.fade
+		fade.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(e, 0),
+			NumberSequenceKeypoint.new(1 - e, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		fade.Parent = shadowView
 	end
 
 	-- the round (and the spent case) the cut-away shows
@@ -314,6 +381,12 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 			q.part.Color = q.part.Color:Lerp(Color3.new(), G.spentShade)
 		end
 	end
+	local L = v.length
+	local d = G.fallback.width
+	if liveSources[1] then
+		d = if v.tube then liveSources[1].Size.Y else liveSources[1].Size.X * (if pieceScale then pieceScale.X else 1)
+	end
+	v.dia = d
 
 	-- the chamber: the round's head at the bolt face closed, where the gun's own case template sits (a weapon's own
 	-- `chamber`, gun space, else that template's head, else the bolt's face on the bore's line)
@@ -330,269 +403,195 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		local face = if bolt then v.boltRest - bolt.Size.Z / 2 else 0
 		v.chamber = CFrame.new(0, y, face)
 	end
+	local ch = v.chamber.Position
 
-	-- the magazine's slots
-	local cap = w.ammo.capacity
-	local magBox, magSize = CFrame.identity, Vector3.zero
-	for _ = 1, cap do
-		table.insert(v.rounds, newLive())
-	end
-	if v.tube then
-		local t = own and own.tube
-		local first = if t
-			then CFrame.new(t[1] * s[1], t[2] * s[2], t[3] * s[3])
-			else carrier * CFrame.new(0, 0, -v.length)
-		local step = v.length * G.tubeStep
-		v.slot = function(k: number)
-			return first * CFrame.new(0, 0, -(k - 1) * step)
-		end
-		magBox = first * CFrame.new(0, 0, -(cap * step - v.length) / 2 - v.length / 2)
-		magSize = Vector3.new(v.length / 4, v.length / 4, cap * step)
-		box = grow(box, magBox, magSize)
-	else
-		local merged = part("Rounds")
-		local d = G.fallback.width
-		if liveSources[1] then
-			d = liveSources[1].Size.X * (if pieceScale then pieceScale.X else 1)
-		end
-		if merged then
-			-- the stack top-aligned where the gun's own rounds sit, a step apart: spread down a detachable box (its
-			-- bottom), as the gun's rounds are spaced if that is roomy enough, else Hud.Gun.pitch
-			local rest = restRel(gun, merged)
-			v.follow, v.followRest = merged, rest
-			local size = merged.Size
-			local top = rest.Y + size.Y / 2 - d / 2
-			local bottom = rest.Y - size.Y / 2 + d / 2
-			local box2 = part("Magazine")
-			if box2 then
-				local m = restRel(gun, box2)
-				bottom = math.min(bottom, m.Y - box2.Size.Y / 2 + d / 2 + d * G.floor)
-			end
-			local pitch = if cap > 1 then (top - bottom) / (cap - 1) else 0
-			if not box2 and pitch < d * G.tight then
-				pitch = d * G.pitch
-			end
-			local stagger = if pitch < d * G.double then G.stagger * d else 0
-			local head = rest.Z + size.Z / 2
-			v.slot = function(k: number, count: number, i: number)
-				local side = if (count - i) % 2 == 0 then 1 else -1
-				return CFrame.new(rest.X + side * stagger, top - (k - 1) * pitch, head)
-			end
-			local depth = (cap - 1) * pitch + d
-			magBox = CFrame.new(rest.X, top + d / 2 - depth / 2, head - v.length / 2)
-			magSize = Vector3.new(d, depth, v.length)
-			box = grow(box, magBox, magSize)
-		end
-	end
-
-	-- the plain shapes the ammo sits in (no gun parts: user 2026-10-26, "only the ammo has to use real models", "can
-	-- you still show the bolt, magazine, and chamber?"): flat slabs behind the magazine, the barrel's breech end round
-	-- the chamber and the channel the bolt slides in, each on a brass-edged one a little bigger; the bolt a block
-	-- with its handle; the magazine's follower a plate under its last round
-	local function block(name: string, color: string, size: Vector3): BasePart
+	local function block(name: string, color: string, size: Vector3, parent: Instance?): BasePart
 		local p = Instance.new("Part")
 		p.Name = name
 		p.Material = Enum.Material.SmoothPlastic
 		p.Color = HudKit.rgb(color)
 		p.Size = size
 		anchored(p)
-		p.Parent = cut
+		p.Parent = parent or cut
 		return p
 	end
-	local function slab(cf: CFrame, size: Vector3, color: string?, see: number?): { BasePart }
-		local out = {}
-		for i, look in { { color or "magazine", 0 }, { "brassDark", G.slab.edge } } do
-			local p = Instance.new("Part")
-			p.Name = "Slab"
-			p.Material = Enum.Material.SmoothPlastic
-			p.Color = HudKit.rgb(look[1])
-			p.Size = Vector3.new(
-				G.slab.thick,
-				size.Y + 2 * (G.slab.pad + look[2]) * v.length,
-				size.Z + 2 * (G.slab.pad + look[2]) * v.length
-			)
-			p.CFrame = cf * CFrame.new(-G.slab.back * v.length - i * G.slab.thick, 0, 0)
-			anchored(p)
-			p.Transparency = see or G.slab.see
-			p.Parent = cut
-			out[i] = p
-		end
-		return out
+	local along = CFrame.Angles(0, math.pi / 2, 0) -- (a cylinder's axis is its X: turned onto the gun's Z)
+
+	-- the bolt: a round body from the face back toward the gun's bolt's rear, the lugs at the face, the cocking piece
+	local B = G.bolt
+	local rear = if bolt then v.boltRest + bolt.Size.Z / 2 else ch.Z + L
+	local full = math.max(rear - ch.Z, L / 2)
+	local bodyLen = full * B.body
+	local radius = d * B.radius
+	local body = block("Bolt", "bolt", Vector3.new(bodyLen, radius * 2, radius * 2))
+	body.Shape = Enum.PartType.Cylinder
+	local lug = block("Lugs", "steel", Vector3.new(d * B.lugLength, radius * 2 * B.lug, radius * 2 * B.lug))
+	lug.Shape = Enum.PartType.Cylinder
+	local cock = block("CockingPiece", "steel", Vector3.new(full - bodyLen, radius * 2 * B.cock, radius * 2 * B.cock))
+	cock.Shape = Enum.PartType.Cylinder
+	v.boltParts = {
+		{ part = body, rel = CFrame.new(0, 0, bodyLen / 2) * along },
+		{ part = lug, rel = CFrame.new(0, 0, d * B.lugLength / 2) * along },
+		{ part = cock, rel = CFrame.new(0, 0, bodyLen + (full - bodyLen) / 2) * along },
+	}
+	-- its handle, out to the gun's own knob (gun space at rest), on the bolt's axis at the knob
+	local knob = w.reload and (w.reload :: any).knob
+	if bolt and knob and math.abs(knob[1]) > B.side then
+		local at = Vector3.new(knob[1] * s[1], knob[2] * s[2], knob[3] * s[3])
+		local stem = block("Handle", "bolt", Vector3.new(1, d * B.stem, d * B.stem))
+		stem.Shape = Enum.PartType.Cylinder
+		local ball = block("Knob", "bolt", Vector3.one * d * B.knob)
+		ball.Shape = Enum.PartType.Ball
+		v.handle = { stem = stem, knob = ball, pivot = Vector3.new(ch.X, ch.Y, at.Z), at = at }
 	end
-	v.mag = slab(magBox, magSize, nil, G.slab.mag)
-	v.magAt = {}
+	local box = grow(
+		nil,
+		CFrame.new(ch.X, ch.Y, (ch.Z - L * G.frame.ahead + rear + v.travel) / 2),
+		Vector3.new(
+			2 * d * G.frame.side,
+			2 * d * G.frame.above,
+			rear + v.travel + d * G.frame.behind - (ch.Z - L * G.frame.ahead)
+		)
+	)
+
+	-- the magazine's slots
+	local cap = w.ammo.capacity
+	for _ = 1, cap do
+		table.insert(v.rounds, newLive())
+	end
+	local wellLo: Vector3?, wellHi: Vector3? = nil, nil -- the well's inside (gun space at rest)
+	local Wl = G.well
+	if v.tube then
+		local t = own and own.tube
+		local first = if t then CFrame.new(t[1] * s[1], t[2] * s[2], t[3] * s[3]) else carrier * CFrame.new(0, 0, -L)
+		local step = L * G.tubeStep
+		v.slot = function(k: number)
+			return first * CFrame.new(0, 0, -(k - 1) * step)
+		end
+		v.headZ = first.Z
+		local r = d * G.trough
+		wellLo = Vector3.new(first.X - r, first.Y - r, first.Z - cap * step)
+		wellHi = Vector3.new(first.X + r, first.Y + r, first.Z)
+	else
+		local merged = part("Rounds")
+		if merged then
+			-- the stack where the gun's own rounds sit, a step apart (spread down a detachable box to its bottom, as the
+			-- gun's rounds are spaced if that is roomy enough, else Hud.Gun.pitch), but its top round under the bolt's
+			-- body and its heads ahead of the open bolt's face (no clipping)
+			local rest = restRel(gun, merged)
+			v.follow, v.followRest = merged, rest
+			local size = merged.Size
+			local top0 = rest.Y + size.Y / 2 - d / 2
+			local top = math.min(top0, ch.Y - radius - d * G.gap.under)
+			v.shift = top0 - top
+			local bottom = rest.Y - size.Y / 2 + d / 2 - v.shift
+			local box2 = part("Magazine")
+			if box2 then
+				local m = restRel(gun, box2)
+				bottom = math.min(bottom, m.Y - box2.Size.Y / 2 + d / 2 + d * G.floor)
+			end
+			local pitch = if cap > 1 then math.max(0, top - bottom) / (cap - 1) else 0
+			if pitch < d * G.tight then
+				pitch = d * G.pitch
+			end
+			v.pitch = pitch
+			local stagger = if pitch < d * G.double then G.stagger * d else 0
+			local head = math.min(rest.Z + size.Z / 2, ch.Z + v.travel - d * G.gap.behind)
+			v.headZ, v.midX = head, rest.X
+			v.slot = function(k: number, count: number, i: number)
+				local side = if (count - i) % 2 == 0 then 1 else -1
+				return CFrame.new(rest.X + side * stagger, top - (k - 1) * pitch, head)
+			end
+			local low = top - (cap - 1) * pitch - d / 2 - d * Wl.room
+			wellLo = Vector3.new(rest.X - d * Wl.inside, low, head - L - d * Wl.front)
+			wellHi = Vector3.new(rest.X + d * Wl.inside, top + d * Wl.above, head + d * Wl.rear)
+		end
+	end
+
+	-- the magazine well: an open box (the far wall, the ends, the floor, a low rim on the near side: the camera is on
+	-- the gun's right, +X); a box magazine's moves with the gun's rounds, a fixed well's stays
+	local moves = w.ammo.clip == "Box"
+	if wellLo and wellHi then
+		local lo, hi = wellLo :: Vector3, wellHi :: Vector3
+		local t = d * Wl.wall
+		local mid = (lo + hi) / 2
+		local span = hi - lo
+		local walls = {
+			block("Far", "well", Vector3.new(t, span.Y, span.Z)),
+			block("Front", "well", Vector3.new(span.X + t, span.Y, t)),
+			block("Rear", "well", Vector3.new(span.X + t, span.Y, t)),
+			block("Floor", "wellEdge", Vector3.new(span.X + 2 * t, t, span.Z + 2 * t)),
+			block("Lip", "wellEdge", Vector3.new(t, d * Wl.lip, span.Z)),
+		}
+		walls[1].CFrame = CFrame.new(lo.X - t / 2, mid.Y, mid.Z)
+		walls[2].CFrame = CFrame.new(mid.X - t / 2, mid.Y, lo.Z - t / 2)
+		walls[3].CFrame = CFrame.new(mid.X - t / 2, mid.Y, hi.Z + t / 2)
+		walls[4].CFrame = CFrame.new(mid.X, lo.Y - t / 2, mid.Z)
+		walls[5].CFrame = CFrame.new(hi.X + t / 2, lo.Y + d * Wl.lip / 2, mid.Z)
+		v.floor = walls[4]
+		if v.tube then
+			walls[5]:Destroy() -- (a trough: no rim)
+			table.remove(walls, 5)
+		end
+		if moves then
+			for _, p in walls do
+				table.insert(v.mag, p)
+			end
+		end
+		box = grow(box, CFrame.new(mid), span + Vector3.new(2, 2, 2) * t + Vector3.new(0, 2 * d * G.frame.below, 0))
+	end
+	-- an en-bloc clip: a plate behind its rounds, coming in and dropping out with them
+	if w.ammo.clip == "Enbloc" and wellLo then
+		local lo = wellLo :: Vector3
+		local t = d * G.enbloc.thick
+		local plate = block("Enbloc", "clip", Vector3.new(t, v.pitch * (cap - 1) + d, L))
+		local top = v.slot(1, 1, 1)
+		plate.CFrame = CFrame.new(lo.X + t / 2, top.Y + d / 2 - plate.Size.Y / 2, top.Z - L / 2)
+		table.insert(v.mag, plate)
+	end
 	for i, p in v.mag do
 		v.magAt[i] = p.CFrame
 	end
-
-	local P, L = G.shapes, v.length
-	local dia = L / 4
-	if liveSources[1] then
-		dia = if v.tube then liveSources[1].Size.Y else liveSources[1].Size.X * (if pieceScale then pieceScale.X else 1)
-	end
-	v.dia = dia
-	-- the gun's body, drawn behind it all as its traced outline in thin lines (user 2026-10-26: "keep the body of the
-	-- gun in the visual somehow, but dont overshadow the bullets and the mechanism", "dont use the physical model for
-	-- the body. maybe you can trace it and create a design"; Config/GunOutlines)
-	local O = G.outline
-	local width = O.width * dia
-	for _, line in (GunOutlines :: any)[weapon] or {} do
-		local n = #line // 2
-		for i = 1, n do
-			local j = i % n + 1
-			local a = Vector3.new(-O.back, line[i * 2] * s[2], line[i * 2 - 1] * s[3])
-			local b = Vector3.new(-O.back, line[j * 2] * s[2], line[j * 2 - 1] * s[3])
-			local len = (b - a).Magnitude
-			if len > 1e-4 then
-				local seg = Instance.new("Part")
-				seg.Name = "Outline"
-				seg.Material = Enum.Material.SmoothPlastic
-				seg.Color = HudKit.rgb("outline")
-				seg.Size = Vector3.new(width, width, len + width)
-				seg.CFrame = CFrame.lookAt((a + b) / 2, b)
-				anchored(seg)
-				seg.Transparency = O.see
-				seg.Parent = cut
-			end
+	-- a stripper clip's rounds coming down into the well, on their strip
+	if w.ammo.clip == "Stripper" then
+		for _ = 1, (w.ammo :: any).clipSize or cap do
+			table.insert(v.held, newLive())
 		end
+		local S = G.strip
+		v.strip = block("Strip", "clip", Vector3.new(d * S.width, 1, d * S.thick))
 	end
-	-- the barrel's breech end, from the chamber's mouth forward, and the channel behind it the bolt slides back in
-	local barrel = Vector3.new(dia, dia * P.barrel.height, L * P.barrel.length)
-	slab(v.chamber * CFrame.new(0, 0, -barrel.Z / 2), barrel, "steel", G.slab.see)
-	local channel = Vector3.new(dia, dia * P.channel.height, L * P.bolt.length + v.travel)
-	slab(v.chamber * CFrame.new(0, 0, channel.Z / 2), channel)
-	box = grow(
-		box,
-		v.chamber * CFrame.new(0, 0, (channel.Z - barrel.Z) / 2),
-		Vector3.new(dia, barrel.Y, channel.Z + barrel.Z)
-	)
-	-- the bolt, a simple 3D piece of its own (user 2026-10-26: "dont use real models for the bolts. create a simple but
-	-- 3d design"): a round body, its face at the case head, the cocking piece behind it, its handle (a rod and a ball
-	-- knob) at the back, turned up as the gun's bolt turns
-	local B = P.bolt
-	local along = CFrame.Angles(0, math.pi / 2, 0) -- (a cylinder's axis is its X: turned onto the gun's Z)
-	local body = block("Bolt", "bolt", Vector3.new(L * B.length, dia * B.height, dia * B.height))
-	body.Shape = Enum.PartType.Cylinder
-	local cock = block("CockingPiece", "steel", Vector3.new(L * B.cock, dia * B.cockWidth, dia * B.cockWidth))
-	cock.Shape = Enum.PartType.Cylinder
-	v.boltParts = {
-		{ part = body, rel = CFrame.new(0, 0, L * B.length / 2) * along },
-		{ part = cock, rel = CFrame.new(0, 0, L * (B.length + B.cock / 2)) * along },
-	}
-	box = grow(box, CFrame.new(v.chamber.Position), Vector3.new(dia, dia, L * (B.length + B.cock) * 2))
-	v.boltTurn = math.rad(w.action.turn or 0)
-	if v.boltTurn > 0 then
-		local stem = block("Handle", "bolt", Vector3.new(dia * B.handle, dia * B.stem, dia * B.stem))
-		stem.Shape = Enum.PartType.Cylinder
-		local knob = block("Knob", "bolt", Vector3.one * dia * B.knob)
-		knob.Shape = Enum.PartType.Ball
-		-- (on the right: in front of the rounds)
-		v.handle = { stem = stem, knob = knob, at = CFrame.new(dia * B.out, 0, L * B.length * B.handleAt) }
-		box = grow(
-			box,
-			CFrame.new(v.chamber.X, v.chamber.Y, v.chamber.Z + L * B.length / 2),
-			Vector3.new(dia, dia * B.handle * 2.2, L * B.length)
-		)
-	end
-	if bolt then
-		v.boltRestCF = restRel(gun, bolt)
-	end
-	-- the follower
-	local Fo = P.follower
+	-- the follower (under the last round) and its spring
+	local Fo = Wl.follower
 	v.follower = block(
 		"Follower",
 		"follower",
 		if v.tube
-			then Vector3.new(dia * Fo.width, dia * Fo.width, dia * Fo.thick)
-			else Vector3.new(dia * Fo.width, dia * Fo.thick, L * Fo.length)
+			then Vector3.new(d * Fo.width / 2, d * Fo.width / 2, d * Fo.thick)
+			else Vector3.new(d * Fo.width, d * Fo.thick, L * Fo.length)
 	)
-	box = grow(box, magBox, magSize + Vector3.new(0, 2, 2) * G.slab.pad * v.length)
+	if not v.tube then
+		for _ = 1, Wl.spring.coils * 2 do
+			local c = block("Spring", "spring", Vector3.new(1, d * Wl.spring.thick, d * Wl.spring.thick))
+			c.Shape = Enum.PartType.Cylinder
+			table.insert(v.spring, c)
+		end
+	end
 
-	local b = box or grow(nil, CFrame.identity, Vector3.one)
+	-- the camera, three-quarters on, the same for both layers
+	local b = box
 	local centre = CFrame.new((b.lo + b.hi) / 2)
 	local size = b.hi - b.lo
-	-- where the view cuts the gun's outline, a line closes it off (user 2026-10-26: "just cut off the models where
-	-- they are with a verticle line (or horizontal if applicable)"): along each edge of the view, between the outline's
-	-- crossings of it
-	local OL = G.outline
-	local cuts: { BasePart } = {}
-	local function line(from: Vector3, to: Vector3, name: string): BasePart?
-		local len = (to - from).Magnitude
-		if len < 1e-4 then
-			return nil
-		end
-		local seg = Instance.new("Part")
-		seg.Name = name
-		seg.Material = Enum.Material.SmoothPlastic
-		seg.Color = HudKit.rgb("outline")
-		seg.Size = Vector3.new(OL.width * v.dia, OL.width * v.dia, len + OL.width * v.dia)
-		seg.CFrame = CFrame.lookAt((from + to) / 2, to)
-		anchored(seg)
-		seg.Transparency = OL.see
-		seg.Parent = cut
-		return seg
-	end
-	local function cutLines()
-		for _, c in cuts do
-			c:Destroy()
-		end
-		table.clear(cuts)
-		local poly = (GunOutlines :: any)[weapon]
-		if not poly then
-			return
-		end
-		-- the view's edges where the outline lies (it is `back` behind the gun's plane), a little inside
-		local eye = camera.CFrame.Position
-		local aspect = math.max(view.AbsoluteSize.X, 1) / math.max(view.AbsoluteSize.Y, 1)
-		local halfH = math.tan(math.rad(camera.FieldOfView / 2)) * (eye.X + OL.back) * (1 - G.cut.inset)
-		local halfW = halfH * aspect
-		local y0, y1, z0, z1 = eye.Y - halfH, eye.Y + halfH, eye.Z - halfW, eye.Z + halfW
-		for _, pts in poly do
-			local n = #pts // 2
-			local function at(i: number): (number, number) -- (z, y) in gun space
-				return pts[i * 2 - 1] * s[3], pts[i * 2] * s[2]
-			end
-			-- a vertical edge at z = e: the outline's crossings up it, paired inside to outside
-			for _, e in { z0, z1 } do
-				local ys = {}
-				for i = 1, n do
-					local za, ya = at(i)
-					local zb, yb = at(i % n + 1)
-					if (za - e) * (zb - e) < 0 then
-						table.insert(ys, ya + (yb - ya) * (e - za) / (zb - za))
-					end
-				end
-				table.sort(ys)
-				for k = 1, #ys - 1, 2 do
-					local lo, hi = math.clamp(ys[k], y0, y1), math.clamp(ys[k + 1], y0, y1)
-					table.insert(cuts, line(Vector3.new(-OL.back, lo, e), Vector3.new(-OL.back, hi, e), "Cut") :: any)
-				end
-			end
-			-- a horizontal edge at y = e
-			for _, e in { y0, y1 } do
-				local zs = {}
-				for i = 1, n do
-					local za, ya = at(i)
-					local zb, yb = at(i % n + 1)
-					if (ya - e) * (yb - e) < 0 then
-						table.insert(zs, za + (zb - za) * (e - ya) / (yb - ya))
-					end
-				end
-				table.sort(zs)
-				for k = 1, #zs - 1, 2 do
-					local lo, hi = math.clamp(zs[k], z0, z1), math.clamp(zs[k + 1], z0, z1)
-					table.insert(cuts, line(Vector3.new(-OL.back, e, lo), Vector3.new(-OL.back, e, hi), "Cut") :: any)
-				end
-			end
-		end
-	end
+	local f = G.from
+	local from = Vector3.new(f[1], f[2], f[3]).Unit
 	local function frame()
-		HudKit.frameBox(view, camera, centre, size, Vector3.xAxis, Vector3.yAxis, G.fov, G.margin)
-		cutLines()
+		HudKit.frameBox(view, v.camera, centre, size, from, Vector3.yAxis, G.fov, G.margin)
+		v.shadowCamera.FieldOfView = v.camera.FieldOfView
+		v.shadowCamera.CFrame = v.camera.CFrame
 	end
 	frame()
 	table.insert(v.conns, view:GetPropertyChangedSignal("AbsoluteSize"):Connect(frame))
 	cut.Parent = view
+	shade.Parent = shadowView
 	return v
 end
 
@@ -621,27 +620,44 @@ local function throw(v: View, which: Piece, from: CFrame, kind: string, now: num
 	table.insert(v.flying, { piece = p, from = from, start = now, time = time, kind = kind, size = size })
 end
 
+-- a thin rod between two points (a cylinder: its axis is its X)
+local function rod(p: BasePart, a: Vector3, b: Vector3)
+	local len = (b - a).Magnitude
+	if len < 1e-4 then
+		p.Transparency = 1
+		return
+	end
+	p.Size = Vector3.new(len, p.Size.Y, p.Size.Z)
+	p.CFrame = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.pi / 2, 0)
+	p.Transparency = 0
+end
+
 local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: number)
+	-- the shadow follows the gun's parts (a box swapped, a pump worked, hidden parts hidden)
+	for _, s in v.shadows do
+		s.part.CFrame = v.gun.CFrame:ToObjectSpace(s.source.CFrame)
+		s.part.Transparency = if s.source.Transparency >= 1 then 1 else 0
+	end
+
 	-- the bolt: how far back it is (0 closed, travel fully back)
 	local d = 0
+	local boltNow = v.boltRestCF
 	if v.bolt then
-		d = math.max(0, v.gun.CFrame:ToObjectSpace(v.bolt.CFrame).Z - v.boltRest)
+		boltNow = v.gun.CFrame:ToObjectSpace(v.bolt.CFrame)
+		d = math.max(0, boltNow.Z - v.boltRest)
 	end
 	local open = d > v.travel * G.openFrom
-	-- the drawn bolt: back as far as the gun's, its handle up as far as the gun's has turned
 	local boltAt = v.chamber * CFrame.new(0, 0, d)
 	for _, q in v.boltParts do
 		q.part.CFrame = boltAt * q.rel
 	end
 	local h = v.handle
-	if h and v.bolt then
-		local r = v.boltRestCF.Rotation:Inverse() * v.gun.CFrame:ToObjectSpace(v.bolt.CFrame).Rotation
-		local spun = math.abs(math.atan2(r.RightVector.Y, r.RightVector.X))
-		local turned = math.clamp(spun / v.boltTurn, 0, 1)
-		local B = G.shapes.bolt
-		local pivot = boltAt * h.at * CFrame.Angles(math.rad(B.down + (B.up - B.down) * turned), 0, 0)
-		h.stem.CFrame = pivot * CFrame.new(0, -h.stem.Size.X / 2, 0) * CFrame.Angles(0, 0, math.pi / 2)
-		h.knob.CFrame = pivot * CFrame.new(0, -h.stem.Size.X, 0)
+	if h then
+		-- (moved exactly as the gun's bolt: turned about its axis, slid back)
+		local move = boltNow * v.boltRestCF:Inverse()
+		local pivot, at = move:PointToWorldSpace(h.pivot), move:PointToWorldSpace(h.at)
+		rod(h.stem, pivot, at)
+		h.knob.CFrame = CFrame.new(at)
 	end
 	local truth = if state.chambered then "round" elseif state.spent then "case" else nil
 	if not open then
@@ -669,12 +685,36 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 			)
 			v.carry = nil
 		end
-		if not v.fed and v.pending and d < v.maxD - v.travel * G.closing then
-			v.fed = true -- closing: the bolt has picked up the top round
+		-- closing: the bolt's face picks up the top round once it is ahead of its head
+		local face = v.chamber.Z + d
+		if not v.fed and v.pending and d < v.maxD - v.travel * G.closing and (v.tube or face <= v.headZ) then
+			v.fed = true
 		end
 	end
 
-	-- the chamber
+	-- the magazine's count
+	local follow = v.follow
+	local visible = if follow then follow.Transparency < 1 else true
+	local count = F.magazineAt(state, now)
+	if open and v.pending and not v.fed then
+		count += 1
+	end
+	if not visible then
+		count = 0
+	end
+	-- a clip's rounds being pushed down out of it (the gun's "HeldRounds" showing): the stack as it was
+	local held = v.tool:FindFirstChild("HeldRounds")
+	local pushing = held and held:IsA("BasePart") and held.Transparency < 1
+	if pushing then
+		v.frozen = v.frozen or v.shown
+		count = v.frozen :: number
+	else
+		v.frozen = nil
+	end
+	count = math.clamp(count, 0, #v.rounds)
+
+	-- the chamber, and the round being fed
+	local feeding = 0 -- (how far the fed round has risen: the stack under it waits)
 	if not open then
 		if v.atRest == "round" then
 			place(v.live, v.chamber)
@@ -698,35 +738,30 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 			hide(v.case)
 		end
 		if v.fed and v.pending then
-			-- riding up out of the magazine in front of the bolt face into the chamber
-			local top = slotCF(v, 1, 1, 1)
-			local u = smooth(1 - d / math.max(v.maxD * G.feed, 1e-3))
 			local at = v.chamber * CFrame.new(0, 0, d)
-			place(v.feed, CFrame.new(at.X, top.Y + (at.Y - top.Y) * u, at.Z) * at.Rotation)
+			local top = slotCF(v, 1, count + 1, 1)
+			if v.tube then
+				-- a pump gun's shell rides up onto the carrier as the bolt comes forward
+				local u = smooth(1 - d / math.max(v.maxD * G.tubeFeed, 1e-3))
+				place(v.feed, CFrame.new(at.X, top.Y + (at.Y - top.Y) * u, at.Z) * at.Rotation)
+			else
+				-- its head on the bolt's face, rising to the chamber's line as the face goes from the stack's heads to
+				-- the chamber, nose up on the way
+				local u = math.clamp((v.headZ - at.Z) / math.max(v.headZ - v.chamber.Z, 1e-3), 0, 1)
+				feeding = u
+				u = smooth(u)
+				local p = top.Position:Lerp(at.Position, u)
+				place(
+					v.feed,
+					CFrame.new(p.X, p.Y, at.Z) * CFrame.Angles(math.rad(G.feed.tilt) * math.sin(u * math.pi), 0, 0)
+				)
+			end
 		else
 			hide(v.feed)
 		end
 	end
 
-	-- the magazine
-	local follow = v.follow
-	local visible = if follow then follow.Transparency < 1 else true
-	local count = F.magazineAt(state, now)
-	if open and v.pending and not v.fed then
-		count += 1
-	end
-	if not visible then
-		count = 0
-	end
-	-- a clip's rounds being pushed down out of it (the gun's "HeldRounds" showing): the stack as it was
-	local held = v.tool:FindFirstChild("HeldRounds")
-	if held and held:IsA("BasePart") and held.Transparency < 1 then
-		v.frozen = v.frozen or v.shown
-		count = v.frozen :: number
-	else
-		v.frozen = nil
-	end
-	count = math.clamp(count, 0, #v.rounds)
+	-- the stack
 	if count ~= v.shown then
 		v.lift = math.clamp(v.lift + (v.shown - count), -#v.rounds, #v.rounds)
 		v.shown = count
@@ -737,45 +772,111 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		local step = dt / G.rise
 		v.lift = if v.lift > 0 then math.max(0, v.lift - step) else math.min(0, v.lift + step)
 	end
+	local lift = v.lift
+	if open and v.fed and v.pending and not v.tube then
+		-- (still a round down until the fed round clears it)
+		lift = math.max(lift, 1 - math.min(1, feeding * G.feed.clear))
+	end
 	for i, r in v.rounds do
 		if i <= count then
 			-- rounds rising (a round fed) start a slot lower; rounds pushed in start above
-			place(r, slotCF(v, i + v.lift, count, i))
+			place(r, slotCF(v, i + lift, count, i))
 		else
 			hide(r)
 		end
 	end
-	-- the follower under the last round (at the top when empty), pushing them up
-	local Fo = G.shapes.follower
-	if v.tube then
-		v.follower.CFrame = slotCF(v, count + 1 + v.lift, count, count) * CFrame.new(0, 0, -v.length * Fo.gap)
-	else
-		local under = slotCF(v, math.max(count, 1) + v.lift, count, count)
-		local drop = if count == 0 then -Fo.gap - 0.5 else Fo.gap + 0.5
-		v.follower.CFrame = under * CFrame.new(0, -v.dia * drop, -v.length * Fo.length / 2)
+	-- a stripper clip's rounds on their strip, coming down with the gun's own (as far below them as the stack is)
+	local strip = v.strip
+	if strip then
+		local n = math.min(#v.held, #v.rounds - count)
+		if pushing and n > 0 then
+			local hp = held :: BasePart
+			local hc = v.gun.CFrame:ToObjectSpace(hp.CFrame)
+			local bottom = hc.Y - hp.Size.Y / 2 + v.dia / 2 - v.shift
+			local step = if n > 1 then math.max(v.dia, (hp.Size.Y - v.dia) / (n - 1)) else 0
+			local x = v.midX
+			for i, r in v.held do
+				if i <= n then
+					place(r, CFrame.new(x, bottom + (n - i) * step, v.headZ))
+				else
+					hide(r)
+				end
+			end
+			local span = (n - 1) * step + v.dia * G.strip.width
+			strip.Size = Vector3.new(strip.Size.X, span, strip.Size.Z)
+			strip.CFrame = CFrame.new(x, bottom + (n - 1) * step / 2, v.headZ + strip.Size.Z / 2)
+			strip.Transparency = 0
+		else
+			for _, r in v.held do
+				hide(r)
+			end
+			strip.Transparency = 1
+		end
 	end
-	v.follower.Transparency = if (gun.clip == "Enbloc" or gun.clip == "Box") and not visible then 1 else 0
 
-	-- the magazine's shapes: with the gun's rounds (an en-bloc clip coming in, a box swapped), gone while a clip or a
-	-- box is out of the gun; an empty en-bloc clip drops out of the bottom as its last round goes up
+	-- the follower under the last round (at the top when empty), the spring under it to the floor
+	local Fo = G.well.follower
+	local follower = v.follower
 	local delta = if follow then v.gun.CFrame:ToObjectSpace(follow.CFrame) * v.followRest:Inverse() else CFrame.identity
+	if v.tube then
+		follower.CFrame = slotCF(v, count + 1 + v.lift, count, count) * CFrame.new(0, 0, -v.length * Fo.gap)
+	else
+		-- (in the stack's middle, as it moves with the gun's rounds)
+		local under = v.slot(math.max(count, 1) + lift, 1, 1).Y
+		local drop = if count == 0 then -0.5 - Fo.thick / 2 else 0.5 + Fo.gap + Fo.thick / 2
+		follower.CFrame = delta * CFrame.new(v.midX, under - v.dia * drop, v.headZ - v.length * Fo.length / 2)
+	end
 	local away = (gun.clip == "Enbloc" or gun.clip == "Box") and not visible
+	follower.Transparency = if gun.clip == "Box" and not visible then 1 else 0
+	local floor = v.floor
+	if floor and #v.spring > 0 then
+		local Sp = G.well.spring
+		local foot = floor.Position.Y + floor.Size.Y / 2
+		local head = follower.Position.Y - follower.Size.Y / 2
+		local x = follower.Position.X
+		local shiftZ = follower.Position.Z - (v.headZ - v.length * Fo.length / 2)
+		local front, back = v.headZ - v.length * Sp.front + shiftZ, v.headZ - v.length * Sp.rear + shiftZ
+		local n = #v.spring
+		local function point(k: number): Vector3
+			return Vector3.new(x, head + (foot - head) * k / n, if k % 2 == 0 then back else front)
+		end
+		for k, c in v.spring do
+			rod(c, point(k - 1), point(k))
+			if follower.Transparency >= 1 then
+				c.Transparency = 1
+			end
+		end
+	end
+
+	-- what moves with the gun's rounds (a box's well, an en-bloc clip): gone while out of the gun; an empty en-bloc
+	-- clip drops out of the bottom as its last round goes up
+	local clipGone = gun.clip == "Enbloc" and count == 0
 	for i, p in v.mag do
 		p.CFrame = delta * v.magAt[i]
-		p.Transparency = if away then 1 else G.slab.mag
+		p.Transparency = if away or (clipGone and p.Name == "Enbloc") then 1 else 0
 	end
 	if gun.clip == "Enbloc" then
-		if v.clipWas and away and count == 0 then
-			local parts = {}
-			for _, p in v.mag do
-				table.insert(parts, { part = p, rel = v.mag[1].CFrame:ToObjectSpace(p.CFrame) })
+		local plate = nil
+		for _, p in v.mag do
+			if p.Name == "Enbloc" then
+				plate = p
 			end
-			throw(v, { parts = parts, model = v.cut }, v.mag[1].CFrame, "clip", clock, v.mag[1].Size.Y)
 		end
-		v.clipWas = not away
+		local there = not away and count > 0
+		if plate and v.clipWas and not there then
+			throw(
+				v,
+				{ parts = { { part = plate, rel = CFrame.identity } }, model = v.cut },
+				plate.CFrame,
+				"clip",
+				clock,
+				plate.Size.Y
+			)
+		end
+		v.clipWas = there
 	end
 
-	-- what's flying: cases thrown up and back, clips falling
+	-- what's flying: cases thrown up, out and back, clips falling
 	for i = #v.flying, 1, -1 do
 		local f = v.flying[i]
 		local u = (clock - f.start) / f.time
@@ -792,13 +893,13 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 				* CFrame.Angles(u * math.rad(G.drop.tilt), 0, 0)
 		else
 			local fl = G.fly
-			cf = CFrame.new(0, fl.up * f.size * 4 * u * (1 - u), fl.back * f.size * u)
+			cf = CFrame.new(fl.out * f.size * u, fl.up * f.size * 4 * u * (1 - u), fl.back * f.size * u)
 				* f.from
 				* CFrame.Angles(-u * fl.turns * math.pi * 2, 0, 0)
 		end
 		for _, q in f.piece.parts do
 			q.part.CFrame = cf * q.rel
-			q.part.Transparency = if f.kind == "clip" then G.slab.mag + (1 - G.slab.mag) * fade else fade
+			q.part.Transparency = fade
 		end
 	end
 end
@@ -828,7 +929,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 		current = nil
 	end
 	if not current then
-		current = build(tool, weapon, body, p.node.GunView :: ViewportFrame)
+		current = build(tool, weapon, body, p.node.GunView :: ViewportFrame, p.node.GunShadow :: ViewportFrame)
 		current.shown = F.magazineAt(state, now)
 	end
 	update(current :: View, state, gun, now, os.clock())

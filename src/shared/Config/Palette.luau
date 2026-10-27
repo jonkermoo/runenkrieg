@@ -290,11 +290,18 @@ local Palette = {
 			crystalHollow = { 150, 154, 160 }, -- a crystal recharging, grey and hollow (Config/Hud.Crystal)
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
-			magazine = { 40, 44, 40 },
-			steel = { 62, 66, 70 },
-			bolt = { 120, 124, 130 },
-			follower = { 150, 120, 62 },
-			outline = { 150, 124, 70 },
+			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
+			-- the follower, the spring, a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
+			bolt = { 150, 154, 160 },
+			steel = { 92, 96, 102 },
+			well = { 78, 82, 88 },
+			wellEdge = { 110, 114, 120 },
+			follower = { 60, 63, 68 },
+			spring = { 170, 172, 176 },
+			clip = { 120, 118, 112 },
+			shadow = { 16, 18, 22 },
+			shadowAmbient = { 255, 255, 255 },
+			shadowLight = { 0, 0, 0 },
 			-- each team's box (user 2026-10-26: "make it the team coloring"; by the "Kit": Config/Uniforms): its field,
 			-- its rim and rivets, as the uniforms (grey: slate; olive: olive drab; white: chocolate and off-white)
 			Teams = {

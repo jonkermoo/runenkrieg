@@ -1,6 +1,6 @@
 {
 	"name": "CombatHud",
-	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away (`model`, a ViewportFrame) floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. Desktop only.",
+	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away (`model`, a ViewportFrame) floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. The gun's cut-away is two layers (user 2026-10-26: \"make everything else just a simple shadow sillouette\"): GunShadow, the gun's body as one flat see-through shadow, under GunView, the clear bolt, rounds and magazine well (a child draws over its parent). Desktop only.",
 	"theme": {
 		"palette": "Hud",
 		"scale": {
@@ -69,7 +69,7 @@
 				],
 				"children": [
 					{
-						"id": "GunView",
+						"id": "GunShadow",
 						"kind": "model",
 						"pos": [
 							0,
@@ -82,6 +82,24 @@
 							-20,
 							1,
 							-20
+						],
+						"children": [
+							{
+								"id": "GunView",
+								"kind": "model",
+								"pos": [
+									0,
+									0,
+									0,
+									0
+								],
+								"size": [
+									1,
+									0,
+									1,
+									0
+								]
+							}
 						]
 					},
 					{
