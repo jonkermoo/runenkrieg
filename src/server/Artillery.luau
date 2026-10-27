@@ -7,15 +7,15 @@
 --   "Elevation" (degrees), "FiredAt", "ReadyAt" (server time), "Gunner" (UserId). Every client poses the moving parts
 --   from these (src/client/Artillery); the server moves only a turning mount (crewTurns: its gunner stands on it) and,
 --   swinging the whole gun, its pivot. The gunner is welded to what they stand on.
--- - E (its ProximityPrompt) mans it: the gunner stands welded at the crew spot, platform-standing, weapons put away,
---   until they leave (Net "Artillery" "Leave"), die or go.
+-- - E (its ProximityPrompt, in the game's own look: src/client/Prompts) mans it: the gunner stands welded at the crew
+--   spot, platform-standing, weapons put away, until they leave (Net "Artillery" "Leave"), die or go.
 -- - "Aim" sets the wanted yaw and elevation; the gun works toward them at its rates (Rules/Artillery.lay).
 -- - "Fire", loaded: the gunner braces (the howitzer charges up), the gun's `charge` s later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
 --   casts, so nothing thin is passed through) and goes off where it hits: Damage.blast with its charge and fragments,
 --   every client shows it (Net "ArtilleryBlast").
 -- - Every blast wears the guns down (Damage.onBlast; Config/Artillery.Hits): a direct hit on a gun takes a lot, one on
 --   its pit, mound or the ground round it little. Its HP ("HP") falls through the Config/Artillery.Wreck stages
---   ("Stage"): scorched, then unusable ("Broken": its gunner thrown off, the prompt gone, the barrel knocked down, the
+--   ("Stage"): scorched, then unusable ("Broken": its gunner thrown off, the prompt dimmed, the barrel knocked down, the
 --   howitzer's crystal dead), leaning and sinking more each stage; at 0 a wreck that stays.
 -- - A machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08; set up by src/server/Build): no earth under it
 --   (it stands on its mount bag); "Trigger" held fires bullets at its rate from its box ("Rounds"), each cast from the
@@ -28,6 +28,7 @@
 --   stands on the terrain, levelled and bared under it, with an unseen hitbox; the howitzer on its earth block.
 -- - Its own team's shovel swings fix it (Artillery.repair, from src/server/Build); whole, a fresh gun stands there.
 
+local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37,6 +38,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Artillery)
 local FiringCfg = require(Shared.Config.Firing)
 local Palette = require(Shared.Config.Palette)
+local PromptCfg = require(Shared.Config.Prompts)
 local Rules = require(Shared.Rules.Artillery)
 local Net = require(Shared.Net)
 local Damage = require(script.Parent.Damage)
@@ -211,6 +213,8 @@ local function leave(s: State)
 	end
 	s.model:SetAttribute("Gunner", nil)
 	s.prompt.Enabled = not s.broken
+	s.prompt:SetAttribute(PromptCfg.BlockedAttr, if s.broken then "Broken" else nil)
+	s.prompt:SetAttribute(PromptCfg.UserAttr, nil)
 	local character = player and player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then
@@ -263,6 +267,9 @@ local function man(s: State, player: Player)
 	s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
 	s.model:SetAttribute("Gunner", player.UserId)
 	s.prompt.Enabled = false
+	-- (still drawn, dimmed, for everyone else: Config/Prompts)
+	s.prompt:SetAttribute(PromptCfg.BlockedAttr, "InUse")
+	s.prompt:SetAttribute(PromptCfg.UserAttr, player.UserId)
 	table.insert(
 		s.conns,
 		humanoid.Died:Connect(function()
@@ -818,6 +825,8 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = gun.prompt
 	prompt.RequiresLineOfSight = false
+	prompt.Style = Enum.ProximityPromptStyle.Custom -- the game's own look (src/client/Prompts)
+	CollectionService:AddTag(prompt, PromptCfg.Tag)
 	prompt.Parent = spot
 	model.Parent = folder()
 
@@ -1081,6 +1090,7 @@ local function wreck(s: State)
 			leave(s)
 		end
 		s.prompt.Enabled = false
+		s.prompt:SetAttribute(PromptCfg.BlockedAttr, "Broken")
 		-- the barrel knocked down to its lowest lay and round a little
 		local gun = s.gun
 		local knock = math.min(W.knock, gun.traverse)

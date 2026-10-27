@@ -140,7 +140,7 @@ local function door(parent: Instance, ctx: Ctx, frame: CFrame, c: number, o: Ope
 	prompt.ActionText = "Open"
 	prompt.ObjectText = "Door"
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
-	prompt.MaxActivationDistance = 9
+	prompt.Style = Enum.ProximityPromptStyle.Custom -- the game's own look; src/server/Doors sets its reach and tag
 	prompt.RequiresLineOfSight = false
 	prompt.HoldDuration = 0
 	prompt.Parent = panel

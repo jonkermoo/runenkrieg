@@ -1,13 +1,16 @@
 --!strict
 -- Openable doors: every Model tagged Config.Destruction.DoorTag (in Workspace) has a ProximityPrompt on
 -- its panel. Triggering swings the door about its Hinge (panel-space attribute) by SwingAngle. State is
--- the "Open" attribute, so toggle() is stateless and safe to call from anywhere on the server.
+-- the "Open" attribute, so toggle() is stateless and safe to call from anywhere on the server. The prompt is drawn in
+-- the game's own look (Style Custom, tagged Config/Prompts.Tag: src/client/Prompts), reach Config/Prompts.Door.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local D = require(ReplicatedStorage:WaitForChild("Shared").Config.Destruction)
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local D = require(Shared.Config.Destruction)
+local PromptCfg = require(Shared.Config.Prompts)
 
 local Doors = {}
 
@@ -64,6 +67,9 @@ local function hook(door: Instance)
 	local prompt = door:FindFirstChildWhichIsA("ProximityPrompt", true)
 	if prompt then
 		door:SetAttribute("DoorHooked", true)
+		prompt.Style = Enum.ProximityPromptStyle.Custom
+		prompt.MaxActivationDistance = PromptCfg.Door.reach
+		CollectionService:AddTag(prompt, PromptCfg.Tag)
 		prompt.Triggered:Connect(function()
 			Doors.toggle(door)
 		end)
