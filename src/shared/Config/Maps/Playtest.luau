@@ -44,9 +44,10 @@ local west = {
 	clear = {
 		{ id = "SpawnField", minX = -150, maxX = -112, minZ = -24, maxZ = 24 },
 	},
-	-- the zone's spots (the centre cottage's front yard, the brick cottage's, the shed's: with their mirrors, 6) and the
-	-- spawn points (Config/ZoneMatch), both kept clear of trees
-	spots = { { 0, 18 }, { -95, -20 }, { -60, 30 } },
+	-- the zone's spots, with their mirrors 6 (user 2026-10-27: "mix yards and open ground"): the centre cottage's front
+	-- yard, the brick cottage's, and open field between the stone walls and the spawn's ground, held from trenches you
+	-- dig; and the spawn points (Config/ZoneMatch). Both kept clear of trees
+	spots = { { 0, 18 }, { -95, -20 }, { -52, -2 } },
 	spawns = { { -165, 0 }, { -130, 62 }, { -128, -62 }, { -40, -70 } },
 }
 

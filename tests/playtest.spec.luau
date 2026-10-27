@@ -136,6 +136,22 @@ return {
 	["the zone's spots: inside the bounds, off the buildings and trees, mirrored, each with spawns clear of it"] = function()
 		local spots = Map.zoneMatch.spots
 		assert(#spots >= 3, "the zone needs spots to move between")
+		-- user 2026-10-27: "mix yards and open ground": some by a building, some in the open
+		local yards, open = 0, 0
+		for _, p in spots do
+			local by = false
+			for _, l in layout.lots do
+				for _, c in V.corners(l, 0) do
+					by = by or math.sqrt((c[1] - p[1]) ^ 2 + (c[2] - p[2]) ^ 2) < ZoneCfg.Radius + 12
+				end
+			end
+			if by then
+				yards += 1
+			else
+				open += 1
+			end
+		end
+		assert(yards >= 2 and open >= 2, `{yards} yard spots, {open} open`)
 		local r = ZoneCfg.Radius
 		for i, p in spots do
 			assert(inside(b, p[1] - r, p[2] - r) and inside(b, p[1] + r, p[2] + r), `spot {i} out of bounds`)

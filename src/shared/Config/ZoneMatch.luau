@@ -14,6 +14,8 @@ local ZoneMatch = {
 	ResultsSeconds = 10, -- the results, then the next match
 	Tick = 0.2, -- seconds between the server's occupancy checks
 	SpawnZoneClear = 60, -- spawn at least this far from the live zone (unless no spawn point is)
+	-- seconds a fresh spawn can't be hurt (or until it attacks: src/server/Damage.protect); it can't hold the zone meanwhile
+	SpawnProtection = 3,
 	-- the marker (built by the server, coloured per viewer by the client): a ring of `Segments` blocks on the ground
 	-- round the zone, a post with a pennant at its centre
 	Marker = {

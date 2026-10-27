@@ -5,7 +5,8 @@
 -- Warning seconds before), a soldier alone in it, alive and on their feet, scoring PointsPerSecond, two or more
 -- contesting it; timed matches with a results pause, then scores reset and everyone respawns; everyone an enemy
 -- (Workspace's FreeForAll attribute, Rules/Teams); each life spawned at the map's spawn point farthest from the
--- others and clear of the zone. The marker models carry the state as attributes; src/client/ZoneMarker colours them.
+-- others and clear of the zone, protected for a moment (src/server/Damage.protect). The marker models carry the state
+-- as attributes; src/client/ZoneMarker colours them.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,6 +16,7 @@ local Cfg = require(Shared.Config.ZoneMatch)
 local DevCfg = require(Shared.Config.DevTools)
 local Map = require(Shared.Config.Maps.Playtest)
 local Rules = require(Shared.Rules.ZoneMatch)
+local Damage = require(script.Parent.Damage)
 local Ragdoll = require(script.Parent.Ragdoll)
 
 local ZoneMatch = {}
@@ -128,6 +130,7 @@ local function spawnAt(player: Player)
 	local face = Vector3.new(spots[spot][1], pos.Y, spots[spot][2])
 	character:PivotTo(CFrame.lookAt(pos, face))
 	root.AssemblyLinearVelocity = Vector3.zero
+	Damage.protect(character, Cfg.SpawnProtection)
 	task.spawn(function()
 		pcall(function()
 			player:RequestStreamAroundAsync(pos)
@@ -197,6 +200,7 @@ local function run(root: Instance)
 					r
 					and character
 					and not Ragdoll.active(character)
+					and not Damage.protected(character)
 					and Rules.inside(r.Position.X, r.Position.Y - 3, r.Position.Z, centre.X, centre.Y, centre.Z, Cfg)
 				then
 					table.insert(inside, p.UserId)
