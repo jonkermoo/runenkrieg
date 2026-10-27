@@ -256,6 +256,10 @@ local Palette = {
 			Stones = { 112, 106, 96 },
 			Flaps = { 180, 170, 142 },
 			Piles = { 125, 103, 71 },
+			-- stage 0, just laid (hesco v3): the scraped ground and the unit lying folded flat (without these the stage's
+			-- pieces could not be coloured and the barrier never showed, user round 7: "the hesco barrier disappeared")
+			Scrape = { 138, 112, 84 },
+			Pack = { 143, 134, 109 },
 		},
 	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR

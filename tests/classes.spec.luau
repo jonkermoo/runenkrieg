@@ -7,6 +7,9 @@ local W = require("../src/shared/Config/Weapons")
 local A = require("../src/shared/Config/Assets")
 local BuildCfg = require("../src/shared/Config/Build")
 
+-- the pieces only the Engineer builds
+local ENGINEER = { Gun = true, Hesco = true, Sandbags = true }
+
 return {
 	["the user's prices: rifleman free, grenadier 50, auto rifler 100, engineer 150 (locked), mage 200"] = function()
 		local want = { Rifleman = 0, Grenadier = 50, AutoRifler = 100, Engineer = 150, Mage = 200 }
@@ -72,7 +75,9 @@ return {
 			assert(W[m.Primary :: string].class == "Staff", kitName .. " staff")
 		end
 	end,
-	["only the engineer builds guns; everyone builds trenches, sandbags and wire"] = function()
+	-- (Hesco barriers and sandbag piles too since round 7, user 2026-10-27: "hesco barriers should and sandbags should be
+	-- engineer only")
+	["only the engineer builds guns, Hesco barriers and sandbags; everyone builds trenches, wire and bridges"] = function()
 		local kinds: { [string]: boolean } = {}
 		for _, p in BuildCfg.Pieces do
 			kinds[p.kind] = true
@@ -80,7 +85,7 @@ return {
 		assert(kinds.Gun, "guns are a build piece")
 		for key in C.Defs do
 			for kind in kinds do
-				local want = kind ~= "Gun" or key == "Engineer"
+				local want = ENGINEER[kind] == nil or key == "Engineer"
 				assert(R.mayBuild(key, kind, C.Defs, C.Default) == want, `{key} {kind}`)
 			end
 		end
@@ -95,13 +100,13 @@ return {
 				local i = table.find(BuildCfg.Pieces, p) :: number
 				assert(i > at, key .. " keeps the order")
 				at = i
-				assert(p.kind ~= "Gun" or key == "Engineer", `{key} shows {p.key}`)
+				assert(ENGINEER[p.kind] == nil or key == "Engineer", `{key} shows {p.key}`)
 			end
-			local guns = 0
+			local theirs = 0
 			for _, p in BuildCfg.Pieces do
-				guns += if p.kind == "Gun" then 1 else 0
+				theirs += if ENGINEER[p.kind] then 1 else 0
 			end
-			assert(#list == #BuildCfg.Pieces - (if key == "Engineer" then 0 else guns), key .. " shows the rest")
+			assert(#list == #BuildCfg.Pieces - (if key == "Engineer" then 0 else theirs), key .. " shows the rest")
 		end
 	end,
 	["the build gate refuses before anything else"] = function()

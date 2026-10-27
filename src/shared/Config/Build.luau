@@ -27,8 +27,6 @@ local Build = {
 	PerTeam = 150,
 	-- where the pieces live (a Folder in Workspace)
 	Folder = "Structures",
-	-- blueprint look: its parts this transparent until it stands
-	GhostTransparency = 0.75,
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
 	Ghost = { ok = { 120, 200, 120 }, bad = { 220, 80, 70 }, transparency = 0.55 },
 	-- a gun's ghost (src/client/Build; user 2026-10-27: "reduce the red space for a howitzer ... just make it the size
@@ -420,19 +418,19 @@ local Build = {
 	-- or a blast (user 2026-10-27: "both"; src/server/Build).
 	-- Bullets pass (its parts aren't queried). On HP like every structure (user 2026-10-27: "all structures follow an HP
 	-- strucutre, not how many digs"; round 5: start at 0 HP with stage 1 down): laid at `hp.place`, bundled on the
-	-- ground; a Build swing of its team adds `hp.swing` up to `hp.max` (2 swings stand it; repairs too), a Destroy swing
-	-- takes `hp.destroy` (user: 2 swings, broken then gone), blasts Structures `wire`% of `hp.max`. Once it has stood,
-	-- under `broken` of its HP it lies scattered on the ground and does nothing (Wreck*, user: "a broken stage (less than
-	-- 50) will make the fence ineffective and scatter it on the ground"); a Destroy swing or a hit at 0 and it is gone,
-	-- nothing left (user: "remove the crumble. 0 hp should just disappear"). The grass goes from under it (Net GroundDug,
-	-- `grass` studs round its centre) as it is laid.
+	-- ground; a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`,
+	-- blasts Structures `wire`% of `hp.max`. Its look is its HP alone (user round 7: "barbwire should jsut hp"): under
+	-- `stand` of its HP it lies bundled on the ground and does nothing, from there up it stands and works; a Destroy
+	-- swing or a hit at 0 and it is gone, nothing left (user: "remove the crumble. 0 hp should just disappear"). (2 Build
+	-- swings stand it, 4 make it whole; a Destroy swing at a whole one knocks it down, the next takes it away.) The grass
+	-- goes from under it (Net GroundDug, `grass` studs round its centre) as it is laid.
 	Wire = {
-		hp = { max = 100, place = 0, swing = 50, destroy = 60 }, -- (60: the first Destroy swing breaks it, the second takes it away)
+		hp = { max = 100, place = 0, swing = 25, destroy = 60 },
+		stand = 0.5,
 		speed = 3,
 		damage = 4,
 		moving = 1,
 		tick = 0.25,
-		broken = 0.5,
 		grass = 4.6,
 		shake = 0.35,
 		wobble = 0.12,

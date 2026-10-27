@@ -12,7 +12,7 @@
 -- - Sandbag piles: Config/Assets sandbag_pile's bags in one "Sandbag" section, on HP (Config/Build.Sandbags.hp): laid
 --   at stage 1 (scraped ground, empty sacks), Build swings add HP, Destroy swings and weapons take it, its bags
 --   standing by HP.
--- - Barbed wire: Config/Assets barbed_wire's meshes in three looks (Rules.wireLook: on the ground, standing, broken),
+-- - Barbed wire: Config/Assets barbed_wire's meshes in two looks by HP (Rules.wireLook: on the ground, standing),
 --   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. On HP (Wire.hp).
 -- - Hesco barriers (kind "Hesco"; Config/Build.Hesco): on HP (its work is its HP), laid with the empty perimeter
 --   standing; the model's pieces for the stage its HP stands at (Rules.hescoStage: the perimeter, then the dirt rising,
@@ -171,8 +171,9 @@ local function section(parent: Instance, name: string, kind: string, class: stri
 	return s
 end
 
--- the bags of a sandbag pile: the first `stage` stand, the rest ghosted; stage 1's scraped ground always shows, its
--- empty sacks only while no bag stands
+-- the bags of a sandbag pile: the first `stage` stand, the rest unseen (no see-through finished pile over it, user round
+-- 7: "remove ... the transparent overlay of what the final strucutre looks like"); stage 1's scraped ground always
+-- shows, its empty sacks only while no bag stands
 local function showSandbags(r: Rec, stage: number)
 	for _, s in r.model:GetChildren() do
 		for _, p in s:GetChildren() do
@@ -183,9 +184,10 @@ local function showSandbags(r: Rec, stage: number)
 				elseif look ~= "Ground" then
 					local row = p:GetAttribute("Row") :: number
 					local up = row <= stage
-					p.Transparency = if up then 0 else C.GhostTransparency
+					p.Transparency = if up then 0 else 1
+					p.CastShadow = up
 					p.CanCollide = up
-					p.CanQuery = up -- (bullets pass through the ghost)
+					p.CanQuery = up
 				end
 			end
 		end
@@ -224,15 +226,15 @@ local function libraryKit(key: string): (Model?, { [string]: CFrame })
 end
 
 -- a sandbag pile (Config/Build.Pieces `bags`): its meshes from the library in one section, each bag's with the "Row" of
--- its bag (Rules.pileBag) so it stands and ghosts by stage (showSandbags), stage 1's (`stage1`) with its "Look"; false
--- when the library has no pile
-local function layoutPile(r: Rec, ground: number): boolean
+-- its bag (Rules.pileBag) so it stands by stage (showSandbags), stage 1's (`stage1`) with its "Look"; all of it laid on
+-- `on`, the ground under it as it lies (Survey.onGround); false when the library has no pile
+local function layoutPile(r: Rec, on: CFrame): boolean
 	local p = r.piece
 	local kit, offsets = libraryKit(p.asset)
 	if not kit then
 		return false
 	end
-	local base = CFrame.new(r.frame.Position.X, ground - C.Sandbags.sink, r.frame.Position.Z) * r.frame.Rotation
+	local base = on * CFrame.new(0, -C.Sandbags.sink, 0)
 	local s = section(r.model, "Pile", "Sandbags", "Sandbag", C.Sandbags.hp.max)
 	s:SetAttribute("HP", r.work)
 	for _, d in kit:GetChildren() do
@@ -259,7 +261,7 @@ local function layoutPile(r: Rec, ground: number): boolean
 			part.Material = Enum.Material.SmoothPlastic
 			local isGround = d.Name == p.stage1.ground
 			part.Color = rgb(if isGround then Palette.Build.SandbagPatch else Palette.Build.SandbagSacks)
-			part.CFrame = r.frame * offset -- (on the ground at its centre, not sunk with the bags)
+			part.CFrame = on * offset -- (on the ground, not sunk with the bags)
 			part:SetAttribute("Look", if isGround then "Ground" else "Sacks")
 			part.Parent = s
 		end
@@ -267,16 +269,18 @@ local function layoutPile(r: Rec, ground: number): boolean
 	return true
 end
 
--- which look (Rules.wireLook) a barbed_wire mesh belongs to: Bundle* on the ground, Wreck* broken, the rest standing
-local function wireLookOf(name: string): string
+-- which look (Rules.wireLook) a barbed_wire mesh belongs to: Bundle* on the ground, the rest standing; nil for the
+-- Wreck* meshes, which no look uses since it is on HP alone
+local function wireLookOf(name: string): string?
 	return if string.sub(name, 1, 6) == "Bundle"
 		then "Bundle"
-		elseif string.sub(name, 1, 5) == "Wreck" then "Broken"
+		elseif string.sub(name, 1, 5) == "Wreck" then nil
 		else "Standing"
 end
 
-local function layoutWire(r: Rec, ground: number)
-	local base = CFrame.new(r.frame.Position.X, ground, r.frame.Position.Z) * r.frame.Rotation
+-- (laid on `on`, the ground under it as it lies: Survey.onGround)
+local function layoutWire(r: Rec, on: CFrame)
+	local base = on
 	local holder = Instance.new("Folder")
 	holder.Name = "Wire"
 	holder.Parent = r.model
@@ -286,7 +290,8 @@ local function layoutWire(r: Rec, ground: number)
 	end
 	for _, d in kit:GetChildren() do
 		local offset = offsets[d.Name]
-		if offset and d:IsA("BasePart") then
+		local look = wireLookOf(d.Name)
+		if offset and look and d:IsA("BasePart") then
 			local part = d:Clone()
 			part.Anchored = true
 			part.CanCollide = false
@@ -295,21 +300,20 @@ local function layoutWire(r: Rec, ground: number)
 			part.Material = Enum.Material.SmoothPlastic
 			part.Color = rgb(if string.find(d.Name, "Pickets") then Palette.Build.Picket else Palette.Build.Wire)
 			part.CFrame = base * offset
-			part:SetAttribute("Look", wireLookOf(d.Name))
+			part:SetAttribute("Look", look)
 			part.Parent = holder
 		end
 	end
 end
 
--- the wire's look (Rules.wireLook): bundled on the ground from the moment it is laid, standing at full HP, broken
--- under half HP once it has stood; it slows and hurts only standing ("Armed"). The grass goes from under it as it is
--- laid.
+-- the wire's look by its HP (Rules.wireLook): bundled on the ground from the moment it is laid and while low, standing
+-- from Wire.stand of its HP; it slows and hurts only standing ("Armed"). The grass goes from under it as it is laid.
 local function showWire(r: Rec)
 	local holder = r.model:FindFirstChild("Wire")
 	if not holder then
 		return
 	end
-	local look = Rules.wireLook(r.built, r.work, r.need, C.Wire)
+	local look = Rules.wireLook(r.work, r.need, C.Wire)
 	for _, p in holder:GetChildren() do
 		if p:IsA("BasePart") then
 			p.Transparency = if p:GetAttribute("Look") == look then 0 else 1
@@ -767,13 +771,13 @@ local function place(player: Player, key: any, at: any)
 		at = gunAt,
 	}
 	if bags then
-		if not layoutPile(r, report.low) then
+		if not layoutPile(r, Survey.onGround(piece, frame, report)) then
 			model:Destroy()
 			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile: layoutPile warns)
 			return
 		end
 	elseif piece.kind == "Wire" then
-		layoutWire(r, report.low)
+		layoutWire(r, Survey.onGround(piece, frame, report))
 	elseif piece.kind == "Hesco" then
 		r.base = CFrame.new(frame.Position.X, report.low, frame.Position.Z) * frame.Rotation
 	elseif bridge and square and length then
@@ -1026,7 +1030,7 @@ local function work(player: Player, target: any, mode: any)
 			r.built, r.paid = true, true
 		end
 		apply(r)
-		if r.piece.kind == "Wire" and not build and r.built then
+		if r.piece.kind == "Wire" and not build then
 			shakeWire(r, root.Position)
 		end
 		return
@@ -1092,7 +1096,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 				if r.work <= 0 then
 					table.insert(cut, r)
 				else
-					apply(r) -- (worn under half, once it has stood, it lies broken)
+					apply(r) -- (worn low, it lies bundled on the ground)
 					shakeWire(r, position)
 				end
 			end
@@ -1153,7 +1157,7 @@ function Build.shot(part: Instance, point: Vector3)
 	end
 end
 
--- the barbed wire that stands (not broken): its box (centre frame and size), its team and model, for src/server/Wire
+-- the barbed wire that stands: its box (centre frame and size), its team and model, for src/server/Wire
 export type WireBox = { frame: CFrame, size: Vector3, team: string, model: Model }
 -- whether `p` is on a Hesco barrier's ground (its footprint and Config/Build.Hesco.ground round it): craters never carve
 -- it (src/server/Ground.guard); the barrier takes the blast (Build.blast)

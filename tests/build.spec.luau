@@ -235,20 +235,24 @@ return {
 			assert(s.stop > s.start and s.fade < s.stop - s.start, "trimmed with room to fade")
 		end
 	end,
-	["the wire: 8 x 4, 3/5 of a soldier high, too high to hop, 2 swings"] = function()
+	["the wire: 8 x 4, 3/5 of a soldier high, too high to hop, 2 swings stand it"] = function()
 		local w = B.piece("Wire", C.Pieces) :: any
 		local h = C.Wire.hp
-		assert(w.width == 8 and w.depth == 4 and h.place == 0 and math.ceil(h.max / h.swing - 1e-9) == 2)
+		assert(w.width == 8 and w.depth == 4 and h.place == 0)
+		local hp, n = h.place, 0
+		while B.wireLook(hp, h.max, C.Wire) ~= "Standing" do
+			hp = B.hpSwing(hp, true, h)
+			n += 1
+		end
+		assert(n == 2, `2 Build swings stand it ({n})`)
 		assert(near(w.height, M.Character.Height * 3 / 5, 0.05), "3/5 of a soldier")
 		assert(w.height > M.Movement.JumpHeight, "can't be hopped")
 	end,
-	["the wire: looks by HP"] = function()
+	["the wire: looks by HP alone"] = function()
 		local W, hp = C.Wire, C.Wire.hp.max
-		assert(B.wireLook(false, 0, hp, W) == "Bundle", "laid at 0, it is on the ground at once, before any swing")
-		assert(B.wireLook(false, hp / 2, hp, W) == "Bundle")
-		assert(B.wireLook(false, hp, hp, W) == "Standing")
-		assert(B.wireLook(true, hp * W.broken, hp, W) == "Standing", "at half HP it still stands")
-		assert(B.wireLook(true, hp * W.broken - 1, hp, W) == "Broken", "under half it is broken")
+		assert(B.wireLook(0, hp, W) == "Bundle", "laid at 0, it is on the ground at once, before any swing")
+		assert(B.wireLook(hp * W.stand - 1, hp, W) == "Bundle", "low: on the ground, doing nothing")
+		assert(B.wireLook(hp * W.stand, hp, W) == "Standing" and B.wireLook(hp, hp, W) == "Standing")
 	end,
 	["the wire: a shake wobbles within its size and comes to rest"] = function()
 		local W = C.Wire
@@ -260,12 +264,12 @@ return {
 		assert(B.wireShake(W.shake, W) == 0 and B.wireShake(-0.1, W) == 0, "still outside the shake")
 		assert(math.abs(B.wireShake(W.shake * 0.99, W)) < W.wobble * 0.01, "it dies away")
 	end,
-	["the wire: 2 Destroy swings, broken then gone; 1 Build swing stands it back up"] = function()
+	["the wire: 2 Destroy swings, knocked down then gone; its team's Build swings stand it back up"] = function()
 		local W, h = C.Wire, C.Wire.hp
 		local left, gone = B.hpSwing(h.max, false, h)
-		assert(not gone and B.wireLook(true, left, h.max, W) == "Broken", "one swing breaks it")
+		assert(not gone and B.wireLook(left, h.max, W) == "Bundle", "one swing knocks it down")
 		local up = B.hpSwing(left, true, h)
-		assert(B.wireLook(true, up, h.max, W) == "Standing", "a Build swing stands it back up")
+		assert(B.wireLook(up, h.max, W) == "Standing", "a Build swing stands it back up")
 		left, gone = B.hpSwing(left, false, h)
 		assert(gone and left == 0, "the second swing takes it away")
 		assert(B.hpSwing(h.max, true, h) == h.max, "never over its max")
@@ -551,5 +555,31 @@ return {
 		assert(left == h.max - h.destroy and not gone)
 		assert(B.hpSwing(h.max, false, h, 50) == 50, "an admin dig step in place of a swing")
 		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
+	end,
+	["laid on the ground: the plane through the ground under it, its height and slope each way"] = function()
+		-- a flat field: level at its height
+		local flat = table.create(15, 4)
+		local h, gx, gz = B.groundPlane(flat, 3, 5, 8, 4)
+		assert(near(h, 4) and near(gx, 0) and near(gz, 0))
+		-- rising 0.5 a stud along its width, 0.25 along its depth
+		local tilted = {}
+		for r = 1, 3 do
+			for c = 1, 5 do
+				local x, z = ((c - 1) / 4 - 0.5) * 8, ((r - 1) / 2 - 0.5) * 4
+				tilted[(r - 1) * 5 + c] = 10 + 0.5 * x + 0.25 * z
+			end
+		end
+		h, gx, gz = B.groundPlane(tilted, 3, 5, 8, 4)
+		assert(near(h, 10) and near(gx, 0.5) and near(gz, 0.25))
+	end,
+	["every Hesco piece has its colour (a missing one hid the whole barrier, round 7)"] = function()
+		local A = require("../src/shared/Config/Assets")
+		local P = require("../src/shared/Config/Palette")
+		local seen = 0
+		for kind in string.gmatch(A.Entries.hesco.description, "(%u%a*)[%d<]") do
+			assert(P.Build.Hesco[kind] ~= nil, `Palette.Build.Hesco.{kind}`)
+			seen += 1
+		end
+		assert(seen >= 10, "the stage pieces are listed")
 	end,
 }

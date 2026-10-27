@@ -588,6 +588,35 @@ end
 -- and its depth across it
 export type Footprint = { x: number, z: number, rx: number, rz: number, width: number, depth: number }
 
+-- The plane that best fits the ground under a piece (Survey.ground's samples: `heights` row-major, `rows` rows across
+-- its depth, `cols` along its width, the grid spanning `width` x `depth` round its centre): its height at the centre and
+-- its rise per stud along the width (`gx`) and along the depth (`gz`, toward the far row). A piece laid on it follows
+-- the terrain instead of standing flat (user round 7: "make sure the sandbags and barbed wires are build according to
+-- the terrain, not flat everytime").
+function Build.groundPlane(
+	heights: { number },
+	rows: number,
+	cols: number,
+	width: number,
+	depth: number
+): (number, number, number)
+	local sum, sxh, szh, sxx, szz = 0, 0, 0, 0, 0
+	for r = 1, rows do
+		for c = 1, cols do
+			local h = heights[(r - 1) * cols + c]
+			local x = if cols > 1 then ((c - 1) / (cols - 1) - 0.5) * width else 0
+			local z = if rows > 1 then ((r - 1) / (rows - 1) - 0.5) * depth else 0
+			sum += h
+			sxh += x * h
+			szh += z * h
+			sxx += x * x
+			szz += z * z
+		end
+	end
+	local n = math.max(rows * cols, 1)
+	return sum / n, if sxx > 0 then sxh / sxx else 0, if szz > 0 then szh / szz else 0
+end
+
 -- whether two footprints overlap (by more than a touch: separating axes, each box's own two)
 function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
 	local dx, dz = b.x - a.x, b.z - a.z
@@ -626,21 +655,14 @@ function Build.wireRattles(speed: number, w: any): boolean
 	return speed > w.moving
 end
 
--- How a barbed wire looks (Config/Build.Wire): "Bundle" from the moment it is laid, at 0 HP, until its HP is full (user
--- 2026-10-27: "make it like the artilleries where placing it places it at stage 1 ... make it also occur at 0"),
--- "Standing" at full HP, and once it has stood, "Broken" under `w.broken` of its HP (it then slows and hurts nobody)
-export type WireLook = "Bundle" | "Standing" | "Broken"
+-- How a barbed wire looks at `hp` of `maxHP` (Config/Build.Wire), by its HP alone (user round 7: "barbwire should jsut
+-- hp"): "Bundle" on the ground, doing nothing, from the moment it is laid at 0 HP (user 2026-10-27: "make it like the
+-- artilleries where placing it places it at stage 1") and whenever it is under `w.stand` of its HP; "Standing" (it
+-- slows and hurts) from there up
+export type WireLook = "Bundle" | "Standing"
 
--- whether a wire that has stood is broken: under `w.broken` of its HP
-function Build.wireBroken(hp: number, maxHP: number, w: any): boolean
-	return hp < maxHP * w.broken
-end
-
-function Build.wireLook(stood: boolean, hp: number, maxHP: number, w: any): WireLook
-	if stood then
-		return if Build.wireBroken(hp, maxHP, w) then "Broken" else "Standing"
-	end
-	return if hp >= maxHP then "Standing" else "Bundle"
+function Build.wireLook(hp: number, maxHP: number, w: any): WireLook
+	return if hp >= maxHP * w.stand - 1e-9 then "Standing" else "Bundle"
 end
 
 -- How far a shaken wire is pushed `t` seconds into a shake (Config/Build.Wire: `shake` long, `wobble` studs, `rate` Hz):
