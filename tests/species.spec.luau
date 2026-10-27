@@ -42,6 +42,28 @@ return {
 		assert(Species.of("uniform1", "human", Cfg) == nil, "override to human")
 		assert(Species.of("uniform1", "dragon", Cfg) == "katzling", "an unknown override is ignored")
 	end,
+	["a soldier is their nation's species about 1 life in 5"] = function()
+		assert(math.abs(Cfg.Chance - 0.2) < 1e-9, `Chance {Cfg.Chance}`)
+		assert(Species.roll(0, Cfg.Chance), "a low roll: the species")
+		assert(Species.roll(0.19, Cfg.Chance), "under the chance: the species")
+		assert(not Species.roll(0.2, Cfg.Chance), "at the chance: human")
+		assert(not Species.roll(0.999, Cfg.Chance), "a high roll: human")
+		local hits = 0
+		for k = 0, 999 do
+			if Species.roll(k / 1000, Cfg.Chance) then
+				hits += 1
+			end
+		end
+		assert(hits == 200, `{hits} of 1000 evenly spread rolls`)
+	end,
+	["a life rolled human is no species, the override still winning"] = function()
+		assert(Species.of("uniform1", nil, Cfg, "m_midpart", false) == nil, "rolled human: no species")
+		assert(Species.of("uniform1", nil, Cfg, "m_midpart", true) == "katzling", "rolled species: the kit's")
+		assert(Species.of("uniform1", nil, Cfg, "m_midpart", nil) == "katzling", "never rolled: the kit's")
+		assert(Species.of("nokit", nil, Cfg, "m_midpart", true) == nil, "an unlisted kit stays human")
+		assert(Species.of("uniform1", "fennek", Cfg, "m_midpart", false) == "fennek", "the override beats the roll")
+		assert(Species.of("uniform1", nil, Cfg, "bald", true) == nil, "bald beats the roll")
+	end,
 	["a bald soldier is never a species"] = function()
 		for _, kit in { "uniform1", "uniform2", "uniform3" } do
 			assert(Species.of(kit, nil, Cfg, "bald") == nil, `{kit}: bald is human`)

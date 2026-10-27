@@ -17,6 +17,9 @@ export type Kind = {
 }
 
 local Species = {
+	-- The chance a soldier is their nation's species, rolled each life with the looks (src/server/Bodies,
+	-- Rules/Species.roll; user 2026-10-27: "pretty rare 1/5"); otherwise a plain human.
+	Chance = 0.2,
 	-- uniform kit (Config/Uniforms.Kits) -> species; kits not listed are plain humans. Testing: a player's "Species"
 	-- attribute (a Kinds name or "human") wins, applied at the next spawn.
 	Kits = {

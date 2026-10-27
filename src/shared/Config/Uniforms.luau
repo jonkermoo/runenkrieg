@@ -28,7 +28,8 @@ local Uniforms = {
 	-- will rotate randomly per spawn"; docs/HAIRS.md): src/server/Bodies picks one skin and one hair color per spawn
 	-- (Rules/Looks: by weight, never the same as the soldier's last life). The skin colors the whole body (the kit's
 	-- `skin` is only the showcase dummies'); the hair color goes on the character as the "HairColor" attribute for the
-	-- hair model. Hair: four natural colors equally likely, white the rare one (user 2026-10-14; 1 of 15).
+	-- hair model. Hair: four natural colors equally likely, and three rare ones, about 1 in 13 together (user 2026-10-27:
+	-- white, ash and blood red).
 	-- darker and warmer than the first set (user 2026-10-14: the first pale washed out to white in the bright light)
 	Skins = {
 		{ name = "pale", color = { 232, 186, 146 }, weight = 1 },
@@ -41,7 +42,10 @@ local Uniforms = {
 		{ name = "brown", color = { 104, 70, 46 }, weight = 3.5 }, -- the helmet previews' hair (src/dev/HairPreview)
 		{ name = "blonde", color = { 214, 182, 120 }, weight = 3.5 },
 		{ name = "ginger", color = { 182, 92, 46 }, weight = 3.5 },
-		{ name = "white", color = { 232, 228, 220 }, weight = 1 }, -- rare
+		-- rare
+		{ name = "white", color = { 232, 228, 220 }, weight = 0.5 }, -- about 1 in 30
+		{ name = "ash", color = { 160, 164, 168 }, weight = 0.4 }, -- about 1 in 38
+		{ name = "blood_red", color = { 124, 30, 36 }, weight = 0.3 }, -- about 1 in 51
 	},
 	-- The hairstyle, rolled each life like the colors (user 2026-10-14, bald included): Config/Assets `hair_<name>`
 	-- (bareheaded) and `hair_<name>_<shell>` (under that helmet shell). Bald: no hair, only the helmet.
