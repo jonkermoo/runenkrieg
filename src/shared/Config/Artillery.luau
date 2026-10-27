@@ -92,7 +92,10 @@ export type Gun = {
 		wall: number?,
 		slabs: boolean?,
 	}?,
-	hp: number, -- what it takes to wreck it (Hits, Wreck)
+	hp: number, -- what it takes to wreck it (Hits, Wreck): 100, like every structure (Config/Build.Guns)
+	-- what blasts take off it is divided by this (Hits; nil: 1): the howitzer's 240 HP on the 100 scale (user
+	-- 2026-10-27: "change all building to be HP out of 100 ... use the appropriate math"), as many hits as before
+	armour: number?,
 	-- shovel swings (Build mode, any team's) that fix it from a wreck to whole (Repair)
 	repair: number,
 	-- the shell leaves this many degrees over the bore, unseen (Rules/Artillery.muzzle); nil: along it
@@ -727,7 +730,8 @@ local Artillery = {
 				wall = 59,
 				slabs = true,
 			},
-			hp = 240,
+			hp = 100,
+			armour = 2.4,
 			repair = 30, -- (half the swings it takes to build)
 			wreckParts = { "Bed", "Mount", "Cradle" }, -- (the moving ones carried by src/client/Artillery)
 			holeSize = { 0.7, 1.4 },

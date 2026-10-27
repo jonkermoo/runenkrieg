@@ -107,7 +107,7 @@ local Palette = {
 	},
 	-- Rigs (Config/Uniforms.Rigs, user 2026-10-22: each team's in its own colors), by kit, colored by mesh name. Like
 	-- the packs never the uniform's colour: each team's leather as its pack's. Grey: blackened German leather; olive:
-	-- the zaino's brown leather; white: pale khaki British web, as the P08, with brass fittings.
+	-- the zaino's brown leather; brown: pale khaki British web, as the P08, with brass fittings.
 	Rigs = {
 		uniform1 = { Leather = { 54, 42, 34 }, Pouch = { 88, 66, 48 }, Metal = { 70, 66, 60 } },
 		uniform2 = { Leather = { 112, 82, 58 }, Pouch = { 136, 104, 72 }, Metal = { 70, 66, 60 } },
@@ -133,15 +133,15 @@ local Palette = {
 		Paint = {
 			Grey = { 82, 86, 88 }, -- slate, as the grey tunic
 			Olive = { 98, 102, 66 },
-			White = { 192, 190, 180 }, -- off-white, as the Brodie helmet
+			Brown = { 192, 190, 180 }, -- still the off-white of the old White team (to be retuned brown)
 		},
 		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed", "TraverseWheel", "ElevationWheel" },
 		-- the small pieces (user 2026-10-26: "more micro designs and accents/secondary colors on the artillery ... make it
 		-- different per team"): a mesh named <part><Role> (MountTrim, CarriageFittings, ...) takes its team's colour for
 		-- that role: Trim bands and edging, Fittings rivets, bolts, caps, data plates and chains, Kit the tool and ammo
 		-- boxes, Marking the team's stripe. Grey: black iron and oxblood (as its blackened leather); Olive: brown leather
-		-- and ochre; White: khaki web, brass and navy. (User 2026-10-26: "make sure everything blends in well": the
-		-- fittings and stripes toned toward the paint; were Grey 120 steel / 138,46,40, Olive 196,160,72, White
+		-- and ochre; Brown: khaki web, brass and navy. (User 2026-10-26: "make sure everything blends in well": the
+		-- fittings and stripes toned toward the paint; were Grey 120 steel / 138,46,40, Olive 196,160,72, Brown
 		-- 176,146,82 / 54,70,112.)
 		Roles = { "Trim", "Fittings", "Kit", "Marking" },
 		Team = {
@@ -157,7 +157,7 @@ local Palette = {
 				Kit = { 136, 104, 72 },
 				Marking = { 170, 140, 72 },
 			},
-			White = {
+			Brown = {
 				Trim = { 150, 134, 96 },
 				Fittings = { 160, 136, 86 },
 				Kit = { 112, 90, 64 },
@@ -256,6 +256,10 @@ local Palette = {
 			Stones = { 112, 106, 96 },
 			Flaps = { 180, 170, 142 },
 			Piles = { 125, 103, 71 },
+			-- stage 0, just laid (hesco v3): the scraped ground and the unit lying folded flat (without these the stage's
+			-- pieces could not be coloured and the barrier never showed, user round 7: "the hesco barrier disappeared")
+			Scrape = { 138, 112, 84 },
+			Pack = { 143, 134, 109 },
 		},
 	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
@@ -366,6 +370,10 @@ local Palette = {
 			crystalDead = { 58, 60, 64 },
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
+			-- the kit list (Config/Hud.Kit): the names and keys of the rows not in the hands, an empty row's name
+			kitName = { 168, 168, 158 },
+			kitKey = { 154, 154, 144 },
+			kitEmpty = { 118, 118, 110 },
 			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
 			-- a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
 			bolt = { 150, 154, 160 },
@@ -377,7 +385,7 @@ local Palette = {
 			shadowAmbient = { 255, 255, 255 },
 			shadowLight = { 0, 0, 0 },
 			-- each team's box (user 2026-10-26: "make it the team coloring"; by the "Kit": Config/Uniforms): its field,
-			-- its rim and rivets, as the uniforms (grey: slate; olive: olive drab; white: chocolate and off-white)
+			-- its rim and rivets, as the uniforms (grey: slate; olive: olive drab; brown: chocolate and off-white)
 			Teams = {
 				uniform1 = { field = { 28, 31, 34 }, rim = { 128, 136, 144 }, rivet = { 84, 90, 96 } },
 				uniform2 = { field = { 28, 32, 22 }, rim = { 150, 156, 96 }, rivet = { 98, 102, 62 } },
@@ -401,6 +409,9 @@ local Palette = {
 			selFill = { 58, 60, 64 },
 			selLine = { 201, 203, 208 },
 			selText = { 255, 255, 255 },
+			-- the loadout menu's team cards (src/client/Menus, user 2026-10-27): a team you can't join is red (one you can
+			-- is selText, yours textDim)
+			noText = { 214, 92, 80 },
 			accent = { 228, 229, 232 },
 			backdrop = { 0, 0, 0 },
 			backdropTransparency = 0.55,

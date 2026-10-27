@@ -9,7 +9,9 @@
 -- (Rules/Classes.credit). Loadouts.award pays the rest (src/server/Build: pieces and trench squares built; the zone
 -- capture: "Capture"). Loadouts.resetMatch starts a new match: everyone's points back to Config/Classes.Start and the
 -- picks back to the default. Until there are matches, a server is one match.
--- Net "Loadout": client -> server ("Pick", class) | ("Ask") | ("Deploy"); server -> client (Rules/Classes.State plus
+-- Net "Loadout": client -> server ("Pick", class) | ("Ask") | ("Deploy") | ("Team", kit: a team change where teams are
+-- kept, Config/Teams: src/server/Deploy checks the balance again and moves them, and their points go back to
+-- Config/Classes.Start, user 2026-10-27: "leaving your team will reset your battle points"); server -> client (Rules/Classes.State plus
 -- src/server/Deploy's `wait` and `alive`) on each death (the menu opens while respawning) and in answer to each pick
 -- or ask. src/server/Deploy spawns the player on "Deploy" and builds the menu's preview soldier (Loadouts.bind).
 
@@ -73,6 +75,7 @@ end
 type Deployer = {
 	changed: (Player, string) -> (),
 	deploy: (Player) -> (),
+	team: (Player, any) -> boolean,
 	fields: (Player) -> { [string]: any },
 }
 local deployer: Deployer? = nil
@@ -198,6 +201,11 @@ function Loadouts.start()
 			picks[player] = key
 			if deployer then
 				deployer.changed(player, "Pick")
+			end
+		elseif action == "Team" then
+			if deployer and deployer.team(player, key) then
+				points[player] = C.Start
+				deployer.changed(player, "Team")
 			end
 		elseif action == "Deploy" then
 			if deployer then

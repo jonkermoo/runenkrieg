@@ -1,6 +1,6 @@
 {
 	"name": "LoadoutMenu",
-	"_doc": "The loadout menu (src/client/Menus): opens after Play and on every death; the class list on the left (one row per Config/Classes.List entry, the rows here are samples), the soldier you'll spawn as on the right (a ViewportFrame of the server's preview rig). Marks show only here (user 2026-10-27). Back returns to the title screen (user 2026-10-27: \"we need a back button\"). Deploy lights up when the respawn delay is over.",
+	"_doc": "The loadout menu (src/client/Menus): opens after Play and on every death; the class list on the left (one row per Config/Classes.List entry, the rows here are samples), the soldier you'll spawn as on the right (a ViewportFrame of the server's preview rig). Marks show only here (user 2026-10-27). Back returns to the title screen (user 2026-10-27: \"we need a back button\"). Deploy lights up when the respawn delay is over. Change team (only in modes that keep teams: Config/Modes `teams`, or the admin panel's dev switch) opens three team cards (user 2026-10-27): a gradient placeholder for the team's art, its name and 'count / room' in the middle; the text is white if you can join, red if you can't, grey for your team. A joinable card asks for a second click (joining resets your Marks).",
 	"theme": {
 		"scale": {
 			"referenceHeight": 800,
@@ -26,7 +26,12 @@
 	"preview": {
 		"marks": "Marks  120",
 		"deploy": "Deploy in 10",
-		"className": "Auto rifler"
+		"className": "Auto rifler",
+		"team": "Grey army",
+		"countGrey": "34 / 34",
+		"countOlive": "34 / 34",
+		"countWhite": "34 / 34",
+		"teamNote": "Click White again to join: your Marks reset"
 	},
 	"root": {
 		"id": "Screen",
@@ -662,6 +667,317 @@
 							46
 						],
 						"center": true
+					},
+					{
+						"id": "Team",
+						"kind": "group",
+						"overlay": true,
+						"anchor": [
+							1,
+							0
+						],
+						"pos": [
+							1,
+							0,
+							0,
+							0
+						],
+						"size": [
+							0,
+							260,
+							0,
+							92
+						],
+						"children": [
+							{
+								"id": "TeamName",
+								"kind": "label",
+								"bind": "team",
+								"textSize": 24,
+								"textColor": "title",
+								"align": "right",
+								"pos": [
+									0,
+									0,
+									0,
+									0
+								],
+								"size": [
+									1,
+									0,
+									0,
+									30
+								]
+							},
+							{
+								"id": "ChangeTeam",
+								"kind": "button",
+								"text": "Change team",
+								"textSize": 24,
+								"color": "field",
+								"line": "line",
+								"textColor": "text",
+								"pos": [
+									0,
+									0,
+									0,
+									36
+								],
+								"size": [
+									1,
+									0,
+									0,
+									56
+								]
+							}
+						]
+					},
+					{
+						"id": "Teams",
+						"kind": "group",
+						"overlay": true,
+						"anchor": [
+							1,
+							0
+						],
+						"pos": [
+							1,
+							0,
+							0,
+							104
+						],
+						"size": [
+							0,
+							624,
+							0,
+							314
+						],
+						"children": [
+							{
+								"id": "CardGrey",
+								"kind": "button",
+								"color": "selFill",
+								"line": "line",
+								"pos": [
+									0,
+									0,
+									0,
+									0
+								],
+								"size": [
+									0,
+									200,
+									0,
+									280
+								],
+								"children": [
+									{
+										"id": "NameGrey",
+										"kind": "label",
+										"text": "Grey",
+										"textSize": 30,
+										"textColor": "textDim",
+										"center": true,
+										"anchor": [
+											0.5,
+											0.5
+										],
+										"pos": [
+											0.5,
+											0,
+											0.5,
+											-14
+										],
+										"size": [
+											1,
+											-24,
+											0,
+											36
+										]
+									},
+									{
+										"id": "CountGrey",
+										"kind": "label",
+										"bind": "countGrey",
+										"textSize": 20,
+										"textColor": "textDim",
+										"center": true,
+										"anchor": [
+											0.5,
+											0.5
+										],
+										"pos": [
+											0.5,
+											0,
+											0.5,
+											20
+										],
+										"size": [
+											1,
+											-24,
+											0,
+											26
+										]
+									}
+								]
+							},
+							{
+								"id": "CardOlive",
+								"kind": "button",
+								"color": "selFill",
+								"line": "line",
+								"pos": [
+									0,
+									212,
+									0,
+									0
+								],
+								"size": [
+									0,
+									200,
+									0,
+									280
+								],
+								"children": [
+									{
+										"id": "NameOlive",
+										"kind": "label",
+										"text": "Olive",
+										"textSize": 30,
+										"textColor": "selText",
+										"center": true,
+										"anchor": [
+											0.5,
+											0.5
+										],
+										"pos": [
+											0.5,
+											0,
+											0.5,
+											-14
+										],
+										"size": [
+											1,
+											-24,
+											0,
+											36
+										]
+									},
+									{
+										"id": "CountOlive",
+										"kind": "label",
+										"bind": "countOlive",
+										"textSize": 20,
+										"textColor": "selText",
+										"center": true,
+										"anchor": [
+											0.5,
+											0.5
+										],
+										"pos": [
+											0.5,
+											0,
+											0.5,
+											20
+										],
+										"size": [
+											1,
+											-24,
+											0,
+											26
+										]
+									}
+								]
+							},
+							{
+								"id": "CardWhite",
+								"kind": "button",
+								"color": "selFill",
+								"line": "line",
+								"pos": [
+									0,
+									424,
+									0,
+									0
+								],
+								"size": [
+									0,
+									200,
+									0,
+									280
+								],
+								"children": [
+									{
+										"id": "NameWhite",
+										"kind": "label",
+										"text": "Brown",
+										"textSize": 30,
+										"textColor": "noText",
+										"center": true,
+										"anchor": [
+											0.5,
+											0.5
+										],
+										"pos": [
+											0.5,
+											0,
+											0.5,
+											-14
+										],
+										"size": [
+											1,
+											-24,
+											0,
+											36
+										]
+									},
+									{
+										"id": "CountWhite",
+										"kind": "label",
+										"bind": "countWhite",
+										"textSize": 20,
+										"textColor": "noText",
+										"center": true,
+										"anchor": [
+											0.5,
+											0.5
+										],
+										"pos": [
+											0.5,
+											0,
+											0.5,
+											20
+										],
+										"size": [
+											1,
+											-24,
+											0,
+											26
+										]
+									}
+								]
+							},
+							{
+								"id": "TeamNote",
+								"kind": "label",
+								"bind": "teamNote",
+								"textSize": 18,
+								"textColor": "text",
+								"align": "right",
+								"pos": [
+									0,
+									0,
+									0,
+									290
+								],
+								"size": [
+									1,
+									0,
+									0,
+									24
+								]
+							}
+						]
 					}
 				]
 			}

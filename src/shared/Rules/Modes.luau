@@ -28,6 +28,12 @@ function Modes.openAdmin(cfg: any, key: unknown): boolean
 	return d ~= nil and d.openAdmin == true
 end
 
+-- Whether mode `key` keeps teams (Config/Modes `teams`, Config/Teams): `dev` is the admin panel's test switch.
+function Modes.keptTeams(cfg: any, key: unknown, dev: unknown): boolean
+	local d = if type(key) == "string" then cfg.Defs[key] else nil
+	return dev == true or (d ~= nil and d.teams == true)
+end
+
 -- The zone match's end after `delta` more seconds: never before `now`.
 function Modes.extend(endsAt: number, delta: number, now: number): number
 	return math.max(endsAt + delta, now)
