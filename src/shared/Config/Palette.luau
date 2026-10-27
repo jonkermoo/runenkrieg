@@ -338,7 +338,7 @@ local Palette = {
 			hint = { 184, 194, 188 },
 			-- each mode's colour (its tab, its badge, its face) and its panel's field (src/shared/ui/BuildHud.json; user
 			-- 2026-10-27: "make it more distinct for each mode"): Build gold, Destroy red, Placing blueprint blue, the
-			-- trench plan chalk; the hazard band's dark stripes, the stage blocks' and the rule's track
+			-- trench plan chalk; the hazard band's dark stripes, the rule's track
 			modeBuild = { 217, 180, 90 },
 			modeDestroy = { 226, 96, 79 },
 			modePlace = { 160, 200, 226 },
@@ -349,7 +349,6 @@ local Palette = {
 			fieldPlan = { 28, 36, 31 },
 			hazardDark = { 20, 14, 13 },
 			track = { 0, 0, 0 },
-			goes = { 255, 255, 255 }, -- the outline of the stage block a Destroy swing breaks next
 		},
 		-- the combat HUD, quartermaster's brass (Config/Hud, src/shared/ui/CombatHud.json): the panel's dark field, its
 		-- brass rim and rivets, the name plate and its stamped letters, the count, the hint plate (red, the next thing to
