@@ -32,6 +32,7 @@ local Ragdoll = require(script.Parent.Ragdoll)
 local Cfg = require(Shared.Config.DevTools)
 local ClassCfg = require(Shared.Config.Classes)
 local ModeCfg = require(Shared.Config.Modes)
+local ModeRules = require(Shared.Rules.Modes)
 local W = require(Shared.Config.Weapons)
 local Map1 = require(Shared.Config.Maps.Map1)
 local Rules = require(Shared.Rules.DevTeleports)
@@ -41,6 +42,15 @@ local Net = require(Shared.Net)
 local DevTools = {}
 
 local DEFS = { modes = ModeCfg.Defs, classes = ClassCfg.Defs } -- (the "Mode" and "Class" values, Rules/DevActions)
+-- the admin settings a player loses with the tools (the server's mode closing them)
+local REVOKED = {
+	Cfg.Admin.GodAttribute,
+	Cfg.Blasts.HurtAttribute,
+	Cfg.Admin.Dig.attribute,
+	Cfg.Admin.BuildAllAttribute,
+	Cfg.Admin.AmmoAttribute,
+	Cfg.Admin.ClassAttribute,
+}
 
 local last: { [Player]: number } = {}
 local lastAction: { [Player]: number } = {} -- (test actions keep their own cooldown)
@@ -183,14 +193,26 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 end
 
 function DevTools.start()
+	-- (everyone again each time the server's mode changes: only the admin mode opens the tools to all)
 	local function setup(player: Player)
-		local allowed = Rules.allowed(Cfg, player.UserId, RunService:IsStudio(), game.PlaceId)
+		local open = ModeRules.openAdmin(ModeCfg, workspace:GetAttribute(ModeCfg.Attribute))
+		local allowed = Rules.allowed(Cfg, player.UserId, RunService:IsStudio(), game.PlaceId, open)
 		player:SetAttribute(Cfg.Attribute, allowed)
+		if not allowed then
+			for _, name in REVOKED do
+				player:SetAttribute(name, nil)
+			end
+		end
 	end
 	Players.PlayerAdded:Connect(setup)
 	for _, p in Players:GetPlayers() do
 		setup(p)
 	end
+	workspace:GetAttributeChangedSignal(ModeCfg.Attribute):Connect(function()
+		for _, p in Players:GetPlayers() do
+			setup(p)
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(p)
 		last[p] = nil
 		lastAction[p] = nil

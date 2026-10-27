@@ -26,6 +26,11 @@ return {
 		assert(not R.switchable(Cfg, "Normal", "Admin"), "not built yet")
 		assert(not R.switchable(Cfg, "Nope", "Admin") and not R.switchable(Cfg, nil, "Admin"))
 	end,
+	["only the admin mode opens the admin panel to everyone (user 2026-10-27)"] = function()
+		assert(R.openAdmin(Cfg, "Admin"))
+		assert(not R.openAdmin(Cfg, "FFA") and not R.openAdmin(Cfg, "Normal"))
+		assert(not R.openAdmin(Cfg, nil) and not R.openAdmin(Cfg, "Nope"))
+	end,
 	["the match clock moves by the admin's seconds, never into the past"] = function()
 		assert(R.extend(100, 60, 50) == 160)
 		assert(R.extend(100, -60, 50) == 50, "clamped to now")

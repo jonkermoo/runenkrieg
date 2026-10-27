@@ -22,6 +22,12 @@ function Modes.switchable(cfg: any, key: unknown, current: string): boolean
 	return d ~= nil and d.ready == true and key ~= current
 end
 
+-- Whether mode `key` opens the admin panel to everyone (Config/Modes.openAdmin); an unknown mode doesn't.
+function Modes.openAdmin(cfg: any, key: unknown): boolean
+	local d = if type(key) == "string" then cfg.Defs[key] else nil
+	return d ~= nil and d.openAdmin == true
+end
+
 -- The zone match's end after `delta` more seconds: never before `now`.
 function Modes.extend(endsAt: number, delta: number, now: number): number
 	return math.max(endsAt + delta, now)

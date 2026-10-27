@@ -40,6 +40,9 @@ return {
 		assert(not T.allowed(Cfg, 1, false))
 		assert(T.allowed(Cfg, 1, false, Cfg.DevPlaceId), "every playtester in the DEV place")
 		assert(not T.allowed(Cfg, 1, false, 71611711100478), "nobody else in the live place")
+		assert(not T.allowed(Cfg, 1, true, Cfg.DevPlaceId, false), "a closed mode: no playtester")
+		assert(T.allowed(Cfg, 180563380, false, Cfg.DevPlaceId, false), "the creator always")
+		assert(T.allowed(Cfg, 1, true, nil, true))
 		assert(T.find(Map1, Cfg, "Gallery") ~= nil and T.find(Map1, Cfg, "nope") == nil)
 	end,
 	["admin speeds: positive steps including x1, a flying speed and fly keys"] = function()
