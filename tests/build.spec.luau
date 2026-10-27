@@ -47,14 +47,63 @@ return {
 		for _, p in C.Pieces do
 			assert(type(p.key) == "string" and not seen[p.key], p.key)
 			seen[p.key] = true
-			assert(p.kind == "Trench" or p.kind == "Sandbags" or p.kind == "Wire" or p.kind == "Gun", p.key)
-			-- (a sandbag pile is built on HP, Config/Build.Sandbags.hp, not a count of swings)
-			assert(type(p.name) == "string" and (p.kind == "Sandbags" or p.work >= 1), p.key)
+			assert(
+				p.kind == "Trench"
+					or p.kind == "Sandbags"
+					or p.kind == "Wire"
+					or p.kind == "Gun"
+					or p.kind == "Hesco"
+					or p.kind == "Bridge",
+				p.key
+			)
+			assert(type(p.name) == "string" and (p.kind == "Hesco" or p.kind == "Sandbags" or p.work >= 1), p.key)
 		end
 		assert(
 			B.piece("SandbagPile", C.Pieces) ~= nil and B.piece("Nope", C.Pieces) == nil and B.piece(5, C.Pieces) == nil
 		)
 		assert(B.piece("LowWall", C.Pieces) == nil and B.piece("HighWall", C.Pieces) == nil, "the old walls are gone")
+	end,
+	["hesco: 6 x 6, just over a soldier, only the dirt is cover; four stages on HP: laid standing, gone at 0"] = function()
+		local A = require("../src/shared/Config/Assets")
+		local h = B.piece("Hesco", C.Pieces) :: any
+		assert(h and h.kind == "Hesco" and h.width == 6 and h.depth == 6 and A.Entries[h.asset] ~= nil)
+		-- (user 2026-10-27: "just barely the players height")
+		assert(h.height > M.Character.Height and h.height < M.Character.Height + 0.25, "just over a standing soldier")
+		-- (user 2026-10-27: "stage 1 and 2 barriers will provide little to no protection"): the dirt at each stage
+		local function dirt(stage: number): number
+			return h.height * math.max(stage - 1, 0) / (h.stages - 1)
+		end
+		assert(
+			dirt(1) == 0
+				and dirt(2) <= M.Cover.HopableLedgeMax
+				and dirt(3) >= M.Cover.LowCoverMin
+				and dirt(h.stages) == h.height
+		)
+		-- on HP (user 2026-10-27: "all strucuttres use HP rule", "stage 1 should always be when its placed")
+		local hp = C.Hesco.hp
+		-- (user round 5: "hesco barriers should still start at 0 HP. make another flat model for when it has just been placed")
+		assert(h.stages == 4 and hp.place == 0 and B.hescoStage(hp.place, hp.max, 4) == 0, "laid: lying flat at 0 HP")
+		assert(B.hescoStage(hp.swing, hp.max, 4) == 1, "a swing in: the empty perimeter stands")
+		assert(B.hescoStage(hp.max, hp.max, 4) == 4, "full")
+		assert(B.hescoStage(hp.max * 0.6, hp.max, 4) == 3, "worn: the dirt slumps a stage")
+		assert(B.hescoStage(0.01, hp.max, 4) == 1, "the perimeter stands while it has any HP")
+		local v, gone, swings = hp.place, false, 0
+		while v < hp.max do
+			v, gone = B.hescoSwing(v, true, hp)
+			swings += 1
+		end
+		assert(v == hp.max and not gone and swings >= 4 and swings <= 8, `built up in a few swings ({swings})`)
+		v, gone = B.hescoSwing(hp.destroy, false, hp)
+		assert(v == 0 and gone, "a Destroy swing takes the last of it")
+		v = B.hescoSwing(hp.max, false, hp, 40)
+		assert(v == hp.max - 40, "an admin step")
+		v, gone = B.hescoSwing(0, false, hp)
+		assert(v == 0 and gone, "a Destroy swing at a barrier just laid takes it away")
+		-- the ground it keeps from craters (user round 5: "the ground below the barrier and the surround (the hitbox)")
+		local m = C.Hesco.ground
+		assert(B.onFootprint(0, 0, 6, 6, m) and B.onFootprint(3 + m, -3 - m, 6, 6, m))
+		assert(not B.onFootprint(3 + m + 0.01, 0, 6, 6, m) and not B.onFootprint(0, -3 - m - 0.01, 6, 6, m))
+		assert(C.Hesco.soak > 0 and C.Hesco.soak < 1, "tougher than sandbags")
 	end,
 	["laying a piece: each reason in turn"] = function()
 		assert(B.canPlace(placing({})))
@@ -350,7 +399,11 @@ return {
 			at("grenade", 0.1, 0) < 5 and at("grenade", 0.1, 0) > 0,
 			"a grenade, even inside the trench, only wears it"
 		)
-		assert(at("staff3", 10, 0) < 5, "a full staff beam is no bigger than a grenade or so, for all its 10 kg")
+		-- (user 2026-10-27: "about 5-6 should be able to sink/destroy a trench")
+		local beams = math.ceil(C.Trench.hp.max / (C.Trench.hp.max * at("staff3", 10, 0) / 100))
+		assert(beams >= 5 and beams <= 6, `5-6 full staff beams bury a trench ({beams})`)
+		assert(at("staff1", 1, 0) < at("staff2", 1, 0) and at("staff2", 1, 0) < at("staff3", 1, 0), "stage by stage")
+		assert(at("staff3", 10, 0) < at(nil, 2.5, 0), "a full beam is still less than a field gun shell")
 		local field = at(nil, 2.5, 1)
 		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
 		local howitzer = at(nil, 340, 3)
@@ -362,6 +415,81 @@ return {
 		assert(at("grenade", 0.1, S.grenade.reach) == 0, "nothing past its reach")
 		assert(near(at("grenade", 0.1, (S.edge + S.grenade.reach) / 2), S.grenade.hit / 2), "fading out")
 		assert(B.structureHit(0, S.field, S.edge, S.field.wire) >= 100, "a shell cuts wire")
+	end,
+	["bridges: on HP, stage 1 when laid, two swings to whole, crossable until 0"] = function()
+		local p = B.piece("Bridge", C.Pieces) :: any
+		assert(p and p.kind == "Bridge")
+		local h = C.Bridge.hp
+		local need = h.max
+		assert(B.bridgeStage(0, need) == 0, "gone at 0")
+		local w = h.place
+		assert(B.bridgeStage(w, need) == 1, "laid: stage 1 down at once")
+		w = B.trenchSwing(w, need, h.swing, true)
+		assert(B.bridgeStage(w, need) == 2 and w < need, "a swing: stage 2")
+		w = B.trenchSwing(w, need, h.swing, true)
+		assert(w == need, "two: whole")
+		local S = C.Structures
+		local gone
+		w, gone = B.bridgeHit(w, need, B.structureHit(0, S.grenade, S.edge, S.grenade.bridge))
+		assert(not gone and B.bridgeStage(w, need) == 2, "a grenade: still every board (75%)")
+		w, gone = B.bridgeHit(w, need, B.structureHit(0, S.grenade, S.edge, S.grenade.bridge))
+		assert(not gone and B.bridgeStage(w, need) == 1, "two: down to stage 1 (50%), still crossable")
+		w, gone = B.bridgeHit(w, need, B.structureHit(0, S.grenade, S.edge, S.grenade.bridge))
+		assert(not gone and B.bridgeStage(w, need) == 1)
+		w, gone = B.bridgeHit(w, need, B.structureHit(0, S.grenade, S.edge, S.grenade.bridge))
+		assert(gone and w == 0, "four take it away")
+		w, gone = B.bridgeHit(need, need, B.structureHit(1, S.field, S.edge, S.field.bridge))
+		assert(gone, "one shell drops it")
+		assert(B.structureHit(0, S.bullet, S.edge, S.bullet.bridge) == 0, "bullets pass the planks")
+		-- Destroy swings take its HP: down to stage 1 at half, gone at 0
+		w, gone = need, false
+		local swings = 0
+		while not gone do
+			w, gone = B.trenchSwing(w, need, h.destroy, false)
+			swings += 1
+			if w > 0 then
+				assert(B.bridgeStage(w, need) == (if w > need / 2 then 2 else 1))
+			end
+		end
+		assert(swings == math.ceil(need / h.destroy), `{swings} Destroy swings take a whole bridge away`)
+		w = B.trenchSwing(40, need, h.swing, true)
+		assert(w == 80, "its team's Build swings repair it")
+	end,
+	["bridges: only across a dug square joined straight on, a square apart"] = function()
+		local b = C.Bridge
+		local function spot(over: { [string]: any }): string?
+			local s: any =
+				{ found = true, dug = 100, ends = { "end", "end" }, bends = { 0, 0 }, teed = false, nearest = 99 }
+			for k, v in over do
+				s[k] = v
+			end
+			return B.bridgeSpot(s, b)
+		end
+		assert(spot({}) == nil, "a straight run, dug")
+		assert(spot({ bends = { b.maxBend - 1, 0 } }) == nil, "a gentle bend")
+		assert(spot({ found = false }) == "Needs a dug trench")
+		assert(spot({ dug = b.dug - 1 }) == "Needs a dug trench", "not dug full")
+		assert(spot({ ends = { "", "end" } }) == "Not at a dead end")
+		assert(spot({ ends = { "end", "tee" } }) == "Not on a joint", "where it tees into another")
+		assert(spot({ bends = { 0, b.maxBend + 5 } }) == "Not on a joint", "a sharp bend")
+		assert(spot({ teed = true }) == "Not on a joint", "a trench joins its side")
+		assert(spot({ nearest = 0 }) == "A bridge is already here")
+		assert(spot({ nearest = C.Trench.block }) == "Too close to another bridge", "the next square")
+		assert(spot({ nearest = 2 * C.Trench.block }) == nil, "one free square between")
+		local ok = B.canPlace(placing({ piece = B.piece("Bridge", C.Pieces), spot = "Not on a joint" }))
+		assert(not ok, "the spot's reason refuses it")
+	end,
+	["bridges: every layout and both ways round come up"] = function()
+		local seen = {}
+		for seed = 1, 60 do
+			local v, turned = B.bridgeVariant(seed * 7919, C.Bridge.variants)
+			assert(v >= 1 and v <= C.Bridge.variants)
+			seen[`{v}{turned}`] = true
+			assert(B.bridgeVariant(seed * 7919, C.Bridge.variants) == v, "same seed, same layout")
+		end
+		for v = 1, C.Bridge.variants do
+			assert(seen[`{v}true`] and seen[`{v}false`], `layout {v} both ways`)
+		end
 	end,
 	["trenches v2: a segment through a rectangle"] = function()
 		-- a rectangle at the origin along x, 6 long each way, 2 across each way; a segment along x through it

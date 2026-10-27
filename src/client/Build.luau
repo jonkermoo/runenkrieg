@@ -453,6 +453,31 @@ local function surveyPiece(character: Model, root: BasePart)
 		return
 	end
 	local look = aimRay().Direction
+	if p.kind == "Bridge" then
+		-- a bridge snaps across the trench square under the cursor (Survey.bridgeSpot), its ghost the deck
+		local s, onSquare, length = Survey.bridgeSpot(workspace:FindFirstChild(C.Folder), hit.Position)
+		local at = onSquare or Survey.frame(hit.Position, look)
+		local ok, reason = Rules.canPlace({
+			piece = p,
+			distance = (root.Position - at.Position).Magnitude,
+			reach = C.Reach,
+			spot = Rules.bridgeSpot(s, C.Bridge),
+			slope = 0,
+			maxSlope = 0,
+			ground = true,
+			water = false,
+			overlap = onSquare ~= nil and Survey.onPiece(p, at, workspace:FindFirstChild(C.Folder)),
+			mine = 0, -- (the caps are the server's to check)
+			team = 0,
+			perPlayer = C.PerPlayer,
+			perTeam = C.PerTeam,
+		})
+		current = { frame = at, ok = ok, reason = reason }
+		local deck = if onSquare then p.height else 0
+		local g = C.Bridge.ghost
+		showGhost(p.key, at * CFrame.new(0, deck - g / 2, 0), Vector3.new(length or p.width, g, p.depth), ok)
+		return
+	end
 	local frame = Survey.frame(hit.Position, CFrame.Angles(0, math.rad(turn), 0):VectorToWorldSpace(look))
 	-- (a gun: the click is where the gun goes, its ghost the ground it needs: Survey.box)
 	local gun = p.kind == "Gun"
@@ -1096,7 +1121,7 @@ function Build.start()
 						then `{gunHp} · dig to repair`
 						elseif not ours then if gunHp then `{gunHp} · switch to Destroy` else "switch to Destroy"
 						elseif work >= need then gunHp or "dug"
-						else `{gunHp or of} · dig to build` -- (a sandbag pile is built on HP)
+						else `{gunHp or of} · dig to build` -- (a Hesco barrier, a bridge and a sandbag pile are built on HP)
 				end
 			elseif m then
 				title, line = `{mode} · Tree`, "dig to chop it"

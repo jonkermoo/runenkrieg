@@ -19,7 +19,7 @@ export type Def = {
 }
 
 -- what everyone may build (user: "everyone else can only build trenches and other small assets")
-local SMALL = { "Trench", "Sandbags", "Wire" }
+local SMALL = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge" } -- (Hesco: user 2026-10-27, a small asset)
 
 local Classes = {
 	Currency = "Marks", -- the currency's name, shown in the loadout menu
@@ -88,7 +88,7 @@ local Classes = {
 			cost = 150,
 			primary = "weapon",
 			grenades = false,
-			builds = { "Trench", "Sandbags", "Wire", "Gun" },
+			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun" },
 			locked = true,
 		},
 		Mage = { name = "Mage", blurb = "Rune staff", cost = 200, primary = "staff", grenades = false, builds = SMALL },

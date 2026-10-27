@@ -207,6 +207,10 @@ local Palette = {
 		SandbagSacks = { 186, 168, 128 }, -- its empty sacks before any is filled (sandbag_pile Sacks)
 		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
 		PlankDark = { 98, 74, 52 },
+		-- a trench bridge's planks (meshes Bridge<v><set>, <set>Dark; user 2026-10-27: pine, "a different color as the
+		-- trench", then "a slightly darker tint": was 186, 146, 94 and 152, 114, 72)
+		Bridge = { 164, 126, 80 },
+		BridgeDark = { 132, 98, 60 },
 		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:
 		-- "match the color of the mud"): Wall<i> takes wall shade (i - 1) % 3 + 1 and its chunks the chunk shade of the
 		-- same number, its parapet that shade too; Floor<i> and its chunks
@@ -240,6 +244,19 @@ local Palette = {
 		},
 		Picket = { 84, 66, 52 },
 		Wire = { 58, 56, 54 },
+		-- the Hesco barrier's pieces (Config/Assets hesco, tools/blender/hesco; by the piece's name without its stage
+		-- number): welded wire, the liner slack and filled, the dirt and what lies on it, the stage 1 flaps and piles
+		Hesco = {
+			Wire = { 78, 82, 75 },
+			Liner = { 143, 134, 109 },
+			LinerFull = { 201, 191, 159 },
+			Earth = { 125, 103, 71 },
+			Damp = { 106, 86, 58 },
+			Clods = { 94, 76, 51 },
+			Stones = { 112, 106, 96 },
+			Flaps = { 180, 170, 142 },
+			Piles = { 125, 103, 71 },
+		},
 	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
 	-- brightness) so the Bloom in Lighting makes them glow; still flat colors, no textures (docs/ART_STYLE.md).
