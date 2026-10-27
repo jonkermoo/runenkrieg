@@ -3,10 +3,11 @@
 -- plus caps, trenches carved in the terrain, the pieces flat-coloured code-built shapes until meshes are approved).
 -- Rules/Build decides, src/server/Build builds, src/client/Build shows build mode. Data only.
 --
--- Build mode: the shovel in the hands, Key_Build toggles it; the mouse wheel picks a piece, Key_BuildTurn turns it,
--- a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user 2026-10-23): a Build swing at
--- a piece of your team adds one unit of work; at `work` it stands. A Destroy swing at any piece, any team's, takes one
--- off; at 0 it is torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
+-- Build mode: the shovel in the hands, Key_Build toggles it; Key_BuildPrev / Key_BuildNext (Q / E) pick a piece,
+-- Key_BuildTurn turns it, a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user
+-- 2026-10-23): a Build swing at a piece of your team adds one unit of work; at `work` it stands (at any team's standing
+-- gun it repairs it: src/server/Artillery.repair). A Destroy swing at any piece, any team's, takes one off; at 0 it is
+-- torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
 
 local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)

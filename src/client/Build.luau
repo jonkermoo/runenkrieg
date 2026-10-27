@@ -1,11 +1,11 @@
 --!strict
 -- Build mode on the local client (Config/Build; the server decides: src/server/Build, src/server/Trenches). With the
 -- shovel in the hands (Roblox's own camera stays: Config/Camera.FreeClasses, so everything here aims at the cursor):
--- - Key_Build opens build mode. The mouse wheel picks the piece. A piece's ghost follows the cursor on the ground,
+-- - Key_Build opens build mode. Key_BuildPrev / Key_BuildNext (Q / E) pick the piece. A piece's ghost follows the cursor on the ground,
 --   green where it can go and red with the reason where not (shared/BuildSurvey, the same survey the server runs);
 --   Key_BuildTurn turns it (Shift turns back), a click lays its blueprint (Net "Build" "Place"). A trench is planned
 --   with two clicks: the start, then the end (the plan follows the cursor between them, snapped as the server will
---   snap it), sent as Net "Build" "Plan". Key_BuildExit (Q) leaves build mode, dropping a start (right mouse stays
+--   snap it), sent as Net "Build" "Plan". Key_BuildExit (X) or Key_Build leaves build mode, dropping a start (right mouse stays
 --   Roblox's camera turn). Laying leaves build mode.
 -- - The trench planner's ghost (Config/Build.Plan; user 2026-10-24: "make the entire planning thing better and more
 --   stylish") previews what the server will peg out: per
@@ -842,6 +842,15 @@ function Build.start()
 			end
 		elseif active and Settings.pressed("Key_BuildExit", input) then
 			leave()
+		elseif
+			active
+			and not planStart
+			and (Settings.pressed("Key_BuildPrev", input) or Settings.pressed("Key_BuildNext", input))
+		then
+			-- (not the mouse wheel: it fought the other scrolling, user 2026-10-27)
+			local step = if Settings.pressed("Key_BuildPrev", input) then -1 else 1
+			index = (index - 1 + step) % #C.Pieces + 1
+			clearGhost()
 		end
 	end)
 	UserInputService.InputChanged:Connect(function(input, processed)
@@ -850,9 +859,6 @@ function Build.start()
 		end
 		if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
 			turn = (turn + (if input.Position.Z > 0 then C.TurnStep else -C.TurnStep)) % 360
-		elseif not planStart then
-			index = (index - 1 + (if input.Position.Z > 0 then -1 else 1)) % #C.Pieces + 1
-			clearGhost()
 		end
 	end)
 	Net.event("Build").OnClientEvent:Connect(function(kind: any, text: any)
@@ -901,6 +907,7 @@ function Build.start()
 		local state: string?, title, line: string?, keys: { Key } = nil, "", nil, {}
 		local fire, build, reload = keyName("Key_Fire"), keyName("Key_Build"), keyName("Key_Reload")
 		local exit = keyName("Key_BuildExit")
+		local pick = `{keyName("Key_BuildPrev")} {keyName("Key_BuildNext")}`
 		if active and character and root then
 			local p = piece()
 			if p.kind == "Trench" then
@@ -912,14 +919,14 @@ function Build.start()
 					keys = { { fire, "lay the plan" }, { exit, "exit" } }
 				else
 					title = "Trench · pick the start"
-					keys = { { fire, "lay the start" }, { "Wheel", "piece" }, { exit, "exit" } }
+					keys = { { fire, "lay the start" }, { pick, "piece" }, { exit, "exit" } }
 				end
 			else
 				surveyPiece(character, root)
 				title = p.name
 				keys = {
 					{ fire, "lay" },
-					{ "Wheel", "piece" },
+					{ pick, "piece" },
 					{ keyName("Key_BuildTurn"), "turn" },
 					{ exit, "exit" },
 				}
@@ -960,10 +967,13 @@ function Build.start()
 					title = `{mode} · {mine}`
 					line = if mode == "Destroy"
 						then `{gunHp or of} · dig to {if block then "fill it in" else "take it apart"}`
+						elseif
+							work >= need
+							and gunHp
+							and (hp :: number) < (max :: number)
+						then `{gunHp} · dig to repair`
 						elseif not ours then if gunHp then `{gunHp} · switch to Destroy` else "switch to Destroy"
-						elseif work >= need then if gunHp and (hp :: number) < (max :: number)
-							then `{gunHp} · dig to repair`
-							else gunHp or "dug"
+						elseif work >= need then gunHp or "dug"
 						else `{of} · dig to build`
 				end
 			elseif m then

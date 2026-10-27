@@ -292,11 +292,17 @@ function Artillery.onGround(x: number, z: number, lo: { number }, hi: { number }
 	return x >= lo[1] and x <= hi[1] and z >= lo[2] and z <= hi[2]
 end
 
--- A gun's HP after one repair swing (Config/Artillery `repair` swings from 0 to `max`, `share` of a swing: the digger's
--- dig share), and whether it is whole again.
-function Artillery.repaired(hp: number, max: number, swings: number, share: number): (number, boolean)
-	local after = math.min(hp + max / math.max(swings, 1) * share, max)
-	return after, after >= max - 1e-6
+-- A gun's HP after a repair swing giving back `amount` (Config/Artillery.Repair), and what that makes it: "whole",
+-- "usable" (it was `broken` and is back to `usable`% of `max`) or nil.
+function Artillery.repaired(hp: number, max: number, amount: number, usable: number, broken: boolean): (number, string?)
+	local after = math.min(hp + amount, max)
+	if after >= max - 1e-6 then
+		return max, "whole"
+	end
+	if broken and after / max * 100 >= usable - 1e-6 then
+		return after, "usable"
+	end
+	return after, nil
 end
 
 -- A gun's damage stage (Config/Artillery.Wreck `at`: % of full HP, falling): 0 unhurt, else the last stage it is down to.

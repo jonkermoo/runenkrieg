@@ -93,9 +93,7 @@ export type Gun = {
 		slabs: boolean?,
 	}?,
 	hp: number, -- what it takes to wreck it (Hits, Wreck)
-	-- shovel swings (Build mode, by its own team) that fix it from a wreck to whole (src/server/Build; user 2026-10-27:
-	-- "make it so you can fix a artillery by digging too"); whole again, a fresh gun stands on its ground flattened out
-	-- again
+	-- shovel swings (Build mode, any team's) that fix it from a wreck to whole (Repair)
 	repair: number,
 	-- the shell leaves this many degrees over the bore, unseen (Rules/Artillery.muzzle); nil: along it
 	aimTilt: number?,
@@ -457,6 +455,13 @@ local Artillery = {
 	-- each), and the accent pieces of the roles in `lose[i]` (Palette.Artillery.Roles) are blown off, tumbling away as
 	-- debris for `debris.life` s; its glow sputters on (src/client/ArtilleryCrystal, Crystal.dying) until stage `dark`,
 	-- when it dies.
+	-- Fixing a gun with the shovel (src/server/Build, Artillery.repair; user 2026-10-27: "make it so you can fix a
+	-- artillery by digging too", "enemie teams should be able to repair and fix enemie trenches and artillery, as they
+	-- should be able to use it if they earn the sector"): a Build swing by any team's soldier gives back the gun's `hp` /
+	-- `repair` (an admin dig step: that share of its full HP). An unusable gun is usable again from `usable`% ("the
+	-- artillery should be in a damaged but usable status at 75%"): a fresh gun stands in its place, damaged to the HP it
+	-- has; whole, a fresh gun again. Each time its ground is flattened out again (the howitzer's pit dug out again).
+	Repair = { usable = 75 },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		unusable = 2,

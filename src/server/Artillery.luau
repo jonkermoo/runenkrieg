@@ -759,19 +759,19 @@ function Artillery.onGround(p: Vector3): boolean
 	return false
 end
 
--- One repair swing on a gun (src/server/Build: its own team's shovel in Build mode; user 2026-10-27: "make it so you
--- can fix a artillery by digging too"), `share` of a swing: its HP back by Config `repair`. True once it is whole
--- again; the caller then stands a fresh gun in its place (its holes, lost pieces and lean gone, its ground flattened
--- out again). False for a gun that is whole already or not a gun.
-function Artillery.repair(model: Model, share: number): boolean
+-- One repair swing on a gun (src/server/Build: any team's shovel in Build mode; Config/Artillery.Repair) giving back
+-- `amount` HP. Returns what it makes it: "whole", "usable" (back in service) or nil, and its HP now. On "whole" or
+-- "usable" the caller stands a fresh gun in its place (its ground flattened out again) and gives it that HP
+-- (Artillery.setHp). Nil and 0 for a gun that is whole already or not a gun.
+function Artillery.repair(model: Model, amount: number): (string?, number)
 	local s = guns[model]
 	if not s or s.hp >= s.gun.hp then
-		return false
+		return nil, 0
 	end
-	local whole
-	s.hp, whole = Rules.repaired(s.hp, s.gun.hp, s.gun.repair, share)
+	local what
+	s.hp, what = Rules.repaired(s.hp, s.gun.hp, amount, Cfg.Repair.usable, s.broken)
 	model:SetAttribute("HP", math.round(s.hp * 10) / 10)
-	return whole
+	return what, s.hp
 end
 
 -- Removes every gun.
@@ -970,6 +970,22 @@ local function wreck(s: State)
 		s.upright = s.upright or s.model:GetPivot()
 		local axis = Vector3.new(math.cos(s.lean), 0, math.sin(s.lean))
 		s.model:PivotTo(CFrame.new(0, -sink, 0) * (s.upright :: CFrame) * CFrame.fromAxisAngle(axis, math.rad(tilt)))
+	end
+end
+
+-- Gives a freshly placed gun `hp`, damaged to its stage (Config/Artillery.Wreck) as blasts would leave it
+function Artillery.setHp(model: Model, hp: number)
+	local s = guns[model]
+	if not s then
+		return
+	end
+	s.hp = math.clamp(hp, 0, s.gun.hp)
+	model:SetAttribute("HP", math.round(s.hp * 10) / 10)
+	local stage = Rules.wreckStage(s.hp, s.gun.hp, Cfg.Wreck.at)
+	if stage ~= s.stage then
+		s.stage = stage
+		model:SetAttribute("Stage", stage)
+		wreck(s)
 	end
 end
 

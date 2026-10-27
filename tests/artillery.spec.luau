@@ -246,21 +246,33 @@ return {
 		assert(A.onGround(0, 0, lo, hi) and A.onGround(2, 5, lo, hi) and A.onGround(-2, -5, lo, hi))
 		assert(not A.onGround(2.1, 0, lo, hi) and not A.onGround(0, -5.1, lo, hi))
 	end,
-	["digging fixes a gun in its repair swings, never past whole"] = function()
-		-- user 2026-10-27: "make it so you can fix a artillery by digging too"
+	["digging fixes a gun in its repair swings, usable again at 75%, never past whole"] = function()
+		-- user 2026-10-27: "make it so you can fix a artillery by digging too", "damaged but usable status at 75%"
+		local R = C.Repair
+		assert(R.usable == 75)
 		for key, g in C.Guns do
 			assert(g.repair >= 1, key)
-			local hp, whole, n = 0, false, 0
-			while not whole do
-				hp, whole = A.repaired(hp, g.hp, g.repair, 1)
+			local hp, what, n, usableAt = 0, nil, 0, nil
+			while what ~= "whole" do
+				hp, what = A.repaired(hp, g.hp, g.hp / g.repair, R.usable, usableAt == nil)
 				n += 1
+				if what == "usable" then
+					usableAt = hp
+				end
 				assert(n <= g.repair, key)
 			end
 			assert(n == g.repair and hp == g.hp, key)
+			assert(usableAt and usableAt >= g.hp * 0.75 - 1e-6, key)
+			-- usable again past the stage it stopped being usable at
+			assert(A.wreckStage(usableAt, g.hp, C.Wreck.at) < C.Wreck.unusable, key)
 		end
-		local hp, whole = A.repaired(95, 100, 10, 1)
-		assert(hp == 100 and whole)
-		hp, whole = A.repaired(40, 100, 10, 0.5)
-		assert(near(hp, 45) and not whole)
+		local hp, what = A.repaired(95, 100, 10, 75, false)
+		assert(hp == 100 and what == "whole")
+		hp, what = A.repaired(60, 100, 10, 75, false)
+		assert(hp == 70 and what == nil, "not broken: nothing to say")
+		hp, what = A.repaired(60, 100, 10, 75, true)
+		assert(hp == 70 and what == nil, "broken under 75%: still broken")
+		hp, what = A.repaired(70, 100, 10, 75, true)
+		assert(hp == 80 and what == "usable")
 	end,
 }
