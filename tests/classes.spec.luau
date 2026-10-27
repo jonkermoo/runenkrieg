@@ -86,6 +86,24 @@ return {
 		end
 		assert(not R.mayBuild(nil, "Gun", C.Defs, C.Default) and R.mayBuild(nil, "Trench", C.Defs, C.Default))
 	end,
+	["the build cycle leaves out what the class can't build, in the menu's order"] = function()
+		for key in C.Defs do
+			local list = R.buildable(key, BuildCfg.Pieces, C.Defs, C.Default)
+			assert(#list > 0, key .. " builds something")
+			local at = 0
+			for _, p in list do
+				local i = table.find(BuildCfg.Pieces, p) :: number
+				assert(i > at, key .. " keeps the order")
+				at = i
+				assert(p.kind ~= "Gun" or key == "Engineer", `{key} shows {p.key}`)
+			end
+			local guns = 0
+			for _, p in BuildCfg.Pieces do
+				guns += if p.kind == "Gun" then 1 else 0
+			end
+			assert(#list == #BuildCfg.Pieces - (if key == "Engineer" then 0 else guns), key .. " shows the rest")
+		end
+	end,
 	["the build gate refuses before anything else"] = function()
 		local base = {
 			piece = BuildCfg.Pieces[1],
