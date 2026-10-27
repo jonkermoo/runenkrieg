@@ -1,7 +1,8 @@
 --!strict
 -- The uniform kit (Config/Uniforms.Kits) a soldier wears this life (user 2026-10-21: every team spawns with its own
 -- gear and the looks rolled each life). A player's next kit is rolled when they join and again when they die
--- (src/server/Deploy, user 2026-10-27: the loadout menu shows exactly what you'll spawn as), and a character takes it
+-- (src/server/Deploy, user 2026-10-27: the loadout menu shows exactly what you'll spawn as; where teams are kept,
+-- Config/Teams, it is placed on the smallest team at the join and kept until a team change), and a character takes it
 -- at whichever spawn step asks first (src/server/Armory on CharacterAdded, src/server/Bodies on the appearance): the
 -- player's "Kit" attribute when it names a kit (testing), else the rolled one (Rules/Looks.kit). It stays on the
 -- character as the "Kit" attribute. Anything else (showcase and dev dummies) wears its "Kit" attribute or the default
@@ -26,7 +27,13 @@ function Kits.next(player: Player): string
 	return Looks.kit(nil, player:GetAttribute("Kit"), { kit }, 0, U.Kits)
 end
 
--- Rolls `player`'s next kit afresh (on a death).
+-- Puts `player` on team `kit` from their next life on (kept teams, src/server/Deploy), dropping a testing pin.
+function Kits.place(player: Player, kit: string)
+	planned[player] = kit
+	player:SetAttribute("Kit", nil)
+end
+
+-- Rolls `player`'s next kit afresh (on a death, where teams aren't kept).
 function Kits.reroll(player: Player)
 	planned[player] = nil
 	Kits.next(player)

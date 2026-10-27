@@ -30,6 +30,7 @@ local SWITCHES = table.freeze({
 	WeatherCalm = true,
 	BuildAll = true,
 	Ammo = true,
+	KeptTeams = true,
 })
 
 local function finite(n: any): boolean
