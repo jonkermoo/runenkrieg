@@ -141,14 +141,17 @@ local Build = {
 	-- "make the ground around each segment to also be part of the trench hit box"), fading to nothing at `reach`;
 	-- `wire`, the % of a barbed wire's HP. Bullets only by a direct hit. A blast nobody named (DEV tools) by its
 	-- charge: the first of `byCharge` it is no bigger than. (A Destroy swing is Trench.hp.destroy.)
+	-- Staffs since 2026-10-27 (user: "staff beams should do a lot more damage to built structures overall. about 5-6
+	-- should be able to sink/destroy a trench"): a full beam takes 18 (5 leave a trench nearly level, the 6th finishes
+	-- it; a sandbag column the same), the lighter stages in the same proportion; wire about 3x what it was.
 	Structures = {
 		edge = 2,
 		wireHP = 100,
 		bullet = { hit = 0.2, wire = 0 }, -- (about 500 hits bury a trench)
 		grenade = { hit = 3, reach = 6, wire = 15 },
-		staff1 = { hit = 0.5, reach = 4, wire = 0 },
-		staff2 = { hit = 1.5, reach = 6, wire = 5 },
-		staff3 = { hit = 4, reach = 10, wire = 15 },
+		staff1 = { hit = 2, reach = 4, wire = 0 },
+		staff2 = { hit = 6, reach = 6, wire = 15 },
+		staff3 = { hit = 18, reach = 10, wire = 50 }, -- (two full beams cut wire)
 		field = { hit = 33, reach = 10, edge = 3, wire = 100 }, -- (three bury a trench)
 		howitzer = { hit = 93, reach = 20, edge = 8, wire = 100 }, -- (buries it at once, 7% left)
 		byCharge = {

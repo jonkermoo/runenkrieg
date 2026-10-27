@@ -427,9 +427,11 @@ local Artillery = {
 	Hits = {
 		direct = 1.5,
 		grenade = { direct = 8, near = 1, reach = 6 },
-		staff1 = { direct = 1, near = 0, reach = 3 },
-		staff2 = { direct = 3, near = 0.5, reach = 5 },
-		staff3 = { direct = 10, near = 2, reach = 10 },
+		-- (staffs since 2026-10-27, as Config/Build.Structures: user "staff beams should do a lot more damage to built
+		-- structures overall": 6 direct full beams wreck a field gun, 14 the howitzer)
+		staff1 = { direct = 2, near = 0, reach = 3 },
+		staff2 = { direct = 6, near = 1, reach = 5 },
+		staff3 = { direct = 18, near = 4, reach = 10 },
 		field = { direct = 60, near = 8, reach = 12 }, -- (a field gun: two; the howitzer: four)
 		howitzer = { direct = 150, near = 25, reach = 30 }, -- (a field gun at once; the howitzer: two)
 		byCharge = {

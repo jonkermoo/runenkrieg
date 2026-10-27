@@ -296,7 +296,11 @@ return {
 			at("grenade", 0.1, 0) < 5 and at("grenade", 0.1, 0) > 0,
 			"a grenade, even inside the trench, only wears it"
 		)
-		assert(at("staff3", 10, 0) < 5, "a full staff beam is no bigger than a grenade or so, for all its 10 kg")
+		-- (user 2026-10-27: "about 5-6 should be able to sink/destroy a trench")
+		local beams = math.ceil(C.Trench.hp.max / (C.Trench.hp.max * at("staff3", 10, 0) / 100))
+		assert(beams >= 5 and beams <= 6, `5-6 full staff beams bury a trench ({beams})`)
+		assert(at("staff1", 1, 0) < at("staff2", 1, 0) and at("staff2", 1, 0) < at("staff3", 1, 0), "stage by stage")
+		assert(at("staff3", 10, 0) < at(nil, 2.5, 0), "a full beam is still less than a field gun shell")
 		local field = at(nil, 2.5, 1)
 		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
 		local howitzer = at(nil, 340, 3)
