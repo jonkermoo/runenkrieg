@@ -332,6 +332,10 @@ local Palette = {
 			crystalDead = { 58, 60, 64 },
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
+			-- the kit list (Config/Hud.Kit): the names and keys of the rows not in the hands, an empty row's name
+			kitName = { 168, 168, 158 },
+			kitKey = { 154, 154, 144 },
+			kitEmpty = { 118, 118, 110 },
 			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
 			-- a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
 			bolt = { 150, 154, 160 },

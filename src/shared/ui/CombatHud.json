@@ -1,6 +1,6 @@
 {
 	"name": "CombatHud",
-	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away (`model`, a ViewportFrame) floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. The gun's cut-away is two layers (user 2026-10-26: \"make everything else just a simple shadow sillouette\"): GunShadow, the gun's body as one flat see-through shadow, under GunView, the clear bolt, rounds and magazine well (a child draws over its parent). Desktop only.",
+	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away (`model`, a ViewportFrame) floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. The gun's cut-away is two layers (user 2026-10-26: \"make everything else just a simple shadow sillouette\"): GunShadow, the gun's body as one flat see-through shadow, under GunView, the clear bolt, rounds and magazine well (a child draws over its parent). Desktop only. The kit list (`Kit`, src/client/KitList, Config/Hud.Kit; user 2026-10-27: \"make it a kit list but move it on the left\"): one `KitRow` per item carried this life, cloned from the template and stacked upward from the bottom left (a UIListLayout, Config/Hud.Kit.gap); `KitEdge` takes the team's rim, the row the team's field.",
 	"theme": {
 		"palette": "Hud",
 		"scale": {
@@ -256,6 +256,131 @@
 							100,
 							0,
 							28
+						]
+					}
+				]
+			},
+			{
+				"id": "Kit",
+				"kind": "group",
+				"anchor": [
+					0,
+					1
+				],
+				"pos": [
+					0,
+					24,
+					1,
+					-24
+				],
+				"size": [
+					0,
+					240,
+					0,
+					102
+				],
+				"children": [
+					{
+						"id": "KitRow",
+						"kind": "panel",
+						"color": "field",
+						"pos": [
+							0,
+							0,
+							0,
+							0
+						],
+						"size": [
+							1,
+							0,
+							0,
+							32
+						],
+						"children": [
+							{
+								"id": "KitEdge",
+								"kind": "panel",
+								"color": "brass",
+								"pos": [
+									0,
+									0,
+									0,
+									0
+								],
+								"size": [
+									0,
+									4,
+									1,
+									0
+								]
+							},
+							{
+								"id": "KitKey",
+								"kind": "label",
+								"font": "plain",
+								"text": "9",
+								"textSize": 15,
+								"textColor": "kitKey",
+								"align": "left",
+								"pos": [
+									0,
+									12,
+									0,
+									0
+								],
+								"size": [
+									0,
+									18,
+									1,
+									0
+								]
+							},
+							{
+								"id": "KitName",
+								"kind": "label",
+								"font": "plain",
+								"text": "Winchester M1897",
+								"textSize": 17,
+								"textColor": "kitName",
+								"align": "left",
+								"pos": [
+									0,
+									32,
+									0,
+									0
+								],
+								"size": [
+									1,
+									-84,
+									1,
+									0
+								]
+							},
+							{
+								"id": "KitCount",
+								"kind": "label",
+								"font": "plain",
+								"text": "x2",
+								"textSize": 16,
+								"textColor": "count",
+								"align": "right",
+								"anchor": [
+									1,
+									0
+								],
+								"pos": [
+									1,
+									-12,
+									0,
+									0
+								],
+								"size": [
+									0,
+									40,
+									1,
+									0
+								]
+							}
 						]
 					}
 				]

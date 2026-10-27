@@ -197,6 +197,28 @@ local Hud = {
 		},
 		timer = "%.1f%%", -- the reload's share until it can fire, in tenths of a percent
 	},
+
+	-- the kit list (src/client/KitList, Rules/KitList; layout CombatHud.json "Kit"; user 2026-10-27: "i dont like the
+	-- robblox default one", "make it a kit list but move it on the left"): Roblox's hotbar off, one row per item carried
+	-- this life at the bottom left. Colours: Palette.UI.Hud kitName / kitKey / kitEmpty, readout, count, countLow, the
+	-- team's field and rim (Teams).
+	Kit = {
+		order = { "Primary", "Grenade", "Shovel" }, -- Config/Weapons slots top to bottom; any other after, as it came
+		-- KeyCode names: key n draws row n's item, and puts it away again if it is in the hands
+		keys = { "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine" },
+		-- shown fully for `linger` seconds after any change (a number key, a draw or put-away, an item come or gone, a
+		-- grenade count), then fading out over `fade` (user 2026-10-27: "2 s linger + 0.4 s fade")
+		linger = 2,
+		fade = 0.4,
+		field = 0.62, -- a row's background transparency (the team's field)
+		fieldHeld = 0.28, -- the row in the hands
+		-- an item pressed while the last one is still going over the shoulder (Config/Locomotion.Stow) shows as chosen
+		-- at once, its edge this transparent, for the put-away's time plus `wait` seconds
+		pending = 0.5,
+		wait = 0.3,
+		gap = 3, -- reference px between rows
+		count = "x%d", -- a grenade row's count (the Tool's "Count"; x0 once the last is thrown: the row stays)
+	},
 }
 
 return table.freeze(Hud)
