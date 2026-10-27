@@ -287,6 +287,18 @@ function Artillery.levelAt(
 	return flat + (natural - flat) * ease
 end
 
+-- Whether (`x`, `z`) in gun space is on a gun's ground, the box `lo`..`hi` (x, z): craters never carve it.
+function Artillery.onGround(x: number, z: number, lo: { number }, hi: { number }): boolean
+	return x >= lo[1] and x <= hi[1] and z >= lo[2] and z <= hi[2]
+end
+
+-- A gun's HP after one repair swing (Config/Artillery `repair` swings from 0 to `max`, `share` of a swing: the digger's
+-- dig share), and whether it is whole again.
+function Artillery.repaired(hp: number, max: number, swings: number, share: number): (number, boolean)
+	local after = math.min(hp + max / math.max(swings, 1) * share, max)
+	return after, after >= max - 1e-6
+end
+
 -- A gun's damage stage (Config/Artillery.Wreck `at`: % of full HP, falling): 0 unhurt, else the last stage it is down to.
 function Artillery.wreckStage(hp: number, max: number, at: { number }): number
 	local share = if max > 0 then hp / max * 100 else 0

@@ -71,6 +71,7 @@ type Guns = {
 	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
 	parts: (string, string?) -> Model?,
 	assemble: (Model, string, CFrame, number) -> (),
+	repair: (Model, number) -> boolean,
 }
 local guns: Guns? = nil
 
@@ -553,8 +554,33 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local own = team == r.team
+	if mode == "Build" and own and r.gun and r.standing then
+		-- fixing its own team's standing gun (user 2026-10-27: "make it so you can fix a artillery by digging too ...
+		-- its fine if the cannon looks buried, as long as it gets flattenned out again once its fixed")
+		local gun = r.gun
+		local hp, max = gun:GetAttribute("HP"), r.model:GetAttribute("MaxHP")
+		if type(hp) ~= "number" or type(max) ~= "number" or hp >= max then
+			return
+		end
+		lastSwing[player] = now
+		if guns and guns.repair(gun, digShare(player)) then
+			-- whole: a fresh gun in its place, the howitzer's pit dug out again from the ground as it was (the field
+			-- gun levels its own ground as it stands)
+			r.gun = nil
+			gun:Destroy()
+			local d = (ArtilleryCfg.Guns[(r.piece :: any).gun] :: any).dig
+			local at = r.at
+			if d and r.pitBase and at then
+				local ramp = d.ramp and { dir = -at.LookVector, width = d.ramp.width, length = d.ramp.length }
+				local out = Ground.pit(at.Position, d.radius, d.depth, d.rim, d.rimHeight, ramp, d.wall, r.pitBase)
+				Net.event("GroundDug"):FireAllClients(at.Position, out)
+			end
+			showGun(r)
+		end
+		return
+	end
 	if mode == "Build" and (not own or r.work >= r.need) then
-		return -- (repairs come later)
+		return
 	end
 	lastSwing[player] = now
 	local was = r.work

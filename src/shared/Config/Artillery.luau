@@ -93,6 +93,10 @@ export type Gun = {
 		slabs: boolean?,
 	}?,
 	hp: number, -- what it takes to wreck it (Hits, Wreck)
+	-- shovel swings (Build mode, by its own team) that fix it from a wreck to whole (src/server/Build; user 2026-10-27:
+	-- "make it so you can fix a artillery by digging too"); whole again, a fresh gun stands on its ground flattened out
+	-- again
+	repair: number,
 	-- the shell leaves this many degrees over the bore, unseen (Rules/Artillery.muzzle); nil: along it
 	aimTilt: number?,
 	-- a flat pad round its base that counts as the gun for hits (Hits): `pad` studs out past its footprint, `thick` studs
@@ -535,6 +539,7 @@ local Artillery = {
 			recoilTimes = { 0.08, 1.2 },
 			recoilClear = nil,
 			hp = 100,
+			repair = 10, -- (half the swings it takes to build)
 			-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
 			-- hit enemy sectors)"; picked: the shortest shot ~300 studs, one sector): +8 on every shot, so -5..16 on the
 			-- dial throws 3..24: ~300 to ~2,100 studs
@@ -716,6 +721,7 @@ local Artillery = {
 				slabs = true,
 			},
 			hp = 240,
+			repair = 30, -- (half the swings it takes to build)
 			wreckParts = { "Bed", "Mount", "Cradle" }, -- (the moving ones carried by src/client/Artillery)
 			holeSize = { 0.7, 1.4 },
 			vfx = { scheme = "Arcane", magic = true },

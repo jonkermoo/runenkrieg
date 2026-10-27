@@ -961,7 +961,9 @@ function Build.start()
 					line = if mode == "Destroy"
 						then `{gunHp or of} · dig to {if block then "fill it in" else "take it apart"}`
 						elseif not ours then if gunHp then `{gunHp} · switch to Destroy` else "switch to Destroy"
-						elseif work >= need then gunHp or "dug"
+						elseif work >= need then if gunHp and (hp :: number) < (max :: number)
+							then `{gunHp} · dig to repair`
+							else gunHp or "dug"
 						else `{of} · dig to build`
 				end
 			elseif m then

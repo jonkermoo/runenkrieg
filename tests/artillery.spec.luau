@@ -241,4 +241,26 @@ return {
 		-- a corner measures from the box's corner
 		assert(near(A.levelAt(2 + 3, 5 + 4, lo, hi, 10, 0, 10) :: number, 5))
 	end,
+	["a gun's ground is the box under it, craters stay off it"] = function()
+		local lo, hi = { -2, -5 }, { 2, 5 }
+		assert(A.onGround(0, 0, lo, hi) and A.onGround(2, 5, lo, hi) and A.onGround(-2, -5, lo, hi))
+		assert(not A.onGround(2.1, 0, lo, hi) and not A.onGround(0, -5.1, lo, hi))
+	end,
+	["digging fixes a gun in its repair swings, never past whole"] = function()
+		-- user 2026-10-27: "make it so you can fix a artillery by digging too"
+		for key, g in C.Guns do
+			assert(g.repair >= 1, key)
+			local hp, whole, n = 0, false, 0
+			while not whole do
+				hp, whole = A.repaired(hp, g.hp, g.repair, 1)
+				n += 1
+				assert(n <= g.repair, key)
+			end
+			assert(n == g.repair and hp == g.hp, key)
+		end
+		local hp, whole = A.repaired(95, 100, 10, 1)
+		assert(hp == 100 and whole)
+		hp, whole = A.repaired(40, 100, 10, 0.5)
+		assert(near(hp, 45) and not whole)
+	end,
 }
