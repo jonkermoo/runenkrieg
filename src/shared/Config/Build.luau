@@ -42,8 +42,7 @@ local Build = {
 	-- (`floor`), a chalk cord round it (`cord` wide, `cordSee` see-through; Palette.Build.Chalk, ChalkBad when it can't
 	-- go), `gap` between squares, ghost stakes (`peg`: width, height, one at the cursor before the
 	-- first click; no flags, user 2026-10-24: "lets just do the stakes"); squares fade in and out at `fade` per second. Reach circles (Trench.firstReach) dashed on the ground: `dashes`
-	-- dashes, each `dash` of its step, `ringWidth` wide; the one you stand in `near` see-through, the other `far`. The
-	-- length tag floats `tag` studs over the end.
+	-- dashes, each `dash` of its step, `ringWidth` wide; the one you stand in `near` see-through, the other `far`.
 	Plan = {
 		fill = 0.82,
 		floor = 0.7,
@@ -57,7 +56,6 @@ local Build = {
 		ringWidth = 0.18,
 		near = 0.2,
 		far = 0.6,
-		tag = 4.6,
 		-- the action icon over each end (user 2026-10-24: "one icon for new trenches, one more extending"): a round badge
 		-- `size` studs across on a chalk pin `height` studs tall
 		badge = { height = 2.4, size = 1.4 },

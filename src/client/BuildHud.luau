@@ -6,10 +6,10 @@
 -- - the see-through body with the status edge (go / no-go, else the mode's colour) and the mode's own face: Build a
 --   rim along the top, Destroy a hazard band, Placing a blueprint grid with corner ticks, the trench plan a chalk line
 -- - the title row (Placing: the pieces before and after either side, on their keys; Build and Destroy: what you point
---   at and its HP x / y), then a fits / why-not line, a rule with a tick per trench square, and the key caps
+--   at and its HP x / y), then a why-not line (red, when it can't go), a rule with a tick per trench square, and the key caps
 -- - a badge by the cursor with the mode's icon
 -- Icons are drawn from flat frames (no images). Offsets are reference pixels: one UIScale per panel does the rest.
---   BuildHud.new(player) -> { set(view: View?) }; BuildHud.about(pieceKey) -> what it is for
+--   BuildHud.new(player) -> { set(view: View?) }
 
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -43,11 +43,6 @@ export type View = {
 	keys: { Key },
 }
 export type Hud = { set: (view: View?) -> () }
-
--- what piece `key` is for (the spec's `pieces`), for the Placing line
-function BuildHud.about(key: string): string?
-	return Spec.pieces[key]
-end
 
 local function rgb(name: string): Color3
 	local c = HUD[name]

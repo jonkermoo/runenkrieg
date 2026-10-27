@@ -10,14 +10,15 @@
 -- - The trench planner's ghost (Config/Build.Plan; user 2026-10-24: "make the entire planning thing better and more
 --   stylish") previews what the server will peg out: per
 --   square a chalk cord, a faint fill with the dug floor's band, ghost stakes (no flags, user 2026-10-24); an icon
---   over each end, a new trench or extending one; a length tag over the end; and the reach circles of Trench.firstReach dashed on the
+--   over each end, a new trench or extending one; and the reach circles of Trench.firstReach dashed on the
 --   ground (round you before the first click, round both ends after it), red when you're too far.
 -- - Key_Reload switches the shovel between Build and Destroy (user 2026-10-23). Out of build mode each dig swing
 --   (src/client/Shovel "DugAt") goes to what you point at in reach (Net "Build" "Work" with the mode): a piece or
 --   trench block, or in Destroy mode a tree.
 -- A panel at the bottom of the screen says what is going on (src/client/BuildHud draws it, user 2026-10-27: a look of its
--- own for each mode): Build or Destroy with what you point at and its HP x / y, Placing with the pieces before and after and whether it fits, the trench plan with its length on a rule;
--- an edge green / red where it can / can't go, the keys underneath.
+-- own for each mode): Build or Destroy with what you point at and its HP x / y, Placing with the pieces before and after, the trench plan with its length on a rule;
+-- an edge green / red where it can / can't go (red with the reason), the keys underneath. Its words are names, HP and
+-- keys only (user 2026-10-27: "HP, the controls and the name should all there is for words on the UI").
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -104,10 +105,6 @@ type Plan = {
 	squares: { Square },
 	badges: { Badge },
 	rings: { { Part } },
-	anchor: Part,
-	tag: BillboardGui,
-	title: TextLabel,
-	sub: TextLabel,
 }
 local plan: Plan? = nil
 
@@ -118,7 +115,6 @@ local function clearGhost()
 	ghost, ghostFor = nil, nil
 	if plan then
 		plan.model:Destroy()
-		plan.tag:Destroy()
 		for _, bd in plan.badges do
 			bd.gui:Destroy()
 		end
@@ -268,22 +264,6 @@ local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: 
 	return true
 end
 
-local function label(parent: Instance, font: Font, size: number, color: { number }): TextLabel
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.FontFace = font
-	l.TextSize = size
-	l.TextColor3 = rgb(color)
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.AutomaticSize = Enum.AutomaticSize.XY
-	l.Size = UDim2.fromOffset(0, 0)
-	l.Parent = parent
-	return l
-end
-
--- the game's basic font (user 2026-10-27), for the plan's length tag as for the panel (src/client/BuildHud)
-local TITLE = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
-
 -- a shape in an icon, in the badge's unit square (x, y, width, height), rotated by `rotation` degrees
 local function shape(parent: Instance, x: number, y: number, w: number, h: number, color: { number }, rotation: number?)
 	local f = Instance.new("Frame")
@@ -359,47 +339,11 @@ local function makePlan(player: Player): Plan
 		end
 		rings[i] = dashes
 	end
-	local anchor = ghostPart(m)
-	-- the length tag over the end
-	local tag = Instance.new("BillboardGui")
-	tag.Name = "BuildPlanTag"
-	tag.Adornee = anchor
-	tag.AlwaysOnTop = true
-	tag.LightInfluence = 0
-	tag.Size = UDim2.fromOffset(200, 48)
-	tag.StudsOffsetWorldSpace = Vector3.new(0, P.tag, 0)
-	tag.Enabled = false
-	local box = Instance.new("Frame")
-	box.AnchorPoint = Vector2.new(0.5, 1)
-	box.Position = UDim2.fromScale(0.5, 1)
-	box.AutomaticSize = Enum.AutomaticSize.XY
-	box.Size = UDim2.fromOffset(0, 0)
-	box.BackgroundColor3 = rgb(HUD.panel)
-	box.BackgroundTransparency = 0.15
-	box.Parent = tag
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 3)
-	corner.Parent = box
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 10), UDim.new(0, 10)
-	pad.PaddingTop, pad.PaddingBottom = UDim.new(0, 5), UDim.new(0, 6)
-	pad.Parent = box
-	local list = Instance.new("UIListLayout")
-	list.FillDirection = Enum.FillDirection.Vertical
-	list.Padding = UDim.new(0, 1)
-	list.Parent = box
-	local title = label(box, TITLE, 17, HUD.title)
-	local sub = label(box, TITLE, 11, HUD.hint)
-	tag.Parent = player:WaitForChild("PlayerGui")
 	return {
 		model = m,
 		squares = {},
 		badges = badges,
 		rings = rings,
-		anchor = anchor,
-		tag = tag,
-		title = title,
-		sub = sub,
 	}
 end
 
@@ -634,17 +578,6 @@ local function drawPlan(
 		local feet = if hit then hit.Position else root.Position - Vector3.new(0, 3, 0)
 		ring(p.rings[1], feet, ringColor, P.near, params)
 		ring(p.rings[2], nil, ringColor, 1, params)
-	end
-	-- the length tag over the end
-	local info = planInfo
-	p.tag.Enabled = b ~= nil and info ~= nil
-	if b and info then
-		p.anchor.CFrame = CFrame.new(b)
-		p.title.Text = `{math.floor(info.length + 0.5)} STUDS  ·  {info.squares} {if info.squares == 1
-			then "SQUARE"
-			else "SQUARES"}`
-		p.sub.Text = if info.clamped then `max {T.maxPlan}` else ""
-		p.sub.Visible = info.clamped
 	end
 end
 
@@ -931,38 +864,26 @@ function Build.start()
 			end
 			if trench and planStart then
 				-- the trench plan: the run so far on a rule as long as the longest plan, a tick per square
+				-- (words: the name and the keys only, user 2026-10-27: "HP, the controls and the name should all there is")
 				local info = planInfo
 				view = {
 					mode = "Plan",
 					edge = "ok",
-					title = "Pick the end",
-					sub = if info
-						then `{math.floor(info.length + 0.5)} studs · {info.squares} {if info.squares == 1
-							then "square"
-							else "squares"}{if info.clamped then ` · max {T.maxPlan}` else ""}`
-						else nil,
+					title = p.name,
 					ruler = { length = if info then info.length else 0, max = T.maxPlan, step = T.block },
 					keys = { { fire, "lay the plan" }, { exit, "drop it" } },
 				}
 			else
-				-- placing: the piece between the ones before and after it on Q / E, what it costs and does
+				-- placing: the piece between the ones before and after it on Q / E (no swings or what it does: user
+				-- 2026-10-27, "remove the display for how many swings", "an overload of information")
 				local list = pieces()
 				local i = math.clamp(index, 1, #list)
-				local swings = Rules.buildSwings(p, C)
-				local about = BuildHud.about(p.key)
 				view = {
 					mode = "Place",
 					edge = "ok",
 					title = p.name,
 					prev = if #list > 1 then { keyName("Key_BuildPrev"), list[(i - 2) % #list + 1].name } else nil,
 					next = if #list > 1 then { keyName("Key_BuildNext"), list[i % #list + 1].name } else nil,
-					stat = {
-						icon = "ok",
-						text = `{if trench then "click to peg the start" else "fits: click to lay"} · {swings} {if swings
-								== 1
-							then "swing"
-							else "swings"}{if trench then " a square" else ""}{if about then ` · {about}` else ""}`,
-					},
 					keys = if trench
 						then { { fire, "lay the start" }, { exit, "exit" } }
 						else { { fire, "lay" }, { keyName("Key_BuildTurn"), "turn" }, { exit, "exit" } },
@@ -987,7 +908,6 @@ function Build.start()
 			view = {
 				mode = mode,
 				title = mode,
-				sub = "point at a piece",
 				keys = { { fire, "dig" }, { reload, `switch to {other}` }, { build, "build" } },
 			}
 			if m and m:IsA("Model") then
@@ -1003,7 +923,7 @@ function Build.start()
 				view.title = if block then "Trench square" else ((p or { name = "Piece" }) :: any).name
 				view.sub = if type(hp) == "number" and type(max) == "number" then `HP {math.ceil(hp)} / {max}` else nil
 			elseif m then
-				view.title, view.sub = "Tree", "dig to chop it down"
+				view.title = "Tree"
 			end
 		end
 		if view and notice and os.clock() < notice.untilAt then
