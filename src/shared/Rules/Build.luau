@@ -427,13 +427,11 @@ function Build.trenchSwing(hp: number, max: number, swing: number, build: boolea
 	return math.max(left, 0), left <= 0
 end
 
--- A bridge's stage at `hp` of `max` (Config/Build.Bridge.hp): 0 gone, 1 its frame and some of its boards, crossable,
--- 2 every board, while it keeps over half (user 2026-10-27: "stage 2 is 50+ where the bridge has just as many planks.
--- stage 1 will be less planks but still usable")
+-- A bridge's stage at `hp` of `max` (Config/Build.Bridge.hp): 1 its frame and some of its boards, crossable, from the
+-- moment it is laid at 0 HP; 2 every board, while it keeps over half (user 2026-10-27: "stage 2 is 50+ where the bridge
+-- has just as many planks. stage 1 will be less planks but still usable"). (At 0 after a hit or a Destroy swing it is
+-- gone: src/server/Build.)
 function Build.bridgeStage(hp: number, max: number): number
-	if hp <= 1e-9 then
-		return 0
-	end
 	return if hp > max / 2 + 1e-9 then 2 else 1
 end
 

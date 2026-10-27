@@ -440,9 +440,8 @@ return {
 		assert(p and p.kind == "Bridge")
 		local h = C.Bridge.hp
 		local need = h.max
-		assert(B.bridgeStage(0, need) == 0, "gone at 0")
 		local w = h.place
-		assert(B.bridgeStage(w, need) == 1, "laid: stage 1 down at once")
+		assert(w == 0 and B.bridgeStage(w, need) == 1, "laid at 0 HP: stage 1 down at once, crossable")
 		w = B.trenchSwing(w, need, h.swing, true)
 		assert(B.bridgeStage(w, need) == 2 and w < need, "a swing: stage 2")
 		w = B.trenchSwing(w, need, h.swing, true)
@@ -471,8 +470,10 @@ return {
 			end
 		end
 		assert(swings == math.ceil(need / h.destroy), `{swings} Destroy swings take a whole bridge away`)
-		w = B.trenchSwing(40, need, h.swing, true)
-		assert(w == 80, "its team's Build swings repair it")
+		w = B.trenchSwing(30, need, h.swing, true)
+		assert(w == math.min(30 + h.swing, need), "its team's Build swings repair it")
+		local _, gone0 = B.trenchSwing(h.place, need, h.destroy, false)
+		assert(gone0, "a Destroy swing at a bridge just laid takes it away")
 	end,
 	["bridges: only across a dug square joined straight on, a square apart"] = function()
 		local b = C.Bridge

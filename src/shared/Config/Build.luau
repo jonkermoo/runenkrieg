@@ -396,9 +396,10 @@ local Build = {
 	-- free square between). It falls in once the square under it is buried under Trench.hp.bare%. An unseen `plate` (its
 	-- thickness) along the deck's top is what you walk on: the boards don't collide (nobody snags on a gap or a tipped
 	-- board) and bullets pass them. The build mode ghost: a slab `ghost` thick along the deck.
-	-- (25, 65, 100: stage 1 when laid, stage 2 after a swing, whole after two)
+	-- (0, 60, 100: stage 1 when laid, stage 2 after a swing, whole after two, as before laying started at 0 HP, user
+	-- round 5: "should still start at 0 HP")
 	Bridge = {
-		hp = { max = 100, place = 25, swing = 40, destroy = 25 },
+		hp = { max = 100, place = 0, swing = 60, destroy = 25 },
 		variants = 6,
 		dug = 95,
 		maxBend = 20,
