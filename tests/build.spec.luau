@@ -56,17 +56,12 @@ return {
 					or p.kind == "Bridge",
 				p.key
 			)
-			assert(type(p.name) == "string" and (p.kind == "Hesco" or p.work >= 1), p.key)
+			assert(type(p.name) == "string" and (p.kind == "Hesco" or p.kind == "Sandbags" or p.work >= 1), p.key)
 		end
-		assert(B.piece("LowWall", C.Pieces) ~= nil and B.piece("Nope", C.Pieces) == nil and B.piece(5, C.Pieces) == nil)
-	end,
-	["sandbag walls: the low one is low cover, the high one full cover with a loophole at the aimed muzzle"] = function()
-		local low = B.piece("LowWall", C.Pieces) :: any
-		local high = B.piece("HighWall", C.Pieces) :: any
-		assert(low.rows * low.row >= M.Cover.LowCoverMin, "the low wall can't be hopped")
-		assert(high.rows * high.row >= M.Cover.FullCoverMin, "the high wall hides a standing soldier")
-		local bottom, top = (high.loophole - 1) * high.row, high.loophole * high.row
-		assert(bottom < 4.3 and top > 4.3, "the standing aimed muzzle (4.3) looks out of the loophole")
+		assert(
+			B.piece("SandbagPile", C.Pieces) ~= nil and B.piece("Nope", C.Pieces) == nil and B.piece(5, C.Pieces) == nil
+		)
+		assert(B.piece("LowWall", C.Pieces) == nil and B.piece("HighWall", C.Pieces) == nil, "the old walls are gone")
 	end,
 	["hesco: 6 x 6, just over a soldier, only the dirt is cover; four stages on HP: laid standing, gone at 0"] = function()
 		local A = require("../src/shared/Config/Assets")
@@ -193,19 +188,6 @@ return {
 		local cut = B.shapeColumn({ 0, 0, 0, 0 }, 0, 4, 8, true)
 		assert(cut[2] == 0, "only cutting never fills")
 		assert(near(B.columnTop({ 1, 1, 0.5, 0 }, 0, 4) :: number, 12) and B.columnTop({ 0, 0 }, 0, 4) == nil)
-	end,
-	["sandbag courses: bonded rows, the loophole left out, all inside the wall"] = function()
-		local high = B.piece("HighWall", C.Pieces) :: any
-		local bags = B.sandbags(high)
-		local middle = (high.columns + 1) // 2
-		local rows = {}
-		for _, b in bags do
-			assert(not (b.column == middle and b.row == high.loophole), "the loophole is open")
-			assert(b.x - b.width / 2 >= -high.width / 2 - 1e-6 and b.x + b.width / 2 <= high.width / 2 + 1e-6)
-			rows[b.row] = (rows[b.row] or 0) + 1
-		end
-		assert(rows[1] == high.columns and rows[2] == high.columns * 2, "odd rows whole bags, even rows halves")
-		assert(rows[high.loophole] == high.columns * 2 - 2)
 	end,
 	["the wire: inside its box, harm only while moving"] = function()
 		assert(B.inBox(0, 0, 0, 12, 2.5, 3) and not B.inBox(0, 0, 1.6, 12, 2.5, 3))
@@ -519,5 +501,35 @@ return {
 		assert(t0 and t1 and near(t0, 0.4) and near(t1, 0.6))
 		t0 = B.clipRect(0, 0, 1, 0, 0, 0, 1, 0, 6, 2)
 		assert(t0 == 0, "starting inside")
+	end,
+
+	["the sandbag pile: on HP, stage 1 when laid, a bag a Build swing, ties with their bags, aimed fire clears it"] = function()
+		local pile = assert(B.piece("SandbagPile", C.Pieces))
+		local h = C.Sandbags.hp
+		local n = #pile.bags
+		assert(pile.kind == "Sandbags", "everyone builds it (Config/Classes small pieces)")
+		assert(B.pileBag("Bag1", pile.bags) == 1 and B.pileBag("Bag3Cord", pile.bags) == 3)
+		assert(B.pileBag("Origin", pile.bags) == nil and B.pileBag("Cord", pile.bags) == nil)
+		assert(B.pileBag(pile.stage1.ground, pile.bags) == nil and B.pileBag(pile.stage1.sacks, pile.bags) == nil)
+		assert(B.isPileCord("Bag2Cord") and not B.isPileCord("Bag2"))
+		-- laid: stage 1, no bag yet (scraped ground, empty sacks); each Build swing fills the next; full HP all of them
+		assert(h.place == 0 and B.pileBags(h.place, h.swing, n) == 0, "laid at 0 HP, stage 1")
+		local hp, gone = h.place, false
+		for bags = 1, n do
+			hp, gone = B.pileSwing(hp, true, h)
+			assert(B.pileBags(hp, h.swing, n) == bags and not gone, "a bag a swing")
+		end
+		assert(hp == h.max, "the last bag at full HP")
+		assert(B.pileSwing(hp, true, h) == h.max, "never over its max")
+		-- worn: bags come off as HP goes, a bag while any of its share is left, stage 1 at 0
+		assert(B.pileBags(h.max - 1, h.swing, n) == n, "a scratch takes no bag")
+		assert(B.pileBags(1, h.swing, n) == 1 and B.pileBags(0, h.swing, n) == 0 and B.pileBags(-5, h.swing, n) == 0)
+		local left
+		left, gone = B.pileSwing(h.destroy, false, h)
+		assert(left == 0 and gone)
+		left, gone = B.pileSwing(h.max, false, h)
+		assert(left == h.max - h.destroy and not gone)
+		assert(B.pileSwing(h.max, false, h, 50) == 50, "an admin dig step in place of a swing")
+		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
 	end,
 }

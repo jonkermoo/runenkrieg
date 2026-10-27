@@ -109,6 +109,15 @@ function Build.stageOf(work: number, need: number, stages: number): number
 	return math.clamp(math.floor(work / need * stages + 1e-9), 0, stages)
 end
 
+-- How many of a sandbag pile's `bags` bags stand at `hp` (Config/Build.Sandbags.hp): a bag for every `swing` of HP
+-- begun, so each Build swing fills one and a scratch takes none; at 0 stage 1 (the scraped ground and empty sacks)
+function Build.pileBags(hp: number, swing: number, bags: number): number
+	if hp <= 0 or swing <= 0 then
+		return 0
+	end
+	return math.clamp(math.ceil(hp / swing - 1e-9), 0, bags)
+end
+
 -- The stage of `stages` a Hesco barrier stands at with `hp` of `max` (Config/Build.Hesco.hp): 0 at no HP (just laid,
 -- lying flat), else its share of them rounded up, so the empty perimeter (stage 1) stands from its first HP on
 function Build.hescoStage(hp: number, max: number, stages: number): number
@@ -132,6 +141,21 @@ function Build.hescoSwing(hp: number, build: boolean, h: any, step: number?): (n
 	end
 	local left = hp - (step or h.destroy)
 	return math.max(left, 0), left <= 0
+end
+
+-- A shovel swing at a sandbag pile (Config/Build.Sandbags.hp): the same as at a Hesco barrier
+Build.pileSwing = Build.hescoSwing
+
+-- Which stage a sandbag pile's mesh stands at (Config/Assets sandbag_pile): its bag's place in `bags`, a tie (`<bag>Cord`)
+-- with its bag; nil for a mesh that isn't one of them
+function Build.pileBag(name: string, bags: { string }): number?
+	local bag = if Build.isPileCord(name) then string.sub(name, 1, -5) else name
+	return table.find(bags, bag)
+end
+
+-- whether a sandbag pile's mesh is a bag's tie (`<bag>Cord`, Config/Palette.Build.SandbagCord) rather than the bag
+function Build.isPileCord(name: string): boolean
+	return string.sub(name, -4) == "Cord"
 end
 
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
@@ -555,44 +579,6 @@ function Build.columnTop(occs: { number }, y0: number, res: number): number?
 		end
 	end
 	return nil
-end
-
-export type Bag = { column: number, row: number, x: number, y: number, width: number, height: number }
-
--- A sandbag wall's bags (Config/Build.Pieces entry): for each column and row a course of bags, `x` the bag's centre
--- across the wall (0 = the middle), `y` its centre above the ground; every other row offset by half a bag (a bond),
--- the loophole row of the middle column left out.
-function Build.sandbags(p: Piece): { Bag }
-	local out: { Bag } = {}
-	local colWidth = p.width / p.columns
-	local middle = (p.columns + 1) // 2
-	for c = 1, p.columns do
-		local left = -p.width / 2 + (c - 1) * colWidth
-		for r = 1, p.rows do
-			if not (p.loophole and r == p.loophole and c == middle) then
-				local y = (r - 0.5) * p.row
-				if r % 2 == 1 then
-					table.insert(
-						out,
-						{ column = c, row = r, x = left + colWidth / 2, y = y, width = colWidth, height = p.row }
-					)
-				else
-					-- two half-offset bags: half a bag each side of the column's middle
-					local half = colWidth / 2
-					table.insert(out, { column = c, row = r, x = left + half / 2, y = y, width = half, height = p.row })
-					table.insert(out, {
-						column = c,
-						row = r,
-						x = left + half * 1.5,
-						y = y,
-						width = half,
-						height = p.row,
-					})
-				end
-			end
-		end
-	end
-	return out
 end
 
 -- A laid piece's footprint on the ground: its centre (`x`, `z`), its width along `rx`, `rz` (its right, a unit vector)
