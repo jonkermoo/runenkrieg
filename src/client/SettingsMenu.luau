@@ -5,8 +5,9 @@
 -- "MenuOpen" attribute frees the mouse (src/client/WeaponCamera); a click outside the panel closes it.
 -- Layout, sizes and fonts come from the spec src/shared/ui/SettingsMenu.json (local layout check and preview scripts
 -- read the same file); a row is built from the spec's template for its option's kind, so a new option
--- only needs its Config/Settings entry and a place in a tab. Look: gray slate, thin lines, square-turned knobs
--- (Config/Palette UI.Settings; docs/ART_STYLE.md). No CanvasGroup: every element sets its own transparency.
+-- only needs its Config/Settings entry and a place in a tab. Look: the game's basic one (user 2026-10-27), the one
+-- font, plain slate boxes with thin lines like the title screen's buttons, one line per row (Config/Palette
+-- UI.Settings; docs/ART_STYLE.md). No CanvasGroup: every element sets its own transparency.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -128,27 +129,6 @@ local function clearButton(parent: Instance, name: string): TextButton
 	return b
 end
 
--- a square turned 45 degrees inside a node's box (the close and gear buttons, the slider knob)
-local function diamond(parent: GuiObject, fill: string, line: string?): Frame
-	local d = Instance.new("Frame")
-	d.Name = "Diamond"
-	d.AnchorPoint = Vector2.new(0.5, 0.5)
-	d.Position = UDim2.fromScale(0.5, 0.5)
-	d.Size = UDim2.fromScale(1 / math.sqrt(2), 1 / math.sqrt(2))
-	d.SizeConstraint = Enum.SizeConstraint.RelativeYY
-	d.Rotation = 45
-	d.BackgroundColor3 = rgb(fill)
-	d.BorderSizePixel = 0
-	if line then
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = C.thin
-		stroke.Color = rgb(line)
-		stroke.Parent = d
-	end
-	d.Parent = parent
-	return d
-end
-
 -- the button colours: idle, or picked (also a keybind waiting for its key)
 local function paint(b: TextButton, stroke: UIStroke?, picked: boolean)
 	b.BackgroundColor3 = rgb(if picked then "selFill" else "field")
@@ -263,11 +243,10 @@ local function sliderRow(parent: Instance, order: number, key: string)
 	local kn = role(cn, "knob")
 	local knob = Instance.new("Frame")
 	knob.Name = "Knob"
-	knob.BackgroundTransparency = 1
 	knob.AnchorPoint = Vector2.new(0.5, 0.5)
 	knob.Size = udim(kn.size)
 	knob.ZIndex = 2
-	diamond(knob, "accent").ZIndex = 2
+	box(knob, kn.color)
 	knob.Parent = line
 	-- the whole control takes the press (a button: it sinks the click, so the gun doesn't fire)
 	local hit = clearButton(c, "Hit")
@@ -358,11 +337,14 @@ local function keyRow(parent: Instance, order: number, key: string, onCapture: (
 	return refresh
 end
 
--- a diamond button from a spec node: a clear hit box the node's size with the turned square inside
-local function diamondButton(parent: Instance, n: any): TextButton
+-- a plain button from a spec node: its box, its text if it has one
+local function boxButton(parent: Instance, n: any): TextButton
 	local b = clearButton(parent, n.id)
 	place(b, n)
-	diamond(b, n.color, n.line)
+	box(b, n.color, n.line)
+	if n.text then
+		text(b, n.text, n)
+	end
 	return b
 end
 
@@ -376,7 +358,7 @@ function SettingsMenu.start()
 	gui.DisplayOrder = M.DisplayOrder
 
 	local gn = node("Gear")
-	local gear = diamondButton(gui, gn)
+	local gear = boxButton(gui, gn)
 	local gi = node("GearIcon")
 	local icon = Instance.new("ImageLabel")
 	icon.Name = "Icon"
@@ -418,16 +400,8 @@ function SettingsMenu.start()
 	end
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
 
-	label(panel, "Settings", node("Title"))
-	local close = diamondButton(panel, node("Close"))
-	local cn = node("Close")
-	local x = Instance.new("TextLabel")
-	x.Name = "X"
-	x.BackgroundTransparency = 1
-	x.Size = UDim2.fromScale(1, 1)
-	x.ZIndex = 2
-	text(x, cn.text, cn)
-	x.Parent = close
+	label(panel, node("Title").text, node("Title"))
+	local close = boxButton(panel, node("Close"))
 	local rule = Instance.new("Frame")
 	rule.Name = "Rule"
 	place(rule, node("Rule"))
@@ -435,7 +409,7 @@ function SettingsMenu.start()
 	rule.BorderSizePixel = 0
 	rule.Parent = panel
 
-	-- the tab bar (clear buttons, the open one bright and underlined), and one scrolling page per tab
+	-- the tab bar (buttons, the open one lit like a picked value), and one scrolling page per tab
 	local tn = node("Tabs")
 	local bar = Instance.new("Frame")
 	bar.Name = "Tabs"
@@ -443,26 +417,20 @@ function SettingsMenu.start()
 	place(bar, tn)
 	bar.Parent = panel
 	local tabNode = node("Tab1")
-	local un = node("Underline")
 	local tabs: { [string]: TextButton } = {}
-	local underlines: { [string]: Frame } = {}
+	local tabStrokes: { [string]: UIStroke? } = {}
 	local openTab: (string) -> ()
 	local n = #Cfg.Tabs
 	for i, tab in Cfg.Tabs do
 		local b = clearButton(bar, tab.name)
 		b.Position = UDim2.new((i - 1) / n, (i - 1) * tn.gap / n, 0, 0)
 		b.Size = UDim2.new(1 / n, -tn.gap * (n - 1) / n, 1, 0)
+		local stroke = box(b, "field", "line")
 		text(b, tab.name, tabNode)
-		local u = Instance.new("Frame")
-		u.Name = "Underline"
-		place(u, un)
-		u.BackgroundColor3 = rgb(un.color)
-		u.BorderSizePixel = 0
-		u.Parent = b
 		b.Activated:Connect(function()
 			openTab(tab.name)
 		end)
-		tabs[tab.name], underlines[tab.name] = b, u
+		tabs[tab.name], tabStrokes[tab.name] = b, stroke
 	end
 
 	local refreshKeys: { () -> () } = {}
@@ -510,8 +478,7 @@ function SettingsMenu.start()
 			page.Visible = t == name
 		end
 		for t, b in tabs do
-			b.TextColor3 = rgb(if t == name then "title" else "textDim")
-			underlines[t].Visible = t == name
+			paint(b, tabStrokes[t], t == name)
 		end
 		capture(nil)
 	end
