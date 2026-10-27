@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Healing)
 local DevCfg = require(Shared.Config.DevTools)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Stow = require(Shared.Config.Locomotion).Stow
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
@@ -47,7 +48,13 @@ local function pick(me: Model): (Model?, string?)
 		if not m or m == me or not m:IsA("Model") or not m:IsDescendantOf(workspace) then
 			return
 		end
-		if not Teams.same(me:GetAttribute("Kit"), m:GetAttribute("Kit")) then
+		if
+			not Teams.same(
+				me:GetAttribute("Kit"),
+				m:GetAttribute("Kit"),
+				workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
+			)
+		then
 			return -- teammates only
 		end
 		local h = m:FindFirstChildOfClass("Humanoid")

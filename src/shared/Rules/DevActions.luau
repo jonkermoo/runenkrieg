@@ -17,9 +17,20 @@ local PLAIN = table.freeze({
 	ClearDummies = true,
 	UndoDestruction = true,
 	ClearGuns = true,
+	MatchEnd = true,
+	MatchRestart = true,
+	ZoneSkip = true,
+	RespawnAll = true,
 })
-local SWITCHES =
-	table.freeze({ God = true, BlastHurts = true, Shooters = true, ClockPaused = true, WeatherCalm = true })
+local SWITCHES = table.freeze({
+	God = true,
+	BlastHurts = true,
+	Shooters = true,
+	ClockPaused = true,
+	WeatherCalm = true,
+	BuildAll = true,
+	Ammo = true,
+})
 
 local function finite(n: any): boolean
 	return type(n) == "number" and n == n and n > -math.huge and n < math.huge
@@ -34,8 +45,9 @@ local function kitOf(cfg: any, kit: any): { kit: string, name: string }?
 	return nil
 end
 
--- Whether `value` is one `action` takes.
-function DevActions.valid(cfg: any, action: any, value: any): boolean
+-- Whether `value` is one `action` takes. `defs`: the game modes (Config/Modes.Defs) and classes (Config/Classes.Defs)
+-- the "Mode" and "Class" actions name; without them those are refused.
+function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any, classes: any }?): boolean
 	if type(action) ~= "string" then
 		return false
 	end
@@ -47,6 +59,16 @@ function DevActions.valid(cfg: any, action: any, value: any): boolean
 		return table.find(cfg.Admin.Health, value) ~= nil
 	elseif action == "Team" then
 		return value == cfg.Admin.Random or kitOf(cfg, value) ~= nil
+	elseif action == "Mode" then
+		return defs ~= nil and type(value) == "string" and defs.modes[value] ~= nil
+	elseif action == "Class" then
+		return defs ~= nil and type(value) == "string" and (value == cfg.Admin.Normal or defs.classes[value] ~= nil)
+	elseif action == "MatchTime" then
+		return table.find(cfg.Admin.MatchSeconds, value) ~= nil
+	elseif action == "ZoneScore" then
+		return table.find(cfg.Admin.ZoneScore, value) ~= nil
+	elseif action == "Points" then
+		return table.find(cfg.Admin.Points, value) ~= nil
 	elseif action == "Grenade" then
 		return table.find(cfg.Admin.Grenades, value) ~= nil
 	elseif action == "Weather" then

@@ -444,6 +444,30 @@ local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: 
 	return out
 end
 
+-- Whether the thin piece `src` (from its Origin by `off`, stretched along by `stretch`) laid at `cf` sits on the
+-- ground: the terrain under the corners and middle of its underside comes up to it (Rules.thinPieceSits)
+local function sitsOnGround(src: BasePart, off: CFrame, cf: CFrame, stretch: number): boolean
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, sx in { -1, 1 } do
+		for _, sy in { -1, 1 } do
+			for _, sz in { -1, 1 } do
+				local p = off * (src.Size / 2 * Vector3.new(sx, sy, sz))
+				lo, hi = lo:Min(p), hi:Max(p)
+			end
+		end
+	end
+	-- the ground's height over the underside at each point (it tilts with the square's ground line)
+	local grounds = {}
+	for _, x in { lo.X, (lo.X + hi.X) / 2, hi.X } do
+		for _, z in { lo.Z, hi.Z } do
+			local w = cf * Vector3.new(x * stretch, lo.Y, z)
+			local hit = workspace:Raycast(w + Vector3.new(0, 12, 0), Vector3.new(0, -30, 0), terrainOnly)
+			table.insert(grounds, if hit then hit.Position.Y - w.Y else -math.huge)
+		end
+	end
+	return Rules.thinPieceSits(0, grounds, T.apronHang)
+end
+
 -- A square's dirt pieces: a wall each side and a floor (Rules.trenchPieces), a plain wall across each dead end, laid in
 -- piece space (x along, y up from the floor, z out of the trench) on the square's floor, stretched along a short one.
 -- Rebuilt only when its ends or tees change.
@@ -538,6 +562,9 @@ local function pieces(blk: Block)
 		local off = offsets[name]
 		if not (src and src:IsA("BasePart") and off) then
 			return
+		end
+		if string.find(name, "Apron") and not sitsOnGround(src, off, cf, stretch) then
+			return -- (it would hang in the air as thin slabs: Config/Build.Trench.apronHang)
 		end
 		local p = src:Clone()
 		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
@@ -927,30 +954,34 @@ end
 -- One swing at a square (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds HP to any
 -- square, Destroy takes it off (an undug plan's square is pulled up). (Any trench: a soldier's kit is rolled each life,
 -- so after a respawn your own trench was another kit's; user 2026-10-25: "you should be able to fix/edit any trench")
-function Trenches.work(blk: Block, _team: string, mode: string, share: number?)
+-- True when this swing dug the square to full for the first time (src/server/Loadouts pays the digger).
+function Trenches.work(blk: Block, _team: string, mode: string, share: number?): boolean
 	if not live(blk) then
-		return
+		return false
 	end
 	local H = T.hp
 	if mode == "Build" then
 		if blk.hp >= H.max then
-			return
+			return false
 		end
+		local first = not blk.built
 		blk.hp = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.swing, H.max, share), true)
 		blk.worked = os.clock()
 		for _, o in blk.run do
 			o.worked = blk.worked -- (the plan stays while it's being dug)
 		end
+		local done = false
 		if blk.hp >= H.max then
 			blk.falling = false
+			done = first
 			blk.built = true
 		end
 		apply(blk, true)
-		return
+		return done
 	end
 	if blk.hp <= 0 then
 		finish(blk, false) -- a plan pulled up
-		return
+		return false
 	end
 	local left, gone = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.destroy, H.max, share), false)
 	blk.hp = left
@@ -958,9 +989,10 @@ function Trenches.work(blk: Block, _team: string, mode: string, share: number?)
 	blk.falling = true
 	if gone then
 		finish(blk, true)
-		return
+		return false
 	end
 	apply(blk, true) -- (it falls in a little every swing)
+	return false
 end
 
 -- A square loses `amount` HP to a blast or a bullet (Config/Build.Structures): buried by that much (reshaped only when

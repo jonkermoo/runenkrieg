@@ -414,4 +414,62 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 	return { lots = lots, fences = fences, poles = poles, signs = signs, cars = cars, trees = trees, yard = yard }
 end
 
+local function segmentDistance(x: number, z: number, a: { number }, b: { number }): number
+	local dx, dz = b[1] - a[1], b[2] - a[2]
+	local len2 = dx * dx + dz * dz
+	local t = if len2 == 0 then 0 else math.clamp(((x - a[1]) * dx + (z - a[2]) * dz) / len2, 0, 1)
+	return math.sqrt((x - a[1] - dx * t) ^ 2 + (z - a[2] - dz * t) ^ 2)
+end
+
+-- A hand-placed layout (a map's `layout`: lots, fences and yard pieces in world studs, as Config/Maps/Playtest) in
+-- the shape `layout` returns; its trees are the map's natural ones (Rules/MapTerrain.trees) less those within
+-- `trees.buildingClear` of a building, fence or yard piece.
+function Village.fixed(map: any, B: any, M: any, MT: any): Layout
+	local L = map.layout
+	local lots: { Lot } = {}
+	for _, p in L.lots do
+		local t = B.Templates[p.style]
+		assert(t, "unknown building template " .. p.style)
+		table.insert(lots, {
+			id = p.id,
+			style = p.style,
+			x = p.x,
+			z = p.z,
+			fx = p.fx,
+			fz = p.fz,
+			width = t.width,
+			depth = t.depth,
+			stories = t.stories,
+			storyHeight = t.storyHeight or M.Building.StoryHeight,
+			colorSeed = p.colorSeed,
+			special = true,
+		})
+	end
+	local clear = map.trees.buildingClear
+	local quads = {}
+	for _, l in lots do
+		table.insert(quads, Village.corners(l, clear))
+	end
+	local trees = {}
+	for _, t in MT.trees(map) do
+		local ok = true
+		for _, q in quads do
+			if Village.pointInQuad(t.x, t.z, q) then
+				ok = false
+				break
+			end
+		end
+		for _, f in L.fences do
+			ok = ok and segmentDistance(t.x, t.z, f.a, f.b) > clear / 2
+		end
+		for _, y in L.yard do
+			ok = ok and (t.x - y.x) ^ 2 + (t.z - y.z) ^ 2 > clear * clear
+		end
+		if ok then
+			table.insert(trees, t)
+		end
+	end
+	return { lots = lots, fences = L.fences, poles = {}, signs = {}, cars = {}, trees = trees, yard = L.yard }
+end
+
 return Village

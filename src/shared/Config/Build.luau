@@ -3,10 +3,11 @@
 -- plus caps, trenches carved in the terrain, the pieces flat-coloured code-built shapes until meshes are approved).
 -- Rules/Build decides, src/server/Build builds, src/client/Build shows build mode. Data only.
 --
--- Build mode: the shovel in the hands, Key_Build toggles it; the mouse wheel picks a piece, Key_BuildTurn turns it,
--- a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user 2026-10-23): a Build swing at
--- a piece of your team adds one unit of work; at `work` it stands. A Destroy swing at any piece, any team's, takes one
--- off; at 0 it is torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
+-- Build mode: the shovel in the hands, Key_Build toggles it; Key_BuildPrev / Key_BuildNext (Q / E) pick a piece,
+-- Key_BuildTurn turns it, a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user
+-- 2026-10-23): a Build swing at a piece of your team adds one unit of work; at `work` it stands (at any team's standing
+-- gun it repairs it: src/server/Artillery.repair). A Destroy swing at any piece, any team's, takes one off; at 0 it is
+-- torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
 
 local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
@@ -28,6 +29,12 @@ local Build = {
 	GhostTransparency = 0.75,
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
 	Ghost = { ok = { 120, 200, 120 }, bad = { 220, 80, 70 }, transparency = 0.55 },
+	-- a gun's ghost (src/client/Build; user 2026-10-27: "reduce the red space for a howitzer ... just make it the size
+	-- of the actual howizer with the trench. infact, make the outline a rough estimate of what the model would look like
+	-- when constructed"): the gun itself, see-through in Ghost ok / bad, standing as it will (a dug-in gun on its pit's
+	-- floor), and a dug-in gun's pit and ramp outlined flat on the ground, `outline` studs thick, `outlineSee`
+	-- see-through
+	GunGhost = { outline = 0.3, outlineSee = 0.7 },
 	-- the trench planner's ghost (src/client/Build; user 2026-10-24: "make the entire planning thing better and more
 	-- stylish"), a preview of the stakes and cord the
 	-- server lays: per square a faint fill (Ghost ok / bad, `fill` see-through) with the dug floor's band in it
@@ -132,6 +139,12 @@ local Build = {
 		-- trenches; the skirt since 2026-10-25, trench_pieces v8 Wall<i>Apron), and how much further the side heaps run on
 		-- round a dead end and its heap reaches past the side walls' tops
 		joins = { heapReach = 11, deadEndHeap = 3 },
+		-- the skirt behind a heap (Wall<i>Apron, low slabs meant to lie half sunk in the ground) is laid only where the
+		-- ground under it comes within `apronHang` studs of its underside everywhere (Rules.thinPieceSits); where the
+		-- trench pokes out over ground that falls away it would hang in the air as thin sheets, so the heap's full blocks
+		-- stand alone there (user 2026-10-27: "i dont mind if blocks stick out in the air, as long as they are full
+		-- blocks as they can somewhat blend in. this just looks glitched")
+		apronHang = 0.3,
 	},
 
 	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and
@@ -199,8 +212,7 @@ local Build = {
 		-- The Hesco barrier (user 2026-10-27; Hesco below): a 6 x 6 basket of mesh and liner, `height` high (just over
 		-- a standing soldier's 5.13: "it should be just barely the players height"; under full cover's 5.5), filled
 		-- with dirt from the bottom up in `stages` (1: the empty perimeter, then a third of the dirt each), `work`
-		-- Build swings (2 a stage). Everyone builds it (a small asset; the class gate coming on the loadout branch,
-		-- Config/Classes SMALL, needs "Hesco" when both land).
+		-- Build swings (2 a stage). Everyone builds it (a small asset: Config/Classes SMALL).
 		{
 			key = "Hesco",
 			name = "Hesco barrier",
@@ -213,15 +225,16 @@ local Build = {
 			height = 5.25,
 			maxSlope = 20,
 		},
+		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
+		-- chaining or planner; the look: Config/Assets barbed_wire, Wire below)
 		{
 			key = "Wire",
 			name = "Barbed wire",
 			kind = "Wire",
-			work = 3,
-			width = 12,
-			depth = 3,
-			height = 2.5,
-			pickets = 4,
+			work = 2,
+			width = 8,
+			depth = 4,
+			height = 3.1,
 			maxSlope = 30,
 		},
 		-- The guns (user 2026-10-26: "add building the artilleries to shovels"; Config/Artillery.Guns `gun`, src/server/
@@ -334,10 +347,39 @@ local Build = {
 	-- first third of dirt while it stands); at 0 it bursts. The blueprint shows the empty perimeter ghosted.
 	Hesco = { hp = 100, soak = 0.5, blocks = { "Earth" } },
 
-	-- Barbed wire: anyone inside its box (both teams) is "Wired": walks at `speed`, can't sprint or jump
-	-- (src/client/Stance), and loses `damage` health a second while moving faster than `moving` studs/s. Bullets pass
-	-- (its parts aren't queried); blasts wear it down and cut it (Structures above).
-	Wire = { speed = 3, damage = 4, moving = 1, tick = 0.25 },
+	-- Barbed wire (user 2026-10-27): its meshes are
+	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
+	-- ground (Bundle*, from 0 work, user: "like the artilleries"), full work stands it (Pickets, Strands, Coil). Anyone inside its box (both teams) is "Wired":
+	-- walks at `speed`, can't sprint or jump (src/client/Stance); only the enemy loses `damage` health a second while
+	-- moving faster than `moving` studs/s (user: "slow, but only hurt enemies"). Each tick anyone (teammates too) moves
+	-- through it that fast it shakes and rattles (user 2026-10-27: "the damage tick animation should still go off on
+	-- teammates and the sound cue goes off"; src/client/WireShake: `shake` seconds, the wire `wobble` studs, the pickets
+	-- `picket` of that, at `rate` Hz; one of `sounds` at random from where they push through: Pro Sound Effects "Chain
+	-- Link Fence 3", its first and second rattles). It also shakes and rattles each time it takes damage, a Destroy swing
+	-- or a blast (user 2026-10-27: "both"; src/server/Build).
+	-- Bullets pass (its parts aren't queried). Once standing it has Structures.wireHP: blasts wear it (Structures above), a
+	-- Destroy swing takes `destroy` HP (user: 2 swings, broken then gone); under `broken` of its HP it lies scattered on
+	-- the ground and does nothing (Wreck*, user: "a broken stage (less than 50) will make the fence ineffective and
+	-- scatter it on the ground. once it hits 0 it will despawn"); one Build swing of its team stands a broken wire back up
+	-- at full HP. The grass goes from under it (Net GroundDug, `grass` studs round its centre) as it is laid. A
+	-- Destroy swing on a wire that never stood takes its work down; at 0 it is gone.
+	Wire = {
+		speed = 3,
+		damage = 4,
+		moving = 1,
+		tick = 0.25,
+		destroy = 60, -- (over half: the first swing breaks it, the second takes it away)
+		broken = 0.5,
+		grass = 4.6,
+		shake = 0.35,
+		wobble = 0.12,
+		picket = 0.3,
+		rate = 14,
+		sounds = {
+			{ id = 9113758601, volume = 0.6, start = 0.08, stop = 0.6, fade = 0.25, profile = "Rattle" },
+			{ id = 9113758601, volume = 0.6, start = 1.15, stop = 1.7, fade = 0.25, profile = "Rattle" },
+		},
+	},
 }
 
 return table.freeze(Build)

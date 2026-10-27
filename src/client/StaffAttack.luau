@@ -41,6 +41,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Spells)
+local DevCfg = require(Shared.Config.DevTools)
 local M = require(Shared.Config.Metrics)
 local VfxCfg = require(Shared.Config.Vfx)
 local W = require(Shared.Config.Weapons)
@@ -277,7 +278,13 @@ function StaffAttack.start()
 	-- animation on the body), and after stage 3 the fall
 	local function spent(character: Model, stage: number, aimed: boolean)
 		local now = os.clock()
-		readyUntil = now + S.Cooldown[stage]
+		-- (the admin panel's no cooldown: none, the mana full again; src/server/StaffCast does the same)
+		local free = player:GetAttribute(DevCfg.Attribute) == true
+			and player:GetAttribute(DevCfg.Admin.AmmoAttribute) == true
+		if free then
+			Rules.fill(mana, Cfg.Mana)
+		end
+		readyUntil = now + Rules.cooldown(S.Cooldown, stage, free)
 		slowUntil, slowShare = readyUntil, S.Slow[stage]
 		Sway.kick(stage)
 		if stage < LAST then

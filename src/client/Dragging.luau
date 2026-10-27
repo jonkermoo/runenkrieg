@@ -16,6 +16,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Dragging)
 local DevCfg = require(Shared.Config.DevTools)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local Teams = require(Shared.Rules.Teams)
@@ -51,7 +52,11 @@ local function pick(me: Model): Model?
 			or h.Health <= 0
 			or m:GetAttribute("Ragdolled") ~= true
 			or m:GetAttribute("Dragged") == true
-			or not Teams.same(me:GetAttribute("Kit"), m:GetAttribute("Kit"))
+			or not Teams.same(
+				me:GetAttribute("Kit"),
+				m:GetAttribute("Kit"),
+				workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
+			)
 			or (r.Position - mine.Position).Magnitude > Cfg.Range
 		then
 			return

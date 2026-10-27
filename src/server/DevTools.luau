@@ -8,7 +8,9 @@
 -- done: target dummies (src/server/DevDummies), blasts at the aim point (src/server/Damage.blast; Net "DevBlast" shows
 -- the explosion to everyone), your health / death / respawn / team (respawn as it) / god mode / knock / helmet, the range's test shooters
 -- (src/server/TestShooter), undo destruction (src/server/DevWorld) and the clock (src/server/Environment: set the time,
--- pause the day cycle; start fog / rain / clear sky now, the random weather off / on).
+-- pause the day cycle; start fog / rain / clear sky now, the random weather off / on), the server's game mode
+-- (src/server/Modes), the FFA match (src/server/ZoneMatch: end, restart, skip the zone, more time, score), match points
+-- and a class pinned every life (src/server/Loadouts), building anything, unlimited ammo, everyone respawned.
 -- DevTools.teleport(player, id) is also used directly by tests/demos.
 
 local Players = game:GetService("Players")
@@ -23,8 +25,14 @@ local DevDummies = require(script.Parent.DevDummies)
 local DevWorld = require(script.Parent.DevWorld)
 local Environment = require(script.Parent.Environment)
 local Helmets = require(script.Parent.Helmets)
+local Loadouts = require(script.Parent.Loadouts)
+local Modes = require(script.Parent.Modes)
+local ZoneMatch = require(script.Parent.ZoneMatch)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Cfg = require(Shared.Config.DevTools)
+local ClassCfg = require(Shared.Config.Classes)
+local ModeCfg = require(Shared.Config.Modes)
+local ModeRules = require(Shared.Rules.Modes)
 local W = require(Shared.Config.Weapons)
 local Map1 = require(Shared.Config.Maps.Map1)
 local Rules = require(Shared.Rules.DevTeleports)
@@ -32,6 +40,17 @@ local Actions = require(Shared.Rules.DevActions)
 local Net = require(Shared.Net)
 
 local DevTools = {}
+
+local DEFS = { modes = ModeCfg.Defs, classes = ClassCfg.Defs } -- (the "Mode" and "Class" values, Rules/DevActions)
+-- the admin settings a player loses with the tools (the server's mode closing them)
+local REVOKED = {
+	Cfg.Admin.GodAttribute,
+	Cfg.Blasts.HurtAttribute,
+	Cfg.Admin.Dig.attribute,
+	Cfg.Admin.BuildAllAttribute,
+	Cfg.Admin.AmmoAttribute,
+	Cfg.Admin.ClassAttribute,
+}
 
 local last: { [Player]: number } = {}
 local lastAction: { [Player]: number } = {} -- (test actions keep their own cooldown)
@@ -126,6 +145,34 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		Environment.calm(value)
 	elseif action == "Respawn" then
 		player:LoadCharacter()
+	elseif action == "Mode" then
+		Modes.switch(value)
+	elseif action == "MatchEnd" then
+		ZoneMatch.finish()
+	elseif action == "MatchRestart" then
+		ZoneMatch.restart()
+	elseif action == "ZoneSkip" then
+		ZoneMatch.skip()
+	elseif action == "MatchTime" then
+		ZoneMatch.extend(value)
+	elseif action == "ZoneScore" then
+		ZoneMatch.addScore(player, value)
+	elseif action == "Points" then
+		Loadouts.grant(player, value)
+	elseif action == "Class" then
+		-- pinned (Rules/Classes.resolve reads it on every spawn), then a new body as it now
+		player:SetAttribute(Cfg.Admin.ClassAttribute, if value == Cfg.Admin.Normal then nil else value)
+		player:LoadCharacter()
+	elseif action == "BuildAll" then
+		player:SetAttribute(Cfg.Admin.BuildAllAttribute, if value then true else nil)
+	elseif action == "Ammo" then
+		player:SetAttribute(Cfg.Admin.AmmoAttribute, if value then true else nil)
+	elseif action == "RespawnAll" then
+		for _, p in Players:GetPlayers() do
+			task.spawn(function()
+				p:LoadCharacter()
+			end)
+		end
 	elseif action == "Team" then
 		-- the pinned kit (src/server/Kits reads it on every spawn), then a new body in it now
 		player:SetAttribute("Kit", if value == Cfg.Admin.Random then nil else value)
@@ -146,14 +193,26 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 end
 
 function DevTools.start()
+	-- (everyone again each time the server's mode changes: only the admin mode opens the tools to all)
 	local function setup(player: Player)
-		local allowed = Rules.allowed(Cfg, player.UserId, RunService:IsStudio(), game.PlaceId)
+		local open = ModeRules.openAdmin(ModeCfg, workspace:GetAttribute(ModeCfg.Attribute))
+		local allowed = Rules.allowed(Cfg, player.UserId, RunService:IsStudio(), game.PlaceId, open)
 		player:SetAttribute(Cfg.Attribute, allowed)
+		if not allowed then
+			for _, name in REVOKED do
+				player:SetAttribute(name, nil)
+			end
+		end
 	end
 	Players.PlayerAdded:Connect(setup)
 	for _, p in Players:GetPlayers() do
 		setup(p)
 	end
+	workspace:GetAttributeChangedSignal(ModeCfg.Attribute):Connect(function()
+		for _, p in Players:GetPlayers() do
+			setup(p)
+		end
+	end)
 	Players.PlayerRemoving:Connect(function(p)
 		last[p] = nil
 		lastAction[p] = nil
@@ -181,7 +240,7 @@ function DevTools.start()
 		Armory.choose(player, name)
 	end)
 	Net.event("DevAction").OnServerEvent:Connect(function(player: Player, action: any, value: any, aim: any)
-		if player:GetAttribute(Cfg.Attribute) ~= true or not Actions.valid(Cfg, action, value) then
+		if player:GetAttribute(Cfg.Attribute) ~= true or not Actions.valid(Cfg, action, value, DEFS) then
 			return
 		end
 		local point: Vector3? = nil

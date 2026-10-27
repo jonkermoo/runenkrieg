@@ -1,7 +1,7 @@
 --!strict
 -- "Undo destruction" for manual tests (Config/DevTools.World; DEV place only): at the start of a play test every
 -- building, loose map section (src/server/Destruction's tags) and tree (Config/TreeSway.Tag) is copied, and the terrain
--- inside Config/DevTools.World.Terrain; DevWorld.undo() puts the copies back in place of whatever is left of them (broken
+-- inside each box of Config/DevTools.World.Terrain; DevWorld.undo() puts the copies back in place of whatever is left of them (broken
 -- sections, snapped trees) and pastes the terrain over the craters.
 
 local CollectionService = game:GetService("CollectionService")
@@ -17,11 +17,10 @@ local DevWorld = {}
 
 type Saved = { live: Instance?, copy: Instance, parent: Instance }
 local saved: { Saved } = {}
-local terrain: TerrainRegion? = nil
-local corner: Vector3int16? = nil
+local terrains: { { region: TerrainRegion, corner: Vector3int16 } } = {}
 
-local function region(): Region3int16
-	local lo, hi = Cfg.Terrain.min, Cfg.Terrain.max
+local function region(box: any): Region3int16
+	local lo, hi = box.min, box.max
 	local function v(t: { number }, f: (number) -> number): Vector3int16
 		return Vector3int16.new(f(t[1] / 4), f(t[2] / 4), f(t[3] / 4)) -- (4-stud voxels)
 	end
@@ -69,12 +68,17 @@ function DevWorld.save()
 			table.insert(saved, { live = i, copy = copy, parent = i.Parent })
 		end
 	end
-	local r = region()
-	local ok, got = pcall(function()
-		return workspace.Terrain:CopyRegion(r)
-	end)
-	terrain, corner = if ok then got else nil, r.Min
-	print(`[DevWorld] saved {#saved} buildings, sections and trees; terrain {if ok then "saved" else "not saved"}`)
+	table.clear(terrains)
+	for _, box in Cfg.Terrain do
+		local r = region(box)
+		local ok, got = pcall(function()
+			return workspace.Terrain:CopyRegion(r)
+		end)
+		if ok then
+			table.insert(terrains, { region = got, corner = r.Min })
+		end
+	end
+	print(`[DevWorld] saved {#saved} buildings, sections and trees; terrain {#terrains} of {#Cfg.Terrain} boxes`)
 end
 
 function DevWorld.undo()
@@ -86,8 +90,8 @@ function DevWorld.undo()
 		fresh.Parent = s.parent
 		s.live = fresh
 	end
-	if terrain and corner then
-		workspace.Terrain:PasteRegion(terrain, corner, true)
+	for _, t in terrains do
+		workspace.Terrain:PasteRegion(t.region, t.corner, true)
 	end
 	print(`[DevWorld] put back {#saved} buildings, sections and trees`)
 end

@@ -7,7 +7,9 @@
 -- - Build at your team's piece adds a unit of work; it rises in stages and stands at full work;
 -- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
 -- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
--- - Barbed wire: pickets and strands nothing queries (bullets pass); src/server/Wire slows and hurts soldiers in it.
+-- - Barbed wire: Config/Assets barbed_wire's meshes in three looks (Rules.wireLook: on the ground, standing, broken),
+--   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. Once it has stood,
+--   swings go to its HP (Rules.wireSwing): Destroy breaks it then takes it away, its team's Build stands it back up.
 -- - Hesco barriers (kind "Hesco"; Config/Build.Hesco): the model's pieces for the stage it shows (Rules.hescoStage:
 --   the empty perimeter, then the dirt rising; slumped by wear), cloned from the asset library; only the dirt collides
 --   and stops bullets. One HP, shown on the model once it stands; at 0 it bursts.
@@ -25,10 +27,10 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Assets = require(Shared.Config.Assets)
 local C = require(Shared.Config.Build)
 local D = require(Shared.Config.Destruction)
 local Palette = require(Shared.Config.Palette)
+local Assets = require(Shared.Config.Assets)
 local ShovelCfg = require(Shared.Config.Shovel)
 local ArtilleryCfg = require(Shared.Config.Artillery)
 local W = require(Shared.Config.Weapons)
@@ -41,6 +43,7 @@ local Destruction = require(script.Parent.Destruction)
 local Ground = require(script.Parent.Ground)
 local Trees = require(script.Parent.Trees)
 local Trenches = require(script.Parent.Trenches)
+local Loadouts = require(script.Parent.Loadouts)
 
 local Build = {}
 
@@ -58,7 +61,8 @@ type Rec = {
 	born: number,
 	worked: number,
 	frame: CFrame,
-	hp: number?, -- barbed wire: what blasts have left of Structures.wireHP; a Hesco barrier: of Hesco.hp
+	hp: number?, -- barbed wire: what blasts and Destroy swings have left of Structures.wireHP; a Hesco barrier: of Hesco.hp
+	grassed: boolean?, -- barbed wire: the grass under it cleared
 	base: CFrame?, -- a Hesco barrier: its footprint's centre on the lowest ground under it
 	shown: number?, -- a Hesco barrier: the stage its pieces show
 	-- a gun piece: where the gun stands (on the ground before its pit), its blueprint or the gun standing, its pit's
@@ -77,6 +81,9 @@ type Guns = {
 	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
 	parts: (string, string?) -> Model?,
 	assemble: (Model, string, CFrame, number) -> (),
+	repair: (Model, number) -> (string?, number),
+	setHp: (Model, number) -> (),
+	harm: (Model, number) -> boolean,
 }
 local guns: Guns? = nil
 
@@ -114,6 +121,12 @@ end
 local function digShare(player: Player): number?
 	local share = player:GetAttribute(DevCfg.Admin.Dig.attribute)
 	return if player:GetAttribute(DevCfg.Attribute) == true and type(share) == "number" then share else nil
+end
+
+-- a dev player with the admin panel's build anything on (Config/DevTools.Admin.BuildAllAttribute): any class builds
+-- every piece
+local function buildsAll(player: Player): boolean
+	return player:GetAttribute(DevCfg.Attribute) == true and player:GetAttribute(DevCfg.Admin.BuildAllAttribute) == true
 end
 
 local function refuse(player: Player, reason: string)
@@ -184,62 +197,97 @@ local function layoutSandbags(r: Rec, ground: number)
 	end
 end
 
+-- The barbed wire's library model (ReplicatedStorage.Assets, kept by the Library sync) and each mesh's place from its
+-- Origin (piece space: x along, y up from the ground, z across), found once
+local wireKit: Model? = nil
+local wireOffsets: { [string]: CFrame } = {}
+local function wireMeshes(): Model?
+	if wireKit then
+		return wireKit
+	end
+	local e = Assets.Entries.barbed_wire
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	f = f and f:FindFirstChild(e.category)
+	for _, sub in string.split(e.folder, "/") do
+		f = f and f:FindFirstChild(sub)
+	end
+	local m = f and f:FindFirstChild("barbed_wire")
+	local origin = m and m:FindFirstChild("Origin")
+	if not (m and origin and origin:IsA("BasePart")) then
+		warn("[Build] barbed_wire is not in the asset library: run the Library sync in the dev place")
+		return nil
+	end
+	for _, d in m:GetChildren() do
+		if d:IsA("BasePart") and d ~= origin then
+			wireOffsets[d.Name] = origin.CFrame:ToObjectSpace(d.CFrame)
+		end
+	end
+	wireKit = m :: Model
+	return wireKit
+end
+
+-- which look (Rules.wireLook) a barbed_wire mesh belongs to: Bundle* on the ground, Wreck* broken, the rest standing
+local function wireLookOf(name: string): string
+	return if string.sub(name, 1, 6) == "Bundle"
+		then "Bundle"
+		elseif string.sub(name, 1, 5) == "Wreck" then "Broken"
+		else "Standing"
+end
+
 local function layoutWire(r: Rec, ground: number)
-	local p = r.piece
 	local base = CFrame.new(r.frame.Position.X, ground, r.frame.Position.Z) * r.frame.Rotation
 	local holder = Instance.new("Folder")
 	holder.Name = "Wire"
 	holder.Parent = r.model
-	local function thin(name: string, a: Vector3, b: Vector3, width: number, color: Color3)
-		local mid = (a + b) / 2
-		local part = newPart(
-			holder,
-			name,
-			Vector3.new(width, width, (b - a).Magnitude),
-			CFrame.lookAt(mid, b, Vector3.yAxis),
-			color
-		)
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.CastShadow = false
+	local kit = wireMeshes()
+	if not kit then
+		return
 	end
-	local n = p.pickets
-	local picket = rgb(Palette.Build.Picket)
-	local wire = rgb(Palette.Build.Wire)
-	local function at(i: number, y: number, z: number): Vector3
-		local x = -p.width / 2 + (i - 1) / (n - 1) * p.width
-		return base:PointToWorldSpace(Vector3.new(x, y, z))
-	end
-	for i = 1, n do
-		-- pickets in two staggered lines, front and back
-		local z = if i % 2 == 0 then p.depth / 3 else -p.depth / 3
-		thin("Picket", at(i, -0.6, z), at(i, p.height + 0.2, z), 0.22, picket)
-	end
-	for i = 1, n - 1 do
-		local z1 = if i % 2 == 0 then p.depth / 3 else -p.depth / 3
-		local z2 = -z1
-		-- the coil, as crossing strands between the pickets: low, high, and two diagonals
-		thin("Strand", at(i, 0.4, z1), at(i + 1, 0.5, z2), 0.08, wire)
-		thin("Strand", at(i, p.height, z1), at(i + 1, p.height * 0.9, z2), 0.08, wire)
-		thin("Strand", at(i, 0.3, z1), at(i + 1, p.height, z2), 0.08, wire)
-		thin("Strand", at(i, p.height * 0.95, z2), at(i + 1, 0.3, z1), 0.08, wire)
-		thin("Strand", at(i, p.height * 0.55, z1), at(i + 1, p.height * 0.6, z2), 0.08, wire)
+	for _, d in kit:GetChildren() do
+		local offset = wireOffsets[d.Name]
+		if offset and d:IsA("BasePart") then
+			local part = d:Clone()
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.Material = Enum.Material.SmoothPlastic
+			part.Color = rgb(if string.find(d.Name, "Pickets") then Palette.Build.Picket else Palette.Build.Wire)
+			part.CFrame = base * offset
+			part:SetAttribute("Look", wireLookOf(d.Name))
+			part.Parent = holder
+		end
 	end
 end
 
--- the wire's look: ghosted until it stands
+-- the wire's look (Rules.wireLook): bundled on the ground from the moment it is laid, standing at full work, broken
+-- under half HP; it slows and hurts only standing ("Armed"). The grass goes from under it as it is laid.
 local function showWire(r: Rec)
 	local holder = r.model:FindFirstChild("Wire")
 	if not holder then
 		return
 	end
+	local maxHP = C.Structures.wireHP
+	local look = Rules.wireLook(r.built, r.work, r.need, r.hp or maxHP, maxHP, C.Wire)
 	for _, p in holder:GetChildren() do
 		if p:IsA("BasePart") then
-			p.Transparency = if r.built then 0 else C.GhostTransparency
+			p.Transparency = if p:GetAttribute("Look") == look then 0 else 1
+			p.CastShadow = p.Transparency == 0
 		end
 	end
-	r.model:SetAttribute("Armed", r.built)
+	r.model:SetAttribute("Look", look)
+	r.model:SetAttribute("Armed", look == "Standing")
+	if not r.grassed then
+		r.grassed = true
+		Net.event("GroundDug"):FireAllClients(r.frame.Position, C.Wire.grass)
+	end
+end
+
+-- a wire shakes and rattles (src/client/WireShake) from `at`: when it takes damage (Destroy swings, blasts; user
+-- 2026-10-27: "both", as well as each tick it hurts someone, src/server/Wire)
+local function shakeWire(r: Rec, at: Vector3)
+	r.model:SetAttribute("RattleFrom", at)
+	r.model:SetAttribute("ShakeAt", workspace:GetServerTimeNow())
 end
 
 -- The Hesco barrier's library model (ReplicatedStorage.Assets, kept by the Library sync) and where each mesh sits from
@@ -541,13 +589,16 @@ local function place(player: Player, key: any, at: any)
 		maxSlope = piece.maxSlope or C.Trench.maxSlope,
 		ground = report.ground,
 		water = report.water,
-		overlap = Survey.blocked(piece, frame, report.low, { character }),
+		overlap = Survey.blocked(piece, frame, report.low, { character }) or Survey.onPiece(piece, frame, f),
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
-		nearTrench = gunPiece and Survey.nearTrench(piece, frame, f),
+		-- (a wire keeps off trenches too: their hole, walls and bank)
+		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
 		mine = count(team, player.UserId),
 		team = count(team, nil),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
+		-- (only engineers build guns: Config/Classes; the admin panel's build anything: everyone)
+		allowed = Loadouts.mayBuild(character, piece.kind) or buildsAll(player),
 	})
 	if not ok then
 		refuse(player, reason or "Can't build here")
@@ -631,7 +682,9 @@ local function work(player: Player, target: any, mode: any)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
 			lastSwing[player] = now
-			Trenches.work(blk, team, mode, digShare(player))
+			if Trenches.work(blk, team, mode, digShare(player)) then
+				Loadouts.award(player, "Trench")
+			end
 		end
 		return
 	end
@@ -652,8 +705,74 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local own = team == r.team
+	if mode == "Build" and r.gun and r.standing then
+		-- fixing a standing gun, any team's (Config/Artillery.Repair; user 2026-10-27: "make it so you can fix a
+		-- artillery by digging too ... its fine if the cannon looks buried, as long as it gets flattenned out again once
+		-- its fixed", "enemie teams should be able to repair and fix enemie trenches and artillery")
+		local gun = r.gun
+		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
+		local hp = gun:GetAttribute("HP")
+		if not guns or not g or type(hp) ~= "number" or hp >= g.hp then
+			return
+		end
+		lastSwing[player] = now
+		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player)))
+		if what then
+			-- back in service or whole: a fresh gun in its place, the howitzer's pit dug out again from the ground as
+			-- it was (the field gun levels its own ground as it stands), damaged to what it has
+			r.gun = nil
+			gun:Destroy()
+			local d = g.dig
+			local at = r.at
+			if d and r.pitBase and at then
+				local ramp = d.ramp and { dir = -at.LookVector, width = d.ramp.width, length = d.ramp.length }
+				local out = Ground.pit(at.Position, d.radius, d.depth, d.rim, d.rimHeight, ramp, d.wall, r.pitBase)
+				Net.event("GroundDug"):FireAllClients(at.Position, out)
+			end
+			showGun(r)
+			if r.gun and what == "usable" then
+				guns.setHp(r.gun, after)
+			end
+		end
+		return
+	end
+	if mode == "Destroy" and r.gun and r.standing and guns then
+		-- a standing gun loses HP to the shovel as to any damage (Artillery.harm), as many swings as fix it; only a
+		-- wreck at 0 is taken apart, swing by swing, below
+		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
+		if g and guns.harm(r.gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player))) then
+			lastSwing[player] = now
+			return
+		end
+	end
+	-- a wire that has stood: swings go to its HP (Destroy breaks it, then takes it away; its team's Build stands a
+	-- broken one back up)
+	if r.piece.kind == "Wire" and r.built then
+		local maxHP = C.Structures.wireHP
+		local hp = r.hp or maxHP
+		if mode == "Build" and (not own or not Rules.wireBroken(hp, maxHP, C.Wire)) then
+			return
+		end
+		lastSwing[player] = now
+		local left, gone = Rules.wireSwing(hp, maxHP, mode == "Build", C.Wire)
+		if gone then
+			remove(r, false)
+			return
+		end
+		r.hp = left
+		r.worked = now
+		apply(r)
+		if mode == "Destroy" then
+			shakeWire(r, root.Position)
+		end
+		return
+	end
 	if mode == "Build" and (not own or r.work >= r.need) then
-		return -- (repairs come later)
+		return
+	end
+	if mode == "Build" and not Loadouts.mayBuild(character, r.piece.kind) and not buildsAll(player) then
+		refuse(player, "Engineers only") -- (anyone may take one apart)
+		return
 	end
 	lastSwing[player] = now
 	local was = r.work
@@ -665,11 +784,15 @@ local function work(player: Player, target: any, mode: any)
 	r.work = left
 	r.worked = now
 	if r.work >= r.need then
+		if not r.built then
+			Loadouts.award(player, "Piece") -- (once per piece: built again after Destroy swings pays nothing)
+		end
 		r.built = true
 	end
 	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
 	if
 		r.piece.kind == "Gun"
+		or r.piece.kind == "Wire" -- (its look changes on every swing: Rules.wireLook)
 		or r.piece.kind == "Hesco" -- (shows only a change of stage)
 		or Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages)
 		or r.work >= r.need
@@ -696,9 +819,15 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			local dx = math.max(math.abs(l.X) - r.piece.width / 2, 0)
 			local dz = math.max(math.abs(l.Z) - r.piece.depth / 2, 0)
 			local d = math.sqrt(dx * dx + dz * dz + math.max(l.Y - r.piece.height, 0) ^ 2)
-			r.hp = (r.hp or S.wireHP) - S.wireHP * Rules.structureHit(d, src, S.edge, src.wire) / 100
-			if (r.hp :: number) <= 0 then
-				table.insert(cut, r)
+			local hit = S.wireHP * Rules.structureHit(d, src, S.edge, src.wire) / 100
+			if hit > 0 then
+				r.hp = (r.hp or S.wireHP) - hit
+				if (r.hp :: number) <= 0 then
+					table.insert(cut, r)
+				else
+					showWire(r) -- (worn under half it lies broken)
+					shakeWire(r, position)
+				end
 			end
 		elseif r.piece.kind == "Sandbags" then
 			-- each column of bags by how far the blast is from it (Destruction leaves class Sandbag to this)
@@ -759,17 +888,20 @@ function Build.shot(part: Instance, point: Vector3)
 	end
 end
 
--- the barbed wire that stands: its box (centre frame and size) for src/server/Wire
-function Build.wires(): { { frame: CFrame, size: Vector3 } }
+-- the barbed wire that stands (not broken): its box (centre frame and size), its team and model, for src/server/Wire
+export type WireBox = { frame: CFrame, size: Vector3, team: string, model: Model }
+function Build.wires(): { WireBox }
 	local out = {}
 	for _, r in recs do
-		if r.piece.kind == "Wire" and r.built then
+		if r.piece.kind == "Wire" and r.model:GetAttribute("Armed") == true then
 			local p = r.piece
 			local frame = r.model:GetAttribute("Frame") :: CFrame
-			table.insert(
-				out,
-				{ frame = frame * CFrame.new(0, p.height / 2, 0), size = Vector3.new(p.width, p.height + 3, p.depth) }
-			)
+			table.insert(out, {
+				frame = frame * CFrame.new(0, p.height / 2, 0),
+				size = Vector3.new(p.width, p.height + 3, p.depth),
+				team = r.team,
+				model = r.model,
+			})
 		end
 	end
 	return out

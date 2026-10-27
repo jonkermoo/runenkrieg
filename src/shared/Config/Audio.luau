@@ -18,6 +18,8 @@ local Audio = {
 		OwnMechanism = { ref = 5.5, max = 60 },
 		-- a shovel biting into the ground or tossing its dirt (Config/Shovel.Sounds): full within ~1.4 m, heard to ~40 m
 		Dig = { ref = 4, max = 120 },
+		-- barbed wire rattled by someone pushing through (Config/Build.Wire.sounds): full within ~1.4 m, heard to ~35 m
+		Rattle = { ref = 4, max = 100 },
 		-- footsteps (src/client/Footsteps): full within ~1 m, heard to ~20 m
 		Footstep = { ref = 3, max = 60 },
 		-- a thrown grenade's thunk where it lands (Config/Grenades.Thunk): full within ~4 m, heard to ~110 m, so one that

@@ -251,6 +251,16 @@ local Assets = {
 			fidelity = "Hull",
 			description = "The Hesco barrier, 6 x 6 x 5.25 studs, in piece space (footprint centred on the Origin on the ground), one set of pieces per build stage s = 1-4: Wire<s> (mesh, rim, corner coils), Liner<s> (slack liner above the dirt, stages 1-3), LinerFull<s> (liner under the dirt, stages 2-4), Earth<s>, Damp<s>, Clods<s>, Stones<s> (the dirt and what lies on it, stages 2-4), Flaps1 + Piles1 (stage 1). Only the Earth blocks: the wire and liner stop nothing (user 2026-10-27).",
 		},
+		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown
+		-- at a time
+		barbed_wire = {
+			id = 106200729480297,
+			category = "Props",
+			folder = "Wire",
+			source = "assets/props/barbed_wire.fbx",
+			generator = "tools/blender/wire/wire.py",
+			description = "A barbed wire section 8 long, 4 wide, 3.1 high, in piece space (x along, -4 to 4; y up from the ground; z across; Origin at 0), in three looks: standing (Pickets: two staggered rows of timber pickets; Strands: a strand along each row's tops and one low; Coil: one round concertina between the rows), stage 1 (BundlePickets stacked on the ground, BundleWire: the coil pushed shut beside them), broken (WreckPickets knocked flat or snapped, WreckWire: the coil crushed and torn in three, cut strands). Barbs are in their wire's mesh.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",

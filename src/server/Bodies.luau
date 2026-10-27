@@ -16,6 +16,7 @@ local Faces = require(Shared.Rules.Faces)
 local Looks = require(Shared.Rules.Looks)
 local Helmets = require(script.Parent.Helmets)
 local Kits = require(script.Parent.Kits)
+local Loadouts = require(script.Parent.Loadouts)
 local Packs = require(script.Parent.Packs)
 local Rigs = require(script.Parent.Rigs)
 local Species = require(script.Parent.Species)
@@ -24,29 +25,51 @@ local Bodies = {}
 
 local warned = false
 
--- each player's skin and hair index last life (Rules/Looks: never the same twice in a row)
-local lastLooks: { [Player]: { skin: number, hair: number, style: number } } = {}
+-- each player's skin, hair color, hairstyle and rig (pool indexes) for their next life: rolled at the join and again on
+-- each death (src/server/Deploy: the loadout menu's preview shows them), never the same as the life before
+-- (Rules/Looks)
+type Look = { skin: number, hair: number, style: number, rig: number }
+local planned: { [Player]: Look } = {}
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
--- This life's skin, hair color and hairstyle: rolled once per character (applied again in the same life keeps them),
--- written as the "Skin" / "Hair" / "HairStyle" attributes (pool names) and "SkinColor" / "HairColor" (Color3).
-local function rollLooks(character: Model): Color3
+local function roll(last: Look?): Look
+	return {
+		skin = Looks.pick(U.Skins, math.random(), last and last.skin),
+		hair = Looks.pick(U.HairColors, math.random(), last and last.hair),
+		style = Looks.pick(U.Hairs, math.random(), last and last.style),
+		rig = Looks.pick(U.Rigs, math.random(), last and last.rig),
+	}
+end
+
+local function nextLook(player: Player): Look
+	local look = planned[player] or roll(nil)
+	planned[player] = look
+	return look
+end
+
+-- Rolls `player`'s next look afresh (on a death), never the same as the one they had.
+function Bodies.reroll(player: Player)
+	planned[player] = roll(planned[player])
+end
+
+-- This life's skin, hair color, hairstyle and rig (src/server/Rigs reads "Rig"): a player's planned look, anything else a roll; once per character
+-- (applied again in the same life keeps them), written as the "Skin" / "Hair" / "HairStyle" attributes (pool names)
+-- and "SkinColor" / "HairColor" (Color3). `as`: dress it in that player's next look (the loadout preview).
+local function rollLooks(character: Model, as: Player?): Color3
 	local skin = character:GetAttribute("SkinColor")
 	if typeof(skin) == "Color3" then
 		return skin
 	end
-	local player = Players:GetPlayerFromCharacter(character)
-	local last = player and lastLooks[player]
-	local s = Looks.pick(U.Skins, math.random(), last and last.skin)
-	local h = Looks.pick(U.HairColors, math.random(), last and last.hair)
-	local st = Looks.pick(U.Hairs, math.random(), last and last.style)
-	if player then
-		lastLooks[player] = { skin = s, hair = h, style = st }
-	end
+	local player = as or Players:GetPlayerFromCharacter(character)
+	local look = if player then nextLook(player) else roll(nil)
+	local s, h, st = look.skin, look.hair, look.style
 	character:SetAttribute("HairStyle", U.Hairs[st].name)
+	if character:GetAttribute("Rig") == nil then
+		character:SetAttribute("Rig", U.Rigs[look.rig].name)
+	end
 	character:SetAttribute("Skin", U.Skins[s].name)
 	character:SetAttribute("SkinColor", rgb(U.Skins[s].color))
 	character:SetAttribute("Hair", U.HairColors[h].name)
@@ -54,7 +77,8 @@ local function rollLooks(character: Model): Color3
 	return rgb(U.Skins[s].color)
 end
 
-function Bodies.apply(character: Model)
+-- Dresses `character` (a player's, a dummy, or with `as` the loadout preview rig in that player's next look).
+function Bodies.apply(character: Model, as: Player?)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		return
@@ -66,7 +90,7 @@ function Bodies.apply(character: Model)
 	-- a fresh description is the default blocky body: no packages or accessories, just the kit
 	local kitName = Kits.of(character) -- (src/server/Kits: the player's kit this life)
 	local kit = U.Kits[kitName]
-	local skin = rollLooks(character)
+	local skin = rollLooks(character, as)
 	local desc = Instance.new("HumanoidDescription")
 	desc.Face = 0
 	desc.Shirt = 0
@@ -127,7 +151,8 @@ function Bodies.apply(character: Model)
 	-- the helmet stays off once it has been shot off this life
 	Helmets.dress(
 		character,
-		if character:GetAttribute("HelmetOn") == false then nil else kit.headwear,
+		-- (the class's helmet: src/server/Loadouts, Config/Classes)
+		if character:GetAttribute("HelmetOn") == false then nil else Loadouts.gear(character).headwear,
 		Species.of(character, kitName)
 	)
 	Rigs.dress(character, kitName)
@@ -175,7 +200,7 @@ function Bodies.start()
 	end
 	Players.PlayerAdded:Connect(hook)
 	Players.PlayerRemoving:Connect(function(p)
-		lastLooks[p] = nil
+		planned[p] = nil
 	end)
 	for _, p in Players:GetPlayers() do
 		hook(p)
