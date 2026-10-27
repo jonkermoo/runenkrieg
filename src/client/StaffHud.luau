@@ -4,9 +4,9 @@
 -- recharging after a stage 3 blast to signify that its no usable)"). Shown while the staff is drawn, in the gun
 -- display's place. A brass panel, bottom right, with a magic rock turning in a ViewportFrame: the howitzer's cracked
 -- gem (Hud.Staff.model) in the player's team magic colour (Config/Spells.Staff.Teams):
--- - hollow grey and flickering while it recharges (burnt out by a stage 3 shot, Config/Spells.Mana.burnout, or
---   refilling), bright and solid when full (src/client/HudKit.shine, a black outline round it); full again, a white
---   flash;
+-- - flat and dark (src/client/HudKit.shine): its own colour full, dying out toward grey as the mana runs low, a glow and
+--   motes round it as strong as the mana; dead grey and flickering only while burnt out by a stage 3 shot
+--   (Config/Spells.Mana.burnout, can't fire); full again, a pop;
 -- - a shot refused for want of mana: the panel shakes;
 -- - full again, it pops (a quick swell and a white flash); otherwise nothing but its brightness says how full it is
 --   (user 2026-10-26: "just make the circle have a pop animation once its fully charged. no other indicator").
@@ -81,7 +81,7 @@ local function makeRock(view: ViewportFrame, camera: Camera): Rock?
 	for _, q in parts do
 		table.insert(list, q.part)
 	end
-	return { model = model, parts = parts, size = size, crystal = HudKit.crystal(list) }
+	return { model = model, parts = parts, size = size, crystal = HudKit.crystal(list, view) }
 end
 
 function StaffHud.start()
@@ -146,9 +146,14 @@ function StaffHud.start()
 			for _, q in rock.parts do
 				q.part.CFrame = at * q.rel
 			end
-			-- hollow grey and flickering until it's full (burnt out or refilling), then bright, solid and popping
-			local full = value >= max and not locked
-			HudKit.shine(rock.crystal, full, { glow:Lerp(Color3.new(1, 1, 1), flash), core }, now, camera)
+			-- dying out toward grey as the mana runs low, its own colour full (and a pop); dead only while burnt out
+			HudKit.shine(
+				rock.crystal,
+				value / max,
+				locked,
+				{ glow:Lerp(Color3.new(1, 1, 1), flash * S.flashLight), core },
+				now
+			)
 		end
 	end)
 end

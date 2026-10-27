@@ -129,17 +129,22 @@ local Hud = {
 	-- that either way, each `time` s, to `depth` of its light); full, bright and `full` see-through; its black outline
 	-- a copy pushed `push` of its size back from the camera, grown by `grow`
 	Crystal = {
-		hollow = 0.3,
-		full = 0,
-		flicker = { every = 0.22, jitter = 0.5, time = 0.08, depth = 0.35 },
-		outline = { push = 0.6, grow = 1.1 },
+		dim = 0.35, -- its own colour full, darkened by this share (flat and dark, not bright)
+		flicker = { every = 0.22, jitter = 0.5, time = 0.08, depth = 0.35 }, -- dead: drop-outs, to `depth` of its light
+		-- the soft glow behind it: rings (shares of the view's height) each `see` see-through full, fading with the
+		-- charge ^ `curve`
+		glow = { rings = { 0.5, 0.72, 0.95 }, see = { 0.72, 0.84, 0.92 }, curve = 1.6 },
+		-- motes circling it: how many, radians a second, the orbit (share of the view's width; `squash` its height),
+		-- its wobble, pixels across, `see` see-through and `light` toward white
+		motes = { count = 7, speed = 0.9, radius = 0.42, squash = 0.32, wobble = 0.05, size = 5, see = 0.15, light = 0.35 },
 	},
 
 	Staff = {
 		fov = 20,
 		spin = 24, -- degrees a second the rock turns
 		bob = { height = 0.04, speed = 1.4 }, -- its float (share of its size, cycles a second)
-		flash = 0.4, -- full again: a white flash fading over this
+		flash = 0.4, -- full again: a flash toward white fading over this, `flashLight` of the way
+		flashLight = 0.4,
 		shake = { time = 0.3, size = 5, speed = 70 }, -- a refused shot
 		pop = { time = 0.35, size = 0.25 }, -- full again: the rock swells by `size` and back over `time` s
 		tilt = 12, -- degrees the rock leans toward the camera
@@ -172,7 +177,7 @@ local Hud = {
 		-- the round in profile), the howitzer from behind (the crystal sits in its breech face)
 		views = {
 			default = { from = { 1, 0, 0 } },
-			artillery_howitzer = { from = { 0.45, 0.3, 1 } },
+			artillery_howitzer = { from = { 0.35, 0.06, 1 } }, -- (low: user 2026-10-26, "lower the camera more")
 		},
 		timer = "%.1f%%", -- the reload's share until it can fire, in tenths of a percent
 	},

@@ -191,63 +191,100 @@ function HudKit.panel(id: string, guiName: string): Panel
 	}
 end
 
--- A crystal in a cut-away (the staff's rock, the howitzer's gem; Config/Hud.Crystal; user 2026-10-26: "just give it a
--- hallow gray look and flicker as it recharges. give it a black outline as well so it doesnt become unclear during
--- gameplay", "make the crystal more clear (more opacity) when its fully charged"). HudKit.crystal(parts) -> state;
--- HudKit.shine(state, full, color, now, camera): its look this frame (`color`: the colour full, per part), each
--- part's black outline a copy pushed back from the camera and grown to show round it.
-export type Crystal = { parts: { BasePart }, outlines: { BasePart }, flickerUntil: number, nextFlicker: number }
+-- A crystal in a cut-away (the staff's rock, the howitzer's gem; Config/Hud.Crystal; user 2026-10-26: "the crystal
+-- should not be fully gray. the crystal also doesnt have to be so bright. make it simple and dark so players can tell if
+-- its fully charged or not. have it gradually die out to look like the gray crystal as the charge is low. only have it
+-- fully dead as it recharges when its a stage 3 blast", "use effects that surround the crystal instead? actual effects
+-- and not just blocks"). HudKit.crystal(parts, view) -> state; HudKit.shine(state, share, dead, colors, now): its look
+-- this frame. Flat, dark colours: the grey crystal at no charge, its own colour (darkened) full; dead: the darker grey,
+-- flickering. Round it, behind the view: a soft glow (rings fading out) and motes circling it, in its colour, as strong
+-- as the charge (none dead).
+export type Crystal = {
+	parts: { BasePart },
+	glow: { Frame },
+	motes: { Frame },
+	flickerUntil: number,
+	nextFlicker: number,
+}
 
 local CR = HudCfg.Crystal
 local rng = Random.new()
 
-function HudKit.crystal(parts: { BasePart }): Crystal
-	local outlines = {}
-	for _, p in parts do
-		local o = p:Clone()
-		o:ClearAllChildren()
-		o.Name = p.Name .. "Outline"
-		o.Color = Color3.new()
-		o.Material = Enum.Material.SmoothPlastic
-		o.Transparency = 0
-		o.Parent = p.Parent
-		table.insert(outlines, o)
-	end
-	return { parts = parts, outlines = outlines, flickerUntil = 0, nextFlicker = 0 }
+local function circle(parent: Instance, z: number): Frame
+	local f = Instance.new("Frame")
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.BorderSizePixel = 0
+	f.BackgroundTransparency = 1
+	f.ZIndex = z
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = f
+	f.Parent = parent
+	return f
 end
 
-function HudKit.shine(c: Crystal, full: boolean, colors: { Color3 }, now: number, camera: Camera)
-	local bright = 1
-	if not full then
-		-- recharging: drop-outs at random
+function HudKit.crystal(parts: { BasePart }, view: ViewportFrame): Crystal
+	-- (behind the view: it is see-through, so they show round the crystal at its centre)
+	local holder = Instance.new("Frame")
+	holder.Name = "CrystalFx"
+	holder.BackgroundTransparency = 1
+	holder.AnchorPoint = view.AnchorPoint
+	holder.Position = view.Position
+	holder.Size = view.Size
+	holder.ZIndex = view.ZIndex - 1
+	holder.ClipsDescendants = true
+	holder.Parent = view.Parent
+	local glow, motes = {}, {}
+	for i, r in CR.glow.rings do
+		local f = circle(holder, i)
+		f.Position = UDim2.fromScale(0.5, 0.5)
+		f.Size = UDim2.fromScale(r, r)
+		local ratio = Instance.new("UIAspectRatioConstraint")
+		ratio.DominantAxis = Enum.DominantAxis.Height
+		ratio.Parent = f
+		table.insert(glow, f)
+	end
+	for _ = 1, CR.motes.count do
+		local m = circle(holder, #CR.glow.rings + 1)
+		table.insert(motes, m)
+	end
+	return { parts = parts, glow = glow, motes = motes, flickerUntil = 0, nextFlicker = 0 }
+end
+
+function HudKit.shine(c: Crystal, share: number, dead: boolean, colors: { Color3 }, now: number)
+	share = math.clamp(share, 0, 1)
+	local grey, deadGrey = rgb("crystalHollow"), rgb("crystalDead")
+	local light = 1
+	if dead then
 		local f = CR.flicker
 		if now >= c.nextFlicker then
 			c.flickerUntil = now + f.time
 			c.nextFlicker = now + f.every * (1 + f.jitter * (2 * rng:NextNumber() - 1))
 		end
-		bright = if now < c.flickerUntil then f.depth else 1
+		light = if now < c.flickerUntil then f.depth else 1
 	end
-	local grey = rgb("crystalHollow")
-	local eye = camera.CFrame.Position
 	for i, p in c.parts do
-		if full then
-			p.Color = colors[i] or colors[1]
-			p.Material = Enum.Material.Neon
-			p.Transparency = CR.full
-		else
-			p.Color = Color3.new():Lerp(grey, bright)
-			p.Material = Enum.Material.SmoothPlastic
-			p.Transparency = CR.hollow
-		end
-		local o = c.outlines[i]
-		if o then
-			local away = p.Position - eye
-			local d = away.Magnitude
-			local push = p.Size.Magnitude * CR.outline.push
-			o.CFrame = p.CFrame + away.Unit * push
-			o.Size = p.Size * ((d + push) / math.max(d, 1e-3)) * CR.outline.grow
-			o.Transparency = if p.Transparency >= 1 then 1 else 0
-		end
+		local own = (colors[i] or colors[1]):Lerp(Color3.new(), CR.dim)
+		p.Material = Enum.Material.SmoothPlastic
+		p.Transparency = 0
+		p.Color = if dead then Color3.new():Lerp(deadGrey, light) else grey:Lerp(own, share)
+	end
+	-- the effects: as strong as the charge (a curve, so a low charge is faint), nothing while dead
+	local strength = if dead then 0 else share ^ CR.glow.curve
+	local color = colors[1]
+	for i, g in c.glow do
+		g.BackgroundColor3 = color
+		g.BackgroundTransparency = 1 - (1 - CR.glow.see[i]) * strength
+	end
+	local M = CR.motes
+	for i, m in c.motes do
+		local a = now * M.speed + i / #c.motes * math.pi * 2
+		local r = M.radius + M.wobble * math.sin(now * M.speed * 2.3 + i)
+		m.Position = UDim2.fromScale(0.5 + math.cos(a) * r * 0.5, 0.5 + math.sin(a) * r * M.squash)
+		local s = M.size * (0.7 + 0.3 * math.sin(now * 3 + i * 1.7))
+		m.Size = UDim2.fromOffset(s, s)
+		m.BackgroundColor3 = color:Lerp(Color3.new(1, 1, 1), M.light)
+		m.BackgroundTransparency = 1 - (1 - M.see) * strength
 	end
 end
 

@@ -287,7 +287,8 @@ local Palette = {
 			hintEdge = { 210, 80, 60 },
 			hintText = { 255, 214, 196 },
 			lampOff = { 30, 34, 30 },
-			crystalHollow = { 150, 154, 160 }, -- a crystal recharging, grey and hollow (Config/Hud.Crystal)
+			crystalHollow = { 112, 116, 122 }, -- a crystal with no charge (Config/Hud.Crystal), and dead
+			crystalDead = { 58, 60, 64 },
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
 			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,

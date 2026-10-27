@@ -70,6 +70,8 @@ type View = {
 	thrownFor: number, -- the shot whose case has been thrown out
 	gem: HudKit.Crystal?, -- the howitzer's crystal
 	gemSources: { BasePart },
+	from: Vector3, -- the camera's side of the crystal (gun space), and how far off
+	dist: number,
 	throws: { Throw },
 }
 
@@ -102,6 +104,8 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 		thrownFor = -math.huge,
 		gem = nil,
 		gemSources = {},
+		from = Vector3.zAxis,
+		dist = 1,
 		throws = {},
 	}
 	local function rest(name: string): CFrame?
@@ -152,7 +156,7 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 		end
 	end
 	if #gems > 0 then
-		v.gem = HudKit.crystal(gems)
+		v.gem = HudKit.crystal(gems, view)
 	end
 
 	-- the field gun's round, and its case for after the shot
@@ -200,8 +204,10 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 	local size = b.hi - b.lo
 	local o = (A.views :: any)[key] or A.views.default
 	local from = Vector3.new(o.from[1], o.from[2], o.from[3]).Unit
+	v.from = from
 	local function frame()
 		HudKit.frameBox(view, camera, centre, size, from, Vector3.yAxis, A.fov, A.margin)
+		v.dist = (camera.CFrame.Position - centre.Position).Magnitude
 	end
 	frame()
 	cut.Parent = view
@@ -219,12 +225,16 @@ local function update(v: View, t: number, clock: number, camera: Camera)
 	end
 	if v.gem then
 		local readyAt = (v.model:GetAttribute("ReadyAt") :: number?) or -math.huge
-		local full = Rules.loaded(t, readyAt, v.gun.reload) >= 1
+		local share = Rules.loaded(t, readyAt, v.gun.reload)
 		local colors = {}
 		for _, src in v.gemSources do
-			table.insert(colors, src.Color)
+			local c = (Palette.Artillery :: any)[src.Name] or { 175, 235, 255 }
+			table.insert(colors, rgb(c))
 		end
-		HudKit.shine(v.gem, full, colors, clock, camera)
+		HudKit.shine(v.gem, share, false, colors, clock)
+		-- the camera on the crystal wherever the gun has laid it (elevation, recoil), as far off as framed
+		local gem = v.gem.parts[1]
+		camera.CFrame = CFrame.lookAt(gem.Position + v.from * v.dist, gem.Position)
 	end
 	local round, case = v.round, v.case
 	if not round or not case then
