@@ -40,6 +40,9 @@ return {
 		assert(not T.allowed(Cfg, 1, false))
 		assert(T.allowed(Cfg, 1, false, Cfg.DevPlaceId), "every playtester in the DEV place")
 		assert(not T.allowed(Cfg, 1, false, 71611711100478), "nobody else in the live place")
+		assert(not T.allowed(Cfg, 1, true, Cfg.DevPlaceId, false), "a closed mode: no playtester")
+		assert(T.allowed(Cfg, 180563380, false, Cfg.DevPlaceId, false), "the creator always")
+		assert(T.allowed(Cfg, 1, true, nil, true))
 		assert(T.find(Map1, Cfg, "Gallery") ~= nil and T.find(Map1, Cfg, "nope") == nil)
 	end,
 	["admin speeds: positive steps including x1, a flying speed and fly keys"] = function()
@@ -145,5 +148,24 @@ return {
 		end
 		assert(seen0, "a normal step")
 		assert(not A.valid(Cfg, "DigStep", 0.33) and not A.valid(Cfg, "DigStep", "Full"))
+	end,
+	["the admin server, match, loadout and cheat actions take only their Config values"] = function()
+		local ModeCfg = require("../src/shared/Config/Modes")
+		local ClassCfg = require("../src/shared/Config/Classes")
+		local defs = { modes = ModeCfg.Defs, classes = ClassCfg.Defs }
+		assert(A.valid(Cfg, "Mode", "FFA", defs) and A.valid(Cfg, "Mode", "Admin", defs))
+		assert(not A.valid(Cfg, "Mode", "Nope", defs) and not A.valid(Cfg, "Mode", "FFA"), "no defs: refused")
+		assert(A.valid(Cfg, "Class", "Engineer", defs), "a locked class can be pinned")
+		assert(A.valid(Cfg, "Class", Cfg.Admin.Normal, defs) and not A.valid(Cfg, "Class", "Nope", defs))
+		assert(A.valid(Cfg, "Points", Cfg.Admin.Points[1]) and not A.valid(Cfg, "Points", 1e9))
+		assert(A.valid(Cfg, "ZoneScore", Cfg.Admin.ZoneScore[1]) and not A.valid(Cfg, "ZoneScore", -5))
+		assert(A.valid(Cfg, "MatchTime", Cfg.Admin.MatchSeconds[1]) and not A.valid(Cfg, "MatchTime", 7))
+		for _, plain in { "MatchEnd", "MatchRestart", "ZoneSkip", "RespawnAll" } do
+			assert(A.valid(Cfg, plain, nil) and not A.valid(Cfg, plain, true), plain)
+		end
+		for _, sw in { "BuildAll", "Ammo" } do
+			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
+		end
+		assert(ClassCfg.Defs[Cfg.Admin.Normal] == nil, "the Normal value isn't a class")
 	end,
 }

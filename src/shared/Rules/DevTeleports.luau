@@ -42,10 +42,14 @@ function DevTeleports.find(map: any, cfg: any, id: string): Dest?
 	return nil
 end
 
-function DevTeleports.allowed(cfg: any, userId: number, isStudio: boolean, placeId: number?): boolean
-	return (cfg.AllowInStudio and isStudio)
-		or (cfg.AllowInDevPlace and placeId == cfg.DevPlaceId)
-		or table.find(cfg.AllowedUserIds, userId) ~= nil
+-- Whether a player gets the dev tools: the allowed users always; anyone in a Studio play test or the DEV place only
+-- while `open` (the server's mode is one that opens them, Config/Modes; user 2026-10-27: "for any mode thats not the
+-- admin mode, make everyone but me [not] have admin privileges"). `open` nil: open.
+function DevTeleports.allowed(cfg: any, userId: number, isStudio: boolean, placeId: number?, open: boolean?): boolean
+	if table.find(cfg.AllowedUserIds, userId) ~= nil then
+		return true
+	end
+	return open ~= false and ((cfg.AllowInStudio and isStudio) or (cfg.AllowInDevPlace and placeId == cfg.DevPlaceId))
 end
 
 return DevTeleports

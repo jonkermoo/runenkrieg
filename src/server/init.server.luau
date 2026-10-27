@@ -83,6 +83,6 @@ if loadouts then
 	end)
 	require(script.ZoneMatch).onMatchStart(L.resetMatch)
 end
-require(script.ZoneMatch).start() -- (the zone-capture match on the playtest map, while Workspace says so)
+require(script.Modes).start() -- (the server's game mode: the zone-capture match on the playtest map in FFA)
 
 print("[runenkrieg] server started")

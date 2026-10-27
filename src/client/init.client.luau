@@ -8,6 +8,7 @@ require(script.Menus).start() -- (the title screen and the loadout menu: no char
 require(script.Shadows).start()
 require(script.Environment).start()
 require(script.Look).start()
+require(script.ChatBubbles).start()
 require(script.DevTeleportMenu).start()
 require(script.DevWeaponMenu).start()
 require(script.DevAdminMenu).start()

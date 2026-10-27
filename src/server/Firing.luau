@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
+local DevCfg = require(Shared.Config.DevTools)
 local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local Net = require(Shared.Net)
@@ -200,6 +201,9 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 	if not ok or not F.fire(e.state, e.gun, os.clock(), Cfg.Slack) then
 		publish(tool, e.state, e.seq) -- the client resyncs to this
 		return
+	end
+	if player:GetAttribute(DevCfg.Attribute) == true and player:GetAttribute(DevCfg.Admin.AmmoAttribute) == true then
+		F.topUp(e.state, e.gun) -- (the admin panel's unlimited ammo)
 	end
 	publish(tool, e.state, e.seq)
 	local params = RaycastParams.new()
