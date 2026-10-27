@@ -6,7 +6,10 @@ local S = require("../src/shared/Rules/Scaffold")
 
 return {
 	["every gun has a building site, each piece sized, coloured and not zero long"] = function()
-		for key in A.Guns do
+		for key, gun in A.Guns do
+			if gun.nest then
+				continue -- (the MG is set up in its nest, no building site)
+			end
 			local spec = C.Scaffold[key]
 			assert(spec, key)
 			local pieces = S.pieces(spec, C.Scaffold.Sizes)

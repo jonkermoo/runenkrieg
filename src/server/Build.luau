@@ -21,6 +21,9 @@
 --   with each stage, the parts down on its floor. At full work the real gun stands (src/server/Artillery.place, in the
 --   team's paint), its HP shown on the holder ("HP", "MaxHP") for the shovel's panel; taken apart (Rules.gunStands) it
 --   is in parts again, its pit filling back, the ground as it was at 0.
+-- - MG nests (kind "Nest"; Config/Build.Nest): the pile's bags on a ring (Rules.nestRing) and a round mount bag in one
+--   "Sandbag" section, on HP: the first share of it lays the bags one a swing, the rest sets the MG 08 up on the mount
+--   bag in quarters (Artillery.parts / assemble, Rules.nestShown); weapons and Destroy swings wear it like a pile.
 -- - Bridges (Config/Build.Bridge): laid on a trench square (Survey.bridgeSpot), its planks the Config/Assets
 --   bridge_pieces layout its seed rolls, stretched to the square's length; on HP (Bridge.hp): laid at stage 1, Build
 --   swings add HP, Destroy swings and weapons take it, its boards standing by HP (Rules.bridgeStage). At 0, or once its
@@ -74,7 +77,7 @@ type Rec = {
 	shown: number?, -- a Hesco barrier: the stage its pieces show
 	stageParts: { [number]: { BasePart } }?, -- a Hesco barrier: every stage's pieces, laid out once
 	-- a gun piece: where the gun stands (on the ground before its pit), its blueprint or the gun standing, its pit's
-	-- ground as it was (Ground.pitBase) and the share of it dug now
+	-- ground as it was (Ground.pitBase) and the share of it dug now; an MG nest: its gun's place and parts
 	at: CFrame?,
 	parts: Model?,
 	site: Model?, -- its scaffold and tools while it is built (Config/Build.Scaffold)
@@ -266,6 +269,89 @@ local function layoutPile(r: Rec, ground: number): boolean
 		end
 	end
 	return true
+end
+
+-- an MG nest (Config/Build.Nest): one "Sandbag" section of every bag, each with the "Row" it is laid in (the mount bag
+-- first, then the ring's bags in Rules.nestRing's order), and the gun's parts (Artillery.parts) on the mount bag, set
+-- up by quarters (showNest). The piece's frame is the ring's middle, its look the way the gun points. False when the
+-- library lacks the pile or the mount bag.
+local function layoutNest(r: Rec, ground: number): boolean
+	local p, n = r.piece, C.Nest
+	local kit, offsets = libraryKit(p.asset)
+	local bagKit, bagOffsets = libraryKit(p.mountBag)
+	if not kit or not bagKit then
+		return false
+	end
+	local base = CFrame.new(r.frame.Position.X, ground - C.Sandbags.sink, r.frame.Position.Z) * r.frame.Rotation
+	local s = section(r.model, "Nest", "Nest", "Sandbag", n.hp.max)
+	s:SetAttribute("HP", r.work)
+	local function lay(d: BasePart, cf: CFrame, row: number)
+		local part = d:Clone()
+		part.Anchored = true
+		part.Material = Enum.Material.SmoothPlastic
+		local jitter = ((row * 37) % 7 / 6 - 0.5) * 2 * C.Sandbags.shade
+		part.Color = if Rules.isPileCord(d.Name)
+			then rgb(Palette.Build.SandbagCord)
+			else rgb(Palette.Build.Sandbag, jitter)
+		part.CFrame = cf
+		part:SetAttribute("Row", row)
+		part.Parent = s
+	end
+	local ring, radius = Rules.nestRing(n.ring)
+	-- the mount bag (gun space: x right, y up, z back), in the point of the V
+	local mount = base * CFrame.new(0, 0, -radius + n.mountBack)
+	for _, d in bagKit:GetChildren() do
+		local o = bagOffsets[d.Name]
+		if o and d:IsA("BasePart") then
+			lay(d, mount * o, 1)
+		end
+	end
+	-- the ring's bags: the pile's bag of that slot (piece space: x along it), turned to lie along the ring
+	for i, b in ring do
+		local name = p.bags[b.slot]
+		local o = offsets[name]
+		if o then
+			local along = CFrame.fromMatrix(Vector3.new(b.x, 0, b.z), Vector3.new(b.dx, 0, b.dz), Vector3.yAxis)
+			local bagCf = base * along * CFrame.new(0, o.Y, o.Z) * o.Rotation
+			for _, d in kit:GetChildren() do
+				local mo = offsets[d.Name]
+				if mo and d:IsA("BasePart") and Rules.pileBag(d.Name, p.bags) == b.slot then
+					lay(d, bagCf * o:Inverse() * mo, i + 1)
+				end
+			end
+		end
+	end
+	-- the gun, in parts, on the mount bag's top under its pivot
+	r.at = base * CFrame.new(0, n.bagTop, -radius + n.gunBack)
+	if guns then
+		r.parts = guns.parts(p.gun, C.Guns.paint[r.team])
+		if r.parts then
+			r.parts.Parent = r.model
+		end
+	end
+	return true
+end
+
+-- an MG nest as its HP stands (Rules.nestShown): its first bags laid, the rest ghosted (nothing blocks or is hit), its
+-- gun set up by quarters
+local function showNest(r: Rec)
+	local s = r.model:FindFirstChild("Nest")
+	local rows = 0
+	for _, c in if s then s:GetChildren() else {} do
+		rows = math.max(rows, (c:GetAttribute("Row") :: number?) or 0)
+	end
+	local laid, quarters = Rules.nestShown(r.work, C.Nest, rows)
+	for _, c in if s then s:GetChildren() else {} do
+		if c:IsA("BasePart") then
+			local up = (c:GetAttribute("Row") :: number) <= laid
+			c.Transparency = if up then 0 else C.GhostTransparency
+			c.CanCollide = up
+			c.CanQuery = up
+		end
+	end
+	if guns and r.parts and r.at then
+		guns.assemble(r.parts, r.piece.gun, r.at, quarters)
+	end
 end
 
 -- which look (Rules.wireLook) a barbed_wire mesh belongs to: Bundle* on the ground, Wreck* broken, the rest standing
@@ -660,6 +746,10 @@ local function apply(r: Rec)
 		r.model:SetAttribute("HP", r.work)
 		r.model:SetAttribute("MaxHP", r.need)
 		showSandbags(r, Rules.pileBags(r.work, C.Sandbags.hp.swing, #r.piece.bags))
+	elseif kind == "Nest" then
+		r.model:SetAttribute("HP", r.work)
+		r.model:SetAttribute("MaxHP", r.need)
+		showNest(r)
 	elseif kind == "Wire" then
 		showWire(r)
 	elseif kind == "Gun" then
@@ -754,6 +844,7 @@ local function place(player: Player, key: any, at: any)
 	local now = os.clock()
 	-- (a sandbag pile's work is its HP: laid at stage 1, Config/Build.Sandbags.hp)
 	local bags = piece.kind == "Sandbags"
+	local nest = piece.kind == "Nest"
 	local r: Rec = {
 		model = model,
 		piece = piece,
@@ -763,11 +854,13 @@ local function place(player: Player, key: any, at: any)
 		-- Bridge.hp)
 		work = if bags
 			then C.Sandbags.hp.place
+			elseif nest then C.Nest.hp.place
 			elseif piece.kind == "Hesco" then C.Hesco.hp.place
 			elseif bridge then C.Bridge.hp.place
 			else 0,
 		need = if bags
 			then C.Sandbags.hp.max
+			elseif nest then C.Nest.hp.max
 			elseif piece.kind == "Hesco" then C.Hesco.hp.max
 			elseif bridge then C.Bridge.hp.max
 			else piece.work,
@@ -781,6 +874,12 @@ local function place(player: Player, key: any, at: any)
 		if not layoutPile(r, report.low) then
 			model:Destroy()
 			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile: layoutPile warns)
+			return
+		end
+	elseif nest then
+		if not layoutNest(r, report.low) then
+			model:Destroy()
+			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile or the mount bag)
 			return
 		end
 	elseif piece.kind == "Wire" then
@@ -816,10 +915,10 @@ local function place(player: Player, key: any, at: any)
 		end
 		r.watch = { square:GetAttributeChangedSignal("HP"):Connect(check), square.AncestryChanged:Connect(check) }
 	end
-	if bags then
+	if bags or nest then
 		-- weapons wear its section (Destruction.damage, Build.blast / Build.shot): its bags follow its HP; at 0 the
 		-- section breaks and the pile goes with it
-		local s = model:FindFirstChild("Pile")
+		local s = model:FindFirstChild(if nest then "Nest" else "Pile")
 		if s then
 			s:GetAttributeChangedSignal("HP"):Connect(function()
 				local hp = s:GetAttribute("HP")
@@ -1012,6 +1111,31 @@ local function work(player: Player, target: any, mode: any)
 		apply(r)
 		return
 	end
+	-- an MG nest: swings work its HP (Config/Build.Nest.hp); its team's Build swings repair it too
+	if r.piece.kind == "Nest" then
+		local h = C.Nest.hp
+		local build = mode == "Build"
+		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, digShare(player))
+		local left, gone = Rules.pileSwing(r.work, build, h, step)
+		if gone then
+			remove(r, true)
+			return
+		end
+		r.work = left
+		r.worked = now
+		if r.work >= r.need then
+			if not r.paid then
+				Loadouts.award(player, "Piece") -- (once per piece)
+			end
+			r.built, r.paid = true, true
+		end
+		local s = r.model:FindFirstChild("Nest")
+		if s then
+			s:SetAttribute("HP", r.work)
+		end
+		apply(r)
+		return
+	end
 	-- a bridge: swings work its HP (Config/Build.Bridge.hp); its team's Build swings repair it too; at 0 it is gone
 	if r.piece.kind == "Bridge" then
 		local h = C.Bridge.hp
@@ -1101,8 +1225,8 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 					shakeWire(r, position)
 				end
 			end
-		elseif r.piece.kind == "Sandbags" then
-			-- the pile by how far the blast is from it (Destruction leaves class Sandbag to this)
+		elseif r.piece.kind == "Sandbags" or r.piece.kind == "Nest" then
+			-- the pile (or nest) by how far the blast is from it (Destruction leaves class Sandbag to this)
 			for _, c in r.model:GetChildren() do
 				if CollectionService:HasTag(c, D.SectionTag) and c:IsA("Model") then
 					local cf, size = c:GetBoundingBox()

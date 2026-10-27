@@ -72,7 +72,7 @@ return {
 			assert(W[m.Primary :: string].class == "Staff", kitName .. " staff")
 		end
 	end,
-	["only the engineer builds guns; everyone builds trenches, sandbags and wire"] = function()
+	["only the engineer builds guns and MG nests; everyone builds trenches, sandbags and wire"] = function()
 		local kinds: { [string]: boolean } = {}
 		for _, p in BuildCfg.Pieces do
 			kinds[p.kind] = true
@@ -80,7 +80,7 @@ return {
 		assert(kinds.Gun, "guns are a build piece")
 		for key in C.Defs do
 			for kind in kinds do
-				local want = kind ~= "Gun" or key == "Engineer"
+				local want = (kind ~= "Gun" and kind ~= "Nest") or key == "Engineer"
 				assert(R.mayBuild(key, kind, C.Defs, C.Default) == want, `{key} {kind}`)
 			end
 		end
@@ -95,11 +95,11 @@ return {
 				local i = table.find(BuildCfg.Pieces, p) :: number
 				assert(i > at, key .. " keeps the order")
 				at = i
-				assert(p.kind ~= "Gun" or key == "Engineer", `{key} shows {p.key}`)
+				assert((p.kind ~= "Gun" and p.kind ~= "Nest") or key == "Engineer", `{key} shows {p.key}`)
 			end
 			local guns = 0
 			for _, p in BuildCfg.Pieces do
-				guns += if p.kind == "Gun" then 1 else 0
+				guns += if p.kind == "Gun" or p.kind == "Nest" then 1 else 0 -- (the Engineer's own pieces)
 			end
 			assert(#list == #BuildCfg.Pieces - (if key == "Engineer" then 0 else guns), key .. " shows the rest")
 		end
