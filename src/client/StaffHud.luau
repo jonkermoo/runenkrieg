@@ -2,8 +2,9 @@
 -- The staff's mana, quartermaster's brass (Config/Hud.Staff; layout src/shared/ui/CombatHud.json "Staff"; user
 -- 2026-10-26: "the staff should be a magic rock of the teams color (faded out if empty, bright if max. flicker while
 -- recharging after a stage 3 blast to signify that its no usable)"). Shown while the staff is drawn, in the gun
--- display's place. A brass panel, bottom right, with a magic rock turning in a ViewportFrame: the howitzer's cracked
--- gem (Hud.Staff.model) in the player's team magic colour (Config/Spells.Staff.Teams):
+-- display's place. A brass panel, bottom right, with a magic rock turning in a ViewportFrame: a cracked quartz point
+-- with shards floating round it (Hud.Staff.model, Config/Assets hud_gem) in the player's team magic colour
+-- (Config/Spells.Staff.Teams):
 -- - flat and dark (src/client/HudKit.shine): its own colour full, dying out toward grey as the mana runs low, a glow and
 --   motes round it as strong as the mana; dead grey and flickering only while burnt out by a stage 3 shot
 --   (Config/Spells.Mana.burnout, can't fire); full again, a pop;
@@ -37,7 +38,7 @@ end
 
 type Rock = { model: Model, parts: { { part: BasePart, rel: CFrame } }, size: Vector3, crystal: HudKit.Crystal }
 
--- the rock: copies of the gem's parts, centred on the first
+-- the rock: copies of the gem's parts (the shards after the Crystal and its cracks), centred on the first
 local function makeRock(view: ViewportFrame, camera: Camera): Rock?
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
 	for _, name in S.model do
@@ -62,11 +63,8 @@ local function makeRock(view: ViewportFrame, camera: Camera): Rock?
 		end
 	end
 	model.Parent = view
-	-- centred on the gem's own middle (its bounding box), not its pivot
-	local centre, size = model:GetBoundingBox()
-	for _, q in parts do
-		q.rel = centre:ToObjectSpace(first.CFrame * q.rel)
-	end
+	-- centred on the gem (its mesh's own middle), framed on everything round it
+	local _, size = model:GetBoundingBox()
 	HudKit.frameBox(
 		view,
 		camera,
@@ -143,8 +141,21 @@ function StaffHud.start()
 			angle += math.rad(S.spin) * dt
 			local bob = math.sin(now * S.bob.speed * math.pi * 2) * S.bob.height * rock.size.Magnitude
 			local at = CFrame.new(0, bob, 0) * CFrame.Angles(0, angle, 0) * CFrame.Angles(math.rad(S.tilt), 0, 0)
-			for _, q in rock.parts do
-				q.part.CFrame = at * q.rel
+			-- the shards float round it at their own pace, bobbing and spinning
+			local F = S.shards
+			for i, q in rock.parts do
+				local k = i - 2 -- (after the Crystal and its cracks)
+				if k >= 1 then
+					local round = CFrame.Angles(0, math.rad((F.orbit[k] or 0) * now), 0)
+					local up = math.sin(now * F.speed * math.pi * 2 + k * 1.9) * F.bob
+					q.part.CFrame = at
+						* round
+						* CFrame.new(0, up, 0)
+						* q.rel
+						* CFrame.Angles(0, math.rad(F.spin * now + k * 40), 0)
+				else
+					q.part.CFrame = at * q.rel
+				end
 			end
 			-- dying out toward grey as the mana runs low, its own colour full (and a pop); dead only while burnt out
 			HudKit.shine(

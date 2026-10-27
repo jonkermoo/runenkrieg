@@ -164,10 +164,15 @@ local Hud = {
 		pop = { time = 0.35, size = 0.25 }, -- full again: the rock swells by `size` and back over `time` s
 		tilt = 12, -- degrees the rock leans toward the camera
 		margin = 0.05,
-		fit = 0.62, -- the view frames a cube this share of the rock's diagonal (it turns inside it)
-		-- the rock: the howitzer's cracked gem (Config/Assets artillery_howitzer, its Crystal + CrystalCracks)
-		model = { "Weapons", "Shared", "Artillery", "artillery_howitzer" },
-		parts = { "Crystal", "CrystalCracks" },
+		fit = 0.7, -- the view frames a cube this share of the rock's diagonal, shards and all (it turns inside it)
+		-- the rock: a real quartz point, its cracks engraved (Config/Assets hud_gem: Crystal + CrystalCracks, the
+		-- floating Shard1..)
+		model = { "Weapons", "Shared", "Staffs", "hud_gem" },
+		parts = { "Crystal", "CrystalCracks", "Shard1", "Shard2", "Shard3", "Shard4", "Shard5" },
+		-- the shards float round it: each turns round the gem `orbit` degrees a second faster or slower than it (by its
+		-- place in the list, alternating), bobs `bob` studs at `speed` cycles a second, spins `spin` degrees a second
+		-- on its own axis
+		shards = { orbit = { 10, -6, 14, -9, 7 }, bob = 0.06, speed = 0.7, spin = 50 },
 	},
 
 	Artillery = {
