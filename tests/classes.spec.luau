@@ -58,7 +58,8 @@ return {
 			local kit = U.Kits[kitName] :: any
 			local r = R.gear("Rifleman", kitName, C.Defs, U.Kits, C.Gear)
 			assert(r.Primary == kit.weapon and W[r.Primary].class == "BoltRifle" and r.Grenade == nil, kitName)
-			assert(r.headwear == C.Gear[kitName].altHelmet, "the plate helmet")
+			-- user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles"
+			assert(r.headwear == kit.headwear, "the default helmet")
 			local g = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear)
 			assert(g.Primary == kit.weapon and g.Grenade == kit.grenade, kitName)
 		end
