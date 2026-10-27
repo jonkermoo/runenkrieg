@@ -789,6 +789,47 @@ local Assets = {
 				center = { 0, 0.3902, 0.0023 },
 			},
 		},
+		-- the Shotgunner's shell-band helmets with ear holes (user 2026-10-27; slit.py --base)
+		helmet_stahl_ammo_katzling = {
+			id = 106412495316107, -- 2026-10-27
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_ammo_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_ammo (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
+				.. "(--tufts --base helmet_stahl_ammo). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1958 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = {
+					Band = { 46, 39, 34 },
+					Hull = { 150, 54, 44 },
+					Brass = { 204, 172, 92 },
+					Lugs = { 204, 172, 92 },
+				},
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_brodie_ammo_fennek = {
+			id = 119000847226618, -- 2026-10-27
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_ammo_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_brodie_ammo (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek, "
+				.. "the holes 0.15 longer at the front for the low tufts (--shape hull --tufts --front 0.15 --base "
+				.. "helmet_brodie_ammo; user 2026-10-27). Worn by Fenneks (Rules/Looks.helmetEntry). White team (1668 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
+				brim = 0.06,
+				parts = { Band = { 58, 40, 28 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } }, -- dark leather band
+				shell = "brodie",
+				center = { 0, 0.3901, 0.0023 },
+			},
+		},
 		-- Species ears and tails (Config/Species, src/server/Species; user 2026-10-18/20): one piece per mesh, named
 		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
 		-- the head's center), tails Torso-local (the Torso's center).

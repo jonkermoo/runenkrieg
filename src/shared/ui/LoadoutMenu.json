@@ -135,7 +135,7 @@
 							1,
 							-36,
 							0,
-							392
+							472
 						],
 						"children": [
 							{
@@ -391,13 +391,97 @@
 								]
 							},
 							{
-								"id": "RowEngineer",
+								"id": "RowShotgunner",
 								"kind": "button",
 								"pos": [
 									0,
 									0,
 									0,
 									240
+								],
+								"size": [
+									1,
+									0,
+									0,
+									72
+								],
+								"color": "field",
+								"line": "line",
+								"children": [
+									{
+										"id": "ShotgunnerName",
+										"kind": "label",
+										"text": "Shotgunner",
+										"textSize": 24,
+										"textColor": "text",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											8
+										],
+										"size": [
+											1,
+											-124,
+											0,
+											30
+										]
+									},
+									{
+										"id": "ShotgunnerBlurb",
+										"kind": "label",
+										"text": "Pump shotgun, shell-band helmet",
+										"textSize": 16,
+										"textColor": "textDim",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											40
+										],
+										"size": [
+											1,
+											-110,
+											0,
+											22
+										]
+									},
+									{
+										"id": "ShotgunnerCost",
+										"kind": "label",
+										"text": "150",
+										"textSize": 24,
+										"textColor": "text",
+										"align": "right",
+										"anchor": [
+											1,
+											0
+										],
+										"pos": [
+											1,
+											-14,
+											0,
+											8
+										],
+										"size": [
+											0,
+											84,
+											0,
+											30
+										]
+									}
+								]
+							},
+							{
+								"id": "RowEngineer",
+								"kind": "button",
+								"pos": [
+									0,
+									0,
+									0,
+									320
 								],
 								"size": [
 									1,
@@ -481,7 +565,7 @@
 									0,
 									0,
 									0,
-									320
+									400
 								],
 								"size": [
 									1,

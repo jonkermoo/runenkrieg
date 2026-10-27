@@ -11,8 +11,8 @@ local BuildCfg = require("../src/shared/Config/Build")
 local ENGINEER = { Gun = true, Hesco = true, Sandbags = true, Nest = true }
 
 return {
-	["the user's prices: rifleman free, grenadier 50, auto rifler 100, engineer 150 (locked), mage 200"] = function()
-		local want = { Rifleman = 0, Grenadier = 50, AutoRifler = 100, Engineer = 150, Mage = 200 }
+	["the user's prices: rifleman free, grenadier 50, auto rifler 100, shotgunner 150, engineer 150 (locked), mage 200"] = function()
+		local want = { Rifleman = 0, Grenadier = 50, AutoRifler = 100, Shotgunner = 150, Engineer = 150, Mage = 200 }
 		for key, cost in want do
 			assert(C.Defs[key] and C.Defs[key].cost == cost, `{key} costs {cost}`)
 		end
@@ -80,6 +80,34 @@ return {
 			local g = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear)
 			assert(g.headwear == kit.headwear, kitName .. " grenadier keeps the default helmet")
 		end
+	end,
+	["shotgunner: the team's pump shotgun, the shell-band helmet, no grenades, small builds (trenches, wire, bridges)"] = function()
+		assert(C.Defs.Shotgunner and not C.Defs.Shotgunner.locked, "pickable")
+		assert(table.find(C.List, "Shotgunner"), "in the menu")
+		for _, kitName in U.Teams do
+			local kit = U.Kits[kitName] :: any
+			local s = R.gear("Shotgunner", kitName, C.Defs, U.Kits, C.Gear)
+			local w = W[s.Primary :: string] :: any
+			assert(w.class == "Shotgun" and w.slot == "Primary", kitName .. " the pump shotgun")
+			assert(s.Grenade == nil and s.Shovel == kit.shovel, kitName .. " no grenades, the shovel")
+			local h = A.Entries[s.headwear :: string] :: any
+			assert(
+				s.headwear ~= kit.headwear and string.find(s.headwear :: string, "_ammo$"),
+				kitName .. " shell helmet"
+			)
+			assert(h.folder == A.Entries[kit.headwear].folder, kitName .. " the team's own helmet")
+			assert(h.fit.shell == (A.Entries[kit.headwear] :: any).fit.shell, kitName .. " fits the kit's hair")
+		end
+		for _, kind in { "Trench", "Wire", "Bridge" } do
+			assert(R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind)
+		end
+		for kind in ENGINEER do
+			assert(not R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind .. ": the engineer's")
+		end
+		local key, cost = R.resolve("Shotgunner", 149, C.Defs, C.Default)
+		assert(key == C.Default and cost == 0, "short: the free default")
+		key, cost = R.resolve("Shotgunner", 150, C.Defs, C.Default)
+		assert(key == "Shotgunner" and cost == 150, "paid")
 	end,
 	["katzlings and fenneks wear every class helmet with ear holes (user 2026-10-27)"] = function()
 		local Looks = require("../src/shared/Rules/Looks")
