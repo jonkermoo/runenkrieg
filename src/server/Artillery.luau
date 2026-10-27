@@ -580,8 +580,10 @@ function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: num
 end
 
 -- The earth block a placed gun stands on (Config/Artillery.Ground): under its footprint in gun space, from the ground
--- (the pivot) down, part of the gun
-local function standOn(model: Model)
+-- (the pivot) down, part of the gun. A gun with `level` stands on the terrain instead, levelled and bared under it
+-- (Ground.level), and its hitbox is an unseen box over its `platform`, from Ground.depth under its foot up, that
+-- nothing touches, stands on or hits: it only makes the gun's box (blast) reach over the ground round it.
+local function standOn(model: Model, gun: Cfg.Gun)
 	local G = Cfg.Ground
 	local pivot = model:GetPivot()
 	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
@@ -604,6 +606,27 @@ local function standOn(model: Model)
 				lo, hi = lo:Min(l), hi:Max(l)
 			end
 		end
+	end
+	local L, pf = gun.level, gun.platform
+	if L then
+		local reach = Ground.level(
+			pivot,
+			{ lo.X - L.pad, lo.Z - L.pad },
+			{ hi.X + L.pad, hi.Z + L.pad },
+			L.blend,
+			(Enum.Material :: any)[L.material]
+		)
+		Net.event("GroundDug"):FireAllClients(pivot.Position, reach)
+		local pad, thick = if pf then pf.pad else L.pad, if pf then pf.thick else 0
+		local box = Instance.new("Part")
+		box.Name = "Hitbox"
+		box.Anchored = true
+		box.CanCollide, box.CanQuery, box.CanTouch = false, false, false
+		box.Transparency = 1
+		box.Size = Vector3.new(hi.X - lo.X + 2 * pad, G.depth + thick, hi.Z - lo.Z + 2 * pad)
+		box.CFrame = pivot * CFrame.new((lo.X + hi.X) / 2, (thick - G.depth) / 2, (lo.Z + hi.Z) / 2)
+		box.Parent = model
+		return
 	end
 	local p = Instance.new("Part")
 	p.Name = "Ground"
@@ -640,7 +663,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
-	standOn(model)
+	standOn(model, gun)
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
 	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)

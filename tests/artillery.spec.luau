@@ -217,4 +217,28 @@ return {
 		end
 		assert(V.Looks.Field.ring == nil and V.Looks.Magic.ring, "only the magic gun's smoke ring has runes")
 	end,
+	["the field gun stands on levelled bare earth with its hitbox, the howitzer keeps its block"] = function()
+		-- user 2026-10-27: "the field cannon shouldnt have a platform ... make the ground its on lose its grass"
+		local L = QF.level :: any
+		local Foliage = require("../src/shared/Config/Foliage")
+		assert(L and L.pad >= 0 and L.blend > 0 and QF.platform)
+		assert(not table.find(Foliage.Materials, L.material) and L.material ~= "Water")
+		assert(HOW.level == nil and HOW.dig)
+	end,
+	["the levelled ground is flat on the footprint and eases back to the ground past it"] = function()
+		local lo, hi = { -2, -5 }, { 2, 5 }
+		assert(A.levelAt(0, 0, lo, hi, 8, 10, 14) == 10)
+		assert(A.levelAt(2, -5, lo, hi, 8, 10, 14) == 10, "its edge is still flat")
+		assert(near(A.levelAt(6, 0, lo, hi, 8, 10, 14) :: number, 12), "half way out: half way back")
+		assert(A.levelAt(10, 0, lo, hi, 8, 10, 14) == nil and A.levelAt(0, 13.1, lo, hi, 8, 10, 6) == nil)
+		-- downhill too, and it only ever moves toward the ground as it was
+		local last = 10
+		for x = 2, 9.9, 0.1 do
+			local h = A.levelAt(x, 0, lo, hi, 8, 10, 4) :: number
+			assert(h <= last + 1e-9 and h >= 4, x)
+			last = h
+		end
+		-- a corner measures from the box's corner
+		assert(near(A.levelAt(2 + 3, 5 + 4, lo, hi, 10, 0, 10) :: number, 5))
+	end,
 }

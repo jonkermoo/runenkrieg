@@ -98,6 +98,10 @@ export type Gun = {
 	-- a flat pad round its base that counts as the gun for hits (Hits): `pad` studs out past its footprint, `thick` studs
 	-- up from its foot; nil: the gun alone
 	platform: { pad: number, thick: number }?,
+	-- stands on the terrain itself, no earth block (Ground below): the ground under its footprint, `pad` studs out past
+	-- it, levelled to its foot and turned to `material` (no grass), easing back to the ground as it was over the next
+	-- `blend` studs; an unseen box over its `platform` from `Ground.depth` under its foot is its hitbox
+	level: { pad: number, blend: number, material: string }?,
 	-- the parts shell holes are punched into as it is damaged (Wreck), and the holes' size range (studs)
 	wreckParts: { string },
 	holeSize: { number },
@@ -316,7 +320,7 @@ local Artillery = {
 	-- make sure its part of the model so it has a hitbox. same applies for the field cannon"): a block of earth under
 	-- its footprint, `pad` studs out past it, from the ground it stands on down `depth` studs, in Palette.Terrain
 	-- `color`; when blasts carve the terrain away round and under it, the gun still stands on it, and it counts as the
-	-- gun for hits (its box).
+	-- gun for hits (its box). A gun with `level` (the field gun) stands on the terrain instead, its hitbox unseen.
 	Ground = { pad = 0.5, depth = 5, color = "Mud" },
 
 	-- The howitzer's crystal (src/client/ArtilleryCrystal, Rules/Artillery.crystal; user 2026-10-20: "make the howitzer
@@ -537,6 +541,9 @@ local Artillery = {
 			aimTilt = 8,
 			-- (user 2026-10-26: "add a platform hitbox for the cannon"; picked: the ground it stands on counts as the gun)
 			platform = { pad = 3, thick = 1.5 },
+			-- (user 2026-10-27: "the field cannon shouldnt have a platform, it should just make the ground its on lose its
+			-- grass and straight out. just give it a hitbox on the terrain around it")
+			level = { pad = 2, blend = 8, material = "Ground" },
 			wreckParts = { "Carriage", "Wheels", "Mount" }, -- (the mount turns at most 4.5 degrees)
 			holeSize = { 0.3, 0.6 },
 			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail

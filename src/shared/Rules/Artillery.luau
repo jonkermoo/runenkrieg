@@ -261,6 +261,32 @@ function Artillery.gunHit(d: number, src: any, direct: number): number
 	return src.near * (1 - (d - direct) / (src.reach - direct))
 end
 
+-- The ground's height at (`x`, `z`) in gun space under a gun standing on the terrain (Config/Artillery `level`): `flat`
+-- (its foot) within the box `lo`..`hi` (x, z), easing back to `natural` (the ground there as it was) over `blend` studs
+-- out from it; nil past that (left alone).
+function Artillery.levelAt(
+	x: number,
+	z: number,
+	lo: { number },
+	hi: { number },
+	blend: number,
+	flat: number,
+	natural: number
+): number?
+	local dx = math.max(lo[1] - x, x - hi[1], 0)
+	local dz = math.max(lo[2] - z, z - hi[2], 0)
+	local d = math.sqrt(dx * dx + dz * dz)
+	if d <= 0 then
+		return flat
+	end
+	if d >= blend then
+		return nil
+	end
+	local t = d / blend
+	local ease = t * t * (3 - 2 * t) -- smoothstep: no edge at either end
+	return flat + (natural - flat) * ease
+end
+
 -- A gun's damage stage (Config/Artillery.Wreck `at`: % of full HP, falling): 0 unhurt, else the last stage it is down to.
 function Artillery.wreckStage(hp: number, max: number, at: { number }): number
 	local share = if max > 0 then hp / max * 100 else 0

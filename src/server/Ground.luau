@@ -9,6 +9,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local DamageCfg = require(Shared.Config.Damage)
 local Blast = require(Shared.Rules.Blast)
 local Refill = require(Shared.Rules.Refill)
+local Rules = require(Shared.Rules.Artillery)
 
 local Ground = {}
 
@@ -470,6 +471,60 @@ function Ground.pit(
 					if occs[ix][iy][iz] > keep or (level and occs[ix][iy][iz] ~= keep) then
 						occs[ix][iy][iz] = keep
 						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
+					end
+				end
+			end
+		end
+	end
+	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	return out
+end
+
+-- The ground under a gun standing on the terrain (src/server/Artillery, Config/Artillery `level`): within the box
+-- `lo`..`hi` (x, z in the space of `pivot`, whose height is the gun's foot) cut down or filled up to a level floor at
+-- the foot, easing back to the ground as it was over the next `blend` studs (Rules/Artillery.levelAt); its top
+-- `material` (no grass). Voxel by voxel with fractional occupancy, as Ground.pit. Columns with water, or no ground
+-- within reach, are left alone. Returns how far out from the pivot it reached.
+function Ground.level(pivot: CFrame, lo: { number }, hi: { number }, blend: number, material: Enum.Material): number
+	local terrain = workspace.Terrain
+	local foot = pivot.Position
+	local out = 0
+	for _, c in { { lo[1], lo[2] }, { lo[1], hi[2] }, { hi[1], lo[2] }, { hi[1], hi[2] } } do
+		out = math.max(out, Vector2.new(c[1], c[2]).Magnitude + blend)
+	end
+	local reach = Vector3.new(out, blend + VOXEL * 4, out)
+	local region = Region3.new(foot - reach, foot + reach):ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return out
+	end
+	local size = mats.Size
+	local corner = region.CFrame.Position - region.Size / 2
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
+			local l = pivot:PointToObjectSpace(Vector3.new(x, foot.Y, z))
+			-- the column's top as it is (nil: none in reach, or water in it)
+			local ground: number? = nil
+			for iy = size.Y, 1, -1 do
+				if mats[ix][iy][iz] == Enum.Material.Water then
+					ground = nil
+					break
+				end
+				if ground == nil and occs[ix][iy][iz] > 0 then
+					ground = corner.Y + (iy - 0.5) * VOXEL + occs[ix][iy][iz] * VOXEL
+				end
+			end
+			local want = if ground then Rules.levelAt(l.X, l.Z, lo, hi, blend, foot.Y, ground) else nil
+			if want then
+				for iy = 1, size.Y do
+					local mid = corner.Y + (iy - 0.5) * VOXEL
+					local keep = math.clamp((want - mid) / VOXEL, 0, 1)
+					occs[ix][iy][iz] = keep
+					if keep <= 0 then
+						mats[ix][iy][iz] = Enum.Material.Air
+					elseif mats[ix][iy][iz] == Enum.Material.Air or mid > want - VOXEL * 2 then
+						mats[ix][iy][iz] = material -- the top two voxels (and what it is filled up with)
 					end
 				end
 			end
