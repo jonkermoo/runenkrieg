@@ -15,6 +15,7 @@ export type Def = {
 	helmet: string?, -- a key of the kit's `Gear` (the alternate helmet); nil: the kit's own headwear
 	builds: { string }, -- the Config/Build.Pieces kinds it may lay and build
 	locked: boolean?, -- shown, but not picked yet (coming later)
+	blurb: string, -- the loadout menu's line under the name (src/client/Menus)
 }
 
 -- what everyone may build (user: "everyone else can only build trenches and other small assets")
@@ -22,16 +23,58 @@ local SMALL = { "Trench", "Sandbags", "Wire" }
 
 local Classes = {
 	Currency = "Marks", -- the currency's name, shown in the loadout menu
+	-- the menus (src/client/Menus): seconds after a death before the loadout menu opens (the death is seen first)
+	MenuAfterDeath = 2,
+	-- the menus' camera on the match (src/client/MatchCam): a random spot of the map at least `Inset` studs in from its
+	-- edges on open ground (`Tries` rolls), a new one every `Every` seconds; the camera circles it `Distance` out and `Height` up at `Turn` rad/s,
+	-- looking `LookUp` above the ground there; the ground is found by a ray from `RayTop` down `RayDepth`
+	Cam = {
+		Every = 8,
+		Inset = 120,
+		Tries = 6,
+		Distance = 70,
+		Height = 32,
+		Turn = 0.05,
+		LookUp = 4,
+		RayTop = 400,
+		RayDepth = 800,
+	},
+	-- the loadout menu's soldier (src/client/Menus): the view's light, the camera `Distance` out and `Up` over the point
+	-- it looks at (`Look` up from the rig's root), at `Fov` degrees, circling at `Turn` rad/s
+	Preview = {
+		Ambient = { 170, 170, 170 },
+		Light = { 255, 255, 255 },
+		Distance = 19,
+		Up = 0.9,
+		Look = 0.6,
+		Fov = 28,
+		Turn = 0.35,
+	},
 	Start = 0, -- points at the start of every match
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
 	List = { "Rifleman", "Grenadier", "AutoRifler", "Engineer", "Mage" },
 	Defs = {
-		Rifleman = { name = "Rifleman", cost = 0, primary = "weapon", grenades = false, builds = SMALL },
-		Grenadier = { name = "Grenadier", cost = 50, primary = "weapon", grenades = true, builds = SMALL },
+		Rifleman = {
+			name = "Rifleman",
+			blurb = "Bolt-action rifle",
+			cost = 0,
+			primary = "weapon",
+			grenades = false,
+			builds = SMALL,
+		},
+		Grenadier = {
+			name = "Grenadier",
+			blurb = "Rifle and two grenades",
+			cost = 50,
+			primary = "weapon",
+			grenades = true,
+			builds = SMALL,
+		},
 		-- the team's semi-automatic rifle and its alternate helmet (user: "these will use the alternate helmet")
 		AutoRifler = {
 			name = "Auto rifler",
+			blurb = "Semi-automatic rifle, plate helmet",
 			cost = 100,
 			primary = "semi",
 			grenades = false,
@@ -41,13 +84,14 @@ local Classes = {
 		-- coming later: the only class that builds artillery (user: "only they can build artilleries"); price a placeholder
 		Engineer = {
 			name = "Engineer",
+			blurb = "Builds artillery",
 			cost = 150,
 			primary = "weapon",
 			grenades = false,
 			builds = { "Trench", "Sandbags", "Wire", "Gun" },
 			locked = true,
 		},
-		Mage = { name = "Mage", cost = 200, primary = "staff", grenades = false, builds = SMALL },
+		Mage = { name = "Mage", blurb = "Rune staff", cost = 200, primary = "staff", grenades = false, builds = SMALL },
 	} :: { [string]: Def },
 	-- each kit's class gear beyond Config/Uniforms.Kits (its bolt rifle, grenades, shovel and helmet): Config/Weapons
 	-- and Config/Assets entries

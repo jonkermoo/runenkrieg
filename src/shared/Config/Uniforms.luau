@@ -69,6 +69,7 @@ local Uniforms = {
 	HelmetOff = { speed = 18, up = 14, spin = 12, despawn = 10 },
 	Kits = {
 		uniform1 = {
+			team = "Grey", -- the army's name in the menus (src/client/Menus)
 			source = "assets/teams/grey/uniform/uniform1.json",
 			shirt = 111439602118520, -- decal 121662410098818
 			pants = 82001103410866, -- decal 121600662647379
@@ -80,6 +81,7 @@ local Uniforms = {
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
 		},
 		uniform2 = {
+			team = "Olive", -- the army's name in the menus (src/client/Menus)
 			source = "assets/teams/olive/uniform/uniform2.json",
 			shirt = 108022442236637, -- decal 118417766232661
 			pants = 78199869429201, -- decal 112322397513846
@@ -91,6 +93,7 @@ local Uniforms = {
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
 		},
 		uniform3 = {
+			team = "White", -- the army's name in the menus (src/client/Menus)
 			source = "assets/teams/white/uniform/uniform3.json",
 			shirt = 74678155009631, -- decal 121824214820196
 			pants = 81809122965783, -- decal 97802189527419
