@@ -217,4 +217,62 @@ return {
 		end
 		assert(V.Looks.Field.ring == nil and V.Looks.Magic.ring, "only the magic gun's smoke ring has runes")
 	end,
+	["the field gun stands on levelled bare earth with its hitbox, the howitzer keeps its block"] = function()
+		-- user 2026-10-27: "the field cannon shouldnt have a platform ... make the ground its on lose its grass"
+		local L = QF.level :: any
+		local Foliage = require("../src/shared/Config/Foliage")
+		assert(L and L.pad >= 0 and L.blend > 0 and QF.platform)
+		assert(not table.find(Foliage.Materials, L.material) and L.material ~= "Water")
+		assert(HOW.level == nil and HOW.dig)
+	end,
+	["the levelled ground is flat on the footprint and eases back to the ground past it"] = function()
+		local lo, hi = { -2, -5 }, { 2, 5 }
+		assert(A.levelAt(0, 0, lo, hi, 8, 10, 14) == 10)
+		assert(A.levelAt(2, -5, lo, hi, 8, 10, 14) == 10, "its edge is still flat")
+		assert(near(A.levelAt(6, 0, lo, hi, 8, 10, 14) :: number, 12), "half way out: half way back")
+		assert(A.levelAt(10, 0, lo, hi, 8, 10, 14) == nil and A.levelAt(0, 13.1, lo, hi, 8, 10, 6) == nil)
+		-- downhill too, and it only ever moves toward the ground as it was
+		local last = 10
+		for x = 2, 9.9, 0.1 do
+			local h = A.levelAt(x, 0, lo, hi, 8, 10, 4) :: number
+			assert(h <= last + 1e-9 and h >= 4, x)
+			last = h
+		end
+		-- a corner measures from the box's corner
+		assert(near(A.levelAt(2 + 3, 5 + 4, lo, hi, 10, 0, 10) :: number, 5))
+	end,
+	["a gun's ground is the box under it, craters stay off it"] = function()
+		local lo, hi = { -2, -5 }, { 2, 5 }
+		assert(A.onGround(0, 0, lo, hi) and A.onGround(2, 5, lo, hi) and A.onGround(-2, -5, lo, hi))
+		assert(not A.onGround(2.1, 0, lo, hi) and not A.onGround(0, -5.1, lo, hi))
+	end,
+	["digging fixes a gun in its repair swings, usable again at 75%, never past whole"] = function()
+		-- user 2026-10-27: "make it so you can fix a artillery by digging too", "damaged but usable status at 75%"
+		local R = C.Repair
+		assert(R.usable == 75)
+		for key, g in C.Guns do
+			assert(g.repair >= 1, key)
+			local hp, what, n, usableAt = 0, nil, 0, nil
+			while what ~= "whole" do
+				hp, what = A.repaired(hp, g.hp, g.hp / g.repair, R.usable, usableAt == nil)
+				n += 1
+				if what == "usable" then
+					usableAt = hp
+				end
+				assert(n <= g.repair, key)
+			end
+			assert(n == g.repair and hp == g.hp, key)
+			assert(usableAt and usableAt >= g.hp * 0.75 - 1e-6, key)
+			-- usable again past the stage it stopped being usable at
+			assert(A.wreckStage(usableAt, g.hp, C.Wreck.at) < C.Wreck.unusable, key)
+		end
+		local hp, what = A.repaired(95, 100, 10, 75, false)
+		assert(hp == 100 and what == "whole")
+		hp, what = A.repaired(60, 100, 10, 75, false)
+		assert(hp == 70 and what == nil, "not broken: nothing to say")
+		hp, what = A.repaired(60, 100, 10, 75, true)
+		assert(hp == 70 and what == nil, "broken under 75%: still broken")
+		hp, what = A.repaired(70, 100, 10, 75, true)
+		assert(hp == 80 and what == "usable")
+	end,
 }
