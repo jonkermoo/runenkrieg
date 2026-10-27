@@ -186,7 +186,14 @@ local Hud = {
 		-- the round in profile), the howitzer from behind (the crystal sits in its breech face)
 		views = {
 			default = { from = { 1, 0, 0 } },
-			artillery_howitzer = { from = { 0.35, 0.06, 1 } }, -- (low: user 2026-10-26, "lower the camera more")
+			-- the howitzer: from behind and under its breech, looking up at the crystal hanging under it as it does
+			-- laid at 45..80 degrees (user 2026-10-26: "lower the camera more", "make sure the howitzer camera is
+			-- acttually aimmed at this, or at least an accurate representation of the current howitzer"); only what
+			-- moves with the barrel drawn (the bed, the deck and its ladder stood between)
+			artillery_howitzer = {
+				from = { 0.35, -0.25, 1 },
+				only = { "Cradle", "CradleTrim", "Barrel", "BarrelRunes", "BarrelTrim", "Breech" },
+			},
 		},
 		timer = "%.1f%%", -- the reload's share until it can fire, in tenths of a percent
 	},

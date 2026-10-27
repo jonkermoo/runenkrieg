@@ -133,8 +133,11 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			end
 		end
 	end
+	-- (a view may draw only some of the gun: the howitzer's, what moves with its barrel round the crystal)
+	local o = (A.views :: any)[key] or A.views.default
 	for _, d in model:GetDescendants() do
-		if d:IsA("BasePart") and not table.find(A.skip, d.Name) then
+		local drawn = not o.only or table.find(o.only, d.Name) or table.find(A.solid, d.Name)
+		if d:IsA("BasePart") and drawn and not table.find(A.skip, d.Name) then
 			local c = d:Clone()
 			anchored(c)
 			c.Parent = cut
@@ -216,7 +219,6 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 	local b = box :: any
 	local centre = CFrame.new((b.lo + b.hi) / 2)
 	local size = b.hi - b.lo
-	local o = (A.views :: any)[key] or A.views.default
 	local from = Vector3.new(o.from[1], o.from[2], o.from[3]).Unit
 	v.from = from
 	local function frame()
