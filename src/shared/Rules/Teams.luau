@@ -18,4 +18,59 @@ function Teams.spared(by: unknown, on: unknown, friendlyFire: boolean, freeForAl
 	return not friendlyFire and Teams.same(by, on, freeForAll)
 end
 
+-- Kept teams (Config/Teams; src/server/Deploy): each team's head count, from the team each player is on (`of`; a value
+-- that isn't one of `teams` isn't counted).
+function Teams.counts(of: { unknown }, teams: { string }): { [string]: number }
+	local counts: { [string]: number } = {}
+	for _, t in teams do
+		counts[t] = 0
+	end
+	for _, t in of do
+		if type(t) == "string" and counts[t] then
+			counts[t] += 1
+		end
+	end
+	return counts
+end
+
+-- How many soldiers each of `n` teams has room for on a server of `maxPlayers`.
+function Teams.room(maxPlayers: number, n: number): number
+	return math.ceil(maxPlayers / math.max(n, 1))
+end
+
+-- Why a soldier on team `own` can't change to `target` ("Own": already on it, "Full", "Bigger": the change would leave
+-- it more than `gap` bigger than `own`, "Unknown": not a team), or nil when they can. `counts` include the soldier.
+function Teams.blocked(counts: { [string]: number }, own: unknown, target: unknown, gap: number, room: number): string?
+	if type(target) ~= "string" or counts[target] == nil then
+		return "Unknown"
+	end
+	if target == own then
+		return "Own"
+	end
+	local t = counts[target]
+	if t >= room then
+		return "Full"
+	end
+	local o = if type(own) == "string" then counts[own] else nil
+	if o and t + 1 > o - 1 + gap then
+		return "Bigger"
+	end
+	return nil
+end
+
+-- The team a newcomer joins: the one with the fewest soldiers, a tie broken by `r` in [0, 1).
+function Teams.smallest(counts: { [string]: number }, teams: { string }, r: number): string
+	local least = math.huge
+	for _, t in teams do
+		least = math.min(least, counts[t] or 0)
+	end
+	local tied: { string } = {}
+	for _, t in teams do
+		if (counts[t] or 0) == least then
+			table.insert(tied, t)
+		end
+	end
+	return tied[math.clamp(math.floor(r * #tied) + 1, 1, #tied)]
+end
+
 return Teams

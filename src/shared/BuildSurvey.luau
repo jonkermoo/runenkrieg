@@ -61,10 +61,11 @@ function Survey.groundAt(x: number, z: number, near: number): (number?, boolean)
 	return hit.Position.Y, hit.Material == Enum.Material.Water
 end
 
--- The ground under a piece's footprint: a grid of samples (5 along, 3 across)
+-- The ground under a piece's footprint: a grid of samples, COLS along, ROWS across
+local COLS, ROWS = 5, 3
 function Survey.ground(piece: Rules.Piece, frame: CFrame): Report
 	local size = Survey.footprint(piece)
-	local cols, rows = 5, 3
+	local cols, rows = COLS, ROWS
 	local heights = {}
 	local ground, water, low = true, false, math.huge
 	for r = 1, rows do
@@ -92,6 +93,18 @@ function Survey.ground(piece: Rules.Piece, frame: CFrame): Report
 		low = if low == math.huge then frame.Position.Y else low,
 		centre = centre,
 	}
+end
+
+-- A piece's frame laid on the ground under it (`report`, from Survey.ground at `frame`): at the plane that best fits
+-- the ground there (Rules.groundPlane), tilted with it, its yaw kept (user round 7: "make sure the sandbags and barbed
+-- wires are build according to the terrain, not flat everytime")
+function Survey.onGround(piece: Rules.Piece, frame: CFrame, report: Report): CFrame
+	local size = Survey.footprint(piece)
+	local h, gx, gz = Rules.groundPlane(report.heights, ROWS, COLS, size.X, size.Z)
+	local right = frame.RightVector + Vector3.yAxis * gx
+	local look = frame.LookVector + Vector3.yAxis * gz
+	local up = right:Cross(look).Unit
+	return CFrame.fromMatrix(Vector3.new(frame.Position.X, h, frame.Position.Z), right.Unit, up)
 end
 
 -- the closest distance between a point and the segment a-b, flat
@@ -348,7 +361,10 @@ function Survey.bridgeSpot(
 			spot.nearest = math.min(spot.nearest, d)
 		end
 	end
-	return spot, CFrame.fromMatrix(centre, dir, Vector3.yAxis), flat.Magnitude, m
+	-- (along the trench's own slope, end to end: user round 7, "make it be parallel to the surface of the trench its on")
+	local along = (b - a).Unit
+	local up = (Vector3.yAxis - along * along.Y).Unit
+	return spot, CFrame.fromMatrix(centre, along, up), (b - a).Magnitude, m
 end
 
 return Survey

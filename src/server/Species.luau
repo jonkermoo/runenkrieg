@@ -192,9 +192,16 @@ local function showRuff(character: Model)
 end
 
 -- The species `character` spawns as in uniform `kit` (the player's "Species" attribute wins), or nil: a plain human.
+-- Only when this life's roll made it one ("SpeciesRoll", src/server/Bodies).
 function Species.of(character: Model, kit: string): string?
 	local player = Players:GetPlayerFromCharacter(character)
-	return Rule.of(kit, player and player:GetAttribute("Species"), Cfg, character:GetAttribute("HairStyle"))
+	return Rule.of(
+		kit,
+		player and player:GetAttribute("Species"),
+		Cfg,
+		character:GetAttribute("HairStyle"),
+		character:GetAttribute("SpeciesRoll")
+	)
 end
 
 -- Spawn: the species of uniform `kit` (or the player's "Species" attribute) on the character, after its helmet
