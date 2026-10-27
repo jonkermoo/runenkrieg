@@ -138,7 +138,7 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			local c = d:Clone()
 			anchored(c)
 			c.Parent = cut
-			v.copies[d] = { part = c, see = if table.find(A.solid, d.Name) then 1 else A.see }
+			v.copies[d] = { part = c, see = if table.find(A.solid, d.Name) then 0 else A.see }
 		end
 	end
 	-- framed on the first of Hud.Artillery.frame the gun has (the howitzer's crystal, the field gun's breech)
@@ -161,6 +161,14 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			v.gemTurn = r.Rotation:Inverse() * CFrame.Angles(math.pi / 2, 0, 0)
 			if v.gem then
 				grow(CFrame.new(r.Position), Vector3.one * math.max(v.gem.size.X, v.gem.size.Z))
+			end
+		end
+	end
+	-- the gun's own crystal hidden under it (shown, solid, if the gem's model isn't there)
+	if v.gem then
+		for src, c in v.copies do
+			if table.find(A.solid, src.Name) then
+				c.see = 1
 			end
 		end
 	end
@@ -239,8 +247,11 @@ local function update(v: View, t: number, clock: number, camera: Camera)
 		local anchor = v.gemAnchor :: BasePart
 		HudKit.poseGem(v.gem, anchor.CFrame * v.gemTurn, clock)
 		HudKit.shine(v.gem.crystal, share, false, colors, clock)
-		-- the camera on the crystal wherever the gun has laid it (elevation, recoil), as far off as framed
-		local at = anchor.Position
+	end
+	-- the camera on the crystal wherever the gun has laid it (elevation, recoil), as far off as framed (with or without
+	-- the gem: user 2026-10-26, "make sure the howitzer camera is acttually aimmed at this")
+	if v.gemAnchor then
+		local at = v.gemAnchor.Position
 		camera.CFrame = CFrame.lookAt(at + v.from * v.dist, at)
 	end
 	local round, case = v.round, v.case
