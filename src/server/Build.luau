@@ -10,9 +10,9 @@
 -- - Barbed wire: Config/Assets barbed_wire's meshes in three looks (Rules.wireLook: on the ground, standing, broken),
 --   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. Once it has stood,
 --   swings go to its HP (Rules.wireSwing): Destroy breaks it then takes it away, its team's Build stands it back up.
--- - Hesco barriers (kind "Hesco"; Config/Build.Hesco): the model's pieces for the stage it shows (Rules.hescoStage:
---   the empty perimeter, then the dirt rising; slumped by wear), cloned from the asset library; only the dirt collides
---   and stops bullets. One HP, shown on the model once it stands; at 0 it bursts.
+-- - Hesco barriers (kind "Hesco"; Config/Build.Hesco): on HP (its work is its HP), laid with the empty perimeter
+--   standing; the model's pieces for the stage its HP stands at (Rules.hescoStage: the perimeter, then the dirt rising,
+--   slumping as it wears), cloned from the asset library; only the dirt collides and stops bullets; gone at 0.
 -- - Guns (Config/Build.Pieces kind "Gun"; Config/Build.Guns): a holder model in the folder (what swings go to) with the
 --   gun's parts in it (src/server/Artillery.parts), laid out on the ground and fitted a quarter of the work at a time
 --   (Artillery.assemble, Config/Artillery.Assembly), a building site round them (Rules/Scaffold); a howitzer's pit (Ground.pit from the ground as it was) deepens
@@ -61,7 +61,7 @@ type Rec = {
 	born: number,
 	worked: number,
 	frame: CFrame,
-	hp: number?, -- barbed wire: what blasts and Destroy swings have left of Structures.wireHP; a Hesco barrier: of Hesco.hp
+	hp: number?, -- barbed wire: what blasts and Destroy swings have left of Structures.wireHP
 	grassed: boolean?, -- barbed wire: the grass under it cleared
 	base: CFrame?, -- a Hesco barrier: its footprint's centre on the lowest ground under it
 	shown: number?, -- a Hesco barrier: the stage its pieces show
@@ -323,15 +323,13 @@ local function hescoPieces(asset: string): Model?
 	return hescoKit
 end
 
--- a Hesco barrier as its work and wear stand: the pieces of its stage (the blueprint: the empty perimeter, ghosted);
--- only Config/Build.Hesco.blocks (the dirt) collide or are hit
+-- a Hesco barrier as its HP stands (its work: Config/Build.Hesco.hp): the pieces of its stage; only
+-- Config/Build.Hesco.blocks (the dirt) collide or are hit. Its HP on the model for the shovel's panel, like a gun's.
 local function showHesco(r: Rec)
 	local p, H = r.piece, C.Hesco
-	if r.built then
-		r.model:SetAttribute("HP", math.ceil(r.hp or H.hp))
-		r.model:SetAttribute("MaxHP", H.hp)
-	end
-	local stage = Rules.hescoStage(r.work, r.need, r.hp or H.hp, H.hp, p.stages)
+	r.model:SetAttribute("HP", math.ceil(r.work))
+	r.model:SetAttribute("MaxHP", r.need)
+	local stage = Rules.hescoStage(r.work, r.need, p.stages)
 	if r.shown == stage then
 		return
 	end
@@ -346,14 +344,14 @@ local function showHesco(r: Rec)
 	end
 	local holder = Instance.new("Model")
 	holder.Name = "Stage"
-	local suffix = tostring(math.max(stage, 1))
+	local suffix = tostring(stage)
 	local base = r.base :: CFrame
 	for name, off in hescoAt do
 		local kind, n = string.match(name, "^(%a+)(%d)$")
 		local src = kit:FindFirstChild(name)
 		if kind and n == suffix and src and src:IsA("BasePart") then
 			local part = src:Clone()
-			local blocks = stage > 0 and table.find(H.blocks, kind) ~= nil
+			local blocks = table.find(H.blocks, kind) ~= nil
 			part.Anchored = true
 			part.Material = Enum.Material.SmoothPlastic
 			part.Color = rgb(Palette.Build.Hesco[kind])
@@ -361,8 +359,6 @@ local function showHesco(r: Rec)
 			part.CanCollide = blocks
 			part.CanQuery = blocks -- (bullets pass the mesh and liner)
 			part.CanTouch = false
-			part.Transparency = if stage > 0 then 0 else C.GhostTransparency
-			part.CastShadow = stage > 0
 			part.Parent = holder
 		end
 	end
@@ -398,11 +394,12 @@ local function remove(r: Rec, debris: boolean)
 	r.model:Destroy()
 end
 
--- a Hesco barrier worn by `amount` of its HP: slumps, or bursts at 0
+-- a Hesco barrier worn by `amount` of its HP: its dirt slumps; at 0 it is gone, no rubble (Config/Build.Hesco)
 local function wearHesco(r: Rec, amount: number)
-	r.hp = (r.hp or C.Hesco.hp) - amount
-	if (r.hp :: number) <= 0 then
-		remove(r, true)
+	r.work = math.max(r.work - amount, 0)
+	r.model:SetAttribute("Work", r.work)
+	if r.work <= 0 then
+		remove(r, false)
 	else
 		showHesco(r)
 	end
@@ -613,8 +610,9 @@ local function place(player: Player, key: any, at: any)
 		piece = piece,
 		team = team,
 		owner = player.UserId,
-		work = 0,
-		need = piece.work,
+		-- (a Hesco barrier's work is its HP: laid with its empty perimeter standing, Config/Build.Hesco.hp)
+		work = if piece.kind == "Hesco" then C.Hesco.hp.place else 0,
+		need = if piece.kind == "Hesco" then C.Hesco.hp.max else piece.work,
 		built = false,
 		born = now,
 		worked = now,
@@ -705,6 +703,30 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local own = team == r.team
+	-- a Hesco barrier: swings work its HP (Config/Build.Hesco.hp); its team's Build swings repair it too
+	if r.piece.kind == "Hesco" then
+		local build = mode == "Build"
+		if build and (not own or r.work >= r.need) then
+			return
+		end
+		lastSwing[player] = now
+		local h = C.Hesco.hp
+		local share = digShare(player)
+		local step = if share then Rules.digAmount(1, h.max, share) else nil
+		local left, gone = Rules.hescoSwing(r.work, build, h, step)
+		if gone then
+			remove(r, false)
+			return
+		end
+		r.work = left
+		r.worked = now
+		if r.work >= r.need and not r.built then
+			Loadouts.award(player, "Piece")
+			r.built = true
+		end
+		apply(r)
+		return
+	end
 	if mode == "Build" and r.gun and r.standing then
 		-- fixing a standing gun, any team's (Config/Artillery.Repair; user 2026-10-27: "make it so you can fix a
 		-- artillery by digging too ... its fine if the cannon looks buried, as long as it gets flattenned out again once
@@ -793,7 +815,6 @@ local function work(player: Player, target: any, mode: any)
 	if
 		r.piece.kind == "Gun"
 		or r.piece.kind == "Wire" -- (its look changes on every swing: Rules.wireLook)
-		or r.piece.kind == "Hesco" -- (shows only a change of stage)
 		or Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages)
 		or r.work >= r.need
 	then
@@ -857,7 +878,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			).Magnitude
 			local share = Rules.structureHit(d, src, S.edge) * C.Hesco.soak
 			if share > 0 then
-				table.insert(worn, { r = r, amount = C.Hesco.hp * share / 100 })
+				table.insert(worn, { r = r, amount = r.need * share / 100 })
 			end
 		end
 	end
@@ -884,7 +905,7 @@ function Build.shot(part: Instance, point: Vector3)
 	local model = s and s.Parent
 	local r = if model and model:IsA("Model") then recs[model] else nil
 	if r and r.piece.kind == "Hesco" then
-		wearHesco(r, C.Hesco.hp * C.Structures.bullet.hit * C.Hesco.soak / 100)
+		wearHesco(r, r.need * C.Structures.bullet.hit * C.Hesco.soak / 100)
 	end
 end
 
@@ -973,7 +994,8 @@ function Build.start(artillery: Guns)
 			local now = os.clock()
 			local stale = {}
 			for _, r in recs do
-				if r.work <= 0 and not r.built and now - r.worked > C.BlueprintLife then
+				local laid = if r.piece.kind == "Hesco" then C.Hesco.hp.place else 0
+				if r.work <= laid and not r.built and now - r.worked > C.BlueprintLife then
 					table.insert(stale, r)
 				end
 			end

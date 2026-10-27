@@ -105,17 +105,23 @@ function Build.stageOf(work: number, need: number, stages: number): number
 	return math.clamp(math.floor(work / need * stages + 1e-9), 0, stages)
 end
 
--- The stage a Hesco barrier shows (Config/Build Pieces "Hesco", Config/Build.Hesco): its build stage at `work` of `need`
--- (0 the blueprint, 1 the empty perimeter, then a share of the dirt each), slumped by blast and bullet wear: with `hp`
--- of `max` left it shows at most 1 + its share of HP in the dirt stages (rounded up), so a worn barrier keeps at least
--- the first stage of dirt until it bursts at 0.
-function Build.hescoStage(work: number, need: number, hp: number, max: number, stages: number): number
-	local built = Build.stageOf(work, need, stages)
-	if built <= 1 or max <= 0 then
-		return built
+-- The stage of `stages` a Hesco barrier stands at with `hp` of `max` (Config/Build.Hesco.hp): its share of them,
+-- rounded up, so the empty perimeter (stage 1) stands from the moment it is laid until its HP is gone (0: gone)
+function Build.hescoStage(hp: number, max: number, stages: number): number
+	if hp <= 0 or max <= 0 then
+		return 0
 	end
-	local cap = 1 + math.ceil(math.clamp(hp / max, 0, 1) * (stages - 1) - 1e-9)
-	return math.max(math.min(built, cap), 2)
+	return math.clamp(math.ceil(hp / max * stages - 1e-9), 1, stages)
+end
+
+-- A shovel swing at a Hesco barrier with `hp` (Config/Build.Hesco.hp `h`): Build adds `h.swing` up to `h.max`,
+-- Destroy takes `h.destroy`; `step` in place of either (an admin dig step). Returns its HP and whether it is gone.
+function Build.hescoSwing(hp: number, build: boolean, h: any, step: number?): (number, boolean)
+	if build then
+		return math.min(h.max, hp + (step or h.swing)), false
+	end
+	local left = hp - (step or h.destroy)
+	return math.max(left, 0), left <= 0
 end
 
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and

@@ -211,14 +211,13 @@ local Build = {
 		},
 		-- The Hesco barrier (user 2026-10-27; Hesco below): a 6 x 6 basket of mesh and liner, `height` high (just over
 		-- a standing soldier's 5.13: "it should be just barely the players height"; under full cover's 5.5), filled
-		-- with dirt from the bottom up in `stages` (1: the empty perimeter, then a third of the dirt each), `work`
-		-- Build swings (2 a stage). Everyone builds it (a small asset: Config/Classes SMALL).
+		-- with dirt from the bottom up in `stages` (1: the empty perimeter, then a third of the dirt each), on HP
+		-- (Hesco.hp below). Everyone builds it (a small asset: Config/Classes SMALL).
 		{
 			key = "Hesco",
 			name = "Hesco barrier",
 			kind = "Hesco",
 			asset = "hesco", -- (Config/Assets)
-			work = 8,
 			stages = 4,
 			width = 6,
 			depth = 6,
@@ -342,10 +341,14 @@ local Build = {
 
 	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
 	-- barriers block stuff. meaning stage 1 and 2 barriers will provide little to no protection"): the wire, liner and
-	-- flaps stop nothing, bullets and soldiers pass. One HP for the whole basket: weapons take `soak` of what they take
-	-- from a sandbag column (Structures above); worn, the dirt slumps a stage per third of HP lost (never under the
-	-- first third of dirt while it stands); at 0 it bursts. The blueprint shows the empty perimeter ghosted.
-	Hesco = { hp = 100, soak = 0.5, blocks = { "Earth" } },
+	-- flaps stop nothing, bullets and soldiers pass. On HP like every structure (user 2026-10-27: "all strucuttres use
+	-- HP rule, not how many digs", "stage 1 should always be when its placed ... like a cannon, where if its placed,
+	-- something will always be down"): laid at `hp.place` (the empty perimeter standing), a Build swing of its team adds
+	-- `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`, weapons take `soak` of what they take
+	-- from a sandbag pile (Structures above); its stage stands by HP (the dirt slumps as it wears); at 0 it is gone,
+	-- no rubble (user: "remove the crumble. 0 hp should just disappear"). (25, 50, 75, 100: one stage each; 6 Build
+	-- swings from laid to full, 10 Destroy swings from full to gone)
+	Hesco = { hp = { max = 100, place = 25, swing = 12.5, destroy = 10 }, soak = 0.5, blocks = { "Earth" } },
 
 	-- Barbed wire (user 2026-10-27): its meshes are
 	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the

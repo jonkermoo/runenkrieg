@@ -51,7 +51,7 @@ return {
 				p.kind == "Trench" or p.kind == "Sandbags" or p.kind == "Wire" or p.kind == "Gun" or p.kind == "Hesco",
 				p.key
 			)
-			assert(type(p.name) == "string" and p.work >= 1, p.key)
+			assert(type(p.name) == "string" and (p.kind == "Hesco" or p.work >= 1), p.key)
 		end
 		assert(B.piece("LowWall", C.Pieces) ~= nil and B.piece("Nope", C.Pieces) == nil and B.piece(5, C.Pieces) == nil)
 	end,
@@ -63,7 +63,7 @@ return {
 		local bottom, top = (high.loophole - 1) * high.row, high.loophole * high.row
 		assert(bottom < 4.3 and top > 4.3, "the standing aimed muzzle (4.3) looks out of the loophole")
 	end,
-	["hesco: 6 x 6, just over a soldier, only the dirt is cover; four stages; wear slumps the dirt, never past the first third"] = function()
+	["hesco: 6 x 6, just over a soldier, only the dirt is cover; four stages on HP: laid standing, gone at 0"] = function()
 		local A = require("../src/shared/Config/Assets")
 		local h = B.piece("Hesco", C.Pieces) :: any
 		assert(h and h.kind == "Hesco" and h.width == 6 and h.depth == 6 and A.Entries[h.asset] ~= nil)
@@ -79,16 +79,22 @@ return {
 				and dirt(3) >= M.Cover.LowCoverMin
 				and dirt(h.stages) == h.height
 		)
-		assert(h.stages == 4 and h.work % h.stages == 0, "the same swings each stage")
-		local max = C.Hesco.hp
-		assert(B.hescoStage(0, h.work, max, max, 4) == 0, "blueprint")
-		assert(B.hescoStage(2, h.work, max, max, 4) == 1, "the empty perimeter")
-		assert(B.hescoStage(h.work, h.work, max, max, 4) == 4, "full")
-		assert(B.hescoStage(h.work, h.work, max * 0.6, max, 4) == 3, "worn: slumps a stage")
-		assert(B.hescoStage(h.work, h.work, max * 0.2, max, 4) == 2, "badly worn: the first third")
-		assert(B.hescoStage(h.work, h.work, 0.01, max, 4) == 2, "never under the first third while it stands")
-		assert(B.hescoStage(4, h.work, max * 0.2, max, 4) == 2, "half built and worn")
-		assert(B.hescoStage(2, h.work, 1, max, 4) == 1, "an empty perimeter has no dirt to lose")
+		-- on HP (user 2026-10-27: "all strucuttres use HP rule", "stage 1 should always be when its placed")
+		local hp = C.Hesco.hp
+		assert(h.stages == 4 and B.hescoStage(hp.place, hp.max, 4) == 1, "laid: the empty perimeter stands")
+		assert(B.hescoStage(hp.max, hp.max, 4) == 4 and B.hescoStage(0, hp.max, 4) == 0, "full; gone")
+		assert(B.hescoStage(hp.max * 0.6, hp.max, 4) == 3, "worn: the dirt slumps a stage")
+		assert(B.hescoStage(0.01, hp.max, 4) == 1, "the perimeter stands while it has any HP")
+		local v, gone, swings = hp.place, false, 0
+		while v < hp.max do
+			v, gone = B.hescoSwing(v, true, hp)
+			swings += 1
+		end
+		assert(v == hp.max and not gone and swings >= 4 and swings <= 8, `built up in a few swings ({swings})`)
+		v, gone = B.hescoSwing(hp.destroy, false, hp)
+		assert(v == 0 and gone, "a Destroy swing takes the last of it")
+		v = B.hescoSwing(hp.max, false, hp, 40)
+		assert(v == hp.max - 40, "an admin step")
 		assert(C.Hesco.soak > 0 and C.Hesco.soak < 1, "tougher than sandbags")
 	end,
 	["laying a piece: each reason in turn"] = function()
