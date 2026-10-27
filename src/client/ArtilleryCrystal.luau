@@ -6,8 +6,9 @@
 -- - the crystal (and the barrel's and bed's rune bands with it) flares white-hot on the shot, drains near black, then
 --   life creeps back: sputtering, a heartbeat quickening, the colour filling in; full, it blooms and then breathes;
 -- - a light inside it, as bright as it glows;
--- - a ring of Elder Futhark runes (Config/Runes strokes, flat lines facing the camera) circling level round it, each
---   waking in turn as it charges, flickering on; on the shot they scatter outward and fade;
+-- - a ring of Elder Futhark runes (Config/Runes strokes, curved rounded brush strokes, facing the
+--   camera) circling level round it, each waking in turn as it charges, flickering on; on the shot they scatter outward
+--   and fade;
 -- - motes of light drawn into it while it charges.
 --   ArtilleryCrystal.new(model, crystal) -> state; .update(state, now, firedAt, readyAt, reload); .destroy(state)
 
@@ -30,6 +31,7 @@ export type State = {
 	cracks: BasePart?,
 	flickerUntil: number, -- a drop-out running until then
 	flickerDepth: number,
+	flareUntil: number, -- knocked out: a weak flare running until then
 	seed: number,
 	bands: { BasePart },
 	light: PointLight,
@@ -44,23 +46,49 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
--- a rune's strokes as frames in a box `w` x `h` studs (scale units, so they keep their shape at any distance)
+-- one rounded piece of a stroke from (x0, y0) to (x1, y1) (scale), `t` of the box's height thick, under `parent`
+local function piece(parent: GuiObject, x0: number, y0: number, x1: number, y1: number, w: number, h: number, t: number)
+	local dx, dy = (x1 - x0) * w, (y1 - y0) * h
+	local len = math.sqrt(dx * dx + dy * dy)
+	local f = Instance.new("Frame")
+	f.AnchorPoint = Vector2.new(0.5, 0.5)
+	f.Position = UDim2.fromScale((x0 + x1) / 2, (y0 + y1) / 2)
+	f.Size = UDim2.fromScale((len + t * h) / w, t)
+	f.Rotation = math.deg(math.atan2(dy, dx))
+	f.BorderSizePixel = 0
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = f
+	f.Parent = parent
+	return f
+end
+
+-- a rune's strokes in a box `w` x `h` studs (scale units, so they keep their shape at any distance): each bowed into a
+-- curve of rounded pieces, swelling in the middle (Cfg.strokes)
 local function drawRune(parent: GuiObject, name: string, w: number, h: number): { Frame }
-	local out = {}
-	local t = Cfg.stroke
-	for _, s in RuneStrokes[name] do
-		local dx, dy = (s[3] - s[1]) * w, (s[4] - s[2]) * h
-		local len = math.sqrt(dx * dx + dy * dy)
-		local f = Instance.new("Frame")
-		f.AnchorPoint = Vector2.new(0.5, 0.5)
-		f.Position = UDim2.fromScale((s[1] + s[3]) / 2, (s[2] + s[4]) / 2)
-		f.Size = UDim2.fromScale((len + t * h) / w, t)
-		f.Rotation = math.deg(math.atan2(dy, dx))
-		f.BorderSizePixel = 0
-		f.Parent = parent
-		table.insert(out, f)
+	local strokes = {}
+	local C = Cfg.strokes
+	for k, s in RuneStrokes[name] do
+		local du, dv = s[3] - s[1], s[4] - s[2]
+		local length = math.sqrt(du * du + dv * dv)
+		if length < 1e-4 then
+			continue
+		end
+		local pu, pv = -dv / length, du / length
+		local bow = C.bow * length * (if k % 2 == 1 then 1 else -1)
+		local function at(t: number): (number, number)
+			local b = bow * 4 * t * (1 - t)
+			return s[1] + du * t + pu * b, s[2] + dv * t + pv * b
+		end
+		for i = 1, C.pieces do
+			local t0, t1 = (i - 1) / C.pieces, i / C.pieces
+			local x0, y0 = at(t0)
+			local x1, y1 = at(t1)
+			local thick = Cfg.stroke * (C.tip + (C.swell - C.tip) * math.sin(math.pi * (t0 + t1) / 2))
+			table.insert(strokes, piece(parent, x0, y0, x1, y1, w, h, thick))
+		end
 	end
-	return out
+	return strokes
 end
 
 function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
@@ -130,6 +158,7 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 		cracks = if cracks and cracks:IsA("BasePart") then cracks else nil,
 		flickerUntil = 0,
 		flickerDepth = 0,
+		flareUntil = 0,
 		seed = math.random() * 100,
 		bands = bands,
 		light = light,
@@ -156,12 +185,20 @@ function ArtilleryCrystal.update(
 	readyAt: number,
 	reload: number,
 	braceAt: number,
-	charge: number
+	charge: number,
+	hurt: number?, -- the share of its HP gone (Config/Artillery.Crystal.dying)
+	broken: boolean? -- knocked out: no charge, a dying sputter
 )
 	local clock = os.clock()
 	local dt = math.min(clock - s.last, 0.1)
 	s.last = clock
 	local state, glow, share = Rules.crystal(now, firedAt, readyAt, reload, Cfg)
+	local Dy = Cfg.dying
+	local dying = math.clamp(((hurt or 0) - Dy.from) / (1 - Dy.from), 0, 1)
+	if broken then
+		state, glow, share = "Ready", Dy.glow, 1
+		braceAt = -math.huge
+	end
 	-- charging up for the shot (user 2026-10-21: "a cinematic magic charge up"): over-bright, the runes whirling in
 	local up = now - braceAt
 	local surge = if state ~= "Fired" and up >= 0 and up < charge then up / charge else 0
@@ -170,16 +207,32 @@ function ArtilleryCrystal.update(
 	local F = Cfg.flicker
 	if state == "Charging" or state == "Ready" then
 		local rate = if state == "Charging" then F.rate[1] + (F.rate[2] - F.rate[1]) * share else F.rate[3]
+		rate += Dy.rate * dying
 		if clock >= s.flickerUntil and rng:NextNumber() < rate * dt then
 			s.flickerUntil = clock + rng:NextNumber(F.length[1], F.length[2])
-			s.flickerDepth = rng:NextNumber(F.depth[1], F.depth[2])
+			local deep = F.depth[2] + (Dy.depth[1] - F.depth[2]) * dying
+			s.flickerDepth = rng:NextNumber(math.min(F.depth[1] + (Dy.depth[2] - F.depth[1]) * dying, deep), deep)
 		end
 		if clock < s.flickerUntil then
 			glow *= 1 - s.flickerDepth
 		end
 		glow *= 1 - F.wobble * (0.5 + 0.5 * math.noise(clock * 2.3, s.seed))
 	end
+	if broken then
+		-- knocked out: mostly black, a weak flare now and then
+		if clock >= s.flareUntil and rng:NextNumber() < dt / Dy.flareEvery then
+			s.flareUntil = clock + Dy.flareLength
+		end
+		if clock < s.flareUntil then
+			glow = Dy.flare
+		elseif math.noise(clock * 3.1, s.seed) * 0.5 + 0.5 < Dy.blackout then
+			glow = 0
+		end
+	end
 	local color = colorAt(glow)
+	if dying > 0 then
+		color = color:Lerp(rgb(Dy.tint), dying * 0.5)
+	end
 	s.crystal.Color = color
 	if s.cracks then
 		s.cracks.Color = colorAt(math.max(glow + Cfg.cracks, 0))

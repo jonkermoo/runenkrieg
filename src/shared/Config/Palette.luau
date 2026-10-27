@@ -135,11 +135,41 @@ local Palette = {
 			Olive = { 98, 102, 66 },
 			White = { 192, 190, 180 }, -- off-white, as the Brodie helmet
 		},
-		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed" },
+		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed", "TraverseWheel", "ElevationWheel" },
+		-- the small pieces (user 2026-10-26: "more micro designs and accents/secondary colors on the artillery ... make it
+		-- different per team"): a mesh named <part><Role> (MountTrim, CarriageFittings, ...) takes its team's colour for
+		-- that role: Trim bands and edging, Fittings rivets, bolts, caps, data plates and chains, Kit the tool and ammo
+		-- boxes, Marking the team's stripe. Grey: black iron and oxblood (as its blackened leather); Olive: brown leather
+		-- and ochre; White: khaki web, brass and navy. (User 2026-10-26: "make sure everything blends in well": the
+		-- fittings and stripes toned toward the paint; were Grey 120 steel / 138,46,40, Olive 196,160,72, White
+		-- 176,146,82 / 54,70,112.)
+		Roles = { "Trim", "Fittings", "Kit", "Marking" },
+		Team = {
+			Grey = {
+				Trim = { 36, 38, 40 },
+				Fittings = { 100, 103, 107 },
+				Kit = { 74, 58, 46 },
+				Marking = { 120, 48, 42 },
+			},
+			Olive = {
+				Trim = { 120, 88, 60 },
+				Fittings = { 78, 72, 64 },
+				Kit = { 136, 104, 72 },
+				Marking = { 170, 140, 72 },
+			},
+			White = {
+				Trim = { 150, 134, 96 },
+				Fittings = { 160, 136, 86 },
+				Kit = { 112, 90, 64 },
+				Marking = { 70, 82, 112 },
+			},
+		},
 		Tyres = { 58, 58, 60 },
 		Barrel = { 96, 98, 102 },
 		Breech = { 70, 72, 76 },
-		RingGear = { 64, 64, 66 }, -- the howitzer's toothed ring (dark steel)
+		RingGear = { 64, 64, 66 }, -- the howitzer's toothed ring (dark steel), and the pinions meshing it
+		TraversePinion = { 64, 64, 66 },
+		ElevationPinion = { 64, 64, 66 },
 		Bore = { 8, 8, 8 },
 		EarthBox = { 120, 86, 54 },
 		Earth = { 112, 90, 62 },
@@ -150,6 +180,7 @@ local Palette = {
 		Glowing = { "BedRunes", "BarrelRunes", "Crystal", "CrystalCracks" },
 		-- a damaged gun is scorched toward this (Config/Artillery.Wreck), its glowing parts dead at `Dead`
 		Scorched = { 34, 30, 28 },
+		Hole = { 20, 18, 17 }, -- a shell hole's dark inside (Config/Artillery.Wreck)
 		Dead = { 30, 36, 46 },
 		-- the field gun's round (Config/Assets round_qf18): brass case, copper band, the HE shell's yellow, a steel fuze
 		Case = { 204, 170, 96 },
@@ -194,6 +225,16 @@ local Palette = {
 		Focus = { 236, 230, 210 },
 		FocusPlan = { 120, 214, 104 },
 		IconDim = { 154, 166, 159 }, -- the planner's action icons: the stake's top, the trench piece
+		-- the building site round a gun being built (Config/Build.Scaffold, Rules/Scaffold): weathered poles, paler boards,
+		-- hemp rope, iron, the tool crate
+		Scaffold = {
+			Pole = { 112, 88, 64 },
+			Board = { 150, 120, 84 },
+			Rope = { 176, 152, 106 },
+			Iron = { 58, 56, 54 },
+			Crate = { 128, 98, 66 },
+			CrateDark = { 96, 72, 50 },
+		},
 		Picket = { 84, 66, 52 },
 		Wire = { 58, 56, 54 },
 	},

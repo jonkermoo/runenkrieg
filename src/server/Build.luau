@@ -9,10 +9,11 @@
 -- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
 -- - Barbed wire: pickets and strands nothing queries (bullets pass); src/server/Wire slows and hurts soldiers in it.
 -- - Guns (Config/Build.Pieces kind "Gun"; Config/Build.Guns): a holder model in the folder (what swings go to) with the
---   gun see-through in it (src/server/Artillery.ghost); a howitzer's pit (Ground.pit from the ground as it was) deepens
---   with each stage, the blueprint down on its floor. At full work the real gun stands (src/server/Artillery.place, in
---   the team's paint); taken apart (Rules.gunStands) it is a blueprint again, its pit filling back, the ground as it was
---   at 0.
+--   gun's parts in it (src/server/Artillery.parts), laid out on the ground and fitted a quarter of the work at a time
+--   (Artillery.assemble, Config/Artillery.Assembly), a building site round them (Rules/Scaffold); a howitzer's pit (Ground.pit from the ground as it was) deepens
+--   with each stage, the parts down on its floor. At full work the real gun stands (src/server/Artillery.place, in the
+--   team's paint), its HP shown on the holder ("HP", "MaxHP") for the shovel's panel; taken apart (Rules.gunStands) it
+--   is in parts again, its pit filling back, the ground as it was at 0.
 -- Build.blast (from src/server/Damage.blast) and Build.shot (src/server/Firing): weapons wear down trenches, sandbags
 -- and wire by Config/Build.Structures.
 
@@ -29,6 +30,7 @@ local ArtilleryCfg = require(Shared.Config.Artillery)
 local W = require(Shared.Config.Weapons)
 local DevCfg = require(Shared.Config.DevTools)
 local Rules = require(Shared.Rules.Build)
+local Scaffold = require(Shared.Rules.Scaffold)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
 local Destruction = require(script.Parent.Destruction)
@@ -56,7 +58,8 @@ type Rec = {
 	-- a gun piece: where the gun stands (on the ground before its pit), its blueprint or the gun standing, its pit's
 	-- ground as it was (Ground.pitBase) and the share of it dug now
 	at: CFrame?,
-	ghost: Model?,
+	parts: Model?,
+	site: Model?, -- its scaffold and tools while it is built (Config/Build.Scaffold)
 	gun: Model?,
 	standing: boolean?,
 	pitBase: Ground.PitBase?,
@@ -66,7 +69,8 @@ type Rec = {
 -- src/server/Artillery, handed in at start (it needs Damage, which needs this)
 type Guns = {
 	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
-	ghost: (string, string?, number) -> Model?,
+	parts: (string, string?) -> Model?,
+	assemble: (Model, string, CFrame, number) -> (),
 }
 local guns: Guns? = nil
 
@@ -261,8 +265,33 @@ local function remove(r: Rec, debris: boolean)
 	r.model:Destroy()
 end
 
--- a gun piece as its work stands: its pit dug to its stage, then its blueprint on the pit's floor or the gun standing
--- there (Rules.gunStands, Rules.pitShare)
+-- a gun's building site (Config/Build.Scaffold, Rules/Scaffold) at gun space's origin; Build pivots it onto the floor
+local function buildSite(spec: { [string]: any }): Model
+	local model = Instance.new("Model")
+	model.Name = "Site"
+	local colors = Palette.Build.Scaffold :: { [string]: { number } }
+	for _, piece in Scaffold.pieces(spec, C.Scaffold.Sizes) do
+		local a = Vector3.new(piece.a[1], piece.a[2], piece.a[3])
+		local b = Vector3.new(piece.b[1], piece.b[2], piece.b[3])
+		local up = Vector3.new(piece.up[1], piece.up[2], piece.up[3])
+		local mid = (a + b) / 2
+		local p = newPart(
+			model,
+			piece.color,
+			Vector3.new(piece.w, piece.h, (b - a).Magnitude),
+			CFrame.lookAt(mid, b, up),
+			rgb(colors[piece.color])
+		)
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+	end
+	model.WorldPivot = CFrame.new()
+	return model
+end
+
+-- a gun piece as its work stands: its pit dug to its stage, then its parts on the pit's floor, fitted to the quarter of
+-- the work done, or the gun standing there (Rules.gunStands, Rules.pitShare)
 showGun = function(r: Rec)
 	local p = r.piece
 	local gunCfg = ArtilleryCfg.Guns[p.gun]
@@ -293,14 +322,24 @@ showGun = function(r: Rec)
 	local paint = C.Guns.paint[r.team]
 	if r.standing then
 		if not r.gun then
-			if r.ghost then
-				r.ghost:Destroy()
-				r.ghost = nil
+			if r.parts then
+				r.parts:Destroy()
 			end
+			if r.site then
+				r.site:Destroy()
+			end
+			r.parts, r.site = nil, nil
 			local gun = guns.place(p.gun, at.Position, at.LookVector, { paint = paint, dug = d ~= nil })
 			r.gun = gun
 			if gun then
 				gun:SetAttribute("Piece", p.key)
+				-- its HP on the holder, for the shovel's panel (src/client/Build)
+				local function hp()
+					r.model:SetAttribute("HP", gun:GetAttribute("HP"))
+				end
+				r.model:SetAttribute("MaxHP", gunCfg.hp)
+				hp()
+				gun:GetAttributeChangedSignal("HP"):Connect(hp)
 				-- gone some other way (the dev tools' clear): the piece goes too
 				gun.Destroying:Connect(function()
 					if r.gun == gun then
@@ -316,16 +355,28 @@ showGun = function(r: Rec)
 		local gun = r.gun
 		r.gun = nil
 		gun:Destroy()
+		r.model:SetAttribute("HP", nil)
+		r.model:SetAttribute("MaxHP", nil)
 	end
-	if not r.ghost then
-		r.ghost = guns.ghost(p.gun, paint, C.GhostTransparency)
-		if r.ghost then
-			r.ghost.Parent = r.model
+	if not r.parts then
+		r.parts = guns.parts(p.gun, paint)
+		if r.parts then
+			r.parts.Parent = r.model
 		end
 	end
-	if r.ghost then
-		local floor = at.Position - Vector3.new(0, if d then d.depth * share else 0, 0)
-		r.ghost:PivotTo(CFrame.lookAt(floor, floor + at.LookVector))
+	local floor = at.Position - Vector3.new(0, if d then d.depth * share else 0, 0)
+	local on = CFrame.lookAt(floor, floor + at.LookVector)
+	if r.parts then
+		local quarters = Rules.stageOf(r.work, r.need, ArtilleryCfg.Assembly.quarters)
+		guns.assemble(r.parts, p.gun, on, quarters)
+	end
+	local spec = C.Scaffold[p.gun]
+	if not r.site and spec then
+		r.site = buildSite(spec)
+		r.site.Parent = r.model
+	end
+	if r.site then
+		r.site:PivotTo(on)
 	end
 end
 

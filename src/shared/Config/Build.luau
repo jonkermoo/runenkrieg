@@ -254,6 +254,56 @@ local Build = {
 		paint = { uniform1 = "Grey", uniform2 = "Olive", uniform3 = "White" },
 	},
 
+	-- The building site round a gun being built (Rules/Scaffold, src/server/Build; user 2026-10-26: "include building
+	-- structures (scaffolds, tools, etc) while the artillery is under construction"): it stands from the gun's laying
+	-- out until the gun stands, and comes back when it is taken apart. Gun space on the floor the gun is built on (studs,
+	-- right +X, back +Z; yaw degrees, + turns left). `frame`: a scaffold round it, posts `bays` bays down its long sides
+	-- `height` high, ledgers and walk boards at each of `levels`; `tripod`: three poles over it lashed `height` up, their
+	-- feet `spread` out (the first `turn` degrees from +X), a rope and hook hanging to `hook`; `crates` (`size` across,
+	-- high, long), `planks` (`count` stacked, `length` long), `sawhorses`. Nothing in it can be stood on, touched or shot.
+	Scaffold = {
+		-- (user 2026-10-26: "make it more subtle please"; was a 7-stud tripod over the field gun, a 20-stud one and a
+		-- two-level 10.5-stud scaffold round the howitzer, posts 0.35)
+		Sizes = {
+			post = 0.25, -- the frame's posts, ledgers, walk boards (`board` wide, `plank` thick)
+			ledger = 0.15,
+			board = 1,
+			plank = 0.12,
+			pole = 0.2, -- the tripod's poles, `overshoot` past their lashing, the lashing `lash` up and down, its block,
+			overshoot = 0.4, -- the rope and the hook
+			lash = 0.25,
+			block = 0.4,
+			rope = 0.07,
+			hook = 0.35,
+			braceLift = 0.3, -- the frame's braces start this far up a post
+			lashWidth = 1.6, -- the lashing, block and hook across (x their size)
+			blockShape = { 0.6, 0.4 },
+			hookShape = { 0.5, 0.25 },
+			-- a crate: its lid `lid` past it, battens `batten` thick `battenAt` of its width out, a mallet on top (its
+			-- handle from x, z, at height, to x, z, as shares of the crate) and its head
+			crate = {
+				lid = 0.06,
+				batten = 0.12,
+				battenAt = 0.3,
+				handle = { 0.35, 0.1, 0.06, 0.15, 0.15 },
+				handleWidth = 0.1,
+				head = { turn = 30, at = { 0.1, 0.22 }, size = { 0.5, 0.3, 0.3 } },
+			},
+			pile = { turn = 2, shift = 0.08 }, -- each plank turned and shifted off the one under it
+			horse = { length = 1.8, height = 1.1, beam = 0.2, splay = 0.35, inset = 0.2, leg = 0.12 },
+		},
+		artillery_qf18 = {
+			crates = { { x = -3, z = 2.6, yaw = 15, size = { 1.2, 0.7, 0.8 } } },
+			planks = { { x = 2.9, z = 4.8, yaw = -6, count = 2, length = 3.5 } },
+		},
+		artillery_howitzer = {
+			frame = { x = 0, z = 0.3, width = 16, depth = 18, bays = 2, height = 5.2, levels = { 4.2 } },
+			crates = { { x = -10.5, z = -2, yaw = 10, size = { 1.6, 0.9, 1.1 } } },
+			planks = { { x = 10.5, z = 5, yaw = 10, count = 3, length = 5 } },
+			sawhorses = { { x = -10.5, z = 6, yaw = 0 } },
+		},
+	},
+
 	-- Sandbags: each column a section of class "Sandbag" (Config/Damage.Blast.Fail), shovels tear the whole piece down
 	Sandbags = { columnHP = 400, shade = 0.06 },
 

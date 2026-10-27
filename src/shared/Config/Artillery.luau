@@ -98,7 +98,19 @@ export type Gun = {
 	-- a flat pad round its base that counts as the gun for hits (Hits): `pad` studs out past its footprint, `thick` studs
 	-- up from its foot; nil: the gun alone
 	platform: { pad: number, thick: number }?,
+	-- the parts shell holes are punched into as it is damaged (Wreck), and the holes' size range (studs)
+	wreckParts: { string },
+	holeSize: { number },
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
+	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
+	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
+	assembly: { { names: { string }, at: number } },
+	-- gears turning as it is laid (src/client/Artillery; user 2026-10-26: "animate the gears turning as well when we
+	-- rotate the gun left and right. make sure its accurate and biting each teeth accurately"): `part` (one of its
+	-- `mount`) spins about gun-space `axis` ("X", "Y" or "Z") through `centre`, `ratio` degrees per degree of its
+	-- `by` ("traverse" or "elevation"): the tooth ratio of the pair it meshes (tools/blender/artillery/bertha.py
+	-- prints them); nil: none
+	gears: { { part: string, centre: { number }, axis: string, by: string, ratio: number } }?,
 }
 
 local Artillery = {
@@ -296,6 +308,20 @@ local Artillery = {
 		ringFrom = 450,
 	},
 
+	-- Building a gun with the shovel (src/server/Build, src/server/Artillery.assemble; user 2026-10-26: "the artillery
+	-- will look broken down when first placed and assembled slowly in quarters phases", "you can just make parts start
+	-- appearing out of no where throughout phases"): only some of its parts stand when it is laid out, the rest appear
+	-- a group at a time as the work passes each quarter (each gun's `assembly`), the gun standing whole at full work.
+	-- The parts can't be touched, stood on or shot; the barrel sits at the gun's lowest lay.
+	Assembly = { quarters = 4 },
+
+	-- The earth a gun stands on, part of the gun (user 2026-10-26: "the ground below the howitzer can be destroyed ...
+	-- make sure its part of the model so it has a hitbox. same applies for the field cannon"): a block of earth under
+	-- its footprint, `pad` studs out past it, from the ground it stands on down `depth` studs, in Palette.Terrain
+	-- `color`; when blasts carve the terrain away round and under it, the gun still stands on it, and it counts as the
+	-- gun for hits (its box).
+	Ground = { pad = 0.5, depth = 5, color = "Mud" },
+
 	-- The reload bar (bottom centre while manning; Palette.UI)
 	Bar = { width = 220, height = 12, margin = 90, text = 16 },
 
@@ -326,7 +352,11 @@ local Artillery = {
 		awakeGlow = 0.6,
 		breath = 0.2,
 		pulse = 1.6,
-		alsoRunes = { "BarrelRunes", "BedRunes" },
+		alsoRunes = { "BarrelRunes" }, -- (the bed's runes are gone: user 2026-10-26)
+		-- the orbiting runes' strokes (user 2026-10-26: "more ... curve. it looks too blocky"; their halos taken off
+		-- again: "it makes the runes indecipherable"): each bows `bow` of its length off true (alternate strokes the
+		-- other way) in `pieces` rounded pieces, swelling to `swell` x the stroke in its middle, `tip` x at its ends
+		strokes = { bow = 0.1, pieces = 3, swell = 1.2, tip = 0.55 },
 		runesFloor = 0.15,
 		light = { range = 14, brightness = 2.5 },
 		runes = 8,
@@ -345,6 +375,22 @@ local Artillery = {
 		-- second (charging: from the first to the second as it fills; ready: the third), each `length` s long and
 		-- `depth` deep, and a slow uneven wobble of `wobble`
 		flicker = { rate = { 5, 0.8, 0.3 }, length = { 0.04, 0.2 }, depth = { 0.35, 0.9 }, wobble = 0.1 },
+		-- dying (user 2026-10-26: "make the lights flicker more deathly when its low HP"): hurt past `from` of its HP,
+		-- the drop-outs come up to `rate` more a second, `depth` deep (from the second up to the first); knocked out
+		-- (Wreck.unusable) it no longer charges or fires but sputters on, holding at `glow` and black for `blackout` of
+		-- the time, now and then a weak flare of `flare` lasting `flareLength` s (`flareEvery` s apart on average), the
+		-- light toward `tint` (RGB); at Wreck.dark it dies
+		dying = {
+			from = 0.2,
+			rate = 7,
+			depth = { 1, 0.5 },
+			glow = 0.35,
+			blackout = 0.55,
+			flare = 0.9,
+			flareLength = 0.1,
+			flareEvery = 1.6,
+			tint = { 150, 70, 110 },
+		},
 		-- the cracks (its "CrystalCracks" part) burn brighter than the gem by `cracks` of a glow, never darker than empty
 		cracks = 0.45,
 	},
@@ -403,9 +449,21 @@ local Artillery = {
 	-- full; from stage `unusable` nobody can man it (its gunner is thrown off), its barrel knocked down to its lowest lay
 	-- and up to `knock` degrees round, the howitzer's crystal dead. Each stage scorches it `scorch[i]` of the way to
 	-- Palette.Artillery.Scorched, leans it `tilt[i]` degrees and sinks it `sink[i]` studs.
+	-- Physically damaged too (user 2026-10-26: "make the physical model look damaged throughout each phase too? along
+	-- with the darkening. make the lights flicker more deathly when its low HP"): by stage i it has `holes[i]` shell
+	-- holes punched into its `wreckParts` (each gun's: torn holes of its `holeSize`, `petals` metal flaps bent out round
+	-- each), and the accent pieces of the roles in `lose[i]` (Palette.Artillery.Roles) are blown off, tumbling away as
+	-- debris for `debris.life` s; its glow sputters on (src/client/ArtilleryCrystal, Crystal.dying) until stage `dark`,
+	-- when it dies.
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		unusable = 2,
+		dark = 4,
+		holes = { 2, 5, 9, 14 },
+		lose = { {}, { "Kit" }, { "Kit", "Marking" }, { "Kit", "Marking", "Trim" } },
+		petals = 3,
+		holeDepth = 0.06,
+		debris = { life = 8, speed = { 8, 16 }, spin = 8 },
 		knock = 12,
 		scorch = { 0.25, 0.45, 0.65, 0.85 },
 		tilt = { 0, 1.5, 4, 9 },
@@ -448,9 +506,10 @@ local Artillery = {
 			asset = "artillery_qf18",
 			name = "QF 18-pounder",
 			base = "Carriage",
-			mount = { "Mount" },
-			cradle = { "Cradle" },
-			barrel = { "Barrel", "Bore" },
+			-- (each part's accent pieces, Palette.Artillery.Roles, ride with it)
+			mount = { "Mount", "MountTrim", "MountFittings", "MountMarking" },
+			cradle = { "Cradle", "CradleFittings" },
+			barrel = { "Barrel", "Bore", "BarrelTrim", "BarrelFittings" },
 			breech = { "Breech" },
 			trunnion = { 0, 2.544, -0.266 },
 			hinge = { 0.457, 2.855, 2.398 },
@@ -484,6 +543,8 @@ local Artillery = {
 			aimTilt = 8,
 			-- (user 2026-10-26: "add a platform hitbox for the cannon"; picked: the ground it stands on counts as the gun)
 			platform = { pad = 3, thick = 1.5 },
+			wreckParts = { "Carriage", "Wheels", "Mount" }, -- (the mount turns at most 4.5 degrees)
+			holeSize = { 0.3, 0.6 },
 			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail
 			crewTurns = false,
 			prompt = 8,
@@ -527,6 +588,14 @@ local Artillery = {
 			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
 			-- (user 2026-10-22: "have the cannon further back and up more"; was up 4, back 7)
 			camera = { side = -6.5, up = 5.5, back = 10, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			-- the trail on its wheels first, then the shield and mount, the cradle, the barrel, the breech last
+			assembly = {
+				{ names = { "Carriage", "Wheels", "Tyres" }, at = 0 },
+				{ names = { "Mount" }, at = 1 },
+				{ names = { "Cradle" }, at = 2 },
+				{ names = { "Barrel", "Bore" }, at = 3 },
+				{ names = { "Breech" }, at = 4 },
+			},
 		} :: Gun,
 		-- The magic howitzer v6 (user 2026-10-21: "look like the big bertha", "no tires ... the turning being controlled by
 		-- giant gears"; tools/blender/artillery/bertha.py, approved v10): a 42 cm siege mortar, its riveted box carriage
@@ -538,9 +607,39 @@ local Artillery = {
 			asset = "artillery_howitzer",
 			name = "Magic howitzer",
 			base = "Bed",
-			mount = { "Mount" },
-			cradle = { "Cradle" },
-			barrel = { "Barrel", "BarrelRunes", "Bore" },
+			mount = {
+				"Mount",
+				"MountTrim",
+				"MountFittings",
+				"MountKit",
+				"MountMarking",
+				"TraversePinion",
+				"TraverseWheel",
+				"ElevationPinion",
+				"ElevationWheel",
+			},
+			-- the traverse pinion rolls round the 60-tooth ring gear (10 teeth: 6 turns to the gun's one), its hand wheel
+			-- on its shaft; the elevating pinion (8 teeth) meshes the cradle's 50-tooth sector, against it (bertha.py)
+			gears = {
+				{ part = "TraversePinion", centre = { -5.576, 1.09, -4.515 }, axis = "Y", by = "traverse", ratio = 6 },
+				{ part = "TraverseWheel", centre = { -5.576, 4.4, -1.2 }, axis = "Z", by = "traverse", ratio = 6 },
+				{
+					part = "ElevationPinion",
+					centre = { -3.81, 3.973, -0.104 },
+					axis = "X",
+					by = "elevation",
+					ratio = -6.25,
+				},
+				{
+					part = "ElevationWheel",
+					centre = { -4.15, 3.973, -0.104 },
+					axis = "X",
+					by = "elevation",
+					ratio = -6.25,
+				},
+			},
+			cradle = { "Cradle", "CradleTrim" },
+			barrel = { "Barrel", "BarrelRunes", "Bore", "BarrelTrim" },
 			breech = { "Breech", "Crystal", "CrystalCracks" },
 			trunnion = { 0, 7.4, 0.5 },
 			hinge = { 0, 7.4, 3.1 }, -- (the breech never opens)
@@ -616,6 +715,8 @@ local Artillery = {
 				slabs = true,
 			},
 			hp = 240,
+			wreckParts = { "Bed", "Mount", "Cradle" }, -- (the moving ones carried by src/client/Artillery)
+			holeSize = { 0.7, 1.4 },
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
@@ -675,6 +776,14 @@ local Artillery = {
 			-- near side filled the bottom of the frame and the gunner was under it)
 			-- (dug 10.5 down, was 6: `up` 4.5 higher, so it stands as high over the ground as before; was 24)
 			camera = { side = -12, up = 28.5, back = 20, yaw = 25, pitch = -21, follow = 0, fov = 70 },
+			-- the bed and its ring gear first, then the carriage, the cradle, the barrel, the breech and gem last
+			assembly = {
+				{ names = { "Bed", "RingGear" }, at = 0 },
+				{ names = { "Mount", "Traverse", "Elevation" }, at = 1 },
+				{ names = { "Cradle" }, at = 2 },
+				{ names = { "Barrel", "Bore" }, at = 3 },
+				{ names = { "Breech", "Crystal" }, at = 4 },
+			},
 		} :: Gun,
 	},
 }
