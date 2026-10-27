@@ -22,6 +22,9 @@ local Settings = require(script.Parent.Settings)
 
 local SettingsMenu = {}
 
+-- Opens the menu (the title screen's Settings button, src/client/Menus); set by start
+function SettingsMenu.open() end
+
 local C = Palette.UI.Settings :: any
 local T = Spec.theme
 local M = Cfg.Menu
@@ -526,6 +529,9 @@ function SettingsMenu.start()
 				tpPanel.Visible = false
 			end
 		end
+	end
+	SettingsMenu.open = function()
+		setOpen(true)
 	end
 	gear.Activated:Connect(function()
 		setOpen(not panel.Visible)

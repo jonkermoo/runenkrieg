@@ -1,11 +1,11 @@
 --!strict
 -- Build mode on the local client (Config/Build; the server decides: src/server/Build, src/server/Trenches). With the
 -- shovel in the hands (Roblox's own camera stays: Config/Camera.FreeClasses, so everything here aims at the cursor):
--- - Key_Build opens build mode. The mouse wheel picks the piece. A piece's ghost follows the cursor on the ground,
+-- - Key_Build opens build mode. Key_BuildPrev / Key_BuildNext (Q / E) pick the piece. A piece's ghost follows the cursor on the ground,
 --   green where it can go and red with the reason where not (shared/BuildSurvey, the same survey the server runs);
 --   Key_BuildTurn turns it (Shift turns back), a click lays its blueprint (Net "Build" "Place"). A trench is planned
 --   with two clicks: the start, then the end (the plan follows the cursor between them, snapped as the server will
---   snap it), sent as Net "Build" "Plan". Key_BuildExit (Q) leaves build mode, dropping a start (right mouse stays
+--   snap it), sent as Net "Build" "Plan". Key_BuildExit (X) or Key_Build leaves build mode, dropping a start (right mouse stays
 --   Roblox's camera turn). Laying leaves build mode.
 -- - The trench planner's ghost (Config/Build.Plan; user 2026-10-24: "make the entire planning thing better and more
 --   stylish") previews what the server will peg out: per
@@ -28,6 +28,10 @@ local C = require(Shared.Config.Build)
 local Palette = require(Shared.Config.Palette)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Build)
+local ArtilleryCfg = require(Shared.Config.Artillery)
+local ArtilleryRules = require(Shared.Rules.Artillery)
+local Classes = require(Shared.Config.Classes)
+local ClassRules = require(Shared.Rules.Classes)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
@@ -71,8 +75,15 @@ local function shovelHeld(character: Model?): boolean
 	return weapon ~= nil and W[weapon.name] ~= nil and W[weapon.name].class == "Shovel"
 end
 
+-- the pieces this life's class may build (src/server/Loadouts' "Class"; the rest never show in the cycle)
+local function pieces(): { Rules.Piece }
+	local character = Players.LocalPlayer.Character
+	return ClassRules.buildable(character and character:GetAttribute("Class"), C.Pieces, Classes.Defs, Classes.Default)
+end
+
 local function piece(): Rules.Piece
-	return C.Pieces[index]
+	local list = pieces()
+	return list[math.clamp(index, 1, #list)]
 end
 
 -- the trench planner's ghost: its model and the pieces drawn each frame
@@ -146,6 +157,100 @@ local function showGhost(key: string, cf: CFrame, size: Vector3, ok: boolean)
 	box.Size = size
 	box.CFrame = cf
 	box.Color = rgb(if ok then C.Ghost.ok else C.Ghost.bad)
+end
+
+-- a gun piece's ghost (Config/Build.GunGhost): a see-through copy of the gun in gun space (as src/server/Artillery
+-- finds it, from the Bore at rest) and, dug in, its pit (out to the top of its wall) and ramp outlined on the ground;
+-- nil without the gun's model
+local function makeGunGhost(gun: ArtilleryCfg.Gun): Model?
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	for _, sub in { "Weapons", "Shared", "Artillery", gun.asset } do
+		f = f and f:FindFirstChild(sub)
+	end
+	local src = if f and f:IsA("Model") then f else nil
+	local bore = src and src:FindFirstChild("Bore", true)
+	local barrel = src and src:FindFirstChild(gun.barrel[1], true)
+	if not src or not bore or not barrel or not bore:IsA("BasePart") or not barrel:IsA("BasePart") then
+		return nil
+	end
+	local m = Instance.new("Model")
+	m.Name = "BuildGhost"
+	local body = src:Clone()
+	body.Name = "Gun"
+	for _, d in body:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide, d.CanQuery, d.CanTouch = false, false, false
+			d.CastShadow = false
+			d.Material = Enum.Material.SmoothPlastic
+			d.Transparency = math.max(d.Transparency, C.Ghost.transparency)
+		elseif d:IsA("Decal") or d:IsA("Light") or d:IsA("ParticleEmitter") or d:IsA("SurfaceAppearance") then
+			d:Destroy()
+		end
+	end
+	local dir = bore.Position - barrel.Position
+	local rot = CFrame.Angles(0, math.rad(ArtilleryRules.yawOf(dir.X, dir.Z)), 0)
+	local mz = gun.muzzle
+	local origin = bore.Position - rot:VectorToWorldSpace(Vector3.new(mz[1], mz[2], mz[3] + gun.boreCentre))
+	body.WorldPivot = CFrame.new(origin) * rot
+	body.Parent = m
+	local d = gun.dig
+	if d then
+		local G = C.GunGhost
+		local top = d.radius + (if d.wall then d.depth / math.tan(math.rad(d.wall)) else 0)
+		local pit = ghostPart(m)
+		pit.Name = "Pit"
+		pit.Shape = Enum.PartType.Cylinder
+		pit.Transparency = G.outlineSee
+		pit.Size = Vector3.new(G.outline, top * 2, top * 2)
+		if d.ramp then
+			local ramp = ghostPart(m)
+			ramp.Name = "Ramp"
+			ramp.Transparency = G.outlineSee
+			ramp.Size = Vector3.new(d.ramp.width, G.outline, d.ramp.length)
+		end
+	end
+	m.Parent = workspace.CurrentCamera
+	return m
+end
+
+-- shows a gun piece's ghost: the gun where it will stand (`at`: the ground at the click, `look`: flat), its pit and ramp
+-- on the ground there. False without the gun's model (its box is shown instead).
+local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: boolean): boolean
+	if not ghost or ghostFor ~= key then
+		clearGhost()
+		ghost = makeGunGhost(gun)
+		ghostFor = if ghost then key else nil
+	end
+	local m = ghost
+	local body = m and m:FindFirstChild("Gun") :: Model?
+	if not m or not body then
+		return false
+	end
+	local color = rgb(if ok then C.Ghost.ok else C.Ghost.bad)
+	local d = gun.dig
+	body:PivotTo(at * CFrame.new(0, -(if d then d.depth else 0), 0))
+	if m:GetAttribute("Ok") ~= ok then
+		for _, p in body:GetDescendants() do
+			if p:IsA("BasePart") then
+				p.Color = color
+			end
+		end
+	end
+	m:SetAttribute("Ok", ok)
+	local lift = C.GunGhost.outline / 2 + 0.05
+	local pit = m:FindFirstChild("Pit") :: BasePart?
+	if pit then
+		pit.CFrame = at * CFrame.new(0, lift, 0) * CFrame.Angles(0, 0, math.rad(90))
+		pit.Color = color
+	end
+	local ramp = m:FindFirstChild("Ramp") :: BasePart?
+	if ramp and d and d.ramp then
+		-- (behind the gun, +Z, from the floor's edge out)
+		ramp.CFrame = at * CFrame.new(0, lift + 0.02, d.radius + d.ramp.length / 2)
+		ramp.Color = color
+	end
+	return true
 end
 
 local function label(parent: Instance, font: Font, size: number, color: { number }): TextLabel
@@ -371,6 +476,13 @@ local function surveyPiece(character: Model, root: BasePart)
 		perTeam = C.PerTeam,
 	})
 	current = { frame = if gun then frame else box, ok = ok, reason = reason }
+	local gunCfg = if gun then ArtilleryCfg.Guns[p.gun or ""] else nil
+	if gunCfg then
+		-- (the gun as it will stand, not its whole box: user 2026-10-27)
+		if showGunGhost(p.key, gunCfg, frame, ok) then
+			return
+		end
+	end
 	local size = Survey.footprint(p)
 	showGhost(p.key, CFrame.new(box.Position.X, report.low + size.Y / 2, box.Position.Z) * box.Rotation, size, ok)
 end
@@ -842,6 +954,16 @@ function Build.start()
 			end
 		elseif active and Settings.pressed("Key_BuildExit", input) then
 			leave()
+		elseif
+			active
+			and not planStart
+			and (Settings.pressed("Key_BuildPrev", input) or Settings.pressed("Key_BuildNext", input))
+		then
+			-- (not the mouse wheel: it fought the other scrolling, user 2026-10-27)
+			local step = if Settings.pressed("Key_BuildPrev", input) then -1 else 1
+			local n = #pieces()
+			index = (math.clamp(index, 1, n) - 1 + step) % n + 1
+			clearGhost()
 		end
 	end)
 	UserInputService.InputChanged:Connect(function(input, processed)
@@ -850,9 +972,6 @@ function Build.start()
 		end
 		if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
 			turn = (turn + (if input.Position.Z > 0 then C.TurnStep else -C.TurnStep)) % 360
-		elseif not planStart then
-			index = (index - 1 + (if input.Position.Z > 0 then -1 else 1)) % #C.Pieces + 1
-			clearGhost()
 		end
 	end)
 	Net.event("Build").OnClientEvent:Connect(function(kind: any, text: any)
@@ -901,6 +1020,7 @@ function Build.start()
 		local state: string?, title, line: string?, keys: { Key } = nil, "", nil, {}
 		local fire, build, reload = keyName("Key_Fire"), keyName("Key_Build"), keyName("Key_Reload")
 		local exit = keyName("Key_BuildExit")
+		local pick = `{keyName("Key_BuildPrev")} {keyName("Key_BuildNext")}`
 		if active and character and root then
 			local p = piece()
 			if p.kind == "Trench" then
@@ -912,14 +1032,14 @@ function Build.start()
 					keys = { { fire, "lay the plan" }, { exit, "exit" } }
 				else
 					title = "Trench · pick the start"
-					keys = { { fire, "lay the start" }, { "Wheel", "piece" }, { exit, "exit" } }
+					keys = { { fire, "lay the start" }, { pick, "piece" }, { exit, "exit" } }
 				end
 			else
 				surveyPiece(character, root)
 				title = p.name
 				keys = {
 					{ fire, "lay" },
-					{ "Wheel", "piece" },
+					{ pick, "piece" },
 					{ keyName("Key_BuildTurn"), "turn" },
 					{ exit, "exit" },
 				}
@@ -959,7 +1079,15 @@ function Build.start()
 						else nil
 					title = `{mode} · {mine}`
 					line = if mode == "Destroy"
-						then `{gunHp or of} · dig to {if block then "fill it in" else "take it apart"}`
+						then `{gunHp or of} · dig to {if block
+							then "fill it in"
+							elseif gunHp and (hp :: number) > 0 then "wreck it"
+							else "take it apart"}`
+						elseif
+							work >= need
+							and gunHp
+							and (hp :: number) < (max :: number)
+						then `{gunHp} · dig to repair`
 						elseif not ours then if gunHp then `{gunHp} · switch to Destroy` else "switch to Destroy"
 						elseif work >= need then gunHp or "dug"
 						else `{of} · dig to build`

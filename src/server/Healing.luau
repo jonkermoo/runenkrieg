@@ -22,6 +22,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Healing)
 local DevCfg = require(Shared.Config.DevTools)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Healing)
 local Teams = require(Shared.Rules.Teams)
@@ -94,7 +95,9 @@ local function start(player: Player, patient: Model)
 	if not healer or not hh or not target or not th or target == healer or heals[healer] then
 		return
 	end
-	if not Teams.same(Kits.of(healer), Kits.of(target)) then
+	if
+		not Teams.same(Kits.of(healer), Kits.of(target), workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true)
+	then
 		return -- teammates only
 	end
 	if hh.Health <= 0 or not able(healer) or not Rules.inReach(distance(healer, target), Cfg.Range, Cfg.StartSlack) then

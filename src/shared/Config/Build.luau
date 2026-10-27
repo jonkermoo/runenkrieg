@@ -3,10 +3,11 @@
 -- plus caps, trenches carved in the terrain, the pieces flat-coloured code-built shapes until meshes are approved).
 -- Rules/Build decides, src/server/Build builds, src/client/Build shows build mode. Data only.
 --
--- Build mode: the shovel in the hands, Key_Build toggles it; the mouse wheel picks a piece, Key_BuildTurn turns it,
--- a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user 2026-10-23): a Build swing at
--- a piece of your team adds one unit of work; at `work` it stands. A Destroy swing at any piece, any team's, takes one
--- off; at 0 it is torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
+-- Build mode: the shovel in the hands, Key_Build toggles it; Key_BuildPrev / Key_BuildNext (Q / E) pick a piece,
+-- Key_BuildTurn turns it, a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user
+-- 2026-10-23): a Build swing at a piece of your team adds one unit of work; at `work` it stands (at any team's standing
+-- gun it repairs it: src/server/Artillery.repair). A Destroy swing at any piece, any team's, takes one off; at 0 it is
+-- torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
 
 local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
@@ -28,6 +29,12 @@ local Build = {
 	GhostTransparency = 0.75,
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
 	Ghost = { ok = { 120, 200, 120 }, bad = { 220, 80, 70 }, transparency = 0.55 },
+	-- a gun's ghost (src/client/Build; user 2026-10-27: "reduce the red space for a howitzer ... just make it the size
+	-- of the actual howizer with the trench. infact, make the outline a rough estimate of what the model would look like
+	-- when constructed"): the gun itself, see-through in Ghost ok / bad, standing as it will (a dug-in gun on its pit's
+	-- floor), and a dug-in gun's pit and ramp outlined flat on the ground, `outline` studs thick, `outlineSee`
+	-- see-through
+	GunGhost = { outline = 0.3, outlineSee = 0.7 },
 	-- the trench planner's ghost (src/client/Build; user 2026-10-24: "make the entire planning thing better and more
 	-- stylish"), a preview of the stakes and cord the
 	-- server lays: per square a faint fill (Ghost ok / bad, `fill` see-through) with the dug floor's band in it
@@ -132,6 +139,12 @@ local Build = {
 		-- trenches; the skirt since 2026-10-25, trench_pieces v8 Wall<i>Apron), and how much further the side heaps run on
 		-- round a dead end and its heap reaches past the side walls' tops
 		joins = { heapReach = 11, deadEndHeap = 3 },
+		-- the skirt behind a heap (Wall<i>Apron, low slabs meant to lie half sunk in the ground) is laid only where the
+		-- ground under it comes within `apronHang` studs of its underside everywhere (Rules.thinPieceSits); where the
+		-- trench pokes out over ground that falls away it would hang in the air as thin sheets, so the heap's full blocks
+		-- stand alone there (user 2026-10-27: "i dont mind if blocks stick out in the air, as long as they are full
+		-- blocks as they can somewhat blend in. this just looks glitched")
+		apronHang = 0.3,
 	},
 
 	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and
@@ -309,8 +322,8 @@ local Build = {
 	Sandbags = { columnHP = 400, shade = 0.06 },
 
 	-- Barbed wire (user 2026-10-27): its meshes are
-	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): the first Build swing lays the pickets and the coil
-	-- on the ground (Bundle*), the last stands it (Pickets, Strands, Coil). Anyone inside its box (both teams) is "Wired":
+	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
+	-- ground (Bundle*, from 0 work, user: "like the artilleries"), full work stands it (Pickets, Strands, Coil). Anyone inside its box (both teams) is "Wired":
 	-- walks at `speed`, can't sprint or jump (src/client/Stance); only the enemy loses `damage` health a second while
 	-- moving faster than `moving` studs/s (user: "slow, but only hurt enemies"), and each time it hurts someone it shakes
 	-- (src/client/WireShake: `shake` seconds, the wire `wobble` studs, the pickets `picket` of that, at `rate` Hz).
@@ -318,8 +331,8 @@ local Build = {
 	-- Destroy swing takes `destroy` HP (user: 2 swings, broken then gone); under `broken` of its HP it lies scattered on
 	-- the ground and does nothing (Wreck*, user: "a broken stage (less than 50) will make the fence ineffective and
 	-- scatter it on the ground. once it hits 0 it will despawn"); one Build swing of its team stands a broken wire back up
-	-- at full HP. The grass goes from under it (Net GroundDug, `grass` studs round its centre) when the first swing lays
-	-- it out.
+	-- at full HP. The grass goes from under it (Net GroundDug, `grass` studs round its centre) as it is laid. A
+	-- Destroy swing on a wire that never stood takes its work down; at 0 it is gone.
 	Wire = {
 		speed = 3,
 		damage = 4,

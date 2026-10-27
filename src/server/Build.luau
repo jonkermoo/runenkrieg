@@ -40,6 +40,7 @@ local Destruction = require(script.Parent.Destruction)
 local Ground = require(script.Parent.Ground)
 local Trees = require(script.Parent.Trees)
 local Trenches = require(script.Parent.Trenches)
+local Loadouts = require(script.Parent.Loadouts)
 
 local Build = {}
 
@@ -75,6 +76,9 @@ type Guns = {
 	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
 	parts: (string, string?) -> Model?,
 	assemble: (Model, string, CFrame, number) -> (),
+	repair: (Model, number) -> (string?, number),
+	setHp: (Model, number) -> (),
+	harm: (Model, number) -> boolean,
 }
 local guns: Guns? = nil
 
@@ -245,8 +249,8 @@ local function layoutWire(r: Rec, ground: number)
 	end
 end
 
--- the wire's look (Rules.wireLook): the blueprint shows it standing, see-through; it slows and hurts only standing
--- ("Armed"). The grass goes from under it once its first swing lays it out.
+-- the wire's look (Rules.wireLook): bundled on the ground from the moment it is laid, standing at full work, broken
+-- under half HP; it slows and hurts only standing ("Armed"). The grass goes from under it as it is laid.
 local function showWire(r: Rec)
 	local holder = r.model:FindFirstChild("Wire")
 	if not holder then
@@ -254,19 +258,15 @@ local function showWire(r: Rec)
 	end
 	local maxHP = C.Structures.wireHP
 	local look = Rules.wireLook(r.built, r.work, r.need, r.hp or maxHP, maxHP, C.Wire)
-	local shown = if look == "Blueprint" then "Standing" else look
 	for _, p in holder:GetChildren() do
 		if p:IsA("BasePart") then
-			p.Transparency = if p:GetAttribute("Look") ~= shown
-				then 1
-				elseif look == "Blueprint" then C.GhostTransparency
-				else 0
+			p.Transparency = if p:GetAttribute("Look") == look then 0 else 1
 			p.CastShadow = p.Transparency == 0
 		end
 	end
 	r.model:SetAttribute("Look", look)
 	r.model:SetAttribute("Armed", look == "Standing")
-	if look ~= "Blueprint" and not r.grassed then
+	if not r.grassed then
 		r.grassed = true
 		Net.event("GroundDug"):FireAllClients(r.frame.Position, C.Wire.grass)
 	end
@@ -487,6 +487,7 @@ local function place(player: Player, key: any, at: any)
 		team = count(team, nil),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
+		allowed = Loadouts.mayBuild(character, piece.kind), -- (only engineers build guns: Config/Classes)
 	})
 	if not ok then
 		refuse(player, reason or "Can't build here")
@@ -568,7 +569,9 @@ local function work(player: Player, target: any, mode: any)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
 			lastSwing[player] = now
-			Trenches.work(blk, team, mode, digShare(player))
+			if Trenches.work(blk, team, mode, digShare(player)) then
+				Loadouts.award(player, "Trench")
+			end
 		end
 		return
 	end
@@ -589,6 +592,46 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local own = team == r.team
+	if mode == "Build" and r.gun and r.standing then
+		-- fixing a standing gun, any team's (Config/Artillery.Repair; user 2026-10-27: "make it so you can fix a
+		-- artillery by digging too ... its fine if the cannon looks buried, as long as it gets flattenned out again once
+		-- its fixed", "enemie teams should be able to repair and fix enemie trenches and artillery")
+		local gun = r.gun
+		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
+		local hp = gun:GetAttribute("HP")
+		if not guns or not g or type(hp) ~= "number" or hp >= g.hp then
+			return
+		end
+		lastSwing[player] = now
+		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player)))
+		if what then
+			-- back in service or whole: a fresh gun in its place, the howitzer's pit dug out again from the ground as
+			-- it was (the field gun levels its own ground as it stands), damaged to what it has
+			r.gun = nil
+			gun:Destroy()
+			local d = g.dig
+			local at = r.at
+			if d and r.pitBase and at then
+				local ramp = d.ramp and { dir = -at.LookVector, width = d.ramp.width, length = d.ramp.length }
+				local out = Ground.pit(at.Position, d.radius, d.depth, d.rim, d.rimHeight, ramp, d.wall, r.pitBase)
+				Net.event("GroundDug"):FireAllClients(at.Position, out)
+			end
+			showGun(r)
+			if r.gun and what == "usable" then
+				guns.setHp(r.gun, after)
+			end
+		end
+		return
+	end
+	if mode == "Destroy" and r.gun and r.standing and guns then
+		-- a standing gun loses HP to the shovel as to any damage (Artillery.harm), as many swings as fix it; only a
+		-- wreck at 0 is taken apart, swing by swing, below
+		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
+		if g and guns.harm(r.gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player))) then
+			lastSwing[player] = now
+			return
+		end
+	end
 	-- a wire that has stood: swings go to its HP (Destroy breaks it, then takes it away; its team's Build stands a
 	-- broken one back up)
 	if r.piece.kind == "Wire" and r.built then
@@ -609,7 +652,11 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	if mode == "Build" and (not own or r.work >= r.need) then
-		return -- (repairs come later)
+		return
+	end
+	if mode == "Build" and not Loadouts.mayBuild(character, r.piece.kind) then
+		refuse(player, "Engineers only") -- (anyone may take one apart)
+		return
 	end
 	lastSwing[player] = now
 	local was = r.work
@@ -621,11 +668,15 @@ local function work(player: Player, target: any, mode: any)
 	r.work = left
 	r.worked = now
 	if r.work >= r.need then
+		if not r.built then
+			Loadouts.award(player, "Piece") -- (once per piece: built again after Destroy swings pays nothing)
+		end
 		r.built = true
 	end
 	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
 	if
 		r.piece.kind == "Gun"
+		or r.piece.kind == "Wire" -- (its look changes on every swing: Rules.wireLook)
 		or Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages)
 		or r.work >= r.need
 	then

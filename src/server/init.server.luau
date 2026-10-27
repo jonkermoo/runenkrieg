@@ -50,9 +50,12 @@ end
 
 require(script.Profile).start() -- (the saved settings)
 require(script.Environment).start()
+require(script.Loadouts).start() -- (the class each life spawns as, the match currency)
 require(script.Bodies).start() -- (dresses the helmet and hair: script.Helmets)
 require(script.Armory).start()
+require(script.Deploy).start() -- (no auto respawn: the menus deploy; the loadout preview soldier)
 require(script.Doors).start()
+require(script.Sectors).start() -- (hides the sector dividers and point markers)
 require(script.DevTools).start()
 require(script.Firing).start()
 require(script.Melee).start()
@@ -70,5 +73,16 @@ require(script.Ground).start(require(script.Build).dug, require(script.Build).ne
 require(script.Wire).start()
 require(script.Showcase).start()
 require(script.TestShooter).start()
+-- the zone match's captures pay match points and each match starts them over (src/server/Loadouts, when the game has
+-- it; hooked before the first match starts)
+local loadouts = script:FindFirstChild("Loadouts")
+if loadouts then
+	local L = require(loadouts) :: any
+	require(script.ZoneMatch).onCapture(function(player)
+		L.award(player, "Capture")
+	end)
+	require(script.ZoneMatch).onMatchStart(L.resetMatch)
+end
+require(script.ZoneMatch).start() -- (the zone-capture match on the playtest map, while Workspace says so)
 
 print("[runenkrieg] server started")

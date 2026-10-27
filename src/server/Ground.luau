@@ -9,6 +9,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local DamageCfg = require(Shared.Config.Damage)
 local Blast = require(Shared.Rules.Blast)
 local Refill = require(Shared.Rules.Refill)
+local Rules = require(Shared.Rules.Artillery)
 
 local Ground = {}
 
@@ -29,6 +30,11 @@ local trenched: (string) -> boolean = function(_key: string)
 end
 -- whether a point is within some studs of a trench's ground (src/server/Build.nearTrench): craters stop short of it
 local nearTrench: (Vector3, number) -> boolean = function(_p: Vector3, _extra: number)
+	return false
+end
+
+-- whether a point stands on a gun's ground (src/server/Artillery.onGround): craters never carve it away
+local guarded: (Vector3) -> boolean = function(_p: Vector3)
 	return false
 end
 
@@ -213,6 +219,13 @@ local function refillCrater(k: Crater, share: number, done: boolean): number
 	return size.X * size.Y * size.Z
 end
 
+-- Keeps craters off the guns' ground (user 2026-10-27: "the ground beneath artilleries are still not indestructible.
+-- its fine if the cannon looks buried"): no bowl is cut where `on` says a point stands on a gun's ground; the earth a
+-- blast throws up may still land on it.
+function Ground.guard(on: (Vector3) -> boolean)
+	guarded = on
+end
+
 -- Starts the craters filling back in: every `tick` s each crater due a step is written, oldest first, at most `budget`
 -- voxels a tick (the rest next tick). `isTrench`: whether a trench touched a voxel (src/server/Build.dug); `near`:
 -- whether a point is within some studs of a trench's ground (src/server/Build.nearTrench), where craters stop.
@@ -270,7 +283,8 @@ function Ground.bowl(position: Vector3, mouth: number, depth: number)
 				column[iy] = occs[ix][iy][iz]
 				wet = wet or mats[ix][iy][iz] == Enum.Material.Water
 			end
-			if lower > 0 and not wet and not nearTrench(Vector3.new(x, position.Y, z), VOXEL / 2) then
+			local column0 = Vector3.new(x, position.Y, z)
+			if lower > 0 and not wet and not nearTrench(column0, VOXEL / 2) and not guarded(column0) then
 				local out = Blast.lowerColumn(column, corner.Y, VOXEL, lower)
 				for iy = 1, size.Y do
 					occs[ix][iy][iz] = out[iy]
@@ -470,6 +484,63 @@ function Ground.pit(
 					if occs[ix][iy][iz] > keep or (level and occs[ix][iy][iz] ~= keep) then
 						occs[ix][iy][iz] = keep
 						mats[ix][iy][iz] = if keep <= 0 then Enum.Material.Air else Enum.Material.Mud
+					end
+				end
+			end
+		end
+	end
+	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	return out
+end
+
+-- The ground under a gun standing on the terrain (src/server/Artillery, Config/Artillery `level`): within the box
+-- `lo`..`hi` (x, z in the space of `pivot`, whose height is the gun's foot) cut down or filled up to a level floor at
+-- the foot, easing back to the ground as it was over the next `blend` studs (Rules/Artillery.levelAt); its top
+-- `material` (no grass); older craters there no longer fill back. Voxel by voxel with fractional occupancy, as Ground.pit. Columns with water, or no ground
+-- within reach, are left alone. Returns how far out from the pivot it reached.
+function Ground.level(pivot: CFrame, lo: { number }, hi: { number }, blend: number, material: Enum.Material): number
+	local terrain = workspace.Terrain
+	local foot = pivot.Position
+	local out = 0
+	for _, c in { { lo[1], lo[2] }, { lo[1], hi[2] }, { hi[1], lo[2] }, { hi[1], hi[2] } } do
+		out = math.max(out, Vector2.new(c[1], c[2]).Magnitude + blend)
+	end
+	local reach = Vector3.new(out, blend + VOXEL * 4, out)
+	local region = Region3.new(foot - reach, foot + reach):ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return out
+	end
+	local size = mats.Size
+	local corner = region.CFrame.Position - region.Size / 2
+	local gx, gy, gz = gridOf(region)
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
+			local l = pivot:PointToObjectSpace(Vector3.new(x, foot.Y, z))
+			-- the column's top as it is (nil: none in reach, or water in it)
+			local ground: number? = nil
+			for iy = size.Y, 1, -1 do
+				if mats[ix][iy][iz] == Enum.Material.Water then
+					ground = nil
+					break
+				end
+				if ground == nil and occs[ix][iy][iz] > 0 then
+					ground = corner.Y + (iy - 0.5) * VOXEL + occs[ix][iy][iz] * VOXEL
+				end
+			end
+			local want = if ground then Rules.levelAt(l.X, l.Z, lo, hi, blend, foot.Y, ground) else nil
+			if want then
+				for iy = 1, size.Y do
+					-- the ground levelled is the ground now: older craters here no longer fill back to before it
+					voxels[`{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`] = nil
+					local mid = corner.Y + (iy - 0.5) * VOXEL
+					local keep = math.clamp((want - mid) / VOXEL, 0, 1)
+					occs[ix][iy][iz] = keep
+					if keep <= 0 then
+						mats[ix][iy][iz] = Enum.Material.Air
+					elseif mats[ix][iy][iz] == Enum.Material.Air or mid > want - VOXEL * 2 then
+						mats[ix][iy][iz] = material -- the top two voxels (and what it is filled up with)
 					end
 				end
 			end

@@ -83,8 +83,14 @@ return {
 		assert(R.clean(O, { FieldOfView = math.huge }, Cfg.MaxKeyName).FieldOfView == nil)
 		assert(c.Debris == nil and c.Nope == nil and c.Key_Aim == nil)
 		assert(next(R.clean(O, "junk", Cfg.MaxKeyName)) == nil)
-		local dup = R.clean(O, { Key_Fire = "F", Key_Reload = "F", Key_Aim = "G" }, Cfg.MaxKeyName)
-		assert(dup.Key_Fire == nil and dup.Key_Reload == nil and dup.Key_Aim == "G", "a key bound twice is dropped")
+		local dup = R.clean(O, { Key_Fire = "F", Key_Reload = "F", Key_Aim = "J" }, Cfg.MaxKeyName)
+		assert(dup.Key_Fire == nil and dup.Key_Reload == nil and dup.Key_Aim == "J", "a key bound twice is dropped")
+		-- a save from before a keybind moved: its old key now another's default (user 2026-10-27: "Q is still exit")
+		local old = R.clean(O, { Key_BuildExit = "Q", Key_Build = "B", Key_Aim = "J" }, Cfg.MaxKeyName)
+		assert(old.Key_BuildExit == nil and old.Key_Build == "B" and old.Key_Aim == "J")
+		assert(O.Key_BuildExit.default == "X" and O.Key_BuildPrev.default == "Q" and O.Key_BuildNext.default == "E")
+		-- a key you chose that no other keybind takes by default stays
+		assert(R.clean(O, { Key_BuildExit = "Z" }, Cfg.MaxKeyName).Key_BuildExit == "Z")
 		assert(next(R.clean(O, nil, Cfg.MaxKeyName)) == nil)
 	end,
 	["presets: valid values, defaults are Normal, touch defaults are Low, a mix is Custom"] = function()

@@ -174,8 +174,8 @@ return {
 	end,
 	["the wire: looks by work and HP"] = function()
 		local W, hp = C.Wire, C.Structures.wireHP
-		assert(B.wireLook(false, 0, 2, hp, hp, W) == "Blueprint")
-		assert(B.wireLook(false, 1, 2, hp, hp, W) == "Bundle", "the first swing lays it on the ground")
+		assert(B.wireLook(false, 0, 2, hp, hp, W) == "Bundle", "laid, it is on the ground at once, before any swing")
+		assert(B.wireLook(false, 1, 2, hp, hp, W) == "Bundle")
 		assert(B.wireLook(false, 2, 2, hp, hp, W) == "Standing")
 		assert(B.wireLook(true, 2, 2, hp * W.broken, hp, W) == "Standing", "at half HP it still stands")
 		assert(B.wireLook(true, 2, 2, hp * W.broken - 1, hp, W) == "Broken", "under half it is broken")
@@ -286,6 +286,18 @@ return {
 		assert(B.tooClose(12, w, 12, w + 30, false, false, other, S), "the same, not joined")
 		-- leaving an end but bending back alongside
 		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S), "doubling back alongside")
+	end,
+	["trenches v2: a heap's thin skirt is laid only where the ground holds it, never hanging in the air"] = function()
+		local hang = C.Trench.apronHang
+		-- flat ground: the skirt's underside sunk below it
+		assert(B.thinPieceSits(9.2, { 10, 10, 10, 10 }, hang), "sunk in flat ground")
+		-- the ground just under it, within the slack
+		assert(B.thinPieceSits(9.2, { 9.2 - hang * 0.5, 10 }, hang), "a hair over the ground")
+		-- the trench pokes out: the ground falls away under its far edge
+		assert(not B.thinPieceSits(9.2, { 10, 10, 7.5, 6 }, hang), "over ground falling away")
+		-- no ground under one point at all
+		assert(not B.thinPieceSits(9.2, { 10, -math.huge }, hang), "over nothing")
+		assert(not B.thinPieceSits(9.2, {}, hang), "no samples, no skirt")
 	end,
 	["trenches v2: a side wall keeps to the stretches clear of other trenches, either side of a branch"] = function()
 		local runs = B.freeRuns({ true, false, false, true, false, false, false, true })

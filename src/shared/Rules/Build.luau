@@ -59,10 +59,14 @@ export type Placing = {
 	team: number, -- the team's live pieces
 	perPlayer: number,
 	perTeam: number,
+	allowed: boolean?, -- false: the builder's class may not build this kind (Rules/Classes.mayBuild)
 }
 
 -- Whether a piece can be laid here; when not, the reason to show
 function Build.canPlace(p: Placing): (boolean, string?)
+	if p.allowed == false then
+		return false, "Engineers only"
+	end
 	if p.distance > p.reach then
 		return false, "Too far"
 	end
@@ -287,6 +291,18 @@ function Build.trenchPieces(seed: number, prevSeed: number?, p: any): TrenchPiec
 	}
 end
 
+-- Whether a thin piece (a heap's skirt of low slabs) sits on the ground: the ground under each of its sample points
+-- (`grounds`, -math.huge where there is none) comes within `hang` of its underside `bottom`. Where it doesn't, the
+-- piece would hang in the air as a thin sheet, so it is left out (full blocks may stand in the air, thin ones not).
+function Build.thinPieceSits(bottom: number, grounds: { number }, hang: number): boolean
+	for _, g in grounds do
+		if g < bottom - hang then
+			return false
+		end
+	end
+	return #grounds > 0
+end
+
 -- How deep a trench square is cut (0..1 of the full depth) at `hp`: while it's being dug, its HP's share; once it has
 -- been dug full (`built`), full depth down to `h.hold`% HP, then buried with what's left.
 function Build.trenchDepth(hp: number, built: boolean, h: any): number
@@ -503,9 +519,10 @@ function Build.wireHarm(speed: number, dt: number, w: any, friend: boolean?): nu
 	return w.damage * dt
 end
 
--- How a barbed wire looks (Config/Build.Wire): "Blueprint" before any work, "Bundle" while partly built, "Standing" at
+-- How a barbed wire looks (Config/Build.Wire): "Bundle" from the moment it is laid until its work is full (user
+-- 2026-10-27: "make it like the artilleries where placing it places it at stage 1 ... make it also occur at 0"), "Standing" at
 -- full work, and once it has stood, "Broken" under `w.broken` of its HP (it then slows and hurts nobody)
-export type WireLook = "Blueprint" | "Bundle" | "Standing" | "Broken"
+export type WireLook = "Bundle" | "Standing" | "Broken"
 
 -- whether a wire that has stood is broken: under `w.broken` of its HP
 function Build.wireBroken(hp: number, maxHP: number, w: any): boolean
@@ -515,9 +532,6 @@ end
 function Build.wireLook(built: boolean, work: number, need: number, hp: number, maxHP: number, w: any): WireLook
 	if built then
 		return if Build.wireBroken(hp, maxHP, w) then "Broken" else "Standing"
-	end
-	if work <= 0 then
-		return "Blueprint"
 	end
 	return if work >= need then "Standing" else "Bundle"
 end

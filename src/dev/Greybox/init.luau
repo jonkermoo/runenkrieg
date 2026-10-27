@@ -1,9 +1,12 @@
 --!strict
--- Dev-only map builder: flat-color terrain, roads, tree meshes and out-of-bounds panels. Run in Studio edit mode
--- in the DEV place:
+-- Dev-only map builder: flat-color terrain, roads, tree meshes, out-of-bounds panels, and the sector dividers and
+-- capture point markers. Run in Studio edit mode in the DEV place:
 --   require(game.ServerStorage.Dev.Greybox:Clone()).build("Map1")
+-- or only the sector dividers and markers, over a map already built:
+--   require(game.ServerStorage.Dev.Greybox:Clone()).sectors("Map1")
 -- Cloning bypasses the require cache so Rojo edits take effect without restarting Studio.
--- Replaces Workspace.<map> and ALL terrain, generated from Config/Maps/<map> via Rules/MapTerrain.
+-- Replaces Workspace.<map> and ALL terrain, generated from Config/Maps/<map> via Rules/MapTerrain; a map with `offMap`
+-- (Config/Maps/Playtest) replaces only the terrain round itself and adds no spawn.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -12,6 +15,7 @@ local Ground = require(script.Ground)
 local Trees = require(script.Trees)
 local Features = require(script.Features)
 local VillageBuild = require(script.VillageBuild)
+local Sectors = require(script.Sectors)
 
 local Greybox = {}
 
@@ -51,13 +55,18 @@ function Greybox.build(mapName: string): string
 	root.Name = mapName
 	root.Parent = workspace
 
-	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette)
+	-- a hand-placed layout (map.layout) keeps its natural trees off its buildings (Rules/Village.fixed)
+	local fixed = if map.layout then VillageRules.fixed(map, B, M, MT) else nil
+	local trees =
+		Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette, if fixed then fixed.trees else nil)
 	-- Village: roads are painted into the terrain by Rules/MapTerrain; buildings + props from the library.
 	local villageStats = ""
-	if map.village then
+	if map.village or fixed then
 		local P = fresh(Shared.Config.Props)
-		local layout = VillageRules.layout(map, B, M, MT, P)
-		Trees.build(Parts.folder(root, "VillageTrees"), map, MT, treeKit, assets, palette, layout.trees)
+		local layout = fixed or VillageRules.layout(map, B, M, MT, P)
+		if not fixed then
+			Trees.build(Parts.folder(root, "VillageTrees"), map, MT, treeKit, assets, palette, layout.trees)
+		end
 		local vstats = VillageBuild.build(Parts.folder(root, "Village"), map, layout, {
 			MT = MT,
 			B = B,
@@ -75,25 +84,54 @@ function Greybox.build(mapName: string): string
 			vstats.boundaries,
 			vstats.poles,
 			vstats.props,
-			#layout.trees
+			if fixed then 0 else #layout.trees
 		)
 	end
 	local panels = Features.bounds(root, map, boundaryCfg)
-	Features.testSpawn(root, map, MT)
+	local dividers, points = 0, 0
+	if map.dividers then
+		dividers, points = Sectors.build(root, map, MT, fresh(Shared.Config.Sectors), fresh(Shared.Rules.Sectors))
+	end
+	if not map.offMap then
+		Features.testSpawn(root, map, MT)
+	end
 	Features.atmosphere(palette)
 	Features.wind(fresh(Shared.Config.TreeSway))
 
 	return string.format(
-		"Built %s: terrain %d chunks (%.1fs), %d trees, %d boundary panels, %d parts, %.1fs total.%s",
+		"Built %s: terrain %d chunks (%.1fs), %d trees, %d boundary panels, %d divider blocks, %d points, %d parts, %.1fs total.%s",
 		mapName,
 		chunks,
 		tTerrain,
 		trees,
 		panels,
+		dividers,
+		points,
 		Parts.count(),
 		os.clock() - t0,
 		villageStats
 	)
+end
+
+-- Rebuilds only Workspace.<map>.Sectors (dividers and point markers) from the map's config.
+function Greybox.sectors(mapName: string): string
+	assert(game.PlaceId == DEV_PLACE_ID, "Map builder only runs in the DEV place")
+	local Shared = ReplicatedStorage:WaitForChild("Shared")
+	local root = workspace:FindFirstChild(mapName)
+	assert(root, `{mapName} isn't built: run build("{mapName}") first`)
+	local old = root:FindFirstChild("Sectors")
+	if old then
+		old:Destroy()
+	end
+	local map = fresh(Shared.Config.Maps:FindFirstChild(mapName) :: Instance)
+	local dividers, points = Sectors.build(
+		root,
+		map,
+		fresh(Shared.Rules.MapTerrain),
+		fresh(Shared.Config.Sectors),
+		fresh(Shared.Rules.Sectors)
+	)
+	return string.format("Built %s sectors: %d divider blocks, %d points.", mapName, dividers, points)
 end
 
 return Greybox
