@@ -38,6 +38,7 @@ local Ragdoll = require(script.Parent.Ragdoll)
 local Ground = require(script.Parent.Ground)
 local Healing = require(script.Parent.Healing)
 local Kits = require(script.Parent.Kits)
+local Loadouts = require(script.Parent.Loadouts)
 local Trees = require(script.Parent.Trees)
 
 local Damage = {}
@@ -108,7 +109,6 @@ local function flat(v: Vector3): Vector3
 	return if f.Magnitude > 1e-3 then f.Unit else Vector3.zero
 end
 
--- Hurts one soldier: the knock first (so a death goes down with its own knock), then the health.
 -- Spawn protection: `character` can't be hurt or knocked for `seconds`, or until it attacks (a shot, a stroke, a staff
 -- cast, a blast of its own).
 function Damage.protect(character: Model, seconds: number)
@@ -126,13 +126,17 @@ local function attacks(by: Model?)
 	end
 end
 
+-- Hurts one soldier: the knock first (so a death goes down with its own knock), then the health. `by`: who did it,
+-- `zone` where (src/server/Loadouts credits the kill and the assists).
 local function hurt(
 	character: Model,
 	humanoid: Humanoid,
 	left: number,
 	knock: string?,
 	direction: Vector3,
-	scale: number?
+	scale: number?,
+	by: Model?,
+	zone: string?
 )
 	if humanoid.Health > 0 and Damage.protected(character) then
 		return
@@ -149,6 +153,7 @@ local function hurt(
 	end
 	if not Dev.god(character) then
 		Healing.hit(character) -- a healer hit stops healing (Config/Healing)
+		Loadouts.hurt(character, by, humanoid.Health - left, zone)
 	end
 	humanoid.Health = if Dev.god(character) then humanoid.Health else left
 end
@@ -191,7 +196,16 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 		local total, helmet, top = Rules.sum(e.hits)
 		if total > 0 or helmet > 0 then
 			local left = Rules.after(e.humanoid.Health, total, helmet, Cfg.HelmetFloor)
-			hurt(character, e.humanoid, left, Rules.knock(top, left <= 0, Cfg.Knocks), flat(e.direction))
+			hurt(
+				character,
+				e.humanoid,
+				left,
+				Rules.knock(top, left <= 0, Cfg.Knocks),
+				flat(e.direction),
+				nil,
+				shooter,
+				top
+			)
 		end
 	end
 end
@@ -211,7 +225,7 @@ function Damage.melee(striker: Model, part: BasePart, zone: string, direction: V
 		return false
 	end
 	local left, knock = MeleeRules.hit(zone, humanoid.Health, Cfg.Melee, Cfg.Knocks.Killed, Cfg.HelmetFloor)
-	hurt(character, humanoid, left, knock, flat(direction))
+	hurt(character, humanoid, left, knock, flat(direction), nil, striker, zone)
 	return true
 end
 
@@ -352,7 +366,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 				end
 				if scale then
 					knocked[character] = true
-					hurt(character, humanoid, left, B.Fling.knock, flat(torso.Position - position), scale)
+					hurt(character, humanoid, left, B.Fling.knock, flat(torso.Position - position), scale, by)
 				end
 			end
 		end
@@ -427,7 +441,7 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 	then
 		local left, knock = Rules.staff(stage, humanoid.Health, S)
 		if left then
-			hurt(character, humanoid, left, knock, flat(direction))
+			hurt(character, humanoid, left, knock, flat(direction), nil, caster)
 		end
 	end
 	Trees.direct(result and result.Instance, stage, direction) -- a trunk hit straight on (src/server/Trees)

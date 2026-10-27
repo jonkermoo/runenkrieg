@@ -37,6 +37,7 @@ local Destruction = require(script.Parent.Destruction)
 local Ground = require(script.Parent.Ground)
 local Trees = require(script.Parent.Trees)
 local Trenches = require(script.Parent.Trenches)
+local Loadouts = require(script.Parent.Loadouts)
 
 local Build = {}
 
@@ -454,6 +455,7 @@ local function place(player: Player, key: any, at: any)
 		team = count(team, nil),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
+		allowed = Loadouts.mayBuild(character, piece.kind), -- (only engineers build guns: Config/Classes)
 	})
 	if not ok then
 		refuse(player, reason or "Can't build here")
@@ -535,7 +537,9 @@ local function work(player: Player, target: any, mode: any)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
 			lastSwing[player] = now
-			Trenches.work(blk, team, mode, digShare(player))
+			if Trenches.work(blk, team, mode, digShare(player)) then
+				Loadouts.award(player, "Trench")
+			end
 		end
 		return
 	end
@@ -599,6 +603,10 @@ local function work(player: Player, target: any, mode: any)
 	if mode == "Build" and (not own or r.work >= r.need) then
 		return
 	end
+	if mode == "Build" and not Loadouts.mayBuild(character, r.piece.kind) then
+		refuse(player, "Engineers only") -- (anyone may take one apart)
+		return
+	end
 	lastSwing[player] = now
 	local was = r.work
 	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(1, r.need, digShare(player)))
@@ -609,6 +617,9 @@ local function work(player: Player, target: any, mode: any)
 	r.work = left
 	r.worked = now
 	if r.work >= r.need then
+		if not r.built then
+			Loadouts.award(player, "Piece") -- (once per piece: built again after Destroy swings pays nothing)
+		end
 		r.built = true
 	end
 	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
