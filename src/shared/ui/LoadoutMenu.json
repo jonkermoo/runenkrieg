@@ -1,6 +1,6 @@
 {
 	"name": "LoadoutMenu",
-	"_doc": "The loadout menu (src/client/Menus): opens after Play and on every death; the class list on the left (one row per Config/Classes.List entry, the rows here are samples), the soldier you'll spawn as on the right (a ViewportFrame of the server's preview rig). Marks show only here (user 2026-10-27). Deploy lights up when the respawn delay is over.",
+	"_doc": "The loadout menu (src/client/Menus): opens after Play and on every death; the class list on the left (one row per Config/Classes.List entry, the rows here are samples), the soldier you'll spawn as on the right (a ViewportFrame of the server's preview rig). Marks show only here (user 2026-10-27). Back returns to the title screen (user 2026-10-27: \"we need a back button\"). Deploy lights up when the respawn delay is over.",
 	"theme": {
 		"scale": {
 			"referenceHeight": 800,
@@ -556,6 +556,31 @@
 						]
 					},
 					{
+						"id": "Back",
+						"kind": "button",
+						"text": "Back",
+						"textSize": 28,
+						"color": "field",
+						"line": "line",
+						"textColor": "text",
+						"anchor": [
+							0,
+							1
+						],
+						"pos": [
+							0,
+							18,
+							1,
+							-18
+						],
+						"size": [
+							0,
+							120,
+							0,
+							64
+						]
+					},
+					{
 						"id": "Deploy",
 						"kind": "button",
 						"bind": "deploy",
@@ -569,13 +594,13 @@
 						],
 						"pos": [
 							0,
-							18,
+							148,
 							1,
 							-18
 						],
 						"size": [
 							1,
-							-36,
+							-166,
 							0,
 							64
 						]

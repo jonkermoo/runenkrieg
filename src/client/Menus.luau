@@ -2,7 +2,7 @@
 -- The title screen and the loadout menu (user 2026-10-27), over the live match (src/client/MatchCam). There is no
 -- character until the player deploys (src/server/Deploy): the title screen shows on join (Play, Customization still
 -- locked, Settings), Play opens the loadout menu, and the loadout menu opens again Config/Classes.MenuAfterDeath
--- seconds after every death. The menu lists the classes (Config/Classes.List: name, blurb, cost; picked, locked or
+-- seconds after every death; its Back button returns to the title screen. The menu lists the classes (Config/Classes.List: name, blurb, cost; picked, locked or
 -- not affordable), the match currency (shown only here, user: "they only see their match currency in the loadout menu
 -- when they are respawning"), and the soldier you'll spawn as, turning slowly: the server's "LoadoutPreview" rig in a
 -- ViewportFrame, playing its primary's ready hold. Deploy lights up once the respawn delay is over (Net "Loadout").
@@ -336,6 +336,10 @@ function Menus.start()
 			end
 		end)
 	end
+	local back = L.Back :: TextButton
+	back.Activated:Connect(function()
+		open(title)
+	end)
 	local deploy = L.Deploy :: TextButton
 	deploy.Activated:Connect(function()
 		if state and os.clock() >= deployAt then
