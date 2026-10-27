@@ -25,20 +25,17 @@ local Classes = {
 	Currency = "Marks", -- the currency's name, shown in the loadout menu
 	-- the menus (src/client/Menus): seconds after a death before the loadout menu opens (the death is seen first)
 	MenuAfterDeath = 2,
-	-- the menus' camera on the match (src/client/MatchCam): the hottest fight is the soldier with the most enemies and
-	-- friends within `Radius` studs, looked for every `Every` seconds and glided to at `Glide` (1/s); the camera circles
-	-- it `Distance` out and `Height` up at `Turn` rad/s, looking `LookUp` above the ground there; a soldier's score is
-	-- foes * (friends + 1) * `Fight` + everyone near (a fight beats a crowd); the ground is found by a ray from `RayTop`
-	-- down `RayDepth`
+	-- the menus' camera on the match (src/client/MatchCam): a random spot of the map at least `Inset` studs in from its
+	-- edges on open ground (`Tries` rolls), a new one every `Every` seconds; the camera circles it `Distance` out and `Height` up at `Turn` rad/s,
+	-- looking `LookUp` above the ground there; the ground is found by a ray from `RayTop` down `RayDepth`
 	Cam = {
-		Radius = 90,
-		Every = 4,
-		Glide = 0.6,
+		Every = 8,
+		Inset = 120,
+		Tries = 6,
 		Distance = 70,
 		Height = 32,
 		Turn = 0.05,
 		LookUp = 4,
-		Fight = 10,
 		RayTop = 400,
 		RayDepth = 800,
 	},
@@ -47,10 +44,10 @@ local Classes = {
 	Preview = {
 		Ambient = { 170, 170, 170 },
 		Light = { 255, 255, 255 },
-		Distance = 15,
+		Distance = 19,
 		Up = 0.9,
 		Look = 0.6,
-		Fov = 30,
+		Fov = 28,
 		Turn = 0.35,
 	},
 	Start = 0, -- points at the start of every match

@@ -1,9 +1,7 @@
 --!strict
 -- The menus' background (user 2026-10-27: "the background of every menu should be the current match going on"): the
--- camera circles the hottest fight, the living soldier with the most enemies and friends close by (Config/Classes.Cam;
--- a soldier's side is its "Kit"), looked at again every few seconds and glided to. With nobody fighting it circles
--- the busiest soldier, with nobody alive the map's neutral sector. TODO: weigh the contested capture points too once
--- the sectors are captured in play.
+-- camera circles a spot of the map, cutting to a new random one every few seconds (Config/Classes.Cam; user: "for this
+-- FFA mode, just show the random points of the map"). TODO: the most contested capture point once a mode has them.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,11 +15,11 @@ local MatchCam = {}
 
 local running = false
 local focus: Vector3? = nil
-local goal = Vector3.zero
 local angle = 0
 local lookedAt = -math.huge
 
-local function ground(x: number, z: number): Vector3
+-- The ground under (x, z), and whether it is open ground (terrain, not a roof or a treetop).
+local function ground(x: number, z: number): (Vector3, boolean)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	local chars = {}
@@ -32,47 +30,27 @@ local function ground(x: number, z: number): Vector3
 	end
 	params.FilterDescendantsInstances = chars
 	local hit = workspace:Raycast(Vector3.new(x, Cfg.RayTop, z), Vector3.new(0, -Cfg.RayDepth, 0), params)
-	return if hit then hit.Position else Vector3.new(x, 0, z)
+	if not hit then
+		return Vector3.new(x, 0, z), false
+	end
+	return hit.Position, hit.Instance:IsA("Terrain")
 end
 
-local function fallback(): Vector3
-	for _, s in Map.sectors do
-		if s.startOwner == "Neutral" then
-			return ground(s.x, s.z)
+-- A random spot of the playable area (Config/Classes.Cam.Inset studs in from its edges) on open ground (a few
+-- tries, so it is rarely a treetop or a roof).
+local function anywhere(): Vector3
+	local b, inset = Map.bounds, Cfg.Inset
+	local spot = Vector3.zero
+	for _ = 1, Cfg.Tries do
+		local x = b.minX + inset + math.random() * (b.maxX - b.minX - 2 * inset)
+		local z = b.minZ + inset + math.random() * (b.maxZ - b.minZ - 2 * inset)
+		local open
+		spot, open = ground(x, z)
+		if open then
+			break
 		end
 	end
-	return ground(0, 0)
-end
-
--- The hottest fight now: each living soldier scored by the enemies and friends within Cfg.Radius.
-local function hottest(): Vector3
-	local soldiers: { { at: Vector3, side: any } } = {}
-	for _, p in Players:GetPlayers() do
-		local c = p.Character
-		local h = c and c:FindFirstChildOfClass("Humanoid")
-		local root = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if c and h and h.Health > 0 and root then
-			table.insert(soldiers, { at = root.Position, side = c:GetAttribute("Kit") })
-		end
-	end
-	local best, bestScore = nil, -1
-	for _, a in soldiers do
-		local foes, friends = 0, 0
-		for _, b in soldiers do
-			if b ~= a and (b.at - a.at).Magnitude <= Cfg.Radius then
-				if b.side == a.side then
-					friends += 1
-				else
-					foes += 1
-				end
-			end
-		end
-		local score = foes * (friends + 1) * Cfg.Fight + foes + friends
-		if score > bestScore then
-			best, bestScore = a.at, score
-		end
-	end
-	return if best then ground(best.X, best.Z) else fallback()
+	return spot
 end
 
 function MatchCam.start()
@@ -84,13 +62,12 @@ function MatchCam.start()
 	camera.CameraType = Enum.CameraType.Scriptable
 	RunService:BindToRenderStep("MatchCam", Enum.RenderPriority.Camera.Value + 1, function(dt: number)
 		local now = os.clock()
-		if now - lookedAt >= Cfg.Every then
+		if now - lookedAt >= Cfg.Every or not focus then
 			lookedAt = now
-			goal = hottest()
+			focus = anywhere() -- a cut to the next spot
+			angle = math.random() * 2 * math.pi
 		end
-		local f = focus or goal
-		f = f:Lerp(goal, 1 - math.exp(-dt * Cfg.Glide))
-		focus = f
+		local f = focus :: Vector3
 		angle += dt * Cfg.Turn
 		local eye = f + Vector3.new(math.cos(angle) * Cfg.Distance, Cfg.Height, math.sin(angle) * Cfg.Distance)
 		camera.CameraType = Enum.CameraType.Scriptable

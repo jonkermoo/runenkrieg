@@ -55,6 +55,7 @@ local Locomotion = {
 	SoundVolumes = {
 		Running = 0, -- Roblox's footstep loop
 		Landing = 0,
+		Died = 0, -- the "oof" on death (user 2026-10-27: "remove the oof sound on death")
 		Jumping = 0.05, -- the default jump sound, kept quiet (user 2026-10-11; Roblox's is 0.65)
 	},
 
