@@ -675,4 +675,63 @@ function Build.wireShake(t: number, w: any): number
 	return w.wobble * fade * fade * math.sin(2 * math.pi * w.rate * t)
 end
 
+export type HpRules = { place: number, max: number, swing: number?, destroy: number? }
+
+-- How a piece of `kind` (or a trench square, "TrenchBlock") goes up and down on HP (Config/Build `cfg`; a gun's
+-- swing from its piece `p`): what it is laid at, its max, the HP a Build swing adds and a Destroy swing takes
+function Build.hpRules(kind: string, cfg: any, p: Piece?): HpRules?
+	local h = if kind == "Trench" or kind == "TrenchBlock"
+		then cfg.Trench.hp
+		elseif kind == "Sandbags" then cfg.Sandbags.hp
+		elseif kind == "Hesco" then cfg.Hesco.hp
+		elseif kind == "Bridge" then cfg.Bridge.hp
+		elseif kind == "Wire" then cfg.Wire.hp
+		else nil
+	if h then
+		return { place = h.place or 0, max = h.max, swing = h.swing, destroy = h.destroy }
+	end
+	-- a gun: its piece's own `swing` while it is built (a standing gun's HP is the gun's own, so no Destroy count)
+	if kind == "Gun" then
+		return { place = cfg.Guns.hp.place, max = cfg.Guns.hp.max, swing = p and p.swing }
+	end
+	return nil
+end
+
+-- The Build swings that take piece `p` from laid to whole (src/client/BuildHud's Placing line): its HP from where it
+-- is laid at a swing's HP, rounded up, else its `work`
+function Build.buildSwings(p: Piece, cfg: any): number
+	local h = Build.hpRules(p.kind, cfg, p)
+	if h and h.swing and h.swing > 0 then
+		return math.max(1, math.ceil((h.max - h.place) / h.swing - 1e-9))
+	end
+	return p.work or 1
+end
+
+-- The Destroy swings that take `hp` to nothing at `destroy` HP a swing
+function Build.destroySwings(hp: number, destroy: number): number
+	if destroy <= 0 or hp <= 0 then
+		return 0
+	end
+	return math.ceil(hp / destroy - 1e-9)
+end
+
+-- How many stage blocks a piece's HP shows in (src/client/BuildHud): a block per bag of a sandbag pile, per stage of
+-- a Hesco barrier, else one
+function Build.hpBlocks(p: Piece?): number
+	if p and p.bags then
+		return #p.bags
+	elseif p and p.kind == "Hesco" and p.stages then
+		return p.stages
+	end
+	return 1
+end
+
+-- The stage block (1 to `blocks`) the next Destroy swing breaks into at `hp` of `max`, 0 when nothing is left
+function Build.topBlock(hp: number, max: number, blocks: number): number
+	if hp <= 0 or max <= 0 then
+		return 0
+	end
+	return math.clamp(math.ceil(hp / max * blocks - 1e-9), 1, blocks)
+end
+
 return Build

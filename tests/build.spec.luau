@@ -556,6 +556,33 @@ return {
 		assert(B.hpSwing(h.max, false, h, 50) == 50, "an admin dig step in place of a swing")
 		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
 	end,
+
+	["the build panel's swing counts and stage blocks come from each piece's HP"] = function()
+		local function p(key: string): any
+			return assert(B.piece(key, C.Pieces), key)
+		end
+		-- Build swings from laid to whole, each piece's HP from where it is laid at a swing's HP, rounded up
+		local function whole(h: any): number
+			return math.ceil((h.max - (h.place or 0)) / h.swing - 1e-9)
+		end
+		assert(B.buildSwings(p("SandbagPile"), C) == #p("SandbagPile").bags, "a bag a swing")
+		assert(B.buildSwings(p("Hesco"), C) == whole(C.Hesco.hp))
+		assert(B.buildSwings(p("Bridge"), C) == whole(C.Bridge.hp))
+		assert(B.buildSwings(p("Wire"), C) == whole(C.Wire.hp))
+		assert(B.buildSwings(p("Trench"), C) == whole(C.Trench.hp))
+		assert(B.buildSwings(p("FieldGun"), C) == 20 and B.buildSwings(p("Howitzer"), C) == 40, "the guns' own swings")
+		assert(B.hpRules("TrenchBlock", C) ~= nil and B.hpRules("Tree", C) == nil)
+		assert((B.hpRules("Wire", C) :: any).destroy == C.Wire.hp.destroy)
+		assert((B.hpRules("Gun", C, p("FieldGun")) :: any).destroy == nil, "a standing gun's HP is its own")
+		-- Destroy swings left
+		assert(B.destroySwings(75, 10) == 8 and B.destroySwings(70, 10) == 7 and B.destroySwings(1, 10) == 1)
+		assert(B.destroySwings(0, 10) == 0 and B.destroySwings(50, 0) == 0)
+		-- blocks: one per bag, per Hesco stage, else one; the block the next Destroy swing breaks into
+		assert(B.hpBlocks(p("SandbagPile")) == 3 and B.hpBlocks(p("Hesco")) == p("Hesco").stages)
+		assert(B.hpBlocks(p("Wire")) == 1 and B.hpBlocks(nil) == 1)
+		assert(B.topBlock(75, 100, 4) == 3 and B.topBlock(76, 100, 4) == 4 and B.topBlock(100, 100, 4) == 4)
+		assert(B.topBlock(1, 100, 3) == 1 and B.topBlock(0, 100, 3) == 0)
+	end,
 	["laid on the ground: the plane through the ground under it, its height and slope each way"] = function()
 		-- a flat field: level at its height
 		local flat = table.create(15, 4)
