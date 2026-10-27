@@ -101,8 +101,9 @@ local function strike(player: Player, direction: any)
 		local zone = DamageRules.zone(part.Name) :: string
 		local victim = part.Parent :: Model
 		if zone == "Head" and victim:GetAttribute("HelmetOn") == true and not Damage.spares(character, victim) then
+			-- a soft cap (Helmets.soft) comes off but saves no one: the stroke stays a Head hit
+			zone = if Helmets.soft(victim) then "Head" else "Helmet"
 			Helmets.knockOff(victim, dir)
-			zone = "Helmet"
 		end
 		Damage.melee(character, part, zone, dir)
 	end

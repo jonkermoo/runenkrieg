@@ -102,6 +102,8 @@ local Classes = {
 			cost = 150,
 			primary = "weapon",
 			grenades = false,
+			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
+			helmet = "engineerCap",
 			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
 			locked = true,
 		},
@@ -126,6 +128,7 @@ local Classes = {
 			goggles = "helmet_stahl_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_stahl_ammo",
+			engineerCap = "cap_feld",
 		},
 		uniform2 = {
 			semi = "rifle_remington8",
@@ -134,6 +137,7 @@ local Classes = {
 			goggles = "helmet_m33_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_m33_ammo",
+			engineerCap = "cap_side",
 		},
 		uniform3 = {
 			semi = "rifle_winchester1907",
@@ -142,6 +146,7 @@ local Classes = {
 			goggles = "helmet_brodie_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_brodie_ammo",
+			engineerCap = "cap_trench",
 		},
 	} :: { [string]: { [string]: string } },
 	-- points earned (user: kills, assists, captures, building; prices scaled down, so these are too)
