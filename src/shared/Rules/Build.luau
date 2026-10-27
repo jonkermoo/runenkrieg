@@ -105,9 +105,23 @@ function Build.stageOf(work: number, need: number, stages: number): number
 	return math.clamp(math.floor(work / need * stages + 1e-9), 0, stages)
 end
 
--- How many stages a sandbag piece (Config/Build.Pieces kind "Sandbags") is built in: a pile's bags, a wall's rows
-function Build.sandbagStages(p: Piece): number
-	return if p.bags then #p.bags else p.rows
+-- How many of a sandbag pile's `bags` bags stand at `hp` of `max` (Config/Build.Sandbags.hp): its share of them,
+-- rounded up, so one stands from the moment it is laid until its HP is gone
+function Build.pileBags(hp: number, max: number, bags: number): number
+	if hp <= 0 or max <= 0 then
+		return 0
+	end
+	return math.clamp(math.ceil(hp / max * bags - 1e-9), 1, bags)
+end
+
+-- A shovel swing at a sandbag pile with `hp` (Config/Build.Sandbags.hp `h`): Build adds `h.swing` up to `h.max`,
+-- Destroy takes `h.destroy`; `step` in place of either (an admin dig step). Returns its HP and whether it is gone.
+function Build.pileSwing(hp: number, build: boolean, h: any, step: number?): (number, boolean)
+	if build then
+		return math.min(h.max, hp + (step or h.swing)), false
+	end
+	local left = hp - (step or h.destroy)
+	return math.max(left, 0), left <= 0
 end
 
 -- Which stage a sandbag pile's mesh stands at (Config/Assets sandbag_pile): its bag's place in `bags`, a tie (`<bag>Cord`)
@@ -482,44 +496,6 @@ function Build.columnTop(occs: { number }, y0: number, res: number): number?
 		end
 	end
 	return nil
-end
-
-export type Bag = { column: number, row: number, x: number, y: number, width: number, height: number }
-
--- A sandbag wall's bags (Config/Build.Pieces entry): for each column and row a course of bags, `x` the bag's centre
--- across the wall (0 = the middle), `y` its centre above the ground; every other row offset by half a bag (a bond),
--- the loophole row of the middle column left out.
-function Build.sandbags(p: Piece): { Bag }
-	local out: { Bag } = {}
-	local colWidth = p.width / p.columns
-	local middle = (p.columns + 1) // 2
-	for c = 1, p.columns do
-		local left = -p.width / 2 + (c - 1) * colWidth
-		for r = 1, p.rows do
-			if not (p.loophole and r == p.loophole and c == middle) then
-				local y = (r - 0.5) * p.row
-				if r % 2 == 1 then
-					table.insert(
-						out,
-						{ column = c, row = r, x = left + colWidth / 2, y = y, width = colWidth, height = p.row }
-					)
-				else
-					-- two half-offset bags: half a bag each side of the column's middle
-					local half = colWidth / 2
-					table.insert(out, { column = c, row = r, x = left + half / 2, y = y, width = half, height = p.row })
-					table.insert(out, {
-						column = c,
-						row = r,
-						x = left + half * 1.5,
-						y = y,
-						width = half,
-						height = p.row,
-					})
-				end
-			end
-		end
-	end
-	return out
 end
 
 -- A laid piece's footprint on the ground: its centre (`x`, `z`), its width along `rx`, `rz` (its right, a unit vector)

@@ -1096,7 +1096,7 @@ function Build.start()
 						then `{gunHp} · dig to repair`
 						elseif not ours then if gunHp then `{gunHp} · switch to Destroy` else "switch to Destroy"
 						elseif work >= need then gunHp or "dug"
-						else `{of} · dig to build`
+						else `{gunHp or of} · dig to build` -- (a sandbag pile is built on HP)
 				end
 			elseif m then
 				title, line = `{mode} · Tree`, "dig to chop it"

@@ -6,8 +6,8 @@
 -- Every shovel swing (Net "Build" "Work", the target and the shovel's mode, user 2026-10-23):
 -- - Build at your team's piece adds a unit of work; it rises in stages and stands at full work;
 -- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
--- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
--- - Sandbag piles: Config/Assets sandbag_pile's bags in one "Sandbag" section, laid a bag per Build swing.
+-- - Sandbag piles: Config/Assets sandbag_pile's bags in one "Sandbag" section, on HP (Config/Build.Sandbags.hp): laid
+--   with its first bag down, Build swings add HP, Destroy swings and weapons take it, its bags standing by HP.
 -- - Barbed wire: Config/Assets barbed_wire's meshes in three looks (Rules.wireLook: on the ground, standing, broken),
 --   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. Once it has stood,
 --   swings go to its HP (Rules.wireSwing): Destroy breaks it then takes it away, its team's Build stands it back up.
@@ -157,7 +157,7 @@ local function section(parent: Instance, name: string, kind: string, class: stri
 	return s
 end
 
--- the bags of a sandbag wall: the rows up to `stage` stand, the rest ghosted
+-- the bags of a sandbag pile: the first `stage` stand, the rest ghosted
 local function showSandbags(r: Rec, stage: number)
 	for _, s in r.model:GetChildren() do
 		for _, p in s:GetChildren() do
@@ -169,27 +169,6 @@ local function showSandbags(r: Rec, stage: number)
 				p.CanQuery = up -- (bullets pass through the ghost)
 			end
 		end
-	end
-end
-
-local function layoutSandbags(r: Rec, ground: number)
-	local p = r.piece
-	local base = CFrame.new(r.frame.Position.X, ground - 0.2, r.frame.Position.Z) * r.frame.Rotation
-	local cols: { [number]: Model } = {}
-	for c = 1, p.columns do
-		cols[c] = section(r.model, "Column" .. c, "Sandbags", "Sandbag", C.Sandbags.columnHP)
-	end
-	for i, bag in Rules.sandbags(p) do
-		local jitter = ((i * 37) % 7 / 6 - 0.5) * 2 * C.Sandbags.shade
-		local part = newPart(
-			cols[bag.column],
-			"Bag",
-			-- a little narrower and lower than its slot: the seams between bags show
-			Vector3.new(bag.width - 0.08, bag.height - 0.06, p.depth - (bag.row - 1) * 0.06),
-			base * CFrame.new(bag.x, bag.y, 0),
-			rgb(Palette.Build.Sandbag, jitter)
-		)
-		part:SetAttribute("Row", bag.row)
 	end
 end
 
@@ -233,7 +212,8 @@ local function layoutPile(r: Rec, ground: number): boolean
 		return false
 	end
 	local base = CFrame.new(r.frame.Position.X, ground - C.Sandbags.sink, r.frame.Position.Z) * r.frame.Rotation
-	local s = section(r.model, "Pile", "Sandbags", "Sandbag", C.Sandbags.pileHP)
+	local s = section(r.model, "Pile", "Sandbags", "Sandbag", C.Sandbags.hp.max)
+	s:SetAttribute("HP", r.work)
 	for _, d in kit:GetChildren() do
 		local bag = Rules.pileBag(d.Name, p.bags)
 		local offset = offsets[d.Name]
@@ -467,8 +447,10 @@ local function apply(r: Rec)
 	r.model:SetAttribute("Built", r.built)
 	local kind = r.piece.kind
 	if kind == "Sandbags" then
-		local stages = Rules.sandbagStages(r.piece)
-		showSandbags(r, if r.built and r.work >= r.need then stages else Rules.stageOf(r.work, r.need, stages))
+		-- (its work is its HP: shown on the shovel's panel like a gun's)
+		r.model:SetAttribute("HP", r.work)
+		r.model:SetAttribute("MaxHP", r.need)
+		showSandbags(r, Rules.pileBags(r.work, r.need, #r.piece.bags))
 	elseif kind == "Wire" then
 		showWire(r)
 	elseif kind == "Gun" then
@@ -542,27 +524,27 @@ local function place(player: Player, key: any, at: any)
 	model.Name = piece.key
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	local now = os.clock()
+	-- (a sandbag pile's work is its HP: laid with its first bag down, Config/Build.Sandbags.hp)
+	local bags = piece.kind == "Sandbags"
 	local r: Rec = {
 		model = model,
 		piece = piece,
 		team = team,
 		owner = player.UserId,
-		work = 0,
-		need = piece.work,
+		work = if bags then C.Sandbags.hp.place else 0,
+		need = if bags then C.Sandbags.hp.max else piece.work,
 		built = false,
 		born = now,
 		worked = now,
 		frame = frame,
 		at = gunAt,
 	}
-	if piece.kind == "Sandbags" and piece.bags then
+	if bags then
 		if not layoutPile(r, report.low) then
 			model:Destroy()
 			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile: layoutPile warns)
 			return
 		end
-	elseif piece.kind == "Sandbags" then
-		layoutSandbags(r, report.low)
 	elseif piece.kind == "Wire" then
 		layoutWire(r, report.low)
 	end
@@ -577,8 +559,19 @@ local function place(player: Player, key: any, at: any)
 	recs[model] = r
 	model.Parent = f
 	apply(r)
-	-- a sandbag wall goes when its last column is broken
-	if piece.kind == "Sandbags" then
+	if bags then
+		-- weapons wear its section (Destruction.damage, Build.blast / Build.shot): its bags follow its HP; at 0 the
+		-- section breaks and the pile goes with it
+		local s = model:FindFirstChild("Pile")
+		if s then
+			s:GetAttributeChangedSignal("HP"):Connect(function()
+				local hp = s:GetAttribute("HP")
+				if recs[model] and type(hp) == "number" and hp ~= r.work then
+					r.work = math.max(hp, 0)
+					apply(r)
+				end
+			end)
+		end
 		model.ChildRemoved:Connect(function()
 			for _, c in model:GetChildren() do
 				if CollectionService:HasTag(c, D.SectionTag) then
@@ -713,6 +706,29 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	lastSwing[player] = now
+	-- a sandbag pile: swings work its HP (Config/Build.Sandbags.hp); its team's Build swings repair it too
+	if r.piece.kind == "Sandbags" then
+		local h = C.Sandbags.hp
+		local build = mode == "Build"
+		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, digShare(player))
+		local left, gone = Rules.pileSwing(r.work, build, h, step)
+		if gone then
+			remove(r, true)
+			return
+		end
+		r.work = left
+		r.worked = now
+		if r.work >= r.need and not r.built then
+			Loadouts.award(player, "Piece") -- (once per piece)
+			r.built = true
+		end
+		local s = r.model:FindFirstChild("Pile")
+		if s then
+			s:SetAttribute("HP", r.work)
+		end
+		apply(r)
+		return
+	end
 	local was = r.work
 	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(1, r.need, digShare(player)))
 	if gone then
@@ -727,7 +743,7 @@ local function work(player: Player, target: any, mode: any)
 		end
 		r.built = true
 	end
-	local stages = if r.piece.kind == "Sandbags" then Rules.sandbagStages(r.piece) else 1
+	local stages = r.piece.stages or 1
 	if
 		r.piece.kind == "Gun"
 		or r.piece.kind == "Wire" -- (its look changes on every swing: Rules.wireLook)
@@ -741,7 +757,7 @@ local function work(player: Player, target: any, mode: any)
 end
 
 -- A blast at `position` (src/server/Damage.blast, after the crater) of `kg`, `key` what it is to built things (a
--- Config/Build.Structures key; nil: by its charge): trenches are buried (src/server/Trenches), sandbag columns and wire
+-- Config/Build.Structures key; nil: by its charge): trenches are buried (src/server/Trenches), sandbag piles and wire
 -- worn down, each by how far it is from the blast.
 function Build.blast(position: Vector3, kg: number, key: string?)
 	local S = C.Structures
@@ -766,7 +782,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 				end
 			end
 		elseif r.piece.kind == "Sandbags" then
-			-- each column of bags by how far the blast is from it (Destruction leaves class Sandbag to this)
+			-- the pile by how far the blast is from it (Destruction leaves class Sandbag to this)
 			for _, c in r.model:GetChildren() do
 				if CollectionService:HasTag(c, D.SectionTag) and c:IsA("Model") then
 					local cf, size = c:GetBoundingBox()
@@ -790,7 +806,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 end
 
 -- A bullet meeting `part` at `point` (src/server/Firing): a trench square (a piece, or the ground in it) or a sandbag
--- column loses Structures.bullet
+-- pile loses Structures.bullet
 function Build.shot(part: Instance, point: Vector3)
 	if Trenches.shot(part, point) then
 		return
@@ -886,7 +902,9 @@ function Build.start(artillery: Guns)
 			local now = os.clock()
 			local stale = {}
 			for _, r in recs do
-				if r.work <= 0 and not r.built and now - r.worked > C.BlueprintLife then
+				-- (a sandbag pile is laid with its first bag down: untouched while it has no more than that)
+				local laid = if r.piece.kind == "Sandbags" then C.Sandbags.hp.place else 0
+				if r.work <= laid and not r.built and now - r.worked > C.BlueprintLife then
 					table.insert(stale, r)
 				end
 			end
