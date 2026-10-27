@@ -166,6 +166,14 @@ return {
 		assert(B.wireHarm(5, 0.25, C.Wire, true) == 0, "a teammate moving through it")
 		assert(B.wireHarm(5, 0.25, C.Wire, false) > 0, "an enemy moving through it")
 	end,
+	["the wire: anyone moving through rattles it, standing still doesn't"] = function()
+		assert(B.wireRattles(C.Wire.speed, C.Wire), "a teammate or enemy wading through")
+		assert(not B.wireRattles(0, C.Wire) and not B.wireRattles(C.Wire.moving, C.Wire), "standing in it")
+		assert(#C.Wire.sounds >= 1)
+		for _, s in C.Wire.sounds do
+			assert(s.stop > s.start and s.fade < s.stop - s.start, "trimmed with room to fade")
+		end
+	end,
 	["the wire: 8 x 4, 3/5 of a soldier high, too high to hop, 2 swings"] = function()
 		local w = B.piece("Wire", C.Pieces) :: any
 		assert(w.width == 8 and w.depth == 4 and w.work == 2)

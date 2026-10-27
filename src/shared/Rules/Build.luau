@@ -519,6 +519,12 @@ function Build.wireHarm(speed: number, dt: number, w: any, friend: boolean?): nu
 	return w.damage * dt
 end
 
+-- whether a soldier moving at `speed` studs/s through a standing wire rattles it (shakes it, its sound; Config/Build.Wire):
+-- anyone, either team, moving faster than `w.moving`
+function Build.wireRattles(speed: number, w: any): boolean
+	return speed > w.moving
+end
+
 -- How a barbed wire looks (Config/Build.Wire): "Bundle" from the moment it is laid until its work is full (user
 -- 2026-10-27: "make it like the artilleries where placing it places it at stage 1 ... make it also occur at 0"), "Standing" at
 -- full work, and once it has stood, "Broken" under `w.broken` of its HP (it then slows and hurts nobody)

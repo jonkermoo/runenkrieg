@@ -325,8 +325,11 @@ local Build = {
 	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
 	-- ground (Bundle*, from 0 work, user: "like the artilleries"), full work stands it (Pickets, Strands, Coil). Anyone inside its box (both teams) is "Wired":
 	-- walks at `speed`, can't sprint or jump (src/client/Stance); only the enemy loses `damage` health a second while
-	-- moving faster than `moving` studs/s (user: "slow, but only hurt enemies"), and each time it hurts someone it shakes
-	-- (src/client/WireShake: `shake` seconds, the wire `wobble` studs, the pickets `picket` of that, at `rate` Hz).
+	-- moving faster than `moving` studs/s (user: "slow, but only hurt enemies"). Each tick anyone (teammates too) moves
+	-- through it that fast it shakes and rattles (user 2026-10-27: "the damage tick animation should still go off on
+	-- teammates and the sound cue goes off"; src/client/WireShake: `shake` seconds, the wire `wobble` studs, the pickets
+	-- `picket` of that, at `rate` Hz; one of `sounds` at random from where they push through: Pro Sound Effects "Chain
+	-- Link Fence 3", its first and second rattles).
 	-- Bullets pass (its parts aren't queried). Once standing it has Structures.wireHP: blasts wear it (Structures above), a
 	-- Destroy swing takes `destroy` HP (user: 2 swings, broken then gone); under `broken` of its HP it lies scattered on
 	-- the ground and does nothing (Wreck*, user: "a broken stage (less than 50) will make the fence ineffective and
@@ -345,6 +348,10 @@ local Build = {
 		wobble = 0.12,
 		picket = 0.3,
 		rate = 14,
+		sounds = {
+			{ id = 9113758601, volume = 0.6, start = 0.08, stop = 0.6, fade = 0.25, profile = "Rattle" },
+			{ id = 9113758601, volume = 0.6, start = 1.15, stop = 1.7, fade = 0.25, profile = "Rattle" },
+		},
 	},
 }
 

@@ -1,7 +1,9 @@
 --!strict
--- Barbed wire shakes each time it hurts someone (user 2026-10-27: "add a shaking animation for whenever it ticks damage
--- to players"): src/server/Wire sets the wire's "ShakeAt"; here its shown meshes wobble on this client only
--- (Rules/Build.wireShake, Config/Build.Wire), the pickets less than the wire, then go back to where the server put them.
+-- Barbed wire shakes and rattles each tick someone pushes through it, either team (user 2026-10-27: "add a shaking
+-- animation for whenever it ticks damage to players", "add a chain / wire sound for each damage tick (the damage tick
+-- animation should still go off on teammates and the sound cue goes off)"): src/server/Wire sets the wire's
+-- "RattleFrom" and "ShakeAt"; here its shown meshes wobble on this client only (Rules/Build.wireShake, Config/Build.Wire),
+-- the pickets less than the wire, then go back to where the server put them, and one of Wire.sounds plays from there.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -9,6 +11,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Build)
 local Rules = require(Shared.Rules.Build)
+local SoundFx = require(script.Parent.SoundFx)
 
 type Shake = {
 	started: number,
@@ -77,6 +80,11 @@ local function watch(model: Instance)
 	if model:IsA("Model") and model:GetAttribute("Piece") == "Wire" then
 		model:GetAttributeChangedSignal("ShakeAt"):Connect(function()
 			shake(model)
+			local from = model:GetAttribute("RattleFrom")
+			local sounds = C.Wire.sounds
+			if typeof(from) == "Vector3" then
+				SoundFx.play(sounds[math.random(#sounds)], from)
+			end
 		end)
 	end
 end
