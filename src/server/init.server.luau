@@ -70,6 +70,16 @@ require(script.Ground).start(require(script.Build).dug, require(script.Build).ne
 require(script.Wire).start()
 require(script.Showcase).start()
 require(script.TestShooter).start()
+-- the zone match's captures pay match points and each match starts them over (src/server/Loadouts, when the game has
+-- it; hooked before the first match starts)
+local loadouts = script:FindFirstChild("Loadouts")
+if loadouts then
+	local L = require(loadouts) :: any
+	require(script.ZoneMatch).onCapture(function(player)
+		L.award(player, "Capture")
+	end)
+	require(script.ZoneMatch).onMatchStart(L.resetMatch)
+end
 require(script.ZoneMatch).start() -- (the zone-capture match on the playtest map, while Workspace says so)
 
 print("[runenkrieg] server started")

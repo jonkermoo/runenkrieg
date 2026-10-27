@@ -111,6 +111,19 @@ end
 local zone: Model
 local nextZone: Model
 local spot: number = 1
+-- this live spot's seconds held alone per player (UserId), and who has captured it
+local held: { [number]: number } = {}
+local captured: { [number]: boolean } = {}
+local captureWatchers: { (Player) -> () } = {}
+local matchWatchers: { () -> () } = {}
+
+-- `fn(player)` on each capture (Config/ZoneMatch.CaptureSeconds); `fn()` at each match's start
+function ZoneMatch.onCapture(fn: (Player) -> ())
+	table.insert(captureWatchers, fn)
+end
+function ZoneMatch.onMatchStart(fn: () -> ())
+	table.insert(matchWatchers, fn)
+end
 
 local function spawnAt(player: Player)
 	local others = {}
@@ -154,6 +167,8 @@ end
 
 local function setSpot(i: number)
 	spot = i
+	table.clear(held)
+	table.clear(captured)
 	moveTo(zone, i)
 	zone:SetAttribute("Spot", i)
 	zone:SetAttribute("MoveAt", workspace:GetServerTimeNow() + Cfg.MoveEvery)
@@ -169,6 +184,9 @@ local function run(root: Instance)
 		-- a match
 		for _, p in Players:GetPlayers() do
 			p:SetAttribute(Cfg.ScoreAttribute, 0)
+		end
+		for _, fn in matchWatchers do
+			task.spawn(fn)
 		end
 		setSpot(Rules.nextSpot(nil, #spots, random:NextNumber()))
 		local endsAt = workspace:GetServerTimeNow() + Cfg.MatchSeconds
@@ -224,6 +242,13 @@ local function run(root: Instance)
 				if p then
 					local score = (p:GetAttribute(Cfg.ScoreAttribute) :: number?) or 0
 					p:SetAttribute(Cfg.ScoreAttribute, score + Cfg.PointsPerSecond * dt)
+					held[holder] = (held[holder] or 0) + dt
+					if Rules.captured(held[holder], Cfg.CaptureSeconds, captured[holder] == true) then
+						captured[holder] = true
+						for _, fn in captureWatchers do
+							task.spawn(fn, p)
+						end
+					end
 				end
 			end
 		end

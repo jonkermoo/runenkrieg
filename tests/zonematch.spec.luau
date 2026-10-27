@@ -47,6 +47,13 @@ return {
 		assert(R.pickSpawn(pts, {}, { 0, 0 }, 60) == 3, "alone: farthest from the zone")
 		assert(R.pickSpawn({ { 0, 0 } }, { { 1, 0 } }, { 0, 0 }, 60) == 1, "no point clear: any")
 	end,
+	["capture: at the hold time, once per live spot"] = function()
+		local need = Cfg.CaptureSeconds
+		assert(need == 10, "user 2026-10-27: 10 s")
+		assert(not R.captured(need - 0.01, need, false))
+		assert(R.captured(need, need, false))
+		assert(not R.captured(need * 3, need, true), "only once")
+	end,
 	["ranking: highest first, ties by id"] = function()
 		local r = R.ranking({ [5] = 10, [2] = 30, [9] = 10 })
 		assert(r[1] == 2 and r[2] == 5 and r[3] == 9)

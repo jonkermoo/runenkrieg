@@ -21,6 +21,12 @@ function ZoneMatch.occupancy(inside: { number }): (State, number?)
 	return "Contested", nil
 end
 
+-- Whether a soldier who has held the live spot alone for `held` seconds (added up) has captured it: once `need` is
+-- reached, and only once per live spot (`already`).
+function ZoneMatch.captured(held: number, need: number, already: boolean): boolean
+	return not already and held >= need
+end
+
 -- Another of `count` spots than `current` (a random `u` in [0, 1)); the only spot when there is one.
 function ZoneMatch.nextSpot(current: number?, count: number, u: number): number
 	if count <= 1 then

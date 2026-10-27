@@ -11,6 +11,9 @@ local ZoneMatch = {
 	MoveEvery = 60, -- seconds a spot stays live
 	Warning = 10, -- seconds before a move the next spot is marked
 	MatchSeconds = 480,
+	-- a capture (user 2026-10-27: "holding a live spot alone for 10 s, once per spot per player"): seconds held alone
+	-- while a spot is live, added up; once per player each time a spot goes live (paid by src/server/Loadouts)
+	CaptureSeconds = 10,
 	ResultsSeconds = 10, -- the results, then the next match
 	Tick = 0.2, -- seconds between the server's occupancy checks
 	SpawnZoneClear = 60, -- spawn at least this far from the live zone (unless no spawn point is)
