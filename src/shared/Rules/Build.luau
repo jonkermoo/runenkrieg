@@ -59,10 +59,14 @@ export type Placing = {
 	team: number, -- the team's live pieces
 	perPlayer: number,
 	perTeam: number,
+	allowed: boolean?, -- false: the builder's class may not build this kind (Rules/Classes.mayBuild)
 }
 
 -- Whether a piece can be laid here; when not, the reason to show
 function Build.canPlace(p: Placing): (boolean, string?)
+	if p.allowed == false then
+		return false, "Engineers only"
+	end
 	if p.distance > p.reach then
 		return false, "Too far"
 	end

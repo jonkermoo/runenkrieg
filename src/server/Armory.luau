@@ -26,6 +26,7 @@ local U = require(Shared.Config.Uniforms)
 local W = require(Shared.Config.Weapons)
 local Net = require(Shared.Net)
 local Kits = require(script.Parent.Kits)
+local Loadouts = require(script.Parent.Loadouts)
 
 local Armory = {}
 
@@ -294,21 +295,20 @@ function Armory.give(player: Player, name: string): Tool
 	return tool
 end
 
--- The player's weapon for a slot: their pick ("Pick_<slot>" on the Player, set by Armory.choose), else the
--- weapon (the primary), grenade or shovel of their kit this life (src/server/Kits, Config/Uniforms; every soldier
--- carries a shovel, user 2026-10-20).
+-- The player's weapon for a slot: their pick ("Pick_<slot>" on the Player, set by Armory.choose), else what their
+-- class carries in their kit this life (src/server/Loadouts, Config/Classes: the primary, grenades or none, the shovel;
+-- every soldier carries a shovel, user 2026-10-20).
 function Armory.loadout(player: Player, slot: string): string?
 	local picked = player:GetAttribute(PICK .. slot)
 	if type(picked) == "string" and W[picked] and W[picked].slot == slot then
 		return picked
 	end
 	local character = player.Character
-	local kit = U.Kits[if character then Kits.of(character) else U.Default] :: any
-	return if slot == "Primary"
-		then kit.weapon
-		elseif slot == "Grenade" then kit.grenade
-		elseif slot == "Shovel" then kit.shovel
-		else nil
+	if not character then
+		return nil
+	end
+	local gear = Loadouts.gear(character) :: any
+	return gear[slot]
 end
 
 -- Makes the weapon the player's pick for its slot: given now (replacing the slot's weapon) and on every respawn.
