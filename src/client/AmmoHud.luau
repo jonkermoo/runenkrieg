@@ -11,9 +11,15 @@
 --     staggered as a double stack, rising a round each time one is fed; the round or the fired case in the chamber,
 --     pulled back by the bolt and thrown out; the next round pushed by the bolt's face up out of the magazine into
 --     the chamber; a stripper clip's rounds coming down into the well; an empty en-bloc clip dropping out;
---   - the magazine well, an open box with its near side cut away, its follower and spring; a detachable box moves
---     with the gun's own rounds (swapped), an en-bloc clip comes in with them.
---   Nothing passes through anything: the stack sits under the bolt and its heads ahead of the open bolt's face.
+--   - the magazine well, an open box with its near side cut away (no follower or spring, user 2026-10-26: "just make
+--     the bullet come up on its own"); a detachable box moves with the gun's own rounds (swapped), an en-bloc clip
+--     comes in with them.
+--   Nothing passes through anything: the stack sits under the bolt and its heads ahead of the open bolt's face; a
+--   clip's rounds are down on the stack before the closing bolt's face reaches them.
+--   The chamber shows what the bolt really has: working the bolt changes the state before the bolt moves, so a fired
+--   case stays a case until the bolt pulls it out. A semi-automatic's action cycles itself in ~0.1 s, too quick to
+--   see: after a shot the cut-away plays its own slower cycle (Config/Hud.Gun.auto), the case out and the next round
+--   up into the chamber.
 -- - a red line saying what to do next.
 -- src/client/Firing feeds it the predicted state every frame (AmmoHud.show).
 
@@ -124,9 +130,7 @@ type View = {
 	tube: boolean,
 	shown: number, -- the count drawn
 	lift: number, -- slots the stack is still to rise (+) or settle (-)
-	follower: BasePart,
-	spring: { BasePart },
-	floor: BasePart?, -- the well's floor (the spring's foot)
+	rate: number, -- slots a second it settles at (a clip's rounds pushed in: all in Hud.Gun.settle)
 	mag: { BasePart }, -- the parts that move with the gun's rounds (a box's well, an en-bloc clip)
 	magAt: { CFrame },
 	conns: { RBXScriptConnection },
@@ -136,14 +140,19 @@ type View = {
 	case: Piece,
 	feed: Piece,
 	wasOpen: boolean,
-	carry: string?, -- what the opening bolt pulls back ("case" / "round")
+	carry: string?, -- what the opening bolt pulls back ("case" / "round" thrown out; "keep": a round it brings home)
 	maxD: number,
 	fed: boolean, -- closing: the next round has left the magazine
 	pending: boolean, -- a round still in the magazine for this cycle (the state has already chambered it)
 	atRest: string?, -- what the chamber showed closed
 	flying: { Fly },
 	clipWas: boolean,
-	frozen: number?, -- a clip's rounds being pushed down: the stack as it was until they're in
+	allow: number?, -- a clip reload under way: the most rounds the stack shows (those already pushed down)
+	pushN: number, -- rounds the clip being pushed down holds
+	wasPushing: boolean,
+	magWas: number, -- a semi-automatic: the state's magazine and open bolt last frame (a shot drops one or opens it)
+	openWas: boolean,
+	cycleAt: number?, -- a semi-automatic: when the cut-away's own cycle after a shot began (clock)
 	length: number, -- a round's length (studs)
 	last: number, -- the last frame's clock
 }
@@ -247,9 +256,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		tube = w.ammo.clip == "Loose",
 		shown = 0,
 		lift = 0,
-		follower = nil :: any,
-		spring = {},
-		floor = nil,
+		rate = 0,
 		mag = {},
 		magAt = {},
 		conns = {},
@@ -265,7 +272,12 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		atRest = nil,
 		flying = {},
 		clipWas = false,
-		frozen = nil,
+		allow = nil,
+		pushN = 0,
+		wasPushing = false,
+		magWas = 0,
+		openWas = false,
+		cycleAt = nil,
 		length = G.fallback.length,
 		last = os.clock(),
 	}
@@ -528,7 +540,6 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		walls[3].CFrame = CFrame.new(mid.X - t / 2, mid.Y, hi.Z + t / 2)
 		walls[4].CFrame = CFrame.new(mid.X, lo.Y - t / 2, mid.Z)
 		walls[5].CFrame = CFrame.new(hi.X + t / 2, lo.Y + d * Wl.lip / 2, mid.Z)
-		v.floor = walls[4]
 		if v.tube then
 			walls[5]:Destroy() -- (a trough: no rim)
 			table.remove(walls, 5)
@@ -560,23 +571,6 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		local S = G.strip
 		v.strip = block("Strip", "clip", Vector3.new(d * S.width, 1, d * S.thick))
 	end
-	-- the follower (under the last round) and its spring
-	local Fo = Wl.follower
-	v.follower = block(
-		"Follower",
-		"follower",
-		if v.tube
-			then Vector3.new(d * Fo.width / 2, d * Fo.width / 2, d * Fo.thick)
-			else Vector3.new(d * Fo.width, d * Fo.thick, L * Fo.length)
-	)
-	if not v.tube then
-		for _ = 1, Wl.spring.coils * 2 do
-			local c = block("Spring", "spring", Vector3.new(1, d * Wl.spring.thick, d * Wl.spring.thick))
-			c.Shape = Enum.PartType.Cylinder
-			table.insert(v.spring, c)
-		end
-	end
-
 	-- the camera, three-quarters on, the same for both layers
 	local b = box
 	local centre = CFrame.new((b.lo + b.hi) / 2)
@@ -639,6 +633,17 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		s.part.Transparency = if s.source.Transparency >= 1 then 1 else 0
 	end
 
+	-- a semi-automatic's shot (the state has already put the next round in the chamber, or held the bolt open): the
+	-- chamber holds the fired case until the bolt opens, and the cut-away plays its own cycle
+	if gun.auto then
+		local shot = state.magazine < v.magWas or (state.open and not v.openWas)
+		if shot and not state.load and not v.wasOpen then
+			v.atRest = "case"
+			v.cycleAt = clock
+		end
+		v.magWas, v.openWas = state.magazine, state.open
+	end
+
 	-- the bolt: how far back it is (0 closed, travel fully back)
 	local d = 0
 	local boltNow = v.boltRestCF
@@ -646,7 +651,23 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		boltNow = v.gun.CFrame:ToObjectSpace(v.bolt.CFrame)
 		d = math.max(0, boltNow.Z - v.boltRest)
 	end
+	local cycleAt = v.cycleAt
+	if cycleAt then
+		local A = G.auto
+		local u = (clock - cycleAt) / A.time
+		if u >= 1 then
+			v.cycleAt = nil
+		else
+			local k = if u < A.back then smooth(u / A.back) elseif u < A.hold then 1 else smooth((1 - u) / (1 - A.hold))
+			if k * v.travel > d then
+				-- (straight back: a semi-automatic's bolt doesn't turn)
+				d = k * v.travel
+				boltNow = CFrame.new(0, 0, d) * v.boltRestCF
+			end
+		end
+	end
 	local open = d > v.travel * G.openFrom
+	local face = v.chamber.Z + d
 	local boltAt = v.chamber * CFrame.new(0, 0, d)
 	for _, q in v.boltParts do
 		q.part.CFrame = boltAt * q.rel
@@ -660,21 +681,30 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		h.knob.CFrame = CFrame.new(at)
 	end
 	local truth = if state.chambered then "round" elseif state.spent then "case" else nil
+	local busy = F.busy(state, now)
 	if not open then
+		if v.wasOpen or truth == "case" or not busy then
+			-- (a shot leaves its case at once; anything else waits for the bolt to open: working the bolt or a reload
+			-- changes the state before the bolt moves, and a fired case mustn't turn back into a round)
+			v.atRest = truth
+		end
 		v.wasOpen, v.carry, v.fed, v.pending, v.maxD = false, nil, true, false, 0
-		v.atRest = truth
 	else
 		if not v.wasOpen then
-			-- the bolt has just come off the chamber: it pulls back what was in it; the state has already chambered the
-			-- next round, which waits in the magazine until the bolt comes forward
+			-- the bolt has just come off the chamber: it pulls back what was in it (a round the state still has
+			-- chambered rides back on its face and home again); the state has already chambered the next round, which
+			-- waits in the magazine until the bolt comes forward
 			v.wasOpen, v.maxD = true, 0
-			v.carry = v.atRest
+			v.carry = if v.atRest == "round" and state.chambered then "keep" else v.atRest
 			v.fed = false
-			v.pending = state.chambered
+			v.pending = state.chambered and v.carry ~= "keep"
 			v.atRest = nil
+		elseif not v.fed and not v.pending and state.chambered and v.carry ~= "keep" then
+			-- (a round chambered while the bolt is open: a reload from a bolt held open, single rounds ending)
+			v.pending = true
 		end
 		v.maxD = math.max(v.maxD, d)
-		if v.carry and d >= v.travel * G.eject then
+		if v.carry and v.carry ~= "keep" and d >= v.travel * G.eject then
 			throw(
 				v,
 				if v.carry == "case" then v.case else v.live,
@@ -686,7 +716,6 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 			v.carry = nil
 		end
 		-- closing: the bolt's face picks up the top round once it is ahead of its head
-		local face = v.chamber.Z + d
 		if not v.fed and v.pending and d < v.maxD - v.travel * G.closing and (v.tube or face <= v.headZ) then
 			v.fed = true
 		end
@@ -696,20 +725,27 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 	local follow = v.follow
 	local visible = if follow then follow.Transparency < 1 else true
 	local count = F.magazineAt(state, now)
-	if open and v.pending and not v.fed then
-		count += 1
+	if (open and v.pending and not v.fed) or (not open and state.chambered and v.atRest ~= "round") then
+		count += 1 -- (the state has chambered a round the bolt hasn't fed yet)
 	end
 	if not visible then
 		count = 0
 	end
-	-- a clip's rounds being pushed down out of it (the gun's "HeldRounds" showing): the stack as it was
+	-- a clip's rounds being pushed down out of it (the gun's "HeldRounds" showing; gone once the closing bolt's face
+	-- reaches their heads): through a clip reload the stack shows only the rounds already pushed down
 	local held = v.tool:FindFirstChild("HeldRounds")
-	local pushing = held and held:IsA("BasePart") and held.Transparency < 1
-	if pushing then
-		v.frozen = v.frozen or v.shown
-		count = v.frozen :: number
+	local pushing = held ~= nil and held:IsA("BasePart") and held.Transparency < 1 and open and face > v.headZ
+	if v.wasPushing and not pushing and v.allow then
+		v.allow = (v.allow :: number) + v.pushN
+	end
+	v.wasPushing = pushing
+	if v.strip and busy and not state.load then
+		v.allow = v.allow or v.shown
 	else
-		v.frozen = nil
+		v.allow = nil
+	end
+	if v.allow then
+		count = math.min(count, v.allow :: number)
 	end
 	count = math.clamp(count, 0, #v.rounds)
 
@@ -728,13 +764,15 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		end
 		hide(v.feed)
 	else
-		hide(v.live)
 		if v.carry == "case" then
 			place(v.case, v.chamber * CFrame.new(0, 0, d))
-		elseif v.carry == "round" then
+			hide(v.live)
+		elseif v.carry == "round" or (v.carry == "keep" and not pushing) then
+			-- (a kept round makes way for a clip's rounds coming down where it is)
 			place(v.live, v.chamber * CFrame.new(0, 0, d))
 			hide(v.case)
 		else
+			hide(v.live)
 			hide(v.case)
 		end
 		if v.fed and v.pending then
@@ -764,13 +802,21 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 	-- the stack
 	if count ~= v.shown then
 		v.lift = math.clamp(v.lift + (v.shown - count), -#v.rounds, #v.rounds)
+		if count > v.shown then
+			-- (rounds pushed in come down all in Hud.Gun.settle)
+			v.rate = -v.lift / G.settle
+		end
 		v.shown = count
 	end
 	local dt = math.clamp(clock - v.last, 0, 0.1)
 	v.last = clock
-	if v.lift ~= 0 then
-		local step = dt / G.rise
-		v.lift = if v.lift > 0 then math.max(0, v.lift - step) else math.min(0, v.lift + step)
+	if v.lift > 0 then
+		v.lift = math.max(0, v.lift - dt / G.rise)
+	elseif v.lift < 0 then
+		v.lift = math.min(0, v.lift + dt * math.max(v.rate, 1 / G.rise))
+		if open and face <= v.headZ then
+			v.lift = 0 -- (down before the closing bolt's face passes over their heads)
+		end
 	end
 	local lift = v.lift
 	if open and v.fed and v.pending and not v.tube then
@@ -790,6 +836,7 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 	if strip then
 		local n = math.min(#v.held, #v.rounds - count)
 		if pushing and n > 0 then
+			v.pushN = n
 			local hp = held :: BasePart
 			local hc = v.gun.CFrame:ToObjectSpace(hp.CFrame)
 			local bottom = hc.Y - hp.Size.Y / 2 + v.dia / 2 - v.shift
@@ -814,39 +861,8 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		end
 	end
 
-	-- the follower under the last round (at the top when empty), the spring under it to the floor
-	local Fo = G.well.follower
-	local follower = v.follower
 	local delta = if follow then v.gun.CFrame:ToObjectSpace(follow.CFrame) * v.followRest:Inverse() else CFrame.identity
-	if v.tube then
-		follower.CFrame = slotCF(v, count + 1 + v.lift, count, count) * CFrame.new(0, 0, -v.length * Fo.gap)
-	else
-		-- (in the stack's middle, as it moves with the gun's rounds)
-		local under = v.slot(math.max(count, 1) + lift, 1, 1).Y
-		local drop = if count == 0 then -0.5 - Fo.thick / 2 else 0.5 + Fo.gap + Fo.thick / 2
-		follower.CFrame = delta * CFrame.new(v.midX, under - v.dia * drop, v.headZ - v.length * Fo.length / 2)
-	end
 	local away = (gun.clip == "Enbloc" or gun.clip == "Box") and not visible
-	follower.Transparency = if gun.clip == "Box" and not visible then 1 else 0
-	local floor = v.floor
-	if floor and #v.spring > 0 then
-		local Sp = G.well.spring
-		local foot = floor.Position.Y + floor.Size.Y / 2
-		local head = follower.Position.Y - follower.Size.Y / 2
-		local x = follower.Position.X
-		local shiftZ = follower.Position.Z - (v.headZ - v.length * Fo.length / 2)
-		local front, back = v.headZ - v.length * Sp.front + shiftZ, v.headZ - v.length * Sp.rear + shiftZ
-		local n = #v.spring
-		local function point(k: number): Vector3
-			return Vector3.new(x, head + (foot - head) * k / n, if k % 2 == 0 then back else front)
-		end
-		for k, c in v.spring do
-			rod(c, point(k - 1), point(k))
-			if follower.Transparency >= 1 then
-				c.Transparency = 1
-			end
-		end
-	end
 
 	-- what moves with the gun's rounds (a box's well, an en-bloc clip): gone while out of the gun; an empty en-bloc
 	-- clip drops out of the bottom as its last round goes up
@@ -931,6 +947,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 	if not current then
 		current = build(tool, weapon, body, p.node.GunView :: ViewportFrame, p.node.GunShadow :: ViewportFrame)
 		current.shown = F.magazineAt(state, now)
+		current.magWas, current.openWas = state.magazine, state.open
 	end
 	update(current :: View, state, gun, now, os.clock())
 

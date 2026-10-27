@@ -57,19 +57,16 @@ local Hud = {
 		gap = { under = 0.55, behind = 0.4 },
 		-- the magazine well, an open box with its near side cut away (round widths): `wall` thick, `inside` each side of
 		-- the stack's middle, `front`/`rear` past the rounds' tips and heads, the walls' top `above` the top round,
-		-- `room` under the last round for the follower, `lip` the near side's low rim; the follower plate (`width`,
-		-- `thick` round widths, `length` round lengths) and its zigzag spring (`coils`, `thick` round widths, from
-		-- `rear` to `front` of a round length back from the heads)
+		-- `room` under the last round, `lip` the near side's low rim (no follower or spring, user 2026-10-26: "remove
+		-- the spring and platform in the magazine ... just make the bullet come up on its own")
 		well = {
 			wall = 0.12,
 			inside = 1,
 			front = 0.25,
 			rear = 0.25,
 			above = 0.55,
-			room = 1.3,
+			room = 0.6,
 			lip = 0.24,
-			follower = { width = 1.84, thick = 0.18, length = 0.85, gap = 0.1 },
-			spring = { coils = 4, thick = 0.06, rear = 0.15, front = 0.8 },
 		},
 		-- a stripper clip's strip at its rounds' heads (round widths: thick, wider than a round)
 		strip = { thick = 0.12, width = 1.15 },
@@ -83,6 +80,15 @@ local Hud = {
 		openFrom = 0.04, -- share of the bolt's travel back from which the action counts as open
 		closing = 0.05, -- share of the travel the bolt must come forward from its furthest to count as closing
 		rise = 0.14, -- seconds the stack takes to come up a round
+		-- a clip's rounds pushed in settle onto the stack over `settle` seconds all told (user 2026-10-26: "make sure
+		-- all the bullets are rested before bolting close"); they are down before the closing bolt's face reaches
+		-- their heads whatever the time
+		settle = 0.12,
+		-- a semi-automatic's self-cycling action is a blur (Config/Weapons action.boltTime, ~0.1 s): the cut-away plays
+		-- its own cycle after a shot over `time` seconds (under its fireTime), back over the first `back` share, held
+		-- to `hold`, home by the end (user 2026-10-26: "for semi auto rifles ... its not accurate to how the bullets
+		-- are being fed")
+		auto = { time = 0.3, back = 0.3, hold = 0.42 },
 		-- a round fed: its head on the bolt's face, it rises to the chamber's line as the face goes from the stack's
 		-- heads to the chamber, nose up by up to `tilt` degrees; the stack under it comes up a round as it clears, over
 		-- the first 1/`clear` of that

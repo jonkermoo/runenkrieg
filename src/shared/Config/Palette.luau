@@ -292,13 +292,11 @@ local Palette = {
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
 			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
-			-- the follower, the spring, a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
+			-- a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
 			bolt = { 150, 154, 160 },
 			steel = { 92, 96, 102 },
 			well = { 78, 82, 88 },
 			wellEdge = { 110, 114, 120 },
-			follower = { 60, 63, 68 },
-			spring = { 170, 172, 176 },
 			clip = { 120, 118, 112 },
 			shadow = { 16, 18, 22 },
 			shadowAmbient = { 255, 255, 255 },
