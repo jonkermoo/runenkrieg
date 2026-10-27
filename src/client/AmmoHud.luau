@@ -153,6 +153,7 @@ type View = {
 	magWas: number, -- a semi-automatic: the state's magazine and open bolt last frame (a shot drops one or opens it)
 	openWas: boolean,
 	cycleAt: number?, -- a semi-automatic: when the cut-away's own cycle after a shot began (clock)
+	wasAway: boolean, -- a box swap: the old box has gone out
 	length: number, -- a round's length (studs)
 	last: number, -- the last frame's clock
 }
@@ -278,6 +279,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		magWas = 0,
 		openWas = false,
 		cycleAt = nil,
+		wasAway = false,
 		length = G.fallback.length,
 		last = os.clock(),
 	}
@@ -728,9 +730,20 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 	if (open and v.pending and not v.fed) or (not open and state.chambered and v.atRest ~= "round") then
 		count += 1 -- (the state has chambered a round the bolt hasn't fed yet)
 	end
+	-- a box swapped (the state fills it at once): the old box keeps its rounds until it is out, the new one comes in
+	-- full; neither moves the stack (it goes with its box)
+	local swap = gun.clip == "Box" and busy and not state.load
+	if not swap then
+		v.wasAway = false
+	elseif not visible then
+		v.wasAway = true
+	elseif not v.wasAway then
+		count = math.min(count, v.shown)
+	end
 	if not visible then
 		count = 0
 	end
+	local snap = swap and (not visible or v.wasAway)
 	-- a clip's rounds being pushed down out of it (the gun's "HeldRounds" showing; gone once the closing bolt's face
 	-- reaches their heads): through a clip reload the stack shows only the rounds already pushed down
 	local held = v.tool:FindFirstChild("HeldRounds")
@@ -807,6 +820,9 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 			v.rate = -v.lift / G.settle
 		end
 		v.shown = count
+		if snap then
+			v.lift = 0
+		end
 	end
 	local dt = math.clamp(clock - v.last, 0, 0.1)
 	v.last = clock

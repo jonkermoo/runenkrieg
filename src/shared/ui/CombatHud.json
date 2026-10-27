@@ -126,7 +126,7 @@
 							{
 								"id": "HintText",
 								"kind": "label",
-								"font": "body",
+								"font": "plain",
 								"bind": "hint",
 								"text": "",
 								"textSize": 16,
