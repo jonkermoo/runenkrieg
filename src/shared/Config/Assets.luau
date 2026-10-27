@@ -240,6 +240,16 @@ local Assets = {
 			fidelity = "Hull",
 			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
 		},
+		hesco = {
+			-- v1 (user 2026-10-27, approved in Blender: "the inside looks right")
+			id = 70847550749595,
+			category = "Props",
+			folder = "Build",
+			source = "assets/props/hesco.fbx",
+			generator = "tools/blender/hesco/hesco.py",
+			fidelity = "Hull",
+			description = "The Hesco barrier, 6 x 6 x 4 studs, in piece space (footprint centred on the Origin on the ground), one set of pieces per build stage s = 1-4: Wire<s> (mesh, rim, corner coils), Liner<s> (slack liner above the dirt, stages 1-3), LinerFull<s> (liner under the dirt, stages 2-4), Earth<s>, Damp<s>, Clods<s>, Stones<s> (the dirt and what lies on it, stages 2-4), Flaps1 + Piles1 (stage 1). Only the Earth blocks: the wire and liner stop nothing (user 2026-10-27).",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",
