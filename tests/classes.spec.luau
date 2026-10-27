@@ -77,6 +77,20 @@ return {
 			assert(g.headwear == kit.headwear, kitName .. " grenadier keeps the default helmet")
 		end
 	end,
+	["katzlings and fenneks wear every class helmet with ear holes (user 2026-10-27)"] = function()
+		local Looks = require("../src/shared/Rules/Looks")
+		local S = require("../src/shared/Config/Species")
+		for kitName, species in S.Kits do
+			if species == "katzling" or species == "fennek" then
+				for key in C.Defs do
+					local h = R.gear(key, kitName, C.Defs, U.Kits, C.Gear).headwear :: string
+					local worn = Looks.helmetEntry(h, species, A.Entries)
+					assert(worn == `{h}_{species}`, `{key} {kitName}: {h} has a {species} version`)
+					assert(A.Entries[worn].fit.shell == A.Entries[h].fit.shell, `{worn} keeps the shell`)
+				end
+			end
+		end
+	end,
 	["only the engineer builds guns; everyone builds trenches, sandbags and wire"] = function()
 		local kinds: { [string]: boolean } = {}
 		for _, p in BuildCfg.Pieces do
