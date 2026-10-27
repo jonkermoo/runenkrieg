@@ -98,7 +98,7 @@ local Classes = {
 	Gear = {
 		uniform1 = { semi = "rifle_mondragon", staff = "staff_grey", altHelmet = "helmet_stahl_plate" },
 		uniform2 = { semi = "rifle_remington8", staff = "staff_olive", altHelmet = "helmet_m33_plate" },
-		uniform3 = { semi = "rifle_winchester1907", staff = "staff_white", altHelmet = "helmet_adrian_visor" },
+		uniform3 = { semi = "rifle_winchester1907", staff = "staff_brown", altHelmet = "helmet_adrian_visor" },
 	} :: { [string]: { [string]: string } },
 	-- points earned (user: kills, assists, captures, building; prices scaled down, so these are too)
 	Earn = {

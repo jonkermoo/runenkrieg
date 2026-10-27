@@ -291,7 +291,7 @@ local Build = {
 	-- pit filling back as the work falls, gone at 0. `paint`: each kit's gun paint (Config/Palette.Artillery.Paint).
 	Guns = {
 		standsFrom = 0.75,
-		paint = { uniform1 = "Grey", uniform2 = "Olive", uniform3 = "White" },
+		paint = { uniform1 = "Grey", uniform2 = "Olive", uniform3 = "Brown" },
 	},
 
 	-- The building site round a gun being built (Rules/Scaffold, src/server/Build; user 2026-10-26: "include building

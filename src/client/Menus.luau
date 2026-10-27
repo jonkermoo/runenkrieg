@@ -296,7 +296,7 @@ function Menus.start()
 	local function setTeam(kit: any)
 		local k = type(kit) == "string" and (U.Kits :: any)[kit]
 		local team = title.node.Team :: TextLabel
-		team.Text = if k and k.team then `You fight for the {k.team} army` else ""
+		team.Text = if k and k.army then `For {k.army}` else ""
 	end
 
 	local menuOpen = false
