@@ -1,7 +1,9 @@
 --!strict
 -- The menus' background (user 2026-10-27: "the background of every menu should be the current match going on"): the
 -- camera circles a spot of the map, cutting to a new random one every few seconds (Config/Classes.Cam; user: "for this
--- FFA mode, just show the random points of the map"). TODO: the most contested capture point once a mode has them.
+-- FFA mode, just show the random points of the map"). In the zone free-for-all (Workspace's "FreeForAll" attribute,
+-- src/server/ZoneMatch) it cuts between the zone's spots (Config/Maps/Playtest.zoneMatch.spots) instead, as that match
+-- is on the Playtest map. TODO: the most contested capture point once a mode has them.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,6 +12,15 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Classes).Cam
 local Map = require(Shared.Config.Maps.Map1)
+-- the zone match's spots ({ x, z }), when that map's config is in this build
+local zoneSpots: { { number } } = (function()
+	local m = Shared.Config.Maps:FindFirstChild("Playtest")
+	local ok, cfg = pcall(function()
+		return if m and m:IsA("ModuleScript") then require(m) :: any else nil
+	end)
+	local spots = ok and cfg and cfg.zoneMatch and cfg.zoneMatch.spots
+	return if type(spots) == "table" then spots else {}
+end)()
 
 local MatchCam = {}
 
@@ -39,6 +50,10 @@ end
 -- A random spot of the playable area (Config/Classes.Cam.Inset studs in from its edges) on open ground (a few
 -- tries, so it is rarely a treetop or a roof).
 local function anywhere(): Vector3
+	if workspace:GetAttribute("FreeForAll") == true and #zoneSpots > 0 then
+		local p = zoneSpots[math.random(#zoneSpots)]
+		return (ground(p[1], p[2]))
+	end
 	local b, inset = Map.bounds, Cfg.Inset
 	local spot = Vector3.zero
 	for _ = 1, Cfg.Tries do
