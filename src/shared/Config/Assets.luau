@@ -165,6 +165,16 @@ local Assets = {
 			generator = "tools/blender/artillery/qf18.py",
 			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
 		},
+		-- the MG nest's gun (user 2026-10-27; design approved by the user): v2 named as the
+		-- artillery's parts (v1 97496546594152 had Gun* names)
+		mg08 = {
+			id = 121882149099009,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/mg08.fbx",
+			generator = "tools/blender/mgnest/mg08.py",
+			description = "The MG nest's machine gun: an MG 08 traced from a photo (tools/blender/mgnest/trace/mg08.py), built 1.5x like the rifles (5.04 long), with an M1910-style arched shield and keyhole, on a turntable and yoke, its ammo box and a belt of the shared rifle round. Gun space: origin on the mount bag's top under the pivot, the muzzle -Z. Moving parts: Mount + MountTrim + MountFittings + MountKit + Belt + Rounds + Bullets traverse, Cradle + CradleTrim + CradleFittings + Barrel + Bore elevate about (0, 1.035, 0); Carriage stays. Sights: a rear peep ring and a front ring with cross wires on y 1.78.",
+		},
 		artillery_howitzer = {
 			-- v10 (user 2026-10-26: runes only round the crystal; meshing ring gear and pinions with hand wheels, turned by
 			-- src/client/Artillery; a long recuperator off centre over the barrel and a fat buffer under it, an open
@@ -251,6 +261,17 @@ local Assets = {
 			generator = "tools/blender/sandbags/pile.py",
 			fidelity = "Hull",
 			description = "A pile of three pillow sandbags in piece space (x along the pile, y up from the ground, z toward the defenders behind it, Origin at the foot's centre): Bag1 and Bag2 side by side on the ground (3.6 long, 1.6 deep, ties pointing outward), Bag3 centred on them, its underside settled into the joint; Bag<i>Cord the tie round each bag's neck; stage 1: Patch, the ground scraped flat under the pile (its top 0.05 up), and Sacks, three empty sacks folded at the +x end. 7.2 wide plus the ears, 3.68 high, the bottom row's top 1.96.",
+		},
+		-- the MG nest's mount bag (user 2026-10-27: "make the mount sandbag more circular and less long"): v2 with its
+		-- Origin (v1 108497445715304 had none)
+		sandbag_round = {
+			id = 126056372875183,
+			category = "Props",
+			folder = "Sandbags",
+			source = "assets/props/sandbag_round.fbx",
+			generator = "tools/blender/mgnest/mg08.py",
+			fidelity = "Hull",
+			description = "The MG nest's mount bag: a short, nearly round pillow bag (Bag) lying along the gun, tied at the back (BagCord), its top sagging into a dent under the gun's foot plate. Gun space, Origin at the bag's foot under its middle; the dent's centre 0.2 in front of it (-z).",
 		},
 		hesco = {
 			-- v3 (user round 5: "make another flat model for when it has just been placed": stage 0; approved "the flat

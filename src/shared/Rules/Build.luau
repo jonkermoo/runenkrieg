@@ -159,6 +159,7 @@ function Build.hpOf(p: Piece, c: any): Hp?
 		elseif p.kind == "Hesco" then c.Hesco
 		elseif p.kind == "Bridge" then c.Bridge
 		elseif p.kind == "Sandbags" then c.Sandbags
+		elseif p.kind == "Nest" then c.Nest
 		else nil
 	return own and own.hp
 end
@@ -675,6 +676,68 @@ function Build.wireShake(t: number, w: any): number
 	return w.wobble * fade * fade * math.sin(2 * math.pi * w.rate * t)
 end
 
+-- An MG nest's bags on its ring (Config/Build.Nest `ring`: `sides`-sided, `bag`-stud sides, `piles` each an end, its
+-- bend and its other end as ring vertices, 0 the front point), in build order: two piles at a time, their bottom bags,
+-- then their top bags. Plan space: the ring's middle at 0, x right, z back (the front point at z = -radius). Each bag:
+-- its pile (1..), `slot` (1, 2 the bottom bags, 3 the top), its middle (`x`, `z`) and the way it lies (`dx`, `dz`, a
+-- unit vector from its first end to its second). The top bag lies over the bend, on the bottom bags' middle line.
+export type NestBag = { pile: number, slot: number, x: number, z: number, dx: number, dz: number }
+function Build.nestRing(ring: any): ({ NestBag }, number)
+	local n = ring.sides
+	local radius = ring.bag / (2 * math.sin(math.pi / n))
+	local function vertex(k: number): (number, number)
+		local a = math.rad(-90 + 360 / n * k)
+		return radius * math.cos(a), radius * math.sin(a)
+	end
+	local function lie(ax: number, az: number, bx: number, bz: number): (number, number)
+		local l = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+		return (bx - ax) / l, (bz - az) / l
+	end
+	local out: { NestBag } = {}
+	for first = 1, #ring.piles, 2 do
+		local pair = { first }
+		if first < #ring.piles then
+			table.insert(pair, first + 1)
+		end
+		for _, i in pair do
+			local k = ring.piles[i]
+			local x0, z0 = vertex(k[1])
+			local x1, z1 = vertex(k[2])
+			local x2, z2 = vertex(k[3])
+			local dx, dz = lie(x0, z0, x1, z1)
+			table.insert(out, { pile = i, slot = 1, x = (x0 + x1) / 2, z = (z0 + z1) / 2, dx = dx, dz = dz })
+			dx, dz = lie(x1, z1, x2, z2)
+			table.insert(out, { pile = i, slot = 2, x = (x1 + x2) / 2, z = (z1 + z2) / 2, dx = dx, dz = dz })
+		end
+		for _, i in pair do
+			local k = ring.piles[i]
+			local x0, z0 = vertex(k[1])
+			local x1, z1 = vertex(k[2])
+			local x2, z2 = vertex(k[3])
+			local over = math.cos(math.pi / n) -- (the bend's vertex pulled in onto the bottom bags' line)
+			local dx, dz = lie(x0, z0, x2, z2)
+			table.insert(out, { pile = i, slot = 3, x = x1 * over, z = z1 * over, dx = dx, dz = dz })
+		end
+	end
+	return out, radius
+end
+
+-- What an MG nest with `hp` shows (Config/Build.Nest `n`, `bags` of them in all, the mount bag counted): how many bags
+-- stand (the first `bagShare` of its HP lays them, evenly) and how many of `quarters` of its gun are set up (the rest);
+-- nothing at 0
+function Build.nestShown(hp: number, n: any, bags: number): (number, number)
+	if hp <= 0 or bags <= 0 then
+		return 0, 0
+	end
+	local span = n.hp.max * n.bagShare
+	local laid = math.clamp(math.ceil(hp / (span / bags) - 1e-9), 0, bags)
+	if hp <= span + 1e-9 then
+		return laid, 0
+	end
+	local per = (n.hp.max - span) / n.quarters
+	return bags, math.clamp(math.ceil((hp - span) / per - 1e-9), 0, n.quarters)
+end
+
 export type HpRules = { place: number, max: number, swing: number?, destroy: number? }
 
 -- How a piece of `kind` (or a trench square, "TrenchBlock") goes up and down on HP (Config/Build `cfg`; a gun's
@@ -686,6 +749,7 @@ function Build.hpRules(kind: string, cfg: any, p: Piece?): HpRules?
 		elseif kind == "Hesco" then cfg.Hesco.hp
 		elseif kind == "Bridge" then cfg.Bridge.hp
 		elseif kind == "Wire" then cfg.Wire.hp
+		elseif kind == "Nest" then cfg.Nest.hp
 		else nil
 	if h then
 		return { place = h.place or 0, max = h.max, swing = h.swing, destroy = h.destroy }

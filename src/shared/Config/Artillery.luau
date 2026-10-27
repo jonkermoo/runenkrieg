@@ -111,6 +111,11 @@ export type Gun = {
 	wreckParts: { string },
 	holeSize: { number },
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
+	-- set up in an MG nest (Config/Build.Nest) instead of on its own: no building site of its own (Config/Build.Scaffold),
+	-- and it fires bullets, not shells; nil: an artillery piece
+	nest: boolean?,
+	-- part names coloured so instead of by Palette.Artillery (the MG's gunmetal body and its belt); nil: none
+	colors: { [string]: { number } }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
 	assembly: { { names: { string }, at: number } },
@@ -801,6 +806,75 @@ local Artillery = {
 				{ names = { "Cradle" }, at = 2 },
 				{ names = { "Barrel", "Bore" }, at = 3 },
 				{ names = { "Breech", "Crystal" }, at = 4 },
+			},
+		} :: Gun,
+		-- The MG nest's machine gun (user 2026-10-27, design approved by the user): an MG 08
+		-- (tools/blender/mgnest/mg08.py) built by the shovel in an MG nest (Config/Build.Nest), set up in quarters
+		-- (`assembly`). Gun space: the origin on the mount bag's top under the pivot. Its firing (bullets, its belt box,
+		-- the box reload) comes with manning it (next step); the shell fields below are kept only so it is a Gun.
+		mg08 = {
+			asset = "mg08",
+			name = "MG 08",
+			nest = true,
+			base = "Carriage",
+			mount = { "Mount", "MountTrim", "MountFittings", "MountKit", "Belt", "Rounds", "Bullets" },
+			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
+			barrel = { "Barrel", "Bore" },
+			breech = {},
+			trunnion = { 0, 1.035, 0 },
+			hinge = { 0, 1.035, 0 },
+			muzzle = { 0, 1.25, -2.187 },
+			boreCentre = 0.009,
+			traverse = 20, -- (the design: +-20 before the shield meets the top bags round the notch)
+			elevation = { -8, 10 },
+			swing = 0.001, -- (it never swings past its stops: the nest holds it)
+			traverseRate = 60,
+			elevationRate = 40,
+			speed = 900,
+			gravity = 196.2,
+			charge = 0,
+			breechOpens = false,
+			kg = 0.01,
+			scatter = { yaw = 0.6, elevation = 0.6, speed = 0 },
+			reload = 12, -- (the box reload, the design's long wait)
+			breechOpen = 0,
+			breechTimes = { 0, 0 },
+			recoil = 0,
+			recoilTimes = { 0.05, 0.1 },
+			crew = { 0, 3.9 }, -- (behind the grips; the gunner crouches)
+			crewTurns = true,
+			prompt = 7,
+			vfx = { scheme = "Ember", magic = false },
+			muzzleScale = 0.3,
+			sound = { fire = {}, far = {}, blast = {}, echo = {}, whistle = {}, whistleLead = 0 },
+			zone = 0,
+			shell = {
+				size = 0.1,
+				color = { 255, 220, 150 },
+				tail = { 200, 200, 200 },
+				trail = 0.1,
+				light = 0,
+				magic = false,
+			},
+			hp = 100,
+			repair = 7,
+			wreckParts = { "Mount", "Cradle" },
+			holeSize = { 0.08, 0.16 },
+			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
+			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
+			colors = {
+				Cradle = { 46, 48, 51 },
+				Barrel = { 46, 48, 51 },
+				Belt = { 140, 120, 84 },
+				Rounds = { 196, 160, 84 },
+				Bullets = { 184, 115, 72 },
+			},
+			-- the foot and turntable, then the mount and shield, the gun, the ammo box and belt last
+			assembly = {
+				{ names = { "Carriage" }, at = 1 },
+				{ names = { "Mount" }, at = 2 },
+				{ names = { "Cradle", "Barrel", "Bore" }, at = 3 },
+				{ names = { "MountKit", "Belt", "Rounds", "Bullets" }, at = 4 },
 			},
 		} :: Gun,
 	},

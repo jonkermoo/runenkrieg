@@ -53,7 +53,8 @@ return {
 					or p.kind == "Wire"
 					or p.kind == "Gun"
 					or p.kind == "Hesco"
-					or p.kind == "Bridge",
+					or p.kind == "Bridge"
+					or p.kind == "Nest",
 				p.key
 			)
 			-- (every piece but a trench square and the old sandbag walls is on HP out of 100, Rules.hpOf)
@@ -556,7 +557,54 @@ return {
 		assert(B.hpSwing(h.max, false, h, 50) == 50, "an admin dig step in place of a swing")
 		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
 	end,
-
+	["an MG nest's ring: eight bottom bags on a regular ring, the back side open, the top bags over the bends"] = function()
+		local n = C.Nest
+		local bags, radius = B.nestRing(n.ring)
+		assert(#bags == 12, "four piles of three")
+		assert(near(radius, n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))))
+		local apothem = radius * math.cos(math.pi / n.ring.sides)
+		for _, b in bags do
+			-- every bag's middle on the bottom bags' line, lying along the ring (square to its radius)
+			assert(near(math.sqrt(b.x * b.x + b.z * b.z), apothem, 1e-6), "on the ring")
+			assert(near((b.x * b.dx + b.z * b.dz) / apothem, 0, 1e-6), "along the ring")
+		end
+		-- built two piles at a time: the front two's bottoms, then their tops, then the back two's
+		local slots = {}
+		for _, b in bags do
+			table.insert(slots, b.slot)
+		end
+		assert(table.concat(slots, ",") == "1,2,1,2,3,3,1,2,1,2,3,3")
+		-- mirror-symmetric about x = 0, nothing straight behind the middle (the doorway)
+		for _, b in bags do
+			local mirror = false
+			for _, o in bags do
+				mirror = mirror or (near(o.x, -b.x, 1e-6) and near(o.z, b.z, 1e-6))
+			end
+			assert(mirror, "symmetric")
+			assert(not (math.abs(b.x) < 1 and b.z > 0), "the doorway at the back is open")
+		end
+		-- the front point is where two piles' ends meet: the first two bags start there
+		assert(near(bags[1].x - bags[1].dx * n.ring.bag / 2, 0, 1e-6))
+		assert(near(bags[1].z - bags[1].dz * n.ring.bag / 2, -radius, 1e-6))
+	end,
+	["an MG nest's HP lays a bag a swing, then sets the gun up in quarters"] = function()
+		local n = C.Nest
+		local bags = 13 -- (the mount bag and the four piles)
+		assert(B.nestShown(0, n, bags) == 0)
+		local laid, q = B.nestShown(n.hp.swing, n, bags)
+		assert(laid == 1 and q == 0, "the first swing lays the mount bag")
+		laid, q = B.nestShown(n.hp.max * n.bagShare, n, bags)
+		assert(laid == bags and q == 0, "every bag down, no gun yet")
+		assert(n.hp.max * n.bagShare / bags == n.hp.swing, "one bag a Build swing")
+		laid, q = B.nestShown(n.hp.max, n, bags)
+		assert(laid == bags and q == n.quarters, "the gun set up at full HP")
+		local last = 0
+		for hp = 0, n.hp.max, n.hp.swing do
+			local l, g = B.nestShown(hp, n, bags)
+			assert(l + g >= last, "never goes back while it rises")
+			last = l + g
+		end
+	end,
 	["the build panel's swing counts come from each piece's HP"] = function()
 		local function p(key: string): any
 			return assert(B.piece(key, C.Pieces), key)

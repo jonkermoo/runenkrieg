@@ -91,7 +91,7 @@ local Classes = {
 			cost = 150,
 			primary = "weapon",
 			grenades = false,
-			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun" },
+			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
 			locked = true,
 		},
 		-- the team's goggles (user 2026-10-27: "goggles on mage")

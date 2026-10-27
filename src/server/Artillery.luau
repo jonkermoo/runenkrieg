@@ -498,6 +498,13 @@ local function copyOf(gun: Cfg.Gun, key: string, paintKey: string?): Model
 	model.Name = key
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- clients pose it whole
 	paint(model, if paintKey and Palette.Artillery.Paint[paintKey] then paintKey else Cfg.Paint)
+	for name, c in gun.colors or {} do
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == name then
+				d.Color = rgb(c)
+			end
+		end
+	end
 	local base = part(model, gun.base)
 	model.PrimaryPart = base
 	base.PivotOffset = base.CFrame:ToObjectSpace(gunSpace(model, gun))

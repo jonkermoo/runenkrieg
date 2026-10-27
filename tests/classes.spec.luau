@@ -8,7 +8,7 @@ local A = require("../src/shared/Config/Assets")
 local BuildCfg = require("../src/shared/Config/Build")
 
 -- the pieces only the Engineer builds
-local ENGINEER = { Gun = true, Hesco = true, Sandbags = true }
+local ENGINEER = { Gun = true, Hesco = true, Sandbags = true, Nest = true }
 
 return {
 	["the user's prices: rifleman free, grenadier 50, auto rifler 100, engineer 150 (locked), mage 200"] = function()
@@ -97,7 +97,7 @@ return {
 	end,
 	-- (Hesco barriers and sandbag piles too since round 7, user 2026-10-27: "hesco barriers should and sandbags should be
 	-- engineer only")
-	["only the engineer builds guns, Hesco barriers and sandbags; everyone builds trenches, wire and bridges"] = function()
+	["only the engineer builds guns, Hesco barriers, sandbags and MG nests; everyone builds trenches, wire and bridges"] = function()
 		local kinds: { [string]: boolean } = {}
 		for _, p in BuildCfg.Pieces do
 			kinds[p.kind] = true
