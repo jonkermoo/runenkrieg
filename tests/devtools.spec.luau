@@ -22,7 +22,7 @@ return {
 	["on-map destinations are inside the playable bounds"] = function()
 		local b = Map1.bounds
 		for _, d in T.list(Map1, Cfg) do
-			if not d.offMap then
+			if not d.offMap and not d.map then
 				assert(d.x > b.minX and d.x < b.maxX and d.z > b.minZ and d.z < b.maxZ, `{d.id} outside bounds`)
 			end
 		end
@@ -130,9 +130,10 @@ return {
 		for _, h in Cfg.Admin.Health do
 			assert(h > 0 and h <= DamageCfg.Health, `health step {h} out of range`)
 		end
-		local W = Cfg.World.Terrain
-		for i = 1, 3 do
-			assert(W.min[i] < W.max[i], "the terrain box needs min < max")
+		for _, W in Cfg.World.Terrain do
+			for i = 1, 3 do
+				assert(W.min[i] < W.max[i], "the terrain box needs min < max")
+			end
 		end
 	end,
 	["admin dig steps: a normal one, shares up to the whole, each a valid DigStep and nothing else"] = function()
