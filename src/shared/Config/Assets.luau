@@ -699,6 +699,75 @@ local Assets = {
 				center = { 0, 0.616, 0.0118 },
 			},
 		},
+		-- the class helmets with ear holes (user 2026-10-27: Rifleman plate, Mage goggles; slit.py --base)
+		helmet_stahl_plate_katzling = {
+			id = 98538430075934, -- 2026-10-27
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_plate_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_plate (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
+				.. "(--tufts --base helmet_stahl_plate). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1210 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = { Plate = { 58, 60, 64 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_stahl_goggles_katzling = {
+			id = 102146492317293, -- 2026-10-27
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_goggles_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_goggles (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
+				.. "(--tufts --base helmet_stahl_goggles). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1350 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_adrian_visor_fennek = {
+			id = 124778702224786, -- 2026-10-27
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_adrian_visor_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_adrian_visor (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
+				.. "(--shape hull --tufts --base helmet_adrian_visor). Worn by Fenneks (Rules/Looks.helmetEntry). White team (1444 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				brim = -0.02, -- the front peak sits 0.21 above the head centre (eyes show)
+				parts = { Visor = { 168, 170, 174 } },
+				shell = "adrian",
+				center = { 0, 0.616, 0.0118 },
+			},
+		},
+		helmet_brodie_goggles_fennek = {
+			id = 81298979861398, -- 2026-10-27
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_brodie_goggles (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
+				.. "(--shape hull --tufts --base helmet_brodie_goggles). Worn by Fenneks (Rules/Looks.helmetEntry). White team (1056 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				brim = 0.06,
+				parts = { Strap = { 58, 40, 28 }, Lens = { 72, 176, 150 } }, -- dark leather on the chocolate (user 2026-10-21)
+				shell = "brodie",
+				center = { 0, 0.3902, 0.0023 },
+			},
+		},
 		-- Species ears and tails (Config/Species, src/server/Species; user 2026-10-18/20): one piece per mesh, named
 		-- `<Piece>_<role>` (the role picks its colour: Rules/Species.color). Ears are head-local (the Origin marker is
 		-- the head's center), tails Torso-local (the Torso's center).
