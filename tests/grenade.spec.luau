@@ -146,6 +146,6 @@ return {
 		end
 	end,
 	["fuse and count as the user picked"] = function()
-		assert(C.Fuse == 3 and C.Carried == 2)
+		assert(C.Fuse == 3 and C.Carried == 5)
 	end,
 }

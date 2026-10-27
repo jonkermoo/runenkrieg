@@ -109,8 +109,8 @@ local function roleColor(name: string, team: string): { number }?
 	return nil
 end
 
--- the team's paint on the painted parts, its accent colours on the accent pieces, the rest by mesh name; the runes and
--- the crystal glow
+-- the team's paint on the painted parts, its accent colours on the accent pieces, the rest by mesh name (the team's own
+-- first, as Brown's barrel); the runes and the crystal glow
 local function paint(model: Model, team: string)
 	local art = Palette.Artillery
 	for _, d in model:GetDescendants() do
@@ -120,7 +120,10 @@ local function paint(model: Model, team: string)
 			d.Color = rgb(
 				if table.find(art.Painted, d.Name)
 					then art.Paint[team]
-					else roleColor(d.Name, team) or (art :: any)[d.Name] or art.Barrel
+					else roleColor(d.Name, team)
+						or (art.Team[team] :: any)[d.Name]
+						or (art :: any)[d.Name]
+						or art.Barrel
 			)
 			if table.find(art.Glowing, d.Name) then
 				d.Material = Enum.Material.Neon
