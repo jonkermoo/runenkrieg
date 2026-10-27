@@ -133,16 +133,19 @@ local Palette = {
 		Paint = {
 			Grey = { 82, 86, 88 }, -- slate, as the grey tunic
 			Olive = { 98, 102, 66 },
-			Brown = { 192, 190, 180 }, -- still the off-white of the old White team (to be retuned brown)
+			-- chocolate, a touch lighter than the brown tunic (user 2026-10-27: scheme A, "chocolate and bronze"; was the
+			-- old White team's off-white 192, 190, 180)
+			Brown = { 104, 78, 56 },
 		},
 		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed", "TraverseWheel", "ElevationWheel" },
 		-- the small pieces (user 2026-10-26: "more micro designs and accents/secondary colors on the artillery ... make it
 		-- different per team"): a mesh named <part><Role> (MountTrim, CarriageFittings, ...) takes its team's colour for
 		-- that role: Trim bands and edging, Fittings rivets, bolts, caps, data plates and chains, Kit the tool and ammo
 		-- boxes, Marking the team's stripe. Grey: black iron and oxblood (as its blackened leather); Olive: brown leather
-		-- and ochre; Brown: khaki web, brass and navy. (User 2026-10-26: "make sure everything blends in well": the
-		-- fittings and stripes toned toward the paint; were Grey 120 steel / 138,46,40, Olive 196,160,72, Brown
-		-- 176,146,82 / 54,70,112.)
+		-- and ochre; Brown: dark leather, the bronze of its helmet plates, khaki web and navy. (User 2026-10-26: "make sure
+		-- everything blends in well": the fittings and stripes toned toward the paint; were Grey 120 steel / 138,46,40,
+		-- Olive 196,160,72, Brown 176,146,82 / 54,70,112. Brown retuned with its paint 2026-10-27: was Trim 150,134,96,
+		-- Fittings 160,136,86, Kit 112,90,64.)
 		Roles = { "Trim", "Fittings", "Kit", "Marking" },
 		Team = {
 			Grey = {
@@ -158,9 +161,9 @@ local Palette = {
 				Marking = { 170, 140, 72 },
 			},
 			Brown = {
-				Trim = { 150, 134, 96 },
-				Fittings = { 160, 136, 86 },
-				Kit = { 112, 90, 64 },
+				Trim = { 60, 42, 30 },
+				Fittings = { 176, 116, 58 },
+				Kit = { 150, 134, 96 },
 				Marking = { 70, 82, 112 },
 			},
 		},
