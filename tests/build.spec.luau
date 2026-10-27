@@ -166,6 +166,19 @@ return {
 		assert(B.wireHarm(5, 0.25, C.Wire, true) == 0, "a teammate moving through it")
 		assert(B.wireHarm(5, 0.25, C.Wire, false) > 0, "an enemy moving through it")
 	end,
+	["footprints: overlapping pieces are refused, side by side and apart are fine"] = function()
+		local function box(x: number, z: number, deg: number, w: number, d: number): B.Footprint
+			local r = math.rad(deg)
+			return { x = x, z = z, rx = math.cos(r), rz = math.sin(r), width = w, depth = d }
+		end
+		local wire = box(0, 0, 0, 8, 4)
+		assert(B.footprintsOverlap(wire, box(0, 0, 0, 8, 4)), "one wire on another")
+		assert(B.footprintsOverlap(wire, box(3, 1, 90, 8, 4)), "crossed over it")
+		assert(B.footprintsOverlap(wire, box(6, 0, 0, 6, 2.2)), "a sandbag wall reaching into its end")
+		assert(not B.footprintsOverlap(wire, box(8, 0, 0, 8, 4)), "end to end, touching")
+		assert(not B.footprintsOverlap(wire, box(0, 4.5, 0, 8, 4)), "side by side, apart")
+		assert(not B.footprintsOverlap(wire, box(9, 5, 45, 8, 4)), "turned, clear of its corner")
+	end,
 	["the wire: anyone moving through rattles it, standing still doesn't"] = function()
 		assert(B.wireRattles(C.Wire.speed, C.Wire), "a teammate or enemy wading through")
 		assert(not B.wireRattles(0, C.Wire) and not B.wireRattles(C.Wire.moving, C.Wire), "standing in it")

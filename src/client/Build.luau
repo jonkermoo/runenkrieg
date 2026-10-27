@@ -473,9 +473,9 @@ local function surveyPiece(character: Model, root: BasePart)
 		maxSlope = p.maxSlope or T.maxSlope,
 		ground = report.ground,
 		water = report.water,
-		overlap = Survey.blocked(p, box, report.low, ignore),
+		overlap = Survey.blocked(p, box, report.low, ignore) or Survey.onPiece(p, box, f),
 		gunGap = gun and Survey.gunGap(p, at, f),
-		nearTrench = gun and Survey.nearTrench(p, box, f),
+		nearTrench = (gun or p.kind == "Wire") and Survey.nearTrench(p, box, f),
 		mine = 0, -- (the caps are the server's to check)
 		team = 0,
 		perPlayer = C.PerPlayer,

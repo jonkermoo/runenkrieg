@@ -493,9 +493,10 @@ local function place(player: Player, key: any, at: any)
 		maxSlope = piece.maxSlope or C.Trench.maxSlope,
 		ground = report.ground,
 		water = report.water,
-		overlap = Survey.blocked(piece, frame, report.low, { character }),
+		overlap = Survey.blocked(piece, frame, report.low, { character }) or Survey.onPiece(piece, frame, f),
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
-		nearTrench = gunPiece and Survey.nearTrench(piece, frame, f),
+		-- (a wire keeps off trenches too: their hole, walls and bank)
+		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
 		mine = count(team, player.UserId),
 		team = count(team, nil),
 		perPlayer = C.PerPlayer,

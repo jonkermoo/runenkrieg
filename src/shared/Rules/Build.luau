@@ -54,7 +54,7 @@ export type Placing = {
 	water: boolean, -- water under any sample
 	overlap: boolean, -- it overlaps a building, another piece or a soldier
 	gunGap: boolean?, -- a gun: too close to another gun (Build.gunsClear)
-	nearTrench: boolean?, -- a gun: a trench within its trenchGap
+	nearTrench: boolean?, -- a gun or a wire: a trench within its trenchGap (a wire: on a trench or its bank)
 	mine: number, -- the builder's live pieces
 	team: number, -- the team's live pieces
 	perPlayer: number,
@@ -503,6 +503,28 @@ function Build.sandbags(p: Piece): { Bag }
 		end
 	end
 	return out
+end
+
+-- A laid piece's footprint on the ground: its centre (`x`, `z`), its width along `rx`, `rz` (its right, a unit vector)
+-- and its depth across it
+export type Footprint = { x: number, z: number, rx: number, rz: number, width: number, depth: number }
+
+-- whether two footprints overlap (by more than a touch: separating axes, each box's own two)
+function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
+	local dx, dz = b.x - a.x, b.z - a.z
+	-- the half extent of box `f` along axis (ux, uz)
+	local function reach(f: Footprint, ux: number, uz: number): number
+		local along = math.abs(f.rx * ux + f.rz * uz)
+		local across = math.abs(-f.rz * ux + f.rx * uz)
+		return f.width / 2 * along + f.depth / 2 * across
+	end
+	for _, axis in { { a.rx, a.rz }, { -a.rz, a.rx }, { b.rx, b.rz }, { -b.rz, b.rx } } do
+		local ux, uz = axis[1], axis[2]
+		if math.abs(dx * ux + dz * uz) >= reach(a, ux, uz) + reach(b, ux, uz) - 1e-3 then
+			return false
+		end
+	end
+	return true
 end
 
 -- whether a point in a box's own space (`lx`, `ly`, `lz` from its centre) is inside it (`sx`, `sy`, `sz` its size)
