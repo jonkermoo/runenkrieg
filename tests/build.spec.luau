@@ -385,17 +385,17 @@ return {
 		assert(B.pileBag(pile.stage1.ground, pile.bags) == nil and B.pileBag(pile.stage1.sacks, pile.bags) == nil)
 		assert(B.isPileCord("Bag2Cord") and not B.isPileCord("Bag2"))
 		-- laid: stage 1, no bag yet (scraped ground, empty sacks); each Build swing fills the next; full HP all of them
-		assert(h.place > 0 and B.pileBags(h.place, h.max, n) == 0, "laid at stage 1")
+		assert(h.place == 0 and B.pileBags(h.place, h.swing, n) == 0, "laid at 0 HP, stage 1")
 		local hp, gone = h.place, false
 		for bags = 1, n do
 			hp, gone = B.pileSwing(hp, true, h)
-			assert(B.pileBags(hp, h.max, n) == bags and not gone, "a bag a swing")
+			assert(B.pileBags(hp, h.swing, n) == bags and not gone, "a bag a swing")
 		end
 		assert(hp == h.max, "the last bag at full HP")
 		assert(B.pileSwing(hp, true, h) == h.max, "never over its max")
-		-- worn: bags come off as HP goes, stage 1 while any is left, gone at 0
-		assert(B.pileBags(h.max - 1, h.max, n) == n, "a scratch takes no bag")
-		assert(B.pileBags(1, h.max, n) == 0 and B.pileBags(0, h.max, n) == 0 and B.pileBags(-5, h.max, n) == 0)
+		-- worn: bags come off as HP goes, a bag while any of its share is left, stage 1 at 0
+		assert(B.pileBags(h.max - 1, h.swing, n) == n, "a scratch takes no bag")
+		assert(B.pileBags(1, h.swing, n) == 1 and B.pileBags(0, h.swing, n) == 0 and B.pileBags(-5, h.swing, n) == 0)
 		local left
 		left, gone = B.pileSwing(h.destroy, false, h)
 		assert(left == 0 and gone)

@@ -471,7 +471,7 @@ local function apply(r: Rec)
 		-- (its work is its HP: shown on the shovel's panel like a gun's)
 		r.model:SetAttribute("HP", r.work)
 		r.model:SetAttribute("MaxHP", r.need)
-		showSandbags(r, Rules.pileBags(r.work, r.need, #r.piece.bags))
+		showSandbags(r, Rules.pileBags(r.work, C.Sandbags.hp.swing, #r.piece.bags))
 	elseif kind == "Wire" then
 		showWire(r)
 	elseif kind == "Gun" then

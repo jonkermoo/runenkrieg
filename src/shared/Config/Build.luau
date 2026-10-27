@@ -318,9 +318,10 @@ local Build = {
 	-- a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`;
 	-- weapons take Structures above; its bags stand by HP (Rules.pileBags: one at least while it has any), gone at 0.
 	-- Stage 1 (user 2026-10-27: "a new stage 1, where no sandbags are placed, that way we can have 1 new sandbag per
-	-- dig"): laid, the pile is its scraped ground and empty sacks (Pieces `stage1`); each Build swing then fills a bag
-	-- (25 laid, 50, 75, 100: no bag, one, two, all three).
-	Sandbags = { hp = { max = 100, place = 25, swing = 25, destroy = 10 }, shade = 0.06, sink = 0.15 },
+	-- dig"): laid at 0 HP (user 2026-10-27: "yes", like the Hesco), the pile is its scraped ground and empty sacks
+	-- (Pieces `stage1`); each Build swing fills a bag, every `swing` of HP a bag (0, 34, 68, 100: no bag, one, two, all
+	-- three; Rules.pileBags).
+	Sandbags = { hp = { max = 100, place = 0, swing = 34, destroy = 10 }, shade = 0.06, sink = 0.15 },
 
 	-- Barbed wire (user 2026-10-27): its meshes are
 	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
