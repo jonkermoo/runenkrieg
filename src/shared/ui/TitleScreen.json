@@ -24,7 +24,7 @@
 	},
 	"modal": true,
 	"preview": {
-		"team": "You fight for the Olive army"
+		"team": "For the Kingdom of Selvara"
 	},
 	"root": {
 		"id": "Screen",
@@ -77,6 +77,23 @@
 				],
 				"children": [
 					{
+						"id": "Flag",
+						"kind": "image",
+						"bind": "flag",
+						"pos": [
+							0,
+							0,
+							0,
+							0
+						],
+						"size": [
+							0,
+							48,
+							0,
+							32
+						]
+					},
+					{
 						"id": "Team",
 						"kind": "label",
 						"bind": "team",
@@ -85,13 +102,13 @@
 						"align": "left",
 						"pos": [
 							0,
-							0,
+							60,
 							0,
 							0
 						],
 						"size": [
 							1,
-							0,
+							-60,
 							0,
 							32
 						]

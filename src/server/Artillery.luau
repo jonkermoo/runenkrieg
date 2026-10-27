@@ -498,6 +498,13 @@ local function copyOf(gun: Cfg.Gun, key: string, paintKey: string?): Model
 	model.Name = key
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- clients pose it whole
 	paint(model, if paintKey and Palette.Artillery.Paint[paintKey] then paintKey else Cfg.Paint)
+	for name, c in gun.colors or {} do
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == name then
+				d.Color = rgb(c)
+			end
+		end
+	end
 	local base = part(model, gun.base)
 	model.PrimaryPart = base
 	base.PivotOffset = base.CFrame:ToObjectSpace(gunSpace(model, gun))
@@ -1031,7 +1038,7 @@ local function blast(position: Vector3, kg: number, structure: string?)
 			local top = ground.CFrame * CFrame.new(0, (ground.Size.Y + pf.thick) / 2, 0)
 			d = math.min(d, off(top, Vector3.new(ground.Size.X + 2 * pf.pad, pf.thick, ground.Size.Z + 2 * pf.pad)))
 		end
-		hurt(s, Rules.gunHit(d, src, H.direct))
+		hurt(s, Rules.gunHit(d, src, H.direct) / (s.gun.armour or 1))
 	end
 end
 

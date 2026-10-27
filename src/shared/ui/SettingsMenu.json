@@ -1,6 +1,6 @@
 {
 	"name": "SettingsMenu",
-	"_doc": "The settings menu (src/client/SettingsMenu): sizes in reference pixels at theme.scale.referenceHeight, one UIScale, never taller than the GUI area less theme.fitMargin. Colours are Config/Palette UI.Settings names. Desktop only (no mobile, user 2026-10-19): minTap is a mouse target. The four *Row nodes are the row templates by option kind (Config/Settings.Tabs); Seg buttons, Tab buttons and the slider parts here are preview samples, the menu makes one per value / tab.",
+	"_doc": "The settings menu (src/client/SettingsMenu), in the game's basic look (user 2026-10-27; docs/ART_STYLE.md): one font, Source Sans Pro Bold, plain boxes like the title screen's buttons, no coloured titles. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale, never taller than the GUI area less theme.fitMargin. Colours are Config/Palette UI.Settings names. Desktop only (no mobile, user 2026-10-19): minTap is a mouse target. Each row is one line, its name on the left and its control on the right; the four *Row nodes are the row templates by option kind (Config/Settings.Tabs). Seg buttons, Tab buttons and the slider parts here are preview samples, the menu makes one per value / tab.",
 	"theme": {
 		"scale": {
 			"referenceHeight": 800,
@@ -15,15 +15,10 @@
 		"corner": 4,
 		"scrollBar": 4,
 		"fonts": {
-			"title": {
-				"family": "GrenzeGotisch",
-				"weight": "Regular",
-				"file": "GrenzeGotisch-Regular.ttf"
-			},
 			"body": {
-				"family": "Balthazar",
-				"weight": "Regular",
-				"file": "Balthazar-Regular.ttf"
+				"family": "SourceSansPro",
+				"weight": "Bold",
+				"file": "SourceSansPro-Bold.ttf"
 			}
 		},
 		"fitNode": "Panel"
@@ -33,10 +28,10 @@
 	},
 	"preview": {
 		"presetName": "Graphics: Custom",
-		"choiceName": "Tree sway",
+		"choiceName": "Lighting effects",
 		"sliderName": "Aimed sensitivity",
 		"sliderValue": "3.00x",
-		"keyName": "Settings menu",
+		"keyName": "Break free of a drag",
 		"keyText": "Press a key (Esc cancels)"
 	},
 	"root": {
@@ -52,7 +47,6 @@
 			{
 				"id": "Gear",
 				"kind": "button",
-				"shape": "diamond",
 				"anchor": [
 					1,
 					0
@@ -65,9 +59,9 @@
 				],
 				"size": [
 					0,
-					50,
+					44,
 					0,
-					50
+					44
 				],
 				"color": "panel",
 				"line": "lineStrong",
@@ -87,9 +81,9 @@
 							0
 						],
 						"size": [
-							0.5,
+							0.6,
 							0,
-							0.5,
+							0.6,
 							0
 						],
 						"color": "text",
@@ -114,9 +108,9 @@
 				],
 				"size": [
 					0,
-					480,
+					600,
 					0,
-					540
+					560
 				],
 				"color": "panel",
 				"line": "line",
@@ -124,88 +118,90 @@
 					{
 						"id": "Title",
 						"kind": "label",
-						"font": "title",
-						"text": "Settings",
-						"textSize": 34,
+						"text": "SETTINGS",
+						"textSize": 32,
 						"textColor": "title",
 						"align": "left",
 						"pos": [
 							0,
-							18,
+							20,
 							0,
-							10
+							14
 						],
 						"size": [
 							1,
 							-104,
 							0,
-							50
+							44
 						]
 					},
 					{
 						"id": "Close",
 						"kind": "button",
-						"shape": "diamond",
+						"text": "X",
+						"textSize": 24,
+						"color": "field",
+						"line": "lineStrong",
+						"textColor": "text",
 						"anchor": [
 							1,
 							0
 						],
 						"pos": [
 							1,
-							-18,
+							-20,
 							0,
-							10
+							14
 						],
 						"size": [
 							0,
-							50,
+							44,
 							0,
-							50
-						],
-						"text": "x",
-						"textSize": 24,
-						"color": "field",
-						"line": "lineStrong",
-						"textColor": "text"
+							44
+						]
 					},
 					{
 						"id": "Rule",
 						"kind": "panel",
+						"color": "line",
 						"pos": [
 							0,
-							18,
+							20,
 							0,
-							66
+							70
 						],
 						"size": [
 							1,
-							-36,
+							-40,
 							0,
 							1
-						],
-						"color": "line"
+						]
 					},
 					{
 						"id": "Tabs",
 						"kind": "group",
+						"gap": 6,
 						"pos": [
 							0,
-							18,
+							20,
 							0,
-							72
+							84
 						],
 						"size": [
 							1,
-							-36,
+							-40,
 							0,
-							50
+							40
 						],
-						"gap": 6,
 						"children": [
 							{
 								"id": "Tab1",
 								"kind": "button",
-								"clear": true,
+								"text": "Graphics",
+								"textSize": 20,
+								"color": "selFill",
+								"line": "selLine",
+								"textColor": "selText",
 								"pos": [
 									0.0,
 									0.0,
@@ -217,35 +213,16 @@
 									-4.5,
 									1,
 									0
-								],
-								"text": "Graphics",
-								"textSize": 20,
-								"textColor": "title",
-								"children": [
-									{
-										"id": "Underline",
-										"role": "underline",
-										"kind": "panel",
-										"pos": [
-											0,
-											0,
-											1,
-											-2
-										],
-										"size": [
-											1,
-											0,
-											0,
-											2
-										],
-										"color": "accent"
-									}
 								]
 							},
 							{
 								"id": "Tab2",
 								"kind": "button",
-								"clear": true,
+								"text": "Controls",
+								"textSize": 20,
+								"color": "field",
+								"line": "line",
+								"textColor": "text",
 								"pos": [
 									0.25,
 									1.5,
@@ -257,15 +234,16 @@
 									-4.5,
 									1,
 									0
-								],
-								"text": "Controls",
-								"textSize": 20,
-								"textColor": "textDim"
+								]
 							},
 							{
 								"id": "Tab3",
 								"kind": "button",
-								"clear": true,
+								"text": "Audio",
+								"textSize": 20,
+								"color": "field",
+								"line": "line",
+								"textColor": "text",
 								"pos": [
 									0.5,
 									3.0,
@@ -277,15 +255,16 @@
 									-4.5,
 									1,
 									0
-								],
-								"text": "Audio",
-								"textSize": 20,
-								"textColor": "textDim"
+								]
 							},
 							{
 								"id": "Tab4",
 								"kind": "button",
-								"clear": true,
+								"text": "Keybinds",
+								"textSize": 20,
+								"color": "field",
+								"line": "line",
+								"textColor": "text",
 								"pos": [
 									0.75,
 									4.5,
@@ -297,29 +276,26 @@
 									-4.5,
 									1,
 									0
-								],
-								"text": "Keybinds",
-								"textSize": 20,
-								"textColor": "textDim"
+								]
 							}
 						]
 					},
 					{
 						"id": "Page",
 						"kind": "group",
+						"gap": 8,
 						"pos": [
 							0,
-							18,
+							20,
 							0,
-							130
+							138
 						],
 						"size": [
 							1,
-							-36,
+							-40,
 							1,
-							-148
+							-158
 						],
-						"gap": 10,
 						"children": [
 							{
 								"id": "PresetRow",
@@ -334,13 +310,13 @@
 									1,
 									-10,
 									0,
-									86
+									40
 								],
 								"children": [
 									{
 										"id": "PresetName",
-										"role": "name",
 										"kind": "label",
+										"role": "name",
 										"bind": "presetName",
 										"textSize": 20,
 										"textColor": "text",
@@ -352,33 +328,42 @@
 											0
 										],
 										"size": [
-											0.6,
-											0,
-											0,
-											28
+											0.42,
+											-8,
+											1,
+											0
 										]
 									},
 									{
 										"id": "PresetControl",
-										"role": "control",
 										"kind": "group",
+										"role": "control",
 										"gap": 6,
-										"pos": [
-											0,
-											0,
-											0,
-											34
+										"anchor": [
+											1,
+											0
 										],
-										"size": [
+										"pos": [
 											1,
 											0,
 											0,
-											50
+											0
+										],
+										"size": [
+											0.58,
+											0,
+											1,
+											0
 										],
 										"children": [
 											{
 												"id": "PresetSeg1",
 												"kind": "button",
+												"text": "Low",
+												"textSize": 18,
+												"color": "field",
+												"line": "line",
+												"textColor": "text",
 												"pos": [
 													0.0,
 													0.0,
@@ -390,16 +375,16 @@
 													-4.0,
 													1,
 													0
-												],
-												"text": "Low",
-												"textSize": 20,
-												"color": "field",
-												"line": "line",
-												"textColor": "text"
+												]
 											},
 											{
 												"id": "PresetSeg2",
 												"kind": "button",
+												"text": "Normal",
+												"textSize": 18,
+												"color": "selFill",
+												"line": "selLine",
+												"textColor": "selText",
 												"pos": [
 													0.3333,
 													2.0,
@@ -411,16 +396,16 @@
 													-4.0,
 													1,
 													0
-												],
-												"text": "Normal",
-												"textSize": 20,
-												"color": "selFill",
-												"line": "selLine",
-												"textColor": "selText"
+												]
 											},
 											{
 												"id": "PresetSeg3",
 												"kind": "button",
+												"text": "Beautiful",
+												"textSize": 18,
+												"color": "field",
+												"line": "line",
+												"textColor": "text",
 												"pos": [
 													0.6667,
 													4.0,
@@ -432,12 +417,7 @@
 													-4.0,
 													1,
 													0
-												],
-												"text": "Beautiful",
-												"textSize": 20,
-												"color": "field",
-												"line": "line",
-												"textColor": "text"
+												]
 											}
 										]
 									}
@@ -450,19 +430,19 @@
 									0,
 									0,
 									0,
-									96
+									48
 								],
 								"size": [
 									1,
 									-10,
 									0,
-									86
+									40
 								],
 								"children": [
 									{
 										"id": "ChoiceName",
-										"role": "name",
 										"kind": "label",
+										"role": "name",
 										"bind": "choiceName",
 										"textSize": 20,
 										"textColor": "text",
@@ -474,33 +454,42 @@
 											0
 										],
 										"size": [
-											0.6,
-											0,
-											0,
-											28
+											0.42,
+											-8,
+											1,
+											0
 										]
 									},
 									{
 										"id": "ChoiceControl",
-										"role": "control",
 										"kind": "group",
+										"role": "control",
 										"gap": 6,
-										"pos": [
-											0,
-											0,
-											0,
-											34
+										"anchor": [
+											1,
+											0
 										],
-										"size": [
+										"pos": [
 											1,
 											0,
 											0,
-											50
+											0
+										],
+										"size": [
+											0.58,
+											0,
+											1,
+											0
 										],
 										"children": [
 											{
 												"id": "ChoiceSeg1",
 												"kind": "button",
+												"text": "Off",
+												"textSize": 18,
+												"color": "field",
+												"line": "line",
+												"textColor": "text",
 												"pos": [
 													0.0,
 													0.0,
@@ -512,16 +501,16 @@
 													-4.5,
 													1,
 													0
-												],
-												"text": "Off",
-												"textSize": 20,
-												"color": "field",
-												"line": "line",
-												"textColor": "text"
+												]
 											},
 											{
 												"id": "ChoiceSeg2",
 												"kind": "button",
+												"text": "Low",
+												"textSize": 18,
+												"color": "field",
+												"line": "line",
+												"textColor": "text",
 												"pos": [
 													0.25,
 													1.5,
@@ -533,16 +522,16 @@
 													-4.5,
 													1,
 													0
-												],
-												"text": "Low",
-												"textSize": 20,
-												"color": "field",
-												"line": "line",
-												"textColor": "text"
+												]
 											},
 											{
 												"id": "ChoiceSeg3",
 												"kind": "button",
+												"text": "Medium",
+												"textSize": 18,
+												"color": "selFill",
+												"line": "selLine",
+												"textColor": "selText",
 												"pos": [
 													0.5,
 													3.0,
@@ -554,16 +543,16 @@
 													-4.5,
 													1,
 													0
-												],
-												"text": "Medium",
-												"textSize": 20,
-												"color": "selFill",
-												"line": "selLine",
-												"textColor": "selText"
+												]
 											},
 											{
 												"id": "ChoiceSeg4",
 												"kind": "button",
+												"text": "High",
+												"textSize": 18,
+												"color": "field",
+												"line": "line",
+												"textColor": "text",
 												"pos": [
 													0.75,
 													4.5,
@@ -575,12 +564,7 @@
 													-4.5,
 													1,
 													0
-												],
-												"text": "High",
-												"textSize": 20,
-												"color": "field",
-												"line": "line",
-												"textColor": "text"
+												]
 											}
 										]
 									}
@@ -593,19 +577,19 @@
 									0,
 									0,
 									0,
-									192
+									96
 								],
 								"size": [
 									1,
 									-10,
 									0,
-									86
+									40
 								],
 								"children": [
 									{
 										"id": "SliderName",
-										"role": "name",
 										"kind": "label",
+										"role": "name",
 										"bind": "sliderName",
 										"textSize": 20,
 										"textColor": "text",
@@ -617,19 +601,19 @@
 											0
 										],
 										"size": [
-											0.6,
-											0,
-											0,
-											28
+											0.42,
+											-8,
+											1,
+											0
 										]
 									},
 									{
 										"id": "SliderValue",
-										"role": "value",
 										"kind": "label",
+										"role": "value",
 										"bind": "sliderValue",
 										"textSize": 20,
-										"textColor": "title",
+										"textColor": "text",
 										"align": "right",
 										"anchor": [
 											1,
@@ -642,73 +626,72 @@
 											0
 										],
 										"size": [
-											0.4,
 											0,
-											0,
-											28
+											60,
+											1,
+											0
 										]
 									},
 									{
 										"id": "SliderControl",
-										"role": "control",
 										"kind": "group",
-										"knob": 22,
+										"role": "control",
 										"pos": [
+											0.42,
 											0,
 											0,
-											0,
-											34
+											0
 										],
 										"size": [
+											0.58,
+											-72,
 											1,
-											0,
-											0,
-											50
+											0
 										],
 										"children": [
 											{
 												"id": "Track",
-												"role": "track",
 												"kind": "panel",
+												"role": "track",
+												"color": "line",
 												"pos": [
 													0,
-													11,
+													5,
 													0.5,
-													-1
+													-3
 												],
 												"size": [
 													1,
-													-22,
+													-10,
 													0,
-													2
-												],
-												"color": "line"
+													6
+												]
 											},
 											{
 												"id": "Fill",
-												"role": "fill",
 												"kind": "panel",
+												"role": "fill",
 												"overlay": true,
+												"color": "accent",
 												"pos": [
 													0,
-													11,
+													5,
 													0.5,
-													-1
+													-3
 												],
 												"size": [
 													0.6,
-													-13,
+													-6,
 													0,
-													2
-												],
-												"color": "accent"
+													6
+												]
 											},
 											{
 												"id": "Knob",
-												"role": "knob",
 												"kind": "panel",
+												"role": "knob",
 												"overlay": true,
-												"shape": "diamond",
+												"color": "accent",
 												"anchor": [
 													0.5,
 													0.5
@@ -721,11 +704,10 @@
 												],
 												"size": [
 													0,
-													22,
+													10,
 													0,
-													22
-												],
-												"color": "accent"
+													24
+												]
 											}
 										]
 									}
@@ -738,19 +720,19 @@
 									0,
 									0,
 									0,
-									288
+									144
 								],
 								"size": [
 									1,
 									-10,
 									0,
-									86
+									40
 								],
 								"children": [
 									{
 										"id": "KeyName",
-										"role": "name",
 										"kind": "label",
+										"role": "name",
 										"bind": "keyName",
 										"textSize": 20,
 										"textColor": "text",
@@ -762,32 +744,36 @@
 											0
 										],
 										"size": [
-											0.6,
-											0,
-											0,
-											28
+											0.42,
+											-8,
+											1,
+											0
 										]
 									},
 									{
 										"id": "Key",
-										"role": "control",
 										"kind": "button",
+										"role": "control",
 										"bind": "keyText",
-										"textSize": 20,
+										"textSize": 18,
 										"color": "field",
 										"line": "line",
 										"textColor": "text",
-										"pos": [
-											0,
-											0,
-											0,
-											34
+										"anchor": [
+											1,
+											0
 										],
-										"size": [
+										"pos": [
 											1,
 											0,
 											0,
-											50
+											0
+										],
+										"size": [
+											0.58,
+											0,
+											1,
+											0
 										]
 									}
 								]

@@ -19,7 +19,9 @@ export type Def = {
 }
 
 -- what everyone may build (user: "everyone else can only build trenches and other small assets")
-local SMALL = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge" } -- (Hesco: user 2026-10-27, a small asset)
+-- (Hesco barriers and sandbag piles are the Engineer's since round 7, user 2026-10-27: "hesco barriers should and
+-- sandbags should be engineer only")
+local SMALL = { "Trench", "Wire", "Bridge" }
 
 local Classes = {
 	Currency = "Marks", -- the currency's name, shown in the loadout menu
@@ -53,8 +55,9 @@ local Classes = {
 	Start = 0, -- points at the start of every match
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
-	List = { "Rifleman", "Grenadier", "AutoRifler", "Engineer", "Mage" },
+	List = { "Rifleman", "Grenadier", "AutoRifler", "Shotgunner", "Engineer", "Mage" },
 	Defs = {
+		-- the kit's own helmet (user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles")
 		Rifleman = {
 			name = "Rifleman",
 			blurb = "Bolt-action rifle",
@@ -81,6 +84,17 @@ local Classes = {
 			helmet = "altHelmet",
 			builds = SMALL,
 		},
+		-- the team's pump shotgun and the shotgun shell helmet, no grenades (user 2026-10-27: "can you add the shotgun
+		-- class for 150?")
+		Shotgunner = {
+			name = "Shotgunner",
+			blurb = "Pump shotgun, shell-band helmet",
+			cost = 150,
+			primary = "shotgun",
+			grenades = false,
+			helmet = "shellHelmet",
+			builds = SMALL,
+		},
 		-- coming later: the only class that builds artillery (user: "only they can build artilleries"); price a placeholder
 		Engineer = {
 			name = "Engineer",
@@ -90,10 +104,19 @@ local Classes = {
 			grenades = false,
 			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
 			helmet = "engineerCap",
-			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun" },
+			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
 			locked = true,
 		},
-		Mage = { name = "Mage", blurb = "Rune staff", cost = 200, primary = "staff", grenades = false, builds = SMALL },
+		-- the team's goggles (user 2026-10-27: "goggles on mage")
+		Mage = {
+			name = "Mage",
+			blurb = "Rune staff",
+			cost = 200,
+			primary = "staff",
+			grenades = false,
+			helmet = "goggles",
+			builds = SMALL,
+		},
 	} :: { [string]: Def },
 	-- each kit's class gear beyond Config/Uniforms.Kits (its bolt rifle, grenades, shovel and helmet): Config/Weapons
 	-- and Config/Assets entries
@@ -102,18 +125,27 @@ local Classes = {
 			semi = "rifle_mondragon",
 			staff = "staff_grey",
 			altHelmet = "helmet_stahl_plate",
+			goggles = "helmet_stahl_goggles",
+			shotgun = "shotgun_m1897",
+			shellHelmet = "helmet_stahl_ammo",
 			engineerCap = "cap_feld",
 		},
 		uniform2 = {
 			semi = "rifle_remington8",
 			staff = "staff_olive",
 			altHelmet = "helmet_m33_plate",
+			goggles = "helmet_m33_goggles",
+			shotgun = "shotgun_m1897",
+			shellHelmet = "helmet_m33_ammo",
 			engineerCap = "cap_side",
 		},
 		uniform3 = {
 			semi = "rifle_winchester1907",
-			staff = "staff_white",
+			staff = "staff_brown",
 			altHelmet = "helmet_adrian_visor",
+			goggles = "helmet_brodie_goggles",
+			shotgun = "shotgun_m1897",
+			shellHelmet = "helmet_brodie_ammo",
 			engineerCap = "cap_trench",
 		},
 	} :: { [string]: { [string]: string } },

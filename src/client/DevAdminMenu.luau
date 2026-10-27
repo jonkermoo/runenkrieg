@@ -1,9 +1,9 @@
 --!strict
 -- Dev admin menu: a button next to the weapon pin. First the Server rows (the game mode, Config/Modes: Admin / FFA /
--- Normal, not built yet; everyone respawned) and the FFA Match rows (end, restart, skip the zone, the clock, zone
+-- Normal, not built yet; everyone respawned; kept teams + the loadout menu's team cards for testing) and the FFA Match rows (end, restart, skip the zone, the clock, zone
 -- score), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode, unlimited ammo and no staff cooldown), Loadout (match points, a class every life), Team (respawn now as grey / olive / white, kept until changed, or random again), Grenades (give yourself
+-- god mode, unlimited ammo and no staff cooldown), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
 -- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
 -- weather off / on); Time and Weather are for everyone (src/server/Environment). Last the Cinematic rows for filming
@@ -24,6 +24,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
 local ClassCfg = require(Shared.Config.Classes)
 local ModeCfg = require(Shared.Config.Modes)
+local TeamCfg = require(Shared.Config.Teams)
 local EnvCfg = require(Shared.Config.Environment)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
@@ -208,6 +209,8 @@ local function build(player: Player): DevPanel.Panel
 		end
 	end
 	row("RespawnAll", "Respawn everyone", "RespawnAll")
+	-- kept teams and the loadout menu's team cards in this mode too, for testing (Config/Teams)
+	onOff("KeptTeams", "Kept teams + team cards", "KeptTeams", workspace, TeamCfg.DevAttribute)
 	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes
 	heading("Match (FFA)")
 	local match: { TextButton } = {

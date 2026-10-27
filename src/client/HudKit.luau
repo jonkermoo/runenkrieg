@@ -3,8 +3,9 @@
 -- no panels (user 2026-10-26: "no background or color or even a panel"): labels, ViewportFrames for the cut-aways
 -- (`model` nodes, see-through) and a bar, each in its own
 -- ScreenGui (src/client/AmmoHud, StaffHud, ArtilleryHud; Config/DevTools.Admin.Cinematic.HudGuis hides them by name).
--- Offsets are reference pixels: one UIScale per panel does the rest.
---   HudKit.panel(id, guiName) -> { gui, panel, node: { [id]: GuiObject }, set(bind, text), fill(id, share) }
+-- Offsets are reference pixels: one UIScale per panel does the rest; a `sized` panel (the kit list, the gun's cut-away)
+-- is also scaled by the player's HUD size setting (Config/Settings HudSize).
+--   HudKit.panel(id, guiName, sized?) -> { gui, panel, node: { [id]: GuiObject }, set(bind, text), fill(id, share) }
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +14,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HudCfg = require(Shared.Config.Hud) :: any
 local Palette = require(Shared.Config.Palette)
 local Spec = require(Shared.ui.CombatHud) :: any
+local Settings = require(script.Parent.Settings)
 
 local HudKit = {}
 
@@ -86,7 +88,7 @@ export type Panel = {
 	fill: (id: string, share: number, color: Color3?) -> (),
 }
 
-function HudKit.panel(id: string, guiName: string): Panel
+function HudKit.panel(id: string, guiName: string, sized: boolean?): Panel
 	local spec = assert(find(Spec.root, id), id)
 	local gui = Instance.new("ScreenGui")
 	gui.Name = guiName
@@ -163,9 +165,13 @@ function HudKit.panel(id: string, guiName: string): Panel
 	scale.Parent = panel
 	local function rescale()
 		local h = gui.AbsoluteSize.Y
-		scale.Scale = math.clamp(h / T.scale.referenceHeight, T.scale.min, T.scale.max)
+		local size = if sized then tonumber(Settings.get("HudSize")) or 1 else 1
+		scale.Scale = math.clamp(h / T.scale.referenceHeight, T.scale.min, T.scale.max) * size
 	end
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
+	if sized then
+		Settings.changed("HudSize", rescale)
+	end
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	rescale()
 

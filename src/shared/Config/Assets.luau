@@ -81,7 +81,7 @@ local Assets = {
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
 			generator = "tools/blender/weapons/smle.py",
-			description = "Lee-Enfield SMLE Mk III, the white team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
+			description = "Lee-Enfield SMLE Mk III, the brown team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
 		},
 		rifle_mondragon = {
 			id = 77357570578798,
@@ -105,7 +105,7 @@ local Assets = {
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_winchester1907.fbx",
 			generator = "tools/blender/weapons/winchester1907.py",
-			description = "Winchester 1907 semi-automatic rifle, the white team's (W2; built from its trace: tools/blender/weapons/trace/winchester1907.py; review assets/weapons/white/review/rifle_winchester1907_v6.blend; a detachable 15-round box). Rigged from Config/Weapons.",
+			description = "Winchester 1907 semi-automatic rifle, the brown team's (W2; built from its trace: tools/blender/weapons/trace/winchester1907.py; review assets/weapons/white/review/rifle_winchester1907_v6.blend; a detachable 15-round box). Rigged from Config/Weapons.",
 		},
 		staff = {
 			id = 109018663192748, -- v2: team accents (binding, ribbon, head ring, foot cap), colored per team
@@ -113,7 +113,7 @@ local Assets = {
 			folder = "Shared/Staffs",
 			source = "assets/weapons/shared/staff.fbx",
 			generator = "tools/blender/weapons/staff.py",
-			description = "The mage staff, shared by every team: knotted faceted wood, an iron sleeve at the grip and a foot cap, a metal band and a ring under the head, a cloth binding and a ribbon (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged and colored per team from Config/Weapons (staff_grey / staff_olive / staff_white).",
+			description = "The mage staff, shared by every team: knotted faceted wood, an iron sleeve at the grip and a foot cap, a metal band and a ring under the head, a cloth binding and a ribbon (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged and colored per team from Config/Weapons (staff_grey / staff_olive / staff_brown).",
 		},
 		shotgun_m1897 = {
 			-- v3: the hammer in its own slot, cocked lower under the bolt (v2 118242502631158: the bolt's channel in the
@@ -132,7 +132,7 @@ local Assets = {
 			folder = "White/Grenades",
 			source = "assets/weapons/white/grenade_mills.fbx",
 			generator = "tools/blender/weapons/grenades.py",
-			description = "Mills bomb No. 5, the white team's grenade (from references/weapons/grenades/mills_*.jpg): six columns of segments, base and filler plugs, the lever, pin and ring. Rigged from Config/Weapons.",
+			description = "Mills bomb No. 5, the brown team's grenade (from references/weapons/grenades/mills_*.jpg): six columns of segments, base and filler plugs, the lever, pin and ring. Rigged from Config/Weapons.",
 		},
 		grenade_stick = {
 			id = 76412002834293,
@@ -166,6 +166,16 @@ local Assets = {
 			source = "assets/weapons/shared/artillery_qf18.fbx",
 			generator = "tools/blender/artillery/qf18.py",
 			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
+		},
+		-- the MG nest's gun (user 2026-10-27; design approved by the user): v2 named as the
+		-- artillery's parts (v1 97496546594152 had Gun* names)
+		mg08 = {
+			id = 121882149099009,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/mg08.fbx",
+			generator = "tools/blender/mgnest/mg08.py",
+			description = "The MG nest's machine gun: an MG 08 traced from a photo (tools/blender/mgnest/trace/mg08.py), built 1.5x like the rifles (5.04 long), with an M1910-style arched shield and keyhole, on a turntable and yoke, its ammo box and a belt of the shared rifle round. Gun space: origin on the mount bag's top under the pivot, the muzzle -Z. Moving parts: Mount + MountTrim + MountFittings + MountKit + Belt + Rounds + Bullets traverse, Cradle + CradleTrim + CradleFittings + Barrel + Bore elevate about (0, 1.035, 0); Carriage stays. Sights: a rear peep ring and a front ring with cross wires on y 1.78.",
 		},
 		artillery_howitzer = {
 			-- v10 (user 2026-10-26: runes only round the crystal; meshing ring gear and pinions with hand wheels, turned by
@@ -254,6 +264,17 @@ local Assets = {
 			fidelity = "Hull",
 			description = "A pile of three pillow sandbags in piece space (x along the pile, y up from the ground, z toward the defenders behind it, Origin at the foot's centre): Bag1 and Bag2 side by side on the ground (3.6 long, 1.6 deep, ties pointing outward), Bag3 centred on them, its underside settled into the joint; Bag<i>Cord the tie round each bag's neck; stage 1: Patch, the ground scraped flat under the pile (its top 0.05 up), and Sacks, three empty sacks folded at the +x end. 7.2 wide plus the ears, 3.68 high, the bottom row's top 1.96.",
 		},
+		-- the MG nest's mount bag (user 2026-10-27: "make the mount sandbag more circular and less long"): v2 with its
+		-- Origin (v1 108497445715304 had none)
+		sandbag_round = {
+			id = 126056372875183,
+			category = "Props",
+			folder = "Sandbags",
+			source = "assets/props/sandbag_round.fbx",
+			generator = "tools/blender/mgnest/mg08.py",
+			fidelity = "Hull",
+			description = "The MG nest's mount bag: a short, nearly round pillow bag (Bag) lying along the gun, tied at the back (BagCord), its top sagging into a dent under the gun's foot plate. Gun space, Origin at the bag's foot under its middle; the dent's centre 0.2 in front of it (-z).",
+		},
 		hesco = {
 			-- v3 (user round 5: "make another flat model for when it has just been placed": stage 0; approved "the flat
 			-- just-placed look is right"); v2 132136802135276: 5.25 high ("just barely the players height"); v1
@@ -311,7 +332,7 @@ local Assets = {
 			uniform = "uniform3",
 			source = "assets/teams/white/uniform/uniform3.json",
 			generator = "tools/clothing/uniform.py",
-			description = "The white team's uniform (chocolate service tunic, puttees): Shirt + Pants images from "
+			description = "The brown team's uniform (chocolate service tunic, puttees): Shirt + Pants images from "
 				.. "Config/Uniforms.Kits.uniform3.",
 		},
 		bandage_roll = {
@@ -445,7 +466,7 @@ local Assets = {
 			source = "assets/teams/white/packs/pack_p08.fbx",
 			generator = "tools/blender/gear/pack.py",
 			sling = 1.1, -- the mess tin and its strap reach 1.59
-			description = "British 1908 web large pack, the white team's: a square web box, a flap two thirds down, two short "
+			description = "British 1908 web large pack, the brown team's: a square web box, a flap two thirds down, two short "
 				.. "straps, a mess tin on the flap, a big blanket roll across the top, shoulder bands (468 tris).",
 		},
 		helmet_stahl = {
@@ -586,12 +607,12 @@ local Assets = {
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/default/helmet_brodie.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "Brodie Mk I, the future white team's default (reworked 2026-10-19): a "
+			description = "Brodie Mk I, the brown team's default (reworked 2026-10-19): a "
 				.. "rounded bowl, a wide brim sloping to a rolled lip, oval front to back, a crown rivet, worn tipped "
 				.. "back 8 degrees; hollow, 10 sides (280 tris).",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = 0.06,
 				shell = "brodie",
 				center = { 0, 0.3781, 0.0023 },
@@ -604,10 +625,10 @@ local Assets = {
 			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_brodie (unchanged) with a leather strap round the dome and big aviator goggles on "
-				.. "the front; flat teal lenses. White team.",
+				.. "the front; flat teal lenses. Brown team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = 0.06,
 				parts = { Strap = { 58, 40, 28 }, Lens = { 72, 176, 150 } }, -- dark leather on the chocolate (user 2026-10-21)
 				shell = "brodie",
@@ -621,10 +642,10 @@ local Assets = {
 			source = "assets/teams/white/helmets/variants/helmet_brodie_ammo.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_brodie (unchanged) with a leather band low round the dome and five red shotgun "
-				.. "shells on steel heads on the wearer's right, held by a thin flat strap. White team.",
+				.. "shells on steel heads on the wearer's right, held by a thin flat strap. Brown team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = 0.06,
 				parts = { Band = { 58, 40, 28 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } }, -- dark leather band
 				shell = "brodie",
@@ -639,7 +660,7 @@ local Assets = {
 			generator = "tools/blender/gear/slit.py",
 			description = "The default helmet_brodie (unchanged) with a hole each side of the crown cut to the Fennek ears' "
 				.. "outline, shell and fur blades (--shape hull --tufts), a rolled steel ring round each (user "
-				.. "2026-10-21/25). Worn by Fennek (Rules/Looks.helmetEntry). White team (848 tris).",
+				.. "2026-10-21/25). Worn by Fennek (Rules/Looks.helmetEntry). Brown team (848 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- the brown team's chocolate (white-team branch)
@@ -689,14 +710,66 @@ local Assets = {
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_adrian_visor.fbx",
 			generator = "tools/blender/gear/accessory.py",
-			description = "Adrian M1915, the white team's second helmet (base: assets/teams/white/helmets/default/helmet_adrian.fbx, "
-				.. "helmet.py): a rounded bowl with a crest, a bead and sloping front and back peaks; a three-slat steel "
-				.. "visor hinged up against the bowl, so the face shows. Hollow, 848 tris. White team (colours a proposal).",
+			description = "Adrian M1915, the brown team's second helmet (base: assets/teams/white/helmets/default/helmet_adrian.fbx, "
+				.. "helmet.py): a rounded bowl with a crest, a bead and sloping front and back peaks; a three-slat bronze "
+				.. "visor hinged up against the bowl, so the face shows. Hollow, 848 tris. Brown team (colours a proposal).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
+				brim = -0.02, -- the front peak sits 0.21 above the head centre (eyes show)
+				parts = { Visor = { 176, 116, 58 } }, -- bronze (user 2026-10-27: "the brown plates should also be bronze")
+				shell = "adrian",
+				center = { 0, 0.616, 0.0118 },
+			},
+		},
+		-- the class helmets with ear holes (user 2026-10-27: Rifleman plate, Mage goggles; slit.py --base)
+		helmet_stahl_plate_katzling = {
+			id = 98538430075934, -- 2026-10-27
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_plate_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_plate (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
+				.. "(--tufts --base helmet_stahl_plate). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1210 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = { Plate = { 58, 60, 64 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_stahl_goggles_katzling = {
+			id = 102146492317293, -- 2026-10-27
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_goggles_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_goggles (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
+				.. "(--tufts --base helmet_stahl_goggles). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1350 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_adrian_visor_fennek = {
+			id = 124778702224786, -- 2026-10-27
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_adrian_visor_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_adrian_visor (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
+				.. "(--shape hull --tufts --base helmet_adrian_visor). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team (1444 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
 				brim = -0.02, -- the front peak sits 0.21 above the head centre (eyes show)
-				parts = { Visor = { 168, 170, 174 } },
+				parts = { Visor = { 176, 116, 58 } }, -- bronze (user 2026-10-27: "the brown plates should also be bronze")
 				shell = "adrian",
 				center = { 0, 0.616, 0.0118 },
 			},
@@ -803,6 +876,64 @@ local Assets = {
 				shell = "trench",
 				center = { 0, 0.2831, 0.0647 },
 				soft = true,
+			},
+		},
+		helmet_brodie_goggles_fennek = {
+			id = 81298979861398, -- 2026-10-27
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_brodie_goggles (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
+				.. "(--shape hull --tufts --base helmet_brodie_goggles). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team (1056 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				brim = 0.06,
+				parts = { Strap = { 58, 40, 28 }, Lens = { 72, 176, 150 } }, -- dark leather on the chocolate (user 2026-10-21)
+				shell = "brodie",
+				center = { 0, 0.3902, 0.0023 },
+			},
+		},
+		-- the Shotgunner's shell-band helmets with ear holes (user 2026-10-27; slit.py --base)
+		helmet_stahl_ammo_katzling = {
+			id = 106412495316107, -- 2026-10-27
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_ammo_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_ammo (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
+				.. "(--tufts --base helmet_stahl_ammo). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1958 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
+				parts = {
+					Band = { 46, 39, 34 },
+					Hull = { 150, 54, 44 },
+					Brass = { 204, 172, 92 },
+					Lugs = { 204, 172, 92 },
+				},
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_brodie_ammo_fennek = {
+			id = 119000847226618, -- 2026-10-27
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_ammo_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_brodie_ammo (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek, "
+				.. "the holes 0.15 longer at the front for the low tufts (--shape hull --tufts --front 0.15 --base "
+				.. "helmet_brodie_ammo; user 2026-10-27). Worn by Fenneks (Rules/Looks.helmetEntry). White team (1668 tris).",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
+				brim = 0.06,
+				parts = { Band = { 58, 40, 28 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } }, -- dark leather band
+				shell = "brodie",
+				center = { 0, 0.3901, 0.0023 },
 			},
 		},
 		-- Species ears and tails (Config/Species, src/server/Species; user 2026-10-18/20): one piece per mesh, named

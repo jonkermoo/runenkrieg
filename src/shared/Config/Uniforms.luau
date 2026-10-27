@@ -1,5 +1,5 @@
 --!strict
--- Soldier uniforms (uniform1 = slate/grey team, uniform2 = olive team, uniform3 = chocolate/white team): Shirt + Pants
+-- Soldier uniforms (uniform1 = slate/grey team, uniform2 = olive team, uniform3 = chocolate/brown team): Shirt + Pants
 -- templates painted by tools/clothing/uniform.py from assets/teams/<team>/uniform/<name>.json, uploaded with Open Cloud.
 -- Ids here are IMAGE ids (resolved from the uploaded Decal, see docs/KNOWN_TRAPS.md); decal ids are kept for reference.
 -- Skin shows through the transparent hands and the head; 3D gear (helmet, belt, pouches) goes on top.
@@ -28,7 +28,8 @@ local Uniforms = {
 	-- will rotate randomly per spawn"; docs/HAIRS.md): src/server/Bodies picks one skin and one hair color per spawn
 	-- (Rules/Looks: by weight, never the same as the soldier's last life). The skin colors the whole body (the kit's
 	-- `skin` is only the showcase dummies'); the hair color goes on the character as the "HairColor" attribute for the
-	-- hair model. Hair: four natural colors equally likely, white the rare one (user 2026-10-14; 1 of 15).
+	-- hair model. Hair: four natural colors equally likely, and three rare ones, about 1 in 13 together (user 2026-10-27:
+	-- white, ash and blood red).
 	-- darker and warmer than the first set (user 2026-10-14: the first pale washed out to white in the bright light)
 	Skins = {
 		{ name = "pale", color = { 232, 186, 146 }, weight = 1 },
@@ -41,7 +42,10 @@ local Uniforms = {
 		{ name = "brown", color = { 104, 70, 46 }, weight = 3.5 }, -- the helmet previews' hair (src/dev/HairPreview)
 		{ name = "blonde", color = { 214, 182, 120 }, weight = 3.5 },
 		{ name = "ginger", color = { 182, 92, 46 }, weight = 3.5 },
-		{ name = "white", color = { 232, 228, 220 }, weight = 1 }, -- rare
+		-- rare
+		{ name = "white", color = { 232, 228, 220 }, weight = 0.5 }, -- about 1 in 30
+		{ name = "ash", color = { 160, 164, 168 }, weight = 0.4 }, -- about 1 in 38
+		{ name = "blood_red", color = { 124, 30, 36 }, weight = 0.3 }, -- about 1 in 51
 	},
 	-- The hairstyle, rolled each life like the colors (user 2026-10-14, bald included): Config/Assets `hair_<name>`
 	-- (bareheaded) and `hair_<name>_<shell>` (under that helmet shell). Bald: no hair, only the helmet.
@@ -69,7 +73,10 @@ local Uniforms = {
 	HelmetOff = { speed = 18, up = 14, spin = 12, despawn = 10 },
 	Kits = {
 		uniform1 = {
-			team = "Grey", -- the army's name in the menus (src/client/Menus)
+			team = "Katzmark", -- the nation's short name (the Grey team)
+			army = "the Kingdom of Katzmark", -- its full name in the menus (src/client/Menus)
+			-- its flag (tools/flags/flags.py, user 2026-10-27): `full` for menus and banners, `pole` the capture flag
+			flag = { full = 133842139300317, pole = 82346884044085 }, -- decals 105769719412848, 133575183196496
 			source = "assets/teams/grey/uniform/uniform1.json",
 			shirt = 111439602118520, -- decal 121662410098818
 			pants = 82001103410866, -- decal 121600662647379
@@ -81,7 +88,10 @@ local Uniforms = {
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
 		},
 		uniform2 = {
-			team = "Olive", -- the army's name in the menus (src/client/Menus)
+			team = "Selvara", -- the nation's short name (the Olive team)
+			army = "the Kingdom of Selvara", -- its full name in the menus (src/client/Menus)
+			-- its flag (tools/flags/flags.py, user 2026-10-27): `full` for menus and banners, `pole` the capture flag
+			flag = { full = 135416785085851, pole = 80403837151425 }, -- decals 109578385483589, 129527153818015
 			source = "assets/teams/olive/uniform/uniform2.json",
 			shirt = 108022442236637, -- decal 118417766232661
 			pants = 78199869429201, -- decal 112322397513846
@@ -93,14 +103,17 @@ local Uniforms = {
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
 		},
 		uniform3 = {
-			team = "White", -- the army's name in the menus (src/client/Menus)
+			team = "Sowilo", -- the nation's short name (the Brown team)
+			army = "the Sowilo Concord", -- its full name in the menus (src/client/Menus)
+			-- its flag (tools/flags/flags.py, user 2026-10-27): `full` for menus and banners, `pole` the capture flag
+			flag = { full = 96159435529203, pole = 121388136482551 }, -- decals 119556600982391, 91068629966752
 			source = "assets/teams/white/uniform/uniform3.json",
 			shirt = 74678155009631, -- decal 121824214820196
 			pants = 81809122965783, -- decal 97802189527419
 			skin = { 226, 176, 104 },
 			headwear = "helmet_brodie", -- Config/Assets entry
 			pack = "pack_p08", -- Config/Assets entry, worn on the back (src/server/Packs)
-			weapon = "rifle_smle", -- Config/Weapons entry: the white team's default rifle (British, as its Brodie)
+			weapon = "rifle_smle", -- Config/Weapons entry: the brown team's default rifle (British, as its Brodie)
 			grenade = "grenade_mills", -- its grenades (Config/Grenades): the Mills bomb
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
 		},

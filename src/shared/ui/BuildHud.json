@@ -1,0 +1,92 @@
+{
+	"name": "BuildHud",
+	"_doc": "The shovel's panel at the bottom of the screen (src/client/BuildHud builds it, src/client/Build fills it; user 2026-10-27, the Bold look of the building UI drafts: \"make it more distinct for each mode its in\"). One panel: a tab over its top-left names the mode in the mode's colour; the body (see-through) has the status edge on the left (go / no-go, else the mode's colour), the title row (in Placing, the pieces before and after on Q / E either side), then what the mode needs (Placing: a fits / why-not line; Trench plan: a rule with a tick per square), then the key caps. Each mode's face: Build a rim along the top, Destroy a hazard band, Placing a blueprint grid with corner ticks, Trench plan a chalk outline. A badge by the cursor shows the mode's icon. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours: Config/Palette UI.BuildHud. One font, the game's basic font (user 2026-10-27). Desktop only.",
+	"theme": {
+		"scale": {
+			"referenceHeight": 800,
+			"min": 0.65,
+			"max": 1.25
+		},
+		"outline": 2,
+		"corner": 4,
+		"fonts": {
+			"body": {
+				"family": "SourceSansPro",
+				"weight": "Bold",
+				"file": "SourceSansPro-Bold.ttf"
+			}
+		}
+	},
+	"panel": {
+		"bottom": 92,
+		"minWidth": 360,
+		"transparency": 0.4,
+		"edge": 6,
+		"padLeft": 14,
+		"padRight": 16,
+		"padTop": 8,
+		"padBottom": 10,
+		"rowGap": 6,
+		"keyGap": 14
+	},
+	"text": {
+		"title": 19,
+		"sub": 14,
+		"side": 13,
+		"sideTransparency": 0.58,
+		"stat": 14,
+		"cap": 12,
+		"hint": 13,
+		"tab": 13
+	},
+	"tab": {
+		"height": 22,
+		"padLeft": 7,
+		"padRight": 10,
+		"icon": 13,
+		"gap": 5
+	},
+	"modes": {
+		"Build": { "tab": "BUILD", "icon": "shovel", "color": "modeBuild", "field": "fieldBuild", "face": "rim" },
+		"Destroy": { "tab": "DESTROY", "icon": "pick", "color": "modeDestroy", "field": "fieldDestroy", "face": "hazard" },
+		"Place": { "tab": "PLACING", "icon": "plus", "color": "modePlace", "field": "fieldPlace", "face": "grid" },
+		"Plan": { "tab": "TRENCH PLAN", "icon": "peg", "color": "modePlan", "field": "fieldPlan", "face": "chalk" }
+	},
+	"faces": {
+		"_extent": "how far the hazard stripes and the grid lines reach (reference pixels), past the widest and tallest panel",
+		"extent": [1200, 240],
+		"rim": 2,
+		"hazard": { "height": 5, "stripe": 8, "padTop": 4 },
+		"grid": { "step": 16, "transparency": 0.93 },
+		"corners": { "size": 10, "inset": 3, "transparency": 0.1 },
+		"chalk": 0.75
+	},
+	"ruler": {
+		"width": 300,
+		"trackTransparency": 0.55,
+		"height": 28,
+		"track": 8,
+		"tick": 14,
+		"numbers": [0, 24, 48, 60],
+		"numberSize": 12
+	},
+	"stat": {
+		"icon": 14,
+		"gap": 8
+	},
+	"badge": {
+		"size": 26,
+		"icon": 15,
+		"offset": [16, 10]
+	},
+	"_pieces": "what each piece is for, on the Placing line after its swings (Config/Build.Pieces keys)",
+	"pieces": {
+		"Trench": "Stops bullets",
+		"SandbagPile": "Stops bullets · aim over it",
+		"Hesco": "Stops bullets · hides you",
+		"Bridge": "Walk over a trench",
+		"Wire": "Slows everyone · bullets pass",
+		"FieldGun": "Crew-fired",
+		"Howitzer": "Dug into a pit"
+	}
+}

@@ -7,9 +7,12 @@ local W = require("../src/shared/Config/Weapons")
 local A = require("../src/shared/Config/Assets")
 local BuildCfg = require("../src/shared/Config/Build")
 
+-- the pieces only the Engineer builds
+local ENGINEER = { Gun = true, Hesco = true, Sandbags = true, Nest = true }
+
 return {
-	["the user's prices: rifleman free, grenadier 50, auto rifler 100, engineer 150 (locked), mage 200"] = function()
-		local want = { Rifleman = 0, Grenadier = 50, AutoRifler = 100, Engineer = 150, Mage = 200 }
+	["the user's prices: rifleman free, grenadier 50, auto rifler 100, shotgunner 150, engineer 150 (locked), mage 200"] = function()
+		local want = { Rifleman = 0, Grenadier = 50, AutoRifler = 100, Shotgunner = 150, Engineer = 150, Mage = 200 }
 		for key, cost in want do
 			assert(C.Defs[key] and C.Defs[key].cost == cost, `{key} costs {cost}`)
 		end
@@ -65,6 +68,7 @@ return {
 			local kit = U.Kits[kitName] :: any
 			local r = R.gear("Rifleman", kitName, C.Defs, U.Kits, C.Gear)
 			assert(r.Primary == kit.weapon and W[r.Primary].class == "BoltRifle" and r.Grenade == nil, kitName)
+			-- user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles"
 			assert(r.headwear == kit.headwear, "the default helmet")
 			local g = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear)
 			assert(g.Primary == kit.weapon and g.Grenade == kit.grenade, kitName)
@@ -80,9 +84,58 @@ return {
 			assert(A.Entries[a.headwear :: string].folder == A.Entries[kit.headwear].folder, kitName .. " team helmet")
 			local m = R.gear("Mage", kitName, C.Defs, U.Kits, C.Gear)
 			assert(W[m.Primary :: string].class == "Staff", kitName .. " staff")
+			-- user 2026-10-27: "goggles on mage, armored on rifle"
+			assert(m.headwear and m.headwear:find("_goggles$"), kitName .. " mage goggles")
+			assert(A.Entries[m.headwear :: string].folder == A.Entries[kit.headwear].folder, kitName .. " team goggles")
+			local g = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear)
+			assert(g.headwear == kit.headwear, kitName .. " grenadier keeps the default helmet")
 		end
 	end,
-	["only the engineer builds guns; everyone builds trenches, sandbags and wire"] = function()
+	["shotgunner: the team's pump shotgun, the shell-band helmet, no grenades, small builds (trenches, wire, bridges)"] = function()
+		assert(C.Defs.Shotgunner and not C.Defs.Shotgunner.locked, "pickable")
+		assert(table.find(C.List, "Shotgunner"), "in the menu")
+		for _, kitName in U.Teams do
+			local kit = U.Kits[kitName] :: any
+			local s = R.gear("Shotgunner", kitName, C.Defs, U.Kits, C.Gear)
+			local w = W[s.Primary :: string] :: any
+			assert(w.class == "Shotgun" and w.slot == "Primary", kitName .. " the pump shotgun")
+			assert(s.Grenade == nil and s.Shovel == kit.shovel, kitName .. " no grenades, the shovel")
+			local h = A.Entries[s.headwear :: string] :: any
+			assert(
+				s.headwear ~= kit.headwear and string.find(s.headwear :: string, "_ammo$"),
+				kitName .. " shell helmet"
+			)
+			assert(h.folder == A.Entries[kit.headwear].folder, kitName .. " the team's own helmet")
+			assert(h.fit.shell == (A.Entries[kit.headwear] :: any).fit.shell, kitName .. " fits the kit's hair")
+		end
+		for _, kind in { "Trench", "Wire", "Bridge" } do
+			assert(R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind)
+		end
+		for kind in ENGINEER do
+			assert(not R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind .. ": the engineer's")
+		end
+		local key, cost = R.resolve("Shotgunner", 149, C.Defs, C.Default)
+		assert(key == C.Default and cost == 0, "short: the free default")
+		key, cost = R.resolve("Shotgunner", 150, C.Defs, C.Default)
+		assert(key == "Shotgunner" and cost == 150, "paid")
+	end,
+	["katzlings and fenneks wear every class helmet with ear holes (user 2026-10-27)"] = function()
+		local Looks = require("../src/shared/Rules/Looks")
+		local S = require("../src/shared/Config/Species")
+		for kitName, species in S.Kits do
+			if species == "katzling" or species == "fennek" then
+				for key in C.Defs do
+					local h = R.gear(key, kitName, C.Defs, U.Kits, C.Gear).headwear :: string
+					local worn = Looks.helmetEntry(h, species, A.Entries)
+					assert(worn == `{h}_{species}`, `{key} {kitName}: {h} has a {species} version`)
+					assert(A.Entries[worn].fit.shell == A.Entries[h].fit.shell, `{worn} keeps the shell`)
+				end
+			end
+		end
+	end,
+	-- (Hesco barriers and sandbag piles too since round 7, user 2026-10-27: "hesco barriers should and sandbags should be
+	-- engineer only")
+	["only the engineer builds guns, Hesco barriers, sandbags and MG nests; everyone builds trenches, wire and bridges"] = function()
 		local kinds: { [string]: boolean } = {}
 		for _, p in BuildCfg.Pieces do
 			kinds[p.kind] = true
@@ -90,7 +143,7 @@ return {
 		assert(kinds.Gun, "guns are a build piece")
 		for key in C.Defs do
 			for kind in kinds do
-				local want = kind ~= "Gun" or key == "Engineer"
+				local want = ENGINEER[kind] == nil or key == "Engineer"
 				assert(R.mayBuild(key, kind, C.Defs, C.Default) == want, `{key} {kind}`)
 			end
 		end
@@ -105,13 +158,13 @@ return {
 				local i = table.find(BuildCfg.Pieces, p) :: number
 				assert(i > at, key .. " keeps the order")
 				at = i
-				assert(p.kind ~= "Gun" or key == "Engineer", `{key} shows {p.key}`)
+				assert(ENGINEER[p.kind] == nil or key == "Engineer", `{key} shows {p.key}`)
 			end
-			local guns = 0
+			local theirs = 0
 			for _, p in BuildCfg.Pieces do
-				guns += if p.kind == "Gun" then 1 else 0
+				theirs += if ENGINEER[p.kind] then 1 else 0
 			end
-			assert(#list == #BuildCfg.Pieces - (if key == "Engineer" then 0 else guns), key .. " shows the rest")
+			assert(#list == #BuildCfg.Pieces - (if key == "Engineer" then 0 else theirs), key .. " shows the rest")
 		end
 	end,
 	["the build gate refuses before anything else"] = function()

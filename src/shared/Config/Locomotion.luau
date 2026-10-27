@@ -147,7 +147,7 @@ local Locomotion = {
 				grenade_sipe = { carry = 88834675278602 },
 				staff_grey = { carry = 99125305553684 },
 				staff_olive = { carry = 99125305553684 },
-				staff_white = { carry = 99125305553684 },
+				staff_brown = { carry = 99125305553684 },
 			},
 		},
 		-- Veteran (user 2026-10-18, "burdened veteran"; tools/animation/locomotion.luau): heavy heel-first steps, a small

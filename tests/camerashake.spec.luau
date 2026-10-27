@@ -25,6 +25,9 @@ return {
 	end,
 	["artillery shells shake as before (1.2 degrees within 90 studs x the cube root)"] = function()
 		for _, gun in A.Guns do
+			if gun.nest then
+				continue -- (the MG fires bullets, no shells)
+			end
 			local k = math.max(gun.kg, 1) ^ (1 / 3)
 			for _, d in { 0, 20, 80, 200 } do
 				local before = if d < 90 * k then 1.2 * k * (1 - d / (90 * k)) ^ 2 else 0
