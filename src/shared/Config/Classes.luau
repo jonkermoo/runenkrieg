@@ -55,12 +55,14 @@ local Classes = {
 	-- the classes in the menu's order
 	List = { "Rifleman", "Grenadier", "AutoRifler", "Engineer", "Mage" },
 	Defs = {
+		-- the plate helmet and the mage's goggles (user 2026-10-27: "goggles on mage, armored on rifle")
 		Rifleman = {
 			name = "Rifleman",
 			blurb = "Bolt-action rifle",
 			cost = 0,
 			primary = "weapon",
 			grenades = false,
+			helmet = "altHelmet",
 			builds = SMALL,
 		},
 		Grenadier = {
@@ -91,14 +93,37 @@ local Classes = {
 			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun" },
 			locked = true,
 		},
-		Mage = { name = "Mage", blurb = "Rune staff", cost = 200, primary = "staff", grenades = false, builds = SMALL },
+		Mage = {
+			name = "Mage",
+			blurb = "Rune staff",
+			cost = 200,
+			primary = "staff",
+			grenades = false,
+			helmet = "goggles",
+			builds = SMALL,
+		},
 	} :: { [string]: Def },
 	-- each kit's class gear beyond Config/Uniforms.Kits (its bolt rifle, grenades, shovel and helmet): Config/Weapons
 	-- and Config/Assets entries
 	Gear = {
-		uniform1 = { semi = "rifle_mondragon", staff = "staff_grey", altHelmet = "helmet_stahl_plate" },
-		uniform2 = { semi = "rifle_remington8", staff = "staff_olive", altHelmet = "helmet_m33_plate" },
-		uniform3 = { semi = "rifle_winchester1907", staff = "staff_white", altHelmet = "helmet_adrian_visor" },
+		uniform1 = {
+			semi = "rifle_mondragon",
+			staff = "staff_grey",
+			altHelmet = "helmet_stahl_plate",
+			goggles = "helmet_stahl_goggles",
+		},
+		uniform2 = {
+			semi = "rifle_remington8",
+			staff = "staff_olive",
+			altHelmet = "helmet_m33_plate",
+			goggles = "helmet_m33_goggles",
+		},
+		uniform3 = {
+			semi = "rifle_winchester1907",
+			staff = "staff_white",
+			altHelmet = "helmet_adrian_visor",
+			goggles = "helmet_brodie_goggles",
+		},
 	} :: { [string]: { [string]: string } },
 	-- points earned (user: kills, assists, captures, building; prices scaled down, so these are too)
 	Earn = {

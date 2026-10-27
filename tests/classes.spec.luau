@@ -55,7 +55,7 @@ return {
 			local kit = U.Kits[kitName] :: any
 			local r = R.gear("Rifleman", kitName, C.Defs, U.Kits, C.Gear)
 			assert(r.Primary == kit.weapon and W[r.Primary].class == "BoltRifle" and r.Grenade == nil, kitName)
-			assert(r.headwear == kit.headwear, "the default helmet")
+			assert(r.headwear == C.Gear[kitName].altHelmet, "the plate helmet")
 			local g = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear)
 			assert(g.Primary == kit.weapon and g.Grenade == kit.grenade, kitName)
 		end
@@ -70,6 +70,11 @@ return {
 			assert(A.Entries[a.headwear :: string].folder == A.Entries[kit.headwear].folder, kitName .. " team helmet")
 			local m = R.gear("Mage", kitName, C.Defs, U.Kits, C.Gear)
 			assert(W[m.Primary :: string].class == "Staff", kitName .. " staff")
+			-- user 2026-10-27: "goggles on mage, armored on rifle"
+			assert(m.headwear and m.headwear:find("_goggles$"), kitName .. " mage goggles")
+			assert(A.Entries[m.headwear :: string].folder == A.Entries[kit.headwear].folder, kitName .. " team goggles")
+			local g = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear)
+			assert(g.headwear == kit.headwear, kitName .. " grenadier keeps the default helmet")
 		end
 	end,
 	["only the engineer builds guns; everyone builds trenches, sandbags and wire"] = function()
