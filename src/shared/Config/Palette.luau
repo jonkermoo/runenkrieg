@@ -396,6 +396,21 @@ local Palette = {
 			viewAmbient = { 150, 150, 150 },
 			viewLight = { 255, 244, 224 },
 		},
+		-- the interaction prompt, "field note" (src/client/Prompts, src/shared/ui/Prompt.json): a pale pin, line and words
+		-- with a dark ring and text shadow, the key's dark letter on its pale cap, the object dimmer, the reason red
+		Prompt = {
+			pin = { 236, 232, 220 },
+			ring = { 0, 0, 0 },
+			lead = { 236, 232, 220 },
+			key = { 236, 232, 220 },
+			keyText = { 29, 32, 27 },
+			object = { 184, 180, 168 },
+			action = { 236, 232, 220 },
+			reason = { 214, 92, 80 },
+			shadow = { 0, 0, 0 },
+			line = { 236, 232, 220 },
+			fill = { 236, 232, 220 },
+		},
 		-- the third-person crosshair's ring (src/client/Crosshair, Config/Camera.Crosshair), with a dark edge behind it
 		crosshair = { 236, 232, 220 },
 		-- the settings menu (src/client/SettingsMenu, src/shared/ui/SettingsMenu.json): gray slate, no hue (user
