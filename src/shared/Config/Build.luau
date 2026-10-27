@@ -329,7 +329,8 @@ local Build = {
 	-- through it that fast it shakes and rattles (user 2026-10-27: "the damage tick animation should still go off on
 	-- teammates and the sound cue goes off"; src/client/WireShake: `shake` seconds, the wire `wobble` studs, the pickets
 	-- `picket` of that, at `rate` Hz; one of `sounds` at random from where they push through: Pro Sound Effects "Chain
-	-- Link Fence 3", its first and second rattles).
+	-- Link Fence 3", its first and second rattles). It also shakes and rattles each time it takes damage, a Destroy swing
+	-- or a blast (user 2026-10-27: "both"; src/server/Build).
 	-- Bullets pass (its parts aren't queried). Once standing it has Structures.wireHP: blasts wear it (Structures above), a
 	-- Destroy swing takes `destroy` HP (user: 2 swings, broken then gone); under `broken` of its HP it lies scattered on
 	-- the ground and does nothing (Wreck*, user: "a broken stage (less than 50) will make the fence ineffective and
