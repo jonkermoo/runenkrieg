@@ -391,4 +391,19 @@ return {
 		t0 = B.clipRect(0, 0, 1, 0, 0, 0, 1, 0, 6, 2)
 		assert(t0 == 0, "starting inside")
 	end,
+
+	["the sandbag pile: a bag a swing, ties with their bags, aimed fire clears it, nobody hops it"] = function()
+		local pile = assert(B.piece("SandbagPile", C.Pieces))
+		assert(pile.kind == "Sandbags", "everyone builds it (Config/Classes small pieces)")
+		assert(B.sandbagStages(pile) == #pile.bags and pile.work == #pile.bags)
+		assert(B.sandbagStages(assert(B.piece("HighWall", C.Pieces))) == 5)
+		assert(B.pileBag("Bag1", pile.bags) == 1 and B.pileBag("Bag3Cord", pile.bags) == 3)
+		assert(B.pileBag("Origin", pile.bags) == nil and B.pileBag("Cord", pile.bags) == nil)
+		assert(B.isPileCord("Bag2Cord") and not B.isPileCord("Bag2"))
+		-- one bag stands after each Build swing
+		for w = 0, pile.work do
+			assert(B.stageOf(w, pile.work, B.sandbagStages(pile)) == w)
+		end
+		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
+	end,
 }

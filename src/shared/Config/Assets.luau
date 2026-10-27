@@ -248,6 +248,7 @@ local Assets = {
 			folder = "Sandbags",
 			source = "assets/props/sandbag_pile.fbx",
 			generator = "tools/blender/sandbags/pile.py",
+			fidelity = "Hull",
 			description = "A pile of three pillow sandbags in piece space (x along the pile, y up from the ground, z toward the defenders behind it, Origin at the foot's centre): Bag1 and Bag2 side by side on the ground (3.6 long, 1.6 deep, ties pointing outward), Bag3 centred on them, its underside settled into the joint; Bag<i>Cord the tie round each bag's neck. 7.2 wide plus the ears, 3.68 high, the bottom row's top 1.96.",
 		},
 		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown

@@ -25,7 +25,7 @@ terrainOnly.IgnoreWater = false
 
 -- a piece's footprint: width (along RightVector), height, depth (along LookVector)
 function Survey.footprint(piece: Rules.Piece): Vector3
-	if piece.kind == "Sandbags" then
+	if piece.kind == "Sandbags" and piece.rows then -- (a wall; a pile has its height)
 		return Vector3.new(piece.width, piece.rows * piece.row, piece.depth)
 	end
 	return Vector3.new(piece.width, piece.height, piece.depth)

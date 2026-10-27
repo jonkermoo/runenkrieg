@@ -7,6 +7,7 @@
 -- - Build at your team's piece adds a unit of work; it rises in stages and stands at full work;
 -- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
 -- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
+-- - Sandbag piles: Config/Assets sandbag_pile's bags in one "Sandbag" section, laid a bag per Build swing.
 -- - Barbed wire: Config/Assets barbed_wire's meshes in three looks (Rules.wireLook: on the ground, standing, broken),
 --   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. Once it has stood,
 --   swings go to its HP (Rules.wireSwing): Destroy breaks it then takes it away, its team's Build stands it back up.
@@ -192,33 +193,64 @@ local function layoutSandbags(r: Rec, ground: number)
 	end
 end
 
--- The barbed wire's library model (ReplicatedStorage.Assets, kept by the Library sync) and each mesh's place from its
--- Origin (piece space: x along, y up from the ground, z across), found once
-local wireKit: Model? = nil
-local wireOffsets: { [string]: CFrame } = {}
-local function wireMeshes(): Model?
-	if wireKit then
-		return wireKit
+-- A piece's library model (Config/Assets `key`, in ReplicatedStorage.Assets, kept by the Library sync: the barbed wire,
+-- the sandbag pile) and each mesh's place from its Origin (piece space: x along, y up from the ground, z across), found
+-- once
+local kits: { [string]: { model: Model, offsets: { [string]: CFrame } } } = {}
+local function libraryKit(key: string): (Model?, { [string]: CFrame })
+	local kit = kits[key]
+	if kit then
+		return kit.model, kit.offsets
 	end
-	local e = Assets.Entries.barbed_wire
+	local e = Assets.Entries[key]
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
 	f = f and f:FindFirstChild(e.category)
 	for _, sub in string.split(e.folder, "/") do
 		f = f and f:FindFirstChild(sub)
 	end
-	local m = f and f:FindFirstChild("barbed_wire")
+	local m = f and f:FindFirstChild(key)
 	local origin = m and m:FindFirstChild("Origin")
 	if not (m and origin and origin:IsA("BasePart")) then
-		warn("[Build] barbed_wire is not in the asset library: run the Library sync in the dev place")
-		return nil
+		warn("[Build] " .. key .. " is not in the asset library: run the Library sync in the dev place")
+		return nil, {}
 	end
+	local offsets = {}
 	for _, d in m:GetChildren() do
 		if d:IsA("BasePart") and d ~= origin then
-			wireOffsets[d.Name] = origin.CFrame:ToObjectSpace(d.CFrame)
+			offsets[d.Name] = origin.CFrame:ToObjectSpace(d.CFrame)
 		end
 	end
-	wireKit = m :: Model
-	return wireKit
+	kits[key] = { model = m :: Model, offsets = offsets }
+	return m :: Model, offsets
+end
+
+-- a sandbag pile (Config/Build.Pieces `bags`): its meshes from the library in one section, each with the "Row" of its bag
+-- (Rules.pileBag) so it stands and ghosts like a wall's row (showSandbags); false when the library has no pile
+local function layoutPile(r: Rec, ground: number): boolean
+	local p = r.piece
+	local kit, offsets = libraryKit(p.asset)
+	if not kit then
+		return false
+	end
+	local base = CFrame.new(r.frame.Position.X, ground - C.Sandbags.sink, r.frame.Position.Z) * r.frame.Rotation
+	local s = section(r.model, "Pile", "Sandbags", "Sandbag", C.Sandbags.pileHP)
+	for _, d in kit:GetChildren() do
+		local bag = Rules.pileBag(d.Name, p.bags)
+		local offset = offsets[d.Name]
+		if bag and offset and d:IsA("BasePart") then
+			local part = d:Clone()
+			part.Anchored = true
+			part.Material = Enum.Material.SmoothPlastic
+			local jitter = ((bag * 37) % 7 / 6 - 0.5) * 2 * C.Sandbags.shade
+			part.Color = if Rules.isPileCord(d.Name)
+				then rgb(Palette.Build.SandbagCord)
+				else rgb(Palette.Build.Sandbag, jitter)
+			part.CFrame = base * offset
+			part:SetAttribute("Row", bag)
+			part.Parent = s
+		end
+	end
+	return true
 end
 
 -- which look (Rules.wireLook) a barbed_wire mesh belongs to: Bundle* on the ground, Wreck* broken, the rest standing
@@ -234,12 +266,12 @@ local function layoutWire(r: Rec, ground: number)
 	local holder = Instance.new("Folder")
 	holder.Name = "Wire"
 	holder.Parent = r.model
-	local kit = wireMeshes()
+	local kit, offsets = libraryKit("barbed_wire")
 	if not kit then
 		return
 	end
 	for _, d in kit:GetChildren() do
-		local offset = wireOffsets[d.Name]
+		local offset = offsets[d.Name]
 		if offset and d:IsA("BasePart") then
 			local part = d:Clone()
 			part.Anchored = true
@@ -435,10 +467,8 @@ local function apply(r: Rec)
 	r.model:SetAttribute("Built", r.built)
 	local kind = r.piece.kind
 	if kind == "Sandbags" then
-		showSandbags(
-			r,
-			if r.built and r.work >= r.need then r.piece.rows else Rules.stageOf(r.work, r.need, r.piece.rows)
-		)
+		local stages = Rules.sandbagStages(r.piece)
+		showSandbags(r, if r.built and r.work >= r.need then stages else Rules.stageOf(r.work, r.need, stages))
 	elseif kind == "Wire" then
 		showWire(r)
 	elseif kind == "Gun" then
@@ -525,7 +555,13 @@ local function place(player: Player, key: any, at: any)
 		frame = frame,
 		at = gunAt,
 	}
-	if piece.kind == "Sandbags" then
+	if piece.kind == "Sandbags" and piece.bags then
+		if not layoutPile(r, report.low) then
+			model:Destroy()
+			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile: layoutPile warns)
+			return
+		end
+	elseif piece.kind == "Sandbags" then
 		layoutSandbags(r, report.low)
 	elseif piece.kind == "Wire" then
 		layoutWire(r, report.low)
@@ -691,7 +727,7 @@ local function work(player: Player, target: any, mode: any)
 		end
 		r.built = true
 	end
-	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
+	local stages = if r.piece.kind == "Sandbags" then Rules.sandbagStages(r.piece) else 1
 	if
 		r.piece.kind == "Gun"
 		or r.piece.kind == "Wire" -- (its look changes on every swing: Rules.wireLook)

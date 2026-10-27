@@ -202,6 +202,7 @@ local Palette = {
 	-- Player-built pieces (Config/Build, src/server/Build): flat colours until the meshes come
 	Build = {
 		Sandbag = { 176, 156, 114 }, -- hessian; each bag's tone jittered by Config/Build.Sandbags.shade
+		SandbagCord = { 122, 100, 68 }, -- the tie round a pile bag's neck (Config/Assets sandbag_pile Bag<i>Cord)
 		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
 		PlankDark = { 98, 74, 52 },
 		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:

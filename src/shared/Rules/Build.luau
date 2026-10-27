@@ -105,6 +105,23 @@ function Build.stageOf(work: number, need: number, stages: number): number
 	return math.clamp(math.floor(work / need * stages + 1e-9), 0, stages)
 end
 
+-- How many stages a sandbag piece (Config/Build.Pieces kind "Sandbags") is built in: a pile's bags, a wall's rows
+function Build.sandbagStages(p: Piece): number
+	return if p.bags then #p.bags else p.rows
+end
+
+-- Which stage a sandbag pile's mesh stands at (Config/Assets sandbag_pile): its bag's place in `bags`, a tie (`<bag>Cord`)
+-- with its bag; nil for a mesh that isn't one of them
+function Build.pileBag(name: string, bags: { string }): number?
+	local bag = if Build.isPileCord(name) then string.sub(name, 1, -5) else name
+	return table.find(bags, bag)
+end
+
+-- whether a sandbag pile's mesh is a bag's tie (`<bag>Cord`, Config/Palette.Build.SandbagCord) rather than the bag
+function Build.isPileCord(name: string): boolean
+	return string.sub(name, -4) == "Cord"
+end
+
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
 -- never less than `normal`
 function Build.digAmount(normal: number, full: number, share: number?): number

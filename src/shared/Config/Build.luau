@@ -206,6 +206,23 @@ local Build = {
 			loophole = 4,
 			maxSlope = 25,
 		},
+		-- The sandbag pile (user 2026-10-27: pillow bags, "layer 1 2 bags, layer 2 1 bag", "make it even smaller ... ads
+		-- still wont work", "make the sandbags longer"): Config/Assets `asset`'s meshes, one section for the whole pile. A
+		-- Build swing lays the next of `bags` (with its tie, `<bag>Cord`); Destroy swings take them off top first.
+		-- `width` x `height` x `depth` its footprint (the bags 3.6 long, ties out past them; the top 3.68: under the
+		-- aimed muzzle, over the low cover line, Config/Metrics).
+		{
+			key = "SandbagPile",
+			name = "Sandbag pile",
+			kind = "Sandbags",
+			asset = "sandbag_pile",
+			bags = { "Bag1", "Bag2", "Bag3" },
+			work = 3,
+			width = 8.3,
+			height = 3.68,
+			depth = 1.7,
+			maxSlope = 25,
+		},
 		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
 		-- chaining or planner; the look: Config/Assets barbed_wire, Wire below)
 		{
@@ -319,7 +336,8 @@ local Build = {
 	},
 
 	-- Sandbags: each column a section of class "Sandbag" (Config/Damage.Blast.Fail), shovels tear the whole piece down
-	Sandbags = { columnHP = 400, shade = 0.06 },
+	-- (a pile, Pieces `bags`: one section of `pileHP`, set `sink` studs into the ground so uneven ground shows no gap)
+	Sandbags = { columnHP = 400, shade = 0.06, pileHP = 400, sink = 0.15 },
 
 	-- Barbed wire (user 2026-10-27): its meshes are
 	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
