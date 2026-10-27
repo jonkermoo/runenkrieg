@@ -45,7 +45,7 @@ function KitList.start()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
 
 	local player = Players.LocalPlayer
-	local hud = HudKit.panel("Kit", "KitList")
+	local hud = HudKit.panel("Kit", "KitList", true) -- (the HUD size setting scales it)
 	local template = hud.node.KitRow :: Frame
 	template.Visible = false
 	local layout = Instance.new("UIListLayout")

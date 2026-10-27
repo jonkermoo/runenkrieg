@@ -216,7 +216,7 @@ local Hud = {
 		-- at once, its edge this transparent, for the put-away's time plus `wait` seconds
 		pending = 0.5,
 		wait = 0.3,
-		gap = 3, -- reference px between rows
+		gap = 4, -- reference px between rows
 		count = "x%d", -- a grenade row's count (the Tool's "Count"; x0 once the last is thrown: the row stays)
 	},
 }

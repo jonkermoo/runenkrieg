@@ -937,7 +937,7 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 end
 
 function AmmoHud.start()
-	panel = HudKit.panel("Gun", "AmmoHud")
+	panel = HudKit.panel("Gun", "AmmoHud", true) -- (the HUD size setting scales it)
 end
 
 -- Every frame from src/client/Firing: the held gun and its predicted state (nil: no gun in the hands).

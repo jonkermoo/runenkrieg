@@ -275,9 +275,9 @@
 				],
 				"size": [
 					0,
-					240,
+					300,
 					0,
-					102
+					128
 				],
 				"children": [
 					{
@@ -294,7 +294,7 @@
 							1,
 							0,
 							0,
-							32
+							40
 						],
 						"children": [
 							{
@@ -309,7 +309,7 @@
 								],
 								"size": [
 									0,
-									4,
+									5,
 									1,
 									0
 								]
@@ -319,18 +319,18 @@
 								"kind": "label",
 								"font": "plain",
 								"text": "9",
-								"textSize": 15,
+								"textSize": 18,
 								"textColor": "kitKey",
 								"align": "left",
 								"pos": [
 									0,
-									12,
+									14,
 									0,
 									0
 								],
 								"size": [
 									0,
-									18,
+									22,
 									1,
 									0
 								]
@@ -340,18 +340,18 @@
 								"kind": "label",
 								"font": "plain",
 								"text": "Winchester M1897",
-								"textSize": 17,
+								"textSize": 21,
 								"textColor": "kitName",
 								"align": "left",
 								"pos": [
 									0,
-									32,
+									40,
 									0,
 									0
 								],
 								"size": [
 									1,
-									-84,
+									-104,
 									1,
 									0
 								]
@@ -361,7 +361,7 @@
 								"kind": "label",
 								"font": "plain",
 								"text": "x2",
-								"textSize": 16,
+								"textSize": 20,
 								"textColor": "count",
 								"align": "right",
 								"anchor": [
@@ -370,13 +370,13 @@
 								],
 								"pos": [
 									1,
-									-12,
+									-14,
 									0,
 									0
 								],
 								"size": [
 									0,
-									40,
+									48,
 									1,
 									0
 								]
