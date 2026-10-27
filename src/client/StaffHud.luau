@@ -3,10 +3,10 @@
 -- 2026-10-26: "the staff should be a magic rock of the teams color (faded out if empty, bright if max. flicker while
 -- recharging after a stage 3 blast to signify that its no usable)"). Shown while the staff is drawn, in the gun
 -- display's place. A brass panel, bottom right, with a magic rock turning in a ViewportFrame: a cracked quartz point
--- with shards floating round it (Hud.Staff.model, Config/Assets hud_gem) in the player's team magic colour
+-- with shards floating round it (Config/Hud.Gem, Config/Assets hud_gem) in the player's team magic colour
 -- (Config/Spells.Staff.Teams):
--- - flat and dark (src/client/HudKit.shine): its own colour full, dying out toward grey as the mana runs low, a glow and
---   motes round it as strong as the mana; dead grey and flickering only while burnt out by a stage 3 shot
+-- - flat and dark (src/client/HudKit.shine), shards and all: its own colour full, dying out toward grey as the mana
+--   runs low; dead grey and flickering only while burnt out by a stage 3 shot
 --   (Config/Spells.Mana.burnout, can't fire); full again, a pop;
 -- - a shot refused for want of mana: the panel shakes;
 -- - full again, it pops (a quick swell and a white flash); otherwise nothing but its brightness says how full it is
@@ -36,50 +36,27 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
-type Rock = { model: Model, parts: { { part: BasePart, rel: CFrame } }, size: Vector3, crystal: HudKit.Crystal }
-
--- the rock: copies of the gem's parts (the shards after the Crystal and its cracks), centred on the first
-local function makeRock(view: ViewportFrame, camera: Camera): Rock?
-	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
-	for _, name in S.model do
-		f = f and f:FindFirstChild(name)
-	end
-	local first = f and f:FindFirstChild(S.parts[1], true)
-	if not f or not first or not first:IsA("BasePart") then
-		return nil
-	end
+-- the rock: the 3D gem (src/client/HudKit.gem), the view framed on it shards and all
+local function makeRock(view: ViewportFrame, camera: Camera): HudKit.Gem?
 	local model = Instance.new("Model")
 	model.Name = "Rock"
-	local parts = {}
-	for _, name in S.parts do
-		local p = (f :: Instance):FindFirstChild(name, true)
-		if p and p:IsA("BasePart") then
-			local c = p:Clone()
-			c:ClearAllChildren()
-			c.Anchored = true
-			c.Material = Enum.Material.Neon
-			c.Parent = model
-			table.insert(parts, { part = c, rel = first.CFrame:ToObjectSpace(p.CFrame) })
-		end
-	end
 	model.Parent = view
-	-- centred on the gem (its mesh's own middle), framed on everything round it
-	local _, size = model:GetBoundingBox()
+	local gem = HudKit.gem(model)
+	if not gem then
+		model:Destroy()
+		return nil
+	end
 	HudKit.frameBox(
 		view,
 		camera,
 		CFrame.identity,
-		Vector3.one * size.Magnitude * S.fit,
+		Vector3.one * gem.size.Magnitude * S.fit,
 		Vector3.zAxis,
 		Vector3.yAxis,
 		S.fov,
 		S.margin
 	)
-	local list = {}
-	for _, q in parts do
-		table.insert(list, q.part)
-	end
-	return { model = model, parts = parts, size = size, crystal = HudKit.crystal(list, view) }
+	return gem
 end
 
 function StaffHud.start()
@@ -89,7 +66,7 @@ function StaffHud.start()
 	local camera = Instance.new("Camera")
 	camera.Parent = view
 	view.CurrentCamera = camera
-	local rock: Rock? = nil
+	local rock: HudKit.Gem? = nil
 	local home = panel.panel.Position
 	local max = Spells.Mana.max
 	local angle = 0
@@ -141,22 +118,7 @@ function StaffHud.start()
 			angle += math.rad(S.spin) * dt
 			local bob = math.sin(now * S.bob.speed * math.pi * 2) * S.bob.height * rock.size.Magnitude
 			local at = CFrame.new(0, bob, 0) * CFrame.Angles(0, angle, 0) * CFrame.Angles(math.rad(S.tilt), 0, 0)
-			-- the shards float round it at their own pace, bobbing and spinning
-			local F = S.shards
-			for i, q in rock.parts do
-				local k = i - 2 -- (after the Crystal and its cracks)
-				if k >= 1 then
-					local round = CFrame.Angles(0, math.rad((F.orbit[k] or 0) * now), 0)
-					local up = math.sin(now * F.speed * math.pi * 2 + k * 1.9) * F.bob
-					q.part.CFrame = at
-						* round
-						* CFrame.new(0, up, 0)
-						* q.rel
-						* CFrame.Angles(0, math.rad(F.spin * now + k * 40), 0)
-				else
-					q.part.CFrame = at * q.rel
-				end
-			end
+			HudKit.poseGem(rock, at, now)
 			-- dying out toward grey as the mana runs low, its own colour full (and a pop); dead only while burnt out
 			HudKit.shine(
 				rock.crystal,

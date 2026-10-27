@@ -194,15 +194,12 @@ end
 -- A crystal in a cut-away (the staff's rock, the howitzer's gem; Config/Hud.Crystal; user 2026-10-26: "the crystal
 -- should not be fully gray. the crystal also doesnt have to be so bright. make it simple and dark so players can tell if
 -- its fully charged or not. have it gradually die out to look like the gray crystal as the charge is low. only have it
--- fully dead as it recharges when its a stage 3 blast", "use effects that surround the crystal instead? actual effects
--- and not just blocks"). HudKit.crystal(parts, view) -> state; HudKit.shine(state, share, dead, colors, now): its look
--- this frame. Flat, dark colours: the grey crystal at no charge, its own colour (darkened) full; dead: the darker grey,
--- flickering. Round it, behind the view: a soft glow (rings fading out) and motes circling it, in its colour, as strong
--- as the charge (none dead).
+-- fully dead as it recharges when its a stage 3 blast"). HudKit.crystal(parts) -> state; HudKit.shine(state, share,
+-- dead, colors, now): its look this frame. Flat, dark colours: the grey crystal at no charge, its own colour (darkened)
+-- full; dead: the darker grey, flickering. (No glow or motes behind it: user 2026-10-26, "remove this blue orb circle
+-- thing"; the gem's own floating shards are what surrounds it.)
 export type Crystal = {
 	parts: { BasePart },
-	glow: { Frame },
-	motes: { Frame },
 	flickerUntil: number,
 	nextFlicker: number,
 }
@@ -210,45 +207,8 @@ export type Crystal = {
 local CR = HudCfg.Crystal
 local rng = Random.new()
 
-local function circle(parent: Instance, z: number): Frame
-	local f = Instance.new("Frame")
-	f.AnchorPoint = Vector2.new(0.5, 0.5)
-	f.BorderSizePixel = 0
-	f.BackgroundTransparency = 1
-	f.ZIndex = z
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = f
-	f.Parent = parent
-	return f
-end
-
-function HudKit.crystal(parts: { BasePart }, view: ViewportFrame): Crystal
-	-- (behind the view: it is see-through, so they show round the crystal at its centre)
-	local holder = Instance.new("Frame")
-	holder.Name = "CrystalFx"
-	holder.BackgroundTransparency = 1
-	holder.AnchorPoint = view.AnchorPoint
-	holder.Position = view.Position
-	holder.Size = view.Size
-	holder.ZIndex = view.ZIndex - 1
-	holder.ClipsDescendants = true
-	holder.Parent = view.Parent
-	local glow, motes = {}, {}
-	for i, r in CR.glow.rings do
-		local f = circle(holder, i)
-		f.Position = UDim2.fromScale(0.5, 0.5)
-		f.Size = UDim2.fromScale(r, r)
-		local ratio = Instance.new("UIAspectRatioConstraint")
-		ratio.DominantAxis = Enum.DominantAxis.Height
-		ratio.Parent = f
-		table.insert(glow, f)
-	end
-	for _ = 1, CR.motes.count do
-		local m = circle(holder, #CR.glow.rings + 1)
-		table.insert(motes, m)
-	end
-	return { parts = parts, glow = glow, motes = motes, flickerUntil = 0, nextFlicker = 0 }
+function HudKit.crystal(parts: { BasePart }): Crystal
+	return { parts = parts, flickerUntil = 0, nextFlicker = 0 }
 end
 
 function HudKit.shine(c: Crystal, share: number, dead: boolean, colors: { Color3 }, now: number)
@@ -269,22 +229,62 @@ function HudKit.shine(c: Crystal, share: number, dead: boolean, colors: { Color3
 		p.Transparency = 0
 		p.Color = if dead then Color3.new():Lerp(deadGrey, light) else grey:Lerp(own, share)
 	end
-	-- the effects: as strong as the charge (a curve, so a low charge is faint), nothing while dead
-	local strength = if dead then 0 else share ^ CR.glow.curve
-	local color = colors[1]
-	for i, g in c.glow do
-		g.BackgroundColor3 = color
-		g.BackgroundTransparency = 1 - (1 - CR.glow.see[i]) * strength
+end
+
+-- The 3D gem (Config/Hud.Gem, Config/Assets hud_gem: user 2026-10-26, "trace a real gem", "add floating shards around
+-- it", "replace the howizer gem with the same 3d gem"): HudKit.gem(parent, length) -> copies of its parts in `parent`,
+-- centred on the Crystal, scaled so the Crystal is `length` studs long (nil: as modelled); HudKit.poseGem(gem, at, now)
+-- puts it at `at` (its c axis `at`'s +Y), the shards floating round it at their own pace, bobbing and spinning.
+export type Gem = { parts: { { part: BasePart, rel: CFrame } }, crystal: Crystal, size: Vector3 }
+
+local G = HudCfg.Gem
+
+function HudKit.gem(parent: Instance, length: number?): Gem?
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	for _, name in G.model do
+		f = f and f:FindFirstChild(name)
 	end
-	local M = CR.motes
-	for i, m in c.motes do
-		local a = now * M.speed + i / #c.motes * math.pi * 2
-		local r = M.radius + M.wobble * math.sin(now * M.speed * 2.3 + i)
-		m.Position = UDim2.fromScale(0.5 + math.cos(a) * r * 0.5, 0.5 + math.sin(a) * r * M.squash)
-		local s = M.size * (0.7 + 0.3 * math.sin(now * 3 + i * 1.7))
-		m.Size = UDim2.fromOffset(s, s)
-		m.BackgroundColor3 = color:Lerp(Color3.new(1, 1, 1), M.light)
-		m.BackgroundTransparency = 1 - (1 - M.see) * strength
+	local first = f and f:FindFirstChild(G.parts[1], true)
+	if not f or not first or not first:IsA("BasePart") then
+		return nil
+	end
+	local k = if length then length / math.max(first.Size.X, first.Size.Y, first.Size.Z) else 1
+	local parts, list = {}, {}
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, name in G.parts do
+		local p = (f :: Instance):FindFirstChild(name, true)
+		if p and p:IsA("BasePart") then
+			local c = p:Clone()
+			c:ClearAllChildren()
+			c.Anchored, c.CanCollide, c.CanQuery, c.CanTouch, c.CastShadow = true, false, false, false, false
+			c.Size *= k
+			c.Parent = parent
+			local rel = first.CFrame:ToObjectSpace(p.CFrame)
+			rel = rel - rel.Position + rel.Position * k
+			table.insert(parts, { part = c, rel = rel })
+			table.insert(list, c)
+			local h = c.Size.Magnitude / 2
+			lo, hi = lo:Min(rel.Position - Vector3.one * h), hi:Max(rel.Position + Vector3.one * h)
+		end
+	end
+	return { parts = parts, crystal = HudKit.crystal(list), size = hi - lo }
+end
+
+function HudKit.poseGem(g: Gem, at: CFrame, now: number)
+	local F = G.shards
+	for i, q in g.parts do
+		local k = i - 2 -- (the shards come after the Crystal and its cracks)
+		if k >= 1 then
+			local round = CFrame.Angles(0, math.rad((F.orbit[k] or 0) * now), 0)
+			local up = math.sin(now * F.speed * math.pi * 2 + k * 1.9) * F.bob
+			q.part.CFrame = at
+				* round
+				* CFrame.new(0, up, 0)
+				* q.rel
+				* CFrame.Angles(0, math.rad(F.spin * now + k * 40), 0)
+		else
+			q.part.CFrame = at * q.rel
+		end
 	end
 end
 

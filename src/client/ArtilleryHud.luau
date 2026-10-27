@@ -7,7 +7,8 @@
 --   the inside of the gun (besides the round and the crystal)"), seen from the gun's mount (so the barrel's elevation and
 --   recoil show, and the breech swinging open); the field gun's round (Config/Artillery.Load.round) sits in its
 --   chamber, slides in as the loader puts it in (Load.loaded), and the fired case is thrown out as the breech opens;
---   the howitzer's living crystal (src/client/ArtilleryCrystal) glows in it as it does on the gun;
+--   the howitzer's crystal is the 3D gem (src/client/HudKit.gem, the staff's: user 2026-10-26, "replace the howizer
+--   gem with the same 3d gem we are making"), its shards floating round it, dying out toward grey until it can fire;
 -- - how far the reload has got, a plain percentage in tenths (nothing once it can fire); no panel or background, at the
 --   bottom right like the gun's.
 
@@ -68,8 +69,9 @@ type View = {
 	case: Piece?,
 	length: number,
 	thrownFor: number, -- the shot whose case has been thrown out
-	gem: HudKit.Crystal?, -- the howitzer's crystal
-	gemSources: { BasePart },
+	gem: HudKit.Gem?, -- the 3D gem in the howitzer's crystal's place
+	gemAnchor: BasePart?, -- (the gun's own crystal's copy, hidden: where the gem sits)
+	gemTurn: CFrame,
 	from: Vector3, -- the camera's side of the crystal (gun space), and how far off
 	dist: number,
 	throws: { Throw },
@@ -103,7 +105,8 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 		length = 1,
 		thrownFor = -math.huge,
 		gem = nil,
-		gemSources = {},
+		gemAnchor = nil,
+		gemTurn = CFrame.identity,
 		from = Vector3.zAxis,
 		dist = 1,
 		throws = {},
@@ -135,7 +138,7 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			local c = d:Clone()
 			anchored(c)
 			c.Parent = cut
-			v.copies[d] = { part = c, see = if table.find(A.solid, d.Name) then 0 else A.see }
+			v.copies[d] = { part = c, see = if table.find(A.solid, d.Name) then 1 else A.see }
 		end
 	end
 	-- framed on the first of Hud.Artillery.frame the gun has (the howitzer's crystal, the field gun's breech)
@@ -147,16 +150,19 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			break
 		end
 	end
-	-- the crystal's look (src/client/HudKit.shine)
-	local gems = {}
+	-- the 3D gem in the gun's crystal's place (src/client/HudKit.gem), as long as it, pointing out of the breech face
+	-- (gun +Z), turning with the barrel; the view takes in its shards
 	for src, c in v.copies do
-		if table.find(A.solid, src.Name) then
-			table.insert(gems, c.part)
-			table.insert(v.gemSources, src)
+		local r = rest(src.Name)
+		if src.Name == A.solid[1] and r then
+			local s = src.Size
+			v.gem = HudKit.gem(cut, math.max(s.X, s.Y, s.Z))
+			v.gemAnchor = c.part
+			v.gemTurn = r.Rotation:Inverse() * CFrame.Angles(math.pi / 2, 0, 0)
+			if v.gem then
+				grow(CFrame.new(r.Position), Vector3.one * math.max(v.gem.size.X, v.gem.size.Z))
+			end
 		end
-	end
-	if #gems > 0 then
-		v.gem = HudKit.crystal(gems, view)
 	end
 
 	-- the field gun's round, and its case for after the shot
@@ -227,14 +233,15 @@ local function update(v: View, t: number, clock: number, camera: Camera)
 		local readyAt = (v.model:GetAttribute("ReadyAt") :: number?) or -math.huge
 		local share = Rules.loaded(t, readyAt, v.gun.reload)
 		local colors = {}
-		for _, src in v.gemSources do
-			local c = (Palette.Artillery :: any)[src.Name] or { 175, 235, 255 }
-			table.insert(colors, rgb(c))
+		for _, name in A.solid do
+			table.insert(colors, rgb((Palette.Artillery :: any)[name]))
 		end
-		HudKit.shine(v.gem, share, false, colors, clock)
+		local anchor = v.gemAnchor :: BasePart
+		HudKit.poseGem(v.gem, anchor.CFrame * v.gemTurn, clock)
+		HudKit.shine(v.gem.crystal, share, false, colors, clock)
 		-- the camera on the crystal wherever the gun has laid it (elevation, recoil), as far off as framed
-		local gem = v.gem.parts[1]
-		camera.CFrame = CFrame.lookAt(gem.Position + v.from * v.dist, gem.Position)
+		local at = anchor.Position
+		camera.CFrame = CFrame.lookAt(at + v.from * v.dist, at)
 	end
 	local round, case = v.round, v.case
 	if not round or not case then
