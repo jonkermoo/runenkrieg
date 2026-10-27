@@ -19,7 +19,9 @@ export type Def = {
 }
 
 -- what everyone may build (user: "everyone else can only build trenches and other small assets")
-local SMALL = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge" } -- (Hesco: user 2026-10-27, a small asset)
+-- (Hesco barriers and sandbag piles are the Engineer's since round 7, user 2026-10-27: "hesco barriers should and
+-- sandbags should be engineer only")
+local SMALL = { "Trench", "Wire", "Bridge" }
 
 local Classes = {
 	Currency = "Marks", -- the currency's name, shown in the loadout menu

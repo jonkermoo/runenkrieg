@@ -165,9 +165,10 @@ local function showGhost(key: string, cf: CFrame, size: Vector3, ok: boolean)
 	box.Color = rgb(if ok then C.Ghost.ok else C.Ghost.bad)
 end
 
--- a gun piece's ghost (Config/Build.GunGhost): a see-through copy of the gun in gun space (as src/server/Artillery
--- finds it, from the Bore at rest) and, dug in, its pit (out to the top of its wall) and ramp outlined on the ground;
--- nil without the gun's model
+-- a gun piece's ghost (Config/Build.GunGhost; user 2026-10-27: "for the field gun and artillery, dont show the actual
+-- model ... just show how much space it actually takes (the visible model with applicable trench)"): a see-through box
+-- round the gun's visible model in gun space (as src/server/Artillery finds it, from the Bore at rest) and, dug in, its
+-- pit (out to the top of its wall) and ramp outlined on the ground; nil without the gun's model
 local function makeGunGhost(gun: ArtilleryCfg.Gun): Model?
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
 	for _, sub in { "Weapons", "Shared", "Artillery", gun.asset } do
@@ -181,25 +182,38 @@ local function makeGunGhost(gun: ArtilleryCfg.Gun): Model?
 	end
 	local m = Instance.new("Model")
 	m.Name = "BuildGhost"
-	local body = src:Clone()
-	body.Name = "Gun"
-	for _, d in body:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.Anchored = true
-			d.CanCollide, d.CanQuery, d.CanTouch = false, false, false
-			d.CastShadow = false
-			d.Material = Enum.Material.SmoothPlastic
-			d.Transparency = math.max(d.Transparency, C.Ghost.transparency)
-		elseif d:IsA("Decal") or d:IsA("Light") or d:IsA("ParticleEmitter") or d:IsA("SurfaceAppearance") then
-			d:Destroy()
-		end
-	end
 	local dir = bore.Position - barrel.Position
 	local rot = CFrame.Angles(0, math.rad(ArtilleryRules.yawOf(dir.X, dir.Z)), 0)
 	local mz = gun.muzzle
 	local origin = bore.Position - rot:VectorToWorldSpace(Vector3.new(mz[1], mz[2], mz[3] + gun.boreCentre))
-	body.WorldPivot = CFrame.new(origin) * rot
-	body.Parent = m
+	-- the box round its visible parts (gun space: lined up with the gun, from its pivot)
+	local pivot = CFrame.new(origin) * rot
+	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
+	for _, d in src:GetDescendants() do
+		if d:IsA("BasePart") and d.Transparency < 1 then
+			local half = d.Size / 2
+			for _, c in
+				{
+					Vector3.new(-1, -1, -1),
+					Vector3.new(1, -1, -1),
+					Vector3.new(-1, 1, -1),
+					Vector3.new(1, 1, -1),
+					Vector3.new(-1, -1, 1),
+					Vector3.new(1, -1, 1),
+					Vector3.new(-1, 1, 1),
+					Vector3.new(1, 1, 1),
+				}
+			do
+				local q = pivot:PointToObjectSpace(d.CFrame:PointToWorldSpace(half * c))
+				lo, hi = lo:Min(q), hi:Max(q)
+			end
+		end
+	end
+	local body = ghostPart(m)
+	body.Name = "Gun"
+	body.Transparency = C.Ghost.transparency
+	body.Size = hi - lo
+	body:SetAttribute("Offset", CFrame.new((lo + hi) / 2))
 	local d = gun.dig
 	if d then
 		local G = C.GunGhost
@@ -229,21 +243,14 @@ local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: 
 		ghostFor = if ghost then key else nil
 	end
 	local m = ghost
-	local body = m and m:FindFirstChild("Gun") :: Model?
+	local body = m and m:FindFirstChild("Gun") :: BasePart?
 	if not m or not body then
 		return false
 	end
 	local color = rgb(if ok then C.Ghost.ok else C.Ghost.bad)
 	local d = gun.dig
-	body:PivotTo(at * CFrame.new(0, -(if d then d.depth else 0), 0))
-	if m:GetAttribute("Ok") ~= ok then
-		for _, p in body:GetDescendants() do
-			if p:IsA("BasePart") then
-				p.Color = color
-			end
-		end
-	end
-	m:SetAttribute("Ok", ok)
+	body.CFrame = at * CFrame.new(0, -(if d then d.depth else 0), 0) * (body:GetAttribute("Offset") :: CFrame)
+	body.Color = color
 	local lift = C.GunGhost.outline / 2 + 0.05
 	local pit = m:FindFirstChild("Pit") :: BasePart?
 	if pit then
@@ -1084,44 +1091,36 @@ function Build.start()
 			state = "idle"
 			local other = if mode == "Build" then "Destroy" else "Build"
 			local m = target(character, root)
-			if m and m:IsA("Model") and m:GetAttribute("Kind") == "TrenchBlock" then
-				focus = m
+			if m and m:IsA("Model") then
+				-- (every structure in reach is lit, not only trench squares: user 2026-10-27, "be sure to give all
+				-- structures the white border that the trenches have when near with a shovel"; a standing gun's own
+				-- model, which stands outside its holder: src/server/Build's "Gun" link)
+				local gun = m:FindFirstChild("Gun")
+				focus = if gun and gun:IsA("ObjectValue") and gun.Value and gun.Value:IsA("Model") then gun.Value else m
 			end
 			title = mode
 			keys = { { fire, "dig" }, { reload, `switch to {other}` }, { build, "build" } }
 			if m and m:IsA("Model") then
+				-- every structure is on HP out of 100 (src/server/Build, src/server/Trenches: "HP", "MaxHP")
 				local block = m:GetAttribute("Kind") == "TrenchBlock"
-				local work = m:GetAttribute(if block then "HP" else "Work")
-				local need = m:GetAttribute(if block then "MaxHP" else "Need")
+				local hp, max = m:GetAttribute("HP"), m:GetAttribute("MaxHP")
 				local name = if block
 					then "Trench square"
 					else ((Rules.piece(m:GetAttribute("Piece"), C.Pieces) or { name = "Piece" }) :: any).name
-				if type(work) == "number" and type(need) == "number" then
-					-- (any trench square is yours to work: Trenches.work)
+				if type(hp) == "number" and type(max) == "number" then
+					-- (any trench square is yours to work: Trenches.work; any team's standing gun is yours to repair)
 					local ours = block or m:GetAttribute("Team") == character:GetAttribute("Kit")
 					local mine = if ours then name else `Enemy {string.lower(name)}`
-					local of = if block then `HP {work} / {need}` else `{work} / {need}`
-					-- a standing gun's own HP (src/server/Build mirrors it onto its holder), as a trench square's
-					local hp, max = m:GetAttribute("HP"), m:GetAttribute("MaxHP")
-					local gunHp = if not block
-							and type(hp) == "number"
-							and type(max) == "number"
-						then `HP {math.ceil(hp)} / {max}`
-						else nil
+					local gun = m:GetAttribute("Built") == true and m:FindFirstChild("Gun") ~= nil
+					local of = `HP {math.ceil(hp)} / {max}`
 					title = `{mode} · {mine}`
 					line = if mode == "Destroy"
-						then `{gunHp or of} · dig to {if block
-							then "fill it in"
-							elseif gunHp and (hp :: number) > 0 then "wreck it"
-							else "take it apart"}`
-						elseif
-							work >= need
-							and gunHp
-							and (hp :: number) < (max :: number)
-						then `{gunHp} · dig to repair`
-						elseif not ours then if gunHp then `{gunHp} · switch to Destroy` else "switch to Destroy"
-						elseif work >= need then gunHp or "dug"
-						else `{gunHp or of} · dig to build` -- (a Hesco barrier, a bridge and a sandbag pile are built on HP)
+						then `{of} · dig to {if block then "fill it in" else "take it apart"}`
+						elseif hp >= max then of
+						elseif gun then `{of} · dig to repair`
+						elseif not ours then `{of} · switch to Destroy`
+						elseif m:GetAttribute("Built") == true then `{of} · dig to repair`
+						else `{of} · dig to build`
 				end
 			elseif m then
 				title, line = `{mode} · Tree`, "dig to chop it"
