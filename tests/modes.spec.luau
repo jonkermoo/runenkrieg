@@ -36,4 +36,10 @@ return {
 		assert(R.extend(100, -60, 50) == 50, "clamped to now")
 		assert(R.extend(100, -30, 50) == 70)
 	end,
+	["only normal keeps teams, or any mode with the admin's test switch (user 2026-10-27)"] = function()
+		assert(R.keptTeams(Cfg, "Normal", nil), "normal keeps teams")
+		assert(not R.keptTeams(Cfg, "Admin", nil) and not R.keptTeams(Cfg, "FFA", false), "rolled each life")
+		assert(R.keptTeams(Cfg, "Admin", true) and R.keptTeams(Cfg, "FFA", true), "the test switch")
+		assert(not R.keptTeams(Cfg, nil, nil) and not R.keptTeams(Cfg, "Nope", "yes"))
+	end,
 }

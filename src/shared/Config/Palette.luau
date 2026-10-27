@@ -256,6 +256,10 @@ local Palette = {
 			Stones = { 112, 106, 96 },
 			Flaps = { 180, 170, 142 },
 			Piles = { 125, 103, 71 },
+			-- stage 0, just laid (hesco v3): the scraped ground and the unit lying folded flat (without these the stage's
+			-- pieces could not be coloured and the barrier never showed, user round 7: "the hesco barrier disappeared")
+			Scrape = { 138, 112, 84 },
+			Pack = { 143, 134, 109 },
 		},
 	},
 	-- Magic (src/client/Vfx, Config/Vfx): the glowing spell colors. Effects draw them bright (LightEmission, HDR
@@ -332,6 +336,20 @@ local Palette = {
 			key = { 238, 240, 234 },
 			keyText = { 32, 38, 42 },
 			hint = { 184, 194, 188 },
+			-- each mode's colour (its tab, its badge, its face) and its panel's field (src/shared/ui/BuildHud.json; user
+			-- 2026-10-27: "make it more distinct for each mode"): Build gold, Destroy red, Placing blueprint blue, the
+			-- trench plan chalk; the hazard band's dark stripes, the stage blocks' and the rule's track
+			modeBuild = { 217, 180, 90 },
+			modeDestroy = { 226, 96, 79 },
+			modePlace = { 160, 200, 226 },
+			modePlan = { 232, 226, 204 },
+			fieldBuild = { 24, 29, 32 },
+			fieldDestroy = { 40, 24, 22 },
+			fieldPlace = { 22, 31, 40 },
+			fieldPlan = { 28, 36, 31 },
+			hazardDark = { 20, 14, 13 },
+			track = { 0, 0, 0 },
+			goes = { 255, 255, 255 }, -- the outline of the stage block a Destroy swing breaks next
 		},
 		-- the combat HUD, quartermaster's brass (Config/Hud, src/shared/ui/CombatHud.json): the panel's dark field, its
 		-- brass rim and rivets, the name plate and its stamped letters, the count, the hint plate (red, the next thing to
@@ -352,6 +370,10 @@ local Palette = {
 			crystalDead = { 58, 60, 64 },
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
+			-- the kit list (Config/Hud.Kit): the names and keys of the rows not in the hands, an empty row's name
+			kitName = { 168, 168, 158 },
+			kitKey = { 154, 154, 144 },
+			kitEmpty = { 118, 118, 110 },
 			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
 			-- a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
 			bolt = { 150, 154, 160 },
@@ -387,6 +409,9 @@ local Palette = {
 			selFill = { 58, 60, 64 },
 			selLine = { 201, 203, 208 },
 			selText = { 255, 255, 255 },
+			-- the loadout menu's team cards (src/client/Menus, user 2026-10-27): a team you can't join is red (one you can
+			-- is selText, yours textDim)
+			noText = { 214, 92, 80 },
 			accent = { 228, 229, 232 },
 			backdrop = { 0, 0, 0 },
 			backdropTransparency = 0.55,

@@ -130,6 +130,7 @@ local DevTools = {
 				"HitNote",
 				"StaffHud",
 				"ArtilleryHud",
+				"KitList",
 				"HealPrompt",
 				"DragPrompt",
 				"BuildHud",

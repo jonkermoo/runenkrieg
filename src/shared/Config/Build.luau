@@ -13,8 +13,10 @@ local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
 	Reach = 14,
 	SwingReach = 8,
-	-- the trench square you're working, extending or branching off is lit faintly (a Highlight in Palette.Build.Focus:
-	-- its fill and outline transparency; user 2026-10-25: "a slight slight indicator for which segment you are focused on")
+	-- the structure your shovel would work (a trench square, any piece; a standing gun itself), or the trench square
+	-- you're extending or branching off, is lit faintly (a Highlight in Palette.Build.Focus: its fill and outline
+	-- transparency; user 2026-10-25: "a slight slight indicator for which segment you are focused on"; 2026-10-27: "be
+	-- sure to give all structures the white border that the trenches have when near with a shovel")
 	Focus = { fill = 0.93, outline = 0.6 },
 	-- swings faster than this share of the shortest time between two strikes (Rules/Build.strikeGap) are ignored
 	SwingSlack = 0.8,
@@ -25,15 +27,14 @@ local Build = {
 	PerTeam = 150,
 	-- where the pieces live (a Folder in Workspace)
 	Folder = "Structures",
-	-- blueprint look: its parts this transparent until it stands
-	GhostTransparency = 0.75,
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
 	Ghost = { ok = { 120, 200, 120 }, bad = { 220, 80, 70 }, transparency = 0.55 },
 	-- a gun's ghost (src/client/Build; user 2026-10-27: "reduce the red space for a howitzer ... just make it the size
 	-- of the actual howizer with the trench. infact, make the outline a rough estimate of what the model would look like
-	-- when constructed"): the gun itself, see-through in Ghost ok / bad, standing as it will (a dug-in gun on its pit's
-	-- floor), and a dug-in gun's pit and ramp outlined flat on the ground, `outline` studs thick, `outlineSee`
-	-- see-through
+	-- when constructed"; then: "dont show the actual model, i take that back. just show how much space it actually takes
+	-- (the visible model with applicable trench)"): a box round the gun's visible model, see-through in Ghost ok / bad,
+	-- standing as it will (a dug-in gun on its pit's floor), and a dug-in gun's pit and ramp outlined flat on the ground,
+	-- `outline` studs thick, `outlineSee` see-through
 	GunGhost = { outline = 0.3, outlineSee = 0.7 },
 	-- the trench planner's ghost (src/client/Build; user 2026-10-24: "make the entire planning thing better and more
 	-- stylish"), a preview of the stakes and cord the
@@ -159,7 +160,6 @@ local Build = {
 	-- it; a sandbag column the same), the lighter stages in the same proportion; wire about 3x what it was.
 	Structures = {
 		edge = 2,
-		wireHP = 100,
 		-- (bridges, user 2026-10-27, as drafted: bullets pass the planks, two grenades bring it down to its first stage and
 		-- four take it away, a shell drops it)
 		bullet = { hit = 0.2, wire = 0, bridge = 0 }, -- (about 500 hits bury a trench)
@@ -237,17 +237,17 @@ local Build = {
 		{
 			key = "Wire",
 			name = "Barbed wire",
-			kind = "Wire",
-			work = 2,
+			kind = "Wire", -- (built on HP: Wire.hp below)
 			width = 8,
 			depth = 4,
 			height = 3.1,
 			maxSlope = 30,
 		},
 		-- The guns (user 2026-10-26: "add building the artilleries to shovels"; Config/Artillery.Guns `gun`, src/server/
-		-- Artillery stands them): every team builds both, in its own paint (Guns.paint). The blueprint is the gun
-		-- see-through; `work` Build swings stand it (user: field 20, howitzer 40), the howitzer's pit (its Config/
-		-- Artillery `dig`) dug deeper at each of `stages` (user: "deeper with each stage"). A gun keeps `spacing` studs from
+		-- Artillery stands them): every team builds both, in its own paint (Guns.paint). On HP (Guns.hp below): laid at
+		-- 0 with its first parts and the building site down, each Build swing adds `swing` HP (user: field 20 swings,
+		-- howitzer 40), its parts fitted a quarter at a time and the howitzer's pit (its Config/Artillery `dig`) dug deeper
+		-- at each of `stages` (user: "deeper with each stage"), standing at full HP. A gun keeps `spacing` studs from
 		-- every other gun of its kind, any team's (user: "cannons cant be placed within certain distances of another,
 		-- howitzer with howitzer": 60 and 120), and `clear` + the other's `clear` from any gun. `width` x `depth` (`height`
 		-- high) is the ground it needs clear and gentle, its centre `back` studs behind the gun (the howitzer's: its pit to
@@ -257,7 +257,7 @@ local Build = {
 			name = "Field gun",
 			kind = "Gun",
 			gun = "artillery_qf18",
-			work = 20,
+			swing = 5, -- (20 swings)
 			stages = 4,
 			width = 7,
 			depth = 15,
@@ -273,7 +273,7 @@ local Build = {
 			name = "Magic howitzer",
 			kind = "Gun",
 			gun = "artillery_howitzer",
-			work = 40,
+			swing = 2.5, -- (40 swings)
 			stages = 8,
 			width = 44,
 			depth = 78,
@@ -286,11 +286,16 @@ local Build = {
 		},
 	},
 
-	-- Built guns: a gun stands once its work is full and stays (manned, firing) until Destroy swings take its work down to
-	-- `standsFrom` of it (user 2026-10-26: Destroy takes a gun apart like any piece); then it is a blueprint again, its
-	-- pit filling back as the work falls, gone at 0. `paint`: each kit's gun paint (Config/Palette.Artillery.Paint).
+	-- Built guns, on HP like every structure (user 2026-10-27: "all structures follow an HP strucutre, not how many
+	-- digs"; round 5: start at 0 HP with stage 1 down): `hp.max`, laid at `hp.place`; while it is built a Destroy swing
+	-- takes its piece's `swing` off, at 0 it is gone. Once it stands its HP is the gun's own (Config/Artillery.Guns `hp`,
+	-- Hits, Repair): shovel swings repair it or take Repair's share off. Weapons leave it a wreck at 0 that stays; a
+	-- Destroy swing that takes it to 0, or at a wreck already at 0, and it is gone, nothing left (user 2026-10-27: "guns
+	-- destroyed by weaponry and set to 0 hp will be placed, just with the extremely broken model. if a player destroys it
+	-- with a shovel at 0 hp, it will disappear"), its pit filled back. `paint`: each kit's gun paint
+	-- (Config/Palette.Artillery.Paint).
 	Guns = {
-		standsFrom = 0.75,
+		hp = { max = 100, place = 0 },
 		paint = { uniform1 = "Grey", uniform2 = "Olive", uniform3 = "Brown" },
 	},
 
@@ -389,9 +394,10 @@ local Build = {
 	-- free square between). It falls in once the square under it is buried under Trench.hp.bare%. An unseen `plate` (its
 	-- thickness) along the deck's top is what you walk on: the boards don't collide (nobody snags on a gap or a tipped
 	-- board) and bullets pass them. The build mode ghost: a slab `ghost` thick along the deck.
-	-- (25, 65, 100: stage 1 when laid, stage 2 after a swing, whole after two)
+	-- (0, 60, 100: stage 1 when laid, stage 2 after a swing, whole after two, as before laying started at 0 HP, user
+	-- round 5: "should still start at 0 HP")
 	Bridge = {
-		hp = { max = 100, place = 25, swing = 40, destroy = 25 },
+		hp = { max = 100, place = 0, swing = 60, destroy = 25 },
 		variants = 6,
 		dug = 95,
 		maxBend = 20,
@@ -410,19 +416,21 @@ local Build = {
 	-- `picket` of that, at `rate` Hz; one of `sounds` at random from where they push through: Pro Sound Effects "Chain
 	-- Link Fence 3", its first and second rattles). It also shakes and rattles each time it takes damage, a Destroy swing
 	-- or a blast (user 2026-10-27: "both"; src/server/Build).
-	-- Bullets pass (its parts aren't queried). Once standing it has Structures.wireHP: blasts wear it (Structures above), a
-	-- Destroy swing takes `destroy` HP (user: 2 swings, broken then gone); under `broken` of its HP it lies scattered on
-	-- the ground and does nothing (Wreck*, user: "a broken stage (less than 50) will make the fence ineffective and
-	-- scatter it on the ground. once it hits 0 it will despawn"); one Build swing of its team stands a broken wire back up
-	-- at full HP. The grass goes from under it (Net GroundDug, `grass` studs round its centre) as it is laid. A
-	-- Destroy swing on a wire that never stood takes its work down; at 0 it is gone.
+	-- Bullets pass (its parts aren't queried). On HP like every structure (user 2026-10-27: "all structures follow an HP
+	-- strucutre, not how many digs"; round 5: start at 0 HP with stage 1 down): laid at `hp.place`, bundled on the
+	-- ground; a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`,
+	-- blasts Structures `wire`% of `hp.max`. Its look is its HP alone (user round 7: "barbwire should jsut hp"): under
+	-- `stand` of its HP it lies bundled on the ground and does nothing, from there up it stands and works; a Destroy
+	-- swing or a hit at 0 and it is gone, nothing left (user: "remove the crumble. 0 hp should just disappear"). (2 Build
+	-- swings stand it, 4 make it whole; a Destroy swing at a whole one knocks it down, the next takes it away.) The grass
+	-- goes from under it (Net GroundDug, `grass` studs round its centre) as it is laid.
 	Wire = {
+		hp = { max = 100, place = 0, swing = 25, destroy = 60 },
+		stand = 0.5,
 		speed = 3,
 		damage = 4,
 		moving = 1,
 		tick = 0.25,
-		destroy = 60, -- (over half: the first swing breaks it, the second takes it away)
-		broken = 0.5,
 		grass = 4.6,
 		shake = 0.35,
 		wobble = 0.12,
