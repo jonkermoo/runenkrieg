@@ -1069,7 +1069,10 @@ function Build.start()
 						else nil
 					title = `{mode} · {mine}`
 					line = if mode == "Destroy"
-						then `{gunHp or of} · dig to {if block then "fill it in" else "take it apart"}`
+						then `{gunHp or of} · dig to {if block
+							then "fill it in"
+							elseif gunHp and (hp :: number) > 0 then "wreck it"
+							else "take it apart"}`
 						elseif
 							work >= need
 							and gunHp

@@ -989,6 +989,21 @@ function Artillery.setHp(model: Model, hp: number)
 	end
 end
 
+-- `amount` HP off a gun, through its wreck stages
+local function hurt(s: State, amount: number)
+	if amount <= 0 then
+		return
+	end
+	s.hp = math.max(s.hp - amount, 0)
+	s.model:SetAttribute("HP", math.round(s.hp * 10) / 10)
+	local stage = Rules.wreckStage(s.hp, s.gun.hp, Cfg.Wreck.at)
+	if stage ~= s.stage then
+		s.stage = stage
+		s.model:SetAttribute("Stage", stage)
+		wreck(s)
+	end
+end
+
 -- A blast at `position` (Damage.onBlast; `structure`: what set it off, a Config/Artillery.Hits key, nil: by its `kg`)
 -- wears each gun down by how far it is from the gun's box (Config/Artillery.Hits).
 local function blast(position: Vector3, kg: number, structure: string?)
@@ -1016,18 +1031,20 @@ local function blast(position: Vector3, kg: number, structure: string?)
 			local top = ground.CFrame * CFrame.new(0, (ground.Size.Y + pf.thick) / 2, 0)
 			d = math.min(d, off(top, Vector3.new(ground.Size.X + 2 * pf.pad, pf.thick, ground.Size.Z + 2 * pf.pad)))
 		end
-		local amount = Rules.gunHit(d, src, H.direct)
-		if amount > 0 then
-			s.hp = math.max(s.hp - amount, 0)
-			model:SetAttribute("HP", math.round(s.hp * 10) / 10)
-			local stage = Rules.wreckStage(s.hp, s.gun.hp, Cfg.Wreck.at)
-			if stage ~= s.stage then
-				s.stage = stage
-				model:SetAttribute("Stage", stage)
-				wreck(s)
-			end
-		end
+		hurt(s, Rules.gunHit(d, src, H.direct))
 	end
+end
+
+-- A shovel's Destroy swing on a gun (src/server/Build; user 2026-10-27: "when destroying it with a shovel, it reverts
+-- it to construction stage. it should just lower hp as it normally would with usual damage"): `amount` HP off it, as a
+-- blast takes it. False for a wreck already at 0 (or not a gun).
+function Artillery.harm(model: Model, amount: number): boolean
+	local s = guns[model]
+	if not s or s.hp <= 0 then
+		return false
+	end
+	hurt(s, amount)
+	return true
 end
 
 local function stateOf(player: Player): State?

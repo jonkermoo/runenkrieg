@@ -73,6 +73,7 @@ type Guns = {
 	assemble: (Model, string, CFrame, number) -> (),
 	repair: (Model, number) -> (string?, number),
 	setHp: (Model, number) -> (),
+	harm: (Model, number) -> boolean,
 }
 local guns: Guns? = nil
 
@@ -585,6 +586,15 @@ local function work(player: Player, target: any, mode: any)
 			end
 		end
 		return
+	end
+	if mode == "Destroy" and r.gun and r.standing and guns then
+		-- a standing gun loses HP to the shovel as to any damage (Artillery.harm), as many swings as fix it; only a
+		-- wreck at 0 is taken apart, swing by swing, below
+		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
+		if g and guns.harm(r.gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player))) then
+			lastSwing[player] = now
+			return
+		end
 	end
 	if mode == "Build" and (not own or r.work >= r.need) then
 		return
