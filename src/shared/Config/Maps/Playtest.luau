@@ -47,7 +47,7 @@ local west = {
 	-- the zone's spots, with their mirrors 6 (user 2026-10-27: "mix yards and open ground"): the centre cottage's front
 	-- yard, the brick cottage's, and open field between the stone walls and the spawn's ground, held from trenches you
 	-- dig; and the spawn points (Config/ZoneMatch). Both kept clear of trees
-	spots = { { 0, 18 }, { -95, -20 }, { -52, -2 } },
+	spots = { { 0, 24 }, { -95, -15 }, { -52, -2 } },
 	spawns = { { -165, 0 }, { -130, 62 }, { -128, -62 }, { -40, -70 } },
 }
 
@@ -94,7 +94,7 @@ local function mirrored(): any
 		for _, sgn in { 1, -1 } do
 			local x, z = CX + sgn * p[1], CZ + sgn * p[2]
 			table.insert(out.spots, { x, z })
-			local r = 12
+			local r = 18 -- (Config/ZoneMatch.Radius, plus a little)
 			table.insert(
 				out.reserved,
 				{ id = `Zone{#out.spots}`, minX = x - r, maxX = x + r, minZ = z - r, maxZ = z + r }

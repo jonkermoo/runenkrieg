@@ -56,46 +56,36 @@ local function piece(model: Model, name: string, size: Vector3, cf: CFrame, colo
 	p.Parent = model
 end
 
--- the ring of blocks on the ground round (0, 0) (each block at its own ground height) and, for the live zone, the post
-local function marker(name: string, parent: Instance, withPost: boolean, transparency: number): Model
+-- the floating disc round (0, 0) and, for the live zone, the beam up from its middle
+local function marker(name: string, parent: Instance, withBeam: boolean, transparency: number): Model
 	local model = Instance.new("Model")
 	model.Name = name
-	local n, r = MK.Segments, Cfg.Radius
-	local len = 2 * math.pi * r / n + 0.2
-	for i = 0, n - 1 do
-		local a = i / n * 2 * math.pi
-		local cf = CFrame.new(r * math.cos(a), MK.RingHeight / 2, r * math.sin(a)) * CFrame.Angles(0, -a, 0)
-		piece(model, "Ring", Vector3.new(MK.RingWidth, MK.RingHeight, len), cf, MK.Colors.Free, transparency)
+	local D, B, r = MK.Disc, MK.Beam, Cfg.Radius
+	-- (a cylinder's axis is its X: turned upright)
+	local up = CFrame.Angles(0, 0, math.pi / 2)
+	piece(model, "Disc", Vector3.new(D.thickness, 2 * r, 2 * r), up, MK.Colors.Free, transparency)
+	if withBeam then
+		local cf = CFrame.new(0, B.height / 2, 0) * up
+		piece(model, "Beam", Vector3.new(B.height, B.width, B.width), cf, MK.Colors.Free, B.transparency)
 	end
-	if withPost then
-		local w, h = MK.PostWidth, MK.PostHeight
-		piece(model, "Post", Vector3.new(w, h, w), CFrame.new(0, h / 2, 0), MK.Colors.Post, 0)
-		local f = MK.Pennant
-		piece(
-			model,
-			"Pennant",
-			Vector3.new(f[1], f[2], f[3]),
-			CFrame.new(w / 2 + f[1] / 2, h - f[2] / 2, 0),
-			MK.Colors.Free,
-			0
-		)
+	for _, p in model:GetChildren() do
+		(p :: Part).Shape = Enum.PartType.Cylinder
 	end
 	model.WorldPivot = CFrame.new()
 	model.Parent = parent
 	return model
 end
 
--- moves a marker onto spot `i`: centred there, each ring block down on the ground under it
+-- moves a marker onto spot `i`: floating over the highest ground under its disc
 local function moveTo(model: Model, i: number)
 	local x, z = spots[i][1], spots[i][2]
+	local D, r = MK.Disc, Cfg.Radius
 	local y = ground(x, z)
-	model:PivotTo(CFrame.new(x, y, z))
-	for _, p in model:GetChildren() do
-		if p:IsA("BasePart") and p.Name == "Ring" then
-			local at = p.Position
-			p.Position = Vector3.new(at.X, ground(at.X, at.Z) + MK.RingHeight / 2, at.Z)
-		end
+	for k = 1, D.samples do
+		local a = k / D.samples * 2 * math.pi
+		y = math.max(y, ground(x + r * math.cos(a), z + r * math.sin(a)))
 	end
+	model:PivotTo(CFrame.new(x, y + D.lift, z))
 end
 
 local function alive(player: Player): (BasePart?, Humanoid?)
