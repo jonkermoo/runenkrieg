@@ -532,4 +532,26 @@ return {
 		assert(B.pileSwing(h.max, false, h, 50) == 50, "an admin dig step in place of a swing")
 		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
 	end,
+
+	["the build panel's swing counts and stage blocks come from each piece's HP"] = function()
+		local function p(key: string): any
+			return assert(B.piece(key, C.Pieces), key)
+		end
+		-- Build swings from laid to whole: a bag a swing, the Hesco's eighths, the bridge laid at 25, work for the rest
+		assert(B.buildSwings(p("SandbagPile"), C) == #p("SandbagPile").bags)
+		assert(B.buildSwings(p("Hesco"), C) == 8)
+		assert(B.buildSwings(p("Bridge"), C) == 2)
+		assert(B.buildSwings(p("Trench"), C) == math.ceil(C.Trench.hp.max / C.Trench.hp.swing))
+		assert(B.buildSwings(p("FieldGun"), C) == p("FieldGun").work)
+		assert(B.hpRules("TrenchBlock", C) ~= nil and B.hpRules("Gun", C) == nil)
+		assert((B.hpRules("Wire", C) :: any).destroy == C.Wire.destroy)
+		-- Destroy swings left
+		assert(B.destroySwings(75, 10) == 8 and B.destroySwings(70, 10) == 7 and B.destroySwings(1, 10) == 1)
+		assert(B.destroySwings(0, 10) == 0 and B.destroySwings(50, 0) == 0)
+		-- blocks: one per bag, per Hesco stage, else one; the block the next Destroy swing breaks into
+		assert(B.hpBlocks(p("SandbagPile")) == 3 and B.hpBlocks(p("Hesco")) == p("Hesco").stages)
+		assert(B.hpBlocks(p("Wire")) == 1 and B.hpBlocks(nil) == 1)
+		assert(B.topBlock(75, 100, 4) == 3 and B.topBlock(76, 100, 4) == 4 and B.topBlock(100, 100, 4) == 4)
+		assert(B.topBlock(1, 100, 3) == 1 and B.topBlock(0, 100, 3) == 0)
+	end,
 }

@@ -15,8 +15,10 @@
 -- - Key_Reload switches the shovel between Build and Destroy (user 2026-10-23). Out of build mode each dig swing
 --   (src/client/Shovel "DugAt") goes to what you point at in reach (Net "Build" "Work" with the mode): a piece or
 --   trench block, or in Destroy mode a tree.
--- A panel at the bottom of the screen says what is going on: the state as its title, an edge green / red / amber (can
--- go, can't, the shovel out but not planning), the keys underneath.
+-- A panel at the bottom of the screen says what is going on (src/client/BuildHud draws it, user 2026-10-27: a look of its
+-- own for each mode): Build or Destroy with what you point at and its HP (Destroy: in stage blocks, and the swings to
+-- clear it), Placing with the pieces before and after and whether it fits, the trench plan with its length on a rule;
+-- an edge green / red where it can / can't go, the keys underneath.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -36,6 +38,7 @@ local ClassRules = require(Shared.Rules.Classes)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
+local BuildHud = require(script.Parent.BuildHud)
 local Settings = require(script.Parent.Settings)
 
 local Build = {}
@@ -272,8 +275,8 @@ local function label(parent: Instance, font: Font, size: number, color: { number
 	return l
 end
 
-local TITLE = Font.new("rbxasset://fonts/families/Oswald.json", Enum.FontWeight.Bold)
-local BODY = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium)
+-- the game's basic font (user 2026-10-27), for the plan's length tag as for the panel (src/client/BuildHud)
+local TITLE = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
 
 -- a shape in an icon, in the badge's unit square (x, y, width, height), rotated by `rotation` degrees
 local function shape(parent: Instance, x: number, y: number, w: number, h: number, color: { number }, rotation: number?)
@@ -380,7 +383,7 @@ local function makePlan(player: Player): Plan
 	list.Padding = UDim.new(0, 1)
 	list.Parent = box
 	local title = label(box, TITLE, 17, HUD.title)
-	local sub = label(box, BODY, 11, HUD.hint)
+	local sub = label(box, TITLE, 11, HUD.hint)
 	tag.Parent = player:WaitForChild("PlayerGui")
 	return {
 		model = m,
@@ -782,145 +785,6 @@ local function target(character: Model, root: BasePart): Instance?
 	return best
 end
 
--- the HUD panel: an edge, a title with a line beside it, the keys as key caps underneath
-type Key = { string } -- the key's name, what it does
-type Hud = { set: (state: string?, title: string, sub: string?, keys: { Key }) -> () }
-
-local function hud(player: Player): Hud
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "BuildHud"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	local panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 1)
-	panel.Position = UDim2.new(0.5, 0, 1, -92)
-	panel.Size = UDim2.fromOffset(0, 0)
-	panel.AutomaticSize = Enum.AutomaticSize.XY
-	panel.BackgroundColor3 = rgb(HUD.panel)
-	panel.BackgroundTransparency = 0.18
-	panel.Visible = false
-	panel.Parent = gui
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = panel
-	local size = Instance.new("UISizeConstraint")
-	size.MinSize = Vector2.new(360, 0)
-	size.Parent = panel
-	local edge = Instance.new("Frame")
-	edge.Name = "Edge"
-	edge.BorderSizePixel = 0
-	edge.Size = UDim2.new(0, 6, 1, 0)
-	edge.Parent = panel
-	local edgeCorner = Instance.new("UICorner")
-	edgeCorner.CornerRadius = UDim.new(0, 4)
-	edgeCorner.Parent = edge
-	local inner = Instance.new("Frame")
-	inner.BackgroundTransparency = 1
-	inner.AutomaticSize = Enum.AutomaticSize.XY
-	inner.Size = UDim2.fromOffset(0, 0)
-	inner.Parent = panel
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 20), UDim.new(0, 16)
-	pad.PaddingTop, pad.PaddingBottom = UDim.new(0, 8), UDim.new(0, 10)
-	pad.Parent = inner
-	local rows = Instance.new("UIListLayout")
-	rows.FillDirection = Enum.FillDirection.Vertical
-	rows.Padding = UDim.new(0, 6)
-	rows.SortOrder = Enum.SortOrder.LayoutOrder
-	rows.Parent = inner
-	local top = Instance.new("Frame")
-	top.BackgroundTransparency = 1
-	top.AutomaticSize = Enum.AutomaticSize.XY
-	top.Size = UDim2.fromOffset(0, 0)
-	top.LayoutOrder = 1
-	top.Parent = inner
-	local topList = Instance.new("UIListLayout")
-	topList.FillDirection = Enum.FillDirection.Horizontal
-	topList.VerticalAlignment = Enum.VerticalAlignment.Bottom
-	topList.Padding = UDim.new(0, 10)
-	topList.SortOrder = Enum.SortOrder.LayoutOrder
-	topList.Parent = top
-	local title = label(top, TITLE, 19, HUD.title)
-	title.LayoutOrder = 1
-	local sub = label(top, BODY, 14, HUD.sub)
-	sub.LayoutOrder = 2
-	local keyRow = Instance.new("Frame")
-	keyRow.BackgroundTransparency = 1
-	keyRow.AutomaticSize = Enum.AutomaticSize.XY
-	keyRow.Size = UDim2.fromOffset(0, 0)
-	keyRow.LayoutOrder = 2
-	keyRow.Parent = inner
-	local keyList = Instance.new("UIListLayout")
-	keyList.FillDirection = Enum.FillDirection.Horizontal
-	keyList.VerticalAlignment = Enum.VerticalAlignment.Center
-	keyList.Padding = UDim.new(0, 14)
-	keyList.SortOrder = Enum.SortOrder.LayoutOrder
-	keyList.Parent = keyRow
-	gui.Parent = player:WaitForChild("PlayerGui")
-
-	local shownKeys = ""
-	local function setKeys(keys: { Key })
-		local sign = ""
-		for _, k in keys do
-			sign ..= k[1] .. "\0" .. k[2] .. "\0"
-		end
-		if sign == shownKeys then
-			return
-		end
-		shownKeys = sign
-		for _, c in keyRow:GetChildren() do
-			if c:IsA("Frame") then
-				c:Destroy()
-			end
-		end
-		for i, k in keys do
-			local item = Instance.new("Frame")
-			item.BackgroundTransparency = 1
-			item.AutomaticSize = Enum.AutomaticSize.XY
-			item.Size = UDim2.fromOffset(0, 0)
-			item.LayoutOrder = i
-			item.Parent = keyRow
-			local itemList = Instance.new("UIListLayout")
-			itemList.FillDirection = Enum.FillDirection.Horizontal
-			itemList.VerticalAlignment = Enum.VerticalAlignment.Center
-			itemList.Padding = UDim.new(0, 6)
-			itemList.SortOrder = Enum.SortOrder.LayoutOrder
-			itemList.Parent = item
-			local cap = label(item, BODY, 12, HUD.keyText)
-			cap.Text = k[1]
-			cap.LayoutOrder = 1
-			cap.BackgroundColor3 = rgb(HUD.key)
-			cap.BackgroundTransparency = 0
-			local capPad = Instance.new("UIPadding")
-			capPad.PaddingLeft, capPad.PaddingRight = UDim.new(0, 5), UDim.new(0, 5)
-			capPad.PaddingTop, capPad.PaddingBottom = UDim.new(0, 2), UDim.new(0, 2)
-			capPad.Parent = cap
-			local capCorner = Instance.new("UICorner")
-			capCorner.CornerRadius = UDim.new(0, 2)
-			capCorner.Parent = cap
-			local hint = label(item, BODY, 13, HUD.hint)
-			hint.Text = k[2]
-			hint.LayoutOrder = 2
-		end
-	end
-
-	return {
-		set = function(state: string?, text: string, line: string?, keys: { Key })
-			panel.Visible = state ~= nil
-			if not state then
-				return
-			end
-			edge.BackgroundColor3 = rgb(if state == "bad" then HUD.bad elseif state == "ok" then HUD.ok else HUD.idle)
-			title.Text = string.upper(text)
-			title.TextColor3 = rgb(if state == "bad" then HUD.titleBad else HUD.title)
-			sub.Text = line or ""
-			sub.Visible = line ~= nil and line ~= ""
-			setKeys(keys)
-		end,
-	}
-end
-
 local function keyName(action: string): string
 	local k = Settings.key(action)
 	return (string.gsub(k.Name, "MouseButton1", "Click"))
@@ -940,7 +804,7 @@ end
 
 function Build.start()
 	local player = Players.LocalPlayer
-	local panel = hud(player)
+	local panel = BuildHud.new(player)
 
 	local function leave()
 		active = false
@@ -1048,90 +912,110 @@ function Build.start()
 		if active and (not holding or not root) then
 			leave()
 		end
-		local state: string?, title, line: string?, keys: { Key } = nil, "", nil, {}
+		local view: BuildHud.View? = nil
 		local fire, build, reload = keyName("Key_Fire"), keyName("Key_Build"), keyName("Key_Reload")
 		local exit = keyName("Key_BuildExit")
-		local pick = `{keyName("Key_BuildPrev")} {keyName("Key_BuildNext")}`
 		if active and character and root then
 			local p = piece()
-			if p.kind == "Trench" then
+			local trench = p.kind == "Trench"
+			if trench then
 				surveyPlan(player, character, root, dt)
-				if planStart then
-					local info = planInfo
-					title = "Trench · pick the end"
-					line = if info then `{math.floor(info.length + 0.5)} studs · {info.squares} squares` else nil
-					keys = { { fire, "lay the plan" }, { exit, "exit" } }
-				else
-					title = "Trench · pick the start"
-					keys = { { fire, "lay the start" }, { pick, "piece" }, { exit, "exit" } }
-				end
 			else
 				surveyPiece(character, root)
-				title = p.name
-				keys = {
-					{ fire, "lay" },
-					{ pick, "piece" },
-					{ keyName("Key_BuildTurn"), "turn" },
-					{ exit, "exit" },
+			end
+			if trench and planStart then
+				-- the trench plan: the run so far on a rule as long as the longest plan, a tick per square
+				local info = planInfo
+				view = {
+					mode = "Plan",
+					edge = "ok",
+					title = "Pick the end",
+					sub = if info
+						then `{math.floor(info.length + 0.5)} studs · {info.squares} {if info.squares == 1
+							then "square"
+							else "squares"}{if info.clamped then ` · max {T.maxPlan}` else ""}`
+						else nil,
+					ruler = { length = if info then info.length else 0, max = T.maxPlan, step = T.block },
+					keys = { { fire, "lay the plan" }, { exit, "drop it" } },
+				}
+			else
+				-- placing: the piece between the ones before and after it on Q / E, what it costs and does
+				local list = pieces()
+				local i = math.clamp(index, 1, #list)
+				local swings = Rules.buildSwings(p, C)
+				local about = BuildHud.about(p.key)
+				view = {
+					mode = "Place",
+					edge = "ok",
+					title = p.name,
+					prev = if #list > 1 then { keyName("Key_BuildPrev"), list[(i - 2) % #list + 1].name } else nil,
+					next = if #list > 1 then { keyName("Key_BuildNext"), list[i % #list + 1].name } else nil,
+					stat = {
+						icon = "ok",
+						text = `{if trench then "click to peg the start" else "fits: click to lay"} · {swings} {if swings
+								== 1
+							then "swing"
+							else "swings"}{if trench then " a square" else ""}{if about then ` · {about}` else ""}`,
+					},
+					keys = if trench
+						then { { fire, "lay the start" }, { exit, "exit" } }
+						else { { fire, "lay" }, { keyName("Key_BuildTurn"), "turn" }, { exit, "exit" } },
 				}
 			end
-			state = "ok"
-			if current and not current.ok and current.reason then
-				state = "bad"
-				title, line = split(current.reason)
+			if view and current and not current.ok and current.reason then
+				local head, rest = split(current.reason)
+				view.edge = "bad"
+				view.titleBad = view.mode == "Place"
+				view.stat = { icon = "bad", tone = "bad", text = if rest then `{head} · {rest}` else head }
 			end
 		elseif holding and character and root then
-			state = "idle"
 			local other = if mode == "Build" then "Destroy" else "Build"
 			local m = target(character, root)
 			if m and m:IsA("Model") and m:GetAttribute("Kind") == "TrenchBlock" then
 				focus = m
 			end
-			title = mode
-			keys = { { fire, "dig" }, { reload, `switch to {other}` }, { build, "build" } }
+			view = {
+				mode = mode,
+				title = mode,
+				sub = "point at a piece",
+				keys = { { fire, "dig" }, { reload, `switch to {other}` }, { build, "build" } },
+			}
 			if m and m:IsA("Model") then
+				-- what you point at: its name and HP, yours or the enemy's (user 2026-10-27: "just keep the hp x/y");
+				-- in Destroy its HP in stage blocks and the swings to clear it. A piece's own HP, else its work (a gun
+				-- blueprint)
 				local block = m:GetAttribute("Kind") == "TrenchBlock"
-				local work = m:GetAttribute(if block then "HP" else "Work")
-				local need = m:GetAttribute(if block then "MaxHP" else "Need")
-				local name = if block
-					then "Trench square"
-					else ((Rules.piece(m:GetAttribute("Piece"), C.Pieces) or { name = "Piece" }) :: any).name
-				if type(work) == "number" and type(need) == "number" then
-					-- (any trench square is yours to work: Trenches.work)
-					local ours = block or m:GetAttribute("Team") == character:GetAttribute("Kit")
-					local mine = if ours then name else `Enemy {string.lower(name)}`
-					local of = if block then `HP {work} / {need}` else `{work} / {need}`
-					-- a standing gun's own HP (src/server/Build mirrors it onto its holder), as a trench square's
-					local hp, max = m:GetAttribute("HP"), m:GetAttribute("MaxHP")
-					local gunHp = if not block
-							and type(hp) == "number"
-							and type(max) == "number"
-						then `HP {math.ceil(hp)} / {max}`
-						else nil
-					title = `{mode} · {mine}`
-					line = if mode == "Destroy"
-						then `{gunHp or of} · dig to {if block
-							then "fill it in"
-							elseif gunHp and (hp :: number) > 0 then "wreck it"
-							else "take it apart"}`
-						elseif
-							work >= need
-							and gunHp
-							and (hp :: number) < (max :: number)
-						then `{gunHp} · dig to repair`
-						elseif not ours then if gunHp then `{gunHp} · switch to Destroy` else "switch to Destroy"
-						elseif work >= need then gunHp or "dug"
-						else `{gunHp or of} · dig to build` -- (a Hesco barrier, a bridge and a sandbag pile are built on HP)
+				local p = if block then nil else Rules.piece(m:GetAttribute("Piece"), C.Pieces)
+				local hp, max = m:GetAttribute("HP"), m:GetAttribute("MaxHP")
+				if type(hp) ~= "number" or type(max) ~= "number" then
+					hp, max = m:GetAttribute("Work"), m:GetAttribute("Need")
+				end
+				view.title = if block then "Trench square" else ((p or { name = "Piece" }) :: any).name
+				view.sub = nil
+				if type(hp) == "number" and type(max) == "number" then
+					view.sub = `HP {math.ceil(hp)} / {max}`
+					if mode == "Destroy" then
+						local verb = if block then "fill it in" else "tear it down"
+						local h = Rules.hpRules(if block then "TrenchBlock" else (p and p.kind or ""), C)
+						local n = if h and h.destroy then Rules.destroySwings(hp, h.destroy) else nil
+						view.blocks = { hp = hp, max = max, count = if block then 1 else Rules.hpBlocks(p) }
+						view.stat = {
+							text = if n
+								then `dig to {verb} · {n} {if n == 1 then "swing" else "swings"} to clear`
+								else `dig to {verb}`,
+						}
+					end
 				end
 			elseif m then
-				title, line = `{mode} · Tree`, "dig to chop it"
+				view.title, view.sub = "Tree", "dig to chop it down"
 			end
 		end
-		if notice and os.clock() < notice.untilAt then
-			state = "bad"
-			title, line = split(notice.text)
+		if view and notice and os.clock() < notice.untilAt then
+			local head, rest = split(notice.text)
+			view.edge = "bad"
+			view.stat = { icon = "bad", tone = "bad", text = if rest then `{head} · {rest}` else head }
 		end
-		panel.set(state, title, line, keys)
+		panel.set(view)
 		local lit = if active and piece().kind ~= "Trench" then nil else focus
 		if glow.Adornee ~= lit then
 			-- a staked-out square's cords take the light's green too (a Highlight doesn't draw Beams), back after
