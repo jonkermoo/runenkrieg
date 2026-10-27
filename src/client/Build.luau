@@ -16,8 +16,7 @@
 --   (src/client/Shovel "DugAt") goes to what you point at in reach (Net "Build" "Work" with the mode): a piece or
 --   trench block, or in Destroy mode a tree.
 -- A panel at the bottom of the screen says what is going on (src/client/BuildHud draws it, user 2026-10-27: a look of its
--- own for each mode): Build or Destroy with what you point at and its HP (Destroy: in stage blocks, and the swings to
--- clear it), Placing with the pieces before and after and whether it fits, the trench plan with its length on a rule;
+-- own for each mode): Build or Destroy with what you point at and its HP x / y, Placing with the pieces before and after and whether it fits, the trench plan with its length on a rule;
 -- an edge green / red where it can / can't go, the keys underneath.
 
 local Players = game:GetService("Players")
@@ -992,9 +991,9 @@ function Build.start()
 				keys = { { fire, "dig" }, { reload, `switch to {other}` }, { build, "build" } },
 			}
 			if m and m:IsA("Model") then
-				-- what you point at: its name and HP, yours or the enemy's (user 2026-10-27: "just keep the hp x/y");
-				-- in Destroy its HP in stage blocks and the swings to clear it. A piece's own HP, else its work (a gun
-				-- blueprint)
+				-- what you point at: its name and HP x / y, yours or the enemy's, in Build and Destroy alike (user
+				-- 2026-10-27: "just keep the hp x/y", "destroy as well, dont give it a bar for destroying status"). A
+				-- piece's own HP, else its work (a gun blueprint)
 				local block = m:GetAttribute("Kind") == "TrenchBlock"
 				local p = if block then nil else Rules.piece(m:GetAttribute("Piece"), C.Pieces)
 				local hp, max = m:GetAttribute("HP"), m:GetAttribute("MaxHP")
@@ -1002,21 +1001,7 @@ function Build.start()
 					hp, max = m:GetAttribute("Work"), m:GetAttribute("Need")
 				end
 				view.title = if block then "Trench square" else ((p or { name = "Piece" }) :: any).name
-				view.sub = nil
-				if type(hp) == "number" and type(max) == "number" then
-					view.sub = `HP {math.ceil(hp)} / {max}`
-					if mode == "Destroy" then
-						local verb = if block then "fill it in" else "tear it down"
-						local h = Rules.hpRules(if block then "TrenchBlock" else (p and p.kind or ""), C, p)
-						local n = if h and h.destroy then Rules.destroySwings(hp, h.destroy) else nil
-						view.blocks = { hp = hp, max = max, count = if block then 1 else Rules.hpBlocks(p) }
-						view.stat = {
-							text = if n
-								then `dig to {verb} · {n} {if n == 1 then "swing" else "swings"} to clear`
-								else `dig to {verb}`,
-						}
-					end
-				end
+				view.sub = if type(hp) == "number" and type(max) == "number" then `HP {math.ceil(hp)} / {max}` else nil
 			elseif m then
 				view.title, view.sub = "Tree", "dig to chop it down"
 			end

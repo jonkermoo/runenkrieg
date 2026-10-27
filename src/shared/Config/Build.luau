@@ -255,7 +255,6 @@ local Build = {
 			mountBag = "sandbag_round",
 			gun = "mg08",
 			bags = { "Bag1", "Bag2", "Bag3" },
-			blocks = 5, -- (the build panel's stage blocks, Rules.hpBlocks: even shares of its HP)
 			-- stage 1's meshes from the pile (laid at 0 HP): the scraped ground under each pile, the empty sacks
 			stage1 = { ground = "Patch", sacks = "Sacks" },
 			width = 12.4,

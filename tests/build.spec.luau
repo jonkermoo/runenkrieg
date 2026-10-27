@@ -605,7 +605,7 @@ return {
 			last = l + g
 		end
 	end,
-	["the build panel's swing counts and stage blocks come from each piece's HP"] = function()
+	["the build panel's swing counts come from each piece's HP"] = function()
 		local function p(key: string): any
 			return assert(B.piece(key, C.Pieces), key)
 		end
@@ -622,14 +622,6 @@ return {
 		assert(B.hpRules("TrenchBlock", C) ~= nil and B.hpRules("Tree", C) == nil)
 		assert((B.hpRules("Wire", C) :: any).destroy == C.Wire.hp.destroy)
 		assert((B.hpRules("Gun", C, p("FieldGun")) :: any).destroy == nil, "a standing gun's HP is its own")
-		-- Destroy swings left
-		assert(B.destroySwings(75, 10) == 8 and B.destroySwings(70, 10) == 7 and B.destroySwings(1, 10) == 1)
-		assert(B.destroySwings(0, 10) == 0 and B.destroySwings(50, 0) == 0)
-		-- blocks: one per bag, per Hesco stage, else one; the block the next Destroy swing breaks into
-		assert(B.hpBlocks(p("SandbagPile")) == 3 and B.hpBlocks(p("Hesco")) == p("Hesco").stages)
-		assert(B.hpBlocks(p("Wire")) == 1 and B.hpBlocks(nil) == 1)
-		assert(B.topBlock(75, 100, 4) == 3 and B.topBlock(76, 100, 4) == 4 and B.topBlock(100, 100, 4) == 4)
-		assert(B.topBlock(1, 100, 3) == 1 and B.topBlock(0, 100, 3) == 0)
 	end,
 	["laid on the ground: the plane through the ground under it, its height and slope each way"] = function()
 		-- a flat field: level at its height

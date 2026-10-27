@@ -771,33 +771,4 @@ function Build.buildSwings(p: Piece, cfg: any): number
 	return p.work or 1
 end
 
--- The Destroy swings that take `hp` to nothing at `destroy` HP a swing
-function Build.destroySwings(hp: number, destroy: number): number
-	if destroy <= 0 or hp <= 0 then
-		return 0
-	end
-	return math.ceil(hp / destroy - 1e-9)
-end
-
--- How many stage blocks a piece's HP shows in (src/client/BuildHud): an MG nest's own `blocks`, a block per bag of a
--- sandbag pile, per stage of a Hesco barrier, else one
-function Build.hpBlocks(p: Piece?): number
-	if p and p.kind == "Nest" and p.blocks then
-		return p.blocks
-	elseif p and p.bags then
-		return #p.bags
-	elseif p and p.kind == "Hesco" and p.stages then
-		return p.stages
-	end
-	return 1
-end
-
--- The stage block (1 to `blocks`) the next Destroy swing breaks into at `hp` of `max`, 0 when nothing is left
-function Build.topBlock(hp: number, max: number, blocks: number): number
-	if hp <= 0 or max <= 0 then
-		return 0
-	end
-	return math.clamp(math.ceil(hp / max * blocks - 1e-9), 1, blocks)
-end
-
 return Build

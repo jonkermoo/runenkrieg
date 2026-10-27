@@ -5,8 +5,8 @@
 -- - a tab over the top-left naming the mode (Build, Destroy, Placing, Trench plan) in the mode's colour, with its icon
 -- - the see-through body with the status edge (go / no-go, else the mode's colour) and the mode's own face: Build a
 --   rim along the top, Destroy a hazard band, Placing a blueprint grid with corner ticks, the trench plan a chalk line
--- - the title row (Placing: the pieces before and after either side, on their keys), then the target's HP in stage
---   blocks (Destroy), a fits / why-not line, a rule with a tick per trench square, and the key caps
+-- - the title row (Placing: the pieces before and after either side, on their keys; Build and Destroy: what you point
+--   at and its HP x / y), then a fits / why-not line, a rule with a tick per trench square, and the key caps
 -- - a badge by the cursor with the mode's icon
 -- Icons are drawn from flat frames (no images). Offsets are reference pixels: one UIScale per panel does the rest.
 --   BuildHud.new(player) -> { set(view: View?) }; BuildHud.about(pieceKey) -> what it is for
@@ -17,7 +17,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Palette = require(Shared.Config.Palette)
 local Spec = require(Shared.ui.BuildHud) :: any
-local Rules = require(Shared.Rules.Build)
 
 local BuildHud = {}
 
@@ -39,8 +38,6 @@ export type View = {
 	-- Placing: the pieces before and after, on their keys
 	prev: { string }?, -- { key, name }
 	next: { string }?,
-	-- Destroy: the target's HP in `count` stage blocks
-	blocks: { hp: number, max: number, count: number }?,
 	stat: { text: string, icon: string?, tone: string? }?, -- icon "ok" / "bad"; tone "bad" (the can't-go colour)
 	ruler: { length: number, max: number, step: number }?,
 	keys: { Key },
@@ -166,7 +163,7 @@ local function paint(f: Instance, color: Color3)
 	end
 end
 
-local function scaled(gui: ScreenGui, obj: GuiObject)
+local function scaled(gui: ScreenGui, obj: GuiObject): UIScale
 	local s = Instance.new("UIScale")
 	s.Parent = obj
 	local function rescale()
@@ -174,6 +171,7 @@ local function scaled(gui: ScreenGui, obj: GuiObject)
 	end
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
 	rescale()
+	return s
 end
 
 function BuildHud.new(player: Player): Hud
@@ -187,7 +185,6 @@ function BuildHud.new(player: Player): Hud
 	local root = frame(gui, "Panel")
 	root.AnchorPoint = Vector2.new(0.5, 1)
 	root.Position = UDim2.new(0.5, 0, 1, -P.bottom)
-	auto(root)
 
 	-- the tab: the mode's name and icon on its colour, squared off where it meets the body
 	local tab = frame(root, "Tab")
@@ -220,15 +217,12 @@ function BuildHud.new(player: Player): Hud
 	local tabText = label(tabRow, TX.tab, "keyText")
 	tabText.LayoutOrder = 2
 
-	-- the body
+	-- the body: as big as its rows (sized from them below, not by AutomaticSize, which grew it to the faces' stripes
+	-- and grid lines: user 2026-10-27, "the build hud fills the screen")
 	local body = frame(root, "Body")
-	auto(body)
 	body.BackgroundTransparency = P.transparency
 	body.ClipsDescendants = true
 	corner(body, T.corner)
-	local min = Instance.new("UISizeConstraint")
-	min.MinSize = Vector2.new(P.minWidth, 0)
-	min.Parent = body
 	local chalk = Instance.new("UIStroke")
 	chalk.Thickness = T.outline
 	chalk.Color = rgb("modePlan")
@@ -328,39 +322,13 @@ function BuildHud.new(player: Player): Hud
 	sub.LayoutOrder = 3
 	local nextBox, nextKey, nextName = side(4, false)
 
-	-- Destroy: the stage blocks
-	local B = Spec.blocks
-	local blockRow = frame(inner, "Blocks")
-	auto(blockRow)
-	blockRow.LayoutOrder = 2
-	list(blockRow, true, B.gap)
-	local blocks: { { box: Frame, fill: Frame, ring: UIStroke } } = {}
-	for i = 1, B.max do
-		local b = frame(blockRow, `Block{i}`)
-		b.LayoutOrder = i
-		b.Size = UDim2.fromOffset(B.width, B.height)
-		b.BackgroundTransparency = B.trackTransparency
-		b.BackgroundColor3 = rgb("track")
-		corner(b, 2)
-		local fill = frame(b, "Fill")
-		fill.BackgroundTransparency = 0
-		fill.BackgroundColor3 = rgb("modeDestroy")
-		corner(fill, 2)
-		local ring = Instance.new("UIStroke")
-		ring.Thickness = T.outline
-		ring.Color = rgb("goes")
-		ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		ring.Parent = b
-		blocks[i] = { box = b, fill = fill, ring = ring }
-	end
-
 	-- the trench plan's rule
 	local R = Spec.ruler
 	local ruler = frame(inner, "Ruler")
 	ruler.LayoutOrder = 3
 	ruler.Size = UDim2.fromOffset(R.width, R.height)
 	local track = frame(ruler, "Track")
-	track.BackgroundTransparency = B.trackTransparency
+	track.BackgroundTransparency = R.trackTransparency
 	track.BackgroundColor3 = rgb("track")
 	track.Position = UDim2.fromOffset(0, (R.tick - R.track) / 2)
 	track.Size = UDim2.new(1, 0, 0, R.track)
@@ -413,8 +381,16 @@ function BuildHud.new(player: Player): Hud
 	end
 
 	gui.Parent = player:WaitForChild("PlayerGui")
-	scaled(gui, root)
+	local scale = scaled(gui, root)
 	scaled(gui, badge)
+	local function fit()
+		local s = inner.AbsoluteSize / math.max(scale.Scale, 0.01)
+		body.Size = UDim2.fromOffset(math.max(P.minWidth, math.ceil(s.X)), math.ceil(s.Y))
+		root.Size = body.Size
+	end
+	inner:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+	scale:GetPropertyChangedSignal("Scale"):Connect(fit)
+	fit()
 
 	local shownKeys = ""
 	local function setKeys(keys: { Key })
@@ -502,19 +478,6 @@ function BuildHud.new(player: Player): Hud
 			end
 			if v.next then
 				nextKey.Text, nextName.Text = v.next[1], v.next[2]
-			end
-
-			local bl = v.blocks
-			blockRow.Visible = bl ~= nil
-			if bl then
-				local n = math.clamp(bl.count, 1, #blocks)
-				local per = bl.max / n
-				local goes = Rules.topBlock(bl.hp, bl.max, n)
-				for i, b in blocks do
-					b.box.Visible = i <= n
-					b.fill.Size = UDim2.fromScale(math.clamp((bl.hp - per * (i - 1)) / per, 0, 1), 1)
-					b.ring.Enabled = i == goes
-				end
 			end
 
 			ruler.Visible = v.ruler ~= nil

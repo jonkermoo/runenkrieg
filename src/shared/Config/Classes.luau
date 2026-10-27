@@ -57,14 +57,13 @@ local Classes = {
 	-- the classes in the menu's order
 	List = { "Rifleman", "Grenadier", "AutoRifler", "Engineer", "Mage" },
 	Defs = {
-		-- the plate helmet and the mage's goggles (user 2026-10-27: "goggles on mage, armored on rifle")
+		-- the kit's own helmet (user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles")
 		Rifleman = {
 			name = "Rifleman",
 			blurb = "Bolt-action rifle",
 			cost = 0,
 			primary = "weapon",
 			grenades = false,
-			helmet = "altHelmet",
 			builds = SMALL,
 		},
 		Grenadier = {
@@ -95,6 +94,7 @@ local Classes = {
 			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
 			locked = true,
 		},
+		-- the team's goggles (user 2026-10-27: "goggles on mage")
 		Mage = {
 			name = "Mage",
 			blurb = "Rune staff",
