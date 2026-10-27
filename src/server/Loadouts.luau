@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Classes)
+local DevCfg = require(Shared.Config.DevTools)
 local U = require(Shared.Config.Uniforms)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Classes)
@@ -44,7 +45,13 @@ function Loadouts.classOf(character: Model): string
 	local key = C.Default
 	if player then
 		local cost
-		key, cost = Rules.resolve(picks[player], Loadouts.points(player), C.Defs, C.Default)
+		key, cost = Rules.resolve(
+			picks[player],
+			Loadouts.points(player),
+			C.Defs,
+			C.Default,
+			player:GetAttribute(DevCfg.Admin.ClassAttribute)
+		)
 		points[player] = Loadouts.points(player) - cost
 	end
 	character:SetAttribute("Class", key)
@@ -106,6 +113,12 @@ function Loadouts.award(player: Player, reason: string, times: number?)
 	local amount = C.Earn[reason]
 	assert(amount, "unknown award " .. reason)
 	points[player] = Rules.earn(Loadouts.points(player), amount * (times or 1))
+end
+
+-- Admin (src/server/DevTools): `amount` match points for `player`, the loadout menu told.
+function Loadouts.grant(player: Player, amount: number)
+	points[player] = Rules.earn(Loadouts.points(player), amount)
+	send(player)
 end
 
 -- A soldier hurt by `by` (src/server/Damage): `amount` health off, `zone` where (nil: a blast or a staff shot).

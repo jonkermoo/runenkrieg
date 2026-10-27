@@ -31,6 +31,7 @@ local Rules = require(Shared.Rules.Build)
 local ArtilleryCfg = require(Shared.Config.Artillery)
 local ArtilleryRules = require(Shared.Rules.Artillery)
 local Classes = require(Shared.Config.Classes)
+local DevCfg = require(Shared.Config.DevTools)
 local ClassRules = require(Shared.Rules.Classes)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
@@ -75,9 +76,14 @@ local function shovelHeld(character: Model?): boolean
 	return weapon ~= nil and W[weapon.name] ~= nil and W[weapon.name].class == "Shovel"
 end
 
--- the pieces this life's class may build (src/server/Loadouts' "Class"; the rest never show in the cycle)
+-- the pieces this life's class may build (src/server/Loadouts' "Class"; the rest never show in the cycle), or every
+-- piece with the admin panel's build anything
 local function pieces(): { Rules.Piece }
-	local character = Players.LocalPlayer.Character
+	local player = Players.LocalPlayer
+	if player:GetAttribute(DevCfg.Admin.BuildAllAttribute) == true then
+		return C.Pieces
+	end
+	local character = player.Character
 	return ClassRules.buildable(character and character:GetAttribute("Class"), C.Pieces, Classes.Defs, Classes.Default)
 end
 
@@ -467,9 +473,9 @@ local function surveyPiece(character: Model, root: BasePart)
 		maxSlope = p.maxSlope or T.maxSlope,
 		ground = report.ground,
 		water = report.water,
-		overlap = Survey.blocked(p, box, report.low, ignore),
+		overlap = Survey.blocked(p, box, report.low, ignore) or Survey.onPiece(p, box, f),
 		gunGap = gun and Survey.gunGap(p, at, f),
-		nearTrench = gun and Survey.nearTrench(p, box, f),
+		nearTrench = (gun or p.kind == "Wire") and Survey.nearTrench(p, box, f),
 		mine = 0, -- (the caps are the server's to check)
 		team = 0,
 		perPlayer = C.PerPlayer,

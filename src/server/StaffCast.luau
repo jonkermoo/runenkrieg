@@ -14,6 +14,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Net = require(Shared.Net)
 local Spells = require(Shared.Config.Spells)
+local DevCfg = require(Shared.Config.DevTools)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.StaffNet)
 local SpellRules = require(Shared.Rules.Spells)
@@ -130,7 +131,10 @@ function StaffCast.start()
 			if not stage or not target or not mode then
 				return
 			end
-			if not Rules.cooled(s.fireAt, s.fireStage, now, Spells.Staff.Cooldown, Send.CooldownSlack) then
+			-- (the admin panel's no cooldown: none, the mana full again; src/client/StaffAttack does the same)
+			local free = player:GetAttribute(DevCfg.Attribute) == true
+				and player:GetAttribute(DevCfg.Admin.AmmoAttribute) == true
+			if not free and not Rules.cooled(s.fireAt, s.fireStage, now, Spells.Staff.Cooldown, Send.CooldownSlack) then
 				return
 			end
 			if not Rules.charged(stage, mode, s.openAt, now, Spells.Stages, Send.ChargeSlack) then
@@ -138,6 +142,9 @@ function StaffCast.start()
 			end
 			SpellRules.refill(s.mana, Spells.Mana, now, now - s.manaAt)
 			s.manaAt = now
+			if free then
+				SpellRules.fill(s.mana, Spells.Mana)
+			end
 			if not SpellRules.spend(s.mana, Spells.Mana, stage, now) then
 				return
 			end

@@ -162,6 +162,65 @@ return {
 		assert(B.wireHarm(0.5, 1, C.Wire) == 0 and near(B.wireHarm(5, 0.25, C.Wire), C.Wire.damage / 4))
 		assert(C.Wire.speed < M.Movement.CrouchSpeed)
 	end,
+	["the wire: only the enemy is hurt, its own team only slowed"] = function()
+		assert(B.wireHarm(5, 0.25, C.Wire, true) == 0, "a teammate moving through it")
+		assert(B.wireHarm(5, 0.25, C.Wire, false) > 0, "an enemy moving through it")
+	end,
+	["footprints: overlapping pieces are refused, side by side and apart are fine"] = function()
+		local function box(x: number, z: number, deg: number, w: number, d: number): B.Footprint
+			local r = math.rad(deg)
+			return { x = x, z = z, rx = math.cos(r), rz = math.sin(r), width = w, depth = d }
+		end
+		local wire = box(0, 0, 0, 8, 4)
+		assert(B.footprintsOverlap(wire, box(0, 0, 0, 8, 4)), "one wire on another")
+		assert(B.footprintsOverlap(wire, box(3, 1, 90, 8, 4)), "crossed over it")
+		assert(B.footprintsOverlap(wire, box(6, 0, 0, 6, 2.2)), "a sandbag wall reaching into its end")
+		assert(not B.footprintsOverlap(wire, box(8, 0, 0, 8, 4)), "end to end, touching")
+		assert(not B.footprintsOverlap(wire, box(0, 4.5, 0, 8, 4)), "side by side, apart")
+		assert(not B.footprintsOverlap(wire, box(9, 5, 45, 8, 4)), "turned, clear of its corner")
+	end,
+	["the wire: anyone moving through rattles it, standing still doesn't"] = function()
+		assert(B.wireRattles(C.Wire.speed, C.Wire), "a teammate or enemy wading through")
+		assert(not B.wireRattles(0, C.Wire) and not B.wireRattles(C.Wire.moving, C.Wire), "standing in it")
+		assert(#C.Wire.sounds >= 1)
+		for _, s in C.Wire.sounds do
+			assert(s.stop > s.start and s.fade < s.stop - s.start, "trimmed with room to fade")
+		end
+	end,
+	["the wire: 8 x 4, 3/5 of a soldier high, too high to hop, 2 swings"] = function()
+		local w = B.piece("Wire", C.Pieces) :: any
+		assert(w.width == 8 and w.depth == 4 and w.work == 2)
+		assert(near(w.height, M.Character.Height * 3 / 5, 0.05), "3/5 of a soldier")
+		assert(w.height > M.Movement.JumpHeight, "can't be hopped")
+	end,
+	["the wire: looks by work and HP"] = function()
+		local W, hp = C.Wire, C.Structures.wireHP
+		assert(B.wireLook(false, 0, 2, hp, hp, W) == "Bundle", "laid, it is on the ground at once, before any swing")
+		assert(B.wireLook(false, 1, 2, hp, hp, W) == "Bundle")
+		assert(B.wireLook(false, 2, 2, hp, hp, W) == "Standing")
+		assert(B.wireLook(true, 2, 2, hp * W.broken, hp, W) == "Standing", "at half HP it still stands")
+		assert(B.wireLook(true, 2, 2, hp * W.broken - 1, hp, W) == "Broken", "under half it is broken")
+	end,
+	["the wire: a shake wobbles within its size and comes to rest"] = function()
+		local W = C.Wire
+		local most = 0
+		for i = 0, 100 do
+			most = math.max(most, math.abs(B.wireShake(W.shake * i / 100, W)))
+		end
+		assert(most > W.wobble * 0.3 and most <= W.wobble + 1e-9, "it moves, no more than its wobble")
+		assert(B.wireShake(W.shake, W) == 0 and B.wireShake(-0.1, W) == 0, "still outside the shake")
+		assert(math.abs(B.wireShake(W.shake * 0.99, W)) < W.wobble * 0.01, "it dies away")
+	end,
+	["the wire: 2 Destroy swings, broken then gone; 1 Build swing stands it back up"] = function()
+		local W, hp = C.Wire, C.Structures.wireHP
+		local left, gone = B.wireSwing(hp, hp, false, W)
+		assert(not gone and B.wireLook(true, 2, 2, left, hp, W) == "Broken", "one swing breaks it")
+		local up = B.wireSwing(left, hp, true, W)
+		assert(up == hp, "a Build swing stands it back up")
+		left, gone = B.wireSwing(left, hp, false, W)
+		assert(gone and left == 0, "the second swing takes it away")
+		assert(B.wireSwing(hp, hp, true, W) == hp, "a Build swing on a standing wire does nothing")
+	end,
 	["trenches v2: fixed segments, the leftover blended or a partial segment"] = function()
 		local T = C.Trench
 		assert(T.block == 8)

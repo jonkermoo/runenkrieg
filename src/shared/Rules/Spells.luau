@@ -71,6 +71,17 @@ function Spells.mana(cfg: ManaCfg): Mana
 	return { value = cfg.max, locked = false, spentAt = -math.huge }
 end
 
+-- The bar full again and never burnt out (the admin panel's no cooldown, after each shot: src/client/StaffAttack,
+-- src/server/StaffCast).
+function Spells.fill(m: Mana, cfg: ManaCfg)
+	m.value, m.locked = cfg.max, false
+end
+
+-- The seconds before the next shot after a `stage` shot: its Cooldown, or none with the admin panel's no cooldown.
+function Spells.cooldown(cooldowns: { number }, stage: number, free: boolean): number
+	return if free then 0 else cooldowns[stage]
+end
+
 -- The highest stage the mana pays for (0: none, or burnt out).
 function Spells.affordable(m: Mana, cfg: ManaCfg): number
 	if m.locked then

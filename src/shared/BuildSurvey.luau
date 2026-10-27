@@ -135,6 +135,39 @@ function Survey.blocked(piece: Rules.Piece, frame: CFrame, low: number, ignore: 
 	return false
 end
 
+-- Whether a piece laid with its footprint at `box` (Survey.box) overlaps another piece's in `structures` (their "Frame"
+-- and "Size" attributes; trench blocks have none: Survey.nearTrench). The pieces are checked by footprint, not parts:
+-- a wire's parts don't collide, so Survey.blocked never sees one (user 2026-10-27: "it should not be able to be placed
+-- on top of each other or on top of any other strucuter"). `skip`: a piece left out.
+function Survey.onPiece(piece: Rules.Piece, box: CFrame, structures: Instance?, skip: Instance?): boolean
+	local size = Survey.footprint(piece)
+	local mine: Rules.Footprint = {
+		x = box.Position.X,
+		z = box.Position.Z,
+		rx = box.RightVector.X,
+		rz = box.RightVector.Z,
+		width = size.X,
+		depth = size.Z,
+	}
+	for _, m in (if structures then structures:GetChildren() else {}) do
+		local frame, other = m:GetAttribute("Frame"), m:GetAttribute("Size")
+		if m ~= skip and typeof(frame) == "CFrame" and typeof(other) == "Vector3" then
+			local theirs: Rules.Footprint = {
+				x = frame.Position.X,
+				z = frame.Position.Z,
+				rx = frame.RightVector.X,
+				rz = frame.RightVector.Z,
+				width = other.X,
+				depth = other.Z,
+			}
+			if Rules.footprintsOverlap(mine, theirs) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 -- Whether a gun piece laid with its gun at `at` comes too close to another gun (Rules.gunsClear): the guns standing
 -- in Config/Artillery.Folder ("Gun" their Config/Artillery key) and the gun pieces laid in `structures` ("At").
 -- `skip`: a gun piece left out (the client's own).
