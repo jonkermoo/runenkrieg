@@ -200,8 +200,8 @@ local Hud = {
 
 	-- the kit list (src/client/KitList, Rules/KitList; layout CombatHud.json "Kit"; user 2026-10-27: "i dont like the
 	-- robblox default one", "make it a kit list but move it on the left"): Roblox's hotbar off, one row per item carried
-	-- this life at the bottom left. Colours: Palette.UI.Hud kitName / kitKey / kitEmpty, readout, count, countLow, the
-	-- team's field and rim (Teams).
+	-- this life at the bottom left, as stencil plates (user 2026-10-27: "Stencil plates with the basic font"). Colours:
+	-- Palette.UI.Hud kitName / kitKey / kitEmpty / kitHeldText, count, countLow, the team's field and rim (Teams).
 	Kit = {
 		order = { "Primary", "Grenade", "Shovel" }, -- Config/Weapons slots top to bottom; any other after, as it came
 		-- KeyCode names: key n draws row n's item, and puts it away again if it is in the hands
@@ -210,10 +210,11 @@ local Hud = {
 		-- grenade count), then fading out over `fade` (user 2026-10-27: "2 s linger + 0.4 s fade")
 		linger = 2,
 		fade = 0.4,
-		field = 0.62, -- a row's background transparency (the team's field)
-		fieldHeld = 0.28, -- the row in the hands
+		field = 0.62, -- a row's plate transparency (the team's field)
+		fieldHeld = 0.1, -- the row in the hands (the team's rim colour)
+		out = 16, -- reference px the row in the hands sticks out further to the right
 		-- an item pressed while the last one is still going over the shoulder (Config/Locomotion.Stow) shows as chosen
-		-- at once, its edge this transparent, for the put-away's time plus `wait` seconds
+		-- at once, its plate this transparent, for the put-away's time plus `wait` seconds
 		pending = 0.5,
 		wait = 0.3,
 		gap = 4, -- reference px between rows
