@@ -1,0 +1,670 @@
+{
+	"name": "LoadoutMenu",
+	"_doc": "The loadout menu (src/client/Menus): opens after Play and on every death; the class list on the left (one row per Config/Classes.List entry, the rows here are samples), the soldier you'll spawn as on the right (a ViewportFrame of the server's preview rig). Marks show only here (user 2026-10-27). Back returns to the title screen (user 2026-10-27: \"we need a back button\"). Deploy lights up when the respawn delay is over.",
+	"theme": {
+		"scale": {
+			"referenceHeight": 800,
+			"min": 0.65,
+			"max": 1.25
+		},
+		"fitMargin": 16,
+		"minTap": 32,
+		"minText": 12,
+		"textStroke": 0,
+		"outline": 0,
+		"corner": 4,
+		"scrollBar": 4,
+		"fonts": {
+			"body": {
+				"family": "SourceSansPro",
+				"weight": "Bold",
+				"file": "SourceSansPro-Bold.ttf"
+			}
+		}
+	},
+	"modal": true,
+	"preview": {
+		"marks": "Marks  120",
+		"deploy": "Deploy in 10",
+		"className": "Auto rifler"
+	},
+	"root": {
+		"id": "Screen",
+		"kind": "group",
+		"size": [
+			1,
+			0,
+			1,
+			0
+		],
+		"children": [
+			{
+				"id": "Panel",
+				"kind": "panel",
+				"color": "panel",
+				"line": "line",
+				"pos": [
+					0,
+					24,
+					0,
+					16
+				],
+				"size": [
+					0,
+					400,
+					1,
+					-32
+				],
+				"children": [
+					{
+						"id": "Title",
+						"kind": "label",
+						"text": "Loadout",
+						"textSize": 34,
+						"textColor": "title",
+						"align": "left",
+						"pos": [
+							0,
+							18,
+							0,
+							10
+						],
+						"size": [
+							0,
+							170,
+							0,
+							50
+						]
+					},
+					{
+						"id": "Marks",
+						"kind": "label",
+						"bind": "marks",
+						"textSize": 22,
+						"textColor": "text",
+						"align": "right",
+						"anchor": [
+							1,
+							0
+						],
+						"pos": [
+							1,
+							-18,
+							0,
+							20
+						],
+						"size": [
+							0,
+							170,
+							0,
+							30
+						]
+					},
+					{
+						"id": "Rule",
+						"kind": "panel",
+						"pos": [
+							0,
+							18,
+							0,
+							66
+						],
+						"size": [
+							1,
+							-36,
+							0,
+							1
+						],
+						"color": "line"
+					},
+					{
+						"id": "List",
+						"kind": "group",
+						"pos": [
+							0,
+							18,
+							0,
+							82
+						],
+						"size": [
+							1,
+							-36,
+							0,
+							392
+						],
+						"children": [
+							{
+								"id": "RowRifleman",
+								"kind": "button",
+								"pos": [
+									0,
+									0,
+									0,
+									0
+								],
+								"size": [
+									1,
+									0,
+									0,
+									72
+								],
+								"color": "field",
+								"line": "line",
+								"children": [
+									{
+										"id": "RiflemanName",
+										"kind": "label",
+										"text": "Rifleman",
+										"textSize": 24,
+										"textColor": "text",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											8
+										],
+										"size": [
+											1,
+											-124,
+											0,
+											30
+										]
+									},
+									{
+										"id": "RiflemanBlurb",
+										"kind": "label",
+										"text": "Bolt-action rifle",
+										"textSize": 16,
+										"textColor": "textDim",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											40
+										],
+										"size": [
+											1,
+											-110,
+											0,
+											22
+										]
+									},
+									{
+										"id": "RiflemanCost",
+										"kind": "label",
+										"text": "Free",
+										"textSize": 24,
+										"textColor": "text",
+										"align": "right",
+										"anchor": [
+											1,
+											0
+										],
+										"pos": [
+											1,
+											-14,
+											0,
+											8
+										],
+										"size": [
+											0,
+											84,
+											0,
+											30
+										]
+									}
+								]
+							},
+							{
+								"id": "RowGrenadier",
+								"kind": "button",
+								"pos": [
+									0,
+									0,
+									0,
+									80
+								],
+								"size": [
+									1,
+									0,
+									0,
+									72
+								],
+								"color": "field",
+								"line": "line",
+								"children": [
+									{
+										"id": "GrenadierName",
+										"kind": "label",
+										"text": "Grenadier",
+										"textSize": 24,
+										"textColor": "text",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											8
+										],
+										"size": [
+											1,
+											-124,
+											0,
+											30
+										]
+									},
+									{
+										"id": "GrenadierBlurb",
+										"kind": "label",
+										"text": "Rifle and two grenades",
+										"textSize": 16,
+										"textColor": "textDim",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											40
+										],
+										"size": [
+											1,
+											-110,
+											0,
+											22
+										]
+									},
+									{
+										"id": "GrenadierCost",
+										"kind": "label",
+										"text": "50",
+										"textSize": 24,
+										"textColor": "text",
+										"align": "right",
+										"anchor": [
+											1,
+											0
+										],
+										"pos": [
+											1,
+											-14,
+											0,
+											8
+										],
+										"size": [
+											0,
+											84,
+											0,
+											30
+										]
+									}
+								]
+							},
+							{
+								"id": "RowAutoRifler",
+								"kind": "button",
+								"pos": [
+									0,
+									0,
+									0,
+									160
+								],
+								"size": [
+									1,
+									0,
+									0,
+									72
+								],
+								"color": "selFill",
+								"line": "selLine",
+								"children": [
+									{
+										"id": "AutoRiflerName",
+										"kind": "label",
+										"text": "Auto rifler",
+										"textSize": 24,
+										"textColor": "selText",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											8
+										],
+										"size": [
+											1,
+											-124,
+											0,
+											30
+										]
+									},
+									{
+										"id": "AutoRiflerBlurb",
+										"kind": "label",
+										"text": "Semi-automatic rifle, plate helmet",
+										"textSize": 16,
+										"textColor": "text",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											40
+										],
+										"size": [
+											1,
+											-110,
+											0,
+											22
+										]
+									},
+									{
+										"id": "AutoRiflerCost",
+										"kind": "label",
+										"text": "100",
+										"textSize": 24,
+										"textColor": "selText",
+										"align": "right",
+										"anchor": [
+											1,
+											0
+										],
+										"pos": [
+											1,
+											-14,
+											0,
+											8
+										],
+										"size": [
+											0,
+											84,
+											0,
+											30
+										]
+									}
+								]
+							},
+							{
+								"id": "RowEngineer",
+								"kind": "button",
+								"pos": [
+									0,
+									0,
+									0,
+									240
+								],
+								"size": [
+									1,
+									0,
+									0,
+									72
+								],
+								"color": "field",
+								"line": "line",
+								"children": [
+									{
+										"id": "EngineerName",
+										"kind": "label",
+										"text": "Engineer",
+										"textSize": 24,
+										"textColor": "textDim",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											8
+										],
+										"size": [
+											1,
+											-124,
+											0,
+											30
+										]
+									},
+									{
+										"id": "EngineerBlurb",
+										"kind": "label",
+										"text": "Builds artillery",
+										"textSize": 16,
+										"textColor": "textDim",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											40
+										],
+										"size": [
+											1,
+											-110,
+											0,
+											22
+										]
+									},
+									{
+										"id": "EngineerCost",
+										"kind": "label",
+										"text": "Soon",
+										"textSize": 24,
+										"textColor": "textDim",
+										"align": "right",
+										"anchor": [
+											1,
+											0
+										],
+										"pos": [
+											1,
+											-14,
+											0,
+											8
+										],
+										"size": [
+											0,
+											84,
+											0,
+											30
+										]
+									}
+								]
+							},
+							{
+								"id": "RowMage",
+								"kind": "button",
+								"pos": [
+									0,
+									0,
+									0,
+									320
+								],
+								"size": [
+									1,
+									0,
+									0,
+									72
+								],
+								"color": "field",
+								"line": "line",
+								"children": [
+									{
+										"id": "MageName",
+										"kind": "label",
+										"text": "Mage",
+										"textSize": 24,
+										"textColor": "textDim",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											8
+										],
+										"size": [
+											1,
+											-124,
+											0,
+											30
+										]
+									},
+									{
+										"id": "MageBlurb",
+										"kind": "label",
+										"text": "Rune staff",
+										"textSize": 16,
+										"textColor": "textDim",
+										"align": "left",
+										"pos": [
+											0,
+											14,
+											0,
+											40
+										],
+										"size": [
+											1,
+											-110,
+											0,
+											22
+										]
+									},
+									{
+										"id": "MageCost",
+										"kind": "label",
+										"text": "200",
+										"textSize": 24,
+										"textColor": "textDim",
+										"align": "right",
+										"anchor": [
+											1,
+											0
+										],
+										"pos": [
+											1,
+											-14,
+											0,
+											8
+										],
+										"size": [
+											0,
+											84,
+											0,
+											30
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"id": "Back",
+						"kind": "button",
+						"text": "Back",
+						"textSize": 28,
+						"color": "field",
+						"line": "line",
+						"textColor": "text",
+						"anchor": [
+							0,
+							1
+						],
+						"pos": [
+							0,
+							18,
+							1,
+							-18
+						],
+						"size": [
+							0,
+							120,
+							0,
+							64
+						]
+					},
+					{
+						"id": "Deploy",
+						"kind": "button",
+						"bind": "deploy",
+						"textSize": 28,
+						"color": "field",
+						"line": "line",
+						"textColor": "textDim",
+						"anchor": [
+							0,
+							1
+						],
+						"pos": [
+							0,
+							148,
+							1,
+							-18
+						],
+						"size": [
+							1,
+							-166,
+							0,
+							64
+						]
+					}
+				]
+			},
+			{
+				"id": "Soldier",
+				"kind": "group",
+				"pos": [
+					0,
+					448,
+					0,
+					16
+				],
+				"size": [
+					1,
+					-472,
+					1,
+					-32
+				],
+				"children": [
+					{
+						"id": "Model",
+						"kind": "model",
+						"pos": [
+							0.5,
+							-170,
+							0,
+							0
+						],
+						"size": [
+							0,
+							340,
+							1,
+							-60
+						]
+					},
+					{
+						"id": "ClassName",
+						"kind": "label",
+						"bind": "className",
+						"textSize": 34,
+						"textColor": "title",
+						"anchor": [
+							0.5,
+							1
+						],
+						"pos": [
+							0.5,
+							0,
+							1,
+							-8
+						],
+						"size": [
+							0,
+							340,
+							0,
+							46
+						],
+						"center": true
+					}
+				]
+			}
+		]
+	}
+}

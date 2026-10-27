@@ -129,8 +129,9 @@ local Remotes: { string } = {
 	-- (src/server/Flinch decides, src/client/Flinch plays it on the own character, so everyone sees it; Config/Flinch)
 	"Flinch",
 	-- The class picked for the next life and the match currency (src/server/Loadouts; Config/Classes, Rules/Classes):
-	-- client -> server: ("Pick", class: string) | ("Ask"); server -> client: (state: Rules/Classes.State) on each death
-	-- (the loadout menu while respawning) and in answer to each pick or ask
+	-- client -> server: ("Pick", class: string) | ("Ask") | ("Deploy": spawn now, once the respawn delay is over;
+	-- src/server/Deploy); server -> client: (state: Rules/Classes.State plus `wait`: seconds until a deploy is allowed,
+	-- `alive`: a living soldier now, `kit`: the next life's uniform kit) on each death (the loadout menu while respawning) and in answer to each pick or ask
 	"Loadout",
 }
 local Functions: { string } = {}
