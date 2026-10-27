@@ -47,7 +47,10 @@ return {
 		for _, p in C.Pieces do
 			assert(type(p.key) == "string" and not seen[p.key], p.key)
 			seen[p.key] = true
-			assert(p.kind == "Trench" or p.kind == "Sandbags" or p.kind == "Wire" or p.kind == "Gun", p.key)
+			assert(
+				p.kind == "Trench" or p.kind == "Sandbags" or p.kind == "Wire" or p.kind == "Gun" or p.kind == "Hesco",
+				p.key
+			)
 			assert(type(p.name) == "string" and p.work >= 1, p.key)
 		end
 		assert(B.piece("LowWall", C.Pieces) ~= nil and B.piece("Nope", C.Pieces) == nil and B.piece(5, C.Pieces) == nil)
@@ -59,6 +62,34 @@ return {
 		assert(high.rows * high.row >= M.Cover.FullCoverMin, "the high wall hides a standing soldier")
 		local bottom, top = (high.loophole - 1) * high.row, high.loophole * high.row
 		assert(bottom < 4.3 and top > 4.3, "the standing aimed muzzle (4.3) looks out of the loophole")
+	end,
+	["hesco: 6 x 6, just over a soldier, only the dirt is cover; four stages; wear slumps the dirt, never past the first third"] = function()
+		local A = require("../src/shared/Config/Assets")
+		local h = B.piece("Hesco", C.Pieces) :: any
+		assert(h and h.kind == "Hesco" and h.width == 6 and h.depth == 6 and A.Entries[h.asset] ~= nil)
+		-- (user 2026-10-27: "just barely the players height")
+		assert(h.height > M.Character.Height and h.height < M.Character.Height + 0.25, "just over a standing soldier")
+		-- (user 2026-10-27: "stage 1 and 2 barriers will provide little to no protection"): the dirt at each stage
+		local function dirt(stage: number): number
+			return h.height * math.max(stage - 1, 0) / (h.stages - 1)
+		end
+		assert(
+			dirt(1) == 0
+				and dirt(2) <= M.Cover.HopableLedgeMax
+				and dirt(3) >= M.Cover.LowCoverMin
+				and dirt(h.stages) == h.height
+		)
+		assert(h.stages == 4 and h.work % h.stages == 0, "the same swings each stage")
+		local max = C.Hesco.hp
+		assert(B.hescoStage(0, h.work, max, max, 4) == 0, "blueprint")
+		assert(B.hescoStage(2, h.work, max, max, 4) == 1, "the empty perimeter")
+		assert(B.hescoStage(h.work, h.work, max, max, 4) == 4, "full")
+		assert(B.hescoStage(h.work, h.work, max * 0.6, max, 4) == 3, "worn: slumps a stage")
+		assert(B.hescoStage(h.work, h.work, max * 0.2, max, 4) == 2, "badly worn: the first third")
+		assert(B.hescoStage(h.work, h.work, 0.01, max, 4) == 2, "never under the first third while it stands")
+		assert(B.hescoStage(4, h.work, max * 0.2, max, 4) == 2, "half built and worn")
+		assert(B.hescoStage(2, h.work, 1, max, 4) == 1, "an empty perimeter has no dirt to lose")
+		assert(C.Hesco.soak > 0 and C.Hesco.soak < 1, "tougher than sandbags")
 	end,
 	["laying a piece: each reason in turn"] = function()
 		assert(B.canPlace(placing({})))

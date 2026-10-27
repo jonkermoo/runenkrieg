@@ -196,6 +196,23 @@ local Build = {
 			loophole = 4,
 			maxSlope = 25,
 		},
+		-- The Hesco barrier (user 2026-10-27; Hesco below): a 6 x 6 basket of mesh and liner, `height` high (just over
+		-- a standing soldier's 5.13: "it should be just barely the players height"; under full cover's 5.5), filled
+		-- with dirt from the bottom up in `stages` (1: the empty perimeter, then a third of the dirt each), `work`
+		-- Build swings (2 a stage). Everyone builds it (a small asset; the class gate coming on the loadout branch,
+		-- Config/Classes SMALL, needs "Hesco" when both land).
+		{
+			key = "Hesco",
+			name = "Hesco barrier",
+			kind = "Hesco",
+			asset = "hesco", -- (Config/Assets)
+			work = 8,
+			stages = 4,
+			width = 6,
+			depth = 6,
+			height = 5.25,
+			maxSlope = 20,
+		},
 		{
 			key = "Wire",
 			name = "Barbed wire",
@@ -309,6 +326,13 @@ local Build = {
 
 	-- Sandbags: each column a section of class "Sandbag" (Config/Damage.Blast.Fail), shovels tear the whole piece down
 	Sandbags = { columnHP = 400, shade = 0.06 },
+
+	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
+	-- barriers block stuff. meaning stage 1 and 2 barriers will provide little to no protection"): the wire, liner and
+	-- flaps stop nothing, bullets and soldiers pass. One HP for the whole basket: weapons take `soak` of what they take
+	-- from a sandbag column (Structures above); worn, the dirt slumps a stage per third of HP lost (never under the
+	-- first third of dirt while it stands); at 0 it bursts. The blueprint shows the empty perimeter ghosted.
+	Hesco = { hp = 100, soak = 0.5, blocks = { "Earth" } },
 
 	-- Barbed wire: anyone inside its box (both teams) is "Wired": walks at `speed`, can't sprint or jump
 	-- (src/client/Stance), and loses `damage` health a second while moving faster than `moving` studs/s. Bullets pass

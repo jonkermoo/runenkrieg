@@ -101,6 +101,19 @@ function Build.stageOf(work: number, need: number, stages: number): number
 	return math.clamp(math.floor(work / need * stages + 1e-9), 0, stages)
 end
 
+-- The stage a Hesco barrier shows (Config/Build Pieces "Hesco", Config/Build.Hesco): its build stage at `work` of `need`
+-- (0 the blueprint, 1 the empty perimeter, then a share of the dirt each), slumped by blast and bullet wear: with `hp`
+-- of `max` left it shows at most 1 + its share of HP in the dirt stages (rounded up), so a worn barrier keeps at least
+-- the first stage of dirt until it bursts at 0.
+function Build.hescoStage(work: number, need: number, hp: number, max: number, stages: number): number
+	local built = Build.stageOf(work, need, stages)
+	if built <= 1 or max <= 0 then
+		return built
+	end
+	local cap = 1 + math.ceil(math.clamp(hp / max, 0, 1) * (stages - 1) - 1e-9)
+	return math.max(math.min(built, cap), 2)
+end
+
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
 -- never less than `normal`
 function Build.digAmount(normal: number, full: number, share: number?): number

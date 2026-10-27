@@ -8,6 +8,9 @@
 -- - Destroy at any piece, any team's, takes one off; at 0 it is torn down; at a tree it chops it (src/server/Trees).
 -- - Sandbag walls: a section of class "Sandbag" per column of bags, the rows filling in as it is worked.
 -- - Barbed wire: pickets and strands nothing queries (bullets pass); src/server/Wire slows and hurts soldiers in it.
+-- - Hesco barriers (kind "Hesco"; Config/Build.Hesco): the model's pieces for the stage it shows (Rules.hescoStage:
+--   the empty perimeter, then the dirt rising; slumped by wear), cloned from the asset library; only the dirt collides
+--   and stops bullets. One HP, shown on the model once it stands; at 0 it bursts.
 -- - Guns (Config/Build.Pieces kind "Gun"; Config/Build.Guns): a holder model in the folder (what swings go to) with the
 --   gun's parts in it (src/server/Artillery.parts), laid out on the ground and fitted a quarter of the work at a time
 --   (Artillery.assemble, Config/Artillery.Assembly), a building site round them (Rules/Scaffold); a howitzer's pit (Ground.pit from the ground as it was) deepens
@@ -22,6 +25,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Assets = require(Shared.Config.Assets)
 local C = require(Shared.Config.Build)
 local D = require(Shared.Config.Destruction)
 local Palette = require(Shared.Config.Palette)
@@ -54,7 +58,9 @@ type Rec = {
 	born: number,
 	worked: number,
 	frame: CFrame,
-	hp: number?, -- barbed wire: what blasts have left of Structures.wireHP
+	hp: number?, -- barbed wire: what blasts have left of Structures.wireHP; a Hesco barrier: of Hesco.hp
+	base: CFrame?, -- a Hesco barrier: its footprint's centre on the lowest ground under it
+	shown: number?, -- a Hesco barrier: the stage its pieces show
 	-- a gun piece: where the gun stands (on the ground before its pit), its blueprint or the gun standing, its pit's
 	-- ground as it was (Ground.pitBase) and the share of it dug now
 	at: CFrame?,
@@ -236,6 +242,85 @@ local function showWire(r: Rec)
 	r.model:SetAttribute("Armed", r.built)
 end
 
+-- The Hesco barrier's library model (ReplicatedStorage.Assets, kept by the Library sync) and where each mesh sits from
+-- its Origin (piece space), found once
+local hescoKit: Model? = nil
+local hescoAt: { [string]: CFrame } = {}
+local hescoWarned = false
+local function hescoPieces(asset: string): Model?
+	if hescoKit then
+		return hescoKit
+	end
+	local e = Assets.Entries[asset]
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	f = f and e and f:FindFirstChild(e.category)
+	for _, sub in string.split(if e then e.folder else "", "/") do
+		f = f and f:FindFirstChild(sub)
+	end
+	local m = f and f:FindFirstChild(asset)
+	local origin = m and m:FindFirstChild("Origin")
+	if not (m and origin and origin:IsA("BasePart")) then
+		if not hescoWarned then
+			hescoWarned = true
+			warn(`[Build] {asset} is not in the asset library: run the Library sync in the dev place`)
+		end
+		return nil
+	end
+	for _, d in m:GetChildren() do
+		if d:IsA("BasePart") then
+			hescoAt[d.Name] = origin.CFrame:ToObjectSpace(d.CFrame)
+		end
+	end
+	hescoKit = m :: Model
+	return hescoKit
+end
+
+-- a Hesco barrier as its work and wear stand: the pieces of its stage (the blueprint: the empty perimeter, ghosted);
+-- only Config/Build.Hesco.blocks (the dirt) collide or are hit
+local function showHesco(r: Rec)
+	local p, H = r.piece, C.Hesco
+	if r.built then
+		r.model:SetAttribute("HP", math.ceil(r.hp or H.hp))
+		r.model:SetAttribute("MaxHP", H.hp)
+	end
+	local stage = Rules.hescoStage(r.work, r.need, r.hp or H.hp, H.hp, p.stages)
+	if r.shown == stage then
+		return
+	end
+	local kit = hescoPieces(p.asset)
+	if not kit then
+		return
+	end
+	r.shown = stage
+	local old = r.model:FindFirstChild("Stage")
+	if old then
+		old:Destroy()
+	end
+	local holder = Instance.new("Model")
+	holder.Name = "Stage"
+	local suffix = tostring(math.max(stage, 1))
+	local base = r.base :: CFrame
+	for name, off in hescoAt do
+		local kind, n = string.match(name, "^(%a+)(%d)$")
+		local src = kit:FindFirstChild(name)
+		if kind and n == suffix and src and src:IsA("BasePart") then
+			local part = src:Clone()
+			local blocks = stage > 0 and table.find(H.blocks, kind) ~= nil
+			part.Anchored = true
+			part.Material = Enum.Material.SmoothPlastic
+			part.Color = rgb(Palette.Build.Hesco[kind])
+			part.CFrame = base * off
+			part.CanCollide = blocks
+			part.CanQuery = blocks -- (bullets pass the mesh and liner)
+			part.CanTouch = false
+			part.Transparency = if stage > 0 then 0 else C.GhostTransparency
+			part.CastShadow = stage > 0
+			part.Parent = holder
+		end
+	end
+	holder.Parent = r.model
+end
+
 local function remove(r: Rec, debris: boolean)
 	if not recs[r.model] then
 		return
@@ -263,6 +348,16 @@ local function remove(r: Rec, debris: boolean)
 		Net.event("GroundDug"):FireAllClients(r.frame.Position, r.piece.depth)
 	end
 	r.model:Destroy()
+end
+
+-- a Hesco barrier worn by `amount` of its HP: slumps, or bursts at 0
+local function wearHesco(r: Rec, amount: number)
+	r.hp = (r.hp or C.Hesco.hp) - amount
+	if (r.hp :: number) <= 0 then
+		remove(r, true)
+	else
+		showHesco(r)
+	end
 end
 
 -- a gun's building site (Config/Build.Scaffold, Rules/Scaffold) at gun space's origin; Build pivots it onto the floor
@@ -394,6 +489,8 @@ local function apply(r: Rec)
 		showWire(r)
 	elseif kind == "Gun" then
 		showGun(r)
+	elseif kind == "Hesco" then
+		showHesco(r)
 	end
 end
 
@@ -477,6 +574,8 @@ local function place(player: Player, key: any, at: any)
 		layoutSandbags(r, report.low)
 	elseif piece.kind == "Wire" then
 		layoutWire(r, report.low)
+	elseif piece.kind == "Hesco" then
+		r.base = CFrame.new(frame.Position.X, report.low, frame.Position.Z) * frame.Rotation
 	end
 	model:SetAttribute("Piece", piece.key)
 	model:SetAttribute("Team", team)
@@ -571,6 +670,7 @@ local function work(player: Player, target: any, mode: any)
 	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
 	if
 		r.piece.kind == "Gun"
+		or r.piece.kind == "Hesco" -- (shows only a change of stage)
 		or Rules.stageOf(was, r.need, stages) ~= Rules.stageOf(r.work, r.need, stages)
 		or r.work >= r.need
 	then
@@ -588,6 +688,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 	local src = Rules.structureSource(key, kg, S)
 	Trenches.blast(position, src)
 	local cut = {}
+	local worn: { { r: Rec, amount: number } } = {} -- (Hesco barriers: worn after the loop, which bursting changes)
 	for _, r in recs do
 		local frame = r.model:GetAttribute("Frame") :: CFrame
 		if r.piece.kind == "Wire" then
@@ -616,10 +717,26 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 					end
 				end
 			end
+		elseif r.piece.kind == "Hesco" then
+			-- the whole basket by how far the blast is from its box, Hesco.soak of a sandbag column's share
+			local p = r.piece
+			local l = frame:PointToObjectSpace(position)
+			local d = Vector3.new(
+				math.max(math.abs(l.X) - p.width / 2, 0),
+				math.max(l.Y - p.height, -l.Y, 0),
+				math.max(math.abs(l.Z) - p.depth / 2, 0)
+			).Magnitude
+			local share = Rules.structureHit(d, src, S.edge) * C.Hesco.soak
+			if share > 0 then
+				table.insert(worn, { r = r, amount = C.Hesco.hp * share / 100 })
+			end
 		end
 	end
 	for _, r in cut do
 		remove(r, true)
+	end
+	for _, w in worn do
+		wearHesco(w.r, w.amount)
 	end
 end
 
@@ -632,6 +749,13 @@ function Build.shot(part: Instance, point: Vector3)
 	local s = part.Parent
 	if s and s:IsA("Model") and s:GetAttribute("Class") == "Sandbag" then
 		Destruction.damage(s, (s:GetAttribute("MaxHP") :: number) * C.Structures.bullet.hit / 100)
+		return
+	end
+	-- a Hesco barrier's dirt (the only piece of it a bullet meets): `s` its stage's holder, in the piece's model
+	local model = s and s.Parent
+	local r = if model and model:IsA("Model") then recs[model] else nil
+	if r and r.piece.kind == "Hesco" then
+		wearHesco(r, C.Hesco.hp * C.Structures.bullet.hit * C.Hesco.soak / 100)
 	end
 end
 
