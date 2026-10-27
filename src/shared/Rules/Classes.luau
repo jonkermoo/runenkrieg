@@ -51,6 +51,18 @@ function Classes.mayBuild(key: unknown, kind: string, defs: { [string]: any }, d
 	return d ~= nil and table.find(d.builds, kind) ~= nil
 end
 
+-- The pieces (Config/Build.Pieces, in order) class `key` may build: the build cycle shows only these (user
+-- 2026-10-27: "no need to show "engineers only" for the artillery just dont show it in the cycle at all").
+function Classes.buildable<P>(key: unknown, pieces: { P }, defs: { [string]: any }, default: string): { P }
+	local out = {}
+	for _, p in pieces do
+		if Classes.mayBuild(key, (p :: any).kind, defs, default) then
+			table.insert(out, p)
+		end
+	end
+	return out
+end
+
 export type Hit = { by: number, amount: number, at: number, zone: string? }
 
 -- Who is credited for a death at `now` from the hits it took (`by` a player's id; the victim's own left out): the

@@ -73,8 +73,15 @@ local function shovelHeld(character: Model?): boolean
 	return weapon ~= nil and W[weapon.name] ~= nil and W[weapon.name].class == "Shovel"
 end
 
+-- the pieces this life's class may build (src/server/Loadouts' "Class"; the rest never show in the cycle)
+local function pieces(): { Rules.Piece }
+	local character = Players.LocalPlayer.Character
+	return ClassRules.buildable(character and character:GetAttribute("Class"), C.Pieces, Classes.Defs, Classes.Default)
+end
+
 local function piece(): Rules.Piece
-	return C.Pieces[index]
+	local list = pieces()
+	return list[math.clamp(index, 1, #list)]
 end
 
 -- the trench planner's ghost: its model and the pieces drawn each frame
@@ -371,8 +378,6 @@ local function surveyPiece(character: Model, root: BasePart)
 		team = 0,
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
-		-- (only engineers build guns: the class this life, src/server/Loadouts)
-		allowed = ClassRules.mayBuild(character:GetAttribute("Class"), p.kind, Classes.Defs, Classes.Default),
 	})
 	current = { frame = if gun then frame else box, ok = ok, reason = reason }
 	local size = Survey.footprint(p)
@@ -855,7 +860,8 @@ function Build.start()
 		if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
 			turn = (turn + (if input.Position.Z > 0 then C.TurnStep else -C.TurnStep)) % 360
 		elseif not planStart then
-			index = (index - 1 + (if input.Position.Z > 0 then -1 else 1)) % #C.Pieces + 1
+			local n = #pieces()
+			index = (math.clamp(index, 1, n) - 1 + (if input.Position.Z > 0 then -1 else 1)) % n + 1
 			clearGhost()
 		end
 	end)
