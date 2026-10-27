@@ -3,10 +3,11 @@
 -- plus caps, trenches carved in the terrain, the pieces flat-coloured code-built shapes until meshes are approved).
 -- Rules/Build decides, src/server/Build builds, src/client/Build shows build mode. Data only.
 --
--- Build mode: the shovel in the hands, Key_Build toggles it; the mouse wheel picks a piece, Key_BuildTurn turns it,
--- a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user 2026-10-23): a Build swing at
--- a piece of your team adds one unit of work; at `work` it stands. A Destroy swing at any piece, any team's, takes one
--- off; at 0 it is torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
+-- Build mode: the shovel in the hands, Key_Build toggles it; Key_BuildPrev / Key_BuildNext (Q / E) pick a piece,
+-- Key_BuildTurn turns it, a click lays its blueprint. The shovel's mode (Key_Reload toggles Build / Destroy, user
+-- 2026-10-23): a Build swing at a piece of your team adds one unit of work; at `work` it stands (at any team's standing
+-- gun it repairs it: src/server/Artillery.repair). A Destroy swing at any piece, any team's, takes one off; at 0 it is
+-- torn down (a trench falls in). Destroy swings also chop trees (Config/Damage.Trees.Chop).
 
 local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
@@ -28,6 +29,12 @@ local Build = {
 	GhostTransparency = 0.75,
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
 	Ghost = { ok = { 120, 200, 120 }, bad = { 220, 80, 70 }, transparency = 0.55 },
+	-- a gun's ghost (src/client/Build; user 2026-10-27: "reduce the red space for a howitzer ... just make it the size
+	-- of the actual howizer with the trench. infact, make the outline a rough estimate of what the model would look like
+	-- when constructed"): the gun itself, see-through in Ghost ok / bad, standing as it will (a dug-in gun on its pit's
+	-- floor), and a dug-in gun's pit and ramp outlined flat on the ground, `outline` studs thick, `outlineSee`
+	-- see-through
+	GunGhost = { outline = 0.3, outlineSee = 0.7 },
 	-- the trench planner's ghost (src/client/Build; user 2026-10-24: "make the entire planning thing better and more
 	-- stylish"), a preview of the stakes and cord the
 	-- server lays: per square a faint fill (Ghost ok / bad, `fill` see-through) with the dug floor's band in it

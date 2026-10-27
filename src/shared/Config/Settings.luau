@@ -110,8 +110,13 @@ local Settings = {
 		Key_DragEscape = { kind = "key", label = "Break free of a drag", default = "Space" },
 		Key_Build = { kind = "key", label = "Build mode", default = "B" }, -- the shovel in the hands (Config/Build)
 		Key_BuildTurn = { kind = "key", label = "Turn piece", default = "T" }, -- in build mode
-		-- leaves build mode (user 2026-10-24: "make it Q to exit plan mode"; right mouse turns the shovel's camera)
-		Key_BuildExit = { kind = "key", label = "Exit build mode", default = "Q" },
+		-- pick the piece in build mode (user 2026-10-27: "scrolling and selecting items is conflicted. make it e and q to
+		-- select instead")
+		Key_BuildPrev = { kind = "key", label = "Previous piece", default = "Q" },
+		Key_BuildNext = { kind = "key", label = "Next piece", default = "E" },
+		-- leaves build mode (user 2026-10-24: "make it Q to exit plan mode"; right mouse turns the shovel's camera; moved
+		-- to X for Q / E picking the piece, user 2026-10-27)
+		Key_BuildExit = { kind = "key", label = "Exit build mode", default = "X" },
 		Key_Settings = { kind = "key", label = "Settings menu", default = "P" }, -- opens this menu (frees the mouse)
 		-- opens / closes the dev admin panel (user 2026-10-26); `devOnly`: the row shows only to dev players
 		Key_AdminPanel = { kind = "key", label = "Admin panel", default = "F2", devOnly = true },
@@ -150,6 +155,8 @@ local Settings = {
 				"Key_DragEscape",
 				"Key_Build",
 				"Key_BuildTurn",
+				"Key_BuildPrev",
+				"Key_BuildNext",
 				"Key_BuildExit",
 				"Key_Settings",
 				"Key_AdminPanel",

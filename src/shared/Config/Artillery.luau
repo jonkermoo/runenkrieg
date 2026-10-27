@@ -93,11 +93,17 @@ export type Gun = {
 		slabs: boolean?,
 	}?,
 	hp: number, -- what it takes to wreck it (Hits, Wreck)
+	-- shovel swings (Build mode, any team's) that fix it from a wreck to whole (Repair)
+	repair: number,
 	-- the shell leaves this many degrees over the bore, unseen (Rules/Artillery.muzzle); nil: along it
 	aimTilt: number?,
 	-- a flat pad round its base that counts as the gun for hits (Hits): `pad` studs out past its footprint, `thick` studs
 	-- up from its foot; nil: the gun alone
 	platform: { pad: number, thick: number }?,
+	-- stands on the terrain itself, no earth block (Ground below): the ground under its footprint, `pad` studs out past
+	-- it, levelled to its foot and turned to `material` (no grass), easing back to the ground as it was over the next
+	-- `blend` studs; an unseen box over its `platform` from `Ground.depth` under its foot is its hitbox
+	level: { pad: number, blend: number, material: string }?,
 	-- the parts shell holes are punched into as it is damaged (Wreck), and the holes' size range (studs)
 	wreckParts: { string },
 	holeSize: { number },
@@ -316,7 +322,7 @@ local Artillery = {
 	-- make sure its part of the model so it has a hitbox. same applies for the field cannon"): a block of earth under
 	-- its footprint, `pad` studs out past it, from the ground it stands on down `depth` studs, in Palette.Terrain
 	-- `color`; when blasts carve the terrain away round and under it, the gun still stands on it, and it counts as the
-	-- gun for hits (its box).
+	-- gun for hits (its box). A gun with `level` (the field gun) stands on the terrain instead, its hitbox unseen.
 	Ground = { pad = 0.5, depth = 5, color = "Mud" },
 
 	-- The howitzer's crystal (src/client/ArtilleryCrystal, Rules/Artillery.crystal; user 2026-10-20: "make the howitzer
@@ -449,6 +455,13 @@ local Artillery = {
 	-- each), and the accent pieces of the roles in `lose[i]` (Palette.Artillery.Roles) are blown off, tumbling away as
 	-- debris for `debris.life` s; its glow sputters on (src/client/ArtilleryCrystal, Crystal.dying) until stage `dark`,
 	-- when it dies.
+	-- Fixing a gun with the shovel (src/server/Build, Artillery.repair; user 2026-10-27: "make it so you can fix a
+	-- artillery by digging too", "enemie teams should be able to repair and fix enemie trenches and artillery, as they
+	-- should be able to use it if they earn the sector"): a Build swing by any team's soldier gives back the gun's `hp` /
+	-- `repair` (an admin dig step: that share of its full HP). An unusable gun is usable again from `usable`% ("the
+	-- artillery should be in a damaged but usable status at 75%"): a fresh gun stands in its place, damaged to the HP it
+	-- has; whole, a fresh gun again. Each time its ground is flattened out again (the howitzer's pit dug out again).
+	Repair = { usable = 75 },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		unusable = 2,
@@ -531,12 +544,16 @@ local Artillery = {
 			recoilTimes = { 0.08, 1.2 },
 			recoilClear = nil,
 			hp = 100,
+			repair = 10, -- (half the swings it takes to build)
 			-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
 			-- hit enemy sectors)"; picked: the shortest shot ~300 studs, one sector): +8 on every shot, so -5..16 on the
 			-- dial throws 3..24: ~300 to ~2,100 studs
 			aimTilt = 8,
 			-- (user 2026-10-26: "add a platform hitbox for the cannon"; picked: the ground it stands on counts as the gun)
 			platform = { pad = 3, thick = 1.5 },
+			-- (user 2026-10-27: "the field cannon shouldnt have a platform, it should just make the ground its on lose its
+			-- grass and straight out. just give it a hitbox on the terrain around it")
+			level = { pad = 2, blend = 8, material = "Ground" },
 			wreckParts = { "Carriage", "Wheels", "Mount" }, -- (the mount turns at most 4.5 degrees)
 			holeSize = { 0.3, 0.6 },
 			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail
@@ -709,6 +726,7 @@ local Artillery = {
 				slabs = true,
 			},
 			hp = 240,
+			repair = 30, -- (half the swings it takes to build)
 			wreckParts = { "Bed", "Mount", "Cradle" }, -- (the moving ones carried by src/client/Artillery)
 			holeSize = { 0.7, 1.4 },
 			vfx = { scheme = "Arcane", magic = true },

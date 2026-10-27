@@ -71,6 +71,9 @@ type Guns = {
 	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
 	parts: (string, string?) -> Model?,
 	assemble: (Model, string, CFrame, number) -> (),
+	repair: (Model, number) -> (string?, number),
+	setHp: (Model, number) -> (),
+	harm: (Model, number) -> boolean,
 }
 local guns: Guns? = nil
 
@@ -553,8 +556,48 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local own = team == r.team
+	if mode == "Build" and r.gun and r.standing then
+		-- fixing a standing gun, any team's (Config/Artillery.Repair; user 2026-10-27: "make it so you can fix a
+		-- artillery by digging too ... its fine if the cannon looks buried, as long as it gets flattenned out again once
+		-- its fixed", "enemie teams should be able to repair and fix enemie trenches and artillery")
+		local gun = r.gun
+		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
+		local hp = gun:GetAttribute("HP")
+		if not guns or not g or type(hp) ~= "number" or hp >= g.hp then
+			return
+		end
+		lastSwing[player] = now
+		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player)))
+		if what then
+			-- back in service or whole: a fresh gun in its place, the howitzer's pit dug out again from the ground as
+			-- it was (the field gun levels its own ground as it stands), damaged to what it has
+			r.gun = nil
+			gun:Destroy()
+			local d = g.dig
+			local at = r.at
+			if d and r.pitBase and at then
+				local ramp = d.ramp and { dir = -at.LookVector, width = d.ramp.width, length = d.ramp.length }
+				local out = Ground.pit(at.Position, d.radius, d.depth, d.rim, d.rimHeight, ramp, d.wall, r.pitBase)
+				Net.event("GroundDug"):FireAllClients(at.Position, out)
+			end
+			showGun(r)
+			if r.gun and what == "usable" then
+				guns.setHp(r.gun, after)
+			end
+		end
+		return
+	end
+	if mode == "Destroy" and r.gun and r.standing and guns then
+		-- a standing gun loses HP to the shovel as to any damage (Artillery.harm), as many swings as fix it; only a
+		-- wreck at 0 is taken apart, swing by swing, below
+		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
+		if g and guns.harm(r.gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player))) then
+			lastSwing[player] = now
+			return
+		end
+	end
 	if mode == "Build" and (not own or r.work >= r.need) then
-		return -- (repairs come later)
+		return
 	end
 	lastSwing[player] = now
 	local was = r.work

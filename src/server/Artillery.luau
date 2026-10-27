@@ -19,6 +19,9 @@
 --   howitzer's crystal dead), leaning and sinking more each stage; at 0 a wreck that stays.
 -- - A dug-in gun's pit is lined with trench dirt slabs (Config/Artillery.Slabs, the trench kit: src/server/Trenches),
 --   laid rough, in the Workspace folder Config/Artillery.PitFolder, gone with the gun.
+-- - The ground a gun stands on is never carved by craters (Ground.guard; earth thrown up may land on it). The field gun
+--   stands on the terrain, levelled and bared under it, with an unseen hitbox; the howitzer on its earth block.
+-- - Its own team's shovel swings fix it (Artillery.repair, from src/server/Build); whole, a fresh gun stands there.
 
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
@@ -60,6 +63,8 @@ type State = {
 	holes: number, -- shell holes punched in it so far (Wreck.holes)
 	upright: CFrame?, -- its pivot before it first leaned
 	lean: number, -- which way it leans (radians round its up axis)
+	-- the ground it stands on (Artillery.onGround): its pivot as placed and the box under it (x, z in gun space)
+	ground: { at: CFrame, lo: { number }, hi: { number } },
 	pit: Model?, -- its pit's slabs
 }
 
@@ -580,8 +585,11 @@ function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: num
 end
 
 -- The earth block a placed gun stands on (Config/Artillery.Ground): under its footprint in gun space, from the ground
--- (the pivot) down, part of the gun
-local function standOn(model: Model)
+-- (the pivot) down, part of the gun. A gun with `level` stands on the terrain instead, levelled and bared under it
+-- (Ground.level), and its hitbox is an unseen box over its `platform`, from Ground.depth under its foot up, that
+-- nothing touches, stands on or hits: it only makes the gun's box (blast) reach over the ground round it.
+-- Returns the box of ground under it (x, z in gun space: its footprint and pad), which craters never carve.
+local function standOn(model: Model, gun: Cfg.Gun): ({ number }, { number })
 	local G = Cfg.Ground
 	local pivot = model:GetPivot()
 	local lo, hi = Vector3.one * math.huge, -Vector3.one * math.huge
@@ -605,6 +613,23 @@ local function standOn(model: Model)
 			end
 		end
 	end
+	local L, pf = gun.level, gun.platform
+	local pad = if L then L.pad else G.pad
+	local under, over = { lo.X - pad, lo.Z - pad }, { hi.X + pad, hi.Z + pad }
+	if L then
+		local reach = Ground.level(pivot, under, over, L.blend, (Enum.Material :: any)[L.material])
+		Net.event("GroundDug"):FireAllClients(pivot.Position, reach)
+		local out, thick = if pf then pf.pad else L.pad, if pf then pf.thick else 0
+		local box = Instance.new("Part")
+		box.Name = "Hitbox"
+		box.Anchored = true
+		box.CanCollide, box.CanQuery, box.CanTouch = false, false, false
+		box.Transparency = 1
+		box.Size = Vector3.new(hi.X - lo.X + 2 * out, G.depth + thick, hi.Z - lo.Z + 2 * out)
+		box.CFrame = pivot * CFrame.new((lo.X + hi.X) / 2, (thick - G.depth) / 2, (lo.Z + hi.Z) / 2)
+		box.Parent = model
+		return under, over
+	end
 	local p = Instance.new("Part")
 	p.Name = "Ground"
 	p.Anchored = true
@@ -615,6 +640,7 @@ local function standOn(model: Model)
 	p.Size = Vector3.new(hi.X - lo.X + 2 * G.pad, G.depth, hi.Z - lo.Z + 2 * G.pad)
 	p.CFrame = pivot * CFrame.new((lo.X + hi.X) / 2, -G.depth / 2 - 0.02, (lo.Z + hi.Z) / 2)
 	p.Parent = model
+	return under, over
 end
 
 -- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
@@ -640,7 +666,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
-	standOn(model)
+	local under, over = standOn(model, gun)
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
 	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)
@@ -693,6 +719,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		upright = nil,
 		lean = random:NextNumber(0, 2 * math.pi),
 		pit = pit,
+		ground = { at = model:GetPivot(), lo = under, hi = over },
 	}
 	if gun.crewTurns then
 		local pivot = model:GetPivot()
@@ -717,6 +744,34 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		guns[model] = nil
 	end)
 	return model
+end
+
+-- Whether `p` stands on a gun's ground (src/server/Ground keeps craters off it; user 2026-10-27: "the ground beneath
+-- artilleries are still not indestructible")
+function Artillery.onGround(p: Vector3): boolean
+	for _, s in guns do
+		local g = s.ground
+		local l = g.at:PointToObjectSpace(p)
+		if Rules.onGround(l.X, l.Z, g.lo, g.hi) then
+			return true
+		end
+	end
+	return false
+end
+
+-- One repair swing on a gun (src/server/Build: any team's shovel in Build mode; Config/Artillery.Repair) giving back
+-- `amount` HP. Returns what it makes it: "whole", "usable" (back in service) or nil, and its HP now. On "whole" or
+-- "usable" the caller stands a fresh gun in its place (its ground flattened out again) and gives it that HP
+-- (Artillery.setHp). Nil and 0 for a gun that is whole already or not a gun.
+function Artillery.repair(model: Model, amount: number): (string?, number)
+	local s = guns[model]
+	if not s or s.hp >= s.gun.hp then
+		return nil, 0
+	end
+	local what
+	s.hp, what = Rules.repaired(s.hp, s.gun.hp, amount, Cfg.Repair.usable, s.broken)
+	model:SetAttribute("HP", math.round(s.hp * 10) / 10)
+	return what, s.hp
 end
 
 -- Removes every gun.
@@ -918,6 +973,37 @@ local function wreck(s: State)
 	end
 end
 
+-- Gives a freshly placed gun `hp`, damaged to its stage (Config/Artillery.Wreck) as blasts would leave it
+function Artillery.setHp(model: Model, hp: number)
+	local s = guns[model]
+	if not s then
+		return
+	end
+	s.hp = math.clamp(hp, 0, s.gun.hp)
+	model:SetAttribute("HP", math.round(s.hp * 10) / 10)
+	local stage = Rules.wreckStage(s.hp, s.gun.hp, Cfg.Wreck.at)
+	if stage ~= s.stage then
+		s.stage = stage
+		model:SetAttribute("Stage", stage)
+		wreck(s)
+	end
+end
+
+-- `amount` HP off a gun, through its wreck stages
+local function hurt(s: State, amount: number)
+	if amount <= 0 then
+		return
+	end
+	s.hp = math.max(s.hp - amount, 0)
+	s.model:SetAttribute("HP", math.round(s.hp * 10) / 10)
+	local stage = Rules.wreckStage(s.hp, s.gun.hp, Cfg.Wreck.at)
+	if stage ~= s.stage then
+		s.stage = stage
+		s.model:SetAttribute("Stage", stage)
+		wreck(s)
+	end
+end
+
 -- A blast at `position` (Damage.onBlast; `structure`: what set it off, a Config/Artillery.Hits key, nil: by its `kg`)
 -- wears each gun down by how far it is from the gun's box (Config/Artillery.Hits).
 local function blast(position: Vector3, kg: number, structure: string?)
@@ -945,18 +1031,20 @@ local function blast(position: Vector3, kg: number, structure: string?)
 			local top = ground.CFrame * CFrame.new(0, (ground.Size.Y + pf.thick) / 2, 0)
 			d = math.min(d, off(top, Vector3.new(ground.Size.X + 2 * pf.pad, pf.thick, ground.Size.Z + 2 * pf.pad)))
 		end
-		local amount = Rules.gunHit(d, src, H.direct)
-		if amount > 0 then
-			s.hp = math.max(s.hp - amount, 0)
-			model:SetAttribute("HP", math.round(s.hp * 10) / 10)
-			local stage = Rules.wreckStage(s.hp, s.gun.hp, Cfg.Wreck.at)
-			if stage ~= s.stage then
-				s.stage = stage
-				model:SetAttribute("Stage", stage)
-				wreck(s)
-			end
-		end
+		hurt(s, Rules.gunHit(d, src, H.direct))
 	end
+end
+
+-- A shovel's Destroy swing on a gun (src/server/Build; user 2026-10-27: "when destroying it with a shovel, it reverts
+-- it to construction stage. it should just lower hp as it normally would with usual damage"): `amount` HP off it, as a
+-- blast takes it. False for a wreck already at 0 (or not a gun).
+function Artillery.harm(model: Model, amount: number): boolean
+	local s = guns[model]
+	if not s or s.hp <= 0 then
+		return false
+	end
+	hurt(s, amount)
+	return true
 end
 
 local function stateOf(player: Player): State?
@@ -970,6 +1058,7 @@ end
 
 function Artillery.start()
 	Damage.onBlast(blast)
+	Ground.guard(Artillery.onGround)
 	Net.event("Artillery").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)
 		local s = stateOf(player)
 		if not s then

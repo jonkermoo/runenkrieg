@@ -87,6 +87,19 @@ function SettingsRules.clean(options: { [string]: Option }, raw: any, maxKey: nu
 			out[key] = nil
 		end
 	end
+	-- nor on a keybind it doesn't hold that takes that key by default (one added since, or moved onto a key an old
+	-- save still holds: user 2026-10-27, "Q is still exit, not X"): the saved one falls back to its default
+	local taken: { [any]: boolean } = {}
+	for key, opt in options do
+		if opt.kind == "key" and out[key] == nil then
+			taken[opt.default] = true
+		end
+	end
+	for key, v in out do
+		if options[key].kind == "key" and taken[v] then
+			out[key] = nil
+		end
+	end
 	return out
 end
 
