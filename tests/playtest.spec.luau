@@ -1,6 +1,6 @@
 --!strict
--- The playtest map (Config/Maps/Playtest): fair to both sides, everything inside its bounds, walkable, and each
--- spawn in howitzer range of the other side's brick cottage.
+-- The playtest map (Config/Maps/Playtest): fair to both halves, everything inside its bounds, walkable, the zone's
+-- spots and the spawn points clear, and the end spawns in howitzer range of the far brick cottage.
 local Art = require("../src/shared/Config/Artillery")
 local Assets = require("../src/shared/Config/Assets")
 local B = require("../src/shared/Config/Buildings")
@@ -9,7 +9,7 @@ local DevCfg = require("../src/shared/Config/DevTools")
 local M = require("../src/shared/Config/Metrics")
 local Map = require("../src/shared/Config/Maps/Playtest")
 local Map1 = require("../src/shared/Config/Maps/Map1")
-local U = require("../src/shared/Config/Uniforms")
+local ZoneCfg = require("../src/shared/Config/ZoneMatch")
 local Check = require("../src/shared/Rules/MapCheck")
 local MT = require("../src/shared/Rules/MapTerrain")
 local V = require("../src/shared/Rules/Village")
@@ -120,55 +120,83 @@ return {
 			end
 		end
 	end,
-	["the spawns are inside the bounds, tree-free and sit far apart"] = function()
-		local W, E = Map.spawnZones.West, Map.spawnZones.East
-		for _, z in { W, E } do
-			assert(inside(b, z.minX, z.minZ) and inside(b, z.maxX, z.maxZ), "spawn zone out of bounds")
+	["the spawn points: inside the bounds, tree-free, each with its mirror"] = function()
+		local pts = Map.zoneMatch.spawns
+		assert(#pts == 8, `{#pts} spawn points`)
+		for i, p in pts do
+			assert(inside(b, p[1], p[2]), `S{i} out of bounds`)
+			for _, t in layout.trees do
+				assert((t.x - p[1]) ^ 2 + (t.z - p[2]) ^ 2 > 16, `a tree on S{i}`)
+			end
+			local mx, mz = mirror(p[1], p[2])
+			local m = pts[(i + 3) % 8 + 1]
+			assert(near(m[1], mx) and near(m[2], mz), `S{i}'s mirror is not S{(i + 3) % 8 + 1}`)
 		end
-		for _, t in layout.trees do
-			assert(not inside(W, t.x, t.z) and not inside(E, t.x, t.z), `a tree on a spawn at {t.x}, {t.z}`)
-		end
-		local d = math.abs((W.minX + W.maxX) / 2 - (E.minX + E.maxX) / 2)
-		assert(d >= 250 and d <= 400, `spawns {d} apart`)
 	end,
-	["clear of Map 1 and its skirt, the dev areas and the other side's spawn"] = function()
+	["the zone's spots: inside the bounds, off the buildings and trees, mirrored, each with spawns clear of it"] = function()
+		local spots = Map.zoneMatch.spots
+		assert(#spots >= 3, "the zone needs spots to move between")
+		local r = ZoneCfg.Radius
+		for i, p in spots do
+			assert(inside(b, p[1] - r, p[2] - r) and inside(b, p[1] + r, p[2] + r), `spot {i} out of bounds`)
+			for _, t in layout.trees do
+				assert((t.x - p[1]) ^ 2 + (t.z - p[2]) ^ 2 > (r + 1) ^ 2, `a tree in spot {i}`)
+			end
+			for k = 0, 15 do
+				local a = k / 16 * 2 * math.pi
+				local x, z = p[1] + r * math.cos(a), p[2] + r * math.sin(a)
+				for _, l in layout.lots do
+					assert(not V.pointInQuad(x, z, V.corners(l, 0.5)), `spot {i}'s ring runs into {l.id}`)
+				end
+			end
+			local mx, mz = mirror(p[1], p[2])
+			local found = false
+			for _, o in spots do
+				found = found or (near(o[1], mx) and near(o[2], mz))
+			end
+			assert(found, `spot {i} has no mirror`)
+			local clear = 0
+			for _, sp in Map.zoneMatch.spawns do
+				if math.sqrt((sp[1] - p[1]) ^ 2 + (sp[2] - p[2]) ^ 2) >= ZoneCfg.SpawnZoneClear then
+					clear += 1
+				end
+			end
+			assert(clear >= 4, `only {clear} spawn points clear of spot {i}`)
+		end
+	end,
+	["clear of Map 1 and its skirt"] = function()
 		local reach = Map1.terrainMargin + Map1.skirt.width
 		local own = Map.terrainMargin + Map.skirt.width
 		assert(b.minZ - own > Map1.bounds.maxZ + reach, "the playtest ground runs into Map 1's skirt")
 	end,
-	["a howitzer by either spawn reaches the other side's brick cottage"] = function()
+	["a howitzer by an end spawn reaches the brick cottage at the other end"] = function()
 		local h = Art.Guns.artillery_howitzer
-		local g = h.gravity
 		local reachAt = function(e: number): number
-			return h.speed ^ 2 * math.sin(math.rad(2 * e)) / g
+			return h.speed ^ 2 * math.sin(math.rad(2 * e)) / h.gravity
 		end
 		local short = math.min(reachAt(h.elevation[1]), reachAt(h.elevation[2]))
 		local long = reachAt(45)
-		for team, z in Map.spawnZones do
-			local sx, sz = (z.minX + z.maxX) / 2, (z.minZ + z.maxZ) / 2
-			local target = if team == "West" then "EastBrickCottage" else "WestBrickCottage"
+		local pts = Map.zoneMatch.spawns
+		for _, pair in { { pts[1], "EastBrickCottage" }, { pts[5], "WestBrickCottage" } } do
+			local sp, target = pair[1], pair[2]
 			for _, l in layout.lots do
 				if l.id == target then
-					local d = math.sqrt((l.x - sx) ^ 2 + (l.z - sz) ^ 2)
-					assert(d > short + 10 and d < long, `{team} spawn to {target}: {d} (range {short}-{long})`)
+					local d = math.sqrt((l.x - sp[1]) ^ 2 + (l.z - sp[2]) ^ 2)
+					assert(d > short + 10 and d < long, `spawn to {target}: {d} (range {short}-{long})`)
 				end
 			end
 		end
 	end,
-	["each side's kit is a real team uniform, and they differ"] = function()
-		local W, E = Map.sides.West.kit, Map.sides.East.kit
-		assert(W ~= E, "both sides wear the same uniform")
-		assert(table.find(U.Teams, W) and table.find(U.Teams, E), "a side's kit is not a team uniform")
-	end,
-	["each side's dev teleport stands in its spawn zone"] = function()
-		for team, z in Map.spawnZones do
+	["the dev teleports stand on the end spawns"] = function()
+		local pts = Map.zoneMatch.spawns
+		for id, p in { PlaytestWest = pts[1], PlaytestEast = pts[5] } do
 			local found = false
 			for _, e in DevCfg.Extra do
-				if e.id == "Playtest" .. team then
-					found = inside(z, e.x, e.z)
+				if e.id == id then
+					found = math.abs(e.x - p[1]) <= 5 and math.abs(e.z - p[2]) <= 5
 				end
 			end
-			assert(found, `the teleport Playtest{team} is missing or off its spawn`)
+			assert(found, `the teleport {id} is missing or off its spawn`)
 		end
 	end,
 	["undo destruction covers the playtest ground"] = function()
@@ -179,26 +207,28 @@ return {
 		end
 		assert(covered, "no Config/DevTools.World.Terrain box holds the playtest bounds")
 	end,
-	["walkable: both spawns open, every open cell reached, no pits, the runs across alike"] = function()
+	["walkable: every spawn reaches every spot, no pits, no cut-off ground, mirrored spawns alike"] = function()
 		local g = grid()
-		local spawns, walks = {}, {}
-		for team, r in Map.spawnZones do
-			spawns[team] = Check.cellsIn(g, r)
-			assert(#spawns[team] > 4, `{team} spawn has {#spawns[team]} open cells`)
-			walks[team] = Check.walk(g, spawns[team])
-			local pits = Check.pits(g, spawns[team])
-			assert(#pits == 0, `{team}: {#pits} cells you can't climb out of`)
-		end
-		for _, p in Check.pockets(g, walks.West) do
-			assert(#p <= CheckCfg.PocketCells, `a cut-off area of {#p} cells`)
-		end
 		local runs = {}
-		for team, other in { West = "East", East = "West" } do
-			local z = Map.spawnZones[other]
-			local _, d = Check.nearest(g, walks[team], (z.minX + z.maxX) / 2, (z.minZ + z.maxZ) / 2, 12)
-			assert(d, `{team} can't walk to the {other} spawn`)
-			runs[team] = d
+		for name, r in Map.spawnZones do
+			local cells = Check.cellsIn(g, r)
+			assert(#cells > 0, `{name} has no open cell`)
+			local walk = Check.walk(g, cells)
+			local pits = Check.pits(g, cells)
+			assert(#pits == 0, `{name}: {#pits} cells you can't climb out of`)
+			for _, p in Check.pockets(g, walk) do
+				assert(#p <= CheckCfg.PocketCells, `from {name}, a cut-off area of {#p} cells`)
+			end
+			runs[name] = {}
+			for i, p in Map.zoneMatch.spots do
+				local _, d = Check.nearest(g, walk, p[1], p[2], ZoneCfg.Radius)
+				assert(d, `{name} can't walk to spot {i}`)
+				runs[name][i] = d
+			end
 		end
-		assert(math.abs(runs.West - runs.East) <= 0.05 * runs.West, `runs across {runs.West} vs {runs.East}`)
+		-- S1 to the centre cottage's front yard (spot 1) as far as its mirror S5 to the back yard (spot 2; the grid isn't
+		-- exactly symmetric: 10%)
+		local a, c = runs.S1[1], runs.S5[2]
+		assert(math.abs(a - c) <= 0.1 * a, `S1 {a} vs S5 {c} to the centre`)
 	end,
 }

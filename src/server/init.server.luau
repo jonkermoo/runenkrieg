@@ -70,6 +70,6 @@ require(script.Ground).start(require(script.Build).dug, require(script.Build).ne
 require(script.Wire).start()
 require(script.Showcase).start()
 require(script.TestShooter).start()
-require(script.Playtest).start() -- (two-player play tests on the playtest map, while Workspace says so)
+require(script.ZoneMatch).start() -- (the zone-capture match on the playtest map, while Workspace says so)
 
 print("[runenkrieg] server started")

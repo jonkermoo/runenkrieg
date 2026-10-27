@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Metrics = require(Shared.Config.Metrics)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local W = require(Shared.Config.Weapons)
@@ -94,7 +95,12 @@ function Damage.spares(by: Model?, character: Instance?): boolean
 	if not (Players:GetPlayerFromCharacter(character) or Dev.dummy(character)) then
 		return false
 	end
-	return Teams.spared(Kits.of(by), Kits.of(character), Cfg.FriendlyFire)
+	return Teams.spared(
+		Kits.of(by),
+		Kits.of(character),
+		Cfg.FriendlyFire,
+		workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
+	)
 end
 
 local function flat(v: Vector3): Vector3

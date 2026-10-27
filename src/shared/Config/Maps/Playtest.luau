@@ -1,13 +1,14 @@
 --!strict
 -- Playtest map (user 2026-10-27: "extremely small, fit for 2 people, but have enough stuff to demonstrate features like
--- the howitzer and building and destruction"): untouched countryside for two soldiers, one per side, who build their
--- own trenches, sandbags and guns with the shovel (user: "no guns should spawn on the map ... the map should look
--- untouched and let war ruin it"). Built off Map 1, 2,800 studs north of it, by the same Greybox (Rules/MapTerrain):
+-- the howitzer and building and destruction"): untouched countryside where soldiers build their own trenches,
+-- sandbags and guns with the shovel (user: "no guns should spawn on the map ... the map should look untouched and let
+-- war ruin it"), played as a zone-capture free-for-all (user: "let's make this a zone capture FFA map"; Config/ZoneMatch).
+-- Built off Map 1, 2,800 studs north of it, by the same Greybox (Rules/MapTerrain):
 --   require(game.ServerStorage.Dev.Greybox:Clone()).build("Playtest")
--- Rebuilding Map 1 clears all terrain, so rebuild this after it. Spawning on it: src/server/Playtest.
+-- Rebuilding Map 1 clears all terrain, so rebuild this after it. The match on it: src/server/ZoneMatch.
 -- Fair by construction: point-symmetric about `mirror` (the ground, its trees, every piece below and its mirror image).
 -- Its length is set by the howitzer's shortest range (~201 studs at 80 degrees, Config/Artillery): a howitzer built
--- by either spawn reaches the other side's brick cottage.
+-- by an end spawn reaches the brick cottage at the other end.
 -- Pieces are written for the West half in local studs from the centre (x along the front, West = -x) and mirrored.
 
 local CX, CZ = 0, 2800 -- world position of the centre
@@ -43,10 +44,14 @@ local west = {
 	clear = {
 		{ id = "SpawnField", minX = -150, maxX = -112, minZ = -24, maxZ = 24 },
 	},
+	-- the zone's spots (the centre cottage's front yard, the brick cottage's, the shed's: with their mirrors, 6) and the
+	-- spawn points (Config/ZoneMatch), both kept clear of trees
+	spots = { { 0, 18 }, { -95, -20 }, { -60, 30 } },
+	spawns = { { -165, 0 }, { -130, 62 }, { -128, -62 }, { -40, -70 } },
 }
 
 local function mirrored(): any
-	local out = { lots = {}, fences = {}, yard = {}, reserved = {} }
+	local out = { lots = {}, fences = {}, yard = {}, reserved = {}, spots = {}, spawns = {}, spawnZones = {} }
 	local function both(x: number, z: number, f: (number, number, number) -> ())
 		f(CX + x, CZ + z, 1)
 		if x ~= 0 or z ~= 0 then
@@ -84,6 +89,26 @@ local function mirrored(): any
 		table.insert(out.reserved, r)
 		table.insert(out.reserved, m)
 	end
+	for _, p in west.spots do
+		for _, sgn in { 1, -1 } do
+			local x, z = CX + sgn * p[1], CZ + sgn * p[2]
+			table.insert(out.spots, { x, z })
+			local r = 12
+			table.insert(
+				out.reserved,
+				{ id = `Zone{#out.spots}`, minX = x - r, maxX = x + r, minZ = z - r, maxZ = z + r }
+			)
+		end
+	end
+	-- every West spawn point, then each one's mirror: S1-S4 West half, S5-S8 East
+	for _, sgn in { 1, -1 } do
+		for _, p in west.spawns do
+			table.insert(out.spawns, { CX + sgn * p[1], CZ + sgn * p[2] })
+		end
+	end
+	for i, p in out.spawns do
+		out.spawnZones[`S{i}`] = { minX = p[1] - 5, maxX = p[1] + 5, minZ = p[2] - 5, maxZ = p[2] + 5 }
+	end
 	return out
 end
 
@@ -108,16 +133,11 @@ local Playtest = {
 	fogEnd = 600,
 
 	sectors = {},
-	spawnZones = {
-		West = rect(-172, -150, -12, 12),
-		East = flip(rect(-172, -150, -12, 12)),
-	},
-	-- who spawns where (src/server/Playtest): each side's uniform kit (Config/Uniforms.Kits), its zone above, facing
-	-- the other side
-	sides = {
-		West = { kit = "uniform1", look = { CX + 160, CZ } },
-		East = { kit = "uniform2", look = { CX - 160, CZ } },
-	},
+	-- a little square round each spawn point (kept clear of trees, Rules/MapTerrain)
+	spawnZones = pieces.spawnZones,
+	-- the zone-capture match (Config/ZoneMatch, src/server/ZoneMatch): the spots the zone moves between and the spawn
+	-- points ({ x, z } world studs)
+	zoneMatch = { spots = pieces.spots, spawns = pieces.spawns },
 
 	terrain = {
 		minY = -24,
