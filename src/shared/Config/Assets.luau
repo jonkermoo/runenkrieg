@@ -240,6 +240,16 @@ local Assets = {
 			fidelity = "Hull",
 			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
 		},
+		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown
+		-- at a time
+		barbed_wire = {
+			id = 106200729480297,
+			category = "Props",
+			folder = "Wire",
+			source = "assets/props/barbed_wire.fbx",
+			generator = "tools/blender/wire/wire.py",
+			description = "A barbed wire section 8 long, 4 wide, 3.1 high, in piece space (x along, -4 to 4; y up from the ground; z across; Origin at 0), in three looks: standing (Pickets: two staggered rows of timber pickets; Strands: a strand along each row's tops and one low; Coil: one round concertina between the rows), stage 1 (BundlePickets stacked on the ground, BundleWire: the coil pushed shut beside them), broken (WreckPickets knocked flat or snapped, WreckWire: the coil crushed and torn in three, cut strands). Barbs are in their wire's mesh.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",

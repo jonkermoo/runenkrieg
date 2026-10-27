@@ -494,12 +494,52 @@ function Build.inBox(lx: number, ly: number, lz: number, sx: number, sy: number,
 	return math.abs(lx) <= sx / 2 and math.abs(ly) <= sy / 2 and math.abs(lz) <= sz / 2
 end
 
--- the wire's harm over `dt` seconds to a soldier moving at `speed` studs/s (Config/Build.Wire)
-function Build.wireHarm(speed: number, dt: number, w: any): number
-	if speed <= w.moving or dt <= 0 then
+-- the wire's harm over `dt` seconds to a soldier moving at `speed` studs/s (Config/Build.Wire); its own team's soldiers
+-- (`friend`) are slowed but never hurt
+function Build.wireHarm(speed: number, dt: number, w: any, friend: boolean?): number
+	if friend or speed <= w.moving or dt <= 0 then
 		return 0
 	end
 	return w.damage * dt
+end
+
+-- How a barbed wire looks (Config/Build.Wire): "Blueprint" before any work, "Bundle" while partly built, "Standing" at
+-- full work, and once it has stood, "Broken" under `w.broken` of its HP (it then slows and hurts nobody)
+export type WireLook = "Blueprint" | "Bundle" | "Standing" | "Broken"
+
+-- whether a wire that has stood is broken: under `w.broken` of its HP
+function Build.wireBroken(hp: number, maxHP: number, w: any): boolean
+	return hp < maxHP * w.broken
+end
+
+function Build.wireLook(built: boolean, work: number, need: number, hp: number, maxHP: number, w: any): WireLook
+	if built then
+		return if Build.wireBroken(hp, maxHP, w) then "Broken" else "Standing"
+	end
+	if work <= 0 then
+		return "Blueprint"
+	end
+	return if work >= need then "Standing" else "Bundle"
+end
+
+-- A shovel swing at a wire that has stood (`build`: a Build swing by its team, else a Destroy swing): its HP after,
+-- and whether it is gone. A Build swing stands a broken wire back up at full HP and leaves a standing one as it is.
+function Build.wireSwing(hp: number, maxHP: number, build: boolean, w: any): (number, boolean)
+	if build then
+		return if Build.wireBroken(hp, maxHP, w) then maxHP else hp, false
+	end
+	local left = math.max(hp - w.destroy, 0)
+	return left, left <= 0
+end
+
+-- How far a shaken wire is pushed `t` seconds into a shake (Config/Build.Wire: `shake` long, `wobble` studs, `rate` Hz):
+-- a quick wobble that dies away to rest at the end, 0 outside the shake
+function Build.wireShake(t: number, w: any): number
+	if t < 0 or t >= w.shake then
+		return 0
+	end
+	local fade = 1 - t / w.shake
+	return w.wobble * fade * fade * math.sin(2 * math.pi * w.rate * t)
 end
 
 return Build
