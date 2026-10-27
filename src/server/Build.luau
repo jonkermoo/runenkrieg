@@ -278,6 +278,13 @@ local function showWire(r: Rec)
 	end
 end
 
+-- a wire shakes and rattles (src/client/WireShake) from `at`: when it takes damage (Destroy swings, blasts; user
+-- 2026-10-27: "both", as well as each tick it hurts someone, src/server/Wire)
+local function shakeWire(r: Rec, at: Vector3)
+	r.model:SetAttribute("RattleFrom", at)
+	r.model:SetAttribute("ShakeAt", workspace:GetServerTimeNow())
+end
+
 local function remove(r: Rec, debris: boolean)
 	if not recs[r.model] then
 		return
@@ -656,6 +663,9 @@ local function work(player: Player, target: any, mode: any)
 		r.hp = left
 		r.worked = now
 		apply(r)
+		if mode == "Destroy" then
+			shakeWire(r, root.Position)
+		end
 		return
 	end
 	if mode == "Build" and (not own or r.work >= r.need) then
@@ -715,6 +725,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 					table.insert(cut, r)
 				else
 					showWire(r) -- (worn under half it lies broken)
+					shakeWire(r, position)
 				end
 			end
 		elseif r.piece.kind == "Sandbags" then
