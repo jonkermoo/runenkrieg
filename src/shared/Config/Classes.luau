@@ -19,7 +19,9 @@ export type Def = {
 }
 
 -- what everyone may build (user: "everyone else can only build trenches and other small assets")
-local SMALL = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge" } -- (Hesco: user 2026-10-27, a small asset)
+-- (Hesco barriers and sandbag piles are the Engineer's since round 7, user 2026-10-27: "hesco barriers should and
+-- sandbags should be engineer only")
+local SMALL = { "Trench", "Wire", "Bridge" }
 
 local Classes = {
 	Currency = "Marks", -- the currency's name, shown in the loadout menu
@@ -55,12 +57,14 @@ local Classes = {
 	-- the classes in the menu's order
 	List = { "Rifleman", "Grenadier", "AutoRifler", "Shotgunner", "Engineer", "Mage" },
 	Defs = {
+		-- the plate helmet and the mage's goggles (user 2026-10-27: "goggles on mage, armored on rifle")
 		Rifleman = {
 			name = "Rifleman",
 			blurb = "Bolt-action rifle",
 			cost = 0,
 			primary = "weapon",
 			grenades = false,
+			helmet = "altHelmet",
 			builds = SMALL,
 		},
 		Grenadier = {
@@ -102,7 +106,15 @@ local Classes = {
 			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun" },
 			locked = true,
 		},
-		Mage = { name = "Mage", blurb = "Rune staff", cost = 200, primary = "staff", grenades = false, builds = SMALL },
+		Mage = {
+			name = "Mage",
+			blurb = "Rune staff",
+			cost = 200,
+			primary = "staff",
+			grenades = false,
+			helmet = "goggles",
+			builds = SMALL,
+		},
 	} :: { [string]: Def },
 	-- each kit's class gear beyond Config/Uniforms.Kits (its bolt rifle, grenades, shovel and helmet): Config/Weapons
 	-- and Config/Assets entries
@@ -111,6 +123,7 @@ local Classes = {
 			semi = "rifle_mondragon",
 			staff = "staff_grey",
 			altHelmet = "helmet_stahl_plate",
+			goggles = "helmet_stahl_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_stahl_ammo",
 		},
@@ -118,13 +131,15 @@ local Classes = {
 			semi = "rifle_remington8",
 			staff = "staff_olive",
 			altHelmet = "helmet_m33_plate",
+			goggles = "helmet_m33_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_m33_ammo",
 		},
 		uniform3 = {
 			semi = "rifle_winchester1907",
-			staff = "staff_white",
+			staff = "staff_brown",
 			altHelmet = "helmet_adrian_visor",
+			goggles = "helmet_brodie_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_brodie_ammo",
 		},

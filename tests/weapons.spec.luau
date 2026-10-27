@@ -197,7 +197,7 @@ return {
 		end
 	end,
 	["every team has its staff, all one model, every part colored"] = function()
-		for _, team in { "grey", "olive", "white" } do
+		for _, team in { "grey", "olive", "brown" } do
 			local w = W["staff_" .. team]
 			assert(w and w.class == "Staff" and w.asset == "staff", `no {team} staff`)
 			for _, part in { "Wood", "Iron", "Accent", "Wrap", "Ribbon" } do

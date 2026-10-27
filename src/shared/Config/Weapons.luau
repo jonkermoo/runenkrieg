@@ -947,7 +947,7 @@ local Weapons: { [string]: Weapon } = {
 			firstPersonTwo = 139715120468537,
 		},
 	},
-	-- The white team's Winchester 1907: 15 + 1 from a detachable box swapped whole, the slowest reload (5 s), the
+	-- The brown team's Winchester 1907: 15 + 1 from a detachable box swapped whole, the slowest reload (5 s), the
 	-- heaviest (weight 1.25: more sway). The bolt is cocked by the plunger under the barrel.
 	rifle_winchester1907 = {
 		asset = "rifle_winchester1907",
@@ -1055,7 +1055,7 @@ local Weapons: { [string]: Weapon } = {
 		Wrap = { 150, 104, 80 }, -- leather, as the helmet straps
 		Ribbon = { 116, 114, 72 }, -- the olive cloth
 	}),
-	staff_white = staff("Staff (White)", {
+	staff_brown = staff("Staff (Brown)", {
 		Wood = { 178, 154, 118 }, -- pale ash
 		Iron = { 128, 134, 140 }, -- light steel
 		Accent = { 196, 198, 204 }, -- silver
@@ -1065,7 +1065,7 @@ local Weapons: { [string]: Weapon } = {
 }
 
 -- The thrown grenades, one per team (docs/MILESTONES.md G1, user 2026-10-18; Config/Grenades for the throw and the
--- blast; models tools/blender/weapons/grenades.py): the Mills bomb No. 5 (white), the Stielhandgranate M1917 (grey),
+-- blast; models tools/blender/weapons/grenades.py): the Mills bomb No. 5 (brown), the Stielhandgranate M1917 (grey),
 -- the SIPE (olive), each tinted in its team's colours (user: "Team-tinted"). Their own "Grenade" slot, carried by
 -- Config/Grenades.Carried and nothing on the body while put away. Gun space: the origin is the middle of the body (the
 -- stick's: on the handle, where the hand holds), its top (the fuse end) up +Y.

@@ -2,7 +2,11 @@
 -- The title screen and the loadout menu (user 2026-10-27), over the live match (src/client/MatchCam). There is no
 -- character until the player deploys (src/server/Deploy): the title screen shows on join (Play, Customization still
 -- locked, Settings), Play opens the loadout menu, and the loadout menu opens again Config/Classes.MenuAfterDeath
--- seconds after every death; its Back button returns to the title screen. The menu lists the classes (Config/Classes.List: name, blurb, cost; picked, locked or
+-- seconds after every death; its Back button returns to the title screen. Where teams are kept (Config/Teams; the
+-- state's `teams`) its "Change team" button opens three team cards (user 2026-10-27): a gradient placeholder for the
+-- team's art (Palette UI.Hud.Teams) with its name and "count / room" in the middle, the text white where you can join,
+-- red where you can't (Rules/Teams.blocked) and grey on your own. A card you can join asks for a second click (the
+-- change resets your Marks), then goes to the server (Net "Loadout" "Team"), which checks the balance again. The menu lists the classes (Config/Classes.List: name, blurb, cost; picked, locked or
 -- not affordable), the match currency (shown only here, user: "they only see their match currency in the loadout menu
 -- when they are respawning"), and the soldier you'll spawn as, turning slowly: the server's "LoadoutPreview" rig in a
 -- ViewportFrame, playing its primary's ready hold. Deploy lights up once the respawn delay is over (Net "Loadout").
@@ -296,7 +300,89 @@ function Menus.start()
 	local function setTeam(kit: any)
 		local k = type(kit) == "string" and (U.Kits :: any)[kit]
 		local team = title.node.Team :: TextLabel
-		team.Text = if k and k.team then `You fight for the {k.team} army` else ""
+		team.Text = if k and k.army then `For {k.army}` else ""
+	end
+
+	-- the team cards (only where teams are kept: the state's `teams`, src/server/Deploy)
+	local teamGroup, cardsGroup = L.Team, L.Teams
+	local changeTeam = L.ChangeTeam :: TextButton
+	local teamName = L.TeamName :: TextLabel
+	local teamNote = L.TeamNote :: TextLabel
+	local HudTeams = (Palette.UI :: any).Hud.Teams
+	local cardsOpen = false
+	local armed: string? = nil -- the card clicked once, waiting for the second click
+	local function nameOf(kit: string): string
+		local k = (U.Kits :: any)[kit]
+		return if k and k.team then k.team else kit
+	end
+	local cards: { [string]: TextButton } = {}
+	for _, kit in U.Teams do
+		local card = L["Card" .. nameOf(kit)] :: TextButton?
+		if card then
+			cards[kit] = card
+			-- the placeholder for the team's art: its box colours, dark in the middle under the text
+			local t = HudTeams[kit]
+			if t then
+				card.BackgroundColor3 = Color3.new(1, 1, 1)
+				local g = Instance.new("UIGradient")
+				g.Rotation = 90
+				local field, rim = Color3.fromRGB(table.unpack(t.field)), Color3.fromRGB(table.unpack(t.rim))
+				g.Color = ColorSequence.new({
+					ColorSequenceKeypoint.new(0, rim:Lerp(field, 0.5)),
+					ColorSequenceKeypoint.new(0.45, field),
+					ColorSequenceKeypoint.new(1, rim),
+				})
+				g.Parent = card
+			end
+		end
+	end
+	local function renderTeams()
+		local t = state and state.teams
+		teamGroup.Visible = t ~= nil
+		cardsGroup.Visible = t ~= nil and cardsOpen
+		paint(changeTeam, if cardsOpen then "selFill" else "field", if cardsOpen then "selLine" else "line", "text")
+		if not t then
+			armed = nil
+			return
+		end
+		teamName.Text = `{nameOf(t.own)} army`
+		if armed and t.closed[armed] ~= "" then
+			armed = nil
+		end
+		for kit, card in cards do
+			local color = if kit == t.own then "textDim" elseif t.closed[kit] ~= "" then "noText" else "selText"
+			local name = L["Name" .. nameOf(kit)] :: TextLabel
+			local count = L["Count" .. nameOf(kit)] :: TextLabel
+			name.TextColor3, count.TextColor3 = rgb(color), rgb(color)
+			count.Text = `{t.counts[kit] or 0} / {t.room}`
+			local stroke = card:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				stroke.Color = rgb(if kit == armed then "selLine" else "line")
+			end
+		end
+		teamNote.Text = if armed
+			then `Click {nameOf(armed)} again to join: your Marks reset`
+			else "Changing team resets your Marks"
+	end
+	changeTeam.Activated:Connect(function()
+		cardsOpen = not cardsOpen
+		armed = nil
+		renderTeams()
+	end)
+	for kit, card in cards do
+		card.Activated:Connect(function()
+			local t = state and state.teams
+			if not t or t.closed[kit] ~= "" then
+				return
+			end
+			if armed == kit then
+				armed, cardsOpen = nil, false
+				Net.event("Loadout"):FireServer("Team", kit)
+			else
+				armed = kit
+			end
+			renderTeams()
+		end)
 	end
 
 	local menuOpen = false
@@ -338,6 +424,8 @@ function Menus.start()
 	end
 	local back = L.Back :: TextButton
 	back.Activated:Connect(function()
+		cardsOpen, armed = false, nil
+		renderTeams()
 		open(title)
 	end)
 	local deploy = L.Deploy :: TextButton
@@ -363,6 +451,7 @@ function Menus.start()
 		deployAt = os.clock() + (s.wait or 0)
 		setTeam(s.kit)
 		render()
+		renderTeams()
 		-- a death (the state the server sends as the soldier falls): the menu after a moment, the death seen first
 		if wasAlive ~= false and s.alive == false and not title.gui.Enabled and not loadout.gui.Enabled then
 			deathSeen += 1

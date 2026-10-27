@@ -32,6 +32,7 @@ local Ragdoll = require(script.Parent.Ragdoll)
 local Cfg = require(Shared.Config.DevTools)
 local ClassCfg = require(Shared.Config.Classes)
 local ModeCfg = require(Shared.Config.Modes)
+local TeamCfg = require(Shared.Config.Teams)
 local ModeRules = require(Shared.Rules.Modes)
 local W = require(Shared.Config.Weapons)
 local Map1 = require(Shared.Config.Maps.Map1)
@@ -167,6 +168,9 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		player:SetAttribute(Cfg.Admin.BuildAllAttribute, if value then true else nil)
 	elseif action == "Ammo" then
 		player:SetAttribute(Cfg.Admin.AmmoAttribute, if value then true else nil)
+	elseif action == "KeptTeams" then
+		-- test the kept teams and the loadout menu's team cards outside Normal (Config/Teams; src/server/Deploy)
+		workspace:SetAttribute(TeamCfg.DevAttribute, if value then true else nil)
 	elseif action == "RespawnAll" then
 		for _, p in Players:GetPlayers() do
 			task.spawn(function()
