@@ -152,7 +152,7 @@ local Build = {
 
 	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and
 	-- weapons will do damage to a trench too, but just not a lot. most of it will be explosives. grenades and staffs
-	-- should do the least, howitzer the most"): `hit`, the % of a trench square's or a sandbag column's max HP it takes,
+	-- should do the least, howitzer the most"): `hit`, the % of a trench square's or a sandbag pile's max HP it takes,
 	-- in full within `edge` studs of it (the entry's own `edge` if it has one; a trench: its hole, walls and banks, so a blast on the bank counts; user:
 	-- "make the ground around each segment to also be part of the trench hit box"), fading to nothing at `reach`;
 	-- `wire`, the % of a barbed wire's HP; `bridge`, of a bridge's (Bridge below). Bullets only by a direct hit. A blast nobody named (DEV tools) by its
@@ -186,31 +186,24 @@ local Build = {
 			kind = "Trench", -- planned by two clicks, dug block by block (Trench above)
 			work = 8,
 		},
+		-- The sandbag pile (user 2026-10-27: pillow bags, "layer 1 2 bags, layer 2 1 bag", "make it even smaller ... ads
+		-- still wont work", "make the sandbags longer"; the old low and high walls removed: "remove the old sand bag piles
+		-- completely, keep the present ones"): Config/Assets `asset`'s meshes, one section for the whole pile, built and
+		-- worn on HP (Sandbags.hp below), `bags` standing by its share of HP (with their ties, `<bag>Cord`).
+		-- `width` x `height` x `depth` its footprint (the bags 3.6 long, ties out past them; the top 3.68: under the
+		-- aimed muzzle, over the low cover line, Config/Metrics).
 		{
-			key = "LowWall",
-			name = "Sandbags (low)",
+			key = "SandbagPile",
+			name = "Sandbag pile",
 			kind = "Sandbags",
-			work = 4,
-			-- `columns` of bags, each a section, `rows` high (each row `row` studs), `depth` thick, `width` wide
-			width = 6,
-			depth = 2.2,
-			columns = 3,
-			rows = 3,
-			row = 1.0,
-			maxSlope = 25,
-		},
-		{
-			key = "HighWall",
-			name = "Sandbags (high)",
-			kind = "Sandbags",
-			work = 6,
-			width = 6,
-			depth = 2.6,
-			columns = 3,
-			rows = 5,
-			row = 1.1,
-			-- a loophole: this row of the middle column left open (the standing aimed muzzle, 4.3 high, looks out)
-			loophole = 4,
+			asset = "sandbag_pile",
+			bags = { "Bag1", "Bag2", "Bag3" },
+			-- stage 1's meshes: the scraped ground (under it the whole time) and the empty sacks (until a bag is filled);
+			-- neither blocks anything
+			stage1 = { ground = "Patch", sacks = "Sacks" },
+			width = 8.3,
+			height = 3.68,
+			depth = 1.7,
 			maxSlope = 25,
 		},
 		-- The Hesco barrier (user 2026-10-27; Hesco below): a 6 x 6 basket of mesh and liner, `height` high (just over
@@ -358,8 +351,17 @@ local Build = {
 		},
 	},
 
-	-- Sandbags: each column a section of class "Sandbag" (Config/Damage.Blast.Fail), shovels tear the whole piece down
-	Sandbags = { columnHP = 400, shade = 0.06 },
+	-- Sandbag piles: one section of class "Sandbag" (Config/Damage.Blast.Fail) with `hp.max` HP, set `sink` studs into the
+	-- ground (uneven ground shows no gap), each bag's tone jittered by `shade`. On HP, like every structure (user
+	-- 2026-10-27: "all structures follow an HP strucutre, not how many digs", "stage 1 should always be when its placed
+	-- ... like a cannon, where if its placed, something will always be down"): laid at `hp.place` (stage 1, below),
+	-- a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`;
+	-- weapons take Structures above; its bags stand by HP (Rules.pileBags: one at least while it has any), gone at 0.
+	-- Stage 1 (user 2026-10-27: "a new stage 1, where no sandbags are placed, that way we can have 1 new sandbag per
+	-- dig"): laid at 0 HP (user 2026-10-27: "yes", like the Hesco), the pile is its scraped ground and empty sacks
+	-- (Pieces `stage1`); each Build swing fills a bag, every `swing` of HP a bag (0, 34, 68, 100: no bag, one, two, all
+	-- three; Rules.pileBags).
+	Sandbags = { hp = { max = 100, place = 0, swing = 34, destroy = 10 }, shade = 0.06, sink = 0.15 },
 
 	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
 	-- barriers block stuff. meaning stage 1 and 2 barriers will provide little to no protection"): the wire, liner and
