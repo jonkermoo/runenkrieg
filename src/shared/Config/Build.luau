@@ -296,7 +296,7 @@ local Build = {
 	-- (Config/Palette.Artillery.Paint).
 	Guns = {
 		hp = { max = 100, place = 0 },
-		paint = { uniform1 = "Grey", uniform2 = "Olive", uniform3 = "White" },
+		paint = { uniform1 = "Grey", uniform2 = "Olive", uniform3 = "Brown" },
 	},
 
 	-- The building site round a gun being built (Rules/Scaffold, src/server/Build; user 2026-10-26: "include building

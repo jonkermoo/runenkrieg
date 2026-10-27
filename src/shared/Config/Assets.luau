@@ -79,7 +79,7 @@ local Assets = {
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
 			generator = "tools/blender/weapons/smle.py",
-			description = "Lee-Enfield SMLE Mk III, the white team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
+			description = "Lee-Enfield SMLE Mk III, the brown team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
 		},
 		rifle_mondragon = {
 			id = 77357570578798,
@@ -103,7 +103,7 @@ local Assets = {
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_winchester1907.fbx",
 			generator = "tools/blender/weapons/winchester1907.py",
-			description = "Winchester 1907 semi-automatic rifle, the white team's (W2; built from its trace: tools/blender/weapons/trace/winchester1907.py; review assets/weapons/white/review/rifle_winchester1907_v6.blend; a detachable 15-round box). Rigged from Config/Weapons.",
+			description = "Winchester 1907 semi-automatic rifle, the brown team's (W2; built from its trace: tools/blender/weapons/trace/winchester1907.py; review assets/weapons/white/review/rifle_winchester1907_v6.blend; a detachable 15-round box). Rigged from Config/Weapons.",
 		},
 		staff = {
 			id = 109018663192748, -- v2: team accents (binding, ribbon, head ring, foot cap), colored per team
@@ -111,7 +111,7 @@ local Assets = {
 			folder = "Shared/Staffs",
 			source = "assets/weapons/shared/staff.fbx",
 			generator = "tools/blender/weapons/staff.py",
-			description = "The mage staff, shared by every team: knotted faceted wood, an iron sleeve at the grip and a foot cap, a metal band and a ring under the head, a cloth binding and a ribbon (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged and colored per team from Config/Weapons (staff_grey / staff_olive / staff_white).",
+			description = "The mage staff, shared by every team: knotted faceted wood, an iron sleeve at the grip and a foot cap, a metal band and a ring under the head, a cloth binding and a ribbon (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged and colored per team from Config/Weapons (staff_grey / staff_olive / staff_brown).",
 		},
 		shotgun_m1897 = {
 			-- v3: the hammer in its own slot, cocked lower under the bolt (v2 118242502631158: the bolt's channel in the
@@ -130,7 +130,7 @@ local Assets = {
 			folder = "White/Grenades",
 			source = "assets/weapons/white/grenade_mills.fbx",
 			generator = "tools/blender/weapons/grenades.py",
-			description = "Mills bomb No. 5, the white team's grenade (from references/weapons/grenades/mills_*.jpg): six columns of segments, base and filler plugs, the lever, pin and ring. Rigged from Config/Weapons.",
+			description = "Mills bomb No. 5, the brown team's grenade (from references/weapons/grenades/mills_*.jpg): six columns of segments, base and filler plugs, the lever, pin and ring. Rigged from Config/Weapons.",
 		},
 		grenade_stick = {
 			id = 76412002834293,
@@ -309,7 +309,7 @@ local Assets = {
 			uniform = "uniform3",
 			source = "assets/teams/white/uniform/uniform3.json",
 			generator = "tools/clothing/uniform.py",
-			description = "The white team's uniform (chocolate service tunic, puttees): Shirt + Pants images from "
+			description = "The brown team's uniform (chocolate service tunic, puttees): Shirt + Pants images from "
 				.. "Config/Uniforms.Kits.uniform3.",
 		},
 		bandage_roll = {
@@ -443,7 +443,7 @@ local Assets = {
 			source = "assets/teams/white/packs/pack_p08.fbx",
 			generator = "tools/blender/gear/pack.py",
 			sling = 1.1, -- the mess tin and its strap reach 1.59
-			description = "British 1908 web large pack, the white team's: a square web box, a flap two thirds down, two short "
+			description = "British 1908 web large pack, the brown team's: a square web box, a flap two thirds down, two short "
 				.. "straps, a mess tin on the flap, a big blanket roll across the top, shoulder bands (468 tris).",
 		},
 		helmet_stahl = {
@@ -584,12 +584,12 @@ local Assets = {
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/default/helmet_brodie.fbx",
 			generator = "tools/blender/gear/helmet.py",
-			description = "Brodie Mk I, the future white team's default (reworked 2026-10-19): a "
+			description = "Brodie Mk I, the brown team's default (reworked 2026-10-19): a "
 				.. "rounded bowl, a wide brim sloping to a rolled lip, oval front to back, a crown rivet, worn tipped "
 				.. "back 8 degrees; hollow, 10 sides (280 tris).",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = 0.06,
 				shell = "brodie",
 				center = { 0, 0.3781, 0.0023 },
@@ -602,10 +602,10 @@ local Assets = {
 			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_brodie (unchanged) with a leather strap round the dome and big aviator goggles on "
-				.. "the front; flat teal lenses. White team.",
+				.. "the front; flat teal lenses. Brown team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = 0.06,
 				parts = { Strap = { 58, 40, 28 }, Lens = { 72, 176, 150 } }, -- dark leather on the chocolate (user 2026-10-21)
 				shell = "brodie",
@@ -619,10 +619,10 @@ local Assets = {
 			source = "assets/teams/white/helmets/variants/helmet_brodie_ammo.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_brodie (unchanged) with a leather band low round the dome and five red shotgun "
-				.. "shells on steel heads on the wearer's right, held by a thin flat strap. White team.",
+				.. "shells on steel heads on the wearer's right, held by a thin flat strap. Brown team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = 0.06,
 				parts = { Band = { 58, 40, 28 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } }, -- dark leather band
 				shell = "brodie",
@@ -637,7 +637,7 @@ local Assets = {
 			generator = "tools/blender/gear/slit.py",
 			description = "The default helmet_brodie (unchanged) with a hole each side of the crown cut to the Fennek ears' "
 				.. "outline, shell and fur blades (--shape hull --tufts), a rolled steel ring round each (user "
-				.. "2026-10-21/25). Worn by Fennek (Rules/Looks.helmetEntry). White team (848 tris).",
+				.. "2026-10-21/25). Worn by Fennek (Rules/Looks.helmetEntry). Brown team (848 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- the brown team's chocolate (white-team branch)
@@ -687,12 +687,12 @@ local Assets = {
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_adrian_visor.fbx",
 			generator = "tools/blender/gear/accessory.py",
-			description = "Adrian M1915, the white team's second helmet (base: assets/teams/white/helmets/default/helmet_adrian.fbx, "
+			description = "Adrian M1915, the brown team's second helmet (base: assets/teams/white/helmets/default/helmet_adrian.fbx, "
 				.. "helmet.py): a rounded bowl with a crest, a bead and sloping front and back peaks; a three-slat steel "
-				.. "visor hinged up against the bowl, so the face shows. Hollow, 848 tris. White team (colours a proposal).",
+				.. "visor hinged up against the bowl, so the face shows. Hollow, 848 tris. Brown team (colours a proposal).",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = -0.02, -- the front peak sits 0.21 above the head centre (eyes show)
 				parts = { Visor = { 168, 170, 174 } },
 				shell = "adrian",

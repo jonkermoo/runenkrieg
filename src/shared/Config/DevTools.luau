@@ -177,7 +177,7 @@ local DevTools = {
 		Kits = {
 			{ kit = "uniform1", name = "Grey" },
 			{ kit = "uniform2", name = "Olive" },
-			{ kit = "uniform3", name = "White" },
+			{ kit = "uniform3", name = "Brown" },
 		},
 		-- Stand; Walk: back and forth along its facing; Strafe: side to side, always facing the way it was put
 		Moves = { "Stand", "Walk", "Strafe" },
