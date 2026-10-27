@@ -4,6 +4,8 @@
 -- Drag key (Config/Settings Key_Drag) asks the server to start, and again to let go. While the server's "Dragging"
 -- attribute is on the local soldier: no jumping, the pull animation looping over the walk legs (tracks played here
 -- replicate to everyone); the slow walk and no sprint are src/client/Stance's, facing the body src/client/BodyTurn's.
+-- Dragged yourself (the "Dragged" attribute), the Break-free key (Config/Settings Key_DragEscape) asks the server to let
+-- you go and stand; it does only once your knock's stand-up time is over (src/server/Dragging).
 
 local CollectionService = game:GetService("CollectionService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -76,6 +78,7 @@ local function prompt(): BillboardGui
 	gui.Size = UDim2.fromOffset(P.Size[1], P.Size[2])
 	gui.StudsOffsetWorldSpace = Vector3.new(0, P.Above, 0)
 	gui.AlwaysOnTop = true
+	gui.ResetOnSpawn = false -- made once: a respawn would delete it for good (no prompt after the first death)
 	gui.Enabled = false
 	local t = Instance.new("TextLabel")
 	t.Name = "Text"
@@ -156,6 +159,37 @@ function Dragging.start()
 	end
 	bind()
 	Settings.changed("Key_Drag", bind)
+
+	-- breaking free while dragged: bound only then, over the jump (a body that is down doesn't jump anyway)
+	local function escape(_, state: Enum.UserInputState): Enum.ContextActionResult
+		if state == Enum.UserInputState.Begin then
+			Net.event("Drag"):FireServer("Escape")
+		end
+		return Enum.ContextActionResult.Sink
+	end
+	local function bindEscape()
+		local character = player.Character
+		if character and character:GetAttribute("Dragged") == true then
+			ContextActionService:BindActionAtPriority(
+				"DragEscape",
+				escape,
+				false,
+				Enum.ContextActionPriority.High.Value,
+				Settings.key("Key_DragEscape")
+			)
+		else
+			ContextActionService:UnbindAction("DragEscape")
+		end
+	end
+	local function watch(character: Model)
+		character:GetAttributeChangedSignal("Dragged"):Connect(bindEscape)
+		bindEscape()
+	end
+	player.CharacterAdded:Connect(watch)
+	if player.Character then
+		watch(player.Character)
+	end
+	Settings.changed("Key_DragEscape", bindEscape)
 
 	RunService.RenderStepped:Connect(function()
 		local character = player.Character

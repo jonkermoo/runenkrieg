@@ -7,7 +7,8 @@
 -- the knock's `getUp` seconds, unless it is dead: a dead body stays limp, head on, until it is removed at respawn.
 -- A dead body's physics belongs to the server (Studio round 3: a headshot kill stood upright, its owner's push ignored),
 -- so whenever the server owns the body it throws it, and tips it over if it still stands, itself.
--- A body being dragged (src/server/Dragging, the "Dragged" attribute) doesn't get up until it is let go.
+-- A body being dragged (src/server/Dragging, the "Dragged" attribute) doesn't get up until it is let go, or until it
+-- breaks free (Ragdoll.served: only once its knock's own stand-up time is over; the drag doesn't stop that clock).
 -- Players knock themselves through Net "KnockSelf" (Config/Ragdoll.SelfKnocks: the staff's recoil, the float fall).
 
 local Players = game:GetService("Players")
@@ -42,6 +43,8 @@ type Down = {
 	loose: { Motor6D },
 	since: number,
 	getUp: number,
+	knockAt: number, -- the latest knock, and when the body settled after it (nil: not yet): the knock's own stand-up
+	settledAt: number?, -- clock, which a drag doesn't stop (Ragdoll.served)
 	root: BasePart?, -- the HumanoidRootPart and whether it collided before
 	rootCollides: boolean,
 }
@@ -112,7 +115,16 @@ local function loosen(character: Model, torso: BasePart): Down
 	if root then
 		root.CanCollide = false
 	end
-	return { made = made, loose = loose, since = os.clock(), getUp = 0, root = root, rootCollides = rootCollides }
+	local now = os.clock()
+	return {
+		made = made,
+		loose = loose,
+		since = now,
+		getUp = 0,
+		knockAt = now,
+		root = root,
+		rootCollides = rootCollides,
+	}
 end
 
 -- the server's own throw of a body it owns (a dead one): as src/client/Ragdoll does for its own soldier. The death
@@ -170,6 +182,21 @@ local function serverThrow(character: Model, knock: { [string]: number }, direct
 	end)
 end
 
+-- the joints back and what was made for the knock gone: the body gets up (src/client/Ragdoll for a player's own)
+local function stand(character: Model, made: Down)
+	for _, m in made.loose do
+		m.Enabled = true
+	end
+	if made.root then
+		made.root.CanCollide = made.rootCollides
+	end
+	for _, i in made.made do
+		i:Destroy()
+	end
+	down[character] = nil
+	character:SetAttribute("Ragdolled", nil)
+end
+
 -- Knocks `character` with the Config/Ragdoll.Knocks entry `name`, thrown along `direction` (flat; it also tumbles that
 -- way), `scale` the caller's factor on the push (default 1), `damage` the health the hit took (a live soldier stays down
 -- longer the more it took, Config/Ragdoll.ByDamage; nil: none).
@@ -186,6 +213,7 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 	if d then
 		-- already down: thrown again, and the settle wait starts over (the longer of the two get-up waits)
 		d.since, d.getUp = os.clock(), math.max(d.getUp, getUp)
+		d.knockAt, d.settledAt = d.since, nil
 		Net.event("Knock"):FireAllClients(character, name, direction, k)
 		Ragdoll.knocked:Fire(character, name, direction, k)
 		serverThrow(character, knock, direction, k)
@@ -206,13 +234,24 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 	task.spawn(function()
 		while character.Parent do
 			task.wait()
-			if character:GetAttribute("Dragged") == true then
-				made.since = os.clock() -- dragged (src/server/Dragging): not up until let go, then the wait starts over
+			if down[character] ~= made then
+				return -- up already: broke free of a drag (Ragdoll.rise)
 			end
-			local t = os.clock() - made.since
-			if t >= Cfg.maxDown or (t >= Cfg.minDown and torso.AssemblyLinearVelocity.Magnitude < Cfg.still) then
+			local now = os.clock()
+			local dragged = character:GetAttribute("Dragged") == true
+			local speed = torso.AssemblyLinearVelocity.Magnitude
+			if not made.settledAt and RagdollRules.settled(now - made.knockAt, speed, dragged, Cfg) then
+				made.settledAt = now
+			end
+			if dragged then
+				made.since = now -- dragged (src/server/Dragging): not up until let go, then the wait starts over
+			end
+			if RagdollRules.settled(now - made.since, speed, false, Cfg) then
 				local since = made.since
 				task.wait(made.getUp)
+				if down[character] ~= made then
+					return
+				end
 				if made.since == since and character:GetAttribute("Dragged") ~= true then
 					break -- (knocked again meanwhile: the wait starts over)
 				end
@@ -221,18 +260,24 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		if not character.Parent or humanoid.Health <= 0 then
 			return -- dead: limp for good
 		end
-		for _, m in made.loose do
-			m.Enabled = true
-		end
-		if made.root then
-			made.root.CanCollide = made.rootCollides
-		end
-		for _, i in made.made do
-			i:Destroy()
-		end
-		down[character] = nil
-		character:SetAttribute("Ragdolled", nil)
+		stand(character, made)
 	end)
+end
+
+-- Whether a knocked-down `character` has been down its knock's own stand-up time (settled, then its get-up wait),
+-- counting the time it was dragged: then it may break free of a drag (src/server/Dragging).
+function Ragdoll.served(character: Model): boolean
+	local d = down[character]
+	return d ~= nil and RagdollRules.served(d.settledAt, d.getUp, os.clock())
+end
+
+-- Stands a living `character` that has served its time (Ragdoll.served) up now: it broke free of a drag (let go first).
+function Ragdoll.rise(character: Model)
+	local d = down[character]
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if d and humanoid and humanoid.Health > 0 and Ragdoll.served(character) then
+		stand(character, d)
+	end
 end
 
 function Ragdoll.start()
