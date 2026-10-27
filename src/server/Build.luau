@@ -114,6 +114,12 @@ local function digShare(player: Player): number?
 	return if player:GetAttribute(DevCfg.Attribute) == true and type(share) == "number" then share else nil
 end
 
+-- a dev player with the admin panel's build anything on (Config/DevTools.Admin.BuildAllAttribute): any class builds
+-- every piece
+local function buildsAll(player: Player): boolean
+	return player:GetAttribute(DevCfg.Attribute) == true and player:GetAttribute(DevCfg.Admin.BuildAllAttribute) == true
+end
+
 local function refuse(player: Player, reason: string)
 	Net.event("Build"):FireClient(player, "Refused", reason)
 end
@@ -455,7 +461,8 @@ local function place(player: Player, key: any, at: any)
 		team = count(team, nil),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
-		allowed = Loadouts.mayBuild(character, piece.kind), -- (only engineers build guns: Config/Classes)
+		-- (only engineers build guns: Config/Classes; the admin panel's build anything: everyone)
+		allowed = Loadouts.mayBuild(character, piece.kind) or buildsAll(player),
 	})
 	if not ok then
 		refuse(player, reason or "Can't build here")
@@ -603,7 +610,7 @@ local function work(player: Player, target: any, mode: any)
 	if mode == "Build" and (not own or r.work >= r.need) then
 		return
 	end
-	if mode == "Build" and not Loadouts.mayBuild(character, r.piece.kind) then
+	if mode == "Build" and not Loadouts.mayBuild(character, r.piece.kind) and not buildsAll(player) then
 		refuse(player, "Engineers only") -- (anyone may take one apart)
 		return
 	end

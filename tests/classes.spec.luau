@@ -162,4 +162,12 @@ return {
 			assert(card.affordable == (not d.locked and d.cost <= 60), card.key)
 		end
 	end,
+	["an admin's pinned class wins, locked or not, and is free"] = function()
+		local key, cost = R.resolve("Mage", 200, C.Defs, C.Default, "Engineer")
+		assert(key == "Engineer" and cost == 0, "pinned engineer, free")
+		key, cost = R.resolve("Mage", 200, C.Defs, C.Default, "Nope")
+		assert(key == "Mage" and cost == 200, "an unknown pin is ignored")
+		key, cost = R.resolve("Mage", 200, C.Defs, C.Default, nil)
+		assert(key == "Mage" and cost == 200, "no pin: as before")
+	end,
 }
