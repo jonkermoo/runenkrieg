@@ -8,8 +8,8 @@ local A = require("../src/shared/Config/Assets")
 local BuildCfg = require("../src/shared/Config/Build")
 
 return {
-	["the user's prices: rifleman free, grenadier 50, auto rifler 100, engineer 150 (locked), mage 200"] = function()
-		local want = { Rifleman = 0, Grenadier = 50, AutoRifler = 100, Engineer = 150, Mage = 200 }
+	["the user's prices: rifleman free, grenadier 50, auto rifler 100, shotgunner 150, engineer 150 (locked), mage 200"] = function()
+		local want = { Rifleman = 0, Grenadier = 50, AutoRifler = 100, Shotgunner = 150, Engineer = 150, Mage = 200 }
 		for key, cost in want do
 			assert(C.Defs[key] and C.Defs[key].cost == cost, `{key} costs {cost}`)
 		end
@@ -71,6 +71,32 @@ return {
 			local m = R.gear("Mage", kitName, C.Defs, U.Kits, C.Gear)
 			assert(W[m.Primary :: string].class == "Staff", kitName .. " staff")
 		end
+	end,
+	["shotgunner: the team's pump shotgun, the shell-band helmet, no grenades, small builds"] = function()
+		assert(C.Defs.Shotgunner and not C.Defs.Shotgunner.locked, "pickable")
+		assert(table.find(C.List, "Shotgunner"), "in the menu")
+		for _, kitName in U.Teams do
+			local kit = U.Kits[kitName] :: any
+			local s = R.gear("Shotgunner", kitName, C.Defs, U.Kits, C.Gear)
+			local w = W[s.Primary :: string] :: any
+			assert(w.class == "Shotgun" and w.slot == "Primary", kitName .. " the pump shotgun")
+			assert(s.Grenade == nil and s.Shovel == kit.shovel, kitName .. " no grenades, the shovel")
+			local h = A.Entries[s.headwear :: string] :: any
+			assert(
+				s.headwear ~= kit.headwear and string.find(s.headwear :: string, "_ammo$"),
+				kitName .. " shell helmet"
+			)
+			assert(h.folder == A.Entries[kit.headwear].folder, kitName .. " the team's own helmet")
+			assert(h.fit.shell == (A.Entries[kit.headwear] :: any).fit.shell, kitName .. " fits the kit's hair")
+		end
+		for kind in { Trench = 1, Sandbags = 1, Wire = 1, Hesco = 1, Bridge = 1 } do
+			assert(R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind)
+		end
+		assert(not R.mayBuild("Shotgunner", "Gun", C.Defs, C.Default), "no guns")
+		local key, cost = R.resolve("Shotgunner", 149, C.Defs, C.Default)
+		assert(key == C.Default and cost == 0, "short: the free default")
+		key, cost = R.resolve("Shotgunner", 150, C.Defs, C.Default)
+		assert(key == "Shotgunner" and cost == 150, "paid")
 	end,
 	["only the engineer builds guns; everyone builds trenches, sandbags and wire"] = function()
 		local kinds: { [string]: boolean } = {}

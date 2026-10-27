@@ -53,7 +53,7 @@ local Classes = {
 	Start = 0, -- points at the start of every match
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
-	List = { "Rifleman", "Grenadier", "AutoRifler", "Engineer", "Mage" },
+	List = { "Rifleman", "Grenadier", "AutoRifler", "Shotgunner", "Engineer", "Mage" },
 	Defs = {
 		Rifleman = {
 			name = "Rifleman",
@@ -81,6 +81,17 @@ local Classes = {
 			helmet = "altHelmet",
 			builds = SMALL,
 		},
+		-- the team's pump shotgun and the shotgun shell helmet, no grenades (user 2026-10-27: "can you add the shotgun
+		-- class for 150?")
+		Shotgunner = {
+			name = "Shotgunner",
+			blurb = "Pump shotgun, shell-band helmet",
+			cost = 150,
+			primary = "shotgun",
+			grenades = false,
+			helmet = "shellHelmet",
+			builds = SMALL,
+		},
 		-- coming later: the only class that builds artillery (user: "only they can build artilleries"); price a placeholder
 		Engineer = {
 			name = "Engineer",
@@ -96,9 +107,27 @@ local Classes = {
 	-- each kit's class gear beyond Config/Uniforms.Kits (its bolt rifle, grenades, shovel and helmet): Config/Weapons
 	-- and Config/Assets entries
 	Gear = {
-		uniform1 = { semi = "rifle_mondragon", staff = "staff_grey", altHelmet = "helmet_stahl_plate" },
-		uniform2 = { semi = "rifle_remington8", staff = "staff_olive", altHelmet = "helmet_m33_plate" },
-		uniform3 = { semi = "rifle_winchester1907", staff = "staff_white", altHelmet = "helmet_adrian_visor" },
+		uniform1 = {
+			semi = "rifle_mondragon",
+			staff = "staff_grey",
+			altHelmet = "helmet_stahl_plate",
+			shotgun = "shotgun_m1897",
+			shellHelmet = "helmet_stahl_ammo",
+		},
+		uniform2 = {
+			semi = "rifle_remington8",
+			staff = "staff_olive",
+			altHelmet = "helmet_m33_plate",
+			shotgun = "shotgun_m1897",
+			shellHelmet = "helmet_m33_ammo",
+		},
+		uniform3 = {
+			semi = "rifle_winchester1907",
+			staff = "staff_white",
+			altHelmet = "helmet_adrian_visor",
+			shotgun = "shotgun_m1897",
+			shellHelmet = "helmet_brodie_ammo",
+		},
 	} :: { [string]: { [string]: string } },
 	-- points earned (user: kills, assists, captures, building; prices scaled down, so these are too)
 	Earn = {
