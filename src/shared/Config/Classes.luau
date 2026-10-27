@@ -68,7 +68,7 @@ local Classes = {
 		},
 		Grenadier = {
 			name = "Grenadier",
-			blurb = "Rifle and two grenades",
+			blurb = "Rifle and five grenades",
 			cost = 50,
 			primary = "weapon",
 			grenades = true,
