@@ -287,6 +287,18 @@ function Build.trenchPieces(seed: number, prevSeed: number?, p: any): TrenchPiec
 	}
 end
 
+-- Whether a thin piece (a heap's skirt of low slabs) sits on the ground: the ground under each of its sample points
+-- (`grounds`, -math.huge where there is none) comes within `hang` of its underside `bottom`. Where it doesn't, the
+-- piece would hang in the air as a thin sheet, so it is left out (full blocks may stand in the air, thin ones not).
+function Build.thinPieceSits(bottom: number, grounds: { number }, hang: number): boolean
+	for _, g in grounds do
+		if g < bottom - hang then
+			return false
+		end
+	end
+	return #grounds > 0
+end
+
 -- How deep a trench square is cut (0..1 of the full depth) at `hp`: while it's being dug, its HP's share; once it has
 -- been dug full (`built`), full depth down to `h.hold`% HP, then buried with what's left.
 function Build.trenchDepth(hp: number, built: boolean, h: any): number

@@ -132,6 +132,12 @@ local Build = {
 		-- trenches; the skirt since 2026-10-25, trench_pieces v8 Wall<i>Apron), and how much further the side heaps run on
 		-- round a dead end and its heap reaches past the side walls' tops
 		joins = { heapReach = 11, deadEndHeap = 3 },
+		-- the skirt behind a heap (Wall<i>Apron, low slabs meant to lie half sunk in the ground) is laid only where the
+		-- ground under it comes within `apronHang` studs of its underside everywhere (Rules.thinPieceSits); where the
+		-- trench pokes out over ground that falls away it would hang in the air as thin sheets, so the heap's full blocks
+		-- stand alone there (user 2026-10-27: "i dont mind if blocks stick out in the air, as long as they are full
+		-- blocks as they can somewhat blend in. this just looks glitched")
+		apronHang = 0.3,
 	},
 
 	-- What each weapon does to built things (user 2026-10-24: "a revamp on damage to built structures ... rifles and
