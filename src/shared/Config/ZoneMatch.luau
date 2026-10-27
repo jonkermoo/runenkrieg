@@ -5,7 +5,7 @@
 -- Timed matches, everyone an enemy (Rules/Teams). Rules/ZoneMatch is the maths, src/server/ZoneMatch runs it,
 -- src/client/ZoneMarker colours the zone for each viewer.
 local ZoneMatch = {
-	Radius = 10, -- studs, across the ground
+	Radius = 16, -- studs, across the ground (user 2026-10-27: "expand the capture area"; was 10)
 	Height = 8, -- how far above or below the zone's ground a soldier still counts as in it
 	PointsPerSecond = 1,
 	MoveEvery = 60, -- seconds a spot stays live
@@ -23,23 +23,20 @@ local ZoneMatch = {
 	SpawnWait = 10, -- seconds a new character's root is waited for
 	FeetBelowRoot = 3, -- a soldier's feet this far under the root (what counts as in the zone: Height round them)
 	GroundRay = { top = 300, depth = 600 }, -- the ground found by a ray this high, this long, down on terrain only
-	-- the marker (built by the server, coloured per viewer by the client): a ring of `Segments` blocks on the ground
-	-- round the zone, a post with a pennant at its centre
+	-- the marker (built by the server, coloured per viewer by the client; user 2026-10-27: "a translucent floating
+	-- circle and ... a beam that reveals its location in the sky. make it disappear when ADS"): a see-through disc the
+	-- zone's size floating `lift` over the highest ground under it, and a beam up from its middle; both hidden for
+	-- this player while aiming (src/client/ZoneMarker). The next spot's disc only, fainter, during the warning.
 	Marker = {
-		Segments = 28,
-		RingWidth = 1.2,
-		RingHeight = 0.25,
-		PostHeight = 7,
-		PostWidth = 0.5,
-		Pennant = { 2.4, 1.4, 0.15 },
-		NextTransparency = 0.6, -- the next spot's ring, during the warning
+		Disc = { thickness = 0.2, lift = 0.8, transparency = 0.55, samples = 12 },
+		Beam = { width = 1.6, height = 260, transparency = 0.45 },
+		NextTransparency = 0.8,
 		FlashSeconds = 0.35, -- contested: flashes between its colour and Free
 		Colors = {
 			Free = { 196, 192, 180 },
 			Mine = { 90, 170, 90 },
 			Theirs = { 196, 70, 58 },
 			Contested = { 230, 160, 40 },
-			Post = { 98, 74, 58 },
 		},
 	},
 	-- replicated state: attributes on the marker Model (Phase, State, Holder (a UserId), Spot, NextSpot, MoveAt,

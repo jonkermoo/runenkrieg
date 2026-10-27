@@ -74,7 +74,7 @@ return {
 		assert(Cfg.Warning < Cfg.MoveEvery and Cfg.MoveEvery < Cfg.MatchSeconds)
 		assert(Cfg.SpawnProtection > 0 and Cfg.SpawnProtection <= 5, "a short spawn protection (user: 3 s)")
 		assert(Cfg.Radius > 0 and Cfg.Height > 0 and Cfg.PointsPerSecond > 0 and Cfg.Tick > 0)
-		for _, k in { "Free", "Mine", "Theirs", "Contested", "Post" } do
+		for _, k in { "Free", "Mine", "Theirs", "Contested" } do
 			assert(Cfg.Marker.Colors[k], `no {k} colour`)
 		end
 	end,

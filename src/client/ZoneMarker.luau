@@ -1,7 +1,7 @@
 --!strict
 -- Colours the zone-capture marker (src/server/ZoneMatch builds it; Config/ZoneMatch.Marker) for this player: free,
 -- theirs (held by someone else), mine (held by me), contested (flashing between contested and free). The next spot's
--- ring stays free-coloured.
+-- disc stays free-coloured. Both are hidden while this player aims (user 2026-10-27: "make it disappear when ADS").
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,9 +19,21 @@ for k, c in MK.Colors do
 	colors[k] = Color3.fromRGB(c[1], c[2], c[3])
 end
 
+local function hide(model: Instance?, hidden: boolean)
+	if not model then
+		return
+	end
+	local m = if hidden then 1 else 0
+	for _, p in model:GetChildren() do
+		if p:IsA("BasePart") and p.LocalTransparencyModifier ~= m then
+			p.LocalTransparencyModifier = m
+		end
+	end
+end
+
 local function paint(model: Model, color: Color3)
 	for _, p in model:GetChildren() do
-		if p:IsA("BasePart") and p.Name ~= "Post" and p.Color ~= color then
+		if p:IsA("BasePart") and p.Color ~= color then
 			p.Color = color
 		end
 	end
@@ -44,6 +56,10 @@ function ZoneMarker.start()
 			color = if on then colors.Contested else colors.Free
 		end
 		paint(zone, color)
+		local character = me.Character
+		local aiming = character ~= nil and character:GetAttribute("Aiming") == true
+		hide(zone, aiming)
+		hide(root and root:FindFirstChild(Cfg.NextMarkerName), aiming)
 	end)
 end
 
