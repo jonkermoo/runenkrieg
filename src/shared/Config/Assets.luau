@@ -688,13 +688,13 @@ local Assets = {
 			source = "assets/teams/white/helmets/variants/helmet_adrian_visor.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "Adrian M1915, the brown team's second helmet (base: assets/teams/white/helmets/default/helmet_adrian.fbx, "
-				.. "helmet.py): a rounded bowl with a crest, a bead and sloping front and back peaks; a three-slat steel "
+				.. "helmet.py): a rounded bowl with a crest, a bead and sloping front and back peaks; a three-slat bronze "
 				.. "visor hinged up against the bowl, so the face shows. Hollow, 848 tris. Brown team (colours a proposal).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = -0.02, -- the front peak sits 0.21 above the head centre (eyes show)
-				parts = { Visor = { 168, 170, 174 } },
+				parts = { Visor = { 176, 116, 58 } }, -- bronze (user 2026-10-27: "the brown plates should also be bronze")
 				shell = "adrian",
 				center = { 0, 0.616, 0.0118 },
 			},
@@ -746,7 +746,7 @@ local Assets = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
 				brim = -0.02, -- the front peak sits 0.21 above the head centre (eyes show)
-				parts = { Visor = { 168, 170, 174 } },
+				parts = { Visor = { 176, 116, 58 } }, -- bronze (user 2026-10-27: "the brown plates should also be bronze")
 				shell = "adrian",
 				center = { 0, 0.616, 0.0118 },
 			},
