@@ -29,6 +29,12 @@ local Build = {
 	GhostTransparency = 0.75,
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
 	Ghost = { ok = { 120, 200, 120 }, bad = { 220, 80, 70 }, transparency = 0.55 },
+	-- a gun's ghost (src/client/Build; user 2026-10-27: "reduce the red space for a howitzer ... just make it the size
+	-- of the actual howizer with the trench. infact, make the outline a rough estimate of what the model would look like
+	-- when constructed"): the gun itself, see-through in Ghost ok / bad, standing as it will (a dug-in gun on its pit's
+	-- floor), and a dug-in gun's pit and ramp outlined flat on the ground, `outline` studs thick, `outlineSee`
+	-- see-through
+	GunGhost = { outline = 0.3, outlineSee = 0.7 },
 	-- the trench planner's ghost (src/client/Build; user 2026-10-24: "make the entire planning thing better and more
 	-- stylish"), a preview of the stakes and cord the
 	-- server lays: per square a faint fill (Ghost ok / bad, `fill` see-through) with the dug floor's band in it

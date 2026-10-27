@@ -28,6 +28,8 @@ local C = require(Shared.Config.Build)
 local Palette = require(Shared.Config.Palette)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Build)
+local ArtilleryCfg = require(Shared.Config.Artillery)
+local ArtilleryRules = require(Shared.Rules.Artillery)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
@@ -146,6 +148,100 @@ local function showGhost(key: string, cf: CFrame, size: Vector3, ok: boolean)
 	box.Size = size
 	box.CFrame = cf
 	box.Color = rgb(if ok then C.Ghost.ok else C.Ghost.bad)
+end
+
+-- a gun piece's ghost (Config/Build.GunGhost): a see-through copy of the gun in gun space (as src/server/Artillery
+-- finds it, from the Bore at rest) and, dug in, its pit (out to the top of its wall) and ramp outlined on the ground;
+-- nil without the gun's model
+local function makeGunGhost(gun: ArtilleryCfg.Gun): Model?
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	for _, sub in { "Weapons", "Shared", "Artillery", gun.asset } do
+		f = f and f:FindFirstChild(sub)
+	end
+	local src = if f and f:IsA("Model") then f else nil
+	local bore = src and src:FindFirstChild("Bore", true)
+	local barrel = src and src:FindFirstChild(gun.barrel[1], true)
+	if not src or not bore or not barrel or not bore:IsA("BasePart") or not barrel:IsA("BasePart") then
+		return nil
+	end
+	local m = Instance.new("Model")
+	m.Name = "BuildGhost"
+	local body = src:Clone()
+	body.Name = "Gun"
+	for _, d in body:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+			d.CanCollide, d.CanQuery, d.CanTouch = false, false, false
+			d.CastShadow = false
+			d.Material = Enum.Material.SmoothPlastic
+			d.Transparency = math.max(d.Transparency, C.Ghost.transparency)
+		elseif d:IsA("Decal") or d:IsA("Light") or d:IsA("ParticleEmitter") or d:IsA("SurfaceAppearance") then
+			d:Destroy()
+		end
+	end
+	local dir = bore.Position - barrel.Position
+	local rot = CFrame.Angles(0, math.rad(ArtilleryRules.yawOf(dir.X, dir.Z)), 0)
+	local mz = gun.muzzle
+	local origin = bore.Position - rot:VectorToWorldSpace(Vector3.new(mz[1], mz[2], mz[3] + gun.boreCentre))
+	body.WorldPivot = CFrame.new(origin) * rot
+	body.Parent = m
+	local d = gun.dig
+	if d then
+		local G = C.GunGhost
+		local top = d.radius + (if d.wall then d.depth / math.tan(math.rad(d.wall)) else 0)
+		local pit = ghostPart(m)
+		pit.Name = "Pit"
+		pit.Shape = Enum.PartType.Cylinder
+		pit.Transparency = G.outlineSee
+		pit.Size = Vector3.new(G.outline, top * 2, top * 2)
+		if d.ramp then
+			local ramp = ghostPart(m)
+			ramp.Name = "Ramp"
+			ramp.Transparency = G.outlineSee
+			ramp.Size = Vector3.new(d.ramp.width, G.outline, d.ramp.length)
+		end
+	end
+	m.Parent = workspace.CurrentCamera
+	return m
+end
+
+-- shows a gun piece's ghost: the gun where it will stand (`at`: the ground at the click, `look`: flat), its pit and ramp
+-- on the ground there. False without the gun's model (its box is shown instead).
+local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: boolean): boolean
+	if not ghost or ghostFor ~= key then
+		clearGhost()
+		ghost = makeGunGhost(gun)
+		ghostFor = if ghost then key else nil
+	end
+	local m = ghost
+	local body = m and m:FindFirstChild("Gun") :: Model?
+	if not m or not body then
+		return false
+	end
+	local color = rgb(if ok then C.Ghost.ok else C.Ghost.bad)
+	local d = gun.dig
+	body:PivotTo(at * CFrame.new(0, -(if d then d.depth else 0), 0))
+	if m:GetAttribute("Ok") ~= ok then
+		for _, p in body:GetDescendants() do
+			if p:IsA("BasePart") then
+				p.Color = color
+			end
+		end
+	end
+	m:SetAttribute("Ok", ok)
+	local lift = C.GunGhost.outline / 2 + 0.05
+	local pit = m:FindFirstChild("Pit") :: BasePart?
+	if pit then
+		pit.CFrame = at * CFrame.new(0, lift, 0) * CFrame.Angles(0, 0, math.rad(90))
+		pit.Color = color
+	end
+	local ramp = m:FindFirstChild("Ramp") :: BasePart?
+	if ramp and d and d.ramp then
+		-- (behind the gun, +Z, from the floor's edge out)
+		ramp.CFrame = at * CFrame.new(0, lift + 0.02, d.radius + d.ramp.length / 2)
+		ramp.Color = color
+	end
+	return true
 end
 
 local function label(parent: Instance, font: Font, size: number, color: { number }): TextLabel
@@ -371,6 +467,13 @@ local function surveyPiece(character: Model, root: BasePart)
 		perTeam = C.PerTeam,
 	})
 	current = { frame = if gun then frame else box, ok = ok, reason = reason }
+	local gunCfg = if gun then ArtilleryCfg.Guns[p.gun or ""] else nil
+	if gunCfg then
+		-- (the gun as it will stand, not its whole box: user 2026-10-27)
+		if showGunGhost(p.key, gunCfg, frame, ok) then
+			return
+		end
+	end
 	local size = Survey.footprint(p)
 	showGhost(p.key, CFrame.new(box.Position.X, report.low + size.Y / 2, box.Position.Z) * box.Rotation, size, ok)
 end
