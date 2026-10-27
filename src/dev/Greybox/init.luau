@@ -5,7 +5,8 @@
 -- or only the sector dividers and markers, over a map already built:
 --   require(game.ServerStorage.Dev.Greybox:Clone()).sectors("Map1")
 -- Cloning bypasses the require cache so Rojo edits take effect without restarting Studio.
--- Replaces Workspace.<map> and ALL terrain, generated from Config/Maps/<map> via Rules/MapTerrain.
+-- Replaces Workspace.<map> and ALL terrain, generated from Config/Maps/<map> via Rules/MapTerrain; a map with `offMap`
+-- (Config/Maps/Playtest) replaces only the terrain round itself and adds no spawn.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -54,13 +55,18 @@ function Greybox.build(mapName: string): string
 	root.Name = mapName
 	root.Parent = workspace
 
-	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette)
+	-- a hand-placed layout (map.layout) keeps its natural trees off its buildings (Rules/Village.fixed)
+	local fixed = if map.layout then VillageRules.fixed(map, B, M, MT) else nil
+	local trees =
+		Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette, if fixed then fixed.trees else nil)
 	-- Village: roads are painted into the terrain by Rules/MapTerrain; buildings + props from the library.
 	local villageStats = ""
-	if map.village then
+	if map.village or fixed then
 		local P = fresh(Shared.Config.Props)
-		local layout = VillageRules.layout(map, B, M, MT, P)
-		Trees.build(Parts.folder(root, "VillageTrees"), map, MT, treeKit, assets, palette, layout.trees)
+		local layout = fixed or VillageRules.layout(map, B, M, MT, P)
+		if not fixed then
+			Trees.build(Parts.folder(root, "VillageTrees"), map, MT, treeKit, assets, palette, layout.trees)
+		end
 		local vstats = VillageBuild.build(Parts.folder(root, "Village"), map, layout, {
 			MT = MT,
 			B = B,
@@ -78,7 +84,7 @@ function Greybox.build(mapName: string): string
 			vstats.boundaries,
 			vstats.poles,
 			vstats.props,
-			#layout.trees
+			if fixed then 0 else #layout.trees
 		)
 	end
 	local panels = Features.bounds(root, map, boundaryCfg)
@@ -86,7 +92,9 @@ function Greybox.build(mapName: string): string
 	if map.dividers then
 		dividers, points = Sectors.build(root, map, MT, fresh(Shared.Config.Sectors), fresh(Shared.Rules.Sectors))
 	end
-	Features.testSpawn(root, map, MT)
+	if not map.offMap then
+		Features.testSpawn(root, map, MT)
+	end
 	Features.atmosphere(palette)
 	Features.wind(fresh(Shared.Config.TreeSway))
 

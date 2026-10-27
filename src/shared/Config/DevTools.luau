@@ -16,6 +16,10 @@ local DevTools = {
 	Extra = {
 		{ id = "Village", name = "Village center", x = 1440, z = 30, look = { 1560, 0 } },
 		{ id = "Ford", name = "River ford", x = 1015, z = 6, look = { 1100, 0 } },
+		-- the playtest map's two spawns (Config/Maps/Playtest.spawnZones centres, facing the other side; src/server/Playtest
+		-- spawns its players here). map = on another generated map: the server finds its ground
+		{ id = "PlaytestWest", name = "Playtest West", x = -161, z = 2800, look = { 160, 2800 }, map = "Playtest" },
+		{ id = "PlaytestEast", name = "Playtest East", x = 161, z = 2800, look = { -160, 2800 }, map = "Playtest" },
 		{ id = "Gallery", name = "Asset gallery", x = 52, z = -2548, y = 3, look = { 52, -2515 }, offMap = true },
 		-- behind the firing line of the test range (Config/Range.Origin), facing downrange
 		{ id = "Range", name = "Test range", x = 1000, z = -2590, y = 3, look = { 1000, -2700 }, offMap = true },
@@ -190,9 +194,12 @@ local DevTools = {
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the
-	-- start of a play test and put back on the button; the terrain inside this box (studs) too, craters filled.
+	-- start of a play test and put back on the button; the terrain inside these boxes (studs) too, craters filled.
 	World = {
-		Terrain = { min = { -580, -64, -830 }, max = { 2380, 112, 830 } }, -- Config/Maps/Map1 bounds + terrainMargin
+		Terrain = {
+			{ min = { -580, -64, -830 }, max = { 2380, 112, 830 } }, -- Config/Maps/Map1 bounds + terrainMargin
+			{ min = { -320, -32, 2580 }, max = { 320, 88, 3020 } }, -- Config/Maps/Playtest bounds + terrainMargin
+		},
 	},
 }
 

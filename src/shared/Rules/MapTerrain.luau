@@ -112,8 +112,18 @@ local function wildHeight(map: any, s: number, x: number, z: number): number
 	return k * (w.amp * ridged * ridged + w.roughAmp * rough)
 end
 
--- Ground height before the river is cut.
-local function landHeight(map: any, x: number, z: number): number
+-- A map with `mirror` (its centre) is point-symmetric: a value is the average of its own and its mirror point's, so the
+-- two sides match and the seam through the centre stays smooth.
+local function symmetric(map: any, x: number, z: number, f: (number, number) -> number): number
+	local m = map.mirror
+	if not m then
+		return f(x, z)
+	end
+	return (f(x, z) + f(2 * m.x - x, 2 * m.z - z)) / 2
+end
+
+-- Ground height before the river is cut, one side's.
+local function landRaw(map: any, x: number, z: number): number
 	local s = map.seed * 0.001
 	-- Fade the walkable relief to flat at the margin edge so the skirt joins seamlessly.
 	local m = map.terrainMargin
@@ -121,6 +131,12 @@ local function landHeight(map: any, x: number, z: number): number
 	local h = (relief(map.terrain, s, x, z) + ridgeHeight(map, x)) * edge + wildHeight(map, s, x, z)
 	local w, baseY = MapTerrain.flattenWeight(map, x, z)
 	return baseY + (h - baseY) * w
+end
+
+local function landHeight(map: any, x: number, z: number): number
+	return symmetric(map, x, z, function(px, pz)
+		return landRaw(map, px, pz)
+	end)
 end
 
 -- Final terrain surface height at (x, z).
@@ -196,11 +212,16 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 		end
 	end
 	local s = map.seed * 0.001
-	local patch = math.noise(x / 60, z / 60, s + 40.2)
+	local patch = symmetric(map, x, z, function(px, pz)
+		return math.noise(px / 60, pz / 60, s + 40.2)
+	end)
 	if patch > map.terrain.patchThreshold then
 		return "Ground"
 	end
-	local forest = math.noise(x / map.trees.forestScale, z / map.trees.forestScale, s + 20.7)
+	local fs = map.trees.forestScale
+	local forest = symmetric(map, x, z, function(px, pz)
+		return math.noise(px / fs, pz / fs, s + 20.7)
+	end)
 	if forest > map.trees.groveThreshold then
 		return "LeafyGrass"
 	end
@@ -269,13 +290,16 @@ function MapTerrain.treeDensity(map: any, x: number, z: number): number
 	if out > 0 then
 		return if out <= T.edgeBand then T.edgeDensity else T.outerDensity
 	end
-	local forest = math.noise(x / T.forestScale, z / T.forestScale, map.seed * 0.001 + 20.7)
+	local forest = symmetric(map, x, z, function(px, pz)
+		return math.noise(px / T.forestScale, pz / T.forestScale, map.seed * 0.001 + 20.7)
+	end)
 	return if forest > T.groveThreshold then T.groveDensity else T.scatterDensity
 end
 
 function MapTerrain.trees(map: any): { Tree }
 	local T = map.trees
 	local b, m = map.bounds, map.terrainMargin
+	local mid = map.mirror
 	local out: { Tree } = {}
 	local x0 = math.floor((b.minX - m) / T.cell)
 	local x1 = math.floor((b.maxX + m) / T.cell)
@@ -286,7 +310,9 @@ function MapTerrain.trees(map: any): { Tree }
 			local jx, jz = hash01(cx, cz, 1), hash01(cx, cz, 2)
 			local x = (cx + 0.25 + 0.5 * jx) * T.cell
 			local z = (cz + 0.25 + 0.5 * jz) * T.cell
-			if hash01(cx, cz, 3) < MapTerrain.treeDensity(map, x, z) then
+			-- a mirrored map grows its West half (x under the centre's) and copies it round the centre (below)
+			local half = not mid or (x < mid.x and (x - mid.x) ^ 2 + (z - mid.z) ^ 2 > 4)
+			if half and hash01(cx, cz, 3) < MapTerrain.treeDensity(map, x, z) then
 				local k = hash01(cx, cz, 4)
 				local onRidge = ridgeHeight(map, x) > 1
 				local pineShare = if onRidge then 0.7 else 0.45
@@ -304,6 +330,14 @@ function MapTerrain.trees(map: any): { Tree }
 					far = outside(b, x, z) > T.edgeBand,
 				})
 			end
+		end
+	end
+	if mid then
+		for i = 1, #out do
+			local t = out[i]
+			local copy = table.clone(t)
+			copy.x, copy.z, copy.yaw = 2 * mid.x - t.x, 2 * mid.z - t.z, (t.yaw + 180) % 360
+			table.insert(out, copy)
 		end
 	end
 	return out

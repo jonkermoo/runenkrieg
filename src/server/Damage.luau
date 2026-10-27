@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Metrics = require(Shared.Config.Metrics)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local W = require(Shared.Config.Weapons)
@@ -94,7 +95,12 @@ function Damage.spares(by: Model?, character: Instance?): boolean
 	if not (Players:GetPlayerFromCharacter(character) or Dev.dummy(character)) then
 		return false
 	end
-	return Teams.spared(Kits.of(by), Kits.of(character), Cfg.FriendlyFire)
+	return Teams.spared(
+		Kits.of(by),
+		Kits.of(character),
+		Cfg.FriendlyFire,
+		workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
+	)
 end
 
 local function flat(v: Vector3): Vector3
@@ -103,6 +109,23 @@ local function flat(v: Vector3): Vector3
 end
 
 -- Hurts one soldier: the knock first (so a death goes down with its own knock), then the health.
+-- Spawn protection: `character` can't be hurt or knocked for `seconds`, or until it attacks (a shot, a stroke, a staff
+-- cast, a blast of its own).
+function Damage.protect(character: Model, seconds: number)
+	character:SetAttribute(Cfg.ProtectedAttribute, workspace:GetServerTimeNow() + seconds)
+end
+
+function Damage.protected(character: Model): boolean
+	local untilAt = character:GetAttribute(Cfg.ProtectedAttribute)
+	return type(untilAt) == "number" and workspace:GetServerTimeNow() < untilAt
+end
+
+local function attacks(by: Model?)
+	if by and by:GetAttribute(Cfg.ProtectedAttribute) ~= nil then
+		by:SetAttribute(Cfg.ProtectedAttribute, nil)
+	end
+end
+
 local function hurt(
 	character: Model,
 	humanoid: Humanoid,
@@ -111,6 +134,9 @@ local function hurt(
 	direction: Vector3,
 	scale: number?
 )
+	if humanoid.Health > 0 and Damage.protected(character) then
+		return
+	end
 	if humanoid.Health <= 0 then
 		if knock then
 			Ragdoll.knock(character, knock, direction, (scale or 1) * RagdollCfg.corpse) -- a body nudged about
@@ -136,6 +162,7 @@ function Damage.hurtBy(character: Model, amount: number)
 end
 
 function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
+	attacks(shooter)
 	local w = W[weapon]
 	local t = w and Cfg.Weapons[w.class]
 	if not t then
@@ -172,6 +199,7 @@ end
 -- A butt stroke (src/server/Melee) from `striker` on the body part `part` in `zone` (a helmet hit already took the
 -- helmet off), along `direction`: Config/Damage.Melee's damage and knock. True when it hurt a soldier.
 function Damage.melee(striker: Model, part: BasePart, zone: string, direction: Vector3): boolean
+	attacks(striker)
 	local character, humanoid = victim(part)
 	if
 		not character
@@ -252,6 +280,7 @@ end
 -- A `kg` charge going off at `position` (Config/Damage.Blast). `by`: whose it is (hurt by it only by `opts.own`;
 -- flung all the same).
 function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts?)
+	attacks(by)
 	local B = Cfg.Blast
 	if kg <= 0 then
 		return
@@ -369,6 +398,7 @@ Trees.onCrush(Damage.crush)
 -- A staff shot of `stage` from `caster` toward `target`: returns where it lands (the end of its range if it hits
 -- nothing).
 function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
+	attacks(caster)
 	local S = Cfg.Staff
 	local head = caster:FindFirstChild("Head") :: BasePart?
 	local range, radius = S.Range[stage], S.Radius[stage]
