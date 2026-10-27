@@ -4,7 +4,9 @@
 
 local Damage = {
 	Health = 100, -- every soldier's health; no regeneration (src/character/Health replaces Roblox's)
-	HelmetFloor = 1, -- the health a helmet hit leaves at least (never fatal by itself)
+	-- the health a helmet hit leaves at least (never fatal by itself). A soft cap (Config/Assets fit.soft, the
+	-- Engineer's) is no helmet: a hit on it is a Head hit (src/server/Helmets.soft)
+	HelmetFloor = 1,
 	-- teammates hurting each other (user 2026-10-26: off): false = shots, butt strokes, staff beams and blasts (grenades,
 	-- staff, artillery) do nothing to the shooter's teammates (Rules/Teams.spared: no damage, no knock, no helmet off)
 	FriendlyFire = false,

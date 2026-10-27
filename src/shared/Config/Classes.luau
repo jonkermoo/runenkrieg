@@ -88,6 +88,8 @@ local Classes = {
 			cost = 150,
 			primary = "weapon",
 			grenades = false,
+			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
+			helmet = "engineerCap",
 			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun" },
 			locked = true,
 		},
@@ -96,9 +98,24 @@ local Classes = {
 	-- each kit's class gear beyond Config/Uniforms.Kits (its bolt rifle, grenades, shovel and helmet): Config/Weapons
 	-- and Config/Assets entries
 	Gear = {
-		uniform1 = { semi = "rifle_mondragon", staff = "staff_grey", altHelmet = "helmet_stahl_plate" },
-		uniform2 = { semi = "rifle_remington8", staff = "staff_olive", altHelmet = "helmet_m33_plate" },
-		uniform3 = { semi = "rifle_winchester1907", staff = "staff_white", altHelmet = "helmet_adrian_visor" },
+		uniform1 = {
+			semi = "rifle_mondragon",
+			staff = "staff_grey",
+			altHelmet = "helmet_stahl_plate",
+			engineerCap = "cap_feld",
+		},
+		uniform2 = {
+			semi = "rifle_remington8",
+			staff = "staff_olive",
+			altHelmet = "helmet_m33_plate",
+			engineerCap = "cap_side",
+		},
+		uniform3 = {
+			semi = "rifle_winchester1907",
+			staff = "staff_white",
+			altHelmet = "helmet_adrian_visor",
+			engineerCap = "cap_trench",
+		},
 	} :: { [string]: { [string]: string } },
 	-- points earned (user: kills, assists, captures, building; prices scaled down, so these are too)
 	Earn = {
