@@ -60,6 +60,7 @@ export type Placing = {
 	perPlayer: number,
 	perTeam: number,
 	allowed: boolean?, -- false: the builder's class may not build this kind (Rules/Classes.mayBuild)
+	spot: string?, -- a bridge: why its trench square won't take it (Build.bridgeSpot), nil when it will
 }
 
 -- Whether a piece can be laid here; when not, the reason to show
@@ -69,6 +70,9 @@ function Build.canPlace(p: Placing): (boolean, string?)
 	end
 	if p.distance > p.reach then
 		return false, "Too far"
+	end
+	if p.spot then
+		return false, p.spot
 	end
 	if not p.ground then
 		return false, "Needs open ground"
@@ -392,6 +396,67 @@ function Build.trenchSwing(hp: number, max: number, swing: number, build: boolea
 	end
 	local left = hp - swing
 	return math.max(left, 0), left <= 0
+end
+
+-- A bridge's stage at `hp` of `max` (Config/Build.Bridge.hp): 0 gone, 1 its frame and some of its boards, crossable,
+-- 2 every board, while it keeps over half (user 2026-10-27: "stage 2 is 50+ where the bridge has just as many planks.
+-- stage 1 will be less planks but still usable")
+function Build.bridgeStage(hp: number, max: number): number
+	if hp <= 1e-9 then
+		return 0
+	end
+	return if hp > max / 2 + 1e-9 then 2 else 1
+end
+
+-- A bridge's HP after a weapon takes `percent` of its `max` (Config/Build.Structures `bridge`); second: whether that
+-- brought it down
+function Build.bridgeHit(hp: number, max: number, percent: number): (number, boolean)
+	local left = hp - max * percent / 100
+	if left <= 1e-9 then
+		return 0, true
+	end
+	return left, false
+end
+
+export type BridgeSpot = {
+	found: boolean, -- a trench square under it
+	dug: number, -- that square's HP, % of its max
+	ends: { string }, -- its two ends: "end" (a square joined end to end), "tee" (it joins another's side) or "" (a dead end)
+	bends: { number }, -- degrees off straight at each end joined end to end
+	teed: boolean, -- another trench joins its side
+	nearest: number, -- flat, centre to centre, to the nearest other bridge
+}
+
+-- Why a bridge can't go on the trench square `s` describes (Config/Build.Bridge `b`), nil when it can: a square dug
+-- out, joined straight on at both ends, no trench teed into its sides, no bridge on it or the square next to it
+function Build.bridgeSpot(s: BridgeSpot, b: any): string?
+	if not s.found or s.dug < b.dug then
+		return "Needs a dug trench"
+	end
+	if s.nearest < 1 then
+		return "A bridge is already here"
+	end
+	for i = 1, 2 do
+		if s.ends[i] == "" then
+			return "Not at a dead end"
+		end
+		if s.ends[i] ~= "end" or s.bends[i] > b.maxBend then
+			return "Not on a joint"
+		end
+	end
+	if s.teed then
+		return "Not on a joint"
+	end
+	if s.nearest < b.spacing then
+		return "Too close to another bridge"
+	end
+	return nil
+end
+
+-- Which of `variants` board layouts a bridge with `seed` shows, and whether it is turned round
+function Build.bridgeVariant(seed: number, variants: number): (number, boolean)
+	local n = math.abs(math.floor(seed))
+	return n % variants + 1, math.floor(n / variants) % 2 == 1
 end
 
 -- What a blast is to built things (Config/Build.Structures `s`): its named `key`'s entry, or by its `kg` charge.

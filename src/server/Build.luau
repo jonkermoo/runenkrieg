@@ -19,8 +19,12 @@
 --   with each stage, the parts down on its floor. At full work the real gun stands (src/server/Artillery.place, in the
 --   team's paint), its HP shown on the holder ("HP", "MaxHP") for the shovel's panel; taken apart (Rules.gunStands) it
 --   is in parts again, its pit filling back, the ground as it was at 0.
--- Build.blast (from src/server/Damage.blast) and Build.shot (src/server/Firing): weapons wear down trenches, sandbags
--- and wire by Config/Build.Structures.
+-- - Bridges (Config/Build.Bridge): laid on a trench square (Survey.bridgeSpot), its planks the Config/Assets
+--   bridge_pieces layout its seed rolls, stretched to the square's length; on HP (Bridge.hp): laid at stage 1, Build
+--   swings add HP, Destroy swings and weapons take it, its boards standing by HP (Rules.bridgeStage). At 0, or once its
+--   square is buried under Trench.hp.bare% (or gone), it is simply gone: no debris.
+-- Build.blast (from src/server/Damage.blast) and Build.shot (src/server/Firing): weapons wear down trenches, sandbags,
+-- wire and bridges by Config/Build.Structures.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -58,6 +62,7 @@ type Rec = {
 	work: number,
 	need: number,
 	built: boolean, -- has stood once
+	paid: boolean?, -- its builder has had the points for it (once per piece)
 	born: number,
 	worked: number,
 	frame: CFrame,
@@ -75,6 +80,8 @@ type Rec = {
 	standing: boolean?,
 	pitBase: Ground.PitBase?,
 	dug: number?,
+	square: Model?, -- a bridge: the trench square it is on
+	watch: { RBXScriptConnection }?, -- and its watch on that square
 }
 
 -- src/server/Artillery, handed in at start (it needs Damage, which needs this)
@@ -89,6 +96,7 @@ type Guns = {
 local guns: Guns? = nil
 
 local recs: { [Model]: Rec } = {}
+local bridgeRoll = Random.new() -- (each bridge's board layout, Config/Build.Bridge.variants)
 local showGun: (Rec) -> ()
 local lastSwing: { [Player]: number } = {}
 
@@ -393,11 +401,102 @@ local function showHesco(r: Rec)
 	r.shown = stage
 end
 
+-- A library model (Config/Assets entry `name`, in ReplicatedStorage.Assets, kept by the Library sync) and where each
+-- of its meshes sits from its Origin, found once
+local kits: { [string]: { model: Model, offsets: { [string]: CFrame } } } = {}
+local function kitOf(name: string): (Model?, { [string]: CFrame })
+	local k = kits[name]
+	if k then
+		return k.model, k.offsets
+	end
+	local e = Assets.Entries[name]
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	f = f and f:FindFirstChild(e.category)
+	for _, sub in string.split(e.folder, "/") do
+		f = f and f:FindFirstChild(sub)
+	end
+	local m = f and f:FindFirstChild(name)
+	local origin = m and m:FindFirstChild("Origin")
+	if not (m and m:IsA("Model") and origin and origin:IsA("BasePart")) then
+		warn(`[Build] {name} is not in the asset library: run the Library sync in the dev place`)
+		return nil, {}
+	end
+	local offsets = {}
+	for _, d in m:GetChildren() do
+		if d:IsA("BasePart") then
+			offsets[d.Name] = origin.CFrame:ToObjectSpace(d.CFrame)
+		end
+	end
+	kits[name] = { model = m, offsets = offsets }
+	return m, offsets
+end
+
+-- A bridge's planks (Config/Assets bridge_pieces): the layout its seed rolls (Rules.bridgeVariant), maybe turned round,
+-- stretched along the trench to its square's `length`, and the unseen plate along the deck that you walk on
+local function layoutBridge(r: Rec, length: number, seed: number)
+	local kit, offsets = kitOf("bridge_pieces")
+	local p = r.piece
+	local v, turned = Rules.bridgeVariant(seed, C.Bridge.variants)
+	local cf = r.frame * (if turned then CFrame.Angles(0, math.pi, 0) else CFrame.identity)
+	local stretch = length / p.width
+	for _, set in { "Frame", "Boards", "More" } do
+		for _, tone in { "", "Dark" } do
+			local name = `Bridge{v}{set}{tone}`
+			local src = kit and kit:FindFirstChild(name)
+			local off = offsets[name]
+			if src and src:IsA("BasePart") and off then
+				local part = src:Clone()
+				part.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
+				part.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
+				part.Color = rgb(if tone == "Dark" then Palette.Build.BridgeDark else Palette.Build.Bridge)
+				part.Anchored = true
+				part.Material = Enum.Material.SmoothPlastic
+				part.CanCollide = false
+				part.CanQuery = false -- (bullets pass the planks)
+				part.CanTouch = false
+				part:SetAttribute("Set", set)
+				part.Parent = r.model
+			end
+		end
+	end
+	local plate = newPart(
+		r.model,
+		"Walk",
+		Vector3.new(length, C.Bridge.plate, p.depth),
+		r.frame * CFrame.new(0, p.height - C.Bridge.plate / 2, 0),
+		rgb(Palette.Build.Bridge)
+	)
+	plate.Transparency = 1
+	plate.CastShadow = false
+	plate.CanTouch = false
+end
+
+-- a bridge as its HP stands (its work; Rules.bridgeStage): the frame and stage 1's boards, then all of them; walkable
+-- while it stands. Its HP on the model for the shovel's panel.
+local function showBridge(r: Rec)
+	r.model:SetAttribute("HP", math.ceil(r.work))
+	r.model:SetAttribute("MaxHP", r.need)
+	local stage = Rules.bridgeStage(r.work, r.need)
+	for _, part in r.model:GetChildren() do
+		if part:IsA("BasePart") then
+			if part.Name == "Walk" then
+				part.CanCollide = stage >= 1
+				part.CanQuery = stage >= 1
+			else
+				part.Transparency = if stage >= 2 or part:GetAttribute("Set") ~= "More" then 0 else 1
+			end
+		end
+	end
+end
+
 local function remove(r: Rec, debris: boolean)
 	if not recs[r.model] then
 		return
 	end
 	recs[r.model] = nil
+	for _, c in r.watch or {} do
+		c:Disconnect()
+	end
 	if debris then
 		local pieces = {}
 		for _, d in r.model:GetDescendants() do
@@ -564,6 +663,8 @@ local function apply(r: Rec)
 		showGun(r)
 	elseif kind == "Hesco" then
 		showHesco(r)
+	elseif kind == "Bridge" then
+		showBridge(r)
 	end
 end
 
@@ -602,19 +703,34 @@ local function place(player: Player, key: any, at: any)
 		gunAt = CFrame.new(frame.Position.X, y, frame.Position.Z) * frame.Rotation
 		frame = Survey.box(piece, gunAt :: CFrame)
 	end
-	local report = Survey.ground(piece, frame)
-	frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
 	local f = folder()
+	-- (a bridge: its trench square decides where it goes, not the ground)
+	local bridge = piece.kind == "Bridge"
+	local spot, square, length = nil, nil, nil
+	if bridge then
+		local s, sf, len, m = Survey.bridgeSpot(f, frame.Position)
+		spot = Rules.bridgeSpot(s, C.Bridge)
+		if sf and len then
+			frame, length, square = sf, len, m
+		end
+	end
+	local report = Survey.ground(piece, frame)
+	if not bridge then
+		frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
+	end
 	local gunPiece = gunAt ~= nil
 	local ok, reason = Rules.canPlace({
 		piece = piece,
 		distance = (root.Position - (if gunAt then gunAt.Position else frame.Position)).Magnitude,
 		reach = C.Reach + 2, -- (the client's ghost checks C.Reach; slack for movement since)
-		slope = report.slope,
+		spot = spot,
+		slope = if bridge then 0 else report.slope,
 		maxSlope = piece.maxSlope or C.Trench.maxSlope,
-		ground = report.ground,
-		water = report.water,
-		overlap = Survey.blocked(piece, frame, report.low, { character }) or Survey.onPiece(piece, frame, f),
+		ground = bridge or report.ground,
+		water = not bridge and report.water,
+		overlap = if bridge
+			then Survey.onPiece(piece, frame, f)
+			else Survey.blocked(piece, frame, report.low, { character }) or Survey.onPiece(piece, frame, f),
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
 		-- (a wire keeps off trenches too: their hole, walls and bank)
 		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
@@ -638,10 +754,10 @@ local function place(player: Player, key: any, at: any)
 		piece = piece,
 		team = team,
 		owner = player.UserId,
-		-- (a Hesco barrier's work is its HP: laid with its empty perimeter standing, Config/Build.Hesco.hp)
-		work = if piece.kind == "Hesco" then C.Hesco.hp.place else 0,
-		need = if piece.kind == "Hesco" then C.Hesco.hp.max else piece.work,
-		built = false,
+		-- (a Hesco barrier's and a bridge's work is their HP, Config/Build.Hesco.hp / Bridge.hp)
+		work = if piece.kind == "Hesco" then C.Hesco.hp.place elseif bridge then C.Bridge.hp.place else 0,
+		need = if piece.kind == "Hesco" then C.Hesco.hp.max elseif bridge then C.Bridge.hp.max else piece.work,
+		built = bridge, -- (a bridge stands, crossable, from the moment it is laid)
 		born = now,
 		worked = now,
 		frame = frame,
@@ -653,18 +769,35 @@ local function place(player: Player, key: any, at: any)
 		layoutWire(r, report.low)
 	elseif piece.kind == "Hesco" then
 		r.base = CFrame.new(frame.Position.X, report.low, frame.Position.Z) * frame.Rotation
+	elseif bridge and square and length then
+		r.square = square
+		layoutBridge(r, length, bridgeRoll:NextInteger(0, 2 ^ 20))
 	end
 	model:SetAttribute("Piece", piece.key)
 	model:SetAttribute("Team", team)
 	model:SetAttribute("Need", r.need)
 	model:SetAttribute("Frame", frame)
-	model:SetAttribute("Size", Survey.footprint(piece))
+	model:SetAttribute(
+		"Size",
+		if length then Vector3.new(length, piece.height, piece.depth) else Survey.footprint(piece)
+	)
 	if gunAt then
 		model:SetAttribute("At", gunAt)
 	end
 	recs[model] = r
 	model.Parent = f
 	apply(r)
+	-- a bridge falls in with its square: buried past where its dirt pieces go, or gone
+	if square then
+		local function check()
+			local hp, max = square:GetAttribute("HP"), square:GetAttribute("MaxHP")
+			local buried = type(hp) == "number" and type(max) == "number" and hp < max * C.Trench.hp.bare / 100
+			if recs[model] and (buried or not square.Parent) then
+				remove(r, false)
+			end
+		end
+		r.watch = { square:GetAttributeChangedSignal("HP"):Connect(check), square.AncestryChanged:Connect(check) }
+	end
 	-- a sandbag wall goes when its last column is broken
 	if piece.kind == "Sandbags" then
 		model.ChildRemoved:Connect(function()
@@ -825,6 +958,25 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	lastSwing[player] = now
+	-- a bridge: swings work its HP (Config/Build.Bridge.hp); its team's Build swings repair it too; at 0 it is gone
+	if r.piece.kind == "Bridge" then
+		local h = C.Bridge.hp
+		local build = mode == "Build"
+		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, digShare(player))
+		local left, gone = Rules.trenchSwing(r.work, h.max, step, build)
+		if gone then
+			remove(r, false)
+			return
+		end
+		r.work = left
+		r.worked = now
+		if r.work >= r.need and not r.paid then
+			Loadouts.award(player, "Piece") -- (once per piece)
+			r.paid = true
+		end
+		apply(r)
+		return
+	end
 	local was = r.work
 	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(1, r.need, digShare(player)))
 	if gone then
@@ -834,10 +986,10 @@ local function work(player: Player, target: any, mode: any)
 	r.work = left
 	r.worked = now
 	if r.work >= r.need then
-		if not r.built then
+		if not r.paid then
 			Loadouts.award(player, "Piece") -- (once per piece: built again after Destroy swings pays nothing)
 		end
-		r.built = true
+		r.built, r.paid = true, true
 	end
 	local stages = if r.piece.kind == "Sandbags" then r.piece.rows else 1
 	if
@@ -863,7 +1015,24 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 	local worn: { { r: Rec, amount: number } } = {} -- (Hesco barriers: worn after the loop, which bursting changes)
 	for _, r in recs do
 		local frame = r.model:GetAttribute("Frame") :: CFrame
-		if r.piece.kind == "Wire" then
+		if r.piece.kind == "Bridge" and r.built then
+			-- by how far the blast is from its box: the deck from heap to heap, down to the trench's floor under it
+			local size = r.model:GetAttribute("Size") :: Vector3
+			local l = frame:PointToObjectSpace(position)
+			local dx = math.max(math.abs(l.X) - size.X / 2, 0)
+			local dz = math.max(math.abs(l.Z) - size.Z / 2, 0)
+			local dy = math.max(l.Y - size.Y, -C.Trench.depth - l.Y, 0)
+			local share = Rules.structureHit(math.sqrt(dx * dx + dy * dy + dz * dz), src, S.edge, src.bridge or 0)
+			if share > 0 then
+				local left, gone = Rules.bridgeHit(r.work, r.need, share)
+				r.work = left
+				if gone then
+					table.insert(cut, r)
+				else
+					apply(r)
+				end
+			end
+		elseif r.piece.kind == "Wire" then
 			local l = frame:PointToObjectSpace(position)
 			local dx = math.max(math.abs(l.X) - r.piece.width / 2, 0)
 			local dz = math.max(math.abs(l.Z) - r.piece.depth / 2, 0)
@@ -911,7 +1080,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 		end
 	end
 	for _, r in cut do
-		remove(r, true)
+		remove(r, r.piece.kind ~= "Bridge") -- (a bridge at 0 is simply gone)
 	end
 	for _, w in worn do
 		wearHesco(w.r, w.amount)
@@ -1038,7 +1207,11 @@ function Build.start(artillery: Guns)
 			local now = os.clock()
 			local stale = {}
 			for _, r in recs do
-				if r.work <= 0 and not r.built and now - r.worked > C.BlueprintLife then
+				-- (a bridge is laid at stage 1: untouched while it has no more HP than that and was never whole)
+				local fresh = if r.piece.kind == "Bridge"
+					then r.work <= C.Bridge.hp.place and not r.paid
+					else r.work <= 0 and not r.built
+				if fresh and now - r.worked > C.BlueprintLife then
 					table.insert(stale, r)
 				end
 			end

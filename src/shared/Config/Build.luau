@@ -152,7 +152,7 @@ local Build = {
 	-- should do the least, howitzer the most"): `hit`, the % of a trench square's or a sandbag column's max HP it takes,
 	-- in full within `edge` studs of it (the entry's own `edge` if it has one; a trench: its hole, walls and banks, so a blast on the bank counts; user:
 	-- "make the ground around each segment to also be part of the trench hit box"), fading to nothing at `reach`;
-	-- `wire`, the % of a barbed wire's HP. Bullets only by a direct hit. A blast nobody named (DEV tools) by its
+	-- `wire`, the % of a barbed wire's HP; `bridge`, of a bridge's (Bridge below). Bullets only by a direct hit. A blast nobody named (DEV tools) by its
 	-- charge: the first of `byCharge` it is no bigger than. (A Destroy swing is Trench.hp.destroy.)
 	-- Staffs since 2026-10-27 (user: "staff beams should do a lot more damage to built structures overall. about 5-6
 	-- should be able to sink/destroy a trench"): a full beam takes 18 (5 leave a trench nearly level, the 6th finishes
@@ -160,13 +160,15 @@ local Build = {
 	Structures = {
 		edge = 2,
 		wireHP = 100,
-		bullet = { hit = 0.2, wire = 0 }, -- (about 500 hits bury a trench)
-		grenade = { hit = 3, reach = 6, wire = 15 },
-		staff1 = { hit = 2, reach = 4, wire = 0 },
-		staff2 = { hit = 6, reach = 6, wire = 15 },
-		staff3 = { hit = 18, reach = 10, wire = 50 }, -- (two full beams cut wire)
-		field = { hit = 33, reach = 10, edge = 3, wire = 100 }, -- (three bury a trench)
-		howitzer = { hit = 93, reach = 20, edge = 8, wire = 100 }, -- (buries it at once, 7% left)
+		-- (bridges, user 2026-10-27, as drafted: bullets pass the planks, two grenades bring it down to its first stage and
+		-- four take it away, a shell drops it)
+		bullet = { hit = 0.2, wire = 0, bridge = 0 }, -- (about 500 hits bury a trench)
+		grenade = { hit = 3, reach = 6, wire = 15, bridge = 25 },
+		staff1 = { hit = 2, reach = 4, wire = 0, bridge = 0 },
+		staff2 = { hit = 6, reach = 6, wire = 15, bridge = 5 },
+		staff3 = { hit = 18, reach = 10, wire = 50, bridge = 25 }, -- (two full beams cut wire)
+		field = { hit = 33, reach = 10, edge = 3, wire = 100, bridge = 100 }, -- (three bury a trench)
+		howitzer = { hit = 93, reach = 20, edge = 8, wire = 100, bridge = 100 }, -- (buries it at once, 7% left)
 		byCharge = {
 			{ kg = 0.5, source = "grenade" },
 			{ kg = 5, source = "field" },
@@ -224,6 +226,18 @@ local Build = {
 			depth = 6,
 			height = 5.25,
 			maxSlope = 20,
+		},
+		{
+			-- a plank bridge over a trench square (Bridge below): laid on the square under the cursor, as wide as it is
+			-- long (`width` the full square's, stretched to the square's own), `depth` across from heap to heap, its deck
+			-- `height` over the ground
+			key = "Bridge",
+			name = "Bridge",
+			kind = "Bridge",
+			work = 2, -- (it is built on HP: Bridge.hp below)
+			width = 8,
+			depth = 19.2,
+			height = 3.1,
 		},
 		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
 		-- chaining or planner; the look: Config/Assets barbed_wire, Wire below)
@@ -358,6 +372,30 @@ local Build = {
 		soak = 0.5,
 		blocks = { "Earth" },
 		ground = 2,
+	},
+
+	-- Trench bridges (user 2026-10-27, from the design drafts): loose planks over one
+	-- trench square, resting on its two dirt heaps, as wide as the square, no ramps; Config/Assets bridge_pieces, `variants`
+	-- board layouts rolled per bridge and turned round at random, each in two sets (Rules.bridgeStage): the frame and
+	-- stage 1's boards, crossable, then the boards stage 2 adds, shown over half its HP. On HP like every structure (user
+	-- 2026-10-27: "remember the all structures use HP rule, not how many digs"): laid at `hp.place` (stage 1 down at
+	-- once), a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`,
+	-- weapons take Structures `bridge` above; at 0 it is simply gone, nothing falls (user: "remove the crumble. 0 hp should
+	-- just disappear").
+	-- Laid only on a square dug to at least `dug`% of its HP, with a trench square joined straight on at both ends (bent
+	-- up to `maxBend` degrees) and none teed into its sides, `spacing` studs (centre to centre) from any other bridge (one
+	-- free square between). It falls in once the square under it is buried under Trench.hp.bare%. An unseen `plate` (its
+	-- thickness) along the deck's top is what you walk on: the boards don't collide (nobody snags on a gap or a tipped
+	-- board) and bullets pass them. The build mode ghost: a slab `ghost` thick along the deck.
+	-- (25, 65, 100: stage 1 when laid, stage 2 after a swing, whole after two)
+	Bridge = {
+		hp = { max = 100, place = 25, swing = 40, destroy = 25 },
+		variants = 6,
+		dug = 95,
+		maxBend = 20,
+		spacing = 12,
+		plate = 0.3,
+		ghost = 0.4,
 	},
 
 	-- Barbed wire (user 2026-10-27): its meshes are

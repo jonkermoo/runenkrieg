@@ -204,6 +204,10 @@ local Palette = {
 		Sandbag = { 176, 156, 114 }, -- hessian; each bag's tone jittered by Config/Build.Sandbags.shade
 		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
 		PlankDark = { 98, 74, 52 },
+		-- a trench bridge's planks (meshes Bridge<v><set>, <set>Dark; user 2026-10-27: pine, "a different color as the
+		-- trench", then "a slightly darker tint": was 186, 146, 94 and 152, 114, 72)
+		Bridge = { 164, 126, 80 },
+		BridgeDark = { 132, 98, 60 },
 		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:
 		-- "match the color of the mud"): Wall<i> takes wall shade (i - 1) % 3 + 1 and its chunks the chunk shade of the
 		-- same number, its parapet that shade too; Floor<i> and its chunks

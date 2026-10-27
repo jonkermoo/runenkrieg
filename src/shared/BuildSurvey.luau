@@ -7,7 +7,8 @@
 -- attributes: "Piece" (Config/Build key), "Team", "Frame" (CFrame), "Size" (Vector3: width, height, depth). Trench
 -- blocks (src/server/Trenches) carry "Kind" = "TrenchBlock", "Team", "BlockA" / "BlockB" (their ends on the ground),
 -- "LinkA" / "LinkB" ("end", "tee" or "" for a dead end), "Work", "Need". A gun piece's "Frame" is its footprint's
--- centre (Survey.box); "At" (CFrame) is the gun itself, on the ground, looking out along the muzzle.
+-- centre (Survey.box); "At" (CFrame) is the gun itself, on the ground, looking out along the muzzle. A bridge's "Frame"
+-- is its trench square's centre on the ground, RightVector along the trench, LookVector across it.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -278,6 +279,79 @@ function Survey.trenchSnap(folder: Instance?, _team: string, p: Vector3): (Vecto
 		end
 	end
 	return p, nil, nil, nil
+end
+
+-- The trench square a bridge laid at `p` would go on (Config/Build.Bridge, Rules.bridgeSpot): the block in `structures`
+-- whose line `p` is nearest, within its top width, and what decides it: its HP, its ends and how straight they run on,
+-- whether a trench tees into its side, how far the nearest other bridge is (`skip` left out). Also the bridge's frame
+-- (see the header), the square's length and its model, when there is a square.
+function Survey.bridgeSpot(
+	structures: Instance?,
+	p: Vector3,
+	skip: Instance?
+): (Rules.BridgeSpot, CFrame?, number?, Model?)
+	local spot: Rules.BridgeSpot =
+		{ found = false, dug = 0, ends = { "", "" }, bends = { 0, 0 }, teed = false, nearest = math.huge }
+	if not structures then
+		return spot, nil, nil, nil
+	end
+	local T = C.Trench
+	local blocks: { { m: Model, a: Vector3, b: Vector3 } } = {}
+	local best, bestD = nil, Rules.trenchTop(T)
+	for _, m in structures:GetChildren() do
+		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
+		if m:IsA("Model") and typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+			local blk = { m = m, a = a, b = b }
+			table.insert(blocks, blk)
+			local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+			local u = Vector3.new(p.X - a.X, 0, p.Z - a.Z):Dot(flat.Unit)
+			local d = Survey.toSegment(p, a, b)
+			if d < bestD and u >= 0 and u <= flat.Magnitude then
+				best, bestD = blk, d
+			end
+		end
+	end
+	if not best then
+		return spot, nil, nil, nil
+	end
+	local m, a, b = best.m, best.a, best.b
+	local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+	local dir = flat.Unit
+	spot.found = true
+	local hp, max = m:GetAttribute("HP"), m:GetAttribute("MaxHP")
+	spot.dug = if type(hp) == "number" and type(max) == "number" and max > 0 then hp / max * 100 else 0
+	for i, e in { { a, m:GetAttribute("LinkA") }, { b, m:GetAttribute("LinkB") } } do
+		spot.ends[i] = if type(e[2]) == "string" then e[2] else ""
+		if spot.ends[i] == "end" then
+			-- the square joined there: the one with an end on this one's
+			for _, o in blocks do
+				if o.m ~= m and ((o.a - e[1]).Magnitude < 0.5 or (o.b - e[1]).Magnitude < 0.5) then
+					local od = Vector3.new(o.b.X - o.a.X, 0, o.b.Z - o.a.Z).Unit
+					spot.bends[i] = math.deg(math.acos(math.clamp(math.abs(od:Dot(dir)), 0, 1)))
+				end
+			end
+		end
+	end
+	-- another trench teed into its side: an end of another block marked "tee" on this one's floor edge
+	for _, o in blocks do
+		if o.m ~= m then
+			for _, e in { { o.a, o.m:GetAttribute("LinkA") }, { o.b, o.m:GetAttribute("LinkB") } } do
+				if e[2] == "tee" and Survey.toSegment(e[1], a, b) < T.floor + 1 then
+					spot.teed = true
+				end
+			end
+		end
+	end
+	local centre = (a + b) / 2
+	for _, o in structures:GetChildren() do
+		local frame = o:GetAttribute("Frame")
+		local piece = Rules.piece(o:GetAttribute("Piece"), C.Pieces)
+		if o ~= skip and piece and piece.kind == "Bridge" and typeof(frame) == "CFrame" then
+			local d = Vector3.new(frame.Position.X - centre.X, 0, frame.Position.Z - centre.Z).Magnitude
+			spot.nearest = math.min(spot.nearest, d)
+		end
+	end
+	return spot, CFrame.fromMatrix(centre, dir, Vector3.yAxis), flat.Magnitude, m
 end
 
 return Survey

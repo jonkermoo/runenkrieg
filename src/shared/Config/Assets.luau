@@ -252,6 +252,19 @@ local Assets = {
 			fidelity = "Hull",
 			description = "The Hesco barrier, 6 x 6 x 5.25 studs, in piece space (footprint centred on the Origin on the ground), one set of pieces per stage: stage 0 just laid at 0 HP (Scrape0 the scraped ground, Pack0 + Wire0 the unit lying folded flat), stages s = 1-4: Wire<s> (mesh, rim, corner coils), Liner<s> (slack liner above the dirt, stages 1-3), LinerFull<s> (liner under the dirt, stages 2-4), Earth<s>, Damp<s>, Clods<s>, Stones<s> (the dirt and what lies on it, stages 2-4), Flaps1 + Piles1 (stage 1). Only the Earth blocks: the wire and liner stop nothing (user 2026-10-27).",
 		},
+		-- a trench bridge's planks (user 2026-10-27; tools/blender/bridge/bridge_pieces.py renders them on the trench pieces):
+		-- built by src/server/Build per bridge, colored from Config/Palette.Build by mesh name
+		bridge_pieces = {
+			-- v2: the deck boards laid on the stringers' tops (they floated), the sills and stringers straight and level
+			-- (v1 121849607058281)
+			id = 76835404637067,
+			category = "Props",
+			folder = "Bridge",
+			source = "assets/props/bridge_pieces.fbx",
+			generator = "tools/blender/bridge/bridge_pieces.py",
+			fidelity = "Box",
+			description = "A trench bridge's planks in piece space (origin on the square's centre line at ground level, x along the trench over one 8-stud square, z across it, y up; deck top 3.1, heap crest to crest 19.2; Origin at 0): variants Bridge1-6, each Bridge<v>Frame (+Dark: sills on the heaps, spliced stringers), Bridge<v>Boards (+Dark: stage 1's deck boards), Bridge<v>More (+Dark: the boards stage 2 adds). Every board modelled with grain grooves engraved on its face.",
+		},
 		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown
 		-- at a time
 		barbed_wire = {
