@@ -391,6 +391,9 @@ local Palette = {
 			selFill = { 58, 60, 64 },
 			selLine = { 201, 203, 208 },
 			selText = { 255, 255, 255 },
+			-- the loadout menu's team cards (src/client/Menus, user 2026-10-27): a team you can't join is red (one you can
+			-- is selText, yours textDim)
+			noText = { 214, 92, 80 },
 			accent = { 228, 229, 232 },
 			backdrop = { 0, 0, 0 },
 			backdropTransparency = 0.55,
