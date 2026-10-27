@@ -25,7 +25,7 @@
 --   hovering; after Float.hover seconds it sinks, and dropping below the takeoff height knocks it down (ragdoll). The
 --   float cycle plays and a charge leans back (src/client/Locomotion, "Floating"). Landing ends it at once.
 -- - Mana (Config/Spells.Mana, Rules/Spells): each shot spends its stage's cost; a charge stops at the stage it can pay
---   for; nothing fires without enough, or while burnt out after a mega shot. Shown by src/client/ManaBar from the
+--   for; nothing fires without enough, or while burnt out after a mega shot. Shown by src/client/StaffHud from the
 --   character's "Mana", "ManaLocked", "ManaSmoulder", "ManaCost", "ManaDenied", "ManaRefilled" (local).
 -- - Others see and hear the cast (src/client/StaffSeen): each circle opened, the aim and charge while held, each shot
 --   and where it lands, a dropped cast and floating go to the server (Net "StaffCast", Config/Spells.Send), which
@@ -150,7 +150,7 @@ function StaffAttack.start()
 	player.CharacterAdded:Connect(function()
 		mana = Rules.mana(Cfg.Mana) -- a new life starts full
 	end)
-	-- a shot refused for want of mana: the bar flashes (src/client/ManaBar)
+	-- a shot refused for want of mana: the mana rock's panel shakes (src/client/StaffHud)
 	-- the staff's sounds (Config/Vfx.Sounds; the circles' and shots' play from Vfx/Zoltraak): the loops running now
 	local Snd = VfxCfg.Sounds
 	SoundFx.preload(Snd, W.staff_grey.sounds or {})

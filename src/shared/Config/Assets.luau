@@ -181,6 +181,26 @@ local Assets = {
 			generator = "tools/blender/artillery/bertha.py",
 			description = "The magic howitzer: a 42 cm siege mortar of our own after the Big Bertha and the Gamma-Gerat, no wheels: a riveted box carriage turning on a giant toothed ring gear, a layered short barrel trunnioned high between its walls, two silos beside it and a housing under it, a bolted yoke and dial sight, a toothed elevating sector and big spoked hand wheels by the gunner's step, a crew deck and ladder at the back; the cracked, chipped gem (its cracks a part of their own, CrystalCracks) in a ring of runes on the round breech face, rune bands on the barrel, runes on the bed. Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore + Breech + Crystal + CrystalCracks recoil.",
 		},
+		-- the staff HUD's gem (user 2026-10-26: "trace a real gem that is shaped similarily", "make it physcial
+		-- engravings", "add floating shards around it"; Config/Hud.Staff)
+		hud_gem = {
+			id = 98625703626073,
+			category = "Weapons",
+			folder = "Shared/Staffs",
+			source = "assets/weapons/shared/hud_gem.fbx",
+			generator = "tools/blender/weapons/hud_gem.py",
+			description = "The staff HUD's gem: a lopsided double-terminated quartz point at quartz's true face angles (uneven faces, off-centre tips, four chips), its cracks V grooves cut into it (Crystal; the groove walls CrystalCracks), and five broken-off quartz shards floating round it (Shard1..Shard5, each centred on its own middle). The c axis along +Y.",
+		},
+		-- the shared rifle round (user 2026-10-26: the combat HUD shows each round on its own, Config/Hud.Round): the
+		-- model every rifle's magazine rounds and casing are made from
+		ammo_rifle = {
+			id = 74015378077606,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_rifle.fbx",
+			generator = "tools/blender/weapons/ammo.py",
+			description = "The shared rifle round at the rifles' modelled scale: a loaded round (Case + Bullet, case head at the Origin, pointing -Z) and a spent Casing beside it (x +0.05).",
+		},
 		-- the field gun's fixed round (2026-10-20, docs/MILESTONES.md A2): carried by the gunner while loading
 		-- (Config/Artillery.Load), colored from Config/Palette.Artillery by mesh name
 		round_qf18 = {

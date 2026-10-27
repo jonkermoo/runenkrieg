@@ -8,7 +8,7 @@
 -- - on a gun (its "Gunner" is me): a third-person camera behind it (user 2026-10-20: "third person cinematic camera
 --   that shows an arc (like grenade) and where it will explode (it will be innacurate)"); the mouse lays it (Net
 --   "Artillery" "Aim"), the fire key fires, E gets off. The arc is the gun's lay as it is, without the scatter; the
---   marker and the range show past the fog. A reload bar at the bottom.
+--   marker and the range show past the fog. The crew's panel at the bottom is src/client/ArtilleryHud.
 -- - every shot flashes at the muzzle with its report (src/client/ArtilleryFx), the whole gun jolting back and settling
 --   (Config/Artillery.Fx.Jolt); every shell's blast is the shared explosion (src/client/Vfx/Blast) with its sound,
 --   heard late and duller far off.
@@ -377,7 +377,6 @@ local a0: Attachment? = nil
 local a1: Attachment? = nil
 local marker: BillboardGui? = nil
 local rangeLabel: TextLabel? = nil
-local ringFrame: Frame? = nil
 -- the impact zone (user 2026-10-20: "the impact zone should be showed like a highlight on the surface the cannon is
 -- going to hit"): a glowing disc lying on the ground there, as wide as the shell hurts, and a brighter core pulsing in it
 local zone: { fill: Part, core: Part }? = nil
@@ -402,10 +401,11 @@ local function zoneParts(): { fill: Part, core: Part }
 	return zone :: { fill: Part, core: Part }
 end
 
--- lays the zone on the ground at `at` (its surface's `normal`), `radius` studs across half
-local function showZone(at: Vector3, normal: Vector3, radius: number)
+-- lays the zone at `at`, `radius` studs across half, always level (user 2026-10-26: "make it flat at all times, dont
+-- make it parallel to the surface its on")
+local function showZone(at: Vector3, radius: number)
 	local z = zoneParts()
-	local n = if normal.Magnitude > 1e-3 then normal.Unit else Vector3.yAxis
+	local n = Vector3.yAxis
 	local side = n:Cross(Vector3.zAxis)
 	side = if side.Magnitude > 1e-3 then side.Unit else n:Cross(Vector3.xAxis).Unit
 	local cf = CFrame.fromMatrix(at + n * Cfg.Zone.lift, n, side) -- a cylinder's axis is its X
@@ -458,18 +458,7 @@ local function arcParts(): (Beam, Attachment, Attachment, BillboardGui, TextLabe
 		gui.LightInfluence = 0
 		gui.Size = UDim2.fromOffset(A.marker * 4, A.marker + A.text * 1.6)
 		gui.Enabled = false
-		local ring = Instance.new("Frame")
-		ring.AnchorPoint = Vector2.new(0.5, 0)
-		ring.Position = UDim2.fromScale(0.5, 0)
-		ring.Size = UDim2.fromOffset(A.marker, A.marker)
-		ring.BackgroundTransparency = 1
-		Instance.new("UICorner", ring).CornerRadius = UDim.new(0.5, 0)
-		local stroke = Instance.new("UIStroke")
-		stroke.Thickness = A.ring
-		stroke.Color = rgb(Palette.Artillery.Marker)
-		stroke.Parent = ring
-		ring.Parent = gui
-		ringFrame = ring
+		-- (no ring over it: user 2026-10-26, "remove the yellow circle, just show the meter and the explosion shadow")
 		local label = Instance.new("TextLabel")
 		label.AnchorPoint = Vector2.new(0.5, 1)
 		label.Position = UDim2.fromScale(0.5, 1)
@@ -569,7 +558,7 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	local o = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local v = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
 	local g = gun.gravity
-	local finish, last, normal = trace(o, v, g, { model, character })
+	local finish, last = trace(o, v, g, { model, character })
 	local function at(t: number): Vector3
 		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
 		return Vector3.new(x, y, z)
@@ -596,16 +585,11 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	b.Enabled = true
 	gui.Enabled = finish ~= nil
 	if finish then
-		showZone(finish, normal or Vector3.yAxis, gun.zone)
+		showZone(finish, gun.zone)
 		local z = zoneParts()
 		z.fill.Transparency = Cfg.Zone.fill
 	else
 		hideZone()
-	end
-	-- the ring over it only where the fog would hide the zone
-	if ringFrame then
-		ringFrame.Visible = finish ~= nil
-			and (finish - workspace.CurrentCamera.CFrame.Position).Magnitude > Cfg.Zone.ringFrom
 	end
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
 	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
@@ -654,42 +638,6 @@ function Artillery.start()
 		end)
 	end
 
-	-- the reload bar (as the staff's mana bar: Palette.UI)
-	local UI = Palette.UI
-	local B = Cfg.Bar
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "ArtilleryBar"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	gui.Enabled = false
-	local bar = Instance.new("Frame")
-	bar.AnchorPoint = Vector2.new(0.5, 1)
-	bar.Position = UDim2.new(0.5, 0, 1, -B.margin)
-	bar.Size = UDim2.fromOffset(B.width, B.height)
-	bar.BorderSizePixel = 0
-	bar.BackgroundColor3 = rgb(UI.slot)
-	local edge = Instance.new("UIStroke")
-	edge.Thickness = UI.stroke
-	edge.Color = rgb(UI.outline)
-	edge.Parent = bar
-	local fill = Instance.new("Frame")
-	fill.BorderSizePixel = 0
-	fill.BackgroundColor3 = rgb(UI.round)
-	fill.Size = UDim2.fromScale(0, 1)
-	fill.Parent = bar
-	local caption = Instance.new("TextLabel")
-	caption.AnchorPoint = Vector2.new(0.5, 1)
-	caption.Position = UDim2.new(0.5, 0, 0, -4)
-	caption.Size = UDim2.fromOffset(B.width, B.text * 1.3)
-	caption.BackgroundTransparency = 1
-	caption.Font = Enum.Font.GothamMedium
-	caption.TextSize = B.text
-	caption.TextColor3 = rgb(UI.text)
-	caption.TextStrokeTransparency = 0.5
-	caption.Parent = bar
-	bar.Parent = gui
-	gui.Parent = player:WaitForChild("PlayerGui")
-
 	-- on a gun
 	local mine: Model? = nil
 	local bracing = false -- a brace on its way (the howitzer's waits for its charge-up)
@@ -735,7 +683,6 @@ function Artillery.start()
 		mine = nil
 		moveKeys(true)
 		hideArc()
-		gui.Enabled = false
 		camera.CameraType = Enum.CameraType.Custom
 		camera.FieldOfView = fov
 		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
@@ -754,7 +701,6 @@ function Artillery.start()
 		fov = camera.FieldOfView
 		camera.CameraType = Enum.CameraType.Scriptable
 		camera.FieldOfView = p.gun.camera.fov
-		gui.Enabled = true
 		moveKeys(false)
 		local character = player.Character
 		if character then
@@ -885,13 +831,6 @@ function Artillery.start()
 			arcAt = t
 			drawArc(model, p, character)
 		end
-
-		-- the reload bar
-		local readyAt = (model:GetAttribute("ReadyAt") :: number?) or -math.huge
-		local share = Rules.loaded(now(), readyAt, gun.reload)
-		fill.Size = UDim2.fromScale(share, 1)
-		fill.BackgroundColor3 = rgb(if share >= 1 then UI.accent else UI.round)
-		caption.Text = if share >= 1 then "Ready" else "Loading"
 	end)
 
 	-- a shot: the muzzle blast, its report, and the whistle where it comes down

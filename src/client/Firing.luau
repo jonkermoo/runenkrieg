@@ -13,8 +13,8 @@
 -- - an empty rifle's bolt stays open (nothing happens on the trigger) until a clip goes in; put away mid-action, the
 --   action plays out after the next draw (Config/Firing.Resume) and nothing fires until it's done.
 -- - everyone else's shots and actions come from the server ("Shot", "WeaponAction") and play through GunFx.
--- - the ammo display (bottom right): the chambered round, then the magazine; a hint when the bolt or a clip is
---   needed. A hit note shows what the shot hit and how far (the range targets).
+-- - the ammo display (bottom right: src/client/AmmoHud, the cut-away of the gun); a hit note shows what the shot hit
+--   and how far (the range targets).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -25,10 +25,12 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
 local D = require(Shared.Config.Destruction)
+local HitNote = require(Shared.Config.Hud).HitNote
 local Palette = require(Shared.Config.Palette)
 local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local Net = require(Shared.Net)
+local AmmoHud = require(script.Parent.AmmoHud)
 local GunFx = require(script.Parent.GunFx)
 local Held = require(script.Parent.Held)
 local Settings = require(script.Parent.Settings)
@@ -173,109 +175,28 @@ local function lines(name: string, direction: Vector3, seed: number): { Vector3 
 	return out
 end
 
--- ---- the ammo display and the hit note ----
-type Hud = { gui: ScreenGui, chamber: Frame, slots: { Frame }, hint: TextLabel, note: TextLabel, noteUntil: number }
-
-local function rgb(c: { number }): Color3
-	return Color3.fromRGB(c[1], c[2], c[3])
-end
-
-local function round(parent: Instance, order: number): Frame
-	local f = Instance.new("Frame")
-	f.Size = UDim2.fromOffset(9, 30)
-	f.BorderSizePixel = 0
-	f.LayoutOrder = order
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = f
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = rgb(Palette.UI.outline)
-	stroke.Thickness = 1.5
-	stroke.Parent = f
-	f.Parent = parent
-	return f
-end
+-- ---- the hit note (the ammo display is src/client/AmmoHud) ----
+type Hud = { gui: ScreenGui, note: TextLabel, noteUntil: number }
 
 local function buildHud(player: Player): Hud
 	local gui = Instance.new("ScreenGui")
-	gui.Name = "AmmoHud"
+	gui.Name = "HitNote"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
-	local box = Instance.new("Frame")
-	box.AnchorPoint = Vector2.new(1, 1)
-	box.Position = UDim2.new(1, -24, 1, -24)
-	box.Size = UDim2.fromOffset(0, 30)
-	box.AutomaticSize = Enum.AutomaticSize.X
-	box.BackgroundTransparency = 1
-	box.Parent = gui
-	local list = Instance.new("UIListLayout")
-	list.FillDirection = Enum.FillDirection.Horizontal
-	list.HorizontalAlignment = Enum.HorizontalAlignment.Right
-	list.Padding = UDim.new(0, 4)
-	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Parent = box
-	local chamber = round(box, 0)
-	local gap = Instance.new("Frame")
-	gap.Size = UDim2.fromOffset(6, 1)
-	gap.BackgroundTransparency = 1
-	gap.LayoutOrder = 1
-	gap.Parent = box
-	local function label(y: number, size: number): TextLabel
-		local t = Instance.new("TextLabel")
-		t.BackgroundTransparency = 1
-		t.Font = Enum.Font.GothamBold
-		t.TextSize = size
-		t.TextColor3 = rgb(Palette.UI.text)
-		t.TextStrokeTransparency = 0.5
-		t.Text = ""
-		t.Parent = gui
-		t.Position = UDim2.new(1, -24, 1, y)
-		t.AnchorPoint = Vector2.new(1, 1)
-		t.Size = UDim2.fromOffset(300, size + 4)
-		t.TextXAlignment = Enum.TextXAlignment.Right
-		return t
-	end
-	local hint = label(-60, 14)
-	local note = label(0, 16)
+	local note = Instance.new("TextLabel")
+	note.BackgroundTransparency = 1
+	note.Font = Enum.Font.GothamBold
+	note.TextSize = HitNote.textSize
+	note.TextColor3 = Color3.fromRGB(Palette.UI.text[1], Palette.UI.text[2], Palette.UI.text[3])
+	note.TextStrokeTransparency = HitNote.stroke
+	note.Text = ""
 	note.AnchorPoint = Vector2.new(0.5, 0.5)
-	note.Position = UDim2.new(0.5, 0, 0.5, -40)
-	note.TextXAlignment = Enum.TextXAlignment.Center
+	note.Position = UDim2.new(0.5, 0, 0.5, HitNote.y)
+	note.Size = UDim2.fromOffset(HitNote.size[1], HitNote.size[2])
+	note.Visible = false
+	note.Parent = gui
 	gui.Parent = player:WaitForChild("PlayerGui")
-	return { gui = gui, chamber = chamber, slots = {}, hint = hint, note = note, noteUntil = 0 }
-end
-
-local function slot(f: Frame, kind: string)
-	f.BackgroundTransparency = if kind == "empty" then 0.5 else 0
-	f.BackgroundColor3 =
-		rgb(if kind == "round" then Palette.UI.round elseif kind == "spent" then Palette.UI.spent else Palette.UI.slot)
-end
-
-local function showHud(hud: Hud, l: Local?, now: number)
-	hud.gui.Enabled = l ~= nil
-	if not l then
-		return
-	end
-	local s = l.state
-	local box = hud.chamber.Parent :: Frame
-	while #hud.slots < l.gun.capacity do
-		table.insert(hud.slots, round(box, 2 + #hud.slots))
-	end
-	local magazine = F.magazineAt(s, now) -- single rounds already pushed in count
-	for i, f in hud.slots do
-		f.Visible = i <= l.gun.capacity
-		slot(f, if i <= magazine then "round" else "empty")
-	end
-	slot(hud.chamber, if s.chambered then "round" elseif s.spent then "spent" else "empty")
-	local next = F.next(s, now)
-	local loose = l.gun.clip == "Loose"
-	hud.hint.Text = if next == "Load"
-		then "Click: stop loading"
-		elseif next == "Bolt" then (if loose then "Click: work the pump" else "Click: work the bolt")
-		elseif next == "Dry" or next == "Open" or (s.magazine == 0 and not s.chambered) then (if loose
-			then `{Settings.get("Key_Reload")}: load shells`
-			else `{Settings.get("Key_Reload")}: load a clip`)
-		else ""
-	hud.note.Visible = now < hud.noteUntil
+	return { gui = gui, note = note, noteUntil = 0 }
 end
 
 -- Whether the local soldier's gun is working its action now (a shot's fire time, the bolt, a reload, single rounds
@@ -292,6 +213,7 @@ function Firing.start()
 	GunFx.preload()
 	ShotAudio.preload()
 	local hud = buildHud(player)
+	AmmoHud.start()
 
 	local function held(): (Model?, Held.Weapon?, Local?)
 		local character = player.Character
@@ -511,8 +433,10 @@ function Firing.start()
 		end)
 
 	RunService.RenderStepped:Connect(function()
-		local _, _, l = held()
-		showHud(hud, l, os.clock())
+		local _, weapon, l = held()
+		local now = os.clock()
+		AmmoHud.show(weapon and weapon.tool, weapon and weapon.name, l and l.state, l and l.gun, now)
+		hud.note.Visible = now < hud.noteUntil
 	end)
 end
 

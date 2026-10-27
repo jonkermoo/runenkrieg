@@ -299,17 +299,6 @@ local Palette = {
 		outline = { 24, 28, 22 },
 		text = { 236, 232, 220 },
 		stroke = 2,
-		-- the ammo display (src/client/Firing): a live round, a spent case in the chamber, an empty slot
-		round = { 196, 160, 84 },
-		spent = { 96, 84, 62 },
-		slot = { 30, 34, 28 },
-		-- the staff's mana bar (src/client/ManaBar): the mana, the share the shot being charged will spend, the burnt-out
-		-- bar refilling after a mega shot, a refused shot's flash
-		-- (`mana` / `manaSpend` the start; the bar takes the player's team magic colours: Config/Spells.Staff.Teams)
-		mana = { 120, 200, 255 },
-		manaSpend = { 235, 250, 255 },
-		manaBurnt = { 118, 72, 150 },
-		manaDenied = { 220, 70, 60 },
 		-- the build HUD panel (src/client/Build; user 2026-10-24): the panel, its edge (go / no-go / the shovel out, not
 		-- planning), the title (red when it can't go), the line beside it, the key caps and their hints
 		BuildHud = {
@@ -323,6 +312,45 @@ local Palette = {
 			key = { 238, 240, 234 },
 			keyText = { 32, 38, 42 },
 			hint = { 184, 194, 188 },
+		},
+		-- the combat HUD, quartermaster's brass (Config/Hud, src/shared/ui/CombatHud.json): the panel's dark field, its
+		-- brass rim and rivets, the name plate and its stamped letters, the count, the hint plate (red, the next thing to
+		-- do), the stage lamps dark, the rock with no mana, the readouts
+		Hud = {
+			field = { 24, 28, 22 },
+			window = { 14, 16, 13 },
+			brass = { 196, 160, 84 },
+			brassDark = { 120, 96, 50 },
+			plateText = { 34, 28, 18 },
+			count = { 222, 186, 104 },
+			countLow = { 220, 96, 70 },
+			hint = { 68, 30, 24 },
+			hintEdge = { 210, 80, 60 },
+			hintText = { 255, 214, 196 },
+			lampOff = { 30, 34, 30 },
+			crystalHollow = { 112, 116, 122 }, -- a crystal with no charge (Config/Hud.Crystal), and dead
+			crystalDead = { 58, 60, 64 },
+			readout = { 236, 232, 220 },
+			ready = { 150, 200, 110 },
+			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
+			-- a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
+			bolt = { 150, 154, 160 },
+			steel = { 92, 96, 102 },
+			well = { 78, 82, 88 },
+			wellEdge = { 110, 114, 120 },
+			clip = { 120, 118, 112 },
+			shadow = { 16, 18, 22 },
+			shadowAmbient = { 255, 255, 255 },
+			shadowLight = { 0, 0, 0 },
+			-- each team's box (user 2026-10-26: "make it the team coloring"; by the "Kit": Config/Uniforms): its field,
+			-- its rim and rivets, as the uniforms (grey: slate; olive: olive drab; white: chocolate and off-white)
+			Teams = {
+				uniform1 = { field = { 28, 31, 34 }, rim = { 128, 136, 144 }, rivet = { 84, 90, 96 } },
+				uniform2 = { field = { 28, 32, 22 }, rim = { 150, 156, 96 }, rivet = { 98, 102, 62 } },
+				uniform3 = { field = { 38, 29, 23 }, rim = { 200, 190, 170 }, rivet = { 120, 92, 70 } },
+			},
+			viewAmbient = { 150, 150, 150 },
+			viewLight = { 255, 244, 224 },
 		},
 		-- the third-person crosshair's ring (src/client/Crosshair, Config/Camera.Crosshair), with a dark edge behind it
 		crosshair = { 236, 232, 220 },
