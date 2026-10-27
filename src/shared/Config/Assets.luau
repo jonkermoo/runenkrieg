@@ -240,6 +240,16 @@ local Assets = {
 			fidelity = "Hull",
 			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
 		},
+		-- the sandbag pile (user 2026-10-27: pillow bags, two under one, "give it some firmth"): each bag its own mesh, so
+		-- a pile is built a bag at a time; colored from Config/Palette.Build by mesh name
+		sandbag_pile = {
+			id = 92308983969194,
+			category = "Props",
+			folder = "Sandbags",
+			source = "assets/props/sandbag_pile.fbx",
+			generator = "tools/blender/sandbags/pile.py",
+			description = "A pile of three pillow sandbags in piece space (x along the pile, y up from the ground, z toward the defenders behind it, Origin at the foot's centre): Bag1 and Bag2 side by side on the ground (3.6 long, 1.6 deep, ties pointing outward), Bag3 centred on them, its underside settled into the joint; Bag<i>Cord the tie round each bag's neck. 7.2 wide plus the ears, 3.68 high, the bottom row's top 1.96.",
+		},
 		uniform1 = {
 			category = "Teams",
 			folder = "Grey/Uniform",
