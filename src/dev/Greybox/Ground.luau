@@ -33,9 +33,35 @@ function Ground.applyPalette(palette: any)
 	terrain.WaterWaveSize = w.waveSize
 end
 
+-- Air over everything a map's terrain and skirt cover (a map built beside another clears only its own ground).
+local function clearOwn(map: any)
+	local b, reach, tc = map.bounds, map.terrainMargin + (if map.skirt then map.skirt.width else 0), map.terrain
+	local x = b.minX - reach
+	while x < b.maxX + reach do
+		local w = math.min(512, b.maxX + reach - x)
+		local z = b.minZ - reach
+		while z < b.maxZ + reach do
+			local d = math.min(512, b.maxZ + reach - z)
+			local low = math.min(tc.minY, -16)
+			workspace.Terrain:FillBlock(
+				CFrame.new(x + w / 2, (low + tc.maxY) / 2, z + d / 2),
+				Vector3.new(w, tc.maxY - low + 8, d),
+				Enum.Material.Air
+			)
+			z += d
+		end
+		x += w
+		task.wait()
+	end
+end
+
 function Ground.build(map: any, MT: any, palette: any): number
 	local terrain = workspace.Terrain
-	terrain:Clear()
+	if map.offMap then
+		clearOwn(map)
+	else
+		terrain:Clear()
+	end
 	task.wait()
 	Ground.applyPalette(palette)
 

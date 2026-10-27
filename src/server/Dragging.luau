@@ -21,6 +21,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Dragging)
 local DevCfg = require(Shared.Config.DevTools)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Dragging)
 local Teams = require(Shared.Rules.Teams)
@@ -63,7 +64,7 @@ local function state(dragger: Model, dh: Humanoid, body: Model, bh: Humanoid, st
 	local busy = holding or dragger:GetAttribute("Healing") ~= nil or dragger:GetAttribute("Casting") == true
 	return {
 		same = dragger == body,
-		team = Teams.same(Kits.of(dragger), Kits.of(body)),
+		team = Teams.same(Kits.of(dragger), Kits.of(body), workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true),
 		draggerHealth = dh.Health,
 		draggerDown = Ragdoll.active(dragger),
 		draggerBusy = busy,

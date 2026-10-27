@@ -11,6 +11,7 @@ export type Dest = {
 	y: number?,
 	look: { number }?,
 	offMap: boolean?,
+	map: string?, -- on another generated map (Config/Maps), not Map 1
 }
 
 function DevTeleports.list(map: any, cfg: any): { Dest }
