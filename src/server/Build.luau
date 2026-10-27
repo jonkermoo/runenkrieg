@@ -65,6 +65,7 @@ type Rec = {
 	grassed: boolean?, -- barbed wire: the grass under it cleared
 	base: CFrame?, -- a Hesco barrier: its footprint's centre on the lowest ground under it
 	shown: number?, -- a Hesco barrier: the stage its pieces show
+	stageParts: { [number]: { BasePart } }?, -- a Hesco barrier: every stage's pieces, laid out once
 	-- a gun piece: where the gun stands (on the ground before its pit), its blueprint or the gun standing, its pit's
 	-- ground as it was (Ground.pitBase) and the share of it dug now
 	at: CFrame?,
@@ -323,46 +324,73 @@ local function hescoPieces(asset: string): Model?
 	return hescoKit
 end
 
--- a Hesco barrier as its HP stands (its work: Config/Build.Hesco.hp): the pieces of its stage; only
--- Config/Build.Hesco.blocks (the dirt) collide or are hit. Its HP on the model for the shovel's panel, like a gun's.
+-- a Hesco barrier's pieces, every stage's laid out once (cloned from the asset library) in a holder per stage
+-- ("Stage<s>"), all hidden: a change of stage only shows one and hides another (cloning a stage's meshes at each change
+-- was slow to show, user round 5)
+local function layHesco(r: Rec): boolean
+	if r.stageParts then
+		return true
+	end
+	local kit = hescoPieces(r.piece.asset)
+	if not kit then
+		return false
+	end
+	local base = r.base :: CFrame
+	local out: { [number]: { BasePart } } = {}
+	for s = 0, r.piece.stages do
+		local holder = Instance.new("Model")
+		holder.Name = "Stage" .. s
+		out[s] = {}
+		for name, off in hescoAt do
+			local kind, n = string.match(name, "^(%a+)(%d)$")
+			local src = kit:FindFirstChild(name)
+			if kind and tonumber(n) == s and src and src:IsA("BasePart") then
+				local part = src:Clone()
+				part.Anchored = true
+				part.Material = Enum.Material.SmoothPlastic
+				part.Color = rgb(Palette.Build.Hesco[kind])
+				part.CFrame = base * off
+				part.CanTouch = false
+				part:SetAttribute("Blocks", table.find(C.Hesco.blocks, kind) ~= nil)
+				part.Transparency = 1
+				part.CanCollide = false
+				part.CanQuery = false
+				part.CastShadow = false
+				part.Parent = holder
+				table.insert(out[s], part)
+			end
+		end
+		holder.Parent = r.model
+	end
+	r.stageParts = out
+	return true
+end
+
+-- shows or hides stage `s`'s pieces; only Config/Build.Hesco.blocks (the dirt) collide or are hit
+local function showStage(r: Rec, s: number, on: boolean)
+	for _, part in (r.stageParts :: any)[s] or {} do
+		local blocks = on and part:GetAttribute("Blocks") == true
+		part.Transparency = if on then 0 else 1
+		part.CastShadow = on
+		part.CanCollide = blocks
+		part.CanQuery = blocks -- (bullets pass the mesh and liner)
+	end
+end
+
+-- a Hesco barrier as its HP stands (its work: Config/Build.Hesco.hp): the stage it stands at shown, its HP on the
+-- model for the shovel's panel, like a gun's
 local function showHesco(r: Rec)
-	local p, H = r.piece, C.Hesco
 	r.model:SetAttribute("HP", math.ceil(r.work))
 	r.model:SetAttribute("MaxHP", r.need)
-	local stage = Rules.hescoStage(r.work, r.need, p.stages)
-	if r.shown == stage then
+	local stage = Rules.hescoStage(r.work, r.need, r.piece.stages)
+	if r.shown == stage or not layHesco(r) then
 		return
 	end
-	local kit = hescoPieces(p.asset)
-	if not kit then
-		return
+	if r.shown then
+		showStage(r, r.shown, false)
 	end
+	showStage(r, stage, true)
 	r.shown = stage
-	local old = r.model:FindFirstChild("Stage")
-	if old then
-		old:Destroy()
-	end
-	local holder = Instance.new("Model")
-	holder.Name = "Stage"
-	local suffix = tostring(stage)
-	local base = r.base :: CFrame
-	for name, off in hescoAt do
-		local kind, n = string.match(name, "^(%a+)(%d)$")
-		local src = kit:FindFirstChild(name)
-		if kind and n == suffix and src and src:IsA("BasePart") then
-			local part = src:Clone()
-			local blocks = table.find(H.blocks, kind) ~= nil
-			part.Anchored = true
-			part.Material = Enum.Material.SmoothPlastic
-			part.Color = rgb(Palette.Build.Hesco[kind])
-			part.CFrame = base * off
-			part.CanCollide = blocks
-			part.CanQuery = blocks -- (bullets pass the mesh and liner)
-			part.CanTouch = false
-			part.Parent = holder
-		end
-	end
-	holder.Parent = r.model
 end
 
 local function remove(r: Rec, debris: boolean)
@@ -901,7 +929,8 @@ function Build.shot(part: Instance, point: Vector3)
 		Destruction.damage(s, (s:GetAttribute("MaxHP") :: number) * C.Structures.bullet.hit / 100)
 		return
 	end
-	-- a Hesco barrier's dirt (the only piece of it a bullet meets): `s` its stage's holder, in the piece's model
+	-- a Hesco barrier's dirt (the only piece of it a bullet meets): `s` its stage's holder ("Stage<s>"), in the
+	-- piece's model
 	local model = s and s.Parent
 	local r = if model and model:IsA("Model") then recs[model] else nil
 	if r and r.piece.kind == "Hesco" then
@@ -911,6 +940,20 @@ end
 
 -- the barbed wire that stands (not broken): its box (centre frame and size), its team and model, for src/server/Wire
 export type WireBox = { frame: CFrame, size: Vector3, team: string, model: Model }
+-- whether `p` is on a Hesco barrier's ground (its footprint and Config/Build.Hesco.ground round it): craters never carve
+-- it (src/server/Ground.guard); the barrier takes the blast (Build.blast)
+function Build.onHesco(p: Vector3): boolean
+	for _, r in recs do
+		if r.piece.kind == "Hesco" then
+			local l = r.frame:PointToObjectSpace(p)
+			if Rules.onFootprint(l.X, l.Z, r.piece.width, r.piece.depth, C.Hesco.ground) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 function Build.wires(): { WireBox }
 	local out = {}
 	for _, r in recs do
@@ -973,6 +1016,7 @@ function Build.start(artillery: Guns)
 	guns = artillery
 	folder()
 	Trenches.start()
+	Ground.guard(Build.onHesco)
 	Net.event("Dug").OnServerEvent:Connect(dug)
 	Net.event("Build").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)
 		if kind == "Place" then
@@ -994,8 +1038,7 @@ function Build.start(artillery: Guns)
 			local now = os.clock()
 			local stale = {}
 			for _, r in recs do
-				local laid = if r.piece.kind == "Hesco" then C.Hesco.hp.place else 0
-				if r.work <= laid and not r.built and now - r.worked > C.BlueprintLife then
+				if r.work <= 0 and not r.built and now - r.worked > C.BlueprintLife then
 					table.insert(stale, r)
 				end
 			end

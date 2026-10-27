@@ -81,8 +81,10 @@ return {
 		)
 		-- on HP (user 2026-10-27: "all strucuttres use HP rule", "stage 1 should always be when its placed")
 		local hp = C.Hesco.hp
-		assert(h.stages == 4 and B.hescoStage(hp.place, hp.max, 4) == 1, "laid: the empty perimeter stands")
-		assert(B.hescoStage(hp.max, hp.max, 4) == 4 and B.hescoStage(0, hp.max, 4) == 0, "full; gone")
+		-- (user round 5: "hesco barriers should still start at 0 HP. make another flat model for when it has just been placed")
+		assert(h.stages == 4 and hp.place == 0 and B.hescoStage(hp.place, hp.max, 4) == 0, "laid: lying flat at 0 HP")
+		assert(B.hescoStage(hp.swing, hp.max, 4) == 1, "a swing in: the empty perimeter stands")
+		assert(B.hescoStage(hp.max, hp.max, 4) == 4, "full")
 		assert(B.hescoStage(hp.max * 0.6, hp.max, 4) == 3, "worn: the dirt slumps a stage")
 		assert(B.hescoStage(0.01, hp.max, 4) == 1, "the perimeter stands while it has any HP")
 		local v, gone, swings = hp.place, false, 0
@@ -95,6 +97,12 @@ return {
 		assert(v == 0 and gone, "a Destroy swing takes the last of it")
 		v = B.hescoSwing(hp.max, false, hp, 40)
 		assert(v == hp.max - 40, "an admin step")
+		v, gone = B.hescoSwing(0, false, hp)
+		assert(v == 0 and gone, "a Destroy swing at a barrier just laid takes it away")
+		-- the ground it keeps from craters (user round 5: "the ground below the barrier and the surround (the hitbox)")
+		local m = C.Hesco.ground
+		assert(B.onFootprint(0, 0, 6, 6, m) and B.onFootprint(3 + m, -3 - m, 6, 6, m))
+		assert(not B.onFootprint(3 + m + 0.01, 0, 6, 6, m) and not B.onFootprint(0, -3 - m - 0.01, 6, 6, m))
 		assert(C.Hesco.soak > 0 and C.Hesco.soak < 1, "tougher than sandbags")
 	end,
 	["laying a piece: each reason in turn"] = function()

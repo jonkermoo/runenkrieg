@@ -105,13 +105,19 @@ function Build.stageOf(work: number, need: number, stages: number): number
 	return math.clamp(math.floor(work / need * stages + 1e-9), 0, stages)
 end
 
--- The stage of `stages` a Hesco barrier stands at with `hp` of `max` (Config/Build.Hesco.hp): its share of them,
--- rounded up, so the empty perimeter (stage 1) stands from the moment it is laid until its HP is gone (0: gone)
+-- The stage of `stages` a Hesco barrier stands at with `hp` of `max` (Config/Build.Hesco.hp): 0 at no HP (just laid,
+-- lying flat), else its share of them rounded up, so the empty perimeter (stage 1) stands from its first HP on
 function Build.hescoStage(hp: number, max: number, stages: number): number
 	if hp <= 0 or max <= 0 then
 		return 0
 	end
 	return math.clamp(math.ceil(hp / max * stages - 1e-9), 1, stages)
+end
+
+-- Whether a point `lx`, `lz` in a piece's own frame (its centre, along its width and depth) is on its footprint of
+-- `width` x `depth` or within `margin` round it
+function Build.onFootprint(lx: number, lz: number, width: number, depth: number, margin: number): boolean
+	return math.abs(lx) <= width / 2 + margin and math.abs(lz) <= depth / 2 + margin
 end
 
 -- A shovel swing at a Hesco barrier with `hp` (Config/Build.Hesco.hp `h`): Build adds `h.swing` up to `h.max`,

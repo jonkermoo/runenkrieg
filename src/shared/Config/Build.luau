@@ -211,7 +211,8 @@ local Build = {
 		},
 		-- The Hesco barrier (user 2026-10-27; Hesco below): a 6 x 6 basket of mesh and liner, `height` high (just over
 		-- a standing soldier's 5.13: "it should be just barely the players height"; under full cover's 5.5), filled
-		-- with dirt from the bottom up in `stages` (1: the empty perimeter, then a third of the dirt each), on HP
+		-- with dirt from the bottom up in `stages` (0: just laid, flat; 1: the empty perimeter; then a third of the dirt
+		-- each), on HP
 		-- (Hesco.hp below). Everyone builds it (a small asset: Config/Classes SMALL).
 		{
 			key = "Hesco",
@@ -343,12 +344,21 @@ local Build = {
 	-- barriers block stuff. meaning stage 1 and 2 barriers will provide little to no protection"): the wire, liner and
 	-- flaps stop nothing, bullets and soldiers pass. On HP like every structure (user 2026-10-27: "all strucuttres use
 	-- HP rule, not how many digs", "stage 1 should always be when its placed ... like a cannon, where if its placed,
-	-- something will always be down"): laid at `hp.place` (the empty perimeter standing), a Build swing of its team adds
-	-- `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`, weapons take `soak` of what they take
-	-- from a sandbag pile (Structures above); its stage stands by HP (the dirt slumps as it wears); at 0 it is gone,
-	-- no rubble (user: "remove the crumble. 0 hp should just disappear"). (25, 50, 75, 100: one stage each; 6 Build
-	-- swings from laid to full, 10 Destroy swings from full to gone)
-	Hesco = { hp = { max = 100, place = 25, swing = 12.5, destroy = 10 }, soak = 0.5, blocks = { "Earth" } },
+	-- something will always be down"; round 5: "hesco barriers should still start at 0 HP. make another flat model for
+	-- when it has just been placed"): laid at `hp.place`, its stage 0 down at once (the scraped ground and the unit
+	-- lying folded flat), a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes
+	-- `hp.destroy`, weapons take `soak` of what they take from a sandbag pile (Structures above); its stage stands by HP
+	-- (the dirt slumps as it wears); a Destroy swing or a hit at 0 and it is gone, no rubble (user: "remove the crumble.
+	-- 0 hp should just disappear"). (0: laid flat; up to 25, 50, 75, 100: stages 1-4; 8 Build swings from laid to full,
+	-- 10 Destroy swings from full to gone.) Craters never carve the ground under it or within `ground` studs round it:
+	-- the barrier takes the blast instead (user round 5: "make sure that the ground below the barrier and the surround
+	-- (the hitbox) does not break. it willbe obsorbed by the barrier").
+	Hesco = {
+		hp = { max = 100, place = 0, swing = 12.5, destroy = 10 },
+		soak = 0.5,
+		blocks = { "Earth" },
+		ground = 2,
+	},
 
 	-- Barbed wire (user 2026-10-27): its meshes are
 	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
