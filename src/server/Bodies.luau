@@ -16,6 +16,7 @@ local Faces = require(Shared.Rules.Faces)
 local Looks = require(Shared.Rules.Looks)
 local Helmets = require(script.Parent.Helmets)
 local Kits = require(script.Parent.Kits)
+local Loadouts = require(script.Parent.Loadouts)
 local Packs = require(script.Parent.Packs)
 local Rigs = require(script.Parent.Rigs)
 local Species = require(script.Parent.Species)
@@ -127,7 +128,8 @@ function Bodies.apply(character: Model)
 	-- the helmet stays off once it has been shot off this life
 	Helmets.dress(
 		character,
-		if character:GetAttribute("HelmetOn") == false then nil else kit.headwear,
+		-- (the class's helmet: src/server/Loadouts, Config/Classes)
+		if character:GetAttribute("HelmetOn") == false then nil else Loadouts.gear(character).headwear,
 		Species.of(character, kitName)
 	)
 	Rigs.dress(character, kitName)

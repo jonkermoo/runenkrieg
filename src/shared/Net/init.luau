@@ -128,6 +128,10 @@ local Remotes: { string } = {
 	-- server -> one client: (weight: number) a blast near that player's soldier, outside its knock reach: flinch
 	-- (src/server/Flinch decides, src/client/Flinch plays it on the own character, so everyone sees it; Config/Flinch)
 	"Flinch",
+	-- The class picked for the next life and the match currency (src/server/Loadouts; Config/Classes, Rules/Classes):
+	-- client -> server: ("Pick", class: string) | ("Ask"); server -> client: (state: Rules/Classes.State) on each death
+	-- (the loadout menu while respawning) and in answer to each pick or ask
+	"Loadout",
 }
 local Functions: { string } = {}
 

@@ -28,6 +28,8 @@ local C = require(Shared.Config.Build)
 local Palette = require(Shared.Config.Palette)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Build)
+local Classes = require(Shared.Config.Classes)
+local ClassRules = require(Shared.Rules.Classes)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
 local Held = require(script.Parent.Held)
@@ -369,6 +371,8 @@ local function surveyPiece(character: Model, root: BasePart)
 		team = 0,
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
+		-- (only engineers build guns: the class this life, src/server/Loadouts)
+		allowed = ClassRules.mayBuild(character:GetAttribute("Class"), p.kind, Classes.Defs, Classes.Default),
 	})
 	current = { frame = if gun then frame else box, ok = ok, reason = reason }
 	local size = Survey.footprint(p)

@@ -50,6 +50,7 @@ end
 
 require(script.Profile).start() -- (the saved settings)
 require(script.Environment).start()
+require(script.Loadouts).start() -- (the class each life spawns as, the match currency)
 require(script.Bodies).start() -- (dresses the helmet and hair: script.Helmets)
 require(script.Armory).start()
 require(script.Doors).start()
