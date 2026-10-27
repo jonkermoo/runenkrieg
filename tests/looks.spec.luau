@@ -38,15 +38,25 @@ return {
 			end
 		end
 	end,
-	["white hair is the rare one, about 1 in 15"] = function()
-		local total, rare = 0, 0
+	["white, ash and blood red are the rare hair colors, about 1 in 13 together"] = function()
+		local rareNames = { white = true, ash = true, blood_red = true }
+		local total, rare, found = 0, 0, 0
 		for _, l in U.HairColors do
 			total += l.weight
-			if l.name == "white" then
+			if rareNames[l.name] then
 				rare += l.weight
+				found += 1
 			end
 		end
-		assert(math.abs(rare / total - 1 / 15) < 0.01, `rare share {rare / total}`)
+		assert(found == 3, `rare colors found: {found}`)
+		assert(math.abs(rare / total - 1 / 13) < 0.01, `rare share {rare / total}`)
+		for _, l in U.HairColors do
+			if rareNames[l.name] then
+				assert(l.weight / total < 0.05, `{l.name} is not rare: {l.weight / total}`)
+			else
+				assert(l.weight / total > 0.2, `{l.name} should be common: {l.weight / total}`)
+			end
+		end
 	end,
 	["every hairstyle has its original and a helmet-on hair for every kit's helmet shell"] = function()
 		for _, h in U.Hairs do

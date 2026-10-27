@@ -12,8 +12,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local U = require(Shared.Config.Uniforms)
+local SpeciesCfg = require(Shared.Config.Species)
 local Faces = require(Shared.Rules.Faces)
 local Looks = require(Shared.Rules.Looks)
+local SpeciesRule = require(Shared.Rules.Species)
 local Helmets = require(script.Parent.Helmets)
 local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
@@ -27,8 +29,8 @@ local warned = false
 
 -- each player's skin, hair color, hairstyle and rig (pool indexes) for their next life: rolled at the join and again on
 -- each death (src/server/Deploy: the loadout menu's preview shows them), never the same as the life before
--- (Rules/Looks)
-type Look = { skin: number, hair: number, style: number, rig: number }
+-- (Rules/Looks); and whether they are their nation's species that life (Config/Species.Chance, Rules/Species.roll)
+type Look = { skin: number, hair: number, style: number, rig: number, species: boolean }
 local planned: { [Player]: Look } = {}
 
 local function rgb(c: { number }): Color3
@@ -41,6 +43,7 @@ local function roll(last: Look?): Look
 		hair = Looks.pick(U.HairColors, math.random(), last and last.hair),
 		style = Looks.pick(U.Hairs, math.random(), last and last.style),
 		rig = Looks.pick(U.Rigs, math.random(), last and last.rig),
+		species = SpeciesRule.roll(math.random(), SpeciesCfg.Chance),
 	}
 end
 
@@ -56,8 +59,9 @@ function Bodies.reroll(player: Player)
 end
 
 -- This life's skin, hair color, hairstyle and rig (src/server/Rigs reads "Rig"): a player's planned look, anything else a roll; once per character
--- (applied again in the same life keeps them), written as the "Skin" / "Hair" / "HairStyle" attributes (pool names)
--- and "SkinColor" / "HairColor" (Color3). `as`: dress it in that player's next look (the loadout preview).
+-- (applied again in the same life keeps them), written as the "Skin" / "Hair" / "HairStyle" attributes (pool names),
+-- "SkinColor" / "HairColor" (Color3) and "SpeciesRoll" (the nation's species this life: src/server/Species).
+-- `as`: dress it in that player's next look (the loadout preview).
 local function rollLooks(character: Model, as: Player?): Color3
 	local skin = character:GetAttribute("SkinColor")
 	if typeof(skin) == "Color3" then
@@ -67,6 +71,7 @@ local function rollLooks(character: Model, as: Player?): Color3
 	local look = if player then nextLook(player) else roll(nil)
 	local s, h, st = look.skin, look.hair, look.style
 	character:SetAttribute("HairStyle", U.Hairs[st].name)
+	character:SetAttribute("SpeciesRoll", look.species)
 	if character:GetAttribute("Rig") == nil then
 		character:SetAttribute("Rig", U.Rigs[look.rig].name)
 	end

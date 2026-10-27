@@ -7,15 +7,24 @@ local Species = {}
 
 -- The species for a uniform `kit`, or nil (a plain human). `override` (a player's "Species" attribute: a Kinds name
 -- or "human") wins when it names something real. A bald soldier (`hairStyle`, the "HairStyle" attribute) is never a
--- species, so no ears, no tail and the plain helmet (user 2026-10-23: "bald people can't be a species").
-function Species.of(kit: string, override: any, cfg: any, hairStyle: any): string?
+-- species, so no ears, no tail and the plain helmet (user 2026-10-23: "bald people can't be a species"). `rolled`
+-- (the "SpeciesRoll" attribute, Species.roll) false: a plain human this life; nil (never rolled): the kit's species.
+function Species.of(kit: string, override: any, cfg: any, hairStyle: any, rolled: any): string?
 	if override == "human" or hairStyle == "bald" then
 		return nil
 	end
 	if type(override) == "string" and cfg.Kinds[override] then
 		return override
 	end
+	if rolled == false then
+		return nil
+	end
 	return cfg.Kits[kit]
+end
+
+-- Whether a soldier is their nation's species this life, for a roll `r` in [0, 1) and `chance` (Config/Species.Chance).
+function Species.roll(r: number, chance: number): boolean
+	return r < chance
 end
 
 -- A part's name without a ".001"-style suffix (an exporter's duplicate-name mark).
