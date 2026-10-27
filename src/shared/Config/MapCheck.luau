@@ -15,6 +15,10 @@ local MapCheck = {
 	-- Each spawn's sprint time to its own nearest sector and to the neutral centre sector (s, over the real ground),
 	-- and how much longer one team's run to the centre may be than the other's (share).
 	Limits = { ownFirst = 30, centre = 90, fairness = 0.2 },
+	-- Frontline (Config/Sectors): the most a sector's point may favour one side, as the gap between the sprint times
+	-- to it from the neighbouring point on each side (s); and the most a divider may favour one side, as the mean gap
+	-- between the sprint times to the two points it divides, along it (s).
+	Sectors = { point = 1.5, divider = 0.5, step = 6 },
 	PocketCells = 12, -- walkable pockets you can't walk into up to this many cells are reported, not failed
 }
 
