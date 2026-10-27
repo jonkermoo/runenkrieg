@@ -5,8 +5,18 @@
 local Classes = {}
 
 -- The class a soldier spawns as and what it pays: their `picked` class when it exists, isn't locked and `points` cover
--- its cost; else the default (free).
-function Classes.resolve(picked: unknown, points: number, defs: { [string]: any }, default: string): (string, number)
+-- its cost; else the default (free). A `forced` class (the admin panel's, src/server/DevTools) that exists wins, locked
+-- or not, and is free.
+function Classes.resolve(
+	picked: unknown,
+	points: number,
+	defs: { [string]: any },
+	default: string,
+	forced: unknown?
+): (string, number)
+	if type(forced) == "string" and defs[forced] then
+		return forced, 0
+	end
 	local d = if type(picked) == "string" then defs[picked] else nil
 	if d and not d.locked and d.cost <= points then
 		return picked :: string, d.cost

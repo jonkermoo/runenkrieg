@@ -1,8 +1,10 @@
 --!strict
--- Dev admin menu: a button next to the weapon pin with Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
+-- Dev admin menu: a button next to the weapon pin. First the Server rows (the game mode, Config/Modes: Admin / FFA /
+-- Normal, not built yet; everyone respawned) and the FFA Match rows (end, restart, skip the zone, the clock, zone
+-- score), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode), Team (respawn now as grey / olive / white, kept until changed, or random again), Grenades (give yourself
--- a full count of one), World (the range's test shooters, undo destruction) and Time
+-- god mode, unlimited ammo and no staff cooldown), Loadout (match points, a class every life), Team (respawn now as grey / olive / white, kept until changed, or random again), Grenades (give yourself
+-- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
 -- weather off / on); Time and Weather are for everyone (src/server/Environment). Last the Cinematic rows for filming
 -- (src/client/DevCinematic): one switch hides every item, a row per item. Settings Key_AdminPanel (F2) opens / closes it.
@@ -20,6 +22,8 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
+local ClassCfg = require(Shared.Config.Classes)
+local ModeCfg = require(Shared.Config.Modes)
 local EnvCfg = require(Shared.Config.Environment)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
@@ -162,7 +166,80 @@ local function build(player: Player): DevPanel.Panel
 	local function paint(b: TextButton, on: boolean)
 		b.BackgroundColor3 = Color3.fromRGB(table.unpack(if on then Palette.UI.accent else Palette.UI.button))
 	end
-	local fly = DevPanel.button(p.panel, "Fly", "Fly: off", 1)
+	local order = 0
+	local function row(id: string, label: string, action: string, value: any?): TextButton
+		order += 1
+		local b = DevPanel.button(p.panel, id, label, order)
+		b.Activated:Connect(function()
+			Net.event("DevAction"):FireServer(action, value)
+		end)
+		return b
+	end
+	local function heading(text: string)
+		order += 1
+		DevPanel.heading(p.panel, text, order)
+	end
+	-- an on / off row: `attribute` on `owner`, sent as `action`
+	local function onOff(id: string, label: string, action: string, owner: Instance, attribute: string)
+		order += 1
+		local b = DevPanel.button(p.panel, id, "", order)
+		local function show()
+			local on = owner:GetAttribute(attribute) == true
+			b.Text = `{label}: {if on then "on" else "off"}`
+			paint(b, on)
+		end
+		b.Activated:Connect(function()
+			Net.event("DevAction"):FireServer(action, owner:GetAttribute(attribute) ~= true)
+		end)
+		owner:GetAttributeChangedSignal(attribute):Connect(show)
+		show()
+	end
+
+	-- Server: the game mode (Config/Modes, src/server/Modes), the live one lit; one not built yet can't be picked
+	heading("Server")
+	local modes: { [string]: TextButton } = {}
+	for _, key in ModeCfg.List do
+		local d = ModeCfg.Defs[key]
+		if d.ready then
+			modes[key] = row("Mode_" .. key, `Mode: {d.name}`, "Mode", key)
+		else
+			order += 1
+			DevPanel.button(p.panel, "Mode_" .. key, `Mode: {d.name} (not built yet)`, order, Palette.UI.outline)
+		end
+	end
+	row("RespawnAll", "Respawn everyone", "RespawnAll")
+	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes
+	heading("Match (FFA)")
+	local match: { TextButton } = {
+		row("MatchEnd", "End match now", "MatchEnd"),
+		row("MatchRestart", "Restart match", "MatchRestart"),
+		row("ZoneSkip", "Move the zone now", "ZoneSkip"),
+	}
+	for _, sec in A.MatchSeconds do
+		local m = sec / 60
+		table.insert(
+			match,
+			row(`MatchTime{sec}`, `Match clock {if sec > 0 then "+" else "-"}{math.abs(m)} min`, "MatchTime", sec)
+		)
+	end
+	for _, n in A.ZoneScore do
+		table.insert(match, row(`ZoneScore{n}`, `Give me {n} zone score`, "ZoneScore", n))
+	end
+	local function showMode()
+		local live = workspace:GetAttribute(ModeCfg.Attribute)
+		for key, b in modes do
+			paint(b, key == live)
+		end
+		for _, b in match do
+			b.TextTransparency = if live == "FFA" then 0 else 0.5
+		end
+	end
+	workspace:GetAttributeChangedSignal(ModeCfg.Attribute):Connect(showMode)
+	showMode()
+
+	heading("Movement")
+	order += 1
+	local fly = DevPanel.button(p.panel, "Fly", "Fly: off", order)
 	local function showFly()
 		local on = player:GetAttribute(A.FlyAttribute) == true
 		fly.Text = if on then "Fly: on" else "Fly: off"
@@ -185,7 +262,7 @@ local function build(player: Player): DevPanel.Panel
 		end
 	end
 	for i, mult in A.SpeedSteps do
-		local b = DevPanel.button(p.panel, "Speed" .. mult, `Speed x{mult}`, 1 + i)
+		local b = DevPanel.button(p.panel, "Speed" .. mult, `Speed x{mult}`, order + i)
 		b.Activated:Connect(function()
 			player:SetAttribute(A.Attribute, if mult == 1 then nil else mult)
 		end)
@@ -193,7 +270,8 @@ local function build(player: Player): DevPanel.Panel
 	end
 	player:GetAttributeChangedSignal(A.Attribute):Connect(showSpeed)
 	showSpeed()
-	local labels = DevPanel.button(p.panel, "Labels", "Labels: shown", 2 + #A.SpeedSteps)
+	order += #A.SpeedSteps + 1
+	local labels = DevPanel.button(p.panel, "Labels", "Labels: shown", order)
 	local function showLabels()
 		local hidden = player:GetAttribute(A.LabelsAttribute) == true
 		labels.Text = if hidden then "Labels: hidden" else "Labels: shown"
@@ -206,16 +284,7 @@ local function build(player: Player): DevPanel.Panel
 	player:GetAttributeChangedSignal(A.LabelsAttribute):Connect(showLabels)
 	showLabels()
 
-	-- You (src/server/DevTools): health steps, death, respawn, god mode, a knock, the helmet off
-	local order = 3 + #A.SpeedSteps
-	local function row(id: string, label: string, action: string, value: any?): TextButton
-		order += 1
-		local b = DevPanel.button(p.panel, id, label, order)
-		b.Activated:Connect(function()
-			Net.event("DevAction"):FireServer(action, value)
-		end)
-		return b
-	end
+	-- You (src/server/DevTools): health steps, death, respawn, god mode, a knock, the helmet off, unlimited ammo
 	DevPanel.heading(p.panel, "You", order + 1)
 	order += 1
 	for _, h in A.Health do
@@ -237,6 +306,27 @@ local function build(player: Player): DevPanel.Panel
 	end)
 	player:GetAttributeChangedSignal(A.GodAttribute):Connect(showGod)
 	showGod()
+	onOff("Ammo", "Unlimited ammo, no cooldown", "Ammo", player, A.AmmoAttribute)
+
+	-- Loadout (src/server/Loadouts): match points, a class every life (free, locked or not) or your own picks again
+	heading("Loadout")
+	for _, n in A.Points do
+		row(`Points{n}`, `Give me {n} match points`, "Points", n)
+	end
+	local classes: { [string]: TextButton } = {}
+	for _, key in ClassCfg.List do
+		classes[key] = row("Class_" .. key, `Be {ClassCfg.Defs[key].name} every life`, "Class", key)
+	end
+	classes[A.Normal] = row("Class_Normal", "Class: my own picks", "Class", A.Normal)
+	local function showClass()
+		local pinned = player:GetAttribute(A.ClassAttribute)
+		local current = if type(pinned) == "string" and classes[pinned] then pinned else A.Normal
+		for key, b in classes do
+			paint(b, key == current)
+		end
+	end
+	player:GetAttributeChangedSignal(A.ClassAttribute):Connect(showClass)
+	showClass()
 
 	-- Team: respawn now as one of Config/DevTools.Dummies.Kits, kept on every respawn (the Player's "Kit" attribute,
 	-- src/server/Kits), or random again; the pinned one lit
@@ -284,6 +374,7 @@ local function build(player: Player): DevPanel.Panel
 	end
 	player:GetAttributeChangedSignal(A.Dig.attribute):Connect(showDig)
 	showDig()
+	onOff("BuildAll", "Build anything", "BuildAll", player, A.BuildAllAttribute)
 
 	-- World: the range's test shooters (Config/DevTools.TestShooter), undo destruction (src/server/DevWorld)
 	DevPanel.heading(p.panel, "World", order + 1)

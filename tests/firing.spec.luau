@@ -381,4 +381,20 @@ return {
 			assert(D.Materials[class], `unknown class {class}`)
 		end
 	end,
+	["the admin's unlimited ammo keeps the magazine full, shot after shot"] = function()
+		local s = F.new(CARCANO)
+		for i = 1, CARCANO.capacity + 3 do
+			local now = i * 10
+			assert(F.fire(s, CARCANO, now), `shot {i}`)
+			F.topUp(s, CARCANO)
+			assert(s.magazine == CARCANO.capacity)
+			assert(F.bolt(s, CARCANO, now + 2), `bolt {i}`)
+		end
+		local m = F.new(MONDRAGON)
+		for i = 1, MONDRAGON.capacity + 3 do
+			assert(F.fire(m, MONDRAGON, i * 10), `semi shot {i}`)
+			F.topUp(m, MONDRAGON)
+		end
+		assert(m.chambered and not m.open, "a semi never runs dry")
+	end,
 }

@@ -1,12 +1,13 @@
 --!strict
 -- The zone-capture free-for-all (Config/ZoneMatch, Rules/ZoneMatch) on the playtest map (Config/Maps/Playtest
--- .zoneMatch). Runs in the DEV place while Workspace has the attribute set (workspace:SetAttribute("Playtest", true))
--- and the map is built: one live zone moving between the map's spots every MoveEvery seconds (the next one marked
+-- .zoneMatch). Runs in the DEV place while the server's mode is FFA (src/server/Modes starts and stops it) and the map
+-- is built: one live zone moving between the map's spots every MoveEvery seconds (the next one marked
 -- Warning seconds before), a soldier alone in it, alive and on their feet, scoring PointsPerSecond, two or more
 -- contesting it; timed matches with a results pause, then scores reset and everyone respawns; everyone an enemy
 -- (Workspace's FreeForAll attribute, Rules/Teams); each life spawned at the map's spawn point farthest from the
 -- others and clear of the zone, protected for a moment (src/server/Damage.protect). The marker models carry the state
--- as attributes; src/client/ZoneMarker colours them.
+-- as attributes; src/client/ZoneMarker colours them. The admin panel ends, restarts and lengthens a match, moves the
+-- zone on and hands out score (src/server/DevTools).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,13 +16,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.ZoneMatch)
 local DevCfg = require(Shared.Config.DevTools)
 local Map = require(Shared.Config.Maps.Playtest)
+local Modes = require(Shared.Rules.Modes)
 local Rules = require(Shared.Rules.ZoneMatch)
 local Damage = require(script.Parent.Damage)
 local Ragdoll = require(script.Parent.Ragdoll)
 
 local ZoneMatch = {}
 
-local ATTRIBUTE = "Playtest"
 local MK = Cfg.Marker
 local spots: { { number } } = Map.zoneMatch.spots
 local spawns: { { number } } = Map.zoneMatch.spawns
@@ -106,6 +107,10 @@ local held: { [number]: number } = {}
 local captured: { [number]: boolean } = {}
 local captureWatchers: { (Player) -> () } = {}
 local matchWatchers: { () -> () } = {}
+-- while running: the match loop, the player hooks, when this match ends (server time)
+local thread: thread? = nil
+local conns: { RBXScriptConnection } = {}
+local endsAt = 0
 
 -- `fn(player)` on each capture (Config/ZoneMatch.CaptureSeconds); `fn()` at each match's start
 function ZoneMatch.onCapture(fn: (Player) -> ())
@@ -149,7 +154,7 @@ local function join(player: Player)
 		task.wait() -- after Roblox has stood it on a spawn
 		spawnAt(player)
 	end
-	player.CharacterAdded:Connect(spawned)
+	table.insert(conns, player.CharacterAdded:Connect(spawned))
 	if player.Character then
 		task.spawn(spawned, player.Character)
 	end
@@ -166,9 +171,7 @@ local function setSpot(i: number)
 	nextZone.Parent = nil -- shown again for the next warning
 end
 
-local function run(root: Instance)
-	zone = marker(Cfg.MarkerName, root, true, 0)
-	nextZone = marker(Cfg.NextMarkerName, root, false, MK.NextTransparency)
+local function run()
 	local random = Random.new()
 	while true do
 		-- a match
@@ -179,7 +182,7 @@ local function run(root: Instance)
 			task.spawn(fn)
 		end
 		setSpot(Rules.nextSpot(nil, #spots, random:NextNumber()))
-		local endsAt = workspace:GetServerTimeNow() + Cfg.MatchSeconds
+		endsAt = workspace:GetServerTimeNow() + Cfg.MatchSeconds
 		zone:SetAttribute("Phase", "Match")
 		zone:SetAttribute("EndsAt", endsAt)
 		zone:SetAttribute("Winner", nil)
@@ -263,21 +266,91 @@ local function run(root: Instance)
 	end
 end
 
-function ZoneMatch.start()
-	if game.PlaceId ~= DevCfg.DevPlaceId or workspace:GetAttribute(ATTRIBUTE) ~= true then
-		return
+-- Whether the match is running (the server's mode is FFA).
+function ZoneMatch.running(): boolean
+	return thread ~= nil
+end
+
+-- Starts the match (src/server/Modes, switching to FFA): false outside the DEV place or with the map unbuilt.
+function ZoneMatch.start(): boolean
+	if thread or game.PlaceId ~= DevCfg.DevPlaceId then
+		return false
 	end
 	local root = workspace:FindFirstChild(Map.name)
 	if not root then
-		warn(`[ZoneMatch] the attribute is set but the map isn't built: Greybox.build("{Map.name}")`)
-		return
+		warn(`[ZoneMatch] the map isn't built: Greybox.build("{Map.name}")`)
+		return false
 	end
 	workspace:SetAttribute(Cfg.FreeForAllAttribute, true)
-	Players.PlayerAdded:Connect(join)
+	zone = marker(Cfg.MarkerName, root, true, 0)
+	nextZone = marker(Cfg.NextMarkerName, root, false, MK.NextTransparency)
+	table.insert(conns, Players.PlayerAdded:Connect(join))
 	for _, p in Players:GetPlayers() do
 		join(p)
 	end
-	task.spawn(run, root)
+	thread = task.spawn(run)
+	return true
+end
+
+-- Stops the match and takes its markers, scores and free-for-all away (src/server/Modes, switching away from FFA).
+function ZoneMatch.stop()
+	if not thread then
+		return
+	end
+	task.cancel(thread :: thread)
+	thread = nil
+	for _, c in conns do
+		c:Disconnect()
+	end
+	table.clear(conns)
+	zone:Destroy()
+	nextZone:Destroy()
+	workspace:SetAttribute(Cfg.FreeForAllAttribute, nil)
+	for _, p in Players:GetPlayers() do
+		p:SetAttribute(Cfg.ScoreAttribute, nil)
+	end
+end
+
+-- Admin: a fresh match now (scores reset, a new spot; nobody respawns).
+function ZoneMatch.restart()
+	if not thread then
+		return
+	end
+	task.cancel(thread :: thread)
+	thread = task.spawn(run)
+end
+
+local function playing(): boolean
+	return thread ~= nil and zone:GetAttribute("Phase") == "Match"
+end
+
+-- Admin: the match ends now (the results, then the next match).
+function ZoneMatch.finish()
+	if playing() then
+		endsAt = workspace:GetServerTimeNow()
+	end
+end
+
+-- Admin: `delta` seconds more (or less) on the match clock.
+function ZoneMatch.extend(delta: number)
+	if playing() then
+		endsAt = Modes.extend(endsAt, delta, workspace:GetServerTimeNow())
+		zone:SetAttribute("EndsAt", endsAt)
+	end
+end
+
+-- Admin: the zone moves to its next spot now.
+function ZoneMatch.skip()
+	if playing() then
+		zone:SetAttribute("MoveAt", workspace:GetServerTimeNow())
+	end
+end
+
+-- Admin: `amount` zone score for `player`.
+function ZoneMatch.addScore(player: Player, amount: number)
+	if playing() then
+		player:SetAttribute(Cfg.ScoreAttribute, ((player:GetAttribute(Cfg.ScoreAttribute) :: number?) or 0) + amount)
+	end
 end
 
 return ZoneMatch

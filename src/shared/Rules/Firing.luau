@@ -166,6 +166,12 @@ function Firing.fire(s: State, gun: Gun, now: number, slack: number?): (boolean,
 	return true, nil, nil
 end
 
+-- The admin panel's unlimited ammo (src/server/Firing, after each shot): the magazine full again, so it never needs a
+-- reload (the bolt is still worked).
+function Firing.topUp(s: State, gun: Gun)
+	s.magazine = gun.capacity
+end
+
 -- How many clips a semi-automatic's reload presses in now (a box: 1).
 function Firing.clipsFor(s: State, gun: Gun): number
 	local room = gun.capacity - s.magazine
