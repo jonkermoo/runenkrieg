@@ -2,7 +2,7 @@
 -- Player settings: options, defaults and the menu's tabs (src/client/Settings, src/client/SettingsMenu,
 -- Rules/Settings). Stored as Player attributes "Setting_<Key>"; saved in the player profile (src/server/Profile).
 -- Kinds: "choice" (one of `values`), "slider" (a number from min to max in `step`s, shown as `format`), "key" (a
--- KeyCode or mouse button name, rebound in the Keybinds tab). `defaultTouch`: the default on phones / tablets.
+-- KeyCode or mouse button name, rebound in the menu). `defaultTouch`: the default on phones / tablets.
 -- Data only.
 
 local Settings = {
@@ -138,6 +138,7 @@ local Settings = {
 				"SprintMode",
 				"CrouchMode",
 				"Crosshair",
+				"Key_DragEscape", -- (user 2026-10-27: "break free of a drag should be in controls")
 			},
 		},
 		{ name = "Audio", rows = { "MasterVolume", "EffectsVolume" } },
@@ -152,7 +153,6 @@ local Settings = {
 				"Key_Crouch",
 				"Key_Heal",
 				"Key_Drag",
-				"Key_DragEscape",
 				"Key_Build",
 				"Key_BuildTurn",
 				"Key_BuildPrev",
