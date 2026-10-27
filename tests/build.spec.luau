@@ -249,6 +249,18 @@ return {
 		-- leaving an end but bending back alongside
 		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S), "doubling back alongside")
 	end,
+	["trenches v2: a heap's thin skirt is laid only where the ground holds it, never hanging in the air"] = function()
+		local hang = C.Trench.apronHang
+		-- flat ground: the skirt's underside sunk below it
+		assert(B.thinPieceSits(9.2, { 10, 10, 10, 10 }, hang), "sunk in flat ground")
+		-- the ground just under it, within the slack
+		assert(B.thinPieceSits(9.2, { 9.2 - hang * 0.5, 10 }, hang), "a hair over the ground")
+		-- the trench pokes out: the ground falls away under its far edge
+		assert(not B.thinPieceSits(9.2, { 10, 10, 7.5, 6 }, hang), "over ground falling away")
+		-- no ground under one point at all
+		assert(not B.thinPieceSits(9.2, { 10, -math.huge }, hang), "over nothing")
+		assert(not B.thinPieceSits(9.2, {}, hang), "no samples, no skirt")
+	end,
 	["trenches v2: a side wall keeps to the stretches clear of other trenches, either side of a branch"] = function()
 		local runs = B.freeRuns({ true, false, false, true, false, false, false, true })
 		assert(#runs == 2 and runs[1][1] == 2 and runs[1][2] == 3 and runs[2][1] == 5 and runs[2][2] == 7, "both runs")
