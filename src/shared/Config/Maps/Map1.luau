@@ -39,30 +39,35 @@ local Map1 = {
 	fogEnd = 600,
 
 	-- Capture points (frontline mode, user 2026-10-27: "somewhere that doesnt provide any tactical advantage to either
-	-- sides"). Each sector's point has the same sprint time from the neighbouring point on each side (within 0.8 s,
+	-- sides"). Each sector's point has the same sprint time from the neighbouring point on each side (within 1 s,
 	-- over the real ground: Rules/MapCheck) and about the same high ground, trees, houses and sight lines on its two
-	-- approaches. S2 sits mid ridge top, S3 off the farm with even cover, S4 in the north meadow and S5 off the church
-	-- square (both squares saw twice as far west as east). The HQs stay at the spawns. Reasoning: docs/maps/MAP1.md.
+	-- approaches. S2 sits on the ridge top, S3 off the farm with even cover, S4 by the middle ford clear of the houses,
+	-- S5 off the church square (it saw twice as far west as east). The HQ points stand ~120 studs out from the spawns
+	-- (user 2026-10-27: "it is so close to spawn that the winning team will struggle to claim it"), the room taken
+	-- from the middle sectors. Reasoning: docs/maps/MAP1.md.
 	sectors = {
-		{ id = "HQW", name = "West HQ", x = 0, z = 0, radius = 60, startOwner = "West", isHQ = true },
-		{ id = "S1", name = "S1", x = 322, z = -36, radius = 45, startOwner = "West" },
-		{ id = "S2", name = "S2", x = 636, z = -120, radius = 45, startOwner = "West" },
-		{ id = "S3", name = "S3", x = 958, z = -32, radius = 45, startOwner = "Neutral" },
-		{ id = "S4", name = "S4", x = 1160, z = 204, radius = 45, startOwner = "East" },
-		{ id = "S5", name = "S5", x = 1480, z = 108, radius = 45, startOwner = "East" },
-		{ id = "HQE", name = "East HQ", x = 1800, z = 0, radius = 60, startOwner = "East", isHQ = true },
+		{ id = "HQW", name = "West HQ", x = 120, z = 0, radius = 60, startOwner = "West", isHQ = true },
+		{ id = "S1", name = "S1", x = 388, z = -30, radius = 45, startOwner = "West" },
+		{ id = "S2", name = "S2", x = 650, z = -90, radius = 45, startOwner = "West" },
+		{ id = "S3", name = "S3", x = 924, z = -94, radius = 45, startOwner = "Neutral" },
+		{ id = "S4", name = "S4", x = 1150, z = 60, radius = 45, startOwner = "East" },
+		{ id = "S5", name = "S5", x = 1430, z = 54, radius = 45, startOwner = "East" },
+		{ id = "HQE", name = "East HQ", x = 1690, z = 90, radius = 60, startOwner = "East", isHQ = true },
 	} :: { Sector },
 	-- The invisible blocks between sectors, west to east, one between each pair of neighbours (Rules/Sectors,
 	-- Config/Sectors, built by src/dev/Greybox). Each runs where the sprint times to the two points are equal (on
-	-- average within 0.4 s along it), bent where needed so it never cuts a house; S3|S4 is the river's middle line.
+	-- average within 0.5 s along it), bent where needed so it never cuts a house; S3|S4 is the river's middle line.
 	-- points: { x, z } from the south edge (bounds.minZ) to the north edge (bounds.maxZ).
 	dividers = {
-		{ between = { "HQW", "S1" }, points = { { 112, -400 }, { 216, 400 } } },
-		{ between = { "S1", "S2" }, points = { { 386, -400 }, { 606, 400 } } },
-		{ between = { "S2", "S3" }, points = { { 888, -400 }, { 659, 400 } } },
+		{ between = { "HQW", "S1" }, points = { { 212, -400 }, { 309, 400 } } },
+		{ between = { "S1", "S2" }, points = { { 426, -400 }, { 536, 0 }, { 606, 400 } } },
+		{ between = { "S2", "S3" }, points = { { 779, -400 }, { 797, 400 } } },
 		{ between = { "S3", "S4" }, river = true },
-		{ between = { "S4", "S5" }, points = { { 1144, -400 }, { 1282.5, 0 }, { 1388, 400 } } },
-		{ between = { "S5", "HQE" }, points = { { 1485, -400 }, { 1608.5, 0 }, { 1774, 400 } } },
+		{
+			between = { "S4", "S5" },
+			points = { { 1252, -400 }, { 1306, -200 }, { 1310, 0 }, { 1269, 200 }, { 1272, 400 } },
+		},
+		{ between = { "S5", "HQE" }, points = { { 1614, -400 }, { 1576, 0 }, { 1504, 400 } } },
 	} :: { Divider },
 	spawnZones = {
 		West = { minX = -140, maxX = -70, minZ = -60, maxZ = 60 } :: Rect,
