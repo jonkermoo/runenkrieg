@@ -32,7 +32,8 @@ terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
 terrainOnly.IgnoreWater = true
 
 local function ground(x: number, z: number): number
-	local hit = workspace:Raycast(Vector3.new(x, 300, z), Vector3.new(0, -600, 0), terrainOnly)
+	local hit =
+		workspace:Raycast(Vector3.new(x, Cfg.GroundRay.top, z), Vector3.new(0, -Cfg.GroundRay.depth, 0), terrainOnly)
 	return if hit then hit.Position.Y else 0
 end
 
@@ -126,7 +127,7 @@ local function spawnAt(player: Player)
 		return
 	end
 	local x, z = spawns[i][1], spawns[i][2]
-	local pos = Vector3.new(x, ground(x, z) + 3.2, z)
+	local pos = Vector3.new(x, ground(x, z) + Cfg.SpawnLift, z)
 	local face = Vector3.new(spots[spot][1], pos.Y, spots[spot][2])
 	character:PivotTo(CFrame.lookAt(pos, face))
 	root.AssemblyLinearVelocity = Vector3.zero
@@ -141,7 +142,7 @@ end
 local function join(player: Player)
 	player:SetAttribute(Cfg.ScoreAttribute, 0)
 	local function spawned(character: Model)
-		character:WaitForChild("HumanoidRootPart", 10)
+		character:WaitForChild("HumanoidRootPart", Cfg.SpawnWait)
 		task.wait() -- after Roblox has stood it on a spawn
 		spawnAt(player)
 	end
@@ -157,7 +158,7 @@ local function setSpot(i: number)
 	zone:SetAttribute("Spot", i)
 	zone:SetAttribute("MoveAt", workspace:GetServerTimeNow() + Cfg.MoveEvery)
 	zone:SetAttribute("NextSpot", nil)
-	nextZone:PivotTo(CFrame.new(0, -500, 0))
+	nextZone.Parent = nil -- shown again for the next warning
 end
 
 local function run(root: Instance)
@@ -185,6 +186,7 @@ local function run(root: Instance)
 			if not pending and now >= moveAt - Cfg.Warning then
 				pending = Rules.nextSpot(spot, #spots, random:NextNumber())
 				zone:SetAttribute("NextSpot", pending)
+				nextZone.Parent = zone.Parent
 				moveTo(nextZone, pending :: number)
 			end
 			if pending and now >= moveAt then
@@ -201,7 +203,15 @@ local function run(root: Instance)
 					and character
 					and not Ragdoll.active(character)
 					and not Damage.protected(character)
-					and Rules.inside(r.Position.X, r.Position.Y - 3, r.Position.Z, centre.X, centre.Y, centre.Z, Cfg)
+					and Rules.inside(
+						r.Position.X,
+						r.Position.Y - Cfg.FeetBelowRoot,
+						r.Position.Z,
+						centre.X,
+						centre.Y,
+						centre.Z,
+						Cfg
+					)
 				then
 					table.insert(inside, p.UserId)
 				end

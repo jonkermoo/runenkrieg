@@ -16,6 +16,10 @@ local ZoneMatch = {
 	SpawnZoneClear = 60, -- spawn at least this far from the live zone (unless no spawn point is)
 	-- seconds a fresh spawn can't be hurt (or until it attacks: src/server/Damage.protect); it can't hold the zone meanwhile
 	SpawnProtection = 3,
+	SpawnLift = 3.2, -- a spawned root this far over the ground (standing)
+	SpawnWait = 10, -- seconds a new character's root is waited for
+	FeetBelowRoot = 3, -- a soldier's feet this far under the root (what counts as in the zone: Height round them)
+	GroundRay = { top = 300, depth = 600 }, -- the ground found by a ray this high, this long, down on terrain only
 	-- the marker (built by the server, coloured per viewer by the client): a ring of `Segments` blocks on the ground
 	-- round the zone, a post with a pennant at its centre
 	Marker = {
