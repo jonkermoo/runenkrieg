@@ -380,6 +380,7 @@ local Palette = {
 			kitName = { 168, 168, 158 },
 			kitKey = { 154, 154, 144 },
 			kitEmpty = { 118, 118, 110 },
+			kitHeldText = { 22, 24, 26 }, -- the words and key stamp on the row in the hands (on the team's rim colour)
 			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
 			-- a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
 			bolt = { 150, 154, 160 },
