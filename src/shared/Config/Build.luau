@@ -206,15 +206,16 @@ local Build = {
 			loophole = 4,
 			maxSlope = 25,
 		},
+		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
+		-- chaining or planner; the look: Config/Assets barbed_wire, Wire below)
 		{
 			key = "Wire",
 			name = "Barbed wire",
 			kind = "Wire",
-			work = 3,
-			width = 12,
-			depth = 3,
-			height = 2.5,
-			pickets = 4,
+			work = 2,
+			width = 8,
+			depth = 4,
+			height = 3.1,
 			maxSlope = 30,
 		},
 		-- The guns (user 2026-10-26: "add building the artilleries to shovels"; Config/Artillery.Guns `gun`, src/server/
@@ -320,10 +321,39 @@ local Build = {
 	-- Sandbags: each column a section of class "Sandbag" (Config/Damage.Blast.Fail), shovels tear the whole piece down
 	Sandbags = { columnHP = 400, shade = 0.06 },
 
-	-- Barbed wire: anyone inside its box (both teams) is "Wired": walks at `speed`, can't sprint or jump
-	-- (src/client/Stance), and loses `damage` health a second while moving faster than `moving` studs/s. Bullets pass
-	-- (its parts aren't queried); blasts wear it down and cut it (Structures above).
-	Wire = { speed = 3, damage = 4, moving = 1, tick = 0.25 },
+	-- Barbed wire (user 2026-10-27): its meshes are
+	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
+	-- ground (Bundle*, from 0 work, user: "like the artilleries"), full work stands it (Pickets, Strands, Coil). Anyone inside its box (both teams) is "Wired":
+	-- walks at `speed`, can't sprint or jump (src/client/Stance); only the enemy loses `damage` health a second while
+	-- moving faster than `moving` studs/s (user: "slow, but only hurt enemies"). Each tick anyone (teammates too) moves
+	-- through it that fast it shakes and rattles (user 2026-10-27: "the damage tick animation should still go off on
+	-- teammates and the sound cue goes off"; src/client/WireShake: `shake` seconds, the wire `wobble` studs, the pickets
+	-- `picket` of that, at `rate` Hz; one of `sounds` at random from where they push through: Pro Sound Effects "Chain
+	-- Link Fence 3", its first and second rattles). It also shakes and rattles each time it takes damage, a Destroy swing
+	-- or a blast (user 2026-10-27: "both"; src/server/Build).
+	-- Bullets pass (its parts aren't queried). Once standing it has Structures.wireHP: blasts wear it (Structures above), a
+	-- Destroy swing takes `destroy` HP (user: 2 swings, broken then gone); under `broken` of its HP it lies scattered on
+	-- the ground and does nothing (Wreck*, user: "a broken stage (less than 50) will make the fence ineffective and
+	-- scatter it on the ground. once it hits 0 it will despawn"); one Build swing of its team stands a broken wire back up
+	-- at full HP. The grass goes from under it (Net GroundDug, `grass` studs round its centre) as it is laid. A
+	-- Destroy swing on a wire that never stood takes its work down; at 0 it is gone.
+	Wire = {
+		speed = 3,
+		damage = 4,
+		moving = 1,
+		tick = 0.25,
+		destroy = 60, -- (over half: the first swing breaks it, the second takes it away)
+		broken = 0.5,
+		grass = 4.6,
+		shake = 0.35,
+		wobble = 0.12,
+		picket = 0.3,
+		rate = 14,
+		sounds = {
+			{ id = 9113758601, volume = 0.6, start = 0.08, stop = 0.6, fade = 0.25, profile = "Rattle" },
+			{ id = 9113758601, volume = 0.6, start = 1.15, stop = 1.7, fade = 0.25, profile = "Rattle" },
+		},
+	},
 }
 
 return table.freeze(Build)
