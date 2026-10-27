@@ -185,6 +185,10 @@ return {
 		assert(A.gunHit(field.reach, field, H.direct) == 0)
 		assert(A.gunHit(H.direct + 2, field, H.direct) > A.gunHit(H.direct + 6, field, H.direct))
 		assert(A.gunHit(0, A.hitSource(nil, HOW.kg, H), H.direct) >= QF.hp) -- a howitzer shell on a field gun
+		-- full staff beams straight on (user 2026-10-27: a lot more damage to built things, 5-6 for a trench)
+		local beams = math.ceil(QF.hp / A.gunHit(0, H.staff3, H.direct))
+		assert(beams >= 5 and beams <= 6, `5-6 full beams wreck a field gun ({beams})`)
+		assert(A.gunHit(0, H.staff3, H.direct) < hit, "a beam is still less than a cannon shell")
 	end,
 	["a gun's damage stages every 25%, unusable from half"] = function()
 		local at = C.Wreck.at

@@ -47,8 +47,11 @@ return {
 		for _, p in C.Pieces do
 			assert(type(p.key) == "string" and not seen[p.key], p.key)
 			seen[p.key] = true
-			assert(p.kind == "Trench" or p.kind == "Sandbags" or p.kind == "Wire" or p.kind == "Gun", p.key)
-			assert(type(p.name) == "string" and p.work >= 1, p.key)
+			assert(
+				p.kind == "Trench" or p.kind == "Sandbags" or p.kind == "Wire" or p.kind == "Gun" or p.kind == "Hesco",
+				p.key
+			)
+			assert(type(p.name) == "string" and (p.kind == "Hesco" or p.work >= 1), p.key)
 		end
 		assert(B.piece("LowWall", C.Pieces) ~= nil and B.piece("Nope", C.Pieces) == nil and B.piece(5, C.Pieces) == nil)
 	end,
@@ -59,6 +62,48 @@ return {
 		assert(high.rows * high.row >= M.Cover.FullCoverMin, "the high wall hides a standing soldier")
 		local bottom, top = (high.loophole - 1) * high.row, high.loophole * high.row
 		assert(bottom < 4.3 and top > 4.3, "the standing aimed muzzle (4.3) looks out of the loophole")
+	end,
+	["hesco: 6 x 6, just over a soldier, only the dirt is cover; four stages on HP: laid standing, gone at 0"] = function()
+		local A = require("../src/shared/Config/Assets")
+		local h = B.piece("Hesco", C.Pieces) :: any
+		assert(h and h.kind == "Hesco" and h.width == 6 and h.depth == 6 and A.Entries[h.asset] ~= nil)
+		-- (user 2026-10-27: "just barely the players height")
+		assert(h.height > M.Character.Height and h.height < M.Character.Height + 0.25, "just over a standing soldier")
+		-- (user 2026-10-27: "stage 1 and 2 barriers will provide little to no protection"): the dirt at each stage
+		local function dirt(stage: number): number
+			return h.height * math.max(stage - 1, 0) / (h.stages - 1)
+		end
+		assert(
+			dirt(1) == 0
+				and dirt(2) <= M.Cover.HopableLedgeMax
+				and dirt(3) >= M.Cover.LowCoverMin
+				and dirt(h.stages) == h.height
+		)
+		-- on HP (user 2026-10-27: "all strucuttres use HP rule", "stage 1 should always be when its placed")
+		local hp = C.Hesco.hp
+		-- (user round 5: "hesco barriers should still start at 0 HP. make another flat model for when it has just been placed")
+		assert(h.stages == 4 and hp.place == 0 and B.hescoStage(hp.place, hp.max, 4) == 0, "laid: lying flat at 0 HP")
+		assert(B.hescoStage(hp.swing, hp.max, 4) == 1, "a swing in: the empty perimeter stands")
+		assert(B.hescoStage(hp.max, hp.max, 4) == 4, "full")
+		assert(B.hescoStage(hp.max * 0.6, hp.max, 4) == 3, "worn: the dirt slumps a stage")
+		assert(B.hescoStage(0.01, hp.max, 4) == 1, "the perimeter stands while it has any HP")
+		local v, gone, swings = hp.place, false, 0
+		while v < hp.max do
+			v, gone = B.hescoSwing(v, true, hp)
+			swings += 1
+		end
+		assert(v == hp.max and not gone and swings >= 4 and swings <= 8, `built up in a few swings ({swings})`)
+		v, gone = B.hescoSwing(hp.destroy, false, hp)
+		assert(v == 0 and gone, "a Destroy swing takes the last of it")
+		v = B.hescoSwing(hp.max, false, hp, 40)
+		assert(v == hp.max - 40, "an admin step")
+		v, gone = B.hescoSwing(0, false, hp)
+		assert(v == 0 and gone, "a Destroy swing at a barrier just laid takes it away")
+		-- the ground it keeps from craters (user round 5: "the ground below the barrier and the surround (the hitbox)")
+		local m = C.Hesco.ground
+		assert(B.onFootprint(0, 0, 6, 6, m) and B.onFootprint(3 + m, -3 - m, 6, 6, m))
+		assert(not B.onFootprint(3 + m + 0.01, 0, 6, 6, m) and not B.onFootprint(0, -3 - m - 0.01, 6, 6, m))
+		assert(C.Hesco.soak > 0 and C.Hesco.soak < 1, "tougher than sandbags")
 	end,
 	["laying a piece: each reason in turn"] = function()
 		assert(B.canPlace(placing({})))
@@ -367,7 +412,11 @@ return {
 			at("grenade", 0.1, 0) < 5 and at("grenade", 0.1, 0) > 0,
 			"a grenade, even inside the trench, only wears it"
 		)
-		assert(at("staff3", 10, 0) < 5, "a full staff beam is no bigger than a grenade or so, for all its 10 kg")
+		-- (user 2026-10-27: "about 5-6 should be able to sink/destroy a trench")
+		local beams = math.ceil(C.Trench.hp.max / (C.Trench.hp.max * at("staff3", 10, 0) / 100))
+		assert(beams >= 5 and beams <= 6, `5-6 full staff beams bury a trench ({beams})`)
+		assert(at("staff1", 1, 0) < at("staff2", 1, 0) and at("staff2", 1, 0) < at("staff3", 1, 0), "stage by stage")
+		assert(at("staff3", 10, 0) < at(nil, 2.5, 0), "a full beam is still less than a field gun shell")
 		local field = at(nil, 2.5, 1)
 		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
 		local howitzer = at(nil, 340, 3)

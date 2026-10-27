@@ -154,14 +154,17 @@ local Build = {
 	-- "make the ground around each segment to also be part of the trench hit box"), fading to nothing at `reach`;
 	-- `wire`, the % of a barbed wire's HP. Bullets only by a direct hit. A blast nobody named (DEV tools) by its
 	-- charge: the first of `byCharge` it is no bigger than. (A Destroy swing is Trench.hp.destroy.)
+	-- Staffs since 2026-10-27 (user: "staff beams should do a lot more damage to built structures overall. about 5-6
+	-- should be able to sink/destroy a trench"): a full beam takes 18 (5 leave a trench nearly level, the 6th finishes
+	-- it; a sandbag column the same), the lighter stages in the same proportion; wire about 3x what it was.
 	Structures = {
 		edge = 2,
 		wireHP = 100,
 		bullet = { hit = 0.2, wire = 0 }, -- (about 500 hits bury a trench)
 		grenade = { hit = 3, reach = 6, wire = 15 },
-		staff1 = { hit = 0.5, reach = 4, wire = 0 },
-		staff2 = { hit = 1.5, reach = 6, wire = 5 },
-		staff3 = { hit = 4, reach = 10, wire = 15 },
+		staff1 = { hit = 2, reach = 4, wire = 0 },
+		staff2 = { hit = 6, reach = 6, wire = 15 },
+		staff3 = { hit = 18, reach = 10, wire = 50 }, -- (two full beams cut wire)
 		field = { hit = 33, reach = 10, edge = 3, wire = 100 }, -- (three bury a trench)
 		howitzer = { hit = 93, reach = 20, edge = 8, wire = 100 }, -- (buries it at once, 7% left)
 		byCharge = {
@@ -205,6 +208,22 @@ local Build = {
 			-- a loophole: this row of the middle column left open (the standing aimed muzzle, 4.3 high, looks out)
 			loophole = 4,
 			maxSlope = 25,
+		},
+		-- The Hesco barrier (user 2026-10-27; Hesco below): a 6 x 6 basket of mesh and liner, `height` high (just over
+		-- a standing soldier's 5.13: "it should be just barely the players height"; under full cover's 5.5), filled
+		-- with dirt from the bottom up in `stages` (0: just laid, flat; 1: the empty perimeter; then a third of the dirt
+		-- each), on HP
+		-- (Hesco.hp below). Everyone builds it (a small asset: Config/Classes SMALL).
+		{
+			key = "Hesco",
+			name = "Hesco barrier",
+			kind = "Hesco",
+			asset = "hesco", -- (Config/Assets)
+			stages = 4,
+			width = 6,
+			depth = 6,
+			height = 5.25,
+			maxSlope = 20,
 		},
 		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
 		-- chaining or planner; the look: Config/Assets barbed_wire, Wire below)
@@ -320,6 +339,26 @@ local Build = {
 
 	-- Sandbags: each column a section of class "Sandbag" (Config/Damage.Blast.Fail), shovels tear the whole piece down
 	Sandbags = { columnHP = 400, shade = 0.06 },
+
+	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
+	-- barriers block stuff. meaning stage 1 and 2 barriers will provide little to no protection"): the wire, liner and
+	-- flaps stop nothing, bullets and soldiers pass. On HP like every structure (user 2026-10-27: "all strucuttres use
+	-- HP rule, not how many digs", "stage 1 should always be when its placed ... like a cannon, where if its placed,
+	-- something will always be down"; round 5: "hesco barriers should still start at 0 HP. make another flat model for
+	-- when it has just been placed"): laid at `hp.place`, its stage 0 down at once (the scraped ground and the unit
+	-- lying folded flat), a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes
+	-- `hp.destroy`, weapons take `soak` of what they take from a sandbag pile (Structures above); its stage stands by HP
+	-- (the dirt slumps as it wears); a Destroy swing or a hit at 0 and it is gone, no rubble (user: "remove the crumble.
+	-- 0 hp should just disappear"). (0: laid flat; up to 25, 50, 75, 100: stages 1-4; 8 Build swings from laid to full,
+	-- 10 Destroy swings from full to gone.) Craters never carve the ground under it or within `ground` studs round it:
+	-- the barrier takes the blast instead (user round 5: "make sure that the ground below the barrier and the surround
+	-- (the hitbox) does not break. it willbe obsorbed by the barrier").
+	Hesco = {
+		hp = { max = 100, place = 0, swing = 12.5, destroy = 10 },
+		soak = 0.5,
+		blocks = { "Earth" },
+		ground = 2,
+	},
 
 	-- Barbed wire (user 2026-10-27): its meshes are
 	-- Config/Assets barbed_wire in three looks (Rules/Build.wireLook): laid, the pickets and the coil lie bundled on the
