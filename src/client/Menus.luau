@@ -76,6 +76,10 @@ local function build(spec: any, name: string, parent: Instance): Screen
 			obj = Instance.new("TextLabel")
 		elseif n.kind == "model" then
 			obj = Instance.new("ViewportFrame")
+		elseif n.kind == "image" then
+			local img = Instance.new("ImageLabel")
+			img.ScaleType = Enum.ScaleType.Fit
+			obj = img
 		else
 			obj = Instance.new("Frame")
 		end
@@ -301,6 +305,8 @@ function Menus.start()
 		local k = type(kit) == "string" and (U.Kits :: any)[kit]
 		local team = title.node.Team :: TextLabel
 		team.Text = if k and k.army then `For {k.army}` else ""
+		local flag = title.node.Flag :: ImageLabel
+		flag.Image = if k and k.flag then `rbxassetid://{k.flag.full}` else ""
 	end
 
 	-- the team cards (only where teams are kept: the state's `teams`, src/server/Deploy)

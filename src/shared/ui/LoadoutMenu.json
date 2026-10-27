@@ -27,11 +27,11 @@
 		"marks": "Marks  120",
 		"deploy": "Deploy in 10",
 		"className": "Auto rifler",
-		"team": "Grey army",
-		"countGrey": "34 / 34",
-		"countOlive": "34 / 34",
-		"countWhite": "34 / 34",
-		"teamNote": "Click White again to join: your Marks reset"
+		"team": "Katzmark army",
+		"countKatzmark": "34 / 34",
+		"countSelvara": "34 / 34",
+		"countSowilo": "34 / 34",
+		"teamNote": "Click Sowilo again to join: your Marks reset"
 	},
 	"root": {
 		"id": "Screen",
@@ -838,7 +838,7 @@
 						],
 						"children": [
 							{
-								"id": "CardGrey",
+								"id": "CardKatzmark",
 								"kind": "button",
 								"color": "selFill",
 								"line": "line",
@@ -856,9 +856,9 @@
 								],
 								"children": [
 									{
-										"id": "NameGrey",
+										"id": "NameKatzmark",
 										"kind": "label",
-										"text": "Grey",
+										"text": "Katzmark",
 										"textSize": 30,
 										"textColor": "textDim",
 										"center": true,
@@ -880,9 +880,9 @@
 										]
 									},
 									{
-										"id": "CountGrey",
+										"id": "CountKatzmark",
 										"kind": "label",
-										"bind": "countGrey",
+										"bind": "countKatzmark",
 										"textSize": 20,
 										"textColor": "textDim",
 										"center": true,
@@ -906,7 +906,7 @@
 								]
 							},
 							{
-								"id": "CardOlive",
+								"id": "CardSelvara",
 								"kind": "button",
 								"color": "selFill",
 								"line": "line",
@@ -924,9 +924,9 @@
 								],
 								"children": [
 									{
-										"id": "NameOlive",
+										"id": "NameSelvara",
 										"kind": "label",
-										"text": "Olive",
+										"text": "Selvara",
 										"textSize": 30,
 										"textColor": "selText",
 										"center": true,
@@ -948,9 +948,9 @@
 										]
 									},
 									{
-										"id": "CountOlive",
+										"id": "CountSelvara",
 										"kind": "label",
-										"bind": "countOlive",
+										"bind": "countSelvara",
 										"textSize": 20,
 										"textColor": "selText",
 										"center": true,
@@ -974,7 +974,7 @@
 								]
 							},
 							{
-								"id": "CardWhite",
+								"id": "CardSowilo",
 								"kind": "button",
 								"color": "selFill",
 								"line": "line",
@@ -992,9 +992,9 @@
 								],
 								"children": [
 									{
-										"id": "NameWhite",
+										"id": "NameSowilo",
 										"kind": "label",
-										"text": "Brown",
+										"text": "Sowilo",
 										"textSize": 30,
 										"textColor": "noText",
 										"center": true,
@@ -1016,9 +1016,9 @@
 										]
 									},
 									{
-										"id": "CountWhite",
+										"id": "CountSowilo",
 										"kind": "label",
-										"bind": "countWhite",
+										"bind": "countSowilo",
 										"textSize": 20,
 										"textColor": "noText",
 										"center": true,

@@ -75,6 +75,8 @@ local Uniforms = {
 		uniform1 = {
 			team = "Katzmark", -- the nation's short name (the Grey team)
 			army = "the Kingdom of Katzmark", -- its full name in the menus (src/client/Menus)
+			-- its flag (tools/flags/flags.py, user 2026-10-27): `full` for menus and banners, `pole` the capture flag
+			flag = { full = 133842139300317, pole = 82346884044085 }, -- decals 105769719412848, 133575183196496
 			source = "assets/teams/grey/uniform/uniform1.json",
 			shirt = 111439602118520, -- decal 121662410098818
 			pants = 82001103410866, -- decal 121600662647379
@@ -88,6 +90,8 @@ local Uniforms = {
 		uniform2 = {
 			team = "Selvara", -- the nation's short name (the Olive team)
 			army = "the Kingdom of Selvara", -- its full name in the menus (src/client/Menus)
+			-- its flag (tools/flags/flags.py, user 2026-10-27): `full` for menus and banners, `pole` the capture flag
+			flag = { full = 135416785085851, pole = 80403837151425 }, -- decals 109578385483589, 129527153818015
 			source = "assets/teams/olive/uniform/uniform2.json",
 			shirt = 108022442236637, -- decal 118417766232661
 			pants = 78199869429201, -- decal 112322397513846
@@ -101,6 +105,8 @@ local Uniforms = {
 		uniform3 = {
 			team = "Sowilo", -- the nation's short name (the Brown team)
 			army = "the Sowilo Concord", -- its full name in the menus (src/client/Menus)
+			-- its flag (tools/flags/flags.py, user 2026-10-27): `full` for menus and banners, `pole` the capture flag
+			flag = { full = 96159435529203, pole = 121388136482551 }, -- decals 119556600982391, 91068629966752
 			source = "assets/teams/white/uniform/uniform3.json",
 			shirt = 74678155009631, -- decal 121824214820196
 			pants = 81809122965783, -- decal 97802189527419

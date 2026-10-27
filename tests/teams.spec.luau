@@ -36,6 +36,21 @@ return {
 		end
 		assert(not T.spared(nil, "uniform1", false) and not T.spared("uniform1", nil, false), "unknown kit is hit")
 	end,
+	["every team has its nation's names and a flag, none shared"] = function()
+		local seen = {}
+		for _, kit in U.Teams do
+			local k = (U.Kits :: any)[kit]
+			assert(
+				type(k.team) == "string" and k.team ~= "" and type(k.army) == "string" and k.army ~= "",
+				`{kit}: names`
+			)
+			assert(k.flag and k.flag.full > 0 and k.flag.pole > 0 and k.flag.full ~= k.flag.pole, `{kit}: flag ids`)
+			for _, v in { k.team, k.army, k.flag.full, k.flag.pole } do
+				assert(not seen[v], `{kit}: {v} used twice`)
+				seen[v] = true
+			end
+		end
+	end,
 	["head counts per team, strangers not counted"] = function()
 		local c = T.counts({ "uniform1", "uniform2", "uniform1", nil, "nope", 5 } :: { unknown }, U.Teams)
 		assert(c.uniform1 == 2 and c.uniform2 == 1 and c.uniform3 == 0, "counted")

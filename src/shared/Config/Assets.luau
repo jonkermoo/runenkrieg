@@ -762,7 +762,7 @@ local Assets = {
 			source = "assets/teams/white/helmets/variants/helmet_adrian_visor_fennek.fbx",
 			generator = "tools/blender/gear/slit.py",
 			description = "helmet_adrian_visor (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
-				.. "(--shape hull --tufts --base helmet_adrian_visor). Worn by Fenneks (Rules/Looks.helmetEntry). White team (1444 tris).",
+				.. "(--shape hull --tufts --base helmet_adrian_visor). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team (1444 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
@@ -779,7 +779,7 @@ local Assets = {
 			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles_fennek.fbx",
 			generator = "tools/blender/gear/slit.py",
 			description = "helmet_brodie_goggles (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
-				.. "(--shape hull --tufts --base helmet_brodie_goggles). Worn by Fenneks (Rules/Looks.helmetEntry). White team (1056 tris).",
+				.. "(--shape hull --tufts --base helmet_brodie_goggles). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team (1056 tris).",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
