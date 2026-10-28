@@ -42,6 +42,13 @@ local Sway = require(script.Parent.Sway)
 
 local WeaponCamera = {}
 
+-- set by start(): the view chosen now, a manned gun's hold on the camera, its view handed back (WeaponCamera.view)
+local viewNow: () -> (number, number, number) = function()
+	return 0, 1, 1
+end
+local manned = false
+local handBackTo: (number, number) -> () = function() end
+
 local HEAD = Vector3.new(0, 1.5, 0) -- head centre above the root (R6)
 local ROBLOX_MIN = 0.5 -- StarterPlayer.CameraMinZoomDistance: Roblox's first person
 
@@ -212,6 +219,18 @@ function WeaponCamera.start()
 		character:SetAttribute("Handover", nil)
 	end
 
+	viewNow = function()
+		if active or leaving then
+			return gunZoom, G.FirstBelow, G.MaxZoom
+		end
+		return (camera.CFrame.Position - camera.Focus.Position).Magnitude, G.FirstBelow, Cfg.FreeMaxZoom
+	end
+	handBackTo = function(distance: number, max: number)
+		local character = player.Character
+		zoom = if distance <= 0 then ROBLOX_MIN else distance / max * Cfg.FreeMaxZoom
+		finish(character, character and character:FindFirstChildOfClass("Humanoid"))
+	end
+
 	-- the staff in third person: a click brings the shoulder view for a moment
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if not processed and active and Settings.pressed("Key_Fire", input) then
@@ -251,6 +270,11 @@ function WeaponCamera.start()
 		-- a weapon in the hands, one going over the shoulder (src/client/Locomotion "Stowing") or the last grenade's throw
 		-- playing out after it left the hand (src/client/Grenades "Throwing"); not the shovel (Config/Camera.FreeClasses:
 		-- Roblox's camera stays, held out at FreeMinZoom)
+		if manned then
+			-- on a machine gun (src/client/Artillery): its camera
+			active, leaving = false, false
+			return
+		end
 		local held = Held.weapon(character)
 		local stowing = character and character:GetAttribute("Stowing")
 		local want = character
@@ -320,6 +344,9 @@ function WeaponCamera.start()
 	-- after the look tilt has posed the gun: place the camera
 	RunService:BindToRenderStep("WeaponCameraPlace", LookTilt.Priority + 1, function(dt)
 		local character, humanoid0, root = parts()
+		if manned then
+			return
+		end
 		if leaving and character and root then
 			-- the glide back out: to where Roblox's camera sits at the zoom it had, looking the same way, the body
 			-- fading back in as the camera leaves the head
@@ -436,6 +463,23 @@ function WeaponCamera.start()
 			camera.FieldOfView = v
 		end
 	end)
+end
+
+-- The view chosen now, for a camera that takes over (the MG nest's gun, src/client/Artillery): its distance (0 first
+-- person), the distance under which it is first person, its furthest
+function WeaponCamera.view(): (number, number, number)
+	return viewNow()
+end
+
+-- A machine gun's camera holds the view while it is manned (src/client/Artillery): nothing here moves the camera
+function WeaponCamera.manning(on: boolean)
+	manned = on
+end
+
+-- Getting off a machine gun: Roblox's camera back at the same share of the way out as `distance` of `max` (0: first
+-- person)
+function WeaponCamera.handBack(distance: number, max: number)
+	handBackTo(distance, max)
 end
 
 return WeaponCamera
