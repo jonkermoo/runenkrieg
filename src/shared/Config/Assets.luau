@@ -62,7 +62,9 @@ local Assets = {
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
 		pistol_nagant = {
-			id = 100351614666603,
+			-- v2: the cylinder's faces fixed, the grip two flat wood panels on a slimmer, rounded frame, a round per
+			-- chamber filling its mouth (v1 100351614666603)
+			id = 136927059301419,
 			category = "Weapons",
 			folder = "Olive/Pistols",
 			source = "assets/weapons/olive/pistol_nagant.fbx",
