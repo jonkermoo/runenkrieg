@@ -1179,9 +1179,8 @@ function Artillery.start()
 			if model == mine then
 				heat = Rules.mgHeat(heat, 1, 0, mg.spread)
 			end
-			-- (just the muzzle's flash: the guns' whole blast, smoke and shockwaves, is too much 7 times a second)
-			local near = (camera.CFrame.Position - origin).Magnitude <= Cfg.Fx.far
-			Vfx.Muzzle.play(origin, (hit - origin).Unit, gun.muzzleScale, "Field", near)
+			-- (a rifle's flash: the guns' blast, even scaled down, lit the whole view 7 times a second)
+			GunFx.flashAt(CFrame.new(origin))
 			GunFx.tracer(origin, hit)
 			if part then
 				GunFx.hole(hit, normal, part)
