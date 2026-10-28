@@ -24,6 +24,7 @@
 --   the muzzle, the tracer, the hole (src/client/GunFx).
 
 local CollectionService = game:GetService("CollectionService")
+local ContentProvider = game:GetService("ContentProvider")
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -289,7 +290,7 @@ local function roundTemplate(): Model?
 	return if f and f:IsA("Model") then f else nil
 end
 
--- one of the gunner's tracks (`key`: "load", "brace", "crank"), made (and so fetched) ahead of its first play
+-- one of the gunner's tracks (`key`: "load", "brace", "crank", "stand"), made (and so fetched) ahead of its first play
 local function oneTrack(character: Model, key: string, id: number?): AnimationTrack?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
@@ -616,12 +617,19 @@ function Artillery.start()
 	local camera = workspace.CurrentCamera
 
 	-- every gun's sounds loaded now, so the first shot doesn't hitch or start late
+	local stands = {}
 	for _, gun in Cfg.Guns do
 		SoundFx.preload(gun.sound)
 		if gun.mg then
 			SoundFx.preload({ Shot = gun.mg.shot })
+			local a = Instance.new("Animation")
+			a.AnimationId = `rbxassetid://{gun.mg.stand}`
+			table.insert(stands, a)
 		end
 	end
+	task.spawn(function()
+		ContentProvider:PreloadAsync(stands) -- (or the first time on the gun shows a frozen pose)
+	end)
 
 	-- the guns
 	local function watch(f: Instance)
@@ -750,6 +758,12 @@ function Artillery.start()
 			mgCur, mgSpeed, mgAimed, aimT = mgDist, 0, false, 0
 			onMg = true
 			WeaponCamera.manning(true)
+			-- standing ready at the grips (Config/Artillery.Guns `mg.stand`), till I get off
+			local character = player.Character
+			local stand = character and oneTrack(character, "stand", p.gun.mg.stand)
+			if stand then
+				stand:Play(0.2)
+			end
 		else
 			camera.FieldOfView = p.gun.camera.fov
 		end

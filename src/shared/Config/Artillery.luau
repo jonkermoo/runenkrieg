@@ -130,6 +130,7 @@ export type Gun = {
 		range: number,
 		class: string,
 		spread: { min: number, max: number, per: number, recover: number },
+		stand: number,
 		eye: { number },
 		over: { number },
 		shield: { top: number, z: number },
@@ -876,7 +877,7 @@ local Artillery = {
 			breechTimes = { 0, 0 },
 			recoil = 0,
 			recoilTimes = { 0.05, 0.1 },
-			crew = { 0, 3.3 }, -- (behind the grips)
+			crew = { 0, 4 }, -- (standing behind the grips, arms out to them: MGStand)
 			crewTurns = true,
 			prompt = 7,
 			vfx = { scheme = "Ember", magic = false },
@@ -904,6 +905,9 @@ local Artillery = {
 				range = 600, -- (as far as a rifle shot: Config/Firing.Range, the fog)
 				class = "MachineGun",
 				spread = { min = 0.6, max = 1.5, per = 0.06, recover = 0.3 }, -- (hot after ~50 rounds held, cool ~3 s after)
+				-- the gunner's pose while manning it (tools/animation/mg.luau MGStand, a loop; user 2026-10-28: "make it
+				-- standing and ready"): standing behind it, hands on the spade grips
+				stand = 90383747593412,
 				eye = { 0, 1.78, 2.44 },
 				-- the eye at the hip, in first person (user 2026-10-28: "can you move the camera up more since the
 				-- shield in the way of the camera"): over the shield's top (`shield`: its arch's top with the rim, its
