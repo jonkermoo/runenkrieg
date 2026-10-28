@@ -1,6 +1,6 @@
 {
 	"name": "BuildHud",
-	"_doc": "The shovel's panel at the bottom of the screen (src/client/BuildHud builds it, src/client/Build fills it; user 2026-10-27, the Bold look of the building UI drafts: \"make it more distinct for each mode its in\"). One panel: a tab over its top-left names the mode in the mode's colour; the body (see-through) has the status edge on the left (go / no-go, else the mode's colour), the title row (in Placing, the pieces before and after on Q / E either side), then what the mode needs (Placing: a fits / why-not line; Trench plan: a rule with a tick per square), then the key caps. Each mode's face: Build a rim along the top, Destroy a hazard band, Placing a blueprint grid with corner ticks, Trench plan a chalk outline. A badge by the cursor shows the mode's icon. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours: Config/Palette UI.BuildHud. One font, the game's basic font (user 2026-10-27). Desktop only.",
+	"_doc": "The shovel's panel at the bottom of the screen (src/client/BuildHud builds it, src/client/Build fills it; user 2026-10-27, the Bold look of the building UI drafts: \"make it more distinct for each mode its in\"). One panel: a tab over its top-left names the mode in the mode's colour; the body (see-through) has the status edge on the left (go / no-go, else the mode's colour), the title row (in Placing, the pieces before and after on Q / E either side), then what the mode needs (Placing: a why-not line when it can't go; Trench plan: a rule with a tick per square), then the key caps. Each mode's face: Build a rim along the top, Destroy a hazard band, Placing a blueprint grid with corner ticks, Trench plan a chalk outline. A badge by the cursor shows the mode's icon. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours: Config/Palette UI.BuildHud. One font, the game's basic font (user 2026-10-27). Desktop only.",
 	"theme": {
 		"scale": {
 			"referenceHeight": 800,
@@ -78,15 +78,5 @@
 		"size": 26,
 		"icon": 15,
 		"offset": [16, 10]
-	},
-	"_pieces": "what each piece is for, on the Placing line after its swings (Config/Build.Pieces keys)",
-	"pieces": {
-		"Trench": "Stops bullets",
-		"SandbagPile": "Stops bullets · aim over it",
-		"Hesco": "Stops bullets · hides you",
-		"Bridge": "Walk over a trench",
-		"Wire": "Slows everyone · bullets pass",
-		"FieldGun": "Crew-fired",
-		"Howitzer": "Dug into a pit"
 	}
 }

@@ -53,6 +53,16 @@ return {
 			end
 		end
 	end,
+	["the engineer wears its team's soft cap, no one else a soft one (user: a cap that isnt bullet proof)"] = function()
+		for _, kitName in U.Teams do
+			for key in C.Defs do
+				local g = R.gear(key, kitName, C.Defs, U.Kits, C.Gear)
+				local fit = A.Entries[g.headwear].fit :: any
+				assert((fit.soft == true) == (key == "Engineer"), `{key} {kitName}: soft only on the engineer`)
+				assert(fit.shell and fit.brim, `{key} {kitName}: a shell and a brim`)
+			end
+		end
+	end,
 	["rifleman: the kit's bolt rifle, no grenades; grenadier adds them"] = function()
 		for _, kitName in U.Teams do
 			local kit = U.Kits[kitName] :: any

@@ -186,6 +186,8 @@ function Helmets.dress(character: Model, headwear: string?, species: string?)
 	if h then
 		h.Parent = character
 	end
+	-- a soft cap (fit.soft: the Engineer's, user 2026-10-27 "a cap that isnt bullet proof") saves no one (Helmets.soft)
+	character:SetAttribute("HelmetSoft", if on and headwear then (A.Entries[headwear].fit :: any).soft == true else nil)
 	if on then
 		on:SetAttribute("Entry", headwear)
 		-- its box in the head's space, for shots that pass over or beside the head (Helmets.crown)
@@ -195,6 +197,14 @@ function Helmets.dress(character: Model, headwear: string?, species: string?)
 		on.Parent = character
 	end
 	character:SetAttribute("HelmetOn", on ~= nil)
+end
+
+-- Whether `character` wears a soft cap (Config/Assets fit.soft): a hit on it still knocks it off, but it is a full
+-- Head hit (no Helmet damage, no HelmetFloor), and a shot through its crown only, above the skull, does no harm.
+function Helmets.soft(character: Instance?): boolean
+	return character ~= nil
+		and character:GetAttribute("HelmetOn") == true
+		and character:GetAttribute("HelmetSoft") == true
 end
 
 -- A shot along `line` (unit) from `origin` that meets a worn helmet's shape (Rules/Looks.crownAt) within `reach` studs,

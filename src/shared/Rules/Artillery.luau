@@ -317,4 +317,65 @@ function Artillery.wreckStage(hp: number, max: number, at: { number }): number
 	return stage
 end
 
+-- The eye of a machine gun's gunner (gun space, Config/Artillery.Guns `mg.eye`) for a traverse and elevation: it turns
+-- and lifts with the gun, as the muzzle does
+function Artillery.eye(gun: any, traverse: number, elevation: number): (number, number, number)
+	local e, t = gun.mg.eye, gun.trunnion
+	local x, y, z = aboutX(e[1], e[2], e[3], t, elevation)
+	return aboutY(x, y, z, traverse)
+end
+
+-- A machine gun laid by the mouse (`dx`, `dy` pixels; Config/Artillery.Guns `mg.look` degrees a pixel): the wanted
+-- yaw and elevation after it, straight off, the yaw within its traverse of the gun's own `base` yaw (no swinging past
+-- its stops) and the elevation within its limits
+function Artillery.mgLay(
+	wantYaw: number,
+	wantElevation: number,
+	base: number,
+	dx: number,
+	dy: number,
+	gun: any
+): (number, number)
+	local rel = math.clamp(Artillery.wrap(wantYaw - base) - dx * gun.mg.look, -gun.traverse, gun.traverse)
+	return Artillery.wrap(base + rel), math.clamp(wantElevation - dy * gun.mg.look, gun.elevation[1], gun.elevation[2])
+end
+
+-- Seconds between a machine gun's shots at `rate` rounds a minute
+function Artillery.mgInterval(rate: number): number
+	return 60 / math.max(rate, 1)
+end
+
+-- A machine gun's heat (0 cold .. 1, Config/Artillery.Guns `mg.spread`): each shot adds `per`, it settles back at
+-- `recover` a second; and the most a shot strays at that heat (degrees), from `min` to `max`
+function Artillery.mgHeat(heat: number, shots: number, dt: number, spread: any): number
+	return math.clamp(heat - spread.recover * dt + spread.per * shots, 0, 1)
+end
+
+function Artillery.mgSpread(heat: number, spread: any): number
+	return spread.min + (spread.max - spread.min) * math.clamp(heat, 0, 1)
+end
+
+-- Whether a machine gun can fire now: rounds in its box and not in a box reload (`readyAt`, server time)
+function Artillery.mgReady(rounds: number, readyAt: number?, now: number): boolean
+	return rounds > 0 and (readyAt == nil or now >= readyAt)
+end
+
+-- A shot's stray off the bore (degrees: yaw, elevation) from two random numbers in 0..1, within `spread` degrees of it
+-- (evenly over a disc, so the middle isn't crowded)
+function Artillery.mgStray(spread: number, r1: number, r2: number): (number, number)
+	local d = spread * math.sqrt(r1)
+	local a = 2 * math.pi * r2
+	return d * math.cos(a), d * math.sin(a)
+end
+
+-- How far to lift a group of parts so it rests on the ground: from the heights of its boxes' corners as it lies
+-- (Config/Artillery Lie)
+function Artillery.restLift(heights: { number }): number
+	local low = math.huge
+	for _, y in heights do
+		low = math.min(low, y)
+	end
+	return if low == math.huge then 0 else -low
+end
+
 return Artillery

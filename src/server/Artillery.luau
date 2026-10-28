@@ -7,22 +7,28 @@
 --   "Elevation" (degrees), "FiredAt", "ReadyAt" (server time), "Gunner" (UserId). Every client poses the moving parts
 --   from these (src/client/Artillery); the server moves only a turning mount (crewTurns: its gunner stands on it) and,
 --   swinging the whole gun, its pivot. The gunner is welded to what they stand on.
--- - E (its ProximityPrompt) mans it: the gunner stands welded at the crew spot, platform-standing, weapons put away,
---   until they leave (Net "Artillery" "Leave"), die or go.
+-- - E (its ProximityPrompt, in the game's own look: src/client/Prompts) mans it: the gunner stands welded at the crew
+--   spot, platform-standing, weapons put away, until they leave (Net "Artillery" "Leave"), die or go.
 -- - "Aim" sets the wanted yaw and elevation; the gun works toward them at its rates (Rules/Artillery.lay).
 -- - "Fire", loaded: the gunner braces (the howitzer charges up), the gun's `charge` s later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
 --   casts, so nothing thin is passed through) and goes off where it hits: Damage.blast with its charge and fragments,
 --   every client shows it (Net "ArtilleryBlast").
 -- - Every blast wears the guns down (Damage.onBlast; Config/Artillery.Hits): a direct hit on a gun takes a lot, one on
 --   its pit, mound or the ground round it little. Its HP ("HP") falls through the Config/Artillery.Wreck stages
---   ("Stage"): scorched, then unusable ("Broken": its gunner thrown off, the prompt gone, the barrel knocked down, the
+--   ("Stage"): scorched, then unusable ("Broken": its gunner thrown off, the prompt dimmed, the barrel knocked down, the
 --   howitzer's crystal dead), leaning and sinking more each stage; at 0 a wreck that stays.
+-- - A machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08; set up by src/server/Build): no earth under it
+--   (it stands on its mount bag); "Trigger" held fires bullets at its rate from its box ("Rounds"), each cast from the
+--   muzzle along its lay plus a stray growing with its heat, hurting as a rifle shot does (src/server/Damage, by its
+--   `class`), chipping built things (Build.shot) and breaking glass on the way; everyone sees it ("MGShot"). An empty
+--   box, or "Reload", swaps it over the gun's `reload` ("ReadyAt"), then it is full again.
 -- - A dug-in gun's pit is lined with trench dirt slabs (Config/Artillery.Slabs, the trench kit: src/server/Trenches),
 --   laid rough, in the Workspace folder Config/Artillery.PitFolder, gone with the gun.
 -- - The ground a gun stands on is never carved by craters (Ground.guard; earth thrown up may land on it). The field gun
 --   stands on the terrain, levelled and bared under it, with an unseen hitbox; the howitzer on its earth block.
 -- - Its own team's shovel swings fix it (Artillery.repair, from src/server/Build); whole, a fresh gun stands there.
 
+local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -30,10 +36,15 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Artillery)
+local FiringCfg = require(Shared.Config.Firing)
 local Palette = require(Shared.Config.Palette)
+local PromptCfg = require(Shared.Config.Prompts)
 local Rules = require(Shared.Rules.Artillery)
 local Net = require(Shared.Net)
 local Damage = require(script.Parent.Damage)
+local Build = require(script.Parent.Build)
+local Destruction = require(script.Parent.Destruction)
+local Helmets = require(script.Parent.Helmets)
 local Ground = require(script.Parent.Ground)
 local Trenches = require(script.Parent.Trenches)
 local TrenchCfg = require(Shared.Config.Build).Trench
@@ -66,6 +77,12 @@ type State = {
 	-- the ground it stands on (Artillery.onGround): its pivot as placed and the box under it (x, z in gun space)
 	ground: { at: CFrame, lo: { number }, hi: { number } },
 	pit: Model?, -- its pit's slabs
+	-- a machine gun (Config/Artillery.Guns `mg`): its fire held down, its heat (Rules.mgHeat), when its next shot is
+	-- due, and a box reload under way
+	trigger: boolean,
+	heat: number,
+	nextShot: number,
+	reloading: boolean,
 }
 
 local guns: { [Model]: State } = {}
@@ -109,8 +126,8 @@ local function roleColor(name: string, team: string): { number }?
 	return nil
 end
 
--- the team's paint on the painted parts, its accent colours on the accent pieces, the rest by mesh name; the runes and
--- the crystal glow
+-- the team's paint on the painted parts, its accent colours on the accent pieces, the rest by mesh name (the team's own
+-- first, as Brown's barrel); the runes and the crystal glow
 local function paint(model: Model, team: string)
 	local art = Palette.Artillery
 	for _, d in model:GetDescendants() do
@@ -120,7 +137,10 @@ local function paint(model: Model, team: string)
 			d.Color = rgb(
 				if table.find(art.Painted, d.Name)
 					then art.Paint[team]
-					else roleColor(d.Name, team) or (art :: any)[d.Name] or art.Barrel
+					else roleColor(d.Name, team)
+						or (art.Team[team] :: any)[d.Name]
+						or (art :: any)[d.Name]
+						or art.Barrel
 			)
 			if table.find(art.Glowing, d.Name) then
 				d.Material = Enum.Material.Neon
@@ -181,6 +201,7 @@ end
 
 local function leave(s: State)
 	local player = s.gunner
+	s.trigger = false
 	for _, c in s.conns do
 		c:Disconnect()
 	end
@@ -192,6 +213,8 @@ local function leave(s: State)
 	end
 	s.model:SetAttribute("Gunner", nil)
 	s.prompt.Enabled = not s.broken
+	s.prompt:SetAttribute(PromptCfg.BlockedAttr, if s.broken then "Broken" else nil)
+	s.prompt:SetAttribute(PromptCfg.UserAttr, nil)
 	local character = player and player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then
@@ -244,6 +267,9 @@ local function man(s: State, player: Player)
 	s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
 	s.model:SetAttribute("Gunner", player.UserId)
 	s.prompt.Enabled = false
+	-- (still drawn, dimmed, for everyone else: Config/Prompts)
+	s.prompt:SetAttribute(PromptCfg.BlockedAttr, "InUse")
+	s.prompt:SetAttribute(PromptCfg.UserAttr, player.UserId)
 	table.insert(
 		s.conns,
 		humanoid.Died:Connect(function()
@@ -323,6 +349,98 @@ local function fire(s: State)
 	s.model:SetAttribute("ReadyAt", t + gun.reload)
 	Net.event("ArtilleryShot"):FireAllClients(s.model, origin, velocity)
 	fly(s, origin, velocity, character)
+end
+
+-- A machine gun's box reload: unable to fire for the gun's `reload`, then full again
+local function reloadBox(s: State)
+	local mg = s.gun.mg
+	if not mg or s.reloading or s.broken or (s.model:GetAttribute("Rounds") :: number? or 0) >= mg.box then
+		return
+	end
+	s.reloading = true
+	s.trigger = false
+	s.model:SetAttribute("ReadyAt", now() + s.gun.reload)
+	task.delay(s.gun.reload, function()
+		s.reloading = false
+		if guns[s.model] then
+			s.model:SetAttribute("Rounds", mg.box)
+		end
+	end)
+end
+
+-- A machine gun's bullet: from the muzzle along the gun's lay plus its stray, cast against the world (glass on the way
+-- broken and passed, Config/Firing.Shatter), its wound handed to src/server/Damage
+local function bullet(s: State, character: Model)
+	local gun = s.gun
+	local mg = gun.mg :: any
+	local dYaw, dElev = Rules.mgStray(Rules.mgSpread(s.heat, mg.spread), random:NextNumber(), random:NextNumber())
+	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, s.lay.traverse + dYaw, s.lay.elevation + dElev)
+	local pivot = s.model:GetPivot()
+	local origin = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local line = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)).Unit
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { s.model, character }
+	local from, panes, result = origin, 0, nil
+	while true do
+		result = workspace:Raycast(from, line * (mg.range - (from - origin).Magnitude), params)
+		if
+			not result
+			or panes >= FiringCfg.Shatter.panes
+			or not Destruction.shot(result.Instance, result.Position, line)
+		then
+			break
+		end
+		panes += 1
+		from = result.Position + line * 0.01
+	end
+	local hit = if result then result.Position else origin + line * mg.range
+	if result then
+		Build.shot(result.Instance, result.Position)
+		local mate = Damage.spares(character, result.Instance.Parent)
+		local helmet = not mate and Helmets.hit(result.Instance, result.Position, line)
+		Damage.shot(character, mg.class, {
+			{
+				part = result.Instance,
+				point = result.Position,
+				direction = line,
+				distance = (result.Position - origin).Magnitude,
+				helmet = helmet,
+			},
+		})
+	end
+	Net.event("MGShot"):FireAllClients(s.model, origin, hit, result and result.Normal, result and result.Instance)
+end
+
+-- A machine gun at work this frame: its heat settling, and while its fire is held, its shots as they fall due
+local function machineGun(s: State, dt: number)
+	local mg = s.gun.mg
+	if not mg then
+		return
+	end
+	local t = now()
+	local shots = 0
+	local character = s.gunner and s.gunner.Character
+	local rounds = s.model:GetAttribute("Rounds") :: number? or 0
+	if s.trigger and character and not s.broken then
+		local gap = Rules.mgInterval(mg.rate)
+		s.nextShot = math.max(s.nextShot, t - gap) -- (no burst of shots saved up while it was quiet)
+		while s.nextShot <= t and Rules.mgReady(rounds, s.model:GetAttribute("ReadyAt") :: number?, t) do
+			s.nextShot += gap
+			rounds -= 1
+			shots += 1
+			s.heat = Rules.mgHeat(s.heat, 1, 0, mg.spread)
+			bullet(s, character)
+		end
+		if shots > 0 then
+			s.model:SetAttribute("Rounds", rounds)
+			s.model:SetAttribute("FiredAt", t)
+		end
+		if rounds <= 0 then
+			reloadBox(s) -- (an empty box is swapped at once)
+		end
+	end
+	s.heat = Rules.mgHeat(s.heat, 0, dt, mg.spread)
 end
 
 local function pitFolder(): Folder
@@ -529,13 +647,19 @@ function Artillery.parts(key: string, paintKey: string?): Model?
 	return model
 end
 
+-- a part of a nest's gun as its group lies on the ground (Config/Artillery Lie): the group's frame on the ground (from
+-- the ring's middle), the part's place from the group's frame, unseen while it lies
+type Lying = { frame: CFrame, offset: CFrame, hide: boolean }
+
 -- each built gun's parts at rest in gun space (Artillery.parts copies, before they are posed), the quarter each appears
--- at (Config/Artillery.Assembly; nil: never while built) and the stage of the gun that moves it (1 mount ... 4 breech)
+-- at (Config/Artillery.Assembly; nil: never while built) and the stage of the gun that moves it (1 mount ... 4 breech);
+-- a nest's gun: where each part lies
 type Built = {
 	rest: { [BasePart]: CFrame },
 	at: { [BasePart]: number },
 	moves: { [BasePart]: number },
 	alpha: { [BasePart]: number }, -- its own transparency
+	lying: { [BasePart]: Lying },
 }
 local built: { [Model]: Built } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -545,7 +669,7 @@ local function builtOf(model: Model, gun: Cfg.Gun): Built
 		return got
 	end
 	local pivot = model:GetPivot()
-	local b: Built = { rest = {}, at = {}, moves = {}, alpha = {} }
+	local b: Built = { rest = {}, at = {}, moves = {}, alpha = {}, lying = {} }
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			b.rest[d] = pivot:ToObjectSpace(d.CFrame)
@@ -566,13 +690,53 @@ local function builtOf(model: Model, gun: Cfg.Gun): Built
 			end
 		end
 	end
+	-- a nest's gun: each group with a `lie` tipped over and turned about its middle, lifted to rest on its lowest corner
+	for _, g in gun.assembly do
+		local lie = g.lie
+		if lie then
+			local members, sum = {}, Vector3.zero
+			for d, at in b.at do
+				if at == g.at then
+					table.insert(members, d)
+					sum += b.rest[d].Position
+				end
+			end
+			if #members > 0 then
+				local centre = CFrame.new(sum / #members)
+				local t = lie.turn
+				local turn = CFrame.Angles(0, math.rad(t[2]), 0) * CFrame.Angles(math.rad(t[1]), 0, math.rad(t[3]))
+				local heights = {}
+				for _, d in members do
+					local o = centre:Inverse() * b.rest[d]
+					local h = d.Size / 2
+					for _, c in { -1, 1 } do
+						for _, e in { -1, 1 } do
+							for _, f in { -1, 1 } do
+								table.insert(heights, (turn * o * Vector3.new(c * h.X, e * h.Y, f * h.Z)).Y)
+							end
+						end
+					end
+				end
+				local frame = CFrame.new(lie.at[1], Rules.restLift(heights), lie.at[2]) * turn
+				for _, d in members do
+					b.lying[d] = {
+						frame = frame,
+						offset = centre:Inverse() * b.rest[d],
+						hide = lie.hide ~= nil and table.find(lie.hide, d.Name) ~= nil,
+					}
+				end
+			end
+		end
+	end
 	built[model] = b
 	return b
 end
 
 -- Poses a gun being built (Artillery.parts) standing at `at` with `quarters` of Config/Artillery.Assembly.quarters
--- done: each group in place once its quarter is done, unseen before; the barrel at the gun's lowest lay.
-function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: number)
+-- done: each group in place once its quarter is done, unseen before; the barrel at the gun's lowest lay. A nest's gun
+-- (`ground`: the ground at the ring's middle): a group not yet set up lies on the ground there (its `lie`) instead,
+-- its `hide` parts unseen.
+function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: number, ground: CFrame?)
 	local gun = Cfg.Guns[key]
 	if not gun then
 		return
@@ -585,9 +749,17 @@ function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: num
 		* trunnion:Inverse()
 	for p, rest in b.rest do
 		-- (user 2026-10-26: "the runes shouldn't be active until the cannon is built": nothing glows while built)
-		local shown = b.at[p] ~= nil and b.at[p] <= quarters and not table.find(Palette.Artillery.Glowing, p.Name)
-		p.Transparency = if shown then b.alpha[p] else 1
-		p.CFrame = at * (if (b.moves[p] or 0) >= 2 then lay * rest else rest)
+		local glow = table.find(Palette.Artillery.Glowing, p.Name) ~= nil
+		local up = b.at[p] ~= nil and b.at[p] <= quarters
+		local laid = if (b.moves[p] or 0) >= 2 then lay * rest else rest
+		local lying = b.lying[p]
+		if ground and lying and not up then
+			p.Transparency = if lying.hide or glow then 1 else b.alpha[p]
+			p.CFrame = ground * lying.frame * lying.offset
+		else
+			p.Transparency = if up and not glow then b.alpha[p] else 1
+			p.CFrame = at * laid
+		end
 	end
 end
 
@@ -673,13 +845,22 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
 	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
-	local under, over = standOn(model, gun)
+	-- (a machine gun stands on its nest's mount bag: no earth, a little box of ground kept from craters)
+	local under, over
+	if gun.nestGround then
+		under, over = gun.nestGround.lo, gun.nestGround.hi
+	else
+		under, over = standOn(model, gun)
+	end
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
 	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)
 	model:SetAttribute("Elevation", low)
 	model:SetAttribute("HP", gun.hp)
 	model:SetAttribute("Stage", 0)
+	if gun.mg then
+		model:SetAttribute("Rounds", gun.mg.box)
+	end
 	local colors = {}
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
@@ -698,6 +879,8 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = gun.prompt
 	prompt.RequiresLineOfSight = false
+	prompt.Style = Enum.ProximityPromptStyle.Custom -- the game's own look (src/client/Prompts)
+	CollectionService:AddTag(prompt, PromptCfg.Tag)
 	prompt.Parent = spot
 	model.Parent = folder()
 
@@ -727,6 +910,10 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		lean = random:NextNumber(0, 2 * math.pi),
 		pit = pit,
 		ground = { at = model:GetPivot(), lo = under, hi = over },
+		trigger = false,
+		heat = 0,
+		nextShot = 0,
+		reloading = false,
 	}
 	if gun.crewTurns then
 		local pivot = model:GetPivot()
@@ -957,6 +1144,7 @@ local function wreck(s: State)
 			leave(s)
 		end
 		s.prompt.Enabled = false
+		s.prompt:SetAttribute(PromptCfg.BlockedAttr, "Broken")
 		-- the barrel knocked down to its lowest lay and round a little
 		local gun = s.gun
 		local knock = math.min(W.knock, gun.traverse)
@@ -1078,7 +1266,13 @@ function Artillery.start()
 				s.aimed = t
 				s.want = { yaw = Rules.wrap(a), elevation = b }
 			end
-		elseif kind == "Fire" then
+		elseif kind == "Trigger" then
+			if s.gun.mg then
+				s.trigger = a == true
+			end
+		elseif kind == "Reload" then
+			reloadBox(s)
+		elseif kind == "Fire" and not s.gun.mg then
 			-- the gunner braces first, the shot goes a moment later (user 2026-10-20: "play that first then fire, a slight
 			-- delay in the shots makes it feel real"); "BraceAt" says when, for the gunner's brace
 			local ready = s.model:GetAttribute("ReadyAt") :: number?
@@ -1109,6 +1303,9 @@ function Artillery.start()
 	RunService.Heartbeat:Connect(function(dt)
 		local t = os.clock()
 		for model, s in guns do
+			if s.gun.mg then
+				machineGun(s, dt)
+			end
 			if not s.gunner then
 				continue
 			end

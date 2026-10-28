@@ -15,6 +15,11 @@
 -- origin on the ground under the traverse axis. Angles in degrees: traverse + turns left (Roblox's yaw), elevation +
 -- raises the muzzle.
 
+-- Where a group of a nest's gun lies until it is set up (Artillery.assemble): `at` x, z on the ground from the ring's
+-- middle (x right, z back from the gun), `turn` degrees about x, y, z (tipped over, then turned), resting on its lowest
+-- point; `hide` its parts not seen while it lies (the belt, packed in the box)
+export type Lie = { at: { number }, turn: { number }, hide: { string }? }
+
 export type Gun = {
 	asset: string, -- Config/Assets entry (ReplicatedStorage.Assets.Weapons.Shared.Artillery)
 	name: string, -- shown on the prompt
@@ -114,11 +119,32 @@ export type Gun = {
 	-- set up in an MG nest (Config/Build.Nest) instead of on its own: no building site of its own (Config/Build.Scaffold),
 	-- and it fires bullets, not shells; nil: an artillery piece
 	nest: boolean?,
+	-- a nest gun's own ground kept from craters (Artillery.onGround): x, z from its pivot, lo and hi (it stands on its
+	-- nest's mount bag, no earth under it)
+	nestGround: { lo: { number }, hi: { number } }?,
+	-- a machine gun's own firing (the MG nest's; src/server/Artillery, src/client/Artillery, Rules/Artillery mg*): held
+	-- fire at `rate` rounds a minute from a box of `box` (the gun's `reload` swaps it, on the reload key or once it is
+	-- empty), each a bullet out to `range` studs hurting as Config/Damage.Weapons[`class`]; it strays `spread.min`
+	-- degrees, growing `spread.per` of the way to `spread.max` a shot and settling back at `spread.recover` of it a
+	-- second; the gunner looks from `eye` (gun space, through the rear sight, turning and lifting with the gun) at `fov`,
+	-- the mouse laying it `look` degrees a pixel; `shot` its report (Config/Audio profile Gunshot)
+	mg: {
+		rate: number,
+		box: number,
+		range: number,
+		class: string,
+		spread: { min: number, max: number, per: number, recover: number },
+		eye: { number },
+		fov: number,
+		look: number,
+		shot: any,
+	}?,
 	-- part names coloured so instead of by Palette.Artillery (the MG's gunmetal body and its belt); nil: none
 	colors: { [string]: { number } }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
-	assembly: { { names: { string }, at: number } },
+	-- (a nest's gun: `lie`, where the group lies on the ground until its quarter, Artillery.assemble's `ground`)
+	assembly: { { names: { string }, at: number, lie: Lie? } },
 	-- gears turning as it is laid (src/client/Artillery; user 2026-10-26: "animate the gears turning as well when we
 	-- rotate the gun left and right. make sure its accurate and biting each teeth accurately"): `part` (one of its
 	-- `mount`) spins about gun-space `axis` ("X", "Y" or "Z") through `centre`, `ratio` degrees per degree of its
@@ -626,7 +652,7 @@ local Artillery = {
 		-- high elevation so the gem under the breech clears the turntable (~1 at 80). Dug in when placed (`dig`).
 		artillery_howitzer = {
 			asset = "artillery_howitzer",
-			name = "Magic howitzer",
+			name = "42 cm Rune mortar",
 			base = "Bed",
 			mount = {
 				"Mount",
@@ -816,8 +842,21 @@ local Artillery = {
 			asset = "mg08",
 			name = "MG 08",
 			nest = true,
+			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
-			mount = { "Mount", "MountTrim", "MountFittings", "MountKit", "Belt", "Rounds", "Bullets" },
+			mount = {
+				"Mount",
+				"MountFittings",
+				"Shield",
+				"ShieldTrim",
+				"ShieldFittings",
+				"BoxKit",
+				"BoxTrim",
+				"BoxFittings",
+				"Belt",
+				"Rounds",
+				"Bullets",
+			},
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},
@@ -841,7 +880,7 @@ local Artillery = {
 			breechTimes = { 0, 0 },
 			recoil = 0,
 			recoilTimes = { 0.05, 0.1 },
-			crew = { 0, 3.9 }, -- (behind the grips; the gunner crouches)
+			crew = { 0, 3.3 }, -- (behind the grips)
 			crewTurns = true,
 			prompt = 7,
 			vfx = { scheme = "Ember", magic = false },
@@ -860,6 +899,20 @@ local Artillery = {
 			repair = 7,
 			wreckParts = { "Mount", "Cradle" },
 			holeSize = { 0.08, 0.16 },
+			-- (the design: 450 a minute, a box of 100, a 12 s box reload, 0.6 degrees growing to 1.5 over a long burst;
+			-- the eye half a stud behind the rear peep ring, the ring sight's line at y 1.78; the report a placeholder,
+			-- the rifles' shot cut short)
+			mg = {
+				rate = 450,
+				box = 100,
+				range = 600, -- (as far as a rifle shot: Config/Firing.Range, the fog)
+				class = "MachineGun",
+				spread = { min = 0.6, max = 1.5, per = 0.06, recover = 0.3 }, -- (hot after ~50 rounds held, cool ~3 s after)
+				eye = { 0, 1.78, 2.44 },
+				fov = 60,
+				look = 0.12,
+				shot = { id = 134529004435835, volume = 1.8, start = 0.34, stop = 0.9, fade = 0.4, profile = "Gunshot" },
+			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
 			colors = {
@@ -869,12 +922,17 @@ local Artillery = {
 				Rounds = { 196, 160, 84 },
 				Bullets = { 184, 115, 72 },
 			},
-			-- the foot and turntable, then the mount and shield, the gun, the ammo box and belt last
+			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"): the foot and mount, the gun, the shield,
+			-- the ammo box and its belt last. In a nest each lies on the ground inside the ring until its quarter (`lie`)
 			assembly = {
-				{ names = { "Carriage" }, at = 1 },
-				{ names = { "Mount" }, at = 2 },
-				{ names = { "Cradle", "Barrel", "Bore" }, at = 3 },
-				{ names = { "MountKit", "Belt", "Rounds", "Bullets" }, at = 4 },
+				{ names = { "Carriage", "Mount" }, at = 1, lie = { at = { -1.6, 0.9 }, turn = { 0, 25, 90 } } },
+				{ names = { "Cradle", "Barrel", "Bore" }, at = 2, lie = { at = { 0.6, 2.4 }, turn = { 0, 70, 90 } } },
+				{ names = { "Shield" }, at = 3, lie = { at = { -1.2, -1.2 }, turn = { -90, 15, 0 } } },
+				{
+					names = { "Box", "Belt", "Rounds", "Bullets" },
+					at = 4,
+					lie = { at = { 2.1, 1.4 }, turn = { 0, -30, 0 }, hide = { "Belt", "Rounds", "Bullets" } },
+				},
 			},
 		} :: Gun,
 	},
