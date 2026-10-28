@@ -902,8 +902,7 @@ local Artillery = {
 			wreckParts = { "Mount", "Cradle" },
 			holeSize = { 0.08, 0.16 },
 			-- (the design: 450 a minute, a box of 100, a 12 s box reload, 0.6 degrees growing to 1.5 over a long burst;
-			-- the eye half a stud behind the rear peep ring, the ring sight's line at y 1.78; the report a placeholder,
-			-- the rifles' shot cut short)
+			-- the eye half a stud behind the rear peep ring, the ring sight's line at y 1.78)
 			mg = {
 				rate = 450,
 				box = 100,
@@ -925,7 +924,9 @@ local Artillery = {
 				-- gunner"): wide and high enough that the line down to the gun passes over the right shoulder
 				shoulder = { 2.5, 1 },
 				look = 0.12,
-				shot = { id = 134529004435835, volume = 1.8, start = 0.34, stop = 0.9, fade = 0.4, profile = "Gunshot" },
+				-- the report (Pro Sound Effects "Rifle Single Shots 1", a heavy single shot, its crack and first boom: one
+				-- a round, 7.5 a second, so the tail is cut short; was the rifles' shot as a placeholder)
+				shot = { id = 9118173739, volume = 1.6, stop = 0.7, fade = 0.35, profile = "Gunshot" },
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
