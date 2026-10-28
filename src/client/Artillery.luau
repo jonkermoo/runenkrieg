@@ -69,6 +69,7 @@ type Pose = {
 	home: CFrame?,
 	still: { [BasePart]: CFrame }?,
 	put: { [BasePart]: CFrame }?,
+	belt: number?, -- a machine gun: the rounds its belt shows now
 }
 
 local poses: { [Model]: Pose } = {}
@@ -165,8 +166,32 @@ local function settle(p: Pose)
 	p.still, p.put, p.home = nil, nil, nil
 end
 
+-- a machine gun's belt as its box empties (user 2026-10-27: "the belt feed showing only the true number of rounds
+-- left"): round i on it (Rounds<i> / Bullets<i>, 1 next into the feed block, tools/blender/mgnest/mg08.py) shown while
+-- the box holds i or more
+local function belt(model: Model, p: Pose)
+	local left = (model:GetAttribute("Rounds") :: number?) or 0
+	if left == p.belt then
+		return
+	end
+	p.belt = left
+	local i = 1
+	while p.named[string.format("Rounds%02d", i)] do
+		for _, name in { string.format("Rounds%02d", i), string.format("Bullets%02d", i) } do
+			local part = p.named[name]
+			if part then
+				part.Transparency = if i <= left then 0 else 1
+			end
+		end
+		i += 1
+	end
+end
+
 local function pose(model: Model, p: Pose, dt: number)
 	local gun = p.gun
+	if gun.mg then
+		belt(model, p)
+	end
 	local k = math.min(1, dt * Cfg.Smooth)
 	p.traverse += (((model:GetAttribute("Traverse") :: number?) or 0) - p.traverse) * k
 	p.elevation += (((model:GetAttribute("Elevation") :: number?) or 0) - p.elevation) * k

@@ -151,6 +151,30 @@ export type Gun = {
 	gears: { { part: string, centre: { number }, axis: string, by: string, ratio: number } }?,
 }
 
+-- The MG 08's belt (tools/blender/mgnest/mg08.py v4): each round between the box and the feed block its own case and
+-- bullet, `Rounds01` / `Bullets01` next into the feed; its mount names and colours
+local BELT = 7
+local function beltOf(names: { string }, colors: { [string]: { number } }): ({ string }, { [string]: { number } })
+	for i = 1, BELT do
+		local case, tip = string.format("Rounds%02d", i), string.format("Bullets%02d", i)
+		table.insert(names, case)
+		table.insert(names, tip)
+		colors[case], colors[tip] = { 196, 160, 84 }, { 184, 115, 72 }
+	end
+	return names, colors
+end
+local mgMount, mgColors = beltOf({
+	"Mount",
+	"MountFittings",
+	"Shield",
+	"ShieldTrim",
+	"ShieldFittings",
+	"BoxKit",
+	"BoxTrim",
+	"BoxFittings",
+	"Belt",
+}, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 140, 120, 84 } })
+
 local Artillery = {
 	Folder = "Artillery", -- the Workspace folder the guns stand in
 	PitFolder = "ArtilleryPits", -- and their pits' trench slabs
@@ -846,19 +870,7 @@ local Artillery = {
 			nest = true,
 			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
-			mount = {
-				"Mount",
-				"MountFittings",
-				"Shield",
-				"ShieldTrim",
-				"ShieldFittings",
-				"BoxKit",
-				"BoxTrim",
-				"BoxFittings",
-				"Belt",
-				"Rounds",
-				"Bullets",
-			},
+			mount = mgMount, -- (and each round on the belt: beltOf above)
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},
@@ -902,7 +914,7 @@ local Artillery = {
 			wreckParts = { "Mount", "Cradle" },
 			holeSize = { 0.08, 0.16 },
 			-- (the design: 450 a minute, a box of 100, a 12 s box reload, 0.6 degrees growing to 1.5 over a long burst;
-			-- the eye half a stud behind the rear peep ring, the ring sight's line at y 1.78)
+			-- the sight line at y 1.78)
 			mg = {
 				rate = 450,
 				box = 100,
@@ -913,7 +925,9 @@ local Artillery = {
 				-- standing and ready"): standing behind it, hands on the spade grips; `low` and `high` with the hands
 				-- where the grips are at its lowest and highest lay, blended in by the lay (Rules/Artillery.mgStand)
 				stand = { level = 90383747593412, low = 75408750546932, high = 82573864374660 },
-				eye = { 0, 1.78, 2.44 },
+				-- (v4, the iron sights: three quarters of a stud behind the rear leaf's V on the sight line, the blade
+				-- between its ears in the V; was half a stud behind the ring sight's peep)
+				eye = { 0, 1.78, 2.688 },
 				-- the eye at the hip, in first person (user 2026-10-28: "can you move the camera up more since the
 				-- shield in the way of the camera"): over the shield's top (`shield`: its arch's top with the rim, its
 				-- face's z) at the gun's lowest, turning with the mount as the shield does, not lifting with the gun
@@ -930,13 +944,7 @@ local Artillery = {
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
-			colors = {
-				Cradle = { 46, 48, 51 },
-				Barrel = { 46, 48, 51 },
-				Belt = { 140, 120, 84 },
-				Rounds = { 196, 160, 84 },
-				Bullets = { 184, 115, 72 },
-			},
+			colors = mgColors,
 			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"): the foot and mount, the gun, the shield,
 			-- the ammo box and its belt last, each appearing in place in its quarter (user 2026-10-28: "not all the parts have to
 			-- be present before its built (all the other structures work this way too). they can just appear as its being

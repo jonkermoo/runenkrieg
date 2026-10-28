@@ -169,16 +169,27 @@ local Assets = {
 			generator = "tools/blender/artillery/qf18.py",
 			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
 		},
-		-- the MG nest's gun (user 2026-10-27; design approved by the user): v3 with the shield and the ammo box as their
-		-- own parts, so a nest being built sets each up in its turn (v2 121882149099009 had them in the mount; v1
-		-- 97496546594152 had Gun* names)
+		-- the MG nest's gun (user 2026-10-27; design approved by the user): v4 with the MG 08's iron sights and each round
+		-- on the belt its own part (user 2026-10-28: the realistic sights, "a real belt ... showing only the true number of
+		-- rounds left"); v3 71692109520199 had the ring sight and the shield and box as their own parts (v2
+		-- 121882149099009 had them in the mount; v1 97496546594152 had Gun* names)
 		mg08 = {
-			id = 71692109520199,
+			id = 73438320789767,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/mg08.fbx",
 			generator = "tools/blender/mgnest/mg08.py",
-			description = "The MG nest's machine gun: an MG 08 traced from a photo (tools/blender/mgnest/trace/mg08.py), built 1.5x like the rifles (5.04 long), with an M1910-style arched shield and keyhole, on a turntable and yoke, its ammo box and a belt of the shared rifle round. Gun space: origin on the mount bag's top under the pivot, the muzzle -Z. Moving parts: Mount + MountFittings + Shield + ShieldTrim + ShieldFittings + BoxKit + BoxTrim + BoxFittings + Belt + Rounds + Bullets traverse, Cradle + CradleTrim + CradleFittings + Barrel + Bore elevate about (0, 1.035, 0); Carriage stays. Sights: a rear peep ring and a front ring with cross wires on y 1.78.",
+			description = "The MG nest's machine gun: an MG 08 traced from a photo (tools/blender/mgnest/trace/mg08.py), built 1.5x like the rifles (5.04 long), with an M1910-style arched shield and keyhole, on a turntable and yoke, its ammo box and a belt of the shared rifle round. Gun space: origin on the mount bag's top under the pivot, the muzzle -Z. Moving parts: Mount + MountFittings + Shield + ShieldTrim + ShieldFittings + BoxKit + BoxTrim + BoxFittings + Belt + Rounds01-07 + Bullets01-07 (each round on the belt, 01 next into the feed) traverse, Cradle + CradleTrim + CradleFittings + Barrel + Bore elevate about (0, 1.035, 0); Carriage stays. Sights: a tangent rear leaf with a V notch and a blade between two ears, on y 1.78 through the shield's keyhole.",
+		},
+		-- the MG 08's spare ammo box (user 2026-10-28: "the ammo bag as part of the reload animation"): carried by the
+		-- gunner in the box reload (Config/Artillery.Guns mg08 `mg.reload`)
+		mg08_box = {
+			id = 71073331375235,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/mg08_box.fbx",
+			generator = "tools/blender/mgnest/mg08.py",
+			description = "The MG 08's ammo box with its lid shut, as on the gun (SpareKit, SpareTrim, SpareFittings): 0.44 wide, 0.82 high, 1.05 long, its bottom's middle at the origin, its carry handle's grip at (0.04, 1.0, 0) along z.",
 		},
 		artillery_howitzer = {
 			-- v10 (user 2026-10-26: runes only round the crystal; meshing ring gear and pinions with hand wheels, turned by
