@@ -450,6 +450,62 @@ local Weapons: { [string]: Weapon } = {
 		},
 		reload = { knob = { 0, -0.0245, -0.9398 }, clipTop = { 0, -0.05, -0.2 }, entry = 0, body = 0, firstPerson = 0 },
 	},
+	-- The Webley Mk VI revolver (model tools/blender/weapons/webley.py, traced from tools/blender/weapons/trace/webley.py):
+	-- the brown team's Engineer pistol (uniform3), 6 rounds in a top-break cylinder. Model only so far: no ammo (it
+	-- doesn't fire yet), the shotgun's holds borrowed and the Primary slot until the pistol's own holds, slot and
+	-- holster come with the Engineer.
+	pistol_webley = {
+		asset = "pistol_webley",
+		display = "Webley Mk VI",
+		slot = "Primary",
+		class = "Pistol",
+		parts = {
+			Barrel = { 52, 54, 58 },
+			Frame = { 52, 54, 58 },
+			Latch = { 52, 54, 58 },
+			Cylinder = { 52, 54, 58 },
+			Hammer = { 52, 54, 58 },
+			Trigger = { 52, 54, 58 },
+			Extractor = { 70, 70, 74 },
+			Grip = { 142, 74, 42 }, -- walnut
+			Bore = { 3, 3, 3 },
+			Rounds = { 196, 160, 84 }, -- the case heads in the cylinder
+		},
+		moving = {
+			Barrel = { 0, 0.0666, -0.1054 }, -- the hinge: muzzle down ~80 deg to break it open
+			Bore = { 0, 0.0666, -0.1054 }, -- rides with the barrel
+			Latch = { 0, 0.1333, 0.0644 }, -- its pin: top back ~12 deg to release the strap
+			Cylinder = { 0, 0.0996, -0.0121 }, -- turns 60 deg a shot about its axis; rides with the barrel
+			Rounds = { 0, 0.0996, -0.0121 }, -- turn with the cylinder
+			Extractor = { 0, 0.0996, 0.0454 }, -- slides ~0.03 back out of the cylinder as the barrel opens
+			Hammer = { 0, 0.0959, 0.0959 }, -- its pin: back 35 deg to cock, then falls
+			Trigger = { 0, 0, 0 }, -- the trigger pin (the gun origin)
+		},
+		hidden = {},
+		attachments = {
+			Muzzle = { 0, 0.1351, -0.4862 },
+			Aim = { 0, 0.1889, 0.5648 }, -- the eye, on the sight line through the latch's notch to the blade
+			Eject = { 0, 0.0996, 0.0494 }, -- the cylinder's back face: the cases come out back and up, barrel open
+		},
+		grip = { 0, -0.01, 0.2 }, -- the top of the grip, under the hammer
+		holdsOf = "shotgun_m1897",
+		holds = {
+			ready = 101367707858516,
+			equip = 82659479717552,
+		},
+		firstPerson = {
+			ready = 119185102113053,
+			equip = 86411519760958,
+		},
+		scale = { 3, 3, 2.5 }, -- as the Nagant: 0.80 -> 2.0 studs long, chunky in the 1-stud hand
+		-- on the right hip, muzzle up (a holster comes with the Engineer)
+		stow = {
+			part = "Torso",
+			at = { 1.1, -0.7, 0.1 },
+			muzzle = { 0, 1, 0 },
+			side = { 1, 0, 0 },
+		},
+	},
 	rifle_m91 = {
 		asset = "rifle_m91",
 		display = "Carcano M91",

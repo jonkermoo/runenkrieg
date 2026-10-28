@@ -81,6 +81,14 @@ local Assets = {
 			generator = "tools/blender/weapons/smle.py",
 			description = "Lee-Enfield SMLE Mk III, the brown team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
 		},
+		pistol_webley = {
+			id = 73066004337005,
+			category = "Weapons",
+			folder = "White/Pistols",
+			source = "assets/weapons/white/pistol_webley.fbx",
+			generator = "tools/blender/weapons/webley.py",
+			description = "Webley Mk VI revolver, the brown team's Engineer pistol (built from its trace: tools/blender/weapons/trace/webley.py). Rigged from Config/Weapons.",
+		},
 		rifle_mondragon = {
 			id = 77357570578798,
 			category = "Weapons",
