@@ -511,14 +511,7 @@ local Weapons: { [string]: Weapon } = {
 			equip = 86411519760958,
 		},
 		scale = { 3, 3, 2.5 }, -- 0.66 -> 1.65 studs long, chunky in the 1-stud hand
-		-- on the right hip, muzzle up (a holster comes with the Engineer)
-		stow = {
-			part = "Torso",
-			at = { 1.2, -1.1, -0.15 }, -- at the right hip as if holstered, the cylinder clear of the leg (user 2026-10-28)
-			muzzle = { 0, -0.9962, -0.0872 }, -- down, a touch forward (sin 5, cos 5): the butt back
-			side = { 1, 0, 0 }, -- the right side (the gate) outward
-			beside = true, -- on the belt, not pushed back by the pack
-		},
+		-- put away: the pistols' shared hip holster (HOLSTER, below)
 	},
 	rifle_m91 = {
 		asset = "rifle_m91",
@@ -1251,5 +1244,22 @@ Weapons.shovel = {
 		beside = true,
 	},
 }
+
+-- Every pistol (class "Pistol") put away rides at the right hip as if holstered, unless its entry has its own `stow`
+-- (user 2026-10-28: "make it sit at the hip for now, as if it was holstered"; a holster accessory comes later): the
+-- barrel down along the thigh a touch forward (sin 5, cos 5), the butt back, the right side outward, on the belt so
+-- the pack's `sling` doesn't push it back.
+local HOLSTER = {
+	part = "Torso",
+	at = { 1.2, -1.1, -0.15 }, -- outside the right hip, a revolver's cylinder clear of the leg
+	muzzle = { 0, -0.9962, -0.0872 },
+	side = { 1, 0, 0 },
+	beside = true,
+}
+for _, w in Weapons do
+	if w.class == "Pistol" and not w.stow then
+		w.stow = HOLSTER
+	end
+end
 
 return Weapons
