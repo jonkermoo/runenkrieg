@@ -966,8 +966,9 @@ local Artillery = {
 				shoulder = { 2.5, 1 },
 				look = 0.12,
 				-- the report (Pro Sound Effects "Rifle Single Shots 1", a heavy single shot, its crack and first boom: one
-				-- a round, 7.5 a second, so the tail is cut short; was the rifles' shot as a placeholder)
-				shot = { id = 9118173739, volume = 1.6, stop = 0.7, fade = 0.35, profile = "Gunshot" },
+				-- a round, 7.5 a second, so the tail is cut short before the take's metal clink at 0.6 s (Studio: loud
+				-- to 0.06 s, mostly gone by 0.45); was the rifles' shot as a placeholder)
+				shot = { id = 9118173739, volume = 1.6, stop = 0.5, fade = 0.25, profile = "Gunshot" },
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
