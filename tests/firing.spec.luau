@@ -42,6 +42,32 @@ local PUMP: F.Gun = {
 	singleRound = 0.45,
 	singleClose = 0.25,
 }
+-- the Nagant's gate (a revolver: 7 chambers, its own load times)
+local NAGANT: F.Gun = {
+	capacity = 7,
+	clip = "Gate",
+	boltTime = 0,
+	reloadTime = 0,
+	fireTime = Cfg.PistolFireTime,
+	openAt = OPEN.openAt,
+	reloadOpenAt = OPEN.reloadOpenAt,
+	singleOpen = 0.5,
+	singleRound = 0.85,
+	singleClose = 0.45,
+}
+-- the Webley's top break (a revolver: 6 chambers, all reloaded at once)
+local WEBLEY: F.Gun = {
+	capacity = 6,
+	clip = "BreakOpen",
+	boltTime = 0,
+	reloadTime = 2.0,
+	fireTime = Cfg.PistolFireTime,
+	openAt = OPEN.openAt,
+	reloadOpenAt = OPEN.reloadOpenAt,
+	singleOpen = S.open,
+	singleRound = S.round,
+	singleClose = S.close,
+}
 -- the semi-automatics (W2): a stripper-clip one, a charger one (two 5-round chargers), a box one
 local function semi(capacity: number, clip: string, clipSize: number?): F.Gun
 	return {
@@ -290,7 +316,7 @@ return {
 				continue -- not a gun (the staff)
 			end
 			local a, act = w.ammo, w.action
-			local clips = { Enbloc = true, Stripper = true, Loose = true, Box = true }
+			local clips = { Enbloc = true, Stripper = true, Loose = true, Box = true, Gate = true, BreakOpen = true }
 			assert(a and a.capacity >= 1 and clips[a.clip], `{name}: ammo`)
 			if act and act.auto then
 				-- a semi-automatic (W2): the bolt slides straight back by itself, one shot per fireTime
@@ -298,6 +324,44 @@ return {
 				assert(act.fireTime and act.fireTime >= 0.35, `{name}: at most one shot every 0.35 s`)
 				assert(act.reloadTime > act.boltTime, `{name}: action times`)
 				assert((a.clipSize or a.capacity) <= a.capacity, `{name}: clip size`)
+			elseif a.clip == "Gate" then
+				-- a revolver: double action, rounds one at a time (`single`) through the gate, its cylinder turning
+				local rv = w.revolver
+				assert(w.class == "Pistol" and w.single and rv, `{name}: a revolver needs single and revolver`)
+				assert(
+					#rv.rounds == a.capacity and rv.gateChamber >= 0 and rv.gateChamber < a.capacity,
+					`{name}: chambers`
+				)
+				for _, part in rv.turns do
+					assert(w.moving[part], `{name}: {part} turns with the cylinder, so must move`)
+				end
+				for _, part in { "Hammer", "Trigger", "Gate", "Rod" } do
+					assert(w.moving[part], `{name}: the {part} must move`)
+				end
+				continue
+			elseif a.clip == "BreakOpen" then
+				-- a top-break revolver: double action, broken open on the hinge and all six replaced at once
+				local rv = w.revolver
+				local b = rv and rv.breakOpen
+				assert(
+					w.class == "Pistol" and rv and b and act.reloadTime > 0,
+					`{name}: a top break needs revolver.breakOpen`
+				)
+				assert(#rv.rounds == a.capacity, `{name}: chambers`)
+				for _, part in { "Hammer", "Trigger", "Latch", table.unpack(rv.turns), table.unpack(b.swings) } do
+					assert(w.moving[part], `{name}: the {part} must move`)
+				end
+				local c = b.cycle
+				assert(
+					c.up < c.back and c.back < c.kick and c.kick < c.home and c.home <= c.grab,
+					`{name}: opening order`
+				)
+				assert(
+					c.grab < c.clip and c.clip <= c.knob and c.knob < c.forward and c.forward < c.down,
+					`{name}: closing`
+				)
+				assert(c.down <= 1, `{name}: the timeline fits the reload`)
+				continue
 			elseif a.clip == "Loose" then
 				-- a pump gun: shells one at a time (`single`), the pump slides straight back (no turn) with its shell feed
 				assert(act and act.boltTime > 0 and act.turn == 0, `{name}: pump action`)
@@ -396,5 +460,70 @@ return {
 			F.topUp(m, MONDRAGON)
 		end
 		assert(m.chambered and not m.open, "a semi never runs dry")
+	end,
+	["a revolver fires every click, 7 rounds, then clicks empty"] = function()
+		local s = F.new(NAGANT)
+		assert(F.rounds(s) == 7 and s.chambered, "full: all 7 chambers")
+		local now = 0
+		for i = 1, 7 do
+			assert(F.next(s, now) == "Fire", `pull {i} fires`)
+			local ok, _, out = F.fire(s, NAGANT, now)
+			assert(ok and out == nil, "nothing flies out: the case stays in its chamber")
+			assert(not s.spent, "the cylinder turns the next chamber on: no case to clear")
+			assert(F.next(s, now + 0.1) == "Busy", "at most one shot per fireTime")
+			now += NAGANT.fireTime
+		end
+		assert(F.rounds(s) == 0 and F.next(s, now) == "Dry", "empty: it just clicks")
+		assert(not s.open, "nothing held open")
+	end,
+	["a revolver loads one at a time through the gate, topping up from any count"] = function()
+		local s = F.new(NAGANT)
+		assert(not F.reload(s, NAGANT, 0), "full: nothing to load")
+		F.fire(s, NAGANT, 0)
+		F.fire(s, NAGANT, 1)
+		F.fire(s, NAGANT, 2) -- 4 left
+		local ok, _, out, kind = F.reload(s, NAGANT, 3)
+		assert(ok and kind == "Load" and out == nil, "single rounds, nothing out of the chamber")
+		assert(s.load and s.load.room == 3, "room for the 3 fired")
+		assert(F.next(s, 3.1) == "Load", "a click stops it")
+		F.settle(s, 3 + 0.5 + 3 * 0.85 + 0.45)
+		assert(F.rounds(s) == 7 and s.chambered, "full again")
+		-- stopped after the round in the hand
+		local e = F.new(NAGANT)
+		for i = 0, 6 do
+			F.fire(e, NAGANT, i)
+		end
+		assert(F.reload(e, NAGANT, 10))
+		assert(e.load and e.load.room == 7, "empty: room for 7")
+		assert(F.stopLoad(e, 10 + 0.5 + 0.85 + 0.1) == 2, "the second round, in the hand, still goes in")
+		F.settle(e, 20)
+		assert(F.rounds(e) == 2 and e.chambered, "two in, one on the bore")
+		assert(F.next(e, 20) == "Fire", "and it fires")
+		F.topUp(e, NAGANT)
+		assert(F.rounds(e) == 7, "the admin's unlimited ammo fills every chamber")
+	end,
+	["a top break fires 6 a click apart, then R puts six in at once"] = function()
+		local s = F.new(WEBLEY)
+		assert(F.rounds(s) == 6 and s.chambered, "full: all 6 chambers")
+		assert(not F.reload(s, WEBLEY, 0), "full: nothing to reload")
+		local now = 0
+		for i = 1, 6 do
+			local ok, _, out = F.fire(s, WEBLEY, now)
+			assert(ok and out == nil and not s.spent, `pull {i} fires, the cylinder turning on`)
+			now += WEBLEY.fireTime
+		end
+		assert(F.rounds(s) == 0 and F.next(s, now) == "Dry", "empty: it just clicks")
+		local ok, _, out, kind = F.reload(s, WEBLEY, now)
+		assert(ok and kind == "Reload" and out == nil and not s.load, "one reload, not single rounds")
+		assert(F.rounds(s) == 6 and s.chambered, "six in at once")
+		assert(F.next(s, now + WEBLEY.reloadTime - 0.1) == "Busy", "busy for the whole reload")
+		assert(F.next(s, now + WEBLEY.reloadTime) == "Fire", "then it fires")
+		-- from a part-fired cylinder too (the live rounds come out with the cases)
+		local p = F.new(WEBLEY)
+		F.fire(p, WEBLEY, 0)
+		assert(F.reload(p, WEBLEY, 1) and F.rounds(p) == 6, "topped up")
+		F.fire(p, WEBLEY, 5)
+		F.topUp(p, WEBLEY)
+		assert(F.rounds(p) == 6, "the admin's unlimited ammo fills every chamber")
 	end,
 }
