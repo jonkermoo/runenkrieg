@@ -329,7 +329,7 @@ function GunFx.loadout(character: Model, weapon: string, magazine: number)
 end
 
 -- A shot lets the hammer fall (a pump gun's rests cocked: it falls `hammer.cock` degrees forward about its pin; the
--- pump's back stroke pushes it down again, GunFx.cycle). `cocked`: 1 at rest, 0 fallen.
+-- pump's back stroke pushes it down again, GunFx.cycle). `cocked`: 1 at rest, 0 fallen, past 1 further back than rest.
 local function hammerAt(w: any, cocked: number): CFrame
 	return CFrame.Angles(-math.rad(w.hammer.cock) * (1 - cocked), 0, 0)
 end
@@ -704,8 +704,14 @@ function GunFx.cycle(
 				clipY = -rise * c
 			end
 		end
-		-- the bolt going back pushes the hammer down ahead of it, by where the bolt is (hammer.push)
-		local cocked = if w.hammer then along(w.hammer.push, back) else back
+		-- the bolt going back pushes the hammer down ahead of it, by where the bolt is (hammer.push); once pushed to its
+		-- rest the sear holds it there, and one pushed on past its rest (push > 1: a hammer standing up behind the bolt)
+		-- follows the bolt back up to it (a reload starts cocked)
+		local cocked = back
+		if w.hammer then
+			local pushed = along(w.hammer.push, back)
+			cocked = if reload or pushed >= 1 then math.max(1, along(w.hammer.push, back - forward)) else pushed
+		end
 		local shellAt: CFrame? = nil
 		if feed then
 			local lift = smooth((u - fwdFrom) / (feedMid - fwdFrom))
@@ -715,7 +721,7 @@ function GunFx.cycle(
 		for _, gun in GunFx.guns(character) do
 			move(gun, "Bolt", CFrame.new(0, 0, slide) * CFrame.Angles(0, 0, angle))
 			move(gun, "Pump", CFrame.new(0, 0, slide))
-			if not reload and w.hammer then
+			if w.hammer then
 				move(gun, "Hammer", hammerAt(w, cocked))
 			end
 			if shellAt and feed then

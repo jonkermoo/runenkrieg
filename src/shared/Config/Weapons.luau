@@ -173,8 +173,9 @@ export type Weapon = {
 	-- hitscan ray; full damage to `full` studs, none past `none` (stored for damage, M11: not applied yet).
 	pellets: { count: number, spread: number, full: number, none: number }?,
 	-- An exposed hammer (the "Hammer" part, src/client/GunFx): rests cocked, falls `cock` degrees forward on a shot;
-	-- the bolt going back pushes it down again, `push` giving how far cocked (0..1) at evenly spaced shares of the
-	-- stroke, so the bolt never goes through it (computed by the model's builder, which prints it).
+	-- the bolt going back pushes it down again, `push` giving how far cocked (0 fallen, 1 at rest, past 1 pushed on
+	-- further back than rest, as a hammer standing up behind the bolt) at evenly spaced shares of the stroke, so the
+	-- bolt never goes through it (computed by the model's builder, which prints it).
 	hammer: { cock: number, push: { number } }?,
 	-- A pump gun's feed (src/client/GunFx): the shell lying on the carrier (parts `parts`, at rest under the bolt)
 	-- lifts `lift` to the bore line and goes `push` forward into the chamber as the pump comes forward; shown while the
@@ -558,6 +559,86 @@ local Weapons: { [string]: Weapon } = {
 			entry = 0.2,
 			body = 88369726870929,
 			firstPerson = 75492413402370,
+		},
+	},
+	-- The Mauser C96 (model tools/blender/weapons/c96.py, traced from tools/blender/weapons/trace/c96.py over the
+	-- user's reference model, 2026-10-27): the grey team's Engineer pistol (uniform1), 6 rounds loaded from a stripper
+	-- clip through the open top. Model only so far: no ammo (it doesn't fire yet), the shotgun's holds borrowed and the
+	-- Primary slot until the pistol's own holds, slot and holster come with the Engineer.
+	pistol_c96 = {
+		asset = "pistol_c96",
+		display = "Mauser C96",
+		slot = "Primary",
+		class = "Pistol",
+		parts = {
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Hammer = { 52, 54, 58 },
+			Trigger = { 52, 54, 58 },
+			Grip = { 142, 74, 42 }, -- walnut
+			Clip = { 90, 88, 84 },
+			Rounds = { 196, 160, 84 }, -- brass cases in the magazine
+			Bullets = { 184, 115, 72 }, -- their copper-jacketed bullets
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.1214, -0.2223 }, -- the square bolt: slides back 0.1197 (+Z) and forward
+			Hammer = { 0, 0.0741, 0.1373 }, -- its pin: stands upright, falls 10 deg forward on a shot
+			Trigger = { 0, -0.0057, -0.0165 }, -- the trigger pin
+			Clip = { 0, 0.1043, -0.1163 }, -- the stripper clip in the guides over the magazine (its bottom)
+		},
+		hidden = { "Clip", "Casing" }, -- the clip shows only while reloading
+		attachments = {
+			Muzzle = { 0, 0.1214, -0.6161 },
+			Aim = { 0, 0.171, 0.1472 }, -- the eye, on the sight line through the leaf's notch to the blade
+			Eject = { 0, 0.1448, -0.1681 }, -- the open top over the magazine: the cases leave upward
+		},
+		grip = { 0, -0.1282, 0.1453 }, -- the broomhandle's middle
+		holdsOf = "shotgun_m1897",
+		holds = {
+			ready = 101367707858516,
+			equip = 82659479717552,
+		},
+		firstPerson = {
+			ready = 119185102113053,
+			equip = 86411519760958,
+		},
+		-- the upright ring hammer stands in the bolt's way: pushed down flat under the bolt's grips (past 1) and,
+		-- once the bolt goes forward, held up by the sear at its rest; push from tools/blender/weapons/c96.py
+		hammer = {
+			cock = 10,
+			push = {
+				0.35,
+				1.27,
+				2.39,
+				3.51,
+				4.68,
+				5.96,
+				6.68,
+				6.68,
+				7.44,
+				7.51,
+				7.51,
+				7.88,
+				7.88,
+				8.42,
+				8.47,
+				8.47,
+				8.47,
+				8.47,
+				8.47,
+				8.47,
+				8.47,
+			},
+		},
+		scale = { 3, 3, 2.5 }, -- as the revolvers: 0.81 -> 2.0 studs long, chunky in the 1-stud hand
+		-- on the right hip, muzzle up (a holster comes with the Engineer)
+		stow = {
+			part = "Torso",
+			at = { 1.1, -0.7, 0.1 },
+			muzzle = { 0, 1, 0 },
+			side = { 1, 0, 0 },
 		},
 	},
 	rifle_g98 = {

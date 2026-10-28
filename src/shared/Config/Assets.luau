@@ -69,6 +69,14 @@ local Assets = {
 			generator = "tools/blender/weapons/gewehr98.py",
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
 		},
+		pistol_c96 = {
+			id = 81325726220438,
+			category = "Weapons",
+			folder = "Grey/Pistols",
+			source = "assets/weapons/grey/pistol_c96.fbx",
+			generator = "tools/blender/weapons/c96.py",
+			description = "Mauser C96 pistol, the grey team's Engineer pistol (built from its trace: tools/blender/weapons/trace/c96.py). Rigged from Config/Weapons.",
+		},
 		rifle_smle = {
 			-- v6: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
 			-- v5 130639053099807: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
