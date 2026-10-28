@@ -362,6 +362,12 @@ function Artillery.mgSpread(heat: number, spread: any): number
 	return spread.min + (spread.max - spread.min) * math.clamp(heat, 0, 1)
 end
 
+-- How many pixels from the screen's middle a stray of `deg` degrees lands, on a camera with a vertical field of view
+-- of `fov` degrees `height` pixels high
+function Artillery.mgPixels(deg: number, fov: number, height: number): number
+	return math.tan(math.rad(deg)) / math.tan(math.rad(fov) / 2) * height / 2
+end
+
 -- Whether a machine gun can fire now: rounds in its box and not in a box reload (`readyAt`, server time)
 function Artillery.mgReady(rounds: number, readyAt: number?, now: number): boolean
 	return rounds > 0 and (readyAt == nil or now >= readyAt)

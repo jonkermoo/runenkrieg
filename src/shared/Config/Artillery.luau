@@ -234,6 +234,10 @@ local Artillery = {
 		Jolt = {
 			Field = { back = 0.35, lift = 1.5, rise = 0.04, wobble = 28, damp = 9, time = 0.6 },
 			Magic = { back = 0.15, lift = 0.35, rise = 0.06, wobble = 22, damp = 7, time = 0.8 },
+			-- a machine gun's (user 2026-10-27: "realistic recoil and spread, with no fight between full auto and the
+			-- camera shake"; was the field gun's, 0.35 back and 1.5 up restarting 7 times a second): a heavy gun on its
+			-- sled barely moves, a short buzz settled before the next shot (Guns `mg.rate`)
+			MG = { back = 0.03, lift = 0.25, rise = 0.015, wobble = 45, damp = 30, time = 0.12 },
 		},
 		Bank = {
 			at = 0.25,
@@ -876,8 +880,8 @@ local Artillery = {
 			reload = 12, -- (the box reload, the design's long wait)
 			breechOpen = 0,
 			breechTimes = { 0, 0 },
-			recoil = 0,
-			recoilTimes = { 0.05, 0.1 },
+			recoil = 0.06, -- (recoil-operated: the barrel and lock kick back a little each shot)
+			recoilTimes = { 0.01, 0.05 },
 			crew = { 0, 4 }, -- (standing behind the grips, arms out to them: MGStand)
 			crewTurns = true,
 			prompt = 7,

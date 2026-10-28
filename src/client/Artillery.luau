@@ -181,7 +181,7 @@ local function pose(model: Model, p: Pose, dt: number)
 
 	local pivot = model:GetPivot()
 	-- the whole gun jolts back and its nose up, then settles
-	local J = if gun.vfx.magic then Cfg.Fx.Jolt.Magic else Cfg.Fx.Jolt.Field
+	local J = if gun.mg then Cfg.Fx.Jolt.MG elseif gun.vfx.magic then Cfg.Fx.Jolt.Magic else Cfg.Fx.Jolt.Field
 	local since = t - firedAt
 	if since >= 0 and since < J.time and not model:GetAttribute("Broken") then
 		if p.joltOf ~= firedAt then
@@ -679,6 +679,7 @@ function Artillery.start()
 	local onMg = false
 	local mgDist, mgCur, mgSpeed = 0, 0, 0
 	local mgAimed, aimT = false, 0
+	local heat = 0 -- my gun's heat as the server keeps it (Rules.mgHeat), from my own shots: the crosshair's size
 	local bodyHidden: boolean? = nil
 	local sweep = RaycastParams.new()
 	sweep.FilterType = Enum.RaycastFilterType.Exclude
@@ -755,7 +756,7 @@ function Artillery.start()
 			-- the view I had (a rifle's, or Roblox's camera), at the same share of the way out
 			local zoom, first, max = WeaponCamera.view()
 			mgDist = CameraRules.carried(G, zoom, first, max)
-			mgCur, mgSpeed, mgAimed, aimT = mgDist, 0, false, 0
+			mgCur, mgSpeed, mgAimed, aimT, heat = mgDist, 0, false, 0, 0
 			onMg = true
 			WeaponCamera.manning(true)
 			-- standing ready at the grips (Config/Artillery.Guns `mg.stand`), till I get off
@@ -948,16 +949,19 @@ function Artillery.start()
 			local goalFov = if aimed then SettingsRules.aimFov(hip, CameraCfg.Fov, CameraCfg.AimFov) else hip
 			local rate = if aimed then CameraCfg.AimEase else CameraCfg.Ease
 			camera.FieldOfView += (goalFov - camera.FieldOfView) * (1 - math.exp(-rate * dt))
-			-- over the shoulder: the crosshair on what the sight line meets (parallel to the bore, a hand above it)
-			local shoulder = mgCur >= CameraCfg.Handover.near and not aimed
-			local pointAt: Vector2? = nil
-			if shoulder then
+			-- at the hip (over the shield or the shoulder): the crosshair on what the sight line meets (parallel to the
+			-- bore, a hand above it), as wide as the shots stray now (user 2026-10-27: "a better crosshair"); aimed, the
+			-- sights
+			heat = Rules.mgHeat(heat, 0, dt, mg.spread)
+			local pointAt: Vector2?, across: number? = nil, nil
+			if not aimed then
 				local line = look.LookVector * mg.range
 				local hit = workspace:Raycast(sight.Position, line, sweep)
 				local spot, onScreen = camera:WorldToViewportPoint(if hit then hit.Position else sight.Position + line)
 				pointAt = if onScreen then Vector2.new(spot.X, spot.Y) else nil
+				across = 2 * Rules.mgPixels(Rules.mgSpread(heat, mg.spread), camera.FieldOfView, camera.ViewportSize.Y)
 			end
-			Crosshair.point(true, pointAt)
+			Crosshair.point(true, pointAt, across)
 			local hide = mgCur < CameraCfg.Handover.near
 			if hide or hide ~= bodyHidden then
 				bodyHidden = hide
@@ -1047,6 +1051,9 @@ function Artillery.start()
 				return
 			end
 			SoundFx.play(mg.shot, origin)
+			if model == mine then
+				heat = Rules.mgHeat(heat, 1, 0, mg.spread)
+			end
 			-- (just the muzzle's flash: the guns' whole blast, smoke and shockwaves, is too much 7 times a second)
 			local near = (camera.CFrame.Position - origin).Magnitude <= Cfg.Fx.far
 			Vfx.Muzzle.play(origin, (hit - origin).Unit, gun.muzzleScale, "Field", near)
