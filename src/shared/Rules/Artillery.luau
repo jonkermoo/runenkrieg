@@ -368,4 +368,24 @@ function Artillery.mgStray(spread: number, r1: number, r2: number): (number, num
 	return d * math.cos(a), d * math.sin(a)
 end
 
+-- How far a gun's part slid or a sack swelled has got (Artillery.assemble, src/server/Build; Config/Build.Nest
+-- `ease`), 0 to 1 over `ease` seconds from `t` 0, easing out; at once when `ease` is 0
+function Artillery.eased(t: number, ease: number): number
+	if ease <= 0 then
+		return 1
+	end
+	local a = math.clamp(t / ease, 0, 1)
+	return 1 - (1 - a) * (1 - a)
+end
+
+-- How far to lift a group of parts so it rests on the ground: from the heights of its boxes' corners as it lies
+-- (Config/Artillery Lie)
+function Artillery.restLift(heights: { number }): number
+	local low = math.huge
+	for _, y in heights do
+		low = math.min(low, y)
+	end
+	return if low == math.huge then 0 else -low
+end
+
 return Artillery

@@ -587,6 +587,14 @@ return {
 		assert(near(bags[1].x - bags[1].dx * n.ring.bag / 2, 0, 1e-6))
 		assert(near(bags[1].z - bags[1].dz * n.ring.bag / 2, -radius, 1e-6))
 	end,
+	["an MG nest's empty sacks lie flat on the ground, a top bag's over the sacks below"] = function()
+		local n = C.Nest
+		assert(n.flat > 0 and n.flat < 0.5 and n.ease > 0)
+		local h, y = B.nestSack(1.6, n.flat, false)
+		assert(near(h, 1.6 * n.flat) and near(y, h / 2), "a bottom sack rests on the ground")
+		local _, yTop = B.nestSack(1.6, n.flat, true)
+		assert(near(yTop, h * 1.5), "a top sack rests on the bottom sacks")
+	end,
 	["an MG nest's HP lays a bag a swing, then sets the gun up in quarters"] = function()
 		local n = C.Nest
 		local bags = 13 -- (the mount bag and the four piles)

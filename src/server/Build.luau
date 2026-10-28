@@ -36,6 +36,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Build)
@@ -59,6 +60,9 @@ local Build = {}
 
 -- the shortest time between two shovel strikes (a swing comes too soon under SwingSlack of it)
 local GAP = Rules.strikeGap({ ShovelCfg.Dig, ShovelCfg.Chip })
+
+-- an MG nest's bag full and lying as its empty sack (Config/Build.Nest `flat`)
+type Sack = { full: CFrame, size: Vector3, color: Color3, flat: CFrame, flatSize: Vector3, cord: boolean }
 
 type Rec = {
 	model: Model,
@@ -85,6 +89,10 @@ type Rec = {
 	gun: Model?,
 	pitBase: Ground.PitBase?,
 	dug: number?,
+	ground: CFrame?, -- an MG nest: the ground at the ring's middle (its gun's parts lie on it)
+	sacks: { [BasePart]: Sack }?, -- an MG nest: each bag full and as its empty sack
+	laid: number?, -- an MG nest: the bags it showed filled last
+	standAt: number?, -- an MG nest: when its real gun stands, once the box has slid up
 	square: Model?, -- a bridge: the trench square it is on
 	watch: { RBXScriptConnection }?, -- and its watch on that square
 }
@@ -93,7 +101,7 @@ type Rec = {
 type Guns = {
 	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
 	parts: (string, string?) -> Model?,
-	assemble: (Model, string, CFrame, number) -> (),
+	assemble: (Model, string, CFrame, number, { ground: CFrame, ease: number, from: number? }?) -> (),
 	repair: (Model, number) -> (string?, number),
 	setHp: (Model, number) -> (),
 	harm: (Model, number) -> boolean,
@@ -301,17 +309,44 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 		part:SetAttribute("Look", look)
 		part.Parent = s
 	end
-	local function lay(d: BasePart, cf: CFrame, row: number)
+	local sacks: { [BasePart]: Sack } = {}
+	r.sacks = sacks
+	-- a bag (or its cord) full, and as its empty sack: flattened along whichever of its axes stands up, on the ground
+	-- under it (a top bag's over the sacks below)
+	local function lay(d: BasePart, cf: CFrame, row: number, top: boolean)
 		local part = d:Clone()
 		part.Anchored = true
 		part.Material = Enum.Material.SmoothPlastic
 		local jitter = ((row * 37) % 7 / 6 - 0.5) * 2 * C.Sandbags.shade
-		part.Color = if Rules.isPileCord(d.Name)
-			then rgb(Palette.Build.SandbagCord)
-			else rgb(Palette.Build.Sandbag, jitter)
+		local cord = Rules.isPileCord(d.Name)
+		part.Color = if cord then rgb(Palette.Build.SandbagCord) else rgb(Palette.Build.Sandbag, jitter)
 		part.CFrame = cf
 		part:SetAttribute("Row", row)
 		part.Parent = s
+		local up = base.UpVector
+		local size = part.Size
+		local ups = {
+			math.abs(cf.RightVector:Dot(up)),
+			math.abs(cf.UpVector:Dot(up)),
+			math.abs(cf.LookVector:Dot(up)),
+		}
+		local axis = if ups[1] >= ups[2] and ups[1] >= ups[3] then 1 elseif ups[2] >= ups[3] then 2 else 3
+		local height = if axis == 1 then size.X elseif axis == 2 then size.Y else size.Z
+		local flatH, y = Rules.nestSack(height, n.flat, top)
+		local flatSize = Vector3.new(
+			if axis == 1 then flatH else size.X,
+			if axis == 2 then flatH else size.Y,
+			if axis == 3 then flatH else size.Z
+		)
+		local at = base:PointToObjectSpace(cf.Position)
+		sacks[part] = {
+			full = cf,
+			size = size,
+			color = part.Color,
+			flat = CFrame.new(base:PointToWorldSpace(Vector3.new(at.X, y, at.Z))) * cf.Rotation,
+			flatSize = flatSize,
+			cord = cord,
+		}
 	end
 	local ring, radius = Rules.nestRing(n.ring)
 	-- the mount bag (gun space: x right, y up, z back), in the point of the V
@@ -319,7 +354,7 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 	for _, d in bagKit:GetChildren() do
 		local o = bagOffsets[d.Name]
 		if o and d:IsA("BasePart") then
-			lay(d, mount * o, 1)
+			lay(d, mount * o, 1, false)
 		end
 	end
 	-- the ring's bags: the pile's bag of that slot (piece space: x along it), turned to lie along the ring
@@ -332,14 +367,14 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 			for _, d in kit:GetChildren() do
 				local mo = offsets[d.Name]
 				if mo and d:IsA("BasePart") and Rules.pileBag(d.Name, p.bags) == b.slot then
-					lay(d, bagCf * o:Inverse() * mo, i + 1)
+					lay(d, bagCf * o:Inverse() * mo, i + 1, b.slot == 3)
 				end
 			end
 		end
 	end
-	-- stage 1: the scraped ground under each pile (along the line from its first bag to its second), the empty sacks
-	-- in the middle
-	local ground, sacks = kit:FindFirstChild(p.stage1.ground), kit:FindFirstChild(p.stage1.sacks)
+	-- stage 1: the scraped ground under each pile (along the line from its first bag to its second); the empty sacks
+	-- are the bags themselves, flat (showNest)
+	local ground = kit:FindFirstChild(p.stage1.ground)
 	for i = 1, #ring - 1 do
 		local a, b = ring[i], ring[i + 1]
 		if ground and ground:IsA("BasePart") and a.slot == 1 and b.slot == 2 and a.pile == b.pile then
@@ -350,10 +385,9 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 			stage1(ground, cf * offsets[ground.Name], "Ground")
 		end
 	end
-	if sacks and sacks:IsA("BasePart") then
-		stage1(sacks, on * CFrame.new(-offsets[sacks.Name].X, 0, 0) * offsets[sacks.Name], "Sacks")
-	end
-	-- the gun, in parts, on the mount bag's top under its pivot, standing level
+	-- the gun, in parts, on the mount bag's top under its pivot, standing level; until they are set up they lie on the
+	-- ground inside the ring
+	r.ground = on
 	r.at = CFrame.new((base * CFrame.new(0, n.bagTop, -radius + n.gunBack)).Position) * r.frame.Rotation
 	if guns then
 		r.parts = guns.parts(p.gun, C.Guns.paint[r.team])
@@ -364,8 +398,10 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 	return true
 end
 
--- an MG nest as its HP stands (Rules.nestShown): its first bags laid, the rest ghosted (nothing blocks or is hit), its
--- gun set up by quarters, the real gun standing once it is whole
+-- an MG nest as its HP stands (Rules.nestShown): its first bags filled, the rest lying as their empty sacks (nothing
+-- blocks or is hit), a bag that changes swelling or going flat over Config/Build.Nest `ease`; its gun set up by quarters,
+-- the parts not yet set up lying on the ground and sliding up (Artillery.assemble), the real gun standing once it is
+-- whole and the box has slid up
 local function showNest(r: Rec)
 	local s = r.model:FindFirstChild("Nest")
 	local rows = 0
@@ -373,47 +409,73 @@ local function showNest(r: Rec)
 		rows = math.max(rows, (c:GetAttribute("Row") :: number?) or 0)
 	end
 	local laid, quarters = Rules.nestShown(r.work, C.Nest, rows)
-	for _, c in if s then s:GetChildren() else {} do
-		local look = c:GetAttribute("Look")
-		if c:IsA("BasePart") and look == "Sacks" then
-			c.Transparency = if laid == 0 then 0 else 1 -- (the empty sacks until a bag is filled)
-		elseif c:IsA("BasePart") and look == nil then
-			local up = (c:GetAttribute("Row") :: number) <= laid
-			c.Transparency = if up then 0 else C.GhostTransparency
-			c.CanCollide = up
-			c.CanQuery = up
+	local ease = C.Nest.ease
+	local was = r.laid
+	r.laid = laid
+	for part, sack in r.sacks or {} do
+		local row = part:GetAttribute("Row") :: number
+		local up = row <= laid
+		part.CanCollide = up
+		part.CanQuery = up
+		part.Transparency = if sack.cord and not up then 1 else 0
+		local goal = {
+			CFrame = if up then sack.full else sack.flat,
+			Size = if up then sack.size else sack.flatSize,
+			Color = if up or sack.cord then sack.color else rgb(Palette.Build.SandbagSacks),
+		}
+		if was and (row <= was) ~= up and ease > 0 then
+			TweenService:Create(part, TweenInfo.new(ease, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
+		else
+			part.CFrame, part.Size, part.Color = goal.CFrame, goal.Size, goal.Color
 		end
 	end
-	if not guns or not r.at then
+	if not guns or not r.at or not r.ground then
 		return
 	end
 	local p = r.piece
-	-- set up whole: the real gun stands there (src/server/Artillery: manned, laid and fired; its own HP); worn back
-	-- below that, it is in parts again
+	local nest = { ground = r.ground, ease = ease, from = nil :: number? }
+	-- set up whole: the real gun stands there (src/server/Artillery: manned, laid and fired; its own HP) once the box
+	-- has slid up; worn back below that, it is in parts again
 	if quarters >= C.Nest.quarters then
-		if not r.gun then
-			if r.parts then
-				r.parts:Destroy()
-				r.parts = nil
-			end
-			local gun = guns.place(p.gun, r.at.Position, r.at.LookVector, { paint = C.Guns.paint[r.team] })
-			r.gun = gun
-			if gun then
-				gun:SetAttribute("Piece", p.key)
-				-- gone some other way (the dev tools' clear): set up again from parts next time
-				gun.Destroying:Connect(function()
-					if r.gun == gun then
-						r.gun = nil
-					end
-				end)
-			end
+		if r.gun then
+			return
+		end
+		if r.parts and not r.standAt then
+			guns.assemble(r.parts, p.gun, r.at, quarters, nest)
+			r.standAt = os.clock() + ease
+			task.delay(ease, function()
+				if recs[r.model] == r then
+					showNest(r)
+				end
+			end)
+			return
+		elseif r.standAt and os.clock() < r.standAt then
+			return
+		end
+		r.standAt = nil
+		if r.parts then
+			r.parts:Destroy()
+			r.parts = nil
+		end
+		local gun = guns.place(p.gun, r.at.Position, r.at.LookVector, { paint = C.Guns.paint[r.team] })
+		r.gun = gun
+		if gun then
+			gun:SetAttribute("Piece", p.key)
+			-- gone some other way (the dev tools' clear): set up again from parts next time
+			gun.Destroying:Connect(function()
+				if r.gun == gun then
+					r.gun = nil
+				end
+			end)
 		end
 		return
 	end
+	r.standAt = nil
 	if r.gun then
 		local gun = r.gun
 		r.gun = nil
 		gun:Destroy()
+		nest.from = C.Nest.quarters -- (the parts are new: what comes off slides down from the whole gun)
 	end
 	if not r.parts then
 		r.parts = guns.parts(p.gun, C.Guns.paint[r.team])
@@ -422,7 +484,7 @@ local function showNest(r: Rec)
 		end
 	end
 	if r.parts then
-		guns.assemble(r.parts, p.gun, r.at, quarters)
+		guns.assemble(r.parts, p.gun, r.at, quarters, nest)
 	end
 end
 

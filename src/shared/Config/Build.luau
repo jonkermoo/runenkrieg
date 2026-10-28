@@ -244,7 +244,8 @@ local Build = {
 		-- The MG nest (user 2026-10-27, design approved by the user): Engineers only
 		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the MG 08
 		-- (Config/Artillery.Guns `gun`) on a round mount bag (`mountBag`) in the point where the two front piles meet
-		-- (Nest below). `width` x `depth` its footprint round the ring, `height` the shield's top.
+		-- (Nest below). `width` x `depth` its footprint round the ring, `height` the shield's top. (`stage1.sacks`
+		-- unused here: a nest's empty sacks lie on their own spots, Nest.flat)
 		{
 			key = "MGNest",
 			name = "MG nest",
@@ -390,8 +391,14 @@ local Build = {
 	-- front point is where two piles' ends meet, the notch between their top bags the gun's window. `ring.piles`: each
 	-- pile's ring vertices (an end, its bend, the other end; 0 the front point), in build order. The gun's pivot stands
 	-- `gunBack` behind the point on the mount bag's top (`bagTop` over the ground), the mount bag's middle `mountBack`.
+	-- (user 2026-10-27, the stage design: "A (flat on each spot) ... short slide and swell"): a bag not yet filled lies
+	-- as its empty sack, flat on its own spot (`flat` of its height; a top bag's over the bottom sacks under it), and
+	-- fills (or empties again) over `ease` seconds; the gun's parts lie on the ground in the ring until their quarter
+	-- (Config/Artillery.Guns mg08 `assembly` `lie`) and slide up onto the mount bag over the same `ease`.
 	Nest = {
 		hp = { max = 100, place = 0, swing = 5, destroy = 10 },
+		flat = 0.14,
+		ease = 0.5,
 		bagShare = 0.65,
 		quarters = 4,
 		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },

@@ -738,6 +738,13 @@ function Build.nestShown(hp: number, n: any, bags: number): (number, number)
 	return bags, math.clamp(math.ceil((hp - span) / per - 1e-9), 0, n.quarters)
 end
 
+-- A nest bag not yet filled, lying as its empty sack (Config/Build.Nest `flat`): the sack's height and its middle's
+-- height over the ground, a top bag's lying over the flat sacks under it
+function Build.nestSack(height: number, flat: number, top: boolean): (number, number)
+	local h = height * flat
+	return h, if top then h * 1.5 else h / 2
+end
+
 export type HpRules = { place: number, max: number, swing: number?, destroy: number? }
 
 -- How a piece of `kind` (or a trench square, "TrenchBlock") goes up and down on HP (Config/Build `cfg`; a gun's
