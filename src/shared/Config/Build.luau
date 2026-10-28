@@ -359,6 +359,12 @@ local Build = {
 			crates = { { x = -3, z = 2.6, yaw = 15, size = { 1.2, 0.7, 0.8 } } },
 			planks = { { x = 2.9, z = 4.8, yaw = -6, count = 2, length = 3.5 } },
 		},
+		-- (in an MG nest: on the ground at the ring's middle, x right, z back from the gun; inside the bags, clear of the
+		-- mount bag at the front and the doorway at the back)
+		mg08 = {
+			crates = { { x = -1.9, z = 1.2, yaw = 20, size = { 1, 0.6, 0.7 } } },
+			planks = { { x = 2, z = 0.8, yaw = -12, count = 2, length = 2.6 } },
+		},
 		artillery_howitzer = {
 			frame = { x = 0, z = 0.3, width = 16, depth = 18, bays = 2, height = 5.2, levels = { 4.2 } },
 			crates = { { x = -10.5, z = -2, yaw = 10, size = { 1.6, 0.9, 1.1 } } },
@@ -385,7 +391,8 @@ local Build = {
 	-- at 50%). when things build or break off, it just becomes the next stage, no animation. look at how everything else
 	-- is being built (especially other artilleries and the barrer)"): on HP, laid at `hp.place` with its stage 0 down at
 	-- once, every bag an empty sack lying flat on its own spot (`flat` of its height; a top bag's over the sacks under
-	-- it) and the gun's parts on the ground inside the ring (Config/Artillery.Guns mg08 `assembly` `lie`); a Build swing
+	-- it) and a building site in the ring (Scaffold mg08; user 2026-10-28: "not all the parts have to be present before
+	-- its built ... they can just appear as its being built. just have some signs of "construction""); a Build swing
 	-- of its team adds `hp.swing`, a Destroy swing takes `hp.destroy`, weapons take Structures as a sandbag pile's; its
 	-- stage by HP as a Hesco barrier's (Rules.hescoStage: 25, 50, 75, 100 for stages 1-4), each stage's bags filled
 	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
@@ -404,10 +411,10 @@ local Build = {
 		flat = 0.14,
 		quarters = 4,
 		build = {
-			{ bags = "bottom", gun = 0 },
-			{ bags = "all", gun = 0 },
-			{ bags = "all", gun = 2 }, -- (the mount, then the gun on it)
-			{ bags = "all", gun = 4 }, -- (the shield and the box: the real gun)
+			{ bags = "bottom", gun = 1 }, -- (the mount on its bag)
+			{ bags = "all", gun = 2 }, -- (the gun on it)
+			{ bags = "all", gun = 3 }, -- (the shield)
+			{ bags = "all", gun = 4 }, -- (the box: the real gun)
 		},
 		wear = { "all", "all", "bottom", "bottom" },
 		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },

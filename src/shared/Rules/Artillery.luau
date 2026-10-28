@@ -375,14 +375,4 @@ function Artillery.mgStray(spread: number, r1: number, r2: number): (number, num
 	return d * math.cos(a), d * math.sin(a)
 end
 
--- How far to lift a group of parts so it rests on the ground: from the heights of its boxes' corners as it lies
--- (Config/Artillery Lie)
-function Artillery.restLift(heights: { number }): number
-	local low = math.huge
-	for _, y in heights do
-		low = math.min(low, y)
-	end
-	return if low == math.huge then 0 else -low
-end
-
 return Artillery
