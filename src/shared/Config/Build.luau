@@ -190,7 +190,7 @@ local Build = {
 		-- aimed muzzle, over the low cover line, Config/Metrics).
 		{
 			key = "SandbagPile",
-			name = "Sandbag pile",
+			name = "Sandbags",
 			kind = "Sandbags",
 			asset = "sandbag_pile",
 			bags = { "Bag1", "Bag2", "Bag3" },
@@ -209,7 +209,7 @@ local Build = {
 		-- (Hesco.hp below). Everyone builds it (a small asset: Config/Classes SMALL).
 		{
 			key = "Hesco",
-			name = "Hesco barrier",
+			name = "Barrier",
 			kind = "Hesco",
 			asset = "hesco", -- (Config/Assets)
 			stages = 4,
@@ -223,7 +223,7 @@ local Build = {
 			-- long (`width` the full square's, stretched to the square's own), `depth` across from heap to heap, its deck
 			-- `height` over the ground
 			key = "Bridge",
-			name = "Bridge",
+			name = "Trench bridge",
 			kind = "Bridge",
 			work = 2, -- (it is built on HP: Bridge.hp below)
 			width = 8,
@@ -287,7 +287,7 @@ local Build = {
 		},
 		{
 			key = "Howitzer",
-			name = "Magic howitzer",
+			name = "Rune mortar",
 			kind = "Gun",
 			gun = "artillery_howitzer",
 			swing = 2.5, -- (40 swings)
