@@ -24,7 +24,15 @@ local Damage = {
 		Shotgun = { Head = 30, Torso = 20, Limb = 12, Helmet = 10 },
 		-- the MG nest's MG 08 (Config/Artillery.Guns mg08 `mg`; the design: three body hits)
 		MachineGun = { Head = 100, Torso = 40, Limb = 30, Helmet = 30 },
+		-- the Engineer's team pistols (C96, Nagant, Webley; the design 2026-10-27: "usable, not a pea-shooter"): a bare
+		-- head in one, the torso in three; past each pistol's own full-damage range (Config/Weapons `fullRange`) it
+		-- fades (Falloff below)
+		Pistol = { Head = 100, Torso = 40, Limb = 30, Helmet = 25 },
 	},
+	-- A bullet's damage fading with range, by class: full to the weapon's Config/Weapons `fullRange` (studs), falling in a
+	-- straight line to `least` of it at `far` studs and staying there (Rules/Damage.fade). Pistols: ~60% by ~100 m
+	-- (280 studs at 0.357 m per stud), so they lose long duels to rifles. Classes not listed: no falloff.
+	Falloff = { Pistol = { far = 280, least = 0.6 } } :: { [string]: { far: number, least: number } },
 	-- Up close a helmet doesn't save you (user 2026-10-21: "one shot to the head up close"; bolt rifles only, a hard
 	-- cutoff): within this many studs of the muzzle a helmet hit counts as a head hit (the helmet still comes off).
 	-- Classes not listed: the helmet hit at every range.
@@ -215,7 +223,7 @@ local Damage = {
 	-- bullets falls along the shot and leaves a stump; a blast fells it whole, away from the blast, no stump.
 	Trees = {
 		HP = { Pine = 300, Broadleaf = 360, Birch = 240 }, -- ~30 rifle hits at scale 1
-		Weapons = { BoltRifle = 10, SemiRifle = 8, Shotgun = 2, MachineGun = 6 },
+		Weapons = { BoltRifle = 10, SemiRifle = 8, Shotgun = 2, MachineGun = 6, Pistol = 5 },
 		-- a shovel's Destroy swings (src/server/Build, Trees.chop; user 2026-10-23): this many fell a tree of any size
 		Chop = { swings = 10 },
 		-- the fall: clients animate it over `time` s; then the server places it where it lies, anchored (no physics:
