@@ -24,8 +24,9 @@
 --   stands (src/server/Artillery.place, in the team's paint) and its HP is the gun's own, mirrored on the holder; weapons
 --   leave it a wreck at 0, a shovel's Destroy swing at 0 takes it away, its pit filled back.
 -- - MG nests (kind "Nest"; Config/Build.Nest): the pile's bags on a ring (Rules.nestRing) and a round mount bag in one
---   "Sandbag" section, on HP: the first share of it lays the bags one a swing, the rest sets the MG 08 up on the mount
---   bag in quarters (Artillery.parts / assemble, Rules.nestShown); weapons and Destroy swings wear it like a pile.
+--   "Sandbag" section, on HP in 4 stages like a Hesco barrier's: laid flat (empty sacks, the MG 08 in pieces on the
+--   ground), the bags filled and the gun set up on the mount bag stage by stage (Artillery.parts / assemble,
+--   Rules.nestShown); once it has stood its HP is its gun's, worn and fixed as a built field gun's.
 -- - Bridges (Config/Build.Bridge): laid on a trench square (Survey.bridgeSpot), its planks the Config/Assets
 --   bridge_pieces layout its seed rolls, stretched to the square's length; on HP (Bridge.hp): laid at stage 1, Build
 --   swings add HP, Destroy swings and weapons take it, its boards standing by HP (Rules.bridgeStage). At 0, or once its
@@ -36,7 +37,6 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Build)
@@ -45,6 +45,7 @@ local Palette = require(Shared.Config.Palette)
 local Assets = require(Shared.Config.Assets)
 local ShovelCfg = require(Shared.Config.Shovel)
 local ArtilleryCfg = require(Shared.Config.Artillery)
+local ArtilleryRules = require(Shared.Rules.Artillery)
 local W = require(Shared.Config.Weapons)
 local DevCfg = require(Shared.Config.DevTools)
 local Rules = require(Shared.Rules.Build)
@@ -62,7 +63,7 @@ local Build = {}
 local GAP = Rules.strikeGap({ ShovelCfg.Dig, ShovelCfg.Chip })
 
 -- an MG nest's bag full and lying as its empty sack (Config/Build.Nest `flat`)
-type Sack = { full: CFrame, size: Vector3, color: Color3, flat: CFrame, flatSize: Vector3, cord: boolean }
+type Sack = { full: CFrame, size: Vector3, color: Color3, flat: CFrame, flatSize: Vector3, cord: boolean, top: boolean }
 
 type Rec = {
 	model: Model,
@@ -91,8 +92,6 @@ type Rec = {
 	dug: number?,
 	ground: CFrame?, -- an MG nest: the ground at the ring's middle (its gun's parts lie on it)
 	sacks: { [BasePart]: Sack }?, -- an MG nest: each bag full and as its empty sack
-	laid: number?, -- an MG nest: the bags it showed filled last
-	standAt: number?, -- an MG nest: when its real gun stands, once the box has slid up
 	square: Model?, -- a bridge: the trench square it is on
 	watch: { RBXScriptConnection }?, -- and its watch on that square
 }
@@ -101,7 +100,7 @@ type Rec = {
 type Guns = {
 	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
 	parts: (string, string?) -> Model?,
-	assemble: (Model, string, CFrame, number, { ground: CFrame, ease: number, from: number? }?) -> (),
+	assemble: (Model, string, CFrame, number, CFrame?) -> (),
 	repair: (Model, number) -> (string?, number),
 	setHp: (Model, number) -> (),
 	harm: (Model, number) -> boolean,
@@ -346,6 +345,7 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 			flat = CFrame.new(base:PointToWorldSpace(Vector3.new(at.X, y, at.Z))) * cf.Rotation,
 			flatSize = flatSize,
 			cord = cord,
+			top = top,
 		}
 	end
 	local ring, radius = Rules.nestRing(n.ring)
@@ -398,61 +398,39 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 	return true
 end
 
--- an MG nest as its HP stands (Rules.nestShown): its first bags filled, the rest lying as their empty sacks (nothing
--- blocks or is hit), a bag that changes swelling or going flat over Config/Build.Nest `ease`; its gun set up by quarters,
--- the parts not yet set up lying on the ground and sliding up (Artillery.assemble), the real gun standing once it is
--- whole and the box has slid up
+-- an MG nest as it stands (Rules.nestShown): being built, by its HP; once it has stood, by its gun's HP (Config/
+-- Artillery.Wreck). Its filled bags up, the rest lying as their empty sacks (nothing blocks or is hit); its gun's parts
+-- set up by quarters, the rest lying on the ground in the ring (Artillery.assemble), or the real gun standing. Each
+-- change is the next stage at once (user 2026-10-28: "no animation").
+local apply: (Rec) -> ()
+
 local function showNest(r: Rec)
-	local s = r.model:FindFirstChild("Nest")
-	local rows = 0
-	for _, c in if s then s:GetChildren() else {} do
-		rows = math.max(rows, (c:GetAttribute("Row") :: number?) or 0)
+	local p = r.piece
+	local wreck: number? = nil
+	if r.built then
+		local g = ArtilleryCfg.Guns[p.gun or ""]
+		local hp = r.gun and r.gun:GetAttribute("HP")
+		wreck = if g and type(hp) == "number" then ArtilleryRules.wreckStage(hp, g.hp, ArtilleryCfg.Wreck.at) else 0
 	end
-	local laid, quarters = Rules.nestShown(r.work, C.Nest, rows)
-	local ease = C.Nest.ease
-	local was = r.laid
-	r.laid = laid
+	local bags, quarters = Rules.nestShown(r.work, C.Nest, wreck)
 	for part, sack in r.sacks or {} do
-		local row = part:GetAttribute("Row") :: number
-		local up = row <= laid
+		local up = bags == "all" or (bags == "bottom" and not sack.top)
 		part.CanCollide = up
 		part.CanQuery = up
 		part.Transparency = if sack.cord and not up then 1 else 0
-		local goal = {
-			CFrame = if up then sack.full else sack.flat,
-			Size = if up then sack.size else sack.flatSize,
-			Color = if up or sack.cord then sack.color else rgb(Palette.Build.SandbagSacks),
-		}
-		if was and (row <= was) ~= up and ease > 0 then
-			TweenService:Create(part, TweenInfo.new(ease, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
-		else
-			part.CFrame, part.Size, part.Color = goal.CFrame, goal.Size, goal.Color
-		end
+		part.CFrame = if up then sack.full else sack.flat
+		part.Size = if up then sack.size else sack.flatSize
+		part.Color = if up or sack.cord then sack.color else rgb(Palette.Build.SandbagSacks)
 	end
-	if not guns or not r.at or not r.ground then
+	if not guns or not r.at then
 		return
 	end
-	local p = r.piece
-	local nest = { ground = r.ground, ease = ease, from = nil :: number? }
-	-- set up whole: the real gun stands there (src/server/Artillery: manned, laid and fired; its own HP) once the box
-	-- has slid up; worn back below that, it is in parts again
+	-- set up whole: the real gun stands there (src/server/Artillery: manned, laid and fired; its own HP, the nest's
+	-- once it has stood); below that, in parts
 	if quarters >= C.Nest.quarters then
 		if r.gun then
 			return
 		end
-		if r.parts and not r.standAt then
-			guns.assemble(r.parts, p.gun, r.at, quarters, nest)
-			r.standAt = os.clock() + ease
-			task.delay(ease, function()
-				if recs[r.model] == r then
-					showNest(r)
-				end
-			end)
-			return
-		elseif r.standAt and os.clock() < r.standAt then
-			return
-		end
-		r.standAt = nil
 		if r.parts then
 			r.parts:Destroy()
 			r.parts = nil
@@ -461,7 +439,13 @@ local function showNest(r: Rec)
 		r.gun = gun
 		if gun then
 			gun:SetAttribute("Piece", p.key)
-			-- gone some other way (the dev tools' clear): set up again from parts next time
+			-- its HP is the nest's: the shovel's panel and the bags show it
+			gun:GetAttributeChangedSignal("HP"):Connect(function()
+				if r.gun == gun then
+					apply(r)
+				end
+			end)
+			-- gone some other way (the dev tools' clear): stood again
 			gun.Destroying:Connect(function()
 				if r.gun == gun then
 					r.gun = nil
@@ -470,12 +454,10 @@ local function showNest(r: Rec)
 		end
 		return
 	end
-	r.standAt = nil
 	if r.gun then
 		local gun = r.gun
 		r.gun = nil
 		gun:Destroy()
-		nest.from = C.Nest.quarters -- (the parts are new: what comes off slides down from the whole gun)
 	end
 	if not r.parts then
 		r.parts = guns.parts(p.gun, C.Guns.paint[r.team])
@@ -484,7 +466,7 @@ local function showNest(r: Rec)
 		end
 	end
 	if r.parts then
-		guns.assemble(r.parts, p.gun, r.at, quarters, nest)
+		guns.assemble(r.parts, p.gun, r.at, quarters, r.ground)
 	end
 end
 
@@ -854,7 +836,7 @@ showGun = function(r: Rec)
 end
 
 -- shows a piece as its HP stands now
-local function apply(r: Rec)
+function apply(r: Rec)
 	r.model:SetAttribute("Work", r.work)
 	r.model:SetAttribute("Built", r.built)
 	-- (every structure's HP out of its max, for the shovel's panel, src/client/Build)
@@ -867,9 +849,19 @@ local function apply(r: Rec)
 		r.model:SetAttribute("MaxHP", r.need)
 		showSandbags(r, Rules.pileBags(r.work, C.Sandbags.hp.swing, #r.piece.bags))
 	elseif kind == "Nest" then
-		r.model:SetAttribute("HP", r.work)
-		r.model:SetAttribute("MaxHP", r.need)
 		showNest(r)
+		-- (stood once: its gun's HP)
+		local g = ArtilleryCfg.Guns[r.piece.gun or ""]
+		if r.built and r.gun and g then
+			local hp = r.gun:GetAttribute("HP")
+			r.model:SetAttribute("HP", hp)
+			r.model:SetAttribute("MaxHP", g.hp)
+			local s = r.model:FindFirstChild("Nest")
+			if s then
+				s:SetAttribute("HP", hp)
+				s:SetAttribute("MaxHP", g.hp)
+			end
+		end
 	elseif kind == "Wire" then
 		showWire(r)
 	elseif kind == "Gun" then
@@ -884,6 +876,17 @@ end
 -- a Hesco barrier, a sandbag pile or an MG nest worn by `amount` of its HP by a weapon: it shows what it has left; at 0 it is gone,
 -- no rubble (user 2026-10-27: "remove the crumble. 0 hp should just disappear")
 local function wear(r: Rec, amount: number)
+	-- an MG nest that has stood: its gun takes it (as a share of its HP); hit at 0 it is gone
+	local g = ArtilleryCfg.Guns[r.piece.gun or ""]
+	if r.piece.kind == "Nest" and r.built and r.gun and g and guns then
+		local hp = r.gun:GetAttribute("HP")
+		if type(hp) == "number" and hp <= 0 then
+			remove(r)
+		else
+			guns.harm(r.gun, amount / r.need * g.hp)
+		end
+		return
+	end
 	r.work = math.max(r.work - amount, 0)
 	if r.work <= 0 then
 		remove(r)
@@ -1140,7 +1143,8 @@ local function work(player: Player, target: any, mode: any)
 		apply(r)
 		return
 	end
-	if mode == "Build" and r.piece.kind == "Gun" and r.gun and r.built then
+	local standing = (r.piece.kind == "Gun" or r.piece.kind == "Nest") and r.gun and r.built
+	if mode == "Build" and standing then
 		-- fixing a standing gun, any team's (Config/Artillery.Repair; user 2026-10-27: "make it so you can fix a
 		-- artillery by digging too ... its fine if the cannon looks buried, as long as it gets flattenned out again once
 		-- its fixed", "enemie teams should be able to repair and fix enemie trenches and artillery")
@@ -1164,14 +1168,22 @@ local function work(player: Player, target: any, mode: any)
 				local out = Ground.pit(at.Position, d.radius, d.depth, d.rim, d.rimHeight, ramp, d.wall, r.pitBase)
 				Net.event("GroundDug"):FireAllClients(at.Position, out)
 			end
-			showGun(r)
+			local nest = r.piece.kind == "Nest"
+			if nest then
+				showNest(r)
+			else
+				showGun(r)
+			end
 			if r.gun and what == "usable" then
 				guns.setHp(r.gun, after)
+			end
+			if nest then
+				apply(r) -- (its bags and panel by the fresh gun's HP)
 			end
 		end
 		return
 	end
-	if mode == "Destroy" and r.piece.kind == "Gun" and r.gun and r.built and guns then
+	if mode == "Destroy" and standing and r.gun and guns then
 		-- a standing gun loses HP to the shovel as to any damage (Artillery.harm), as many swings as fix it; a swing that
 		-- takes it to 0, or at a wreck weapons left at 0, and it is gone (Config/Build.Guns)
 		local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
@@ -1332,7 +1344,10 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 					shakeWire(r, position)
 				end
 			end
-		elseif r.piece.kind == "Sandbags" or r.piece.kind == "Nest" then
+		elseif
+			r.piece.kind == "Sandbags"
+			or (r.piece.kind == "Nest" and not (r.built and r.gun)) -- (stood: the blast hits its gun, Artillery)
+		then
 			-- the pile (or MG nest) by how far the blast is from its box (Destruction leaves class Sandbag to this)
 			local p = r.piece
 			local l = frame:PointToObjectSpace(position)

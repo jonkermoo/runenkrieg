@@ -722,20 +722,19 @@ function Build.nestRing(ring: any): ({ NestBag }, number)
 	return out, radius
 end
 
--- What an MG nest with `hp` shows (Config/Build.Nest `n`, `bags` of them in all, the mount bag counted): how many bags
--- stand (the first `bagShare` of its HP lays them, evenly) and how many of `quarters` of its gun are set up (the rest);
--- nothing at 0
-function Build.nestShown(hp: number, n: any, bags: number): (number, number)
-	if hp <= 0 or bags <= 0 then
-		return 0, 0
+-- What an MG nest shows (Config/Build.Nest `n`): the bags filled ("none", "bottom": the mount bag and the piles'
+-- bottom bags, "all") and how many of its gun's `quarters` are set up. Being built: by its `hp`, a stage as a Hesco
+-- barrier's (Build.hescoStage). Once it has stood: by its gun's Wreck stage `wreck` (Config/Artillery.Wreck; 0 whole),
+-- the gun standing.
+function Build.nestShown(hp: number, n: any, wreck: number?): (string, number)
+	if wreck then
+		return if wreck > 0 then n.wear[wreck] else "all", n.quarters
 	end
-	local span = n.hp.max * n.bagShare
-	local laid = math.clamp(math.ceil(hp / (span / bags) - 1e-9), 0, bags)
-	if hp <= span + 1e-9 then
-		return laid, 0
+	local stage = Build.hescoStage(hp, n.hp.max, #n.build)
+	if stage == 0 then
+		return "none", 0
 	end
-	local per = (n.hp.max - span) / n.quarters
-	return bags, math.clamp(math.ceil((hp - span) / per - 1e-9), 0, n.quarters)
+	return n.build[stage].bags, n.build[stage].gun
 end
 
 -- A nest bag not yet filled, lying as its empty sack (Config/Build.Nest `flat`): the sack's height and its middle's

@@ -589,29 +589,29 @@ return {
 	end,
 	["an MG nest's empty sacks lie flat on the ground, a top bag's over the sacks below"] = function()
 		local n = C.Nest
-		assert(n.flat > 0 and n.flat < 0.5 and n.ease > 0)
+		assert(n.flat > 0 and n.flat < 0.5)
 		local h, y = B.nestSack(1.6, n.flat, false)
 		assert(near(h, 1.6 * n.flat) and near(y, h / 2), "a bottom sack rests on the ground")
 		local _, yTop = B.nestSack(1.6, n.flat, true)
 		assert(near(yTop, h * 1.5), "a top sack rests on the bottom sacks")
 	end,
-	["an MG nest's HP lays a bag a swing, then sets the gun up in quarters"] = function()
+	["an MG nest builds in 4 stages like a barrier, then wears by its gun's stages"] = function()
 		local n = C.Nest
-		local bags = 13 -- (the mount bag and the four piles)
-		assert(B.nestShown(0, n, bags) == 0)
-		local laid, q = B.nestShown(n.hp.swing, n, bags)
-		assert(laid == 1 and q == 0, "the first swing lays the mount bag")
-		laid, q = B.nestShown(n.hp.max * n.bagShare, n, bags)
-		assert(laid == bags and q == 0, "every bag down, no gun yet")
-		assert(n.hp.max * n.bagShare / bags == n.hp.swing, "one bag a Build swing")
-		laid, q = B.nestShown(n.hp.max, n, bags)
-		assert(laid == bags and q == n.quarters, "the gun set up at full HP")
-		local last = 0
-		for hp = 0, n.hp.max, n.hp.swing do
-			local l, g = B.nestShown(hp, n, bags)
-			assert(l + g >= last, "never goes back while it rises")
-			last = l + g
-		end
+		local bags, q = B.nestShown(0, n)
+		assert(bags == "none" and q == 0, "laid: all sacks flat, the gun in pieces")
+		bags, q = B.nestShown(n.hp.swing, n)
+		assert(bags == "bottom" and q == 0, "stage 1: the bottom bags")
+		bags, q = B.nestShown(50, n)
+		assert(bags == "all" and q == 0, "stage 2: the ring whole")
+		bags, q = B.nestShown(75, n)
+		assert(bags == "all" and q > 0 and q < n.quarters, "stage 3: the mount and gun on the bag")
+		bags, q = B.nestShown(n.hp.max, n)
+		assert(bags == "all" and q == n.quarters, "stage 4: the real gun")
+		assert(#n.build == 4 and #n.wear == 4)
+		bags, q = B.nestShown(n.hp.max, n, 0)
+		assert(bags == "all" and q == n.quarters, "stood and whole")
+		bags, q = B.nestShown(n.hp.max, n, 4)
+		assert(bags == "bottom" and q == n.quarters, "a wreck: the top bags down, the gun still there")
 	end,
 	["the build panel's swing counts come from each piece's HP"] = function()
 		local function p(key: string): any

@@ -305,10 +305,7 @@ return {
 			assert(dy * dy + de * de <= 4 + 1e-9)
 		end
 	end,
-	["a nest's gun pieces slide up easing out, and rest on their lowest corner"] = function()
-		assert(A.eased(0, 0.5) == 0 and A.eased(0.5, 0.5) == 1 and A.eased(9, 0.5) == 1)
-		assert(A.eased(0.25, 0.5) > 0.5, "eases out: past halfway at half the time")
-		assert(A.eased(0, 0) == 1, "no ease: at once")
+	["a nest's gun pieces rest on their lowest corner"] = function()
 		assert(A.restLift({ -0.4, 0.3, -1.2, 2 }) == 1.2 and A.restLift({}) == 0)
 	end,
 	["the MG 08 goes up mount, gun, shield, box, each lying in the nest until then"] = function()

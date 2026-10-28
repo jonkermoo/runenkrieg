@@ -380,27 +380,36 @@ local Build = {
 	Sandbags = { hp = { max = 100, place = 0, swing = 34, destroy = 10 }, shade = 0.06, sink = 0.15 },
 
 	-- MG nests (Pieces kind "Nest"; user 2026-10-27, design approved by the user, Blender
-	-- approved "besides that its good"): one section of class "Sandbag" (the bags; Sandbags.shade, Sandbags.sink) with
-	-- `hp.max` HP, on HP like every structure: laid at `hp.place`, a Build swing of its team adds `hp.swing` (repairs
-	-- too), a Destroy swing takes `hp.destroy`, weapons take Structures as a sandbag pile's; gone at 0. The first
-	-- `bagShare` of its HP lays the bags one a swing (the mount bag, then the front piles, then the back: bottoms, then
-	-- tops; Rules.nestShown), the rest sets the gun up in `quarters` (Config/Artillery.Guns mg08 `assembly`).
+	-- approved "besides that its good"): one section of class "Sandbag" (the bags; Sandbags.shade, Sandbags.sink).
+	-- Built like every structure (user 2026-10-28: "4 stages of construction, 4 stages of destruction (becomes unusable
+	-- at 50%). when things build or break off, it just becomes the next stage, no animation. look at how everything else
+	-- is being built (especially other artilleries and the barrer)"): on HP, laid at `hp.place` with its stage 0 down at
+	-- once, every bag an empty sack lying flat on its own spot (`flat` of its height; a top bag's over the sacks under
+	-- it) and the gun's parts on the ground inside the ring (Config/Artillery.Guns mg08 `assembly` `lie`); a Build swing
+	-- of its team adds `hp.swing`, a Destroy swing takes `hp.destroy`, weapons take Structures as a sandbag pile's; its
+	-- stage by HP as a Hesco barrier's (Rules.hescoStage: 25, 50, 75, 100 for stages 1-4), each stage's bags filled
+	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
+	-- `quarters`), the real gun standing at stage 4. Once it has stood it is the gun's (as a built field gun): its HP is
+	-- the gun's own, worn by weapons, blasts at the bags and Destroy swings, fixed by Build swings (Config/Artillery
+	-- Repair), its 4 stages the gun's Wreck stages (unusable from stage 2, 50%), the bags still filled at each `wear[i]`;
+	-- hit at 0 it is gone.
 	-- The ring (user: "make the nest more circular shaped ... smoother and even and symmetrical"; Rules.nestRing): the
 	-- eight bottom bags of the four piles on a regular `ring.sides`-sided ring of `ring.bag`-stud sides, the side at the
 	-- back left open as the doorway; each pile bent at its joint, its top bag over the bend on the bottom bags' line; the
 	-- front point is where two piles' ends meet, the notch between their top bags the gun's window. `ring.piles`: each
 	-- pile's ring vertices (an end, its bend, the other end; 0 the front point), in build order. The gun's pivot stands
 	-- `gunBack` behind the point on the mount bag's top (`bagTop` over the ground), the mount bag's middle `mountBack`.
-	-- (user 2026-10-27, the stage design: "A (flat on each spot) ... short slide and swell"): a bag not yet filled lies
-	-- as its empty sack, flat on its own spot (`flat` of its height; a top bag's over the bottom sacks under it), and
-	-- fills (or empties again) over `ease` seconds; the gun's parts lie on the ground in the ring until their quarter
-	-- (Config/Artillery.Guns mg08 `assembly` `lie`) and slide up onto the mount bag over the same `ease`.
 	Nest = {
 		hp = { max = 100, place = 0, swing = 5, destroy = 10 },
 		flat = 0.14,
-		ease = 0.5,
-		bagShare = 0.65,
 		quarters = 4,
+		build = {
+			{ bags = "bottom", gun = 0 },
+			{ bags = "all", gun = 0 },
+			{ bags = "all", gun = 2 }, -- (the mount, then the gun on it)
+			{ bags = "all", gun = 4 }, -- (the shield and the box: the real gun)
+		},
+		wear = { "all", "all", "bottom", "bottom" },
 		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },
 		gunBack = 1.66,
 		mountBack = 1.86,
