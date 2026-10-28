@@ -969,7 +969,7 @@ local Vfx = {
 			{ effect = "Blast3", label = "Staff explosion (stage 3)", every = 4 },
 			{ effect = "Grenade", label = "Grenade explosion", every = 2 },
 			{ effect = "Shell", label = "Field gun shell", every = 5, gun = "artillery_qf18" },
-			{ effect = "Shell", label = "Howitzer shell (magic)", every = 9, gun = "artillery_howitzer" },
+			{ effect = "Shell", label = "Rune mortar shell", every = 9, gun = "artillery_howitzer" },
 			{ effect = "Shockwave", label = "Shockwave", every = 1.5 },
 			{ effect = "Star", label = "Star glint", every = 1.2 },
 			{ effect = "Spikes", label = "Light spikes", every = 1.5 },

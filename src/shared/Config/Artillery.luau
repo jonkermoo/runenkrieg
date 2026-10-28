@@ -15,6 +15,11 @@
 -- origin on the ground under the traverse axis. Angles in degrees: traverse + turns left (Roblox's yaw), elevation +
 -- raises the muzzle.
 
+-- Where a group of a nest's gun lies until it is set up (Artillery.assemble): `at` x, z on the ground from the ring's
+-- middle (x right, z back from the gun), `turn` degrees about x, y, z (tipped over, then turned), resting on its lowest
+-- point; `hide` its parts not seen while it lies (the belt, packed in the box)
+export type Lie = { at: { number }, turn: { number }, hide: { string }? }
+
 export type Gun = {
 	asset: string, -- Config/Assets entry (ReplicatedStorage.Assets.Weapons.Shared.Artillery)
 	name: string, -- shown on the prompt
@@ -138,7 +143,8 @@ export type Gun = {
 	colors: { [string]: { number } }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
-	assembly: { { names: { string }, at: number } },
+	-- (a nest's gun: `lie`, where the group lies on the ground until its quarter, Artillery.assemble's `ground`)
+	assembly: { { names: { string }, at: number, lie: Lie? } },
 	-- gears turning as it is laid (src/client/Artillery; user 2026-10-26: "animate the gears turning as well when we
 	-- rotate the gun left and right. make sure its accurate and biting each teeth accurately"): `part` (one of its
 	-- `mount`) spins about gun-space `axis` ("X", "Y" or "Z") through `centre`, `ratio` degrees per degree of its
@@ -646,7 +652,7 @@ local Artillery = {
 		-- high elevation so the gem under the breech clears the turntable (~1 at 80). Dug in when placed (`dig`).
 		artillery_howitzer = {
 			asset = "artillery_howitzer",
-			name = "Magic howitzer",
+			name = "42 cm Rune mortar",
 			base = "Bed",
 			mount = {
 				"Mount",
@@ -838,7 +844,19 @@ local Artillery = {
 			nest = true,
 			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
-			mount = { "Mount", "MountTrim", "MountFittings", "MountKit", "Belt", "Rounds", "Bullets" },
+			mount = {
+				"Mount",
+				"MountFittings",
+				"Shield",
+				"ShieldTrim",
+				"ShieldFittings",
+				"BoxKit",
+				"BoxTrim",
+				"BoxFittings",
+				"Belt",
+				"Rounds",
+				"Bullets",
+			},
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},
@@ -904,12 +922,17 @@ local Artillery = {
 				Rounds = { 196, 160, 84 },
 				Bullets = { 184, 115, 72 },
 			},
-			-- the foot and turntable, then the mount and shield, the gun, the ammo box and belt last
+			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"): the foot and mount, the gun, the shield,
+			-- the ammo box and its belt last. In a nest each lies on the ground inside the ring until its quarter (`lie`)
 			assembly = {
-				{ names = { "Carriage" }, at = 1 },
-				{ names = { "Mount" }, at = 2 },
-				{ names = { "Cradle", "Barrel", "Bore" }, at = 3 },
-				{ names = { "MountKit", "Belt", "Rounds", "Bullets" }, at = 4 },
+				{ names = { "Carriage", "Mount" }, at = 1, lie = { at = { -1.6, 0.9 }, turn = { 0, 25, 90 } } },
+				{ names = { "Cradle", "Barrel", "Bore" }, at = 2, lie = { at = { 0.6, 2.4 }, turn = { 0, 70, 90 } } },
+				{ names = { "Shield" }, at = 3, lie = { at = { -1.2, -1.2 }, turn = { -90, 15, 0 } } },
+				{
+					names = { "Box", "Belt", "Rounds", "Bullets" },
+					at = 4,
+					lie = { at = { 2.1, 1.4 }, turn = { 0, -30, 0 }, hide = { "Belt", "Rounds", "Bullets" } },
+				},
 			},
 		} :: Gun,
 	},

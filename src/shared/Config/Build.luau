@@ -190,7 +190,7 @@ local Build = {
 		-- aimed muzzle, over the low cover line, Config/Metrics).
 		{
 			key = "SandbagPile",
-			name = "Sandbag pile",
+			name = "Sandbags",
 			kind = "Sandbags",
 			asset = "sandbag_pile",
 			bags = { "Bag1", "Bag2", "Bag3" },
@@ -209,7 +209,7 @@ local Build = {
 		-- (Hesco.hp below). Everyone builds it (a small asset: Config/Classes SMALL).
 		{
 			key = "Hesco",
-			name = "Hesco barrier",
+			name = "Barrier",
 			kind = "Hesco",
 			asset = "hesco", -- (Config/Assets)
 			stages = 4,
@@ -223,7 +223,7 @@ local Build = {
 			-- long (`width` the full square's, stretched to the square's own), `depth` across from heap to heap, its deck
 			-- `height` over the ground
 			key = "Bridge",
-			name = "Bridge",
+			name = "Trench bridge",
 			kind = "Bridge",
 			work = 2, -- (it is built on HP: Bridge.hp below)
 			width = 8,
@@ -244,7 +244,8 @@ local Build = {
 		-- The MG nest (user 2026-10-27, design approved by the user): Engineers only
 		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the MG 08
 		-- (Config/Artillery.Guns `gun`) on a round mount bag (`mountBag`) in the point where the two front piles meet
-		-- (Nest below). `width` x `depth` its footprint round the ring, `height` the shield's top.
+		-- (Nest below). `width` x `depth` its footprint round the ring, `height` the shield's top. (`stage1.sacks`
+		-- unused here: a nest's empty sacks lie on their own spots, Nest.flat)
 		{
 			key = "MGNest",
 			name = "MG nest",
@@ -287,7 +288,7 @@ local Build = {
 		},
 		{
 			key = "Howitzer",
-			name = "Magic howitzer",
+			name = "Rune mortar",
 			kind = "Gun",
 			gun = "artillery_howitzer",
 			swing = 2.5, -- (40 swings)
@@ -379,11 +380,19 @@ local Build = {
 	Sandbags = { hp = { max = 100, place = 0, swing = 34, destroy = 10 }, shade = 0.06, sink = 0.15 },
 
 	-- MG nests (Pieces kind "Nest"; user 2026-10-27, design approved by the user, Blender
-	-- approved "besides that its good"): one section of class "Sandbag" (the bags; Sandbags.shade, Sandbags.sink) with
-	-- `hp.max` HP, on HP like every structure: laid at `hp.place`, a Build swing of its team adds `hp.swing` (repairs
-	-- too), a Destroy swing takes `hp.destroy`, weapons take Structures as a sandbag pile's; gone at 0. The first
-	-- `bagShare` of its HP lays the bags one a swing (the mount bag, then the front piles, then the back: bottoms, then
-	-- tops; Rules.nestShown), the rest sets the gun up in `quarters` (Config/Artillery.Guns mg08 `assembly`).
+	-- approved "besides that its good"): one section of class "Sandbag" (the bags; Sandbags.shade, Sandbags.sink).
+	-- Built like every structure (user 2026-10-28: "4 stages of construction, 4 stages of destruction (becomes unusable
+	-- at 50%). when things build or break off, it just becomes the next stage, no animation. look at how everything else
+	-- is being built (especially other artilleries and the barrer)"): on HP, laid at `hp.place` with its stage 0 down at
+	-- once, every bag an empty sack lying flat on its own spot (`flat` of its height; a top bag's over the sacks under
+	-- it) and the gun's parts on the ground inside the ring (Config/Artillery.Guns mg08 `assembly` `lie`); a Build swing
+	-- of its team adds `hp.swing`, a Destroy swing takes `hp.destroy`, weapons take Structures as a sandbag pile's; its
+	-- stage by HP as a Hesco barrier's (Rules.hescoStage: 25, 50, 75, 100 for stages 1-4), each stage's bags filled
+	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
+	-- `quarters`), the real gun standing at stage 4. Once it has stood it is the gun's (as a built field gun): its HP is
+	-- the gun's own, worn by weapons, blasts at the bags and Destroy swings, fixed by Build swings (Config/Artillery
+	-- Repair), its 4 stages the gun's Wreck stages (unusable from stage 2, 50%), the bags still filled at each `wear[i]`;
+	-- hit at 0 it is gone.
 	-- The ring (user: "make the nest more circular shaped ... smoother and even and symmetrical"; Rules.nestRing): the
 	-- eight bottom bags of the four piles on a regular `ring.sides`-sided ring of `ring.bag`-stud sides, the side at the
 	-- back left open as the doorway; each pile bent at its joint, its top bag over the bend on the bottom bags' line; the
@@ -392,8 +401,15 @@ local Build = {
 	-- `gunBack` behind the point on the mount bag's top (`bagTop` over the ground), the mount bag's middle `mountBack`.
 	Nest = {
 		hp = { max = 100, place = 0, swing = 5, destroy = 10 },
-		bagShare = 0.65,
+		flat = 0.14,
 		quarters = 4,
+		build = {
+			{ bags = "bottom", gun = 0 },
+			{ bags = "all", gun = 0 },
+			{ bags = "all", gun = 2 }, -- (the mount, then the gun on it)
+			{ bags = "all", gun = 4 }, -- (the shield and the box: the real gun)
+		},
+		wear = { "all", "all", "bottom", "bottom" },
 		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },
 		gunBack = 1.66,
 		mountBack = 1.86,

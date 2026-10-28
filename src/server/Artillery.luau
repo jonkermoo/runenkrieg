@@ -647,13 +647,19 @@ function Artillery.parts(key: string, paintKey: string?): Model?
 	return model
 end
 
+-- a part of a nest's gun as its group lies on the ground (Config/Artillery Lie): the group's frame on the ground (from
+-- the ring's middle), the part's place from the group's frame, unseen while it lies
+type Lying = { frame: CFrame, offset: CFrame, hide: boolean }
+
 -- each built gun's parts at rest in gun space (Artillery.parts copies, before they are posed), the quarter each appears
--- at (Config/Artillery.Assembly; nil: never while built) and the stage of the gun that moves it (1 mount ... 4 breech)
+-- at (Config/Artillery.Assembly; nil: never while built) and the stage of the gun that moves it (1 mount ... 4 breech);
+-- a nest's gun: where each part lies
 type Built = {
 	rest: { [BasePart]: CFrame },
 	at: { [BasePart]: number },
 	moves: { [BasePart]: number },
 	alpha: { [BasePart]: number }, -- its own transparency
+	lying: { [BasePart]: Lying },
 }
 local built: { [Model]: Built } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -663,7 +669,7 @@ local function builtOf(model: Model, gun: Cfg.Gun): Built
 		return got
 	end
 	local pivot = model:GetPivot()
-	local b: Built = { rest = {}, at = {}, moves = {}, alpha = {} }
+	local b: Built = { rest = {}, at = {}, moves = {}, alpha = {}, lying = {} }
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") then
 			b.rest[d] = pivot:ToObjectSpace(d.CFrame)
@@ -684,13 +690,53 @@ local function builtOf(model: Model, gun: Cfg.Gun): Built
 			end
 		end
 	end
+	-- a nest's gun: each group with a `lie` tipped over and turned about its middle, lifted to rest on its lowest corner
+	for _, g in gun.assembly do
+		local lie = g.lie
+		if lie then
+			local members, sum = {}, Vector3.zero
+			for d, at in b.at do
+				if at == g.at then
+					table.insert(members, d)
+					sum += b.rest[d].Position
+				end
+			end
+			if #members > 0 then
+				local centre = CFrame.new(sum / #members)
+				local t = lie.turn
+				local turn = CFrame.Angles(0, math.rad(t[2]), 0) * CFrame.Angles(math.rad(t[1]), 0, math.rad(t[3]))
+				local heights = {}
+				for _, d in members do
+					local o = centre:Inverse() * b.rest[d]
+					local h = d.Size / 2
+					for _, c in { -1, 1 } do
+						for _, e in { -1, 1 } do
+							for _, f in { -1, 1 } do
+								table.insert(heights, (turn * o * Vector3.new(c * h.X, e * h.Y, f * h.Z)).Y)
+							end
+						end
+					end
+				end
+				local frame = CFrame.new(lie.at[1], Rules.restLift(heights), lie.at[2]) * turn
+				for _, d in members do
+					b.lying[d] = {
+						frame = frame,
+						offset = centre:Inverse() * b.rest[d],
+						hide = lie.hide ~= nil and table.find(lie.hide, d.Name) ~= nil,
+					}
+				end
+			end
+		end
+	end
 	built[model] = b
 	return b
 end
 
 -- Poses a gun being built (Artillery.parts) standing at `at` with `quarters` of Config/Artillery.Assembly.quarters
--- done: each group in place once its quarter is done, unseen before; the barrel at the gun's lowest lay.
-function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: number)
+-- done: each group in place once its quarter is done, unseen before; the barrel at the gun's lowest lay. A nest's gun
+-- (`ground`: the ground at the ring's middle): a group not yet set up lies on the ground there (its `lie`) instead,
+-- its `hide` parts unseen.
+function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: number, ground: CFrame?)
 	local gun = Cfg.Guns[key]
 	if not gun then
 		return
@@ -703,9 +749,17 @@ function Artillery.assemble(model: Model, key: string, at: CFrame, quarters: num
 		* trunnion:Inverse()
 	for p, rest in b.rest do
 		-- (user 2026-10-26: "the runes shouldn't be active until the cannon is built": nothing glows while built)
-		local shown = b.at[p] ~= nil and b.at[p] <= quarters and not table.find(Palette.Artillery.Glowing, p.Name)
-		p.Transparency = if shown then b.alpha[p] else 1
-		p.CFrame = at * (if (b.moves[p] or 0) >= 2 then lay * rest else rest)
+		local glow = table.find(Palette.Artillery.Glowing, p.Name) ~= nil
+		local up = b.at[p] ~= nil and b.at[p] <= quarters
+		local laid = if (b.moves[p] or 0) >= 2 then lay * rest else rest
+		local lying = b.lying[p]
+		if ground and lying and not up then
+			p.Transparency = if lying.hide or glow then 1 else b.alpha[p]
+			p.CFrame = ground * lying.frame * lying.offset
+		else
+			p.Transparency = if up and not glow then b.alpha[p] else 1
+			p.CFrame = at * laid
+		end
 	end
 end
 
