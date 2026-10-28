@@ -514,9 +514,10 @@ local Weapons: { [string]: Weapon } = {
 		-- on the right hip, muzzle up (a holster comes with the Engineer)
 		stow = {
 			part = "Torso",
-			at = { 1.1, -0.7, 0.1 },
-			muzzle = { 0, 1, 0 },
-			side = { 1, 0, 0 },
+			at = { 1.2, -1.1, -0.15 }, -- at the right hip as if holstered, the cylinder clear of the leg (user 2026-10-28)
+			muzzle = { 0, -0.9962, -0.0872 }, -- down, a touch forward (sin 5, cos 5): the butt back
+			side = { 1, 0, 0 }, -- the right side (the gate) outward
+			beside = true, -- on the belt, not pushed back by the pack
 		},
 	},
 	rifle_m91 = {
