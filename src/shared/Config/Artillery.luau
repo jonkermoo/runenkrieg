@@ -131,6 +131,17 @@ export type Gun = {
 		class: string,
 		spread: { min: number, max: number, per: number, recover: number },
 		stand: { level: number, low: number, high: number },
+		reload: {
+			animation: number,
+			lift: number,
+			drop: number,
+			take: number,
+			set: number,
+			fed: number,
+			box: string,
+			grip: { number },
+			sound: any,
+		},
 		eye: { number },
 		over: { number },
 		shield: { top: number, z: number },
@@ -925,6 +936,22 @@ local Artillery = {
 				-- standing and ready"): standing behind it, hands on the spade grips; `low` and `high` with the hands
 				-- where the grips are at its lowest and highest lay, blended in by the lay (Rules/Artillery.mgStand)
 				stand = { level = 90383747593412, low = 75408750546932, high = 82573864374660 },
+				-- the box reload (the gun's `reload` s; user 2026-10-27: "the ammo bag as part of the reload animation";
+				-- tools/animation/mg.luau MGReload, Rules/Artillery.mgReloadShows): seconds into it the empty box comes
+				-- off its tray (`lift`, in the hands) and is put down (`drop`), the full one is taken up (`take`, Config/
+				-- Assets `box`, held by its handle's `grip`) and set on the tray (`set`), its belt fed in (`fed`); the
+				-- belt's rattle into the feed block (Pro Sound Effects "Machine Gun 20") as it is fed
+				reload = {
+					animation = 108385355006568,
+					lift = 1.2,
+					drop = 2.6,
+					take = 3.7,
+					set = 5.3,
+					fed = 7,
+					box = "mg08_box",
+					grip = { 0.04, 1, 0 },
+					sound = { id = 9116340734, volume = 1, at = 6.1, profile = "Gunshot" },
+				},
 				-- (v4, the iron sights: three quarters of a stud behind the rear leaf's V on the sight line, the blade
 				-- between its ears in the V; was half a stud behind the ring sight's peep)
 				eye = { 0, 1.78, 2.688 },

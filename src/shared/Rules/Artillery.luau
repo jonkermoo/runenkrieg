@@ -373,6 +373,17 @@ function Artillery.mgStand(elevation: number, limits: { number }): (number, numb
 	return 0, 1 - w, w
 end
 
+-- What a machine gun shows `t` s into its box reload (Config/Artillery.Guns `mg.reload` `r`; t < 0: none going): its
+-- own box on the tray, a box in the gunner's hands, and its belt's rounds (nil: as the box holds, `box` once fed)
+function Artillery.mgReloadShows(t: number, r: any, box: number): (boolean, boolean, number?)
+	if t < 0 or t < r.lift then
+		return true, false, nil
+	elseif t < r.set then
+		return false, t < r.drop or t >= r.take, 0
+	end
+	return true, false, if t < r.fed then 0 else box
+end
+
 -- How many pixels from the screen's middle a stray of `deg` degrees lands, on a camera with a vertical field of view
 -- of `fov` degrees `height` pixels high
 function Artillery.mgPixels(deg: number, fov: number, height: number): number

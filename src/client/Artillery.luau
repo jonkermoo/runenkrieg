@@ -70,6 +70,10 @@ type Pose = {
 	still: { [BasePart]: CFrame }?,
 	put: { [BasePart]: CFrame }?,
 	belt: number?, -- a machine gun: the rounds its belt shows now
+	box: boolean?, -- and whether its own box shows on its tray
+	carried: Model?, -- the box in its gunner's hands in a box reload
+	reloadOf: number?, -- the reload (its ReadyAt) whose animation and sound were played
+	rattled: number?,
 }
 
 local poses: { [Model]: Pose } = {}
@@ -169,8 +173,8 @@ end
 -- a machine gun's belt as its box empties (user 2026-10-27: "the belt feed showing only the true number of rounds
 -- left"): round i on it (Rounds<i> / Bullets<i>, 1 next into the feed block, tools/blender/mgnest/mg08.py) shown while
 -- the box holds i or more
-local function belt(model: Model, p: Pose)
-	local left = (model:GetAttribute("Rounds") :: number?) or 0
+local function belt(model: Model, p: Pose, shows: number?)
+	local left = shows or (model:GetAttribute("Rounds") :: number?) or 0
 	if left == p.belt then
 		return
 	end
@@ -187,10 +191,12 @@ local function belt(model: Model, p: Pose)
 	end
 end
 
+local reloadBox: (Model, Pose) -> ()
+
 local function pose(model: Model, p: Pose, dt: number)
 	local gun = p.gun
 	if gun.mg then
-		belt(model, p)
+		reloadBox(model, p)
 	end
 	local k = math.min(1, dt * Cfg.Smooth)
 	p.traverse += (((model:GetAttribute("Traverse") :: number?) or 0) - p.traverse) * k
@@ -342,6 +348,79 @@ end
 
 local function loadTrack(character: Model): AnimationTrack?
 	return oneTrack(character, "load", Cfg.Load.animation)
+end
+
+-- a machine gun's box reload (Config/Artillery.Guns `mg.reload`, Rules/Artillery.mgReloadShows), on every client from
+-- its ReadyAt: its own box off the tray while it is changed, the box in the gunner's right hand by its handle, the
+-- belt empty till fed; the gunner's own client plays the animation (it replicates) and the rattle, once a reload, from
+-- where it is (getting on part way)
+reloadBox = function(model: Model, p: Pose)
+	local gun = p.gun
+	local R = (gun.mg :: any).reload
+	local readyAt = model:GetAttribute("ReadyAt") :: number?
+	local t = if readyAt and now() < readyAt then now() - (readyAt - gun.reload) else -1
+	local on, held, shows = Rules.mgReloadShows(t, R, gun.mg.box)
+	belt(model, p, shows)
+	if on ~= p.box then
+		p.box = on
+		for _, name in { "BoxKit", "BoxTrim", "BoxFittings", "Belt" } do
+			local part = p.named[name]
+			if part then
+				part.Transparency = if on then 0 else 1
+			end
+		end
+	end
+	local id = model:GetAttribute("Gunner") :: number?
+	local gunner = id and Players:GetPlayerByUserId(id)
+	local character = gunner and gunner.Character
+	if gunner == Players.LocalPlayer and character and readyAt and t >= 0 and p.reloadOf ~= readyAt then
+		p.reloadOf = readyAt
+		local tr = oneTrack(character, "reload", R.animation)
+		if tr then
+			tr:Play(0.2)
+			tr.TimePosition = t
+		end
+	end
+	if readyAt and t >= R.sound.at and t < R.fed + 1 and p.rattled ~= readyAt then
+		p.rattled = readyAt
+		local feed = p.named.Cradle
+		SoundFx.play(R.sound, if feed then feed.Position else model:GetPivot().Position)
+	end
+	local arm = character and character:FindFirstChild("Right Arm") :: BasePart?
+	if held and arm then
+		if not p.carried then
+			local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+			for _, sub in { "Weapons", "Shared", "Artillery", R.box } do
+				f = f and f:FindFirstChild(sub)
+			end
+			if f and f:IsA("Model") then
+				local c = f:Clone()
+				for _, d in c:GetDescendants() do
+					if d:IsA("BasePart") then
+						d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
+						-- (painted as the gun's own box: SpareKit as BoxKit, ...)
+						local own = p.named[(string.gsub(d.Name, "^Spare", "Box"))]
+						if own then
+							d.Color, d.Material = own.Color, own.Material
+						end
+					end
+				end
+				c.Parent = model
+				p.carried = c
+			end
+		end
+		local c = p.carried
+		if c then
+			-- its handle in the hand, the box along the gun under it
+			local hand = arm.CFrame:PointToWorldSpace(Vector3.new(0, -1, 0))
+			local along = model:GetPivot().Rotation * CFrame.Angles(0, math.rad(p.traverse), 0)
+			local g = R.grip
+			c:PivotTo(CFrame.new(hand) * along * CFrame.new(-g[1], -g[2], -g[3]))
+		end
+	elseif p.carried then
+		p.carried:Destroy()
+		p.carried = nil
+	end
 end
 
 local function load(model: Model, p: Pose, mine: boolean)
@@ -646,8 +725,12 @@ function Artillery.start()
 	for _, gun in Cfg.Guns do
 		SoundFx.preload(gun.sound)
 		if gun.mg then
-			SoundFx.preload({ Shot = gun.mg.shot })
+			SoundFx.preload({ Shot = gun.mg.shot, Rattle = gun.mg.reload.sound })
+			local ids = { gun.mg.reload.animation }
 			for _, id in gun.mg.stand do
+				table.insert(ids, id)
+			end
+			for _, id in ids do
 				local a = Instance.new("Animation")
 				a.AnimationId = `rbxassetid://{id}`
 				table.insert(stands, a)

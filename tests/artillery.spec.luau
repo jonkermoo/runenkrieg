@@ -218,6 +218,23 @@ return {
 		assert(near(a + b + c, 1) and near(c, 0.5))
 		assert(MG.mg.stand.low and MG.mg.stand.level and MG.mg.stand.high)
 	end,
+	["the MG's box reload: the box off its tray into the hands, put down, the full one up and on, the belt fed"] = function()
+		local MG = C.Guns.mg08
+		local r = MG.mg.reload
+		assert(r.lift < r.drop and r.drop < r.take and r.take < r.set and r.set < r.fed and r.fed < MG.reload)
+		local on, held, belt = A.mgReloadShows(-1, r, 100)
+		assert(on and not held and belt == nil, "no reload: as the box holds")
+		on, held, belt = A.mgReloadShows((r.lift + r.drop) / 2, r, 100)
+		assert(not on and held and belt == 0, "the empty box in the hands")
+		on, held = A.mgReloadShows((r.drop + r.take) / 2, r, 100)
+		assert(not on and not held, "put down, the full one not yet taken")
+		on, held = A.mgReloadShows((r.take + r.set) / 2, r, 100)
+		assert(not on and held, "the full one carried")
+		on, held, belt = A.mgReloadShows((r.set + r.fed) / 2, r, 100)
+		assert(on and not held and belt == 0, "on its tray, the belt not yet in")
+		_, _, belt = A.mgReloadShows(r.fed, r, 100)
+		assert(belt == 100, "fed")
+	end,
 	["the MG's jolt is small and settled before its next shot"] = function()
 		local J, MG = C.Fx.Jolt.MG, C.Guns.mg08
 		assert(J.time < A.mgInterval(MG.mg.rate), "done between shots: full auto never stacks it")
