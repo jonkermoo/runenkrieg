@@ -59,6 +59,14 @@ local Assets = {
 			generator = "tools/blender/weapons/export_blend.py",
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
+		pistol_nagant = {
+			id = 100351614666603,
+			category = "Weapons",
+			folder = "Olive/Pistols",
+			source = "assets/weapons/olive/pistol_nagant.fbx",
+			generator = "tools/blender/weapons/nagant.py",
+			description = "Nagant M1895 revolver, the olive team's Engineer pistol (its shape from a low-poly reference: tools/blender/weapons/trace/nagant.py; a round part per chamber shows the rounds left). Rigged from Config/Weapons.",
+		},
 		rifle_g98 = {
 			-- v3: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
 			-- v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)

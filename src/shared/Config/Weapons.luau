@@ -450,6 +450,75 @@ local Weapons: { [string]: Weapon } = {
 		},
 		reload = { knob = { 0, -0.0245, -0.9398 }, clipTop = { 0, -0.05, -0.2 }, entry = 0, body = 0, firstPerson = 0 },
 	},
+	-- The Nagant M1895 revolver (model tools/blender/weapons/nagant.py, its shape from tools/blender/weapons/trace/
+	-- nagant.py): the olive team's Engineer pistol (uniform2), 7 rounds loaded one at a time through the gate on the
+	-- right. Each chamber's round is its own part (Round1, on the bore, then clockwise from behind), shown while loaded
+	-- so the cylinder shows how many are left (user 2026-10-27); the one in the gate's chamber (Round3) is the one to
+	-- clone for a round going in or a case coming out. Model only so far: no ammo (it doesn't fire yet), the shotgun's
+	-- holds borrowed and the Primary slot until the pistol's own holds, slot and holster come with the Engineer.
+	pistol_nagant = {
+		asset = "pistol_nagant",
+		display = "Nagant M1895",
+		slot = "Primary",
+		class = "Pistol",
+		parts = {
+			Metal = { 52, 54, 58 },
+			Cylinder = { 60, 62, 66 },
+			Hammer = { 52, 54, 58 },
+			Trigger = { 52, 54, 58 },
+			Gate = { 60, 62, 66 },
+			Rod = { 60, 62, 66 },
+			Wood = { 120, 78, 52 }, -- the Olive team's warm brown (as its shotgun kit)
+			Bore = { 3, 3, 3 },
+			Chambers = { 3, 3, 3 }, -- the chambers' mouths on the cylinder's front face
+			Round1 = { 196, 160, 84 },
+			Round2 = { 196, 160, 84 },
+			Round3 = { 196, 160, 84 },
+			Round4 = { 196, 160, 84 },
+			Round5 = { 196, 160, 84 },
+			Round6 = { 196, 160, 84 },
+			Round7 = { 196, 160, 84 },
+		},
+		moving = {
+			Cylinder = { 0, 0.0311, 0.0419 }, -- its axis at the rear face: 1/7 turn (51.43 deg) clockwise from behind a shot
+			Chambers = { 0, 0.0311, 0.0419 }, -- turn with the cylinder
+			Round1 = { 0, 0.0311, 0.0419 }, -- the rounds turn with the cylinder too
+			Round2 = { 0, 0.0311, 0.0419 },
+			Round3 = { 0, 0.0311, 0.0419 },
+			Round4 = { 0, 0.0311, 0.0419 },
+			Round5 = { 0, 0.0311, 0.0419 },
+			Round6 = { 0, 0.0311, 0.0419 },
+			Round7 = { 0, 0.0311, 0.0419 },
+			Hammer = { 0, 0.0241, 0.1027 }, -- its pin: back 40 deg on every pull, then falls
+			Trigger = { 0, -0.0501, 0.0095 }, -- the trigger pin
+			Gate = { 0.0476, 0.0051, 0.0557 }, -- hinged at its bottom outer edge: top out to +X 90 deg to load
+			Rod = { 0, 0.0311, -0.2058 }, -- the ejector rod: forward 0.107, swung to the gate's chamber, pushed back through
+		},
+		hidden = {},
+		attachments = {
+			Muzzle = { 0, 0.065, -0.3824 },
+			Aim = { 0, 0.104, 0.6 }, -- the eye, on the sight line through the rear notch to the blade (held out)
+			Eject = { 0.0588, 0.0236, 0.0557 }, -- outside the open gate: the cases come out to the right
+		},
+		grip = { 0, -0.06, 0.17 }, -- the top of the grip, under the hammer's spur
+		holdsOf = "shotgun_m1897",
+		holds = {
+			ready = 101367707858516,
+			equip = 82659479717552,
+		},
+		firstPerson = {
+			ready = 119185102113053,
+			equip = 86411519760958,
+		},
+		scale = { 3, 3, 2.5 }, -- 0.66 -> 1.65 studs long, chunky in the 1-stud hand
+		-- on the right hip, muzzle up (a holster comes with the Engineer)
+		stow = {
+			part = "Torso",
+			at = { 1.1, -0.7, 0.1 },
+			muzzle = { 0, 1, 0 },
+			side = { 1, 0, 0 },
+		},
+	},
 	rifle_m91 = {
 		asset = "rifle_m91",
 		display = "Carcano M91",
