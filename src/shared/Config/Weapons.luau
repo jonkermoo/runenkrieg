@@ -467,7 +467,7 @@ local Weapons: { [string]: Weapon } = {
 	-- nagant.py): the olive team's Engineer pistol (uniform2), 7 rounds loaded one at a time through the gate on the
 	-- right. Each chamber's round is its own part (Round1, on the bore, then clockwise from behind), shown while loaded
 	-- so the cylinder shows how many are left (user 2026-10-27); the one in the gate's chamber (Round3) is the one to
-	-- clone for a round going in or a case coming out. The shotgun's holds are borrowed until the pistols' own.
+	-- clone for a round going in or a case coming out.
 	pistol_nagant = {
 		asset = "pistol_nagant",
 		display = "Nagant M1895",
@@ -513,34 +513,35 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0.0588, 0.0236, 0.0557 }, -- outside the open gate: the cases come out to the right
 		},
 		grip = { 0, -0.06, 0.17 }, -- the top of the grip, under the hammer's spur
-		-- (the shotgun's whole set until the pistols' own: tools/animation/pistol.luau)
-		holdsOf = "shotgun_m1897",
+		-- the pistols' shared one-handed holds (tools/animation/pistol.luau, user 2026-10-28): low ready at the right hip,
+		-- aimed with the arm out and the sights at the right eye, drawn from and put back in the hip holster, a pistol whip
 		holds = {
-			ready = 101367707858516,
-			walk = 133744444432961,
-			carry = 99351977507616,
-			aim = 136227496577518,
-			equip = 82659479717552,
-			unequip = 102627201784629,
-			crouchReady = 97174734111193,
-			crouchWalk = 84800064969228,
-			crouchAim = 76914903412671,
-			tuck = 74538057644512,
-			crouchTuck = 131431173277700,
-			strike = 124895658997873,
+			ready = 122826523630532,
+			walk = 122434527067877,
+			carry = 80809330904226,
+			aim = 84038590960110,
+			equip = 97508888105841,
+			unequip = 112466043060467,
+			crouchReady = 135413534531837,
+			crouchWalk = 89344354850551,
+			crouchAim = 138258680788610,
+			tuck = 121383213037179,
+			crouchTuck = 96054684931143,
+			strike = 102049150363193,
 		},
 		firstPerson = {
-			ready = 119185102113053,
-			carry = 124660991401505,
-			aim = 85472517302410,
-			equip = 86411519760958,
-			unequip = 92360338634937,
-			aimIn = 108346522950809,
-			aimOut = 118548838358261,
-			tuck = 133185583190241,
-			strike = 131249563039741,
+			ready = 119790724998685,
+			carry = 124991959930374,
+			aim = 107841258139965,
+			equip = 138219291439235,
+			unequip = 73304833142389,
+			aimIn = 78209593573590,
+			aimOut = 89028851215242,
+			tuck = 82304215695834,
+			strike = 83755555785006,
 		},
-		shouldered = { 0.4, 1.45, -0.6 }, -- (the shotgun's eye, its holds borrowed)
+		-- aimed one-handed (tools/animation/pistol.luau): the sights at the right eye, the arm out level at the shoulder
+		shouldered = { 0.6, 1.45, -0.125 },
 		scale = { 3, 3, 2.5 }, -- 0.66 -> 1.65 studs long, chunky in the 1-stud hand
 		-- put away: the pistols' shared hip holster (HOLSTER, below)
 		-- the Engineer pistols' roles (the design 2026-10-27): the steady all-rounder, rarely empty. 7 rounds, double
@@ -555,8 +556,8 @@ local Weapons: { [string]: Weapon } = {
 		-- out, a round goes in, the cylinder turns on; at the end the gate shuts (src/client/GunFx.load)
 		single = {
 			seat = { 0.033, 0.0236, 0.07 }, -- just behind the gate's chamber: the round pushed in from there
-			body = 0,
-			firstPerson = 0,
+			body = 132085325515076, -- the gate reload (tools/animation/pistol.luau): the left hand holds it, the right loads
+			firstPerson = 95920477929601,
 			open = 0.5,
 			round = 0.85,
 			close = 0.45,
@@ -572,6 +573,15 @@ local Weapons: { [string]: Weapon } = {
 			hammer = 40, -- degrees back at full cock
 			trigger = 25, -- degrees back on the pull
 			rod = { out = 0.1065, side = { 0.033, -0.0022 }, through = 0.019 },
+		},
+		-- Pro Sound Effects placeholders like the rifles' (Creator Store): "Smith Wesson 38 Revolver 2", the gate opening
+		-- and shutting "Switch Clicks Metallic Dull Pops 21 / 13", a round going in "Pistol Clip 2"; heard far off and
+		-- going by: the rifles' (Config/Firing.Sounds)
+		sounds = {
+			Shot = { id = 9119299387, volume = 2.2 },
+			BoltOpen = { id = 9119718673, volume = 0.6 },
+			BoltClose = { id = 9119718255, volume = 0.6 },
+			ClipIn = { id = 9117396156, volume = 0.6 },
 		},
 		eject = { "Round3" }, -- a fired case punched out of the gate (the gate's chamber's round as the template)
 		bolt = { aim = 0, ready = 0 }, -- (no bolt: nothing to work by hand)
