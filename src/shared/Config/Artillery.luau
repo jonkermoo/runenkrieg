@@ -134,6 +134,7 @@ export type Gun = {
 		eye: { number },
 		over: { number },
 		shield: { top: number, z: number },
+		shoulder: { number },
 		look: number,
 		shot: any,
 	}?,
@@ -914,6 +915,10 @@ local Artillery = {
 				-- face's z) at the gun's lowest, turning with the mount as the shield does, not lifting with the gun
 				over = { 0, 2.95, 2.44 },
 				shield = { top = 2.65, z = 0.36 },
+				-- over the shoulder: the camera's offset right and up from the gunner's head (as Config/Camera.Gun
+				-- Shoulder; user 2026-10-28: "fix the MG's third-person camera so the gun shows past the standing
+				-- gunner"): wide and high enough that the line down to the gun passes over the right shoulder
+				shoulder = { 2.5, 1 },
 				look = 0.12,
 				shot = { id = 134529004435835, volume = 1.8, start = 0.34, stop = 0.9, fade = 0.4, profile = "Gunshot" },
 			},

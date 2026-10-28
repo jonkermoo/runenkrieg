@@ -905,7 +905,7 @@ function Artillery.start()
 		end
 
 		-- a machine gun: as a rifle's camera, looking down its lay: first person over the shield (Rules/Artillery.over),
-		-- over my shoulder at the distance chosen (on Camera.Gun's spring, stopped by walls) with the crosshair where the
+		-- over my shoulder at the distance chosen (on Camera.Gun's spring, `mg.shoulder` out, stopped by walls) with the crosshair where the
 		-- gun points, aimed: into the ring sight (the eye riding the gun as it is drawn) at the aimed field of view; in
 		-- first person all of my own body unseen (user 2026-10-28: "our avatar is still visible so i cant see through my
 		-- helmet or my hair when im crouched on the gun"), every frame, as Roblox's camera would show it again
@@ -933,8 +933,8 @@ function Artillery.start()
 			if mgCur > 0 then
 				local k = math.clamp(mgCur / G.EyeBlend, 0, 1)
 				local base = at:Lerp(head, k)
-				local out = look.RightVector * (G.Shoulder[1] * k)
-					+ Vector3.yAxis * (G.Shoulder[2] * k)
+				local out = look.RightVector * (mg.shoulder[1] * k)
+					+ Vector3.yAxis * (mg.shoulder[2] * k)
 					- look.LookVector * mgCur
 				local hit = workspace:Spherecast(base, CameraCfg.Staff.Radius, out, sweep)
 				at = if hit then base + out.Unit * hit.Distance else base + out
