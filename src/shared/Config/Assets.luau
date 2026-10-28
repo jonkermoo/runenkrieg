@@ -40,6 +40,8 @@ export type Entry = {
 		center: { number }?,
 		-- a soft cloth cap (the Engineer's, user 2026-10-27): no protection, a hit on it is a Head hit (src/server/Helmets)
 		soft: boolean?,
+		-- `brim` for a bald wearer: a cap that sits on its hair, lowered to rest on the bare head (user 2026-10-28)
+		bald: number?,
 	}?,
 	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes); a rigged hair (an Origin marker at
 	-- the head's centre, tools/hair/rig_hair.py) instead says how many bones sway it (src/client/HairMotion)
@@ -832,6 +834,7 @@ local Assets = {
 				shell = "side",
 				center = { 0.0027, 0.2637, -0.0074 },
 				soft = true,
+				bald = 0.3, -- 0.18 down to the crown: bald, it floated on its curtain's edge (user 2026-10-28)
 			},
 		},
 		cap_trench = {
