@@ -362,6 +362,17 @@ function Artillery.mgSpread(heat: number, spread: any): number
 	return spread.min + (spread.max - spread.min) * math.clamp(heat, 0, 1)
 end
 
+-- The weights of a machine gunner's stances (Config/Artillery.Guns `mg.stand`: low, level, high) at an `elevation` in
+-- the gun's `limits`: level at 0, all low at the lowest lay, all high at the highest, in between both shares
+function Artillery.mgStand(elevation: number, limits: { number }): (number, number, number)
+	if elevation < 0 then
+		local w = math.clamp(elevation / limits[1], 0, 1)
+		return w, 1 - w, 0
+	end
+	local w = math.clamp(elevation / limits[2], 0, 1)
+	return 0, 1 - w, w
+end
+
 -- How many pixels from the screen's middle a stray of `deg` degrees lands, on a camera with a vertical field of view
 -- of `fov` degrees `height` pixels high
 function Artillery.mgPixels(deg: number, fov: number, height: number): number

@@ -130,7 +130,7 @@ export type Gun = {
 		range: number,
 		class: string,
 		spread: { min: number, max: number, per: number, recover: number },
-		stand: number,
+		stand: { level: number, low: number, high: number },
 		eye: { number },
 		over: { number },
 		shield: { top: number, z: number },
@@ -911,8 +911,9 @@ local Artillery = {
 				class = "MachineGun",
 				spread = { min = 0.6, max = 1.5, per = 0.06, recover = 0.3 }, -- (hot after ~50 rounds held, cool ~3 s after)
 				-- the gunner's pose while manning it (tools/animation/mg.luau MGStand, a loop; user 2026-10-28: "make it
-				-- standing and ready"): standing behind it, hands on the spade grips
-				stand = 90383747593412,
+				-- standing and ready"): standing behind it, hands on the spade grips; `low` and `high` with the hands
+				-- where the grips are at its lowest and highest lay, blended in by the lay (Rules/Artillery.mgStand)
+				stand = { level = 90383747593412, low = 75408750546932, high = 82573864374660 },
 				eye = { 0, 1.78, 2.44 },
 				-- the eye at the hip, in first person (user 2026-10-28: "can you move the camera up more since the
 				-- shield in the way of the camera"): over the shield's top (`shield`: its arch's top with the rim, its

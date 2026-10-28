@@ -205,6 +205,19 @@ return {
 		assert(d.rimHeight <= 5) -- user 2026-10-25: "the mound should be player height or less"
 		assert(d.depth + d.rimHeight >= 14.8) -- as much cover over the bed as before
 	end,
+	["the MG gunner's stances blend by the lay: level at 0, all low or high at its stops"] = function()
+		local MG = C.Guns.mg08
+		local lim = MG.elevation
+		local a, b, c = A.mgStand(0, lim)
+		assert(a == 0 and b == 1 and c == 0)
+		a, b, c = A.mgStand(lim[1], lim)
+		assert(near(a, 1) and near(b, 0) and c == 0)
+		a, b, c = A.mgStand(lim[2], lim)
+		assert(a == 0 and near(b, 0) and near(c, 1))
+		a, b, c = A.mgStand(lim[2] / 2, lim)
+		assert(near(a + b + c, 1) and near(c, 0.5))
+		assert(MG.mg.stand.low and MG.mg.stand.level and MG.mg.stand.high)
+	end,
 	["the MG's jolt is small and settled before its next shot"] = function()
 		local J, MG = C.Fx.Jolt.MG, C.Guns.mg08
 		assert(J.time < A.mgInterval(MG.mg.rate), "done between shots: full auto never stacks it")

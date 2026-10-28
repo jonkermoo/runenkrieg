@@ -290,7 +290,7 @@ local function roundTemplate(): Model?
 	return if f and f:IsA("Model") then f else nil
 end
 
--- one of the gunner's tracks (`key`: "load", "brace", "crank", "stand"), made (and so fetched) ahead of its first play
+-- one of the gunner's tracks (`key`: "load", "brace", "crank", "stand" low / level / high), made (and so fetched) ahead of its first play
 local function oneTrack(character: Model, key: string, id: number?): AnimationTrack?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
@@ -622,9 +622,11 @@ function Artillery.start()
 		SoundFx.preload(gun.sound)
 		if gun.mg then
 			SoundFx.preload({ Shot = gun.mg.shot })
-			local a = Instance.new("Animation")
-			a.AnimationId = `rbxassetid://{gun.mg.stand}`
-			table.insert(stands, a)
+			for _, id in gun.mg.stand do
+				local a = Instance.new("Animation")
+				a.AnimationId = `rbxassetid://{id}`
+				table.insert(stands, a)
+			end
 		end
 	end
 	task.spawn(function()
@@ -759,11 +761,16 @@ function Artillery.start()
 			mgCur, mgSpeed, mgAimed, aimT, heat = mgDist, 0, false, 0, 0
 			onMg = true
 			WeaponCamera.manning(true)
-			-- standing ready at the grips (Config/Artillery.Guns `mg.stand`), till I get off
+			-- standing ready at the grips (Config/Artillery.Guns `mg.stand`), till I get off: its three stances
+			-- weighted by the lay as it is drawn
 			local character = player.Character
-			local stand = character and oneTrack(character, "stand", p.gun.mg.stand)
-			if stand then
-				stand:Play(0.2)
+			if character then
+				for k, id in p.gun.mg.stand do
+					local tr = oneTrack(character, "stand" .. k, id)
+					if tr then
+						tr:Play(0.2, 0.001)
+					end
+				end
 			end
 		else
 			camera.FieldOfView = p.gun.camera.fov
@@ -962,6 +969,16 @@ function Artillery.start()
 				across = 2 * Rules.mgPixels(Rules.mgSpread(heat, mg.spread), camera.FieldOfView, camera.ViewportSize.Y)
 			end
 			Crosshair.point(true, pointAt, across)
+			local set = tracks[character]
+			if set then
+				local low, level, high = Rules.mgStand(p.elevation, gun.elevation)
+				for k, w in { low = low, level = level, high = high } do
+					local tr = (set :: any)["stand" .. k] :: AnimationTrack?
+					if tr and tr.IsPlaying then
+						tr:AdjustWeight(math.max(w, 0.001), 0.1)
+					end
+				end
+			end
 			local hide = mgCur < CameraCfg.Handover.near
 			if hide or hide ~= bodyHidden then
 				bodyHidden = hide
