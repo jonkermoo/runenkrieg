@@ -307,8 +307,15 @@ return {
 			assert(a and a.capacity >= 1 and clips[a.clip], `{name}: ammo`)
 			if act and act.auto then
 				-- a semi-automatic (W2): the bolt slides straight back by itself, one shot per fireTime
-				assert(w.class == "SemiRifle" and act.turn == 0 and act.travel > 0, `{name}: self-cycling bolt`)
-				assert(act.fireTime and act.fireTime >= 0.35, `{name}: at most one shot every 0.35 s`)
+				-- (a semi-automatic pistol, the C96: the pistols' shared rate, Config/Firing.PistolFireTime)
+				local pistol = w.class == "Pistol"
+				assert(
+					(w.class == "SemiRifle" or pistol) and act.turn == 0 and act.travel > 0,
+					`{name}: self-cycling bolt`
+				)
+				local least = if pistol then Cfg.PistolFireTime else 0.35
+				local fire = act.fireTime or (if pistol then Cfg.PistolFireTime else nil)
+				assert(fire and fire >= least, `{name}: at most one shot every {least} s`)
 				assert(act.reloadTime > act.boltTime, `{name}: action times`)
 				assert((a.clipSize or a.capacity) <= a.capacity, `{name}: clip size`)
 			elseif a.clip == "Gate" then
