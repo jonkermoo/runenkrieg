@@ -109,8 +109,9 @@ local function hair(character: Model, head: BasePart, shell: string?): Model?
 	return wear(model, head, "Hair")
 end
 
--- The helmet's library copy in its fit colors, at its brim height on the head (as src/dev/HairPreview.helmet).
-local function helmet(entry: string, head: BasePart): Model?
+-- The helmet's library copy in its fit colors, at its brim height on the head (as src/dev/HairPreview.helmet); on a
+-- bald head (no hair under it) at its `bald` height when it has one.
+local function helmet(entry: string, head: BasePart, bald: boolean): Model?
 	local src = library(entry)
 	if not src then
 		return nil
@@ -133,7 +134,8 @@ local function helmet(entry: string, head: BasePart): Model?
 		return nil
 	end
 	local c = fit.center or { 0, 0, 0 }
-	local want = head.CFrame * CFrame.new(c[1], fit.brim + c[2], c[3]) * shell.CFrame.Rotation
+	local brim = if bald and fit.bald then fit.bald else fit.brim
+	local want = head.CFrame * CFrame.new(c[1], brim + c[2], c[3]) * shell.CFrame.Rotation
 	model:PivotTo(want * shell.CFrame:Inverse() * model:GetPivot())
 	return wear(model, head, "Helmet")
 end
@@ -172,8 +174,9 @@ function Helmets.dress(character: Model, headwear: string?, species: string?)
 	if headwear then
 		headwear = Looks.helmetEntry(headwear, species, A.Entries)
 	end
-	local on = headwear and helmet(headwear, head)
-	local shell = if on and headwear then (A.Entries[headwear].fit :: any).shell else nil
+	-- the hair first: a cap that sits on its hair sits lower on a bald head (fit.bald)
+	local fit = headwear and A.Entries[headwear] and A.Entries[headwear].fit :: any
+	local shell = fit and fit.shell
 	if shell then
 		character:SetAttribute("HairShell", shell)
 	end
@@ -186,6 +189,7 @@ function Helmets.dress(character: Model, headwear: string?, species: string?)
 	if h then
 		h.Parent = character
 	end
+	local on = headwear and helmet(headwear, head, h == nil)
 	-- a soft cap (fit.soft: the Engineer's, user 2026-10-27 "a cap that isnt bullet proof") saves no one (Helmets.soft)
 	character:SetAttribute("HelmetSoft", if on and headwear then (A.Entries[headwear].fit :: any).soft == true else nil)
 	if on then
