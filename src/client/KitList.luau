@@ -2,8 +2,10 @@
 -- The kit list (user 2026-10-27: "i dont like the robblox default one", "make it a kit list but move it on the left"):
 -- Roblox's default hotbar is off; in its place, bottom left, one row per item carried this life (Config/Hud.Kit,
 -- Rules/KitList; layout src/shared/ui/CombatHud.json "Kit"): its number key, its name (Config/Weapons `display`) and a
--- grenade's count. The row in the hands is darker, the team's rim on its left edge (Palette.UI.Hud.Teams by the
--- character's "Kit"). Shown for Kit.linger seconds after any change (a number key, a draw or put-away, an item come or
+-- grenade's count. Stencil plates (user 2026-10-27, option A of the restyle drafts: "Stencil plates with the basic
+-- font"): cut corners, the key in a stamped square, the name in capitals; the row in the hands filled with the team's rim
+-- colour, its words dark, sticking out further, the others the team's field (Palette.UI.Hud.Teams by the character's
+-- "Kit"). Shown for Kit.linger seconds after any change (a number key, a draw or put-away, an item come or
 -- gone, a count), then faded out; kept up while build mode is open (src/client/Build); hidden while aiming (the
 -- character's "Aiming", src/client/Stance) and with no living soldier. Once carried, a slot keeps its row for the life:
 -- the last grenade thrown (the server destroys its Tool) leaves the row greyed at x0, so the keys never move.
@@ -39,7 +41,7 @@ end
 type Slot = Rules.Row & { name: string, tool: Tool?, count: number? }
 
 -- a row on screen and its pieces
-type Row = { frame: Frame, edge: Frame, key: TextLabel, name: TextLabel, count: TextLabel }
+type Row = { frame: Frame, keyBox: Frame, stamp: UIStroke, key: TextLabel, name: TextLabel, count: TextLabel }
 
 function KitList.start()
 	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
@@ -48,6 +50,7 @@ function KitList.start()
 	local hud = HudKit.panel("Kit", "KitList", true) -- (the HUD size setting scales it)
 	local template = hud.node.KitRow :: Frame
 	template.Visible = false
+	local height = template.Size.Y
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Vertical
 	layout.VerticalAlignment = Enum.VerticalAlignment.Bottom
@@ -85,10 +88,12 @@ function KitList.start()
 			f.LayoutOrder = i
 			f.Visible = true
 			f.Parent = hud.panel
+			local keyBox = f:FindFirstChild("KitKeyBox") :: Frame
 			table.insert(rows, {
 				frame = f,
-				edge = f:FindFirstChild("KitEdge") :: Frame,
-				key = f:FindFirstChild("KitKey") :: TextLabel,
+				keyBox = keyBox,
+				stamp = keyBox:FindFirstChildOfClass("UIStroke") :: UIStroke,
+				key = keyBox:FindFirstChild("KitKey") :: TextLabel,
 				name = f:FindFirstChild("KitName") :: TextLabel,
 				count = f:FindFirstChild("KitCount") :: TextLabel,
 			})
@@ -182,20 +187,25 @@ function KitList.start()
 		drawn = sig
 		hud.gui.Enabled = alpha > 0
 		local hide = 1 - alpha
+		local dark = rgb("kitHeldText")
 		for i, s in order do
 			local r = rows[i]
 			local on = chosen ~= nil and s.tool == chosen
 			local empty = s.tool == nil
-			r.frame.BackgroundColor3 = field
-			r.frame.BackgroundTransparency = 1 - (1 - (if on then K.fieldHeld else K.field)) * alpha
-			r.edge.BackgroundColor3 = rim
-			r.edge.BackgroundTransparency = if on then 1 - (1 - (if held then 0 else K.pending)) * alpha else 1
+			local see = if not on then K.field elseif held then K.fieldHeld else K.pending
+			HudKit.paint(r.frame, if on then rim else field, 1 - (1 - see) * alpha)
+			r.frame.Size = UDim2.new(1, if on then K.out else 0, height.Scale, height.Offset)
+			-- the key's stamp: an outline, filled dark with the key in the team's colour in the hands
+			r.keyBox.BackgroundColor3 = dark
+			r.keyBox.BackgroundTransparency = if on then hide else 1
+			r.stamp.Color = if on then dark else rgb("kitKey")
+			r.stamp.Transparency = hide
 			r.key.TextColor3 = if on then rim else rgb("kitKey")
-			r.name.Text = s.name
-			r.name.TextColor3 = if empty then rgb("kitEmpty") elseif on then rgb("readout") else rgb("kitName")
+			r.name.Text = string.upper(s.name)
+			r.name.TextColor3 = if empty then rgb("kitEmpty") elseif on then dark else rgb("kitName")
 			r.count.Visible = s.count ~= nil
 			r.count.Text = string.format(K.count, s.count or 0)
-			r.count.TextColor3 = if s.count == 0 then rgb("countLow") else rgb("count")
+			r.count.TextColor3 = if s.count == 0 then rgb("countLow") elseif on then dark else rgb("count")
 			for _, l in { r.key, r.name, r.count } do
 				l.TextTransparency = hide
 			end

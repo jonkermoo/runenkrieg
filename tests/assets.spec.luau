@@ -57,8 +57,10 @@ return {
 			if e.fit and e.fit.attachment == "HatAttachment" then
 				assert(type(e.fit.shell) == "string", `{name}: no fit.shell`)
 				assert(e.fit.center and #e.fit.center == 3, `{name}: fit.center needs 3 numbers`)
+				-- a helmet's or a soft cap's (fit.soft: the Engineer's caps) own shell
+				local kind = if e.fit.soft then "cap_" else "helmet_"
 				assert(
-					string.find(name, "helmet_" .. e.fit.shell, 1, true) == 1,
+					string.find(name, kind .. e.fit.shell, 1, true) == 1,
 					`{name}: shell {e.fit.shell} isn't its own`
 				)
 			end

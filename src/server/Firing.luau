@@ -252,6 +252,12 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 		if who and Damage.spares(character, who) then
 			who = nil -- (a teammate's helmet stays on: Config/Damage.FriendlyFire)
 		end
+		if who and Helmets.soft(who) then
+			-- through a soft cap's crown, above the skull: the cap flies off, no wound, the bullet flies on
+			-- (user 2026-10-27)
+			Helmets.knockOff(who, line)
+			who = nil
+		end
 		if who and struck and at and far then
 			Helmets.knockOff(who, line)
 			table.insert(wounds, { part = struck, point = at, direction = line, distance = far, helmet = true })
@@ -261,7 +267,9 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 		if result and not start then
 			-- a helmet shot off (src/server/Helmets), then the damage (src/server/Damage)
 			local mate = Damage.spares(character, result.Instance.Parent)
-			local helmet = not mate and Helmets.hit(result.Instance, result.Position, line)
+			-- a soft cap comes off too, but the hit stays a Head hit (Helmets.soft)
+			local soft = Helmets.soft(result.Instance.Parent)
+			local helmet = not mate and Helmets.hit(result.Instance, result.Position, line) and not soft
 			table.insert(wounds, {
 				part = result.Instance,
 				point = result.Position,
