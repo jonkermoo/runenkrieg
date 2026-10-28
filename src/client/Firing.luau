@@ -49,7 +49,7 @@ local function gunOf(name: string): F.Gun
 		clip = w.ammo.clip,
 		boltTime = w.action.boltTime,
 		reloadTime = w.action.reloadTime,
-		fireTime = w.action.fireTime or Cfg.FireTime,
+		fireTime = w.action.fireTime or (if w.class == "Pistol" then Cfg.PistolFireTime else Cfg.FireTime),
 		auto = w.action.auto,
 		clipSize = w.ammo.clipSize,
 		clipTime = w.action.clipTime,
@@ -97,6 +97,7 @@ local function localState(tool: Tool, name: string): Local
 			elseif parent and parent:FindFirstChildOfClass("Humanoid") and parent ~= holder then
 				F.resume(l.state, now, Cfg.Resume.delay)
 				local character = parent :: Model
+				GunFx.drum(character, name, F.rounds(l.state)) -- (a revolver: its cylinder as it stands)
 				task.delay(Cfg.Resume.delay, function()
 					local c = GunFx.takeCut(tool)
 					if c and tool.Parent == character then
@@ -288,7 +289,9 @@ function Firing.start()
 			local first = table.remove(hits, 1) :: any
 			GunFx.shot(character, first[1], first[2], first[3], if #hits > 0 then hits else nil)
 			Sway.kick(W[weapon.name].recoil)
-			if l.gun.auto then
+			if l.gun.clip == "Gate" then
+				GunFx.revolve(character, weapon.name, F.rounds(l.state)) -- a revolver: the cylinder turns on
+			elseif l.gun.auto then
 				-- the action cycles itself (held open after the last round)
 				local to = if l.state.open then Cfg.AutoCycle.back else 1
 				GunFx.cycle(character, weapon.name, "Auto", out, l.state.magazine, 0, to)
@@ -395,7 +398,12 @@ function Firing.start()
 			GunFx.shot(shooter, hit, normal, part, more, true)
 			local w = type(weapon) == "string" and W[weapon]
 			local tool = shooter:FindFirstChildOfClass("Tool")
-			if w and w.action and w.action.auto and tool then
+			if w and w.revolver and tool then
+				-- a revolver's cylinder turning on (the server's count is published before the shot goes out)
+				local m = tool:GetAttribute("Magazine")
+				local live = (if type(m) == "number" then m else 0) + (if tool:GetAttribute("Chambered") then 1 else 0)
+				GunFx.revolve(shooter, weapon, live)
+			elseif w and w.action and w.action.auto and tool then
 				-- a semi-automatic's own action (the server's state is published before the shot goes out)
 				local open = tool:GetAttribute("Open") == true
 				local m = tool:GetAttribute("Magazine")
@@ -418,7 +426,9 @@ function Firing.start()
 				local magazine = tool:GetAttribute("Magazine")
 				local m = if type(magazine) == "number" then magazine else 0
 				if action == "Load" then
-					GunFx.load(shooter, name, out, from or 0, to, W[name].ammo.capacity - m)
+					-- (the room: a revolver's capacity counts the chamber under the hammer)
+					local under = W[name].revolver ~= nil and tool:GetAttribute("Chambered") == true
+					GunFx.load(shooter, name, out, from or 0, to, W[name].ammo.capacity - m - (if under then 1 else 0))
 				elseif action == "LoadStop" then
 					GunFx.loadStop(shooter, to or 0)
 				else

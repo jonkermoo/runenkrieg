@@ -127,7 +127,11 @@ local Hud = {
 			Clip = "{key}: load a clip",
 			Box = "{key}: new magazine",
 			Shells = "{key}: load shells",
+			Rounds = "{key}: load rounds", -- a revolver's gate
 		},
+		-- a revolver's cylinder (src/client/AmmoHud): the camera this many cylinder sizes off, from behind, right and up
+		-- (gun space), its field of view
+		drum = { distance = 1.6, from = { 0.45, 0.35, 1 }, fov = 40 },
 	},
 
 	-- a crystal in a cut-away (src/client/HudKit.shine: the staff's gem, the howitzer's): its own colour full, darkened
