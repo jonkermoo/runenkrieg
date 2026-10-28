@@ -646,7 +646,7 @@ local Artillery = {
 		-- high elevation so the gem under the breech clears the turntable (~1 at 80). Dug in when placed (`dig`).
 		artillery_howitzer = {
 			asset = "artillery_howitzer",
-			name = "Magic howitzer",
+			name = "42 cm Rune mortar",
 			base = "Bed",
 			mount = {
 				"Mount",

@@ -44,7 +44,7 @@ local function build(player: Player): ScreenGui
 		end)
 	end
 	-- artillery at the aim point (src/server/Artillery), and clearing them
-	local names = { artillery_qf18 = "Place field gun", artillery_howitzer = "Place howitzer" }
+	local names = { artillery_qf18 = "Place field gun", artillery_howitzer = "Place rune mortar" }
 	for _, key in B.Guns do
 		order += 1
 		DevPanel.button(p.panel, "Gun_" .. key, names[key] or key, order).Activated:Connect(function()
