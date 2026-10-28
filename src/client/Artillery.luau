@@ -14,10 +14,11 @@
 --   heard late and duller far off.
 -- - a machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08): the rifle's camera rules (user 2026-10-27: "make
 --   the machine gun have the same camera rules as rifles when it comes to first and third person (ADS rules)"; Config/
---   Camera.Gun, Rules/Camera): first person from the gunner's eye or over the shoulder, the wheel stepping between, the
---   aim key gliding into its ring sight (the eye turning and lifting with the gun, Rules/Artillery.eye) at the aimed
---   field of view, the hip one the player's own; it starts at the view I had (WeaponCamera.view, scaled to the gun
---   camera's range) and hands the view it has back as I get off; my own body unseen inside. The mouse lays it
+--   Camera.Gun, Rules/Camera): first person over the shield (Rules/Artillery.over) or over the shoulder (the crosshair
+--   where the gun points), the wheel stepping between, the aim key gliding into its ring sight (the eye turning and
+--   lifting with the gun, Rules/Artillery.eye) at the aimed field of view, the hip one the player's own; it starts at
+--   the view I had (WeaponCamera.view, scaled to the gun camera's range) and hands the view it has back as I get off;
+--   my own body unseen in first person. The mouse lays it
 --   (`mg.look` degrees a pixel, within its traverse and elevation), the fire key held fires (Net "Artillery"
 --   "Trigger"), the reload key swaps the box ("Reload"); no arc. Everyone's bullets ("MGShot"): the flash and report at
 --   the muzzle, the tracer, the hole (src/client/GunFx).
@@ -46,6 +47,7 @@ local ArtilleryFx = require(script.Parent.ArtilleryFx)
 local GunFx = require(script.Parent.GunFx)
 local Settings = require(script.Parent.Settings)
 local SoundFx = require(script.Parent.SoundFx)
+local Crosshair = require(script.Parent.Crosshair)
 local Vfx = require(script.Parent.Vfx)
 local WeaponCamera = require(script.Parent.WeaponCamera)
 
@@ -724,6 +726,7 @@ function Artillery.start()
 		if onMg then
 			-- Roblox's camera back at the view I had on the gun
 			onMg, mgAimed = false, false
+			Crosshair.point(false, nil)
 			WeaponCamera.manning(false)
 			WeaponCamera.handBack(mgDist, G.MaxZoom)
 			return
@@ -887,22 +890,21 @@ function Artillery.start()
 			Net.event("Artillery"):FireServer("Aim", wantYaw, wantElevation)
 		end
 
-		-- a machine gun: as a rifle's camera, looking down its lay: first person from my eye, over my shoulder at the
-		-- distance chosen (on Camera.Gun's spring, stopped by walls), aimed: into the ring sight (the eye riding the gun
-		-- as it is drawn) at the aimed field of view; my own body unseen inside my head
+		-- a machine gun: as a rifle's camera, looking down its lay: first person over the shield (Rules/Artillery.over),
+		-- over my shoulder at the distance chosen (on Camera.Gun's spring, stopped by walls) with the crosshair where the
+		-- gun points, aimed: into the ring sight (the eye riding the gun as it is drawn) at the aimed field of view; in
+		-- first person all of my own body unseen (user 2026-10-28: "our avatar is still visible so i cant see through my
+		-- helmet or my hair when im crouched on the gun"), every frame, as Roblox's camera would show it again
 		if mg then
 			local pivot = model:GetPivot()
 			local lay = CFrame.Angles(0, math.rad(p.traverse), 0) * CFrame.Angles(math.rad(p.elevation), 0, 0)
 			local ex, ey, ez = Rules.eye(gun, p.traverse, p.elevation)
 			local sight = pivot * CFrame.new(ex, ey, ez) * lay
 			local look = pivot.Rotation * lay
-			local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
-			local humanoid = character:FindFirstChildOfClass("Humanoid")
-			local head = (if root then root.Position else sight.Position)
-				+ Vector3.new(0, 1.5, 0)
-				+ (if humanoid then humanoid.CameraOffset else Vector3.zero)
-			local E = CameraCfg.Eye
-			local eye = CFrame.new(head + look:VectorToWorldSpace(Vector3.new(E[1], E[2], E[3]))) * look
+			local hx, hy, hz = Rules.over(gun, p.traverse)
+			local eye = CFrame.new((pivot * CFrame.new(hx, hy, hz)).Position) * look
+			local headPart = character:FindFirstChild("Head") :: BasePart?
+			local head = if headPart then headPart.Position else eye.Position
 			local inSight = if mgAimed and mgCur < 0.02 then 1 else 0
 			aimT += (inSight - aimT) * (1 - math.exp(-CameraCfg.AimEase * dt))
 			local first = eye:Lerp(sight, aimT * aimT * (3 - 2 * aimT))
@@ -913,13 +915,13 @@ function Artillery.start()
 			end
 			mgCur = math.max(mgCur, 0)
 			local at = first.Position
+			sweep.FilterDescendantsInstances = { character, model, camera }
 			if mgCur > 0 then
 				local k = math.clamp(mgCur / G.EyeBlend, 0, 1)
 				local base = at:Lerp(head, k)
 				local out = look.RightVector * (G.Shoulder[1] * k)
 					+ Vector3.yAxis * (G.Shoulder[2] * k)
 					- look.LookVector * mgCur
-				sweep.FilterDescendantsInstances = { character, model, camera }
 				local hit = workspace:Spherecast(base, CameraCfg.Staff.Radius, out, sweep)
 				at = if hit then base + out.Unit * hit.Distance else base + out
 			end
@@ -932,8 +934,18 @@ function Artillery.start()
 			local goalFov = if aimed then SettingsRules.aimFov(hip, CameraCfg.Fov, CameraCfg.AimFov) else hip
 			local rate = if aimed then CameraCfg.AimEase else CameraCfg.Ease
 			camera.FieldOfView += (goalFov - camera.FieldOfView) * (1 - math.exp(-rate * dt))
-			local hide = (at - head).Magnitude < CameraCfg.Handover.near
-			if hide ~= bodyHidden then
+			-- over the shoulder: the crosshair on what the sight line meets (parallel to the bore, a hand above it)
+			local shoulder = mgCur >= CameraCfg.Handover.near and not aimed
+			local pointAt: Vector2? = nil
+			if shoulder then
+				local line = look.LookVector * mg.range
+				local hit = workspace:Raycast(sight.Position, line, sweep)
+				local spot, onScreen = camera:WorldToViewportPoint(if hit then hit.Position else sight.Position + line)
+				pointAt = if onScreen then Vector2.new(spot.X, spot.Y) else nil
+			end
+			Crosshair.point(true, pointAt)
+			local hide = mgCur < CameraCfg.Handover.near
+			if hide or hide ~= bodyHidden then
 				bodyHidden = hide
 				for _, d in character:GetDescendants() do
 					if d:IsA("BasePart") or d:IsA("Decal") then

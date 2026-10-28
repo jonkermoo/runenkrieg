@@ -325,6 +325,13 @@ function Artillery.eye(gun: any, traverse: number, elevation: number): (number, 
 	return aboutY(x, y, z, traverse)
 end
 
+-- The eye of a machine gun's gunner at the hip (gun space, Config/Artillery.Guns `mg.over`) for a traverse: over the
+-- shield, turning with the mount as the shield does (the gun's lift leaves it)
+function Artillery.over(gun: any, traverse: number): (number, number, number)
+	local e = gun.mg.over
+	return aboutY(e[1], e[2], e[3], traverse)
+end
+
 -- A machine gun laid by the mouse (`dx`, `dy` pixels; Config/Artillery.Guns `mg.look` degrees a pixel): the wanted
 -- yaw and elevation after it, straight off, the yaw within its traverse of the gun's own `base` yaw (no swinging past
 -- its stops) and the elevation within its limits

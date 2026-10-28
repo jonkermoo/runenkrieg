@@ -136,6 +136,8 @@ export type Gun = {
 		class: string,
 		spread: { min: number, max: number, per: number, recover: number },
 		eye: { number },
+		over: { number },
+		shield: { top: number, z: number },
 		look: number,
 		shot: any,
 	}?,
@@ -909,6 +911,11 @@ local Artillery = {
 				class = "MachineGun",
 				spread = { min = 0.6, max = 1.5, per = 0.06, recover = 0.3 }, -- (hot after ~50 rounds held, cool ~3 s after)
 				eye = { 0, 1.78, 2.44 },
+				-- the eye at the hip, in first person (user 2026-10-28: "can you move the camera up more since the
+				-- shield in the way of the camera"): over the shield's top (`shield`: its arch's top with the rim, its
+				-- face's z) at the gun's lowest, turning with the mount as the shield does, not lifting with the gun
+				over = { 0, 2.95, 2.44 },
+				shield = { top = 2.65, z = 0.36 },
 				look = 0.12,
 				shot = { id = 134529004435835, volume = 1.8, start = 0.34, stop = 0.9, fade = 0.4, profile = "Gunshot" },
 			},

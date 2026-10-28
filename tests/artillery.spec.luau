@@ -330,6 +330,16 @@ return {
 		local xl = A.eye(MG, 15, 0)
 		assert(xl > 0, "turned left the eye (behind) swings right")
 	end,
+	["the MG gunner's hip eye sees over the shield at the gun's lowest, and turns with the mount"] = function()
+		local MG = C.Guns.mg08
+		local _, y, z = A.over(MG, 0)
+		local S = MG.mg.shield
+		local drop = (z - S.z) * math.tan(math.rad(-MG.elevation[1]))
+		assert(y - drop > S.top, "the line down the lay at its lowest clears the shield's top")
+		local _, yt = A.over(MG, 15)
+		assert(near(yt, y), "the gun's traverse leaves its height")
+		assert(A.over(MG, 15) > 0, "turned left the eye (behind) swings right")
+	end,
 	["the mouse lays the MG within its stops, never swinging the gun"] = function()
 		local MG = C.Guns.mg08
 		local y, e = A.mgLay(30, 0, 30, -10, 0, MG)
