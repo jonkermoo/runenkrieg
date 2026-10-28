@@ -614,7 +614,15 @@ local Weapons: { [string]: Weapon } = {
 		},
 		eject = { "Round1" }, -- (the cases thrown out on a reload: each chamber's own round, src/client/GunFx)
 		bolt = { aim = 0, ready = 0 }, -- (no bolt: nothing to work by hand)
-		reload = { knob = { 0, 0, 0 }, clipTop = { 0, 0.077, 0.0375 }, entry = 0, body = 0, firstPerson = 0 },
+		-- the break-open reload's arms (tools/animation/pistol.luau, its break-open section): the left hand breaks it
+		-- open, drops six rounds in from behind and shuts it
+		reload = {
+			knob = { 0, 0, 0 },
+			clipTop = { 0, 0.077, 0.0375 },
+			entry = 0,
+			body = 117629883702939,
+			firstPerson = 138112105248872,
+		},
 		recoil = { scale = 1.3, build = 0.5, max = 2.8, cool = 1.3 },
 	},
 	-- The Nagant M1895 revolver (model tools/blender/weapons/nagant.py, its shape from tools/blender/weapons/trace/
