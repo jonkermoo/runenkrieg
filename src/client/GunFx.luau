@@ -1239,7 +1239,7 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 	local turn, travel = math.rad(w.action.turn), w.action.travel * s[3]
 	O, R, CL = single.open or O, single.round or R, single.close or CL
 	-- loose shells (a pump gun): the action stays shut, unless it was held open ("Open"): then it closes at the end
-	-- a revolver's gate (Config/Weapons evolver): nothing to open either, the gate and the rod instead (loadDrum)
+	-- a revolver's gate (Config/Weapons `revolver`): nothing to open either, the gate and the rod instead (loadDrum)
 	local rv = w.revolver
 	local live = W[weapon].ammo.capacity - room -- (a revolver: rounds in it at the start)
 	local loose = w.ammo.clip == "Loose" or rv ~= nil
