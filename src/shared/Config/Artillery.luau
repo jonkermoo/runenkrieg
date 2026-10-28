@@ -126,8 +126,8 @@ export type Gun = {
 	-- fire at `rate` rounds a minute from a box of `box` (the gun's `reload` swaps it, on the reload key or once it is
 	-- empty), each a bullet out to `range` studs hurting as Config/Damage.Weapons[`class`]; it strays `spread.min`
 	-- degrees, growing `spread.per` of the way to `spread.max` a shot and settling back at `spread.recover` of it a
-	-- second; the gunner looks from `eye` (gun space, through the rear sight, turning and lifting with the gun) at `fov`,
-	-- the mouse laying it `look` degrees a pixel; `shot` its report (Config/Audio profile Gunshot)
+	-- second; aimed, the gunner looks from `eye` (gun space, through the rear sight, turning and lifting with the
+	-- gun; else the rifle's camera, Config/Camera.Gun), the mouse laying it `look` degrees a pixel; `shot` its report (Config/Audio profile Gunshot)
 	mg: {
 		rate: number,
 		box: number,
@@ -135,7 +135,6 @@ export type Gun = {
 		class: string,
 		spread: { min: number, max: number, per: number, recover: number },
 		eye: { number },
-		fov: number,
 		look: number,
 		shot: any,
 	}?,
@@ -909,7 +908,6 @@ local Artillery = {
 				class = "MachineGun",
 				spread = { min = 0.6, max = 1.5, per = 0.06, recover = 0.3 }, -- (hot after ~50 rounds held, cool ~3 s after)
 				eye = { 0, 1.78, 2.44 },
-				fov = 60,
 				look = 0.12,
 				shot = { id = 134529004435835, volume = 1.8, start = 0.34, stop = 0.9, fade = 0.4, profile = "Gunshot" },
 			},

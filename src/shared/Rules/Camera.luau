@@ -44,6 +44,16 @@ function Camera.drawn(cfg: Gun, zoom: number): number
 	return if zoom < cfg.FirstBelow then 0 else math.clamp(zoom, cfg.MinZoom, cfg.MaxZoom)
 end
 
+-- A gun's starting distance carried over from another camera (user 2026-10-27, the MG nest's gun: "it will match the
+-- zoom setting of whatever you were in before you manned the gun (adjust to scale for different max zoom settings)"):
+-- `zoom` out of that camera's `fromMax`, first person under `fromFirst`, at the same share of the way out to MaxZoom.
+function Camera.carried(cfg: Gun, zoom: number, fromFirst: number, fromMax: number): number
+	if zoom < fromFirst or fromMax <= 0 then
+		return 0
+	end
+	return math.clamp(zoom / fromMax * cfg.MaxZoom, cfg.MinZoom, cfg.MaxZoom)
+end
+
 -- Where a gun's camera heads: first person while aiming, else the distance chosen. `inPlace` (Config/Camera.AimInPlace,
 -- the staff): aiming keeps the distance chosen.
 function Camera.gunTarget(distance: number, aiming: boolean, inPlace: boolean?): number

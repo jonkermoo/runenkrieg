@@ -26,6 +26,15 @@ return {
 		assert(not Camera.thirdPerson(Cfg.FreeClasses, "Staff"))
 		assert(Cfg.FreeMinZoom > 0.5 and Cfg.FreeMinZoom < Cfg.FreeMaxZoom)
 	end,
+	["a manned MG starts at the view I had, scaled to the gun camera's range"] = function()
+		local G = Cfg.Gun
+		assert(Camera.carried(G, 0, G.FirstBelow, G.MaxZoom) == 0, "a rifle in first person: first person")
+		assert(Camera.carried(G, G.MaxZoom, G.FirstBelow, G.MaxZoom) == G.MaxZoom, "a rifle's zoom carries as it is")
+		assert(Camera.carried(G, 0.5, G.FirstBelow, Cfg.FreeMaxZoom) == 0, "Roblox's first person: first person")
+		local half = Camera.carried(G, Cfg.FreeMaxZoom / 2, G.FirstBelow, Cfg.FreeMaxZoom)
+		assert(math.abs(half - G.MaxZoom / 2) < 1e-9, "halfway out of Roblox's range: halfway out of the gun's")
+		assert(Camera.carried(G, 1.2, G.FirstBelow, Cfg.FreeMaxZoom) == G.MinZoom, "never nearer than MinZoom")
+	end,
 	["the gun camera's view: aiming in place stays over the shoulder"] = function()
 		assert(Camera.gunView(5, false) == "Third" and Camera.gunView(0, false) == "First")
 		assert(Camera.gunView(5, true) == "Aim" and Camera.gunView(0, true) == "Aim")
