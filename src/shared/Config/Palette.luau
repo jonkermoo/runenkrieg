@@ -137,7 +137,7 @@ local Palette = {
 			-- that the old White team's off-white 192, 190, 180)
 			Brown = { 36, 36, 38 },
 		},
-		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed", "TraverseWheel", "ElevationWheel" },
+		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed", "TraverseWheel", "ElevationWheel", "Shield" },
 		-- the small pieces (user 2026-10-26: "more micro designs and accents/secondary colors on the artillery ... make it
 		-- different per team"): a mesh named <part><Role> (MountTrim, CarriageFittings, ...) takes its team's colour for
 		-- that role: Trim bands and edging, Fittings rivets, bolts, caps, data plates and chains, Kit the tool and ammo
