@@ -135,7 +135,6 @@ local DevTools = {
 				"DragPrompt",
 				"BuildHud",
 				"BuildPlanIcon",
-				"BuildPlanTag",
 				"ArtilleryMarker",
 			},
 		},

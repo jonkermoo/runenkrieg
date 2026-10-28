@@ -10,7 +10,8 @@
 
 local Grenades = {
 	Fuse = 3, -- seconds from leaving the hand (user: "3s, no throwing back")
-	Carried = 2, -- per life, refilled at respawn (user: "2 per life, own slot")
+	Carried = 5, -- per life, refilled at respawn (user: "2 per life, own slot"; 2026-10-27, only the Grenadier carries
+	-- them: "give it 5 total grenades")
 	Cooldown = 1, -- seconds before the next one can be thrown (the next grenade into the hand)
 	Own = 1, -- the share of its blast and fragments that hurts the thrower (user 2026-10-19: "Yes, grenades only")
 

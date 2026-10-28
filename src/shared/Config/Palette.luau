@@ -133,19 +133,21 @@ local Palette = {
 		Paint = {
 			Grey = { 82, 86, 88 }, -- slate, as the grey tunic
 			Olive = { 98, 102, 66 },
-			-- chocolate, a touch lighter than the brown tunic (user 2026-10-27: scheme A, "chocolate and bronze"; was the
-			-- old White team's off-white 192, 190, 180)
-			Brown = { 104, 78, 56 },
+			-- black iron (user 2026-10-27: "i want a dark color scheme", scheme E; was chocolate 104, 78, 56, and before
+			-- that the old White team's off-white 192, 190, 180)
+			Brown = { 36, 36, 38 },
 		},
 		Painted = { "Carriage", "Wheels", "Mount", "Cradle", "Bed", "TraverseWheel", "ElevationWheel" },
 		-- the small pieces (user 2026-10-26: "more micro designs and accents/secondary colors on the artillery ... make it
 		-- different per team"): a mesh named <part><Role> (MountTrim, CarriageFittings, ...) takes its team's colour for
 		-- that role: Trim bands and edging, Fittings rivets, bolts, caps, data plates and chains, Kit the tool and ammo
 		-- boxes, Marking the team's stripe. Grey: black iron and oxblood (as its blackened leather); Olive: brown leather
-		-- and ochre; Brown: dark leather, the bronze of its helmet plates, khaki web and navy. (User 2026-10-26: "make sure
+		-- and ochre; Brown: blacker iron, brass, dark steel boxes and a cream stripe. (User 2026-10-26: "make sure
 		-- everything blends in well": the fittings and stripes toned toward the paint; were Grey 120 steel / 138,46,40,
-		-- Olive 196,160,72, Brown 176,146,82 / 54,70,112. Brown retuned with its paint 2026-10-27: was Trim 150,134,96,
-		-- Fittings 160,136,86, Kit 112,90,64.)
+		-- Olive 196,160,72, Brown 176,146,82 / 54,70,112. Brown retuned with its paint 2026-10-27, "keep its metallic
+		-- machine look": was Trim 60,42,30, Fittings 176,116,58, Kit 150,134,96, Marking 70,82,112.)
+		-- A team may also give its own colour to a whole part by name (Barrel, Breech), over the shared one below: Brown's
+		-- barrel is browned steel (user 2026-10-27: "i like the barrel color").
 		Roles = { "Trim", "Fittings", "Kit", "Marking" },
 		Team = {
 			Grey = {
@@ -161,10 +163,12 @@ local Palette = {
 				Marking = { 170, 140, 72 },
 			},
 			Brown = {
-				Trim = { 60, 42, 30 },
-				Fittings = { 176, 116, 58 },
-				Kit = { 150, 134, 96 },
-				Marking = { 70, 82, 112 },
+				Trim = { 20, 20, 22 },
+				Fittings = { 176, 146, 82 },
+				Kit = { 64, 66, 68 },
+				Marking = { 206, 196, 170 },
+				Barrel = { 72, 58, 48 },
+				Breech = { 51, 41, 34 },
 			},
 		},
 		Tyres = { 58, 58, 60 },
@@ -376,6 +380,7 @@ local Palette = {
 			kitName = { 168, 168, 158 },
 			kitKey = { 154, 154, 144 },
 			kitEmpty = { 118, 118, 110 },
+			kitHeldText = { 22, 24, 26 }, -- the words and key stamp on the row in the hands (on the team's rim colour)
 			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
 			-- a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
 			bolt = { 150, 154, 160 },
@@ -395,6 +400,21 @@ local Palette = {
 			},
 			viewAmbient = { 150, 150, 150 },
 			viewLight = { 255, 244, 224 },
+		},
+		-- the interaction prompt, "field note" (src/client/Prompts, src/shared/ui/Prompt.json): a pale pin, line and words
+		-- with a dark ring and text shadow, the key's dark letter on its pale cap, the object dimmer, the reason red
+		Prompt = {
+			pin = { 236, 232, 220 },
+			ring = { 0, 0, 0 },
+			lead = { 236, 232, 220 },
+			key = { 236, 232, 220 },
+			keyText = { 29, 32, 27 },
+			object = { 184, 180, 168 },
+			action = { 236, 232, 220 },
+			reason = { 214, 92, 80 },
+			shadow = { 0, 0, 0 },
+			line = { 236, 232, 220 },
+			fill = { 236, 232, 220 },
 		},
 		-- the third-person crosshair's ring (src/client/Crosshair, Config/Camera.Crosshair), with a dark edge behind it
 		crosshair = { 236, 232, 220 },

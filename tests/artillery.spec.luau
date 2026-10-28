@@ -281,4 +281,50 @@ return {
 		hp, what = A.repaired(70, 100, 10, 75, true)
 		assert(hp == 80 and what == "usable")
 	end,
+	["the MG fires 450 a minute from a box of 100 and swaps the box in 12 s (the design)"] = function()
+		local MG = C.Guns.mg08
+		local m = assert(MG.mg)
+		assert(m.rate == 450 and m.box == 100 and MG.reload == 12)
+		assert(near(A.mgInterval(m.rate), 60 / 450))
+		assert(A.mgReady(1, nil, 0) and A.mgReady(5, 10, 10) and not A.mgReady(0, nil, 0) and not A.mgReady(5, 10, 9.9))
+		local D = require("../src/shared/Config/Damage")
+		local t = D.Weapons[m.class]
+		assert(t and t.Torso * 3 >= 100 and t.Torso * 2 < 100, "three body hits")
+	end,
+	["the MG's spread grows over a burst and settles when it stops"] = function()
+		local s = C.Guns.mg08.mg.spread
+		assert(near(A.mgSpread(0, s), s.min) and near(A.mgSpread(1, s), s.max))
+		local heat = 0
+		for _ = 1, 100 do
+			heat = A.mgHeat(heat, 1, A.mgInterval(450), s)
+		end
+		assert(heat > 0.5 and heat <= 1, "a long burst runs hot")
+		assert(A.mgHeat(heat, 0, 10, s) == 0, "and cools off")
+		for _ = 1, 50 do
+			local dy, de = A.mgStray(2, math.random(), math.random())
+			assert(dy * dy + de * de <= 4 + 1e-9)
+		end
+	end,
+	["the MG gunner's eye is behind the rear sight on the sight line, and lifts with the gun"] = function()
+		local MG = C.Guns.mg08
+		local x, y, z = A.eye(MG, 0, 0)
+		assert(near(x, 0) and near(y, MG.mg.eye[2]) and near(z, MG.mg.eye[3]))
+		local _, yUp = A.eye(MG, 0, 10)
+		assert(yUp < y, "the eye is behind the trunnion: raising the muzzle lowers it")
+		local xl = A.eye(MG, 15, 0)
+		assert(xl > 0, "turned left the eye (behind) swings right")
+	end,
+	["the mouse lays the MG within its stops, never swinging the gun"] = function()
+		local MG = C.Guns.mg08
+		local y, e = A.mgLay(30, 0, 30, -10, 0, MG)
+		assert(near(y, 30 + 10 * MG.mg.look) and e == 0, "the mouse moved left turns it left (yaw up)")
+		y = A.mgLay(30, 0, 30, -1e6, 0, MG)
+		assert(near(y, 30 + MG.traverse), "stops at its traverse")
+		y = A.mgLay(170, 0, 170, -1e6, 0, MG)
+		assert(near(y, A.wrap(170 + MG.traverse)), "across 180")
+		local _, up = A.mgLay(0, 0, 0, 0, -1e6, MG)
+		assert(up == MG.elevation[2])
+		local _, down = A.mgLay(0, 0, 0, 0, 1e6, MG)
+		assert(down == MG.elevation[1])
+	end,
 }

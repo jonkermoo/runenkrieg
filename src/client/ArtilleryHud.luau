@@ -354,7 +354,10 @@ function ArtilleryHud.start()
 		-- timer that just displays the percentage until it can fire again(by tenths). no ready text, no bar")
 		local readyAt = (model:GetAttribute("ReadyAt") :: number?) or -math.huge
 		local share = Rules.loaded(t, readyAt, v.gun.reload)
-		panel.set("timer", if share >= 1 then "" else string.format(A.timer, math.floor(share * 1000) / 10))
+		-- (a machine gun: the rounds left in its box while it isn't swapping it)
+		local rounds = model:GetAttribute("Rounds") :: number?
+		local idle = if v.gun.mg and rounds then tostring(rounds) else ""
+		panel.set("timer", if share >= 1 then idle else string.format(A.timer, math.floor(share * 1000) / 10))
 	end)
 end
 

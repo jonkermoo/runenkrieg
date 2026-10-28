@@ -42,8 +42,7 @@ local Build = {
 	-- (`floor`), a chalk cord round it (`cord` wide, `cordSee` see-through; Palette.Build.Chalk, ChalkBad when it can't
 	-- go), `gap` between squares, ghost stakes (`peg`: width, height, one at the cursor before the
 	-- first click; no flags, user 2026-10-24: "lets just do the stakes"); squares fade in and out at `fade` per second. Reach circles (Trench.firstReach) dashed on the ground: `dashes`
-	-- dashes, each `dash` of its step, `ringWidth` wide; the one you stand in `near` see-through, the other `far`. The
-	-- length tag floats `tag` studs over the end.
+	-- dashes, each `dash` of its step, `ringWidth` wide; the one you stand in `near` see-through, the other `far`.
 	Plan = {
 		fill = 0.82,
 		floor = 0.7,
@@ -57,7 +56,6 @@ local Build = {
 		ringWidth = 0.18,
 		near = 0.2,
 		far = 0.6,
-		tag = 4.6,
 		-- the action icon over each end (user 2026-10-24: "one icon for new trenches, one more extending"): a round badge
 		-- `size` studs across on a chalk pin `height` studs tall
 		badge = { height = 2.4, size = 1.4 },
@@ -192,7 +190,7 @@ local Build = {
 		-- aimed muzzle, over the low cover line, Config/Metrics).
 		{
 			key = "SandbagPile",
-			name = "Sandbag pile",
+			name = "Sandbags",
 			kind = "Sandbags",
 			asset = "sandbag_pile",
 			bags = { "Bag1", "Bag2", "Bag3" },
@@ -211,7 +209,7 @@ local Build = {
 		-- (Hesco.hp below). Everyone builds it (a small asset: Config/Classes SMALL).
 		{
 			key = "Hesco",
-			name = "Hesco barrier",
+			name = "Barrier",
 			kind = "Hesco",
 			asset = "hesco", -- (Config/Assets)
 			stages = 4,
@@ -225,7 +223,7 @@ local Build = {
 			-- long (`width` the full square's, stretched to the square's own), `depth` across from heap to heap, its deck
 			-- `height` over the ground
 			key = "Bridge",
-			name = "Bridge",
+			name = "Trench bridge",
 			kind = "Bridge",
 			work = 2, -- (it is built on HP: Bridge.hp below)
 			width = 8,
@@ -289,7 +287,7 @@ local Build = {
 		},
 		{
 			key = "Howitzer",
-			name = "Magic howitzer",
+			name = "Rune mortar",
 			kind = "Gun",
 			gun = "artillery_howitzer",
 			swing = 2.5, -- (40 swings)

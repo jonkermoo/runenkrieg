@@ -1,0 +1,58 @@
+{
+	"name": "Prompt",
+	"_doc": "The game's own interaction prompt, 'field note' (src/client/Prompts builds it; Config/Prompts; user 2026-10-27, options page, picked F). A BillboardGui on the thing: the pin sits on it; on the prompt the key will use, a thin line goes up and to the right from the pin to the tag (the key on a light cap, then the object in small capitals over the action, and in red why it can't be used), with an underline the length of the tag that fills while the key is held. Every other prompt in reach shows only its pin, smaller and fainter. No panel or box. Sizes in reference pixels at theme.scale.referenceHeight; the canvas is the billboard, the pin at `pin.at` in it. Colours: Config/Palette UI.Prompt. One font, the game's basic font. Desktop only.",
+	"preview": { "object": "QF 18-POUNDER", "action": "Man the gun", "reason": "IN USE", "key": "E" },
+	"theme": {
+		"scale": {
+			"referenceHeight": 800,
+			"min": 0.65,
+			"max": 1.25
+		},
+		"fonts": {
+			"body": {
+				"family": "SourceSansPro",
+				"weight": "Bold",
+				"file": "SourceSansPro-Bold.ttf"
+			}
+		}
+	},
+	"canvas": [320, 96],
+	"pin": {
+		"at": [8, 88],
+		"size": 6,
+		"ring": 2,
+		"ringTransparency": 0.65
+	},
+	"lead": {
+		"length": 34,
+		"angle": -38,
+		"thick": 1.5,
+		"transparency": 0.25
+	},
+	"tag": {
+		"gap": 7,
+		"padBottom": 4,
+		"line": 1.5,
+		"lineTransparency": 0.65
+	},
+	"key": {
+		"textSize": 12,
+		"height": 16,
+		"padX": 4,
+		"corner": 2
+	},
+	"text": {
+		"object": 11,
+		"action": 17,
+		"reason": 12,
+		"strokeTransparency": 0.55
+	},
+	"far": {
+		"pin": 5,
+		"transparency": 0.3
+	},
+	"blocked": {
+		"key": 0.55,
+		"action": 0.45
+	}
+}

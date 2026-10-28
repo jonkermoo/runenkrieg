@@ -6,6 +6,7 @@
 -- Offsets are reference pixels: one UIScale per panel does the rest; a `sized` panel (the kit list, the gun's cut-away)
 -- is also scaled by the player's HUD size setting (Config/Settings HudSize).
 --   HudKit.panel(id, guiName, sized?) -> { gui, panel, node: { [id]: GuiObject }, set(bind, text), fill(id, share) }
+--   HudKit.paint(node, colour, transparency): a stencil plate's (`cut`) colour
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -57,18 +58,62 @@ local function place(obj: GuiObject, n: any)
 	end
 end
 
+-- a stencil plate (a node's `cut`): the box's colour in pieces that never overlap (one transparency reads the same
+-- all over), its top-left and bottom-right corners cut off `cut` px on the slant by a hard-stepped gradient (no
+-- CanvasGroup: its GroupTransparency is ignored). HudKit.paint colours and fades them.
+local function plate(obj: GuiObject, cut: number, color: Color3)
+	obj.BackgroundTransparency = 1
+	local function piece(name: string, pos: UDim2, size: UDim2, slant: boolean?)
+		local f = Instance.new("Frame")
+		f.Name = "Plate" .. name
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = color
+		f.Position, f.Size = pos, size
+		if slant ~= nil then
+			-- top-left to bottom-right, its half towards the plate's middle solid
+			local g = Instance.new("UIGradient")
+			g.Rotation = 45
+			local a, b = if slant then 1 else 0, if slant then 0 else 1
+			g.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, a),
+				NumberSequenceKeypoint.new(0.499, a),
+				NumberSequenceKeypoint.new(0.501, b),
+				NumberSequenceKeypoint.new(1, b),
+			})
+			g.Parent = f
+		end
+		f.Parent = obj
+	end
+	piece("Middle", UDim2.fromOffset(cut, 0), UDim2.new(1, -2 * cut, 1, 0))
+	piece("Left", UDim2.fromOffset(0, cut), UDim2.new(0, cut, 1, -cut))
+	piece("Right", UDim2.new(1, -cut, 0, 0), UDim2.new(0, cut, 1, -cut))
+	piece("TopLeft", UDim2.fromOffset(0, 0), UDim2.fromOffset(cut, cut), true)
+	piece("BottomRight", UDim2.new(1, -cut, 1, -cut), UDim2.fromOffset(cut, cut), false)
+end
+
+-- a stencil plate's colour and transparency (its pieces; src/client/KitList's rows)
+function HudKit.paint(obj: GuiObject, color: Color3, transparency: number)
+	for _, f in obj:GetChildren() do
+		if f:IsA("Frame") and string.sub(f.Name, 1, 5) == "Plate" then
+			f.BackgroundColor3 = color
+			f.BackgroundTransparency = transparency
+		end
+	end
+end
+
 local function box(obj: GuiObject, n: any)
+	obj.BorderSizePixel = 0
 	if not n.color then
 		obj.BackgroundTransparency = 1 -- (no colour: nothing behind it)
-		obj.BorderSizePixel = 0
-		return
+	elseif n.cut then
+		plate(obj, n.cut, rgb(n.color))
+	else
+		obj.BackgroundColor3 = rgb(n.color)
+		obj.BackgroundTransparency = 0
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = if n.round then UDim.new(0.5, 0) else UDim.new(0, T.corner)
+		corner.Parent = obj
 	end
-	obj.BackgroundColor3 = rgb(n.color)
-	obj.BackgroundTransparency = 0
-	obj.BorderSizePixel = 0
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = if n.round then UDim.new(0.5, 0) else UDim.new(0, T.corner)
-	corner.Parent = obj
 	if n.line then
 		local stroke = Instance.new("UIStroke")
 		stroke.Thickness = T.outline
