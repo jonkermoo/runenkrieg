@@ -127,7 +127,8 @@ export type Gun = {
 	-- empty), each a bullet out to `range` studs hurting as Config/Damage.Weapons[`class`]; it strays `spread.min`
 	-- degrees, growing `spread.per` of the way to `spread.max` a shot and settling back at `spread.recover` of it a
 	-- second; aimed, the gunner looks from `eye` (gun space, through the rear sight, turning and lifting with the
-	-- gun; else the rifle's camera, Config/Camera.Gun), the mouse laying it `look` degrees a pixel; `shot` its report (Config/Audio profile Gunshot)
+	-- gun; else the rifle's camera, Config/Camera.Gun), the mouse laying it `look` degrees a pixel; `shot` its report
+	-- (Config/Audio profile Gunshot)
 	mg: {
 		rate: number,
 		box: number,
