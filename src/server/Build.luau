@@ -91,6 +91,10 @@ type Rec = {
 	pitBase: Ground.PitBase?,
 	dug: number?,
 	ground: CFrame?, -- an MG nest: the ground at the ring's middle (its building site stands on it)
+	-- an MG nest: its ground as it was laid (put back once it is fixed whole) and the top of it in each column (a blast's
+	-- earth heaps no higher than Config/Build.Nest.heap over it)
+	nestBase: Ground.PitBase?,
+	nestTops: { [string]: number }?,
 	sacks: { [BasePart]: Sack }?, -- an MG nest: each bag full and as its empty sack
 	square: Model?, -- a bridge: the trench square it is on
 	watch: { RBXScriptConnection }?, -- and its watch on that square
@@ -385,6 +389,12 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 			stage1(ground, cf * offsets[ground.Name], "Ground")
 		end
 	end
+	-- its ground as it is laid, once (user 2026-10-29: "once its fixed its cleared"; Build.nestCeiling)
+	if not r.nestBase then
+		local across = math.sqrt(p.width ^ 2 + p.depth ^ 2) / 2 + n.ground
+		r.nestBase = Ground.snapshot(on.Position, across, n.snapshot[1], n.snapshot[2])
+		r.nestTops = if r.nestBase then Ground.surface(r.nestBase) else nil
+	end
 	-- the gun, in parts, on the mount bag's top under its pivot, standing level, each set up in its quarter
 	r.ground = on
 	r.at = CFrame.new((base * CFrame.new(0, n.bagTop, -radius + n.gunBack)).Position) * r.frame.Rotation
@@ -438,8 +448,33 @@ local function showNest(r: Rec)
 		wreck = if g and type(hp) == "number" then ArtilleryRules.wreckStage(hp, g.hp, ArtilleryCfg.Wreck.at) else 0
 	end
 	local bags, quarters = Rules.nestShown(r.work, C.Nest, wreck)
+	-- worn (a share of the ring's bags, Config/Build.Nest `wear`): the ones still standing, by their row on the ring
+	-- (a bag and its cord share it; the mount bags, row 1, always stand)
+	local standing: { [number]: boolean }? = nil
+	if type(bags) == "number" then
+		local rows, tops = {}, {}
+		for part, sack in r.sacks or {} do
+			local row = part:GetAttribute("Row") :: number?
+			if row and row > 1 and tops[row] == nil then
+				tops[row] = sack.top
+				table.insert(rows, row)
+			end
+		end
+		table.sort(rows, function(a, b)
+			return Rules.nestWearOrder(a, tops[a]) < Rules.nestWearOrder(b, tops[b])
+		end)
+		local set = {}
+		local gone = #rows - Rules.nestStanding(#rows, bags)
+		for i = gone + 1, #rows do
+			set[rows[i]] = true
+		end
+		standing = set
+	end
 	for part, sack in r.sacks or {} do
-		local up = bags == "all" or (bags == "bottom" and not sack.top)
+		local row = part:GetAttribute("Row") :: number?
+		local up = bags == "all"
+			or (bags == "bottom" and not sack.top)
+			or (standing ~= nil and (row == 1 or (row ~= nil and standing[row] == true)))
 		part.CanCollide = up
 		part.CanQuery = up
 		part.Transparency = if sack.cord and not up then 1 else 0
@@ -1179,6 +1214,16 @@ local function work(player: Player, target: any, mode: any)
 				Net.event("GroundDug"):FireAllClients(at.Position, out)
 			end
 			local nest = r.piece.kind == "Nest"
+			-- fixed whole, an MG nest's ground is cleared back to how it lay (user 2026-10-29: "once its fixed its
+			-- cleared"), only on its own footprint
+			local base = r.nestBase
+			if nest and what == "whole" and base then
+				Ground.restoreWithin(base, function(column: Vector3): boolean
+					local l = r.frame:PointToObjectSpace(column)
+					return Rules.onFootprint(l.X, l.Z, r.piece.width, r.piece.depth, C.Nest.ground)
+				end)
+				Net.event("GroundDug"):FireAllClients(r.frame.Position, math.max(r.piece.width, r.piece.depth))
+			end
 			if nest then
 				showNest(r)
 			else
@@ -1431,6 +1476,23 @@ function Build.onNest(p: Vector3): boolean
 	return false
 end
 
+-- how high the ground may stand at `p` on an MG nest's ground: a little (Config/Build.Nest.heap) over how it lay when
+-- the nest was laid (user 2026-10-29: "dont allow the turret to be fully submerged in terrain. only a little for
+-- visual"); nil off its ground
+function Build.nestCeiling(p: Vector3): number?
+	for _, r in recs do
+		local tops = r.nestTops
+		if r.piece.kind == "Nest" and tops then
+			local l = r.frame:PointToObjectSpace(p)
+			local top = tops[Ground.column(p)]
+			if top and Rules.onFootprint(l.X, l.Z, r.piece.width, r.piece.depth, C.Nest.ground) then
+				return top + C.Nest.heap
+			end
+		end
+	end
+	return nil
+end
+
 -- whether `p` is on a Hesco barrier's ground (its footprint and Config/Build.Hesco.ground round it): craters never carve
 -- it (src/server/Ground.guard); the barrier takes the blast (Build.blast)
 function Build.onHesco(p: Vector3): boolean
@@ -1509,6 +1571,7 @@ function Build.start(artillery: Guns)
 	Trenches.start()
 	Ground.guard(Build.onHesco)
 	Ground.guard(Build.onNest)
+	Ground.ceiling(Build.nestCeiling)
 	Net.event("Dug").OnServerEvent:Connect(dug)
 	Net.event("Build").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)
 		if kind == "Place" then

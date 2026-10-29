@@ -398,8 +398,10 @@ local Build = {
 	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
 	-- `quarters`), the real gun standing at stage 4. Once it has stood it is the gun's (as a built field gun): its HP is
 	-- the gun's own, worn by weapons, blasts at the bags and Destroy swings, fixed by Build swings (Config/Artillery
-	-- Repair), its 4 stages the gun's Wreck stages (unusable from stage 2, 50%), the bags still filled at each `wear[i]`;
-	-- hit at 0 it is gone.
+	-- Repair), its 4 stages the gun's Wreck stages (unusable from stage 2, 50%), the share of the ring's bags still
+	-- standing at each `wear[i]` (user 2026-10-29: "make the sandbags also destroy as part of each destruction phase":
+	-- the top bags go first, then the bottom ones, scattered round the ring, Rules.nestWearOrder; the mount bags stay
+	-- under the gun); hit at 0 it is gone.
 	-- The ring (user: "make the nest more circular shaped ... smoother and even and symmetrical"; Rules.nestRing): the
 	-- eight bottom bags of the four piles on a regular `ring.sides`-sided ring of `ring.bag`-stud sides, the side at the
 	-- back left open as the doorway; each pile bent at its joint, its top bag over the bend on the bottom bags' line; the
@@ -418,14 +420,19 @@ local Build = {
 			{ bags = "all", gun = 3 }, -- (the ammo can)
 			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
-		wear = { "all", "all", "bottom", "bottom" },
+		wear = { 1, 0.7, 0.45, 0.2 },
 		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },
 		gunBack = 1.66,
 		mountBack = 2.31,
 		bagTop = 1.9,
 		-- craters never carve its footprint or this many studs round it (Build.onNest; user 2026-10-29: "give the
-		-- turret some ground. the ground beneath it shouldnt be be to be destroyed"), as a Hesco barrier's (Hesco.ground)
+		-- turret some ground. the ground beneath it shouldnt be be to be destroyed"), as a Hesco barrier's (Hesco.ground);
+		-- a blast's earth heaps on it at most `heap` studs over how it lay (user 2026-10-29: "dont allow the turret to be
+		-- fully submerged in terrain. only a little for visual"), read `snapshot` studs under and over its middle as it
+		-- is laid and put back once it is fixed whole ("once its fixed its cleared")
 		ground = 2,
+		heap = 0.6,
+		snapshot = { 8, 12 },
 	},
 
 	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
