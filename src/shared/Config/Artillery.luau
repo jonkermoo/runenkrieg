@@ -150,9 +150,37 @@ export type Gun = {
 		shot: any,
 		-- the report's pitch and tone, as a rifle's (Config/Weapons `report`), heard as a rifle's (src/client/ShotAudio)
 		report: { pitch: number, eq: { number } },
+		-- each of the gunner's own shots kicks their camera `shake` degrees, nothing past `shakeReach` studs from the
+		-- muzzle (src/client/CameraShake)
+		shake: number,
+		shakeReach: number,
+		-- what each shot throws off (src/client/CaseDrop, Config/Cases): `case` the spent case (a copy of Rounds01), `link`
+		-- its belt link (Links01), each from `at` (gun space, riding the cradle) at `push` studs/s (gun space: +X right,
+		-- +Y up, +Z back), clinking as `sound`
+		spent: { [string]: { part: string, at: { number }, push: { number }, sound: string } },
 	}?,
+	-- its barrel warming as it fires (src/client/BarrelHeat, Heat below; user 2026-10-29: "make the barrel get warmer
+	-- from the tip as you hold it (steam a little too)"): each shot adds `per` to its heat (0 cold .. 1), losing `cool`
+	-- a second; `segments` glowing bands over the `length` studs behind the muzzle, `radius` x the bore's radius round
+	-- (a little over the barrel), lighting from the tip back as it warms; steam off it past `steam`, up to `steamRate`
+	-- puffs a second hot; nil: none (the howitzer)
+	heat: {
+		per: number,
+		cool: number,
+		length: number,
+		radius: number,
+		segments: number,
+		steam: number,
+		steamRate: number,
+	}?,
+	-- each shot jolts its gunner (src/client/GunnerKick; user 2026-10-29: "add some recoil animation to both the gun
+	-- and the player"): the arms back `arms` degrees and the body `torso`, settling over `time` s; nil: none
+	kick: { arms: number, torso: number, time: number }?,
 	-- part names coloured so instead of by Palette.Artillery (the MG's gunmetal body and its belt); nil: none
 	colors: { [string]: { number } }?,
+	-- parts that stand still as it is laid but are looked up by name all the same (the MG's ammo can and the belt in it,
+	-- hidden while its box is changed); nil: none
+	fixed: { string }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
 	assembly: { { names: { string }, at: number } },
@@ -164,29 +192,26 @@ export type Gun = {
 	gears: { { part: string, centre: { number }, axis: string, by: string, ratio: number } }?,
 }
 
--- The MG 08's belt (tools/blender/mgnest/mg08.py v4): each round between the box and the feed block its own case and
--- bullet, `Rounds01` / `Bullets01` next into the feed; its mount names and colours
-local BELT = 7
+-- The M2's belt (tools/blender/mgnest/m2.py): a link belt from the feedway down to its can on the mount bag, every
+-- round on it outside the can its own case, bullet and link (`Rounds01` / `Bullets01` / `Links01` next into the feed;
+-- user 2026-10-29: "make it go empty as we go empty", "make it attached to where its fed": src/client/Artillery bends
+-- them with the gun); its mount names and colours (the links dark steel)
+local BELT = 12 -- (the last dipping into the can's mouth: user 2026-10-29, "the last bullet loop isnt feeding")
 local function beltOf(names: { string }, colors: { [string]: { number } }): ({ string }, { [string]: { number } })
 	for i = 1, BELT do
-		local case, tip = string.format("Rounds%02d", i), string.format("Bullets%02d", i)
+		local case, tip, link =
+			string.format("Rounds%02d", i), string.format("Bullets%02d", i), string.format("Links%02d", i)
 		table.insert(names, case)
 		table.insert(names, tip)
-		colors[case], colors[tip] = { 196, 160, 84 }, { 184, 115, 72 }
+		table.insert(names, link)
+		colors[case], colors[tip], colors[link] = { 196, 160, 84 }, { 184, 115, 72 }, { 40, 40, 38 }
 	end
 	return names, colors
 end
 local mgMount, mgColors = beltOf({
 	"Mount",
 	"MountFittings",
-	"Shield",
-	"ShieldTrim",
-	"ShieldFittings",
-	"BoxKit",
-	"BoxTrim",
-	"BoxFittings",
-	"Belt",
-}, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 140, 120, 84 } })
+}, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 40, 40, 38 } })
 
 local Artillery = {
 	Folder = "Artillery", -- the Workspace folder the guns stand in
@@ -238,6 +263,33 @@ local Artillery = {
 	Brace = { animation = 110111507484119 :: number?, pull = 0.45 },
 	Turn = { crank = 80321147839061 :: number?, moving = 0.3, fade = 0.2 },
 
+	-- A warm barrel (src/client/BarrelHeat, each gun's `heat`; user 2026-10-29: "make the barrel get warmer from the tip
+	-- as you hold it (steam a little too)", then "make the barrel start gradual and heat up way more (50% of the
+	-- barrel)"): its bands glow from `cold` to `hot` (RGB), at most `glow` opaque; band i of n (1 the tip) starts at heat
+	-- (i - 1) / n x `lead` (Rules/Artillery.heatGlow), each easing in along its glow ^ `curve` (no band pops on); a
+	-- `light` at the tip `range` studs out, up to `brightness`, as hot. The steam: `color` puffs `size`
+	-- studs growing to `grow`, rising `rise` studs/s against `drag`, living `life` s, `transparency` at birth, leaving at
+	-- `speed` studs/s every which way, turning up to `spin` degrees a second.
+	Heat = {
+		cold = { 120, 24, 12 },
+		hot = { 255, 150, 50 },
+		glow = 0.95,
+		lead = 0.75,
+		curve = 1.8,
+		light = { range = 7, brightness = 2.5 },
+		steam = {
+			color = { 235, 235, 235 },
+			size = 0.25,
+			grow = 1.1,
+			rise = 1.6,
+			drag = 1,
+			life = { 1.2, 2 },
+			transparency = 0.55,
+			speed = { 0.2, 0.6 },
+			spin = 30,
+		},
+	},
+
 	-- The effects (src/client/ArtilleryFx; user 2026-10-21, see there). Colours are Config/Palette.Magic names, RGB lists
 	-- where said. Shot: pressure waves along the bore (`wave` studs out, starting `ahead` past the muzzle) and a ring blown
 	-- across the ground (`ground` studs, when the ground is within `groundReach`); Air: a see-through bubble swelling
@@ -273,8 +325,9 @@ local Artillery = {
 			Magic = { back = 0.15, lift = 0.35, rise = 0.06, wobble = 22, damp = 7, time = 0.8 },
 			-- a machine gun's (user 2026-10-27: "realistic recoil and spread, with no fight between full auto and the
 			-- camera shake"; was the field gun's, 0.35 back and 1.5 up restarting 7 times a second): a heavy gun on its
-			-- sled barely moves, a short buzz settled before the next shot (Guns `mg.rate`)
-			MG = { back = 0.03, lift = 0.25, rise = 0.015, wobble = 45, damp = 30, time = 0.12 },
+			-- sled barely moves, a short buzz settled before the next shot (Guns `mg.rate`); the M2 kicks harder
+			-- (user 2026-10-29: "add some recoil animation to both the gun and the player"; under a quarter of the field's)
+			MG = { back = 0.07, lift = 0.35, rise = 0.015, wobble = 45, damp = 30, time = 0.12 },
 		},
 		Bank = {
 			at = 0.25,
@@ -687,6 +740,11 @@ local Artillery = {
 			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
 			-- (user 2026-10-22: "have the cannon further back and up more"; was up 4, back 7)
 			camera = { side = -6.5, up = 5.5, back = 10, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			-- (user 2026-10-29: the MG's warm barrel, steam and the gunner's recoil "apply to the field cannons too (not
+			-- the howitzer)"): a third of the way warm a shot, cooling over ~40 s, half its barrel glowing; the gunner thrown
+			-- back by each shot
+			heat = { per = 0.3, cool = 0.025, length = 2.5, radius = 2.9, segments = 8, steam = 0.25, steamRate = 8 },
+			kick = { arms = 12, torso = 5, time = 0.4 },
 			-- the trail on its wheels first, then the shield and mount, the cradle, the barrel, the breech last
 			assembly = {
 				{ names = { "Carriage", "Wheels", "Tyres" }, at = 0 },
@@ -898,25 +956,30 @@ local Artillery = {
 				{ names = { "Breech", "Crystal" }, at = 4 },
 			},
 		} :: Gun,
-		-- The MG nest's machine gun (user 2026-10-27, design approved by the user): an MG 08
-		-- (tools/blender/mgnest/mg08.py) built by the shovel in an MG nest (Config/Build.Nest), set up in quarters
-		-- (`assembly`). Gun space: the origin on the mount bag's top under the pivot. Its firing (bullets, its belt box,
-		-- the box reload) comes with manning it (next step); the shell fields below are kept only so it is a Gun.
+		-- The MG nest's machine gun (user 2026-10-27, design approved by the user; user 2026-10-28: "can we use this
+		-- machine gun instead?"): an M2 Browning on its M3 tripod (tools/blender/mgnest/m2.py, a 3D trace of Ajay
+		-- Kumar's Sketchfab model in our style; was the MG 08, tools/blender/mgnest/mg08.py), no shield, its ammo can
+		-- standing on the mount bags; built by the shovel in an MG nest (Config/Build.Nest), set up in quarters
+		-- (`assembly`). Gun space: the origin 1.9 over the ground (Build.Nest.bagTop) under the pivot. (Its key is still
+		-- mg08: Config/Build and Damage name it.) The shell fields below are kept only so it is a Gun.
 		mg08 = {
 			asset = "mg08",
-			name = "MG 08",
+			name = "M2 Browning",
 			nest = true,
 			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
 			mount = mgMount, -- (and each round on the belt: beltOf above)
+			-- the ammo can and the belt in it stand on the mount bag (user 2026-10-29: "dont make the box follow the gun
+			-- turning either. it clips into the sandbags"); the belt's rounds bend from it to the feed (src/client/Artillery)
+			fixed = { "BoxKit", "BoxTrim", "BoxFittings", "Belt" },
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},
 			trunnion = { 0, 1.035, 0 },
 			hinge = { 0, 1.035, 0 },
-			muzzle = { 0, 1.25, -2.187 },
+			muzzle = { 0, 1.25, -4.226 },
 			boreCentre = 0.009,
-			traverse = 20, -- (the design: +-20 before the shield meets the top bags round the notch)
+			traverse = 20, -- (the design: +-20 in the notch the front piles leave)
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
 			traverseRate = 60,
@@ -930,8 +993,14 @@ local Artillery = {
 			reload = 12, -- (the box reload, the design's long wait)
 			breechOpen = 0,
 			breechTimes = { 0, 0 },
-			recoil = 0.06, -- (recoil-operated: the barrel and lock kick back a little each shot)
-			recoilTimes = { 0.01, 0.05 },
+			recoil = 0.12, -- (recoil-operated: the barrel and lock kick back a little each shot; the M2's .50 harder)
+			recoilTimes = { 0.01, 0.06 },
+			-- (user 2026-10-29: "make the barrel get warmer from the tip as you hold it (steam a little too)"): glowing
+			-- at the tip from the first rounds, creeping back half the barrel (2 of its ~4.1 studs out of the receiver),
+			-- all of it hot after ~50 rounds held, cool again ~20 s after; steam past 0.4
+			heat = { per = 0.02, cool = 0.05, length = 2.0, radius = 2.75, segments = 8, steam = 0.4, steamRate = 16 },
+			-- (user 2026-10-29: "add some recoil animation to both the gun and the player"): a short shove each round
+			kick = { arms = 5, torso = 1.5, time = 0.1 },
 			crew = { 0, 4 }, -- (standing behind the grips, arms out to them: MGStand)
 			crewTurns = true,
 			prompt = 7,
@@ -952,7 +1021,7 @@ local Artillery = {
 			wreckParts = { "Mount", "Cradle" },
 			holeSize = { 0.08, 0.16 },
 			-- (the design: 450 a minute, a box of 100, a 12 s box reload, 0.6 degrees growing to 1.5 over a long burst;
-			-- the sight line at y 1.78)
+			-- the sight line at y 1.71)
 			mg = {
 				rate = 450,
 				box = 100,
@@ -975,16 +1044,16 @@ local Artillery = {
 					take = 3.7,
 					set = 5.3,
 					fed = 7,
-					box = "mg08_box",
-					grip = { 0.04, 1, 0 },
+					box = "m2_box",
+					grip = { 0.087, 1.34, 0 },
 					sound = { id = 9116340734, volume = 1, at = 6.1, profile = "Gunshot" },
 				},
-				-- (v4, the iron sights: three quarters of a stud behind the rear leaf's V on the sight line, the blade
-				-- between its ears in the V; was half a stud behind the ring sight's peep)
-				eye = { 0, 1.78, 2.688 },
+				-- (the M2's sights: 0.77 behind the rear sight's peep ring, on the line through the ring's middle and the
+				-- hooded front post's tip, parallel to the bore; the MG 08's was { 0, 1.78, 2.688 })
+				eye = { 0, 1.71, 2.707 },
 				-- the eye at the hip, in first person (user 2026-10-28: "can you move the camera up more since the
-				-- shield in the way of the camera"): over the shield's top (`shield`: its arch's top with the rim, its
-				-- face's z) at the gun's lowest, turning with the mount as the shield does, not lifting with the gun
+				-- shield in the way of the camera"): over the gun, turning with the mount, not lifting with the gun.
+				-- (`shield` was the MG 08 shield's top and face; the M2 has none, and nothing reads it)
 				over = { 0, 2.95, 2.44 },
 				shield = { top = 2.65, z = 0.36 },
 				-- over the shoulder: the camera's offset right and up from the gunner's head (as Config/Camera.Gun
@@ -999,19 +1068,28 @@ local Artillery = {
 				-- the G98's round (7.92x57 S, ~890 m/s from a 720 mm barrel): as recorded, the crack a little up; heard far off
 				-- and going by as a rifle (src/client/ShotAudio: late, the far report, echoes off what stands round)
 				report = { pitch = 1, eq = { 0, 0, 2 } },
+				-- (user 2026-10-29: "some camera shake too"; small: 7.5 kicks a second, no fight with aiming)
+				shake = 0.35,
+				shakeReach = 25,
+				-- (user 2026-10-29: "shell case droppings and sounds"): fed from the right, the M2 drops its spent case
+				-- straight down out of the bottom of the receiver and throws the empty link out of its left side
+				spent = {
+					case = { part = "Rounds01", at = { 0, 0.82, 0.46 }, push = { 0, -6, 1 }, sound = "Heavy" },
+					link = { part = "Links01", at = { -0.34, 1.39, 0.45 }, push = { -5, 1.5, 0.5 }, sound = "Link" },
+				},
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
-			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
+			-- (the gunmetal body and the belt, not the team's paint: the tripod and its head take it)
 			colors = mgColors,
-			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"): the foot and mount, the gun, the shield,
-			-- the ammo box and its belt last, each appearing in place in its quarter (user 2026-10-28: "not all the parts have to
-			-- be present before its built (all the other structures work this way too). they can just appear as its being
-			-- built")
+			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"; the M2 has no shield): the tripod, the
+			-- gun, the ammo can, then its belt last, each appearing in place in its quarter (user 2026-10-28: "not all
+			-- the parts have to be present before its built (all the other structures work this way too). they can just
+			-- appear as its being built")
 			assembly = {
 				{ names = { "Carriage", "Mount" }, at = 1 },
 				{ names = { "Cradle", "Barrel", "Bore" }, at = 2 },
-				{ names = { "Shield" }, at = 3 },
-				{ names = { "Box", "Belt", "Rounds", "Bullets" }, at = 4 },
+				{ names = { "Box" }, at = 3 },
+				{ names = { "Belt", "Rounds", "Bullets" }, at = 4 },
 			},
 		} :: Gun,
 	},
