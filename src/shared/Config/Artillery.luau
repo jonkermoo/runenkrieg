@@ -640,12 +640,20 @@ local Artillery = {
 			loads = true,
 			sound = {
 				-- dry beside the gun (user 2026-10-28: "the shot keeps ringing a distant echo when we are right next to the
-				-- gun"): Explosions 4's first 0.5 s is its crack and boom, the rest debris falling and a ~4 s rumble (measured
-				-- 2026-10-28), so it stops at 0.75 s; the 18-pounder's ~0.6 kg of cordite and its supersonic shell (~490 m/s)
+				-- gun", and "not the natural gun sounds after firing"): Explosions 4's first 0.5 s is its crack and boom, the
+				-- rest debris falling and a ~4 s rumble (measured 2026-10-28), so it dies away from 0.6 s (an exponential
+				-- fade: Config/Firing.Sounds.Shot); the 18-pounder's ~0.6 kg of cordite and its supersonic shell (~490 m/s)
 				-- make a sharp crack-bang, as recorded
 				fire = {
 					{ id = 9116973611, volume = 1.4, profile = "Explosion" }, -- Mortar Explosion 3: big, low thump
-					{ id = 9114362266, volume = 0.8, profile = "Explosion", stop = 0.75, fade = 0.3 }, -- Explosions 4: the crack
+					{
+						id = 9114362266,
+						volume = 0.8,
+						profile = "Explosion",
+						stop = 3,
+						fade = 2.4,
+						curve = "Exponential",
+					}, -- Explosions 4
 				},
 				far = { { id = 9113169432, volume = 1.2, profile = "Explosion" } }, -- Artillery Distant 2
 				-- dry, heard at every distance (user 2026-10-21: the echo "sounds distorted at the end and it echoes even
@@ -814,11 +822,19 @@ local Artillery = {
 			muzzleScale = 2.2,
 			sound = {
 				-- a 42 cm siege mortar's deep, slow boom, dry beside it: Sonic Boom 2 rolls on at -1..-10 dB for ~3 s after
-				-- its 0.3 s of lead-in silence and dies out over 6.5 s (measured 2026-10-28), so it plays 0.25-2 s, faded from
-				-- 1.2 s; Mortar Explosion 5 a fifth lower (0.85) for the far bigger charge
+				-- its 0.3 s of lead-in silence and dies out over 6.5 s (measured 2026-10-28), so it plays from 0.25 s and dies
+				-- away from 1.2 s (an exponential fade); Mortar Explosion 5 a fifth lower (0.85) for the far bigger charge
 				fire = {
 					-- Sonic Boom 2: a huge single boom
-					{ id = 9119382515, volume = 1.5, profile = "Explosion", start = 0.25, stop = 2, fade = 0.8 },
+					{
+						id = 9119382515,
+						volume = 1.5,
+						profile = "Explosion",
+						start = 0.25,
+						stop = 4,
+						fade = 2.8,
+						curve = "Exponential",
+					},
 					{ id = 9116973607, volume = 1.2, profile = "Explosion", pitch = 0.85 }, -- Mortar Explosion 5
 				},
 				far = { { id = 9113169264, volume = 1.4, profile = "Explosion" } }, -- Artillery Distant 1

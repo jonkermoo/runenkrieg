@@ -91,10 +91,12 @@ return {
 		assert(R.grow(150, H.echo.from, H.echo.full) < R.grow(250, H.echo.from, H.echo.full), "louder farther off")
 		assert(H.echo.from >= H.near and H.echo.full <= H.far * 1.5, "with the far report, not before it")
 	end,
-	["the rifle shot stops before the reflection in its recording"] = function()
+	["the rifle shot's reflection dies away under its fade, its own decay before it plays whole"] = function()
 		-- (the file swells again from 1.3 s, peaking at 1.45: a reflection, measured 2026-10-28)
 		local s = Firing.Sounds.Shot
-		assert(s.stop <= 1.2 and s.fade and s.fade < s.stop - s.start)
+		local from = s.stop - s.fade
+		assert(from >= 1.1 and from <= 1.25, "the fade starts as the decay ends, before the swell")
+		assert(s.curve == "Exponential" and s.fade >= 1, "a natural die-away, not a cut")
 	end,
 	["a field gun's report: dry beside it, the distant boom growing in"] = function()
 		local r = Artillery.Report

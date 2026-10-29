@@ -1,9 +1,9 @@
 --!strict
 -- Plays the game's effect sounds from their Config entries (Config/Vfx.Sounds and the like): `{ id, volume, start?,
--- stop?, fade?, pitch?, loop?, profile, eq? }` (`fade`: down to nothing over its last seconds, at `stop` or the end of
--- the file; `eq`: { low, mid, high } dB through an equalizer), where volume / pitch may be per-stage lists (picked by
--- `stage`) and a list of entries plays them all at once (layers). Every sound is positional on its falloff profile (src/client/Audio):
--- on a part or an attachment, or at a point in the world. A ready copy of each sound is made once and cloned per
+-- stop?, fade?, curve?, pitch?, loop?, profile, eq? }` (`fade`: down to nothing over its last seconds, at `stop` or
+-- the end of the file, eased by `curve` (an EasingStyle, Out; Quad if none); `eq`: { low, mid, high } dB through an
+-- equalizer), where volume / pitch may be per-stage lists (picked by `stage`) and a list of entries plays them all at
+-- once (layers). Every sound is positional on its falloff profile (src/client/Audio): on a part or an attachment, or at a point in the world. A ready copy of each sound is made once and cloned per
 -- play (a Sound made at the moment it's needed starts ~0.33 s late, KNOWN_TRAPS), all preloaded up front.
 -- play(entry, at, stage?, mods?) a one shot (mods: { volume = a share of the entry's, eq = { low, mid, high } dB on top of
 -- the entry's, delay = seconds before it starts, pitch = times the entry's }); loop(entry, at) a loop with a handle (set
@@ -119,9 +119,11 @@ local function one(e: Entry, at: Instance | Vector3, stage: number?, mods: Mods?
 		local wait = math.max(0, stop - f - (s.TimePosition - (e.start or 0)) / pitch)
 		task.delay(wait, function()
 			if s.Parent then
-				TweenService
-					:Create(s, TweenInfo.new(f, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Volume = 0 })
-					:Play()
+				TweenService:Create(
+					s,
+					TweenInfo.new(f, (Enum.EasingStyle :: any)[e.curve or "Quad"], Enum.EasingDirection.Out),
+					{ Volume = 0 }
+				):Play()
 			end
 		end)
 	end

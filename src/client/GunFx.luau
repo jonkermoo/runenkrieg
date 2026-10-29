@@ -155,7 +155,11 @@ function GunFx.sound(gun: BasePart, name: string)
 	snd:Play()
 	if c.stop and c.fade then -- fade out before the cut (stop is a time in the file: the play began at `start`)
 		task.delay(math.max(0, c.stop - (c.start or 0) - c.fade) / pitch, function()
-			TweenService:Create(snd, TweenInfo.new(c.fade / pitch, Enum.EasingStyle.Linear), { Volume = 0 }):Play()
+			TweenService:Create(
+				snd,
+				TweenInfo.new(c.fade / pitch, (Enum.EasingStyle :: any)[c.curve or "Linear"], Enum.EasingDirection.Out),
+				{ Volume = 0 }
+			):Play()
 		end)
 	end
 end

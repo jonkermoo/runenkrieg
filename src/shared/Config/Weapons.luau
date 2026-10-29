@@ -650,7 +650,7 @@ local Weapons: { [string]: Weapon } = {
 		-- Pro Sound Effects placeholders as the Nagant's: the shot (louder: the .455), the latch and the barrel going
 		-- down ("BoltOpen") and shutting ("BoltClose"), the rounds going in ("ClipIn")
 		sounds = {
-			Shot = { id = 9119299387, volume = 2.6, stop = 0.7, fade = 0.35 },
+			Shot = { id = 9119299387, volume = 2.6 },
 			BoltOpen = { id = 9119718673, volume = 0.6 },
 			BoltClose = { id = 9119718255, volume = 0.7 },
 			ClipIn = { id = 9117396156, volume = 0.6 },
@@ -824,7 +824,7 @@ local Weapons: { [string]: Weapon } = {
 		-- and shutting "Switch Clicks Metallic Dull Pops 21 / 13", a round going in "Pistol Clip 2"; heard far off and
 		-- going by: the rifles' (Config/Firing.Sounds)
 		sounds = {
-			Shot = { id = 9119299387, volume = 2.2, stop = 0.7, fade = 0.35 },
+			Shot = { id = 9119299387, volume = 2.2 },
 			BoltOpen = { id = 9119718673, volume = 0.6 },
 			BoltClose = { id = 9119718255, volume = 0.6 },
 			ClipIn = { id = 9117396156, volume = 0.6 },
@@ -1055,9 +1055,9 @@ local Weapons: { [string]: Weapon } = {
 			turn = 0,
 			travel = 0.1197,
 		},
-		-- the revolvers' pistol shot (it played the rifles' full-power shot), cut before its tail like theirs; heard far
-		-- off and going by: the rifles' (Config/Firing.Sounds), the action's sounds the rifles' too
-		sounds = { Shot = { id = 9119299387, volume = 2.4, stop = 0.7, fade = 0.35 } },
+		-- the revolvers' pistol shot (it played the rifles' full-power shot); heard far off and going by: the rifles'
+		-- (Config/Firing.Sounds), the action's sounds the rifles' too
+		sounds = { Shot = { id = 9119299387, volume = 2.4 } },
 		-- 7.63x25 Mauser (~0.5 g against the .38's ~0.29 g): x0.83, from its long closed 140 mm barrel 0.92; a light bullet
 		-- at ~430 m/s, supersonic: a sharp crack over the boom
 		report = { pitch = 0.92, eq = { 0, 0, 3 } },
