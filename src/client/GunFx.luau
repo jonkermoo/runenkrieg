@@ -558,6 +558,8 @@ local function poseProp(prop: Prop, weapon: string, u: number, C: { grab: number
 		if p.round and not en then
 			p.part.CFrame = topCF * CFrame.new(0, -depth * drop, 0) * p.rel
 			p.part.Transparency = if drop >= 1 then 1 else 0
+			-- (how far they are down out of it once it is seated: the ammo display feeds them in by it, AmmoHud)
+			p.part:SetAttribute("Drop", if u >= C.set then drop else nil)
 		else
 			p.part.CFrame = topCF * p.rel
 		end
