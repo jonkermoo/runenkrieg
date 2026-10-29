@@ -163,6 +163,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		else
 			ZoneMatch.restart()
 		end
+	elseif action == "FrontStart" then
+		Frontline.begin()
 	elseif action == "FrontTake" then
 		Frontline.take(player)
 	elseif action == "Sectors" then

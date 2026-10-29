@@ -217,6 +217,7 @@ local function build(player: Player): DevPanel.Panel
 	-- Match (Normal, src/server/Frontline): end it, a fresh one, your side takes the sector it's attacking
 	heading("Match (Normal)")
 	local front: { TextButton } = {
+		row("FrontStart", "Start now (skip waiting for players)", "FrontStart"),
 		row("FrontEnd", "End match now", "MatchEnd"),
 		row("FrontRestart", "Restart match", "MatchRestart"),
 		row("FrontTake", "Take our next sector", "FrontTake"),

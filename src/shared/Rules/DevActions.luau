@@ -22,6 +22,7 @@ local PLAIN = table.freeze({
 	ZoneSkip = true,
 	RespawnAll = true,
 	FrontTake = true,
+	FrontStart = true,
 })
 local SWITCHES = table.freeze({
 	God = true,

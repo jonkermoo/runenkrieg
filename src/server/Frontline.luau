@@ -61,6 +61,7 @@ local matchWatchers: { () -> () } = {}
 local thread: thread? = nil
 local conns: { RBXScriptConnection } = {}
 local ending = false
+local starting = false -- set by the admin to skip the wait for players
 local still = 0 -- seconds since the last capture (the momentum)
 
 -- `fn(player, reason)` for each award (a Config/Classes.Earn key: Capture, Neutralise, Defend, Win); `fn()` at each
@@ -128,7 +129,7 @@ end
 
 -- the sector markers (when built) coloured by owner, labelled with control and who's in the zone
 local function showMarkers(counts: { { West: number, East: number } })
-	local root = workspace:FindFirstChild(Map.name)
+	local root = workspace:FindFirstChild(Cfg.MapKey)
 	local markers = root and root:FindFirstChild("Sectors")
 	if not markers then
 		return
@@ -232,11 +233,12 @@ local function run()
 		end
 		while not ending do
 			local w, e = heads()
-			if Rules.ready(w, e, Cfg.MinPerSide) then
+			if starting or Rules.ready(w, e, Cfg.MinPerSide) then
 				break
 			end
 			task.wait(Cfg.Tick)
 		end
+		starting = false
 		if not ending then
 			phase("Countdown", Cfg.CountdownSeconds)
 			task.wait(Cfg.CountdownSeconds)
@@ -323,8 +325,8 @@ function Frontline.start(): boolean
 	if thread then
 		return false
 	end
-	if not workspace:FindFirstChild(Map.name) then
-		warn(`[Frontline] the map isn't built: Greybox.build("Map1")`)
+	if not workspace:FindFirstChild(Cfg.MapKey) then
+		warn(`[Frontline] the map isn't built: Greybox.build("{Cfg.MapKey}")`)
 		return false
 	end
 	folder = Instance.new("Folder")
@@ -371,6 +373,13 @@ function Frontline.restart()
 		task.cancel(thread :: thread)
 		newMatch()
 		thread = task.spawn(run)
+	end
+end
+
+-- Admin: the match starts now, without waiting for each side's players (a solo test)
+function Frontline.begin()
+	if thread and folder:GetAttribute("Phase") == "Waiting" then
+		starting = true
 	end
 end
 

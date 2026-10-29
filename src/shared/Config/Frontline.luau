@@ -36,6 +36,8 @@ local Frontline = {
 	-- side), Momentum (the capture speed's multiplier), West and East (each side's team, Config/Uniforms.Teams)) and one
 	-- child Folder per sector (Index, Owner, Control, and the West / East soldiers in its zone)
 	FolderName = "Frontline",
+	-- the map's key in Config/Maps: the built map's model in Workspace has this name (src/dev/Greybox), not its `name`
+	MapKey = "Map1",
 	-- on Workspace while a match runs: the two teams playing, "west,east" (Rules/Frontline.pairText); kept teams and the
 	-- loadout menu's team cards use only these (src/server/Deploy)
 	TeamsAttribute = "MatchTeams",
