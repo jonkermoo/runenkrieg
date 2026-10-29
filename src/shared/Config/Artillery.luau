@@ -174,6 +174,9 @@ export type Gun = {
 	kick: { arms: number, torso: number, time: number }?,
 	-- part names coloured so instead of by Palette.Artillery (the MG's gunmetal body and its belt); nil: none
 	colors: { [string]: { number } }?,
+	-- parts that stand still as it is laid but are looked up by name all the same (the MG's ammo can and the belt in it,
+	-- hidden while its box is changed); nil: none
+	fixed: { string }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
 	assembly: { { names: { string }, at: number } },
@@ -204,10 +207,6 @@ end
 local mgMount, mgColors = beltOf({
 	"Mount",
 	"MountFittings",
-	"BoxKit",
-	"BoxTrim",
-	"BoxFittings",
-	"Belt",
 }, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 40, 40, 38 } })
 
 local Artillery = {
@@ -966,6 +965,9 @@ local Artillery = {
 			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
 			mount = mgMount, -- (and each round on the belt: beltOf above)
+			-- the ammo can and the belt in it stand on the mount bag (user 2026-10-29: "dont make the box follow the gun
+			-- turning either. it clips into the sandbags"); the belt's rounds bend from it to the feed (src/client/Artillery)
+			fixed = { "BoxKit", "BoxTrim", "BoxFittings", "Belt" },
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},

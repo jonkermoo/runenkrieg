@@ -131,6 +131,13 @@ local function track(model: Model)
 			end
 		end
 	end
+	-- (the parts that stand still, named all the same: the MG's ammo can, hidden while its box is changed)
+	for _, name in gun.fixed or {} do
+		local part = model:FindFirstChild(name, true)
+		if part and part:IsA("BasePart") then
+			p.named[name] = part
+		end
+	end
 	if p.crystal then
 		p.fx = ArtilleryCrystal.new(model, p.crystal)
 	end
@@ -202,11 +209,12 @@ end
 
 -- a machine gun's belt, every frame (user 2026-10-29: "the belt currently doesnt move with the gun. can you make it
 -- attached to where its fed and also move around as the gun is being moved?", "make the belt animation accurate with
--- the bullet feed animation"): each round on it, its bullet and its link bent from the mount (`mount`, where the can
--- is) toward the cradle (`cradle`, where the feedway is), round 1 riding the gun fully and the last not at all; over
+-- the bullet feed animation"): each round on it, its bullet and its link bent from the gun's still frame (`still`,
+-- where the can stands: user 2026-10-29, "dont make the box follow the gun turning") toward the cradle (`cradle`,
+-- where the feedway is, turning and lifting with the gun), round 1 riding the gun fully and the last not at all; over
 -- the gap after each shot (its rate) all of them slide one link on toward the feed together, round i to where round
 -- i - 1 was (the first on into the feedway), bending as they go, then stand back a link as the next shot takes one
-local function feed(p: Pose, mount: CFrame, cradle: CFrame)
+local function feed(p: Pose, still: CFrame, cradle: CFrame)
 	local gun = p.gun
 	if not gun.mg then
 		return
@@ -245,7 +253,7 @@ local function feed(p: Pose, mount: CFrame, cradle: CFrame)
 			local rest = part and p.rest[part]
 			if part and rest then
 				local r = CFrame.new(step * f) * rest
-				part.CFrame = (mount * r):Lerp(cradle * r, w)
+				part.CFrame = (still * r):Lerp(cradle * r, w)
 			end
 		end
 	end
@@ -312,7 +320,7 @@ local function pose(model: Model, p: Pose, dt: number)
 	for part, rest in p.rest do
 		part.CFrame = frames[p.stage[part]] * rest
 	end
-	feed(p, frames[1], frames[2])
+	feed(p, pivot, frames[2])
 	BarrelHeat.step(model, gun, dt, p.named, p.rest)
 	-- its gears turning with the lay, each by its tooth ratio about its own axis (Config/Artillery `gears`)
 	for _, g in gun.gears or {} do

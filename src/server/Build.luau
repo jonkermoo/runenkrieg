@@ -1416,6 +1416,21 @@ end
 
 -- the barbed wire that stands: its box (centre frame and size), its team and model, for src/server/Wire
 export type WireBox = { frame: CFrame, size: Vector3, team: string, model: Model }
+-- whether `p` is on an MG nest's ground (its footprint round the ring's middle and Config/Build.Nest.ground round it,
+-- from the moment it is laid): craters never carve it (src/server/Ground.guard; user 2026-10-29: "similarily to the
+-- artilierries, give the turret some ground. the ground beneath it shouldnt be be to be destroyed")
+function Build.onNest(p: Vector3): boolean
+	for _, r in recs do
+		if r.piece.kind == "Nest" then
+			local l = r.frame:PointToObjectSpace(p)
+			if Rules.onFootprint(l.X, l.Z, r.piece.width, r.piece.depth, C.Nest.ground) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 -- whether `p` is on a Hesco barrier's ground (its footprint and Config/Build.Hesco.ground round it): craters never carve
 -- it (src/server/Ground.guard); the barrier takes the blast (Build.blast)
 function Build.onHesco(p: Vector3): boolean
@@ -1493,6 +1508,7 @@ function Build.start(artillery: Guns)
 	folder()
 	Trenches.start()
 	Ground.guard(Build.onHesco)
+	Ground.guard(Build.onNest)
 	Net.event("Dug").OnServerEvent:Connect(dug)
 	Net.event("Build").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)
 		if kind == "Place" then

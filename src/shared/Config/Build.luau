@@ -423,6 +423,9 @@ local Build = {
 		gunBack = 1.66,
 		mountBack = 2.31,
 		bagTop = 1.9,
+		-- craters never carve its footprint or this many studs round it (Build.onNest; user 2026-10-29: "give the
+		-- turret some ground. the ground beneath it shouldnt be be to be destroyed"), as a Hesco barrier's (Hesco.ground)
+		ground = 2,
 	},
 
 	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the

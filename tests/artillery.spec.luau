@@ -376,6 +376,16 @@ return {
 		assert(A.mgShown(0, 100, 0, 20, 10, 20.01) == 100, "the reload over, before the server's refill lands")
 		assert(A.mgShown(97, 100, 1, 20, 21, 22) == 96, "firing again after the refill")
 	end,
+	["the MG's ammo can stands still as the gun turns, named all the same"] = function()
+		local MG = C.Guns.mg08
+		for _, name in { "BoxKit", "BoxTrim", "BoxFittings", "Belt" } do
+			assert(table.find(MG.fixed :: any, name) and not table.find(MG.mount, name), name)
+		end
+		assert(
+			table.find(MG.mount, "Rounds01") and table.find(MG.mount, "Links01"),
+			"the belt's rounds still bend to the feed"
+		)
+	end,
 	["the MG and the field gun warm and kick their gunner, the howitzer neither"] = function()
 		for _, key in { "mg08", "artillery_qf18" } do
 			local g = C.Guns[key]
