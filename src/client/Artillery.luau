@@ -79,7 +79,7 @@ type Pose = {
 	box: boolean?, -- and whether its own box shows on its tray
 	carried: Model?, -- the box in its gunner's hands in a box reload
 	reloadOf: number?, -- the reload (its ReadyAt) whose animation and sound were played
-	rattled: number?,
+	heard: { [number]: number }, -- each reload step's sound: the ReadyAt of the reload it was last played for
 	fedAt: number?, -- a machine gun's last shot seen here: its belt steps a link on toward the feed over the next gap
 }
 
@@ -110,6 +110,7 @@ local function track(model: Model)
 		rest = {},
 		stage = {},
 		named = {},
+		heard = {},
 		crystal = nil,
 		fx = nil,
 		traverse = (model:GetAttribute("Traverse") :: number?) or 0,
@@ -452,10 +453,14 @@ reloadBox = function(model: Model, p: Pose)
 			tr.TimePosition = t
 		end
 	end
-	if readyAt and t >= R.sound.at and t < R.fed + 1 and p.rattled ~= readyAt then
-		p.rattled = readyAt
-		local block = p.named.Cradle
-		SoundFx.play(R.sound, if block then block.Position else model:GetPivot().Position)
+	if readyAt and t >= 0 then
+		for i, step in R.sounds do
+			if t >= step.at and t < step.at + 1 and p.heard[i] ~= readyAt then
+				p.heard[i] = readyAt
+				local block = p.named.Cradle
+				SoundFx.play(step.sound, if block then block.Position else model:GetPivot().Position)
+			end
+		end
 	end
 	local arm = character and character:FindFirstChild("Right Arm") :: BasePart?
 	if held and arm then
@@ -796,7 +801,12 @@ function Artillery.start()
 	for _, gun in Cfg.Guns do
 		SoundFx.preload(gun.sound)
 		if gun.mg then
-			SoundFx.preload({ Shot = gun.mg.shot, Rattle = gun.mg.reload.sound })
+			SoundFx.preload({
+				Shot = gun.mg.shot,
+				Boom = gun.mg.boom,
+				Jingle = gun.mg.jingle,
+				Reload = gun.mg.reload.sounds,
+			})
 			CaseDrop.preload()
 			local ids = { gun.mg.reload.animation }
 			for _, id in gun.mg.stand do
@@ -1283,20 +1293,36 @@ function Artillery.start()
 						local template = p.named[piece.part]
 						if template then
 							local at = CFrame.new(frame * v3(piece.at)) * (frame * p.rest[template]).Rotation
-							CaseDrop.drop(template, at, frame:VectorToWorldSpace(v3(piece.push)), piece.sound, model)
+							local r = piece.scatter
+							local push = v3(piece.push)
+								+ Vector3.new(math.random() * 2 - 1, math.random() * 2 - 1, math.random() * 2 - 1)
+									* r
+							CaseDrop.drop(template, at, frame:VectorToWorldSpace(push), piece.sound, model)
 						end
 					end
 				end
 			end
 			BarrelHeat.shot(model, gun, 1)
 			GunnerKick.kick(gunnerOf(model), gun.kick)
+			local vary = 1 + (math.random() * 2 - 1) * mg.vary
+			local can = p and p.named.BoxKit
+			local near = (origin - workspace.CurrentCamera.CFrame.Position).Magnitude
+			if near < AudioCfg.Profiles[mg.jingle.profile].max then
+				SoundFx.play(mg.jingle, if can then can.Position else origin, nil, { pitch = vary })
+			end
 			if model == mine then
-				SoundFx.play(mg.shot, origin, nil, { eq = mg.report.eq, pitch = mg.report.pitch })
+				SoundFx.play(mg.shot, origin, nil, { eq = mg.report.eq, pitch = mg.report.pitch * vary })
+				SoundFx.play(mg.boom, origin, nil, { pitch = vary })
 				heat = Rules.mgHeat(heat, 1, 0, mg.spread)
 				CameraShake.kick(origin, mg.shake, mg.shakeReach) -- (user 2026-10-29: "some camera shake too")
 			else
 				local heard = { sounds = { Shot = mg.shot }, report = mg.report }
 				ShotAudio.heardAs(model, model:GetAttribute("Gun") :: any, heard, origin, { hit })
+				-- (its boom too, near enough to hear it apart from the far report, late as sound is)
+				local d = (origin - workspace.CurrentCamera.CFrame.Position).Magnitude
+				if d < AudioCfg.Heard.far then
+					SoundFx.play(mg.boom, origin, nil, { pitch = vary, delay = d / AudioCfg.Heard.speed })
+				end
 			end
 			-- (a rifle's flash: the guns' blast, even scaled down, lit the whole view 7 times a second)
 			GunFx.flashAt(CFrame.new(origin))

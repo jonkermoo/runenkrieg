@@ -140,7 +140,9 @@ export type Gun = {
 			fed: number,
 			box: string,
 			grip: { number },
-			sound: any,
+			-- each step's sound, `at` s into the reload, at the gun (src/client/Artillery reloadBox): played once a
+			-- reload, by everyone near, skipped if joined over a second after it
+			sounds: { { at: number, sound: any } },
 		},
 		eye: { number },
 		over: { number },
@@ -148,6 +150,11 @@ export type Gun = {
 		shoulder: { number },
 		look: number,
 		shot: any,
+		-- a low boom under the shot (`shot` is the crack, alone heard far off as a rifle's), its pitch varied by
+		-- +/- `vary`; `jingle`: the belt and can rattling as each round is pulled in
+		boom: any,
+		vary: number,
+		jingle: any,
 		-- the report's pitch and tone, as a rifle's (Config/Weapons `report`), heard as a rifle's (src/client/ShotAudio)
 		report: { pitch: number, eq: { number } },
 		-- each of the gunner's own shots kicks their camera `shake` degrees, nothing past `shakeReach` studs from the
@@ -156,8 +163,8 @@ export type Gun = {
 		shakeReach: number,
 		-- what each shot throws off (src/client/CaseDrop, Config/Cases): `case` the spent case (a copy of Rounds01), `link`
 		-- its belt link (Links01), each from `at` (gun space, riding the cradle) at `push` studs/s (gun space: +X right,
-		-- +Y up, +Z back), clinking as `sound`
-		spent: { [string]: { part: string, at: { number }, push: { number }, sound: string } },
+		-- +Y up, +Z back) give or take up to `scatter` on each axis, clinking as `sound`
+		spent: { [string]: { part: string, at: { number }, push: { number }, scatter: number, sound: string } },
 	}?,
 	-- its barrel warming as it fires (src/client/BarrelHeat, Heat below; user 2026-10-29: "make the barrel get warmer
 	-- from the tip as you hold it (steam a little too)"): each shot adds `per` to its heat (0 cold .. 1), losing `cool`
@@ -1046,7 +1053,57 @@ local Artillery = {
 					fed = 7,
 					box = "m2_box",
 					grip = { 0.087, 1.34, 0 },
-					sound = { id = 9116340734, volume = 1, at = 6.1, profile = "Gunshot" },
+					-- (user 2026-10-29: "various realistic sounds for machine gun reloading"; Pro Sound Effects, slices
+					-- picked from the files' descriptions): the top cover unlatched ("Metal Latches 3"), the empty can
+					-- lifted off rattling ("Ammo Box Movement 1"), put down ("Metal Can Large Sized Hit Drop 1"), the full
+					-- one taken up ("Ammo Box Movement 2") and set on the tray ("Shield Impacts 17"), the belt laid in
+					-- ("Machine Gun 20"), the cover slammed ("Metal Latches 12") and the charging handle racked back and
+					-- let go ("Machine Gun Bolt 1", an M85 .50 cal)
+					sounds = {
+						{
+							at = 0.5,
+							sound = { id = 9116722779, volume = 0.9, pitch = 0.9, stop = 0.35, profile = "Mechanism" },
+						},
+						{
+							at = 1.2,
+							sound = {
+								id = 9113102913,
+								volume = 0.7,
+								start = 1.5,
+								stop = 2.2,
+								fade = 0.2,
+								profile = "Mechanism",
+							},
+						},
+						{
+							at = 2.6,
+							sound = { id = 9116536883, volume = 1, pitch = 0.75, stop = 0.6, profile = "Mechanism" },
+						},
+						{
+							at = 3.7,
+							sound = {
+								id = 9113103014,
+								volume = 0.6,
+								start = 0.3,
+								stop = 1.8,
+								fade = 0.3,
+								profile = "Mechanism",
+							},
+						},
+						{
+							at = 5.3,
+							sound = { id = 9119075617, volume = 0.9, pitch = 0.8, stop = 0.4, profile = "Mechanism" },
+						},
+						{ at = 6.1, sound = { id = 9116340734, volume = 1, profile = "Gunshot" } },
+						{
+							at = 7.4,
+							sound = { id = 9116729170, volume = 1.2, pitch = 0.85, stop = 0.5, profile = "Mechanism" },
+						},
+						{
+							at = 8.2,
+							sound = { id = 9116357348, volume = 1, pitch = 0.9, stop = 1.2, profile = "Mechanism" },
+						},
+					},
 				},
 				-- (the M2's sights: 0.77 behind the rear sight's peep ring, on the line through the ring's middle and the
 				-- hooded front post's tip, parallel to the bore; the MG 08's was { 0, 1.78, 2.688 })
@@ -1065,6 +1122,22 @@ local Artillery = {
 				-- a round, 7.5 a second, so the tail is cut short before the take's metal clink at 0.6 s (Studio: loud
 				-- to 0.06 s, mostly gone by 0.45); was the rifles' shot as a placeholder)
 				shot = { id = 9118173739, volume = 1.6, stop = 0.5, fade = 0.25, profile = "Gunshot" },
+				-- (user 2026-10-29: "find better sound effects for the machine gun"): the shot above is a Barrett M82's,
+				-- a real .50; under it a huge 12-gauge blast pitched well down for the heavy gun's thump (Pro Sound Effects
+				-- "Gun Live Ammunition 5", Remington 870), each round a little different
+				boom = { id = 9114724430, volume = 0.8, pitch = 0.6, stop = 0.45, fade = 0.2, profile = "Gunshot" },
+				vary = 0.04,
+				-- (user 2026-10-29: "make the ammo box have a jingle sound"): a quick rattle of the can as each round
+				-- goes in (Pro Sound Effects "Ammo Box Movement 1")
+				jingle = {
+					id = 9113102913,
+					volume = 0.25,
+					pitch = 1.1,
+					start = 0.5,
+					stop = 0.75,
+					fade = 0.1,
+					profile = "Mechanism",
+				},
 				-- the G98's round (7.92x57 S, ~890 m/s from a 720 mm barrel): as recorded, the crack a little up; heard far off
 				-- and going by as a rifle (src/client/ShotAudio: late, the far report, echoes off what stands round)
 				report = { pitch = 1, eq = { 0, 0, 2 } },
@@ -1072,10 +1145,24 @@ local Artillery = {
 				shake = 0.35,
 				shakeReach = 25,
 				-- (user 2026-10-29: "shell case droppings and sounds"): fed from the right, the M2 drops its spent case
-				-- straight down out of the bottom of the receiver and throws the empty link out of its left side
+				-- out of the bottom of the receiver and throws the empty link out of its left side. The case leaves just
+				-- behind the tripod's head, a little back and left (straight down under the receiver it landed hidden
+				-- under the head, user 2026-10-29: "its not dropping the shell"), and rolls off the mount bags.
 				spent = {
-					case = { part = "Rounds01", at = { 0, 0.82, 0.46 }, push = { 0, -6, 1 }, sound = "Heavy" },
-					link = { part = "Links01", at = { -0.34, 1.39, 0.45 }, push = { -5, 1.5, 0.5 }, sound = "Link" },
+					case = {
+						part = "Rounds01",
+						at = { 0, 0.8, 1.1 },
+						push = { -1.2, -2.5, 2 },
+						scatter = 1,
+						sound = "Heavy",
+					},
+					link = {
+						part = "Links01",
+						at = { -0.34, 1.39, 0.45 },
+						push = { -5, 1.5, 0.5 },
+						scatter = 0.8,
+						sound = "Link",
+					},
 				},
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },

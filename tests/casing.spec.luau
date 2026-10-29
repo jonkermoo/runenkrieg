@@ -50,6 +50,7 @@ return {
 	end,
 	["each cartridge clink plays its single hit"] = function()
 		local s = C.Sounds.Cartridge
+		assert(s.roll and s.roll > 0 and s.rollSlow > 0, "a round case rolls on a little, then stops")
 		assert(#s.variants >= 2, "variants")
 		for _, e in s.variants do
 			assert(e.stop > e.start and e.fade < e.stop - e.start)

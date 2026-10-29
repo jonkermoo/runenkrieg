@@ -443,9 +443,9 @@ local function eject(gun: BasePart, weapon: string?)
 		template,
 		CFrame.new(port.WorldPosition) * template.CFrame.Rotation,
 		push,
-		if case and not muted then "Cartridge" else nil,
+		"Cartridge",
 		owner,
-		case or { pitch = 1, volume = 1, eq = { 0, 0, 0 } }
+		if muted or not case then { pitch = 1, volume = 0, eq = { 0, 0, 0 } } else case
 	)
 	for i = 2, #names do
 		local t = holder:FindFirstChild(names[i])
