@@ -27,6 +27,9 @@ local Sway = {
 		SpellBook = 0.4,
 		Shovel = 0.6, -- docs/MILESTONES.md SV1
 	},
+	-- not aiming, these classes weigh this instead (a pistol out in one hand sways more than aimed in two, still less
+	-- than a rifle; user 2026-10-28)
+	Hip = { Pistol = 0.8 },
 
 	-- Steps: driven by the Footstep markers on the local walk / sprint cycles (the view lands with the feet). A stride
 	-- is two steps. The first-person gun draws a figure 8: side to side once per stride, down at every step.
