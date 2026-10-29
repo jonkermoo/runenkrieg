@@ -90,6 +90,20 @@ function ZoneMatch.ranking(scores: { [number]: number }): { number }
 	return ids
 end
 
+-- The point leader (user 2026-10-29: "whoever has the most points have a border/glow", "whoever is the point leader by
+-- match end is the winner"): the id with the most points, once anyone has more than 0. A tie for the top keeps the
+-- `current` leader (the glow doesn't flicker between equals); otherwise the lower id, so every client agrees.
+function ZoneMatch.leader(scores: { [number]: number }, current: number?): number?
+	local top = ZoneMatch.ranking(scores)[1]
+	if top == nil or scores[top] <= 0 then
+		return nil
+	end
+	if current ~= nil and scores[current] == scores[top] then
+		return current
+	end
+	return top
+end
+
 -- Seconds as m:ss (a clock that never shows below 0).
 function ZoneMatch.clock(seconds: number): string
 	local s = math.max(0, math.ceil(seconds))

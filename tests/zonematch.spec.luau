@@ -59,6 +59,15 @@ return {
 		assert(r[1] == 2 and r[2] == 5 and r[3] == 9)
 		assert(#R.ranking({}) == 0)
 	end,
+	["leader: the most points, nobody before a point, a tie keeps the current one"] = function()
+		assert(R.leader({}, nil) == nil)
+		assert(R.leader({ [1] = 0, [2] = 0 }, nil) == nil, "nobody has scored")
+		assert(R.leader({ [1] = 3, [2] = 7 }, nil) == 2)
+		assert(R.leader({ [1] = 3, [2] = 7 }, 1) == 2, "overtaken")
+		assert(R.leader({ [1] = 7, [2] = 7 }, 2) == 2, "a tie keeps the leader")
+		assert(R.leader({ [1] = 7, [2] = 7 }, nil) == 1, "a tie with no leader: the lower id")
+		assert(R.leader({ [1] = 7, [2] = 7 }, 9) == 1, "a leader who left")
+	end,
 	["clock: m:ss, never under 0"] = function()
 		assert(R.clock(480) == "8:00")
 		assert(R.clock(61.2) == "1:02")
