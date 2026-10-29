@@ -14,6 +14,7 @@ local TreeCfg = require(Shared.Config.TreeSway)
 local Trees = require(Shared.Rules.Trees)
 local Net = require(Shared.Net)
 local TreeSway = require(script.Parent.TreeSway)
+local Flagpoles = require(script.Parent.Flagpoles)
 
 local Impacts = {}
 
@@ -112,6 +113,7 @@ end
 function Impacts.shot(from: Vector3?, hit: Vector3, normal: Vector3?, part: Instance?)
 	if from then
 		leaves(from, hit)
+		Flagpoles.shot(from, hit) -- (a capture-point flag it passed through or near jolts)
 	end
 	if not normal or not part then
 		return

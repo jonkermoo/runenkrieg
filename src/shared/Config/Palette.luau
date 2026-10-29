@@ -207,6 +207,21 @@ local Palette = {
 		Brass = { 184, 149, 90 }, -- the collar and rivets
 	},
 	-- Player-built pieces (Config/Build, src/server/Build): flat colours until the meshes come
+	-- the capture-point flagpoles (Config/Assets flagpole, src/server/Flagpoles, src/client/Flagpoles): the pieces by mesh
+	-- name, the halyard; each team's rag on the zone stakes (the flag's main colour, TEAM_FLAGS: Katzmark slate, Selvara
+	-- olive, Sowilo brown)
+	Flagpole = {
+		Pole = { 104, 80, 56 },
+		Knob = { 52, 44, 36 },
+		Cleat = { 88, 66, 46 },
+		Stake = { 116, 92, 62 },
+		Rope = { 206, 196, 170 },
+		Rags = {
+			uniform1 = { 82, 86, 88 },
+			uniform2 = { 98, 102, 66 },
+			uniform3 = { 96, 70, 50 },
+		},
+	},
 	Build = {
 		Sandbag = { 176, 156, 114 }, -- hessian; each bag's tone jittered by Config/Build.Sandbags.shade
 		SandbagCord = { 122, 100, 68 }, -- the tie round a pile bag's neck (Config/Assets sandbag_pile Bag<i>Cord)

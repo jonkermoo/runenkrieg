@@ -351,6 +351,17 @@ local Assets = {
 			fidelity = "Hull",
 			description = "The MG nest's mount bag: a short, nearly round pillow bag (Bag) lying along the gun, tied at the back (BagCord), its top sagging into a dent under the gun's foot plate. Gun space, Origin at the bag's foot under its middle; the dent's centre 0.2 in front of it (-z).",
 		},
+		-- the capture-point flagpole (FLAGPOLE.md, user 2026-10-27; built 2026-10-29): src/client/Flagpoles raises the
+		-- holder's flag on it, src/server/Flagpoles stands one on each sector point (the HQ pole scaled up)
+		flagpole = {
+			id = 94784022192132,
+			category = "Props",
+			folder = "Flagpole",
+			source = "assets/props/flagpole.fbx",
+			generator = "tools/blender/flagpole/flagpole.py",
+			fidelity = "Hull",
+			description = "A capture point's pole pieces, Origin at the pole's foot: Pole, a rough-cut tapered faceted trunk 20 studs tall (0.42 radius at the foot, 0.27 at the top); Knob, the dark knob on top; Cleat, the halyard's cleat 3.4 up on the pole's -x face; Stake, the knee-high zone stake (1.9 tall, pointed), standing at the Origin too.",
+		},
 		hesco = {
 			-- v3 (user round 5: "make another flat model for when it has just been placed": stage 0; approved "the flat
 			-- just-placed look is right"); v2 132136802135276: 5.25 high ("just barely the players height"); v1
