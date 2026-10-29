@@ -362,6 +362,34 @@ function Artillery.mgSpread(heat: number, spread: any): number
 	return spread.min + (spread.max - spread.min) * math.clamp(heat, 0, 1)
 end
 
+-- The weights of a machine gunner's stances (Config/Artillery.Guns `mg.stand`: low, level, high) at an `elevation` in
+-- the gun's `limits`: level at 0, all low at the lowest lay, all high at the highest, in between both shares
+function Artillery.mgStand(elevation: number, limits: { number }): (number, number, number)
+	if elevation < 0 then
+		local w = math.clamp(elevation / limits[1], 0, 1)
+		return w, 1 - w, 0
+	end
+	local w = math.clamp(elevation / limits[2], 0, 1)
+	return 0, 1 - w, w
+end
+
+-- What a machine gun shows `t` s into its box reload (Config/Artillery.Guns `mg.reload` `r`; t < 0: none going): its
+-- own box on the tray, a box in the gunner's hands, and its belt's rounds (nil: as the box holds, `box` once fed)
+function Artillery.mgReloadShows(t: number, r: any, box: number): (boolean, boolean, number?)
+	if t < 0 or t < r.lift then
+		return true, false, nil
+	elseif t < r.set then
+		return false, t < r.drop or t >= r.take, 0
+	end
+	return true, false, if t < r.fed then 0 else box
+end
+
+-- How many pixels from the screen's middle a stray of `deg` degrees lands, on a camera with a vertical field of view
+-- of `fov` degrees `height` pixels high
+function Artillery.mgPixels(deg: number, fov: number, height: number): number
+	return math.tan(math.rad(deg)) / math.tan(math.rad(fov) / 2) * height / 2
+end
+
 -- Whether a machine gun can fire now: rounds in its box and not in a box reload (`readyAt`, server time)
 function Artillery.mgReady(rounds: number, readyAt: number?, now: number): boolean
 	return rounds > 0 and (readyAt == nil or now >= readyAt)

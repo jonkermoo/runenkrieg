@@ -163,11 +163,15 @@ end
 -- ---- the shot ----
 function GunFx.flash(gun: BasePart)
 	local muzzle = gun:FindFirstChild("Muzzle") :: Attachment?
-	if not muzzle then
-		return
+	if muzzle then
+		GunFx.flashAt(muzzle.WorldCFrame)
 	end
+end
+
+-- a rifle's flash at `at` (the machine gun's too, src/client/Artillery)
+function GunFx.flashAt(at: CFrame)
 	local f = E.Flash
-	local p = bit(Vector3.one * f.size, muzzle.WorldCFrame, rgb(f.color), true)
+	local p = bit(Vector3.one * f.size, at, rgb(f.color), true)
 	p.Shape = Enum.PartType.Ball
 	local light = Instance.new("PointLight")
 	light.Color, light.Brightness, light.Range = rgb(f.color), f.brightness, f.range

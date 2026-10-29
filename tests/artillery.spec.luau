@@ -205,6 +205,47 @@ return {
 		assert(d.rimHeight <= 5) -- user 2026-10-25: "the mound should be player height or less"
 		assert(d.depth + d.rimHeight >= 14.8) -- as much cover over the bed as before
 	end,
+	["the MG gunner's stances blend by the lay: level at 0, all low or high at its stops"] = function()
+		local MG = C.Guns.mg08
+		local lim = MG.elevation
+		local a, b, c = A.mgStand(0, lim)
+		assert(a == 0 and b == 1 and c == 0)
+		a, b, c = A.mgStand(lim[1], lim)
+		assert(near(a, 1) and near(b, 0) and c == 0)
+		a, b, c = A.mgStand(lim[2], lim)
+		assert(a == 0 and near(b, 0) and near(c, 1))
+		a, b, c = A.mgStand(lim[2] / 2, lim)
+		assert(near(a + b + c, 1) and near(c, 0.5))
+		assert(MG.mg.stand.low and MG.mg.stand.level and MG.mg.stand.high)
+	end,
+	["the MG's box reload: the box off its tray into the hands, put down, the full one up and on, the belt fed"] = function()
+		local MG = C.Guns.mg08
+		local r = MG.mg.reload
+		assert(r.lift < r.drop and r.drop < r.take and r.take < r.set and r.set < r.fed and r.fed < MG.reload)
+		local on, held, belt = A.mgReloadShows(-1, r, 100)
+		assert(on and not held and belt == nil, "no reload: as the box holds")
+		on, held, belt = A.mgReloadShows((r.lift + r.drop) / 2, r, 100)
+		assert(not on and held and belt == 0, "the empty box in the hands")
+		on, held = A.mgReloadShows((r.drop + r.take) / 2, r, 100)
+		assert(not on and not held, "put down, the full one not yet taken")
+		on, held = A.mgReloadShows((r.take + r.set) / 2, r, 100)
+		assert(not on and held, "the full one carried")
+		on, held, belt = A.mgReloadShows((r.set + r.fed) / 2, r, 100)
+		assert(on and not held and belt == 0, "on its tray, the belt not yet in")
+		_, _, belt = A.mgReloadShows(r.fed, r, 100)
+		assert(belt == 100, "fed")
+	end,
+	["the MG's jolt is small and settled before its next shot"] = function()
+		local J, MG = C.Fx.Jolt.MG, C.Guns.mg08
+		assert(J.time < A.mgInterval(MG.mg.rate), "done between shots: full auto never stacks it")
+		assert(J.lift < C.Fx.Jolt.Field.lift / 4 and J.back < C.Fx.Jolt.Field.back / 4)
+	end,
+	["a stray's pixels on screen grow with its angle and the screen, and shrink with the field of view"] = function()
+		assert(near(A.mgPixels(0, 70, 1000), 0))
+		local p = A.mgPixels(1, 70, 1000)
+		assert(p > 0 and A.mgPixels(2, 70, 1000) > p and A.mgPixels(1, 70, 2000) > p and A.mgPixels(1, 90, 1000) < p)
+		assert(near(A.mgPixels(35, 70, 1000), 500, 1e-6), "half the field of view reaches the screen's edge")
+	end,
 	["the whole gun's jolt kicks back, settles and is done after its time"] = function()
 		for _, J in C.Fx.Jolt do
 			assert(A.joltAt(-0.1, J) == 0 and A.joltAt(J.time, J) == 0)

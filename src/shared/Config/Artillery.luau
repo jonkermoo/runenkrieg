@@ -130,9 +130,22 @@ export type Gun = {
 		range: number,
 		class: string,
 		spread: { min: number, max: number, per: number, recover: number },
+		stand: { level: number, low: number, high: number },
+		reload: {
+			animation: number,
+			lift: number,
+			drop: number,
+			take: number,
+			set: number,
+			fed: number,
+			box: string,
+			grip: { number },
+			sound: any,
+		},
 		eye: { number },
 		over: { number },
 		shield: { top: number, z: number },
+		shoulder: { number },
 		look: number,
 		shot: any,
 	}?,
@@ -148,6 +161,30 @@ export type Gun = {
 	-- prints them); nil: none
 	gears: { { part: string, centre: { number }, axis: string, by: string, ratio: number } }?,
 }
+
+-- The MG 08's belt (tools/blender/mgnest/mg08.py v4): each round between the box and the feed block its own case and
+-- bullet, `Rounds01` / `Bullets01` next into the feed; its mount names and colours
+local BELT = 7
+local function beltOf(names: { string }, colors: { [string]: { number } }): ({ string }, { [string]: { number } })
+	for i = 1, BELT do
+		local case, tip = string.format("Rounds%02d", i), string.format("Bullets%02d", i)
+		table.insert(names, case)
+		table.insert(names, tip)
+		colors[case], colors[tip] = { 196, 160, 84 }, { 184, 115, 72 }
+	end
+	return names, colors
+end
+local mgMount, mgColors = beltOf({
+	"Mount",
+	"MountFittings",
+	"Shield",
+	"ShieldTrim",
+	"ShieldFittings",
+	"BoxKit",
+	"BoxTrim",
+	"BoxFittings",
+	"Belt",
+}, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 140, 120, 84 } })
 
 local Artillery = {
 	Folder = "Artillery", -- the Workspace folder the guns stand in
@@ -232,6 +269,10 @@ local Artillery = {
 		Jolt = {
 			Field = { back = 0.35, lift = 1.5, rise = 0.04, wobble = 28, damp = 9, time = 0.6 },
 			Magic = { back = 0.15, lift = 0.35, rise = 0.06, wobble = 22, damp = 7, time = 0.8 },
+			-- a machine gun's (user 2026-10-27: "realistic recoil and spread, with no fight between full auto and the
+			-- camera shake"; was the field gun's, 0.35 back and 1.5 up restarting 7 times a second): a heavy gun on its
+			-- sled barely moves, a short buzz settled before the next shot (Guns `mg.rate`)
+			MG = { back = 0.03, lift = 0.25, rise = 0.015, wobble = 45, damp = 30, time = 0.12 },
 		},
 		Bank = {
 			at = 0.25,
@@ -849,19 +890,7 @@ local Artillery = {
 			nest = true,
 			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
-			mount = {
-				"Mount",
-				"MountFittings",
-				"Shield",
-				"ShieldTrim",
-				"ShieldFittings",
-				"BoxKit",
-				"BoxTrim",
-				"BoxFittings",
-				"Belt",
-				"Rounds",
-				"Bullets",
-			},
+			mount = mgMount, -- (and each round on the belt: beltOf above)
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},
@@ -883,9 +912,9 @@ local Artillery = {
 			reload = 12, -- (the box reload, the design's long wait)
 			breechOpen = 0,
 			breechTimes = { 0, 0 },
-			recoil = 0,
-			recoilTimes = { 0.05, 0.1 },
-			crew = { 0, 3.3 }, -- (behind the grips)
+			recoil = 0.06, -- (recoil-operated: the barrel and lock kick back a little each shot)
+			recoilTimes = { 0.01, 0.05 },
+			crew = { 0, 4 }, -- (standing behind the grips, arms out to them: MGStand)
 			crewTurns = true,
 			prompt = 7,
 			vfx = { scheme = "Ember", magic = false },
@@ -905,32 +934,54 @@ local Artillery = {
 			wreckParts = { "Mount", "Cradle" },
 			holeSize = { 0.08, 0.16 },
 			-- (the design: 450 a minute, a box of 100, a 12 s box reload, 0.6 degrees growing to 1.5 over a long burst;
-			-- the eye half a stud behind the rear peep ring, the ring sight's line at y 1.78; the report a placeholder,
-			-- the rifles' shot cut short)
+			-- the sight line at y 1.78)
 			mg = {
 				rate = 450,
 				box = 100,
 				range = 600, -- (as far as a rifle shot: Config/Firing.Range, the fog)
 				class = "MachineGun",
 				spread = { min = 0.6, max = 1.5, per = 0.06, recover = 0.3 }, -- (hot after ~50 rounds held, cool ~3 s after)
-				eye = { 0, 1.78, 2.44 },
+				-- the gunner's pose while manning it (tools/animation/mg.luau MGStand, a loop; user 2026-10-28: "make it
+				-- standing and ready"): standing behind it, hands on the spade grips; `low` and `high` with the hands
+				-- where the grips are at its lowest and highest lay, blended in by the lay (Rules/Artillery.mgStand)
+				stand = { level = 90383747593412, low = 75408750546932, high = 82573864374660 },
+				-- the box reload (the gun's `reload` s; user 2026-10-27: "the ammo bag as part of the reload animation";
+				-- tools/animation/mg.luau MGReload, Rules/Artillery.mgReloadShows): seconds into it the empty box comes
+				-- off its tray (`lift`, in the hands) and is put down (`drop`), the full one is taken up (`take`, Config/
+				-- Assets `box`, held by its handle's `grip`) and set on the tray (`set`), its belt fed in (`fed`); the
+				-- belt's rattle into the feed block (Pro Sound Effects "Machine Gun 20") as it is fed
+				reload = {
+					animation = 108385355006568,
+					lift = 1.2,
+					drop = 2.6,
+					take = 3.7,
+					set = 5.3,
+					fed = 7,
+					box = "mg08_box",
+					grip = { 0.04, 1, 0 },
+					sound = { id = 9116340734, volume = 1, at = 6.1, profile = "Gunshot" },
+				},
+				-- (v4, the iron sights: three quarters of a stud behind the rear leaf's V on the sight line, the blade
+				-- between its ears in the V; was half a stud behind the ring sight's peep)
+				eye = { 0, 1.78, 2.688 },
 				-- the eye at the hip, in first person (user 2026-10-28: "can you move the camera up more since the
 				-- shield in the way of the camera"): over the shield's top (`shield`: its arch's top with the rim, its
 				-- face's z) at the gun's lowest, turning with the mount as the shield does, not lifting with the gun
 				over = { 0, 2.95, 2.44 },
 				shield = { top = 2.65, z = 0.36 },
+				-- over the shoulder: the camera's offset right and up from the gunner's head (as Config/Camera.Gun
+				-- Shoulder; user 2026-10-28: "fix the MG's third-person camera so the gun shows past the standing
+				-- gunner"): wide and high enough that the line down to the gun passes over the right shoulder
+				shoulder = { 2.5, 1 },
 				look = 0.12,
-				shot = { id = 134529004435835, volume = 1.8, start = 0.34, stop = 0.9, fade = 0.4, profile = "Gunshot" },
+				-- the report (Pro Sound Effects "Rifle Single Shots 1", a heavy single shot, its crack and first boom: one
+				-- a round, 7.5 a second, so the tail is cut short before the take's metal clink at 0.6 s (Studio: loud
+				-- to 0.06 s, mostly gone by 0.45); was the rifles' shot as a placeholder)
+				shot = { id = 9118173739, volume = 1.6, stop = 0.5, fade = 0.25, profile = "Gunshot" },
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
-			colors = {
-				Cradle = { 46, 48, 51 },
-				Barrel = { 46, 48, 51 },
-				Belt = { 140, 120, 84 },
-				Rounds = { 196, 160, 84 },
-				Bullets = { 184, 115, 72 },
-			},
+			colors = mgColors,
 			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"): the foot and mount, the gun, the shield,
 			-- the ammo box and its belt last, each appearing in place in its quarter (user 2026-10-28: "not all the parts have to
 			-- be present before its built (all the other structures work this way too). they can just appear as its being

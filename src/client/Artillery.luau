@@ -24,6 +24,7 @@
 --   the muzzle, the tracer, the hole (src/client/GunFx).
 
 local CollectionService = game:GetService("CollectionService")
+local ContentProvider = game:GetService("ContentProvider")
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -69,6 +70,11 @@ type Pose = {
 	home: CFrame?,
 	still: { [BasePart]: CFrame }?,
 	put: { [BasePart]: CFrame }?,
+	belt: number?, -- a machine gun: the rounds its belt shows now
+	box: boolean?, -- and whether its own box shows on its tray
+	carried: Model?, -- the box in its gunner's hands in a box reload
+	reloadOf: number?, -- the reload (its ReadyAt) whose animation and sound were played
+	rattled: number?,
 }
 
 local poses: { [Model]: Pose } = {}
@@ -165,8 +171,34 @@ local function settle(p: Pose)
 	p.still, p.put, p.home = nil, nil, nil
 end
 
+-- a machine gun's belt as its box empties (user 2026-10-27: "the belt feed showing only the true number of rounds
+-- left"): round i on it (Rounds<i> / Bullets<i>, 1 next into the feed block, tools/blender/mgnest/mg08.py) shown while
+-- the box holds i or more
+local function belt(model: Model, p: Pose, shows: number?)
+	local left = shows or (model:GetAttribute("Rounds") :: number?) or 0
+	if left == p.belt then
+		return
+	end
+	p.belt = left
+	local i = 1
+	while p.named[string.format("Rounds%02d", i)] do
+		for _, name in { string.format("Rounds%02d", i), string.format("Bullets%02d", i) } do
+			local part = p.named[name]
+			if part then
+				part.Transparency = if i <= left then 0 else 1
+			end
+		end
+		i += 1
+	end
+end
+
+local reloadBox: (Model, Pose) -> ()
+
 local function pose(model: Model, p: Pose, dt: number)
 	local gun = p.gun
+	if gun.mg then
+		reloadBox(model, p)
+	end
 	local k = math.min(1, dt * Cfg.Smooth)
 	p.traverse += (((model:GetAttribute("Traverse") :: number?) or 0) - p.traverse) * k
 	p.elevation += (((model:GetAttribute("Elevation") :: number?) or 0) - p.elevation) * k
@@ -181,7 +213,7 @@ local function pose(model: Model, p: Pose, dt: number)
 
 	local pivot = model:GetPivot()
 	-- the whole gun jolts back and its nose up, then settles
-	local J = if gun.vfx.magic then Cfg.Fx.Jolt.Magic else Cfg.Fx.Jolt.Field
+	local J = if gun.mg then Cfg.Fx.Jolt.MG elseif gun.vfx.magic then Cfg.Fx.Jolt.Magic else Cfg.Fx.Jolt.Field
 	local since = t - firedAt
 	if since >= 0 and since < J.time and not model:GetAttribute("Broken") then
 		if p.joltOf ~= firedAt then
@@ -290,7 +322,7 @@ local function roundTemplate(): Model?
 	return if f and f:IsA("Model") then f else nil
 end
 
--- one of the gunner's tracks (`key`: "load", "brace", "crank"), made (and so fetched) ahead of its first play
+-- one of the gunner's tracks (`key`: "load", "brace", "crank", "stand" low / level / high), made (and so fetched) ahead of its first play
 local function oneTrack(character: Model, key: string, id: number?): AnimationTrack?
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
@@ -317,6 +349,79 @@ end
 
 local function loadTrack(character: Model): AnimationTrack?
 	return oneTrack(character, "load", Cfg.Load.animation)
+end
+
+-- a machine gun's box reload (Config/Artillery.Guns `mg.reload`, Rules/Artillery.mgReloadShows), on every client from
+-- its ReadyAt: its own box off the tray while it is changed, the box in the gunner's right hand by its handle, the
+-- belt empty till fed; the gunner's own client plays the animation (it replicates) and the rattle, once a reload, from
+-- where it is (getting on part way)
+reloadBox = function(model: Model, p: Pose)
+	local gun = p.gun
+	local R = (gun.mg :: any).reload
+	local readyAt = model:GetAttribute("ReadyAt") :: number?
+	local t = if readyAt and now() < readyAt then now() - (readyAt - gun.reload) else -1
+	local on, held, shows = Rules.mgReloadShows(t, R, gun.mg.box)
+	belt(model, p, shows)
+	if on ~= p.box then
+		p.box = on
+		for _, name in { "BoxKit", "BoxTrim", "BoxFittings", "Belt" } do
+			local part = p.named[name]
+			if part then
+				part.Transparency = if on then 0 else 1
+			end
+		end
+	end
+	local id = model:GetAttribute("Gunner") :: number?
+	local gunner = id and Players:GetPlayerByUserId(id)
+	local character = gunner and gunner.Character
+	if gunner == Players.LocalPlayer and character and readyAt and t >= 0 and p.reloadOf ~= readyAt then
+		p.reloadOf = readyAt
+		local tr = oneTrack(character, "reload", R.animation)
+		if tr then
+			tr:Play(0.2)
+			tr.TimePosition = t
+		end
+	end
+	if readyAt and t >= R.sound.at and t < R.fed + 1 and p.rattled ~= readyAt then
+		p.rattled = readyAt
+		local feed = p.named.Cradle
+		SoundFx.play(R.sound, if feed then feed.Position else model:GetPivot().Position)
+	end
+	local arm = character and character:FindFirstChild("Right Arm") :: BasePart?
+	if held and arm then
+		if not p.carried then
+			local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+			for _, sub in { "Weapons", "Shared", "Artillery", R.box } do
+				f = f and f:FindFirstChild(sub)
+			end
+			if f and f:IsA("Model") then
+				local c = f:Clone()
+				for _, d in c:GetDescendants() do
+					if d:IsA("BasePart") then
+						d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
+						-- (painted as the gun's own box: SpareKit as BoxKit, ...)
+						local own = p.named[(string.gsub(d.Name, "^Spare", "Box"))]
+						if own then
+							d.Color, d.Material = own.Color, own.Material
+						end
+					end
+				end
+				c.Parent = model
+				p.carried = c
+			end
+		end
+		local c = p.carried
+		if c then
+			-- its handle in the hand, the box along the gun under it
+			local hand = arm.CFrame:PointToWorldSpace(Vector3.new(0, -1, 0))
+			local along = model:GetPivot().Rotation * CFrame.Angles(0, math.rad(p.traverse), 0)
+			local g = R.grip
+			c:PivotTo(CFrame.new(hand) * along * CFrame.new(-g[1], -g[2], -g[3]))
+		end
+	elseif p.carried then
+		p.carried:Destroy()
+		p.carried = nil
+	end
 end
 
 local function load(model: Model, p: Pose, mine: boolean)
@@ -617,12 +722,25 @@ function Artillery.start()
 	local camera = workspace.CurrentCamera
 
 	-- every gun's sounds loaded now, so the first shot doesn't hitch or start late
+	local stands = {}
 	for _, gun in Cfg.Guns do
 		SoundFx.preload(gun.sound)
 		if gun.mg then
-			SoundFx.preload({ Shot = gun.mg.shot })
+			SoundFx.preload({ Shot = gun.mg.shot, Rattle = gun.mg.reload.sound })
+			local ids = { gun.mg.reload.animation }
+			for _, id in gun.mg.stand do
+				table.insert(ids, id)
+			end
+			for _, id in ids do
+				local a = Instance.new("Animation")
+				a.AnimationId = `rbxassetid://{id}`
+				table.insert(stands, a)
+			end
 		end
 	end
+	task.spawn(function()
+		ContentProvider:PreloadAsync(stands) -- (or the first time on the gun shows a frozen pose)
+	end)
 
 	-- the guns
 	local function watch(f: Instance)
@@ -672,6 +790,7 @@ function Artillery.start()
 	local onMg = false
 	local mgDist, mgCur, mgSpeed = 0, 0, 0
 	local mgAimed, aimT = false, 0
+	local heat = 0 -- my gun's heat as the server keeps it (Rules.mgHeat), from my own shots: the crosshair's size
 	local bodyHidden: boolean? = nil
 	local sweep = RaycastParams.new()
 	sweep.FilterType = Enum.RaycastFilterType.Exclude
@@ -748,9 +867,20 @@ function Artillery.start()
 			-- the view I had (a rifle's, or Roblox's camera), at the same share of the way out
 			local zoom, first, max = WeaponCamera.view()
 			mgDist = CameraRules.carried(G, zoom, first, max)
-			mgCur, mgSpeed, mgAimed, aimT = mgDist, 0, false, 0
+			mgCur, mgSpeed, mgAimed, aimT, heat = mgDist, 0, false, 0, 0
 			onMg = true
 			WeaponCamera.manning(true)
+			-- standing ready at the grips (Config/Artillery.Guns `mg.stand`), till I get off: its three stances
+			-- weighted by the lay as it is drawn
+			local character = player.Character
+			if character then
+				for k, id in p.gun.mg.stand do
+					local tr = oneTrack(character, "stand" .. k, id)
+					if tr then
+						tr:Play(0.2, 0.001)
+					end
+				end
+			end
 		else
 			camera.FieldOfView = p.gun.camera.fov
 		end
@@ -892,7 +1022,7 @@ function Artillery.start()
 		end
 
 		-- a machine gun: as a rifle's camera, looking down its lay: first person over the shield (Rules/Artillery.over),
-		-- over my shoulder at the distance chosen (on Camera.Gun's spring, stopped by walls) with the crosshair where the
+		-- over my shoulder at the distance chosen (on Camera.Gun's spring, `mg.shoulder` out, stopped by walls) with the crosshair where the
 		-- gun points, aimed: into the ring sight (the eye riding the gun as it is drawn) at the aimed field of view; in
 		-- first person all of my own body unseen (user 2026-10-28: "our avatar is still visible so i cant see through my
 		-- helmet or my hair when im crouched on the gun"), every frame, as Roblox's camera would show it again
@@ -920,8 +1050,8 @@ function Artillery.start()
 			if mgCur > 0 then
 				local k = math.clamp(mgCur / G.EyeBlend, 0, 1)
 				local base = at:Lerp(head, k)
-				local out = look.RightVector * (G.Shoulder[1] * k)
-					+ Vector3.yAxis * (G.Shoulder[2] * k)
+				local out = look.RightVector * (mg.shoulder[1] * k)
+					+ Vector3.yAxis * (mg.shoulder[2] * k)
 					- look.LookVector * mgCur
 				local hit = workspace:Spherecast(base, CameraCfg.Staff.Radius, out, sweep)
 				at = if hit then base + out.Unit * hit.Distance else base + out
@@ -935,16 +1065,29 @@ function Artillery.start()
 			local goalFov = if aimed then SettingsRules.aimFov(hip, CameraCfg.Fov, CameraCfg.AimFov) else hip
 			local rate = if aimed then CameraCfg.AimEase else CameraCfg.Ease
 			camera.FieldOfView += (goalFov - camera.FieldOfView) * (1 - math.exp(-rate * dt))
-			-- over the shoulder: the crosshair on what the sight line meets (parallel to the bore, a hand above it)
-			local shoulder = mgCur >= CameraCfg.Handover.near and not aimed
-			local pointAt: Vector2? = nil
-			if shoulder then
+			-- at the hip (over the shield or the shoulder): the crosshair on what the sight line meets (parallel to the
+			-- bore, a hand above it), as wide as the shots stray now (user 2026-10-27: "a better crosshair"); aimed, the
+			-- sights
+			heat = Rules.mgHeat(heat, 0, dt, mg.spread)
+			local pointAt: Vector2?, across: number? = nil, nil
+			if not aimed then
 				local line = look.LookVector * mg.range
 				local hit = workspace:Raycast(sight.Position, line, sweep)
 				local spot, onScreen = camera:WorldToViewportPoint(if hit then hit.Position else sight.Position + line)
 				pointAt = if onScreen then Vector2.new(spot.X, spot.Y) else nil
+				across = 2 * Rules.mgPixels(Rules.mgSpread(heat, mg.spread), camera.FieldOfView, camera.ViewportSize.Y)
 			end
-			Crosshair.point(true, pointAt)
+			Crosshair.point(true, pointAt, across)
+			local set = tracks[character]
+			if set then
+				local low, level, high = Rules.mgStand(p.elevation, gun.elevation)
+				for k, w in { low = low, level = level, high = high } do
+					local tr = (set :: any)["stand" .. k] :: AnimationTrack?
+					if tr and tr.IsPlaying then
+						tr:AdjustWeight(math.max(w, 0.001), 0.1)
+					end
+				end
+			end
 			local hide = mgCur < CameraCfg.Handover.near
 			if hide or hide ~= bodyHidden then
 				bodyHidden = hide
@@ -1038,9 +1181,11 @@ function Artillery.start()
 				return
 			end
 			SoundFx.play(mg.shot, origin)
-			-- (just the muzzle's flash: the guns' whole blast, smoke and shockwaves, is too much 7 times a second)
-			local near = (camera.CFrame.Position - origin).Magnitude <= Cfg.Fx.far
-			Vfx.Muzzle.play(origin, (hit - origin).Unit, gun.muzzleScale, "Field", near)
+			if model == mine then
+				heat = Rules.mgHeat(heat, 1, 0, mg.spread)
+			end
+			-- (a rifle's flash: the guns' blast, even scaled down, lit the whole view 7 times a second)
+			GunFx.flashAt(CFrame.new(origin))
 			GunFx.tracer(origin, hit)
 			if part then
 				GunFx.hole(hit, normal, part)

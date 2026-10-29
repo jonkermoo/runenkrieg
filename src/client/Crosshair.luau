@@ -4,8 +4,8 @@
 -- sky and ground. Only with a weapon out over the shoulder ("CameraMode" "Third" at the hip, or "ThirdAim": the staff
 -- aimed over the shoulder, user 2026-10-21; src/client/WeaponCamera): never in first person, aiming down the sights,
 -- sprinting or with the settings menu open. The player's "Crosshair" setting turns it off. Fades in and out.
--- Manning a machine gun over the shoulder (src/client/Artillery; user 2026-10-28: "keep the hipfire cross fire in third
--- person manning the turret") it sits where the gun points instead (Crosshair.point).
+-- Manning a machine gun at the hip (src/client/Artillery; user 2026-10-28: "keep the hipfire cross fire in third person
+-- manning the turret") it sits where the gun points instead, as wide as its shots stray (Crosshair.point).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,12 +21,14 @@ local Settings = require(script.Parent.Settings)
 
 local Crosshair = {}
 
--- manning a machine gun, and the screen point it points at (nil: not over its shoulder, no crosshair)
+-- manning a machine gun, the screen point it points at (nil: aimed, no crosshair) and how wide its shots stray there
+-- (pixels; nil: the ring's own size)
 local manning = false
 local mgPoint: Vector2? = nil
+local mgSize: number? = nil
 
-function Crosshair.point(on: boolean, at: Vector2?)
-	manning, mgPoint = on, at
+function Crosshair.point(on: boolean, at: Vector2?, across: number?)
+	manning, mgPoint, mgSize = on, at, across
 end
 
 local function rgb(c: { number }): Color3
@@ -82,8 +84,10 @@ function Crosshair.start()
 			and player:GetAttribute("MenuOpen") ~= true
 			and Settings.get("Crosshair") == "On"
 		local at = if mgPoint then UDim2.fromOffset(mgPoint.X, mgPoint.Y) else UDim2.fromScale(0.5, 0.5)
+		local size = math.max(C.Size, if manning then mgSize or 0 else 0)
 		for _, f in rings do
 			f.Position = at
+			f.Size = UDim2.fromOffset(size, size)
 		end
 		shown += ((if want then 1 else 0) - shown) * (1 - math.exp(-C.Fade * dt))
 		if not want and shown < C.Hidden then
