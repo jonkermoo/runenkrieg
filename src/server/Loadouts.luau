@@ -21,9 +21,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Classes)
 local DevCfg = require(Shared.Config.DevTools)
+local ModesCfg = require(Shared.Config.Modes)
 local U = require(Shared.Config.Uniforms)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Classes)
+local Modes = require(Shared.Rules.Modes)
 local Kits = require(script.Parent.Kits)
 
 local Loadouts = {}
@@ -111,11 +113,13 @@ local function send(player: Player)
 	Net.event("Loadout"):FireClient(player, s)
 end
 
--- Pays `player` the Config/Classes.Earn for `reason` ("Kill", "Assist", "Capture", "Piece", ...), `times` over.
+-- Pays `player` the Config/Classes.Earn for `reason` ("Kill", "Assist", "Capture", "Piece", ...), `times` over, and
+-- the live mode's boost on top (Config/Modes `earn`).
 function Loadouts.award(player: Player, reason: string, times: number?)
 	local amount = C.Earn[reason]
 	assert(amount, "unknown award " .. reason)
-	points[player] = Rules.earn(Loadouts.points(player), amount * (times or 1))
+	local boost = Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute))
+	points[player] = Rules.earn(Loadouts.points(player), amount * (times or 1) * boost)
 end
 
 -- Admin (src/server/DevTools): `amount` match points for `player`, the loadout menu told.
