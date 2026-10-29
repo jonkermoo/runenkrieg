@@ -398,6 +398,17 @@ return {
 		assert(spent.case.push[2] < 0, "the M2's case drops out of the bottom")
 		assert(spent.link.push[1] < 0, "fed from the right, its links go out of the left")
 	end,
+	["the MG's reload sounds play in order, all within the reload, the belt's rattle as it is laid in"] = function()
+		local MG = C.Guns.mg08
+		local R = (MG.mg :: any).reload
+		local last = -1
+		for _, step in R.sounds do
+			assert(step.at > last and step.at < MG.reload and step.sound.id, step.at)
+			last = step.at
+		end
+		assert(#R.sounds >= 6, "cover, cans, belt, cover, charging handle")
+		assert((MG.mg :: any).boom.id and (MG.mg :: any).jingle.id)
+	end,
 	["the MG and the field gun warm and kick their gunner, the howitzer neither"] = function()
 		for _, key in { "mg08", "artillery_qf18" } do
 			local g = C.Guns[key]

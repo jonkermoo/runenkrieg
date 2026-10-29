@@ -13,13 +13,24 @@ local Cases = {
 	bounces = 2,
 	settle = 3,
 	life = 4,
+	-- a round case rolls off at `rollLeast` to all of its kind's `roll`; kept on the ground by looking for it from
+	-- `rollReach` studs above (off an edge, it falls again)
+	rollLeast = 0.4,
+	rollReach = 0.5,
 	-- a clink at most every `gap` s (a machine gun drops 15 pieces a second; one clink each would be a hiss)
 	gap = 0.05,
-	-- what each kind sounds like when it lands: one variant picked a drop, its pitch spread by +/- `spread`. Pro Sound
-	-- Effects "Bullet Drops 5 / 7 / 8 / 9" (a .45 case dropped on concrete, its clink and a bounce or two)
+	-- each kind of piece: what it sounds like when it lands (one variant picked a drop, its pitch spread by +/-
+	-- `spread`; Pro Sound Effects "Bullet Drops 5 / 7 / 8 / 9", a .45 case dropped on concrete, its clink and a bounce
+	-- or two), `life` s it lasts if not `life` above, `roll` studs/s at most it rolls on across the ground once down
+	-- (a round case; slowing by `rollSlow` studs/s²)
 	Sounds = {
-		-- a big rifle case (.50 BMG, 99 mm long): the .45's clink pitched down
+		-- a big rifle case (.50 BMG, 99 mm long): the .45's clink pitched down. A machine gun's: gone sooner, 15 pieces
+		-- a second (user 2026-10-29: "you can make it despawn faster than usual since it's a mg with a lot of ammo, but
+		-- make sure it still exists long enough to hit the ground and roll")
 		Heavy = {
+			life = 2.5,
+			roll = 2,
+			rollSlow = 4,
 			pitch = 0.75,
 			spread = 0.08,
 			variants = {
@@ -31,6 +42,7 @@ local Cases = {
 		},
 		-- a steel belt link: small, thin and light, a quick high tink
 		Link = {
+			life = 2,
 			pitch = 1.45,
 			spread = 0.1,
 			variants = {
