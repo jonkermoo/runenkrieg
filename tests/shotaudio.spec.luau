@@ -1,5 +1,6 @@
 --!strict
 local A = require("../src/shared/Config/Audio")
+local Artillery = require("../src/shared/Config/Artillery")
 local Firing = require("../src/shared/Config/Firing")
 local W = require("../src/shared/Config/Weapons")
 local R = require("../src/shared/Rules/ShotAudio")
@@ -83,6 +84,42 @@ return {
 	end,
 	["echoes look about and around"] = function()
 		assert(H.echo.rays >= 4 and H.echo.count >= 1 and H.echo.gain < 1 and H.echo.dull <= 0)
+	end,
+	["no echo beside the gun: it grows in with the far report"] = function()
+		assert(R.grow(0, H.echo.from, H.echo.full) == 0 and R.grow(H.echo.from, H.echo.from, H.echo.full) == 0)
+		assert(near(R.grow(H.echo.full, H.echo.from, H.echo.full), 1) and R.grow(1e6, H.echo.from, H.echo.full) == 1)
+		assert(R.grow(150, H.echo.from, H.echo.full) < R.grow(250, H.echo.from, H.echo.full), "louder farther off")
+		assert(H.echo.from >= H.near and H.echo.full <= H.far * 1.5, "with the far report, not before it")
+	end,
+	["the rifle shot stops before the reflection in its recording"] = function()
+		-- (the file swells again from 1.3 s, peaking at 1.45: a reflection, measured 2026-10-28)
+		local s = Firing.Sounds.Shot
+		assert(s.stop <= 1.2 and s.fade and s.fade < s.stop - s.start)
+	end,
+	["a field gun's report: dry beside it, the distant boom growing in"] = function()
+		local r = Artillery.Report
+		assert(r.near > 0 and r.far > r.near)
+		local s, f = R.mix(r.near * 0.5, r.near, r.far)
+		assert(near(s, 1) and near(f, 0), "beside it only the gun")
+		s, f = R.mix(r.far, r.near, r.far)
+		assert(near(s, 0, 1e-9) and near(f, 1), "far off only the boom")
+	end,
+	["each gun's report: a believable pitch and tone"] = function()
+		for name, w in W do
+			local r = w.report
+			if r then
+				assert(r.pitch >= 0.7 and r.pitch <= 1.4, `{name}: pitch {r.pitch}`)
+				assert(#r.eq == 3, `{name}: low, mid, high`)
+				for _, g in r.eq do
+					assert(math.abs(g) <= 12, `{name}: {g} dB`)
+				end
+			elseif w.ammo then
+				error(`{name}: a gun with no report`)
+			end
+		end
+		-- a smaller powder charge booms higher (blast scaling)
+		assert(W.rifle_winchester1907.report.pitch > W.rifle_m91.report.pitch, ".351 WSL over 6.5 Carcano")
+		assert(W.rifle_m91.report.pitch > W.rifle_g98.report.pitch, "6.5 Carcano over 7.92 Mauser")
 	end,
 	["every gun is heard far off and going by"] = function()
 		for name, w in W do

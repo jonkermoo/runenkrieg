@@ -101,11 +101,19 @@ local function soundOf(gun: BasePart, name: string): any
 	return (w and w.sounds and w.sounds[name]) or (Cfg.Sounds :: any)[name]
 end
 
+-- How the weapon's shot is played (Config/Weapons `report`: its pitch and tone), nil: as recorded.
+local function reportOf(gun: BasePart): { pitch: number, eq: { number } }?
+	local weapon = gun:GetAttribute("Weapon")
+	local w = type(weapon) == "string" and W[weapon] or nil
+	return w and w.report
+end
+
 function GunFx.sound(gun: BasePart, name: string)
 	local owner = gun:FindFirstAncestorWhichIsA("Model")
 	if owner and owner:GetAttribute("Muted") == true then
 		return -- a muted soldier (the animation showcase's dummies, src/server/Showcase)
 	end
+	local report = if name == "Shot" then reportOf(gun) else nil
 	local s = gun:FindFirstChild("Fx_" .. name) :: Sound?
 	if not s then
 		local c = soundOf(gun, name)
@@ -121,11 +129,17 @@ function GunFx.sound(gun: BasePart, name: string)
 			made.PlaybackRegionsEnabled = true
 			made.PlaybackRegion = NumberRange.new(c.start or 0, c.stop or 600)
 		end
+		if report then
+			local q = Instance.new("EqualizerSoundEffect")
+			q.LowGain, q.MidGain, q.HighGain = report.eq[1], report.eq[2], report.eq[3]
+			q.Parent = made
+		end
 		made.Parent = gun
 		s = made
 	end
 	local snd = s :: Sound
 	local c = soundOf(gun, name)
+	local pitch = if report then report.pitch else 1
 	if name == "Shot" then
 		-- each shot its own copy (user 2026-10-13: a quick second shot cut the first one off), gone once it has played
 		snd = snd:Clone()
@@ -136,11 +150,12 @@ function GunFx.sound(gun: BasePart, name: string)
 		Debris:AddItem(snd, 10)
 	end
 	snd.Volume = c.volume
+	snd.PlaybackSpeed = pitch
 	snd.TimePosition = c.start or 0
 	snd:Play()
 	if c.stop and c.fade then -- fade out before the cut (stop is a time in the file: the play began at `start`)
-		task.delay(math.max(0, c.stop - (c.start or 0) - c.fade), function()
-			TweenService:Create(snd, TweenInfo.new(c.fade, Enum.EasingStyle.Linear), { Volume = 0 }):Play()
+		task.delay(math.max(0, c.stop - (c.start or 0) - c.fade) / pitch, function()
+			TweenService:Create(snd, TweenInfo.new(c.fade / pitch, Enum.EasingStyle.Linear), { Volume = 0 }):Play()
 		end)
 	end
 end

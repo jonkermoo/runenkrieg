@@ -41,6 +41,7 @@ local Damage = require(Shared.Config.Damage)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
 local Grenade = require(Shared.Rules.Grenade)
+local ShotAudio = require(Shared.Rules.ShotAudio)
 local Net = require(Shared.Net)
 local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
 local ArtilleryFx = require(script.Parent.ArtilleryFx)
@@ -995,12 +996,16 @@ function Artillery.start()
 		if not gun then
 			return
 		end
-		-- the report: up close the gun itself, far off the distant boom
+		-- the report: up close the gun itself, dry, crossfading into the distant boom and its echoes farther off
 		local eye = camera.CFrame.Position
 		local d = (eye - origin).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
-		local report = if d > Cfg.FarFrom then gun.sound.far else gun.sound.fire
-		SoundFx.play(report :: any, origin, nil, { delay = delay, eq = { low, 0, high } })
+		local near, far = ShotAudio.mix(d, Cfg.Report.near, Cfg.Report.far)
+		for _, part in { { gun.sound.fire, near }, { gun.sound.far, far } } do
+			if part[2] > AudioCfg.Heard.min then
+				SoundFx.play(part[1] :: any, origin, nil, { delay = delay, volume = part[2], eq = { low, 0, high } })
+			end
+		end
 		-- the incoming shell's whistle, for whoever is near where it lands (the path as the server flies it, unscattered
 		-- from here: the server sent the scattered velocity)
 		local landing, flight = trace(origin, velocity, gun.gravity, { model })

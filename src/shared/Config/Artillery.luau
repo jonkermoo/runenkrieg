@@ -427,7 +427,8 @@ local Artillery = {
 
 	-- Sounds (Pro Sound Effects, licensed through Roblox; ASSETS_LICENSES.md), per gun below (the blasts each fade over
 	-- their last `fade` seconds, so their tails die away; user 2026-10-21: "the explosion audio cuts out"): `fire` its report up
-	-- close, `far` heard past `FarFrom` studs instead, `blast` the shell going off; the incoming shell's `whistle` is
+	-- close, crossfading (equal power, Rules/ShotAudio.mix) into `far` from `Report.near` to `Report.far` studs (user
+	-- 2026-10-28: the echo and far report grow with distance; was a hard switch at 400), `blast` the shell going off; the incoming shell's `whistle` is
 	-- heard within `Whistle.reach` studs of where it lands, starting the gun's `whistleLead` s before it lands (only on a
 	-- flight at least that long: a short one comes in under the report; Studio round 2). All late and
 	-- duller far off (Rules/Grenade.heard).
@@ -436,7 +437,7 @@ local Artillery = {
 	-- blast itself (`lag` s)
 	Echo = { from = 120, full = 450, lag = 0.25 },
 	Heard = { dullFrom = 80, dullFull = 900, highCut = -14, lowBoost = 5 },
-	FarFrom = 400,
+	Report = { near = 150, far = 500 },
 
 	-- The field gun's loading (tools/animation/artillery.luau; user 2026-10-20: "make the player load the shell as an
 	-- animation. the howitzer can be just the crystal"): the gunner's client plays `animation` from `lead` s before
@@ -595,9 +596,13 @@ local Artillery = {
 			muzzleScale = 1,
 			loads = true,
 			sound = {
+				-- dry beside the gun (user 2026-10-28: "the shot keeps ringing a distant echo when we are right next to the
+				-- gun"): Explosions 4's first 0.5 s is its crack and boom, the rest debris falling and a ~4 s rumble (measured
+				-- 2026-10-28), so it stops at 0.75 s; the 18-pounder's ~0.6 kg of cordite and its supersonic shell (~490 m/s)
+				-- make a sharp crack-bang, as recorded
 				fire = {
 					{ id = 9116973611, volume = 1.4, profile = "Explosion" }, -- Mortar Explosion 3: big, low thump
-					{ id = 9114362266, volume = 0.8, profile = "Explosion" }, -- Explosions 4: the crack and its debris
+					{ id = 9114362266, volume = 0.8, profile = "Explosion", stop = 0.75, fade = 0.3 }, -- Explosions 4: the crack
 				},
 				far = { { id = 9113169432, volume = 1.2, profile = "Explosion" } }, -- Artillery Distant 2
 				-- dry, heard at every distance (user 2026-10-21: the echo "sounds distorted at the end and it echoes even
@@ -765,9 +770,13 @@ local Artillery = {
 			vfx = { scheme = "Arcane", magic = true },
 			muzzleScale = 2.2,
 			sound = {
+				-- a 42 cm siege mortar's deep, slow boom, dry beside it: Sonic Boom 2 rolls on at -1..-10 dB for ~3 s after
+				-- its 0.3 s of lead-in silence and dies out over 6.5 s (measured 2026-10-28), so it plays 0.25-2 s, faded from
+				-- 1.2 s; Mortar Explosion 5 a fifth lower (0.85) for the far bigger charge
 				fire = {
-					{ id = 9119382515, volume = 1.5, profile = "Explosion" }, -- Sonic Boom 2: a huge single boom
-					{ id = 9116973607, volume = 1.2, profile = "Explosion" }, -- Mortar Explosion 5
+					-- Sonic Boom 2: a huge single boom
+					{ id = 9119382515, volume = 1.5, profile = "Explosion", start = 0.25, stop = 2, fade = 0.8 },
+					{ id = 9116973607, volume = 1.2, profile = "Explosion", pitch = 0.85 }, -- Mortar Explosion 5
 				},
 				far = { { id = 9113169264, volume = 1.4, profile = "Explosion" } }, -- Artillery Distant 1
 				blast = {

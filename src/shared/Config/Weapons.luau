@@ -187,6 +187,13 @@ export type Weapon = {
 	-- This weapon's own sounds, over Config/Firing.Sounds (same fields: id, volume, start, stop, fade); Equip / Unequip
 	-- (src/client/SoundFx entries, with a falloff `profile`) play on drawing and putting it away.
 	sounds: { [string]: { [string]: any } }?,
+	-- Its report against the recordings it plays (its own `sounds`, else Config/Firing.Sounds; user 2026-10-28: "adjust
+	-- their frequency and pitch to be best matched with their actual gun"): the shot, its far report and their echoes
+	-- play at `pitch` (playback speed: higher is sharper and shorter), the shot through `eq` { low, mid, high } dB. A
+	-- muzzle blast's pitch goes as its powder charge to the -1/3 (blast scaling: a charge 8x the size booms at half the
+	-- frequency), so each gun's is its charge against the recording's cartridge, nudged for its barrel and its
+	-- bullet's crack (src/client/GunFx, src/client/ShotAudio).
+	report: { pitch: number, eq: { number } }?,
 	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
 	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot).
 	recoil: { scale: number, build: number, max: number, cool: number }?,
@@ -427,6 +434,8 @@ local Weapons: { [string]: Weapon } = {
 			},
 		},
 		-- a heavier kick than a rifle's, worse with every quick shot (user 2026-10-13)
+		-- a 12 gauge's low boom from a 20-inch trench barrel, no supersonic crack (pellets ~400 m/s): the lows up, highs down
+		report = { pitch = 0.95, eq = { 2, 0, -2 } },
 		recoil = { scale = 1.6, build = 0.45, max = 2.8, cool = 1.8 },
 		pellets = { count = 9, spread = 3, full = 42, none = 140 }, -- 15 m / 50 m at 0.357 m per stud
 		feed = { parts = { "Shell", "ShellHead" }, lift = 0.042, push = 0.211 },
@@ -543,6 +552,9 @@ local Weapons: { [string]: Weapon } = {
 			cycle = { reach = 0.14, up = 0.27, back = 0.45, hold = 0.55, forward = 0.76, down = 0.88 },
 		},
 		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
+		-- 6.5x52: ~2.3 g of powder against the recording's ~3.2 g (7.92x57 class): x1.12, from a long 780 mm barrel 1.1;
+		-- a small fast bullet (~740 m/s): a sharper crack
+		report = { pitch = 1.1, eq = { -1, 0, 1 } },
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob at the end of the straight handle, mid-bolt; the clip pushed down from just over the magazine
 		-- v2: slower, the bolt resting back (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
@@ -639,6 +651,8 @@ local Weapons: { [string]: Weapon } = {
 			cycle = { reach = 0.14, up = 0.27, back = 0.45, hold = 0.55, forward = 0.76, down = 0.88 },
 		},
 		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
+		-- 7.92x57 S Patrone (~3.2 g, 878 m/s from 740 mm): the recording's own class, the fastest crack of the rifles
+		report = { pitch = 1, eq = { 0, 0, 1 } },
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob at the end of the straight handle at the bolt's rear; the stripper clip in the guides on the bridge
 		-- v2: slower (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
@@ -738,6 +752,8 @@ local Weapons: { [string]: Weapon } = {
 			cycle = { reach = 0.14, up = 0.27, back = 0.45, hold = 0.55, forward = 0.76, down = 0.88 },
 		},
 		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
+		-- .303 Mk VII (~2.4 g of cordite, 744 m/s): x1.1, but the short 640 mm barrel lets more of it out: 1.05, fuller
+		report = { pitch = 1.05, eq = { 1, 0, 0 } },
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob of the bent handle at the bolt's rear, down by the wrist; the charger in the guides on the bridge
 		-- v2: slower (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
@@ -839,6 +855,8 @@ local Weapons: { [string]: Weapon } = {
 			travel = 0.219,
 			fireTime = 0.35,
 		},
+		-- 7x57 Mauser (~2.6 g): x1.07, from a short ~580 mm barrel 1.04, a crisp crack
+		report = { pitch = 1.04, eq = { 0, 0, 1 } },
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.0,
 		stride = 1.3, -- more sway on the move than a bolt rifle (user 2026-10-20)
@@ -932,6 +950,9 @@ local Weapons: { [string]: Weapon } = {
 			travel = 0.133,
 			fireTime = 0.35,
 		},
+		-- .35 Remington (~2.5 g): x1.09, from a 560 mm barrel 1.05; a heavy 200 gr bullet at ~630 m/s at low pressure:
+		-- thumpier, less crack
+		report = { pitch = 1.05, eq = { 1, 0, -2 } },
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.1,
 		stride = 1.45,
@@ -1024,6 +1045,9 @@ local Weapons: { [string]: Weapon } = {
 			travel = 0.169,
 			fireTime = 0.35,
 		},
+		-- .351 WSL (~1.3 g): x1.35, a 510 mm barrel letting much of it out: 1.25, a short bark; ~560 m/s, barely
+		-- supersonic: a weak crack
+		report = { pitch = 1.25, eq = { 0, 1, -2 } },
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.25,
 		stride = 1.7, -- the 15-round box: the worst on the move

@@ -4,7 +4,8 @@
 -- close by the shot's own sound, farther off crossfading into a far report (Config/Firing.Sounds.Far, a weapon's own in
 -- Config/Weapons `sounds`), duller with distance; a bullet passing close cracks (rifles) or whizzes (pellets) beside
 -- the listener before the report arrives; walls and hillsides around the listener send back echoes from where they
--- stand. The listener is the camera.
+-- stand, growing in with the shot's distance (none beside the gun). All of it at the weapon's own pitch, the shot in its
+-- own tone (Config/Weapons `report`). The listener is the camera.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -79,20 +80,24 @@ function ShotAudio.heard(shooter: Model, weapon: string, origin: Vector3, hits: 
 	local late = R.delay(d, H.speed)
 	local shotShare, farShare = R.mix(d, H.near, H.far)
 	local lo, mid, hi = R.air(d, H.air)
+	local w = W[weapon]
+	local report = w and w.report
+	local pitch = if report then report.pitch else 1
+	local tone = if report then report.eq else { 0, 0, 0 }
 	if shotShare > H.min then
 		SoundFx.play(any(sounds(weapon, "Shot", "Gunshot")), origin, nil, {
 			volume = shotShare,
-			eq = { lo, mid, hi },
+			eq = { lo + tone[1], mid + tone[2], hi + tone[3] },
 			delay = late,
+			pitch = pitch,
 		})
 	end
 	local far = sounds(weapon, "Far", "Report")
 	if farShare > H.min then
-		SoundFx.play(any(far), origin, nil, { volume = farShare, eq = { lo, mid, hi }, delay = late })
+		SoundFx.play(any(far), origin, nil, { volume = farShare, eq = { lo, mid, hi }, delay = late, pitch = pitch })
 	end
 
 	-- the bullet (or the nearest pellet) going by
-	local w = W[weapon]
 	local bullet = if w and w.pellets then H.pass.pellet else H.pass.bullet
 	local best: R.Pass? = nil
 	for _, hit in hits do
@@ -113,7 +118,11 @@ function ShotAudio.heard(shooter: Model, weapon: string, origin: Vector3, hits: 
 		})
 	end
 
-	-- echoes off what stands around the listener
+	-- echoes off what stands around the listener, only once the shot is some way off
+	local grow = R.grow(d, H.echo.from, H.echo.full)
+	if grow * H.echo.gain <= H.min then
+		return
+	end
 	local ignore: { Instance } = { shooter }
 	local own = Players.LocalPlayer.Character
 	if own then
@@ -126,7 +135,7 @@ function ShotAudio.heard(shooter: Model, weapon: string, origin: Vector3, hits: 
 			any(far),
 			at[e.index],
 			nil,
-			{ volume = e.gain, eq = { el, em, eh + H.echo.dull }, delay = e.delay }
+			{ volume = e.gain * grow, eq = { el, em, eh + H.echo.dull }, delay = e.delay, pitch = pitch }
 		)
 	end
 end
