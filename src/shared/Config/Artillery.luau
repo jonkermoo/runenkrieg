@@ -150,7 +150,28 @@ export type Gun = {
 		shot: any,
 		-- the report's pitch and tone, as a rifle's (Config/Weapons `report`), heard as a rifle's (src/client/ShotAudio)
 		report: { pitch: number, eq: { number } },
+		-- each of the gunner's own shots kicks their camera `shake` degrees, nothing past `shakeReach` studs from the
+		-- muzzle (src/client/CameraShake)
+		shake: number,
+		shakeReach: number,
 	}?,
+	-- its barrel warming as it fires (src/client/BarrelHeat, Heat below; user 2026-10-29: "make the barrel get warmer
+	-- from the tip as you hold it (steam a little too)"): each shot adds `per` to its heat (0 cold .. 1), losing `cool`
+	-- a second; `segments` glowing bands over the `length` studs behind the muzzle, `radius` x the bore's radius round
+	-- (a little over the barrel), lighting from the tip back as it warms; steam off it past `steam`, up to `steamRate`
+	-- puffs a second hot; nil: none (the howitzer)
+	heat: {
+		per: number,
+		cool: number,
+		length: number,
+		radius: number,
+		segments: number,
+		steam: number,
+		steamRate: number,
+	}?,
+	-- each shot jolts its gunner (src/client/GunnerKick; user 2026-10-29: "add some recoil animation to both the gun
+	-- and the player"): the arms back `arms` degrees and the body `torso`, settling over `time` s; nil: none
+	kick: { arms: number, torso: number, time: number }?,
 	-- part names coloured so instead of by Palette.Artillery (the MG's gunmetal body and its belt); nil: none
 	colors: { [string]: { number } }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
@@ -164,10 +185,10 @@ export type Gun = {
 	gears: { { part: string, centre: { number }, axis: string, by: string, ratio: number } }?,
 }
 
--- The M2's belt (tools/blender/mgnest/m2.py): a link belt from the feedway down to its can on the mount bag, the seven
--- rounds nearest the feed each its own case and bullet (`Rounds01` / `Bullets01` next into the feed), the rest of the
--- run one pair (`BeltRounds`, `BeltBullets`); its mount names and colours (the links dark steel)
-local BELT = 7
+-- The M2's belt (tools/blender/mgnest/m2.py): a link belt from the feedway down to its can on the mount bag, every
+-- round on it outside the can its own case and bullet (`Rounds01` / `Bullets01` next into the feed; user 2026-10-29:
+-- "make it go empty as we go empty"); its mount names and colours (the links dark steel)
+local BELT = 11
 local function beltOf(names: { string }, colors: { [string]: { number } }): ({ string }, { [string]: { number } })
 	for i = 1, BELT do
 		local case, tip = string.format("Rounds%02d", i), string.format("Bullets%02d", i)
@@ -175,9 +196,6 @@ local function beltOf(names: { string }, colors: { [string]: { number } }): ({ s
 		table.insert(names, tip)
 		colors[case], colors[tip] = { 196, 160, 84 }, { 184, 115, 72 }
 	end
-	table.insert(names, "BeltRounds")
-	table.insert(names, "BeltBullets")
-	colors.BeltRounds, colors.BeltBullets = { 196, 160, 84 }, { 184, 115, 72 }
 	return names, colors
 end
 local mgMount, mgColors = beltOf({
@@ -239,6 +257,29 @@ local Artillery = {
 	Brace = { animation = 110111507484119 :: number?, pull = 0.45 },
 	Turn = { crank = 80321147839061 :: number?, moving = 0.3, fade = 0.2 },
 
+	-- A warm barrel (src/client/BarrelHeat, each gun's `heat`; user 2026-10-29: "make the barrel get warmer from the tip
+	-- as you hold it (steam a little too)"): its bands glow from `cold` to `hot` (RGB), at most `glow` opaque; band i
+	-- of n (1 the tip) starts at heat (i - 1) / n x `lead` (Rules/Artillery.heatGlow). The steam: `color` puffs `size`
+	-- studs growing to `grow`, rising `rise` studs/s against `drag`, living `life` s, `transparency` at birth, leaving at
+	-- `speed` studs/s every which way, turning up to `spin` degrees a second.
+	Heat = {
+		cold = { 120, 24, 12 },
+		hot = { 255, 150, 50 },
+		glow = 0.75,
+		lead = 0.6,
+		steam = {
+			color = { 235, 235, 235 },
+			size = 0.25,
+			grow = 1.1,
+			rise = 1.6,
+			drag = 1,
+			life = { 1.2, 2 },
+			transparency = 0.55,
+			speed = { 0.2, 0.6 },
+			spin = 30,
+		},
+	},
+
 	-- The effects (src/client/ArtilleryFx; user 2026-10-21, see there). Colours are Config/Palette.Magic names, RGB lists
 	-- where said. Shot: pressure waves along the bore (`wave` studs out, starting `ahead` past the muzzle) and a ring blown
 	-- across the ground (`ground` studs, when the ground is within `groundReach`); Air: a see-through bubble swelling
@@ -274,8 +315,9 @@ local Artillery = {
 			Magic = { back = 0.15, lift = 0.35, rise = 0.06, wobble = 22, damp = 7, time = 0.8 },
 			-- a machine gun's (user 2026-10-27: "realistic recoil and spread, with no fight between full auto and the
 			-- camera shake"; was the field gun's, 0.35 back and 1.5 up restarting 7 times a second): a heavy gun on its
-			-- sled barely moves, a short buzz settled before the next shot (Guns `mg.rate`)
-			MG = { back = 0.03, lift = 0.25, rise = 0.015, wobble = 45, damp = 30, time = 0.12 },
+			-- sled barely moves, a short buzz settled before the next shot (Guns `mg.rate`); the M2 kicks harder
+			-- (user 2026-10-29: "add some recoil animation to both the gun and the player"; under a quarter of the field's)
+			MG = { back = 0.07, lift = 0.35, rise = 0.015, wobble = 45, damp = 30, time = 0.12 },
 		},
 		Bank = {
 			at = 0.25,
@@ -688,6 +730,10 @@ local Artillery = {
 			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
 			-- (user 2026-10-22: "have the cannon further back and up more"; was up 4, back 7)
 			camera = { side = -6.5, up = 5.5, back = 10, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			-- (user 2026-10-29: the MG's warm barrel, steam and the gunner's recoil "apply to the field cannons too (not
+			-- the howitzer)"): a third of the way warm a shot, cooling over ~40 s; the gunner thrown back by each shot
+			heat = { per = 0.3, cool = 0.025, length = 2.2, radius = 2.9, segments = 4, steam = 0.25, steamRate = 8 },
+			kick = { arms = 12, torso = 5, time = 0.4 },
 			-- the trail on its wheels first, then the shield and mount, the cradle, the barrel, the breech last
 			assembly = {
 				{ names = { "Carriage", "Wheels", "Tyres" }, at = 0 },
@@ -933,8 +979,13 @@ local Artillery = {
 			reload = 12, -- (the box reload, the design's long wait)
 			breechOpen = 0,
 			breechTimes = { 0, 0 },
-			recoil = 0.06, -- (recoil-operated: the barrel and lock kick back a little each shot)
-			recoilTimes = { 0.01, 0.05 },
+			recoil = 0.12, -- (recoil-operated: the barrel and lock kick back a little each shot; the M2's .50 harder)
+			recoilTimes = { 0.01, 0.06 },
+			-- (user 2026-10-29: "make the barrel get warmer from the tip as you hold it (steam a little too)"): glowing
+			-- at the tip after ~25 rounds held, the whole band hot after ~80, cool again ~15 s after; steam past half
+			heat = { per = 0.012, cool = 0.06, length = 1.6, radius = 2.75, segments = 4, steam = 0.45, steamRate = 14 },
+			-- (user 2026-10-29: "add some recoil animation to both the gun and the player"): a short shove each round
+			kick = { arms = 5, torso = 1.5, time = 0.1 },
 			crew = { 0, 4 }, -- (standing behind the grips, arms out to them: MGStand)
 			crewTurns = true,
 			prompt = 7,
@@ -1002,6 +1053,9 @@ local Artillery = {
 				-- the G98's round (7.92x57 S, ~890 m/s from a 720 mm barrel): as recorded, the crack a little up; heard far off
 				-- and going by as a rifle (src/client/ShotAudio: late, the far report, echoes off what stands round)
 				report = { pitch = 1, eq = { 0, 0, 2 } },
+				-- (user 2026-10-29: "some camera shake too"; small: 7.5 kicks a second, no fight with aiming)
+				shake = 0.35,
+				shakeReach = 25,
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the tripod and its head take it)

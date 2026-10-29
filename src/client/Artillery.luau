@@ -46,7 +46,10 @@ local ShotRules = require(Shared.Rules.ShotAudio)
 local Net = require(Shared.Net)
 local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
 local ArtilleryFx = require(script.Parent.ArtilleryFx)
+local BarrelHeat = require(script.Parent.BarrelHeat)
+local CameraShake = require(script.Parent.CameraShake)
 local GunFx = require(script.Parent.GunFx)
+local GunnerKick = require(script.Parent.GunnerKick)
 local Settings = require(script.Parent.Settings)
 local ShotAudio = require(script.Parent.ShotAudio)
 local SoundFx = require(script.Parent.SoundFx)
@@ -76,6 +79,7 @@ type Pose = {
 	carried: Model?, -- the box in its gunner's hands in a box reload
 	reloadOf: number?, -- the reload (its ReadyAt) whose animation and sound were played
 	rattled: number?,
+	fedAt: number?, -- a machine gun's last shot seen here: its belt steps a link on toward the feed over the next gap
 }
 
 local poses: { [Model]: Pose } = {}
@@ -174,7 +178,7 @@ end
 
 -- a machine gun's belt as its box empties (user 2026-10-27: "the belt feed showing only the true number of rounds
 -- left"): round i on it (Rounds<i> / Bullets<i>, 1 next into the feed block, tools/blender/mgnest/m2.py) shown while
--- the box holds i or more; the rest of the run down to the can (BeltRounds / BeltBullets) while it holds more than those
+-- the box holds i or more (user 2026-10-29: "make it go empty as we go empty": every round on the belt is one)
 local function belt(model: Model, p: Pose, shows: number?)
 	local left = shows or (model:GetAttribute("Rounds") :: number?) or 0
 	if left == p.belt then
@@ -191,11 +195,43 @@ local function belt(model: Model, p: Pose, shows: number?)
 		end
 		i += 1
 	end
-	for _, name in { "BeltRounds", "BeltBullets" } do
-		local part = p.named[name]
-		if part then
-			part.Transparency = if left >= i then 0 else 1
+end
+
+-- a machine gun's belt feeding (user 2026-10-29: "make the bullets feed into the gun accurately"): over the gap after
+-- each shot every round on it slides one link on toward the feed, round i to where round i - 1 was (the first on into
+-- the feedway), then they all stand back a link as the next shot takes one; `mount` the mount's frame as posed
+local function feed(p: Pose, mount: CFrame)
+	local gun = p.gun
+	local fedAt = p.fedAt
+	if not gun.mg or not fedAt then
+		return
+	end
+	local f = (now() - fedAt) / Rules.mgInterval(gun.mg.rate)
+	if f >= 1 then
+		p.fedAt = nil
+		return
+	end
+	f = math.clamp(f, 0, 1)
+	local function at(i: number): (BasePart?, BasePart?)
+		return p.named[string.format("Rounds%02d", i)], p.named[string.format("Bullets%02d", i)]
+	end
+	local i = 1
+	while at(i) do
+		local case = at(i) :: BasePart
+		local ahead = at(i - 1)
+		local behind = at(i + 1)
+		-- one link on: to the round ahead, or (the first) as far again past itself as the second stands behind it
+		local step = if ahead
+			then p.rest[ahead].Position - p.rest[case].Position
+			elseif behind then p.rest[case].Position - p.rest[behind].Position
+			else Vector3.zero
+		local _, tip = at(i)
+		for _, part in { case, tip } do
+			if part and p.rest[part] then
+				part.CFrame = mount * (CFrame.new(step * f) * p.rest[part])
+			end
 		end
+		i += 1
 	end
 end
 
@@ -260,6 +296,8 @@ local function pose(model: Model, p: Pose, dt: number)
 	for part, rest in p.rest do
 		part.CFrame = frames[p.stage[part]] * rest
 	end
+	feed(p, frames[1])
+	BarrelHeat.step(model, gun, dt, p.named, p.rest)
 	-- its gears turning with the lay, each by its tooth ratio about its own axis (Config/Artillery `gears`)
 	for _, g in gun.gears or {} do
 		local part = p.named[g.part]
@@ -391,8 +429,8 @@ reloadBox = function(model: Model, p: Pose)
 	end
 	if readyAt and t >= R.sound.at and t < R.fed + 1 and p.rattled ~= readyAt then
 		p.rattled = readyAt
-		local feed = p.named.Cradle
-		SoundFx.play(R.sound, if feed then feed.Position else model:GetPivot().Position)
+		local block = p.named.Cradle
+		SoundFx.play(R.sound, if block then block.Position else model:GetPivot().Position)
 	end
 	local arm = character and character:FindFirstChild("Right Arm") :: BasePart?
 	if held and arm then
@@ -830,6 +868,11 @@ function Artillery.start()
 		if was and loadings[was] then
 			loadings[was].played = nil
 		end
+		-- (and a machine gun's box reload: user 2026-10-29: "make sure the reload animation restarts after you get off")
+		local wasPose = was and poses[was]
+		if wasPose then
+			wasPose.reloadOf = nil
+		end
 		local character = player.Character
 		for _, tr in (character and tracks[character]) or {} do
 			if tr.IsPlaying then
@@ -1041,8 +1084,9 @@ function Artillery.start()
 			local look = pivot.Rotation * lay
 			local hx, hy, hz = Rules.over(gun, p.traverse)
 			local eye = CFrame.new((pivot * CFrame.new(hx, hy, hz)).Position) * look
-			local headPart = character:FindFirstChild("Head") :: BasePart?
-			local head = if headPart then headPart.Position else eye.Position
+			-- over the shoulder the camera hangs off the gun, not the gunner (user 2026-10-29: "please make the camera
+			-- follow the machine gun, not the player"): out from the hip eye, which turns with the mount
+			local head = eye.Position
 			local inSight = if mgAimed and mgCur < 0.02 then 1 else 0
 			aimT += (inSight - aimT) * (1 - math.exp(-CameraCfg.AimEase * dt))
 			local first = eye:Lerp(sight, aimT * aimT * (3 - 2 * aimT))
@@ -1140,12 +1184,22 @@ function Artillery.start()
 		end
 	end)
 
+	-- whoever is on `model` now, their character
+	local function gunnerOf(model: Model): Model?
+		local id = model:GetAttribute("Gunner") :: number?
+		local gunner = id and Players:GetPlayerByUserId(id)
+		return gunner and gunner.Character
+	end
+
 	-- a shot: the muzzle blast, its report, and the whistle where it comes down
 	Net.event("ArtilleryShot").OnClientEvent:Connect(function(model: Model, origin: Vector3, velocity: Vector3)
 		local gun = Cfg.Guns[model and model:GetAttribute("Gun") :: any]
 		if not gun then
 			return
 		end
+		-- its barrel warming and its gunner thrown back (the field gun's `heat` and `kick`; none on the howitzer)
+		BarrelHeat.shot(model, gun, 1)
+		GunnerKick.kick(gunnerOf(model), gun.kick)
 		-- the report: up close the gun itself, dry, crossfading into the distant boom and its echoes farther off
 		local eye = camera.CFrame.Position
 		local d = (eye - origin).Magnitude
@@ -1189,9 +1243,17 @@ function Artillery.start()
 			end
 			-- the report: the gunner's own beside them, anyone else's as a rifle's, late with distance, its far report and
 			-- echoes growing in (src/client/ShotAudio)
+			-- the belt stepping on a link, the barrel warming, the gunner shoved back (user 2026-10-29)
+			local p = poses[model]
+			if p then
+				p.fedAt = now()
+			end
+			BarrelHeat.shot(model, gun, 1)
+			GunnerKick.kick(gunnerOf(model), gun.kick)
 			if model == mine then
 				SoundFx.play(mg.shot, origin, nil, { eq = mg.report.eq, pitch = mg.report.pitch })
 				heat = Rules.mgHeat(heat, 1, 0, mg.spread)
+				CameraShake.kick(origin, mg.shake, mg.shakeReach) -- (user 2026-10-29: "some camera shake too")
 			else
 				local heard = { sounds = { Shot = mg.shot }, report = mg.report }
 				ShotAudio.heardAs(model, model:GetAttribute("Gun") :: any, heard, origin, { hit })

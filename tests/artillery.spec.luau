@@ -353,6 +353,28 @@ return {
 			assert(g.at == i and g.names[1] == order[i], `quarter {i} sets up {order[i]}`)
 		end
 	end,
+	["a barrel warms with each shot and cools off, glowing from the tip back"] = function()
+		local H = C.Guns.mg08.heat :: any
+		local heat = 0
+		for _ = 1, 30 do
+			heat = A.heatStep(heat, 1, 0, H.per, H.cool)
+		end
+		assert(heat > 0.3 and heat < 1, "warm after a burst")
+		assert(A.heatStep(heat, 0, 60, H.per, H.cool) == 0, "cold a minute later")
+		assert(A.heatStep(0.9, 50, 0, H.per, H.cool) == 1, "never past hot")
+		local n, lead = H.segments, C.Heat.lead
+		assert(A.heatGlow(0.2, 1, n, lead) > 0 and A.heatGlow(0.2, n, n, lead) == 0, "the tip glows first")
+		for i = 1, n do
+			assert(A.heatGlow(0, i, n, lead) == 0 and A.heatGlow(1, i, n, lead) == 1)
+		end
+	end,
+	["the MG and the field gun warm and kick their gunner, the howitzer neither"] = function()
+		for _, key in { "mg08", "artillery_qf18" } do
+			local g = C.Guns[key]
+			assert(g.heat and g.kick, key)
+		end
+		assert(not C.Guns.artillery_howitzer.heat and not C.Guns.artillery_howitzer.kick)
+	end,
 	["the MG gunner's eye is behind the rear sight on the sight line, and lifts with the gun"] = function()
 		local MG = C.Guns.mg08
 		local x, y, z = A.eye(MG, 0, 0)

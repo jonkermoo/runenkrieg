@@ -403,4 +403,16 @@ function Artillery.mgStray(spread: number, r1: number, r2: number): (number, num
 	return d * math.cos(a), d * math.sin(a)
 end
 
+-- A barrel's heat (0 cold .. 1, Config/Artillery.Guns `heat`): each of `shots` adds `per`, it loses `cool` a second
+function Artillery.heatStep(heat: number, shots: number, dt: number, per: number, cool: number): number
+	return math.clamp(heat + shots * per - cool * dt, 0, 1)
+end
+
+-- How brightly band `i` of `n` glows (0..1) at a barrel's `heat`: band 1 at the tip first, each next one starting
+-- `lead` / n of the heat later, all reaching full by heat 1 (Config/Artillery.Heat)
+function Artillery.heatGlow(heat: number, i: number, n: number, lead: number): number
+	local from = (i - 1) / n * lead
+	return math.clamp((heat - from) / (1 - from), 0, 1)
+end
+
 return Artillery
