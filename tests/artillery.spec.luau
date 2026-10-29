@@ -346,9 +346,9 @@ return {
 			assert(dy * dy + de * de <= 4 + 1e-9)
 		end
 	end,
-	["the MG 08 goes up mount, gun, shield, box, each appearing in its quarter"] = function()
+	["the MG (the M2) goes up tripod, gun, ammo can, belt, each appearing in its quarter"] = function()
 		local MG = C.Guns.mg08
-		local order = { "Carriage", "Cradle", "Shield", "Box" }
+		local order = { "Carriage", "Cradle", "Box", "Belt" }
 		for i, g in MG.assembly do
 			assert(g.at == i and g.names[1] == order[i], `quarter {i} sets up {order[i]}`)
 		end

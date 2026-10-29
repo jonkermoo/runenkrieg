@@ -12,7 +12,7 @@
 -- - every shot flashes at the muzzle with its report (src/client/ArtilleryFx), the whole gun jolting back and settling
 --   (Config/Artillery.Fx.Jolt); every shell's blast is the shared explosion (src/client/Vfx/Blast) with its sound,
 --   heard late and duller far off.
--- - a machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08): the rifle's camera rules (user 2026-10-27: "make
+-- - a machine gun (Config/Artillery.Guns `mg`, the MG nest's M2): the rifle's camera rules (user 2026-10-27: "make
 --   the machine gun have the same camera rules as rifles when it comes to first and third person (ADS rules)"; Config/
 --   Camera.Gun, Rules/Camera): first person over the shield (Rules/Artillery.over) or over the shoulder (the crosshair
 --   where the gun points), the wheel stepping between, the aim key gliding into its ring sight (the eye turning and
@@ -173,8 +173,8 @@ local function settle(p: Pose)
 end
 
 -- a machine gun's belt as its box empties (user 2026-10-27: "the belt feed showing only the true number of rounds
--- left"): round i on it (Rounds<i> / Bullets<i>, 1 next into the feed block, tools/blender/mgnest/mg08.py) shown while
--- the box holds i or more
+-- left"): round i on it (Rounds<i> / Bullets<i>, 1 next into the feed block, tools/blender/mgnest/m2.py) shown while
+-- the box holds i or more; the rest of the run down to the can (BeltRounds / BeltBullets) while it holds more than those
 local function belt(model: Model, p: Pose, shows: number?)
 	local left = shows or (model:GetAttribute("Rounds") :: number?) or 0
 	if left == p.belt then
@@ -190,6 +190,12 @@ local function belt(model: Model, p: Pose, shows: number?)
 			end
 		end
 		i += 1
+	end
+	for _, name in { "BeltRounds", "BeltBullets" } do
+		local part = p.named[name]
+		if part then
+			part.Transparency = if left >= i then 0 else 1
+		end
 	end
 end
 

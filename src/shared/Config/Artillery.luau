@@ -164,8 +164,9 @@ export type Gun = {
 	gears: { { part: string, centre: { number }, axis: string, by: string, ratio: number } }?,
 }
 
--- The MG 08's belt (tools/blender/mgnest/mg08.py v4): each round between the box and the feed block its own case and
--- bullet, `Rounds01` / `Bullets01` next into the feed; its mount names and colours
+-- The M2's belt (tools/blender/mgnest/m2.py): a link belt from the feedway down to its can on the mount bag, the seven
+-- rounds nearest the feed each its own case and bullet (`Rounds01` / `Bullets01` next into the feed), the rest of the
+-- run one pair (`BeltRounds`, `BeltBullets`); its mount names and colours (the links dark steel)
 local BELT = 7
 local function beltOf(names: { string }, colors: { [string]: { number } }): ({ string }, { [string]: { number } })
 	for i = 1, BELT do
@@ -174,19 +175,19 @@ local function beltOf(names: { string }, colors: { [string]: { number } }): ({ s
 		table.insert(names, tip)
 		colors[case], colors[tip] = { 196, 160, 84 }, { 184, 115, 72 }
 	end
+	table.insert(names, "BeltRounds")
+	table.insert(names, "BeltBullets")
+	colors.BeltRounds, colors.BeltBullets = { 196, 160, 84 }, { 184, 115, 72 }
 	return names, colors
 end
 local mgMount, mgColors = beltOf({
 	"Mount",
 	"MountFittings",
-	"Shield",
-	"ShieldTrim",
-	"ShieldFittings",
 	"BoxKit",
 	"BoxTrim",
 	"BoxFittings",
 	"Belt",
-}, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 140, 120, 84 } })
+}, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 40, 40, 38 } })
 
 local Artillery = {
 	Folder = "Artillery", -- the Workspace folder the guns stand in
@@ -898,13 +899,15 @@ local Artillery = {
 				{ names = { "Breech", "Crystal" }, at = 4 },
 			},
 		} :: Gun,
-		-- The MG nest's machine gun (user 2026-10-27, design approved by the user): an MG 08
-		-- (tools/blender/mgnest/mg08.py) built by the shovel in an MG nest (Config/Build.Nest), set up in quarters
-		-- (`assembly`). Gun space: the origin on the mount bag's top under the pivot. Its firing (bullets, its belt box,
-		-- the box reload) comes with manning it (next step); the shell fields below are kept only so it is a Gun.
+		-- The MG nest's machine gun (user 2026-10-27, design approved by the user; user 2026-10-28: "can we use this
+		-- machine gun instead?"): an M2 Browning on its M3 tripod (tools/blender/mgnest/m2.py, a 3D trace of Ajay
+		-- Kumar's Sketchfab model in our style; was the MG 08, tools/blender/mgnest/mg08.py), no shield, its ammo can
+		-- standing on the mount bags; built by the shovel in an MG nest (Config/Build.Nest), set up in quarters
+		-- (`assembly`). Gun space: the origin 1.9 over the ground (Build.Nest.bagTop) under the pivot. (Its key is still
+		-- mg08: Config/Build and Damage name it.) The shell fields below are kept only so it is a Gun.
 		mg08 = {
 			asset = "mg08",
-			name = "MG 08",
+			name = "M2 Browning",
 			nest = true,
 			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
@@ -914,9 +917,9 @@ local Artillery = {
 			breech = {},
 			trunnion = { 0, 1.035, 0 },
 			hinge = { 0, 1.035, 0 },
-			muzzle = { 0, 1.25, -2.187 },
+			muzzle = { 0, 1.25, -4.226 },
 			boreCentre = 0.009,
-			traverse = 20, -- (the design: +-20 before the shield meets the top bags round the notch)
+			traverse = 20, -- (the design: +-20 in the notch the front piles leave)
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
 			traverseRate = 60,
@@ -952,7 +955,7 @@ local Artillery = {
 			wreckParts = { "Mount", "Cradle" },
 			holeSize = { 0.08, 0.16 },
 			-- (the design: 450 a minute, a box of 100, a 12 s box reload, 0.6 degrees growing to 1.5 over a long burst;
-			-- the sight line at y 1.78)
+			-- the sight line at y 1.71)
 			mg = {
 				rate = 450,
 				box = 100,
@@ -975,16 +978,16 @@ local Artillery = {
 					take = 3.7,
 					set = 5.3,
 					fed = 7,
-					box = "mg08_box",
-					grip = { 0.04, 1, 0 },
+					box = "m2_box",
+					grip = { 0.087, 1.34, 0 },
 					sound = { id = 9116340734, volume = 1, at = 6.1, profile = "Gunshot" },
 				},
-				-- (v4, the iron sights: three quarters of a stud behind the rear leaf's V on the sight line, the blade
-				-- between its ears in the V; was half a stud behind the ring sight's peep)
-				eye = { 0, 1.78, 2.688 },
+				-- (the M2's sights: 0.77 behind the rear sight's peep ring, on the line through the ring's middle and the
+				-- hooded front post's tip, parallel to the bore; the MG 08's was { 0, 1.78, 2.688 })
+				eye = { 0, 1.71, 2.707 },
 				-- the eye at the hip, in first person (user 2026-10-28: "can you move the camera up more since the
-				-- shield in the way of the camera"): over the shield's top (`shield`: its arch's top with the rim, its
-				-- face's z) at the gun's lowest, turning with the mount as the shield does, not lifting with the gun
+				-- shield in the way of the camera"): over the gun, turning with the mount, not lifting with the gun.
+				-- (`shield` was the MG 08 shield's top and face; the M2 has none, and nothing reads it)
 				over = { 0, 2.95, 2.44 },
 				shield = { top = 2.65, z = 0.36 },
 				-- over the shoulder: the camera's offset right and up from the gunner's head (as Config/Camera.Gun
@@ -1001,17 +1004,17 @@ local Artillery = {
 				report = { pitch = 1, eq = { 0, 0, 2 } },
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
-			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)
+			-- (the gunmetal body and the belt, not the team's paint: the tripod and its head take it)
 			colors = mgColors,
-			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"): the foot and mount, the gun, the shield,
-			-- the ammo box and its belt last, each appearing in place in its quarter (user 2026-10-28: "not all the parts have to
-			-- be present before its built (all the other structures work this way too). they can just appear as its being
-			-- built")
+			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"; the M2 has no shield): the tripod, the
+			-- gun, the ammo can, then its belt last, each appearing in place in its quarter (user 2026-10-28: "not all
+			-- the parts have to be present before its built (all the other structures work this way too). they can just
+			-- appear as its being built")
 			assembly = {
 				{ names = { "Carriage", "Mount" }, at = 1 },
 				{ names = { "Cradle", "Barrel", "Bore" }, at = 2 },
-				{ names = { "Shield" }, at = 3 },
-				{ names = { "Box", "Belt", "Rounds", "Bullets" }, at = 4 },
+				{ names = { "Box" }, at = 3 },
+				{ names = { "Belt", "Rounds", "Bullets" }, at = 4 },
 			},
 		} :: Gun,
 	},

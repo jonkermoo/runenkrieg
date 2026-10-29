@@ -24,7 +24,7 @@
 --   stands (src/server/Artillery.place, in the team's paint) and its HP is the gun's own, mirrored on the holder; weapons
 --   leave it a wreck at 0, a shovel's Destroy swing at 0 takes it away, its pit filled back.
 -- - MG nests (kind "Nest"; Config/Build.Nest): the pile's bags on a ring (Rules.nestRing) and a round mount bag in one
---   "Sandbag" section, on HP in 4 stages like a Hesco barrier's: laid flat (empty sacks, the MG 08 in pieces on the
+--   "Sandbag" section, on HP in 4 stages like a Hesco barrier's: laid flat (empty sacks, the M2 in pieces on the
 --   ground), the bags filled and the gun set up on the mount bag stage by stage (Artillery.parts / assemble,
 --   Rules.nestShown); once it has stood its HP is its gun's, worn and fixed as a built field gun's.
 -- - Bridges (Config/Build.Bridge): laid on a trench square (Survey.bridgeSpot), its planks the Config/Assets

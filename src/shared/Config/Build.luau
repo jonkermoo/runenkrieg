@@ -242,16 +242,16 @@ local Build = {
 			maxSlope = 30,
 		},
 		-- The MG nest (user 2026-10-27, design approved by the user): Engineers only
-		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the MG 08
-		-- (Config/Artillery.Guns `gun`) on a round mount bag (`mountBag`) in the point where the two front piles meet
-		-- (Nest below). `width` x `depth` its footprint round the ring, `height` the shield's top. (`stage1.sacks`
-		-- unused here: a nest's empty sacks lie on their own spots, Nest.flat)
+		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the M2
+		-- (Config/Artillery.Guns `gun`) on its tripod on two mount bags (`mountBag`) in the point where the two front
+		-- piles meet (Nest below). `width` x `depth` its footprint round the ring, `height` its top (the MG 08's shield
+		-- set it). (`stage1.sacks` unused here: a nest's empty sacks lie on their own spots, Nest.flat)
 		{
 			key = "MGNest",
 			name = "MG nest",
 			kind = "Nest",
 			asset = "sandbag_pile",
-			mountBag = "sandbag_round",
+			mountBag = "sandbag_m2",
 			gun = "mg08",
 			bags = { "Bag1", "Bag2", "Bag3" },
 			-- stage 1's meshes from the pile (laid at 0 HP): the scraped ground under each pile, the empty sacks
@@ -360,10 +360,10 @@ local Build = {
 			planks = { { x = 2.9, z = 4.8, yaw = -6, count = 2, length = 3.5 } },
 		},
 		-- (in an MG nest: on the ground at the ring's middle, x right, z back from the gun; inside the bags, clear of the
-		-- mount bag at the front and the doorway at the back)
+		-- M2's two mount bags and the doorway at the back)
 		mg08 = {
-			crates = { { x = -1.9, z = 1.2, yaw = 20, size = { 1, 0.6, 0.7 } } },
-			planks = { { x = 2, z = 0.8, yaw = -12, count = 2, length = 2.6 } },
+			crates = { { x = -2.6, z = 1.4, yaw = 20, size = { 1, 0.6, 0.7 } } },
+			planks = { { x = 2.7, z = 1.0, yaw = -12, count = 2, length = 2.6 } },
 		},
 		artillery_howitzer = {
 			frame = { x = 0, z = 0.3, width = 16, depth = 18, bays = 2, height = 5.2, levels = { 4.2 } },
@@ -405,7 +405,9 @@ local Build = {
 	-- back left open as the doorway; each pile bent at its joint, its top bag over the bend on the bottom bags' line; the
 	-- front point is where two piles' ends meet, the notch between their top bags the gun's window. `ring.piles`: each
 	-- pile's ring vertices (an end, its bend, the other end; 0 the front point), in build order. The gun's pivot stands
-	-- `gunBack` behind the point on the mount bag's top (`bagTop` over the ground), the mount bag's middle `mountBack`.
+	-- `gunBack` behind the point, gun space's origin `bagTop` over the ground under it (the MG 08's mount bag top; the
+	-- M2's tripod stands lower, on its two bags), the mount bags' middle `mountBack` (the M2's pair: 0.65 behind the
+	-- pivot; the MG 08's round bag was 1.86).
 	Nest = {
 		hp = { max = 100, place = 0, swing = 5, destroy = 10 },
 		flat = 0.14,
@@ -413,13 +415,13 @@ local Build = {
 		build = {
 			{ bags = "bottom", gun = 1 }, -- (the mount on its bag)
 			{ bags = "all", gun = 2 }, -- (the gun on it)
-			{ bags = "all", gun = 3 }, -- (the shield)
-			{ bags = "all", gun = 4 }, -- (the box: the real gun)
+			{ bags = "all", gun = 3 }, -- (the ammo can)
+			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
 		wear = { "all", "all", "bottom", "bottom" },
 		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },
 		gunBack = 1.66,
-		mountBack = 1.86,
+		mountBack = 2.31,
 		bagTop = 1.9,
 	},
 
