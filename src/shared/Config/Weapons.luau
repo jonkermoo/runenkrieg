@@ -173,8 +173,9 @@ export type Weapon = {
 	-- hitscan ray; full damage to `full` studs, none past `none` (stored for damage, M11: not applied yet).
 	pellets: { count: number, spread: number, full: number, none: number }?,
 	-- An exposed hammer (the "Hammer" part, src/client/GunFx): rests cocked, falls `cock` degrees forward on a shot;
-	-- the bolt going back pushes it down again, `push` giving how far cocked (0..1) at evenly spaced shares of the
-	-- stroke, so the bolt never goes through it (computed by the model's builder, which prints it).
+	-- the bolt going back pushes it down again, `push` giving how far cocked (0 fallen, 1 at rest, past 1 pushed on
+	-- further back than rest, as a hammer standing up behind the bolt) at evenly spaced shares of the stroke, so the
+	-- bolt never goes through it (computed by the model's builder, which prints it).
 	hammer: { cock: number, push: { number } }?,
 	-- A pump gun's feed (src/client/GunFx): the shell lying on the carrier (parts `parts`, at rest under the bolt)
 	-- lifts `lift` to the bore line and goes `push` forward into the chamber as the pump comes forward; shown while the
@@ -942,6 +943,122 @@ local Weapons: { [string]: Weapon } = {
 			entry = 0.2,
 			body = 88369726870929,
 			firstPerson = 75492413402370,
+		},
+	},
+	-- The Mauser C96 (model tools/blender/weapons/c96.py, traced from tools/blender/weapons/trace/c96.py over the
+	-- user's reference model, 2026-10-27): the grey team's Engineer pistol (uniform1), 6 rounds loaded from a stripper
+	-- clip through the open top. Its role (the Engineer pistols, the design 2026-10-27): mid range, picking off soldiers
+	-- in the open: full damage to 50 m (the longest; Config/Damage.Pistol, .Falloff), the middle reload, the least
+	-- recoil.
+	pistol_c96 = {
+		asset = "pistol_c96",
+		display = "Mauser C96",
+		slot = "Primary",
+		class = "Pistol",
+		parts = {
+			Metal = { 52, 54, 58 },
+			Bolt = { 70, 70, 74 },
+			Hammer = { 52, 54, 58 },
+			Trigger = { 52, 54, 58 },
+			Grip = { 142, 74, 42 }, -- walnut
+			Clip = { 90, 88, 84 },
+			Rounds = { 196, 160, 84 }, -- brass cases in the magazine
+			Bullets = { 184, 115, 72 }, -- their copper-jacketed bullets
+			Casing = { 196, 160, 84 },
+			Bore = { 3, 3, 3 },
+		},
+		moving = {
+			Bolt = { 0, 0.1214, -0.2223 }, -- the square bolt: slides back 0.1197 (+Z) and forward
+			Hammer = { 0, 0.0741, 0.1373 }, -- its pin: stands upright, falls 10 deg forward on a shot
+			Trigger = { 0, -0.0057, -0.0165 }, -- the trigger pin
+			Clip = { 0, 0.1043, -0.1163 }, -- the stripper clip in the guides over the magazine (its bottom)
+		},
+		hidden = { "Clip", "Casing" }, -- the clip shows only while reloading
+		attachments = {
+			Muzzle = { 0, 0.1214, -0.6161 },
+			Aim = { 0, 0.171, 0.575 }, -- the eye, on the sight line through the leaf's notch to the blade (held out)
+			Eject = { 0, 0.1448, -0.1681 }, -- the open top over the magazine: the cases leave upward
+		},
+		grip = { 0, -0.1282, 0.1453 }, -- the broomhandle's middle
+		-- the pistols' shared one-handed holds (tools/animation/pistol.luau), the Nagant's until the C96's own are built
+		holdsOf = "pistol_nagant",
+		holds = {
+			ready = 122734081616814,
+			walk = 71643121446344,
+			carry = 116557274110559,
+			aim = 108492988788868,
+			equip = 84595517152311,
+			unequip = 112683570482910,
+			crouchReady = 88645341580231,
+			crouchWalk = 130971600896646,
+			crouchAim = 123369456405232,
+			tuck = 77568447824328,
+			crouchTuck = 116846619710706,
+			strike = 96817744569842,
+		},
+		firstPerson = {
+			ready = 121568509879542,
+			carry = 98776105780688,
+			aim = 81575185196582,
+			equip = 78143731273282,
+			unequip = 94448790801507,
+			aimIn = 91420108888072,
+			aimOut = 78643133170604,
+			tuck = 76382794440045,
+			strike = 84573444859847,
+		},
+		-- the upright ring hammer stands in the bolt's way: pushed down flat under the bolt's grips (past 1) and,
+		-- once the bolt goes forward, held up by the sear at its rest; push from tools/blender/weapons/c96.py
+		hammer = {
+			cock = 10,
+			push = {
+				0.35,
+				1.27,
+				2.39,
+				3.51,
+				4.68,
+				5.96,
+				6.68,
+				6.68,
+				7.44,
+				7.51,
+				7.51,
+				7.88,
+				7.88,
+				8.42,
+				8.47,
+				8.47,
+				8.47,
+				8.47,
+				8.47,
+				8.47,
+				8.47,
+			},
+		},
+		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
+		scale = { 3, 3, 2.5 }, -- as the revolvers: 0.81 -> 2.0 studs long, chunky in the 1-stud hand
+		-- put away: the pistols' shared hip holster (HOLSTER, below)
+		fullRange = 140, -- 50 m at 0.357 m per stud
+		-- 6 rounds pressed down out of one stripper clip through the open top; the recoil works the bolt (a short recoil
+		-- action: back and forward by itself on each shot), the shared Config/Firing.PistolFireTime apart
+		ammo = { capacity = 6, clip = "Stripper", clipSize = 6 },
+		action = {
+			auto = true,
+			boltTime = 0.1,
+			reloadTime = 2.6, -- the middle reload: the Webley's break-open is quicker, the Nagant's one round at a time slower
+			turn = 0,
+			travel = 0.1197,
+		},
+		recoil = { scale = 0.45, build = 0.25, max = 1.6, cool = 1.2, hip = 1.35 }, -- the least of the three pistols
+		bolt = { aim = 0, ready = 0 }, -- (no bolt to work by hand)
+		reload = {
+			knob = { 0.03, 0.1185, 0.114 }, -- the bolt's grooved grips behind the extension, right side, bolt closed
+			clipTop = { 0, 0.2763, -0.1163 }, -- the seated clip's top, over the open top
+			entry = 0,
+			-- in the left hand, the right pulls the bolt's grips back, sets the clip and thumbs the rounds down, lets the
+			-- bolt go (tools/animation/c96_reload.luau)
+			body = 91504525443878,
+			firstPerson = 71082727761108,
 		},
 	},
 	rifle_g98 = {
