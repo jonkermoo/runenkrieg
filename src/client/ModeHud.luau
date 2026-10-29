@@ -344,17 +344,26 @@ function ModeHud.start()
 	gui.IgnoreGuiInset = false -- (laid out under the top bar, as tools/ui/check.py does)
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Enabled = false
-	local root = make(Spec.root, gui)
+	make(Spec.root, gui)
 	-- the templates come out of the tree: the code places its own
 	for _, id in { "Pin", "PinHQ", "PinLabel" } do
 		nodes[id]:Destroy()
 		nodes[id] = nil :: any
 	end
 	binds.pin = nil
-	local scale = Instance.new("UIScale")
-	scale.Parent = root
+	-- one UIScale per panel (a panel scales about its own anchor; on the full-screen Root it shrank everything toward
+	-- the top-left, pulling the bars off centre)
+	local scales = {}
+	for _, id in { "FrontBar", "ZoneBar" } do
+		local scale = Instance.new("UIScale")
+		scale.Parent = nodes[id]
+		table.insert(scales, scale)
+	end
 	local function rescale()
-		scale.Scale = math.clamp(gui.AbsoluteSize.Y / T.scale.referenceHeight, T.scale.min, T.scale.max)
+		local k = math.clamp(gui.AbsoluteSize.Y / T.scale.referenceHeight, T.scale.min, T.scale.max)
+		for _, scale in scales do
+			scale.Scale = k
+		end
 	end
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
