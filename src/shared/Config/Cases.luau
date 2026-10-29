@@ -4,11 +4,14 @@
 -- tumbling, and clinks once where it first lands, a sound for its kind. Studs, seconds. Data only.
 
 local Cases = {
-	-- the flight: real gravity (studs/s², Roblox's own is 196.2), a tumble of up to `spin` rad/s on each axis, held on
-	-- real gravity for `flight` s (then left to the world's), gone after `life` s
+	-- the flight: real gravity (studs/s², 9.81 m/s² at 0.357 m a stud; Roblox's own is 196.2), a tumble of up to
+	-- `spin` rad/s on each axis; on landing it keeps `bounce` of its speed (and tumble) for up to `bounces` bounces,
+	-- lying down for good once slower than `settle` studs/s; gone `life` s after it was thrown
 	gravity = 27.5,
 	spin = 25,
-	flight = 1.2,
+	bounce = 0.3,
+	bounces = 2,
+	settle = 3,
 	life = 4,
 	-- a clink at most every `gap` s (a machine gun drops 15 pieces a second; one clink each would be a hiss)
 	gap = 0.05,
