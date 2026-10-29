@@ -131,19 +131,36 @@ local function stand(s: any, i: number, parent: Instance)
 		end
 	end
 	if s.isHQ then
+		local SB = Cfg.Sandbags
 		local bags = library("sandbag_pile")
-		local bag = bags and bags[Cfg.Sandbags.bag]
+		local bag = bags and bags[SB.bag]
+		local cord = bags and bags[SB.cord]
 		if bag then
-			for n, a in Rules.ring(Cfg.Sandbags.radius, Cfg.Sandbags.length) do
-				local x, z = s.x + math.cos(a) * Cfg.Sandbags.radius, s.z + math.sin(a) * Cfg.Sandbags.radius
-				-- (the bag's length along the ring: the pile's x is along it)
-				local at = CFrame.new(x, ground(x, z) + Cfg.Sandbags.rise, z) * CFrame.Angles(0, -a - math.pi / 2, 0)
+			for n, a in Rules.ring(SB.radius, SB.length) do
+				local x, z = s.x + math.cos(a) * SB.radius, s.z + math.sin(a) * SB.radius
+				-- (the bag's length along the ring: the pile's x is along it; centred on its spot, its height kept)
+				local at = CFrame.new(x, ground(x, z) - SB.sink, z) * CFrame.Angles(0, -a - math.pi / 2, 0)
+				local bagAt = at * CFrame.new(0, bag.offset.Y, 0) * bag.offset.Rotation
 				local p = bag.part:Clone()
-				p.CFrame = at * CFrame.new(0, bag.offset.Y, 0) * bag.offset.Rotation
+				p.CFrame = bagAt
 				still(p, false)
 				p.Name = `Sandbag{n}`
-				p.Color = rgb(Build.Sandbag)
+				local jitter = 1 + ((n * 37) % 7 / 6 - 0.5) * 2 * SB.shade
+				local c = Build.Sandbag
+				p.Color = Color3.fromRGB(
+					math.clamp(c[1] * jitter, 0, 255),
+					math.clamp(c[2] * jitter, 0, 255),
+					math.clamp(c[3] * jitter, 0, 255)
+				)
 				p.Parent = model
+				if cord then
+					local t = cord.part:Clone()
+					t.CFrame = bagAt * bag.offset:ToObjectSpace(cord.offset)
+					still(t, false)
+					t.Name = `Sandbag{n}Cord`
+					t.Color = rgb(Build.SandbagCord)
+					t.Parent = model
+				end
 			end
 		end
 	end

@@ -53,8 +53,10 @@ local Flagpole = {
 		recheck = 2,
 		ray = { up = 20, depth = 60 },
 	},
-	-- the HQ pole's knee-high sandbag ring (the sandbag pile's bags, Config/Assets sandbag_pile Bag1)
-	Sandbags = { radius = 4, bag = "Bag1", length = 3.6, rise = 0 },
+	-- the HQ pole's knee-high sandbag ring: the sandbag pile's bottom bag and its tie (Config/Assets sandbag_pile Bag1,
+	-- Bag1Cord; 4.3 long with its ear), laid end to end round the pole every `length` studs, `radius` out, sunk like a
+	-- built pile (Config/Build.Sandbags.sink); each bag's tone jittered by `shade`, as built piles are
+	Sandbags = { radius = 4.5, bag = "Bag1", cord = "Bag1Cord", length = 4, sink = 0.15, shade = 0.06 },
 	Rope = { thickness = 0.06, out = 0.32, slackLean = 4 }, -- the halyard: its off-set from the pole, its lean when slack
 	-- sounds, all 3D at the pole (nil id: silent); cloth flap loop louder in stronger wind, the halyard while the flag
 	-- moves, the trench whistle when the point is taken (Pro Sound Effects, Creator Store terms: ASSETS_LICENSES.md;
