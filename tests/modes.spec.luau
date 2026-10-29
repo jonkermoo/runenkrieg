@@ -3,10 +3,10 @@ local Cfg = require("../src/shared/Config/Modes")
 local R = require("../src/shared/Rules/Modes")
 
 return {
-	["the user's three modes: admin (the default), FFA, normal not built yet"] = function()
+	["the user's three modes: admin (the default), FFA, normal"] = function()
 		assert(Cfg.Default == "Admin" and Cfg.Defs.Admin.ready, "the admin server is the default")
 		assert(Cfg.Defs.FFA.ready and Cfg.Defs.FFA.map == "Playtest", "FFA runs on the playtest map")
-		assert(Cfg.Defs.Normal and not Cfg.Defs.Normal.ready, "normal is a stub")
+		assert(Cfg.Defs.Normal.ready and Cfg.Defs.Normal.map == "Map1", "normal is the frontline push on Map 1")
 		for _, key in Cfg.List do
 			assert(Cfg.Defs[key], `listed mode {key} exists`)
 		end
@@ -17,13 +17,16 @@ return {
 		assert(R.initial(Cfg, "Admin", true) == "Admin", "a saved mode wins over the old switch")
 		assert(R.initial(Cfg, nil, true) == "FFA")
 		assert(R.initial(Cfg, nil, nil) == Cfg.Default)
-		assert(R.initial(Cfg, "Normal", nil) == Cfg.Default, "a mode not built yet isn't started")
+		local stub = { Default = "Admin", Legacy = Cfg.Legacy, Defs = { Admin = { ready = true }, Soon = {} } }
+		assert(R.initial(stub, "Soon", nil) == "Admin", "a mode not built yet isn't started")
+		assert(R.initial(Cfg, "Normal", nil) == "Normal")
 		assert(R.initial(Cfg, "Nope", false) == Cfg.Default and R.initial(Cfg, 5, "yes") == Cfg.Default)
 	end,
 	["only a ready mode that isn't live can be switched to"] = function()
 		assert(R.switchable(Cfg, "FFA", "Admin") and R.switchable(Cfg, "Admin", "FFA"))
 		assert(not R.switchable(Cfg, "FFA", "FFA"), "already live")
-		assert(not R.switchable(Cfg, "Normal", "Admin"), "not built yet")
+		assert(R.switchable(Cfg, "Normal", "Admin"))
+		assert(not R.switchable({ Defs = { Soon = { ready = false } } }, "Soon", "Admin"), "not built yet")
 		assert(not R.switchable(Cfg, "Nope", "Admin") and not R.switchable(Cfg, nil, "Admin"))
 	end,
 	["only the admin mode opens the admin panel to everyone (user 2026-10-27)"] = function()

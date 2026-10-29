@@ -26,8 +26,10 @@ local DevWorld = require(script.Parent.DevWorld)
 local Environment = require(script.Parent.Environment)
 local Helmets = require(script.Parent.Helmets)
 local Loadouts = require(script.Parent.Loadouts)
+local Frontline = require(script.Parent.Frontline)
 local Modes = require(script.Parent.Modes)
 local ZoneMatch = require(script.Parent.ZoneMatch)
+local SectorCfg = require(Shared.Config.Sectors)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Cfg = require(Shared.Config.DevTools)
 local ClassCfg = require(Shared.Config.Classes)
@@ -149,9 +151,23 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 	elseif action == "Mode" then
 		Modes.switch(value)
 	elseif action == "MatchEnd" then
-		ZoneMatch.finish()
+		-- the live mode's match: Normal's frontline or the FFA's zone match
+		if Frontline.running() then
+			Frontline.finish()
+		else
+			ZoneMatch.finish()
+		end
 	elseif action == "MatchRestart" then
-		ZoneMatch.restart()
+		if Frontline.running() then
+			Frontline.restart()
+		else
+			ZoneMatch.restart()
+		end
+	elseif action == "FrontTake" then
+		Frontline.take(player)
+	elseif action == "Sectors" then
+		-- the sector dividers and point markers shown in play (src/server/Sectors)
+		workspace:SetAttribute(SectorCfg.ShowAttribute, value)
 	elseif action == "ZoneSkip" then
 		ZoneMatch.skip()
 	elseif action == "MatchTime" then

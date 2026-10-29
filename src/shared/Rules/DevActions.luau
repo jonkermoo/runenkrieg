@@ -21,6 +21,7 @@ local PLAIN = table.freeze({
 	MatchRestart = true,
 	ZoneSkip = true,
 	RespawnAll = true,
+	FrontTake = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
@@ -31,6 +32,7 @@ local SWITCHES = table.freeze({
 	BuildAll = true,
 	Ammo = true,
 	KeptTeams = true,
+	Sectors = true,
 })
 
 local function finite(n: any): boolean

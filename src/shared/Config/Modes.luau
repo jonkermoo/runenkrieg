@@ -16,8 +16,8 @@ local Modes = {
 		Admin = { name = "Admin server", map = "Map1", ready = true, openAdmin = true },
 		-- the zone-capture free-for-all on the playtest map (src/server/ZoneMatch)
 		FFA = { name = "FFA", map = "Playtest", ready = true, openAdmin = false },
-		-- the finished game's frontline mode on Map 1: not built yet, can't be switched to
-		Normal = { name = "Normal", map = "Map1", ready = false, openAdmin = false, teams = true },
+		-- the finished game's frontline push on Map 1 (src/server/Frontline, Config/Frontline)
+		Normal = { name = "Normal", map = "Map1", ready = true, openAdmin = false, teams = true },
 	},
 }
 
