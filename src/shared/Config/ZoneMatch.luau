@@ -23,23 +23,48 @@ local ZoneMatch = {
 	SpawnWait = 10, -- seconds a new character's root is waited for
 	FeetBelowRoot = 3, -- a soldier's feet this far under the root (what counts as in the zone: Height round them)
 	GroundRay = { top = 300, depth = 600 }, -- the ground found by a ray this high, this long, down on terrain only
-	-- the marker (built by the server, coloured per viewer by the client; user 2026-10-27: "a translucent floating
-	-- circle and ... a beam that reveals its location in the sky. make it disappear when ADS"): a see-through disc the
-	-- zone's size floating `lift` over the highest ground under it, and a beam up from its middle; both hidden for
-	-- this player while aiming (src/client/ZoneMarker). The next spot's disc only, fainter, during the warning.
+	-- the marker (built by the server, coloured per viewer by the client; user 2026-10-29: "make it more of a ring with a
+	-- light beacon. make it look nice"): a glowing ring the zone's size laid over the ground (each corner on the ground
+	-- under it, so it follows the slope), a dashed ring just inside it, and a beacon up from its middle (a bright core
+	-- and a faint halo, both fading out into the sky, slowly breathing, a light on the ground under it); all of it hidden
+	-- for this player while aiming (user 2026-10-27: "make it disappear when ADS"; src/client/ZoneMarker). The next
+	-- spot: its rings only, fainter, during the warning.
 	Marker = {
-		Disc = { thickness = 0.2, lift = 0.8, transparency = 0.55, samples = 12 },
-		Beam = { width = 1.6, height = 260, transparency = 0.45 },
-		NextTransparency = 0.8,
+		Ring = { segments = 48, width = 0.7, height = 0.3, lift = 0.35, transparency = 0.05 },
+		-- `inset` in from the ring; each dash `fill` of its share of the round
+		Dashes = { count = 32, inset = 1.6, width = 0.3, height = 0.2, fill = 0.55, transparency = 0.3 },
+		Beacon = {
+			base = 0.6, -- over the ground at the middle
+			height = 260,
+			-- each layer's width and transparency at its foot and its top (a Beam's sides are hard: thin layers)
+			core = { width = 0.6, foot = 0.05, top = 1 },
+			halo = { width = 2.6, foot = 0.65, top = 1 },
+			lightEmission = 1,
+			pulseSeconds = 2.4, -- one breath
+			pulse = 0.3, -- the widths swing this share either way
+		},
+		Light = { range = 22, brightness = 1.6, pulse = 0.35 },
+		NextTransparency = 0.7, -- the next spot's rings
 		FlashSeconds = 0.35, -- contested: flashes between its colour and Free
 		Colors = {
-			Free = { 196, 192, 180 },
-			Mine = { 90, 170, 90 },
-			Theirs = { 196, 70, 58 },
-			Contested = { 230, 160, 40 },
+			Free = { 236, 226, 196 },
+			Mine = { 110, 220, 110 },
+			Theirs = { 235, 80, 64 },
+			Contested = { 255, 176, 40 },
 		},
 	},
-	-- replicated state: attributes on the marker Model (Phase, State, Holder (a UserId), Spot, NextSpot, MoveAt,
+	-- the point leader (user 2026-10-29: "whoever has the most points have a border/glow (just so they're obvious)"):
+	-- a Highlight on their character, seen by everyone else where they're in sight (Rules/ZoneMatch.leader)
+	Leader = {
+		name = "LeaderGlow",
+		fill = { 255, 206, 72 },
+		fillTransparency = 0.75,
+		outline = { 255, 236, 150 },
+		outlineTransparency = 0,
+		depthMode = "Occluded", -- "AlwaysOnTop": seen through walls too
+	},
+	LeaderAttribute = "Leader", -- on the marker: the leader's UserId (nil while nobody has a point)
+	-- replicated state: attributes on the marker Model (Phase, State, Holder (a UserId), Leader, Spot, NextSpot, MoveAt,
 	-- EndsAt (workspace:GetServerTimeNow())) and each Player's score
 	ScoreAttribute = "ZoneScore",
 	-- on Workspace while a match runs: everyone is everyone's enemy (Rules/Teams), whatever their uniform

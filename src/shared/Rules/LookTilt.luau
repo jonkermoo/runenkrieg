@@ -63,6 +63,13 @@ function LookTilt.settle(average: number, angle: number, k: number): number
 	return average + LookTilt.wrap(angle - average) * k
 end
 
+-- how fast the average pointing follows (per second) when it is `gap` degrees off: `slow` within `c.from` (the
+-- animation's breath and stride sway around it), rising to `c.rate` at `c.full` (a new hold, e.g. crouching)
+function LookTilt.settleRate(gap: number, slow: number, c: { rate: number, from: number, full: number }): number
+	local s = math.clamp((math.abs(gap) - c.from) / math.max(c.full - c.from, 1e-6), 0, 1)
+	return slow + (c.rate - slow) * s
+end
+
 -- how far along the crosshair's line (studs from the camera) the weapon points: at what it hits, else `fallback`;
 -- never nearer than `min` past `from` (where the line passes the weapon)
 function LookTilt.aimDistance(hit: number?, from: number, fallback: number, min: number): number
