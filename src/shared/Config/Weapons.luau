@@ -524,35 +524,33 @@ local Weapons: { [string]: Weapon } = {
 			Eject = { 0, 0.077, 0.0375 }, -- behind the cylinder's back face: the cases come out back and up, barrel open
 		},
 		grip = { 0, -0.03, 0.18 }, -- the hand round the top of the grip, under the hammer
-		-- the Nagant's one-handed pistol holds borrowed until its own set is built (tools/animation/pistol.luau)
-		holdsOf = "pistol_nagant",
+		-- its own set of the pistols' shared one-handed holds (tools/animation/pistol.luau), from its own grip and sights
 		holds = {
-			ready = 122826523630532,
-			walk = 122434527067877,
-			carry = 80809330904226,
-			aim = 84038590960110,
-			equip = 97508888105841,
-			unequip = 112466043060467,
-			crouchReady = 135413534531837,
-			crouchWalk = 89344354850551,
-			crouchAim = 138258680788610,
-			tuck = 121383213037179,
-			crouchTuck = 96054684931143,
-			strike = 102049150363193,
+			ready = 135773970789865,
+			walk = 125921803493497,
+			carry = 124356919772985,
+			aim = 130362316537857,
+			equip = 104922865424782,
+			unequip = 111620419541771,
+			crouchReady = 134294170994692,
+			crouchWalk = 130359477321373,
+			crouchAim = 86989799138603,
+			tuck = 124687363270061,
+			crouchTuck = 139442375984984,
+			strike = 97454038680950,
 		},
 		firstPerson = {
-			ready = 119790724998685,
-			carry = 124991959930374,
-			aim = 107841258139965,
-			equip = 138219291439235,
-			unequip = 73304833142389,
-			aimIn = 78209593573590,
-			aimOut = 89028851215242,
-			tuck = 82304215695834,
-			strike = 83755555785006,
+			ready = 129670720959134,
+			carry = 71977268058907,
+			aim = 77295874320759,
+			equip = 80186812724401,
+			unequip = 85858394539051,
+			aimIn = 93738711610712,
+			aimOut = 81547547895739,
+			tuck = 105479813215701,
+			strike = 128857063209454,
 		},
-		-- aimed one-handed (tools/animation/pistol.luau): the sights at the right eye, the arm out level at the shoulder
-		shouldered = { 0.6, 1.45, -0.15 },
+		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
 		scale = { 3, 3, 2.5 }, -- as the Nagant: 0.80 -> 2.0 studs long, chunky in the 1-stud hand
 		-- put away: the pistols' shared hip holster (HOLSTER, below)
 		-- the Engineer pistols' roles (the design 2026-10-27): the hard-hitting close-range one. 6 rounds, double action
@@ -621,10 +619,10 @@ local Weapons: { [string]: Weapon } = {
 			knob = { 0, 0, 0 },
 			clipTop = { 0, 0.077, 0.0375 },
 			entry = 0,
-			body = 117629883702939,
-			firstPerson = 138112105248872,
+			body = 97113622675720,
+			firstPerson = 108157894846881,
 		},
-		recoil = { scale = 1.3, build = 0.5, max = 2.8, cool = 1.3 },
+		recoil = { scale = 1.3, build = 0.5, max = 2.8, cool = 1.3, hip = 1.35 },
 	},
 	-- The Nagant M1895 revolver (model tools/blender/weapons/nagant.py, its shape from tools/blender/weapons/trace/
 	-- nagant.py): the olive team's Engineer pistol (uniform2), 7 rounds loaded one at a time through the gate on the
