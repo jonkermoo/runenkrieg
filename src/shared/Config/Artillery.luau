@@ -148,6 +148,8 @@ export type Gun = {
 		shoulder: { number },
 		look: number,
 		shot: any,
+		-- the report's pitch and tone, as a rifle's (Config/Weapons `report`), heard as a rifle's (src/client/ShotAudio)
+		report: { pitch: number, eq: { number } },
 	}?,
 	-- part names coloured so instead of by Palette.Artillery (the MG's gunmetal body and its belt); nil: none
 	colors: { [string]: { number } }?,
@@ -978,6 +980,9 @@ local Artillery = {
 				-- a round, 7.5 a second, so the tail is cut short before the take's metal clink at 0.6 s (Studio: loud
 				-- to 0.06 s, mostly gone by 0.45); was the rifles' shot as a placeholder)
 				shot = { id = 9118173739, volume = 1.6, stop = 0.5, fade = 0.25, profile = "Gunshot" },
+				-- the G98's round (7.92x57 S, ~890 m/s from a 720 mm barrel): as recorded, the crack a little up; heard far off
+				-- and going by as a rifle (src/client/ShotAudio: late, the far report, echoes off what stands round)
+				report = { pitch = 1, eq = { 0, 0, 2 } },
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the shield, mount and foot take it)

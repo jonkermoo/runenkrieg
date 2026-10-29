@@ -650,7 +650,7 @@ local Weapons: { [string]: Weapon } = {
 		-- Pro Sound Effects placeholders as the Nagant's: the shot (louder: the .455), the latch and the barrel going
 		-- down ("BoltOpen") and shutting ("BoltClose"), the rounds going in ("ClipIn")
 		sounds = {
-			Shot = { id = 9119299387, volume = 2.6 },
+			Shot = { id = 9119299387, volume = 2.6, stop = 0.7, fade = 0.35 },
 			BoltOpen = { id = 9119718673, volume = 0.6 },
 			BoltClose = { id = 9119718255, volume = 0.7 },
 			ClipIn = { id = 9117396156, volume = 0.6 },
@@ -666,6 +666,9 @@ local Weapons: { [string]: Weapon } = {
 			body = 97113622675720,
 			firstPerson = 108157894846881,
 		},
+		-- .455 Webley Mk II: ~0.42 g of cordite against the recording's .38 Special (~0.29 g): x0.88; a big, slow (~190 m/s,
+		-- subsonic) bullet: a deep thud, no crack
+		report = { pitch = 0.88, eq = { 2, 0, -2 } },
 		recoil = { scale = 1.3, build = 0.5, max = 2.8, cool = 1.3, hip = 1.35 },
 	},
 	-- The Nagant M1895 revolver (model tools/blender/weapons/nagant.py, its shape from tools/blender/weapons/trace/
@@ -821,7 +824,7 @@ local Weapons: { [string]: Weapon } = {
 		-- and shutting "Switch Clicks Metallic Dull Pops 21 / 13", a round going in "Pistol Clip 2"; heard far off and
 		-- going by: the rifles' (Config/Firing.Sounds)
 		sounds = {
-			Shot = { id = 9119299387, volume = 2.2 },
+			Shot = { id = 9119299387, volume = 2.2, stop = 0.7, fade = 0.35 },
 			BoltOpen = { id = 9119718673, volume = 0.6 },
 			BoltClose = { id = 9119718255, volume = 0.6 },
 			ClipIn = { id = 9117396156, volume = 0.6 },
@@ -830,6 +833,9 @@ local Weapons: { [string]: Weapon } = {
 		bolt = { aim = 0, ready = 0 }, -- (no bolt: nothing to work by hand)
 		reload = { knob = { 0, 0, 0 }, clipTop = { 0.033, 0.0236, 0.07 }, entry = 0, body = 0, firstPerson = 0 },
 		-- aimed in both hands steadier, at the hip in one hand wilder; still under a rifle's (scale 1) either way
+		-- 7.62x38R (~0.25 g against the .38's ~0.29 g): x1.05; its gas seal shuts the cylinder gap, so none of a revolver's
+		-- side blast: a quieter, smaller pop (~300 m/s, subsonic)
+		report = { pitch = 1.05, eq = { 0, 0, -3 } },
 		recoil = { scale = 0.7, build = 0.35, max = 2.2, cool = 1.4, hip = 1.35 },
 	},
 	rifle_m91 = {
@@ -1049,6 +1055,12 @@ local Weapons: { [string]: Weapon } = {
 			turn = 0,
 			travel = 0.1197,
 		},
+		-- the revolvers' pistol shot (it played the rifles' full-power shot), cut before its tail like theirs; heard far
+		-- off and going by: the rifles' (Config/Firing.Sounds), the action's sounds the rifles' too
+		sounds = { Shot = { id = 9119299387, volume = 2.4, stop = 0.7, fade = 0.35 } },
+		-- 7.63x25 Mauser (~0.5 g against the .38's ~0.29 g): x0.83, from its long closed 140 mm barrel 0.92; a light bullet
+		-- at ~430 m/s, supersonic: a sharp crack over the boom
+		report = { pitch = 0.92, eq = { 0, 0, 3 } },
 		recoil = { scale = 0.45, build = 0.25, max = 1.6, cool = 1.2, hip = 1.35 }, -- the least of the three pistols
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work by hand)
 		reload = {

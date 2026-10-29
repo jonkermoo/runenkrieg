@@ -42,12 +42,13 @@ local Damage = require(Shared.Config.Damage)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
 local Grenade = require(Shared.Rules.Grenade)
-local ShotAudio = require(Shared.Rules.ShotAudio)
+local ShotRules = require(Shared.Rules.ShotAudio)
 local Net = require(Shared.Net)
 local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
 local ArtilleryFx = require(script.Parent.ArtilleryFx)
 local GunFx = require(script.Parent.GunFx)
 local Settings = require(script.Parent.Settings)
+local ShotAudio = require(script.Parent.ShotAudio)
 local SoundFx = require(script.Parent.SoundFx)
 local Crosshair = require(script.Parent.Crosshair)
 local Vfx = require(script.Parent.Vfx)
@@ -1143,7 +1144,7 @@ function Artillery.start()
 		local eye = camera.CFrame.Position
 		local d = (eye - origin).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
-		local near, far = ShotAudio.mix(d, Cfg.Report.near, Cfg.Report.far)
+		local near, far = ShotRules.mix(d, Cfg.Report.near, Cfg.Report.far)
 		for _, part in { { gun.sound.fire, near }, { gun.sound.far, far } } do
 			if part[2] > AudioCfg.Heard.min then
 				SoundFx.play(part[1] :: any, origin, nil, { delay = delay, volume = part[2], eq = { low, 0, high } })
@@ -1180,9 +1181,14 @@ function Artillery.start()
 			if not mg or typeof(origin) ~= "Vector3" or typeof(hit) ~= "Vector3" then
 				return
 			end
-			SoundFx.play(mg.shot, origin)
+			-- the report: the gunner's own beside them, anyone else's as a rifle's, late with distance, its far report and
+			-- echoes growing in (src/client/ShotAudio)
 			if model == mine then
+				SoundFx.play(mg.shot, origin, nil, { eq = mg.report.eq, pitch = mg.report.pitch })
 				heat = Rules.mgHeat(heat, 1, 0, mg.spread)
+			else
+				local heard = { sounds = { Shot = mg.shot }, report = mg.report }
+				ShotAudio.heardAs(model, model:GetAttribute("Gun") :: any, heard, origin, { hit })
 			end
 			-- (a rifle's flash: the guns' blast, even scaled down, lit the whole view 7 times a second)
 			GunFx.flashAt(CFrame.new(origin))

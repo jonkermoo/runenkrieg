@@ -117,9 +117,13 @@ return {
 				error(`{name}: a gun with no report`)
 			end
 		end
+		local mg = Artillery.Guns.mg08.mg
+		assert(mg and mg.report.pitch >= 0.7 and mg.report.pitch <= 1.4 and #mg.report.eq == 3, "the MG's report")
 		-- a smaller powder charge booms higher (blast scaling)
 		assert(W.rifle_winchester1907.report.pitch > W.rifle_m91.report.pitch, ".351 WSL over 6.5 Carcano")
 		assert(W.rifle_m91.report.pitch > W.rifle_g98.report.pitch, "6.5 Carcano over 7.92 Mauser")
+		assert(W.pistol_nagant.report.pitch > W.pistol_webley.report.pitch, "7.62 Nagant over .455 Webley")
+		assert(W.pistol_c96.sounds and W.pistol_c96.sounds.Shot, "the C96 fires a pistol's shot, not a rifle's")
 	end,
 	["every gun is heard far off and going by"] = function()
 		for name, w in W do
