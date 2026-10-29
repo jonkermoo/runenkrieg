@@ -564,15 +564,15 @@ local Weapons: { [string]: Weapon } = {
 			strike = 97454038680950,
 		},
 		firstPerson = {
-			ready = 129670720959134,
+			ready = 100670328342369,
 			carry = 71977268058907,
 			aim = 77295874320759,
-			equip = 80186812724401,
-			unequip = 85858394539051,
-			aimIn = 93738711610712,
-			aimOut = 81547547895739,
+			equip = 91520169253588,
+			unequip = 79357835917347,
+			aimIn = 82841562100411,
+			aimOut = 86685221648941,
 			tuck = 105479813215701,
-			strike = 128857063209454,
+			strike = 135978616786126,
 		},
 		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
 		scale = { 3, 3, 2.5 }, -- as the Nagant: 0.80 -> 2.0 studs long, chunky in the 1-stud hand
@@ -664,7 +664,7 @@ local Weapons: { [string]: Weapon } = {
 			clipTop = { 0, 0.077, 0.0375 },
 			entry = 0,
 			body = 97113622675720,
-			firstPerson = 108157894846881,
+			firstPerson = 136089909102996,
 		},
 		-- .455 Webley Mk II: ~0.42 g of cordite against the recording's .38 Special (~0.29 g): x0.88; a big, slow (~190 m/s,
 		-- subsonic) bullet: a deep thud, no crack
@@ -755,15 +755,15 @@ local Weapons: { [string]: Weapon } = {
 			strike = 96817744569842,
 		},
 		firstPerson = {
-			ready = 121568509879542,
+			ready = 133916377712951,
 			carry = 98776105780688,
 			aim = 81575185196582,
-			equip = 78143731273282,
-			unequip = 94448790801507,
-			aimIn = 91420108888072,
-			aimOut = 78643133170604,
+			equip = 104445028405312,
+			unequip = 77082915653237,
+			aimIn = 104979504719303,
+			aimOut = 106427505847232,
 			tuck = 76382794440045,
-			strike = 84573444859847,
+			strike = 78539259160846,
 		},
 		-- aimed one-handed (tools/animation/pistol.luau): the sights at the right eye, the arm out level at the shoulder
 		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
@@ -782,7 +782,7 @@ local Weapons: { [string]: Weapon } = {
 		single = {
 			seat = { 0.033, 0.0236, 0.07 }, -- just behind the gate's chamber: the round pushed in from there
 			body = 103017668407371, -- the gate reload (tools/animation/pistol.luau): the left hand holds it, the right loads
-			firstPerson = 138022251947098,
+			firstPerson = 127029765349987,
 			open = 0.5,
 			round = 0.85,
 			close = 0.45,
@@ -1003,15 +1003,15 @@ local Weapons: { [string]: Weapon } = {
 			strike = 96817744569842,
 		},
 		firstPerson = {
-			ready = 121568509879542,
+			ready = 133916377712951,
 			carry = 98776105780688,
 			aim = 81575185196582,
-			equip = 78143731273282,
-			unequip = 94448790801507,
-			aimIn = 91420108888072,
-			aimOut = 78643133170604,
+			equip = 104445028405312,
+			unequip = 77082915653237,
+			aimIn = 104979504719303,
+			aimOut = 106427505847232,
 			tuck = 76382794440045,
-			strike = 84573444859847,
+			strike = 78539259160846,
 		},
 		-- the upright ring hammer stands in the bolt's way: pushed down flat under the bolt's grips (past 1) and,
 		-- once the bolt goes forward, held up by the sear at its rest; push from tools/blender/weapons/c96.py
@@ -1070,7 +1070,7 @@ local Weapons: { [string]: Weapon } = {
 			-- in the left hand, the right pulls the bolt's grips back, sets the clip and thumbs the rounds down, lets the
 			-- bolt go (tools/animation/c96_reload.luau)
 			body = 91504525443878,
-			firstPerson = 71082727761108,
+			firstPerson = 98100671364880,
 		},
 	},
 	rifle_g98 = {
