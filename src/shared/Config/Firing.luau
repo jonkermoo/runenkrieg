@@ -10,6 +10,9 @@ local Firing = {
 	-- (the fire and reload keys are player settings: Config/Settings)
 	Range = 600, -- studs a shot travels (Metrics fog end; effective range 450)
 	FireTime = 0.15, -- after a shot nothing else can start for this long (the shot itself)
+	-- every pistol (class "Pistol", the Engineer's) fires at most once this often, unless its entry sets its own
+	-- action.fireTime (the design 2026-10-27: the same rate for all three)
+	PistolFireTime = 0.25,
 	-- Server checks: timings get this much slack (latency jitter); the reported muzzle must be this close to the
 	-- shooter's head (the first-person gun sits ~5 studs ahead of the eye); remotes per second per player.
 	Slack = 0.2,
@@ -171,8 +174,15 @@ local Firing = {
 		-- bolt baked in. Its file starts with 0.36 s of silence: `start` skips it. (Was "Bolt Action Fire", 7700083911:
 		-- a ring at 0.44 s and a bolt cycle at 0.8 s in the file; cutting them cut the shot short, user 2026-10-12.)
 		-- Its tail swells again at ~1.3 s and then hisses (a windy noise floor) until the file stops dead at 3.9 s (user
-		-- 2026-10-19: "rings out some type of wind noise and cuts off"; measured): it ends at 2.3 s, faded over 1 s.
-		Shot = { id = 134529004435835, volume = 2.5, start = 0.34, stop = 2.3, fade = 1 },
+		-- 2026-10-19: "rings out some type of wind noise and cuts off"; measured). That swell is a reflection off
+		-- something ~430 studs off (it peaks 0.9 s after the shot at -20 dB, measured 2026-10-28), so the shooter and
+		-- anyone beside them heard a distant echo (user 2026-10-28: "the shot keeps ringing a distant echo when we are
+		-- right next to the gun"). Cutting it there sounded clipped (user 2026-10-28: "it fades out way too fast. i just
+		-- want the distant echoing gone, not the natural gun sounds after firing"), so its own decay plays on and only
+		-- the swell is pressed down: from 1.15 s (-24 dB) an exponential fade (`curve`: 60 dB evenly over `fade`, the
+		-- way a sound dies away), so the swell flattens into the decay (-28 at 1.3, -36 at 1.5, -48 at 1.7 s, measured
+		-- through the fade). The far report and its echoes take over with distance (src/client/ShotAudio).
+		Shot = { id = 134529004435835, volume = 2.5, start = 0.34, stop = 2.6, fade = 1.45, curve = "Exponential" },
 		BoltOpen = { id = 85609660605803, volume = 0.8 }, -- "Rifle Bolt Pull 2" (EXPPOINT)
 		BoltClose = { id = 86945427224170, volume = 0.8 }, -- "Rifle Bolt Push 1" (EXPPOINT)
 		ClipIn = { id = 9116321026, volume = 0.7 }, -- "Locking Wrench 7 (SFX)" (Pro Sound Effects)

@@ -4,7 +4,7 @@
 -- the chamber / bolt moving and have the magazine box be the actual magazine (semi transparent showing ammo and show
 -- ammo going up)"). Brass-rimmed panels, each with a cut-away of the real thing drawn live in a ViewportFrame:
 -- - guns (src/client/AmmoHud): a three-quarter cut-away of the action, the gun a flat shadow, the bolt, the rounds
---   (the shared round Config/Assets ammo_rifle) and the magazine well clear;
+--   (the shared round Config/Assets ammo_rifle, a pistol's own cartridge) and the magazine well clear;
 -- - the staff (src/client/StaffHud): a magic rock in the team's colour, faded when empty, bright when full,
 --   flickering while it can't be used (burnt out by a stage 3 shot);
 -- - artillery (src/client/ArtilleryHud): the field gun's breech cut away with its round, the howitzer's crystal.
@@ -13,6 +13,12 @@
 local Hud = {
 	-- the shared round's library model (Config/Assets ammo_rifle: Case + Bullet, the spent Casing, Origin at the head)
 	Round = { "Weapons", "Shared", "Ammo", "ammo_rifle" },
+	-- a weapon's own round in place of it (the pistols' cartridges, Config/Assets ammo_*: the same parts)
+	Rounds = {
+		pistol_nagant = { "Weapons", "Shared", "Ammo", "ammo_nagant" },
+		pistol_webley = { "Weapons", "Shared", "Ammo", "ammo_webley" },
+		pistol_c96 = { "Weapons", "Shared", "Ammo", "ammo_mauser" },
+	} :: { [string]: { string } },
 
 	-- the cut-aways' light (the ViewportFrames: a direction; its colours in Palette.UI.Hud viewAmbient / viewLight)
 	Light = { -0.4, -1, -0.6 },
@@ -127,7 +133,11 @@ local Hud = {
 			Clip = "{key}: load a clip",
 			Box = "{key}: new magazine",
 			Shells = "{key}: load shells",
+			Rounds = "{key}: load rounds", -- a revolver's gate
 		},
+		-- a revolver's cylinder (src/client/AmmoHud): the camera this many cylinder sizes off, from behind, right and up
+		-- (gun space), its field of view
+		drum = { distance = 1.6, from = { 0.45, 0.35, 1 }, fov = 40 },
 	},
 
 	-- a crystal in a cut-away (src/client/HudKit.shine: the staff's gem, the howitzer's): its own colour full, darkened

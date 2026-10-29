@@ -55,8 +55,10 @@ local Audio = {
 		-- echoes: `rays` level rays from the listener out to `range` find walls and hillsides; the strongest `count`
 		-- reflections at least `extra` studs longer than the direct path (0.1 s later: closer ones only thicken the shot, the
 		-- 2026-10-16 test) play the far report from the wall at `gain` (what the reflection keeps; the falloff counts the
-		-- whole path), a further `dull` dB down on the highs
-		echo = { rays = 8, range = 500, count = 2, extra = 100, gain = 0.5, dull = -8 },
+		-- whole path), a further `dull` dB down on the highs. They grow with the shot's distance like the far report:
+		-- silent within `from` studs of the gun, full from `full` (user 2026-10-28: "the shot keeps ringing a distant echo
+		-- when we are right next to the gun")
+		echo = { rays = 8, range = 500, count = 2, extra = 100, gain = 0.5, dull = -8, from = 60, full = 300 },
 	},
 }
 

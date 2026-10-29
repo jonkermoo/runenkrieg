@@ -63,6 +63,20 @@ local Assets = {
 			generator = "tools/blender/weapons/export_blend.py",
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
+		pistol_nagant = {
+			-- v4: the rounds and their chambers 0.75 of real size (user 2026-10-28: "extremely cramped in their wheel");
+			-- v3 80228872124161: the chambers drilled through the cylinder and lined dark (an empty chamber is a hole), the
+			-- rounds the 7.62x38R of tools/blender/weapons/pistol_ammo.py (Round<k> heads and crimped mouths + Bullet<k>
+			-- noses), hidden Cartridge and Casing templates for the gate (v2 136927059301419: the cylinder's faces fixed,
+			-- the grip two flat wood panels on a slimmer, rounded frame, a round per chamber filling its mouth; v1
+			-- 100351614666603)
+			id = 130059727553953,
+			category = "Weapons",
+			folder = "Olive/Pistols",
+			source = "assets/weapons/olive/pistol_nagant.fbx",
+			generator = "tools/blender/weapons/nagant.py",
+			description = "Nagant M1895 revolver, the olive team's Engineer pistol (its shape from a low-poly reference: tools/blender/weapons/trace/nagant.py; a round part per chamber shows the rounds left). Rigged from Config/Weapons.",
+		},
 		rifle_g98 = {
 			-- v3: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
 			-- v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
@@ -72,6 +86,14 @@ local Assets = {
 			source = "assets/weapons/grey/rifle_g98.fbx",
 			generator = "tools/blender/weapons/gewehr98.py",
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
+		},
+		pistol_c96 = {
+			id = 94392928383424,
+			category = "Weapons",
+			folder = "Grey/Pistols",
+			source = "assets/weapons/grey/pistol_c96.fbx",
+			generator = "tools/blender/weapons/c96.py",
+			description = "Mauser C96 pistol, the grey team's Engineer pistol (built from its trace: tools/blender/weapons/trace/c96.py). Rigged from Config/Weapons.",
 		},
 		rifle_smle = {
 			-- v6: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
@@ -84,6 +106,19 @@ local Assets = {
 			source = "assets/weapons/white/rifle_smle.fbx",
 			generator = "tools/blender/weapons/smle.py",
 			description = "Lee-Enfield SMLE Mk III, the brown team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
+		},
+		pistol_webley = {
+			-- v4: the rounds at pistol_ammo's revolver fit, 0.75 (user 2026-10-28: "extremely cramped in their wheel"),
+			-- the holes with them; v3 105356442537528: the .455 rounds in detail (tools/blender/weapons/pistol_ammo.py:
+			-- brass Round<k> + lead Bullet<k>) and the chambers drilled through (an empty one a hole); v2
+			-- 138842852856190: rebuilt in our style over the user's reference model (Daz's "Webley Revolver Mk VI"); v1
+			-- 73066004337005: traced from a photo, 10 parts
+			id = 135381970041660,
+			category = "Weapons",
+			folder = "White/Pistols",
+			source = "assets/weapons/white/pistol_webley.fbx",
+			generator = "tools/blender/weapons/webley.py",
+			description = "Webley Mk VI revolver, the brown team's Engineer pistol (built over the outlines in tools/blender/weapons/trace/webley_daz.py). Rigged from Config/Weapons.",
 		},
 		rifle_mondragon = {
 			id = 77357570578798,
@@ -169,16 +204,27 @@ local Assets = {
 			generator = "tools/blender/artillery/qf18.py",
 			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
 		},
-		-- the MG nest's gun (user 2026-10-27; design approved by the user): v3 with the shield and the ammo box as their
-		-- own parts, so a nest being built sets each up in its turn (v2 121882149099009 had them in the mount; v1
-		-- 97496546594152 had Gun* names)
+		-- the MG nest's gun (user 2026-10-27; design approved by the user): v4 with the MG 08's iron sights and each round
+		-- on the belt its own part (user 2026-10-28: the realistic sights, "a real belt ... showing only the true number of
+		-- rounds left"); v3 71692109520199 had the ring sight and the shield and box as their own parts (v2
+		-- 121882149099009 had them in the mount; v1 97496546594152 had Gun* names)
 		mg08 = {
-			id = 71692109520199,
+			id = 73438320789767,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/mg08.fbx",
 			generator = "tools/blender/mgnest/mg08.py",
-			description = "The MG nest's machine gun: an MG 08 traced from a photo (tools/blender/mgnest/trace/mg08.py), built 1.5x like the rifles (5.04 long), with an M1910-style arched shield and keyhole, on a turntable and yoke, its ammo box and a belt of the shared rifle round. Gun space: origin on the mount bag's top under the pivot, the muzzle -Z. Moving parts: Mount + MountFittings + Shield + ShieldTrim + ShieldFittings + BoxKit + BoxTrim + BoxFittings + Belt + Rounds + Bullets traverse, Cradle + CradleTrim + CradleFittings + Barrel + Bore elevate about (0, 1.035, 0); Carriage stays. Sights: a rear peep ring and a front ring with cross wires on y 1.78.",
+			description = "The MG nest's machine gun: an MG 08 traced from a photo (tools/blender/mgnest/trace/mg08.py), built 1.5x like the rifles (5.04 long), with an M1910-style arched shield and keyhole, on a turntable and yoke, its ammo box and a belt of the shared rifle round. Gun space: origin on the mount bag's top under the pivot, the muzzle -Z. Moving parts: Mount + MountFittings + Shield + ShieldTrim + ShieldFittings + BoxKit + BoxTrim + BoxFittings + Belt + Rounds01-07 + Bullets01-07 (each round on the belt, 01 next into the feed) traverse, Cradle + CradleTrim + CradleFittings + Barrel + Bore elevate about (0, 1.035, 0); Carriage stays. Sights: a tangent rear leaf with a V notch and a blade between two ears, on y 1.78 through the shield's keyhole.",
+		},
+		-- the MG 08's spare ammo box (user 2026-10-28: "the ammo bag as part of the reload animation"): carried by the
+		-- gunner in the box reload (Config/Artillery.Guns mg08 `mg.reload`)
+		mg08_box = {
+			id = 71073331375235,
+			category = "Weapons",
+			folder = "Shared/Artillery",
+			source = "assets/weapons/shared/mg08_box.fbx",
+			generator = "tools/blender/mgnest/mg08.py",
+			description = "The MG 08's ammo box with its lid shut, as on the gun (SpareKit, SpareTrim, SpareFittings): 0.44 wide, 0.82 high, 1.05 long, its bottom's middle at the origin, its carry handle's grip at (0.04, 1.0, 0) along z.",
 		},
 		artillery_howitzer = {
 			-- v10 (user 2026-10-26: runes only round the crystal; meshing ring gear and pinions with hand wheels, turned by
@@ -215,6 +261,33 @@ local Assets = {
 			source = "assets/weapons/shared/ammo_rifle.fbx",
 			generator = "tools/blender/weapons/ammo.py",
 			description = "The shared rifle round at the rifles' modelled scale: a loaded round (Case + Bullet, case head at the Origin, pointing -Z) and a spent Casing beside it (x +0.05).",
+		},
+		-- the pistol cartridges (user 2026-10-28: "detailed pistol and revolver shell", for the models and the ammo
+		-- display), one per Engineer pistol, the same parts as ammo_rifle; real size (the pistols' modelled scale), the
+		-- revolvers' 0.75 of it (user 2026-10-28: "extremely cramped in their wheel"; pistol_ammo.py FIT)
+		ammo_nagant = {
+			id = 111719173819015, -- v2: 0.75 size (v1 78265810704735)
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_nagant.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = "7.62x38R Nagant round (the Nagant M1895's): a long rimmed case crimped round a copper bullet seated wholly inside (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05, its mouth open, primer struck).",
+		},
+		ammo_webley = {
+			id = 93761596750031, -- v2: 0.75 size (v1 134106576623387)
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_webley.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = ".455 Webley Mk II round (the Webley Mk VI's): a short case with a wide rim and a lead round-nosed bullet (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05).",
+		},
+		ammo_mauser = {
+			id = 133218514196898,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_mauser.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = "7.63x25 Mauser round (the C96's): a rimless bottlenecked case with an extraction groove and a copper round-nosed bullet (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05).",
 		},
 		-- the field gun's fixed round (2026-10-20, docs/MILESTONES.md A2): carried by the gunner while loading
 		-- (Config/Artillery.Load), colored from Config/Palette.Artillery by mesh name

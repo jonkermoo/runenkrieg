@@ -28,6 +28,11 @@ function ShotAudio.mix(distance: number, near: number, far: number): (number, nu
 	return math.cos(t * math.pi / 2), math.sin(t * math.pi / 2)
 end
 
+-- How much of the echoes play at `distance`: none within `from`, rising evenly to all of them at `full`.
+function ShotAudio.grow(distance: number, from: number, full: number): number
+	return math.clamp((distance - from) / (full - from), 0, 1)
+end
+
 -- The equalizer's low / mid / high gains (dB) after `distance` studs of air.
 function ShotAudio.air(distance: number, air: Air): (number, number, number)
 	local d = math.max(0, distance - air.from)

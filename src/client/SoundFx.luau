@@ -1,13 +1,13 @@
 --!strict
 -- Plays the game's effect sounds from their Config entries (Config/Vfx.Sounds and the like): `{ id, volume, start?,
--- stop?, fade?, pitch?, loop?, profile, eq? }` (`fade`: down to nothing over its last seconds, at `stop` or the end of
--- the file; `eq`: { low, mid, high } dB through an equalizer), where volume / pitch may be per-stage lists (picked by
--- `stage`) and a list of entries plays them all at once (layers). Every sound is positional on its falloff profile (src/client/Audio):
--- on a part or an attachment, or at a point in the world. A ready copy of each sound is made once and cloned per
+-- stop?, fade?, curve?, pitch?, loop?, profile, eq? }` (`fade`: down to nothing over its last seconds, at `stop` or
+-- the end of the file, eased by `curve` (an EasingStyle, Out; Quad if none); `eq`: { low, mid, high } dB through an
+-- equalizer), where volume / pitch may be per-stage lists (picked by `stage`) and a list of entries plays them all at
+-- once (layers). Every sound is positional on its falloff profile (src/client/Audio): on a part or an attachment, or at a point in the world. A ready copy of each sound is made once and cloned per
 -- play (a Sound made at the moment it's needed starts ~0.33 s late, KNOWN_TRAPS), all preloaded up front.
 -- play(entry, at, stage?, mods?) a one shot (mods: { volume = a share of the entry's, eq = { low, mid, high } dB on top of
--- the entry's, delay = seconds before it starts }); loop(entry, at) a loop with a handle (set volume / pitch, stop with a
--- fade).
+-- the entry's, delay = seconds before it starts, pitch = times the entry's }); loop(entry, at) a loop with a handle (set
+-- volume / pitch, stop with a fade).
 
 local ContentProvider = game:GetService("ContentProvider")
 local Debris = game:GetService("Debris")
@@ -18,7 +18,7 @@ local Audio = require(script.Parent.Audio)
 local SoundFx = {}
 
 export type Entry = { [string]: any }
-export type Mods = { volume: number?, eq: { number }?, delay: number? }
+export type Mods = { volume: number?, eq: { number }?, delay: number?, pitch: number? }
 export type Loop = { set: (volume: number?, pitch: number?) -> (), stop: (fade: number?) -> () }
 
 local templates: { [string]: Sound } = {}
@@ -84,12 +84,13 @@ local UNKNOWN_LIFE = 60
 
 local function one(e: Entry, at: Instance | Vector3, stage: number?, mods: Mods?)
 	if mods and mods.delay and mods.delay > 0 then
-		task.delay(mods.delay, one, e, at, stage, { volume = mods.volume, eq = mods.eq })
+		task.delay(mods.delay, one, e, at, stage, { volume = mods.volume, eq = mods.eq, pitch = mods.pitch })
 		return
 	end
 	local s = template(e):Clone()
 	local volume, pitch = pick(e.volume, stage) or 1, pick(e.pitch, stage) or 1
 	volume *= mods and mods.volume or 1
+	pitch *= mods and mods.pitch or 1
 	if mods and mods.eq then
 		local q = s:FindFirstChildOfClass("EqualizerSoundEffect")
 		local base = e.eq or { 0, 0, 0 }
@@ -118,9 +119,11 @@ local function one(e: Entry, at: Instance | Vector3, stage: number?, mods: Mods?
 		local wait = math.max(0, stop - f - (s.TimePosition - (e.start or 0)) / pitch)
 		task.delay(wait, function()
 			if s.Parent then
-				TweenService
-					:Create(s, TweenInfo.new(f, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Volume = 0 })
-					:Play()
+				TweenService:Create(
+					s,
+					TweenInfo.new(f, (Enum.EasingStyle :: any)[e.curve or "Quad"], Enum.EasingDirection.Out),
+					{ Volume = 0 }
+				):Play()
 			end
 		end)
 	end
