@@ -100,7 +100,8 @@ local Classes = {
 			name = "Engineer",
 			blurb = "Builds artillery",
 			cost = 150,
-			primary = "weapon",
+			-- the kit's pistol (user 2026-10-28: the Engineer's own sidearm; the C96, the Nagant, the Webley)
+			primary = "pistol",
 			grenades = false,
 			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
 			helmet = "engineerCap",
@@ -122,6 +123,7 @@ local Classes = {
 	-- and Config/Assets entries
 	Gear = {
 		uniform1 = {
+			pistol = "pistol_c96",
 			semi = "rifle_mondragon",
 			staff = "staff_grey",
 			altHelmet = "helmet_stahl_plate",
@@ -131,6 +133,7 @@ local Classes = {
 			engineerCap = "cap_feld",
 		},
 		uniform2 = {
+			pistol = "pistol_nagant",
 			semi = "rifle_remington8",
 			staff = "staff_olive",
 			altHelmet = "helmet_m33_plate",
@@ -140,6 +143,7 @@ local Classes = {
 			engineerCap = "cap_side",
 		},
 		uniform3 = {
+			pistol = "pistol_webley",
 			semi = "rifle_winchester1907",
 			staff = "staff_brown",
 			altHelmet = "helmet_adrian_visor",
