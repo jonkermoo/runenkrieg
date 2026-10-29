@@ -22,7 +22,7 @@ local Damage = {
 		BoltRifle = { Head = 200, Torso = 70, Limb = 60, Helmet = 40 }, -- user: torso 70 (2 hits)
 		SemiRifle = { Head = 200, Torso = 55, Limb = 45, Helmet = 40 }, -- W2: so they don't outclass the bolt rifles
 		Shotgun = { Head = 30, Torso = 20, Limb = 12, Helmet = 10 },
-		-- the MG nest's MG 08 (Config/Artillery.Guns mg08 `mg`; the design: three body hits)
+		-- the MG nest's M2 (Config/Artillery.Guns mg08 `mg`; the design: three body hits)
 		MachineGun = { Head = 100, Torso = 40, Limb = 30, Helmet = 30 },
 		-- the Engineer's team pistols (C96, Nagant, Webley; the design 2026-10-27: "usable, not a pea-shooter"): a bare
 		-- head in one, the torso in three; past each pistol's own full-damage range (Config/Weapons `fullRange`) it

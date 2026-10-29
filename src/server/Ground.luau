@@ -45,6 +45,57 @@ local function guarded(p: Vector3): boolean
 	return false
 end
 
+-- the highest the ground may stand at a point's column (Ground.ceiling; an MG nest's: a little over its ground as it was
+-- laid), nil: no cap there
+local ceilings: { (Vector3) -> number? } = {}
+local function ceilingAt(p: Vector3): number?
+	local low: number? = nil
+	for _, at in ceilings do
+		local c = at(p)
+		if c and (not low or c < low) then
+			low = c
+		end
+	end
+	return low
+end
+
+-- the ground in `region` cut down to the ceilings over it (thrown earth heaps no higher on capped ground)
+local function capped(region: Region3)
+	if #ceilings == 0 then
+		return
+	end
+	local terrain = workspace.Terrain
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return
+	end
+	local size = mats.Size
+	local corner = region.CFrame.Position - region.Size / 2
+	local changed = false
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local column = corner + Vector3.new((ix - 0.5) * VOXEL, 0, (iz - 0.5) * VOXEL)
+			local top = ceilingAt(column)
+			if top then
+				for iy = 1, size.Y do
+					local bottom = corner.Y + (iy - 1) * VOXEL
+					local most = math.clamp((top - bottom) / VOXEL, 0, 1)
+					if occs[ix][iy][iz] > most then
+						occs[ix][iy][iz] = most
+						if most == 0 then
+							mats[ix][iy][iz] = Enum.Material.Air
+						end
+						changed = true
+					end
+				end
+			end
+		end
+	end
+	if changed then
+		terrain:WriteVoxels(region, VOXEL, mats, occs)
+	end
+end
+
 local function dug(key: string): boolean
 	return pitted[key] == true or trenched(key)
 end
@@ -87,15 +138,28 @@ function Ground.crater(position: Vector3, plan: any, c: any)
 	if c.Refill and ok then
 		Ground.rimFill(position, region, plan.mouth, outer, c.Refill.rimFill)
 	end
+	-- (no earth thrown onto guarded ground either, a ball reaching into it left out, unless the ground there has a
+	-- ceiling: an MG nest's takes a little for the look, cut down to it after; user 2026-10-29: "dont let terrain enter
+	-- the gun area when hit with explosives", "dont allow the turret to be fully submerged in terrain. only a little
+	-- for visual")
+	local function reachesGuard(at: Vector3, r: number): boolean
+		for _, d in { Vector3.zero, Vector3.xAxis * r, -Vector3.xAxis * r, Vector3.zAxis * r, -Vector3.zAxis * r } do
+			if guarded(at + d) and not ceilingAt(at + d) then
+				return true
+			end
+		end
+		return false
+	end
 	for _, b in plan.rim do
 		local over = position + Vector3.new(b.dx, plan.radius, b.dz)
 		local hit = workspace:Raycast(over, Vector3.yAxis * -plan.radius * 3, terrainOnly)
-		if hit and not nearTrench(hit.Position, b.radius) then
+		if hit and not nearTrench(hit.Position, b.radius) and not reachesGuard(hit.Position, b.radius) then
 			terrain:FillBall(hit.Position - Vector3.yAxis * b.sink, b.radius, churnTo)
 		end
 	end
 	Ground.bowl(position, plan.mouth, plan.depth)
 	Ground.churn(position, plan.churn, plan.radius * c.churnDepth, c)
+	capped(region)
 	if c.Refill and ok then
 		Ground.record(region, mats0, occs0, c.Refill)
 	end
@@ -231,6 +295,37 @@ end
 -- point is guarded; the earth a blast throws up may still land on it. Each call adds one.
 function Ground.guard(on: (Vector3) -> boolean)
 	table.insert(guards, on)
+end
+
+-- Caps the ground: `at` gives the highest it may stand in a point's column (nil: no cap there); a blast's thrown earth
+-- is cut down to it (an MG nest's ground: a little over how it lay)
+function Ground.ceiling(at: (Vector3) -> number?)
+	table.insert(ceilings, at)
+end
+
+-- The top of the ground in each column `base` read, keyed by Ground.column
+function Ground.surface(base: PitBase): { [string]: number }
+	local out = {}
+	local size = base.mats.Size
+	local corner = base.region.CFrame.Position - base.region.Size / 2
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local column = corner + Vector3.new((ix - 0.5) * VOXEL, 0, (iz - 0.5) * VOXEL)
+			for iy = size.Y, 1, -1 do
+				local o = base.occs[ix][iy][iz]
+				if o > 0 then
+					out[Ground.column(column)] = corner.Y + (iy - 1) * VOXEL + o * VOXEL
+					break
+				end
+			end
+		end
+	end
+	return out
+end
+
+-- a point's voxel column, as a key
+function Ground.column(p: Vector3): string
+	return `{math.floor(p.X / VOXEL)},{math.floor(p.Z / VOXEL)}`
 end
 
 -- Starts the craters filling back in: every `tick` s each crater due a step is written, oldest first, at most `budget`
@@ -384,6 +479,42 @@ end
 -- Puts the ground back as `base` read it (a built gun's pit filled in)
 function Ground.restore(base: PitBase)
 	workspace.Terrain:WriteVoxels(base.region, VOXEL, base.mats, base.occs)
+end
+
+-- Reads the ground in a box `across` studs each way round `position` and `down` under / `up` over it (an MG nest's, as
+-- it is laid); nil when it can't be read.
+function Ground.snapshot(position: Vector3, across: number, down: number, up: number): PitBase?
+	local region = Region3.new(position - Vector3.new(across, down, across), position + Vector3.new(across, up, across))
+		:ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(workspace.Terrain.ReadVoxels, workspace.Terrain, region, VOXEL)
+	if not ok then
+		return nil
+	end
+	return { region = region, mats = mats, occs = occs }
+end
+
+-- Puts the ground back as `base` read it, but only in the columns `keep` takes (by their centre), the rest as they are
+-- now (an MG nest fixed: its own footprint cleared, not the craters round its corners)
+function Ground.restoreWithin(base: PitBase, keep: (Vector3) -> boolean)
+	local terrain = workspace.Terrain
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, base.region, VOXEL)
+	if not ok then
+		return
+	end
+	local size = mats.Size
+	local corner = base.region.CFrame.Position - base.region.Size / 2
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local at = corner + Vector3.new((ix - 0.5) * VOXEL, 0, (iz - 0.5) * VOXEL)
+			if keep(at) then
+				for iy = 1, size.Y do
+					mats[ix][iy][iz] = base.mats[ix][iy][iz]
+					occs[ix][iy][iz] = base.occs[ix][iy][iz]
+				end
+			end
+		end
+	end
+	terrain:WriteVoxels(base.region, VOXEL, mats, occs)
 end
 
 -- A gun's pit (src/server/Artillery `dig`): within `radius` of `position` the ground cut down to a level floor `depth`

@@ -17,7 +17,7 @@
 --   its pit, mound or the ground round it little. Its HP ("HP") falls through the Config/Artillery.Wreck stages
 --   ("Stage"): scorched, then unusable ("Broken": its gunner thrown off, the prompt dimmed, the barrel knocked down, the
 --   howitzer's crystal dead), leaning and sinking more each stage; at 0 a wreck that stays.
--- - A machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08; set up by src/server/Build): no earth under it
+-- - A machine gun (Config/Artillery.Guns `mg`, the MG nest's M2; set up by src/server/Build): no earth under it
 --   (it stands on its mount bag); "Trigger" held fires bullets at its rate from its box ("Rounds"), each cast from the
 --   muzzle along its lay plus a stray growing with its heat, hurting as a rifle shot does (src/server/Damage, by its
 --   `class`), chipping built things (Build.shot) and breaking glass on the way; everyone sees it ("MGShot"). An empty

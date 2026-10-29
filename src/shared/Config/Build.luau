@@ -242,16 +242,16 @@ local Build = {
 			maxSlope = 30,
 		},
 		-- The MG nest (user 2026-10-27, design approved by the user): Engineers only
-		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the MG 08
-		-- (Config/Artillery.Guns `gun`) on a round mount bag (`mountBag`) in the point where the two front piles meet
-		-- (Nest below). `width` x `depth` its footprint round the ring, `height` the shield's top. (`stage1.sacks`
-		-- unused here: a nest's empty sacks lie on their own spots, Nest.flat)
+		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the M2
+		-- (Config/Artillery.Guns `gun`) on its tripod on two mount bags (`mountBag`) in the point where the two front
+		-- piles meet (Nest below). `width` x `depth` its footprint round the ring, `height` its top (the MG 08's shield
+		-- set it). (`stage1.sacks` unused here: a nest's empty sacks lie on their own spots, Nest.flat)
 		{
 			key = "MGNest",
 			name = "MG nest",
 			kind = "Nest",
 			asset = "sandbag_pile",
-			mountBag = "sandbag_round",
+			mountBag = "sandbag_m2",
 			gun = "mg08",
 			bags = { "Bag1", "Bag2", "Bag3" },
 			-- stage 1's meshes from the pile (laid at 0 HP): the scraped ground under each pile, the empty sacks
@@ -360,10 +360,10 @@ local Build = {
 			planks = { { x = 2.9, z = 4.8, yaw = -6, count = 2, length = 3.5 } },
 		},
 		-- (in an MG nest: on the ground at the ring's middle, x right, z back from the gun; inside the bags, clear of the
-		-- mount bag at the front and the doorway at the back)
+		-- M2's two mount bags and the doorway at the back)
 		mg08 = {
-			crates = { { x = -1.9, z = 1.2, yaw = 20, size = { 1, 0.6, 0.7 } } },
-			planks = { { x = 2, z = 0.8, yaw = -12, count = 2, length = 2.6 } },
+			crates = { { x = -2.6, z = 1.4, yaw = 20, size = { 1, 0.6, 0.7 } } },
+			planks = { { x = 2.7, z = 1.0, yaw = -12, count = 2, length = 2.6 } },
 		},
 		artillery_howitzer = {
 			frame = { x = 0, z = 0.3, width = 16, depth = 18, bays = 2, height = 5.2, levels = { 4.2 } },
@@ -398,14 +398,18 @@ local Build = {
 	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
 	-- `quarters`), the real gun standing at stage 4. Once it has stood it is the gun's (as a built field gun): its HP is
 	-- the gun's own, worn by weapons, blasts at the bags and Destroy swings, fixed by Build swings (Config/Artillery
-	-- Repair), its 4 stages the gun's Wreck stages (unusable from stage 2, 50%), the bags still filled at each `wear[i]`;
-	-- hit at 0 it is gone.
+	-- Repair), its 4 stages the gun's Wreck stages (unusable from stage 2, 50%), the share of the ring's bags still
+	-- standing at each `wear[i]` (user 2026-10-29: "make the sandbags also destroy as part of each destruction phase":
+	-- the top bags go first, then the bottom ones, scattered round the ring, Rules.nestWearOrder; the mount bags stay
+	-- under the gun); hit at 0 it is gone.
 	-- The ring (user: "make the nest more circular shaped ... smoother and even and symmetrical"; Rules.nestRing): the
 	-- eight bottom bags of the four piles on a regular `ring.sides`-sided ring of `ring.bag`-stud sides, the side at the
 	-- back left open as the doorway; each pile bent at its joint, its top bag over the bend on the bottom bags' line; the
 	-- front point is where two piles' ends meet, the notch between their top bags the gun's window. `ring.piles`: each
 	-- pile's ring vertices (an end, its bend, the other end; 0 the front point), in build order. The gun's pivot stands
-	-- `gunBack` behind the point on the mount bag's top (`bagTop` over the ground), the mount bag's middle `mountBack`.
+	-- `gunBack` behind the point, gun space's origin `bagTop` over the ground under it (the MG 08's mount bag top; the
+	-- M2's tripod stands lower, on its two bags), the mount bags' middle `mountBack` (the M2's pair: 0.65 behind the
+	-- pivot; the MG 08's round bag was 1.86).
 	Nest = {
 		hp = { max = 100, place = 0, swing = 5, destroy = 10 },
 		flat = 0.14,
@@ -413,14 +417,22 @@ local Build = {
 		build = {
 			{ bags = "bottom", gun = 1 }, -- (the mount on its bag)
 			{ bags = "all", gun = 2 }, -- (the gun on it)
-			{ bags = "all", gun = 3 }, -- (the shield)
-			{ bags = "all", gun = 4 }, -- (the box: the real gun)
+			{ bags = "all", gun = 3 }, -- (the ammo can)
+			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
-		wear = { "all", "all", "bottom", "bottom" },
+		wear = { 1, 0.7, 0.45, 0.2 },
 		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },
 		gunBack = 1.66,
-		mountBack = 1.86,
+		mountBack = 2.31,
 		bagTop = 1.9,
+		-- craters never carve its footprint or this many studs round it (Build.onNest; user 2026-10-29: "give the
+		-- turret some ground. the ground beneath it shouldnt be be to be destroyed"), as a Hesco barrier's (Hesco.ground);
+		-- a blast's earth heaps on it at most `heap` studs over how it lay (user 2026-10-29: "dont allow the turret to be
+		-- fully submerged in terrain. only a little for visual"), read `snapshot` studs under and over its middle as it
+		-- is laid and put back once it is fixed whole ("once its fixed its cleared")
+		ground = 2,
+		heap = 0.6,
+		snapshot = { 8, 12 },
 	},
 
 	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
