@@ -321,9 +321,6 @@ function GunFx.match(character: Model, copy: BasePart)
 	for _, name in rv and rv.bullets or {} do
 		table.insert(names, name)
 	end
-	for _, name in w and w.revolver and w.revolver.bullets or {} do -- (and their bullets)
-		table.insert(names, name)
-	end
 	for _, name in names do
 		local from, to = own:FindFirstChild(name), holder:FindFirstChild(name)
 		if from and to and from:IsA("BasePart") and to:IsA("BasePart") then
@@ -1097,11 +1094,7 @@ local function showDrum(gun: BasePart, rv: any, from: number, count: number)
 	local n = #rv.rounds
 	for k, name in rv.rounds do
 		local j = chamber(k, n)
-		local live = j >= from and j < from + count
-		show(gun, name, live)
-		if rv.bullets then -- (its bullet with it)
-			show(gun, rv.bullets[k], live)
-		end
+		show(gun, name, j >= from and j < from + count) -- (its bullet with it: show)
 	end
 end
 
