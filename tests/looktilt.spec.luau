@@ -109,6 +109,13 @@ return {
 		local y, p = T.aimTurn(0, 0, 50, -50, A.ClassMax.Staff)
 		assert(near(y, 50) and near(p, -50), "the staff turns past the guns' cap")
 	end,
+	["the average pointing follows slowly near it and catches up far off it"] = function()
+		local c = { rate = 14, from = 4, full = 10 }
+		assert(T.settleRate(0, 2, c) == 2 and T.settleRate(-4, 2, c) == 2, "breath and stride: slow")
+		assert(near(T.settleRate(7, 2, c), 8), "half way between")
+		assert(T.settleRate(-19, 2, c) == 14 and T.settleRate(10, 2, c) == 14, "a new hold: fast")
+		assert(T.settleRate(5, 2, { rate = 14, from = 4, full = 4 }) == 14, "no ramp: never divides by zero")
+	end,
 	["the average pointing settles the short way round"] = function()
 		assert(near(T.settle(10, 20, 0.5), 15))
 		assert(near(T.wrap(T.settle(170, -170, 0.5)), -180), "through 180, not back through 0")

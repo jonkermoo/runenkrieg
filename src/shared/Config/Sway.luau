@@ -43,8 +43,25 @@ local Sway = {
 		Fade = 6, -- how fast the stride sway builds when starting to move (per second; a critically damped spring of the
 		-- same quickness, so it starts gently: following at once jerked the gun on the first frame of a walk, user
 		-- 2026-10-13)
-		Return = 3, -- how fast it settles back when stopping (per second; ~1 s to the centre): slower, so the sights
-		-- drift back to the crosshair instead of snapping (user 2026-10-11)
+		-- how fast it settles back when stopping (per second; 3 is ~1 s to the centre), by the held item's class and
+		-- slower by the gun's own `weight` (Config/Weapons, W2; Rules/SwayReturn): never a snap, the sights drift back
+		-- to the crosshair still swaying (user 2026-10-11), but the lighter the gun the sooner (user 2026-10-29: "all the
+		-- rifles return back to center extremely slow")
+		Return = {
+			default = 3, -- empty hands (the camera's step bob)
+			Pistol = 9,
+			Grenade = 9,
+			Potion = 9,
+			SpellBook = 7,
+			Shovel = 6,
+			BoltRifle = 5.5,
+			SemiRifle = 5, -- / weight: the Mondragon 5, the Remington 4.5, the Winchester 4
+			AutoRifle = 4.5,
+			Shotgun = 4.5,
+			Staff = 4.5,
+			Sniper = 3.5,
+			MachineGun = 2.5,
+		},
 		Halt = 3, -- the stride's rhythm slows to a stop as the settling speed falls under this (studs/s)
 		Settle = 4, -- how fast the stride works off its offset from the feet after a footstep (per second)
 		-- that catch-up never speeds or slows the stride by more than this share of its rhythm, and comes in eased

@@ -183,6 +183,10 @@ local Camera = {
 		MinDistance = 6,
 		DistanceEase = 8, -- how fast the point's distance follows the crosshair (per second; never a snap)
 		Settle = 2, -- how fast the animation's average pointing is followed (per second)
+		-- far off it, the average catches up faster: `rate` per second from `full` degrees off, easing in from `from`
+		-- (user 2026-10-29: crouching tipped every gun up ~19 deg for over a second, the turn still taken from the
+		-- standing hold's pointing; first person barely moves)
+		CatchUp = { rate = 14, from = 4, full = 10 },
 		-- the turn follows a critically damped spring at this rate (per second; Rules/Camera.spring): a flick of the
 		-- mouse brings the arms round after the view, never in one frame
 		Spring = 8,

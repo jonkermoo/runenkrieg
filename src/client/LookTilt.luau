@@ -159,13 +159,17 @@ local function aimTurn(
 	local hold = weapon.hold
 	-- the muzzle in the hold's space as the animation (and the recoil kick on C1) puts it
 	local inHold = hold.Transform * hold.C1:Inverse() * muzzle.CFrame
-	local look = (bend * inHold).LookVector
+	-- (the average leaves out the recoil kick, identity at rest: the catch-up below never takes a shot's kick in)
+	local look = (bend * hold.Transform * muzzle.CFrame).LookVector
 	local y, p = Rules.angles(look.X, look.Y, look.Z)
 	if a.gun ~= weapon.gun then
 		a.gun, a.yaw, a.pitch = weapon.gun, y, p
 	else
-		local k = Rules.ease(AIM.Settle, dt)
-		a.yaw, a.pitch = Rules.settle(a.yaw, y, k), Rules.settle(a.pitch, p, k)
+		local function k(gap: number): number
+			return Rules.ease(Rules.settleRate(gap, AIM.Settle, AIM.CatchUp), dt)
+		end
+		a.yaw = Rules.settle(a.yaw, y, k(Rules.wrap(y - a.yaw)))
+		a.pitch = Rules.settle(a.pitch, p, k(p - a.pitch))
 	end
 	if point then
 		local rootJoint = r.rootJoint

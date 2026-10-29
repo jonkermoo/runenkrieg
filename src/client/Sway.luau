@@ -20,6 +20,7 @@ local Cfg = require(Shared.Config.Sway)
 local Fire = require(Shared.Config.Firing)
 local Loco = require(Shared.Config.Locomotion)
 local W = require(Shared.Config.Weapons)
+local Return = require(Shared.Rules.SwayReturn)
 local Held = require(script.Parent.Held)
 
 local Sway = {}
@@ -198,7 +199,7 @@ function Sway.start()
 		local want = if grounded and speed > 0.75 then speed else 0
 		-- a critically damped spring toward the speed: its rise starts at zero slope, so the sway eases in (a plain
 		-- exponential follow jumped to full rise speed on the first frame); 2.15 / omega is its 63% time, as 1 / rate is
-		local omega = 2.15 * (if want > paceS.x then S.Fade else S.Return)
+		local omega = 2.15 * (if want > paceS.x then S.Fade else Return.rate(S.Return, class, spec and spec.weight))
 		pull(paceS, want, omega * omega, 2 * omega, dt)
 		pace = math.max(paceS.x, 0)
 		-- the pace of the cycle playing most (walk, sprint or crouch walk)
