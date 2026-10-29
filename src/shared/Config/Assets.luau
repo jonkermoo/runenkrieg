@@ -893,21 +893,21 @@ local Assets = {
 			},
 		},
 		cap_side = {
-			id = 126107118086539,
+			id = 134581391609351,
 			category = "Teams",
 			folder = "Olive/Hats",
 			source = "assets/teams/olive/hats/cap_side.fbx",
 			generator = "tools/blender/gear/caps/cap.py",
-			description = "The olive team's folded side cap (Engineer): boat-shaped, the sides leaning in to a ridge, the front and back peaked, the turned-up curtain's darker edge, a brass cog pin and stud; canted 10 degrees to the wearer's right. Not bulletproof (fit.soft); 5% bigger than first made, so the hair underneath has room (user 2026-10-27). 708 tris.",
+			description = "The olive team's folded side cap (Engineer): boat-shaped, the sides leaning in to a ridge, the front and back peaked, the turned-up curtain's darker edge, a brass cog pin and stud; canted 10 degrees to the wearer's right. Not bulletproof (fit.soft); 0.85 of its first size, so it sits on top of the head like a side cap, not over it (user 2026-10-28: 'too big in general'). 708 tris.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
-				brim = 0.48,
+				brim = 0.68,
 				parts = { Edge = { 90, 90, 56 }, Pin = { 176, 146, 80 } },
 				shell = "side",
-				center = { 0.0027, 0.2637, -0.0074 },
+				center = { 0.0022, 0.2135, -0.006 },
 				soft = true,
-				bald = 0.3, -- 0.18 down to the crown: bald, it floated on its curtain's edge (user 2026-10-28)
+				bald = 0.635, -- its band on the bare head (0.045 lower than over hair; user 2026-10-28: it floated bald)
 			},
 		},
 		cap_trench = {
@@ -1471,12 +1471,12 @@ local Assets = {
 			hair = { bones = 4 },
 		},
 		hair_wolf_cut_side = {
-			id = 98327207559386,
+			id = 128703445214664,
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/refit/under/hair_wolf_cut_side.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair wolf_cut under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair wolf_cut under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Re-made under the smaller side cap (0.85 size, brim 0.68), 0.045 inside it (user 2026-10-28).",
 			hair = { bones = 4 },
 		},
 		hair_wolf_cut_trench = {
@@ -1498,12 +1498,12 @@ local Assets = {
 			hair = { bones = 6 },
 		},
 		hair_low_ponytail_side = {
-			id = 83475732772616,
+			id = 93650301860748,
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/refit/under/hair_low_ponytail_side.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair low_ponytail under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair low_ponytail under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Re-made under the smaller side cap (0.85 size, brim 0.68), 0.045 inside it (user 2026-10-28).",
 			hair = { bones = 6 },
 		},
 		hair_low_ponytail_trench = {
@@ -1525,12 +1525,12 @@ local Assets = {
 			hair = { bones = 4 },
 		},
 		hair_m_wolf_side = {
-			id = 89851885713926,
+			id = 106558737530217,
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/refit/under/hair_m_wolf_side.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_wolf under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair m_wolf under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Re-made under the smaller side cap (0.85 size, brim 0.68), 0.045 inside it (user 2026-10-28).",
 			hair = { bones = 4 },
 		},
 		hair_m_wolf_trench = {
@@ -1552,12 +1552,12 @@ local Assets = {
 			hair = { bones = 1 },
 		},
 		hair_m_slick_side = {
-			id = 117149990819174,
+			id = 139697260118654,
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/refit/under/hair_m_slick_side.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_slick under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair m_slick under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Re-made under the smaller side cap (0.85 size, brim 0.68), 0.045 inside it (user 2026-10-28).",
 			hair = { bones = 1 },
 		},
 		hair_m_slick_trench = {
@@ -1579,12 +1579,12 @@ local Assets = {
 			hair = { bones = 2 },
 		},
 		hair_m_midpart_side = {
-			id = 110520556654760,
+			id = 81954549712151,
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/refit/under/hair_m_midpart_side.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_midpart under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair m_midpart under the side cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Re-made under the smaller side cap (0.85 size, brim 0.68), 0.045 inside it (user 2026-10-28).",
 			hair = { bones = 2 },
 		},
 		hair_m_midpart_trench = {
