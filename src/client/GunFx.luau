@@ -275,9 +275,18 @@ local function move(gun: BasePart, name: string, offset: CFrame)
 end
 
 local function show(gun: BasePart, name: string, visible: boolean)
-	local p = gun.Parent and gun.Parent:FindFirstChild(name)
+	local holder = gun.Parent
+	local p = holder and holder:FindFirstChild(name)
 	if p and p:IsA("BasePart") then
 		p.Transparency = if visible then 0 else 1
+	end
+	-- a revolver's round in two colours: its bullet (Config/Weapons `revolver.bullets`) shown and hidden with it
+	local w = W[tostring(gun:GetAttribute("Weapon"))]
+	local rv = w and w.revolver
+	local k = rv and rv.bullets and table.find(rv.rounds, name)
+	local b = k and holder and holder:FindFirstChild((rv :: any).bullets[k])
+	if b and b:IsA("BasePart") then
+		b.Transparency = if visible then 0 else 1
 	end
 end
 
@@ -305,7 +314,11 @@ function GunFx.match(character: Model, copy: BasePart)
 	end
 	local w = W[tostring(gun:GetAttribute("Weapon"))]
 	local names = { "Rounds", "Bullets", "Clip", "Magazine", table.unpack(w and w.feed and w.feed.parts or {}) }
-	for _, name in w and w.revolver and w.revolver.rounds or {} do -- (a revolver's rounds, chamber by chamber)
+	local rv = w and w.revolver
+	for _, name in rv and rv.rounds or {} do -- (a revolver's rounds, chamber by chamber, and their bullets)
+		table.insert(names, name)
+	end
+	for _, name in rv and rv.bullets or {} do
 		table.insert(names, name)
 	end
 	for _, name in names do
@@ -719,7 +732,9 @@ function GunFx.cycle(
 				local offset = CFrame.new(d) * swing * CFrame.new(-d) -- about the hinge, from this part's pivot
 				if name == "Extractor" then
 					offset *= CFrame.new(0, 0, b.kick * s[3] * kick)
-				elseif table.find(rv.rounds, name) and u >= cycle.grab then
+				elseif
+					(table.find(rv.rounds, name) or rv.bullets and table.find(rv.bullets, name)) and u >= cycle.grab
+				then
 					offset *= CFrame.new(0, 0, b.load * s[3] * going)
 				end
 				move(gun, name, offset)
@@ -984,6 +999,25 @@ function GunFx.cycle(
 			end
 			shown = vm ~= nil
 		end
+		if top and not kicked and u >= cycle.kick then
+			kicked = true
+			-- the extractor throws every chamber's case (or round) out of the cylinder's back, up and out (before the pose
+			-- hides them: a round never fired shows its bullet)
+			local holder = gun.Parent
+			local rv = w.revolver :: any
+			for k, name in rv.rounds do
+				local p = holder and holder:FindFirstChild(name)
+				if p and p:IsA("BasePart") then
+					local push = Vector3.new((math.random() - 0.5) * 3, 6 + math.random() * 2, 2 + math.random() * 2)
+					fling(p:Clone(), gun, p.CFrame, push)
+					-- (a round never fired goes with its bullet)
+					local b = rv.bullets and holder:FindFirstChild(rv.bullets[k])
+					if b and b:IsA("BasePart") and b.Transparency < 1 then
+						fling(b:Clone(), gun, b.CFrame, push)
+					end
+				end
+			end
+		end
 		pose(u)
 		clips(u)
 		-- the mechanism's sounds on the body's gun: the viewmodel's goes out of the DataModel when the view leaves first
@@ -999,18 +1033,6 @@ function GunFx.cycle(
 			ejected = true
 			if out == "Casing" then
 				eject(gun, weapon)
-			end
-		end
-		if top and not kicked and u >= cycle.kick then
-			kicked = true
-			-- the extractor throws every chamber's case (or round) out of the cylinder's back, up and out
-			local holder = gun.Parent
-			for _, name in (w.revolver :: any).rounds do
-				local p = holder and holder:FindFirstChild(name)
-				if p and p:IsA("BasePart") then
-					local push = Vector3.new((math.random() - 0.5) * 3, 6 + math.random() * 2, 2 + math.random() * 2)
-					fling(p:Clone(), gun, p.CFrame, push)
-				end
 			end
 		end
 		if two and not firstIn and u >= cycle.clip then

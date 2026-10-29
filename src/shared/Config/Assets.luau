@@ -94,9 +94,10 @@ local Assets = {
 			description = "Lee-Enfield SMLE Mk III, the brown team's rifle (built from its trace: tools/blender/weapons/trace/smle.py). Rigged from Config/Weapons.",
 		},
 		pistol_webley = {
-			-- v2: rebuilt in our style over the user's reference model (Daz's "Webley Revolver Mk VI"), one brass Round per
-			-- chamber; v1 73066004337005: traced from a photo, 10 parts
-			id = 138842852856190,
+			-- v3: the .455 rounds in detail (tools/blender/weapons/pistol_ammo.py: brass Round<k> + lead Bullet<k>) and the
+			-- chambers drilled through (an empty one a hole); v2 138842852856190: rebuilt in our style over the user's
+			-- reference model (Daz's "Webley Revolver Mk VI"); v1 73066004337005: traced from a photo, 10 parts
+			id = 105356442537528,
 			category = "Weapons",
 			folder = "White/Pistols",
 			source = "assets/weapons/white/pistol_webley.fbx",

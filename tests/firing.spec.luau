@@ -345,6 +345,11 @@ return {
 				for _, part in { "Hammer", "Trigger", "Gate", "Rod" } do
 					assert(w.moving[part], `{name}: the {part} must move`)
 				end
+				-- a round in two parts: each bullet beside its round, coloured, turning with the cylinder
+				for k, part in rv.bullets or {} do
+					assert(#rv.bullets == #rv.rounds and w.parts[part], `{name}: bullet {k}`)
+					assert(table.find(rv.turns, part) and table.find(rv.turns, rv.rounds[k]), `{name}: {part} turns`)
+				end
 				continue
 			elseif a.clip == "BreakOpen" then
 				-- a top-break revolver: double action, broken open on the hinge and all six replaced at once
@@ -357,6 +362,12 @@ return {
 				assert(#rv.rounds == a.capacity, `{name}: chambers`)
 				for _, part in { "Hammer", "Trigger", "Latch", table.unpack(rv.turns), table.unpack(b.swings) } do
 					assert(w.moving[part], `{name}: the {part} must move`)
+				end
+				-- a round in two parts: each bullet beside its round, coloured, turning with the cylinder and swinging down
+				for k, part in rv.bullets or {} do
+					assert(#rv.bullets == #rv.rounds and w.parts[part], `{name}: bullet {k}`)
+					assert(table.find(rv.turns, part) and table.find(rv.turns, rv.rounds[k]), `{name}: {part} turns`)
+					assert(table.find(b.swings, part), `{name}: {part} swings with its round`)
 				end
 				local c = b.cycle
 				assert(

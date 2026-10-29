@@ -195,11 +195,13 @@ export type Weapon = {
 	weight: number?,
 	-- a pistol's full-damage range (studs; Config/Damage.Falloff for its class)
 	fullRange: number?,
-	-- a revolver (ammo.clip "Gate" or "BreakOpen"): its chambers' rounds, the parts that turn with the cylinder, the
+	-- a revolver (ammo.clip "Gate" or "BreakOpen"): its chambers' rounds (and their bullets, when a round is two
+	-- parts: shown and hidden with it), the parts that turn with the cylinder, the
 	-- hammer and trigger throws (src/client/GunFx); a gate's: the gate and its chamber, the rod; a top-break's
 	-- (`breakOpen`): what swings down on the hinge, the throws and the reload's timeline (shares of reloadTime)
 	revolver: {
 		rounds: { string },
+		bullets: { string }?,
 		turns: { string },
 		gateChamber: number?,
 		gateOpen: number?,
@@ -487,32 +489,44 @@ local Weapons: { [string]: Weapon } = {
 			Frame = { 52, 54, 58 },
 			Latch = { 52, 54, 58 },
 			Cylinder = { 60, 62, 66 },
-			Chambers = { 3, 3, 3 }, -- the chamber holes in the cylinder's faces (an empty one shows dark)
 			Hammer = { 52, 54, 58 },
 			Trigger = { 52, 54, 58 },
 			Extractor = { 70, 70, 74 },
 			Grip = { 142, 74, 42 }, -- walnut
 			Bore = { 3, 3, 3 },
-			-- one .455 round per chamber (Round1 on the bore, the rest clockwise from behind): hide one per shot
+			-- one .455 round per chamber (Round1 on the bore, the rest clockwise from behind): the brass case's rim and
+			-- primer on the back face and its mouth down the chamber's hole, with its lead nose (Bullet<k>); hidden
+			-- together, one per shot. An empty chamber is a hole through the cylinder (user 2026-10-28)
 			Round1 = { 196, 160, 84 },
 			Round2 = { 196, 160, 84 },
 			Round3 = { 196, 160, 84 },
 			Round4 = { 196, 160, 84 },
 			Round5 = { 196, 160, 84 },
 			Round6 = { 196, 160, 84 },
+			Bullet1 = { 112, 114, 120 },
+			Bullet2 = { 112, 114, 120 },
+			Bullet3 = { 112, 114, 120 },
+			Bullet4 = { 112, 114, 120 },
+			Bullet5 = { 112, 114, 120 },
+			Bullet6 = { 112, 114, 120 },
 		},
 		moving = {
 			Barrel = { 0, 0.0196, -0.1148 }, -- the hinge: muzzle down ~75 deg to break it open
 			Bore = { 0, 0.0196, -0.1148 }, -- rides with the barrel
 			Latch = { 0, 0.1045, 0.0507 }, -- its pin: top back ~12 deg to release the strap
 			Cylinder = { 0, 0.077, -0.0248 }, -- turns 60 deg a shot about its axis; rides with the barrel
-			Chambers = { 0, 0.077, -0.0248 }, -- the chambers and rounds turn with the cylinder
 			Round1 = { 0, 0.077, -0.0248 },
 			Round2 = { 0, 0.077, -0.0248 },
 			Round3 = { 0, 0.077, -0.0248 },
 			Round4 = { 0, 0.077, -0.0248 },
 			Round5 = { 0, 0.077, -0.0248 },
-			Round6 = { 0, 0.077, -0.0248 },
+			Round6 = { 0, 0.077, -0.0248 }, -- the rounds turn with the cylinder
+			Bullet1 = { 0, 0.077, -0.0248 },
+			Bullet2 = { 0, 0.077, -0.0248 },
+			Bullet3 = { 0, 0.077, -0.0248 },
+			Bullet4 = { 0, 0.077, -0.0248 },
+			Bullet5 = { 0, 0.077, -0.0248 },
+			Bullet6 = { 0, 0.077, -0.0248 },
 			Extractor = { 0, 0.077, 0.0263 }, -- slides ~0.03 back out of the cylinder as the barrel opens
 			Hammer = { 0, 0.0669, 0.0863 }, -- its pin: back 35 deg to cock, then falls
 			Trigger = { 0, 0, 0 }, -- the trigger pin (the gun origin)
@@ -568,7 +582,22 @@ local Weapons: { [string]: Weapon } = {
 		-- `knob` to `forward`, the latch snapped back by `down`
 		revolver = {
 			rounds = { "Round1", "Round2", "Round3", "Round4", "Round5", "Round6" },
-			turns = { "Cylinder", "Chambers", "Round1", "Round2", "Round3", "Round4", "Round5", "Round6" },
+			bullets = { "Bullet1", "Bullet2", "Bullet3", "Bullet4", "Bullet5", "Bullet6" },
+			turns = {
+				"Cylinder",
+				"Round1",
+				"Round2",
+				"Round3",
+				"Round4",
+				"Round5",
+				"Round6",
+				"Bullet1",
+				"Bullet2",
+				"Bullet3",
+				"Bullet4",
+				"Bullet5",
+				"Bullet6",
+			},
 			hammer = 35,
 			trigger = 25,
 			breakOpen = {
@@ -576,7 +605,6 @@ local Weapons: { [string]: Weapon } = {
 					"Barrel",
 					"Bore",
 					"Cylinder",
-					"Chambers",
 					"Extractor",
 					"Round1",
 					"Round2",
@@ -584,6 +612,12 @@ local Weapons: { [string]: Weapon } = {
 					"Round4",
 					"Round5",
 					"Round6",
+					"Bullet1",
+					"Bullet2",
+					"Bullet3",
+					"Bullet4",
+					"Bullet5",
+					"Bullet6",
 				},
 				hinge = 70,
 				latch = 12,
