@@ -40,6 +40,8 @@ export type Entry = {
 		center: { number }?,
 		-- a soft cloth cap (the Engineer's, user 2026-10-27): no protection, a hit on it is a Head hit (src/server/Helmets)
 		soft: boolean?,
+		-- `brim` for a bald wearer: a cap that sits on its hair, lowered to rest on the bare head (user 2026-10-28)
+		bald: number?,
 	}?,
 	-- hairs: where the mesh's bounding-box center sits in head space (Roblox axes); a rigged hair (an Origin marker at
 	-- the head's centre, tools/hair/rig_hair.py) instead says how many bones sway it (src/client/HairMotion)
@@ -62,9 +64,11 @@ local Assets = {
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
 		pistol_nagant = {
-			-- v2: the cylinder's faces fixed, the grip two flat wood panels on a slimmer, rounded frame, a round per
-			-- chamber filling its mouth (v1 100351614666603)
-			id = 136927059301419,
+			-- v3: the chambers drilled through the cylinder and lined dark (an empty chamber is a hole), the rounds the
+			-- 7.62x38R of tools/blender/weapons/pistol_ammo.py (Round<k> heads and crimped mouths + Bullet<k> noses),
+			-- hidden Cartridge and Casing templates for the gate (v2 136927059301419: the cylinder's faces fixed, the grip
+			-- two flat wood panels on a slimmer, rounded frame, a round per chamber filling its mouth; v1 100351614666603)
+			id = 80228872124161,
 			category = "Weapons",
 			folder = "Olive/Pistols",
 			source = "assets/weapons/olive/pistol_nagant.fbx",
@@ -234,6 +238,32 @@ local Assets = {
 			source = "assets/weapons/shared/ammo_rifle.fbx",
 			generator = "tools/blender/weapons/ammo.py",
 			description = "The shared rifle round at the rifles' modelled scale: a loaded round (Case + Bullet, case head at the Origin, pointing -Z) and a spent Casing beside it (x +0.05).",
+		},
+		-- the pistol cartridges (user 2026-10-28: "detailed pistol and revolver shell", for the models and the ammo
+		-- display), one per Engineer pistol, the same parts as ammo_rifle; real size (the pistols' modelled scale)
+		ammo_nagant = {
+			id = 78265810704735,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_nagant.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = "7.62x38R Nagant round (the Nagant M1895's): a long rimmed case crimped round a copper bullet seated wholly inside (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05, its mouth open, primer struck).",
+		},
+		ammo_webley = {
+			id = 134106576623387,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_webley.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = ".455 Webley Mk II round (the Webley Mk VI's): a short case with a wide rim and a lead round-nosed bullet (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05).",
+		},
+		ammo_mauser = {
+			id = 133218514196898,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_mauser.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = "7.63x25 Mauser round (the C96's): a rimless bottlenecked case with an extraction groove and a copper round-nosed bullet (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05).",
 		},
 		-- the field gun's fixed round (2026-10-20, docs/MILESTONES.md A2): carried by the gunner while loading
 		-- (Config/Artillery.Load), colored from Config/Palette.Artillery by mesh name
@@ -853,6 +883,7 @@ local Assets = {
 				shell = "side",
 				center = { 0.0027, 0.2637, -0.0074 },
 				soft = true,
+				bald = 0.3, -- 0.18 down to the crown: bald, it floated on its curtain's edge (user 2026-10-28)
 			},
 		},
 		cap_trench = {
@@ -1425,12 +1456,12 @@ local Assets = {
 			hair = { bones = 4 },
 		},
 		hair_wolf_cut_trench = {
-			id = 74829449537168,
+			id = 76197133549406,
 			category = "Characters",
 			folder = "Hairs/wolf_cut",
 			source = "assets/characters/hairs/wolf_cut/refit/under/hair_wolf_cut_trench.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair wolf_cut under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair wolf_cut under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Tucked, pinched and shaved 0.045 inside the cap, not 0.015, so it stays under the cap's front in game (user 2026-10-28: it poked out at the front).",
 			hair = { bones = 4 },
 		},
 		hair_low_ponytail_feld = {
@@ -1452,12 +1483,12 @@ local Assets = {
 			hair = { bones = 6 },
 		},
 		hair_low_ponytail_trench = {
-			id = 109938379905397,
+			id = 83646441365503,
 			category = "Characters",
 			folder = "Hairs/low_ponytail",
 			source = "assets/characters/hairs/low_ponytail/refit/under/hair_low_ponytail_trench.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair low_ponytail under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair low_ponytail under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Tucked, pinched and shaved 0.045 inside the cap, not 0.015, so it stays under the cap's front in game (user 2026-10-28: it poked out at the front).",
 			hair = { bones = 6 },
 		},
 		hair_m_wolf_feld = {
@@ -1479,12 +1510,12 @@ local Assets = {
 			hair = { bones = 4 },
 		},
 		hair_m_wolf_trench = {
-			id = 136266766735300,
+			id = 112017722009700,
 			category = "Characters",
 			folder = "Hairs/m_wolf",
 			source = "assets/characters/hairs/m_wolf/refit/under/hair_m_wolf_trench.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_wolf under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair m_wolf under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Tucked, pinched and shaved 0.045 inside the cap, not 0.015, so it stays under the cap's front in game (user 2026-10-28: it poked out at the front).",
 			hair = { bones = 4 },
 		},
 		hair_m_slick_feld = {
@@ -1506,12 +1537,12 @@ local Assets = {
 			hair = { bones = 1 },
 		},
 		hair_m_slick_trench = {
-			id = 135200087237361,
+			id = 76709398435810,
 			category = "Characters",
 			folder = "Hairs/m_slick",
 			source = "assets/characters/hairs/m_slick/refit/under/hair_m_slick_trench.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_slick under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair m_slick under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Tucked, pinched and shaved 0.045 inside the cap, not 0.015, so it stays under the cap's front in game (user 2026-10-28: it poked out at the front).",
 			hair = { bones = 1 },
 		},
 		hair_m_midpart_feld = {
@@ -1533,12 +1564,12 @@ local Assets = {
 			hair = { bones = 2 },
 		},
 		hair_m_midpart_trench = {
-			id = 119203442042094,
+			id = 114120397129545,
 			category = "Characters",
 			folder = "Hairs/m_midpart",
 			source = "assets/characters/hairs/m_midpart/refit/under/hair_m_midpart_trench.fbx",
 			generator = "tools/hair/rig_hair.py",
-			description = "Hair m_midpart under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway.",
+			description = "Hair m_midpart under the trench cap (Engineer): the R6 refit tucked in under the cap (hair_tuck) and pinched in under the band so it comes out from under the cap (hair_pinch_caps), then shaved where it still pokes through (hair_under; the caps' copies keep the crown's overhang as skin, tools/blender/gear/caps/), then finished (faces through any cap part or left over the band deleted, every face backed so it shows from behind, a sheet of hair on the head under the band filling the gaps the cap's crown left between the strands: tools/blender/gear/caps/hair_finish_caps.py), rigged to sway. Tucked, pinched and shaved 0.045 inside the cap, not 0.015, so it stays under the cap's front in game (user 2026-10-28: it poked out at the front).",
 			hair = { bones = 2 },
 		},
 	} :: { [string]: Entry },

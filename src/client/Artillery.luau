@@ -12,8 +12,13 @@
 -- - every shot flashes at the muzzle with its report (src/client/ArtilleryFx), the whole gun jolting back and settling
 --   (Config/Artillery.Fx.Jolt); every shell's blast is the shared explosion (src/client/Vfx/Blast) with its sound,
 --   heard late and duller far off.
--- - a machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08): the gunner looks through its ring sight in first
---   person (the eye turning and lifting with the gun, Rules/Artillery.eye; my own body unseen), the mouse lays it
+-- - a machine gun (Config/Artillery.Guns `mg`, the MG nest's MG 08): the rifle's camera rules (user 2026-10-27: "make
+--   the machine gun have the same camera rules as rifles when it comes to first and third person (ADS rules)"; Config/
+--   Camera.Gun, Rules/Camera): first person over the shield (Rules/Artillery.over) or over the shoulder (the crosshair
+--   where the gun points), the wheel stepping between, the aim key gliding into its ring sight (the eye turning and
+--   lifting with the gun, Rules/Artillery.eye) at the aimed field of view, the hip one the player's own; it starts at
+--   the view I had (WeaponCamera.view, scaled to the gun camera's range) and hands the view it has back as I get off;
+--   my own body unseen in first person. The mouse lays it
 --   (`mg.look` degrees a pixel, within its traverse and elevation), the fire key held fires (Net "Artillery"
 --   "Trigger"), the reload key swaps the box ("Reload"); no arc. Everyone's bullets ("MGShot"): the flash and report at
 --   the muzzle, the tracer, the hole (src/client/GunFx).
@@ -28,6 +33,9 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local AudioCfg = require(Shared.Config.Audio)
 local Cfg = require(Shared.Config.Artillery)
+local CameraCfg = require(Shared.Config.Camera)
+local CameraRules = require(Shared.Rules.Camera)
+local SettingsRules = require(Shared.Rules.Settings)
 local TreeSway = require(Shared.Config.TreeSway)
 local Damage = require(Shared.Config.Damage)
 local Palette = require(Shared.Config.Palette)
@@ -39,7 +47,9 @@ local ArtilleryFx = require(script.Parent.ArtilleryFx)
 local GunFx = require(script.Parent.GunFx)
 local Settings = require(script.Parent.Settings)
 local SoundFx = require(script.Parent.SoundFx)
+local Crosshair = require(script.Parent.Crosshair)
 local Vfx = require(script.Parent.Vfx)
+local WeaponCamera = require(script.Parent.WeaponCamera)
 
 local Artillery = {}
 
@@ -655,6 +665,16 @@ function Artillery.start()
 	local snap = true
 	local fov = camera.FieldOfView
 	local arcAt = 0
+	-- on a machine gun: its camera as a rifle's (Config/Camera.Gun): the distance chosen (0 first person), the moving
+	-- one and its spring's speed, aimed (the aim key), the glide into the ring sight (0..1), my body hidden
+	local G = CameraCfg.Gun
+	local onMg = false
+	local mgDist, mgCur, mgSpeed = 0, 0, 0
+	local mgAimed, aimT = false, 0
+	local bodyHidden: boolean? = nil
+	local sweep = RaycastParams.new()
+	sweep.FilterType = Enum.RaycastFilterType.Exclude
+	sweep.RespectCanCollide = true
 
 	-- the character's own movement keys are off while on a gun (WASD lays it): sunk above the default controls (this
 	-- place has no PlayerModule to disable: Studio round 12); the lay reads the keys itself (UserInputService)
@@ -694,16 +714,25 @@ function Artillery.start()
 		hideArc()
 		-- (a machine gun's first person hid my own body)
 		for _, d in (character and character:GetDescendants()) or {} do
-			if d:IsA("BasePart") then
-				d.LocalTransparencyModifier = 0
+			if d:IsA("BasePart") or d:IsA("Decal") then
+				(d :: any).LocalTransparencyModifier = 0
 			end
 		end
-		camera.CameraType = Enum.CameraType.Custom
-		camera.FieldOfView = fov
+		bodyHidden = nil
 		local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			camera.CameraSubject = humanoid
 		end
+		if onMg then
+			-- Roblox's camera back at the view I had on the gun
+			onMg, mgAimed = false, false
+			Crosshair.point(false, nil)
+			WeaponCamera.manning(false)
+			WeaponCamera.handBack(mgDist, G.MaxZoom)
+			return
+		end
+		camera.CameraType = Enum.CameraType.Custom
+		camera.FieldOfView = fov
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	end
 
@@ -714,8 +743,17 @@ function Artillery.start()
 		wantElevation = p.elevation
 		snap = true
 		fov = camera.FieldOfView
+		if p.gun.mg then
+			-- the view I had (a rifle's, or Roblox's camera), at the same share of the way out
+			local zoom, first, max = WeaponCamera.view()
+			mgDist = CameraRules.carried(G, zoom, first, max)
+			mgCur, mgSpeed, mgAimed, aimT = mgDist, 0, false, 0
+			onMg = true
+			WeaponCamera.manning(true)
+		else
+			camera.FieldOfView = p.gun.camera.fov
+		end
 		camera.CameraType = Enum.CameraType.Scriptable
-		camera.FieldOfView = if p.gun.mg then p.gun.mg.fov else p.gun.camera.fov
 		moveKeys(false)
 		local character = player.Character
 		if character then
@@ -733,7 +771,10 @@ function Artillery.start()
 			return
 		end
 		local mg = poses[mine] and poses[mine].gun.mg
-		if mg and Settings.pressed("Key_Fire", input) then
+		if mg and Settings.pressed("Key_Aim", input) then
+			-- held, or pressed once in the "Toggle" aim mode (Config/Settings AimMode), as a rifle's
+			mgAimed = if Settings.get("AimMode") == "Toggle" then not mgAimed else true
+		elseif mg and Settings.pressed("Key_Fire", input) then
 			Net.event("Artillery"):FireServer("Trigger", true)
 		elseif mg and Settings.pressed("Key_Reload", input) then
 			Net.event("Artillery"):FireServer("Reload")
@@ -765,6 +806,20 @@ function Artillery.start()
 	UserInputService.InputEnded:Connect(function(input)
 		if mine and poses[mine] and poses[mine].gun.mg and Settings.pressed("Key_Fire", input) then
 			Net.event("Artillery"):FireServer("Trigger", false)
+		elseif onMg and Settings.pressed("Key_Aim", input) and Settings.get("AimMode") ~= "Toggle" then
+			mgAimed = false
+		end
+	end)
+	-- a machine gun: the wheel steps between first person and over the shoulder, as a rifle's (not while aimed)
+	UserInputService.InputChanged:Connect(function(input, processed)
+		if
+			onMg
+			and not processed
+			and not mgAimed
+			and input.UserInputType == Enum.UserInputType.MouseWheel
+			and player:GetAttribute("MenuOpen") ~= true
+		then
+			mgDist = CameraRules.wheel(G, mgDist, input.Position.Z)
 		end
 	end)
 
@@ -818,6 +873,7 @@ function Artillery.start()
 		if mg then
 			-- the mouse lays a machine gun, straight off, within its stops (no swinging past them)
 			local delta = if menu then Vector2.zero else UserInputService:GetMouseDelta()
+			delta *= if aimT > 0.5 then CameraCfg.AimSensitivity else 1 -- (slower in the sight, as a rifle)
 			wantYaw, wantElevation = Rules.mgLay(wantYaw, wantElevation, math.deg(pivotYaw), delta.X, delta.Y, gun)
 		else
 			wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
@@ -834,17 +890,67 @@ function Artillery.start()
 			Net.event("Artillery"):FireServer("Aim", wantYaw, wantElevation)
 		end
 
-		-- a machine gun: first person through its ring sight, the eye riding the gun as it is drawn; my own body unseen
+		-- a machine gun: as a rifle's camera, looking down its lay: first person over the shield (Rules/Artillery.over),
+		-- over my shoulder at the distance chosen (on Camera.Gun's spring, stopped by walls) with the crosshair where the
+		-- gun points, aimed: into the ring sight (the eye riding the gun as it is drawn) at the aimed field of view; in
+		-- first person all of my own body unseen (user 2026-10-28: "our avatar is still visible so i cant see through my
+		-- helmet or my hair when im crouched on the gun"), every frame, as Roblox's camera would show it again
 		if mg then
 			local pivot = model:GetPivot()
+			local lay = CFrame.Angles(0, math.rad(p.traverse), 0) * CFrame.Angles(math.rad(p.elevation), 0, 0)
 			local ex, ey, ez = Rules.eye(gun, p.traverse, p.elevation)
-			camera.CFrame = pivot
-				* CFrame.new(ex, ey, ez)
-				* CFrame.Angles(0, math.rad(p.traverse), 0)
-				* CFrame.Angles(math.rad(p.elevation), 0, 0)
-			for _, d in character:GetDescendants() do
-				if d:IsA("BasePart") then
-					d.LocalTransparencyModifier = 1
+			local sight = pivot * CFrame.new(ex, ey, ez) * lay
+			local look = pivot.Rotation * lay
+			local hx, hy, hz = Rules.over(gun, p.traverse)
+			local eye = CFrame.new((pivot * CFrame.new(hx, hy, hz)).Position) * look
+			local headPart = character:FindFirstChild("Head") :: BasePart?
+			local head = if headPart then headPart.Position else eye.Position
+			local inSight = if mgAimed and mgCur < 0.02 then 1 else 0
+			aimT += (inSight - aimT) * (1 - math.exp(-CameraCfg.AimEase * dt))
+			local first = eye:Lerp(sight, aimT * aimT * (3 - 2 * aimT))
+			local want = CameraRules.gunTarget(mgDist, mgAimed)
+			mgCur, mgSpeed = CameraRules.spring(mgCur, mgSpeed, want, G.Spring, dt)
+			if mgCur < 0.02 and want <= 0 then
+				mgCur, mgSpeed = 0, 0
+			end
+			mgCur = math.max(mgCur, 0)
+			local at = first.Position
+			sweep.FilterDescendantsInstances = { character, model, camera }
+			if mgCur > 0 then
+				local k = math.clamp(mgCur / G.EyeBlend, 0, 1)
+				local base = at:Lerp(head, k)
+				local out = look.RightVector * (G.Shoulder[1] * k)
+					+ Vector3.yAxis * (G.Shoulder[2] * k)
+					- look.LookVector * mgCur
+				local hit = workspace:Spherecast(base, CameraCfg.Staff.Radius, out, sweep)
+				at = if hit then base + out.Unit * hit.Distance else base + out
+			end
+			if camera.CameraType ~= Enum.CameraType.Scriptable then
+				camera.CameraType = Enum.CameraType.Scriptable
+			end
+			camera.CFrame = CFrame.new(at) * first.Rotation
+			local hip = Settings.get("FieldOfView") :: number
+			local aimed = aimT > 0.5
+			local goalFov = if aimed then SettingsRules.aimFov(hip, CameraCfg.Fov, CameraCfg.AimFov) else hip
+			local rate = if aimed then CameraCfg.AimEase else CameraCfg.Ease
+			camera.FieldOfView += (goalFov - camera.FieldOfView) * (1 - math.exp(-rate * dt))
+			-- over the shoulder: the crosshair on what the sight line meets (parallel to the bore, a hand above it)
+			local shoulder = mgCur >= CameraCfg.Handover.near and not aimed
+			local pointAt: Vector2? = nil
+			if shoulder then
+				local line = look.LookVector * mg.range
+				local hit = workspace:Raycast(sight.Position, line, sweep)
+				local spot, onScreen = camera:WorldToViewportPoint(if hit then hit.Position else sight.Position + line)
+				pointAt = if onScreen then Vector2.new(spot.X, spot.Y) else nil
+			end
+			Crosshair.point(true, pointAt)
+			local hide = mgCur < CameraCfg.Handover.near
+			if hide or hide ~= bodyHidden then
+				bodyHidden = hide
+				for _, d in character:GetDescendants() do
+					if d:IsA("BasePart") or d:IsA("Decal") then
+						(d :: any).LocalTransparencyModifier = if hide then 1 else 0
+					end
 				end
 			end
 			snap = false

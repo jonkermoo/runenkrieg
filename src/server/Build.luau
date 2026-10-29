@@ -90,7 +90,7 @@ type Rec = {
 	gun: Model?,
 	pitBase: Ground.PitBase?,
 	dug: number?,
-	ground: CFrame?, -- an MG nest: the ground at the ring's middle (its gun's parts lie on it)
+	ground: CFrame?, -- an MG nest: the ground at the ring's middle (its building site stands on it)
 	sacks: { [BasePart]: Sack }?, -- an MG nest: each bag full and as its empty sack
 	square: Model?, -- a bridge: the trench square it is on
 	watch: { RBXScriptConnection }?, -- and its watch on that square
@@ -385,8 +385,7 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 			stage1(ground, cf * offsets[ground.Name], "Ground")
 		end
 	end
-	-- the gun, in parts, on the mount bag's top under its pivot, standing level; until they are set up they lie on the
-	-- ground inside the ring
+	-- the gun, in parts, on the mount bag's top under its pivot, standing level, each set up in its quarter
 	r.ground = on
 	r.at = CFrame.new((base * CFrame.new(0, n.bagTop, -radius + n.gunBack)).Position) * r.frame.Rotation
 	if guns then
@@ -398,10 +397,36 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 	return true
 end
 
+-- a gun's building site (Config/Build.Scaffold, Rules/Scaffold) at gun space's origin; Build pivots it onto the floor
+local function buildSite(spec: { [string]: any }): Model
+	local model = Instance.new("Model")
+	model.Name = "Site"
+	local colors = Palette.Build.Scaffold :: { [string]: { number } }
+	for _, piece in Scaffold.pieces(spec, C.Scaffold.Sizes) do
+		local a = Vector3.new(piece.a[1], piece.a[2], piece.a[3])
+		local b = Vector3.new(piece.b[1], piece.b[2], piece.b[3])
+		local up = Vector3.new(piece.up[1], piece.up[2], piece.up[3])
+		local mid = (a + b) / 2
+		local p = newPart(
+			model,
+			piece.color,
+			Vector3.new(piece.w, piece.h, (b - a).Magnitude),
+			CFrame.lookAt(mid, b, up),
+			rgb(colors[piece.color])
+		)
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+	end
+	model.WorldPivot = CFrame.new()
+	return model
+end
+
 -- an MG nest as it stands (Rules.nestShown): being built, by its HP; once it has stood, by its gun's HP (Config/
 -- Artillery.Wreck). Its filled bags up, the rest lying as their empty sacks (nothing blocks or is hit); its gun's parts
--- set up by quarters, the rest lying on the ground in the ring (Artillery.assemble), or the real gun standing. Each
--- change is the next stage at once (user 2026-10-28: "no animation").
+-- set up by quarters (Artillery.assemble), or the real gun standing; till then a building site in the ring (Config/
+-- Build.Scaffold mg08, as the guns'; user 2026-10-28: "just have some signs of "construction" see the field cannon and
+-- mortar stages"). Each change is the next stage at once (user 2026-10-28: "no animation").
 local apply: (Rec) -> ()
 
 local function showNest(r: Rec)
@@ -424,6 +449,16 @@ local function showNest(r: Rec)
 	end
 	if not guns or not r.at then
 		return
+	end
+	local spec = C.Scaffold[p.gun or ""]
+	local building = not r.built and quarters < C.Nest.quarters
+	if building and spec and not r.site and r.ground then
+		r.site = buildSite(spec)
+		r.site:PivotTo(r.ground)
+		r.site.Parent = r.model
+	elseif not building and r.site then
+		r.site:Destroy()
+		r.site = nil
 	end
 	-- set up whole: the real gun stands there (src/server/Artillery: manned, laid and fired; its own HP, the nest's
 	-- once it has stood); below that, in parts
@@ -466,7 +501,7 @@ local function showNest(r: Rec)
 		end
 	end
 	if r.parts then
-		guns.assemble(r.parts, p.gun, r.at, quarters, r.ground)
+		guns.assemble(r.parts, p.gun, r.at, quarters)
 	end
 end
 
@@ -716,31 +751,6 @@ local function remove(r: Rec)
 		Net.event("GroundDug"):FireAllClients(r.frame.Position, r.piece.depth)
 	end
 	r.model:Destroy()
-end
-
--- a gun's building site (Config/Build.Scaffold, Rules/Scaffold) at gun space's origin; Build pivots it onto the floor
-local function buildSite(spec: { [string]: any }): Model
-	local model = Instance.new("Model")
-	model.Name = "Site"
-	local colors = Palette.Build.Scaffold :: { [string]: { number } }
-	for _, piece in Scaffold.pieces(spec, C.Scaffold.Sizes) do
-		local a = Vector3.new(piece.a[1], piece.a[2], piece.a[3])
-		local b = Vector3.new(piece.b[1], piece.b[2], piece.b[3])
-		local up = Vector3.new(piece.up[1], piece.up[2], piece.up[3])
-		local mid = (a + b) / 2
-		local p = newPart(
-			model,
-			piece.color,
-			Vector3.new(piece.w, piece.h, (b - a).Magnitude),
-			CFrame.lookAt(mid, b, up),
-			rgb(colors[piece.color])
-		)
-		p.CanCollide = false
-		p.CanQuery = false
-		p.CanTouch = false
-	end
-	model.WorldPivot = CFrame.new()
-	return model
 end
 
 -- a gun piece as its HP stands: its pit dug to its stage, then its parts on the pit's floor, fitted to the quarter of

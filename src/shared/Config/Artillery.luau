@@ -15,11 +15,6 @@
 -- origin on the ground under the traverse axis. Angles in degrees: traverse + turns left (Roblox's yaw), elevation +
 -- raises the muzzle.
 
--- Where a group of a nest's gun lies until it is set up (Artillery.assemble): `at` x, z on the ground from the ring's
--- middle (x right, z back from the gun), `turn` degrees about x, y, z (tipped over, then turned), resting on its lowest
--- point; `hide` its parts not seen while it lies (the belt, packed in the box)
-export type Lie = { at: { number }, turn: { number }, hide: { string }? }
-
 export type Gun = {
 	asset: string, -- Config/Assets entry (ReplicatedStorage.Assets.Weapons.Shared.Artillery)
 	name: string, -- shown on the prompt
@@ -116,8 +111,8 @@ export type Gun = {
 	wreckParts: { string },
 	holeSize: { number },
 	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
-	-- set up in an MG nest (Config/Build.Nest) instead of on its own: no building site of its own (Config/Build.Scaffold),
-	-- and it fires bullets, not shells; nil: an artillery piece
+	-- set up in an MG nest (Config/Build.Nest) instead of on its own (its building site in the nest's ring), and it fires
+	-- bullets, not shells; nil: an artillery piece
 	nest: boolean?,
 	-- a nest gun's own ground kept from craters (Artillery.onGround): x, z from its pivot, lo and hi (it stands on its
 	-- nest's mount bag, no earth under it)
@@ -126,8 +121,9 @@ export type Gun = {
 	-- fire at `rate` rounds a minute from a box of `box` (the gun's `reload` swaps it, on the reload key or once it is
 	-- empty), each a bullet out to `range` studs hurting as Config/Damage.Weapons[`class`]; it strays `spread.min`
 	-- degrees, growing `spread.per` of the way to `spread.max` a shot and settling back at `spread.recover` of it a
-	-- second; the gunner looks from `eye` (gun space, through the rear sight, turning and lifting with the gun) at `fov`,
-	-- the mouse laying it `look` degrees a pixel; `shot` its report (Config/Audio profile Gunshot)
+	-- second; aimed, the gunner looks from `eye` (gun space, through the rear sight, turning and lifting with the
+	-- gun; else the rifle's camera, Config/Camera.Gun), the mouse laying it `look` degrees a pixel; `shot` its report
+	-- (Config/Audio profile Gunshot)
 	mg: {
 		rate: number,
 		box: number,
@@ -135,7 +131,8 @@ export type Gun = {
 		class: string,
 		spread: { min: number, max: number, per: number, recover: number },
 		eye: { number },
-		fov: number,
+		over: { number },
+		shield: { top: number, z: number },
 		look: number,
 		shot: any,
 	}?,
@@ -143,8 +140,7 @@ export type Gun = {
 	colors: { [string]: { number } }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
-	-- (a nest's gun: `lie`, where the group lies on the ground until its quarter, Artillery.assemble's `ground`)
-	assembly: { { names: { string }, at: number, lie: Lie? } },
+	assembly: { { names: { string }, at: number } },
 	-- gears turning as it is laid (src/client/Artillery; user 2026-10-26: "animate the gears turning as well when we
 	-- rotate the gun left and right. make sure its accurate and biting each teeth accurately"): `part` (one of its
 	-- `mount`) spins about gun-space `axis` ("X", "Y" or "Z") through `centre`, `ratio` degrees per degree of its
@@ -909,7 +905,11 @@ local Artillery = {
 				class = "MachineGun",
 				spread = { min = 0.6, max = 1.5, per = 0.06, recover = 0.3 }, -- (hot after ~50 rounds held, cool ~3 s after)
 				eye = { 0, 1.78, 2.44 },
-				fov = 60,
+				-- the eye at the hip, in first person (user 2026-10-28: "can you move the camera up more since the
+				-- shield in the way of the camera"): over the shield's top (`shield`: its arch's top with the rim, its
+				-- face's z) at the gun's lowest, turning with the mount as the shield does, not lifting with the gun
+				over = { 0, 2.95, 2.44 },
+				shield = { top = 2.65, z = 0.36 },
 				look = 0.12,
 				shot = { id = 134529004435835, volume = 1.8, start = 0.34, stop = 0.9, fade = 0.4, profile = "Gunshot" },
 			},
@@ -923,16 +923,14 @@ local Artillery = {
 				Bullets = { 184, 115, 72 },
 			},
 			-- (user 2026-10-27, the stage design: "sled-gun-shield-box order"): the foot and mount, the gun, the shield,
-			-- the ammo box and its belt last. In a nest each lies on the ground inside the ring until its quarter (`lie`)
+			-- the ammo box and its belt last, each appearing in place in its quarter (user 2026-10-28: "not all the parts have to
+			-- be present before its built (all the other structures work this way too). they can just appear as its being
+			-- built")
 			assembly = {
-				{ names = { "Carriage", "Mount" }, at = 1, lie = { at = { -1.6, 0.9 }, turn = { 0, 25, 90 } } },
-				{ names = { "Cradle", "Barrel", "Bore" }, at = 2, lie = { at = { 0.6, 2.4 }, turn = { 0, 70, 90 } } },
-				{ names = { "Shield" }, at = 3, lie = { at = { -1.2, -1.2 }, turn = { -90, 15, 0 } } },
-				{
-					names = { "Box", "Belt", "Rounds", "Bullets" },
-					at = 4,
-					lie = { at = { 2.1, 1.4 }, turn = { 0, -30, 0 }, hide = { "Belt", "Rounds", "Bullets" } },
-				},
+				{ names = { "Carriage", "Mount" }, at = 1 },
+				{ names = { "Cradle", "Barrel", "Bore" }, at = 2 },
+				{ names = { "Shield" }, at = 3 },
+				{ names = { "Box", "Belt", "Rounds", "Bullets" }, at = 4 },
 			},
 		} :: Gun,
 	},

@@ -305,21 +305,12 @@ return {
 			assert(dy * dy + de * de <= 4 + 1e-9)
 		end
 	end,
-	["a nest's gun pieces rest on their lowest corner"] = function()
-		assert(A.restLift({ -0.4, 0.3, -1.2, 2 }) == 1.2 and A.restLift({}) == 0)
-	end,
-	["the MG 08 goes up mount, gun, shield, box, each lying in the nest until then"] = function()
+	["the MG 08 goes up mount, gun, shield, box, each appearing in its quarter"] = function()
 		local MG = C.Guns.mg08
 		local order = { "Carriage", "Cradle", "Shield", "Box" }
 		for i, g in MG.assembly do
 			assert(g.at == i and g.names[1] == order[i], `quarter {i} sets up {order[i]}`)
-			assert(g.lie and #g.lie.at == 2 and #g.lie.turn == 3, "each group lies somewhere first")
-			assert(math.abs(g.lie.at[1]) < 4 and math.abs(g.lie.at[2]) < 4, "inside the ring")
 		end
-		assert(
-			MG.assembly[4].lie.hide and table.find(MG.assembly[4].lie.hide, "Belt"),
-			"the belt is packed while it lies"
-		)
 	end,
 	["the MG gunner's eye is behind the rear sight on the sight line, and lifts with the gun"] = function()
 		local MG = C.Guns.mg08
@@ -329,6 +320,16 @@ return {
 		assert(yUp < y, "the eye is behind the trunnion: raising the muzzle lowers it")
 		local xl = A.eye(MG, 15, 0)
 		assert(xl > 0, "turned left the eye (behind) swings right")
+	end,
+	["the MG gunner's hip eye sees over the shield at the gun's lowest, and turns with the mount"] = function()
+		local MG = C.Guns.mg08
+		local _, y, z = A.over(MG, 0)
+		local S = MG.mg.shield
+		local drop = (z - S.z) * math.tan(math.rad(-MG.elevation[1]))
+		assert(y - drop > S.top, "the line down the lay at its lowest clears the shield's top")
+		local _, yt = A.over(MG, 15)
+		assert(near(yt, y), "the gun's traverse leaves its height")
+		assert(A.over(MG, 15) > 0, "turned left the eye (behind) swings right")
 	end,
 	["the mouse lays the MG within its stops, never swinging the gun"] = function()
 		local MG = C.Guns.mg08

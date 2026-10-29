@@ -325,6 +325,13 @@ function Artillery.eye(gun: any, traverse: number, elevation: number): (number, 
 	return aboutY(x, y, z, traverse)
 end
 
+-- The eye of a machine gun's gunner at the hip (gun space, Config/Artillery.Guns `mg.over`) for a traverse: over the
+-- shield, turning with the mount as the shield does (the gun's lift leaves it)
+function Artillery.over(gun: any, traverse: number): (number, number, number)
+	local e = gun.mg.over
+	return aboutY(e[1], e[2], e[3], traverse)
+end
+
 -- A machine gun laid by the mouse (`dx`, `dy` pixels; Config/Artillery.Guns `mg.look` degrees a pixel): the wanted
 -- yaw and elevation after it, straight off, the yaw within its traverse of the gun's own `base` yaw (no swinging past
 -- its stops) and the elevation within its limits
@@ -366,16 +373,6 @@ function Artillery.mgStray(spread: number, r1: number, r2: number): (number, num
 	local d = spread * math.sqrt(r1)
 	local a = 2 * math.pi * r2
 	return d * math.cos(a), d * math.sin(a)
-end
-
--- How far to lift a group of parts so it rests on the ground: from the heights of its boxes' corners as it lies
--- (Config/Artillery Lie)
-function Artillery.restLift(heights: { number }): number
-	local low = math.huge
-	for _, y in heights do
-		low = math.min(low, y)
-	end
-	return if low == math.huge then 0 else -low
 end
 
 return Artillery

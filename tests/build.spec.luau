@@ -598,13 +598,13 @@ return {
 	["an MG nest builds in 4 stages like a barrier, then wears by its gun's stages"] = function()
 		local n = C.Nest
 		local bags, q = B.nestShown(0, n)
-		assert(bags == "none" and q == 0, "laid: all sacks flat, the gun in pieces")
+		assert(bags == "none" and q == 0, "laid: all sacks flat, no gun yet")
 		bags, q = B.nestShown(n.hp.swing, n)
-		assert(bags == "bottom" and q == 0, "stage 1: the bottom bags")
+		assert(bags == "bottom" and q == 1, "stage 1: the bottom bags, the mount on its bag")
 		bags, q = B.nestShown(50, n)
-		assert(bags == "all" and q == 0, "stage 2: the ring whole")
+		assert(bags == "all" and q == 2, "stage 2: the ring whole, the gun on the mount")
 		bags, q = B.nestShown(75, n)
-		assert(bags == "all" and q > 0 and q < n.quarters, "stage 3: the mount and gun on the bag")
+		assert(bags == "all" and q == 3, "stage 3: the shield")
 		bags, q = B.nestShown(n.hp.max, n)
 		assert(bags == "all" and q == n.quarters, "stage 4: the real gun")
 		assert(#n.build == 4 and #n.wear == 4)
@@ -612,6 +612,16 @@ return {
 		assert(bags == "all" and q == n.quarters, "stood and whole")
 		bags, q = B.nestShown(n.hp.max, n, 4)
 		assert(bags == "bottom" and q == n.quarters, "a wreck: the top bags down, the gun still there")
+	end,
+	["an MG nest's building site stands inside its ring, clear of the mount bag and the doorway"] = function()
+		local spec = C.Scaffold.mg08
+		local _, radius = B.nestRing(C.Nest.ring)
+		for _, list in { spec.crates, spec.planks } do
+			for _, c in list do
+				assert(math.sqrt(c.x * c.x + c.z * c.z) < radius - 2, "inside the bags")
+				assert(c.z > -radius + C.Nest.mountBack + 1, "behind the mount bag")
+			end
+		end
 	end,
 	["the build panel's swing counts come from each piece's HP"] = function()
 		local function p(key: string): any

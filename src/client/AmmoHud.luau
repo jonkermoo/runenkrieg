@@ -7,7 +7,8 @@
 -- - GunView over it, the clear parts:
 --   - the bolt, a simple 3D piece (a round body, its lugs, the cocking piece, its handle out to the gun's own knob),
 --     moving exactly as the gun's Bolt part does (src/client/GunFx moves it; turned, slid back);
---   - the rounds (the shared round, Config/Assets ammo_rifle; a pump gun's own shells) one by one in the magazine,
+--   - the rounds (the shared round, Config/Assets ammo_rifle; a pistol's own cartridge, Config/Hud.Rounds; a pump
+--     gun's own shells) one by one in the magazine,
 --     staggered as a double stack, rising a round each time one is fed; the round or the fired case in the chamber,
 --     pulled back by the bolt and thrown out; the next round pushed by the bolt's face up out of the magazine into
 --     the chamber; a stripper clip's rounds coming down into the well; an empty en-bloc clip dropping out;
@@ -161,9 +162,9 @@ type View = {
 local panel: HudKit.Panel? = nil
 local current: View? = nil
 
-local function roundTemplate(): Model?
+local function roundTemplate(weapon: string): Model?
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
-	for _, name in HudCfg.Round do
+	for _, name in HudCfg.Rounds[weapon] or HudCfg.Round do
 		f = f and f:FindFirstChild(name)
 	end
 	return if f and f:IsA("Model") then f else nil
@@ -359,7 +360,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		end
 		caseSources, caseOrigin = liveSources, liveOrigin
 	else
-		local t = roundTemplate()
+		local t = roundTemplate(weapon)
 		local origin = t and t:FindFirstChild("Origin")
 		local case, bullet = t and t:FindFirstChild("Case"), t and t:FindFirstChild("Bullet")
 		local casing = t and t:FindFirstChild("Casing")
@@ -373,7 +374,9 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 			colors.Case = rgb(parts.Rounds or { 196, 160, 84 })
 			colors.Bullet = rgb(parts.Bullets or { 184, 115, 72 })
 			colors.Casing = rgb(parts.Casing or parts.Rounds or { 196, 160, 84 })
-			v.length = ((case :: BasePart).Size.Z + (bullet :: BasePart).Size.Z) * s[3]
+			-- (head to tip: a pistol's bullet sits deep in its case)
+			local tip = (bullet :: BasePart).CFrame * CFrame.new(0, 0, -(bullet :: BasePart).Size.Z / 2)
+			v.length = (o.Position - tip.Position).Magnitude * s[3]
 		else
 			-- not in the library yet: the gun's own spent case stands in
 			local c = part("Casing")
