@@ -145,4 +145,21 @@ return {
 	["respawn after the agreed delay"] = function()
 		assert(Metrics.Combat.RespawnDelay == 10)
 	end,
+	["pistols: a bare head in one, the torso in three; fading to 60% by 100 m past their own range"] = function()
+		local P = D.Weapons.Pistol
+		assert(P and Damage.amount(P, "Head") >= D.Health, "a bare head in one")
+		assert(P.Torso * 2 < D.Health and P.Torso * 3 >= D.Health, "the torso in three")
+		assert(P.Helmet < D.Health and D.HelmetLethal.Pistol == nil, "a helmet hit never kills")
+		local f = D.Falloff.Pistol
+		assert(math.abs(f.far * D.Blast.MetresPerStud - 100) < 1 and f.least == 0.6, "60% by 100 m")
+		for name, w in W do
+			if w.class == "Pistol" then
+				local full = w.fullRange :: number
+				assert(full and full > 0 and full < f.far, `{name}: a full-damage range short of the falloff's end`)
+				assert(Damage.fade(full, full, f.far, f.least) == 1, `{name}: full damage to its range`)
+				assert(Damage.fade(f.far, full, f.far, f.least) == f.least, `{name}: 60% at 100 m`)
+				assert(Damage.fade(1000, full, f.far, f.least) == f.least, `{name}: and no less past it`)
+			end
+		end
+	end,
 }

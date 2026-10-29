@@ -47,7 +47,7 @@ function Firing.gun(name: string): F.Gun
 		clip = w.ammo.clip,
 		boltTime = w.action.boltTime,
 		reloadTime = w.action.reloadTime,
-		fireTime = w.action.fireTime or Cfg.FireTime,
+		fireTime = w.action.fireTime or (if w.class == "Pistol" then Cfg.PistolFireTime else Cfg.FireTime),
 		auto = w.action.auto,
 		clipSize = w.ammo.clipSize,
 		clipTime = w.action.clipTime,

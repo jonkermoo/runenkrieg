@@ -290,9 +290,18 @@ local function move(gun: BasePart, name: string, offset: CFrame)
 end
 
 local function show(gun: BasePart, name: string, visible: boolean)
-	local p = gun.Parent and gun.Parent:FindFirstChild(name)
+	local holder = gun.Parent
+	local p = holder and holder:FindFirstChild(name)
 	if p and p:IsA("BasePart") then
 		p.Transparency = if visible then 0 else 1
+	end
+	-- a revolver's round in two colours: its bullet (Config/Weapons `revolver.bullets`) shown and hidden with it
+	local w = W[tostring(gun:GetAttribute("Weapon"))]
+	local rv = w and w.revolver
+	local k = rv and rv.bullets and table.find(rv.rounds, name)
+	local b = k and holder and holder:FindFirstChild((rv :: any).bullets[k])
+	if b and b:IsA("BasePart") then
+		b.Transparency = if visible then 0 else 1
 	end
 end
 
@@ -319,7 +328,15 @@ function GunFx.match(character: Model, copy: BasePart)
 		return
 	end
 	local w = W[tostring(gun:GetAttribute("Weapon"))]
-	for _, name in { "Rounds", "Bullets", "Clip", "Magazine", table.unpack(w and w.feed and w.feed.parts or {}) } do
+	local names = { "Rounds", "Bullets", "Clip", "Magazine", table.unpack(w and w.feed and w.feed.parts or {}) }
+	local rv = w and w.revolver
+	for _, name in rv and rv.rounds or {} do -- (a revolver's rounds, chamber by chamber, and their bullets)
+		table.insert(names, name)
+	end
+	for _, name in rv and rv.bullets or {} do
+		table.insert(names, name)
+	end
+	for _, name in names do
 		local from, to = own:FindFirstChild(name), holder:FindFirstChild(name)
 		if from and to and from:IsA("BasePart") and to:IsA("BasePart") then
 			to.Transparency = from.Transparency
@@ -677,12 +694,15 @@ function GunFx.cycle(
 		return
 	end
 	local auto = action == "Auto"
+	-- a top-break revolver's reload (the Webley; Config/Weapons revolver.breakOpen): its own timeline (breakPose)
+	local top = if reload and w.revolver then w.revolver.breakOpen else nil
 	-- a box swapped whole (Config/Firing.BoxCycle); `out` "Open": the bolt held back until the plunger lets it go
 	local box = reload and w.ammo.clip == "Box"
 	local heldOpen = box and out == "Open"
 	local turn, travel = math.rad(a.turn), a.travel * s[3]
-	local cycle = if two
-		then Cfg.ReloadCycleTwo
+	local cycle = if top
+		then top.cycle
+		elseif two then Cfg.ReloadCycleTwo
 		elseif box then Cfg.BoxCycle
 		elseif reload then Cfg.ReloadCycle
 		elseif auto then Cfg.AutoCycle
@@ -704,7 +724,49 @@ function GunFx.cycle(
 	-- when one is fed: an action held open feeds nothing), the next one shows on the carrier after
 	local feed = if not reload and u1 >= 1 then w.feed else nil
 	local feedMid = (fwdFrom + cycle.forward) / 2
+	-- broken open: the latch pressed, everything on the hinge swung down (the barrel, the cylinder and its rounds),
+	-- the extractor kicked back out of the cylinder and home, the fresh rounds pushed in from behind, shut, the latch
+	-- snapping back over the strap
+	local kicked = top ~= nil and u0 > cycle.kick
+	local function breakPose(u: number)
+		local b = top :: any
+		local rv = w.revolver :: any
+		local open = smooth((u - cycle.up) / (cycle.back - cycle.up))
+			- smooth((u - cycle.knob) / (cycle.forward - cycle.knob))
+		local latch = smooth(u / cycle.up) - smooth((u - cycle.forward) / (cycle.down - cycle.forward))
+		local kick = smooth((u - cycle.back) / (cycle.kick - cycle.back))
+			- smooth((u - cycle.kick) / (cycle.home - cycle.kick))
+		local going = 1 - smooth((u - cycle.grab) / (cycle.clip - cycle.grab)) -- the fresh rounds still behind
+		local swing = CFrame.Angles(-math.rad(b.hinge) * open, 0, 0)
+		local h = w.moving[b.swings[1]]
+		local hinge = Vector3.new(h[1] * s[1], h[2] * s[2], h[3] * s[3])
+		for _, gun in GunFx.guns(character) do
+			for _, name in b.swings do
+				local m = w.moving[name]
+				local d = hinge - Vector3.new(m[1] * s[1], m[2] * s[2], m[3] * s[3])
+				local offset = CFrame.new(d) * swing * CFrame.new(-d) -- about the hinge, from this part's pivot
+				if name == "Extractor" then
+					offset *= CFrame.new(0, 0, b.kick * s[3] * kick)
+				elseif
+					(table.find(rv.rounds, name) or rv.bullets and table.find(rv.bullets, name)) and u >= cycle.grab
+				then
+					offset *= CFrame.new(0, 0, b.load * s[3] * going)
+				end
+				move(gun, name, offset)
+			end
+			move(gun, "Latch", CFrame.Angles(math.rad(b.latch) * latch, 0, 0))
+			if u >= cycle.kick then -- (before: the rounds as the cylinder stood)
+				for _, name in rv.rounds do
+					show(gun, name, u >= cycle.grab)
+				end
+			end
+		end
+	end
 	local function pose(u: number)
+		if top then
+			breakPose(u)
+			return
+		end
 		local up = smooth((u - reach) / (cycle.up - reach))
 		local back = if heldOpen then 1 else smooth((u - cycle.up) / (cycle.back - cycle.up))
 		local forward = smooth((u - fwdFrom) / (cycle.forward - fwdFrom))
@@ -840,7 +902,9 @@ function GunFx.cycle(
 		dropped = dropped or u >= cycle.drop
 	end
 	local function clips(u: number)
-		if box then
+		if top then
+			return -- (the rounds go in with the cylinder: breakPose)
+		elseif box then
 			boxes(u)
 			return
 		end
@@ -950,6 +1014,25 @@ function GunFx.cycle(
 			end
 			shown = vm ~= nil
 		end
+		if top and not kicked and u >= cycle.kick then
+			kicked = true
+			-- the extractor throws every chamber's case (or round) out of the cylinder's back, up and out (before the pose
+			-- hides them: a round never fired shows its bullet)
+			local holder = gun.Parent
+			local rv = w.revolver :: any
+			for k, name in rv.rounds do
+				local p = holder and holder:FindFirstChild(name)
+				if p and p:IsA("BasePart") then
+					local push = Vector3.new((math.random() - 0.5) * 3, 6 + math.random() * 2, 2 + math.random() * 2)
+					fling(p:Clone(), gun, p.CFrame, push)
+					-- (a round never fired goes with its bullet)
+					local b = rv.bullets and holder:FindFirstChild(rv.bullets[k])
+					if b and b:IsA("BasePart") and b.Transparency < 1 then
+						fling(b:Clone(), gun, b.CFrame, push)
+					end
+				end
+			end
+		end
 		pose(u)
 		clips(u)
 		-- the mechanism's sounds on the body's gun: the viewmodel's goes out of the DataModel when the view leaves first
@@ -1011,6 +1094,148 @@ function GunFx.cycle(
 	running[tool] = stop
 end
 
+-- ---- a revolver (ammo.clip "Gate": the Nagant, "BreakOpen": the Webley, its reload in GunFx.cycle; Config/Weapons
+-- `revolver`; user 2026-10-28) ----
+-- The chambers keep their place on the cylinder; which hold a live round is told by the count alone: at rest the one on
+-- the bore and the next ones round counter-clockwise (seen from behind) are live, so a shot turns the cylinder one
+-- chamber clockwise and the next live one comes onto the bore. A chamber's round (its own part, chamber j = (1 - k) mod
+-- n for Round k) shows while it is live, so the cylinder shows how many are left.
+local function chamber(k: number, n: number): number
+	return (1 - k) % n
+end
+
+-- the rounds of chambers from..from + count - 1 shown, the rest hidden (fired cases and empty chambers alike)
+local function showDrum(gun: BasePart, rv: any, from: number, count: number)
+	local n = #rv.rounds
+	for k, name in rv.rounds do
+		local j = chamber(k, n)
+		show(gun, name, j >= from and j < from + count) -- (its bullet with it: show)
+	end
+end
+
+-- the cylinder (and everything turning with it) `steps` chambers clockwise from behind (about gun Z, -: clockwise)
+local function turnDrum(gun: BasePart, rv: any, steps: number)
+	local turn = CFrame.Angles(0, 0, -2 * math.pi / #rv.rounds * steps)
+	for _, name in rv.turns do
+		move(gun, name, turn)
+	end
+end
+
+-- The cylinder at rest with `live` rounds in it (drawn again, after a load, someone else's gun resynced).
+function GunFx.drum(character: Model, weapon: string, live: number)
+	local rv = W[weapon].revolver
+	if not rv then
+		return
+	end
+	for _, gun in GunFx.guns(character) do
+		for _, name in if rv.breakOpen then rv.breakOpen.swings else {} do
+			move(gun, name, CFrame.identity)
+		end
+		move(gun, "Latch", CFrame.identity)
+		turnDrum(gun, rv, 0)
+		move(gun, "Gate", CFrame.identity)
+		move(gun, "Rod", CFrame.identity)
+		showDrum(gun, rv, 0, live)
+	end
+end
+
+-- A double-action pull, shown as the shot goes (it fires on the click): the trigger comes back from the pull, the
+-- hammer falls from full cock, and the cylinder turns the next chamber onto the bore; `live`: rounds left after it.
+local turning: { [Tool]: RBXScriptConnection } = setmetatable({}, { __mode = "k" }) :: any
+function GunFx.revolve(character: Model, weapon: string, live: number)
+	local w = W[weapon]
+	local rv = w.revolver
+	local tool = character:FindFirstChildOfClass("Tool")
+	if not rv or not tool then
+		return
+	end
+	local was = turning[tool]
+	if was then
+		was:Disconnect()
+	end
+	local T = 0.8 * (w.action.fireTime or Cfg.PistolFireTime)
+	local t0 = os.clock()
+	local hammer, trigger = math.rad(rv.hammer), math.rad(rv.trigger)
+	local function pose(u: number)
+		for _, gun in GunFx.guns(character) do
+			move(gun, "Hammer", CFrame.Angles(hammer * (1 - smooth(u / 0.15)), 0, 0))
+			move(gun, "Trigger", CFrame.Angles(-trigger * (1 - smooth(u)), 0, 0))
+			if u < 1 then
+				turnDrum(gun, rv, smooth(u / 0.6))
+				showDrum(gun, rv, 1, live) -- (the fired chamber's case hidden, the next ones coming round)
+			else
+				turnDrum(gun, rv, 0)
+				showDrum(gun, rv, 0, live)
+			end
+		end
+	end
+	pose(0)
+	local conn: RBXScriptConnection
+	conn = RunService.RenderStepped:Connect(function()
+		local u = math.min((os.clock() - t0) / T, 1)
+		if not character.Parent or tool.Parent ~= character then
+			u = 1
+		end
+		pose(u)
+		if u >= 1 then
+			conn:Disconnect()
+			if turning[tool] == conn then
+				turning[tool] = nil
+			end
+		end
+	end)
+	turning[tool] = conn
+end
+
+-- The gate, the rod and the cylinder `e` seconds into loading single rounds (GunFx.load's clock: O to open, R a round,
+-- the gate shut over CL from cs; `live` rounds in it at the start, `rounds` going in, `pressed` in so far). The gate
+-- opens with the cylinder turned to the first empty chamber; each round, the rod (pulled forward out of the cylinder)
+-- swings over to the gate's chamber and punches the fired case out through it, swings back, the round goes in, and the
+-- cylinder turns on a chamber for the next; at the end the cylinder turns on round to rest and the gate shuts.
+local function loadDrum(
+	gun: BasePart,
+	w: any,
+	e: number,
+	live: number,
+	rounds: number,
+	pressed: number,
+	O: number,
+	R: number,
+	cs: number,
+	CL: number
+)
+	local rv = w.revolver
+	local n = #rv.rounds
+	local s = w.scale
+	local first = (live + rv.gateChamber) % n -- turns bringing the first empty chamber to the gate
+	local last = first + math.max(rounds - 1, 0)
+	local home = math.ceil(last / n) * n -- (a whole number of turns: the same cylinder at rest)
+	local steps, gate, rodOut, side, push = 0, 0, 0, 0, 0
+	if e < O then
+		steps = first * smooth(e / O)
+		gate = smooth(e / (0.6 * O))
+		rodOut = smooth(e / O)
+	elseif e < cs then
+		local i = math.floor((e - O) / R)
+		local q = ((e - O) % R) / R
+		steps = first + i + (if i > 0 then smooth(q / 0.1) - 1 else 0)
+		gate, rodOut = 1, 1
+		side = smooth((q - 0.1) / 0.08) - smooth((q - 0.46) / 0.06)
+		push = smooth((q - 0.18) / 0.18) - smooth((q - 0.36) / 0.1)
+	else
+		local k = smooth((e - cs) / (0.6 * CL))
+		steps = last + (home - last) * k
+		gate = 1 - smooth((e - cs - 0.3 * CL) / (0.7 * CL))
+		rodOut = 1 - k
+	end
+	turnDrum(gun, rv, steps)
+	move(gun, "Gate", CFrame.Angles(0, 0, -math.rad(rv.gateOpen) * gate))
+	local r = rv.rod
+	local z = (-r.out * rodOut + (r.out + r.through) * push) * s[3]
+	move(gun, "Rod", CFrame.new(r.side[1] * s[1] * side, r.side[2] * s[2] * side, z))
+	showDrum(gun, rv, 0, live + pressed)
+end
+
 -- ---- loading single rounds (Config/Firing.Single; tools/animation/single.luau; user 2026-10-13) ----
 -- Played by its own clock: e seconds since the load began. The bolt opens over the first 80% of `open` (on the
 -- reload's shares), stays back while rounds go in (one every `round`), and closes over `close`; the animation's track
@@ -1044,7 +1269,10 @@ local function makeRound(gun: BasePart, weapon: string): { BasePart }?
 		end
 		return if #parts > 0 then parts else nil
 	end
-	local case = holder and holder:FindFirstChild("Casing")
+	-- (a revolver's: its whole round, Config/Weapons `revolver.loose`)
+	local rv = W[weapon].revolver
+	local revolver = rv ~= nil
+	local case = holder and holder:FindFirstChild(if rv then rv.loose else "Casing")
 	if not case or not case:IsA("BasePart") then
 		return nil
 	end
@@ -1054,6 +1282,9 @@ local function makeRound(gun: BasePart, weapon: string): { BasePart }?
 	body.Anchored, body.CanCollide, body.CanQuery, body.CanTouch, body.CastShadow = true, false, false, false, false
 	body.Transparency, body.LocalTransparencyModifier = 0, 0
 	body.Parent = holder
+	if revolver then
+		return { body }
+	end
 	local tip = Instance.new("Part")
 	tip.Name = "HeldRoundTip"
 	tip.Shape = Enum.PartType.Ball
@@ -1102,7 +1333,10 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 	local turn, travel = math.rad(w.action.turn), w.action.travel * s[3]
 	O, R, CL = single.open or O, single.round or R, single.close or CL
 	-- loose shells (a pump gun): the action stays shut, unless it was held open ("Open"): then it closes at the end
-	local loose = w.ammo.clip == "Loose"
+	-- a revolver's gate (Config/Weapons `revolver`): nothing to open either, the gate and the rod instead (loadDrum)
+	local rv = w.revolver
+	local live = W[weapon].ammo.capacity - room -- (a revolver: rounds in it at the start)
+	local loose = w.ammo.clip == "Loose" or rv ~= nil
 	local wasOpen = loose and out == "Open"
 	if loose then
 		out = nil -- nothing comes out of the chamber
@@ -1121,6 +1355,7 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 	local opened, ejected = from > openAt, from > B
 	local closed = from > closeStart() + shutAt
 	local pressed = math.clamp(math.floor((from - O) / R), 0, plan())
+	local punched = if from >= O then math.min(math.floor((from - O) / R + (1 - 0.36)), plan()) else 0
 
 	if running[tool] then
 		running[tool]()
@@ -1164,6 +1399,12 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 			local u = C.clip + (e - cs) / CL * (1 - C.clip)
 			angle = turn * (1 - smooth((u - C.forward) / (C.down - C.forward)))
 			slide = travel * (1 - smooth((u - C.knob) / (C.forward - C.knob)))
+		end
+		if rv then
+			local k = math.clamp(math.floor((e - O) / R), 0, plan())
+			for _, gun in GunFx.guns(character) do
+				loadDrum(gun, w, e, live, plan(), k, O, R, cs, CL)
+			end
 		end
 		local animT = if e < O then e elseif e < cs then O + (e - O) % R else O + R + (e - cs)
 		for _, t in tracks do
@@ -1267,9 +1508,15 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		local ear = GunFx.guns(character)[1] or gun -- (the mechanism's sounds: as in GunFx.cycle)
 		if not opened and e >= openAt then
 			opened = true
-			if not loose then
+			if not loose or rv then -- (a revolver: the gate)
 				GunFx.sound(ear, "BoltOpen")
 			end
+		end
+		-- a revolver: the rod punches each fired case out through the gate
+		local p = if rv and e >= O then math.min(math.floor((e - O) / R + (1 - 0.36)), plan()) else 0
+		while rv and punched < p do
+			punched += 1
+			eject(gun, weapon)
 		end
 		if not ejected and e >= B then
 			ejected = true
@@ -1284,7 +1531,7 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 		end
 		if not closed and e >= cs + shutAt then
 			closed = true
-			if not loose or wasOpen then
+			if not loose or wasOpen or rv then
 				GunFx.sound(ear, "BoltClose")
 			end
 		end
@@ -1295,6 +1542,7 @@ function GunFx.load(character: Model, weapon: string, out: string?, from: number
 				move(g, "Pump", CFrame.identity)
 			end
 			GunFx.loadout(character, weapon, 1)
+			GunFx.drum(character, weapon, live + plan())
 		end
 	end)
 	running[tool] = stop

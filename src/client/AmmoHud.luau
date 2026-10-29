@@ -7,7 +7,8 @@
 -- - GunView over it, the clear parts:
 --   - the bolt, a simple 3D piece (a round body, its lugs, the cocking piece, its handle out to the gun's own knob),
 --     moving exactly as the gun's Bolt part does (src/client/GunFx moves it; turned, slid back);
---   - the rounds (the shared round, Config/Assets ammo_rifle; a pump gun's own shells) one by one in the magazine,
+--   - the rounds (the shared round, Config/Assets ammo_rifle; a pistol's own cartridge, Config/Hud.Rounds; a pump
+--     gun's own shells) one by one in the magazine,
 --     staggered as a double stack, rising a round each time one is fed; the round or the fired case in the chamber,
 --     pulled back by the bolt and thrown out; the next round pushed by the bolt's face up out of the magazine into
 --     the chamber; a stripper clip's rounds coming down into the well; an empty en-bloc clip dropping out;
@@ -161,9 +162,9 @@ type View = {
 local panel: HudKit.Panel? = nil
 local current: View? = nil
 
-local function roundTemplate(): Model?
+local function roundTemplate(weapon: string): Model?
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
-	for _, name in HudCfg.Round do
+	for _, name in HudCfg.Rounds[weapon] or HudCfg.Round do
 		f = f and f:FindFirstChild(name)
 	end
 	return if f and f:IsA("Model") then f else nil
@@ -359,7 +360,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 		end
 		caseSources, caseOrigin = liveSources, liveOrigin
 	else
-		local t = roundTemplate()
+		local t = roundTemplate(weapon)
 		local origin = t and t:FindFirstChild("Origin")
 		local case, bullet = t and t:FindFirstChild("Case"), t and t:FindFirstChild("Bullet")
 		local casing = t and t:FindFirstChild("Casing")
@@ -373,7 +374,9 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 			colors.Case = rgb(parts.Rounds or { 196, 160, 84 })
 			colors.Bullet = rgb(parts.Bullets or { 184, 115, 72 })
 			colors.Casing = rgb(parts.Casing or parts.Rounds or { 196, 160, 84 })
-			v.length = ((case :: BasePart).Size.Z + (bullet :: BasePart).Size.Z) * s[3]
+			-- (head to tip: a pistol's bullet sits deep in its case)
+			local tip = (bullet :: BasePart).CFrame * CFrame.new(0, 0, -(bullet :: BasePart).Size.Z / 2)
+			v.length = (o.Position - tip.Position).Magnitude * s[3]
 		else
 			-- not in the library yet: the gun's own spent case stands in
 			local c = part("Casing")
@@ -936,6 +939,46 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 	end
 end
 
+-- ---- a revolver (ammo.clip "Gate" or "BreakOpen": the Nagant, the Webley): its cylinder seen from behind and to
+-- the right, its own parts copied and following them every frame (src/client/GunFx turns them and shows a chamber's
+-- round while it is live), so it turns on each shot and fills chamber by chamber on a load ----
+type Drum = { tool: Tool, gun: BasePart, model: Model, copies: { { part: BasePart, source: BasePart } } }
+local drum: Drum? = nil
+
+local function buildDrum(tool: Tool, weapon: string, gun: BasePart, view: ViewportFrame): Drum
+	local rv = W[weapon].revolver :: any
+	local model = Instance.new("Model")
+	model.Name = "Drum"
+	local copies = {}
+	for _, name in rv.turns do
+		local p = tool:FindFirstChild(name)
+		if p and p:IsA("BasePart") then
+			local c = p:Clone()
+			anchored(c)
+			c.Parent = model
+			table.insert(copies, { part = c, source = p })
+		end
+	end
+	model.Parent = view
+	local cyl = tool:FindFirstChild(rv.turns[1])
+	local cam = camera(view)
+	if cyl and cyl:IsA("BasePart") then
+		local at = gun.CFrame:ToObjectSpace(cyl.CFrame).Position
+		local d = cyl.Size.Magnitude * G.drum.distance
+		local o = G.drum.from
+		cam.FieldOfView = G.drum.fov
+		cam.CFrame = CFrame.lookAt(at + Vector3.new(o[1], o[2], o[3]).Unit * d, at)
+	end
+	return { tool = tool, gun = gun, model = model, copies = copies }
+end
+
+local function updateDrum(d: Drum)
+	for _, c in d.copies do
+		c.part.CFrame = d.gun.CFrame:ToObjectSpace(c.source.CFrame)
+		c.part.Transparency = c.source.Transparency
+	end
+end
+
 function AmmoHud.start()
 	panel = HudKit.panel("Gun", "AmmoHud", true) -- (the HUD size setting scales it)
 end
@@ -953,9 +996,35 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 			destroy(current)
 			current = nil
 		end
+		if drum then
+			drum.model:Destroy()
+			drum = nil
+		end
 		return
 	end
 	p.gui.Enabled = true
+	if drum and (drum.tool ~= tool or not F.revolver(gun)) then
+		drum.model:Destroy()
+		drum = nil
+	end
+	if F.revolver(gun) then -- a revolver: its cylinder
+		if current then
+			destroy(current)
+			current = nil
+		end
+		if not drum then
+			drum = buildDrum(tool, weapon, body, p.node.GunView :: ViewportFrame)
+		end
+		updateDrum(drum :: Drum)
+		local next = F.next(state, now)
+		local hint = if next == "Load"
+			then G.hints.Load
+			elseif next == "Dry" then (G.hints.Rounds:gsub("{key}", tostring(Settings.get("Key_Reload"))))
+			else ""
+		p.set("hint", hint)
+		p.node.Hint.Visible = hint ~= ""
+		return
+	end
 	if current and current.tool ~= tool then
 		destroy(current)
 		current = nil

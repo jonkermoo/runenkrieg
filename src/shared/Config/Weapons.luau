@@ -195,10 +195,35 @@ export type Weapon = {
 	-- bullet's crack (src/client/GunFx, src/client/ShotAudio).
 	report: { pitch: number, eq: { number } }?,
 	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
-	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot).
-	recoil: { scale: number, build: number, max: number, cool: number }?,
+	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot);
+	-- `hip` times harder fired without aiming (a pistol held out in one hand; user 2026-10-28).
+	recoil: { scale: number, build: number, max: number, cool: number, hip: number? }?,
 	-- Sway weight over the class's (Config/Sway.Classes): a heavier gun sways more and aims in slower (W2).
 	weight: number?,
+	-- a pistol's full-damage range (studs; Config/Damage.Falloff for its class)
+	fullRange: number?,
+	-- a revolver (ammo.clip "Gate" or "BreakOpen"): its chambers' rounds (and their bullets, when a round is two
+	-- parts: shown and hidden with it), the parts that turn with the cylinder, the
+	-- hammer and trigger throws (src/client/GunFx); a gate's: the gate and its chamber, the rod; a top-break's
+	-- (`breakOpen`): what swings down on the hinge, the throws and the reload's timeline (shares of reloadTime)
+	revolver: {
+		rounds: { string },
+		bullets: { string }?,
+		turns: { string },
+		gateChamber: number?,
+		gateOpen: number?,
+		hammer: number,
+		trigger: number,
+		rod: { out: number, side: { number }, through: number }?,
+		breakOpen: {
+			swings: { string },
+			hinge: number,
+			latch: number,
+			kick: number,
+			load: number,
+			cycle: { [string]: number },
+		}?,
+	}?,
 	-- Extra sway on the move, x the stride sway (src/client/Sway; on top of `weight`): the semi-automatics' price for
 	-- their firepower (user 2026-10-20: "sway more when moving ... the big mag one the worst").
 	stride: number?,
@@ -458,6 +483,353 @@ local Weapons: { [string]: Weapon } = {
 			close = 0.4,
 		},
 		reload = { knob = { 0, -0.0245, -0.9398 }, clipTop = { 0, -0.05, -0.2 }, entry = 0, body = 0, firstPerson = 0 },
+	},
+	-- The Webley Mk VI revolver (model tools/blender/weapons/webley.py, its shape from tools/blender/weapons/trace/
+	-- webley_daz.py): the brown team's Engineer pistol (uniform3), 6 rounds in a top-break cylinder: broken open, the
+	-- extractor throws all six cases out at once and six go in together. Each chamber's round is its own part (Round1
+	-- on the bore, then clockwise from behind), shown while loaded.
+	pistol_webley = {
+		asset = "pistol_webley",
+		display = "Webley Mk VI",
+		slot = "Primary",
+		class = "Pistol",
+		parts = {
+			Barrel = { 52, 54, 58 },
+			Frame = { 52, 54, 58 },
+			Latch = { 52, 54, 58 },
+			Cylinder = { 60, 62, 66 },
+			Hammer = { 52, 54, 58 },
+			Trigger = { 52, 54, 58 },
+			Extractor = { 70, 70, 74 },
+			Grip = { 142, 74, 42 }, -- walnut
+			Bore = { 3, 3, 3 },
+			-- one .455 round per chamber (Round1 on the bore, the rest clockwise from behind): the brass case's rim and
+			-- primer on the back face and its mouth down the chamber's hole, with its lead nose (Bullet<k>); hidden
+			-- together, one per shot. An empty chamber is a hole through the cylinder (user 2026-10-28)
+			Round1 = { 196, 160, 84 },
+			Round2 = { 196, 160, 84 },
+			Round3 = { 196, 160, 84 },
+			Round4 = { 196, 160, 84 },
+			Round5 = { 196, 160, 84 },
+			Round6 = { 196, 160, 84 },
+			Bullet1 = { 112, 114, 120 },
+			Bullet2 = { 112, 114, 120 },
+			Bullet3 = { 112, 114, 120 },
+			Bullet4 = { 112, 114, 120 },
+			Bullet5 = { 112, 114, 120 },
+			Bullet6 = { 112, 114, 120 },
+		},
+		moving = {
+			Barrel = { 0, 0.0196, -0.1148 }, -- the hinge: muzzle down ~75 deg to break it open
+			Bore = { 0, 0.0196, -0.1148 }, -- rides with the barrel
+			Latch = { 0, 0.1045, 0.0507 }, -- its pin: top back ~12 deg to release the strap
+			Cylinder = { 0, 0.077, -0.0248 }, -- turns 60 deg a shot about its axis; rides with the barrel
+			Round1 = { 0, 0.077, -0.0248 },
+			Round2 = { 0, 0.077, -0.0248 },
+			Round3 = { 0, 0.077, -0.0248 },
+			Round4 = { 0, 0.077, -0.0248 },
+			Round5 = { 0, 0.077, -0.0248 },
+			Round6 = { 0, 0.077, -0.0248 }, -- the rounds turn with the cylinder
+			Bullet1 = { 0, 0.077, -0.0248 },
+			Bullet2 = { 0, 0.077, -0.0248 },
+			Bullet3 = { 0, 0.077, -0.0248 },
+			Bullet4 = { 0, 0.077, -0.0248 },
+			Bullet5 = { 0, 0.077, -0.0248 },
+			Bullet6 = { 0, 0.077, -0.0248 },
+			Extractor = { 0, 0.077, 0.0263 }, -- slides ~0.03 back out of the cylinder as the barrel opens
+			Hammer = { 0, 0.0669, 0.0863 }, -- its pin: back 35 deg to cock, then falls
+			Trigger = { 0, 0, 0 }, -- the trigger pin (the gun origin)
+		},
+		hidden = {},
+		attachments = {
+			Muzzle = { 0, 0.116, -0.5042 },
+			Aim = { 0, 0.1653, 0.6 }, -- the eye, on the sight line through the latch's notch to the blade
+			Eject = { 0, 0.077, 0.0375 }, -- behind the cylinder's back face: the cases come out back and up, barrel open
+		},
+		grip = { 0, -0.03, 0.18 }, -- the hand round the top of the grip, under the hammer
+		-- its own set of the pistols' shared one-handed holds (tools/animation/pistol.luau), from its own grip and sights
+		holds = {
+			ready = 135773970789865,
+			walk = 125921803493497,
+			carry = 124356919772985,
+			aim = 130362316537857,
+			equip = 104922865424782,
+			unequip = 111620419541771,
+			crouchReady = 134294170994692,
+			crouchWalk = 130359477321373,
+			crouchAim = 86989799138603,
+			tuck = 124687363270061,
+			crouchTuck = 139442375984984,
+			strike = 97454038680950,
+		},
+		firstPerson = {
+			ready = 129670720959134,
+			carry = 71977268058907,
+			aim = 77295874320759,
+			equip = 80186812724401,
+			unequip = 85858394539051,
+			aimIn = 93738711610712,
+			aimOut = 81547547895739,
+			tuck = 105479813215701,
+			strike = 128857063209454,
+		},
+		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
+		scale = { 3, 3, 2.5 }, -- as the Nagant: 0.80 -> 2.0 studs long, chunky in the 1-stud hand
+		-- put away: the pistols' shared hip holster (HOLSTER, below)
+		-- the Engineer pistols' roles (the design 2026-10-27): the hard-hitting close-range one. 6 rounds, double action
+		-- (every click fires, Config/Firing.PistolFireTime apart), broken open and all six replaced at once (the fastest
+		-- reload of the three), full damage to 30 m (the shortest; Config/Damage.Pistol, .Falloff), the most recoil
+		fullRange = 84, -- 30 m at 0.357 m per stud
+		ammo = { capacity = 6, clip = "BreakOpen" },
+		-- no bolt: the cylinder turns on the trigger pull (src/client/GunFx.revolve); the reload breaks it open
+		action = { boltTime = 0, reloadTime = 2.0, turn = 0, travel = 0 },
+		-- the cylinder's turn and the break-open reload (src/client/GunFx): rounds by chamber, clockwise from behind from
+		-- the one on the bore; what swings down on the hinge with the barrel; the hinge's and the latch's throws
+		-- (degrees), the extractor's kick (modelled studs, back out of the cylinder) and how far back the fresh rounds
+		-- start; the reload's timeline as shares of reloadTime: the latch pressed by `up`, the barrel down by `back`,
+		-- the extractor out at `kick` (the cases fly) and home by `home`, the rounds in by `clip`, the barrel up from
+		-- `knob` to `forward`, the latch snapped back by `down`
+		revolver = {
+			rounds = { "Round1", "Round2", "Round3", "Round4", "Round5", "Round6" },
+			bullets = { "Bullet1", "Bullet2", "Bullet3", "Bullet4", "Bullet5", "Bullet6" },
+			turns = {
+				"Cylinder",
+				"Round1",
+				"Round2",
+				"Round3",
+				"Round4",
+				"Round5",
+				"Round6",
+				"Bullet1",
+				"Bullet2",
+				"Bullet3",
+				"Bullet4",
+				"Bullet5",
+				"Bullet6",
+			},
+			hammer = 35,
+			trigger = 25,
+			breakOpen = {
+				swings = {
+					"Barrel",
+					"Bore",
+					"Cylinder",
+					"Extractor",
+					"Round1",
+					"Round2",
+					"Round3",
+					"Round4",
+					"Round5",
+					"Round6",
+					"Bullet1",
+					"Bullet2",
+					"Bullet3",
+					"Bullet4",
+					"Bullet5",
+					"Bullet6",
+				},
+				hinge = 70,
+				latch = 12,
+				kick = 0.03,
+				load = 0.12,
+				cycle = {
+					reach = 0,
+					up = 0.08,
+					back = 0.28,
+					kick = 0.33,
+					home = 0.42,
+					grab = 0.5,
+					clip = 0.7,
+					knob = 0.76,
+					forward = 0.9,
+					down = 0.96,
+				},
+			},
+		},
+		-- Pro Sound Effects placeholders as the Nagant's: the shot (louder: the .455), the latch and the barrel going
+		-- down ("BoltOpen") and shutting ("BoltClose"), the rounds going in ("ClipIn")
+		sounds = {
+			Shot = { id = 9119299387, volume = 2.6 },
+			BoltOpen = { id = 9119718673, volume = 0.6 },
+			BoltClose = { id = 9119718255, volume = 0.7 },
+			ClipIn = { id = 9117396156, volume = 0.6 },
+		},
+		eject = { "Round1" }, -- (the cases thrown out on a reload: each chamber's own round, src/client/GunFx)
+		bolt = { aim = 0, ready = 0 }, -- (no bolt: nothing to work by hand)
+		-- the break-open reload's arms (tools/animation/pistol.luau, its break-open section): the left hand breaks it
+		-- open, drops six rounds in from behind and shuts it
+		reload = {
+			knob = { 0, 0, 0 },
+			clipTop = { 0, 0.077, 0.0375 },
+			entry = 0,
+			body = 97113622675720,
+			firstPerson = 108157894846881,
+		},
+		recoil = { scale = 1.3, build = 0.5, max = 2.8, cool = 1.3, hip = 1.35 },
+	},
+	-- The Nagant M1895 revolver (model tools/blender/weapons/nagant.py, its shape from tools/blender/weapons/trace/
+	-- nagant.py): the olive team's Engineer pistol (uniform2), 7 rounds loaded one at a time through the gate on the
+	-- right. Each chamber's round is its own part (Round1, on the bore, then clockwise from behind), shown while loaded
+	-- so the cylinder shows how many are left (user 2026-10-27); the one in the gate's chamber (Round3) is the one to
+	-- clone for a round going in or a case coming out.
+	pistol_nagant = {
+		asset = "pistol_nagant",
+		display = "Nagant M1895",
+		slot = "Primary",
+		class = "Pistol",
+		parts = {
+			Metal = { 52, 54, 58 },
+			Cylinder = { 60, 62, 66 },
+			Hammer = { 52, 54, 58 },
+			Trigger = { 52, 54, 58 },
+			Gate = { 60, 62, 66 },
+			Rod = { 60, 62, 66 },
+			Wood = { 120, 78, 52 }, -- the Olive team's warm brown (as its shotgun kit)
+			Bore = { 3, 3, 3 },
+			Chambers = { 3, 3, 3 }, -- the chambers drilled through the cylinder, lined dark (an empty one is a hole)
+			Round1 = { 196, 160, 84 },
+			Round2 = { 196, 160, 84 },
+			Round3 = { 196, 160, 84 },
+			Round4 = { 196, 160, 84 },
+			Round5 = { 196, 160, 84 },
+			Round6 = { 196, 160, 84 },
+			Round7 = { 196, 160, 84 },
+			-- each round's copper nose in its case mouth (tools/blender/weapons/pistol_ammo.py, 7.62x38R)
+			Bullet1 = { 184, 115, 72 },
+			Bullet2 = { 184, 115, 72 },
+			Bullet3 = { 184, 115, 72 },
+			Bullet4 = { 184, 115, 72 },
+			Bullet5 = { 184, 115, 72 },
+			Bullet6 = { 184, 115, 72 },
+			Bullet7 = { 184, 115, 72 },
+			Cartridge = { 196, 160, 84 }, -- a whole round going in through the gate (hidden template)
+			Casing = { 196, 160, 84 }, -- a fired case punched out (hidden template)
+		},
+		moving = {
+			Cylinder = { 0, 0.0311, 0.0419 }, -- its axis at the rear face: 1/7 turn (51.43 deg) clockwise from behind a shot
+			Chambers = { 0, 0.0311, 0.0419 }, -- turn with the cylinder
+			Round1 = { 0, 0.0311, 0.0419 }, -- the rounds turn with the cylinder too
+			Round2 = { 0, 0.0311, 0.0419 },
+			Round3 = { 0, 0.0311, 0.0419 },
+			Round4 = { 0, 0.0311, 0.0419 },
+			Round5 = { 0, 0.0311, 0.0419 },
+			Round6 = { 0, 0.0311, 0.0419 },
+			Round7 = { 0, 0.0311, 0.0419 },
+			Bullet1 = { 0, 0.0311, 0.0419 }, -- and their bullets
+			Bullet2 = { 0, 0.0311, 0.0419 },
+			Bullet3 = { 0, 0.0311, 0.0419 },
+			Bullet4 = { 0, 0.0311, 0.0419 },
+			Bullet5 = { 0, 0.0311, 0.0419 },
+			Bullet6 = { 0, 0.0311, 0.0419 },
+			Bullet7 = { 0, 0.0311, 0.0419 },
+			Hammer = { 0, 0.0241, 0.1027 }, -- its pin: back 40 deg on every pull, then falls
+			Trigger = { 0, -0.0501, 0.0095 }, -- the trigger pin
+			Gate = { 0.0476, 0.0051, 0.0557 }, -- hinged at its bottom outer edge: top out to +X 90 deg to load
+			Rod = { 0, 0.0311, -0.2058 }, -- the ejector rod: forward 0.107, swung to the gate's chamber, pushed back through
+		},
+		hidden = { "Cartridge", "Casing" },
+		attachments = {
+			Muzzle = { 0, 0.065, -0.3824 },
+			Aim = { 0, 0.104, 0.6 }, -- the eye, on the sight line through the rear notch to the blade (held out)
+			Eject = { 0.0588, 0.0236, 0.0557 }, -- outside the open gate: the cases come out to the right
+		},
+		grip = { 0, -0.06, 0.17 }, -- the top of the grip, under the hammer's spur
+		-- the pistols' shared one-handed holds (tools/animation/pistol.luau, user 2026-10-28): low ready at the right hip,
+		-- aimed with the arm out and the sights at the right eye, drawn from and put back in the hip holster, a pistol whip
+		holds = {
+			ready = 122734081616814,
+			walk = 71643121446344,
+			carry = 116557274110559,
+			aim = 108492988788868,
+			equip = 84595517152311,
+			unequip = 112683570482910,
+			crouchReady = 88645341580231,
+			crouchWalk = 130971600896646,
+			crouchAim = 123369456405232,
+			tuck = 77568447824328,
+			crouchTuck = 116846619710706,
+			strike = 96817744569842,
+		},
+		firstPerson = {
+			ready = 121568509879542,
+			carry = 98776105780688,
+			aim = 81575185196582,
+			equip = 78143731273282,
+			unequip = 94448790801507,
+			aimIn = 91420108888072,
+			aimOut = 78643133170604,
+			tuck = 76382794440045,
+			strike = 84573444859847,
+		},
+		-- aimed one-handed (tools/animation/pistol.luau): the sights at the right eye, the arm out level at the shoulder
+		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
+		scale = { 3, 3, 2.5 }, -- 0.66 -> 1.65 studs long, chunky in the 1-stud hand
+		-- put away: the pistols' shared hip holster (HOLSTER, below)
+		-- the Engineer pistols' roles (the design 2026-10-27): the steady all-rounder, rarely empty. 7 rounds, double
+		-- action (every click fires, the shared Config/Firing.PistolFireTime apart), loaded one at a time through the
+		-- gate (the slowest reload of the three, topping up from any count), full damage to 40 m (Config/Damage.Pistol,
+		-- .Falloff), the middle recoil
+		fullRange = 112, -- 40 m at 0.357 m per stud
+		ammo = { capacity = 7, clip = "Gate" },
+		-- no bolt: the cylinder turns on the trigger pull (src/client/GunFx.revolve); reloadTime unused (single rounds)
+		action = { boltTime = 0, reloadTime = 0, turn = 0, travel = 0 },
+		-- the gate opens (the cylinder turned to the first empty chamber), then per round: the rod punches the fired case
+		-- out, a round goes in, the cylinder turns on; at the end the gate shuts (src/client/GunFx.load)
+		single = {
+			seat = { 0.033, 0.0236, 0.07 }, -- just behind the gate's chamber: the round pushed in from there
+			body = 103017668407371, -- the gate reload (tools/animation/pistol.luau): the left hand holds it, the right loads
+			firstPerson = 138022251947098,
+			open = 0.5,
+			round = 0.85,
+			close = 0.45,
+		},
+		-- the cylinder's turn and the loading (src/client/GunFx): rounds by chamber, clockwise from behind from the one on
+		-- the bore; the gate's chamber; the rod's stroke (modelled studs: forward out of the cylinder, over to the gate's
+		-- chamber, back through it)
+		revolver = {
+			rounds = { "Round1", "Round2", "Round3", "Round4", "Round5", "Round6", "Round7" },
+			-- each round's bullet, shown and hidden with it (the same chamber order)
+			bullets = { "Bullet1", "Bullet2", "Bullet3", "Bullet4", "Bullet5", "Bullet6", "Bullet7" },
+			-- a whole round going in through the gate (the hidden template)
+			loose = "Cartridge",
+			turns = {
+				"Cylinder",
+				"Chambers",
+				"Round1",
+				"Round2",
+				"Round3",
+				"Round4",
+				"Round5",
+				"Round6",
+				"Round7",
+				"Bullet1",
+				"Bullet2",
+				"Bullet3",
+				"Bullet4",
+				"Bullet5",
+				"Bullet6",
+				"Bullet7",
+			},
+			gateChamber = 2,
+			gateOpen = 80, -- degrees, its top out to the right
+			hammer = 40, -- degrees back at full cock
+			trigger = 25, -- degrees back on the pull
+			rod = { out = 0.1065, side = { 0.033, -0.0022 }, through = 0.019 },
+		},
+		-- Pro Sound Effects placeholders like the rifles' (Creator Store): "Smith Wesson 38 Revolver 2", the gate opening
+		-- and shutting "Switch Clicks Metallic Dull Pops 21 / 13", a round going in "Pistol Clip 2"; heard far off and
+		-- going by: the rifles' (Config/Firing.Sounds)
+		sounds = {
+			Shot = { id = 9119299387, volume = 2.2 },
+			BoltOpen = { id = 9119718673, volume = 0.6 },
+			BoltClose = { id = 9119718255, volume = 0.6 },
+			ClipIn = { id = 9117396156, volume = 0.6 },
+		},
+		eject = { "Casing" }, -- a fired case punched out of the gate (the hidden template in the gate's chamber)
+		bolt = { aim = 0, ready = 0 }, -- (no bolt: nothing to work by hand)
+		reload = { knob = { 0, 0, 0 }, clipTop = { 0.033, 0.0236, 0.07 }, entry = 0, body = 0, firstPerson = 0 },
+		-- aimed in both hands steadier, at the hip in one hand wilder; still under a rifle's (scale 1) either way
+		recoil = { scale = 0.7, build = 0.35, max = 2.2, cool = 1.4, hip = 1.35 },
 	},
 	rifle_m91 = {
 		asset = "rifle_m91",
@@ -1205,5 +1577,22 @@ Weapons.shovel = {
 		beside = true,
 	},
 }
+
+-- Every pistol (class "Pistol") put away rides at the right hip as if holstered, unless its entry has its own `stow`
+-- (user 2026-10-28: "make it sit at the hip for now, as if it was holstered"; a holster accessory comes later): the
+-- barrel down along the thigh a touch forward (sin 5, cos 5), the butt back, the right side outward, on the belt so
+-- the pack's `sling` doesn't push it back.
+local HOLSTER = {
+	part = "Torso",
+	at = { 1.2, -1.1, -0.15 }, -- outside the right hip, a revolver's cylinder clear of the leg
+	muzzle = { 0, -0.9962, -0.0872 },
+	side = { 1, 0, 0 },
+	beside = true,
+}
+for _, w in Weapons do
+	if w.class == "Pistol" and not w.stow then
+		w.stow = HOLSTER
+	end
+end
 
 return Weapons
