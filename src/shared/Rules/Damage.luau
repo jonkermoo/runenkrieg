@@ -33,6 +33,12 @@ function Damage.falloff(distance: number, full: number, none: number): number
 	return 1 - (distance - full) / (none - full)
 end
 
+-- The share of a bullet's damage left at `distance` (Config/Damage.Falloff): 1 up to `full`, falling in a straight line
+-- to `least` at `far`, then `least`.
+function Damage.fade(distance: number, full: number, far: number, least: number): number
+	return least + (1 - least) * Damage.falloff(distance, full, far)
+end
+
 -- The zone of a hit on a helmet `distance` studs from the muzzle: "Head" within `lethal` (Config/Damage.HelmetLethal; nil:
 -- never), else "Helmet".
 function Damage.helmetZone(distance: number, lethal: number?): string

@@ -176,6 +176,8 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 		return
 	end
 	local pellets = w and w.pellets
+	local fade = Cfg.Falloff[class] -- (a pistol's: full to its own fullRange)
+	local full = w and w.fullRange or 0
 	local per: { [Model]: { hits: { Rules.Hit }, humanoid: Humanoid, direction: Vector3 } } = {}
 	for _, h in hits do
 		local character, humanoid = victim(h.part)
@@ -184,7 +186,10 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 			Trees.shot(h.part, class, h.direction) -- a trunk is chipped (src/server/Trees)
 		end
 		if character and humanoid and zone and character ~= shooter and not Damage.spares(shooter, character) then
-			local share = if pellets then Rules.falloff(h.distance, pellets.full, pellets.none) else 1
+			local share = if pellets
+				then Rules.falloff(h.distance, pellets.full, pellets.none)
+				elseif fade then Rules.fade(h.distance, full, fade.far, fade.least)
+				else 1
 			local z = if h.helmet then Rules.helmetZone(h.distance, Cfg.HelmetLethal[class]) else zone
 			local entry = per[character]
 			if not entry then

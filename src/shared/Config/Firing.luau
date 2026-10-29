@@ -10,6 +10,9 @@ local Firing = {
 	-- (the fire and reload keys are player settings: Config/Settings)
 	Range = 600, -- studs a shot travels (Metrics fog end; effective range 450)
 	FireTime = 0.15, -- after a shot nothing else can start for this long (the shot itself)
+	-- every pistol (class "Pistol", the Engineer's) fires at most once this often, unless its entry sets its own
+	-- action.fireTime (the design 2026-10-27: the same rate for all three)
+	PistolFireTime = 0.25,
 	-- Server checks: timings get this much slack (latency jitter); the reported muzzle must be this close to the
 	-- shooter's head (the first-person gun sits ~5 studs ahead of the eye); remotes per second per player.
 	Slack = 0.2,

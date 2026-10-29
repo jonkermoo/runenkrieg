@@ -70,7 +70,11 @@ return {
 			end
 			assert(math.abs(len(m) - 1) < 1e-3 and math.abs(len(d) - 1) < 1e-3, `{name}: stow axes must be unit length`)
 			assert(math.abs(m[1] * d[1] + m[2] * d[2] + m[3] * d[3]) < 1e-3, `{name}: stow muzzle and side not square`)
-			assert(m[2] > 0.5, `{name}: a slung weapon points its muzzle up`)
+			if w.class == "Pistol" then -- holstered at the hip (user 2026-10-28)
+				assert(m[2] < -0.5, `{name}: a holstered pistol points its muzzle down`)
+			else
+				assert(m[2] > 0.5, `{name}: a slung weapon points its muzzle up`)
+			end
 		end
 	end,
 	["every weapon has a loadout slot"] = function()

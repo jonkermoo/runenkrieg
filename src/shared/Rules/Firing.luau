@@ -22,6 +22,11 @@
 --   ("tops up"): a stripper-clip or charger rifle presses in as many clips of `clipSize` as the room needs (each after
 --   the first adds `clipTime`; rounds left over stay on the clip), a box ("Box") is swapped whole. A live round in the
 --   chamber stays there; from an open bolt the reload closes it on a round.
+-- - a revolver's gate (clip "Gate", the Nagant; user 2026-10-28): every pull turns the cylinder and fires (double
+--   action), so every click fires, at most one shot per fireTime; the fired cases stay in the cylinder, nothing flies
+--   out. `capacity` is every chamber (7), the one under the hammer counted as "chambered". R always loads one at a
+--   time through the gate (the rod punching a fired case out first), topping up from any count; a click stops it after
+--   the round in the hand. An empty cylinder just clicks.
 -- A full rifle: one round chambered and a full clip in the magazine (Gewehr 5 + 1, Carcano 6 + 1; Config/Firing.RifleClip).
 
 local Firing = {}
@@ -29,6 +34,7 @@ local Firing = {}
 export type Gun = {
 	capacity: number, -- rounds one clip holds
 	clip: string, -- "Enbloc" | "Stripper" | "Loose" (shells one at a time, the action left shut) | "Box" (swapped whole)
+	-- | "Gate" (a revolver: capacity = every chamber, loaded one at a time)
 	-- semi-automatic: the action cycles itself on a shot; a reload presses in clips of clipSize rounds (else
 	-- capacity), each one after the first taking clipTime more
 	auto: boolean?,
@@ -68,7 +74,9 @@ export type State = {
 }
 
 function Firing.new(gun: Gun): State
-	return { magazine = gun.capacity, chambered = true, spent = false, open = false, busyUntil = 0, paused = 0 }
+	-- (a revolver's capacity counts the chamber under the hammer too)
+	local magazine = if gun.clip == "Gate" then gun.capacity - 1 else gun.capacity
+	return { magazine = magazine, chambered = true, spent = false, open = false, busyUntil = 0, paused = 0 }
 end
 
 local function idle(s: State, now: number, slack: number?): boolean
@@ -152,6 +160,15 @@ function Firing.fire(s: State, gun: Gun, now: number, slack: number?): (boolean,
 	end
 	s.chambered, s.spent = false, true
 	s.busyUntil = now + gun.fireTime
+	if gun.clip == "Gate" then
+		-- the next pull turns the next chamber under the hammer; the fired case stays in its chamber
+		s.spent = false
+		if s.magazine > 0 then
+			s.magazine -= 1
+			s.chambered = true
+		end
+		return true, nil, nil
+	end
 	if gun.auto then
 		-- the action cycles itself: the case out, the next round in, or the bolt held open on the empty magazine
 		s.spent = false
@@ -169,7 +186,7 @@ end
 -- The admin panel's unlimited ammo (src/server/Firing, after each shot): the magazine full again, so it never needs a
 -- reload (the bolt is still worked).
 function Firing.topUp(s: State, gun: Gun)
-	s.magazine = gun.capacity
+	s.magazine = if gun.clip == "Gate" and s.chambered then gun.capacity - 1 else gun.capacity
 end
 
 -- How many clips a semi-automatic's reload presses in now (a box: 1).
@@ -207,6 +224,8 @@ end
 function Firing.canReload(s: State, gun: Gun): boolean
 	if gun.clip == "Enbloc" then
 		return s.magazine == 0
+	elseif gun.clip == "Gate" then
+		return Firing.rounds(s) < gun.capacity
 	end
 	return s.magazine < gun.capacity or (gun.auto == true and not s.chambered)
 end
@@ -241,7 +260,7 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 		s.busyUntil = now + time * (if wasOpen then 1 - gun.reloadOpenAt else 1)
 		return true, nil, nil, if clips > 1 then "Reload2" else "Reload" -- (two chargers: their own timeline)
 	end
-	local loose = gun.clip == "Loose"
+	local loose = gun.clip == "Loose" or gun.clip == "Gate" -- (a revolver's gate: one at a time, nothing to open)
 	if loose or (gun.clip == "Stripper" and s.magazine > 0) then
 		local out: string? = nil
 		if loose then
@@ -254,7 +273,7 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 		end
 		local l: Load = {
 			start = now,
-			room = gun.capacity - s.magazine,
+			room = if gun.clip == "Gate" then gun.capacity - Firing.rounds(s) else gun.capacity - s.magazine,
 			rounds = nil,
 			open = gun.singleOpen,
 			round = gun.singleRound,
