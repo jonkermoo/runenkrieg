@@ -64,9 +64,11 @@ local Assets = {
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
 		pistol_nagant = {
-			-- v2: the cylinder's faces fixed, the grip two flat wood panels on a slimmer, rounded frame, a round per
-			-- chamber filling its mouth (v1 100351614666603)
-			id = 136927059301419,
+			-- v3: the chambers drilled through the cylinder and lined dark (an empty chamber is a hole), the rounds the
+			-- 7.62x38R of tools/blender/weapons/pistol_ammo.py (Round<k> heads and crimped mouths + Bullet<k> noses),
+			-- hidden Cartridge and Casing templates for the gate (v2 136927059301419: the cylinder's faces fixed, the grip
+			-- two flat wood panels on a slimmer, rounded frame, a round per chamber filling its mouth; v1 100351614666603)
+			id = 80228872124161,
 			category = "Weapons",
 			folder = "Olive/Pistols",
 			source = "assets/weapons/olive/pistol_nagant.fbx",

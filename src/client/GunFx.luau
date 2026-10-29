@@ -308,6 +308,9 @@ function GunFx.match(character: Model, copy: BasePart)
 	for _, name in w and w.revolver and w.revolver.rounds or {} do -- (a revolver's rounds, chamber by chamber)
 		table.insert(names, name)
 	end
+	for _, name in w and w.revolver and w.revolver.bullets or {} do -- (and their bullets)
+		table.insert(names, name)
+	end
 	for _, name in names do
 		local from, to = own:FindFirstChild(name), holder:FindFirstChild(name)
 		if from and to and from:IsA("BasePart") and to:IsA("BasePart") then
@@ -1014,7 +1017,11 @@ local function showDrum(gun: BasePart, rv: any, from: number, count: number)
 	local n = #rv.rounds
 	for k, name in rv.rounds do
 		local j = chamber(k, n)
-		show(gun, name, j >= from and j < from + count)
+		local live = j >= from and j < from + count
+		show(gun, name, live)
+		if rv.bullets then -- (its bullet with it)
+			show(gun, rv.bullets[k], live)
+		end
 	end
 end
 
@@ -1170,9 +1177,10 @@ local function makeRound(gun: BasePart, weapon: string): { BasePart }?
 		end
 		return if #parts > 0 then parts else nil
 	end
-	-- (a revolver's: its gate chamber's own round, Config/Weapons `eject`, already a whole round)
-	local revolver = W[weapon].revolver ~= nil
-	local case = holder and holder:FindFirstChild(if revolver then (W[weapon].eject :: { string })[1] else "Casing")
+	-- (a revolver's: its whole round, Config/Weapons `revolver.loose`)
+	local rv = W[weapon].revolver
+	local revolver = rv ~= nil
+	local case = holder and holder:FindFirstChild(if rv then rv.loose else "Casing")
 	if not case or not case:IsA("BasePart") then
 		return nil
 	end

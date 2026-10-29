@@ -483,7 +483,7 @@ local Weapons: { [string]: Weapon } = {
 			Rod = { 60, 62, 66 },
 			Wood = { 120, 78, 52 }, -- the Olive team's warm brown (as its shotgun kit)
 			Bore = { 3, 3, 3 },
-			Chambers = { 3, 3, 3 }, -- the chambers' mouths on the cylinder's front face
+			Chambers = { 3, 3, 3 }, -- the chambers drilled through the cylinder, lined dark (an empty one is a hole)
 			Round1 = { 196, 160, 84 },
 			Round2 = { 196, 160, 84 },
 			Round3 = { 196, 160, 84 },
@@ -491,6 +491,16 @@ local Weapons: { [string]: Weapon } = {
 			Round5 = { 196, 160, 84 },
 			Round6 = { 196, 160, 84 },
 			Round7 = { 196, 160, 84 },
+			-- each round's copper nose in its case mouth (tools/blender/weapons/pistol_ammo.py, 7.62x38R)
+			Bullet1 = { 184, 115, 72 },
+			Bullet2 = { 184, 115, 72 },
+			Bullet3 = { 184, 115, 72 },
+			Bullet4 = { 184, 115, 72 },
+			Bullet5 = { 184, 115, 72 },
+			Bullet6 = { 184, 115, 72 },
+			Bullet7 = { 184, 115, 72 },
+			Cartridge = { 196, 160, 84 }, -- a whole round going in through the gate (hidden template)
+			Casing = { 196, 160, 84 }, -- a fired case punched out (hidden template)
 		},
 		moving = {
 			Cylinder = { 0, 0.0311, 0.0419 }, -- its axis at the rear face: 1/7 turn (51.43 deg) clockwise from behind a shot
@@ -502,12 +512,19 @@ local Weapons: { [string]: Weapon } = {
 			Round5 = { 0, 0.0311, 0.0419 },
 			Round6 = { 0, 0.0311, 0.0419 },
 			Round7 = { 0, 0.0311, 0.0419 },
+			Bullet1 = { 0, 0.0311, 0.0419 }, -- and their bullets
+			Bullet2 = { 0, 0.0311, 0.0419 },
+			Bullet3 = { 0, 0.0311, 0.0419 },
+			Bullet4 = { 0, 0.0311, 0.0419 },
+			Bullet5 = { 0, 0.0311, 0.0419 },
+			Bullet6 = { 0, 0.0311, 0.0419 },
+			Bullet7 = { 0, 0.0311, 0.0419 },
 			Hammer = { 0, 0.0241, 0.1027 }, -- its pin: back 40 deg on every pull, then falls
 			Trigger = { 0, -0.0501, 0.0095 }, -- the trigger pin
 			Gate = { 0.0476, 0.0051, 0.0557 }, -- hinged at its bottom outer edge: top out to +X 90 deg to load
 			Rod = { 0, 0.0311, -0.2058 }, -- the ejector rod: forward 0.107, swung to the gate's chamber, pushed back through
 		},
-		hidden = {},
+		hidden = { "Cartridge", "Casing" },
 		attachments = {
 			Muzzle = { 0, 0.065, -0.3824 },
 			Aim = { 0, 0.104, 0.6 }, -- the eye, on the sight line through the rear notch to the blade (held out)
@@ -568,7 +585,28 @@ local Weapons: { [string]: Weapon } = {
 		-- chamber, back through it)
 		revolver = {
 			rounds = { "Round1", "Round2", "Round3", "Round4", "Round5", "Round6", "Round7" },
-			turns = { "Cylinder", "Chambers", "Round1", "Round2", "Round3", "Round4", "Round5", "Round6", "Round7" },
+			-- each round's bullet, shown and hidden with it (the same chamber order)
+			bullets = { "Bullet1", "Bullet2", "Bullet3", "Bullet4", "Bullet5", "Bullet6", "Bullet7" },
+			-- a whole round going in through the gate (the hidden template)
+			loose = "Cartridge",
+			turns = {
+				"Cylinder",
+				"Chambers",
+				"Round1",
+				"Round2",
+				"Round3",
+				"Round4",
+				"Round5",
+				"Round6",
+				"Round7",
+				"Bullet1",
+				"Bullet2",
+				"Bullet3",
+				"Bullet4",
+				"Bullet5",
+				"Bullet6",
+				"Bullet7",
+			},
 			gateChamber = 2,
 			gateOpen = 80, -- degrees, its top out to the right
 			hammer = 40, -- degrees back at full cock
@@ -584,7 +622,7 @@ local Weapons: { [string]: Weapon } = {
 			BoltClose = { id = 9119718255, volume = 0.6 },
 			ClipIn = { id = 9117396156, volume = 0.6 },
 		},
-		eject = { "Round3" }, -- a fired case punched out of the gate (the gate's chamber's round as the template)
+		eject = { "Casing" }, -- a fired case punched out of the gate (the hidden template in the gate's chamber)
 		bolt = { aim = 0, ready = 0 }, -- (no bolt: nothing to work by hand)
 		reload = { knob = { 0, 0, 0 }, clipTop = { 0.033, 0.0236, 0.07 }, entry = 0, body = 0, firstPerson = 0 },
 		-- aimed in both hands steadier, at the hip in one hand wilder; still under a rifle's (scale 1) either way
