@@ -64,11 +64,13 @@ local Assets = {
 			description = "Carcano M91 long rifle, the olive team's default (master: assets/weapons/olive/rifle_m91.blend). Rigged from Config/Weapons.",
 		},
 		pistol_nagant = {
-			-- v3: the chambers drilled through the cylinder and lined dark (an empty chamber is a hole), the rounds the
-			-- 7.62x38R of tools/blender/weapons/pistol_ammo.py (Round<k> heads and crimped mouths + Bullet<k> noses),
-			-- hidden Cartridge and Casing templates for the gate (v2 136927059301419: the cylinder's faces fixed, the grip
-			-- two flat wood panels on a slimmer, rounded frame, a round per chamber filling its mouth; v1 100351614666603)
-			id = 80228872124161,
+			-- v4: the rounds and their chambers 0.75 of real size (user 2026-10-28: "extremely cramped in their wheel");
+			-- v3 80228872124161: the chambers drilled through the cylinder and lined dark (an empty chamber is a hole), the
+			-- rounds the 7.62x38R of tools/blender/weapons/pistol_ammo.py (Round<k> heads and crimped mouths + Bullet<k>
+			-- noses), hidden Cartridge and Casing templates for the gate (v2 136927059301419: the cylinder's faces fixed,
+			-- the grip two flat wood panels on a slimmer, rounded frame, a round per chamber filling its mouth; v1
+			-- 100351614666603)
+			id = 130059727553953,
 			category = "Weapons",
 			folder = "Olive/Pistols",
 			source = "assets/weapons/olive/pistol_nagant.fbx",
@@ -240,9 +242,10 @@ local Assets = {
 			description = "The shared rifle round at the rifles' modelled scale: a loaded round (Case + Bullet, case head at the Origin, pointing -Z) and a spent Casing beside it (x +0.05).",
 		},
 		-- the pistol cartridges (user 2026-10-28: "detailed pistol and revolver shell", for the models and the ammo
-		-- display), one per Engineer pistol, the same parts as ammo_rifle; real size (the pistols' modelled scale)
+		-- display), one per Engineer pistol, the same parts as ammo_rifle; real size (the pistols' modelled scale), the
+		-- revolvers' 0.75 of it (user 2026-10-28: "extremely cramped in their wheel"; pistol_ammo.py FIT)
 		ammo_nagant = {
-			id = 78265810704735,
+			id = 111719173819015, -- v2: 0.75 size (v1 78265810704735)
 			category = "Weapons",
 			folder = "Shared/Ammo",
 			source = "assets/weapons/shared/ammo_nagant.fbx",
@@ -250,7 +253,7 @@ local Assets = {
 			description = "7.62x38R Nagant round (the Nagant M1895's): a long rimmed case crimped round a copper bullet seated wholly inside (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05, its mouth open, primer struck).",
 		},
 		ammo_webley = {
-			id = 134106576623387,
+			id = 93761596750031, -- v2: 0.75 size (v1 134106576623387)
 			category = "Weapons",
 			folder = "Shared/Ammo",
 			source = "assets/weapons/shared/ammo_webley.fbx",
