@@ -216,6 +216,32 @@ local Assets = {
 			generator = "tools/blender/weapons/ammo.py",
 			description = "The shared rifle round at the rifles' modelled scale: a loaded round (Case + Bullet, case head at the Origin, pointing -Z) and a spent Casing beside it (x +0.05).",
 		},
+		-- the pistol cartridges (user 2026-10-28: "detailed pistol and revolver shell", for the models and the ammo
+		-- display), one per Engineer pistol, the same parts as ammo_rifle; real size (the pistols' modelled scale)
+		ammo_nagant = {
+			id = 78265810704735,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_nagant.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = "7.62x38R Nagant round (the Nagant M1895's): a long rimmed case crimped round a copper bullet seated wholly inside (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05, its mouth open, primer struck).",
+		},
+		ammo_webley = {
+			id = 134106576623387,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_webley.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = ".455 Webley Mk II round (the Webley Mk VI's): a short case with a wide rim and a lead round-nosed bullet (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05).",
+		},
+		ammo_mauser = {
+			id = 133218514196898,
+			category = "Weapons",
+			folder = "Shared/Ammo",
+			source = "assets/weapons/shared/ammo_mauser.fbx",
+			generator = "tools/blender/weapons/pistol_ammo.py",
+			description = "7.63x25 Mauser round (the C96's): a rimless bottlenecked case with an extraction groove and a copper round-nosed bullet (Case + Bullet, case head at the Origin, pointing -Z) and a fired Casing beside it (x +0.05).",
+		},
 		-- the field gun's fixed round (2026-10-20, docs/MILESTONES.md A2): carried by the gunner while loading
 		-- (Config/Artillery.Load), colored from Config/Palette.Artillery by mesh name
 		round_qf18 = {
