@@ -80,7 +80,7 @@ end
 local recoil =
 	{ pitch = spring(), yaw = spring(), back = spring(), camera = spring(), roll = spring(), turn = spring() }
 local heat, heatAt = 0, 0
-function Sway.kick(spec: ({ scale: number, build: number, max: number, cool: number } | number)?)
+function Sway.kick(spec: ({ scale: number, build: number, max: number, cool: number, hip: number? } | number)?)
 	local R = Fire.Recoil
 	local k = math.sqrt(R.stiffness)
 	local m = 1
@@ -92,6 +92,10 @@ function Sway.kick(spec: ({ scale: number, build: number, max: number, cool: num
 		heatAt = now
 		m = spec.scale * math.min(spec.max, 1 + spec.build * heat)
 		heat += 1
+		local character = Players.LocalPlayer.Character
+		if spec.hip and not (character and character:GetAttribute("Aiming") == true) then
+			m *= spec.hip
+		end
 	end
 	local wild = if type(spec) == "table" then m - 1 else 0 -- past a plain kick: the view rolls and swings aside
 	recoil.pitch.v += R.pitch * k * m
@@ -175,9 +179,11 @@ function Sway.start()
 		local weapon = Held.weapon(character)
 		local spec = weapon and (W[weapon.name] :: any)
 		local class = spec and spec.class
-		local weight = spec and spec.weight or class and Cfg.Classes[class] or 1 -- (the gun's own weight first, W2)
-		local strideK = spec and spec.stride or 1 -- the gun's own extra sway on the move (Config/Weapons `stride`)
 		local aiming = character:GetAttribute("Aiming") == true
+		local weight = spec and spec.weight -- (the gun's own weight first, W2)
+			or class and (not aiming and Cfg.Hip[class] or Cfg.Classes[class])
+			or 1
+		local strideK = spec and spec.stride or 1 -- the gun's own extra sway on the move (Config/Weapons `stride`)
 		local A = Cfg.Aim
 		local function share(k: string): number
 			return if aiming then (A :: any)[k] else 1
