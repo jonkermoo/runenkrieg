@@ -192,7 +192,7 @@ export type Gun = {
 -- round on it outside the can its own case, bullet and link (`Rounds01` / `Bullets01` / `Links01` next into the feed;
 -- user 2026-10-29: "make it go empty as we go empty", "make it attached to where its fed": src/client/Artillery bends
 -- them with the gun); its mount names and colours (the links dark steel)
-local BELT = 11
+local BELT = 12 -- (the last dipping into the can's mouth: user 2026-10-29, "the last bullet loop isnt feeding")
 local function beltOf(names: { string }, colors: { [string]: { number } }): ({ string }, { [string]: { number } })
 	for i = 1, BELT do
 		local case, tip, link =

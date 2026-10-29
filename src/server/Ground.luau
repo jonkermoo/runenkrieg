@@ -87,10 +87,20 @@ function Ground.crater(position: Vector3, plan: any, c: any)
 	if c.Refill and ok then
 		Ground.rimFill(position, region, plan.mouth, outer, c.Refill.rimFill)
 	end
+	-- (no earth thrown onto guarded ground either: a ball reaching into it is left out; user 2026-10-29: "dont let
+	-- terrain enter the gun area when hit with explosives")
+	local function reachesGuard(at: Vector3, r: number): boolean
+		for _, d in { Vector3.zero, Vector3.xAxis * r, -Vector3.xAxis * r, Vector3.zAxis * r, -Vector3.zAxis * r } do
+			if guarded(at + d) then
+				return true
+			end
+		end
+		return false
+	end
 	for _, b in plan.rim do
 		local over = position + Vector3.new(b.dx, plan.radius, b.dz)
 		local hit = workspace:Raycast(over, Vector3.yAxis * -plan.radius * 3, terrainOnly)
-		if hit and not nearTrench(hit.Position, b.radius) then
+		if hit and not nearTrench(hit.Position, b.radius) and not reachesGuard(hit.Position, b.radius) then
 			terrain:FillBall(hit.Position - Vector3.yAxis * b.sink, b.radius, churnTo)
 		end
 	end
