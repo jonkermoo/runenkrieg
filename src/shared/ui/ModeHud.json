@@ -1,0 +1,113 @@
+{
+	"name": "ModeHud",
+	"_doc": "The game modes' top bar (src/client/ModeHud; Rules/ModeHud, Config/ModeHud; user 2026-10-29, option B of the mode HUD drafts, the front bar: \"use the basic font ... remove the capturing bar completely. just make the diamond on the top show the progress\"). FrontBar, Territory Push (src/server/Frontline): the two nations at the ends (flag and name; the viewer's side always on the left), a bar filled with each side's team rim colour from its end to the front (the share of the chain it holds, the fought-over sector's control counting), a white tick at the front, and one diamond per sector on the bar (Pin, PinHQ for the HQs: the code clones them per sector, evenly spaced, with a PinLabel under each). A diamond fills from its bottom tip in the colour of the side its control leans to, as far as the control goes (the flag's height on the pole); its edge turns pinContested on even numbers in the zone, pinAttacked when its holder is outnumbered there. Result: the winner during the results. ZoneBar, Point Capture (FFA, src/server/ZoneMatch): the match clock and your score at the ends, the bar the match time left, one diamond for the live zone (your team's rim when you hold it, zoneTheirs when someone else does, flashing pinContested when contested), the zone's state under it, then the move warning; Board, the top three, at the top right. No panels. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours: Config/Palette UI.Hud names. One font, the game's basic font. Desktop only.",
+	"theme": {
+		"palette": "Hud",
+		"scale": {
+			"referenceHeight": 800,
+			"min": 0.65,
+			"max": 1.25
+		},
+		"fitMargin": 16,
+		"minTap": 32,
+		"minText": 12,
+		"textStroke": 0,
+		"outline": 2,
+		"corner": 2,
+		"scrollBar": 4,
+		"fonts": {
+			"body": {
+				"family": "SourceSansPro",
+				"weight": "Bold",
+				"file": "SourceSansPro-Bold.ttf"
+			}
+		}
+	},
+	"preview": {
+		"leftName": "KATZMARK",
+		"rightName": "KATZMARK",
+		"pin": "HQ",
+		"result": "KATZMARK HOLDS THE LINE",
+		"clock": "10:00",
+		"score": "SCORE 1288",
+		"zone": "HELD BY ABCDEFGHIJKLMNOPQRST",
+		"warning": "THE ZONE MOVES IN 10",
+		"boardTitle": "TOP SCORES",
+		"rank1": "1. ABCDEFGHIJKLMNOPQRST 1288",
+		"rank2": "2. ABCDEFGHIJKLMNOPQRST 1288",
+		"rank3": "3. ABCDEFGHIJKLMNOPQRST 1288"
+	},
+	"root": {
+		"id": "Root",
+		"kind": "group",
+		"children": [
+			{
+				"id": "FrontBar",
+				"kind": "group",
+				"anchor": [0.5, 0],
+				"pos": [0.5, 0, 0, 10],
+				"size": [0, 560, 0, 100],
+				"children": [
+					{ "id": "LeftFlag", "kind": "image", "color": "pinEmpty", "pos": [0, 0, 0, 0], "size": [0, 34, 0, 22] },
+					{ "id": "LeftName", "kind": "label", "font": "body", "bind": "leftName", "text": "", "textSize": 17, "textColor": "readout", "stroke": "modeTrack", "align": "left", "pos": [0, 42, 0, 0], "size": [0, 200, 0, 22] },
+					{ "id": "RightName", "kind": "label", "font": "body", "bind": "rightName", "text": "", "textSize": 17, "textColor": "readout", "stroke": "modeTrack", "align": "right", "pos": [1, -242, 0, 0], "size": [0, 200, 0, 22] },
+					{ "id": "RightFlag", "kind": "image", "color": "pinEmpty", "pos": [1, -34, 0, 0], "size": [0, 34, 0, 22] },
+					{
+						"id": "Track",
+						"kind": "panel",
+						"color": "modeTrack",
+						"pos": [0, 0, 0, 34],
+						"size": [1, 0, 0, 12],
+						"children": [
+							{ "id": "LeftFill", "kind": "panel", "color": "pinEmpty", "pos": [0, 0, 0, 0], "size": [0.5, 0, 1, 0] },
+							{ "id": "RightFill", "kind": "panel", "color": "pinEmpty", "anchor": [1, 0], "pos": [1, 0, 0, 0], "size": [0.5, 0, 1, 0] },
+							{ "id": "FrontTick", "kind": "panel", "overlay": true, "color": "readout", "anchor": [0.5, 0.5], "pos": [0.5, 0, 0.5, 0], "size": [0, 4, 0, 26] }
+						]
+					},
+					{ "id": "Pin", "kind": "panel", "shape": "diamond", "overlay": true, "color": "pinEmpty", "anchor": [0.5, 0.5], "pos": [0.3, 0, 0, 40], "size": [0, 24, 0, 24] },
+					{ "id": "PinHQ", "kind": "panel", "shape": "diamond", "overlay": true, "color": "pinEmpty", "anchor": [0.5, 0.5], "pos": [0.1, 0, 0, 40], "size": [0, 30, 0, 30] },
+					{ "id": "PinLabel", "kind": "label", "font": "body", "bind": "pin", "text": "", "textSize": 15, "textColor": "readout", "stroke": "modeTrack", "anchor": [0.5, 0], "pos": [0.1, 0, 0, 57], "size": [0, 40, 0, 18] },
+					{ "id": "Result", "kind": "label", "font": "body", "bind": "result", "text": "", "textSize": 20, "textColor": "count", "stroke": "modeTrack", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 76], "size": [1, 0, 0, 24] }
+				]
+			},
+			{
+				"id": "ZoneBar",
+				"kind": "group",
+				"overlay": true,
+				"anchor": [0.5, 0],
+				"pos": [0.5, 0, 0, 10],
+				"size": [0, 440, 0, 100],
+				"children": [
+					{ "id": "Clock", "kind": "label", "font": "body", "bind": "clock", "text": "", "textSize": 18, "textColor": "readout", "stroke": "modeTrack", "align": "left", "pos": [0, 0, 0, 0], "size": [0, 120, 0, 24] },
+					{ "id": "Score", "kind": "label", "font": "body", "bind": "score", "text": "", "textSize": 18, "textColor": "count", "stroke": "modeTrack", "align": "right", "pos": [1, -160, 0, 0], "size": [0, 160, 0, 24] },
+					{
+						"id": "ZoneTrack",
+						"kind": "panel",
+						"color": "modeTrack",
+						"pos": [0, 0, 0, 34],
+						"size": [1, 0, 0, 12],
+						"children": [
+							{ "id": "TimeFill", "kind": "panel", "color": "readout", "pos": [0, 0, 0, 0], "size": [0.6, 0, 1, 0] }
+						]
+					},
+					{ "id": "ZonePin", "kind": "panel", "shape": "diamond", "overlay": true, "color": "pinEmpty", "anchor": [0.5, 0.5], "pos": [0.5, 0, 0, 40], "size": [0, 30, 0, 30] },
+					{ "id": "ZoneState", "kind": "label", "font": "body", "bind": "zone", "text": "", "textSize": 17, "textColor": "readout", "stroke": "modeTrack", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 58], "size": [1, 0, 0, 22] },
+					{ "id": "Warning", "kind": "label", "font": "body", "bind": "warning", "text": "", "textSize": 15, "textColor": "countLow", "stroke": "modeTrack", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 80], "size": [1, 0, 0, 20] }
+				]
+			},
+			{
+				"id": "Board",
+				"kind": "group",
+				"anchor": [1, 0],
+				"pos": [1, -16, 0, 10],
+				"size": [0, 270, 0, 88],
+				"children": [
+					{ "id": "BoardTitle", "kind": "label", "font": "body", "bind": "boardTitle", "text": "", "textSize": 15, "textColor": "count", "stroke": "modeTrack", "align": "right", "pos": [0, 0, 0, 0], "size": [1, 0, 0, 20] },
+					{ "id": "Rank1", "kind": "label", "font": "body", "bind": "rank1", "text": "", "textSize": 15, "textColor": "readout", "stroke": "modeTrack", "align": "right", "pos": [0, 0, 0, 22], "size": [1, 0, 0, 20] },
+					{ "id": "Rank2", "kind": "label", "font": "body", "bind": "rank2", "text": "", "textSize": 15, "textColor": "readout", "stroke": "modeTrack", "align": "right", "pos": [0, 0, 0, 44], "size": [1, 0, 0, 20] },
+					{ "id": "Rank3", "kind": "label", "font": "body", "bind": "rank3", "text": "", "textSize": 15, "textColor": "readout", "stroke": "modeTrack", "align": "right", "pos": [0, 0, 0, 66], "size": [1, 0, 0, 20] }
+				]
+			}
+		]
+	}
+}

@@ -136,6 +136,7 @@ local DevTools = {
 				"BuildHud",
 				"BuildPlanIcon",
 				"ArtilleryMarker",
+				"ModeHud",
 			},
 		},
 		-- "Server" rows (user 2026-10-27: "make a section where we can make an admin server ... a FFA server ... a normal
