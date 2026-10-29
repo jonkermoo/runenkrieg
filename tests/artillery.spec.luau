@@ -386,6 +386,18 @@ return {
 			"the belt's rounds still bend to the feed"
 		)
 	end,
+	["the MG throws off a spent case and a link, from belt parts it has, each with a clink"] = function()
+		local Cases = require("../src/shared/Config/Cases")
+		local MG = C.Guns.mg08
+		local spent = (MG.mg :: any).spent
+		assert(spent.case and spent.link)
+		for key, piece in spent do
+			assert(table.find(MG.mount, piece.part), key)
+			assert(Cases.Sounds[piece.sound] and #Cases.Sounds[piece.sound].variants > 0, key)
+		end
+		assert(spent.case.push[2] < 0, "the M2's case drops out of the bottom")
+		assert(spent.link.push[1] < 0, "fed from the right, its links go out of the left")
+	end,
 	["the MG and the field gun warm and kick their gunner, the howitzer neither"] = function()
 		for _, key in { "mg08", "artillery_qf18" } do
 			local g = C.Guns[key]

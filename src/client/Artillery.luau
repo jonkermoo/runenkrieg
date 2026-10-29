@@ -48,6 +48,7 @@ local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
 local ArtilleryFx = require(script.Parent.ArtilleryFx)
 local BarrelHeat = require(script.Parent.BarrelHeat)
 local CameraShake = require(script.Parent.CameraShake)
+local CaseDrop = require(script.Parent.CaseDrop)
 local GunFx = require(script.Parent.GunFx)
 local GunnerKick = require(script.Parent.GunnerKick)
 local Settings = require(script.Parent.Settings)
@@ -796,6 +797,7 @@ function Artillery.start()
 		SoundFx.preload(gun.sound)
 		if gun.mg then
 			SoundFx.preload({ Shot = gun.mg.shot, Rattle = gun.mg.reload.sound })
+			CaseDrop.preload()
 			local ids = { gun.mg.reload.animation }
 			for _, id in gun.mg.stand do
 				table.insert(ids, id)
@@ -1271,6 +1273,20 @@ function Artillery.start()
 			local p = poses[model]
 			if p then
 				p.fedAt = now()
+				-- the spent case and its link thrown off (user 2026-10-29: "shell case droppings and sounds"), from where
+				-- they leave the receiver as it lies now (the cradle's frame, its part at rest)
+				local cradle = p.named.Cradle
+				local rest = cradle and p.rest[cradle]
+				if cradle and rest then
+					local frame = cradle.CFrame * rest:Inverse()
+					for _, piece in mg.spent do
+						local template = p.named[piece.part]
+						if template then
+							local at = CFrame.new(frame * v3(piece.at)) * (frame * p.rest[template]).Rotation
+							CaseDrop.drop(template, at, frame:VectorToWorldSpace(v3(piece.push)), piece.sound, model)
+						end
+					end
+				end
 			end
 			BarrelHeat.shot(model, gun, 1)
 			GunnerKick.kick(gunnerOf(model), gun.kick)

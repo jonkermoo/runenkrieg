@@ -154,6 +154,10 @@ export type Gun = {
 		-- muzzle (src/client/CameraShake)
 		shake: number,
 		shakeReach: number,
+		-- what each shot throws off (src/client/CaseDrop, Config/Cases): `case` the spent case (a copy of Rounds01), `link`
+		-- its belt link (Links01), each from `at` (gun space, riding the cradle) at `push` studs/s (gun space: +X right,
+		-- +Y up, +Z back), clinking as `sound`
+		spent: { [string]: { part: string, at: { number }, push: { number }, sound: string } },
 	}?,
 	-- its barrel warming as it fires (src/client/BarrelHeat, Heat below; user 2026-10-29: "make the barrel get warmer
 	-- from the tip as you hold it (steam a little too)"): each shot adds `per` to its heat (0 cold .. 1), losing `cool`
@@ -1067,6 +1071,12 @@ local Artillery = {
 				-- (user 2026-10-29: "some camera shake too"; small: 7.5 kicks a second, no fight with aiming)
 				shake = 0.35,
 				shakeReach = 25,
+				-- (user 2026-10-29: "shell case droppings and sounds"): fed from the right, the M2 drops its spent case
+				-- straight down out of the bottom of the receiver and throws the empty link out of its left side
+				spent = {
+					case = { part = "Rounds01", at = { 0, 0.82, 0.46 }, push = { 0, -6, 1 }, sound = "Heavy" },
+					link = { part = "Links01", at = { -0.34, 1.39, 0.45 }, push = { -5, 1.5, 0.5 }, sound = "Link" },
+				},
 			},
 			camera = { side = 0, up = 1.8, back = 4.5, yaw = 0, pitch = 0, follow = 0.5, fov = 70 },
 			-- (the gunmetal body and the belt, not the team's paint: the tripod and its head take it)
