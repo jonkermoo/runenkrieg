@@ -288,6 +288,9 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 	local lastYaw = { yaw = math.huge, at = -math.huge }
 	local aim = newAim()
 	local weight = 0 -- the turn onto the crosshair's share now (Aim3P.States, eased)
+	-- the share of the camera's turns the weapon takes, eased to 0 through a reload (src/client/GunFx "Reloading"): the
+	-- reload poses the gun (a pistol raised in the left hand, its top to the right hand), as first person holds still
+	local free = 1
 	local distance = AIM.Fallback -- how far along the crosshair's line the point is (eased)
 
 	count += 1
@@ -304,7 +307,10 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 			else 0
 		angle += (Rules.torso(pitch, cfg.Torso, cfg.TorsoMax) - angle) * Rules.ease(cfg.Smoothing, dt)
 		local state = character:GetAttribute("Hold")
-		local follow = if Held.weapon(character) and type(state) == "string" then CameraCfg.Follow[state] or 0 else 0
+		free += ((if character:GetAttribute("Reloading") == true then 0 else 1) - free) * Rules.ease(AIM.Ease, dt)
+		local follow = if Held.weapon(character) and type(state) == "string"
+			then (CameraCfg.Follow[state] or 0) * free
+			else 0
 		-- the head toward the look (straight ahead dead or ragdolled)
 		local want = 0
 		if camera and humanoid.Health > 0 and character:GetAttribute("Ragdolled") ~= true then
@@ -318,7 +324,7 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 				and type(mode) == "string"
 				and AIM.Modes[mode]
 				and type(state) == "string"
-			then (AIM.States :: any)[state] or 0
+			then ((AIM.States :: any)[state] or 0) * free
 			else 0
 		weight += (share - weight) * Rules.ease(AIM.Ease, dt)
 		local point: Vector3? = nil
