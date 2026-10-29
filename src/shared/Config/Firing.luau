@@ -143,21 +143,9 @@ local Firing = {
 		Hole = { color = { 24, 22, 20 }, size = 0.16, life = 30, max = 60 },
 		-- a spent case thrown from the ejection port (studs/s, gun space: out to the right, up, back), flying under
 		-- real gravity (9.8 m/s^2 = 27.5 studs/s^2 at 0.357 m per stud; Roblox's 196 is ~7x that, which dropped the case
-		-- like a stone, user 2026-10-12) for `flight` seconds, then the world's. A spent case then lies where it fell
-		-- (user 2026-10-29: "add shell case droppings"): `rest` seconds, still (anchored) after `settle`, the oldest
-		-- going once more than `max` lie about; anything else thrown off the gun (a clip, a box) goes after `life`.
-		Casing = {
-			out = 9,
-			up = 8,
-			back = 1.5,
-			spin = 25,
-			life = 4,
-			gravity = 27.5,
-			flight = 1.2,
-			rest = 30,
-			settle = 3,
-			max = 60,
-		},
+		-- like a stone, user 2026-10-12) for `flight` seconds, then the world's. The case itself is flown, clinks and lies
+		-- as Config/Cases says (src/client/CaseDrop): these are its throw; the rest (a clip, a box) takes them all.
+		Casing = { out = 9, up = 8, back = 1.5, spin = 25, life = 4, gravity = 27.5, flight = 1.2 },
 		TargetFlash = { color = { 255, 255, 255 }, time = 0.15 },
 		-- What a bullet throws up where it lands, by surface (src/client/Impacts; user 2026-10-17), local to each client:
 		-- `count` bits of `size` studs (a splinter is `long` x that), thrown out of the surface at `speed` studs/s plus
@@ -216,52 +204,6 @@ local Firing = {
 		},
 	},
 	-- distance falloff (Config/Audio): the shot is a Gunshot, the far report a Report, the rest of the action Mechanism
-
-	-- A spent case landing (src/client/GunFx; user 2026-10-29: "shell case droppings and sounds ... accordingly to what
-	-- kind of shell they use"): one of `sounds` where it first touches down, at its gun's `casing` (Config/Weapons:
-	-- pitch, volume, eq for the cartridge's case) and the ground's `surfaces` (by `materials`, Rules/Casing), on falloff
-	-- profile Casing. A touch slower than `still` studs/s is no landing (it is rolling).
-	Cases = {
-		-- Pro Sound Effects "Bullet Drops 1 / 9 / 12 / 14 / 6" (a .45 case dropped on concrete, single clinks, 6 with a
-		-- bounce), from `start` just before the first hit to `stop` once rung out (measured 2026-10-29)
-		sounds = {
-			{ id = 9113630936, volume = 1.4, start = 0.17, stop = 0.8, fade = 0.3 },
-			{ id = 9113631437, volume = 1.4, start = 0.14, stop = 0.45, fade = 0.15 },
-			{ id = 9113631610, volume = 1.4, start = 0.12, stop = 0.95, fade = 0.3 },
-			{ id = 9113631717, volume = 1.4, start = 0.13, stop = 0.95, fade = 0.3 },
-			{ id = 9113631209, volume = 1.4, start = 0.2, stop = 0.9, fade = 0.3 },
-		},
-		-- what it lands on: brass on dirt or grass is a dull tick (the highs soaked up), on wood a knock, on stone a
-		-- ring, on metal a brighter one; nothing in water
-		surfaces = {
-			Soft = { volume = 0.35, eq = { 0, -6, -18 } },
-			Wood = { volume = 0.7, eq = { 2, -2, -8 } },
-			Hard = { volume = 1, eq = { 0, 0, 0 } },
-			Metal = { volume = 1.1, eq = { 0, 0, 3 } },
-			Water = { volume = 0, eq = { 0, 0, 0 } },
-		},
-		materials = {
-			Grass = "Soft",
-			LeafyGrass = "Soft",
-			Ground = "Soft",
-			Mud = "Soft",
-			Sand = "Soft",
-			Snow = "Soft",
-			Salt = "Soft",
-			Fabric = "Soft",
-			Carpet = "Soft",
-			Wood = "Wood",
-			WoodPlanks = "Wood",
-			Cardboard = "Wood",
-			Metal = "Metal",
-			CorrodedMetal = "Metal",
-			DiamondPlate = "Metal",
-			Foil = "Metal",
-			Water = "Water",
-		},
-		default = "Hard", -- (stone, brick, concrete, cobbles, rock, ice, glass, plastic)
-		still = 2,
-	},
 }
 
 return table.freeze(Firing)

@@ -22,7 +22,7 @@ local Audio = {
 		Rattle = { ref = 4, max = 100 },
 		-- footsteps (src/client/Footsteps): full within ~1 m, heard to ~20 m
 		Footstep = { ref = 3, max = 60 },
-		-- a spent case landing (Config/Firing.Cases): a small clink, full within ~0.7 m, heard to ~15 m
+		-- a spent case landing (Config/Cases.Sounds.Cartridge): a small clink, full within ~0.7 m, heard to ~15 m
 		Casing = { ref = 2, max = 45 },
 		-- a thrown grenade's thunk where it lands (Config/Grenades.Thunk): full within ~4 m, heard to ~110 m, so one that
 		-- lands a full throw off (~80-100 studs) is still heard, quietly (on Footstep it was silent past 60 studs, user

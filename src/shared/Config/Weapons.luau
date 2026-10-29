@@ -195,8 +195,8 @@ export type Weapon = {
 	-- frequency), so each gun's is its charge against the recording's cartridge, nudged for its barrel and its
 	-- bullet's crack (src/client/GunFx, src/client/ShotAudio).
 	report: { pitch: number, eq: { number } }?,
-	-- Its spent case landing (Config/Firing.Cases: a .45 case's clink, src/client/GunFx): `pitch` for the case (a
-	-- longer, heavier case rings lower), `volume` a share of the sound's, `eq` { low, mid, high } dB.
+	-- Its spent case landing (Config/Cases.Sounds.Cartridge, a .45 case's clink; src/client/CaseDrop): `pitch` for
+	-- the case (a longer, heavier case rings lower), `volume` a share of the sound's, `eq` { low, mid, high } dB.
 	casing: { pitch: number, volume: number, eq: { number } }?,
 	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
 	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot);

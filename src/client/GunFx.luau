@@ -18,10 +18,9 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
 local W = require(Shared.Config.Weapons)
-local CasingRules = require(Shared.Rules.Casing)
 local Audio = require(script.Parent.Audio)
+local CaseDrop = require(script.Parent.CaseDrop)
 local Impacts = require(script.Parent.Impacts)
-local SoundFx = require(script.Parent.SoundFx)
 
 local GunFx = {}
 
@@ -80,63 +79,6 @@ function GunFx.visible(character: Model): BasePart?
 	return guns[1]
 end
 
--- ---- spent cases on the ground (Config/Firing.Effects.Casing, .Cases) ----
-local lying: { BasePart } = {}
-local caseSounds: { { [string]: any } } = {}
-for _, e in Cfg.Cases.sounds do
-	local copy = table.clone(e) :: { [string]: any }
-	copy.profile = "Casing"
-	table.insert(caseSounds, copy)
-end
-
--- A spent case of `weapon`'s (its Config/Weapons `casing`) clinks where it first lands, as the ground it hit sounds;
--- it then lies there, still after a while, the oldest going once too many lie about. `owner`: the soldier (or the
--- viewmodel) it came from, which it doesn't land on.
-local function lie(copy: BasePart, weapon: string?, owner: Instance?)
-	local c = E.Casing
-	local case = weapon and W[weapon] and W[weapon].casing
-	copy.CanTouch = true
-	local landed = false
-	copy.Touched:Connect(function(hit: BasePart)
-		if landed or hit:IsDescendantOf(fx()) or (owner and hit:IsDescendantOf(owner)) then
-			return
-		end
-		if not CasingRules.lands(copy.AssemblyLinearVelocity.Magnitude, Cfg.Cases) then
-			return
-		end
-		landed = true
-		if not case or (owner and owner:GetAttribute("Muted") == true) then
-			return
-		end
-		-- the ground under it (a part's material, or the terrain's there)
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Include
-		params.FilterDescendantsInstances = { hit }
-		local r = workspace:Raycast(copy.Position + Vector3.yAxis, Vector3.new(0, -3, 0), params)
-		local material = if r then r.Material.Name else hit.Material.Name
-		local volume, pitch, eq = CasingRules.sound(case, CasingRules.surface(material, Cfg.Cases), Cfg.Cases)
-		if volume > 0 then
-			SoundFx.play(
-				caseSounds[math.random(#caseSounds)],
-				copy.Position,
-				nil,
-				{ volume = volume, pitch = pitch, eq = eq }
-			)
-		end
-	end)
-	task.delay(c.settle, function()
-		if copy.Parent then
-			copy.Anchored, copy.CanTouch = true, false
-		end
-	end)
-	Debris:AddItem(copy, c.rest)
-	table.insert(lying, copy)
-	while #lying > c.max do
-		local old = table.remove(lying, 1) :: BasePart
-		old:Destroy()
-	end
-end
-
 -- ---- sounds: made once per gun and reused (a Sound created when needed starts ~0.33 s late, KNOWN_TRAPS) ----
 function GunFx.preload()
 	local list = {}
@@ -151,7 +93,7 @@ function GunFx.preload()
 	task.spawn(function()
 		ContentProvider:PreloadAsync(list)
 	end)
-	SoundFx.preload(caseSounds)
+	CaseDrop.preload()
 end
 
 -- The weapon's own sound (Config/Weapons `sounds`, the Gun part's "Weapon" attribute) or Config/Firing's.
@@ -457,7 +399,7 @@ end
 
 -- Throws a loose copy of a part off the gun (a spent case out of the port, a stripper clip off the guides): real
 -- gravity for its flight (a force holding up the rest of Roblox's), gone after a while.
-local function fling(copy: BasePart, gun: BasePart, at: CFrame, push: Vector3, life: number?)
+local function fling(copy: BasePart, gun: BasePart, at: CFrame, push: Vector3)
 	local c = E.Casing
 	copy:ClearAllChildren()
 	copy.Transparency, copy.LocalTransparencyModifier = 0, 0
@@ -476,11 +418,12 @@ local function fling(copy: BasePart, gun: BasePart, at: CFrame, push: Vector3, l
 	lift.Force = Vector3.new(0, copy.AssemblyMass * (workspace.Gravity - c.gravity), 0)
 	lift.Parent = copy
 	Debris:AddItem(lift, c.flight)
-	Debris:AddItem(copy, life or c.life)
+	Debris:AddItem(copy, c.life)
 end
 
--- the weapon's spent case (Config/Weapons `eject`, else "Casing"): several parts go as one piece (a shell's hull
--- and its brass head), the rest welded to the first
+-- the weapon's spent case (Config/Weapons `eject`, else "Casing"), thrown by CaseDrop to clink as its cartridge's
+-- (`casing`) where it lands and lie there: several parts go as one piece (a shell's hull and its brass head), the rest
+-- welded to the first
 local function eject(gun: BasePart, weapon: string?)
 	local port = gun:FindFirstChild("Eject") :: Attachment?
 	local holder = gun.Parent
@@ -490,10 +433,20 @@ local function eject(gun: BasePart, weapon: string?)
 		return
 	end
 	local c = E.Casing
-	local copy = template:Clone()
-	local at = CFrame.new(port.WorldPosition) * template.CFrame.Rotation
-	fling(copy, gun, at, Vector3.new(c.out, c.up, c.back), c.rest)
-	lie(copy, weapon or gun:GetAttribute("Weapon") :: string?, holder.Parent)
+	local name = weapon or gun:GetAttribute("Weapon") :: string?
+	local case = name and W[name] and W[name].casing
+	local owner = holder.Parent
+	local muted = owner ~= nil and owner:GetAttribute("Muted") == true
+	local push = gun.CFrame:VectorToWorldSpace(Vector3.new(c.out, c.up, c.back))
+		+ (gun.AssemblyLinearVelocity or Vector3.zero)
+	local copy = CaseDrop.drop(
+		template,
+		CFrame.new(port.WorldPosition) * template.CFrame.Rotation,
+		push,
+		if case and not muted then "Cartridge" else nil,
+		owner,
+		case or { pitch = 1, volume = 1, eq = { 0, 0, 0 } }
+	)
 	for i = 2, #names do
 		local t = holder:FindFirstChild(names[i])
 		if t and t:IsA("BasePart") then
