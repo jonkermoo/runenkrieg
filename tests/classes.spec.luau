@@ -53,6 +53,15 @@ return {
 			end
 		end
 	end,
+	["the engineer carries its team's own pistol, a different one per team"] = function()
+		local seen = {}
+		for _, kitName in U.Teams do
+			local g = R.gear("Engineer", kitName, C.Defs, U.Kits, C.Gear)
+			assert(W[g.Primary].class == "Pistol", `{kitName}: {g.Primary} is a pistol`)
+			assert(not seen[g.Primary], `{kitName}: {g.Primary} is another team's too`)
+			seen[g.Primary] = true
+		end
+	end,
 	["the engineer wears its team's soft cap, no one else a soft one (user: a cap that isnt bullet proof)"] = function()
 		for _, kitName in U.Teams do
 			for key in C.Defs do
