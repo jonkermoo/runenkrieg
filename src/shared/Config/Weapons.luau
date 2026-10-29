@@ -739,29 +739,29 @@ local Weapons: { [string]: Weapon } = {
 		-- the pistols' shared one-handed holds (tools/animation/pistol.luau), the Nagant's until the C96's own are built
 		holdsOf = "pistol_nagant",
 		holds = {
-			ready = 122826523630532,
-			walk = 122434527067877,
-			carry = 80809330904226,
-			aim = 84038590960110,
-			equip = 97508888105841,
-			unequip = 112466043060467,
-			crouchReady = 135413534531837,
-			crouchWalk = 89344354850551,
-			crouchAim = 138258680788610,
-			tuck = 121383213037179,
-			crouchTuck = 96054684931143,
-			strike = 102049150363193,
+			ready = 122734081616814,
+			walk = 71643121446344,
+			carry = 116557274110559,
+			aim = 108492988788868,
+			equip = 84595517152311,
+			unequip = 112683570482910,
+			crouchReady = 88645341580231,
+			crouchWalk = 130971600896646,
+			crouchAim = 123369456405232,
+			tuck = 77568447824328,
+			crouchTuck = 116846619710706,
+			strike = 96817744569842,
 		},
 		firstPerson = {
-			ready = 119790724998685,
-			carry = 124991959930374,
-			aim = 107841258139965,
-			equip = 138219291439235,
-			unequip = 73304833142389,
-			aimIn = 78209593573590,
-			aimOut = 89028851215242,
-			tuck = 82304215695834,
-			strike = 83755555785006,
+			ready = 121568509879542,
+			carry = 98776105780688,
+			aim = 81575185196582,
+			equip = 78143731273282,
+			unequip = 94448790801507,
+			aimIn = 91420108888072,
+			aimOut = 78643133170604,
+			tuck = 76382794440045,
+			strike = 84573444859847,
 		},
 		-- the upright ring hammer stands in the bolt's way: pushed down flat under the bolt's grips (past 1) and,
 		-- once the bolt goes forward, held up by the sear at its rest; push from tools/blender/weapons/c96.py
@@ -791,8 +791,7 @@ local Weapons: { [string]: Weapon } = {
 				8.47,
 			},
 		},
-		-- aimed one-handed (tools/animation/pistol.luau): the sights at the right eye, the arm out level at the shoulder
-		shouldered = { 0.6, 1.45, -0.125 },
+		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
 		scale = { 3, 3, 2.5 }, -- as the revolvers: 0.81 -> 2.0 studs long, chunky in the 1-stud hand
 		-- put away: the pistols' shared hip holster (HOLSTER, below)
 		fullRange = 140, -- 50 m at 0.357 m per stud
@@ -806,7 +805,7 @@ local Weapons: { [string]: Weapon } = {
 			turn = 0,
 			travel = 0.1197,
 		},
-		recoil = { scale = 0.45, build = 0.25, max = 1.6, cool = 1.2 }, -- the least of the three pistols
+		recoil = { scale = 0.45, build = 0.25, max = 1.6, cool = 1.2, hip = 1.35 }, -- the least of the three pistols
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work by hand)
 		reload = {
 			knob = { 0.03, 0.1185, 0.114 }, -- the bolt's grooved grips behind the extension, right side, bolt closed
@@ -814,8 +813,8 @@ local Weapons: { [string]: Weapon } = {
 			entry = 0,
 			-- in the left hand, the right pulls the bolt's grips back, sets the clip and thumbs the rounds down, lets the
 			-- bolt go (tools/animation/c96_reload.luau)
-			body = 76022586336694,
-			firstPerson = 85901276424646,
+			body = 91504525443878,
+			firstPerson = 71082727761108,
 		},
 	},
 	rifle_g98 = {
