@@ -38,12 +38,18 @@ return {
 		assert(R.pin("East", -0.5, 1, 0).state == "Attacked")
 		assert(R.pin("East", -0.5, 0, 1).state == "Held", "defenders alone in their own zone")
 	end,
-	["zone line and look: the live zone's state as the viewer sees it"] = function()
+	["zone line: the live zone's state as the viewer sees it"] = function()
 		assert(R.zoneLine("Held", true, "Mira") == "HELD BY YOU")
 		assert(R.zoneLine("Held", false, "Mira_K") == "HELD BY MIRA_K")
 		assert(R.zoneLine("Contested", false, nil) == "CONTESTED")
 		assert(R.zoneLine(nil, false, nil) == "ZONE FREE" and R.zoneLine("Free", false, nil) == "ZONE FREE")
-		assert(R.zoneLook("Held", true) == "Mine" and R.zoneLook("Held", false) == "Theirs")
-		assert(R.zoneLook("Contested", false) == "Contested" and R.zoneLook("Free", false) == "Free")
+	end,
+	["leader line: the point leader and their score, the winner in the results"] = function()
+		assert(R.leaderLine("Mira_K", false, 18, false) == "LEADER: MIRA_K (18)")
+		assert(R.leaderLine("Mira_K", true, 18, false) == "LEADER: YOU (18)")
+		assert(R.leaderLine(nil, false, 0, false) == "NO LEADER YET")
+		assert(R.leaderLine("Mira_K", false, 40, true) == "MIRA_K WINS")
+		assert(R.leaderLine("Mira_K", true, 40, true) == "YOU WIN")
+		assert(R.leaderLine(nil, false, 0, true) == "NO WINNER")
 	end,
 }

@@ -9,10 +9,8 @@ local ModeHud = {
 	Fill = { min = 0.002, edge = 0.001 }, -- a diamond's fill: the least share drawn, the width of its hard edge
 	-- Territory Push's results line (Workspace.Frontline's Phase "Results"): with a winner, "<NATION> WINS"
 	NoWinner = "MATCH OVER",
-	-- Point Capture: the move warning, the results line ("<NAME> WINS"), how many names on the board
+	-- Point Capture: the move warning
 	Warning = "THE ZONE MOVES IN %d",
-	BoardTitle = "TOP SCORES",
-	BoardSize = 3,
 }
 
 return table.freeze(ModeHud)

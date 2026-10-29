@@ -393,13 +393,12 @@ local Palette = {
 			ready = { 150, 200, 110 },
 			-- the game modes' top bar (src/shared/ui/ModeHud.json, src/client/ModeHud): the bar's empty track, an empty
 			-- diamond and every diamond's edge, a contested sector's edge, an attacked one's; the sides' fills are the
-			-- teams' rims (Teams below); FFA: the live zone held by someone else
+			-- teams' rims (Teams below)
 			modeTrack = { 20, 21, 23 },
 			pinEmpty = { 34, 35, 38 },
 			pinEdge = { 10, 11, 12 },
 			pinContested = { 230, 160, 40 },
 			pinAttacked = { 220, 96, 70 },
-			zoneTheirs = { 196, 70, 58 },
 			-- the kit list (Config/Hud.Kit): the names and keys of the rows not in the hands, an empty row's name
 			kitName = { 168, 168, 158 },
 			kitKey = { 154, 154, 144 },

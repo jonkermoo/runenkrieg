@@ -62,14 +62,19 @@ function ModeHud.zoneLine(state: string?, holderIsMe: boolean, holderName: strin
 	return "ZONE FREE"
 end
 
--- The FFA diamond's look for the viewer: "Mine" | "Theirs" | "Contested" | "Free".
-function ModeHud.zoneLook(state: string?, holderIsMe: boolean): string
-	if state == "Held" then
-		return if holderIsMe then "Mine" else "Theirs"
-	elseif state == "Contested" then
-		return "Contested"
+-- Point Capture: the line under the clock naming the point leader (nil: nobody has a point yet) and their score; in the
+-- results, the winner.
+function ModeHud.leaderLine(name: string?, isMe: boolean, score: number, results: boolean): string
+	if results then
+		if isMe then
+			return "YOU WIN"
+		end
+		return if name then `{string.upper(name)} WINS` else "NO WINNER"
 	end
-	return "Free"
+	if not name then
+		return "NO LEADER YET"
+	end
+	return `LEADER: {if isMe then "YOU" else string.upper(name)} ({score})`
 end
 
 return ModeHud

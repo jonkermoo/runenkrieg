@@ -4,16 +4,21 @@
 --   Territory Push: Workspace's Frontline folder (src/server/Frontline: West / East teams, Phase, Winner; a child
 --     folder per sector with Index, Owner, Control and the West / East soldiers in its zone). The viewer's side is on
 --     the left; one diamond per sector, filled as far as its control goes in the colour of the side it leans to.
---   Point Capture: the zone marker on the Playtest map (src/server/ZoneMatch: Phase, EndsAt, State, Holder, MoveAt,
---     NextSpot, Winner) and each Player's ZoneScore.
+--   Point Capture (the server's Mode is FFA): the zone marker on the Playtest map (src/server/ZoneMatch: Phase,
+--     EndsAt, State, Holder, Leader, MoveAt, NextSpot, Winner) and the leader's ZoneScore: the clock centred, the point
+--     leader under it, the zone's state, the move warning (user 2026-10-29: "center the timer and remove the bar
+--     completely ... remove the top score and your score. just keep track of the score leader and display it"). The
+--     leader's glow is the server's (src/server/ZoneMatch, Config/ZoneMatch.Leader).
 -- Hidden when neither runs.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.ModeHud)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
+local ModesCfg = require(Shared.Config.Modes)
 local Palette = require(Shared.Config.Palette)
 local U = require(Shared.Config.Uniforms)
 local Map1 = require(Shared.Config.Maps.Map1)
@@ -69,9 +74,8 @@ local nodes: { [string]: GuiObject } = {}
 local binds: { [string]: TextLabel } = {}
 local frontPins: { Diamond } = {}
 local frontLabels: { TextLabel } = {}
-local zonePin: Diamond
 
--- One spec node (and its children) as an instance; templates (Pin, PinHQ, PinLabel, ZonePin) are kept unparented.
+-- One spec node (and its children) as an instance; templates (Pin, PinHQ, PinLabel) are kept unparented.
 local function make(n: any, parent: Instance?): GuiObject
 	local obj: GuiObject
 	if n.kind == "label" then
@@ -305,34 +309,24 @@ local function updateFront(folder: Instance, now: number)
 	end
 end
 
-local function updateZone(zone: Instance, now: number)
+local function updateZone(zone: Instance)
 	local me = Players.LocalPlayer
 	local serverNow = workspace:GetServerTimeNow()
 	local results = zone:GetAttribute("Phase") == "Results"
-	local left = ((zone:GetAttribute("EndsAt") :: number?) or serverNow) - serverNow
-	set("clock", ZoneRules.clock(left))
-	set("score", `SCORE {math.floor((me:GetAttribute(ZoneCfg.ScoreAttribute) :: number?) or 0)}`)
-	nodes.TimeFill.Size = UDim2.fromScale(if results then 0 else math.clamp(left / ZoneCfg.MatchSeconds, 0, 1), 1)
-	local state = zone:GetAttribute("State") :: string?
-	local holder = zone:GetAttribute("Holder") :: number?
-	local holderIsMe = holder == me.UserId
-	local holderPlayer = holder and Players:GetPlayerByUserId(holder)
-	local look = Rules.zoneLook(state, holderIsMe)
-	local flashOn = (now // Cfg.FlashSeconds) % 2 == 0
-	local d = zonePin
-	local color = if look == "Mine"
-		then teamRim(me.Character and me.Character:GetAttribute("Kit") :: string?)
-		elseif look == "Theirs" then tok("zoneTheirs")
-		elseif look == "Contested" and flashOn then tok("pinContested")
-		else tok("pinEmpty")
-	fillDiamond(d, if look == "Free" then 0 else 1, color)
+	set("clock", ZoneRules.clock(((zone:GetAttribute("EndsAt") :: number?) or serverNow) - serverNow))
+	-- the point leader (the winner during the results): "You" on their own screen
+	local id = zone:GetAttribute(if results then "Winner" else ZoneCfg.LeaderAttribute) :: number?
+	local p = id and Players:GetPlayerByUserId(id)
+	local score = p and math.floor(((p:GetAttribute(ZoneCfg.ScoreAttribute) :: number?) or 0) + 1e-6) or 0
+	set("leader", Rules.leaderLine(p and p.DisplayName, id ~= nil and id == me.UserId, score, results))
 	if results then
-		local winner = zone:GetAttribute("Winner") :: number?
-		local wp = winner and Players:GetPlayerByUserId(winner)
-		set("zone", if wp then `{string.upper(wp.Name)} WINS` else Cfg.NoWinner)
+		set("zone", "")
 		set("warning", "")
 	else
-		set("zone", Rules.zoneLine(state, holderIsMe, holderPlayer and holderPlayer.Name))
+		local state = zone:GetAttribute("State") :: string?
+		local holder = zone:GetAttribute("Holder") :: number?
+		local holderPlayer = holder and Players:GetPlayerByUserId(holder)
+		set("zone", Rules.zoneLine(state, holder == me.UserId, holderPlayer and holderPlayer.DisplayName))
 		local moveAt = zone:GetAttribute("MoveAt") :: number?
 		set(
 			"warning",
@@ -340,18 +334,6 @@ local function updateZone(zone: Instance, now: number)
 				then string.format(Cfg.Warning, math.max(0, math.ceil(moveAt - serverNow)))
 				else ""
 		)
-	end
-	-- the board
-	local scores = {}
-	for _, p in Players:GetPlayers() do
-		scores[p.UserId] = (p:GetAttribute(ZoneCfg.ScoreAttribute) :: number?) or 0
-	end
-	local ranking = ZoneRules.ranking(scores)
-	set("boardTitle", Cfg.BoardTitle)
-	for i = 1, Cfg.BoardSize do
-		local id = ranking[i]
-		local p = id and Players:GetPlayerByUserId(id)
-		set(`rank{i}`, if p then `{i}. {p.Name} {math.floor(scores[id])}` else "")
 	end
 end
 
@@ -364,12 +346,11 @@ function ModeHud.start()
 	gui.Enabled = false
 	local root = make(Spec.root, gui)
 	-- the templates come out of the tree: the code places its own
-	for _, id in { "Pin", "PinHQ", "PinLabel", "ZonePin" } do
+	for _, id in { "Pin", "PinHQ", "PinLabel" } do
 		nodes[id]:Destroy()
 		nodes[id] = nil :: any
 	end
 	binds.pin = nil
-	zonePin = diamond(find(Spec.root, "ZonePin"), nodes.ZoneBar, 0.5)
 	local scale = Instance.new("UIScale")
 	scale.Parent = root
 	local function rescale()
@@ -385,18 +366,26 @@ function ModeHud.start()
 			local folder = workspace:FindFirstChild(Cfg.FrontlineFolder)
 			local map = workspace:FindFirstChild(Playtest.name)
 			local zone = map and map:FindFirstChild(ZoneCfg.MarkerName)
-			local front = folder ~= nil and folder:IsA("Folder")
-			local ffa = not front and zone ~= nil and zone:GetAttribute("Phase") ~= nil
+			local ffa = zone ~= nil and workspace:GetAttribute(ModesCfg.Attribute) == "FFA"
+			local front = not ffa and folder ~= nil and folder:IsA("Folder")
 			nodes.FrontBar.Visible = front
 			nodes.ZoneBar.Visible = ffa
-			nodes.Board.Visible = ffa
 			gui.Enabled = front or ffa
 			if front then
 				updateFront(folder :: Instance, now)
 			elseif ffa then
-				updateZone(zone :: Instance, now)
+				updateZone(zone :: Instance)
 			end
 			task.wait(Cfg.Refresh)
+		end
+	end)
+	-- FFA: the point leader's glow is for everyone else; on the leader's own screen it's off (kept from the old
+	-- zone match readout, src/client/ZoneHud; the server turns it back on as the lead changes)
+	local me = Players.LocalPlayer
+	RunService.Heartbeat:Connect(function()
+		local glow = me.Character and me.Character:FindFirstChild(ZoneCfg.Leader.name)
+		if glow and glow:IsA("Highlight") and glow.Enabled then
+			glow.Enabled = false
 		end
 	end)
 end
