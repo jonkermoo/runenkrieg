@@ -216,17 +216,17 @@ local Assets = {
 		},
 		-- the MG nest's gun: since 2026-10-28 (user: "can we use this machine gun instead?") an M2 Browning, a 3D trace of
 		-- "M2 Browning Machine Gun" by Ajay Kumar (Sketchfab, CC BY 4.0: ASSETS_LICENSES.md) rebuilt in our style (key
-		-- still mg08: a gun's asset is its key); v2 every round on the belt its own part (v1 117905882389204 the tail one
-		-- part). Was the MG 08 (tools/blender/mgnest/mg08.py): v4 73438320789767 with its
+		-- still mg08: a gun's asset is its key); v3 each belt round's link its own part too (Links01-11; v2
+		-- 128614730608902 every round on the belt its own part; v1 117905882389204 the tail one part). Was the MG 08 (tools/blender/mgnest/mg08.py): v4 73438320789767 with its
 		-- iron sights and each belt round its own part; v3 71692109520199 the ring sight; v2 121882149099009; v1
 		-- 97496546594152
 		mg08 = {
-			id = 128614730608902,
+			id = 106874812316547,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/m2.fbx",
 			generator = "tools/blender/mgnest/m2.py",
-			description = "The MG nest's machine gun: an M2 Browning traced from Ajay Kumar's Sketchfab model (tools/blender/mgnest/trace/m2_source.py), built 1.5x like the rifles (7.1 long), on an M3 tripod, no shield; its open ammo can standing on the mount bags, a link belt of .50 rounds from the feedway down into it. Gun space: origin 1.9 over the ground under the pivot, the muzzle -Z. Moving parts: Mount + MountFittings (the pintle, yoke and elevating screw) + BoxKit + BoxTrim + BoxFittings + Belt + Rounds01-11 + Bullets01-11 (every round on the belt, 01 next into the feed) traverse, Cradle + CradleTrim + CradleFittings + Barrel + Bore elevate about (0, 1.035, 0); Carriage (the tripod's legs, head and feet) stays. Sights: a hooded front post and a peep ring on y 1.71.",
+			description = "The MG nest's machine gun: an M2 Browning traced from Ajay Kumar's Sketchfab model (tools/blender/mgnest/trace/m2_source.py), built 1.5x like the rifles (7.1 long), on an M3 tripod, no shield; its open ammo can standing on the mount bags, a link belt of .50 rounds from the feedway down into it. Gun space: origin 1.9 over the ground under the pivot, the muzzle -Z. Moving parts: Mount + MountFittings (the pintle, yoke and elevating screw) + BoxKit + BoxTrim + BoxFittings + Belt (the links in the can) + Rounds01-11 + Bullets01-11 + Links01-11 (every round on the belt and its link, 01 next into the feed; the client bends them from the mount toward the cradle up to the feed) traverse, Cradle + CradleTrim + CradleFittings + Barrel + Bore elevate about (0, 1.035, 0); Carriage (the tripod's legs, head and feet) stays. Sights: a hooded front post and a peep ring on y 1.71.",
 		},
 		-- the M2's spare ammo can, carried by the gunner in the box reload (Config/Artillery.Guns mg08 `mg.reload`)
 		m2_box = {

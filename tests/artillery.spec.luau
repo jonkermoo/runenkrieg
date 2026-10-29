@@ -368,6 +368,14 @@ return {
 			assert(A.heatGlow(0, i, n, lead) == 0 and A.heatGlow(1, i, n, lead) == 1)
 		end
 	end,
+	["the MG's count goes down with each shot seen, and is full the moment its reload ends"] = function()
+		assert(A.mgShown(60, 100, 0, nil, 10, 11) == 60)
+		assert(A.mgShown(60, 100, 3, nil, 10, 11) == 57, "three shots seen since the server's 60")
+		assert(A.mgShown(2, 100, 5, nil, 10, 11) == 0, "never under empty")
+		assert(A.mgShown(0, 100, 0, 20, 10, 19) == 0, "still reloading")
+		assert(A.mgShown(0, 100, 0, 20, 10, 20.01) == 100, "the reload over, before the server's refill lands")
+		assert(A.mgShown(97, 100, 1, 20, 21, 22) == 96, "firing again after the refill")
+	end,
 	["the MG and the field gun warm and kick their gunner, the howitzer neither"] = function()
 		for _, key in { "mg08", "artillery_qf18" } do
 			local g = C.Guns[key]

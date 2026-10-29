@@ -3,8 +3,9 @@
 -- 2026-10-29: "make the barrel get warmer from the tip as you hold it (steam a little too)", the MG and the field gun):
 -- on every client, from the shots it sees (src/client/Artillery calls shot() for each). Glowing bands round the
 -- barrel's first `length` studs from the muzzle, lit from the tip back as it warms, riding the barrel as it is posed;
--- past `steam` a wisp of steam rising off the tip. The bands are this client's own (a folder in the Workspace, not in
--- the gun's model, so its jolt and the server never touch them); none while cold.
+-- past `steam` a wisp of steam rising off the tip, and the tip's light on what is round it. The bands are this
+-- client's own (a folder in the Workspace, not in the gun's model, so its jolt and the server never touch them); none
+-- while cold.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -14,7 +15,7 @@ local Rules = require(Shared.Rules.Artillery)
 
 local BarrelHeat = {}
 
-type Bands = { parts: { Part }, offsets: { CFrame }, steam: ParticleEmitter }
+type Bands = { parts: { Part }, offsets: { CFrame }, steam: ParticleEmitter, light: PointLight }
 type State = { heat: number, bands: Bands? }
 
 local states: { [Model]: State } = {}
@@ -78,7 +79,14 @@ local function build(gun: any, barrel: BasePart, bore: BasePart, rest: { [BasePa
 	e.RotSpeed = NumberRange.new(-S.spin, S.spin)
 	e.Rotation = NumberRange.new(0, 360)
 	e.Parent = a
-	return { parts = parts, offsets = offsets, steam = e }
+	-- the tip's own glow on what is round it, as hot (Heat.light)
+	local light = Instance.new("PointLight")
+	light.Color = rgb(Cfg.Heat.hot)
+	light.Range = Cfg.Heat.light.range
+	light.Brightness = 0
+	light.Shadows = false
+	light.Parent = parts[1]
+	return { parts = parts, offsets = offsets, steam = e, light = light }
 end
 
 local function clear(s: State)
@@ -142,11 +150,13 @@ function BarrelHeat.step(
 	end
 	local C = Cfg.Heat
 	for i, p in b.parts do
-		local glow = Rules.heatGlow(s.heat, i, H.segments, C.lead)
+		-- (eased in: a band only just past its start barely shows)
+		local glow = Rules.heatGlow(s.heat, i, H.segments, C.lead) ^ C.curve
 		p.CFrame = barrel.CFrame * b.offsets[i]
 		p.Transparency = 1 - C.glow * glow
 		p.Color = rgb(C.cold):Lerp(rgb(C.hot), glow)
 	end
+	b.light.Brightness = C.light.brightness * s.heat ^ C.curve
 	b.steam.Rate = if s.heat > H.steam then H.steamRate * (s.heat - H.steam) / (1 - H.steam) else 0
 end
 

@@ -403,6 +403,24 @@ function Artillery.mgStray(spread: number, r1: number, r2: number): (number, num
 	return d * math.cos(a), d * math.sin(a)
 end
 
+-- The rounds a machine gun's box shows its gunner (user 2026-10-29: "make the bullet count on the bottom right
+-- accurate"): the server's count (`rounds`, its "Rounds", last changed at server time `roundsAt`) less the `shotsSince`
+-- shots seen here since it last changed, never under 0; once a box reload's end (`readyAt`, after the count last
+-- changed) has passed, the full `box` (the server's refill lands a moment later)
+function Artillery.mgShown(
+	rounds: number,
+	box: number,
+	shotsSince: number,
+	readyAt: number?,
+	roundsAt: number,
+	now: number
+): number
+	if readyAt and now >= readyAt and readyAt > roundsAt then
+		return box
+	end
+	return math.max(rounds - shotsSince, 0)
+end
+
 -- A barrel's heat (0 cold .. 1, Config/Artillery.Guns `heat`): each of `shots` adds `per`, it loses `cool` a second
 function Artillery.heatStep(heat: number, shots: number, dt: number, per: number, cool: number): number
 	return math.clamp(heat + shots * per - cool * dt, 0, 1)

@@ -186,15 +186,18 @@ export type Gun = {
 }
 
 -- The M2's belt (tools/blender/mgnest/m2.py): a link belt from the feedway down to its can on the mount bag, every
--- round on it outside the can its own case and bullet (`Rounds01` / `Bullets01` next into the feed; user 2026-10-29:
--- "make it go empty as we go empty"); its mount names and colours (the links dark steel)
+-- round on it outside the can its own case, bullet and link (`Rounds01` / `Bullets01` / `Links01` next into the feed;
+-- user 2026-10-29: "make it go empty as we go empty", "make it attached to where its fed": src/client/Artillery bends
+-- them with the gun); its mount names and colours (the links dark steel)
 local BELT = 11
 local function beltOf(names: { string }, colors: { [string]: { number } }): ({ string }, { [string]: { number } })
 	for i = 1, BELT do
-		local case, tip = string.format("Rounds%02d", i), string.format("Bullets%02d", i)
+		local case, tip, link =
+			string.format("Rounds%02d", i), string.format("Bullets%02d", i), string.format("Links%02d", i)
 		table.insert(names, case)
 		table.insert(names, tip)
-		colors[case], colors[tip] = { 196, 160, 84 }, { 184, 115, 72 }
+		table.insert(names, link)
+		colors[case], colors[tip], colors[link] = { 196, 160, 84 }, { 184, 115, 72 }, { 40, 40, 38 }
 	end
 	return names, colors
 end
@@ -258,15 +261,19 @@ local Artillery = {
 	Turn = { crank = 80321147839061 :: number?, moving = 0.3, fade = 0.2 },
 
 	-- A warm barrel (src/client/BarrelHeat, each gun's `heat`; user 2026-10-29: "make the barrel get warmer from the tip
-	-- as you hold it (steam a little too)"): its bands glow from `cold` to `hot` (RGB), at most `glow` opaque; band i
-	-- of n (1 the tip) starts at heat (i - 1) / n x `lead` (Rules/Artillery.heatGlow). The steam: `color` puffs `size`
+	-- as you hold it (steam a little too)", then "make the barrel start gradual and heat up way more (50% of the
+	-- barrel)"): its bands glow from `cold` to `hot` (RGB), at most `glow` opaque; band i of n (1 the tip) starts at heat
+	-- (i - 1) / n x `lead` (Rules/Artillery.heatGlow), each easing in along its glow ^ `curve` (no band pops on); a
+	-- `light` at the tip `range` studs out, up to `brightness`, as hot. The steam: `color` puffs `size`
 	-- studs growing to `grow`, rising `rise` studs/s against `drag`, living `life` s, `transparency` at birth, leaving at
 	-- `speed` studs/s every which way, turning up to `spin` degrees a second.
 	Heat = {
 		cold = { 120, 24, 12 },
 		hot = { 255, 150, 50 },
-		glow = 0.75,
-		lead = 0.6,
+		glow = 0.95,
+		lead = 0.75,
+		curve = 1.8,
+		light = { range = 7, brightness = 2.5 },
 		steam = {
 			color = { 235, 235, 235 },
 			size = 0.25,
@@ -731,8 +738,9 @@ local Artillery = {
 			-- (user 2026-10-22: "have the cannon further back and up more"; was up 4, back 7)
 			camera = { side = -6.5, up = 5.5, back = 10, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
 			-- (user 2026-10-29: the MG's warm barrel, steam and the gunner's recoil "apply to the field cannons too (not
-			-- the howitzer)"): a third of the way warm a shot, cooling over ~40 s; the gunner thrown back by each shot
-			heat = { per = 0.3, cool = 0.025, length = 2.2, radius = 2.9, segments = 4, steam = 0.25, steamRate = 8 },
+			-- the howitzer)"): a third of the way warm a shot, cooling over ~40 s, half its barrel glowing; the gunner thrown
+			-- back by each shot
+			heat = { per = 0.3, cool = 0.025, length = 2.5, radius = 2.9, segments = 8, steam = 0.25, steamRate = 8 },
 			kick = { arms = 12, torso = 5, time = 0.4 },
 			-- the trail on its wheels first, then the shield and mount, the cradle, the barrel, the breech last
 			assembly = {
@@ -982,8 +990,9 @@ local Artillery = {
 			recoil = 0.12, -- (recoil-operated: the barrel and lock kick back a little each shot; the M2's .50 harder)
 			recoilTimes = { 0.01, 0.06 },
 			-- (user 2026-10-29: "make the barrel get warmer from the tip as you hold it (steam a little too)"): glowing
-			-- at the tip after ~25 rounds held, the whole band hot after ~80, cool again ~15 s after; steam past half
-			heat = { per = 0.012, cool = 0.06, length = 1.6, radius = 2.75, segments = 4, steam = 0.45, steamRate = 14 },
+			-- at the tip from the first rounds, creeping back half the barrel (2 of its ~4.1 studs out of the receiver),
+			-- all of it hot after ~50 rounds held, cool again ~20 s after; steam past 0.4
+			heat = { per = 0.02, cool = 0.05, length = 2.0, radius = 2.75, segments = 8, steam = 0.4, steamRate = 16 },
 			-- (user 2026-10-29: "add some recoil animation to both the gun and the player"): a short shove each round
 			kick = { arms = 5, torso = 1.5, time = 0.1 },
 			crew = { 0, 4 }, -- (standing behind the grips, arms out to them: MGStand)

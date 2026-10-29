@@ -187,7 +187,10 @@ local function belt(model: Model, p: Pose, shows: number?)
 	p.belt = left
 	local i = 1
 	while p.named[string.format("Rounds%02d", i)] do
-		for _, name in { string.format("Rounds%02d", i), string.format("Bullets%02d", i) } do
+		-- (its link with it: the gun throws each link out as it takes its round)
+		for _, name in
+			{ string.format("Rounds%02d", i), string.format("Bullets%02d", i), string.format("Links%02d", i) }
+		do
 			local part = p.named[name]
 			if part then
 				part.Transparency = if i <= left then 0 else 1
@@ -197,41 +200,54 @@ local function belt(model: Model, p: Pose, shows: number?)
 	end
 end
 
--- a machine gun's belt feeding (user 2026-10-29: "make the bullets feed into the gun accurately"): over the gap after
--- each shot every round on it slides one link on toward the feed, round i to where round i - 1 was (the first on into
--- the feedway), then they all stand back a link as the next shot takes one; `mount` the mount's frame as posed
-local function feed(p: Pose, mount: CFrame)
+-- a machine gun's belt, every frame (user 2026-10-29: "the belt currently doesnt move with the gun. can you make it
+-- attached to where its fed and also move around as the gun is being moved?", "make the belt animation accurate with
+-- the bullet feed animation"): each round on it, its bullet and its link bent from the mount (`mount`, where the can
+-- is) toward the cradle (`cradle`, where the feedway is), round 1 riding the gun fully and the last not at all; over
+-- the gap after each shot (its rate) all of them slide one link on toward the feed together, round i to where round
+-- i - 1 was (the first on into the feedway), bending as they go, then stand back a link as the next shot takes one
+local function feed(p: Pose, mount: CFrame, cradle: CFrame)
 	local gun = p.gun
-	local fedAt = p.fedAt
-	if not gun.mg or not fedAt then
+	if not gun.mg then
 		return
 	end
-	local f = (now() - fedAt) / Rules.mgInterval(gun.mg.rate)
-	if f >= 1 then
-		p.fedAt = nil
-		return
+	local f = 0
+	if p.fedAt then
+		f = (now() - p.fedAt) / Rules.mgInterval(gun.mg.rate)
+		if f >= 1 then
+			p.fedAt, f = nil, 0
+		end
+		f = math.clamp(f, 0, 1)
 	end
-	f = math.clamp(f, 0, 1)
-	local function at(i: number): (BasePart?, BasePart?)
-		return p.named[string.format("Rounds%02d", i)], p.named[string.format("Bullets%02d", i)]
+	local function case(i: number): BasePart?
+		return p.named[string.format("Rounds%02d", i)]
 	end
-	local i = 1
-	while at(i) do
-		local case = at(i) :: BasePart
-		local ahead = at(i - 1)
-		local behind = at(i + 1)
+	local n = 0
+	while case(n + 1) do
+		n += 1
+	end
+	-- how far round i rides the gun: 1 at the feed down to 0 at the last, eased
+	local function bend(i: number): number
+		local u = math.clamp((n - i) / math.max(n - 1, 1), 0, 1)
+		return u * u * (3 - 2 * u)
+	end
+	for i = 1, n do
+		local c = case(i) :: BasePart
+		local ahead, behind = case(i - 1), case(i + 1)
 		-- one link on: to the round ahead, or (the first) as far again past itself as the second stands behind it
 		local step = if ahead
-			then p.rest[ahead].Position - p.rest[case].Position
-			elseif behind then p.rest[case].Position - p.rest[behind].Position
+			then p.rest[ahead].Position - p.rest[c].Position
+			elseif behind then p.rest[c].Position - p.rest[behind].Position
 			else Vector3.zero
-		local _, tip = at(i)
-		for _, part in { case, tip } do
-			if part and p.rest[part] then
-				part.CFrame = mount * (CFrame.new(step * f) * p.rest[part])
+		local w = bend(i) + (bend(i - 1) - bend(i)) * f
+		for _, kind in { "Rounds", "Bullets", "Links" } do
+			local part = p.named[string.format("%s%02d", kind, i)]
+			local rest = part and p.rest[part]
+			if part and rest then
+				local r = CFrame.new(step * f) * rest
+				part.CFrame = (mount * r):Lerp(cradle * r, w)
 			end
 		end
-		i += 1
 	end
 end
 
@@ -296,7 +312,7 @@ local function pose(model: Model, p: Pose, dt: number)
 	for part, rest in p.rest do
 		part.CFrame = frames[p.stage[part]] * rest
 	end
-	feed(p, frames[1])
+	feed(p, frames[1], frames[2])
 	BarrelHeat.step(model, gun, dt, p.named, p.rest)
 	-- its gears turning with the lay, each by its tooth ratio about its own axis (Config/Artillery `gears`)
 	for _, g in gun.gears or {} do
