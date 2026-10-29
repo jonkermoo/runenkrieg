@@ -189,8 +189,9 @@ export type Weapon = {
 	-- (src/client/SoundFx entries, with a falloff `profile`) play on drawing and putting it away.
 	sounds: { [string]: { [string]: any } }?,
 	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
-	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot).
-	recoil: { scale: number, build: number, max: number, cool: number }?,
+	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot);
+	-- `hip` times harder fired without aiming (a pistol held out in one hand; user 2026-10-28).
+	recoil: { scale: number, build: number, max: number, cool: number, hip: number? }?,
 	-- Sway weight over the class's (Config/Sway.Classes): a heavier gun sways more and aims in slower (W2).
 	weight: number?,
 	-- a pistol's full-damage range (studs; Config/Damage.Falloff for its class)
@@ -517,32 +518,32 @@ local Weapons: { [string]: Weapon } = {
 		-- the pistols' shared one-handed holds (tools/animation/pistol.luau, user 2026-10-28): low ready at the right hip,
 		-- aimed with the arm out and the sights at the right eye, drawn from and put back in the hip holster, a pistol whip
 		holds = {
-			ready = 122826523630532,
-			walk = 122434527067877,
-			carry = 80809330904226,
-			aim = 84038590960110,
-			equip = 97508888105841,
-			unequip = 112466043060467,
-			crouchReady = 135413534531837,
-			crouchWalk = 89344354850551,
-			crouchAim = 138258680788610,
-			tuck = 121383213037179,
-			crouchTuck = 96054684931143,
-			strike = 102049150363193,
+			ready = 122734081616814,
+			walk = 71643121446344,
+			carry = 116557274110559,
+			aim = 108492988788868,
+			equip = 84595517152311,
+			unequip = 112683570482910,
+			crouchReady = 88645341580231,
+			crouchWalk = 130971600896646,
+			crouchAim = 123369456405232,
+			tuck = 77568447824328,
+			crouchTuck = 116846619710706,
+			strike = 96817744569842,
 		},
 		firstPerson = {
-			ready = 119790724998685,
-			carry = 124991959930374,
-			aim = 107841258139965,
-			equip = 138219291439235,
-			unequip = 73304833142389,
-			aimIn = 78209593573590,
-			aimOut = 89028851215242,
-			tuck = 82304215695834,
-			strike = 83755555785006,
+			ready = 121568509879542,
+			carry = 98776105780688,
+			aim = 81575185196582,
+			equip = 78143731273282,
+			unequip = 94448790801507,
+			aimIn = 91420108888072,
+			aimOut = 78643133170604,
+			tuck = 76382794440045,
+			strike = 84573444859847,
 		},
 		-- aimed one-handed (tools/animation/pistol.luau): the sights at the right eye, the arm out level at the shoulder
-		shouldered = { 0.6, 1.45, -0.125 },
+		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
 		scale = { 3, 3, 2.5 }, -- 0.66 -> 1.65 studs long, chunky in the 1-stud hand
 		-- put away: the pistols' shared hip holster (HOLSTER, below)
 		-- the Engineer pistols' roles (the design 2026-10-27): the steady all-rounder, rarely empty. 7 rounds, double
@@ -557,8 +558,8 @@ local Weapons: { [string]: Weapon } = {
 		-- out, a round goes in, the cylinder turns on; at the end the gate shuts (src/client/GunFx.load)
 		single = {
 			seat = { 0.033, 0.0236, 0.07 }, -- just behind the gate's chamber: the round pushed in from there
-			body = 132085325515076, -- the gate reload (tools/animation/pistol.luau): the left hand holds it, the right loads
-			firstPerson = 95920477929601,
+			body = 103017668407371, -- the gate reload (tools/animation/pistol.luau): the left hand holds it, the right loads
+			firstPerson = 138022251947098,
 			open = 0.5,
 			round = 0.85,
 			close = 0.45,
@@ -587,7 +588,8 @@ local Weapons: { [string]: Weapon } = {
 		eject = { "Round3" }, -- a fired case punched out of the gate (the gate's chamber's round as the template)
 		bolt = { aim = 0, ready = 0 }, -- (no bolt: nothing to work by hand)
 		reload = { knob = { 0, 0, 0 }, clipTop = { 0.033, 0.0236, 0.07 }, entry = 0, body = 0, firstPerson = 0 },
-		recoil = { scale = 0.9, build = 0.35, max = 2.2, cool = 1.4 },
+		-- aimed in both hands steadier, at the hip in one hand wilder; still under a rifle's (scale 1) either way
+		recoil = { scale = 0.7, build = 0.35, max = 2.2, cool = 1.4, hip = 1.35 },
 	},
 	rifle_m91 = {
 		asset = "rifle_m91",
