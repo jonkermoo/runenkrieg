@@ -23,6 +23,7 @@ local Flagpole = {
 		gap = 0.08, -- off the pole's surface
 		image = { strip = { 128, 328 } }, -- each strip's share of the `pole` flag image (512 x 328)
 		ease = 3, -- per second: how fast the shown height follows the control
+		pixelsPerStud = 32, -- the flag image's SurfaceGui resolution
 	},
 	-- the flap (Rules/Flagpole.flap): each strip turns from the one before by a wave travelling out to the free edge,
 	-- bigger toward it; stronger wind flaps harder and faster (strength 1 at WindReference); contested flaps harder still
@@ -43,7 +44,15 @@ local Flagpole = {
 	Lod = { near = 90, far = 400, farStep = 0.12 },
 	-- the zone's edge: a knee-high stake every `spacing` studs round the circle, each with a rag in the holder's colour
 	-- (bare at neutral); a stake whose ground has been dug away (trench, blast) more than `dug` under its foot is hidden
-	Stakes = { spacing = 8, rag = { 0.55, 0.32, 0.04 }, ragAt = 1.55, lean = 6, dug = 0.6, recheck = 2 },
+	Stakes = {
+		spacing = 8,
+		rag = { 0.55, 0.32, 0.04 },
+		ragAt = 1.55,
+		lean = 6,
+		dug = 0.6,
+		recheck = 2,
+		ray = { up = 20, depth = 60 },
+	},
 	-- the HQ pole's knee-high sandbag ring (the sandbag pile's bags, Config/Assets sandbag_pile Bag1)
 	Sandbags = { radius = 4, bag = "Bag1", length = 3.6, rise = 0 },
 	Rope = { thickness = 0.06, out = 0.32, slackLean = 4 }, -- the halyard: its off-set from the pole, its lean when slack

@@ -116,7 +116,7 @@ local function build(model: Model): Pole?
 			gui.Face = face
 			gui.LightInfluence = 1
 			gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-			gui.PixelsPerStud = 32
+			gui.PixelsPerStud = F.pixelsPerStud
 			gui.Parent = s
 			local img = Instance.new("ImageLabel")
 			img.BackgroundTransparency = 1
@@ -268,7 +268,11 @@ local function digCheck(p: Pole, now: number)
 	p.nextCheck = now + Cfg.Stakes.recheck
 	for _, s in p.stakes do
 		local at = s.part.Position
-		local hit = workspace:Raycast(at + Vector3.new(0, 20, 0), Vector3.new(0, -60, 0), terrainOnly)
+		local hit = workspace:Raycast(
+			at + Vector3.new(0, Cfg.Stakes.ray.up, 0),
+			Vector3.new(0, -Cfg.Stakes.ray.depth, 0),
+			terrainOnly
+		)
 		local gone = not hit or hit.Position.Y < s.footY + Cfg.Sink - Cfg.Stakes.dug
 		local m = if gone then 1 else 0
 		s.part.LocalTransparencyModifier = m
