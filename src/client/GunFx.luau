@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
 local W = require(Shared.Config.Weapons)
 local Audio = require(script.Parent.Audio)
+local CaseDrop = require(script.Parent.CaseDrop)
 local Impacts = require(script.Parent.Impacts)
 
 local GunFx = {}
@@ -92,6 +93,7 @@ function GunFx.preload()
 	task.spawn(function()
 		ContentProvider:PreloadAsync(list)
 	end)
+	CaseDrop.preload()
 end
 
 -- The weapon's own sound (Config/Weapons `sounds`, the Gun part's "Weapon" attribute) or Config/Firing's.
@@ -419,8 +421,9 @@ local function fling(copy: BasePart, gun: BasePart, at: CFrame, push: Vector3)
 	Debris:AddItem(copy, c.life)
 end
 
--- the weapon's spent case (Config/Weapons `eject`, else "Casing"): several parts go as one piece (a shell's hull
--- and its brass head), the rest welded to the first
+-- the weapon's spent case (Config/Weapons `eject`, else "Casing"), thrown by CaseDrop to clink as its cartridge's
+-- (`casing`) where it lands and lie there: several parts go as one piece (a shell's hull and its brass head), the rest
+-- welded to the first
 local function eject(gun: BasePart, weapon: string?)
 	local port = gun:FindFirstChild("Eject") :: Attachment?
 	local holder = gun.Parent
@@ -430,8 +433,20 @@ local function eject(gun: BasePart, weapon: string?)
 		return
 	end
 	local c = E.Casing
-	local copy = template:Clone()
-	fling(copy, gun, CFrame.new(port.WorldPosition) * template.CFrame.Rotation, Vector3.new(c.out, c.up, c.back))
+	local name = weapon or gun:GetAttribute("Weapon") :: string?
+	local case = name and W[name] and W[name].casing
+	local owner = holder.Parent
+	local muted = owner ~= nil and owner:GetAttribute("Muted") == true
+	local push = gun.CFrame:VectorToWorldSpace(Vector3.new(c.out, c.up, c.back))
+		+ (gun.AssemblyLinearVelocity or Vector3.zero)
+	local copy = CaseDrop.drop(
+		template,
+		CFrame.new(port.WorldPosition) * template.CFrame.Rotation,
+		push,
+		"Cartridge",
+		owner,
+		if muted or not case then { pitch = 1, volume = 0, eq = { 0, 0, 0 } } else case
+	)
 	for i = 2, #names do
 		local t = holder:FindFirstChild(names[i])
 		if t and t:IsA("BasePart") then
@@ -558,6 +573,8 @@ local function poseProp(prop: Prop, weapon: string, u: number, C: { grab: number
 		if p.round and not en then
 			p.part.CFrame = topCF * CFrame.new(0, -depth * drop, 0) * p.rel
 			p.part.Transparency = if drop >= 1 then 1 else 0
+			-- (how far they are down out of it once it is seated: the ammo display feeds them in by it, AmmoHud)
+			p.part:SetAttribute("Drop", if u >= C.set then drop else nil)
 		else
 			p.part.CFrame = topCF * p.rel
 		end

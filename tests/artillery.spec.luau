@@ -346,12 +346,75 @@ return {
 			assert(dy * dy + de * de <= 4 + 1e-9)
 		end
 	end,
-	["the MG 08 goes up mount, gun, shield, box, each appearing in its quarter"] = function()
+	["the MG (the M2) goes up tripod, gun, ammo can, belt, each appearing in its quarter"] = function()
 		local MG = C.Guns.mg08
-		local order = { "Carriage", "Cradle", "Shield", "Box" }
+		local order = { "Carriage", "Cradle", "Box", "Belt" }
 		for i, g in MG.assembly do
 			assert(g.at == i and g.names[1] == order[i], `quarter {i} sets up {order[i]}`)
 		end
+	end,
+	["a barrel warms with each shot and cools off, glowing from the tip back"] = function()
+		local H = C.Guns.mg08.heat :: any
+		local heat = 0
+		for _ = 1, 30 do
+			heat = A.heatStep(heat, 1, 0, H.per, H.cool)
+		end
+		assert(heat > 0.3 and heat < 1, "warm after a burst")
+		assert(A.heatStep(heat, 0, 60, H.per, H.cool) == 0, "cold a minute later")
+		assert(A.heatStep(0.9, 50, 0, H.per, H.cool) == 1, "never past hot")
+		local n, lead = H.segments, C.Heat.lead
+		assert(A.heatGlow(0.2, 1, n, lead) > 0 and A.heatGlow(0.2, n, n, lead) == 0, "the tip glows first")
+		for i = 1, n do
+			assert(A.heatGlow(0, i, n, lead) == 0 and A.heatGlow(1, i, n, lead) == 1)
+		end
+	end,
+	["the MG's count goes down with each shot seen, and is full the moment its reload ends"] = function()
+		assert(A.mgShown(60, 100, 0, nil, 10, 11) == 60)
+		assert(A.mgShown(60, 100, 3, nil, 10, 11) == 57, "three shots seen since the server's 60")
+		assert(A.mgShown(2, 100, 5, nil, 10, 11) == 0, "never under empty")
+		assert(A.mgShown(0, 100, 0, 20, 10, 19) == 0, "still reloading")
+		assert(A.mgShown(0, 100, 0, 20, 10, 20.01) == 100, "the reload over, before the server's refill lands")
+		assert(A.mgShown(97, 100, 1, 20, 21, 22) == 96, "firing again after the refill")
+	end,
+	["the MG's ammo can stands still as the gun turns, named all the same"] = function()
+		local MG = C.Guns.mg08
+		for _, name in { "BoxKit", "BoxTrim", "BoxFittings", "Belt" } do
+			assert(table.find(MG.fixed :: any, name) and not table.find(MG.mount, name), name)
+		end
+		assert(
+			table.find(MG.mount, "Rounds01") and table.find(MG.mount, "Links01"),
+			"the belt's rounds still bend to the feed"
+		)
+	end,
+	["the MG throws off a spent case and a link, from belt parts it has, each with a clink"] = function()
+		local Cases = require("../src/shared/Config/Cases")
+		local MG = C.Guns.mg08
+		local spent = (MG.mg :: any).spent
+		assert(spent.case and spent.link)
+		for key, piece in spent do
+			assert(table.find(MG.mount, piece.part), key)
+			assert(Cases.Sounds[piece.sound] and #Cases.Sounds[piece.sound].variants > 0, key)
+		end
+		assert(spent.case.push[2] < 0, "the M2's case drops out of the bottom")
+		assert(spent.link.push[1] < 0, "fed from the right, its links go out of the left")
+	end,
+	["the MG's reload sounds play in order, all within the reload, the belt's rattle as it is laid in"] = function()
+		local MG = C.Guns.mg08
+		local R = (MG.mg :: any).reload
+		local last = -1
+		for _, step in R.sounds do
+			assert(step.at > last and step.at < MG.reload and step.sound.id, step.at)
+			last = step.at
+		end
+		assert(#R.sounds >= 6, "cover, cans, belt, cover, charging handle")
+		assert((MG.mg :: any).boom.id and (MG.mg :: any).jingle.id)
+	end,
+	["the MG and the field gun warm and kick their gunner, the howitzer neither"] = function()
+		for _, key in { "mg08", "artillery_qf18" } do
+			local g = C.Guns[key]
+			assert(g.heat and g.kick, key)
+		end
+		assert(not C.Guns.artillery_howitzer.heat and not C.Guns.artillery_howitzer.kick)
 	end,
 	["the MG gunner's eye is behind the rear sight on the sight line, and lifts with the gun"] = function()
 		local MG = C.Guns.mg08

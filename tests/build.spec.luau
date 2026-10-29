@@ -611,7 +611,14 @@ return {
 		bags, q = B.nestShown(n.hp.max, n, 0)
 		assert(bags == "all" and q == n.quarters, "stood and whole")
 		bags, q = B.nestShown(n.hp.max, n, 4)
-		assert(bags == "bottom" and q == n.quarters, "a wreck: the top bags down, the gun still there")
+		assert(bags == n.wear[4] and q == n.quarters, "a wreck: most bags down, the gun still there")
+		-- (user 2026-10-29: "make the sandbags also destroy as part of each destruction phase")
+		for i = 2, 4 do
+			assert(n.wear[i] < n.wear[i - 1], "each stage takes more bags")
+		end
+		assert(B.nestStanding(12, n.wear[1]) == 12 and B.nestStanding(12, n.wear[4]) < 6)
+		assert(B.nestStanding(12, 0.01) == 1 and B.nestStanding(12, 0) == 0)
+		assert(B.nestWearOrder(5, true) < B.nestWearOrder(2, false), "the top bags go first")
 	end,
 	["an MG nest's building site stands inside its ring, clear of the mount bag and the doorway"] = function()
 		local spec = C.Scaffold.mg08

@@ -726,7 +726,7 @@ end
 -- bottom bags, "all") and how many of its gun's `quarters` are set up. Being built: by its `hp`, a stage as a Hesco
 -- barrier's (Build.hescoStage). Once it has stood: by its gun's Wreck stage `wreck` (Config/Artillery.Wreck; 0 whole),
 -- the gun standing.
-function Build.nestShown(hp: number, n: any, wreck: number?): (string, number)
+function Build.nestShown(hp: number, n: any, wreck: number?): (string | number, number)
 	if wreck then
 		return if wreck > 0 then n.wear[wreck] else "all", n.quarters
 	end
@@ -735,6 +735,21 @@ function Build.nestShown(hp: number, n: any, wreck: number?): (string, number)
 		return "none", 0
 	end
 	return n.build[stage].bags, n.build[stage].gun
+end
+
+-- How many of a worn MG nest's `count` ring bags still stand at `share` of them (Config/Build.Nest `wear`): at least
+-- one while any share is left
+function Build.nestStanding(count: number, share: number): number
+	if share <= 0 then
+		return 0
+	end
+	return math.clamp(math.round(count * share), 1, count)
+end
+
+-- A worn nest's ring bags in the order they go (Config/Build.Nest `wear`): the top bags first, then the bottom ones,
+-- each lot scattered round the ring (by `row`, its place on it) rather than one pile after another; lower goes sooner
+function Build.nestWearOrder(row: number, top: boolean): number
+	return (if top then 0 else 100) + (row * 37) % 11 + row / 1000
 end
 
 -- A nest bag not yet filled, lying as its empty sack (Config/Build.Nest `flat`): the sack's height and its middle's

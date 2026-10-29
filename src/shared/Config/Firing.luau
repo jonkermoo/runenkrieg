@@ -143,7 +143,8 @@ local Firing = {
 		Hole = { color = { 24, 22, 20 }, size = 0.16, life = 30, max = 60 },
 		-- a spent case thrown from the ejection port (studs/s, gun space: out to the right, up, back), flying under
 		-- real gravity (9.8 m/s^2 = 27.5 studs/s^2 at 0.357 m per stud; Roblox's 196 is ~7x that, which dropped the case
-		-- like a stone, user 2026-10-12) for `flight` seconds, then the world's
+		-- like a stone, user 2026-10-12) for `flight` seconds, then the world's. The case itself is flown, clinks and lies
+		-- as Config/Cases says (src/client/CaseDrop): these are its throw; the rest (a clip, a box) takes them all.
 		Casing = { out = 9, up = 8, back = 1.5, spin = 25, life = 4, gravity = 27.5, flight = 1.2 },
 		TargetFlash = { color = { 255, 255, 255 }, time = 0.15 },
 		-- What a bullet throws up where it lands, by surface (src/client/Impacts; user 2026-10-17), local to each client:

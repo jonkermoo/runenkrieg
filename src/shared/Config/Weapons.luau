@@ -195,6 +195,9 @@ export type Weapon = {
 	-- frequency), so each gun's is its charge against the recording's cartridge, nudged for its barrel and its
 	-- bullet's crack (src/client/GunFx, src/client/ShotAudio).
 	report: { pitch: number, eq: { number } }?,
+	-- Its spent case landing (Config/Cases.Sounds.Cartridge, a .45 case's clink; src/client/CaseDrop): `pitch` for
+	-- the case (a longer, heavier case rings lower), `volume` a share of the sound's, `eq` { low, mid, high } dB.
+	casing: { pitch: number, volume: number, eq: { number } }?,
 	-- Recoil (src/client/Sway): `scale` times Config/Firing.Recoil; each shot within `cool` seconds of the last kicks
 	-- `build` times harder per shot still "hot", up to `max` times (user 2026-10-13: the view sways worse each shot);
 	-- `hip` times harder fired without aiming (a pistol held out in one hand; user 2026-10-28).
@@ -462,6 +465,8 @@ local Weapons: { [string]: Weapon } = {
 		-- a heavier kick than a rifle's, worse with every quick shot (user 2026-10-13)
 		-- a 12 gauge's low boom from a 20-inch trench barrel, no supersonic crack (pellets ~400 m/s): the lows up, highs down
 		report = { pitch = 0.95, eq = { 2, 0, -2 } },
+		-- a 12 gauge hull: a brass head on a paper tube, a dull clunk
+		casing = { pitch = 0.6, volume = 0.8, eq = { 3, 0, -8 } },
 		recoil = { scale = 1.6, build = 0.45, max = 2.8, cool = 1.8 },
 		pellets = { count = 9, spread = 3, full = 42, none = 140 }, -- 15 m / 50 m at 0.357 m per stud
 		feed = { parts = { "Shell", "ShellHead" }, lift = 0.042, push = 0.211 },
@@ -564,15 +569,15 @@ local Weapons: { [string]: Weapon } = {
 			strike = 97454038680950,
 		},
 		firstPerson = {
-			ready = 129670720959134,
+			ready = 100670328342369,
 			carry = 71977268058907,
 			aim = 77295874320759,
-			equip = 80186812724401,
-			unequip = 85858394539051,
-			aimIn = 93738711610712,
-			aimOut = 81547547895739,
+			equip = 91520169253588,
+			unequip = 79357835917347,
+			aimIn = 82841562100411,
+			aimOut = 86685221648941,
 			tuck = 105479813215701,
-			strike = 128857063209454,
+			strike = 135978616786126,
 		},
 		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
 		scale = { 3, 3, 2.5 }, -- as the Nagant: 0.80 -> 2.0 studs long, chunky in the 1-stud hand
@@ -664,11 +669,13 @@ local Weapons: { [string]: Weapon } = {
 			clipTop = { 0, 0.077, 0.0375 },
 			entry = 0,
 			body = 97113622675720,
-			firstPerson = 108157894846881,
+			firstPerson = 136089909102996,
 		},
 		-- .455 Webley Mk II: ~0.42 g of cordite against the recording's .38 Special (~0.29 g): x0.88; a big, slow (~190 m/s,
 		-- subsonic) bullet: a deep thud, no crack
 		report = { pitch = 0.88, eq = { 2, 0, -2 } },
+		-- the short, fat 19 mm .455 case with its wide rim
+		casing = { pitch = 0.95, volume = 0.85, eq = { 1, 0, 0 } },
 		recoil = { scale = 1.3, build = 0.5, max = 2.8, cool = 1.3, hip = 1.35 },
 	},
 	-- The Nagant M1895 revolver (model tools/blender/weapons/nagant.py, its shape from tools/blender/weapons/trace/
@@ -755,15 +762,15 @@ local Weapons: { [string]: Weapon } = {
 			strike = 96817744569842,
 		},
 		firstPerson = {
-			ready = 121568509879542,
+			ready = 133916377712951,
 			carry = 98776105780688,
 			aim = 81575185196582,
-			equip = 78143731273282,
-			unequip = 94448790801507,
-			aimIn = 91420108888072,
-			aimOut = 78643133170604,
+			equip = 104445028405312,
+			unequip = 77082915653237,
+			aimIn = 104979504719303,
+			aimOut = 106427505847232,
 			tuck = 76382794440045,
-			strike = 84573444859847,
+			strike = 78539259160846,
 		},
 		-- aimed one-handed (tools/animation/pistol.luau): the sights at the right eye, the arm out level at the shoulder
 		shouldered = { 0.3, 1.45, -0.125 }, -- aimed in both hands near the middle (isosceles), the right eye on the sights
@@ -782,7 +789,7 @@ local Weapons: { [string]: Weapon } = {
 		single = {
 			seat = { 0.033, 0.0236, 0.07 }, -- just behind the gate's chamber: the round pushed in from there
 			body = 103017668407371, -- the gate reload (tools/animation/pistol.luau): the left hand holds it, the right loads
-			firstPerson = 138022251947098,
+			firstPerson = 127029765349987,
 			open = 0.5,
 			round = 0.85,
 			close = 0.45,
@@ -836,6 +843,8 @@ local Weapons: { [string]: Weapon } = {
 		-- 7.62x38R (~0.25 g against the .38's ~0.29 g): x1.05; its gas seal shuts the cylinder gap, so none of a revolver's
 		-- side blast: a quieter, smaller pop (~300 m/s, subsonic)
 		report = { pitch = 1.05, eq = { 0, 0, -3 } },
+		-- the long, thin 38 mm 7.62x38R case, light: about the recording's .45
+		casing = { pitch = 1, volume = 0.8, eq = { 0, 0, 1 } },
 		recoil = { scale = 0.7, build = 0.35, max = 2.2, cool = 1.4, hip = 1.35 },
 	},
 	rifle_m91 = {
@@ -934,6 +943,8 @@ local Weapons: { [string]: Weapon } = {
 		-- 6.5x52: ~2.3 g of powder against the recording's ~3.2 g (7.92x57 class): x1.12, from a long 780 mm barrel 1.1;
 		-- a small fast bullet (~740 m/s): a sharper crack
 		report = { pitch = 1.1, eq = { -1, 0, 1 } },
+		-- the 52 mm 6.5x52 case, lighter than the 7.92's
+		casing = { pitch = 0.85, volume = 1, eq = { 0, 0, 0 } },
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob at the end of the straight handle, mid-bolt; the clip pushed down from just over the magazine
 		-- v2: slower, the bolt resting back (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
@@ -1003,15 +1014,15 @@ local Weapons: { [string]: Weapon } = {
 			strike = 96817744569842,
 		},
 		firstPerson = {
-			ready = 121568509879542,
+			ready = 133916377712951,
 			carry = 98776105780688,
 			aim = 81575185196582,
-			equip = 78143731273282,
-			unequip = 94448790801507,
-			aimIn = 91420108888072,
-			aimOut = 78643133170604,
+			equip = 104445028405312,
+			unequip = 77082915653237,
+			aimIn = 104979504719303,
+			aimOut = 106427505847232,
 			tuck = 76382794440045,
-			strike = 84573444859847,
+			strike = 78539259160846,
 		},
 		-- the upright ring hammer stands in the bolt's way: pushed down flat under the bolt's grips (past 1) and,
 		-- once the bolt goes forward, held up by the sear at its rest; push from tools/blender/weapons/c96.py
@@ -1061,6 +1072,8 @@ local Weapons: { [string]: Weapon } = {
 		-- 7.63x25 Mauser (~0.5 g against the .38's ~0.29 g): x0.83, from its long closed 140 mm barrel 0.92; a light bullet
 		-- at ~430 m/s, supersonic: a sharp crack over the boom
 		report = { pitch = 0.92, eq = { 0, 0, 3 } },
+		-- the small 25 mm bottlenecked 7.63x25 case: a higher tink
+		casing = { pitch = 1.08, volume = 0.75, eq = { 0, 0, 1 } },
 		recoil = { scale = 0.45, build = 0.25, max = 1.6, cool = 1.2, hip = 1.35 }, -- the least of the three pistols
 		bolt = { aim = 0, ready = 0 }, -- (no bolt to work by hand)
 		reload = {
@@ -1070,7 +1083,7 @@ local Weapons: { [string]: Weapon } = {
 			-- in the left hand, the right pulls the bolt's grips back, sets the clip and thumbs the rounds down, lets the
 			-- bolt go (tools/animation/c96_reload.luau)
 			body = 91504525443878,
-			firstPerson = 71082727761108,
+			firstPerson = 98100671364880,
 		},
 	},
 	rifle_g98 = {
@@ -1154,6 +1167,8 @@ local Weapons: { [string]: Weapon } = {
 		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
 		-- 7.92x57 S Patrone (~3.2 g, 878 m/s from 740 mm): the recording's own class, the fastest crack of the rifles
 		report = { pitch = 1, eq = { 0, 0, 1 } },
+		-- the long 57 mm 7.92x57 case, ~12 g of brass: a low ring
+		casing = { pitch = 0.78, volume = 1, eq = { 0, 0, 0 } },
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob at the end of the straight handle at the bolt's rear; the stripper clip in the guides on the bridge
 		-- v2: slower (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
@@ -1255,6 +1270,8 @@ local Weapons: { [string]: Weapon } = {
 		-- every quick shot kicks harder (user 2026-10-13: as the shotgun, gentler)
 		-- .303 Mk VII (~2.4 g of cordite, 744 m/s): x1.1, but the short 640 mm barrel lets more of it out: 1.05, fuller
 		report = { pitch = 1.05, eq = { 1, 0, 0 } },
+		-- the rimmed 56 mm .303 case
+		casing = { pitch = 0.8, volume = 1, eq = { 0, 0, 0 } },
 		recoil = { scale = 1, build = 0.3, max = 2, cool = 1.6 },
 		-- the knob of the bent handle at the bolt's rear, down by the wrist; the charger in the guides on the bridge
 		-- v2: slower (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
@@ -1358,6 +1375,8 @@ local Weapons: { [string]: Weapon } = {
 		},
 		-- 7x57 Mauser (~2.6 g): x1.07, from a short ~580 mm barrel 1.04, a crisp crack
 		report = { pitch = 1.04, eq = { 0, 0, 1 } },
+		-- the 57 mm 7x57 case
+		casing = { pitch = 0.8, volume = 1, eq = { 0, 0, 0 } },
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.0,
 		stride = 1.3, -- more sway on the move than a bolt rifle (user 2026-10-20)
@@ -1454,6 +1473,8 @@ local Weapons: { [string]: Weapon } = {
 		-- .35 Remington (~2.5 g): x1.09, from a 560 mm barrel 1.05; a heavy 200 gr bullet at ~630 m/s at low pressure:
 		-- thumpier, less crack
 		report = { pitch = 1.05, eq = { 1, 0, -2 } },
+		-- the shorter, near straight 48 mm .35 Remington case
+		casing = { pitch = 0.86, volume = 1, eq = { 0, 0, 0 } },
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.1,
 		stride = 1.45,
@@ -1549,6 +1570,8 @@ local Weapons: { [string]: Weapon } = {
 		-- .351 WSL (~1.3 g): x1.35, a 510 mm barrel letting much of it out: 1.25, a short bark; ~560 m/s, barely
 		-- supersonic: a weak crack
 		report = { pitch = 1.25, eq = { 0, 1, -2 } },
+		-- the stubby, straight 35 mm .351 case
+		casing = { pitch = 0.92, volume = 0.95, eq = { 0, 0, 0 } },
 		recoil = { scale = 0.8, build = 0.3, max = 2, cool = 1.6 },
 		weight = 1.25,
 		stride = 1.7, -- the 15-round box: the worst on the move

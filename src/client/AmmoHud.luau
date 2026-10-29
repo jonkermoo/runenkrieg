@@ -747,21 +747,32 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 		count = 0
 	end
 	local snap = swap and (not visible or v.wasAway)
-	-- a clip's rounds being pushed down out of it (the gun's "HeldRounds" showing; gone once the closing bolt's face
-	-- reaches their heads): through a clip reload the stack shows only the rounds already pushed down
+	-- a stripper clip's rounds being pushed down out of it (the gun's "HeldRounds" seated in the guides, its "Drop" how
+	-- far down they are): through a clip reload the stack shows the rounds already in and takes the clip's one by one
+	-- as they go down (user 2026-10-29, the C96: "the rounds just jump to full instead of going in with the clip")
 	local held = v.tool:FindFirstChild("HeldRounds")
-	local pushing = held ~= nil and held:IsA("BasePart") and held.Transparency < 1 and open and face > v.headZ
-	if v.wasPushing and not pushing and v.allow then
-		v.allow = (v.allow :: number) + v.pushN
-	end
-	v.wasPushing = pushing
+	local drop = if held and held:IsA("BasePart") and held.Transparency < 1 then held:GetAttribute("Drop") else nil
+	local pushing = typeof(drop) == "number" and open
 	if v.strip and busy and not state.load then
 		v.allow = v.allow or v.shown
 	else
 		v.allow = nil
 	end
+	local pushed, push = 0, 0 -- (rounds of the clip in, and how far the next one is on its way: 0..1)
+	if pushing and v.allow then
+		if not v.wasPushing then
+			v.pushN = math.min(#v.held, #v.rounds - (v.allow :: number))
+		end
+		local k = math.clamp(drop :: number, 0, 1) * v.pushN
+		pushed = math.min(math.floor(k), v.pushN)
+		push = if pushed < v.pushN then k - pushed else 0
+	elseif v.wasPushing and v.allow then
+		v.allow = (v.allow :: number) + v.pushN -- (the clip's rounds all in)
+	end
+	local feedingClip = pushing or v.wasPushing -- (rounds pushed in move the stack down a slot each, no settling)
+	v.wasPushing = pushing
 	if v.allow then
-		count = math.min(count, v.allow :: number)
+		count = math.min(count, v.allow :: number + pushed)
 	end
 	count = math.clamp(count, 0, #v.rounds)
 
@@ -816,7 +827,9 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 	end
 
 	-- the stack
-	if count ~= v.shown then
+	if count ~= v.shown and feedingClip and count > v.shown then
+		v.shown = count -- (the round coming down out of the clip is already where it goes: the stack stays put)
+	elseif count ~= v.shown then
 		v.lift = math.clamp(v.lift + (v.shown - count), -#v.rounds, #v.rounds)
 		if count > v.shown then
 			-- (rounds pushed in come down all in Hud.Gun.settle)
@@ -837,7 +850,7 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 			v.lift = 0 -- (down before the closing bolt's face passes over their heads)
 		end
 	end
-	local lift = v.lift
+	local lift = v.lift + push -- (a clip's round going in pushes the stack down under it)
 	if open and v.fed and v.pending and not v.tube then
 		-- (still a round down until the fed round clears it)
 		lift = math.max(lift, 1 - math.min(1, feeding * G.feed.clear))
@@ -850,27 +863,29 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 			hide(r)
 		end
 	end
-	-- a stripper clip's rounds on their strip, coming down with the gun's own (as far below them as the stack is)
+	-- a stripper clip's rounds still on their strip, in the guides over the well: a round apart, the lowest a round over
+	-- the stack's top, coming down into it one by one; the strip stays where it was seated
 	local strip = v.strip
 	if strip then
-		local n = math.min(#v.held, #v.rounds - count)
-		if pushing and n > 0 then
-			v.pushN = n
-			local hp = held :: BasePart
-			local hc = v.gun.CFrame:ToObjectSpace(hp.CFrame)
-			local bottom = hc.Y - hp.Size.Y / 2 + v.dia / 2 - v.shift
-			local step = if n > 1 then math.max(v.dia, (hp.Size.Y - v.dia) / (n - 1)) else 0
-			local x = v.midX
+		local left = if pushing then v.pushN - pushed else 0
+		if left > 0 then
+			local x, step = v.midX, v.dia
+			local topY = slotCF(v, 1 + lift, count, 1).Y -- (the stack's top round, drawn)
+			-- (the lowest goes from a round over the top round to the top slot as the stack goes down a slot under it,
+			-- over to its side of the stagger)
+			local nextX = slotCF(v, 1, count + 1, 1).X
 			for i, r in v.held do
-				if i <= n then
-					place(r, CFrame.new(x, bottom + (n - i) * step, v.headZ))
+				if i <= left then
+					local y = topY + (i - push) * step + push * v.pitch
+					place(r, CFrame.new(if i == 1 then x + (nextX - x) * push else x, y, v.headZ))
 				else
 					hide(r)
 				end
 			end
-			local span = (n - 1) * step + v.dia * G.strip.width
+			local seat = slotCF(v, 1, count, 1).Y -- (the strip: over the full well, as it was seated)
+			local span = (v.pushN - 1) * step + v.dia * G.strip.width
 			strip.Size = Vector3.new(strip.Size.X, span, strip.Size.Z)
-			strip.CFrame = CFrame.new(x, bottom + (n - 1) * step / 2, v.headZ + strip.Size.Z / 2)
+			strip.CFrame = CFrame.new(x, seat + (v.pushN + 1) / 2 * step, v.headZ + strip.Size.Z / 2)
 			strip.Transparency = 0
 		else
 			for _, r in v.held do

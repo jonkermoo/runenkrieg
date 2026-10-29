@@ -21,6 +21,7 @@ local Cfg = require(Shared.Config.Artillery)
 local HudCfg = require(Shared.Config.Hud)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
+local Net = require(Shared.Net)
 local HudKit = require(script.Parent.HudKit)
 
 local ArtilleryHud = {}
@@ -316,6 +317,16 @@ function ArtilleryHud.start()
 	camera.Parent = view
 	view.CurrentCamera = camera
 	local current: View? = nil
+	-- a machine gun's count between the server's updates (Rules/Artillery.mgShown): the shots seen since its "Rounds"
+	-- last changed, and when that was (server time)
+	local counted: Model? = nil
+	local seenRounds: number? = nil
+	local roundsAt, shotsSince = 0, 0
+	Net.event("MGShot").OnClientEvent:Connect(function(model: Model)
+		if model == counted then
+			shotsSince += 1
+		end
+	end)
 
 	local function mine(): Model?
 		local f = workspace:FindFirstChild(Cfg.Folder)
@@ -354,9 +365,17 @@ function ArtilleryHud.start()
 		-- timer that just displays the percentage until it can fire again(by tenths). no ready text, no bar")
 		local readyAt = (model:GetAttribute("ReadyAt") :: number?) or -math.huge
 		local share = Rules.loaded(t, readyAt, v.gun.reload)
-		-- (a machine gun: the rounds left in its box while it isn't swapping it)
+		-- (a machine gun: the rounds left in its box while it isn't swapping it, counted down with each shot seen)
 		local rounds = model:GetAttribute("Rounds") :: number?
-		local idle = if v.gun.mg and rounds then tostring(rounds) else ""
+		if model ~= counted or rounds ~= seenRounds then
+			counted, seenRounds, roundsAt, shotsSince = model, rounds, t, 0
+		end
+		local mg = v.gun.mg
+		local idle = if mg and rounds
+			then tostring(
+				Rules.mgShown(rounds, mg.box, shotsSince, model:GetAttribute("ReadyAt") :: number?, roundsAt, t)
+			)
+			else ""
 		panel.set("timer", if share >= 1 then idle else string.format(A.timer, math.floor(share * 1000) / 10))
 	end)
 end

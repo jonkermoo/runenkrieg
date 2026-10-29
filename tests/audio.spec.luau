@@ -1,5 +1,6 @@
 --!strict
 local A = require("../src/shared/Config/Audio")
+local Cases = require("../src/shared/Config/Cases")
 local Firing = require("../src/shared/Config/Firing")
 local Weapons = require("../src/shared/Config/Weapons")
 
@@ -49,7 +50,8 @@ return {
 	end,
 	["a spent case falls under real gravity"] = function()
 		local c = Firing.Effects.Casing
-		assert(math.abs(c.gravity - 9.8 / 0.357) < 0.5, "9.8 m/s^2 in studs")
-		assert(c.up ^ 2 / (2 * c.gravity) > 0.5, "it rises visibly out of the port")
+		assert(math.abs(Cases.gravity - 9.8 / 0.357) < 0.5, "9.8 m/s^2 in studs (the case, flown by CaseDrop)")
+		assert(math.abs(c.gravity - 9.8 / 0.357) < 0.5, "and anything else thrown off the gun")
+		assert(c.up ^ 2 / (2 * Cases.gravity) > 0.5, "it rises visibly out of the port")
 	end,
 }
