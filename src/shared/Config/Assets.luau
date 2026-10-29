@@ -84,7 +84,7 @@ local Assets = {
 			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
 		},
 		pistol_c96 = {
-			id = 81325726220438,
+			id = 94392928383424,
 			category = "Weapons",
 			folder = "Grey/Pistols",
 			source = "assets/weapons/grey/pistol_c96.fbx",
