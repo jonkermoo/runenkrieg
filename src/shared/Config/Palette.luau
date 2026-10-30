@@ -466,6 +466,29 @@ local Palette = {
 				uniform2 = { 226, 196, 110 },
 				uniform3 = { 236, 120, 132 },
 			},
+			-- the settings notebook (src/client/SettingsMenu, src/shared/ui/SettingsMenu.json; user 2026-10-30, the notebook
+			-- design): paper pages, dark words, the chosen value an ink block with paper words, a thin blue line round the
+			-- others, the open tab underlined in red pencil; the same names as UI.Settings
+			Notebook = {
+				panel = { 230, 220, 193 },
+				field = { 230, 220, 193 },
+				line = { 120, 132, 150 },
+				lineStrong = { 21, 18, 15 },
+				text = { 31, 38, 32 },
+				textDim = { 109, 106, 96 },
+				title = { 31, 38, 32 },
+				selFill = { 21, 18, 15 },
+				selLine = { 21, 18, 15 },
+				selText = { 241, 235, 220 },
+				accent = { 21, 18, 15 },
+				pencil = { 184, 50, 42 },
+				fold = { 0, 0, 0 },
+				foldTransparency = 0.8,
+				backdrop = { 0, 0, 0 },
+				backdropTransparency = 0.45,
+				stroke = 2,
+				thin = 1,
+			},
 			-- the chat's channel word on each line (src/client/Chat)
 			Chat = {
 				Server = { 241, 235, 220 },

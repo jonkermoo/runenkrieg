@@ -1,31 +1,20 @@
 {
 	"name": "SettingsMenu",
-	"_doc": "The settings menu (src/client/SettingsMenu), in the game's basic look (user 2026-10-27; docs/ART_STYLE.md): one font, Source Sans Pro Bold, plain boxes like the title screen's buttons, no coloured titles. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale, never taller than the GUI area less theme.fitMargin. Colours are Config/Palette UI.Settings names. Desktop only (no mobile, user 2026-10-19): minTap is a mouse target. Each row is one line, its name on the left and its control on the right; the four *Row nodes are the row templates by option kind (Config/Settings.Tabs). Seg buttons, Tab buttons and the slider parts here are preview samples, the menu makes one per value / tab.",
+	"_doc": "The settings menu (src/client/SettingsMenu), Field Grimoire's notebook (UI overhaul, user 2026-10-30: \"I like the notebook settings\"): one sheet of map paper with a torn edge and ink rim (paper: Config/SketchMap.Paper) and a fold down it; the left page has the title, the tabs down it (`vertical`, each with its rune: `runes`, Config/Runes names), the open one dark and underlined in red pencil, and 'Esc closes' at the foot; the right page has the open tab's options, each its name above its control. Chosen values are an ink block with paper words, the rest a thin blue line round dark words. One font, the game's basic font. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale, never taller than the GUI area less theme.fitMargin. Colours are Config/Palette UI.Grimoire.Notebook names (theme.palette). Desktop only. The four *Row nodes are the row templates by option kind (Config/Settings.Tabs); Seg buttons, Tab buttons and the slider parts are preview samples, the menu makes one per value / tab. The gear (top right) sits on the ink plate (`slab`).",
 	"theme": {
-		"scale": {
-			"referenceHeight": 800,
-			"min": 0.65,
-			"max": 1.25
-		},
+		"palette": "Notebook",
+		"scale": { "referenceHeight": 800, "min": 0.65, "max": 1.25 },
 		"fitMargin": 16,
 		"minTap": 32,
 		"minText": 12,
 		"textStroke": 0,
 		"outline": 0,
-		"corner": 4,
+		"corner": 0,
 		"scrollBar": 4,
-		"fonts": {
-			"body": {
-				"family": "SourceSansPro",
-				"weight": "Bold",
-				"file": "SourceSansPro-Bold.ttf"
-			}
-		},
+		"fonts": { "body": { "family": "SourceSansPro", "weight": "Bold", "file": "SourceSansPro-Bold.ttf" } },
 		"fitNode": "Panel"
 	},
-	"icons": {
-		"gear": "rbxasset://textures/ui/Settings/MenuBarIcons/GameSettingsTab.png"
-	},
+	"icons": { "gear": "rbxasset://textures/ui/Settings/MenuBarIcons/GameSettingsTab.png" },
 	"preview": {
 		"presetName": "Graphics: Custom",
 		"choiceName": "Lighting effects",
@@ -37,388 +26,77 @@
 	"root": {
 		"id": "Screen",
 		"kind": "group",
-		"size": [
-			1,
-			0,
-			1,
-			0
-		],
+		"size": [1, 0, 1, 0],
 		"children": [
 			{
 				"id": "Gear",
 				"kind": "button",
-				"anchor": [
-					1,
-					0
-				],
-				"pos": [
-					1,
-					-12,
-					0,
-					12
-				],
-				"size": [
-					0,
-					44,
-					0,
-					44
-				],
+				"slab": true,
+				"anchor": [1, 0],
+				"pos": [1, -12, 0, 12],
+				"size": [0, 48, 0, 44],
 				"color": "panel",
-				"line": "lineStrong",
 				"children": [
-					{
-						"id": "GearIcon",
-						"kind": "icon",
-						"icon": "gear",
-						"anchor": [
-							0.5,
-							0.5
-						],
-						"pos": [
-							0.5,
-							0,
-							0.5,
-							0
-						],
-						"size": [
-							0.6,
-							0,
-							0.6,
-							0
-						],
-						"color": "text",
-						"center": true
-					}
+					{ "id": "GearIcon", "kind": "icon", "icon": "gear", "anchor": [0.5, 0.5], "pos": [0.5, 0, 0.5, 0], "size": [0.55, 0, 0.6, 0], "color": "selText", "center": true }
 				]
 			},
 			{
 				"id": "Panel",
 				"kind": "panel",
+				"paper": true,
 				"overlay": true,
 				"center": true,
-				"anchor": [
-					0.5,
-					0.5
-				],
-				"pos": [
-					0.5,
-					0,
-					0.5,
-					0
-				],
-				"size": [
-					0,
-					600,
-					0,
-					560
-				],
+				"anchor": [0.5, 0.5],
+				"pos": [0.5, 0, 0.5, 0],
+				"size": [0, 960, 0, 560],
 				"color": "panel",
-				"line": "line",
 				"children": [
-					{
-						"id": "Title",
-						"kind": "label",
-						"text": "SETTINGS",
-						"textSize": 32,
-						"textColor": "title",
-						"align": "left",
-						"pos": [
-							0,
-							20,
-							0,
-							14
-						],
-						"size": [
-							1,
-							-104,
-							0,
-							44
-						]
-					},
-					{
-						"id": "Close",
-						"kind": "button",
-						"text": "X",
-						"textSize": 24,
-						"color": "field",
-						"line": "lineStrong",
-						"textColor": "text",
-						"anchor": [
-							1,
-							0
-						],
-						"pos": [
-							1,
-							-20,
-							0,
-							14
-						],
-						"size": [
-							0,
-							44,
-							0,
-							44
-						]
-					},
-					{
-						"id": "Rule",
-						"kind": "panel",
-						"color": "line",
-						"pos": [
-							0,
-							20,
-							0,
-							70
-						],
-						"size": [
-							1,
-							-40,
-							0,
-							1
-						]
-					},
+					{ "id": "Fold", "kind": "panel", "color": "fold", "pos": [0.37, -1, 0, 26], "size": [0, 2, 1, -52] },
+					{ "id": "Title", "kind": "label", "text": "Settings", "textSize": 44, "textColor": "title", "align": "left", "pos": [0, 44, 0, 34], "size": [0, 300, 0, 54] },
+					{ "id": "Rule", "kind": "panel", "color": "lineStrong", "pos": [0, 44, 0, 92], "size": [0, 230, 0, 2] },
+					{ "id": "Close", "kind": "button", "clear": true, "text": "X", "textSize": 26, "textColor": "text", "anchor": [1, 0], "pos": [1, -28, 0, 24], "size": [0, 40, 0, 40] },
 					{
 						"id": "Tabs",
 						"kind": "group",
+						"vertical": true,
 						"gap": 6,
-						"pos": [
-							0,
-							20,
-							0,
-							84
-						],
-						"size": [
-							1,
-							-40,
-							0,
-							40
-						],
+						"rowHeight": 56,
+						"runes": ["raidho", "tiwaz", "sowilo", "hagalaz"],
+						"pos": [0, 44, 0, 120],
+						"size": [0, 270, 0, 260],
 						"children": [
-							{
-								"id": "Tab1",
-								"kind": "button",
-								"text": "Graphics",
-								"textSize": 20,
-								"color": "selFill",
-								"line": "selLine",
-								"textColor": "selText",
-								"pos": [
-									0.0,
-									0.0,
-									0,
-									0
-								],
-								"size": [
-									0.25,
-									-4.5,
-									1,
-									0
-								]
-							},
-							{
-								"id": "Tab2",
-								"kind": "button",
-								"text": "Controls",
-								"textSize": 20,
-								"color": "field",
-								"line": "line",
-								"textColor": "text",
-								"pos": [
-									0.25,
-									1.5,
-									0,
-									0
-								],
-								"size": [
-									0.25,
-									-4.5,
-									1,
-									0
-								]
-							},
-							{
-								"id": "Tab3",
-								"kind": "button",
-								"text": "Audio",
-								"textSize": 20,
-								"color": "field",
-								"line": "line",
-								"textColor": "text",
-								"pos": [
-									0.5,
-									3.0,
-									0,
-									0
-								],
-								"size": [
-									0.25,
-									-4.5,
-									1,
-									0
-								]
-							},
-							{
-								"id": "Tab4",
-								"kind": "button",
-								"text": "Keybinds",
-								"textSize": 20,
-								"color": "field",
-								"line": "line",
-								"textColor": "text",
-								"pos": [
-									0.75,
-									4.5,
-									0,
-									0
-								],
-								"size": [
-									0.25,
-									-4.5,
-									1,
-									0
-								]
-							}
+							{ "id": "Tab1", "kind": "button", "text": "Graphics", "textSize": 25, "textColor": "text", "align": "left", "pos": [0, 0, 0, 0], "size": [1, 0, 0, 56] },
+							{ "id": "Tab2", "kind": "button", "text": "Controls", "textSize": 25, "textColor": "textDim", "align": "left", "pos": [0, 0, 0, 62], "size": [1, 0, 0, 56] },
+							{ "id": "Tab3", "kind": "button", "text": "Audio", "textSize": 25, "textColor": "textDim", "align": "left", "pos": [0, 0, 0, 124], "size": [1, 0, 0, 56] },
+							{ "id": "Tab4", "kind": "button", "text": "Keybinds", "textSize": 25, "textColor": "textDim", "align": "left", "pos": [0, 0, 0, 186], "size": [1, 0, 0, 56] }
 						]
 					},
+					{ "id": "Footer", "kind": "label", "text": "Esc closes", "textSize": 17, "textColor": "textDim", "align": "left", "pos": [0, 44, 1, -62], "size": [0, 280, 0, 24] },
 					{
 						"id": "Page",
 						"kind": "group",
-						"gap": 8,
-						"pos": [
-							0,
-							20,
-							0,
-							138
-						],
-						"size": [
-							1,
-							-40,
-							1,
-							-158
-						],
+						"gap": 12,
+						"pos": [0.37, 44, 0, 44],
+						"size": [0.63, -84, 1, -88],
 						"children": [
 							{
 								"id": "PresetRow",
 								"kind": "group",
-								"pos": [
-									0,
-									0,
-									0,
-									0
-								],
-								"size": [
-									1,
-									-10,
-									0,
-									40
-								],
+								"pos": [0, 0, 0, 0],
+								"size": [1, -10, 0, 70],
 								"children": [
-									{
-										"id": "PresetName",
-										"kind": "label",
-										"role": "name",
-										"bind": "presetName",
-										"textSize": 20,
-										"textColor": "text",
-										"align": "left",
-										"pos": [
-											0,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0.42,
-											-8,
-											1,
-											0
-										]
-									},
+									{ "id": "PresetName", "kind": "label", "role": "name", "bind": "presetName", "textSize": 21, "textColor": "text", "align": "left", "pos": [0, 0, 0, 0], "size": [1, 0, 0, 28] },
 									{
 										"id": "PresetControl",
 										"kind": "group",
 										"role": "control",
 										"gap": 6,
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0.58,
-											0,
-											1,
-											0
-										],
+										"pos": [0, 0, 0, 32],
+										"size": [0.8, 0, 0, 34],
 										"children": [
-											{
-												"id": "PresetSeg1",
-												"kind": "button",
-												"text": "Low",
-												"textSize": 18,
-												"color": "field",
-												"line": "line",
-												"textColor": "text",
-												"pos": [
-													0.0,
-													0.0,
-													0,
-													0
-												],
-												"size": [
-													0.3333,
-													-4.0,
-													1,
-													0
-												]
-											},
-											{
-												"id": "PresetSeg2",
-												"kind": "button",
-												"text": "Normal",
-												"textSize": 18,
-												"color": "selFill",
-												"line": "selLine",
-												"textColor": "selText",
-												"pos": [
-													0.3333,
-													2.0,
-													0,
-													0
-												],
-												"size": [
-													0.3333,
-													-4.0,
-													1,
-													0
-												]
-											},
-											{
-												"id": "PresetSeg3",
-												"kind": "button",
-												"text": "Beautiful",
-												"textSize": 18,
-												"color": "field",
-												"line": "line",
-												"textColor": "text",
-												"pos": [
-													0.6667,
-													4.0,
-													0,
-													0
-												],
-												"size": [
-													0.3333,
-													-4.0,
-													1,
-													0
-												]
-											}
+											{ "id": "PresetSeg1", "kind": "button", "text": "Low", "textSize": 18, "color": "field", "line": "line", "textColor": "text", "pos": [0.0, 0.0, 0, 0], "size": [0.3333, -4.0, 1, 0] },
+											{ "id": "PresetSeg2", "kind": "button", "text": "Normal", "textSize": 18, "color": "selFill", "line": "selLine", "textColor": "selText", "pos": [0.3333, 2.0, 0, 0], "size": [0.3333, -4.0, 1, 0] },
+											{ "id": "PresetSeg3", "kind": "button", "text": "Beautiful", "textSize": 18, "color": "field", "line": "line", "textColor": "text", "pos": [0.6667, 4.0, 0, 0], "size": [0.3333, -4.0, 1, 0] }
 										]
 									}
 								]
@@ -426,146 +104,22 @@
 							{
 								"id": "ChoiceRow",
 								"kind": "group",
-								"pos": [
-									0,
-									0,
-									0,
-									48
-								],
-								"size": [
-									1,
-									-10,
-									0,
-									40
-								],
+								"pos": [0, 0, 0, 82],
+								"size": [1, -10, 0, 70],
 								"children": [
-									{
-										"id": "ChoiceName",
-										"kind": "label",
-										"role": "name",
-										"bind": "choiceName",
-										"textSize": 20,
-										"textColor": "text",
-										"align": "left",
-										"pos": [
-											0,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0.42,
-											-8,
-											1,
-											0
-										]
-									},
+									{ "id": "ChoiceName", "kind": "label", "role": "name", "bind": "choiceName", "textSize": 21, "textColor": "text", "align": "left", "pos": [0, 0, 0, 0], "size": [1, 0, 0, 28] },
 									{
 										"id": "ChoiceControl",
 										"kind": "group",
 										"role": "control",
 										"gap": 6,
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0.58,
-											0,
-											1,
-											0
-										],
+										"pos": [0, 0, 0, 32],
+										"size": [0.8, 0, 0, 34],
 										"children": [
-											{
-												"id": "ChoiceSeg1",
-												"kind": "button",
-												"text": "Off",
-												"textSize": 18,
-												"color": "field",
-												"line": "line",
-												"textColor": "text",
-												"pos": [
-													0.0,
-													0.0,
-													0,
-													0
-												],
-												"size": [
-													0.25,
-													-4.5,
-													1,
-													0
-												]
-											},
-											{
-												"id": "ChoiceSeg2",
-												"kind": "button",
-												"text": "Low",
-												"textSize": 18,
-												"color": "field",
-												"line": "line",
-												"textColor": "text",
-												"pos": [
-													0.25,
-													1.5,
-													0,
-													0
-												],
-												"size": [
-													0.25,
-													-4.5,
-													1,
-													0
-												]
-											},
-											{
-												"id": "ChoiceSeg3",
-												"kind": "button",
-												"text": "Medium",
-												"textSize": 18,
-												"color": "selFill",
-												"line": "selLine",
-												"textColor": "selText",
-												"pos": [
-													0.5,
-													3.0,
-													0,
-													0
-												],
-												"size": [
-													0.25,
-													-4.5,
-													1,
-													0
-												]
-											},
-											{
-												"id": "ChoiceSeg4",
-												"kind": "button",
-												"text": "High",
-												"textSize": 18,
-												"color": "field",
-												"line": "line",
-												"textColor": "text",
-												"pos": [
-													0.75,
-													4.5,
-													0,
-													0
-												],
-												"size": [
-													0.25,
-													-4.5,
-													1,
-													0
-												]
-											}
+											{ "id": "ChoiceSeg1", "kind": "button", "text": "Off", "textSize": 18, "color": "field", "line": "line", "textColor": "text", "pos": [0.0, 0.0, 0, 0], "size": [0.25, -4.5, 1, 0] },
+											{ "id": "ChoiceSeg2", "kind": "button", "text": "Low", "textSize": 18, "color": "field", "line": "line", "textColor": "text", "pos": [0.25, 1.5, 0, 0], "size": [0.25, -4.5, 1, 0] },
+											{ "id": "ChoiceSeg3", "kind": "button", "text": "Medium", "textSize": 18, "color": "selFill", "line": "selLine", "textColor": "selText", "pos": [0.5, 3.0, 0, 0], "size": [0.25, -4.5, 1, 0] },
+											{ "id": "ChoiceSeg4", "kind": "button", "text": "High", "textSize": 18, "color": "field", "line": "line", "textColor": "text", "pos": [0.75, 4.5, 0, 0], "size": [0.25, -4.5, 1, 0] }
 										]
 									}
 								]
@@ -573,142 +127,21 @@
 							{
 								"id": "SliderRow",
 								"kind": "group",
-								"pos": [
-									0,
-									0,
-									0,
-									96
-								],
-								"size": [
-									1,
-									-10,
-									0,
-									40
-								],
+								"pos": [0, 0, 0, 164],
+								"size": [1, -10, 0, 70],
 								"children": [
-									{
-										"id": "SliderName",
-										"kind": "label",
-										"role": "name",
-										"bind": "sliderName",
-										"textSize": 20,
-										"textColor": "text",
-										"align": "left",
-										"pos": [
-											0,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0.42,
-											-8,
-											1,
-											0
-										]
-									},
-									{
-										"id": "SliderValue",
-										"kind": "label",
-										"role": "value",
-										"bind": "sliderValue",
-										"textSize": 20,
-										"textColor": "text",
-										"align": "right",
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0,
-											60,
-											1,
-											0
-										]
-									},
+									{ "id": "SliderName", "kind": "label", "role": "name", "bind": "sliderName", "textSize": 21, "textColor": "text", "align": "left", "pos": [0, 0, 0, 0], "size": [1, 0, 0, 28] },
+									{ "id": "SliderValue", "kind": "label", "role": "value", "bind": "sliderValue", "textSize": 19, "textColor": "text", "align": "left", "pos": [0.8, 14, 0, 32], "size": [0.2, -14, 0, 34] },
 									{
 										"id": "SliderControl",
 										"kind": "group",
 										"role": "control",
-										"pos": [
-											0.42,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0.58,
-											-72,
-											1,
-											0
-										],
+										"pos": [0, 0, 0, 32],
+										"size": [0.8, 0, 0, 34],
 										"children": [
-											{
-												"id": "Track",
-												"kind": "panel",
-												"role": "track",
-												"color": "line",
-												"pos": [
-													0,
-													5,
-													0.5,
-													-3
-												],
-												"size": [
-													1,
-													-10,
-													0,
-													6
-												]
-											},
-											{
-												"id": "Fill",
-												"kind": "panel",
-												"role": "fill",
-												"overlay": true,
-												"color": "accent",
-												"pos": [
-													0,
-													5,
-													0.5,
-													-3
-												],
-												"size": [
-													0.6,
-													-6,
-													0,
-													6
-												]
-											},
-											{
-												"id": "Knob",
-												"kind": "panel",
-												"role": "knob",
-												"overlay": true,
-												"color": "accent",
-												"anchor": [
-													0.5,
-													0.5
-												],
-												"pos": [
-													0.6,
-													0,
-													0.5,
-													0
-												],
-												"size": [
-													0,
-													10,
-													0,
-													24
-												]
-											}
+											{ "id": "Track", "kind": "panel", "role": "track", "color": "line", "pos": [0, 9, 0.5, -1], "size": [1, -18, 0, 3] },
+											{ "id": "Fill", "kind": "panel", "role": "fill", "overlay": true, "color": "accent", "pos": [0, 9, 0.5, -2], "size": [0.6, -9, 0, 5] },
+											{ "id": "Knob", "kind": "panel", "role": "knob", "overlay": true, "diamond": true, "color": "accent", "anchor": [0.5, 0.5], "pos": [0.6, 0, 0.5, 0], "size": [0, 17, 0, 17] }
 										]
 									}
 								]
@@ -716,66 +149,11 @@
 							{
 								"id": "KeyRow",
 								"kind": "group",
-								"pos": [
-									0,
-									0,
-									0,
-									144
-								],
-								"size": [
-									1,
-									-10,
-									0,
-									40
-								],
+								"pos": [0, 0, 0, 246],
+								"size": [1, -10, 0, 70],
 								"children": [
-									{
-										"id": "KeyName",
-										"kind": "label",
-										"role": "name",
-										"bind": "keyName",
-										"textSize": 20,
-										"textColor": "text",
-										"align": "left",
-										"pos": [
-											0,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0.42,
-											-8,
-											1,
-											0
-										]
-									},
-									{
-										"id": "Key",
-										"kind": "button",
-										"role": "control",
-										"bind": "keyText",
-										"textSize": 18,
-										"color": "field",
-										"line": "line",
-										"textColor": "text",
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											0,
-											0,
-											0
-										],
-										"size": [
-											0.58,
-											0,
-											1,
-											0
-										]
-									}
+									{ "id": "KeyName", "kind": "label", "role": "name", "bind": "keyName", "textSize": 21, "textColor": "text", "align": "left", "pos": [0, 0, 0, 0], "size": [1, 0, 0, 28] },
+									{ "id": "Key", "kind": "button", "role": "control", "bind": "keyText", "textSize": 18, "color": "field", "line": "line", "textColor": "text", "pos": [0, 0, 0, 32], "size": [0.56, 0, 0, 34] }
 								]
 							}
 						]

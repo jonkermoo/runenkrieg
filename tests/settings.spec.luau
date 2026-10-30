@@ -178,8 +178,10 @@ return {
 				assert(tpl and ids[tpl], `{tab.name}.{key}: no row template`)
 			end
 		end
+		local own = spec.theme.palette
+		local palette = (own and ((Palette.UI :: any).Grimoire[own] or (Palette.UI :: any)[own])) or Palette.UI.Settings
 		for _, name in colors do
-			assert(Palette.UI.Settings[name], `colour {name} not in Palette.UI.Settings`)
+			assert(palette[name], `colour {name} not in the menu's palette`)
 		end
 		for name in spec.theme.fonts do
 			assert(spec.theme.fonts[name].family, name)

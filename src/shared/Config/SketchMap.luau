@@ -26,6 +26,9 @@ local SketchMap = {
 	ContestedPulse = 0.9, -- seconds per beat of a contested point's amber ring
 	-- the 9-slice ink plate under buttons and HUD plates (tools/ui/inkslab.py)
 	Slab = { image = 89920834909168, slice = { 28, 28, 228, 100 } },
+	-- the 9-slice paper sheet with a torn edge and ink rim, under paper panels (the settings notebook;
+	-- tools/ui/papersheet.py)
+	Paper = { image = 81557441306335, slice = { 44, 44, 212, 212 } },
 }
 
 return table.freeze(SketchMap)
