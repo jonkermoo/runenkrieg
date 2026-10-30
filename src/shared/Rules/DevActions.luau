@@ -9,6 +9,7 @@ DevActions.Aimed = table.freeze({ BlastStage = true, BlastKg = true, Dummy = tru
 
 -- actions with no value (or a plain on/off)
 local PLAIN = table.freeze({
+	BotsAuto = true,
 	Kill = true,
 	Respawn = true,
 	KnockMe = true,
@@ -21,7 +22,6 @@ local PLAIN = table.freeze({
 	MatchRestart = true,
 	ZoneSkip = true,
 	RespawnAll = true,
-	BotsAuto = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
