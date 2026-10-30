@@ -478,7 +478,7 @@ local Palette = {
 			Name = {
 				uniform1 = { 160, 172, 184 },
 				uniform2 = { 180, 188, 108 },
-				uniform3 = { 220, 210, 188 },
+				uniform3 = { 214, 160, 116 }, -- (the chocolate, lifted: the off-white read as plain text)
 			},
 		},
 	},

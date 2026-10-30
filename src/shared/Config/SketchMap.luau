@@ -17,8 +17,8 @@ local SketchMap = {
 		},
 	},
 	-- sizes as shares of the drawn area's width
-	Point = { radius = 0.019, hqRadius = 0.023, ring = 0.004, rune = 0.62 }, -- a rune's height in its circle's width
-	Label = { size = 0.026, below = 0.012 }, -- a point's name under it
+	Point = { radius = 0.028, hqRadius = 0.034, ring = 0.005, rune = 0.62 }, -- a rune's height in its circle's width
+	Label = { size = 0.038, below = 0.008 }, -- a point's name under it
 	Border = { thick = 0.0016, dash = 0.012, gap = 0.009, transparency = 0.35 }, -- the sector borders (dashed blue)
 	Front = { thick = 0.0075 }, -- the front (ink)
 	WashTransparency = 0.55, -- each side's land
