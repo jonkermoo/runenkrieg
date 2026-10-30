@@ -15,7 +15,9 @@
 --   the image's); front() names the sector the front is in (nil without a match); opts.you: the local soldier as a red
 --   pencil arrow pointing where the camera looks (in play; never on the title screen); opts.deploy: a red pencil ring
 --   round the point the team of the kit given to deploy(kit) spawns at (Rules/Frontline.spawn; the loadout menu),
---   named by deployName()
+--   named by deployName(); opts.teammates: a dot per living teammate (Rules/Teams: the same "Kit" as your soldier, or
+--   in the loadout the kit you deploy in; never an enemy, nobody in a free-for-all) in the team's magic colour (in play
+--   and the loadout; never on the title screen). The markers are layers in MARKERS: later kinds go there.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -25,6 +27,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.SketchMap) :: any
 local Palette = require(Shared.Config.Palette)
 local FrontRules = require(Shared.Rules.Frontline)
+local TeamRules = require(Shared.Rules.Teams)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Ink = require(script.Parent.Ink)
 
 local SketchMap = {}
@@ -38,6 +42,63 @@ local RUNE_FOR = { "hagalaz", "sowilo", "tiwaz", "raidho", "othala", "algiz", "b
 local FOLDER = "Frontline" -- Config/Frontline.FolderName (Territory Push; read by name so main without it still runs)
 
 type Point = { id: string, name: string, x: number, z: number, hq: boolean, start: string }
+
+-- What the markers see each frame: the local player and the kit of their team (nil: none known).
+type Seen = { me: Player, kit: string? }
+-- A kind of marker: `on` names the opt that turns it on; `list` gives this frame's marks (the world position and the
+-- colour of each); `make` builds one mark's frame (anchored at its middle, sized as a share of the area's width).
+type Marker = {
+	on: string,
+	list: (seen: Seen) -> { { at: Vector3, colour: Color3 } },
+	make: (ink: Color3) -> Frame,
+}
+
+-- the marker kinds, drawn in this order under the local arrow; each is pooled (its frames reused, hidden when spare)
+local MARKERS: { Marker } = {
+	-- teammates: a small ink-edged dot in the team's magic colour per living soldier of your kit
+	{
+		on = "teammates",
+		list = function(seen)
+			local marks = {}
+			local magic = seen.kit and C.Magic[seen.kit]
+			if not magic then
+				return marks
+			end
+			local ffa = workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
+			for _, p in Players:GetPlayers() do
+				local character = p.Character
+				if
+					p == seen.me
+					or not character
+					or not TeamRules.same(character:GetAttribute("Kit"), seen.kit, ffa)
+				then
+					continue
+				end
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if humanoid and humanoid.Health > 0 and root then
+					table.insert(marks, { at = root.Position, colour = rgb(magic) })
+				end
+			end
+			return marks
+		end,
+		make = function(ink)
+			local dot = Instance.new("Frame")
+			dot.BorderSizePixel = 0
+			dot.Size = UDim2.fromScale(Cfg.Teammate.size, Cfg.Teammate.size)
+			local aspect = Instance.new("UIAspectRatioConstraint")
+			aspect.Parent = dot
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0.5, 0)
+			corner.Parent = dot
+			local edge = Instance.new("UIStroke")
+			edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			edge.Color = ink
+			edge.Parent = dot
+			return dot
+		end,
+	},
+}
 
 -- the map's sectors west to east and the borders between them (each a polyline of { x, z }, z from min to max),
 -- with the drawn area's edges as the first and last
@@ -81,7 +142,7 @@ local function borderX(b: { { number } }, z: number): number
 	return b[#b][1]
 end
 
-function SketchMap.new(box: GuiObject, mapKey: string?, opts: { you: boolean?, deploy: boolean? }?)
+function SketchMap.new(box: GuiObject, mapKey: string?, opts: { you: boolean?, deploy: boolean?, teammates: boolean? }?)
 	local key = mapKey or "Map1"
 	local m = Cfg.Maps[key]
 	local points, borders = layout(key, m)
@@ -418,11 +479,59 @@ function SketchMap.new(box: GuiObject, mapKey: string?, opts: { you: boolean?, d
 		arrow.Rotation = math.deg(math.atan2(look.X, -look.Z))
 	end
 
+	-- the markers on: a pool of frames each
+	type Layer = { marker: Marker, box: Frame, pool: { Frame } }
+	local layers: { Layer } = {}
+	for i, marker in MARKERS do
+		if opts and (opts :: any)[marker.on] then
+			local holder = Instance.new("Frame")
+			holder.Name = "Markers" .. i
+			holder.BackgroundTransparency = 1
+			holder.Size = UDim2.fromScale(1, 1)
+			holder.ZIndex = 2
+			holder.Parent = area
+			table.insert(layers, { marker = marker, box = holder, pool = {} })
+		end
+	end
+	local function placeMarkers()
+		if #layers == 0 then
+			return
+		end
+		local me = Players.LocalPlayer
+		local character = me.Character
+		local seen: Seen = { me = me, kit = deployKit or (character and character:GetAttribute("Kit") :: string?) }
+		local edge = math.max(1, Cfg.Teammate.edge * area.AbsoluteSize.X)
+		for _, layer in layers do
+			local marks = layer.marker.list(seen)
+			for n, mark in marks do
+				local f = layer.pool[n]
+				if not f then
+					f = layer.marker.make(ink)
+					f.AnchorPoint = Vector2.new(0.5, 0.5)
+					f.ZIndex = 2
+					f.Parent = layer.box
+					layer.pool[n] = f
+				end
+				f.Position = UDim2.fromScale(math.clamp(u(mark.at.X), 0, 1), math.clamp(v(mark.at.Z), 0, 1))
+				f.BackgroundColor3 = mark.colour
+				local stroke = f:FindFirstChildOfClass("UIStroke")
+				if stroke then
+					stroke.Thickness = edge
+				end
+				f.Visible = true
+			end
+			for n = #marks + 1, #layer.pool do
+				layer.pool[n].Visible = false
+			end
+		end
+	end
+
 	local conn = RunService.Heartbeat:Connect(function()
 		if img.Parent and box.Visible and (box:FindFirstAncestorOfClass("ScreenGui") :: ScreenGui?) then
 			local gui = box:FindFirstAncestorOfClass("ScreenGui") :: ScreenGui
 			if gui.Enabled then
 				update(os.clock())
+				placeMarkers()
 				placeYou()
 			end
 		end

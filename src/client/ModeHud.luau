@@ -519,7 +519,7 @@ function ModeHud.start()
 	mapBox.Size = UDim2.fromOffset(H.width, H.width * H.aspect)
 	mapBox.Visible = false
 	mapBox.Parent = gui
-	SketchMap.new(mapBox, FrontlineCfg.MapKey, { you = true })
+	SketchMap.new(mapBox, FrontlineCfg.MapKey, { you = true, teammates = true })
 	nodes.SketchMap = mapBox
 	local scales = {}
 	for _, id in { "FrontBar", "ZoneBar", "SketchMap" } do

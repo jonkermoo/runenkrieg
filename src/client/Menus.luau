@@ -214,7 +214,7 @@ local function build(spec: any, name: string, parent: Instance): Screen
 		elseif n.kind == "trench" then
 			Ink.trench(obj, col("ink"), col("text"))
 		elseif n.kind == "sketchmap" then
-			screen.maps[n.id] = SketchMap.new(obj, nil, { deploy = n.deploy })
+			screen.maps[n.id] = SketchMap.new(obj, nil, { deploy = n.deploy, teammates = n.deploy })
 		end
 		if n.rotation then
 			obj.Rotation = n.rotation

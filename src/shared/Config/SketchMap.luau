@@ -25,6 +25,7 @@ local SketchMap = {
 	Border = { thick = 0.0016, dash = 0.012, gap = 0.009, transparency = 0.35 }, -- the sector borders (dashed blue)
 	Front = { thick = 0.0075 }, -- the front (ink)
 	You = { size = 0.05 }, -- the local soldier's arrow in play, across
+	Teammate = { size = 0.022, edge = 0.003 }, -- a teammate's dot, across (under a point's seal), and its ink edge
 	Deploy = { ring = 1.9, thick = 0.004 }, -- the loadout's ring round where you deploy: radii of its point, line
 	WashTransparency = 0.55, -- each side's land
 	WashBands = 32, -- the washes are this many strips, top to bottom (their steps hide under the front's ink)
