@@ -4,7 +4,7 @@
 -- soldier. The rig type itself is a game setting (Game Settings -> Avatar -> R6); scripts can't set it.
 -- Then it dresses the body in its uniform kit (Config/Uniforms): Shirt + Pants, rolls the life's skin and hair colors
 -- (Config/Uniforms Skins / HairColors, Rules/Looks) and hairstyle, puts on the face (on a "FaceCard" shell welded
--- over the head), the kit's helmet over the hair (src/server/Helmets), the life's rig in the kit's colors
+-- over the head), the class's helmet over the hair (in a free-for-all any headwear, rolled with the look; src/server/Helmets), the life's rig in the kit's colors
 -- (src/server/Rigs), its pack on the back (src/server/Packs) and its species' ears and tail (src/server/Species).
 
 local Players = game:GetService("Players")
@@ -12,6 +12,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local U = require(Shared.Config.Uniforms)
+local Classes = require(Shared.Config.Classes)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local SpeciesCfg = require(Shared.Config.Species)
 local Faces = require(Shared.Rules.Faces)
 local Looks = require(Shared.Rules.Looks)
@@ -27,10 +29,16 @@ local Bodies = {}
 
 local warned = false
 
+-- every headwear a free-for-all soldier may wear (Config/ZoneMatch.Headwear, Rules/Looks.headwearPool)
+local HEADWEAR = Looks.headwearPool(U.Kits, Classes.Gear, ZoneCfg.Headwear.gear)
+-- on the character: this life's free-for-all headwear (an entry name, "" bareheaded)
+local FFA_HEADWEAR = "FfaHeadwear"
+
 -- each player's skin, hair color, hairstyle and rig (pool indexes) for their next life: rolled at the join and again on
 -- each death (src/server/Deploy: the loadout menu's preview shows them), never the same as the life before
 -- (Rules/Looks); and whether they are their nation's species that life (Config/Species.Chance, Rules/Species.roll)
-type Look = { skin: number, hair: number, style: number, rig: number, species: boolean }
+-- and the headwear it wears in a free-for-all (an index into HEADWEAR, 0 bareheaded; Config/ZoneMatch.Headwear)
+type Look = { skin: number, hair: number, style: number, rig: number, species: boolean, headwear: number }
 local planned: { [Player]: Look } = {}
 
 local function rgb(c: { number }): Color3
@@ -44,6 +52,7 @@ local function roll(last: Look?): Look
 		style = Looks.pick(U.Hairs, math.random(), last and last.style),
 		rig = Looks.pick(U.Rigs, math.random(), last and last.rig),
 		species = SpeciesRule.roll(math.random(), SpeciesCfg.Chance),
+		headwear = Looks.headwear(HEADWEAR, math.random(), ZoneCfg.Headwear.bare),
 	}
 end
 
@@ -72,6 +81,7 @@ local function rollLooks(character: Model, as: Player?): Color3
 	local s, h, st = look.skin, look.hair, look.style
 	character:SetAttribute("HairStyle", U.Hairs[st].name)
 	character:SetAttribute("SpeciesRoll", look.species)
+	character:SetAttribute(FFA_HEADWEAR, HEADWEAR[look.headwear] or "")
 	if character:GetAttribute("Rig") == nil then
 		character:SetAttribute("Rig", U.Rigs[look.rig].name)
 	end
@@ -153,11 +163,17 @@ function Bodies.apply(character: Model, as: Player?)
 	local pants = Instance.new("Pants")
 	pants.PantsTemplate = "rbxassetid://" .. kit.pants
 	pants.Parent = character
-	-- the helmet stays off once it has been shot off this life
+	-- the helmet stays off once it has been shot off this life; the class's helmet (src/server/Loadouts, Config/Classes),
+	-- or in a free-for-all this life's rolled one (user 2026-10-30: "for FFA, everyone should just get random team colors
+	-- and accessories")
+	local headwear: string? = Loadouts.gear(character).headwear
+	if workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true then
+		local rolled = character:GetAttribute(FFA_HEADWEAR)
+		headwear = if type(rolled) == "string" and rolled ~= "" then rolled else nil
+	end
 	Helmets.dress(
 		character,
-		-- (the class's helmet: src/server/Loadouts, Config/Classes)
-		if character:GetAttribute("HelmetOn") == false then nil else Loadouts.gear(character).headwear,
+		if character:GetAttribute("HelmetOn") == false then nil else headwear,
 		Species.of(character, kitName)
 	)
 	Rigs.dress(character, kitName)

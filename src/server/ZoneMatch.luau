@@ -8,7 +8,7 @@
 -- others and clear of the zone, protected for a moment (src/server/Damage.protect). The marker models carry the state
 -- as attributes; src/client/ZoneMarker colours them. Bot soldiers (src/server/Bots) play it as players (user
 -- 2026-10-30: "enemies are treated as players"): they spawn the same way, hold and contest the zone, score, capture
--- (paid in match points), lead (glowing) and win; their scores sit on the bots' folder for the HUD (Config/Bots
+-- (paid in match points) and lead (glowing), but the winner announced is the best player; their scores sit on the bots' folder for the HUD (Config/Bots
 -- ScoreAttribute). The admin panel ends, restarts and lengthens a match, moves the
 -- zone on and hands out score (src/server/DevTools).
 
@@ -25,6 +25,7 @@ local TeamCfg = require(Shared.Config.Teams)
 local Map = require(Shared.Config.Maps.Playtest)
 local Modes = require(Shared.Rules.Modes)
 local Rules = require(Shared.Rules.ZoneMatch)
+local Bodies = require(script.Parent.Bodies)
 local Damage = require(script.Parent.Damage)
 local Kits = require(script.Parent.Kits)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -461,7 +462,17 @@ local function run()
 		zone:SetAttribute("State", "Free")
 		zone:SetAttribute("Holder", nil)
 		zone:SetAttribute("NextSpot", nil)
-		zone:SetAttribute("Winner", leader)
+		-- a bot may lead, but the winner announced is the best player (user 2026-10-30: "bots can show as leader. no need
+		-- for x wins since theyre just bots"); none if no player scored
+		local winner = leader
+		if winner and winner < 0 then
+			local players = {}
+			for _, p in Players:GetPlayers() do
+				players[p.UserId] = (p:GetAttribute(Cfg.ScoreAttribute) :: number?) or 0
+			end
+			winner = Rules.leader(players, nil)
+		end
+		zone:SetAttribute("Winner", winner)
 		zone:SetAttribute("EndsAt", workspace:GetServerTimeNow() + Cfg.ResultsSeconds)
 		task.wait(Cfg.ResultsSeconds)
 		-- everyone back in on a random team (user 2026-10-30: "in the FFA mode make it so players randomize their team as
@@ -474,6 +485,7 @@ local function run()
 		for _, p in Players:GetPlayers() do
 			if not keep then
 				Kits.reroll(p)
+				Bodies.reroll(p) -- (a new look too: the colours and headwear, src/server/Bodies)
 			end
 			task.spawn(function()
 				p:LoadCharacter()
