@@ -30,6 +30,7 @@ local Modes = require(script.Parent.Modes)
 local ZoneMatch = require(script.Parent.ZoneMatch)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Cfg = require(Shared.Config.DevTools)
+local BotsCfg = require(Shared.Config.Bots)
 local ClassCfg = require(Shared.Config.Classes)
 local ModeCfg = require(Shared.Config.Modes)
 local TeamCfg = require(Shared.Config.Teams)
@@ -158,6 +159,12 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		ZoneMatch.extend(value)
 	elseif action == "ZoneScore" then
 		ZoneMatch.addScore(player, value)
+	elseif action == "Bots" then
+		workspace:SetAttribute(BotsCfg.Attribute, value) -- (src/server/Bots: the count pinned)
+	elseif action == "BotsAuto" then
+		workspace:SetAttribute(BotsCfg.Attribute, nil)
+	elseif action == "BotDifficulty" then
+		workspace:SetAttribute(BotsCfg.DifficultyAttribute, value)
 	elseif action == "Points" then
 		Loadouts.grant(player, value)
 	elseif action == "Class" then

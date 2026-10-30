@@ -145,6 +145,11 @@ local DevTools = {
 		-- spot now, add these seconds to the match clock, give yourself this much zone score
 		MatchSeconds = { -60, 60, 300 },
 		ZoneScore = { 10, 60 },
+		-- "Bots" rows (user 2026-10-30: "bring bots to testing"; src/server/Bots): pin the bot count to one of these
+		-- (Workspace's Config/Bots.Attribute) or back to the mode's own fill ("BotsAuto"), and set their difficulty
+		-- (Config/Bots.Difficulty keys)
+		BotCounts = { 0, 2, 5, 10, 20 },
+		BotDifficulties = { "Easy", "Medium", "Hard" },
 		-- "Loadout" rows (src/server/Loadouts): give yourself these match points, or be one class every life (any class,
 		-- locked or not, free; `Normal` goes back to your picks), on the Player as `ClassAttribute`
 		Points = { 50, 200 },

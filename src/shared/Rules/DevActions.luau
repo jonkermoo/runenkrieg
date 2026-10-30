@@ -21,6 +21,7 @@ local PLAIN = table.freeze({
 	MatchRestart = true,
 	ZoneSkip = true,
 	RespawnAll = true,
+	BotsAuto = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
@@ -66,6 +67,10 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return defs ~= nil and type(value) == "string" and (value == cfg.Admin.Normal or defs.classes[value] ~= nil)
 	elseif action == "MatchTime" then
 		return table.find(cfg.Admin.MatchSeconds, value) ~= nil
+	elseif action == "Bots" then
+		return table.find(cfg.Admin.BotCounts, value) ~= nil
+	elseif action == "BotDifficulty" then
+		return table.find(cfg.Admin.BotDifficulties, value) ~= nil
 	elseif action == "ZoneScore" then
 		return table.find(cfg.Admin.ZoneScore, value) ~= nil
 	elseif action == "Points" then

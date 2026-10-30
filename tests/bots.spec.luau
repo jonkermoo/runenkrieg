@@ -205,6 +205,15 @@ return {
 		assert(not R.stuck(0.5, 1, 1.5, 1.5), "window not up")
 		assert(not R.stuck(3, 2, 1.5, 1.5))
 	end,
+	["the admin panel's bot rows name real difficulties and counts within the budget"] = function()
+		local Dev = require("../src/shared/Config/DevTools")
+		for _, k in Dev.Admin.BotDifficulties do
+			assert(Cfg.Difficulty[k], k)
+		end
+		for _, n in Dev.Admin.BotCounts do
+			assert(n >= 0 and n <= Cfg.Max, `{n}`)
+		end
+	end,
 	["every difficulty has every knob"] = function()
 		for name, d in Cfg.Difficulty do
 			for _, k in { "reaction", "aimError", "aimFloor", "settle", "moving", "spotRange", "fov", "lead" } do

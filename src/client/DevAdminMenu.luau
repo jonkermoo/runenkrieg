@@ -22,6 +22,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
+local BotsCfg = require(Shared.Config.Bots)
 local ClassCfg = require(Shared.Config.Classes)
 local ModeCfg = require(Shared.Config.Modes)
 local TeamCfg = require(Shared.Config.Teams)
@@ -239,6 +240,31 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(ModeCfg.Attribute):Connect(showMode)
 	showMode()
+
+	-- Bots (src/server/Bots, Config/Bots; FFA only for now): auto = the mode's own fill, or a pinned count; difficulty
+	heading("Bots (FFA)")
+	local counts: { [any]: TextButton } = {}
+	counts.auto = row("BotsAuto", `Bots: auto (fill to {BotsCfg.Fill.FFA.total})`, "BotsAuto")
+	for _, n in A.BotCounts do
+		counts[n] = row(`Bots{n}`, `Bots: {n}`, "Bots", n)
+	end
+	local levels: { [string]: TextButton } = {}
+	for _, key in A.BotDifficulties do
+		levels[key] = row(`BotDifficulty{key}`, `Bot difficulty: {key}`, "BotDifficulty", key)
+	end
+	local function showBots()
+		local pin = workspace:GetAttribute(BotsCfg.Attribute)
+		for key, b in counts do
+			paint(b, if key == "auto" then pin == nil else key == pin)
+		end
+		local level = workspace:GetAttribute(BotsCfg.DifficultyAttribute) or BotsCfg.Default
+		for key, b in levels do
+			paint(b, key == level)
+		end
+	end
+	workspace:GetAttributeChangedSignal(BotsCfg.Attribute):Connect(showBots)
+	workspace:GetAttributeChangedSignal(BotsCfg.DifficultyAttribute):Connect(showBots)
+	showBots()
 
 	heading("Movement")
 	order += 1
