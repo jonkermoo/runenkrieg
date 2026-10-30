@@ -136,7 +136,7 @@ local DevTools = {
 				"BuildHud",
 				"BuildPlanIcon",
 				"ArtilleryMarker",
-				"ZoneHud",
+				"ModeHud",
 			},
 		},
 		-- "Server" rows (user 2026-10-27: "make a section where we can make an admin server ... a FFA server ... a normal
@@ -210,6 +210,9 @@ local DevTools = {
 		-- artillery to place at the aim point, muzzle away from you (Config/Artillery.Guns; src/server/Artillery), and a
 		-- button removing them all (user 2026-10-20: dev-placed until the build system)
 		Guns = { "artillery_qf18", "artillery_howitzer" },
+		-- Config/Build pieces placed finished at the aim point, facing away from you, for your team (Build.devPlace;
+		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn")
+		Pieces = { "MGNest" },
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the

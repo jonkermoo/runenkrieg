@@ -42,24 +42,21 @@ local Map1 = {
 	-- sides"). Each sector's point has the same sprint time from the neighbouring point on each side (within 1 s,
 	-- over the real ground: Rules/MapCheck) and about the same high ground, trees, houses and sight lines on its two
 	-- approaches. S2 sits on the ridge top, S3 off the farm with even cover, S4 by the middle ford clear of the houses,
-	-- S5 off the church square (it saw twice as far west as east). The HQ points stand ~120 studs out from the spawns
-	-- (user 2026-10-27: "it is so close to spawn that the winning team will struggle to claim it"), the room taken
-	-- from the middle sectors. Reasoning: docs/maps/MAP1.md.
+	-- S5 off the church square (it saw twice as far west as east). Five points (user 2026-10-27, Normal mode): S1 is
+	-- the West HQ and S5 the East HQ, S2-S4 are fought over (the separate HQ points behind them are gone). Reasoning:
+	-- docs/maps/MAP1.md.
 	sectors = {
-		{ id = "HQW", name = "West HQ", x = 120, z = 0, radius = 60, startOwner = "West", isHQ = true },
-		{ id = "S1", name = "S1", x = 388, z = -30, radius = 45, startOwner = "West" },
+		{ id = "S1", name = "S1", x = 388, z = -30, radius = 45, startOwner = "West", isHQ = true },
 		{ id = "S2", name = "S2", x = 650, z = -90, radius = 45, startOwner = "West" },
 		{ id = "S3", name = "S3", x = 924, z = -94, radius = 45, startOwner = "Neutral" },
 		{ id = "S4", name = "S4", x = 1150, z = 60, radius = 45, startOwner = "East" },
-		{ id = "S5", name = "S5", x = 1430, z = 54, radius = 45, startOwner = "East" },
-		{ id = "HQE", name = "East HQ", x = 1690, z = 90, radius = 60, startOwner = "East", isHQ = true },
+		{ id = "S5", name = "S5", x = 1430, z = 54, radius = 45, startOwner = "East", isHQ = true },
 	} :: { Sector },
 	-- The invisible blocks between sectors, west to east, one between each pair of neighbours (Rules/Sectors,
 	-- Config/Sectors, built by src/dev/Greybox). Each runs where the sprint times to the two points are equal (on
 	-- average within 0.5 s along it), bent where needed so it never cuts a house; S3|S4 is the river's middle line.
 	-- points: { x, z } from the south edge (bounds.minZ) to the north edge (bounds.maxZ).
 	dividers = {
-		{ between = { "HQW", "S1" }, points = { { 212, -400 }, { 309, 400 } } },
 		{ between = { "S1", "S2" }, points = { { 426, -400 }, { 536, 0 }, { 606, 400 } } },
 		{ between = { "S2", "S3" }, points = { { 779, -400 }, { 797, 400 } } },
 		{ between = { "S3", "S4" }, river = true },
@@ -67,11 +64,12 @@ local Map1 = {
 			between = { "S4", "S5" },
 			points = { { 1252, -400 }, { 1306, -200 }, { 1310, 0 }, { 1269, 200 }, { 1272, 400 } },
 		},
-		{ between = { "S5", "HQE" }, points = { { 1614, -400 }, { 1576, 0 }, { 1504, 400 } } },
 	} :: { Divider },
+	-- each side's spawn, behind its HQ (S1 / S5) as far out as the old HQ points were from theirs (~225 studs, ~12 s
+	-- sprint; user 2026-10-27: an HQ point too near its spawn is too hard to take)
 	spawnZones = {
-		West = { minX = -140, maxX = -70, minZ = -60, maxZ = 60 } :: Rect,
-		East = { minX = 1870, maxX = 1940, minZ = -60, maxZ = 60 } :: Rect,
+		West = { minX = 128, maxX = 198, minZ = -90, maxZ = 30 } :: Rect,
+		East = { minX = 1615, maxX = 1685, minZ = 40, maxZ = 160 } :: Rect, -- (clear of the village houses)
 	},
 
 	-- Terrain shape

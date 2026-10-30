@@ -207,6 +207,21 @@ local Palette = {
 		Brass = { 184, 149, 90 }, -- the collar and rivets
 	},
 	-- Player-built pieces (Config/Build, src/server/Build): flat colours until the meshes come
+	-- the capture-point flagpoles (Config/Assets flagpole, src/server/Flagpoles, src/client/Flagpoles): the pieces by mesh
+	-- name, the halyard; each team's rag on the zone stakes (the flag's main colour, TEAM_FLAGS: Katzmark slate, Selvara
+	-- olive, Sowilo brown)
+	Flagpole = {
+		Pole = { 104, 80, 56 },
+		Knob = { 52, 44, 36 },
+		Cleat = { 88, 66, 46 },
+		Stake = { 116, 92, 62 },
+		Rope = { 206, 196, 170 },
+		Rags = {
+			uniform1 = { 82, 86, 88 },
+			uniform2 = { 98, 102, 66 },
+			uniform3 = { 96, 70, 50 },
+		},
+	},
 	Build = {
 		Sandbag = { 176, 156, 114 }, -- hessian; each bag's tone jittered by Config/Build.Sandbags.shade
 		SandbagCord = { 122, 100, 68 }, -- the tie round a pile bag's neck (Config/Assets sandbag_pile Bag<i>Cord)
@@ -387,6 +402,14 @@ local Palette = {
 			crystalDead = { 58, 60, 64 },
 			readout = { 236, 232, 220 },
 			ready = { 150, 200, 110 },
+			-- the game modes' top bar (src/shared/ui/ModeHud.json, src/client/ModeHud): the bar's empty track, an empty
+			-- diamond and every diamond's edge, a contested sector's edge, an attacked one's; the sides' fills are the
+			-- teams' rims (Teams below)
+			modeTrack = { 20, 21, 23 },
+			pinEmpty = { 34, 35, 38 },
+			pinEdge = { 10, 11, 12 },
+			pinContested = { 230, 160, 40 },
+			pinAttacked = { 220, 96, 70 },
 			-- the kit list (Config/Hud.Kit): the names and keys of the rows not in the hands, an empty row's name
 			kitName = { 168, 168, 158 },
 			kitKey = { 154, 154, 144 },

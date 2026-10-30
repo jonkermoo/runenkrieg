@@ -28,6 +28,7 @@ local Spikes = require(script.Parent.Spikes)
 local Star = require(script.Parent.Star)
 local ScreenBlur = require(script.Parent.Parent.ScreenBlur)
 local CameraShake = require(script.Parent.Parent.CameraShake)
+local Flagpoles = require(script.Parent.Parent.Flagpoles)
 local ShakeCfg = require(Shared.Config.CameraShake)
 local ShakeRules = require(Shared.Rules.CameraShake)
 
@@ -434,7 +435,9 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local normal = (o.normal or Vector3.yAxis).Unit
 	ScreenBlur.blast(pos, d) -- the screen blur when it's close (src/client/ScreenBlur)
 	-- every explosion shakes the camera once, by its charge (a staff stage's as Config/CameraShake.Stages)
-	CameraShake.blast(pos, if charge then o.kg :: number else ShakeRules.stageKg(o.stage or 1, ShakeCfg.Stages))
+	local kg = if charge then o.kg :: number else ShakeRules.stageKg(o.stage or 1, ShakeCfg.Stages)
+	CameraShake.blast(pos, kg)
+	Flagpoles.blast(pos, kg) -- (capture-point flags near it whip)
 	local dirt = dirtOf(pos, normal, o.debrisColor)
 	-- the grenade: the same explosion, small, with more dirt, sparks and light, its own smoke time and a dust ring
 	local P = Cfg.Pop

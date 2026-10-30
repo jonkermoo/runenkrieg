@@ -57,6 +57,7 @@ require(script.Deploy).start() -- (no auto respawn: the menus deploy; the loadou
 require(script.Chat).start() -- (the game's own chat: team and whisper channels, Global between servers)
 require(script.Doors).start()
 require(script.Sectors).start() -- (hides the sector dividers and point markers)
+require(script.Flagpoles).start() -- (a pole on each sector point while the frontline match runs)
 require(script.DevTools).start()
 require(script.Firing).start()
 require(script.Melee).start()
@@ -83,6 +84,11 @@ if loadouts then
 		L.award(player, "Capture")
 	end)
 	require(script.ZoneMatch).onMatchStart(L.resetMatch)
+	-- Normal mode's frontline: captures, neutralisations, Defends and the win pay match points (Config/Classes.Earn)
+	local Frontline = require(script.Frontline)
+	Frontline.onAward(L.award)
+	Frontline.onMatchStart(L.resetMatch)
+	L.onKill(Frontline.killed)
 end
 require(script.Modes).start() -- (the server's game mode: the zone-capture match on the playtest map in FFA)
 

@@ -447,6 +447,12 @@ function Menus.start()
 				})
 				g.Parent = card
 			end
+			-- its flag over its name, for now (user 2026-10-30: "put team flags there")
+			local k = (U.Kits :: any)[kit]
+			local flag = L["Flag" .. nameOf(kit)] :: ImageLabel?
+			if flag then
+				flag.Image = if k and k.flag then `rbxassetid://{k.flag.full}` else ""
+			end
 		end
 	end
 	local function renderTeams()
@@ -467,6 +473,11 @@ function Menus.start()
 			local name = L["Name" .. nameOf(kit)] :: TextLabel
 			local count = L["Count" .. nameOf(kit)] :: TextLabel
 			name.TextColor3, count.TextColor3 = rgb(color), rgb(color)
+			local flag = L["Flag" .. nameOf(kit)] :: ImageLabel?
+			if flag then
+				-- (a closed team's flag dimmed)
+				flag.ImageTransparency = if t.closed[kit] ~= "" then 0.6 else 0
+			end
 			count.Text = `{t.counts[kit] or 0} / {t.room}`
 			local stroke = card:FindFirstChildOfClass("UIStroke")
 			if stroke then

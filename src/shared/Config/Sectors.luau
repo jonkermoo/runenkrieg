@@ -1,7 +1,8 @@
 --!strict
 -- Frontline sectors on the map (user 2026-10-27): the invisible blocks dividing the sectors and the markers showing
 -- where each sector's capture point is. Where they go is per map (Config/Maps/*: sectors, dividers); the maths is
--- Rules/Sectors; built by src/dev/Greybox. Seen while editing; the server hides them in play (src/server/Sectors, ShowInDevPlay).
+-- Rules/Sectors; built by src/dev/Greybox. Seen while editing; in play the server shows them only while Workspace's
+-- ShowAttribute is on (src/server/Sectors), which the admin panel switches.
 local Sectors = {
 	Divider = {
 		BottomY = -40, -- under the deepest ground and river bed
@@ -24,8 +25,10 @@ local Sectors = {
 		LabelSize = { 120, 40 }, -- the id over the pole (BillboardGui, px)
 		Tag = "SectorMarker",
 	},
-	-- In play they're hidden, except in the DEV place while this is on (seen in play tests until the frontline mode
-	-- has its own HUD); the live place always hides them.
+	-- In play they're shown while this Workspace attribute is on (the admin panel's switch). Each mode change sets it
+	-- afresh: on in the DEV place while ShowInDevPlay is on, except in Normal mode (user 2026-10-27: "in normal mode
+	-- the borders for territories and sectors arent visible. make it a toggleable thing in admin"); off elsewhere.
+	ShowAttribute = "ShowSectors",
 	ShowInDevPlay = true,
 	DevPlaceId = 103459731368962, -- Runenkrieg [DEV] (roblox.json)
 }

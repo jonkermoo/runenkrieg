@@ -35,6 +35,17 @@ return {
 			end
 		end
 	end,
+	["the spawn zones are clear of buildings (Normal mode: S1 / S5 spawns, the East one in the village)"] = function()
+		for side, r in Map1.spawnZones do
+			for _, l in lots do
+				for x = r.minX, r.maxX, 4 do
+					for z = r.minZ, r.maxZ, 4 do
+						assert(not V.pointInQuad(x, z, V.corners(l, pad)), `{side} spawn on {l.id}`)
+					end
+				end
+			end
+		end
+	end,
 	["no building sits on a road, in the river or in a kept-clear square"] = function()
 		for _, l in lots do
 			for _, c in V.corners(l, pad) do
