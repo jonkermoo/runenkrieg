@@ -13,7 +13,7 @@
 		"minText": 12,
 		"textStroke": 0,
 		"outline": 2,
-		"corner": 2,
+		"corner": 0,
 		"scrollBar": 4,
 		"fonts": {
 			"body": {
