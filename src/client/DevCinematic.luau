@@ -8,14 +8,20 @@
 -- - DevUi: the dev pins and the settings gear; the other dev panels close. The admin panel stays where F2 puts it
 --   (Settings Key_AdminPanel), and src/client/DevAdminMenu hides the dev labels too.
 -- - NameTags: the names and health bars over every humanoid's head.
+-- The "Game" switch (the Player's GameAttribute) on top: what any other player sees. The dev pins (all but the settings
+-- gear) and the dev panels but the admin panel go, src/client/DevAdminMenu hides the dev labels and src/client/
+-- SettingsMenu its dev-only rows; the sector dividers and markers shown in dev play (Config/Sectors) go as in the live
+-- game. F2 still opens the admin panel, whose Game row turns it off again.
 -- DevCinematic.start(player), DevCinematic.hidden(player, id), DevCinematic.set(player, id, on),
--- DevCinematic.clear(player).
+-- DevCinematic.gameView(player), DevCinematic.setGameView(player, on), DevCinematic.clear(player).
 
+local CollectionService = game:GetService("CollectionService")
 local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
+local SectorCfg = require(Shared.Config.Sectors)
 local DevPanel = require(script.Parent.DevPanel)
 
 local DevCinematic = {}
@@ -34,10 +40,19 @@ function DevCinematic.set(player: Player, id: string, on: boolean)
 	player:SetAttribute(attribute(id), if on then true else nil)
 end
 
+function DevCinematic.gameView(player: Player): boolean
+	return player:GetAttribute(C.GameAttribute) == true
+end
+
+function DevCinematic.setGameView(player: Player, on: boolean)
+	player:SetAttribute(C.GameAttribute, if on then true else nil)
+end
+
 function DevCinematic.clear(player: Player)
 	for _, item in C.Items do
 		DevCinematic.set(player, item.id, false)
 	end
+	DevCinematic.setGameView(player, false)
 end
 
 -- Hud: a gui kept off while hidden; `wanted` is what its owner last set, given back on show
@@ -172,6 +187,51 @@ local function hideTags(on: boolean)
 	end
 end
 
+-- Game: the sector dividers and markers (and their labels) hidden here as the live server hides them (src/server/
+-- Sectors); each label's state before hiding (weak keys)
+local SECTOR_TAGS = { SectorCfg.Divider.Tag, SectorCfg.Marker.Tag }
+local sectorLabels: { [BillboardGui]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local sectorConns: { RBXScriptConnection } = {}
+
+local function hideSector(inst: Instance)
+	if inst:IsA("BasePart") then
+		inst.LocalTransparencyModifier = 1
+	end
+	for _, d in inst:GetDescendants() do
+		if d:IsA("BillboardGui") and sectorLabels[d] == nil then
+			sectorLabels[d] = d.Enabled
+			d.Enabled = false
+		end
+	end
+end
+
+local function hideSectors(on: boolean)
+	if on and #sectorConns == 0 then
+		for _, tag in SECTOR_TAGS do
+			for _, inst in CollectionService:GetTagged(tag) do
+				hideSector(inst)
+			end
+			table.insert(sectorConns, CollectionService:GetInstanceAddedSignal(tag):Connect(hideSector))
+		end
+	elseif not on and #sectorConns > 0 then
+		for _, c in sectorConns do
+			c:Disconnect()
+		end
+		table.clear(sectorConns)
+		for _, tag in SECTOR_TAGS do
+			for _, inst in CollectionService:GetTagged(tag) do
+				if inst:IsA("BasePart") then
+					inst.LocalTransparencyModifier = 0
+				end
+			end
+		end
+		for label, was in sectorLabels do
+			label.Enabled = was
+		end
+		table.clear(sectorLabels)
+	end
+end
+
 function DevCinematic.start(player: Player)
 	local playerGui = player:WaitForChild("PlayerGui")
 
@@ -188,16 +248,19 @@ function DevCinematic.start(player: Player)
 		end
 	end
 
-	-- DevUi: the dev pins and the settings gear (dev guis are built after this starts, so re-applied on each new gui)
+	-- DevUi: the dev pins and the settings gear; Game: the dev pins only (dev guis are built after this starts, so
+	-- re-applied on each new gui)
 	local function applyDev()
 		local on = DevCinematic.hidden(player, "DevUi")
+		local playerView = DevCinematic.gameView(player)
 		for _, name in DevPanel.Panels do
 			local g = playerGui:FindFirstChild(name)
-			local button = g and g:FindFirstChild(if name == "SettingsMenu" then "Gear" else "Pin") :: GuiObject?
+			local gear = name == "SettingsMenu"
+			local button = g and g:FindFirstChild(if gear then "Gear" else "Pin") :: GuiObject?
 			if button then
-				button.Visible = not on
+				button.Visible = not on and not (playerView and not gear)
 			end
-			local panel = on and name ~= "DevAdminMenu" and name ~= "SettingsMenu" and g and g:FindFirstChild("Panel")
+			local panel = (on or playerView) and name ~= "DevAdminMenu" and not gear and g and g:FindFirstChild("Panel")
 			if panel then
 				(panel :: GuiObject).Visible = false
 			end
@@ -250,6 +313,12 @@ function DevCinematic.start(player: Player)
 		player:GetAttributeChangedSignal(attribute(item.id)):Connect(fn)
 		fn()
 	end
+	local function applyGame()
+		applyDev()
+		hideSectors(DevCinematic.gameView(player))
+	end
+	player:GetAttributeChangedSignal(C.GameAttribute):Connect(applyGame)
+	applyGame()
 end
 
 return DevCinematic
