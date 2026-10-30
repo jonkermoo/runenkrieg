@@ -25,7 +25,6 @@ local TeamCfg = require(Shared.Config.Teams)
 local Map = require(Shared.Config.Maps.Playtest)
 local Modes = require(Shared.Rules.Modes)
 local Rules = require(Shared.Rules.ZoneMatch)
-local Bodies = require(script.Parent.Bodies)
 local Damage = require(script.Parent.Damage)
 local Kits = require(script.Parent.Kits)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -475,8 +474,8 @@ local function run()
 		zone:SetAttribute("Winner", winner)
 		zone:SetAttribute("EndsAt", workspace:GetServerTimeNow() + Cfg.ResultsSeconds)
 		task.wait(Cfg.ResultsSeconds)
-		-- everyone back in on a random team (user 2026-10-30: "in the FFA mode make it so players randomize their team as
-		-- well, even though it doesnt matter"; a death rolls it too, src/server/Deploy), unless teams are kept for testing
+		-- everyone back in on a random team, its uniform and helmet (user 2026-10-30: "you can just get a different team
+		-- uniform"; a death rolls it too, src/server/Deploy), unless teams are kept for testing
 		local keep = Modes.keptTeams(
 			ModesCfg,
 			workspace:GetAttribute(ModesCfg.Attribute),
@@ -485,7 +484,6 @@ local function run()
 		for _, p in Players:GetPlayers() do
 			if not keep then
 				Kits.reroll(p)
-				Bodies.reroll(p) -- (a new look too: the colours and headwear, src/server/Bodies)
 			end
 			task.spawn(function()
 				p:LoadCharacter()
