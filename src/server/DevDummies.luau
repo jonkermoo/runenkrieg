@@ -134,6 +134,10 @@ local function throw(m: Model, humanoid: Humanoid, knock: { [string]: number }, 
 	end)
 end
 
+-- (src/server/Bots: the AI soldiers' bodies are handled the same way)
+DevDummies.own = own
+DevDummies.throw = throw
+
 -- the idle cycle, and the walk cycle while moving (at its game pace, scaled by the speed)
 local function animate(humanoid: Humanoid)
 	local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")

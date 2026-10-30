@@ -6,14 +6,17 @@
 -- contesting it; timed matches with a results pause, then scores reset and everyone respawns; everyone an enemy
 -- (Workspace's FreeForAll attribute, Rules/Teams); each life spawned at the map's spawn point farthest from the
 -- others and clear of the zone, protected for a moment (src/server/Damage.protect). The marker models carry the state
--- as attributes; src/client/ZoneMarker colours them. The admin panel ends, restarts and lengthens a match, moves the
+-- as attributes; src/client/ZoneMarker colours them. AI soldiers (src/server/Bots) spawn the same way and hold and
+-- contest the zone like anyone, but never score, lead or win (user 2026-10-30). The admin panel ends, restarts and lengthens a match, moves the
 -- zone on and hands out score (src/server/DevTools).
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.ZoneMatch)
+local BotsCfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
 local Map = require(Shared.Config.Maps.Playtest)
 local Modes = require(Shared.Rules.Modes)
@@ -178,26 +181,68 @@ function ZoneMatch.onMatchStart(fn: () -> ())
 	table.insert(matchWatchers, fn)
 end
 
-local function spawnAt(player: Player)
+-- the AI soldiers in the match (src/server/Bots: tagged, each with a negative "BotId" that stands in for a UserId; they
+-- hold and contest the zone but never score)
+local function bots(): { Model }
+	local out = {}
+	for _, m in CollectionService:GetTagged(BotsCfg.Tag) do
+		if m:IsA("Model") and m:IsDescendantOf(workspace) then
+			table.insert(out, m)
+		end
+	end
+	return out
+end
+
+local function standing(character: Model?): BasePart?
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	return if humanoid and root and humanoid.Health > 0 then root else nil
+end
+
+-- Where a new life of `character` starts: the spawn point farthest from everyone else alive and clear of the zone,
+-- facing the zone (nil while the match isn't running).
+function ZoneMatch.spawnFor(character: Model?): CFrame?
+	if not thread then
+		return nil
+	end
 	local others = {}
 	for _, p in Players:GetPlayers() do
-		local root = if p ~= player then (alive(p)) else nil
+		local root = if p.Character ~= character then standing(p.Character) else nil
+		if root then
+			table.insert(others, { root.Position.X, root.Position.Z })
+		end
+	end
+	for _, m in bots() do
+		local root = if m ~= character then standing(m) else nil
 		if root then
 			table.insert(others, { root.Position.X, root.Position.Z })
 		end
 	end
 	local i = Rules.pickSpawn(spawns, others, spots[spot], Cfg.SpawnZoneClear)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not character or not root then
-		return
-	end
 	local x, z = spawns[i][1], spawns[i][2]
 	local pos = Vector3.new(x, ground(x, z) + Cfg.SpawnLift, z)
-	local face = Vector3.new(spots[spot][1], pos.Y, spots[spot][2])
-	character:PivotTo(CFrame.lookAt(pos, face))
+	return CFrame.lookAt(pos, Vector3.new(spots[spot][1], pos.Y, spots[spot][2]))
+end
+
+-- The live zone's centre and radius while a match is on (the bots' objective), else nil.
+function ZoneMatch.objective(): (Vector3?, number)
+	if not thread or zone:GetAttribute("Phase") ~= "Match" then
+		return nil, Cfg.Radius
+	end
+	return zone:GetPivot().Position, Cfg.Radius
+end
+
+local function spawnAt(player: Player)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local cf = ZoneMatch.spawnFor(character)
+	if not character or not root or not cf then
+		return
+	end
+	character:PivotTo(cf)
 	root.AssemblyLinearVelocity = Vector3.zero
 	Damage.protect(character, Cfg.SpawnProtection)
+	local pos = cf.Position
 	task.spawn(function()
 		pcall(function()
 			player:RequestStreamAroundAsync(pos)
@@ -323,6 +368,27 @@ local function run()
 					)
 				then
 					table.insert(inside, p.UserId)
+				end
+			end
+			for _, m in bots() do
+				local r = standing(m)
+				local id = m:GetAttribute(BotsCfg.IdAttribute)
+				if
+					r
+					and type(id) == "number"
+					and not Ragdoll.active(m)
+					and not Damage.protected(m)
+					and Rules.inside(
+						r.Position.X,
+						r.Position.Y - Cfg.FeetBelowRoot,
+						r.Position.Z,
+						centre.X,
+						centre.Y,
+						centre.Z,
+						Cfg
+					)
+				then
+					table.insert(inside, id)
 				end
 			end
 			local state, holder = Rules.occupancy(inside)
