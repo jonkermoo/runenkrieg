@@ -440,6 +440,39 @@ local Palette = {
 			stroke = 2,
 			thin = 1,
 		},
+		-- Field Grimoire, the UI overhaul's look (user 2026-10-30: "combining brush ink, trench map, and runes/magic"):
+		-- ink for every line and plate, map paper, red pencil for "do this next", amber for contested, words in warm
+		-- shades with a dark shadow; each team's land wash (its uniform's rim) and magic colour (its staff scheme:
+		-- frost blue, brass gold, rose crimson) by the "Kit"
+		Grimoire = {
+			ink = { 21, 18, 15 },
+			paper = { 230, 220, 193 },
+			blue = { 44, 62, 90 },
+			pencil = { 184, 50, 42 },
+			amber = { 230, 160, 40 },
+			text = { 241, 235, 220 },
+			dim = { 217, 209, 189 },
+			key = { 191, 182, 160 },
+			shade = { 14, 12, 10 },
+			neutral = { 163, 155, 136 }, -- a point nobody holds: its ring and rune
+			overlay = { 0, 0, 0 }, -- the menus' dimming over the live match
+			Wash = {
+				uniform1 = { 124, 147, 171 },
+				uniform2 = { 154, 168, 74 },
+				uniform3 = { 200, 190, 170 },
+			},
+			Magic = {
+				uniform1 = { 156, 196, 255 },
+				uniform2 = { 226, 196, 110 },
+				uniform3 = { 236, 120, 132 },
+			},
+			-- a team's name in the menus' words (its uniform's rim, lifted to read on the dark)
+			Name = {
+				uniform1 = { 160, 172, 184 },
+				uniform2 = { 180, 188, 108 },
+				uniform3 = { 220, 210, 188 },
+			},
+		},
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
 	-- the grenades' arc preview (src/client/Grenades, Config/Grenades.Arc): a faint pale line

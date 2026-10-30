@@ -12,7 +12,9 @@
 -- ViewportFrame, playing its primary's ready hold. Deploy lights up once the respawn delay is over (Net "Loadout").
 -- Layout, sizes and the one basic font come from src/shared/ui/TitleScreen.json and LoadoutMenu.json (the local
 -- layout check and preview read the same files); offsets are reference pixels, scaled here by the GUI height. Colours:
--- Config/Palette UI.Settings. No CanvasGroup: every element sets its own transparency.
+-- Config/Palette UI.Settings, or the palette a spec's theme names (the title screen: UI.Grimoire, the UI overhaul's
+-- Field Grimoire, user 2026-10-30; its ink drawing is src/client/Ink, its live map src/client/SketchMap). No
+-- CanvasGroup: every element sets its own transparency.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -29,12 +31,15 @@ local MovementSet = require(Shared.Rules.MovementSet)
 local Net = require(Shared.Net)
 local TitleSpec = require(Shared.ui.TitleScreen) :: any
 local LoadoutSpec = require(Shared.ui.LoadoutMenu) :: any
+local Ink = require(script.Parent.Ink)
 local MatchCam = require(script.Parent.MatchCam)
 local SettingsMenu = require(script.Parent.SettingsMenu)
+local SketchMap = require(script.Parent.SketchMap)
 
 local Menus = {}
 
 local C = Palette.UI.Settings :: any
+local GR = (Palette.UI :: any).Grimoire
 local Anims = MovementSet.animations(Locomotion) :: any
 local DISPLAY_ORDER = 5 -- under the settings menu (Config/Settings.Menu.DisplayOrder)
 
@@ -50,12 +55,38 @@ end
 
 local ALIGN = { left = Enum.TextXAlignment.Left, right = Enum.TextXAlignment.Right }
 
--- One screen built from its spec: every node by id, laid out again at the GUI's scale when the window changes.
-type Screen = { gui: ScreenGui, node: { [string]: GuiObject }, spec: { [string]: any }, relayout: () -> () }
+-- One screen built from its spec: every node by id, laid out again at the GUI's scale when the window changes; its
+-- live maps and rune inscriptions by node id.
+type Runes = { canvas: Ink.Canvas, names: { string }, fade: number }
+type Screen = {
+	gui: ScreenGui,
+	node: { [string]: GuiObject },
+	spec: { [string]: any },
+	relayout: () -> (),
+	maps: { [string]: any },
+	runes: { [string]: Runes },
+}
+
+-- paints a node's rune inscription (spec `runes`) in a colour
+local function paintRunes(r: Runes, colour: Color3)
+	r.canvas.set(function(holder, w, h)
+		local rw, gap = h * 0.62, h * 0.34
+		local x = w - #r.names * (rw + gap) + gap
+		for _, n in r.names do
+			Ink.rune(holder, n, x, 0, rw, h, math.max(1, h * 0.1), colour, r.fade)
+			x += rw + gap
+		end
+	end)
+end
 
 local function build(spec: any, name: string, parent: Instance): Screen
 	local T = spec.theme
 	local font = fontOf(spec)
+	local own = T.palette and (Palette.UI :: any)[T.palette]
+	local function col(n: string): Color3
+		local c = (own and own[n]) or C[n]
+		return Color3.fromRGB(c[1], c[2], c[3])
+	end
 	local gui = Instance.new("ScreenGui")
 	gui.Name = name
 	gui.ResetOnSpawn = false
@@ -63,7 +94,7 @@ local function build(spec: any, name: string, parent: Instance): Screen
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.DisplayOrder = DISPLAY_ORDER
 	gui.Enabled = false
-	local screen: Screen = { gui = gui, node = {}, spec = {}, relayout = function() end }
+	local screen: Screen = { gui = gui, node = {}, spec = {}, relayout = function() end, maps = {}, runes = {} }
 	local placed: { { obj: GuiObject, n: any } } = {}
 
 	local function make(n: any, into: Instance)
@@ -86,14 +117,14 @@ local function build(spec: any, name: string, parent: Instance): Screen
 		obj.Name = n.id
 		obj.BorderSizePixel = 0
 		obj.BackgroundTransparency = 1
-		if (n.kind == "panel" or n.kind == "button") and not n.clear then
+		if (n.kind == "panel" or n.kind == "button") and not n.clear and not n.slab then
 			obj.BackgroundTransparency = 0
-			obj.BackgroundColor3 = rgb(n.color or "field")
+			obj.BackgroundColor3 = col(n.color or "field")
 			local corner = Instance.new("UICorner")
 			corner.Parent = obj
 			if n.line then
 				local stroke = Instance.new("UIStroke")
-				stroke.Color = rgb(n.line)
+				stroke.Color = col(n.line)
 				stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 				stroke.Parent = obj
 			end
@@ -101,9 +132,67 @@ local function build(spec: any, name: string, parent: Instance): Screen
 		if obj:IsA("TextLabel") or obj:IsA("TextButton") then
 			obj.FontFace = font
 			obj.Text = n.text or ""
-			obj.TextColor3 = rgb(n.textColor or "text")
+			obj.TextColor3 = col(n.textColor or "text")
 			obj.TextXAlignment = ALIGN[n.align] or Enum.TextXAlignment.Center
 			obj.TextTruncate = Enum.TextTruncate.AtEnd
+			obj.RichText = true
+			obj.TextTransparency = n.fade or 0
+			obj.LineHeight = n.lineHeight or 1
+			if n.shade then
+				obj.TextStrokeColor3 = col("shade")
+				obj.TextStrokeTransparency = n.shade
+			end
+			if n.padLeft then
+				local pad = Instance.new("UIPadding")
+				pad.Parent = obj
+			end
+			if n.slab then
+				-- the ink plate under the words: the words move to a label over it (a child draws over its parent)
+				Ink.slab(obj)
+				local words = Instance.new("TextLabel")
+				words.Name = "Words"
+				words.BackgroundTransparency = 1
+				words.Size = UDim2.fromScale(1, 1)
+				words.FontFace = obj.FontFace
+				words.Text = obj.Text
+				words.TextColor3 = obj.TextColor3
+				words.TextXAlignment = obj.TextXAlignment
+				words.RichText = true
+				obj.TextTransparency = 1
+				words.Parent = obj
+			end
+			if n.runes then
+				local box = Instance.new("Frame")
+				box.Name = "Runes"
+				box.BackgroundTransparency = 1
+				box.AnchorPoint = Vector2.new(1, 0.5)
+				box.Position = UDim2.new(1, -14, 0.5, 0)
+				box.Size = UDim2.fromScale(0.45, 0.3)
+				box.Parent = obj
+				local r: Runes = { canvas = Ink.canvas(box), names = n.runes, fade = n.runesFade or 0.6 }
+				screen.runes[n.id] = r
+				paintRunes(r, col("text"))
+			end
+		end
+		if n.kind == "overlay" then
+			obj.BackgroundTransparency = 0
+			obj.BackgroundColor3 = col("overlay")
+			local g = Instance.new("UIGradient")
+			g.Transparency = NumberSequence.new(n.from or 0.5, n.to or n.from or 0.5)
+			g.Parent = obj
+		elseif n.kind == "trench" then
+			Ink.trench(obj, col("ink"), col("text"))
+		elseif n.kind == "sketchmap" then
+			screen.maps[n.id] = SketchMap.new(obj)
+		end
+		if n.rotation then
+			obj.Rotation = n.rotation
+		end
+		if n.aspect then
+			local a = Instance.new("UIAspectRatioConstraint")
+			a.AspectRatio = n.aspect
+			a.DominantAxis = Enum.DominantAxis.Width
+			a.Parent = obj
 		end
 		if obj:IsA("ViewportFrame") then
 			obj.BackgroundTransparency = 1
@@ -134,6 +223,14 @@ local function build(spec: any, name: string, parent: Instance): Screen
 			obj.Size = UDim2.new(size[1], size[2] * s, size[3], size[4] * s)
 			if obj:IsA("TextLabel") or obj:IsA("TextButton") then
 				obj.TextSize = (n.textSize or 20) * s
+				local words = obj:FindFirstChild("Words") :: TextLabel?
+				if words then
+					words.TextSize = obj.TextSize
+				end
+				local pad = obj:FindFirstChildOfClass("UIPadding")
+				if pad and n.padLeft then
+					pad.PaddingLeft = UDim.new(0, n.padLeft * s)
+				end
 			end
 			local corner = obj:FindFirstChildOfClass("UICorner")
 			if corner then
@@ -301,12 +398,22 @@ function Menus.start()
 		className.Text = if def then def.name else ""
 	end
 
+	-- the title's team line, "For <team>" with the name in its colour (user 2026-10-30: no "Kingdom of"), and Play's
+	-- runes in the team's magic colour
 	local function setTeam(kit: any)
 		local k = type(kit) == "string" and (U.Kits :: any)[kit]
 		local team = title.node.Team :: TextLabel
-		team.Text = if k and k.army then `For {k.army}` else ""
-		local flag = title.node.Flag :: ImageLabel
-		flag.Image = if k and k.flag then `rbxassetid://{k.flag.full}` else ""
+		local nameColour = k and GR.Name[kit]
+		team.Text = if k
+				and k.team
+				and nameColour
+			then `For <font color="#{Color3.fromRGB(nameColour[1], nameColour[2], nameColour[3]):ToHex()}">{k.team}</font>`
+			else ""
+		local magic = k and GR.Magic[kit]
+		local runes = title.runes.Play
+		if runes and magic then
+			paintRunes(runes, Color3.fromRGB(magic[1], magic[2], magic[3]))
+		end
 	end
 
 	-- the team cards (only where teams are kept: the state's `teams`, src/server/Deploy)
@@ -449,6 +556,33 @@ function Menus.start()
 	settings.Activated:Connect(function()
 		SettingsMenu.open()
 	end)
+	-- a faded word comes up under the mouse (not the locked one)
+	settings.MouseEnter:Connect(function()
+		settings.TextTransparency = 0
+	end)
+	settings.MouseLeave:Connect(function()
+		settings.TextTransparency = title.spec.Settings.fade or 0
+	end)
+	-- under the map: where the front is and the head counts, where known
+	local caption = title.node.Caption :: TextLabel
+	local titleMap = title.maps.Map
+	local function writeCaption()
+		local parts = {}
+		local at = titleMap and titleMap.front()
+		if at then
+			table.insert(parts, `The front at {at}`)
+		end
+		local t = state and state.teams
+		if t and t.counts then
+			for _, kit in U.Teams do
+				local c = t.counts[kit]
+				if c then
+					table.insert(parts, `{nameOf(kit)} {c}`)
+				end
+			end
+		end
+		caption.Text = table.concat(parts, " · ")
+	end
 
 	local deathSeen = 0
 	Net.event("Loadout").OnClientEvent:Connect(function(s: any)
@@ -480,6 +614,9 @@ function Menus.start()
 	end)
 
 	RunService.RenderStepped:Connect(function()
+		if title.gui.Enabled then
+			writeCaption()
+		end
 		if loadout.gui.Enabled then
 			local left = deployAt - os.clock()
 			if left > 0 then

@@ -1,181 +1,50 @@
 {
 	"name": "TitleScreen",
-	"_doc": "The title screen on join (src/client/Menus): the live match behind it (src/client/MatchCam: the camera on the hottest fight), the name in the top third, the buttons under it. Sizes scale with the screen height (theme.scale). One font everywhere, the game's basic font (the combat HUD's plain: user 2026-10-27). Colours: Config/Palette UI.Settings.",
+	"_doc": "The title screen on join (src/client/Menus), Field Grimoire's map table (UI overhaul, user 2026-10-30): the live match behind it (src/client/MatchCam), dimmed more on the left; RUNEN / KRIEG stacked on the left; under it a trench line drawn the way WW1 trench maps drew them (src/client/Ink, cut short under the name: \"cut it where i showed\"); 'For <team>' with the team's name in its colour (Palette UI.Grimoire.Name; no 'Kingdom of'); the menu as words: Play on a torn ink plate, the others faded, each with a faint rune inscription at its right edge (`runes`: Config/Runes names; Play's in the team's magic colour); the live match's sketch map (src/client/SketchMap; no 'you' marker) right of centre, tilted, the front and head counts under it. Sizes in reference pixels at theme.scale.referenceHeight. One font, the game's basic font. Colours: Config/Palette UI.Grimoire (theme.palette). Kinds beyond the usual: overlay (a black dimming, `from` / `to` transparency left to right), trench, sketchmap; `slab` puts a button on the ink plate; `aspect` keeps a group's width / height; `fade` is a word's resting transparency; `shade` its dark edge.",
 	"theme": {
-		"scale": {
-			"referenceHeight": 800,
-			"min": 0.65,
-			"max": 1.25
-		},
+		"palette": "Grimoire",
+		"scale": { "referenceHeight": 800, "min": 0.65, "max": 1.25 },
 		"fitMargin": 16,
 		"minTap": 32,
 		"minText": 12,
 		"textStroke": 0,
 		"outline": 0,
-		"corner": 4,
+		"corner": 0,
 		"scrollBar": 4,
-		"fonts": {
-			"body": {
-				"family": "SourceSansPro",
-				"weight": "Bold",
-				"file": "SourceSansPro-Bold.ttf"
-			}
-		}
+		"fonts": { "body": { "family": "SourceSansPro", "weight": "Bold", "file": "SourceSansPro-Bold.ttf" } }
 	},
 	"modal": true,
-	"preview": {
-		"team": "For the Kingdom of Selvara"
-	},
+	"preview": { "team": "For Selvara", "caption": "The front at S3 · Katzmark 31 · Selvara 34" },
 	"root": {
 		"id": "Screen",
 		"kind": "group",
-		"size": [
-			1,
-			0,
-			1,
-			0
-		],
+		"size": [1, 0, 1, 0],
 		"children": [
-			{
-				"id": "Name",
-				"kind": "label",
-				"text": "RUNENKRIEG",
-				"textSize": 150,
-				"textColor": "title",
-				"align": "left",
-				"anchor": [
-					0,
-					1
-				],
-				"pos": [
-					0.06,
-					0,
-					0.33,
-					0
-				],
-				"size": [
-					0,
-					1000,
-					0,
-					170
-				]
-			},
+			{ "id": "Dim", "kind": "overlay", "from": 0.33, "to": 0.6, "size": [1, 0, 1, 0] },
+			{ "id": "Name", "kind": "label", "text": "RUNEN\nKRIEG", "textSize": 112, "lineHeight": 0.98, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 64, 0, 92], "size": [0, 640, 0, 224] },
+			{ "id": "Trench", "kind": "trench", "pos": [0, 62, 0, 322], "size": [0, 438, 0, 32] },
+			{ "id": "Team", "kind": "label", "bind": "team", "text": "", "textSize": 30, "textColor": "dim", "shade": 0.45, "align": "left", "pos": [0, 68, 0, 372], "size": [0, 520, 0, 36] },
 			{
 				"id": "Menu",
 				"kind": "group",
-				"pos": [
-					0.06,
-					0,
-					0.33,
-					16
-				],
-				"size": [
-					0,
-					380,
-					0,
-					316
-				],
+				"pos": [0, 64, 0, 446],
+				"size": [0, 415, 0, 230],
 				"children": [
-					{
-						"id": "Flag",
-						"kind": "image",
-						"bind": "flag",
-						"pos": [
-							0,
-							0,
-							0,
-							0
-						],
-						"size": [
-							0,
-							48,
-							0,
-							32
-						]
-					},
-					{
-						"id": "Team",
-						"kind": "label",
-						"bind": "team",
-						"textSize": 24,
-						"textColor": "text",
-						"align": "left",
-						"pos": [
-							0,
-							60,
-							0,
-							0
-						],
-						"size": [
-							1,
-							-60,
-							0,
-							32
-						]
-					},
-					{
-						"id": "Play",
-						"kind": "button",
-						"text": "PLAY",
-						"textSize": 30,
-						"color": "selFill",
-						"line": "selLine",
-						"textColor": "selText",
-						"pos": [
-							0,
-							0,
-							0,
-							52
-						],
-						"size": [
-							0,
-							380,
-							0,
-							64
-						]
-					},
-					{
-						"id": "Customization",
-						"kind": "button",
-						"text": "CUSTOMIZATION (SOON)",
-						"textSize": 30,
-						"color": "field",
-						"line": "line",
-						"textColor": "textDim",
-						"pos": [
-							0,
-							0,
-							0,
-							136
-						],
-						"size": [
-							0,
-							380,
-							0,
-							64
-						]
-					},
-					{
-						"id": "Settings",
-						"kind": "button",
-						"text": "SETTINGS",
-						"textSize": 30,
-						"color": "field",
-						"line": "lineStrong",
-						"textColor": "text",
-						"pos": [
-							0,
-							0,
-							0,
-							220
-						],
-						"size": [
-							0,
-							380,
-							0,
-							64
-						]
-					}
+					{ "id": "Play", "kind": "button", "slab": true, "text": "PLAY", "textSize": 38, "textColor": "text", "align": "left", "padLeft": 27, "runes": ["fehu", "ansuz", "raidho", "ansuz"], "runesFade": 0.55, "pos": [0, 0, 0, 0], "size": [0, 415, 0, 77] },
+					{ "id": "Customization", "kind": "button", "clear": true, "text": "CUSTOMIZATION (SOON)", "textSize": 28, "textColor": "text", "fade": 0.6, "shade": 0.55, "align": "left", "padLeft": 27, "runes": ["laguz", "isa", "kaunan"], "runesFade": 0.75, "pos": [0, 0, 0, 89], "size": [0, 415, 0, 62] },
+					{ "id": "Settings", "kind": "button", "clear": true, "text": "SETTINGS", "textSize": 28, "textColor": "text", "fade": 0.3, "shade": 0.55, "align": "left", "padLeft": 27, "runes": ["raidho", "ansuz", "dagaz"], "runesFade": 0.7, "pos": [0, 0, 0, 163], "size": [0, 415, 0, 62] }
+				]
+			},
+			{
+				"id": "MapHolder",
+				"kind": "group",
+				"anchor": [1, 0],
+				"pos": [1, -77, 0, 196],
+				"size": [0.47, 0, 0, 322],
+				"aspect": 1.9845,
+				"children": [
+					{ "id": "Map", "kind": "sketchmap", "rotation": 1.4, "size": [1, 0, 1, 0] },
+					{ "id": "Caption", "kind": "label", "bind": "caption", "text": "", "textSize": 21, "textColor": "dim", "shade": 0.45, "align": "right", "anchor": [1, 0], "pos": [1, -8, 1, 16], "size": [1, 0, 0, 28] }
 				]
 			}
 		]

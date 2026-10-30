@@ -1,0 +1,335 @@
+--!strict
+-- The sketch map (UI overhaul, Field Grimoire; Config/SketchMap; user 2026-10-30: "lets do the sketch map", top right in
+-- play, the live match on the title screen): the map's still image (the ground: tools/ui/sketchmap.py) with, drawn live
+-- over it,
+-- - the sector borders (Config/Maps/<key>.dividers; the river's from its meander, Rules/MapTerrain), dashed blue;
+-- - each side's land washed in its colour up to the front, and the front inked between the borders: the front sits as
+--   far along the chain as the sectors' control adds up (each sector 0..1 toward the West), within a sector a blend of
+--   its two borders;
+-- - each point as an ink seal with its rune, ringed in its holder's magic colour (neutral: plain), amber and beating
+--   while contested, its name under it.
+-- The live state is Territory Push's (Workspace.<Config/Frontline FolderName>: per sector Owner, Control, West, East;
+-- the folder's West / East = the two teams' kits). Without it (another mode, or none) the map shows the ground and the
+-- points only.
+--   SketchMap.new(box, mapKey?) -> { frame, front(): string?, destroy() }: fills `box` (keep its aspect: size / the
+--   image's); front() names the sector the front is in (nil without a match)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Cfg = require(Shared.Config.SketchMap) :: any
+local Palette = require(Shared.Config.Palette)
+local Ink = require(script.Parent.Ink)
+
+local SketchMap = {}
+
+local C = (Palette.UI :: any).Grimoire
+local function rgb(c: { number }): Color3
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
+local FONT = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
+local RUNE_FOR = { "hagalaz", "sowilo", "tiwaz", "raidho", "othala", "algiz", "berkanan" } -- by sector order; HQs hagalaz
+local FOLDER = "Frontline" -- Config/Frontline.FolderName (Territory Push; read by name so main without it still runs)
+
+type Point = { id: string, name: string, x: number, z: number, hq: boolean }
+
+-- the map's sectors west to east and the borders between them (each a polyline of { x, z }, z from min to max),
+-- with the drawn area's edges as the first and last
+local function layout(key: string, m: any): ({ Point }, { { { number } } })
+	local mapCfg = require(Shared.Config.Maps[key]) :: any
+	local points: { Point } = {}
+	for _, s in mapCfg.sectors do
+		table.insert(
+			points,
+			{ id = s.id, name = if s.isHQ then "HQ" else s.name, x = s.x, z = s.z, hq = s.isHQ == true }
+		)
+	end
+	local borders: { { { number } } } = { { { m.x[1], m.z[1] }, { m.x[1], m.z[2] } } }
+	for _, d in mapCfg.dividers or {} do
+		if d.river and mapCfg.river then
+			local r, line = mapCfg.river, {}
+			for z = m.z[1], m.z[2], 25 do
+				table.insert(line, { r.x + r.meanderAmp * math.sin(z / r.meanderLen * 2 * math.pi), z })
+			end
+			table.insert(borders, line)
+		elseif d.points then
+			table.insert(borders, d.points)
+		end
+	end
+	table.insert(borders, { { m.x[2], m.z[1] }, { m.x[2], m.z[2] } })
+	return points, borders
+end
+
+local function borderX(b: { { number } }, z: number): number
+	for k = 2, #b do
+		if z <= b[k][2] then
+			local a, c = b[k - 1], b[k]
+			local u = if c[2] == a[2] then 0 else (z - a[2]) / (c[2] - a[2])
+			return a[1] + (c[1] - a[1]) * u
+		end
+	end
+	return b[#b][1]
+end
+
+function SketchMap.new(box: GuiObject, mapKey: string?)
+	local key = mapKey or "Map1"
+	local m = Cfg.Maps[key]
+	local points, borders = layout(key, m)
+
+	local img = Instance.new("ImageLabel")
+	img.Name = "SketchMap"
+	img.BackgroundTransparency = 1
+	img.Image = `rbxassetid://{m.image}`
+	img.Size = UDim2.fromScale(1, 1)
+	img.Parent = box
+	-- the drawn area inside the torn edge: everything live is placed in it, x / z as shares of it
+	local area = Instance.new("Frame")
+	area.Name = "Area"
+	area.BackgroundTransparency = 1
+	area.Position = UDim2.fromScale(m.pad / m.size[1], m.pad / m.size[2])
+	area.Size = UDim2.fromScale(1 - 2 * m.pad / m.size[1], 1 - 2 * m.pad / m.size[2])
+	area.ClipsDescendants = true
+	area.Parent = img
+	local function u(x: number): number
+		return (x - m.x[1]) / (m.x[2] - m.x[1])
+	end
+	local function v(z: number): number
+		return (z - m.z[1]) / (m.z[2] - m.z[1])
+	end
+
+	-- the washes: strips per side, their inner ends at the front (Scale only, so they follow any size)
+	local washes = Instance.new("Frame")
+	washes.Name = "Washes"
+	washes.BackgroundTransparency = 1
+	washes.Size = UDim2.fromScale(1, 1)
+	washes.Parent = area
+	local bands = Cfg.WashBands
+	local westBands, eastBands = {}, {}
+	for i = 1, bands do
+		for _, list in { westBands, eastBands } do
+			local f = Instance.new("Frame")
+			f.BorderSizePixel = 0
+			f.BackgroundTransparency = 1
+			f.Position = UDim2.fromScale(0, (i - 1) / bands)
+			f.Size = UDim2.fromScale(0, 1 / bands)
+			f.Parent = washes
+			table.insert(list, f)
+		end
+	end
+
+	-- the borders (still) and the front (live): pixel strokes, redrawn on resize
+	local blue, ink = rgb(C.blue), rgb(C.ink)
+	Ink.draw(area, function(holder, w, h)
+		local thick, dash, gap = math.max(1, Cfg.Border.thick * w), Cfg.Border.dash * w, Cfg.Border.gap * w
+		for i = 2, #borders - 1 do
+			local line = borders[i]
+			for k = 2, #line do
+				local a = Vector2.new(u(line[k - 1][1]) * w, v(line[k - 1][2]) * h)
+				local b = Vector2.new(u(line[k][1]) * w, v(line[k][2]) * h)
+				local len, dir = (b - a).Magnitude, (b - a).Unit
+				local t = 0
+				while t < len do
+					local e = math.min(len, t + dash)
+					Ink.segment(holder, a + dir * t, a + dir * e, thick, blue, Cfg.Border.transparency)
+					t = e + gap
+				end
+			end
+		end
+	end)
+	local frontBox = Instance.new("Frame")
+	frontBox.Name = "Front"
+	frontBox.BackgroundTransparency = 1
+	frontBox.Size = UDim2.fromScale(1, 1)
+	frontBox.Parent = area
+	local frontCanvas = Ink.canvas(frontBox)
+	local frontAt: number? = nil -- the front's place along the chain (0..#points), nil without a match
+	local drawnFront: number? = -1
+	local function drawFront()
+		local f = frontAt
+		if f == drawnFront then
+			return
+		end
+		drawnFront = f
+		if not f then
+			frontCanvas.set(function() end)
+			return
+		end
+		frontCanvas.set(function(holder, w, h)
+			local k = math.clamp(math.floor(f), 0, #borders - 2)
+			local fr = f - k
+			local prev: Vector2? = nil
+			for q = 0, 16 do
+				local z = m.z[1] + (m.z[2] - m.z[1]) * q / 16
+				local x = borderX(borders[k + 1], z) + (borderX(borders[k + 2], z) - borderX(borders[k + 1], z)) * fr
+				local p = Vector2.new(u(x) * w, v(z) * h)
+				if prev then
+					Ink.segment(holder, prev, p, math.max(2, Cfg.Front.thick * w), ink)
+				end
+				prev = p
+			end
+		end)
+	end
+
+	-- the points: a seal (ink disc, ring, rune) and the name under it
+	type Seal = { disc: Frame, ring: UIStroke, canvas: Ink.Canvas, rune: string, label: TextLabel, colour: Color3? }
+	local seals: { [string]: Seal } = {}
+	for i, p in points do
+		local r = if p.hq then Cfg.Point.hqRadius else Cfg.Point.radius
+		local disc = Instance.new("Frame")
+		disc.Name = "Point" .. p.id
+		disc.AnchorPoint = Vector2.new(0.5, 0.5)
+		disc.Position = UDim2.fromScale(u(p.x), v(p.z))
+		disc.Size = UDim2.fromScale(2 * r, 2 * r)
+		disc.BackgroundColor3 = ink
+		disc.BorderSizePixel = 0
+		local aspect = Instance.new("UIAspectRatioConstraint")
+		aspect.DominantAxis = Enum.DominantAxis.Width
+		aspect.Parent = disc
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = disc
+		local ring = Instance.new("UIStroke")
+		ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		ring.Color = rgb(C.neutral)
+		ring.Parent = disc
+		local runeBox = Instance.new("Frame")
+		runeBox.BackgroundTransparency = 1
+		runeBox.AnchorPoint = Vector2.new(0.5, 0.5)
+		runeBox.Position = UDim2.fromScale(0.5, 0.5)
+		runeBox.Size = UDim2.fromScale(Cfg.Point.rune * 0.6, Cfg.Point.rune)
+		runeBox.Parent = disc
+		local label = Instance.new("TextLabel")
+		label.BackgroundTransparency = 1
+		label.AnchorPoint = Vector2.new(0.5, 0)
+		label.Position = UDim2.fromScale(u(p.x), v(p.z) + r + Cfg.Label.below)
+		label.Size = UDim2.fromScale(0.1, 0.06)
+		label.FontFace = FONT
+		label.Text = p.name
+		label.TextScaled = true
+		label.TextColor3 = rgb(C.text)
+		label.TextStrokeColor3 = ink
+		label.TextStrokeTransparency = 0
+		label.Parent = area
+		disc.Parent = area
+		seals[p.id] = {
+			disc = disc,
+			ring = ring,
+			canvas = Ink.canvas(runeBox),
+			rune = if p.hq then "hagalaz" else RUNE_FOR[i] or "isa",
+			label = label,
+		}
+	end
+	local function paintSeal(s: Seal, colour: Color3)
+		if s.colour == colour then
+			return
+		end
+		s.colour = colour
+		s.canvas.set(function(holder, w, h)
+			Ink.rune(holder, s.rune, 0, 0, w, h, math.max(1, h * 0.13), colour)
+		end)
+	end
+	local function placeLabels()
+		local a = area.AbsoluteSize
+		if a.X <= 0 then
+			return
+		end
+		for _, p in points do
+			local s = seals[p.id]
+			local r = if p.hq then Cfg.Point.hqRadius else Cfg.Point.radius
+			s.label.Position = UDim2.fromScale(u(p.x), v(p.z) + (r + Cfg.Label.below) * a.X / a.Y)
+			s.label.Size = UDim2.fromScale(0.1, Cfg.Label.size * a.X / a.Y)
+			s.ring.Thickness = math.max(1, Cfg.Point.ring * a.X)
+		end
+	end
+	area:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeLabels)
+	task.defer(placeLabels)
+
+	-- the live state
+	local frontName: string? = nil
+	local function update(now: number)
+		local folder = workspace:FindFirstChild(FOLDER)
+		local west = folder and folder:GetAttribute("West")
+		local east = folder and folder:GetAttribute("East")
+		local total = 0
+		local live = folder ~= nil
+		for i, p in points do
+			local s = seals[p.id]
+			local sector = folder and folder:FindFirstChild(p.id)
+			if not sector then
+				live = false
+				paintSeal(s, rgb(C.neutral))
+				s.ring.Color = rgb(C.neutral)
+				continue
+			end
+			local control = (sector:GetAttribute("Control") :: number?) or 0
+			total += (control + 1) / 2
+			local owner = sector:GetAttribute("Owner")
+			local kit = if owner == "West" then west elseif owner == "East" then east else nil
+			local magic = kit and C.Magic[kit]
+			local colour = if magic then rgb(magic) else rgb(C.neutral)
+			paintSeal(s, colour)
+			local w, e = (sector:GetAttribute("West") :: number?) or 0, (sector:GetAttribute("East") :: number?) or 0
+			if w > 0 and w == e then
+				local beat = (math.sin(now / Cfg.ContestedPulse * 2 * math.pi) + 1) / 2
+				s.ring.Color = colour:Lerp(rgb(C.amber), 0.4 + 0.6 * beat)
+			else
+				s.ring.Color = colour
+			end
+			if total >= i - 1 and total < i then
+				frontName = p.name
+			end
+		end
+		frontAt = if live then math.round(total * 200) / 200 else nil -- (steps of 1/200: the front isn't redrawn every frame)
+		if not live then
+			frontName = nil
+		end
+		-- the washes up to the front, band by band
+		local wc = west and C.Wash[west]
+		local ec = east and C.Wash[east]
+		for b = 1, bands do
+			local z = m.z[1] + (m.z[2] - m.z[1]) * (b - 0.5) / bands
+			local fx = 0
+			if frontAt then
+				local k = math.clamp(math.floor(frontAt), 0, #borders - 2)
+				local fr = frontAt - k
+				fx = u(borderX(borders[k + 1], z) + (borderX(borders[k + 2], z) - borderX(borders[k + 1], z)) * fr)
+			end
+			local wb, eb = westBands[b], eastBands[b]
+			wb.Size = UDim2.fromScale(fx, 1 / bands)
+			eb.Position = UDim2.fromScale(fx, (b - 1) / bands)
+			eb.Size = UDim2.fromScale(1 - fx, 1 / bands)
+			wb.BackgroundTransparency = if frontAt and wc then Cfg.WashTransparency else 1
+			eb.BackgroundTransparency = if frontAt and ec then Cfg.WashTransparency else 1
+			if wc then
+				wb.BackgroundColor3 = rgb(wc)
+			end
+			if ec then
+				eb.BackgroundColor3 = rgb(ec)
+			end
+		end
+		drawFront()
+	end
+	local conn = RunService.Heartbeat:Connect(function()
+		if img.Parent and box.Visible and (box:FindFirstAncestorOfClass("ScreenGui") :: ScreenGui?) then
+			local gui = box:FindFirstAncestorOfClass("ScreenGui") :: ScreenGui
+			if gui.Enabled then
+				update(os.clock())
+			end
+		end
+	end)
+	update(os.clock())
+
+	return {
+		frame = img,
+		front = function(): string?
+			return frontName
+		end,
+		destroy = function()
+			conn:Disconnect()
+			img:Destroy()
+		end,
+	}
+end
+
+return SketchMap
