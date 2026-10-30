@@ -2,10 +2,10 @@
 -- The kit list (user 2026-10-27: "i dont like the robblox default one", "make it a kit list but move it on the left"):
 -- Roblox's default hotbar is off; in its place, bottom left, one row per item carried this life (Config/Hud.Kit,
 -- Rules/KitList; layout src/shared/ui/CombatHud.json "Kit"): its number key, its name (Config/Weapons `display`) and a
--- grenade's count. Stencil plates (user 2026-10-27, option A of the restyle drafts: "Stencil plates with the basic
--- font"): cut corners, the key in a stamped square, the name in capitals; the row in the hands filled with the team's rim
--- colour, its words dark, sticking out further, the others the team's field (Palette.UI.Hud.Teams by the character's
--- "Kit"). Shown for Kit.linger seconds after any change (a number key, a draw or put-away, an item come or
+-- grenade's count. Bare ink (UI overhaul, user 2026-10-30: "remove the paper background completely, just have the
+-- selected one be fully visible and the others semi transparent and smaller"): words only, warm shades with a dark
+-- edge (Palette.UI.Hud kit*), the name in capitals; the row in the hands full and larger, the others smaller and
+-- half see-through (Config/Hud.Kit.other). Shown for Kit.linger seconds after any change (a number key, a draw or put-away, an item come or
 -- gone, a count), then faded out; kept up while build mode is open (src/client/Build); hidden while aiming (the
 -- character's "Aiming", src/client/Stance) and with no living soldier. Once carried, a slot keeps its row for the life:
 -- the last grenade thrown (the server destroys its Tool) leaves the row greyed at x0, so the keys never move.
@@ -186,28 +186,31 @@ function KitList.start()
 		end
 		drawn = sig
 		hud.gui.Enabled = alpha > 0
-		local hide = 1 - alpha
-		local dark = rgb("kitHeldText")
+		local O = K.other
 		for i, s in order do
 			local r = rows[i]
 			local on = chosen ~= nil and s.tool == chosen
 			local empty = s.tool == nil
-			local see = if not on then K.field elseif held then K.fieldHeld else K.pending
-			HudKit.paint(r.frame, if on then rim else field, 1 - (1 - see) * alpha)
-			r.frame.Size = UDim2.new(1, if on then K.out else 0, height.Scale, height.Offset)
-			-- the key's stamp: an outline, filled dark with the key in the team's colour in the hands
-			r.keyBox.BackgroundColor3 = dark
-			r.keyBox.BackgroundTransparency = if on then hide else 1
-			r.stamp.Color = if on then dark else rgb("kitKey")
-			r.stamp.Transparency = hide
-			r.key.TextColor3 = if on then rim else rgb("kitKey")
+			-- no plate: its pieces and the key's stamp stay clear
+			HudKit.paint(r.frame, if on then rim else field, 1)
+			r.keyBox.BackgroundTransparency = 1
+			r.stamp.Transparency = 1
+			local size = if on then 1 else O.size
+			r.frame.Size = UDim2.new(1, 0, height.Scale, height.Offset * (if on then 1 else O.height))
+			local hide = 1 - alpha * (if on then 1 else 1 - O.see)
+			r.key.TextColor3 = rgb("kitKey")
+			r.key.TextSize = K.sizes.key * size
 			r.name.Text = string.upper(s.name)
-			r.name.TextColor3 = if empty then rgb("kitEmpty") elseif on then dark else rgb("kitName")
+			r.name.TextColor3 = if empty then rgb("kitEmpty") elseif on then rgb("kitHeld") else rgb("kitOther")
+			r.name.TextSize = K.sizes.name * size
 			r.count.Visible = s.count ~= nil
 			r.count.Text = string.format(K.count, s.count or 0)
-			r.count.TextColor3 = if s.count == 0 then rgb("countLow") elseif on then dark else rgb("count")
+			r.count.TextColor3 = if s.count == 0 then rgb("countLow") else rgb("count")
+			r.count.TextSize = K.sizes.count * size
 			for _, l in { r.key, r.name, r.count } do
 				l.TextTransparency = hide
+				l.TextStrokeColor3 = rgb("kitShade")
+				l.TextStrokeTransparency = 1 - (1 - K.shade) * (1 - hide)
 			end
 		end
 	end

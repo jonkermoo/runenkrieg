@@ -371,6 +371,17 @@ local Palette = {
 			hint = { 68, 30, 24 },
 			hintEdge = { 210, 80, 60 },
 			hintText = { 255, 214, 196 },
+			-- the hint's key as a red chip, its words (UI overhaul, user 2026-10-30: the clean gun display)
+			hintKey = { 200, 64, 46 },
+			hintKeyText = { 255, 242, 234 },
+			-- the gun's cut-away lit nearly flat (UI overhaul: "flat shades")
+			gunAmbient = { 205, 205, 205 },
+			gunLight = { 70, 66, 60 },
+			-- the kit list in bare ink (UI overhaul, user 2026-10-30: "remove the paper background completely, just have
+			-- the selected one be fully visible and the others semi transparent and smaller"): words, their dark edge
+			kitHeld = { 241, 235, 220 },
+			kitOther = { 217, 209, 189 },
+			kitShade = { 14, 12, 10 },
 			lampOff = { 30, 34, 30 },
 			crystalHollow = { 112, 116, 122 }, -- a crystal with no charge (Config/Hud.Crystal), and dead
 			crystalDead = { 58, 60, 64 },

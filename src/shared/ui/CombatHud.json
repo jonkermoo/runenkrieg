@@ -1,6 +1,6 @@
 {
 	"name": "CombatHud",
-	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away (`model`, a ViewportFrame) floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. The gun's cut-away is two layers (user 2026-10-26: \"make everything else just a simple shadow sillouette\"): GunShadow, the gun's body as one flat see-through shadow, under GunView, the clear bolt, rounds and magazine well (a child draws over its parent). Desktop only. The kit list (`Kit`, src/client/KitList, Config/Hud.Kit; user 2026-10-27: \"make it a kit list but move it on the left\"): one `KitRow` per item carried this life, cloned from the template and stacked upward from the bottom left (a UIListLayout, Config/Hud.Kit.gap); each row a stencil plate (user 2026-10-27, option A of the restyle drafts, \"Stencil plates with the basic font\"): `cut` cuts its top-left and bottom-right corners; the key in a stamped square (`KitKeyBox`), the name in capitals; the row in the hands filled with the team's rim colour, its words dark, sticking out further (Config/Hud.Kit.out), the others the team's field. The zone match (`Match`, src/client/ZoneHud; user 2026-10-29: \"there will just be a basic timer and it will state who the current point leader is\"): top centre, the clock and under it the point leader (the winner during the results), shown only in FFA.",
+	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away (`model`, a ViewportFrame) floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. The gun's cut-away is two layers (user 2026-10-26: \"make everything else just a simple shadow sillouette\"): GunShadow, the gun's body as one flat see-through shadow, under GunView, the clear bolt, rounds and magazine well (a child draws over its parent). Desktop only. The kit list (`Kit`, src/client/KitList, Config/Hud.Kit; user 2026-10-27: \"make it a kit list but move it on the left\"): one `KitRow` per item carried this life, cloned from the template and stacked upward from the bottom left (a UIListLayout, Config/Hud.Kit.gap); each row bare ink (UI overhaul, user 2026-10-30: \"remove the paper background completely, just have the selected one be fully visible and the others semi transparent and smaller\"): the plate and the key's stamp stay clear, the key, the name in capitals and a count as words with a dark edge; the row in the hands full and larger, the others smaller and see-through (Config/Hud.Kit). The gun's hint (`Hint`): the key as a red chip, then what it does (RichText). The zone match (`Match`, src/client/ZoneHud; user 2026-10-29: \"there will just be a basic timer and it will state who the current point leader is\"): top centre, the clock and under it the point leader (the winner during the results), shown only in FFA.",
 	"theme": {
 		"palette": "Hud",
 		"scale": {
@@ -120,9 +120,9 @@
 						],
 						"size": [
 							0,
-							200,
+							330,
 							0,
-							26
+							28
 						],
 						"children": [
 							{
@@ -133,24 +133,25 @@
 								"text": "",
 								"textSize": 16,
 								"textColor": "hintText",
-								"center": true,
+								"center": false,
 								"anchor": [
-									0.5,
+									0,
 									0.5
 								],
 								"pos": [
-									0.5,
+									0,
 									0,
 									0.5,
 									0
 								],
 								"size": [
 									1,
-									-10,
+									0,
 									1,
 									0
 								],
-								"stroke": "hint"
+								"stroke": "window",
+								"align": "left"
 							}
 						]
 					}

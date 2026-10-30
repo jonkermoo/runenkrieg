@@ -317,6 +317,9 @@ local function build(tool: Tool, weapon: string, gun: BasePart, view: ViewportFr
 			table.insert(v.shadows, { part = c, source = p })
 		end
 	end
+	-- the clear parts lit nearly flat (UI overhaul: "flat shades")
+	view.Ambient = HudKit.rgb("gunAmbient")
+	view.LightColor = HudKit.rgb("gunLight")
 	shadowView.Ambient = HudKit.rgb("shadowAmbient")
 	shadowView.LightColor = HudKit.rgb("shadowLight")
 	shadowView.ImageTransparency = G.shadow.see
@@ -996,6 +999,18 @@ end
 
 function AmmoHud.start()
 	panel = HudKit.panel("Gun", "AmmoHud", true) -- (the HUD size setting scales it)
+	local words = panel.node.HintText :: TextLabel
+	words.RichText = true
+end
+
+-- a hint as shown: its key ("Click", "R") as a red chip, then what it does (UI overhaul, user 2026-10-30)
+local function chip(hint: string): string
+	local key, rest = hint:match("^(.-):%s*(.*)$")
+	if not key or key == "" then
+		return hint
+	end
+	local back, fore = HudKit.rgb("hintKey"):ToHex(), HudKit.rgb("hintKeyText"):ToHex()
+	return `<mark color="#{back}" transparency="0"><font color="#{fore}" size="13"> {string.upper(key)} </font></mark>  {rest}`
 end
 
 -- Every frame from src/client/Firing: the held gun and its predicted state (nil: no gun in the hands).
@@ -1036,7 +1051,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 			then G.hints.Load
 			elseif next == "Dry" then (G.hints.Rounds:gsub("{key}", tostring(Settings.get("Key_Reload"))))
 			else ""
-		p.set("hint", hint)
+		p.set("hint", chip(hint))
 		p.node.Hint.Visible = hint ~= ""
 		return
 	end
@@ -1064,7 +1079,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 			elseif gun.clip == "Box" then H.Box
 			else H.Clip)
 		else ""
-	p.set("hint", (hint:gsub("{key}", tostring(key))))
+	p.set("hint", chip((hint:gsub("{key}", tostring(key)))))
 	p.node.Hint.Visible = hint ~= ""
 end
 
