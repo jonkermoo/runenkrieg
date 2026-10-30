@@ -106,19 +106,25 @@ function Deploy.wait(player: Player): number
 	return math.max(Metrics.Combat.RespawnDelay - (os.clock() - at), 0)
 end
 
--- The soldier `player` spawns as next, as class `key`: their next kit and looks, the class's helmet and primary.
-local function preview(player: Player, key: string)
+-- each player's latest preview build: a build that finds a newer one started meanwhile drops its own rig (the user's
+-- play test 2026-10-30: "players sometimes dont load their preview character"; a pick and a death close together ran
+-- two builds at once, each yielding, and one destroyed or doubled the other)
+local previewSeq: { [Player]: number } = {}
+
+-- one build of the preview; false if a newer build took over (its rig gone)
+local function buildPreview(player: Player, key: string, seq: number, made: { rig: Model? }): boolean
 	local gui = player:FindFirstChildOfClass("PlayerGui")
 	if not gui then
-		return
-	end
-	local old = gui:FindFirstChild(PREVIEW)
-	if old then
-		old:Destroy()
+		return true
 	end
 	local kit = Kits.next(player)
 	local desc = Instance.new("HumanoidDescription")
 	local rig = Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R6)
+	made.rig = rig
+	if previewSeq[player] ~= seq then
+		rig:Destroy()
+		return false
+	end
 	rig.Name = PREVIEW
 	for _, d in rig:GetDescendants() do
 		if d:IsA("BaseScript") then
@@ -134,8 +140,18 @@ local function preview(player: Player, key: string)
 	rig:SetAttribute("Class", key) -- (src/server/Loadouts: the class's helmet)
 	rig:SetAttribute("Muted", true)
 	rig:PivotTo(CFrame.new())
+	-- the old preview (every one: an older build may have left one) goes as this one comes
+	for _, old in gui:GetChildren() do
+		if old.Name == PREVIEW then
+			old:Destroy()
+		end
+	end
 	rig.Parent = gui
 	Bodies.apply(rig, player) -- in this player's next look
+	if previewSeq[player] ~= seq then
+		rig:Destroy()
+		return false
+	end
 	local primary = Rules.gear(key, kit, C.Defs, U.Kits, C.Gear).Primary
 	if primary then
 		local tool = Armory.tool(primary, kit)
@@ -143,6 +159,25 @@ local function preview(player: Player, key: string)
 		hold.Part0 = rig:FindFirstChild("Torso") :: BasePart
 		tool.Parent = rig
 		rig:SetAttribute("Primary", primary) -- (src/client/Menus plays its ready hold)
+	end
+	return true
+end
+
+-- The soldier `player` spawns as next, as class `key`: their next kit and looks, the class's helmet and primary. Only
+-- the latest call's rig stays; a build that fails (the avatar service) is tried once more.
+local function preview(player: Player, key: string)
+	local seq = (previewSeq[player] or 0) + 1
+	previewSeq[player] = seq
+	for attempt = 1, 2 do
+		local made: { rig: Model? } = { rig = nil }
+		local ok, err = pcall(buildPreview, player, key, seq, made)
+		if ok or previewSeq[player] ~= seq then
+			return
+		end
+		if made.rig then
+			(made.rig :: Model):Destroy() -- (half built)
+		end
+		warn(`[Deploy] {player.Name}'s loadout preview failed (try {attempt} of 2): {err}`)
 	end
 end
 
@@ -215,6 +250,7 @@ function Deploy.start()
 	end
 	Players.PlayerRemoving:Connect(function(p)
 		diedAt[p] = nil
+		previewSeq[p] = nil
 		task.defer(recount) -- (once they're gone from the list)
 	end)
 	-- the admin's test switch, or a mode change: the cards show or go
