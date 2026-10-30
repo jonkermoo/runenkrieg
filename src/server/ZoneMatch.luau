@@ -20,10 +20,13 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.ZoneMatch)
 local BotsCfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
+local ModesCfg = require(Shared.Config.Modes)
+local TeamCfg = require(Shared.Config.Teams)
 local Map = require(Shared.Config.Maps.Playtest)
 local Modes = require(Shared.Rules.Modes)
 local Rules = require(Shared.Rules.ZoneMatch)
 local Damage = require(script.Parent.Damage)
+local Kits = require(script.Parent.Kits)
 local Ragdoll = require(script.Parent.Ragdoll)
 
 local ZoneMatch = {}
@@ -461,7 +464,17 @@ local function run()
 		zone:SetAttribute("Winner", leader)
 		zone:SetAttribute("EndsAt", workspace:GetServerTimeNow() + Cfg.ResultsSeconds)
 		task.wait(Cfg.ResultsSeconds)
+		-- everyone back in on a random team (user 2026-10-30: "in the FFA mode make it so players randomize their team as
+		-- well, even though it doesnt matter"; a death rolls it too, src/server/Deploy), unless teams are kept for testing
+		local keep = Modes.keptTeams(
+			ModesCfg,
+			workspace:GetAttribute(ModesCfg.Attribute),
+			workspace:GetAttribute(TeamCfg.DevAttribute)
+		)
 		for _, p in Players:GetPlayers() do
+			if not keep then
+				Kits.reroll(p)
+			end
 			task.spawn(function()
 				p:LoadCharacter()
 			end)

@@ -90,6 +90,9 @@ local function dummy(
 	root.Anchored = true
 	m.PrimaryPart = root -- the model's own pivot is its box centre: place it by the root
 	m:PivotTo(cf)
+	-- streamed whole: under StreamingEnabled a model's parts otherwise arrive one by one, and a soldier showed on clients
+	-- without its hair, helmet, face or gun (user's FFA play test 2026-10-30; players' characters always stream whole)
+	m.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	m.Parent = parent or folder
 	Bodies.apply(m)
 	return m
