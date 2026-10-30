@@ -1,6 +1,6 @@
 {
 	"name": "LoadoutMenu",
-	"_doc": "The loadout menu (src/client/Menus): opens after Play and on every death; the class list on the left (one row per Config/Classes.List entry, the rows here are samples), the soldier you'll spawn as on the right (a ViewportFrame of the server's preview rig). Marks show only here (user 2026-10-27). Back returns to the title screen (user 2026-10-27: \"we need a back button\"). Deploy lights up when the respawn delay is over. Change team (only in modes that keep teams: Config/Modes `teams`, or the admin panel's dev switch) opens three team cards (user 2026-10-27): a gradient placeholder for the team's art, its name and 'count / room' in the middle; the text is white if you can join, red if you can't, grey for your team. A joinable card asks for a second click (joining resets your Marks).",
+	"_doc": "The loadout menu (src/client/Menus): opens after Play and on every death; the class list on the left (one row per Config/Classes.List entry, the rows here are samples), the soldier you'll spawn as on the right (a ViewportFrame of the server's preview rig). Marks show only here (user 2026-10-27). Back returns to the title screen (user 2026-10-27: \"we need a back button\"). Deploy lights up when the respawn delay is over. Change team (only in modes that keep teams: Config/Modes `teams`, or the admin panel's dev switch) opens three team cards (user 2026-10-27): a gradient placeholder for the team's art, its name and 'count / room' in the middle; the text is white if you can join, red if you can't, grey for your team. A joinable card asks for a second click (joining resets your Marks). Each team card shows its team's flag (FlagKatzmark etc., Config/Uniforms flag.full) over its name, a placeholder for the team's art (user 2026-10-30: \"There is a change team button in the loadout screen. put team flags there\").",
 	"theme": {
 		"scale": {
 			"referenceHeight": 800,
@@ -856,6 +856,26 @@
 								],
 								"children": [
 									{
+										"id": "FlagKatzmark",
+										"kind": "image",
+										"anchor": [
+											0.5,
+											0
+										],
+										"pos": [
+											0.5,
+											0,
+											0,
+											24
+										],
+										"size": [
+											0,
+											120,
+											0,
+											80
+										]
+									},
+									{
 										"id": "NameKatzmark",
 										"kind": "label",
 										"text": "Katzmark",
@@ -924,6 +944,26 @@
 								],
 								"children": [
 									{
+										"id": "FlagSelvara",
+										"kind": "image",
+										"anchor": [
+											0.5,
+											0
+										],
+										"pos": [
+											0.5,
+											0,
+											0,
+											24
+										],
+										"size": [
+											0,
+											120,
+											0,
+											80
+										]
+									},
+									{
 										"id": "NameSelvara",
 										"kind": "label",
 										"text": "Selvara",
@@ -991,6 +1031,26 @@
 									280
 								],
 								"children": [
+									{
+										"id": "FlagSowilo",
+										"kind": "image",
+										"anchor": [
+											0.5,
+											0
+										],
+										"pos": [
+											0.5,
+											0,
+											0,
+											24
+										],
+										"size": [
+											0,
+											120,
+											0,
+											80
+										]
+									},
 									{
 										"id": "NameSowilo",
 										"kind": "label",
