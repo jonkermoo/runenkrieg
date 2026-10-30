@@ -6,19 +6,17 @@ local function near(a: number, b: number): boolean
 end
 
 return {
-	["front: the share of the chain West holds, a neutral sector half"] = function()
-		assert(near(R.front({ 1, 1, 0, -1, -1 }), 0.5))
-		assert(near(R.front({ 1, 1, 1, 1, 1 }), 1))
-		assert(near(R.front({ -1, -1, -1, -1, -1 }), 0))
-		assert(near(R.front({ 1, 1, 0.5, -1, -1 }), 0.55), "slides with the fought-over sector's control")
-		assert(near(R.front({}), 0.5))
-		assert(near(R.front({ 3, -3 }), 0.5), "control out of range is clamped")
-	end,
-	["slot and front: the viewer's own side always on the left"] = function()
+	["slot: the viewer's own side always on the left"] = function()
 		assert(R.slot(1, 5, "West") == 1 and R.slot(5, 5, "West") == 5)
 		assert(R.slot(1, 5, "East") == 5 and R.slot(5, 5, "East") == 1)
 		assert(R.slot(2, 7, nil) == 2, "no side: as the map lies")
-		assert(near(R.seenFront(0.3, "East"), 0.7) and near(R.seenFront(0.3, "West"), 0.3))
+	end,
+	["fade: a steady step toward the target, never past it"] = function()
+		assert(near(R.fade(0, 1, 0.05, 0.1), 0.5))
+		assert(R.fade(0.9, 1, 0.05, 0.1) == 1, "stops at shown")
+		assert(near(R.fade(1, 0, 0.025, 0.1), 0.75))
+		assert(R.fade(0.1, 0, 0.05, 0.1) == 0, "stops at hidden")
+		assert(R.fade(0, 1, 0.01, 0) == 1, "no fade time: at once")
 	end,
 	["pin: filled toward the side the control leans to, as far as it goes"] = function()
 		local p = R.pin("West", 1, 0, 0)

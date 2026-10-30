@@ -6,27 +6,20 @@
 
 local ModeHud = {}
 
--- Where the front stands along the bar, 0..1 from the West end: the share of the chain West holds, each sector counting
--- (control + 1) / 2 (a neutral one half), so the front slides with the fought-over sector's control.
-function ModeHud.front(controls: { number }): number
-	local n = #controls
-	if n == 0 then
-		return 0.5
-	end
-	local sum = 0
-	for _, c in controls do
-		sum += (math.clamp(c, -1, 1) + 1) / 2
-	end
-	return sum / n
-end
-
--- Which sector (west-to-east index) sits at bar slot `slot` for a viewer on `side`, and the front as that viewer sees it
--- (the viewer's own side always on the left).
+-- Which sector (west-to-east index) sits at bar slot `slot` for a viewer on `side` (the viewer's own side always on
+-- the left).
 function ModeHud.slot(slot: number, n: number, side: string?): number
 	return if side == "East" then n + 1 - slot else slot
 end
-function ModeHud.seenFront(front: number, side: string?): number
-	return if side == "East" then 1 - front else front
+
+-- The bar's and the teammate dots' visibility (0 hidden .. 1 shown) one step of `dt` seconds toward `target`, a full
+-- fade taking `seconds` (user 2026-10-29: "appear (with a fast fade) when players hold v").
+function ModeHud.fade(shown: number, target: number, dt: number, seconds: number): number
+	if seconds <= 0 then
+		return target
+	end
+	local step = dt / seconds
+	return if shown < target then math.min(target, shown + step) else math.max(target, shown - step)
 end
 
 export type Pin = {

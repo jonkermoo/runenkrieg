@@ -3,17 +3,22 @@
 -- the mode HUD drafts, the front bar). Built once from the spec; each Refresh it reads the live mode's replicated state:
 --   Territory Push: Workspace's Frontline folder (src/server/Frontline: West / East teams, Phase, Winner; a child
 --     folder per sector with Index, Owner, Control and the West / East soldiers in its zone). The viewer's side is on
---     the left; one diamond per sector, filled as far as its control goes in the colour of the side it leans to.
+--     the left; one diamond per sector joined by a line, filled as far as its control goes in the colour of the side it
+--     leans to. Shown on the loadout screen; in play only while V is held, fading fast, with a dot over each teammate
+--     seen through walls (user 2026-10-29: "make the bar appear and a dot above all teammates that you can see through
+--     walls appear (with a fast fade) when players hold v").
 --   Point Capture (the server's Mode is FFA): the zone marker on the Playtest map (src/server/ZoneMatch: Phase,
 --     EndsAt, State, Holder, Leader, MoveAt, NextSpot, Winner) and the leader's ZoneScore: the clock centred, the point
 --     leader under it, the zone's state, the move warning (user 2026-10-29: "center the timer and remove the bar
 --     completely ... remove the top score and your score. just keep track of the score leader and display it"). The
 --     leader's glow is the server's (src/server/ZoneMatch, Config/ZoneMatch.Leader).
--- Hidden when neither runs.
+-- Hidden when neither runs, and on the title screen ("dont show the status of the game until players are on or past
+-- the loadout screen"; src/client/Menus' TitleScreen and LoadoutMenu).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.ModeHud)
@@ -100,7 +105,8 @@ local function make(n: any, parent: Instance?): GuiObject
 		i.ScaleType = Enum.ScaleType.Crop
 		obj = i
 	elseif n.kind == "group" then
-		local g = Instance.new("Frame")
+		-- (a group that fades as one is a CanvasGroup)
+		local g: GuiObject = if n.fade then Instance.new("CanvasGroup") else Instance.new("Frame")
 		g.BackgroundTransparency = 1
 		obj = g
 	else -- panel (a diamond when shape = "diamond")
@@ -223,7 +229,7 @@ local function sectorsOf(folder: Instance): { Instance }
 	return list
 end
 
--- (re)builds the diamonds and labels for `n` sectors, evenly spaced along the bar
+-- (re)builds the diamonds and labels for `n` sectors, evenly spaced along the bar, the line from the first to the last
 local function layoutPins(list: { Instance })
 	for _, d in frontPins do
 		d.box:Destroy()
@@ -244,6 +250,10 @@ local function layoutPins(list: { Instance })
 		label.Parent = bar
 		table.insert(frontLabels, label)
 	end
+	local line = nodes.Line
+	local ends = if n > 0 then 0.5 / n else 0.5
+	line.Position = UDim2.new(ends, 0, line.Position.Y.Scale, line.Position.Y.Offset)
+	line.Size = UDim2.new(1 - 2 * ends, 0, line.Size.Y.Scale, line.Size.Y.Offset)
 end
 
 local shownCount = -1
@@ -267,17 +277,7 @@ local function updateFront(folder: Instance, now: number)
 		local leftFlag, rightFlag = nodes.LeftFlag :: ImageLabel, nodes.RightFlag :: ImageLabel
 		leftFlag.Image = flagImage(leftKit)
 		rightFlag.Image = flagImage(rightKit)
-		nodes.LeftFill.BackgroundColor3 = teamRim(leftKit)
-		nodes.RightFill.BackgroundColor3 = teamRim(rightKit)
 	end
-	local controls = {}
-	for i, f in list do
-		controls[i] = (f:GetAttribute("Control") :: number?) or 0
-	end
-	local front = Rules.seenFront(Rules.front(controls), side)
-	nodes.LeftFill.Size = UDim2.fromScale(front, 1)
-	nodes.RightFill.Size = UDim2.fromScale(1 - front, 1)
-	nodes.FrontTick.Position = UDim2.fromScale(front, 0.5)
 	local flashOn = (now // Cfg.FlashSeconds) % 2 == 0
 	for slot = 1, n do
 		local f = list[Rules.slot(slot, n, side)]
@@ -337,6 +337,69 @@ local function updateZone(zone: Instance)
 	end
 end
 
+-- Territory Push: a dot over each teammate's head, drawn on top of the world so it shows through walls
+type Dot = { gui: BillboardGui, face: Frame, edge: UIStroke }
+local dots: { [Player]: Dot } = {}
+
+local function newDot(): Dot
+	local d = Cfg.Dot
+	local g = Instance.new("BillboardGui")
+	g.Name = "ModeHudTeamDot"
+	g.AlwaysOnTop = true
+	g.LightInfluence = 0
+	g.ResetOnSpawn = false
+	g.Size = UDim2.fromOffset(d.size, d.size)
+	g.StudsOffset = Vector3.new(0, d.above, 0)
+	g.Enabled = false
+	local face = Instance.new("Frame")
+	face.Size = UDim2.fromScale(1, 1)
+	face.BorderSizePixel = 0
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = face
+	local edge = Instance.new("UIStroke")
+	edge.Thickness = T.outline
+	edge.Color = tok("pinEdge")
+	edge.Parent = face
+	face.Parent = g
+	g.Parent = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	return { gui = g, face = face, edge = edge }
+end
+
+-- each teammate (a soldier of the viewer's kit) gets a dot on their head; the others' go
+local function updateDots(kit: string?)
+	local me = Players.LocalPlayer
+	for _, p in Players:GetPlayers() do
+		local character = p.Character
+		local head = character and character:FindFirstChild("Head")
+		local mate = kit ~= nil and p ~= me and head ~= nil and (character :: Model):GetAttribute("Kit") == kit
+		local dot = dots[p]
+		if mate then
+			dot = dot or newDot()
+			dots[p] = dot
+			dot.gui.Adornee = head :: BasePart
+			dot.face.BackgroundColor3 = teamRim(kit)
+		elseif dot then
+			dot.gui:Destroy()
+			dots[p] = nil
+		end
+	end
+	for p, dot in dots do
+		if p.Parent == nil then
+			dot.gui:Destroy()
+			dots[p] = nil
+		end
+	end
+end
+
+local function showDots(shown: number)
+	for _, dot in dots do
+		dot.gui.Enabled = shown > 0
+		dot.face.BackgroundTransparency = 1 - shown
+		dot.edge.Transparency = 1 - shown
+	end
+end
+
 function ModeHud.start()
 	gui = Instance.new("ScreenGui")
 	gui.Name = "ModeHud"
@@ -369,24 +432,52 @@ function ModeHud.start()
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	rescale()
 
+	local playerGui = gui.Parent :: PlayerGui
+	local function screenOn(name: string): boolean
+		local g = playerGui:FindFirstChild(name)
+		return g ~= nil and g:IsA("ScreenGui") and g.Enabled
+	end
+
+	local front = false -- Territory Push is running
+	local myKit: string? = nil
+	local barShown, dotsShown = 0, 0
 	task.spawn(function()
 		while true do
 			local now = os.clock()
 			local folder = workspace:FindFirstChild(Cfg.FrontlineFolder)
 			local map = workspace:FindFirstChild(Playtest.name)
 			local zone = map and map:FindFirstChild(ZoneCfg.MarkerName)
+			local title = screenOn("TitleScreen")
 			local ffa = zone ~= nil and workspace:GetAttribute(ModesCfg.Attribute) == "FFA"
-			local front = not ffa and folder ~= nil and folder:IsA("Folder")
-			nodes.FrontBar.Visible = front
-			nodes.ZoneBar.Visible = ffa
-			gui.Enabled = front or ffa
+			front = not ffa and folder ~= nil and folder:IsA("Folder")
+			nodes.ZoneBar.Visible = ffa and not title
+			gui.Enabled = (front or ffa) and not title
 			if front then
 				updateFront(folder :: Instance, now)
-			elseif ffa then
-				updateZone(zone :: Instance)
+				local character = Players.LocalPlayer.Character
+				local side = mySide(folder :: Instance)
+				myKit = if side and character then character:GetAttribute("Kit") :: string? else nil
+			else
+				myKit = nil
+				if ffa then
+					updateZone(zone :: Instance)
+				end
 			end
+			updateDots(myKit)
 			task.wait(Cfg.Refresh)
 		end
+	end)
+	-- the bar fades in on the loadout screen and while V is held in play; the dots only while V is held in play
+	RunService.RenderStepped:Connect(function(dt)
+		local title, loadout = screenOn("TitleScreen"), screenOn("LoadoutMenu")
+		local held = UserInputService:IsKeyDown(Cfg.ShowKey) and UserInputService:GetFocusedTextBox() == nil
+		local inPlay = front and not title and not loadout
+		barShown = Rules.fade(barShown, if front and not title and (loadout or held) then 1 else 0, dt, Cfg.FadeSeconds)
+		dotsShown = Rules.fade(dotsShown, if inPlay and held then 1 else 0, dt, Cfg.FadeSeconds)
+		local bar = nodes.FrontBar :: CanvasGroup
+		bar.Visible = barShown > 0
+		bar.GroupTransparency = 1 - barShown
+		showDots(dotsShown)
 	end)
 	-- FFA: the point leader's glow is for everyone else; on the leader's own screen it's off (kept from the old
 	-- zone match readout, src/client/ZoneHud; the server turns it back on as the lead changes)
