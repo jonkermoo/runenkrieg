@@ -54,6 +54,7 @@ require(script.Loadouts).start() -- (the class each life spawns as, the match cu
 require(script.Bodies).start() -- (dresses the helmet and hair: script.Helmets)
 require(script.Armory).start()
 require(script.Deploy).start() -- (no auto respawn: the menus deploy; the loadout preview soldier)
+require(script.Chat).start() -- (the game's own chat: team and whisper channels, Global between servers)
 require(script.Doors).start()
 require(script.Sectors).start() -- (hides the sector dividers and point markers)
 require(script.DevTools).start()

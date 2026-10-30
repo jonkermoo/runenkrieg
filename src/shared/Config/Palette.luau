@@ -466,6 +466,14 @@ local Palette = {
 				uniform2 = { 226, 196, 110 },
 				uniform3 = { 236, 120, 132 },
 			},
+			-- the chat's channel word on each line (src/client/Chat)
+			Chat = {
+				Server = { 241, 235, 220 },
+				Team = { 180, 188, 108 },
+				Global = { 156, 196, 255 },
+				Whisper = { 226, 196, 110 },
+				System = { 230, 160, 40 },
+			},
 			-- a team's name in the menus' words (its uniform's rim, lifted to read on the dark)
 			Name = {
 				uniform1 = { 160, 172, 184 },
