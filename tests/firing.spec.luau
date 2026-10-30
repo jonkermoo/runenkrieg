@@ -434,17 +434,35 @@ return {
 		assert(s.chambered and s.magazine == 4 and not s.open, "5 shells in, one chambered: 4 + 1")
 	end,
 	["a shotgun pattern: the same from the same seed, inside the cone"] = function()
-		local a, b = F.pellets(12345, 9, 3), F.pellets(12345, 9, 3)
+		local random = { count = 9, spread = 3 }
+		local a, b = F.pellets(12345, random), F.pellets(12345, random)
 		assert(#a == 9, "nine pellets")
 		local differs = false
 		for i, o in a do
 			assert(o[1] == b[i][1] and o[2] == b[i][2], "the same seed, the same pattern")
 			assert(math.sqrt(o[1] ^ 2 + o[2] ^ 2) <= 3 + 1e-9, "inside the cone")
 		end
-		for i, o in F.pellets(54321, 9, 3) do
+		for i, o in F.pellets(54321, random) do
 			differs = differs or o[1] ~= a[i][1]
 		end
 		assert(differs, "another seed, another pattern")
+	end,
+	["a fixed shotgun pattern: one pellet on the line, the core ring tight, the rest on the outer ring"] = function()
+		local p = W.shotgun_m1897.pellets :: any
+		assert(p.core, "the M1897 fires a fixed pattern")
+		local jitter = p.jitter or 0
+		for seed = 1, 500 do
+			local o = F.pellets(seed * 7919, p)
+			assert(#o == p.count, "every pellet")
+			assert(o[1][1] == 0 and o[1][2] == 0, "the first on the barrel's line")
+			for i = 2, p.count do
+				local r = math.sqrt(o[i][1] ^ 2 + o[i][2] ^ 2)
+				local ring = if i <= 1 + p.core.count then p.core.spread else p.spread
+				assert(math.abs(r - ring) <= ring * jitter + 1e-9, `pellet {i} on its ring`)
+			end
+		end
+		local a, b = F.pellets(1, p), F.pellets(2, p)
+		assert(a[2][1] ~= b[2][1], "turned per shot")
 	end,
 	["a bullet shatters window glass and goes on, a few panes at most; nothing else"] = function()
 		local D = require("../src/shared/Config/Destruction")

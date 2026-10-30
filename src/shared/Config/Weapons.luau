@@ -170,8 +170,17 @@ export type Weapon = {
 	-- open / round / close: this weapon's own times (else Config/Firing.Single's).
 	single: { seat: { number }, body: number, firstPerson: number, open: number?, round: number?, close: number? }?,
 	-- A shotgun's shot (user 2026-10-13): `count` pellets in a cone `spread` degrees wide (half angle), each its own
-	-- hitscan ray; full damage to `full` studs, none past `none` (stored for damage, M11: not applied yet).
-	pellets: { count: number, spread: number, full: number, none: number }?,
+	-- hitscan ray; full damage to `full` studs, none past `none` (src/server/Damage). With a `core`, a fixed pattern
+	-- (Rules/Firing.pellets): one pellet on the line, `core.count` on a ring `core.spread` degrees out, the rest on the
+	-- outer ring, each nudged by up to `jitter` of its ring's radius.
+	pellets: {
+		count: number,
+		spread: number,
+		full: number,
+		none: number,
+		core: { count: number, spread: number }?,
+		jitter: number?,
+	}?,
 	-- An exposed hammer (the "Hammer" part, src/client/GunFx): rests cocked, falls `cock` degrees forward on a shot;
 	-- the bolt going back pushes it down again, `push` giving how far cocked (0 fallen, 1 at rest, past 1 pushed on
 	-- further back than rest, as a hammer standing up behind the bolt) at evenly spaced shares of the stroke, so the
@@ -468,7 +477,11 @@ local Weapons: { [string]: Weapon } = {
 		-- a 12 gauge hull: a brass head on a paper tube, a dull clunk
 		casing = { pitch = 0.6, volume = 0.8, eq = { 3, 0, -8 } },
 		recoil = { scale = 1.6, build = 0.45, max = 2.8, cool = 1.8 },
-		pellets = { count = 9, spread = 3, full = 42, none = 140 }, -- 15 m / 50 m at 0.357 m per stud
+		-- a fixed pattern (user 2026-10-30: "more reliable ... 1 shot kill potential at 70-100 studs if shot perfectly"):
+		-- the centre pellet and the tight ring of 4 (0.45 deg: within 0.87 studs at 100 studs, inside the torso) all land
+		-- on a torso the crosshair is centred on out to 100 studs, 5 x 22 = 110, at full damage to 100 studs (36 m),
+		-- fading to none at 170 (61 m); the outer 4 at 3 deg fill the cone up close
+		pellets = { count = 9, spread = 3, core = { count = 4, spread = 0.45 }, jitter = 0.1, full = 100, none = 170 },
 		feed = { parts = { "Shell", "ShellHead" }, lift = 0.042, push = 0.211 },
 		eject = { "Shell", "ShellHead" },
 		-- the pump worked (tools/animation/pump.luau): the left hand rides it back and forward

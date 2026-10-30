@@ -70,7 +70,7 @@ return {
 		end
 		assert(Damage.helmetZone(10, nil) == "Helmet", "no number: never")
 	end,
-	["shotgun pellets: full to 15 m, fading to none at 50 m"] = function()
+	["shotgun pellets: full damage near, fading to none far"] = function()
 		local p = W.shotgun_m1897.pellets :: any
 		assert(Damage.falloff(0, p.full, p.none) == 1 and Damage.falloff(p.full, p.full, p.none) == 1)
 		local mid = Damage.falloff((p.full + p.none) / 2, p.full, p.none)

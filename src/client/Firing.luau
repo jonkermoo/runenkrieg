@@ -170,7 +170,7 @@ local function lines(name: string, direction: Vector3, seed: number): { Vector3 
 	end
 	local frame = CFrame.lookAt(Vector3.zero, direction)
 	local out = {}
-	for _, o in F.pellets(seed, p.count, p.spread) do
+	for _, o in F.pellets(seed, p) do
 		table.insert(out, (frame * CFrame.Angles(math.rad(o[2]), -math.rad(o[1]), 0)).LookVector)
 	end
 	return out

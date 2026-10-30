@@ -21,7 +21,8 @@ local Damage = {
 	Weapons = {
 		BoltRifle = { Head = 200, Torso = 70, Limb = 60, Helmet = 40 }, -- user: torso 70 (2 hits)
 		SemiRifle = { Head = 200, Torso = 55, Limb = 45, Helmet = 40 }, -- W2: so they don't outclass the bolt rifles
-		Shotgun = { Head = 30, Torso = 20, Limb = 12, Helmet = 10 },
+		-- the core's 5 pellets on a torso kill (user 2026-10-30: 4 torso + 1 limb too; 4 torso alone don't)
+		Shotgun = { Head = 30, Torso = 22, Limb = 12, Helmet = 10 },
 		-- the MG nest's M2 (Config/Artillery.Guns mg08 `mg`; the design: three body hits)
 		MachineGun = { Head = 100, Torso = 40, Limb = 30, Helmet = 30 },
 		-- the Engineer's team pistols (C96, Nagant, Webley; the design 2026-10-27: "usable, not a pea-shooter"): a bare

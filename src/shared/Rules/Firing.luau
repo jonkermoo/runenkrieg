@@ -348,10 +348,15 @@ function Firing.magazineAt(s: State, now: number): number
 	return s.magazine + Firing.loadedBy(s, now)
 end
 
--- A shotgun's pattern (user 2026-10-13): `count` pellet directions in a cone `spread` degrees wide (half angle),
--- spread evenly over its area, from `seed` (the same on the shooter's client, the server and everyone's effects).
+-- A shotgun's pattern (Config/Weapons `pellets`): `count` pellets in a cone `spread` degrees wide (half angle).
+-- With a `core` (user 2026-10-30: "more reliable", a one-shot kill at 70-100 studs shot perfectly), a fixed pattern:
+-- one pellet on the barrel's line, `core.count` on a tight ring `core.spread` degrees out, the rest on a ring at
+-- `spread`, between the inner ring's; the whole pattern turned by a random angle and each pellet nudged by up to
+-- `jitter` of its ring's radius, from `seed`. Without one, spread at random evenly over the cone's area. The same
+-- from the same seed on the shooter's client, the server and everyone's effects.
 -- Returns { yaw, pitch } offsets in degrees from the barrel's line (yaw + to the right, pitch + up).
-function Firing.pellets(seed: number, count: number, spread: number): { { number } }
+export type Pattern = { count: number, spread: number, core: { count: number, spread: number }?, jitter: number? }
+function Firing.pellets(seed: number, p: Pattern): { { number } }
 	local state = math.floor(seed) % 2147483647
 	if state <= 0 then
 		state += 2147483646
@@ -361,11 +366,27 @@ function Firing.pellets(seed: number, count: number, spread: number): { { number
 		return state / 2147483647
 	end
 	local out = {}
-	for _ = 1, count do
-		local r = spread * math.sqrt(rand())
-		local a = 2 * math.pi * rand()
-		table.insert(out, { r * math.cos(a), r * math.sin(a) })
+	local core = p.core
+	if not core then
+		for _ = 1, p.count do
+			local r = p.spread * math.sqrt(rand())
+			local a = 2 * math.pi * rand()
+			table.insert(out, { r * math.cos(a), r * math.sin(a) })
+		end
+		return out
 	end
+	local jitter = p.jitter or 0
+	local turn = 2 * math.pi * rand()
+	local function ring(n: number, radius: number, offset: number)
+		for i = 1, n do
+			local r = radius * (1 + jitter * (2 * rand() - 1))
+			local a = turn + (i - 1 + offset) * 2 * math.pi / n + jitter * (2 * rand() - 1)
+			table.insert(out, { r * math.cos(a), r * math.sin(a) })
+		end
+	end
+	table.insert(out, { 0, 0 })
+	ring(math.min(core.count, p.count - 1), core.spread, 0)
+	ring(p.count - 1 - math.min(core.count, p.count - 1), p.spread, 0.5)
 	return out
 end
 
