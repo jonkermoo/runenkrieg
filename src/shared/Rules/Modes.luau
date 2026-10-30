@@ -34,6 +34,12 @@ function Modes.keptTeams(cfg: any, key: unknown, dev: unknown): boolean
 	return dev == true or (d ~= nil and d.teams == true)
 end
 
+-- How many times over mode `key` pays battle points (Config/Modes `earn`; Config/Classes.Earn): 1 when it doesn't say.
+function Modes.earnBoost(cfg: any, key: unknown): number
+	local d = if type(key) == "string" then cfg.Defs[key] else nil
+	return if d and type(d.earn) == "number" then d.earn else 1
+end
+
 -- The zone match's end after `delta` more seconds: never before `now`.
 function Modes.extend(endsAt: number, delta: number, now: number): number
 	return math.max(endsAt + delta, now)

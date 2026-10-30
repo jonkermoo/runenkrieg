@@ -14,8 +14,10 @@ local Modes = {
 	Defs = {
 		-- the sandbox: spawn on Map 1 with nothing running
 		Admin = { name = "Admin server", map = "Map1", ready = true, openAdmin = true },
-		-- the zone-capture free-for-all on the playtest map (src/server/ZoneMatch)
-		FFA = { name = "FFA", map = "Playtest", ready = true, openAdmin = false },
+		-- the zone-capture free-for-all on the playtest map (src/server/ZoneMatch); `earn`: battle points (Config/Classes
+		-- .Earn) paid this many times over (user 2026-10-29: "boost battle point earnings in this game by a significant
+		-- amount")
+		FFA = { name = "FFA", map = "Playtest", ready = true, openAdmin = false, earn = 3 },
 		-- the finished game's frontline push on Map 1 (src/server/Frontline, Config/Frontline)
 		Normal = { name = "Normal", map = "Map1", ready = true, openAdmin = false, teams = true },
 	},

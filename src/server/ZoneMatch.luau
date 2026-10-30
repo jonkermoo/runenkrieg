@@ -42,51 +42,107 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
-local function piece(model: Model, name: string, size: Vector3, cf: CFrame, color: { number }, transparency: number)
+local function piece(model: Model, name: string, size: Vector3, color: { number }, transparency: number): Part
 	local p = Instance.new("Part")
 	p.Name = name
 	p.Anchored = true
 	p.CanCollide, p.CanQuery, p.CanTouch = false, false, false
 	p.CastShadow = false
-	p.Material = Enum.Material.SmoothPlastic
+	p.Material = Enum.Material.Neon
 	p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
 	p.Size = size
-	p.CFrame = cf
 	p.Color = rgb(color)
 	p.Transparency = transparency
 	p.Parent = model
+	return p
 end
 
--- the floating disc round (0, 0) and, for the live zone, the beam up from its middle
-local function marker(name: string, parent: Instance, withBeam: boolean, transparency: number): Model
+local function beam(name: string, parent: BasePart, a0: Attachment, a1: Attachment, layer: any)
+	local b = Instance.new("Beam")
+	b.Name = name
+	b.Attachment0, b.Attachment1 = a0, a1
+	b.Width0, b.Width1 = layer.width, layer.width
+	b.FaceCamera = true
+	b.LightEmission = MK.Beacon.lightEmission
+	b.LightInfluence = 0
+	b.Segments = 1
+	b.Color = ColorSequence.new(rgb(MK.Colors.Free))
+	b.Transparency = NumberSequence.new(layer.foot, layer.top)
+	b.Parent = parent
+end
+
+-- a zone's marker (Config/ZoneMatch.Marker): the ring's segments and the dashes inside it (laid out by moveTo) and,
+-- for the live zone, the beacon: a hidden anchor at the middle carrying the core and halo beams up and the light
+local function marker(name: string, parent: Instance, withBeacon: boolean, transparency: number): Model
 	local model = Instance.new("Model")
 	model.Name = name
-	local D, B, r = MK.Disc, MK.Beam, Cfg.Radius
-	-- (a cylinder's axis is its X: turned upright)
-	local up = CFrame.Angles(0, 0, math.pi / 2)
-	piece(model, "Disc", Vector3.new(D.thickness, 2 * r, 2 * r), up, MK.Colors.Free, transparency)
-	if withBeam then
-		local cf = CFrame.new(0, B.height / 2, 0) * up
-		piece(model, "Beam", Vector3.new(B.height, B.width, B.width), cf, MK.Colors.Free, B.transparency)
+	local R, D = MK.Ring, MK.Dashes
+	for _ = 1, R.segments do
+		piece(model, "Ring", Vector3.new(R.width, R.height, 1), MK.Colors.Free, math.max(R.transparency, transparency))
 	end
-	for _, p in model:GetChildren() do
-		(p :: Part).Shape = Enum.PartType.Cylinder
+	for _ = 1, D.count do
+		piece(model, "Dash", Vector3.new(D.width, D.height, 1), MK.Colors.Free, math.max(D.transparency, transparency))
 	end
-	model.WorldPivot = CFrame.new()
+	if withBeacon then
+		local B = MK.Beacon
+		local anchor = piece(model, "Beacon", Vector3.one, MK.Colors.Free, 1)
+		local foot, top = Instance.new("Attachment"), Instance.new("Attachment")
+		foot.Name, top.Name = "Foot", "Top"
+		top.Position = Vector3.new(0, B.height, 0)
+		foot.Parent, top.Parent = anchor, anchor
+		beam("Halo", anchor, foot, top, B.halo)
+		beam("Core", anchor, foot, top, B.core)
+		local light = Instance.new("PointLight")
+		light.Range = MK.Light.range
+		light.Brightness = MK.Light.brightness
+		light.Shadows = false
+		light.Color = rgb(MK.Colors.Free)
+		light.Parent = anchor
+	end
 	model.Parent = parent
 	return model
 end
 
--- moves a marker onto spot `i`: floating over the highest ground under its disc
+-- a point `r` out from (x, z) at angle `a`, just over the ground there
+local function onGround(x: number, z: number, r: number, a: number, lift: number): Vector3
+	local px, pz = x + r * math.cos(a), z + r * math.sin(a)
+	return Vector3.new(px, ground(px, pz) + lift, pz)
+end
+
+-- lays a ring of `parts` round (x, z) at radius `r`: each piece from one point on the ground to the next (`fill` of
+-- its share of the round; a whole ring overlaps a touch so the corners close)
+local function lay(parts: { BasePart }, x: number, z: number, r: number, lift: number, fill: number)
+	local n = #parts
+	for k, p in parts do
+		local a0 = (k - 1) / n * 2 * math.pi
+		local a1 = a0 + fill / n * 2 * math.pi
+		local p0, p1 = onGround(x, z, r, a0, lift), onGround(x, z, r, a1, lift)
+		local length = (p1 - p0).Magnitude + if fill >= 1 then p.Size.X / 2 else 0
+		p.Size = Vector3.new(p.Size.X, p.Size.Y, length)
+		p.CFrame = CFrame.lookAt((p0 + p1) / 2, p1)
+	end
+end
+
+-- moves a marker onto spot `i`: its rings laid over the ground, the beacon at the middle; its pivot the middle's ground
 local function moveTo(model: Model, i: number)
 	local x, z = spots[i][1], spots[i][2]
-	local D, r = MK.Disc, Cfg.Radius
-	local y = ground(x, z)
-	for k = 1, D.samples do
-		local a = k / D.samples * 2 * math.pi
-		y = math.max(y, ground(x + r * math.cos(a), z + r * math.sin(a)))
+	local R, D = MK.Ring, MK.Dashes
+	local ring, dashes = {}, {}
+	for _, p in model:GetChildren() do
+		if p.Name == "Ring" then
+			table.insert(ring, p :: BasePart)
+		elseif p.Name == "Dash" then
+			table.insert(dashes, p :: BasePart)
+		end
 	end
-	model:PivotTo(CFrame.new(x, y + D.lift, z))
+	lay(ring, x, z, Cfg.Radius, R.lift, 1)
+	lay(dashes, x, z, Cfg.Radius - D.inset, R.lift, D.fill)
+	local y = ground(x, z)
+	local anchor = model:FindFirstChild("Beacon") :: BasePart?
+	if anchor then
+		anchor.CFrame = CFrame.new(x, y + MK.Beacon.base, z)
+	end
+	model.WorldPivot = CFrame.new(x, y, z)
 end
 
 local function alive(player: Player): (BasePart?, Humanoid?)
@@ -101,6 +157,8 @@ end
 
 local zone: Model
 local nextZone: Model
+local LD = Cfg.Leader
+local leader: number? = nil
 local spot: number = 1
 -- this live spot's seconds held alone per player (UserId), and who has captured it
 local held: { [number]: number } = {}
@@ -147,6 +205,44 @@ local function spawnAt(player: Player)
 	end)
 end
 
+-- the leader's glow on their living character (none while nobody leads, or they're dead)
+local glowing: Highlight? = nil
+local function glow()
+	local p = if leader then Players:GetPlayerByUserId(leader) else nil
+	local model = if p and alive(p) then p.Character else nil
+	if glowing and glowing.Parent == model then
+		return
+	end
+	if glowing then
+		glowing:Destroy()
+		glowing = nil
+	end
+	if model then
+		local h = Instance.new("Highlight")
+		h.Name = LD.name
+		h.FillColor, h.FillTransparency = rgb(LD.fill), LD.fillTransparency
+		h.OutlineColor, h.OutlineTransparency = rgb(LD.outline), LD.outlineTransparency
+		h.DepthMode = (Enum.HighlightDepthMode :: any)[LD.depthMode]
+		h.Parent = model
+		glowing = h
+	end
+end
+
+local function scores(): { [number]: number }
+	local t = {}
+	for _, p in Players:GetPlayers() do
+		t[p.UserId] = (p:GetAttribute(Cfg.ScoreAttribute) :: number?) or 0
+	end
+	return t
+end
+
+-- the point leader now (Rules/ZoneMatch.leader), on the marker and glowing
+local function lead()
+	leader = Rules.leader(scores(), leader)
+	zone:SetAttribute(Cfg.LeaderAttribute, leader)
+	glow()
+end
+
 local function join(player: Player)
 	player:SetAttribute(Cfg.ScoreAttribute, 0)
 	local function spawned(character: Model)
@@ -178,6 +274,8 @@ local function run()
 		for _, p in Players:GetPlayers() do
 			p:SetAttribute(Cfg.ScoreAttribute, 0)
 		end
+		leader = nil
+		lead()
 		for _, fn in matchWatchers do
 			task.spawn(fn)
 		end
@@ -244,18 +342,15 @@ local function run()
 					end
 				end
 			end
+			lead()
 		end
-		-- the results
-		local scores = {}
-		for _, p in Players:GetPlayers() do
-			scores[p.UserId] = (p:GetAttribute(Cfg.ScoreAttribute) :: number?) or 0
-		end
-		local ranking = Rules.ranking(scores)
+		-- the results: the leader at the end wins (user 2026-10-29)
+		lead()
 		zone:SetAttribute("Phase", "Results")
 		zone:SetAttribute("State", "Free")
 		zone:SetAttribute("Holder", nil)
 		zone:SetAttribute("NextSpot", nil)
-		zone:SetAttribute("Winner", ranking[1])
+		zone:SetAttribute("Winner", leader)
 		zone:SetAttribute("EndsAt", workspace:GetServerTimeNow() + Cfg.ResultsSeconds)
 		task.wait(Cfg.ResultsSeconds)
 		for _, p in Players:GetPlayers() do
@@ -303,6 +398,8 @@ function ZoneMatch.stop()
 		c:Disconnect()
 	end
 	table.clear(conns)
+	leader = nil
+	glow()
 	zone:Destroy()
 	nextZone:Destroy()
 	workspace:SetAttribute(Cfg.FreeForAllAttribute, nil)
@@ -350,6 +447,7 @@ end
 function ZoneMatch.addScore(player: Player, amount: number)
 	if playing() then
 		player:SetAttribute(Cfg.ScoreAttribute, ((player:GetAttribute(Cfg.ScoreAttribute) :: number?) or 0) + amount)
+		lead()
 	end
 end
 

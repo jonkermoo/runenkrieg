@@ -45,4 +45,9 @@ return {
 		assert(R.keptTeams(Cfg, "Admin", true) and R.keptTeams(Cfg, "FFA", true), "the test switch")
 		assert(not R.keptTeams(Cfg, nil, nil) and not R.keptTeams(Cfg, "Nope", "yes"))
 	end,
+	["FFA pays battle points several times over (user 2026-10-29), the other modes once"] = function()
+		assert(R.earnBoost(Cfg, "FFA") > 1)
+		assert(R.earnBoost(Cfg, "Admin") == 1 and R.earnBoost(Cfg, "Normal") == 1)
+		assert(R.earnBoost(Cfg, nil) == 1 and R.earnBoost(Cfg, "Nope") == 1)
+	end,
 }
