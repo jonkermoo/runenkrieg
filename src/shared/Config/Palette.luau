@@ -480,6 +480,7 @@ local Palette = {
 		-- frost blue, brass gold, rose crimson) by the "Kit"
 		Grimoire = {
 			ink = { 21, 18, 15 },
+			inkDim = { 85, 88, 79 }, -- small words on paper
 			paper = { 230, 220, 193 },
 			blue = { 44, 62, 90 },
 			pencil = { 184, 50, 42 },

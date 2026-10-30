@@ -10,7 +10,7 @@
 --   to send once, /c to change channel, /w name and /r to whisper, /mute and /unmute (here only), /help.
 -- - Server lines go to Roblox's general channel, Team to the team's (src/server/Chat), whispers to a channel the server
 --   opens for the two, Global to the server (filtered for broadcast, sent to every server).
--- Hidden while the title screen or loadout menu is up (src/client/Menus).
+-- Hidden while the title screen is up (src/client/Menus); shown over the loadout menu (its kit cards leave the left free).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -460,7 +460,7 @@ function Chat.start()
 	end)
 
 	-- each frame: hidden under the menus; in use or quiet; the lines fading by age
-	local menus = { "TitleScreen", "LoadoutMenu" }
+	local menus = { "TitleScreen" } -- (the kit-card loadout leaves the left side free: chat while respawning)
 	RunService.RenderStepped:Connect(function()
 		local h = gui.AbsoluteSize.Y
 		if h > 0 then

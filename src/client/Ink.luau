@@ -9,7 +9,7 @@
 --   Ink.rune(parent, name, x, y, w, h, thick, colour, transparency?): a rune in the box at x, y (w x h pixels)
 --   Ink.inscription(box, names, colour, transparency): runes in a row, right-aligned, as tall as the box
 --   Ink.trench(box, ink, line): a trench line as the trench maps drew it, square bays and traverses, across the box
---   Ink.slab(parent) -> ImageLabel: the torn ink plate, filling its parent
+--   Ink.slab(parent, tint?) -> ImageLabel: the torn ink plate, filling its parent (tinted: the white plate in that colour)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -141,12 +141,13 @@ function Ink.trench(box: GuiObject, ink: Color3, line: Color3)
 	end)
 end
 
-function Ink.slab(parent: Instance): ImageLabel
+function Ink.slab(parent: Instance, tint: Color3?): ImageLabel
 	local s = SketchCfg.Slab
 	local img = Instance.new("ImageLabel")
 	img.Name = "Slab"
 	img.BackgroundTransparency = 1
-	img.Image = `rbxassetid://{s.image}`
+	img.Image = `rbxassetid://{if tint then s.white else s.image}`
+	img.ImageColor3 = tint or Color3.new(1, 1, 1)
 	img.ScaleType = Enum.ScaleType.Slice
 	img.SliceCenter = Rect.new(s.slice[1], s.slice[2], s.slice[3], s.slice[4])
 	img.Size = UDim2.fromScale(1, 1)

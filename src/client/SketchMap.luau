@@ -11,15 +11,20 @@
 -- The live state is Territory Push's (Workspace.<Config/Frontline FolderName>: per sector Owner, Control, West, East;
 -- the folder's West / East = the two teams' kits). Without it (another mode, or none) the map shows the ground and the
 -- points only.
---   SketchMap.new(box, mapKey?) -> { frame, front(): string?, destroy() }: fills `box` (keep its aspect: size / the
---   image's); front() names the sector the front is in (nil without a match)
+--   SketchMap.new(box, mapKey?, opts?) -> { frame, front(): string?, destroy() }: fills `box` (keep its aspect: size /
+--   the image's); front() names the sector the front is in (nil without a match); opts.you: the local soldier as a red
+--   pencil arrow pointing where the camera looks (in play; never on the title screen); opts.deploy: a red pencil ring
+--   round the point the team of the kit given to deploy(kit) spawns at (Rules/Frontline.spawn; the loadout menu),
+--   named by deployName()
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.SketchMap) :: any
 local Palette = require(Shared.Config.Palette)
+local FrontRules = require(Shared.Rules.Frontline)
 local Ink = require(script.Parent.Ink)
 
 local SketchMap = {}
@@ -32,7 +37,7 @@ local FONT = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontW
 local RUNE_FOR = { "hagalaz", "sowilo", "tiwaz", "raidho", "othala", "algiz", "berkanan" } -- by sector order; HQs hagalaz
 local FOLDER = "Frontline" -- Config/Frontline.FolderName (Territory Push; read by name so main without it still runs)
 
-type Point = { id: string, name: string, x: number, z: number, hq: boolean }
+type Point = { id: string, name: string, x: number, z: number, hq: boolean, start: string }
 
 -- the map's sectors west to east and the borders between them (each a polyline of { x, z }, z from min to max),
 -- with the drawn area's edges as the first and last
@@ -40,10 +45,14 @@ local function layout(key: string, m: any): ({ Point }, { { { number } } })
 	local mapCfg = require(Shared.Config.Maps[key]) :: any
 	local points: { Point } = {}
 	for _, s in mapCfg.sectors do
-		table.insert(
-			points,
-			{ id = s.id, name = if s.isHQ then "HQ" else s.name, x = s.x, z = s.z, hq = s.isHQ == true }
-		)
+		table.insert(points, {
+			id = s.id,
+			name = if s.isHQ then "HQ" else s.name,
+			x = s.x,
+			z = s.z,
+			hq = s.isHQ == true,
+			start = s.startOwner,
+		})
 	end
 	local borders: { { { number } } } = { { { m.x[1], m.z[1] }, { m.x[1], m.z[2] } } }
 	for _, d in mapCfg.dividers or {} do
@@ -72,7 +81,7 @@ local function borderX(b: { { number } }, z: number): number
 	return b[#b][1]
 end
 
-function SketchMap.new(box: GuiObject, mapKey: string?)
+function SketchMap.new(box: GuiObject, mapKey: string?, opts: { you: boolean?, deploy: boolean? }?)
 	local key = mapKey or "Map1"
 	local m = Cfg.Maps[key]
 	local points, borders = layout(key, m)
@@ -245,6 +254,31 @@ function SketchMap.new(box: GuiObject, mapKey: string?)
 	area:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeLabels)
 	task.defer(placeLabels)
 
+	-- where you deploy: a red pencil ring
+	local ring: Frame? = nil
+	local deployKit: string? = nil
+	local deployName: string? = nil
+	if opts and opts.deploy then
+		local r = Instance.new("Frame")
+		r.Name = "Deploy"
+		r.BackgroundTransparency = 1
+		r.AnchorPoint = Vector2.new(0.5, 0.5)
+		r.Visible = false
+		local aspect = Instance.new("UIAspectRatioConstraint")
+		aspect.Parent = r
+		local round = Instance.new("UICorner")
+		round.CornerRadius = UDim.new(0.5, 0)
+		round.Parent = r
+		local line = Instance.new("UIStroke")
+		line.Color = rgb(C.pencil)
+		line.Parent = r
+		r.Parent = area
+		ring = r
+		area:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			line.Thickness = math.max(2, Cfg.Deploy.thick * area.AbsoluteSize.X)
+		end)
+	end
+
 	-- the live state
 	local frontName: string? = nil
 	local function update(now: number)
@@ -280,6 +314,30 @@ function SketchMap.new(box: GuiObject, mapKey: string?)
 				frontName = p.name
 			end
 		end
+		-- the deploy ring: the side of the kit given, its spawn point by the shared rule
+		if ring then
+			local side = if deployKit and deployKit == west
+				then "West"
+				elseif deployKit and deployKit == east then "East"
+				else nil
+			if live and side and folder then
+				local owners, captured = {}, false
+				for i, p in points do
+					local sector = folder:FindFirstChild(p.id)
+					owners[i] = sector and sector:GetAttribute("Owner") or p.start
+					captured = captured or owners[i] ~= p.start
+				end
+				local at = points[FrontRules.spawn({ owner = owners, control = {} }, side, captured)]
+				local r = (if at.hq then Cfg.Point.hqRadius else Cfg.Point.radius) * Cfg.Deploy.ring
+				ring.Position = UDim2.fromScale(u(at.x), v(at.z))
+				ring.Size = UDim2.fromScale(2 * r, 2 * r)
+				ring.Visible = true
+				deployName = at.name
+			else
+				ring.Visible = false
+				deployName = nil
+			end
+		end
 		frontAt = if live then math.round(total * 200) / 200 else nil -- (steps of 1/200: the front isn't redrawn every frame)
 		if not live then
 			frontName = nil
@@ -310,11 +368,62 @@ function SketchMap.new(box: GuiObject, mapKey: string?)
 		end
 		drawFront()
 	end
+	-- you: a red pencil arrow (a diamond and a stroke ahead of it), turned the way the camera looks
+	local you: Frame? = nil
+	if opts and opts.you then
+		local arrow = Instance.new("Frame")
+		arrow.Name = "You"
+		arrow.BackgroundTransparency = 1
+		arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+		arrow.Size = UDim2.fromScale(Cfg.You.size, Cfg.You.size)
+		arrow.ZIndex = 3
+		local aspect = Instance.new("UIAspectRatioConstraint")
+		aspect.Parent = arrow
+		local body = Instance.new("Frame")
+		body.BorderSizePixel = 0
+		body.BackgroundColor3 = rgb(C.pencil)
+		body.AnchorPoint = Vector2.new(0.5, 0.5)
+		body.Position = UDim2.fromScale(0.5, 0.62)
+		body.Size = UDim2.fromScale(0.5, 0.5)
+		body.Rotation = 45
+		body.Parent = arrow
+		local edge = Instance.new("UIStroke")
+		edge.Color = ink
+		edge.Parent = body
+		local tip = Instance.new("Frame")
+		tip.BorderSizePixel = 0
+		tip.BackgroundColor3 = rgb(C.pencil)
+		tip.AnchorPoint = Vector2.new(0.5, 1)
+		tip.Position = UDim2.fromScale(0.5, 0.5)
+		tip.Size = UDim2.fromScale(0.16, 0.5)
+		tip.Parent = arrow
+		arrow.Parent = area
+		you = arrow
+	end
+	local function placeYou()
+		local arrow = you
+		if not arrow then
+			return
+		end
+		local character = Players.LocalPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		arrow.Visible = root ~= nil
+		if not root then
+			return
+		end
+		local p = root.Position
+		arrow.Position = UDim2.fromScale(math.clamp(u(p.X), 0, 1), math.clamp(v(p.Z), 0, 1))
+		local look = workspace.CurrentCamera.CFrame.LookVector
+		-- the map's x is the world's X, its down the world's +Z: the arrow's up is the world's -Z
+		arrow.Rotation = math.deg(math.atan2(look.X, -look.Z))
+	end
+
 	local conn = RunService.Heartbeat:Connect(function()
 		if img.Parent and box.Visible and (box:FindFirstAncestorOfClass("ScreenGui") :: ScreenGui?) then
 			local gui = box:FindFirstAncestorOfClass("ScreenGui") :: ScreenGui
 			if gui.Enabled then
 				update(os.clock())
+				placeYou()
 			end
 		end
 	end)
@@ -324,6 +433,12 @@ function SketchMap.new(box: GuiObject, mapKey: string?)
 		frame = img,
 		front = function(): string?
 			return frontName
+		end,
+		deploy = function(kit: string?)
+			deployKit = kit
+		end,
+		deployName = function(): string?
+			return deployName
 		end,
 		destroy = function()
 			conn:Disconnect()

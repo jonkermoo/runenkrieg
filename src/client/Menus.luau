@@ -31,6 +31,7 @@ local MovementSet = require(Shared.Rules.MovementSet)
 local Net = require(Shared.Net)
 local TitleSpec = require(Shared.ui.TitleScreen) :: any
 local LoadoutSpec = require(Shared.ui.LoadoutMenu) :: any
+local SketchCfg = require(Shared.Config.SketchMap) :: any
 local Ink = require(script.Parent.Ink)
 local MatchCam = require(script.Parent.MatchCam)
 local SettingsMenu = require(script.Parent.SettingsMenu)
@@ -40,6 +41,10 @@ local Menus = {}
 
 local C = Palette.UI.Settings :: any
 local GR = (Palette.UI :: any).Grimoire
+local function gcol(name: string): Color3
+	local c = GR[name]
+	return Color3.fromRGB(c[1], c[2], c[3])
+end
 local Anims = MovementSet.animations(Locomotion) :: any
 local DISPLAY_ORDER = 5 -- under the settings menu (Config/Settings.Menu.DisplayOrder)
 
@@ -146,9 +151,13 @@ local function build(spec: any, name: string, parent: Instance): Screen
 				local pad = Instance.new("UIPadding")
 				pad.Parent = obj
 			end
+			if n.wrap then
+				obj.TextWrapped = true
+				obj.TextTruncate = Enum.TextTruncate.None
+			end
 			if n.slab then
 				-- the ink plate under the words: the words move to a label over it (a child draws over its parent)
-				Ink.slab(obj)
+				Ink.slab(obj, if n.tint then col(n.tint) else nil)
 				local words = Instance.new("TextLabel")
 				words.Name = "Words"
 				words.BackgroundTransparency = 1
@@ -174,16 +183,37 @@ local function build(spec: any, name: string, parent: Instance): Screen
 				paintRunes(r, col("text"))
 			end
 		end
+		if n.card then
+			-- a paper card (Config/SketchMap.Paper) with a red pencil edge kept for when it's picked
+			obj.BackgroundTransparency = 1
+			local p = SketchCfg.Paper
+			local sheet = Instance.new("ImageLabel")
+			sheet.Name = "Paper"
+			sheet.BackgroundTransparency = 1
+			sheet.Image = `rbxassetid://{p.image}`
+			sheet.ScaleType = Enum.ScaleType.Slice
+			sheet.SliceCenter = Rect.new(p.slice[1], p.slice[2], p.slice[3], p.slice[4])
+			sheet.SliceScale = 0.5
+			sheet.Size = UDim2.fromScale(1, 1)
+			sheet.Parent = obj
+			local edge = Instance.new("UIStroke")
+			edge.Name = "Pick"
+			edge.Color = col("pencil")
+			edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			edge.Enabled = false
+			edge.Parent = obj
+		end
 		if n.kind == "overlay" then
 			obj.BackgroundTransparency = 0
 			obj.BackgroundColor3 = col("overlay")
 			local g = Instance.new("UIGradient")
 			g.Transparency = NumberSequence.new(n.from or 0.5, n.to or n.from or 0.5)
+			g.Rotation = if n.vertical then 90 else 0
 			g.Parent = obj
 		elseif n.kind == "trench" then
 			Ink.trench(obj, col("ink"), col("text"))
 		elseif n.kind == "sketchmap" then
-			screen.maps[n.id] = SketchMap.new(obj)
+			screen.maps[n.id] = SketchMap.new(obj, nil, { deploy = n.deploy })
 		end
 		if n.rotation then
 			obj.Rotation = n.rotation
@@ -248,18 +278,6 @@ local function build(spec: any, name: string, parent: Instance): Screen
 	return screen
 end
 
--- a box's look: fill, line and text colours
-local function paint(obj: GuiObject, fill: string, line: string, textColor: string)
-	obj.BackgroundColor3 = rgb(fill)
-	local stroke = obj:FindFirstChildOfClass("UIStroke")
-	if stroke then
-		stroke.Color = rgb(line)
-	end
-	if obj:IsA("TextButton") or obj:IsA("TextLabel") then
-		obj.TextColor3 = rgb(textColor)
-	end
-end
-
 function Menus.start()
 	local player = Players.LocalPlayer
 	local playerGui = player:WaitForChild("PlayerGui")
@@ -270,14 +288,17 @@ function Menus.start()
 	-- the class rows: the spec's first row is the template, one copy per class (the samples go)
 	local list = L.List
 	local template = L.RowRifleman
-	local rowStep = (loadout.spec.RowGrenadier.pos[4] - loadout.spec.RowRifleman.pos[4]) :: number
+	local across = loadout.spec.List.axis == "x" -- kit cards side by side (else rows down)
+	local axis = if across then 2 else 4
+	local rowStep = (loadout.spec.RowGrenadier.pos[axis] - loadout.spec.RowRifleman.pos[axis]) :: number
+	local Cards = Classes.Cards
 	for _, c in list:GetChildren() do
 		if c ~= template then
 			c:Destroy()
 		end
 	end
 	template.Parent = nil
-	type Row = { button: TextButton, name: TextLabel, blurb: TextLabel, cost: TextLabel }
+	type Row = { button: TextButton, name: TextLabel, blurb: TextLabel, cost: TextLabel, rune: Ink.Canvas? }
 	local rows: { [string]: Row } = {}
 	local order: { string } = {}
 	for i, key in Classes.List do
@@ -290,20 +311,34 @@ function Menus.start()
 		name.Text = Classes.Defs[key].name
 		blurb.Text = Classes.Defs[key].blurb
 		b.Parent = list
-		rows[key] = { button = b, name = name, blurb = blurb, cost = cost }
+		local glyph = b:FindFirstChild("RiflemanRune") :: Frame?
+		rows[key] = { button = b, name = name, blurb = blurb, cost = cost, rune = glyph and Ink.canvas(glyph) }
 		table.insert(order, key)
 	end
 	-- the copies follow the template's place, one step apart (scaled with the rest)
 	local baseRelayout = loadout.relayout
+	local raised: string? = nil -- the picked kit card, raised
 	function loadout.relayout()
 		baseRelayout()
 		local base = template.Position
 		for i, key in order do
 			local b = rows[key].button
 			local s = template.Size
+			local k = s.Y.Offset / loadout.spec.RowRifleman.size[4]
 			b.Size = s
+			local step = (i - 1) * rowStep * k
+			local lift = if key == raised then -Cards.raise * k else 0
 			b.Position = UDim2.new(base.X.Scale, base.X.Offset, base.Y.Scale, base.Y.Offset)
-				+ UDim2.fromOffset(0, (i - 1) * rowStep * (s.Y.Offset / loadout.spec.RowRifleman.size[4]))
+				+ (if across then UDim2.fromOffset(step, lift) else UDim2.fromOffset(0, step))
+			local edge = b:FindFirstChild("Pick") :: UIStroke?
+			if edge then
+				edge.Thickness = Cards.edge * k
+			end
+			local glyph, tg =
+				b:FindFirstChild("RiflemanRune") :: Frame?, template:FindFirstChild("RiflemanRune") :: Frame?
+			if glyph and tg then
+				glyph.Position, glyph.Size = tg.Position, tg.Size
+			end
 			for _, part in { "name", "blurb", "cost" } do
 				local cell = (rows[key] :: any)[part] :: TextLabel
 				local t = template:FindFirstChild("Rifleman" .. part:sub(1, 1):upper() .. part:sub(2)) :: TextLabel
@@ -382,20 +417,39 @@ function Menus.start()
 			if r then
 				local can = not card.locked and card.affordable
 				local on = card.key == picked
-				local fill, line, main, sub = "field", "line", "text", "textDim"
-				if on then
-					fill, line, main, sub = "selFill", "selLine", "selText", "text"
-				elseif not can then
-					main = "textDim"
+				-- a paper card: picked, raised with a red pencil edge; one you can't take, faded
+				local fade = if can or on then 0 else Cards.faded
+				local paper = r.button:FindFirstChild("Paper") :: ImageLabel?
+				if paper then
+					paper.ImageTransparency = fade
 				end
-				paint(r.button, fill, line, main)
-				r.name.TextColor3, r.cost.TextColor3, r.blurb.TextColor3 = rgb(main), rgb(main), rgb(sub)
+				local edge = r.button:FindFirstChild("Pick") :: UIStroke?
+				if edge then
+					edge.Enabled = on
+				end
+				r.name.TextColor3, r.blurb.TextColor3 = gcol("ink"), gcol("inkDim")
+				r.cost.TextColor3 = gcol(if card.cost == 0 and not card.locked then "blue" else "pencil")
+				for _, l in { r.name, r.blurb, r.cost } do
+					l.TextTransparency = fade
+				end
 				r.cost.Text = if card.locked then "Soon" elseif card.cost == 0 then "Free" else tostring(card.cost)
+				local runeName = Cards.runes[card.key]
+				local canvas = r.rune
+				if canvas and runeName then
+					local colour = gcol(if on then "blue" else "ink")
+					canvas.set(function(holder, w, h)
+						Ink.rune(holder, runeName, 0, 0, w, h, math.max(1.5, h * 0.09), colour, fade)
+					end)
+				end
+				if on then
+					raised = card.key
+				end
 			end
 		end
 		local def = Classes.Defs[picked]
 		local className = L.ClassName :: TextLabel
 		className.Text = if def then def.name else ""
+		loadout.relayout()
 	end
 
 	-- the title's team line, "For <team>" with the name in its colour (user 2026-10-30: no "Kingdom of"), and Play's
@@ -459,7 +513,7 @@ function Menus.start()
 		local t = state and state.teams
 		teamGroup.Visible = t ~= nil
 		cardsGroup.Visible = t ~= nil and cardsOpen
-		paint(changeTeam, if cardsOpen then "selFill" else "field", if cardsOpen then "selLine" else "line", "text")
+		changeTeam.TextTransparency = if cardsOpen then 0 else (loadout.spec.ChangeTeam.fade or 0)
 		if not t then
 			armed = nil
 			return
@@ -624,18 +678,36 @@ function Menus.start()
 		open(nil)
 	end)
 
+	-- Deploy on its ink plate, the plate red once you can go; where you'll deploy, under the loadout's map
+	local deployWords = deploy:FindFirstChild("Words") :: TextLabel?
+	local deploySlab = deploy:FindFirstChild("Slab") :: ImageLabel?
+	local function setDeploy(text: string, ready: boolean)
+		deploy.Text = text
+		if deployWords then
+			deployWords.Text = text
+			deployWords.TextTransparency = if ready then 0 else 0.35
+		end
+		if deploySlab then
+			deploySlab.ImageColor3 = gcol(if ready then "pencil" else "ink")
+		end
+	end
+	local loadoutMap = loadout.maps.Map
+	local loadoutCaption = L.Caption :: TextLabel
 	RunService.RenderStepped:Connect(function()
 		if title.gui.Enabled then
 			writeCaption()
 		end
+		if loadout.gui.Enabled and loadoutMap then
+			loadoutMap.deploy(state and state.kit)
+			local at = loadoutMap.deployName()
+			loadoutCaption.Text = if at then `You deploy at {at}` else ""
+		end
 		if loadout.gui.Enabled then
 			local left = deployAt - os.clock()
 			if left > 0 then
-				deploy.Text = `Deploy in {math.ceil(left)}`
-				paint(deploy, "field", "line", "textDim")
+				setDeploy(`Deploy in {math.ceil(left)}`, false)
 			else
-				deploy.Text = "Deploy"
-				paint(deploy, "selFill", "selLine", "selText")
+				setDeploy("Deploy", true)
 			end
 			-- the soldier turns slowly in its view
 			local t = os.clock() * P.Turn

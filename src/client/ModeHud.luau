@@ -16,6 +16,10 @@
 --     leader's glow is the server's (src/server/ZoneMatch, Config/ZoneMatch.Leader).
 -- Hidden when neither runs, and on the title screen ("dont show the status of the game until players are on or past
 -- the loadout screen"; src/client/Menus' TitleScreen and LoadoutMenu).
+-- UI overhaul (user 2026-10-30: "lets do the sketch map", "maps top left"): in Territory Push the sketch map
+-- (src/client/SketchMap, Config/SketchMap.Hud) stands top left in play, with the soldier as a red pencil arrow, in
+-- place of the front bar; the bar shows only for the result at the match's end. Holding V still shows the teammate
+-- dots and the open points' markers.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,6 +31,9 @@ local Cfg = require(Shared.Config.ModeHud)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local ModesCfg = require(Shared.Config.Modes)
 local Palette = require(Shared.Config.Palette)
+local SketchCfg = require(Shared.Config.SketchMap) :: any
+local FrontlineCfg = require(Shared.Config.Frontline)
+local SketchMap = require(script.Parent.SketchMap)
 local U = require(Shared.Config.Uniforms)
 local Map1 = require(Shared.Config.Maps.Map1)
 local Playtest = require(Shared.Config.Maps.Playtest)
@@ -503,8 +510,19 @@ function ModeHud.start()
 	binds.pin = nil
 	-- one UIScale per panel (a panel scales about its own anchor; on the full-screen Root it shrank everything toward
 	-- the top-left, pulling the bars off centre)
+	-- the sketch map, top left (its size in reference pixels; the image's aspect)
+	local H = SketchCfg.Hud
+	local mapBox = Instance.new("Frame")
+	mapBox.Name = "SketchMap"
+	mapBox.BackgroundTransparency = 1
+	mapBox.Position = UDim2.fromOffset(H.x, H.y)
+	mapBox.Size = UDim2.fromOffset(H.width, H.width * H.aspect)
+	mapBox.Visible = false
+	mapBox.Parent = gui
+	SketchMap.new(mapBox, FrontlineCfg.MapKey, { you = true })
+	nodes.SketchMap = mapBox
 	local scales = {}
-	for _, id in { "FrontBar", "ZoneBar" } do
+	for _, id in { "FrontBar", "ZoneBar", "SketchMap" } do
 		local scale = Instance.new("UIScale")
 		scale.Parent = nodes[id]
 		table.insert(scales, scale)
@@ -526,6 +544,7 @@ function ModeHud.start()
 	end
 
 	local front = false -- Territory Push is running
+	local results = false -- and showing its result
 	local myKit: string? = nil
 	local barShown, dotsShown = 0, 0
 	task.spawn(function()
@@ -537,6 +556,7 @@ function ModeHud.start()
 			local title = screenOn("TitleScreen")
 			local ffa = zone ~= nil and workspace:GetAttribute(ModesCfg.Attribute) == "FFA"
 			front = not ffa and folder ~= nil and folder:IsA("Folder")
+			results = front and (folder :: Instance):GetAttribute("Phase") == "Results"
 			nodes.ZoneBar.Visible = ffa and not title
 			gui.Enabled = (front or ffa) and not title
 			if front then
@@ -555,12 +575,13 @@ function ModeHud.start()
 			task.wait(Cfg.Refresh)
 		end
 	end)
-	-- the bar fades in on the loadout screen and while V is held in play; the dots only while V is held in play
+	-- the map up in play; the bar only for the result; the dots and markers while V is held in play
 	RunService.RenderStepped:Connect(function(dt)
 		local title, loadout = screenOn("TitleScreen"), screenOn("LoadoutMenu")
 		local held = UserInputService:IsKeyDown(Cfg.ShowKey) and UserInputService:GetFocusedTextBox() == nil
 		local inPlay = front and not title and not loadout
-		barShown = Rules.fade(barShown, if front and not title and (loadout or held) then 1 else 0, dt, Cfg.FadeSeconds)
+		barShown = Rules.fade(barShown, if results and not title then 1 else 0, dt, Cfg.FadeSeconds)
+		nodes.SketchMap.Visible = inPlay
 		dotsShown = Rules.fade(dotsShown, if inPlay and held then 1 else 0, dt, Cfg.FadeSeconds)
 		local bar = nodes.FrontBar :: CanvasGroup
 		bar.Visible = barShown > 0
