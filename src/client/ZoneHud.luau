@@ -11,12 +11,19 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.ZoneMatch)
+local BotsCfg = require(Shared.Config.Bots)
 local ModesCfg = require(Shared.Config.Modes)
 local Map = require(Shared.Config.Maps.Playtest)
 local Rules = require(Shared.Rules.ZoneMatch)
 local HudKit = require(script.Parent.HudKit)
 
 local ZoneHud = {}
+
+-- a bot's attribute on the bots' folder (src/server/Bots, src/server/ZoneMatch: its name and score)
+local function botAttribute(prefix: string, id: number): any
+	local f = workspace:FindFirstChild(BotsCfg.Folder)
+	return f and f:GetAttribute(prefix .. tostring(-id))
+end
 
 local function named(id: unknown, me: Player): string?
 	if type(id) ~= "number" then
@@ -25,11 +32,19 @@ local function named(id: unknown, me: Player): string?
 	if id == me.UserId then
 		return "You"
 	end
+	if id < 0 then
+		local name = botAttribute(BotsCfg.NameAttribute, id)
+		return if type(name) == "string" then name else nil
+	end
 	local p = Players:GetPlayerByUserId(id)
 	return if p then p.DisplayName else nil
 end
 
 local function score(id: number): number
+	if id < 0 then
+		local s = botAttribute(BotsCfg.ScoreAttribute, id)
+		return math.floor((if type(s) == "number" then s else 0) + 1e-6)
+	end
 	local p = Players:GetPlayerByUserId(id)
 	return math.floor(((p and p:GetAttribute(Cfg.ScoreAttribute) :: number?) or 0) + 1e-6)
 end

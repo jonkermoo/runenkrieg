@@ -189,6 +189,12 @@ function Firing.lines(name: string, direction: Vector3, seed: number): { Vector3
 	return out
 end
 
+-- `fn(shooter, origin, hit)` after every shot that went off (src/server/Bots: near misses)
+local shotWatchers: { (Model, Vector3, Vector3) -> () } = {}
+function Firing.onShot(fn: (Model, Vector3, Vector3) -> ())
+	table.insert(shotWatchers, fn)
+end
+
 -- A shot from `character`'s held weapon (a player's, from "Fire" below; an bot soldier's, src/server/Bots): the same
 -- checks and hits either way. True if it went off.
 local function shootAs(character: Model?, origin: any, direction: any, seed: any, player: Player?): boolean
@@ -292,6 +298,9 @@ local function shootAs(character: Model?, origin: any, direction: any, seed: any
 	end
 	Damage.shot(character, name, wounds)
 	local first = table.remove(hits, 1) :: any
+	for _, fn in shotWatchers do
+		task.spawn(fn, character, origin, first[1])
+	end
 	Net.event("Shot")
 		:FireAllClients(character, name, origin, first[1], first[2], first[3], if #hits > 0 then hits else nil)
 	return true

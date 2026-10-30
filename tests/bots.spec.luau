@@ -2,8 +2,7 @@
 local Cfg = require("../src/shared/Config/Bots")
 local R = require("../src/shared/Rules/Bots")
 
-local brainCfg = table.clone(Cfg.Brain) :: any
-brainCfg.CloseRange = Cfg.Move.CloseRange
+local brainCfg = Cfg.Brain :: any
 local D = Cfg.Difficulty.Medium
 
 local function senses(over: { [string]: any }?): R.Senses
@@ -54,7 +53,7 @@ return {
 	["engage: aims at once, fires only after the reaction time"] = function()
 		local b = R.new()
 		local i = R.step(b, senses({ now = 10, target = enemy() }), brainCfg, D, 0.5)
-		assert(b.state == "Engage" and i.aim and i.move == "Hold" and not i.fire, "no shot before reacting")
+		assert(b.state == "Engage" and i.aim and i.move == "Strafe" and not i.fire, "no shot before reacting")
 		i = R.step(b, senses({ now = 10 + D.reaction * 0.9, target = enemy() }), brainCfg, D, 0.5)
 		assert(not i.fire)
 		i = R.step(b, senses({ now = 10 + D.reaction + 1e-6, target = enemy() }), brainCfg, D, 0.5)
@@ -67,12 +66,110 @@ return {
 		local i = R.step(b, senses({ now = 5, target = other }), brainCfg, D, 0.5)
 		assert(not i.fire and b.targetId == "f")
 	end,
-	["close in it strafes; far it holds"] = function()
+	["in the open it never stands still; a short gun closes in"] = function()
 		local b = R.new()
-		local i = R.step(b, senses({ target = enemy(brainCfg.CloseRange - 1) }), brainCfg, D, 0.5)
+		local i = R.step(b, senses({ target = enemy(200) }), brainCfg, D, 0.5)
 		assert(i.move == "Strafe")
-		i = R.step(b, senses({ target = enemy(brainCfg.CloseRange + 1) }), brainCfg, D, 0.5)
-		assert(i.move == "Hold")
+		b = R.new()
+		i = R.step(b, senses({ target = enemy(40), push = 18 }), brainCfg, D, 0.5)
+		assert(i.move == "Push" and i.aim)
+		i = R.step(b, senses({ target = enemy(10), push = 18 }), brainCfg, D, 0.5)
+		assert(i.move == "Strafe", "close enough: fights where it is")
+	end,
+	["shot at with cover found: runs to cover, no shots on the way"] = function()
+		local b = R.new()
+		local i = R.step(b, senses({ now = 5, threatAt = 4.8, cover = "going", target = enemy() }), brainCfg, D, 0)
+		assert(b.state == "Cover" and i.move == "Cover" and not i.fire and not i.aim)
+	end,
+	["shot at with no cover: fights on in the open, moving"] = function()
+		local b = R.new()
+		local i = R.step(b, senses({ now = 5, threatAt = 4.8, cover = "none", target = enemy() }), brainCfg, D, 0)
+		assert(b.state == "Engage" and i.move == "Strafe")
+	end,
+	["spotted (an enemy looking at it) also sends it to cover"] = function()
+		local b = R.new()
+		R.step(b, senses({ now = 1, spotted = true, cover = "going", target = enemy() }), brainCfg, D, 0)
+		assert(b.state == "Cover")
+	end,
+	["in cover it waits, then peeks once quiet, and ducks back when hit"] = function()
+		local b = R.new()
+		local s = senses({ now = 0, threatAt = 0, cover = "going", target = enemy() })
+		R.step(b, s, brainCfg, D, 0)
+		assert(b.state == "Cover")
+		s.now, s.cover, s.target = brainCfg.CoverFor[1] * 0.5, "at", enemy(100, false)
+		R.step(b, s, brainCfg, D, 0)
+		assert(b.state == "Cover", "not before its time")
+		s.now = brainCfg.CoverFor[1] + 0.01
+		s.threatAt = s.now - brainCfg.PeekQuiet * 0.5
+		R.step(b, s, brainCfg, D, 0)
+		assert(b.state == "Cover", "not while shots still fly past")
+		s.threatAt = s.now - brainCfg.PeekQuiet - 0.01
+		local i = R.step(b, s, brainCfg, D, 0)
+		assert(b.state == "Peek" and i.move == "Peek" and i.aim)
+		s.now += 0.2
+		s.hurtAt = s.now
+		i = R.step(b, s, brainCfg, D, 0)
+		assert(b.state == "Cover" and i.move == "Cover", "hit on the peek")
+	end,
+	["a peek ends when its time is up"] = function()
+		local b = R.new()
+		b.state, b.peekFrom, b.peekUntil, b.targetId, b.lastSeen = "Peek", 0, 2, "e", 0
+		R.step(b, senses({ now = 1, cover = "at", target = enemy() }), brainCfg, D, 0)
+		assert(b.state == "Peek")
+		R.step(b, senses({ now = 2, cover = "at", target = enemy() }), brainCfg, D, 0)
+		assert(b.state == "Cover")
+	end,
+	["no new dash to cover before CoverEvery"] = function()
+		local b = R.new()
+		b.coverReady = 10
+		R.step(b, senses({ now = 5, threatAt = 5, cover = "going", target = enemy() }), brainCfg, D, 0)
+		assert(b.state == "Engage")
+	end,
+	["back in sight after a while: the reaction again"] = function()
+		local b = R.new()
+		R.step(b, senses({ now = 0, target = enemy() }), brainCfg, D, 0)
+		R.step(b, senses({ now = 0.5, target = enemy(100, false) }), brainCfg, D, 0)
+		local back = 0.5 + brainCfg.Reacquire + 0.1
+		local i = R.step(b, senses({ now = back, target = enemy() }), brainCfg, D, 0)
+		assert(not i.fire and b.seenAt == back)
+	end,
+	["class: the dearest it can pay for when buying, the default when broke"] = function()
+		local opts = { { key = "R", cost = 0 }, { key = "A", cost = 100 }, { key = "S", cost = 150 } }
+		local k, c = R.chooseClass(0, opts, 0.6, 0, 0)
+		assert(k == "R" and c == 0)
+		k, c = R.chooseClass(120, opts, 0.6, 0, 0)
+		assert(k == "A" and c == 100)
+		k = R.chooseClass(500, opts, 0.6, 0.1, 0)
+		assert(k == "S")
+		k = R.chooseClass(500, opts, 0.6, 0.9, 0)
+		assert(k == "R", "saving up: a random affordable one (here the first)")
+		k = R.chooseClass(500, opts, 0.6, 0.9, 0.99)
+		assert(k == "S")
+	end,
+	["cover: the nearest hidden point, not toward the threat, within reach"] = function()
+		local pts = {
+			{ distance = 3, hidden = false, threat = 50 },
+			{ distance = 8, hidden = true, threat = 40 },
+			{ distance = 6, hidden = true, threat = 20 },
+			{ distance = 30, hidden = true, threat = 60 },
+		}
+		assert(R.pickCover(pts, 30, 24) == 2)
+		assert(R.pickCover(pts, 10, 24) == 3)
+		assert(R.pickCover(pts, 70, 24) == nil)
+		assert(R.pickCover({}, 0, 24) == nil)
+	end,
+	["looking at: an enemy facing back at the bot, within the cone"] = function()
+		-- the enemy 10 studs ahead (+z), facing back (-z)
+		assert(R.lookingAt(0, 10, 0, -1, 15))
+		assert(not R.lookingAt(0, 10, 0, 1, 15), "facing away")
+		local a = math.rad(20)
+		assert(not R.lookingAt(0, 10, math.sin(a), -math.cos(a), 15), "looking past it")
+	end,
+	["near miss: within the radius of the line, ahead of the muzzle, not past the hit"] = function()
+		assert(R.nearMiss(0, 0, 0, 1, 0, 0, 100, 50, 3, 0, 5))
+		assert(not R.nearMiss(0, 0, 0, 1, 0, 0, 100, 50, 6, 0, 5), "too far off the line")
+		assert(not R.nearMiss(0, 0, 0, 1, 0, 0, 100, -3, 1, 0, 5), "behind the shooter")
+		assert(not R.nearMiss(0, 0, 0, 1, 0, 0, 20, 50, 1, 0, 5), "the shot stopped short of it")
 	end,
 	["out of sight it hunts the last place for Forget seconds, then advances"] = function()
 		local b = R.new()
@@ -112,10 +209,10 @@ return {
 		local b = R.new()
 		local s = senses({ now = 0, magazine = 0, chambered = false, spent = true, target = enemy() })
 		local i = R.step(b, s, brainCfg, D, 0.5)
-		assert(i.reload and b.state == "Reload" and not i.fire and i.move == "Hold")
+		assert(i.reload and not i.fire and i.move == "Strafe", "reloads on the move in the open")
 		s.now, s.busy = 0.5, true
 		i = R.step(b, s, brainCfg, D, 0.5)
-		assert(not i.reload and b.state == "Reload", "asked once")
+		assert(not i.reload and b.reloading, "asked once")
 		s.now, s.busy, s.magazine, s.chambered, s.spent = 3, false, 5, true, false
 		i = R.step(b, s, brainCfg, D, 0.5)
 		assert(b.state == "Engage" and not i.reload)
@@ -139,7 +236,7 @@ return {
 		local s = senses({ now = 5, health = brainCfg.RetreatBelow - 0.01, hurtAt = 4.9, target = enemy() })
 		local i = R.step(b, s, brainCfg, D, 0.5)
 		assert(b.state == "Retreat" and i.move == "Away" and i.aim)
-		s.now = 5 + brainCfg.RetreatFor * 0.5
+		s.now = 5 + D.reaction + 0.1 -- (seen all along: within Reacquire)
 		i = R.step(b, s, brainCfg, D, 0.5)
 		assert(b.state == "Retreat" and i.fire, "shoots back once reacted")
 		s.now = 5 + brainCfg.RetreatFor
@@ -204,6 +301,14 @@ return {
 		assert(R.stuck(0.5, 2, 1.5, 1.5))
 		assert(not R.stuck(0.5, 1, 1.5, 1.5), "window not up")
 		assert(not R.stuck(3, 2, 1.5, 1.5))
+	end,
+	["every class a bot plays is a real class, the first free"] = function()
+		local Classes = require("../src/shared/Config/Classes")
+		for _, c in Cfg.Classes do
+			assert(Classes.Defs[c.key], c.key)
+		end
+		assert(Classes.Defs[Cfg.Classes[1].key].cost == 0)
+		assert(#Cfg.Names >= Cfg.Max, "a name for every bot")
 	end,
 	["the admin panel's bot rows name real difficulties and counts within the budget"] = function()
 		local Dev = require("../src/shared/Config/DevTools")

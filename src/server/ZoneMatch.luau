@@ -6,8 +6,10 @@
 -- contesting it; timed matches with a results pause, then scores reset and everyone respawns; everyone an enemy
 -- (Workspace's FreeForAll attribute, Rules/Teams); each life spawned at the map's spawn point farthest from the
 -- others and clear of the zone, protected for a moment (src/server/Damage.protect). The marker models carry the state
--- as attributes; src/client/ZoneMarker colours them. bot soldiers (src/server/Bots) spawn the same way and hold and
--- contest the zone like anyone, but never score, lead or win (user 2026-10-30). The admin panel ends, restarts and lengthens a match, moves the
+-- as attributes; src/client/ZoneMarker colours them. Bot soldiers (src/server/Bots) play it as players (user
+-- 2026-10-30: "enemies are treated as players"): they spawn the same way, hold and contest the zone, score, capture
+-- (paid in match points), lead (glowing) and win; their scores sit on the bots' folder for the HUD (Config/Bots
+-- ScoreAttribute). The admin panel ends, restarts and lengthens a match, moves the
 -- zone on and hands out score (src/server/DevTools).
 
 local CollectionService = game:GetService("CollectionService")
@@ -167,6 +169,9 @@ local spot: number = 1
 local held: { [number]: number } = {}
 local captured: { [number]: boolean } = {}
 local captureWatchers: { (Player) -> () } = {}
+local botCaptureWatchers: { (number) -> () } = {}
+-- each bot's zone score this match, by its id
+local botScores: { [number]: number } = {}
 local matchWatchers: { () -> () } = {}
 -- while running: the match loop, the player hooks, when this match ends (server time)
 local thread: thread? = nil
@@ -176,6 +181,9 @@ local endsAt = 0
 -- `fn(player)` on each capture (Config/ZoneMatch.CaptureSeconds); `fn()` at each match's start
 function ZoneMatch.onCapture(fn: (Player) -> ())
 	table.insert(captureWatchers, fn)
+end
+function ZoneMatch.onBotCapture(fn: (number) -> ())
+	table.insert(botCaptureWatchers, fn)
 end
 function ZoneMatch.onMatchStart(fn: () -> ())
 	table.insert(matchWatchers, fn)
@@ -252,9 +260,27 @@ end
 
 -- the leader's glow on their living character (none while nobody leads, or they're dead)
 local glowing: Highlight? = nil
+local function botModel(id: number): Model?
+	for _, m in bots() do
+		if m:GetAttribute(BotsCfg.IdAttribute) == id and standing(m) then
+			return m
+		end
+	end
+	return nil
+end
+
+-- a bot's zone score, kept and shown on the bots' folder
+local function setBotScore(id: number, score: number?)
+	botScores[id] = score
+	local f = workspace:FindFirstChild(BotsCfg.Folder)
+	if f then
+		f:SetAttribute(BotsCfg.ScoreAttribute .. tostring(-id), score)
+	end
+end
+
 local function glow()
-	local p = if leader then Players:GetPlayerByUserId(leader) else nil
-	local model = if p and alive(p) then p.Character else nil
+	local p = if leader and leader > 0 then Players:GetPlayerByUserId(leader) else nil
+	local model = if p and alive(p) then p.Character elseif leader and leader < 0 then botModel(leader) else nil
 	if glowing and glowing.Parent == model then
 		return
 	end
@@ -277,6 +303,9 @@ local function scores(): { [number]: number }
 	local t = {}
 	for _, p in Players:GetPlayers() do
 		t[p.UserId] = (p:GetAttribute(Cfg.ScoreAttribute) :: number?) or 0
+	end
+	for id, score in botScores do
+		t[id] = score
 	end
 	return t
 end
@@ -318,6 +347,9 @@ local function run()
 		-- a match
 		for _, p in Players:GetPlayers() do
 			p:SetAttribute(Cfg.ScoreAttribute, 0)
+		end
+		for id in botScores do
+			setBotScore(id, nil)
 		end
 		leader = nil
 		lead()
@@ -406,6 +438,16 @@ local function run()
 							task.spawn(fn, p)
 						end
 					end
+				elseif holder < 0 then
+					-- a bot holds it: scores and captures as a player does
+					setBotScore(holder, (botScores[holder] or 0) + Cfg.PointsPerSecond * dt)
+					held[holder] = (held[holder] or 0) + dt
+					if Rules.captured(held[holder], Cfg.CaptureSeconds, captured[holder] == true) then
+						captured[holder] = true
+						for _, fn in botCaptureWatchers do
+							task.spawn(fn, holder)
+						end
+					end
 				end
 			end
 			lead()
@@ -472,6 +514,14 @@ function ZoneMatch.stop()
 	for _, p in Players:GetPlayers() do
 		p:SetAttribute(Cfg.ScoreAttribute, nil)
 	end
+	for id in botScores do
+		setBotScore(id, nil)
+	end
+end
+
+-- (a bot that leaves for good: its score goes)
+function ZoneMatch.forgetBot(id: number)
+	setBotScore(id, nil)
 end
 
 -- Admin: a fresh match now (scores reset, a new spot; nobody respawns).
