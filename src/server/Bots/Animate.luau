@@ -3,7 +3,7 @@
 -- so tracks played on its Animator here replicate to every client for free, with no per-client code (a player's
 -- src/client/Locomotion runs on their own client and leans on its input, camera and Backpack). The same cycles and
 -- holds as a player's: idle / walk / sprint by speed at the Config/Locomotion pace, and the weapon's hold over them
--- (ready, walk, carry while sprinting, aim; the equip once on spawning), Action priority. The hold goes on the "Hold"
+-- (ready, walk, carry while sprinting, aim; the equip once on spawning and on getting up), Action priority. The hold goes on the "Hold"
 -- attribute (src/client/GunFx picks the bolt's body animation by it) and the look pitch out to every client like a
 -- player's tilt (Net "LookPitch", src/client/LookTilt poses the torso, arms and gun).
 
@@ -23,6 +23,7 @@ local Animate = {}
 
 export type Handle = {
 	update: (speed: number, hold: string, pitch: number) -> (),
+	equip: () -> (), -- the draw once over the hold (spawning, getting up from a knock)
 }
 
 local function load(animator: Animator, id: number, priority: Enum.AnimationPriority, looped: boolean): AnimationTrack
@@ -61,9 +62,12 @@ function Animate.attach(m: Model, weapon: string): Handle
 	local held: string? = nil
 	local sent = { pitch = math.huge, follow = math.huge, at = -math.huge }
 
-	if holds.equip then
-		holds.equip:Play(0.1)
+	local function equip()
+		if holds.equip then
+			holds.equip:Play(0.1)
+		end
 	end
+	equip()
 
 	local function update(speed: number, hold: string, pitch: number)
 		-- the ground cycle by speed, at its game pace
@@ -109,7 +113,7 @@ function Animate.attach(m: Model, weapon: string): Handle
 		end
 	end
 
-	return { update = update }
+	return { update = update, equip = equip }
 end
 
 return Animate

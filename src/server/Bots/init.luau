@@ -316,6 +316,16 @@ spawnBody = function(b: Bot)
 	m:GetAttributeChangedSignal("Ragdolled"):Connect(function()
 		if m:GetAttribute("Ragdolled") ~= true and humanoid.Health > 0 then
 			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			-- a knock puts the weapon away (src/server/Ragdoll: UnequipTools); a player draws it again, so the bot does too
+			-- (user 2026-10-30: "bots also dont stand up with their weapon when ragdolled")
+			if tool.Parent ~= m and pcall(function()
+				tool.Parent = m
+			end) then
+				hold.Part0 = torso
+				if b.anim then
+					(b.anim :: Animate.Handle).equip()
+				end
+			end
 		end
 	end)
 	humanoid.Died:Connect(function()
