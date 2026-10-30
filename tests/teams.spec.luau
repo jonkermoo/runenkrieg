@@ -79,6 +79,11 @@ return {
 		assert(T.blocked({ uniform1 = 3, uniform2 = 0, uniform3 = 0 }, "uniform1", "uniform2", 1, 0) == "Full")
 		assert(T.blocked({ uniform1 = 0, uniform2 = 1, uniform3 = 0 }, nil, "uniform2", 1, 34) == nil, "no team yet")
 	end,
+	["Normal mode: only the match's two teams are in play"] = function()
+		assert(table.concat(T.playing(U.Teams, "uniform3,uniform1"), ",") == "uniform3,uniform1")
+		assert(#T.playing(U.Teams, nil) == #U.Teams, "no match: all of them")
+		assert(#T.playing(U.Teams, "uniform1,uniform1") == #U.Teams and #T.playing(U.Teams, "uniform1,x") == #U.Teams)
+	end,
 	["a newcomer joins the smallest team, a tie broken at random"] = function()
 		assert(T.smallest({ uniform1 = 2, uniform2 = 1, uniform3 = 2 }, U.Teams, 0.99) == "uniform2")
 		local tie = { uniform1 = 1, uniform2 = 0, uniform3 = 0 }

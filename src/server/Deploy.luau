@@ -10,13 +10,16 @@
 -- joins the smallest team and keeps it every life (elsewhere the kit is rolled again on each death), and the state
 -- carries `teams` for the menu's team cards: every team's count and room, the player's own, and why each is closed. A
 -- team change ("Team", kit) is checked here again: in the menu only (not alive) and only if it keeps the teams even.
--- Every head count change (a join, a leave, a change) sends the new counts to everyone in the menus.
+-- Every head count change (a join, a leave, a change) sends the new counts to everyone in the menus. In Normal mode
+-- only the match's two teams are in play (src/server/Kits.playing): the cards show those, and each new pair (a new
+-- match, Workspace's MatchTeams) splits everyone evenly over them again.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Classes)
+local Front = require(Shared.Config.Frontline)
 local Metrics = require(Shared.Config.Metrics)
 local ModeCfg = require(Shared.Config.Modes)
 local TeamCfg = require(Shared.Config.Teams)
@@ -58,10 +61,13 @@ local function counts(except: Player?): { [string]: number }
 			table.insert(of, Kits.next(p))
 		end
 	end
-	return Teams.counts(of, U.Teams)
+	return Teams.counts(of, Kits.playing())
 end
 
-local ROOM = Teams.room(TeamCfg.MaxPlayers, #U.Teams)
+-- how many each team in play has room for
+local function room(): number
+	return Teams.room(TeamCfg.MaxPlayers, #Kits.playing())
+end
 
 -- The menu's team cards for `player` (nil where teams aren't kept): each team's count, the room, their own team, and
 -- why each is closed to them ("" when open).
@@ -71,11 +77,12 @@ local function teamsOf(player: Player): { [string]: any }?
 	end
 	local c = counts()
 	local own = Kits.next(player)
+	local list, r = Kits.playing(), room()
 	local closed: { [string]: string } = {}
-	for _, t in U.Teams do
-		closed[t] = Teams.blocked(c, own, t, TeamCfg.Gap, ROOM) or ""
+	for _, t in list do
+		closed[t] = Teams.blocked(c, own, t, TeamCfg.Gap, r) or ""
 	end
-	return { list = U.Teams, counts = c, room = ROOM, own = own, closed = closed }
+	return { list = list, counts = c, room = r, own = own, closed = closed }
 end
 
 -- The new head counts to everyone in the menus.
@@ -174,7 +181,7 @@ function Deploy.start()
 			if not kept() or alive(player) then
 				return false
 			end
-			if Teams.blocked(counts(), Kits.next(player), kit, TeamCfg.Gap, ROOM) then
+			if Teams.blocked(counts(), Kits.next(player), kit, TeamCfg.Gap, room()) then
 				return false
 			end
 			Kits.place(player, kit)
@@ -195,7 +202,7 @@ function Deploy.start()
 	})
 	local function hook(player: Player)
 		if kept() then
-			Kits.place(player, Teams.smallest(counts(player), U.Teams, math.random()))
+			Kits.place(player, Teams.smallest(counts(player), Kits.playing(), math.random()))
 			recount()
 		end
 		player.CharacterAdded:Connect(function(character)
@@ -218,8 +225,28 @@ function Deploy.start()
 			end
 		end
 	end
+	-- a new pair of teams in play (Normal mode's next match, or switching into Normal): everyone split evenly over
+	-- them, in a random order
+	local function split()
+		if kept() and workspace:GetAttribute(Front.TeamsAttribute) ~= nil then
+			local list = Kits.playing()
+			local c = Teams.counts({}, list)
+			local order = Players:GetPlayers()
+			for i = #order, 2, -1 do
+				local j = math.random(i)
+				order[i], order[j] = order[j], order[i]
+			end
+			for _, p in order do
+				local t = Teams.smallest(c, list, math.random())
+				Kits.place(p, t)
+				c[t] += 1
+			end
+		end
+		resend()
+	end
 	workspace:GetAttributeChangedSignal(TeamCfg.DevAttribute):Connect(resend)
-	workspace:GetAttributeChangedSignal(ModeCfg.Attribute):Connect(resend)
+	workspace:GetAttributeChangedSignal(ModeCfg.Attribute):Connect(split)
+	workspace:GetAttributeChangedSignal(Front.TeamsAttribute):Connect(split)
 end
 
 return Deploy

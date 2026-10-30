@@ -58,6 +58,18 @@ function Teams.blocked(counts: { [string]: number }, own: unknown, target: unkno
 	return nil
 end
 
+-- The teams in play: the two named by Normal mode's MatchTeams text ("west,east", Config/Frontline) when both are
+-- among `all`, else all of them.
+function Teams.playing(all: { string }, matchTeams: unknown): { string }
+	if type(matchTeams) == "string" then
+		local a, b = string.match(matchTeams, "^([^,]+),([^,]+)$")
+		if a and b and a ~= b and table.find(all, a) and table.find(all, b) then
+			return { a :: string, b :: string }
+		end
+	end
+	return all
+end
+
 -- The team a newcomer joins: the one with the fewest soldiers, a tie broken by `r` in [0, 1).
 function Teams.smallest(counts: { [string]: number }, teams: { string }, r: number): string
 	local least = math.huge
