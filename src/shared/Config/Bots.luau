@@ -56,6 +56,9 @@ local Bots = {
 		{ key = "AutoRifler" },
 		{ key = "Shotgunner", push = 18 },
 	},
+	-- the share of the battle points (Config/Classes.Earn: the kill, headshot and assists) a bot's death pays its killer
+	-- (user 2026-10-30: "make the AIs count half the battle points when you kill them")
+	KillShare = 0.5,
 	-- the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves up)
 	Buy = 0.6,
 	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none

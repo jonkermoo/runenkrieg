@@ -310,6 +310,9 @@ return {
 		assert(Classes.Defs[Cfg.Classes[1].key].cost == 0)
 		assert(#Cfg.Names >= Cfg.Max, "a name for every bot")
 	end,
+	["killing a bot pays a share of the battle points, never more than a player's"] = function()
+		assert(Cfg.KillShare > 0 and Cfg.KillShare <= 1)
+	end,
 	["the admin panel's bot rows name real difficulties and counts within the budget"] = function()
 		local Dev = require("../src/shared/Config/DevTools")
 		for _, k in Dev.Admin.BotDifficulties do

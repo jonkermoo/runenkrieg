@@ -188,15 +188,15 @@ function Loadouts.onKill(fn: (Player, Model) -> ())
 	table.insert(killWatchers, fn)
 end
 
--- pays a player or a bot by id
-local function pay(id: number, reason: string)
+-- pays a player or a bot by id (`share` of the award: a bot's death pays Config/Bots.KillShare)
+local function pay(id: number, reason: string, share: number)
 	if id < 0 then
-		Loadouts.awardBot(id, reason)
+		Loadouts.awardBot(id, reason, share)
 		return
 	end
 	local p = Players:GetPlayerByUserId(id)
 	if p then
-		Loadouts.award(p, reason)
+		Loadouts.award(p, reason, share)
 	end
 end
 
@@ -204,13 +204,15 @@ end
 local function died(character: Model)
 	local victim = Players:GetPlayerFromCharacter(character)
 	local A = C.Assist
-	local killer, head, assists =
-		Rules.credit(hits[character] or {}, soldierId(character), os.clock(), A.window, A.least)
+	local victimId = soldierId(character)
+	local killer, head, assists = Rules.credit(hits[character] or {}, victimId, os.clock(), A.window, A.least)
 	hits[character] = nil
+	-- a bot is worth half (user 2026-10-30: "make the AIs count half the battle points when you kill them")
+	local share = if victimId and victimId < 0 then BotsCfg.KillShare else 1
 	if killer then
-		pay(killer, "Kill")
+		pay(killer, "Kill", share)
 		if head then
-			pay(killer, "Headshot")
+			pay(killer, "Headshot", share)
 		end
 		local k = if killer > 0 then Players:GetPlayerByUserId(killer) else nil
 		if k then
@@ -220,7 +222,7 @@ local function died(character: Model)
 		end
 	end
 	for _, id in assists do
-		pay(id, "Assist")
+		pay(id, "Assist", share)
 	end
 	if victim then
 		if deployer then
