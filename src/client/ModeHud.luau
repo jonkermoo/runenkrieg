@@ -17,9 +17,9 @@
 -- Hidden when neither runs, and on the title screen ("dont show the status of the game until players are on or past
 -- the loadout screen"; src/client/Menus' TitleScreen and LoadoutMenu).
 -- UI overhaul (user 2026-10-30: "lets do the sketch map", "maps top left"): in Territory Push the sketch map
--- (src/client/SketchMap, Config/SketchMap.Hud) stands top left in play, with the soldier as a red pencil arrow, in
--- place of the front bar; the bar shows only for the result at the match's end. Holding V still shows the teammate
--- dots and the open points' markers.
+-- (src/client/SketchMap, Config/SketchMap.Hud) stands top left in play while V is held (user 2026-10-30: "make the map
+-- appear with V too when in game"), with the soldier as a red pencil arrow and the teammate dots and the open points'
+-- markers, in place of the front bar; the bar shows only for the result at the match's end.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -575,13 +575,13 @@ function ModeHud.start()
 			task.wait(Cfg.Refresh)
 		end
 	end)
-	-- the map up in play; the bar only for the result; the dots and markers while V is held in play
+	-- the map, the dots and the markers while V is held in play; the bar only for the result
 	RunService.RenderStepped:Connect(function(dt)
 		local title, loadout = screenOn("TitleScreen"), screenOn("LoadoutMenu")
 		local held = UserInputService:IsKeyDown(Cfg.ShowKey) and UserInputService:GetFocusedTextBox() == nil
 		local inPlay = front and not title and not loadout
 		barShown = Rules.fade(barShown, if results and not title then 1 else 0, dt, Cfg.FadeSeconds)
-		nodes.SketchMap.Visible = inPlay
+		nodes.SketchMap.Visible = inPlay and held
 		dotsShown = Rules.fade(dotsShown, if inPlay and held then 1 else 0, dt, Cfg.FadeSeconds)
 		local bar = nodes.FrontBar :: CanvasGroup
 		bar.Visible = barShown > 0
