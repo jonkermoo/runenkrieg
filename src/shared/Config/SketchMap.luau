@@ -15,6 +15,15 @@ local SketchMap = {
 			x = { 70, 1740 },
 			z = { -400, 400 },
 		},
+		-- the zone-capture FFA map (tools/ui/sketchmap_playtest.py; user 2026-10-30: "make the hold v to show map appear
+		-- for FFA mode ... also the title mode too. just have your player and the moving point"): the same image shape
+		Playtest = {
+			image = 118349306770950,
+			size = { 1024, 516 },
+			pad = 24,
+			x = { -180, 180 },
+			z = { 2713.69, 2886.31 },
+		},
 	},
 	-- in play (src/client/ModeHud): top left, under the top bar, in reference pixels at an 800-pixel-tall screen (the
 	-- chat sits under it, Config/Chat.Panel.y); height = width x aspect (the image's)
@@ -25,7 +34,8 @@ local SketchMap = {
 	Border = { thick = 0.0016, dash = 0.012, gap = 0.009, transparency = 0.35 }, -- the sector borders (dashed blue)
 	Front = { thick = 0.0075 }, -- the front (ink)
 	You = { size = 0.05 }, -- the local soldier's arrow in play, across
-	Teammate = { size = 0.022, edge = 0.003 }, -- a teammate's dot, across (under a point's seal), and its ink edge
+	Teammate = { size = 0.022, edge = 0.003 },
+	Zone = { size = 0.05, flash = 0.4 }, -- the FFA zone's mark, across; a contested one flashes every `flash` seconds -- a teammate's dot, across (under a point's seal), and its ink edge
 	Deploy = { ring = 1.9, thick = 0.004 }, -- the loadout's ring round where you deploy: radii of its point, line
 	WashTransparency = 0.55, -- each side's land
 	WashBands = 32, -- the washes are this many strips, top to bottom (their steps hide under the front's ink)

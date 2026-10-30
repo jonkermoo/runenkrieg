@@ -43,7 +43,7 @@
 				"size": [0.47, 0, 0, 322],
 				"aspect": 1.9845,
 				"children": [
-					{ "id": "Map", "kind": "sketchmap", "rotation": 1.4, "size": [1, 0, 1, 0] },
+					{ "id": "Map", "kind": "sketchmap", "follow": true, "rotation": 1.4, "size": [1, 0, 1, 0] },
 					{ "id": "Caption", "kind": "label", "bind": "caption", "text": "", "textSize": 21, "textColor": "dim", "shade": 0.45, "align": "right", "anchor": [1, 0], "pos": [1, -8, 1, 16], "size": [1, 0, 0, 28] }
 				]
 			}

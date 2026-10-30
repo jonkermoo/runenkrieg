@@ -17,8 +17,10 @@
 --   round the point the team of the kit given to deploy(kit) spawns at (Rules/Frontline.spawn; the loadout menu),
 --   named by deployName(); opts.teammates: a dot per living teammate (Rules/Teams: the same "Kit" as your soldier, or
 --   in the loadout the kit you deploy in; never an enemy, nobody in a free-for-all) in the team's magic colour (in play
---   and the loadout; never on the title screen); teammate bots (tagged "Bot") too. The markers are layers in MARKERS:
---   later kinds go there.
+--   and the loadout; never on the title screen); teammate bots (tagged "Bot") too; opts.zone: the zone-capture match's
+--   zone where it stands now (the Playtest map's Config/ZoneMatch marker): plain while free, your team's magic colour
+--   while you hold it, red pencil while someone else does, flashing amber while contested. The markers are layers in
+--   MARKERS: later kinds go there.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -31,6 +33,7 @@ local Palette = require(Shared.Config.Palette)
 local FrontRules = require(Shared.Rules.Frontline)
 local TeamRules = require(Shared.Rules.Teams)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
+local Playtest = require(Shared.Config.Maps.Playtest)
 local Ink = require(script.Parent.Ink)
 
 local SketchMap = {}
@@ -114,6 +117,43 @@ local MARKERS: { Marker } = {
 	},
 }
 
+-- the zone-capture match's zone (FFA, the Playtest map): one ink-ringed disc in its state's colour
+table.insert(MARKERS, {
+	on = "zone",
+	list = function(seen)
+		local map = workspace:FindFirstChild(Playtest.name)
+		local zone = map and map:FindFirstChild(ZoneCfg.MarkerName)
+		if not zone or not zone:IsA("Model") then
+			return {}
+		end
+		local state = zone:GetAttribute("State")
+		local colour = rgb(C.paper)
+		if state == "Held" then
+			local mine = zone:GetAttribute("Holder") == seen.me.UserId
+			local magic = seen.kit and C.Magic[seen.kit]
+			colour = if mine then (if magic then rgb(magic) else rgb(C.blue)) else rgb(C.pencil)
+		elseif state == "Contested" and (os.clock() // Cfg.Zone.flash) % 2 == 0 then
+			colour = rgb(C.amber)
+		end
+		return { { at = zone:GetPivot().Position, colour = colour } }
+	end,
+	make = function(ink)
+		local disc = Instance.new("Frame")
+		disc.BorderSizePixel = 0
+		disc.Size = UDim2.fromScale(Cfg.Zone.size, Cfg.Zone.size)
+		local aspect = Instance.new("UIAspectRatioConstraint")
+		aspect.Parent = disc
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = disc
+		local edge = Instance.new("UIStroke")
+		edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		edge.Color = ink
+		edge.Parent = disc
+		return disc
+	end,
+})
+
 -- the map's sectors west to east and the borders between them (each a polyline of { x, z }, z from min to max),
 -- with the drawn area's edges as the first and last
 local function layout(key: string, m: any): ({ Point }, { { { number } } })
@@ -156,7 +196,11 @@ local function borderX(b: { { number } }, z: number): number
 	return b[#b][1]
 end
 
-function SketchMap.new(box: GuiObject, mapKey: string?, opts: { you: boolean?, deploy: boolean?, teammates: boolean? }?)
+function SketchMap.new(
+	box: GuiObject,
+	mapKey: string?,
+	opts: { you: boolean?, deploy: boolean?, teammates: boolean?, zone: boolean? }?
+)
 	local key = mapKey or "Map1"
 	local m = Cfg.Maps[key]
 	local points, borders = layout(key, m)

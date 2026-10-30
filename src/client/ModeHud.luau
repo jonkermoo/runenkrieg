@@ -17,7 +17,9 @@
 -- Hidden when neither runs, and on the title screen ("dont show the status of the game until players are on or past
 -- the loadout screen"; src/client/Menus' TitleScreen and LoadoutMenu).
 -- UI overhaul (user 2026-10-30: "lets do the sketch map", "maps top left"): in Territory Push the sketch map
--- (src/client/SketchMap, Config/SketchMap.Hud) stands top left in play while V is held (user 2026-10-30: "make the map
+-- (src/client/SketchMap, Config/SketchMap.Hud) stands top left in play while V is held (in Point Capture too: the
+-- Playtest map with only you and the zone, user 2026-10-30: "make the hold v to show map appear for FFA mode ... just
+-- have your player and the moving point") (user 2026-10-30: "make the map
 -- appear with V too when in game"), with the soldier as a red pencil arrow and the teammate dots and the open points'
 -- markers, in place of the front bar; the bar shows only for the result at the match's end.
 
@@ -521,8 +523,14 @@ function ModeHud.start()
 	mapBox.Parent = gui
 	SketchMap.new(mapBox, FrontlineCfg.MapKey, { you = true, teammates = true })
 	nodes.SketchMap = mapBox
+	local ffaBox = mapBox:Clone()
+	ffaBox.Name = "SketchMapFFA"
+	ffaBox:ClearAllChildren()
+	ffaBox.Parent = gui
+	SketchMap.new(ffaBox, Playtest.name, { you = true, zone = true })
+	nodes.SketchMapFFA = ffaBox
 	local scales = {}
-	for _, id in { "FrontBar", "ZoneBar", "SketchMap" } do
+	for _, id in { "FrontBar", "ZoneBar", "SketchMap", "SketchMapFFA" } do
 		local scale = Instance.new("UIScale")
 		scale.Parent = nodes[id]
 		table.insert(scales, scale)
@@ -545,6 +553,7 @@ function ModeHud.start()
 
 	local front = false -- Territory Push is running
 	local results = false -- and showing its result
+	local ffaOn = false -- Point Capture is running
 	local myKit: string? = nil
 	local barShown, dotsShown = 0, 0
 	task.spawn(function()
@@ -555,6 +564,7 @@ function ModeHud.start()
 			local zone = map and map:FindFirstChild(ZoneCfg.MarkerName)
 			local title = screenOn("TitleScreen")
 			local ffa = zone ~= nil and workspace:GetAttribute(ModesCfg.Attribute) == "FFA"
+			ffaOn = ffa
 			front = not ffa and folder ~= nil and folder:IsA("Folder")
 			results = front and (folder :: Instance):GetAttribute("Phase") == "Results"
 			nodes.ZoneBar.Visible = ffa and not title
@@ -582,6 +592,7 @@ function ModeHud.start()
 		local inPlay = front and not title and not loadout
 		barShown = Rules.fade(barShown, if results and not title then 1 else 0, dt, Cfg.FadeSeconds)
 		nodes.SketchMap.Visible = inPlay and held
+		nodes.SketchMapFFA.Visible = ffaOn and held and not title and not loadout
 		dotsShown = Rules.fade(dotsShown, if inPlay and held then 1 else 0, dt, Cfg.FadeSeconds)
 		local bar = nodes.FrontBar :: CanvasGroup
 		bar.Visible = barShown > 0

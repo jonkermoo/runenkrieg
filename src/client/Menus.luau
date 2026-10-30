@@ -36,6 +36,8 @@ local Ink = require(script.Parent.Ink)
 local MatchCam = require(script.Parent.MatchCam)
 local SettingsMenu = require(script.Parent.SettingsMenu)
 local SketchMap = require(script.Parent.SketchMap)
+local ModesCfg = require(Shared.Config.Modes)
+local Playtest = require(Shared.Config.Maps.Playtest)
 
 local Menus = {}
 
@@ -70,6 +72,7 @@ type Screen = {
 	relayout: () -> (),
 	maps: { [string]: any },
 	runes: { [string]: Runes },
+	follow: { [string]: Frame }, -- a map node's FFA map, by the node's id
 }
 
 -- paints a node's rune inscription (spec `runes`) in a colour
@@ -99,7 +102,8 @@ local function build(spec: any, name: string, parent: Instance): Screen
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.DisplayOrder = DISPLAY_ORDER
 	gui.Enabled = false
-	local screen: Screen = { gui = gui, node = {}, spec = {}, relayout = function() end, maps = {}, runes = {} }
+	local screen: Screen =
+		{ gui = gui, node = {}, spec = {}, relayout = function() end, maps = {}, runes = {}, follow = {} }
 	local placed: { { obj: GuiObject, n: any } } = {}
 
 	local function make(n: any, into: Instance)
@@ -215,6 +219,17 @@ local function build(spec: any, name: string, parent: Instance): Screen
 			Ink.trench(obj, col("ink"), col("text"))
 		elseif n.kind == "sketchmap" then
 			screen.maps[n.id] = SketchMap.new(obj, nil, { deploy = n.deploy, teammates = n.deploy })
+			if n.follow then
+				-- a second map, the zone-capture FFA's (only the zone on it), shown in place of the first in FFA
+				local other = Instance.new("Frame")
+				other.Name = n.id .. "FFA"
+				other.BackgroundTransparency = 1
+				other.Size = UDim2.fromScale(1, 1)
+				other.Visible = false
+				other.Parent = obj
+				screen.maps[n.id .. "FFA"] = SketchMap.new(other, Playtest.name, { zone = true })
+				screen.follow[n.id] = other
+			end
 		end
 		if n.rotation then
 			obj.Rotation = n.rotation
@@ -694,9 +709,24 @@ function Menus.start()
 	end
 	local loadoutMap = loadout.maps.Map
 	local loadoutCaption = L.Caption :: TextLabel
+	-- the maps follow the live mode: the zone-capture FFA's map in place of Map 1 (its own image under the first's)
+	local function follow(screen: Screen)
+		local ffa = workspace:GetAttribute(ModesCfg.Attribute) == "FFA"
+		for id, other in screen.follow do
+			other.Visible = ffa
+			local first = screen.node[id]:FindFirstChild("SketchMap") :: GuiObject?
+			if first then
+				first.Visible = not ffa
+			end
+		end
+	end
 	RunService.RenderStepped:Connect(function()
 		if title.gui.Enabled then
+			follow(title)
 			writeCaption()
+		end
+		if loadout.gui.Enabled then
+			follow(loadout)
 		end
 		if loadout.gui.Enabled and loadoutMap then
 			loadoutMap.deploy(state and state.kit)
