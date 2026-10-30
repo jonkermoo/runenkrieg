@@ -17,8 +17,10 @@
 --   round the point the team of the kit given to deploy(kit) spawns at (Rules/Frontline.spawn; the loadout menu),
 --   named by deployName(); opts.teammates: a dot per living teammate (Rules/Teams: the same "Kit" as your soldier, or
 --   in the loadout the kit you deploy in; never an enemy, nobody in a free-for-all) in the team's magic colour (in play
---   and the loadout; never on the title screen). The markers are layers in MARKERS: later kinds go there.
+--   and the loadout; never on the title screen); teammate bots (tagged "Bot") too. The markers are layers in MARKERS:
+--   later kinds go there.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -39,6 +41,7 @@ local function rgb(c: { number }): Color3
 end
 local FONT = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
 local RUNE_FOR = { "hagalaz", "sowilo", "tiwaz", "raidho", "othala", "algiz", "berkanan" } -- by sector order; HQs hagalaz
+local BOT_TAG = "Bot" -- Config/Bots.Tag (the AI soldiers; read by name so a branch without them still runs)
 local FOLDER = "Frontline" -- Config/Frontline.FolderName (Territory Push; read by name so main without it still runs)
 
 type Point = { id: string, name: string, x: number, z: number, hq: boolean, start: string }
@@ -76,6 +79,17 @@ local MARKERS: { Marker } = {
 				end
 				local humanoid = character:FindFirstChildOfClass("Humanoid")
 				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if humanoid and humanoid.Health > 0 and root then
+					table.insert(marks, { at = root.Position, colour = rgb(magic) })
+				end
+			end
+			-- teammate bots too (each carries its "Kit" like a character; far ones may not have streamed in)
+			for _, m in CollectionService:GetTagged(BOT_TAG) do
+				if not m:IsDescendantOf(workspace) or not TeamRules.same(m:GetAttribute("Kit"), seen.kit, ffa) then
+					continue
+				end
+				local humanoid = m:FindFirstChildOfClass("Humanoid")
+				local root = m:FindFirstChild("HumanoidRootPart") :: BasePart?
 				if humanoid and humanoid.Health > 0 and root then
 					table.insert(marks, { at = root.Position, colour = rgb(magic) })
 				end
