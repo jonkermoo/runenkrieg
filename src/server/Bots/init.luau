@@ -1,5 +1,5 @@
 --!strict
--- AI soldiers that fill the empty places when too few players are on (Config/Bots, Rules/Bots; stage 1, 2026-10-30:
+-- Bot soldiers that fill the empty places when too few players are on (Config/Bots, Rules/Bots; stage 1, 2026-10-30:
 -- rifles, the FFA zone match).
 -- - The director tops the match up to the mode's fill (Rules/Bots.wanted: players first, never over Config/Bots.Max),
 --   one bot in at a time; when players join, bots leave (a dead one first, else one that has been over the count a
@@ -46,6 +46,7 @@ local Animate = require(script.Animate)
 
 local Bots = {}
 
+local Loco = require(Shared.Config.Locomotion)
 local M = Metrics.Movement
 local brainCfg = table.clone(Cfg.Brain) :: any
 brainCfg.CloseRange = Cfg.Move.CloseRange
@@ -146,7 +147,7 @@ end
 local function pickWeapon(kit: string): string
 	local gear = (Classes :: any).Gear[kit]
 	local semi = gear and gear.semi
-	if semi and W[semi] and random:NextNumber() < 0.3 then
+	if semi and W[semi] and random:NextNumber() < Cfg.SemiShare then
 		return semi
 	end
 	return U.Kits[kit].weapon
@@ -212,8 +213,8 @@ spawnBody = function(b: Bot)
 	turn.Name = "BotTurn"
 	turn.Mode = Enum.OrientationAlignmentMode.OneAttachment
 	turn.Attachment0 = att
-	turn.Responsiveness = 25
-	turn.MaxTorque = 1e6
+	turn.Responsiveness = Cfg.Turn.responsiveness
+	turn.MaxTorque = Cfg.Turn.torque
 	turn.Enabled = false
 	turn.Parent = root
 	root.Anchored = false
@@ -539,7 +540,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local aimAt: Vector3? = if targetPart then targetPart.Position else b.lastSeenAt
 	if intent.move == "Objective" and zone then
 		local z = zone :: Vector3
-		local inZone = flat(root.Position - z).Magnitude < radius * 0.9
+		local inZone = flat(root.Position - z).Magnitude < radius * Cfg.Move.InZoneShare
 		if inZone and not b.reachedZone then
 			b.reachedZone = true
 			stats.toZone += now - b.spawnedAt
@@ -594,15 +595,19 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			turn.CFrame = CFrame.lookAt(Vector3.zero, f.Unit)
 			turn.Enabled = true
 			local look = flat(root.CFrame.LookVector)
-			facing = look.Magnitude > 1e-3 and look.Unit:Dot(f.Unit) > math.cos(math.rad(20))
+			facing = look.Magnitude > 1e-3 and look.Unit:Dot(f.Unit) > math.cos(math.rad(Cfg.FacingWithin))
 		end
-		pitch = math.clamp(math.deg(math.atan2(to.Y, math.max(f.Magnitude, 1e-3))), -60, 60)
+		pitch = math.clamp(math.deg(math.atan2(to.Y, math.max(f.Magnitude, 1e-3))), -Cfg.PitchLimit, Cfg.PitchLimit)
 	else
 		humanoid.AutoRotate = true
 		turn.Enabled = false
 	end
 	local speed = flat(root.AssemblyLinearVelocity).Magnitude
-	local hold = if intent.aim then "aim" elseif speed > 13 then "carry" elseif speed > 0.75 then "walk" else "ready"
+	local hold = if intent.aim
+		then "aim"
+		elseif speed > Loco.SprintAbove then "carry"
+		elseif speed > Loco.IdleBelow then "walk"
+		else "ready"
 	if b.anim then
 		(b.anim :: Animate.Handle).update(speed, hold, pitch)
 	end
@@ -622,7 +627,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			local origin = muzzle.WorldPosition
 			-- lead: aim where it will be, short of the lag the difficulty leaves
 			local v = part.AssemblyLinearVelocity
-			local lag = d.reaction * 0.5
+			local lag = d.reaction * Cfg.Lag
 			local p = part.Position
 			local point = Vector3.new(
 				Rules.lead(p.X, v.X, lag, d.lead),
@@ -756,7 +761,7 @@ function Bots.start()
 	-- the director in its own loop: a new body yields (the avatar is built), never inside the frame's step
 	task.spawn(function()
 		while true do
-			task.wait(0.5)
+			task.wait(Cfg.Direct)
 			local ok, err = pcall(direct, os.clock())
 			if not ok then
 				warn(`[Bots] director: {err}`)

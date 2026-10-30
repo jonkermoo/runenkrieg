@@ -1,5 +1,5 @@
 --!strict
--- The AI soldiers' rules as plain numbers (Config/Bots; src/server/Bots drives them):
+-- The bot soldiers' rules as plain numbers (Config/Bots; src/server/Bots drives them):
 -- - wanted: how many bots a mode runs for the players on (fill the empty places, never over the server's budget);
 -- - the brain, a small state machine stepped several times a second from what the bot senses:
 --   Advance (to the objective) -> Engage (an enemy in sight: react, aim, shoot, work the bolt) -> Reload (empty, or low

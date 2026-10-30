@@ -1,5 +1,5 @@
 --!strict
--- AI soldiers that fill empty places when too few players are on (src/server/Bots, Rules/Bots; stage 1, 2026-10-30:
+-- Bot soldiers that fill empty places when too few players are on (src/server/Bots, Rules/Bots; stage 1, 2026-10-30:
 -- rifles only, the FFA zone match). They are soldiers like the players' (a kit, its bolt or semi rifle, the same
 -- Firing / Damage rules), steered by a small state machine.
 local Bots = {
@@ -29,6 +29,13 @@ local Bots = {
 	Sense = 4, -- sight checks a second, per bot: the nearest few enemies' line-of-sight rays
 	SenseNearest = 3, -- how many of the nearest enemies in range and view get a ray
 	Eye = 1.5, -- studs over the root: where a bot looks from (the head)
+	SemiShare = 0.3, -- share of lives a bot carries its kit's semi rifle instead of the bolt rifle
+	Direct = 0.5, -- seconds between the director's counts
+	-- turning to the target while aiming (an AlignOrientation on the root)
+	Turn = { responsiveness = 25, torque = 1e6 },
+	FacingWithin = 20, -- degrees: it fires only when its body faces the target this closely
+	PitchLimit = 60, -- degrees the look pitch sent to clients stays within
+	Lag = 0.5, -- share of the reaction time its aim lags a moving target by (the difficulty's lead makes up part)
 
 	Move = {
 		Repath = 6, -- seconds between path recomputes toward the same goal
@@ -41,6 +48,7 @@ local Bots = {
 		WaypointSpacing = 6,
 		AgentRadius = 1.6,
 		AgentHeight = 5,
+		InZoneShare = 0.9, -- within this share of the zone's radius it counts as in the zone (and wanders there)
 		SprintFrom = 60, -- studs to the goal over which an advancing bot sprints
 		-- inside the zone: a new spot to stand on every this many seconds, within this share of the radius
 		WanderEvery = 4,

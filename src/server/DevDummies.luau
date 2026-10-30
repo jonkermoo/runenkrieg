@@ -134,7 +134,7 @@ local function throw(m: Model, humanoid: Humanoid, knock: { [string]: number }, 
 	end)
 end
 
--- (src/server/Bots: the AI soldiers' bodies are handled the same way)
+-- (src/server/Bots: the bot soldiers' bodies are handled the same way)
 DevDummies.own = own
 DevDummies.throw = throw
 

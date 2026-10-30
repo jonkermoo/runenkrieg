@@ -1,5 +1,5 @@
 --!strict
--- An AI soldier's third-person animation, played from the server (src/server/Bots). A bot is a server-owned Humanoid,
+-- An bot soldier's third-person animation, played from the server (src/server/Bots). A bot is a server-owned Humanoid,
 -- so tracks played on its Animator here replicate to every client for free, with no per-client code (a player's
 -- src/client/Locomotion runs on their own client and leans on its input, camera and Backpack). The same cycles and
 -- holds as a player's: idle / walk / sprint by speed at the Config/Locomotion pace, and the weapon's hold over them

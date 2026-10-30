@@ -84,6 +84,6 @@ if loadouts then
 	require(script.ZoneMatch).onMatchStart(L.resetMatch)
 end
 require(script.Modes).start() -- (the server's game mode: the zone-capture match on the playtest map in FFA)
-require(script.Bots).start() -- (AI soldiers filling the empty places: Config/Bots)
+require(script.Bots).start() -- (bot soldiers filling the empty places: Config/Bots)
 
 print("[runenkrieg] server started")

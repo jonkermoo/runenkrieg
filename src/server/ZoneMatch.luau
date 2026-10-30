@@ -6,7 +6,7 @@
 -- contesting it; timed matches with a results pause, then scores reset and everyone respawns; everyone an enemy
 -- (Workspace's FreeForAll attribute, Rules/Teams); each life spawned at the map's spawn point farthest from the
 -- others and clear of the zone, protected for a moment (src/server/Damage.protect). The marker models carry the state
--- as attributes; src/client/ZoneMarker colours them. AI soldiers (src/server/Bots) spawn the same way and hold and
+-- as attributes; src/client/ZoneMarker colours them. bot soldiers (src/server/Bots) spawn the same way and hold and
 -- contest the zone like anyone, but never score, lead or win (user 2026-10-30). The admin panel ends, restarts and lengthens a match, moves the
 -- zone on and hands out score (src/server/DevTools).
 
@@ -181,7 +181,7 @@ function ZoneMatch.onMatchStart(fn: () -> ())
 	table.insert(matchWatchers, fn)
 end
 
--- the AI soldiers in the match (src/server/Bots: tagged, each with a negative "BotId" that stands in for a UserId; they
+-- the bot soldiers in the match (src/server/Bots: tagged, each with a negative "BotId" that stands in for a UserId; they
 -- hold and contest the zone but never score)
 local function bots(): { Model }
 	local out = {}

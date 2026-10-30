@@ -189,7 +189,7 @@ function Firing.lines(name: string, direction: Vector3, seed: number): { Vector3
 	return out
 end
 
--- A shot from `character`'s held weapon (a player's, from "Fire" below; an AI soldier's, src/server/Bots): the same
+-- A shot from `character`'s held weapon (a player's, from "Fire" below; an bot soldier's, src/server/Bots): the same
 -- checks and hits either way. True if it went off.
 local function shootAs(character: Model?, origin: any, direction: any, seed: any, player: Player?): boolean
 	local _, tool, e = heldBy(character)
@@ -301,12 +301,12 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 	shootAs(player.Character, origin, direction, seed, player)
 end
 
--- A shot from an AI soldier's held weapon along `direction` from `origin` (its muzzle; src/server/Bots).
+-- A shot from an bot soldier's held weapon along `direction` from `origin` (its muzzle; src/server/Bots).
 function Firing.fireAs(character: Model, origin: Vector3, direction: Vector3, seed: number): boolean
 	return shootAs(character, origin, direction, seed, nil)
 end
 
--- "Bolt", "Reload" or "StopLoad" on `character`'s held weapon (a player's from the remotes, rate limited; an AI
+-- "Bolt", "Reload" or "StopLoad" on `character`'s held weapon (a player's from the remotes, rate limited; a bot
 -- soldier's from src/server/Bots).
 local function actAs(character: Model?, action: string, player: Player?)
 	local _, tool, e = heldBy(character)
