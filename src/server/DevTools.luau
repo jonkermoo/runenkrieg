@@ -22,6 +22,7 @@ local Armory = require(script.Parent.Armory)
 local Artillery = require(script.Parent.Artillery)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
+local Build = require(script.Parent.Build)
 local DevWorld = require(script.Parent.DevWorld)
 local Environment = require(script.Parent.Environment)
 local Helmets = require(script.Parent.Helmets)
@@ -107,6 +108,13 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		DevDummies.spawn({ kit = value.kit, helmet = value.helmet, move = value.move, at = CFrame.lookAt(at, face) })
 	elseif action == "PlaceGun" and aim and root then
 		Artillery.place(value, aim, aim - root.Position)
+	elseif action == "PlacePiece" and aim and root and table.find(Cfg.Blasts.Pieces, value) then
+		-- (facing away from you, like the guns)
+		local away = (aim - root.Position) * Vector3.new(1, 0, 1)
+		if away.Magnitude < 1e-3 then
+			away = Vector3.new(0, 0, -1)
+		end
+		Build.devPlace(player, value, CFrame.lookAt(aim, aim + away))
 	elseif action == "ClearGuns" then
 		Artillery.clear()
 	elseif action == "HealDummies" then
