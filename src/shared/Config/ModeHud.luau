@@ -14,6 +14,9 @@ local ModeHud = {
 	ShowKey = Enum.KeyCode.V,
 	FadeSeconds = 0.12,
 	Dot = { size = 10, above = 3.2 }, -- the teammate dot: pixels across, studs above the head's centre
+	-- the open points' world marker (its diamond is the spec's PinHQ, its label PinLabel): pixels wide x tall, studs
+	-- above the flagpole's top
+	Marker = { size = { 44, 52 }, above = 3 },
 	-- Point Capture: the move warning
 	Warning = "THE ZONE MOVES IN %d",
 }

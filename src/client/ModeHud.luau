@@ -6,7 +6,9 @@
 --     the left; one diamond per sector joined by a line, filled as far as its control goes in the colour of the side it
 --     leans to. Shown on the loadout screen; in play only while V is held, fading fast, with a dot over each teammate
 --     seen through walls (user 2026-10-29: "make the bar appear and a dot above all teammates that you can see through
---     walls appear (with a fast fade) when players hold v").
+--     walls appear (with a fast fade) when players hold v"), and a diamond over each point that can be taken now, its
+--     fill the bar's (user 2026-10-30: "show where the point is when you hold v", "only show the ones that arent
+--     locked"). Only the viewer's own nation is named (the enemy's flag dropped, user 2026-10-30).
 --   Point Capture (the server's Mode is FFA): the zone marker on the Playtest map (src/server/ZoneMatch: Phase,
 --     EndsAt, State, Holder, Leader, MoveAt, NextSpot, Winner) and the leader's ZoneScore: the clock centred, the point
 --     leader under it, the zone's state, the move warning (user 2026-10-29: "center the timer and remove the bar
@@ -30,6 +32,8 @@ local Map1 = require(Shared.Config.Maps.Map1)
 local Playtest = require(Shared.Config.Maps.Playtest)
 local Rules = require(Shared.Rules.ModeHud)
 local ZoneRules = require(Shared.Rules.ZoneMatch)
+local FrontRules = require(Shared.Rules.Frontline)
+local PoleCfg = require(Shared.Config.Flagpole)
 local Spec = require(Shared.ui.ModeHud) :: any
 
 local ModeHud = {}
@@ -259,6 +263,68 @@ end
 local shownCount = -1
 local shownSide: string? = "?"
 
+-- a diamond painted as its sector stands: filled toward the side its control leans to, its edge contested / attacked
+local function paint(d: Diamond, pin: Rules.Pin, west: string?, east: string?, flashOn: boolean)
+	local kit = if pin.fillSide == "West" then west elseif pin.fillSide == "East" then east else nil
+	fillDiamond(d, pin.fill, teamRim(kit))
+	d.edge.Color = if pin.state == "Contested"
+		then (if flashOn then tok("pinContested") else tok("pinEdge"))
+		elseif pin.state == "Attacked" then tok("pinAttacked")
+		else tok("pinEdge")
+end
+
+-- Territory Push: the points that can be taken now, marked in the world over their flagpole (src/server/Flagpoles), seen
+-- through walls: the bar's diamond and its label
+type Marker = { gui: BillboardGui, diamond: Diamond, label: TextLabel }
+local markers: { [string]: Marker } = {}
+
+local function newMarker(id: string, text: string): Marker?
+	local poles = workspace:FindFirstChild(PoleCfg.FolderName)
+	local model = poles and poles:FindFirstChild(id)
+	local pole = model and (model :: Model).PrimaryPart
+	if not pole then
+		return nil
+	end
+	local M = Cfg.Marker
+	local g = Instance.new("BillboardGui")
+	g.Name = "ModeHudPoint"
+	g.AlwaysOnTop = true
+	g.LightInfluence = 0
+	g.ResetOnSpawn = false
+	g.Size = UDim2.fromOffset(M.size[1], M.size[2])
+	g.Adornee = pole
+	g.StudsOffsetWorldSpace = Vector3.new(0, pole.Size.Y / 2 + M.above, 0)
+	g.Enabled = false
+	local d = diamond(find(Spec.root, "PinHQ"), g, 0.5)
+	d.box.AnchorPoint = Vector2.new(0.5, 0)
+	d.box.Position = UDim2.fromScale(0.5, 0)
+	local label = make(find(Spec.root, "PinLabel"), nil) :: TextLabel
+	binds.pin = nil -- (set directly)
+	label.Text = text
+	label.AnchorPoint = Vector2.new(0.5, 1)
+	label.Position = UDim2.fromScale(0.5, 1)
+	label.Parent = g
+	g.Parent = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+	return { gui = g, diamond = d, label = label }
+end
+
+local function showMarkers(shown: number)
+	for _, m in markers do
+		m.gui.Enabled = shown > 0
+		m.diamond.face.BackgroundTransparency = 1 - shown
+		m.diamond.edge.Transparency = 1 - shown
+		m.label.TextTransparency = 1 - shown
+		m.label.TextStrokeTransparency = 1 - shown * 0.6
+	end
+end
+
+local function clearMarkers()
+	for id, m in markers do
+		m.gui:Destroy()
+		markers[id] = nil
+	end
+end
+
 local function updateFront(folder: Instance, now: number)
 	local side = mySide(folder)
 	local list = sectorsOf(folder)
@@ -269,16 +335,30 @@ local function updateFront(folder: Instance, now: number)
 		shownSide = "?"
 	end
 	local west, east = folder:GetAttribute("West") :: string?, folder:GetAttribute("East") :: string?
-	local leftKit, rightKit = if side == "East" then east else west, if side == "East" then west else east
+	-- (only the viewer's own nation: user 2026-10-30, the enemy's flag not shown)
+	local leftKit = if side == "East" then east else west
 	if side ~= shownSide then
 		shownSide = side
 		set("leftName", nation(leftKit))
-		set("rightName", nation(rightKit))
-		local leftFlag, rightFlag = nodes.LeftFlag :: ImageLabel, nodes.RightFlag :: ImageLabel
+		local leftFlag = nodes.LeftFlag :: ImageLabel
 		leftFlag.Image = flagImage(leftKit)
-		rightFlag.Image = flagImage(rightKit)
 	end
 	local flashOn = (now // Cfg.FlashSeconds) % 2 == 0
+	-- the points that can be taken now (either side's next: Rules/Frontline.target), marked in the world
+	local state = { owner = {}, control = {} }
+	for i, f in list do
+		state.owner[i] = (f:GetAttribute("Owner") :: string?) or "Neutral"
+		state.control[i] = (f:GetAttribute("Control") :: number?) or 0
+	end
+	local open: { [string]: boolean } = {}
+	if folder:GetAttribute("Phase") == "Playing" then
+		for _, s in { "West", "East" } do
+			local t = FrontRules.target(state, s)
+			if t then
+				open[list[t].Name] = true
+			end
+		end
+	end
 	for slot = 1, n do
 		local f = list[Rules.slot(slot, n, side)]
 		local d = frontPins[slot]
@@ -286,19 +366,26 @@ local function updateFront(folder: Instance, now: number)
 		local hq = s ~= nil and s.isHQ == true
 		local tmpl = find(Spec.root, if hq then "PinHQ" else "Pin")
 		d.box.Size = udim(tmpl.size)
-		frontLabels[slot].Text = if hq then "HQ" else f.Name
+		local label = if hq then "HQ" else f.Name
+		frontLabels[slot].Text = label
 		local pin = Rules.pin(
 			f:GetAttribute("Owner") :: string?,
 			(f:GetAttribute("Control") :: number?) or 0,
 			(f:GetAttribute("West") :: number?) or 0,
 			(f:GetAttribute("East") :: number?) or 0
 		)
-		local kit = if pin.fillSide == "West" then west elseif pin.fillSide == "East" then east else nil
-		fillDiamond(d, pin.fill, teamRim(kit))
-		d.edge.Color = if pin.state == "Contested"
-			then (if flashOn then tok("pinContested") else tok("pinEdge"))
-			elseif pin.state == "Attacked" then tok("pinAttacked")
-			else tok("pinEdge")
+		paint(d, pin, west, east, flashOn)
+		local m = markers[f.Name]
+		if open[f.Name] then
+			m = m or newMarker(f.Name, label)
+			if m then
+				markers[f.Name] = m
+				paint(m.diamond, pin, west, east, flashOn)
+			end
+		elseif m then
+			m.gui:Destroy()
+			markers[f.Name] = nil
+		end
 	end
 	if folder:GetAttribute("Phase") == "Results" then
 		local winner = folder:GetAttribute("Winner") :: string?
@@ -459,6 +546,7 @@ function ModeHud.start()
 				myKit = if side and character then character:GetAttribute("Kit") :: string? else nil
 			else
 				myKit = nil
+				clearMarkers()
 				if ffa then
 					updateZone(zone :: Instance)
 				end
@@ -478,6 +566,7 @@ function ModeHud.start()
 		bar.Visible = barShown > 0
 		bar.GroupTransparency = 1 - barShown
 		showDots(dotsShown)
+		showMarkers(dotsShown)
 	end)
 	-- FFA: the point leader's glow is for everyone else; on the leader's own screen it's off (kept from the old
 	-- zone match readout, src/client/ZoneHud; the server turns it back on as the lead changes)
