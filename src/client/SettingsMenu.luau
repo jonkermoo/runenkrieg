@@ -394,6 +394,7 @@ function SettingsMenu.start()
 	if pn.paper then
 		-- the paper sheet, torn edge and all, and the fold between its pages
 		local p = SketchCfg.Paper
+		panel.BackgroundTransparency = 1
 		local sheet = Instance.new("ImageLabel")
 		sheet.Name = "Paper"
 		sheet.BackgroundTransparency = 1
