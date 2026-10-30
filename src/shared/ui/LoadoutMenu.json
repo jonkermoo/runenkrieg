@@ -58,7 +58,7 @@
 				"id": "MapHolder",
 				"kind": "group",
 				"anchor": [1, 0],
-				"pos": [1, -24, 0, 18],
+				"pos": [1, -24, 0, 74],
 				"size": [0.3, 0, 0, 215],
 				"aspect": 1.9845,
 				"children": [
@@ -85,7 +85,7 @@
 						"children": [
 							{ "id": "RiflemanRune", "kind": "glyph", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 18], "size": [0, 26, 0, 40] },
 							{ "id": "RiflemanName", "kind": "label", "text": "Rifleman", "textSize": 21, "textColor": "ink", "pos": [0, 8, 0, 66], "size": [1, -16, 0, 26], "center": true },
-							{ "id": "RiflemanBlurb", "kind": "label", "text": "Bolt-action rifle", "textSize": 14, "textColor": "inkDim", "wrap": true, "pos": [0, 10, 0, 94], "size": [1, -20, 0, 54], "center": true },
+							{ "id": "RiflemanBlurb", "kind": "label", "text": "Bolt-action rifle", "textSize": 13, "textColor": "inkDim", "wrap": true, "pos": [0, 16, 0, 94], "size": [1, -32, 0, 56], "center": true },
 							{ "id": "RiflemanCost", "kind": "label", "text": "Free", "textSize": 19, "textColor": "blue", "anchor": [0, 1], "pos": [0, 8, 1, -12], "size": [1, -16, 0, 26], "center": true }
 						]
 					},
@@ -98,7 +98,7 @@
 						"children": [
 							{ "id": "GrenadierRune", "kind": "glyph", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 18], "size": [0, 26, 0, 40] },
 							{ "id": "GrenadierName", "kind": "label", "text": "Grenadier", "textSize": 21, "textColor": "ink", "pos": [0, 8, 0, 66], "size": [1, -16, 0, 26], "center": true },
-							{ "id": "GrenadierBlurb", "kind": "label", "text": "Rifle and five grenades", "textSize": 14, "textColor": "inkDim", "wrap": true, "pos": [0, 10, 0, 94], "size": [1, -20, 0, 54], "center": true },
+							{ "id": "GrenadierBlurb", "kind": "label", "text": "Rifle and five grenades", "textSize": 13, "textColor": "inkDim", "wrap": true, "pos": [0, 16, 0, 94], "size": [1, -32, 0, 56], "center": true },
 							{ "id": "GrenadierCost", "kind": "label", "text": "50", "textSize": 19, "textColor": "pencil", "anchor": [0, 1], "pos": [0, 8, 1, -12], "size": [1, -16, 0, 26], "center": true }
 						]
 					}

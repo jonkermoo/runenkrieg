@@ -200,6 +200,7 @@ local function build(spec: any, name: string, parent: Instance): Screen
 			edge.Name = "Pick"
 			edge.Color = col("pencil")
 			edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			edge.LineJoinMode = Enum.LineJoinMode.Miter
 			edge.Enabled = false
 			edge.Parent = obj
 		end
