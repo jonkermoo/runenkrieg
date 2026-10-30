@@ -490,7 +490,7 @@ local Assets = {
 			description = "Bandage worn round the head (2 crossing turns); its Origin goes at the head part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
 		},
 		rig1 = {
-			id = 84046347370958,
+			id = 108363500048383, -- smooth one-piece shoulder bands (user 2026-10-29)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig1.fbx",
@@ -505,7 +505,7 @@ local Assets = {
 			},
 		},
 		rig2 = {
-			id = 82520824821944,
+			id = 80275123969636, -- smooth one-piece shoulder bands (user 2026-10-29)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig2.fbx",
@@ -520,7 +520,7 @@ local Assets = {
 			},
 		},
 		rig3 = {
-			id = 104179782361178,
+			id = 122497898146324, -- smooth one-piece shoulder bands (user 2026-10-29)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig3.fbx",
@@ -538,34 +538,37 @@ local Assets = {
 		-- each part placed at its offset from the export's Origin marker (the Torso center), keeping its imported
 		-- rotation (src/server/Packs). Colored by mesh name from Config/Palette.Packs.
 		pack_tornister = {
-			id = 121478944791516, -- shorter, thicker roll clear of the stowed rifle and shovel (user 2026-10-20)
+			id = 101378361706915, -- soft rounded canvas, hangs from the rig (user 2026-10-29)
 			category = "Teams",
 			folder = "Grey/Packs",
 			source = "assets/teams/grey/packs/pack_tornister.fbx",
 			generator = "tools/blender/gear/pack.py",
-			sling = 1.2, -- the flap's straps reach 1.68 (user 2026-10-19: the rifle rides over the pack)
-			description = "German Tornister, the grey team's pack: a boxy canvas body under a hide flap with leather edge bands, "
-				.. "two closure straps, a big blanket roll across the top against the back, shoulder bands (436-488 tris).",
+			sling = 1.2, -- the closure straps reach 1.68 (user 2026-10-19: the rifle rides over the pack)
+			description = "German Tornister, the grey team's pack: a firm canvas body rounded on every edge under a hide flap with "
+				.. "round corners and leather piping, two closure straps to buckles, a cinched blanket roll across the top (1440 "
+				.. "tris); hangs from the rig's bands.",
 		},
 		pack_zaino = {
-			id = 95650984386789, -- shorter, thicker roll (user 2026-10-20)
+			id = 118648930657535, -- soft rounded canvas, hangs from the rig (user 2026-10-29)
 			category = "Teams",
 			folder = "Olive/Packs",
 			source = "assets/teams/olive/packs/pack_zaino.fbx",
 			generator = "tools/blender/gear/pack.py",
-			sling = 1.25, -- the bulging flap and straps reach 1.74 in the middle
-			description = "Italian zaino M1907, the olive team's pack: a soft bulging canvas sack, a flap following the bulge, "
-				.. "two side straps and a centre strap, a big blanket roll across the top, shoulder bands (660 tris).",
+			sling = 1.18, -- the straps over the bulging flap reach 1.66 in the middle
+			description = "Italian zaino M1907, the olive team's pack: a soft rounded bulging canvas sack, a round-cornered flap "
+				.. "following the bulge, two side straps and a centre strap to buckles, a cinched blanket roll across the top (1452 "
+				.. "tris); hangs from the rig's bands.",
 		},
 		pack_p08 = {
-			id = 119253478374701, -- shorter, thicker roll (user 2026-10-20)
+			id = 105944858292522, -- soft rounded canvas, hangs from the rig (user 2026-10-29)
 			category = "Teams",
 			folder = "White/Packs",
 			source = "assets/teams/white/packs/pack_p08.fbx",
 			generator = "tools/blender/gear/pack.py",
-			sling = 1.1, -- the mess tin and its strap reach 1.59
-			description = "British 1908 web large pack, the brown team's: a square web box, a flap two thirds down, two short "
-				.. "straps, a mess tin on the flap, a big blanket roll across the top, shoulder bands (468 tris).",
+			sling = 1.13, -- the mess tin and its strap reach 1.61
+			description = "British 1908 web large pack, the brown team's: a rounded web box, a flap two thirds down, two short "
+				.. "straps to steel buckles, a rounded mess tin on the flap, a cinched blanket roll across the top (1532 tris); "
+				.. "hangs from the rig's bands.",
 		},
 		helmet_stahl = {
 			id = 98976523443657, -- reworked 2026-10-19 (docs/HATS.md "Rework")
