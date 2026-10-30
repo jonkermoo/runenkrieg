@@ -69,6 +69,13 @@ local ZoneMatch = {
 	ScoreAttribute = "ZoneScore",
 	-- on Workspace while a match runs: everyone is everyone's enemy (Rules/Teams), whatever their uniform
 	FreeForAllAttribute = "FreeForAll",
+	-- free-for-all looks (user 2026-10-30: "for FFA, everyone should just get random team colors and accessories"): each
+	-- life's headwear is any the game has (every kit's own and the class gear named here, Config/Classes.Gear), rolled
+	-- with the rest of the look (src/server/Bodies; the loadout preview shows it), or none at all `bare` of the time
+	Headwear = {
+		gear = { "altHelmet", "shellHelmet", "goggles", "engineerCap" },
+		bare = 0.15,
+	},
 	MarkerName = "Zone",
 	NextMarkerName = "NextZone",
 }

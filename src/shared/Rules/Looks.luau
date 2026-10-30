@@ -35,6 +35,39 @@ end
 -- The uniform kit a soldier wears this life (src/server/Kits): `current` (the character's "Kit", rolled earlier this
 -- life) when it names one of `kits`, else `override` (the player's "Kit", for testing) when it does, else the entry of
 -- `pool` at the roll `r` in [0, 1), each equally likely.
+-- Every headwear entry there is: each kit's own (`kits[k].headwear`) and its class gear under `keys` (`gear[k][key]`),
+-- once each, sorted (a stable order for the rolls).
+function Looks.headwearPool(
+	kits: { [string]: any },
+	gear: { [string]: { [string]: string } },
+	keys: { string }
+): { string }
+	local seen, out = {}, {}
+	local function add(name: any)
+		if type(name) == "string" and not seen[name] then
+			seen[name] = true
+			table.insert(out, name)
+		end
+	end
+	for k, kit in kits do
+		add(kit.headwear)
+		for _, key in keys do
+			add(gear[k] and gear[k][key])
+		end
+	end
+	table.sort(out)
+	return out
+end
+
+-- A rolled headwear from `pool` (index; 0: bareheaded, the share `bare` of rolls) from a random 0..1 `r`.
+function Looks.headwear(pool: { string }, r: number, bare: number): number
+	if #pool == 0 or r < bare then
+		return 0
+	end
+	local t = (r - bare) / (1 - bare)
+	return math.clamp(math.floor(t * #pool) + 1, 1, #pool)
+end
+
 function Looks.kit(current: any, override: any, pool: { string }, r: number, kits: { [string]: any }): string
 	if type(current) == "string" and kits[current] then
 		return current

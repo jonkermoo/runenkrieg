@@ -133,4 +133,30 @@ return {
 		assert(Looks.crownAt(v(0, 0, 0), v(0, 0, 1), half) == nil, "from inside")
 		assert(Looks.crownAt(v(0, 0, -20), v(0, 0, 1), v(0, 1, 1)) == nil, "a flat box: nothing")
 	end,
+	["FFA headwear: every kit's own and its class gear, each a real asset entry; bare now and then"] = function()
+		local Classes = require("../src/shared/Config/Classes")
+		local Z = require("../src/shared/Config/ZoneMatch")
+		local pool = Looks.headwearPool(U.Kits, Classes.Gear, Z.Headwear.gear)
+		assert(#pool >= #U.Teams * 2, "kit helmets and more")
+		local seen = {}
+		for _, name in pool do
+			assert(A.Entries[name], name)
+			assert(not seen[name], "once each: " .. name)
+			seen[name] = true
+		end
+		for _, k in U.Teams do
+			assert(seen[U.Kits[k].headwear], k)
+		end
+		assert(Looks.headwear(pool, 0, Z.Headwear.bare) == 0)
+		assert(Looks.headwear(pool, Z.Headwear.bare, Z.Headwear.bare) == 1)
+		assert(Looks.headwear(pool, 0.999999, Z.Headwear.bare) == #pool)
+		assert(Looks.headwear({}, 0.9, 0.1) == 0, "nothing to wear")
+		local hit = {}
+		for k = 0, 999 do
+			hit[Looks.headwear(pool, k / 1000, Z.Headwear.bare)] = true
+		end
+		for i = 0, #pool do
+			assert(hit[i], `{i} reachable`)
+		end
+	end,
 }
