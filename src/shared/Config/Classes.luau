@@ -159,6 +159,11 @@ local Classes = {
 		Headshot = 2, -- on top of the kill, when the killing hit was to the head
 		Assist = 5,
 		Capture = 15, -- a zone captured (src/server/Loadouts.award; the zone capture calls it)
+		-- Normal mode (src/server/Frontline, user 2026-10-27): each soldier in the zone when an enemy sector goes neutral;
+		-- a kill in or near your side's sector while the enemy is attacking it; everyone on the winning side
+		Neutralise = 5,
+		Defend = 5,
+		Win = 25,
 		Piece = 2, -- a sandbag wall, wire or gun built to full (the finishing swing)
 		Trench = 1, -- a trench square dug to full (the finishing swing)
 	},

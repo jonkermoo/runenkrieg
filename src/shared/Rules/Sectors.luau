@@ -64,4 +64,10 @@ function Sectors.sectorAt(map: any, MT: any, x: number, z: number, segments: num
 	return map.sectors[k].id
 end
 
+-- Whether the dividers and markers start shown in play when the server's mode becomes `mode` (Config/Sectors
+-- .ShowAttribute's default): in the DEV place with ShowInDevPlay on, never in Normal mode.
+function Sectors.shownByDefault(cfg: any, placeId: number, mode: unknown): boolean
+	return cfg.ShowInDevPlay == true and placeId == cfg.DevPlaceId and mode ~= "Normal"
+end
+
 return Sectors

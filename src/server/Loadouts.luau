@@ -182,6 +182,12 @@ function Loadouts.hurt(victim: Model, by: Model?, amount: number, zone: string?)
 	table.insert(list, { by = byId :: number, amount = amount, at = os.clock(), zone = zone })
 end
 
+-- `fn(killer, victim)` on each kill credited to a player (src/server/Frontline: Defend)
+local killWatchers: { (Player, Model) -> () } = {}
+function Loadouts.onKill(fn: (Player, Model) -> ())
+	table.insert(killWatchers, fn)
+end
+
 -- pays a player or a bot by id
 local function pay(id: number, reason: string)
 	if id < 0 then
@@ -205,6 +211,12 @@ local function died(character: Model)
 		pay(killer, "Kill")
 		if head then
 			pay(killer, "Headshot")
+		end
+		local k = if killer > 0 then Players:GetPlayerByUserId(killer) else nil
+		if k then
+			for _, fn in killWatchers do
+				task.spawn(fn, k, character)
+			end
 		end
 	end
 	for _, id in assists do

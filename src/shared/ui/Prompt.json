@@ -39,7 +39,7 @@
 		"textSize": 12,
 		"height": 16,
 		"padX": 4,
-		"corner": 2
+		"corner": 0
 	},
 	"text": {
 		"object": 11,
