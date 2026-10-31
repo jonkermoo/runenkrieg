@@ -261,6 +261,7 @@ spawnBody = function(b: Bot)
 	humanoid.UseJumpPower = false
 	humanoid.MaxSlopeAngle = M.MaxSlopeAngle
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false)
+	DevDummies.steady(humanoid)
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 	local torso = m:FindFirstChild("Torso") :: BasePart
 	local tool = Armory.tool(b.weapon, b.kit)
@@ -315,7 +316,7 @@ spawnBody = function(b: Bot)
 	end)
 	m:GetAttributeChangedSignal("Ragdolled"):Connect(function()
 		if m:GetAttribute("Ragdolled") ~= true and humanoid.Health > 0 then
-			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			DevDummies.getUp(m, humanoid)
 			-- a knock puts the weapon away (src/server/Ragdoll: UnequipTools); a player draws it again, so the bot does too
 			-- (user 2026-10-30: "bots also dont stand up with their weapon when ragdolled")
 			if tool.Parent ~= m and pcall(function()

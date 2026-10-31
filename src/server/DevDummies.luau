@@ -134,9 +134,49 @@ local function throw(m: Model, humanoid: Humanoid, knock: { [string]: number }, 
 	end)
 end
 
+-- the Humanoid's own tip-over states off: a server-owned soldier only goes down through src/server/Ragdoll
+local function steady(humanoid: Humanoid)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+	humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+end
+
+-- up again once src/server/Ragdoll clears "Ragdolled" (the joints back): stood upright on its feet where it lies, facing
+-- the way it lay, its physics on the server again (the body is one assembly once more), then GettingUp
+-- (Config/Ragdoll.Stand; a GettingUp from flat on the ground alone left server-owned bodies lying or half up)
+local function getUp(m: Model, humanoid: Humanoid)
+	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local torso = m:FindFirstChild("Torso") :: BasePart?
+	if not root or not torso or humanoid.Health <= 0 then
+		return
+	end
+	own(m)
+	local S = RagdollCfg.Stand
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { m }
+	local at = torso.Position
+	local hit = workspace:Raycast(at + Vector3.yAxis, Vector3.new(0, -(S.probe + 1), 0), params)
+	local leg = m:FindFirstChild("Left Leg") :: BasePart?
+	local height = (if leg then leg.Size.Y else 2) + root.Size.Y / 2 + humanoid.HipHeight
+	local y = if hit then hit.Position.Y + height + S.lift else at.Y
+	-- facing: the way the torso's front (or, lying face up or down, its top) points, flat
+	local look = Vector3.new(torso.CFrame.LookVector.X, 0, torso.CFrame.LookVector.Z)
+	if look.Magnitude < 0.3 then
+		local up = torso.CFrame.UpVector
+		look = Vector3.new(up.X, 0, up.Z)
+	end
+	local pos = Vector3.new(at.X, y, at.Z)
+	root.AssemblyLinearVelocity = Vector3.zero
+	root.AssemblyAngularVelocity = Vector3.zero
+	root.CFrame = if look.Magnitude > 1e-3 then CFrame.lookAt(pos, pos + look.Unit) else CFrame.new(pos)
+	humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+end
+
 -- (src/server/Bots: the bot soldiers' bodies are handled the same way)
 DevDummies.own = own
 DevDummies.throw = throw
+DevDummies.steady = steady
+DevDummies.getUp = getUp
 
 -- the idle cycle, and the walk cycle while moving (at its game pace, scaled by the speed)
 local function animate(humanoid: Humanoid)
@@ -229,6 +269,7 @@ function DevDummies.spawn(spec: Spec): Model?
 	humanoid.Health = DamageCfg.Health
 	humanoid.WalkSpeed = D.WalkSpeed
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Swimming, false) -- soldiers never swim (src/client/Wading)
+	steady(humanoid)
 	humanoid.AutoRotate = spec.move ~= "Strafe"
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 	root.Anchored = false
@@ -246,7 +287,7 @@ function DevDummies.spawn(spec: Spec): Model?
 	end)
 	m:GetAttributeChangedSignal("Ragdolled"):Connect(function()
 		if m:GetAttribute("Ragdolled") ~= true and humanoid.Health > 0 then
-			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+			getUp(m, humanoid)
 		end
 	end)
 	humanoid.Died:Connect(function()
