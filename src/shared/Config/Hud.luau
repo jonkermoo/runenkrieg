@@ -40,7 +40,9 @@ local Hud = {
 		-- everything else just a simple shadow sillouette"): the gun's own parts in Palette.UI.Hud.shadow under the
 		-- clear layer, `see` see-through, fading out over `fade` of the view's width at each end; not the `clear` parts
 		-- (nor a pump gun's feed parts)
-		shadow = { see = 0.45, fade = 0.2 },
+		-- (UI overhaul, user 2026-10-30: "rework how the gun HUD looks and just make it look more clean": the shadow
+		-- nearly gone, a hint of the receiver round the clear parts)
+		shadow = { see = 0.86, fade = 0.2 },
 		clear = { "Gun", "Bolt", "Rounds", "Bullets", "Casing", "HeldRounds", "Origin", "Bore" },
 		-- the bolt, a simple 3D piece (round widths): a round body from its face to `body` of the way to the gun's
 		-- bolt's rear, `radius` round; a ring of lugs at the face; the cocking piece behind, `cock` of the body's
@@ -220,12 +222,13 @@ local Hud = {
 		-- grenade count), then fading out over `fade` (user 2026-10-27: "2 s linger + 0.4 s fade")
 		linger = 2,
 		fade = 0.4,
-		field = 0.62, -- a row's plate transparency (the team's field)
-		fieldHeld = 0.1, -- the row in the hands (the team's rim colour)
-		out = 16, -- reference px the row in the hands sticks out further to the right
+		-- bare ink (UI overhaul, user 2026-10-30): the words' reference sizes in the row in the hands, and the other rows
+		-- smaller (`size` of those, `height` of the row) and see-through (`see`); the words' dark edge transparency
+		sizes = { key = 15, name = 21, count = 20 },
+		other = { size = 0.78, height = 0.72, see = 0.5 },
+		shade = 0.45,
 		-- an item pressed while the last one is still going over the shoulder (Config/Locomotion.Stow) shows as chosen
-		-- at once, its plate this transparent, for the put-away's time plus `wait` seconds
-		pending = 0.5,
+		-- at once, for the put-away's time plus `wait` seconds
 		wait = 0.3,
 		gap = 4, -- reference px between rows
 		count = "x%d", -- a grenade row's count (the Tool's "Count"; x0 once the last is thrown: the row stays)

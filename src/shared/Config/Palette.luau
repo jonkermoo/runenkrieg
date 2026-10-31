@@ -386,6 +386,17 @@ local Palette = {
 			hint = { 68, 30, 24 },
 			hintEdge = { 210, 80, 60 },
 			hintText = { 255, 214, 196 },
+			-- the hint's key as a red chip, its words (UI overhaul, user 2026-10-30: the clean gun display)
+			hintKey = { 200, 64, 46 },
+			hintKeyText = { 255, 242, 234 },
+			-- the gun's cut-away lit nearly flat (UI overhaul: "flat shades")
+			gunAmbient = { 205, 205, 205 },
+			gunLight = { 70, 66, 60 },
+			-- the kit list in bare ink (UI overhaul, user 2026-10-30: "remove the paper background completely, just have
+			-- the selected one be fully visible and the others semi transparent and smaller"): words, their dark edge
+			kitHeld = { 241, 235, 220 },
+			kitOther = { 217, 209, 189 },
+			kitShade = { 14, 12, 10 },
 			lampOff = { 30, 34, 30 },
 			crystalHollow = { 112, 116, 122 }, -- a crystal with no charge (Config/Hud.Crystal), and dead
 			crystalDead = { 58, 60, 64 },
@@ -462,6 +473,71 @@ local Palette = {
 			backdropTransparency = 0.55,
 			stroke = 2,
 			thin = 1,
+		},
+		-- Field Grimoire, the UI overhaul's look (user 2026-10-30: "combining brush ink, trench map, and runes/magic"):
+		-- ink for every line and plate, map paper, red pencil for "do this next", amber for contested, words in warm
+		-- shades with a dark shadow; each team's land wash (its uniform's rim) and magic colour (its staff scheme:
+		-- frost blue, brass gold, rose crimson) by the "Kit"
+		Grimoire = {
+			ink = { 21, 18, 15 },
+			inkDim = { 85, 88, 79 }, -- small words on paper
+			paper = { 230, 220, 193 },
+			blue = { 44, 62, 90 },
+			pencil = { 184, 50, 42 },
+			amber = { 230, 160, 40 },
+			text = { 241, 235, 220 },
+			dim = { 217, 209, 189 },
+			key = { 191, 182, 160 },
+			shade = { 14, 12, 10 },
+			neutral = { 163, 155, 136 }, -- a point nobody holds: its ring and rune
+			overlay = { 0, 0, 0 }, -- the menus' dimming over the live match
+			Wash = {
+				uniform1 = { 124, 147, 171 },
+				uniform2 = { 154, 168, 74 },
+				uniform3 = { 200, 190, 170 },
+			},
+			Magic = {
+				uniform1 = { 156, 196, 255 },
+				uniform2 = { 226, 196, 110 },
+				uniform3 = { 236, 120, 132 },
+			},
+			-- the settings notebook (src/client/SettingsMenu, src/shared/ui/SettingsMenu.json; user 2026-10-30, the notebook
+			-- design): paper pages, dark words, the chosen value an ink block with paper words, a thin blue line round the
+			-- others, the open tab underlined in red pencil; the same names as UI.Settings
+			Notebook = {
+				panel = { 230, 220, 193 },
+				field = { 230, 220, 193 },
+				line = { 120, 132, 150 },
+				lineStrong = { 21, 18, 15 },
+				text = { 31, 38, 32 },
+				textDim = { 109, 106, 96 },
+				title = { 31, 38, 32 },
+				selFill = { 21, 18, 15 },
+				selLine = { 21, 18, 15 },
+				selText = { 241, 235, 220 },
+				accent = { 21, 18, 15 },
+				pencil = { 184, 50, 42 },
+				fold = { 0, 0, 0 },
+				foldTransparency = 0.8,
+				backdrop = { 0, 0, 0 },
+				backdropTransparency = 0.45,
+				stroke = 2,
+				thin = 1,
+			},
+			-- the chat's channel word on each line (src/client/Chat)
+			Chat = {
+				Server = { 241, 235, 220 },
+				Team = { 180, 188, 108 },
+				Global = { 156, 196, 255 },
+				Whisper = { 226, 196, 110 },
+				System = { 230, 160, 40 },
+			},
+			-- a team's name in the menus' words (its uniform's rim, lifted to read on the dark)
+			Name = {
+				uniform1 = { 160, 172, 184 },
+				uniform2 = { 180, 188, 108 },
+				uniform3 = { 214, 160, 116 }, -- (the chocolate, lifted: the off-white read as plain text)
+			},
 		},
 	},
 	Atmosphere = { color = { 206, 218, 226 }, decay = { 126, 146, 160 } },

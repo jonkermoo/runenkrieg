@@ -24,6 +24,21 @@ export type Def = {
 local SMALL = { "Trench", "Wire", "Bridge" }
 
 local Classes = {
+	-- the loadout's kit cards (UI overhaul, user 2026-10-30): each class's rune (Config/Runes), the picked card raised
+	-- this many reference pixels with a red pencil edge this thick, a card you can't take this see-through
+	Cards = {
+		runes = {
+			Rifleman = "raidho",
+			Grenadier = "sowilo",
+			AutoRifler = "tiwaz",
+			Shotgunner = "hagalaz",
+			Engineer = "othala",
+			Mage = "ansuz",
+		},
+		raise = 14,
+		edge = 3,
+		faded = 0.4,
+	},
 	Currency = "Marks", -- the currency's name, shown in the loadout menu
 	-- the menus (src/client/Menus): seconds after a death before the loadout menu opens (the death is seen first)
 	MenuAfterDeath = 2,

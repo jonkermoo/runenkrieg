@@ -1,12 +1,9 @@
 {
 	"name": "LoadoutMenu",
-	"_doc": "The loadout menu (src/client/Menus): opens after Play and on every death; the class list on the left (one row per Config/Classes.List entry, the rows here are samples), the soldier you'll spawn as on the right (a ViewportFrame of the server's preview rig). Marks show only here (user 2026-10-27). Back returns to the title screen (user 2026-10-27: \"we need a back button\"). Deploy lights up when the respawn delay is over. Change team (only in modes that keep teams: Config/Modes `teams`, or the admin panel's dev switch) opens three team cards (user 2026-10-27): a gradient placeholder for the team's art, its name and 'count / room' in the middle; the text is white if you can join, red if you can't, grey for your team. A joinable card asks for a second click (joining resets your Marks). Each team card shows its team's flag (FlagKatzmark etc., Config/Uniforms flag.full) over its name, a placeholder for the team's art (user 2026-10-30: \"There is a change team button in the loadout screen. put team flags there\").",
+	"_doc": "The loadout menu (src/client/Menus), Field Grimoire's kit cards (UI overhaul, user 2026-10-30: \"I like ... the kit card loadoats\"): over the live match, dimmed toward the bottom; top left the title, the match currency (Marks), the army and Change team; the soldier you'll spawn as large in the middle with the class under it; top right the live sketch map (src/client/SketchMap) with a red pencil ring round where you'll deploy, named under it; along the bottom one paper card per class (`RowRifleman` is the template, cloned per class and stepped along x by the samples' spacing: `List.axis`): the class's rune, name, blurb and cost; the picked card raised with a red pencil edge, one you can't take faded; Back and Deploy above the cards on torn ink plates, Deploy turning red once you can go. Change team opens the three team cards (each team's flag, name, count / room; white where you can join, red where you can't, grey on your own; a second click joins) in the middle. Sizes in reference pixels at theme.scale.referenceHeight. One font, the game's basic font. Colours: Config/Palette UI.Grimoire, then UI.Settings (the team cards).",
 	"theme": {
-		"scale": {
-			"referenceHeight": 800,
-			"min": 0.65,
-			"max": 1.25
-		},
+		"palette": "Grimoire",
+		"scale": { "referenceHeight": 800, "min": 0.65, "max": 1.25 },
 		"fitMargin": 16,
 		"minTap": 32,
 		"minText": 12,
@@ -14,13 +11,7 @@
 		"outline": 0,
 		"corner": 0,
 		"scrollBar": 4,
-		"fonts": {
-			"body": {
-				"family": "SourceSansPro",
-				"weight": "Bold",
-				"file": "SourceSansPro-Bold.ttf"
-			}
-		}
+		"fonts": { "body": { "family": "SourceSansPro", "weight": "Bold", "file": "SourceSansPro-Bold.ttf" } }
 	},
 	"modal": true,
 	"preview": {
@@ -28,6 +19,7 @@
 		"deploy": "Deploy in 10",
 		"className": "Auto rifler",
 		"team": "Katzmark army",
+		"caption": "You deploy at S2",
 		"countKatzmark": "34 / 34",
 		"countSelvara": "34 / 34",
 		"countSowilo": "34 / 34",
@@ -36,1093 +28,130 @@
 	"root": {
 		"id": "Screen",
 		"kind": "group",
-		"size": [
-			1,
-			0,
-			1,
-			0
-		],
+		"size": [1, 0, 1, 0],
 		"children": [
+			{ "id": "Dim", "kind": "overlay", "vertical": true, "from": 0.75, "to": 0.3, "size": [1, 0, 1, 0] },
+			{ "id": "Title", "kind": "label", "text": "Loadout", "textSize": 46, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 30, 0, 18], "size": [0, 320, 0, 56] },
+			{ "id": "Marks", "kind": "label", "bind": "marks", "text": "", "textSize": 22, "textColor": "amber", "shade": 0.45, "align": "left", "pos": [0, 32, 0, 74], "size": [0, 320, 0, 28] },
 			{
-				"id": "Panel",
-				"kind": "panel",
-				"color": "panel",
-				"line": "line",
-				"pos": [
-					0,
-					24,
-					0,
-					16
-				],
-				"size": [
-					0,
-					400,
-					1,
-					-32
-				],
+				"id": "Team",
+				"kind": "group",
+				"pos": [0, 32, 0, 110],
+				"size": [0, 320, 0, 64],
 				"children": [
-					{
-						"id": "Title",
-						"kind": "label",
-						"text": "Loadout",
-						"textSize": 34,
-						"textColor": "title",
-						"align": "left",
-						"pos": [
-							0,
-							18,
-							0,
-							10
-						],
-						"size": [
-							0,
-							170,
-							0,
-							50
-						]
-					},
-					{
-						"id": "Marks",
-						"kind": "label",
-						"bind": "marks",
-						"textSize": 22,
-						"textColor": "text",
-						"align": "right",
-						"anchor": [
-							1,
-							0
-						],
-						"pos": [
-							1,
-							-18,
-							0,
-							20
-						],
-						"size": [
-							0,
-							170,
-							0,
-							30
-						]
-					},
-					{
-						"id": "Rule",
-						"kind": "panel",
-						"pos": [
-							0,
-							18,
-							0,
-							66
-						],
-						"size": [
-							1,
-							-36,
-							0,
-							1
-						],
-						"color": "line"
-					},
-					{
-						"id": "List",
-						"kind": "group",
-						"pos": [
-							0,
-							18,
-							0,
-							82
-						],
-						"size": [
-							1,
-							-36,
-							0,
-							472
-						],
-						"children": [
-							{
-								"id": "RowRifleman",
-								"kind": "button",
-								"pos": [
-									0,
-									0,
-									0,
-									0
-								],
-								"size": [
-									1,
-									0,
-									0,
-									72
-								],
-								"color": "field",
-								"line": "line",
-								"children": [
-									{
-										"id": "RiflemanName",
-										"kind": "label",
-										"text": "Rifleman",
-										"textSize": 24,
-										"textColor": "text",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											8
-										],
-										"size": [
-											1,
-											-124,
-											0,
-											30
-										]
-									},
-									{
-										"id": "RiflemanBlurb",
-										"kind": "label",
-										"text": "Bolt-action rifle",
-										"textSize": 16,
-										"textColor": "textDim",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											40
-										],
-										"size": [
-											1,
-											-110,
-											0,
-											22
-										]
-									},
-									{
-										"id": "RiflemanCost",
-										"kind": "label",
-										"text": "Free",
-										"textSize": 24,
-										"textColor": "text",
-										"align": "right",
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											-14,
-											0,
-											8
-										],
-										"size": [
-											0,
-											84,
-											0,
-											30
-										]
-									}
-								]
-							},
-							{
-								"id": "RowGrenadier",
-								"kind": "button",
-								"pos": [
-									0,
-									0,
-									0,
-									80
-								],
-								"size": [
-									1,
-									0,
-									0,
-									72
-								],
-								"color": "field",
-								"line": "line",
-								"children": [
-									{
-										"id": "GrenadierName",
-										"kind": "label",
-										"text": "Grenadier",
-										"textSize": 24,
-										"textColor": "text",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											8
-										],
-										"size": [
-											1,
-											-124,
-											0,
-											30
-										]
-									},
-									{
-										"id": "GrenadierBlurb",
-										"kind": "label",
-										"text": "Rifle and five grenades",
-										"textSize": 16,
-										"textColor": "textDim",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											40
-										],
-										"size": [
-											1,
-											-110,
-											0,
-											22
-										]
-									},
-									{
-										"id": "GrenadierCost",
-										"kind": "label",
-										"text": "50",
-										"textSize": 24,
-										"textColor": "text",
-										"align": "right",
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											-14,
-											0,
-											8
-										],
-										"size": [
-											0,
-											84,
-											0,
-											30
-										]
-									}
-								]
-							},
-							{
-								"id": "RowAutoRifler",
-								"kind": "button",
-								"pos": [
-									0,
-									0,
-									0,
-									160
-								],
-								"size": [
-									1,
-									0,
-									0,
-									72
-								],
-								"color": "selFill",
-								"line": "selLine",
-								"children": [
-									{
-										"id": "AutoRiflerName",
-										"kind": "label",
-										"text": "Auto rifler",
-										"textSize": 24,
-										"textColor": "selText",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											8
-										],
-										"size": [
-											1,
-											-124,
-											0,
-											30
-										]
-									},
-									{
-										"id": "AutoRiflerBlurb",
-										"kind": "label",
-										"text": "Semi-automatic rifle, plate helmet",
-										"textSize": 16,
-										"textColor": "text",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											40
-										],
-										"size": [
-											1,
-											-110,
-											0,
-											22
-										]
-									},
-									{
-										"id": "AutoRiflerCost",
-										"kind": "label",
-										"text": "100",
-										"textSize": 24,
-										"textColor": "selText",
-										"align": "right",
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											-14,
-											0,
-											8
-										],
-										"size": [
-											0,
-											84,
-											0,
-											30
-										]
-									}
-								]
-							},
-							{
-								"id": "RowShotgunner",
-								"kind": "button",
-								"pos": [
-									0,
-									0,
-									0,
-									240
-								],
-								"size": [
-									1,
-									0,
-									0,
-									72
-								],
-								"color": "field",
-								"line": "line",
-								"children": [
-									{
-										"id": "ShotgunnerName",
-										"kind": "label",
-										"text": "Shotgunner",
-										"textSize": 24,
-										"textColor": "text",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											8
-										],
-										"size": [
-											1,
-											-124,
-											0,
-											30
-										]
-									},
-									{
-										"id": "ShotgunnerBlurb",
-										"kind": "label",
-										"text": "Pump shotgun, shell-band helmet",
-										"textSize": 16,
-										"textColor": "textDim",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											40
-										],
-										"size": [
-											1,
-											-110,
-											0,
-											22
-										]
-									},
-									{
-										"id": "ShotgunnerCost",
-										"kind": "label",
-										"text": "150",
-										"textSize": 24,
-										"textColor": "text",
-										"align": "right",
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											-14,
-											0,
-											8
-										],
-										"size": [
-											0,
-											84,
-											0,
-											30
-										]
-									}
-								]
-							},
-							{
-								"id": "RowEngineer",
-								"kind": "button",
-								"pos": [
-									0,
-									0,
-									0,
-									320
-								],
-								"size": [
-									1,
-									0,
-									0,
-									72
-								],
-								"color": "field",
-								"line": "line",
-								"children": [
-									{
-										"id": "EngineerName",
-										"kind": "label",
-										"text": "Engineer",
-										"textSize": 24,
-										"textColor": "textDim",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											8
-										],
-										"size": [
-											1,
-											-124,
-											0,
-											30
-										]
-									},
-									{
-										"id": "EngineerBlurb",
-										"kind": "label",
-										"text": "Builds artillery",
-										"textSize": 16,
-										"textColor": "textDim",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											40
-										],
-										"size": [
-											1,
-											-110,
-											0,
-											22
-										]
-									},
-									{
-										"id": "EngineerCost",
-										"kind": "label",
-										"text": "Soon",
-										"textSize": 24,
-										"textColor": "textDim",
-										"align": "right",
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											-14,
-											0,
-											8
-										],
-										"size": [
-											0,
-											84,
-											0,
-											30
-										]
-									}
-								]
-							},
-							{
-								"id": "RowMage",
-								"kind": "button",
-								"pos": [
-									0,
-									0,
-									0,
-									400
-								],
-								"size": [
-									1,
-									0,
-									0,
-									72
-								],
-								"color": "field",
-								"line": "line",
-								"children": [
-									{
-										"id": "MageName",
-										"kind": "label",
-										"text": "Mage",
-										"textSize": 24,
-										"textColor": "textDim",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											8
-										],
-										"size": [
-											1,
-											-124,
-											0,
-											30
-										]
-									},
-									{
-										"id": "MageBlurb",
-										"kind": "label",
-										"text": "Rune staff",
-										"textSize": 16,
-										"textColor": "textDim",
-										"align": "left",
-										"pos": [
-											0,
-											14,
-											0,
-											40
-										],
-										"size": [
-											1,
-											-110,
-											0,
-											22
-										]
-									},
-									{
-										"id": "MageCost",
-										"kind": "label",
-										"text": "200",
-										"textSize": 24,
-										"textColor": "textDim",
-										"align": "right",
-										"anchor": [
-											1,
-											0
-										],
-										"pos": [
-											1,
-											-14,
-											0,
-											8
-										],
-										"size": [
-											0,
-											84,
-											0,
-											30
-										]
-									}
-								]
-							}
-						]
-					},
-					{
-						"id": "Back",
-						"kind": "button",
-						"text": "Back",
-						"textSize": 28,
-						"color": "field",
-						"line": "line",
-						"textColor": "text",
-						"anchor": [
-							0,
-							1
-						],
-						"pos": [
-							0,
-							18,
-							1,
-							-18
-						],
-						"size": [
-							0,
-							120,
-							0,
-							64
-						]
-					},
-					{
-						"id": "Deploy",
-						"kind": "button",
-						"bind": "deploy",
-						"textSize": 28,
-						"color": "field",
-						"line": "line",
-						"textColor": "textDim",
-						"anchor": [
-							0,
-							1
-						],
-						"pos": [
-							0,
-							148,
-							1,
-							-18
-						],
-						"size": [
-							1,
-							-166,
-							0,
-							64
-						]
-					}
+					{ "id": "TeamName", "kind": "label", "bind": "team", "text": "", "textSize": 21, "textColor": "dim", "shade": 0.45, "align": "left", "pos": [0, 0, 0, 0], "size": [1, 0, 0, 28] },
+					{ "id": "ChangeTeam", "kind": "button", "clear": true, "text": "Change team", "textSize": 19, "textColor": "text", "fade": 0.35, "shade": 0.55, "align": "left", "pos": [0, 0, 0, 30], "size": [0, 150, 0, 30] }
 				]
 			},
 			{
 				"id": "Soldier",
 				"kind": "group",
-				"pos": [
-					0,
-					448,
-					0,
-					16
-				],
-				"size": [
-					1,
-					-472,
-					1,
-					-32
-				],
+				"anchor": [0.5, 0],
+				"pos": [0.5, 0, 0, 30],
+				"size": [0, 520, 0, 470],
+				"children": [
+					{ "id": "Model", "kind": "model", "pos": [0, 0, 0, 0], "size": [1, 0, 1, -44] },
+					{ "id": "ClassName", "kind": "label", "bind": "className", "textSize": 34, "textColor": "text", "shade": 0.45, "anchor": [0.5, 1], "pos": [0.5, 0, 1, 0], "size": [0, 360, 0, 44], "center": true }
+				]
+			},
+			{
+				"id": "MapHolder",
+				"kind": "group",
+				"anchor": [1, 0],
+				"pos": [1, -24, 0, 74],
+				"size": [0.3, 0, 0, 215],
+				"aspect": 1.9845,
+				"children": [
+					{ "id": "Map", "kind": "sketchmap", "deploy": true, "follow": true, "rotation": 1, "size": [1, 0, 1, 0] },
+					{ "id": "Caption", "kind": "label", "bind": "caption", "text": "", "textSize": 20, "textColor": "dim", "shade": 0.45, "align": "right", "anchor": [1, 0], "pos": [1, -6, 1, 10], "size": [1, 0, 0, 26] }
+				]
+			},
+			{ "id": "Back", "kind": "button", "slab": true, "text": "Back", "textSize": 24, "textColor": "text", "anchor": [0, 1], "pos": [0, 24, 1, -238], "size": [0, 140, 0, 52] },
+			{ "id": "Deploy", "kind": "button", "slab": true, "tint": "ink", "bind": "deploy", "text": "", "textSize": 26, "textColor": "text", "anchor": [1, 1], "pos": [1, -24, 1, -238], "size": [0, 280, 0, 56] },
+			{
+				"id": "List",
+				"kind": "group",
+				"axis": "x",
+				"anchor": [0.5, 1],
+				"pos": [0.5, 0, 1, -20],
+				"size": [0, 1004, 0, 206],
 				"children": [
 					{
-						"id": "Model",
-						"kind": "model",
-						"pos": [
-							0,
-							0,
-							0,
-							0
-						],
-						"size": [
-							1,
-							0,
-							1,
-							-60
+						"id": "RowRifleman",
+						"kind": "button",
+						"card": true,
+						"pos": [0, 0, 0, 10],
+						"size": [0, 160, 0, 196],
+						"children": [
+							{ "id": "RiflemanRune", "kind": "glyph", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 18], "size": [0, 26, 0, 40] },
+							{ "id": "RiflemanName", "kind": "label", "text": "Rifleman", "textSize": 21, "textColor": "ink", "pos": [0, 8, 0, 66], "size": [1, -16, 0, 26], "center": true },
+							{ "id": "RiflemanBlurb", "kind": "label", "text": "Bolt-action rifle", "textSize": 13, "textColor": "inkDim", "wrap": true, "pos": [0, 16, 0, 94], "size": [1, -32, 0, 56], "center": true },
+							{ "id": "RiflemanCost", "kind": "label", "text": "Free", "textSize": 19, "textColor": "blue", "anchor": [0, 1], "pos": [0, 8, 1, -12], "size": [1, -16, 0, 26], "center": true }
 						]
 					},
 					{
-						"id": "ClassName",
-						"kind": "label",
-						"bind": "className",
-						"textSize": 34,
-						"textColor": "title",
-						"anchor": [
-							0.5,
-							1
-						],
-						"pos": [
-							0.5,
-							0,
-							1,
-							-8
-						],
-						"size": [
-							0,
-							340,
-							0,
-							46
-						],
-						"center": true
-					},
-					{
-						"id": "Team",
-						"kind": "group",
-						"overlay": true,
-						"anchor": [
-							1,
-							0
-						],
-						"pos": [
-							1,
-							0,
-							0,
-							0
-						],
-						"size": [
-							0,
-							260,
-							0,
-							92
-						],
+						"id": "RowGrenadier",
+						"kind": "button",
+						"card": true,
+						"pos": [0, 169, 0, 10],
+						"size": [0, 160, 0, 196],
 						"children": [
-							{
-								"id": "TeamName",
-								"kind": "label",
-								"bind": "team",
-								"textSize": 24,
-								"textColor": "title",
-								"align": "right",
-								"pos": [
-									0,
-									0,
-									0,
-									0
-								],
-								"size": [
-									1,
-									0,
-									0,
-									30
-								]
-							},
-							{
-								"id": "ChangeTeam",
-								"kind": "button",
-								"text": "Change team",
-								"textSize": 24,
-								"color": "field",
-								"line": "line",
-								"textColor": "text",
-								"pos": [
-									0,
-									0,
-									0,
-									36
-								],
-								"size": [
-									1,
-									0,
-									0,
-									56
-								]
-							}
-						]
-					},
-					{
-						"id": "Teams",
-						"kind": "group",
-						"overlay": true,
-						"anchor": [
-							1,
-							0
-						],
-						"pos": [
-							1,
-							0,
-							0,
-							104
-						],
-						"size": [
-							0,
-							624,
-							0,
-							314
-						],
-						"children": [
-							{
-								"id": "CardKatzmark",
-								"kind": "button",
-								"color": "selFill",
-								"line": "line",
-								"pos": [
-									0,
-									0,
-									0,
-									0
-								],
-								"size": [
-									0,
-									200,
-									0,
-									280
-								],
-								"children": [
-									{
-										"id": "FlagKatzmark",
-										"kind": "image",
-										"anchor": [
-											0.5,
-											0
-										],
-										"pos": [
-											0.5,
-											0,
-											0,
-											24
-										],
-										"size": [
-											0,
-											120,
-											0,
-											80
-										]
-									},
-									{
-										"id": "NameKatzmark",
-										"kind": "label",
-										"text": "Katzmark",
-										"textSize": 30,
-										"textColor": "textDim",
-										"center": true,
-										"anchor": [
-											0.5,
-											0.5
-										],
-										"pos": [
-											0.5,
-											0,
-											0.5,
-											-14
-										],
-										"size": [
-											1,
-											-24,
-											0,
-											36
-										]
-									},
-									{
-										"id": "CountKatzmark",
-										"kind": "label",
-										"bind": "countKatzmark",
-										"textSize": 20,
-										"textColor": "textDim",
-										"center": true,
-										"anchor": [
-											0.5,
-											0.5
-										],
-										"pos": [
-											0.5,
-											0,
-											0.5,
-											20
-										],
-										"size": [
-											1,
-											-24,
-											0,
-											26
-										]
-									}
-								]
-							},
-							{
-								"id": "CardSelvara",
-								"kind": "button",
-								"color": "selFill",
-								"line": "line",
-								"pos": [
-									0,
-									212,
-									0,
-									0
-								],
-								"size": [
-									0,
-									200,
-									0,
-									280
-								],
-								"children": [
-									{
-										"id": "FlagSelvara",
-										"kind": "image",
-										"anchor": [
-											0.5,
-											0
-										],
-										"pos": [
-											0.5,
-											0,
-											0,
-											24
-										],
-										"size": [
-											0,
-											120,
-											0,
-											80
-										]
-									},
-									{
-										"id": "NameSelvara",
-										"kind": "label",
-										"text": "Selvara",
-										"textSize": 30,
-										"textColor": "selText",
-										"center": true,
-										"anchor": [
-											0.5,
-											0.5
-										],
-										"pos": [
-											0.5,
-											0,
-											0.5,
-											-14
-										],
-										"size": [
-											1,
-											-24,
-											0,
-											36
-										]
-									},
-									{
-										"id": "CountSelvara",
-										"kind": "label",
-										"bind": "countSelvara",
-										"textSize": 20,
-										"textColor": "selText",
-										"center": true,
-										"anchor": [
-											0.5,
-											0.5
-										],
-										"pos": [
-											0.5,
-											0,
-											0.5,
-											20
-										],
-										"size": [
-											1,
-											-24,
-											0,
-											26
-										]
-									}
-								]
-							},
-							{
-								"id": "CardSowilo",
-								"kind": "button",
-								"color": "selFill",
-								"line": "line",
-								"pos": [
-									0,
-									424,
-									0,
-									0
-								],
-								"size": [
-									0,
-									200,
-									0,
-									280
-								],
-								"children": [
-									{
-										"id": "FlagSowilo",
-										"kind": "image",
-										"anchor": [
-											0.5,
-											0
-										],
-										"pos": [
-											0.5,
-											0,
-											0,
-											24
-										],
-										"size": [
-											0,
-											120,
-											0,
-											80
-										]
-									},
-									{
-										"id": "NameSowilo",
-										"kind": "label",
-										"text": "Sowilo",
-										"textSize": 30,
-										"textColor": "noText",
-										"center": true,
-										"anchor": [
-											0.5,
-											0.5
-										],
-										"pos": [
-											0.5,
-											0,
-											0.5,
-											-14
-										],
-										"size": [
-											1,
-											-24,
-											0,
-											36
-										]
-									},
-									{
-										"id": "CountSowilo",
-										"kind": "label",
-										"bind": "countSowilo",
-										"textSize": 20,
-										"textColor": "noText",
-										"center": true,
-										"anchor": [
-											0.5,
-											0.5
-										],
-										"pos": [
-											0.5,
-											0,
-											0.5,
-											20
-										],
-										"size": [
-											1,
-											-24,
-											0,
-											26
-										]
-									}
-								]
-							},
-							{
-								"id": "TeamNote",
-								"kind": "label",
-								"bind": "teamNote",
-								"textSize": 18,
-								"textColor": "text",
-								"align": "right",
-								"pos": [
-									0,
-									0,
-									0,
-									290
-								],
-								"size": [
-									1,
-									0,
-									0,
-									24
-								]
-							}
+							{ "id": "GrenadierRune", "kind": "glyph", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 18], "size": [0, 26, 0, 40] },
+							{ "id": "GrenadierName", "kind": "label", "text": "Grenadier", "textSize": 21, "textColor": "ink", "pos": [0, 8, 0, 66], "size": [1, -16, 0, 26], "center": true },
+							{ "id": "GrenadierBlurb", "kind": "label", "text": "Rifle and five grenades", "textSize": 13, "textColor": "inkDim", "wrap": true, "pos": [0, 16, 0, 94], "size": [1, -32, 0, 56], "center": true },
+							{ "id": "GrenadierCost", "kind": "label", "text": "50", "textSize": 19, "textColor": "pencil", "anchor": [0, 1], "pos": [0, 8, 1, -12], "size": [1, -16, 0, 26], "center": true }
 						]
 					}
+				]
+			},
+			{
+				"id": "Teams",
+				"kind": "group",
+				"overlay": true,
+				"anchor": [0.5, 0],
+				"pos": [0.5, 0, 0, 110],
+				"size": [0, 624, 0, 314],
+				"children": [
+					{
+						"id": "CardKatzmark",
+						"kind": "button",
+						"color": "selFill",
+						"line": "line",
+						"pos": [0, 0, 0, 0],
+						"size": [0, 200, 0, 280],
+						"children": [
+							{ "id": "FlagKatzmark", "kind": "image", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 24], "size": [0, 120, 0, 80] },
+							{ "id": "NameKatzmark", "kind": "label", "text": "Katzmark", "textSize": 30, "textColor": "textDim", "center": true, "anchor": [0.5, 0.5], "pos": [0.5, 0, 0.5, -14], "size": [1, -24, 0, 36] },
+							{ "id": "CountKatzmark", "kind": "label", "bind": "countKatzmark", "textSize": 20, "textColor": "textDim", "center": true, "anchor": [0.5, 0.5], "pos": [0.5, 0, 0.5, 20], "size": [1, -24, 0, 26] }
+						]
+					},
+					{
+						"id": "CardSelvara",
+						"kind": "button",
+						"color": "selFill",
+						"line": "line",
+						"pos": [0, 212, 0, 0],
+						"size": [0, 200, 0, 280],
+						"children": [
+							{ "id": "FlagSelvara", "kind": "image", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 24], "size": [0, 120, 0, 80] },
+							{ "id": "NameSelvara", "kind": "label", "text": "Selvara", "textSize": 30, "textColor": "selText", "center": true, "anchor": [0.5, 0.5], "pos": [0.5, 0, 0.5, -14], "size": [1, -24, 0, 36] },
+							{ "id": "CountSelvara", "kind": "label", "bind": "countSelvara", "textSize": 20, "textColor": "selText", "center": true, "anchor": [0.5, 0.5], "pos": [0.5, 0, 0.5, 20], "size": [1, -24, 0, 26] }
+						]
+					},
+					{
+						"id": "CardSowilo",
+						"kind": "button",
+						"color": "selFill",
+						"line": "line",
+						"pos": [0, 424, 0, 0],
+						"size": [0, 200, 0, 280],
+						"children": [
+							{ "id": "FlagSowilo", "kind": "image", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 24], "size": [0, 120, 0, 80] },
+							{ "id": "NameSowilo", "kind": "label", "text": "Sowilo", "textSize": 30, "textColor": "noText", "center": true, "anchor": [0.5, 0.5], "pos": [0.5, 0, 0.5, -14], "size": [1, -24, 0, 36] },
+							{ "id": "CountSowilo", "kind": "label", "bind": "countSowilo", "textSize": 20, "textColor": "noText", "center": true, "anchor": [0.5, 0.5], "pos": [0.5, 0, 0.5, 20], "size": [1, -24, 0, 26] }
+						]
+					},
+					{ "id": "TeamNote", "kind": "label", "bind": "teamNote", "textSize": 18, "textColor": "text", "shade": 0.45, "align": "center", "pos": [0, 0, 0, 290], "size": [1, 0, 0, 24] }
 				]
 			}
 		]

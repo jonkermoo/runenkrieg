@@ -138,6 +138,12 @@ local Remotes: { string } = {
 	-- src/server/Deploy); server -> client: (state: Rules/Classes.State plus `wait`: seconds until a deploy is allowed,
 	-- `alive`: a living soldier now, `kit`: the next life's uniform kit) on each death (the loadout menu while respawning) and in answer to each pick or ask
 	"Loadout",
+	-- The game's own chat (src/server/Chat, src/client/Chat; Config/Chat, Rules/Chat):
+	-- client -> server: ("Whisper", userId: number) open a whisper channel with that player | ("Global", text: string)
+	-- a line for every server; server -> client: ("Whisper", userId, channel: string?) the channel to send on (nil:
+	-- not allowed) | ("Global", line: { u: number, n: string, k: string?, t: string, s: string }) a filtered global
+	-- line (sender id, display name, kit, words, server tag) | ("Notice", text: string) a line only for this player
+	"Chat",
 }
 local Functions: { string } = {}
 

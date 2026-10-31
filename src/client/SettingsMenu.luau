@@ -5,9 +5,11 @@
 -- "MenuOpen" attribute frees the mouse (src/client/WeaponCamera); a click outside the panel closes it.
 -- Layout, sizes and fonts come from the spec src/shared/ui/SettingsMenu.json (local layout check and preview scripts
 -- read the same file); a row is built from the spec's template for its option's kind, so a new option
--- only needs its Config/Settings entry and a place in a tab. Look: the game's basic one (user 2026-10-27), the one
--- font, plain slate boxes with thin lines like the title screen's buttons, one line per row (Config/Palette
--- UI.Settings; docs/ART_STYLE.md). No CanvasGroup: every element sets its own transparency.
+-- only needs its Config/Settings entry and a place in a tab. Look: Field Grimoire's notebook (UI overhaul, user
+-- 2026-10-30): a paper sheet (Config/SketchMap.Paper) folded in two, the tabs down the left page, each with its rune
+-- (src/client/Ink), the open one underlined in red pencil; the options on the right page, each its name above its
+-- control; the one font. Colours: the palette the spec's theme names (Config/Palette UI.Grimoire.Notebook). No
+-- CanvasGroup: every element sets its own transparency.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19,6 +21,8 @@ local DevCfg = require(Shared.Config.DevTools)
 local Palette = require(Shared.Config.Palette)
 local R = require(Shared.Rules.Settings)
 local Spec = require(Shared.ui.SettingsMenu) :: any
+local SketchCfg = require(Shared.Config.SketchMap)
+local Ink = require(script.Parent.Ink)
 local Settings = require(script.Parent.Settings)
 
 local SettingsMenu = {}
@@ -26,8 +30,9 @@ local SettingsMenu = {}
 -- Opens the menu (the title screen's Settings button, src/client/Menus); set by start
 function SettingsMenu.open() end
 
-local C = Palette.UI.Settings :: any
 local T = Spec.theme
+local C = (T.palette and ((Palette.UI :: any).Grimoire[T.palette] or (Palette.UI :: any)[T.palette]))
+	or Palette.UI.Settings :: any
 local M = Cfg.Menu
 local O = Cfg.Options :: any
 
@@ -245,6 +250,7 @@ local function sliderRow(parent: Instance, order: number, key: string)
 	knob.Name = "Knob"
 	knob.AnchorPoint = Vector2.new(0.5, 0.5)
 	knob.Size = udim(kn.size)
+	knob.Rotation = if kn.diamond then 45 else 0
 	knob.ZIndex = 2
 	box(knob, kn.color)
 	knob.Parent = line
@@ -344,7 +350,11 @@ end
 local function boxButton(parent: Instance, n: any): TextButton
 	local b = clearButton(parent, n.id)
 	place(b, n)
-	box(b, n.color, n.line)
+	if n.slab then
+		Ink.slab(b)
+	elseif not n.clear then
+		box(b, n.color, n.line)
+	end
 	if n.text then
 		text(b, n.text, n)
 	end
@@ -384,7 +394,31 @@ function SettingsMenu.start()
 	panel.Active = true
 	place(panel, pn)
 	panel.Visible = false
-	box(panel, pn.color, pn.line, C.stroke)
+	if pn.paper then
+		-- the paper sheet, torn edge and all, and the fold between its pages
+		local p = SketchCfg.Paper
+		panel.BackgroundTransparency = 1
+		local sheet = Instance.new("ImageLabel")
+		sheet.Name = "Paper"
+		sheet.BackgroundTransparency = 1
+		sheet.Image = `rbxassetid://{p.image}`
+		sheet.ScaleType = Enum.ScaleType.Slice
+		sheet.SliceCenter = Rect.new(p.slice[1], p.slice[2], p.slice[3], p.slice[4])
+		sheet.Size = UDim2.fromScale(1, 1)
+		sheet.Parent = panel
+		local fn = find(Spec.root, "Fold")
+		if fn then
+			local fold = Instance.new("Frame")
+			fold.Name = "Fold"
+			place(fold, fn)
+			fold.BorderSizePixel = 0
+			fold.BackgroundColor3 = rgb(fn.color)
+			fold.BackgroundTransparency = C.foldTransparency or 0.8
+			fold.Parent = panel
+		end
+	else
+		box(panel, pn.color, pn.line, C.stroke)
+	end
 	panel.Parent = gui
 	local scales = {}
 	for _, obj in { panel, gear } do
@@ -404,6 +438,10 @@ function SettingsMenu.start()
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
 
 	label(panel, node("Title").text, node("Title"))
+	local footer = find(Spec.root, "Footer")
+	if footer then
+		label(panel, footer.text, footer)
+	end
 	local close = boxButton(panel, node("Close"))
 	local rule = Instance.new("Frame")
 	rule.Name = "Rule"
@@ -422,18 +460,51 @@ function SettingsMenu.start()
 	local tabNode = node("Tab1")
 	local tabs: { [string]: TextButton } = {}
 	local tabStrokes: { [string]: UIStroke? } = {}
+	local tabMarks: { [string]: Frame } = {}
 	local openTab: (string) -> ()
 	local n = #Cfg.Tabs
 	for i, tab in Cfg.Tabs do
 		local b = clearButton(bar, tab.name)
-		b.Position = UDim2.new((i - 1) / n, (i - 1) * tn.gap / n, 0, 0)
-		b.Size = UDim2.new(1 / n, -tn.gap * (n - 1) / n, 1, 0)
-		local stroke = box(b, "field", "line")
-		text(b, tab.name, tabNode)
+		if tn.vertical then
+			-- down the page: the rune, the name, and a red pencil line under the open one
+			b.Position = UDim2.fromOffset(0, (i - 1) * (tn.rowHeight + tn.gap))
+			b.Size = UDim2.new(1, 0, 0, tn.rowHeight)
+			text(b, tab.name, tabNode)
+			local pad = Instance.new("UIPadding")
+			pad.PaddingLeft = UDim.new(0, tn.rowHeight * 0.62)
+			pad.Parent = b
+			local runeName = tn.runes and tn.runes[i]
+			if runeName then
+				local glyph = Instance.new("Frame")
+				glyph.Name = "Rune"
+				glyph.BackgroundTransparency = 1
+				glyph.AnchorPoint = Vector2.new(0, 0.5)
+				glyph.Position = UDim2.new(0, -tn.rowHeight * 0.55, 0.5, 0)
+				glyph.Size = UDim2.fromOffset(tn.rowHeight * 0.26, tn.rowHeight * 0.42)
+				glyph.Parent = b
+				Ink.draw(glyph, function(holder, w, h)
+					Ink.rune(holder, runeName, 0, 0, w, h, math.max(1.5, h * 0.11), rgb("text"))
+				end)
+			end
+			local mark = Instance.new("Frame")
+			mark.Name = "Pencil"
+			mark.BorderSizePixel = 0
+			mark.BackgroundColor3 = rgb("pencil")
+			mark.Position = UDim2.new(0, 0, 1, -10)
+			mark.Size = UDim2.new(0.6, 0, 0, 4)
+			mark.Rotation = -1.5
+			mark.Parent = b
+			tabMarks[tab.name] = mark
+		else
+			b.Position = UDim2.new((i - 1) / n, (i - 1) * tn.gap / n, 0, 0)
+			b.Size = UDim2.new(1 / n, -tn.gap * (n - 1) / n, 1, 0)
+			tabStrokes[tab.name] = box(b, "field", "line")
+			text(b, tab.name, tabNode)
+		end
 		b.Activated:Connect(function()
 			openTab(tab.name)
 		end)
-		tabs[tab.name], tabStrokes[tab.name] = b, stroke
+		tabs[tab.name] = b
 	end
 
 	local refreshKeys: { () -> () } = {}
@@ -481,7 +552,13 @@ function SettingsMenu.start()
 			page.Visible = t == name
 		end
 		for t, b in tabs do
-			paint(b, tabStrokes[t], t == name)
+			local mark = tabMarks[t]
+			if mark then
+				mark.Visible = t == name
+				b.TextColor3 = rgb(if t == name then "text" else "textDim")
+			else
+				paint(b, tabStrokes[t], t == name)
+			end
 		end
 		capture(nil)
 	end
