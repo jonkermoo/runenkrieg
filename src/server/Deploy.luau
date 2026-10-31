@@ -16,6 +16,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Classes)
@@ -140,13 +141,10 @@ local function buildPreview(player: Player, key: string, seq: number, made: { ri
 	rig:SetAttribute("Class", key) -- (src/server/Loadouts: the class's helmet)
 	rig:SetAttribute("Muted", true)
 	rig:PivotTo(CFrame.new())
-	-- the old preview (every one: an older build may have left one) goes as this one comes
-	for _, old in gui:GetChildren() do
-		if old.Name == PREVIEW then
-			old:Destroy()
-		end
-	end
-	rig.Parent = gui
+	-- dressed whole out of the player's sight first, then handed over at once: src/client/Menus copies the rig the moment
+	-- it arrives, so one dressed in their PlayerGui was copied bare (user 2026-10-31: "avatar still naked or not
+	-- assessorized in loadout menu": the uniform but no hair, face, helmet or pack)
+	rig.Parent = ServerStorage
 	Bodies.apply(rig, player) -- in this player's next look
 	if previewSeq[player] ~= seq then
 		rig:Destroy()
@@ -160,6 +158,13 @@ local function buildPreview(player: Player, key: string, seq: number, made: { ri
 		tool.Parent = rig
 		rig:SetAttribute("Primary", primary) -- (src/client/Menus plays its ready hold)
 	end
+	-- the old preview (every one: an older build may have left one) goes as this one comes
+	for _, old in gui:GetChildren() do
+		if old.Name == PREVIEW then
+			old:Destroy()
+		end
+	end
+	rig.Parent = gui
 	return true
 end
 
@@ -171,11 +176,14 @@ local function preview(player: Player, key: string)
 	for attempt = 1, 2 do
 		local made: { rig: Model? } = { rig = nil }
 		local ok, err = pcall(buildPreview, player, key, seq, made)
-		if ok or previewSeq[player] ~= seq then
+		if ok then
 			return
 		end
 		if made.rig then
-			(made.rig :: Model):Destroy() -- (half built)
+			(made.rig :: Model):Destroy() -- (half built, out of sight in ServerStorage)
+		end
+		if previewSeq[player] ~= seq then
+			return
 		end
 		warn(`[Deploy] {player.Name}'s loadout preview failed (try {attempt} of 2): {err}`)
 	end
