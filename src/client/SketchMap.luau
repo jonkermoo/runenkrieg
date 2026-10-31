@@ -44,7 +44,7 @@ local function rgb(c: { number }): Color3
 end
 local FONT = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
 local RUNE_FOR = { "hagalaz", "sowilo", "tiwaz", "raidho", "othala", "algiz", "berkanan" } -- by sector order; HQs hagalaz
-local BOT_TAG = "Bot" -- Config/Bots.Tag (the bot soldiers; read by name so a branch without them still runs)
+local BOT_TAG = require(Shared.Config.Bots).Tag -- the bot soldiers (src/server/Bots)
 local FOLDER = "Frontline" -- Config/Frontline.FolderName (Territory Push; read by name so main without it still runs)
 
 type Point = { id: string, name: string, x: number, z: number, hq: boolean, start: string }

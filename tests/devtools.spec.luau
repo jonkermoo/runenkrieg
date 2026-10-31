@@ -60,6 +60,8 @@ return {
 		assert(not A.valid(Cfg, "Health", "100") and not A.valid(Cfg, "Health", nil))
 		assert(A.valid(Cfg, "BlastKg", Cfg.Blasts.Kg[1]) and not A.valid(Cfg, "BlastKg", 1e9))
 		assert(A.valid(Cfg, "BlastStage", 3) and not A.valid(Cfg, "BlastStage", 0))
+		assert(A.valid(Cfg, "PlacePiece", Cfg.Blasts.Pieces[1]) and A.Aimed.PlacePiece)
+		assert(not A.valid(Cfg, "PlacePiece", "Trench") and not A.valid(Cfg, "PlacePiece", nil))
 		assert(A.valid(Cfg, "Kill", nil) and not A.valid(Cfg, "Kill", true))
 		assert(A.valid(Cfg, "Grenade", Cfg.Admin.Grenades[1]) and not A.valid(Cfg, "Grenade", "rifle_g98"))
 		assert(not A.valid(Cfg, "Grenade", nil))

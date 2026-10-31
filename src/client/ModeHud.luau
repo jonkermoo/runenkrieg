@@ -4,7 +4,7 @@
 --   Territory Push: Workspace's Frontline folder (src/server/Frontline: West / East teams, Phase, Winner; a child
 --     folder per sector with Index, Owner, Control and the West / East soldiers in its zone). The viewer's side is on
 --     the left; one diamond per sector joined by a line, filled as far as its control goes in the colour of the side it
---     leans to. Shown on the loadout screen; in play only while V is held, fading fast, with a dot over each teammate
+--     leans to. Shown on the loadout screen; in play only while M is held, fading fast, with a dot over each teammate
 --     seen through walls (user 2026-10-29: "make the bar appear and a dot above all teammates that you can see through
 --     walls appear (with a fast fade) when players hold v"), and a diamond over each point that can be taken now, its
 --     fill the bar's (user 2026-10-30: "show where the point is when you hold v", "only show the ones that arent
@@ -17,7 +17,7 @@
 -- Hidden when neither runs, and on the title screen ("dont show the status of the game until players are on or past
 -- the loadout screen"; src/client/Menus' TitleScreen and LoadoutMenu).
 -- UI overhaul (user 2026-10-30: "lets do the sketch map", "maps top left"): in Territory Push the sketch map
--- (src/client/SketchMap, Config/SketchMap.Hud) stands top left in play while V is held (in Point Capture too: the
+-- (src/client/SketchMap, Config/SketchMap.Hud) stands top left in play while M is held (in Point Capture too: the
 -- Playtest map with only you and the zone, user 2026-10-30: "make the hold v to show map appear for FFA mode ... just
 -- have your player and the moving point") (user 2026-10-30: "make the map
 -- appear with V too when in game"), with the soldier as a red pencil arrow and the teammate dots and the open points'
@@ -599,7 +599,7 @@ function ModeHud.start()
 			task.wait(Cfg.Refresh)
 		end
 	end)
-	-- the map, the dots and the markers while V is held in play; the bar only for the result
+	-- the map, the dots and the markers while M is held in play; the bar only for the result
 	RunService.RenderStepped:Connect(function(dt)
 		local title, loadout = screenOn("TitleScreen"), screenOn("LoadoutMenu")
 		local held = UserInputService:IsKeyDown(Cfg.ShowKey) and UserInputService:GetFocusedTextBox() == nil

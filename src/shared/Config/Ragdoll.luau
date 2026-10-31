@@ -18,6 +18,10 @@ local Ragdoll = {
 	minDown = 0.35,
 	maxDown = 3,
 	Collider = { 0.7, 0.85, 0.7 }, -- each limb's collider while down, x the limb's size (kept off the torso)
+	-- and a second one over the limb's far end (`share` of its length, the hand or foot; the same width) that does hit
+	-- the torso, so a limb swung in folds against the body, not into it (user 2026-10-31: "clipping issues underneath
+	-- the torso": the hands showed through it); the end near the joint stays off the torso, where it would fight it
+	EndCollider = { share = 0.45, width = 0.7 },
 	-- Knocks: how hard each cause throws the body (studs/s back along the push and up, a tumble in rad/s) and how long
 	-- after settling it gets up. Callers scale them by their own factors (strength, distance).
 	Knocks = {
@@ -64,6 +68,12 @@ local Ragdoll = {
 	SelfRate = 2, -- "KnockSelf" requests a second at most (and burst)
 	-- the client shows a knock it asked for at once and waits this long for the server's ragdoll before giving up
 	SelfWait = 1.5,
+	-- A server-owned soldier (a bot, a dev dummy: no client of its own) getting up is stood upright on its feet where it
+	-- lies, facing the way it lay, then left to the Humanoid's GettingUp (user 2026-10-31: "npc's that ragdoll dont
+	-- stand back up properly"): the ground found by a ray `probe` studs down from the torso, the body put `lift` studs
+	-- over standing height; FallingDown and Ragdoll, the Humanoid's own tip-over states, are off for them for good (a
+	-- body just stood up tipped straight back over)
+	Stand = { probe = 8, lift = 0.25 },
 }
 
 return table.freeze(Ragdoll)

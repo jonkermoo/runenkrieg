@@ -42,6 +42,9 @@ local Chat = {
 		tabSize = 22, -- the chosen tab; the others are smaller
 		tabSizeOff = 17,
 		hintSize = 15,
+		-- the hide toggle under the panel (user 2026-10-31: "can we also make the chat hideable"): a faint word, its
+		-- gap below the panel's wash; hidden, only it stays, with a red mark once a line comes in
+		toggle = { gap = 6, height = 22, fade = 0.35 },
 		washTransparency = 0.45,
 		scale = { min = 0.65, max = 1.25 },
 	},

@@ -125,6 +125,8 @@ local DevTools = {
 			-- settings' dev-only rows, the sector dividers and markers shown in dev play); the HUD, the Roblox UI, the settings
 			-- gear and the name tags stay as players have them. On the Player while on.
 			GameAttribute = "DevGameView",
+			-- PlayerGui guis the Game switch keeps off too: the hit readout ("head  ·  70 studs"; user 2026-10-31)
+			GameGuis = { "HitNote" },
 			-- hiding the Roblox UI also takes Roblox's hotbar and its number keys away; while hidden these keys still
 			-- equip / unequip the tools in hotbar order (user 2026-10-26: "it should just hide")
 			HotbarKeys = { "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine" },
@@ -223,6 +225,8 @@ local DevTools = {
 		-- Config/Build pieces placed finished at the aim point, facing away from you, for your team (Build.devPlace;
 		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn")
 		Pieces = { "MGNest" },
+		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
+		RefusedSeconds = 3,
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the

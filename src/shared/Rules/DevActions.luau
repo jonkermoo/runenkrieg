@@ -5,7 +5,7 @@
 local DevActions = {}
 
 -- actions that act at the aim point (the middle of the player's screen)
-DevActions.Aimed = table.freeze({ BlastStage = true, BlastKg = true, Dummy = true, PlaceGun = true })
+DevActions.Aimed = table.freeze({ BlastStage = true, BlastKg = true, Dummy = true, PlaceGun = true, PlacePiece = true })
 
 -- actions with no value (or a plain on/off)
 local PLAIN = table.freeze({
@@ -102,6 +102,8 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Blasts.Kg, value) ~= nil
 	elseif action == "PlaceGun" then
 		return table.find(cfg.Blasts.Guns, value) ~= nil
+	elseif action == "PlacePiece" then
+		return table.find(cfg.Blasts.Pieces, value) ~= nil
 	elseif action == "Dummy" then
 		return type(value) == "table"
 			and kitOf(cfg, value.kit) ~= nil
