@@ -130,9 +130,8 @@ function Firing.entry(tool: Tool): Entry?
 	return e
 end
 
--- The weapon the player has in the hands, if alive.
-local function held(player: Player): (Model?, Tool?, Entry?)
-	local character = player.Character
+-- The weapon a soldier has in the hands, if alive.
+local function heldBy(character: Model?): (Model?, Tool?, Entry?)
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not character or not humanoid or humanoid.Health <= 0 then
 		return nil, nil, nil
@@ -140,6 +139,11 @@ local function held(player: Player): (Model?, Tool?, Entry?)
 	local tool = character:FindFirstChildOfClass("Tool")
 	local e = tool and Firing.entry(tool)
 	return character, tool, e
+end
+
+-- The weapon the player has in the hands, if alive.
+local function held(player: Player): (Model?, Tool?, Entry?)
+	return heldBy(player.Character)
 end
 
 Firing.held = held
@@ -185,24 +189,36 @@ function Firing.lines(name: string, direction: Vector3, seed: number): { Vector3
 	return out
 end
 
-local function shoot(player: Player, origin: any, direction: any, seed: any)
-	local character, tool, e = held(player)
+-- `fn(shooter, origin, hit)` after every shot that went off (src/server/Bots: near misses)
+local shotWatchers: { (Model, Vector3, Vector3) -> () } = {}
+function Firing.onShot(fn: (Model, Vector3, Vector3) -> ())
+	table.insert(shotWatchers, fn)
+end
+
+-- A shot from `character`'s held weapon (a player's, from "Fire" below; an bot soldier's, src/server/Bots): the same
+-- checks and hits either way. True if it went off.
+local function shootAs(character: Model?, origin: any, direction: any, seed: any, player: Player?): boolean
+	local _, tool, e = heldBy(character)
 	local head = character and character:FindFirstChild("Head") :: BasePart?
 	if not character or not tool or not e or not head then
-		return
+		return false
 	end
 	e.seq += 1
 	local ok = typeof(origin) == "Vector3"
 		and typeof(direction) == "Vector3"
 		and (seed == nil or type(seed) == "number")
-		and allowed(player)
+		and (player == nil or allowed(player))
 		and not striking(character)
 		and F.validShot((origin - head.Position).Magnitude, direction.Magnitude, Cfg.MaxOrigin)
 	if not ok or not F.fire(e.state, e.gun, os.clock(), Cfg.Slack) then
 		publish(tool, e.state, e.seq) -- the client resyncs to this
-		return
+		return false
 	end
-	if player:GetAttribute(DevCfg.Attribute) == true and player:GetAttribute(DevCfg.Admin.AmmoAttribute) == true then
+	if
+		player
+		and player:GetAttribute(DevCfg.Attribute) == true
+		and player:GetAttribute(DevCfg.Admin.AmmoAttribute) == true
+	then
 		F.topUp(e.state, e.gun) -- (the admin panel's unlimited ammo)
 	end
 	publish(tool, e.state, e.seq)
@@ -282,12 +298,27 @@ local function shoot(player: Player, origin: any, direction: any, seed: any)
 	end
 	Damage.shot(character, name, wounds)
 	local first = table.remove(hits, 1) :: any
+	for _, fn in shotWatchers do
+		task.spawn(fn, character, origin, first[1])
+	end
 	Net.event("Shot")
 		:FireAllClients(character, name, origin, first[1], first[2], first[3], if #hits > 0 then hits else nil)
+	return true
 end
 
-local function act(player: Player, action: string)
-	local character, tool, e = held(player)
+local function shoot(player: Player, origin: any, direction: any, seed: any)
+	shootAs(player.Character, origin, direction, seed, player)
+end
+
+-- A shot from an bot soldier's held weapon along `direction` from `origin` (its muzzle; src/server/Bots).
+function Firing.fireAs(character: Model, origin: Vector3, direction: Vector3, seed: number): boolean
+	return shootAs(character, origin, direction, seed, nil)
+end
+
+-- "Bolt", "Reload" or "StopLoad" on `character`'s held weapon (a player's from the remotes, rate limited; a bot
+-- soldier's from src/server/Bots).
+local function actAs(character: Model?, action: string, player: Player?)
+	local _, tool, e = heldBy(character)
 	if not character or not tool or not e then
 		return
 	end
@@ -295,7 +326,7 @@ local function act(player: Player, action: string)
 	local ok, _, out, kind = false, nil, nil, nil
 	local now = os.clock()
 	local wasOpen = e.state.open
-	if not allowed(player) or striking(character) then
+	if (player and not allowed(player)) or striking(character) then
 		ok = false
 	elseif action == "Bolt" then
 		ok, _, out = F.bolt(e.state, e.gun, now, Cfg.Slack)
@@ -333,6 +364,14 @@ local function act(player: Player, action: string)
 		}
 		Net.event("WeaponAction"):FireAllClients(character, action, out, from, to, nil)
 	end
+end
+
+local function act(player: Player, action: string)
+	actAs(player.Character, action, player)
+end
+
+function Firing.actAs(character: Model, action: string)
+	actAs(character, action, nil)
 end
 
 function Firing.start()

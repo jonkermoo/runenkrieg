@@ -954,19 +954,29 @@ local function count(team: string, owner: number?): number
 	return n
 end
 
--- the soldier's character, root and team when they hold the shovel
-local function digger(player: Player): (Model?, BasePart?, string?)
+-- the soldier's character, root and team
+local function soldier(player: Player): (Model?, BasePart?, string?)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not character or not root or not holdsShovel(character) then
+	if not character or not root then
 		return nil, nil, nil
 	end
 	return character, root, teamOf(character)
 end
 
--- Lays a blueprint (Net "Build" "Place")
-local function place(player: Player, key: any, at: any)
-	local character, root, team = digger(player)
+-- the soldier's character, root and team when they hold the shovel
+local function digger(player: Player): (Model?, BasePart?, string?)
+	local character, root, team = soldier(player)
+	if not character or not holdsShovel(character) then
+		return nil, nil, nil
+	end
+	return character, root, team
+end
+
+-- Lays a blueprint (Net "Build" "Place"). `dev`: the admin panel's spawn list (Build.devPlace): no shovel, reach or
+-- limits, and a sandbag pile or MG nest stands finished at once
+local function place(player: Player, key: any, at: any, dev: boolean?)
+	local character, root, team = (if dev then soldier else digger)(player)
 	local piece = Rules.piece(key, C.Pieces)
 	if not character or not root or not team or not piece or typeof(at) ~= "CFrame" or piece.kind == "Trench" then
 		return
@@ -997,7 +1007,7 @@ local function place(player: Player, key: any, at: any)
 	local gunPiece = gunAt ~= nil
 	local ok, reason = Rules.canPlace({
 		piece = piece,
-		distance = (root.Position - (if gunAt then gunAt.Position else frame.Position)).Magnitude,
+		distance = if dev then 0 else (root.Position - (if gunAt then gunAt.Position else frame.Position)).Magnitude,
 		reach = C.Reach + 2, -- (the client's ghost checks C.Reach; slack for movement since)
 		spot = spot,
 		slope = if bridge then 0 else report.slope,
@@ -1010,12 +1020,12 @@ local function place(player: Player, key: any, at: any)
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
 		-- (a wire keeps off trenches too: their hole, walls and bank)
 		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
-		mine = count(team, player.UserId),
-		team = count(team, nil),
+		mine = if dev then 0 else count(team, player.UserId),
+		team = if dev then 0 else count(team, nil),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
 		-- (only engineers build guns: Config/Classes; the admin panel's build anything: everyone)
-		allowed = Loadouts.mayBuild(character, piece.kind) or buildsAll(player),
+		allowed = dev or Loadouts.mayBuild(character, piece.kind) or buildsAll(player),
 	})
 	if not ok then
 		refuse(player, reason or "Can't build here")
@@ -1075,6 +1085,15 @@ local function place(player: Player, key: any, at: any)
 	end
 	recs[model] = r
 	model.Parent = f
+	if dev and (bags or nest) then
+		-- (finished, as if dug to the end; no match points for it)
+		r.work = r.need
+		r.built, r.paid = true, true
+		local s = model:FindFirstChild(if nest then "Nest" else "Pile")
+		if s then
+			s:SetAttribute("HP", r.work)
+		end
+	end
 	apply(r)
 	-- a bridge falls in with its square: buried past where its dirt pieces go, or gone
 	if square then
@@ -1359,6 +1378,12 @@ end
 -- A blast at `position` (src/server/Damage.blast, after the crater) of `kg`, `key` what it is to built things (a
 -- Config/Build.Structures key; nil: by its charge): trenches are buried (src/server/Trenches), sandbag piles and wire
 -- worn down, each by how far it is from the blast.
+-- The admin panel's spawn list (src/server/DevTools "PlacePiece"): a Config/Build piece laid finished at `at`
+-- (facing its LookVector) for `player`'s team; still refused on ground it can't stand on
+function Build.devPlace(player: Player, key: string, at: CFrame)
+	place(player, key, at, true)
+end
+
 function Build.blast(position: Vector3, kg: number, key: string?)
 	local S = C.Structures
 	local src = Rules.structureSource(key, kg, S)

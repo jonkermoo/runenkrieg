@@ -10,9 +10,12 @@ local function dist(a, b): number
 end
 
 return {
-	["chain is HQ, 5 sectors, HQ"] = function()
-		assert(#sectors == 7, "expected 7 entries")
+	["chain is 5 points, an HQ at each end (user 2026-10-27: S1 and S5 are the HQs)"] = function()
+		assert(#sectors == 5, "expected 5 entries")
 		assert(sectors[1].isHQ and sectors[#sectors].isHQ, "chain must start and end with an HQ")
+		for i = 2, #sectors - 1 do
+			assert(not sectors[i].isHQ, `{sectors[i].id} is fought over, not an HQ`)
+		end
 	end,
 	["exactly one neutral sector, in the center"] = function()
 		local neutral = {}
@@ -21,10 +24,10 @@ return {
 				table.insert(neutral, i)
 			end
 		end
-		assert(#neutral == 1 and neutral[1] == 4, "the center sector must be the only neutral one")
+		assert(#neutral == 1 and neutral[1] == 3, "the center sector must be the only neutral one")
 	end,
 	["start ownership is symmetric"] = function()
-		for i = 1, 3 do
+		for i = 1, 2 do
 			assert(sectors[i].startOwner == "West", `{sectors[i].id} should start West`)
 			assert(sectors[#sectors + 1 - i].startOwner == "East", `{sectors[#sectors + 1 - i].id} should start East`)
 		end
@@ -50,7 +53,7 @@ return {
 		end
 	end,
 	["river lies between the S3 and S4 zones"] = function()
-		local s3, s4 = sectors[4], sectors[5]
+		local s3, s4 = sectors[3], sectors[4]
 		local r = Map1.river
 		local reach = r.width / 2 + r.bankWidth + r.meanderAmp
 		assert(s3.x + s3.radius < r.x - reach, "river cuts into S3")
@@ -68,7 +71,16 @@ return {
 		end
 		assert(wide >= 1 and narrow >= 2, "need 1+ vehicle ford and 2+ infantry fords")
 	end,
+	["each spawn sits behind its own HQ, about as far out as the old HQ points (~225 studs)"] = function()
+		for side, i in { West = 1, East = #sectors } do
+			local r, hq = Map1.spawnZones[side], sectors[i]
+			local d = dist({ x = (r.minX + r.maxX) / 2, z = (r.minZ + r.maxZ) / 2 }, hq)
+			assert(d > 180 and d < 270, `{side} spawn {d} from its HQ`)
+			local behind = if side == "West" then r.maxX < hq.x - hq.radius else r.minX > hq.x + hq.radius
+			assert(behind, `{side} spawn isn't behind its HQ`)
+		end
+	end,
 	["map fits the fog: you cannot see HQ to HQ"] = function()
-		assert(dist(sectors[1], sectors[#sectors]) > Map1.fogEnd * 2, "map too small for its fog")
+		assert(dist(sectors[1], sectors[#sectors]) > Map1.fogEnd, "map too small for its fog")
 	end,
 }

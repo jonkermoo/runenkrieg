@@ -101,7 +101,7 @@ local function cap(parent: Instance, text: string, order: number): TextLabel
 	pad.PaddingLeft, pad.PaddingRight = UDim.new(0, 5), UDim.new(0, 5)
 	pad.PaddingTop, pad.PaddingBottom = UDim.new(0, 2), UDim.new(0, 2)
 	pad.Parent = c
-	corner(c, 2)
+	corner(c, T.corner)
 	return c
 end
 
@@ -327,12 +327,12 @@ function BuildHud.new(player: Player): Hud
 	track.BackgroundColor3 = rgb("track")
 	track.Position = UDim2.fromOffset(0, (R.tick - R.track) / 2)
 	track.Size = UDim2.new(1, 0, 0, R.track)
-	corner(track, 2)
+	corner(track, T.corner)
 	local reach = frame(ruler, "Fill")
 	reach.BackgroundTransparency = 0
 	reach.BackgroundColor3 = rgb("modePlan")
 	reach.Position = track.Position
-	corner(reach, 2)
+	corner(reach, T.corner)
 	local marks = frame(ruler, "Marks")
 	marks.Size = UDim2.fromScale(1, 1)
 	marks.ZIndex = 2

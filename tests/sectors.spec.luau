@@ -41,6 +41,11 @@ local function sprint(studs: number): number
 end
 
 return {
+	["borders: shown by default only in DEV play tests outside Normal; the admin's switch does the rest"] = function()
+		assert(R.shownByDefault(Cfg, Cfg.DevPlaceId, "Admin") and R.shownByDefault(Cfg, Cfg.DevPlaceId, "FFA"))
+		assert(not R.shownByDefault(Cfg, Cfg.DevPlaceId, "Normal"), "hidden in Normal (user 2026-10-27)")
+		assert(not R.shownByDefault(Cfg, 1, "Admin"), "never by default outside the DEV place")
+	end,
 	["one divider between each pair of neighbouring sectors, west to east"] = function()
 		assert(#map.dividers == #map.sectors - 1, `{#map.dividers} dividers for {#map.sectors} sectors`)
 		for i, d in map.dividers do

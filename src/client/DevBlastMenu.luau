@@ -3,7 +3,8 @@
 -- DevAim; Config/DevTools.Blasts): a staff stage's blast or a real charge in kg. The server does the damage, knocks and
 -- destruction (src/server/Damage.blast) and sends Net "DevBlast" to everyone, shown here (src/client/Vfx/Blast).
 -- The artillery buttons place a field gun or a howitzer at the aim point, muzzle away from you, or remove them all
--- (src/server/Artillery; E mans one).
+-- (src/server/Artillery; E mans one); "Place MG nest" lays a finished MG nest there, its gun facing away from you
+-- (src/server/Build.devPlace; dig it apart to remove it).
 -- "My blasts hurt me": off, your own blast knocks you but never hurts you (as in the game). The menu is only shown when
 -- the server marked this player with the DevTools attribute; every client shows the explosions.
 
@@ -51,6 +52,16 @@ local function build(player: Player): ScreenGui
 			local aim = DevAim.point()
 			if aim then
 				Net.event("DevAction"):FireServer("PlaceGun", key, aim)
+			end
+		end)
+	end
+	local pieceNames = { MGNest = "Place MG nest" }
+	for _, key in B.Pieces do
+		order += 1
+		DevPanel.button(p.panel, "Piece_" .. key, pieceNames[key] or key, order).Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer("PlacePiece", key, aim)
 			end
 		end)
 	end

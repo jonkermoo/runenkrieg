@@ -160,6 +160,13 @@ return {
 		assert(A.valid(Cfg, "Points", Cfg.Admin.Points[1]) and not A.valid(Cfg, "Points", 1e9))
 		assert(A.valid(Cfg, "ZoneScore", Cfg.Admin.ZoneScore[1]) and not A.valid(Cfg, "ZoneScore", -5))
 		assert(A.valid(Cfg, "MatchTime", Cfg.Admin.MatchSeconds[1]) and not A.valid(Cfg, "MatchTime", 7))
+		assert(
+			A.valid(Cfg, "Bots", Cfg.Admin.BotCounts[1])
+				and not A.valid(Cfg, "Bots", 7)
+				and not A.valid(Cfg, "Bots", "5")
+		)
+		assert(A.valid(Cfg, "BotsAuto", nil) and not A.valid(Cfg, "BotsAuto", 3))
+		assert(A.valid(Cfg, "BotDifficulty", "Hard") and not A.valid(Cfg, "BotDifficulty", "Nightmare"))
 		for _, plain in { "MatchEnd", "MatchRestart", "ZoneSkip", "RespawnAll" } do
 			assert(A.valid(Cfg, plain, nil) and not A.valid(Cfg, plain, true), plain)
 		end

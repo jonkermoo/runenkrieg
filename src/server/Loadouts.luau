@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Classes)
+local BotsCfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
 local ModesCfg = require(Shared.Config.Modes)
 local U = require(Shared.Config.Uniforms)
@@ -31,6 +32,9 @@ local Kits = require(script.Parent.Kits)
 local Loadouts = {}
 
 local points: { [Player]: number } = {}
+-- the bot soldiers' match points (src/server/Bots), by their negative id (Config/Bots.IdAttribute): they earn and spend
+-- like players (user 2026-10-30: "they have their own points that they can use to upgrade")
+local botPoints: { [number]: number } = {}
 local picks: { [Player]: string } = {}
 -- the hits each soldier took this life, by players (Rules/Classes.credit)
 local hits: { [Model]: { Rules.Hit } } = setmetatable({}, { __mode = "k" }) :: any
@@ -128,10 +132,46 @@ function Loadouts.grant(player: Player, amount: number)
 	send(player)
 end
 
+-- A soldier's id for the kill credit: a player's UserId, a bot's negative id, else nil.
+local function soldierId(character: Model?): number?
+	if not character then
+		return nil
+	end
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		return player.UserId
+	end
+	local id = character:GetAttribute(BotsCfg.IdAttribute)
+	return if type(id) == "number" then id else nil
+end
+
+-- A bot's match points (the start of the match until it earns).
+function Loadouts.botPoints(id: number): number
+	return botPoints[id] or C.Start
+end
+
+-- Takes `cost` of bot `id`'s points (its class this life, src/server/Bots).
+function Loadouts.botPay(id: number, cost: number)
+	botPoints[id] = math.max(0, Loadouts.botPoints(id) - cost)
+end
+
+-- Pays bot `id` as Loadouts.award pays a player.
+function Loadouts.awardBot(id: number, reason: string, times: number?)
+	local amount = C.Earn[reason]
+	assert(amount, "unknown award " .. reason)
+	local boost = Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute))
+	botPoints[id] = Rules.earn(Loadouts.botPoints(id), amount * (times or 1) * boost)
+end
+
+-- (a bot that leaves for good: its points go)
+function Loadouts.forgetBot(id: number)
+	botPoints[id] = nil
+end
+
 -- A soldier hurt by `by` (src/server/Damage): `amount` health off, `zone` where (nil: a blast or a staff shot).
 function Loadouts.hurt(victim: Model, by: Model?, amount: number, zone: string?)
-	local player = by and Players:GetPlayerFromCharacter(by)
-	if not player or by == victim or amount <= 0 then
+	local byId = soldierId(by)
+	if not byId or by == victim or amount <= 0 then
 		return
 	end
 	local list = hits[victim]
@@ -139,27 +179,50 @@ function Loadouts.hurt(victim: Model, by: Model?, amount: number, zone: string?)
 		list = {}
 		hits[victim] = list
 	end
-	table.insert(list, { by = player.UserId, amount = amount, at = os.clock(), zone = zone })
+	table.insert(list, { by = byId :: number, amount = amount, at = os.clock(), zone = zone })
 end
 
+-- `fn(killer, victim)` on each kill credited to a player (src/server/Frontline: Defend)
+local killWatchers: { (Player, Model) -> () } = {}
+function Loadouts.onKill(fn: (Player, Model) -> ())
+	table.insert(killWatchers, fn)
+end
+
+-- pays a player or a bot by id (`share` of the award: a bot's death pays Config/Bots.KillShare)
+local function pay(id: number, reason: string, share: number)
+	if id < 0 then
+		Loadouts.awardBot(id, reason, share)
+		return
+	end
+	local p = Players:GetPlayerByUserId(id)
+	if p then
+		Loadouts.award(p, reason, share)
+	end
+end
+
+-- A soldier's death (a player's, from their Humanoid; a bot's, src/server/Bots): the killer and the assists paid.
 local function died(character: Model)
 	local victim = Players:GetPlayerFromCharacter(character)
 	local A = C.Assist
-	local killer, head, assists =
-		Rules.credit(hits[character] or {}, victim and victim.UserId, os.clock(), A.window, A.least)
+	local victimId = soldierId(character)
+	local killer, head, assists = Rules.credit(hits[character] or {}, victimId, os.clock(), A.window, A.least)
 	hits[character] = nil
-	local k = killer and Players:GetPlayerByUserId(killer)
-	if k then
-		Loadouts.award(k, "Kill")
+	-- a bot is worth half (user 2026-10-30: "make the AIs count half the battle points when you kill them")
+	local share = if victimId and victimId < 0 then BotsCfg.KillShare else 1
+	if killer then
+		pay(killer, "Kill", share)
 		if head then
-			Loadouts.award(k, "Headshot")
+			pay(killer, "Headshot", share)
+		end
+		local k = if killer > 0 then Players:GetPlayerByUserId(killer) else nil
+		if k then
+			for _, fn in killWatchers do
+				task.spawn(fn, k, character)
+			end
 		end
 	end
 	for _, id in assists do
-		local a = Players:GetPlayerByUserId(id)
-		if a then
-			Loadouts.award(a, "Assist")
-		end
+		pay(id, "Assist", share)
 	end
 	if victim then
 		if deployer then
@@ -169,10 +232,13 @@ local function died(character: Model)
 	end
 end
 
--- A new match: everyone's points back to the start, picks back to the default.
+Loadouts.died = died
+
+-- A new match: everyone's points back to the start (the bots' too), picks back to the default.
 function Loadouts.resetMatch()
 	table.clear(points)
 	table.clear(picks)
+	table.clear(botPoints)
 end
 
 Loadouts.send = send

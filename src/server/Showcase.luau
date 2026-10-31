@@ -58,8 +58,15 @@ local function label(parent: BasePart, text: string, offset: number, size: numbe
 	gui.Parent = parent
 end
 
--- a soldier in uniform `kitName` (default: the default kit), standing anchored at `cf`
-local function dummy(name: string, cf: CFrame, parent: Instance?, kitName: string?): Model
+-- a soldier in uniform `kitName` (default: the default kit), standing anchored at `cf`; `attributes` set on it before
+-- it is dressed (src/server/Bots: its "Class", so the class's helmet)
+local function dummy(
+	name: string,
+	cf: CFrame,
+	parent: Instance?,
+	kitName: string?,
+	attributes: { [string]: any }?
+): Model
 	local kit = U.Kits[kitName or U.Default]
 	local skin = rgb(kit.skin)
 	local desc = Instance.new("HumanoidDescription")
@@ -76,10 +83,16 @@ local function dummy(name: string, cf: CFrame, parent: Instance?, kitName: strin
 	humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 	m:SetAttribute("Muted", true) -- their guns make no sound (user 2026-10-12: too loud; src/client/GunFx)
 	m:SetAttribute("Kit", kitName) -- (src/server/Kits: what Bodies dresses it in)
+	for k, v in attributes or {} do
+		m:SetAttribute(k, v)
+	end
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 	root.Anchored = true
 	m.PrimaryPart = root -- the model's own pivot is its box centre: place it by the root
 	m:PivotTo(cf)
+	-- streamed whole: under StreamingEnabled a model's parts otherwise arrive one by one, and a soldier showed on clients
+	-- without its hair, helmet, face or gun (user's FFA play test 2026-10-30; players' characters always stream whole)
+	m.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	m.Parent = parent or folder
 	Bodies.apply(m)
 	return m
