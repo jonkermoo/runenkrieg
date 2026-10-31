@@ -86,7 +86,8 @@ local function loosen(character: Model, torso: BasePart): Down
 			table.insert(loose, m)
 		end
 	end
-	-- R6 limbs don't collide: a collider inside each, kept off the torso so they don't fight it
+	-- R6 limbs don't collide: a collider inside each, kept off the torso so they don't fight it, and one over the hand or
+	-- foot end that the torso does stop (no arm folding into the chest)
 	for _, name in LIMBS do
 		local limb = character:FindFirstChild(name) :: BasePart?
 		if limb then
@@ -106,6 +107,21 @@ local function loosen(character: Model, torso: BasePart): Down
 			n.Parent = c
 			c.Parent = limb
 			table.insert(made, c)
+			-- the far end, which the torso stops (Config/Ragdoll.EndCollider)
+			local E = Cfg.EndCollider
+			local e = Instance.new("Part")
+			e.Name = "RagdollEnd"
+			e.Size = Vector3.new(limb.Size.X * E.width, limb.Size.Y * E.share, limb.Size.Z * E.width)
+			e.Transparency = 1
+			e.CanCollide, e.CanQuery, e.CanTouch = true, false, false
+			e.Massless = true
+			e.CollisionGroup = limb.CollisionGroup
+			e.CFrame = limb.CFrame * CFrame.new(0, -(limb.Size.Y - e.Size.Y) / 2, 0)
+			local we = Instance.new("WeldConstraint")
+			we.Part0, we.Part1 = limb, e
+			we.Parent = e
+			e.Parent = limb
+			table.insert(made, e)
 		end
 	end
 	-- the invisible root box doesn't touch the ground while down (2-player test: it held a dead torso upright on its
