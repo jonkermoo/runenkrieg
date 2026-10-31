@@ -507,7 +507,12 @@ function StaffAttack.start()
 				end
 				remote:FireServer("Aim", to, held, Rules.affordable(mana, Cfg.Mana))
 			end
-			c.veil(S.Veil, S.OlderVeil, S.StageVeils) -- the caster's own view, first or third person
+			-- the caster's own view: fainter in first person (ViewVeil), so the circles don't block the aim
+			if character:GetAttribute("CameraInside") == true then
+				c.veil(S.ViewVeil, S.OlderVeil, S.ViewStageVeils)
+			else
+				c.veil(S.Veil, S.OlderVeil, S.StageVeils)
+			end
 		else
 			pointer.hide()
 		end

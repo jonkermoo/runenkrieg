@@ -110,6 +110,11 @@ local Spells = {
 		-- ...and each circle opened before the newest one this much more again (compounding), so the older ones don't
 		-- overshadow the new (user 2026-10-13; was 0.5 with one veil for all)
 		OlderVeil = 0.3,
+		-- first person (the camera inside the head): fainter still, in place of Veil / StageVeils (user 2026-10-31:
+		-- "our own rune circles when ads/charging has to be way more transparent as they block too much of our view";
+		-- was Veil / StageVeils there too). Third person and other players' view of the cast are unchanged.
+		ViewVeil = 0.93,
+		ViewStageVeils = { 0.96, 0.93, 0.89 },
 		-- a stage 3 shot's knock back into a ragdoll: Config/Ragdoll.Knocks.StaffRecoil
 	},
 
