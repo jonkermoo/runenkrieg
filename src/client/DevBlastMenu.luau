@@ -55,16 +55,36 @@ local function build(player: Player): ScreenGui
 			end
 		end)
 	end
+	-- (a refused piece shows why on its button for a moment: src/server/DevTools)
 	local pieceNames = { MGNest = "Place MG nest" }
+	local pieceButtons: { [string]: TextButton } = {}
 	for _, key in B.Pieces do
 		order += 1
-		DevPanel.button(p.panel, "Piece_" .. key, pieceNames[key] or key, order).Activated:Connect(function()
+		local button = DevPanel.button(p.panel, "Piece_" .. key, pieceNames[key] or key, order)
+		pieceButtons[key] = button
+		button.Activated:Connect(function()
 			local aim = DevAim.point()
 			if aim then
 				Net.event("DevAction"):FireServer("PlacePiece", key, aim)
 			end
 		end)
 	end
+	local refusals = Net.event("DevAction").OnClientEvent:Connect(function(kind: any, key: any, reason: any)
+		local button = type(key) == "string" and pieceButtons[key]
+		if kind ~= "Refused" or not button or type(reason) ~= "string" then
+			return
+		end
+		local label = pieceNames[key] or key
+		button.Text = `{label}: {reason}`
+		task.delay(B.RefusedSeconds, function()
+			if button.Text == `{label}: {reason}` then
+				button.Text = label
+			end
+		end)
+	end)
+	p.gui.Destroying:Once(function()
+		refusals:Disconnect()
+	end)
 	order += 1
 	DevPanel.button(p.panel, "ClearGuns", "Remove guns", order).Activated:Connect(function()
 		Net.event("DevAction"):FireServer("ClearGuns")

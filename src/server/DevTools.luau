@@ -117,7 +117,12 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		if away.Magnitude < 1e-3 then
 			away = Vector3.new(0, 0, -1)
 		end
-		Build.devPlace(player, value, CFrame.lookAt(aim, aim + away))
+		local refused = Build.devPlace(player, value, CFrame.lookAt(aim, aim + away))
+		if refused then
+			-- (shown on the admin panel's button, src/client/DevBlastMenu)
+			warn(`[DevTools] {player.Name} placing {value}: {refused}`)
+			Net.event("DevAction"):FireClient(player, "Refused", value, refused)
+		end
 	elseif action == "ClearGuns" then
 		Artillery.clear()
 	elseif action == "HealDummies" then

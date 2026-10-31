@@ -974,12 +974,15 @@ local function digger(player: Player): (Model?, BasePart?, string?)
 end
 
 -- Lays a blueprint (Net "Build" "Place"). `dev`: the admin panel's spawn list (Build.devPlace): no shovel, reach or
--- limits, and a sandbag pile or MG nest stands finished at once
-local function place(player: Player, key: any, at: any, dev: boolean?)
+-- limits, and a sandbag pile or MG nest stands finished at once. Returns why it was refused, nil when laid.
+local function place(player: Player, key: any, at: any, dev: boolean?): string?
 	local character, root, team = (if dev then soldier else digger)(player)
 	local piece = Rules.piece(key, C.Pieces)
-	if not character or not root or not team or not piece or typeof(at) ~= "CFrame" or piece.kind == "Trench" then
-		return
+	if not character or not root or not piece or typeof(at) ~= "CFrame" or piece.kind == "Trench" then
+		return "No character or no such piece"
+	end
+	if not team then
+		return "No team (the character has no Kit)"
 	end
 	local frame = Survey.frame(at.Position, at.LookVector)
 	-- (a gun: `frame` the gun, `box` the ground it needs; any other piece: the same)
@@ -1029,7 +1032,7 @@ local function place(player: Player, key: any, at: any, dev: boolean?)
 	})
 	if not ok then
 		refuse(player, reason or "Can't build here")
-		return
+		return reason or "Can't build here"
 	end
 	local model = Instance.new("Model")
 	model.Name = piece.key
@@ -1056,13 +1059,13 @@ local function place(player: Player, key: any, at: any, dev: boolean?)
 		if not layoutPile(r, Survey.onGround(piece, frame, report)) then
 			model:Destroy()
 			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile: layoutPile warns)
-			return
+			return "The asset library lacks the sandbag pile"
 		end
 	elseif nest then
 		if not layoutNest(r, Survey.onGround(piece, frame, report)) then
 			model:Destroy()
 			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile or the mount bag)
-			return
+			return "The asset library lacks the pile or the mount bag"
 		end
 	elseif piece.kind == "Wire" then
 		layoutWire(r, Survey.onGround(piece, frame, report))
@@ -1128,6 +1131,7 @@ local function place(player: Player, key: any, at: any, dev: boolean?)
 			remove(r)
 		end)
 	end
+	return nil
 end
 
 -- Plans a trench (Net "Build" "Plan": its start and end on the ground)
@@ -1379,9 +1383,10 @@ end
 -- Config/Build.Structures key; nil: by its charge): trenches are buried (src/server/Trenches), sandbag piles and wire
 -- worn down, each by how far it is from the blast.
 -- The admin panel's spawn list (src/server/DevTools "PlacePiece"): a Config/Build piece laid finished at `at`
--- (facing its LookVector) for `player`'s team; still refused on ground it can't stand on
-function Build.devPlace(player: Player, key: string, at: CFrame)
-	place(player, key, at, true)
+-- (facing its LookVector) for `player`'s team; still refused on ground it can't stand on. Returns why it was refused,
+-- nil when laid.
+function Build.devPlace(player: Player, key: string, at: CFrame): string?
+	return place(player, key, at, true)
 end
 
 function Build.blast(position: Vector3, kg: number, key: string?)

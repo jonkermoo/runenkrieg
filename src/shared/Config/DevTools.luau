@@ -225,6 +225,8 @@ local DevTools = {
 		-- Config/Build pieces placed finished at the aim point, facing away from you, for your team (Build.devPlace;
 		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn")
 		Pieces = { "MGNest" },
+		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
+		RefusedSeconds = 3,
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the
