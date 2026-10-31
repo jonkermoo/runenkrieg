@@ -17,11 +17,14 @@ local Ragdoll = {
 	still = 2.5,
 	minDown = 0.35,
 	maxDown = 3,
-	Collider = { 0.7, 0.85, 0.7 }, -- each limb's collider while down, x the limb's size (kept off the torso)
+	-- each limb's collider while down, x the limb's size (kept off the torso); nearly the limb's full width, so limbs
+	-- don't sink into each other (at 0.7 a hand showed 0.15 deep in a leg)
+	Collider = { 0.96, 0.85, 0.96 },
 	-- and a second one over the limb's far end (`share` of its length, the hand or foot; the same width) that does hit
 	-- the torso, so a limb swung in folds against the body, not into it (user 2026-10-31: "clipping issues underneath
-	-- the torso": the hands showed through it); the end near the joint stays off the torso, where it would fight it
-	EndCollider = { share = 0.45, width = 0.7 },
+	-- the torso": the hands showed through it; at width 0.7 an arm, whose inner face starts flush with the torso's
+	-- side, still sank 0.15 into it); the end near the joint stays off the torso, where it would fight it
+	EndCollider = { share = 0.45, width = 0.96 },
 	-- Knocks: how hard each cause throws the body (studs/s back along the push and up, a tumble in rad/s) and how long
 	-- after settling it gets up. Callers scale them by their own factors (strength, distance).
 	Knocks = {
