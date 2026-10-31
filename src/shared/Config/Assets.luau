@@ -501,12 +501,12 @@ local Assets = {
 			description = "Bandage worn round the head (2 crossing turns); its Origin goes at the head part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
 		},
 		rig1 = {
-			id = 108363500048383, -- smooth one-piece shoulder bands (user 2026-10-29)
+			id = 117320424913312, -- no pouch below the torso or inside the arms (user 2026-10-31; v2 108363500048383: smooth one-piece bands)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig1.fbx",
 			generator = "tools/blender/gear/rig.py",
-			description = "Rig (pouches only): shoulder bands + belt, two big pouches on the torso's sides under the arms, a wide front pouch.",
+			description = "Rig (pouches only): shoulder bands + belt, two pouches on the front corners, a wide front pouch. No pouch hangs below the torso or sits inside the arms.",
 			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig1`)
 			fit = {
 				attachment = "Torso",
@@ -516,12 +516,12 @@ local Assets = {
 			},
 		},
 		rig2 = {
-			id = 80275123969636, -- smooth one-piece shoulder bands (user 2026-10-29)
+			id = 128422032102660, -- no pouch below the torso, chest pouches on the bands (user 2026-10-31; v2 80275123969636: smooth one-piece bands)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig2.fbx",
 			generator = "tools/blender/gear/rig.py",
-			description = "Rig: tab-pouch model - two tall pouches on the bands at chest height, one wide pouch on the front left.",
+			description = "Rig: tab-pouch model - two tall pouches on the bands at chest height, one wide pouch on the front left. No pouch hangs below the torso.",
 			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig2`)
 			fit = {
 				attachment = "Torso",
@@ -531,12 +531,12 @@ local Assets = {
 			},
 		},
 		rig3 = {
-			id = 122497898146324, -- smooth one-piece shoulder bands (user 2026-10-29)
+			id = 92353728399895, -- no pouch below the torso (user 2026-10-31; v2 122497898146324: smooth one-piece bands)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig3.fbx",
 			generator = "tools/blender/gear/rig.py",
-			description = "Rig: strap-pouch model - two medium pouches out to the torso edges, one big extra-bulky center pouch.",
+			description = "Rig: strap-pouch model - two medium pouches out to the torso edges, one big extra-bulky center pouch. No pouch hangs below the torso.",
 			-- welded to the Torso at each part's offset from the export's Origin marker (variant `rig3`)
 			fit = {
 				attachment = "Torso",
