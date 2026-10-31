@@ -11,6 +11,7 @@
 -- control; the one font. Colours: the palette the spec's theme names (Config/Palette UI.Grimoire.Notebook). No
 -- CanvasGroup: every element sets its own transparency.
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -385,7 +386,10 @@ function SettingsMenu.start()
 	local backdrop = clearButton(gui, "Backdrop")
 	backdrop.BackgroundColor3 = rgb("backdrop")
 	backdrop.BackgroundTransparency = C.backdropTransparency
-	backdrop.Size = UDim2.fromScale(1, 1)
+	-- reaching up under Roblox's top bar too (the panel itself is laid out under it)
+	local inset = GuiService:GetGuiInset().Y
+	backdrop.Position = UDim2.fromOffset(0, -inset)
+	backdrop.Size = UDim2.new(1, 0, 1, inset)
 	backdrop.Visible = false
 
 	local pn = node("Panel")

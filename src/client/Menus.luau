@@ -16,6 +16,7 @@
 -- Field Grimoire, user 2026-10-30; its ink drawing is src/client/Ink, its live map src/client/SketchMap). No
 -- CanvasGroup: every element sets its own transparency.
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -36,6 +37,7 @@ local Ink = require(script.Parent.Ink)
 local MatchCam = require(script.Parent.MatchCam)
 local SettingsMenu = require(script.Parent.SettingsMenu)
 local SketchMap = require(script.Parent.SketchMap)
+local DevPanel = require(script.Parent.DevPanel)
 local ModesCfg = require(Shared.Config.Modes)
 local Playtest = require(Shared.Config.Maps.Playtest)
 
@@ -48,6 +50,7 @@ local function gcol(name: string): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 local Anims = MovementSet.animations(Locomotion) :: any
+local DEV_GAP = 16 -- reference pixels between the map and an open dev panel
 local DISPLAY_ORDER = 5 -- under the settings menu (Config/Settings.Menu.DisplayOrder)
 
 local function rgb(name: string): Color3
@@ -267,6 +270,13 @@ local function build(spec: any, name: string, parent: Instance): Screen
 			local pos, size = n.pos or { 0, 0, 0, 0 }, n.size or { 1, 0, 1, 0 }
 			obj.Position = UDim2.new(pos[1], pos[2] * s, pos[3], pos[4] * s)
 			obj.Size = UDim2.new(size[1], size[2] * s, size[3], size[4] * s)
+			if n.kind == "overlay" then
+				-- the screen is laid out under Roblox's top bar; a shade reaches up under it too (user 2026-10-31: "the
+				-- shade overlay is not filling the whole screen")
+				local inset = GuiService:GetGuiInset().Y
+				obj.Position -= UDim2.fromOffset(0, inset)
+				obj.Size += UDim2.fromOffset(0, inset)
+			end
 			if obj:IsA("TextLabel") or obj:IsA("TextButton") then
 				obj.TextSize = (n.textSize or 20) * s
 				local words = obj:FindFirstChild("Words") :: TextLabel?
@@ -720,7 +730,34 @@ function Menus.start()
 			end
 		end
 	end
+	-- a dev panel open on the right (src/client/DevPanel, 260 px wide at 12 from the edge) pushes the map left of it
+	local function clearDevPanels(screen: Screen)
+		local holder = screen.node.MapHolder
+		local n = screen.spec.MapHolder
+		if not holder or not n then
+			return
+		end
+		local s = holder.Size.Y.Offset / n.size[4]
+		local parent = holder.Parent :: GuiObject
+		-- the map's right edge where it stands with no panel open (anchored at its right)
+		local right = parent.AbsolutePosition.X + parent.AbsoluteSize.X * n.pos[1] + n.pos[2] * s
+		local push = 0
+		for _, name in DevPanel.Panels do
+			local g = playerGui:FindFirstChild(name) :: ScreenGui?
+			local panel = g and g.Enabled and g:FindFirstChild("Panel") :: GuiObject?
+			if panel and panel.Visible and name ~= "SettingsMenu" then
+				push = math.max(push, right - panel.AbsolutePosition.X + DEV_GAP * s)
+			end
+		end
+		holder.Position = UDim2.new(n.pos[1], n.pos[2] * s - push, n.pos[3], n.pos[4] * s)
+	end
 	RunService.RenderStepped:Connect(function()
+		if title.gui.Enabled then
+			clearDevPanels(title)
+		end
+		if loadout.gui.Enabled then
+			clearDevPanels(loadout)
+		end
 		if title.gui.Enabled then
 			follow(title)
 			writeCaption()

@@ -11,7 +11,7 @@ local ModeHud = {
 	NoWinner = "MATCH OVER",
 	-- Territory Push: in play the bar shows only while this key is held, with a dot over each teammate seen through
 	-- walls (on the loadout screen it always shows); both fade in and out in FadeSeconds
-	ShowKey = Enum.KeyCode.V,
+	ShowKey = Enum.KeyCode.M, -- user 2026-10-31: "V and map conflicts. make it holding m" (V is melee)
 	FadeSeconds = 0.12,
 	Dot = { size = 10, above = 3.2 }, -- the teammate dot: pixels across, studs above the head's centre
 	-- the open points' world marker (its diamond is the spec's PinHQ, its label PinLabel): pixels wide x tall, studs
