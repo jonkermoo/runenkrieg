@@ -10,7 +10,7 @@
 -- - NameTags: the names and health bars over every humanoid's head.
 -- The "Game" switch (the Player's GameAttribute) on top: what any other player sees. The dev pins (all but the settings
 -- gear) and the dev panels but the admin panel go, src/client/DevAdminMenu hides the dev labels and src/client/
--- SettingsMenu its dev-only rows; the sector dividers and markers shown in dev play (Config/Sectors) go as in the live
+-- SettingsMenu its dev-only rows; the hit readout (GameGuis) is kept off as Hud keeps its guis; the sector dividers and markers shown in dev play (Config/Sectors) go as in the live
 -- game. F2 still opens the admin panel, whose Game row turns it off again.
 -- DevCinematic.start(player), DevCinematic.hidden(player, id), DevCinematic.set(player, id, on),
 -- DevCinematic.gameView(player), DevCinematic.setGameView(player, on), DevCinematic.clear(player).
@@ -91,6 +91,10 @@ end
 
 local function isHud(child: Instance): boolean
 	return child:IsA("LayerCollector") and table.find(C.HudGuis, child.Name) ~= nil
+end
+
+local function isGameGui(child: Instance): boolean
+	return child:IsA("LayerCollector") and table.find(C.GameGuis, child.Name) ~= nil
 end
 
 -- RobloxUi: each core gui's state before hiding
@@ -235,11 +239,15 @@ end
 function DevCinematic.start(player: Player)
 	local playerGui = player:WaitForChild("PlayerGui")
 
+	-- a gui kept off by the cinematic Hud or by the Game switch
+	local function keptOff(child: Instance): boolean
+		return isHud(child) and DevCinematic.hidden(player, "Hud") or isGameGui(child) and DevCinematic.gameView(player)
+	end
+
 	local function applyHud()
-		local on = DevCinematic.hidden(player, "Hud")
 		for _, child in playerGui:GetChildren() do
-			if isHud(child) then
-				if on then
+			if isHud(child) or isGameGui(child) then
+				if keptOff(child) then
 					holdOff(child :: LayerCollector)
 				else
 					release(child :: LayerCollector)
@@ -268,7 +276,7 @@ function DevCinematic.start(player: Player)
 	end
 
 	playerGui.ChildAdded:Connect(function(child)
-		if isHud(child) and DevCinematic.hidden(player, "Hud") then
+		if keptOff(child) then
 			holdOff(child :: LayerCollector)
 		elseif table.find(DevPanel.Panels, child.Name) then
 			applyDev()
@@ -315,6 +323,7 @@ function DevCinematic.start(player: Player)
 	end
 	local function applyGame()
 		applyDev()
+		applyHud()
 		hideSectors(DevCinematic.gameView(player))
 	end
 	player:GetAttributeChangedSignal(C.GameAttribute):Connect(applyGame)
