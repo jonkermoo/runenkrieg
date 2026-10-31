@@ -10,6 +10,8 @@
 --   to send once, /c to change channel, /w name and /r to whisper, /mute and /unmute (here only), /help.
 -- - Server lines go to Roblox's general channel, Team to the team's (src/server/Chat), whispers to a channel the server
 --   opens for the two, Global to the server (filtered for broadcast, sent to every server).
+-- - Hide chat / Show chat: a faint word under the panel hides all but itself (a red mark on it once a line comes in);
+--   / shows it again and starts typing.
 -- Hidden while the title screen is up (src/client/Menus); shown over the loadout menu (its kit cards leave the left free).
 
 local Players = game:GetService("Players")
@@ -150,6 +152,51 @@ function Chat.start()
 	hint.Position = UDim2.new(0, 2, 1, -8)
 	hint.Size = UDim2.new(1, 0, 0, P.hintSize + 4)
 
+	-- the hide toggle, under the panel (outside it, so pointing at it doesn't open the panel)
+	local hidden = false
+	local missed = false
+	local toggle = Instance.new("TextButton")
+	toggle.Name = "Toggle"
+	toggle.AutoButtonColor = false
+	toggle.BackgroundTransparency = 1
+	toggle.FontFace = FONT
+	toggle.TextSize = P.hintSize
+	toggle.TextColor3 = rgb(GR.text)
+	toggle.TextStrokeColor3 = rgb(GR.shade)
+	toggle.TextStrokeTransparency = 0.55
+	toggle.TextXAlignment = Enum.TextXAlignment.Left
+	toggle.AutomaticSize = Enum.AutomaticSize.X
+	toggle.Position = UDim2.fromOffset(P.x + 2, P.y + P.height + P.pad + P.toggle.gap)
+	toggle.Size = UDim2.fromOffset(0, P.toggle.height)
+	toggle.Parent = gui
+	local toggleMark = Instance.new("Frame")
+	toggleMark.BorderSizePixel = 0
+	toggleMark.BackgroundColor3 = rgb(GR.pencil)
+	toggleMark.AnchorPoint = Vector2.new(0, 0.5)
+	toggleMark.Position = UDim2.new(1, 4, 0.5, 0)
+	toggleMark.Size = UDim2.fromOffset(6, 6)
+	toggleMark.Parent = toggle
+	local function setHidden(on: boolean)
+		hidden = on
+		if not on then
+			missed = false
+		end
+		root.Visible = not on
+		toggle.Text = if on then "Show chat" else "Hide chat"
+		toggle.TextTransparency = if on then 0.15 else P.toggle.fade
+		toggleMark.Visible = missed
+	end
+	toggle.Activated:Connect(function()
+		setHidden(not hidden)
+	end)
+	toggle.MouseEnter:Connect(function()
+		toggle.TextTransparency = 0
+	end)
+	toggle.MouseLeave:Connect(function()
+		toggle.TextTransparency = if hidden then 0.15 else P.toggle.fade
+	end)
+	setHidden(false)
+
 	-- the view tabs
 	local view = "All"
 	local unread: { [string]: boolean } = {}
@@ -238,6 +285,10 @@ function Chat.start()
 		if not shows(kind) then
 			unread[kind] = true
 			paintTabs()
+		end
+		if hidden and not missed then
+			missed = true
+			toggleMark.Visible = true
 		end
 		if stuckToBottom then
 			task.defer(function()
@@ -443,6 +494,9 @@ function Chat.start()
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if processed or input.KeyCode ~= Enum.KeyCode.Slash or box:IsFocused() or not gui.Enabled then
 			return
+		end
+		if hidden then
+			setHidden(false)
 		end
 		box:CaptureFocus()
 		task.defer(function()
