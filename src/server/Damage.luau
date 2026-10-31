@@ -483,7 +483,7 @@ function Damage.start()
 			-- your own staff never kills you (Config/Damage.Staff.SelfSafe): if a caster dies soon after their own shot
 			-- anyway, say how, so the way through is found (user 2026-10-21)
 			local since = os.clock() - (castAt[character] or -math.huge)
-			if since <= Cfg.Staff.SelfSafe then
+			if since <= 60 then -- (DIAG: any death within a minute of a cast; was SelfSafe)
 				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 				local at = if root then tostring(root.Position) else "no root (fell out of the world?)"
 				local after = string.format("%.1f", since)

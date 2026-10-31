@@ -112,6 +112,21 @@ function Ragdoll.start()
 				humanoid:ChangeState(Enum.HumanoidStateType.Physics)
 			end
 		end)
+		-- (DIAG staff self-kill, user 2026-10-31: how the local soldier dies, as this client sees it)
+		humanoid.StateChanged:Connect(function(old, new)
+			if new == Enum.HumanoidStateType.Dead or old == Enum.HumanoidStateType.Physics then
+				local torso = character:FindFirstChild("Torso")
+				local neck = torso and torso:FindFirstChild("Neck") :: Motor6D?
+				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				local at = if root then tostring(root.Position) else "no root"
+				local neckOn = if neck then tostring(neck.Enabled) else "missing"
+				warn(
+					`[Ragdoll] DIAG local {old.Name} -> {new.Name}: health {humanoid.Health}, neck {neckOn}, at {at}, ragdolled {character:GetAttribute(
+						"Ragdolled"
+					)}`
+				)
+			end
+		end)
 		-- a knock asked for that the server never answered: up again
 		humanoid.StateChanged:Connect(function(_, new)
 			if new == Enum.HumanoidStateType.Physics and asked[character] then
