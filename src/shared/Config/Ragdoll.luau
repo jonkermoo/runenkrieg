@@ -64,6 +64,12 @@ local Ragdoll = {
 	SelfRate = 2, -- "KnockSelf" requests a second at most (and burst)
 	-- the client shows a knock it asked for at once and waits this long for the server's ragdoll before giving up
 	SelfWait = 1.5,
+	-- A server-owned soldier (a bot, a dev dummy: no client of its own) getting up is stood upright on its feet where it
+	-- lies, facing the way it lay, then left to the Humanoid's GettingUp (user 2026-10-31: "npc's that ragdoll dont
+	-- stand back up properly"): the ground found by a ray `probe` studs down from the torso, the body put `lift` studs
+	-- over standing height; FallingDown and Ragdoll, the Humanoid's own tip-over states, are off for them for good (a
+	-- body just stood up tipped straight back over)
+	Stand = { probe = 8, lift = 0.25 },
 }
 
 return table.freeze(Ragdoll)
