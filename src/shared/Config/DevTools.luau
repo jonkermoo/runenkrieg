@@ -120,6 +120,11 @@ local DevTools = {
 				{ id = "NameTags", label = "Name tags" }, -- names and health bars over heads
 			},
 			AttributePrefix = "DevCinematic", -- "DevCinematic<id>" on the Player while that item is hidden
+			-- the "Game" switch (user 2026-10-30: "only shows what you would have if you were any other player"): every
+			-- dev-only thing off for this player (the dev pins and panels but the admin panel's F2, the dev labels, the
+			-- settings' dev-only rows, the sector dividers and markers shown in dev play); the HUD, the Roblox UI, the settings
+			-- gear and the name tags stay as players have them. On the Player while on.
+			GameAttribute = "DevGameView",
 			-- hiding the Roblox UI also takes Roblox's hotbar and its number keys away; while hidden these keys still
 			-- equip / unequip the tools in hotbar order (user 2026-10-26: "it should just hide")
 			HotbarKeys = { "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine" },

@@ -321,12 +321,15 @@ local function keyRow(parent: Instance, order: number, key: string, onCapture: (
 	refresh()
 	Settings.changed(key, refresh)
 	if opt.devOnly then
-		-- (the server marks dev players with the DevTools attribute, maybe after the menu is built)
+		-- (the server marks dev players with the DevTools attribute, maybe after the menu is built); hidden in the admin
+		-- panel's Game view (src/client/DevCinematic)
 		local player = Players.LocalPlayer
+		local gameView = DevCfg.Admin.Cinematic.GameAttribute
 		local function showRow()
-			r.Visible = player:GetAttribute(DevCfg.Attribute) == true
+			r.Visible = player:GetAttribute(DevCfg.Attribute) == true and player:GetAttribute(gameView) ~= true
 		end
 		player:GetAttributeChangedSignal(DevCfg.Attribute):Connect(showRow)
+		player:GetAttributeChangedSignal(gameView):Connect(showRow)
 		showRow()
 	end
 	b.Activated:Connect(function()

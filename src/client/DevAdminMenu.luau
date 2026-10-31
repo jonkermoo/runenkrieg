@@ -7,7 +7,8 @@
 -- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
 -- weather off / on); Time and Weather are for everyone (src/server/Environment). Last the Cinematic rows for filming
--- (src/client/DevCinematic): one switch hides every item, a row per item. Settings Key_AdminPanel (F2) opens / closes it.
+-- (src/client/DevCinematic): one switch hides every item, a row per item, and the Game switch (what any other player
+-- sees: every dev-only thing off). Settings Key_AdminPanel (F2) opens / closes it.
 -- Client only: the client owns its character's physics, so it flies and speeds up its own character. Only shown when
 -- the server marked this player with the DevTools attribute.
 -- - Speed: sets the Player's DevSpeed attribute; src/client/Stance multiplies every walk speed by it.
@@ -126,11 +127,13 @@ local function takeOff(player: Player)
 	player:SetAttribute(A.FlyAttribute, true)
 end
 
--- the dev labels (Config/DevTools.Admin.LabelFolders), shown or hidden for this player (also by the cinematic "DevUi");
--- labels made later follow
+-- the dev labels (Config/DevTools.Admin.LabelFolders), shown or hidden for this player (also by the cinematic "DevUi"
+-- and the Game switch); labels made later follow
 local labelConns: { RBXScriptConnection } = {}
 local function applyLabels(player: Player)
-	local hidden = player:GetAttribute(A.LabelsAttribute) == true or DevCinematic.hidden(player, "DevUi")
+	local hidden = player:GetAttribute(A.LabelsAttribute) == true
+		or DevCinematic.hidden(player, "DevUi")
+		or DevCinematic.gameView(player)
 	for _, c in labelConns do
 		c:Disconnect()
 	end
@@ -476,6 +479,20 @@ local function build(player: Player): DevPanel.Panel
 		applyLabels(player)
 	end)
 	showCinematic()
+	-- Game: what any other player sees (src/client/DevCinematic); F2 brings this panel back to turn it off
+	order += 1
+	local playerView = DevPanel.button(p.panel, "GameView", "", order)
+	local function showGame()
+		local on = DevCinematic.gameView(player)
+		playerView.Text = if on then "Game view: on (F2 for this panel)" else "Game view: off"
+		paint(playerView, on)
+		applyLabels(player)
+	end
+	playerView.Activated:Connect(function()
+		DevCinematic.setGameView(player, not DevCinematic.gameView(player))
+	end)
+	player:GetAttributeChangedSignal(A.Cinematic.GameAttribute):Connect(showGame)
+	showGame()
 	return p
 end
 
