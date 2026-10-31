@@ -153,6 +153,7 @@ function StaffCast.start()
 			end
 			s.fireAt, s.fireStage = now, stage
 			local landed = Damage.staff(character, stage, target) or target
+			warn(`[StaffCast] DIAG {player.Name} fired stage {stage} ({mode}), lands {landed}`)
 			relay(player, character, "Fire", stage, landed, mode)
 		end
 	end)
