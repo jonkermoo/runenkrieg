@@ -258,10 +258,11 @@ local function build(player: Player): DevPanel.Panel
 	workspace:GetAttributeChangedSignal(ModeCfg.Attribute):Connect(showMode)
 	showMode()
 
-	-- Bots (src/server/Bots, Config/Bots; FFA only for now): auto = the mode's own fill, or a pinned count; difficulty
-	heading("Bots (FFA)")
+	-- Bots (src/server/Bots, Config/Bots; FFA and Normal): auto = the mode's own fill, or a pinned count; difficulty
+	heading("Bots")
 	local counts: { [any]: TextButton } = {}
-	counts.auto = row("BotsAuto", `Bots: auto (fill to {BotsCfg.Fill.FFA.total})`, "BotsAuto")
+	local auto = `Bots: auto (FFA {BotsCfg.Fill.FFA.total}, Normal {BotsCfg.Fill.Normal.perSide} a side)`
+	counts.auto = row("BotsAuto", auto, "BotsAuto")
 	for _, n in A.BotCounts do
 		counts[n] = row(`Bots{n}`, `Bots: {n}`, "Bots", n)
 	end

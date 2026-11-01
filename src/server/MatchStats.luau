@@ -2,7 +2,9 @@
 -- What each player did this match, for the results screen (Rules/MatchStats, src/client/Results; user 2026-10-31):
 -- kills (src/server/Loadouts.onKill), HP healed on others (src/server/Healing.onHealed), HP built
 -- (src/server/Build.onBuilt) and points earned (src/server/Loadouts.onEarn). Cleared at each match's start; at its end
--- the match (src/server/Frontline, src/server/ZoneMatch) sends everyone the results (Net "MatchResults").
+-- the match (src/server/Frontline, src/server/ZoneMatch) sends everyone the results (Net "MatchResults"). Bot
+-- soldiers have rows too (src/server/Bots: their kills; user 2026-11-01: bots may win the honours, under their shown
+-- names).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -32,6 +34,20 @@ function MatchStats.reset()
 	table.clear(rows)
 end
 
+-- bot `id` (its negative id) did `n` more of `key`; `name` and `kit` as shown (its latest life's)
+function MatchStats.addBot(id: number, name: string, kit: string?, key: string, n: number)
+	local r = rows[id]
+	if not r then
+		r = { id = id, name = name }
+		for _, k in KEYS do
+			r[k] = 0
+		end
+		rows[id] = r
+	end
+	r.name, r.kit = name, kit
+	r[key] += n
+end
+
 -- `player` did `n` more of `key` ("Kills", "Healed", "Built", "Earned")
 function MatchStats.add(player: Player, key: string, n: number)
 	local r = rowOf(player)
@@ -47,6 +63,11 @@ function MatchStats.send(extra: { [string]: any }, kitOf: (Player) -> string?)
 		local r = rowOf(p)
 		r.kit = kitOf(p)
 		table.insert(list, r)
+	end
+	for id, r in rows do
+		if id < 0 then
+			table.insert(list, r)
+		end
 	end
 	local honours = {
 		Kills = Rules.best(list, "Kills"),

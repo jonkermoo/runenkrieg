@@ -23,6 +23,7 @@
 -- appear with V too when in game"), with the soldier as a red pencil arrow and the teammate dots and the open points'
 -- markers, in place of the front bar; the bar shows only for the result at the match's end.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -449,7 +450,7 @@ end
 
 -- Territory Push: a dot over each teammate's head, drawn on top of the world so it shows through walls
 type Dot = { gui: BillboardGui, face: Frame, edge: UIStroke }
-local dots: { [Player]: Dot } = {}
+local dots: { [Instance]: Dot } = {} -- (by player, or by bot model)
 
 local function newDot(): Dot
 	local d = Cfg.Dot
@@ -476,28 +477,43 @@ local function newDot(): Dot
 	return { gui = g, face = face, edge = edge }
 end
 
--- each teammate (a soldier of the viewer's kit) gets a dot on their head; the others' go
+-- each teammate (a soldier of the viewer's kit: players and bot soldiers, src/server/Bots) gets a dot on their head;
+-- the others' go
 local function updateDots(kit: string?)
 	local me = Players.LocalPlayer
-	for _, p in Players:GetPlayers() do
-		local character = p.Character
+	local function mark(key: Instance, character: Model?)
 		local head = character and character:FindFirstChild("Head")
-		local mate = kit ~= nil and p ~= me and head ~= nil and (character :: Model):GetAttribute("Kit") == kit
-		local dot = dots[p]
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local mate = kit ~= nil
+			and head ~= nil
+			and humanoid ~= nil
+			and humanoid.Health > 0
+			and (character :: Model):GetAttribute("Kit") == kit
+		local dot = dots[key]
 		if mate then
 			dot = dot or newDot()
-			dots[p] = dot
+			dots[key] = dot
 			dot.gui.Adornee = head :: BasePart
-			dot.face.BackgroundColor3 = teamRim(kit)
+			dot.face.BackgroundColor3 = teamRim(kit :: string)
 		elseif dot then
 			dot.gui:Destroy()
-			dots[p] = nil
+			dots[key] = nil
 		end
 	end
-	for p, dot in dots do
-		if p.Parent == nil then
+	for _, p in Players:GetPlayers() do
+		if p ~= me then
+			mark(p, p.Character)
+		end
+	end
+	for _, m in CollectionService:GetTagged(BotsCfg.Tag) do
+		if m:IsA("Model") then
+			mark(m, m)
+		end
+	end
+	for key, dot in dots do
+		if key.Parent == nil then
 			dot.gui:Destroy()
-			dots[p] = nil
+			dots[key] = nil
 		end
 	end
 end
