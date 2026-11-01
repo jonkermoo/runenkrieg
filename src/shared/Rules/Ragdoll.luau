@@ -29,4 +29,18 @@ function Ragdoll.served(settledAt: number?, getUp: number, now: number): boolean
 	return settledAt ~= nil and now - settledAt >= getUp
 end
 
+-- Whether a soldier with `health` left plays its animations (the idle's breath on a knocked-down body): only alive. A
+-- dead body is limp and still (user 2026-11-01: dead bodies' torsos kept moving up and down).
+function Ragdoll.animates(health: number): boolean
+	return health > 0
+end
+
+export type StayDown = { max: number }
+
+-- Whether a living knocked-down soldier gets up at `now`: its get-up wait over at `readyAt` (nil: not yet), and the
+-- stay-down key not `holding`, or held `cfg.max` s past the wait.
+function Ragdoll.rises(readyAt: number?, holding: boolean, now: number, cfg: StayDown): boolean
+	return readyAt ~= nil and now >= readyAt and (not holding or now - readyAt >= cfg.max)
+end
+
 return Ragdoll

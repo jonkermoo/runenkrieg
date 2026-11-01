@@ -71,6 +71,11 @@ local Ragdoll = {
 	SelfRate = 2, -- "KnockSelf" requests a second at most (and burst)
 	-- the client shows a knock it asked for at once and waits this long for the server's ragdoll before giving up
 	SelfWait = 1.5,
+	-- Staying down (user 2026-11-01: "allow players to stay down by holding the space key"): a living knocked-down player
+	-- holding `key` when their get-up wait is over stays down, and gets up on letting go; a tap, or letting go before
+	-- then, changes nothing (up at the usual time). At most `max` s past the wait (then up anyway); the client's
+	-- "StayDown" (Net) at most `rate` a second. While dragged the same key breaks free instead (Config/Settings Key_DragEscape).
+	StayDown = { key = "Space", max = 60, rate = 10 },
 	-- A server-owned soldier (a bot, a dev dummy: no client of its own) getting up is stood upright on its feet where it
 	-- lies, facing the way it lay, then left to the Humanoid's GettingUp (user 2026-10-31: "npc's that ragdoll dont
 	-- stand back up properly"): the ground found by a ray `probe` studs down from the torso, the body put `lift` studs

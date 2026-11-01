@@ -10,6 +10,8 @@
 -- A body being dragged (src/server/Dragging, the "Dragged" attribute) doesn't get up until it is let go, or until it
 -- breaks free (Ragdoll.served: only once its knock's own stand-up time is over; the drag doesn't stop that clock).
 -- Players knock themselves through Net "KnockSelf" (Config/Ragdoll.SelfKnocks: the staff's recoil, the float fall).
+-- A living player holding the stay-down key (Net "StayDown", the "StayDown" attribute) stays down past the get-up wait
+-- until let go (Config/Ragdoll.StayDown, Rules/Ragdoll.rises).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -211,6 +213,7 @@ local function stand(character: Model, made: Down)
 	end
 	down[character] = nil
 	character:SetAttribute("Ragdolled", nil)
+	character:SetAttribute("StayDown", nil)
 end
 
 -- Knocks `character` with the Config/Ragdoll.Knocks entry `name`, thrown along `direction` (flat; it also tumbles that
@@ -265,6 +268,26 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 			if RagdollRules.settled(now - made.since, speed, false, Cfg) then
 				local since = made.since
 				task.wait(made.getUp)
+				if down[character] ~= made then
+					return
+				end
+				-- the stay-down key held (Net "StayDown"): down until let go (Config/Ragdoll.StayDown)
+				local readyAt = os.clock()
+				while
+					down[character] == made
+					and made.since == since
+					and character.Parent
+					and humanoid.Health > 0
+					and character:GetAttribute("Dragged") ~= true
+					and not RagdollRules.rises(
+						readyAt,
+						character:GetAttribute("StayDown") == true,
+						os.clock(),
+						Cfg.StayDown
+					)
+				do
+					task.wait()
+				end
 				if down[character] ~= made then
 					return
 				end
@@ -323,8 +346,29 @@ function Ragdoll.start()
 		end
 		Ragdoll.knock(character, name, if v.Magnitude > 1e-3 then v.Unit else Vector3.zero)
 	end)
+	-- the stay-down key held or let go while down (Config/Ragdoll.StayDown), rate limited
+	local holds: { [Player]: StaffNet.Bucket } = {}
+	Net.event("StayDown").OnServerEvent:Connect(function(player, holding)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not character or not humanoid or type(holding) ~= "boolean" then
+			return
+		end
+		local now = os.clock()
+		local b = holds[player]
+		if not b then
+			b = { tokens = Cfg.StayDown.rate, at = now }
+			holds[player] = b
+		end
+		if not StaffNet.take(b, now, Cfg.StayDown.rate) then
+			return
+		end
+		local keep = holding and humanoid.Health > 0 and down[character] ~= nil
+		character:SetAttribute("StayDown", if keep then true else nil)
+	end)
 	Players.PlayerRemoving:Connect(function(player)
 		buckets[player] = nil
+		holds[player] = nil
 	end)
 end
 

@@ -7,15 +7,19 @@
 -- "Ragdolled": the camera rides the head and the stance and weapon code take no input (src/client/WeaponCamera,
 -- Stance, StaffAttack, Firing). Ragdoll.knockSelf(name, direction) asks the server to knock the local soldier (the
 -- staff's recoil, the float fall: Net "KnockSelf") and throws it at once, before the joints come loose.
+-- Down and alive, the stay-down key held or let go goes to the server (Net "StayDown", Config/Ragdoll.StayDown).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Ragdoll)
 local Net = require(Shared.Net)
 
 local Ragdoll = {}
+
+local STAY = (Enum.KeyCode :: any)[Cfg.StayDown.key] :: Enum.KeyCode
 
 -- the local soldier knocked by itself, waiting for the server's ragdoll (until this time)
 local asked: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
@@ -101,6 +105,10 @@ function Ragdoll.start()
 				asked[character] = nil -- the server's ragdoll is here
 				if humanoid.Health > 0 then
 					humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+					-- the key already held as the body went down counts too
+					if UserInputService:IsKeyDown(STAY) then
+						Net.event("StayDown"):FireServer(true)
+					end
 				end
 			elseif humanoid.Health > 0 then
 				humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
@@ -127,6 +135,21 @@ function Ragdoll.start()
 			end
 		end)
 	end
+	-- the stay-down key, down and alive (not typing in a text box; let go always counts)
+	local function stayDown(input: InputObject, typing: boolean)
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if input.KeyCode ~= STAY or not character or character:GetAttribute("Ragdolled") ~= true then
+			return
+		end
+		local holding = input.UserInputState == Enum.UserInputState.Begin
+		if holding and (typing or not humanoid or humanoid.Health <= 0) then
+			return
+		end
+		Net.event("StayDown"):FireServer(holding)
+	end
+	UserInputService.InputBegan:Connect(stayDown)
+	UserInputService.InputEnded:Connect(stayDown)
 	player.CharacterAdded:Connect(watch)
 	if player.Character then
 		task.spawn(watch, player.Character)

@@ -49,6 +49,24 @@ return {
 		local heavy = R.getUp(C.Knocks.Torso.getUp, 70, B) -- a bolt rifle in the torso
 		assert(light < 1 and heavy > 1.8, "light " .. light .. " heavy " .. heavy)
 	end,
+	["a knocked-down soldier breathes while alive, a dead body is still"] = function()
+		assert(R.animates(100) and R.animates(1), "alive")
+		assert(not R.animates(0) and not R.animates(-5), "dead")
+	end,
+	["holding the stay-down key keeps you down past the wait, letting go gets you up"] = function()
+		local S = C.StayDown
+		assert(not R.rises(nil, false, 100, S), "the wait not over")
+		assert(not R.rises(10, false, 9.9, S), "not yet")
+		assert(R.rises(10, false, 10, S), "not held: up at the usual time")
+		assert(not R.rises(10, true, 10, S), "held: stays down")
+		assert(not R.rises(10, true, 10 + S.max - 0.1, S), "still held")
+		assert(R.rises(10, false, 25, S), "let go: up")
+		assert(R.rises(10, true, 10 + S.max, S), "held too long: up anyway")
+	end,
+	["stay-down settings are sane"] = function()
+		local S = C.StayDown
+		assert(S.key == "Space" and S.max > 5 and S.rate >= 2, "key, cap, rate")
+	end,
 	["by-damage settings are sane"] = function()
 		assert(B.floor > 0 and B.ceiling > B.floor and B.ceiling < C.maxDown + 2, "floor and ceiling")
 		assert(B.full > 0 and B.full <= 100, "full damage")

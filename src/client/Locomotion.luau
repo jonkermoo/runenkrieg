@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Locomotion)
 local MovementSet = require(Shared.Rules.MovementSet)
+local RagdollRules = require(Shared.Rules.Ragdoll)
 local Anims = MovementSet.animations(Cfg) -- the movement set in play (Config/Locomotion.Set)
 local W = require(Shared.Config.Weapons)
 local ShovelCfg = require(Shared.Config.Shovel)
@@ -87,6 +88,14 @@ function Locomotion.attach(character: Model)
 	local jumped = false
 	local ground: string? = nil -- the last ground cycle: the weapon hold keeps it through a jump
 
+	-- dead: every track stops, the body lies still (Rules/Ragdoll.animates)
+	local function still()
+		for _, t in animator:GetPlayingAnimationTracks() do
+			t:Stop(0.1)
+		end
+		current = nil
+	end
+
 	humanoid.StateChanged:Connect(function(_, new)
 		if new == Enum.HumanoidStateType.Jumping or new == Enum.HumanoidStateType.Freefall then
 			if not airborneAt then
@@ -107,17 +116,11 @@ function Locomotion.attach(character: Model)
 			airborneAt, jumped = nil, false
 		end
 		if new == Enum.HumanoidStateType.Dead then
-			for _, t in tracks do
-				t:Stop(0.1)
-			end
-			for _, set in holds do
-				for _, t in set do
-					t:Stop(0.1)
-				end
-			end
-			current = nil
+			still()
 		end
 	end)
+	-- (a body killed while knocked down stays in the Physics state: the idle's breath went on moving its torso)
+	humanoid.Died:Connect(still)
 
 	local swinging: AnimationTrack? = nil -- the shovel's swing looping (src/client/Shovel "Digging")
 	-- the swing playing, or none; "Swinging" (local) while one plays, so the soldier stands (src/client/Stance)
@@ -323,7 +326,7 @@ function Locomotion.attach(character: Model)
 	local throwing: AnimationTrack? = nil
 	local step = RunService.Heartbeat:Connect(function()
 		local state = humanoid:GetState()
-		if state == Enum.HumanoidStateType.Dead then
+		if state == Enum.HumanoidStateType.Dead or not RagdollRules.animates(humanoid.Health) then
 			return
 		elseif state == Enum.HumanoidStateType.Climbing then
 			play("climb", Cfg.Fade)
