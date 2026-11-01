@@ -216,6 +216,13 @@ local Damage = {
 				tick = 1,
 				budget = 40000,
 			},
+			-- How deep craters may cut (Rules/GroundFloor, src/server/Ground; user 2026-10-31: "can you add a limit of
+			-- destruction under the terrain? it should be based off thickness not location, so entire hills cant be
+			-- destroyed and low ground cant have a hole torn through the map"): each column keeps at least `minKeep`
+			-- studs of ground over its base and `coreShare` of its thickness, as the ground first stood (read from
+			-- `scanLow` up to `scanHigh` the first time a blast reaches it), so blast after blast can't dig past it.
+			-- Map1's flat ground (~28 thick over its -28 base) can be cut ~7 deep, its ~38 thick ridge ~9.5.
+			Floor = { minKeep = 12, coreShare = 0.75, scanLow = -128, scanHigh = 256 },
 		},
 	},
 
