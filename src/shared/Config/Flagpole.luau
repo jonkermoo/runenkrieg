@@ -58,14 +58,12 @@ local Flagpole = {
 	-- built pile (Config/Build.Sandbags.sink); each bag's tone jittered by `shade`, as built piles are
 	Sandbags = { radius = 4.5, bag = "Bag1", cord = "Bag1Cord", length = 4, sink = 0.15, shade = 0.06 },
 	Rope = { thickness = 0.06, out = 0.32, slackLean = 4 }, -- the halyard: its off-set from the pole, its lean when slack
-	-- sounds, all 3D at the pole (nil id: silent); cloth flap loop louder in stronger wind, the halyard while the flag
-	-- moves, the trench whistle when the point is taken (Pro Sound Effects, Creator Store terms: ASSETS_LICENSES.md;
-	-- the whistle an Acme Thunderer, the WW1 trench whistle)
+	-- sounds, all 3D at the pole (nil id: silent): the cloth flap loop, louder in stronger wind; the halyard once when the
+	-- point is taken, the flag hauled up (user 2026-10-31: "remove the whistle sound. it should just be the sound of a
+	-- flag being lifted once up"). Pro Sound Effects, Creator Store terms: ASSETS_LICENSES.md
 	Sounds = {
 		Flap = { id = 9114461215 :: number?, volume = 0.5, min = 6, max = 40 }, -- Flag Flapping 1
-		-- Pulley Rotating Movement With Squeaking 2; `moving`: control per second that counts as the flag moving
-		Halyard = { id = 9117951813 :: number?, volume = 0.45, min = 4, max = 30, moving = 0.02 },
-		Whistle = { id = 9125967307 :: number?, volume = 1, min = 20, max = 200 }, -- Soccer Whistle Acme Thunderer
+		Halyard = { id = 9117951813 :: number?, volume = 0.6, min = 6, max = 60 }, -- Pulley Rotating Movement With Squeaking 2
 	},
 }
 

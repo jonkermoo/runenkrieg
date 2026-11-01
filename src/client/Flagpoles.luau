@@ -6,8 +6,8 @@
 -- gain it. It flies downwind along workspace.GlobalWind and flaps harder in stronger wind and while contested; a bullet
 -- through or near it jolts it (Flagpoles.shot, from src/client/Impacts), a blast nearby whips it (Flagpoles.blast,
 -- from src/client/Vfx/Blast). The zone stakes carry a rag in the holder's colour (bare at neutral) and hide where
--- their ground has been dug away. Sounds (3D at the pole): the cloth's flap, the halyard while the flag moves, a trench
--- whistle when the point is taken. Full rate near the camera, slower further off, frozen far away.
+-- their ground has been dug away. Sounds (3D at the pole): the cloth's flap, and the halyard once when the point is
+-- taken (the flag hauled up). Full rate near the camera, slower further off, frozen far away.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -172,7 +172,7 @@ local function build(model: Model): Pole?
 	at.Position = Vector3.new(0, p.height * 0.6 - pole.Size.Y / 2, 0)
 	at.Parent = pole
 	for name, s in Cfg.Sounds do
-		local snd = sound(name, s, at, name ~= "Whistle")
+		local snd = sound(name, s, at, name ~= "Halyard")
 		if snd then
 			p.sounds[name] = snd
 		end
@@ -289,17 +289,17 @@ local function update(p: Pole, front: Instance, now: number, dt: number, camPos:
 	local owner = f:GetAttribute("Owner") :: string?
 	local west, east = (f:GetAttribute("West") :: number?) or 0, (f:GetAttribute("East") :: number?) or 0
 	local contested = west > 0 and west == east
-	-- taken: the trench whistle (not when a new match puts the sectors back: the flag is then far from the control)
+	-- taken: the halyard once, the flag hauled up (not when a new match puts the sectors back: the flag is then far from
+	-- the control)
 	local taken = owner ~= p.owner and (owner == "West" or owner == "East") and p.owner ~= nil
 	if taken and math.abs(p.shown - control) < 0.5 then
-		local w = p.sounds.Whistle
-		if w then
-			w:Play()
+		local h = p.sounds.Halyard
+		if h then
+			h:Play()
 		end
 	end
 	rags(p, owner, front)
 	p.owner = owner
-	local before = p.shown
 	p.shown = Rules.ease(p.shown, control, F.ease, dt)
 	local side = Rules.flag(p.shown)
 	setKit(p, if side then front:GetAttribute(side) :: string? else nil)
@@ -315,15 +315,6 @@ local function update(p: Pole, front: Instance, now: number, dt: number, camPos:
 			flap:Stop()
 		end
 		flap.Volume = Cfg.Sounds.Flap.volume * math.clamp(0.4 + 0.6 * strength, 0, 1.5)
-	end
-	local hal = p.sounds.Halyard
-	if hal then
-		local moving = math.abs(p.shown - before) / math.max(dt, 1e-3) > Cfg.Sounds.Halyard.moving
-		if moving and not hal.IsPlaying then
-			hal:Play()
-		elseif not moving and hal.IsPlaying then
-			hal:Stop()
-		end
 	end
 	-- the cloth: by distance
 	local step = Rules.step((camPos - p.axis).Magnitude, Cfg.Lod)
