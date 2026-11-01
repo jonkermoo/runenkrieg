@@ -75,7 +75,7 @@ local Metrics = {
 	},
 
 	Sector = {
-		Spacing = 300, -- center to center along the front
+		Spacing = 420, -- center to center along the front (was 300; user 2026-11-01: more distance between sectors)
 		CaptureRadius = 45,
 	},
 

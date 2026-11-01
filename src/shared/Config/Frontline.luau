@@ -53,7 +53,9 @@ local Frontline = {
 	-- the side's target sector. At a sector the line's front stands `edge` studs outside its zone toward the side's own
 	-- end; at a side's own HQ sector the line is in its spawn zone (Config/Maps/Map1.spawnZones). A slot needs `clear`
 	-- (across, high, deep) studs of open ground over dry terrain; a blocked one is skipped (up to `tries` slots).
-	Line = { perRow = 8, gap = 4, rowGap = 5, edge = 8, clear = { 3, 6, 3 }, tries = 40 },
+	-- (edge 20, was 8: the line stands down the back slope of the point's rise, under the next point's sight line;
+	-- user 2026-11-01: "the spawn behind that elevated position (as natural cover)", tests/map1.spec.luau)
+	Line = { perRow = 8, gap = 4, rowGap = 5, edge = 20, clear = { 3, 6, 3 }, tries = 40 },
 	-- the shield round a soldier in the wave line: a ball `size` studs across in its team's magic colour
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },

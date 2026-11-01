@@ -17,6 +17,10 @@ local ModeHud = {
 	-- the open points' world marker (its diamond is the spec's PinHQ, its label PinLabel): pixels wide x tall, studs
 	-- above the flagpole's top
 	Marker = { size = { 44, 52 }, above = 3 },
+	-- Territory Push: the countdown while the soldier stands frozen in its wave line (user 2026-11-01: players who deploy
+	-- "just stand in the spawn until the wave unlocks, with no idea when the countdown ends"): this line over the
+	-- seconds left (ModeHud.json WaveBar)
+	Wave = { title = "YOUR WAVE MOVES OUT IN" },
 	-- Point Capture: the move warning
 	Warning = "THE ZONE MOVES IN %d",
 }

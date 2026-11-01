@@ -1,7 +1,10 @@
 --!strict
 -- Layout invariants for Map 1 against the metrics contract.
+local Front = require("../src/shared/Config/Frontline")
 local M = require("../src/shared/Config/Metrics")
 local Map1 = require("../src/shared/Config/Maps/Map1")
+local MT = require("../src/shared/Rules/MapTerrain")
+local R = require("../src/shared/Rules/Frontline")
 
 local sectors = Map1.sectors
 
@@ -9,7 +12,77 @@ local function dist(a, b): number
 	return math.sqrt((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2)
 end
 
+local function unit(x: number, z: number): (number, number)
+	local l = math.sqrt(x * x + z * z)
+	return x / l, z / l
+end
+
+-- the first `rows` rows of `side`'s wave line at sector `i`, as src/server/Frontline stands it: at its own HQ in its
+-- spawn zone, else Line.edge past the zone toward its own end, facing the sector it attacks
+local function waveLine(side: string, i: number, rows: number): { { number } }
+	local s = sectors[i]
+	local cx, cz
+	if i == (if side == "West" then 1 else #sectors) then
+		local r = Map1.spawnZones[side]
+		cx, cz = (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2
+	else
+		local b = sectors[if side == "West" then i - 1 else i + 1]
+		local dx, dz = unit(b.x - s.x, b.z - s.z)
+		cx, cz = s.x + dx * (s.radius + Front.Line.edge), s.z + dz * (s.radius + Front.Line.edge)
+	end
+	local aim = sectors[if side == "West" then i + 1 else i - 1]
+	local fx, fz = unit(aim.x - cx, aim.z - cz)
+	local out = {}
+	for k = 1, rows * Front.Line.perRow do
+		local r, b = R.slot(k, Front.Line)
+		table.insert(out, { cx - fz * r - fx * b, cz + fx * r - fz * b })
+	end
+	return out
+end
+
+-- whether the ground leaves a clear line from `ah` over the ground at a to `bh` over the ground at b
+local function clear(a: { number }, ah: number, b: { number }, bh: number): boolean
+	local ya, yb = MT.heightAt(Map1, a[1], a[2]) + ah, MT.heightAt(Map1, b[1], b[2]) + bh
+	local d = math.sqrt((b[1] - a[1]) ^ 2 + (b[2] - a[2]) ^ 2)
+	for t = 2, d - 2, 2 do
+		local k = t / d
+		if MT.heightAt(Map1, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k) > ya + (yb - ya) * k then
+			return false
+		end
+	end
+	return true
+end
+
 return {
+	["spawns behind cover: the ground hides a wave line from the next sector's point and wave line (user 2026-11-01)"] = function()
+		local eye, head = M.Character.EyeHeight, M.Character.Height
+		for i = 1, #sectors - 1 do
+			for _, p in { { "West", i, "East", i + 1 }, { "East", i + 1, "West", i } } do
+				local side, at, foe, from = p[1] :: string, p[2] :: number, p[3] :: string, p[4] :: number
+				local viewers = waveLine(foe, from, 1)
+				table.insert(viewers, { sectors[from].x, sectors[from].z })
+				for _, slot in waveLine(side, at, 2) do
+					for _, v in viewers do
+						assert(
+							not clear(v, eye, slot, head),
+							`{side}'s line at {sectors[at].id} seen from {foe} at {sectors[from].id}`
+						)
+					end
+				end
+			end
+		end
+	end,
+	["points on rises: the same crest everywhere, the zone's edge within the zone's height of its point"] = function()
+		for _, s in sectors do
+			local top = MT.heightAt(Map1, s.x, s.z)
+			assert(math.abs(top - Map1.rise.height) < 1, `{s.id}'s crest is {top}`)
+			for k = 0, 15 do
+				local a = k * math.pi / 8
+				local y = MT.heightAt(Map1, s.x + math.cos(a) * s.radius, s.z + math.sin(a) * s.radius)
+				assert(math.abs(y - top) < Front.Height, `{s.id}'s zone edge is {top - y} under its point`)
+			end
+		end
+	end,
 	["chain is 5 points, an HQ at each end (user 2026-10-27: S1 and S5 are the HQs)"] = function()
 		assert(#sectors == 5, "expected 5 entries")
 		assert(sectors[1].isHQ and sectors[#sectors].isHQ, "chain must start and end with an HQ")

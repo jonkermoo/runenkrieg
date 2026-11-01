@@ -20,56 +20,60 @@ export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
 local Map1 = {
 	name = "Map 1",
 	seed = 1337,
-	bounds = { minX = -150, maxX = 1950, minZ = -400, maxZ = 400 } :: Rect, -- playable area
+	-- playable area: long and narrow (user 2026-11-01: "we need more distance between sectors ... we can make the map less
+	-- wide and longer instead"; was 2,100 x 800)
+	bounds = { minX = -150, maxX = 2550, minZ = -280, maxZ = 280 } :: Rect,
 	terrainMargin = 420, -- detailed terrain + forest past the bounds; relief fades to flat at its edge
 	-- Low-detail flat skirt beyond the margin plus distant hills, so the world edge never shows.
 	skirt = {
 		width = 1000,
 		hills = {
-			{ -1000, -800, 300, 110 },
-			{ 300, -1250, 360, 130 },
-			{ 1300, -1200, 320, 100 },
-			{ 2750, -700, 340, 120 },
-			{ 2850, 600, 300, 95 },
-			{ 1500, 1250, 380, 140 },
-			{ 200, 1200, 320, 105 },
-			{ -1050, 500, 340, 125 },
+			{ -1243, -680, 300, 110 },
+			{ 429, -1130, 360, 130 },
+			{ 1714, -1080, 320, 100 },
+			{ 3579, -580, 340, 120 },
+			{ 3707, 480, 300, 95 },
+			{ 1971, 1130, 380, 140 },
+			{ 300, 1080, 320, 105 },
+			{ -1307, 380, 340, 125 },
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
 
 	-- Capture points (frontline mode, user 2026-10-27: "somewhere that doesnt provide any tactical advantage to either
-	-- sides"). Each sector's point has the same sprint time from the neighbouring point on each side (within 1 s,
-	-- over the real ground: Rules/MapCheck) and about the same high ground, trees, houses and sight lines on its two
-	-- approaches. S2 sits on the ridge top, S3 off the farm with even cover, S4 by the middle ford clear of the houses,
-	-- S5 off the church square (it saw twice as far west as east). Five points (user 2026-10-27, Normal mode): S1 is
-	-- the West HQ and S5 the East HQ, S2-S4 are fought over (the separate HQ points behind them are gone). Reasoning:
-	-- docs/maps/MAP1.md.
+	-- sides"). Each sector's point has the same sprint time from the neighbouring point on each side (within 1.5 s,
+	-- over the real ground: Rules/MapCheck). Points ~420 apart (user 2026-11-01: more distance between sectors), each on
+	-- its own rise (`rise` below) with the wave line behind it on the back slope. S3 off the farm, S4 past the middle
+	-- ford before the village, S5 north of the church square. Five points (user 2026-10-27, Normal mode): S1 is the West
+	-- HQ and S5 the East HQ, S2-S4 are fought over. Reasoning: docs/maps/MAP1.md.
 	sectors = {
-		{ id = "S1", name = "S1", x = 388, z = -30, radius = 45, startOwner = "West", isHQ = true },
-		{ id = "S2", name = "S2", x = 650, z = -90, radius = 45, startOwner = "West" },
-		{ id = "S3", name = "S3", x = 924, z = -94, radius = 45, startOwner = "Neutral" },
-		{ id = "S4", name = "S4", x = 1150, z = 60, radius = 45, startOwner = "East" },
-		{ id = "S5", name = "S5", x = 1430, z = 54, radius = 45, startOwner = "East", isHQ = true },
+		{ id = "S1", name = "S1", x = 400, z = 0, radius = 45, startOwner = "West", isHQ = true },
+		{ id = "S2", name = "S2", x = 820, z = 30, radius = 45, startOwner = "West" },
+		{ id = "S3", name = "S3", x = 1240, z = -30, radius = 45, startOwner = "Neutral" },
+		{ id = "S4", name = "S4", x = 1660, z = -40, radius = 45, startOwner = "East" },
+		{ id = "S5", name = "S5", x = 2080, z = 40, radius = 45, startOwner = "East", isHQ = true },
 	} :: { Sector },
 	-- The invisible blocks between sectors, west to east, one between each pair of neighbours (Rules/Sectors,
 	-- Config/Sectors, built by src/dev/Greybox). Each runs where the sprint times to the two points are equal (on
 	-- average within 0.5 s along it), bent where needed so it never cuts a house; S3|S4 is the river's middle line.
 	-- points: { x, z } from the south edge (bounds.minZ) to the north edge (bounds.maxZ).
 	dividers = {
-		{ between = { "S1", "S2" }, points = { { 426, -400 }, { 536, 0 }, { 606, 400 } } },
-		{ between = { "S2", "S3" }, points = { { 779, -400 }, { 797, 400 } } },
+		{ between = { "S1", "S2" }, points = { { 647, -280 }, { 617, -160 }, { 617, 0 }, { 605, 200 }, { 581, 280 } } },
+		{
+			between = { "S2", "S3" },
+			points = { { 971, -280 }, { 1019, -160 }, { 1019, -40 }, { 1043, 40 }, { 1043, 160 }, { 1085, 280 } },
+		},
 		{ between = { "S3", "S4" }, river = true },
 		{
 			between = { "S4", "S5" },
-			points = { { 1252, -400 }, { 1306, -200 }, { 1310, 0 }, { 1269, 200 }, { 1272, 400 } },
+			points = { { 1937, -280 }, { 1889, -120 }, { 1883, -40 }, { 1853, 80 }, { 1853, 160 }, { 1805, 280 } },
 		},
 	} :: { Divider },
 	-- each side's spawn, behind its HQ (S1 / S5) as far out as the old HQ points were from theirs (~225 studs, ~12 s
 	-- sprint; user 2026-10-27: an HQ point too near its spawn is too hard to take)
 	spawnZones = {
-		West = { minX = 128, maxX = 198, minZ = -90, maxZ = 30 } :: Rect,
-		East = { minX = 1615, maxX = 1685, minZ = 40, maxZ = 160 } :: Rect, -- (clear of the village houses)
+		West = { minX = 140, maxX = 210, minZ = -60, maxZ = 60 } :: Rect,
+		East = { minX = 2240, maxX = 2310, minZ = 40, maxZ = 130 } :: Rect, -- (clear of the village houses)
 	},
 
 	-- Terrain shape
@@ -102,11 +106,14 @@ local Map1 = {
 		roughAmp = 6,
 		roughScale = 40,
 	},
-	-- High ground along the West side, full map width.
-	ridge = { upStart = 500, topStart = 570, topEnd = 690, downEnd = 770, height = 10 },
+	-- Every point on a rise, its spawn behind it (user 2026-11-01: "most points should be on an elevated position and the
+	-- spawn behind that elevated position (as natural cover)"): a round hill `height` high at the point, falling smoothly
+	-- to the rolling ground `radius` out. The wave line (Config/Frontline.Line.edge) stands on the back slope, low
+	-- enough that a soldier on the next point's rise sees over its heads (tests/map1.spec.luau).
+	rise = { radius = 110, height = 20, flat = 25 },
 	-- Natural river between S3 and S4, with shallow fords where crossings will be built later.
 	river = {
-		x = 1060,
+		x = 1450,
 		meanderAmp = 18,
 		meanderLen = 280,
 		width = 22, -- water surface width
@@ -115,36 +122,37 @@ local Map1 = {
 		waterY = -2.5,
 		fords = {
 			{ z = 0, width = 18, bedY = -3.8 }, -- future stone bridge
-			{ z = 250, width = 8, bedY = -3.8 }, -- future footbridge
-			{ z = -280, width = 10, bedY = -3.8 }, -- future collapsed lock
+			{ z = 188, width = 8, bedY = -3.8 }, -- future footbridge
+			{ z = -210, width = 10, bedY = -3.8 }, -- future collapsed lock
 		},
 	},
 	-- Flat, tree-free areas held for buildings designed later.
 	reserved = {
 		-- Natural (not flattened): buildings will sit on foundations. Kept clear of natural trees.
-		{ id = "Village", minX = 1110, maxX = 1950, minZ = -330, maxZ = 330 },
-		{ id = "Farm", minX = 850, maxX = 960, minZ = -30, maxZ = 130, falloff = 30 },
+		{ id = "Village", minX = 1710, maxX = 2550, minZ = -248, maxZ = 248 },
+		{ id = "Farm", minX = 1180, maxX = 1290, minZ = 30, maxZ = 150, falloff = 30 },
 	},
 
 	-- Village (references/village): organic core along winding lanes, a planned street of row houses,
 	-- hamlets at lane ends and a farm by S3. Rules/Village turns this into lots, props and trees.
 	village = {
-		area = { minX = 1110, maxX = 1950, minZ = -330, maxZ = 330 }, -- matches the reserved Village area
+		area = { minX = 1710, maxX = 2550, minZ = -248, maxZ = 248 }, -- matches the reserved Village area
 
 		roads = {
 			{
 				id = "Main",
 				width = 14,
-				maxLots = 10,
+				maxLots = 14,
 				points = {
-					{ 1060, 0 },
-					{ 1180, -10 },
-					{ 1290, 14 },
-					{ 1400, 4 },
-					{ 1500, -18 },
-					{ 1620, -8 },
-					{ 1760, 0 },
-					{ 1950, 0 },
+					{ 1450, 0 },
+					{ 1660, 0 },
+					{ 1780, -8 },
+					{ 1890, 10 },
+					{ 2000, 3 },
+					{ 2100, -14 },
+					{ 2220, -6 },
+					{ 2360, 0 },
+					{ 2550, 0 },
 				},
 			},
 			{
@@ -152,27 +160,27 @@ local Map1 = {
 				width = 9,
 				maxLots = 4,
 				lotsFrom = 0.45, -- hamlet: lots only on the far part of the lane
-				points = { { 1400, 4 }, { 1428, 80 }, { 1470, 150 }, { 1540, 205 }, { 1610, 250 } },
+				points = { { 2000, 3 }, { 2028, 60 }, { 2070, 112 }, { 2140, 154 }, { 2210, 188 } },
 			},
 			{
 				id = "SouthLane",
 				width = 9,
 				maxLots = 4,
 				lotsFrom = 0.4,
-				points = { { 1290, 14 }, { 1268, -80 }, { 1300, -170 }, { 1365, -235 } },
+				points = { { 2000, 3 }, { 1985, -60 }, { 2020, -128 }, { 2085, -176 } },
 			},
 			{
 				id = "RowStreet",
 				width = 14,
 				maxLots = 8,
 				rows = true, -- planned street: uniform row houses, evenly spaced, both sides
-				points = { { 1680, -8 }, { 1680, -230 } },
+				points = { { 2280, -6 }, { 2280, -172 } },
 			},
 			{
 				id = "FarmTrack",
 				width = 7,
 				maxLots = 0,
-				points = { { 1060, 0 }, { 1000, 18 }, { 950, 40 }, { 905, 55 } },
+				points = { { 1450, 0 }, { 1390, 14 }, { 1340, 26 }, { 1290, 36 } },
 			},
 		},
 
@@ -180,28 +188,31 @@ local Map1 = {
 		setback = 5, -- front wall distance from the road edge
 		buildingGap = 6, -- minimum clear gap between buildings (players pass between)
 
-		-- Open ground kept clear of buildings: the bridge-head and church squares (the old S4 / S5 spots) and the East HQ
-		-- spawn approach.
+		-- Open ground kept clear of buildings: the bridge-head and church squares, the S4 and S5 zones, the East HQ spawn
+		-- and its approach.
 		keepClear = {
-			{ x = 1200, z = 0, r = 30 },
-			{ x = 1500, z = -40, r = 34 },
-			{ x = 1800, z = 0, r = 70 },
-			{ x = 1905, z = 0, r = 55 },
+			{ x = 1800, z = 0, r = 30 },
+			{ x = 2100, z = -30, r = 34 },
+			{ x = 1660, z = -40, r = 60 },
+			{ x = 2080, z = 40, r = 60 },
+			{ x = 2275, z = 85, r = 70 },
+			{ x = 2400, z = 0, r = 70 },
+			{ x = 2505, z = 0, r = 55 },
 		},
 
 		-- Hand-placed landmark buildings. front = direction the door faces.
 		-- Hand-placed landmark buildings (church, station, farm...) return one at a time.
 		specials = {},
 
-		railX = 1930,
+		railX = 2530,
 
 		trees = { cell = 18, density = 0.14, roadClear = 5, buildingClear = 6 },
 		poles = { road = "Main", spacing = 48, side = 1 },
 		cars = 3,
 		-- Fixed village features: a well on the church square, a trough at the bridge-head square.
 		features = {
-			{ kind = "Well", x = 1500, z = -40 },
-			{ kind = "Trough", x = 1212, z = 22, yaw = 90 },
+			{ kind = "Well", x = 2100, z = -30 },
+			{ kind = "Trough", x = 1812, z = 16, yaw = 90 },
 		},
 	},
 

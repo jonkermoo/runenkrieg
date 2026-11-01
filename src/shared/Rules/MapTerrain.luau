@@ -46,6 +46,23 @@ function MapTerrain.roadDistance(map: any, x: number, z: number): (number, strin
 	return best, id
 end
 
+-- the box round every village road (edges included), worked out once per map
+local roadBoxes: { [any]: { minX: number, maxX: number, minZ: number, maxZ: number } } = {}
+local function roadBox(map: any): { minX: number, maxX: number, minZ: number, maxZ: number }
+	local b = roadBoxes[map]
+	if not b then
+		b = { minX = math.huge, maxX = -math.huge, minZ = math.huge, maxZ = -math.huge }
+		for _, r in map.village.roads do
+			for _, p in r.points do
+				b.minX, b.maxX = math.min(b.minX, p[1] - r.width), math.max(b.maxX, p[1] + r.width)
+				b.minZ, b.maxZ = math.min(b.minZ, p[2] - r.width), math.max(b.maxZ, p[2] + r.width)
+			end
+		end
+		roadBoxes[map] = b
+	end
+	return b
+end
+
 function MapTerrain.riverCenterX(map: any, z: number): number
 	local r = map.river
 	return r.x + r.meanderAmp * math.sin(z / r.meanderLen * 2 * math.pi)
@@ -65,6 +82,24 @@ local function ridgeHeight(map: any, x: number): number
 		return r.height
 	end
 	return r.height * (1 - smooth((x - r.topEnd) / (r.downEnd - r.topEnd)))
+end
+
+-- A map with `rise` (Config/Maps/Map1.rise): each sector's point on a round hill. Returns how much of the ground is the
+-- hill (1 out to `flat` from a point, 0 from `radius` out; the most where two meet) and the hill's top: the rolling ground blends into
+-- it, so every point's crest is the same height whatever the noise does there.
+local function riseAt(map: any, x: number, z: number): (number, number)
+	local r = map.rise
+	if not r then
+		return 0, 0
+	end
+	local w = 0
+	for _, s in map.sectors do
+		local d = math.sqrt((x - s.x) ^ 2 + (z - s.z) ^ 2)
+		if d < r.radius then
+			w = math.max(w, 1 - smooth((d - r.flat) / (r.radius - r.flat)))
+		end
+	end
+	return w, r.height
 end
 
 -- 0 = fully flattened (inside a reserved area), 1 = natural terrain.
@@ -128,7 +163,9 @@ local function landRaw(map: any, x: number, z: number): number
 	-- Fade the walkable relief to flat at the margin edge so the skirt joins seamlessly.
 	local m = map.terrainMargin
 	local edge = 1 - smooth((outside(map.bounds, x, z) - m * 0.6) / (m * 0.38))
-	local h = (relief(map.terrain, s, x, z) + ridgeHeight(map, x)) * edge + wildHeight(map, s, x, z)
+	local hill, top = riseAt(map, x, z)
+	local h = (relief(map.terrain, s, x, z) * (1 - hill) + top * hill + ridgeHeight(map, x)) * edge
+		+ wildHeight(map, s, x, z)
 	local w, baseY = MapTerrain.flattenWeight(map, x, z)
 	return baseY + (h - baseY) * w
 end
@@ -194,8 +231,9 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 			return "Ground"
 		end
 	end
-	-- Dirt roads (cheap bounding check first: roads only exist around the village and farm)
-	if map.village and x > 880 and x < 1960 and z > -340 and z < 340 then
+	-- Dirt roads (cheap bounding check first: roads only exist inside their own box)
+	local box = map.village and roadBox(map)
+	if box and x > box.minX and x < box.maxX and z > box.minZ and z < box.maxZ then
 		if MapTerrain.roadDistance(map, x, z) < 0 then
 			return "Sand"
 		end
