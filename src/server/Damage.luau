@@ -260,6 +260,7 @@ export type BlastOpts = {
 	fragments: GrenadeRules.Fragments?,
 	own: number?,
 	ownFling: boolean?, -- false: the one who set it off isn't thrown by it either (the staff's)
+	flingLeast: number?, -- the least throw for whoever it hurts (nil: Config/Damage.Blast.Fling.least)
 	crater: boolean?,
 	craterScale: number?, -- the hole's size (Rules/Blast.craterPlan; nil: 1): the howitzer's, Config/Artillery
 	wear: number?,
@@ -380,7 +381,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 				local own = character == by
 				local amount = if own then full * (o.own or 0) else full
 				local left = math.max(humanoid.Health - amount, 0)
-				local scale = if left <= 0 then 1 else Blast.fling(full, B.Soldier.max, B.Fling.least)
+				local scale = if left <= 0 then 1 else Blast.fling(full, B.Soldier.max, o.flingLeast or B.Fling.least)
 				if own and o.ownFling == false and left > 0 then
 					scale = nil -- (user 2026-10-21: a point-blank staff blast threw its own caster to their death)
 				end
