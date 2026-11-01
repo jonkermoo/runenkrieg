@@ -14,6 +14,8 @@ local Settings = require(script.Parent.Settings)
 local Audio = {}
 
 local effects: SoundGroup? = nil
+local ducked = 1 -- (src/client/Concussion: a share of the volume for a moment)
+local reapply = function() end
 
 -- The group every game sound plays in (made on first use; local to this client).
 function Audio.effects(): SoundGroup
@@ -22,15 +24,30 @@ function Audio.effects(): SoundGroup
 		g.Name = "Effects"
 		local function apply()
 			-- (a SoundGroup's own default is 0.5: 1 here keeps every sound at the level it was tuned at)
-			g.Volume = SettingsRules.volume(Settings.get("MasterVolume"), Settings.get("EffectsVolume"))
+			g.Volume = SettingsRules.volume(Settings.get("MasterVolume"), Settings.get("EffectsVolume")) * ducked
 		end
 		apply()
 		Settings.changed("MasterVolume", apply)
 		Settings.changed("EffectsVolume", apply)
+		reapply = apply
 		g.Parent = SoundService
 		effects = g
 	end
 	return effects :: SoundGroup
+end
+
+-- Every game sound at `share` of its volume (1: back to normal), on top of the player's settings.
+function Audio.duck(share: number)
+	if share ~= ducked then
+		ducked = share
+		Audio.effects()
+		reapply()
+	end
+end
+
+-- The player's Master x Effects volume, not ducked (for a sound outside the group).
+function Audio.volume(): number
+	return SettingsRules.volume(Settings.get("MasterVolume"), Settings.get("EffectsVolume"))
 end
 
 function Audio.spatial(sound: Sound, profile: string)

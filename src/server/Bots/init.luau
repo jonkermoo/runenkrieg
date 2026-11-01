@@ -66,6 +66,7 @@ local ShotRules = require(Shared.Rules.ShotAudio)
 local Sup = require(Shared.Rules.Suppression)
 local Teams = require(Shared.Rules.Teams)
 local Armory = require(script.Parent.Armory)
+local Concussion = require(script.Parent.Concussion)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
 local Firing = require(script.Parent.Firing)
@@ -1999,7 +2000,8 @@ function Bots.start()
 			end
 			if alive(b) and not b.deadAt then
 				local s0 = os.clock()
-				local ok, err = pcall(think, b, t0, d)
+				-- a concussed bot reacts later and aims worse while it lasts (src/server/Concussion)
+				local ok, err = pcall(think, b, t0, if b.m then Concussion.daze(b.m, d, t0) else d)
 				if not ok then
 					warn(`[Bots] {b.name}: {err}`)
 				end
