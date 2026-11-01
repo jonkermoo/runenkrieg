@@ -8,11 +8,12 @@ local SketchMap = {
 	-- the still image per map key: its asset, its size in pixels, the pad round the area it covers (the torn edge)
 	-- and the studs that area covers (user 2026-10-30: "cut more of the left and right edges", just past each spawn)
 	Maps = {
+		-- cropped closer to the spawns (user 2026-10-31: "cut off more unnecessary parts of the map and expand it")
 		Map1 = {
-			image = 135864882300996,
-			size = { 1024, 516 },
+			image = 87971867576424,
+			size = { 1024, 542 },
 			pad = 24,
-			x = { 70, 1740 },
+			x = { 120, 1700 },
 			z = { -400, 400 },
 		},
 		-- the zone-capture FFA map (tools/ui/sketchmap_playtest.py; user 2026-10-30: "make the hold v to show map appear
@@ -27,7 +28,9 @@ local SketchMap = {
 	},
 	-- in play (src/client/ModeHud): top left, under the top bar, in reference pixels at an 800-pixel-tall screen (the
 	-- chat sits under it, Config/Chat.Panel.y); height = width x aspect (the image's)
-	Hud = { x = 12, y = 10, width = 360, aspect = 516 / 1024 },
+	-- the in-play map, top left (reference pixels; its height follows the map image's shape); 1.35x wider than at first
+	-- (user 2026-10-31: "... and expand it")
+	Hud = { x = 12, y = 10, width = 486 },
 	-- sizes as shares of the drawn area's width
 	Point = { radius = 0.028, hqRadius = 0.034, ring = 0.005, rune = 0.62 }, -- a rune's height in its circle's width
 	Label = { size = 0.038, below = 0.008 }, -- a point's name under it
