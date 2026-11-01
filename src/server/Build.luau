@@ -1160,6 +1160,19 @@ local function plan(player: Player, a: any, b: any)
 	end
 end
 
+-- HP a soldier's Build swings added (a match's "most HP built": src/server/MatchStats), to each watcher
+local builtWatchers: { (Player, number) -> () } = {}
+function Build.onBuilt(fn: (Player, number) -> ())
+	table.insert(builtWatchers, fn)
+end
+local function credit(player: Player, hp: number)
+	if hp > 0 then
+		for _, fn in builtWatchers do
+			task.spawn(fn, player, hp)
+		end
+	end
+end
+
 -- A shovel swing (Net "Build" "Work"): at a piece, a trench block or a tree, in the shovel's mode
 local function work(player: Player, target: any, mode: any)
 	local character, root, team = digger(player)
@@ -1178,7 +1191,9 @@ local function work(player: Player, target: any, mode: any)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
 			lastSwing[player] = now
-			if Trenches.work(blk, team, mode, digShare(player)) then
+			local done, added = Trenches.work(blk, team, mode, digShare(player))
+			credit(player, added)
+			if done then
 				Loadouts.award(player, "Trench")
 			end
 		end
@@ -1216,6 +1231,7 @@ local function work(player: Player, target: any, mode: any)
 			remove(r)
 			return
 		end
+		credit(player, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need and not r.built then
@@ -1313,6 +1329,7 @@ local function work(player: Player, target: any, mode: any)
 			remove(r)
 			return
 		end
+		credit(player, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need then
@@ -1338,6 +1355,7 @@ local function work(player: Player, target: any, mode: any)
 			remove(r)
 			return
 		end
+		credit(player, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need and not r.paid then
@@ -1357,6 +1375,7 @@ local function work(player: Player, target: any, mode: any)
 			remove(r)
 			return
 		end
+		credit(player, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need then
@@ -1377,6 +1396,7 @@ local function work(player: Player, target: any, mode: any)
 		remove(r) -- (at 0 it is simply gone)
 		return
 	end
+	credit(player, left - r.work)
 	r.work = left
 	r.worked = now
 	if r.work >= r.need then

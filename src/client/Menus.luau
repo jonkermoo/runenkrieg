@@ -304,6 +304,8 @@ local function build(spec: any, name: string, parent: Instance): Screen
 	gui.Parent = parent
 	return screen
 end
+-- (the results screen is built the same way: src/client/Results)
+Menus.build = build
 
 function Menus.start()
 	local player = Players.LocalPlayer

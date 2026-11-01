@@ -118,6 +118,12 @@ local function send(player: Player)
 	Net.event("Loadout"):FireClient(player, s)
 end
 
+-- the points `player` earned (a match's results: src/server/MatchStats), to each watcher
+local earnWatchers: { (Player, number) -> () } = {}
+function Loadouts.onEarn(fn: (Player, number) -> ())
+	table.insert(earnWatchers, fn)
+end
+
 -- A Normal match's reinforcements boost for `player` (Config/Frontline.Reinforcements, set by src/server/Frontline on
 -- its folder): its `times` while their soldier is on the side boosted, else 1.
 local function reinforced(player: Player): number
@@ -138,6 +144,9 @@ function Loadouts.award(player: Player, reason: string, times: number?)
 	assert(amount, "unknown award " .. reason)
 	local boost = Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute)) * reinforced(player)
 	points[player] = Rules.earn(Loadouts.points(player), amount * (times or 1) * boost)
+	for _, fn in earnWatchers do
+		task.spawn(fn, player, amount * (times or 1) * boost)
+	end
 end
 
 -- Admin (src/server/DevTools): `amount` match points for `player`, the loadout menu told.

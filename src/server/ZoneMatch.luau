@@ -19,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.ZoneMatch)
 local BotsCfg = require(Shared.Config.Bots)
+local ResultsCfg = require(Shared.Config.Results)
 local DevCfg = require(Shared.Config.DevTools)
 local ModesCfg = require(Shared.Config.Modes)
 local TeamCfg = require(Shared.Config.Teams)
@@ -27,6 +28,7 @@ local Modes = require(Shared.Rules.Modes)
 local Rules = require(Shared.Rules.ZoneMatch)
 local Damage = require(script.Parent.Damage)
 local Kits = require(script.Parent.Kits)
+local MatchStats = require(script.Parent.MatchStats)
 local Ragdoll = require(script.Parent.Ragdoll)
 
 local ZoneMatch = {}
@@ -473,6 +475,29 @@ local function run()
 		end
 		zone:SetAttribute("Winner", winner)
 		zone:SetAttribute("EndsAt", workspace:GetServerTimeNow() + Cfg.ResultsSeconds)
+		-- the results screen (src/server/MatchStats; user 2026-10-31, F1): the standings by score, bots by their names
+		local board: { [number]: { name: string, score: number } } = {}
+		local named = workspace:FindFirstChild(BotsCfg.Folder)
+		for id, score in scores() do
+			local p = if id > 0 then Players:GetPlayerByUserId(id) else nil
+			local name = if p
+				then p.Name
+				elseif named then named:GetAttribute(BotsCfg.NameAttribute .. tostring(-id)) :: string?
+				else nil
+			if name then
+				board[id] = { name = name, score = score }
+			end
+		end
+		local champion = if winner then Players:GetPlayerByUserId(winner) else nil
+		MatchStats.send({
+			mode = "FFA",
+			winner = champion and champion.Name,
+			scores = board,
+			standingsTop = ResultsCfg.Standings,
+			endsAt = workspace:GetServerTimeNow() + Cfg.ResultsSeconds,
+		}, function(): string?
+			return nil
+		end)
 		task.wait(Cfg.ResultsSeconds)
 		-- everyone back in on a random team, its uniform and helmet (user 2026-10-30: "you can just get a different team
 		-- uniform"; a death rolls it too, src/server/Deploy), unless teams are kept for testing

@@ -122,6 +122,11 @@ local Remotes: { string } = {
 	-- server -> clients: (gun: Model, origin: Vector3, hit: Vector3, normal: Vector3?, part: Instance?) a machine gun's
 	-- bullet: the flash and report at the muzzle, the tracer, the hole
 	"MGShot",
+	-- server -> each client at a match's end (src/server/MatchStats, shown by src/client/Results): { mode: "Normal" |
+	-- "FFA", winner (Normal: the winning kit; FFA: a name), honours: { Kills, Healed, Built = { name, kit, value }? },
+	-- you: { Kills, Healed, Built, Earned }, endsAt: server time, and Normal's log: { { t, index, side } } (each capture,
+	-- t seconds into the match) and length (seconds), or FFA's standings: { { place, name, value, me } }, place }
+	"MatchResults",
 	-- Building (src/client/Build sends, src/server/Build checks; Config/Build, Rules/Build):
 	-- client -> server: ("Place", key: string, at: CFrame) lay a piece's blueprint (the server checks it);
 	-- ("Plan", start: Vector3, finish: Vector3) plan a trench run (src/server/Trenches snaps and checks it);

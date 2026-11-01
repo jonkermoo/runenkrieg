@@ -34,6 +34,7 @@ local Rules = require(Shared.Rules.Frontline)
 local Build = require(script.Parent.Build)
 local Damage = require(script.Parent.Damage)
 local DevWorld = require(script.Parent.DevWorld)
+local MatchStats = require(script.Parent.MatchStats)
 local Kits = require(script.Parent.Kits)
 local Ragdoll = require(script.Parent.Ragdoll)
 
@@ -80,6 +81,8 @@ local latest: { { West: number, East: number } } = {} -- the last tick's soldier
 local waveAt: number? = nil -- the next wave's server time while the line holds (countdown and play)
 local slots: { [string]: number } = { West = 0, East = 0 } -- the wave line's slots taken since the last wave
 local holding: { [Model]: boolean } = {} -- the soldiers standing in a wave line
+local playedAt = 0 -- os.clock() when play began (the capture log's times)
+local log: { { t: number, index: number, side: string } } = {} -- the match's captures, in order (the results' replay)
 
 -- `fn(player, reason)` for each award (a Config/Classes.Earn key: Capture, Neutralise, Defend, Win); `fn()` at each
 -- match's start
@@ -403,6 +406,7 @@ local function newMatch(reset: boolean?)
 	ending = false
 	captured, lost = false, 0
 	latest = empty()
+	table.clear(log)
 	setWave(nil)
 	folder:SetAttribute("West", pair.West)
 	folder:SetAttribute("East", pair.East)
@@ -443,6 +447,7 @@ local function run()
 			release()
 			setWave(Rules.nextWave(start, Cfg.Waves.every, workspace:GetServerTimeNow() + 0.05))
 			phase("Playing")
+			playedAt = os.clock()
 		end
 		local winner: Rules.Side? = nil
 		local last = os.clock()
@@ -466,6 +471,7 @@ local function run()
 				if ev.kind == "Captured" then
 					still = 0
 					captured = true
+					table.insert(log, { t = os.clock() - playedAt, index = ev.index, side = ev.side })
 				else
 					-- (a holder lost it: both sides' artillery goes up a level)
 					lost += 1
@@ -494,6 +500,15 @@ local function run()
 		setWave(nil)
 		folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
 		phase("Results", Cfg.ResultsSeconds)
+		MatchStats.send({
+			mode = "Normal",
+			winner = if winner then pair[winner] else nil,
+			log = table.clone(log),
+			length = os.clock() - playedAt,
+			endsAt = folder:GetAttribute("PhaseEndsAt"),
+		}, function(p: Player): string?
+			return Kits.next(p)
+		end)
 		task.wait(Cfg.ResultsSeconds)
 		newMatch(true)
 		task.wait() -- (src/server/Deploy splits everyone over the new pair first)
@@ -624,6 +639,7 @@ function Frontline.take(player: Player)
 	state.control[t] = Rules.rest(side)
 	still = 0
 	captured = true
+	table.insert(log, { t = os.clock() - playedAt, index = t, side = side })
 end
 
 return Frontline

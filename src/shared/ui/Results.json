@@ -1,0 +1,78 @@
+{
+	"name": "Results",
+	"_doc": "The results screen at a match's end (src/client/Results, Config/Results; user 2026-10-31: Normal 'R3 map table', FFA 'F1 standings ledger'), built by src/client/Menus' builder in the Field Grimoire style. Left: the winner (a nation in its colour, or a player's name), TAKES THE FIELD, the trench line, the three honours (a rune, the name and what for, the number), your own line and the next match's countdown. Right: Normal's sketch map replaying the captures (MapBox, tilted like the title screen's), or FFA's standings ledger on a paper card (rows made in code from LedgerRow). Sizes in reference pixels at theme.scale.referenceHeight.",
+	"theme": {
+		"palette": "Grimoire",
+		"scale": { "referenceHeight": 800, "min": 0.65, "max": 1.25 },
+		"fitMargin": 16,
+		"minTap": 32,
+		"minText": 12,
+		"textStroke": 0,
+		"outline": 0,
+		"corner": 0,
+		"scrollBar": 4,
+		"fonts": { "body": { "family": "SourceSansPro", "weight": "Bold", "file": "SourceSansPro-Bold.ttf" } }
+	},
+	"modal": true,
+	"preview": {
+		"winner": "SELVARA",
+		"honour1": "Oberleutnant_Kessel kills",
+		"value1": "27",
+		"you": "You · 9 kills · 320 HP healed · 1,100 HP built · +245",
+		"next": "Next match in 10"
+	},
+	"root": {
+		"id": "Screen",
+		"kind": "group",
+		"size": [1, 0, 1, 0],
+		"children": [
+			{ "id": "Dim", "kind": "overlay", "from": 0.35, "to": 0.55, "size": [1, 0, 1, 0] },
+			{ "id": "Winner", "kind": "label", "bind": "winner", "text": "", "textSize": 80, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 64, 0, 108], "size": [0, 620, 0, 88] },
+			{ "id": "Takes", "kind": "label", "text": "TAKES THE FIELD", "textSize": 44, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 64, 0, 196], "size": [0, 620, 0, 52] },
+			{ "id": "Trench", "kind": "trench", "pos": [0, 62, 0, 262], "size": [0, 438, 0, 32] },
+			{
+				"id": "Honours",
+				"kind": "group",
+				"pos": [0, 64, 0, 324],
+				"size": [0, 580, 0, 156],
+				"children": [
+					{ "id": "Rune1", "kind": "group", "pos": [0, 0, 0, 6], "size": [0, 22, 0, 32] },
+					{ "id": "Honour1", "kind": "label", "bind": "honour1", "text": "", "textSize": 28, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 40, 0, 0], "size": [0, 420, 0, 44] },
+					{ "id": "Value1", "kind": "label", "bind": "value1", "text": "", "textSize": 30, "textColor": "text", "shade": 0.45, "align": "right", "pos": [0, 460, 0, 0], "size": [0, 120, 0, 44] },
+					{ "id": "Rune2", "kind": "group", "pos": [0, 0, 0, 58], "size": [0, 22, 0, 32] },
+					{ "id": "Honour2", "kind": "label", "bind": "honour2", "text": "", "textSize": 28, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 40, 0, 52], "size": [0, 420, 0, 44] },
+					{ "id": "Value2", "kind": "label", "bind": "value2", "text": "", "textSize": 30, "textColor": "text", "shade": 0.45, "align": "right", "pos": [0, 460, 0, 52], "size": [0, 120, 0, 44] },
+					{ "id": "Rune3", "kind": "group", "pos": [0, 0, 0, 110], "size": [0, 22, 0, 32] },
+					{ "id": "Honour3", "kind": "label", "bind": "honour3", "text": "", "textSize": 28, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 40, 0, 104], "size": [0, 420, 0, 44] },
+					{ "id": "Value3", "kind": "label", "bind": "value3", "text": "", "textSize": 30, "textColor": "text", "shade": 0.45, "align": "right", "pos": [0, 460, 0, 104], "size": [0, 120, 0, 44] }
+				]
+			},
+			{ "id": "You", "kind": "label", "bind": "you", "text": "", "textSize": 24, "textColor": "dim", "shade": 0.45, "align": "left", "pos": [0, 64, 0, 512], "size": [0, 640, 0, 32] },
+			{ "id": "Next", "kind": "label", "bind": "next", "text": "", "textSize": 24, "textColor": "pencil", "shade": 0.6, "align": "left", "pos": [0, 64, 0, 552], "size": [0, 640, 0, 32] },
+			{ "id": "MapHolder", "kind": "group", "anchor": [1, 0], "pos": [1, -56, 0, 170], "size": [0, 640, 0, 323], "rotation": -1.4, "aspect": 1.9845 },
+			{
+				"id": "Ledger",
+				"kind": "group",
+				"card": true,
+				"anchor": [1, 0],
+				"pos": [1, -56, 0, 130],
+				"size": [0, 560, 0, 470],
+				"children": [
+					{ "id": "LedgerTitle", "kind": "label", "text": "STANDINGS · POINTS", "textSize": 22, "textColor": "inkDim", "align": "left", "pos": [0, 32, 0, 24], "size": [0, 496, 0, 30] },
+					{
+						"id": "LedgerRow",
+						"kind": "group",
+						"pos": [0, 32, 0, 68],
+						"size": [0, 496, 0, 40],
+						"children": [
+							{ "id": "Place", "kind": "label", "text": "1", "textSize": 24, "textColor": "ink", "align": "left", "pos": [0, 0, 0, 0], "size": [0, 34, 0, 40] },
+							{ "id": "Name", "kind": "label", "text": "Oberleutnant_Kessel", "textSize": 24, "textColor": "ink", "align": "left", "pos": [0, 36, 0, 0], "size": [0, 240, 0, 40] },
+							{ "id": "Track", "kind": "group", "pos": [0, 284, 0, 14], "size": [0, 130, 0, 12] },
+							{ "id": "Value", "kind": "label", "text": "1,240", "textSize": 24, "textColor": "ink", "align": "right", "pos": [0, 420, 0, 0], "size": [0, 76, 0, 40] }
+						]
+					}
+				]
+			}
+		]
+	}
+}
