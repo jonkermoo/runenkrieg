@@ -332,6 +332,42 @@ return {
 		local t = D.Weapons[m.class]
 		assert(t and t.Torso * 3 >= 100 and t.Torso * 2 < 100, "three body hits")
 	end,
+	["one click is one MG shot, held fire goes at its rate one shot a frame"] = function()
+		-- user 2026-11-01: "one click is one shot. two shouldnt come out at once, two shouldnt be fired sequenttially"
+		local m = C.Guns.mg08.mg :: any
+		local gap = A.mgInterval(m.rate)
+		assert(m.tap > gap and m.tap <= 0.3, "a click's length gives one shot, a hold still goes full auto")
+		-- a click after a long quiet: one shot, nothing more that frame or while it is held for a normal click
+		local fires, nextShot = A.mgShot(0, true, true, 100, gap, m.tap)
+		assert(fires and near(nextShot, 100 + m.tap))
+		local again = A.mgShot(nextShot, false, true, 100, gap, m.tap)
+		assert(not again, "no second shot in the same frame")
+		assert(not A.mgShot(nextShot, false, true, 100 + m.tap - 0.01, gap, m.tap), "nor while the click is held")
+		assert(not A.mgShot(nextShot, false, false, 100 + 5, gap, m.tap), "let go: never")
+		-- held on: full auto at its rate, one shot a frame, no burst saved up after a slow frame
+		local t, shots = 100 + m.tap, 0
+		while t < 100 + m.tap + 1 do
+			local f
+			f, nextShot = A.mgShot(nextShot, false, true, t, gap, m.tap)
+			if f then
+				shots += 1
+			end
+			t += 1 / 60
+		end
+		assert(math.abs(shots - 1 / gap) <= 1, `{shots} a second held`)
+		local _, late = A.mgShot(100, false, true, 105, gap, m.tap)
+		assert(late == 105, "a hitch fires once and keeps going from now")
+		-- a pull right after a shot waits for it, then fires its own one
+		assert(not A.mgShot(100.1, true, false, 100.05, gap, m.tap))
+		assert((A.mgShot(100.1, true, false, 100.1, gap, m.tap)))
+	end,
+	["the MG's barrel kick is big enough to see and home before the next round"] = function()
+		local MG = C.Guns.mg08
+		assert(MG.recoil >= 0.25, "visible")
+		assert(MG.recoilTimes[1] + MG.recoilTimes[2] < A.mgInterval(MG.mg.rate), "settled between shots")
+		assert(A.recoilAt(MG.recoilTimes[1], MG.recoil, MG.recoilTimes) == MG.recoil)
+		assert(A.recoilAt(MG.recoilTimes[1] + MG.recoilTimes[2], MG.recoil, MG.recoilTimes) == 0)
+	end,
 	["the MG's spread grows over a burst and settles when it stops"] = function()
 		local s = C.Guns.mg08.mg.spread
 		assert(near(A.mgSpread(0, s), s.min) and near(A.mgSpread(1, s), s.max))
