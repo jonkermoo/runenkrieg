@@ -211,6 +211,12 @@ function Loadouts.onKill(fn: (Player, Model) -> ())
 	table.insert(killWatchers, fn)
 end
 
+-- `fn(id, victim)` on each kill credited to a bot (by its negative id: src/server/Bots, a match's results)
+local botKillWatchers: { (number, Model) -> () } = {}
+function Loadouts.onBotKill(fn: (number, Model) -> ())
+	table.insert(botKillWatchers, fn)
+end
+
 -- pays a player or a bot by id (`share` of the award: a bot's death pays Config/Bots.KillShare)
 local function pay(id: number, reason: string, share: number)
 	if id < 0 then
@@ -241,6 +247,10 @@ local function died(character: Model)
 		if k then
 			for _, fn in killWatchers do
 				task.spawn(fn, k, character)
+			end
+		elseif killer < 0 then
+			for _, fn in botKillWatchers do
+				task.spawn(fn, killer, character)
 			end
 		end
 	end

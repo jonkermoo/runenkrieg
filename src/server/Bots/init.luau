@@ -63,6 +63,7 @@ local Firing = require(script.Parent.Firing)
 local Frontline = require(script.Parent.Frontline)
 local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
+local MatchStats = require(script.Parent.MatchStats)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
 local ZoneMatch = require(script.Parent.ZoneMatch)
@@ -1329,6 +1330,15 @@ function Bots.start()
 	-- a bot's capture pays it like a player's (src/server/Loadouts)
 	ZoneMatch.onBotCapture(function(id)
 		Loadouts.awardBot(id, "Capture")
+	end)
+	-- a bot's kills count for a match's honours (src/server/MatchStats), under its shown name
+	Loadouts.onBotKill(function(id: number)
+		for _, b in bots do
+			if b.id == id then
+				local shown = if b.mode == "Normal" then NV.nameTag .. b.name else b.name
+				MatchStats.addBot(id, shown, b.kit, "Kills", 1)
+			end
+		end
 	end)
 	Frontline.onBotAward(function(m: Model, reason: string)
 		local id = m:GetAttribute(Cfg.IdAttribute)
