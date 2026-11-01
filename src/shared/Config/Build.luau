@@ -100,9 +100,13 @@ local Build = {
 		-- under the fill (user 2026-10-24: "an 80% trench should start visibly filling a little bit, but not an unusable
 		-- amount"; "way way more durable")
 		-- (5 Build swings dig a square: "make building take a bit longer", user 2026-10-24)
-		-- (a square buried under `bare`% HP loses its dirt pieces: it just fills with earth, its neighbours add no walls,
-		-- user 2026-10-25: "just make it fill, no need to add additional walls"; dug back up past it, they return)
-		hp = { max = 100, swing = 20, destroy = 4, hold = 95, bare = 75 },
+		-- (its neighbours add no walls round a buried square, user 2026-10-25: "just make it fill, no need to add
+		-- additional walls")
+		-- (user 2026-11-01: "always be slowly filled up and dug in as HP drops and only breaks at HP 0": its pieces stay
+		-- to the end, the floor riding up on the fill and the dirt heaps sinking `heapSink` studs by 0 HP, so about 20 HP
+		-- is barely any cover; the 75% cut-off where the pieces went is gone)
+		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
+		heapSink = 2.6,
 		-- the shape: floor half width, depth, walls at `wallAngle` (Metrics MaxSlopeAngle decides whether you can walk
 		-- up them), earth thrown up as a bank along both edges (the pit's rim) under each wall's parapet (Config/Assets
 		-- trench_pieces Wall<i>Parapet: a thick heap of dirt just behind the wall's top edge, about 2.1 to 2.5 over the
@@ -122,6 +126,15 @@ local Build = {
 		shotSlack = 2,
 		-- a filled-in block leaves a scar: a lumpy dip this deep, churned earth, no grass
 		scar = { depth = 0.6 },
+		-- the soil a square is dug into (user 2026-11-01: "match the color of the terrain underneath (not the grass)"):
+		-- the terrain's first material under the square's ground line that isn't in `skip`, else `fallback` (Map 1 is
+		-- grass all the way down: Ground, Palette.Terrain); its fill, banks and bare rim are that material, its dirt
+		-- pieces that material's colour (Palette.Build.Trench*)
+		soil = { fallback = "Ground", skip = { "Grass", "LeafyGrass", "Air", "Water" } },
+		-- no grass this far out past a dug square's wall tops (its dirt heaps and skirt, joins.heapReach): the terrain
+		-- there is its soil until it is filled in to 0 HP (user 2026-11-01: "make sure the area outside the terrain has
+		-- its grass removed too")
+		grassClear = 12,
 		-- markers (src/server/Trenches; user 2026-10-24): a
 		-- stake (width, height) at each corner of a square, its top `top` studs painted (Palette.Build.PegTop), cord
 		-- `string` wide between the stake tops sagging by `sag` of its length (a Beam's curve); no flags
@@ -245,7 +258,7 @@ local Build = {
 		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the M2
 		-- (Config/Artillery.Guns `gun`) on its tripod on two mount bags (`mountBag`) in the point where the two front
 		-- piles meet (Nest below). `width` x `depth` its footprint round the ring, `height` its top (the MG 08's shield
-		-- set it). (`stage1.sacks` unused here: a nest's empty sacks lie on their own spots, Nest.flat)
+		-- set it; the 11-sided ring's 12.8 across and a bag's depth). (`stage1.sacks` unused here: a nest's empty sacks lie on their own spots, Nest.flat)
 		{
 			key = "MGNest",
 			name = "MG nest",
@@ -256,8 +269,8 @@ local Build = {
 			bags = { "Bag1", "Bag2", "Bag3" },
 			-- stage 1's meshes from the pile (laid at 0 HP): the scraped ground under each pile, the empty sacks
 			stage1 = { ground = "Patch", sacks = "Sacks" },
-			width = 12.4,
-			depth = 12.4,
+			width = 14.4,
+			depth = 14.4,
 			height = 4.6,
 			maxSlope = 15,
 		},
@@ -423,9 +436,29 @@ local Build = {
 			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
 		wear = { 1, 0.7, 0.45, 0.2 },
-		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },
-		gunBack = 1.66,
-		mountBack = 2.31,
+		-- (user 2026-11-01: "it should have nearly a 180 view angle (maybe 140) ... make sure players dont clip with the
+		-- sandbag"; was 9 sides, the gun 1.66 behind the point, +-20 in the notch): 11 sides, the back three open as a
+		-- wide doorway, the gun near the middle; the two front piles (`low`) one bag high so the barrel and its bullets
+		-- clear the front across the whole traverse (Config/Artillery mg08 `traverse`; Rules.nestFit, `fit` below)
+		ring = {
+			sides = 11,
+			bag = 3.6,
+			piles = { { 0, 1, 2 }, { 0, 10, 9 }, { 2, 3, 4 }, { 9, 8, 7 } },
+			low = { 1, 2 },
+		},
+		gunBack = 5.5,
+		mountBack = 6.15,
+		-- what must clear the bags at every lay (Rules.nestFit, tests/build.spec): the gunner's legs (`legs`, across and
+		-- deep) against the bottom bags, the torso and arms out to the grips (`body`) against the top bags, the gun
+		-- (`gun`: from `back` behind the pivot, `length` long, `width` across) and its bullets against the top bags; each
+		-- bag `bag` long and deep (tools/blender/sandbags/pile.py), the gunner `crew` behind the pivot (Guns mg08 `crew`)
+		fit = {
+			legs = { 2, 1 },
+			body = { 4, 1.2 },
+			gun = { back = 1.4, length = 5.6, width = 0.6 },
+			bag = { 3.6, 1.6 },
+			margin = 0.2,
+		},
 		bagTop = 1.9,
 		-- craters never carve its footprint or this many studs round it (Build.onNest; user 2026-10-29: "give the
 		-- turret some ground. the ground beneath it shouldnt be be to be destroyed"), as a Hesco barrier's (Hesco.ground);

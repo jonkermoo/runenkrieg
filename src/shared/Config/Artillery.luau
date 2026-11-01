@@ -126,6 +126,7 @@ export type Gun = {
 	-- (Config/Audio profile Gunshot)
 	mg: {
 		rate: number,
+		tap: number, -- a fresh pull's one shot: the next comes no sooner than this many seconds after it (Rules.mgShot)
 		box: number,
 		range: number,
 		class: string,
@@ -986,7 +987,9 @@ local Artillery = {
 			hinge = { 0, 1.035, 0 },
 			muzzle = { 0, 1.25, -4.226 },
 			boreCentre = 0.009,
-			traverse = 20, -- (the design: +-20 in the notch the front piles leave)
+			-- (user 2026-11-01: "nearly a 180 view angle (maybe 140)"; was +-20 in the notch the front piles left): 140 in
+			-- all, the gunner and gun clear of the bags all the way (Config/Build.Nest `ring`, `fit`; Rules/Build.nestFit)
+			traverse = 70,
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
 			traverseRate = 60,
@@ -1000,8 +1003,11 @@ local Artillery = {
 			reload = 12, -- (the box reload, the design's long wait)
 			breechOpen = 0,
 			breechTimes = { 0, 0 },
-			recoil = 0.12, -- (recoil-operated: the barrel and lock kick back a little each shot; the M2's .50 harder)
-			recoilTimes = { 0.01, 0.06 },
+			-- (recoil-operated: the barrel and lock kick back each shot; user 2026-11-01: "make sure the recoil for the
+			-- barrel of the mg nest it visible ... make it look visual and match the firerate"; was 0.12 over 0.07 s,
+			-- too small and quick to see): back in 0.015 s, home again just before the next round (0.133 s at 450)
+			recoil = 0.3,
+			recoilTimes = { 0.015, 0.105 },
 			-- (user 2026-10-29: "make the barrel get warmer from the tip as you hold it (steam a little too)"): glowing
 			-- at the tip from the first rounds, creeping back half the barrel (2 of its ~4.1 studs out of the receiver),
 			-- all of it hot after ~50 rounds held, cool again ~20 s after; steam past 0.4
@@ -1031,6 +1037,9 @@ local Artillery = {
 			-- the sight line at y 1.71)
 			mg = {
 				rate = 450,
+				-- (user 2026-11-01: "one click is one shot. two shouldnt come out at once, two shouldnt be fired
+				-- sequenttially either"): a click let go within this gives that one shot; held longer, full auto
+				tap = 0.25,
 				box = 100,
 				range = 600, -- (as far as a rifle shot: Config/Firing.Range, the fog)
 				class = "MachineGun",

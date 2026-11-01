@@ -141,8 +141,29 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 			end
 		end
 	end
-	-- a gun dug in (src/server/Artillery): every tuft within the pit goes, now and once its voxels have arrived
-	Net.event("GroundDug").OnClientEvent:Connect(function(position: Vector3, radius: number)
+	-- the cells within `r` of `position` placed again from the ground as it is now (a trench's bare rim, and its grass
+	-- back once it is filled in)
+	local function regrow(position: Vector3, r: number)
+		local size = Cfg.ChunkSize
+		for cx = math.floor((position.X - r) / size), math.floor((position.X + r) / size) do
+			for cz = math.floor((position.Z - r) / size), math.floor((position.Z + r) / size) do
+				local key = cx .. ":" .. cz
+				if loaded[key] then
+					unload(key)
+					load(cx, cz)
+				end
+			end
+		end
+	end
+	-- a gun dug in (src/server/Artillery): every tuft within the pit goes, now and once its voxels have arrived; a
+	-- trench (`follow`, src/server/Trenches): the grass there follows the ground once its voxels have arrived
+	Net.event("GroundDug").OnClientEvent:Connect(function(position: Vector3, radius: number, follow: boolean?)
+		if follow then
+			for _, after in Foliage.Scrub.after do
+				task.delay(after, regrow, position, radius)
+			end
+			return
+		end
 		scrub(position, radius, math.huge)
 		for _, after in Foliage.Scrub.after do
 			task.delay(after, scrub, position, radius, math.huge)

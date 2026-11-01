@@ -83,11 +83,15 @@ type State = {
 	ground: { at: CFrame, lo: { number }, hi: { number } },
 	pit: Model?, -- its pit's slabs
 	-- a machine gun (Config/Artillery.Guns `mg`): its fire held down, its heat (Rules.mgHeat), when its next shot is
-	-- due, and a box reload under way
+	-- due (a fresh pull not yet fired: `pull`), and a box reload under way
 	trigger: boolean,
+	pull: boolean,
 	heat: number,
 	nextShot: number,
 	reloading: boolean,
+	-- a reload's count (a broken-off one's end does nothing) and whether one was broken off, to start over when manned
+	reloadOf: number,
+	unloaded: boolean,
 }
 
 local guns: { [Model]: State } = {}
@@ -204,9 +208,54 @@ local function crewSpot(s: State, character: Model): CFrame?
 	return CFrame.lookAt(at, at + pivot.LookVector)
 end
 
+-- A machine gun's box reload: unable to fire for the gun's `reload`, then full again
+local function reloadBox(s: State)
+	local mg = s.gun.mg
+	if not mg or s.reloading or s.broken or (s.model:GetAttribute("Rounds") :: number? or 0) >= mg.box then
+		return
+	end
+	s.reloading = true
+	s.trigger, s.pull = false, false
+	s.reloadOf += 1
+	local this = s.reloadOf
+	s.model:SetAttribute("ReadyAt", now() + s.gun.reload)
+	task.delay(s.gun.reload, function()
+		if s.reloadOf == this and guns[s.model] then
+			s.reloading = false
+			s.model:SetAttribute("Rounds", mg.box)
+		end
+	end)
+end
+
+-- A reload broken off by its gunner leaving (user 2026-11-01: "reloading on the machine gun and field cannon should
+-- be restarted if cancelled"): it stops here, the gun as it was (the box not swapped, the round not in), and starts
+-- over from the beginning once the gun is manned again (restartReload)
+local function cancelReload(s: State)
+	local ready = s.model:GetAttribute("ReadyAt") :: number?
+	if s.reloading or (not s.gun.mg and ready and now() < ready) then
+		s.reloadOf += 1
+		s.reloading = false
+		s.unloaded = true
+		s.model:SetAttribute("ReadyAt", now())
+	end
+end
+
+local function restartReload(s: State)
+	if not s.unloaded then
+		return
+	end
+	s.unloaded = false
+	if s.gun.mg then
+		reloadBox(s)
+	else
+		s.model:SetAttribute("ReadyAt", now() + s.gun.reload)
+	end
+end
+
 local function leave(s: State)
 	local player = s.gunner
-	s.trigger = false
+	s.trigger, s.pull = false, false
+	cancelReload(s)
 	for _, c in s.conns do
 		c:Disconnect()
 	end
@@ -271,6 +320,7 @@ local function man(s: State, player: Player)
 	s.mannedAt = os.clock()
 	s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
 	s.model:SetAttribute("Gunner", player.UserId)
+	restartReload(s)
 	s.prompt.Enabled = false
 	-- (still drawn, dimmed, for everyone else: Config/Prompts)
 	s.prompt:SetAttribute(PromptCfg.BlockedAttr, "InUse")
@@ -392,23 +442,6 @@ local function fire(s: State)
 	fly(s, origin, velocity, character)
 end
 
--- A machine gun's box reload: unable to fire for the gun's `reload`, then full again
-local function reloadBox(s: State)
-	local mg = s.gun.mg
-	if not mg or s.reloading or s.broken or (s.model:GetAttribute("Rounds") :: number? or 0) >= mg.box then
-		return
-	end
-	s.reloading = true
-	s.trigger = false
-	s.model:SetAttribute("ReadyAt", now() + s.gun.reload)
-	task.delay(s.gun.reload, function()
-		s.reloading = false
-		if guns[s.model] then
-			s.model:SetAttribute("Rounds", mg.box)
-		end
-	end)
-end
-
 -- A machine gun's bullet: from the muzzle along the gun's lay plus its stray, cast against the world (glass on the way
 -- broken and passed, Config/Firing.Shatter), its wound handed to src/server/Damage
 local function bullet(s: State, character: Model)
@@ -463,15 +496,17 @@ local function machineGun(s: State, dt: number)
 	local shots = 0
 	local character = s.gunner and s.gunner.Character
 	local rounds = s.model:GetAttribute("Rounds") :: number? or 0
-	if s.trigger and character and not s.broken then
-		local gap = Rules.mgInterval(mg.rate)
-		s.nextShot = math.max(s.nextShot, t - gap) -- (no burst of shots saved up while it was quiet)
-		while s.nextShot <= t and Rules.mgReady(rounds, s.model:GetAttribute("ReadyAt") :: number?, t) do
-			s.nextShot += gap
-			rounds -= 1
-			shots += 1
-			s.heat = Rules.mgHeat(s.heat, 1, 0, mg.spread)
-			bullet(s, character)
+	if (s.trigger or s.pull) and character and not s.broken then
+		-- (one click, one shot: Rules.mgShot)
+		if Rules.mgReady(rounds, s.model:GetAttribute("ReadyAt") :: number?, t) then
+			local fires, nextShot = Rules.mgShot(s.nextShot, s.pull, s.trigger, t, Rules.mgInterval(mg.rate), mg.tap)
+			if fires then
+				s.nextShot, s.pull = nextShot, false
+				rounds -= 1
+				shots += 1
+				s.heat = Rules.mgHeat(s.heat, 1, 0, mg.spread)
+				bullet(s, character)
+			end
 		end
 		if shots > 0 then
 			s.model:SetAttribute("Rounds", rounds)
@@ -900,9 +935,12 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		pit = pit,
 		ground = { at = model:GetPivot(), lo = under, hi = over },
 		trigger = false,
+		pull = false,
 		heat = 0,
 		nextShot = 0,
 		reloading = false,
+		reloadOf = 0,
+		unloaded = false,
 	}
 	if gun.crewTurns then
 		local pivot = model:GetPivot()
@@ -1257,6 +1295,10 @@ function Artillery.start()
 			end
 		elseif kind == "Trigger" then
 			if s.gun.mg then
+				-- (a fresh pull fires its one shot even when let go before the next frame: Rules.mgShot)
+				if a == true and not s.trigger and not s.reloading then
+					s.pull = true
+				end
 				s.trigger = a == true
 			end
 		elseif kind == "Reload" then

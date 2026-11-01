@@ -32,6 +32,7 @@ local Trenches = {}
 local T = C.Trench
 local VOXEL = 4
 local TOP = Rules.trenchTop(T)
+local RIM = math.max(T.bank.width, T.grassClear) -- how far past its wall tops a square changes the ground
 local KIND = "TrenchBlock"
 
 type Link = { kind: string, other: Block, which: string? } -- "end" (with `which` end of `other`) or "tee"
@@ -54,6 +55,7 @@ export type Block = {
 	model: Model?,
 	worked: number,
 	seed: number,
+	soil: Enum.Material?, -- the terrain it is dug into (soilOf)
 }
 
 local blocks: { [number]: Block } = {}
@@ -114,6 +116,38 @@ local function shareOf(blk: Block): number
 	return if blk.scar then 0 else Rules.trenchDepth(blk.hp, blk.built, T.hp)
 end
 
+-- the soil a square is dug into: the terrain's material a few voxels down from the middle of its ground line, as it
+-- was before any trench, the grass skipped (Rules.trenchSoil)
+local function soilOf(blk: Block): Enum.Material
+	if blk.soil then
+		return blk.soil
+	end
+	local mid = (blk.a + blk.b) / 2
+	local ix, iz = math.floor(mid.X / VOXEL), math.floor(mid.Z / VOXEL)
+	local names = {}
+	for k = 1, 3 do
+		local iy = math.floor(mid.Y / VOXEL) - k
+		local o = original[`{ix},{iy},{iz}`]
+		local m = o and o.m
+		if not m then
+			local corner = Vector3.new(ix, iy, iz) * VOXEL
+			local ok, mats = pcall(
+				workspace.Terrain.ReadVoxels,
+				workspace.Terrain,
+				Region3.new(corner, corner + Vector3.one * VOXEL),
+				VOXEL
+			)
+			m = if ok then mats[1][1][1] else nil
+		end
+		if m then
+			table.insert(names, m.Name)
+		end
+	end
+	local soil = (Enum.Material :: any)[Rules.trenchSoil(names, T.soil)] :: Enum.Material
+	blk.soil = soil
+	return soil
+end
+
 local function shapeOf(blk: Block): Rules.BlockShape
 	local function ext(link: Link?): (number, boolean)
 		if not link or not live(link.other) or link.other.hp <= 0 then
@@ -163,7 +197,7 @@ local function reshape(centre: Vector3, reach: number)
 	for _, blk in blocks do
 		local mid = (blk.a + blk.b) / 2
 		local flat = Vector3.new(mid.X - centre.X, 0, mid.Z - centre.Z).Magnitude
-		if flat <= reach + blk.length / 2 + TOP + T.bank.width then
+		if flat <= reach + blk.length / 2 + TOP + RIM then
 			table.insert(near, { blk = blk, shape = shapeOf(blk), share = shareOf(blk) })
 		end
 	end
@@ -181,8 +215,8 @@ local function reshape(centre: Vector3, reach: number)
 			end
 			local top = Rules.columnTop(column, corner.Y, VOXEL)
 			local cut: number? = nil
-			local churned = false
 			local bank: number? = nil
+			local soil: Enum.Material? = nil -- (the cut's, else the bank's or the bare rim's)
 			for _, n in near do
 				local blk: Block = n.blk
 				local rel = Vector3.new(x - blk.a.X, 0, z - blk.a.Z)
@@ -194,7 +228,7 @@ local function reshape(centre: Vector3, reach: number)
 						if r <= TOP then
 							local want = line - T.scar.depth * (1 - r / TOP)
 							if not cut or want < cut then
-								cut, churned = want, true
+								cut, soil = want, soilOf(blk)
 							end
 						end
 					else
@@ -202,15 +236,18 @@ local function reshape(centre: Vector3, reach: number)
 						if h and h < 0 then
 							local want = line + h
 							if not cut or want < cut then
-								cut, churned = want, false -- (filled in as mud, the colour of its pieces)
+								cut, soil = want, soilOf(blk) -- (filled in with its soil, the colour of its pieces)
 							end
 						elseif h and h > 0 and top then
 							bank = math.max(bank or -math.huge, top + h)
 						end
+						if not cut and n.share > 0 and r <= TOP + RIM then
+							soil = soil or soilOf(blk)
+						end
 					end
 				end
 			end
-			if cut or bank then
+			if cut or bank or soil then
 				for iy = 1, size.Y do
 					local key = `{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`
 					if not original[key] then
@@ -229,27 +266,33 @@ local function reshape(centre: Vector3, reach: number)
 					if occs[ix][iy][iz] <= 0 then
 						mats[ix][iy][iz] = Enum.Material.Air
 					else
-						mats[ix][iy][iz] = if churned then Enum.Material.Ground else Enum.Material.Mud
+						mats[ix][iy][iz] = soil :: Enum.Material
 					end
 				end
-			elseif bank then
-				local out = Rules.shapeColumn(column, corner.Y, VOXEL, bank, false)
+			elseif soil then
+				-- the bank thrown up and the bare rim round it: soil, no grass
+				local out = if bank then Rules.shapeColumn(column, corner.Y, VOXEL, bank, false) else column
 				for iy = 1, size.Y do
 					if out[iy] > occs[ix][iy][iz] then
 						occs[ix][iy][iz] = out[iy]
-						mats[ix][iy][iz] = Enum.Material.Ground
+					end
+					if occs[ix][iy][iz] > 0 then
+						local m = mats[ix][iy][iz]
+						if out[iy] > column[iy] or m == Enum.Material.Grass or m == Enum.Material.LeafyGrass then
+							mats[ix][iy][iz] = soil
+						end
 					end
 				end
 			end
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
-	Net.event("GroundDug"):FireAllClients(centre, reach)
+	Net.event("GroundDug"):FireAllClients(centre, reach, true) -- (the grass follows the ground, back where it came back)
 end
 
 local function reshapeBlock(blk: Block)
 	local mid = (blk.a + blk.b) / 2
-	reshape(mid, blk.length / 2 + TOP + T.bank.width + VOXEL)
+	reshape(mid, blk.length / 2 + TOP + RIM + VOXEL)
 end
 
 -- a square still to be dug (user 2026-10-24: "make the entire planning thing better and more stylish"): a stake at
@@ -350,9 +393,9 @@ local function pieceKit(): Model?
 	return kit
 end
 
--- the dirt in the terrain's mud colour, each piece shaded off it (user 2026-10-24: "make the trench match the color of
--- the mud"); planks their own wood
-local function pieceColor(name: string): Color3
+-- the dirt in its soil's colour (Mud for a gun pit), each piece shaded off it (user 2026-10-24: "make the trench match
+-- the color of the mud"; 2026-11-01: "match the color of the terrain underneath (not the grass)"); planks their own wood
+local function pieceColor(name: string, soil: Enum.Material?): Color3
 	local B = Palette.Build
 	local i = tonumber(string.match(name, "^Wall(%d+)"))
 	if string.find(name, "PlanksDark") then
@@ -370,8 +413,8 @@ local function pieceColor(name: string): Color3
 	else
 		shade = if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor
 	end
-	local mud = workspace.Terrain:GetMaterialColor(Enum.Material.Mud)
-	return Color3.new(math.min(mud.R * shade, 1), math.min(mud.G * shade, 1), math.min(mud.B * shade, 1))
+	local base = workspace.Terrain:GetMaterialColor(soil or Enum.Material.Mud)
+	return Color3.new(math.min(base.R * shade, 1), math.min(base.G * shade, 1), math.min(base.B * shade, 1))
 end
 
 -- The dirt pieces' library model and each mesh's place from its Origin (piece space: x along, y up, z out of the hole),
@@ -509,7 +552,11 @@ local function pieces(blk: Block)
 	-- each side's walls and dirt heaps, along the stretches clear of other trenches (the heap stands well back, so it
 	-- keeps clear of their holes and walls all the way back, not just their floors)
 	local walls, heaps = {}, {}
-	local sig = `{closeA}{closeB}`
+	-- buried by what it lost: the floor up on the fill, the heaps sunk (Rules.trenchSink; in tenths, rebuilt as it moves)
+	local rise, drop = Rules.trenchSink(shareOf(blk), T)
+	rise, drop = math.round(rise * 10) / 10, math.round(drop * 10) / 10
+	local soil = soilOf(blk)
+	local sig = `{closeA}{closeB}{rise},{drop}`
 	for side, sign in { 1, -1 } do
 		walls[side] = sideSpans(blk, sign, WALL_PROBES, wallExt)
 		heaps[side] = sideSpans(blk, sign, HEAP_PROBES, heapExt)
@@ -563,13 +610,16 @@ local function pieces(blk: Block)
 		if not (src and src:IsA("BasePart") and off) then
 			return
 		end
+		if string.find(name, "Parapet") or string.find(name, "Apron") then
+			cf -= Vector3.new(0, drop, 0)
+		end
 		if string.find(name, "Apron") and not sitsOnGround(src, off, cf, stretch) then
 			return -- (it would hang in the air as thin slabs: Config/Build.Trench.apronHang)
 		end
 		local p = src:Clone()
 		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
 		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
-		p.Color = pieceColor(tone or name)
+		p.Color = pieceColor(tone or name, soil)
 		local base = not (string.find(name, "Chunks") or string.find(name, "Planks"))
 		p.Anchored = true
 		p.CanCollide = base
@@ -616,7 +666,7 @@ local function pieces(blk: Block)
 			end
 		end
 	end
-	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true)
+	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true) + Vector3.new(0, rise, 0)
 	place(`Floor{roll.floor}`, floorCf, stretch)
 	place(`Floor{roll.floor}Chunks`, floorCf, stretch)
 	-- dead ends: a plain wall across, as wide as the trench at the top (its foot runs on behind the side walls) and its
@@ -669,10 +719,9 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP; well buried it is just
-	-- earth, its pieces gone
-	local full = blk.built and blk.hp >= T.hp.max * T.hp.bare / 100
-	if full then
+	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP, to the end (0 HP
+	-- fills it in: finish)
+	if blk.built then
 		pieces(blk)
 	else
 		local old = m:FindFirstChild("Pieces")

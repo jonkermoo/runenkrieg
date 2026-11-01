@@ -17,6 +17,7 @@ local W = require(Shared.Config.Weapons)
 local R = require(Shared.Rules.ShotAudio)
 local ScreenBlur = require(script.Parent.ScreenBlur)
 local SoundFx = require(script.Parent.SoundFx)
+local Suppression = require(script.Parent.Suppression)
 
 local H = A.Heard
 
@@ -74,6 +75,7 @@ function ShotAudio.heardAs(shooter: Model, weapon: string, w: Source?, origin: V
 	if shooter:GetAttribute("Muted") == true then
 		return -- a muted soldier (the animation showcase's dummies)
 	end
+	Suppression.shot(shooter, origin, hits) -- (rattles the own soldier when it comes close: src/client/Suppression)
 	local camera = workspace.CurrentCamera
 	if not camera then
 		return

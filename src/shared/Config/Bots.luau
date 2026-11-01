@@ -44,6 +44,24 @@ local Bots = {
 		"Dvorak",
 		"Leclerc",
 		"Moreau",
+		"Schulz",
+		"Wagner",
+		"Brandt",
+		"Vogel",
+		"Keller",
+		"Galli",
+		"Marino",
+		"Greco",
+		"Fowler",
+		"Hayes",
+		"Collins",
+		"Doyle",
+		"Svoboda",
+		"Marek",
+		"Babic",
+		"Girard",
+		"Fontaine",
+		"Dubois",
 	},
 	-- after a death: the respawn wait (Config/Metrics.Combat.RespawnDelay, as a player's) plus this long in the loadout
 	-- menu (seconds, a random share between), as a player picks a class and deploys
@@ -61,17 +79,107 @@ local Bots = {
 	KillShare = 0.5,
 	-- the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves up)
 	Buy = 0.6,
-	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none
+	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none.
+	-- Normal tops up each side (Rules/Bots.wantedSides; user 2026-10-31: "this will be a 50vs50 map. however, if there is
+	-- only 1 player, lets make it a 20 v 20 game")
 	Fill = {
 		FFA = { total = 8 },
+		Normal = { perSide = 20 },
 	},
-	-- the most bots one server runs, whatever the fill (the server's budget; Stage 1 measured 10 and 20)
-	Max = 20,
+	-- the most bots one server runs in each mode, whatever the fill (the server's budget; FFA Stage 1 measured 10 and
+	-- 20); the governor (Budget) may hold it lower
+	Max = { FFA = 20, Normal = 39 },
 	-- one bot in (or out) at most this often, so a join or a leave never brings a crowd at once
 	JoinEvery = 1.5,
 	LeaveEvery = 4,
 	-- a bot over the count leaves only while dead, or after this long over it (seconds) even alive
 	LeaveAliveAfter = 20,
+
+	-- the server's budget for all the bots together (src/server/Bots)
+	Budget = {
+		-- milliseconds of bot thinking a frame: the bots past it wait for the next frame (round-robin, so all get a turn)
+		frameMs = 1.5,
+		-- rays a frame for cover searches (a search walks one ring a think, its rays counted here; line-of-sight rays
+		-- are counted too)
+		raysPerFrame = 40,
+		-- path computes a second, all bots together (the rest wait in a queue)
+		pathsPerSecond = 6,
+		-- the governor: while the bots' frame cost (a one-second average) is over `ms`, or the physics rate under
+		-- `minFps`, for `trimAfter` seconds, it holds the count one lower (then one more every `trimEvery`); after
+		-- `restoreAfter` seconds within budget it lets one back (then one more every `restoreEvery`); never under `floor`
+		governor = {
+			ms = 3,
+			minFps = 55,
+			trimAfter = 10,
+			trimEvery = 4,
+			restoreAfter = 30,
+			restoreEvery = 10,
+			floor = 4,
+		},
+	},
+	-- Normal (the frontline push, src/server/Frontline): bots fight on a side, deploy in its waves and take orders from
+	-- their side's commander (Rules/BotOrders)
+	Normal = {
+		-- before a bot's name (user 2026-10-31: names marked as bots)
+		nameTag = "[BOT] ",
+		commandEvery = 1, -- seconds between each side's orders
+		joinEvery = 0.5, -- one bot in at most this often (20 v 20 fills in about 20 s)
+		-- while an own sector has enemies in its zone (and they lead there or it is losing control), this share of the
+		-- side's bots defend it; the rest attack the side's target sector
+		defendShare = 0.5,
+		-- a stand point in the ordered sector's zone: within this share of its radius
+		standShare = 0.6,
+		-- seconds between path recomputes toward the same far goal (the long walks between sectors)
+		repath = 15,
+		-- studs from the ordered sector's point a hunt may lead a bot (past it, it goes back to its order)
+		leash = 90,
+	},
+
+	-- Normal squads (Rules/BotSquads; user 2026-11-01: teamwork, pushing under covering fire): `size` bots a squad (a
+	-- last one under `least` joins the one before); `readyShare` of a squad at its approach spot (or in the zone) is
+	-- ready to push; it pushes then with covering fire, with no enemy known, or when the side's soldiers in the zone
+	-- and the squad outnumber the enemy's by more than `margin`. An enemy a member saw within `knownFor` seconds and
+	-- `contact` studs of the squad is contact: the squad bounds (each half runs at most `boundMax` seconds, a stop
+	-- `hop` studs on along the route, reached within `arrive`). Members stand `spread` studs apart at a spot.
+	Squads = {
+		size = 4,
+		least = 2,
+		readyShare = 0.5,
+		margin = 0,
+		knownFor = 6,
+		contact = 120,
+		boundMax = 7,
+		hop = 30,
+		arrive = 6,
+		spread = 5,
+	},
+	-- Normal routes (Rules/BotSquads; user 2026-11-01: "take advantage of the size of the map"): round each sector,
+	-- approach spots on rings `rings` studs out from its zone's edge (`perRing` across `arc` degrees each side of the way
+	-- home) and hold spots inside it (`holdRings` shares of its radius); each scored by cover from the far side's view
+	-- (`view` studs out past the zone, `eye` up), walls, trees and houses within `nearRadius` studs (up to `nearCap`), and
+	-- distance (Rules/BotSquads.scoreSpot `weights`); `laneWithin` degrees of the straight line is the centre lane.
+	-- Worked out again every `refresh` seconds (built pieces change it), `perFrame` spots a frame. A squad going more
+	-- than `midFrom` studs walks through a waypoint `midShare` of the way along, `laneOffset` of the distance to its
+	-- lane's side.
+	Routes = {
+		rings = { 15, 35 },
+		perRing = 9,
+		arc = 80,
+		holdRings = { 0.35, 0.7 },
+		holdPerRing = 8,
+		view = 40,
+		eye = 5,
+		chest = 3,
+		nearRadius = 7,
+		nearCap = 4,
+		laneWithin = 25,
+		refresh = 60,
+		perFrame = 6,
+		midFrom = 140,
+		midShare = 0.5,
+		laneOffset = 0.25,
+		weights = { hidden = 3, near = 0.6, distance = 0.02, crowd = 1.5, random = 1 },
+	},
 
 	Think = 10, -- brain steps a second, per bot (staggered)
 	Sense = 4, -- sight checks a second, per bot: the nearest few enemies' line-of-sight rays
@@ -86,6 +194,10 @@ local Bots = {
 
 	Move = {
 		Repath = 6, -- seconds between path recomputes toward the same goal
+		-- a path found for one bot serves others for `keep` seconds: one going within `goalWithin` studs of its goal and
+		-- standing within `fromWithin` of one of its waypoints joins it there; only paths `longer` than that are kept
+		-- (the long walks), the newest `max`
+		Share = { keep = 30, goalWithin = 30, fromWithin = 20, longer = 60, max = 64 },
 		Arrive = 3, -- studs from a waypoint (flat) that count as reached
 		StuckWindow = 1.5, -- seconds over which a moving bot must make StuckDistance of progress
 		StuckDistance = 1.5,
@@ -143,6 +255,12 @@ local Bots = {
 		PeekQuiet = 0.6, -- seconds without a near miss before it dares to peek
 		NearMiss = 5, -- studs from its head a shot passing counts as a near miss
 		LookCone = 15, -- degrees: an enemy facing it this closely (and in sight) has spotted it
+		-- Normal roles (Rules/BotSquads): pressing on, an enemy past this many studs is shot at on the move, not fought
+		-- where it stands
+		PressWithin = 25,
+		-- covering fire: seconds between shots at a known enemy spot, and the extra spread (degrees) of those shots
+		SuppressGap = { 0.7, 1.5 },
+		SuppressSpread = 3,
 	},
 
 	-- difficulty (user 2026-10-30: reaction time, aim error, spot range)

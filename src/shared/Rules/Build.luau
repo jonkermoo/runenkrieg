@@ -380,6 +380,24 @@ function Build.trenchDepth(hp: number, built: boolean, h: any): number
 	return math.clamp(hp / h.max, 0, 1)
 end
 
+-- How a built trench square's pieces sit at depth `share` (Build.trenchDepth): its floor piece rides up on the fill
+-- (studs), its dirt heaps sink into the ground (studs), both from nothing at full depth to all the way at 0.
+function Build.trenchSink(share: number, t: any): (number, number)
+	local fill = 1 - math.clamp(share, 0, 1)
+	return t.depth * fill, t.heapSink * fill
+end
+
+-- The soil under a trench square: the first of `names` (terrain materials from its ground line down) not in
+-- `soil.skip`, else `soil.fallback` (Config/Build.Trench.soil).
+function Build.trenchSoil(names: { string }, soil: any): string
+	for _, n in names do
+		if not table.find(soil.skip, n) then
+			return n
+		end
+	end
+	return soil.fallback
+end
+
 -- Every run of free samples (`blocked[i]` false), as { first, last } index, in order. A trench square's side wall and
 -- dirt heap are laid along each such stretch, not where they would stand in another trench's hole (a branch joining
 -- the middle of a square leaves its wall on both sides of the opening).
@@ -687,7 +705,7 @@ end
 
 -- An MG nest's bags on its ring (Config/Build.Nest `ring`: `sides`-sided, `bag`-stud sides, `piles` each an end, its
 -- bend and its other end as ring vertices, 0 the front point), in build order: two piles at a time, their bottom bags,
--- then their top bags. Plan space: the ring's middle at 0, x right, z back (the front point at z = -radius). Each bag:
+-- then their top bags (none on a pile in `low`). Plan space: the ring's middle at 0, x right, z back (the front point at z = -radius). Each bag:
 -- its pile (1..), `slot` (1, 2 the bottom bags, 3 the top), its middle (`x`, `z`) and the way it lies (`dx`, `dz`, a
 -- unit vector from its first end to its second). The top bag lies over the bend, on the bottom bags' middle line.
 export type NestBag = { pile: number, slot: number, x: number, z: number, dx: number, dz: number }
@@ -719,6 +737,9 @@ function Build.nestRing(ring: any): ({ NestBag }, number)
 			table.insert(out, { pile = i, slot = 2, x = (x1 + x2) / 2, z = (z1 + z2) / 2, dx = dx, dz = dz })
 		end
 		for _, i in pair do
+			if ring.low and table.find(ring.low, i) then
+				continue -- (a low pile: its bottom bags only)
+			end
 			local k = ring.piles[i]
 			local x0, z0 = vertex(k[1])
 			local x1, z1 = vertex(k[2])
@@ -729,6 +750,72 @@ function Build.nestRing(ring: any): ({ NestBag }, number)
 		end
 	end
 	return out, radius
+end
+
+-- How far apart two boxes lying flat are (each its middle `x`, `z`, a unit vector `dx`, `dz` along it, its `length`
+-- and `width`): the widest gap along any of their sides' normals, under 0 when they overlap (by that much at least)
+export type FlatBox = { x: number, z: number, dx: number, dz: number, length: number, width: number }
+function Build.boxGap(a: FlatBox, b: FlatBox): number
+	local function corners(r: FlatBox): { { number } }
+		local out = {}
+		for _, s in { { 1, 1 }, { 1, -1 }, { -1, -1 }, { -1, 1 } } do
+			local u, v = s[1] * r.length / 2, s[2] * r.width / 2
+			table.insert(out, { r.x + u * r.dx - v * r.dz, r.z + u * r.dz + v * r.dx })
+		end
+		return out
+	end
+	local ca, cb = corners(a), corners(b)
+	local best = -math.huge
+	for _, axis in { { a.dx, a.dz }, { -a.dz, a.dx }, { b.dx, b.dz }, { -b.dz, b.dx } } do
+		local loA, hiA, loB, hiB = math.huge, -math.huge, math.huge, -math.huge
+		for _, c in ca do
+			local d = c[1] * axis[1] + c[2] * axis[2]
+			loA, hiA = math.min(loA, d), math.max(hiA, d)
+		end
+		for _, c in cb do
+			local d = c[1] * axis[1] + c[2] * axis[2]
+			loB, hiB = math.min(loB, d), math.max(hiB, d)
+		end
+		best = math.max(best, loB - hiA, loA - hiB)
+	end
+	return best
+end
+
+-- How an MG nest's gunner and gun clear its bags with the gun turned `traverse` degrees (+ left; Config/Build.Nest
+-- `n`, its `fit`; `crew` the gunner's root this far behind the pivot, facing it): the least gap (studs, under 0 a
+-- clip) of the gunner's legs to the bottom bags, of the torso and arms to the top bags, of the gun to the top bags,
+-- and whether the line of fire out from the muzzle (`muzzle` along the bore from the pivot) to past the ring meets a
+-- top bag. Plan space as Build.nestRing's (the ring's middle at 0, x right, z back).
+function Build.nestFit(n: any, traverse: number, crew: number, muzzle: number): (number, number, number, boolean)
+	local bags, radius = Build.nestRing(n.ring)
+	local f = n.fit
+	local pz = -radius + n.gunBack
+	local a = math.rad(traverse)
+	-- the bore points along (-sin, -cos) (forward is -z; + turns left), the gunner behind it facing the pivot
+	local ax, az = -math.sin(a), -math.cos(a)
+	local gx, gz = -ax * crew, pz - az * crew
+	local function box(x: number, z: number, dx: number, dz: number, length: number, width: number): FlatBox
+		return { x = x, z = z, dx = dx, dz = dz, length = length, width = width }
+	end
+	local legs = box(gx, gz, -az, ax, f.legs[1], f.legs[2])
+	local body = box(gx, gz, -az, ax, f.body[1], f.body[2])
+	local mid = f.gun.length / 2 - f.gun.back
+	local gun = box(ax * mid, pz + az * mid, ax, az, f.gun.length, f.gun.width)
+	local legGap, bodyGap, gunGap, blocked = math.huge, math.huge, math.huge, false
+	for _, b in bags do
+		local bag = box(b.x, b.z, b.dx, b.dz, f.bag[1], f.bag[2])
+		if b.slot == 3 then
+			bodyGap = math.min(bodyGap, Build.boxGap(body, bag))
+			gunGap = math.min(gunGap, Build.boxGap(gun, bag))
+			local reach = radius + f.bag[2] + math.abs(pz)
+			local line = (reach - muzzle) / 2
+			local shot = box(ax * (muzzle + line), pz + az * (muzzle + line), ax, az, reach - muzzle, 0.01)
+			blocked = blocked or Build.boxGap(shot, bag) < 0
+		else
+			legGap = math.min(legGap, Build.boxGap(legs, bag))
+		end
+	end
+	return legGap, bodyGap, gunGap, blocked
 end
 
 -- What an MG nest shows (Config/Build.Nest `n`): the bags filled ("none", "bottom": the mount bag and the piles'

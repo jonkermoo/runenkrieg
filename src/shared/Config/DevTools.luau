@@ -155,7 +155,7 @@ local DevTools = {
 		-- "Bots" rows (user 2026-10-30: "bring bots to testing"; src/server/Bots): pin the bot count to one of these
 		-- (Workspace's Config/Bots.Attribute) or back to the mode's own fill ("BotsAuto"), and set their difficulty
 		-- (Config/Bots.Difficulty keys)
-		BotCounts = { 0, 2, 5, 10, 20 },
+		BotCounts = { 0, 2, 5, 10, 20, 30, 39 },
 		BotDifficulties = { "Easy", "Medium", "Hard" },
 		-- "Loadout" rows (src/server/Loadouts): give yourself these match points, or be one class every life (any class,
 		-- locked or not, free; `Normal` goes back to your picks), on the Player as `ClassAttribute`

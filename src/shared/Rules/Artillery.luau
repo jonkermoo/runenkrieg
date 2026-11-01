@@ -390,6 +390,26 @@ function Artillery.mgPixels(deg: number, fov: number, height: number): number
 	return math.tan(math.rad(deg)) / math.tan(math.rad(fov) / 2) * height / 2
 end
 
+-- Whether a machine gun's next shot goes at `now` (user 2026-11-01: "one click is one shot. two shouldnt come out at
+-- once, two shouldnt be fired sequenttially either"): a fresh pull (`pull`) fires once the last shot's `nextShot` has
+-- come, the next one due no sooner than `tap` s later (a click let go by then gives that one shot); fire held after
+-- that goes every `gap` s, one shot a frame at most (none saved up). Returns whether it fires and the next one's time.
+function Artillery.mgShot(
+	nextShot: number,
+	pull: boolean,
+	held: boolean,
+	now: number,
+	gap: number,
+	tap: number
+): (boolean, number)
+	if now < nextShot or not (pull or held) then
+		return false, nextShot
+	elseif pull then
+		return true, now + math.max(gap, tap)
+	end
+	return true, math.max(nextShot + gap, now)
+end
+
 -- Whether a machine gun can fire now: rounds in its box and not in a box reload (`readyAt`, server time)
 function Artillery.mgReady(rounds: number, readyAt: number?, now: number): boolean
 	return rounds > 0 and (readyAt == nil or now >= readyAt)
