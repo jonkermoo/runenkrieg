@@ -183,12 +183,27 @@ local everything = RaycastParams.new()
 everything.FilterType = Enum.RaycastFilterType.Exclude
 everything.IgnoreWater = false
 
--- the ground at a wave line slot; nil when it isn't open dry ground (a roof, water, a tree or a wall in the way)
+-- the ground at a wave line slot: the highest under the feet (its middle and Line.foot studs round it, so a slope
+-- never buries them; user 2026-11-01: "my body was in the ground"); nil when it isn't open dry ground (a roof, water,
+-- a tree or a wall in the way)
 local function openAt(x: number, z: number, skip: { Instance }): number?
 	everything.FilterDescendantsInstances = skip
-	local hit =
-		workspace:Raycast(Vector3.new(x, Cfg.GroundRay.top, z), Vector3.new(0, -Cfg.GroundRay.depth, 0), everything)
-	if not hit or hit.Instance ~= workspace.Terrain or hit.Material == Enum.Material.Water then
+	local f = Cfg.Line.foot
+	local hit: RaycastResult? = nil
+	local top = -math.huge
+	for _, o in { { 0, 0 }, { f, 0 }, { -f, 0 }, { 0, f }, { 0, -f } } do
+		local h = workspace:Raycast(
+			Vector3.new(x + o[1], Cfg.GroundRay.top, z + o[2]),
+			Vector3.new(0, -Cfg.GroundRay.depth, 0),
+			everything
+		)
+		if not h or h.Instance ~= workspace.Terrain or h.Material == Enum.Material.Water then
+			return nil
+		end
+		top = math.max(top, h.Position.Y)
+		hit = hit or h
+	end
+	if not hit then
 		return nil
 	end
 	local c = Cfg.Line.clear
@@ -200,10 +215,10 @@ local function openAt(x: number, z: number, skip: { Instance }): number?
 	if #workspace:GetPartBoundsInBox(at, Vector3.new(c[1], c[2], c[3]), box) > 0 then
 		return nil
 	end
-	return hit.Position.Y
+	return top
 end
 
--- the next open slot of `side`'s wave line: where to stand and a point to face
+-- the next open slot of `side`'s wave line: the ground under it (the feet) and a point to face
 local function nextSlot(side: Rules.Side): (Vector3, Vector3)
 	if waveAt and not waveSector[side] then
 		waveSector[side] = spawnSector(side)
@@ -222,12 +237,19 @@ local function nextSlot(side: Rules.Side): (Vector3, Vector3)
 		local spot = centre + right * r - face * b
 		local y = openAt(spot.X, spot.Z, skip)
 		if y then
-			local pos = Vector3.new(spot.X, y + Cfg.SpawnLift, spot.Z)
+			local pos = Vector3.new(spot.X, y, spot.Z)
 			return pos, pos + face
 		end
 	end
-	local pos = Vector3.new(centre.X, ground(centre.X, centre.Z) + Cfg.SpawnLift, centre.Z)
+	local pos = Vector3.new(centre.X, ground(centre.X, centre.Z), centre.Z)
 	return pos, pos + face
+end
+
+-- how far a soldier's root stands over its feet (its own legs, root and hip height)
+local function standHeight(character: Model, root: BasePart): number
+	local leg = character:FindFirstChild("Left Leg") :: BasePart?
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	return (if leg then leg.Size.Y else 2) + root.Size.Y / 2 + (if humanoid then humanoid.HipHeight else 0)
 end
 
 -- the shield round a soldier in the wave line, in its team's magic colour
@@ -291,17 +313,44 @@ end
 -- stands `player`'s soldier in its side's wave line: frozen and shielded until the wave goes while one is due (the
 -- countdown and play), else free on the spot (waiting for players, the results)
 local function stand(character: Model, root: BasePart, side: Rules.Side): Vector3
-	local pos, look = nextSlot(side)
-	character:PivotTo(CFrame.lookAt(pos, look))
+	local feet, look = nextSlot(side)
+	local up = Vector3.yAxis * (standHeight(character, root) + Cfg.Line.lift)
+	local pos = feet + up
+	if waveAt and not root.Anchored then
+		-- (the server holds the body while it stands in the line: its player's client can't move it meanwhile)
+		pcall(function()
+			root:SetNetworkOwner(nil)
+		end)
+	end
+	character:PivotTo(CFrame.lookAt(pos, look + up))
 	root.AssemblyLinearVelocity = Vector3.zero
 	if waveAt then
 		local left = (waveAt :: number) - workspace:GetServerTimeNow()
 		root.Anchored = true
 		character:SetAttribute(Cfg.HoldAttribute, waveAt)
+		-- empty hands until the wave goes (user 2026-11-01: "nothing can be equipped"): a player's tool taken out goes
+		-- back to the backpack (a bot puts its own away, src/server/Bots)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local player = Players:GetPlayerFromCharacter(character)
+		if humanoid and player then
+			humanoid:UnequipTools()
+			local guard: RBXScriptConnection
+			guard = character.ChildAdded:Connect(function(child)
+				if character:GetAttribute(Cfg.HoldAttribute) == nil then
+					guard:Disconnect()
+				elseif child:IsA("Tool") then
+					task.defer(function()
+						local backpack = player:FindFirstChildOfClass("Backpack")
+						if backpack and child.Parent == character then
+							child.Parent = backpack
+						end
+					end)
+				end
+			end)
+		end
 		Damage.protect(character, math.max(left, 0) + Cfg.Waves.shield)
 		shield(character, root)
 		holding[character] = true
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			humanoid.Died:Once(function()
 				holding[character] = nil

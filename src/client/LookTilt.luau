@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local FrontCfg = require(Shared.Config.Frontline)
 local Cfg = require(Shared.Config.Locomotion)
 local TuckCfg = Cfg.Tuck
 local CameraCfg = require(Shared.Config.Camera)
@@ -304,9 +305,12 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 		-- (none with an item that ignores where you look: Config/Camera.FreeClasses, the shovel)
 		local weapon = Held.weapon(character)
 		local free = weapon ~= nil and CameraRules.thirdPerson(CameraCfg.FreeClasses, (W :: any)[weapon.name].class)
+		-- (standing in Normal's wave line, src/server/Frontline's WaveHold: the body stays still, facing the front)
+		local held = character:GetAttribute(FrontCfg.HoldAttribute) ~= nil
 		local pitch = if camera
 				and humanoid.Health > 0
 				and not free
+				and not held
 			then math.deg(math.asin(math.clamp(camera.CFrame.LookVector.Y, -1, 1)))
 			else 0
 		angle += (Rules.torso(pitch, cfg.Torso, cfg.TorsoMax) - angle) * Rules.ease(cfg.Smoothing, dt)
@@ -317,7 +321,7 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 			else 0
 		-- the head toward the look (straight ahead dead or ragdolled)
 		local want = 0
-		if camera and humanoid.Health > 0 and character:GetAttribute("Ragdolled") ~= true then
+		if camera and humanoid.Health > 0 and character:GetAttribute("Ragdolled") ~= true and not held then
 			local look = yawOf(camera.CFrame.LookVector) - yawOf(root.CFrame.LookVector)
 			want = Rules.headYaw(look, glance(r), yaw, H.Max, H.Behind)
 		end

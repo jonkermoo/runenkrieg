@@ -19,6 +19,7 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local FrontCfg = require(Shared.Config.Frontline)
 local HudCfg = require(Shared.Config.Hud)
 local Palette = require(Shared.Config.Palette)
 local Stow = require(Shared.Config.Locomotion).Stow
@@ -256,6 +257,9 @@ function KitList.start()
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if processed or not n or not character or not humanoid or humanoid.Health <= 0 then
 			return
+		end
+		if character:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
+			return -- (standing in Normal's wave line: nothing comes out until the wave goes)
 		end
 		changed()
 		local s = order[n]
