@@ -532,7 +532,11 @@ function ModeHud.start()
 	mapBox.Name = "SketchMap"
 	mapBox.BackgroundTransparency = 1
 	mapBox.Position = UDim2.fromOffset(H.x, H.y)
-	mapBox.Size = UDim2.fromOffset(H.width, H.width * H.aspect)
+	local function tall(key: string): number
+		local size = SketchCfg.Maps[key].size
+		return H.width * size[2] / size[1]
+	end
+	mapBox.Size = UDim2.fromOffset(H.width, tall(FrontlineCfg.MapKey))
 	mapBox.Visible = false
 	mapBox.Parent = gui
 	SketchMap.new(mapBox, FrontlineCfg.MapKey, { you = true, teammates = true })
@@ -540,6 +544,7 @@ function ModeHud.start()
 	local ffaBox = mapBox:Clone()
 	ffaBox.Name = "SketchMapFFA"
 	ffaBox:ClearAllChildren()
+	ffaBox.Size = UDim2.fromOffset(H.width, tall(Playtest.name))
 	ffaBox.Parent = gui
 	SketchMap.new(ffaBox, Playtest.name, { you = true, zone = true })
 	nodes.SketchMapFFA = ffaBox

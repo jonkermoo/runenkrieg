@@ -227,8 +227,14 @@ local function build(spec: any, name: string, parent: Instance): Screen
 				local other = Instance.new("Frame")
 				other.Name = n.id .. "FFA"
 				other.BackgroundTransparency = 1
+				other.AnchorPoint = Vector2.new(0.5, 0.5)
+				other.Position = UDim2.fromScale(0.5, 0.5)
 				other.Size = UDim2.fromScale(1, 1)
 				other.Visible = false
+				local shape = Instance.new("UIAspectRatioConstraint") -- its own image's shape inside the first's place
+				local size = SketchCfg.Maps[Playtest.name].size
+				shape.AspectRatio = size[1] / size[2]
+				shape.Parent = other
 				other.Parent = obj
 				screen.maps[n.id .. "FFA"] = SketchMap.new(other, Playtest.name, { zone = true })
 				screen.follow[n.id] = other
