@@ -41,6 +41,9 @@ local Frontline = {
 	-- on Workspace while a match runs: the two teams playing, "west,east" (Rules/Frontline.pairText); kept teams and the
 	-- loadout menu's team cards use only these (src/server/Deploy)
 	TeamsAttribute = "MatchTeams",
+	-- one of the two teams every match, against either other at random (user 2026-11-01: "it should always be green OR
+	-- brown vs gray"; only the campaign's final map mixes green and brown on one side): the grey team (Config/Uniforms)
+	AlwaysTeam = "uniform1",
 
 	-- Waves (user 2026-10-27: "I want respawning to be in waves"): one clock for both sides, a wave every `every` seconds
 	-- from the countdown's end (the first wave). A dead soldier may deploy once `dead` seconds have passed

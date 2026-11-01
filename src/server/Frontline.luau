@@ -508,7 +508,7 @@ local function newMatch(reset: boolean?)
 		Build.clear()
 		DevWorld.undo()
 	end
-	pair = Rules.pair(U.Teams, math.random(), math.random())
+	pair = Rules.pair(U.Teams, Cfg.AlwaysTeam, math.random(), math.random())
 	workspace:SetAttribute(Cfg.TeamsAttribute, Rules.pairText(pair))
 	state = Rules.new(sectors)
 	ending = false

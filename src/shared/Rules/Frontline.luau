@@ -242,15 +242,17 @@ function Frontline.inZone(dx: number, dz: number, dy: number, radius: number, he
 	return dx * dx + dz * dz <= radius * radius and math.abs(dy) <= height
 end
 
--- The match's two teams from `teams` (at least two): a random pair (`r1`, `r2` in [0, 1)) and which takes the West.
-function Frontline.pair(teams: { string }, r1: number, r2: number): { West: string, East: string }
-	local n = #teams
-	local a = math.clamp(math.floor(r1 * n) + 1, 1, n)
-	local b = math.clamp(math.floor(r2 * (n - 1)) + 1, 1, n - 1)
-	if b >= a then
-		b += 1
+-- The match's two teams from `teams` (at least two): `always` and one other at random (`r1` in [0, 1)), `r2` < 0.5
+-- putting `always` in the West (user 2026-11-01: "it should always be green OR brown vs gray")
+function Frontline.pair(teams: { string }, always: string, r1: number, r2: number): { West: string, East: string }
+	local others = {}
+	for _, t in teams do
+		if t ~= always then
+			table.insert(others, t)
+		end
 	end
-	return { West = teams[a], East = teams[b] }
+	local foe = others[math.clamp(math.floor(r1 * #others) + 1, 1, #others)]
+	return if r2 < 0.5 then { West = always, East = foe } else { West = foe, East = always }
 end
 
 -- The pair as Workspace's MatchTeams text ("west,east"), and back (nil when it isn't one).
