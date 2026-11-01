@@ -145,6 +145,7 @@ function Chat.start()
 	counter.AnchorPoint = Vector2.new(1, 0)
 	counter.Position = UDim2.new(1, -12, 0, 0)
 	counter.Size = UDim2.new(0, 64, 1, 0)
+	counter.Text = ""
 	local hint = textLabel(root, P.hintSize)
 	hint.Text = "Press / to chat"
 	hint.TextColor3 = rgb(GR.key)
@@ -419,7 +420,7 @@ function Chat.start()
 		local kind = channel and R.channelOf(channel.Name, Cfg)
 		local source = msg.TextSource
 		if not source or kind == "System" then
-			system(msg.Text)
+			system(R.plain(msg.Text)) -- (Roblox's own lines come as rich text)
 			return
 		end
 		if not kind or muted[source.UserId] then

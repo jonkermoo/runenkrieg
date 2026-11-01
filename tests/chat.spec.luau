@@ -49,6 +49,14 @@ return {
 			R.escape("<b>")
 		)
 	end,
+	["roblox's system lines become plain words"] = function()
+		local raw = "<font color='#d4d4d4' weight='600' size=\"16\"><font weight='600' size=\"12\" "
+			.. "family='rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json'>nebula</font> "
+			.. "Roblox auto-generates summaries of players' messages.</font>"
+		local got = R.plain(raw)
+		assert(got == "Roblox auto-generates summaries of players' messages.", got)
+		assert(R.plain("<b>a &amp; b</b>") == "a & b", R.plain("<b>a &amp; b</b>"))
+	end,
 	["channel names and kinds"] = function()
 		assert(R.channelOf(Cfg.ServerChannel, Cfg) == "Server", "server")
 		assert(R.channelOf(Cfg.SystemChannel, Cfg) == "System", "system")
