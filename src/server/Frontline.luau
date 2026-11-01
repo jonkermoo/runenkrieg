@@ -619,8 +619,9 @@ end
 -- shielded until the wave goes while one is due, else free on the spot.
 function Frontline.deployBot(m: Model)
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = m:FindFirstChildOfClass("Humanoid")
 	local side = if thread then sideOfModel(m) else nil
-	if root and side then
+	if root and side and humanoid and humanoid.Health > 0 then
 		stand(m, root, side)
 	end
 end
