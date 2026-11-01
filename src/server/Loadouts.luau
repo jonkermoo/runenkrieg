@@ -7,7 +7,7 @@
 -- player's character (showcase and dev dummies) is its "Class" attribute or the default, and pays nothing.
 -- Points: Loadouts.hurt (src/server/Damage) notes who hurt whom; on a death the killer and the assists are paid
 -- (Rules/Classes.credit). Loadouts.award pays the rest (src/server/Build: pieces and trench squares built; the zone
--- capture: "Capture"). Loadouts.resetMatch starts a new match: everyone's points back to Config/Classes.Start and the
+-- capture: "Capture"). Each death sets the pick back to the default. Loadouts.resetMatch starts a new match: everyone's points back to Config/Classes.Start and the
 -- picks back to the default. Until there are matches, a server is one match.
 -- Net "Loadout": client -> server ("Pick", class) | ("Ask") | ("Deploy") | ("Team", kit: a team change where teams are
 -- kept, Config/Teams: src/server/Deploy checks the balance again and moves them, and their points go back to
@@ -225,6 +225,9 @@ local function died(character: Model)
 		pay(id, "Assist", share)
 	end
 	if victim then
+		-- the loadout opens on the free class again (user 2026-10-31: "default players to have the rifleman selected
+		-- when they respawn and go to loadout")
+		picks[victim] = nil
 		if deployer then
 			deployer.changed(victim, "Died")
 		end

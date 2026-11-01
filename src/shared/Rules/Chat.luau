@@ -6,6 +6,7 @@
 --     { kind = "mute" | "unmute", name } | { kind = "help" } | { kind = "unknown", command }
 --   Chat.clip(text, max) -> string: at most `max` characters (whole UTF-8 characters)
 --   Chat.escape(text) -> string: safe to show in a RichText label
+--   Chat.plain(text) -> string: Roblox's own rich-text system line as plain words (its icon-font glyphs dropped)
 --   Chat.channelOf(name, cfg) -> "Server" | "Team" | "Whisper" | "System" | nil: a TextChatService channel's kind
 --   Chat.teamChannel(kit, cfg), Chat.whisperChannel(a, b, cfg) -> string: the channel names
 --   Chat.cycle(channel, list) -> string: the next channel in `list` after `channel`
@@ -98,6 +99,14 @@ end
 
 function Chat.escape(text: string): string
 	return (text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub('"', "&quot;"):gsub("'", "&apos;"))
+end
+
+function Chat.plain(text: string): string
+	-- an icon set's font span holds a glyph's name ("nebula"), not words
+	local s = text:gsub("<font[^>]-family=[^>]-Icons[^>]->.-</font>", "")
+	s = s:gsub("<[^>]*>", "")
+	s = s:gsub("&lt;", "<"):gsub("&gt;", ">"):gsub("&quot;", '"'):gsub("&apos;", "'"):gsub("&amp;", "&")
+	return trim(s)
 end
 
 function Chat.channelOf(name: string, cfg: any): string?
