@@ -30,7 +30,7 @@ local Chat = {
 	-- under the sketch map's place
 	Panel = {
 		x = 16,
-		y = 285, -- under the in-play sketch map (Config/SketchMap.Hud: 10 + 486 x 542 / 1024)
+		y = 168, -- under the in-play sketch map (Config/SketchMap.Hud: 10 + 486 x 295 / 1024, plus 18)
 		width = 430,
 		height = 300,
 		tabs = 30, -- the tab row's height

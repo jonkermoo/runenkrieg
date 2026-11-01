@@ -8,13 +8,14 @@ local SketchMap = {
 	-- the still image per map key: its asset, its size in pixels, the pad round the area it covers (the torn edge)
 	-- and the studs that area covers (user 2026-10-30: "cut more of the left and right edges", just past each spawn)
 	Maps = {
-		-- cropped closer to the spawns (user 2026-10-31: "cut off more unnecessary parts of the map and expand it")
+		-- cropped closer to the spawns (user 2026-10-31: "cut off more unnecessary parts of the map and expand it"); redrawn
+		-- for the longer, narrower map (2026-11-01; was 87971867576424, 1024 x 542 over x 120..1700, z -400..400)
 		Map1 = {
-			image = 87971867576424,
-			size = { 1024, 542 },
+			image = 136207333793204,
+			size = { 1024, 295 },
 			pad = 24,
-			x = { 120, 1700 },
-			z = { -400, 400 },
+			x = { 120, 2330 },
+			z = { -280, 280 },
 		},
 		-- the zone-capture FFA map (tools/ui/sketchmap_playtest.py; user 2026-10-30: "make the hold v to show map appear
 		-- for FFA mode ... also the title mode too. just have your player and the moving point"): the same image shape
