@@ -111,6 +111,61 @@ return {
 		assert(Trees.enterBox(10, 0, 0, 1, 0, 0, 50, 2, 2, 2) == nil, "behind the start")
 		assert(Trees.enterBox(0, 0, 0, 0, 1, 0, 50, 2, 2, 2) == 0, "starts inside")
 	end,
+	["leaves: a shot through a canopy's box corner misses the leaves, one through the middle hits them"] = function()
+		local ball = { { shape = "Ellipsoid", x = 0, y = 0, z = 0, rx = 1, ry = 1, rz = 1 } }
+		-- a box of half size 4: through the middle enters at 6
+		local t = Trees.enterLeaves(-10, 0, 0, 1, 0, 0, 50, 4, 4, 4, ball, 1)
+		assert(t and math.abs(t - 6) < 1e-6, `middle: {t}`)
+		-- 3.5 up and 3.5 across: inside the box, outside the ball
+		local c = 1 / math.sqrt(2)
+		assert(Trees.enterBox(-10, 3.5, 0, 1, 0, 0, 50, 4, 4, 4) ~= nil, "the box takes the corner")
+		assert(Trees.enterLeaves(-10, 3.5, 3.5, c, 0, -c, 50, 4, 4, 4, ball, 1) == nil, "the ball doesn't")
+		assert(Trees.enterLeaves(0, 0, 0, 0, 1, 0, 50, 4, 4, 4, ball, 1) == 0, "starts inside")
+		assert(Trees.enterLeaves(-10, 0, 0, 1, 0, 0, 5, 4, 4, 4, ball, 1) == nil, "too short")
+		assert(Trees.enterLeaves(10, 0, 0, 1, 0, 0, 50, 4, 4, 4, ball, 1) == nil, "behind the start")
+		assert(Trees.enterLeaves(-10, 4.2, 0, 1, 0, 0, 50, 4, 4, 4, ball, 1.1) ~= nil, "grown pieces reach further")
+	end,
+	["leaves: a cone is hit below its apex and missed beside it"] = function()
+		-- base at the bottom (y = -1), base radius 1, apex at the top (height 2): half size 4 -> base radius 4 studs
+		local cone = { { shape = "Cone", x = 0, y = -1, z = 0, rx = 1, ry = 0, rz = 1, height = 2 } }
+		local low = Trees.enterLeaves(-10, -3, 0, 1, 0, 0, 50, 4, 4, 4, cone, 1)
+		-- 1 stud above the base the radius is 4 x (1 - 1/8) = 3.5
+		assert(low and math.abs(low - 6.5) < 1e-6, `low: {low}`)
+		local high = Trees.enterLeaves(-10, 3, 0, 1, 0, 0, 50, 4, 4, 4, cone, 1)
+		assert(high and math.abs(high - 9.5) < 1e-6, `high: {high}`)
+		assert(Trees.enterLeaves(-10, 3, 2, 1, 0, 0, 50, 4, 4, 4, cone, 1) == nil, "beside the narrow top")
+		assert(Trees.enterLeaves(-10, -5, 0, 1, 0, 0, 50, 4, 4, 4, cone, 1) == nil, "under the base")
+		local down = Trees.enterLeaves(0, 10, 0, 0, -1, 0, 50, 4, 4, 4, cone, 1)
+		assert(down and math.abs(down - 6) < 1e-6, `from above, at the apex: {down}`)
+		local up = Trees.enterLeaves(1, -10, 0, 0, 1, 0, 50, 4, 4, 4, cone, 1)
+		assert(up and math.abs(up - 6) < 1e-6, `from below, through the base: {up}`)
+		assert(Trees.enterLeaves(1, 0, 0, 0, 1, 0, 50, 4, 4, 4, cone, 1) == 0, "starts inside")
+	end,
+	["leaves: every tree kit canopy finds its own shapes; an odd one gets the fallback"] = function()
+		local S = require("../src/shared/Config/TreeShapes")
+		for name, v in S.Variants do
+			local s = v.size
+			for _, k in { 1, 37.5 } do
+				assert(Trees.canopyShapes(s[1] * k, s[2] * k, s[3] * k, S) == v.shapes, name .. " matches itself")
+			end
+			assert(#v.shapes >= 3, name)
+			for _, p in v.shapes do
+				assert(p.shape == "Cone" or p.shape == "Ellipsoid", name)
+			end
+		end
+		assert(Trees.canopyShapes(10, 10, 10, S) == S.Fallback, "a cube is no kit canopy")
+		-- the leaves fill much less than the box: of lines through random points of the box, many miss
+		for name, v in S.Variants do
+			local miss, n = 0, 400
+			for i = 1, n do
+				local a, b = (i * 0.618034) % 1 * 2 - 1, (i * 0.414214) % 1 * 2 - 1
+				if not Trees.enterLeaves(-5, a, b, 1, 0, 0, 10, 1, 1, 1, v.shapes, S.grow) then
+					miss += 1
+				end
+			end
+			assert(miss > n * 0.1 and miss < n * 0.8, `{name}: {miss} of {n} side-on lines miss the leaves`)
+		end
+	end,
 	["leaves: a few stage 2 beams strip a tree, a full beam does at once, bullets never"] = function()
 		local L = T.Leaves
 		for kind, hp in L.HP do
