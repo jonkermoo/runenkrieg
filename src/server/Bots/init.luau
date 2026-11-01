@@ -156,6 +156,8 @@ type Bot = {
 	post: Vector3?, -- Normal: where it holds (its covering-fire spot, or its hold spot in the zone)
 	postSector: number?, -- the sector its hold spot is in
 	roleWas: Squads.Role?,
+	grip: Motor6D?, -- the gun's hold joint (to the torso)
+	stowed: boolean, -- its gun put away (standing in the wave line)
 	shaken: number, -- its suppression level at its last hit (Rules/Suppression)
 	shakenAt: number, -- when that was
 	thinkHz: number, -- how often it thinks and looks now (Rules/Bots.lod)
@@ -400,7 +402,14 @@ spawnBody = function(b: Bot)
 	DevDummies.steady(humanoid)
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 	local torso = m:FindFirstChild("Torso") :: BasePart
-	local tool = Armory.tool(b.weapon, b.kit)
+	local armed, gun = pcall(Armory.tool, b.weapon, b.kit)
+	if not armed then
+		-- (no gun to be had: the body goes, not left standing unarmed; the director tries again)
+		m:Destroy()
+		warn(`[Bots] no gun for {b.name}: {gun}`)
+		return
+	end
+	local tool = gun :: Tool
 	local hold = tool:FindFirstChild("Hold", true) :: Motor6D
 	hold.Part0 = torso
 	tool.Parent = m
@@ -425,6 +434,7 @@ spawnBody = function(b: Bot)
 
 	b.m, b.humanoid, b.root, b.head, b.tool, b.turn =
 		m, humanoid, root, m:FindFirstChild("Head") :: BasePart, tool, turn
+	b.grip, b.stowed = hold, false
 	b.anim = Animate.attach(m, b.weapon)
 	b.brain = Rules.new()
 	b.target, b.lastSeenAt, b.lastOpen, b.spotted = nil, nil, nil, false
@@ -519,6 +529,7 @@ local function add(mode: string, side: string?)
 		spawnedAt = 0,
 		reachedZone = false,
 		spawning = false,
+		stowed = false,
 		shaken = 0,
 		shakenAt = 0,
 		thinkHz = Cfg.Think,
@@ -1105,6 +1116,34 @@ end
 
 -- thinking -----------------------------------------------------------------------------------------------------------
 
+-- the gun put away (the wave line: idle, empty hands) and drawn again when the wave goes
+local function stow(b: Bot)
+	local m, tool = b.m :: Model, b.tool :: Tool
+	b.stowed = true
+	tool.Parent = nil
+	if b.turn then
+		(b.turn :: AlignOrientation).Enabled = false
+	end
+	if b.anim then
+		(b.anim :: Animate.Handle).update(0, "none", 0)
+	end
+	DevDummies.own(m) -- (a joint gone: the body's physics kept the server's)
+end
+
+local function draw(b: Bot)
+	local m, tool = b.m :: Model, b.tool :: Tool
+	b.stowed = false
+	tool.Parent = m
+	local torso = m:FindFirstChild("Torso") :: BasePart?
+	if b.grip and torso then
+		(b.grip :: Motor6D).Part0 = torso
+	end
+	if b.anim then
+		(b.anim :: Animate.Handle).equip()
+	end
+	DevDummies.own(m)
+end
+
 local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local m, humanoid, root, tool = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart, b.tool :: Tool
 	local entry = Firing.entry(tool)
@@ -1116,7 +1155,14 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		return -- (down: nothing until it is up again)
 	end
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
-		return -- (standing in the wave line until the wave goes)
+		-- standing in the wave line until the wave goes: idle, nothing in the hands (user 2026-11-01)
+		if not b.stowed then
+			stow(b)
+		end
+		return
+	end
+	if b.stowed then
+		draw(b)
 	end
 	-- the body's physics stays the server's: any joint made or broken (a helmet knocked off, the gun drawn) hands it to
 	-- the nearest player, and a body a player owns ignores the server's get-up and lies there in Physics

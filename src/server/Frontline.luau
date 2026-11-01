@@ -298,10 +298,29 @@ local function stand(character: Model, root: BasePart, side: Rules.Side): Vector
 		local left = (waveAt :: number) - workspace:GetServerTimeNow()
 		root.Anchored = true
 		character:SetAttribute(Cfg.HoldAttribute, waveAt)
+		-- empty hands until the wave goes (user 2026-11-01: "nothing can be equipped"): a player's tool taken out goes
+		-- back to the backpack (a bot puts its own away, src/server/Bots)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		local player = Players:GetPlayerFromCharacter(character)
+		if humanoid and player then
+			humanoid:UnequipTools()
+			local guard: RBXScriptConnection
+			guard = character.ChildAdded:Connect(function(child)
+				if character:GetAttribute(Cfg.HoldAttribute) == nil then
+					guard:Disconnect()
+				elseif child:IsA("Tool") then
+					task.defer(function()
+						local backpack = player:FindFirstChildOfClass("Backpack")
+						if backpack and child.Parent == character then
+							child.Parent = backpack
+						end
+					end)
+				end
+			end)
+		end
 		Damage.protect(character, math.max(left, 0) + Cfg.Waves.shield)
 		shield(character, root)
 		holding[character] = true
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			humanoid.Died:Once(function()
 				holding[character] = nil
