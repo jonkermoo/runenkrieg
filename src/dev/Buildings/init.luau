@@ -208,6 +208,12 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.lychgate(model, ctx, at, f.width)
 			elseif f.kind == "Sign" then
 				Geometry.sign(model, ctx, at, f.height)
+			elseif f.kind == "Kiln" then
+				Geometry.kiln(model, ctx, at, f.radius, f.height, f.cone)
+			elseif f.kind == "HayBarn" then
+				Geometry.hayBarn(model, ctx, at, f.length, f.span, f.height)
+			elseif f.kind == "Wall" then
+				Geometry.yardWall(model, ctx, f.a, f.b)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end

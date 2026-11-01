@@ -33,7 +33,9 @@ export type Template = {
 	blocks: { any }?,
 	-- and things built with it, in the footprint: { kind = "Graves", x, z, yaw?, count, gap } (a row of headstones),
 	-- { kind = "Lychgate", x, z, yaw?, width } (a roofed gateway, open along local Z), { kind = "Sign", x, z, yaw?, height }
-	-- (a hanging inn sign, its arm along local X). A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
+	-- (a hanging inn sign, its arm along local X), { kind = "Kiln", x, z, radius, height, cone } (a round oast kiln),
+	-- { kind = "HayBarn", x, z, length, span, height } (an open-sided barn, ridge along local X), { kind = "Wall", a, b }
+	-- (a stone yard wall from a to b, { x, z } each). A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
 	-- the copy's scheme.
 	features: { any }?,
 	description: string,
@@ -55,6 +57,20 @@ local Buildings = {
 	Graves = { width = 2, height = 2.8, thick = 0.5, sink = 0.6 }, -- a headstone, sunk into the ground
 	Lychgate = { height = 7, depth = 5, pitch = 40 }, -- post height to the eaves, front to back, roof pitch
 	InnSign = { arm = 3.6, board = { 3, 2.4 } }, -- the arm's reach, the board's width x height
+	-- an oast kiln's colours (Palette.Buildings keys) and its cowl (across, high)
+	Kiln = { wall = "RedBrick", roof = "RedTile", cowlWall = "WhiteBoard", cowl = { 2.6, 3.2 } },
+	-- a Dutch barn: a post every `bay` studs, the roof's arc `rise` over the eaves in `segments` panels a side, `overhang`
+	-- past the posts, its colour; the hay stacks' heights bay by bay and their colour
+	HayBarn = {
+		bay = 6,
+		rise = 4,
+		segments = 3,
+		overhang = 1.2,
+		roof = "RedTile",
+		hay = { 7, 4.5, 8, 2.5 },
+		hayRoof = "Thatch",
+	},
+	YardWall = { height = 2, thick = 1.2, piece = 6, sink = 0.5 }, -- hoppable (Metrics.Cover.HopableLedgeMax)
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -269,6 +285,71 @@ local Buildings = {
 				{ kind = "Sign", x = -20, z = -10.5, yaw = 180, height = 9 }, -- by the corner, its arm out over the road
 			},
 			description = "The coaching inn: two-storey whitewashed inn with a cart arch, chimneys, a tarred-board stable wing and a hanging sign.",
+		},
+		-- The farm by S3 (the farm reserve, centred on the point's x so neither approach gets more cover): an oast house,
+		-- two round brick hop kilns with red cones and white cowls at the ends of a two-storey weatherboard store.
+		OastHouse = {
+			folder = "Landmarks",
+			width = 52,
+			depth = 16,
+			stories = 2,
+			roofPitch = 40,
+			class = "Wood",
+			wallThickness = 1.2,
+			walls = { "WhiteBoard" },
+			roofs = { "Slate", "DarkTile" },
+			blocks = {
+				{
+					name = "Store",
+					x = 0,
+					z = 0,
+					width = 26,
+					depth = 14,
+					stories = 2,
+					storyHeight = 9,
+					roofPitch = 40,
+					roofStyle = "Tile",
+					doors = { { center = -4, w = 6, h = 7.5 } },
+				},
+			},
+			features = {
+				{ kind = "Kiln", x = -19, z = 0, radius = 6.5, height = 13, cone = 12 },
+				{ kind = "Kiln", x = 19, z = 0, radius = 6.5, height = 13, cone = 12 },
+			},
+			description = "The farm's oast house: two round brick hop kilns with red cones and white cowls, a weatherboard store between.",
+		},
+		-- and its yard behind: an open-sided Dutch hay barn with hay in its bays, a small shed, stone walls round the back
+		-- and sides (the yard opens to the front)
+		HayBarn = {
+			folder = "Landmarks",
+			width = 40,
+			depth = 30,
+			stories = 1,
+			roofPitch = 30,
+			class = "Wood",
+			wallThickness = 1,
+			walls = { "TarBoard", "BarnRed" },
+			roofs = { "DarkTile", "Slate" },
+			blocks = {
+				{
+					name = "Shed",
+					x = 13,
+					z = 8,
+					width = 10,
+					depth = 8,
+					stories = 1,
+					storyHeight = 9,
+					roofPitch = 30,
+					roofStyle = "Tile",
+				},
+			},
+			features = {
+				{ kind = "HayBarn", x = -6, z = -4, length = 24, span = 14, height = 11 },
+				{ kind = "Wall", a = { -20, 14 }, b = { 20, 14 } },
+				{ kind = "Wall", a = { -20, -14 }, b = { -20, 14 } },
+				{ kind = "Wall", a = { 20, -14 }, b = { 20, 14 } },
+			},
+			description = "The farm's yard: an open-sided Dutch hay barn with hay, a shed and stone yard walls.",
 		},
 	} :: { [string]: Template },
 

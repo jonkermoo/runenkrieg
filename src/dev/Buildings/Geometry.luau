@@ -578,6 +578,165 @@ function Geometry.lychgate(parent: Instance, ctx: Ctx, at: CFrame, W: number)
 	Geometry.roof(sec, ctx, at, W, L.depth, L.height, L.pitch, "Tile")
 end
 
+-- An upright triangle in `frame`'s XY plane (base `L` along X at y 0, tip `h` up), `thick` through: two wedges, as a
+-- gable is made.
+local function triangle(sec: Instance, ctx: Ctx, frame: CFrame, L: number, h: number, thick: number, paint: string)
+	local out = {}
+	for _, side in { -1, 1 } do
+		table.insert(
+			out,
+			Geometry.part(
+				sec,
+				ctx,
+				"Face",
+				frame * CFrame.new(side * L / 4, h / 2, 0) * CFrame.Angles(0, -side * math.pi / 2, 0),
+				Vector3.new(thick, h, L / 2),
+				paint,
+				"WedgePart"
+			)
+		)
+	end
+	return out
+end
+
+-- A round oast kiln (a hop kiln): an eight-sided brick drum `height` high on a foundation, a steep eight-sided cone
+-- `cone` high on it, and a white cowl on the tip. Its own colours (Swatch), whatever the copy's scheme.
+function Geometry.kiln(parent: Instance, ctx: Ctx, at: CFrame, r: number, height: number, cone: number)
+	local K = ctx.B.Kiln
+	local T = ctx.T
+	local side = 2 * r * math.tan(math.pi / 8)
+	local base = ctx.B.Foundation
+	local depth = ctx.B.FoundationDepth
+	Geometry.part(
+		parent,
+		ctx,
+		"Foundation",
+		at * CFrame.new(0, (base - 1 - depth) / 2, 0),
+		Vector3.new(2 * r, base - 1 + depth, 2 * r),
+		"Foundation"
+	)
+	for i = 0, 7 do
+		local sec = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+		local face = at * CFrame.Angles(0, i * math.pi / 4, 0)
+		local p = Geometry.part(
+			sec,
+			ctx,
+			"Drum",
+			face * CFrame.new(0, (base - 1 + height) / 2, -(r - T / 2)),
+			Vector3.new(side + T * 0.85, height - base + 1, T),
+			"Wall"
+		)
+		p:SetAttribute("Swatch", K.wall)
+	end
+	local top = height
+	local phi = math.atan(r / cone)
+	local slant = math.sqrt(r * r + cone * cone)
+	for i = 0, 7 do
+		local sec = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+		local frame = at * CFrame.Angles(0, i * math.pi / 4, 0) * CFrame.new(0, top, -r) * CFrame.Angles(phi, 0, 0)
+		for _, p in triangle(sec, ctx, frame, side * 1.06, slant, 0.8, "Roof") do
+			p:SetAttribute("Swatch", K.roof)
+		end
+	end
+	local cowl = Geometry.section(parent, ctx, "Cowl", "Wood", 99)
+	local c = K.cowl
+	local tip = at * CFrame.new(0, top + cone - 0.6, 0)
+	local box =
+		Geometry.part(cowl, ctx, "Cowl", tip * CFrame.new(0, c[2] / 2, 0), Vector3.new(c[1], c[2], c[1]), "Wall")
+	box:SetAttribute("Swatch", K.cowlWall)
+	local hood = Geometry.part(
+		cowl,
+		ctx,
+		"Hood",
+		tip * CFrame.new(0, c[2] + 0.6, 0.2),
+		Vector3.new(c[1] + 0.4, 1.2, c[1] + 0.8),
+		"Wall",
+		"WedgePart"
+	)
+	hood:SetAttribute("Swatch", K.cowlWall)
+end
+
+-- An open-sided Dutch hay barn: posts round a `L` x `span` bay, a curved rust-red roof on them (flat panels along an
+-- arc, ridge along local X), hay stacked inside to different heights.
+function Geometry.hayBarn(parent: Instance, ctx: Ctx, at: CFrame, L: number, span: number, height: number)
+	local H = ctx.B.HayBarn
+	local half = span / 2 + H.overhang
+	local R = (half * half + H.rise * H.rise) / (2 * H.rise)
+	local cy = height + H.rise - R
+	local function roofY(z: number): number
+		return cy + math.sqrt(R * R - z * z)
+	end
+	local bays = math.max(1, math.round(L / H.bay))
+	for i = 0, bays do
+		local x = -L / 2 + i * L / bays
+		for _, sz in { -1, 1 } do
+			local z = sz * (span / 2 - 0.5)
+			local top = roofY(z)
+			local sec = Geometry.section(parent, ctx, "Post", "Wood", 0)
+			Geometry.part(sec, ctx, "Post", at * CFrame.new(x, top / 2, z), Vector3.new(1, top, 1), "Trim")
+		end
+		local beam = Geometry.section(parent, ctx, "Beam", "Wood", 0)
+		Geometry.part(beam, ctx, "Beam", at * CFrame.new(x, height - 0.4, 0), Vector3.new(0.7, 0.7, span), "Trim")
+	end
+	local a0 = math.asin(half / R)
+	local n = H.segments * 2
+	for k = 0, n - 1 do
+		local t0, t1 = -a0 + 2 * a0 * k / n, -a0 + 2 * a0 * (k + 1) / n
+		local z0, y0 = R * math.sin(t0), cy + R * math.cos(t0)
+		local z1, y1 = R * math.sin(t1), cy + R * math.cos(t1)
+		local len = math.sqrt((z1 - z0) ^ 2 + (y1 - y0) ^ 2)
+		local slope = math.atan2(y1 - y0, z1 - z0)
+		local sec = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+		local p = Geometry.part(
+			sec,
+			ctx,
+			"Roof",
+			at * CFrame.new(0, (y0 + y1) / 2 + 0.25, (z0 + z1) / 2) * CFrame.Angles(-slope, 0, 0),
+			Vector3.new(L + 2 * H.overhang, 0.5, len + 0.08),
+			"Roof"
+		)
+		p:SetAttribute("Swatch", H.roof)
+	end
+	-- the hay: one stack per bay, a few bales' worth each (some bays near empty)
+	for i = 0, bays - 1 do
+		local h = H.hay[i % #H.hay + 1]
+		local x = -L / 2 + (i + 0.5) * L / bays
+		local sec = Geometry.section(parent, ctx, "Hay", "Thatch", 0)
+		local p = Geometry.part(
+			sec,
+			ctx,
+			"Hay",
+			at * CFrame.new(x, h / 2, 0),
+			Vector3.new(L / bays - 1.4, h, span - 3),
+			"Roof"
+		)
+		p:SetAttribute("Swatch", H.hayRoof)
+	end
+end
+
+-- A dry-stone yard wall from `a` to `b` ({x, z} in the template's footprint), in pieces no longer than `piece`, each
+-- standing on the real ground where it is (a wall over a slope steps down it).
+function Geometry.yardWall(parent: Instance, ctx: Ctx, a: { number }, b: { number })
+	local Y = ctx.B.YardWall
+	local dx, dz = b[1] - a[1], b[2] - a[2]
+	local len = math.sqrt(dx * dx + dz * dz)
+	local n = math.max(1, math.ceil(len / Y.piece))
+	local yaw = math.atan2(-dz, dx)
+	for i = 0, n - 1 do
+		local t = (i + 0.5) / n
+		local sec = Geometry.section(parent, ctx, "YardWall", "Stone", 0)
+		sec:SetAttribute("OnGround", true)
+		Geometry.part(
+			sec,
+			ctx,
+			"Wall",
+			CFrame.new(a[1] + dx * t, Y.height / 2 - Y.sink, a[2] + dz * t) * CFrame.Angles(0, yaw, 0),
+			Vector3.new(len / n + 0.1, Y.height + Y.sink, Y.thick),
+			"Quoin"
+		)
+	end
+end
+
 -- A hanging inn sign: a post `height` high, an arm off its top along local X, a framed board hanging under the arm.
 function Geometry.sign(parent: Instance, ctx: Ctx, at: CFrame, height: number)
 	local S = ctx.B.InnSign
