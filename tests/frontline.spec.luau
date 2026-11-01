@@ -145,13 +145,14 @@ return {
 		assert(not R.inZone(40, 30, 0, 45, Cfg.Height))
 		assert(not R.inZone(0, 0, Cfg.Height + 1, 45, Cfg.Height) and R.inZone(0, 0, -Cfg.Height, 45, Cfg.Height))
 	end,
-	["two different teams each match, any pair, either side"] = function()
+	["the grey team every match, against green or brown, either side; never green against brown"] = function()
 		local teams = { "uniform1", "uniform2", "uniform3" }
 		local seen: { [string]: boolean } = {}
 		for a = 0, 9 do
 			for b = 0, 9 do
-				local p = R.pair(teams, a / 10, b / 10)
+				local p = R.pair(teams, "uniform1", a / 10, b / 10)
 				assert(p.West ~= p.East and table.find(teams, p.West) and table.find(teams, p.East))
+				assert(p.West == "uniform1" or p.East == "uniform1", R.pairText(p))
 				seen[R.pairText(p)] = true
 			end
 		end
@@ -159,7 +160,9 @@ return {
 		for _ in seen do
 			n += 1
 		end
-		assert(n == 6, `{n} of the 6 ordered pairs`)
+		assert(n == 4, `{n} of the 4 ordered pairs`)
+		assert(not seen["uniform2,uniform3"] and not seen["uniform3,uniform2"])
+		assert(R.pair(teams, "uniform1", 0.99, 0.99).East == "uniform1")
 		local back = R.parsePair("uniform2,uniform3")
 		assert(back and back.West == "uniform2" and back.East == "uniform3")
 		assert(R.parsePair("uniform2,uniform2") == nil and R.parsePair("x") == nil and R.parsePair(nil) == nil)
