@@ -9,7 +9,8 @@
 -- Sway.viewmodel() is a small turn of the viewmodel about Config/Sway.Pivot (camera space); Sway.camera(view) a small
 -- turn of the camera itself. Recoil (Sway.kick, src/client/Firing; Config/Firing.Recoil) kicks the gun up, aside and
 -- back and the view up, on springs. Charging a staff spell (Sway.shake, Config/Sway.Charge) shakes the view and the
--- staff more and more. Later sources (explosions, damage) add here.
+-- staff more and more. Suppression (src/client/Suppression: near misses, blasts) makes the gun wander. Later
+-- sources (damage) add here.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,6 +23,7 @@ local Loco = require(Shared.Config.Locomotion)
 local W = require(Shared.Config.Weapons)
 local Return = require(Shared.Rules.SwayReturn)
 local Held = require(script.Parent.Held)
+local Suppression = require(script.Parent.Suppression)
 
 local Sway = {}
 
@@ -296,6 +298,11 @@ function Sway.start()
 		turnPitch += sx * V.pitch
 		turnYaw += sy * V.yaw
 		turnRoll += sz * V.roll
+		-- suppression: near misses and blasts make the gun wander (src/client/Suppression)
+		local wp, wy, wr = Suppression.wobble(aiming)
+		turnPitch += wp * m
+		turnYaw += wy * m
+		turnRoll += wr * m
 		viewmodel = CFrame.new(pivot + shift)
 			* CFrame.Angles(math.rad(turnPitch), math.rad(turnYaw), math.rad(turnRoll))
 			* CFrame.new(-pivot)
