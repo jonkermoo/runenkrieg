@@ -103,7 +103,7 @@ local Bots = {
 		-- are counted too)
 		raysPerFrame = 40,
 		-- path computes a second, all bots together (the rest wait in a queue)
-		pathsPerSecond = 4,
+		pathsPerSecond = 6,
 		-- the governor: while the bots' frame cost (a one-second average) is over `ms`, or the physics rate under
 		-- `minFps`, for `trimAfter` seconds, it holds the count one lower (then one more every `trimEvery`); after
 		-- `restoreAfter` seconds within budget it lets one back (then one more every `restoreEvery`); never under `floor`
@@ -148,6 +148,10 @@ local Bots = {
 
 	Move = {
 		Repath = 6, -- seconds between path recomputes toward the same goal
+		-- a path found for one bot serves others for `keep` seconds: one going within `goalWithin` studs of its goal and
+		-- standing within `fromWithin` of one of its waypoints joins it there; only paths `longer` than that are kept
+		-- (the long walks), the newest `max`
+		Share = { keep = 30, goalWithin = 30, fromWithin = 20, longer = 60, max = 64 },
 		Arrive = 3, -- studs from a waypoint (flat) that count as reached
 		StuckWindow = 1.5, -- seconds over which a moving bot must make StuckDistance of progress
 		StuckDistance = 1.5,

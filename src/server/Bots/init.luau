@@ -141,6 +141,8 @@ type Bot = {
 type CoverJob = { threat: Vector3, ring: number, here: number }
 
 local bots: { Bot } = {}
+-- each bot's own Path object, made once (CreatePath on every request cost a frame now and then)
+local pathOf: { [number]: Path } = {}
 local count = 0
 local folder: Folder? = nil
 local random = Random.new()
@@ -169,6 +171,9 @@ local stats = {
 	deferred = 0, -- frames that ran out of time with bots still due
 	senseDeferred = 0, -- sight checks put off a frame for want of rays
 	pathsDeferred = 0, -- path computes put off for want of the server's ration
+	pathsShared = 0, -- paths taken from another bot's
+	reowned = 0, -- bodies whose physics a player had taken, given back to the server
+	stoodUp = 0, -- bodies found lying after a knock, stood up
 	since = os.clock(),
 }
 
@@ -423,6 +428,9 @@ spawnBody = function(b: Bot)
 					(b.anim :: Animate.Handle).equip()
 				end
 			end
+			-- (a joint made or broken hands the body's physics to the nearest player, where the server's get-up is
+			-- ignored: taken back after the gun goes in the hands)
+			DevDummies.own(m)
 		end
 	end)
 	humanoid.Died:Connect(function()
@@ -482,6 +490,7 @@ local function remove(i: number)
 	botFolder():SetAttribute(Cfg.NameAttribute .. tostring(-b.id), nil)
 	Loadouts.forgetBot(b.id)
 	ZoneMatch.forgetBot(b.id)
+	pathOf[b.id] = nil
 end
 
 -- sensing ------------------------------------------------------------------------------------------------------------
@@ -729,36 +738,87 @@ end
 
 -- moving -------------------------------------------------------------------------------------------------------------
 
--- a path to `goal` when the server's ration allows (Budget.pathsPerSecond); false when it waits (the bot walks straight
--- at the goal meanwhile and asks again next think)
-local function computePath(b: Bot, goal: Vector3): boolean
+-- paths found lately, shared: a bot going near the same place from near a waypoint of one follows it from there
+-- (Config/Bots.Move.Share) instead of asking for its own
+type SharedPath = { goal: Vector3, waypoints: { PathWaypoint }, at: number }
+local sharedPaths: { SharedPath } = {}
+
+local function sharedPath(from: Vector3, goal: Vector3, now: number): ({ PathWaypoint }?, number)
+	local S = MV.Share
+	for i = #sharedPaths, 1, -1 do
+		local c = sharedPaths[i]
+		if now - c.at > S.keep then
+			table.remove(sharedPaths, i)
+		elseif flat(c.goal - goal).Magnitude <= S.goalWithin then
+			-- the nearest of its waypoints to where the bot stands, close enough to join there
+			local best, bestAt = S.fromWithin, nil
+			for k, wp in c.waypoints do
+				local d = flat(wp.Position - from).Magnitude
+				if d < best then
+					best, bestAt = d, k
+				end
+			end
+			if bestAt then
+				return c.waypoints, math.min(bestAt + 1, #c.waypoints)
+			end
+		end
+	end
+	return nil, 1
+end
+
+-- a path to `goal`: a shared one when there is one, else its own when the server's ration allows
+-- (Budget.pathsPerSecond); false when it waits (the bot walks straight at the goal meanwhile and asks again next think).
+-- `own`: never a shared one (a bot stuck on its path asks afresh)
+local function computePath(b: Bot, goal: Vector3, own: boolean?): boolean
 	local nav = b.nav
+	local root = b.root :: BasePart
+	local from = root.Position
+	local now = os.clock()
+	local wps, start = nil, 1
+	if not own then
+		wps, start = sharedPath(from, goal, now)
+	end
+	if wps then
+		stats.pathsShared += 1
+		nav.waypoints, nav.index, nav.pathAt = wps, start, now
+		return true
+	end
 	if pathTokens < 1 then
 		stats.pathsDeferred += 1
 		return false
 	end
 	pathTokens -= 1
 	nav.computing = true
-	nav.pathAt = os.clock()
-	local root = b.root :: BasePart
-	local from = root.Position
-	task.spawn(function()
-		local path = PathfindingService:CreatePath({
+	nav.pathAt = now
+	local path = pathOf[b.id]
+	if not path then
+		path = PathfindingService:CreatePath({
 			AgentRadius = MV.AgentRadius,
 			AgentHeight = MV.AgentHeight,
 			AgentCanJump = true,
 			WaypointSpacing = MV.WaypointSpacing,
 		})
+		pathOf[b.id] = path
+	end
+	task.spawn(function()
 		stats.paths += 1
 		local ok = pcall(function()
-			path:ComputeAsync(from, goal)
+			(path :: Path):ComputeAsync(from, goal)
 		end)
 		nav.computing = false
+		local found = ok and (path :: Path).Status == Enum.PathStatus.Success
+		local waypoints = if found then (path :: Path):GetWaypoints() else {}
+		if found and flat(goal - from).Magnitude >= MV.Share.longer then
+			table.insert(sharedPaths, { goal = goal, waypoints = waypoints, at = os.clock() })
+			if #sharedPaths > MV.Share.max then
+				table.remove(sharedPaths, 1)
+			end
+		end
 		if nav.goal ~= goal then
 			return -- (a new goal meanwhile)
 		end
-		if ok and path.Status == Enum.PathStatus.Success then
-			nav.waypoints = path:GetWaypoints()
+		if found then
+			nav.waypoints = waypoints
 			nav.index = math.min(2, #nav.waypoints)
 		else
 			stats.pathFails += 1
@@ -833,7 +893,7 @@ local function follow(b: Bot, now: number)
 				nav.jumps += 1
 				humanoid.Jump = true
 			elseif nav.repaths < MV.StuckRepaths and nav.goal and not nav.computing then
-				if computePath(b, nav.goal :: Vector3) then
+				if computePath(b, nav.goal :: Vector3, true) then
 					nav.repaths += 1
 					nav.jumps = 0
 				end
@@ -879,6 +939,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	end
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
 		return -- (standing in the wave line until the wave goes)
+	end
+	-- the body's physics stays the server's: any joint made or broken (a helmet knocked off, the gun drawn) hands it to
+	-- the nearest player, and a body a player owns ignores the server's get-up and lies there in Physics
+	local owned, owner = pcall(root.GetNetworkOwner, root)
+	if owned and owner ~= nil then
+		DevDummies.own(m)
+		stats.reowned += 1
+	end
+	if humanoid:GetState() == Enum.HumanoidStateType.Physics then
+		DevDummies.getUp(m, humanoid) -- (left lying after a knock)
+		stats.stoodUp += 1
+		return
 	end
 	debug.profilebegin("Bots.sense")
 	if now >= b.nextSense and sense(b, d, now) then
@@ -1271,7 +1343,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off); %d stuck, %d sidesteps; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -1289,8 +1361,11 @@ local function report(now: number)
 			stats.paths / span,
 			stats.pathFails,
 			stats.pathsDeferred,
+			stats.pathsShared,
 			stats.stuck,
 			stats.sidesteps,
+			stats.reowned,
+			stats.stoodUp,
 			stats.shots,
 			stats.deaths,
 			stats.covers,
