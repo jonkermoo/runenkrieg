@@ -67,7 +67,15 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				if story == 0 then frontDoors else nil,
 				2,
 			},
-			{ "back", CFrame.new(0, y, Dp / 2 - T / 2) * CFrame.Angles(0, math.pi, 0), W, ends(W, W / 2), nil, 2 },
+			{
+				"back",
+				CFrame.new(0, y, Dp / 2 - T / 2) * CFrame.Angles(0, math.pi, 0),
+				W,
+				ends(W, W / 2),
+				-- a back door (a church porch's, opening on the nave's front door behind it)
+				if story == 0 and t.backDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				2,
+			},
 			{
 				"left",
 				CFrame.new(-W / 2 + T / 2, y, 0) * CFrame.Angles(0, math.pi / 2, 0),
@@ -97,7 +105,8 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 		end
 		wallCounts[story] = count
 		if story >= 1 then
-			local hole = Geometry.stairs(model, ctx, cf, W, Dp, y - H, H, story - 1)
+			-- (flights alternate back and front, so a tower's stack of stairs never runs into the hole above it)
+			local hole = Geometry.stairs(model, ctx, cf, W, Dp, y - H, H, story - 1, (story - 1) % 2 == 1)
 			for _, r in Geometry.rectMinusHole(inner, hole) do
 				Geometry.slab(model, ctx, cf, r, y, "Floor", story, "Floor")
 			end
@@ -110,14 +119,27 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 	if t.quoins then
 		Geometry.quoins(model, ctx, W, Dp, floorTop + 0.5, floorTop + t.stories * H)
 	end
-	-- ceiling: every level has a floor, including the attic floor under the roof
-	Geometry.slab(model, ctx, cf, inner, wallTop, "Floor", t.stories, "Floor")
+	-- ceiling: every level has a floor, including the attic floor under the roof; a climbable top (a tower's roof walk)
+	-- gets one more flight up through it
+	if t.climb then
+		local top = t.stories - 1
+		local hole = Geometry.stairs(model, ctx, cf, W, Dp, floorTop + top * H, H, top, top % 2 == 1)
+		for _, r in Geometry.rectMinusHole(inner, hole) do
+			Geometry.slab(model, ctx, cf, r, wallTop, "Floor", t.stories, "Floor")
+		end
+	else
+		Geometry.slab(model, ctx, cf, inner, wallTop, "Floor", t.stories, "Floor")
+	end
 	return floorTop, wallTop
 end
 
 local function roofAndExtras(model: Model, t: any, ctx: Geometry.Ctx, wallTop: number)
 	local W, Dp = t.width, t.depth
 	local T = ctx.T
+	if t.roofStyle == "Battlement" then
+		Geometry.battlement(model, ctx, W, Dp, wallTop)
+		return 0
+	end
 	for _, side in { -1, 1 } do
 		local frame = CFrame.new(side * (W / 2 - T / 2), wallTop, 0) * CFrame.Angles(0, math.pi / 2, 0)
 		Geometry.gable(model, ctx, frame, Dp, (Dp / 2) * math.tan(math.rad(t.roofPitch)), t.stories)
@@ -144,8 +166,44 @@ function Buildings.build(name: string, deps: Deps): Model
 	local ctx: Geometry.Ctx =
 		{ D = deps.D, M = deps.M, B = deps.B, T = t.wallThickness or deps.B.WallThickness, class = t.class, count = 0 }
 
-	local _, wallTop = shell(model, t, ctx, deps)
-	roofAndExtras(model, t, ctx, wallTop)
+	if t.blocks then
+		-- a landmark: several blocks (a church's nave, tower and porch), each built like a building of its own and
+		-- moved to its place in the template's footprint, plus its features. One building for destruction: the blocks'
+		-- walls are counted together per story.
+		local counts = {}
+		for i, b in t.blocks do
+			local sub = Instance.new("Model")
+			sub.Name = b.name or `Block{i}`
+			ctx.T = b.wallThickness or t.wallThickness or deps.B.WallThickness
+			ctx.class = b.class or t.class
+			local _, wallTop = shell(sub, b, ctx, deps)
+			roofAndExtras(sub, b, ctx, wallTop)
+			for key, n in sub:GetAttributes() do
+				if string.match(key, "^WallCount_") then
+					counts[key] = (counts[key] or 0) + n
+					sub:SetAttribute(key, nil)
+				end
+			end
+			sub:PivotTo(CFrame.new(b.x, 0, b.z) * CFrame.Angles(0, math.rad(b.yaw or 0), 0))
+			sub.Parent = model
+		end
+		for key, n in counts do
+			model:SetAttribute(key, n)
+		end
+		for _, f in t.features or {} do
+			local at = CFrame.new(f.x, 0, f.z) * CFrame.Angles(0, math.rad(f.yaw or 0), 0)
+			if f.kind == "Graves" then
+				Geometry.graves(model, ctx, at, f.count, f.gap)
+			elseif f.kind == "Lychgate" then
+				Geometry.lychgate(model, ctx, at, f.width)
+			else
+				error(`unknown landmark feature {f.kind}`)
+			end
+		end
+	else
+		local _, wallTop = shell(model, t, ctx, deps)
+		roofAndExtras(model, t, ctx, wallTop)
+	end
 	model.WorldPivot = CFrame.identity
 	model:SetAttribute("PartCount", ctx.count)
 	return model

@@ -200,9 +200,11 @@ local Map1 = {
 			{ x = 2505, z = 0, r = 55 },
 		},
 
-		-- Hand-placed landmark buildings. front = direction the door faces.
-		-- Hand-placed landmark buildings (church, station, farm...) return one at a time.
-		specials = {},
+		-- Hand-placed landmark buildings (Config/Buildings `blocks` templates, this map's own; user 2026-11-01), one at a
+		-- time. front = direction the door faces. The church south of the church square, facing it.
+		specials = {
+			{ id = "Church", style = "Church", x = 2100, z = -90, front = { 0, 1 } },
+		},
 
 		railX = 2530,
 

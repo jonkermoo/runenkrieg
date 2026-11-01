@@ -22,7 +22,15 @@ export type Template = {
 	wallThickness: number?, -- defaults to WallThickness
 	quoins: boolean?, -- stone corner blocks
 	doors: { { center: number, w: number?, h: number? } }?, -- front doors (default: one centered, Metrics size)
-	backDoor: boolean?,
+	backDoor: boolean?, -- a door in the back wall too (story 0)
+	climb: boolean?, -- one more flight up through the ceiling onto the roof (a tower's roof walk)
+	-- A landmark (one map's own buildings; user 2026-11-01: "somewhat unique to each map"): several blocks in the
+	-- template's footprint (width x depth), each with the building fields above plus x, z (its centre in the
+	-- footprint), yaw (degrees) and a name; roofStyle "Battlement" is a flat roof walk with a crenellated parapet.
+	blocks: { any }?,
+	-- and things built with it, in the footprint: { kind = "Graves", x, z, yaw?, count, gap } (a row of headstones),
+	-- { kind = "Lychgate", x, z, yaw?, width } (a roofed gateway, open along local Z)
+	features: { any }?,
 	description: string,
 }
 
@@ -33,6 +41,10 @@ local Buildings = {
 	FramePost = 0.5, -- width of the timber posts either side of an opening
 	Foundation = 0.6, -- floor top above the highest ground under the footprint
 	WallThickness = 1,
+	-- landmark pieces (Template `blocks` / `features`)
+	Battlement = { wall = 1.6, height = 1.8, merlon = 2.2 }, -- parapet height, merlons on it, a merlon's length
+	Graves = { width = 2, height = 2.8, thick = 0.5, sink = 0.6 }, -- a headstone, sunk into the ground
+	Lychgate = { height = 7, depth = 5, pitch = 40 }, -- post height to the eaves, front to back, roof pitch
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -127,6 +139,69 @@ local Buildings = {
 			walls = { "TarBoard", "BarnRed", "WhiteBoard" },
 			roofs = { "DarkTile", "Slate" },
 			description = "Small board shed.",
+		},
+
+		-- Map 1's landmarks (user 2026-11-01, the six designs: church, coaching inn, oast house, Dutch barn, watermill,
+		-- railway halt), one at a time. The village church on the square by S5: a stone nave under slate, a square
+		-- four-stage west tower with a battlemented roof walk you can climb to (knocked down story by story), a south
+		-- porch onto the nave's door, a lychgate at the churchyard's front and headstones behind.
+		Church = {
+			folder = "Landmarks",
+			width = 54,
+			depth = 44,
+			stories = 1,
+			roofPitch = 45,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate" },
+			blocks = {
+				{
+					name = "Nave",
+					x = 7,
+					z = 1,
+					width = 40,
+					depth = 18,
+					stories = 1,
+					storyHeight = 14,
+					roofPitch = 45,
+					roofStyle = "Tile",
+					quoins = true,
+					doors = { { center = 5 } }, -- behind the porch
+				},
+				{
+					name = "Tower",
+					x = -20,
+					z = 1,
+					width = 14,
+					depth = 14,
+					stories = 4,
+					storyHeight = 7,
+					roofPitch = 0,
+					roofStyle = "Battlement",
+					quoins = true,
+					climb = true,
+				},
+				{
+					name = "Porch",
+					x = 12,
+					z = -12,
+					width = 8,
+					depth = 8,
+					stories = 1,
+					storyHeight = 8,
+					roofPitch = 45,
+					roofStyle = "Tile",
+					wallThickness = 1.2,
+					backDoor = true,
+				},
+			},
+			features = {
+				{ kind = "Lychgate", x = 12, z = -19.5, width = 8 },
+				{ kind = "Graves", x = -8, z = 15, count = 9, gap = 4 },
+				{ kind = "Graves", x = -6, z = 19.5, count = 8, gap = 4.4 },
+			},
+			description = "The village church: stone nave and slate roof, a climbable battlemented west tower, south porch, lychgate and churchyard.",
 		},
 	} :: { [string]: Template },
 

@@ -288,7 +288,8 @@ function Geometry.rectMinusHole(r: { number }, h: { number }): { { number } }
 	return out
 end
 
--- Straight stair along the back wall, ascending toward +X. Returns the hole rect for the floor above.
+-- Straight stair along the back wall (or the front, `front`: a tower's flights alternate so each lands clear of the
+-- next), ascending toward +X. Returns the hole rect for the floor above.
 function Geometry.stairs(
 	parent: Instance,
 	ctx: Ctx,
@@ -297,7 +298,8 @@ function Geometry.stairs(
 	Dp: number,
 	baseY: number,
 	H: number,
-	story: number
+	story: number,
+	front: boolean?
 ): { number }
 	local Bm = ctx.M.Building
 	local steps = math.ceil(H / Bm.StairRise)
@@ -305,6 +307,10 @@ function Geometry.stairs(
 	local x0 = -W / 2 + ctx.T
 	local z1 = Dp / 2 - ctx.T
 	local z0 = z1 - Bm.StairWidthMin
+	if front then
+		z0 = -Dp / 2 + ctx.T
+		z1 = z0 + Bm.StairWidthMin
+	end
 	local sec = Geometry.section(parent, ctx, "Stairs", "Wood", story)
 	for i = 1, steps do
 		local top = baseY + i * rise
@@ -477,6 +483,89 @@ function Geometry.gableChimney(
 		)
 		pot.Shape = Enum.PartType.Cylinder
 	end
+end
+
+-- A flat roof walk's parapet (a church tower): a low wall on the wall tops all round, merlons along it with gaps to
+-- shoot through. `top` = the roof walk's floor.
+function Geometry.battlement(parent: Instance, ctx: Ctx, W: number, Dp: number, top: number)
+	local q = ctx.B.Battlement
+	local T = ctx.T
+	local runs = {
+		{ CFrame.new(0, 0, -Dp / 2 + T / 2), W },
+		{ CFrame.new(0, 0, Dp / 2 - T / 2), W },
+		{ CFrame.new(-W / 2 + T / 2, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), Dp - 2 * T },
+		{ CFrame.new(W / 2 - T / 2, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), Dp - 2 * T },
+	}
+	for _, r in runs do
+		local sec = Geometry.section(parent, ctx, "Parapet", ctx.class, 99)
+		local frame, L = r[1], r[2]
+		Geometry.part(
+			sec,
+			ctx,
+			"Parapet",
+			frame * CFrame.new(0, top + q.wall / 2, 0),
+			Vector3.new(L, q.wall, T),
+			"Wall"
+		)
+		-- an odd count, so both ends carry a merlon
+		local n = math.max(3, math.floor(L / q.merlon / 2) * 2 + 1)
+		for i = 0, n - 1, 2 do
+			Geometry.part(
+				sec,
+				ctx,
+				"Merlon",
+				frame * CFrame.new(-L / 2 + (i + 0.5) * L / n, top + q.wall + q.height / 2, 0),
+				Vector3.new(L / n, q.height, T + 0.2),
+				"Wall"
+			)
+		end
+	end
+end
+
+-- A row of headstones (a churchyard), `count` of them `gap` apart along local X from `at`, each a little off true.
+function Geometry.graves(parent: Instance, ctx: Ctx, at: CFrame, count: number, gap: number)
+	local g = ctx.B.Graves
+	for i = 0, count - 1 do
+		local sec = Geometry.section(parent, ctx, "Grave", "Stone", 0)
+		local tilt = math.rad(4 * jitter(ctx, 11))
+		local h = g.height * (1 + 0.15 * jitter(ctx, 13))
+		Geometry.part(
+			sec,
+			ctx,
+			"Headstone",
+			at * CFrame.new(i * gap, h / 2 - g.sink, 0) * CFrame.Angles(tilt, 0, 0),
+			Vector3.new(g.width, h + g.sink, g.thick),
+			"Quoin"
+		)
+	end
+end
+
+-- A roofed gateway (a lychgate): four oak posts, a tiled gable roof on them, open front to back along local Z.
+function Geometry.lychgate(parent: Instance, ctx: Ctx, at: CFrame, W: number)
+	local L = ctx.B.Lychgate
+	local sec = Geometry.section(parent, ctx, "Lychgate", "Wood", 0)
+	for _, c in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
+		Geometry.part(
+			sec,
+			ctx,
+			"Post",
+			at * CFrame.new(c[1] * (W / 2 - 0.4), L.height / 2, c[2] * (L.depth / 2 - 0.4)),
+			Vector3.new(0.8, L.height, 0.8),
+			"Trim"
+		)
+	end
+	for _, side in { -1, 1 } do
+		Geometry.part(
+			sec,
+			ctx,
+			"Beam",
+			at * CFrame.new(side * (W / 2 - 0.4), L.height - 0.35, 0),
+			Vector3.new(0.8, 0.7, L.depth),
+			"Trim"
+		)
+	end
+	-- the roof runs across the gateway, ridge along local X
+	Geometry.roof(sec, ctx, at, W, L.depth, L.height, L.pitch, "Tile")
 end
 
 -- Stone corner blocks, alternating long/short up each corner.
