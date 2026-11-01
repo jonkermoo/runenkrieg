@@ -190,6 +190,71 @@ local Bots = {
 		weights = { hidden = 3, near = 0.6, distance = 0.02, crowd = 1.5, random = 1 },
 	},
 
+	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above
+	-- their person) ... dont let them spam it ... only when necessary", plain English): a bubble over the bot's head on a
+	-- real event, only while a player is within `near` studs, shown to players within `hear`. A bot waits `botEvery`
+	-- seconds between callouts and `sameEvery` before the same one again; a side `sideEvery` between any of its bots'.
+	-- Each event is said with its `chance` (none: never). "{name}" is the fallen teammate's name.
+	Callouts = {
+		near = 70,
+		hear = 90,
+		botEvery = 8,
+		sideEvery = 2.5,
+		sameEvery = 15,
+		manDownWithin = 40, -- studs: a teammate this close to a fallen bot calls it
+		chance = {
+			Hit = 1,
+			ManDown = 1,
+			Grenade = 1,
+			Heal = 1,
+			Spotted = 0.6,
+			Cover = 0.6,
+			MoveUp = 0.35,
+			Push = 0.35,
+			Covering = 0.35,
+			Reload = 0.35,
+		},
+		-- each team's lines (Config/Uniforms.Kits `team`); Grenade and Heal wait for bots that throw and heal
+		Lines = {
+			Katzmark = {
+				Hit = { "I'm hit!", "Argh, I'm hit!", "Medic!" },
+				Spotted = { "Enemy ahead!", "Look out, there!" },
+				Cover = { "Take cover!", "Down, down!" },
+				MoveUp = { "Forward!", "Move up!" },
+				Push = { "Take the position!", "Now, all together!" },
+				Covering = { "Covering you!", "Go, I've got you!" },
+				Reload = { "Reloading!", "Loading!" },
+				ManDown = { "Man down!", "They got him!", "{name} is down!" },
+				Grenade = { "Grenade!", "Grenade out!" },
+				Heal = { "Hold still, I've got you." },
+			},
+			Selvara = {
+				Hit = { "I'm hit!", "They got me!", "Medic!" },
+				Spotted = { "Enemy, there!", "Watch out, ahead!" },
+				Cover = { "Get down!", "Take cover!" },
+				MoveUp = { "Forward!", "Forward, lads!" },
+				Push = { "Take the flag!", "All together, go!" },
+				Covering = { "I'll cover you!", "Go, go!" },
+				Reload = { "Reloading!", "Loading!" },
+				ManDown = { "Man down!", "No! He's down!", "{name} is down!" },
+				Grenade = { "Grenade!", "Grenade, get back!" },
+				Heal = { "Stay with me, I'll patch you." },
+			},
+			Sowilo = {
+				Hit = { "I'm hit!", "Blast, I'm hit!", "Stretcher-bearer!" },
+				Spotted = { "Enemy ahead!", "Look out, front!" },
+				Cover = { "Get down!", "Into cover, lads!" },
+				MoveUp = { "Forward!", "Up and at 'em!" },
+				Push = { "Over the top, lads!", "Take that flag!" },
+				Covering = { "Covering fire!", "Go on, I'll cover!" },
+				Reload = { "Reloading!", "Changing clips!" },
+				ManDown = { "Man down!", "They've got {name}!" },
+				Grenade = { "Grenade! Get clear!" },
+				Heal = { "Steady, I'll see to you." },
+			},
+		},
+	},
+
 	Think = 10, -- brain steps a second, per bot (staggered)
 	Sense = 4, -- sight checks a second, per bot: the nearest few enemies' line-of-sight rays
 	SenseNearest = 3, -- how many of the nearest enemies in range and view get a ray
