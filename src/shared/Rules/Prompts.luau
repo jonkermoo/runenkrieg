@@ -13,7 +13,8 @@ export type Seen = {
 }
 
 -- What each prompt shows: "near" (the one the key will use: `shown`, Roblox's pick), "blocked" (the nearest prompt in
--- reach that can't be used, when nothing is shown), "far" (any other in `farReach` times its reach: only its pin, the
+-- reach that can't be used, when nothing usable is shown: the shown one too when it can't be used by this player, a
+-- gun a bot of another kit mans), "far" (any other in `farReach` times its reach: only its pin, the
 -- `maxPins` nearest), or nothing. A prompt off with no reason, or one the player is using, shows nothing.
 function Prompts.states(seen: { Seen }, shown: string?, farReach: number, maxPins: number): { [string]: string }
 	local out: { [string]: string } = {}
@@ -23,12 +24,12 @@ function Prompts.states(seen: { Seen }, shown: string?, farReach: number, maxPin
 		if s.mine or (not s.enabled and s.blocked == nil) then
 			continue
 		end
-		if s.id == shown then
+		if s.id == shown and s.blocked == nil then
 			out[s.id] = "near"
 		elseif s.dist <= s.reach * farReach then
 			if
 				s.blocked ~= nil
-				and shown == nil
+				and (shown == nil or shown == s.id)
 				and s.dist <= s.reach
 				and (blocked == nil or s.dist < blocked.dist)
 			then

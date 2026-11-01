@@ -13,6 +13,9 @@ local Prompts = {
 	-- of the player using it (it isn't drawn for them: the gunner on their own gun)
 	BlockedAttr = "Blocked",
 	UserAttr = "PromptUser",
+	-- the only kit that may use it (a gun a bot mans: its teammates take it over, src/server/Artillery); for everyone
+	-- else it shows as `Reasons.InUse`
+	KitAttr = "PromptKit",
 	Reasons = { InUse = "In use", Broken = "Broken" },
 
 	-- how far out the pins show, as a share of each prompt's own reach, and how many at most (the nearest)

@@ -236,6 +236,16 @@ local function spot(prompt: ProximityPrompt): Vector3?
 	return nil
 end
 
+-- why `prompt` can't be used by me: its own reason, or in use when it is kept for another kit (Config/Prompts.KitAttr)
+local function blockedOf(prompt: ProximityPrompt): string?
+	local blocked = prompt:GetAttribute(Cfg.BlockedAttr) :: string?
+	local kit = prompt:GetAttribute(Cfg.KitAttr)
+	if not blocked and kit ~= nil and (player.Character and player.Character:GetAttribute("Kit")) ~= kit then
+		return "InUse"
+	end
+	return blocked
+end
+
 function Prompts.start()
 	local shown: ProximityPrompt? = nil
 	local heldAt: number? = nil
@@ -243,7 +253,7 @@ function Prompts.start()
 	local states: { [ProximityPrompt]: string } = {}
 
 	local function view(prompt: ProximityPrompt, state: string): View
-		local blocked = prompt:GetAttribute(Cfg.BlockedAttr) :: string?
+		local blocked = blockedOf(prompt)
 		return {
 			key = prompt.KeyboardKeyCode.Name,
 			object = prompt.ObjectText,
@@ -286,7 +296,7 @@ function Prompts.start()
 					dist = dist,
 					reach = inst.MaxActivationDistance,
 					enabled = inst.Enabled,
-					blocked = inst:GetAttribute(Cfg.BlockedAttr) :: string?,
+					blocked = blockedOf(inst),
 					mine = inst:GetAttribute(Cfg.UserAttr) == player.UserId,
 				})
 			end
