@@ -24,6 +24,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Classes = require(Shared.Config.Classes)
+local FrontCfg = require(Shared.Config.Frontline)
 local Locomotion = require(Shared.Config.Locomotion)
 local Palette = require(Shared.Config.Palette)
 local U = require(Shared.Config.Uniforms)
@@ -772,7 +773,17 @@ function Menus.start()
 		end
 		if loadout.gui.Enabled then
 			local left = deployAt - os.clock()
-			if left > 0 then
+			-- a Normal match's next wave (src/server/Frontline; user 2026-10-31: the countdown on the Deploy button)
+			local front = workspace:FindFirstChild(FrontCfg.FolderName)
+			local waveAt = front and front:GetAttribute(FrontCfg.WaveAttribute)
+			if type(waveAt) == "number" then
+				if left > 0 then
+					setDeploy(`Ready in {math.ceil(left)}`, false)
+				else
+					local wave = math.max(math.ceil(waveAt - workspace:GetServerTimeNow()), 0)
+					setDeploy(`Deploy · wave in {wave}`, true)
+				end
+			elseif left > 0 then
 				setDeploy(`Deploy in {math.ceil(left)}`, false)
 			else
 				setDeploy("Deploy", true)

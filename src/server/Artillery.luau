@@ -40,6 +40,11 @@ local FiringCfg = require(Shared.Config.Firing)
 local Palette = require(Shared.Config.Palette)
 local PromptCfg = require(Shared.Config.Prompts)
 local Rules = require(Shared.Rules.Artillery)
+local FrontCfg = require(Shared.Config.Frontline)
+local SectorCfg = require(Shared.Config.Sectors)
+local Map1 = require(Shared.Config.Maps.Map1)
+local MapTerrain = require(Shared.Rules.MapTerrain)
+local SectorRules = require(Shared.Rules.Sectors)
 local Net = require(Shared.Net)
 local Damage = require(script.Parent.Damage)
 local Build = require(script.Parent.Build)
@@ -325,6 +330,42 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 		end
 		prev = p
 	end)
+end
+
+-- In a Normal match, why `s`'s gunner can't fire now (user 2026-10-29: "artillery can still only be fired upon
+-- non-friendly sectors"): where the shell would land on flat ground lies in a sector the gunner's side holds. Nil when
+-- it may fire (or outside a Normal match).
+local function friendlyTarget(s: State): string?
+	local front = workspace:FindFirstChild(FrontCfg.FolderName)
+	local character = s.gunner and s.gunner.Character
+	if not front or not character then
+		return nil
+	end
+	local kit = character:GetAttribute("Kit")
+	local side = if kit == front:GetAttribute("West")
+		then "West"
+		elseif kit == front:GetAttribute("East") then "East"
+		else nil
+	if not side then
+		return nil
+	end
+	local gun = s.gun
+	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, s.lay.traverse, s.lay.elevation)
+	local pivot = s.model:GetPivot()
+	local origin = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local dir = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz))
+	local flat = Vector3.new(dir.X, 0, dir.Z)
+	if flat.Magnitude < 1e-3 then
+		return nil
+	end
+	local elevation = math.deg(math.atan2(dir.Y, flat.Magnitude))
+	local land = origin + flat.Unit * Rules.range(gun.speed, elevation, gun.gravity)
+	local id = SectorRules.sectorAt(Map1, MapTerrain, land.X, land.Z, SectorCfg.Divider.RiverSegments)
+	local sector = front:FindFirstChild(id)
+	if sector and sector:GetAttribute("Owner") == side then
+		return "Can't fire on your own sector"
+	end
+	return nil
 end
 
 local function fire(s: State)
@@ -1227,12 +1268,23 @@ function Artillery.start()
 			if s.bracing or (ready and now() < ready) then
 				return
 			end
+			local why = friendlyTarget(s)
+			if why then
+				Net.event("Artillery"):FireClient(player, "Refused", why)
+				return
+			end
 			s.bracing = true
 			s.model:SetAttribute("BraceAt", now())
 			local gunner = s.gunner
 			task.delay(s.gun.charge, function()
 				s.bracing = false
 				if s.gunner == gunner and guns[s.model] then
+					-- (aimed again during the brace: checked once more)
+					local still = friendlyTarget(s)
+					if still then
+						Net.event("Artillery"):FireClient(gunner :: Player, "Refused", still)
+						return
+					end
 					fire(s)
 				end
 			end)

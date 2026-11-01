@@ -31,6 +31,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.SketchMap) :: any
 local Palette = require(Shared.Config.Palette)
 local FrontRules = require(Shared.Rules.Frontline)
+local FrontCfg = require(Shared.Config.Frontline)
 local TeamRules = require(Shared.Rules.Teams)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Playtest = require(Shared.Config.Maps.Playtest)
@@ -446,7 +447,12 @@ function SketchMap.new(
 					owners[i] = sector and sector:GetAttribute("Owner") or p.start
 					captured = captured or owners[i] ~= p.start
 				end
-				local at = points[FrontRules.spawn({ owner = owners, control = {} }, side, captured)]
+				-- (the server's own pick when it says, which also steps back while the enemy leads there:
+				-- src/server/Frontline "<Side>Spawn")
+				local given = folder:GetAttribute(side .. FrontCfg.SpawnAttribute)
+				local at = points[if type(given) == "number" and points[given]
+					then given
+					else FrontRules.spawn({ owner = owners, control = {} }, side, captured)]
 				local r = (if at.hq then Cfg.Point.hqRadius else Cfg.Point.radius) * Cfg.Deploy.ring
 				ring.Position = UDim2.fromScale(u(at.x), v(at.z))
 				ring.Size = UDim2.fromScale(2 * r, 2 * r)

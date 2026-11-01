@@ -125,6 +125,16 @@ return {
 		assert(why({ nearTrench = true }) == "Too close to a trench")
 		assert(why({ mine = C.PerPlayer }) == "You have too many pieces")
 		assert(why({ team = C.PerTeam }) == "Your team has too many pieces")
+		assert(why({ locked = "Unlocks when a sector is lost" }) == "Unlocks when a sector is lost")
+	end,
+	["guns per team: 6 field guns, 2 mortars (user 2026-10-31)"] = function()
+		local field = B.piece("FieldGun", C.Pieces) :: any
+		local how = B.piece("Howitzer", C.Pieces) :: any
+		assert(field.teamCap == 6 and how.teamCap == 2)
+		assert(B.canPlace(placing({ piece = field, kind = 5 })))
+		local ok, reason = B.canPlace(placing({ piece = field, kind = 6 }))
+		assert(not ok and reason == "Your team has 6 already")
+		assert(not B.canPlace(placing({ piece = how, kind = 2 })) and B.canPlace(placing({ piece = how, kind = 1 })))
 	end,
 	["guns: one per kind within its spacing, any two their clears apart; both teams build both"] = function()
 		local field = B.piece("FieldGun", C.Pieces) :: any

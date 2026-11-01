@@ -113,6 +113,7 @@ local Remotes: { string } = {
 	--   "Leave" ()                             get off the gun
 	--   "Trigger" (down: boolean)              a machine gun's fire held down or let go (Config/Artillery.Guns `mg`)
 	--   "Reload" ()                            a machine gun's box swapped early
+	-- server -> gunner: ("Refused", reason: string) a shot that can't go (a Normal match's own sector)
 	"Artillery",
 	-- server -> clients: (gun: Model, origin: Vector3, velocity: Vector3) a shot: recoil, flash, sound
 	"ArtilleryShot",

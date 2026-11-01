@@ -6,8 +6,14 @@
 -- until each side has its players, counts down, then plays: every Tick the soldiers alive and on their feet in each
 -- sector's zone push its control, faster the longer the front has stood still (momentum). Captures and
 -- neutralisations pay each soldier of that side in the zone, a kill near your side's attacked sector pays a Defend,
--- and taking the enemy HQ wins (everyone on the winning side paid); then the results and a fresh match (sides reset, a
--- new pair, everyone respawns). Each life spawns in its side's spawn zone (Map1.spawnZones). The state is replicated as
+-- and taking the enemy HQ wins (everyone on the winning side paid); then the results and a fresh match (the map put
+-- back: built pieces cleared, buildings, trees and ground restored; sides reset, a new pair, everyone respawns).
+-- Respawning goes in waves (Config/Frontline.Waves): one clock for both sides; a soldier who deploys stands in its side's
+-- wave line (Rules/Frontline.slot), frozen and shielded, until the wave goes, then keeps the shield a moment. The line
+-- stands at the side's spawn sector (Rules/Frontline.spawnSector: its HQ, in its spawn zone Map1.spawnZones, until the
+-- first capture; then its frontmost, by the flag, or one back while the enemy leads there). Each sector lost raises
+-- both sides' artillery level (Config/Frontline.Artillery, read by src/server/Build), and a badly outnumbered side is
+-- reinforced (src/server/Loadouts pays it more). The state is replicated as
 -- attributes on Workspace's "Frontline" folder (Config/Frontline.FolderName, read by src/client/ModeHud). The sector
 -- markers (src/dev/Greybox, shown by the admin's switch: src/server/Sectors) are coloured by owner and labelled with
 -- control and head counts. The admin panel ends and restarts a match and takes a side's next sector
@@ -15,14 +21,19 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Frontline)
+local DamageCfg = require(Shared.Config.Damage)
 local SectorCfg = require(Shared.Config.Sectors)
+local Palette = require(Shared.Config.Palette)
 local U = require(Shared.Config.Uniforms)
 local Map = require(Shared.Config.Maps.Map1)
 local Rules = require(Shared.Rules.Frontline)
+local Build = require(script.Parent.Build)
 local Damage = require(script.Parent.Damage)
+local DevWorld = require(script.Parent.DevWorld)
 local Kits = require(script.Parent.Kits)
 local Ragdoll = require(script.Parent.Ragdoll)
 
@@ -63,6 +74,12 @@ local conns: { RBXScriptConnection } = {}
 local ending = false
 local starting = false -- set by the admin to skip the wait for players
 local still = 0 -- seconds since the last capture (the momentum)
+local captured = false -- any capture this match (spawns leave the HQs)
+local lost = 0 -- sectors lost this match (the artillery level)
+local latest: { { West: number, East: number } } = {} -- the last tick's soldiers in each zone
+local waveAt: number? = nil -- the next wave's server time while the line holds (countdown and play)
+local slots: { [string]: number } = { West = 0, East = 0 } -- the wave line's slots taken since the last wave
+local holding: { [Model]: boolean } = {} -- the soldiers standing in a wave line
 
 -- `fn(player, reason)` for each award (a Config/Classes.Earn key: Capture, Neutralise, Defend, Win); `fn()` at each
 -- match's start
@@ -90,6 +107,143 @@ local function sideOf(player: Player): Rules.Side?
 	return Rules.sideOf(pair, character and character:GetAttribute("Kit"))
 end
 
+-- each side's spawn sector now (published as "<Side>Spawn": the loadout map's deploy ring)
+-- (fixed for each wave when it opens, so one wave's soldiers all stand in one line)
+local waveSector: { [string]: number }? = nil
+local function spawnSector(side: Rules.Side): number
+	if waveAt and waveSector then
+		return waveSector[side]
+	end
+	return Rules.spawnSector(state, side, captured, latest)
+end
+
+-- the wave line's centre and facing for `side`: at its own HQ in its spawn zone, else by the sector's flag, its zone's
+-- edge plus Line.edge toward the side's own end; facing the sector it attacks
+local function lineOf(side: Rules.Side): (Vector3, Vector3)
+	local i = spawnSector(side)
+	local home = if side == "West" then 1 else #sectors
+	local s = sectors[i]
+	local centre: Vector3
+	if i == home then
+		local r = Map.spawnZones[side]
+		centre = Vector3.new((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2)
+	else
+		local back = sectors[if side == "West" then i - 1 else i + 1]
+		local d = Vector3.new(back.x - s.x, 0, back.z - s.z).Unit
+		centre = Vector3.new(s.x, 0, s.z) + d * (s.radius + Cfg.Line.edge)
+	end
+	local aim = sectors[Rules.target(state, side) or i]
+	local face = Vector3.new(aim.x - centre.X, 0, aim.z - centre.Z)
+	if face.Magnitude < 1 then
+		face = if side == "West" then Vector3.xAxis else -Vector3.xAxis
+	end
+	return centre, face.Unit
+end
+
+local everything = RaycastParams.new()
+everything.FilterType = Enum.RaycastFilterType.Exclude
+everything.IgnoreWater = false
+
+-- the ground at a wave line slot; nil when it isn't open dry ground (a roof, water, a tree or a wall in the way)
+local function openAt(x: number, z: number, skip: { Instance }): number?
+	everything.FilterDescendantsInstances = skip
+	local hit =
+		workspace:Raycast(Vector3.new(x, Cfg.GroundRay.top, z), Vector3.new(0, -Cfg.GroundRay.depth, 0), everything)
+	if not hit or hit.Instance ~= workspace.Terrain or hit.Material == Enum.Material.Water then
+		return nil
+	end
+	local c = Cfg.Line.clear
+	local box = OverlapParams.new()
+	box.FilterType = Enum.RaycastFilterType.Exclude
+	box.FilterDescendantsInstances = skip
+	box.RespectCanCollide = true
+	local at = CFrame.new(hit.Position + Vector3.new(0, c[2] / 2 + 0.5, 0))
+	if #workspace:GetPartBoundsInBox(at, Vector3.new(c[1], c[2], c[3]), box) > 0 then
+		return nil
+	end
+	return hit.Position.Y
+end
+
+-- the next open slot of `side`'s wave line: where to stand and a point to face
+local function nextSlot(side: Rules.Side): (Vector3, Vector3)
+	local centre, face = lineOf(side)
+	local right = face:Cross(Vector3.yAxis)
+	local skip: { Instance } = {}
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(skip, p.Character)
+		end
+	end
+	for _ = 1, Cfg.Line.tries do
+		slots[side] += 1
+		local r, b = Rules.slot(slots[side], Cfg.Line)
+		local spot = centre + right * r - face * b
+		local y = openAt(spot.X, spot.Z, skip)
+		if y then
+			local pos = Vector3.new(spot.X, y + Cfg.SpawnLift, spot.Z)
+			return pos, pos + face
+		end
+	end
+	local pos = Vector3.new(centre.X, ground(centre.X, centre.Z) + Cfg.SpawnLift, centre.Z)
+	return pos, pos + face
+end
+
+-- the shield round a soldier in the wave line, in its team's magic colour
+local function shield(character: Model, root: BasePart)
+	local old = character:FindFirstChild(Cfg.Shield.name)
+	if old then
+		old:Destroy()
+	end
+	local kit = character:GetAttribute("Kit")
+	local c = (Palette.UI.Grimoire.Magic :: any)[kit] or { 230, 230, 230 }
+	local ball = Instance.new("Part")
+	ball.Name = Cfg.Shield.name
+	ball.Shape = Enum.PartType.Ball
+	ball.Size = Vector3.one * Cfg.Shield.size
+	ball.Material = Enum.Material.ForceField
+	ball.Color = Color3.fromRGB(c[1], c[2], c[3])
+	ball.Transparency = Cfg.Shield.transparency
+	ball.CanCollide, ball.CanQuery, ball.CanTouch, ball.Massless = false, false, false, true
+	ball.CastShadow = false
+	ball.CFrame = root.CFrame
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0, weld.Part1 = ball, root
+	weld.Parent = ball
+	ball.Parent = character
+	-- (gone at once when the soldier attacks and loses its protection: src/server/Damage)
+	character:GetAttributeChangedSignal(DamageCfg.ProtectedAttribute):Connect(function()
+		if character:GetAttribute(DamageCfg.ProtectedAttribute) == nil and ball.Parent then
+			ball:Destroy()
+		end
+	end)
+end
+
+-- the wave goes: everyone in the line can move, the shield fading over Waves.shield
+local function release()
+	for character in holding do
+		if not character.Parent then
+			continue -- (died or left meanwhile)
+		end
+		character:SetAttribute(Cfg.HoldAttribute, nil)
+		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			root.Anchored = false
+			root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+		end
+		local ball = character:FindFirstChild(Cfg.Shield.name) :: BasePart?
+		if ball then
+			local fade = TweenService:Create(ball, TweenInfo.new(Cfg.Waves.shield), { Transparency = 1 })
+			fade.Completed:Once(function()
+				ball:Destroy()
+			end)
+			fade:Play()
+		end
+	end
+	table.clear(holding)
+end
+
+-- stands `player`'s soldier in its side's wave line: frozen and shielded until the wave goes while one is due (the
+-- countdown and play), else free on the spot (waiting for players, the results)
 local function spawnAt(player: Player)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -97,13 +251,23 @@ local function spawnAt(player: Player)
 	if not character or not root or not side then
 		return
 	end
-	local r = Map.spawnZones[side]
-	local x = r.minX + (r.maxX - r.minX) * math.random()
-	local z = r.minZ + (r.maxZ - r.minZ) * math.random()
-	local pos = Vector3.new(x, ground(x, z) + Cfg.SpawnLift, z)
-	local front = sectors[Rules.target(state, side) or 1]
-	character:PivotTo(CFrame.lookAt(pos, Vector3.new(front.x, pos.Y, front.z)))
+	local pos, look = nextSlot(side)
+	character:PivotTo(CFrame.lookAt(pos, look))
 	root.AssemblyLinearVelocity = Vector3.zero
+	if waveAt then
+		local left = (waveAt :: number) - workspace:GetServerTimeNow()
+		root.Anchored = true
+		character:SetAttribute(Cfg.HoldAttribute, waveAt)
+		Damage.protect(character, math.max(left, 0) + Cfg.Waves.shield)
+		shield(character, root)
+		holding[character] = true
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.Died:Once(function()
+				holding[character] = nil
+			end)
+		end
+	end
 	task.spawn(function()
 		pcall(function()
 			player:RequestStreamAroundAsync(pos)
@@ -163,6 +327,9 @@ local function publish(counts: { { West: number, East: number } })
 			f:SetAttribute("East", counts[i].East)
 		end
 	end
+	for _, side in { "West", "East" } do
+		folder:SetAttribute(side .. Cfg.SpawnAttribute, spawnSector(side))
+	end
 	showMarkers(counts)
 end
 
@@ -212,15 +379,38 @@ local function heads(): (number, number)
 	return w, e
 end
 
-local function newMatch()
+local function setWave(at: number?)
+	waveAt = nil
+	waveSector = {
+		West = spawnSector("West"),
+		East = spawnSector("East"),
+	}
+	waveAt = at
+	slots.West, slots.East = 0, 0
+	folder:SetAttribute(Cfg.WaveAttribute, at)
+end
+
+-- A fresh match. `reset`: the map is put back first (user 2026-10-29: everything): every built piece cleared, the
+-- buildings, trees and ground (craters, mud) as they were when the match mode started (src/server/DevWorld).
+local function newMatch(reset: boolean?)
+	if reset then
+		release()
+		Build.clear()
+		DevWorld.undo()
+	end
 	pair = Rules.pair(U.Teams, math.random(), math.random())
 	workspace:SetAttribute(Cfg.TeamsAttribute, Rules.pairText(pair))
 	state = Rules.new(sectors)
 	ending = false
+	captured, lost = false, 0
+	latest = empty()
+	setWave(nil)
 	folder:SetAttribute("West", pair.West)
 	folder:SetAttribute("East", pair.East)
 	folder:SetAttribute("Winner", nil)
 	folder:SetAttribute("Momentum", 1)
+	folder:SetAttribute(Cfg.LevelAttribute, 0)
+	folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
 	publish(empty())
 end
 
@@ -240,8 +430,19 @@ local function run()
 		end
 		starting = false
 		if not ending then
+			-- everyone into their HQ's wave line; the first wave goes when the countdown ends
 			phase("Countdown", Cfg.CountdownSeconds)
+			local start = workspace:GetServerTimeNow() + Cfg.CountdownSeconds
+			setWave(start) -- (the lines start empty: slots from 1)
+			for _, p in Players:GetPlayers() do
+				local character = p.Character
+				if alive(p) and character and not holding[character] then
+					spawnAt(p)
+				end
+			end
 			task.wait(Cfg.CountdownSeconds)
+			release()
+			setWave(Rules.nextWave(start, Cfg.Waves.every, workspace:GetServerTimeNow() + 0.05))
 			phase("Playing")
 		end
 		local winner: Rules.Side? = nil
@@ -254,10 +455,22 @@ local function run()
 			still += dt
 			local rate = Rules.momentum(Cfg, still)
 			folder:SetAttribute("Momentum", rate)
+			if waveAt and workspace:GetServerTimeNow() >= (waveAt :: number) then
+				release()
+				setWave((waveAt :: number) + Cfg.Waves.every)
+			end
+			local w, e = heads()
+			folder:SetAttribute(Cfg.ReinforcedAttribute, Rules.reinforced(Cfg.Reinforcements, w, e))
 			local counts, inside = occupancy()
+			latest = counts
 			for _, ev in Rules.step(state, Cfg, counts, dt, rate) do
 				if ev.kind == "Captured" then
 					still = 0
+					captured = true
+				else
+					-- (a holder lost it: both sides' artillery goes up a level)
+					lost += 1
+					folder:SetAttribute(Cfg.LevelAttribute, Rules.gunLevel(Cfg.Artillery, lost))
 				end
 				local reason = if ev.kind == "Captured" then "Capture" else "Neutralise"
 				for _, p in inside[ev.index] do
@@ -278,9 +491,12 @@ local function run()
 			end
 		end
 		folder:SetAttribute("Winner", winner)
+		release()
+		setWave(nil)
+		folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
 		phase("Results", Cfg.ResultsSeconds)
 		task.wait(Cfg.ResultsSeconds)
-		newMatch()
+		newMatch(true)
 		task.wait() -- (src/server/Deploy splits everyone over the new pair first)
 		for _, p in Players:GetPlayers() do
 			if alive(p) then
@@ -339,6 +555,8 @@ function Frontline.start(): boolean
 		f.Parent = folder
 	end
 	folder.Parent = workspace
+	-- the map as it is now is what each new match puts back
+	DevWorld.ensure()
 	-- (the first pair before anyone joins, so their first kit is rolled from it)
 	newMatch()
 	table.insert(conns, Players.PlayerAdded:Connect(join))
@@ -356,6 +574,7 @@ function Frontline.stop()
 	end
 	task.cancel(thread :: thread)
 	thread = nil
+	release()
 	for _, c in conns do
 		c:Disconnect()
 	end
@@ -371,7 +590,7 @@ end
 function Frontline.restart()
 	if thread then
 		task.cancel(thread :: thread)
-		newMatch()
+		newMatch(true)
 		thread = task.spawn(run)
 	end
 end
@@ -398,9 +617,14 @@ function Frontline.take(player: Player)
 	if not thread or folder:GetAttribute("Phase") ~= "Playing" or not side or not t then
 		return
 	end
+	if state.owner[t] ~= "Neutral" then
+		lost += 1
+		folder:SetAttribute(Cfg.LevelAttribute, Rules.gunLevel(Cfg.Artillery, lost))
+	end
 	state.owner[t] = side
 	state.control[t] = Rules.rest(side)
 	still = 0
+	captured = true
 end
 
 return Frontline

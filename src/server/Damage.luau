@@ -20,6 +20,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Damage)
+local FrontCfg = require(Shared.Config.Frontline)
 local DevCfg = require(Shared.Config.DevTools)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Metrics = require(Shared.Config.Metrics)
@@ -121,7 +122,8 @@ function Damage.protected(character: Model): boolean
 end
 
 local function attacks(by: Model?)
-	if by and by:GetAttribute(Cfg.ProtectedAttribute) ~= nil then
+	-- (a soldier in a Normal match's wave line keeps its protection until the wave goes: src/server/Frontline)
+	if by and by:GetAttribute(Cfg.ProtectedAttribute) ~= nil and by:GetAttribute(FrontCfg.HoldAttribute) == nil then
 		by:SetAttribute(Cfg.ProtectedAttribute, nil)
 	end
 end

@@ -2,7 +2,8 @@
 -- "Undo destruction" for manual tests (Config/DevTools.World; DEV place only): at the start of a play test every
 -- building, loose map section (src/server/Destruction's tags) and tree (Config/TreeSway.Tag) is copied, and the terrain
 -- inside each box of Config/DevTools.World.Terrain; DevWorld.undo() puts the copies back in place of whatever is left of them (broken
--- sections, snapped trees) and pastes the terrain over the craters.
+-- sections, snapped trees) and pastes the terrain over the craters. Normal mode uses it too, in every place: each new
+-- match puts the map back (src/server/Frontline).
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -94,6 +95,14 @@ function DevWorld.undo()
 		workspace.Terrain:PasteRegion(t.region, t.corner, true)
 	end
 	print(`[DevWorld] put back {#saved} buildings, sections and trees`)
+end
+
+-- Saves the world now unless it already is (src/server/Frontline: a Normal match puts the map back between matches,
+-- in any place).
+function DevWorld.ensure()
+	if #saved == 0 and #terrains == 0 then
+		DevWorld.save()
+	end
 end
 
 function DevWorld.start()

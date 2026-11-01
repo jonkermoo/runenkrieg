@@ -49,6 +49,8 @@ local ArtilleryRules = require(Shared.Rules.Artillery)
 local W = require(Shared.Config.Weapons)
 local DevCfg = require(Shared.Config.DevTools)
 local Rules = require(Shared.Rules.Build)
+local FrontCfg = require(Shared.Config.Frontline)
+local FrontRules = require(Shared.Rules.Frontline)
 local Scaffold = require(Shared.Rules.Scaffold)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
@@ -944,14 +946,24 @@ local function wear(r: Rec, amount: number)
 	apply(r)
 end
 
-local function count(team: string, owner: number?): number
+local function count(team: string, owner: number?, key: string?): number
 	local n = 0
 	for _, r in recs do
-		if r.team == team and (owner == nil or r.owner == owner) then
+		if r.team == team and (owner == nil or r.owner == owner) and (key == nil or r.piece.key == key) then
 			n += 1
 		end
 	end
 	return n
+end
+
+-- why a gun can't be built yet in a Normal match (its artillery level, src/server/Frontline); nil outside one
+local function gunLocked(key: string): string?
+	local front = workspace:FindFirstChild(FrontCfg.FolderName)
+	local level = front and front:GetAttribute(FrontCfg.LevelAttribute)
+	if type(level) ~= "number" then
+		return nil
+	end
+	return FrontRules.gunLocked(FrontCfg.Artillery, key, level)
 end
 
 -- the soldier's character, root and team
@@ -1025,6 +1037,8 @@ local function place(player: Player, key: any, at: any, dev: boolean?): string?
 		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
 		mine = if dev then 0 else count(team, player.UserId),
 		team = if dev then 0 else count(team, nil),
+		kind = if dev then 0 else count(team, nil, piece.key),
+		locked = if dev then nil else gunLocked(piece.key),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
 		-- (only engineers build guns: Config/Classes; the admin panel's build anything: everyone)

@@ -98,13 +98,15 @@ local function recount()
 	end
 end
 
--- Seconds until `player` may deploy (0: now).
+-- Seconds until `player` may deploy (0: now): the respawn delay, or in a Normal match the wave's shorter wait
+-- (Config/Frontline.Waves.dead: deploying puts you in the wave line, src/server/Frontline).
 function Deploy.wait(player: Player): number
 	local at = diedAt[player]
 	if not at then
 		return 0
 	end
-	return math.max(Metrics.Combat.RespawnDelay - (os.clock() - at), 0)
+	local delay = if workspace:FindFirstChild(Front.FolderName) then Front.Waves.dead else Metrics.Combat.RespawnDelay
+	return math.max(delay - (os.clock() - at), 0)
 end
 
 -- each player's latest preview build: a build that finds a newer one started meanwhile drops its own rig (the user's
