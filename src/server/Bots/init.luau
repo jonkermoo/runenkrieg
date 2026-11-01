@@ -999,8 +999,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	if not entry then
 		return
 	end
-	if Ragdoll.active(m) then
+	if Ragdoll.active(m) or m:GetAttribute("GetUp") ~= nil then
 		(b.turn :: AlignOrientation).Enabled = false
+		if not Ragdoll.active(m) then
+			humanoid:MoveTo(root.Position) -- getting up (src/server/DevDummies.getUp): standing still meanwhile
+		end
 		return -- (down: nothing until it is up again)
 	end
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then

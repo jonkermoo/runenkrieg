@@ -59,6 +59,7 @@ function BodyTurn.start()
 			or humanoid.PlatformStand
 			or FREE[humanoid:GetState()]
 			or character:GetAttribute("Ragdolled") == true
+			or character:GetAttribute("GetUp") ~= nil -- (getting up: src/client/Ragdoll faces it the way it rises)
 		then
 			yaw, speed = yawOf(root.CFrame.LookVector), 0
 			return

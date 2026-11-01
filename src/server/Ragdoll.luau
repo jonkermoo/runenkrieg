@@ -11,7 +11,8 @@
 -- breaks free (Ragdoll.served: only once its knock's own stand-up time is over; the drag doesn't stop that clock).
 -- Players knock themselves through Net "KnockSelf" (Config/Ragdoll.SelfKnocks: the staff's recoil, the float fall).
 -- A living player holding the stay-down key (Net "StayDown", the "StayDown" attribute) stays down past the get-up wait
--- until let go (Config/Ragdoll.StayDown, Rules/Ragdoll.rises).
+-- until let go (Config/Ragdoll.StayDown, Rules/Ragdoll.rises). Getting up, "GetUp" names the get-up animation (lying on
+-- the back or the front, Config/Ragdoll.GetUp) for its length: the body's owner plays it, and nobody moves meanwhile.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -202,6 +203,23 @@ end
 
 -- the joints back and what was made for the knock gone: the body gets up (src/client/Ragdoll for a player's own)
 local function stand(character: Model, made: Down)
+	-- the get-up for how it lies (Config/Ragdoll.GetUp): played by the body's owner, src/client/Ragdoll (a player's) or
+	-- src/server/DevDummies (a bot's, a dummy's), for `length` s
+	local torso = character:FindFirstChild("Torso") :: BasePart?
+	if torso then
+		local cf = torso.CFrame
+		local look, up = cf.LookVector, cf.UpVector
+		local way = RagdollRules.getUpWay({ x = look.X, y = look.Y, z = look.Z }, { x = up.X, y = up.Y, z = up.Z })
+		local at = os.clock()
+		character:SetAttribute("GetUp", way)
+		character:SetAttribute("GetUpAt", at)
+		task.delay(Cfg.GetUp.length, function()
+			if character:GetAttribute("GetUpAt") == at then
+				character:SetAttribute("GetUp", nil)
+				character:SetAttribute("GetUpAt", nil)
+			end
+		end)
+	end
 	for _, m in made.loose do
 		m.Enabled = true
 	end
@@ -238,6 +256,9 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		serverThrow(character, knock, direction, k)
 		return
 	end
+	-- (knocked again while getting up: down again, the get-up over)
+	character:SetAttribute("GetUp", nil)
+	character:SetAttribute("GetUpAt", nil)
 	local made = loosen(character, torso)
 	made.getUp = getUp
 	down[character] = made

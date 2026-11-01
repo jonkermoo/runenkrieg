@@ -63,8 +63,9 @@ function Stance.start()
 		if not character or not humanoid then
 			return
 		end
-		-- ragdolled (src/client/Ragdoll): no control at all
-		local limp = character:GetAttribute("Ragdolled") == true
+		-- ragdolled (src/client/Ragdoll): no control at all; nor while the get-up plays ("GetUp", Config/Ragdoll.GetUp)
+		local rising = character:GetAttribute("GetUp") ~= nil
+		local limp = character:GetAttribute("Ragdolled") == true or rising
 		if sprintHeld and Settings.get("SprintMode") == "Toggle" then
 			if humanoid.MoveDirection.Magnitude >= Cfg.ToggleSprintMoving then
 				sprintMoved = true
@@ -109,7 +110,7 @@ function Stance.start()
 		-- swinging the shovel (src/client/Locomotion "Swinging"): standing still to dig (user 2026-10-24: "players should
 		-- not be able to move mid shovel animation")
 		local swinging = character:GetAttribute("Swinging") == true
-		local speed = if swinging
+		local speed = if swinging or rising
 			then 0
 			elseif dragging then DragCfg.Speed
 			elseif sprinting then M.Movement.SprintSpeed
@@ -125,7 +126,7 @@ function Stance.start()
 		if wired then
 			speed = math.min(speed, BuildCfg.Wire.speed)
 		end
-		humanoid.JumpHeight = if wired or swinging then 0 else M.Movement.JumpHeight
+		humanoid.JumpHeight = if wired or swinging or rising then 0 else M.Movement.JumpHeight
 		humanoid.WalkSpeed = speed * ((player:GetAttribute(Dev.Admin.Attribute) :: number?) or 1)
 		character:SetAttribute("Sprinting", sprinting)
 		character:SetAttribute("Aiming", aiming)
@@ -204,6 +205,7 @@ function Stance.start()
 		character:GetAttributeChangedSignal("WadeScale"):Connect(apply)
 		character:GetAttributeChangedSignal("Casting"):Connect(apply)
 		character:GetAttributeChangedSignal("Ragdolled"):Connect(apply)
+		character:GetAttributeChangedSignal("GetUp"):Connect(apply)
 		character:GetAttributeChangedSignal("Healing"):Connect(apply)
 		character:GetAttributeChangedSignal("Dragging"):Connect(apply)
 		character:GetAttributeChangedSignal("Wired"):Connect(apply)

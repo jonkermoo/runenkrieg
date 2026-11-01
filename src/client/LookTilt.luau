@@ -307,6 +307,7 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 		local pitch = if camera
 				and humanoid.Health > 0
 				and not free
+				and character:GetAttribute("GetUp") == nil -- (the get-up poses the torso itself)
 			then math.deg(math.asin(math.clamp(camera.CFrame.LookVector.Y, -1, 1)))
 			else 0
 		angle += (Rules.torso(pitch, cfg.Torso, cfg.TorsoMax) - angle) * Rules.ease(cfg.Smoothing, dt)
@@ -317,7 +318,12 @@ local function attach(character: Model, remote: RemoteEvent, headRemote: RemoteE
 			else 0
 		-- the head toward the look (straight ahead dead or ragdolled)
 		local want = 0
-		if camera and humanoid.Health > 0 and character:GetAttribute("Ragdolled") ~= true then
+		if
+			camera
+			and humanoid.Health > 0
+			and character:GetAttribute("Ragdolled") ~= true
+			and character:GetAttribute("GetUp") == nil
+		then
 			local look = yawOf(camera.CFrame.LookVector) - yawOf(root.CFrame.LookVector)
 			want = Rules.headYaw(look, glance(r), yaw, H.Max, H.Behind)
 		end
@@ -453,7 +459,9 @@ local function others(remote: RemoteEvent, headRemote: RemoteEvent, pullRemote: 
 				o.aim.turnYaw += (o.targetAimYaw - o.aim.turnYaw) * k
 				o.aim.turnPitch += (o.targetAimPitch - o.aim.turnPitch) * k
 				o.pull += (o.targetPull - o.pull) * k
-				local angle = Rules.torso(o.pitch, cfg.Torso, cfg.TorsoMax)
+				-- (getting up: the get-up poses the torso, src/server/Ragdoll "GetUp")
+				local rising = character:GetAttribute("GetUp") ~= nil
+				local angle = if rising then 0 else Rules.torso(o.pitch, cfg.Torso, cfg.TorsoMax)
 				-- (the turn sent is already capped with the sender's glance; theirs here may differ a little)
 				local yaw = math.clamp(o.yaw, -cfg.Head.Max - glance(r), cfg.Head.Max - glance(r))
 				pose(

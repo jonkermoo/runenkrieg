@@ -63,6 +63,29 @@ return {
 		assert(R.rises(10, false, 25, S), "let go: up")
 		assert(R.rises(10, true, 10 + S.max, S), "held too long: up anyway")
 	end,
+	["lying on the back gets up toward the feet, on the front toward the head"] = function()
+		local function v(x: number, y: number, z: number): any
+			return { x = x, y = y, z = z }
+		end
+		-- on the back, head to +x: stands facing -x
+		local w, fx, fz = R.getUpWay(v(0, 1, 0), v(1, 0, 0))
+		assert(w == "Back" and near(fx, -1) and near(fz, 0), "back " .. w .. " " .. fx)
+		-- face down, head to +z: stands facing +z
+		w, fx, fz = R.getUpWay(v(0, -1, 0), v(0, 0, 1))
+		assert(w == "Front" and near(fx, 0) and near(fz, 1), "front " .. w)
+		-- tipped, still facing a little up: the back, the flat way normalised
+		w, fx, fz = R.getUpWay(v(0.6, 0.2, 0), v(0, 0.3, -0.9))
+		assert(w == "Back" and near(fx * fx + fz * fz, 1) and fz > 0.99, "tipped")
+		-- not lying down (head up): along the chest
+		w, fx, fz = R.getUpWay(v(0, -0.1, -1), v(0, 1, 0))
+		assert(w == "Front" and near(fz, -1), "upright")
+	end,
+	["get-up settings are sane"] = function()
+		local G = C.GetUp
+		assert(G.Back.id > 0 and G.Front.id > 0 and G.Back.id ~= G.Front.id, "two animations")
+		assert(G.length > 0.5 and G.length < 3 and G.fade >= 0, "length")
+		assert(G.Back.ahead > 0 and G.Front.ahead < 0, "back rises past the feet, front back over the knees")
+	end,
 	["stay-down settings are sane"] = function()
 		local S = C.StayDown
 		assert(S.key == "Space" and S.max > 5 and S.rate >= 2, "key, cap, rate")

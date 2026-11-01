@@ -43,4 +43,24 @@ function Ragdoll.rises(readyAt: number?, holding: boolean, now: number, cfg: Sta
 	return readyAt ~= nil and now >= readyAt and (not holding or now - readyAt >= cfg.max)
 end
 
+export type Vec = { x: number, y: number, z: number }
+
+-- Which get-up a body lying with its torso's `look` (the chest) and `up` (the head) directions plays (Config/Ragdoll.GetUp):
+-- "Back" with the chest facing up, else "Front"; and the way it stands facing, flat (x, z): toward the feet from the
+-- back, toward the head from the front (along the chest while it isn't lying down).
+function Ragdoll.getUpWay(look: Vec, up: Vec): (string, number, number)
+	local back = look.y >= 0
+	local s = if back then -1 else 1
+	local fx, fz = up.x * s, up.z * s
+	local m = math.sqrt(fx * fx + fz * fz)
+	if m < 0.3 then
+		fx, fz = look.x, look.z
+		m = math.sqrt(fx * fx + fz * fz)
+	end
+	if m < 1e-6 then
+		return if back then "Back" else "Front", 0, -1
+	end
+	return if back then "Back" else "Front", fx / m, fz / m
+end
+
 return Ragdoll
