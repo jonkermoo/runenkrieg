@@ -49,6 +49,8 @@ local ArtilleryRules = require(Shared.Rules.Artillery)
 local W = require(Shared.Config.Weapons)
 local DevCfg = require(Shared.Config.DevTools)
 local Rules = require(Shared.Rules.Build)
+local FrontCfg = require(Shared.Config.Frontline)
+local FrontRules = require(Shared.Rules.Frontline)
 local Scaffold = require(Shared.Rules.Scaffold)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
@@ -944,14 +946,24 @@ local function wear(r: Rec, amount: number)
 	apply(r)
 end
 
-local function count(team: string, owner: number?): number
+local function count(team: string, owner: number?, key: string?): number
 	local n = 0
 	for _, r in recs do
-		if r.team == team and (owner == nil or r.owner == owner) then
+		if r.team == team and (owner == nil or r.owner == owner) and (key == nil or r.piece.key == key) then
 			n += 1
 		end
 	end
 	return n
+end
+
+-- why a gun can't be built yet in a Normal match (its artillery level, src/server/Frontline); nil outside one
+local function gunLocked(key: string): string?
+	local front = workspace:FindFirstChild(FrontCfg.FolderName)
+	local level = front and front:GetAttribute(FrontCfg.LevelAttribute)
+	if type(level) ~= "number" then
+		return nil
+	end
+	return FrontRules.gunLocked(FrontCfg.Artillery, key, level)
 end
 
 -- the soldier's character, root and team
@@ -1025,6 +1037,8 @@ local function place(player: Player, key: any, at: any, dev: boolean?): string?
 		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
 		mine = if dev then 0 else count(team, player.UserId),
 		team = if dev then 0 else count(team, nil),
+		kind = if dev then 0 else count(team, nil, piece.key),
+		locked = if dev then nil else gunLocked(piece.key),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
 		-- (only engineers build guns: Config/Classes; the admin panel's build anything: everyone)
@@ -1146,6 +1160,19 @@ local function plan(player: Player, a: any, b: any)
 	end
 end
 
+-- HP a soldier's Build swings added (a match's "most HP built": src/server/MatchStats), to each watcher
+local builtWatchers: { (Player, number) -> () } = {}
+function Build.onBuilt(fn: (Player, number) -> ())
+	table.insert(builtWatchers, fn)
+end
+local function credit(player: Player, hp: number)
+	if hp > 0 then
+		for _, fn in builtWatchers do
+			task.spawn(fn, player, hp)
+		end
+	end
+end
+
 -- A shovel swing (Net "Build" "Work"): at a piece, a trench block or a tree, in the shovel's mode
 local function work(player: Player, target: any, mode: any)
 	local character, root, team = digger(player)
@@ -1164,7 +1191,9 @@ local function work(player: Player, target: any, mode: any)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
 			lastSwing[player] = now
-			if Trenches.work(blk, team, mode, digShare(player)) then
+			local done, added = Trenches.work(blk, team, mode, digShare(player))
+			credit(player, added)
+			if done then
 				Loadouts.award(player, "Trench")
 			end
 		end
@@ -1202,6 +1231,7 @@ local function work(player: Player, target: any, mode: any)
 			remove(r)
 			return
 		end
+		credit(player, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need and not r.built then
@@ -1299,6 +1329,7 @@ local function work(player: Player, target: any, mode: any)
 			remove(r)
 			return
 		end
+		credit(player, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need then
@@ -1324,6 +1355,7 @@ local function work(player: Player, target: any, mode: any)
 			remove(r)
 			return
 		end
+		credit(player, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need and not r.paid then
@@ -1343,6 +1375,7 @@ local function work(player: Player, target: any, mode: any)
 			remove(r)
 			return
 		end
+		credit(player, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need then
@@ -1363,6 +1396,7 @@ local function work(player: Player, target: any, mode: any)
 		remove(r) -- (at 0 it is simply gone)
 		return
 	end
+	credit(player, left - r.work)
 	r.work = left
 	r.worked = now
 	if r.work >= r.need then

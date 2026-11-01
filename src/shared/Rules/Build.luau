@@ -61,12 +61,21 @@ export type Placing = {
 	perTeam: number,
 	allowed: boolean?, -- false: the builder's class may not build this kind (Rules/Classes.mayBuild)
 	spot: string?, -- a bridge: why its trench square won't take it (Build.bridgeSpot), nil when it will
+	locked: string?, -- a gun the match's artillery level hasn't reached yet: why (Rules/Frontline.gunLocked)
+	kind: number?, -- the team's live pieces of this one's key (its `teamCap`, Config/Build.Pieces)
 }
 
 -- Whether a piece can be laid here; when not, the reason to show
 function Build.canPlace(p: Placing): (boolean, string?)
 	if p.allowed == false then
 		return false, "Engineers only"
+	end
+	if p.locked then
+		return false, p.locked
+	end
+	local cap = p.piece.teamCap
+	if cap and (p.kind or 0) >= cap then
+		return false, `Your team has {cap} already`
 	end
 	if p.distance > p.reach then
 		return false, "Too far"

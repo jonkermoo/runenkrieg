@@ -165,4 +165,61 @@ return {
 		assert(R.parsePair("uniform2,uniform2") == nil and R.parsePair("x") == nil and R.parsePair(nil) == nil)
 		assert(R.sideOf(back, "uniform3") == "East" and R.sideOf(back, "uniform1") == nil and R.sideOf(nil, "x") == nil)
 	end,
+	["spawns: frontmost held sector, one back while the enemy leads there (user 2026-10-27)"] = function()
+		local s = R.new(Map1.sectors)
+		assert(R.spawnSector(s, "West", false, at(2, 0, 3)) == 1, "no capture yet: the HQ")
+		assert(R.spawnSector(s, "West", true, at(2, 0, 0)) == 2, "frontmost held")
+		assert(R.spawnSector(s, "West", true, at(2, 1, 2)) == 1, "the enemy leads at S2: one back")
+		assert(R.spawnSector(s, "West", true, at(2, 2, 2)) == 2, "even: stays")
+		assert(R.spawnSector(s, "East", true, at(4, 3, 0)) == N, "East steps back toward its own end")
+		s.owner[2] = "East"
+		assert(R.spawnSector(s, "West", true, at(1, 0, 5)) == 1, "never behind its own HQ")
+	end,
+	["waves: one clock every 15 s from the countdown's end (user 2026-10-27)"] = function()
+		local W = Cfg.Waves
+		assert(W.every == 15 and W.dead == 5 and W.shield > 0, "the user's numbers")
+		assert(R.nextWave(100, 15, 90) == 100 and R.nextWave(100, 15, 100) == 100)
+		assert(
+			R.nextWave(100, 15, 100.1) == 115 and R.nextWave(100, 15, 115) == 115 and R.nextWave(100, 15, 129) == 130
+		)
+		assert(R.nextWave(100, 0, 500) == 100, "no period: no later wave")
+	end,
+	["the wave line: side by side from the middle out, rows behind (user 2026-10-27, 2026-10-31)"] = function()
+		local L = Cfg.Line
+		local seen = {}
+		for k = 1, L.perRow * 2 do
+			local r, b = R.slot(k, L)
+			local key = `{r},{b}`
+			assert(not seen[key], `slot {k} is free`)
+			seen[key] = true
+			assert(b == (if k <= L.perRow then 0 else L.rowGap), `slot {k}'s row`)
+			assert(math.abs(r) <= L.perRow / 2 * L.gap, `slot {k} within the row`)
+		end
+		local r1 = R.slot(1, L)
+		local r2 = R.slot(2, L)
+		local r3 = R.slot(3, L)
+		assert(r1 == 0 and r2 == L.gap and r3 == -L.gap, "the middle, then right, then left")
+	end,
+	["artillery levels: both sides up one per sector lost, field gun then mortar (CAMPAIGN.md)"] = function()
+		local A = Cfg.Artillery
+		assert(A.max == 2 and A.unlock.FieldGun == 1 and A.unlock.Howitzer == 2)
+		assert(R.gunLevel(A, 0) == 0 and R.gunLevel(A, 1) == 1 and R.gunLevel(A, 5) == 2)
+		assert(R.gunLocked(A, "FieldGun", 0) ~= nil and R.gunLocked(A, "FieldGun", 1) == nil)
+		assert(R.gunLocked(A, "Howitzer", 1) ~= nil and R.gunLocked(A, "Howitzer", 2) == nil)
+		assert(R.gunLocked(A, "Trench", 0) == nil, "other pieces never wait")
+		-- a loss is a holder's sector going neutral; taking the neutral centre isn't one
+		local s = R.new(Map1.sectors)
+		local events = hold(s, at(3, 1, 0), Cfg.CaptureSeconds)
+		assert(#events == 1 and events[1].kind == "Captured", "the centre taken: no loss")
+		events = hold(s, at(3, 0, 1), Cfg.CaptureSeconds / 2 + 1)
+		assert(events[1].kind == "Neutral", "West's S3 neutralised: a loss")
+	end,
+	["reinforcements only on a big mismatch (user 2026-10-29)"] = function()
+		local C = Cfg.Reinforcements
+		assert(C.gap == 3 and C.share == 0.25 and C.times > 1)
+		assert(R.reinforced(C, 10, 10) == nil and R.reinforced(C, 12, 10) == nil, "near enough")
+		assert(R.reinforced(C, 13, 10) == "East", "3 more and 30% more")
+		assert(R.reinforced(C, 20, 17) == nil, "3 more but under 25%")
+		assert(R.reinforced(C, 1, 4) == "West" and R.reinforced(C, 0, 3) == "West")
+	end,
 }

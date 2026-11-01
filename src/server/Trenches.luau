@@ -955,16 +955,17 @@ end
 -- square, Destroy takes it off (an undug plan's square is pulled up). (Any trench: a soldier's kit is rolled each life,
 -- so after a respawn your own trench was another kit's; user 2026-10-25: "you should be able to fix/edit any trench")
 -- True when this swing dug the square to full for the first time (src/server/Loadouts pays the digger).
-function Trenches.work(blk: Block, _team: string, mode: string, share: number?): boolean
+function Trenches.work(blk: Block, _team: string, mode: string, share: number?): (boolean, number)
 	if not live(blk) then
-		return false
+		return false, 0
 	end
 	local H = T.hp
 	if mode == "Build" then
 		if blk.hp >= H.max then
-			return false
+			return false, 0
 		end
 		local first = not blk.built
+		local before = blk.hp
 		blk.hp = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.swing, H.max, share), true)
 		blk.worked = os.clock()
 		for _, o in blk.run do
@@ -977,11 +978,11 @@ function Trenches.work(blk: Block, _team: string, mode: string, share: number?):
 			blk.built = true
 		end
 		apply(blk, true)
-		return done
+		return done, blk.hp - before
 	end
 	if blk.hp <= 0 then
 		finish(blk, false) -- a plan pulled up
-		return false
+		return false, 0
 	end
 	local left, gone = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.destroy, H.max, share), false)
 	blk.hp = left
@@ -989,10 +990,10 @@ function Trenches.work(blk: Block, _team: string, mode: string, share: number?):
 	blk.falling = true
 	if gone then
 		finish(blk, true)
-		return false
+		return false, 0
 	end
 	apply(blk, true) -- (it falls in a little every swing)
-	return false
+	return false, 0
 end
 
 -- A square loses `amount` HP to a blast or a bullet (Config/Build.Structures): buried by that much (reshaped only when

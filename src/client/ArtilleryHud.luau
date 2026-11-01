@@ -341,6 +341,14 @@ function ArtilleryHud.start()
 		return nil
 	end
 
+	-- a refused shot's reason (src/server/Artillery: a Normal match's own sector), shown in place of the timer a moment
+	local notice: { text: string, untilAt: number }? = nil
+	Net.event("Artillery").OnClientEvent:Connect(function(kind: any, text: any)
+		if kind == "Refused" and type(text) == "string" then
+			notice = { text = text, untilAt = os.clock() + 2.5 }
+		end
+	end)
+
 	RunService.RenderStepped:Connect(function()
 		local model = mine()
 		panel.gui.Enabled = model ~= nil
@@ -376,6 +384,11 @@ function ArtilleryHud.start()
 				Rules.mgShown(rounds, mg.box, shotsSince, model:GetAttribute("ReadyAt") :: number?, roundsAt, t)
 			)
 			else ""
+		if notice and os.clock() < notice.untilAt then
+			panel.set("timer", notice.text)
+			return
+		end
+		notice = nil
 		panel.set("timer", if share >= 1 then idle else string.format(A.timer, math.floor(share * 1000) / 10))
 	end)
 end

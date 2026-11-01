@@ -31,6 +31,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.SketchMap) :: any
 local Palette = require(Shared.Config.Palette)
 local FrontRules = require(Shared.Rules.Frontline)
+local FrontCfg = require(Shared.Config.Frontline)
+local ResultsCfg = require(Shared.Config.Results)
+local StatsRules = require(Shared.Rules.MatchStats)
 local TeamRules = require(Shared.Rules.Teams)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Playtest = require(Shared.Config.Maps.Playtest)
@@ -398,6 +401,147 @@ function SketchMap.new(
 		end)
 	end
 
+	-- The match's replay at its end (src/client/Results; user 2026-10-31: "a slight animation of the progression of the
+	-- way (arrows, drawings, markers, all leading to the end of the game)"): each capture an arrow in its taker's colour
+	-- with its time, drawn in turn (Config/Results.Replay, Rules/MatchStats.replayAt); the sectors' owners follow the
+	-- replay; the winning capture ringed in red pencil.
+	type Replay = { log: { any }, start: number, winner: boolean, owners: { string }, drawn: number }
+	local replay: Replay? = nil
+	local A, RP = ResultsCfg.Arrow, ResultsCfg.Replay
+	local replayBox = Instance.new("Frame")
+	replayBox.Name = "Replay"
+	replayBox.BackgroundTransparency = 1
+	replayBox.Size = UDim2.fromScale(1, 1)
+	replayBox.ZIndex = 4
+	replayBox.Parent = area
+	local replayCanvas = Ink.canvas(replayBox)
+	local stamps: { TextLabel } = {}
+	local winRing = Instance.new("Frame")
+	winRing.Name = "Won"
+	winRing.BackgroundTransparency = 1
+	winRing.AnchorPoint = Vector2.new(0.5, 0.5)
+	winRing.Visible = false
+	winRing.ZIndex = 5
+	do
+		local aspect = Instance.new("UIAspectRatioConstraint")
+		aspect.Parent = winRing
+		local round = Instance.new("UICorner")
+		round.CornerRadius = UDim.new(0.5, 0)
+		round.Parent = winRing
+		local line = Instance.new("UIStroke")
+		line.Color = rgb(C.pencil)
+		line.Parent = winRing
+		area:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			line.Thickness = math.max(2, ResultsCfg.Win.thick * area.AbsoluteSize.X)
+		end)
+	end
+	winRing.Parent = area
+	-- capture `e`'s arrow (the k-th): from the neighbour its taker came from toward the point, in map shares
+	local function arrowOf(e: any, k: number): (Vector2, Vector2, Vector2)
+		local p = points[e.index]
+		local here = Vector2.new(u(p.x), v(p.z))
+		local n = points[e.index + (if e.side == "West" then -1 else 1)]
+		local from = if n
+			then Vector2.new(u(n.x), v(n.z))
+			else here + Vector2.new(if e.side == "West" then -0.12 else 0.12, 0)
+		local a = from:Lerp(here, A.from)
+		local b = from:Lerp(here, A.to)
+		local d = b - a
+		local side = if k % 2 == 0 then 1 else -1
+		local mid = (a + b) / 2 + Vector2.new(-d.Y, d.X) * A.bend * side
+		return a, mid, b
+	end
+	local function drawReplay(r: Replay, now: number)
+		local folder = workspace:FindFirstChild(FOLDER)
+		local elapsed = now - r.start
+		local n = #r.log
+		for i, p in points do
+			r.owners[i] = p.start
+		end
+		local progress: { number } = {}
+		for k, e in r.log do
+			local at = StatsRules.replayAt(k, n, RP.seconds, RP.lead, RP.tail)
+			progress[k] = math.clamp((elapsed - at) / RP.draw, 0, 1)
+			if progress[k] >= 1 then
+				r.owners[e.index] = e.side
+			end
+		end
+		local total = 0
+		for k in r.log do
+			total += progress[k]
+		end
+		if total ~= r.drawn then
+			r.drawn = total
+			replayCanvas.set(function(holder, w, h)
+				local size = Vector2.new(w, h)
+				for k, e in r.log do
+					local q = progress[k]
+					if q <= 0 then
+						continue
+					end
+					local kit = folder and folder:GetAttribute(e.side)
+					local magic = kit and C.Magic[kit]
+					local colour = if magic then rgb(magic):Lerp(rgb(C.ink), 0.35) else rgb(C.ink)
+					local a, mid, b = arrowOf(e, k)
+					local thick = math.max(2, A.thick * w)
+					local last = a * size
+					local steps = math.max(1, math.floor(A.steps * q + 0.5))
+					for i = 1, steps do
+						local t = i / A.steps
+						local pt = (a:Lerp(mid, t)):Lerp(mid:Lerp(b, t), t) * size
+						Ink.segment(holder, last, pt, thick, colour)
+						last = pt
+					end
+					if q >= 1 then
+						local tip = b * size
+						local back = ((mid:Lerp(b, 0.9)) * size - tip).Unit * ((b - a) * size).Magnitude * A.head
+						for _, deg in { A.spread, -A.spread } do
+							local r2 = math.rad(deg)
+							local c, sn = math.cos(r2), math.sin(r2)
+							local turned = Vector2.new(back.X * c - back.Y * sn, back.X * sn + back.Y * c)
+							Ink.segment(holder, tip, tip + turned, thick, colour)
+						end
+					end
+				end
+			end)
+		end
+		for k, e in r.log do
+			local stamp = stamps[k]
+			if not stamp then
+				stamp = Instance.new("TextLabel")
+				stamp.BackgroundTransparency = 1
+				stamp.AnchorPoint = Vector2.new(0.5, 0.5)
+				stamp.FontFace = FONT
+				stamp.TextScaled = true
+				stamp.TextColor3 = rgb(C.ink)
+				stamp.ZIndex = 5
+				stamp.Parent = area
+				stamps[k] = stamp
+			end
+			local _, mid = arrowOf(e, k)
+			-- (above the arrow's bend: the points' names sit under them)
+			local tall = A.stamp * area.AbsoluteSize.X / math.max(area.AbsoluteSize.Y, 1)
+			local at = mid - Vector2.new(0, tall * A.lift)
+			stamp.Text = StatsRules.clock(e.t)
+			stamp.Position = UDim2.fromScale(at.X, at.Y)
+			stamp.Size = UDim2.fromScale(A.stamp * 3, A.stamp * area.AbsoluteSize.X / math.max(area.AbsoluteSize.Y, 1))
+			stamp.Visible = progress[k] >= 0.5
+		end
+		for k = n + 1, #stamps do
+			stamps[k].Visible = false
+		end
+		local final = r.log[n]
+		if r.winner and final and progress[n] >= 1 then
+			local p = points[final.index]
+			local rr = (if p.hq then Cfg.Point.hqRadius else Cfg.Point.radius) * ResultsCfg.Win.ring
+			winRing.Position = UDim2.fromScale(u(p.x), v(p.z))
+			winRing.Size = UDim2.fromScale(2 * rr, 2 * rr)
+			winRing.Visible = true
+		else
+			winRing.Visible = false
+		end
+	end
+
 	-- the live state
 	local frontName: string? = nil
 	local function update(now: number)
@@ -406,6 +550,10 @@ function SketchMap.new(
 		local east = folder and folder:GetAttribute("East")
 		local total = 0
 		local live = folder ~= nil
+		local r = replay
+		if r then
+			drawReplay(r, now)
+		end
 		for i, p in points do
 			local s = seals[p.id]
 			local sector = folder and folder:FindFirstChild(p.id)
@@ -415,15 +563,15 @@ function SketchMap.new(
 				s.ring.Color = rgb(C.neutral)
 				continue
 			end
-			local control = (sector:GetAttribute("Control") :: number?) or 0
+			local owner = if r then r.owners[i] else sector:GetAttribute("Owner")
+			local control = if r then FrontRules.rest(owner) else (sector:GetAttribute("Control") :: number?) or 0
 			total += (control + 1) / 2
-			local owner = sector:GetAttribute("Owner")
 			local kit = if owner == "West" then west elseif owner == "East" then east else nil
 			local magic = kit and C.Magic[kit]
 			local colour = if magic then rgb(magic) else rgb(C.neutral)
 			paintSeal(s, colour)
 			local w, e = (sector:GetAttribute("West") :: number?) or 0, (sector:GetAttribute("East") :: number?) or 0
-			if w > 0 and w == e then
+			if not r and w > 0 and w == e then
 				local beat = (math.sin(now / Cfg.ContestedPulse * 2 * math.pi) + 1) / 2
 				s.ring.Color = colour:Lerp(rgb(C.amber), 0.4 + 0.6 * beat)
 			else
@@ -446,10 +594,15 @@ function SketchMap.new(
 					owners[i] = sector and sector:GetAttribute("Owner") or p.start
 					captured = captured or owners[i] ~= p.start
 				end
-				local at = points[FrontRules.spawn({ owner = owners, control = {} }, side, captured)]
-				local r = (if at.hq then Cfg.Point.hqRadius else Cfg.Point.radius) * Cfg.Deploy.ring
+				-- (the server's own pick when it says, which also steps back while the enemy leads there:
+				-- src/server/Frontline "<Side>Spawn")
+				local given = folder:GetAttribute(side .. FrontCfg.SpawnAttribute)
+				local at = points[if type(given) == "number" and points[given]
+					then given
+					else FrontRules.spawn({ owner = owners, control = {} }, side, captured)]
+				local rad = (if at.hq then Cfg.Point.hqRadius else Cfg.Point.radius) * Cfg.Deploy.ring
 				ring.Position = UDim2.fromScale(u(at.x), v(at.z))
-				ring.Size = UDim2.fromScale(2 * r, 2 * r)
+				ring.Size = UDim2.fromScale(2 * rad, 2 * rad)
 				ring.Visible = true
 				deployName = at.name
 			else
@@ -606,6 +759,19 @@ function SketchMap.new(
 		end,
 		deployName = function(): string?
 			return deployName
+		end,
+		-- plays the match's captures (`log`: { { t, index, side } } in order) from now; `won`: the last took the match
+		replay = function(log: { any }, won: boolean)
+			replay = { log = log, start = os.clock(), winner = won, owners = {}, drawn = -1 }
+		end,
+		-- back to the live state
+		stopReplay = function()
+			replay = nil
+			replayCanvas.set(function() end)
+			for _, st in stamps do
+				st.Visible = false
+			end
+			winRing.Visible = false
 		end,
 		destroy = function()
 			conn:Disconnect()

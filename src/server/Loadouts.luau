@@ -22,6 +22,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Classes)
 local BotsCfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
+local FrontCfg = require(Shared.Config.Frontline)
 local ModesCfg = require(Shared.Config.Modes)
 local U = require(Shared.Config.Uniforms)
 local Net = require(Shared.Net)
@@ -117,13 +118,35 @@ local function send(player: Player)
 	Net.event("Loadout"):FireClient(player, s)
 end
 
+-- the points `player` earned (a match's results: src/server/MatchStats), to each watcher
+local earnWatchers: { (Player, number) -> () } = {}
+function Loadouts.onEarn(fn: (Player, number) -> ())
+	table.insert(earnWatchers, fn)
+end
+
+-- A Normal match's reinforcements boost for `player` (Config/Frontline.Reinforcements, set by src/server/Frontline on
+-- its folder): its `times` while their soldier is on the side boosted, else 1.
+local function reinforced(player: Player): number
+	local front = workspace:FindFirstChild(FrontCfg.FolderName)
+	local side = front and front:GetAttribute(FrontCfg.ReinforcedAttribute)
+	local character = player.Character
+	if type(side) ~= "string" or not front or not character then
+		return 1
+	end
+	local kit = character:GetAttribute("Kit")
+	return if kit ~= nil and kit == front:GetAttribute(side) then FrontCfg.Reinforcements.times else 1
+end
+
 -- Pays `player` the Config/Classes.Earn for `reason` ("Kill", "Assist", "Capture", "Piece", ...), `times` over, and
--- the live mode's boost on top (Config/Modes `earn`).
+-- the live mode's boost on top (Config/Modes `earn`) and a Normal match's reinforcements.
 function Loadouts.award(player: Player, reason: string, times: number?)
 	local amount = C.Earn[reason]
 	assert(amount, "unknown award " .. reason)
-	local boost = Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute))
+	local boost = Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute)) * reinforced(player)
 	points[player] = Rules.earn(Loadouts.points(player), amount * (times or 1) * boost)
+	for _, fn in earnWatchers do
+		task.spawn(fn, player, amount * (times or 1) * boost)
+	end
 end
 
 -- Admin (src/server/DevTools): `amount` match points for `player`, the loadout menu told.

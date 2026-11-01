@@ -67,6 +67,66 @@ function Frontline.spawn(state: State, side: Side, anyCaptured: boolean): number
 	return if side == "West" then k else n + 1 - k
 end
 
+-- The sector `side` spawns at this wave (user 2026-10-27): Frontline.spawn, but one sector back toward its own end
+-- while the enemy leads in that sector's zone (more of them in it than of `side`). `counts` as in Frontline.step.
+function Frontline.spawnSector(
+	state: State,
+	side: Side,
+	anyCaptured: boolean,
+	counts: { { West: number, East: number } }
+): number
+	local i = Frontline.spawn(state, side, anyCaptured)
+	local home = if side == "West" then 1 else #state.owner
+	local c: any = counts[i] or {}
+	if i ~= home and (c[Frontline.enemy(side)] or 0) > (c[side] or 0) then
+		i += if side == "West" then -1 else 1
+	end
+	return i
+end
+
+-- When the next wave goes: waves go every `every` seconds from `start`; the first at or after `now`.
+function Frontline.nextWave(start: number, every: number, now: number): number
+	if now <= start or every <= 0 then
+		return start
+	end
+	return start + math.ceil((now - start) / every - 1e-9) * every
+end
+
+-- Slot `k` (from 1) of a wave line (Config/Frontline.Line): `perRow` side by side `gap` apart, filled from the middle
+-- out (0, right, left, ...), each row `rowGap` behind the last. Returns studs right of and behind the line's centre.
+function Frontline.slot(k: number, line: any): (number, number)
+	local row = (k - 1) // line.perRow
+	local col = (k - 1) % line.perRow
+	local right = if col % 2 == 1 then (col + 1) / 2 else -col / 2
+	return right * line.gap, row * line.rowGap
+end
+
+-- The artillery level after `lost` sectors were lost this match (CAMPAIGN.md: both sides up one each time, at most
+-- `cfg.max`), and why a gun `key` can't be built at `level` (nil: it can; keys without a level never wait).
+function Frontline.gunLevel(cfg: any, lost: number): number
+	return math.clamp(lost, 0, cfg.max)
+end
+function Frontline.gunLocked(cfg: any, key: string, level: number): string?
+	local need = cfg.unlock[key]
+	if not need or level >= need then
+		return nil
+	end
+	return if need <= 1 then "Unlocks when a sector is lost" else `Unlocks when {need} sectors are lost`
+end
+
+-- The side the reinforcements boost goes to (Config/Frontline.Reinforcements): the smaller one, while the other has
+-- at least `gap` more players and `share` more; nil when the sides are near enough.
+function Frontline.reinforced(cfg: any, west: number, east: number): Side?
+	local big, small, side = west, east, "East"
+	if east > west then
+		big, small, side = east, west, "West"
+	end
+	if big - small >= cfg.gap and big >= small * (1 + cfg.share) then
+		return side
+	end
+	return nil
+end
+
 -- How far control moves in `dt` seconds with soldiers `west` and `east` in the zone: by the lead (at most
 -- MaxAdvantage) at one soldier's rate times `rate` (momentum), toward the side ahead; nil when nobody leads (empty,
 -- or even: contested).

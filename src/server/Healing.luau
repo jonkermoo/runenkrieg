@@ -36,6 +36,11 @@ local Healing = {}
 type Heal = { healer: Model, patient: Model, kind: string, items: HealItems.State, link: ObjectValue, started: number }
 
 local heals: { [Model]: Heal } = {} -- by healer
+-- HP a player healed another soldier by (a match's "most HP healed": src/server/MatchStats)
+local healWatchers: { (Player, number) -> () } = {}
+function Healing.onHealed(fn: (Player, number) -> ())
+	table.insert(healWatchers, fn)
+end
 local lastHit: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 local lastHealth: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 local lastAsk: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
@@ -157,7 +162,14 @@ local function tick(dt: number)
 		if elapsed < Rules.prep(h.kind, Cfg) then
 			continue
 		end
+		local before = th.Health
 		th.Health = Rules.step(th.Health, th.MaxHealth, dt, Cfg)
+		local medic = Players:GetPlayerFromCharacter(healer)
+		if medic and h.patient ~= healer and th.Health > before then
+			for _, fn in healWatchers do
+				task.spawn(fn, medic, th.Health - before)
+			end
+		end
 		if th.Health >= th.MaxHealth then
 			stop(healer)
 			if h.kind == "Bandage" then
