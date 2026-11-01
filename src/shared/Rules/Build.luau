@@ -380,6 +380,24 @@ function Build.trenchDepth(hp: number, built: boolean, h: any): number
 	return math.clamp(hp / h.max, 0, 1)
 end
 
+-- How a built trench square's pieces sit at depth `share` (Build.trenchDepth): its floor piece rides up on the fill
+-- (studs), its dirt heaps sink into the ground (studs), both from nothing at full depth to all the way at 0.
+function Build.trenchSink(share: number, t: any): (number, number)
+	local fill = 1 - math.clamp(share, 0, 1)
+	return t.depth * fill, t.heapSink * fill
+end
+
+-- The soil under a trench square: the first of `names` (terrain materials from its ground line down) not in
+-- `soil.skip`, else `soil.fallback` (Config/Build.Trench.soil).
+function Build.trenchSoil(names: { string }, soil: any): string
+	for _, n in names do
+		if not table.find(soil.skip, n) then
+			return n
+		end
+	end
+	return soil.fallback
+end
+
 -- Every run of free samples (`blocked[i]` false), as { first, last } index, in order. A trench square's side wall and
 -- dirt heap are laid along each such stretch, not where they would stand in another trench's hole (a branch joining
 -- the middle of a square leaves its wall on both sides of the opening).

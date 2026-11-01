@@ -362,6 +362,34 @@ return {
 		assert(B.trenchDepth(10, true, H) < 0.12 and B.trenchDepth(0, true, H) == 0, "10%: nearly level")
 		assert(H.destroy < H.swing, "much harder to break than to dig")
 	end,
+	["trenches: a built square fills by its HP all the way down: a little at 80, barely any cover at 20, gone at 0"] = function()
+		local T = C.Trench
+		local H = T.hp
+		local function at(hp: number): number
+			return B.trenchDepth(hp, true, H)
+		end
+		assert(at(100) == 1, "100: full depth")
+		assert(near(at(80), 80 / 95), `80: a little earth in it ({at(80)})`)
+		assert(near(at(50), 50 / 95), `50: about half ({at(50)})`)
+		assert(near(at(20), 20 / 95), `20: nearly level ({at(20)})`)
+		assert(at(0) == 0, "0: filled")
+		assert(at(80) - at(50) > 0.25 and at(50) - at(20) > 0.25, "clearly shallower each step")
+		-- cover at 20: what's left of the hole and the sunk heap (about 2.5 over the ground at full depth)
+		local rise, drop = B.trenchSink(at(20), T)
+		local cover = T.depth - rise + 2.5 - drop
+		assert(cover < 2.2, `20: barely any cover ({cover} studs)`)
+		local rise100, drop100 = B.trenchSink(1, T)
+		assert(rise100 == 0 and drop100 == 0, "full: the pieces where they were made")
+		local rise0, drop0 = B.trenchSink(0, T)
+		assert(rise0 == T.depth and drop0 == T.heapSink, "0: floor at the ground, heaps sunk")
+	end,
+	["trenches: the soil is the terrain under the grass, else Ground"] = function()
+		local S = C.Trench.soil
+		assert(B.trenchSoil({ "Grass", "Ground", "Rock" }, S) == "Ground")
+		assert(B.trenchSoil({ "LeafyGrass", "Sand" }, S) == "Sand")
+		assert(B.trenchSoil({ "Grass", "Grass", "Grass" }, S) == "Ground", "grass all the way down")
+		assert(B.trenchSoil({}, S) == "Ground")
+	end,
 	["trenches v2: a new trench keeps its distance from others unless it joins one"] = function()
 		local S = C.Trench.spacing
 		local other = { { 0, 0, 24, 0 } }
