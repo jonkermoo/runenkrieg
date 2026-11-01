@@ -518,8 +518,10 @@ function SketchMap.new(
 				stamp.Parent = area
 				stamps[k] = stamp
 			end
-			local a, mid, b = arrowOf(e, k)
-			local at = mid + (mid - (a + b) / 2) * 0.9
+			local _, mid = arrowOf(e, k)
+			-- (above the arrow's bend: the points' names sit under them)
+			local tall = A.stamp * area.AbsoluteSize.X / math.max(area.AbsoluteSize.Y, 1)
+			local at = mid - Vector2.new(0, tall * A.lift)
 			stamp.Text = StatsRules.clock(e.t)
 			stamp.Position = UDim2.fromScale(at.X, at.Y)
 			stamp.Size = UDim2.fromScale(A.stamp * 3, A.stamp * area.AbsoluteSize.X / math.max(area.AbsoluteSize.Y, 1))

@@ -36,6 +36,18 @@ local function commas(n: number): string
 	return (out:gsub("^,", ""))
 end
 
+-- 1 -> "1st", 12 -> "12th", 22 -> "22nd"
+local function ordinal(n: number): string
+	local last, tens = n % 10, n % 100
+	local suffix = if tens >= 11 and tens <= 13
+		then "th"
+		elseif last == 1 then "st"
+		elseif last == 2 then "nd"
+		elseif last == 3 then "rd"
+		else "th"
+	return tostring(n) .. suffix
+end
+
 local function hex(c: Color3): string
 	return string.format("#%02x%02x%02x", c.R * 255, c.G * 255, c.B * 255)
 end
@@ -175,7 +187,7 @@ function Results.start()
 				end
 			end
 			youLabel.Text = if mine
-				then `You · {mine.place}. · {you.Kills or 0} kills · {commas(mine.value)} points`
+				then `You · {ordinal(mine.place)} · {you.Kills or 0} kills · {commas(mine.value)} points`
 				else `You · {you.Kills or 0} kills`
 		end
 		-- the right: the replay or the standings

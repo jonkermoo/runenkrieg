@@ -8,8 +8,18 @@ local Results = {
 	Replay = { seconds = 7, lead = 0.4, tail = 1.2, draw = 0.7 },
 	-- an arrow: from `from` of the way from the neighbour it came from to the point it took, to `to`; bent `bend` of its
 	-- length to one side (alternating), `thick` of the map's width; the head's two strokes `head` of its length, `spread`
-	-- degrees off it; its time `stamp` of the map's width tall
-	Arrow = { from = 0.3, to = 0.86, bend = 0.18, thick = 0.006, head = 0.22, spread = 28, stamp = 0.034, steps = 12 },
+	-- degrees off it; its time `stamp` of the map's width tall, `lift` of that over the arrow's bend
+	Arrow = {
+		from = 0.25,
+		to = 0.86,
+		bend = 0.18,
+		thick = 0.009,
+		head = 0.25,
+		spread = 28,
+		stamp = 0.036,
+		lift = 0.9,
+		steps = 12,
+	},
 	-- the winning capture ringed in red pencil, `ring` times the point's radius
 	Win = { ring = 2.2, thick = 0.007 },
 	-- FFA: the standings by score, the first `Standings` and you; each row's bar filling over `fill` seconds, one after

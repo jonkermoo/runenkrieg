@@ -26,7 +26,7 @@
 		"kind": "group",
 		"size": [1, 0, 1, 0],
 		"children": [
-			{ "id": "Dim", "kind": "overlay", "from": 0.35, "to": 0.55, "size": [1, 0, 1, 0] },
+			{ "id": "Dim", "kind": "overlay", "from": 0.12, "to": 0.3, "size": [1, 0, 1, 0] },
 			{ "id": "Winner", "kind": "label", "bind": "winner", "text": "", "textSize": 80, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 64, 0, 108], "size": [0, 620, 0, 88] },
 			{ "id": "Takes", "kind": "label", "text": "TAKES THE FIELD", "textSize": 44, "textColor": "text", "shade": 0.45, "align": "left", "pos": [0, 64, 0, 196], "size": [0, 620, 0, 52] },
 			{ "id": "Trench", "kind": "trench", "pos": [0, 62, 0, 262], "size": [0, 438, 0, 32] },
