@@ -308,7 +308,9 @@ return {
 			assert(Classes.Defs[c.key], c.key)
 		end
 		assert(Classes.Defs[Cfg.Classes[1].key].cost == 0)
-		assert(#Cfg.Names >= Cfg.Max, "a name for every bot")
+		for mode, max in Cfg.Max do
+			assert(#Cfg.Names >= max, `a name for every bot ({mode})`)
+		end
 	end,
 	["killing a bot pays a share of the battle points, never more than a player's"] = function()
 		assert(Cfg.KillShare > 0 and Cfg.KillShare <= 1)
@@ -319,7 +321,7 @@ return {
 			assert(Cfg.Difficulty[k], k)
 		end
 		for _, n in Dev.Admin.BotCounts do
-			assert(n >= 0 and n <= Cfg.Max, `{n}`)
+			assert(n >= 0 and n <= math.max(Cfg.Max.FFA, Cfg.Max.Normal), `{n}`)
 		end
 	end,
 	["every difficulty has every knob"] = function()
@@ -331,5 +333,72 @@ return {
 			assert(#d.fireGap == 2 and d.fireGap[1] <= d.fireGap[2], name)
 		end
 		assert(Cfg.Difficulty[Cfg.Default], "the default is one of them")
+	end,
+	["wantedSides: each side topped up to its fill with its own players first"] = function()
+		local w, e = R.wantedSides(20, 1, 0, 39)
+		assert(w == 19 and e == 20, "one player: 20 v 20")
+		w, e = R.wantedSides(20, 12, 9, 39)
+		assert(w == 8 and e == 11)
+		w, e = R.wantedSides(20, 25, 25, 39)
+		assert(w == 0 and e == 0, "past the fill: none")
+	end,
+	["wantedSides: over the budget the side with more soldiers gives up a bot at a time"] = function()
+		local w, e = R.wantedSides(20, 0, 0, 30)
+		assert(w == 15 and e == 15)
+		w, e = R.wantedSides(20, 0, 0, 7)
+		assert(w + e == 7 and math.abs(w - e) <= 1)
+		w, e = R.wantedSides(20, 0, 10, 12)
+		assert(w == 11 and e == 1, "the soldiers kept even: " .. w .. " " .. e)
+		w, e = R.wantedSides(20, 0, 0, 0)
+		assert(w == 0 and e == 0)
+	end,
+	["wantedSides: a pinned total is split evenly, West taking the odd one"] = function()
+		local w, e = R.wantedSides(20, 5, 5, 39, 9)
+		assert(w == 5 and e == 4)
+		w, e = R.wantedSides(20, 0, 0, 10, 30)
+		assert(w == 5 and e == 5, "the pin still under the budget")
+	end,
+	["govern: trims one under the bots on after a spell over budget, then one per trimEvery"] = function()
+		local cfg = Cfg.Budget.governor
+		local g = R.governor(39)
+		R.govern(g, cfg.ms + 1, 60, cfg.trimAfter - 0.1, 39, 39, cfg)
+		assert(g.cap == 39, "not yet")
+		R.govern(g, cfg.ms + 1, 60, 0.1, 39, 39, cfg)
+		assert(g.cap == 38)
+		R.govern(g, cfg.ms + 1, 60, cfg.trimEvery, 38, 39, cfg)
+		assert(g.cap == 37)
+		-- a slow physics rate counts too
+		R.govern(g, 0, cfg.minFps - 5, cfg.trimEvery, 37, 39, cfg)
+		assert(g.cap == 36)
+	end,
+	["govern: lets bots back after a spell within budget, never past the max nor under the floor"] = function()
+		local cfg = Cfg.Budget.governor
+		local g = R.governor(10)
+		g.cap = 8
+		R.govern(g, 0, 60, cfg.restoreAfter, 8, 10, cfg)
+		assert(g.cap == 9)
+		R.govern(g, 0, 60, cfg.restoreEvery, 9, 10, cfg)
+		assert(g.cap == 10)
+		R.govern(g, 0, 60, cfg.restoreEvery * 5, 10, 10, cfg)
+		assert(g.cap == 10, "never past the max")
+		local low = R.governor(39)
+		for _ = 1, 100 do
+			R.govern(low, cfg.ms + 1, 60, cfg.trimAfter, low.cap, 39, cfg)
+		end
+		assert(low.cap == cfg.floor)
+		-- one bad frame breaks a spell within budget
+		local h = R.governor(10)
+		h.cap = 5
+		R.govern(h, 0, 60, cfg.restoreAfter - 1, 5, 10, cfg)
+		R.govern(h, cfg.ms + 1, 60, 0.1, 5, 10, cfg)
+		R.govern(h, 0, 60, 2, 5, 10, cfg)
+		assert(h.cap == 5)
+	end,
+	["config: Normal's budget numbers are sane"] = function()
+		local b = Cfg.Budget
+		assert(b.frameMs > 0 and b.raysPerFrame >= 8 and b.pathsPerSecond > 0)
+		assert(b.governor.trimEvery <= b.governor.trimAfter and b.governor.restoreEvery <= b.governor.restoreAfter)
+		assert(Cfg.Max.Normal >= 2 * Cfg.Fill.Normal.perSide - 1, "room for 20 v 20 with one player")
+		assert(Cfg.Normal.defendShare > 0 and Cfg.Normal.defendShare < 1)
 	end,
 }

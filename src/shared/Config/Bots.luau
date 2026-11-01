@@ -44,6 +44,24 @@ local Bots = {
 		"Dvorak",
 		"Leclerc",
 		"Moreau",
+		"Schulz",
+		"Wagner",
+		"Brandt",
+		"Vogel",
+		"Keller",
+		"Galli",
+		"Marino",
+		"Greco",
+		"Fowler",
+		"Hayes",
+		"Collins",
+		"Doyle",
+		"Svoboda",
+		"Marek",
+		"Babic",
+		"Girard",
+		"Fontaine",
+		"Dubois",
 	},
 	-- after a death: the respawn wait (Config/Metrics.Combat.RespawnDelay, as a player's) plus this long in the loadout
 	-- menu (seconds, a random share between), as a player picks a class and deploys
@@ -61,17 +79,61 @@ local Bots = {
 	KillShare = 0.5,
 	-- the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves up)
 	Buy = 0.6,
-	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none
+	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none.
+	-- Normal tops up each side (Rules/Bots.wantedSides; user 2026-10-31: "this will be a 50vs50 map. however, if there is
+	-- only 1 player, lets make it a 20 v 20 game")
 	Fill = {
 		FFA = { total = 8 },
+		Normal = { perSide = 20 },
 	},
-	-- the most bots one server runs, whatever the fill (the server's budget; Stage 1 measured 10 and 20)
-	Max = 20,
+	-- the most bots one server runs in each mode, whatever the fill (the server's budget; FFA Stage 1 measured 10 and
+	-- 20); the governor (Budget) may hold it lower
+	Max = { FFA = 20, Normal = 39 },
 	-- one bot in (or out) at most this often, so a join or a leave never brings a crowd at once
 	JoinEvery = 1.5,
 	LeaveEvery = 4,
 	-- a bot over the count leaves only while dead, or after this long over it (seconds) even alive
 	LeaveAliveAfter = 20,
+
+	-- the server's budget for all the bots together (src/server/Bots)
+	Budget = {
+		-- milliseconds of bot thinking a frame: the bots past it wait for the next frame (round-robin, so all get a turn)
+		frameMs = 1.5,
+		-- rays a frame for cover searches (a search walks one ring a think, its rays counted here; line-of-sight rays
+		-- are counted too)
+		raysPerFrame = 40,
+		-- path computes a second, all bots together (the rest wait in a queue)
+		pathsPerSecond = 4,
+		-- the governor: while the bots' frame cost (a one-second average) is over `ms`, or the physics rate under
+		-- `minFps`, for `trimAfter` seconds, it holds the count one lower (then one more every `trimEvery`); after
+		-- `restoreAfter` seconds within budget it lets one back (then one more every `restoreEvery`); never under `floor`
+		governor = {
+			ms = 3,
+			minFps = 55,
+			trimAfter = 10,
+			trimEvery = 4,
+			restoreAfter = 30,
+			restoreEvery = 10,
+			floor = 4,
+		},
+	},
+	-- Normal (the frontline push, src/server/Frontline): bots fight on a side, deploy in its waves and take orders from
+	-- their side's commander (Rules/BotOrders)
+	Normal = {
+		-- before a bot's name (user 2026-10-31: names marked as bots)
+		nameTag = "[BOT] ",
+		commandEvery = 1, -- seconds between each side's orders
+		joinEvery = 0.5, -- one bot in at most this often (20 v 20 fills in about 20 s)
+		-- while an own sector has enemies in its zone (and they lead there or it is losing control), this share of the
+		-- side's bots defend it; the rest attack the side's target sector
+		defendShare = 0.5,
+		-- a stand point in the ordered sector's zone: within this share of its radius
+		standShare = 0.6,
+		-- seconds between path recomputes toward the same far goal (the long walks between sectors)
+		repath = 15,
+		-- studs from the ordered sector's point a hunt may lead a bot (past it, it goes back to its order)
+		leash = 90,
+	},
 
 	Think = 10, -- brain steps a second, per bot (staggered)
 	Sense = 4, -- sight checks a second, per bot: the nearest few enemies' line-of-sight rays

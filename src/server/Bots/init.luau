@@ -20,6 +20,15 @@
 --   Firing.onShot), looks for cover the threat can't see (rings of points, a ray from the threat's eye to each), paths
 --   with PathfindingService (the zone by a flank, the last place a target was seen, cover, away), aims with the
 --   difficulty's error and lead, fires, works the bolt and reloads. src/server/Bots/Animate plays its animations.
+-- - In Normal (src/server/Frontline) each bot fights on a side: the director tops each side up to its fill
+--   (Rules/Bots.wantedSides), a bot wears its side's team, deploys in its side's wave line (Frontline.deployBot) and
+--   counts in the zones like a player. Each side's commander (Rules/BotOrders), once a second, reads the sectors from
+--   the Frontline folder and sends each bot to attack the side's target sector or defend an own one being taken; a bot
+--   walks to a stand point in that sector's zone and fights there with the same brain.
+-- The server's budget (Config/Bots.Budget): bots think round-robin within a frame's milliseconds (the rest wait a
+-- frame); one snapshot of every soldier a frame serves all the bots' sight; cover searches walk one ring a think within
+-- a frame's rays; path computes are rationed server-wide; a governor holds the count lower while the bots cost too much
+-- or physics slows. MicroProfiler labels: Bots.frame, Bots.snapshot, Bots.sense, Bots.cover, Bots.move, Bots.command.
 -- Every Config/Bots.ReportEvery seconds the log has a line on its cost and its fights.
 
 local CollectionService = game:GetService("CollectionService")
@@ -27,24 +36,32 @@ local PathfindingService = game:GetService("PathfindingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
 local Classes = require(Shared.Config.Classes)
 local DamageCfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
+local FrontCfg = require(Shared.Config.Frontline)
 local Loco = require(Shared.Config.Locomotion)
+local Map = require(Shared.Config.Maps.Map1)
 local Metrics = require(Shared.Config.Metrics)
 local ModesCfg = require(Shared.Config.Modes)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local F = require(Shared.Rules.Firing)
+local FrontRules = require(Shared.Rules.Frontline)
+local Orders = require(Shared.Rules.BotOrders)
 local Rules = require(Shared.Rules.Bots)
+local Teams = require(Shared.Rules.Teams)
 local Armory = require(script.Parent.Armory)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
 local Firing = require(script.Parent.Firing)
+local Frontline = require(script.Parent.Frontline)
+local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
@@ -55,6 +72,8 @@ local Bots = {}
 
 local M = Metrics.Movement
 local MV = Cfg.Move
+local NV = Cfg.Normal
+local BG = Cfg.Budget
 local CV = MV.Cover
 local brainCfg = Cfg.Brain :: any
 
@@ -110,7 +129,15 @@ type Bot = {
 	respawnAt: number?,
 	overSince: number?,
 	spawning: boolean, -- a body being built (it yields): never two at once
+	mode: string, -- the mode it plays (a bot of another mode leaves)
+	side: string?, -- Normal: "West" / "East"
+	order: Orders.Order?, -- Normal: its commander's order
+	sector: number?, -- Normal: the sector of its order (Config/Maps/Map1.sectors)
+	stand: Vector3?, -- Normal: where it stands in that sector's zone
+	coverJob: CoverJob?, -- a cover search under way (one ring a think)
 }
+
+type CoverJob = { threat: Vector3, ring: number, here: number }
 
 local bots: { Bot } = {}
 local count = 0
@@ -135,8 +162,27 @@ local stats = {
 	covers = 0,
 	peeks = 0,
 	upgrades = 0,
+	frames = 0,
+	frameTime = 0,
+	frameSamples = {} :: { number },
+	deferred = 0, -- frames that ran out of time with bots still due
+	senseDeferred = 0, -- sight checks put off a frame for want of rays
+	pathsDeferred = 0, -- path computes put off for want of the server's ration
 	since = os.clock(),
 }
+
+-- the budget's running state
+local frame = 0 -- frames since start (the snapshot's key)
+local raysLeft = 0 -- this frame's rays still to spend
+local pathTokens = 0 -- path computes the ration allows now
+local cursor = 1 -- the bot the next frame starts with (round-robin)
+local governor = Rules.governor(math.max(Cfg.Max.FFA, Cfg.Max.Normal))
+local govAt, govTime, govFrames = os.clock(), 0, 0
+
+local function liveMode(): string?
+	local mode = workspace:GetAttribute(ModesCfg.Attribute)
+	return if type(mode) == "string" then mode else nil
+end
 
 local function difficulty(): Rules.Difficulty
 	local key = workspace:GetAttribute(Cfg.DifficultyAttribute)
@@ -200,6 +246,32 @@ end
 
 local spawnBody: (b: Bot) -> ()
 
+-- Normal: each sector's ground at its point (found once, by a ray on terrain)
+local terrainOnly = RaycastParams.new()
+terrainOnly.FilterType = Enum.RaycastFilterType.Include
+terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
+local sectorY: { [number]: number } = {}
+local function sectorPoint(i: number): Vector3
+	local s = Map.sectors[i]
+	if not sectorY[i] then
+		local g = FrontCfg.GroundRay
+		local hit = workspace:Raycast(Vector3.new(s.x, g.top, s.z), Vector3.new(0, -g.depth, 0), terrainOnly)
+		sectorY[i] = if hit then hit.Position.Y else 0
+	end
+	return Vector3.new(s.x, sectorY[i], s.z)
+end
+
+-- where the bot is headed and the zone's radius: FFA's zone, or in Normal its order's sector
+local function objective(b: Bot): (Vector3?, number)
+	if b.mode == "Normal" then
+		if not b.sector then
+			return nil, 0
+		end
+		return sectorPoint(b.sector :: number), Map.sectors[b.sector :: number].radius
+	end
+	return ZoneMatch.objective()
+end
+
 local function newNav(at: Vector3): Nav
 	return {
 		goal = nil,
@@ -217,13 +289,29 @@ end
 
 -- A body for `b` at a spawn point, dressed in its class, armed and on its feet.
 spawnBody = function(b: Bot)
-	local cf = ZoneMatch.spawnFor(nil)
-	if not cf or b.spawning then
+	if b.spawning then
 		return
 	end
+	local cf: CFrame?
+	if b.mode == "Normal" then
+		-- its side's team this match; built over its home end, then stood in the wave line (Frontline.deployBot)
+		local pair = FrontRules.parsePair(workspace:GetAttribute(FrontCfg.TeamsAttribute))
+		if not pair or not b.side or not Frontline.running() then
+			return
+		end
+		b.kit = (pair :: any)[b.side]
+		local home = sectorPoint(if b.side == "West" then 1 else #Map.sectors)
+		cf = CFrame.new(home + Vector3.yAxis * FrontCfg.SpawnLift)
+	else
+		cf = ZoneMatch.spawnFor(nil)
+		if not cf then
+			return
+		end
+		-- FFA: a fresh kit each life, as a player's is rolled
+		b.kit = U.Teams[random:NextInteger(1, #U.Teams)]
+	end
 	b.spawning = true
-	-- FFA: a fresh kit each life, as a player's is rolled; the class from its points
-	b.kit = U.Teams[random:NextInteger(1, #U.Teams)]
+	-- the class from its points
 	local class, push = chooseClass(b)
 	local ok, made = pcall(Showcase.dummy, b.name, cf :: CFrame, botFolder(), b.kit, { Class = class })
 	b.spawning = false
@@ -252,7 +340,7 @@ spawnBody = function(b: Bot)
 	end
 	m.DescendantAdded:Connect(group)
 	local humanoid = m:FindFirstChildOfClass("Humanoid") :: Humanoid
-	humanoid.DisplayName = b.name
+	humanoid.DisplayName = if b.mode == "Normal" then NV.nameTag .. b.name else b.name
 	humanoid.BreakJointsOnDeath = false
 	humanoid.MaxHealth = DamageCfg.Health
 	humanoid.Health = DamageCfg.Health
@@ -283,7 +371,9 @@ spawnBody = function(b: Bot)
 	turn.Parent = root
 	root.Anchored = false
 	DevDummies.own(m)
-	Damage.protect(m, ZoneCfg.SpawnProtection)
+	if b.mode ~= "Normal" then
+		Damage.protect(m, ZoneCfg.SpawnProtection)
+	end
 
 	b.m, b.humanoid, b.root, b.head, b.tool, b.turn =
 		m, humanoid, root, m:FindFirstChild("Head") :: BasePart, tool, turn
@@ -293,9 +383,14 @@ spawnBody = function(b: Bot)
 	b.hurtAt, b.threatAt, b.threatFrom, b.cover, b.coverFrom = nil, nil, nil, nil, nil
 	b.nav = newNav(root.Position)
 	b.spawnedAt, b.reachedZone, b.deadAt, b.respawnAt, b.wander = os.clock(), false, nil, nil, nil
+	b.coverJob, b.stand = nil, nil
+	if b.mode == "Normal" then
+		Frontline.deployBot(m) -- (its side's wave line: held and shielded until the wave goes)
+		b.nav = newNav(root.Position)
+	end
 	-- the way to the zone: now and then a bend off the straight line
 	b.flank = nil
-	local zone = ZoneMatch.objective()
+	local zone = objective(b)
 	if zone and random:NextNumber() < MV.FlankChance then
 		local z = zone :: Vector3
 		local across = flat(z - root.Position)
@@ -332,8 +427,9 @@ spawnBody = function(b: Bot)
 	humanoid.Died:Connect(function()
 		stats.deaths += 1
 		b.deadAt = os.clock()
-		-- a player's respawn wait, then a moment in the loadout menu
-		b.respawnAt = b.deadAt + Metrics.Combat.RespawnDelay + random:NextNumber(Cfg.MenuTime[1], Cfg.MenuTime[2])
+		-- a player's respawn wait (Normal: until deploy opens), then a moment in the loadout menu
+		local wait = if b.mode == "Normal" then FrontCfg.Waves.dead else Metrics.Combat.RespawnDelay
+		b.respawnAt = b.deadAt + wait + random:NextNumber(Cfg.MenuTime[1], Cfg.MenuTime[2])
 		turn.Enabled = false
 		Loadouts.died(m) -- (the killer and the assists paid)
 		DevDummies.own(m)
@@ -351,9 +447,11 @@ local function despawn(b: Bot)
 	b.m, b.humanoid, b.root, b.head, b.tool, b.anim, b.turn = nil, nil, nil, nil, nil, nil, nil
 end
 
-local function add()
+local function add(mode: string, side: string?)
 	count += 1
 	local b: Bot = {
+		mode = mode,
+		side = side,
 		id = -count,
 		name = "",
 		kit = U.Default,
@@ -398,7 +496,54 @@ local function aimPart(target: Model): BasePart?
 	return (target:FindFirstChild("Torso") or target:FindFirstChild("HumanoidRootPart")) :: BasePart?
 end
 
-local function sense(b: Bot, d: Rules.Difficulty, now: number)
+-- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
+type Soldier = { model: Model, part: BasePart, kit: any, pos: Vector3, look: Vector3 }
+local snapshot: { Soldier } = {}
+local snapCount = 0
+local snapFrame = -1
+
+local function soldiersNow(): ({ Soldier }, number)
+	if snapFrame == frame then
+		return snapshot, snapCount
+	end
+	snapFrame = frame
+	debug.profilebegin("Bots.snapshot")
+	snapCount = 0
+	for _, m in Damage.soldiers() do
+		local h = m:FindFirstChildOfClass("Humanoid")
+		local part = aimPart(m)
+		if h and h.Health > 0 and part then
+			local root = m:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local look = if root then flat(root.CFrame.LookVector) else Vector3.zero
+			snapCount += 1
+			local e = snapshot[snapCount]
+			if not e then
+				e = {} :: any
+				snapshot[snapCount] = e
+			end
+			e.model, e.part, e.kit, e.pos = m, part, m:GetAttribute("Kit"), part.Position
+			e.look = if look.Magnitude > 1e-3 then look.Unit else Vector3.zero
+		end
+	end
+	debug.profileend()
+	return snapshot, snapCount
+end
+
+-- whether `other` is on `m`'s side (Damage.spares' rule, from the snapshot's kits)
+local function friendly(m: Model, kit: any, other: Soldier): boolean
+	if kit == nil or other.kit == nil then
+		return Damage.spares(m, other.model)
+	end
+	return Teams.spared(
+		kit,
+		other.kit,
+		DamageCfg.FriendlyFire,
+		workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
+	)
+end
+
+-- the bot's sight now; false when the frame's rays are spent (it looks again next think)
+local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 	local m, root = b.m :: Model, b.root :: BasePart
 	local from = eye(b)
 	local facing = flat(root.CFrame.LookVector)
@@ -406,20 +551,25 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number)
 	-- hit or shot at lately: it looks all round
 	local alert = b.threatAt ~= nil and now - (b.threatAt :: number) < brainCfg.Alert
 	local seen: { Target } = {}
-	for _, other in Damage.soldiers() do
-		if other == m then
+	local parts: { [Model]: Soldier } = {}
+	local all, n = soldiersNow()
+	local kit = m:GetAttribute("Kit")
+	for k = 1, n do
+		local other = all[k]
+		if other.model == m or friendly(m, kit, other) then
 			continue
 		end
-		local h = other:FindFirstChildOfClass("Humanoid")
-		local part = aimPart(other)
-		if not h or h.Health <= 0 or not part or Damage.spares(m, other) then
-			continue
-		end
-		local off = part.Position - from
+		local off = other.pos - from
 		local dist = off.Magnitude
 		if Rules.inSight(off.X, off.Z, dist, facing.X, facing.Z, d.spotRange, d.fov, alert) then
-			table.insert(seen, { model = other, distance = dist, visible = false })
+			table.insert(seen, { model = other.model, distance = dist, visible = false })
+			parts[other.model] = other
 		end
+	end
+	local rays = math.min(#seen, Cfg.SenseNearest)
+	if rays > raysLeft then
+		stats.senseDeferred += 1
+		return false
 	end
 	table.sort(seen, function(x, y)
 		return x.distance < y.distance
@@ -428,23 +578,22 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number)
 	local list = {}
 	local out: { Target } = {}
 	b.spotted = false
-	for i = 1, math.min(#seen, Cfg.SenseNearest) do
+	for i = 1, rays do
 		local t = seen[i]
-		local part = aimPart(t.model) :: BasePart
-		local hit = workspace:Raycast(from, part.Position - from, rayParams)
+		local other = parts[t.model]
+		local hit = workspace:Raycast(from, other.pos - from, rayParams)
 		stats.rays += 1
+		raysLeft -= 1
 		t.visible = hit ~= nil and hit.Instance:IsDescendantOf(t.model)
 		table.insert(out, t)
 		table.insert(list, { id = t.model, distance = t.distance, visible = t.visible })
 		-- an enemy in sight looking its way has spotted it
-		local theirRoot = t.model:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if t.visible and theirRoot then
-			local look = flat(theirRoot.CFrame.LookVector)
-			local off = part.Position - from
-			if look.Magnitude > 1e-3 and Rules.lookingAt(off.X, off.Z, look.Unit.X, look.Unit.Z, brainCfg.LookCone) then
+		if t.visible and other.look.Magnitude > 0 then
+			local off = other.pos - from
+			if Rules.lookingAt(off.X, off.Z, other.look.X, other.look.Z, brainCfg.LookCone) then
 				b.spotted = true
 				if not b.threatFrom or now - (b.threatAt or -math.huge) > brainCfg.ThreatMemory then
-					b.threatFrom = part.Position + Vector3.yAxis * Cfg.Eye
+					b.threatFrom = other.pos + Vector3.yAxis * Cfg.Eye
 				end
 			end
 		end
@@ -465,6 +614,7 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number)
 		end
 		b.lastOpen = root.Position
 	end
+	return true
 end
 
 -- a ground point under (x, z) near `y`, or nil (off the map, under water)
@@ -472,6 +622,7 @@ local function groundAt(x: number, y: number, z: number, exclude: { Instance }):
 	rayParams.FilterDescendantsInstances = exclude
 	local hit = workspace:Raycast(Vector3.new(x, y + 8, z), Vector3.new(0, -24, 0), rayParams)
 	stats.rays += 1
+	raysLeft -= 1
 	return hit and hit.Position
 end
 
@@ -481,11 +632,20 @@ local function hidden(from: Vector3, p: Vector3, exclude: { Instance }): boolean
 	rayParams.FilterDescendantsInstances = exclude
 	local hit = workspace:Raycast(from, chest - from, rayParams)
 	stats.rays += 1
+	raysLeft -= 1
 	return hit ~= nil and hit.Distance < (chest - from).Magnitude - 1
 end
 
 -- cover from the threat: the old point while it's still hidden from where the threat is now; else rings of points
--- round the bot, nearest ring first (Rules/Bots.pickCover)
+-- round the bot, nearest ring first (Rules/Bots.pickCover), one ring a think within the frame's rays (b.coverJob)
+local function exclusions(b: Bot): { Instance }
+	local exclude: { Instance } = { b.m :: Model }
+	if b.target then
+		table.insert(exclude, (b.target :: Target).model)
+	end
+	return exclude
+end
+
 local function findCover(b: Bot, now: number)
 	local from = b.threatFrom or b.lastSeenAt
 	if not from then
@@ -494,41 +654,55 @@ local function findCover(b: Bot, now: number)
 	end
 	local threat = from :: Vector3
 	b.coverAt = now
-	local root = b.root :: BasePart
-	local exclude: { Instance } = { b.m :: Model }
-	if b.target then
-		table.insert(exclude, (b.target :: Target).model)
+	if raysLeft < 1 then
+		return
 	end
+	local root = b.root :: BasePart
 	local stale = b.coverFrom and ((b.coverFrom :: Vector3) - threat).Magnitude > CV.moved
-	if b.cover and not stale and hidden(threat, b.cover :: Vector3, exclude) then
+	if b.cover and not stale and hidden(threat, b.cover :: Vector3, exclusions(b)) then
 		return
 	end
 	b.cover = nil
-	local here = flat(root.Position - threat).Magnitude
-	for _, r in CV.rings do
-		local points = {}
-		local spots = {}
-		for k = 0, CV.perRing - 1 do
-			local a = (k / CV.perRing + random:NextNumber() * 0.1) * 2 * math.pi
-			local x, z = root.Position.X + math.cos(a) * r, root.Position.Z + math.sin(a) * r
-			local g = groundAt(x, root.Position.Y, z, exclude)
-			if g then
-				table.insert(spots, g)
-				table.insert(points, {
-					distance = r,
-					hidden = hidden(threat, g, exclude),
-					threat = flat(g - threat).Magnitude,
-				})
-			end
-		end
-		local i = Rules.pickCover(points, here - CV.minThreatGain, CV.reach)
-		if i then
-			b.cover = spots[i]
-			b.coverFrom = threat
-			stats.covers += 1
-			return
+	b.coverJob = { threat = threat, ring = 1, here = flat(root.Position - threat).Magnitude }
+end
+
+-- the search's next ring, when the frame has the rays for it
+local function coverStep(b: Bot)
+	local job = b.coverJob :: CoverJob
+	if raysLeft < CV.perRing * 2 then
+		return
+	end
+	debug.profilebegin("Bots.cover")
+	local root = b.root :: BasePart
+	local exclude = exclusions(b)
+	local r = CV.rings[job.ring]
+	local points = {}
+	local spots = {}
+	for k = 0, CV.perRing - 1 do
+		local a = (k / CV.perRing + random:NextNumber() * 0.1) * 2 * math.pi
+		local x, z = root.Position.X + math.cos(a) * r, root.Position.Z + math.sin(a) * r
+		local g = groundAt(x, root.Position.Y, z, exclude)
+		if g then
+			table.insert(spots, g)
+			table.insert(points, {
+				distance = r,
+				hidden = hidden(job.threat, g, exclude),
+				threat = flat(g - job.threat).Magnitude,
+			})
 		end
 	end
+	local i = Rules.pickCover(points, job.here - CV.minThreatGain, CV.reach)
+	if i then
+		b.cover = spots[i]
+		b.coverFrom = job.threat
+		b.coverJob = nil
+		stats.covers += 1
+	elseif job.ring >= #CV.rings then
+		b.coverJob = nil
+	else
+		job.ring += 1
+	end
+	debug.profileend()
 end
 
 -- shots passing close: every bot near the line feels it (Rules/Bots.nearMiss)
@@ -554,8 +728,15 @@ end
 
 -- moving -------------------------------------------------------------------------------------------------------------
 
-local function computePath(b: Bot, goal: Vector3)
+-- a path to `goal` when the server's ration allows (Budget.pathsPerSecond); false when it waits (the bot walks straight
+-- at the goal meanwhile and asks again next think)
+local function computePath(b: Bot, goal: Vector3): boolean
 	local nav = b.nav
+	if pathTokens < 1 then
+		stats.pathsDeferred += 1
+		return false
+	end
+	pathTokens -= 1
 	nav.computing = true
 	nav.pathAt = os.clock()
 	local root = b.root :: BasePart
@@ -584,6 +765,7 @@ local function computePath(b: Bot, goal: Vector3)
 			nav.index = 1
 		end
 	end)
+	return true
 end
 
 local function setGoal(b: Bot, goal: Vector3?, now: number)
@@ -600,9 +782,12 @@ local function setGoal(b: Bot, goal: Vector3?, now: number)
 		nav.waypoints = {}
 		nav.jumps, nav.repaths = 0, 0
 	end
-	if not nav.computing and (changed or now - nav.pathAt > MV.Repath) then
+	local repath = if b.mode == "Normal" then NV.repath else MV.Repath
+	if not nav.computing and (changed or nav.pathAt < 0 or now - nav.pathAt > repath) then
 		nav.goal = g
-		computePath(b, g)
+		if not computePath(b, g) and changed then
+			nav.pathAt = -1 -- (asked again next think)
+		end
 	end
 end
 
@@ -647,9 +832,10 @@ local function follow(b: Bot, now: number)
 				nav.jumps += 1
 				humanoid.Jump = true
 			elseif nav.repaths < MV.StuckRepaths and nav.goal and not nav.computing then
-				nav.repaths += 1
-				nav.jumps = 0
-				computePath(b, nav.goal :: Vector3)
+				if computePath(b, nav.goal :: Vector3) then
+					nav.repaths += 1
+					nav.jumps = 0
+				end
 			else
 				stats.sidesteps += 1
 				nav.jumps, nav.repaths = 0, 0
@@ -690,9 +876,12 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		(b.turn :: AlignOrientation).Enabled = false
 		return -- (down: nothing until it is up again)
 	end
-	if now >= b.nextSense then
+	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
+		return -- (standing in the wave line until the wave goes)
+	end
+	debug.profilebegin("Bots.sense")
+	if now >= b.nextSense and sense(b, d, now) then
 		b.nextSense = now + 1 / Cfg.Sense
-		sense(b, d, now)
 	elseif b.target then
 		-- between looks: the same target, its distance kept fresh
 		local t = b.target :: Target
@@ -704,9 +893,12 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			t.distance = (part.Position - eye(b)).Magnitude
 		end
 	end
+	debug.profileend()
 	-- cover from the threat, while there is one
 	local threatened = b.threatAt ~= nil and now - (b.threatAt :: number) < brainCfg.ThreatMemory
-	if (threatened or b.spotted or b.brain.targetId ~= nil) and now - b.coverAt >= CV.every then
+	if b.coverJob then
+		coverStep(b)
+	elseif (threatened or b.spotted or b.brain.targetId ~= nil) and now - b.coverAt >= CV.every then
 		findCover(b, now)
 	elseif not threatened and not b.spotted and b.brain.targetId == nil and b.brain.state ~= "Cover" then
 		b.cover = nil
@@ -743,11 +935,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	end
 
 	-- where to go
-	local zone, radius = ZoneMatch.objective()
+	debug.profilebegin("Bots.move")
+	local zone, radius = objective(b)
 	local goal: Vector3? = nil
 	local targetPart = if target then aimPart(target.model) else nil
 	local aimAt: Vector3? = if targetPart then targetPart.Position else b.lastSeenAt
 	local move = intent.move
+	-- Normal: a hunt that would lead it far from its order's sector gives way to the order
+	if move == "Hunt" and b.mode == "Normal" and zone and b.lastSeenAt then
+		if flat((b.lastSeenAt :: Vector3) - (zone :: Vector3)).Magnitude > NV.leash then
+			move = "Objective"
+		end
+	end
 	if move == "Objective" and zone then
 		local z = zone :: Vector3
 		if b.flank and flat((b.flank :: Vector3) - root.Position).Magnitude < MV.Arrive * 3 then
@@ -769,7 +968,8 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 				b.wanderAt = now + MV.WanderEvery
 			end
 		end
-		goal = if inZone then b.wander elseif b.flank then b.flank else z
+		-- (Normal: outside the zone it heads for its own stand point there, so they spread out)
+		goal = if inZone then b.wander elseif b.flank then b.flank else (b.stand or z)
 		b.nav.direct = nil
 	elseif move == "Hunt" then
 		goal = b.lastSeenAt
@@ -804,6 +1004,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		b.nav.goal = nil
 	end
 	follow(b, now)
+	debug.profileend()
 
 	-- speed and facing
 	local far = b.nav.goal ~= nil and flat((b.nav.goal :: Vector3) - root.Position).Magnitude > MV.SprintFrom
@@ -878,20 +1079,94 @@ end
 
 local nextJoin, nextLeave = 0, 0
 
-local function direct(now: number)
-	local mode = workspace:GetAttribute(ModesCfg.Attribute)
-	local pin = workspace:GetAttribute(Cfg.Attribute)
-	local fill = if Cfg.Enabled and type(mode) == "string" then (Cfg.Fill :: any)[mode] else nil
-	local want = Rules.wanted(fill, #Players:GetPlayers(), Cfg.Max, if type(pin) == "number" then pin else nil)
-	if not ZoneMatch.running() then
-		want = 0 -- (only the zone match has spawns and an objective so far)
+-- tops the bots of `side` (nil: FFA's) up or down to `want`, one in or out at a time; true when it acted
+local function balance(mode: string, side: string?, want: number, now: number): boolean
+	local have = 0
+	local dead: number? = nil
+	local last: number? = nil
+	for i, b in bots do
+		if b.side == side then
+			have += 1
+			if b.deadAt and not dead then
+				dead = i
+			end
+			last = i
+		end
 	end
-	-- back from the dead after the respawn wait (or gone, if no longer wanted)
+	if have < want then
+		if now >= nextJoin then
+			nextJoin = now + (if mode == "Normal" then NV.joinEvery else Cfg.JoinEvery)
+			add(mode, side)
+			return true
+		end
+	elseif have > want and now >= nextLeave then
+		-- a dead one goes first; else the one longest over the count
+		if dead then
+			nextLeave = now + Cfg.LeaveEvery
+			remove(dead :: number)
+			return true
+		end
+		local b = bots[last :: number]
+		b.overSince = b.overSince or now
+		if now - (b.overSince :: number) >= Cfg.LeaveAliveAfter then
+			nextLeave = now + Cfg.LeaveEvery
+			remove(last :: number)
+			return true
+		end
+	elseif have <= want then
+		for _, b in bots do
+			if b.side == side then
+				b.overSince = nil
+			end
+		end
+	end
+	return false
+end
+
+local function direct(now: number)
+	local mode = liveMode()
+	local pin = workspace:GetAttribute(Cfg.Attribute)
+	local pinned = if type(pin) == "number" then pin else nil
+	-- how many bots each group wants: FFA one group (""), Normal one a side (players first, under the governor's cap)
+	local wants: { [string]: number } = {}
+	if Cfg.Enabled and mode == "Normal" and Frontline.running() then
+		local pair = FrontRules.parsePair(workspace:GetAttribute(FrontCfg.TeamsAttribute))
+		local players = { West = 0, East = 0 }
+		for _, p in Players:GetPlayers() do
+			local side = FrontRules.sideOf(pair, Kits.next(p))
+			if side then
+				(players :: any)[side] += 1
+			end
+		end
+		local cap = math.min(Cfg.Max.Normal, governor.cap)
+		wants.West, wants.East = Rules.wantedSides(Cfg.Fill.Normal.perSide, players.West, players.East, cap, pinned)
+	elseif Cfg.Enabled and mode == "FFA" and ZoneMatch.running() then
+		local cap = math.min(Cfg.Max.FFA, governor.cap)
+		wants[""] = Rules.wanted(Cfg.Fill.FFA, #Players:GetPlayers(), cap, pinned)
+	end
+	-- bots of another mode (or a group no longer wanted) go at once
 	for i = #bots, 1, -1 do
 		local b = bots[i]
+		if b.mode ~= mode or wants[b.side or ""] == nil then
+			remove(i)
+		end
+	end
+	-- back from the dead after the respawn wait (or gone, if over the count)
+	local have: { [string]: number } = {}
+	for _, b in bots do
+		local key = b.side or ""
+		have[key] = (have[key] or 0) + 1
+	end
+	for i = #bots, 1, -1 do
+		local b = bots[i]
+		if not b then
+			continue -- (removed while a body was being built)
+		end
+		local key = b.side or ""
 		if b.deadAt and now >= (b.respawnAt or math.huge) then
-			if #bots > want then
+			if have[key] > wants[key] then
 				remove(i)
+				have[key] -= 1
 			else
 				despawn(b)
 				spawnBody(b)
@@ -900,29 +1175,68 @@ local function direct(now: number)
 			spawnBody(b) -- (no spawn point earlier)
 		end
 	end
-	if #bots < want and now >= nextJoin then
-		nextJoin = now + Cfg.JoinEvery
-		add()
-	elseif #bots > want and now >= nextLeave then
-		-- a dead one goes first; else the one longest over the count
-		for i, b in bots do
-			if b.deadAt then
-				nextLeave = now + Cfg.LeaveEvery
-				remove(i)
-				return
-			end
-		end
-		local last = bots[#bots]
-		last.overSince = last.overSince or now
-		if now - (last.overSince :: number) >= Cfg.LeaveAliveAfter then
-			nextLeave = now + Cfg.LeaveEvery
-			remove(#bots)
-		end
-	else
-		for _, b in bots do
-			b.overSince = nil
+	for _, side in { "West", "East", "" } do
+		local want = wants[side]
+		if want and balance(mode :: string, if side == "" then nil else side, want, now) then
+			return
 		end
 	end
+end
+
+-- Normal: a stand point in sector `i`'s zone, on the ground (a ray on terrain)
+local function standPoint(i: number): Vector3
+	local s = Map.sectors[i]
+	local a = random:NextNumber() * 2 * math.pi
+	local r = s.radius * NV.standShare * math.sqrt(random:NextNumber())
+	local x, z = s.x + math.cos(a) * r, s.z + math.sin(a) * r
+	local g = FrontCfg.GroundRay
+	local hit = workspace:Raycast(Vector3.new(x, g.top, z), Vector3.new(0, -g.depth, 0), terrainOnly)
+	return Vector3.new(x, if hit then hit.Position.Y else sectorPoint(i).Y, z)
+end
+
+-- Normal: each side's commander (Rules/BotOrders) from the sectors on the Frontline folder: who attacks the side's
+-- target sector and who defends an own sector being taken
+local function command()
+	local f = workspace:FindFirstChild(FrontCfg.FolderName)
+	if liveMode() ~= "Normal" or not Frontline.running() or not f then
+		return
+	end
+	debug.profilebegin("Bots.command")
+	local owner, control, counts = {}, {}, {}
+	for i, s in Map.sectors do
+		local sf = f:FindFirstChild(s.id)
+		local o = sf and sf:GetAttribute("Owner")
+		owner[i] = if type(o) == "string" then o else s.startOwner
+		local c = sf and sf:GetAttribute("Control")
+		control[i] = if type(c) == "number" then c else FrontRules.rest(owner[i])
+		local w = sf and sf:GetAttribute("West")
+		local e = sf and sf:GetAttribute("East")
+		counts[i] = { West = if type(w) == "number" then w else 0, East = if type(e) == "number" then e else 0 }
+	end
+	local state = { owner = owner, control = control }
+	for _, side in { "West", "East" } do
+		local ids, current = {}, {}
+		for _, b in bots do
+			if b.side == side then
+				table.insert(ids, b.id)
+				current[b.id] = b.order
+			end
+		end
+		local plan = Orders.plan(side, owner, control, counts, FrontRules.target(state, side), NV.defendShare)
+		local given = Orders.assign(ids, current, Orders.defenders(#ids, plan.share, plan.attack ~= nil))
+		for _, b in bots do
+			if b.side == side then
+				b.order = given[b.id]
+				local sector = if b.order == "Defend" then plan.defend else plan.attack
+				if sector ~= b.sector then
+					b.sector = sector
+					b.stand = if sector then standPoint(sector) else nil
+					b.wander, b.reachedZone, b.flank = nil, false, nil
+				end
+			end
+		end
+	end
+	debug.profileend()
 end
 
 local function report(now: number)
@@ -932,7 +1246,11 @@ local function report(now: number)
 	local span = now - stats.since
 	local living = 0
 	local states: { [string]: number } = {}
+	local sides: { [string]: number } = {}
 	for _, b in bots do
+		if b.side then
+			sides[b.side :: string] = (sides[b.side :: string] or 0) + 1
+		end
 		if alive(b) then
 			living += 1
 			states[b.brain.state] = (states[b.brain.state] or 0) + 1
@@ -943,18 +1261,33 @@ local function report(now: number)
 		table.insert(parts, `{k} {n}`)
 	end
 	table.sort(parts)
+	local samples = stats.frameSamples
+	table.sort(samples)
+	local p95 = if #samples > 0 then samples[math.max(1, math.ceil(#samples * 0.95))] else 0
+	local heartbeat = 0
+	pcall(function()
+		heartbeat = (Stats :: any).HeartbeatTimeMs
+	end)
 	print(
 		string.format(
-			"[Bots] %d bots (%d alive: %s): think %.3f ms avg, %.2f ms max; frame max %.2f ms; %.0f rays/s, %.1f paths/s (%d failed); %d stuck, %d sidesteps; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off); %d stuck, %d sidesteps; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms",
 			#bots,
+			sides.West or 0,
+			sides.East or 0,
 			living,
 			table.concat(parts, ", "),
+			governor.cap,
+			if stats.frames > 0 then stats.frameTime / stats.frames * 1000 else 0,
+			p95 * 1000,
+			stats.frameMax * 1000,
 			if stats.thinks > 0 then stats.thinkTime / stats.thinks * 1000 else 0,
 			stats.thinkMax * 1000,
-			stats.frameMax * 1000,
-			stats.rays / span,
+			stats.deferred,
+			if stats.frames > 0 then stats.rays / stats.frames else 0,
+			stats.senseDeferred,
 			stats.paths / span,
 			stats.pathFails,
+			stats.pathsDeferred,
 			stats.stuck,
 			stats.sidesteps,
 			stats.shots,
@@ -964,12 +1297,16 @@ local function report(now: number)
 			stats.upgrades,
 			if stats.toZoneCount > 0 then stats.toZone / stats.toZoneCount else 0,
 			stats.toZoneCount,
-			workspace:GetRealPhysicsFPS()
+			workspace:GetRealPhysicsFPS(),
+			heartbeat
 		)
 	)
-	for k in stats do
-		stats[k] = 0
+	for k, v in stats :: any do
+		if type(v) == "number" then
+			(stats :: any)[k] = 0
+		end
 	end
+	table.clear(samples)
 	stats.since = now
 end
 
@@ -993,13 +1330,28 @@ function Bots.start()
 	ZoneMatch.onBotCapture(function(id)
 		Loadouts.awardBot(id, "Capture")
 	end)
-	-- each match starts with everyone respawned: the bots too
-	ZoneMatch.onMatchStart(function()
-		for _, b in bots do
-			despawn(b)
-			b.deadAt, b.respawnAt = nil, nil
-			spawnBody(b)
+	Frontline.onBotAward(function(m: Model, reason: string)
+		local id = m:GetAttribute(Cfg.IdAttribute)
+		if type(id) == "number" then
+			Loadouts.awardBot(id, reason)
 		end
+	end)
+	-- each match starts with everyone respawned: the bots too (in Normal, on the new match's teams)
+	local function respawnAll(mode: string)
+		for _, b in bots do
+			if b.mode == mode then
+				despawn(b)
+				b.deadAt, b.respawnAt = nil, nil
+				b.order, b.sector, b.stand = nil, nil, nil
+				spawnBody(b)
+			end
+		end
+	end
+	ZoneMatch.onMatchStart(function()
+		respawnAll("FFA")
+	end)
+	Frontline.onMatchStart(function()
+		respawnAll("Normal")
 	end)
 	-- the director in its own loop: a new body yields (the avatar is built), never inside the frame's step
 	task.spawn(function()
@@ -1011,29 +1363,71 @@ function Bots.start()
 			end
 		end
 	end)
-	RunService.Heartbeat:Connect(function()
-		local t0 = os.clock()
-		local d = difficulty()
-		for _, b in bots do
-			if t0 >= b.nextThink then
-				b.nextThink += 1 / Cfg.Think
-				if b.nextThink < t0 then
-					b.nextThink = t0 + 1 / Cfg.Think
-				end
-				if alive(b) and not b.deadAt then
-					local s0 = os.clock()
-					local ok, err = pcall(think, b, t0, d)
-					if not ok then
-						warn(`[Bots] {b.name}: {err}`)
-					end
-					local spent = os.clock() - s0
-					stats.thinkTime += spent
-					stats.thinks += 1
-					stats.thinkMax = math.max(stats.thinkMax, spent)
-				end
+	-- Normal's commanders, in their own slow loop
+	task.spawn(function()
+		while true do
+			task.wait(NV.commandEvery)
+			local ok, err = pcall(command)
+			if not ok then
+				warn(`[Bots] commander: {err}`)
 			end
 		end
-		stats.frameMax = math.max(stats.frameMax, os.clock() - t0)
+	end)
+	-- every frame: the bots due think, round-robin, until the frame's milliseconds are spent
+	RunService.Heartbeat:Connect(function(dt: number)
+		local t0 = os.clock()
+		frame += 1
+		raysLeft = BG.raysPerFrame
+		pathTokens = math.min(math.max(BG.pathsPerSecond, 1), pathTokens + BG.pathsPerSecond * dt)
+		debug.profilebegin("Bots.frame")
+		local d = difficulty()
+		local n = #bots
+		local deadline = t0 + BG.frameMs / 1000
+		local start = if cursor > n then 1 else cursor
+		for k = 0, n - 1 do
+			local i = (start + k - 1) % n + 1
+			local b = bots[i]
+			if t0 < b.nextThink then
+				continue
+			end
+			if os.clock() >= deadline then
+				cursor = i -- (the next frame starts here)
+				stats.deferred += 1
+				break
+			end
+			b.nextThink += 1 / Cfg.Think
+			if b.nextThink < t0 then
+				b.nextThink = t0 + 1 / Cfg.Think
+			end
+			if alive(b) and not b.deadAt then
+				local s0 = os.clock()
+				local ok, err = pcall(think, b, t0, d)
+				if not ok then
+					warn(`[Bots] {b.name}: {err}`)
+				end
+				local spent = os.clock() - s0
+				stats.thinkTime += spent
+				stats.thinks += 1
+				stats.thinkMax = math.max(stats.thinkMax, spent)
+			end
+		end
+		debug.profileend()
+		local spent = os.clock() - t0
+		stats.frameMax = math.max(stats.frameMax, spent)
+		stats.frames += 1
+		stats.frameTime += spent
+		table.insert(stats.frameSamples, spent)
+		-- the governor, once a second, on the bots' average frame cost and the physics rate
+		govTime += spent
+		govFrames += 1
+		if t0 - govAt >= 1 then
+			local max = if liveMode() == "Normal" then Cfg.Max.Normal else Cfg.Max.FFA
+			if n > 0 then
+				local ms = govTime / govFrames * 1000
+				Rules.govern(governor, ms, workspace:GetRealPhysicsFPS(), t0 - govAt, n, max, BG.governor)
+			end
+			govAt, govTime, govFrames = t0, 0, 0
+		end
 		report(t0)
 	end)
 end

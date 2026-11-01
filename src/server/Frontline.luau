@@ -18,13 +18,18 @@
 -- markers (src/dev/Greybox, shown by the admin's switch: src/server/Sectors) are coloured by owner and labelled with
 -- control and head counts. The admin panel ends and restarts a match and takes a side's next sector
 -- (src/server/DevTools).
+-- Bot soldiers (src/server/Bots, tagged Config/Bots.Tag) play a side like players: they count in the zones and for a
+-- match's start (not for the reinforcements), stand in the wave line (Frontline.deployBot) and are paid through
+-- Frontline.onBotAward.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Frontline)
+local BotsCfg = require(Shared.Config.Bots)
 local DamageCfg = require(Shared.Config.Damage)
 local SectorCfg = require(Shared.Config.Sectors)
 local Palette = require(Shared.Config.Palette)
@@ -68,6 +73,7 @@ local pair: { West: string, East: string }
 local folder: Folder
 local zoneY: { number } = {} -- each sector's ground at its point
 local awardWatchers: { (Player, string) -> () } = {}
+local botAwardWatchers: { (Model, string) -> () } = {}
 local matchWatchers: { () -> () } = {}
 -- while running: the match loop, the player hooks; set by the admin to end the match now
 local thread: thread? = nil
@@ -92,11 +98,36 @@ end
 function Frontline.onMatchStart(fn: () -> ())
 	table.insert(matchWatchers, fn)
 end
+-- `fn(bot, reason)` for each award to a bot soldier (src/server/Bots pays it)
+function Frontline.onBotAward(fn: (Model, string) -> ())
+	table.insert(botAwardWatchers, fn)
+end
 
-local function award(player: Player, reason: string)
-	for _, fn in awardWatchers do
-		task.spawn(fn, player, reason)
+local function isPlayer(who: Player | Model): boolean
+	return (who :: Instance):IsA("Player")
+end
+
+local function award(who: Player | Model, reason: string)
+	if isPlayer(who) then
+		for _, fn in awardWatchers do
+			task.spawn(fn, who :: Player, reason)
+		end
+	else
+		for _, fn in botAwardWatchers do
+			task.spawn(fn, who :: Model, reason)
+		end
 	end
+end
+
+-- the bot soldiers on the map now
+local function bots(): { Model }
+	local out = {}
+	for _, m in CollectionService:GetTagged(BotsCfg.Tag) do
+		if m:IsA("Model") and m.Parent then
+			table.insert(out, m)
+		end
+	end
+	return out
 end
 
 local function phase(name: string, seconds: number?)
@@ -108,6 +139,11 @@ end
 local function sideOf(player: Player): Rules.Side?
 	local character = player.Character
 	return Rules.sideOf(pair, character and character:GetAttribute("Kit"))
+end
+
+-- the side a soldier's model plays on (a bot's, or a player's character)
+local function sideOfModel(character: Model): Rules.Side?
+	return Rules.sideOf(pair, character:GetAttribute("Kit"))
 end
 
 -- each side's spawn sector now (published as "<Side>Spawn": the loadout map's deploy ring)
@@ -174,7 +210,7 @@ local function nextSlot(side: Rules.Side): (Vector3, Vector3)
 	end
 	local centre, face = lineOf(side)
 	local right = face:Cross(Vector3.yAxis)
-	local skip: { Instance } = {}
+	local skip: { Instance } = bots()
 	for _, p in Players:GetPlayers() do
 		if p.Character then
 			table.insert(skip, p.Character)
@@ -234,7 +270,11 @@ local function release()
 		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
 			root.Anchored = false
-			root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+			if CollectionService:HasTag(character, BotsCfg.Tag) then
+				root:SetNetworkOwner(nil) -- (a bot stays the server's)
+			else
+				root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+			end
 		end
 		local ball = character:FindFirstChild(Cfg.Shield.name) :: BasePart?
 		if ball then
@@ -250,13 +290,7 @@ end
 
 -- stands `player`'s soldier in its side's wave line: frozen and shielded until the wave goes while one is due (the
 -- countdown and play), else free on the spot (waiting for players, the results)
-local function spawnAt(player: Player)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local side = sideOf(player)
-	if not character or not root or not side then
-		return
-	end
+local function stand(character: Model, root: BasePart, side: Rules.Side): Vector3
 	local pos, look = nextSlot(side)
 	character:PivotTo(CFrame.lookAt(pos, look))
 	root.AssemblyLinearVelocity = Vector3.zero
@@ -274,6 +308,17 @@ local function spawnAt(player: Player)
 			end)
 		end
 	end
+	return pos
+end
+
+local function spawnAt(player: Player)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local side = sideOf(player)
+	if not character or not root or not side then
+		return
+	end
+	local pos = stand(character, root, side)
 	task.spawn(function()
 		pcall(function()
 			player:RequestStreamAroundAsync(pos)
@@ -347,39 +392,53 @@ local function empty(): { { West: number, East: number } }
 	return counts
 end
 
--- each sector's soldiers in its zone by side, and the players in each zone
-local function occupancy(): ({ { West: number, East: number } }, { { Player } })
+-- each sector's soldiers in its zone by side, and the soldiers in each zone (players and bots)
+local function occupancy(): ({ { West: number, East: number } }, { { Player | Model } })
 	local counts, inside = empty(), {}
 	for i in sectors do
 		inside[i] = {}
 	end
-	for _, p in Players:GetPlayers() do
-		local root = alive(p)
-		local side = sideOf(p)
-		local character = p.Character
+	local function count(who: Player | Model, character: Model?, root: BasePart?, side: Rules.Side?)
 		if root and side and character and not Ragdoll.active(character) and not Damage.protected(character) then
 			local feet = root.Position - Vector3.new(0, Cfg.FeetBelowRoot, 0)
 			for i, s in sectors do
 				if Rules.inZone(feet.X - s.x, feet.Z - s.z, feet.Y - zoneY[i], s.radius, Cfg.Height) then
 					counts[i][side] += 1
-					table.insert(inside[i], p)
+					table.insert(inside[i], who)
 					break
 				end
 			end
 		end
 	end
+	for _, p in Players:GetPlayers() do
+		count(p, p.Character, alive(p), sideOf(p))
+	end
+	for _, m in bots() do
+		local humanoid = m:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			count(m, m, m:FindFirstChild("HumanoidRootPart") :: BasePart?, sideOfModel(m))
+		end
+	end
 	return counts, inside
 end
 
--- how many players each side has (by their next life's team)
-local function heads(): (number, number)
+-- how many players each side has (by their next life's team); `withBots`: and its bot soldiers (a match's start counts
+-- them, the reinforcements don't)
+local function heads(withBots: boolean?): (number, number)
 	local w, e = 0, 0
-	for _, p in Players:GetPlayers() do
-		local side = Rules.sideOf(pair, Kits.next(p))
+	local function add(side: Rules.Side?)
 		if side == "West" then
 			w += 1
 		elseif side == "East" then
 			e += 1
+		end
+	end
+	for _, p in Players:GetPlayers() do
+		add(Rules.sideOf(pair, Kits.next(p)))
+	end
+	if withBots then
+		for _, m in bots() do
+			add(sideOfModel(m))
 		end
 	end
 	return w, e
@@ -425,7 +484,7 @@ local function run()
 			task.spawn(fn)
 		end
 		while not ending do
-			local w, e = heads()
+			local w, e = heads(true)
 			if starting or Rules.ready(w, e, Cfg.MinPerSide) then
 				break
 			end
@@ -441,6 +500,11 @@ local function run()
 				local character = p.Character
 				if alive(p) and character and not holding[character] then
 					spawnAt(p)
+				end
+			end
+			for _, m in bots() do
+				if not holding[m] then
+					Frontline.deployBot(m)
 				end
 			end
 			task.wait(Cfg.CountdownSeconds)
@@ -478,9 +542,10 @@ local function run()
 					folder:SetAttribute(Cfg.LevelAttribute, Rules.gunLevel(Cfg.Artillery, lost))
 				end
 				local reason = if ev.kind == "Captured" then "Capture" else "Neutralise"
-				for _, p in inside[ev.index] do
-					if sideOf(p) == ev.side then
-						award(p, reason)
+				for _, who in inside[ev.index] do
+					local side = if isPlayer(who) then sideOf(who :: Player) else sideOfModel(who :: Model)
+					if side == ev.side then
+						award(who, reason)
 					end
 				end
 			end
@@ -492,6 +557,11 @@ local function run()
 			for _, p in Players:GetPlayers() do
 				if Rules.sideOf(pair, Kits.next(p)) == winner then
 					award(p, "Win")
+				end
+			end
+			for _, m in bots() do
+				if sideOfModel(m) == winner then
+					award(m, "Win")
 				end
 			end
 		end
@@ -542,6 +612,16 @@ function Frontline.killed(killer: Player, victim: Model)
 	end
 	if Rules.defends(state, sectors, side, spots, Cfg.DefendReach) then
 		award(killer, "Defend")
+	end
+end
+
+-- Stands bot soldier `m` (src/server/Bots) in its side's wave line, as a player's soldier is on spawning: held and
+-- shielded until the wave goes while one is due, else free on the spot.
+function Frontline.deployBot(m: Model)
+	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local side = if thread then sideOfModel(m) else nil
+	if root and side then
+		stand(m, root, side)
 	end
 end
 

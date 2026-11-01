@@ -86,6 +86,62 @@ function Bots.wanted(fill: { total: number }?, players: number, max: number, ove
 	return math.clamp(fill.total - players, 0, max)
 end
 
+-- Bots each side runs in Normal: each side topped up to `perSide` with its own players first; a test's pin (`override`,
+-- a total) split evenly, West taking the odd one. Over `max` the side with more soldiers (players and bots; on a tie the
+-- one with more bots, then West) gives up a bot at a time, so the sides stay as even as the bots can make them.
+function Bots.wantedSides(perSide: number, west: number, east: number, max: number, override: number?): (number, number)
+	local w, e
+	if override then
+		local total = math.max(0, math.floor(override))
+		w, e = math.ceil(total / 2), math.floor(total / 2)
+	else
+		w, e = math.max(0, perSide - west), math.max(0, perSide - east)
+	end
+	max = math.max(0, math.floor(max))
+	if override then
+		west, east = 0, 0
+	end
+	while w + e > max do
+		local sw, se = west + w, east + e
+		if e == 0 or (w > 0 and (sw > se or (sw == se and w >= e))) then
+			w -= 1
+		else
+			e -= 1
+		end
+	end
+	return w, e
+end
+
+export type Governor = { cap: number, bad: number, good: number }
+
+-- A fresh governor letting `max` bots run.
+function Bots.governor(max: number): Governor
+	return { cap = max, bad = 0, good = 0 }
+end
+
+-- The governor over `dt` seconds of a frame cost of `ms` (the bots' one-second average) and a physics rate of `fps`,
+-- with `count` bots on now and the mode's `max` (Config/Bots.Budget.governor): over budget for `trimAfter` seconds,
+-- the cap goes one under the bots on (then one more every `trimEvery`); within it for `restoreAfter`, one back (then
+-- every `restoreEvery`), never over `max` nor under `floor`.
+function Bots.govern(g: Governor, ms: number, fps: number, dt: number, count: number, max: number, cfg: any)
+	if ms > cfg.ms or fps < cfg.minFps then
+		g.bad += dt
+		g.good = 0
+		if g.bad >= cfg.trimAfter then
+			g.cap = math.max(cfg.floor, math.min(g.cap, count) - 1)
+			g.bad = cfg.trimAfter - cfg.trimEvery
+		end
+	else
+		g.good += dt
+		g.bad = 0
+		if g.good >= cfg.restoreAfter and g.cap < max then
+			g.cap += 1
+			g.good = cfg.restoreAfter - cfg.restoreEvery
+		end
+	end
+	g.cap = math.min(g.cap, max)
+end
+
 function Bots.new(): Brain
 	return {
 		state = "Advance",
