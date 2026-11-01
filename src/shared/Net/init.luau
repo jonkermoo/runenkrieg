@@ -54,6 +54,9 @@ local Remotes: { string } = {
 	-- client -> server: (pitch: number, follow: number) the camera pitch in degrees and the gun's follow share
 	-- server -> clients: (character: Model, pitch: number, follow: number) clamped and quantized, throttled per soldier
 	"LookPitch",
+	-- server -> clients near the bot: (bot: Model, text: string) a bot soldier's callout, shown as a bubble over its head
+	-- (src/server/Bots, Rules/BotCallouts; src/client/BotSay), never in the chat log
+	"BotSay",
 	-- The head's turn toward the look, shown to soldiers nearby (src/client/LookTilt, src/server/LookTilt;
 	-- Config/Locomotion.LookTilt.Head): client -> server: (yaw: number) degrees from the torso's facing; server ->
 	-- clients within Head.Send.Range: (character: Model, yaw: number) clamped and quantized, throttled per soldier

@@ -35,6 +35,9 @@
 -- frame); one snapshot of every soldier a frame serves all the bots' sight; cover searches walk one ring a think within
 -- a frame's rays; path computes are rationed server-wide; a governor holds the count lower while the bots cost too much
 -- or physics slows. MicroProfiler labels: Bots.frame, Bots.snapshot, Bots.sense, Bots.cover, Bots.move, Bots.command.
+-- - Callouts (Config/Bots.Callouts, Rules/BotCallouts; user 2026-11-01): on a real event (hit, a teammate down, an
+--   enemy seen, into cover, reloading, its squad moving up, pushing in or covering) a bot may say a short line, a bubble
+--   over its head (src/client/BotSay, never in the chat log), only with a player near it and never often.
 -- Every Config/Bots.ReportEvery seconds the log has a line on its cost and its fights.
 
 local CollectionService = game:GetService("CollectionService")
@@ -51,6 +54,7 @@ local DamageCfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
 local FrontCfg = require(Shared.Config.Frontline)
 local Loco = require(Shared.Config.Locomotion)
+local Net = require(Shared.Net)
 local Map = require(Shared.Config.Maps.Map1)
 local Metrics = require(Shared.Config.Metrics)
 local ModesCfg = require(Shared.Config.Modes)
@@ -61,6 +65,7 @@ local ZoneCfg = require(Shared.Config.ZoneMatch)
 local F = require(Shared.Rules.Firing)
 local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
+local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
 local ShotRules = require(Shared.Rules.ShotAudio)
 local Sup = require(Shared.Rules.Suppression)
@@ -164,6 +169,7 @@ type Bot = {
 	thinkHz: number, -- how often it thinks and looks now (Rules/Bots.lod)
 	senseHz: number,
 	lod: string, -- "near", "middle" or "distant" (the report)
+	nearest: number, -- studs to the nearest player at its last think (callouts)
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -201,6 +207,7 @@ local stats = {
 	pathsDeferred = 0, -- path computes put off for want of the server's ration
 	pathsShared = 0, -- paths taken from another bot's
 	reowned = 0, -- bodies whose physics a player had taken, given back to the server
+	callouts = 0, -- lines said
 	covering = 0, -- shots of covering fire
 	assaults = 0, -- squads that pushed into a zone
 	stoodUp = 0, -- bodies found lying after a knock, stood up
@@ -296,6 +303,40 @@ local function chooseClass(b: Bot): (string, number?)
 end
 
 local spawnBody: (b: Bot) -> ()
+
+-- callouts: who said what lately (Rules/BotCallouts)
+local talk = Callouts.new()
+local CO = Cfg.Callouts
+
+-- Bot `b` says its line for `event` (Config/Bots.Callouts) when it may: a player near, its waits and its side's over,
+-- the event's chance; the bubble goes to the players within `hear` studs. `name`: a fallen teammate's. True if said.
+local function say(b: Bot, event: string, name: string?): boolean
+	local root = b.root
+	if not root or not b.m or not alive(b) then
+		return false
+	end
+	local now = os.clock()
+	local side = b.side or b.kit
+	if not Callouts.can(talk, b.id, side, event, now, b.nearest, random:NextNumber(), CO) then
+		return false
+	end
+	local kit = (U.Kits :: any)[b.kit]
+	local lines = kit and (CO.Lines :: any)[kit.team]
+	local line = Callouts.line(lines and lines[event], random:NextNumber(), name)
+	if not line then
+		return false
+	end
+	Callouts.said(talk, b.id, side, event, now)
+	stats.callouts += 1
+	local at = (root :: BasePart).Position
+	for _, p in Players:GetPlayers() do
+		local pr = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if pr and (pr.Position - at).Magnitude <= CO.hear then
+			Net.event("BotSay"):FireClient(p, b.m, line)
+		end
+	end
+	return true
+end
 
 -- Normal: each sector's ground at its point (found once, by a ray on terrain)
 local terrainOnly = RaycastParams.new()
@@ -466,6 +507,9 @@ spawnBody = function(b: Bot)
 		if health < last then
 			b.hurtAt = os.clock()
 			b.threatAt = b.hurtAt
+			if health > 0 then
+				say(b, "Hit")
+			end
 		end
 		last = health
 	end)
@@ -490,6 +534,18 @@ spawnBody = function(b: Bot)
 	humanoid.Died:Connect(function()
 		stats.deaths += 1
 		b.deadAt = os.clock()
+		-- a teammate close by calls it
+		for _, o in bots do
+			if
+				o ~= b
+				and o.root
+				and o.kit == b.kit
+				and ((o.root :: BasePart).Position - root.Position).Magnitude <= CO.manDownWithin
+				and say(o, "ManDown", b.name)
+			then
+				break
+			end
+		end
 		-- a player's respawn wait (Normal: until deploy opens), then a moment in the loadout menu
 		local wait = if b.mode == "Normal" then FrontCfg.Waves.dead else Metrics.Combat.RespawnDelay
 		b.respawnAt = b.deadAt + wait + random:NextNumber(Cfg.MenuTime[1], Cfg.MenuTime[2])
@@ -536,6 +592,7 @@ local function add(mode: string, side: string?)
 		thinkHz = Cfg.Think,
 		senseHz = Cfg.Sense,
 		lod = "near",
+		nearest = math.huge,
 	}
 	b.name = freeName()
 	table.insert(bots, b)
@@ -550,6 +607,7 @@ local function remove(i: number)
 	botFolder():SetAttribute(Cfg.NameAttribute .. tostring(-b.id), nil)
 	Loadouts.forgetBot(b.id)
 	ZoneMatch.forgetBot(b.id)
+	Callouts.forget(talk, b.id)
 	pathOf[b.id] = nil
 end
 
@@ -1189,6 +1247,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		or (b.threatAt ~= nil and now - (b.threatAt :: number) < brainCfg.ThreatMemory)
 		or (b.hurtAt ~= nil and now - (b.hurtAt :: number) < brainCfg.ThreatMemory)
 	b.thinkHz, b.senseHz = Rules.lod(nearest, fighting, BG.lod)
+	b.nearest = nearest
 	b.lod = if b.thinkHz >= BG.lod.near.think
 		then "near"
 		elseif b.thinkHz >= BG.lod.middle.think then "middle"
@@ -1246,9 +1305,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		suppress = b.role == "Support" and knownSpot(b, now) ~= nil,
 	}
 	local was = b.brain.state
+	local hadTarget = b.brain.targetId ~= nil
 	local intent = Rules.step(b.brain, senses, brainCfg, d, random:NextNumber())
 	if b.brain.state ~= was and b.brain.state == "Peek" then
 		stats.peeks += 1
+	end
+	-- callouts on what just changed
+	if not hadTarget and b.brain.targetId ~= nil then
+		say(b, "Spotted")
+	elseif b.brain.state ~= was and b.brain.state == "Cover" then
+		say(b, "Cover")
+	elseif intent.reload then
+		say(b, "Reload")
 	end
 
 	-- where to go
@@ -1695,6 +1763,11 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			}, SQ)
 			if sqs.sq.phase == "Assault" and was ~= "Assault" then
 				stats.assaults += 1
+				for _, b in members do
+					if say(b, "Push") then
+						break
+					end
+				end
 			end
 			-- each member's role and goal
 			local route = sqs.mid or sqs.approach or c
@@ -1730,6 +1803,13 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					else
 						b.stop = nil
 						b.goal = slot
+					end
+				end
+				if role ~= b.roleWas then
+					if role == "Support" then
+						say(b, "Covering")
+					elseif role == "Move" and sqs.sq.phase == "Bound" then
+						say(b, "MoveUp")
 					end
 				end
 				b.roleWas = role
@@ -1834,7 +1914,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -1860,6 +1940,7 @@ local function report(now: number)
 			stats.assaults,
 			stats.covering,
 			if #roleParts > 0 then table.concat(roleParts, ", ") else "none",
+			stats.callouts,
 			stats.shots,
 			stats.deaths,
 			stats.covers,
