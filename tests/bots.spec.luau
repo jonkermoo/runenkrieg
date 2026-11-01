@@ -441,4 +441,72 @@ return {
 		i = R.step(f, senses({ now = 1 }), brainCfg, D, 0.5)
 		assert(i.move == "Objective", "no role (FFA): as before")
 	end,
+	["suppression: a pinned bot takes cover even pressing on, won't peek, and aims wider"] = function()
+		local pin = brainCfg.SuppressedCover
+		-- pressing on with a near miss: goes on; pinned by suppression: cover
+		local b = R.new()
+		R.step(
+			b,
+			senses({ now = 1, target = enemy(80), role = "Assault", threatAt = 1, cover = "going" }),
+			brainCfg,
+			D,
+			0.5
+		)
+		assert(b.state ~= "Cover")
+		R.step(
+			b,
+			senses({ now = 2, target = enemy(80), role = "Assault", threatAt = 2, cover = "going", suppressed = pin }),
+			brainCfg,
+			D,
+			0.5
+		)
+		assert(b.state == "Cover", b.state)
+		-- in cover with its time up: no peek while pinned, a peek once it calms down
+		local c = R.new()
+		c.state, c.coverUntil = "Cover", 0
+		R.step(c, senses({ now = 10, target = enemy(80, false), cover = "at", suppressed = 1 }), brainCfg, D, 0.5)
+		c.targetId, c.lastSeen = "e", 9.9
+		R.step(c, senses({ now = 10, target = enemy(80, false), cover = "at", suppressed = 1 }), brainCfg, D, 0.5)
+		assert(c.state == "Cover", "pinned: no peek")
+		R.step(c, senses({ now = 10.5, target = enemy(80, false), cover = "at", suppressed = 0 }), brainCfg, D, 0.5)
+		assert(c.state == "Peek", c.state)
+		assert(R.shakenAim(1, 0, brainCfg.SuppressedAim) == 1)
+		assert(R.shakenAim(1, 1, brainCfg.SuppressedAim) == 1 + brainCfg.SuppressedAim)
+		assert(R.shakenAim(1, 3, brainCfg.SuppressedAim) == 1 + brainCfg.SuppressedAim, "capped at full")
+	end,
+	["heard: the shot's source guessed along its way, off by at most the angle and range"] = function()
+		local A, Rg = brainCfg.HeardAngle, brainCfg.HeardRange
+		local x, z = R.heard(0, 0, 100, 0, A, Rg, 0.5, 0.5)
+		assert(math.abs(x - 100) < 1e-6 and math.abs(z) < 1e-6, "rolls in the middle: right on it")
+		for _, r in { { 0, 0 }, { 1, 1 }, { 0, 1 }, { 1, 0 }, { 0.3, 0.8 } } do
+			local gx, gz = R.heard(0, 0, 100, 0, A, Rg, r[1], r[2])
+			local d = math.sqrt(gx * gx + gz * gz)
+			local off = math.abs(math.deg(math.atan2(gz, gx)))
+			assert(off <= A + 1e-6, `bearing off {off}`)
+			assert(d >= 100 * (1 - Rg) - 1e-6 and d <= 100 * (1 + Rg) + 1e-6, `distance {d}`)
+		end
+		local ox, oz = R.heard(5, 5, 5, 5, A, Rg, 0, 1)
+		assert(ox == 5 and oz == 5, "on top of it: no bearing to guess")
+	end,
+	["lod: full rate near a player or in a fight, slower out of sight"] = function()
+		local L = Cfg.Budget.lod
+		local t, s = R.lod(10, false, L)
+		assert(t == L.near.think and s == L.near.sense)
+		t = R.lod(L.mid + 1, false, L)
+		assert(t == L.middle.think)
+		t = R.lod(L.far + 1, false, L)
+		assert(t == L.distant.think)
+		t = R.lod(L.far + 1, true, L)
+		assert(t == L.near.think, "a fight: full rate however far")
+		assert(L.distant.think > 0 and L.distant.sense > 0 and L.middle.think <= L.near.think)
+	end,
+	["pickCover: a spot a teammate already holds is no cover (they spread out)"] = function()
+		local pts = {
+			{ distance = 6, hidden = true, threat = 50, crowded = true },
+			{ distance = 12, hidden = true, threat = 50 },
+		}
+		assert(R.pickCover(pts, 40, 24) == 2)
+		pts[2].crowded = true
+		assert(R.pickCover(pts, 40, 24) == nil)
+	end,
 }

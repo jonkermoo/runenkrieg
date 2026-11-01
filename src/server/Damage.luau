@@ -33,6 +33,7 @@ local Teams = require(Shared.Rules.Teams)
 local Rules = require(Shared.Rules.Damage)
 local TreeRules = require(Shared.Rules.Trees)
 local Build = require(script.Parent.Build)
+local Concussion = require(script.Parent.Concussion)
 local Destruction = require(script.Parent.Destruction)
 local Flinch = require(script.Parent.Flinch)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -180,7 +181,7 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 	local pellets = w and w.pellets
 	local fade = Cfg.Falloff[class] -- (a pistol's: full to its own fullRange)
 	local full = w and w.fullRange or 0
-	local per: { [Model]: { hits: { Rules.Hit }, humanoid: Humanoid, direction: Vector3 } } = {}
+	local per: { [Model]: { hits: { Rules.Hit }, humanoid: Humanoid, direction: Vector3, helmet: boolean? } } = {}
 	for _, h in hits do
 		local character, humanoid = victim(h.part)
 		local zone = h.part and Rules.zone(h.part.Name)
@@ -199,12 +200,19 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 				per[character] = entry
 			end
 			table.insert(entry.hits, { zone = z, amount = Rules.amount(t, z, share) })
+			if h.helmet then
+				entry.helmet = true
+			end
 		end
 	end
 	for character, e in per do
 		local total, helmet, top = Rules.sum(e.hits)
 		if total > 0 or helmet > 0 then
 			local left = Rules.after(e.humanoid.Health, total, helmet, Cfg.HelmetFloor)
+			-- the helmet shot off and alive: concussed (src/server/Concussion), before the knock reads it
+			if e.helmet and left > 0 and e.humanoid.Health > 0 and not Damage.protected(character) then
+				Concussion.helmet(character, left, e.humanoid.MaxHealth)
+			end
 			hurt(
 				character,
 				e.humanoid,
@@ -234,6 +242,9 @@ function Damage.melee(striker: Model, part: BasePart, zone: string, direction: V
 		return false
 	end
 	local left, knock = MeleeRules.hit(zone, humanoid.Health, Cfg.Melee, Cfg.Knocks.Killed, Cfg.HelmetFloor)
+	if zone == "Helmet" and left > 0 and not Damage.protected(character) then
+		Concussion.helmet(character, left, humanoid.MaxHealth) -- the helmet struck off: concussed
+	end
 	hurt(character, humanoid, left, knock, flat(direction), nil, striker, zone)
 	return true
 end
@@ -249,6 +260,7 @@ export type BlastOpts = {
 	fragments: GrenadeRules.Fragments?,
 	own: number?,
 	ownFling: boolean?, -- false: the one who set it off isn't thrown by it either (the staff's)
+	flingLeast: number?, -- the least throw for whoever it hurts (nil: Config/Damage.Blast.Fling.least)
 	crater: boolean?,
 	craterScale: number?, -- the hole's size (Rules/Blast.craterPlan; nil: 1): the howitzer's, Config/Artillery
 	wear: number?,
@@ -369,12 +381,16 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 				local own = character == by
 				local amount = if own then full * (o.own or 0) else full
 				local left = math.max(humanoid.Health - amount, 0)
-				local scale = if left <= 0 then 1 else Blast.fling(full, B.Soldier.max, B.Fling.least)
+				local scale = if left <= 0 then 1 else Blast.fling(full, B.Soldier.max, o.flingLeast or B.Fling.least)
 				if own and o.ownFling == false and left > 0 then
 					scale = nil -- (user 2026-10-21: a point-blank staff blast threw its own caster to their death)
 				end
 				if scale then
 					knocked[character] = true
+					-- thrown and alive: concussed by how hard (src/server/Concussion), before the knock reads it
+					if left > 0 and not Damage.protected(character) then
+						Concussion.blast(character, if B.Soldier.max > 0 then full / B.Soldier.max else 1)
+					end
 					hurt(character, humanoid, left, B.Fling.knock, flat(torso.Position - position), scale, by)
 				end
 			end

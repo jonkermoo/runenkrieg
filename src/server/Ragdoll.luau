@@ -22,6 +22,7 @@ local Cfg = require(Shared.Config.Ragdoll)
 local Net = require(Shared.Net)
 local RagdollRules = require(Shared.Rules.Ragdoll)
 local StaffNet = require(Shared.Rules.StaffNet)
+local Concussion = require(script.Parent.Concussion)
 
 local Ragdoll = {}
 
@@ -236,7 +237,7 @@ end
 
 -- Knocks `character` with the Config/Ragdoll.Knocks entry `name`, thrown along `direction` (flat; it also tumbles that
 -- way), `scale` the caller's factor on the push (default 1), `damage` the health the hit took (a live soldier stays down
--- longer the more it took, Config/Ragdoll.ByDamage; nil: none).
+-- longer the more it took, Config/Ragdoll.ByDamage; nil: none), and longer still while concussed (src/server/Concussion).
 function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale: number?, damage: number?)
 	local knock = Cfg.Knocks[name] :: any
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -245,7 +246,8 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		return
 	end
 	local k = scale or 1
-	local getUp = RagdollRules.getUp(knock.getUp, damage, Cfg.ByDamage)
+	-- a concussed soldier is slower to get up (Config/Concussion getUp; src/server/Concussion)
+	local getUp = RagdollRules.getUp(knock.getUp, damage, Cfg.ByDamage) + Concussion.getUp(character)
 	local d = down[character]
 	if d then
 		-- already down: thrown again, and the settle wait starts over (the longer of the two get-up waits)

@@ -54,6 +54,7 @@ local Loco = require(Shared.Config.Locomotion)
 local Map = require(Shared.Config.Maps.Map1)
 local Metrics = require(Shared.Config.Metrics)
 local ModesCfg = require(Shared.Config.Modes)
+local SupCfg = require(Shared.Config.Suppression)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
@@ -61,8 +62,11 @@ local F = require(Shared.Rules.Firing)
 local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
 local Rules = require(Shared.Rules.Bots)
+local ShotRules = require(Shared.Rules.ShotAudio)
+local Sup = require(Shared.Rules.Suppression)
 local Teams = require(Shared.Rules.Teams)
 local Armory = require(script.Parent.Armory)
+local Concussion = require(script.Parent.Concussion)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
 local Firing = require(script.Parent.Firing)
@@ -153,6 +157,13 @@ type Bot = {
 	post: Vector3?, -- Normal: where it holds (its covering-fire spot, or its hold spot in the zone)
 	postSector: number?, -- the sector its hold spot is in
 	roleWas: Squads.Role?,
+	grip: Motor6D?, -- the gun's hold joint (to the torso)
+	stowed: boolean, -- its gun put away (standing in the wave line)
+	shaken: number, -- its suppression level at its last hit (Rules/Suppression)
+	shakenAt: number, -- when that was
+	thinkHz: number, -- how often it thinks and looks now (Rules/Bots.lod)
+	senseHz: number,
+	lod: string, -- "near", "middle" or "distant" (the report)
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -197,7 +208,7 @@ local stats = {
 }
 
 -- Normal squads by key (Rules/BotSquads), kept tick to tick: the phase, its lane and route, what its members saw
-type Known = { model: Model, pos: Vector3, at: number }
+type Known = { model: Model?, pos: Vector3, at: number } -- (no model: a shot heard, its source guessed)
 type SquadState = {
 	sq: Squads.Squad,
 	side: string,
@@ -392,7 +403,14 @@ spawnBody = function(b: Bot)
 	DevDummies.steady(humanoid)
 	local root = m:FindFirstChild("HumanoidRootPart") :: BasePart
 	local torso = m:FindFirstChild("Torso") :: BasePart
-	local tool = Armory.tool(b.weapon, b.kit)
+	local armed, gun = pcall(Armory.tool, b.weapon, b.kit)
+	if not armed then
+		-- (no gun to be had: the body goes, not left standing unarmed; the director tries again)
+		m:Destroy()
+		warn(`[Bots] no gun for {b.name}: {gun}`)
+		return
+	end
+	local tool = gun :: Tool
 	local hold = tool:FindFirstChild("Hold", true) :: Motor6D
 	hold.Part0 = torso
 	tool.Parent = m
@@ -417,6 +435,7 @@ spawnBody = function(b: Bot)
 
 	b.m, b.humanoid, b.root, b.head, b.tool, b.turn =
 		m, humanoid, root, m:FindFirstChild("Head") :: BasePart, tool, turn
+	b.grip, b.stowed = hold, false
 	b.anim = Animate.attach(m, b.weapon)
 	b.brain = Rules.new()
 	b.target, b.lastSeenAt, b.lastOpen, b.spotted = nil, nil, nil, false
@@ -424,6 +443,7 @@ spawnBody = function(b: Bot)
 	b.nav = newNav(root.Position)
 	b.spawnedAt, b.reachedZone, b.deadAt, b.respawnAt, b.wander = os.clock(), false, nil, nil, nil
 	b.coverJob, b.stand = nil, nil
+	b.shaken, b.shakenAt = 0, 0
 	if b.mode == "Normal" then
 		Frontline.deployBot(m) -- (its side's wave line: held and shielded until the wave goes)
 		b.nav = newNav(root.Position)
@@ -510,6 +530,12 @@ local function add(mode: string, side: string?)
 		spawnedAt = 0,
 		reachedZone = false,
 		spawning = false,
+		stowed = false,
+		shaken = 0,
+		shakenAt = 0,
+		thinkHz = Cfg.Think,
+		senseHz = Cfg.Sense,
+		lod = "near",
 	}
 	b.name = freeName()
 	table.insert(bots, b)
@@ -742,6 +768,24 @@ local function findCover(b: Bot, now: number)
 	b.coverJob = { threat = threat, ring = 1, here = flat(root.Position - threat).Magnitude }
 end
 
+-- the nearest teammate (from this frame's snapshot) within `within` studs of `at`, not `b` itself; nil if none
+local function mateNear(b: Bot, at: Vector3, within: number): Vector3?
+	local all, n = soldiersNow()
+	local m = b.m :: Model
+	local kit = m:GetAttribute("Kit")
+	local best, bestAt = within, nil
+	for k = 1, n do
+		local o = all[k]
+		if o.model ~= m and friendly(m, kit, o) then
+			local d = flat(o.pos - at).Magnitude
+			if d < best then
+				best, bestAt = d, o.pos
+			end
+		end
+	end
+	return bestAt
+end
+
 -- the search's next ring, when the frame has the rays for it
 local function coverStep(b: Bot)
 	local job = b.coverJob :: CoverJob
@@ -764,6 +808,7 @@ local function coverStep(b: Bot)
 				distance = r,
 				hidden = hidden(job.threat, g, exclude),
 				threat = flat(g - job.threat).Magnitude,
+				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil,
 			})
 		end
 	end
@@ -781,7 +826,65 @@ local function coverStep(b: Bot)
 	debug.profileend()
 end
 
--- shots passing close: every bot near the line feels it (Rules/Bots.nearMiss)
+-- a bot's suppression level now (held, then falling: Rules/Suppression.decay)
+local function shakenNow(b: Bot, now: number): number
+	return Sup.decay(b.shaken, 0, now - b.shakenAt, SupCfg.Hold, SupCfg.Fall)
+end
+
+local function shake(b: Bot, amount: number, now: number)
+	if amount > 0 then
+		b.shaken = Sup.add(shakenNow(b, now), amount, SupCfg.Cap)
+		b.shakenAt = now
+	end
+end
+
+local function asPoint(v: Vector3): { number }
+	return { v.X, v.Y, v.Z }
+end
+
+local function ffa(): boolean
+	return workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
+end
+
+-- a shot heard close by: under threat, from where it guesses the shot came (Rules/Bots.heard: not the shooter's own
+-- spot), which its squad then knows too (covering fire, contact)
+local function heardShot(b: Bot, origin: Vector3, now: number)
+	local root = b.root :: BasePart?
+	if not root then
+		return
+	end
+	local p = (root :: BasePart).Position
+	local x, z = Rules.heard(
+		p.X,
+		p.Z,
+		origin.X,
+		origin.Z,
+		brainCfg.HeardAngle,
+		brainCfg.HeardRange,
+		random:NextNumber(),
+		random:NextNumber()
+	)
+	local guess = Vector3.new(x, origin.Y, z)
+	b.threatAt = now
+	b.threatFrom = guess
+	local sq = b.squad and squads[b.squad :: string]
+	if sq then
+		local known = (sq :: SquadState).known
+		for _, k in known do
+			if k.model == nil and flat(k.pos - guess).Magnitude < brainCfg.HeardRange * 60 then
+				k.pos, k.at = guess, now
+				return
+			end
+		end
+		table.insert(known, { model = nil, pos = guess, at = now })
+		if #known > 6 then
+			table.remove(known, 1)
+		end
+	end
+end
+
+-- shots passing close: every bot near the line feels it (Rules/Bots.nearMiss) and is suppressed by it, as a player
+-- is (Config/Suppression Pass and Impact)
 local function shotPassed(shooter: Model, origin: Vector3, hit: Vector3)
 	local line = hit - origin
 	local len = line.Magnitude
@@ -796,9 +899,23 @@ local function shotPassed(shooter: Model, origin: Vector3, hit: Vector3)
 		end
 		local p = eye(b)
 		if Rules.nearMiss(origin.X, origin.Y, origin.Z, l.X, l.Y, l.Z, len, p.X, p.Y, p.Z, brainCfg.NearMiss) then
-			b.threatAt = now
-			b.threatFrom = origin
+			heardShot(b, origin, now)
+			-- its teammates close by hear it too (they disperse and look that way)
+			for _, o in bots do
+				if
+					o ~= b
+					and alive(o)
+					and o.root
+					and Teams.spared(o.kit, b.kit, DamageCfg.FriendlyFire, ffa())
+					and flat((o.root :: BasePart).Position - p).Magnitude <= brainCfg.AlertRadius
+				then
+					heardShot(o, origin, now)
+				end
+			end
 		end
+		local P, I = SupCfg.Pass, SupCfg.Impact
+		local pass = ShotRules.pass(asPoint(origin), asPoint(hit), asPoint(p), P.radius, P.clear)
+		shake(b, math.max(Sup.impact((hit - p).Magnitude, I), if pass then Sup.pass(pass.off, P) else 0), now)
 	end
 end
 
@@ -926,7 +1043,9 @@ local function follow(b: Bot, now: number)
 	if not target and nav.goal then
 		local wp = nav.waypoints[nav.index]
 		if wp then
-			if flat(wp.Position - root.Position).Magnitude < MV.Arrive then
+			-- (thinking less often, it counts a waypoint reached from farther, so it never stops at one)
+			local arrive = math.max(MV.Arrive, humanoid.WalkSpeed / b.thinkHz * 0.6)
+			if flat(wp.Position - root.Position).Magnitude < arrive then
 				nav.index += 1
 				wp = nav.waypoints[nav.index]
 			end
@@ -986,12 +1105,45 @@ local function strafeStep(b: Bot, toward: Vector3?, now: number)
 	local to = if toward then flat((toward :: Vector3) - root.Position) else flat(root.CFrame.LookVector)
 	local fwd = if to.Magnitude > 1e-3 then to.Unit else Vector3.zAxis
 	local side = fwd:Cross(Vector3.yAxis) * (if random:NextNumber() < 0.5 then -1 else 1)
+	-- a teammate close by: the step goes away from them (spreading out)
+	local mate = mateNear(b, root.Position, brainCfg.SpreadMin)
+	if mate and side:Dot(root.Position - mate :: Vector3) < 0 then
+		side = -side
+	end
 	local step = side * random:NextNumber(MV.Strafe[1], MV.Strafe[2]) + fwd * random:NextNumber(-2, 2)
 	nav.direct = root.Position + step
 	nav.goal = nil
 end
 
 -- thinking -----------------------------------------------------------------------------------------------------------
+
+-- the gun put away (the wave line: idle, empty hands) and drawn again when the wave goes
+local function stow(b: Bot)
+	local m, tool = b.m :: Model, b.tool :: Tool
+	b.stowed = true
+	tool.Parent = nil
+	if b.turn then
+		(b.turn :: AlignOrientation).Enabled = false
+	end
+	if b.anim then
+		(b.anim :: Animate.Handle).update(0, "none", 0)
+	end
+	DevDummies.own(m) -- (a joint gone: the body's physics kept the server's)
+end
+
+local function draw(b: Bot)
+	local m, tool = b.m :: Model, b.tool :: Tool
+	b.stowed = false
+	tool.Parent = m
+	local torso = m:FindFirstChild("Torso") :: BasePart?
+	if b.grip and torso then
+		(b.grip :: Motor6D).Part0 = torso
+	end
+	if b.anim then
+		(b.anim :: Animate.Handle).equip()
+	end
+	DevDummies.own(m)
+end
 
 local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local m, humanoid, root, tool = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart, b.tool :: Tool
@@ -1007,7 +1159,14 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		return -- (down: nothing until it is up again)
 	end
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
-		return -- (standing in the wave line until the wave goes)
+		-- standing in the wave line until the wave goes: idle, nothing in the hands (user 2026-11-01)
+		if not b.stowed then
+			stow(b)
+		end
+		return
+	end
+	if b.stowed then
+		draw(b)
 	end
 	-- the body's physics stays the server's: any joint made or broken (a helmet knocked off, the gun drawn) hands it to
 	-- the nearest player, and a body a player owns ignores the server's get-up and lies there in Physics
@@ -1021,9 +1180,25 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		stats.stoodUp += 1
 		return
 	end
+	-- how often it thinks and looks, by the nearest player's distance (Rules/Bots.lod)
+	local nearest = math.huge
+	for _, p in Players:GetPlayers() do
+		local pr = p.Character and p.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if pr then
+			nearest = math.min(nearest, flat(pr.Position - root.Position).Magnitude)
+		end
+	end
+	local fighting = b.target ~= nil
+		or (b.threatAt ~= nil and now - (b.threatAt :: number) < brainCfg.ThreatMemory)
+		or (b.hurtAt ~= nil and now - (b.hurtAt :: number) < brainCfg.ThreatMemory)
+	b.thinkHz, b.senseHz = Rules.lod(nearest, fighting, BG.lod)
+	b.lod = if b.thinkHz >= BG.lod.near.think
+		then "near"
+		elseif b.thinkHz >= BG.lod.middle.think then "middle"
+		else "distant"
 	debug.profilebegin("Bots.sense")
 	if now >= b.nextSense and sense(b, d, now) then
-		b.nextSense = now + 1 / Cfg.Sense
+		b.nextSense = now + 1 / b.senseHz
 	elseif b.target then
 		-- between looks: the same target, its distance kept fresh
 		local t = b.target :: Target
@@ -1070,6 +1245,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		cover = coverState,
 		push = b.push,
 		role = b.role,
+		suppressed = shakenNow(b, now),
 		suppress = b.role == "Support" and knownSpot(b, now) ~= nil,
 	}
 	local was = b.brain.state
@@ -1220,7 +1396,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			)
 			local line = point - origin
 			local cross = (v - line.Unit * v:Dot(line.Unit)).Magnitude
-			local err = Rules.aimError(d, now - b.brain.seenAt - d.reaction, cross)
+			local err = Rules.shakenAim(
+				Rules.aimError(d, now - b.brain.seenAt - d.reaction, cross),
+				shakenNow(b, now),
+				brainCfg.SuppressedAim
+			)
 			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
 			if Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
@@ -1234,7 +1414,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		if muzzle then
 			local origin = muzzle.WorldPosition
 			local line = (suppressAt :: Vector3) - origin
-			local err = d.aimFloor + brainCfg.SuppressSpread
+			local err = Rules.shakenAim(d.aimFloor + brainCfg.SuppressSpread, shakenNow(b, now), brainCfg.SuppressedAim)
 			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
 			if Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
@@ -1623,7 +1803,9 @@ local function report(now: number)
 	local states: { [string]: number } = {}
 	local sides: { [string]: number } = {}
 	local roles: { [string]: number } = {}
+	local lods: { [string]: number } = {}
 	for _, b in bots do
+		lods[b.lod] = (lods[b.lod] or 0) + 1
 		if b.side then
 			sides[b.side :: string] = (sides[b.side :: string] or 0) + 1
 		end
@@ -1648,13 +1830,14 @@ local function report(now: number)
 	local samples = stats.frameSamples
 	table.sort(samples)
 	local p95 = if #samples > 0 then samples[math.max(1, math.ceil(#samples * 0.95))] else 0
-	local heartbeat = 0
+	local heartbeat, send = 0, 0
 	pcall(function()
 		heartbeat = (Stats :: any).HeartbeatTimeMs
+		send = (Stats :: any).DataSendKbps
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -1688,7 +1871,11 @@ local function report(now: number)
 			if stats.toZoneCount > 0 then stats.toZone / stats.toZoneCount else 0,
 			stats.toZoneCount,
 			workspace:GetRealPhysicsFPS(),
-			heartbeat
+			heartbeat,
+			lods.near or 0,
+			lods.middle or 0,
+			lods.distant or 0,
+			send
 		)
 	)
 	for k, v in stats :: any do
@@ -1716,6 +1903,19 @@ function Bots.start()
 		end
 	end)
 	Firing.onShot(shotPassed)
+	-- explosions suppress bots as they do players (Config/Suppression.Blast), and count as a threat close by
+	Damage.onBlast(function(pos: Vector3, kg: number)
+		local now = os.clock()
+		for _, b in bots do
+			if alive(b) then
+				local amount = Sup.blast(kg, (pos - eye(b)).Magnitude, SupCfg.Blast)
+				if amount > 0 then
+					shake(b, amount, now)
+					b.threatAt, b.threatFrom = now, pos
+				end
+			end
+		end
+	end)
 	-- a bot's capture pays it like a player's (src/server/Loadouts)
 	ZoneMatch.onBotCapture(function(id)
 		Loadouts.awardBot(id, "Capture")
@@ -1797,13 +1997,14 @@ function Bots.start()
 				stats.deferred += 1
 				break
 			end
-			b.nextThink += 1 / Cfg.Think
+			b.nextThink += 1 / b.thinkHz
 			if b.nextThink < t0 then
-				b.nextThink = t0 + 1 / Cfg.Think
+				b.nextThink = t0 + 1 / b.thinkHz
 			end
 			if alive(b) and not b.deadAt then
 				local s0 = os.clock()
-				local ok, err = pcall(think, b, t0, d)
+				-- a concussed bot reacts later and aims worse while it lasts (src/server/Concussion)
+				local ok, err = pcall(think, b, t0, if b.m then Concussion.daze(b.m, d, t0) else d)
 				if not ok then
 					warn(`[Bots] {b.name}: {err}`)
 				end

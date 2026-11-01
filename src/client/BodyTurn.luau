@@ -9,6 +9,8 @@
 --   or mouse lock; standing still it stays. Healing someone (src/client/Healing), it faces the patient instead;
 --   dragging a teammate (src/server/Dragging "DragBody"), it faces the body, in first person too (walking backwards).
 -- Ragdolled, seated, climbing, swimming, knocked down or dead: left alone (nor is it rewritten when nothing turns).
+-- Standing in Normal's wave line (src/server/Frontline's WaveHold; user 2026-11-01: "frozen forward. the camera can be
+-- moved, but our entire body is kept forward"): left facing the front, however the camera turns.
 
 local FREE = {
 	[Enum.HumanoidStateType.Climbing] = true,
@@ -26,6 +28,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local FrontCfg = require(Shared.Config.Frontline)
 local Cfg = require(Shared.Config.Camera)
 local Rules = require(Shared.Rules.Camera)
 
@@ -60,6 +63,7 @@ function BodyTurn.start()
 			or FREE[humanoid:GetState()]
 			or character:GetAttribute("Ragdolled") == true
 			or character:GetAttribute("GetUp") ~= nil -- (getting up: src/client/Ragdoll faces it the way it rises)
+			or character:GetAttribute(FrontCfg.HoldAttribute) ~= nil
 		then
 			yaw, speed = yawOf(root.CFrame.LookVector), 0
 			return

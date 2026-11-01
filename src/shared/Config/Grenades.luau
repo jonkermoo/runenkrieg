@@ -14,6 +14,9 @@ local Grenades = {
 	-- them: "give it 5 total grenades")
 	Cooldown = 1, -- seconds before the next one can be thrown (the next grenade into the hand)
 	Own = 1, -- the share of its blast and fragments that hurts the thrower (user 2026-10-19: "Yes, grenades only")
+	-- whoever it hurts is thrown at least this share of the blast throw (Config/Damage.Blast.Fling `least`, 0.3 for
+	-- other blasts; user 2026-11-01: more knockback): a fragment wound drops a soldier clearly; a kill throws in full
+	FlingLeast = 0.5,
 
 	-- The throw: along the camera's look, lifted `loft` degrees (so a level look still lobs it), at the grenade's own
 	-- `speed` (studs/s, below). From the head, `from` studs out in the camera's space (+X right, +Y up, -Z forward): the
@@ -106,9 +109,12 @@ local Grenades = {
 	-- thrown well; 0.357 m per stud), the stick's handle throws further (35 m).
 	-- kg: the filling as TNT (Damage.blast, Config/Damage.Blast): Mills ~71 g, SIPE ~100 g, the M1917 stick ~170 g.
 	-- fragments: the casing's splinters on soldiers the blast can see (the same cover lines, Config/Damage.Blast.Cover):
-	-- `max` damage within `lethal` studs, then `near` falling to `far` at `wound`, none beyond (user: "lethal within
-	-- about 8 studs, wounding to about 28"). The cast-iron Mills and SIPE throw fragments; the stick's thin can is mostly
-	-- blast, so its fragments reach less.
+	-- `max` damage within `lethal` studs, then `near` falling to `far` at `wound`, none beyond. Set from the real
+	-- grenades (user 2026-11-01: "increase the effectiveness of the grenades accurately ... range, knockback, dmg to
+	-- players"; was Mills 8 / 28, SIPE 7 / 25, stick 6 / 14): the Mills's ~60-70 g of ammonal and 700+ fragments,
+	-- scaled from a modern grenade's (180 g: lethal 5 m, casualties 15 m), kill to ~4 m and wound to ~15 m; the SIPE's
+	-- black powder bursts its cast iron weaker (~3.5 / 12 m); the stick is a blast grenade, rated ~15 m on open ground,
+	-- so it reaches as far but each hit is lighter. Fragments flew further still (~90 m), not modelled.
 	-- motion: its tumble in the air (`spin`, radians/s) and how it bounces and rolls (Motion above): the stick turns end
 	-- over end fast and rolls only a little across its handle; the egg-shaped Mills and the round SIPE spin slowly and
 	-- roll further.
@@ -116,7 +122,7 @@ local Grenades = {
 		grenade_mills = {
 			speed = 128,
 			kg = 0.071,
-			fragments = { lethal = 8, wound = 28, max = 100, near = 60, far = 10 },
+			fragments = { lethal = 11, wound = 42, max = 100, near = 70, far = 15 },
 			pitch = 1.1, -- its bang's pitch (Sound below)
 			motion = {
 				spin = 5,
@@ -132,7 +138,7 @@ local Grenades = {
 		grenade_sipe = {
 			speed = 128,
 			kg = 0.1,
-			fragments = { lethal = 7, wound = 25, max = 100, near = 60, far = 10 },
+			fragments = { lethal = 10, wound = 34, max = 100, near = 65, far = 15 },
 			pitch = 1, -- its bang's pitch (Sound below)
 			motion = {
 				spin = 4,
@@ -148,8 +154,9 @@ local Grenades = {
 		grenade_stick = {
 			speed = 139,
 			kg = 0.17,
-			-- (lethal 4 -> 6, user 2026-10-23: a stick 3-4 studs off on the ground left ~50; the torso is ~2.4-3.3 up)
-			fragments = { lethal = 6, wound = 14, max = 100, near = 50, far = 10 },
+			-- (lethal 4 -> 6, user 2026-10-23: a stick 3-4 studs off on the ground left ~50; the torso is ~2.4-3.3 up;
+			-- 6 / 14 -> 8 / 42 on 2026-11-01, its rated ~15 m on open ground)
+			fragments = { lethal = 8, wound = 42, max = 100, near = 50, far = 10 },
 			pitch = 0.9, -- its bang's pitch (Sound below)
 			motion = {
 				spin = 12,

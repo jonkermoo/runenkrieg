@@ -434,15 +434,21 @@ return {
 		assert(spent.case.push[2] < 0, "the M2's case drops out of the bottom")
 		assert(spent.link.push[1] < 0, "fed from the right, its links go out of the left")
 	end,
-	["the MG's reload sounds play in order, all within the reload, the belt's rattle as it is laid in"] = function()
+	["the MG's reload sounds play in order, all within the reload, each a hand's noise"] = function()
 		local MG = C.Guns.mg08
 		local R = (MG.mg :: any).reload
 		local last = -1
 		for _, step in R.sounds do
-			assert(step.at > last and step.at < MG.reload and step.sound.id, step.at)
+			assert(step.at > last and step.at < MG.reload, step.at)
 			last = step.at
+			local layers = if step.sound.id then { step.sound } else step.sound
+			assert(#layers >= 1, step.at)
+			for _, s in layers do
+				assert(s.id and s.profile == "Mechanism", `{step.at}: a hand's noise, heard close by (no gunshot)`)
+				assert(not s.stop or s.stop > (s.start or 0), step.at)
+			end
 		end
-		assert(#R.sounds >= 6, "cover, cans, belt, cover, charging handle")
+		assert(last >= MG.reload - 1.5, "on into the hands back on the grips")
 		assert((MG.mg :: any).boom.id and (MG.mg :: any).jingle.id)
 	end,
 	["the MG and the field gun warm and kick their gunner, the howitzer neither"] = function()
