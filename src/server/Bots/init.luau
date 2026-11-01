@@ -1619,6 +1619,7 @@ local function report(now: number)
 	local living = 0
 	local states: { [string]: number } = {}
 	local sides: { [string]: number } = {}
+	local roles: { [string]: number } = {}
 	for _, b in bots do
 		if b.side then
 			sides[b.side :: string] = (sides[b.side :: string] or 0) + 1
@@ -1626,9 +1627,17 @@ local function report(now: number)
 		if alive(b) then
 			living += 1
 			states[b.brain.state] = (states[b.brain.state] or 0) + 1
+			if b.role then
+				roles[b.role :: string] = (roles[b.role :: string] or 0) + 1
+			end
 		end
 	end
 	local parts = {}
+	local roleParts = {}
+	for k, n in roles do
+		table.insert(roleParts, `{k} {n}`)
+	end
+	table.sort(roleParts)
 	for k, n in states do
 		table.insert(parts, `{k} {n}`)
 	end
@@ -1642,7 +1651,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -1667,6 +1676,7 @@ local function report(now: number)
 			stats.stoodUp,
 			stats.assaults,
 			stats.covering,
+			if #roleParts > 0 then table.concat(roleParts, ", ") else "none",
 			stats.shots,
 			stats.deaths,
 			stats.covers,
