@@ -15,8 +15,8 @@ local DevTools = {
 	-- y = explicit standing height (off-map places); otherwise the server finds the ground.
 	-- look = point the avatar faces.
 	Extra = {
-		{ id = "Village", name = "Village center", x = 1440, z = 30, look = { 1560, 0 } },
-		{ id = "Ford", name = "River ford", x = 1015, z = 6, look = { 1100, 0 } },
+		{ id = "Village", name = "Village center", x = 2040, z = 22, look = { 2160, 0 } },
+		{ id = "Ford", name = "River ford", x = 1405, z = 0, look = { 1500, 0 } },
 		-- the playtest map's two spawns (Config/Maps/Playtest.spawnZones centres, facing the other side; src/server/Playtest
 		-- spawns its players here). map = on another generated map: the server finds its ground
 		{ id = "PlaytestWest", name = "Playtest West", x = -161, z = 2800, look = { 160, 2800 }, map = "Playtest" },
@@ -233,7 +233,7 @@ local DevTools = {
 	-- start of a play test and put back on the button; the terrain inside these boxes (studs) too, craters filled.
 	World = {
 		Terrain = {
-			{ min = { -580, -64, -830 }, max = { 2380, 112, 830 } }, -- Config/Maps/Map1 bounds + terrainMargin
+			{ min = { -580, -64, -710 }, max = { 2980, 112, 710 } }, -- Config/Maps/Map1 bounds + terrainMargin
 			{ min = { -320, -32, 2580 }, max = { 320, 88, 3020 } }, -- Config/Maps/Playtest bounds + terrainMargin
 		},
 	},

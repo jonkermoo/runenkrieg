@@ -549,7 +549,10 @@ function ModeHud.start()
 	SketchMap.new(ffaBox, Playtest.name, { you = true, zone = true })
 	nodes.SketchMapFFA = ffaBox
 	local scales = {}
-	for _, id in { "FrontBar", "ZoneBar", "SketchMap", "SketchMapFFA" } do
+	-- the wave countdown, shown only while the soldier stands in its wave line
+	nodes.WaveBar.Visible = false
+	set("waveTitle", Cfg.Wave.title)
+	for _, id in { "FrontBar", "ZoneBar", "WaveBar", "SketchMap", "SketchMapFFA" } do
 		local scale = Instance.new("UIScale")
 		scale.Parent = nodes[id]
 		table.insert(scales, scale)
@@ -618,6 +621,14 @@ function ModeHud.start()
 		bar.GroupTransparency = 1 - barShown
 		showDots(dotsShown)
 		showMarkers(dotsShown)
+		-- frozen in the wave line (src/server/Frontline's WaveHold: the wave's server time): the seconds until it goes
+		local character = Players.LocalPlayer.Character
+		local waveAt = character and character:GetAttribute(FrontlineCfg.HoldAttribute)
+		local waiting = front and not title and not loadout and type(waveAt) == "number"
+		nodes.WaveBar.Visible = waiting
+		if waiting then
+			set("waveClock", tostring(math.max(math.ceil((waveAt :: number) - workspace:GetServerTimeNow()), 0)))
+		end
 	end)
 	-- FFA: the point leader's glow is for everyone else; on the leader's own screen it's off (kept from the old
 	-- zone match readout, src/client/ZoneHud; the server turns it back on as the lead changes)
