@@ -380,23 +380,56 @@ function Bots.chooseClass(
 	return pick.key, pick.cost
 end
 
--- The cover to run to from the candidate points (each its distance from the bot, whether the threat can't see it, and
--- how far it is from the threat): the nearest hidden one within `maxDistance` that isn't nearer the threat than
--- `minThreat`; nil if none.
+-- The cover to run to from the candidate points (each its distance from the bot, whether the threat can't see it, how
+-- far it is from the threat, and whether a teammate already stands close to it): the nearest hidden one within
+-- `maxDistance` that isn't nearer the threat than `minThreat` nor crowded (user 2026-11-01: under fire they disperse);
+-- nil if none.
 function Bots.pickCover(
-	points: { { distance: number, hidden: boolean, threat: number } },
+	points: { { distance: number, hidden: boolean, threat: number, crowded: boolean? } },
 	minThreat: number,
 	maxDistance: number
 ): number?
 	local best: number? = nil
 	for i, p in points do
-		if p.hidden and p.threat >= minThreat and p.distance <= maxDistance then
+		if p.hidden and not p.crowded and p.threat >= minThreat and p.distance <= maxDistance then
 			if best == nil or p.distance < points[best].distance then
 				best = i
 			end
 		end
 	end
 	return best
+end
+
+-- Where a bot shot at (or near a teammate who was) thinks the shot came from (user 2026-11-01: "be aware of where your
+-- shot came from (not where you are, but where it came from)"): from the listener at (lx, lz) toward the muzzle at
+-- (ox, oz), the bearing off by up to `angle` degrees and the distance by up to `range` of it, either way (`r1`, `r2`
+-- random 0..1). Flat x, z.
+function Bots.heard(
+	lx: number,
+	lz: number,
+	ox: number,
+	oz: number,
+	angle: number,
+	range: number,
+	r1: number,
+	r2: number
+): (number, number)
+	local dx, dz = ox - lx, oz - lz
+	local d = math.sqrt(dx * dx + dz * dz)
+	if d < 1e-3 then
+		return ox, oz
+	end
+	local a = math.atan2(dz, dx) + math.rad((r1 * 2 - 1) * angle)
+	local guess = d * (1 + (r2 * 2 - 1) * range)
+	return lx + math.cos(a) * guess, lz + math.sin(a) * guess
+end
+
+-- How often a bot thinks and looks (per second) by how far the nearest player is (Config/Bots.Budget.lod): full rate
+-- near a player or in a fight (`fighting`: shot at lately, or a target), less at `mid`, least past `far` (the long walks
+-- nobody watches).
+function Bots.lod(distance: number, fighting: boolean, cfg: any): (number, number)
+	local r = if fighting or distance < cfg.mid then cfg.near elseif distance < cfg.far then cfg.middle else cfg.distant
+	return r.think, r.sense
 end
 
 -- Whether an enemy `dx, dz` away (flat, from the bot to it) and facing `fx, fz` (flat, unit) is looking at the bot,

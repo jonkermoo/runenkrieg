@@ -104,6 +104,15 @@ local Bots = {
 		raysPerFrame = 40,
 		-- path computes a second, all bots together (the rest wait in a queue)
 		pathsPerSecond = 6,
+		-- how often a bot thinks and looks (a second) by the nearest player's distance (Rules/Bots.lod): full within `mid`
+		-- studs or in a fight, `middle` to `far`, `distant` past it (sight and moves a little coarser where nobody sees)
+		lod = {
+			mid = 200,
+			far = 450,
+			near = { think = 10, sense = 4 },
+			middle = { think = 5, sense = 2 },
+			distant = { think = 2, sense = 1 },
+		},
 		-- the governor: while the bots' frame cost (a one-second average) is over `ms`, or the physics rate under
 		-- `minFps`, for `trimAfter` seconds, it holds the count one lower (then one more every `trimEvery`); after
 		-- `restoreAfter` seconds within budget it lets one back (then one more every `restoreEvery`); never under `floor`
@@ -265,6 +274,15 @@ local Bots = {
 		-- many degrees wider at full, and from this level up it is pinned: cover even while pressing on, no peeks
 		SuppressedAim = 4,
 		SuppressedCover = 0.6,
+		-- shot at (user 2026-11-01: "they should disperse and be aware of where your shot came from (not where you are,
+		-- but where it came from)"): it guesses the shot's source along the bullet's way, the bearing off by up to
+		-- HeardAngle degrees and the distance by up to HeardRange of it; teammates within AlertRadius studs of it are
+		-- alerted too (their own guess); cover a teammate stands within SpreadMin studs of is no cover, and a step aside
+		-- goes away from a teammate that close
+		HeardAngle = 20,
+		HeardRange = 0.35,
+		AlertRadius = 15,
+		SpreadMin = 6,
 	},
 
 	-- difficulty (user 2026-10-30: reaction time, aim error, spot range)
