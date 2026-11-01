@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local DamageCfg = require(Shared.Config.Damage)
 local Blast = require(Shared.Rules.Blast)
+local GroundFloor = require(Shared.Rules.GroundFloor)
 local Refill = require(Shared.Rules.Refill)
 local Rules = require(Shared.Rules.Artillery)
 
@@ -93,6 +94,52 @@ local function capped(region: Region3)
 	end
 	if changed then
 		terrain:WriteVoxels(region, VOXEL, mats, occs)
+	end
+end
+
+-- each column's floor (Rules/GroundFloor: no crater cuts under it), from its ground the first time a blast reached it,
+-- keyed by Ground.column; -math.huge where there was none
+local floors: { [string]: number } = {}
+
+-- the floors of `region`'s columns not known yet, read from their whole height (Config/Damage.Blast.Crater.Floor)
+local function readFloors(region: Region3)
+	local F = DamageCfg.Blast.Crater.Floor
+	local corner = region.CFrame.Position - region.Size / 2
+	local nx, nz = math.round(region.Size.X / VOXEL), math.round(region.Size.Z / VOXEL)
+	local missing = false
+	for ix = 1, nx do
+		for iz = 1, nz do
+			if not floors[Ground.column(corner + Vector3.new((ix - 0.5) * VOXEL, 0, (iz - 0.5) * VOXEL))] then
+				missing = true
+			end
+		end
+	end
+	if not missing then
+		return
+	end
+	local terrain = workspace.Terrain
+	local scan = Region3.new(
+		Vector3.new(corner.X, F.scanLow, corner.Z),
+		Vector3.new(corner.X + region.Size.X, F.scanHigh, corner.Z + region.Size.Z)
+	):ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, scan, VOXEL)
+	if not ok then
+		return
+	end
+	local size = mats.Size
+	local low = scan.CFrame.Position - scan.Size / 2
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local key = Ground.column(low + Vector3.new((ix - 0.5) * VOXEL, 0, (iz - 0.5) * VOXEL))
+			if not floors[key] then
+				local column = table.create(size.Y, 0)
+				for iy = 1, size.Y do
+					column[iy] = if mats[ix][iy][iz] == Enum.Material.Water then 0 else occs[ix][iy][iz]
+				end
+				local surface, base = GroundFloor.span(column, low.Y, VOXEL)
+				floors[key] = if surface and base then GroundFloor.floor(surface, base, F) else -math.huge
+			end
+		end
 	end
 end
 
@@ -364,11 +411,12 @@ end
 
 -- The ground within `mouth` of `position` lowered by Blast.bowlDepth, column by column, following its shape (a level cut
 -- left a cliff on the uphill side of a slope, Studio 2026-10-18). Only the ground near the blast's height: `depth` x 3
--- up or down. Columns with water are left alone.
+-- up or down. Columns with water are left alone; none is cut under its floor (Rules/GroundFloor).
 function Ground.bowl(position: Vector3, mouth: number, depth: number)
 	local terrain = workspace.Terrain
 	local reach = Vector3.new(mouth, depth * 3, mouth)
 	local region = Region3.new(position - reach, position + reach):ExpandToGrid(VOXEL)
+	readFloors(region)
 	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
 	if not ok then
 		return
@@ -388,6 +436,10 @@ function Ground.bowl(position: Vector3, mouth: number, depth: number)
 			local column0 = Vector3.new(x, position.Y, z)
 			if lower > 0 and not wet and not nearTrench(column0, VOXEL / 2) and not guarded(column0) then
 				local out = Blast.lowerColumn(column, corner.Y, VOXEL, lower)
+				local floor = floors[Ground.column(column0)]
+				if floor then
+					out = GroundFloor.hold(column, out, corner.Y, VOXEL, floor)
+				end
 				for iy = 1, size.Y do
 					occs[ix][iy][iz] = out[iy]
 					if out[iy] <= 0 then
