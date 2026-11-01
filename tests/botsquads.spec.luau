@@ -1,0 +1,119 @@
+--!strict
+local Cfg = require("../src/shared/Config/Bots")
+local R = require("../src/shared/Rules/BotSquads")
+
+local SQ = Cfg.Squads
+local RT = Cfg.Routes
+
+local function facts(over: { [string]: any }?): R.Facts
+	local f: any = {
+		now = 0,
+		defend = false,
+		contact = false,
+		ready = 0,
+		inZone = 0,
+		ours = 0,
+		theirs = 0,
+		size = 4,
+		moversThere = false,
+	}
+	for k, v in over or {} do
+		f[k] = v
+	end
+	return f
+end
+
+return {
+	["form: squads of the size, a small last one joins the one before"] = function()
+		local s = R.form({ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, 4, 2)
+		assert(#s == 2 and #s[1] == 4 and #s[2] == 5, "the lone ninth joins the second")
+		s = R.form({ 1, 2, 3, 4, 5, 6 }, 4, 2)
+		assert(#s == 2 and #s[2] == 2)
+		s = R.form({ 1 }, 4, 2)
+		assert(#s == 1 and #s[1] == 1, "a lone bot is still a squad")
+		assert(#R.form({}, 4, 2) == 0)
+	end,
+	["step: moves with no contact, bounds in contact, swapping halves when the movers are there or time is up"] = function()
+		local sq = R.new()
+		R.step(sq, facts(), SQ)
+		assert(sq.phase == "Move")
+		R.step(sq, facts({ contact = true, theirs = 6 }), SQ)
+		assert(sq.phase == "Bound" and sq.moving == 1)
+		R.step(sq, facts({ now = 1, contact = true, theirs = 6 }), SQ)
+		assert(sq.moving == 1, "not yet")
+		R.step(sq, facts({ now = 2, contact = true, theirs = 6, moversThere = true }), SQ)
+		assert(sq.moving == 2, "the movers got there: swap")
+		R.step(sq, facts({ now = 2 + SQ.boundMax, contact = true, theirs = 6 }), SQ)
+		assert(sq.moving == 1, "time up: swap")
+		R.step(sq, facts({ now = 20 }), SQ)
+		assert(sq.phase == "Move", "contact lost")
+	end,
+	["step: pushes at the zone's edge under covering fire, with nobody in the way, or outnumbering them"] = function()
+		local sq = R.new()
+		R.step(sq, facts({ ready = 1 }), SQ)
+		assert(sq.phase == "Assault", "there, no contact")
+		sq = R.new()
+		R.step(sq, facts({ contact = true, theirs = 8 }), SQ)
+		R.step(sq, facts({ contact = true, theirs = 8, ready = 0.75 }), SQ)
+		assert(sq.phase == "Assault", "bounding up with covering fire, then in")
+		sq = R.new()
+		R.step(sq, facts({ contact = true, ours = 3, theirs = 2, ready = 1 }), SQ)
+		assert(sq.phase == "Assault", "outnumbering")
+		sq = R.new()
+		R.step(sq, facts({ contact = true, ours = 0, theirs = 9, ready = 1 }), SQ)
+		assert(sq.phase == "Bound", "outnumbered, no covering fire yet: bound first")
+		R.step(sq, facts({ contact = true, theirs = 9, ready = 0.1 }), SQ)
+		R.step(sq, facts({ contact = false, theirs = 9 }), SQ)
+		assert(sq.phase == "Move")
+		R.step(sq, facts({ contact = true, theirs = 9, ready = 0 }), SQ)
+		R.step(sq, facts({ contact = true, theirs = 9, ready = 0 }), SQ)
+		assert(sq.phase == "Bound", "not there yet: no push")
+	end,
+	["step: an assault holds until the order changes; defenders hold"] = function()
+		local sq = R.new()
+		R.step(sq, facts({ ready = 1 }), SQ)
+		R.step(sq, facts({ contact = true, theirs = 9 }), SQ)
+		assert(sq.phase == "Assault")
+		R.step(sq, facts({ defend = true }), SQ)
+		assert(sq.phase == "Hold")
+		R.step(sq, facts(), SQ)
+		assert(sq.phase == "Move", "a new attack order starts from the walk")
+	end,
+	["role: bounding halves alternate by place; the other phases one role for all"] = function()
+		local sq = R.new()
+		assert(R.role(sq, 1) == "Move" and R.role(sq, 2) == "Move")
+		sq.phase, sq.moving = "Bound", 1
+		assert(R.role(sq, 1) == "Move" and R.role(sq, 2) == "Support" and R.role(sq, 3) == "Move")
+		sq.moving = 2
+		assert(R.role(sq, 1) == "Support" and R.role(sq, 2) == "Move")
+		sq.phase = "Assault"
+		assert(R.role(sq, 2) == "Assault")
+		sq.phase = "Hold"
+		assert(R.role(sq, 1) == "Hold")
+	end,
+	["pickSpot: cover and things near first, its lane kept, a crowded lane avoided"] = function()
+		local spots: { R.Spot } = {
+			{ hidden = false, near = 0, distance = 10, lane = 0 },
+			{ hidden = true, near = 2, distance = 20, lane = 0 },
+			{ hidden = true, near = 3, distance = 30, lane = 1 },
+		}
+		local zero = { 0, 0, 0 }
+		assert(R.pickSpot(spots, nil, {}, zero, RT.weights, RT.nearCap) == 3, "the most cover overall")
+		assert(R.pickSpot(spots, 0, {}, zero, RT.weights, RT.nearCap) == 2, "kept to its lane")
+		assert(R.pickSpot(spots, -1, {}, zero, RT.weights, RT.nearCap) == 3, "no spots in its lane: any")
+		assert(R.pickSpot(spots, nil, { [1] = 3 }, zero, RT.weights, RT.nearCap) == 2, "the crowded lane avoided")
+		assert(R.pickSpot({}, nil, {}, {}, RT.weights, RT.nearCap) == nil)
+	end,
+	["lane: the centre within the angle, the sides by which side"] = function()
+		-- home at the origin, the goal 100 east: spots round the goal, measured against the way back west
+		assert(R.lane(0, 0, 100, 0, 80, 2, 25) == 0, "on the way home")
+		local north = R.lane(0, 0, 100, 0, 90, 30, 25)
+		local south = R.lane(0, 0, 100, 0, 90, -30, 25)
+		assert(north ~= 0 and south ~= 0 and north == -south, `{north} {south}`)
+	end,
+	["quietLane: the emptiest lane, the centre first"] = function()
+		assert(R.quietLane({}) == 0)
+		assert(R.quietLane({ [0] = 1 }) == -1)
+		assert(R.quietLane({ [0] = 1, [-1] = 1 }) == 1)
+	end,
+}

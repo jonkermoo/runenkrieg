@@ -25,6 +25,12 @@
 --   counts in the zones like a player. Each side's commander (Rules/BotOrders), once a second, reads the sectors from
 --   the Frontline folder and sends each bot to attack the side's target sector or defend an own one being taken; a bot
 --   walks to a stand point in that sector's zone and fights there with the same brain.
+-- - Normal squads (Rules/BotSquads, Config/Bots.Squads; user 2026-11-01: teamwork, pushing under covering fire, using
+--   the whole map): the commander splits each order into squads, each with a lane and an approach spot by the zone
+--   (src/server/Bots/Routes: spots scored by cover from the map), sometimes a waypoint on its lane's side on the way.
+--   A squad walks there, bounds in contact (half fire at where its members saw enemies, half run on), and pushes in
+--   together when it is ready; defenders stand on hold spots in their zone. Each bot's role in its squad tells the
+--   brain to press on, give covering fire or hold.
 -- The server's budget (Config/Bots.Budget): bots think round-robin within a frame's milliseconds (the rest wait a
 -- frame); one snapshot of every soldier a frame serves all the bots' sight; cover searches walk one ring a think within
 -- a frame's rays; path computes are rationed server-wide; a governor holds the count lower while the bots cost too much
@@ -68,12 +74,16 @@ local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
 local ZoneMatch = require(script.Parent.ZoneMatch)
 local Animate = require(script.Animate)
+local Routes = require(script.Routes)
+local Squads = require(Shared.Rules.BotSquads)
 
 local Bots = {}
 
 local M = Metrics.Movement
 local MV = Cfg.Move
 local NV = Cfg.Normal
+local SQ = Cfg.Squads
+local RT = Cfg.Routes
 local BG = Cfg.Budget
 local CV = MV.Cover
 local brainCfg = Cfg.Brain :: any
@@ -136,6 +146,13 @@ type Bot = {
 	sector: number?, -- Normal: the sector of its order (Config/Maps/Map1.sectors)
 	stand: Vector3?, -- Normal: where it stands in that sector's zone
 	coverJob: CoverJob?, -- a cover search under way (one ring a think)
+	squad: string?, -- Normal: its squad's key
+	role: Squads.Role?, -- Normal: its role in the squad
+	goal: Vector3?, -- Normal: where its role sends it (a route point, a bound's stop, a hold spot)
+	stop: Vector3?, -- Normal: a bound's next stop
+	post: Vector3?, -- Normal: where it holds (its covering-fire spot, or its hold spot in the zone)
+	postSector: number?, -- the sector its hold spot is in
+	roleWas: Squads.Role?,
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -173,9 +190,26 @@ local stats = {
 	pathsDeferred = 0, -- path computes put off for want of the server's ration
 	pathsShared = 0, -- paths taken from another bot's
 	reowned = 0, -- bodies whose physics a player had taken, given back to the server
+	covering = 0, -- shots of covering fire
+	assaults = 0, -- squads that pushed into a zone
 	stoodUp = 0, -- bodies found lying after a knock, stood up
 	since = os.clock(),
 }
+
+-- Normal squads by key (Rules/BotSquads), kept tick to tick: the phase, its lane and route, what its members saw
+type Known = { model: Model, pos: Vector3, at: number }
+type SquadState = {
+	sq: Squads.Squad,
+	side: string,
+	sector: number,
+	lane: number,
+	approach: Vector3?,
+	mid: Vector3?,
+	known: { Known },
+	seen: number, -- the commander's tick it was last formed (gone ones are dropped)
+}
+local squads: { [string]: SquadState } = {}
+local commandTick = 0
 
 -- the budget's running state
 local frame = 0 -- frames since start (the snapshot's key)
@@ -621,10 +655,42 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 		local part = aimPart((b.target :: Target).model)
 		if part then
 			b.lastSeenAt = part.Position
+			-- the squad knows it too (covering fire, contact)
+			local sq = b.squad and squads[b.squad :: string]
+			if sq then
+				local known = (sq :: SquadState).known
+				local found = false
+				for _, k in known do
+					if k.model == (b.target :: Target).model then
+						k.pos, k.at, found = part.Position, now, true
+					end
+				end
+				if not found then
+					table.insert(known, { model = (b.target :: Target).model, pos = part.Position, at = now })
+					if #known > 6 then
+						table.remove(known, 1)
+					end
+				end
+			end
 		end
 		b.lastOpen = root.Position
 	end
 	return true
+end
+
+-- the latest enemy spot the bot's squad knows (covering fire), or nil
+local function knownSpot(b: Bot, now: number): Vector3?
+	local sq = b.squad and squads[b.squad :: string]
+	if not sq then
+		return nil
+	end
+	local best: Known? = nil
+	for _, k in (sq :: SquadState).known do
+		if now - k.at <= SQ.knownFor and (not best or k.at > (best :: Known).at) then
+			best = k
+		end
+	end
+	return if best then best.pos else nil
 end
 
 -- a ground point under (x, z) near `y`, or nil (off the map, under water)
@@ -1000,6 +1066,8 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		spotted = b.spotted,
 		cover = coverState,
 		push = b.push,
+		role = b.role,
+		suppress = b.role == "Support" and knownSpot(b, now) ~= nil,
 	}
 	local was = b.brain.state
 	local intent = Rules.step(b.brain, senses, brainCfg, d, random:NextNumber())
@@ -1012,7 +1080,8 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local zone, radius = objective(b)
 	local goal: Vector3? = nil
 	local targetPart = if target then aimPart(target.model) else nil
-	local aimAt: Vector3? = if targetPart then targetPart.Position else b.lastSeenAt
+	local suppressAt = if b.role == "Support" and not targetPart then knownSpot(b, now) else nil
+	local aimAt: Vector3? = if targetPart then targetPart.Position else (suppressAt or b.lastSeenAt)
 	local move = intent.move
 	-- Normal: a hunt that would lead it far from its order's sector gives way to the order
 	if move == "Hunt" and b.mode == "Normal" and zone and b.lastSeenAt then
@@ -1041,8 +1110,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 				b.wanderAt = now + MV.WanderEvery
 			end
 		end
-		-- (Normal: outside the zone it heads for its own stand point there, so they spread out)
-		goal = if inZone then b.wander elseif b.flank then b.flank else (b.stand or z)
+		-- (Normal: outside the zone its squad's route: a waypoint, a bound's stop, the approach spot; then its own
+		-- stand point there)
+		goal = if inZone and b.role ~= "Move" then b.wander elseif b.flank then b.flank else (b.goal or b.stand or z)
+		b.nav.direct = nil
+	elseif move == "Hold" then
+		-- on its spot (covering fire, or a hold spot in the zone); there, it stands
+		local post = b.goal or b.post
+		if post and flat((post :: Vector3) - root.Position).Magnitude > MV.Arrive then
+			goal = post
+		else
+			b.nav.goal = nil
+		end
 		b.nav.direct = nil
 	elseif move == "Hunt" then
 		goal = b.lastSeenAt
@@ -1073,7 +1152,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	end
 	if goal then
 		setGoal(b, goal, now)
-	elseif move ~= "Strafe" and move ~= "Peek" then
+	elseif move ~= "Strafe" and move ~= "Peek" and move ~= "Hold" then
 		b.nav.goal = nil
 	end
 	follow(b, now)
@@ -1143,6 +1222,21 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
 			if Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
 				stats.shots += 1
+			end
+		end
+	elseif intent.fire and facing and suppressAt then
+		-- covering fire at where an enemy was seen: a wider spread, no lead
+		local gun = tool:FindFirstChild("Gun") :: BasePart?
+		local muzzle = gun and gun:FindFirstChild("Muzzle") :: Attachment?
+		if muzzle then
+			local origin = muzzle.WorldPosition
+			local line = (suppressAt :: Vector3) - origin
+			local err = d.aimFloor + brainCfg.SuppressSpread
+			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
+			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
+			if Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
+				stats.shots += 1
+				stats.covering += 1
 			end
 		end
 	end
@@ -1267,14 +1361,212 @@ local function standPoint(i: number): Vector3
 	return Vector3.new(x, if hit then hit.Position.Y else sectorPoint(i).Y, z)
 end
 
+-- the flat centre of `list`'s living bodies, or nil
+local function centre(list: { Bot }): Vector3?
+	local sum, n = Vector3.zero, 0
+	for _, b in list do
+		if b.root and alive(b) then
+			sum += (b.root :: BasePart).Position
+			n += 1
+		end
+	end
+	return if n > 0 then sum / n else nil
+end
+
+-- a defender's hold spot in sector `i`: the best one fewest of the side's defenders stand on
+local function holdSpot(side: string, i: number, taken: { [Vector3]: number }): Vector3?
+	local spots = Routes.spots(i, side, true)
+	if not spots or #spots == 0 then
+		return nil
+	end
+	local best, bestAt = -math.huge, nil
+	for _, sp in spots :: { Routes.Spot } do
+		local v = Squads.scoreSpot(sp, taken[sp.pos] or 0, random:NextNumber(), RT.weights, RT.nearCap)
+		if v > best then
+			best, bestAt = v, sp.pos
+		end
+	end
+	if bestAt then
+		taken[bestAt] = (taken[bestAt] or 0) + 1
+	end
+	return bestAt
+end
+
+-- Normal: `side`'s bots in squads by order and sector (Rules/BotSquads): each squad's phase this tick, its route
+-- (lane, approach spot, a waypoint on the lane's side) and each member's role and goal
+local function formSquads(side: string, counts: { { West: number, East: number } })
+	local now = os.clock()
+	local enemy = if side == "West" then "East" else "West"
+	local groups: { [string]: { Bot } } = {}
+	local order: { string } = {}
+	for _, b in bots do
+		if b.side == side and b.sector and b.order then
+			local key = `{side}{b.order}{b.sector}`
+			if not groups[key] then
+				groups[key] = {}
+				table.insert(order, key)
+			end
+			table.insert(groups[key], b)
+		end
+	end
+	-- the lanes each sector's squads use already (a new squad takes the quietest)
+	local crowd: { [number]: { [number]: number } } = {}
+	for _, sq in squads do
+		if sq.side == side and sq.seen == commandTick - 1 then
+			crowd[sq.sector] = crowd[sq.sector] or {}
+			crowd[sq.sector][sq.lane] = (crowd[sq.sector][sq.lane] or 0) + 1
+		end
+	end
+	local taken: { [Vector3]: number } = {}
+	for _, gkey in order do
+		local list = groups[gkey]
+		local first = list[1]
+		local sector = first.sector :: number
+		local defend = first.order == "Defend"
+		local s = Map.sectors[sector]
+		local c = sectorPoint(sector)
+		for k, members in Squads.form(list, SQ.size, SQ.least) do
+			local key = `{gkey}#{k}`
+			local st = squads[key]
+			if not st or st.sector ~= sector then
+				local lanes = crowd[sector] or {}
+				crowd[sector] = lanes
+				local lane = Squads.quietLane(lanes)
+				lanes[lane] = (lanes[lane] or 0) + 1
+				st = { sq = Squads.new(), side = side, sector = sector, lane = lane, known = {}, seen = commandTick }
+				squads[key] = st
+			end
+			local sqs = st :: SquadState
+			sqs.seen = commandTick
+			local mid = centre(members) or c
+			-- the route: an approach spot in its lane, and on a long way a waypoint off to that side
+			if not defend and not sqs.approach then
+				local spots = Routes.spots(sector, side, false)
+				if spots and #spots > 0 then
+					local rolls = {}
+					for i in spots :: { Routes.Spot } do
+						rolls[i] = random:NextNumber()
+					end
+					local i =
+						Squads.pickSpot(spots :: any, sqs.lane, crowd[sector] or {}, rolls, RT.weights, RT.nearCap)
+					if i then
+						local spot = (spots :: { Routes.Spot })[i]
+						sqs.approach = spot.pos
+						local way = flat(spot.pos - mid)
+						local off = flat(spot.pos - c)
+						local home = flat(mid - c)
+						local across = if home.Magnitude > 1 then off - home.Unit * off:Dot(home.Unit) else Vector3.zero
+						if way.Magnitude > RT.midFrom and across.Magnitude > 1 then
+							local p = mid:Lerp(spot.pos, RT.midShare) + across.Unit * way.Magnitude * RT.laneOffset
+							sqs.mid = Routes.ground(p.X, p.Z)
+						end
+					end
+				end
+			end
+			if sqs.mid and flat((sqs.mid :: Vector3) - mid).Magnitude < SQ.arrive * 3 then
+				sqs.mid = nil
+			end
+			-- the facts for its phase
+			local living, ready, inZone = 0, 0, 0
+			local moversThere = true
+			for _, b in members do
+				if b.root and alive(b) then
+					living += 1
+					local p = (b.root :: BasePart).Position
+					if flat(p - c).Magnitude < s.radius then
+						inZone += 1
+					end
+					if sqs.approach and flat(p - sqs.approach :: Vector3).Magnitude < SQ.arrive * 2 then
+						ready += 1
+					end
+					if b.role == "Move" and b.stop and flat(p - b.stop :: Vector3).Magnitude > SQ.arrive then
+						moversThere = false
+					end
+				end
+			end
+			if not sqs.approach then
+				-- (no spots yet: ready once near the zone)
+				for _, b in members do
+					if b.root and alive(b) then
+						local d = flat((b.root :: BasePart).Position - c).Magnitude
+						if d < s.radius + RT.rings[#RT.rings] then
+							ready += 1
+						end
+					end
+				end
+			end
+			local contact = false
+			for _, kn in sqs.known do
+				if now - kn.at <= SQ.knownFor and flat(kn.pos - mid).Magnitude <= SQ.contact then
+					contact = true
+				end
+			end
+			local was = sqs.sq.phase
+			Squads.step(sqs.sq, {
+				now = now,
+				defend = defend,
+				contact = contact,
+				ready = if living > 0 then ready / living else 0,
+				inZone = if living > 0 then inZone / living else 0,
+				ours = (counts[sector] :: any)[side],
+				theirs = (counts[sector] :: any)[enemy],
+				size = living,
+				moversThere = moversThere,
+			}, SQ)
+			if sqs.sq.phase == "Assault" and was ~= "Assault" then
+				stats.assaults += 1
+			end
+			-- each member's role and goal
+			local route = sqs.mid or sqs.approach or c
+			local ahead = flat(route - mid)
+			local right = if ahead.Magnitude > 1 then ahead.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
+			for idx, b in members do
+				local role = Squads.role(sqs.sq, idx)
+				b.squad, b.role = key, role
+				local p = if b.root then (b.root :: BasePart).Position else mid
+				if role == "Hold" then
+					if not b.post or b.postSector ~= sector or b.roleWas ~= "Hold" then
+						b.post = holdSpot(side, sector, taken) or b.stand
+						b.postSector = sector
+					end
+					b.goal = b.post
+				elseif role == "Assault" then
+					b.goal = b.stand
+				elseif role == "Support" then
+					if b.roleWas ~= "Support" then
+						b.post = p -- (it holds where it stands, covering the others)
+					end
+					b.goal = b.post
+				else
+					local slot = route + right * ((idx - (#members + 1) / 2) * SQ.spread)
+					if sqs.sq.phase == "Bound" then
+						if b.roleWas ~= "Move" or not b.stop then
+							local way = flat(slot - p)
+							local hop = math.min(SQ.hop, way.Magnitude)
+							local at = if way.Magnitude > 1 then p + way.Unit * hop else slot
+							b.stop = Routes.ground(at.X, at.Z)
+						end
+						b.goal = b.stop
+					else
+						b.stop = nil
+						b.goal = slot
+					end
+				end
+				b.roleWas = role
+			end
+		end
+	end
+end
+
 -- Normal: each side's commander (Rules/BotOrders) from the sectors on the Frontline folder: who attacks the side's
--- target sector and who defends an own sector being taken
+-- target sector and who defends an own sector being taken; then its squads (formSquads)
 local function command()
 	local f = workspace:FindFirstChild(FrontCfg.FolderName)
 	if liveMode() ~= "Normal" or not Frontline.running() or not f then
 		return
 	end
 	debug.profilebegin("Bots.command")
+	commandTick += 1
 	local owner, control, counts = {}, {}, {}
 	for i, s in Map.sectors do
 		local sf = f:FindFirstChild(s.id)
@@ -1307,6 +1599,13 @@ local function command()
 					b.wander, b.reachedZone, b.flank = nil, false, nil
 				end
 			end
+		end
+		formSquads(side, counts)
+	end
+	-- squads no longer formed go
+	for key, sq in squads do
+		if sq.seen ~= commandTick then
+			squads[key] = nil
 		end
 	end
 	debug.profileend()
@@ -1343,7 +1642,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -1366,6 +1665,8 @@ local function report(now: number)
 			stats.sidesteps,
 			stats.reowned,
 			stats.stoodUp,
+			stats.assaults,
+			stats.covering,
 			stats.shots,
 			stats.deaths,
 			stats.covers,
@@ -1428,6 +1729,7 @@ function Bots.start()
 				despawn(b)
 				b.deadAt, b.respawnAt = nil, nil
 				b.order, b.sector, b.stand = nil, nil, nil
+				b.squad, b.role, b.goal, b.stop, b.post, b.roleWas = nil, nil, nil, nil, nil, nil
 				spawnBody(b)
 			end
 		end
@@ -1436,6 +1738,8 @@ function Bots.start()
 		respawnAll("FFA")
 	end)
 	Frontline.onMatchStart(function()
+		Routes.clear() -- (the map is put back: spots worked out again)
+		table.clear(squads)
 		respawnAll("Normal")
 	end)
 	-- the director in its own loop: a new body yields (the avatar is built), never inside the frame's step

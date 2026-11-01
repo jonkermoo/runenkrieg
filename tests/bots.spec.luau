@@ -401,4 +401,44 @@ return {
 		assert(Cfg.Max.Normal >= 2 * Cfg.Fill.Normal.perSide - 1, "room for 20 v 20 with one player")
 		assert(Cfg.Normal.defendShare > 0 and Cfg.Normal.defendShare < 1)
 	end,
+	["roles: pressing on, a far enemy is shot on the move and cover waits for a hit"] = function()
+		local b = R.new()
+		local s = senses({ target = enemy(100), role = "Assault", threatAt = 0 })
+		local i = R.step(b, s, brainCfg, D, 0.5)
+		assert(i.move == "Objective" and i.aim, "on toward the goal, aiming")
+		s = senses({ now = 1, target = enemy(brainCfg.PressWithin - 5), role = "Assault" })
+		i = R.step(b, s, brainCfg, D, 0.5)
+		assert(i.move ~= "Objective", "a close enemy is fought where it stands")
+		-- shot at but not hit, with cover: pressing on; hit: cover
+		local c = R.new()
+		i = R.step(
+			c,
+			senses({ now = 2, target = enemy(80), role = "Move", threatAt = 2, cover = "going" }),
+			brainCfg,
+			D,
+			0.5
+		)
+		assert(c.state ~= "Cover", "a near miss doesn't stop the push")
+		i = R.step(
+			c,
+			senses({ now = 3, target = enemy(80), role = "Move", threatAt = 3, hurtAt = 3, cover = "going" }),
+			brainCfg,
+			D,
+			0.5
+		)
+		assert(c.state == "Cover" or c.state == "Retreat", c.state)
+	end,
+	["roles: support holds its spot and fires at a known enemy spot"] = function()
+		local b = R.new()
+		local i = R.step(b, senses({ now = 5, role = "Support", suppress = true }), brainCfg, D, 0.5)
+		assert(i.move == "Hold" and i.aim and i.fire, "covering fire with nothing in sight")
+		local next = R.step(b, senses({ now = 5.1, role = "Support", suppress = true }), brainCfg, D, 0.5)
+		assert(not next.fire, "at its own slow rate")
+		local h = R.new()
+		i = R.step(h, senses({ now = 1, role = "Hold" }), brainCfg, D, 0.5)
+		assert(i.move == "Hold" and not i.fire, "holding, nothing to shoot")
+		local f = R.new()
+		i = R.step(f, senses({ now = 1 }), brainCfg, D, 0.5)
+		assert(i.move == "Objective", "no role (FFA): as before")
+	end,
 }

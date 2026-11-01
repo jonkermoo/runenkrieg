@@ -12,11 +12,15 @@
 -- - sight (range and view cone; the line-of-sight ray is the server's), being looked at, near misses, target choice,
 --   the aim's error and lead;
 -- - the class each life (its match points, Config/Classes), and which cover point to run to.
+-- In Normal its squad (Rules/BotSquads) gives it a role (user 2026-11-01: "it seems too focused on killing and dodging
+-- and forgets their goal"): pressing on (Move, Assault) it keeps going for its goal and shoots on the move, fighting
+-- where it stands only an enemy within PressWithin and taking cover only when hit; Support holds its spot and fires at
+-- where enemies were last seen (covering fire, at SuppressGap); Hold stays on its spot in the zone.
 
 local Bots = {}
 
 export type State = "Advance" | "Engage" | "Cover" | "Peek" | "Reload" | "Retreat"
-export type Move = "Objective" | "Strafe" | "Push" | "Hunt" | "Cover" | "Peek" | "Away"
+export type Move = "Objective" | "Strafe" | "Push" | "Hunt" | "Cover" | "Peek" | "Away" | "Hold"
 export type CoverState = "none" | "going" | "at"
 
 -- what the bot knows this step
@@ -36,6 +40,9 @@ export type Senses = {
 	spotted: boolean?, -- an enemy in sight is looking its way
 	cover: CoverState?, -- the driver's cover point from the threat: none found, on the way, there
 	push: number?, -- a short-range gun (the shotgun): closes in to this distance
+	-- Normal (Rules/BotSquads): its role in its squad; whether there is a known enemy spot to fire at (Support)
+	role: string?,
+	suppress: boolean?,
 }
 
 export type Brain = {
@@ -181,6 +188,12 @@ local function fight(b: Brain, s: Senses, cfg: any, roll: number, hunting: boole
 	local hasCover = cover ~= "none"
 	local openEmpty = not s.chambered and s.magazine == 0
 	local was = b.state
+	-- pressing on (its squad moving or assaulting): cover only once it has been hit lately
+	local pressing = s.role == "Move" or s.role == "Assault"
+	local hurt = s.hurtAt ~= nil and now - s.hurtAt < cfg.ThreatMemory
+	if pressing and not hurt and was ~= "Cover" and was ~= "Peek" then
+		threatened = false
+	end
 	if not hunting and not threatened then
 		if was == "Cover" and hasCover and now < b.coverUntil then
 			return -- (sits out its time in cover, reloading)
@@ -207,7 +220,7 @@ local function fight(b: Brain, s: Senses, cfg: any, roll: number, hunting: boole
 			b.coverUntil = now + lerp(cfg.CoverFor, roll)
 		end
 	elseif
-		(threatened or s.spotted == true)
+		(threatened or (s.spotted == true and not pressing))
 		and hasCover
 		and now >= b.coverReady
 		and not (s.push ~= nil and visible)
@@ -275,15 +288,27 @@ function Bots.step(b: Brain, s: Senses, cfg: any, d: Difficulty, roll: number): 
 	end
 
 	local st = b.state
+	local role = s.role
+	local pressing = role == "Move" or role == "Assault"
+	local holding = role == "Support" or role == "Hold"
+	-- covering fire: a Support with an enemy spot known and nothing in sight fires at the spot
+	local suppressing = role == "Support" and s.suppress == true and not visible and (st == "Advance" or st == "Engage")
 	if st == "Engage" then
 		intent.aim = true
 		if not visible then
-			intent.move = if hunting then "Hunt" else "Strafe"
+			intent.move = if pressing then "Objective" elseif holding then "Hold" elseif hunting then "Hunt" else "Strafe"
+		elseif pressing and t and t.distance > cfg.PressWithin then
+			intent.move = "Objective" -- (on toward its goal, shooting on the move)
 		elseif s.push and t and t.distance > s.push then
 			intent.move = "Push"
+		elseif holding then
+			intent.move = "Hold"
 		else
 			intent.move = "Strafe" -- (never a standing target)
 		end
+	elseif st == "Advance" or st == "Reload" then
+		intent.move = if holding then "Hold" else "Objective"
+		intent.aim = suppressing
 	elseif st == "Cover" then
 		intent.move = "Cover"
 	elseif st == "Peek" then
@@ -300,7 +325,7 @@ function Bots.step(b: Brain, s: Senses, cfg: any, d: Difficulty, roll: number): 
 	end
 	-- a shot once it has reacted, the chamber live and the action idle
 	if
-		reacted
+		(reacted or suppressing)
 		and intent.aim
 		and not b.reloading
 		and not s.busy
@@ -309,7 +334,8 @@ function Bots.step(b: Brain, s: Senses, cfg: any, d: Difficulty, roll: number): 
 		and not intent.bolt
 	then
 		intent.fire = true
-		b.nextShot = now + (if s.auto then lerp(d.fireGap, roll) else 0)
+		local gap = if suppressing then lerp(cfg.SuppressGap, roll) elseif s.auto then lerp(d.fireGap, roll) else 0
+		b.nextShot = now + gap
 		b.boltAt = now + lerp(cfg.BoltDelay, roll)
 	end
 	return intent
