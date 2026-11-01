@@ -108,10 +108,10 @@ local function sideOf(player: Player): Rules.Side?
 end
 
 -- each side's spawn sector now (published as "<Side>Spawn": the loadout map's deploy ring)
--- (fixed for each wave when it opens, so one wave's soldiers all stand in one line)
-local waveSector: { [string]: number }? = nil
+-- (fixed for a wave by its first soldier in, so one wave's soldiers all stand in one line)
+local waveSector: { [string]: number } = {}
 local function spawnSector(side: Rules.Side): number
-	if waveAt and waveSector then
+	if waveAt and waveSector[side] then
 		return waveSector[side]
 	end
 	return Rules.spawnSector(state, side, captured, latest)
@@ -166,6 +166,9 @@ end
 
 -- the next open slot of `side`'s wave line: where to stand and a point to face
 local function nextSlot(side: Rules.Side): (Vector3, Vector3)
+	if waveAt and not waveSector[side] then
+		waveSector[side] = spawnSector(side)
+	end
 	local centre, face = lineOf(side)
 	local right = face:Cross(Vector3.yAxis)
 	local skip: { Instance } = {}
@@ -380,11 +383,7 @@ local function heads(): (number, number)
 end
 
 local function setWave(at: number?)
-	waveAt = nil
-	waveSector = {
-		West = spawnSector("West"),
-		East = spawnSector("East"),
-	}
+	table.clear(waveSector)
 	waveAt = at
 	slots.West, slots.East = 0, 0
 	folder:SetAttribute(Cfg.WaveAttribute, at)
