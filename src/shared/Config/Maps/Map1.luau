@@ -209,6 +209,8 @@ local Map1 = {
 			-- the farm north of S3, on the point's x: the oast house facing the point, its yard behind
 			{ id = "Oast", style = "OastHouse", x = 1240, z = 72, front = { 0, -1 } },
 			{ id = "FarmYard", style = "HayBarn", x = 1240, z = 118, front = { 0, -1 } },
+			-- the watermill on the S3 bank just south of the lock ford, its door to the west, its wheel in the river
+			{ id = "Mill", style = "Watermill", x = 1450, z = -234, front = { -1, 0 } },
 		},
 
 		railX = 2530,

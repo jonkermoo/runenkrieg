@@ -54,7 +54,7 @@ return {
 					assert((c[1] - k.x) ^ 2 + (c[2] - k.z) ^ 2 >= k.r * k.r, `{l.id} in a kept-clear square`)
 				end
 			end
-			assert(not MT.isRiver(Map1, l.x, l.z), `{l.id} in the river`)
+			assert(not MT.isRiver(Map1, l.x, l.z) or B.Templates[l.style].waterside, `{l.id} in the river`)
 		end
 	end,
 	["every road-side house faces its road (door within reach of the road)"] = function()

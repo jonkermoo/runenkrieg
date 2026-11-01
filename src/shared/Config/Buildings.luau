@@ -27,6 +27,7 @@ export type Template = {
 	rightDoor: boolean?,
 	windows: number?, -- windows per wall, every wall (default 2 front and back, 1 on the sides)
 	climb: boolean?, -- one more flight up through the ceiling onto the roof (a tower's roof walk)
+	waterside: boolean?, -- stands at the river's edge on purpose (a mill): the village check lets it into the river banks
 	-- A landmark (one map's own buildings; user 2026-11-01: "somewhat unique to each map"): several blocks in the
 	-- template's footprint (width x depth), each with the building fields above plus x, z (its centre in the
 	-- footprint), yaw (degrees) and a name; roofStyle "Battlement" is a flat roof walk with a crenellated parapet.
@@ -35,7 +36,8 @@ export type Template = {
 	-- { kind = "Lychgate", x, z, yaw?, width } (a roofed gateway, open along local Z), { kind = "Sign", x, z, yaw?, height }
 	-- (a hanging inn sign, its arm along local X), { kind = "Kiln", x, z, radius, height, cone } (a round oast kiln),
 	-- { kind = "HayBarn", x, z, length, span, height } (an open-sided barn, ridge along local X), { kind = "Wall", a, b }
-	-- (a stone yard wall from a to b, { x, z } each). A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
+	-- (a stone yard wall from a to b, { x, z } each), { kind = "Waterwheel", x, z, y, yaw?, radius, width } (its axle
+	-- along local Z, its centre y over the base). A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
 	-- the copy's scheme.
 	features: { any }?,
 	description: string,
@@ -71,6 +73,8 @@ local Buildings = {
 		hayRoof = "Thatch",
 	},
 	YardWall = { height = 2, thick = 1.2, piece = 6, sink = 0.5 }, -- hoppable (Metrics.Cover.HopableLedgeMax)
+	-- a waterwheel: rim pieces round it, spokes across each face, a paddle's reach past the rim, the axle's length
+	Waterwheel = { pieces = 14, spokes = 4, paddle = 1.6, axle = 7 },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -350,6 +354,41 @@ local Buildings = {
 				{ kind = "Wall", a = { 20, -14 }, b = { 20, 14 } },
 			},
 			description = "The farm's yard: an open-sided Dutch hay barn with hay, a shed and stone yard walls.",
+		},
+		-- The watermill at the lock ford: a two-storey stone mill on the river bank (its back over the bank on a stone
+		-- footing), slate roof, a gable chimney, its door away from the water and a wooden waterwheel beside its river
+		-- wall, its foot in the water.
+		Watermill = {
+			folder = "Landmarks",
+			width = 22,
+			depth = 24,
+			stories = 2,
+			roofPitch = 42,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate", "DarkTile" },
+			storyHeight = 10,
+			waterside = true,
+			blocks = {
+				{
+					name = "Mill",
+					x = 0,
+					z = -3,
+					width = 20,
+					depth = 16,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 42,
+					roofStyle = "Tile",
+					quoins = true,
+					gableChimney = -1,
+				},
+			},
+			features = {
+				{ kind = "Waterwheel", x = 2, z = 7.5, y = 2.5, radius = 7, width = 3.4 },
+			},
+			description = "The watermill at the lock ford: two-storey stone mill on the bank, slate roof, a wooden waterwheel by the river.",
 		},
 	} :: { [string]: Template },
 

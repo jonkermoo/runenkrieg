@@ -444,6 +444,32 @@ local function segmentDistance(x: number, z: number, a: { number }, b: { number 
 	return math.sqrt((x - a[1] - dx * t) ^ 2 + (z - a[2] - dz * t) ^ 2)
 end
 
+-- The map's natural trees (Rules/MapTerrain.trees) less those within `clear` of a hand-placed landmark: a landmark
+-- out in the open (a mill on the river bank) never has a tree through it. Village lots stand in reserved ground,
+-- which grows no natural trees.
+function Village.naturalTrees(map: any, MT: any, lots: { Lot }, clear: number): { any }
+	local quads = {}
+	for _, l in lots do
+		if l.special then
+			table.insert(quads, Village.corners(l, clear))
+		end
+	end
+	local out = {}
+	for _, t in MT.trees(map) do
+		local ok = true
+		for _, q in quads do
+			if Village.pointInQuad(t.x, t.z, q) then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			table.insert(out, t)
+		end
+	end
+	return out
+end
+
 -- A hand-placed layout (a map's `layout`: lots, fences and yard pieces in world studs, as Config/Maps/Playtest) in
 -- the shape `layout` returns; its trees are the map's natural ones (Rules/MapTerrain.trees) less those within
 -- `trees.buildingClear` of a building, fence or yard piece.

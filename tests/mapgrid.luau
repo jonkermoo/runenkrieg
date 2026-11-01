@@ -12,7 +12,7 @@ local MT = require("../src/shared/Rules/MapTerrain")
 local V = require("../src/shared/Rules/Village")
 
 local layout = V.layout(Map1, B, M, MT, P)
-local trees = table.clone(MT.trees(Map1))
+local trees = V.naturalTrees(Map1, MT, layout.lots, Map1.village.trees.buildingClear)
 for _, t in layout.trees do
 	table.insert(trees, t)
 end

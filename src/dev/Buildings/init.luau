@@ -214,6 +214,8 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.hayBarn(model, ctx, at, f.length, f.span, f.height)
 			elseif f.kind == "Wall" then
 				Geometry.yardWall(model, ctx, f.a, f.b)
+			elseif f.kind == "Waterwheel" then
+				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end

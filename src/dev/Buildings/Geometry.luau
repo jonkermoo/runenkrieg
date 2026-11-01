@@ -737,6 +737,57 @@ function Geometry.yardWall(parent: Instance, ctx: Ctx, a: { number }, b: { numbe
 	end
 end
 
+-- A wooden waterwheel in `at`'s XY plane (its axle along local Z, into the wall behind it): a rim of `n` straight
+-- pieces, spokes across, a paddle board at every rim joint `width` wide, and the axle. Not turning (a static prop).
+function Geometry.waterwheel(parent: Instance, ctx: Ctx, at: CFrame, r: number, width: number)
+	local Wh = ctx.B.Waterwheel
+	local n = Wh.pieces
+	local chord = 2 * r * math.sin(math.pi / n)
+	local sec = Geometry.section(parent, ctx, "Waterwheel", "Wood", 0)
+	for _, face in { -width / 2 + 0.3, width / 2 - 0.3 } do
+		for i = 0, n - 1 do
+			local a = (i + 0.5) * 2 * math.pi / n
+			Geometry.part(
+				sec,
+				ctx,
+				"Rim",
+				at * CFrame.new(0, 0, face) * CFrame.Angles(0, 0, a) * CFrame.new(0, r * math.cos(math.pi / n), 0),
+				Vector3.new(chord + 0.1, 0.6, 0.5),
+				"Trim"
+			)
+		end
+		for i = 0, Wh.spokes - 1 do
+			Geometry.part(
+				sec,
+				ctx,
+				"Spoke",
+				at * CFrame.new(0, 0, face) * CFrame.Angles(0, 0, i * math.pi / Wh.spokes),
+				Vector3.new(2 * r - 0.6, 0.45, 0.45),
+				"Wood"
+			)
+		end
+	end
+	for i = 0, n - 1 do
+		Geometry.part(
+			sec,
+			ctx,
+			"Paddle",
+			at * CFrame.Angles(0, 0, i * 2 * math.pi / n) * CFrame.new(0, r + Wh.paddle / 2 - 0.3, 0),
+			Vector3.new(0.35, Wh.paddle, width),
+			"Wood"
+		)
+	end
+	local axle = Geometry.part(
+		sec,
+		ctx,
+		"Axle",
+		at * CFrame.new(0, 0, Wh.axle / 2 - width / 2) * CFrame.Angles(0, math.pi / 2, 0),
+		Vector3.new(Wh.axle, 1.2, 1.2),
+		"Metal"
+	)
+	axle.Shape = Enum.PartType.Cylinder
+end
+
 -- A hanging inn sign: a post `height` high, an arm off its top along local X, a framed board hanging under the arm.
 function Geometry.sign(parent: Instance, ctx: Ctx, at: CFrame, height: number)
 	local S = ctx.B.InnSign
