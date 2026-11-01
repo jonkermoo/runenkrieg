@@ -54,6 +54,7 @@ local Loco = require(Shared.Config.Locomotion)
 local Map = require(Shared.Config.Maps.Map1)
 local Metrics = require(Shared.Config.Metrics)
 local ModesCfg = require(Shared.Config.Modes)
+local SupCfg = require(Shared.Config.Suppression)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
@@ -61,6 +62,8 @@ local F = require(Shared.Rules.Firing)
 local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
 local Rules = require(Shared.Rules.Bots)
+local ShotRules = require(Shared.Rules.ShotAudio)
+local Sup = require(Shared.Rules.Suppression)
 local Teams = require(Shared.Rules.Teams)
 local Armory = require(script.Parent.Armory)
 local Damage = require(script.Parent.Damage)
@@ -153,6 +156,8 @@ type Bot = {
 	post: Vector3?, -- Normal: where it holds (its covering-fire spot, or its hold spot in the zone)
 	postSector: number?, -- the sector its hold spot is in
 	roleWas: Squads.Role?,
+	shaken: number, -- its suppression level at its last hit (Rules/Suppression)
+	shakenAt: number, -- when that was
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -424,6 +429,7 @@ spawnBody = function(b: Bot)
 	b.nav = newNav(root.Position)
 	b.spawnedAt, b.reachedZone, b.deadAt, b.respawnAt, b.wander = os.clock(), false, nil, nil, nil
 	b.coverJob, b.stand = nil, nil
+	b.shaken, b.shakenAt = 0, 0
 	if b.mode == "Normal" then
 		Frontline.deployBot(m) -- (its side's wave line: held and shielded until the wave goes)
 		b.nav = newNav(root.Position)
@@ -510,6 +516,8 @@ local function add(mode: string, side: string?)
 		spawnedAt = 0,
 		reachedZone = false,
 		spawning = false,
+		shaken = 0,
+		shakenAt = 0,
 	}
 	b.name = freeName()
 	table.insert(bots, b)
@@ -781,7 +789,24 @@ local function coverStep(b: Bot)
 	debug.profileend()
 end
 
--- shots passing close: every bot near the line feels it (Rules/Bots.nearMiss)
+-- a bot's suppression level now (held, then falling: Rules/Suppression.decay)
+local function shakenNow(b: Bot, now: number): number
+	return Sup.decay(b.shaken, 0, now - b.shakenAt, SupCfg.Hold, SupCfg.Fall)
+end
+
+local function shake(b: Bot, amount: number, now: number)
+	if amount > 0 then
+		b.shaken = Sup.add(shakenNow(b, now), amount, SupCfg.Cap)
+		b.shakenAt = now
+	end
+end
+
+local function asPoint(v: Vector3): { number }
+	return { v.X, v.Y, v.Z }
+end
+
+-- shots passing close: every bot near the line feels it (Rules/Bots.nearMiss) and is suppressed by it, as a player
+-- is (Config/Suppression Pass and Impact)
 local function shotPassed(shooter: Model, origin: Vector3, hit: Vector3)
 	local line = hit - origin
 	local len = line.Magnitude
@@ -799,6 +824,9 @@ local function shotPassed(shooter: Model, origin: Vector3, hit: Vector3)
 			b.threatAt = now
 			b.threatFrom = origin
 		end
+		local P, I = SupCfg.Pass, SupCfg.Impact
+		local pass = ShotRules.pass(asPoint(origin), asPoint(hit), asPoint(p), P.radius, P.clear)
+		shake(b, math.max(Sup.impact((hit - p).Magnitude, I), if pass then Sup.pass(pass.off, P) else 0), now)
 	end
 end
 
@@ -1067,6 +1095,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		cover = coverState,
 		push = b.push,
 		role = b.role,
+		suppressed = shakenNow(b, now),
 		suppress = b.role == "Support" and knownSpot(b, now) ~= nil,
 	}
 	local was = b.brain.state
@@ -1217,7 +1246,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			)
 			local line = point - origin
 			local cross = (v - line.Unit * v:Dot(line.Unit)).Magnitude
-			local err = Rules.aimError(d, now - b.brain.seenAt - d.reaction, cross)
+			local err = Rules.shakenAim(
+				Rules.aimError(d, now - b.brain.seenAt - d.reaction, cross),
+				shakenNow(b, now),
+				brainCfg.SuppressedAim
+			)
 			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
 			if Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
@@ -1231,7 +1264,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		if muzzle then
 			local origin = muzzle.WorldPosition
 			local line = (suppressAt :: Vector3) - origin
-			local err = d.aimFloor + brainCfg.SuppressSpread
+			local err = Rules.shakenAim(d.aimFloor + brainCfg.SuppressSpread, shakenNow(b, now), brainCfg.SuppressedAim)
 			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
 			if Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
@@ -1713,6 +1746,19 @@ function Bots.start()
 		end
 	end)
 	Firing.onShot(shotPassed)
+	-- explosions suppress bots as they do players (Config/Suppression.Blast), and count as a threat close by
+	Damage.onBlast(function(pos: Vector3, kg: number)
+		local now = os.clock()
+		for _, b in bots do
+			if alive(b) then
+				local amount = Sup.blast(kg, (pos - eye(b)).Magnitude, SupCfg.Blast)
+				if amount > 0 then
+					shake(b, amount, now)
+					b.threatAt, b.threatFrom = now, pos
+				end
+			end
+		end
+	end)
 	-- a bot's capture pays it like a player's (src/server/Loadouts)
 	ZoneMatch.onBotCapture(function(id)
 		Loadouts.awardBot(id, "Capture")

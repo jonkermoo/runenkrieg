@@ -441,4 +441,37 @@ return {
 		i = R.step(f, senses({ now = 1 }), brainCfg, D, 0.5)
 		assert(i.move == "Objective", "no role (FFA): as before")
 	end,
+	["suppression: a pinned bot takes cover even pressing on, won't peek, and aims wider"] = function()
+		local pin = brainCfg.SuppressedCover
+		-- pressing on with a near miss: goes on; pinned by suppression: cover
+		local b = R.new()
+		R.step(
+			b,
+			senses({ now = 1, target = enemy(80), role = "Assault", threatAt = 1, cover = "going" }),
+			brainCfg,
+			D,
+			0.5
+		)
+		assert(b.state ~= "Cover")
+		R.step(
+			b,
+			senses({ now = 2, target = enemy(80), role = "Assault", threatAt = 2, cover = "going", suppressed = pin }),
+			brainCfg,
+			D,
+			0.5
+		)
+		assert(b.state == "Cover", b.state)
+		-- in cover with its time up: no peek while pinned, a peek once it calms down
+		local c = R.new()
+		c.state, c.coverUntil = "Cover", 0
+		R.step(c, senses({ now = 10, target = enemy(80, false), cover = "at", suppressed = 1 }), brainCfg, D, 0.5)
+		c.targetId, c.lastSeen = "e", 9.9
+		R.step(c, senses({ now = 10, target = enemy(80, false), cover = "at", suppressed = 1 }), brainCfg, D, 0.5)
+		assert(c.state == "Cover", "pinned: no peek")
+		R.step(c, senses({ now = 10.5, target = enemy(80, false), cover = "at", suppressed = 0 }), brainCfg, D, 0.5)
+		assert(c.state == "Peek", c.state)
+		assert(R.shakenAim(1, 0, brainCfg.SuppressedAim) == 1)
+		assert(R.shakenAim(1, 1, brainCfg.SuppressedAim) == 1 + brainCfg.SuppressedAim)
+		assert(R.shakenAim(1, 3, brainCfg.SuppressedAim) == 1 + brainCfg.SuppressedAim, "capped at full")
+	end,
 }

@@ -16,6 +16,8 @@
 -- and forgets their goal"): pressing on (Move, Assault) it keeps going for its goal and shoots on the move, fighting
 -- where it stands only an enemy within PressWithin and taking cover only when hit; Support holds its spot and fires at
 -- where enemies were last seen (covering fire, at SuppressGap); Hold stays on its spot in the zone.
+-- Suppression (Rules/Suppression, as a player's; user 2026-11-01: bots rattled by fire too): its level widens its aim
+-- (shakenAim) and from SuppressedCover up it counts as under fire: it takes cover even while pressing on, and won't peek.
 
 local Bots = {}
 
@@ -43,6 +45,7 @@ export type Senses = {
 	-- Normal (Rules/BotSquads): its role in its squad; whether there is a known enemy spot to fire at (Support)
 	role: string?,
 	suppress: boolean?,
+	suppressed: number?, -- its suppression level, 0..1 (Rules/Suppression)
 }
 
 export type Brain = {
@@ -191,9 +194,12 @@ local function fight(b: Brain, s: Senses, cfg: any, roll: number, hunting: boole
 	-- pressing on (its squad moving or assaulting): cover only once it has been hit lately
 	local pressing = s.role == "Move" or s.role == "Assault"
 	local hurt = s.hurtAt ~= nil and now - s.hurtAt < cfg.ThreatMemory
-	if pressing and not hurt and was ~= "Cover" and was ~= "Peek" then
+	-- pinned down: as good as hit
+	local shaken = (s.suppressed or 0) >= cfg.SuppressedCover
+	if pressing and not hurt and not shaken and was ~= "Cover" and was ~= "Peek" then
 		threatened = false
 	end
+	threatened = threatened or shaken
 	if not hunting and not threatened then
 		if was == "Cover" and hasCover and now < b.coverUntil then
 			return -- (sits out its time in cover, reloading)
@@ -207,6 +213,7 @@ local function fight(b: Brain, s: Senses, cfg: any, roll: number, hunting: boole
 			and now >= b.coverUntil
 			and not b.reloading
 			and hunting
+			and not shaken
 			and not (s.threatAt ~= nil and now - s.threatAt < cfg.PeekQuiet)
 		then
 			b.state = "Peek"
@@ -474,6 +481,11 @@ end
 function Bots.aimError(d: Difficulty, since: number, cross: number): number
 	local settled = d.aimFloor + (d.aimError - d.aimFloor) * math.exp(-math.max(0, since) / d.settle)
 	return settled + d.moving * math.abs(cross) / 10
+end
+
+-- The aim error `err` (degrees) of a bot suppressed to `level` (0..1): `extra` more degrees at full.
+function Bots.shakenAim(err: number, level: number, extra: number): number
+	return err + math.clamp(level, 0, 1) * extra
 end
 
 -- An offset within a cone of `err` degrees, from two random 0..1 numbers: (right, up) degrees, uniform over the disc.

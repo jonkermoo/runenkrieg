@@ -261,6 +261,10 @@ local Bots = {
 		-- covering fire: seconds between shots at a known enemy spot, and the extra spread (degrees) of those shots
 		SuppressGap = { 0.7, 1.5 },
 		SuppressSpread = 3,
+		-- suppressed itself (Config/Suppression's level from passes, impacts and blasts, as a player's): its aim this
+		-- many degrees wider at full, and from this level up it is pinned: cover even while pressing on, no peeks
+		SuppressedAim = 4,
+		SuppressedCover = 0.6,
 	},
 
 	-- difficulty (user 2026-10-30: reaction time, aim error, spot range)
