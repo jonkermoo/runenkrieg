@@ -1,7 +1,7 @@
 --!strict
--- Going into buildings as a soldier who isn't a player (user 2026-11-01: "make buildings something that AI can enter
--- too"): doors and stairs pathfinding routes through (src/server/Doors, src/server/Indoors), and the spots inside a
--- building a soldier could use (src/server/Indoors, worked out by Rules/Indoors from the walls). Data only.
+-- Going into buildings as a soldier who isn't a player (user 2026-11-01: bots can enter buildings too): doors and
+-- stairs pathfinding routes through (src/server/Doors, src/server/Indoors), and the spots inside a building a soldier
+-- could use (src/server/Indoors, worked out by Rules/Indoors from the walls). Data only.
 
 local Indoors = {
 	-- every part of a door gets a PathfindingModifier with this label, passing through, so a path isn't stopped by a
