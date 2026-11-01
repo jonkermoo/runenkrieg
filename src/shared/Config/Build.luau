@@ -245,7 +245,7 @@ local Build = {
 		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the M2
 		-- (Config/Artillery.Guns `gun`) on its tripod on two mount bags (`mountBag`) in the point where the two front
 		-- piles meet (Nest below). `width` x `depth` its footprint round the ring, `height` its top (the MG 08's shield
-		-- set it). (`stage1.sacks` unused here: a nest's empty sacks lie on their own spots, Nest.flat)
+		-- set it; the 11-sided ring's 12.8 across and a bag's depth). (`stage1.sacks` unused here: a nest's empty sacks lie on their own spots, Nest.flat)
 		{
 			key = "MGNest",
 			name = "MG nest",
@@ -256,8 +256,8 @@ local Build = {
 			bags = { "Bag1", "Bag2", "Bag3" },
 			-- stage 1's meshes from the pile (laid at 0 HP): the scraped ground under each pile, the empty sacks
 			stage1 = { ground = "Patch", sacks = "Sacks" },
-			width = 12.4,
-			depth = 12.4,
+			width = 14.4,
+			depth = 14.4,
 			height = 4.6,
 			maxSlope = 15,
 		},
@@ -423,9 +423,29 @@ local Build = {
 			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
 		wear = { 1, 0.7, 0.45, 0.2 },
-		ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } },
-		gunBack = 1.66,
-		mountBack = 2.31,
+		-- (user 2026-11-01: "it should have nearly a 180 view angle (maybe 140) ... make sure players dont clip with the
+		-- sandbag"; was 9 sides, the gun 1.66 behind the point, +-20 in the notch): 11 sides, the back three open as a
+		-- wide doorway, the gun near the middle; the two front piles (`low`) one bag high so the barrel and its bullets
+		-- clear the front across the whole traverse (Config/Artillery mg08 `traverse`; Rules.nestFit, `fit` below)
+		ring = {
+			sides = 11,
+			bag = 3.6,
+			piles = { { 0, 1, 2 }, { 0, 10, 9 }, { 2, 3, 4 }, { 9, 8, 7 } },
+			low = { 1, 2 },
+		},
+		gunBack = 5.5,
+		mountBack = 6.15,
+		-- what must clear the bags at every lay (Rules.nestFit, tests/build.spec): the gunner's legs (`legs`, across and
+		-- deep) against the bottom bags, the torso and arms out to the grips (`body`) against the top bags, the gun
+		-- (`gun`: from `back` behind the pivot, `length` long, `width` across) and its bullets against the top bags; each
+		-- bag `bag` long and deep (tools/blender/sandbags/pile.py), the gunner `crew` behind the pivot (Guns mg08 `crew`)
+		fit = {
+			legs = { 2, 1 },
+			body = { 4, 1.2 },
+			gun = { back = 1.4, length = 5.6, width = 0.6 },
+			bag = { 3.6, 1.6 },
+			margin = 0.2,
+		},
 		bagTop = 1.9,
 		-- craters never carve its footprint or this many studs round it (Build.onNest; user 2026-10-29: "give the
 		-- turret some ground. the ground beneath it shouldnt be be to be destroyed"), as a Hesco barrier's (Hesco.ground);
