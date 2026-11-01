@@ -1062,56 +1062,65 @@ local Artillery = {
 					fed = 7,
 					box = "m2_box",
 					grip = { 0.087, 1.34, 0 },
-					-- (user 2026-10-29: "various realistic sounds for machine gun reloading"; Pro Sound Effects, slices
-					-- picked from the files' descriptions): the top cover unlatched ("Metal Latches 3"), the empty can
-					-- lifted off rattling ("Ammo Box Movement 1"), put down ("Metal Can Large Sized Hit Drop 1"), the full
-					-- one taken up ("Ammo Box Movement 2") and set on the tray ("Shield Impacts 17"), the belt laid in
-					-- ("Machine Gun 20"), the cover slammed ("Metal Latches 12") and the charging handle racked back and
-					-- let go ("Machine Gun Bolt 1", an M85 .50 cal)
+					-- (Pro Sound Effects; user 2026-11-01, the sounds picked by the user from a listening page, in this order):
+					-- each on its move in the animation (tools/animation/mg.luau MGReload), a list layering its sounds
+					-- (src/client/SoundFx): the cover unlatched with the slam's latch, the empty can's rattle whole from just
+					-- before the lift (it was cut to its last 0.04 s), the full can set down, the belt's tab lifted, fed through
+					-- jingling (was "Machine Gun 20", a gunshot heard 2400 studs off) and seated, the cover slammed, the
+					-- charging handle racked on both pulls, and a last rack as the hands are back on the grips: the gun is ready
 					sounds = {
+						-- Top cover unlatched ("Metal Latches 12")
 						{
 							at = 0.5,
-							sound = { id = 9116722779, volume = 0.9, pitch = 0.9, stop = 0.35, profile = "Mechanism" },
+							sound = { id = 9116729170, volume = 0.9, stop = 0.4, fade = 0.1, profile = "Mechanism" },
 						},
-						{
-							at = 1.2,
-							sound = {
-								id = 9113102913,
-								volume = 0.7,
-								start = 1.5,
-								stop = 2.2,
-								fade = 0.2,
-								profile = "Mechanism",
-							},
-						},
-						{
-							at = 2.6,
-							sound = { id = 9116536883, volume = 1, pitch = 0.75, stop = 0.6, profile = "Mechanism" },
-						},
-						{
-							at = 3.7,
-							sound = {
-								id = 9113103014,
-								volume = 0.6,
-								start = 0.3,
-								stop = 1.8,
-								fade = 0.3,
-								profile = "Mechanism",
-							},
-						},
+						-- Empty can lifted off ("Ammo Box Movement 1")
+						{ at = 1, sound = { id = 9113102913, volume = 1.6, profile = "Mechanism" } },
+						-- Full can set on the tray ("Shield Impacts 17")
 						{
 							at = 5.3,
 							sound = { id = 9119075617, volume = 0.9, pitch = 0.8, stop = 0.4, profile = "Mechanism" },
 						},
-						{ at = 6.1, sound = { id = 9116340734, volume = 1, profile = "Gunshot" } },
+						-- Belt tab lifted ("Chain Rattle Glassy Metal Rattle 4")
 						{
-							at = 7.4,
-							sound = { id = 9116729170, volume = 1.2, pitch = 0.85, stop = 0.5, profile = "Mechanism" },
+							at = 5.5,
+							sound = { id = 9113763639, volume = 0.35, stop = 0.9, fade = 0.2, profile = "Mechanism" },
 						},
+						-- Belt fed through ("Dog Tags Rattles Metal Jingle")
 						{
-							at = 8.2,
-							sound = { id = 9116357348, volume = 1, pitch = 0.9, stop = 1.2, profile = "Mechanism" },
+							at = 6.1,
+							sound = {
+								id = 9125490846,
+								volume = 0.55,
+								start = 0.1,
+								stop = 1.5,
+								fade = 0.3,
+								profile = "Mechanism",
+							},
 						},
+						-- Belt seated in the feed ("Machine Gun Movement 1")
+						{ at = 7, sound = { id = 9116362330, volume = 1.5, profile = "Mechanism" } },
+						-- Top cover slammed shut ("Metal Latches 12" + "Metal Clunks Heavy Latch Mechanism 1")
+						{
+							at = 7.5,
+							sound = {
+								{ id = 9116729170, volume = 1.2, pitch = 0.85, stop = 0.5, profile = "Mechanism" },
+								{
+									id = 9116545245,
+									volume = 0.6,
+									start = 2.2,
+									stop = 2.9,
+									fade = 0.2,
+									profile = "Mechanism",
+								},
+							},
+						},
+						-- Charging handle racked ("Machine Gun Bolt 1")
+						{ at = 8.3, sound = { id = 9116357348, volume = 3, profile = "Mechanism" } },
+						-- Racked again ("Machine Gun Bolt 2")
+						{ at = 9.05, sound = { id = 9116357355, volume = 1, profile = "Mechanism" } },
+						-- Hands on the grips: the gun is ready ("Machine Gun Bolt 2")
+						{ at = 10.7, sound = { id = 9116357355, volume = 1.2, profile = "Mechanism" } },
 					},
 				},
 				-- (the M2's sights: 0.77 behind the rear sight's peep ring, on the line through the ring's middle and the
