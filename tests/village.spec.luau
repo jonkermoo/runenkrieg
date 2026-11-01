@@ -152,6 +152,13 @@ return {
 			assert((l.width + 2 * g.pad) / nu <= g.step and (l.depth + 2 * g.pad) / nv <= g.step)
 		end
 	end,
+	["the ground round a building: level with its base near the walls, rising beyond, natural past the reach"] = function()
+		local c = B.GroundCut
+		assert(V.cutHeight(5, 0, c) == 5 and V.cutHeight(5, c.margin, c) == 5)
+		assert(math.abs((V.cutHeight(5, c.margin + 2, c) :: number) - (5 + 2 * c.grade)) < 1e-9)
+		assert(V.cutHeight(5, c.reach + 0.1, c) == nil)
+		assert(V.railBed({ 1, 3.5, -2 }) == 3.5)
+	end,
 	["a footing only where the ground falls past the foundation"] = function()
 		assert(V.footing(10, 5, B.FoundationDepth) == 0)
 		assert(V.footing(10, 0, B.FoundationDepth) == 0)

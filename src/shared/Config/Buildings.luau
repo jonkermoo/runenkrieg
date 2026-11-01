@@ -56,6 +56,9 @@ local Buildings = {
 	-- placing a copy: the ground is sampled over its footprint plus `pad` (the walls' outer faces and the plinth), at most
 	-- `step` apart; it stands on the highest sample (src/dev/Greybox/VillageBuild)
 	GroundSample = { pad = 1.5, step = 3 },
+	-- then the terrain round it is cut back (Rules/Village.cutHeight): level with the base `margin` past the walls,
+	-- rising `grade` per stud out to `reach`, in columns `cell` across
+	GroundCut = { margin = 3, reach = 14, grade = 0.9, cell = 2 },
 	WallThickness = 1,
 	-- landmark pieces (Template `blocks` / `features`)
 	Battlement = { wall = 1.6, height = 1.8, merlon = 2.2 }, -- parapet height, merlons on it, a merlon's length

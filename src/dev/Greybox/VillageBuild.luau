@@ -65,6 +65,26 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 			footing.CFrame = at * CFrame.new(0, -B.FoundationDepth - extra / 2 + 0.5, 0)
 			footing.Parent = copy
 		end
+		-- cut the hillside back round it (Rules/Village.cutHeight): a dug terrace, never ground climbing its walls
+		local cut = B.GroundCut
+		local hw, hd = lot.width / 2, lot.depth / 2
+		for u = -hw - cut.reach, hw + cut.reach, cut.cell do
+			for v = -hd - cut.reach, hd + cut.reach, cut.cell do
+				local du, dv = math.max(0, math.abs(u) - hw), math.max(0, math.abs(v) - hd)
+				local allowed = deps.VillageRules.cutHeight(hi, math.sqrt(du * du + dv * dv), cut)
+				if allowed then
+					local x, z = lot.x + rx * u + lot.fx * v, lot.z + rz * u + lot.fz * v
+					local g = ground(x, z)
+					if g > allowed + 0.2 then
+						workspace.Terrain:FillBlock(
+							CFrame.new(x, (allowed + g) / 2 + 2, z),
+							Vector3.new(cut.cell + 0.4, g - allowed + 4, cut.cell + 0.4),
+							Enum.Material.Air
+						)
+					end
+				end
+			end
+		end
 		-- a landmark's headstones and gateway stand on the real ground where they are, not the building's level
 		for _, d in copy:GetDescendants() do
 			if d:IsA("Model") and d:GetAttribute("OnGround") then
@@ -149,11 +169,24 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 		local x0 = map.village.railX
 		local z0, z1 = map.bounds.minZ - R.beyond, map.bounds.maxZ + R.beyond
 		local n = math.ceil((z1 - z0) / R.segment)
+		-- each joint's bed: the highest ground round it, across the sleepers and halfway to the joints either side
+		local bed = {}
+		for i = 0, n do
+			local z = z0 + i * (z1 - z0) / n
+			local samples = {}
+			for k = -R.samples, R.samples do
+				local zk = z + k / R.samples * R.segment / 2
+				for _, dx in { -(R.gauge / 2 + 1), 0, R.gauge / 2 + 1 } do
+					table.insert(samples, ground(x0 + dx, zk))
+				end
+			end
+			bed[i] = deps.VillageRules.railBed(samples)
+		end
 		for i = 0, n - 1 do
 			local seg = Instance.new("Model")
 			seg.Name = "Track"
 			local za, zb = z0 + i * (z1 - z0) / n, z0 + (i + 1) * (z1 - z0) / n
-			local ya, yb = ground(x0, za), ground(x0, zb)
+			local ya, yb = bed[i], bed[i + 1]
 			local function part(name: string, cf: CFrame, size: Vector3, color: Color3)
 				local p = Instance.new("Part")
 				p.Name = name

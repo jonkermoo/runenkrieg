@@ -58,6 +58,26 @@ function Village.footing(base: number, lowest: number, depth: number): number
 	return math.max(0, base - lowest - depth)
 end
 
+-- How high the ground may stand `d` studs outside a building's footprint (0 inside it) with its base at `base`: level
+-- with the base out to `cut.margin`, then rising `cut.grade` per stud (a dug terrace, so a hillside never climbs its
+-- walls; user 2026-11-01: "it is still colliding with the texture"); nil past `cut.reach` (natural ground).
+function Village.cutHeight(base: number, d: number, cut: any): number?
+	if d > cut.reach then
+		return nil
+	end
+	return base + math.max(0, d - cut.margin) * cut.grade
+end
+
+-- The height a railway segment is laid at: the highest of the ground samples across and along it, so the ground never
+-- rises over a rail.
+function Village.railBed(samples: { number }): number
+	local y = -math.huge
+	for _, s in samples do
+		y = math.max(y, s)
+	end
+	return y
+end
+
 -- Separating-axis test for two convex quads.
 local function quadsOverlap(a: { { number } }, b: { { number } }): boolean
 	for _, poly in { a, b } do
