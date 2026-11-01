@@ -9,7 +9,7 @@ local ScreenBlur = {
 	Cap = 1, -- the most strength hits can build up to
 	Stack = 0.3, -- share of the weaker hit added over the stronger
 
-	-- a bullet passing within Config/Audio.Heard.pass.radius (15 studs) of the camera: `peak` on its path, nothing at
+	-- a bullet passing within Config/Audio.Heard.pass.radius (15 studs) of the soldier's head: `peak` on its path, nothing at
 	-- the radius, `curve` the falloff's steepness (1 = straight)
 	Pass = { peak = 0.45, curve = 1.5 },
 
