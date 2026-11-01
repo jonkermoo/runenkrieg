@@ -84,6 +84,33 @@ return {
 		assert(N.heldNow(0.3, 0.2, Send.Ahead, opens, 1) < 0.45)
 		assert(N.heldNow(1.9, 0.2, Send.Ahead, opens, 3) > 2)
 	end,
+	["a bot's shot fires as a tap, a pulse or a release"] = function()
+		assert(N.botMode(1, false) == "Hip" and N.botMode(1, true) == "Pulse")
+		assert(N.botMode(2, true) == "Release" and N.botMode(3, false) == "Release")
+		-- a release with no circle open is refused
+		assert(not N.charged(2, N.botMode(2, false), nil, 10, Cfg.Stages, 0))
+	end,
+	["a bot's wait for the next shot runs down to 0"] = function()
+		local cd = Cfg.Staff.Cooldown
+		assert(N.readyIn(nil, nil, 5, cd) == 0)
+		assert(math.abs(N.readyIn(10, 2, 10.25, cd) - (cd[2] - 0.25)) < 1e-9)
+		assert(N.readyIn(10, 3, 10 + cd[3] + 1, cd) == 0)
+		assert(N.readyIn(10, 1, 10, cd) == cd[1])
+	end,
+	["a bot's charge runs from its circle's open, clamped"] = function()
+		assert(N.heldSince(nil, 5, Send.MaxHeld) == nil)
+		assert(N.heldSince(4, 5.5, Send.MaxHeld) == 1.5)
+		assert(N.heldSince(4, 3, Send.MaxHeld) == 0)
+		assert(N.heldSince(0, 1e6, Send.MaxHeld) == Send.MaxHeld)
+	end,
+	["a quick fire's cone stays inside its angle"] = function()
+		local deg = Cfg.Staff.Hip.spread
+		local tilt, spin = N.cone(deg, 1, 0.5)
+		assert(math.abs(tilt - math.rad(deg)) < 1e-9 and math.abs(spin - math.pi) < 1e-9)
+		assert(N.cone(deg, 0, 0) == 0)
+		assert(N.cone(deg, 2, 0) == math.rad(deg), "clamped")
+		assert(N.cone(deg, 0.25, 0) == math.rad(deg) / 2, "even over the area: a quarter of it inside half the angle")
+	end,
 	["the send numbers make sense"] = function()
 		assert(Send.AimRate > 0 and Send.Events > 0)
 		assert(Send.AimSlack > 0 and Send.AimSlack <= 1)

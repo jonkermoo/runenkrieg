@@ -115,7 +115,9 @@ local Spells = {
 		-- was Veil / StageVeils there too). Third person and other players' view of the cast are unchanged.
 		ViewVeil = 0.93,
 		ViewStageVeils = { 0.96, 0.93, 0.89 },
-		-- a stage 3 shot's knock back into a ragdoll: Config/Ragdoll.Knocks.StaffRecoil
+		-- a stage 3 shot's knock back into a ragdoll: Config/Ragdoll.Knocks.StaffRecoil (a player's own client asks for it;
+		-- a bot soldier's shot, src/server/StaffCast.castAs, gets it from the server)
+		Recoil = "StaffRecoil",
 	},
 
 	-- The cast shown to other players (user 2026-10-16: "the staff audio and visual for other users"; Net "StaffCast",
