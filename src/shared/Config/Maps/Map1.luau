@@ -204,6 +204,8 @@ local Map1 = {
 		-- time. front = direction the door faces. The church south of the church square, facing it.
 		specials = {
 			{ id = "Church", style = "Church", x = 2100, z = -90, front = { 0, 1 } },
+			-- the coaching inn north of the bridge-head square, facing it across the main road
+			{ id = "Inn", style = "CoachingInn", x = 1800, z = 42, front = { 0, -1 } },
 		},
 
 		railX = 2530,

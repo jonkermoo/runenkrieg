@@ -18,6 +18,9 @@ export type Ctx = {
 	T: number, -- wall thickness
 	class: string, -- wall material class
 	count: number, -- parts created (also seeds the deterministic tone/jitter)
+	-- a landmark block's own wall / roof colour (Palette.Buildings.Walls / Roofs keys), over the copy's scheme
+	wallKey: string?,
+	roofKey: string?,
 }
 
 export type Opening = { kind: string, w: number, bottom: number, top: number }
@@ -49,6 +52,11 @@ function Geometry.part(
 	p.Size = size
 	p.CFrame = cf
 	p:SetAttribute("Paint", paint)
+	if paint == "Wall" and ctx.wallKey then
+		p:SetAttribute("Swatch", ctx.wallKey)
+	elseif paint == "Roof" and ctx.roofKey then
+		p:SetAttribute("Swatch", ctx.roofKey)
+	end
 	if TONED[paint] then
 		p:SetAttribute("Tone", jitter(ctx, 3))
 	end
@@ -568,6 +576,36 @@ function Geometry.lychgate(parent: Instance, ctx: Ctx, at: CFrame, W: number)
 	end
 	-- the roof runs across the gateway, ridge along local X
 	Geometry.roof(sec, ctx, at, W, L.depth, L.height, L.pitch, "Tile")
+end
+
+-- A hanging inn sign: a post `height` high, an arm off its top along local X, a framed board hanging under the arm.
+function Geometry.sign(parent: Instance, ctx: Ctx, at: CFrame, height: number)
+	local S = ctx.B.InnSign
+	local sec = Geometry.section(parent, ctx, "Sign", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	Geometry.part(sec, ctx, "Post", at * CFrame.new(0, height / 2, 0), Vector3.new(0.8, height, 0.8), "Trim")
+	Geometry.part(sec, ctx, "Arm", at * CFrame.new(S.arm / 2, height - 0.6, 0), Vector3.new(S.arm, 0.5, 0.5), "Trim")
+	local w, h = S.board[1], S.board[2]
+	local y = height - 1.2 - h / 2
+	Geometry.part(sec, ctx, "Board", at * CFrame.new(S.arm - w / 2 - 0.2, y, 0), Vector3.new(w, h, 0.3), "Sign")
+	Geometry.part(
+		sec,
+		ctx,
+		"Frame",
+		at * CFrame.new(S.arm - w / 2 - 0.2, y, 0),
+		Vector3.new(w + 0.4, h + 0.4, 0.2),
+		"Trim"
+	)
+	for _, dx in { -w / 2 + 0.3, w / 2 - 0.3 } do
+		Geometry.part(
+			sec,
+			ctx,
+			"Chain",
+			at * CFrame.new(S.arm - w / 2 - 0.2 + dx, height - 0.95, 0),
+			Vector3.new(0.12, 0.7, 0.12),
+			"Metal"
+		)
+	end
 end
 
 -- Stone corner blocks, alternating long/short up each corner.

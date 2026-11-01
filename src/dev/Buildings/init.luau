@@ -72,8 +72,13 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				CFrame.new(0, y, Dp / 2 - T / 2) * CFrame.Angles(0, math.pi, 0),
 				W,
 				ends(W, W / 2),
-				-- a back door (a church porch's, opening on the nave's front door behind it)
-				if story == 0 and t.backDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				-- a back door (a church porch's, opening on the nave's front door behind it), or a list of them (an inn's
+				-- cart arch through to the yard)
+				if story == 0 and t.backDoor
+					then (if type(t.backDoor) == "table"
+						then t.backDoor
+						else { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } })
+					else nil,
 				t.windows or 2,
 			},
 			{
@@ -176,6 +181,7 @@ function Buildings.build(name: string, deps: Deps): Model
 			sub.Name = b.name or `Block{i}`
 			ctx.T = b.wallThickness or t.wallThickness or deps.B.WallThickness
 			ctx.class = b.class or t.class
+			ctx.wallKey, ctx.roofKey = b.wall, b.roof
 			local _, wallTop = shell(sub, b, ctx, deps)
 			roofAndExtras(sub, b, ctx, wallTop)
 			for key, n in sub:GetAttributes() do
@@ -190,6 +196,7 @@ function Buildings.build(name: string, deps: Deps): Model
 			sub:PivotTo(CFrame.new(b.x, 0, b.z) * CFrame.Angles(0, math.rad(b.yaw or 0), 0))
 			sub.Parent = model
 		end
+		ctx.wallKey, ctx.roofKey = nil, nil
 		for key, n in counts do
 			model:SetAttribute(key, n)
 		end
@@ -199,6 +206,8 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.graves(model, ctx, at, f.count, f.gap)
 			elseif f.kind == "Lychgate" then
 				Geometry.lychgate(model, ctx, at, f.width)
+			elseif f.kind == "Sign" then
+				Geometry.sign(model, ctx, at, f.height)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end
@@ -237,6 +246,13 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 		if d:IsA("BasePart") then
 			local role = d:GetAttribute("Paint")
 			local c = role and colors[role]
+			-- a landmark block's own colour (Geometry.part's Swatch: a stable's tarred boards beside a whitewashed inn)
+			local swatch = d:GetAttribute("Swatch")
+			if swatch and role == "Wall" and P.Walls[swatch] then
+				c = rgb(P.Walls[swatch])
+			elseif swatch and role == "Roof" and P.Roofs[swatch] then
+				c = rgb(P.Roofs[swatch])
+			end
 			if c then
 				-- hand-made look: each piece a few % lighter/darker (deterministic Tone from generation)
 				local k = 1 + jit * (d:GetAttribute("Tone") or 0)

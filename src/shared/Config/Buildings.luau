@@ -22,7 +22,7 @@ export type Template = {
 	wallThickness: number?, -- defaults to WallThickness
 	quoins: boolean?, -- stone corner blocks
 	doors: { { center: number, w: number?, h: number? } }?, -- front doors (default: one centered, Metrics size)
-	backDoor: boolean?, -- a door in the back wall too (story 0)
+	backDoor: (boolean | { { center: number, w: number?, h: number? } })?, -- a door in the back wall too (story 0), or a list
 	leftDoor: boolean?, -- and in the -X / +X side walls (a porch turned to face its gable forward)
 	rightDoor: boolean?,
 	windows: number?, -- windows per wall, every wall (default 2 front and back, 1 on the sides)
@@ -32,7 +32,9 @@ export type Template = {
 	-- footprint), yaw (degrees) and a name; roofStyle "Battlement" is a flat roof walk with a crenellated parapet.
 	blocks: { any }?,
 	-- and things built with it, in the footprint: { kind = "Graves", x, z, yaw?, count, gap } (a row of headstones),
-	-- { kind = "Lychgate", x, z, yaw?, width } (a roofed gateway, open along local Z)
+	-- { kind = "Lychgate", x, z, yaw?, width } (a roofed gateway, open along local Z), { kind = "Sign", x, z, yaw?, height }
+	-- (a hanging inn sign, its arm along local X). A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
+	-- the copy's scheme.
 	features: { any }?,
 	description: string,
 }
@@ -52,6 +54,7 @@ local Buildings = {
 	Battlement = { wall = 1.6, height = 1.8, merlon = 2.2 }, -- parapet height, merlons on it, a merlon's length
 	Graves = { width = 2, height = 2.8, thick = 0.5, sink = 0.6 }, -- a headstone, sunk into the ground
 	Lychgate = { height = 7, depth = 5, pitch = 40 }, -- post height to the eaves, front to back, roof pitch
+	InnSign = { arm = 3.6, board = { 3, 2.4 } }, -- the arm's reach, the board's width x height
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -215,6 +218,57 @@ local Buildings = {
 				{ kind = "Graves", x = -6, z = 22.5, count = 8, gap = 4.4 },
 			},
 			description = "The village church: stone nave and slate roof, a climbable battlemented west tower, a porch, lychgate and churchyard.",
+		},
+		-- The coaching inn on the bridge-head square, the first house over the middle ford: a long two-storey
+		-- whitewashed inn with a cart arch through to its yard (coach doors front and back), a gable chimney and a roof
+		-- one, a tarred-board stable wing with its own wide door, and a hanging sign by the road.
+		CoachingInn = {
+			folder = "Landmarks",
+			width = 46,
+			depth = 22,
+			stories = 2,
+			roofPitch = 40,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Whitewash", "Cream" },
+			roofs = { "DarkTile", "RedTile" },
+			blocks = {
+				{
+					name = "Inn",
+					x = -8,
+					z = -1,
+					width = 30,
+					depth = 16,
+					stories = 2,
+					roofPitch = 40,
+					roofStyle = "Tile",
+					quoins = true,
+					gableChimney = -1,
+					chimneys = { 0.5 },
+					doors = { { center = -10 }, { center = 2, w = 6, h = 8.5 } }, -- the front door, the cart arch
+					backDoor = { { center = 2, w = 6, h = 8.5 } },
+				},
+				{
+					name = "Stable",
+					x = 14,
+					z = 1,
+					width = 14,
+					depth = 12,
+					stories = 1,
+					storyHeight = 10,
+					roofPitch = 35,
+					roofStyle = "Tile",
+					class = "Wood",
+					wallThickness = 1.2,
+					wall = "TarBoard",
+					roof = "Slate",
+					doors = { { center = 0, w = 6, h = 8 } },
+				},
+			},
+			features = {
+				{ kind = "Sign", x = -20, z = -10.5, yaw = 180, height = 9 }, -- by the corner, its arm out over the road
+			},
+			description = "The coaching inn: two-storey whitewashed inn with a cart arch, chimneys, a tarred-board stable wing and a hanging sign.",
 		},
 	} :: { [string]: Template },
 
