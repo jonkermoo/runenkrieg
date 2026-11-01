@@ -8,7 +8,7 @@ local Flinch = {
 	-- the band: from where the blast stops knocking soldiers down (Config/Damage.Blast.Soldier.from, ~126 kPa; a
 	-- grenade's splinters' `wound`) out to `kpa` of overpressure or `beyond` x that edge, whichever is further. Knock edge
 	-- -> outer edge: stage 2 staff (0.5 kg) ~6 -> 14, a 2.5 kg shell ~9 -> 24, the stage 3 staff (10 kg) ~15 -> 38, a
-	-- 50 kg bomb ~26 -> 64, the 400 kg shell ~51 -> 128; a Mills (splinters to 28) 28 -> 42.
+	-- 50 kg bomb ~26 -> 64, the 400 kg shell ~51 -> 128; a Mills (splinters to 42) 42 -> 63.
 	kpa = 20,
 	beyond = 1.5,
 	-- the track's weight: 1 at the knock edge (and behind cover inside it), `least` at the outer edge. 1 for now: under
