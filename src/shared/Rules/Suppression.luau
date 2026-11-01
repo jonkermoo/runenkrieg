@@ -52,4 +52,13 @@ function Suppression.size(level: number, grow: number): number
 	return math.clamp(level, 0, 1) ^ grow
 end
 
+-- a jolt's share `t` s after its hit: 1 at the hit, shuddering `freq` radians per second as it dies away squared over
+-- `time` s; 0 after
+function Suppression.jolt(t: number, time: number, freq: number): number
+	if t < 0 or t >= time then
+		return 0
+	end
+	return (1 - t / time) ^ 2 * math.cos(t * freq)
+end
+
 return Suppression

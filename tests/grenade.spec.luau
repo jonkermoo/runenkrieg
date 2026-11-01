@@ -115,9 +115,29 @@ return {
 		local mid = G.fragments((f.lethal + f.wound) / 2, f)
 		assert(mid < f.near and mid > f.far)
 	end,
-	["the user's ranges: lethal within about 8 studs, wounding to about 28 (Mills)"] = function()
-		local f = C.Types.grenade_mills.fragments
-		assert(f.lethal >= 7 and f.lethal <= 9 and f.wound >= 25 and f.wound <= 30)
+	["the real grenades' reach (user 2026-11-01): Mills kills to ~4 m, wounds to ~15 m"] = function()
+		local M = require("../src/shared/Config/Damage").Blast.MetresPerStud
+		local mills, sipe, stick = C.Types.grenade_mills, C.Types.grenade_sipe, C.Types.grenade_stick
+		assert(math.abs(mills.fragments.lethal * M - 4) < 0.5 and math.abs(mills.fragments.wound * M - 15) < 1)
+		assert(math.abs(sipe.fragments.wound * M - 12) < 1)
+		assert(math.abs(stick.fragments.wound * M - 15) < 1, "the stick's rated ~15 m on open ground")
+		-- damage pinned at a few distances (studs to the torso, before cover)
+		local function at(t, d)
+			return math.floor(G.fragments(d, t.fragments) + 0.5)
+		end
+		assert(at(mills, 10) == 100 and at(mills, 20) == 54 and at(mills, 28) == 40 and at(mills, 35) == 27)
+		assert(at(mills, 43) == 0)
+		assert(at(sipe, 10) == 100 and at(sipe, 20) == 44 and at(sipe, 28) == 28 and at(sipe, 35) == 0)
+		assert(at(stick, 8) == 100 and at(stick, 10) == 48 and at(stick, 20) == 36 and at(stick, 35) == 18)
+		-- the stick's thin can: lighter hits than the cast-iron Mills at the same distance
+		assert(at(stick, 20) < at(mills, 20))
+	end,
+	["a grenade wound throws harder than other blasts' least, never more than in full"] = function()
+		local B = require("../src/shared/Config/Damage").Blast
+		local Blast = require("../src/shared/Rules/Blast")
+		assert(C.FlingLeast > B.Fling.least and C.FlingLeast <= 1)
+		assert(near(Blast.fling(1, 100, C.FlingLeast) :: number, C.FlingLeast + (1 - C.FlingLeast) * 0.01))
+		assert(Blast.fling(100, 100, C.FlingLeast) == 1)
 	end,
 	["the server refuses a throw from far off or with no direction"] = function()
 		assert(G.throwOk(0, 0, -1, 1, C.Throw.reach))

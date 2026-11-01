@@ -85,23 +85,23 @@ function Animate.attach(m: Model, weapon: string): Handle
 			rate = math.clamp(speed / c.speed, Loco.PlaybackMin, Loco.PlaybackMax) * c.keyed / c.cycle
 			base[name]:AdjustSpeed(rate)
 		end
-		-- the weapon's hold over it (the walk and carry kept in step with the legs)
-		local want = if holds[hold] then hold else "ready"
+		-- the weapon's hold over it (the walk and carry kept in step with the legs); "none": nothing in the hands
+		local want: string? = if hold == "none" then nil elseif holds[hold] then hold else "ready"
 		if want ~= held then
 			if held and holds[held] then
 				holds[held]:Stop(Loco.HoldFade)
 			end
-			if holds[want] then
+			if want and holds[want] then
 				holds[want]:Play(Loco.HoldFade)
 			end
 			held = want
 			m:SetAttribute("Hold", want)
 		end
-		if (want == "walk" or want == "carry") and holds[want] then
-			holds[want]:AdjustSpeed(rate)
+		if (want == "walk" or want == "carry") and holds[want :: string] then
+			holds[want :: string]:AdjustSpeed(rate)
 		end
 		-- the look tilt, to everyone (as src/server/LookTilt relays a player's), when it changed enough
-		local follow = (CameraCfg.Follow :: any)[want] or 0
+		local follow = if want then (CameraCfg.Follow :: any)[want] or 0 else 0
 		local p = math.floor(pitch / Send.Step + 0.5) * Send.Step
 		local now = os.clock()
 		if
