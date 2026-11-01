@@ -126,9 +126,6 @@ local function attacks(by: Model?)
 	end
 end
 
--- when each caster's last staff shot was fired (os.clock): what falls out of it can't hurt them for a while
-local castAt: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
-
 -- Hurts one soldier: the knock first (so a death goes down with its own knock), then the health. `by`: who did it,
 -- `zone` where (src/server/Loadouts credits the kill and the assists).
 local function hurt(
@@ -143,16 +140,6 @@ local function hurt(
 )
 	if humanoid.Health > 0 and Damage.protected(character) then
 		return
-	end
-	-- (DIAG staff self-kill, user 2026-10-31: whatever hurts a caster soon after their own shot, and from where)
-	local since = os.clock() - (castAt[character] or -math.huge)
-	if since <= Cfg.Staff.SelfSafe and humanoid.Health > 0 then
-		local who = if by then by.Name else "nothing"
-		local what = zone or knock or "-"
-		local after = string.format("%.2f", since)
-		local amount = humanoid.Health - left
-		warn(`[Damage] DIAG {character.Name} hurt {amount} by {who} ({what}) {after} s after their own staff shot`)
-		warn(debug.traceback())
 	end
 	if humanoid.Health <= 0 then
 		if knock then
@@ -405,6 +392,9 @@ end
 
 -- A tree landing on soldiers (src/server/Trees): everyone whose torso is within `radius` of the line `a` - `b` (and not
 -- far above or under it) takes `amount` and the `knock`, pushed to the side of the line they stand on.
+-- when each caster's last staff shot was fired (os.clock): what falls out of it can't hurt them for a while
+local castAt: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
+
 function Damage.crush(a: Vector3, b: Vector3, radius: number, amount: number, knock: string)
 	local now = os.clock()
 	for _, character in Dev.soldiers() do
@@ -483,7 +473,7 @@ function Damage.start()
 			-- your own staff never kills you (Config/Damage.Staff.SelfSafe): if a caster dies soon after their own shot
 			-- anyway, say how, so the way through is found (user 2026-10-21)
 			local since = os.clock() - (castAt[character] or -math.huge)
-			if since <= 60 then -- (DIAG: any death within a minute of a cast; was SelfSafe)
+			if since <= Cfg.Staff.SelfSafe then
 				local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 				local at = if root then tostring(root.Position) else "no root (fell out of the world?)"
 				local after = string.format("%.1f", since)
