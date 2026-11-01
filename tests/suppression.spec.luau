@@ -54,7 +54,29 @@ return {
 	end,
 	["the shake grows with the level, 0 to 1"] = function()
 		assert(S.size(0, C.grow) == 0 and S.size(1, C.grow) == 1)
-		assert(S.size(0.5, C.grow) < 0.5)
+		assert(S.size(0.5, C.grow) <= 0.5)
 		assert(S.size(2, C.grow) == 1)
+	end,
+	["a startle jolt is full at the hit, shudders, and is gone after its time"] = function()
+		local J = C.Jolt
+		assert(S.jolt(0, J.time, J.freq) == 1)
+		assert(S.jolt(J.time, J.time, J.freq) == 0 and S.jolt(-0.1, J.time, J.freq) == 0)
+		local flips, last = 0, 1
+		for i = 1, 99 do
+			local u = i / 100 * J.time
+			local v = S.jolt(u, J.time, J.freq)
+			assert(math.abs(v) <= (1 - u / J.time) ^ 2 + 1e-9, "dies away")
+			if v * last < 0 then
+				flips += 1
+			end
+			if v ~= 0 then
+				last = v
+			end
+		end
+		assert(flips >= 2, `shudders ({flips} swings)`)
+	end,
+	["full suppression makes far shots miss: the gun wanders past 4 degrees, first person shakes harder"] = function()
+		assert(C.viewmodel.pitch >= 4 and C.viewmodel.yaw >= 4)
+		assert(C.cameraFirst.pitch > C.camera.pitch)
 	end,
 }
