@@ -3,6 +3,14 @@
 -- its panel. Triggering swings the door about its Hinge (panel-space attribute) by SwingAngle. State is
 -- the "Open" attribute, so toggle() is stateless and safe to call from anywhere on the server. The prompt is drawn in
 -- the game's own look (Style Custom, tagged Config/Prompts.Tag: src/client/Prompts), reach Config/Prompts.Door.
+-- Pathfinding goes through doors, open or shut: every part of one gets a PathfindingModifier (Config/Indoors.Door,
+-- cost Config/Indoors.PathCosts). For a soldier who isn't a player (Rules/Indoors):
+--   Doors.nearest(at, within) -> Model?    the nearest door still standing, by its shut place
+--   Doors.isOpen(door) -> boolean
+--   Doors.openFor(model, door) -> boolean    opens it if the model's root is in the prompt's reach (true if it is open
+--                                            or opening now; never shuts it)
+--   Doors.passage(door) -> (Vector3, Vector3)?    the points outside and inside its doorway (its PathfindingLink's ends:
+--                                                 src/server/Indoors)
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -10,7 +18,11 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local D = require(Shared.Config.Destruction)
+local IndoorsCfg = require(Shared.Config.Indoors)
 local PromptCfg = require(Shared.Config.Prompts)
+local Rules = require(Shared.Rules.Indoors)
+
+local Indoors = require(script.Parent.Indoors)
 
 local Doors = {}
 
@@ -60,8 +72,90 @@ function Doors.toggle(door: Model)
 	end)
 end
 
+local function p(v: Vector3): Rules.P
+	return { x = v.X, y = v.Y, z = v.Z }
+end
+
+local function standing(door: Instance): boolean
+	return door:IsA("Model") and door:IsDescendantOf(workspace) and door.PrimaryPart ~= nil
+end
+
+-- where the door's panel is when shut (it swings away from the doorway when open)
+local function shutAt(door: Model): Vector3
+	local closed = door:GetAttribute("ClosedPanel")
+	return if typeof(closed) == "CFrame" then closed.Position else (door.PrimaryPart :: BasePart).Position
+end
+
+function Doors.nearest(at: Vector3, within: number): Model?
+	local doors: { Model } = {}
+	local points: { Rules.P } = {}
+	for _, d in CollectionService:GetTagged(D.DoorTag) do
+		if standing(d) then
+			table.insert(doors, d :: Model)
+			table.insert(points, p(shutAt(d :: Model)))
+		end
+	end
+	local i = Rules.nearest(points, p(at), within)
+	return if i then doors[i] else nil
+end
+
+function Doors.isOpen(door: Model): boolean
+	return door:GetAttribute("Open") == true
+end
+
+function Doors.openFor(model: Model, door: Model): boolean
+	if not standing(door) then
+		return false
+	end
+	local root = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+	if not (root and root:IsA("BasePart")) then
+		return false
+	end
+	-- the prompt's rule: within its reach of the panel where it is now
+	if not Rules.reaches(p(root.Position), p((door.PrimaryPart :: BasePart).Position), PromptCfg.Door.reach) then
+		return false
+	end
+	if door:GetAttribute("Busy") then
+		return not Doors.isOpen(door) -- swinging open already, or shutting
+	end
+	if not Doors.isOpen(door) then
+		Doors.toggle(door)
+	end
+	return true
+end
+
+function Doors.passage(door: Model): (Vector3?, Vector3?)
+	local section = door.Parent
+	local l = section and section:FindFirstChild("DoorwayLink")
+	if l and l:IsA("PathfindingLink") and l.Attachment0 and l.Attachment1 then
+		return l.Attachment0.WorldPosition, l.Attachment1.WorldPosition
+	end
+	local piece = section and Indoors.piece(section)
+	if not (piece and piece.kind == "door") then
+		return nil, nil
+	end
+	local outside, inside = Rules.passage(piece, IndoorsCfg.Links)
+	return Vector3.new(outside.x, outside.y, outside.z), Vector3.new(inside.x, inside.y, inside.z)
+end
+
+-- pathfinding treats the door as open: a path goes through it and the soldier opens it on the way
+local function passable(door: Instance)
+	for _, part in door:GetDescendants() do
+		if part:IsA("BasePart") and not part:FindFirstChildWhichIsA("PathfindingModifier") then
+			local m = Instance.new("PathfindingModifier")
+			m.Label = IndoorsCfg.Door.label
+			m.PassThrough = true
+			m.Parent = part
+		end
+	end
+end
+
 local function hook(door: Instance)
-	if not door:IsA("Model") or not door:IsDescendantOf(workspace) or door:GetAttribute("DoorHooked") then
+	if not door:IsA("Model") or not door:IsDescendantOf(workspace) then
+		return
+	end
+	passable(door)
+	if door:GetAttribute("DoorHooked") then
 		return
 	end
 	local prompt = door:FindFirstChildWhichIsA("ProximityPrompt", true)
