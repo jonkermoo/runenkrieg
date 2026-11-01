@@ -275,6 +275,10 @@ local Bots = {
 		Arrive = 3, -- studs from a waypoint (flat) that count as reached
 		StuckWindow = 1.5, -- seconds over which a moving bot must make StuckDistance of progress
 		StuckDistance = 1.5,
+		-- a progress sample older than this (s) is no sign: the bot wasn't walking (held in the wave line, down)
+		StuckStale = 4,
+		-- studs inside the map's walls every goal stays (the walls stop soldiers, paths don't see them)
+		Edge = 6,
 		StuckJumps = 2, -- jumps tried before a fresh path
 		StuckRepaths = 3, -- fresh paths before a random step aside
 		Sidestep = 12, -- studs: the random step aside

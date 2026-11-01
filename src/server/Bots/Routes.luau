@@ -17,6 +17,7 @@ local Cfg = require(Shared.Config.Bots)
 local FrontCfg = require(Shared.Config.Frontline)
 local Map = require(Shared.Config.Maps.Map1)
 local Squads = require(Shared.Rules.BotSquads)
+local Rules = require(Shared.Rules.Bots)
 
 local Routes = {}
 
@@ -67,8 +68,12 @@ local function homeward(i: number, side: string): Vector3
 	return d.Unit
 end
 
--- dry ground with room to stand at (x, z), or nil
+-- dry ground with room to stand at (x, z) inside the map's walls, or nil
 local function standable(x: number, z: number, skip: { Instance }): Vector3?
+	local ix, iz = Rules.inside(x, z, Map.bounds, Cfg.Move.Edge)
+	if ix ~= x or iz ~= z then
+		return nil -- (beyond the walls, or too close to them)
+	end
 	local g = FrontCfg.GroundRay
 	local hit = workspace:Raycast(Vector3.new(x, g.top, z), Vector3.new(0, -g.depth, 0), terrainOnly)
 	if not hit or hit.Material == Enum.Material.Water then
@@ -182,8 +187,9 @@ function Routes.spots(i: number, side: string, hold: boolean): { Spot }?
 	return entry.spots
 end
 
--- The ground under (x, z) (a terrain ray), for a waypoint off the spots.
+-- The ground under (x, z) (a terrain ray), for a waypoint off the spots; kept inside the map's walls.
 function Routes.ground(x: number, z: number): Vector3
+	x, z = Rules.inside(x, z, Map.bounds, Cfg.Move.Edge)
 	local g = FrontCfg.GroundRay
 	local hit = workspace:Raycast(Vector3.new(x, g.top, z), Vector3.new(0, -g.depth, 0), terrainOnly)
 	return Vector3.new(x, if hit then hit.Position.Y else 0, z)

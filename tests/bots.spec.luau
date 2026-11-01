@@ -298,9 +298,22 @@ return {
 		assert(math.abs(R.lead(10, 5, 0.4, 0.5) - 9) < 1e-9)
 	end,
 	["stuck: too little progress over the window"] = function()
-		assert(R.stuck(0.5, 2, 1.5, 1.5))
-		assert(not R.stuck(0.5, 1, 1.5, 1.5), "window not up")
-		assert(not R.stuck(3, 2, 1.5, 1.5))
+		assert(R.stuck(0.5, 2, 1.5, 1.5, 4))
+		assert(not R.stuck(0.5, 1, 1.5, 1.5, 4), "window not up")
+		assert(not R.stuck(3, 2, 1.5, 1.5, 4))
+	end,
+	["stuck: a stale sample (held in the wave line, down) says nothing"] = function()
+		assert(not R.stuck(0, 30, 1.5, 1.5, 4))
+		assert(R.stuck(0, 3.9, 1.5, 1.5, 4))
+	end,
+	["inside: a point beyond the map's edge comes back inside by the margin"] = function()
+		local b = { minX = -150, maxX = 2550, minZ = -280, maxZ = 280 }
+		local x, z = R.inside(1750, 326, b, 10)
+		assert(x == 1750 and z == 270)
+		x, z = R.inside(-200, -300, b, 10)
+		assert(x == -140 and z == -270)
+		x, z = R.inside(100, 0, b, 10)
+		assert(x == 100 and z == 0, "inside: unchanged")
 	end,
 	["every class a bot plays is a real class, the first free"] = function()
 		local Classes = require("../src/shared/Config/Classes")
