@@ -7,16 +7,21 @@ local W = require("../src/shared/Config/Weapons")
 local A = require("../src/shared/Config/Assets")
 local BuildCfg = require("../src/shared/Config/Build")
 
+-- the classes with the Engineer locked again (a class shown but not picked yet)
+local LOCKED = table.clone(C.Defs)
+LOCKED.Engineer = table.clone(C.Defs.Engineer)
+LOCKED.Engineer.locked = true
+
 -- the pieces only the Engineer builds
 local ENGINEER = { Gun = true, Hesco = true, Sandbags = true, Nest = true }
 
 return {
-	["the user's prices: rifleman free, grenadier 50, auto rifler 100, shotgunner 150, engineer 150 (locked), mage 200"] = function()
+	["the user's prices: rifleman free, grenadier 50, auto rifler 100, shotgunner 150, engineer 150, mage 200"] = function()
 		local want = { Rifleman = 0, Grenadier = 50, AutoRifler = 100, Shotgunner = 150, Engineer = 150, Mage = 200 }
 		for key, cost in want do
 			assert(C.Defs[key] and C.Defs[key].cost == cost, `{key} costs {cost}`)
 		end
-		assert(C.Defs.Engineer.locked == true, "the engineer is coming later")
+		assert(not C.Defs.Engineer.locked, "the engineer is open to players (user 2026-11-01)")
 		assert(C.Defs[C.Default].cost == 0 and not C.Defs[C.Default].locked, "the default is free and pickable")
 		assert(C.Start == 0, "every match starts at 0")
 		for _, key in C.List do
@@ -29,6 +34,8 @@ return {
 		key, cost = R.resolve("Mage", 199, C.Defs, C.Default)
 		assert(key == C.Default and cost == 0, "short: the free default")
 		key, cost = R.resolve("Engineer", 1000, C.Defs, C.Default)
+		assert(key == "Engineer" and cost == 150, "the engineer, paid")
+		key, cost = R.resolve("Engineer", 1000, LOCKED, C.Default)
 		assert(key == C.Default and cost == 0, "locked: the default")
 		key, cost = R.resolve("Nope", 1000, C.Defs, C.Default)
 		assert(key == C.Default and cost == 0, "unknown: the default")
@@ -37,7 +44,8 @@ return {
 	end,
 	["only real, unlocked classes can be picked"] = function()
 		assert(R.pickable("Grenadier", C.Defs))
-		assert(not R.pickable("Engineer", C.Defs), "locked")
+		assert(R.pickable("Engineer", C.Defs))
+		assert(not R.pickable("Engineer", LOCKED), "locked")
 		assert(not R.pickable("Nope", C.Defs) and not R.pickable(3, C.Defs) and not R.pickable(nil, C.Defs))
 	end,
 	["every class's gear exists in every team's kit"] = function()
