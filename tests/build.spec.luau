@@ -2,6 +2,7 @@
 local C = require("../src/shared/Config/Build")
 local M = require("../src/shared/Config/Metrics")
 local B = require("../src/shared/Rules/Build")
+local A = require("../src/shared/Config/Artillery")
 
 local function near(a: number, b: number, eps: number?): boolean
 	return math.abs(a - b) <= (eps or 1e-6)
@@ -567,10 +568,10 @@ return {
 		assert(B.hpSwing(h.max, false, h, 50) == 50, "an admin dig step in place of a swing")
 		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
 	end,
-	["an MG nest's ring: eight bottom bags on a regular ring, the back side open, the top bags over the bends"] = function()
+	["an MG nest's ring: eight bottom bags on a regular ring, the back open, the top bags over the side piles' bends"] = function()
 		local n = C.Nest
 		local bags, radius = B.nestRing(n.ring)
-		assert(#bags == 12, "four piles of three")
+		assert(#bags == 10, "four piles of two bottom bags, the two side ones topped")
 		assert(near(radius, n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))))
 		local apothem = radius * math.cos(math.pi / n.ring.sides)
 		for _, b in bags do
@@ -583,7 +584,7 @@ return {
 		for _, b in bags do
 			table.insert(slots, b.slot)
 		end
-		assert(table.concat(slots, ",") == "1,2,1,2,3,3,1,2,1,2,3,3")
+		assert(table.concat(slots, ",") == "1,2,1,2,1,2,1,2,3,3", "the front two low")
 		-- mirror-symmetric about x = 0, nothing straight behind the middle (the doorway)
 		for _, b in bags do
 			local mirror = false
@@ -596,6 +597,41 @@ return {
 		-- the front point is where two piles' ends meet: the first two bags start there
 		assert(near(bags[1].x - bags[1].dx * n.ring.bag / 2, 0, 1e-6))
 		assert(near(bags[1].z - bags[1].dz * n.ring.bag / 2, -radius, 1e-6))
+	end,
+	["the MG nest's gunner, gun and bullets clear its bags all round the gun's traverse"] = function()
+		-- user 2026-11-01: "nearly a 180 view angle (maybe 140) ... make sure players dont clip with the sandbag"
+		local n, MG = C.Nest, A.Guns.mg08
+		assert(MG.traverse * 2 >= 140, "140 degrees in all")
+		local crew, muzzle = MG.crew[2], -MG.muzzle[3]
+		for a = -MG.traverse, MG.traverse, 1 do
+			local legs, body, gun, blocked = B.nestFit(n, a, crew, muzzle)
+			assert(legs >= n.fit.margin, `legs {legs} at {a}`)
+			assert(body >= n.fit.margin, `torso and arms {body} at {a}`)
+			assert(gun >= n.fit.margin, `gun {gun} at {a}`)
+			assert(not blocked, `bullets into its own bags at {a}`)
+		end
+		-- (the check catches a clip: the old 9-sided ring at the new traverse)
+		local old = table.clone(n) :: any
+		old.ring = { sides = 9, bag = 3.6, piles = { { 0, 1, 2 }, { 0, 8, 7 }, { 2, 3, 4 }, { 7, 6, 5 } } }
+		old.gunBack = 1.66
+		local legs, body = B.nestFit(old, 70, crew, muzzle)
+		assert(legs < 0 and body < 0)
+		assert((B.nestFit(old, 20, crew, muzzle)) > 0, "it fitted the old +-20")
+		-- and the bullets: the front piles topped, they would shoot into them
+		local topped = table.clone(n) :: any
+		topped.ring = table.clone(n.ring)
+		topped.ring.low = nil
+		local _, _, _, into = B.nestFit(topped, 40, crew, muzzle)
+		assert(into and not select(4, B.nestFit(topped, 0, crew, muzzle)), "only the front notch clear")
+	end,
+	["two flat boxes' gap: apart, touching, overlapping"] = function()
+		local function box(x: number, z: number, a: number): any
+			return { x = x, z = z, dx = math.cos(a), dz = math.sin(a), length = 2, width = 1 }
+		end
+		assert(near(B.boxGap(box(0, 0, 0), box(3, 0, 0)), 1))
+		assert(near(B.boxGap(box(0, 0, 0), box(2, 0, 0)), 0))
+		assert(near(B.boxGap(box(0, 0, 0), box(1.5, 0, 0)), -0.5))
+		assert(near(B.boxGap(box(0, 0, 0), box(0, 3, math.pi / 2)), 1.5), "turned")
 	end,
 	["an MG nest's empty sacks lie flat on the ground, a top bag's over the sacks below"] = function()
 		local n = C.Nest

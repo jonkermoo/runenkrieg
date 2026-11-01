@@ -987,7 +987,9 @@ local Artillery = {
 			hinge = { 0, 1.035, 0 },
 			muzzle = { 0, 1.25, -4.226 },
 			boreCentre = 0.009,
-			traverse = 20, -- (the design: +-20 in the notch the front piles leave)
+			-- (user 2026-11-01: "nearly a 180 view angle (maybe 140)"; was +-20 in the notch the front piles left): 140 in
+			-- all, the gunner and gun clear of the bags all the way (Config/Build.Nest `ring`, `fit`; Rules/Build.nestFit)
+			traverse = 70,
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
 			traverseRate = 60,
