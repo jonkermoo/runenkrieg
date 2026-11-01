@@ -140,6 +140,48 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 	end
 	deps.Props.paint(wires, palette)
 
+	-- the railway: two rails on sleepers along x = railX through the map and past it, each segment following the ground
+	if map.village.railX then
+		local R = deps.P.Railway
+		local rf = folder(root, "Railway")
+		local metal = Color3.fromRGB(table.unpack(palette.Buildings.Metal))
+		local wood = Color3.fromRGB(table.unpack(palette.Props.WoodDark))
+		local x0 = map.village.railX
+		local z0, z1 = map.bounds.minZ - R.beyond, map.bounds.maxZ + R.beyond
+		local n = math.ceil((z1 - z0) / R.segment)
+		for i = 0, n - 1 do
+			local seg = Instance.new("Model")
+			seg.Name = "Track"
+			local za, zb = z0 + i * (z1 - z0) / n, z0 + (i + 1) * (z1 - z0) / n
+			local ya, yb = ground(x0, za), ground(x0, zb)
+			local function part(name: string, cf: CFrame, size: Vector3, color: Color3)
+				local p = Instance.new("Part")
+				p.Name = name
+				p.Anchored = true
+				p.Material = Enum.Material.SmoothPlastic
+				p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+				p.CFrame, p.Size, p.Color = cf, size, color
+				p.Parent = seg
+			end
+			for _, side in { -1, 1 } do
+				local x = x0 + side * R.gauge / 2
+				local a, b = Vector3.new(x, ya + R.height, za), Vector3.new(x, yb + R.height, zb)
+				part("Rail", CFrame.lookAt((a + b) / 2, b), Vector3.new(0.3, 0.35, (b - a).Magnitude + 0.05), metal)
+			end
+			for k = 0, R.sleepers - 1 do
+				local t = (k + 0.5) / R.sleepers
+				part(
+					"Sleeper",
+					CFrame.new(x0, ya + (yb - ya) * t + 0.12, za + (zb - za) * t),
+					Vector3.new(R.gauge + 2, 0.3, 0.9),
+					wood
+				)
+			end
+			seg.Parent = rf
+		end
+		task.wait()
+	end
+
 	-- point props: signposts, cars, yard clutter, features
 	local props = folder(root, "Props")
 	local function place(kind: string, x: number, z: number, yaw: number, carIndex: number?)

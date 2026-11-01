@@ -214,6 +214,14 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.hayBarn(model, ctx, at, f.length, f.span, f.height)
 			elseif f.kind == "Wall" then
 				Geometry.yardWall(model, ctx, f.a, f.b)
+			elseif f.kind == "Canopy" then
+				Geometry.canopy(model, ctx, at, f.length, f.depth, f.height)
+			elseif f.kind == "Platform" then
+				Geometry.platform(model, ctx, at, f.length, f.depth, f.height)
+			elseif f.kind == "WaterTower" then
+				Geometry.waterTower(model, ctx, at, f.size, f.height)
+			elseif f.kind == "Signal" then
+				Geometry.signal(model, ctx, at, f.height)
 			elseif f.kind == "Waterwheel" then
 				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
 			else

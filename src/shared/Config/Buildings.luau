@@ -28,6 +28,7 @@ export type Template = {
 	windows: number?, -- windows per wall, every wall (default 2 front and back, 1 on the sides)
 	climb: boolean?, -- one more flight up through the ceiling onto the roof (a tower's roof walk)
 	waterside: boolean?, -- stands at the river's edge on purpose (a mill): the village check lets it into the river banks
+	railside: boolean?, -- stands by the railway on purpose (a station): its footprint's front edge may run up to the line
 	-- A landmark (one map's own buildings; user 2026-11-01: "somewhat unique to each map"): several blocks in the
 	-- template's footprint (width x depth), each with the building fields above plus x, z (its centre in the
 	-- footprint), yaw (degrees) and a name; roofStyle "Battlement" is a flat roof walk with a crenellated parapet.
@@ -37,7 +38,9 @@ export type Template = {
 	-- (a hanging inn sign, its arm along local X), { kind = "Kiln", x, z, radius, height, cone } (a round oast kiln),
 	-- { kind = "HayBarn", x, z, length, span, height } (an open-sided barn, ridge along local X), { kind = "Wall", a, b }
 	-- (a stone yard wall from a to b, { x, z } each), { kind = "Waterwheel", x, z, y, yaw?, radius, width } (its axle
-	-- along local Z, its centre y over the base). A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
+	-- along local Z, its centre y over the base), { kind = "Canopy", x, z, length, depth, height } (a station canopy, its
+	-- wall side +Z), { kind = "Platform", x, z, length, depth, height } (its edge -Z), { kind = "WaterTower", x, z, size,
+	-- height }, { kind = "Signal", x, z, height }. A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
 	-- the copy's scheme.
 	features: { any }?,
 	description: string,
@@ -75,6 +78,10 @@ local Buildings = {
 	YardWall = { height = 2, thick = 1.2, piece = 6, sink = 0.5 }, -- hoppable (Metrics.Cover.HopableLedgeMax)
 	-- a waterwheel: rim pieces round it, spokes across each face, a paddle's reach past the rim, the axle's length
 	Waterwheel = { pieces = 14, spokes = 4, paddle = 1.6, axle = 7 },
+	-- the railway halt's pieces: a canopy post every `posts`, its roof rising `rise` to the wall; colours (Palette keys)
+	Canopy = { posts = 5.5, rise = 1.2, roof = "Slate", valance = "WhiteBoard" },
+	WaterTower = { tank = "TarBoard", spout = 2.4 },
+	Signal = { post = "WhiteBoard", armRoof = "RedTile", arm = 3.2 },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -389,6 +396,43 @@ local Buildings = {
 				{ kind = "Waterwheel", x = 2, z = 7.5, y = 2.5, radius = 7, width = 3.4 },
 			},
 			description = "The watermill at the lock ford: two-storey stone mill on the bank, slate roof, a wooden waterwheel by the river.",
+		},
+		-- The railway halt behind the East spawn, on the line along the map's east edge (Map1.village.railX): a small
+		-- brick station with two chimneys, a canopy over the platform, a water tower at the platform's end and a signal.
+		-- Its front (local -Z) faces the track.
+		RailwayHalt = {
+			folder = "Landmarks",
+			width = 44,
+			depth = 20,
+			stories = 1,
+			storyHeight = 11,
+			roofPitch = 38,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick", "RedBrick" },
+			roofs = { "Slate" },
+			railside = true,
+			blocks = {
+				{
+					name = "Station",
+					x = -6,
+					z = 5,
+					width = 18,
+					depth = 10,
+					stories = 1,
+					storyHeight = 11,
+					roofPitch = 38,
+					roofStyle = "Tile",
+					chimneys = { -0.6, 0.6 },
+				},
+			},
+			features = {
+				{ kind = "Platform", x = 0, z = -4.5, length = 44, depth = 9, height = 1 },
+				{ kind = "Canopy", x = -6, z = -4, length = 22, depth = 8, height = 9 },
+				{ kind = "WaterTower", x = 17, z = 5, size = 6, height = 13 },
+				{ kind = "Signal", x = 20.5, z = -7.5, height = 12 },
+			},
+			description = "The railway halt: a small brick station, platform and canopy, a water tower and a signal.",
 		},
 	} :: { [string]: Template },
 

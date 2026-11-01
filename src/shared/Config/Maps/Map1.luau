@@ -211,6 +211,8 @@ local Map1 = {
 			{ id = "FarmYard", style = "HayBarn", x = 1240, z = 118, front = { 0, -1 } },
 			-- the watermill on the S3 bank just south of the lock ford, its door to the west, its wheel in the river
 			{ id = "Mill", style = "Watermill", x = 1450, z = -234, front = { -1, 0 } },
+			-- the railway halt behind the East spawn, facing the line at railX (its platform edge 1.65 off the near rail)
+			{ id = "Halt", style = "RailwayHalt", x = 2517, z = 100, front = { 1, 0 } },
 		},
 
 		railX = 2530,

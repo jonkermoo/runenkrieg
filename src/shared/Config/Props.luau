@@ -12,6 +12,9 @@ local Props = {
 	Pole = { height = 22, spacing = 48, class = "Wood" },
 	Wire = { sag = 1.2, segments = 4 },
 	Signpost = { height = 7.5 },
+	-- the railway (a map's village.railX, src/dev/Greybox/VillageBuild): two rails `gauge` apart, `height` over the
+	-- ground, on sleepers (`sleepers` to a `segment`, each segment following the ground), `beyond` past the bounds
+	Railway = { gauge = 4.7, height = 0.45, segment = 12, sleepers = 5, beyond = 150 },
 
 	-- Kinds a village plot boundary can use, picked by hash per plot.
 	BoundaryKinds = { "StoneWall", "StoneWall", "PicketFence", "RailFence", "Hedge" },

@@ -157,4 +157,18 @@ return {
 		assert(V.footing(10, 0, B.FoundationDepth) == 0)
 		assert(V.footing(10, -4, B.FoundationDepth) == 4)
 	end,
+	["the railway runs clear of every building (a station's footprint stops short of its near rail)"] = function()
+		local x0, half = cfg.railX, P.Railway.gauge / 2 + 0.3
+		for _, l in lots do
+			local q = V.corners(l, 0)
+			local lo, hi = math.huge, -math.huge
+			for _, c in q do
+				lo, hi = math.min(lo, c[1]), math.max(hi, c[1])
+			end
+			assert(hi < x0 - half or lo > x0 + half, `{l.id} stands on the railway`)
+			if B.Templates[l.style].railside then
+				assert(x0 - half - hi < 3, `{l.id} is a station far from its line`)
+			end
+		end
+	end,
 }

@@ -788,6 +788,117 @@ function Geometry.waterwheel(parent: Instance, ctx: Ctx, at: CFrame, r: number, 
 	axle.Shape = Enum.PartType.Cylinder
 end
 
+-- A station canopy over a platform, `L` long (local X), reaching `D` out from the wall behind it (local +Z): posts
+-- along its front edge, a beam on them, a lean-to roof rising to the wall, a white valance board along the front.
+function Geometry.canopy(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number, H: number)
+	local C = ctx.B.Canopy
+	local n = math.max(1, math.round(L / C.posts))
+	for i = 0, n do
+		local sec = Geometry.section(parent, ctx, "Post", "Wood", 0)
+		Geometry.part(
+			sec,
+			ctx,
+			"Post",
+			at * CFrame.new(-L / 2 + i * L / n, H / 2, -D / 2 + 0.5),
+			Vector3.new(0.7, H, 0.7),
+			"Trim"
+		)
+	end
+	local roof = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	Geometry.part(roof, ctx, "Beam", at * CFrame.new(0, H - 0.35, -D / 2 + 0.5), Vector3.new(L + 0.6, 0.7, 0.7), "Trim")
+	local tilt = math.atan(C.rise / D)
+	local panel = Geometry.part(
+		roof,
+		ctx,
+		"Roof",
+		at * CFrame.new(0, H + C.rise / 2 + 0.2, 0) * CFrame.Angles(-tilt, 0, 0),
+		Vector3.new(L + 1, 0.4, D / math.cos(tilt) + 0.6),
+		"Roof"
+	)
+	panel:SetAttribute("Swatch", C.roof)
+	local valance = Geometry.part(
+		roof,
+		ctx,
+		"Valance",
+		at * CFrame.new(0, H - 0.1, -D / 2 - 0.25),
+		Vector3.new(L + 1, 1.2, 0.2),
+		"Wall"
+	)
+	valance:SetAttribute("Swatch", C.valance)
+end
+
+-- A station platform: a stone slab `L` x `D`, its top `h` over the base, a coping edge along its front (local -Z). It
+-- goes down into the ground under it (the ground slab: never collapses).
+function Geometry.platform(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number, h: number)
+	local depth = ctx.B.FoundationDepth
+	local sec = Geometry.section(parent, ctx, "Platform", "Stone", -1)
+	Geometry.part(
+		sec,
+		ctx,
+		"Platform",
+		at * CFrame.new(0, (h - depth) / 2, 0),
+		Vector3.new(L, h + depth, D),
+		"Foundation"
+	)
+	Geometry.part(sec, ctx, "Coping", at * CFrame.new(0, h + 0.1, -D / 2 + 0.6), Vector3.new(L, 0.3, 1.4), "Quoin")
+end
+
+-- A railway water tower: four legs `H` high under a square tarred tank `s` across, a lid, and a spout arm toward the
+-- track (local -Z).
+function Geometry.waterTower(parent: Instance, ctx: Ctx, at: CFrame, s: number, H: number)
+	local W = ctx.B.WaterTower
+	for _, c in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
+		local sec = Geometry.section(parent, ctx, "Leg", "Wood", 0)
+		Geometry.part(
+			sec,
+			ctx,
+			"Leg",
+			at * CFrame.new(c[1] * (s / 2 - 0.5), H / 2, c[2] * (s / 2 - 0.5)),
+			Vector3.new(0.9, H, 0.9),
+			"Trim"
+		)
+	end
+	local tank = Geometry.section(parent, ctx, "Tank", "Wood", 99)
+	local box = Geometry.part(tank, ctx, "Tank", at * CFrame.new(0, H + s * 0.4, 0), Vector3.new(s, s * 0.8, s), "Wall")
+	box:SetAttribute("Swatch", W.tank)
+	Geometry.part(
+		tank,
+		ctx,
+		"Lid",
+		at * CFrame.new(0, H + s * 0.8 + 0.2, 0),
+		Vector3.new(s + 0.6, 0.4, s + 0.6),
+		"Trim"
+	)
+	Geometry.part(
+		tank,
+		ctx,
+		"Spout",
+		at * CFrame.new(0, H + 0.6, -s / 2 - W.spout / 2),
+		Vector3.new(0.8, 0.8, W.spout),
+		"Metal"
+	)
+end
+
+-- A railway signal: a white post `H` high, a red arm off its top along local X, a lamp, a cap.
+function Geometry.signal(parent: Instance, ctx: Ctx, at: CFrame, H: number)
+	local S = ctx.B.Signal
+	local sec = Geometry.section(parent, ctx, "Signal", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local post = Geometry.part(sec, ctx, "Post", at * CFrame.new(0, H / 2, 0), Vector3.new(0.6, H, 0.6), "Wall")
+	post:SetAttribute("Swatch", S.post)
+	local arm = Geometry.part(
+		sec,
+		ctx,
+		"Arm",
+		at * CFrame.new(S.arm / 2 + 0.3, H - 1.4, -0.4),
+		Vector3.new(S.arm, 0.6, 0.2),
+		"Roof"
+	)
+	arm:SetAttribute("Swatch", S.armRoof)
+	Geometry.part(sec, ctx, "Lamp", at * CFrame.new(0, H - 2.6, -0.5), Vector3.new(0.7, 0.9, 0.5), "Metal")
+	Geometry.part(sec, ctx, "Cap", at * CFrame.new(0, H + 0.25, 0), Vector3.new(0.9, 0.5, 0.9), "Metal")
+end
+
 -- A hanging inn sign: a post `height` high, an arm off its top along local X, a framed board hanging under the arm.
 function Geometry.sign(parent: Instance, ctx: Ctx, at: CFrame, height: number)
 	local S = ctx.B.InnSign
