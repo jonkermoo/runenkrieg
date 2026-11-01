@@ -17,6 +17,10 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
+local DamageCfg = require(Shared.Config.Damage)
+local Blast = require(Shared.Rules.Blast)
+local Holes = require(Shared.Rules.Holes)
+local Net = require(Shared.Net)
 local W = require(Shared.Config.Weapons)
 local Audio = require(script.Parent.Audio)
 local CaseDrop = require(script.Parent.CaseDrop)
@@ -195,26 +199,152 @@ function GunFx.tracer(from: Vector3, to: Vector3)
 	Debris:AddItem(p, t.time)
 end
 
-local holes: { Part } = {}
+-- ---- bullet holes (Config/Firing.Effects.Hole, Rules/Holes) ----
+-- Pooled discs, oldest first. One in a part is welded to it (unanchored, massless: it rides the part as a felled tree,
+-- an opened door moves) and goes with it: the part out of the world (broken, removed, streamed out) or turning
+-- see-through (a sinking tree). One part watched once, however many holes it has. On the ground (Terrain) a hole
+-- stays put until a blast or a dig reshapes the ground there (Net "Explosion", "GroundDug").
+type Hole = { p: Part, weld: WeldConstraint?, on: BasePart?, at: Vector3, tween: Tween?, n: number }
+type Watch = { count: number, seen: number, conns: { RBXScriptConnection } }
+local holes: { Hole } = {} -- showing, oldest first
+local spare: { Part } = {}
+local watched: { [BasePart]: Watch } = {}
+local made = 0
+
+local release: (hole: Hole) -> ()
+
+local function unwatch(part: BasePart)
+	local w = watched[part]
+	if w then
+		w.count -= 1
+		if w.count <= 0 then
+			for _, c in w.conns do
+				c:Disconnect()
+			end
+			watched[part] = nil
+		end
+	end
+end
+
+local function dropOn(part: BasePart)
+	for i = #holes, 1, -1 do
+		if holes[i].on == part then
+			release(holes[i])
+		end
+	end
+end
+
+local function watch(part: BasePart)
+	local w = watched[part]
+	if w then
+		w.count += 1
+		return
+	end
+	w = { count = 1, seen = part.Transparency, conns = {} }
+	watched[part] = w
+	table.insert(
+		w.conns,
+		part.AncestryChanged:Connect(function()
+			if not part:IsDescendantOf(workspace) then
+				dropOn(part)
+			end
+		end)
+	)
+	table.insert(
+		w.conns,
+		part:GetPropertyChangedSignal("Transparency"):Connect(function()
+			if part.Transparency > w.seen then
+				dropOn(part)
+			end
+		end)
+	)
+end
+
+release = function(hole: Hole)
+	local i = table.find(holes, hole)
+	if not i then
+		return
+	end
+	table.remove(holes, i)
+	hole.n = -1 -- its timers find it gone
+	if hole.tween then
+		hole.tween:Cancel()
+	end
+	hole.p.Parent = nil
+	if hole.weld then
+		hole.weld:Destroy()
+	end
+	if hole.on then
+		unwatch(hole.on)
+	end
+	table.insert(spare, hole.p)
+end
+
 function GunFx.hole(at: Vector3, normal: Vector3?, part: Instance?)
 	if not normal or not part or not part:IsA("BasePart") or not part.Anchored then
-		return -- only on things that stay put
+		return -- only on things that stand (no characters, no flying debris)
 	end
 	local h = E.Hole
-	-- a thin disc lying on the surface (a cylinder's axis is its X)
-	local p = bit(
-		Vector3.new(0.02, h.size, h.size),
-		CFrame.lookAt(at, at + normal) * CFrame.Angles(0, math.rad(90), 0),
-		rgb(h.color),
-		false
-	)
-	p.Shape = Enum.PartType.Cylinder
-	table.insert(holes, p)
-	if #holes > h.max then
-		table.remove(holes, 1):Destroy()
+	local ground = part:IsA("Terrain")
+	local p = table.remove(spare)
+	if not p then
+		p = bit(Vector3.new(0.02, h.size, h.size), CFrame.identity, rgb(h.color), false)
+		p.Name = "Hole"
+		p.Shape = Enum.PartType.Cylinder
+		p.Massless = true
 	end
-	Debris:AddItem(p, h.life)
+	local disc = p :: Part
+	disc.Transparency = 0
+	disc.Anchored = ground
+	-- a thin disc lying on the surface (a cylinder's axis is its X)
+	disc.CFrame = CFrame.lookAt(at, at + normal) * CFrame.Angles(0, math.rad(90), 0)
+	disc.Parent = fx()
+	made += 1
+	local hole: Hole = { p = disc, at = at, n = made }
+	if not ground then
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0, weld.Part1 = part, disc
+		weld.Parent = disc
+		hole.weld, hole.on = weld, part
+		watch(part)
+	end
+	table.insert(holes, hole)
+	for _ = 1, Holes.excess(#holes, h.max) do
+		release(holes[1])
+	end
+	local hold, fade = Holes.timing(h)
+	local n = hole.n
+	task.delay(hold, function()
+		if hole.n ~= n then
+			return
+		end
+		local tween = TweenService:Create(disc, TweenInfo.new(fade), { Transparency = 1 })
+		hole.tween = tween
+		tween:Play()
+		task.delay(fade, function()
+			if hole.n == n then
+				release(hole)
+			end
+		end)
+	end)
 end
+
+-- the ground reshaped within `radius` of `position`: the holes on it there go
+local function reshape(position: Vector3, radius: number)
+	for i = #holes, 1, -1 do
+		local hole = holes[i]
+		if not hole.on and Holes.reshaped((hole.at - position).Magnitude, radius, E.Hole.margin) then
+			release(hole)
+		end
+	end
+end
+Net.event("Explosion").OnClientEvent:Connect(function(position: Vector3, reach: number)
+	-- (Destruction.explode sends a plain radius, not a reach: it only takes a little less ground)
+	reshape(position, Blast.churnFromReach(reach, DamageCfg.Blast))
+end)
+Net.event("GroundDug").OnClientEvent:Connect(function(position: Vector3, radius: number)
+	reshape(position, radius)
+end)
 
 -- a range target's block lights up when hit (src/dev/Range: models named Target_<distance>)
 function GunFx.isTarget(part: Instance?): boolean

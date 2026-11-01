@@ -140,7 +140,10 @@ local Firing = {
 	Effects = {
 		Flash = { color = { 255, 214, 140 }, size = 0.45, time = 0.05, brightness = 4, range = 12 },
 		Tracer = { color = { 255, 236, 190 }, width = 0.04, time = 0.06 },
-		Hole = { color = { 24, 22, 20 }, size = 0.16, life = 30, max = 60 },
+		-- a bullet hole (src/client/GunFx, Rules/Holes): shows `life` s, the last `fade` of them fading out; at most `max`
+		-- at once, the oldest going first. It rides the part it is in (a felled tree, an opened door) and goes with it
+		-- (broken, removed, fading); on the ground it goes when a blast or a dig reshapes it within `margin` studs more.
+		Hole = { color = { 24, 22, 20 }, size = 0.16, life = 30, fade = 3, max = 60, margin = 1 },
 		-- a spent case thrown from the ejection port (studs/s, gun space: out to the right, up, back), flying under
 		-- real gravity (9.8 m/s^2 = 27.5 studs/s^2 at 0.357 m per stud; Roblox's 196 is ~7x that, which dropped the case
 		-- like a stone, user 2026-10-12) for `flight` seconds, then the world's. The case itself is flown, clinks and lies
