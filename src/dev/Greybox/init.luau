@@ -77,6 +77,7 @@ function Greybox.build(mapName: string): string
 			Props = fresh(game:GetService("ServerStorage").Dev.Props),
 			Buildings = fresh(game:GetService("ServerStorage").Dev.Buildings),
 			Library = Library,
+			VillageRules = VillageRules,
 		})
 		villageStats = string.format(
 			" Village: %d buildings, %d boundary runs, %d poles, %d props, %d garden trees.",

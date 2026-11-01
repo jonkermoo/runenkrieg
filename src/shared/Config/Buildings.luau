@@ -43,6 +43,10 @@ local Buildings = {
 	OpeningMargin = 0.35, -- clear gap between an opening's frame and any quoin, chimney or other opening
 	FramePost = 0.5, -- width of the timber posts either side of an opening
 	Foundation = 0.6, -- floor top above the highest ground under the footprint
+	FoundationDepth = 10, -- the template's foundation reaches this far under the base; a copy on steeper ground gets more
+	-- placing a copy: the ground is sampled over its footprint plus `pad` (the walls' outer faces and the plinth), at most
+	-- `step` apart; it stands on the highest sample (src/dev/Greybox/VillageBuild)
+	GroundSample = { pad = 1.5, step = 3 },
 	WallThickness = 1,
 	-- landmark pieces (Template `blocks` / `features`)
 	Battlement = { wall = 1.6, height = 1.8, merlon = 2.2 }, -- parapet height, merlons on it, a merlon's length

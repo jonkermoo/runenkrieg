@@ -5,7 +5,7 @@
 
 local VillageBuild = {}
 
--- deps: { MT, B, P, D, palette, RulesD, Props, Buildings, Library }
+-- deps: { MT, B, P, D, palette, RulesD, Props, Buildings, Library, VillageRules }
 function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): { [string]: number }
 	local MT, B, palette = deps.MT, deps.B, deps.palette
 	local propDeps = { P = deps.P, D = deps.D }
@@ -42,16 +42,36 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 		local copy = template:Clone()
 		copy.Name = lot.id
 		deps.Buildings.paint(copy, deps.RulesD.scheme(B.Templates[lot.style], palette, lot.colorSeed), palette)
-		-- stand on the highest ground under the footprint; the deep foundation fills down the slope
+		-- stand on the highest ground under the footprint and just round its walls, sampled all over it (never sunk
+		-- into a rise between samples); the deep foundation fills down the slope, with a footing under it where the
+		-- ground falls further than it reaches
 		local rx, rz = -lot.fz, lot.fx
-		local hi = -math.huge
-		for _, s in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 }, { 0, 0 }, { 0, -1 }, { 0, 1 } } do
-			local x = lot.x + rx * lot.width / 2 * s[1] + lot.fx * lot.depth / 2 * s[2]
-			local z = lot.z + rz * lot.width / 2 * s[1] + lot.fz * lot.depth / 2 * s[2]
-			hi = math.max(hi, ground(x, z))
+		local hi, lo = -math.huge, math.huge
+		for _, p in deps.VillageRules.footprintPoints(lot, B.GroundSample.pad, B.GroundSample.step) do
+			local y = ground(p[1], p[2])
+			hi, lo = math.max(hi, y), math.min(lo, y)
 		end
 		local pos = Vector3.new(lot.x, hi, lot.z)
-		copy:PivotTo(CFrame.lookAt(pos, pos + Vector3.new(lot.fx, 0, lot.fz)))
+		local at = CFrame.lookAt(pos, pos + Vector3.new(lot.fx, 0, lot.fz))
+		copy:PivotTo(at)
+		local extra = deps.VillageRules.footing(hi, lo, B.FoundationDepth)
+		if extra > 0 then
+			local footing = Instance.new("Part")
+			footing.Name = "Footing"
+			footing.Anchored = true
+			footing.Material = Enum.Material.SmoothPlastic
+			footing.Color = Color3.fromRGB(table.unpack(palette.Buildings.Foundation))
+			footing.Size = Vector3.new(lot.width + 0.6, extra + 1, lot.depth + 0.6)
+			footing.CFrame = at * CFrame.new(0, -B.FoundationDepth - extra / 2 + 0.5, 0)
+			footing.Parent = copy
+		end
+		-- a landmark's headstones and gateway stand on the real ground where they are, not the building's level
+		for _, d in copy:GetDescendants() do
+			if d:IsA("Model") and d:GetAttribute("OnGround") then
+				local p = d:GetPivot().Position
+				d:PivotTo(d:GetPivot() + Vector3.new(0, ground(p.X, p.Z) - hi, 0))
+			end
+		end
 		copy.Parent = bf
 		-- bare-earth yard: no grass tufts (or terrain decoration) poking through the floor
 		local pad = 1.5 -- just around the walls; wider yards blend into the dirt roads

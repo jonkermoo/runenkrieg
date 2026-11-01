@@ -527,6 +527,7 @@ function Geometry.graves(parent: Instance, ctx: Ctx, at: CFrame, count: number, 
 	local g = ctx.B.Graves
 	for i = 0, count - 1 do
 		local sec = Geometry.section(parent, ctx, "Grave", "Stone", 0)
+		sec:SetAttribute("OnGround", true) -- set on the real ground where it's placed, not the building's level
 		local tilt = math.rad(4 * jitter(ctx, 11))
 		local h = g.height * (1 + 0.15 * jitter(ctx, 13))
 		Geometry.part(
@@ -544,6 +545,7 @@ end
 function Geometry.lychgate(parent: Instance, ctx: Ctx, at: CFrame, W: number)
 	local L = ctx.B.Lychgate
 	local sec = Geometry.section(parent, ctx, "Lychgate", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
 	for _, c in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
 		Geometry.part(
 			sec,

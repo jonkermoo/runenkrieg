@@ -31,8 +31,8 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 		ctx,
 		"Foundation",
 		-- deep foundation: placed copies sit on the highest ground under the footprint (uneven terrain)
-		CFrame.new(0, (floorTop - 1 - 10) / 2, 0),
-		Vector3.new(W + 0.6, floorTop - 1 + 10, Dp + 0.6),
+		CFrame.new(0, (floorTop - 1 - B.FoundationDepth) / 2, 0),
+		Vector3.new(W + 0.6, floorTop - 1 + B.FoundationDepth, Dp + 0.6),
 		"Foundation"
 	)
 	Geometry.slab(model, ctx, cf, { -W / 2, W / 2, -Dp / 2, Dp / 2 }, floorTop, "Floor", -1, "Floor")
@@ -184,6 +184,9 @@ function Buildings.build(name: string, deps: Deps): Model
 					sub:SetAttribute(key, nil)
 				end
 			end
+			-- (a new Model's pivot is its bounding box's centre: put it back on the block's ground first, or the block
+			-- sinks by half its height)
+			sub.WorldPivot = CFrame.identity
 			sub:PivotTo(CFrame.new(b.x, 0, b.z) * CFrame.Angles(0, math.rad(b.yaw or 0), 0))
 			sub.Parent = model
 		end

@@ -35,6 +35,29 @@ function Village.corners(l: Lot, pad: number): { { number } }
 	return out
 end
 
+-- Points over a lot's footprint grown by `pad` all round, no more than `step` apart along each side (corners and edges
+-- included): where the ground is sampled to stand the building on (user 2026-11-01: "make sure no buildings are
+-- submerged"; seven samples missed a rise under a 54-wide church).
+function Village.footprintPoints(l: Lot, pad: number, step: number): { { number } }
+	local rx, rz = -l.fz, l.fx
+	local hw, hd = l.width / 2 + pad, l.depth / 2 + pad
+	local nu, nv = math.max(1, math.ceil(2 * hw / step)), math.max(1, math.ceil(2 * hd / step))
+	local out = {}
+	for i = 0, nu do
+		for j = 0, nv do
+			local u, v = -hw + 2 * hw * i / nu, -hd + 2 * hd * j / nv
+			table.insert(out, { l.x + rx * u + l.fx * v, l.z + rz * u + l.fz * v })
+		end
+	end
+	return out
+end
+
+-- How far below the building's base the ground falls at most, past its foundation's own `depth`: the footing a copy
+-- needs added under it so it never stands on air (0 when the foundation reaches).
+function Village.footing(base: number, lowest: number, depth: number): number
+	return math.max(0, base - lowest - depth)
+end
+
 -- Separating-axis test for two convex quads.
 local function quadsOverlap(a: { { number } }, b: { { number } }): boolean
 	for _, poly in { a, b } do

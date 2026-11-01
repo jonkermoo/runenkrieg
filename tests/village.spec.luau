@@ -135,4 +135,26 @@ return {
 			assert(MT.roadDistance(Map1, y.x, y.z) > 0, `{y.kind} on a road`)
 		end
 	end,
+	["ground sampled over the whole footprint and round it: corners, edges and inside, no gap over the step"] = function()
+		local g = B.GroundSample
+		for _, l in lots do
+			local pts = V.footprintPoints(l, g.pad, g.step)
+			for _, c in V.corners(l, g.pad) do
+				local hit = false
+				for _, p in pts do
+					hit = hit or (math.abs(p[1] - c[1]) < 1e-6 and math.abs(p[2] - c[2]) < 1e-6)
+				end
+				assert(hit, `{l.id}: a corner isn't sampled`)
+			end
+			local nu = math.ceil((l.width + 2 * g.pad) / g.step)
+			local nv = math.ceil((l.depth + 2 * g.pad) / g.step)
+			assert(#pts == (nu + 1) * (nv + 1), `{l.id}: {#pts} samples`)
+			assert((l.width + 2 * g.pad) / nu <= g.step and (l.depth + 2 * g.pad) / nv <= g.step)
+		end
+	end,
+	["a footing only where the ground falls past the foundation"] = function()
+		assert(V.footing(10, 5, B.FoundationDepth) == 0)
+		assert(V.footing(10, 0, B.FoundationDepth) == 0)
+		assert(V.footing(10, -4, B.FoundationDepth) == 4)
+	end,
 }
