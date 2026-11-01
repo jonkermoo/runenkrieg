@@ -1062,56 +1062,188 @@ local Artillery = {
 					fed = 7,
 					box = "m2_box",
 					grip = { 0.087, 1.34, 0 },
-					-- (user 2026-10-29: "various realistic sounds for machine gun reloading"; Pro Sound Effects, slices
-					-- picked from the files' descriptions): the top cover unlatched ("Metal Latches 3"), the empty can
-					-- lifted off rattling ("Ammo Box Movement 1"), put down ("Metal Can Large Sized Hit Drop 1"), the full
-					-- one taken up ("Ammo Box Movement 2") and set on the tray ("Shield Impacts 17"), the belt laid in
-					-- ("Machine Gun 20"), the cover slammed ("Metal Latches 12") and the charging handle racked back and
-					-- let go ("Machine Gun Bolt 1", an M85 .50 cal)
+					-- (user 2026-11-01: "there should almost ALMOST always be noise ... it should be smooth. overlap is fine";
+					-- Pro Sound Effects, slices picked by each file's loudness over time): a sound for each of the
+					-- animation's moves (tools/animation/mg.luau MGReload), one into the next, a list layering its sounds
+					-- (src/client/SoundFx). The cover's unlatch takes the slam's latch too, the empty can's own rattle
+					-- plays whole from just before the lift (it was cut to its last 0.04 s), there is no sound for the can
+					-- being put down, the belt jingles in (was "Machine Gun 20", a gunshot heard 2400 studs off), and both
+					-- pulls of the charging handle rack hard, whole, the second with two more bolts on it: the gun is ready
 					sounds = {
+						-- Hands off the grips ("Gun Grab Hard 1")
 						{
-							at = 0.5,
-							sound = { id = 9116722779, volume = 0.9, pitch = 0.9, stop = 0.35, profile = "Mechanism" },
+							at = 0.05,
+							sound = { id = 9114702107, volume = 0.35, stop = 0.35, fade = 0.15, profile = "Mechanism" },
 						},
+						-- Leaning in, the gun jostled ("Metal Rattle Thick Shake 2")
 						{
-							at = 1.2,
+							at = 0.15,
 							sound = {
-								id = 9113102913,
-								volume = 0.7,
-								start = 1.5,
-								stop = 2.2,
-								fade = 0.2,
+								id = 9116797024,
+								volume = 0.3,
+								start = 0.15,
+								stop = 0.6,
+								fade = 0.15,
 								profile = "Mechanism",
 							},
 						},
+						-- Top cover unlatched ("Metal Latches 3" + "Metal Latches 12")
 						{
-							at = 2.6,
-							sound = { id = 9116536883, volume = 1, pitch = 0.75, stop = 0.6, profile = "Mechanism" },
-						},
-						{
-							at = 3.7,
+							at = 0.5,
 							sound = {
-								id = 9113103014,
+								{
+									id = 9116722779,
+									volume = 0.9,
+									pitch = 0.9,
+									stop = 0.65,
+									fade = 0.15,
+									profile = "Mechanism",
+								},
+								{ id = 9116729170, volume = 0.7, stop = 0.4, fade = 0.1, profile = "Mechanism" },
+							},
+						},
+						-- Cover lifted ("Metal Scrapes Metal Lid Movements Over Box 8")
+						{
+							at = 0.85,
+							sound = {
+								id = 9116822366,
 								volume = 0.6,
-								start = 0.3,
-								stop = 1.8,
+								start = 0.7,
+								stop = 1.5,
+								fade = 0.25,
+								profile = "Mechanism",
+							},
+						},
+						-- Empty can lifted off ("Ammo Box Movement 1")
+						{ at = 1, sound = { id = 9113102913, volume = 1.6, profile = "Mechanism" } },
+						-- Empty can carried away, rattling ("Metal Rattle Thick Shake 2")
+						{
+							at = 1.2,
+							sound = {
+								id = 9116797024,
+								volume = 0.7,
+								start = 0.15,
+								stop = 1.75,
+								fade = 0.4,
+								profile = "Mechanism",
+							},
+						},
+						-- Full can dragged in from behind ("Metal Scrapes Metal Lid Movements Over Box 4")
+						{
+							at = 2.55,
+							sound = {
+								id = 9116821213,
+								volume = 0.5,
+								start = 1.75,
+								stop = 2.95,
 								fade = 0.3,
 								profile = "Mechanism",
 							},
 						},
+						-- Full can taken up ("Ammo Box Movement 2")
+						{
+							at = 3.7,
+							sound = {
+								id = 9113103014,
+								volume = 1.6,
+								start = 0.1,
+								stop = 2.3,
+								fade = 0.3,
+								profile = "Mechanism",
+							},
+						},
+						-- Full can carried, its rounds rattling ("Metal Rattle Thick Shake 2")
+						{
+							at = 3.8,
+							sound = {
+								id = 9116797024,
+								volume = 0.45,
+								start = 0.2,
+								stop = 1.75,
+								fade = 0.3,
+								profile = "Mechanism",
+							},
+						},
+						-- Full can set on the tray ("Shield Impacts 17")
 						{
 							at = 5.3,
 							sound = { id = 9119075617, volume = 0.9, pitch = 0.8, stop = 0.4, profile = "Mechanism" },
 						},
-						{ at = 6.1, sound = { id = 9116340734, volume = 1, profile = "Gunshot" } },
+						-- Belt tab lifted ("Chain Rattle Glassy Metal Rattle 4")
 						{
-							at = 7.4,
-							sound = { id = 9116729170, volume = 1.2, pitch = 0.85, stop = 0.5, profile = "Mechanism" },
+							at = 5.5,
+							sound = { id = 9113763639, volume = 0.35, stop = 0.9, fade = 0.2, profile = "Mechanism" },
 						},
+						-- Belt fed through ("Dog Tags Rattles Metal Jingle")
 						{
-							at = 8.2,
-							sound = { id = 9116357348, volume = 1, pitch = 0.9, stop = 1.2, profile = "Mechanism" },
+							at = 6.1,
+							sound = {
+								id = 9125490846,
+								volume = 0.55,
+								start = 0.1,
+								stop = 1.5,
+								fade = 0.3,
+								profile = "Mechanism",
+							},
 						},
+						-- Belt seated in the feed ("Machine Gun Movement 1")
+						{ at = 7, sound = { id = 9116362330, volume = 1.5, profile = "Mechanism" } },
+						-- Top cover slammed shut ("Metal Latches 12" + "Metal Clunks Heavy Latch Mechanism 1")
+						{
+							at = 7.5,
+							sound = {
+								{ id = 9116729170, volume = 1.2, pitch = 0.85, stop = 0.5, profile = "Mechanism" },
+								{
+									id = 9116545245,
+									volume = 0.6,
+									start = 2.2,
+									stop = 2.9,
+									fade = 0.2,
+									profile = "Mechanism",
+								},
+							},
+						},
+						-- Hand on the charging handle ("Gun Grab Hard 1")
+						{
+							at = 8.1,
+							sound = { id = 9114702107, volume = 0.4, stop = 0.3, fade = 0.1, profile = "Mechanism" },
+						},
+						-- Charging handle racked ("Machine Gun Bolt 1" + "Machine Gun Bolt 4")
+						{
+							at = 8.3,
+							sound = {
+								{ id = 9116357348, volume = 3, profile = "Mechanism" },
+								{ id = 9116357621, volume = 0.8, profile = "Mechanism" },
+							},
+						},
+						-- Racked again: the gun is ready ("Machine Gun Bolt 1" + "Machine Gun Bolt 2" + "Machine Gun Bolt 3")
+						{
+							at = 9.05,
+							sound = {
+								{ id = 9116357348, volume = 3.5, profile = "Mechanism" },
+								{ id = 9116357355, volume = 1, profile = "Mechanism" },
+								{ id = 9116357383, volume = 1.2, profile = "Mechanism" },
+							},
+						},
+						-- The gun settles as the hands go back ("Metal Rattle Thick Shake 2")
+						{
+							at = 9.5,
+							sound = {
+								id = 9116797024,
+								volume = 0.35,
+								start = 0.5,
+								stop = 1.6,
+								fade = 0.3,
+								profile = "Mechanism",
+							},
+						},
+						-- Grips taken ("Gun Grab Hard 1")
+						{
+							at = 10.6,
+							sound = { id = 9114702107, volume = 0.6, stop = 0.5, fade = 0.2, profile = "Mechanism" },
+						},
+						-- The gun settled in the hands ("Machine Gun Movement 1")
+						{ at = 11.1, sound = { id = 9116362330, volume = 0.8, fade = 0.2, profile = "Mechanism" } },
 					},
 				},
 				-- (the M2's sights: 0.77 behind the rear sight's peep ring, on the line through the ring's middle and the
