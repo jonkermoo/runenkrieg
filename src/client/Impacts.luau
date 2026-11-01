@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Firing)
 local TreeCfg = require(Shared.Config.TreeSway)
+local Shapes = require(Shared.Config.TreeShapes)
 local Trees = require(Shared.Rules.Trees)
 local Net = require(Shared.Net)
 local TreeSway = require(script.Parent.TreeSway)
@@ -23,6 +24,8 @@ local I = Cfg.Effects.Impacts
 type Bit = { part: BasePart, v: Vector3, spin: CFrame, gravity: number, drag: number, born: number, life: number }
 local bits: { Bit } = {}
 local folder: Folder? = nil
+-- each canopy's leaf shapes (Rules/Trees.canopyShapes), found on its first shot
+local leafShapes: { [BasePart]: { any } } = setmetatable({}, { __mode = "k" }) :: any
 
 local DIRT = {
 	[Enum.Material.Grass] = true,
@@ -89,11 +92,33 @@ local function leaves(from: Vector3, to: Vector3)
 	for _, tree in CollectionService:GetTagged(TreeCfg.Tag) do
 		local canopy = tree:FindFirstChild("Canopy") :: BasePart?
 		if canopy then
-			local half = canopy.Size * I.Leaf.canopyShare / 2
+			local half = canopy.Size / 2
 			if (canopy.Position - mid).Magnitude <= length / 2 + half.Magnitude then
 				local o = canopy.CFrame:PointToObjectSpace(from)
 				local v = canopy.CFrame:VectorToObjectSpace(d)
+				-- the box first (cheap), then the leaves' own shapes inside it
 				local t = Trees.enterBox(o.X, o.Y, o.Z, v.X, v.Y, v.Z, length, half.X, half.Y, half.Z)
+				if t then
+					local shapes = leafShapes[canopy]
+					if not shapes then
+						shapes = Trees.canopyShapes(canopy.Size.X, canopy.Size.Y, canopy.Size.Z, Shapes)
+						leafShapes[canopy] = shapes
+					end
+					t = Trees.enterLeaves(
+						o.X,
+						o.Y,
+						o.Z,
+						v.X,
+						v.Y,
+						v.Z,
+						length,
+						half.X,
+						half.Y,
+						half.Z,
+						shapes,
+						Shapes.grow
+					)
+				end
 				if t then
 					burst(I.Leaf, from + d * t, -d, canopy.Color)
 				end
