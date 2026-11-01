@@ -23,6 +23,9 @@ export type Template = {
 	quoins: boolean?, -- stone corner blocks
 	doors: { { center: number, w: number?, h: number? } }?, -- front doors (default: one centered, Metrics size)
 	backDoor: boolean?, -- a door in the back wall too (story 0)
+	leftDoor: boolean?, -- and in the -X / +X side walls (a porch turned to face its gable forward)
+	rightDoor: boolean?,
+	windows: number?, -- windows per wall, every wall (default 2 front and back, 1 on the sides)
 	climb: boolean?, -- one more flight up through the ceiling onto the roof (a tower's roof walk)
 	-- A landmark (one map's own buildings; user 2026-11-01: "somewhat unique to each map"): several blocks in the
 	-- template's footprint (width x depth), each with the building fields above plus x, z (its centre in the
@@ -148,7 +151,7 @@ local Buildings = {
 		Church = {
 			folder = "Landmarks",
 			width = 54,
-			depth = 44,
+			depth = 50,
 			stories = 1,
 			roofPitch = 45,
 			class = "Stone",
@@ -159,7 +162,7 @@ local Buildings = {
 				{
 					name = "Nave",
 					x = 7,
-					z = 1,
+					z = 4,
 					width = 40,
 					depth = 18,
 					stories = 1,
@@ -172,20 +175,23 @@ local Buildings = {
 				{
 					name = "Tower",
 					x = -20,
-					z = 1,
+					z = 4,
 					width = 14,
 					depth = 14,
-					stories = 4,
+					stories = 5, -- 35 high: well over the nave's ridge
 					storyHeight = 7,
+					windows = 1,
 					roofPitch = 0,
 					roofStyle = "Battlement",
 					quoins = true,
 					climb = true,
 				},
 				{
+					-- turned a quarter so its gable faces out: its right wall is the way in, its left opens on the nave
 					name = "Porch",
 					x = 12,
-					z = -12,
+					z = -9,
+					yaw = 90,
 					width = 8,
 					depth = 8,
 					stories = 1,
@@ -193,15 +199,18 @@ local Buildings = {
 					roofPitch = 45,
 					roofStyle = "Tile",
 					wallThickness = 1.2,
-					backDoor = true,
+					doors = {},
+					leftDoor = true,
+					rightDoor = true,
+					windows = 0,
 				},
 			},
 			features = {
-				{ kind = "Lychgate", x = 12, z = -19.5, width = 8 },
-				{ kind = "Graves", x = -8, z = 15, count = 9, gap = 4 },
-				{ kind = "Graves", x = -6, z = 19.5, count = 8, gap = 4.4 },
+				{ kind = "Lychgate", x = 12, z = -22.5, width = 8 },
+				{ kind = "Graves", x = -8, z = 18, count = 9, gap = 4 },
+				{ kind = "Graves", x = -6, z = 22.5, count = 8, gap = 4.4 },
 			},
-			description = "The village church: stone nave and slate roof, a climbable battlemented west tower, south porch, lychgate and churchyard.",
+			description = "The village church: stone nave and slate roof, a climbable battlemented west tower, a porch, lychgate and churchyard.",
 		},
 	} :: { [string]: Template },
 

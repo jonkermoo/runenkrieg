@@ -65,7 +65,7 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				W,
 				ends(W, W / 2),
 				if story == 0 then frontDoors else nil,
-				2,
+				t.windows or 2,
 			},
 			{
 				"back",
@@ -74,23 +74,23 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				ends(W, W / 2),
 				-- a back door (a church porch's, opening on the nave's front door behind it)
 				if story == 0 and t.backDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
-				2,
+				t.windows or 2,
 			},
 			{
 				"left",
 				CFrame.new(-W / 2 + T / 2, y, 0) * CFrame.Angles(0, math.pi / 2, 0),
 				sideL,
 				ends(sideL, Dp / 2),
-				nil,
-				1,
+				if story == 0 and t.leftDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				t.windows or 1,
 			},
 			{
 				"right",
 				CFrame.new(W / 2 - T / 2, y, 0) * CFrame.Angles(0, -math.pi / 2, 0),
 				sideL,
 				ends(sideL, Dp / 2),
-				nil,
-				1,
+				if story == 0 and t.rightDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				t.windows or 1,
 			},
 		}
 		if t.gableChimney then
