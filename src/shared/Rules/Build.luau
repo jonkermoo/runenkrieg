@@ -886,6 +886,30 @@ function Build.groundPlane(
 	return sum / n, if sxx > 0 then sxh / sxx else 0, if szz > 0 then szh / szz else 0
 end
 
+-- How far a trench's line keeps from a `piece`'s footprint (Config/Build.Trench `t`), nil for a piece that may stand on
+-- its bank: a foxhole, barbed wire or a gun keeps off the walls and the bank, a gun `trenchGap` more. Both ways: no such
+-- piece laid that near a trench, no trench planned that near one (user 2026-11-02, Survey.nearTrench / Trenches.plan).
+function Build.trenchKeep(piece: Piece, t: any): number?
+	if piece.kind ~= "Gun" and piece.kind ~= "Wire" and piece.kind ~= "Foxhole" then
+		return nil
+	end
+	return Build.trenchTop(t) + t.bank.width + (piece.trenchGap or 0)
+end
+
+-- the flat distance from footprint `f` (0 on or inside it) to the segment (ax, az)-(bx, bz), sampled every `step` studs
+function Build.footprintToSeg(f: Footprint, ax: number, az: number, bx: number, bz: number, step: number): number
+	local dx, dz = bx - ax, bz - az
+	local steps = math.max(math.ceil(math.sqrt(dx * dx + dz * dz) / step), 1)
+	local best = math.huge
+	for i = 0, steps do
+		local px, pz = ax + dx * i / steps - f.x, az + dz * i / steps - f.z
+		local u = math.max(math.abs(px * f.rx + pz * f.rz) - f.width / 2, 0)
+		local v = math.max(math.abs(-px * f.rz + pz * f.rx) - f.depth / 2, 0)
+		best = math.min(best, math.sqrt(u * u + v * v))
+	end
+	return best
+end
+
 -- whether two footprints overlap (by more than a touch: separating axes, each box's own two)
 function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
 	local dx, dz = b.x - a.x, b.z - a.z

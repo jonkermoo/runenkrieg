@@ -1135,4 +1135,29 @@ return {
 		local turned = box(0, 0, 90, 8, 2)
 		assert(B.onFootprintAt(0, 3.9, turned, 0) and not B.onFootprintAt(3.9, 0, turned, 0), "turned a quarter")
 	end,
+	-- (user 2026-11-02: "i want to adjust them so it stops colliding with stuff", "make it a generous stud margin")
+	["a foxhole, wire or gun keeps a trench off as far as it keeps off one"] = function()
+		local t = C.Trench
+		local base = B.trenchTop(t) + t.bank.width
+		local function piece(key: string): B.Piece
+			return assert(B.piece(key, C.Pieces))
+		end
+		assert(near(assert(B.trenchKeep(piece("Wire"), t)), base), "wire: off the walls and bank")
+		assert(near(assert(B.trenchKeep(piece("Foxhole"), t)), base), "a foxhole the same")
+		local gun = piece("FieldGun")
+		assert(near(assert(B.trenchKeep(gun, t)), base + (gun.trenchGap or 0)), "a gun its gap more")
+		assert(B.trenchKeep(piece("SandbagPile"), t) == nil, "sandbags may stand on the bank")
+		assert(B.trenchKeep(piece("Hesco"), t) == nil and B.trenchKeep(piece("MGNest"), t) == nil)
+		assert(C.Margin >= 2, "a generous margin round every piece")
+		assert(t.wayHeight > 0)
+	end,
+	["a footprint's distance to a trench line"] = function()
+		local f: B.Footprint = { x = 0, z = 0, rx = 1, rz = 0, width = 8, depth = 4 }
+		assert(near(B.footprintToSeg(f, -20, 10, 20, 10, 0.5), 8), "a line alongside, 8 past its long side")
+		assert(near(B.footprintToSeg(f, 14, -20, 14, 20, 0.5), 10), "across its end")
+		assert(B.footprintToSeg(f, -20, 0, 20, 0, 0.5) == 0, "through it")
+		assert(near(B.footprintToSeg(f, 7, 5, 7, 5, 0.5), math.sqrt(9 + 9)), "a point off its corner")
+		local turned: B.Footprint = { x = 0, z = 0, rx = 0, rz = 1, width = 8, depth = 4 }
+		assert(near(B.footprintToSeg(turned, -20, 10, 20, 10, 0.5), 6), "turned a quarter: its long side along z")
+	end,
 }

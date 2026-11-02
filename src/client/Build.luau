@@ -537,7 +537,7 @@ local function surveyPiece(character: Model, root: BasePart)
 		overlap = Survey.blocked(p, box, report.low, ignore) or Survey.onPiece(p, box, f),
 		overTrench = Survey.overTrench(p, box, f),
 		gunGap = gun and Survey.gunGap(p, at, f),
-		nearTrench = (gun or p.kind == "Wire" or foxhole) and Survey.nearTrench(p, box, f),
+		nearTrench = Survey.nearTrench(p, box, f),
 		mine = 0, -- (the caps are the server's to check)
 		team = 0,
 		perPlayer = C.PerPlayer,
@@ -767,6 +767,12 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	end
 	if ok and Survey.treeNear(a, aim) then
 		ok, reason = false, "A tree is in the way"
+	end
+	if ok then
+		local near = Survey.nearPieces(a, aim, f)
+		if near then
+			ok, reason = false, `Too close to the {string.lower(near)}`
+		end
 	end
 	current = { a = a, b = aim, ok = ok, reason = reason }
 	-- one square per segment, gaps between, so each square shows (user 2026-10-23: "have a string during planning for
