@@ -223,7 +223,7 @@ local Bots = {
 	-- - doors: a path's door waypoint (Config/Indoors.Links.door) within `doorReach` studs: it opens the door
 	--   (Doors.openFor) and waits `doorWait` s while it swings; paths cost Config/Indoors.PathCosts.
 	-- - holds: each defending squad puts up to `perSquad` bots at window or doorway spots within the zone's radius plus
-	--   `around`, facing the enemy's way in by more than `facing`, `upstairs` a story above the ground, `random` to spread
+	--   `around` (windows overlooking it count), facing the enemy's way in by more than `facing`, `upstairs` a story above the ground, `random` to spread
 	--   them (user: "A few (1-2 a squad)"); with no target it faces out of the window.
 	-- - cover: a cover search also tries up to `cover` indoor cover spots within its reach.
 	-- - clearing (user: "Yes, clear buildings"): a pushing squad's Assault bots go for the indoor spot nearest a known
@@ -233,7 +233,7 @@ local Bots = {
 		doorReach = 6,
 		doorWait = 0.8,
 		perSquad = 2,
-		around = 15,
+		around = 55, -- (Map 1's houses stand 82+ studs from the zones' centres; user 2026-11-02: "Widen to 100")
 		facing = 0.3,
 		upstairs = 0.5,
 		random = 0.5,
