@@ -413,6 +413,10 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 					blocked = true
 				end
 			end
+			-- (and none in a kept-clear square: a square, a spawn, a wave line's ground)
+			for _, c in cfg.keepClear do
+				blocked = blocked or (x - c.x) ^ 2 + (z - c.z) ^ 2 < c.r * c.r
+			end
 			if not blocked and not MT.isRiver(map, x, z) then
 				table.insert(poles, { x = x, z = z, dx = dx, dz = dz })
 			end

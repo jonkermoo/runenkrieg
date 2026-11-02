@@ -5,7 +5,8 @@
 -- - walls: no ground more than a floor's height over a building's base within `wallReach` of its walls
 -- - doors: walking out from every doorstep, no drop over a step (Config/Buildings.Steps.rise + slack)
 -- - rails: no ground over the railway
--- - spawns: no sight line from the enemy's point or front row to a wave line's heads (terrain and parts)
+-- - spawns: no sight line from the enemy's point or front row to a wave line's heads (terrain and parts), and every
+--   slot of every line open (src/server/Frontline's test: dry ground, nothing solid in its `Line.clear` box)
 -- Returns a report string; each line that starts with FAIL names a thing to fix.
 
 local Audit = {}
@@ -171,6 +172,31 @@ function Audit.run(mapName: string, deps: any): string
 			end
 		end
 		report(seen == 0, `spawn cover: {seen} of {total} sight lines reach a wave line's heads`)
+		local box = OverlapParams.new()
+		box.RespectCanCollide = true
+		local water = RaycastParams.new()
+		water.FilterType = Enum.RaycastFilterType.Include
+		water.FilterDescendantsInstances = { workspace.Terrain }
+		local c = Front.Line.clear
+		local shut, slots, where = 0, 0, {}
+		for i = 2, #S - 1 do
+			for _, side in { "West", "East" } do
+				for _, p in line(side, i, math.ceil(Front.Line.tries / Front.Line.perRow)) do
+					slots += 1
+					local hit = workspace:Raycast(p + Vector3.new(0, 100, 0), Vector3.new(0, -200, 0), water)
+					local wet = hit ~= nil and hit.Material == Enum.Material.Water
+					local at = CFrame.new(p + Vector3.new(0, c[2] / 2 + 0.5, 0))
+					if wet or #workspace:GetPartBoundsInBox(at, Vector3.new(c[1], c[2], c[3]), box) > 0 then
+						shut += 1
+						local id = `{S[i].id} {side}`
+						if not table.find(where, id) then
+							table.insert(where, id)
+						end
+					end
+				end
+			end
+		end
+		report(shut == 0, `spawn slots open: {shut} of {slots} shut {table.concat(where, ", ")}`)
 	end
 	return table.concat(lines, "\n")
 end
