@@ -102,11 +102,35 @@ return {
 		local a = math.rad(e)
 		assert(HOW.trunnion[2] - (c.along + r) * math.sin(a) - c.below * math.cos(a) >= c.floor - 1e-6)
 	end,
-	["scatter stays within its most and is nothing for even numbers"] = function()
-		local y, e, s = A.scatter(QF.scatter, { 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 })
-		assert(near(y, 0) and near(e, 0) and near(s, 1))
-		y, e, s = A.scatter(QF.scatter, { 1, 1, 0, 0, 1, 1 })
-		assert(near(y, QF.scatter.yaw) and near(e, -QF.scatter.elevation) and near(s, 1 + QF.scatter.speed))
+	["a shell misses by a little: mostly half its radius, rarely on the aim, never past it"] = function()
+		assert(QF.miss and HOW.miss and C.Guns.mg08.miss == nil, "the field gun and howitzer only")
+		local right, beyond = A.miss(36, 1, 1, 0)
+		assert(near(right, 0) and near(beyond, 36), "the most: straight beyond")
+		right, beyond = A.miss(36, 0.5, 0.5, 0.25)
+		assert(near(right, 18) and near(beyond, 0, 1e-9), "half the radius, to the right")
+		math.randomseed(7)
+		local close, off, n = 0, 0, 4000
+		for _ = 1, n do
+			local x, z = A.miss(36, math.random(), math.random(), math.random())
+			local d = math.sqrt(x * x + z * z)
+			assert(d <= 36 + 1e-9)
+			if d < 3.6 then
+				close += 1
+			end
+			off += d
+		end
+		assert(close / n < 0.05, "rarely right on the aim")
+		assert(near(off / n, 18, 1), "mostly about half off")
+	end,
+	["a miss is turned into a lay: beyond is faster, right is a turn to the right"] = function()
+		local yaw, speed = A.missLay(1000, 0, 210)
+		assert(near(yaw, 0) and near(speed, math.sqrt(1.21)))
+		local x, z = A.landing(BORE, { yaw = 0, traverse = 0, elevation = 10 }, 0, 0)
+		local reach = math.sqrt((x :: number) ^ 2 + (z :: number) ^ 2)
+		yaw = A.missLay(reach, 30, 0)
+		local x2 = A.landing(BORE, { yaw = 0, traverse = yaw, elevation = 10 }, 0, 0)
+		assert(near((x2 :: number) - (x :: number), 30, 1), "30 studs to the right (+X facing -Z)")
+		assert(select(2, A.missLay(0, 5, 5)) == 1, "no reach: no change")
 	end,
 	["the recoil goes back fast and runs out again"] = function()
 		local t = QF.recoilTimes
