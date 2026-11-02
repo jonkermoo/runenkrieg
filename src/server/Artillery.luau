@@ -244,8 +244,12 @@ end
 
 -- A reload broken off by its gunner leaving (user 2026-11-01: "reloading on the machine gun and field cannon should
 -- be restarted if cancelled"): it stops here, the gun as it was (the box not swapped, the round not in), and starts
--- over from the beginning once the gun is manned again (restartReload)
+-- over from the beginning once the gun is manned again (restartReload). A gun that keeps its reload (Config
+-- `keepsReload`, the howitzer) charges on with nobody on it.
 local function cancelReload(s: State)
+	if s.gun.keepsReload then
+		return
+	end
 	local ready = s.model:GetAttribute("ReadyAt") :: number?
 	if s.reloading or (not s.gun.mg and ready and now() < ready) then
 		s.reloadOf += 1

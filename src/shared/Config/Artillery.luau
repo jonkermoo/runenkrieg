@@ -46,6 +46,9 @@ export type Gun = {
 	fragments: { lethal: number, wound: number, max: number, near: number, far: number }?, -- Rules/Grenade.fragments
 	scatter: { yaw: number, elevation: number, speed: number }, -- the most a shot strays: degrees, degrees, share
 	reload: number, -- seconds from a shot to the next
+	-- its reload runs on when its gunner gets off (nil: broken off and started over once it is manned again, the field
+	-- gun's and the MG's; src/server/Artillery cancelReload)
+	keepsReload: boolean?,
 	breechOpen: number, -- degrees the breech swings open
 	breechTimes: { number }, -- seconds after the shot it opens, and before ready it closes
 	recoil: number, -- studs back along the bore
@@ -867,6 +870,9 @@ local Artillery = {
 			fragments = { lethal = 16, wound = 30, max = 100, near = 70, far = 15 },
 			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
 			reload = 30,
+			-- (user 2026-11-03: "recharing the howitzer should happen even if you're not on the gun"): its crystal fills
+			-- whether anyone is on it or not, and everyone sees how far it has come (src/client/ArtilleryCrystal)
+			keepsReload = true,
 			breechOpen = 100,
 			breechTimes = { 2, 2 },
 			recoil = 1.2,
