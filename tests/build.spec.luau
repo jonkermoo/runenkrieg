@@ -1066,4 +1066,39 @@ return {
 		assert(B.supported(laid, now(10, -2), S.gap, S.share), "earth thrown over it holds it up")
 		assert(B.supported({}, {}, S.gap, S.share), "no samples: left alone")
 	end,
+	-- (user 2026-11-02: "let's half the building power of both soldiers and engineers", "apply building buff to
+	-- destruction as well for engineers")
+	["a swing's power: half a Build swing for all, the Engineer's share on both modes"] = function()
+		local P = C.Power
+		assert(P.build == 0.5, "Build swings halved")
+		assert(B.swingPower("Build", "Rifleman", P) == P.build, "a rifleman builds at half")
+		assert(B.swingPower("Destroy", "Rifleman", P) == 1, "and tears down as before")
+		assert(B.swingPower("Build", nil, P) == P.build, "no class: as a soldier")
+		local k = P.class.Engineer
+		assert(k > 1, "the Engineer builds faster")
+		assert(near(B.swingPower("Build", "Engineer", P), P.build * k), "its Build swings")
+		assert(near(B.swingPower("Destroy", "Engineer", P), k), "and its Destroy swings by the same")
+		-- a sandbag pile: twice the swings to stand for a rifleman
+		local h = C.Sandbags.hp
+		local swings, hp = 0, h.place
+		while hp < h.max do
+			hp = B.hpSwing(hp, true, h, B.digAmount(h.swing * B.swingPower("Build", "Rifleman", P), h.max, nil))
+			swings += 1
+		end
+		assert(swings == math.ceil(h.max / (h.swing * P.build)), "a pile in twice the swings")
+	end,
+	-- (user 2026-11-02: "remove the stakes on the points if things get built over or under it")
+	["a stake under a piece's footprint"] = function()
+		local function box(x: number, z: number, deg: number, w: number, d: number): B.Footprint
+			local r = math.rad(deg)
+			return { x = x, z = z, rx = math.cos(r), rz = math.sin(r), width = w, depth = d }
+		end
+		local pile = box(10, 0, 0, 8, 2)
+		assert(B.onFootprintAt(10, 0, pile, 0), "in its middle")
+		assert(B.onFootprintAt(13.9, 0.9, pile, 0), "by its corner")
+		assert(not B.onFootprintAt(10, 1.5, pile, 0), "beside it")
+		assert(B.onFootprintAt(10, 1.1, pile, 0.15), "the stake's own width touching it")
+		local turned = box(0, 0, 90, 8, 2)
+		assert(B.onFootprintAt(0, 3.9, turned, 0) and not B.onFootprintAt(3.9, 0, turned, 0), "turned a quarter")
+	end,
 }
