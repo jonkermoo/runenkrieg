@@ -245,6 +245,13 @@ local Artillery = {
 	-- E again (or the leave key) gets off the gun, not before this long after getting on (the same press)
 	LeaveAfter = 0.4,
 
+	-- Bot soldiers on the guns (src/server/Artillery's manAs ... API; user 2026-11-01: "make bots be able to use
+	-- artillery too (but players can kick them off)"; any free gun, only the bot's teammates take it over): a bot mans a
+	-- gun from within `reach` times its prompt's reach of the crew spot; a gun counts as laid on its aim within `laid`
+	-- degrees; a bot put off for a player is set down `aside` studs to the gun's side of the crew spot. While a bot mans
+	-- it, the prompt reads `takeOver` for its teammates.
+	Bot = { reach = 1.5, laid = 0.5, aside = 4, takeOver = "Take over the gun" },
+
 	-- The arc line and landing marker while manning (src/client/Artillery): the line is one Beam bent to the path
 	-- (as the grenade's, Palette.Artillery.Arc), the marker a ring and the range on top of everything (seen past the fog)
 	Arc = {

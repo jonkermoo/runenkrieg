@@ -226,6 +226,60 @@ function Artillery.range(speed: number, elevation: number, gravity: number): num
 	return speed * speed * math.sin(math.rad(2 * elevation)) / gravity
 end
 
+-- The launch elevation (degrees) that lands a shell leaving at `speed` under `gravity` on a point `d` studs off flat
+-- and `h` up from where it leaves: the low arc, or the high one (`high`). Nil when it can't reach.
+function Artillery.solve(speed: number, gravity: number, d: number, h: number, high: boolean): number?
+	local v2 = speed * speed
+	local disc = v2 * v2 - gravity * (gravity * d * d + 2 * h * v2)
+	if disc < 0 then
+		return nil
+	end
+	if d < 1e-6 then
+		return if h >= 0 then 90 else -90
+	end
+	local root = math.sqrt(disc)
+	return math.deg(math.atan((v2 + (if high then root else -root)) / (gravity * d)))
+end
+
+-- The gun's elevation (its lay: the shell leaves `aimTilt` over it) that lands on a point `d` studs off flat and `h`
+-- up from its muzzle: the low arc where the gun lays it, else the high one; a machine gun's straight line within its
+-- `mg.range`. Nil when out of its reach or its elevation's limits.
+function Artillery.layFor(gun: any, d: number, h: number): number?
+	local lo, hi, tilt = gun.elevation[1], gun.elevation[2], gun.aimTilt or 0
+	if gun.mg then
+		if math.sqrt(d * d + h * h) > gun.mg.range then
+			return nil
+		end
+		local e = math.deg(math.atan2(h, d)) - tilt
+		return if e >= lo and e <= hi then e else nil
+	end
+	for _, high in { false, true } do
+		local launch = Artillery.solve(gun.speed, gun.gravity, d, h, high)
+		local e = launch and launch - tilt
+		if e and e >= lo and e <= hi then
+			return e
+		end
+	end
+	return nil
+end
+
+-- Whether the gun's lay has come to within `tol` degrees of the wanted world yaw and elevation.
+function Artillery.laid(lay: Lay, wantYaw: number, wantElevation: number, tol: number): boolean
+	return math.abs(Artillery.wrap(lay.yaw + lay.traverse - wantYaw)) <= tol
+		and math.abs(lay.elevation - wantElevation) <= tol
+end
+
+-- Whether a machine gun at its own `base` yaw can turn to `wantYaw` within its traverse (it never swings past its stops).
+function Artillery.mgTurns(gun: any, base: number, wantYaw: number): boolean
+	return math.abs(Artillery.wrap(wantYaw - base)) <= gun.traverse
+end
+
+-- Whether a player of kit `playerKit` may take a gun from the bot of kit `botKit` manning it (user 2026-11-01: "bots
+-- can man any free gun, only teammates may kick them off").
+function Artillery.mayTakeOver(playerKit: any, botKit: any): boolean
+	return type(playerKit) == "string" and playerKit == botKit
+end
+
 -- The server's check of an aim sent by the gunner: real numbers in range.
 function Artillery.aimOk(yaw: any, elevation: any): boolean
 	return type(yaw) == "number"

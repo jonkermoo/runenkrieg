@@ -74,4 +74,8 @@ return {
 		assert(endY - tall >= 0, "the tag runs off the top of the canvas")
 		assert(spec.pin.at[1] - spec.pin.size / 2 >= 0 and spec.pin.at[2] + spec.pin.size / 2 <= spec.canvas[2])
 	end,
+	["the shown prompt kept for another kit shows blocked, not near"] = function()
+		local out = R.states({ seen("gun", 5, { blocked = "InUse" }) }, "gun", 2, 8)
+		assert(out.gun == "blocked")
+	end,
 }

@@ -27,6 +27,10 @@
 -- - The ground a gun stands on is never carved by craters (Ground.guard; earth thrown up may land on it). The field gun
 --   stands on the terrain, levelled and bared under it, with an unseen hitbox; the howitzer on its earth block.
 -- - Its own team's shovel swings fix it (Artillery.repair, from src/server/Build); whole, a fresh gun stands there.
+-- - Bot soldiers (src/server/Bots) work the guns through Artillery.manAs / aimAs / aimAtAs / fireAs / triggerAs /
+--   reloadAs / leaveAs, with a player's checks (Config/Artillery.Bot). A bot mans any free gun; its "Gunner" is the
+--   bot's BotId. Its teammates' E takes the gun over ("Take over the gun"): the bot is set down beside it and the
+--   player on it. Artillery.onBotLeft hears every bot leaving a gun, and why.
 
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
@@ -53,6 +57,7 @@ local Helmets = require(script.Parent.Helmets)
 local Ground = require(script.Parent.Ground)
 local Trenches = require(script.Parent.Trenches)
 local TrenchCfg = require(Shared.Config.Build).Trench
+local BotCfg = require(Shared.Config.Bots)
 
 local Artillery = {}
 
@@ -64,6 +69,7 @@ type State = {
 	lay: Rules.Lay,
 	want: { yaw: number, elevation: number },
 	gunner: Player?,
+	bot: Model?, -- a bot soldier manning it (no `gunner` then)
 	mannedAt: number,
 	conns: { RBXScriptConnection },
 	sent: number, -- when the lay was last written out
@@ -96,6 +102,8 @@ type State = {
 
 local guns: { [Model]: State } = {}
 local random = Random.new()
+-- who hears a bot leaving a gun (Artillery.onBotLeft)
+local botLeft: { (Model, Model, string) -> () } = {}
 
 local function now(): number
 	return workspace:GetServerTimeNow()
@@ -252,8 +260,15 @@ local function restartReload(s: State)
 	end
 end
 
-local function leave(s: State)
+-- the character on the gun: the gunner's, or the bot's
+local function body(s: State): Model?
+	return s.bot or (s.gunner and s.gunner.Character)
+end
+
+-- the gun off its gunner (a bot's: told why, Artillery.onBotLeft; "Kicked": set down beside the gun)
+local function leave(s: State, why: string?)
 	local player = s.gunner
+	local bot = s.bot
 	s.trigger, s.pull = false, false
 	cancelReload(s)
 	for _, c in s.conns do
@@ -261,45 +276,61 @@ local function leave(s: State)
 	end
 	s.conns = {}
 	s.gunner = nil
+	s.bot = nil
 	if s.weld then
 		s.weld:Destroy()
 		s.weld = nil
 	end
 	s.model:SetAttribute("Gunner", nil)
 	s.prompt.Enabled = not s.broken
+	s.prompt.ActionText = "Man the gun"
 	s.prompt:SetAttribute(PromptCfg.BlockedAttr, if s.broken then "Broken" else nil)
 	s.prompt:SetAttribute(PromptCfg.UserAttr, nil)
-	local character = player and player.Character
+	s.prompt:SetAttribute(PromptCfg.KitAttr, nil)
+	local character = bot or (player and player.Character)
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if root then
 		root.Anchored = false
+		if bot and why == "Kicked" then
+			local spot = crewSpot(s, bot)
+			if spot then
+				root.CFrame = spot * CFrame.new(-Cfg.Bot.aside, 0, 0)
+			end
+		end
 	end
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.PlatformStand = false
 	end
-end
-
-local function man(s: State, player: Player)
-	if s.gunner or s.broken then
-		return
-	end
-	for _, other in guns do
-		if other.gunner == player then
-			return
+	if bot then
+		for _, fn in botLeft do
+			task.spawn(fn, bot, s.model, why or "Left")
 		end
 	end
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not character or not humanoid or not root or humanoid.Health <= 0 then
-		return
+end
+
+-- `character` (a player's, or a bot's: `bot`) stood on the gun as its gunner; false when it can't be
+local function seat(s: State, character: Model, player: Player?, bot: Model?): boolean
+	if s.gunner or s.bot or s.broken then
+		return false
+	end
+	for _, other in guns do
+		if (player and other.gunner == player) or (bot and other.bot == bot) then
+			return false
+		end
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not humanoid or not root or humanoid.Health <= 0 then
+		return false
 	end
 	local spot = crewSpot(s, character)
 	if not spot then
-		return
+		return false
 	end
-	humanoid:UnequipTools()
+	if player then
+		humanoid:UnequipTools()
+	end
 	-- held on the part of the gun they stand on (user 2026-10-21: "when turning, the player starts twitching on the
 	-- gun": the server re-placed an anchored root 20 times a second while every client turns the gun smoothly), so on
 	-- every client they ride the gun exactly as it's drawn
@@ -316,40 +347,70 @@ local function man(s: State, player: Player)
 	-- the cannon. it only fixes when you have fly on": the dev Fly platform-stands): held by the weld, the humanoid
 	-- still tried to stand and walk on the ground under it, fighting the gun
 	humanoid.PlatformStand = true
-	s.gunner = player
+	s.gunner, s.bot = player, bot
 	s.mannedAt = os.clock()
 	s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
-	s.model:SetAttribute("Gunner", player.UserId)
+	local id = if player then player.UserId else character:GetAttribute(BotCfg.IdAttribute)
+	s.model:SetAttribute("Gunner", id)
 	restartReload(s)
-	s.prompt.Enabled = false
-	-- (still drawn, dimmed, for everyone else: Config/Prompts)
-	s.prompt:SetAttribute(PromptCfg.BlockedAttr, "InUse")
-	s.prompt:SetAttribute(PromptCfg.UserAttr, player.UserId)
+	s.prompt:SetAttribute(PromptCfg.UserAttr, id)
+	if bot then
+		-- (left on for the bot's teammates, who take it over; dimmed for everyone else: Config/Prompts.KitAttr)
+		s.prompt.ActionText = Cfg.Bot.takeOver
+		s.prompt:SetAttribute(PromptCfg.KitAttr, bot:GetAttribute("Kit"))
+	else
+		s.prompt.Enabled = false
+		-- (still drawn, dimmed, for everyone else: Config/Prompts)
+		s.prompt:SetAttribute(PromptCfg.BlockedAttr, "InUse")
+	end
 	table.insert(
 		s.conns,
 		humanoid.Died:Connect(function()
-			leave(s)
+			leave(s, "Died")
 		end)
 	)
 	table.insert(
 		s.conns,
 		character.AncestryChanged:Connect(function()
 			if not character:IsDescendantOf(workspace) then
-				leave(s)
+				leave(s, "Gone")
 			end
 		end)
 	)
 	-- no weapon in the hands while on the gun
-	table.insert(
-		s.conns,
-		character.ChildAdded:Connect(function(c)
-			if c:IsA("Tool") then
-				task.defer(function()
-					humanoid:UnequipTools()
-				end)
+	if player then
+		table.insert(
+			s.conns,
+			character.ChildAdded:Connect(function(c)
+				if c:IsA("Tool") then
+					task.defer(function()
+						humanoid:UnequipTools()
+					end)
+				end
+			end)
+		)
+	end
+	return true
+end
+
+-- A player's E on the gun: mans it, or on a gun a bot of their own kit mans, puts the bot off and takes it over
+local function man(s: State, player: Player)
+	local character = player.Character
+	if not character then
+		return
+	end
+	if s.bot then
+		if not Rules.mayTakeOver(character:GetAttribute("Kit"), s.bot:GetAttribute("Kit")) then
+			return
+		end
+		for _, other in guns do
+			if other.gunner == player then
+				return
 			end
-		end)
-	)
+		end
+		leave(s, "Kicked")
+	end
+	seat(s, character, player, nil)
 end
 
 -- the shell's flight from `origin` at `velocity`, stepped against the world; goes off where it hits
@@ -385,18 +446,27 @@ end
 -- In a Normal match, why `s`'s gunner can't fire now (user 2026-10-29: "artillery can still only be fired upon
 -- non-friendly sectors"): where the shell would land on flat ground lies in a sector the gunner's side holds. Nil when
 -- it may fire (or outside a Normal match).
-local function friendlyTarget(s: State): string?
+-- (`landsOwn`: whether a point lies in a sector kit `kit`'s side holds)
+local function landsOwn(kit: any, x: number, z: number): boolean
 	local front = workspace:FindFirstChild(FrontCfg.FolderName)
-	local character = s.gunner and s.gunner.Character
-	if not front or not character then
-		return nil
+	if not front then
+		return false
 	end
-	local kit = character:GetAttribute("Kit")
 	local side = if kit == front:GetAttribute("West")
 		then "West"
 		elseif kit == front:GetAttribute("East") then "East"
 		else nil
 	if not side then
+		return false
+	end
+	local id = SectorRules.sectorAt(Map1, MapTerrain, x, z, SectorCfg.Divider.RiverSegments)
+	local sector = front:FindFirstChild(id)
+	return sector ~= nil and sector:GetAttribute("Owner") == side
+end
+
+local function friendlyTarget(s: State): string?
+	local character = body(s)
+	if not character then
 		return nil
 	end
 	local gun = s.gun
@@ -410,17 +480,14 @@ local function friendlyTarget(s: State): string?
 	end
 	local elevation = math.deg(math.atan2(dir.Y, flat.Magnitude))
 	local land = origin + flat.Unit * Rules.range(gun.speed, elevation, gun.gravity)
-	local id = SectorRules.sectorAt(Map1, MapTerrain, land.X, land.Z, SectorCfg.Divider.RiverSegments)
-	local sector = front:FindFirstChild(id)
-	if sector and sector:GetAttribute("Owner") == side then
+	if landsOwn(character:GetAttribute("Kit"), land.X, land.Z) then
 		return "Can't fire on your own sector"
 	end
 	return nil
 end
 
 local function fire(s: State)
-	local player = s.gunner
-	local character = player and player.Character
+	local character = body(s)
 	local t = now()
 	local ready = s.model:GetAttribute("ReadyAt") :: number?
 	if not character or s.broken or (ready and t < ready) then
@@ -494,7 +561,7 @@ local function machineGun(s: State, dt: number)
 	end
 	local t = now()
 	local shots = 0
-	local character = s.gunner and s.gunner.Character
+	local character = body(s)
 	local rounds = s.model:GetAttribute("Rounds") :: number? or 0
 	if (s.trigger or s.pull) and character and not s.broken then
 		-- (one click, one shot: Rules.mgShot)
@@ -917,6 +984,7 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		lay = { yaw = yaw, traverse = 0, elevation = low },
 		want = { yaw = yaw, elevation = low },
 		gunner = nil,
+		bot = nil,
 		mannedAt = 0,
 		conns = {},
 		sent = 0,
@@ -956,8 +1024,8 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		man(s, player)
 	end)
 	model.Destroying:Connect(function()
-		if s.gunner then
-			leave(s)
+		if s.gunner or s.bot then
+			leave(s, "Gone")
 		end
 		if s.pit then
 			s.pit:Destroy()
@@ -1167,8 +1235,8 @@ local function wreck(s: State)
 	if broken and not s.broken then
 		s.broken = true
 		s.model:SetAttribute("Broken", true)
-		if s.gunner then
-			leave(s)
+		if s.gunner or s.bot then
+			leave(s, "Broken")
 		end
 		s.prompt.Enabled = false
 		s.prompt:SetAttribute(PromptCfg.BlockedAttr, "Broken")
@@ -1278,6 +1346,237 @@ local function stateOf(player: Player): State?
 	return nil
 end
 
+-- A field gun's or howitzer's shot: the gunner braces first, the shot goes a moment later (user 2026-10-20: "play that
+-- first then fire, a slight delay in the shots makes it feel real"); "BraceAt" says when, for the gunner's brace. False
+-- and why when it can't (bracing, reloading, broken, or on its side's own sector; a player is told that last).
+local function shoot(s: State): (boolean, string?)
+	local ready = s.model:GetAttribute("ReadyAt") :: number?
+	if s.gun.mg or s.broken then
+		return false, nil
+	end
+	if s.bracing or (ready and now() < ready) then
+		return false, "Reloading"
+	end
+	local why = friendlyTarget(s)
+	if why then
+		if s.gunner then
+			Net.event("Artillery"):FireClient(s.gunner, "Refused", why)
+		end
+		return false, why
+	end
+	s.bracing = true
+	s.model:SetAttribute("BraceAt", now())
+	local who = body(s)
+	task.delay(s.gun.charge, function()
+		s.bracing = false
+		if who and body(s) == who and guns[s.model] then
+			-- (aimed again during the brace: checked once more)
+			local still = friendlyTarget(s)
+			if still then
+				if s.gunner then
+					Net.event("Artillery"):FireClient(s.gunner, "Refused", still)
+				end
+				return
+			end
+			fire(s)
+		end
+	end)
+	return true, nil
+end
+
+local function stateOfBot(model: Model): State?
+	for _, s in guns do
+		if s.bot == model then
+			return s
+		end
+	end
+	return nil
+end
+
+-- The world yaw and the elevation that put `s`'s shot on `point` (Rules.layFor, from its muzzle where that lay puts
+-- it); nil when out of its reach, or for a machine gun past its stops.
+local function layOn(s: State, point: Vector3): (number?, number?)
+	local gun = s.gun
+	local at = s.model:GetPivot().Position
+	local mx, my, mz = Rules.muzzle(gun, s.lay.traverse, s.lay.elevation)
+	local origin = s.model:GetPivot():PointToWorldSpace(Vector3.new(mx, my, mz))
+	local yaw, elevation = 0, nil
+	for _ = 1, 2 do
+		local off = point - origin
+		yaw = Rules.yawOf(off.X, off.Z)
+		elevation = Rules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y)
+		if not elevation then
+			return nil, nil
+		end
+		mx, my, mz = Rules.muzzle(gun, 0, elevation)
+		origin = (CFrame.new(at) * CFrame.Angles(0, math.rad(yaw), 0)):PointToWorldSpace(Vector3.new(mx, my, mz))
+	end
+	if gun.mg and not Rules.mgTurns(gun, s.lay.yaw, yaw) then
+		return nil, nil
+	end
+	return yaw, elevation
+end
+
+-- What a bot needs to know of a gun (Artillery.list)
+export type GunInfo = {
+	model: Model,
+	key: string, -- its Config/Artillery.Guns key
+	mg: boolean, -- a machine gun (triggerAs / reloadAs), else a field gun or howitzer (fireAs)
+	free: boolean, -- nobody on it
+	player: Player?, -- the player on it
+	bot: Model?, -- the bot on it
+	broken: boolean,
+	loaded: boolean, -- it would fire now (a round in, or rounds in its box, no brace under way)
+	readyIn: number, -- seconds until it is
+	rounds: number?, -- a machine gun's box
+	crew: Vector3, -- where its gunner stands
+	reach: number, -- how near `crew` a bot must be to man it (studs)
+	-- with a point: the lay that hits it (nil: out of its reach), and whether it lies on kit's own side's sector
+	yaw: number?,
+	elevation: number?,
+	inRange: boolean?,
+	friendly: boolean?,
+}
+
+-- Every gun as a bot sees it (GunInfo); with `point`, whether and how each reaches it, and with `kit` whether that
+-- point is the bot's own side's (Normal: "Can't fire on your own sector").
+function Artillery.list(point: Vector3?, kit: string?): { GunInfo }
+	local out = {}
+	local t = now()
+	for model, s in guns do
+		local ready = model:GetAttribute("ReadyAt") :: number? or 0
+		local rounds = if s.gun.mg then model:GetAttribute("Rounds") :: number? or 0 else nil
+		local spot = s.prompt.Parent :: Attachment
+		local info: GunInfo = {
+			model = model,
+			key = s.key,
+			mg = s.gun.mg ~= nil,
+			free = not s.gunner and not s.bot,
+			player = s.gunner,
+			bot = s.bot,
+			broken = s.broken,
+			loaded = not s.broken
+				and not s.bracing
+				and not s.reloading
+				and t >= ready
+				and (rounds == nil or rounds > 0),
+			readyIn = math.max(ready - t, 0),
+			rounds = rounds,
+			crew = spot.WorldPosition,
+			reach = s.gun.prompt * Cfg.Bot.reach,
+		}
+		if point then
+			info.yaw, info.elevation = layOn(s, point)
+			info.inRange = info.elevation ~= nil
+			info.friendly = kit ~= nil and landsOwn(kit, point.X, point.Z)
+		end
+		table.insert(out, info)
+	end
+	return out
+end
+
+-- The gun the bot `model` mans, if any
+function Artillery.gunOf(model: Model): Model?
+	local s = stateOfBot(model)
+	return s and s.model
+end
+
+-- The bot soldier `model` (Config/Bots.Tag) mans `gun` (any free gun, not broken, from within Config/Artillery.Bot
+-- `reach` of its crew spot, alive, on no other gun): welded on as a player is. False when it can't.
+function Artillery.manAs(model: Model, gun: Model): boolean
+	local s = guns[gun]
+	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not s or not root or not CollectionService:HasTag(model, BotCfg.Tag) then
+		return false
+	end
+	local spot = s.prompt.Parent :: Attachment
+	if (root.Position - spot.WorldPosition).Magnitude > s.gun.prompt * Cfg.Bot.reach then
+		return false
+	end
+	return seat(s, model, nil, model)
+end
+
+-- The bot's gun laid toward world `yaw` and `elevation` (degrees; at the gun's rates). A machine gun stays within its
+-- stops. False when it is on no gun.
+function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
+	local s = stateOfBot(model)
+	if not s or not Rules.aimOk(yaw, elevation) then
+		return false
+	end
+	local gun = s.gun
+	if gun.mg then
+		yaw, elevation = Rules.mgLay(yaw, elevation, s.lay.yaw, 0, 0, gun)
+	end
+	s.want = { yaw = Rules.wrap(yaw), elevation = math.clamp(elevation, gun.elevation[1], gun.elevation[2]) }
+	return true
+end
+
+-- The bot's gun laid to land on world `point` (the low arc where it can, else the high). False when it is on no gun or
+-- the point is out of its reach (the lay left as it was).
+function Artillery.aimAtAs(model: Model, point: Vector3): boolean
+	local s = stateOfBot(model)
+	if not s then
+		return false
+	end
+	local yaw, elevation = layOn(s, point)
+	if not yaw or not elevation then
+		return false
+	end
+	s.want = { yaw = Rules.wrap(yaw), elevation = elevation }
+	return true
+end
+
+-- Whether the bot's gun has come round to its aim (within Config/Artillery.Bot `laid`)
+function Artillery.laidAs(model: Model): boolean
+	local s = stateOfBot(model)
+	return s ~= nil and Rules.laid(s.lay, s.want.yaw, s.want.elevation, Cfg.Bot.laid)
+end
+
+-- The bot's field gun or howitzer fired (braced, as a player's). False and why when it can't: "Reloading", "Can't fire
+-- on your own sector", nil (not on such a gun, or broken).
+function Artillery.fireAs(model: Model): (boolean, string?)
+	local s = stateOfBot(model)
+	if not s then
+		return false, nil
+	end
+	return shoot(s)
+end
+
+-- The bot's machine gun's trigger held or let go (a fresh pull fires at least one shot). False when it is on no MG.
+function Artillery.triggerAs(model: Model, held: boolean): boolean
+	local s = stateOfBot(model)
+	if not s or not s.gun.mg then
+		return false
+	end
+	if held and not s.trigger and not s.reloading then
+		s.pull = true
+	end
+	s.trigger = held
+	return true
+end
+
+-- The bot's machine gun's box swapped (as the player's "Reload")
+function Artillery.reloadAs(model: Model)
+	local s = stateOfBot(model)
+	if s then
+		reloadBox(s)
+	end
+end
+
+-- The bot off its gun (Artillery.onBotLeft hears "Left")
+function Artillery.leaveAs(model: Model)
+	local s = stateOfBot(model)
+	if s then
+		leave(s, "Left")
+	end
+end
+
+-- `fn(model, gun, why)` on every bot leaving a gun: why "Kicked" (a teammate took it over: the bot stands beside it),
+-- "Broken", "Died", "Gone" (the bot or the gun removed) or "Left" (Artillery.leaveAs)
+function Artillery.onBotLeft(fn: (Model, Model, string) -> ())
+	table.insert(botLeft, fn)
+end
+
 function Artillery.start()
 	Damage.onBlast(blast)
 	Ground.guard(Artillery.onGround)
@@ -1304,32 +1603,7 @@ function Artillery.start()
 		elseif kind == "Reload" then
 			reloadBox(s)
 		elseif kind == "Fire" and not s.gun.mg then
-			-- the gunner braces first, the shot goes a moment later (user 2026-10-20: "play that first then fire, a slight
-			-- delay in the shots makes it feel real"); "BraceAt" says when, for the gunner's brace
-			local ready = s.model:GetAttribute("ReadyAt") :: number?
-			if s.bracing or (ready and now() < ready) then
-				return
-			end
-			local why = friendlyTarget(s)
-			if why then
-				Net.event("Artillery"):FireClient(player, "Refused", why)
-				return
-			end
-			s.bracing = true
-			s.model:SetAttribute("BraceAt", now())
-			local gunner = s.gunner
-			task.delay(s.gun.charge, function()
-				s.bracing = false
-				if s.gunner == gunner and guns[s.model] then
-					-- (aimed again during the brace: checked once more)
-					local still = friendlyTarget(s)
-					if still then
-						Net.event("Artillery"):FireClient(gunner :: Player, "Refused", still)
-						return
-					end
-					fire(s)
-				end
-			end)
+			shoot(s)
 		elseif kind == "Leave" then
 			if os.clock() - s.mannedAt >= Cfg.LeaveAfter then
 				leave(s)
@@ -1348,7 +1622,7 @@ function Artillery.start()
 			if s.gun.mg then
 				machineGun(s, dt)
 			end
-			if not s.gunner then
+			if not s.gunner and not s.bot then
 				continue
 			end
 			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt)

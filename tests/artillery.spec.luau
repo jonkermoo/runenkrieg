@@ -490,4 +490,48 @@ return {
 		local _, down = A.mgLay(0, 0, 0, 0, 1e6, MG)
 		assert(down == MG.elevation[1])
 	end,
+	["solve finds the low and high arcs that land on a point, nil past the reach"] = function()
+		local v, g = 400, GRAVITY
+		local low = A.solve(v, g, 500, 0, false) :: number
+		local high = A.solve(v, g, 500, 0, true) :: number
+		assert(low < 45 and high > 45 and near(low + high, 90, 1e-6), "on flat ground the two arcs add up to 90")
+		assert(near(A.range(v, low, g), 500, 1e-3) and near(A.range(v, high, g), 500, 1e-3))
+		assert(A.solve(v, g, v * v / g + 1, 0, false) == nil, "past the 45 degree range")
+		assert((A.solve(v, g, 500, 50, false) :: number) > low, "a point up a hill takes a higher lay")
+	end,
+	["layFor lays each gun within its limits, the howitzer on its high arc"] = function()
+		for key, g in C.Guns do
+			if g.mg then
+				continue
+			end
+			local mid = (g.elevation[1] + g.elevation[2]) / 2
+			local d = A.range(g.speed, mid + (g.aimTilt or 0), g.gravity)
+			local e = A.layFor(g, d, 0)
+			assert(e and near(e, mid, 1e-6), key .. " lays where that range is")
+			assert(A.layFor(g, g.speed * g.speed / g.gravity * 1.01, 0) == nil, key .. " out of reach")
+		end
+		local e = A.layFor(HOW, A.range(HOW.speed, 60, HOW.gravity), 0) :: number
+		assert(
+			near(e + (HOW.aimTilt or 0), 60, 1e-6),
+			"the howitzer lays the high arc (its low one is under its limits)"
+		)
+	end,
+	["layFor on a machine gun is the straight line within its range and limits"] = function()
+		local MG = C.Guns.mg08
+		local e = A.layFor(MG, 100, 0) :: number
+		assert(near(e + (MG.aimTilt or 0), 0))
+		assert(A.layFor(MG, MG.mg.range + 1, 0) == nil, "past its range")
+		assert(A.layFor(MG, 10, 100) == nil, "past its elevation")
+		assert(A.mgTurns(MG, 0, MG.traverse) and not A.mgTurns(MG, 0, MG.traverse + 1))
+		assert(A.mgTurns(MG, 170, A.wrap(170 + MG.traverse)), "across 180")
+	end,
+	["laid: within the tolerance of the wanted world yaw and elevation"] = function()
+		local lay = { yaw = 170, traverse = 15, elevation = 10 }
+		assert(A.laid(lay, -175, 10, 0.5), "across 180")
+		assert(not A.laid(lay, -170, 10, 0.5) and not A.laid(lay, -175, 12, 0.5))
+	end,
+	["only a teammate takes a gun over from a bot"] = function()
+		assert(A.mayTakeOver("uniform1", "uniform1"))
+		assert(not A.mayTakeOver("uniform2", "uniform1") and not A.mayTakeOver(nil, nil))
+	end,
 }
