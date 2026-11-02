@@ -4,6 +4,8 @@
 --   require(game.ServerStorage.Dev.Greybox:Clone()).build("Map1")
 -- or only the sector dividers and markers, over a map already built:
 --   require(game.ServerStorage.Dev.Greybox:Clone()).sectors("Map1")
+-- and check a built map against the map rules (docs/maps/MAP_RULES.md; read-only, any place):
+--   require(game.ServerStorage.Dev.Greybox:Clone()).audit("Map1")
 -- Cloning bypasses the require cache so Rojo edits take effect without restarting Studio.
 -- Replaces Workspace.<map> and ALL terrain, generated from Config/Maps/<map> via Rules/MapTerrain; a map with `offMap`
 -- (Config/Maps/Playtest) replaces only the terrain round itself and adds no spawn.
@@ -137,6 +139,18 @@ function Greybox.sectors(mapName: string): string
 		fresh(Shared.Rules.Sectors)
 	)
 	return string.format("Built %s sectors: %d divider blocks, %d points.", mapName, dividers, points)
+end
+
+-- The map rules' checks on a built map (src/dev/Greybox/Audit): a report, a FAIL line for each thing to fix.
+function Greybox.audit(mapName: string): string
+	local Shared = ReplicatedStorage:WaitForChild("Shared")
+	return require(script.Audit).run(mapName, {
+		B = fresh(Shared.Config.Buildings),
+		Front = fresh(Shared.Config.Frontline),
+		M = fresh(Shared.Config.Metrics),
+		FrontRules = fresh(Shared.Rules.Frontline),
+		map = fresh(Shared.Config.Maps:FindFirstChild(mapName) :: Instance),
+	})
 end
 
 return Greybox
