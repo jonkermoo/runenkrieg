@@ -180,6 +180,7 @@ function Build.hpOf(p: Piece, c: any): Hp?
 		elseif p.kind == "Bridge" then c.Bridge
 		elseif p.kind == "Sandbags" then c.Sandbags
 		elseif p.kind == "Nest" then c.Nest
+		elseif p.kind == "Dugout" then c.Dugout
 		else nil
 	return own and own.hp
 end
@@ -586,6 +587,99 @@ function Build.bridgeSpot(s: BridgeSpot, b: any): string?
 	return nil
 end
 
+export type DugoutSpot = {
+	found: boolean, -- a trench square there
+	dug: number, -- that square's HP, % of its max
+	length: number, -- that square's length
+	teed: boolean, -- another trench joins the wall it would go in
+	bridge: boolean, -- a bridge on that square
+	nearest: number, -- flat, centre to centre, to the nearest other dugout
+}
+
+-- Why a dugout `width` wide can't go in the trench square wall `s` describes (Config/Build.Dugout `d`), nil when it can:
+-- a square dug out and long enough, no trench joining that wall, no bridge over it, no other dugout close by
+function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
+	if not s.found or s.dug < d.dug then
+		return "Needs a dug trench"
+	end
+	if s.nearest < d.same then
+		return "A dugout is already here"
+	end
+	if s.length < width + d.spare then
+		return "This trench square is too short"
+	end
+	if s.bridge then
+		return "A bridge is here"
+	end
+	if s.teed then
+		return "A trench joins this wall"
+	end
+	if s.nearest < d.spacing then
+		return "Too close to another dugout"
+	end
+	return nil
+end
+
+-- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`): while it is built (`built` false: it has
+-- never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only `d.laid`) and no caving; once it has
+-- stood, every build stage and as many of `d.falls` as `d.cave` thresholds its HP has dropped under
+function Build.dugoutShown(hp: number, max: number, built: boolean, d: any): (number, number)
+	if not built then
+		return Build.hescoStage(hp, max, #d.build), 0
+	end
+	local share, falls = if max > 0 then hp / max * 100 else 0, 0
+	for _, at in d.cave do
+		if share < at then
+			falls += 1
+		end
+	end
+	return #d.build, falls
+end
+
+-- Whether a dugout shelters the soldiers in its room: it has stood once and has HP left (user 2026-11-02: "anything
+-- above them should not hurt them")
+function Build.dugoutShelters(hp: number, built: boolean): boolean
+	return built and hp > 0
+end
+
+-- Whether a point in a dugout's own frame (`lx`, `ly`, `lz` from the foot of the wall it is cut into: x along the
+-- trench, y up from the trench floor, z back into the wall) is in its room (`piece`: width, height, depth; past its
+-- steps, Config/Build.Dugout `d`)
+function Build.inDugout(lx: number, ly: number, lz: number, piece: Piece, d: any): boolean
+	local floor = -d.drop
+	return math.abs(lx) <= piece.width / 2
+		and ly >= floor
+		and ly <= floor + piece.height
+		and lz >= d.stair
+		and lz <= d.stair + piece.depth
+end
+
+-- how far a point is from a box (`x0`..`x1` and so on), 0 in it
+local function boxGap(
+	lx: number,
+	ly: number,
+	lz: number,
+	x: number,
+	y0: number,
+	y1: number,
+	z0: number,
+	z1: number
+): number
+	local dx = math.max(math.abs(lx) - x, 0)
+	local dy = math.max(y0 - ly, ly - y1, 0)
+	local dz = math.max(z0 - lz, lz - z1, 0)
+	return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+-- How far a blast at `lx`, `ly`, `lz` in a dugout's own frame (Build.inDugout) is from it: from its slot (open from
+-- the room's floor up to the ground, `top` over the trench floor) or its room, whichever is nearer; 0 in either
+function Build.dugoutDistance(lx: number, ly: number, lz: number, piece: Piece, d: any, top: number): number
+	local floor = -d.drop
+	local slot = boxGap(lx, ly, lz, d.slot / 2, floor, top, 0, d.stair)
+	local room = boxGap(lx, ly, lz, piece.width / 2, floor, floor + piece.height, d.stair, d.stair + piece.depth)
+	return math.min(slot, room)
+end
+
 -- Which of `variants` board layouts a bridge with `seed` shows, and whether it is turned round
 function Build.bridgeVariant(seed: number, variants: number): (number, boolean)
 	local n = math.abs(math.floor(seed))
@@ -963,6 +1057,7 @@ function Build.hpRules(kind: string, cfg: any, p: Piece?): HpRules?
 		elseif kind == "Bridge" then cfg.Bridge.hp
 		elseif kind == "Wire" then cfg.Wire.hp
 		elseif kind == "Nest" then cfg.Nest.hp
+		elseif kind == "Dugout" then cfg.Dugout.hp
 		else nil
 	if h then
 		return { place = h.place or 0, max = h.max, swing = h.swing, destroy = h.destroy }

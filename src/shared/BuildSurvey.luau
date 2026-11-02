@@ -370,4 +370,92 @@ function Survey.bridgeSpot(
 	return spot, CFrame.fromMatrix(centre, along, up), (b - a).Magnitude, m
 end
 
+-- The middle of a dugout's footprint, its steps and room, laid at `frame` (Survey.dugoutSpot), on the trench floor;
+-- its size: Vector3(width, height, its steps' run plus its depth)
+function Survey.dugoutBox(piece: Rules.Piece, frame: CFrame): (CFrame, Vector3)
+	local run = C.Dugout.stair + piece.depth
+	return frame * CFrame.new(0, 0, run / 2), Vector3.new(piece.width, piece.height, run)
+end
+
+-- The trench square wall a dugout laid at `p` would go in (Config/Build.Dugout, Rules.dugoutSpot): the block in
+-- `structures` whose line `p` is nearest (within its wall tops and Dugout.reach past them, along it), the wall on the
+-- side `p` is on, and what decides it: its HP and length, whether a trench tees into that wall, a bridge on it, how far
+-- the nearest other dugout is (`skip` left out). Also the dugout's frame when there is a square: the square's floor at
+-- the foot of that wall, in its middle along it, level, LookVector out into the trench (its Config/Assets pieces' space:
+-- +Z back into the wall); and the square's model. (A laid dugout's "Frame" is the middle of its footprint, steps and
+-- room: Survey.dugoutBox.)
+function Survey.dugoutSpot(structures: Instance?, p: Vector3, skip: Instance?): (Rules.DugoutSpot, CFrame?, Model?)
+	local spot: Rules.DugoutSpot =
+		{ found = false, dug = 0, length = 0, teed = false, bridge = false, nearest = math.huge }
+	if not structures then
+		return spot, nil, nil
+	end
+	local T, D = C.Trench, C.Dugout
+	local piece = Rules.piece("Dugout", C.Pieces) :: Rules.Piece
+	local top = Rules.trenchTop(T)
+	local best: Model?, bestD = nil, top + D.reach
+	for _, m in structures:GetChildren() do
+		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
+		if m:IsA("Model") and typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+			local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+			local u = Vector3.new(p.X - a.X, 0, p.Z - a.Z):Dot(flat.Unit)
+			local d = Survey.toSegment(p, a, b)
+			if d < bestD and u >= 0 and u <= flat.Magnitude then
+				best, bestD = m, d
+			end
+		end
+	end
+	if not best then
+		return spot, nil, nil
+	end
+	local m = best
+	local a, b = m:GetAttribute("BlockA") :: Vector3, m:GetAttribute("BlockB") :: Vector3
+	local dir = Vector3.new(b.X - a.X, 0, b.Z - a.Z).Unit
+	local across = Vector3.new(-dir.Z, 0, dir.X) -- (src/server/Trenches: a block's right)
+	local side = if Vector3.new(p.X - a.X, 0, p.Z - a.Z):Dot(across) >= 0 then 1 else -1
+	spot.found = true
+	spot.length = Vector3.new(b.X - a.X, 0, b.Z - a.Z).Magnitude
+	local hp, max = m:GetAttribute("HP"), m:GetAttribute("MaxHP")
+	spot.dug = if type(hp) == "number" and type(max) == "number" and max > 0 then hp / max * 100 else 0
+	-- another trench teed into that wall: an end of another block marked "tee" on this one's floor edge on that side
+	local mid = (a + b) / 2
+	for _, o in structures:GetChildren() do
+		local oa, ob = o:GetAttribute("BlockA"), o:GetAttribute("BlockB")
+		if o ~= m and typeof(oa) == "Vector3" and typeof(ob) == "Vector3" then
+			for _, e in { { oa, o:GetAttribute("LinkA") }, { ob, o:GetAttribute("LinkB") } } do
+				local at = e[1] :: Vector3
+				local onSide = Vector3.new(at.X - mid.X, 0, at.Z - mid.Z):Dot(across) * side > 0
+				if e[2] == "tee" and onSide and Survey.toSegment(at, a, b) < T.floor + D.teeGap then
+					spot.teed = true
+				end
+			end
+		end
+	end
+	-- the square's floor at the foot of that wall (Trenches' floorAt: its cross-section turned by its tilt)
+	local tilt = m:GetAttribute("Tilt")
+	local t = if type(tilt) == "number" then tilt else 0
+	local c = 1 / math.sqrt(1 + t * t)
+	local outT = across * c + Vector3.yAxis * t * c
+	local upT = Vector3.yAxis * c - across * t * c
+	local foot = mid + outT * (side * T.floor) - upT * T.depth
+	local frame = CFrame.lookAt(foot, foot - across * side)
+	local centre = Survey.dugoutBox(piece, frame).Position
+	for _, o in structures:GetChildren() do
+		local f = o:GetAttribute("Frame")
+		local q = Rules.piece(o:GetAttribute("Piece"), C.Pieces)
+		if o ~= skip and q and typeof(f) == "CFrame" then
+			local d = Vector3.new(f.Position.X - centre.X, 0, f.Position.Z - centre.Z).Magnitude
+			if q.kind == "Dugout" then
+				spot.nearest = math.min(spot.nearest, d)
+			elseif
+				q.kind == "Bridge"
+				and Vector3.new(f.Position.X - mid.X, 0, f.Position.Z - mid.Z).Magnitude < D.bridgeGap
+			then
+				spot.bridge = true
+			end
+		end
+	end
+	return spot, frame, m
+end
+
 return Survey

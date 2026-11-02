@@ -414,6 +414,17 @@ local Assets = {
 			fidelity = "Box",
 			description = "A trench bridge's planks in piece space (origin on the square's centre line at ground level, x along the trench over one 8-stud square, z across it, y up; deck top 3.1, heap crest to crest 19.2; Origin at 0): variants Bridge1-6, each Bridge<v>Frame (+Dark: sills on the heaps, spliced stringers), Bridge<v>Boards (+Dark: stage 1's deck boards), Bridge<v>More (+Dark: the boards stage 2 adds). Every board modelled with grain grooves engraved on its face.",
 		},
+		-- a dugout's pieces (user 2026-11-02, tools/blender/dugout/dugout.py, renders approved): built by src/server/Build
+		-- stage by stage, colored from Config/Palette.Build (timbers) and the trench's soil (Earth*, Fall*) by mesh name
+		dugout_pieces = {
+			id = 89203369169985,
+			category = "Props",
+			folder = "Dugout",
+			source = "assets/props/dugout_pieces.fbx",
+			generator = "tools/blender/dugout/dugout.py",
+			fidelity = "Box",
+			description = "A dugout's pieces in piece space (origin on the trench floor at the foot of the wall it is cut into, in the middle along the trench; x along the trench, y up, z back into the wall; Origin at 0): steps down 7 over 7.5 to a room 7 wide, 6 deep, 6 high. Pile, PileDark (timbers lying on the trench floor), SlotEarth, Steps, Risers (the slot and its steps), RoomEarth (the room's dirt faces), Frames (posts, caps, lintel), Lining, Ceiling, Floorboards, Fall1 + Fall1Wood, Fall2, Fall3 (caving in).",
+		},
 		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown
 		-- at a time
 		barbed_wire = {

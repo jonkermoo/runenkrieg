@@ -446,6 +446,33 @@ local function surveyPiece(character: Model, root: BasePart)
 		showGhost(p.key, at * CFrame.new(0, deck - g / 2, 0), Vector3.new(length or p.width, g, p.depth), ok)
 		return
 	end
+	if p.kind == "Dugout" then
+		-- a dugout snaps into the wall of the trench square under the cursor, the side it is on (Survey.dugoutSpot), its
+		-- ghost the ground it cuts: its steps and room, from the room's floor up to the ground (Survey.dugoutBox)
+		local f = workspace:FindFirstChild(C.Folder)
+		local s, inWall = Survey.dugoutSpot(f, hit.Position)
+		local at = inWall or Survey.frame(hit.Position, look)
+		local box, size = Survey.dugoutBox(p, at)
+		local ok, reason = Rules.canPlace({
+			piece = p,
+			distance = (root.Position - at.Position).Magnitude,
+			reach = C.Reach,
+			spot = Rules.dugoutSpot(s, C.Dugout, p.width),
+			slope = 0,
+			maxSlope = 0,
+			ground = true,
+			water = false,
+			overlap = inWall ~= nil and Survey.onPiece({ width = size.X, depth = size.Z, height = size.Y }, box, f),
+			mine = 0, -- (the caps are the server's to check)
+			team = 0,
+			perPlayer = C.PerPlayer,
+			perTeam = C.PerTeam,
+		})
+		current = { frame = at, ok = ok, reason = reason }
+		local floor, top = -C.Dugout.drop, T.depth
+		showGhost(p.key, box * CFrame.new(0, (floor + top) / 2, 0), Vector3.new(size.X, top - floor, size.Z), ok)
+		return
+	end
 	local frame = Survey.frame(hit.Position, CFrame.Angles(0, math.rad(turn), 0):VectorToWorldSpace(look))
 	-- (a gun: the click is where the gun goes, its ghost the ground it needs: Survey.box)
 	local gun = p.kind == "Gun"

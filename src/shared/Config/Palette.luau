@@ -239,6 +239,9 @@ local Palette = {
 		-- trench", then "a slightly darker tint": was 186, 146, 94 and 152, 114, 72)
 		Bridge = { 164, 126, 80 },
 		BridgeDark = { 132, 98, 60 },
+		-- a dugout's timbers (Config/Build.Dugout): its posts, roof beams and door frame, and the paler plank lining
+		Dugout = { 112, 84, 58 },
+		DugoutPlank = { 146, 112, 76 },
 		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:
 		-- "match the color of the mud"): Wall<i> takes wall shade (i - 1) % 3 + 1 and its chunks the chunk shade of the
 		-- same number, its parapet that shade too; Floor<i> and its chunks
