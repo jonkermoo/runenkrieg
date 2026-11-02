@@ -31,8 +31,12 @@
 --   bridge_pieces layout its seed rolls, stretched to the square's length; on HP (Bridge.hp): laid at stage 1, Build
 --   swings add HP, Destroy swings and weapons take it, its boards standing by HP (Rules.bridgeStage). At 0, or once its
 --   square is buried under Trench.hp.bare% (or gone), it is simply gone: no debris.
+-- - Dugouts (kind "Dugout"; Config/Build.Dugout): laid in a trench square's wall (Survey.dugoutSpot); on HP in 4 stages
+--   like a Hesco barrier's, its timbers lying on the trench floor at 0: the pocket cut (Trenches.pocket) and its posts
+--   and earth, the plank lining and door frame, the timber roof, the earth roof. Soldiers inside a roofed one are safe
+--   from blasts outside it (Build.sheltered, src/server/Damage.blast). Gone with its square, the ground filled back.
 -- Build.blast (from src/server/Damage.blast) and Build.shot (src/server/Firing): weapons wear down trenches, sandbags,
--- wire and bridges by Config/Build.Structures.
+-- wire, bridges and dugouts by Config/Build.Structures.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -103,7 +107,8 @@ type Rec = {
 	nestBase: Ground.PitBase?,
 	nestTops: { [string]: number }?,
 	sacks: { [BasePart]: Sack }?, -- an MG nest: each bag full and as its empty sack
-	square: Model?, -- a bridge: the trench square it is on
+	square: Model?, -- a bridge: the trench square it is on (a dugout: the one it is cut into)
+	pocketed: boolean?, -- a dugout: its pocket cut in the ground (Trenches.pocket)
 	watch: { RBXScriptConnection }?, -- and its watch on that square
 	sector: string?, -- the Map1 sector it stands in (a piece with a `sectorCap`)
 }
@@ -774,6 +779,104 @@ local function showBridge(r: Rec)
 	end
 end
 
+-- A dugout's parts (Config/Build.Dugout), in its frame (the middle of its floor; x along the trench, y up, z back into
+-- the wall, its door at -z), each in the stage it comes with: 0 its timbers lying on the trench floor (only while it
+-- is at stage 0), 1 its posts and the earth round it, 2 the plank lining, floor and door frame, 3 the timber roof, 4
+-- the earth roof. Laid out once, shown by stage (showDugout).
+local function layoutDugout(r: Rec)
+	local p, G = r.piece, C.Dugout
+	local w, h, d = p.width, p.height, p.depth
+	local timber, plank = rgb(Palette.Build.Dugout), rgb(Palette.Build.DugoutPlank)
+	local square = r.square
+	local earth = if square then Trenches.soilColor(square, "Wall1") else rgb(Palette.Build.SandbagPatch)
+	local roofEarth = if square then Trenches.soilColor(square, "Wall1Parapet") else earth
+	local stages: { [number]: { BasePart } } = {}
+	local function add(stage: number, name: string, size: Vector3, at: Vector3, color: Color3, solid: boolean?)
+		local part = newPart(r.model, name, size, r.frame * CFrame.new(at), color)
+		part:SetAttribute("Stage", stage)
+		part:SetAttribute("Solid", solid ~= false)
+		part.CanTouch = false
+		stages[stage] = stages[stage] or {}
+		table.insert(stages[stage], part)
+	end
+	-- 0: timbers lying in a pile on the trench floor in front of the wall (nothing stops on them)
+	local count, length = G.pile[1], G.pile[2]
+	for i = 1, count do
+		local row, layer = (i - 1) % 2, (i - 1) // 2
+		local at = Vector3.new(0, G.beam * (layer + 0.5), -d / 2 - 0.8 - row * (G.beam + 0.1))
+		add(0, "Pile", Vector3.new(length, G.beam, G.beam), at, if i % 2 == 0 then plank else timber, false)
+	end
+	-- 1: the corner posts and the earth packed round it, sides and back (over the voxels the cut leaves)
+	local wall = h + G.beam
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			local at = Vector3.new(sx * (w / 2 - G.post / 2), h / 2, sz * (d / 2 - G.post / 2))
+			add(1, "Post", Vector3.new(G.post, h, G.post), at, timber)
+		end
+		local side = Vector3.new(G.fill, wall, d + G.fill)
+		add(1, "Earth", side, Vector3.new(sx * (w / 2 + G.fill / 2), wall / 2, G.fill / 2), earth)
+	end
+	add(1, "Earth", Vector3.new(w, wall, G.fill), Vector3.new(0, wall / 2, d / 2 + G.fill / 2), earth)
+	-- 2: the planks lining its sides and back, its floor, the front's planks either side of the door, its posts and
+	-- lintel
+	local dw, dh = G.door[1], G.door[2]
+	add(2, "Lining", Vector3.new(w, h, G.plank), Vector3.new(0, h / 2, d / 2 - G.post - G.plank / 2), plank)
+	for _, sx in { -1, 1 } do
+		add(2, "Lining", Vector3.new(G.plank, h, d), Vector3.new(sx * (w / 2 - G.plank / 2), h / 2, 0), plank)
+		local panel = (w - dw) / 2 - G.post
+		local at = Vector3.new(sx * (w / 2 - panel / 2), h / 2, -d / 2 + G.plank / 2)
+		add(2, "Front", Vector3.new(panel, h, G.plank), at, plank)
+		local post = Vector3.new(sx * (dw / 2 + G.post / 2), h / 2, -d / 2 + G.post / 2)
+		add(2, "DoorPost", Vector3.new(G.post, h, G.post), post, timber)
+	end
+	add(2, "Floor", Vector3.new(w, G.plank, d), Vector3.new(0, G.plank / 2, 0), plank)
+	local lintel = Vector3.new(dw + 2 * G.post, h - dh, G.post)
+	add(2, "Lintel", lintel, Vector3.new(0, (h + dh) / 2, -d / 2 + G.post / 2), timber)
+	-- 3: the timber roof over it, resting on the earth either side, and its beams along the front and back
+	local deck = Vector3.new(w + G.fill, G.beam, d + G.fill / 2)
+	add(3, "Roof", deck, Vector3.new(0, h + G.beam / 2, G.fill / 4), timber)
+	for _, z in { -d / 2, d / 2 } do
+		add(3, "Beam", Vector3.new(w + G.fill, G.beam, G.beam), Vector3.new(0, h + G.beam * 1.5, z), timber)
+	end
+	-- 4: the earth over it all, out over the earth round it
+	local roof = Vector3.new(w + 2 * G.fill, G.earth, d + G.fill + 0.6)
+	add(4, "EarthRoof", roof, Vector3.new(0, h + G.beam + G.earth / 2, (G.fill - 0.6) / 2), roofEarth)
+	for _, list in stages do
+		for _, part in list do
+			part.Transparency = 1
+			part.CanCollide = false
+			part.CanQuery = false
+		end
+	end
+	r.stageParts = stages
+end
+
+-- a dugout as its HP stands (Rules.hescoStage): every stage up to it shown (its timbers lying only at 0), its pocket
+-- cut from stage 1 on
+local function showDugout(r: Rec)
+	if not r.stageParts then
+		layoutDugout(r)
+	end
+	local stage = Rules.hescoStage(r.work, r.need, C.Dugout.stages)
+	if stage >= 1 and not r.pocketed then
+		r.pocketed = true
+		Trenches.pocket(r.model, r.square, r.frame, Survey.footprint(r.piece))
+	end
+	if r.shown == stage then
+		return
+	end
+	r.shown = stage
+	for s, list in r.stageParts or {} do
+		local on = if s == 0 then stage == 0 else s <= stage
+		for _, part in list do
+			local solid = on and part:GetAttribute("Solid") == true
+			part.Transparency = if on then 0 else 1
+			part.CanCollide = solid
+			part.CanQuery = solid
+		end
+	end
+end
+
 -- a piece goes: simply gone, nothing left (user 2026-10-27: "remove the crumble. 0 hp should just disappear")
 local function remove(r: Rec)
 	if not recs[r.model] then
@@ -782,6 +885,11 @@ local function remove(r: Rec)
 	recs[r.model] = nil
 	for _, c in r.watch or {} do
 		c:Disconnect()
+	end
+	-- a dugout: its pocket filled back
+	if r.pocketed then
+		r.pocketed = false
+		Trenches.pocket(r.model, nil, nil, nil)
 	end
 	-- a gun piece: the gun goes, its pit filled back in
 	local gun = r.gun
@@ -923,6 +1031,8 @@ function apply(r: Rec)
 		showHesco(r)
 	elseif kind == "Bridge" then
 		showBridge(r)
+	elseif kind == "Dugout" then
+		showDugout(r)
 	end
 end
 
@@ -1086,8 +1196,18 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 			frame, length, square = sf, len, m
 		end
 	end
+	-- (a dugout: the trench square wall `at` is by decides where it goes, Survey.dugoutSpot)
+	local dugout = piece.kind == "Dugout"
+	if dugout then
+		local s, df, m = Survey.dugoutSpot(f, frame.Position)
+		spot = Rules.dugoutSpot(s, C.Dugout, piece.width)
+		if df and m then
+			frame, square = df, m
+		end
+	end
+	local inTrench = bridge or dugout -- (no ground survey: its square decides)
 	local report = Survey.ground(piece, frame)
-	if not bridge then
+	if not inTrench then
 		frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
 	end
 	local gunPiece = gunAt ~= nil
@@ -1097,11 +1217,11 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		distance = if dev then 0 else (root.Position - (if gunAt then gunAt.Position else frame.Position)).Magnitude,
 		reach = C.Reach + 2, -- (the client's ghost checks C.Reach; slack for movement since)
 		spot = spot,
-		slope = if bridge then 0 else report.slope,
+		slope = if inTrench then 0 else report.slope,
 		maxSlope = piece.maxSlope or C.Trench.maxSlope,
-		ground = bridge or report.ground,
-		water = not bridge and report.water,
-		overlap = if bridge
+		ground = inTrench or report.ground,
+		water = not inTrench and report.water,
+		overlap = if inTrench
 			then Survey.onPiece(piece, frame, f)
 			else Survey.blocked(piece, frame, report.low, { character }) or Survey.onPiece(piece, frame, f),
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
@@ -1163,6 +1283,9 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	elseif bridge and square and length then
 		r.square = square
 		layoutBridge(r, length, bridgeRoll:NextInteger(0, 2 ^ 20))
+	elseif dugout then
+		r.square = square
+		r.at = frame -- (Build.worksOf's `at`: the middle of its floor, inside it)
 	end
 	model:SetAttribute("Piece", piece.key)
 	model:SetAttribute("Team", team)
@@ -1177,7 +1300,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	end
 	recs[model] = r
 	model.Parent = f
-	if dev and (bags or nest) then
+	if dev and (bags or nest or dugout) then
 		-- (finished, as if dug to the end; no match points for it)
 		r.work = r.need
 		r.built, r.paid = true, true
@@ -1187,6 +1310,18 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		end
 	end
 	apply(r)
+	-- a dugout goes with its square: filled in to a scar or pulled up
+	if dugout and square then
+		local sq = square
+		r.watch = {
+			sq.AncestryChanged:Connect(function()
+				if recs[model] and not sq.Parent then
+					remove(r)
+				end
+			end),
+		}
+		square = nil
+	end
 	-- a bridge falls in with its square: buried past where its dirt pieces go, or gone
 	if square then
 		local function check()
@@ -1672,6 +1807,21 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			if share > 0 then
 				table.insert(worn, { r = r, amount = r.need * share / 100 })
 			end
+		elseif r.piece.kind == "Dugout" then
+			-- by how far the blast is from its box: its inside, the earth round it and its roof; Dugout.soak of a sandbag
+			-- pile's share
+			local p, G = r.piece, C.Dugout
+			local l = r.frame:PointToObjectSpace(position)
+			local top = p.height + G.beam + G.earth
+			local d = Vector3.new(
+				math.max(math.abs(l.X) - (p.width / 2 + G.fill), 0),
+				math.max(l.Y - top, -l.Y, 0),
+				math.max(-p.depth / 2 - l.Z, l.Z - (p.depth / 2 + G.fill), 0)
+			).Magnitude
+			local share = Rules.structureHit(d, src, S.edge) * G.soak
+			if share > 0 then
+				table.insert(worn, { r = r, amount = r.need * share / 100 })
+			end
 		elseif r.piece.kind == "Hesco" then
 			-- the whole basket by how far the blast is from its box, Hesco.soak of a sandbag column's share
 			local p = r.piece
@@ -1702,6 +1852,12 @@ function Build.shot(part: Instance, point: Vector3)
 		return
 	end
 	local s = part.Parent
+	-- a dugout's timbers and earth (its parts lie in its model)
+	local dug = if s and s:IsA("Model") then recs[s] else nil
+	if dug and dug.piece.kind == "Dugout" then
+		wear(dug, dug.need * C.Structures.bullet.hit * C.Dugout.soak / 100)
+		return
+	end
 	local pile = if s and s:IsA("Model") and s:GetAttribute("Class") == "Sandbag" then recs[s.Parent :: Model] else nil
 	if pile then
 		wear(pile, pile.need * C.Structures.bullet.hit / 100)
@@ -1714,6 +1870,25 @@ function Build.shot(part: Instance, point: Vector3)
 	if r and r.piece.kind == "Hesco" then
 		wear(r, r.need * C.Structures.bullet.hit * C.Hesco.soak / 100)
 	end
+end
+
+-- Whether a soldier with their torso at `at` is sheltered from a blast at `blast` (src/server/Damage.blast): inside a
+-- dugout whose timber roof is up (Rules.dugoutShelters) and the blast outside it. A blast inside it (a grenade thrown
+-- through the door) hurts as any other (user 2026-11-02).
+function Build.sheltered(at: Vector3, blast: Vector3): boolean
+	for _, r in recs do
+		local p = r.piece
+		if p.kind == "Dugout" and Rules.dugoutShelters(r.work, r.need, C.Dugout) then
+			local a, b = r.frame:PointToObjectSpace(at), r.frame:PointToObjectSpace(blast)
+			if
+				Rules.inDugout(a.X, a.Y, a.Z, p.width, p.height, p.depth)
+				and not Rules.inDugout(b.X, b.Y, b.Z, p.width, p.height, p.depth)
+			then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 -- the barbed wire that stands: its box (centre frame and size), its team and model, for src/server/Wire

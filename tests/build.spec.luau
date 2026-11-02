@@ -55,7 +55,8 @@ return {
 					or p.kind == "Gun"
 					or p.kind == "Hesco"
 					or p.kind == "Bridge"
-					or p.kind == "Nest",
+					or p.kind == "Nest"
+					or p.kind == "Dugout",
 				p.key
 			)
 			-- (every piece but a trench square and the old sandbag walls is on HP out of 100, Rules.hpOf)
@@ -807,5 +808,46 @@ return {
 		assert(B.runSlope({ 0, 0, 2, 2, 2, 4, 4 }, 3, C.Trench.slopeSpan) < C.Trench.maxSlope)
 		assert(B.runSlope({ 0, 3, 6, 9 }, 3, C.Trench.slopeSpan) > C.Trench.maxSlope)
 		assert(near(B.runSlope({ 0, 1 }, 3, 8), B.slope(0, 1, 3)), "short runs: end to end")
+	end,
+	["dugouts: in a dug square's wall, long enough, no tee, no bridge, apart from each other"] = function()
+		local d = C.Dugout
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		local function spot(over: { [string]: any }): string?
+			local s: any =
+				{ found = true, dug = 100, length = C.Trench.block, teed = false, bridge = false, nearest = 99 }
+			for k, v in over do
+				s[k] = v
+			end
+			return B.dugoutSpot(s, d, piece.width)
+		end
+		assert(spot({}) == nil, "a full square")
+		assert(spot({ found = false }) == "Needs a dug trench")
+		assert(spot({ dug = d.dug - 1 }) == "Needs a dug trench", "not dug full")
+		assert(piece.width + d.spare <= C.Trench.block, "fits a full square")
+		assert(spot({ length = piece.width }) == "This trench square is too short")
+		assert(spot({ bridge = true }) == "A bridge is here")
+		assert(spot({ teed = true }) == "A trench joins this wall")
+		assert(spot({ nearest = 0 }) == "A dugout is already here")
+		assert(spot({ nearest = d.spacing - 1 }) == "Too close to another dugout")
+		assert(spot({ nearest = d.spacing }) == nil)
+	end,
+	["dugouts: Engineers only, 2 each, 10 swings, shelter once the timber roof is up"] = function()
+		local d = C.Dugout
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		assert(piece.playerCap == 2)
+		assert(B.buildSwings(piece, C) == 10)
+		local h = assert(B.hpOf(piece, C))
+		assert(h.place == 0 and h.max == 100)
+		assert(not B.dugoutShelters(0, 100, d) and not B.dugoutShelters(50, 100, d), "no roof yet")
+		assert(B.dugoutShelters(60, 100, d) and B.dugoutShelters(100, 100, d), "the timber roof up")
+		assert(B.hescoStage(60, 100, d.stages) == 3 and B.hescoStage(100, 100, d.stages) == 4)
+		-- a soldier stands upright inside, a 5.13 soldier under the roof
+		assert(piece.height > 5.13 and d.door[2] > 5.13 and d.door[2] < piece.height)
+		assert(B.inDugout(0, 2.5, 0, piece.width, piece.height, piece.depth), "standing in it")
+		assert(not B.inDugout(0, piece.height + 1, 0, piece.width, piece.height, piece.depth), "on its roof")
+		assert(not B.inDugout(0, 2.5, -piece.depth / 2 - 1, piece.width, piece.height, piece.depth), "in the trench")
+		-- shell-proof: a direct rune-mortar shell takes about a quarter of it
+		local howitzer = C.Structures.howitzer.hit * d.soak
+		assert(howitzer > 20 and howitzer < 25)
 	end,
 }

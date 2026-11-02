@@ -17,6 +17,8 @@
 -- - Each square lies tilted with the ground across it (Rules.crossTilt; user 2026-11-02: "make the terrain match the
 --   angle of the slope, not make it flat"): its hole, walls and pieces turned whole by the slope from one wall top to
 --   the other (Rules.tiltedCut), refused over Trench.maxCross.
+-- - Dugouts (src/server/Build, Config/Build.Dugout) cut a pocket into a square's wall (Trenches.pocket): the ground
+--   there is cut down to the dugout's floor in the same reshape, and the walls and heaps of every square give way to it.
 -- The terrain is reshaped from the ground as it was before any trench touched it (kept per voxel), so digging,
 -- joining, falling in and scars are all the one union of every square's profile over that ground.
 
@@ -33,6 +35,7 @@ local Net = require(Shared.Net)
 local Trenches = {}
 
 local T = C.Trench
+local D = C.Dugout
 local VOXEL = 4
 local TOP = Rules.trenchTop(T)
 local RIM = math.max(T.bank.width, T.grassClear) -- how far past its wall tops a square changes the ground
@@ -64,6 +67,11 @@ export type Block = {
 }
 
 local blocks: { [number]: Block } = {}
+-- dugouts' pockets (Trenches.pocket), by their dugout's model: its frame (the middle of its floor, level, looking out
+-- of the door), its square, how far the ground is cut round its middle (along, back), how far the walls and heaps open
+-- along it and its inside's half depth
+type Pocket = { frame: CFrame, blk: Block, cutX: number, cutZ: number, openX: number, halfD: number }
+local pockets: { [Instance]: Pocket } = {}
 local byModel: { [Model]: Block } = {}
 local nextId = 0
 -- the ground before any trench: per voxel ("x,y,z" in voxel units), { occupancy, material }
@@ -266,6 +274,14 @@ local function reshape(centre: Vector3, reach: number)
 							soil = soil or soilOf(blk)
 						end
 					end
+				end
+			end
+			-- a dugout's pocket: cut down to its floor
+			for _, pk in pockets do
+				local l = pk.frame:PointToObjectSpace(Vector3.new(x, pk.frame.Position.Y, z))
+				local want = pk.frame.Position.Y
+				if math.abs(l.X) <= pk.cutX and math.abs(l.Z) <= pk.cutZ and (not cut or want < cut) then
+					cut, soil = want, soilOf(pk.blk)
 				end
 			end
 			if cut or bank or soil then
@@ -479,6 +495,13 @@ local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: 
 						inside = true
 						break
 					end
+				end
+			end
+			-- a dugout's door and earth: no wall or heap there (its front at the wall's foot, back past its earth)
+			for _, pk in pockets do
+				local l = pk.frame:PointToObjectSpace(p)
+				if math.abs(l.X) <= pk.openX and l.Z >= -pk.halfD - 0.5 and l.Z <= pk.halfD + D.fill then
+					inside = true
 				end
 			end
 			if inside then
@@ -1189,6 +1212,48 @@ function Trenches.near(p: Vector3, extra: number): boolean
 	return false
 end
 
+-- A dugout's pocket (src/server/Build): `key` its model, cut into `square`'s wall with its inside `size` (width,
+-- height, depth) at `frame` (the middle of its floor, looking out of its door); nil `frame` fills it back. The ground
+-- is cut to its floor Dugout.cut past its inside, the walls and heaps of the squares round it open over it and its
+-- earth (Dugout.fill).
+function Trenches.pocket(key: Instance, square: Model?, frame: CFrame?, size: Vector3?)
+	local old = pockets[key]
+	local blk = square and byModel[square]
+	if frame and size and blk then
+		pockets[key] = {
+			frame = frame,
+			blk = blk,
+			cutX = size.X / 2 + D.cut,
+			cutZ = size.Z / 2 + D.cut,
+			openX = size.X / 2 + D.fill,
+			halfD = size.Z / 2,
+		}
+	else
+		pockets[key] = nil
+	end
+	local spot = if frame then frame.Position elseif old then old.frame.Position else nil
+	if not spot or (not frame and not old) then
+		return
+	end
+	local reach = HEAP_BACK + D.fill + VOXEL
+	reshape(spot, reach)
+	for _, o in blocks do
+		local mid = (o.a + o.b) / 2
+		if live(o) and o.model and o.model:FindFirstChild("Pieces") then
+			if Vector3.new(mid.X - spot.X, 0, mid.Z - spot.Z).Magnitude <= reach + o.length / 2 then
+				pieces(o)
+			end
+		end
+	end
+end
+
+-- a square's dirt colour for `name` (a trench piece's name: its shade) in the soil it is dug into, for the earth of
+-- a dugout in it (src/server/Build)
+function Trenches.soilColor(square: Model, name: string): Color3
+	local blk = byModel[square]
+	return pieceColor(name, if blk then soilOf(blk) else nil)
+end
+
 -- whether a trench ever touched voxel `key` ("x,y,z" in voxel units)
 function Trenches.dug(key: string): boolean
 	return original[key] ~= nil
@@ -1200,6 +1265,7 @@ function Trenches.clear()
 	for _, blk in blocks do
 		table.insert(list, blk)
 	end
+	table.clear(pockets)
 	for _, blk in list do
 		if blk.model then
 			byModel[blk.model] = nil

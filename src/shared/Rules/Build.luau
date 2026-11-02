@@ -180,6 +180,7 @@ function Build.hpOf(p: Piece, c: any): Hp?
 		elseif p.kind == "Bridge" then c.Bridge
 		elseif p.kind == "Sandbags" then c.Sandbags
 		elseif p.kind == "Nest" then c.Nest
+		elseif p.kind == "Dugout" then c.Dugout
 		else nil
 	return own and own.hp
 end
@@ -559,6 +560,51 @@ function Build.bridgeSpot(s: BridgeSpot, b: any): string?
 	return nil
 end
 
+export type DugoutSpot = {
+	found: boolean, -- a trench square there
+	dug: number, -- that square's HP, % of its max
+	length: number, -- that square's length
+	teed: boolean, -- another trench joins the wall it would go in
+	bridge: boolean, -- a bridge on that square
+	nearest: number, -- flat, centre to centre, to the nearest other dugout
+}
+
+-- Why a dugout `width` wide can't go in the trench square wall `s` describes (Config/Build.Dugout `d`), nil when it can:
+-- a square dug out and long enough, no trench joining that wall, no bridge over it, no other dugout close by
+function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
+	if not s.found or s.dug < d.dug then
+		return "Needs a dug trench"
+	end
+	if s.nearest < 1 then
+		return "A dugout is already here"
+	end
+	if s.length < width + d.spare then
+		return "This trench square is too short"
+	end
+	if s.bridge then
+		return "A bridge is here"
+	end
+	if s.teed then
+		return "A trench joins this wall"
+	end
+	if s.nearest < d.spacing then
+		return "Too close to another dugout"
+	end
+	return nil
+end
+
+-- Whether a dugout at `hp` of `max` shelters the soldiers inside (Config/Build.Dugout `d`): its timber roof is up (its
+-- stage, Build.hescoStage, at `d.shelter` or over)
+function Build.dugoutShelters(hp: number, max: number, d: any): boolean
+	return Build.hescoStage(hp, max, d.stages) >= d.shelter
+end
+
+-- Whether a point in a dugout's own frame (`lx`, `ly`, `lz` from its floor's centre, y up) is inside it (`width` x
+-- `height` x `depth`, from its floor up)
+function Build.inDugout(lx: number, ly: number, lz: number, width: number, height: number, depth: number): boolean
+	return Build.inBox(lx, ly - height / 2, lz, width, height, depth)
+end
+
 -- Which of `variants` board layouts a bridge with `seed` shows, and whether it is turned round
 function Build.bridgeVariant(seed: number, variants: number): (number, boolean)
 	local n = math.abs(math.floor(seed))
@@ -918,6 +964,7 @@ function Build.hpRules(kind: string, cfg: any, p: Piece?): HpRules?
 		elseif kind == "Bridge" then cfg.Bridge.hp
 		elseif kind == "Wire" then cfg.Wire.hp
 		elseif kind == "Nest" then cfg.Nest.hp
+		elseif kind == "Dugout" then cfg.Dugout.hp
 		else nil
 	if h then
 		return { place = h.place or 0, max = h.max, swing = h.swing, destroy = h.destroy }

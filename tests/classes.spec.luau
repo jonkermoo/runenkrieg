@@ -13,7 +13,7 @@ LOCKED.Engineer = table.clone(C.Defs.Engineer)
 LOCKED.Engineer.locked = true
 
 -- the pieces only the Engineer builds
-local ENGINEER = { Gun = true, Nest = true }
+local ENGINEER = { Gun = true, Nest = true, Dugout = true }
 
 return {
 	["the user's prices: rifleman free, grenadier 50, auto rifler 100, shotgunner 150, engineer 150, mage 200"] = function()
@@ -152,7 +152,7 @@ return {
 	end,
 	-- (Hesco barriers and sandbag piles everyone's again, user 2026-11-02: "allow sandbags and barriers to be built by
 	-- ordinary soldiers too")
-	["only the engineer builds guns and MG nests; everyone builds trenches, sandbags, wire, Hesco barriers and bridges"] = function()
+	["only the engineer builds guns, MG nests and dugouts; everyone builds trenches, sandbags, wire, Hesco barriers and bridges"] = function()
 		local kinds: { [string]: boolean } = {}
 		for _, p in BuildCfg.Pieces do
 			kinds[p.kind] = true
