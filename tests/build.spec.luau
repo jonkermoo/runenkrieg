@@ -414,15 +414,30 @@ return {
 	end,
 	["trenches v2: a new trench keeps its distance from others unless it joins one"] = function()
 		local S = C.Trench.spacing
+		local TOP = B.trenchTop(C.Trench)
 		local other = { { 0, 0, 24, 0 } }
-		assert(B.tooClose(0, S - 1, 24, S - 1, false, false, other, S), "alongside, too near")
-		assert(not B.tooClose(0, S + 1, 24, S + 1, false, false, other, S), "far enough")
+		assert(B.tooClose(0, S - 1, 24, S - 1, false, false, other, S, TOP), "alongside, too near")
+		assert(not B.tooClose(0, S + 1, 24, S + 1, false, false, other, S, TOP), "far enough")
 		-- a branch off its side: starts at the wall and runs out; only its first `spacing` studs may be near
 		local w = C.Trench.floor
-		assert(not B.tooClose(12, w, 12, w + 30, true, false, other, S), "a branch off the side")
-		assert(B.tooClose(12, w, 12, w + 30, false, false, other, S), "the same, not joined")
+		assert(not B.tooClose(12, w, 12, w + 30, true, false, other, S, TOP), "a branch off the side")
+		assert(B.tooClose(12, w, 12, w + 30, false, false, other, S, TOP), "the same, not joined")
 		-- leaving an end but bending back alongside
-		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S), "doubling back alongside")
+		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S, TOP), "doubling back alongside")
+		-- (user 2026-11-02: "a trench cant be built or extended right next to another path, there should be some space")
+		-- a second trench past the spacing: a stub off the first one's end may not run up beside it, the joint or not
+		local two = { { 0, 0, 24, 0 }, { 0, S + 1, 24, S + 1 } }
+		assert(B.tooClose(24, 0, 24, S - 6, true, false, two, S, TOP), "off one's end, up beside the other")
+		assert(B.tooClose(24, 0, 34, 6, true, false, two, S, TOP), "a short bend off one's end, near the other")
+		assert(not B.tooClose(24, 0, 48, 0, true, false, two, S, TOP), "straight on from its end")
+		-- a deliberate link between them, joined at both ends, is fine
+		assert(not B.tooClose(12, w, 12, S + 1 - w, true, true, two, S, TOP), "a communication trench across")
+		-- the squares linked to the one it joins count as joined near the joint (a bend off a run's end)
+		local run = { { 0, 0, 8, 0 }, { 8, 0, 16, 0 }, { 16, 0, 24, 0 } }
+		assert(not B.tooClose(24, 0, 24 + 12, 12, true, false, run, S, TOP), "a 45 degree bend off its end")
+		local set = B.joinedAt(24, 0, run, TOP, 2 * S)
+		assert(set[1] and set[2] and set[3], "the whole run near the joint")
+		assert(next(B.joinedAt(24, 50, run, TOP, 2 * S)) == nil, "nothing joined from out in the open")
 	end,
 	["trenches v2: a heap's thin skirt is laid only where the ground holds it, never hanging in the air"] = function()
 		local hang = C.Trench.apronHang

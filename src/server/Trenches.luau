@@ -988,7 +988,7 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			table.insert(segs, { blk.a.X, blk.a.Z, blk.b.X, blk.b.Z })
 		end
 	end
-	if Rules.tooClose(a.X, a.Z, b.X, b.Z, linkA ~= nil, linkB ~= nil, segs, T.spacing) then
+	if Rules.tooClose(a.X, a.Z, b.X, b.Z, linkA ~= nil, linkB ~= nil, segs, T.spacing, TOP) then
 		return "Too close to another trench: extend it instead"
 	end
 	-- the ground along it: no water, not too steep along, nothing standing in the way

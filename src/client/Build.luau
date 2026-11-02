@@ -646,11 +646,12 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 		end
 	end
 	local spacingMsg = "Too close to another trench: extend it instead"
+	local top = Rules.trenchTop(T) -- (an end this close to a square joins it: Rules.joinedAt)
 	if not planStart then
 		local far = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z).Magnitude > T.firstReach
 		if far then
 			ok, reason = false, `Too far: start within {T.firstReach} studs of you`
-		elseif not aimKind and Rules.tooClose(aim.X, aim.Z, aim.X, aim.Z, false, false, segs, T.spacing) then
+		elseif not aimKind and Rules.tooClose(aim.X, aim.Z, aim.X, aim.Z, false, false, segs, T.spacing, top) then
 			ok, reason = false, spacingMsg
 		end
 		current = { a = aim, ok = ok, reason = reason }
@@ -682,7 +683,7 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	if ok and tooFar then
 		ok, reason = false, `Too far: stand within {T.firstReach} studs of either end`
 	end
-	if ok and Rules.tooClose(a.X, a.Z, aim.X, aim.Z, aKind ~= nil, aimKind ~= nil, segs, T.spacing) then
+	if ok and Rules.tooClose(a.X, a.Z, aim.X, aim.Z, aKind ~= nil, aimKind ~= nil, segs, T.spacing, top) then
 		ok, reason = false, spacingMsg
 	end
 	if ok and length > 0.1 then

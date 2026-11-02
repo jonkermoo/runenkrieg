@@ -497,8 +497,49 @@ function Build.freeRuns(blocked: { boolean }): { { number } }
 	return runs
 end
 
--- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat) to any of `segs` (other trenches' squares,
--- { ax, az, bx, bz } each), leaving out the stretch within `spacing` of an end that joins a trench (`joinA`, `joinB`).
+-- the flat distance from (px, pz) to the segment s = { ax, az, bx, bz }
+local function toSeg(px: number, pz: number, s: { number }): number
+	local dx, dz = s[3] - s[1], s[4] - s[2]
+	local len2 = dx * dx + dz * dz
+	local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
+	return math.sqrt((px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2)
+end
+
+-- The trench squares a plan's end at (x, z) joins: those within `touch` of it (the square it extends or tees into),
+-- then every square touching one of those (end to end, or a tee's end on its side), out to `reach` of the end. A set
+-- of indices into `segs` ({ ax, az, bx, bz } each).
+function Build.joinedAt(x: number, z: number, segs: { { number } }, touch: number, reach: number): { [number]: boolean }
+	local set: { [number]: boolean } = {}
+	local open: { number } = {}
+	for j, s in segs do
+		if toSeg(x, z, s) < touch then
+			set[j] = true
+			table.insert(open, j)
+		end
+	end
+	while #open > 0 do
+		local s = segs[table.remove(open) :: number]
+		for k, o in segs do
+			if not set[k] and toSeg(x, z, o) < reach then
+				local touching = toSeg(s[1], s[2], o) < touch
+					or toSeg(s[3], s[4], o) < touch
+					or toSeg(o[1], o[2], s) < touch
+					or toSeg(o[3], o[4], s) < touch
+				if touching then
+					set[k] = true
+					table.insert(open, k)
+				end
+			end
+		end
+	end
+	return set
+end
+
+-- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat, centre line to centre line: about a
+-- trench's width of clear ground between them) to any of `segs` (the trenches' squares, { ax, az, bx, bz } each).
+-- Only the trench an end joins (`joinA`, `joinB`: Build.joinedAt, `touch` of the end) may be nearer, and only along
+-- the stretch within `spacing` of that end (user 2026-11-02: "a trench cant be built or extended right next to another
+-- path, there should be some space": every other trench keeps its distance all along, the joint too).
 function Build.tooClose(
 	ax: number,
 	az: number,
@@ -507,22 +548,21 @@ function Build.tooClose(
 	joinA: boolean,
 	joinB: boolean,
 	segs: { { number } },
-	spacing: number
+	spacing: number,
+	touch: number
 ): boolean
 	local length = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	local setA = if joinA then Build.joinedAt(ax, az, segs, touch, 2 * spacing) else {}
+	local setB = if joinB then Build.joinedAt(bx, bz, segs, touch, 2 * spacing) else {}
 	local n = math.max(math.ceil(length), 1)
 	for i = 0, n do
 		local t = i / n
 		local along = t * length
-		if not ((joinA and along < spacing) or (joinB and length - along < spacing)) then
-			local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
-			for _, s in segs do
-				local dx, dz = s[3] - s[1], s[4] - s[2]
-				local len2 = dx * dx + dz * dz
-				local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
-				if (px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2 < spacing * spacing then
-					return true
-				end
+		local nearA, nearB = joinA and along < spacing, joinB and length - along < spacing
+		local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
+		for j, s in segs do
+			if not ((nearA and setA[j]) or (nearB and setB[j])) and toSeg(px, pz, s) < spacing then
+				return true
 			end
 		end
 	end
