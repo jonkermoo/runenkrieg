@@ -429,6 +429,7 @@ local function publish(counts: { { West: number, East: number } })
 	end
 	for _, side in { "West", "East" } do
 		folder:SetAttribute(side .. Cfg.SpawnAttribute, spawnSector(side))
+		folder:SetAttribute(side .. Cfg.LineAttribute, (lineOf(side)))
 	end
 	showMarkers(counts)
 end

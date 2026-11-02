@@ -2,6 +2,8 @@
 local C = require("../src/shared/Config/Artillery")
 local A = require("../src/shared/Rules/Artillery")
 local Assets = require("../src/shared/Config/Assets")
+local Map1 = require("../src/shared/Config/Maps/Map1")
+local Playtest = require("../src/shared/Config/Maps/Playtest")
 
 local GRAVITY = 196.2 -- Roblox's default workspace.Gravity
 local function near(a: number, b: number, eps: number?): boolean
@@ -533,5 +535,66 @@ return {
 	["only a teammate takes a gun over from a bot"] = function()
 		assert(A.mayTakeOver("uniform1", "uniform1"))
 		assert(not A.mayTakeOver("uniform2", "uniform1") and not A.mayTakeOver(nil, nil))
+	end,
+	["a shot comes down along its lay, its range out from the muzzle"] = function()
+		for _, g in { QF, HOW } do
+			local e = (g.elevation[1] + g.elevation[2]) / 2
+			local mx, _, mz = A.muzzle(g, 0, e)
+			local r = A.range(g.speed, e + (g.aimTilt or 0), g.gravity)
+			local x, z = A.landing(g, { yaw = 0, traverse = 0, elevation = e }, 100, 50)
+			assert(x and z and near(x, 100 + mx, 1e-3) and near(z, 50 + mz - r, 1e-3))
+			-- turned a quarter round (whole gun or mount alike): toward -X
+			local x2, z2 = A.landing(g, { yaw = 60, traverse = 30, elevation = e }, 0, 0)
+			assert(x2 and z2 and x2 < -r * 0.9 and math.abs(z2) < r * 0.1)
+		end
+	end,
+	["near a spawn: within the margin of a spawn zone or round a wave line"] = function()
+		local zones = { West = { minX = 0, maxX = 10, minZ = 0, maxZ = 10 } }
+		assert(A.nearSpawn(5, 5, zones, {}, 0) and A.nearSpawn(-19, 5, zones, {}, 20))
+		assert(A.nearSpawn(24, 24, zones, {}, 20) and not A.nearSpawn(25, 25, zones, {}, 20))
+		assert(not A.nearSpawn(-21, 5, zones, {}, 20))
+		local lines = { { 500, 0, 24 } }
+		assert(A.nearSpawn(543, 0, {}, lines, 20) and not A.nearSpawn(545, 0, {}, lines, 20))
+		-- every map's spawn zones count (one rule for every map)
+		for _, map in { Map1, Playtest } :: { any } do
+			for _, r in map.spawnZones do
+				assert(A.nearSpawn((r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2, map.spawnZones, {}, C.SpawnGuard.gap))
+			end
+		end
+	end,
+	["a gun won't lay onto a spawn: it slides along the edge or holds"] = function()
+		local g = QF
+		local e0 = g.elevation[1]
+		local start = { yaw = 0, traverse = 0, elevation = e0 }
+		local x0, z0 = A.landing(g, start, 0, 0)
+		assert(x0 and z0)
+		-- a spawn just past where it lands now, straight ahead (-Z): raising the barrel walks into it
+		local far = z0 - 60
+		local zones = { S = { minX = -10, maxX = 10, minZ = far - 10, maxZ = far + 10 } }
+		local margin = g.zone + C.SpawnGuard.gap
+		local function blocked(l: any): boolean
+			local x, z = A.landing(g, l, 0, 0)
+			return x ~= nil and z ~= nil and A.nearSpawn(x, z, zones, {}, margin)
+		end
+		assert(not blocked(start))
+		local l = start
+		local held = false
+		for _ = 1, 200 do
+			local h
+			l, h = A.layClear(l, 0, g.elevation[2], g, 0.05, blocked)
+			held = held or h
+			assert(not blocked(l))
+		end
+		assert(held and l.elevation < g.elevation[2])
+		-- turning away still works while it is held at the edge
+		local turned = A.layClear(l, 40, g.elevation[2], g, 0.5, blocked)
+		assert(turned.traverse > l.traverse and not blocked(turned))
+		-- a gun already laid on a spawn (the wave line came to it) moves freely
+		local onIt = { yaw = 0, traverse = 0, elevation = l.elevation }
+		local function always(_: any): boolean
+			return true
+		end
+		local moved, h2 = A.layClear(onIt, 10, onIt.elevation, g, 0.5, always)
+		assert(not h2 and moved.traverse > 0)
 	end,
 }
