@@ -131,12 +131,15 @@ local Assets = {
 			description = "Webley Mk VI revolver, the brown team's Engineer pistol (built over the outlines in tools/blender/weapons/trace/webley_daz.py). Rigged from Config/Weapons.",
 		},
 		rifle_mondragon = {
-			id = 77357570578798,
+			-- v2 (2026-11-02): polished against a reference model: the real 1105 mm, a tangent rear sight, the receiver's
+			-- rear a round tube with an end cap, a round trigger guard with the trigger in its middle, a fuller butt, the
+			-- forend swivel and the wrist tang off (master assets/weapons/grey/rifle_mondragon.blend; v1 77357570578798)
+			id = 109898490549637,
 			category = "Weapons",
 			folder = "Grey/Rifles",
 			source = "assets/weapons/grey/rifle_mondragon.fbx",
-			generator = "tools/blender/weapons/mondragon.py",
-			description = "Mondragón FSK 15 semi-automatic rifle, the grey team's (W2; built from its trace: tools/blender/weapons/trace/mondragon.py; review assets/weapons/grey/review/rifle_mondragon_v7.blend). Rigged from Config/Weapons.",
+			generator = "tools/blender/weapons/export_blend.py",
+			description = "Mondragón FSK 15 semi-automatic rifle, the grey team's (W2; master: assets/weapons/grey/rifle_mondragon.blend, from its trace and tools/blender/weapons/polish_mondragon.py). Rigged from Config/Weapons.",
 		},
 		rifle_remington8 = {
 			id = 120790254551949,
