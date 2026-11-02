@@ -77,16 +77,23 @@ function Artillery.yawOf(x: number, z: number): number
 	return math.deg(math.atan2(-x, -z))
 end
 
--- The stray of one shot from three random numbers in 0..1 each pair (r1 + r2 is a triangle: most shots near the aim,
--- none past the most): degrees of yaw, degrees of elevation, the speed's share.
-function Artillery.scatter(
-	s: { yaw: number, elevation: number, speed: number },
-	r: { number }
-): (number, number, number)
-	local function tri(a: number, b: number): number
-		return a + b - 1
+-- Where one shot comes down against its aim (Config/Artillery `miss`), from three random numbers in 0..1: `radius`
+-- times (r1 + r2) / 2 studs off (a triangle: mostly half the radius, rarely on the aim, never past the radius), r3 of
+-- the way round. Studs right of and beyond the aim point along the line of fire.
+function Artillery.miss(radius: number, r1: number, r2: number, r3: number): (number, number)
+	local d = radius * (r1 + r2) / 2
+	local a = r3 * 2 * math.pi
+	return d * math.sin(a), d * math.cos(a)
+end
+
+-- The turn (degrees, + to the left as Artillery.lay) and the speed's share that move a shot landing `reach` studs out
+-- `right` and `beyond` studs (its reach grows as the speed squared).
+function Artillery.missLay(reach: number, right: number, beyond: number): (number, number)
+	if reach < 1 then
+		return 0, 1
 	end
-	return s.yaw * tri(r[1], r[2]), s.elevation * tri(r[3], r[4]), 1 + s.speed * tri(r[5], r[6])
+	local far = math.max(reach + beyond, reach * 0.25)
+	return -math.deg(math.atan2(right, far)), math.sqrt(far / reach)
 end
 
 -- How far the barrel is back `t` seconds after a shot: straight back over `times[1]`, running out again over

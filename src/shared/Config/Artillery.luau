@@ -44,7 +44,10 @@ export type Gun = {
 	kg: number, -- the shell's filling as TNT (Damage.blast)
 	craterScale: number?, -- its crater's size against a charge's own (Rules/Blast.craterPlan; nil: 1)
 	fragments: { lethal: number, wound: number, max: number, near: number, far: number }?, -- Rules/Grenade.fragments
-	scatter: { yaw: number, elevation: number, speed: number }, -- the most a shot strays: degrees, degrees, share
+	-- a field gun's or howitzer's shell comes down up to `miss` studs from where it was laid (Rules.miss; user
+	-- 2026-11-02: "the artillery (mg nest excluded) should be way less accurate. it should miss a lot of its shots by a
+	-- little (not exactly where ur aiming)"): mostly about half that, rarely on the aim; nil for the machine gun
+	miss: number?,
 	reload: number, -- seconds from a shot to the next
 	breechOpen: number, -- degrees the breech swings open
 	breechTimes: { number }, -- seconds after the shot it opens, and before ready it closes
@@ -264,6 +267,10 @@ local Artillery = {
 		aimWhy = "Can't aim at a spawn",
 		every = 2,
 	},
+	-- A field gun's or howitzer's miss (its `miss`; src/server/Artillery missOf): rolled again, up to `tries` times,
+	-- while its path traced on the terrain comes down on a spawn or more than `stray` times the radius off (rough
+	-- ground: a longer shot clearing a crest); none after that.
+	Miss = { tries = 8, stray = 1.25 },
 
 	-- The arc line and landing marker while manning (src/client/Artillery): the line is one Beam bent to the path
 	-- (as the grenade's, Palette.Artillery.Arc), the marker a ring and the range on top of everything (seen past the fog)
@@ -698,7 +705,7 @@ local Artillery = {
 			-- out to ~10 m and wounds to ~25-30 m, and its charge as TNT here is raised to 2.5 kg so it breaks walls
 			kg = 2.5,
 			fragments = { lethal = 12, wound = 40, max = 100, near = 70, far = 15 },
-			scatter = { yaw = 0.8, elevation = 0.25, speed = 0.012 },
+			miss = 36, -- (mostly ~18 studs off: past its lethal 12, inside its wounding 40)
 			reload = 10,
 			breechOpen = 100,
 			breechTimes = { 1.2, 1 },
@@ -865,7 +872,7 @@ local Artillery = {
 			kg = 100,
 			craterScale = 0.5,
 			fragments = { lethal = 16, wound = 30, max = 100, near = 70, far = 15 },
-			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
+			miss = 60,
 			reload = 30,
 			breechOpen = 100,
 			breechTimes = { 2, 2 },
@@ -1002,7 +1009,6 @@ local Artillery = {
 			charge = 0,
 			breechOpens = false,
 			kg = 0.01,
-			scatter = { yaw = 0.6, elevation = 0.6, speed = 0 },
 			reload = 12, -- (the box reload, the design's long wait)
 			breechOpen = 0,
 			breechTimes = { 0, 0 },

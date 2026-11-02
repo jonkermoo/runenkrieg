@@ -10,7 +10,7 @@
 -- - E (its ProximityPrompt, in the game's own look: src/client/Prompts) mans it: the gunner stands welded at the crew
 --   spot, platform-standing, weapons put away, until they leave (Net "Artillery" "Leave"), die or go.
 -- - "Aim" sets the wanted yaw and elevation; the gun works toward them at its rates (Rules/Artillery.lay).
--- - "Fire", loaded: the gunner braces (the howitzer charges up), the gun's `charge` s later the shell leaves the muzzle with the gun's lay plus scatter, flies the plain parabola (stepped
+-- - "Fire", loaded: the gunner braces (the howitzer charges up), the gun's `charge` s later the shell leaves the muzzle with the gun's lay, set to miss by a little (Config/Artillery `miss`), flies the plain parabola (stepped
 --   casts, so nothing thin is passed through) and goes off where it hits: Damage.blast with its charge and fragments,
 --   every client shows it (Net "ArtilleryBlast").
 -- - Every blast wears the guns down (Damage.onBlast; Config/Artillery.Hits): a direct hit on a gun takes a lot, one on
@@ -477,6 +477,28 @@ end
 local terrainOnly = RaycastParams.new()
 terrainOnly.FilterType = Enum.RaycastFilterType.Include
 terrainOnly.IgnoreWater = false
+-- where a shell from `o` at `v` under `g` first meets the terrain (or, nothing met, level with `baseY`)
+local function pathDown(o: Vector3, v: Vector3, g: number, baseY: number): Vector3?
+	terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
+	local step = Cfg.Arc.step
+	local prev, t = o, step
+	while t <= Cfg.MaxFlight and prev.Y > Cfg.Arc.floor do
+		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
+		local q = Vector3.new(x, y, z)
+		local hit = workspace:Raycast(prev, q - prev, terrainOnly)
+		if hit then
+			return hit.Position
+		end
+		prev, t = q, t + step
+	end
+	local fall = Rules.fall(o.Y - baseY, v.Y, g)
+	if fall and fall <= Cfg.MaxFlight then
+		local x, y, z = Rules.at(fall, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
+		return Vector3.new(x, y, z)
+	end
+	return nil
+end
+
 local function comesDown(s: State, lay: Rules.Lay): Vector3?
 	local key = string.format("%.2f %.2f %.2f", lay.yaw, lay.traverse, lay.elevation)
 	local known = s.landings[key]
@@ -489,28 +511,7 @@ local function comesDown(s: State, lay: Rules.Lay): Vector3?
 	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, lay.traverse, lay.elevation)
 	local o = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local v = frame:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
-	local g = gun.gravity
-	terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
-	local step = Cfg.Arc.step
-	local prev, t = o, step
-	local found: Vector3? = nil
-	while t <= Cfg.MaxFlight and prev.Y > Cfg.Arc.floor do
-		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
-		local q = Vector3.new(x, y, z)
-		local hit = workspace:Raycast(prev, q - prev, terrainOnly)
-		if hit then
-			found = hit.Position
-			break
-		end
-		prev, t = q, t + step
-	end
-	if not found then
-		local fall = Rules.fall(o.Y - base.Y, v.Y, g)
-		if fall and fall <= Cfg.MaxFlight then
-			local x, y, z = Rules.at(fall, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
-			found = Vector3.new(x, y, z)
-		end
-	end
+	local found = pathDown(o, v, gun.gravity, base.Y)
 	if #s.landingKeys >= 32 then
 		table.clear(s.landings)
 		table.clear(s.landingKeys)
@@ -520,17 +521,9 @@ local function comesDown(s: State, lay: Rules.Lay): Vector3?
 	return found
 end
 
--- Whether a field gun's or howitzer's shell laid `lay` would come down on a spawn (Config/Artillery.SpawnGuard:
--- either side's spawn zone, or its wave line in a Normal match)
-local function onSpawn(s: State, lay: Rules.Lay): boolean
-	local gun = s.gun
-	if gun.mg then
-		return false
-	end
-	local land = comesDown(s, lay)
-	if not land then
-		return false
-	end
+-- whether a shell of `s`'s coming down at `land` falls on a spawn (Config/Artillery.SpawnGuard: either side's spawn
+-- zone, or its wave line in a Normal match)
+local function nearSpawn(s: State, land: Vector3): boolean
 	local G = Cfg.SpawnGuard
 	local lines = {}
 	local front = workspace:FindFirstChild(FrontCfg.FolderName)
@@ -542,7 +535,48 @@ local function onSpawn(s: State, lay: Rules.Lay): boolean
 			end
 		end
 	end
-	return Rules.nearSpawn(land.X, land.Z, Map1.spawnZones, lines, gun.zone + G.gap)
+	return Rules.nearSpawn(land.X, land.Z, Map1.spawnZones, lines, s.gun.zone + G.gap)
+end
+
+-- Whether a field gun's or howitzer's shell laid `lay` would come down on a spawn
+local function onSpawn(s: State, lay: Rules.Lay): boolean
+	if s.gun.mg then
+		return false
+	end
+	local land = comesDown(s, lay)
+	return land ~= nil and nearSpawn(s, land)
+end
+
+-- The turn and speed share for `s`'s next shell to miss (Rules.miss; Config/Artillery `miss`) where it comes down
+-- now, its path traced on the terrain: rolled again while it would come down on a spawn or farther off than
+-- Miss.stray times the radius (rough ground: a long shot clearing a crest); no miss after Miss.tries.
+local function missOf(s: State): (number, number)
+	local gun = s.gun
+	local land = comesDown(s, s.lay)
+	local radius = gun.miss
+	local pivot = s.model:GetPivot()
+	local function shot(dYaw: number, speed: number): (Vector3, Vector3)
+		local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, s.lay.traverse + dYaw, s.lay.elevation)
+		return pivot:PointToWorldSpace(Vector3.new(mx, my, mz)),
+			pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed * speed
+	end
+	local origin = shot(0, 1)
+	local flat = land and Vector3.new(land.X - origin.X, 0, land.Z - origin.Z)
+	if not land or not flat or not radius or flat.Magnitude < 1 then
+		return 0, 1
+	end
+	local M = Cfg.Miss
+	for _ = 1, M.tries do
+		local right, beyond = Rules.miss(radius, random:NextNumber(), random:NextNumber(), random:NextNumber())
+		local dYaw, speed = Rules.missLay(flat.Magnitude, right, beyond)
+		local o, v = shot(dYaw, speed)
+		local down = pathDown(o, v, gun.gravity, pivot.Position.Y)
+		local off = down and Vector3.new(down.X - land.X, 0, down.Z - land.Z).Magnitude
+		if down and off and off <= radius * M.stray and not nearSpawn(s, down) then
+			return dYaw, speed
+		end
+	end
+	return 0, 1
 end
 
 local function friendlyTarget(s: State): string?
@@ -569,13 +603,9 @@ local function fire(s: State)
 		return
 	end
 	local gun = s.gun
-	local r = {}
-	for i = 1, 6 do
-		r[i] = random:NextNumber()
-	end
-	local dYaw, dElev, speed = Rules.scatter(gun.scatter, r)
-	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, s.lay.traverse + dYaw, s.lay.elevation + dElev)
 	local pivot = s.model:GetPivot()
+	local dYaw, speed = missOf(s)
+	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, s.lay.traverse + dYaw, s.lay.elevation)
 	local origin = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local velocity = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed * speed
 	s.model:SetAttribute("FiredAt", t)
