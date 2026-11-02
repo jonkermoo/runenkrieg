@@ -1,5 +1,6 @@
 --!strict
--- Normal bots building (Config/Bots.Build; user 2026-11-02): each side's build list at its front, which job a bot
+-- Normal bots building (Config/Bots.Build; user 2026-11-02): each side's build list at its front (its trenches:
+-- Rules/BotTrenches), which job a bot
 -- takes, and the share of the team's caps the bots may use. Pure: the server (src/server/Bots) lays and works the
 -- pieces through src/server/Build's placeAs / planAs / workAs, with the players' checks.
 
@@ -35,26 +36,13 @@ function BotBuild.front(sectors: { { x: number } }, owner: { string }, side: str
 	return best
 end
 
--- The side's build list at its front `zone`, the enemy's way in along (tx, tz) (a flat unit): a trench line across
--- the zone's enemy-facing edge, a sandbag pile in front of each outdoor hold spot with no cover (the first
--- `bags.max`), wire across the approaches out past the edge, an MG nest at the hold spot nearest the enemy, and the
+-- The Engineers' build list at its side's front `zone`, the enemy's way in along (tx, tz) (a flat unit): a sandbag pile
+-- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the edge, an MG nest at the hold spot nearest the enemy, and the
 -- guns `guns` names (the keys the artillery level opens) behind the zone.
 function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns: { string }, cfg: any): { Job }
 	local jobs: { Job } = {}
 	-- across: the line at right angles to the way in
 	local ax, az = -tz, tx
-	local T = cfg.Trench
-	local ex, ez = zone.x + tx * zone.radius * T.edge, zone.z + tz * zone.radius * T.edge
-	local half = T.length / 2
-	table.insert(jobs, {
-		key = "Trench",
-		x = ex - ax * half,
-		z = ez - az * half,
-		ex = ex + ax * half,
-		ez = ez + az * half,
-		fx = tx,
-		fz = tz,
-	})
 	local B = cfg.Bags
 	local bagged = 0
 	for _, h in holds do
