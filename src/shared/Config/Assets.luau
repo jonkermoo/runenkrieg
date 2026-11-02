@@ -1173,6 +1173,27 @@ local Assets = {
 			generator = "src/dev/Buildings/init.luau",
 			description = "Small board shed",
 		},
+		SelvaCasetta = {
+			category = "Buildings",
+			folder = "Houses",
+			template = "SelvaCasetta",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Selvaran casetta (the Selvaran house kit)",
+		},
+		SelvaStairHouse = {
+			category = "Buildings",
+			folder = "Houses",
+			template = "SelvaStairHouse",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Selvaran house with an outside stair (the Selvaran house kit)",
+		},
+		SelvaLongHouse = {
+			category = "Buildings",
+			folder = "Houses",
+			template = "SelvaLongHouse",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Selvaran long house with a portico (the Selvaran house kit)",
+		},
 		Church = {
 			category = "Buildings",
 			folder = "Landmarks",

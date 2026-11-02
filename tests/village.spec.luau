@@ -124,7 +124,7 @@ return Maps.each(function(map: any, name: string)
 			-- the path straight out of each front door must not cross a boundary
 			for _, l in lots do
 				local rx, rz = -l.fz, l.fx
-				for _, door in B.Templates[l.style].doors or { { center = 0 } } do
+				for _, door in V.frontDoors(B.Templates[l.style]) do
 					local px = l.x + rx * door.center + l.fx * (l.depth / 2 + cfg.setback - 1.5)
 					local pz = l.z + rz * door.center + l.fz * (l.depth / 2 + cfg.setback - 1.5)
 					for _, f in layout.fences do

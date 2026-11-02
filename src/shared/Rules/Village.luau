@@ -91,6 +91,23 @@ function Village.steps(
 	return out
 end
 
+-- A template's front doors as { center } along its frontage (local X): its own, or for a landmark-style template built
+-- of blocks, each unturned block's front doors moved by the block's x (a long house with a portico).
+function Village.frontDoors(t: any): { any }
+	if not t.blocks then
+		return t.doors or { { center = 0 } }
+	end
+	local out = {}
+	for _, b in t.blocks do
+		if (b.yaw or 0) == 0 then
+			for _, d in b.doors or { { center = 0 } } do
+				table.insert(out, { center = b.x + d.center })
+			end
+		end
+	end
+	return out
+end
+
 -- The x of a map's railway (its village's railX), or nil: a map without a village (Config/Maps/Playtest) has none.
 function Village.railX(map: any): number?
 	return map.village and map.village.railX
@@ -289,10 +306,8 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 				end
 				local px, pz, dx, dz = pointAt(road.points, c.s)
 				local nx, nz = -dz * c.side, dx * c.side -- away from the road
-				local styleList = if road.rows
-					then B.RoadTemplates.Row
-					elseif road.id == "Main" then B.RoadTemplates.Main
-					else B.RoadTemplates.Lane
+				local kit = (cfg.kit and B.Kits[cfg.kit]) or B.RoadTemplates
+				local styleList = if road.rows then kit.Row elseif road.id == "Main" then kit.Main else kit.Lane
 				local styleName = pick(styleList, hash01(ri, ci, 22))
 				local lot = makeLot(hash01, road.id .. "_" .. ci, styleName, B, M, ri, ci, 0, 0, -nx, -nz)
 				local off = road.width / 2 + cfg.setback + lot.depth / 2
@@ -340,13 +355,14 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 			local rx, rz = -l.fz, l.fx
 			local d = l.depth / 2 + cfg.setback - 1.5
 			local half = l.width / 2 + 2
-			local kind = if l.road == "RowStreet" then "PicketFence" else pick(P.BoundaryKinds, hash01(i, 3, 32))
+			local kinds = (cfg.kit and B.Kits[cfg.kit].boundaries) or P.BoundaryKinds
+			local kind = if l.road == "RowStreet" then "PicketFence" else pick(kinds, hash01(i, 3, 32))
 			local function at(u: number, f: number): { number }
 				return { l.x + rx * u + l.fx * f, l.z + rz * u + l.fz * f }
 			end
 			-- gate gaps over every door (template doors are in local X = frontage, centered on the plot)
 			local gaps = {}
-			for _, door in B.Templates[l.style].doors or { { center = 0 } } do
+			for _, door in Village.frontDoors(B.Templates[l.style]) do
 				table.insert(gaps, { door.center - 2.6, door.center + 2.6 })
 			end
 			table.sort(gaps, function(g1, g2)

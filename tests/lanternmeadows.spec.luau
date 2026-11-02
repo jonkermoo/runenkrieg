@@ -166,6 +166,13 @@ return {
 			assert(r.waterY - MT.heightAt(Map, cx, cz) > 4, `the river is shallow at {cx}, {cz}`)
 		end
 	end,
+	["a house built of blocks has its gates at its blocks' doors (the long house's, under its portico and beside it)"] = function()
+		local B = require("../src/shared/Config/Buildings")
+		local V = require("../src/shared/Rules/Village")
+		local d = V.frontDoors(B.Templates.SelvaLongHouse)
+		assert(#d == 2 and d[1].center == -6 and d[2].center == 9, "long house doors")
+		assert(V.frontDoors(B.Templates.SelvaCasetta)[1].center == 0)
+	end,
 	["built off Map 1: its ground and skirt clear of Map 1's"] = function()
 		assert(Map.offMap, "Lantern Meadows replaces only its own terrain")
 		local own = Map.terrainMargin + Map.skirt.width

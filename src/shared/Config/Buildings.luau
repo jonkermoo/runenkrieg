@@ -67,8 +67,9 @@ local Buildings = {
 	-- rising `grade` per stud out to `reach`, in columns `cell` across
 	GroundCut = { margin = 3, reach = 14, grade = 0.9, cell = 2 },
 	-- and a door whose step stands higher than a step over the ground outside gets stone steps down to it
-	-- (Rules/Village.steps): `rise` each (under Metrics.Character.MaxStepUp), `run` deep, at most `max`
-	Steps = { rise = 0.8, run = 1.4, max = 16 },
+	-- (Rules/Village.steps): `rise` each (under Metrics.Character.MaxStepUp), `run` deep, at most `max` (24: an upper
+	-- gable door's outside stair on a slope, Lantern Meadows' Selvaran houses)
+	Steps = { rise = 0.8, run = 1.4, max = 24 },
 	-- the map audit (src/dev/Greybox/Audit, docs/maps/MAP_RULES.md): sample spacing, how far round the walls the ground
 	-- may not stand over a floor, how far out from each door to walk, the slack on each test
 	Audit = { step = 1, wallReach = 3, walkOut = 24, slack = 0.2 },
@@ -215,6 +216,73 @@ local Buildings = {
 			walls = { "TarBoard", "BarnRed", "WhiteBoard" },
 			roofs = { "DarkTile", "Slate" },
 			description = "Small board shed.",
+		},
+
+		-- Selvara's house kit (user 2026-11-01: "yes, Selvaran kit"; Lantern Meadows' hamlet, Selvara's later maps): warm
+		-- stucco under low terracotta roofs. A one-storey casetta; a two-storey house whose upper door opens on its
+		-- gable, reached by an outside stone stair (VillageBuild's steps), its stable door below; a long two-storey house
+		-- with a three-arch portico along half its front.
+		SelvaCasetta = {
+			folder = "Houses",
+			width = 20,
+			depth = 13,
+			stories = 1,
+			roofPitch = 26,
+			roofStyle = "Tile",
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Cream", "Ochre", "Rose" },
+			roofs = { "Terracotta" },
+			gableChimney = 1,
+			description = "Selvaran casetta: one storey of stucco under a low terracotta roof, a gable chimney.",
+		},
+		SelvaStairHouse = {
+			folder = "Houses",
+			width = 22,
+			depth = 14,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 26,
+			roofStyle = "Tile",
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Rose", "Ochre", "Sienna" },
+			roofs = { "Terracotta" },
+			doors = { { center = 4, w = 5.4, h = 7.5 } }, -- the stable door
+			upperDoor = "left",
+			gableChimney = 1,
+			description = "Selvaran house with an outside stair: two storeys of stucco, a stable door below, the stair up the gable.",
+		},
+		SelvaLongHouse = {
+			folder = "Houses",
+			width = 32,
+			depth = 20,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 26,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Ochre", "Cream", "Rose" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "House",
+					x = 0,
+					z = 3,
+					width = 30,
+					depth = 13,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 26,
+					roofStyle = "Tile",
+					gableChimney = 1,
+					doors = { { center = -6 }, { center = 9 } },
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = -6, z = -6.2, length = 18, depth = 5.4, height = 9, bays = 3 },
+			},
+			description = "Selvaran long house: two storeys of stucco under terracotta, a three-arch portico along half its front.",
 		},
 
 		-- Map 1's landmarks (user 2026-11-01, the six designs: church, coaching inn, oast house, Dutch barn, watermill,
@@ -714,6 +782,17 @@ local Buildings = {
 			description = "The cascina: an ochre farmhouse with a portico and loggia, an arched gateway and a dovecote tower, Selvara's tents in front.",
 		},
 	} :: { [string]: Template },
+
+	-- A map's house kit (its village.kit): which templates along which kind of road, and its plot boundaries (else
+	-- RoadTemplates and Config/Props.BoundaryKinds: Map 1's English cottages).
+	Kits = {
+		Selvara = {
+			Main = { "SelvaCasetta", "SelvaStairHouse", "SelvaLongHouse", "SelvaCasetta" },
+			Lane = { "SelvaCasetta", "SelvaStairHouse", "SelvaCasetta" },
+			Row = { "SelvaStairHouse" },
+			boundaries = { "StoneWall", "StoneWall", "Hedge", "RailFence" },
+		},
+	},
 
 	-- Village placement: which templates appear along which kind of road (picked by hash).
 	RoadTemplates = {

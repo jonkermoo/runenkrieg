@@ -192,14 +192,16 @@ local LanternMeadows = {
 	},
 
 	-- The festival road through the meadows and over the ford, its landmarks and the fields' hedgerows
-	-- (Rules/Village). No houses yet: the Selvaran hamlet comes with its house kit.
+	-- (Rules/Village), and the Selvaran hamlet (Config/Buildings.Kits.Selvara) along the road east of S4 and up a lane.
 	village = {
 		area = rect(1700, 2550, -200, 250),
+		kit = "Selvara",
 		roads = {
 			{
 				id = "Main",
 				width = 10,
-				maxLots = 0,
+				maxLots = 6,
+				lotsFrom = 0.74, -- houses only past S4
 				points = points({
 					{ -150, 60 },
 					{ 160, 72 },
@@ -219,6 +221,13 @@ local LanternMeadows = {
 					{ 2550, 40 },
 				}),
 			},
+			{
+				id = "Borgo",
+				width = 8,
+				maxLots = 5,
+				lotsFrom = 0.25,
+				points = points({ { 1960, 35 }, { 1985, 110 }, { 2030, 170 }, { 2100, 215 } }),
+			},
 		},
 		lotSpacing = 26,
 		setback = 5,
@@ -229,6 +238,8 @@ local LanternMeadows = {
 			{ x = 1240, z = CZ + 20, r = 50 },
 			{ x = 1660, z = CZ - 30, r = 50 },
 			{ x = 2080, z = CZ - 60, r = 50 },
+			{ x = 2275, z = CZ - 40, r = 80 }, -- the East spawn
+			{ x = 1880, z = CZ + 40, r = 30 }, -- clear of the S4|S5 divider
 		},
 		-- the map's own landmarks (Config/Buildings, one at a time; user 2026-11-01). The festival stage north of S3, on
 		-- its x, facing the point.
@@ -260,7 +271,7 @@ local LanternMeadows = {
 			end
 			return out
 		end)(),
-		trees = { cell = 18, density = 0, roadClear = 5, buildingClear = 6 },
+		trees = { cell = 18, density = 0.05, roadClear = 5, buildingClear = 6 },
 		cars = 0,
 		features = lanterns,
 	},
