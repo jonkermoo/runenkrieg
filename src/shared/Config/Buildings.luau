@@ -62,6 +62,9 @@ local Buildings = {
 	-- and a door whose step stands higher than a step over the ground outside gets stone steps down to it
 	-- (Rules/Village.steps): `rise` each (under Metrics.Character.MaxStepUp), `run` deep, at most `max`
 	Steps = { rise = 0.8, run = 1.4, max = 16 },
+	-- the map audit (src/dev/Greybox/Audit, docs/maps/MAP_RULES.md): sample spacing, how far round the walls the ground
+	-- may not stand over a floor, how far out from each door to walk, the slack on each test
+	Audit = { step = 1, wallReach = 3, walkOut = 24, slack = 0.2 },
 	WallThickness = 1,
 	-- landmark pieces (Template `blocks` / `features`)
 	Battlement = { wall = 1.6, height = 1.8, merlon = 2.2 }, -- parapet height, merlons on it, a merlon's length
