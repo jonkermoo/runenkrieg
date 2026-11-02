@@ -74,6 +74,7 @@ local Bots = {
 		{ key = "Grenadier" }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
 		{ key = "AutoRifler" },
 		{ key = "Shotgunner", push = 18 },
+		{ key = "Engineer" }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
 	},
 	-- the share of the battle points (Config/Classes.Earn: the kill, headshot and assists) a bot's death pays its killer
 	-- (user 2026-10-30: "make the AIs count half the battle points when you kill them")
@@ -242,6 +243,42 @@ local Bots = {
 		cell = 50,
 		keep = 20,
 		slack = 10,
+	},
+
+	-- Normal: bots building (Rules/BotBuild; src/server/Build placeAs / planAs / workAs, the players' checks; user
+	-- 2026-11-02: "Engineers + small help", "Only when calm"). Each side's commander keeps a build list at its front (the
+	-- sector it holds nearest the enemy), facing the enemy's way in:
+	-- - Trench: one line `length` studs across the zone, `edge` of its radius out toward the enemy.
+	-- - Bags: a sandbag pile `ahead` studs in front of each outdoor hold spot with no cover (the first `max`).
+	-- - Wire: a strip `out` studs past the zone's edge on each of `lanes` (studs across from the middle).
+	-- - Nest: an MG nest `ahead` of the hold spot nearest the enemy.
+	-- - Guns: the guns the artillery level opens, `back` studs behind the zone's middle, `side` apart.
+	-- - repairs: own pieces within `repair` studs past the zone's edge that want swings (the nearest `repairs`).
+	-- Engineers take the nearest job within `take` studs; any other bot helps work a trench or wire within `help`. A bot
+	-- builds only when nobody has shot at it or hurt it for `calm` s and it sees no enemy; it stands `stand` studs from
+	-- a piece's spot to lay it, gives a job up after `seconds`; a refused spot moves `nudge` studs across (a trench
+	-- line back and forth; up to `tries` times), then waits `retry` s. A piece of the job's key within `match` studs of
+	-- its spot is the job's.
+	-- Caps (user: "A third, half the guns"): the bots lay at most `caps.pieces` of the team's Config/Build.PerTeam and
+	-- `caps.<key>` of a gun's.
+	Build = {
+		calm = 3,
+		take = 90,
+		help = 25,
+		stand = 4,
+		seconds = 60,
+		nudge = 6,
+		tries = 8, -- (steps of `nudge` out to 24 studs each way: Map 1's tree clumps stand on some fronts' lines)
+		retry = 30,
+		match = 8,
+		repair = 30,
+		repairs = 6,
+		Trench = { edge = 0.9, length = 30 },
+		Bags = { ahead = 3, max = 4 },
+		Wire = { out = 40, lanes = { -40, 0, 40 } },
+		Nest = { ahead = 2 },
+		Guns = { back = 60, side = 24 },
+		caps = { pieces = 50, FieldGun = 3, Howitzer = 1 },
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above

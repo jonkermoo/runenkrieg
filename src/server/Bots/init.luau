@@ -55,6 +55,7 @@ local DevCfg = require(Shared.Config.DevTools)
 local FrontCfg = require(Shared.Config.Frontline)
 local IndoorCfg = require(Shared.Config.Indoors)
 local DragCfg = require(Shared.Config.Dragging)
+local BuildCfg = require(Shared.Config.Build)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local HealCfg = require(Shared.Config.Healing)
 local W = require(Shared.Config.Weapons)
@@ -72,12 +73,14 @@ local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
 local Actions = require(Shared.Rules.BotActions)
 local Buildings = require(Shared.Rules.BotBuildings)
+local BotBuild = require(Shared.Rules.BotBuild)
 local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
 local ShotRules = require(Shared.Rules.ShotAudio)
 local Sup = require(Shared.Rules.Suppression)
 local Teams = require(Shared.Rules.Teams)
 local Armory = require(script.Parent.Armory)
+local Build = require(script.Parent.Build)
 local Concussion = require(script.Parent.Concussion)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
@@ -110,6 +113,7 @@ local CV = MV.Cover
 local brainCfg = Cfg.Brain :: any
 local AC = Cfg.Actions
 local IN = Cfg.Indoors
+local BD = Cfg.Build
 
 type Target = { model: Model, distance: number, visible: boolean }
 
@@ -127,16 +131,31 @@ type Nav = {
 	doorAt: number, -- when it last opened a door on its way (it waits while the door swings)
 }
 
+-- Normal: a job on its side's build list (Rules/BotBuild): where it is now (moved by refusals), the piece once laid
+-- and the Build swings it still wants (src/server/Build.worksOf, each commander tick)
+type BuildJob = {
+	job: BotBuild.Job, -- (its spot moved by refusals)
+	base: BotBuild.Job, -- as planned
+	model: Model?,
+	at: Vector3?, -- the piece's spot once laid (what it swings at)
+	left: number,
+	tries: number,
+	waitUntil: number,
+	open: boolean, -- on the list this tick
+}
+
 -- Normal: what a bot does instead of fighting for a while (Rules/BotActions): a drag of `who` to `to` (cover from the
 -- enemy spot `from`), a heal of `who`, a grenade at `at`
 type Act = {
-	kind: string, -- "Drag", "Heal" or "Throw"
+	kind: string, -- "Drag", "Heal", "Throw" or "Build"
 	who: Model?,
 	at: Vector3?,
 	from: Vector3?,
 	to: Vector3?,
 	started: number,
 	phase: string?, -- the drag's "pull", the heal's "heal", the throw's "throw" and "done"
+	job: BuildJob?, -- a build's job
+	swingAt: number?, -- a build's next swing
 }
 
 type Bot = {
@@ -203,6 +222,7 @@ type Bot = {
 	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
 	threwAt: number,
 	away: boolean, -- its gun put away for an action
+	shovel: Tool?, -- its shovel, out of its hands until it builds
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -245,6 +265,9 @@ local stats = {
 	heals = 0, -- heals started
 	drags = 0, -- drags started
 	doors = 0, -- doors opened on the way
+	laid = 0, -- pieces laid and trenches planned
+	swings = 0, -- Build swings that landed
+	refused = 0, -- lays refused (the spot moved)
 	covering = 0, -- shots of covering fire
 	assaults = 0, -- squads that pushed into a zone
 	stoodUp = 0, -- bodies found lying after a knock, stood up
@@ -266,6 +289,19 @@ type SquadState = {
 	clear: Vector3?, -- pushing in: the indoor spot by a known enemy inside a building (its Assault bots go there)
 }
 local squads: { [string]: SquadState } = {}
+
+-- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again
+-- when the front or the artillery level changes, or once the hold spots are found), each matched to its piece once
+-- laid, and the own pieces near the front wanting swings; `open` the jobs a bot may take now
+type SideBuild = {
+	front: number?,
+	level: number,
+	holds: boolean,
+	lay: { BuildJob },
+	works: { [Model]: BuildJob },
+	open: { BuildJob },
+}
+local buildLists: { [string]: SideBuild } = {}
 local commandTick = 0
 
 -- the budget's running state
@@ -522,7 +558,10 @@ spawnBody = function(b: Bot)
 	if b.grenades then
 		(b.grenades :: Tool):Destroy()
 	end
-	b.grenades, b.act, b.away = nil, nil, false
+	if b.shovel then
+		(b.shovel :: Tool):Destroy()
+	end
+	b.grenades, b.act, b.away, b.shovel = nil, nil, false, nil
 	local nade = Loadouts.gear(m).Grenade
 	if nade then
 		local given, g = pcall(Armory.tool, nade, b.kit)
@@ -619,7 +658,10 @@ local function despawn(b: Bot)
 	if b.grenades then
 		(b.grenades :: Tool):Destroy()
 	end
-	b.grenades, b.act, b.away = nil, nil, false
+	if b.shovel then
+		(b.shovel :: Tool):Destroy()
+	end
+	b.grenades, b.act, b.away, b.shovel = nil, nil, false, nil
 end
 
 local function add(mode: string, side: string?)
@@ -1397,6 +1439,33 @@ local function face(b: Bot, at: Vector3)
 	end
 end
 
+-- its shovel in its hands (made the first time; its gun put away), or put back
+local function holdShovel(b: Bot, on: boolean)
+	local m = b.m :: Model
+	if not on then
+		if b.shovel and (b.shovel :: Tool).Parent ~= nil then
+			(b.shovel :: Tool).Parent = nil
+		end
+		return
+	end
+	putAway(b, true)
+	if not b.shovel then
+		local made, t = pcall(Armory.tool, "shovel", b.kit)
+		if made then
+			b.shovel = t
+		end
+	end
+	local t = b.shovel
+	if t and t.Parent ~= m then
+		local hold = t:FindFirstChild("Hold", true) :: Motor6D?
+		t.Parent = m
+		if hold then
+			hold.Part0 = m:FindFirstChild("Torso") :: BasePart?
+		end
+		DevDummies.own(m)
+	end
+end
+
 -- the action over (done, given up, or cut short): the heal or the drag stopped, the grenades put back, the gun out
 local function finish(b: Bot)
 	local act = b.act
@@ -1411,6 +1480,9 @@ local function finish(b: Bot)
 		elseif act.kind == "Drag" then
 			Dragging.stopAs(m)
 		end
+	end
+	if b.shovel then
+		holdShovel(b, false)
 	end
 	local g = b.grenades
 	if g then
@@ -1451,7 +1523,44 @@ local function throwLook(b: Bot, at: Vector3): Vector3
 	return u * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
 end
 
--- what to do besides fighting, if anything (drag > heal > grenade)
+-- the build job a bot takes on its side's list (Rules/BotBuild.pick): an Engineer any within Build.take, any other bot
+-- a trench or wire wanting swings within Build.help; nil if none
+local HELPS = { Trench = true, Wire = true }
+local function pickJob(b: Bot): BuildJob?
+	local sb = buildLists[b.side :: string]
+	if not sb or #sb.open == 0 then
+		return nil
+	end
+	local engineer = Loadouts.classOf(b.m :: Model) == "Engineer"
+	local held: { [BuildJob]: boolean } = {}
+	for _, o in bots do
+		local a = o.act
+		if a and a.kind == "Build" and a.job then
+			held[a.job :: BuildJob] = true
+		end
+	end
+	local list: { BotBuild.Job } = {}
+	local taken: { [number]: boolean } = {}
+	for k, r in sb.open do
+		local at = r.at
+		local j = r.job
+		list[k] = {
+			key = j.key,
+			x = if at then at.X else j.x,
+			z = if at then at.Z else j.z,
+			fx = j.fx,
+			fz = j.fz,
+			work = r.model ~= nil,
+		}
+		taken[k] = held[r] == true
+	end
+	local root = (b.root :: BasePart).Position
+	local within = if engineer then BD.take else BD.help
+	local k = BotBuild.pick(list, root.X, root.Z, within, taken, {}, if engineer then nil else HELPS)
+	return if k then sb.open[k] else nil
+end
+
+-- what to do besides fighting, if anything (drag > heal > build > grenade)
 local function weigh(b: Bot, now: number)
 	b.actAt = now + AC.every
 	local m, root = b.m :: Model, b.root :: BasePart
@@ -1501,6 +1610,15 @@ local function weigh(b: Bot, now: number)
 		i = Actions.healPick(mates, AC.Heal)
 		if i then
 			b.act = { kind = "Heal", who = who[i].model, started = now }
+			return
+		end
+	end
+	-- a job on its side's build list, when calm and it sees no enemy (Config/Bots.Build)
+	local seen = b.target ~= nil and (b.target :: Target).visible
+	if not pushing and not seen and b.side and Actions.calm(sinceThreat, sinceHurt, BD.calm) then
+		local r = pickJob(b)
+		if r then
+			b.act = { kind = "Build", job = r, started = now }
 			return
 		end
 	end
@@ -1631,10 +1749,111 @@ local function standFacing(b: Bot, at: Vector3, now: number)
 	face(b, at)
 end
 
+-- the piece a bot just laid for `job`: its side's work of the key nearest the spot (a trench: its first end), or nil
+local function laidFor(b: Bot, job: BotBuild.Job): Build.Work?
+	local best, bestD = nil, BD.match
+	for _, w in Build.worksOf(b.kit) do
+		local d = math.sqrt((w.at.X - job.x) ^ 2 + (w.at.Z - job.z) ^ 2)
+		if w.key == job.key and d <= bestD then
+			best, bestD = w, d
+		end
+	end
+	return best
+end
+
+-- a refused lay: its spot moved across (Rules/BotBuild.nudge), after Build.tries the planned spot again a while later
+local function refused(r: BuildJob, now: number)
+	stats.refused += 1
+	r.tries += 1
+	local base = r.base
+	if r.tries >= BD.tries then
+		r.tries, r.job, r.waitUntil, r.open = 0, base, now + BD.retry, false
+		return
+	end
+	local x, z = BotBuild.nudge(base, r.tries, BD.nudge)
+	local dx, dz = x - base.x, z - base.z
+	r.job = {
+		key = base.key,
+		x = x,
+		z = z,
+		ex = if base.ex then (base.ex :: number) + dx else nil,
+		ez = if base.ez then (base.ez :: number) + dz else nil,
+		fx = base.fx,
+		fz = base.fz,
+	}
+end
+
+-- a build, one think of it: to the job, the piece laid (once), then Build swings at it until it wants none, the
+-- shovel in hand; given up when it's shot at, sees an enemy, the job leaves the list or takes too long
+local function doBuild(b: Bot, act: Act, now: number): boolean
+	local r = act.job :: BuildJob
+	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
+	local sinceThreat = if b.threatAt then now - (b.threatAt :: number) else math.huge
+	local hurt = b.hurtAt ~= nil and (b.hurtAt :: number) > act.started
+	local seen = b.target ~= nil and (b.target :: Target).visible
+	if not r.open or now - act.started > BD.seconds or hurt or sinceThreat < BD.calm or seen then
+		finish(b)
+		return false
+	end
+	local job = r.job
+	local f = Vector3.new(job.fx, 0, job.fz)
+	local spot = if r.model and r.at then r.at :: Vector3 else Routes.ground(job.x, job.z)
+	-- (it lays a piece from behind it, its own side; it swings at one from where it is)
+	local reach = if r.model then BuildCfg.SwingReach - 1 else BD.stand + 2
+	if flat(spot - root.Position).Magnitude > reach then
+		humanoid.WalkSpeed = M.WalkSpeed
+		setGoal(b, if r.model then spot else spot - f * BD.stand, now)
+		follow(b, now)
+		actPose(b)
+		return true
+	end
+	holdShovel(b, true)
+	if not act.phase then
+		act.phase = "dig"
+		if b.anim then
+			(b.anim :: Animate.Handle).play(W.shovel.holds.dig, true)
+		end
+	end
+	standFacing(b, if r.model then spot else spot + f, now)
+	if not r.model then
+		local reason = if job.key == "Trench"
+			then Build.planAs(m, spot, Routes.ground(job.ex :: number, job.ez :: number))
+			else Build.placeAs(m, job.key, spot, f)
+		if reason then
+			refused(r, now)
+			finish(b)
+			return false
+		end
+		stats.laid += 1
+		local w = laidFor(b, job)
+		if not w then
+			finish(b) -- (it is on the next tick's list)
+			return false
+		end
+		r.model, r.at, r.left = w.model, w.at, w.left
+		act.swingAt = now + Build.swingGap()
+		return true
+	end
+	if now >= (act.swingAt or 0) then
+		local reason = Build.workAs(m, r.model :: Model, "Build")
+		if reason == nil then
+			stats.swings += 1
+			act.swingAt = now + Build.swingGap()
+		elseif reason ~= "Too soon" then
+			finish(b) -- (whole now, or gone)
+			return false
+		end
+	end
+	return true
+end
+
 -- the action under way, one think of it; false once it's over (the bot fights again this think)
 local function doAct(b: Bot, now: number): boolean
 	local act = b.act :: Act
 	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
+	if act.kind == "Build" then
+		return doBuild(b, act, now)
+	end
 	if act.kind == "Throw" then
 		if act.phase == "done" or now - act.started > AC.Grenade.hold + GrenadeCfg.Throw.length + 1 then
 			finish(b)
@@ -2462,6 +2681,112 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	end
 end
 
+-- Normal: `side`'s build list at its front (Rules/BotBuild; Config/Bots.Build): the lay jobs, each matched to its
+-- piece once laid (open while it wants swings; an unlaid one while the bots' caps allow it and it isn't waiting), and
+-- the own pieces near the front wanting swings
+local GUNS = { "FieldGun", "Howitzer" }
+local function buildList(side: string, owner: { string }, level: number)
+	local now = os.clock()
+	local kit: string? = nil
+	for _, b in bots do
+		if b.side == side then
+			kit = b.kit
+			break
+		end
+	end
+	local sb = buildLists[side]
+	if not sb then
+		sb = { front = nil, level = -1, holds = false, lay = {}, works = {}, open = {} }
+		buildLists[side] = sb
+	end
+	local sbs = sb :: SideBuild
+	sbs.open = {}
+	for _, r in sbs.lay do
+		r.open = false
+	end
+	local front = BotBuild.front(Map.sectors, owner, side)
+	if not front or not kit then
+		sbs.front, sbs.lay, sbs.works = nil, {}, {}
+		return
+	end
+	local s = Map.sectors[front :: number]
+	local zone = { x = s.x, z = s.z, radius = s.radius }
+	local tx = if side == "West" then 1 else -1 -- (the enemy's home end: Map 1 runs west to east)
+	local spots = Routes.spots(front :: number, side, true)
+	if front ~= sbs.front or level ~= sbs.level or (not sbs.holds and spots ~= nil) then
+		local holds = {}
+		for _, sp in spots or {} do
+			table.insert(holds, { x = sp.pos.X, z = sp.pos.Z, hidden = sp.hidden })
+		end
+		local guns = {}
+		for _, key in GUNS do
+			if FrontRules.gunLocked(FrontCfg.Artillery, key, level) == nil then
+				table.insert(guns, key)
+			end
+		end
+		sbs.lay = {}
+		for _, job in BotBuild.plan(zone, tx, 0, holds, guns, BD) do
+			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+		end
+		sbs.front, sbs.level, sbs.holds = front, level, spots ~= nil
+	end
+	local works = Build.worksOf(kit)
+	local pieces: { BotBuild.Piece } = {}
+	local mine, ofKey = 0, {}
+	for i, w in works do
+		pieces[i] = { key = w.key, x = w.at.X, z = w.at.Z, left = w.left }
+		if w.owner and (w.owner :: number) < 0 then
+			mine += 1
+			ofKey[w.key] = (ofKey[w.key] or 0) + 1
+		end
+	end
+	local jobs = {}
+	for k, r in sbs.lay do
+		jobs[k] = r.job
+	end
+	local matched = BotBuild.match(jobs, pieces, BD.match)
+	local claimed: { [Model]: boolean } = {}
+	for k, r in sbs.lay do
+		local i = matched[k]
+		if i then
+			local w = works[i]
+			r.model, r.at, r.left = w.model, w.at, w.left
+			claimed[w.model] = true
+			r.open = w.left > 0
+		else
+			r.model, r.at, r.left = nil, nil, 0
+			local key = r.job.key
+			r.open = now >= r.waitUntil and (key == "Trench" or BotBuild.allowed(key, mine, ofKey[key] or 0, BD.caps))
+		end
+		if r.open then
+			table.insert(sbs.open, r)
+		end
+	end
+	local keep: { [Model]: BuildJob } = {}
+	local n = 0
+	for _, i in BotBuild.repairs(pieces, zone, BD.repair, BD.repairs + #sbs.lay) do
+		local w = works[i]
+		if not claimed[w.model] and n < BD.repairs then
+			n += 1
+			local r = sbs.works[w.model]
+			if not r then
+				local job = { key = w.key, x = w.at.X, z = w.at.Z, fx = tx, fz = 0, work = true }
+				r = { job = job, base = job, model = w.model, tries = 0, waitUntil = 0, left = 0, open = true }
+			end
+			local rr = r :: BuildJob
+			rr.at, rr.left, rr.open = w.at, w.left, true
+			keep[w.model] = rr
+			table.insert(sbs.open, rr)
+		end
+	end
+	for model, r in sbs.works do
+		if not keep[model] then
+			r.open = false
+		end
+	end
+	sbs.works = keep
+end
+
 -- Normal: each side's commander (Rules/BotOrders) from the sectors on the Frontline folder: who attacks the side's
 -- target sector and who defends an own sector being taken; then its squads (formSquads)
 local function command()
@@ -2505,6 +2830,8 @@ local function command()
 			end
 		end
 		formSquads(side, counts)
+		local level = f:GetAttribute(FrontCfg.LevelAttribute)
+		buildList(side, owner, if type(level) == "number" then level else 0)
 	end
 	-- squads no longer formed go
 	for key, sq in squads do
@@ -2526,6 +2853,10 @@ local function report(now: number)
 	local roles: { [string]: number } = {}
 	local lods: { [string]: number } = {}
 	local windows, clearing = 0, 0
+	local jobsOpen = 0
+	for _, sb in buildLists do
+		jobsOpen += #sb.open
+	end
 	for _, sq in squads do
 		if sq.clear then
 			clearing += 1
@@ -2567,7 +2898,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -2597,6 +2928,10 @@ local function report(now: number)
 			stats.throws,
 			stats.heals,
 			stats.drags,
+			stats.laid,
+			stats.swings,
+			stats.refused,
+			jobsOpen,
 			stats.doors,
 			windows,
 			clearing,
@@ -2690,6 +3025,7 @@ function Bots.start()
 	Frontline.onMatchStart(function()
 		Routes.clear() -- (the map is put back: spots worked out again)
 		table.clear(indoorCells)
+		table.clear(buildLists)
 		table.clear(squads)
 		respawnAll("Normal")
 	end)
