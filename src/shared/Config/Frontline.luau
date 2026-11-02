@@ -53,13 +53,12 @@ local Frontline = {
 	Waves = { every = 15, dead = 5, shield = 3 },
 	-- The wave line (user 2026-10-31: "make sure spawns are lined up and they spawn in the general area of the flag"):
 	-- `perRow` soldiers side by side `gap` apart, filled from the middle out, each row `rowGap` behind the last, facing
-	-- the side's target sector. At a sector the line's front stands `edge` studs outside its zone toward the side's own
-	-- end; at a side's own HQ sector the line is in its spawn zone (Config/Maps/Map1.spawnZones). A slot needs `clear`
+	-- the side's target sector. At a fought-over sector the line's front row stands `back` of the way from its point to
+	-- the point behind it (Rules/Frontline.lineCentre): closer to the sector behind (user 2026-11-02: "spawns still need
+	-- to be pushed back. it should be closer to the previous sector than the furthest sector they have"; was `edge` 90
+	-- past the zone, before that 20 and 8). On Map 1 0.60-0.75 stay hidden and dry; 0.55 puts the S3 / S4 line in the
+	-- river. At a side's own HQ sector the line is in its spawn zone (Config/Maps/Map1.spawnZones). A slot needs `clear`
 	-- (across, high, deep) studs of open ground over dry terrain; a blocked one is skipped (up to `tries` slots).
-	-- (edge 90: the line stands well down the back slope of the point's rise, under the next point's sight line;
-	-- user 2026-11-01: "the spawn behind that elevated position (as natural cover)"; 2026-11-02: "can we move the spawn
-	-- even further back? still be in the same sector though" (was 20, before that 8). Every slot stays in its own sector
-	-- and out of the river up to ~100 on Map 1: tests/map1.spec.luau)
 	-- A soldier stands on the highest ground within `foot` studs of its slot's middle (on the slope no foot is buried;
 	-- user 2026-11-01: "my body was in the ground"), its feet `lift` over it, its root at its own standing height
 	-- (legs, root, hip height) over that.
@@ -68,7 +67,7 @@ local Frontline = {
 		perRow = 8,
 		gap = 4,
 		rowGap = 5,
-		edge = 90,
+		back = 0.65,
 		treeClear = 4,
 		clear = { 3, 6, 3 },
 		tries = 40,

@@ -157,19 +157,17 @@ local function spawnSector(side: Rules.Side): number
 end
 
 -- the wave line's centre and facing for `side`: at its own HQ in its spawn zone, else by the sector's flag, its zone's
--- edge plus Line.edge toward the side's own end; facing the sector it attacks
+-- point and the one behind it (Rules/Frontline.lineCentre, Line.back of the way back); facing the sector it attacks
 local function lineOf(side: Rules.Side): (Vector3, Vector3)
 	local i = spawnSector(side)
 	local home = if side == "West" then 1 else #sectors
-	local s = sectors[i]
 	local centre: Vector3
 	if i == home then
 		local r = Map.spawnZones[side]
 		centre = Vector3.new((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2)
 	else
-		local back = sectors[if side == "West" then i - 1 else i + 1]
-		local d = Vector3.new(back.x - s.x, 0, back.z - s.z).Unit
-		centre = Vector3.new(s.x, 0, s.z) + d * (s.radius + Cfg.Line.edge)
+		local cx, cz = Rules.lineCentre(sectors, i, side, Cfg.Line)
+		centre = Vector3.new(cx, 0, cz)
 	end
 	local aim = sectors[Rules.target(state, side) or i]
 	local face = Vector3.new(aim.x - centre.X, 0, aim.z - centre.Z)

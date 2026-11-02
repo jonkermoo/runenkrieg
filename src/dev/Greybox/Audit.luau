@@ -135,15 +135,12 @@ function Audit.run(mapName: string, deps: any): string
 			return x / l, z / l
 		end
 		local function line(side: string, i: number, rows: number): { Vector3 }
-			local s = S[i]
 			local cx, cz
 			if i == (if side == "West" then 1 else #S) then
 				local r = Map.spawnZones[side]
 				cx, cz = (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2
 			else
-				local b = S[if side == "West" then i - 1 else i + 1]
-				local dx, dz = unit(b.x - s.x, b.z - s.z)
-				cx, cz = s.x + dx * (s.radius + Front.Line.edge), s.z + dz * (s.radius + Front.Line.edge)
+				cx, cz = R.lineCentre(S, i, side, Front.Line)
 			end
 			local aim = S[if side == "West" then i + 1 else i - 1]
 			local fx, fz = unit(aim.x - cx, aim.z - cz)
