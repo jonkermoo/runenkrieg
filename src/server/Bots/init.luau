@@ -1359,6 +1359,9 @@ end
 local function weigh(b: Bot, now: number)
 	b.actAt = now + AC.every
 	local m, root = b.m :: Model, b.root :: BasePart
+	if Healing.busy(m) then
+		return -- (being healed: it stays for it)
+	end
 	local all, n = soldiersNow()
 	local kit = m:GetAttribute("Kit")
 	local spot = knownSpot(b, now) or b.lastSeenAt
