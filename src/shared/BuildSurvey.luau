@@ -10,11 +10,13 @@
 -- centre (Survey.box); "At" (CFrame) is the gun itself, on the ground, looking out along the muzzle. A bridge's "Frame"
 -- is its trench square's centre on the ground, RightVector along the trench, LookVector across it.
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local C = require(Shared.Config.Build)
 local ArtilleryCfg = require(Shared.Config.Artillery)
+local TreeCfg = require(Shared.Config.TreeSway)
 local Rules = require(Shared.Rules.Build)
 
 local Survey = {}
@@ -114,6 +116,29 @@ function Survey.toSegment(p: Vector3, a: Vector3, b: Vector3): number
 	local len2 = ab:Dot(ab)
 	local t = if len2 > 0 then math.clamp(ap:Dot(ab) / len2, 0, 1) else 0
 	return (ap - ab * t).Magnitude
+end
+
+-- Whether a standing tree is too near a trench run from `a` to `b` (Rules.treeTooNear): its trunk (the "Trunk" of a
+-- tree tagged TreeCfg.Tag) by its pivot, at the trunk's widest
+function Survey.treeNear(a: Vector3, b: Vector3): boolean
+	local T = C.Trench
+	local reach = Rules.trenchTop(T) + T.joins.heapReach + T.treeClear + 4
+	local flat = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+	local mid = (a + b) / 2
+	local box = if flat.Magnitude > 1e-3 then CFrame.lookAt(mid, mid + flat) else CFrame.new(mid)
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	for _, part in workspace:GetPartBoundsInBox(box, Vector3.new(2 * reach, 200, flat.Magnitude + 2 * reach), params) do
+		local tree = part.Parent
+		if part.Name == "Trunk" and tree and tree:IsA("Model") and CollectionService:HasTag(tree, TreeCfg.Tag) then
+			local at = tree:GetPivot().Position
+			if Rules.treeTooNear(a.X, a.Z, b.X, b.Z, at.X, at.Z, math.max(part.Size.X, part.Size.Z), T) then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 -- Whether a piece laid at `frame` (ground `low`) runs into anything standing over its footprint (buildings, trees,

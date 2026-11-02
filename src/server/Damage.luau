@@ -358,6 +358,16 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
+	-- who sits in a dugout safe from it, taken before the map is hit: a blast that buries the dugout's trench puts them
+	-- out on the ground over it, unhurt (user 2026-11-02: "if the trench gets destroyed, the dugout should automatically
+	-- be destroyed too, putting all players above ground")
+	local sheltered: { [Model]: boolean } = {}
+	for _, character in Dev.soldiers() do
+		local torso = character:FindFirstChild("Torso") :: BasePart?
+		if torso and Build.sheltered(torso.Position, position) then
+			sheltered[character] = true
+		end
+	end
 	-- player-built pieces: trenches buried, sandbags and wire worn down (src/server/Build, Config/Build.Structures)
 	Build.blast(position, kg, o.structure)
 	-- and whatever else watches blasts (the guns: src/server/Artillery)
@@ -372,12 +382,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local torso = character:FindFirstChild("Torso") :: BasePart?
 		-- (a teammate's blast: unhurt, not thrown; inside a roofed dugout, a blast outside it: the same, Build.sheltered)
-		if
-			humanoid
-			and torso
-			and not Damage.spares(by, character)
-			and not Build.sheltered(torso.Position, position)
-		then
+		if humanoid and torso and not Damage.spares(by, character) and not sheltered[character] then
 			local d = (torso.Position - position).Magnitude
 			if d <= reach or (o.fragments and d <= o.fragments.wound) then
 				local kpa = kpaAt(d)
