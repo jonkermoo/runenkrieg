@@ -230,7 +230,7 @@ function Buildings.build(name: string, deps: Deps): Model
 			elseif f.kind == "Lattice" then
 				Geometry.lattice(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height)
 			elseif f.kind == "Tent" then
-				Geometry.tent(model, ctx, at, f.length, f.width, f.height)
+				Geometry.tent(model, ctx, at, f.length, f.width, f.height, f.canvas)
 			elseif f.kind == "Crates" then
 				Geometry.crates(model, ctx, at, f.count)
 			elseif f.kind == "Landing" then
@@ -238,7 +238,8 @@ function Buildings.build(name: string, deps: Deps): Model
 			elseif f.kind == "Boat" then
 				Geometry.boat(model, ctx, at, f.length)
 			elseif f.kind == "Arcade" then
-				Geometry.arcade(model, ctx, at, f.length, f.depth, f.height, f.bays)
+				local y = CFrame.new(0, f.y or 0, 0)
+				Geometry.arcade(model, ctx, at * y, f.length, f.depth, f.height, f.bays, f.raised, f.roof)
 			elseif f.kind == "Stage" then
 				Geometry.stage(model, ctx, at, f.width, f.depth, f.height, f.posts)
 			elseif f.kind == "Waterwheel" then

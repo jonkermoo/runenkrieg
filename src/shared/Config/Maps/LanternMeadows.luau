@@ -240,6 +240,8 @@ local LanternMeadows = {
 			{ id = "Watchtower", style = "Watchtower", x = 400, z = CZ + 100, front = { 0, -1 } },
 			-- the field barn among the hedgerows, south of S2 on its x, facing it
 			{ id = "FieldBarn", style = "FieldBarn", x = 820, z = CZ - 110, front = { 0, 1 } },
+			-- the cascina south of S5 on its x, between the point and the river, facing the point; Selvara's camp
+			{ id = "Cascina", style = "Cascina", x = 2080, z = CZ - 170, front = { 0, 1 } },
 			-- the ferry house on the east bank just north of the festival ford, its landing and boat on the river (west)
 			{ id = "Ferry", style = "FerryHouse", x = 1483, z = CZ + 55, front = { -1, 0 } },
 		},

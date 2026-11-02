@@ -1045,25 +1045,38 @@ end
 
 -- An arcade along a wall (its back, local +Z, against the building's front): `bays` arches `L` along local X, `D` deep,
 -- `H` to the top of its wall band. Chunky piers, each arch's head stepped in corbels (hand-made, not a true curve), a
--- stone floor, a lean-to roof rising `rise` to the wall behind, a lantern hanging in every bay.
-function Geometry.arcade(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number, H: number, bays: number)
+-- stone floor, a lean-to roof rising `rise` to the wall behind, a lantern hanging in every bay. `raised`: a loggia on
+-- an upper floor (a thin floor slab on the arcade below it, a parapet between its piers); `roof` false: none (another
+-- arcade stands on it).
+function Geometry.arcade(
+	parent: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	L: number,
+	D: number,
+	H: number,
+	bays: number,
+	raised: boolean?,
+	roof: boolean?
+)
 	local A = ctx.B.Arcade
-	local depth = ctx.B.FoundationDepth
-	local floor = Geometry.section(parent, ctx, "Floor", "Stone", -1)
+	local depth = if raised then A.slab else ctx.B.FoundationDepth
+	local story = if raised then 1 else 0
+	local floor = Geometry.section(parent, ctx, "Floor", "Stone", story - 1)
 	Geometry.part(
 		floor,
 		ctx,
 		"Paving",
 		at * CFrame.new(0, (A.floor - depth) / 2, 0),
 		Vector3.new(L + 0.6, A.floor + depth, D),
-		"Foundation"
+		if raised then "Floor" else "Foundation"
 	)
 	local fz = -D / 2 + A.pier / 2 -- the front line of piers
 	local bay = L / bays
 	local span = bay - A.pier
 	local top = H - A.band
 	for i = 0, bays do
-		local sec = Geometry.section(parent, ctx, "Pier", ctx.class, 0)
+		local sec = Geometry.section(parent, ctx, "Pier", ctx.class, story)
 		Geometry.part(
 			sec,
 			ctx,
@@ -1073,7 +1086,7 @@ function Geometry.arcade(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: n
 			"Wall"
 		)
 	end
-	local band = Geometry.section(parent, ctx, "Arcade", ctx.class, 0)
+	local band = Geometry.section(parent, ctx, "Arcade", ctx.class, story)
 	Geometry.part(
 		band,
 		ctx,
@@ -1100,12 +1113,25 @@ function Geometry.arcade(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: n
 			end
 		end
 		lantern(lanterns, ctx, at, cx, top, fz + 1.2)
+		if raised then
+			Geometry.part(
+				band,
+				ctx,
+				"Parapet",
+				at * CFrame.new(cx, A.floor + A.parapet / 2, fz),
+				Vector3.new(span + 0.05, A.parapet, A.pier * 0.7),
+				"Wall"
+			)
+		end
+	end
+	if roof == false then
+		return
 	end
 	-- the lean-to roof from the band up to the wall
-	local roof = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	local cover = Geometry.section(parent, ctx, "Roof", "Tile", 99)
 	local tilt = math.atan(A.rise / D)
 	Geometry.part(
-		roof,
+		cover,
 		ctx,
 		"Roof",
 		at * CFrame.new(0, H + A.rise / 2 + 0.2, 0) * CFrame.Angles(-tilt, 0, 0),
@@ -1226,8 +1252,10 @@ function Geometry.lattice(parent: Instance, ctx: Ctx, at: CFrame, W: number, H: 
 end
 
 -- A soldiers' ridge tent `L` long (local Z), `W` wide and `H` high, standing on the real ground (OnGround): two canvas
--- sides, canvas ends (a dark door flap in the front one, local -Z), a ridge pole. Its canvas is Festival TentGrey.
-function Geometry.tent(parent: Instance, ctx: Ctx, at: CFrame, L: number, W: number, H: number)
+-- sides, canvas ends (a dark door flap in the front one, local -Z), a ridge pole. Its canvas is a Festival key
+-- (TentGrey for Katzmark, TentGreen for Selvara).
+function Geometry.tent(parent: Instance, ctx: Ctx, at: CFrame, L: number, W: number, H: number, canvas: string?)
+	local key = canvas or "TentGrey"
 	local sec = Geometry.section(parent, ctx, "Tent", "Wood", 0)
 	sec:SetAttribute("OnGround", true)
 	local a = math.atan(H / (W / 2))
@@ -1239,12 +1267,12 @@ function Geometry.tent(parent: Instance, ctx: Ctx, at: CFrame, L: number, W: num
 			"Canvas",
 			at * CFrame.new(side * W / 4, H / 2, 0) * CFrame.Angles(0, 0, -side * a),
 			Vector3.new(slant, 0.25, L),
-			"TentGrey"
+			key
 		)
 	end
 	for _, z in { -L / 2, L / 2 } do
 		for _, p in triangle(sec, ctx, at * CFrame.new(0, 0, z), W - 0.3, H - 0.15, 0.2, "Festival") do
-			p:SetAttribute("Swatch", "TentGrey")
+			p:SetAttribute("Swatch", key)
 		end
 	end
 	Geometry.part(

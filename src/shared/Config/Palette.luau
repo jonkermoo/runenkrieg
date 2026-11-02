@@ -69,7 +69,8 @@ local Palette = {
 			Canvas = { 200, 184, 148 },
 			RunePaint = { 92, 124, 148 },
 			Lantern = { 232, 196, 120 },
-			TentGrey = { 124, 126, 120 },
+			TentGrey = { 124, 126, 120 }, -- Katzmark's tents
+			TentGreen = { 98, 122, 84 }, -- Selvara's
 		},
 		ToneJitter = 0.04, -- +-4% per piece: hand-made, not factory-flat
 		Dust = { 200, 192, 176 }, -- a pulverised section's puff (src/client/Debris), half way from its own colour

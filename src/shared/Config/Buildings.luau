@@ -47,7 +47,8 @@ export type Template = {
 	-- (an arcade, its back +Z against a block's front wall), { kind = "Landing", x, z, length, depth, steps } (a river
 	-- quay, its face -Z), { kind = "Boat", x, z, yaw?, length } (on the river's water line), { kind = "Tent", x, z, yaw?,
 	-- length, width, height } (a ridge tent, its door -Z), { kind = "Crates", x, z, yaw?, count }, { kind = "Lattice", x,
-	-- z, y, yaw?, width, height } (a brick vent on a wall, the wall behind it +Z).
+	-- z, y, yaw?, width, height } (a brick vent on a wall, the wall behind it +Z). An Arcade may stand `y` up, `raised`
+	-- (a loggia on the one below) or with `roof = false`; a Tent's `canvas` is a Palette.Buildings.Festival key.
 	features: { any }?,
 	description: string,
 }
@@ -103,7 +104,17 @@ local Buildings = {
 	-- an arcade (Lantern Meadows' lantern-makers' hall): piers `pier` square, a wall band `band` high over the arches,
 	-- each arch's head `corbels` steps `step` high (each a fraction of the span, from the pier in), its floor `floor` up,
 	-- its lean-to roof rising `rise` to the wall behind
-	Arcade = { pier = 1.6, band = 1.8, corbels = { 0.3, 0.17, 0.07 }, step = 0.7, floor = 0.4, rise = 2.2 },
+	-- (a raised one, a loggia: a floor slab `slab` thick, a parapet `parapet` high between its piers)
+	Arcade = {
+		pier = 1.6,
+		band = 1.8,
+		corbels = { 0.3, 0.17, 0.07 },
+		step = 0.7,
+		floor = 0.4,
+		rise = 2.2,
+		slab = 0.8,
+		parapet = 1.2,
+	},
 	-- a river landing (Lantern Meadows' ferry house): the quay's top `top` over the base, steps `rise` x `run`, `width`
 	-- across, mooring posts `post` high, the ferry's boat `boat` wide
 	Landing = { top = 0.2, rise = 0.8, run = 1.4, width = 6, post = 4, boat = 3.4 },
@@ -636,6 +647,71 @@ local Buildings = {
 				{ kind = "Lattice", x = 8, z = 7.2, y = 15.6, yaw = 180, width = 7.2, height = 5.4 },
 			},
 			description = "The field barn: a two-storey brick hay barn under terracotta, three wide doors, brick lattice vents.",
+		},
+		-- The cascina at S5, south of the point on its x between it and the river, facing it: a two-storey ochre farmhouse
+		-- under terracotta with a portico below and an open loggia above, an arched gateway through to the courtyard
+		-- behind, a three-stage dovecote tower at its west end (pigeon holes at the top, stairs inside: about the
+		-- watchtower's height at the other end) and Selvara's green tents and crates in front.
+		Cascina = {
+			folder = "Landmarks",
+			width = 64,
+			depth = 30,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 26,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Ochre" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "House",
+					x = -4,
+					z = 2,
+					width = 36,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 26,
+					roofStyle = "Tile",
+					gableChimney = -1,
+					doors = { { center = -7.2 }, { center = 0, w = 6, h = 8 }, { center = 7.2 } },
+					backDoor = { { center = 0, w = 6, h = 8 } },
+				},
+				{
+					name = "Dovecote",
+					x = 21,
+					z = 2,
+					width = 12,
+					depth = 12,
+					stories = 3,
+					storyHeight = 8,
+					roofPitch = 40,
+					roofStyle = "Tile",
+					windows = 1,
+					quoins = true,
+					wall = "Sienna",
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = -4, z = -7.7, length = 36, depth = 5.4, height = 10, bays = 5, roof = false },
+				{
+					kind = "Arcade",
+					x = -4,
+					z = -7.7,
+					y = 10.2,
+					length = 36,
+					depth = 5.4,
+					height = 8,
+					bays = 5,
+					raised = true,
+				},
+				{ kind = "Lattice", x = 21, z = -4.2, y = 21, width = 6.3, height = 2.7 },
+				{ kind = "Tent", x = -27, z = -9, length = 8, width = 6, height = 5, canvas = "TentGreen" },
+				{ kind = "Tent", x = 30, z = -10, yaw = 90, length = 8, width = 6, height = 5, canvas = "TentGreen" },
+				{ kind = "Crates", x = 14, z = -12, count = 3 },
+			},
+			description = "The cascina: an ochre farmhouse with a portico and loggia, an arched gateway and a dovecote tower, Selvara's tents in front.",
 		},
 	} :: { [string]: Template },
 
