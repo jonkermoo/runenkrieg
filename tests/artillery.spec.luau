@@ -23,6 +23,24 @@ return {
 		end
 		assert(QF.reload == 10 and HOW.reload == 30) -- user 2026-10-20
 	end,
+	["a bot's BotId is told from a player's UserId"] = function()
+		assert(A.botGunner(-3) and not A.botGunner(12345) and not A.botGunner(nil) and not A.botGunner("x"))
+	end,
+	["a bot gunner's tracks each name a priority over the hold, in a player's order"] = function()
+		local rank = { Action = 1, Action2 = 2, Action3 = 3, Action4 = 4 }
+		local P = C.BotPose
+		for _, key in { "brace", "load", "reload", "crank", "stand" } do
+			assert(rank[(P :: any)[key]] and rank[(P :: any)[key]] > 1, key)
+		end
+		assert(rank[P.brace] > rank[P.load] and rank[P.load] > rank[P.crank] and P.stand == P.crank)
+	end,
+	["a bot gunner's brace lands its pull on the shot"] = function()
+		assert(near(A.braceWait(10, 10, 2, 0.45) :: number, 1.55), "the howitzer: the pull at its charge's end")
+		assert(A.braceWait(10, 10, 0.3, 0.45) == 0, "a charge shorter than the pull: at once")
+		assert(near(A.braceWait(10, 11, 2, 0.45) :: number, 0.55), "seen part way: the rest")
+		assert(A.braceWait(10, 11.6, 2, 0.45) == 0, "seen late: at once")
+		assert(A.braceWait(10, 12.5, 2, 0.45) == nil, "the shot gone: none")
+	end,
 	["wrap keeps angles in -180..180"] = function()
 		assert(near(A.wrap(190), -170) and near(A.wrap(-190), 170) and near(A.wrap(45), 45))
 	end,
@@ -44,6 +62,19 @@ return {
 		s = { yaw = 170, traverse = -QF.traverse, elevation = 0 }
 		s = A.lay(s, -170, 0, QF, 0.1) -- 20 degrees to the left: past the stop
 		assert(s.traverse > -QF.traverse) -- first the mount goes toward +4.5
+	end,
+	["the howitzer's ring mount turns right round, held past the back (user 2026-11-02)"] = function()
+		-- holding the turn key: the client's aim leads the laid yaw by Aim.lead
+		local s = { yaw = 0, traverse = 0, elevation = HOW.elevation[1] }
+		for _ = 1, math.ceil(400 / (HOW.traverseRate * 0.05)) do
+			s = A.lay(s, A.wrap(s.yaw + s.traverse + C.Aim.lead), s.elevation, HOW, 0.05)
+		end
+		assert(s.yaw == 0 and s.traverse > 380, "on past 180 and round again: " .. s.traverse)
+		-- an aim just behind it goes the short way, from either side
+		s = A.lay({ yaw = 0, traverse = 175, elevation = 45 }, -175, 45, HOW, 1)
+		assert(near(s.traverse, 175 + HOW.traverseRate), "on through 180, not back round")
+		s = A.lay({ yaw = 0, traverse = 540, elevation = 45 }, 170, 45, HOW, 100)
+		assert(near(A.wrap(s.yaw + s.traverse), 170, 1e-4) and near(s.traverse, 530), "a whole turn on: still short")
 	end,
 	["elevation goes toward the aim, clamped to the limits"] = function()
 		local s = A.lay({ yaw = 0, traverse = 0, elevation = 0 }, 0, 80, HOW, 100)
@@ -631,39 +662,16 @@ return {
 			end
 		end
 	end,
-	["a gun won't lay onto a spawn: it slides along the edge or holds"] = function()
-		local g = QF
-		local e0 = g.elevation[1]
-		local start = { yaw = 0, traverse = 0, elevation = e0 }
-		local x0, z0 = A.landing(g, start, 0, 0)
-		assert(x0 and z0)
-		-- a spawn just past where it lands now, straight ahead (-Z): raising the barrel walks into it
-		local far = z0 - 60
-		local zones = { S = { minX = -10, maxX = 10, minZ = far - 10, maxZ = far + 10 } }
-		local margin = g.zone + C.SpawnGuard.gap
-		local function blocked(l: any): boolean
-			local x, z = A.landing(g, l, 0, 0)
-			return x ~= nil and z ~= nil and A.nearSpawn(x, z, zones, {}, margin)
-		end
-		assert(not blocked(start))
-		local l = start
-		local held = false
-		for _ = 1, 200 do
-			local h
-			l, h = A.layClear(l, 0, g.elevation[2], g, 0.05, blocked)
-			held = held or h
-			assert(not blocked(l))
-		end
-		assert(held and l.elevation < g.elevation[2])
-		-- turning away still works while it is held at the edge
-		local turned = A.layClear(l, 40, g.elevation[2], g, 0.5, blocked)
-		assert(turned.traverse > l.traverse and not blocked(turned))
-		-- a gun already laid on a spawn (the wave line came to it) moves freely
-		local onIt = { yaw = 0, traverse = 0, elevation = l.elevation }
-		local function always(_: any): boolean
-			return true
-		end
-		local moved, h2 = A.layClear(onIt, 10, onIt.elevation, g, 0.5, always)
-		assert(not h2 and moved.traverse > 0)
+	["the gunner's sight: points over the screen box, fades eased both ways (user 2026-11-02)"] = function()
+		local F = C.ViewFade
+		local pts = A.sightPoints(F.cols, F.rows, F.box)
+		assert(#pts == F.cols * F.rows)
+		assert(pts[1][1] == F.box[1] and pts[1][2] == F.box[2], "top left first")
+		assert(pts[#pts][1] == F.box[3] and pts[#pts][2] == F.box[4], "bottom right last")
+		local one = A.sightPoints(1, 1, { 0, 0, 1, 1 })
+		assert(#one == 1 and one[1][1] == 0.5 and one[1][2] == 0.5, "one point: the middle")
+		assert(A.fadeStep(0, 0.8, 4, 0.1) == 0.4 and A.fadeStep(0.7, 0.8, 4, 0.1) == 0.8, "toward it, not past")
+		assert(A.fadeStep(0.8, 0, 4, 0.1) == 0.4 and A.fadeStep(0.1, 0, 4, 0.1) == 0, "back, not past")
+		assert(F.see > 0 and F.see < 1, "faded, not gone")
 	end,
 }

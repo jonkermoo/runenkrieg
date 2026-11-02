@@ -22,6 +22,9 @@
 --   (`mg.look` degrees a pixel, within its traverse and elevation), the fire key held fires (Net "Artillery"
 --   "Trigger"), the reload key swaps the box ("Reload"); no arc. Everyone's bullets ("MGShot"): the flash and report at
 --   the muzzle, the tracer, the hole (src/client/GunFx).
+-- - a bot on a gun (src/server/Artillery manAs: its "Gunner" its BotId) is posed by every client as a player gunner's
+--   own client poses them: no client owns a bot, so each plays its brace (from "BraceAt"), loading, hand wheel (while
+--   the lay moves), a machine gun's stance and box reload on the bot's own Animator, there only.
 
 local CollectionService = game:GetService("CollectionService")
 local ContentProvider = game:GetService("ContentProvider")
@@ -34,6 +37,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local AudioCfg = require(Shared.Config.Audio)
 local Cfg = require(Shared.Config.Artillery)
+local BotCfg = require(Shared.Config.Bots)
 local CameraCfg = require(Shared.Config.Camera)
 local CameraRules = require(Shared.Rules.Camera)
 local SettingsRules = require(Shared.Rules.Settings)
@@ -96,6 +100,39 @@ end
 
 local function v3(p: { number }): Vector3
 	return Vector3.new(p[1], p[2], p[3])
+end
+
+-- whoever is on `model` now: their character, and whether it is a bot's (its "Gunner" the bot's BotId, its model
+-- found by tag and kept)
+local botsById: { [number]: Model } = {}
+local function gunnerOf(model: Model): (Model?, boolean)
+	local id = model:GetAttribute("Gunner")
+	if type(id) ~= "number" then
+		return nil, false
+	end
+	if not Rules.botGunner(id) then
+		local gunner = Players:GetPlayerByUserId(id)
+		return gunner and gunner.Character, false
+	end
+	local bot = botsById[id]
+	if not bot or not bot.Parent or bot:GetAttribute(BotCfg.IdAttribute) ~= id then
+		bot = nil
+		for _, m in CollectionService:GetTagged(BotCfg.Tag) do
+			if m:IsA("Model") and m:GetAttribute(BotCfg.IdAttribute) == id then
+				bot = m
+				break
+			end
+		end
+		botsById[id] = bot :: any
+	end
+	return bot, true
+end
+
+-- the character whose gunner tracks this client plays on `model`: mine when I'm on it (they replicate), a bot's on
+-- every client
+local function playedBy(model: Model): Model?
+	local character, bot = gunnerOf(model)
+	return if bot or (character and character == Players.LocalPlayer.Character) then character else nil
 end
 
 -- start posing a gun: its moving parts' rest places (the server never moves them)
@@ -384,6 +421,8 @@ end
 type Loading = { round: Model?, played: number? }
 local loadings: { [Model]: Loading } = {}
 local tracks: { [Model]: { [string]: AnimationTrack } } = {}
+local crews: { [Model]: Crew } = {} -- a bot on each gun (below)
+local crew: (model: Model, p: Pose) -> boolean
 
 local function roundTemplate(): Model?
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
@@ -412,7 +451,13 @@ local function oneTrack(character: Model, key: string, id: number?): AnimationTr
 	if not tr then
 		local a = Instance.new("Animation")
 		a.AnimationId = `rbxassetid://{id}`
-		tr = animator:LoadAnimation(a);
+		tr = animator:LoadAnimation(a)
+		-- (a bot's over its weapon hold, which the server plays: Config/Artillery.BotPose)
+		local kind = if string.sub(key, 1, 5) == "stand" then "stand" else key
+		local over = CollectionService:HasTag(character, BotCfg.Tag) and (Cfg.BotPose :: any)[kind]
+		if over then
+			tr.Priority = (Enum.AnimationPriority :: any)[over]
+		end
 		(set :: any)[key] = tr
 	end
 	return tr
@@ -442,10 +487,8 @@ reloadBox = function(model: Model, p: Pose)
 			end
 		end
 	end
-	local id = model:GetAttribute("Gunner") :: number?
-	local gunner = id and Players:GetPlayerByUserId(id)
-	local character = gunner and gunner.Character
-	if gunner == Players.LocalPlayer and character and readyAt and t >= 0 and p.reloadOf ~= readyAt then
+	local character = gunnerOf(model)
+	if character and character == playedBy(model) and readyAt and t >= 0 and p.reloadOf ~= readyAt then
 		p.reloadOf = readyAt
 		local tr = oneTrack(character, "reload", R.animation)
 		if tr then
@@ -511,9 +554,7 @@ local function load(model: Model, p: Pose, mine: boolean)
 	end
 	local firedAt = model:GetAttribute("FiredAt") :: number?
 	local readyAt = model:GetAttribute("ReadyAt") :: number?
-	local id = model:GetAttribute("Gunner") :: number?
-	local gunner = id and Players:GetPlayerByUserId(id)
-	local character = gunner and gunner.Character
+	local character = gunnerOf(model)
 	local arm = character and character:FindFirstChild("Right Arm") :: BasePart?
 	local t = if firedAt and readyAt then now() - (readyAt - L.lead) else -math.huge
 	-- the gunner plays it, once a reload, from where the loading is (user 2026-10-20: "make sure the reload animation
@@ -792,6 +833,99 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
 end
 
+-- a bot on a gun, posed here as its gunner's own client would (no client owns a bot): the bot's character, the lay it
+-- was last seen at and when that last moved (its hand wheel), the brace (its BraceAt) already played
+type Crew = { character: Model, traverse: number?, elevation: number?, movedAt: number, braceOf: number? }
+
+-- each frame: a bot's gunner tracks on `model` (true while a bot is on it); they stop as it gets off
+crew = function(model: Model, p: Pose): boolean
+	local character, bot = gunnerOf(model)
+	local who = if bot then character else nil
+	local c = crews[model]
+	if c and c.character ~= who then
+		for _, tr in tracks[c.character] or {} do
+			if tr.IsPlaying then
+				tr:Stop(0.2)
+			end
+		end
+		if loadings[model] then
+			loadings[model].played = nil
+		end
+		p.reloadOf = nil
+		crews[model] = nil
+		c = nil
+	end
+	if not who then
+		return false
+	end
+	local gun = p.gun
+	if not c then
+		c = {
+			character = who,
+			movedAt = -math.huge,
+			braceOf = model:GetAttribute("BraceAt") :: number?, -- (one braced before I saw it isn't played late)
+		}
+		crews[model] = c
+		-- fetched now, ready by their first play; a machine gun's stance on till it gets off
+		if gun.loads then
+			loadTrack(who)
+		end
+		oneTrack(who, "brace", Cfg.Brace.animation)
+		oneTrack(who, "crank", Cfg.Turn.crank)
+		for k, id in (gun.mg and gun.mg.stand) or {} do
+			local tr = oneTrack(who, "stand" .. k, id)
+			if tr then
+				tr:Play(0.2, 0.001)
+			end
+		end
+	end
+	local crewOn = c :: Crew
+	if gun.mg then
+		-- its stance weighted by the lay as it is drawn
+		local low, level, high = Rules.mgStand(p.elevation, gun.elevation)
+		local set = tracks[who] or {}
+		for k, w in { low = low, level = level, high = high } do
+			local tr = (set :: any)["stand" .. k] :: AnimationTrack?
+			if tr and tr.IsPlaying then
+				tr:AdjustWeight(math.max(w, 0.001), 0.1)
+			end
+		end
+		return true
+	end
+	-- the brace for the server's shot, its pull on the shot
+	local braceAt = model:GetAttribute("BraceAt") :: number?
+	if braceAt and braceAt ~= crewOn.braceOf then
+		crewOn.braceOf = braceAt
+		local wait = Rules.braceWait(braceAt, now(), gun.charge, Cfg.Brace.pull)
+		local tr = oneTrack(who, "brace", Cfg.Brace.animation)
+		if wait and tr then
+			task.delay(wait, function()
+				if crews[model] == crewOn then
+					tr:Play(0.1)
+				end
+			end)
+		end
+	end
+	-- the hand wheel while the lay moves (it comes 20 times a second: held between)
+	local traverse = model:GetAttribute("Traverse") :: number?
+	local elevation = model:GetAttribute("Elevation") :: number?
+	local t = os.clock()
+	if crewOn.traverse and (traverse ~= crewOn.traverse or elevation ~= crewOn.elevation) then
+		crewOn.movedAt = t
+	end
+	crewOn.traverse, crewOn.elevation = traverse, elevation
+	local crank = oneTrack(who, "crank", Cfg.Turn.crank)
+	if crank then
+		local turning = t - crewOn.movedAt < Cfg.Turn.held
+		if turning and not crank.IsPlaying then
+			crank:Play(Cfg.Turn.fade)
+		elseif not turning and crank.IsPlaying then
+			crank:Stop(Cfg.Turn.fade)
+		end
+	end
+	return true
+end
+
 function Artillery.start()
 	local player = Players.LocalPlayer
 	local camera = workspace.CurrentCamera
@@ -837,6 +971,7 @@ function Artillery.start()
 			end
 			poses[c :: any] = nil
 			loadings[c :: any] = nil
+			crews[c :: any] = nil
 		end)
 		for _, c in f:GetChildren() do
 			if c:IsA("Model") then
@@ -1054,7 +1189,8 @@ function Artillery.start()
 			if me then
 				found = model
 			end
-			load(model, p, me)
+			local bot = crew(model, p) -- (every frame: a bot taken off by a teammate stops here)
+			load(model, p, me or bot)
 		end
 		if found ~= mine then
 			if mine then
@@ -1220,13 +1356,6 @@ function Artillery.start()
 		end
 	end)
 
-	-- whoever is on `model` now, their character
-	local function gunnerOf(model: Model): Model?
-		local id = model:GetAttribute("Gunner") :: number?
-		local gunner = id and Players:GetPlayerByUserId(id)
-		return gunner and gunner.Character
-	end
-
 	-- a shot: the muzzle blast, its report, and the whistle where it comes down
 	Net.event("ArtilleryShot").OnClientEvent:Connect(function(model: Model, origin: Vector3, velocity: Vector3)
 		local gun = Cfg.Guns[model and model:GetAttribute("Gun") :: any]
@@ -1235,7 +1364,7 @@ function Artillery.start()
 		end
 		-- its barrel warming and its gunner thrown back (the field gun's `heat` and `kick`; none on the howitzer)
 		BarrelHeat.shot(model, gun, 1)
-		GunnerKick.kick(gunnerOf(model), gun.kick)
+		GunnerKick.kick((gunnerOf(model)), gun.kick)
 		-- the report: up close the gun itself, dry, crossfading into the distant boom and its echoes farther off
 		local eye = camera.CFrame.Position
 		local d = (eye - origin).Magnitude
@@ -1303,7 +1432,7 @@ function Artillery.start()
 				end
 			end
 			BarrelHeat.shot(model, gun, 1)
-			GunnerKick.kick(gunnerOf(model), gun.kick)
+			GunnerKick.kick((gunnerOf(model)), gun.kick)
 			local vary = 1 + (math.random() * 2 - 1) * mg.vary
 			local can = p and p.named.BoxKit
 			local near = (origin - workspace.CurrentCamera.CFrame.Position).Magnitude

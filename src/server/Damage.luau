@@ -129,6 +129,9 @@ local function attacks(by: Model?)
 	end
 end
 
+-- when each caster's last staff shot was fired (os.clock): what falls out of it can't hurt them for a while
+local castAt: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
+
 -- Hurts one soldier: the knock first (so a death goes down with its own knock), then the health. `by`: who did it,
 -- `zone` where (src/server/Loadouts credits the kill and the assists).
 local function hurt(
@@ -355,6 +358,16 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
+	-- who sits in a dugout safe from it, taken before the map is hit: a blast that buries the dugout's trench puts them
+	-- out on the ground over it, unhurt (user 2026-11-02: "if the trench gets destroyed, the dugout should automatically
+	-- be destroyed too, putting all players above ground")
+	local sheltered: { [Model]: boolean } = {}
+	for _, character in Dev.soldiers() do
+		local torso = character:FindFirstChild("Torso") :: BasePart?
+		if torso and Build.sheltered(torso.Position, position) then
+			sheltered[character] = true
+		end
+	end
 	-- player-built pieces: trenches buried, sandbags and wire worn down (src/server/Build, Config/Build.Structures)
 	Build.blast(position, kg, o.structure)
 	-- and whatever else watches blasts (the guns: src/server/Artillery)
@@ -369,12 +382,7 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local torso = character:FindFirstChild("Torso") :: BasePart?
 		-- (a teammate's blast: unhurt, not thrown; inside a roofed dugout, a blast outside it: the same, Build.sheltered)
-		if
-			humanoid
-			and torso
-			and not Damage.spares(by, character)
-			and not Build.sheltered(torso.Position, position)
-		then
+		if humanoid and torso and not Damage.spares(by, character) and not sheltered[character] then
 			local d = (torso.Position - position).Magnitude
 			if d <= reach or (o.fragments and d <= o.fragments.wound) then
 				local kpa = kpaAt(d)
@@ -416,9 +424,6 @@ end
 
 -- A tree landing on soldiers (src/server/Trees): everyone whose torso is within `radius` of the line `a` - `b` (and not
 -- far above or under it) takes `amount` and the `knock`, pushed to the side of the line they stand on.
--- when each caster's last staff shot was fired (os.clock): what falls out of it can't hurt them for a while
-local castAt: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
-
 function Damage.crush(a: Vector3, b: Vector3, radius: number, amount: number, knock: string)
 	local now = os.clock()
 	for _, character in Dev.soldiers() do
@@ -491,6 +496,8 @@ function Damage.start()
 			return
 		end
 		humanoid.BreakJointsOnDeath = false -- the head stays on: the death is a ragdoll
+		-- the ragdoll loosens the Neck (src/server/Ragdoll): never a death by itself
+		humanoid.RequiresNeck = false
 		humanoid.MaxHealth = Cfg.Health
 		humanoid.Health = Cfg.Health
 		humanoid.Died:Connect(function()

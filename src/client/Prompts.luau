@@ -236,14 +236,11 @@ local function spot(prompt: ProximityPrompt): Vector3?
 	return nil
 end
 
--- why `prompt` can't be used by me: its own reason, or in use when it is kept for another kit (Config/Prompts.KitAttr)
-local function blockedOf(prompt: ProximityPrompt): string?
-	local blocked = prompt:GetAttribute(Cfg.BlockedAttr) :: string?
-	local kit = prompt:GetAttribute(Cfg.KitAttr)
-	if not blocked and kit ~= nil and (player.Character and player.Character:GetAttribute("Kit")) ~= kit then
-		return "InUse"
-	end
-	return blocked
+-- why `prompt` can't be used by me: its own reason, or in use when it is kept for another kit (Config/Prompts.KitAttr);
+-- and whether it was the kit
+local function blockedOf(prompt: ProximityPrompt): (string?, boolean)
+	local myKit = player.Character and player.Character:GetAttribute("Kit")
+	return Rules.blocked(prompt:GetAttribute(Cfg.BlockedAttr) :: string?, prompt:GetAttribute(Cfg.KitAttr), myKit)
 end
 
 function Prompts.start()
@@ -253,11 +250,11 @@ function Prompts.start()
 	local states: { [ProximityPrompt]: string } = {}
 
 	local function view(prompt: ProximityPrompt, state: string): View
-		local blocked = blockedOf(prompt)
+		local blocked, kept = blockedOf(prompt)
 		return {
 			key = prompt.KeyboardKeyCode.Name,
 			object = prompt.ObjectText,
-			action = prompt.ActionText,
+			action = if kept then Cfg.KitOthersAction else prompt.ActionText,
 			state = state,
 			reason = if blocked then (Cfg.Reasons :: any)[blocked] or blocked else nil,
 			progress = if prompt == shown and heldAt
@@ -296,7 +293,7 @@ function Prompts.start()
 					dist = dist,
 					reach = inst.MaxActivationDistance,
 					enabled = inst.Enabled,
-					blocked = blockedOf(inst),
+					blocked = (blockedOf(inst)),
 					mine = inst:GetAttribute(Cfg.UserAttr) == player.UserId,
 				})
 			end

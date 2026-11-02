@@ -959,7 +959,7 @@ return {
 		assert(spot({ nearest = d.spacing - 1 }) == "Too close to another dugout")
 		assert(spot({ nearest = d.spacing }) == nil)
 	end,
-	["dugouts: Engineers only, 2 each, 10 swings, stages by HP while built, caving in once stood"] = function()
+	["dugouts: Engineers only, 2 each, 10 swings, stages by HP while built, filling in once stood"] = function()
 		local d = C.Dugout
 		local piece = assert(B.piece("Dugout", C.Pieces))
 		assert(piece.playerCap == 2)
@@ -972,9 +972,27 @@ return {
 		end
 		assert(shown(0, false) == "0,0", "laid: its timbers")
 		assert(shown(10, false) == "1,0" and shown(50, false) == "2,0" and shown(90, false) == "4,0", "built by HP")
-		assert(shown(100, true) == "4,0" and shown(80, true) == "4,0", "whole")
-		assert(shown(70, true) == "4,1" and shown(45, true) == "4,2" and shown(20, true) == "4,3", "caving in")
-		assert(#d.falls == #d.cave and #d.heaps == #d.falls)
+		assert(shown(100, true) == "4,0", "whole")
+		assert(shown(d.fillFrom, true) == "4,0" and shown(90, true) == "4,0", "a hit or two leaves it clear")
+		local _, half = B.dugoutShown(d.fillFrom / 2, 100, true, d)
+		local _, gone = B.dugoutShown(0, 100, true, d)
+		assert(near(half, 0.5) and gone == 1, "filling in by what it lost under fillFrom, full at 0")
+		assert(near(B.dugoutFillHeight(0, d), 0) and near(B.dugoutFillHeight(1, d), d.drop + d.lintel), "to the lintel")
+		-- its tunnel: head room over every step, the roof meeting the room's ceiling, the lintel under the wall's top
+		local T = C.Trench
+		local run = T.depth / math.tan(math.rad(T.wallAngle))
+		assert(d.lintel < T.depth - 1, "the wall whole over the doorway")
+		-- (in front of where the lintel meets the wall's face a soldier is still under the open trench)
+		local z0 = run * d.lintel / T.depth
+		for k = 1, 10 do
+			local z = d.stair * k / 10
+			if z >= z0 then
+				local step = -d.drop * math.ceil(z / (d.stair / 10) - 1e-9) / 10
+				local room = B.dugoutRoof(z, d, piece.height, run, T.depth) - step
+				assert(room > 5.2, `head room over step {k} ({room})`)
+			end
+		end
+		assert(near(B.dugoutRoof(d.stair, d, piece.height, run, T.depth), piece.height - d.drop), "into the room")
 		assert(not B.dugoutShelters(100, false), "never stood")
 		assert(B.dugoutShelters(100, true) and B.dugoutShelters(5, true) and not B.dugoutShelters(0, true))
 		-- a soldier stands upright in it; its ceiling lies under the trench floor (whole voxels of earth over it)
@@ -1006,23 +1024,21 @@ return {
 		assert(howitzer > 5 and howitzer < 12)
 	end,
 	-- (user 2026-11-02: "create constructtion statuses and destruction statuses")
-	["a trench square shows construction stages while dug, then finished, then destruction stages as it loses HP"] = function()
+	-- (user 2026-11-02: "the flag just stays and we dig physical terrain deeper and deeper until 100HP and a trench
+	-- appears. then it plays the trench destruction sequence as it takes damage")
+	["a trench square shows no pieces while dug, the finished ones at 100, then destruction stages as it loses HP"] = function()
 		local H, S = C.Trench.hp, C.Trench.stages
 		local function st(hp: number, built: boolean): string
 			local kind, n = B.trenchStage(hp, built, H, S)
 			return `{kind}{n}`
 		end
-		assert(B.trenchStage(0, false, H, S) == nil, "a plan shows no pieces")
-		assert(st(5, false) == "Dig1" and st(20, false) == "Dig1", "the first swing: stage 1")
-		assert(
-			st(40, false) == "Dig2" and st(60, false) == "Dig3" and st(80, false) == "Dig4" and st(99, false) == "Dig4"
-		)
-		for k = 1, #S.dig do
-			assert(st(H.swing * k, false) == `Dig{k}`, "a stage a swing")
+		for _, hp in { 0, 5, 20, 40, 60, 80, 99 } do
+			assert(B.trenchStage(hp, false, H, S) == nil, `being dug at {hp}: its markers and the cut alone`)
+			assert(near(B.trenchDepth(hp, false, H), hp / H.max), "cut to its HP's share")
 		end
 		assert(st(100, true) == "Full0" and st(75, true) == "Full0", "finished down to the first threshold")
 		assert(st(74, true) == "Hit1" and st(49, true) == "Hit2" and st(24, true) == "Hit3" and st(1, true) == "Hit3")
-		assert(#S.dig == 4 and #S.hit == 3, "the meshes trench_pieces v12 has: Dig1-4, Hit1-3")
+		assert(#S.hit == 3, "the meshes trench_pieces has: Hit1-3")
 	end,
 	-- (user 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible")
 	["nothing over a trench's open cut, dug or planned; its bank is fine"] = function()
@@ -1066,6 +1082,24 @@ return {
 		assert(B.supported(laid, now(10, -2), S.gap, S.share), "earth thrown over it holds it up")
 		assert(B.supported({}, {}, S.gap, S.share), "no samples: left alone")
 	end,
+	-- (user 2026-11-02: "also trees are going into trenches. increase the boundaries")
+	["no trench planned with a tree in its cut, on its walls or on its heaps"] = function()
+		local t = C.Trench
+		assert(t.treeClear > 0)
+		local edge = B.trenchTop(t) + t.joins.heapReach -- (its heap's outer edge, from the line)
+		local trunk = 2
+		assert(B.treeTooNear(0, 0, 20, 0, 10, 0, trunk, t), "on its line")
+		assert(B.treeTooNear(0, 0, 20, 0, 10, B.trenchTop(t), trunk, t), "on a wall top")
+		assert(B.treeTooNear(0, 0, 20, 0, 10, edge, trunk, t), "on its heap")
+		assert(
+			B.treeTooNear(0, 0, 20, 0, 10, edge + trunk / 2 + t.treeClear - 0.1, trunk, t),
+			"just inside the clearance"
+		)
+		assert(not B.treeTooNear(0, 0, 20, 0, 10, edge + trunk / 2 + t.treeClear + 0.1, trunk, t), "clear of it")
+		assert(B.treeTooNear(0, 0, 20, 0, 20 + edge, 0, trunk, t), "past its end, by its end heap")
+		assert(not B.treeTooNear(0, 0, 20, 0, 21 + edge + trunk / 2 + t.treeClear, 0, trunk, t), "well past its end")
+		assert(B.treeTooNear(0, 0, 20, 0, 10, edge + 2, 6, t), "a thick trunk's flare reaching its heap")
+	end,
 	-- (user 2026-11-02: "let's half the building power of both soldiers and engineers", "apply building buff to
 	-- destruction as well for engineers")
 	["a swing's power: half a Build swing for all, the Engineer's share on both modes"] = function()
@@ -1100,5 +1134,30 @@ return {
 		assert(B.onFootprintAt(10, 1.1, pile, 0.15), "the stake's own width touching it")
 		local turned = box(0, 0, 90, 8, 2)
 		assert(B.onFootprintAt(0, 3.9, turned, 0) and not B.onFootprintAt(3.9, 0, turned, 0), "turned a quarter")
+	end,
+	-- (user 2026-11-02: "i want to adjust them so it stops colliding with stuff", "make it a generous stud margin")
+	["a foxhole, wire or gun keeps a trench off as far as it keeps off one"] = function()
+		local t = C.Trench
+		local base = B.trenchTop(t) + t.bank.width
+		local function piece(key: string): B.Piece
+			return assert(B.piece(key, C.Pieces))
+		end
+		assert(near(assert(B.trenchKeep(piece("Wire"), t)), base), "wire: off the walls and bank")
+		assert(near(assert(B.trenchKeep(piece("Foxhole"), t)), base), "a foxhole the same")
+		local gun = piece("FieldGun")
+		assert(near(assert(B.trenchKeep(gun, t)), base + (gun.trenchGap or 0)), "a gun its gap more")
+		assert(B.trenchKeep(piece("SandbagPile"), t) == nil, "sandbags may stand on the bank")
+		assert(B.trenchKeep(piece("Hesco"), t) == nil and B.trenchKeep(piece("MGNest"), t) == nil)
+		assert(C.Margin >= 2, "a generous margin round every piece")
+		assert(t.wayHeight > 0)
+	end,
+	["a footprint's distance to a trench line"] = function()
+		local f: B.Footprint = { x = 0, z = 0, rx = 1, rz = 0, width = 8, depth = 4 }
+		assert(near(B.footprintToSeg(f, -20, 10, 20, 10, 0.5), 8), "a line alongside, 8 past its long side")
+		assert(near(B.footprintToSeg(f, 14, -20, 14, 20, 0.5), 10), "across its end")
+		assert(B.footprintToSeg(f, -20, 0, 20, 0, 0.5) == 0, "through it")
+		assert(near(B.footprintToSeg(f, 7, 5, 7, 5, 0.5), math.sqrt(9 + 9)), "a point off its corner")
+		local turned: B.Footprint = { x = 0, z = 0, rx = 0, rz = 1, width = 8, depth = 4 }
+		assert(near(B.footprintToSeg(turned, -20, 10, 20, 10, 0.5), 6), "turned a quarter: its long side along z")
 	end,
 }

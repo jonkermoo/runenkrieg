@@ -10,7 +10,10 @@
 --   the howitzer's crystal is the 3D gem (src/client/HudKit.gem, the staff's: user 2026-10-26, "replace the howizer
 --   gem with the same 3d gem we are making"), its shards floating round it, dying out toward grey until it can fire;
 -- - how far the reload has got, a plain percentage in tenths (nothing once it can fire); no panel or background, at the
---   bottom right like the gun's.
+--   bottom right like the gun's;
+-- - why it can't fire, in the bottom centre (user 2026-11-02: "put the warning more center bottom/top of the screen so
+--   players know"): while it is laid on a spawn (its Config/Artillery.SpawnGuard `attribute`), and a refused shot's
+--   reason a moment.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -312,6 +315,7 @@ end
 function ArtilleryHud.start()
 	local player = Players.LocalPlayer
 	local panel = HudKit.panel("Artillery", "ArtilleryHud")
+	local warn = HudKit.panel("ArtilleryWarn", "ArtilleryWarn")
 	local view = panel.node.ArtilleryView :: ViewportFrame
 	local camera = Instance.new("Camera")
 	camera.Parent = view
@@ -341,7 +345,7 @@ function ArtilleryHud.start()
 		return nil
 	end
 
-	-- a refused shot's reason (src/server/Artillery: a Normal match's own sector), shown in place of the timer a moment
+	-- a refused shot's reason (src/server/Artillery: a Normal match's own sector, a spawn), shown a moment
 	local notice: { text: string, untilAt: number }? = nil
 	Net.event("Artillery").OnClientEvent:Connect(function(kind: any, text: any)
 		if kind == "Refused" and type(text) == "string" then
@@ -352,6 +356,12 @@ function ArtilleryHud.start()
 	RunService.RenderStepped:Connect(function()
 		local model = mine()
 		panel.gui.Enabled = model ~= nil
+		local said = if notice and os.clock() < notice.untilAt then notice.text else nil
+		if model and model:GetAttribute(Cfg.SpawnGuard.attribute) == true then
+			said = Cfg.SpawnGuard.why
+		end
+		warn.gui.Enabled = said ~= nil
+		warn.set("warn", said or "")
 		if current and current.model ~= model then
 			destroy(current)
 			current = nil
@@ -384,11 +394,6 @@ function ArtilleryHud.start()
 				Rules.mgShown(rounds, mg.box, shotsSince, model:GetAttribute("ReadyAt") :: number?, roundsAt, t)
 			)
 			else ""
-		if notice and os.clock() < notice.untilAt then
-			panel.set("timer", notice.text)
-			return
-		end
-		notice = nil
 		panel.set("timer", if share >= 1 then idle else string.format(A.timer, math.floor(share * 1000) / 10))
 	end)
 end

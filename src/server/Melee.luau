@@ -27,7 +27,8 @@ local Ragdoll = require(script.Parent.Ragdoll)
 
 local Melee = {}
 
-local last: { [Player]: number } = {}
+-- each striker's last stroke (a player, or a bot soldier's model)
+local last: { [any]: number } = setmetatable({}, { __mode = "k" }) :: any
 
 -- the soldier `part` belongs to (a body part straight under its model), or nil
 local function soldierOf(part: BasePart, soldiers: { [Instance]: boolean }): Model?
@@ -73,27 +74,28 @@ local function target(character: Model, origin: Vector3, direction: Vector3): Ba
 	return best
 end
 
-local function strike(player: Player, direction: any)
+-- A stroke by `character` (the weapon `tool`, `e`, in its hands) toward `direction`, `key` its cooldown's (the player,
+-- or a bot's model); true when it struck
+local function strikeWith(character: Model?, tool: Tool?, e: any, key: any, direction: any): boolean
 	if typeof(direction) ~= "Vector3" or direction.Magnitude < 1e-3 or direction.Magnitude ~= direction.Magnitude then
-		return
+		return false
 	end
 	local now = os.clock()
-	local character, tool, e = Firing.held(player)
 	local head = character and character:FindFirstChild("Head") :: BasePart?
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not character or not tool or not e or not head or not root then
-		return
+		return false
 	end
 	local look = root.CFrame.LookVector
 	local dir = direction.Unit
 	if
-		not Rules.ready(last[player], now, Cfg.Strike.cooldown, Cfg.Hit.slack)
+		not Rules.ready(last[key], now, Cfg.Strike.cooldown, Cfg.Hit.slack)
 		or not Rules.free({ busy = F.busy(e.state, now, FiringCfg.Slack), ragdolled = Ragdoll.active(character) })
 		or not Rules.facing(dir.X, dir.Z, look.X, look.Z, Cfg.Hit.cone)
 	then
-		return
+		return false
 	end
-	last[player] = now
+	last[key] = now
 	Firing.strike(character, now + Cfg.Strike.length - Cfg.Strike.impact)
 	local origin = head.Position
 	local part = target(character, origin, dir)
@@ -108,6 +110,20 @@ local function strike(player: Player, direction: any)
 		Damage.melee(character, part, zone, dir)
 	end
 	Net.event("Struck"):FireAllClients(character)
+	return true
+end
+
+local function strike(player: Player, direction: any)
+	local character, tool, e = Firing.held(player)
+	strikeWith(character, tool, e, player, direction)
+end
+
+-- A bot soldier's butt stroke toward `direction` (src/server/Bots; the same checks as a player's: its gun idle, the
+-- cooldown, the cone, the reach), its animation its own; true when it struck.
+function Melee.strikeAs(character: Model, direction: Vector3): boolean
+	local tool = character:FindFirstChildOfClass("Tool")
+	local e = tool and Firing.entry(tool)
+	return strikeWith(character, tool, e, character, direction)
 end
 
 function Melee.start()

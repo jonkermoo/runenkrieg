@@ -89,22 +89,23 @@ local Frontline = {
 	-- the shield round a soldier in the wave line: a ball `size` studs across in its team's magic colour
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },
-	-- Artillery levels (user 2026-10-31, docs CAMPAIGN.md: "whenever a sector is lost, both teams should level up in
-	-- artillery"): both sides start each match at level 0 and go up one each time a sector is lost (taken from the side
-	-- that held it), at most `max`; a gun is built from its level on (Config/Build.Pieces `key`). The level is the
-	-- Frontline folder's `LevelAttribute` (src/server/Build reads it). Nothing waits on it now (user 2026-11-02: "also
-	-- remove the rule for sector taking before building artillerly"): field guns and howitzers are built from a match's
-	-- start, under their per-team caps (Config/Build.Pieces `teamCap`); was { FieldGun = 1, Howitzer = 2 }.
-	Artillery = { max = 2, unlock = {} },
+	-- Artillery locks (user 2026-11-02: "only unlock the rune for the team that gets pushed back to their last sector
+	-- (all artys still only for engineers)"): a gun in `lastStand` is built only by a side holding no sector but its own
+	-- HQ (Rules/Frontline.held: the run from its end; it locks again once the side pushes out), and is told `why`
+	-- otherwise; every other gun from a match's start, under its per-team cap (Config/Build.Pieces `teamCap`). Was a level
+	-- per sector lost (2026-10-31), then no locks (earlier 2026-11-02). Each side's held count is the Frontline folder's
+	-- "<Side>" .. `HeldAttribute` (src/server/Build reads it; the bots count it from the sectors' owners).
+	Artillery = { lastStand = { Howitzer = true }, why = "Unlocks when pushed back to your last sector" },
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
 	-- of mis match"): while the bigger side has at least `gap` more players AND `share` more, the smaller side's points
 	-- are paid `times` over (src/server/Loadouts)
 	Reinforcements = { gap = 3, share = 0.25, times = 1.5 },
-	-- on the Frontline folder: the next wave's server time; the artillery level; the side reinforced (or nil); each side's
-	-- spawn sector (an index, "<Side>Spawn") and its wave line's centre (a Vector3, "<Side>Line": no shells there,
-	-- Config/Artillery.SpawnGuard). On a character: while it stands in the wave line.
+	-- on the Frontline folder: the next wave's server time; the side reinforced (or nil); each side's sectors held from
+	-- its end ("<Side>Held", Artillery above), spawn sector (an index, "<Side>Spawn") and its wave line's centre (a
+	-- Vector3, "<Side>Line": no shells there, Config/Artillery.SpawnGuard). On a character: while it stands in the wave
+	-- line.
 	WaveAttribute = "WaveAt",
-	LevelAttribute = "GunLevel",
+	HeldAttribute = "Held",
 	ReinforcedAttribute = "Reinforced",
 	SpawnAttribute = "Spawn",
 	LineAttribute = "Line",
