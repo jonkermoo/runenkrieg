@@ -656,6 +656,7 @@ spawnBody = function(b: Bot)
 	local humanoid = m:FindFirstChildOfClass("Humanoid") :: Humanoid
 	humanoid.DisplayName = if b.mode == "Normal" then NV.nameTag .. b.name else b.name
 	humanoid.BreakJointsOnDeath = false
+	humanoid.RequiresNeck = false -- the ragdoll loosens the Neck (src/server/Ragdoll): never a death by itself
 	humanoid.MaxHealth = DamageCfg.Health
 	humanoid.Health = DamageCfg.Health
 	humanoid.WalkSpeed = M.WalkSpeed
