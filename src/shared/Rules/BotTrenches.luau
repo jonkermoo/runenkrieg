@@ -165,6 +165,25 @@ function BotTrenches.inSquare(px: number, pz: number, squares: { { x: number, z:
 	return best
 end
 
+-- Whether a piece at (x, z), `half` studs from its middle to its corners, keeps off every trench line in `lines` (runs
+-- planned or dug, and saps): `reach` studs (the trench's wall top and a margin) and its own `half` from each (user
+-- 2026-11-02: "never have structures where trenches should be").
+function BotTrenches.clearOf(x: number, z: number, half: number, lines: { Run }, reach: number): boolean
+	for _, l in lines do
+		if BotTrenches.offRun(x, z, l.ax, l.az, l.bx, l.bz) < reach + half then
+			return false
+		end
+	end
+	return true
+end
+
+-- What a digger does with a piece in a trench run's way (user 2026-11-02: "plan around structures, destroy them if
+-- necessary"): "tear" it down (a small piece, `tear[key]`, the enemy's or a bot's), else "around" (the run swings
+-- aside: a gun, a nest, a dugout, or a player's own piece).
+function BotTrenches.blocker(key: string, own: boolean, byBot: boolean, tear: { [string]: boolean }): string
+	return if tear[key] and (not own or byBot) then "tear" else "around"
+end
+
 -- Whether a bot at (x, z) knows there's danger (user 2026-11-02: "they should ideally use trenches to get around if
 -- they know there's danger. if it's an open field with no enemies they should just walk"): shot at within `cfg.shot`
 -- seconds (`sinceShot`), an enemy known (`known`: { x, z, at }) within `cfg.near` studs in the last `cfg.known`

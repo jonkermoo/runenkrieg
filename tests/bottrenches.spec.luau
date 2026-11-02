@@ -99,6 +99,22 @@ return {
 		local squares = { { x = 0, z = 0 }, { x = 8, z = 0 } }
 		assert(R.inSquare(7, 1, squares, 4) == 2 and R.inSquare(20, 0, squares, 4) == nil)
 	end,
+	["clearOf: pieces keep off trench lines by the reach and their own size"] = function()
+		local lines = { { kind = "Fire", ax = 0, az = 0, bx = 40, bz = 0 } }
+		assert(not R.clearOf(20, 0, 2, lines, 8), "on the line")
+		assert(not R.clearOf(20, 9, 2, lines, 8), "its corner over the wall top")
+		assert(R.clearOf(20, 11, 2, lines, 8), "clear of it")
+		assert(not R.clearOf(45, 0, 2, lines, 8), "past the end, still too close")
+		assert(R.clearOf(20, 0, 2, {}, 8), "no lines")
+	end,
+	["blocker: small pieces torn down, the rest routed round"] = function()
+		local tear = T.tear
+		assert(R.blocker("SandbagPile", false, false, tear) == "tear", "the enemy's pile")
+		assert(R.blocker("Hesco", true, true, tear) == "tear", "a bot's own barrier")
+		assert(R.blocker("SandbagPile", true, false, tear) == "around", "a player's own pile stays")
+		assert(R.blocker("FieldGun", false, true, tear) == "around", "a gun: round it")
+		assert(R.blocker("MGNest", true, true, tear) == "around", "a nest: round it")
+	end,
 	["danger: shot at, enemy near, shelling near or a contested goal"] = function()
 		local M = Cfg.TrenchMove
 		assert(not R.danger(100, 0, 0, math.huge, {}, {}, false, M), "an empty field")

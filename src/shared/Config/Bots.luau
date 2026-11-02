@@ -364,6 +364,11 @@ local Bots = {
 	--   of its holders still stand, it is lost: the rest fall back to the support line for `fallback` seconds.
 	-- - Clearing ("Yes, clear along them"): a pushing squad's Assault bots go down into an enemy trench square within
 	--   `clearWithin` studs of a known enemy and fight along it.
+	-- - Keeping the lines clear (user 2026-11-02: "bots should either plan around structures, destroy them if
+	--   necessary, or never have structures where trenches should be"): no bot lays a piece within `clear` studs past
+	--   a trench's wall top of a run planned or dug, a sap's run or its next one, or any trench square; a digger tears
+	--   down a `tear` piece (the enemy's or a bot's) in its run's way first, and swings the run aside round anything
+	--   else.
 	Trenches = {
 		share = 0.5,
 		hold = 0.3,
@@ -381,6 +386,8 @@ local Bots = {
 		keep = 0.5,
 		fallback = 30,
 		clearWithin = 8,
+		clear = 1.5,
+		tear = { SandbagPile = true, Hesco = true, Wire = true },
 	},
 
 	-- Normal: moving by trench (Rules/BotTrenches.danger; user 2026-11-02: "most pvp should be trench based. if bots can,
