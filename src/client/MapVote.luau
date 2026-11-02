@@ -4,13 +4,12 @@
 -- (VoteOffer) lie as sketch-map sheets on the table, each with its name and region, the wax seals of everyone who voted
 -- for it (Votes_<key>: each voter's nation, its land colour and rune) and the count. A click on a sheet votes for it
 -- (Net "MapVote"; changeable), its pencil edge marks your vote. The fuse along the bottom burns down to the vote's end;
--- then the losing sheets go and the winner (VotePick) is stamped NEXT and grows a little. The HUD, the dev pins, the
+-- then the losing sheets go and the winner (VotePick), alone in the middle, is stamped NEXT. The HUD, the dev pins, the
 -- menus' contents and the soldier's controls are off meanwhile (MatchCutscene.cover); the mouse is free.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Cutscenes).Vote
@@ -68,15 +67,13 @@ function MapVote.start()
 	round.Parent = spark
 	spark.Parent = N.Fuse
 
-	type Slot = { card: TextButton, key: string?, art: any, seals: { Frame }, drawn: string, grow: UIScale }
+	type Slot = { card: TextButton, key: string?, art: any, seals: { Frame }, drawn: string }
 	local slots: { Slot } = {}
 	for i = 1, SLOTS do
 		local card = N["Card" .. i] :: TextButton
 		card.LayoutOrder = i
 		card.Modal = true -- (frees the mouse in first person while the vote shows)
-		local grow = Instance.new("UIScale")
-		grow.Parent = card
-		slots[i] = { card = card, key = nil, art = nil, seals = {}, drawn = "", grow = grow }
+		slots[i] = { card = card, key = nil, art = nil, seals = {}, drawn = "" }
 	end
 	local mine: string? = nil
 	for _, s in slots do
@@ -146,7 +143,6 @@ function MapVote.start()
 		for i, s in slots do
 			local key = offer[i]
 			s.card.Visible = key ~= nil
-			s.grow.Scale = 1
 			if key ~= s.key then
 				if s.art then
 					s.art.destroy()
@@ -222,8 +218,8 @@ function MapVote.start()
 		spark.Visible = share > 0
 		spark.BackgroundTransparency = if math.floor(os.clock() / Cfg.fuse.flicker) % 2 == 0 then 0 else 0.35
 		local clock = N.Clock :: TextLabel
-		clock.Text = tostring(math.max(math.ceil(left), 0))
-		-- the pick: the others go, the winner stamped and grown
+		clock.Text = tostring(if left > 0 then math.ceil(left) else 0)
+		-- the pick: the others go, the winner stamped
 		local pick = f:GetAttribute("VotePick")
 		if type(pick) == "string" and pick ~= picked then
 			picked = pick
@@ -232,15 +228,6 @@ function MapVote.start()
 				local stamp = N["Stamp" .. i] :: TextLabel
 				s.card.Visible = won
 				stamp.Visible = won
-				if won then
-					TweenService
-						:Create(
-							s.grow,
-							TweenInfo.new(Cfg.pick.seconds, Enum.EasingStyle.Back),
-							{ Scale = Cfg.pick.grow }
-						)
-						:Play()
-				end
 			end
 		end
 	end)

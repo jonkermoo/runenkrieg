@@ -79,8 +79,8 @@ local Cutscenes = {
 				name = "WestLine",
 				t1 = 9.7,
 				kind = "Move",
-				from = { at = "WestSpawn", dx = 80, dz = 10, up = 9 },
-				to = { at = "WestSpawn", dx = 60, dz = 6, up = 8 },
+				from = { at = "WestSpawn", dx = 70, dz = 12, up = 24 },
+				to = { at = "WestSpawn", dx = 50, dz = 8, up = 18 },
 				look = { at = "WestSpawn", up = 5 },
 				caption = "West",
 			},
@@ -88,8 +88,8 @@ local Cutscenes = {
 				name = "EastLine",
 				t1 = 10.4,
 				kind = "Move",
-				from = { at = "EastSpawn", dx = -80, dz = -10, up = 9 },
-				to = { at = "EastSpawn", dx = -60, dz = -6, up = 8 },
+				from = { at = "EastSpawn", dx = -70, dz = -12, up = 24 },
+				to = { at = "EastSpawn", dx = -50, dz = -8, up = 18 },
 				look = { at = "EastSpawn", up = 5 },
 				caption = "East",
 			},
@@ -153,8 +153,8 @@ local Cutscenes = {
 		-- (reference pixels at an 800-pixel-tall screen)
 		gap = 30,
 		seal = { size = 26, gap = 4, perRow = 8 },
-		-- the end: the winner grows over `seconds`, shown `hold` seconds before the next match starts (src/server/Frontline)
-		pick = { seconds = 0.8, grow = 1.12, hold = 1.5 },
+		-- the end: the winner stamped NEXT, shown `hold` seconds before the next match starts (src/server/Frontline)
+		pick = { hold = 1.5 },
 		-- each map's line under its name on the sheet (by Config/Maps key; others show none)
 		Regions = { Map1 = "an English valley", LanternMeadows = "festival meadows on the Aurel" },
 		fuse = { thick = 3, spark = 12, flicker = 0.12 }, -- the fuse's line and its burning end (reference pixels, seconds)
