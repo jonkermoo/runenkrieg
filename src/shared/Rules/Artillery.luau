@@ -341,32 +341,6 @@ function Artillery.nearSpawn(
 	return false
 end
 
--- Artillery.lay kept off where `blocked(lay)` (a spawn): a step that would lay it there turns only the axis that stays
--- clear (sliding along the edge), or nothing; true when it was held. A lay already there moves freely (the spawn came
--- to it).
-function Artillery.layClear(
-	state: Lay,
-	wantYaw: number,
-	wantElevation: number,
-	gun: any,
-	dt: number,
-	blocked: (Lay) -> boolean
-): (Lay, boolean)
-	local step = Artillery.lay(state, wantYaw, wantElevation, gun, dt)
-	if not blocked(step) or blocked(state) then
-		return step, false
-	end
-	local turn = Artillery.lay(state, wantYaw, state.elevation, gun, dt)
-	if not blocked(turn) then
-		return turn, true
-	end
-	local raise = Artillery.lay(state, state.yaw + state.traverse, wantElevation, gun, dt)
-	if not blocked(raise) then
-		return raise, true
-	end
-	return state, true
-end
-
 -- The server's check of an aim sent by the gunner: real numbers in range.
 function Artillery.aimOk(yaw: any, elevation: any): boolean
 	return type(yaw) == "number"

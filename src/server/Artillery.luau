@@ -74,7 +74,6 @@ type State = {
 	conns: { RBXScriptConnection },
 	sent: number, -- when the lay was last written out
 	aimed: number, -- when the gunner's last aim was taken
-	warned: number, -- when the gunner was last told it can't aim at a spawn
 	landings: { [string]: Vector3 | false }, -- where each lay asked about comes down (comesDown)
 	landingKeys: { string },
 	crewAt: number, -- the traverse the mount was last turned to here
@@ -1098,7 +1097,6 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		conns = {},
 		sent = 0,
 		aimed = 0,
-		warned = 0,
 		landings = {},
 		landingKeys = {},
 		crewAt = 0,
@@ -1549,7 +1547,7 @@ export type GunInfo = {
 	crew: Vector3, -- where its gunner stands
 	reach: number, -- how near `crew` a bot must be to man it (studs)
 	-- with a point: the lay that hits it (nil: out of its reach), whether it lies on kit's own side's sector, and
-	-- whether that lay comes down on a spawn (Config/Artillery.SpawnGuard: it won't lay or fire there)
+	-- whether that lay comes down on a spawn (Config/Artillery.SpawnGuard: it won't fire there)
 	yaw: number?,
 	elevation: number?,
 	inRange: boolean?,
@@ -1745,18 +1743,13 @@ function Artillery.start()
 			if not s.gunner and not s.bot then
 				continue
 			end
-			local held
-			s.lay, held = Rules.layClear(s.lay, s.want.yaw, s.want.elevation, s.gun, dt, function(l)
-				return onSpawn(s, l)
-			end)
-			if held and s.gunner and t - s.warned >= Cfg.SpawnGuard.every then
-				s.warned = t
-				Net.event("Artillery"):FireClient(s.gunner, "Refused", Cfg.SpawnGuard.aimWhy)
-			end
+			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt)
 			if t - s.sent < 1 / Cfg.Send then
 				continue
 			end
 			s.sent = t
+			-- (laid on a spawn: it lays there all the same, the gunner warned while it is; it won't fire)
+			model:SetAttribute(Cfg.SpawnGuard.attribute, if not s.gun.mg and onSpawn(s, s.lay) then true else nil)
 			model:SetAttribute("Traverse", math.round(s.lay.traverse * 100) / 100)
 			model:SetAttribute("Elevation", math.round(s.lay.elevation * 100) / 100)
 			local pivot = model:GetPivot()

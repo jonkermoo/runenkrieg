@@ -259,16 +259,17 @@ local Artillery = {
 	Bot = { reach = 1.5, laid = 0.5, aside = 4, takeOver = "Take over the gun" },
 
 	-- No shells on the spawns (user 2026-11-02: "it shouldnt be able to reach the exact spawn no matter where its placed?
-	-- make it consistent throughout all maps"; Rules.nearSpawn): a field gun or howitzer won't lay or fire where its
-	-- shell would come down (its path cast on the terrain) within its `zone` plus `gap` studs of a spawn: either side's
-	-- spawn zone (the map's spawnZones) or, in a Normal match, either side's wave line now, a circle `line` studs round
-	-- its centre (Config/Frontline.LineAttribute). Turning onto one tells the gunner `aimWhy` at most every `every` seconds.
+	-- make it consistent throughout all maps"; Rules.nearSpawn): a field gun or howitzer won't fire where its shell
+	-- would come down (its path cast on the terrain) within its `zone` plus `gap` studs of a spawn: either side's spawn
+	-- zone (the map's spawnZones) or, in a Normal match, either side's wave line now, a circle `line` studs round its
+	-- centre (Config/Frontline.LineAttribute). It still lays there (user 2026-11-02: "still allow aiming over it, just put
+	-- the warning more center bottom/top of the screen so players know"): while it is laid on one the gun has
+	-- `attribute` true and its gunner reads `why` in the bottom centre (src/client/ArtilleryHud). Bots don't aim there.
 	SpawnGuard = {
 		gap = 20,
 		line = 24,
 		why = "Can't fire on a spawn",
-		aimWhy = "Can't aim at a spawn",
-		every = 2,
+		attribute = "OnSpawn",
 	},
 	-- A field gun's or howitzer's miss (its `miss`; src/server/Artillery missOf): rolled again, up to `tries` times,
 	-- while its path traced on the terrain comes down on a spawn or more than `stray` times the radius off (rough
