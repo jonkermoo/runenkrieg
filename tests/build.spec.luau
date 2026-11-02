@@ -850,4 +850,15 @@ return {
 		local howitzer = C.Structures.howitzer.hit * d.soak
 		assert(howitzer > 20 and howitzer < 25)
 	end,
+	["dugouts: a blast's distance from the dugout, its earth and roof"] = function()
+		local d = C.Dugout
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		local top = piece.height + d.beam + d.earth
+		assert(B.dugoutDistance(0, 2, 0, piece, d) == 0, "inside")
+		assert(near(B.dugoutDistance(0, top + 3, 0, piece, d), 3), "over its roof")
+		assert(near(B.dugoutDistance(piece.width / 2 + d.fill + 2, 2, 0, piece, d), 2), "beside its earth")
+		assert(near(B.dugoutDistance(0, 2, piece.depth / 2 + d.fill + 4, piece, d), 4), "behind it")
+		assert(near(B.dugoutDistance(0, 2, -piece.depth / 2 - 5, piece, d), 5), "in the trench, off its door")
+		assert(near(B.dugoutDistance(0, -3, -piece.depth / 2 - 4, piece, d), 5), "under the floor and off the door")
+	end,
 }

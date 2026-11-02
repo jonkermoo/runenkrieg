@@ -575,7 +575,7 @@ function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
 	if not s.found or s.dug < d.dug then
 		return "Needs a dug trench"
 	end
-	if s.nearest < 1 then
+	if s.nearest < d.same then
 		return "A dugout is already here"
 	end
 	if s.length < width + d.spare then
@@ -597,6 +597,16 @@ end
 -- stage, Build.hescoStage, at `d.shelter` or over)
 function Build.dugoutShelters(hp: number, max: number, d: any): boolean
 	return Build.hescoStage(hp, max, d.stages) >= d.shelter
+end
+
+-- How far a blast at `lx`, `ly`, `lz` in a dugout's own frame is from it (`piece` its inside, Config/Build.Dugout `d`):
+-- from the box of its inside, the earth packed round its sides and back and its roof; 0 on or in it
+function Build.dugoutDistance(lx: number, ly: number, lz: number, piece: Piece, d: any): number
+	local top = piece.height + d.beam + d.earth
+	local dx = math.max(math.abs(lx) - (piece.width / 2 + d.fill), 0)
+	local dy = math.max(ly - top, -ly, 0)
+	local dz = math.max(-piece.depth / 2 - lz, lz - (piece.depth / 2 + d.fill), 0)
+	return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
 -- Whether a point in a dugout's own frame (`lx`, `ly`, `lz` from its floor's centre, y up) is inside it (`width` x

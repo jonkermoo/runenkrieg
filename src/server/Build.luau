@@ -800,11 +800,11 @@ local function layoutDugout(r: Rec)
 		table.insert(stages[stage], part)
 	end
 	-- 0: timbers lying in a pile on the trench floor in front of the wall (nothing stops on them)
-	local count, length = G.pile[1], G.pile[2]
-	for i = 1, count do
+	local pile = G.pile
+	for i = 1, pile.count do
 		local row, layer = (i - 1) % 2, (i - 1) // 2
-		local at = Vector3.new(0, G.beam * (layer + 0.5), -d / 2 - 0.8 - row * (G.beam + 0.1))
-		add(0, "Pile", Vector3.new(length, G.beam, G.beam), at, if i % 2 == 0 then plank else timber, false)
+		local at = Vector3.new(0, G.beam * (layer + 0.5), -d / 2 - pile.gap - row * (G.beam + pile.row))
+		add(0, "Pile", Vector3.new(pile.length, G.beam, G.beam), at, if i % 2 == 0 then plank else timber, false)
 	end
 	-- 1: the corner posts and the earth packed round it, sides and back (over the voxels the cut leaves)
 	local wall = h + G.beam
@@ -833,14 +833,14 @@ local function layoutDugout(r: Rec)
 	local lintel = Vector3.new(dw + 2 * G.post, h - dh, G.post)
 	add(2, "Lintel", lintel, Vector3.new(0, (h + dh) / 2, -d / 2 + G.post / 2), timber)
 	-- 3: the timber roof over it, resting on the earth either side, and its beams along the front and back
-	local deck = Vector3.new(w + G.fill, G.beam, d + G.fill / 2)
-	add(3, "Roof", deck, Vector3.new(0, h + G.beam / 2, G.fill / 4), timber)
+	local deck = Vector3.new(w + G.fill, G.beam, d + G.deckBack)
+	add(3, "Roof", deck, Vector3.new(0, h + G.beam / 2, G.deckBack / 2), timber)
 	for _, z in { -d / 2, d / 2 } do
 		add(3, "Beam", Vector3.new(w + G.fill, G.beam, G.beam), Vector3.new(0, h + G.beam * 1.5, z), timber)
 	end
 	-- 4: the earth over it all, out over the earth round it
-	local roof = Vector3.new(w + 2 * G.fill, G.earth, d + G.fill + 0.6)
-	add(4, "EarthRoof", roof, Vector3.new(0, h + G.beam + G.earth / 2, (G.fill - 0.6) / 2), roofEarth)
+	local roof = Vector3.new(w + 2 * G.fill, G.earth, d + G.fill + G.earthFront)
+	add(4, "EarthRoof", roof, Vector3.new(0, h + G.beam + G.earth / 2, (G.fill - G.earthFront) / 2), roofEarth)
 	for _, list in stages do
 		for _, part in list do
 			part.Transparency = 1
@@ -1810,15 +1810,9 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 		elseif r.piece.kind == "Dugout" then
 			-- by how far the blast is from its box: its inside, the earth round it and its roof; Dugout.soak of a sandbag
 			-- pile's share
-			local p, G = r.piece, C.Dugout
 			local l = r.frame:PointToObjectSpace(position)
-			local top = p.height + G.beam + G.earth
-			local d = Vector3.new(
-				math.max(math.abs(l.X) - (p.width / 2 + G.fill), 0),
-				math.max(l.Y - top, -l.Y, 0),
-				math.max(-p.depth / 2 - l.Z, l.Z - (p.depth / 2 + G.fill), 0)
-			).Magnitude
-			local share = Rules.structureHit(d, src, S.edge) * G.soak
+			local d = Rules.dugoutDistance(l.X, l.Y, l.Z, r.piece, C.Dugout)
+			local share = Rules.structureHit(d, src, S.edge) * C.Dugout.soak
 			if share > 0 then
 				table.insert(worn, { r = r, amount = r.need * share / 100 })
 			end

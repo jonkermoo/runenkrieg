@@ -558,8 +558,12 @@ local Build = {
 	-- 2 the plank lining and the door frame, 3 the timber roof, 4 the earth roof. From `shelter` on (the timber roof up)
 	-- soldiers inside are safe from every blast outside it (src/server/Damage.blast, Build.sheltered; user: a blast
 	-- inside, a grenade through the door, hurts as normal). Sizes: `post` square posts, `plank` thick lining, `beam`
-	-- the roof's timbers, `earth` the earth roof's thickness; the door `door` wide and high; the timbers lying on the
-	-- floor at stage 0 `pile` (count, length).
+	-- the roof's timbers, `earth` the earth roof's thickness; the timber roof runs `deckBack` back over the earth behind,
+	-- the earth roof `earthFront` out over the door; the door `door` wide and high; the timbers lying on the trench floor
+	-- at stage 0 `pile` (`count`, `length` long, the first row `gap` in front of the wall, rows `row` apart). Survey:
+	-- another trench's end within `teeGap` of the floor's edge tees into that wall, a bridge whose middle is within
+	-- `bridgeGap` of the square's is on it, a dugout within `same` of another's middle is that one; the walls and heaps
+	-- open from `openFront` in front of its door back past its earth.
 	Dugout = {
 		hp = { max = 100, place = 0, swing = 10, destroy = 10 },
 		stages = 4,
@@ -575,8 +579,14 @@ local Build = {
 		plank = 0.2,
 		beam = 0.45,
 		earth = 1.3,
+		deckBack = 1.75,
+		earthFront = 0.6,
 		door = { 3.5, 5.6 },
-		pile = { 4, 5 },
+		pile = { count = 4, length = 5, gap = 0.8, row = 0.1 },
+		teeGap = 1,
+		bridgeGap = 1,
+		same = 1,
+		openFront = 0.5,
 	},
 
 	-- Barbed wire (user 2026-10-27): its meshes are

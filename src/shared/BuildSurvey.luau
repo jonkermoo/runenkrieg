@@ -417,7 +417,7 @@ function Survey.dugoutSpot(structures: Instance?, p: Vector3, skip: Instance?): 
 			for _, e in { { oa, o:GetAttribute("LinkA") }, { ob, o:GetAttribute("LinkB") } } do
 				local at = e[1] :: Vector3
 				local onSide = Vector3.new(at.X - mid.X, 0, at.Z - mid.Z):Dot(across) * side > 0
-				if e[2] == "tee" and onSide and Survey.toSegment(at, a, b) < T.floor + 1 then
+				if e[2] == "tee" and onSide and Survey.toSegment(at, a, b) < T.floor + D.teeGap then
 					spot.teed = true
 				end
 			end
@@ -439,7 +439,10 @@ function Survey.dugoutSpot(structures: Instance?, p: Vector3, skip: Instance?): 
 			local d = Vector3.new(f.Position.X - centre.X, 0, f.Position.Z - centre.Z).Magnitude
 			if q.kind == "Dugout" then
 				spot.nearest = math.min(spot.nearest, d)
-			elseif q.kind == "Bridge" and Vector3.new(f.Position.X - mid.X, 0, f.Position.Z - mid.Z).Magnitude < 1 then
+			elseif
+				q.kind == "Bridge"
+				and Vector3.new(f.Position.X - mid.X, 0, f.Position.Z - mid.Z).Magnitude < D.bridgeGap
+			then
 				spot.bridge = true
 			end
 		end

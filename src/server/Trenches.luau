@@ -500,7 +500,7 @@ local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: 
 			-- a dugout's door and earth: no wall or heap there (its front at the wall's foot, back past its earth)
 			for _, pk in pockets do
 				local l = pk.frame:PointToObjectSpace(p)
-				if math.abs(l.X) <= pk.openX and l.Z >= -pk.halfD - 0.5 and l.Z <= pk.halfD + D.fill then
+				if math.abs(l.X) <= pk.openX and l.Z >= -pk.halfD - D.openFront and l.Z <= pk.halfD + D.fill then
 					inside = true
 				end
 			end
