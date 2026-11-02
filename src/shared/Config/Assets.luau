@@ -56,10 +56,11 @@ local Assets = {
 
 	Entries = {
 		rifle_m91 = {
-			-- v3 (2026-11-02): polished against a reference model: the real 1285 mm, the wood fitted to its sections, a
-			-- slim band and nose cap, a tangent rear sight, the longer bolt handle (v2 124122824797146: inside-out faces
-			-- fixed; v1 117583297352653)
-			id = 73589409799250,
+			-- v4: the handguard back to its height, so the middle band round it no longer hides the front post (user
+			-- 2026-11-02); v3 73589409799250 (2026-11-02): polished against a reference model: the real 1285 mm, the
+			-- wood fitted to its sections, a slim band and nose cap, a tangent rear sight, the longer bolt handle (v2
+			-- 124122824797146: inside-out faces fixed; v1 117583297352653)
+			id = 125070593560406,
 			category = "Weapons",
 			folder = "Olive/Rifles",
 			source = "assets/weapons/olive/rifle_m91.fbx",
