@@ -631,4 +631,16 @@ return {
 			end
 		end
 	end,
+	["the gunner's sight: points over the screen box, fades eased both ways (user 2026-11-02)"] = function()
+		local F = C.ViewFade
+		local pts = A.sightPoints(F.cols, F.rows, F.box)
+		assert(#pts == F.cols * F.rows)
+		assert(pts[1][1] == F.box[1] and pts[1][2] == F.box[2], "top left first")
+		assert(pts[#pts][1] == F.box[3] and pts[#pts][2] == F.box[4], "bottom right last")
+		local one = A.sightPoints(1, 1, { 0, 0, 1, 1 })
+		assert(#one == 1 and one[1][1] == 0.5 and one[1][2] == 0.5, "one point: the middle")
+		assert(A.fadeStep(0, 0.8, 4, 0.1) == 0.4 and A.fadeStep(0.7, 0.8, 4, 0.1) == 0.8, "toward it, not past")
+		assert(A.fadeStep(0.8, 0, 4, 0.1) == 0.4 and A.fadeStep(0.1, 0, 4, 0.1) == 0, "back, not past")
+		assert(F.see > 0 and F.see < 1, "faded, not gone")
+	end,
 }

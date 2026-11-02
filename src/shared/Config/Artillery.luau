@@ -278,6 +278,24 @@ local Artillery = {
 
 	-- The arc line and landing marker while manning (src/client/Artillery): the line is one Beam bent to the path
 	-- (as the grenade's, Palette.Artillery.Arc), the marker a ring and the range on top of everything (seen past the fog)
+	-- Out of the gunner's way (user 2026-11-02: "make surrounding / blocking trees/houses more transparent to prevent
+	-- them from blocking the artys view"; src/client/ArtilleryFade, this client only): while I'm on a field gun or
+	-- howitzer, every `every` seconds rays go from the camera through `cols` x `rows` points of the screen box `box`
+	-- (left, top, right, bottom, Rules.sightPoints), out to `far` studs or the ground, past at most `depth` things each; a tree or building (a Model tagged one of `tags`) they cross fades to `see` see-through, at
+	-- `rate` a second, and back once no ray has crossed it for `hold` seconds.
+	ViewFade = {
+		every = 0.15,
+		cols = 7,
+		rows = 5,
+		box = { 0.1, 0.25, 0.9, 0.9 },
+		far = 400,
+		depth = 6,
+		tags = { "SwayTree", "FallenTree", "NaturalBuilding" },
+		see = 0.8,
+		rate = 4,
+		hold = 0.6,
+	},
+
 	Arc = {
 		step = 0.1, -- seconds of flight between the casts that find where it lands
 		refresh = 0.1, -- seconds between redraws

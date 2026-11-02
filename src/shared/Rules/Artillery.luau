@@ -136,6 +136,26 @@ function Artillery.recoilLength(full: number, elevation: number, trunnionY: numb
 end
 
 -- The share of the reload done (0..1) at `now`, the gun ready at `readyAt` after `reload` seconds.
+-- The screen points (fractions of the view, 0..1 across and down) a gunner's sight is cast through to find what stands
+-- in its way (Config/Artillery.ViewFade): `cols` x `rows` evenly over the box `box` = { left, top, right, bottom }.
+function Artillery.sightPoints(cols: number, rows: number, box: { number }): { { number } }
+	local out = {}
+	for r = 1, rows do
+		for c = 1, cols do
+			local u = if cols > 1 then (c - 1) / (cols - 1) else 0.5
+			local v = if rows > 1 then (r - 1) / (rows - 1) else 0.5
+			table.insert(out, { box[1] + (box[3] - box[1]) * u, box[2] + (box[4] - box[2]) * v })
+		end
+	end
+	return out
+end
+
+-- A faded piece's see-through share stepped `dt` seconds toward `want` at `rate` a second.
+function Artillery.fadeStep(now: number, want: number, rate: number, dt: number): number
+	local step = rate * dt
+	return if now < want then math.min(want, now + step) else math.max(want, now - step)
+end
+
 function Artillery.loaded(now: number, readyAt: number, reload: number): number
 	if reload <= 0 then
 		return 1
