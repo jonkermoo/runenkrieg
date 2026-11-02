@@ -3,7 +3,9 @@
 -- "Drag") to drag the knocked-down, living teammate they look at (Rules/Teams); the server checks it, takes the body's
 -- physics (a player's body is its own client's while down: src/server/Ragdoll) and holds its Humanoid limp, and an
 -- AlignPosition per leg pulls the body's ankles to the dragger's hands. Only the body is pulled, with a capped force, so it
--- slides head last and still catches on walls. (A one-attachment pull whose goal the server moves to the
+-- slides head last. It collides with nothing while dragged and is held over the ground under it (Config/Dragging Group,
+-- Lift; user 2026-11-02: "they should just go over the gap anyways"), so it follows the dragger over a trench's lip and
+-- down into it; let go with something solid between them, it settles at the dragger's level (settle). (A one-attachment pull whose goal the server moves to the
 -- hands every frame: a constraint between the two bodies would give both one network owner.) While "Dragged" is on, the body doesn't get up
 -- (src/server/Ragdoll); once let go the usual settle and get-up wait starts over. The dragged soldier breaks free and
 -- stands (Net "Drag" "Escape", Config/Settings Key_DragEscape) only once their knock's own stand-up time is over: the
@@ -14,12 +16,14 @@
 -- walk, no sprint, jump or aim, facing the body, the pull animation).
 
 local CollectionService = game:GetService("CollectionService")
+local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Dragging)
+local BotsCfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Net = require(Shared.Net)
@@ -31,7 +35,16 @@ local Ragdoll = require(script.Parent.Ragdoll)
 local Dragging = {}
 
 -- (`held`: the tool the dragger put away to drag, taken out again after)
-type Drag = { dragger: Model, body: Model, pulls: { AlignPosition }, made: { Instance }, held: Tool? }
+-- (`lifts`: each Lift part's vertical hold; `groups`: each body part's collision group before the drag)
+type Drag = {
+	dragger: Model,
+	body: Model,
+	pulls: { AlignPosition },
+	lifts: { [BasePart]: AlignPosition },
+	groups: { [BasePart]: string },
+	made: { Instance },
+	held: Tool?,
+}
 
 local PARTS = { "HumanoidRootPart", "Torso", "Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg" }
 
@@ -88,14 +101,79 @@ local function own(body: Model, server: boolean)
 	end
 end
 
+-- The dragged body's collision group: collides with nothing (set again at each drag: groups made since collide)
+local function noCollide()
+	if not PhysicsService:IsCollisionGroupRegistered(Cfg.Group) then
+		PhysicsService:RegisterCollisionGroup(Cfg.Group)
+	end
+	for _, g in PhysicsService:GetRegisteredCollisionGroups() do
+		PhysicsService:CollisionGroupSetCollidable(Cfg.Group, g.name, false)
+	end
+end
+
+-- a ray's view of the world: solid things, not soldiers
+local function worldRay(): RaycastParams
+	local skip: { Instance } = {}
+	for _, p in Players:GetPlayers() do
+		if p.Character then
+			table.insert(skip, p.Character)
+		end
+	end
+	for _, tag in { BotsCfg.Tag, DevCfg.Dummies.Tag } do
+		for _, m in CollectionService:GetTagged(tag) do
+			table.insert(skip, m)
+		end
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = skip
+	params.RespectCanCollide = true
+	return params
+end
+
+-- the ground's height under `pos` (nil: nothing within Lift.reach)
+local function ground(pos: Vector3, params: RaycastParams): number?
+	local L = Cfg.Lift
+	local hit = workspace:Raycast(pos + Vector3.new(0, L.from, 0), Vector3.new(0, -L.reach, 0), params)
+	return if hit then hit.Position.Y else nil
+end
+
+-- Let go with something solid between the dragger and the body (or the body inside it): the body to the dragger's
+-- hands, lying on the ground at the dragger's level, so it never stays in the ground or a wall.
+local function settle(d: Drag)
+	local root = d.dragger:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local torso = d.body:FindFirstChild("Torso") :: BasePart?
+	if not root or not torso then
+		return
+	end
+	local params = worldRay()
+	local aim = torso.Position + Vector3.new(0, Cfg.Lift.lie, 0)
+	if not workspace:Raycast(root.Position, aim - root.Position, params) then
+		return
+	end
+	local grip = root.CFrame:PointToWorldSpace(vec(Cfg.Grip))
+	local floor = ground(Vector3.new(grip.X, root.Position.Y, grip.Z), params)
+	local y = (floor or grip.Y) + Cfg.Lift.lie
+	d.body:PivotTo(d.body:GetPivot() + (Vector3.new(grip.X, y, grip.Z) - torso.Position))
+	for part in d.groups do
+		part.AssemblyLinearVelocity = Vector3.zero
+	end
+end
+
 local function stop(dragger: Model)
 	local d = drags[dragger]
 	if not d then
 		return
 	end
 	drags[dragger] = nil
+	if d.body.Parent then
+		settle(d)
+	end
 	for _, i in d.made do
 		i:Destroy()
+	end
+	for part, group in d.groups do
+		part.CollisionGroup = group
 	end
 	dragger:SetAttribute("Dragging", nil)
 	-- back to what they were doing: the tool put away for the drag, if the hands are still free and they're on their feet
@@ -168,17 +246,58 @@ local function start(character: Model?, target: Model)
 		table.insert(made, ankle)
 		table.insert(made, pull)
 	end
+	-- over anything: the body collides with nothing, each Lift part held over the ground under it (tick)
+	noCollide()
+	local groups: { [BasePart]: string } = {}
+	for _, p in body:GetDescendants() do
+		if p:IsA("BasePart") then
+			groups[p] = p.CollisionGroup
+			p.CollisionGroup = Cfg.Group
+		end
+	end
+	local L = Cfg.Lift
+	local lifts: { [BasePart]: AlignPosition } = {}
+	for _, name in L.parts do
+		local part = body:FindFirstChild(name) :: BasePart?
+		if part then
+			local at = Instance.new("Attachment")
+			at.Name = "DragLiftAt"
+			at.Parent = part
+			local lift = Instance.new("AlignPosition")
+			lift.Name = "DragLift"
+			lift.Mode = Enum.PositionAlignmentMode.OneAttachment
+			lift.Attachment0 = at
+			lift.Position = part.Position
+			lift.ForceLimitMode = Enum.ForceLimitMode.PerAxis
+			lift.MaxAxesForce = Vector3.new(0, L.force, 0)
+			lift.MaxVelocity = L.speed
+			lift.Responsiveness = L.responsiveness
+			lift.Parent = part
+			lifts[part] = lift
+			table.insert(made, at)
+			table.insert(made, lift)
+		end
+	end
 	local link = Instance.new("ObjectValue")
 	link.Name = "DragBody"
 	link.Value = body
 	link.Parent = dragger
 	table.insert(made, link)
-	drags[dragger] = { dragger = dragger, body = body, pulls = pulls, made = made, held = held }
+	drags[dragger] = {
+		dragger = dragger,
+		body = body,
+		pulls = pulls,
+		lifts = lifts,
+		groups = groups,
+		made = made,
+		held = held,
+	}
 	body:SetAttribute("Dragged", true)
 	dragger:SetAttribute("Dragging", true)
 end
 
 local function tick()
+	local params: RaycastParams? = nil
 	for dragger, d in drags do
 		local _, dh = soldier(dragger)
 		local _, bh = soldier(d.body)
@@ -192,6 +311,14 @@ local function tick()
 			local goal = hands.CFrame:PointToWorldSpace(vec(Cfg.Grip))
 			for _, pull in d.pulls do
 				pull.Position = goal
+			end
+		end
+		-- each Lift part over the ground under it (kept where it was over nothing)
+		params = params or worldRay()
+		for part, lift in d.lifts do
+			local y = ground(part.Position, params :: RaycastParams)
+			if y then
+				lift.Position = Vector3.new(part.Position.X, y + Cfg.Lift.lie, part.Position.Z)
 			end
 		end
 		-- the body's physics stays the server's for the whole drag
