@@ -16,6 +16,8 @@ local Prompts = {
 	-- the only kit that may use it (a gun a bot mans: its teammates take it over, src/server/Artillery); for everyone
 	-- else it shows as `Reasons.InUse`
 	KitAttr = "PromptKit",
+	-- the action read, dimmed, by everyone outside that kit (the gun's own "Take over the gun" is only its teammates')
+	KitOthersAction = "Man the gun",
 	Reasons = { InUse = "In use", Broken = "Broken" },
 
 	-- how far out the pins show, as a share of each prompt's own reach, and how many at most (the nearest)

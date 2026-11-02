@@ -54,6 +54,15 @@ function Prompts.states(seen: { Seen }, shown: string?, farReach: number, maxPin
 	return out
 end
 
+-- Why a prompt can't be used by a player of kit `myKit`: its own `reason`, else "InUse" when it is kept for another
+-- `kit` (Config/Prompts.KitAttr: a gun a bot mans, taken over only by its teammates); and whether it was the kit.
+function Prompts.blocked(reason: string?, kit: any, myKit: any): (string?, boolean)
+	if reason == nil and kit ~= nil and myKit ~= kit then
+		return "InUse", true
+	end
+	return reason, false
+end
+
 -- How far the hold has gone (0..1): `held` seconds of a `hold`-second prompt; a tap prompt (hold 0) never fills.
 function Prompts.progress(held: number?, hold: number): number
 	if held == nil or hold <= 0 then
