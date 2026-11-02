@@ -77,13 +77,16 @@ return {
 		local x3 = R.swing(0, 0, 0, 16, 3, 6)
 		assert(near(x1, -6) and near(z1, 16) and near(x2, 6) and near(z2, 16) and near(x3, -12))
 	end,
-	["fireStep: up the forward wall toward the enemy"] = function()
-		local x, z = R.fireStep(10, 5, -1, 0, T.step)
-		assert(near(x, 10 - T.step) and near(z, 5))
-		-- (under the parapet: on the wall, short of its top edge)
-		assert(
-			T.step > Build.Trench.floor and T.step < Build.Trench.floor + Build.Trench.depth / math.tan(math.rad(59))
-		)
+	["fireStep: up the forward wall toward the enemy, by the trench's shape"] = function()
+		local TB = Build.Trench
+		local step = R.stepOut(TB.floor, TB.wallAngle, T.rise)
+		local x, z = R.fireStep(10, 5, -1, 0, step)
+		assert(near(x, 10 - step) and near(z, 5))
+		-- (on the wall, short of its top edge, high enough to see over the parapet)
+		assert(step > TB.floor and step < TB.floor + TB.depth / math.tan(math.rad(TB.wallAngle)))
+		assert(T.rise + 4.5 > TB.depth + 2.3, "eyes over the parapet")
+		assert(math.abs(R.stepOut(4.25, 59, T.rise) - 6.29) < 0.05, "the wider trench: 6.3 as before")
+		assert(math.abs(R.stepOut(3, 59, T.rise) - 5.04) < 0.05, "the slimmer trench: about 5.05")
 	end,
 	["digs: half the squad digs, the rest guard"] = function()
 		assert(R.digs(1, 4, T.share) and R.digs(2, 4, T.share) and not R.digs(3, 4, T.share))
@@ -95,5 +98,31 @@ return {
 		assert(R.standTo(T.alarm - 1, T.alarm) and not R.standTo(T.alarm + 1, T.alarm))
 		local squares = { { x = 0, z = 0 }, { x = 8, z = 0 } }
 		assert(R.inSquare(7, 1, squares, 4) == 2 and R.inSquare(20, 0, squares, 4) == nil)
+	end,
+	["danger: shot at, enemy near, shelling near or a contested goal"] = function()
+		local M = Cfg.TrenchMove
+		assert(not R.danger(100, 0, 0, math.huge, {}, {}, false, M), "an empty field")
+		assert(R.danger(100, 0, 0, M.shot - 1, {}, {}, false, M), "shot at")
+		assert(not R.danger(100, 0, 0, M.shot + 1, {}, {}, false, M), "shot at long ago")
+		assert(R.danger(100, 0, 0, math.huge, { { x = M.near - 1, z = 0, at = 100 } }, {}, false, M), "enemy near")
+		assert(not R.danger(100, 0, 0, math.huge, { { x = M.near + 1, z = 0, at = 100 } }, {}, false, M), "too far")
+		assert(not R.danger(100, 0, 0, math.huge, { { x = 1, z = 0, at = 100 - M.known - 1 } }, {}, false, M), "old")
+		assert(R.danger(100, 0, 0, math.huge, {}, { { x = 0, z = M.blastNear - 1, at = 99 } }, false, M), "shelled")
+		assert(not R.danger(100, 0, 0, math.huge, {}, { { x = 0, z = M.blastNear + 1, at = 99 } }, false, M))
+		assert(R.danger(100, 0, 0, math.huge, {}, {}, true, M), "contested")
+	end,
+	["jumpOff: the dug square nearest the objective, outside its zone, ahead of the squad"] = function()
+		local J = Cfg.TrenchMove.Jump
+		local squares = { { x = 100, z = 0 }, { x = 60, z = 0 }, { x = 20, z = 0 }, { x = 300, z = 0 } }
+		-- objective at 0, radius 40, squad at 200
+		assert(R.jumpOff(squares, 200, 0, 0, 0, 40, J) == 2, "60 out: the nearest outside the zone")
+		assert(R.jumpOff(squares, 70, 0, 0, 0, 40, J) == nil, "none far enough ahead of the squad")
+		assert(R.jumpOff({ { x = 40 + J.reach + 5, z = 0 } }, 400, 0, 0, 0, 40, J) == nil, "too far from the zone")
+	end,
+	["overTop: most of the squad there, or waited long enough"] = function()
+		local J = Cfg.TrenchMove.Jump
+		assert(R.overTop(3, 4, 0, J) and not R.overTop(2, 4, 0, J), "three of four")
+		assert(R.overTop(1, 4, J.wait, J), "no waiting for ever")
+		assert(not R.overTop(0, 0, J.wait, J), "nobody left")
 	end,
 }

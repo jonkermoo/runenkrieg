@@ -90,6 +90,54 @@ function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns
 	return jobs
 end
 
+-- Whether one more of a side's bots should go Engineer for its guns (Config/Bots.Build.Crews): fewer than `enough`
+-- guns stand and fewer than `max` of its bots are on gun duty already.
+function BotBuild.crewWanted(standing: number, crews: number, cfg: any): boolean
+	return standing < cfg.enough and crews < cfg.max
+end
+
+-- The bots' gun spots behind a front `zone`, the enemy's way in along (tx, tz) (Config/Bots.Build.Crews): for each
+-- { key, count } in `want` (in order), candidates `back` studs behind the zone's edge by `across` studs either side of
+-- its middle, farthest back first; a spot is kept where `fits(key, x, z)` and it is `spacing[key]` (the larger of the
+-- two keys') from every spot kept. Lay jobs facing the enemy; fewer than asked where none fits.
+function BotBuild.gunSpots(
+	zone: Zone,
+	tx: number,
+	tz: number,
+	want: { { key: string, count: number } },
+	cfg: any,
+	spacing: { [string]: number },
+	fits: (string, number, number) -> boolean
+): { Job }
+	local ax, az = -tz, tx
+	local jobs: { Job } = {}
+	for _, w in want do
+		local made = 0
+		for _, back in cfg.back do
+			for _, off in cfg.across do
+				if made >= w.count then
+					break
+				end
+				local d = zone.radius + back
+				local x, z = zone.x - tx * d + ax * off, zone.z - tz * d + az * off
+				local clear = true
+				for _, j in jobs do
+					local gap = math.max(spacing[w.key] or 0, spacing[j.key] or 0)
+					if (j.x - x) ^ 2 + (j.z - z) ^ 2 < gap * gap then
+						clear = false
+						break
+					end
+				end
+				if clear and fits(w.key, x, z) then
+					table.insert(jobs, { key = w.key, x = x, z = z, fx = tx, fz = tz })
+					made += 1
+				end
+			end
+		end
+	end
+	return jobs
+end
+
 -- Whether the bots may lay one more `key`: their team's bot-laid pieces under `caps.pieces` (a third of the team's,
 -- user 2026-11-02) and, for a key `caps` names (the guns: half of each), under that.
 function BotBuild.allowed(key: string, pieces: number, ofKey: number, caps: { [string]: number }): boolean
@@ -181,6 +229,72 @@ function BotBuild.nudge(job: Job, tries: number, step: number): (number, number)
 		return job.x - job.fx * step * k, job.z - job.fz * step * k
 	end
 	return job.x - job.fz * step * k, job.z + job.fx * step * k
+end
+
+-- A breastwork along the line A-B (a trench run the ground refused, user 2026-11-02: "Breastworks"): a lay job every
+-- `step` studs along it, the keys taken in turn from `keys` (sandbag piles and barriers), facing (fx, fz).
+function BotBuild.line(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	fx: number,
+	fz: number,
+	step: number,
+	keys: { string }
+): { Job }
+	local dx, dz = bx - ax, bz - az
+	local len = math.sqrt(dx * dx + dz * dz)
+	local n = math.max(1, math.floor(len / step + 0.5))
+	local jobs: { Job } = {}
+	for i = 0, n - 1 do
+		local t = (i + 0.5) / n
+		table.insert(jobs, { key = keys[i % #keys + 1], x = ax + dx * t, z = az + dz * t, fx = fx, fz = fz })
+	end
+	return jobs
+end
+
+-- A wall of `count` sandbag piles `ahead` studs on the enemy side (fx, fz) of a nest or gun at (x, z), `spread` studs
+-- apart across (user 2026-11-02: "Walls round nest and gun").
+function BotBuild.wall(
+	x: number,
+	z: number,
+	fx: number,
+	fz: number,
+	ahead: number,
+	spread: number,
+	count: number
+): { Job }
+	local jobs: { Job } = {}
+	for i = 1, count do
+		local off = (i - (count + 1) / 2) * spread
+		table.insert(jobs, {
+			key = "SandbagPile",
+			x = x + fx * ahead - fz * off,
+			z = z + fz * ahead + fx * off,
+			fx = fx,
+			fz = fz,
+		})
+	end
+	return jobs
+end
+
+-- Whether a bot is pinned in the open and lays a sandbag pile in front of itself (user 2026-11-02: "Pile under
+-- fire"): shot at within `threat` seconds, at least `shaken` suppressed, no cover found or under way, not in a
+-- trench, and its last such pile at least `every` seconds ago.
+function BotBuild.pinned(
+	sinceThreat: number,
+	shaken: number,
+	hasCover: boolean,
+	inTrench: boolean,
+	sinceLast: number,
+	cfg: { threat: number, shaken: number, every: number }
+): boolean
+	return sinceThreat <= cfg.threat
+		and shaken >= cfg.shaken
+		and not hasCover
+		and not inTrench
+		and sinceLast >= cfg.every
 end
 
 return BotBuild

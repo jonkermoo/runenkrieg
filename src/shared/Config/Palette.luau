@@ -185,9 +185,11 @@ local Palette = {
 		Earth = { 112, 90, 62 },
 		BedRunes = { 120, 200, 255 }, -- Magic.Glow
 		BarrelRunes = { 120, 200, 255 },
+		CradleRunes = { 120, 200, 255 }, -- round the Rune howitzer's crystal collar
+		BarrelEngraving = { 120, 200, 255 }, -- its barrel's runes, lit through the charge-up (Config/Artillery.Crystal)
 		Crystal = { 175, 235, 255 },
 		CrystalCracks = { 235, 250, 255 }, -- the cracks over the howitzer's gem (src/client/ArtilleryCrystal)
-		Glowing = { "BedRunes", "BarrelRunes", "Crystal", "CrystalCracks" },
+		Glowing = { "BedRunes", "BarrelRunes", "CradleRunes", "BarrelEngraving", "Crystal", "CrystalCracks" },
 		-- a damaged gun is scorched toward this (Config/Artillery.Wreck), its glowing parts dead at `Dead`
 		Scorched = { 34, 30, 28 },
 		Hole = { 20, 18, 17 }, -- a shell hole's dark inside (Config/Artillery.Wreck)
@@ -232,10 +234,17 @@ local Palette = {
 		SandbagSacks = { 186, 168, 128 }, -- its empty sacks before any is filled (sandbag_pile Sacks)
 		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
 		PlankDark = { 98, 74, 52 },
+		-- (trench_pieces v11: weathered boards, the corrugated iron and its rusted sheets, bolts)
+		PlankPale = { 158, 134, 104 },
+		TrenchIron = { 74, 74, 76 },
+		TrenchRust = { 110, 78, 58 },
 		-- a trench bridge's planks (meshes Bridge<v><set>, <set>Dark; user 2026-10-27: pine, "a different color as the
 		-- trench", then "a slightly darker tint": was 186, 146, 94 and 152, 114, 72)
 		Bridge = { 164, 126, 80 },
 		BridgeDark = { 132, 98, 60 },
+		-- a dugout's timbers (Config/Build.Dugout): its posts, roof beams and door frame, and the paler plank lining
+		Dugout = { 112, 84, 58 },
+		DugoutPlank = { 146, 112, 76 },
 		-- a trench's dirt pieces (tools/blender/trench) are the terrain's mud colour times these shades (user 2026-10-24:
 		-- "match the color of the mud"): Wall<i> takes wall shade (i - 1) % 3 + 1 and its chunks the chunk shade of the
 		-- same number, its parapet that shade too; Floor<i> and its chunks

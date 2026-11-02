@@ -110,7 +110,7 @@ local Map1 = {
 	},
 	-- Every point on a rise, its spawn behind it (user 2026-11-01: "most points should be on an elevated position and the
 	-- spawn behind that elevated position (as natural cover)"): a round hill `height` high at the point, falling smoothly
-	-- to the rolling ground `radius` out. The wave line (Config/Frontline.Line.edge) stands on the back slope, low
+	-- to the rolling ground `radius` out. The wave line (Config/Frontline.Line.back) stands well behind it, low
 	-- enough that a soldier on the next point's rise sees over its heads (tests/map1.spec.luau).
 	rise = { radius = 110, height = 20, flat = 25 },
 	-- Natural river between S3 and S4, with shallow fords where crossings will be built later.
@@ -198,6 +198,7 @@ local Map1 = {
 			{ x = 1660, z = -40, r = 60 },
 			{ x = 2080, z = 40, r = 60 },
 			{ x = 2455, z = 165, r = 58 }, -- the East spawn zone (its corners 57 out)
+			{ x = 1943, z = 12, r = 27 }, -- East's wave line while S4 is its front (Config/Frontline.Line.back)
 			{ x = 2400, z = 0, r = 70 },
 			{ x = 2505, z = 0, r = 55 },
 		},

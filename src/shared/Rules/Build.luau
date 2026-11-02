@@ -53,6 +53,7 @@ export type Placing = {
 	ground: boolean, -- every sample found terrain under it
 	water: boolean, -- water under any sample
 	overlap: boolean, -- it overlaps a building, another piece or a soldier
+	overTrench: boolean?, -- its footprint reaches over a trench square's open cut, dug or planned (Build.trenchCut)
 	gunGap: boolean?, -- a gun: too close to another gun (Build.gunsClear)
 	nearTrench: boolean?, -- a gun or a wire: a trench within its trenchGap (a wire: on a trench or its bank)
 	mine: number, -- the builder's live pieces without a `playerCap` of their own (Config/Build.PerPlayer)
@@ -100,6 +101,9 @@ function Build.canPlace(p: Placing): (boolean, string?)
 	end
 	if p.overlap then
 		return false, "In the way"
+	end
+	if p.overTrench then
+		return false, "Over a trench"
 	end
 	if p.gunGap then
 		return false, "Too close to another gun"
@@ -180,6 +184,7 @@ function Build.hpOf(p: Piece, c: any): Hp?
 		elseif p.kind == "Bridge" then c.Bridge
 		elseif p.kind == "Sandbags" then c.Sandbags
 		elseif p.kind == "Nest" then c.Nest
+		elseif p.kind == "Dugout" then c.Dugout
 		else nil
 	return own and own.hp
 end
@@ -438,6 +443,33 @@ function Build.trenchSink(share: number, t: any): (number, number)
 	return t.depth * fill, t.heapSink * fill
 end
 
+-- Which pieces a trench square shows (user 2026-11-02: "base it off how our dug out is looking", "create constructtion statuses and destruction statuses"; Config/Build.Trench.stages): while it is first being dug, the
+-- construction stage its HP has reached ("Dig", the last of `stages.dig` (% of `h.max`) it is at or past, at least the
+-- first; nil at 0 HP: still a plan); dug full once, the finished pieces ("Full", 0) until its HP falls under each of
+-- `stages.hit` (%), then that destruction stage ("Hit", 1..).
+function Build.trenchStage(hp: number, built: boolean, h: any, stages: any): (string?, number)
+	local pct = hp / h.max * 100
+	if not built then
+		if hp <= 0 then
+			return nil, 0
+		end
+		local k = 1
+		for i, at in stages.dig do
+			if pct >= at - 1e-6 then
+				k = i
+			end
+		end
+		return "Dig", k
+	end
+	local k = 0
+	for i, at in stages.hit do
+		if pct < at then
+			k = i
+		end
+	end
+	return if k == 0 then "Full" else "Hit", k
+end
+
 -- The soil under a trench square: the first of `names` (terrain materials from its ground line down) not in
 -- `soil.skip`, else `soil.fallback` (Config/Build.Trench.soil).
 function Build.trenchSoil(names: { string }, soil: any): string
@@ -465,8 +497,49 @@ function Build.freeRuns(blocked: { boolean }): { { number } }
 	return runs
 end
 
--- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat) to any of `segs` (other trenches' squares,
--- { ax, az, bx, bz } each), leaving out the stretch within `spacing` of an end that joins a trench (`joinA`, `joinB`).
+-- the flat distance from (px, pz) to the segment s = { ax, az, bx, bz }
+local function toSeg(px: number, pz: number, s: { number }): number
+	local dx, dz = s[3] - s[1], s[4] - s[2]
+	local len2 = dx * dx + dz * dz
+	local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
+	return math.sqrt((px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2)
+end
+
+-- The trench squares a plan's end at (x, z) joins: those within `touch` of it (the square it extends or tees into),
+-- then every square touching one of those (end to end, or a tee's end on its side), out to `reach` of the end. A set
+-- of indices into `segs` ({ ax, az, bx, bz } each).
+function Build.joinedAt(x: number, z: number, segs: { { number } }, touch: number, reach: number): { [number]: boolean }
+	local set: { [number]: boolean } = {}
+	local open: { number } = {}
+	for j, s in segs do
+		if toSeg(x, z, s) < touch then
+			set[j] = true
+			table.insert(open, j)
+		end
+	end
+	while #open > 0 do
+		local s = segs[table.remove(open) :: number]
+		for k, o in segs do
+			if not set[k] and toSeg(x, z, o) < reach then
+				local touching = toSeg(s[1], s[2], o) < touch
+					or toSeg(s[3], s[4], o) < touch
+					or toSeg(o[1], o[2], s) < touch
+					or toSeg(o[3], o[4], s) < touch
+				if touching then
+					set[k] = true
+					table.insert(open, k)
+				end
+			end
+		end
+	end
+	return set
+end
+
+-- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat, centre line to centre line: about a
+-- trench's width of clear ground between them) to any of `segs` (the trenches' squares, { ax, az, bx, bz } each).
+-- Only the trench an end joins (`joinA`, `joinB`: Build.joinedAt, `touch` of the end) may be nearer, and only along
+-- the stretch within `spacing` of that end (user 2026-11-02: "a trench cant be built or extended right next to another
+-- path, there should be some space": every other trench keeps its distance all along, the joint too).
 function Build.tooClose(
 	ax: number,
 	az: number,
@@ -475,22 +548,21 @@ function Build.tooClose(
 	joinA: boolean,
 	joinB: boolean,
 	segs: { { number } },
-	spacing: number
+	spacing: number,
+	touch: number
 ): boolean
 	local length = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	local setA = if joinA then Build.joinedAt(ax, az, segs, touch, 2 * spacing) else {}
+	local setB = if joinB then Build.joinedAt(bx, bz, segs, touch, 2 * spacing) else {}
 	local n = math.max(math.ceil(length), 1)
 	for i = 0, n do
 		local t = i / n
 		local along = t * length
-		if not ((joinA and along < spacing) or (joinB and length - along < spacing)) then
-			local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
-			for _, s in segs do
-				local dx, dz = s[3] - s[1], s[4] - s[2]
-				local len2 = dx * dx + dz * dz
-				local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
-				if (px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2 < spacing * spacing then
-					return true
-				end
+		local nearA, nearB = joinA and along < spacing, joinB and length - along < spacing
+		local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
+		for j, s in segs do
+			if not ((nearA and setA[j]) or (nearB and setB[j])) and toSeg(px, pz, s) < spacing then
+				return true
 			end
 		end
 	end
@@ -557,6 +629,99 @@ function Build.bridgeSpot(s: BridgeSpot, b: any): string?
 		return "Too close to another bridge"
 	end
 	return nil
+end
+
+export type DugoutSpot = {
+	found: boolean, -- a trench square there
+	dug: number, -- that square's HP, % of its max
+	length: number, -- that square's length
+	teed: boolean, -- another trench joins the wall it would go in
+	bridge: boolean, -- a bridge on that square
+	nearest: number, -- flat, centre to centre, to the nearest other dugout
+}
+
+-- Why a dugout `width` wide can't go in the trench square wall `s` describes (Config/Build.Dugout `d`), nil when it can:
+-- a square dug out and long enough, no trench joining that wall, no bridge over it, no other dugout close by
+function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
+	if not s.found or s.dug < d.dug then
+		return "Needs a dug trench"
+	end
+	if s.nearest < d.same then
+		return "A dugout is already here"
+	end
+	if s.length < width + d.spare then
+		return "This trench square is too short"
+	end
+	if s.bridge then
+		return "A bridge is here"
+	end
+	if s.teed then
+		return "A trench joins this wall"
+	end
+	if s.nearest < d.spacing then
+		return "Too close to another dugout"
+	end
+	return nil
+end
+
+-- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`): while it is built (`built` false: it has
+-- never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only `d.laid`) and no caving; once it has
+-- stood, every build stage and as many of `d.falls` as `d.cave` thresholds its HP has dropped under
+function Build.dugoutShown(hp: number, max: number, built: boolean, d: any): (number, number)
+	if not built then
+		return Build.hescoStage(hp, max, #d.build), 0
+	end
+	local share, falls = if max > 0 then hp / max * 100 else 0, 0
+	for _, at in d.cave do
+		if share < at then
+			falls += 1
+		end
+	end
+	return #d.build, falls
+end
+
+-- Whether a dugout shelters the soldiers in its room: it has stood once and has HP left (user 2026-11-02: "anything
+-- above them should not hurt them")
+function Build.dugoutShelters(hp: number, built: boolean): boolean
+	return built and hp > 0
+end
+
+-- Whether a point in a dugout's own frame (`lx`, `ly`, `lz` from the foot of the wall it is cut into: x along the
+-- trench, y up from the trench floor, z back into the wall) is in its room (`piece`: width, height, depth; past its
+-- steps, Config/Build.Dugout `d`)
+function Build.inDugout(lx: number, ly: number, lz: number, piece: Piece, d: any): boolean
+	local floor = -d.drop
+	return math.abs(lx) <= piece.width / 2
+		and ly >= floor
+		and ly <= floor + piece.height
+		and lz >= d.stair
+		and lz <= d.stair + piece.depth
+end
+
+-- how far a point is from a box (`x0`..`x1` and so on), 0 in it
+local function boxGap(
+	lx: number,
+	ly: number,
+	lz: number,
+	x: number,
+	y0: number,
+	y1: number,
+	z0: number,
+	z1: number
+): number
+	local dx = math.max(math.abs(lx) - x, 0)
+	local dy = math.max(y0 - ly, ly - y1, 0)
+	local dz = math.max(z0 - lz, lz - z1, 0)
+	return math.sqrt(dx * dx + dy * dy + dz * dz)
+end
+
+-- How far a blast at `lx`, `ly`, `lz` in a dugout's own frame (Build.inDugout) is from it: from its slot (open from
+-- the room's floor up to the ground, `top` over the trench floor) or its room, whichever is nearer; 0 in either
+function Build.dugoutDistance(lx: number, ly: number, lz: number, piece: Piece, d: any, top: number): number
+	local floor = -d.drop
+	local slot = boxGap(lx, ly, lz, d.slot / 2, floor, top, 0, d.stair)
+	local room = boxGap(lx, ly, lz, piece.width / 2, floor, floor + piece.height, d.stair, d.stair + piece.depth)
+	return math.min(slot, room)
 end
 
 -- Which of `variants` board layouts a bridge with `seed` shows, and whether it is turned round
@@ -712,6 +877,36 @@ function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
 		end
 	end
 	return true
+end
+
+-- A trench square's open cut as a footprint (Build.footprintsOverlap): from its end (ax, az) to (bx, bz), `half`
+-- either side of its line (Config/Build.Trench.overhang). No piece stands over it and no square is planned under one
+-- (user 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible").
+function Build.trenchCut(ax: number, az: number, bx: number, bz: number, half: number): Footprint
+	local dx, dz = bx - ax, bz - az
+	local length = math.sqrt(dx * dx + dz * dz)
+	local rx, rz = 1, 0
+	if length > 1e-6 then
+		rx, rz = dx / length, dz / length
+	end
+	return { x = (ax + bx) / 2, z = (az + bz) / 2, rx = rx, rz = rz, width = length, depth = 2 * half }
+end
+
+-- Whether a piece still stands on its ground: `laid` the ground's heights under it when it was laid (BuildSurvey's
+-- samples), `now` the same samples today. It does while at least `share` of them are no more than `gap` below where
+-- they were (Config/Build.Support; user 2026-11-02: "make sure floating parts are not possible").
+function Build.supported(laid: { number }, now: { number }, gap: number, share: number): boolean
+	if #laid == 0 then
+		return true
+	end
+	local held = 0
+	for i, h in laid do
+		local n = now[i]
+		if n and n >= h - gap then
+			held += 1
+		end
+	end
+	return held >= #laid * share - 1e-9
 end
 
 -- whether a point in a box's own space (`lx`, `ly`, `lz` from its centre) is inside it (`sx`, `sy`, `sz` its size)
@@ -884,6 +1079,24 @@ function Build.nestShown(hp: number, n: any, wreck: number?): (string | number, 
 	return n.build[stage].bags, n.build[stage].gun
 end
 
+-- What a gun's sandbag ring shows (Config/Build.GunRing `n`): being built, by its gun's `hp` of `max`, a stage as a
+-- Hesco barrier's (Build.hescoStage) over `n.build` ("none" every bag its empty sack, "bottom", "all"); once the gun
+-- has stood, by its Wreck stage `wreck` (0 whole): "all", or the share of its bags still standing (`n.wear`)
+function Build.ringShown(hp: number, max: number, n: any, wreck: number?): string | number
+	if wreck then
+		return if wreck > 0 then n.wear[wreck] else "all"
+	end
+	local stage = Build.hescoStage(hp, max, #n.build)
+	return if stage == 0 then "none" else n.build[stage]
+end
+
+-- Whether a point `l` in a gun's frame (its pivot on the ground, Vector3 or anything with X and Z) is on the band its
+-- sandbag ring stands on (Config/Build.GunRing `n`: within `n.ground` of the ring's line, Build.nestRing's radius)
+function Build.onRing(l: Vector3, n: any): boolean
+	local radius = n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))
+	return math.abs(math.sqrt(l.X * l.X + l.Z * l.Z) - radius) <= n.ground
+end
+
 -- How many of a worn MG nest's `count` ring bags still stand at `share` of them (Config/Build.Nest `wear`): at least
 -- one while any share is left
 function Build.nestStanding(count: number, share: number): number
@@ -918,6 +1131,7 @@ function Build.hpRules(kind: string, cfg: any, p: Piece?): HpRules?
 		elseif kind == "Bridge" then cfg.Bridge.hp
 		elseif kind == "Wire" then cfg.Wire.hp
 		elseif kind == "Nest" then cfg.Nest.hp
+		elseif kind == "Dugout" then cfg.Dugout.hp
 		else nil
 	if h then
 		return { place = h.place or 0, max = h.max, swing = h.swing, destroy = h.destroy }

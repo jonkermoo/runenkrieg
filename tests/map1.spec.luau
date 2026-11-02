@@ -20,7 +20,7 @@ local function unit(x: number, z: number): (number, number)
 end
 
 -- the first `rows` rows of `side`'s wave line at sector `i`, as src/server/Frontline stands it: at its own HQ in its
--- spawn zone, else Line.edge past the zone toward its own end, facing the sector it attacks
+-- spawn zone, else Line.back of the way to the point behind (Rules/Frontline.lineCentre), facing the sector it attacks
 local function waveLine(side: string, i: number, rows: number): { { number } }
 	local s = sectors[i]
 	local cx, cz
@@ -28,9 +28,7 @@ local function waveLine(side: string, i: number, rows: number): { { number } }
 		local r = Map1.spawnZones[side]
 		cx, cz = (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2
 	else
-		local b = sectors[if side == "West" then i - 1 else i + 1]
-		local dx, dz = unit(b.x - s.x, b.z - s.z)
-		cx, cz = s.x + dx * (s.radius + Front.Line.edge), s.z + dz * (s.radius + Front.Line.edge)
+		cx, cz = R.lineCentre(sectors, i, side :: any, Front.Line)
 	end
 	local aim = sectors[if side == "West" then i + 1 else i - 1]
 	local fx, fz = unit(aim.x - cx, aim.z - cz)
@@ -74,14 +72,21 @@ return {
 			end
 		end
 	end,
-	["every wave line slot stays in its own sector and out of the river, however many rows (user 2026-11-02)"] = function()
+	["every wave line stands closer to the point behind than to its front point, on its own side's ground, out of the river (user 2026-11-02)"] = function()
 		local rows = Front.Line.tries // Front.Line.perRow
+		assert(Front.Line.back > 0.5 and Front.Line.back < 1, "past halfway back, short of the point behind")
 		for i = 2, #sectors - 1 do
 			for _, side in { "West", "East" } do
+				local front, rear = sectors[i], sectors[if side == "West" then i - 1 else i + 1]
 				for _, p in waveLine(side, i, rows) do
+					local df = math.sqrt((p[1] - front.x) ^ 2 + (p[2] - front.z) ^ 2)
+					local dr = math.sqrt((p[1] - rear.x) ^ 2 + (p[2] - rear.z) ^ 2)
+					assert(dr < df, `{side}'s line at {front.id} is nearer {front.id} than {rear.id}`)
+					assert(dr > rear.radius + 20, `{side}'s line at {front.id} crowds {rear.id}'s zone`)
+					-- in the front sector or the one behind: both its own while it holds the front one
 					local id = Sec.sectorAt(Map1, MT, p[1], p[2], SecCfg.Divider.RiverSegments)
-					assert(id == sectors[i].id, `{side}'s line at {sectors[i].id} reaches into {id}`)
-					assert(not MT.isRiver(Map1, p[1], p[2]), `{side}'s line at {sectors[i].id} stands in the river`)
+					assert(id == front.id or id == rear.id, `{side}'s line at {front.id} reaches into {id}`)
+					assert(not MT.isRiver(Map1, p[1], p[2]), `{side}'s line at {front.id} stands in the river`)
 				end
 			end
 		end

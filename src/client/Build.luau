@@ -167,7 +167,7 @@ end
 -- model ... just show how much space it actually takes (the visible model with applicable trench)"): a see-through box
 -- round the gun's visible model in gun space (as src/server/Artillery finds it, from the Bore at rest) and, dug in, its
 -- pit (out to the top of its wall) and ramp outlined on the ground; nil without the gun's model
-local function makeGunGhost(gun: ArtilleryCfg.Gun): Model?
+local function makeGunGhost(gun: ArtilleryCfg.Gun, ring: any?): Model?
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
 	for _, sub in { "Weapons", "Shared", "Artillery", gun.asset } do
 		f = f and f:FindFirstChild(sub)
@@ -228,16 +228,26 @@ local function makeGunGhost(gun: ArtilleryCfg.Gun): Model?
 			ramp.Size = Vector3.new(d.ramp.width, G.outline, d.ramp.length)
 		end
 	end
+	-- its sandbag ring (Config/Build.GunRing), flat on the ground under the pit's outline, out past the bags
+	if ring then
+		local G = C.GunGhost
+		local across = 2 * (ring.ring.bag / (2 * math.sin(math.pi / ring.ring.sides)) + ring.ring.bag / 4)
+		local bags = ghostPart(m)
+		bags.Name = "Ring"
+		bags.Shape = Enum.PartType.Cylinder
+		bags.Transparency = G.outlineSee
+		bags.Size = Vector3.new(G.outline, across, across)
+	end
 	m.Parent = workspace.CurrentCamera
 	return m
 end
 
 -- shows a gun piece's ghost: the gun where it will stand (`at`: the ground at the click, `look`: flat), its pit and ramp
 -- on the ground there. False without the gun's model (its box is shown instead).
-local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: boolean): boolean
+local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: boolean, ring: any?): boolean
 	if not ghost or ghostFor ~= key then
 		clearGhost()
-		ghost = makeGunGhost(gun)
+		ghost = makeGunGhost(gun, ring)
 		ghostFor = if ghost then key else nil
 	end
 	local m = ghost
@@ -254,6 +264,11 @@ local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: 
 	if pit then
 		pit.CFrame = at * CFrame.new(0, lift, 0) * CFrame.Angles(0, 0, math.rad(90))
 		pit.Color = color
+	end
+	local bags = m:FindFirstChild("Ring") :: BasePart?
+	if bags then
+		bags.CFrame = at * CFrame.new(0, lift - 0.02, 0) * CFrame.Angles(0, 0, math.rad(90))
+		bags.Color = color
 	end
 	local ramp = m:FindFirstChild("Ramp") :: BasePart?
 	if ramp and d and d.ramp then
@@ -465,6 +480,33 @@ local function surveyPiece(character: Model, root: BasePart)
 		showGhost(p.key, at * CFrame.new(0, deck - g / 2, 0), Vector3.new(length or p.width, g, p.depth), ok)
 		return
 	end
+	if p.kind == "Dugout" then
+		-- a dugout snaps into the wall of the trench square under the cursor, the side it is on (Survey.dugoutSpot), its
+		-- ghost the ground it cuts: its steps and room, from the room's floor up to the ground (Survey.dugoutBox)
+		local f = workspace:FindFirstChild(C.Folder)
+		local s, inWall = Survey.dugoutSpot(f, hit.Position)
+		local at = inWall or Survey.frame(hit.Position, look)
+		local box, size = Survey.dugoutBox(p, at)
+		local ok, reason = Rules.canPlace({
+			piece = p,
+			distance = (root.Position - at.Position).Magnitude,
+			reach = C.Reach,
+			spot = Rules.dugoutSpot(s, C.Dugout, p.width),
+			slope = 0,
+			maxSlope = 0,
+			ground = true,
+			water = false,
+			overlap = inWall ~= nil and Survey.onPiece({ width = size.X, depth = size.Z, height = size.Y }, box, f),
+			mine = 0, -- (the caps are the server's to check)
+			team = 0,
+			perPlayer = C.PerPlayer,
+			perTeam = C.PerTeam,
+		})
+		current = { frame = at, ok = ok, reason = reason }
+		local floor, top = -C.Dugout.drop, T.depth
+		showGhost(p.key, box * CFrame.new(0, (floor + top) / 2, 0), Vector3.new(size.X, top - floor, size.Z), ok)
+		return
+	end
 	-- (a foxhole: round its grid corner, as the server snaps it: Rules.foxholeSnap)
 	local foxhole = p.kind == "Foxhole"
 	local spot = hit.Position
@@ -493,6 +535,7 @@ local function surveyPiece(character: Model, root: BasePart)
 		ground = report.ground,
 		water = report.water,
 		overlap = Survey.blocked(p, box, report.low, ignore) or Survey.onPiece(p, box, f),
+		overTrench = Survey.overTrench(p, box, f),
 		gunGap = gun and Survey.gunGap(p, at, f),
 		nearTrench = (gun or p.kind == "Wire" or foxhole) and Survey.nearTrench(p, box, f),
 		mine = 0, -- (the caps are the server's to check)
@@ -504,7 +547,7 @@ local function surveyPiece(character: Model, root: BasePart)
 	local gunCfg = if gun then ArtilleryCfg.Guns[p.gun or ""] else nil
 	if gunCfg then
 		-- (the gun as it will stand, not its whole box: user 2026-10-27)
-		if showGunGhost(p.key, gunCfg, frame, ok) then
+		if showGunGhost(p.key, gunCfg, frame, ok, p.ring and C.GunRing[p.ring]) then
 			return
 		end
 	end
@@ -648,11 +691,12 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 		end
 	end
 	local spacingMsg = "Too close to another trench: extend it instead"
+	local top = Rules.trenchTop(T) -- (an end this close to a square joins it: Rules.joinedAt)
 	if not planStart then
 		local far = Vector3.new(aim.X - root.Position.X, 0, aim.Z - root.Position.Z).Magnitude > T.firstReach
 		if far then
 			ok, reason = false, `Too far: start within {T.firstReach} studs of you`
-		elseif not aimKind and Rules.tooClose(aim.X, aim.Z, aim.X, aim.Z, false, false, segs, T.spacing) then
+		elseif not aimKind and Rules.tooClose(aim.X, aim.Z, aim.X, aim.Z, false, false, segs, T.spacing, top) then
 			ok, reason = false, spacingMsg
 		end
 		current = { a = aim, ok = ok, reason = reason }
@@ -684,7 +728,7 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	if ok and tooFar then
 		ok, reason = false, `Too far: stand within {T.firstReach} studs of either end`
 	end
-	if ok and Rules.tooClose(a.X, a.Z, aim.X, aim.Z, aKind ~= nil, aimKind ~= nil, segs, T.spacing) then
+	if ok and Rules.tooClose(a.X, a.Z, aim.X, aim.Z, aKind ~= nil, aimKind ~= nil, segs, T.spacing, top) then
 		ok, reason = false, spacingMsg
 	end
 	if ok and length > 0.1 then

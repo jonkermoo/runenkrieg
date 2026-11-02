@@ -115,6 +115,30 @@ return {
 		assert(R.pick(jobs, 0, 0, 90, {}, {}, helps) == 3, "a work job only")
 		assert(R.pick(jobs, 0, 0, 90, { [3] = true }, {}, helps) == nil, "the trench too far")
 	end,
+	["line: a breastwork's piles and barriers along the refused run"] = function()
+		local jobs = R.line(0, 0, 0, 32, 1, 0, B.Breast.step, B.Breast.keys)
+		assert(#jobs == 4, "one every step")
+		assert(jobs[1].key == "SandbagPile" and jobs[2].key == "Hesco" and jobs[3].key == "SandbagPile")
+		assert(jobs[1].x == 0 and jobs[1].z == 4 and jobs[4].z == 28 and jobs[1].fx == 1, "along it, facing out")
+	end,
+	["wall: piles on the enemy side of a nest or gun"] = function()
+		local W = B.Walls
+		local jobs = R.wall(10, 0, 1, 0, W.ahead, W.spread, W.count)
+		assert(#jobs == W.count)
+		for _, j in jobs do
+			assert(j.key == "SandbagPile" and j.x == 10 + W.ahead, "ahead of it")
+		end
+		assert(math.abs(jobs[1].z - jobs[2].z) == W.spread, "side by side")
+	end,
+	["pinned: shot at, shaken, no cover and not in a trench"] = function()
+		local P = B.Pinned
+		assert(R.pinned(0, P.shaken, false, false, P.every, P))
+		assert(not R.pinned(P.threat + 1, P.shaken, false, false, P.every, P), "nobody shooting now")
+		assert(not R.pinned(0, P.shaken - 0.1, false, false, P.every, P), "not pinned down")
+		assert(not R.pinned(0, P.shaken, true, false, P.every, P), "it has cover")
+		assert(not R.pinned(0, P.shaken, false, true, P.every, P), "in a trench")
+		assert(not R.pinned(0, P.shaken, false, false, P.every - 1, P), "laid one lately")
+	end,
 	["nudge: across the way in, one side then the other"] = function()
 		local job: R.Job = { key = "Wire", x = 0, z = 0, fx = 1, fz = 0 }
 		local x1, z1 = R.nudge(job, 1, 6)
@@ -125,5 +149,43 @@ return {
 		local tx1, tz1 = R.nudge(line, 1, 6)
 		local tx2 = R.nudge(line, 2, 6)
 		assert(near(tx1, -6) and near(tz1, -10) and near(tx2, 6), "a trench steps back, then forward")
+	end,
+	["crews: up to max bots go Engineer while too few guns stand"] = function()
+		local C = B.Crews
+		assert(R.crewWanted(0, 0, C) and R.crewWanted(C.enough - 1, C.max - 1, C))
+		assert(not R.crewWanted(C.enough, 0, C), "enough guns: nobody")
+		assert(not R.crewWanted(0, C.max, C), "a small, capped number")
+	end,
+	["gun spots: behind the zone, farthest back first, spaced, only where they fit"] = function()
+		local zone = { x = 0, z = 0, radius = 50 }
+		local C = { back = { 90, 60, 30 }, across = { 0, -60, 60, -120, 120, -180, 180 } }
+		local spacing = { FieldGun = 60, Howitzer = 120 }
+		local function any(_: string, _x: number, _z: number): boolean
+			return true
+		end
+		local want = { { key = "Howitzer", count = 1 }, { key = "FieldGun", count = 3 } }
+		local jobs = R.gunSpots(zone, 1, 0, want, C, spacing, any)
+		assert(#jobs == 4 and jobs[1].key == "Howitzer" and near(jobs[1].x, -140) and near(jobs[1].z, 0))
+		for i, a in jobs do
+			assert(a.x < -zone.radius and a.fx == 1, "behind the zone's edge, facing the enemy")
+			for k, b in jobs do
+				if i ~= k then
+					local gap = math.max(spacing[a.key], spacing[b.key])
+					assert((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2 >= gap * gap - 1e-6, "spaced")
+				end
+			end
+		end
+		-- East faces west: behind is +x
+		assert(R.gunSpots(zone, -1, 0, want, C, spacing, any)[1].x > zone.radius)
+		-- a spot that doesn't fit (out of reach, a spawn) is skipped for the next
+		local function notFar(_: string, x: number, _z: number): boolean
+			return x > -120
+		end
+		local near1 = R.gunSpots(zone, 1, 0, { { key = "FieldGun", count = 1 } }, C, spacing, notFar)
+		assert(#near1 == 1 and near(near1[1].x, -110), "the next row in")
+		local none = R.gunSpots(zone, 1, 0, want, C, spacing, function()
+			return false
+		end)
+		assert(#none == 0)
 	end,
 }

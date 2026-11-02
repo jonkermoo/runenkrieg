@@ -35,8 +35,13 @@
 --   bridge_pieces layout its seed rolls, stretched to the square's length; on HP (Bridge.hp): laid at stage 1, Build
 --   swings add HP, Destroy swings and weapons take it, its boards standing by HP (Rules.bridgeStage). At 0, or once its
 --   square is buried under Trench.hp.bare% (or gone), it is simply gone: no debris.
+-- - Dugouts (kind "Dugout"; Config/Build.Dugout): steps cut down through a trench square's wall into a room under the
+--   ground (Survey.dugoutSpot, Trenches.pocket), Config/Assets dugout_pieces' meshes shown by HP (Rules.dugoutShown:
+--   built in 4 stages, then caving in as it wears), unseen plates to walk and bump on. Soldiers in the room of one that
+--   has stood are safe from blasts outside it (Build.sheltered, src/server/Damage.blast). At 0 it falls in, the ground
+--   filled back, anyone inside put out over the trench (or the ground, the trench gone).
 -- Build.blast (from src/server/Damage.blast) and Build.shot (src/server/Firing): weapons wear down trenches, sandbags,
--- wire and bridges by Config/Build.Structures.
+-- wire, bridges and dugouts by Config/Build.Structures.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -73,7 +78,7 @@ local Build = {}
 -- the shortest time between two shovel strikes (a swing comes too soon under SwingSlack of it)
 local GAP = Rules.strikeGap({ ShovelCfg.Dig, ShovelCfg.Chip })
 
--- an MG nest's bag full and lying as its empty sack (Config/Build.Nest `flat`)
+-- an MG nest's (or a gun ring's) bag full and lying as its empty sack (Config/Build.Nest / GunRing `flat`)
 type Sack = { full: CFrame, size: Vector3, color: Color3, flat: CFrame, flatSize: Vector3, cord: boolean, top: boolean }
 
 type Rec = {
@@ -101,13 +106,17 @@ type Rec = {
 	gun: Model?,
 	pitBase: Ground.PitBase?,
 	dug: number?,
+	laid: { number }?, -- a sandbag pile, wire or Hesco barrier: its ground's heights when laid (Build.blast's support)
 	ground: CFrame?, -- an MG nest: the ground at the ring's middle (its building site stands on it)
 	-- an MG nest: its ground as it was laid (put back once it is fixed whole) and the top of it in each column (a blast's
 	-- earth heaps no higher than Config/Build.Nest.heap over it)
 	nestBase: Ground.PitBase?,
 	nestTops: { [string]: number }?,
-	sacks: { [BasePart]: Sack }?, -- an MG nest: each bag full and as its empty sack
-	square: Model?, -- a bridge: the trench square it is on
+	sacks: { [BasePart]: Sack }?, -- an MG nest (or a gun's sandbag ring): each bag full and as its empty sack
+	square: Model?, -- a bridge: the trench square it is on (a dugout: the one it is cut into)
+	pocketed: boolean?, -- a dugout: its slot and room cut in the ground (Trenches.pocket)
+	meshes: { [string]: BasePart }?, -- a dugout: its pieces by mesh name (Config/Assets dugout_pieces)
+	plates: { BasePart }?, -- and its unseen plates (attributes "Stage", and "Fall" for a heap)
 	watch: { RBXScriptConnection }?, -- and its watch on that square
 	sector: string?, -- the Map1 sector it stands in (a piece with a `sectorCap`)
 	plot: Ground.Plot?, -- a foxhole's spot: the ground there as it lay
@@ -297,6 +306,120 @@ local function layoutPile(r: Rec, on: CFrame): boolean
 	return true
 end
 
+-- a nest's (or a gun ring's) bag (or its cord) `d` laid at `cf` in `holder`, its `row` on the ring, and its empty sack
+-- in `sacks`: flattened by `flat` along whichever of its axes stands up, on the ground `base` under it (a top bag's over
+-- the sacks below)
+local function layBag(
+	holder: Instance,
+	base: CFrame,
+	flat: number,
+	sacks: { [BasePart]: Sack },
+	d: BasePart,
+	cf: CFrame,
+	row: number,
+	top: boolean
+)
+	local part = d:Clone()
+	part.Anchored = true
+	part.Material = Enum.Material.SmoothPlastic
+	local jitter = ((row * 37) % 7 / 6 - 0.5) * 2 * C.Sandbags.shade
+	local cord = Rules.isPileCord(d.Name)
+	part.Color = if cord then rgb(Palette.Build.SandbagCord) else rgb(Palette.Build.Sandbag, jitter)
+	part.CFrame = cf
+	part:SetAttribute("Row", row)
+	part.Parent = holder
+	local up = base.UpVector
+	local size = part.Size
+	local ups = {
+		math.abs(cf.RightVector:Dot(up)),
+		math.abs(cf.UpVector:Dot(up)),
+		math.abs(cf.LookVector:Dot(up)),
+	}
+	local axis = if ups[1] >= ups[2] and ups[1] >= ups[3] then 1 elseif ups[2] >= ups[3] then 2 else 3
+	local height = if axis == 1 then size.X elseif axis == 2 then size.Y else size.Z
+	local flatH, y = Rules.nestSack(height, flat, top)
+	local flatSize = Vector3.new(
+		if axis == 1 then flatH else size.X,
+		if axis == 2 then flatH else size.Y,
+		if axis == 3 then flatH else size.Z
+	)
+	local at = base:PointToObjectSpace(cf.Position)
+	sacks[part] = {
+		full = cf,
+		size = size,
+		color = part.Color,
+		flat = CFrame.new(base:PointToWorldSpace(Vector3.new(at.X, y, at.Z))) * cf.Rotation,
+		flatSize = flatSize,
+		cord = cord,
+		top = top,
+	}
+end
+
+-- the ring's bags (Rules.nestRing on `n.ring`) from the pile `kit` (its parts' `offsets`, its `bags` by slot) laid by
+-- `lay` round `base` (plan space: the ring's middle, x right, z back), each on its row (from `firstRow`)
+local function layRing(
+	n: any,
+	bags: { string },
+	kit: Instance,
+	offsets: { [string]: CFrame },
+	base: CFrame,
+	firstRow: number,
+	lay: (BasePart, CFrame, number, boolean) -> ()
+)
+	local ring = Rules.nestRing(n.ring)
+	for i, b in ring do
+		local o = offsets[bags[b.slot]]
+		if o then
+			local along = CFrame.fromMatrix(Vector3.new(b.x, 0, b.z), Vector3.new(b.dx, 0, b.dz), Vector3.yAxis)
+			local bagCf = base * along * CFrame.new(0, o.Y, o.Z) * o.Rotation
+			for _, d in kit:GetChildren() do
+				local mo = offsets[d.Name]
+				if mo and d:IsA("BasePart") and Rules.pileBag(d.Name, bags) == b.slot then
+					lay(d, bagCf * o:Inverse() * mo, i + firstRow - 1, b.slot == 3)
+				end
+			end
+		end
+	end
+end
+
+-- a nest's (or a gun ring's) bags as `bags` says (Rules.nestShown): "none" all lying as their empty sacks, "bottom"
+-- the bottom ones filled, "all", or worn: that share of the ring's bags still standing, the top bags gone first
+-- (Rules.nestWearOrder; row 1, an MG nest's mount bags, always stands)
+local function showBags(r: Rec, bags: string | number)
+	local standing: { [number]: boolean }? = nil
+	if type(bags) == "number" then
+		local rows, tops = {}, {}
+		for part, sack in r.sacks or {} do
+			local row = part:GetAttribute("Row") :: number?
+			if row and row > 1 and tops[row] == nil then
+				tops[row] = sack.top
+				table.insert(rows, row)
+			end
+		end
+		table.sort(rows, function(a, b)
+			return Rules.nestWearOrder(a, tops[a]) < Rules.nestWearOrder(b, tops[b])
+		end)
+		local set = {}
+		local gone = #rows - Rules.nestStanding(#rows, bags)
+		for i = gone + 1, #rows do
+			set[rows[i]] = true
+		end
+		standing = set
+	end
+	for part, sack in r.sacks or {} do
+		local row = part:GetAttribute("Row") :: number?
+		local up = bags == "all"
+			or (bags == "bottom" and not sack.top)
+			or (standing ~= nil and (row == 1 or (row ~= nil and standing[row] == true)))
+		part.CanCollide = up
+		part.CanQuery = up
+		part.Transparency = if sack.cord and not up then 1 else 0
+		part.CFrame = if up then sack.full else sack.flat
+		part.Size = if up then sack.size else sack.flatSize
+		part.Color = if up or sack.cord then sack.color else rgb(Palette.Build.SandbagSacks)
+	end
+end
+
 -- an MG nest (Config/Build.Nest): one "Sandbag" section of every bag, each with the "Row" it is laid in (the mount bag
 -- first, then the ring's bags in Rules.nestRing's order), and the gun's parts (Artillery.parts) on the mount bag, set
 -- up by quarters (showNest). The piece's frame is the ring's middle, its look the way the gun points; the bags lie on
@@ -327,43 +450,8 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 	end
 	local sacks: { [BasePart]: Sack } = {}
 	r.sacks = sacks
-	-- a bag (or its cord) full, and as its empty sack: flattened along whichever of its axes stands up, on the ground
-	-- under it (a top bag's over the sacks below)
 	local function lay(d: BasePart, cf: CFrame, row: number, top: boolean)
-		local part = d:Clone()
-		part.Anchored = true
-		part.Material = Enum.Material.SmoothPlastic
-		local jitter = ((row * 37) % 7 / 6 - 0.5) * 2 * C.Sandbags.shade
-		local cord = Rules.isPileCord(d.Name)
-		part.Color = if cord then rgb(Palette.Build.SandbagCord) else rgb(Palette.Build.Sandbag, jitter)
-		part.CFrame = cf
-		part:SetAttribute("Row", row)
-		part.Parent = s
-		local up = base.UpVector
-		local size = part.Size
-		local ups = {
-			math.abs(cf.RightVector:Dot(up)),
-			math.abs(cf.UpVector:Dot(up)),
-			math.abs(cf.LookVector:Dot(up)),
-		}
-		local axis = if ups[1] >= ups[2] and ups[1] >= ups[3] then 1 elseif ups[2] >= ups[3] then 2 else 3
-		local height = if axis == 1 then size.X elseif axis == 2 then size.Y else size.Z
-		local flatH, y = Rules.nestSack(height, n.flat, top)
-		local flatSize = Vector3.new(
-			if axis == 1 then flatH else size.X,
-			if axis == 2 then flatH else size.Y,
-			if axis == 3 then flatH else size.Z
-		)
-		local at = base:PointToObjectSpace(cf.Position)
-		sacks[part] = {
-			full = cf,
-			size = size,
-			color = part.Color,
-			flat = CFrame.new(base:PointToWorldSpace(Vector3.new(at.X, y, at.Z))) * cf.Rotation,
-			flatSize = flatSize,
-			cord = cord,
-			top = top,
-		}
+		layBag(s, base, n.flat, sacks, d, cf, row, top)
 	end
 	local ring, radius = Rules.nestRing(n.ring)
 	-- the mount bag (gun space: x right, y up, z back), in the point of the V
@@ -375,20 +463,7 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 		end
 	end
 	-- the ring's bags: the pile's bag of that slot (piece space: x along it), turned to lie along the ring
-	for i, b in ring do
-		local name = p.bags[b.slot]
-		local o = offsets[name]
-		if o then
-			local along = CFrame.fromMatrix(Vector3.new(b.x, 0, b.z), Vector3.new(b.dx, 0, b.dz), Vector3.yAxis)
-			local bagCf = base * along * CFrame.new(0, o.Y, o.Z) * o.Rotation
-			for _, d in kit:GetChildren() do
-				local mo = offsets[d.Name]
-				if mo and d:IsA("BasePart") and Rules.pileBag(d.Name, p.bags) == b.slot then
-					lay(d, bagCf * o:Inverse() * mo, i + 1, b.slot == 3)
-				end
-			end
-		end
-	end
+	layRing(n, p.bags, kit, offsets, base, 2, lay)
 	-- stage 1: the scraped ground under each pile (along the line from its first bag to its second); the empty sacks
 	-- are the bags themselves, flat (showNest)
 	local ground = kit:FindFirstChild(p.stage1.ground)
@@ -461,40 +536,7 @@ local function showNest(r: Rec)
 		wreck = if g and type(hp) == "number" then ArtilleryRules.wreckStage(hp, g.hp, ArtilleryCfg.Wreck.at) else 0
 	end
 	local bags, quarters = Rules.nestShown(r.work, C.Nest, wreck)
-	-- worn (a share of the ring's bags, Config/Build.Nest `wear`): the ones still standing, by their row on the ring
-	-- (a bag and its cord share it; the mount bags, row 1, always stand)
-	local standing: { [number]: boolean }? = nil
-	if type(bags) == "number" then
-		local rows, tops = {}, {}
-		for part, sack in r.sacks or {} do
-			local row = part:GetAttribute("Row") :: number?
-			if row and row > 1 and tops[row] == nil then
-				tops[row] = sack.top
-				table.insert(rows, row)
-			end
-		end
-		table.sort(rows, function(a, b)
-			return Rules.nestWearOrder(a, tops[a]) < Rules.nestWearOrder(b, tops[b])
-		end)
-		local set = {}
-		local gone = #rows - Rules.nestStanding(#rows, bags)
-		for i = gone + 1, #rows do
-			set[rows[i]] = true
-		end
-		standing = set
-	end
-	for part, sack in r.sacks or {} do
-		local row = part:GetAttribute("Row") :: number?
-		local up = bags == "all"
-			or (bags == "bottom" and not sack.top)
-			or (standing ~= nil and (row == 1 or (row ~= nil and standing[row] == true)))
-		part.CanCollide = up
-		part.CanQuery = up
-		part.Transparency = if sack.cord and not up then 1 else 0
-		part.CFrame = if up then sack.full else sack.flat
-		part.Size = if up then sack.size else sack.flatSize
-		part.Color = if up or sack.cord then sack.color else rgb(Palette.Build.SandbagSacks)
-	end
+	showBags(r, bags)
 	if not guns or not r.at then
 		return
 	end
@@ -779,6 +821,178 @@ local function showBridge(r: Rec)
 	end
 end
 
+-- A dugout's pieces (Config/Build.Dugout, Config/Assets dugout_pieces) laid in its frame (on the trench floor at the
+-- foot of the wall, +Z back into it), all unseen until shown (showDugout); the meshes stop nothing, so unseen plates do:
+-- the ramp down its steps and the slot's sides (stage 1 on), the room's floor, walls and ceiling (2 on), each heap it
+-- caves in to (its fall). False when the asset library lacks the pieces.
+local function layoutDugout(r: Rec): boolean
+	local G, p = C.Dugout, r.piece
+	local kit, offsets = libraryKit(G.asset)
+	if not kit then
+		return false
+	end
+	local soil = if r.square then Trenches.soilColor(r.square, "Wall1") else rgb(Palette.Build.SandbagPatch)
+	local timber, plank = rgb(Palette.Build.Dugout), rgb(Palette.Build.DugoutPlank)
+	local meshes = {}
+	for _, src in kit:GetChildren() do
+		local off = offsets[src.Name]
+		if src:IsA("BasePart") and src.Name ~= "Origin" and off then
+			local part = src:Clone()
+			part.CFrame = r.frame * off
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.Transparency = 1
+			part.Color = if table.find(G.soil, src.Name)
+				then soil
+				elseif table.find(G.dark, src.Name) then timber
+				else plank
+			part.Parent = r.model
+			meshes[src.Name] = part
+		end
+	end
+	local plates = {}
+	local function plate(name: string, size: Vector3, cf: CFrame, stage: number, fall: number?)
+		local part = newPart(r.model, name, size, r.frame * cf, plank)
+		part.Transparency = 1
+		part.CastShadow = false
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part:SetAttribute("Stage", stage)
+		part:SetAttribute("Fall", fall)
+		table.insert(plates, part)
+	end
+	local w, h, d = p.width, p.height, p.depth
+	local floor, top, t = -G.drop, C.Trench.depth, G.walk
+	local back = G.stair + d
+	-- 1: the ramp down the steps (from the wall's foot to the room's floor), the slot's sides and its end over the room
+	local slope = math.atan2(G.drop, G.stair)
+	local run = math.sqrt(G.drop * G.drop + G.stair * G.stair)
+	plate(
+		"Ramp",
+		Vector3.new(G.slot, t, run),
+		CFrame.new(0, floor / 2, G.stair / 2) * CFrame.Angles(slope, 0, 0) * CFrame.new(0, -t / 2, 0),
+		1
+	)
+	for _, sx in { -1, 1 } do
+		local side = Vector3.new(t, top - floor, G.stair)
+		plate("Side", side, CFrame.new(sx * (G.slot + t) / 2, (top + floor) / 2, G.stair / 2), 1)
+	end
+	local over = top - (floor + h)
+	plate("End", Vector3.new(G.slot, over, t), CFrame.new(0, floor + h + over / 2, G.stair - t / 2), 1)
+	-- 2: the room's floor (on its duckboards), ceiling, sides, back, and its front either side of the slot
+	plate("Floor", Vector3.new(w, t, d), CFrame.new(0, floor + G.walk - t / 2, G.stair + d / 2), 2)
+	plate("Ceiling", Vector3.new(w, t, d), CFrame.new(0, floor + h + t / 2, G.stair + d / 2), 2)
+	for _, sx in { -1, 1 } do
+		plate("Wall", Vector3.new(t, h, d), CFrame.new(sx * (w + t) / 2, floor + h / 2, G.stair + d / 2), 2)
+		local front = (w - G.slot) / 2
+		plate(
+			"Wall",
+			Vector3.new(front, h, t),
+			CFrame.new(sx * (G.slot / 2 + front / 2), floor + h / 2, G.stair - t / 2),
+			2
+		)
+	end
+	plate("Wall", Vector3.new(w, h, t), CFrame.new(0, floor + h / 2, back + t / 2), 2)
+	-- caving in: each fall's heap, a block across the room
+	for fall, heap in G.heaps do
+		if heap[1] then
+			local z0, z1 = G.stair + d * heap[1], G.stair + d * heap[2]
+			local size = Vector3.new(w, h * heap[3], z1 - z0)
+			plate("Heap", size, CFrame.new(0, floor + size.Y / 2, (z0 + z1) / 2), 2, fall)
+		end
+	end
+	r.meshes, r.plates = meshes, plates
+	return true
+end
+
+-- a dugout as its HP stands (Rules.dugoutShown): its meshes for its build stage and how far it has caved in, the plates
+-- that go with them; the ground cut from stage 1 on
+local function showDugout(r: Rec)
+	if not r.meshes and not layoutDugout(r) then
+		return
+	end
+	local G = C.Dugout
+	local stage, falls = Rules.dugoutShown(r.work, r.need, r.built, G)
+	if stage >= 1 and not r.pocketed then
+		r.pocketed = true
+		Trenches.pocket(r.model, r.square, r.frame, Survey.footprint(r.piece))
+	end
+	local key = stage * 10 + falls
+	if r.shown == key then
+		return
+	end
+	r.shown = key
+	local on = {}
+	for _, name in if stage == 0 then G.laid else {} do
+		on[name] = true
+	end
+	for s = 1, stage do
+		for _, name in G.build[s] do
+			on[name] = true
+		end
+	end
+	for f = 1, falls do
+		for _, name in G.falls[f] do
+			on[name] = true
+		end
+	end
+	for name, part in r.meshes or {} do
+		part.Transparency = if on[name] then 0 else 1
+	end
+	for _, part in r.plates or {} do
+		local fall = part:GetAttribute("Fall")
+		local solid = stage >= (part:GetAttribute("Stage") :: number) and (fall == nil or falls >= fall)
+		part.CanCollide = solid
+		part.CanQuery = solid
+	end
+end
+
+-- a dugout falling in: everyone in its slot or room put out `Dugout.eject` over the trench floor in front of its steps,
+-- or over the ground above the room once its trench is gone
+local function ejectDugout(r: Rec)
+	local G, p = C.Dugout, r.piece
+	local spot: Vector3
+	if r.square and r.square.Parent then
+		spot = (r.frame * CFrame.new(0, G.eject, -G.slot / 2)).Position
+	else
+		local over = (r.frame * CFrame.new(0, G.ejectRay[1], G.stair + p.depth / 2)).Position
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { workspace.Terrain }
+		local hit = workspace:Raycast(over, Vector3.new(0, -G.ejectRay[2], 0), params)
+		spot = (if hit then hit.Position else over) + Vector3.new(0, G.eject, 0)
+	end
+	local seen: { [Model]: boolean } = {}
+	local people: { Model } = {}
+	for _, player in Players:GetPlayers() do
+		if player.Character then
+			table.insert(people, player.Character)
+		end
+	end
+	for _, tag in { BotsCfg.Tag, DevCfg.Dummies.Tag } do
+		for _, m in CollectionService:GetTagged(tag) do
+			if m:IsA("Model") then
+				table.insert(people, m)
+			end
+		end
+	end
+	for _, m in people do
+		local root = m:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and not seen[m] then
+			seen[m] = true
+			local l = r.frame:PointToObjectSpace(root.Position)
+			local inRoom = Rules.inDugout(l.X, l.Y, l.Z, p, G)
+			local onSteps = math.abs(l.X) <= G.slot / 2 and l.Z >= 0 and l.Z <= G.stair and l.Y < C.Trench.depth
+			if inRoom or onSteps then
+				m:PivotTo(CFrame.new(spot) * root.CFrame.Rotation)
+			end
+		end
+	end
+end
+
 -- a piece goes: simply gone, nothing left (user 2026-10-27: "remove the crumble. 0 hp should just disappear")
 local function remove(r: Rec)
 	if not recs[r.model] then
@@ -787,6 +1001,12 @@ local function remove(r: Rec)
 	recs[r.model] = nil
 	for _, c in r.watch or {} do
 		c:Disconnect()
+	end
+	-- a dugout: anyone inside put out, the ground filled back
+	if r.pocketed then
+		r.pocketed = false
+		ejectDugout(r)
+		Trenches.pocket(r.model, nil, nil, nil)
 	end
 	-- a gun piece: the gun goes, its pit filled back in
 	local gun = r.gun
@@ -799,6 +1019,46 @@ local function remove(r: Rec)
 		Net.event("GroundDug"):FireAllClients(r.frame.Position, r.piece.depth)
 	end
 	r.model:Destroy()
+end
+
+-- a gun's sandbag ring (Config/Build.GunRing, its piece's `ring`): the MG nest's bags round its pivot on the ground
+-- (`r.at`, before its pit), each with its empty sack, in a Model "Ring" (not a structure: it is the gun's). False when
+-- the library lacks the pile.
+local function layoutRing(r: Rec, n: any): boolean
+	local kit, offsets = libraryKit(n.asset)
+	local at = r.at
+	if not kit or not at then
+		return false
+	end
+	local holder = Instance.new("Model")
+	holder.Name = "Ring"
+	holder.Parent = r.model
+	local base = at * CFrame.new(0, -C.Sandbags.sink, 0)
+	local sacks: { [BasePart]: Sack } = {}
+	r.sacks = sacks
+	layRing(n, n.bags, kit, offsets, base, 2, function(d: BasePart, cf: CFrame, row: number, top: boolean)
+		layBag(holder, base, n.flat, sacks, d, cf, row, top)
+	end)
+	return true
+end
+
+-- a gun's sandbag ring as the gun stands (Rules.ringShown): being built, by its HP; once it has stood, by its gun's
+-- Wreck stage (Config/Artillery.Wreck), its bags going with the gun's stages as an MG nest's
+local function showRing(r: Rec)
+	local n = r.piece.ring and C.GunRing[r.piece.ring]
+	if not n then
+		return
+	end
+	if not r.sacks and not layoutRing(r, n) then
+		return
+	end
+	local wreck: number? = nil
+	if r.built then
+		local g = ArtilleryCfg.Guns[r.piece.gun or ""]
+		local hp = r.gun and r.gun:GetAttribute("HP")
+		wreck = if g and type(hp) == "number" then ArtilleryRules.wreckStage(hp, g.hp, ArtilleryCfg.Wreck.at) else 0
+	end
+	showBags(r, Rules.ringShown(r.work, r.need, n, wreck))
 end
 
 -- a gun piece as its HP stands: its pit dug to its stage, then its parts on the pit's floor, fitted to the quarter of
@@ -830,6 +1090,7 @@ showGun = function(r: Rec)
 		r.dug = share
 	end
 	local paint = C.Guns.paint[r.team]
+	showRing(r)
 	if r.built then
 		if not r.gun then
 			if r.parts then
@@ -856,6 +1117,7 @@ showGun = function(r: Rec)
 						r.work = v
 						r.model:SetAttribute("Work", v)
 						r.model:SetAttribute("HP", v)
+						showRing(r) -- (its sandbags wear with it)
 					end
 				end
 				hp()
@@ -953,6 +1215,8 @@ function apply(r: Rec)
 		showBridge(r)
 	elseif kind == "Foxhole" then
 		showFoxhole(r)
+	elseif kind == "Dugout" then
+		showDugout(r)
 	end
 end
 
@@ -1154,8 +1418,20 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 			frame, length, square = sf, len, m
 		end
 	end
+	-- (a dugout: the trench square wall `at` is by decides where it goes, Survey.dugoutSpot)
+	local dugout = piece.kind == "Dugout"
+	if dugout then
+		local s, df, m = Survey.dugoutSpot(f, frame.Position)
+		spot = Rules.dugoutSpot(s, C.Dugout, piece.width)
+		if df and m then
+			frame, square = df, m
+		end
+	end
+	local inTrench = bridge or dugout -- (no ground survey: its square decides)
+	-- (a dugout's footprint, its steps and room back from the wall's foot: Survey.dugoutBox)
+	local dugBox, dugSize = Survey.dugoutBox(piece, frame)
 	local report = Survey.ground(piece, frame)
-	if not bridge then
+	if not inTrench then
 		frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
 	end
 	local gunPiece = gunAt ~= nil
@@ -1165,13 +1441,16 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		distance = if dev then 0 else (root.Position - (if gunAt then gunAt.Position else frame.Position)).Magnitude,
 		reach = C.Reach + 2, -- (the client's ghost checks C.Reach; slack for movement since)
 		spot = spot,
-		slope = if bridge then 0 else report.slope,
+		slope = if inTrench then 0 else report.slope,
 		maxSlope = piece.maxSlope or C.Trench.maxSlope,
-		ground = bridge or report.ground,
-		water = not bridge and report.water,
-		overlap = if bridge
-			then Survey.onPiece(piece, frame, f)
+		ground = inTrench or report.ground,
+		water = not inTrench and report.water,
+		overlap = if dugout
+			then Survey.onPiece({ width = dugSize.X, depth = dugSize.Z, height = dugSize.Y }, dugBox, f)
+			elseif inTrench then Survey.onPiece(piece, frame, f)
 			else Survey.blocked(piece, frame, report.low, { character }) or Survey.onPiece(piece, frame, f),
+		-- (none over a trench's open cut, dug or planned: the bots' pieces too, Build.placeAs)
+		overTrench = not inTrench and Survey.overTrench(piece, frame, f),
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
 		-- (a wire keeps off trenches too: their hole, walls and bank)
 		nearTrench = (gunPiece or piece.kind == "Wire" or foxhole) and Survey.nearTrench(piece, frame, f),
@@ -1211,6 +1490,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		frame = frame,
 		sector = sector,
 		at = gunAt,
+		laid = if bags or piece.kind == "Wire" or piece.kind == "Hesco" then report.heights else nil,
 	}
 	if bags then
 		if not layoutPile(r, Survey.onGround(piece, frame, report)) then
@@ -1239,21 +1519,33 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 			return "The ground can't be read"
 		end
 		layoutFoxhole(r)
+	elseif dugout then
+		r.square = square
+		-- (Build.worksOf's `at`: the middle of its room's floor)
+		r.at = frame * CFrame.new(0, C.Dugout.walk - C.Dugout.drop, C.Dugout.stair + piece.depth / 2)
+		if not layoutDugout(r) then
+			model:Destroy()
+			tell(b, "Can't build here") -- (the dev place's asset library lacks the pieces: libraryKit warns)
+			return "The asset library lacks the dugout's pieces"
+		end
 	end
 	model:SetAttribute("Piece", piece.key)
 	model:SetAttribute("Team", team)
 	model:SetAttribute("Need", r.need)
-	model:SetAttribute("Frame", frame)
+	model:SetAttribute("Frame", if dugout then dugBox else frame)
 	model:SetAttribute(
 		"Size",
-		if length then Vector3.new(length, piece.height, piece.depth) else Survey.footprint(piece)
+		if length
+			then Vector3.new(length, piece.height, piece.depth)
+			elseif dugout then dugSize
+			else Survey.footprint(piece)
 	)
 	if gunAt then
 		model:SetAttribute("At", gunAt)
 	end
 	recs[model] = r
 	model.Parent = f
-	if dev and (bags or nest or foxhole) then
+	if dev and (bags or nest or foxhole or dugout) then
 		-- (finished, as if dug to the end; no match points for it)
 		r.work = r.need
 		r.built, r.paid = true, true
@@ -1263,6 +1555,10 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		end
 	end
 	apply(r)
+	-- (a dugout keeps its own HP: its square filled in leaves it standing)
+	if dugout then
+		square = nil
+	end
 	-- a bridge falls in with its square: buried past where its dirt pieces go, or gone
 	if square then
 		local function check()
@@ -1748,6 +2044,14 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			if share > 0 then
 				table.insert(worn, { r = r, amount = r.need * share / 100 })
 			end
+		elseif r.piece.kind == "Dugout" then
+			-- by how far the blast is from its slot or room (Rules.dugoutDistance); Dugout.soak of a sandbag pile's share
+			local l = r.frame:PointToObjectSpace(position)
+			local d = Rules.dugoutDistance(l.X, l.Y, l.Z, r.piece, C.Dugout, C.Trench.depth)
+			local share = Rules.structureHit(d, src, S.edge) * C.Dugout.soak
+			if share > 0 then
+				table.insert(worn, { r = r, amount = r.need * share / 100 })
+			end
 		elseif r.piece.kind == "Hesco" then
 			-- the whole basket by how far the blast is from its box, Hesco.soak of a sandbag column's share
 			local p = r.piece
@@ -1769,6 +2073,16 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 	for _, w in worn do
 		wear(w.r, w.amount)
 	end
+	-- and a piece whose ground the crater took from under it is gone, never left hanging (Config/Build.Support)
+	local SUP = C.Support
+	for _, r in recs do
+		local laid = r.laid
+		if laid and recs[r.model] and (r.frame.Position - position).Magnitude < SUP.reach then
+			if not Rules.supported(laid, Survey.ground(r.piece, r.frame).heights, SUP.gap, SUP.share) then
+				remove(r)
+			end
+		end
+	end
 end
 
 -- A bullet meeting `part` at `point` (src/server/Firing): a trench square (a piece, or the ground in it) or a sandbag
@@ -1778,6 +2092,12 @@ function Build.shot(part: Instance, point: Vector3)
 		return
 	end
 	local s = part.Parent
+	-- a dugout's plates (they lie in its model; its meshes stop nothing)
+	local dug = if s and s:IsA("Model") then recs[s] else nil
+	if dug and dug.piece.kind == "Dugout" then
+		wear(dug, dug.need * C.Structures.bullet.hit * C.Dugout.soak / 100)
+		return
+	end
 	local pile = if s and s:IsA("Model") and s:GetAttribute("Class") == "Sandbag" then recs[s.Parent :: Model] else nil
 	if pile then
 		wear(pile, pile.need * C.Structures.bullet.hit / 100)
@@ -1792,6 +2112,38 @@ function Build.shot(part: Instance, point: Vector3)
 	end
 end
 
+-- Whether a soldier with their torso at `at` is sheltered from a blast at `blast` (src/server/Damage.blast): in the room
+-- of a dugout that has stood (Rules.dugoutShelters) and the blast outside it (user 2026-11-02: "anything above them
+-- should not hurt them"). A blast in the room (a grenade down the steps) hurts as any other.
+function Build.sheltered(at: Vector3, blast: Vector3): boolean
+	for _, r in recs do
+		local p = r.piece
+		if p.kind == "Dugout" and Rules.dugoutShelters(r.work, r.built) then
+			local a, b = r.frame:PointToObjectSpace(at), r.frame:PointToObjectSpace(blast)
+			if Rules.inDugout(a.X, a.Y, a.Z, p, C.Dugout) and not Rules.inDugout(b.X, b.Y, b.Z, p, C.Dugout) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- whether `p` is on a dugout's ground (its steps and room and Config/Build.Dugout.ground round them): craters never
+-- carve it (src/server/Ground.guard)
+function Build.onDugout(p: Vector3): boolean
+	for _, r in recs do
+		if r.piece.kind == "Dugout" then
+			local l = r.frame:PointToObjectSpace(p)
+			local g = C.Dugout.ground
+			local run = C.Dugout.stair + r.piece.depth
+			if math.abs(l.X) <= r.piece.width / 2 + g and l.Z >= -g and l.Z <= run + g then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 -- the barbed wire that stands: its box (centre frame and size), its team and model, for src/server/Wire
 export type WireBox = { frame: CFrame, size: Vector3, team: string, model: Model }
 -- whether `p` is on an MG nest's ground (its footprint round the ring's middle and Config/Build.Nest.ground round it,
@@ -1804,6 +2156,11 @@ function Build.onNest(p: Vector3): boolean
 			if Rules.onFootprint(l.X, l.Z, r.piece.width, r.piece.depth, C.Nest.ground) then
 				return true
 			end
+		end
+		-- a gun's sandbag ring (Config/Build.GunRing `ground`): the band its bags stand on, not the pit inside it
+		local n = r.piece.ring and C.GunRing[r.piece.ring]
+		if n and r.at and Rules.onRing(r.at:PointToObjectSpace(p), n) then
+			return true
 		end
 	end
 	return false
@@ -1905,6 +2262,7 @@ function Build.start(artillery: Guns)
 	Trenches.start()
 	Ground.guard(Build.onHesco)
 	Ground.guard(Build.onNest)
+	Ground.guard(Build.onDugout)
 	Ground.ceiling(Build.nestCeiling)
 	Net.event("Dug").OnServerEvent:Connect(dug)
 	Net.event("Build").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)

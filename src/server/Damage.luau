@@ -368,7 +368,13 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	for _, character in soldiers do
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local torso = character:FindFirstChild("Torso") :: BasePart?
-		if humanoid and torso and not Damage.spares(by, character) then -- (a teammate's blast: unhurt, not thrown)
+		-- (a teammate's blast: unhurt, not thrown; inside a roofed dugout, a blast outside it: the same, Build.sheltered)
+		if
+			humanoid
+			and torso
+			and not Damage.spares(by, character)
+			and not Build.sheltered(torso.Position, position)
+		then
 			local d = (torso.Position - position).Magnitude
 			if d <= reach or (o.fragments and d <= o.fragments.wound) then
 				local kpa = kpaAt(d)

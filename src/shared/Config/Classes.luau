@@ -122,7 +122,8 @@ local Classes = {
 			grenades = false,
 			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
 			helmet = "engineerCap",
-			builds = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
+			-- (Nest: the MG nest, user 2026-10-27; Dugout: user 2026-11-02, "Engineers only")
+			builds = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest", "Dugout" },
 		},
 		-- the team's goggles (user 2026-10-27: "goggles on mage")
 		Mage = {
