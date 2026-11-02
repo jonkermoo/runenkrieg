@@ -302,7 +302,8 @@ local Bots = {
 		share = 0.5,
 		hold = 0.3,
 		Fire = { edge = 0.9, width = 48, bays = 3, traverse = 6 },
-		Support = { back = 40, width = 32 }, -- (past Config/Build.Trench.spacing with a bay swung back)
+		-- (56: past the zone's flagpole in its middle, which a line 40 back ran into; past Config/Build.Trench.spacing)
+		Support = { back = 56, width = 32 },
 		Comm = { jog = 6, short = 1 },
 		on = 2,
 		ends = 0.15,
