@@ -122,6 +122,13 @@ function BotTrenches.swing(
 	return bx - dz / len * step * k, bz + dx / len * step * k
 end
 
+-- How far from a trench square's line its fire step is: `rise` studs up its forward wall from the floor's edge (the
+-- trench's `floor` half width, its walls at `angle` degrees: Config/Build.Trench), so the step follows the trench's
+-- shape.
+function BotTrenches.stepOut(floor: number, angle: number, rise: number): number
+	return floor + rise / math.tan(math.rad(angle))
+end
+
 -- A fire step on a dug fire-trench square at (x, z): up its forward wall under the parapet, `step` studs from the
 -- square's line toward the enemy (tx, tz), facing out.
 function BotTrenches.fireStep(x: number, z: number, tx: number, tz: number, step: number): (number, number)
