@@ -150,4 +150,42 @@ return {
 		local tx2 = R.nudge(line, 2, 6)
 		assert(near(tx1, -6) and near(tz1, -10) and near(tx2, 6), "a trench steps back, then forward")
 	end,
+	["crews: up to max bots go Engineer while too few guns stand"] = function()
+		local C = B.Crews
+		assert(R.crewWanted(0, 0, C) and R.crewWanted(C.enough - 1, C.max - 1, C))
+		assert(not R.crewWanted(C.enough, 0, C), "enough guns: nobody")
+		assert(not R.crewWanted(0, C.max, C), "a small, capped number")
+	end,
+	["gun spots: behind the zone, farthest back first, spaced, only where they fit"] = function()
+		local zone = { x = 0, z = 0, radius = 50 }
+		local C = { back = { 90, 60, 30 }, across = { 0, -60, 60, -120, 120, -180, 180 } }
+		local spacing = { FieldGun = 60, Howitzer = 120 }
+		local function any(_: string, _x: number, _z: number): boolean
+			return true
+		end
+		local want = { { key = "Howitzer", count = 1 }, { key = "FieldGun", count = 3 } }
+		local jobs = R.gunSpots(zone, 1, 0, want, C, spacing, any)
+		assert(#jobs == 4 and jobs[1].key == "Howitzer" and near(jobs[1].x, -140) and near(jobs[1].z, 0))
+		for i, a in jobs do
+			assert(a.x < -zone.radius and a.fx == 1, "behind the zone's edge, facing the enemy")
+			for k, b in jobs do
+				if i ~= k then
+					local gap = math.max(spacing[a.key], spacing[b.key])
+					assert((a.x - b.x) ^ 2 + (a.z - b.z) ^ 2 >= gap * gap - 1e-6, "spaced")
+				end
+			end
+		end
+		-- East faces west: behind is +x
+		assert(R.gunSpots(zone, -1, 0, want, C, spacing, any)[1].x > zone.radius)
+		-- a spot that doesn't fit (out of reach, a spawn) is skipped for the next
+		local function notFar(_: string, x: number, _z: number): boolean
+			return x > -120
+		end
+		local near1 = R.gunSpots(zone, 1, 0, { { key = "FieldGun", count = 1 } }, C, spacing, notFar)
+		assert(#near1 == 1 and near(near1[1].x, -110), "the next row in")
+		local none = R.gunSpots(zone, 1, 0, want, C, spacing, function()
+			return false
+		end)
+		assert(#none == 0)
+	end,
 }

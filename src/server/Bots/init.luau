@@ -69,6 +69,8 @@ local SupCfg = require(Shared.Config.Suppression)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
+local ArtCfg = require(Shared.Config.Artillery)
+local ArtRules = require(Shared.Rules.Artillery)
 local F = require(Shared.Rules.Firing)
 local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
@@ -247,6 +249,7 @@ type Bot = {
 	shovel: Tool?, -- its shovel, out of its hands until it builds
 	cast: Cast?, -- a Mage's circle open
 	digger: boolean?, -- Normal: one of its holding squad's diggers (Config/Bots.Trenches.share)
+	crew: boolean?, -- Normal: an Engineer on gun duty this life (Config/Bots.Build.Crews): gun jobs first
 	sapper: boolean?, -- Normal: one of its squad's sappers (Config/Bots.Sap.share)
 	pileAt: number?, -- when it last laid a sandbag pile pinned down (Config/Bots.Build.Pinned)
 	postFloor: Vector3?, -- its post is a fire step: the trench floor below it (its cover)
@@ -357,6 +360,7 @@ type SideBuild = {
 	standTo: boolean,
 	fallbackUntil: number,
 	trench: { TrenchSquare }, -- every own trench square, dug or not (saps)
+	guns: number, -- the side's guns standing (anyone's; Config/Bots.Build.Crews)
 }
 local buildLists: { [string]: SideBuild } = {}
 local commandTick = 0
@@ -427,6 +431,21 @@ local function chooseClass(b: Bot): (string, number?)
 	end
 	local key, cost =
 		Rules.chooseClass(Loadouts.botPoints(b.id), options, Cfg.Buy, random:NextNumber(), random:NextNumber())
+	-- gun duty (Config/Bots.Build.Crews): an Engineer while its side has too few guns standing, if it can pay
+	b.crew = nil
+	local sb = b.side and buildLists[b.side :: string]
+	local eng = Classes.Defs.Engineer
+	if sb and sb.front and eng and not eng.locked and eng.cost <= Loadouts.botPoints(b.id) then
+		local crews = 0
+		for _, o in bots do
+			if o ~= b and o.side == b.side and o.crew then
+				crews += 1
+			end
+		end
+		if BotBuild.crewWanted(sb.guns, crews, BD.Crews) then
+			key, cost, b.crew = "Engineer", eng.cost, true
+		end
+	end
 	if cost > 0 then
 		Loadouts.botPay(b.id, cost)
 		stats.upgrades += 1
@@ -1607,6 +1626,7 @@ end
 -- a holding squad, any class) a trench run or square within Build.take, wire wanting swings within Build.help; nil if
 -- none
 local SMALL = { Trench = true, SandbagPile = true, Hesco = true } -- (every class builds them: Config/Classes)
+local GUN = { FieldGun = true, Howitzer = true }
 local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 	local engineer = any or Loadouts.classOf(b.m :: Model) == "Engineer"
 	local root = (b.root :: BasePart).Position
@@ -1633,6 +1653,17 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 		local d = flat(Vector3.new(list[k].x, 0, list[k].z) - root).Magnitude
 		local fits = engineer or SMALL[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
 		taken[k] = held[r] == true or not fits
+	end
+	-- on gun duty (Config/Bots.Build.Crews): the nearest gun job anywhere on the list first
+	if b.crew then
+		local notGun: { [number]: boolean } = {}
+		for k, r in open do
+			notGun[k] = taken[k] or not GUN[r.job.key]
+		end
+		local g = BotBuild.pick(list, root.X, root.Z, math.huge, notGun, {}, nil)
+		if g then
+			return open[g]
+		end
 	end
 	local k = BotBuild.pick(list, root.X, root.Z, BD.take, taken, {}, nil)
 	return if k then open[k] else nil
@@ -3192,7 +3223,69 @@ end
 -- piece once laid (open while it wants swings; an unlaid one while the bots' caps allow it and it isn't waiting), and
 -- the own pieces near the front wanting swings
 local GUNS = { "FieldGun", "Howitzer" }
-local GUN = { FieldGun = true, Howitzer = true }
+local GUN_ASSET = {} :: { [string]: string } -- a gun piece's Config/Artillery.Guns key
+local GUN_SPACING = {} :: { [string]: number }
+for _, piece in BuildCfg.Pieces do
+	if GUN[piece.key] then
+		GUN_ASSET[piece.key] = piece.gun
+		GUN_SPACING[piece.key] = piece.spacing
+	end
+end
+
+-- `side`'s gun spots behind its front sector `front` (Rules/BotBuild.gunSpots; Config/Bots.Build.Crews): where the
+-- gun reaches the middle of the enemy's nearest sector and stands clear of every spawn and wave line; the howitzer
+-- first (the farthest back), then the field guns, the bots' share of each (Build.caps)
+local gunGround = RaycastParams.new()
+gunGround.FilterType = Enum.RaycastFilterType.Include
+local function terrainAt(x: number, z: number): Vector3?
+	gunGround.FilterDescendantsInstances = { workspace.Terrain }
+	local hit = workspace:Raycast(Vector3.new(x, 400, z), Vector3.new(0, -800, 0), gunGround)
+	return hit and hit.Position
+end
+local function gunSpots(
+	front: number,
+	side: string,
+	zone: BotBuild.Zone,
+	tx: number,
+	guns: { string }
+): { BotBuild.Job }
+	local C = BD.Crews
+	local enemy = Map.sectors[front + (if side == "West" then 1 else -1)]
+	if not enemy then
+		return {}
+	end
+	local target = terrainAt(enemy.x, enemy.z)
+	local lines = {}
+	local fl = workspace:FindFirstChild(FrontCfg.FolderName)
+	for _, sd in { "West", "East" } do
+		local c = fl and fl:GetAttribute(sd .. FrontCfg.LineAttribute)
+		if typeof(c) == "Vector3" then
+			table.insert(lines, { c.X, c.Z, ArtCfg.SpawnGuard.line })
+		end
+	end
+	local want = {}
+	for _, key in { "Howitzer", "FieldGun" } do
+		if table.find(guns, key) and (BD.caps[key] or 0) > 0 then
+			table.insert(want, { key = key, count = BD.caps[key] })
+		end
+	end
+	return BotBuild.gunSpots(zone, tx, 0, want, C, GUN_SPACING, function(key, x, z)
+		local gun = ArtCfg.Guns[GUN_ASSET[key]]
+		local B = Map.bounds
+		if not gun or not target or x < B.minX or x > B.maxX or z < B.minZ or z > B.maxZ then
+			return false
+		end
+		if ArtRules.nearSpawn(x, z, Map.spawnZones, lines, C.spawnGap) then
+			return false
+		end
+		local at = terrainAt(x, z)
+		if not at then
+			return false
+		end
+		local off = target - at
+		return ArtRules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y) ~= nil
+	end)
+end
 local function buildList(side: string, owner: { string }, level: number)
 	local now = os.clock()
 	local kit: string? = nil
@@ -3217,6 +3310,7 @@ local function buildList(side: string, owner: { string }, level: number)
 			standTo = false,
 			fallbackUntil = 0,
 			trench = {},
+			guns = 0,
 		}
 		buildLists[side] = sb
 	end
@@ -3246,8 +3340,13 @@ local function buildList(side: string, owner: { string }, level: number)
 				table.insert(guns, key)
 			end
 		end
+		-- the guns on scored spots behind the line (Rules/BotBuild.gunSpots), else the plan's fixed ones
+		local spotted = gunSpots(front :: number, side, zone, tx, guns)
 		sbs.lay = {}
-		for _, job in BotBuild.plan(zone, tx, 0, holds, guns, BD) do
+		for _, job in BotBuild.plan(zone, tx, 0, holds, if #spotted > 0 then {} else guns, BD) do
+			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+		end
+		for _, job in spotted do
 			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
 		end
 		-- the trench system (Rules/BotTrenches): fire, support and communication trenches, dug in that order
@@ -3261,8 +3360,12 @@ local function buildList(side: string, owner: { string }, level: number)
 	local works = Build.worksOf(kit)
 	local pieces: { BotBuild.Piece } = {}
 	local mine, ofKey = 0, {}
+	sbs.guns = 0
 	for i, w in works do
 		pieces[i] = { key = w.key, x = w.at.X, z = w.at.Z, left = w.left }
+		if GUN[w.key] then
+			sbs.guns += 1
+		end
 		if w.owner and (w.owner :: number) < 0 then
 			mine += 1
 			ofKey[w.key] = (ofKey[w.key] or 0) + 1

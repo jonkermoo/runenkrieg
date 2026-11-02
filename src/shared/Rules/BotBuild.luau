@@ -90,6 +90,54 @@ function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns
 	return jobs
 end
 
+-- Whether one more of a side's bots should go Engineer for its guns (Config/Bots.Build.Crews): fewer than `enough`
+-- guns stand and fewer than `max` of its bots are on gun duty already.
+function BotBuild.crewWanted(standing: number, crews: number, cfg: any): boolean
+	return standing < cfg.enough and crews < cfg.max
+end
+
+-- The bots' gun spots behind a front `zone`, the enemy's way in along (tx, tz) (Config/Bots.Build.Crews): for each
+-- { key, count } in `want` (in order), candidates `back` studs behind the zone's edge by `across` studs either side of
+-- its middle, farthest back first; a spot is kept where `fits(key, x, z)` and it is `spacing[key]` (the larger of the
+-- two keys') from every spot kept. Lay jobs facing the enemy; fewer than asked where none fits.
+function BotBuild.gunSpots(
+	zone: Zone,
+	tx: number,
+	tz: number,
+	want: { { key: string, count: number } },
+	cfg: any,
+	spacing: { [string]: number },
+	fits: (string, number, number) -> boolean
+): { Job }
+	local ax, az = -tz, tx
+	local jobs: { Job } = {}
+	for _, w in want do
+		local made = 0
+		for _, back in cfg.back do
+			for _, off in cfg.across do
+				if made >= w.count then
+					break
+				end
+				local d = zone.radius + back
+				local x, z = zone.x - tx * d + ax * off, zone.z - tz * d + az * off
+				local clear = true
+				for _, j in jobs do
+					local gap = math.max(spacing[w.key] or 0, spacing[j.key] or 0)
+					if (j.x - x) ^ 2 + (j.z - z) ^ 2 < gap * gap then
+						clear = false
+						break
+					end
+				end
+				if clear and fits(w.key, x, z) then
+					table.insert(jobs, { key = w.key, x = x, z = z, fx = tx, fz = tz })
+					made += 1
+				end
+			end
+		end
+	end
+	return jobs
+end
+
 -- Whether the bots may lay one more `key`: their team's bot-laid pieces under `caps.pieces` (a third of the team's,
 -- user 2026-11-02) and, for a key `caps` names (the guns: half of each), under that.
 function BotBuild.allowed(key: string, pieces: number, ofKey: number, caps: { [string]: number }): boolean
