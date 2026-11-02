@@ -131,9 +131,6 @@ end
 
 -- when each caster's last staff shot was fired (os.clock): what falls out of it can't hurt them for a while
 local castAt: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
--- DIAG (user 2026-11-02, a caster killed 0.1 s after their own staff shot): the last hurt to a caster within
--- Staff.SelfSafe of their shot, with where it came from; the death warning below prints it
-local selfHurt: { [Model]: string } = setmetatable({}, { __mode = "k" }) :: any
 
 -- Hurts one soldier: the knock first (so a death goes down with its own knock), then the health. `by`: who did it,
 -- `zone` where (src/server/Loadouts credits the kill and the assists).
@@ -159,10 +156,6 @@ local function hurt(
 	if knock then
 		-- down longer the harder it hurt (Config/Ragdoll.ByDamage; god mode too, by what it would have taken)
 		Ragdoll.knock(character, knock, direction, scale, humanoid.Health - left)
-	end
-	if os.clock() - (castAt[character] or -math.huge) <= Cfg.Staff.SelfSafe then
-		selfHurt[character] =
-			`{humanoid.Health - left} by {if by then by.Name else "nothing"}, knock {knock} | {debug.traceback()}`
 	end
 	if not Dev.god(character) then
 		Healing.hit(character) -- a healer hit stops healing (Config/Healing)
@@ -514,7 +507,6 @@ function Damage.start()
 				warn(
 					`[Damage] {character.Name} died {after} s after their own staff shot: at {at}, health {humanoid.Health}, ragdolled {limp}`
 				)
-				warn(`[Damage] DIAG last hurt: {selfHurt[character] or "none (not by Damage: the engine killed it)"}`)
 			end
 			task.wait() -- (a hit's own knock comes with its death: let it land first)
 			if not Ragdoll.active(character) then
