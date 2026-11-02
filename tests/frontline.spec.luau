@@ -30,6 +30,21 @@ local function hold(state: R.State, counts: any, seconds: number, rate: number?)
 end
 
 return {
+	["feet on the ground: the footprint covers the middle and the corners; a held soldier lifted only when the ground rose"] = function()
+		local f = R.footprint(Cfg.Line.foot)
+		assert(#f == 9, `{#f} samples`)
+		local corners = 0
+		for _, o in f do
+			if math.abs(o[1]) == Cfg.Line.foot and math.abs(o[2]) == Cfg.Line.foot then
+				corners += 1
+			end
+		end
+		assert(corners == 4, "the four corners sampled")
+		assert(R.liftNeeded(10.2, 10, 0.2) == 0, "standing right: no lift")
+		assert(R.liftNeeded(11, 10, 0.2) == 0, "standing higher: no lift (never pushed down)")
+		assert(math.abs(R.liftNeeded(9, 10, 0.2) - 1.2) < 1e-9, "ground 1 over the feet: lifted 1.2")
+		assert(Cfg.Line.recheck > 0 and Cfg.Line.recheck <= 1 and Cfg.Line.relift >= 0)
+	end,
 	["Map 1 starts: West holds S1-S2, S3 neutral, East holds S4-S5; both attack S3"] = function()
 		local s = R.new(Map1.sectors)
 		assert(N == 5)

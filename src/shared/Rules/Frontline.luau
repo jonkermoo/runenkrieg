@@ -101,8 +101,44 @@ function Frontline.slot(k: number, line: any): (number, number)
 	return right * line.gap, row * line.rowGap
 end
 
--- The ground each wave line at a fought-over sector stands on (src/server/Frontline's lineOf: `line.edge` past the zone
--- toward the side's own end, facing the sector it attacks; every slot up to `line.tries`), as quads of { x, z } corners
+-- The points under a standing soldier (offsets from its middle, studs) where the ground is sampled: its middle, its
+-- legs' sides and its four corners `foot` out. Its feet go on the highest, so no part of a foot is ever in the ground
+-- (user 2026-11-01: "my body was in the ground"; 2026-11-02: "plays spawn under the ground").
+function Frontline.footprint(foot: number): { { number } }
+	local out = {}
+	for _, x in { -foot, 0, foot } do
+		for _, z in { -foot, 0, foot } do
+			table.insert(out, { x, z })
+		end
+	end
+	return out
+end
+
+-- How far a held soldier must be lifted so its feet stand `lift` over the highest ground sampled under it now (0 when
+-- they already do): the ground can rise under a soldier waiting in its wave line (dug spoil, a crater's rim).
+function Frontline.liftNeeded(feet: number, highest: number, lift: number): number
+	return math.max(0, highest + lift - feet)
+end
+
+-- Where `side`'s wave line stands while sector `i` (a fought-over one, not its HQ) is its furthest forward: its front
+-- row's middle `line.back` of the way from sector i's point back to the point behind it, so closer to the sector
+-- behind (user 2026-11-02: "it should be closer to the previous sector than the furthest sector they have"), facing
+-- the sector ahead. Returns the middle (x, z) and the facing (unit x, z).
+function Frontline.lineCentre(sectors: { any }, i: number, side: Side, line: any): (number, number, number, number)
+	local s = sectors[i]
+	local back = sectors[if side == "West" then i - 1 else i + 1]
+	local aim = sectors[if side == "West" then i + 1 else i - 1] or s
+	local cx, cz = s.x + (back.x - s.x) * line.back, s.z + (back.z - s.z) * line.back
+	local fx, fz = aim.x - cx, aim.z - cz
+	local fl = math.sqrt(fx * fx + fz * fz)
+	if fl < 1 then
+		return cx, cz, if side == "West" then 1 else -1, 0
+	end
+	return cx, cz, fx / fl, fz / fl
+end
+
+-- The ground each wave line at a fought-over sector stands on (Frontline.lineCentre, as src/server/Frontline's lineOf;
+-- every slot up to `line.tries`), as quads of { x, z } corners
 -- grown by `pad`: kept clear of trees so a whole line stands (user 2026-11-02, the lines moved back into the groves).
 function Frontline.lineQuads(sectors: { any }, line: any, pad: number): { { { number } } }
 	local out = {}
@@ -110,16 +146,8 @@ function Frontline.lineQuads(sectors: { any }, line: any, pad: number): { { { nu
 	local rows = math.ceil(line.tries / line.perRow)
 	local half = (line.perRow - 1) / 2 * line.gap + pad
 	for i = 2, n - 1 do
-		local s = sectors[i]
-		for _, side in { "West", "East" } do
-			local back = sectors[if side == "West" then i - 1 else i + 1]
-			local aim = sectors[if side == "West" then i + 1 else i - 1]
-			local bx, bz = back.x - s.x, back.z - s.z
-			local bl = math.sqrt(bx * bx + bz * bz)
-			local cx, cz = s.x + bx / bl * (s.radius + line.edge), s.z + bz / bl * (s.radius + line.edge)
-			local fx, fz = aim.x - cx, aim.z - cz
-			local fl = math.sqrt(fx * fx + fz * fz)
-			fx, fz = fx / fl, fz / fl
+		for _, side: Side in { "West", "East" } :: { Side } do
+			local cx, cz, fx, fz = Frontline.lineCentre(sectors, i, side, line)
 			local rx, rz = -fz, fx
 			local front, rear = pad, (rows - 1) * line.rowGap + pad
 			local q = {}
