@@ -18,9 +18,9 @@ return {
 		assert(H.kind(0, 100, Cfg) == nil, "dead: nothing")
 	end,
 	["heal time grows with the health healed and never passes 5 s"] = function()
-		assert(near(H.duration(0, 100, Cfg), 5), "a whole bar: 5 s")
-		assert(near(H.duration(70, 100, Cfg), 1.5), "30 points: 1.5 s")
-		assert(near(H.duration(90, 100, Cfg), 0.5), "10 points: 0.5 s")
+		assert(near(H.duration(0, 100, Cfg), 100 * Cfg.SecondsPerHp), "a whole bar")
+		assert(near(H.duration(70, 100, Cfg), 30 * Cfg.SecondsPerHp), "30 points")
+		assert(near(H.duration(90, 100, Cfg), 10 * Cfg.SecondsPerHp), "10 points")
 		assert(H.duration(1, 100, Cfg) <= Cfg.MaxSeconds, "never past the cap")
 		assert(H.duration(1, 400, Cfg) <= Cfg.MaxSeconds + 1e-9, "a bigger bar still caps at 5 s")
 		assert(H.duration(100, 100, Cfg) == 0, "nothing to heal")
@@ -36,7 +36,7 @@ return {
 		assert(Cfg.Grab.take > 0 and Cfg.Grab.take < Cfg.Grab.time, "the item shows partway through the grab")
 	end,
 	["a heal step fills toward full and stops there"] = function()
-		assert(near(H.step(50, 100, 1, Cfg), 70), "20 a second")
+		assert(near(H.step(50, 100, 1, Cfg), 50 + 1 / Cfg.SecondsPerHp), "1 / SecondsPerHp a second")
 		assert(H.step(95, 100, 1, Cfg) == 100, "never past full")
 	end,
 	["slow recovery waits after a hit and stops at 70"] = function()

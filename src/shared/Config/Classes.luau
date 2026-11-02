@@ -170,6 +170,9 @@ local Classes = {
 			engineerCap = "cap_trench",
 		},
 	} :: { [string]: { [string]: string } },
+	-- every award below paid this many times over, in every mode (user 2026-11-02: "1.5x the marks earned in both
+	-- modes"); the points may then hold halves, shown rounded down (src/client/Menus)
+	Pay = 1.5,
 	-- points earned (user: kills, assists, captures, building; prices scaled down, so these are too)
 	Earn = {
 		Kill = 10,

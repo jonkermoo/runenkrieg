@@ -445,7 +445,7 @@ function Menus.start()
 			return
 		end
 		local marks = L.Marks :: TextLabel
-		marks.Text = `{Classes.Currency}  {state.points}`
+		marks.Text = `{Classes.Currency}  {math.floor(state.points)}`
 		local picked = state.picked
 		for _, card in state.classes do
 			local r = rows[card.key]
