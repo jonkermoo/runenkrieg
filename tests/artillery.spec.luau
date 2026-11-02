@@ -91,6 +91,10 @@ return {
 		end
 		assert(flight(QF, 16) > 3 and flight(HOW, 45) > 5)
 	end,
+	["the howitzer recharges with nobody on it; the field gun and MG start their reload over (user 2026-11-03)"] = function()
+		assert(HOW.keepsReload == true, "the howitzer's crystal fills unmanned")
+		assert(not QF.keepsReload and not C.Guns.mg08.keepsReload, "user 2026-11-01: restarted if cancelled")
+	end,
 	["the howitzer's breech clears its turntable even at full elevation"] = function()
 		local c = HOW.recoilClear
 		local e = HOW.elevation[2]
