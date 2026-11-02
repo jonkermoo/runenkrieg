@@ -9,11 +9,11 @@
 --   Trench.planLife.
 -- - Each square has HP like any structure, and its depth is its HP (user: "they have hp. how dug in they are are
 --   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build). Its pieces (Config/Assets
---   trench_pieces v11, timbered: boards on posts, duckboards, spoil mounds) show its stage (Rules.trenchStage): while
---   it is dug, construction stages (timbers waiting, the cut deepening, posts set, the lower boards up); dug full, a
---   wall each side and a floor rolled from its seed (Rules.trenchPieces), one wall climbable, a wall across a dead end,
---   none where another trench tees in; damaged, destruction stages (a board hanging, boards gone and a post leaning,
---   the lining half down and a post snapped, earth and boards slumped on the floor).
+--   trench_pieces v12: chunky earth slabs with plank steps, heaps of earth along the top) show its stage
+--   (Rules.trenchStage): while it is dug, construction stages (the cut deepening, the heap growing); dug full, a wall
+--   each side and a floor rolled from its seed (Rules.trenchPieces), a wall across a dead end, none where another
+--   trench tees in; damaged, destruction stages (boards working loose, then slabs and boards down, earth and boards
+--   slumped on the floor).
 -- - Destroy swings (any team's trench), blasts and bullets (Trenches.blast / Trenches.shot, from src/server/Build, by
 --   Config/Build.Structures) take HP off: it is buried (filled in with mud, no clods thrown); at 0 it is a scar, a
 --   lumpy dip of churned earth that stays.
@@ -49,9 +49,9 @@ CARVE.floor = T.floor + T.carve.wider
 CARVE.depth = T.depth + T.carve.deeper
 local RIM = math.max(T.bank.width, T.grassClear) -- how far past its wall tops a square changes the ground
 local KIND = "TrenchBlock"
--- the meshes of a wall (its dirt face, boards in two tones, posts and knots, iron) and of a floor (its dirt, a duckboard)
-local WALL_PARTS = { "", "Planks", "PlanksPale", "PlanksDark", "Iron", "IronRust" }
-local FLOOR_PARTS = { "", "Planks", "PlanksPale", "PlanksDark" }
+-- the meshes of a wall (its smooth slab, its earth slabs, plank steps in two tones) and of a floor (its slab, its slabs)
+local WALL_PARTS = { "", "Chunks", "Planks", "PlanksDark" }
+local FLOOR_PARTS = { "", "Chunks" }
 
 type Link = { kind: string, other: Block, which: string? } -- "end" (with `which` end of `other`) or "tee"
 
@@ -461,14 +461,8 @@ end
 -- the color of the mud"; 2026-11-01: "match the color of the terrain underneath (not the grass)"); planks their own wood
 local function pieceColor(name: string, soil: Enum.Material?): Color3
 	local B = Palette.Build
-	if string.find(name, "IronRust") then
-		return rgb(B.TrenchRust)
-	elseif string.find(name, "Iron") then
-		return rgb(B.TrenchIron)
-	elseif string.find(name, "PlanksDark") then
+	if string.find(name, "PlanksDark") then
 		return rgb(B.PlankDark)
-	elseif string.find(name, "PlanksPale") then
-		return rgb(B.PlankPale)
 	elseif string.find(name, "Planks") then
 		return rgb(B.Plank)
 	end
@@ -710,15 +704,15 @@ local function pieces(blk: Block)
 		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
 		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
 		p.Color = pieceColor(tone or name, soil)
-		local base = not (string.find(name, "Chunks") or string.find(name, "Planks") or string.find(name, "Iron"))
+		local base = not (string.find(name, "Chunks") or string.find(name, "Planks"))
 		p.Anchored = true
 		p.CanCollide = base
 		p.CanQuery = base
 		p.CanTouch = false
 		p.Parent = holder
 	end
-	-- the stage's pieces (Config/Assets trench_pieces v11, tools/blender/trench/trench_timber.py): finished, wall
-	-- variant `n`'s; being dug, construction stage Dig<k>'s; damaged, destruction stage Hit<k>'s lining
+	-- the stage's pieces (Config/Assets trench_pieces v12, tools/blender/trench/trench_wood.py): finished, wall
+	-- variant `n`'s; being dug, construction stage Dig<k>'s; damaged, destruction stage Hit<k>'s
 	local wallName = function(n: number): string
 		return if stage == "Dig" then `Dig{stageN}Wall` elseif stage == "Hit" then `Hit{stageN}Wall` else `Wall{n}`
 	end
@@ -771,16 +765,11 @@ local function pieces(blk: Block)
 			place(`Floor{roll.floor}{suffix}`, floorCf, stretch)
 		end
 	end
-	-- the timbers waiting beside a square being dug, on the ground on one side; the earth and boards fallen off a
-	-- damaged square's wall onto its floor, against one side (both by its seed)
+	-- the earth and boards fallen off a damaged square's wall onto its floor, against one side (by its seed)
 	local side = if roll.flip then 1 else -1
 	local sideCf = frame(blk.across * side, false, false, 0, blk.length)
-	if stage == "Dig" then
-		for _, suffix in { "Planks", "PlanksPale", "PlanksDark" } do
-			place(`Dig{stageN}Pile{suffix}`, sideCf, stretch)
-		end
-	elseif stage == "Hit" then
-		for _, suffix in { "", "Planks", "PlanksPale" } do
+	if stage == "Hit" then
+		for _, suffix in { "", "Planks", "PlanksDark" } do
 			place(`Hit{stageN}Fall{suffix}`, sideCf, stretch, `Fall{suffix}`)
 		end
 	end

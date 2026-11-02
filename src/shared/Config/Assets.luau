@@ -342,13 +342,17 @@ local Assets = {
 			-- v11 (trench_timber.py; user 2026-11-02: "base it off how our dug out is looking", "create constructtion
 			-- statuses and destruction statuses"): timbered, boards on posts with bolts, a corrugated iron wall, duckboards,
 			-- faceted spoil mounds, construction stages Dig1-4 and destruction stages Hit1-3 (v9 99912841219037)
-			id = 133558593375673,
+			-- v12 (trench_wood.py; user 2026-11-02: "will this new blender model lag? scratch everything ... only use our
+			-- old trench model again, but the one with wood on it and we make random variations of that", "w4 and on with
+			-- wood"): v9's chunky earth walls, every one with plank steps placed and spread its own way, v9's heaps and
+			-- floors, the digging stages, destruction stages in the same style (v11 133558593375673)
+			id = 98476936950166,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",
-			generator = "tools/blender/trench/trench_timber.py",
+			generator = "tools/blender/trench/trench_wood.py",
 			fidelity = "Hull",
-			description = "A trench square's pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-6 (the dirt face that collides, Wall<i>Planks / PlanksPale boards, PlanksDark posts and knots, Iron bolts; Wall2 corrugated Iron + IronRust sheets, Wall5 climbing cleats) and Wall<i>Parapet (a faceted spoil mound), floors Floor1-3 (dirt + a duckboard), Corner, construction stages Dig1-4 (Wall, Heap, Floor, Pile, timber going in) and destruction stages Hit1-3 (Wall timber, Fall: earth and boards slumped on the floor).",
+			description = "A trench square's pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks earth slabs on it either side of a bare stretch, Wall<i>Planks + Wall<i>PlanksDark plank steps laid on that stretch, each variant's placed and spread its own way) and Wall<i>Parapet (a heap of earth slabs), floors Floor1-4 (+ Floor<i>Chunks), Corner, construction stages Dig1-4 (Wall, Heap, Floor) and destruction stages Hit1-3 (Hit<k>Wall + Chunks, Planks, PlanksDark: slabs sagging then gone, boards loose then few; Hit<k>Fall + FallPlanks, FallPlanksDark: earth and boards slumped on the floor).",
 		},
 		-- the sandbag pile (user 2026-10-27: pillow bags, two under one, "give it some firmth"): each bag its own mesh, so
 		-- a pile is built a bag at a time; colored from Config/Palette.Build by mesh name. v2: stage 1, the scraped Patch
@@ -422,13 +426,16 @@ local Assets = {
 		-- a dugout's pieces (user 2026-11-02, tools/blender/dugout/dugout.py, renders approved): built by src/server/Build
 		-- stage by stage, colored from Config/Palette.Build (timbers) and the trench's soil (Earth*, Fall*) by mesh name
 		dugout_pieces = {
-			id = 89203369169985,
+			-- v2 (user 2026-11-02: "will this new blender model lag?", "the dugout supports should have supports that look
+			-- like the old trench variation with wood planks"): about 7.7k triangles from 42k, the old trench's big earth
+			-- slabs and plank steps, board frames (v1 89203369169985)
+			id = 74269418602475,
 			category = "Props",
 			folder = "Dugout",
 			source = "assets/props/dugout_pieces.fbx",
 			generator = "tools/blender/dugout/dugout.py",
 			fidelity = "Box",
-			description = "A dugout's pieces in piece space (origin on the trench floor at the foot of the wall it is cut into, in the middle along the trench; x along the trench, y up, z back into the wall; Origin at 0): steps down 7 over 7.5 to a room 7 wide, 6 deep, 6 high. Pile, PileDark (timbers lying on the trench floor), SlotEarth, Steps, Risers (the slot and its steps), RoomEarth (the room's dirt faces), Frames (posts, caps, lintel), Lining, Ceiling, Floorboards, Fall1 + Fall1Wood, Fall2, Fall3 (caving in).",
+			description = "A dugout's pieces in piece space (origin on the trench floor at the foot of the wall it is cut into, in the middle along the trench; x along the trench, y up, z back into the wall; Origin at 0): steps down 7 over 7.5 to a room 7 wide, 6 deep, 6 high. Pile, PileDark (timbers lying on the trench floor), SlotEarth, Steps, Risers (the slot and its steps), RoomEarth (the room's dirt faces), Frames (board posts, caps, lintel), Lining (plank steps along the walls), Ceiling, Floorboards (a duckboard and the lining's dark boards), Fall1 + Fall1Wood, Fall2, Fall3 (caving in).",
 		},
 		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown
 		-- at a time

@@ -136,9 +136,8 @@ local Build = {
 		-- (just a bit) so our character can walk out of (not smoothly and easily of course)", 48, then "make the slope
 		-- more aggressive. have an inbetween from what we had before and now")
 		wallAngle = 59,
-		-- the terrain is cut this much deeper and wider than the pieces lie (trench_pieces v11's boards, duckboards and
-		-- floor dirt collide, so it is what you stand on; Studio round 2026-11-02: the 4-stud voxels rounded the floor
-		-- into a bowl over the lower boards and the duckboard): the cut at the ground still ends under the top plank
+		-- the terrain is cut this much deeper and wider than the pieces lie (their base slabs collide, so they are what
+		-- you stand on; Studio round 2026-11-02: the 4-stud voxels rounded the floor into a bowl over the pieces)
 		carve = { wider = 0.6, deeper = 0.8 },
 		bank = { width = 3, height = 1.2 }, -- (width 5 to 3 with the narrower trench, under its smaller heap)
 		-- a bullet meeting the ground this close round a square's hole, walls and banks hits the square (studs; the
@@ -166,19 +165,20 @@ local Build = {
 		-- wall a side (Wall1..`walls`) and a floor (Floor1..`floors`), rolled from its seed (Rules.trenchPieces); the
 		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
 		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
-		-- (trench_pieces v11, tools/blender/trench/trench_timber.py; user 2026-11-02: "base it off how our dug out is looking", "create constructtion statuses and destruction statuses": timbered, six walls (wall 2 corrugated
-		-- iron, wall 5 with climbing cleats, the "wood" one) and three duckboard floors)
-		pieces = { segment = 8, walls = 6, floors = 3, wood = { 5 }, woodChance = 0.25 },
+		-- (trench_pieces v12, tools/blender/trench/trench_wood.py; user 2026-11-02: "only use our old trench model
+		-- again, but the one with wood on it and we make random variations of that": every one of the eight walls has
+		-- plank steps, so none is set apart as `wood` and each side rolls any of them)
+		pieces = { segment = 8, walls = 8, floors = 4, wood = {}, woodChance = 0 },
 		-- the pieces' stages (Rules.trenchStage, % of hp.max): construction Dig1-4 from each of `dig` while it is first
-		-- dug (timbers waiting, the cut deepening, posts set, the lower boards up), destruction Hit1-3 under each of
-		-- `hit` once dug full (a board hanging; boards gone and a post leaning; the lining half down and a post snapped)
+		-- dug (the cut deepening, the heap growing), destruction Hit1-3 under each of `hit` once dug full (boards
+		-- working loose; the upper slabs and half the boards down; a few boards and one low slab left, earth slumped)
 		stages = { dig = { 20, 40, 60, 80 }, hit = { 75, 50, 25 } },
 		-- where pieces meet (src/server/Trenches; user 2026-10-24: "make sure that the joints connect by the walls"): how far
 		-- out past a wall's top edge its dirt heap reaches (it keeps that whole depth out of other trenches; 11 to 6 since
 		-- trench_pieces v9, one lower heap and no skirt: user 2026-11-02, "make it a little more narrow and less thick",
 		-- option B), and how much further the side heaps run on round a dead end and its heap reaches past the side
 		-- walls' tops
-		joins = { heapReach = 7, deadEndHeap = 3 }, -- (7 since v11: its mound starts behind the top plank)
+		joins = { heapReach = 6, deadEndHeap = 3 },
 		-- (trench_pieces v9 has no skirt; kept for a piece set that has one) the skirt behind a heap (Wall<i>Apron, low slabs meant to lie half sunk in the ground) is laid only where the
 		-- ground under it comes within `apronHang` studs of its underside everywhere (Rules.thinPieceSits); where the
 		-- trench pokes out over ground that falls away it would hang in the air as thin sheets, so the heap's full blocks
