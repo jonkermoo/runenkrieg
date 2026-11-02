@@ -48,6 +48,7 @@ local ArtilleryCfg = require(Shared.Config.Artillery)
 local ArtilleryRules = require(Shared.Rules.Artillery)
 local W = require(Shared.Config.Weapons)
 local DevCfg = require(Shared.Config.DevTools)
+local BotsCfg = require(Shared.Config.Bots)
 local Rules = require(Shared.Rules.Build)
 local FrontCfg = require(Shared.Config.Frontline)
 local FrontRules = require(Shared.Rules.Frontline)
@@ -116,7 +117,7 @@ local guns: Guns? = nil
 local recs: { [Model]: Rec } = {}
 local bridgeRoll = Random.new() -- (each bridge's board layout, Config/Build.Bridge.variants)
 local showGun: (Rec) -> ()
-local lastSwing: { [Player]: number } = {}
+local lastSwing: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any -- (by Builder.key)
 
 local function rgb(c: { number }, jitter: number?): Color3
 	local k = 1 + (jitter or 0)
@@ -966,32 +967,83 @@ local function gunLocked(key: string): string?
 	return FrontRules.gunLocked(FrontCfg.Artillery, key, level)
 end
 
--- the soldier's character, root and team
-local function soldier(player: Player): (Model?, BasePart?, string?)
+-- who builds: a player's character or a bot soldier (Config/Bots.Tag), its id (a UserId or a bot's negative
+-- Config/Bots.IdAttribute: whose pieces are whose, the caps, the points) and what its swings are timed by
+type Builder = {
+	character: Model,
+	root: BasePart,
+	team: string?,
+	id: number,
+	player: Player?,
+	key: Instance,
+	said: string?, -- the last reason told (Build.workAs)
+}
+
+-- the player's builder (`shovel`: only while they hold the shovel)
+local function soldier(player: Player, shovel: boolean): Builder?
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not character or not root then
-		return nil, nil, nil
+	if not character or not root or (shovel and not holdsShovel(character)) then
+		return nil
 	end
-	return character, root, teamOf(character)
+	return {
+		character = character,
+		root = root,
+		team = teamOf(character),
+		id = player.UserId,
+		player = player,
+		key = player,
+	}
 end
 
--- the soldier's character, root and team when they hold the shovel
-local function digger(player: Player): (Model?, BasePart?, string?)
-	local character, root, team = soldier(player)
-	if not character or not holdsShovel(character) then
-		return nil, nil, nil
+-- a live bot soldier's builder (it builds without a shovel in its hands: the bot side shows what it does)
+local function bot(model: Model): Builder?
+	local id = model:GetAttribute(BotsCfg.IdAttribute)
+	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if
+		not CollectionService:HasTag(model, BotsCfg.Tag)
+		or type(id) ~= "number"
+		or not root
+		or not humanoid
+		or humanoid.Health <= 0
+	then
+		return nil
 	end
-	return character, root, team
+	return { character = model, root = root, team = teamOf(model), id = id, key = model }
+end
+
+-- tells a player why (Net "Build" "Refused"); a bot gets the reason returned instead
+local function tell(b: Builder, reason: string)
+	b.said = reason
+	if b.player then
+		refuse(b.player, reason)
+	end
+end
+
+local function shareOf(b: Builder): number?
+	return if b.player then digShare(b.player) else nil
+end
+
+local function allBuild(b: Builder): boolean
+	return b.player ~= nil and buildsAll(b.player)
+end
+
+local function award(b: Builder, reason: string)
+	if b.player then
+		Loadouts.award(b.player, reason)
+	else
+		Loadouts.awardBot(b.id, reason)
+	end
 end
 
 -- Lays a blueprint (Net "Build" "Place"). `dev`: the admin panel's spawn list (Build.devPlace): no shovel, reach or
 -- limits, and a sandbag pile or MG nest stands finished at once. Returns why it was refused, nil when laid.
-local function place(player: Player, key: any, at: any, dev: boolean?): string?
-	local character, root, team = (if dev then soldier else digger)(player)
+local function place(b: Builder, key: any, at: any, dev: boolean?): string?
+	local character, root, team = b.character, b.root, b.team
 	local piece = Rules.piece(key, C.Pieces)
-	if not character or not root or not piece or typeof(at) ~= "CFrame" or piece.kind == "Trench" then
-		return "No character or no such piece"
+	if not piece or typeof(at) ~= "CFrame" or piece.kind == "Trench" then
+		return "No such piece"
 	end
 	if not team then
 		return "No team (the character has no Kit)"
@@ -1035,17 +1087,17 @@ local function place(player: Player, key: any, at: any, dev: boolean?): string?
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
 		-- (a wire keeps off trenches too: their hole, walls and bank)
 		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
-		mine = if dev then 0 else count(team, player.UserId),
+		mine = if dev then 0 else count(team, b.id),
 		team = if dev then 0 else count(team, nil),
 		kind = if dev then 0 else count(team, nil, piece.key),
 		locked = if dev then nil else gunLocked(piece.key),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
 		-- (only engineers build guns: Config/Classes; the admin panel's build anything: everyone)
-		allowed = dev or Loadouts.mayBuild(character, piece.kind) or buildsAll(player),
+		allowed = dev or Loadouts.mayBuild(character, piece.kind) or allBuild(b),
 	})
 	if not ok then
-		refuse(player, reason or "Can't build here")
+		tell(b, reason or "Can't build here")
 		return reason or "Can't build here"
 	end
 	local model = Instance.new("Model")
@@ -1059,7 +1111,7 @@ local function place(player: Player, key: any, at: any, dev: boolean?): string?
 		model = model,
 		piece = piece,
 		team = team,
-		owner = player.UserId,
+		owner = b.id,
 		-- (its work is its HP: laid at its `place`, Rules.hpOf)
 		work = (Rules.hpOf(piece, C) or { place = 0 }).place,
 		need = (Rules.hpOf(piece, C) or { max = piece.work }).max,
@@ -1072,13 +1124,13 @@ local function place(player: Player, key: any, at: any, dev: boolean?): string?
 	if bags then
 		if not layoutPile(r, Survey.onGround(piece, frame, report)) then
 			model:Destroy()
-			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile: layoutPile warns)
+			tell(b, "Can't build here") -- (the dev place's asset library lacks the pile: layoutPile warns)
 			return "The asset library lacks the sandbag pile"
 		end
 	elseif nest then
 		if not layoutNest(r, Survey.onGround(piece, frame, report)) then
 			model:Destroy()
-			refuse(player, "Can't build here") -- (the dev place's asset library lacks the pile or the mount bag)
+			tell(b, "Can't build here") -- (the dev place's asset library lacks the pile or the mount bag)
 			return "The asset library lacks the pile or the mount bag"
 		end
 	elseif piece.kind == "Wire" then
@@ -1149,52 +1201,56 @@ local function place(player: Player, key: any, at: any, dev: boolean?): string?
 end
 
 -- Plans a trench (Net "Build" "Plan": its start and end on the ground)
-local function plan(player: Player, a: any, b: any)
-	local character, root, team = digger(player)
-	if not character or not root or not team or typeof(a) ~= "Vector3" or typeof(b) ~= "Vector3" then
-		return
+-- Returns why it was refused, nil when laid.
+local function plan(b: Builder, from: any, to: any): string?
+	if not b.team or typeof(from) ~= "Vector3" or typeof(to) ~= "Vector3" then
+		return "No team or no such plan"
 	end
-	local reason = Trenches.plan(player, team, root, a, b)
+	local reason = Trenches.plan(b.id, b.team, b.root, from, to)
 	if reason then
-		refuse(player, reason)
+		tell(b, reason)
 	end
+	return reason
 end
 
--- HP a soldier's Build swings added (a match's "most HP built": src/server/MatchStats), to each watcher
+-- HP a player's Build swings added (a match's "most HP built": src/server/MatchStats), to each watcher (a bot's
+-- count for nothing there)
 local builtWatchers: { (Player, number) -> () } = {}
 function Build.onBuilt(fn: (Player, number) -> ())
 	table.insert(builtWatchers, fn)
 end
-local function credit(player: Player, hp: number)
-	if hp > 0 then
+local function credit(b: Builder, hp: number)
+	local player = b.player
+	if hp > 0 and player then
 		for _, fn in builtWatchers do
 			task.spawn(fn, player, hp)
 		end
 	end
 end
 
--- A shovel swing (Net "Build" "Work"): at a piece, a trench block or a tree, in the shovel's mode
-local function work(player: Player, target: any, mode: any)
-	local character, root, team = digger(player)
-	if not character or not root or not team or typeof(target) ~= "Instance" then
+-- A shovel swing (Net "Build" "Work"): at a piece, a trench block or a tree, in the shovel's mode. Every swing that
+-- lands sets lastSwing[b.key] to now (Build.workAs tells a bot's from it).
+local function work(b: Builder, target: any, mode: any)
+	local character, root, team = b.character, b.root, b.team
+	if not team or typeof(target) ~= "Instance" then
 		return
 	end
 	if mode ~= "Build" and mode ~= "Destroy" then
 		return
 	end
 	local now = os.clock()
-	if Rules.tooSoon(now, lastSwing[player], GAP, C.SwingSlack) then
+	if Rules.tooSoon(now, lastSwing[b.key], GAP, C.SwingSlack) then
 		return
 	end
 	-- a trench block
 	local blk = Trenches.blockOf(target)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
-			lastSwing[player] = now
-			local done, added = Trenches.work(blk, team, mode, digShare(player))
-			credit(player, added)
+			lastSwing[b.key] = now
+			local done, added = Trenches.work(blk, team, mode, shareOf(b))
+			credit(b, added)
 			if done then
-				Loadouts.award(player, "Trench")
+				award(b, "Trench")
 			end
 		end
 		return
@@ -1206,7 +1262,7 @@ local function work(player: Player, target: any, mode: any)
 		and (target.Position - root.Position).Magnitude <= C.SwingReach + 4
 	then
 		if Trees.chop(target, root.Position) then
-			lastSwing[player] = now
+			lastSwing[b.key] = now
 		end
 		return
 	end
@@ -1222,20 +1278,20 @@ local function work(player: Player, target: any, mode: any)
 		if build and (not own or r.work >= r.need) then
 			return
 		end
-		lastSwing[player] = now
+		lastSwing[b.key] = now
 		local h = C.Hesco.hp
-		local share = digShare(player)
+		local share = shareOf(b)
 		local step = if share then Rules.digAmount(1, h.max, share) else nil
 		local left, gone = Rules.hpSwing(r.work, build, h, step)
 		if gone then
 			remove(r)
 			return
 		end
-		credit(player, left - r.work)
+		credit(b, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need and not r.built then
-			Loadouts.award(player, "Piece")
+			award(b, "Piece")
 			r.built = true
 		end
 		apply(r)
@@ -1252,8 +1308,8 @@ local function work(player: Player, target: any, mode: any)
 		if not guns or not g or type(hp) ~= "number" or hp >= g.hp then
 			return
 		end
-		lastSwing[player] = now
-		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair, g.hp, digShare(player)))
+		lastSwing[b.key] = now
+		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair, g.hp, shareOf(b)))
 		if what then
 			-- back in service or whole: a fresh gun in its place, the howitzer's pit dug out again from the ground as
 			-- it was (the field gun levels its own ground as it stands), damaged to what it has
@@ -1299,8 +1355,8 @@ local function work(player: Player, target: any, mode: any)
 		if not g or type(hp) ~= "number" then
 			return
 		end
-		lastSwing[player] = now
-		local step = Rules.digAmount(g.hp / g.repair, g.hp, digShare(player))
+		lastSwing[b.key] = now
+		local step = Rules.digAmount(g.hp / g.repair, g.hp, shareOf(b))
 		local _, gone = Rules.hpSwing(hp, false, { max = g.hp }, step)
 		if gone then
 			remove(r)
@@ -1312,29 +1368,29 @@ local function work(player: Player, target: any, mode: any)
 	if mode == "Build" and (not own or r.work >= r.need) then
 		return
 	end
-	if mode == "Build" and not Loadouts.mayBuild(character, r.piece.kind) and not buildsAll(player) then
-		refuse(player, "Engineers only") -- (anyone may take one apart)
+	if mode == "Build" and not Loadouts.mayBuild(character, r.piece.kind) and not allBuild(b) then
+		tell(b, "Engineers only") -- (anyone may take one apart)
 		return
 	end
-	lastSwing[player] = now
+	lastSwing[b.key] = now
 	-- a sandbag pile or an MG nest: swings work its HP (Config/Build.Sandbags.hp / Nest.hp); its team's Build swings
 	-- repair it too
 	local nest = r.piece.kind == "Nest"
 	if r.piece.kind == "Sandbags" or nest then
 		local h = if nest then C.Nest.hp else C.Sandbags.hp
 		local build = mode == "Build"
-		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, digShare(player))
+		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, shareOf(b))
 		local left, gone = Rules.hpSwing(r.work, build, h, step)
 		if gone then
 			remove(r)
 			return
 		end
-		credit(player, left - r.work)
+		credit(b, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need then
 			if not r.paid then
-				Loadouts.award(player, "Piece") -- (once per piece)
+				award(b, "Piece") -- (once per piece)
 			end
 			r.built, r.paid = true, true
 		end
@@ -1349,17 +1405,17 @@ local function work(player: Player, target: any, mode: any)
 	if r.piece.kind == "Bridge" then
 		local h = C.Bridge.hp
 		local build = mode == "Build"
-		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, digShare(player))
+		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, shareOf(b))
 		local left, gone = Rules.trenchSwing(r.work, h.max, step, build)
 		if gone then
 			remove(r)
 			return
 		end
-		credit(player, left - r.work)
+		credit(b, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need and not r.paid then
-			Loadouts.award(player, "Piece") -- (once per piece)
+			award(b, "Piece") -- (once per piece)
 			r.paid = true
 		end
 		apply(r)
@@ -1369,18 +1425,18 @@ local function work(player: Player, target: any, mode: any)
 	local h = Rules.hpOf(r.piece, C)
 	if h then
 		local build = mode == "Build"
-		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, digShare(player))
+		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, shareOf(b))
 		local left, gone = Rules.hpSwing(r.work, build, h, step)
 		if gone then
 			remove(r)
 			return
 		end
-		credit(player, left - r.work)
+		credit(b, left - r.work)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need then
 			if not r.paid then
-				Loadouts.award(player, "Piece") -- (once per piece)
+				award(b, "Piece") -- (once per piece)
 			end
 			r.built, r.paid = true, true
 		end
@@ -1391,17 +1447,17 @@ local function work(player: Player, target: any, mode: any)
 		return
 	end
 	local was = r.work
-	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(1, r.need, digShare(player)))
+	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(1, r.need, shareOf(b)))
 	if gone then
 		remove(r) -- (at 0 it is simply gone)
 		return
 	end
-	credit(player, left - r.work)
+	credit(b, left - r.work)
 	r.work = left
 	r.worked = now
 	if r.work >= r.need then
 		if not r.paid then
-			Loadouts.award(player, "Piece") -- (once per piece: built again after Destroy swings pays nothing)
+			award(b, "Piece") -- (once per piece: built again after Destroy swings pays nothing)
 		end
 		r.built, r.paid = true, true
 	end
@@ -1420,7 +1476,121 @@ end
 -- (facing its LookVector) for `player`'s team; still refused on ground it can't stand on. Returns why it was refused,
 -- nil when laid.
 function Build.devPlace(player: Player, key: string, at: CFrame): string?
-	return place(player, key, at, true)
+	local b = soldier(player, false)
+	return if b then place(b, key, at, true) else "No character"
+end
+
+-- Bot soldiers build as players do (the same checks: the class's builds list, the team, reach, caps, the artillery
+-- level, the ground survey; its pieces are its BotId's, its points Loadouts.awardBot's). `model`: a live bot
+-- (Config/Bots.Tag, BotId and Kit attributes). Each returns why it was refused, nil when done.
+
+-- Lays piece `key` (a Config/Build.Pieces key, not "Trench") at `at`, facing `look` (flat; nil: as `at` faces); the
+-- bot within Config/Build.Reach of it.
+function Build.placeAs(model: Model, key: string, at: Vector3 | CFrame, look: Vector3?): string?
+	local b = bot(model)
+	if not b then
+		return "Not a live bot"
+	end
+	local cf = if typeof(at) == "CFrame" then at else CFrame.new(at)
+	local flat = if look then Vector3.new(look.X, 0, look.Z) else Vector3.zero
+	if flat.Magnitude > 1e-3 then
+		cf = CFrame.lookAt(cf.Position, cf.Position + flat)
+	end
+	return place(b, key, cf)
+end
+
+-- Plans a trench from `from` to `to` (ground points); the bot within Config/Build.Trench.firstReach of either end.
+function Build.planAs(model: Model, from: Vector3, to: Vector3): string?
+	local b = bot(model)
+	if not b then
+		return "Not a live bot"
+	end
+	return plan(b, from, to)
+end
+
+-- One shovel swing at `target` (a piece's model, a trench square's model or a tree's part) in `mode` ("Build" or
+-- "Destroy"), no sooner than Build.swingGap() after its last; within Config/Build.SwingReach of a piece
+-- (Trench.swingReach of a square). Nil when the swing landed.
+function Build.workAs(model: Model, target: Instance, mode: string): string?
+	local b = bot(model)
+	if not b then
+		return "Not a live bot"
+	end
+	local before = lastSwing[model]
+	if Rules.tooSoon(os.clock(), before, GAP, C.SwingSlack) then
+		return "Too soon"
+	end
+	work(b, target, mode)
+	if lastSwing[model] ~= before then
+		return nil
+	end
+	return b.said or "Nothing to work there"
+end
+
+-- the shortest time between two swings that land (Rules.strikeGap of the shovel's swings)
+function Build.swingGap(): number
+	return GAP
+end
+
+-- A built thing and the work it wants (Build.worksOf)
+export type Work = {
+	model: Model, -- what Build.workAs swings at
+	key: string, -- its Config/Build.Pieces key ("Trench" for a trench square)
+	kind: string,
+	team: string,
+	owner: number?, -- who laid it (a UserId or a BotId); nil for a trench square
+	at: Vector3, -- where to stand near (a gun's own spot; a square's middle)
+	hp: number, -- its HP now (a standing gun's: the gun's)
+	max: number,
+	swing: number, -- HP one Build swing adds
+	left: number, -- Build swings to full (Rules.workLeft); 0 when whole
+	built: boolean, -- has stood once (a standing gun is repaired, not built)
+}
+
+-- Every piece and trench square of `team` (nil: every team's) and the work each wants
+function Build.worksOf(team: string?): { Work }
+	local out: { Work } = {}
+	for _, r in recs do
+		if team == nil or r.team == team then
+			local hp, max = r.work, r.need
+			local h = Rules.hpRules(r.piece.kind, C, r.piece)
+			local swing = if h and h.swing then h.swing else 1
+			local g = ArtilleryCfg.Guns[(r.piece :: any).gun or ""]
+			local gunHp = r.gun and r.gun:GetAttribute("HP")
+			if r.built and g and type(gunHp) == "number" then
+				hp, max, swing = gunHp, g.hp, g.hp / g.repair
+			end
+			table.insert(out, {
+				model = r.model,
+				key = r.piece.key,
+				kind = r.piece.kind,
+				team = r.team,
+				owner = r.owner,
+				at = if r.at then r.at.Position else r.frame.Position,
+				hp = hp,
+				max = max,
+				swing = swing,
+				left = Rules.workLeft(hp, max, swing),
+				built = r.built,
+			})
+		end
+	end
+	local T = C.Trench.hp
+	for _, s in Trenches.squares(team) do
+		table.insert(out, {
+			model = s.model,
+			key = "Trench",
+			kind = "Trench",
+			team = s.team,
+			at = s.at,
+			hp = s.hp,
+			max = T.max,
+			swing = T.swing,
+			left = Rules.workLeft(s.hp, T.max, T.swing),
+			built = s.built,
+		})
+	end
+	return out
 end
 
 function Build.blast(position: Vector3, kg: number, key: string?)
@@ -1616,7 +1786,8 @@ local function dug(player: Player, kind: any)
 	if kind ~= "Dig" and kind ~= "Toss" and kind ~= "Chip" then
 		return
 	end
-	local character = digger(player)
+	local b = soldier(player, true)
+	local character = b and b.character
 	local now = os.clock()
 	if not character or (lastSound[player] and now - lastSound[player] < ShovelCfg.SoundGap) then
 		return
@@ -1638,12 +1809,16 @@ function Build.start(artillery: Guns)
 	Ground.ceiling(Build.nestCeiling)
 	Net.event("Dug").OnServerEvent:Connect(dug)
 	Net.event("Build").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)
+		local builder = soldier(player, true)
+		if not builder then
+			return
+		end
 		if kind == "Place" then
-			place(player, a, b)
+			place(builder, a, b)
 		elseif kind == "Plan" then
-			plan(player, a, b)
+			plan(builder, a, b)
 		elseif kind == "Work" then
-			work(player, a, b)
+			work(builder, a, b)
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)

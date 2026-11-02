@@ -888,4 +888,13 @@ function Build.buildSwings(p: Piece, cfg: any): number
 	return p.work or 1
 end
 
+-- The Build swings of `swing` HP each that take a thing at `hp` to `max` (src/server/Build.worksOf, for the bots); 0
+-- when it is whole or a swing adds nothing
+function Build.workLeft(hp: number, max: number, swing: number): number
+	if hp >= max or swing <= 0 then
+		return 0
+	end
+	return math.ceil((max - hp) / swing - 1e-9)
+end
+
 return Build

@@ -110,7 +110,8 @@ local Classes = {
 			helmet = "shellHelmet",
 			builds = SMALL,
 		},
-		-- coming later: the only class that builds artillery (user: "only they can build artilleries"); price a placeholder
+		-- the only class that builds artillery (user: "only they can build artilleries"); open to players at 150 (user
+		-- 2026-11-01), not yet to bots (Config/Bots.Classes)
 		Engineer = {
 			name = "Engineer",
 			blurb = "Builds artillery",
@@ -121,7 +122,6 @@ local Classes = {
 			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
 			helmet = "engineerCap",
 			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
-			locked = true,
 		},
 		-- the team's goggles (user 2026-10-27: "goggles on mage")
 		Mage = {

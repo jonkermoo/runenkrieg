@@ -820,8 +820,9 @@ local function bendAt(link: Link, leave: Vector3): number
 	return Rules.bend(out.X, out.Z, leave.X, leave.Z)
 end
 
--- Lays a plan (Net "Build" "Plan"): its start and end (ground points). Returns the reason when refused.
-function Trenches.plan(player: Player, team: string, root: BasePart, a0: Vector3, b0: Vector3): string?
+-- Lays a plan (Net "Build" "Plan", or a bot's Build.planAs): its start and end (ground points), `owner` the UserId or
+-- BotId that laid it. Returns the reason when refused.
+function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3, b0: Vector3): string?
 	local a, linkA = snap(a0, team)
 	local b, linkB = snap(b0, team)
 	if linkA and linkB and linkA.other == linkB.other then
@@ -981,7 +982,7 @@ function Trenches.plan(player: Player, team: string, root: BasePart, a0: Vector3
 		m:SetAttribute("Team", team)
 		m:SetAttribute("BlockA", blk.a)
 		m:SetAttribute("BlockB", blk.b)
-		m:SetAttribute("Owner", player.UserId)
+		m:SetAttribute("Owner", owner)
 		blk.model = m
 		byModel[m] = blk
 		m.Parent = f
@@ -993,6 +994,21 @@ end
 -- the block a structure model is (src/server/Build routes swings here), or nil
 function Trenches.blockOf(model: Instance): Block?
 	return if model:IsA("Model") then byModel[model] else nil
+end
+
+-- every live square of `team` (nil: every team's): its model, team, middle, HP and whether it was dug full once
+-- (src/server/Build.worksOf)
+function Trenches.squares(team: string?): { { model: Model, team: string, at: Vector3, hp: number, built: boolean } }
+	local out = {}
+	for _, blk in blocks do
+		if live(blk) and blk.model and (team == nil or blk.team == team) then
+			table.insert(
+				out,
+				{ model = blk.model, team = blk.team, at = (blk.a + blk.b) / 2, hp = blk.hp, built = blk.built }
+			)
+		end
+	end
+	return out
 end
 
 -- how far `p` is from a block's line (flat)

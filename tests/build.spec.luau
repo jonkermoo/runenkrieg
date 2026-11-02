@@ -722,6 +722,18 @@ return {
 		assert((B.hpRules("Wire", C) :: any).destroy == C.Wire.hp.destroy)
 		assert((B.hpRules("Gun", C, p("FieldGun")) :: any).destroy == nil, "a standing gun's HP is its own")
 	end,
+	["the Build swings a thing wants to be whole (the bots' work list)"] = function()
+		assert(B.workLeft(0, 100, 10) == 10)
+		assert(B.workLeft(95, 100, 10) == 1, "a part swing still counts")
+		assert(B.workLeft(90, 100, 10) == 1, "exact, no rounding up past it")
+		assert(B.workLeft(100, 100, 10) == 0 and B.workLeft(120, 100, 10) == 0, "whole")
+		assert(B.workLeft(0, 100, 0) == 0, "a swing that adds nothing")
+		local h = C.Hesco.hp
+		assert(
+			B.workLeft(h.place or 0, h.max, h.swing) == B.buildSwings(B.piece("Hesco", C.Pieces) :: any, C),
+			"laid to whole: its build swings"
+		)
+	end,
 	["laid on the ground: the plane through the ground under it, its height and slope each way"] = function()
 		-- a flat field: level at its height
 		local flat = table.create(15, 4)
