@@ -203,7 +203,8 @@ local Build = {
 		staff2 = { hit = 6, reach = 6, wire = 15, bridge = 5 },
 		staff3 = { hit = 18, reach = 10, wire = 50, bridge = 25 }, -- (two full beams cut wire)
 		field = { hit = 33, reach = 10, edge = 3, wire = 100, bridge = 100 }, -- (three bury a trench)
-		howitzer = { hit = 93, reach = 20, edge = 8, wire = 100, bridge = 100 }, -- (buries it at once, 7% left)
+		-- (user 2026-11-02, the damage rework: a smaller blast that still buries what it hits; was hit 93, reach 20, edge 8)
+		howitzer = { hit = 100, reach = 14, edge = 5, wire = 100, bridge = 100 }, -- (buries it at once)
 		byCharge = {
 			{ kg = 0.5, source = "grenade" },
 			{ kg = 5, source = "field" },
@@ -330,22 +331,26 @@ local Build = {
 			clear = 9,
 			trenchGap = 2,
 		},
+		-- (the Rune howitzer, user 2026-11-02; was the 42 cm "Rune mortar", 44 x 78 for its 15-stud pit, 4.5 earth rim and
+		-- 40-stud ramp, 8 stages): its 3-deep pit and the sandbag ring round it (GunRing below, ~27 across), the pit's
+		-- ramp out inside the ring
 		{
 			key = "Howitzer",
-			name = "Rune mortar",
+			name = "Rune howitzer",
 			kind = "Gun",
 			gun = "artillery_howitzer",
+			ring = "artillery_howitzer", -- its sandbag ring (GunRing)
 			teamCap = 2,
 			swing = 2.5, -- (40 swings)
-			stages = 8,
-			width = 44,
-			depth = 78,
+			stages = 4,
+			width = 28,
+			depth = 28,
 			height = 6,
-			back = 17,
+			back = 0,
 			maxSlope = 12,
 			spacing = 120,
-			clear = 36,
-			trenchGap = 14,
+			clear = 15,
+			trenchGap = 2,
 		},
 	},
 
@@ -410,11 +415,12 @@ local Build = {
 			crates = { { x = -2.6, z = 1.4, yaw = 20, size = { 1, 0.6, 0.7 } } },
 			planks = { { x = 2.7, z = 1.0, yaw = -12, count = 2, length = 2.6 } },
 		},
+		-- (the Rune howitzer, 2026-11-02: on its pit's floor inside the sandbag ring, off its bed's corners; the 42 cm's
+		-- scaffold frame round it is gone with its deep pit)
 		artillery_howitzer = {
-			frame = { x = 0, z = 0.3, width = 16, depth = 18, bays = 2, height = 5.2, levels = { 4.2 } },
-			crates = { { x = -10.5, z = -2, yaw = 10, size = { 1.6, 0.9, 1.1 } } },
-			planks = { { x = 10.5, z = 5, yaw = 10, count = 3, length = 5 } },
-			sawhorses = { { x = -10.5, z = 6, yaw = 0 } },
+			crates = { { x = -7.5, z = 0, yaw = 10, size = { 1.4, 0.8, 1.0 } } },
+			planks = { { x = 7.4, z = 1.5, yaw = 85, count = 3, length = 3.5 } },
+			sawhorses = { { x = -1.5, z = -7.5, yaw = 90 } },
 		},
 	},
 
@@ -498,6 +504,43 @@ local Build = {
 		ground = 2,
 		heap = 0.6,
 		snapshot = { 8, 12 },
+	},
+
+	-- The sandbag ring round a dug-in gun (Pieces `ring`, keyed by it; src/server/Build; user 2026-11-02: "keep the
+	-- howizer semi dugged, but have sandbags around it that behave similarily to how the mg nest sandbags behave"): the
+	-- MG nest's bags (`asset`, its `bags`) on a bigger ring round the gun's pivot (Rules.nestRing: `ring.sides`-sided,
+	-- `ring.bag`-stud sides, `ring.piles` each an end, its bend and its other end, 0 the front point), the back side left
+	-- open as a doorway over the pit's ramp. Not a structure of its own: it goes up and comes down with the gun. Being
+	-- built: by the gun's HP, a stage as a Hesco barrier's (Rules.hescoStage over `build`): first every bag lying as its
+	-- empty sack (`flat` of its height), then "bottom" the piles' bottom bags filled, then "all". Once the gun has stood:
+	-- by its Wreck stage, the share of the ring's bags still standing (`wear[i]`, the top bags first, Rules.nestWearOrder).
+	-- Blasts never carve the ground under it (`ground` studs round its bags; Build.onNest).
+	GunRing = {
+		artillery_howitzer = {
+			asset = "sandbag_pile",
+			bags = { "Bag1", "Bag2", "Bag3" },
+			flat = 0.14,
+			build = { "none", "bottom", "all", "all" },
+			wear = { 1, 0.7, 0.45, 0.2 },
+			-- 22 sides of 3.6 (~12.65 out, ~27 across over the bags), the two at the back open (~7.1 wide), behind the pit's ramp
+			ring = {
+				sides = 22,
+				bag = 3.6,
+				piles = {
+					{ 0, 1, 2 },
+					{ 0, 21, 20 },
+					{ 2, 3, 4 },
+					{ 20, 19, 18 },
+					{ 4, 5, 6 },
+					{ 18, 17, 16 },
+					{ 6, 7, 8 },
+					{ 16, 15, 14 },
+					{ 8, 9, 10 },
+					{ 14, 13, 12 },
+				},
+			},
+			ground = 2,
+		},
 	},
 
 	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the

@@ -69,7 +69,7 @@ local Build = {}
 -- the shortest time between two shovel strikes (a swing comes too soon under SwingSlack of it)
 local GAP = Rules.strikeGap({ ShovelCfg.Dig, ShovelCfg.Chip })
 
--- an MG nest's bag full and lying as its empty sack (Config/Build.Nest `flat`)
+-- an MG nest's (or a gun ring's) bag full and lying as its empty sack (Config/Build.Nest / GunRing `flat`)
 type Sack = { full: CFrame, size: Vector3, color: Color3, flat: CFrame, flatSize: Vector3, cord: boolean, top: boolean }
 
 type Rec = {
@@ -102,7 +102,7 @@ type Rec = {
 	-- earth heaps no higher than Config/Build.Nest.heap over it)
 	nestBase: Ground.PitBase?,
 	nestTops: { [string]: number }?,
-	sacks: { [BasePart]: Sack }?, -- an MG nest: each bag full and as its empty sack
+	sacks: { [BasePart]: Sack }?, -- an MG nest (or a gun's sandbag ring): each bag full and as its empty sack
 	square: Model?, -- a bridge: the trench square it is on
 	watch: { RBXScriptConnection }?, -- and its watch on that square
 	sector: string?, -- the Map1 sector it stands in (a piece with a `sectorCap`)
@@ -292,6 +292,120 @@ local function layoutPile(r: Rec, on: CFrame): boolean
 	return true
 end
 
+-- a nest's (or a gun ring's) bag (or its cord) `d` laid at `cf` in `holder`, its `row` on the ring, and its empty sack
+-- in `sacks`: flattened by `flat` along whichever of its axes stands up, on the ground `base` under it (a top bag's over
+-- the sacks below)
+local function layBag(
+	holder: Instance,
+	base: CFrame,
+	flat: number,
+	sacks: { [BasePart]: Sack },
+	d: BasePart,
+	cf: CFrame,
+	row: number,
+	top: boolean
+)
+	local part = d:Clone()
+	part.Anchored = true
+	part.Material = Enum.Material.SmoothPlastic
+	local jitter = ((row * 37) % 7 / 6 - 0.5) * 2 * C.Sandbags.shade
+	local cord = Rules.isPileCord(d.Name)
+	part.Color = if cord then rgb(Palette.Build.SandbagCord) else rgb(Palette.Build.Sandbag, jitter)
+	part.CFrame = cf
+	part:SetAttribute("Row", row)
+	part.Parent = holder
+	local up = base.UpVector
+	local size = part.Size
+	local ups = {
+		math.abs(cf.RightVector:Dot(up)),
+		math.abs(cf.UpVector:Dot(up)),
+		math.abs(cf.LookVector:Dot(up)),
+	}
+	local axis = if ups[1] >= ups[2] and ups[1] >= ups[3] then 1 elseif ups[2] >= ups[3] then 2 else 3
+	local height = if axis == 1 then size.X elseif axis == 2 then size.Y else size.Z
+	local flatH, y = Rules.nestSack(height, flat, top)
+	local flatSize = Vector3.new(
+		if axis == 1 then flatH else size.X,
+		if axis == 2 then flatH else size.Y,
+		if axis == 3 then flatH else size.Z
+	)
+	local at = base:PointToObjectSpace(cf.Position)
+	sacks[part] = {
+		full = cf,
+		size = size,
+		color = part.Color,
+		flat = CFrame.new(base:PointToWorldSpace(Vector3.new(at.X, y, at.Z))) * cf.Rotation,
+		flatSize = flatSize,
+		cord = cord,
+		top = top,
+	}
+end
+
+-- the ring's bags (Rules.nestRing on `n.ring`) from the pile `kit` (its parts' `offsets`, its `bags` by slot) laid by
+-- `lay` round `base` (plan space: the ring's middle, x right, z back), each on its row (from `firstRow`)
+local function layRing(
+	n: any,
+	bags: { string },
+	kit: Instance,
+	offsets: { [string]: CFrame },
+	base: CFrame,
+	firstRow: number,
+	lay: (BasePart, CFrame, number, boolean) -> ()
+)
+	local ring = Rules.nestRing(n.ring)
+	for i, b in ring do
+		local o = offsets[bags[b.slot]]
+		if o then
+			local along = CFrame.fromMatrix(Vector3.new(b.x, 0, b.z), Vector3.new(b.dx, 0, b.dz), Vector3.yAxis)
+			local bagCf = base * along * CFrame.new(0, o.Y, o.Z) * o.Rotation
+			for _, d in kit:GetChildren() do
+				local mo = offsets[d.Name]
+				if mo and d:IsA("BasePart") and Rules.pileBag(d.Name, bags) == b.slot then
+					lay(d, bagCf * o:Inverse() * mo, i + firstRow - 1, b.slot == 3)
+				end
+			end
+		end
+	end
+end
+
+-- a nest's (or a gun ring's) bags as `bags` says (Rules.nestShown): "none" all lying as their empty sacks, "bottom"
+-- the bottom ones filled, "all", or worn: that share of the ring's bags still standing, the top bags gone first
+-- (Rules.nestWearOrder; row 1, an MG nest's mount bags, always stands)
+local function showBags(r: Rec, bags: string | number)
+	local standing: { [number]: boolean }? = nil
+	if type(bags) == "number" then
+		local rows, tops = {}, {}
+		for part, sack in r.sacks or {} do
+			local row = part:GetAttribute("Row") :: number?
+			if row and row > 1 and tops[row] == nil then
+				tops[row] = sack.top
+				table.insert(rows, row)
+			end
+		end
+		table.sort(rows, function(a, b)
+			return Rules.nestWearOrder(a, tops[a]) < Rules.nestWearOrder(b, tops[b])
+		end)
+		local set = {}
+		local gone = #rows - Rules.nestStanding(#rows, bags)
+		for i = gone + 1, #rows do
+			set[rows[i]] = true
+		end
+		standing = set
+	end
+	for part, sack in r.sacks or {} do
+		local row = part:GetAttribute("Row") :: number?
+		local up = bags == "all"
+			or (bags == "bottom" and not sack.top)
+			or (standing ~= nil and (row == 1 or (row ~= nil and standing[row] == true)))
+		part.CanCollide = up
+		part.CanQuery = up
+		part.Transparency = if sack.cord and not up then 1 else 0
+		part.CFrame = if up then sack.full else sack.flat
+		part.Size = if up then sack.size else sack.flatSize
+		part.Color = if up or sack.cord then sack.color else rgb(Palette.Build.SandbagSacks)
+	end
+end
+
 -- an MG nest (Config/Build.Nest): one "Sandbag" section of every bag, each with the "Row" it is laid in (the mount bag
 -- first, then the ring's bags in Rules.nestRing's order), and the gun's parts (Artillery.parts) on the mount bag, set
 -- up by quarters (showNest). The piece's frame is the ring's middle, its look the way the gun points; the bags lie on
@@ -322,43 +436,8 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 	end
 	local sacks: { [BasePart]: Sack } = {}
 	r.sacks = sacks
-	-- a bag (or its cord) full, and as its empty sack: flattened along whichever of its axes stands up, on the ground
-	-- under it (a top bag's over the sacks below)
 	local function lay(d: BasePart, cf: CFrame, row: number, top: boolean)
-		local part = d:Clone()
-		part.Anchored = true
-		part.Material = Enum.Material.SmoothPlastic
-		local jitter = ((row * 37) % 7 / 6 - 0.5) * 2 * C.Sandbags.shade
-		local cord = Rules.isPileCord(d.Name)
-		part.Color = if cord then rgb(Palette.Build.SandbagCord) else rgb(Palette.Build.Sandbag, jitter)
-		part.CFrame = cf
-		part:SetAttribute("Row", row)
-		part.Parent = s
-		local up = base.UpVector
-		local size = part.Size
-		local ups = {
-			math.abs(cf.RightVector:Dot(up)),
-			math.abs(cf.UpVector:Dot(up)),
-			math.abs(cf.LookVector:Dot(up)),
-		}
-		local axis = if ups[1] >= ups[2] and ups[1] >= ups[3] then 1 elseif ups[2] >= ups[3] then 2 else 3
-		local height = if axis == 1 then size.X elseif axis == 2 then size.Y else size.Z
-		local flatH, y = Rules.nestSack(height, n.flat, top)
-		local flatSize = Vector3.new(
-			if axis == 1 then flatH else size.X,
-			if axis == 2 then flatH else size.Y,
-			if axis == 3 then flatH else size.Z
-		)
-		local at = base:PointToObjectSpace(cf.Position)
-		sacks[part] = {
-			full = cf,
-			size = size,
-			color = part.Color,
-			flat = CFrame.new(base:PointToWorldSpace(Vector3.new(at.X, y, at.Z))) * cf.Rotation,
-			flatSize = flatSize,
-			cord = cord,
-			top = top,
-		}
+		layBag(s, base, n.flat, sacks, d, cf, row, top)
 	end
 	local ring, radius = Rules.nestRing(n.ring)
 	-- the mount bag (gun space: x right, y up, z back), in the point of the V
@@ -370,20 +449,7 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 		end
 	end
 	-- the ring's bags: the pile's bag of that slot (piece space: x along it), turned to lie along the ring
-	for i, b in ring do
-		local name = p.bags[b.slot]
-		local o = offsets[name]
-		if o then
-			local along = CFrame.fromMatrix(Vector3.new(b.x, 0, b.z), Vector3.new(b.dx, 0, b.dz), Vector3.yAxis)
-			local bagCf = base * along * CFrame.new(0, o.Y, o.Z) * o.Rotation
-			for _, d in kit:GetChildren() do
-				local mo = offsets[d.Name]
-				if mo and d:IsA("BasePart") and Rules.pileBag(d.Name, p.bags) == b.slot then
-					lay(d, bagCf * o:Inverse() * mo, i + 1, b.slot == 3)
-				end
-			end
-		end
-	end
+	layRing(n, p.bags, kit, offsets, base, 2, lay)
 	-- stage 1: the scraped ground under each pile (along the line from its first bag to its second); the empty sacks
 	-- are the bags themselves, flat (showNest)
 	local ground = kit:FindFirstChild(p.stage1.ground)
@@ -456,40 +522,7 @@ local function showNest(r: Rec)
 		wreck = if g and type(hp) == "number" then ArtilleryRules.wreckStage(hp, g.hp, ArtilleryCfg.Wreck.at) else 0
 	end
 	local bags, quarters = Rules.nestShown(r.work, C.Nest, wreck)
-	-- worn (a share of the ring's bags, Config/Build.Nest `wear`): the ones still standing, by their row on the ring
-	-- (a bag and its cord share it; the mount bags, row 1, always stand)
-	local standing: { [number]: boolean }? = nil
-	if type(bags) == "number" then
-		local rows, tops = {}, {}
-		for part, sack in r.sacks or {} do
-			local row = part:GetAttribute("Row") :: number?
-			if row and row > 1 and tops[row] == nil then
-				tops[row] = sack.top
-				table.insert(rows, row)
-			end
-		end
-		table.sort(rows, function(a, b)
-			return Rules.nestWearOrder(a, tops[a]) < Rules.nestWearOrder(b, tops[b])
-		end)
-		local set = {}
-		local gone = #rows - Rules.nestStanding(#rows, bags)
-		for i = gone + 1, #rows do
-			set[rows[i]] = true
-		end
-		standing = set
-	end
-	for part, sack in r.sacks or {} do
-		local row = part:GetAttribute("Row") :: number?
-		local up = bags == "all"
-			or (bags == "bottom" and not sack.top)
-			or (standing ~= nil and (row == 1 or (row ~= nil and standing[row] == true)))
-		part.CanCollide = up
-		part.CanQuery = up
-		part.Transparency = if sack.cord and not up then 1 else 0
-		part.CFrame = if up then sack.full else sack.flat
-		part.Size = if up then sack.size else sack.flatSize
-		part.Color = if up or sack.cord then sack.color else rgb(Palette.Build.SandbagSacks)
-	end
+	showBags(r, bags)
 	if not guns or not r.at then
 		return
 	end
@@ -796,6 +829,46 @@ local function remove(r: Rec)
 	r.model:Destroy()
 end
 
+-- a gun's sandbag ring (Config/Build.GunRing, its piece's `ring`): the MG nest's bags round its pivot on the ground
+-- (`r.at`, before its pit), each with its empty sack, in a Model "Ring" (not a structure: it is the gun's). False when
+-- the library lacks the pile.
+local function layoutRing(r: Rec, n: any): boolean
+	local kit, offsets = libraryKit(n.asset)
+	local at = r.at
+	if not kit or not at then
+		return false
+	end
+	local holder = Instance.new("Model")
+	holder.Name = "Ring"
+	holder.Parent = r.model
+	local base = at * CFrame.new(0, -C.Sandbags.sink, 0)
+	local sacks: { [BasePart]: Sack } = {}
+	r.sacks = sacks
+	layRing(n, n.bags, kit, offsets, base, 2, function(d: BasePart, cf: CFrame, row: number, top: boolean)
+		layBag(holder, base, n.flat, sacks, d, cf, row, top)
+	end)
+	return true
+end
+
+-- a gun's sandbag ring as the gun stands (Rules.ringShown): being built, by its HP; once it has stood, by its gun's
+-- Wreck stage (Config/Artillery.Wreck), its bags going with the gun's stages as an MG nest's
+local function showRing(r: Rec)
+	local n = r.piece.ring and C.GunRing[r.piece.ring]
+	if not n then
+		return
+	end
+	if not r.sacks and not layoutRing(r, n) then
+		return
+	end
+	local wreck: number? = nil
+	if r.built then
+		local g = ArtilleryCfg.Guns[r.piece.gun or ""]
+		local hp = r.gun and r.gun:GetAttribute("HP")
+		wreck = if g and type(hp) == "number" then ArtilleryRules.wreckStage(hp, g.hp, ArtilleryCfg.Wreck.at) else 0
+	end
+	showBags(r, Rules.ringShown(r.work, r.need, n, wreck))
+end
+
 -- a gun piece as its HP stands: its pit dug to its stage, then its parts on the pit's floor, fitted to the quarter of
 -- its HP, or the gun standing there once it has stood (Rules.pitShare)
 showGun = function(r: Rec)
@@ -825,6 +898,7 @@ showGun = function(r: Rec)
 		r.dug = share
 	end
 	local paint = C.Guns.paint[r.team]
+	showRing(r)
 	if r.built then
 		if not r.gun then
 			if r.parts then
@@ -851,6 +925,7 @@ showGun = function(r: Rec)
 						r.work = v
 						r.model:SetAttribute("Work", v)
 						r.model:SetAttribute("HP", v)
+						showRing(r) -- (its sandbags wear with it)
 					end
 				end
 				hp()
@@ -1728,6 +1803,11 @@ function Build.onNest(p: Vector3): boolean
 			if Rules.onFootprint(l.X, l.Z, r.piece.width, r.piece.depth, C.Nest.ground) then
 				return true
 			end
+		end
+		-- a gun's sandbag ring (Config/Build.GunRing `ground`): the band its bags stand on, not the pit inside it
+		local n = r.piece.ring and C.GunRing[r.piece.ring]
+		if n and r.at and Rules.onRing(r.at:PointToObjectSpace(p), n) then
+			return true
 		end
 	end
 	return false

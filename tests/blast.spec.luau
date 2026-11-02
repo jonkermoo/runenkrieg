@@ -215,8 +215,9 @@ return {
 		local h = Artillery.Guns.artillery_howitzer
 		local plan = Blast.craterPlan(h.kg, C, h.craterScale) :: Blast.CraterPlan
 		local across = 2 * plan.mouth
-		assert(across > 28 and across < 36, `howitzer crater ~32 across: {across}`)
-		assert(plan.depth > 4 and plan.depth < 6, `howitzer crater ~5 deep: {plan.depth}`)
+		-- (the Rune howitzer's 100 kg at half its own crater, 2026-11-02; the 42 cm's 340 kg made ~32 across, ~5 deep)
+		assert(across > 18 and across < 26, `howitzer crater ~22 across: {across}`)
+		assert(plan.depth > 2 and plan.depth < 4.5, `howitzer crater ~3.3 deep: {plan.depth}`)
 		assert(Artillery.Guns.artillery_qf18.craterScale == nil, "the field gun's crater is its charge's own")
 	end,
 	["cover: a blast reaches only the share of a soldier it can see"] = function()

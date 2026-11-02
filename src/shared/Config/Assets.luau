@@ -244,20 +244,16 @@ local Assets = {
 			description = "The M2's ammo can with its lid shut, as on the gun (SpareKit, SpareTrim, SpareFittings): 0.72 wide, 1.17 high, 0.83 long, its bottom's middle at the origin, its carry handle's grip at (0.087, 1.34, 0) along z.",
 		},
 		artillery_howitzer = {
-			-- v10 (user 2026-10-26: runes only round the crystal; meshing ring gear and pinions with hand wheels, turned by
-			-- src/client/Artillery; a long recuperator off centre over the barrel and a fat buffer under it, an open
-			-- muzzle, rivets on their surfaces, a player-wide ladder; v9 120030284881139)
-			-- v9 (user 2026-10-26: curved brush-stroke runes, their halos taken off again: "it makes the runes
-			-- indecipherable"; v8 98289221398793 had them); round rivets; v7 127169406913245: team accent pieces <part>Trim
-			-- / Fittings / Kit / Marking,
-			-- Config/Palette.Artillery.Team; v6 70753419490474, Bertha v11, the bigger cracked gem; v10 82040723469817;
-			-- before it the BL 9.2-inch at 1.3x, 82367327569698)
-			id = 138825884647241,
+			-- the Rune howitzer v7 (user 2026-11-02: "completely remake a new howitzer model", after the US 240 mm / 8-inch
+			-- M1; was the 42 cm Bertha mortar v10 138825884647241, assets/weapons/shared/artillery_bertha.fbx, bertha.py;
+			-- before it v9 120030284881139, v8 98289221398793, v7 127169406913245, v6 70753419490474, 82040723469817; the BL
+			-- 9.2-inch at 1.3x, 82367327569698)
+			id = 80010809743238,
 			category = "Weapons",
 			folder = "Shared/Artillery",
-			source = "assets/weapons/shared/artillery_bertha.fbx",
-			generator = "tools/blender/artillery/bertha.py",
-			description = "The magic howitzer: a 42 cm siege mortar of our own after the Big Bertha and the Gamma-Gerat, no wheels: a riveted box carriage turning on a giant toothed ring gear, a layered short barrel trunnioned high between its walls, two silos beside it and a housing under it, a bolted yoke and dial sight, a toothed elevating sector and big spoked hand wheels by the gunner's step, a crew deck and ladder at the back; the cracked, chipped gem (its cracks a part of their own, CrystalCracks) in a ring of runes on the round breech face, rune bands on the barrel, runes on the bed. Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore + Breech + Crystal + CrystalCracks recoil.",
+			source = "assets/weapons/shared/artillery_rune_howitzer.fbx",
+			generator = "tools/blender/artillery/rune_howitzer.py",
+			description = "The magic howitzer: a heavy howitzer of our own after the US 240 mm and 8-inch M1, no wheels: a long hooped barrel under a mismatched pair of recuperators (a fat short drum, a slim long flanged octagon) in a sleigh cradle, trunnioned between the riveted walls of a top carriage that turns right round on a toothed ring gear on a staked bed; spring equilibrators, railings, tool chests, a dial sight, a toothed elevating sector and spoked hand wheels by the gunner on the turntable; a big cracked rune crystal caged on the cradle over the breech (its cracks a part of their own, CrystalCracks; runes round its collar, CradleRunes), a ring of runes on the breech face (BarrelRunes), three bands of runes engraved round the chase (BarrelEngraving, unseen till the charge-up). Moving parts: Mount (+ the pinions and hand wheels) traverses, Cradle + CradleTrim + CradleFittings + CradleRunes + Crystal + CrystalCracks elevate, Barrel + BarrelRunes + BarrelEngraving + BarrelTrim + Bore + Breech recoil.",
 		},
 		-- the staff HUD's gem (user 2026-10-26: "trace a real gem that is shaped similarily", "make it physcial
 		-- engravings", "add floating shards around it"; Config/Hud.Staff)
