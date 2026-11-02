@@ -102,13 +102,17 @@ local function own(body: Model, server: boolean)
 	end
 end
 
--- The dragged body's collision group: collides with nothing (set again at each drag: groups made since collide)
+-- The dragged body's collision group: collides with nothing (looked at again at each drag: groups made since collide).
+-- Only a pair still colliding is set: each set rebuilds the server's collision filter (7-110 ms a drag in Studio,
+-- and as much again on the next ray)
 local function noCollide()
 	if not PhysicsService:IsCollisionGroupRegistered(Cfg.Group) then
 		PhysicsService:RegisterCollisionGroup(Cfg.Group)
 	end
 	for _, g in PhysicsService:GetRegisteredCollisionGroups() do
-		PhysicsService:CollisionGroupSetCollidable(Cfg.Group, g.name, false)
+		if PhysicsService:CollisionGroupsAreCollidable(Cfg.Group, g.name) then
+			PhysicsService:CollisionGroupSetCollidable(Cfg.Group, g.name, false)
+		end
 	end
 end
 
@@ -395,6 +399,7 @@ function Dragging.dragging(dragger: Model): boolean
 end
 
 function Dragging.start()
+	noCollide() -- (the groups there now set before any drag: the first drag of a match as cheap as the rest)
 	Net.event("Drag").OnServerEvent:Connect(function(player: Player, action: unknown, body: unknown)
 		local now = os.clock()
 		if now - (lastAsk[player] or -math.huge) < Cfg.AskGap then
