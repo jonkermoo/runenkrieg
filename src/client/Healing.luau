@@ -209,18 +209,27 @@ function Healing.start()
 	bind()
 	Settings.changed("Key_Heal", bind)
 
-	-- every healer's unrolling strip, toward the patient's limb being wrapped (bones don't replicate: each client draws them)
+	-- every healer's unrolling strip, toward the patient's limb being wrapped (bones don't replicate: each client draws
+	-- them): the players' and the bot soldiers' (DEV dummies' tag: left undrawn it stands straight out)
+	local function drawStrip(c: Model?)
+		local at = c and c:GetAttribute("HealAt")
+		local item = c and c:GetAttribute("Healing") == "Bandage" and c:FindFirstChild("HealItem")
+		local pin = c and HealItems.pin(c)
+		if item and pin and type(at) == "number" then
+			HealItems.strip(item :: Model, pin, HealItems.unrolled(workspace:GetServerTimeNow() - at))
+		end
+	end
 	RunService.RenderStepped:Connect(function()
 		for _, p in Players:GetPlayers() do
 			local c = p.Character
 			if p == player and HealView.isFirst(c) then
 				continue -- (in first person the body's item is hidden: src/client/HealView draws its own)
 			end
-			local at = c and c:GetAttribute("HealAt")
-			local item = c and c:GetAttribute("Healing") == "Bandage" and c:FindFirstChild("HealItem")
-			local pin = c and HealItems.pin(c)
-			if item and pin and type(at) == "number" then
-				HealItems.strip(item :: Model, pin, HealItems.unrolled(workspace:GetServerTimeNow() - at))
+			drawStrip(c)
+		end
+		for _, m in CollectionService:GetTagged(DevCfg.Dummies.Tag) do
+			if m:IsA("Model") and m:GetAttribute("Healing") == "Bandage" then
+				drawStrip(m)
 			end
 		end
 	end)
