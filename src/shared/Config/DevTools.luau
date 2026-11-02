@@ -236,6 +236,9 @@ local DevTools = {
 		Terrain = {
 			{ min = { -580, -64, -710 }, max = { 2980, 112, 710 } }, -- Config/Maps/Map1 bounds + terrainMargin
 			{ min = { -320, -32, 2580 }, max = { 320, 88, 3020 } }, -- Config/Maps/Playtest bounds + terrainMargin
+			-- Config/Maps/LanternMeadows bounds + terrainMargin (z round its middle line at -6000): the map vote can move
+			-- a Normal match there, and each new match puts its ground back too
+			{ min = { -570, -64, -6700 }, max = { 2970, 112, -5300 } },
 		},
 	},
 }
