@@ -2216,7 +2216,9 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		return
 	end
 	if Ragdoll.active(m) or m:GetAttribute("GetUp") ~= nil then
-		dropCast(b)(b.turn :: AlignOrientation).Enabled = false
+		local turn = b.turn :: AlignOrientation
+		turn.Enabled = false
+		dropCast(b)
 		if not Ragdoll.active(m) then
 			humanoid:MoveTo(root.Position) -- getting up (src/server/DevDummies.getUp): standing still meanwhile
 		end
