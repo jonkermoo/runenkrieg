@@ -11,6 +11,7 @@ local Blast = require(Shared.Rules.Blast)
 local GroundFloor = require(Shared.Rules.GroundFloor)
 local Refill = require(Shared.Rules.Refill)
 local Rules = require(Shared.Rules.Artillery)
+local DevWorld = require(script.Parent.DevWorld)
 
 local Ground = {}
 
@@ -94,6 +95,7 @@ local function capped(region: Region3)
 	end
 	if changed then
 		terrain:WriteVoxels(region, VOXEL, mats, occs)
+		DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 	end
 end
 
@@ -202,6 +204,7 @@ function Ground.crater(position: Vector3, plan: any, c: any)
 		local hit = workspace:Raycast(over, Vector3.yAxis * -plan.radius * 3, terrainOnly)
 		if hit and not nearTrench(hit.Position, b.radius) and not reachesGuard(hit.Position, b.radius) then
 			terrain:FillBall(hit.Position - Vector3.yAxis * b.sink, b.radius, churnTo)
+			DevWorld.touch(hit.Position - Vector3.one * b.radius, hit.Position + Vector3.one * b.radius)
 		end
 	end
 	Ground.bowl(position, plan.mouth, plan.depth)
@@ -246,6 +249,7 @@ function Ground.rimFill(position: Vector3, region: Region3, mouth: number, outer
 	end
 	if changed then
 		terrain:WriteVoxels(region, VOXEL, mats, occs)
+		DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 	end
 end
 
@@ -334,6 +338,7 @@ local function refillCrater(k: Crater, share: number, done: boolean): number
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 	return size.X * size.Y * size.Z
 end
 
@@ -450,6 +455,7 @@ function Ground.bowl(position: Vector3, mouth: number, depth: number)
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 end
 
 -- the ground within `radius` across and `depth` up or down of `position` turns from c.churnFrom to c.churnTo
@@ -485,6 +491,7 @@ function Ground.churn(position: Vector3, radius: number, depth: number, c: any)
 	end
 	if changed then
 		terrain:WriteVoxels(region, VOXEL, mats, occs)
+		DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 	end
 end
 
@@ -531,6 +538,7 @@ end
 -- Puts the ground back as `base` read it (a built gun's pit filled in)
 function Ground.restore(base: PitBase)
 	workspace.Terrain:WriteVoxels(base.region, VOXEL, base.mats, base.occs)
+	DevWorld.touchRegion(base.region) -- (put back at the next match: src/server/DevWorld)
 end
 
 -- Reads the ground in a box `across` studs each way round `position` and `down` under / `up` over it (an MG nest's, as
@@ -567,6 +575,7 @@ function Ground.restoreWithin(base: PitBase, keep: (Vector3) -> boolean)
 		end
 	end
 	terrain:WriteVoxels(base.region, VOXEL, mats, occs)
+	DevWorld.touchRegion(base.region) -- (put back at the next match: src/server/DevWorld)
 end
 
 -- A gun's pit (src/server/Artillery `dig`): within `radius` of `position` the ground cut down to a level floor `depth`
@@ -680,6 +689,7 @@ function Ground.pit(
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 	return out
 end
 
@@ -763,6 +773,7 @@ function Ground.shapeColumns(
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 end
 
 -- The ground under a gun standing on the terrain (src/server/Artillery, Config/Artillery `level`): within the box
@@ -819,12 +830,14 @@ function Ground.level(pivot: CFrame, lo: { number }, hi: { number }, blend: numb
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 	return out
 end
 
 -- a ball of `material` (a tree's root ball of mud), or Air (its pit)
 function Ground.ball(position: Vector3, radius: number, material: Enum.Material)
 	workspace.Terrain:FillBall(position, radius, material)
+	DevWorld.touch(position - Vector3.one * radius, position + Vector3.one * radius)
 end
 
 return Ground

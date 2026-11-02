@@ -34,6 +34,7 @@ local C = require(Shared.Config.Build)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Build)
 local Survey = require(Shared.BuildSurvey)
+local DevWorld = require(script.Parent.DevWorld)
 local Net = require(Shared.Net)
 
 local Trenches = {}
@@ -351,6 +352,7 @@ local function reshape(centre: Vector3, reach: number)
 		end
 	end
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
+	DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 	Net.event("GroundDug"):FireAllClients(centre, reach, true) -- (the grass follows the ground, back where it came back)
 end
 
