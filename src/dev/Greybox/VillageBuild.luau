@@ -92,6 +92,48 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 				d:PivotTo(d:GetPivot() + Vector3.new(0, ground(p.X, p.Z) - hi, 0))
 			end
 		end
+		-- stone steps down from any door left up a bank (Rules/Village.steps), each step solid down into the ground
+		for _, d in copy:GetDescendants() do
+			if d:IsA("BasePart") and d.Name == "Doorstep" then
+				local S = B.Steps
+				local look = d.CFrame.LookVector -- (a wall frame's -Z is its outside)
+				local edge = d.Position + look * (d.Size.Z / 2)
+				local side = d.CFrame.RightVector
+				local w = d.Size.X
+				local function lowest(dist: number): number
+					local p = edge + look * dist
+					local y = math.huge
+					for _, k in { -0.5, 0, 0.5 } do
+						local q = p + side * (w * k)
+						y = math.min(y, ground(q.X, q.Z))
+					end
+					return y
+				end
+				local steps = deps.VillageRules.steps(d.Position.Y + d.Size.Y / 2, lowest, S.rise, S.run, S.max)
+				if #steps > 0 then
+					local m = Instance.new("Model")
+					m.Name = "Steps"
+					local stone = Color3.fromRGB(table.unpack(palette.Buildings.Foundation))
+					for _, s in steps do
+						local g = math.min(lowest(s.out - S.run / 2), lowest(s.out + S.run / 2)) - 1
+						local p = Instance.new("Part")
+						p.Name = "Step"
+						p.Anchored = true
+						p.Material = Enum.Material.SmoothPlastic
+						p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+						p.Color = stone
+						p.Size = Vector3.new(w, s.top - g, S.run + 0.05)
+						local mid = edge + look * s.out
+						p.CFrame = CFrame.lookAt(
+							Vector3.new(mid.X, (s.top + g) / 2, mid.Z),
+							Vector3.new(mid.X, (s.top + g) / 2, mid.Z) + look
+						)
+						p.Parent = m
+					end
+					m.Parent = copy
+				end
+			end
+		end
 		copy.Parent = bf
 		-- bare-earth yard: no grass tufts (or terrain decoration) poking through the floor
 		local pad = 1.5 -- just around the walls; wider yards blend into the dirt roads
@@ -161,12 +203,12 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 	deps.Props.paint(wires, palette)
 
 	-- the railway: two rails on sleepers along x = railX through the map and past it, each segment following the ground
-	if map.village.railX then
+	local x0 = deps.VillageRules.railX(map)
+	if x0 then
 		local R = deps.P.Railway
 		local rf = folder(root, "Railway")
 		local metal = Color3.fromRGB(table.unpack(palette.Buildings.Metal))
 		local wood = Color3.fromRGB(table.unpack(palette.Props.WoodDark))
-		local x0 = map.village.railX
 		local z0, z1 = map.bounds.minZ - R.beyond, map.bounds.maxZ + R.beyond
 		local n = math.ceil((z1 - z0) / R.segment)
 		-- each joint's bed: the highest ground round it, across the sleepers and halfway to the joints either side

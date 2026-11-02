@@ -59,6 +59,9 @@ local Buildings = {
 	-- then the terrain round it is cut back (Rules/Village.cutHeight): level with the base `margin` past the walls,
 	-- rising `grade` per stud out to `reach`, in columns `cell` across
 	GroundCut = { margin = 3, reach = 14, grade = 0.9, cell = 2 },
+	-- and a door whose step stands higher than a step over the ground outside gets stone steps down to it
+	-- (Rules/Village.steps): `rise` each (under Metrics.Character.MaxStepUp), `run` deep, at most `max`
+	Steps = { rise = 0.8, run = 1.4, max = 16 },
 	WallThickness = 1,
 	-- landmark pieces (Template `blocks` / `features`)
 	Battlement = { wall = 1.6, height = 1.8, merlon = 2.2 }, -- parapet height, merlons on it, a merlon's length
