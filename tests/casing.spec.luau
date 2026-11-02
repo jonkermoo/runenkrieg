@@ -36,6 +36,13 @@ return {
 			assert(C.surfaces[s], `{m}: {s}`)
 		end
 	end,
+	["a case lies on the ground, never on a wall"] = function()
+		assert(R.restsOn(1, C), "flat ground")
+		assert(R.restsOn(math.cos(math.rad(30)), C), "a 30 degree slope")
+		assert(not R.restsOn(0, C), "a wall")
+		assert(not R.restsOn(math.cos(math.rad(70)), C), "a steep bank")
+		assert(not R.restsOn(-1, C), "a ceiling")
+	end,
 	["an MG case or link takes the ground's sound at its own pitch"] = function()
 		local v, pitch, eq = R.sound(nil, "Hard", C)
 		assert(v == 1 and pitch == 1 and eq[1] == 0 and eq[3] == 0)

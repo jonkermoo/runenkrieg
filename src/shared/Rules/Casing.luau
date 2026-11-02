@@ -8,6 +8,7 @@ export type Surface = { volume: number, eq: { number } }
 -- a gun's cartridge case (Config/Weapons `casing`)
 export type Case = { pitch: number, volume: number, eq: { number } }
 export type Cases = {
+	floor: number,
 	surfaces: { [string]: Surface },
 	materials: { [string]: string },
 	default: string,
@@ -24,6 +25,12 @@ function Casing.sound(case: Case?, surface: string, c: Cases): (number, number, 
 	local s = c.surfaces[surface] or c.surfaces[c.default]
 	local own = case or { pitch = 1, volume = 1, eq = { 0, 0, 0 } }
 	return own.volume * s.volume, own.pitch, { own.eq[1] + s.eq[1], own.eq[2] + s.eq[2], own.eq[3] + s.eq[3] }
+end
+
+-- Whether a piece can lie on a surface whose normal points up `up` (its unit normal's Y): the ground or a step, not
+-- a wall or a steep slope.
+function Casing.restsOn(up: number, c: Cases): boolean
+	return up >= c.floor
 end
 
 -- Which lying cases go once one more lies down: the oldest past `max` (a list oldest first, `count` of them).
