@@ -71,6 +71,7 @@ local Bots = {
 	-- come later
 	Classes = {
 		{ key = "Rifleman" },
+		{ key = "Grenadier" }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
 		{ key = "AutoRifler" },
 		{ key = "Shotgunner", push = 18 },
 	},
@@ -188,6 +189,34 @@ local Bots = {
 		midShare = 0.5,
 		laneOffset = 0.25,
 		weights = { hidden = 3, near = 0.6, distance = 0.02, crowd = 1.5, random = 1 },
+	},
+
+	-- Normal's actions besides fighting (Rules/BotActions; user 2026-11-01), weighed every `every` seconds a bot:
+	-- - Drag: a knocked-down teammate in sight of a known enemy within `within` studs is dragged to cover (Rules/Bots'
+	--   cover points, away from the threat) at most `cover` studs off, for at most `seconds`; then healed if hurt.
+	-- - Heal: with nobody shooting at it or hitting it for `calm` seconds, a bot walks to the nearest teammate under
+	--   `below` health within `within` studs and heals them (Healing.startAs) from `reach` studs; it gives up after
+	--   `seconds` walking. Squads pushing in don't stop for it.
+	-- - Grenade (Grenadiers): at an enemy with `group` or more enemies within `cluster` studs, or one in cover (known,
+	--   unseen) for `hidden` s, `min`-`max` studs off, no teammate within `safe` studs of it; at most one throw every
+	--   `every` s a bot and `squadEvery` s a squad. The gun goes away and the grenade is in hand for `hold` s before it
+	--   goes (user: "Swap for ~0.6 s"); aimed `short` of the spot (it rolls on) on the low arc.
+	Actions = {
+		every = 0.5,
+		Drag = { within = 12, cover = 15, seconds = 8 },
+		Heal = { calm = 3, below = 0.7, within = 25, reach = 4, seconds = 10 },
+		Grenade = {
+			min = 15,
+			max = 35,
+			cluster = 6,
+			group = 2,
+			hidden = 3,
+			safe = 12,
+			every = 8,
+			squadEvery = 4,
+			hold = 0.6,
+			short = 0.85,
+		},
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above

@@ -19,8 +19,9 @@ local Healing = {
 
 	-- Slow recovery on your own (user: "you slowly recover health to up to 70 hp"): from `delay` seconds after the last
 	-- drop in health (a hit, a fall, a dev tool), `rate` health a second up to `cap`. Any drop starts the wait again.
-	-- `dummies`: DEV target dummies recover too (off: they keep their damage for tests).
-	Recovery = { cap = 70, delay = 8, rate = 2, dummies = false },
+	-- `dummies`: DEV target dummies recover too (off: they keep their damage for tests); `bots`: the bot soldiers do
+	-- (src/server/Bots; user 2026-11-01: "Bots recover like players").
+	Recovery = { cap = 70, delay = 8, rate = 2, dummies = false, bots = true },
 
 	-- Each finished bandage heal puts the next wrap on the patient (user: left arm, right leg, head; after the third no
 	-- new wraps). Config/Assets entries and the R6 part each sits on (its Origin at the part's centre). With the head

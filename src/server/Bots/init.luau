@@ -53,6 +53,10 @@ local Classes = require(Shared.Config.Classes)
 local DamageCfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
 local FrontCfg = require(Shared.Config.Frontline)
+local DragCfg = require(Shared.Config.Dragging)
+local GrenadeCfg = require(Shared.Config.Grenades)
+local HealCfg = require(Shared.Config.Healing)
+local W = require(Shared.Config.Weapons)
 local Loco = require(Shared.Config.Locomotion)
 local Net = require(Shared.Net)
 local Map = require(Shared.Config.Maps.Map1)
@@ -65,6 +69,7 @@ local ZoneCfg = require(Shared.Config.ZoneMatch)
 local F = require(Shared.Rules.Firing)
 local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
+local Actions = require(Shared.Rules.BotActions)
 local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
 local ShotRules = require(Shared.Rules.ShotAudio)
@@ -74,8 +79,11 @@ local Armory = require(script.Parent.Armory)
 local Concussion = require(script.Parent.Concussion)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
+local Dragging = require(script.Parent.Dragging)
 local Firing = require(script.Parent.Firing)
 local Frontline = require(script.Parent.Frontline)
+local Grenades = require(script.Parent.Grenades)
+local Healing = require(script.Parent.Healing)
 local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
 local MatchStats = require(script.Parent.MatchStats)
@@ -96,6 +104,7 @@ local RT = Cfg.Routes
 local BG = Cfg.Budget
 local CV = MV.Cover
 local brainCfg = Cfg.Brain :: any
+local AC = Cfg.Actions
 
 type Target = { model: Model, distance: number, visible: boolean }
 
@@ -110,6 +119,18 @@ type Nav = {
 	jumps: number,
 	repaths: number,
 	direct: Vector3?, -- a point walked to straight, without a path (strafing, a peek, a step aside)
+}
+
+-- Normal: what a bot does instead of fighting for a while (Rules/BotActions): a drag of `who` to `to` (cover from the
+-- enemy spot `from`), a heal of `who`, a grenade at `at`
+type Act = {
+	kind: string, -- "Drag", "Heal" or "Throw"
+	who: Model?,
+	at: Vector3?,
+	from: Vector3?,
+	to: Vector3?,
+	started: number,
+	phase: string?, -- the drag's "pull", the heal's "heal", the throw's "throw" and "done"
 }
 
 type Bot = {
@@ -170,6 +191,11 @@ type Bot = {
 	senseHz: number,
 	lod: string, -- "near", "middle" or "distant" (the report)
 	nearest: number, -- studs to the nearest player at its last think (callouts)
+	act: Act?, -- Normal: a drag, a heal or a grenade under way
+	actAt: number, -- when it next weighs one (Config/Bots.Actions.every)
+	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
+	threwAt: number,
+	away: boolean, -- its gun put away for an action
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -208,6 +234,9 @@ local stats = {
 	pathsShared = 0, -- paths taken from another bot's
 	reowned = 0, -- bodies whose physics a player had taken, given back to the server
 	callouts = 0, -- lines said
+	throws = 0, -- grenades thrown
+	heals = 0, -- heals started
+	drags = 0, -- drags started
 	covering = 0, -- shots of covering fire
 	assaults = 0, -- squads that pushed into a zone
 	stoodUp = 0, -- bodies found lying after a knock, stood up
@@ -225,6 +254,7 @@ type SquadState = {
 	mid: Vector3?,
 	known: { Known },
 	seen: number, -- the commander's tick it was last formed (gone ones are dropped)
+	threwAt: number?, -- its last grenade (Config/Bots.Actions.Grenade.squadEvery)
 }
 local squads: { [string]: SquadState } = {}
 local commandTick = 0
@@ -478,6 +508,18 @@ spawnBody = function(b: Bot)
 		m, humanoid, root, m:FindFirstChild("Head") :: BasePart, tool, turn
 	b.grip, b.stowed = hold, false
 	b.anim = Animate.attach(m, b.weapon)
+	-- a Grenadier's grenades (Config/Classes `grenades`), held only for a throw
+	if b.grenades then
+		(b.grenades :: Tool):Destroy()
+	end
+	b.grenades, b.act, b.away = nil, nil, false
+	local nade = Loadouts.gear(m).Grenade
+	if nade then
+		local given, g = pcall(Armory.tool, nade, b.kit)
+		if given then
+			b.grenades = g
+		end
+	end
 	b.brain = Rules.new()
 	b.target, b.lastSeenAt, b.lastOpen, b.spotted = nil, nil, nil, false
 	b.hurtAt, b.threatAt, b.threatFrom, b.cover, b.coverFrom = nil, nil, nil, nil, nil
@@ -564,6 +606,10 @@ local function despawn(b: Bot)
 		(b.m :: Model):Destroy()
 	end
 	b.m, b.humanoid, b.root, b.head, b.tool, b.anim, b.turn = nil, nil, nil, nil, nil, nil, nil
+	if b.grenades then
+		(b.grenades :: Tool):Destroy()
+	end
+	b.grenades, b.act, b.away = nil, nil, false
 end
 
 local function add(mode: string, side: string?)
@@ -593,6 +639,9 @@ local function add(mode: string, side: string?)
 		senseHz = Cfg.Sense,
 		lod = "near",
 		nearest = math.huge,
+		actAt = 0,
+		threwAt = -math.huge,
+		away = false,
 	}
 	b.name = freeName()
 	table.insert(bots, b)
@@ -625,7 +674,7 @@ local function aimPart(target: Model): BasePart?
 end
 
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
-type Soldier = { model: Model, part: BasePart, kit: any, pos: Vector3, look: Vector3 }
+type Soldier = { model: Model, part: BasePart, kit: any, pos: Vector3, look: Vector3, health: number, down: boolean }
 local snapshot: { Soldier } = {}
 local snapCount = 0
 local snapFrame = -1
@@ -651,6 +700,7 @@ local function soldiersNow(): ({ Soldier }, number)
 			end
 			e.model, e.part, e.kit, e.pos = m, part, m:GetAttribute("Kit"), part.Position
 			e.look = if look.Magnitude > 1e-3 then look.Unit else Vector3.zero
+			e.health, e.down = h.Health / math.max(h.MaxHealth, 1), Ragdoll.active(m)
 		end
 	end
 	debug.profileend()
@@ -1213,6 +1263,395 @@ local function draw(b: Bot)
 	DevDummies.own(m)
 end
 
+-- actions besides fighting (Normal; Rules/BotActions, Config/Bots.Actions) -----------------------------------------
+
+-- its gun put away for an action (a heal, a drag, a throw), or taken out again
+local function putAway(b: Bot, on: boolean)
+	if on == b.away then
+		return
+	end
+	local m, tool = b.m :: Model, b.tool :: Tool
+	b.away = on
+	if on then
+		tool.Parent = nil
+		if b.anim then
+			(b.anim :: Animate.Handle).update(0, "none", 0)
+		end
+	else
+		tool.Parent = m
+		local torso = m:FindFirstChild("Torso") :: BasePart?
+		if b.grip and torso then
+			(b.grip :: Motor6D).Part0 = torso
+		end
+		if b.anim then
+			(b.anim :: Animate.Handle).equip()
+		end
+	end
+	DevDummies.own(m) -- (a joint made or broken: the body's physics kept the server's)
+end
+
+-- turned to face `at` (the body it drags, the one it heals, where its grenade goes)
+local function face(b: Bot, at: Vector3)
+	local root, turn = b.root :: BasePart, b.turn :: AlignOrientation
+	local f = flat(at - root.Position)
+	if f.Magnitude > 1e-3 then
+		(b.humanoid :: Humanoid).AutoRotate = false
+		turn.CFrame = CFrame.lookAt(Vector3.zero, f.Unit)
+		turn.Enabled = true
+	end
+end
+
+-- the action over (done, given up, or cut short): the heal or the drag stopped, the grenades put back, the gun out
+local function finish(b: Bot)
+	local act = b.act
+	if not act then
+		return
+	end
+	b.act = nil
+	local m = b.m
+	if m then
+		if act.kind == "Heal" then
+			Healing.stopAs(m)
+		elseif act.kind == "Drag" then
+			Dragging.stopAs(m)
+		end
+	end
+	local g = b.grenades
+	if g then
+		local left = g:GetAttribute("Count")
+		if type(left) ~= "number" or left < 1 then
+			b.grenades = nil -- (the last one thrown: the Tool is gone)
+		elseif g.Parent ~= nil then
+			g.Parent = nil
+		end
+	end
+	if b.anim then
+		(b.anim :: Animate.Handle).stop()
+	end
+	if b.turn then
+		(b.turn :: AlignOrientation).Enabled = false
+	end
+	if b.humanoid then
+		(b.humanoid :: Humanoid).AutoRotate = true
+	end
+	if m and not Ragdoll.active(m) then
+		putAway(b, false)
+	else
+		b.away = false -- (a knock: the get-up draws the gun, see spawnBody)
+	end
+end
+
+-- the throw's look from its head toward `at` (a soldier's torso): the low arc that lands `short` of it
+local function throwLook(b: Bot, at: Vector3): Vector3
+	local head = (b.head :: BasePart).Position
+	local off = flat(at - head)
+	local name = (b.grenades :: Tool):GetAttribute("Weapon")
+	local speed = (GrenadeCfg.Types :: any)[name].speed
+	local ground = at.Y - CV.chest -- (about where its feet are)
+	local pitch = Actions.lobPitch(off.Magnitude * AC.Grenade.short, ground - head.Y, speed, workspace.Gravity)
+		or math.rad(45)
+	pitch -= math.rad(GrenadeCfg.Throw.loft)
+	local u = if off.Magnitude > 1e-3 then off.Unit else Vector3.zAxis
+	return u * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
+end
+
+-- what to do besides fighting, if anything (drag > heal > grenade)
+local function weigh(b: Bot, now: number)
+	b.actAt = now + AC.every
+	local m, root = b.m :: Model, b.root :: BasePart
+	local all, n = soldiersNow()
+	local kit = m:GetAttribute("Kit")
+	local spot = knownSpot(b, now) or b.lastSeenAt
+	local mates: { Actions.Mate } = {}
+	local who: { Soldier } = {}
+	local near = math.max(AC.Drag.within, AC.Heal.within)
+	for k = 1, n do
+		local o = all[k]
+		if o.model ~= m and friendly(m, kit, o) then
+			local d = flat(o.pos - root.Position).Magnitude
+			if d <= near then
+				local busy = Healing.busy(o.model) or o.model:GetAttribute("Dragged") == true
+				table.insert(mates, { distance = d, health = o.health, down = o.down, busy = busy, exposed = false })
+				table.insert(who, o)
+			end
+		end
+	end
+	-- a downed teammate in sight of where the enemy is
+	if spot then
+		local eyeAt = (spot :: Vector3) + Vector3.yAxis * Cfg.Eye
+		for i, mt in mates do
+			if mt.down and not mt.busy and mt.distance <= AC.Drag.within and raysLeft > 0 then
+				rayParams.FilterDescendantsInstances = { m }
+				local hit = workspace:Raycast(eyeAt, who[i].pos - eyeAt, rayParams)
+				stats.rays += 1
+				raysLeft -= 1
+				mt.exposed = hit == nil or hit.Instance:IsDescendantOf(who[i].model)
+			end
+		end
+	end
+	local i = Actions.dragPick(mates, AC.Drag)
+	if i and spot then
+		b.act = { kind = "Drag", who = who[i].model, from = spot, started = now }
+		return
+	end
+	local sq = b.squad and squads[b.squad :: string]
+	local pushing = sq ~= nil and (sq :: SquadState).sq.phase == "Assault"
+	local sinceThreat = if b.threatAt then now - (b.threatAt :: number) else math.huge
+	local sinceHurt = if b.hurtAt then now - (b.hurtAt :: number) else math.huge
+	if not pushing and Actions.calm(sinceThreat, sinceHurt, AC.Heal.calm) then
+		i = Actions.healPick(mates, AC.Heal)
+		if i then
+			b.act = { kind = "Heal", who = who[i].model, started = now }
+			return
+		end
+	end
+	-- a Grenadier's grenade at what its squad knows of the enemy
+	local G = AC.Grenade
+	if
+		not b.grenades
+		or now - b.threwAt < G.every
+		or (sq and now - ((sq :: SquadState).threwAt or -math.huge) < G.squadEvery)
+	then
+		return
+	end
+	local known: { Known } = if sq then (sq :: SquadState).known else {}
+	if not sq and b.target and b.lastSeenAt then
+		known = { { model = (b.target :: Target).model, pos = b.lastSeenAt :: Vector3, at = now } }
+	end
+	local enemies: { Actions.Enemy } = {}
+	local points: { Vector3 } = {}
+	for _, k in known do
+		local model = k.model
+		local h = model and model:FindFirstChildOfClass("Humanoid")
+		local part = model and aimPart(model :: Model)
+		if model and h and part and h.Health > 0 and now - k.at <= SQ.knownFor then
+			local visible = b.target ~= nil and (b.target :: Target).model == model and (b.target :: Target).visible
+			local p = if visible then part.Position else k.pos
+			table.insert(enemies, {
+				x = p.X,
+				z = p.Z,
+				distance = flat(p - root.Position).Magnitude,
+				visible = visible,
+				hiddenFor = if visible then 0 else now - k.at,
+			})
+			table.insert(points, p)
+		end
+	end
+	if #enemies == 0 then
+		return
+	end
+	local friends = {}
+	for k = 1, n do
+		local o = all[k]
+		if o.model ~= m and friendly(m, kit, o) then
+			table.insert(friends, { x = o.pos.X, z = o.pos.Z })
+		end
+	end
+	i = Actions.grenadeAt(enemies, friends, G)
+	if i then
+		b.act = { kind = "Throw", at = points[i], started = now }
+	end
+end
+
+-- the walk's pose while it acts (the gun away: empty hands)
+local function actPose(b: Bot)
+	local speed = flat((b.root :: BasePart).AssemblyLinearVelocity).Magnitude
+	if b.anim then
+		(b.anim :: Animate.Handle).update(speed, "none", 0)
+	end
+end
+
+-- the grenade out of the pack: the pin, the wind-up, the throw (Config/Grenades.Throw: the release into the throw's
+-- animation), then the gun back
+local function throwSequence(b: Bot, act: Act)
+	local m, g = b.m :: Model, b.grenades :: Tool
+	putAway(b, true)
+	local hold = g:FindFirstChild("Hold", true) :: Motor6D?
+	g.Parent = m
+	if hold then
+		hold.Part0 = m:FindFirstChild("Torso") :: BasePart?
+	end
+	DevDummies.own(m)
+	local holds = W[g:GetAttribute("Weapon") :: string].holds :: any
+	if b.anim then
+		(b.anim :: Animate.Handle).play(holds.pin)
+	end
+	task.spawn(function()
+		task.wait(AC.Grenade.hold)
+		if b.act ~= act or b.m ~= m or Ragdoll.active(m) then
+			return
+		end
+		if b.anim then
+			(b.anim :: Animate.Handle).play(holds.throw)
+		end
+		task.wait(GrenadeCfg.Throw.release)
+		if b.act ~= act or b.m ~= m or not b.head then
+			return
+		end
+		if Grenades.throwAs(m, throwLook(b, act.at :: Vector3)) then
+			stats.throws += 1
+			b.threwAt = os.clock()
+			local sq = b.squad and squads[b.squad :: string]
+			if sq then
+				(sq :: SquadState).threwAt = b.threwAt
+			end
+			say(b, "Grenade")
+		end
+		task.wait(math.max(GrenadeCfg.Throw.length - GrenadeCfg.Throw.release, 0))
+		if b.act == act then
+			act.phase = "done"
+		end
+	end)
+end
+
+-- the healer's animations, as src/client/Healing plays a player's: the grab, then the wrap or the open and press
+local function healAnimations(b: Bot, act: Act)
+	local m = b.m :: Model
+	local kind = m:GetAttribute("Healing")
+	local A = HealCfg.Animations :: any
+	local function later(delay: number, name: string)
+		task.delay(delay, function()
+			if b.act == act and b.anim and m:GetAttribute("Healing") == kind then
+				(b.anim :: Animate.Handle).play(A[name].id)
+			end
+		end)
+	end
+	later(0, "grab")
+	if kind == "Bandage" then
+		later(HealCfg.Grab.time, "wrap")
+	else
+		later(HealCfg.Grab.time, "open")
+		later(HealCfg.Grab.time + HealCfg.Open.time, "press")
+	end
+end
+
+-- standing still facing `at` (a heal under way, a throw)
+local function standFacing(b: Bot, at: Vector3, now: number)
+	setGoal(b, nil, now)
+	follow(b, now)
+	face(b, at)
+end
+
+-- the action under way, one think of it; false once it's over (the bot fights again this think)
+local function doAct(b: Bot, now: number): boolean
+	local act = b.act :: Act
+	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
+	if act.kind == "Throw" then
+		if act.phase == "done" or now - act.started > AC.Grenade.hold + GrenadeCfg.Throw.length + 1 then
+			finish(b)
+			return false
+		end
+		if not act.phase then
+			act.phase = "throw"
+			throwSequence(b, act)
+		end
+		standFacing(b, act.at :: Vector3, now)
+		return true
+	end
+
+	local other = act.who :: Model
+	local oh = other.Parent and other:FindFirstChildOfClass("Humanoid")
+	local part = aimPart(other)
+	if not oh or not part or oh.Health <= 0 or (b.hurtAt and (b.hurtAt :: number) > act.started) then
+		finish(b) -- (gone, dead, or it was hit meanwhile)
+		return false
+	end
+	local at = (part :: BasePart).Position
+	local dist = flat(at - root.Position).Magnitude
+
+	if act.kind == "Drag" then
+		if act.phase == "pull" and not Dragging.dragging(m) then
+			-- let go (there, caught on something, up again): then a heal if they're hurt
+			finish(b)
+			if oh.Health / math.max(oh.MaxHealth, 1) < AC.Heal.below then
+				b.act = { kind = "Heal", who = other, started = now }
+				return true
+			end
+			return false
+		end
+		if now - act.started > AC.Drag.seconds or (act.phase == nil and not Ragdoll.active(other)) then
+			finish(b)
+			return false
+		end
+		if act.phase == nil then
+			if dist > DragCfg.Range - 1 then
+				humanoid.WalkSpeed = M.SprintSpeed
+				setGoal(b, at, now)
+				follow(b, now)
+				actPose(b)
+				return true
+			end
+			putAway(b, true)
+			if not Dragging.startAs(m, other) then
+				finish(b)
+				return false
+			end
+			act.phase = "pull"
+			stats.drags += 1
+			if b.anim then
+				(b.anim :: Animate.Handle).play(DragCfg.Animation.id, true)
+			end
+			-- where to: cover from the enemy spot (the cover search's rings), else straight away from it
+			b.threatFrom = (act.from :: Vector3) + Vector3.yAxis * Cfg.Eye
+			b.cover = nil
+			findCover(b, now)
+		end
+		if not act.to then
+			if b.coverJob then
+				coverStep(b)
+			end
+			if b.cover then
+				act.to = b.cover
+			elseif not b.coverJob then
+				local back = flat(root.Position - (act.from :: Vector3))
+				back = if back.Magnitude > 1e-3 then back.Unit else -flat(root.CFrame.LookVector)
+				act.to = inside(b, root.Position + back * AC.Drag.cover)
+			end
+		end
+		if act.to and flat((act.to :: Vector3) - root.Position).Magnitude < MV.Arrive then
+			Dragging.stopAs(m) -- (there: a heal next think, if they're hurt)
+			return true
+		end
+		humanoid.WalkSpeed = DragCfg.Speed
+		setGoal(b, act.to, now)
+		follow(b, now)
+		face(b, at)
+		return true
+	end
+
+	-- a heal
+	if act.phase == "heal" then
+		if not Healing.busy(m) then
+			finish(b) -- (done, or broken off)
+			return false
+		end
+		standFacing(b, at, now)
+		return true
+	end
+	if oh.Health >= oh.MaxHealth or now - act.started > AC.Heal.seconds or Healing.busy(other) then
+		finish(b)
+		return false
+	end
+	if dist > AC.Heal.reach then
+		humanoid.WalkSpeed = if dist > MV.SprintFrom then M.SprintSpeed else M.WalkSpeed
+		setGoal(b, at, now)
+		follow(b, now)
+		actPose(b)
+		return true
+	end
+	putAway(b, true)
+	if not Healing.startAs(m, other) then
+		finish(b)
+		return false
+	end
+	act.phase = "heal"
+	stats.heals += 1
+	say(b, "Heal")
+	healAnimations(b, act)
+	standFacing(b, at, now)
+	return true
+end
+
 local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local m, humanoid, root, tool = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart, b.tool :: Tool
 	local entry = Firing.entry(tool)
@@ -1224,9 +1663,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		if not Ragdoll.active(m) then
 			humanoid:MoveTo(root.Position) -- getting up (src/server/DevDummies.getUp): standing still meanwhile
 		end
+		finish(b)
 		return -- (down: nothing until it is up again)
 	end
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
+		finish(b)
 		-- standing in the wave line until the wave goes: idle, nothing in the hands (user 2026-11-01)
 		if not b.stowed then
 			stow(b)
@@ -1280,6 +1721,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		end
 	end
 	debug.profileend()
+	-- Normal: a drag, a heal or a grenade instead of fighting for a while (Rules/BotActions)
+	if b.mode == "Normal" then
+		debug.profilebegin("Bots.act")
+		if not b.act and now >= b.actAt then
+			weigh(b, now)
+		end
+		local acting = b.act ~= nil and doAct(b, now)
+		debug.profileend()
+		if acting then
+			return
+		end
+	end
 	-- cover from the threat, while there is one
 	local threatened = b.threatAt ~= nil and now - (b.threatAt :: number) < brainCfg.ThreatMemory
 	if b.coverJob then
@@ -1411,6 +1864,10 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		setGoal(b, goal, now)
 	elseif move ~= "Strafe" and move ~= "Peek" and move ~= "Hold" then
 		b.nav.goal = nil
+	end
+	if Healing.busy(m) then
+		-- being healed: it stands for it (the heal breaks off once the two are Break studs apart)
+		b.nav.goal, b.nav.direct = nil, nil
 	end
 	follow(b, now)
 	debug.profileend()
@@ -1927,7 +2384,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -1954,6 +2411,9 @@ local function report(now: number)
 			stats.covering,
 			if #roleParts > 0 then table.concat(roleParts, ", ") else "none",
 			stats.callouts,
+			stats.throws,
+			stats.heals,
+			stats.drags,
 			stats.shots,
 			stats.deaths,
 			stats.covers,
