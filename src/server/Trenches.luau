@@ -14,6 +14,9 @@
 -- - Destroy swings (any team's trench), blasts and bullets (Trenches.blast / Trenches.shot, from src/server/Build, by
 --   Config/Build.Structures) take HP off: it is buried (filled in with mud, no clods thrown); at 0 it is a scar, a
 --   lumpy dip of churned earth that stays.
+-- - Each square lies tilted with the ground across it (Rules.crossTilt; user 2026-11-02: "make the terrain match the
+--   angle of the slope, not make it flat"): its hole, walls and pieces turned whole by the slope from one wall top to
+--   the other (Rules.tiltedCut), refused over Trench.maxCross.
 -- The terrain is reshaped from the ground as it was before any trench touched it (kept per voxel), so digging,
 -- joining, falling in and scars are all the one union of every square's profile over that ground.
 
@@ -45,6 +48,8 @@ export type Block = {
 	dir: Vector3, -- flat unit, A to B
 	across: Vector3, -- flat unit, to the block's right
 	length: number,
+	-- the ground's rise per stud across it, to `across` (Rules.crossTilt): its hole, walls and pieces turned with it
+	tilt: number,
 	hp: number, -- its depth: hp / Trench.hp.max of the full depth
 	falling: boolean, -- lost HP since it was last full
 	built: boolean, -- dug full once: from then on it is buried by the HP it loses (Rules.trenchDepth)
@@ -101,10 +106,17 @@ local function part(parent: Instance, name: string, size: Vector3, cf: CFrame, c
 	return p
 end
 
--- a block's point `u` along, `v` across, on its ground line (flat parts from end A)
+-- a block's point `u` along, `v` across, on its ground (flat parts from end A; its line tilted across by its tilt)
 local function at(blk: Block, u: number, v: number): Vector3
-	local y = blk.a.Y + (blk.b.Y - blk.a.Y) * math.clamp(u / blk.length, 0, 1)
+	local y = blk.a.Y + (blk.b.Y - blk.a.Y) * math.clamp(u / blk.length, 0, 1) + v * blk.tilt
 	return Vector3.new(blk.a.X, y, blk.a.Z) + blk.dir * u + blk.across * v
+end
+
+-- a block's way out to `across` and its up, both turned by its tilt (its cross-section's own frame)
+local function tilted(blk: Block): (Vector3, Vector3)
+	local c = 1 / math.sqrt(1 + blk.tilt * blk.tilt)
+	local s = blk.tilt * c
+	return blk.across * c + Vector3.yAxis * s, Vector3.yAxis * c - blk.across * s
 end
 
 local function live(blk: Block?): boolean
@@ -221,12 +233,21 @@ local function reshape(centre: Vector3, reach: number)
 				local blk: Block = n.blk
 				local rel = Vector3.new(x - blk.a.X, 0, z - blk.a.Z)
 				local u, v = rel:Dot(blk.dir), rel:Dot(blk.across)
-				local r = Rules.trenchReach(u, v, n.shape, T.floor)
+				-- (a tilted square's profile is turned whole: its reach across in its own frame and the cut there, over
+				-- the line's ground at the centre)
+				local w, lift = v, 0
+				if blk.tilt ~= 0 and not blk.scar then
+					w, lift = Rules.tiltedCut(v, blk.tilt, function(off: number): number
+						local rx = Rules.trenchReach(u, off, n.shape, T.floor)
+						return if rx then Rules.trenchProfile(rx, n.share, T) or 0 else 0
+					end)
+				end
+				local r = Rules.trenchReach(u, w, n.shape, T.floor)
 				if r then
 					local line = blk.a.Y + (blk.b.Y - blk.a.Y) * math.clamp(u / blk.length, 0, 1)
 					if blk.scar then
 						if r <= TOP then
-							local want = line - T.scar.depth * (1 - r / TOP)
+							local want = line + v * blk.tilt - T.scar.depth * (1 - r / TOP)
 							if not cut or want < cut then
 								cut, soil = want, soilOf(blk)
 							end
@@ -234,7 +255,7 @@ local function reshape(centre: Vector3, reach: number)
 					else
 						local h = Rules.trenchProfile(r, n.share, T)
 						if h and h < 0 then
-							local want = line + h
+							local want = line + (if blk.tilt ~= 0 then lift else h)
 							if not cut or want < cut then
 								cut, soil = want, soilOf(blk) -- (filled in with its soil, the colour of its pieces)
 							end
@@ -582,9 +603,10 @@ local function pieces(blk: Block)
 	local i = table.find(blk.run, blk)
 	local prev = if i and i > 1 then blk.run[i - 1] else nil
 	local roll = Rules.trenchPieces(blk.seed, prev and prev.seed, P)
-	local down = Vector3.new(0, T.depth, 0)
+	-- (all in the square's cross-section turned by its tilt: `v` across and the depth down in that frame)
+	local outT, upT = tilted(blk)
 	local function floorAt(u: number, v: number): Vector3
-		return at(blk, u, v) - down
+		return at(blk, u, 0) + outT * v - upT * T.depth
 	end
 	local along = (floorAt(blk.length, 0) - floorAt(0, 0)).Unit
 	local flat = blk.dir
@@ -595,14 +617,18 @@ local function pieces(blk: Block)
 		local x = Vector3.new(0, 1, 0):Cross(out)
 		local origin
 		if ending then
-			origin = floorAt(if out:Dot(flat) < 0 then 0 else blk.length, 0) - x * (u0 or T.floor)
+			local side = x:Dot(blk.across)
+			origin = floorAt(if out:Dot(flat) < 0 then 0 else blk.length, -side * (u0 or T.floor))
+			x = outT * side -- (across the end, tilted with the square)
 		else
 			local fromStart = x:Dot(flat) > 0
 			x = if fromStart then along else -along
 			local u = if fromStart then u0 or 0 else u1 or blk.length
 			origin = floorAt(u, if onLine then 0 else out:Dot(blk.across) * T.floor)
+			out = outT * out:Dot(blk.across) -- (out of a side, tilted with the square)
 		end
-		return CFrame.fromMatrix(origin, x, out:Cross(x).Unit, out)
+		local y = out:Cross(x).Unit
+		return CFrame.fromMatrix(origin, x, y, x:Cross(y).Unit)
 	end
 	local function place(name: string, cf: CFrame, stretch: number, tone: string?)
 		local src = k:FindFirstChild(name)
@@ -803,7 +829,7 @@ local function groundAt(x: number, z: number, near: number): (number?, boolean)
 		local rel = Vector3.new(x - blk.a.X, 0, z - blk.a.Z)
 		local u, v = rel:Dot(blk.dir), rel:Dot(blk.across)
 		if u >= -TOP and u <= blk.length + TOP and math.abs(v) <= TOP + T.bank.width then
-			return blk.a.Y + (blk.b.Y - blk.a.Y) * math.clamp(u / blk.length, 0, 1), false
+			return at(blk, u, v).Y, false
 		end
 	end
 	local hit = workspace:Raycast(Vector3.new(x, near + 60, z), Vector3.new(0, -160, 0), terrainOnly)
@@ -879,7 +905,7 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 	end
 	-- the ground along it: no water, not too steep along, nothing standing in the way
 	local samples = math.max(math.ceil(length / 3), 1)
-	local heights = {}
+	local heights, line = {}, {}
 	for i = 0, samples do
 		local p = a + flat * (i / samples)
 		local h, wet = groundAt(p.X, p.Z, a.Y)
@@ -890,9 +916,32 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			return "Not in water"
 		end
 		heights[i] = h
-		if i > 0 and Rules.slope(heights[i - 1], h, length / samples) > T.maxSlope then
+		line[i + 1] = h
+	end
+	if Rules.runSlope(line, length / samples, T.slopeSpan) > T.maxSlope then
+		return "Too steep"
+	end
+	-- each square's tilt across, from the ground at its wall tops either side (Rules.crossTilt)
+	local across = Vector3.new(-flat.Unit.Z, 0, flat.Unit.X)
+	local tilts = {}
+	for i, span in spans do
+		local left, right = {}, {}
+		for _, f in { 0.2, 0.5, 0.8 } do
+			local p = a + flat.Unit * (span.from + (span.to - span.from) * f)
+			for _, side in { -1, 1 } do
+				local q = p + across * side * TOP
+				local h, wet = groundAt(q.X, q.Z, a.Y)
+				if not h or wet then
+					return if wet then "Not in water" else "Needs open ground"
+				end
+				table.insert(if side < 0 then left else right, h)
+			end
+		end
+		local tilt = Rules.crossTilt(left, right, TOP, T.maxCross)
+		if not tilt then
 			return "Too steep"
 		end
+		tilts[i] = tilt
 	end
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -929,6 +978,7 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			dir = dir,
 			across = Vector3.new(-dir.Z, 0, dir.X),
 			length = span.to - span.from,
+			tilt = tilts[i],
 			hp = 0,
 			falling = false,
 			built = false,
@@ -982,6 +1032,7 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 		m:SetAttribute("Team", team)
 		m:SetAttribute("BlockA", blk.a)
 		m:SetAttribute("BlockB", blk.b)
+		m:SetAttribute("Tilt", blk.tilt)
 		m:SetAttribute("Owner", owner)
 		blk.model = m
 		byModel[m] = blk
@@ -1111,7 +1162,8 @@ function Trenches.shot(struck: Instance, point: Vector3?): boolean
 			if live(o) and o.hp > 0 then
 				local d = Survey.toSegment(point, o.a, o.b)
 				local u = math.clamp((point - o.a):Dot(o.dir), 0, o.length)
-				if d < best and Rules.inTrenchGround(d, point.Y - at(o, u, 0).Y, T, T.shotSlack) then
+				local v = (point - o.a):Dot(o.across)
+				if d < best and Rules.inTrenchGround(d, point.Y - at(o, u, v).Y, T, T.shotSlack) then
 					blk, best = o, d
 				end
 			end

@@ -779,4 +779,33 @@ return {
 		end
 		assert(seen >= 10, "the stage pieces are listed")
 	end,
+	-- (user 2026-11-02: "make the terrain match the angle of the slope, not make it flat")
+	["a trench square tilts with the ground across it, measured over its wall tops, and refuses sharp ground"] = function()
+		assert(near(B.crossTilt({ 10, 10 }, { 12, 14 }, 5, 30) :: number, 0.3), "the mean rise per stud")
+		assert(B.crossTilt({ 10 }, { 10 + 10 * math.tan(math.rad(31)) }, 5, 30) == nil, "too steep")
+		assert(B.crossTilt({}, {}, 5, 30) == 0)
+		assert(C.Trench.maxCross > 0 and C.Trench.maxCross < 45)
+		-- flat: the profile as it was
+		local function cut(w: number): number
+			return B.trenchProfile(math.abs(w), 1, T) or 0
+		end
+		local w, h = B.tiltedCut(2, 0, cut)
+		assert(near(w, 2) and near(h, -T.depth))
+		-- tilted: the floor's middle lies the depth down its own up, so off downhill of the line, and the wall tops
+		-- meet the ground on both sides (no step where the ground runs on)
+		local tilt = math.tan(math.rad(20))
+		local top = B.trenchTop(T)
+		local c, s = math.cos(math.rad(20)), math.sin(math.rad(20))
+		w, h = B.tiltedCut(T.depth * s, tilt, cut)
+		assert(near(w, 0, 1e-3) and near(h, -T.depth * c, 1e-3), "the floor's middle")
+		for _, side in { 1, -1 } do
+			w, h = B.tiltedCut(side * top * c, tilt, cut)
+			assert(near(w, side * top, 1e-3) and near(h, side * top * s, 1e-3), "a wall top on the ground")
+		end
+		-- along: one voxel's step between close samples is not a steep run, a real hill is
+		assert(B.slope(0, 2, 3) > C.Trench.maxSlope, "the old reading")
+		assert(B.runSlope({ 0, 0, 2, 2, 2, 4, 4 }, 3, C.Trench.slopeSpan) < C.Trench.maxSlope)
+		assert(B.runSlope({ 0, 3, 6, 9 }, 3, C.Trench.slopeSpan) > C.Trench.maxSlope)
+		assert(near(B.runSlope({ 0, 1 }, 3, 8), B.slope(0, 1, 3)), "short runs: end to end")
+	end,
 }
