@@ -186,10 +186,9 @@ everything.IgnoreWater = false
 -- a tree or a wall in the way)
 local function openAt(x: number, z: number, skip: { Instance }): number?
 	everything.FilterDescendantsInstances = skip
-	local f = Cfg.Line.foot
 	local hit: RaycastResult? = nil
 	local top = -math.huge
-	for _, o in { { 0, 0 }, { f, 0 }, { -f, 0 }, { 0, f }, { 0, -f } } do
+	for _, o in Rules.footprint(Cfg.Line.foot) do
 		local h = workspace:Raycast(
 			Vector3.new(x + o[1], Cfg.GroundRay.top, z + o[2]),
 			Vector3.new(0, -Cfg.GroundRay.depth, 0),
@@ -249,6 +248,37 @@ local function standHeight(character: Model, root: BasePart): number
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	return (if leg then leg.Size.Y else 2) + root.Size.Y / 2 + (if humanoid then humanoid.HipHeight else 0)
 end
+
+-- the highest ground (terrain only) under a soldier standing at `x, z` (Rules.footprint)
+local function groundUnder(x: number, z: number): number
+	local top = -math.huge
+	for _, o in Rules.footprint(Cfg.Line.foot) do
+		top = math.max(top, ground(x + o[1], z + o[2]))
+	end
+	return top
+end
+
+-- every held soldier's feet back over the ground: the ground can rise under one waiting, anchored, in its line (dug
+-- spoil, a crater's rim), and an anchored body can't climb out by itself
+local function keepUp()
+	for character in holding do
+		local root = character.Parent and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root then
+			local p = root.Position
+			local feet = p.Y - standHeight(character, root)
+			local up = Rules.liftNeeded(feet, groundUnder(p.X, p.Z), Cfg.Line.lift)
+			if up > Cfg.Line.relift then
+				character:PivotTo(character:GetPivot() + Vector3.new(0, up, 0))
+			end
+		end
+	end
+end
+task.spawn(function()
+	while true do
+		task.wait(Cfg.Line.recheck)
+		keepUp()
+	end
+end)
 
 -- the shield round a soldier in the wave line, in its team's magic colour
 local function shield(character: Model, root: BasePart)

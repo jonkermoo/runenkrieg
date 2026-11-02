@@ -197,6 +197,36 @@ function Audit.run(mapName: string, deps: any): string
 			end
 		end
 		report(shut == 0, `spawn slots open: {shut} of {slots} shut {table.concat(where, ", ")}`)
+		-- feet on the ground: a soldier stood at a slot (the server's stand: the highest ground under its footprint) with
+		-- no ground over its feet anywhere under its legs (sampled every 0.25 studs across a 2 x 1 R6 stance)
+		local buried, worst = 0, 0
+		for i = 1, #S do
+			for _, side in { "West", "East" } do
+				if (i == 1 and side == "East") or (i == #S and side == "West") then
+					continue
+				end
+				for _, p in line(side, i, math.ceil(Front.Line.tries / Front.Line.perRow)) do
+					local feet = -math.huge
+					for _, o in R.footprint(Front.Line.foot) do
+						feet = math.max(feet, ground(p.X + o[1], p.Z + o[2], p.Y) or -math.huge)
+					end
+					feet += Front.Line.lift
+					for u = -1, 1, 0.25 do
+						for v = -0.5, 0.5, 0.25 do
+							local g = ground(p.X + u, p.Z + v, p.Y)
+							if g and g > feet then
+								worst = math.max(worst, g - feet)
+								buried += 1
+							end
+						end
+					end
+				end
+			end
+		end
+		report(
+			buried == 0,
+			string.format("spawn feet on the ground: %d samples over a foot (worst %.2f)", buried, worst)
+		)
 	end
 	return table.concat(lines, "\n")
 end

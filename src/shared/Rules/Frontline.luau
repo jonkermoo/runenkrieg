@@ -101,6 +101,25 @@ function Frontline.slot(k: number, line: any): (number, number)
 	return right * line.gap, row * line.rowGap
 end
 
+-- The points under a standing soldier (offsets from its middle, studs) where the ground is sampled: its middle, its
+-- legs' sides and its four corners `foot` out. Its feet go on the highest, so no part of a foot is ever in the ground
+-- (user 2026-11-01: "my body was in the ground"; 2026-11-02: "plays spawn under the ground").
+function Frontline.footprint(foot: number): { { number } }
+	local out = {}
+	for _, x in { -foot, 0, foot } do
+		for _, z in { -foot, 0, foot } do
+			table.insert(out, { x, z })
+		end
+	end
+	return out
+end
+
+-- How far a held soldier must be lifted so its feet stand `lift` over the highest ground sampled under it now (0 when
+-- they already do): the ground can rise under a soldier waiting in its wave line (dug spoil, a crater's rim).
+function Frontline.liftNeeded(feet: number, highest: number, lift: number): number
+	return math.max(0, highest + lift - feet)
+end
+
 -- Where `side`'s wave line stands while sector `i` (a fought-over one, not its HQ) is its furthest forward: its front
 -- row's middle `line.back` of the way from sector i's point back to the point behind it, so closer to the sector
 -- behind (user 2026-11-02: "it should be closer to the previous sector than the furthest sector they have"), facing

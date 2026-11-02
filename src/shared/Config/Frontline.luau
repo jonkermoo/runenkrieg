@@ -73,6 +73,10 @@ local Frontline = {
 		tries = 40,
 		foot = 1,
 		lift = 0.2,
+		-- while held, every `recheck` seconds a soldier is lifted back over the ground if it rose more than `relift` under
+		-- its feet (src/server/Frontline keepUp; user 2026-11-02: "plays spawn under the ground")
+		recheck = 0.25,
+		relift = 0.05,
 	},
 	-- the shield round a soldier in the wave line: a ball `size` studs across in its team's magic colour
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
