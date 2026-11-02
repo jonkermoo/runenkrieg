@@ -97,13 +97,14 @@ local Assets = {
 		},
 		rifle_smle = {
 			-- v7 (2026-11-02): polished against a reference model: the real 1130 mm, the rear sight's protector ears, a
-			-- 30 mm butt, a boxier magazine, the forend and handguards joined, the receiver ring round the handguard
-			-- (master assets/weapons/white/rifle_smle.blend)
+			-- 30 mm butt, a boxier magazine, the forend and handguards joined, the receiver ring round the handguard, a
+			-- bolt way cut through the receiver and wood (user: the bolt worked through solid metal), no wood face in
+			-- a metal one's plane (z-fighting) (master assets/weapons/white/rifle_smle.blend)
 			-- v6 89375001951596: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
 			-- v5 130639053099807: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
 			-- clipping at the bolt's end and lever); v4 113048279523913: stock flat beside the action, the bridge on both
 			-- walls (v1-v3 see-through in first person)
-			id = 137331654614502,
+			id = 113800211047692,
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
