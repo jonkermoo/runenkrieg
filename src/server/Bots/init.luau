@@ -123,6 +123,8 @@ local BD = Cfg.Build
 local ST = Cfg.Staff
 local TR = Cfg.Trenches
 local SP = Cfg.Sap
+-- the fire step's distance from a trench square's line (Rules/BotTrenches.stepOut: it follows the trench's shape)
+local STEP = BotTrenches.stepOut(BuildCfg.Trench.floor, BuildCfg.Trench.wallAngle, TR.rise)
 local PN = BD.Pinned
 
 type Target = { model: Model, distance: number, visible: boolean }
@@ -2365,7 +2367,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local threatened = b.threatAt ~= nil and now - (b.threatAt :: number) < brainCfg.ThreatMemory
 	local floor = b.postFloor
 	local engaged = threatened or b.spotted or b.brain.targetId ~= nil
-	if floor and engaged and flat((floor :: Vector3) - root.Position).Magnitude <= TR.step + 3 then
+	if floor and engaged and flat((floor :: Vector3) - root.Position).Magnitude <= STEP + 3 then
 		-- at its fire step: the trench floor below is its cover (Rules/BotTrenches), no search
 		b.cover, b.coverFrom, b.coverAt, b.coverJob = floor, b.threatFrom, now, nil
 	elseif b.coverJob then
@@ -3399,7 +3401,7 @@ local function buildList(side: string, owner: { string }, level: number)
 				local d, t = BotTrenches.offRun(w.at.X, w.at.Z, run.ax, run.az, run.bx, run.bz)
 				if d <= TR.on + 1 and t >= -0.05 and t <= 1.05 then
 					if run.kind == "Fire" then
-						local x, z = BotTrenches.fireStep(w.at.X, w.at.Z, tx, 0, TR.step)
+						local x, z = BotTrenches.fireStep(w.at.X, w.at.Z, tx, 0, STEP)
 						table.insert(sbs.steps, { pos = Vector3.new(x, w.at.Y, z), floor = w.at, face = outward })
 					elseif run.kind == "Support" then
 						table.insert(sbs.reserve, { pos = w.at })

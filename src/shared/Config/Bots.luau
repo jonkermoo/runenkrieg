@@ -339,8 +339,9 @@ local Bots = {
 	--   jogging `jog` studs across half way, stopping `short` studs off each line. A run counts as planned once a square
 	--   lies within `on` studs of its line, `ends` of its length in from either end. A side's bots keep at most `cap`
 	--   squares planned or dug, and work the nearest `digs` squares wanting swings at once.
-	-- - Fighting: a fire-trench square dug full once and at `standHp` HP or more gives a fire step `step` studs toward
-	--   the enemy from its line (up the forward wall, under the parapet); holders take fire steps first. Shot at, reloading or pinned there, a bot drops to the
+	-- - Fighting: a fire-trench square dug full once and at `standHp` HP or more gives a fire step `rise` studs up its
+	--   forward wall from the floor (Rules/BotTrenches.stepOut of Config/Build.Trench's floor and wall angle: under the
+	--   parapet, eyes over it); holders take fire steps first. Shot at, reloading or pinned there, a bot drops to the
 	--   square's floor (its cover). About half the holders wait in the support line until an enemy is known within
 	--   `alarm` studs of the fire trench (they stand to). When enemies are known in the fire trench and fewer than `keep`
 	--   of its holders still stand, it is lost: the rest fall back to the support line for `fallback` seconds.
@@ -358,7 +359,7 @@ local Bots = {
 		cap = 60,
 		digs = 12,
 		standHp = 60,
-		step = 6.3,
+		rise = 3.4, -- (6.3 from the line in the 4.25 floor trench, 5.05 in the slimmer 3 floor one)
 		alarm = 60,
 		keep = 0.5,
 		fallback = 30,
