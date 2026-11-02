@@ -169,10 +169,11 @@ local Build = {
 		-- again, but the one with wood on it and we make random variations of that": every one of the eight walls has
 		-- plank steps, so none is set apart as `wood` and each side rolls any of them)
 		pieces = { segment = 8, walls = 8, floors = 4, wood = {}, woodChance = 0 },
-		-- the pieces' stages (Rules.trenchStage, % of hp.max): construction Dig1-4 from each of `dig` while it is first
-		-- dug (the cut deepening, the heap growing), destruction Hit1-3 under each of `hit` once dug full (boards
-		-- working loose; the upper slabs and half the boards down; a few boards and one low slab left, earth slumped)
-		stages = { dig = { 20, 40, 60, 80 }, hit = { 75, 50, 25 } },
+		-- the pieces' stages (Rules.trenchStage, % of hp.max): none while it is first dug (its markers and the cut
+		-- deepening a swing at a time), the finished pieces at full HP, then destruction Hit1-3 under each of `hit`
+		-- (boards working loose; the upper slabs and half the boards down; a few boards and one low slab left, earth
+		-- slumped) while the fill rises (hp.hold)
+		stages = { hit = { 75, 50, 25 } },
 		-- where pieces meet (src/server/Trenches; user 2026-10-24: "make sure that the joints connect by the walls"): how far
 		-- out past a wall's top edge its dirt heap reaches (it keeps that whole depth out of other trenches; 11 to 6 since
 		-- trench_pieces v9, one lower heap and no skirt: user 2026-11-02, "make it a little more narrow and less thick",
@@ -696,11 +697,8 @@ local Build = {
 			{ "Frames" },
 			{ "Lining", "Ceiling", "Floorboards" },
 		},
-		falls = { { "Fall1", "Fall1Wood" }, { "Fall2" }, { "Fall3" } },
-		cave = { 75, 50, 25 },
-		heaps = { {}, { 0.45, 1, 0.55 }, { 0.07, 0.6, 0.85 } },
 		-- the meshes' tones by name: the soil's (Trenches.soilColor) for these, the dark timber for these, else the plank
-		soil = { "SlotEarth", "RoomEarth", "Fall1", "Fall2", "Fall3" },
+		soil = { "SlotEarth", "RoomEarth" },
 		dark = { "PileDark", "Steps", "Frames", "Floorboards" },
 		soak = 0.1,
 		drop = 7,
@@ -721,6 +719,18 @@ local Build = {
 		bridgeGap = 1,
 		same = 1,
 		openFront = 0.5,
+		-- its doorway (dugout_pieces v3; user 2026-11-02: "redesign the dugout door to be build over a wall", "the dug
+		-- out should be lined with the wall not sticking out"): cut in the wall's face under a lintel this high over the
+		-- trench floor, the wall's heap whole over it, a roofed tunnel down (Rules.dugoutRoof); worn under `fillFrom`% HP
+		-- (where it used to start caving in) it fills with earth from its room's floor up to the lintel by 0 HP
+		-- (Rules.dugoutShown, Rules.dugoutFillHeight), anyone it reaches lifted onto it with
+		-- `lift` over it (their root over their feet) while there is `headroom` between the earth and the roof, else put
+		-- out; it fills again by a whole `fillStep` share at a time
+		lintel = 3.4,
+		fillFrom = 75,
+		lift = 3,
+		headroom = 5.2,
+		fillStep = 0.1,
 	},
 
 	-- Barbed wire (user 2026-10-27): its meshes are

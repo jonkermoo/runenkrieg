@@ -443,23 +443,15 @@ function Build.trenchSink(share: number, t: any): (number, number)
 	return t.depth * fill, t.heapSink * fill
 end
 
--- Which pieces a trench square shows (user 2026-11-02: "base it off how our dug out is looking", "create constructtion statuses and destruction statuses"; Config/Build.Trench.stages): while it is first being dug, the
--- construction stage its HP has reached ("Dig", the last of `stages.dig` (% of `h.max`) it is at or past, at least the
--- first; nil at 0 HP: still a plan); dug full once, the finished pieces ("Full", 0) until its HP falls under each of
--- `stages.hit` (%), then that destruction stage ("Hit", 1..).
+-- Which pieces a trench square shows (Config/Build.Trench.stages; user 2026-11-02: "the original design was good where
+-- the flag just stays and we dig physical terrain deeper and deeper until 100HP and a trench appears. then it plays the
+-- trench destruction sequence as it takes damage"): none while it is first being dug (nil: its markers and the cut
+-- alone); dug full once, the finished pieces ("Full", 0) until its HP falls under each of `stages.hit` (% of `h.max`),
+-- then that destruction stage ("Hit", 1..).
 function Build.trenchStage(hp: number, built: boolean, h: any, stages: any): (string?, number)
 	local pct = hp / h.max * 100
 	if not built then
-		if hp <= 0 then
-			return nil, 0
-		end
-		local k = 1
-		for i, at in stages.dig do
-			if pct >= at - 1e-6 then
-				k = i
-			end
-		end
-		return "Dig", k
+		return nil, 0
 	end
 	local k = 0
 	for i, at in stages.hit do
@@ -664,20 +656,31 @@ function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
 	return nil
 end
 
--- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`): while it is built (`built` false: it has
--- never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only `d.laid`) and no caving; once it has
--- stood, every build stage and as many of `d.falls` as `d.cave` thresholds its HP has dropped under
+-- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`), and how far it has filled in: while it
+-- is built (`built` false: it has never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only
+-- `d.laid`) and nothing filled; once it has stood, every build stage and, under `d.fillFrom`% of its HP, filled by
+-- what it has lost since (0..1 at 0 HP, from its room's floor up to its doorframe's lintel; user 2026-11-02: "can we
+-- make dugouts fill completely all the way to the door frame? also can we fill it with terrain instead of blocks?")
 function Build.dugoutShown(hp: number, max: number, built: boolean, d: any): (number, number)
 	if not built then
 		return Build.hescoStage(hp, max, #d.build), 0
 	end
-	local share, falls = if max > 0 then hp / max * 100 else 0, 0
-	for _, at in d.cave do
-		if share < at then
-			falls += 1
-		end
-	end
-	return #d.build, falls
+	return #d.build, if max > 0 then math.clamp(1 - hp / max * 100 / d.fillFrom, 0, 1) else 1
+end
+
+-- How high a dugout's earth has filled (studs over its room's floor) at `fill` (Build.dugoutShown): from nothing to its
+-- doorframe's lintel (`d.lintel` over the trench floor, `d.drop` under it)
+function Build.dugoutFillHeight(fill: number, d: any): number
+	return math.clamp(fill, 0, 1) * (d.drop + d.lintel)
+end
+
+-- The underside of a dugout's tunnel roof (studs over the trench floor) at `z` back into the wall from its foot: under
+-- the doorframe's lintel where the lintel meets the wall's face (`run` back over the trench's `depth`), down to the
+-- room's ceiling (`height` over its floor) where the tunnel meets the room
+function Build.dugoutRoof(z: number, d: any, height: number, run: number, depth: number): number
+	local z0 = run * d.lintel / depth
+	local t = math.clamp((z - z0) / (d.stair - z0), 0, 1)
+	return d.lintel + (height - d.drop - d.lintel) * t
 end
 
 -- Whether a dugout shelters the soldiers in its room: it has stood once and has HP left (user 2026-11-02: "anything

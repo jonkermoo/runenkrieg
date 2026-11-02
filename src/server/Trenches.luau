@@ -10,10 +10,10 @@
 -- - Each square has HP like any structure, and its depth is its HP (user: "they have hp. how dug in they are are
 --   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build). Its pieces (Config/Assets
 --   trench_pieces v12: chunky earth slabs with plank steps, heaps of earth along the top) show its stage
---   (Rules.trenchStage): while it is dug, construction stages (the cut deepening, the heap growing); dug full, a wall
---   each side and a floor rolled from its seed (Rules.trenchPieces), a wall across a dead end, none where another
---   trench tees in; damaged, destruction stages (boards working loose, then slabs and boards down, earth and boards
---   slumped on the floor).
+--   (Rules.trenchStage): while it is dug, none (its markers stay and the terrain is cut a little deeper each swing);
+--   dug full, a wall each side and a floor rolled from its seed (Rules.trenchPieces), a wall across a dead end, none
+--   where another trench tees in; damaged, destruction stages (boards working loose, then slabs and boards down, earth
+--   and boards slumped on the floor) while the terrain fills back in over them.
 -- - Destroy swings (any team's trench), blasts and bullets (Trenches.blast / Trenches.shot, from src/server/Build, by
 --   Config/Build.Structures) take HP off: it is buried (filled in with mud, no clods thrown); at 0 it is a scar, a
 --   lumpy dip of churned earth that stays.
@@ -21,8 +21,9 @@
 --   angle of the slope, not make it flat"): its hole, walls and pieces turned whole by the slope from one wall top to
 --   the other (Rules.tiltedCut), refused over Trench.maxCross.
 -- - Dugouts (src/server/Build, Config/Build.Dugout) are cut into a square's wall (Trenches.pocket) in the same
---   reshape: their slot down to the room's floor, open to the sky, and their room hollowed out under the ground; the
---   walls and heaps of every square give way over the slot.
+--   reshape: their tunnel under the wall from the doorway down to the room, and the room, hollowed out under the ground
+--   (the earth they have filled with left in); the walls of every square give way over the doorway, their heaps run
+--   on over it.
 -- The terrain is reshaped from the ground as it was before any trench touched it (kept per voxel), so digging,
 -- joining, falling in and scars are all the one union of every square's profile over that ground.
 
@@ -42,6 +43,7 @@ local T = C.Trench
 local D = C.Dugout
 local VOXEL = 4
 local TOP = Rules.trenchTop(T)
+local RUN = TOP - T.floor -- how far a wall leans back from its foot to its top edge
 -- the terrain is cut a little deeper and wider than the pieces lie (Config/Build.Trench.carve), so its 4-stud voxels
 -- stay behind the boards and under the floor instead of poking through them
 local CARVE = table.clone(T)
@@ -49,7 +51,8 @@ CARVE.floor = T.floor + T.carve.wider
 CARVE.depth = T.depth + T.carve.deeper
 local RIM = math.max(T.bank.width, T.grassClear) -- how far past its wall tops a square changes the ground
 local KIND = "TrenchBlock"
--- the meshes of a wall (its smooth slab, its earth slabs, plank steps in two tones) and of a floor (its slab, its slabs)
+-- the meshes of a wall (its smooth slab, its earth slabs, plank steps in two tones) and of a floor (its slab, its slabs);
+-- all but the planks collide (user 2026-11-02: "some units are able to go inside it to hide")
 local WALL_PARTS = { "", "Chunks", "Planks", "PlanksDark" }
 local FLOOR_PARTS = { "", "Chunks" }
 
@@ -80,8 +83,9 @@ export type Block = {
 
 local blocks: { [number]: Block } = {}
 -- dugouts' pockets (Trenches.pocket), by their dugout's model: its frame (on the trench floor at the foot of the wall,
--- level, looking out into the trench: +Z back into the wall), its square, its room's size (width, height, depth)
-type Pocket = { frame: CFrame, blk: Block, room: Vector3 }
+-- level, looking out into the trench: +Z back into the wall), its square, its room's size (width, height, depth) and
+-- how high it has filled with earth over its room's floor
+type Pocket = { frame: CFrame, blk: Block, room: Vector3, fill: number }
 local pockets: { [Instance]: Pocket } = {}
 local byModel: { [Model]: Block } = {}
 local nextId = 0
@@ -287,19 +291,35 @@ local function reshape(centre: Vector3, reach: number)
 					end
 				end
 			end
-			-- a dugout: its slot cut down to its room's floor, its room hollowed out under the ground (the voxels whose
-			-- middles lie in `hollow`; Config/Build.Dugout cut, cutTop, slotCut)
-			local hollow: { number }? = nil
+			-- a dugout: its tunnel (under its steps, up to its roof: Rules.dugoutRoof) and its room hollowed out under
+			-- the ground, the earth it has filled with left in (the voxels whose middles lie in `hollow`;
+			-- Config/Build.Dugout cut, cutTop, slotCut)
+			-- (`hollow`: the band's bottom, its top, the earth it has filled with up to (a voxel across that line part
+			-- full, so the earth rises smoothly), and that earth's soil)
+			local hollow: { any }? = nil
+			local function open(lo: number, hi: number, earth: number, pk: Pocket)
+				if hollow then
+					hollow[1], hollow[2] = math.min(hollow[1], lo), math.max(hollow[2], hi)
+					if earth > hollow[3] then
+						hollow[3], hollow[4] = earth, soilOf(pk.blk)
+					end
+				else
+					hollow = { lo, hi, earth, soilOf(pk.blk) }
+				end
+			end
 			for _, pk in pockets do
 				local l = pk.frame:PointToObjectSpace(Vector3.new(x, pk.frame.Position.Y, z))
-				local floor = pk.frame.Position.Y - D.drop
-				local inSlot = math.abs(l.X) <= D.slot / 2 + D.slotCut and l.Z >= -D.slotCut and l.Z <= D.stair
-				if inSlot and (not cut or floor < cut) then
-					cut, soil = floor, soilOf(pk.blk)
+				local y0 = pk.frame.Position.Y
+				local floor = y0 - D.drop
+				local earth = if pk.fill > 0 then floor + pk.fill else -math.huge
+				if math.abs(l.X) <= D.slot / 2 + D.slotCut and l.Z >= -D.slotCut and l.Z <= D.stair then
+					local under = y0 - D.drop * math.clamp((l.Z + VOXEL / 2) / D.stair, 0, 1) - D.cut
+					local roof = y0 + Rules.dugoutRoof(l.Z, D, pk.room.Y, RUN, T.depth) + D.cutTop
+					open(under, roof, earth, pk)
 				end
 				local back = D.stair + pk.room.Z + D.cut
 				if math.abs(l.X) <= pk.room.X / 2 + D.cut and l.Z >= D.stair - D.cut and l.Z <= back then
-					hollow = { floor - D.cut, floor + pk.room.Y + D.cutTop }
+					open(floor - D.cut, floor + pk.room.Y + D.cutTop, earth, pk)
 				end
 			end
 			if cut or bank or soil or hollow then
@@ -343,8 +363,10 @@ local function reshape(centre: Vector3, reach: number)
 				for iy = 1, size.Y do
 					local y = corner.Y + (iy - 0.5) * VOXEL
 					if y >= hollow[1] and y <= hollow[2] then
-						occs[ix][iy][iz] = 0
-						mats[ix][iy][iz] = Enum.Material.Air
+						-- (smooth terrain draws a part-full voxel's surface about half a voxel higher than its share)
+						local o = math.clamp((hollow[3] - y) / VOXEL, 0, 1)
+						occs[ix][iy][iz] = o
+						mats[ix][iy][iz] = if o > 0 then hollow[4] else Enum.Material.Air
 					end
 				end
 			end
@@ -497,12 +519,11 @@ end
 -- "make sure that the joints connect by the walls"); `gap0`, `gap1`: how much further its foot could have run on there
 -- (a corner piece fills it). Only stretches on the square itself count.
 local SPAN_STEP = 0.5
-local RUN = TOP - T.floor -- how far a wall leans back from its foot to its top edge
 local HEAP_BACK = TOP + T.joins.heapReach -- how far out the back of a dirt heap reaches
 local WALL_PROBES = { { T.floor + 0.5, T.floor + 0.25 }, { TOP - 0.3, TOP - 0.5 } }
 local HEAP_PROBES = { { TOP + 0.4, TOP + 0.3 }, { TOP + 4.5, TOP + 0.3 }, { HEAP_BACK, TOP + 0.3 } }
 type Span = { u0: number, u1: number, gap0: number, gap1: number }
-local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: { number }): { Span }
+local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: { number }, wall: boolean): { Span }
 	local from, to = -ext[1], blk.length + ext[2]
 	local n = math.max(math.ceil((to - from) / SPAN_STEP), 1)
 	local function uAt(i: number): number
@@ -523,11 +544,12 @@ local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: 
 					end
 				end
 			end
-			-- a dugout's slot: no wall or heap over it
+			-- a dugout's doorway: no wall over it (its own pieces are the wall's face there; the heap runs on over it)
 			for _, pk in pockets do
 				local l = pk.frame:PointToObjectSpace(p)
 				if
-					math.abs(l.X) <= D.slot / 2 + D.openFront
+					wall
+					and math.abs(l.X) <= D.slot / 2 + D.openFront
 					and l.Z >= -D.openFront
 					and l.Z <= D.stair + D.openFront
 				then
@@ -626,19 +648,17 @@ local function pieces(blk: Block)
 	-- each side's walls and dirt heaps, along the stretches clear of other trenches (the heap stands well back, so it
 	-- keeps clear of their holes and walls all the way back, not just their floors)
 	local walls, heaps = {}, {}
-	-- buried by what it lost: the floor up on the fill, the heaps sunk (Rules.trenchSink; in tenths, rebuilt as it moves)
-	-- (a square being dug shows its construction stage's pieces, cut to that stage's depth: nothing rides or sinks)
+	-- buried by what it lost: the heaps sunk (Rules.trenchSink; in tenths, rebuilt as it moves); the rest stay where
+	-- they were laid and the terrain fills back in over them (user 2026-11-02: "i also liked the old design where
+	-- trenches slowly filled with terrain"; a floor riding up on the fill lay over it as loose slabs)
 	local stage, stageN = Rules.trenchStage(blk.hp, blk.built, T.hp, T.stages)
-	local rise, drop = Rules.trenchSink(shareOf(blk), T)
-	if stage == "Dig" then
-		rise, drop = 0, 0
-	end
-	rise, drop = math.round(rise * 10) / 10, math.round(drop * 10) / 10
+	local _, drop = Rules.trenchSink(shareOf(blk), T)
+	drop = math.round(drop * 10) / 10
 	local soil = soilOf(blk)
-	local sig = `{stage}{stageN}{closeA}{closeB}{rise},{drop}`
+	local sig = `{stage}{stageN}{closeA}{closeB}{drop}`
 	for side, sign in { 1, -1 } do
-		walls[side] = sideSpans(blk, sign, WALL_PROBES, wallExt)
-		heaps[side] = sideSpans(blk, sign, HEAP_PROBES, heapExt)
+		walls[side] = sideSpans(blk, sign, WALL_PROBES, wallExt, true)
+		heaps[side] = sideSpans(blk, sign, HEAP_PROBES, heapExt, false)
 		for _, list in { walls[side], heaps[side] } do
 			for _, s in list do
 				sig ..= `|{s.u0},{s.u1},{s.gap0},{s.gap1}`
@@ -704,7 +724,7 @@ local function pieces(blk: Block)
 		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
 		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
 		p.Color = pieceColor(tone or name, soil)
-		local base = not (string.find(name, "Chunks") or string.find(name, "Planks"))
+		local base = not string.find(name, "Planks")
 		p.Anchored = true
 		p.CanCollide = base
 		p.CanQuery = base
@@ -712,12 +732,9 @@ local function pieces(blk: Block)
 		p.Parent = holder
 	end
 	-- the stage's pieces (Config/Assets trench_pieces v12, tools/blender/trench/trench_wood.py): finished, wall
-	-- variant `n`'s; being dug, construction stage Dig<k>'s; damaged, destruction stage Hit<k>'s
+	-- variant `n`'s; damaged, destruction stage Hit<k>'s
 	local wallName = function(n: number): string
-		return if stage == "Dig" then `Dig{stageN}Wall` elseif stage == "Hit" then `Hit{stageN}Wall` else `Wall{n}`
-	end
-	local heapName = function(n: number): string
-		return if stage == "Dig" then `Dig{stageN}Heap` else `Wall{n}Parapet`
+		return if stage == "Hit" then `Hit{stageN}Wall` else `Wall{n}`
 	end
 	local function wall(n: number, cf: CFrame, stretch: number)
 		for _, suffix in WALL_PARTS do
@@ -753,17 +770,13 @@ local function pieces(blk: Block)
 		for _, s in heaps[side] do
 			for _, c in pieceRuns(s.u0, s.u1) do
 				local cf = frame(out, false, false, c[1], c[2])
-				place(heapName(n), cf, (c[2] - c[1]) / P.segment, `Wall{n}Parapet`)
+				place(`Wall{n}Parapet`, cf, (c[2] - c[1]) / P.segment)
 			end
 		end
 	end
-	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true) + Vector3.new(0, rise, 0)
-	if stage == "Dig" then
-		place(`Dig{stageN}Floor`, floorCf, stretch, "Floor")
-	else
-		for _, suffix in FLOOR_PARTS do
-			place(`Floor{roll.floor}{suffix}`, floorCf, stretch)
-		end
+	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true)
+	for _, suffix in FLOOR_PARTS do
+		place(`Floor{roll.floor}{suffix}`, floorCf, stretch)
 	end
 	-- the earth and boards fallen off a damaged square's wall onto its floor, against one side (by its seed)
 	local side = if roll.flip then 1 else -1
@@ -782,7 +795,7 @@ local function pieces(blk: Block)
 			wall(roll.ends[e], frame(out, true, false, TOP), 2 * TOP / P.segment)
 			for _, start in { TOP + T.joins.deadEndHeap, 0 } do -- in two, so its slabs aren't stretched long
 				local cf = frame(out, true, false, start)
-				place(heapName(roll.ends[e]), cf, (TOP + T.joins.deadEndHeap) / P.segment, `Wall{roll.ends[e]}Parapet`)
+				place(`Wall{roll.ends[e]}Parapet`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
 			end
 		end
 	end
@@ -822,9 +835,9 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- its pieces from the first swing: the construction stages while it is dug, then the finished pieces, buried by the
-	-- fill and worn through the destruction stages as it loses HP, to the end (0 HP fills it in: finish)
-	if blk.built or blk.hp > 0 then
+	-- its pieces once dug full (none while it is dug: its markers and the cut alone), buried by the fill and worn
+	-- through the destruction stages as it loses HP, to the end (0 HP fills it in: finish)
+	if blk.built then
 		pieces(blk)
 	else
 		local old = m:FindFirstChild("Pieces")
@@ -1287,13 +1300,14 @@ function Trenches.near(p: Vector3, extra: number): boolean
 end
 
 -- A dugout (src/server/Build): `key` its model, cut into `square`'s wall at `frame` (on the trench floor at the foot of
--- the wall, looking out into the trench), its room `room` (width, height, depth) past its steps; nil `frame` fills it
--- back. Reshapes the ground there and the walls and heaps of the squares round it.
-function Trenches.pocket(key: Instance, square: Model?, frame: CFrame?, room: Vector3?)
+-- the wall, looking out into the trench), its room `room` (width, height, depth) past its steps, filled with earth
+-- `fill` studs over its room's floor (Rules.dugoutFillHeight); nil `frame` fills it back. Reshapes the ground there and
+-- the walls of the squares round it.
+function Trenches.pocket(key: Instance, square: Model?, frame: CFrame?, room: Vector3?, fill: number?)
 	local old = pockets[key]
 	local blk = square and byModel[square]
 	if frame and room and blk then
-		pockets[key] = { frame = frame, blk = blk, room = room }
+		pockets[key] = { frame = frame, blk = blk, room = room, fill = fill or 0 }
 	else
 		pockets[key] = nil
 	end
