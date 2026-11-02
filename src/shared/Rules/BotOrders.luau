@@ -27,14 +27,17 @@ end
 
 -- Where `side`'s bots go: `target` (the sector it attacks, nil when none) and, while an own sector is under attack,
 -- that one with `share` (Config/Bots.Normal.defendShare) of the bots: the one with most enemies in it, the frontmost
--- on a tie (nearest the enemy's end).
+-- on a tie (nearest the enemy's end). With none under attack and a `front` (the side's sector nearest the enemy),
+-- `hold` of the bots hold it (and dig in there: Rules/BotTrenches; user 2026-11-02: "dig in at once").
 function BotOrders.plan(
 	side: string,
 	owner: { string },
 	control: { number },
 	counts: { { West: number, East: number } },
 	target: number?,
-	share: number
+	share: number,
+	front: number?,
+	hold: number?
 ): Plan
 	local defend: number? = nil
 	local most = 0
@@ -52,6 +55,9 @@ function BotOrders.plan(
 	end
 	if not target and defend then
 		return { attack = nil, defend = defend, share = 1 }
+	end
+	if not defend and target and front and hold and hold > 0 then
+		return { attack = target, defend = front, share = hold }
 	end
 	return { attack = target, defend = defend, share = if defend then share else 0 }
 end
