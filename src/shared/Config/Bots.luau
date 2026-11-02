@@ -366,6 +366,48 @@ local Bots = {
 		clearWithin = 8,
 	},
 
+	-- Normal: moving by trench (Rules/BotTrenches.danger; user 2026-11-02: "most pvp should be trench based. if bots can,
+	-- they should ideally use trenches to get around if they know there's danger. if it's an open field with no enemies
+	-- they should just walk of course. make it realistic, this is mostly a trench fighting game").
+	-- - Danger (all four, "Shot at recently, Enemy known near, Shelling near, Contested goal"): shot at within `shot`
+	--   seconds; an enemy known to it or its squad within `near` studs in the last `known` seconds; a shell or grenade
+	--   within `blastNear` studs in the last `blast` seconds; its goal's sector with enemies in it.
+	-- - Knowing there's danger, its path costs `open` times as much over `materials` (the open ground) as along a dug
+	--   trench square (each square's hole is marked `label` for pathfinding): a trench route wins while it is under
+	--   `open` times the open stretch it stands in for ("Strong, x4"). With no danger it walks straight across.
+	-- - Shot at in the open with an own dug trench square within `cover` studs, it drops into it (its cover).
+	-- - Over the top ("Yes, gather then go"): an attacking squad gathers first in its side's dug trench square nearest
+	--   the objective (no more than `Jump.reach` studs past the zone's edge, `Jump.ahead` studs nearer it than the
+	--   squad), within `Jump.at` studs of it; it goes once `Jump.gather` of it is there, or `Jump.wait` seconds after
+	--   the first got there.
+	TrenchMove = {
+		shot = 10,
+		known = 15,
+		near = 120,
+		blast = 15,
+		blastNear = 40,
+		open = 4,
+		label = "Trench",
+		materials = {
+			"Grass",
+			"LeafyGrass",
+			"Ground",
+			"Mud",
+			"Sand",
+			"Rock",
+			"Slate",
+			"Sandstone",
+			"Limestone",
+			"Basalt",
+			"Snow",
+			"Pavement",
+			"Asphalt",
+			"Cobblestone",
+		},
+		cover = 25,
+		Jump = { reach = 120, ahead = 15, at = 10, gather = 0.75, wait = 25 },
+	},
+
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above
 	-- their person) ... dont let them spam it ... only when necessary", plain English): a bubble over the bot's head on a
 	-- real event, only while a player is within `near` studs, shown to players within `hear`. A bot waits `botEvery`
