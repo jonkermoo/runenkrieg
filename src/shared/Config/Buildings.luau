@@ -46,7 +46,8 @@ export type Template = {
 	-- (Palette.Buildings keys) colour it apart from the copy's scheme. { kind = "Arcade", x, z, length, depth, height, bays }
 	-- (an arcade, its back +Z against a block's front wall), { kind = "Landing", x, z, length, depth, steps } (a river
 	-- quay, its face -Z), { kind = "Boat", x, z, yaw?, length } (on the river's water line), { kind = "Tent", x, z, yaw?,
-	-- length, width, height } (a ridge tent, its door -Z), { kind = "Crates", x, z, yaw?, count }.
+	-- length, width, height } (a ridge tent, its door -Z), { kind = "Crates", x, z, yaw?, count }, { kind = "Lattice", x,
+	-- z, y, yaw?, width, height } (a brick vent on a wall, the wall behind it +Z).
 	features: { any }?,
 	description: string,
 }
@@ -107,6 +108,7 @@ local Buildings = {
 	-- across, mooring posts `post` high, the ferry's boat `boat` wide
 	Landing = { top = 0.2, rise = 0.8, run = 1.4, width = 6, post = 4, boat = 3.4 },
 	Crate = 2.4, -- a supply crate's side (the Katzmark camp)
+	Lattice = { cell = 0.9 }, -- a brick lattice vent's squares (the field barn)
 	Stage = { board = 3.2, rise = 2.2, stripes = 8, lanterns = 5, step = { rise = 0.8, run = 1.4, width = 8 } },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
@@ -590,6 +592,50 @@ local Buildings = {
 				{ kind = "Crates", x = 9, z = -10, yaw = 20, count = 2 },
 			},
 			description = "The old watchtower: a square stone tower with a climbable battlemented roof walk, Katzmark's tents and crates round it.",
+		},
+		-- The field barn among S2's hedgerows, south of the point on its x, facing it: a Selvaran hay barn, two storeys
+		-- of brick under a low terracotta roof, three wide barn doors below and brick lattice vents in the hayloft
+		-- above, no glass. Haystacks beside it (the map's village features).
+		FieldBarn = {
+			folder = "Landmarks",
+			width = 34,
+			depth = 18,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 24,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick", "RedBrick" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Barn",
+					x = 0,
+					z = 0,
+					width = 32,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 24,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 0,
+					doors = {
+						{ center = -10, w = 6, h = 7 },
+						{ center = 0, w = 6, h = 7 },
+						{ center = 10, w = 6, h = 7 },
+					},
+					backDoor = { { center = 0, w = 6, h = 7 } },
+				},
+			},
+			features = {
+				{ kind = "Lattice", x = -10, z = -7.2, y = 15.6, width = 7.2, height = 5.4 },
+				{ kind = "Lattice", x = 0, z = -7.2, y = 15.6, width = 7.2, height = 5.4 },
+				{ kind = "Lattice", x = 10, z = -7.2, y = 15.6, width = 7.2, height = 5.4 },
+				{ kind = "Lattice", x = -8, z = 7.2, y = 15.6, yaw = 180, width = 7.2, height = 5.4 },
+				{ kind = "Lattice", x = 8, z = 7.2, y = 15.6, yaw = 180, width = 7.2, height = 5.4 },
+			},
+			description = "The field barn: a two-storey brick hay barn under terracotta, three wide doors, brick lattice vents.",
 		},
 	} :: { [string]: Template },
 

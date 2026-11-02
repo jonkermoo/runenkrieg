@@ -227,6 +227,8 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.waterTower(model, ctx, at, f.size, f.height)
 			elseif f.kind == "Signal" then
 				Geometry.signal(model, ctx, at, f.height)
+			elseif f.kind == "Lattice" then
+				Geometry.lattice(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height)
 			elseif f.kind == "Tent" then
 				Geometry.tent(model, ctx, at, f.length, f.width, f.height)
 			elseif f.kind == "Crates" then

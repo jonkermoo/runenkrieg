@@ -1201,6 +1201,30 @@ function Geometry.boat(parent: Instance, ctx: Ctx, at: CFrame, L: number)
 	end
 end
 
+-- A brick lattice vent on a wall (a Selvaran hay barn's gable): a dark backing `W` x `H` and bricks over it in a
+-- checker of `Lattice.cell` squares standing proud of it, so the gaps read as holes. `at` is its centre, the wall
+-- behind it (local +Z).
+function Geometry.lattice(parent: Instance, ctx: Ctx, at: CFrame, W: number, H: number)
+	local c = ctx.B.Lattice.cell
+	local sec = Geometry.section(parent, ctx, "Lattice", ctx.class, 1)
+	Geometry.part(sec, ctx, "Backing", at * CFrame.new(0, 0, 0.1), Vector3.new(W, H, 0.2), "DoorDark")
+	local cols, rows = math.floor(W / c), math.floor(H / c)
+	for i = 0, cols - 1 do
+		for j = 0, rows - 1 do
+			if (i + j) % 2 == 0 or i == 0 or j == 0 or i == cols - 1 or j == rows - 1 then
+				Geometry.part(
+					sec,
+					ctx,
+					"Brick",
+					at * CFrame.new((i + 0.5) * c - cols * c / 2, (j + 0.5) * c - rows * c / 2, -0.15),
+					Vector3.new(c + 0.02, c + 0.02, 0.4),
+					"Wall"
+				)
+			end
+		end
+	end
+end
+
 -- A soldiers' ridge tent `L` long (local Z), `W` wide and `H` high, standing on the real ground (OnGround): two canvas
 -- sides, canvas ends (a dark door flap in the front one, local -Z), a ridge pole. Its canvas is Festival TentGrey.
 function Geometry.tent(parent: Instance, ctx: Ctx, at: CFrame, L: number, W: number, H: number)

@@ -40,6 +40,10 @@ end
 for _, q in { { 1220, 74 }, { 1260, 74 }, { 1307, -45 }, { 1335, -34 }, { 1362, -23 }, { 1390, -11 } } do
 	table.insert(lanterns, { kind = "LanternPole", x = q[1], z = CZ + q[2] })
 end
+-- and the field barn's haystacks, one either side (S2's cover stays the same both ways)
+for _, x in { 794, 846 } do
+	table.insert(lanterns, { kind = "Haystack", x = x, z = CZ - 136, yaw = 15 })
+end
 
 local LanternMeadows = {
 	name = "Lantern Meadows",
@@ -234,6 +238,8 @@ local LanternMeadows = {
 			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 146, front = { 0, -1 } },
 			-- the old watchtower on S1's hill, north of the point on its x, Katzmark's camp round it
 			{ id = "Watchtower", style = "Watchtower", x = 400, z = CZ + 100, front = { 0, -1 } },
+			-- the field barn among the hedgerows, south of S2 on its x, facing it
+			{ id = "FieldBarn", style = "FieldBarn", x = 820, z = CZ - 110, front = { 0, 1 } },
 			-- the ferry house on the east bank just north of the festival ford, its landing and boat on the river (west)
 			{ id = "Ferry", style = "FerryHouse", x = 1483, z = CZ + 55, front = { -1, 0 } },
 		},
