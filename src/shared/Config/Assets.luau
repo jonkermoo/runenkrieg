@@ -56,7 +56,10 @@ local Assets = {
 
 	Entries = {
 		rifle_m91 = {
-			id = 124122824797146, -- v2: inside-out faces fixed (v1 117583297352653)
+			-- v3 (2026-11-02): polished against a reference model: the real 1285 mm, the wood fitted to its sections, a
+			-- slim band and nose cap, a tangent rear sight, the longer bolt handle (v2 124122824797146: inside-out faces
+			-- fixed; v1 117583297352653)
+			id = 73589409799250,
 			category = "Weapons",
 			folder = "Olive/Rifles",
 			source = "assets/weapons/olive/rifle_m91.fbx",
