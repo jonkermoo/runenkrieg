@@ -765,6 +765,9 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 			end
 		end
 	end
+	if ok and Survey.treeNear(a, aim) then
+		ok, reason = false, "A tree is in the way"
+	end
 	current = { a = a, b = aim, ok = ok, reason = reason }
 	-- one square per segment, gaps between, so each square shows (user 2026-10-23: "have a string during planning for
 	-- each square too")

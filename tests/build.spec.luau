@@ -1066,4 +1066,22 @@ return {
 		assert(B.supported(laid, now(10, -2), S.gap, S.share), "earth thrown over it holds it up")
 		assert(B.supported({}, {}, S.gap, S.share), "no samples: left alone")
 	end,
+	-- (user 2026-11-02: "also trees are going into trenches. increase the boundaries")
+	["no trench planned with a tree in its cut, on its walls or on its heaps"] = function()
+		local t = C.Trench
+		assert(t.treeClear > 0)
+		local edge = B.trenchTop(t) + t.joins.heapReach -- (its heap's outer edge, from the line)
+		local trunk = 2
+		assert(B.treeTooNear(0, 0, 20, 0, 10, 0, trunk, t), "on its line")
+		assert(B.treeTooNear(0, 0, 20, 0, 10, B.trenchTop(t), trunk, t), "on a wall top")
+		assert(B.treeTooNear(0, 0, 20, 0, 10, edge, trunk, t), "on its heap")
+		assert(
+			B.treeTooNear(0, 0, 20, 0, 10, edge + trunk / 2 + t.treeClear - 0.1, trunk, t),
+			"just inside the clearance"
+		)
+		assert(not B.treeTooNear(0, 0, 20, 0, 10, edge + trunk / 2 + t.treeClear + 0.1, trunk, t), "clear of it")
+		assert(B.treeTooNear(0, 0, 20, 0, 20 + edge, 0, trunk, t), "past its end, by its end heap")
+		assert(not B.treeTooNear(0, 0, 20, 0, 21 + edge + trunk / 2 + t.treeClear, 0, trunk, t), "well past its end")
+		assert(B.treeTooNear(0, 0, 20, 0, 10, edge + 2, 6, t), "a thick trunk's flare reaching its heap")
+	end,
 }

@@ -505,6 +505,21 @@ local function toSeg(px: number, pz: number, s: { number }): number
 	return math.sqrt((px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2)
 end
 
+-- Whether a standing tree whose trunk is at (x, z), `trunk` studs across at its widest, is too near a trench run from
+-- (ax, az) to (bx, bz) (Config/Build.Trench `t`): in its cut, on its walls or dirt heaps, or within `treeClear` of them
+function Build.treeTooNear(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	x: number,
+	z: number,
+	trunk: number,
+	t: any
+): boolean
+	return toSeg(x, z, { ax, az, bx, bz }) < Build.trenchTop(t) + t.joins.heapReach + trunk / 2 + t.treeClear
+end
+
 -- The trench squares a plan's end at (x, z) joins: those within `touch` of it (the square it extends or tees into),
 -- then every square touching one of those (end to end, or a tee's end on its side), out to `reach` of the end. A set
 -- of indices into `segs` ({ ax, az, bx, bz } each).

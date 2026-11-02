@@ -104,6 +104,10 @@ local Build = {
 		-- 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible"): the
 		-- cut is its top edges (Rules.trenchTop) less this much a piece may hang over the edge from its bank
 		overhang = 0.5,
+		-- no square is planned with a standing tree's trunk (at its widest, the roots' flare) within its cut, on its walls
+		-- or on its dirt heaps (Rules.trenchTop + joins.heapReach), nor within `treeClear` studs past them (user
+		-- 2026-11-02: "also trees are going into trenches. increase the boundaries")
+		treeClear = 2,
 		planLife = 180, -- seconds an undug plan stays
 		-- a swing works the square whose line is this close, in front of you (from anywhere on its dirt, out past its
 		-- heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox"; 19 to 13 with the narrower trench)

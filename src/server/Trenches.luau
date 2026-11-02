@@ -1036,6 +1036,10 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			return "In the way"
 		end
 	end
+	-- nor by a tree: none whose trunk would stand in its cut, on its walls or on its heaps (Trench.treeClear)
+	if Survey.treeNear(a, b) then
+		return "A tree is in the way"
+	end
 	-- nor under a piece: no structure's footprint over its open cut (Config/Build.Trench.overhang; the same rule as a
 	-- piece over a trench, Survey.overTrench), except a bridge, which lies across the trench it joins
 	local cut = Rules.trenchCut(a.X, a.Z, b.X, b.Z, TOP - T.overhang)
