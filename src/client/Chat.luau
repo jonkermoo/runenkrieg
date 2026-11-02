@@ -72,8 +72,6 @@ function Chat.start()
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 3
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	local scale = Instance.new("UIScale")
-	scale.Parent = gui
 	local root = Instance.new("Frame")
 	root.Name = "Panel"
 	root.BackgroundTransparency = 1
@@ -92,7 +90,7 @@ function Chat.start()
 	local tabLayout = Instance.new("UIListLayout")
 	tabLayout.FillDirection = Enum.FillDirection.Horizontal
 	tabLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-	tabLayout.Padding = UDim.new(0, 16)
+	tabLayout.Padding = UDim.new(0, 12)
 	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	tabLayout.Parent = tabs
 
@@ -123,8 +121,8 @@ function Chat.start()
 	bar.Parent = root
 	local barInk = Ink.slab(bar)
 	local tag = textLabel(bar, P.tagSize)
-	tag.Position = UDim2.fromOffset(12, 0)
-	tag.Size = UDim2.new(0, 64, 1, 0)
+	tag.Position = UDim2.fromOffset(8, 0)
+	tag.Size = UDim2.new(0, 52, 1, 0)
 	local box = Instance.new("TextBox")
 	box.BackgroundTransparency = 1
 	box.ClearTextOnFocus = false
@@ -135,22 +133,22 @@ function Chat.start()
 	box.PlaceholderText = "Press / to chat · Tab changes channel"
 	box.TextXAlignment = Enum.TextXAlignment.Left
 	box.Text = ""
-	box.Position = UDim2.fromOffset(78, 0)
-	box.Size = UDim2.new(1, -150, 1, 0)
+	box.Position = UDim2.fromOffset(64, 0)
+	box.Size = UDim2.new(1, -120, 1, 0)
 	box.ClipsDescendants = true
 	box.Parent = bar
 	local counter = textLabel(bar, P.tagSize)
 	counter.TextXAlignment = Enum.TextXAlignment.Right
 	counter.TextColor3 = rgb(GR.key)
 	counter.AnchorPoint = Vector2.new(1, 0)
-	counter.Position = UDim2.new(1, -12, 0, 0)
-	counter.Size = UDim2.new(0, 64, 1, 0)
+	counter.Position = UDim2.new(1, -8, 0, 0)
+	counter.Size = UDim2.new(0, 44, 1, 0)
 	counter.Text = ""
 	local hint = textLabel(root, P.hintSize)
 	hint.Text = "Press / to chat"
 	hint.TextColor3 = rgb(GR.key)
 	hint.AnchorPoint = Vector2.new(0, 1)
-	hint.Position = UDim2.new(0, 2, 1, -8)
+	hint.Position = UDim2.new(0, 2, 1, -6)
 	hint.Size = UDim2.new(1, 0, 0, P.hintSize + 4)
 
 	-- the hide toggle, under the panel (outside it, so pointing at it doesn't open the panel)
@@ -167,7 +165,12 @@ function Chat.start()
 	toggle.TextStrokeTransparency = 0.55
 	toggle.TextXAlignment = Enum.TextXAlignment.Left
 	toggle.AutomaticSize = Enum.AutomaticSize.X
-	toggle.Position = UDim2.fromOffset(P.x + 2, P.y + P.height + P.pad + P.toggle.gap)
+	-- (the panel's and the toggle's places follow the screen's height: placed each frame below)
+	local function place(s: number)
+		root.Position = UDim2.fromOffset(P.x * s, P.y * s)
+		toggle.Position = UDim2.fromOffset(P.x * s + 2, P.y * s + P.height + P.pad + P.toggle.gap)
+	end
+	place(1)
 	toggle.Size = UDim2.fromOffset(0, P.toggle.height)
 	toggle.Parent = gui
 	local toggleMark = Instance.new("Frame")
@@ -519,7 +522,7 @@ function Chat.start()
 	RunService.RenderStepped:Connect(function()
 		local h = gui.AbsoluteSize.Y
 		if h > 0 then
-			scale.Scale = math.clamp(h / 800, P.scale.min, P.scale.max)
+			place(math.clamp(h / 800, P.scale.min, P.scale.max))
 		end
 		local inMenu = false
 		for _, n in menus do
