@@ -22,9 +22,11 @@ local Build = {
 	SwingSlack = 0.8,
 	-- a blueprint nobody has worked on goes after this (seconds)
 	BlueprintLife = 120,
-	-- live pieces (blueprints count) per player and per team
+	-- live pieces (blueprints count) per player and per team: a piece with its own `playerCap` (Pieces) counts only
+	-- against that, of its own key; every other piece against PerPlayer together; every piece against PerTeam. A piece's
+	-- `teamCap` caps its key per team, its `sectorCap` per team in each Map1 sector (Rules/Sectors.sectorAt)
 	PerPlayer = 8,
-	PerTeam = 150,
+	PerTeam = 300, -- (was 150; user 2026-11-01, with the per-player caps raised)
 	-- where the pieces live (a Folder in Workspace)
 	Folder = "Structures",
 	-- the ghost in build mode (src/client/Build): fill colours where it can / can't go
@@ -205,6 +207,9 @@ local Build = {
 			key = "SandbagPile",
 			name = "Sandbags",
 			kind = "Sandbags",
+			-- per player, its own (PerPlayer above; user 2026-11-01: "essentially give player endless sand bags wires and
+			-- barriers. maybe 25-30 each")
+			playerCap = 30,
 			asset = "sandbag_pile",
 			bags = { "Bag1", "Bag2", "Bag3" },
 			-- stage 1's meshes: the scraped ground (under it the whole time) and the empty sacks (until a bag is filled);
@@ -225,6 +230,7 @@ local Build = {
 			name = "Barrier",
 			kind = "Hesco",
 			asset = "hesco", -- (Config/Assets)
+			playerCap = 30,
 			stages = 4,
 			width = 6,
 			depth = 6,
@@ -249,6 +255,7 @@ local Build = {
 			key = "Wire",
 			name = "Barbed wire",
 			kind = "Wire", -- (built on HP: Wire.hp below)
+			playerCap = 30,
 			width = 8,
 			depth = 4,
 			height = 3.1,
@@ -263,6 +270,7 @@ local Build = {
 			key = "MGNest",
 			name = "MG nest",
 			kind = "Nest",
+			sectorCap = 3, -- per team in each sector (user 2026-11-01: "mg nest should be limited to 3 a sector")
 			asset = "sandbag_pile",
 			mountBag = "sandbag_m2",
 			gun = "mg08",

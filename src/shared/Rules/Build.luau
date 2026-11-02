@@ -55,7 +55,7 @@ export type Placing = {
 	overlap: boolean, -- it overlaps a building, another piece or a soldier
 	gunGap: boolean?, -- a gun: too close to another gun (Build.gunsClear)
 	nearTrench: boolean?, -- a gun or a wire: a trench within its trenchGap (a wire: on a trench or its bank)
-	mine: number, -- the builder's live pieces
+	mine: number, -- the builder's live pieces without a `playerCap` of their own (Config/Build.PerPlayer)
 	team: number, -- the team's live pieces
 	perPlayer: number,
 	perTeam: number,
@@ -63,6 +63,8 @@ export type Placing = {
 	spot: string?, -- a bridge: why its trench square won't take it (Build.bridgeSpot), nil when it will
 	locked: string?, -- a gun the match's artillery level hasn't reached yet: why (Rules/Frontline.gunLocked)
 	kind: number?, -- the team's live pieces of this one's key (its `teamCap`, Config/Build.Pieces)
+	mineKind: number?, -- the builder's live pieces of this one's key (its `playerCap`)
+	sector: number?, -- the team's live pieces of this one's key in the sector it is in (its `sectorCap`)
 }
 
 -- Whether a piece can be laid here; when not, the reason to show
@@ -76,6 +78,10 @@ function Build.canPlace(p: Placing): (boolean, string?)
 	local cap = p.piece.teamCap
 	if cap and (p.kind or 0) >= cap then
 		return false, `Your team has {cap} already`
+	end
+	local inSector = p.piece.sectorCap
+	if inSector and (p.sector or 0) >= inSector then
+		return false, `Your team has {inSector} in this sector already`
 	end
 	if p.distance > p.reach then
 		return false, "Too far"
@@ -101,7 +107,12 @@ function Build.canPlace(p: Placing): (boolean, string?)
 	if p.nearTrench then
 		return false, "Too close to a trench"
 	end
-	if p.mine >= p.perPlayer then
+	local own = p.piece.playerCap
+	if own then
+		if (p.mineKind or 0) >= own then
+			return false, `You have {own} already`
+		end
+	elseif p.mine >= p.perPlayer then
 		return false, "You have too many pieces"
 	end
 	if p.team >= p.perTeam then
