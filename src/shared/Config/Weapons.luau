@@ -884,7 +884,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		hidden = { "Casing" },
 		attachments = {
-			Muzzle = { 0, 0.0717, -2.483 }, -- bore axis at the muzzle face: bullet origin, flash
+			Muzzle = { 0, 0.0717, -2.643 }, -- bore axis at the muzzle face: bullet origin, flash (1285 mm, 2026-11-02)
 			Aim = { 0, 0.1186, 0.45 }, -- the eye (cheek on the comb), on the sight line: post tip + notch
 			-- where the case leaves: in the open receiver at the bolt face pulled back (rest z -0.46 + travel 0.3), the case
 			-- just in front of it (user 2026-10-12: it came out too far forward, at the receiver ring); right side, +X/+Y
@@ -923,7 +923,8 @@ local Weapons: { [string]: Weapon } = {
 		},
 		-- the comb at the right cheek, the eye 4.45 above the feet: muzzle ~4.33 (Metrics AimMuzzleHeight ~4.3)
 		shouldered = { 0.4, 1.45, -0.6 },
-		-- 2.5x thicker, 1.5x longer (user 2026-10-11: way too small next to the arm): 3.51 -> 5.27 studs long, stock
+		-- 2.5x thicker, 1.5x longer (user 2026-10-11: way too small next to the arm): 3.67 -> 5.51 studs long (3.51 until
+		-- 2026-11-02), stock
 		-- 0.36 wide, forend ~0.3 thick, butt ~1 stud (the arm's width)
 		scale = { 2.5, 2.5, 1.5 },
 		-- slung on the back (user references 2026-10-11): flat against the back with the bolt handle out, leaning
@@ -962,17 +963,18 @@ local Weapons: { [string]: Weapon } = {
 		-- the knob at the end of the straight handle, mid-bolt; the clip pushed down from just over the magazine
 		-- v2: slower, the bolt resting back (2026-10-13); first person: the viewmodel's hand works it too (v3: the rifle lower, further out and muzzle left while it works; aimed it comes down off the eye to that)
 		bolt = {
-			aim = 98946190531261,
-			ready = 91424552679806,
-			firstAim = 71600393030717,
-			firstReady = 92603270436446,
+			-- v4: rebuilt for the longer handle (2026-11-02), the rifle 0.15 lower in first person while the hand works
+			aim = 123372308377550,
+			ready = 130236818224631,
+			firstAim = 137459444106805,
+			firstReady = 135294717124996,
 		},
 		reload = {
-			knob = { 0.12, 0.065, -0.1511 },
+			knob = { 0.19, 0.065, -0.1511 }, -- the longer handle (2026-11-02, was 0.12)
 			clipTop = { 0, 0.0614, -0.267 },
 			entry = 0.2,
-			body = 88369726870929,
-			firstPerson = 75492413402370,
+			body = 138583621505553, -- rebuilt for the longer handle (2026-11-02)
+			firstPerson = 113853587184690,
 		},
 	},
 	-- The Mauser C96 (model tools/blender/weapons/c96.py, traced from tools/blender/weapons/trace/c96.py over the
@@ -1123,7 +1125,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		hidden = { "Casing", "Clip" }, -- the clip shows only while reloading
 		attachments = {
-			Muzzle = { 0, 0.065, -2.5323 },
+			Muzzle = { 0, 0.065, -2.6047 }, -- the real 1250 mm (2026-11-02; was -2.5323)
 			Aim = { 0, 0.1218, 0.45 }, -- on the sight line: barleycorn tip + rear notch, 0.057 over the bore
 			Eject = { 0.035, 0.075, -0.3031 }, -- the ejection port, right side
 		},
@@ -1157,7 +1159,7 @@ local Weapons: { [string]: Weapon } = {
 			strike = 73567308916252, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
-		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
+		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.57 -> 5.36 studs long
 		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {

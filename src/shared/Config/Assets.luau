@@ -56,7 +56,10 @@ local Assets = {
 
 	Entries = {
 		rifle_m91 = {
-			id = 124122824797146, -- v2: inside-out faces fixed (v1 117583297352653)
+			-- v3 (2026-11-02): polished against a reference model: the real 1285 mm, the wood fitted to its sections, a
+			-- slim band and nose cap, a tangent rear sight, the longer bolt handle (v2 124122824797146: inside-out faces
+			-- fixed; v1 117583297352653)
+			id = 73589409799250,
 			category = "Weapons",
 			folder = "Olive/Rifles",
 			source = "assets/weapons/olive/rifle_m91.fbx",
@@ -78,14 +81,16 @@ local Assets = {
 			description = "Nagant M1895 revolver, the olive team's Engineer pistol (its shape from a low-poly reference: tools/blender/weapons/trace/nagant.py; a round part per chamber shows the rounds left). Rigged from Config/Weapons.",
 		},
 		rifle_g98 = {
-			-- v3: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
-			-- v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
-			id = 71283772137659,
+			-- v4 (2026-11-02): polished against a reference model: the real 1250 mm, the Lange Visier's curved side
+			-- plates, a narrow middle band, the handguard 4 mm taller (master assets/weapons/grey/rifle_g98.blend)
+			-- v3 71283772137659: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds
+			-- should be); v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
+			id = 110880808137596,
 			category = "Weapons",
 			folder = "Grey/Rifles",
 			source = "assets/weapons/grey/rifle_g98.fbx",
-			generator = "tools/blender/weapons/gewehr98.py",
-			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
+			generator = "tools/blender/weapons/export_blend.py",
+			description = "Gewehr 98 rifle, the grey team's default (master: assets/weapons/grey/rifle_g98.blend, from its trace and tools/blender/weapons/polish_g98.py). Rigged from Config/Weapons.",
 		},
 		pistol_c96 = {
 			id = 94392928383424,
@@ -239,20 +244,16 @@ local Assets = {
 			description = "The M2's ammo can with its lid shut, as on the gun (SpareKit, SpareTrim, SpareFittings): 0.72 wide, 1.17 high, 0.83 long, its bottom's middle at the origin, its carry handle's grip at (0.087, 1.34, 0) along z.",
 		},
 		artillery_howitzer = {
-			-- v10 (user 2026-10-26: runes only round the crystal; meshing ring gear and pinions with hand wheels, turned by
-			-- src/client/Artillery; a long recuperator off centre over the barrel and a fat buffer under it, an open
-			-- muzzle, rivets on their surfaces, a player-wide ladder; v9 120030284881139)
-			-- v9 (user 2026-10-26: curved brush-stroke runes, their halos taken off again: "it makes the runes
-			-- indecipherable"; v8 98289221398793 had them); round rivets; v7 127169406913245: team accent pieces <part>Trim
-			-- / Fittings / Kit / Marking,
-			-- Config/Palette.Artillery.Team; v6 70753419490474, Bertha v11, the bigger cracked gem; v10 82040723469817;
-			-- before it the BL 9.2-inch at 1.3x, 82367327569698)
-			id = 138825884647241,
+			-- the Rune howitzer v7 (user 2026-11-02: "completely remake a new howitzer model", after the US 240 mm / 8-inch
+			-- M1; was the 42 cm Bertha mortar v10 138825884647241, assets/weapons/shared/artillery_bertha.fbx, bertha.py;
+			-- before it v9 120030284881139, v8 98289221398793, v7 127169406913245, v6 70753419490474, 82040723469817; the BL
+			-- 9.2-inch at 1.3x, 82367327569698)
+			id = 80010809743238,
 			category = "Weapons",
 			folder = "Shared/Artillery",
-			source = "assets/weapons/shared/artillery_bertha.fbx",
-			generator = "tools/blender/artillery/bertha.py",
-			description = "The magic howitzer: a 42 cm siege mortar of our own after the Big Bertha and the Gamma-Gerat, no wheels: a riveted box carriage turning on a giant toothed ring gear, a layered short barrel trunnioned high between its walls, two silos beside it and a housing under it, a bolted yoke and dial sight, a toothed elevating sector and big spoked hand wheels by the gunner's step, a crew deck and ladder at the back; the cracked, chipped gem (its cracks a part of their own, CrystalCracks) in a ring of runes on the round breech face, rune bands on the barrel, runes on the bed. Moving parts: Mount traverses, Cradle elevates, Barrel + BarrelRunes + Bore + Breech + Crystal + CrystalCracks recoil.",
+			source = "assets/weapons/shared/artillery_rune_howitzer.fbx",
+			generator = "tools/blender/artillery/rune_howitzer.py",
+			description = "The magic howitzer: a heavy howitzer of our own after the US 240 mm and 8-inch M1, no wheels: a long hooped barrel under a mismatched pair of recuperators (a fat short drum, a slim long flanged octagon) in a sleigh cradle, trunnioned between the riveted walls of a top carriage that turns right round on a toothed ring gear on a staked bed; spring equilibrators, railings, tool chests, a dial sight, a toothed elevating sector and spoked hand wheels by the gunner on the turntable; a big cracked rune crystal caged on the cradle over the breech (its cracks a part of their own, CrystalCracks; runes round its collar, CradleRunes), a ring of runes on the breech face (BarrelRunes), three bands of runes engraved round the chase (BarrelEngraving, unseen till the charge-up). Moving parts: Mount (+ the pinions and hand wheels) traverses, Cradle + CradleTrim + CradleFittings + CradleRunes + Crystal + CrystalCracks elevate, Barrel + BarrelRunes + BarrelEngraving + BarrelTrim + Bore + Breech recoil.",
 		},
 		-- the staff HUD's gem (user 2026-10-26: "trace a real gem that is shaped similarily", "make it physcial
 		-- engravings", "add floating shards around it"; Config/Hud.Staff)
@@ -331,14 +332,18 @@ local Assets = {
 			-- lower and set back behind the wall's top, off its slabs and planks (v4 139463386134488); v6: the heaps a little
 			-- closer to the wall's top (v5 107262926311515); v7: the heaps right on the wall's top and a Corner piece
 			-- where a wall stops at a joining trench (v6 122327305436244); v8: a skirt of low dirt slabs past each heap,
-			-- Wall<i>Apron (v7 82070975213659)
-			id = 94215187575150,
+			-- Wall<i>Apron (v7 82070975213659); v9: the floor 6 wide (4.25 to 3 a side) and one lower heap a side, no
+			-- skirt (user 2026-11-02, "make it a little more narrow and less thick", option B; v8 94215187575150)
+			-- v11 (trench_timber.py; user 2026-11-02: "base it off how our dug out is looking", "create constructtion
+			-- statuses and destruction statuses"): timbered, boards on posts with bolts, a corrugated iron wall, duckboards,
+			-- faceted spoil mounds, construction stages Dig1-4 and destruction stages Hit1-3 (v9 99912841219037)
+			id = 133558593375673,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",
-			generator = "tools/blender/trench/trench_pieces.py",
+			generator = "tools/blender/trench/trench_timber.py",
 			fidelity = "Hull",
-			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
+			description = "A trench square's pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-6 (the dirt face that collides, Wall<i>Planks / PlanksPale boards, PlanksDark posts and knots, Iron bolts; Wall2 corrugated Iron + IronRust sheets, Wall5 climbing cleats) and Wall<i>Parapet (a faceted spoil mound), floors Floor1-3 (dirt + a duckboard), Corner, construction stages Dig1-4 (Wall, Heap, Floor, Pile, timber going in) and destruction stages Hit1-3 (Wall timber, Fall: earth and boards slumped on the floor).",
 		},
 		-- the sandbag pile (user 2026-10-27: pillow bags, two under one, "give it some firmth"): each bag its own mesh, so
 		-- a pile is built a bag at a time; colored from Config/Palette.Build by mesh name. v2: stage 1, the scraped Patch

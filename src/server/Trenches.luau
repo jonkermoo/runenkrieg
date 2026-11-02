@@ -8,9 +8,12 @@
 --   to Trench.maxBend) or the side of one of its squares (a T); it may not cross a trench. Undug plans go after
 --   Trench.planLife.
 -- - Each square has HP like any structure, and its depth is its HP (user: "they have hp. how dug in they are are
---   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build); at full HP its dirt pieces go in
---   (Config/Assets trench_pieces): a wall each side and a floor rolled from its seed (Rules.trenchPieces), some walls
---   with plank steps, a wall across a dead end, none where another trench tees in.
+--   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build). Its pieces (Config/Assets
+--   trench_pieces v11, timbered: boards on posts, duckboards, spoil mounds) show its stage (Rules.trenchStage): while
+--   it is dug, construction stages (timbers waiting, the cut deepening, posts set, the lower boards up); dug full, a
+--   wall each side and a floor rolled from its seed (Rules.trenchPieces), one wall climbable, a wall across a dead end,
+--   none where another trench tees in; damaged, destruction stages (a board hanging, boards gone and a post leaning,
+--   the lining half down and a post snapped, earth and boards slumped on the floor).
 -- - Destroy swings (any team's trench), blasts and bullets (Trenches.blast / Trenches.shot, from src/server/Build, by
 --   Config/Build.Structures) take HP off: it is buried (filled in with mud, no clods thrown); at 0 it is a scar, a
 --   lumpy dip of churned earth that stays.
@@ -39,8 +42,16 @@ local T = C.Trench
 local D = C.Dugout
 local VOXEL = 4
 local TOP = Rules.trenchTop(T)
+-- the terrain is cut a little deeper and wider than the pieces lie (Config/Build.Trench.carve), so its 4-stud voxels
+-- stay behind the boards and under the floor instead of poking through them
+local CARVE = table.clone(T)
+CARVE.floor = T.floor + T.carve.wider
+CARVE.depth = T.depth + T.carve.deeper
 local RIM = math.max(T.bank.width, T.grassClear) -- how far past its wall tops a square changes the ground
 local KIND = "TrenchBlock"
+-- the meshes of a wall (its dirt face, boards in two tones, posts and knots, iron) and of a floor (its dirt, a duckboard)
+local WALL_PARTS = { "", "Planks", "PlanksPale", "PlanksDark", "Iron", "IronRust" }
+local FLOOR_PARTS = { "", "Planks", "PlanksPale", "PlanksDark" }
 
 type Link = { kind: string, other: Block, which: string? } -- "end" (with `which` end of `other`) or "tee"
 
@@ -247,7 +258,7 @@ local function reshape(centre: Vector3, reach: number)
 				if blk.tilt ~= 0 and not blk.scar then
 					w, lift = Rules.tiltedCut(v, blk.tilt, function(off: number): number
 						local rx = Rules.trenchReach(u, off, n.shape, T.floor)
-						return if rx then Rules.trenchProfile(rx, n.share, T) or 0 else 0
+						return if rx then Rules.trenchProfile(rx, n.share, CARVE) or 0 else 0
 					end)
 				end
 				local r = Rules.trenchReach(u, w, n.shape, T.floor)
@@ -261,7 +272,7 @@ local function reshape(centre: Vector3, reach: number)
 							end
 						end
 					else
-						local h = Rules.trenchProfile(r, n.share, T)
+						local h = Rules.trenchProfile(r, n.share, CARVE)
 						if h and h < 0 then
 							local want = line + (if blk.tilt ~= 0 then lift else h)
 							if not cut or want < cut then
@@ -450,21 +461,26 @@ end
 -- the color of the mud"; 2026-11-01: "match the color of the terrain underneath (not the grass)"); planks their own wood
 local function pieceColor(name: string, soil: Enum.Material?): Color3
 	local B = Palette.Build
-	local i = tonumber(string.match(name, "^Wall(%d+)"))
-	if string.find(name, "PlanksDark") then
+	if string.find(name, "IronRust") then
+		return rgb(B.TrenchRust)
+	elseif string.find(name, "Iron") then
+		return rgb(B.TrenchIron)
+	elseif string.find(name, "PlanksDark") then
 		return rgb(B.PlankDark)
+	elseif string.find(name, "PlanksPale") then
+		return rgb(B.PlankPale)
 	elseif string.find(name, "Planks") then
 		return rgb(B.Plank)
 	end
+	local i = tonumber(string.match(name, "^Wall(%d+)"))
+	local tone = ((i or 1) - 1) % #B.TrenchWall + 1
 	local shade
-	if i then
-		local tone = (i - 1) % #B.TrenchWall + 1
-		shade = if string.find(name, "Parapet") or string.find(name, "Apron")
-			then B.TrenchParapet[tone]
-			elseif string.find(name, "Chunks") then B.TrenchWallChunks[tone]
-			else B.TrenchWall[tone]
-	else
+	if string.find(name, "Parapet") or string.find(name, "Apron") or string.find(name, "Fall") then
+		shade = B.TrenchParapet[tone]
+	elseif string.find(name, "^Floor") then
 		shade = if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor
+	else
+		shade = if string.find(name, "Chunks") then B.TrenchWallChunks[tone] else B.TrenchWall[tone]
 	end
 	local base = workspace.Terrain:GetMaterialColor(soil or Enum.Material.Mud)
 	return Color3.new(math.min(base.R * shade, 1), math.min(base.G * shade, 1), math.min(base.B * shade, 1))
@@ -617,10 +633,15 @@ local function pieces(blk: Block)
 	-- keeps clear of their holes and walls all the way back, not just their floors)
 	local walls, heaps = {}, {}
 	-- buried by what it lost: the floor up on the fill, the heaps sunk (Rules.trenchSink; in tenths, rebuilt as it moves)
+	-- (a square being dug shows its construction stage's pieces, cut to that stage's depth: nothing rides or sinks)
+	local stage, stageN = Rules.trenchStage(blk.hp, blk.built, T.hp, T.stages)
 	local rise, drop = Rules.trenchSink(shareOf(blk), T)
+	if stage == "Dig" then
+		rise, drop = 0, 0
+	end
 	rise, drop = math.round(rise * 10) / 10, math.round(drop * 10) / 10
 	local soil = soilOf(blk)
-	local sig = `{closeA}{closeB}{rise},{drop}`
+	local sig = `{stage}{stageN}{closeA}{closeB}{rise},{drop}`
 	for side, sign in { 1, -1 } do
 		walls[side] = sideSpans(blk, sign, WALL_PROBES, wallExt)
 		heaps[side] = sideSpans(blk, sign, HEAP_PROBES, heapExt)
@@ -679,7 +700,7 @@ local function pieces(blk: Block)
 		if not (src and src:IsA("BasePart") and off) then
 			return
 		end
-		if string.find(name, "Parapet") or string.find(name, "Apron") then
+		if string.find(name, "Parapet") or string.find(name, "Apron") or string.find(name, "Heap") then
 			cf -= Vector3.new(0, drop, 0)
 		end
 		if string.find(name, "Apron") and not sitsOnGround(src, off, cf, stretch) then
@@ -689,16 +710,24 @@ local function pieces(blk: Block)
 		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
 		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
 		p.Color = pieceColor(tone or name, soil)
-		local base = not (string.find(name, "Chunks") or string.find(name, "Planks"))
+		local base = not (string.find(name, "Chunks") or string.find(name, "Planks") or string.find(name, "Iron"))
 		p.Anchored = true
 		p.CanCollide = base
 		p.CanQuery = base
 		p.CanTouch = false
 		p.Parent = holder
 	end
+	-- the stage's pieces (Config/Assets trench_pieces v11, tools/blender/trench/trench_timber.py): finished, wall
+	-- variant `n`'s; being dug, construction stage Dig<k>'s; damaged, destruction stage Hit<k>'s lining
+	local wallName = function(n: number): string
+		return if stage == "Dig" then `Dig{stageN}Wall` elseif stage == "Hit" then `Hit{stageN}Wall` else `Wall{n}`
+	end
+	local heapName = function(n: number): string
+		return if stage == "Dig" then `Dig{stageN}Heap` else `Wall{n}Parapet`
+	end
 	local function wall(n: number, cf: CFrame, stretch: number)
-		for _, suffix in { "", "Chunks", "Planks", "PlanksDark" } do
-			place(`Wall{n}{suffix}`, cf, stretch)
+		for _, suffix in WALL_PARTS do
+			place(`{wallName(n)}{suffix}`, cf, stretch, `Wall{n}{suffix}`)
 		end
 	end
 	local stretch = blk.length / P.segment
@@ -730,14 +759,31 @@ local function pieces(blk: Block)
 		for _, s in heaps[side] do
 			for _, c in pieceRuns(s.u0, s.u1) do
 				local cf = frame(out, false, false, c[1], c[2])
-				place(`Wall{n}Parapet`, cf, (c[2] - c[1]) / P.segment)
-				place(`Wall{n}Apron`, cf, (c[2] - c[1]) / P.segment) -- (the skirt of dirt behind it)
+				place(heapName(n), cf, (c[2] - c[1]) / P.segment, `Wall{n}Parapet`)
 			end
 		end
 	end
 	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true) + Vector3.new(0, rise, 0)
-	place(`Floor{roll.floor}`, floorCf, stretch)
-	place(`Floor{roll.floor}Chunks`, floorCf, stretch)
+	if stage == "Dig" then
+		place(`Dig{stageN}Floor`, floorCf, stretch, "Floor")
+	else
+		for _, suffix in FLOOR_PARTS do
+			place(`Floor{roll.floor}{suffix}`, floorCf, stretch)
+		end
+	end
+	-- the timbers waiting beside a square being dug, on the ground on one side; the earth and boards fallen off a
+	-- damaged square's wall onto its floor, against one side (both by its seed)
+	local side = if roll.flip then 1 else -1
+	local sideCf = frame(blk.across * side, false, false, 0, blk.length)
+	if stage == "Dig" then
+		for _, suffix in { "Planks", "PlanksPale", "PlanksDark" } do
+			place(`Dig{stageN}Pile{suffix}`, sideCf, stretch)
+		end
+	elseif stage == "Hit" then
+		for _, suffix in { "", "Planks", "PlanksPale" } do
+			place(`Hit{stageN}Fall{suffix}`, sideCf, stretch, `Fall{suffix}`)
+		end
+	end
 	-- dead ends: a plain wall across, as wide as the trench at the top (its foot runs on behind the side walls) and its
 	-- heap (a thick pile of dirt behind its top edge that collides: Config/Build.Trench) wider still, over the side
 	-- heaps' ends
@@ -747,8 +793,7 @@ local function pieces(blk: Block)
 			wall(roll.ends[e], frame(out, true, false, TOP), 2 * TOP / P.segment)
 			for _, start in { TOP + T.joins.deadEndHeap, 0 } do -- in two, so its slabs aren't stretched long
 				local cf = frame(out, true, false, start)
-				place(`Wall{roll.ends[e]}Parapet`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
-				place(`Wall{roll.ends[e]}Apron`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
+				place(heapName(roll.ends[e]), cf, (TOP + T.joins.deadEndHeap) / P.segment, `Wall{roll.ends[e]}Parapet`)
 			end
 		end
 	end
@@ -788,9 +833,9 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP, to the end (0 HP
-	-- fills it in: finish)
-	if blk.built then
+	-- its pieces from the first swing: the construction stages while it is dug, then the finished pieces, buried by the
+	-- fill and worn through the destruction stages as it loses HP, to the end (0 HP fills it in: finish)
+	if blk.built or blk.hp > 0 then
 		pieces(blk)
 	else
 		local old = m:FindFirstChild("Pieces")

@@ -167,7 +167,7 @@ end
 -- model ... just show how much space it actually takes (the visible model with applicable trench)"): a see-through box
 -- round the gun's visible model in gun space (as src/server/Artillery finds it, from the Bore at rest) and, dug in, its
 -- pit (out to the top of its wall) and ramp outlined on the ground; nil without the gun's model
-local function makeGunGhost(gun: ArtilleryCfg.Gun): Model?
+local function makeGunGhost(gun: ArtilleryCfg.Gun, ring: any?): Model?
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
 	for _, sub in { "Weapons", "Shared", "Artillery", gun.asset } do
 		f = f and f:FindFirstChild(sub)
@@ -228,16 +228,26 @@ local function makeGunGhost(gun: ArtilleryCfg.Gun): Model?
 			ramp.Size = Vector3.new(d.ramp.width, G.outline, d.ramp.length)
 		end
 	end
+	-- its sandbag ring (Config/Build.GunRing), flat on the ground under the pit's outline, out past the bags
+	if ring then
+		local G = C.GunGhost
+		local across = 2 * (ring.ring.bag / (2 * math.sin(math.pi / ring.ring.sides)) + ring.ring.bag / 4)
+		local bags = ghostPart(m)
+		bags.Name = "Ring"
+		bags.Shape = Enum.PartType.Cylinder
+		bags.Transparency = G.outlineSee
+		bags.Size = Vector3.new(G.outline, across, across)
+	end
 	m.Parent = workspace.CurrentCamera
 	return m
 end
 
 -- shows a gun piece's ghost: the gun where it will stand (`at`: the ground at the click, `look`: flat), its pit and ramp
 -- on the ground there. False without the gun's model (its box is shown instead).
-local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: boolean): boolean
+local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: boolean, ring: any?): boolean
 	if not ghost or ghostFor ~= key then
 		clearGhost()
-		ghost = makeGunGhost(gun)
+		ghost = makeGunGhost(gun, ring)
 		ghostFor = if ghost then key else nil
 	end
 	local m = ghost
@@ -254,6 +264,11 @@ local function showGunGhost(key: string, gun: ArtilleryCfg.Gun, at: CFrame, ok: 
 	if pit then
 		pit.CFrame = at * CFrame.new(0, lift, 0) * CFrame.Angles(0, 0, math.rad(90))
 		pit.Color = color
+	end
+	local bags = m:FindFirstChild("Ring") :: BasePart?
+	if bags then
+		bags.CFrame = at * CFrame.new(0, lift - 0.02, 0) * CFrame.Angles(0, 0, math.rad(90))
+		bags.Color = color
 	end
 	local ramp = m:FindFirstChild("Ramp") :: BasePart?
 	if ramp and d and d.ramp then
@@ -490,7 +505,7 @@ local function surveyPiece(character: Model, root: BasePart)
 	local gunCfg = if gun then ArtilleryCfg.Guns[p.gun or ""] else nil
 	if gunCfg then
 		-- (the gun as it will stand, not its whole box: user 2026-10-27)
-		if showGunGhost(p.key, gunCfg, frame, ok) then
+		if showGunGhost(p.key, gunCfg, frame, ok, p.ring and C.GunRing[p.ring]) then
 			return
 		end
 	end

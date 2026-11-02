@@ -9,7 +9,8 @@
 -- - a ring of Elder Futhark runes (Config/Runes strokes, curved rounded brush strokes, facing the
 --   camera) circling level round it, each waking in turn as it charges, flickering on; on the shot they scatter outward
 --   and fade;
--- - motes of light drawn into it while it charges.
+-- - motes of light drawn into it while it charges;
+-- - the runes engraved round the barrel lit through the charge-up, gone again after the shot (user 2026-11-02).
 --   ArtilleryCrystal.new(model, crystal) -> state; .update(state, now, firedAt, readyAt, reload); .destroy(state)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -34,6 +35,7 @@ export type State = {
 	flareUntil: number, -- knocked out: a weak flare running until then
 	seed: number,
 	bands: { BasePart },
+	engraving: BasePart?, -- the barrel's rune engravings (Cfg.engraving)
 	light: PointLight,
 	motes: ParticleEmitter,
 	holder: Attachment,
@@ -153,6 +155,7 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 		end
 	end
 	local cracks = model:FindFirstChild("CrystalCracks", true)
+	local engraving = model:FindFirstChild(Cfg.engraving.part, true)
 	return {
 		crystal = crystal,
 		cracks = if cracks and cracks:IsA("BasePart") then cracks else nil,
@@ -161,6 +164,7 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 		flareUntil = 0,
 		seed = math.random() * 100,
 		bands = bands,
+		engraving = if engraving and engraving:IsA("BasePart") then engraving else nil,
 		light = light,
 		motes = motes,
 		holder = holder,
@@ -203,6 +207,13 @@ function ArtilleryCrystal.update(
 	local up = now - braceAt
 	local surge = if state ~= "Fired" and up >= 0 and up < charge then up / charge else 0
 	glow += Cfg.surge.glow * surge
+	-- the barrel's engravings: in through the charge-up, out after the shot (none on a knocked-out gun)
+	if s.engraving then
+		local E = Cfg.engraving
+		local k = if broken then 0 else Rules.engravingShown(up, charge, now - firedAt, E.fade)
+		s.engraving.Transparency = 1 - k
+		s.engraving.Color = colorAt(E.glow * k)
+	end
 	-- the random flicker: drop-outs now and then (often as it starts to wake, rarely once ready) and a slow wobble
 	local F = Cfg.flicker
 	if state == "Charging" or state == "Ready" then

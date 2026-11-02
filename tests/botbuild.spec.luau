@@ -115,6 +115,30 @@ return {
 		assert(R.pick(jobs, 0, 0, 90, {}, {}, helps) == 3, "a work job only")
 		assert(R.pick(jobs, 0, 0, 90, { [3] = true }, {}, helps) == nil, "the trench too far")
 	end,
+	["line: a breastwork's piles and barriers along the refused run"] = function()
+		local jobs = R.line(0, 0, 0, 32, 1, 0, B.Breast.step, B.Breast.keys)
+		assert(#jobs == 4, "one every step")
+		assert(jobs[1].key == "SandbagPile" and jobs[2].key == "Hesco" and jobs[3].key == "SandbagPile")
+		assert(jobs[1].x == 0 and jobs[1].z == 4 and jobs[4].z == 28 and jobs[1].fx == 1, "along it, facing out")
+	end,
+	["wall: piles on the enemy side of a nest or gun"] = function()
+		local W = B.Walls
+		local jobs = R.wall(10, 0, 1, 0, W.ahead, W.spread, W.count)
+		assert(#jobs == W.count)
+		for _, j in jobs do
+			assert(j.key == "SandbagPile" and j.x == 10 + W.ahead, "ahead of it")
+		end
+		assert(math.abs(jobs[1].z - jobs[2].z) == W.spread, "side by side")
+	end,
+	["pinned: shot at, shaken, no cover and not in a trench"] = function()
+		local P = B.Pinned
+		assert(R.pinned(0, P.shaken, false, false, P.every, P))
+		assert(not R.pinned(P.threat + 1, P.shaken, false, false, P.every, P), "nobody shooting now")
+		assert(not R.pinned(0, P.shaken - 0.1, false, false, P.every, P), "not pinned down")
+		assert(not R.pinned(0, P.shaken, true, false, P.every, P), "it has cover")
+		assert(not R.pinned(0, P.shaken, false, true, P.every, P), "in a trench")
+		assert(not R.pinned(0, P.shaken, false, false, P.every - 1, P), "laid one lately")
+	end,
 	["nudge: across the way in, one side then the other"] = function()
 		local job: R.Job = { key = "Wire", x = 0, z = 0, fx = 1, fz = 0 }
 		local x1, z1 = R.nudge(job, 1, 6)

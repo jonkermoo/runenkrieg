@@ -129,7 +129,7 @@ return {
 		assert(why({ team = C.PerTeam }) == "Your team has too many pieces")
 		assert(why({ locked = "Unlocks when a sector is lost" }) == "Unlocks when a sector is lost")
 	end,
-	["guns per team: 6 field guns, 2 mortars (user 2026-10-31)"] = function()
+	["guns per team: 6 field guns, 2 howitzers (user 2026-10-31)"] = function()
 		local field = B.piece("FieldGun", C.Pieces) :: any
 		local how = B.piece("Howitzer", C.Pieces) :: any
 		assert(field.teamCap == 6 and how.teamCap == 2)
@@ -162,7 +162,7 @@ return {
 		local how = B.piece("Howitzer", C.Pieces) :: any
 		assert(field.spacing == 60 and how.spacing == 120)
 		assert(not B.gunsClear(59, true, 60, 9, 9) and B.gunsClear(60, true, 60, 9, 9))
-		assert(B.gunsClear(50, false, 60, 9, 36) and not B.gunsClear(44, false, 60, 9, 36))
+		assert(how.clear == 15 and B.gunsClear(24, false, 60, 9, 15) and not B.gunsClear(23, false, 60, 9, 15))
 		for _, kit in { "uniform1", "uniform2", "uniform3" } do
 			assert(C.Guns.paint[kit] ~= nil, kit)
 		end
@@ -489,8 +489,10 @@ return {
 		assert(at("staff3", 10, 0) < at(nil, 2.5, 0), "a full beam is still less than a field gun shell")
 		local field = at(nil, 2.5, 1)
 		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
-		local howitzer = at(nil, 340, 3)
-		assert(howitzer >= 90 and howitzer < 100, `the howitzer buries it but leaves some ({howitzer})`)
+		-- (user 2026-11-02, the damage rework: its 100 kg shell buries what it hits, over a smaller reach)
+		local howitzer = at(nil, 100, 3)
+		assert(howitzer >= 100, `the howitzer buries it at once ({howitzer})`)
+		assert(at(nil, 100, 16) == 0, "nothing past its reach")
 		assert(
 			at("bullet", 0, 0) > 0 and at("bullet", 0, 0) < 0.5 and at("bullet", 0, 1) == 0,
 			"a bullet: on it, a little"
@@ -714,6 +716,61 @@ return {
 		assert(B.nestStanding(12, 0.01) == 1 and B.nestStanding(12, 0) == 0)
 		assert(B.nestWearOrder(5, true) < B.nestWearOrder(2, false), "the top bags go first")
 	end,
+	["the Rune howitzer's sandbag ring: round its pivot, the back open, no bag on another (user 2026-11-02)"] = function()
+		local how = B.piece("Howitzer", C.Pieces) :: any
+		local n = C.GunRing[how.ring]
+		assert(n and how.kind == "Gun", "a gun with a ring of its own")
+		local bags, radius = B.nestRing(n.ring)
+		assert(radius > 12 and radius < 14, "~27 across with its bags")
+		assert(2 * (radius + n.ring.bag / 4) <= math.min(how.width, how.depth) + 1e-6, "inside its footprint")
+		local back, front = 0, 0
+		for _, b in bags do
+			assert(near(math.sqrt(b.x ^ 2 + b.z ^ 2), radius, 1.5))
+			if b.z > radius * 0.95 then
+				back += 1
+			end
+			if b.z < -radius * 0.9 then
+				front += 1
+			end
+		end
+		assert(back == 0 and front > 0, "a doorway at the back, the front closed")
+		local function flat(b: any): any
+			return { x = b.x, z = b.z, dx = b.dx, dz = b.dz, length = n.ring.bag - 0.3, width = 1.4 }
+		end
+		for i, a in bags do
+			for j = i + 1, #bags do
+				local b = bags[j]
+				if a.slot ~= 3 and b.slot ~= 3 then
+					assert(B.boxGap(flat(a), flat(b)) > -0.1, `bottom bags {i} and {j} overlap`)
+				end
+			end
+		end
+	end,
+	["the Rune howitzer's sandbags go up with it and come down with its damage stages"] = function()
+		local n = C.GunRing.artillery_howitzer
+		assert(B.ringShown(0, 100, n) == "none", "laid: every bag its empty sack")
+		assert(B.ringShown(100, 100, n) == "all")
+		local last = 0
+		for hp = 0, 100, 5 do
+			local shown = B.ringShown(hp, 100, n) :: string
+			local rank = ({ none = 0, bottom = 1, all = 2 })[shown]
+			assert(rank and rank >= last, `{hp}: {shown}`)
+			last = rank
+		end
+		assert(B.ringShown(100, 100, n, 0) == "all", "stood and whole")
+		for i = 1, 4 do
+			assert(B.ringShown(100, 100, n, i) == n.wear[i])
+		end
+		for i = 2, 4 do
+			assert(n.wear[i] < n.wear[i - 1], "each stage takes more bags")
+		end
+		-- craters keep off the band its bags stand on, not the pit inside
+		local _, radius = B.nestRing(n.ring)
+		assert(B.onRing({ X = radius, Z = 0 } :: any, n) and B.onRing({ X = 0, Z = -radius - 1 } :: any, n))
+		assert(
+			not B.onRing({ X = 0, Z = 0 } :: any, n) and not B.onRing({ X = radius - n.ground - 1, Z = 0 } :: any, n)
+		)
+	end,
 	["an MG nest's building site stands inside its ring, clear of the mount bag and the doorway"] = function()
 		local spec = C.Scaffold.mg08
 		local _, radius = B.nestRing(C.Nest.ring)
@@ -876,5 +933,24 @@ return {
 		-- deep in the ground: a direct rune-mortar shell takes about a tenth of it
 		local howitzer = C.Structures.howitzer.hit * d.soak
 		assert(howitzer > 5 and howitzer < 12)
+	end,
+	-- (user 2026-11-02: "create constructtion statuses and destruction statuses")
+	["a trench square shows construction stages while dug, then finished, then destruction stages as it loses HP"] = function()
+		local H, S = C.Trench.hp, C.Trench.stages
+		local function st(hp: number, built: boolean): string
+			local kind, n = B.trenchStage(hp, built, H, S)
+			return `{kind}{n}`
+		end
+		assert(B.trenchStage(0, false, H, S) == nil, "a plan shows no pieces")
+		assert(st(5, false) == "Dig1" and st(20, false) == "Dig1", "the first swing: stage 1")
+		assert(
+			st(40, false) == "Dig2" and st(60, false) == "Dig3" and st(80, false) == "Dig4" and st(99, false) == "Dig4"
+		)
+		for k = 1, #S.dig do
+			assert(st(H.swing * k, false) == `Dig{k}`, "a stage a swing")
+		end
+		assert(st(100, true) == "Full0" and st(75, true) == "Full0", "finished down to the first threshold")
+		assert(st(74, true) == "Hit1" and st(49, true) == "Hit2" and st(24, true) == "Hit3" and st(1, true) == "Hit3")
+		assert(#S.dig == 4 and #S.hit == 3, "the meshes trench_pieces v11 has: Dig1-4, Hit1-3")
 	end,
 }

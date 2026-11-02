@@ -439,6 +439,33 @@ function Build.trenchSink(share: number, t: any): (number, number)
 	return t.depth * fill, t.heapSink * fill
 end
 
+-- Which pieces a trench square shows (user 2026-11-02: "base it off how our dug out is looking", "create constructtion statuses and destruction statuses"; Config/Build.Trench.stages): while it is first being dug, the
+-- construction stage its HP has reached ("Dig", the last of `stages.dig` (% of `h.max`) it is at or past, at least the
+-- first; nil at 0 HP: still a plan); dug full once, the finished pieces ("Full", 0) until its HP falls under each of
+-- `stages.hit` (%), then that destruction stage ("Hit", 1..).
+function Build.trenchStage(hp: number, built: boolean, h: any, stages: any): (string?, number)
+	local pct = hp / h.max * 100
+	if not built then
+		if hp <= 0 then
+			return nil, 0
+		end
+		local k = 1
+		for i, at in stages.dig do
+			if pct >= at - 1e-6 then
+				k = i
+			end
+		end
+		return "Dig", k
+	end
+	local k = 0
+	for i, at in stages.hit do
+		if pct < at then
+			k = i
+		end
+	end
+	return if k == 0 then "Full" else "Hit", k
+end
+
 -- The soil under a trench square: the first of `names` (terrain materials from its ground line down) not in
 -- `soil.skip`, else `soil.fallback` (Config/Build.Trench.soil).
 function Build.trenchSoil(names: { string }, soil: any): string
@@ -976,6 +1003,24 @@ function Build.nestShown(hp: number, n: any, wreck: number?): (string | number, 
 		return "none", 0
 	end
 	return n.build[stage].bags, n.build[stage].gun
+end
+
+-- What a gun's sandbag ring shows (Config/Build.GunRing `n`): being built, by its gun's `hp` of `max`, a stage as a
+-- Hesco barrier's (Build.hescoStage) over `n.build` ("none" every bag its empty sack, "bottom", "all"); once the gun
+-- has stood, by its Wreck stage `wreck` (0 whole): "all", or the share of its bags still standing (`n.wear`)
+function Build.ringShown(hp: number, max: number, n: any, wreck: number?): string | number
+	if wreck then
+		return if wreck > 0 then n.wear[wreck] else "all"
+	end
+	local stage = Build.hescoStage(hp, max, #n.build)
+	return if stage == 0 then "none" else n.build[stage]
+end
+
+-- Whether a point `l` in a gun's frame (its pivot on the ground, Vector3 or anything with X and Z) is on the band its
+-- sandbag ring stands on (Config/Build.GunRing `n`: within `n.ground` of the ring's line, Build.nestRing's radius)
+function Build.onRing(l: Vector3, n: any): boolean
+	local radius = n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))
+	return math.abs(math.sqrt(l.X * l.X + l.Z * l.Z) - radius) <= n.ground
 end
 
 -- How many of a worn MG nest's `count` ring bags still stand at `share` of them (Config/Build.Nest `wear`): at least
