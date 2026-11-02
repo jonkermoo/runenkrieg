@@ -1328,12 +1328,12 @@ local Weapons: { [string]: Weapon } = {
 		},
 		moving = {
 			Bolt = { 0, 0.065, -0.3492 }, -- on the bolt's axis, at the knob (out to the right through the port)
-			Trigger = { 0, -0.0718, 0 }, -- the trigger pin
+			Trigger = { 0, -0.0718, 0.04 }, -- the trigger pin (in the round guard's middle, 2026-11-02)
 			Clip = { 0, 0.0995, -0.2151 }, -- the stripper clip over the open top
 		},
 		hidden = { "Casing", "Clip" }, -- the clip shows only while reloading
 		attachments = {
-			Muzzle = { 0, 0.065, -2.1709 },
+			Muzzle = { 0, 0.065, -2.2337 }, -- the real 1105 mm (2026-11-02)
 			Aim = { 0, 0.134, 0.45 }, -- on the sight line, 0.069 over the bore
 			Eject = { 0.02, 0.09, -0.2762 }, -- out of the open top
 		},
@@ -1366,7 +1366,7 @@ local Weapons: { [string]: Weapon } = {
 			strike = 135600793931016, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
-		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.1 -> 4.64 studs long
+		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 3.16 -> 4.74 studs long
 		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
