@@ -56,12 +56,14 @@ local Frontline = {
 	-- the side's target sector. At a sector the line's front stands `edge` studs outside its zone toward the side's own
 	-- end; at a side's own HQ sector the line is in its spawn zone (Config/Maps/Map1.spawnZones). A slot needs `clear`
 	-- (across, high, deep) studs of open ground over dry terrain; a blocked one is skipped (up to `tries` slots).
-	-- (edge 20, was 8: the line stands down the back slope of the point's rise, under the next point's sight line;
-	-- user 2026-11-01: "the spawn behind that elevated position (as natural cover)", tests/map1.spec.luau)
+	-- (edge 90: the line stands well down the back slope of the point's rise, under the next point's sight line;
+	-- user 2026-11-01: "the spawn behind that elevated position (as natural cover)"; 2026-11-02: "can we move the spawn
+	-- even further back? still be in the same sector though" (was 20, before that 8). Every slot stays in its own sector
+	-- and out of the river up to ~100 on Map 1: tests/map1.spec.luau)
 	-- A soldier stands on the highest ground within `foot` studs of its slot's middle (on the slope no foot is buried;
 	-- user 2026-11-01: "my body was in the ground"), its feet `lift` over it, its root at its own standing height
 	-- (legs, root, hip height) over that.
-	Line = { perRow = 8, gap = 4, rowGap = 5, edge = 20, clear = { 3, 6, 3 }, tries = 40, foot = 1, lift = 0.2 },
+	Line = { perRow = 8, gap = 4, rowGap = 5, edge = 90, clear = { 3, 6, 3 }, tries = 40, foot = 1, lift = 0.2 },
 	-- the shield round a soldier in the wave line: a ball `size` studs across in its team's magic colour
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },
