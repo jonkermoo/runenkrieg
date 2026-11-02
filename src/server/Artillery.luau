@@ -1355,7 +1355,9 @@ local function wreck(s: State)
 		local knock = math.min(W.knock, gun.traverse)
 		s.lay = {
 			yaw = s.lay.yaw,
-			traverse = math.clamp(s.lay.traverse + random:NextNumber(-knock, knock), -gun.traverse, gun.traverse),
+			traverse = if gun.traverse >= 180
+				then s.lay.traverse + random:NextNumber(-knock, knock) -- (a ring mount: no stops)
+				else math.clamp(s.lay.traverse + random:NextNumber(-knock, knock), -gun.traverse, gun.traverse),
 			elevation = gun.elevation[1],
 		}
 		s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }

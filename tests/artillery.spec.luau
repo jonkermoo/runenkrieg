@@ -45,6 +45,19 @@ return {
 		s = A.lay(s, -170, 0, QF, 0.1) -- 20 degrees to the left: past the stop
 		assert(s.traverse > -QF.traverse) -- first the mount goes toward +4.5
 	end,
+	["the howitzer's ring mount turns right round, held past the back (user 2026-11-02)"] = function()
+		-- holding the turn key: the client's aim leads the laid yaw by Aim.lead
+		local s = { yaw = 0, traverse = 0, elevation = HOW.elevation[1] }
+		for _ = 1, math.ceil(400 / (HOW.traverseRate * 0.05)) do
+			s = A.lay(s, A.wrap(s.yaw + s.traverse + C.Aim.lead), s.elevation, HOW, 0.05)
+		end
+		assert(s.yaw == 0 and s.traverse > 380, "on past 180 and round again: " .. s.traverse)
+		-- an aim just behind it goes the short way, from either side
+		s = A.lay({ yaw = 0, traverse = 175, elevation = 45 }, -175, 45, HOW, 1)
+		assert(near(s.traverse, 175 + HOW.traverseRate), "on through 180, not back round")
+		s = A.lay({ yaw = 0, traverse = 540, elevation = 45 }, 170, 45, HOW, 100)
+		assert(near(A.wrap(s.yaw + s.traverse), 170, 1e-4) and near(s.traverse, 530), "a whole turn on: still short")
+	end,
 	["elevation goes toward the aim, clamped to the limits"] = function()
 		local s = A.lay({ yaw = 0, traverse = 0, elevation = 0 }, 0, 80, HOW, 100)
 		assert(near(s.elevation, HOW.elevation[2]))

@@ -23,10 +23,20 @@ end
 
 -- The gun's lay after `dt` seconds working toward the wanted world yaw and elevation: the mount traverses toward the
 -- aim within +-`gun.traverse` at `traverseRate`; while the aim lies past that and the mount is at its stop, the whole
--- gun swings at `swing`. Elevation goes toward the wanted one, clamped, at `elevationRate`.
+-- gun swings at `swing`. A mount that goes right round (`gun.traverse` 180, the howitzer's ring) turns the short way
+-- to the aim and on past the back, its traverse going on round past 180 (user 2026-11-02: "the artys cant turn fully";
+-- it stopped at the back, as the aim there wrapped round to the other side; unwrapped, its hand wheel never jumps). Elevation goes toward the wanted one,
+-- clamped, at `elevationRate`.
 function Artillery.lay(state: Lay, wantYaw: number, wantElevation: number, gun: any, dt: number): Lay
 	local rel = Artillery.wrap(wantYaw - state.yaw)
 	local limit = gun.traverse
+	local elevation =
+		toward(state.elevation, math.clamp(wantElevation, gun.elevation[1], gun.elevation[2]), gun.elevationRate * dt)
+	if limit >= 180 then
+		local off = Artillery.wrap(rel - state.traverse)
+		local traverse = toward(state.traverse, state.traverse + off, gun.traverseRate * dt)
+		return { yaw = state.yaw, traverse = traverse, elevation = elevation }
+	end
 	local target = math.clamp(rel, -limit, limit)
 	local traverse = toward(state.traverse, target, gun.traverseRate * dt)
 	local yaw = state.yaw
@@ -37,8 +47,6 @@ function Artillery.lay(state: Lay, wantYaw: number, wantElevation: number, gun: 
 		yaw = Artillery.wrap(yaw + sign * turn)
 		-- the mount stays on its stop: the aim relative to the turned gun is still past it
 	end
-	local elevation =
-		toward(state.elevation, math.clamp(wantElevation, gun.elevation[1], gun.elevation[2]), gun.elevationRate * dt)
 	return { yaw = yaw, traverse = traverse, elevation = elevation }
 end
 
