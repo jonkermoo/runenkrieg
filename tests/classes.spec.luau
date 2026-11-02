@@ -13,7 +13,7 @@ LOCKED.Engineer = table.clone(C.Defs.Engineer)
 LOCKED.Engineer.locked = true
 
 -- the pieces only the Engineer builds
-local ENGINEER = { Gun = true, Hesco = true, Sandbags = true, Nest = true }
+local ENGINEER = { Gun = true, Nest = true }
 
 return {
 	["the user's prices: rifleman free, grenadier 50, auto rifler 100, shotgunner 150, engineer 150, mage 200"] = function()
@@ -108,7 +108,7 @@ return {
 			assert(g.headwear == kit.headwear, kitName .. " grenadier keeps the default helmet")
 		end
 	end,
-	["shotgunner: the team's pump shotgun, the shell-band helmet, no grenades, small builds (trenches, wire, bridges)"] = function()
+	["shotgunner: the team's pump shotgun, the shell-band helmet, no grenades, small builds (trenches, sandbags, wire, Hesco barriers, bridges)"] = function()
 		assert(C.Defs.Shotgunner and not C.Defs.Shotgunner.locked, "pickable")
 		assert(table.find(C.List, "Shotgunner"), "in the menu")
 		for _, kitName in U.Teams do
@@ -125,7 +125,7 @@ return {
 			assert(h.folder == A.Entries[kit.headwear].folder, kitName .. " the team's own helmet")
 			assert(h.fit.shell == (A.Entries[kit.headwear] :: any).fit.shell, kitName .. " fits the kit's hair")
 		end
-		for _, kind in { "Trench", "Wire", "Bridge" } do
+		for _, kind in { "Trench", "Sandbags", "Wire", "Hesco", "Bridge" } do
 			assert(R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind)
 		end
 		for kind in ENGINEER do
@@ -150,9 +150,9 @@ return {
 			end
 		end
 	end,
-	-- (Hesco barriers and sandbag piles too since round 7, user 2026-10-27: "hesco barriers should and sandbags should be
-	-- engineer only")
-	["only the engineer builds guns, Hesco barriers, sandbags and MG nests; everyone builds trenches, wire and bridges"] = function()
+	-- (Hesco barriers and sandbag piles everyone's again, user 2026-11-02: "allow sandbags and barriers to be built by
+	-- ordinary soldiers too")
+	["only the engineer builds guns and MG nests; everyone builds trenches, sandbags, wire, Hesco barriers and bridges"] = function()
 		local kinds: { [string]: boolean } = {}
 		for _, p in BuildCfg.Pieces do
 			kinds[p.kind] = true

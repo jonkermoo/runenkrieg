@@ -19,9 +19,9 @@ export type Def = {
 }
 
 -- what everyone may build (user: "everyone else can only build trenches and other small assets")
--- (Hesco barriers and sandbag piles are the Engineer's since round 7, user 2026-10-27: "hesco barriers should and
--- sandbags should be engineer only")
-local SMALL = { "Trench", "Wire", "Bridge" }
+-- (Hesco barriers and sandbag piles were the Engineer's from round 7 to 2026-11-02; everyone's again, user 2026-11-02:
+-- "allow sandbags and barriers to be built by ordinary soldiers too")
+local SMALL = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge" }
 
 local Classes = {
 	-- the loadout's kit cards (UI overhaul, user 2026-10-30): each class's rune (Config/Runes), the picked card raised
