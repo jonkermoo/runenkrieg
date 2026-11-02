@@ -331,14 +331,18 @@ local Assets = {
 			-- lower and set back behind the wall's top, off its slabs and planks (v4 139463386134488); v6: the heaps a little
 			-- closer to the wall's top (v5 107262926311515); v7: the heaps right on the wall's top and a Corner piece
 			-- where a wall stops at a joining trench (v6 122327305436244); v8: a skirt of low dirt slabs past each heap,
-			-- Wall<i>Apron (v7 82070975213659)
-			id = 94215187575150,
+			-- Wall<i>Apron (v7 82070975213659); v9: the floor 6 wide (4.25 to 3 a side) and one lower heap a side, no
+			-- skirt (user 2026-11-02, "make it a little more narrow and less thick", option B; v8 94215187575150)
+			-- v11 (trench_timber.py; user 2026-11-02: "base it off how our dug out is looking", "create constructtion
+			-- statuses and destruction statuses"): timbered, boards on posts with bolts, a corrugated iron wall, duckboards,
+			-- faceted spoil mounds, construction stages Dig1-4 and destruction stages Hit1-3 (v9 99912841219037)
+			id = 133558593375673,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",
-			generator = "tools/blender/trench/trench_pieces.py",
+			generator = "tools/blender/trench/trench_timber.py",
 			fidelity = "Hull",
-			description = "A trench square's dirt pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks, low-poly earth slabs on it; Wall5-8 also Wall<i>Planks + Wall<i>PlanksDark, plank steps laid on its own bare stretch), floors Floor1-4 (+ Floor<i>Chunks, slabs across the trench).",
+			description = "A trench square's pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-6 (the dirt face that collides, Wall<i>Planks / PlanksPale boards, PlanksDark posts and knots, Iron bolts; Wall2 corrugated Iron + IronRust sheets, Wall5 climbing cleats) and Wall<i>Parapet (a faceted spoil mound), floors Floor1-3 (dirt + a duckboard), Corner, construction stages Dig1-4 (Wall, Heap, Floor, Pile, timber going in) and destruction stages Hit1-3 (Wall timber, Fall: earth and boards slumped on the floor).",
 		},
 		-- the sandbag pile (user 2026-10-27: pillow bags, two under one, "give it some firmth"): each bag its own mesh, so
 		-- a pile is built a bag at a time; colored from Config/Palette.Build by mesh name. v2: stage 1, the scraped Patch

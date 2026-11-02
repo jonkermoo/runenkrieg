@@ -808,4 +808,23 @@ return {
 		assert(B.runSlope({ 0, 3, 6, 9 }, 3, C.Trench.slopeSpan) > C.Trench.maxSlope)
 		assert(near(B.runSlope({ 0, 1 }, 3, 8), B.slope(0, 1, 3)), "short runs: end to end")
 	end,
+	-- (user 2026-11-02: "create constructtion statuses and destruction statuses")
+	["a trench square shows construction stages while dug, then finished, then destruction stages as it loses HP"] = function()
+		local H, S = C.Trench.hp, C.Trench.stages
+		local function st(hp: number, built: boolean): string
+			local kind, n = B.trenchStage(hp, built, H, S)
+			return `{kind}{n}`
+		end
+		assert(B.trenchStage(0, false, H, S) == nil, "a plan shows no pieces")
+		assert(st(5, false) == "Dig1" and st(20, false) == "Dig1", "the first swing: stage 1")
+		assert(
+			st(40, false) == "Dig2" and st(60, false) == "Dig3" and st(80, false) == "Dig4" and st(99, false) == "Dig4"
+		)
+		for k = 1, #S.dig do
+			assert(st(H.swing * k, false) == `Dig{k}`, "a stage a swing")
+		end
+		assert(st(100, true) == "Full0" and st(75, true) == "Full0", "finished down to the first threshold")
+		assert(st(74, true) == "Hit1" and st(49, true) == "Hit2" and st(24, true) == "Hit3" and st(1, true) == "Hit3")
+		assert(#S.dig == 4 and #S.hit == 3, "the meshes trench_pieces v11 has: Dig1-4, Hit1-3")
+	end,
 }

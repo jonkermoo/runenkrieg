@@ -88,8 +88,9 @@ local Build = {
 		joinReach = 8,
 		-- a new trench keeps this far (between centre lines) from every other trench, except near the end where it joins
 		-- one (user 2026-10-24: "you shouldnt be able to build a new trench within a certain distance of another trench
-		-- unless you're extending"; 32 since the parapets: two trenches' parapets just meet)
-		spacing = 32,
+		-- unless you're extending"; 32 since the parapets: two trenches' parapets just meet; 25 since the narrower trench,
+		-- user 2026-11-02, "make it a little more narrow and less thick", option B)
+		spacing = 25,
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
 		-- the run's slope measured over this many studs (a voxel's step between two samples 3 studs apart read as too
@@ -100,9 +101,9 @@ local Build = {
 		-- over `maxCross` degrees there (sharp ground, craters)
 		maxCross = 25,
 		planLife = 180, -- seconds an undug plan stays
-		-- a swing works the square whose line is this close, in front of you (19: from anywhere on its dirt, out to the
-		-- skirt past its heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox")
-		swingReach = 19,
+		-- a swing works the square whose line is this close, in front of you (from anywhere on its dirt, out past its
+		-- heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox"; 19 to 13 with the narrower trench)
+		swingReach = 13,
 		-- a square's HP: a Build swing adds `swing` (up to `max`), a Destroy swing takes `destroy` off; blasts take HP by
 		-- their overpressure at the square (Blast below). Once dug full it is buried by what it loses: full depth down to
 		-- `hold`% HP, then filled in with the rest (80%: a little earth in it; 5-10%: nearly level, unusable), its pieces
@@ -122,14 +123,20 @@ local Build = {
 		-- ground, a 74 degree face toward the trench: too steep to walk up, chest high cover to shoot over)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
-		floor = 4.25, -- (user 2026-10-23: 1.5x wider, then "a little more narrow")
+		-- (user 2026-10-23: 1.5x wider, then "a little more narrow"; 4.25 to 3, user 2026-11-02, "make it a little more narrow and less thick", option B: the 6-stud floor of
+		-- docs/METRICS.md, two soldiers can pass)
+		floor = 3,
 		depth = 5.5,
 		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
 		-- (user 2026-10-23: steeper, 70, "it could be either deeper or less slopy"; 2026-10-24: "make this less steep
 		-- (just a bit) so our character can walk out of (not smoothly and easily of course)", 48, then "make the slope
 		-- more aggressive. have an inbetween from what we had before and now")
 		wallAngle = 59,
-		bank = { width = 5, height = 1.2 },
+		-- the terrain is cut this much deeper and wider than the pieces lie (trench_pieces v11's boards, duckboards and
+		-- floor dirt collide, so it is what you stand on; Studio round 2026-11-02: the 4-stud voxels rounded the floor
+		-- into a bowl over the lower boards and the duckboard): the cut at the ground still ends under the top plank
+		carve = { wider = 0.6, deeper = 0.8 },
+		bank = { width = 3, height = 1.2 }, -- (width 5 to 3 with the narrower trench, under its smaller heap)
 		-- a bullet meeting the ground this close round a square's hole, walls and banks hits the square (studs; the
 		-- terrain is carved in 4-stud voxels, so a shot at a wall often meets the ground just in front of its slab)
 		shotSlack = 2,
@@ -140,10 +147,11 @@ local Build = {
 		-- grass all the way down: Ground, Palette.Terrain); its fill, banks and bare rim are that material, its dirt
 		-- pieces that material's colour (Palette.Build.Trench*)
 		soil = { fallback = "Ground", skip = { "Grass", "LeafyGrass", "Air", "Water" } },
-		-- no grass this far out past a dug square's wall tops (its dirt heaps and skirt, joins.heapReach): the terrain
+		-- no grass this far out past a dug square's wall tops (its dirt heap, joins.heapReach; 12 to 7 with the narrower
+		-- trench): the terrain
 		-- there is its soil until it is filled in to 0 HP (user 2026-11-01: "make sure the area outside the terrain has
 		-- its grass removed too")
-		grassClear = 12,
+		grassClear = 7,
 		-- markers (src/server/Trenches; user 2026-10-24): a
 		-- stake (width, height) at each corner of a square, its top `top` studs painted (Palette.Build.PegTop), cord
 		-- `string` wide between the stake tops sagging by `sag` of its length (a Beam's curve); no flags
@@ -154,13 +162,20 @@ local Build = {
 		-- wall a side (Wall1..`walls`) and a floor (Floor1..`floors`), rolled from its seed (Rules.trenchPieces); the
 		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
 		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
-		pieces = { segment = 8, walls = 8, floors = 4, wood = { 5, 6, 7, 8 }, woodChance = 0.25 },
+		-- (trench_pieces v11, tools/blender/trench/trench_timber.py; user 2026-11-02: "base it off how our dug out is looking", "create constructtion statuses and destruction statuses": timbered, six walls (wall 2 corrugated
+		-- iron, wall 5 with climbing cleats, the "wood" one) and three duckboard floors)
+		pieces = { segment = 8, walls = 6, floors = 3, wood = { 5 }, woodChance = 0.25 },
+		-- the pieces' stages (Rules.trenchStage, % of hp.max): construction Dig1-4 from each of `dig` while it is first
+		-- dug (timbers waiting, the cut deepening, posts set, the lower boards up), destruction Hit1-3 under each of
+		-- `hit` once dug full (a board hanging; boards gone and a post leaning; the lining half down and a post snapped)
+		stages = { dig = { 20, 40, 60, 80 }, hit = { 75, 50, 25 } },
 		-- where pieces meet (src/server/Trenches; user 2026-10-24: "make sure that the joints connect by the walls"): how far
-		-- out past a wall's top edge its dirt heap and the skirt behind it reach (they keep that whole depth out of other
-		-- trenches; the skirt since 2026-10-25, trench_pieces v8 Wall<i>Apron), and how much further the side heaps run on
-		-- round a dead end and its heap reaches past the side walls' tops
-		joins = { heapReach = 11, deadEndHeap = 3 },
-		-- the skirt behind a heap (Wall<i>Apron, low slabs meant to lie half sunk in the ground) is laid only where the
+		-- out past a wall's top edge its dirt heap reaches (it keeps that whole depth out of other trenches; 11 to 6 since
+		-- trench_pieces v9, one lower heap and no skirt: user 2026-11-02, "make it a little more narrow and less thick",
+		-- option B), and how much further the side heaps run on round a dead end and its heap reaches past the side
+		-- walls' tops
+		joins = { heapReach = 7, deadEndHeap = 3 }, -- (7 since v11: its mound starts behind the top plank)
+		-- (trench_pieces v9 has no skirt; kept for a piece set that has one) the skirt behind a heap (Wall<i>Apron, low slabs meant to lie half sunk in the ground) is laid only where the
 		-- ground under it comes within `apronHang` studs of its underside everywhere (Rules.thinPieceSits); where the
 		-- trench pokes out over ground that falls away it would hang in the air as thin sheets, so the heap's full blocks
 		-- stand alone there (user 2026-10-27: "i dont mind if blocks stick out in the air, as long as they are full
