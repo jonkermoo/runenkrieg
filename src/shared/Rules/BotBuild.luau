@@ -38,7 +38,7 @@ end
 
 -- The Engineers' build list at its side's front `zone`, the enemy's way in along (tx, tz) (a flat unit): a sandbag pile
 -- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the edge, an MG nest at the hold spot nearest the enemy, and the
--- guns `guns` names (the keys the artillery level opens) behind the zone.
+-- guns `guns` names (the keys its side may build) behind the zone.
 function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns: { string }, cfg: any): { Job }
 	local jobs: { Job } = {}
 	-- across: the line at right angles to the way in

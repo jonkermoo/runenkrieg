@@ -62,7 +62,7 @@ export type Placing = {
 	perTeam: number,
 	allowed: boolean?, -- false: the builder's class may not build this kind (Rules/Classes.mayBuild)
 	spot: string?, -- a bridge: why its trench square won't take it (Build.bridgeSpot), nil when it will
-	locked: string?, -- a gun the match's artillery level hasn't reached yet: why (Rules/Frontline.gunLocked)
+	locked: string?, -- a gun the builder's side may not build yet: why (Rules/Frontline.gunLocked)
 	kind: number?, -- the team's live pieces of this one's key (its `teamCap`, Config/Build.Pieces)
 	mineKind: number?, -- the builder's live pieces of this one's key (its `playerCap`)
 	sector: number?, -- the team's live pieces of this one's key in the sector it is in (its `sectorCap`)
