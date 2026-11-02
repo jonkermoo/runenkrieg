@@ -392,9 +392,14 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 		table.insert(yard, { kind = f.kind, x = f.x, z = f.z, yaw = f.yaw or 0 })
 	end
 
-	-- 4. Telegraph poles along one road
+	-- 3c. Field hedgerows out in the open (a map's `hedgerows`: Lantern Meadows' fields round S2), as boundary runs
+	for _, h in cfg.hedgerows or {} do
+		table.insert(fences, { kind = h.kind or "Hedge", a = h.a, b = h.b })
+	end
+
+	-- 4. Telegraph poles along one road (a map may have none: Lantern Meadows' lantern poles are features)
 	local poles = {}
-	do
+	if cfg.poles then
 		local road
 		for _, r in cfg.roads do
 			if r.id == cfg.poles.road then

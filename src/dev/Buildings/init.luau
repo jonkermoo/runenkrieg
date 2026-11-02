@@ -222,6 +222,8 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.waterTower(model, ctx, at, f.size, f.height)
 			elseif f.kind == "Signal" then
 				Geometry.signal(model, ctx, at, f.height)
+			elseif f.kind == "Stage" then
+				Geometry.stage(model, ctx, at, f.width, f.depth, f.height, f.posts)
 			elseif f.kind == "Waterwheel" then
 				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
 			else
@@ -268,6 +270,8 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 				c = rgb(P.Walls[swatch])
 			elseif swatch and role == "Roof" and P.Roofs[swatch] then
 				c = rgb(P.Roofs[swatch])
+			elseif swatch and role == "Festival" and P.Festival[swatch] then
+				c = rgb(P.Festival[swatch]) -- a festival stage's canvas, rune paint and lanterns
 			end
 			if c then
 				-- hand-made look: each piece a few % lighter/darker (deterministic Tone from generation)

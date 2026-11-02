@@ -40,8 +40,9 @@ export type Template = {
 	-- (a stone yard wall from a to b, { x, z } each), { kind = "Waterwheel", x, z, y, yaw?, radius, width } (its axle
 	-- along local Z, its centre y over the base), { kind = "Canopy", x, z, length, depth, height } (a station canopy, its
 	-- wall side +Z), { kind = "Platform", x, z, length, depth, height } (its edge -Z), { kind = "WaterTower", x, z, size,
-	-- height }, { kind = "Signal", x, z, height }. A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
-	-- the copy's scheme.
+	-- height }, { kind = "Signal", x, z, height }, { kind = "Stage", x, z, width, depth, height, posts } (a festival
+	-- stage, its front -Z, its deck `height` up, its posts `posts` over the deck). A block's `wall` / `roof`
+	-- (Palette.Buildings keys) colour it apart from the copy's scheme.
 	features: { any }?,
 	description: string,
 }
@@ -91,6 +92,10 @@ local Buildings = {
 	Canopy = { posts = 5.5, rise = 1.2, roof = "Slate", valance = "WhiteBoard" },
 	WaterTower = { tank = "TarBoard", spout = 2.4 },
 	Signal = { post = "WhiteBoard", armRoof = "RedTile", arm = 3.2 },
+	-- a festival stage (Lantern Meadows): steps `step` (rise under Metrics.Character.MaxStepUp, `width` across) front and
+	-- back, the painted board over its front `board` high, its canvas awning rising `rise` to the back in `stripes`
+	-- stripes, `lanterns` hanging under the board
+	Stage = { board = 3.2, rise = 2.2, stripes = 8, lanterns = 5, step = { rise = 0.8, run = 1.4, width = 8 } },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -442,6 +447,28 @@ local Buildings = {
 				{ kind = "Signal", x = 20.5, z = -7.5, height = 12 },
 			},
 			description = "The railway halt: a small brick station, platform and canopy, a water tower and a signal.",
+		},
+		-- Lantern Meadows' landmarks (user 2026-11-01, the six designs: watchtower, field barn, festival stage,
+		-- lantern-makers' hall, ferry house, cascina), one at a time. The festival stage on the festival ground north of
+		-- S3, on its x, facing the point: a stone plinth with steps front and back, timber posts, a canvas backdrop, a
+		-- painted board with a rune circle over its front, lanterns under it and a striped canvas awning. Its lantern poles
+		-- stand round the ground (the map's village features).
+		FestivalStage = {
+			folder = "Landmarks",
+			width = 34,
+			depth = 26,
+			stories = 1,
+			storyHeight = 10,
+			roofPitch = 0,
+			class = "Wood",
+			wallThickness = 1,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {},
+			features = {
+				{ kind = "Stage", x = 0, z = 0, width = 32, depth = 14, height = 3.2, posts = 10 },
+			},
+			description = "The festival stage: a stone plinth with steps, timber posts, a painted rune board, lanterns and a striped awning.",
 		},
 	} :: { [string]: Template },
 
