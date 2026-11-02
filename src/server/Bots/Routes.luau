@@ -15,7 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
 local FrontCfg = require(Shared.Config.Frontline)
-local Map = require(Shared.Config.Maps.Map1)
+local Map = require(Shared.LiveMap).map -- (the match's map)
 local Squads = require(Shared.Rules.BotSquads)
 local Rules = require(Shared.Rules.Bots)
 

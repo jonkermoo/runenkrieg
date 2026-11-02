@@ -39,7 +39,7 @@ local SketchCfg = require(Shared.Config.SketchMap) :: any
 local FrontlineCfg = require(Shared.Config.Frontline)
 local SketchMap = require(script.Parent.SketchMap)
 local U = require(Shared.Config.Uniforms)
-local Map1 = require(Shared.Config.Maps.Map1)
+local LiveMap = require(Shared.LiveMap)
 local Playtest = require(Shared.Config.Maps.Playtest)
 local Rules = require(Shared.Rules.ModeHud)
 local ZoneRules = require(Shared.Rules.ZoneMatch)
@@ -81,10 +81,14 @@ local function find(n: any, id: string): any
 	return nil
 end
 
--- a sector's id -> its map entry (isHQ)
-local SECTORS: { [string]: any } = {}
-for _, s in Map1.sectors do
-	SECTORS[s.id] = s
+-- a sector's id -> its map entry (isHQ), on the match's map
+local function sectorOf(id: string): any
+	for _, s in LiveMap.map.sectors do
+		if s.id == id then
+			return s
+		end
+	end
+	return nil
 end
 
 type Diamond = { box: Frame, face: Frame, grad: UIGradient, edge: UIStroke }
@@ -373,7 +377,7 @@ local function updateFront(folder: Instance, now: number)
 	for slot = 1, n do
 		local f = list[Rules.slot(slot, n, side)]
 		local d = frontPins[slot]
-		local s = SECTORS[f.Name]
+		local s = sectorOf(f.Name)
 		local hq = s ~= nil and s.isHQ == true
 		local tmpl = find(Spec.root, if hq then "PinHQ" else "Pin")
 		d.box.Size = udim(tmpl.size)
@@ -555,7 +559,30 @@ function ModeHud.start()
 	mapBox.Size = UDim2.fromOffset(H.width, tall(FrontlineCfg.MapKey))
 	mapBox.Visible = false
 	mapBox.Parent = gui
-	SketchMap.new(mapBox, FrontlineCfg.MapKey, { you = true, teammates = true })
+	-- one sheet per frontline map with sketch art, the match's map shown (the vote can move the match)
+	local sheets: { [string]: Frame } = {}
+	for _, key in LiveMap.frontline() do
+		if SketchCfg.Maps[key] then
+			local sheet = Instance.new("Frame")
+			sheet.Name = key
+			sheet.BackgroundTransparency = 1
+			sheet.Size = UDim2.fromScale(1, 1)
+			sheet.Parent = mapBox
+			SketchMap.new(sheet, key, { you = true, teammates = true })
+			sheets[key] = sheet
+		end
+	end
+	local function showSheet()
+		local live = LiveMap.key()
+		for key, sheet in sheets do
+			sheet.Visible = key == live
+		end
+		if sheets[live] then
+			mapBox.Size = UDim2.fromOffset(H.width, tall(live))
+		end
+	end
+	showSheet()
+	workspace:GetAttributeChangedSignal(FrontlineCfg.MapAttribute):Connect(showSheet)
 	nodes.SketchMap = mapBox
 	local ffaBox = mapBox:Clone()
 	ffaBox.Name = "SketchMapFFA"
@@ -600,7 +627,8 @@ function ModeHud.start()
 			local folder = workspace:FindFirstChild(Cfg.FrontlineFolder)
 			local map = workspace:FindFirstChild(Playtest.name)
 			local zone = map and map:FindFirstChild(ZoneCfg.MarkerName)
-			local title = screenOn("TitleScreen")
+			-- (the match's cutscenes and the map vote hide the HUD: src/client/MatchCutscene, src/client/MapVote)
+			local title = screenOn("TitleScreen") or screenOn("MatchCutscene") or screenOn("MapVote")
 			local ffa = zone ~= nil and workspace:GetAttribute(ModesCfg.Attribute) == "FFA"
 			ffaOn = ffa
 			front = not ffa and folder ~= nil and folder:IsA("Folder")
