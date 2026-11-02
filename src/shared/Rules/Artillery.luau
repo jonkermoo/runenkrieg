@@ -280,6 +280,73 @@ function Artillery.mayTakeOver(playerKit: any, botKit: any): boolean
 	return type(playerKit) == "string" and playerKit == botKit
 end
 
+-- Where a shot from the gun standing at (px, pz) laid `lay` comes down on flat ground at its muzzle's height (world x,
+-- z); nil when it points straight up.
+function Artillery.landing(gun: any, lay: Lay, px: number, pz: number): (number?, number?)
+	local mx, _, mz, dx, dy, dz = Artillery.muzzle(gun, lay.traverse, lay.elevation)
+	mx, _, mz = aboutY(mx, 0, mz, lay.yaw)
+	dx, _, dz = aboutY(dx, dy, dz, lay.yaw)
+	local flat = math.sqrt(dx * dx + dz * dz)
+	if flat < 1e-3 then
+		return nil, nil
+	end
+	local reach = Artillery.range(gun.speed, math.deg(math.atan2(dy, flat)), gun.gravity)
+	return px + mx + dx / flat * reach, pz + mz + dz / flat * reach
+end
+
+-- Whether (x, z) lies within `margin` studs of a spawn (user 2026-11-02: guns "shouldnt be able to reach the exact
+-- spawn no matter where its placed ... make it consistent throughout all maps"): of a rect in `zones` (a map's
+-- spawnZones) or of a circle in `lines` ({ x, z, radius }: a side's wave line now).
+function Artillery.nearSpawn(
+	x: number,
+	z: number,
+	zones: { [any]: any },
+	lines: { { number } },
+	margin: number
+): boolean
+	for _, r in zones do
+		local dx = math.max(r.minX - x, 0, x - r.maxX)
+		local dz = math.max(r.minZ - z, 0, z - r.maxZ)
+		if dx * dx + dz * dz <= margin * margin then
+			return true
+		end
+	end
+	for _, c in lines do
+		local m = c[3] + margin
+		local dx, dz = x - c[1], z - c[2]
+		if dx * dx + dz * dz <= m * m then
+			return true
+		end
+	end
+	return false
+end
+
+-- Artillery.lay kept off where `blocked(lay)` (a spawn): a step that would lay it there turns only the axis that stays
+-- clear (sliding along the edge), or nothing; true when it was held. A lay already there moves freely (the spawn came
+-- to it).
+function Artillery.layClear(
+	state: Lay,
+	wantYaw: number,
+	wantElevation: number,
+	gun: any,
+	dt: number,
+	blocked: (Lay) -> boolean
+): (Lay, boolean)
+	local step = Artillery.lay(state, wantYaw, wantElevation, gun, dt)
+	if not blocked(step) or blocked(state) then
+		return step, false
+	end
+	local turn = Artillery.lay(state, wantYaw, state.elevation, gun, dt)
+	if not blocked(turn) then
+		return turn, true
+	end
+	local raise = Artillery.lay(state, state.yaw + state.traverse, wantElevation, gun, dt)
+	if not blocked(raise) then
+		return raise, true
+	end
+	return state, true
+end
+
 -- The server's check of an aim sent by the gunner: real numbers in range.
 function Artillery.aimOk(yaw: any, elevation: any): boolean
 	return type(yaw) == "number"

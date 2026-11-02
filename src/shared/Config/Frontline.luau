@@ -75,11 +75,13 @@ local Frontline = {
 	-- are paid `times` over (src/server/Loadouts)
 	Reinforcements = { gap = 3, share = 0.25, times = 1.5 },
 	-- on the Frontline folder: the next wave's server time; the artillery level; the side reinforced (or nil); each side's
-	-- spawn sector (an index, "<Side>Spawn"). On a character: while it stands in the wave line.
+	-- spawn sector (an index, "<Side>Spawn") and its wave line's centre (a Vector3, "<Side>Line": no shells there,
+	-- Config/Artillery.SpawnGuard). On a character: while it stands in the wave line.
 	WaveAttribute = "WaveAt",
 	LevelAttribute = "GunLevel",
 	ReinforcedAttribute = "Reinforced",
 	SpawnAttribute = "Spawn",
+	LineAttribute = "Line",
 	HoldAttribute = "WaveHold",
 }
 

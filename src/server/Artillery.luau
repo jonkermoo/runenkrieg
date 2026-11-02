@@ -74,6 +74,9 @@ type State = {
 	conns: { RBXScriptConnection },
 	sent: number, -- when the lay was last written out
 	aimed: number, -- when the gunner's last aim was taken
+	warned: number, -- when the gunner was last told it can't aim at a spawn
+	landings: { [string]: Vector3 | false }, -- where each lay asked about comes down (comesDown)
+	landingKeys: { string },
 	crewAt: number, -- the traverse the mount was last turned to here
 	mountRest: { [BasePart]: CFrame }, -- a turning mount's parts at rest, in gun space (crewTurns: posed here too)
 	weld: WeldConstraint?, -- the gunner held on the gun
@@ -464,23 +467,91 @@ local function landsOwn(kit: any, x: number, z: number): boolean
 	return sector ~= nil and sector:GetAttribute("Owner") == side
 end
 
+-- Where a shell from `s` laid `lay` comes down on the ground (the path cast against the terrain every Config/Artillery
+-- Arc.step seconds, as the gunner's landing marker; nothing hit within MaxFlight: level with the gun). Kept per lay
+-- in `s.landings` (a turning gun asks for a few lays a frame).
+local terrainOnly = RaycastParams.new()
+terrainOnly.FilterType = Enum.RaycastFilterType.Include
+terrainOnly.IgnoreWater = false
+local function comesDown(s: State, lay: Rules.Lay): Vector3?
+	local key = string.format("%.2f %.2f %.2f", lay.yaw, lay.traverse, lay.elevation)
+	local known = s.landings[key]
+	if known ~= nil then
+		return known or nil
+	end
+	local gun = s.gun
+	local base = s.model:GetPivot().Position
+	local frame = CFrame.new(base) * CFrame.Angles(0, math.rad(lay.yaw), 0)
+	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, lay.traverse, lay.elevation)
+	local o = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local v = frame:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
+	local g = gun.gravity
+	terrainOnly.FilterDescendantsInstances = { workspace.Terrain }
+	local step = Cfg.Arc.step
+	local prev, t = o, step
+	local found: Vector3? = nil
+	while t <= Cfg.MaxFlight and prev.Y > Cfg.Arc.floor do
+		local x, y, z = Rules.at(t, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
+		local q = Vector3.new(x, y, z)
+		local hit = workspace:Raycast(prev, q - prev, terrainOnly)
+		if hit then
+			found = hit.Position
+			break
+		end
+		prev, t = q, t + step
+	end
+	if not found then
+		local fall = Rules.fall(o.Y - base.Y, v.Y, g)
+		if fall and fall <= Cfg.MaxFlight then
+			local x, y, z = Rules.at(fall, o.X, o.Y, o.Z, v.X, v.Y, v.Z, g)
+			found = Vector3.new(x, y, z)
+		end
+	end
+	if #s.landingKeys >= 32 then
+		table.clear(s.landings)
+		table.clear(s.landingKeys)
+	end
+	s.landings[key] = found or false
+	table.insert(s.landingKeys, key)
+	return found
+end
+
+-- Whether a field gun's or howitzer's shell laid `lay` would come down on a spawn (Config/Artillery.SpawnGuard:
+-- either side's spawn zone, or its wave line in a Normal match)
+local function onSpawn(s: State, lay: Rules.Lay): boolean
+	local gun = s.gun
+	if gun.mg then
+		return false
+	end
+	local land = comesDown(s, lay)
+	if not land then
+		return false
+	end
+	local G = Cfg.SpawnGuard
+	local lines = {}
+	local front = workspace:FindFirstChild(FrontCfg.FolderName)
+	if front then
+		for _, side in { "West", "East" } do
+			local c = front:GetAttribute(side .. FrontCfg.LineAttribute)
+			if typeof(c) == "Vector3" then
+				table.insert(lines, { c.X, c.Z, G.line })
+			end
+		end
+	end
+	return Rules.nearSpawn(land.X, land.Z, Map1.spawnZones, lines, gun.zone + G.gap)
+end
+
 local function friendlyTarget(s: State): string?
 	local character = body(s)
 	if not character then
 		return nil
 	end
-	local gun = s.gun
-	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, s.lay.traverse, s.lay.elevation)
-	local pivot = s.model:GetPivot()
-	local origin = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
-	local dir = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz))
-	local flat = Vector3.new(dir.X, 0, dir.Z)
-	if flat.Magnitude < 1e-3 then
-		return nil
+	if onSpawn(s, s.lay) then
+		return Cfg.SpawnGuard.why
 	end
-	local elevation = math.deg(math.atan2(dir.Y, flat.Magnitude))
-	local land = origin + flat.Unit * Rules.range(gun.speed, elevation, gun.gravity)
-	if landsOwn(character:GetAttribute("Kit"), land.X, land.Z) then
+	local at = s.model:GetPivot().Position
+	local x, z = Rules.landing(s.gun, s.lay, at.X, at.Z)
+	if x and z and landsOwn(character:GetAttribute("Kit"), x, z) then
 		return "Can't fire on your own sector"
 	end
 	return nil
@@ -989,6 +1060,9 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 		conns = {},
 		sent = 0,
 		aimed = 0,
+		warned = 0,
+		landings = {},
+		landingKeys = {},
 		crewAt = 0,
 		mountRest = {},
 		weld = nil,
@@ -1417,6 +1491,11 @@ local function layOn(s: State, point: Vector3): (number?, number?)
 	return yaw, elevation
 end
 
+-- the lay toward world `yaw` and `elevation` as layOn finds it (the whole gun turned there, the mount centred)
+local function layTo(yaw: number, elevation: number): Rules.Lay
+	return { yaw = Rules.wrap(yaw), traverse = 0, elevation = elevation }
+end
+
 -- What a bot needs to know of a gun (Artillery.list)
 export type GunInfo = {
 	model: Model,
@@ -1431,11 +1510,13 @@ export type GunInfo = {
 	rounds: number?, -- a machine gun's box
 	crew: Vector3, -- where its gunner stands
 	reach: number, -- how near `crew` a bot must be to man it (studs)
-	-- with a point: the lay that hits it (nil: out of its reach), and whether it lies on kit's own side's sector
+	-- with a point: the lay that hits it (nil: out of its reach), whether it lies on kit's own side's sector, and
+	-- whether that lay comes down on a spawn (Config/Artillery.SpawnGuard: it won't lay or fire there)
 	yaw: number?,
 	elevation: number?,
 	inRange: boolean?,
 	friendly: boolean?,
+	spawn: boolean?,
 }
 
 -- Every gun as a bot sees it (GunInfo); with `point`, whether and how each reaches it, and with `kit` whether that
@@ -1469,6 +1550,7 @@ function Artillery.list(point: Vector3?, kit: string?): { GunInfo }
 			info.yaw, info.elevation = layOn(s, point)
 			info.inRange = info.elevation ~= nil
 			info.friendly = kit ~= nil and landsOwn(kit, point.X, point.Z)
+			info.spawn = info.elevation ~= nil and onSpawn(s, layTo(info.yaw :: number, info.elevation :: number))
 		end
 		table.insert(out, info)
 	end
@@ -1512,14 +1594,14 @@ function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
 end
 
 -- The bot's gun laid to land on world `point` (the low arc where it can, else the high). False when it is on no gun or
--- the point is out of its reach (the lay left as it was).
+-- the point is out of its reach or its shell would come down on a spawn (the lay left as it was).
 function Artillery.aimAtAs(model: Model, point: Vector3): boolean
 	local s = stateOfBot(model)
 	if not s then
 		return false
 	end
 	local yaw, elevation = layOn(s, point)
-	if not yaw or not elevation then
+	if not yaw or not elevation or onSpawn(s, layTo(yaw, elevation)) then
 		return false
 	end
 	s.want = { yaw = Rules.wrap(yaw), elevation = elevation }
@@ -1625,7 +1707,14 @@ function Artillery.start()
 			if not s.gunner and not s.bot then
 				continue
 			end
-			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt)
+			local held
+			s.lay, held = Rules.layClear(s.lay, s.want.yaw, s.want.elevation, s.gun, dt, function(l)
+				return onSpawn(s, l)
+			end)
+			if held and s.gunner and t - s.warned >= Cfg.SpawnGuard.every then
+				s.warned = t
+				Net.event("Artillery"):FireClient(s.gunner, "Refused", Cfg.SpawnGuard.aimWhy)
+			end
 			if t - s.sent < 1 / Cfg.Send then
 				continue
 			end
