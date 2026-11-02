@@ -75,6 +75,7 @@ local Bots = {
 		{ key = "AutoRifler" },
 		{ key = "Shotgunner", push = 18 },
 		{ key = "Engineer" }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
+		{ key = "Mage" }, -- (user 2026-11-02: Mage bots in Normal and FFA, by points; Config/Bots.Staff)
 	},
 	-- the share of the battle points (Config/Classes.Earn: the kill, headshot and assists) a bot's death pays its killer
 	-- (user 2026-10-30: "make the AIs count half the battle points when you kill them")
@@ -279,6 +280,22 @@ local Bots = {
 		Nest = { ahead = 2 },
 		Guns = { back = 60, side = 24 },
 		caps = { pieces = 50, FieldGun = 3, Howitzer = 1 },
+	},
+
+	-- Mage bots (Rules/BotStaff; src/server/StaffCast openAs / aimAs / castAs, the players' mana, cooldowns and holds;
+	-- user 2026-11-02): the stage by Rules/BotStaff.stage (Config/Damage.Staff.Range each stage's reach); a mega shot
+	-- at `megaGroup` enemies within `cluster` studs of the target, or a target in a building, an MG nest or within `gun`
+	-- studs of a gun ("Groups and strongpoints"), never with a teammate within `blast` studs of where it lands; no
+	-- shot with a teammate within `line` studs of the beam. Seen-or-not: medium and mega shots also go at where its
+	-- squad last knew an enemy (their cover: "Soldiers and their cover"). An open circle is dropped once the target
+	-- has been out of sight `lost` seconds; a mega shot is charged standing still.
+	Staff = {
+		megaGroup = 2,
+		cluster = 10,
+		gun = 8,
+		blast = 25,
+		line = 4,
+		lost = 0.8,
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above
