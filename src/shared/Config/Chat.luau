@@ -26,25 +26,27 @@ local Chat = {
 	-- Global: the MessagingService topic, a sender's wait between lines, the server tag shown on lines from elsewhere
 	Global = { topic = "RunenkriegGlobalChat", cooldown = 2, tagLength = 4 },
 	WhisperCooldown = 0.5, -- seconds between asking the server for whisper channels
-	-- the panel, in reference pixels at an 800-pixel-tall screen (one UIScale, clamped like the menus): top left,
-	-- under the sketch map's place
+	-- the panel: top left, under the sketch map's place. Its corner `x`, `y` in reference pixels at an 800-pixel-tall
+	-- screen (moved with the screen's height, clamped by `scale`, as the map is); everything else in screen pixels, not
+	-- scaled, as Roblox's own chat (user 2026-11-02: "make the text in the chat smaller? it should match the size of what
+	-- roblox's wouldve been": its ChatWindowConfiguration.TextSize, 14)
 	Panel = {
 		x = 16,
 		y = 168, -- under the in-play sketch map (Config/SketchMap.Hud: 10 + 486 x 295 / 1024, plus 18)
-		width = 430,
-		height = 300,
-		tabs = 30, -- the tab row's height
-		bar = 44, -- the input bar's height
-		pad = 10,
-		gap = 3, -- between lines
-		textSize = 21,
-		tagSize = 15, -- the channel word on a line
-		tabSize = 22, -- the chosen tab; the others are smaller
-		tabSizeOff = 17,
-		hintSize = 15,
+		width = 360,
+		height = 230,
+		tabs = 22, -- the tab row's height
+		bar = 32, -- the input bar's height
+		pad = 8,
+		gap = 2, -- between lines
+		textSize = 14,
+		tagSize = 12, -- the channel word on a line
+		tabSize = 15, -- the chosen tab; the others are smaller
+		tabSizeOff = 12,
+		hintSize = 12,
 		-- the hide toggle under the panel (user 2026-10-31: "can we also make the chat hideable"): a faint word, its
 		-- gap below the panel's wash; hidden, only it stays, with a red mark once a line comes in
-		toggle = { gap = 6, height = 22, fade = 0.35 },
+		toggle = { gap = 4, height = 16, fade = 0.35 },
 		washTransparency = 0.45,
 		scale = { min = 0.65, max = 1.25 },
 	},
