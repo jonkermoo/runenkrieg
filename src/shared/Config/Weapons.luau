@@ -1225,7 +1225,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		hidden = { "Casing", "Clip" }, -- the charger shows only while reloading
 		attachments = {
-			Muzzle = { 0, 0.065, -2.1899 }, -- flush in the nose cap, over the bayonet boss
+			Muzzle = { 0, 0.065, -2.2517 }, -- flush in the nose cap, over the bayonet boss (the real 1130 mm, 2026-11-02)
 			Aim = { 0, 0.1393, 0.45 }, -- on the sight line: blade tip + rear notch, 0.074 over the bore (the SMLE's high sights)
 			Eject = { 0.035, 0.075, -0.2533 }, -- the ejection port, right side
 		},
@@ -1259,7 +1259,7 @@ local Weapons: { [string]: Weapon } = {
 			strike = 77290819806919, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
-		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.17 -> 4.76 studs long
+		scale = { 2.5, 2.5, 1.5 }, -- as the other rifles: 3.23 -> 4.85 studs long
 		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
