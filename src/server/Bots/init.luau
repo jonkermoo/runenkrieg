@@ -277,10 +277,12 @@ type Bot = {
 	cast: Cast?, -- a Mage's circle open
 	digger: boolean?, -- Normal: one of its holding squad's diggers (Config/Bots.Trenches.share)
 	crew: boolean?, -- Normal: an Engineer on gun duty this life (Config/Bots.Build.Crews): gun jobs first
+	dugouts: boolean?, -- Normal: an Engineer on dugout duty this life (Config/Bots.Dugouts.engineers): dugout jobs first
 	sapper: boolean?, -- Normal: one of its squad's sappers (Config/Bots.Sap.share)
 	pileAt: number?, -- when it last laid a sandbag pile pinned down (Config/Bots.Build.Pinned)
 	postFloor: Vector3?, -- its post is a fire step: the trench floor below it (its cover)
-	postKind: string?, -- "step", "reserve" (the support line), "window" or "open"
+	postKind: string?, -- "step", "reserve" (the support line), "dugout" (sheltering), "window" or "open"
+	postFoot: Vector3?, -- its dugout's foot (where the steps start): walked straight down from there, and up to it
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -302,7 +304,7 @@ local pathOf: { [number]: Path } = {}
 local ByTrench = {
 	costs = table.clone(IndoorCfg.PathCosts) :: { [string]: number },
 	paths = {} :: { [number]: Path },
-	blasts = {} :: { { x: number, z: number, at: number } },
+	blasts = {} :: { { x: number, z: number, at: number, kg: number } },
 	counts = {} :: { { West: number, East: number } },
 	marks = {} :: { [Model]: BasePart },
 	folder = nil :: Folder?,
@@ -312,6 +314,54 @@ for _, name in TM.materials do
 	ByTrench.costs[name] = TM.open
 end
 ByTrench.costs[TM.label] = 1
+
+-- Normal: dugouts and foxholes (Config/Bots.Dugouts), in one table (the module is at Luau's limit of locals):
+-- - holes: the foxholes its bots dug, the newest Dugouts.Fox.keep (a dug foxhole is only terrain: Build lists it no
+--   more), each its middle and its floor
+-- - tried: when each bot last tried to dig one at its hold post (a refused spot isn't tried again at once)
+local Dug = {
+	holes = {} :: { { x: number, z: number, floor: Vector3 } },
+	tried = {} :: { [number]: number },
+}
+-- a dugout's foot: where its steps start, on the trench floor at the foot of its wall (where a bot swings at it), from
+-- its "Frame" (the middle of its steps and room, +Z back into the wall) and "Size"
+function Dug.foot(model: Model): Vector3?
+	local frame, size = model:GetAttribute("Frame"), model:GetAttribute("Size")
+	if typeof(frame) == "CFrame" and typeof(size) == "Vector3" then
+		return (frame * CFrame.new(0, 0, -size.Z / 2)).Position
+	end
+	return nil
+end
+-- `team`'s works (Build.worksOf) with a dugout's `at` its foot; and each dugout's room (the middle of its floor)
+function Dug.works(team: string?): ({ Build.Work }, { [Model]: Vector3 })
+	local works = Build.worksOf(team)
+	local rooms: { [Model]: Vector3 } = {}
+	for _, w in works do
+		if w.key == "Dugout" then
+			rooms[w.model] = w.at
+			w.at = Dug.foot(w.model) or w.at
+		end
+	end
+	return works, rooms
+end
+-- whether `room` is one of `sb`'s dugouts that shelter still
+function Dug.standing(sb: SideBuild, room: Vector3?): boolean
+	for _, rm in sb.rooms do
+		if rm.room == room then
+			return true
+		end
+	end
+	return false
+end
+-- a foxhole a bot dug, its spot's middle `at`: remembered (the newest Fox.keep)
+function Dug.dug(at: Vector3): Vector3
+	local floor = at - Vector3.yAxis * BuildCfg.Foxhole.depth
+	table.insert(Dug.holes, { x = at.X, z = at.Z, floor = floor })
+	if #Dug.holes > Cfg.Dugouts.Fox.keep then
+		table.remove(Dug.holes, 1)
+	end
+	return floor
+end
 local count = 0
 local folder: Folder? = nil
 local random = Random.new()
@@ -366,6 +416,13 @@ local stats = {
 	dangerPaths = 0, -- paths asked for knowing there's danger (kept to trenches)
 	intoTrench = 0, -- shot at in the open, down into a trench nearby
 	overTop = 0, -- squads over the top from their jump-off trench
+	dugouts = 0, -- dugouts put on the build list
+	sheltered = 0, -- holders down into a dugout under shelling
+	cameUp = 0, -- holders up from a dugout to their posts
+	bombed = 0, -- grenades down an enemy dugout's steps
+	holes = 0, -- foxholes dug
+	pinnedHoles = 0, -- foxholes begun pinned down in the open
+	intoHole = 0, -- shot at in the open, down into a foxhole nearby
 	lost = 0, -- fire trenches lost (the holders fell back)
 	covering = 0, -- shots of covering fire
 	assaults = 0, -- squads that pushed into a zone
@@ -418,6 +475,13 @@ type SideBuild = {
 	trench: { TrenchSquare }, -- every own trench square, dug or not (saps)
 	lines: { BotTrenches.Run }, -- trench lines its bots lay no piece on: every square's, its runs', its saps'
 	guns: number, -- the side's guns standing (anyone's; Config/Bots.Build.Crews)
+	-- its dugouts (Config/Bots.Dugouts): the rooms that shelter (the middle of each floor), whether its trenches are
+	-- shelled now and have been at this front, its fire bays with a step (one sentry each)
+	rooms: { { x: number, z: number, room: Vector3, foot: Vector3 } },
+	shelled: boolean,
+	shelledOnce: boolean,
+	bays: number,
+	digging: number, -- its dugouts wanted not yet stood (laid or not)
 }
 local buildLists: { [string]: SideBuild } = {}
 local commandTick = 0
@@ -501,6 +565,19 @@ local function chooseClass(b: Bot): (string, number?)
 		end
 		if BotBuild.crewWanted(sb.guns, crews, BD.Crews) then
 			key, cost, b.crew = "Engineer", eng.cost, true
+		end
+	end
+	-- dugout duty (Config/Bots.Dugouts.engineers): an Engineer while its side has dugouts to dig, if it can pay
+	b.dugouts = nil
+	if not b.crew and sb and sb.digging > 0 and eng and not eng.locked and eng.cost <= Loadouts.botPoints(b.id) then
+		local on = 0
+		for _, o in bots do
+			if o ~= b and o.side == b.side and o.dugouts then
+				on += 1
+			end
+		end
+		if on < Cfg.Dugouts.engineers then
+			key, cost, b.dugouts = "Engineer", eng.cost, true
 		end
 	end
 	if cost > 0 then
@@ -1071,19 +1148,41 @@ local function findCover(b: Bot, now: number)
 	local threat = from :: Vector3
 	b.coverAt = now
 	local root = b.root :: BasePart
+	-- sheltering under shelling: its dugout is its cover (Config/Bots.Dugouts)
+	if b.postKind == "dugout" and b.post then
+		b.cover, b.coverFrom, b.coverJob = b.post, threat, nil
+		return
+	end
 	-- shot at by its own dug trench: down into it (Config/Bots.TrenchMove.cover)
 	local sb = b.side and buildLists[b.side :: string]
 	if sb and b.threatAt and now - (b.threatAt :: number) < brainCfg.ThreatMemory then
-		local best, bestD = nil, TM.cover
+		local best, bestD, hole = nil, TM.cover, false
 		for _, t in sb.trench do
 			local d = flat(t.at - root.Position).Magnitude
 			if t.built and d < bestD then
 				best, bestD = t.at, d
 			end
 		end
+		-- (or a foxhole its side dug, one bot to it: Config/Bots.Dugouts.Fox)
+		for _, h in Dug.holes do
+			local d = flat(h.floor - root.Position).Magnitude
+			local free = d < bestD
+			for _, o in bots do
+				if free and o ~= b and (o.cover == h.floor or o.post == h.floor) then
+					free = false
+				end
+			end
+			if free then
+				best, bestD, hole = h.floor, d, true
+			end
+		end
 		if best then
 			if b.cover ~= best then
-				stats.intoTrench += 1
+				if hole then
+					stats.intoHole += 1
+				else
+					stats.intoTrench += 1
+				end
 			end
 			b.cover, b.coverFrom, b.coverJob = best, threat, nil
 			return
@@ -1762,11 +1861,12 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 		local fits = engineer or SMALL[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
 		taken[k] = held[r] == true or not fits
 	end
-	-- on gun duty (Config/Bots.Build.Crews): the nearest gun job anywhere on the list first
-	if b.crew then
+	-- on gun duty (Config/Bots.Build.Crews) or dugout duty (Config/Bots.Dugouts.engineers): the nearest such job
+	-- anywhere on the list first
+	if b.crew or b.dugouts then
 		local notGun: { [number]: boolean } = {}
 		for k, r in open do
-			notGun[k] = taken[k] or not GUN[r.job.key]
+			notGun[k] = taken[k] or not (if b.crew then GUN[r.job.key] else r.job.key == "Dugout")
 		end
 		local g = BotBuild.pick(list, root.X, root.Z, math.huge, notGun, {}, nil)
 		if g then
@@ -1788,6 +1888,45 @@ local function pickJob(b: Bot): BuildJob?
 		return nil
 	end
 	return pickFrom(b, sb.open, false)
+end
+
+-- an enemy dugout's steps to throw down, if its squad `sq` knows someone is in it (Rules/BotTrenches.occupied): within
+-- Dugouts.Bomb.min-max of `at`, no teammate near the steps
+function Dug.bomb(b: Bot, sq: SquadState, at: Vector3, now: number): Vector3?
+	local B = Cfg.Dugouts.Bomb
+	local known = {}
+	for _, k in sq.known do
+		if now - k.at <= SQ.knownFor then
+			table.insert(known, { x = k.pos.X, y = k.pos.Y, z = k.pos.Z })
+		end
+	end
+	if #known == 0 then
+		return nil
+	end
+	for _, w in Clear.every do
+		local foot = w.key == "Dugout" and w.team ~= b.kit and w.built and w.hp > 0 and Dug.foot(w.model)
+		if foot then
+			local steps = (foot :: Vector3):Lerp(w.at, 0.35) -- (part way down them)
+			local d = flat(steps - at).Magnitude
+			if d >= B.min and d <= B.max and BotTrenches.occupied(known, { x = w.at.X, z = w.at.Z }, foot.Y, B) then
+				local clear = true
+				for _, o in bots do
+					if
+						o.side == b.side
+						and o.root
+						and flat((o.root :: BasePart).Position - steps).Magnitude < AC.Grenade.safe
+					then
+						clear = false
+						break
+					end
+				end
+				if clear then
+					return steps
+				end
+			end
+		end
+	end
+	return nil
 end
 
 -- what to do besides fighting, if anything (drag > heal > build > grenade)
@@ -1868,18 +2007,41 @@ local function weigh(b: Bot, now: number)
 			PN
 		)
 	then
+		-- (a foxhole at its feet, Config/Bots.Dugouts: a pile instead where the ground refuses one, doBuild)
 		local to = flat((b.threatFrom :: Vector3) - root.Position)
 		to = if to.Magnitude > 1e-3 then to.Unit else flat(root.CFrame.LookVector)
-		local at = root.Position + to * PN.ahead
-		local job = { key = "SandbagPile", x = at.X, z = at.Z, fx = to.X, fz = to.Z }
+		local at = root.Position
+		local job = { key = "Foxhole", x = at.X, z = at.Z, fx = to.X, fz = to.Z }
 		local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true, underFire = true }
 		b.pileAt = now
-		stats.pinnedPiles += 1
+		stats.pinnedHoles += 1
 		b.act = { kind = "Build", job = r, started = now }
 		return
 	end
 	-- a job on its side's build list, when calm and it sees no enemy (Config/Bots.Build)
 	local seen = b.target ~= nil and (b.target :: Target).visible
+	-- holding an open post with no trench near: a foxhole there, facing the enemy (Config/Bots.Dugouts.Fox)
+	local post = b.post
+	if
+		b.role == "Hold"
+		and b.postKind == "open"
+		and post
+		and b.side
+		and not seen
+		and Actions.calm(sinceThreat, sinceHurt, BD.calm)
+		and now - (Dug.tried[b.id] or -math.huge) >= BD.retry
+		and flat(post - root.Position).Magnitude <= BD.stand + 4
+	then
+		local own = buildLists[b.side :: string]
+		if BotTrenches.foxholeWanted(post.X, post.Z, if own then own.squares else {}, Dug.holes, Cfg.Dugouts.Fox) then
+			Dug.tried[b.id] = now
+			local tx = if b.side == "West" then 1 else -1
+			local job = { key = "Foxhole", x = post.X, z = post.Z, fx = tx, fz = 0 }
+			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true }
+			b.act = { kind = "Build", job = r, started = now }
+			return
+		end
+	end
 	if not pushing and not seen and b.side and Actions.calm(sinceThreat, sinceHurt, BD.calm) then
 		local r = pickJob(b)
 		if r then
@@ -1894,6 +2056,13 @@ local function weigh(b: Bot, now: number)
 		or now - b.threwAt < G.every
 		or (sq and now - ((sq :: SquadState).threwAt or -math.huge) < G.squadEvery)
 	then
+		return
+	end
+	-- a pushing squad's Grenadier bombs out an enemy dugout it knows someone is in (Config/Bots.Dugouts.Bomb)
+	local bomb = if pushing then Dug.bomb(b, sq :: SquadState, root.Position, now) else nil
+	if bomb then
+		stats.bombed += 1
+		b.act = { kind = "Throw", at = bomb, started = now }
 		return
 	end
 	local known: { Known } = if sq then (sq :: SquadState).known else {}
@@ -2017,7 +2186,7 @@ end
 -- the piece a bot just laid for `job`: its side's work of the key nearest the spot (a trench: its first end), or nil
 local function laidFor(b: Bot, job: BotBuild.Job): Build.Work?
 	local best, bestD = nil, BD.match
-	for _, w in Build.worksOf(b.kit) do
+	for _, w in (Dug.works(b.kit)) do
 		local d = math.sqrt((w.at.X - job.x) ^ 2 + (w.at.Z - job.z) ^ 2)
 		if w.key == job.key and d <= bestD then
 			best, bestD = w, d
@@ -2145,8 +2314,22 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		end
 		return true
 	end
+	-- pinned down where the ground refuses a foxhole: a sandbag pile in front of itself instead (Config/Bots.Dugouts)
+	local function pileInstead(): boolean
+		if job.key ~= "Foxhole" or not r.underFire then
+			return false
+		end
+		local j =
+			{ key = "SandbagPile", x = job.x + f.X * PN.ahead, z = job.z + f.Z * PN.ahead, fx = job.fx, fz = job.fz }
+		r.job, r.base, r.tries = j, j, 0
+		stats.pinnedPiles += 1
+		return true
+	end
 	if not r.model then
-		if job.key ~= "Trench" and not Clear.ofLines(b.side :: string, job.key, spot) then
+		if not Clear.inside[job.key] and not Clear.ofLines(b.side :: string, job.key, spot) then
+			if pileInstead() then
+				return true
+			end
 			stats.keptOff += 1
 			refused(r, now)
 			finish(b)
@@ -2155,6 +2338,9 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		local reason = if job.key == "Trench"
 			then Build.planAs(m, spot, Routes.ground(job.ex :: number, job.ez :: number))
 			else Build.placeAs(m, job.key, spot, f)
+		if reason and pileInstead() then
+			return true
+		end
 		if reason then
 			refused(r, now)
 			finish(b)
@@ -2175,7 +2361,19 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	end
 	if now >= (act.swingAt or 0) then
 		local reason = Build.workAs(m, r.model :: Model, "Build")
-		if reason == nil then
+		if reason == nil and job.key == "Foxhole" then
+			-- one swing digs it: into it (pinned: its cover; holding: its post, facing the enemy)
+			stats.swings += 1
+			stats.holes += 1
+			local floor = Dug.dug(r.at or spot)
+			if r.underFire then
+				b.cover, b.coverFrom, b.coverAt, b.coverJob = floor, b.threatFrom, now, nil
+			elseif b.postKind == "open" and b.post and flat((b.post :: Vector3) - floor).Magnitude <= BD.stand + 4 then
+				b.post, b.postFloor, b.goal = floor, floor, floor
+			end
+			finish(b)
+			return false
+		elseif reason == nil then
 			stats.swings += 1
 			act.swingAt = now + Build.swingGap()
 		elseif reason ~= "Too soon" then
@@ -2696,6 +2894,24 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		-- Strafe (and anything with nowhere to go): never standing still
 		strafeStep(b, aimAt or zone, now)
 	end
+	-- a dugout (Config/Bots.Dugouts): paths don't go down its steps, so a path to its foot, then straight down them to
+	-- the room; out of it, straight up to the foot first
+	local foot = b.postFoot
+	if foot then
+		local below = root.Position.Y < foot.Y - 1 and flat(foot - root.Position).Magnitude <= 16
+		local atSteps = flat(foot - root.Position).Magnitude <= 3.5
+		if b.postKind == "dugout" then
+			if goal and goal == b.post and (below or atSteps) then
+				b.nav.direct, b.nav.goal, goal = b.post, nil, nil
+			elseif goal and goal == b.post then
+				goal = foot
+			end
+		elseif below then
+			b.nav.direct, b.nav.goal, goal = foot, nil, nil
+		else
+			b.postFoot = nil
+		end
+	end
 	if goal then
 		setGoal(b, goal, now)
 	elseif move ~= "Strafe" and move ~= "Peek" and move ~= "Hold" then
@@ -3210,6 +3426,18 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	end
 	local sb = buildLists[side]
 	local enemyLines = buildLists[enemy]
+	-- under shelling (Config/Bots.Dugouts): the places left in each dugout, the sentries kept up so far
+	local free: { { x: number, z: number, free: number } } = {}
+	local up = 0
+	for _, rm in (if sb then sb.rooms else {}) do
+		local n = Cfg.Dugouts.room
+		for _, o in bots do
+			if o.side == side and o.postKind == "dugout" and o.post == rm.room then
+				n -= 1
+			end
+		end
+		table.insert(free, { x = rm.x, z = rm.z, free = n })
+	end
 	for _, gkey in order do
 		local list = groups[gkey]
 		local first = list[1]
@@ -3417,16 +3645,43 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						else
 							want = "step"
 						end
+						-- shelled: one sentry a fire bay stays up, the rest down into a dugout with a place, until it
+						-- stops or they stand to
+						if want and not fallback and not s2.standTo and s2.shelled then
+							if want == "step" and up < s2.bays then
+								up += 1
+							elseif b.postKind == "dugout" and b.postSector == sector and Dug.standing(s2, b.post) then
+								want = "dugout"
+							else
+								local i = BotTrenches.seat(free, p.X, p.Z)
+								if i then
+									free[i].free -= 1
+									want = "dugout"
+									local room = s2.rooms[i].room
+									b.post, b.postFace, b.postKind, b.postFloor = room, nil, "dugout", room
+									b.postFoot = s2.rooms[i].foot
+									b.postSector = sector
+									stats.sheltered += 1
+								end
+							end
+						end
 					end
 					local again = not b.post or b.postSector ~= sector or b.roleWas ~= "Hold"
-					local tp = if want and (again or b.postKind ~= want)
+					if b.postKind == "dugout" and want ~= "dugout" then
+						-- (up to its post again: shelling over, standing to, or the dugout gone)
+						stats.cameUp += 1
+						again = true
+					end
+					local tp = if want
+							and want ~= "dugout"
+							and (again or b.postKind ~= want)
 						then trenchPost(sb :: SideBuild, want :: string, taken, p)
 						else nil
 					if tp then
 						b.post, b.postFace, b.postKind = tp.pos, tp.face, want
 						b.postFloor = tp.floor
 						b.postSector = sector
-					elseif again then
+					elseif again and want ~= "dugout" then
 						-- a few at windows and doorways (Config/Bots.Indoors.perSquad), the rest outside
 						local sp = if indoorHeld < IN.perSquad then indoorHold(side, sector, taken) else nil
 						if sp then
@@ -3573,6 +3828,11 @@ local function buildList(side: string, owner: { string }, level: number)
 			trench = {},
 			lines = {},
 			guns = 0,
+			rooms = {},
+			shelled = false,
+			shelledOnce = false,
+			bays = 0,
+			digging = 0,
 		}
 		buildLists[side] = sb
 	end
@@ -3586,6 +3846,7 @@ local function buildList(side: string, owner: { string }, level: number)
 		sbs.front, sbs.lay, sbs.works, sbs.steps, sbs.reserve, sbs.squares = nil, {}, {}, {}, {}, {}
 		sbs.trench = {}
 		sbs.lines = {}
+		sbs.rooms, sbs.shelled, sbs.digging = {}, false, 0
 		return
 	end
 	local s = Map.sectors[front :: number]
@@ -3618,9 +3879,12 @@ local function buildList(side: string, owner: { string }, level: number)
 			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = run }
 			table.insert(sbs.lay, r)
 		end
+		if front ~= sbs.front then
+			sbs.shelledOnce = false
+		end
 		sbs.front, sbs.level, sbs.holds = front, level, spots ~= nil
 	end
-	local works = Build.worksOf(kit)
+	local works, roomOf = Dug.works(kit)
 	local pieces: { BotBuild.Piece } = {}
 	local mine, ofKey = 0, {}
 	sbs.guns = 0
@@ -3798,21 +4062,79 @@ local function buildList(side: string, owner: { string }, level: number)
 	-- the posts its trenches give: a fire step on each dug fire-trench square, a place on each support-line square
 	local outward = Vector3.new(tx, 0, 0)
 	sbs.steps, sbs.reserve, sbs.squares = {}, {}, {}
+	local bays: { [number]: boolean } = {}
+	local support: { { x: number, z: number, share: number, w: Build.Work } } = {}
 	for _, w in works do
 		if w.key == "Trench" and w.built and w.hp >= TR.standHp then
 			table.insert(sbs.squares, { x = w.at.X, z = w.at.Z, at = w.at })
-			for _, run in runs do
+			for k, run in runs do
 				local d, t = BotTrenches.offRun(w.at.X, w.at.Z, run.ax, run.az, run.bx, run.bz)
 				if d <= TR.on + 1 and t >= -0.05 and t <= 1.05 then
 					if run.kind == "Fire" then
 						local x, z = BotTrenches.fireStep(w.at.X, w.at.Z, tx, 0, STEP)
 						table.insert(sbs.steps, { pos = Vector3.new(x, w.at.Y, z), floor = w.at, face = outward })
+						bays[k] = true
 					elseif run.kind == "Support" then
 						table.insert(sbs.reserve, { pos = w.at })
+						table.insert(support, { x = w.at.X, z = w.at.Z, share = w.hp / math.max(w.max, 1), w = w })
 					end
 					break
 				end
 			end
+		end
+	end
+	-- dugouts (Config/Bots.Dugouts): shelled now and once at this front; the rooms that shelter; once shelled, room for
+	-- its holders but one sentry a fire bay, dug in the support line's rear wall
+	local DG = Cfg.Dugouts
+	sbs.bays = 0
+	for _ in bays do
+		sbs.bays += 1
+	end
+	sbs.shelled = BotTrenches.shelled(now, ByTrench.blasts, sbs.squares, DG)
+	sbs.shelledOnce = sbs.shelledOnce or sbs.shelled
+	sbs.rooms = {}
+	local have: { { x: number, z: number } } = {}
+	for _, w in works do
+		local room = roomOf[w.model]
+		if room then
+			table.insert(have, { x = w.at.X, z = w.at.Z })
+			if w.built and w.hp > 0 then
+				table.insert(sbs.rooms, { x = room.X, z = room.Z, room = room, foot = w.at })
+			end
+		end
+	end
+	for _, r in sbs.lay do
+		if r.job.key == "Dugout" and not r.model then
+			table.insert(have, { x = r.job.x, z = r.job.z })
+		end
+	end
+	local holders = 0
+	for _, b in bots do
+		if b.side == side and (b.postKind == "step" or b.postKind == "reserve" or b.postKind == "dugout") then
+			holders += 1
+		end
+	end
+	local want = BotTrenches.dugoutsWanted(sbs.shelledOnce, holders, sbs.bays, DG) - #have
+	for _, i in BotTrenches.dugoutSquares(support, have, want, DG) do
+		local w = support[i].w
+		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
+		if typeof(a) == "Vector3" and typeof(c) == "Vector3" then
+			-- its rear wall (away from the enemy), the dugout facing out of it into the trench
+			local along = flat(c - a)
+			local out = if along.Magnitude > 1e-3 then along.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
+			if out.X * tx > 0 then
+				out = -out
+			end
+			local at = w.at + out * (BuildCfg.Trench.floor + 0.5)
+			local job = { key = "Dugout", x = at.X, z = at.Z, fx = -out.X, fz = -out.Z }
+			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+			stats.dugouts += 1
+		end
+	end
+	sbs.digging = 0
+	for _, r in sbs.lay do
+		if r.job.key == "Dugout" and (not r.model or r.left > 0) then
+			sbs.digging += 1
 		end
 	end
 	-- the support line stands to with an enemy known near the fire trench; the fire trench is lost with enemies known
@@ -3976,7 +4298,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -4025,6 +4347,13 @@ local function report(now: number)
 			stats.dangerPaths,
 			stats.intoTrench,
 			stats.overTop,
+			stats.dugouts,
+			stats.sheltered,
+			stats.cameUp,
+			stats.bombed,
+			stats.holes,
+			stats.pinnedHoles,
+			stats.intoHole,
 			stats.casts1,
 			stats.casts2,
 			stats.casts3,
@@ -4076,7 +4405,7 @@ function Bots.start()
 	Damage.onBlast(function(pos: Vector3, kg: number)
 		local now = os.clock()
 		local blasts = ByTrench.blasts
-		table.insert(blasts, { x = pos.X, z = pos.Z, at = now })
+		table.insert(blasts, { x = pos.X, z = pos.Z, at = now, kg = kg })
 		if #blasts > 24 then
 			table.remove(blasts, 1)
 		end

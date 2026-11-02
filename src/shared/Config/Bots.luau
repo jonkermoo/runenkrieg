@@ -286,8 +286,8 @@ local Bots = {
 		--   every `step` studs, the `keys` in turn.
 		-- - Walls: once an MG nest or gun stands, `count` sandbag piles `ahead` studs on its enemy side, `spread` apart.
 		-- - Pinned: a bot shot at within `threat` s, suppressed `shaken` or more, with no cover found within `near` studs and
-		--   not in a trench, lays a sandbag pile `ahead` studs toward the threat and fills it under fire (at most every
-		--   `every` s).
+		--   not in a trench, digs a foxhole at its feet (Dugouts below), or where the ground refuses one lays a sandbag
+		--   pile `ahead` studs toward the threat and fills it under fire (at most every `every` s).
 		Breast = { step = 8, keys = { "SandbagPile", "Hesco" } },
 		Walls = { ahead = 5, spread = 8.5, count = 2 },
 		Pinned = { threat = 1.5, shaken = 0.5, every = 45, ahead = 2.5, near = 20 },
@@ -430,6 +430,39 @@ local Bots = {
 		},
 		cover = 25,
 		Jump = { reach = 120, ahead = 15, at = 10, gather = 0.75, wait = 25 },
+	},
+
+	-- Normal: dugouts and foxholes (Rules/BotTrenches.shelled, dugoutsWanted, dugoutSquares, seat, foxholeWanted,
+	-- occupied; user 2026-11-02, "can bots build dug outs?" then "Plan it").
+	-- - Shelled: a shell (a blast of `shell` kg or more: not a grenade) within `near` studs of a side's trench squares in
+	--   the last `recent` seconds.
+	-- - Building ("whenever they need one but dont make bots abuse it"): none until the side's trenches at its front have
+	--   been shelled; then room for its holders but its sentries, `room` to a dugout, in its support line's squares dug
+	--   to `dug` of their HP, the rear wall (away from the enemy), `spacing` studs apart, the line's middle first.
+	--   Engineers dig them when calm, as any job on the list; while a side has one to dig, up to `engineers` of its bots
+	--   pick Engineer when they respawn, if they can pay (dugout duty, as the gun crews: Build.Crews), and take dugout
+	--   jobs first.
+	-- - Sheltering: while its trenches are shelled (and not standing to, not falling back), one holder per fire bay
+	--   stays on the fire step as a sentry ("1 per fire bay"); the others go down into the nearest standing dugout with
+	--   a place, and come up to their posts as soon as the shelling stops or the side stands to.
+	-- - Bombing out ("Yes"): a Grenadier of a pushing squad throws a grenade down the steps of an enemy dugout its squad
+	--   knows someone is in (a known enemy within `Bomb.inside` studs of its room, under the trench floor), from `min`-`max`
+	--   studs, no teammate within Actions.Grenade.safe of the steps.
+	-- - Foxholes ("Pinned in the open, Holding before trench"): pinned down in the open (Build.Pinned) a bot digs a
+	--   foxhole at its feet (a sandbag pile instead where the ground refuses one) and fights from it; a holder at an open
+	--   post with no own dug trench within `Fox.trench` studs digs one there facing the enemy, no two within `Fox.apart`.
+	--   The bots remember the foxholes they dug (the newest `Fox.keep`) and take one within TrenchMove.cover studs as
+	--   cover, as a trench square.
+	Dugouts = {
+		shell = 0.5,
+		near = 40,
+		recent = 8,
+		room = 3,
+		dug = 0.95,
+		spacing = 12,
+		engineers = 1,
+		Bomb = { inside = 6, min = 6, max = 25 },
+		Fox = { trench = 30, apart = 5, keep = 120 },
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above
