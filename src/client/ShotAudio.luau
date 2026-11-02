@@ -110,9 +110,7 @@ function ShotAudio.heardAs(shooter: Model, weapon: string, w: Source?, origin: V
 			best = p
 		end
 	end
-	if best then
-		ScreenBlur.pass(best.off, best.along / bullet) -- blurs the screen as it goes by (src/client/ScreenBlur)
-	end
+	ScreenBlur.shot(origin, hits, bullet) -- blurs the screen as it passes the soldier (src/client/ScreenBlur)
 	local pass = any(sounds(weapon, w, "Pass", "Gunshot"))
 	if best and pass then
 		local at = Vector3.new(best.point[1], best.point[2], best.point[3])
