@@ -107,4 +107,36 @@ function StaffNet.heldNow(held: number, since: number, ahead: number, opens: { n
 	return if next then math.min(h, math.max(next - 0.01, held, 0)) else h
 end
 
+-- a bot soldier's shot (src/server/StaffCast.castAs): stage 1 with no circle open is a quick fire ("Hip"), stage 1 from
+-- an open circle a "Pulse" (the circle stays), any higher stage the held cast's "Release" (refused by `charged` unless
+-- a circle was opened long enough before)
+function StaffNet.botMode(stage: number, open: boolean): string
+	if stage <= 1 then
+		return if open then "Pulse" else "Hip"
+	end
+	return "Release"
+end
+
+-- the seconds until a shot may follow one of stage `lastStage` at `lastAt` (0: now; no slack)
+function StaffNet.readyIn(lastAt: number?, lastStage: number?, now: number, cooldown: { number }): number
+	if not lastAt or not lastStage then
+		return 0
+	end
+	return math.max(0, (cooldown[lastStage] or 0) - (now - lastAt))
+end
+
+-- a bot's charge time shown to other players: from its circle's open (`openAt`), clamped to 0..max; nil: not charging
+function StaffNet.heldSince(openAt: number?, now: number, max: number): number?
+	if not openAt then
+		return nil
+	end
+	return math.clamp(now - openAt, 0, max)
+end
+
+-- a quick fire's turn off its line inside a cone `degrees` wide (half angle), from two random numbers 0..1: the tilt
+-- (radians, spread evenly over the cone's area) and the spin round the line (radians)
+function StaffNet.cone(degrees: number, u: number, v: number): (number, number)
+	return math.rad(degrees) * math.sqrt(math.clamp(u, 0, 1)), 2 * math.pi * math.clamp(v, 0, 1)
+end
+
 return StaffNet
