@@ -91,7 +91,7 @@ return {
 		end
 		assert(flight(QF, 16) > 3 and flight(HOW, 45) > 5)
 	end,
-	["the mortar's breech clears its platform even at full elevation"] = function()
+	["the howitzer's breech clears its turntable even at full elevation"] = function()
 		local c = HOW.recoilClear
 		local e = HOW.elevation[2]
 		local r = A.recoilLength(HOW.recoil, e, HOW.trunnion[2], c)
@@ -202,10 +202,51 @@ return {
 		assert(C.Wreck.unusable == 2 and at[C.Wreck.unusable] == 50) -- user 2026-10-25: "let's say 50%"
 		assert(#C.Wreck.scorch == #at and #C.Wreck.tilt == #at and #C.Wreck.sink == #at)
 	end,
-	["the howitzer's mound is player height or less"] = function()
+	["the Rune howitzer is semi dug: a shallow pit inside its sandbag ring, walked out of up its ramp"] = function()
+		-- user 2026-11-02: "we can keep the howizer semi dugged, but have sandbags around it"
+		local Build = require("../src/shared/Config/Build")
 		local d = HOW.dig :: any
-		assert(d.rimHeight <= 5) -- user 2026-10-25: "the mound should be player height or less"
-		assert(d.depth + d.rimHeight >= 14.8) -- as much cover over the bed as before
+		local n = Build.GunRing.artillery_howitzer
+		local ring = n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))
+		local inner = ring - n.ring.bag / 4 -- (a bag lies ~1.6 deep across the ring's line)
+		assert(d.depth <= 4 and d.rim == 0 and d.rimHeight == 0 and not d.slabs, "shallow, no mound, no slabs")
+		local top = d.radius + d.depth / math.tan(math.rad(d.wall))
+		assert(top < inner, `the pit's wall top {top} inside the bags {inner}`)
+		-- the ramp is up at the ground before the bags (their ground stays whole), walkable (under 50 degrees), two
+		-- voxels wide
+		assert(d.radius + d.ramp.length < inner)
+		assert(math.deg(math.atan(d.depth / d.ramp.length)) < 50 and d.ramp.width >= 8)
+		-- the gunner stands on the turntable inside the pit's floor
+		assert(math.sqrt(HOW.crew[1] ^ 2 + HOW.crew[2] ^ 2) + 1 < d.radius)
+	end,
+	["the howitzer's barrel engravings rise through the charge-up and fade after the shot (user 2026-11-02)"] = function()
+		local E = C.Crystal.engraving
+		assert(table.find(HOW.barrel, E.part), "they recoil with the barrel")
+		local charge = HOW.charge
+		assert(A.engravingShown(-1, charge, 100, E.fade) == 0, "unseen before the charge-up")
+		assert(near(A.engravingShown(charge / 2, charge, 100, E.fade), 0.5))
+		assert(A.engravingShown(charge * 0.99, charge, 100, E.fade) > 0.95, "nearly full by the shot")
+		assert(near(A.engravingShown(charge, charge, 0, E.fade), 1), "lit at the shot")
+		assert(near(A.engravingShown(charge + E.fade / 2, charge, E.fade / 2, E.fade), 0.5))
+		assert(A.engravingShown(charge + E.fade, charge, E.fade, E.fade) == 0, "gone again")
+		assert(A.engravingShown(1e9, charge, 5, E.fade) == 0, "unseen through the reload")
+	end,
+	["the Rune howitzer hits harder than the field gun, over less ground (user 2026-11-02)"] = function()
+		-- "make it stronger than the field cannon, but less AOE but keep direct damage strong, just scale it with the
+		-- lowered AOE radius", "it should still be a deadly weapon": its blast kills further out than the field gun's
+		-- fragments, but hurts over less ground than they do, and less than the 42 cm's 340 kg did
+		local Blast = require("../src/shared/Rules/Blast")
+		local D = require("../src/shared/Config/Damage").Blast
+		local kill = Blast.reachOf(D.Soldier.kill, HOW.kg, D)
+		local hurt = Blast.reachOf(D.Soldier.from, HOW.kg, D)
+		assert(kill > QF.fragments.lethal and kill > HOW.fragments.lethal, `kills to {kill}`)
+		assert(hurt < QF.fragments.wound and HOW.fragments.wound <= hurt + 1, `hurts to {hurt}`)
+		assert(hurt < Blast.reachOf(D.Soldier.from, 340, D))
+		assert(math.abs(HOW.zone - hurt) < 2, "its impact zone is where its blast still hurts")
+		-- trenches: it still buries what it hits, over a smaller reach than before
+		local S = require("../src/shared/Config/Build").Structures
+		assert(S.howitzer.hit >= 100 and S.howitzer.reach < 20 and S.howitzer.hit > S.field.hit)
+		assert(C.Hits.howitzer.direct > C.Hits.field.direct and C.Hits.howitzer.reach < 30)
 	end,
 	["the MG gunner's stances blend by the lay: level at 0, all low or high at its stops"] = function()
 		local MG = C.Guns.mg08

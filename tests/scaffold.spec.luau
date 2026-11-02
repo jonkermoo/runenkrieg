@@ -34,10 +34,15 @@ return {
 			assert(p.b[2] > t.height and math.abs(p.b[1] - t.x) < 0.5 and math.abs(p.b[3] - t.z) < 0.5, "top")
 		end
 	end,
-	["the howitzer's scaffold stays inside its pit's floor"] = function()
-		local f = C.Scaffold.artillery_howitzer.frame
+	["the howitzer's building site lies on its pit's floor, off its bed"] = function()
+		local spec = C.Scaffold.artillery_howitzer
 		local r = A.Guns.artillery_howitzer.dig.radius
-		local corner = math.sqrt((math.abs(f.x) + f.width / 2) ^ 2 + (math.abs(f.z) + f.depth / 2) ^ 2)
-		assert(corner < r, `corner {corner} past the floor {r}`)
+		assert(spec.frame == nil, "no scaffold frame round the Rune howitzer (2026-11-02)")
+		for _, list in { spec.crates or {}, spec.planks or {}, spec.sawhorses or {} } do
+			for _, c in list do
+				local d = math.sqrt(c.x ^ 2 + c.z ^ 2)
+				assert(d < r - 0.8 and math.max(math.abs(c.x), math.abs(c.z)) > 6.6, `{c.x}, {c.z}`)
+			end
+		end
 	end,
 }

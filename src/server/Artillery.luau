@@ -165,6 +165,10 @@ local function paint(model: Model, team: string)
 			if table.find(art.Glowing, d.Name) then
 				d.Material = Enum.Material.Neon
 			end
+			-- (the howitzer's barrel engravings stay unseen till its charge-up: src/client/ArtilleryCrystal)
+			if d.Name == Cfg.Crystal.engraving.part then
+				d.Transparency = 1
+			end
 		end
 	end
 end

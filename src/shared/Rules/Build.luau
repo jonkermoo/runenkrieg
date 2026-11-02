@@ -884,6 +884,24 @@ function Build.nestShown(hp: number, n: any, wreck: number?): (string | number, 
 	return n.build[stage].bags, n.build[stage].gun
 end
 
+-- What a gun's sandbag ring shows (Config/Build.GunRing `n`): being built, by its gun's `hp` of `max`, a stage as a
+-- Hesco barrier's (Build.hescoStage) over `n.build` ("none" every bag its empty sack, "bottom", "all"); once the gun
+-- has stood, by its Wreck stage `wreck` (0 whole): "all", or the share of its bags still standing (`n.wear`)
+function Build.ringShown(hp: number, max: number, n: any, wreck: number?): string | number
+	if wreck then
+		return if wreck > 0 then n.wear[wreck] else "all"
+	end
+	local stage = Build.hescoStage(hp, max, #n.build)
+	return if stage == 0 then "none" else n.build[stage]
+end
+
+-- Whether a point `l` in a gun's frame (its pivot on the ground, Vector3 or anything with X and Z) is on the band its
+-- sandbag ring stands on (Config/Build.GunRing `n`: within `n.ground` of the ring's line, Build.nestRing's radius)
+function Build.onRing(l: Vector3, n: any): boolean
+	local radius = n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))
+	return math.abs(math.sqrt(l.X * l.X + l.Z * l.Z) - radius) <= n.ground
+end
+
 -- How many of a worn MG nest's `count` ring bags still stand at `share` of them (Config/Build.Nest `wear`): at least
 -- one while any share is left
 function Build.nestStanding(count: number, share: number): number

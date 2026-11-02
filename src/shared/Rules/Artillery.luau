@@ -157,6 +157,19 @@ end
 --   "Awake"    the moment it's full: a bright bloom for `awake` s;
 --   "Ready"    a slow breath.
 -- Returns the state, the glow (0 dark .. 1 full, above 1: white-hot) and the share charged (0..1, the runes lit).
+-- How much of the howitzer's barrel engravings shows (0 unseen .. 1 lit; Config/Artillery.Crystal.engraving): rising
+-- through the charge-up (`up` s into its `charge`), lit at the shot and fading over `fade` s after it (`since`), unseen
+-- otherwise
+function Artillery.engravingShown(up: number, charge: number, since: number, fade: number): number
+	if charge > 0 and up >= 0 and up < charge then
+		return up / charge
+	end
+	if fade > 0 and since >= 0 and since < fade then
+		return 1 - since / fade
+	end
+	return 0
+end
+
 function Artillery.crystal(
 	now: number,
 	firedAt: number,
