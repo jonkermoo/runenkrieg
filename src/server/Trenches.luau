@@ -109,6 +109,30 @@ local function folder(): Folder
 	return f :: Folder
 end
 
+-- the footprint of every piece laid (its Frame and Size: src/server/Build), a bridge's too unless `noBridges`
+local function footprints(noBridges: boolean?): { Rules.Footprint }
+	local out: { Rules.Footprint } = {}
+	for _, m in folder():GetChildren() do
+		local frame, size = m:GetAttribute("Frame"), m:GetAttribute("Size")
+		local piece = Rules.piece(m:GetAttribute("Piece"), C.Pieces)
+		if
+			typeof(frame) == "CFrame"
+			and typeof(size) == "Vector3"
+			and not (noBridges and piece and piece.kind == "Bridge")
+		then
+			table.insert(out, {
+				x = frame.Position.X,
+				z = frame.Position.Z,
+				rx = frame.RightVector.X,
+				rz = frame.RightVector.Z,
+				width = size.X,
+				depth = size.Z,
+			})
+		end
+	end
+	return out
+end
+
 local function part(parent: Instance, name: string, size: Vector3, cf: CFrame, color: Color3, solid: boolean): Part
 	local p = Instance.new("Part")
 	p.Name = name
@@ -364,7 +388,8 @@ end
 -- a square still to be dug (user 2026-10-24: "make the entire planning thing better and more stylish"): a stake at
 -- each corner of its outline (its top edges), its top
 -- painted, with cord round it sagging a little between the stake tops (Beams). No flags (user 2026-10-24: "i dont
--- think we need a flag. lets just do the stakes")
+-- think we need a flag. lets just do the stakes"). A stake a piece stands over is left out, and its cords with it
+-- (user 2026-11-02: "remove the stakes on the points if things get built over or under it").
 local function markers(blk: Block)
 	local m = blk.model :: Model
 	local old = m:FindFirstChild("Markers")
@@ -375,9 +400,20 @@ local function markers(blk: Block)
 	holder.Name = "Markers"
 	holder.Parent = m
 	local M = T.markers
-	local stakes: { BasePart } = {}
-	for _, c in { { 0, -TOP }, { blk.length, -TOP }, { blk.length, TOP }, { 0, TOP } } do
+	local stakes: { [number]: BasePart } = {}
+	local under = footprints()
+	for i, c in { { 0, -TOP }, { blk.length, -TOP }, { blk.length, TOP }, { 0, TOP } } do
 		local g = at(blk, c[1], c[2])
+		local covered = false
+		for _, fp in under do
+			if Rules.onFootprintAt(g.X, g.Z, fp, M.peg[1] / 2) then
+				covered = true
+				break
+			end
+		end
+		if covered then
+			continue
+		end
 		local hit = workspace:Raycast(g + Vector3.new(0, 6, 0), Vector3.new(0, -14, 0), terrainOnly)
 		local base = if hit then hit.Position else g
 		local stake = part(
@@ -398,7 +434,7 @@ local function markers(blk: Block)
 			rgb(Palette.Build.PegTop),
 			false
 		)
-		table.insert(stakes, stake)
+		stakes[i] = stake
 	end
 	-- a cord's end, tied on the side of the stake it leaves from, just under the painted top (not through the stake,
 	-- user 2026-10-25: "some clipping issues with the wire and stick"): its axis down, so each Beam's curve sags
@@ -414,6 +450,9 @@ local function markers(blk: Block)
 	end
 	for i = 1, 4 do
 		local s0, s1 = stakes[i], stakes[i % 4 + 1]
+		if not s0 or not s1 then
+			continue
+		end
 		local a0, a1 = tie(s0, s1), tie(s1, s0)
 		local sag = M.sag * (a1.WorldPosition - a0.WorldPosition).Magnitude
 		local cord = Instance.new("Beam")
@@ -1039,21 +1078,9 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 	-- nor under a piece: no structure's footprint over its open cut (Config/Build.Trench.overhang; the same rule as a
 	-- piece over a trench, Survey.overTrench), except a bridge, which lies across the trench it joins
 	local cut = Rules.trenchCut(a.X, a.Z, b.X, b.Z, TOP - T.overhang)
-	for _, m in folder():GetChildren() do
-		local frame, size = m:GetAttribute("Frame"), m:GetAttribute("Size")
-		local piece = Rules.piece(m:GetAttribute("Piece"), C.Pieces)
-		if typeof(frame) == "CFrame" and typeof(size) == "Vector3" and not (piece and piece.kind == "Bridge") then
-			local theirs: Rules.Footprint = {
-				x = frame.Position.X,
-				z = frame.Position.Z,
-				rx = frame.RightVector.X,
-				rz = frame.RightVector.Z,
-				width = size.X,
-				depth = size.Z,
-			}
-			if Rules.footprintsOverlap(cut, theirs) then
-				return "A structure is in the way"
-			end
+	for _, theirs in footprints(true) do
+		if Rules.footprintsOverlap(cut, theirs) then
+			return "A structure is in the way"
 		end
 	end
 	-- lay it: the run's blocks, linked end to end, and to the trenches it joins
@@ -1141,6 +1168,25 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 	return nil
 end
 
+-- A piece was laid (src/server/Build, its Frame and Size set): the stakes of every square still pegged out near it are
+-- set again, without those it stands over
+function Trenches.restake(piece: Model)
+	local frame, size = piece:GetAttribute("Frame"), piece:GetAttribute("Size")
+	if typeof(frame) ~= "CFrame" or typeof(size) ~= "Vector3" then
+		return
+	end
+	for _, blk in blocks do
+		local m = blk.model
+		if live(blk) and m and m:FindFirstChild("Markers") then
+			local mid = (blk.a + blk.b) / 2
+			local flat = Vector3.new(mid.X - frame.Position.X, 0, mid.Z - frame.Position.Z)
+			if flat.Magnitude <= blk.length / 2 + TOP + (size.X + size.Z) / 2 then
+				markers(blk)
+			end
+		end
+	end
+end
+
 -- the block a structure model is (src/server/Build routes swings here), or nil
 function Trenches.blockOf(model: Instance): Block?
 	return if model:IsA("Model") then byModel[model] else nil
@@ -1169,8 +1215,9 @@ end
 -- One swing at a square (src/server/Build checked the soldier, the shovel, the reach and the rate): Build adds HP to any
 -- square, Destroy takes it off (an undug plan's square is pulled up). (Any trench: a soldier's kit is rolled each life,
 -- so after a respawn your own trench was another kit's; user 2026-10-25: "you should be able to fix/edit any trench")
--- True when this swing dug the square to full for the first time (src/server/Loadouts pays the digger).
-function Trenches.work(blk: Block, _team: string, mode: string, share: number?): (boolean, number)
+-- `power`: what share of Trench.hp.swing or hp.destroy this soldier's swing does (Rules/Build.swingPower). True when
+-- this swing dug the square to full for the first time (src/server/Loadouts pays the digger).
+function Trenches.work(blk: Block, _team: string, mode: string, power: number, share: number?): (boolean, number)
 	if not live(blk) then
 		return false, 0
 	end
@@ -1181,7 +1228,7 @@ function Trenches.work(blk: Block, _team: string, mode: string, share: number?):
 		end
 		local first = not blk.built
 		local before = blk.hp
-		blk.hp = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.swing, H.max, share), true)
+		blk.hp = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.swing * power, H.max, share), true)
 		blk.worked = os.clock()
 		for _, o in blk.run do
 			o.worked = blk.worked -- (the plan stays while it's being dug)
@@ -1199,7 +1246,7 @@ function Trenches.work(blk: Block, _team: string, mode: string, share: number?):
 		finish(blk, false) -- a plan pulled up
 		return false, 0
 	end
-	local left, gone = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.destroy, H.max, share), false)
+	local left, gone = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.destroy * power, H.max, share), false)
 	blk.hp = left
 	blk.worked = os.clock()
 	blk.falling = true

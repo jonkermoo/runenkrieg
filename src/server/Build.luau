@@ -1338,6 +1338,11 @@ local function shareOf(b: Builder): number?
 	return if b.player then digShare(b.player) else nil
 end
 
+-- how much of a piece's own swing amount this builder's swing of `mode` does (Config/Build.Power)
+local function powerOf(b: Builder, mode: string): number
+	return Rules.swingPower(mode, Loadouts.classOf(b.character), C.Power)
+end
+
 local function allBuild(b: Builder): boolean
 	return b.player ~= nil and buildsAll(b.player)
 end
@@ -1545,6 +1550,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	end
 	recs[model] = r
 	model.Parent = f
+	Trenches.restake(model) -- (no stake through it)
 	if dev and (bags or nest or foxhole or dugout) then
 		-- (finished, as if dug to the end; no match points for it)
 		r.work = r.need
@@ -1637,12 +1643,13 @@ local function work(b: Builder, target: any, mode: any)
 	if Rules.tooSoon(now, lastSwing[b.key], GAP, C.SwingSlack) then
 		return
 	end
+	local k = powerOf(b, mode)
 	-- a trench block
 	local blk = Trenches.blockOf(target)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
 			lastSwing[b.key] = now
-			local done, added = Trenches.work(blk, team, mode, shareOf(b))
+			local done, added = Trenches.work(blk, team, mode, k, shareOf(b))
 			credit(b, added)
 			if done then
 				award(b, "Trench")
@@ -1675,8 +1682,7 @@ local function work(b: Builder, target: any, mode: any)
 		end
 		lastSwing[b.key] = now
 		local h = C.Hesco.hp
-		local share = shareOf(b)
-		local step = if share then Rules.digAmount(1, h.max, share) else nil
+		local step = Rules.digAmount((if build then h.swing else h.destroy) * k, h.max, shareOf(b))
 		local left, gone = Rules.hpSwing(r.work, build, h, step)
 		if gone then
 			remove(r)
@@ -1704,7 +1710,7 @@ local function work(b: Builder, target: any, mode: any)
 			return
 		end
 		lastSwing[b.key] = now
-		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair, g.hp, shareOf(b)))
+		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair * k, g.hp, shareOf(b)))
 		if what then
 			-- back in service or whole: a fresh gun in its place, the howitzer's pit dug out again from the ground as
 			-- it was (the field gun levels its own ground as it stands), damaged to what it has
@@ -1751,7 +1757,7 @@ local function work(b: Builder, target: any, mode: any)
 			return
 		end
 		lastSwing[b.key] = now
-		local step = Rules.digAmount(g.hp / g.repair, g.hp, shareOf(b))
+		local step = Rules.digAmount(g.hp / g.repair * k, g.hp, shareOf(b))
 		local _, gone = Rules.hpSwing(hp, false, { max = g.hp }, step)
 		if gone then
 			remove(r)
@@ -1774,7 +1780,7 @@ local function work(b: Builder, target: any, mode: any)
 	if r.piece.kind == "Sandbags" or nest then
 		local h = if nest then C.Nest.hp else C.Sandbags.hp
 		local build = mode == "Build"
-		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, shareOf(b))
+		local step = Rules.digAmount((if build then h.swing else h.destroy) * k, h.max, shareOf(b))
 		local left, gone = Rules.hpSwing(r.work, build, h, step)
 		if gone then
 			remove(r)
@@ -1800,7 +1806,7 @@ local function work(b: Builder, target: any, mode: any)
 	if r.piece.kind == "Bridge" then
 		local h = C.Bridge.hp
 		local build = mode == "Build"
-		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, shareOf(b))
+		local step = Rules.digAmount((if build then h.swing else h.destroy) * k, h.max, shareOf(b))
 		local left, gone = Rules.trenchSwing(r.work, h.max, step, build)
 		if gone then
 			remove(r)
@@ -1820,7 +1826,7 @@ local function work(b: Builder, target: any, mode: any)
 	local h = Rules.hpOf(r.piece, C)
 	if h then
 		local build = mode == "Build"
-		local step = Rules.digAmount(if build then h.swing else h.destroy, h.max, shareOf(b))
+		local step = Rules.digAmount((if build then h.swing else h.destroy) * k, h.max, shareOf(b))
 		local left, gone = Rules.hpSwing(r.work, build, h, step)
 		if gone then
 			remove(r)
@@ -1842,7 +1848,7 @@ local function work(b: Builder, target: any, mode: any)
 		return
 	end
 	local was = r.work
-	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(1, r.need, shareOf(b)))
+	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(k, r.need, shareOf(b)))
 	if gone then
 		remove(r) -- (at 0 it is simply gone)
 		return
@@ -1937,7 +1943,7 @@ export type Work = {
 	at: Vector3, -- where to stand near (a gun's own spot; a square's middle)
 	hp: number, -- its HP now (a standing gun's: the gun's)
 	max: number,
-	swing: number, -- HP one Build swing adds
+	swing: number, -- HP one Build swing adds (a soldier's of no listed class: Config/Build.Power)
 	left: number, -- Build swings to full (Rules.workLeft); 0 when whole
 	built: boolean, -- has stood once (a standing gun is repaired, not built)
 }
@@ -1955,6 +1961,7 @@ function Build.worksOf(team: string?): { Work }
 			if r.built and g and type(gunHp) == "number" then
 				hp, max, swing = gunHp, g.hp, g.hp / g.repair
 			end
+			swing *= C.Power.build
 			table.insert(out, {
 				model = r.model,
 				key = r.piece.key,
@@ -1980,8 +1987,8 @@ function Build.worksOf(team: string?): { Work }
 			at = s.at,
 			hp = s.hp,
 			max = T.max,
-			swing = T.swing,
-			left = Rules.workLeft(s.hp, T.max, T.swing),
+			swing = T.swing * C.Power.build,
+			left = Rules.workLeft(s.hp, T.max, T.swing * C.Power.build),
 			built = s.built,
 		})
 	end
