@@ -314,6 +314,11 @@ local Damage = {
 			shedTime = 4,
 			react = { 0.5, 1, 2 },
 			nearReact = 0.5, -- x react for a beam only passing near
+			-- the standing trees a beam looks at (src/server/Trees.beam): only those in `cell`-stud squares within its
+			-- reach of the beam's line (`reach`: the widest canopy's half size and its offset from the tree's pivot,
+			-- with nearDistance), not every tree on the map (a staff shot cost ~6 ms with all of Map 1's)
+			cell = 40,
+			reach = 30,
 		},
 	},
 

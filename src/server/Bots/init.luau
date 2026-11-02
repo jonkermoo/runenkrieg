@@ -59,6 +59,7 @@ local BuildCfg = require(Shared.Config.Build)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local HealCfg = require(Shared.Config.Healing)
 local W = require(Shared.Config.Weapons)
+local SpellsCfg = require(Shared.Config.Spells)
 local Loco = require(Shared.Config.Locomotion)
 local Net = require(Shared.Net)
 local Map = require(Shared.Config.Maps.Map1)
@@ -74,6 +75,7 @@ local Orders = require(Shared.Rules.BotOrders)
 local Actions = require(Shared.Rules.BotActions)
 local Buildings = require(Shared.Rules.BotBuildings)
 local BotBuild = require(Shared.Rules.BotBuild)
+local BotStaff = require(Shared.Rules.BotStaff)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
@@ -81,6 +83,7 @@ local ShotRules = require(Shared.Rules.ShotAudio)
 local Sup = require(Shared.Rules.Suppression)
 local Teams = require(Shared.Rules.Teams)
 local Armory = require(script.Parent.Armory)
+local Artillery = require(script.Parent.Artillery)
 local Build = require(script.Parent.Build)
 local Concussion = require(script.Parent.Concussion)
 local Damage = require(script.Parent.Damage)
@@ -97,6 +100,7 @@ local Loadouts = require(script.Parent.Loadouts)
 local MatchStats = require(script.Parent.MatchStats)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
+local StaffCast = require(script.Parent.StaffCast)
 local ZoneMatch = require(script.Parent.ZoneMatch)
 local Animate = require(script.Animate)
 local Routes = require(script.Routes)
@@ -115,6 +119,7 @@ local brainCfg = Cfg.Brain :: any
 local AC = Cfg.Actions
 local IN = Cfg.Indoors
 local BD = Cfg.Build
+local ST = Cfg.Staff
 local TR = Cfg.Trenches
 
 type Target = { model: Model, distance: number, visible: boolean }
@@ -225,13 +230,19 @@ type Bot = {
 	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
 	threwAt: number,
 	away: boolean, -- its gun put away for an action
+	slung: Model?, -- its gun's copy on the pack's strap while the gun is out of its hands (Armory.stowed)
 	shovel: Tool?, -- its shovel, out of its hands until it builds
+	cast: Cast?, -- a Mage's circle open
 	digger: boolean?, -- Normal: one of its holding squad's diggers (Config/Bots.Trenches.share)
 	postFloor: Vector3?, -- its post is a fire step: the trench floor below it (its cover)
 	postKind: string?, -- "step", "reserve" (the support line), "window" or "open"
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
+
+-- a Mage bot's open circle (src/server/StaffCast): the stage it is charging for, where at (a seen target's aim point,
+-- or a known enemy's cover), and when the target was last seen
+type Cast = { stage: number, openedAt: number, seenAt: number, at: Vector3, visible: boolean }
 
 local bots: { Bot } = {}
 -- each bot's own Path object, made once (CreatePath on every request cost a frame now and then)
@@ -274,6 +285,10 @@ local stats = {
 	laid = 0, -- pieces laid and trenches planned
 	swings = 0, -- Build swings that landed
 	refused = 0, -- lays refused (the spot moved)
+	casts1 = 0, -- staff shots by stage
+	casts2 = 0,
+	casts3 = 0,
+	dropped = 0, -- circles closed without a shot
 	runs = 0, -- trench runs planned
 	lost = 0, -- fire trenches lost (the holders fell back)
 	covering = 0, -- shots of covering fire
@@ -473,6 +488,19 @@ local function newNav(at: Vector3): Nav
 end
 
 -- A body for `b` at a spawn point, dressed in its class, armed and on its feet.
+-- its gun slung on the pack's strap while it is out of its hands (Armory.stowed: a player's put-away gun; user
+-- 2026-11-02: "whenever the gun is down for ai's, it should be on the bag strap"), or taken off it
+local function sling(b: Bot, on: boolean)
+	local m = b.m :: Model
+	if on and not b.slung then
+		b.slung = Armory.stowed(m, b.weapon)
+	end
+	local slung = b.slung
+	if slung and slung.Parent ~= (if on then m else nil) then
+		slung.Parent = if on then m else nil
+	end
+end
+
 spawnBody = function(b: Bot)
 	if b.spawning then
 		return
@@ -578,7 +606,10 @@ spawnBody = function(b: Bot)
 	if b.shovel then
 		(b.shovel :: Tool):Destroy()
 	end
-	b.grenades, b.act, b.away, b.shovel = nil, nil, false, nil
+	if b.slung then
+		(b.slung :: Model):Destroy()
+	end
+	b.grenades, b.act, b.away, b.shovel, b.cast, b.slung = nil, nil, false, nil, nil, nil
 	local nade = Loadouts.gear(m).Grenade
 	if nade then
 		local given, g = pcall(Armory.tool, nade, b.kit)
@@ -629,6 +660,7 @@ spawnBody = function(b: Bot)
 			if tool.Parent ~= m and pcall(function()
 				tool.Parent = m
 			end) then
+				sling(b, false)
 				hold.Part0 = torso
 				if b.anim then
 					(b.anim :: Animate.Handle).equip()
@@ -678,7 +710,10 @@ local function despawn(b: Bot)
 	if b.shovel then
 		(b.shovel :: Tool):Destroy()
 	end
-	b.grenades, b.act, b.away, b.shovel = nil, nil, false, nil
+	if b.slung then
+		(b.slung :: Model):Destroy()
+	end
+	b.grenades, b.act, b.away, b.shovel, b.cast, b.slung = nil, nil, false, nil, nil, nil
 end
 
 local function add(mode: string, side: string?)
@@ -1395,6 +1430,7 @@ local function stow(b: Bot)
 	local m, tool = b.m :: Model, b.tool :: Tool
 	b.stowed = true
 	tool.Parent = nil
+	sling(b, true)
 	if b.turn then
 		(b.turn :: AlignOrientation).Enabled = false
 	end
@@ -1408,6 +1444,7 @@ local function draw(b: Bot)
 	local m, tool = b.m :: Model, b.tool :: Tool
 	b.stowed = false
 	tool.Parent = m
+	sling(b, false)
 	local torso = m:FindFirstChild("Torso") :: BasePart?
 	if b.grip and torso then
 		(b.grip :: Motor6D).Part0 = torso
@@ -1427,6 +1464,7 @@ local function putAway(b: Bot, on: boolean)
 	end
 	local m, tool = b.m :: Model, b.tool :: Tool
 	b.away = on
+	sling(b, on)
 	if on then
 		tool.Parent = nil
 		if b.anim then
@@ -1882,6 +1920,9 @@ end
 local function doAct(b: Bot, now: number): boolean
 	local act = b.act :: Act
 	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
+	-- (the gun on the pack's strap from the start: walking to it with the gun in hands and no hold left it through the
+	-- body, user 2026-11-02)
+	putAway(b, true)
 	if act.kind == "Build" then
 		return doBuild(b, act, now)
 	end
@@ -2001,14 +2042,181 @@ local function doAct(b: Bot, now: number): boolean
 	return true
 end
 
+-- Mage bots (Rules/BotStaff, Config/Bots.Staff) ----------------------------------------------------------------------
+
+-- the bot's gun or staff for its brain: rounds and the action (a staff: its mana for rounds; empty or burnt out it
+-- refills, as a reload)
+type Arms = {
+	magazine: number,
+	chambered: boolean,
+	spent: boolean,
+	busy: boolean,
+	loading: boolean,
+	capacity: number,
+	auto: boolean,
+}
+local function arms(b: Bot, entry: any, now: number): Arms
+	if entry then
+		local s = entry.state
+		F.settle(s, now)
+		return {
+			magazine = s.magazine,
+			chambered = s.chambered,
+			spent = s.spent,
+			busy = F.busy(s, now, 0),
+			loading = s.load ~= nil,
+			capacity = entry.gun.capacity + 1,
+			auto = entry.gun.auto == true,
+		}
+	end
+	local m = b.m :: Model
+	local mana, _, locked = StaffCast.manaOf(m)
+	local whole = math.floor(mana)
+	return {
+		magazine = whole,
+		chambered = whole > 0,
+		spent = false,
+		busy = b.cast ~= nil or StaffCast.readyIn(m) > 0,
+		loading = locked or mana < 1,
+		capacity = SpellsCfg.Mana.max + 1,
+		auto = true,
+	}
+end
+
+-- where a shot from `origin` at `part` goes: led by the difficulty, off by its aim error (as the gun bots aim)
+local function aimPoint(b: Bot, part: BasePart, origin: Vector3, d: Rules.Difficulty, now: number): Vector3
+	local v = part.AssemblyLinearVelocity
+	local lag = d.reaction * Cfg.Lag
+	local p = part.Position
+	local point = Vector3.new(
+		Rules.lead(p.X, v.X, lag, d.lead),
+		Rules.lead(p.Y, v.Y, lag, d.lead),
+		Rules.lead(p.Z, v.Z, lag, d.lead)
+	)
+	local line = point - origin
+	local cross = (v - line.Unit * v:Dot(line.Unit)).Magnitude
+	local err = Rules.shakenAim(
+		Rules.aimError(d, now - b.brain.seenAt - d.reaction, cross),
+		shakenNow(b, now),
+		brainCfg.SuppressedAim
+	)
+	local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
+	local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
+	return origin + dir * line.Magnitude
+end
+
+-- its open circle closed without a shot
+local function dropCast(b: Bot)
+	if not b.cast then
+		return
+	end
+	b.cast = nil
+	stats.dropped += 1
+	if b.m then
+		StaffCast.dropAs(b.m :: Model)
+	end
+	if b.anim then
+		(b.anim :: Animate.Handle).stop()
+	end
+end
+
+-- a strongpoint at `at`: in a building, on an MG nest, by a gun (Config/Bots.Staff `gun`)
+local function strongpoint(at: Vector3): boolean
+	if Build.onNest(at) or #indoorNear(at, IN.clearWithin) > 0 then
+		return true
+	end
+	for _, g in Artillery.list() do
+		if flat(g.crew - at).Magnitude <= ST.gun then
+			return true
+		end
+	end
+	return false
+end
+
+-- the staff, one think: an open circle aimed and released once charged (dropped once its seen target has been out
+-- of sight a while); else, when the brain fires, the stage Rules/BotStaff.stage picks at the target (or a known
+-- enemy's cover): a quick shot at once, a medium or mega shot's circle opened
+local function staffFire(b: Bot, fire: boolean, target: Target?, coverAt: Vector3?, facing: boolean, d, now: number)
+	local m, head = b.m :: Model, b.head :: BasePart
+	local part = if target and target.visible then aimPart(target.model) else nil
+	local c = b.cast
+	if c then
+		if part then
+			c.seenAt, c.at = now, aimPoint(b, part :: BasePart, head.Position, d, now)
+		elseif c.visible and now - c.seenAt > ST.lost then
+			dropCast(b)
+			return
+		end
+		StaffCast.aimAs(m, c.at)
+		local hold = SpellsCfg.Stages[c.stage].hold
+		if facing and BotStaff.release(now - c.openedAt, hold, StaffCast.readyIn(m)) then
+			if StaffCast.castAs(m, c.stage, c.at) then
+				(stats :: any)[`casts{c.stage}`] += 1
+			end
+			b.cast = nil
+			if b.anim then
+				(b.anim :: Animate.Handle).stop()
+			end
+		end
+		return
+	end
+	if not fire or not facing or StaffCast.readyIn(m) > 0 then
+		return
+	end
+	local at = if part then aimPoint(b, part :: BasePart, head.Position, d, now) else coverAt
+	if not at then
+		return
+	end
+	local _, affordable, locked = StaffCast.manaOf(m)
+	if locked or affordable < 1 then
+		return
+	end
+	local p = at :: Vector3
+	local all, n = soldiersNow()
+	local kit = m:GetAttribute("Kit")
+	local mates = {}
+	local group = 0
+	for k = 1, n do
+		local o = all[k]
+		if o.model ~= m then
+			if friendly(m, kit, o) then
+				table.insert(mates, { x = o.pos.X, z = o.pos.Z })
+			elseif not o.down and flat(o.pos - p).Magnitude <= ST.cluster then
+				group += 1
+			end
+		end
+	end
+	local onLine, nearBlast = BotStaff.mates(mates, head.Position.X, head.Position.Z, p.X, p.Z, ST.line, ST.blast)
+	local stage = BotStaff.stage({
+		distance = (p - head.Position).Magnitude,
+		visible = part ~= nil,
+		affordable = affordable,
+		group = group,
+		strong = strongpoint(p),
+		mateOnLine = onLine,
+		mateNearBlast = nearBlast,
+	}, DamageCfg.Staff.Range, ST)
+	if stage == 1 then
+		if StaffCast.castAs(m, 1, p) then
+			stats.casts1 += 1
+		end
+	elseif stage > 1 and StaffCast.openAs(m) then
+		b.cast = { stage = stage, openedAt = now, seenAt = now, at = p, visible = part ~= nil }
+		if b.anim then
+			(b.anim :: Animate.Handle).play(W[b.weapon].holds.charge, true)
+		end
+	end
+end
+
 local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local m, humanoid, root, tool = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart, b.tool :: Tool
 	local entry = Firing.entry(tool)
-	if not entry then
+	local staff = W[b.weapon] ~= nil and W[b.weapon].class == "Staff"
+	if not entry and not staff then
 		return
 	end
 	if Ragdoll.active(m) or m:GetAttribute("GetUp") ~= nil then
-		(b.turn :: AlignOrientation).Enabled = false
+		dropCast(b)(b.turn :: AlignOrientation).Enabled = false
 		if not Ragdoll.active(m) then
 			humanoid:MoveTo(root.Position) -- getting up (src/server/DevDummies.getUp): standing still meanwhile
 		end
@@ -2017,6 +2225,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	end
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
 		finish(b)
+		dropCast(b)
 		-- standing in the wave line until the wave goes: idle, nothing in the hands (user 2026-11-01)
 		if not b.stowed then
 			stow(b)
@@ -2079,6 +2288,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		local acting = b.act ~= nil and doAct(b, now)
 		debug.profileend()
 		if acting then
+			dropCast(b)
 			return
 		end
 	end
@@ -2101,19 +2311,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		elseif flat((b.cover :: Vector3) - root.Position).Magnitude < CV.at then "at"
 		else "going"
 
-	local s = entry.state
-	F.settle(s, now)
+	local kitNow = arms(b, entry, now)
 	local target = b.target
 	local senses: Rules.Senses = {
 		now = now,
 		health = humanoid.Health / math.max(humanoid.MaxHealth, 1),
-		magazine = s.magazine,
-		chambered = s.chambered,
-		spent = s.spent,
-		busy = F.busy(s, now, 0),
-		loading = s.load ~= nil,
-		capacity = entry.gun.capacity + 1,
-		auto = entry.gun.auto == true,
+		magazine = kitNow.magazine,
+		chambered = kitNow.chambered,
+		spent = kitNow.spent,
+		busy = kitNow.busy,
+		loading = kitNow.loading,
+		capacity = kitNow.capacity,
+		auto = kitNow.auto,
 		target = if target then { id = target.model, distance = target.distance, visible = target.visible } else nil,
 		hurtAt = b.hurtAt,
 		threatAt = b.threatAt,
@@ -2122,7 +2331,8 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		push = b.push,
 		role = b.role,
 		suppressed = shakenNow(b, now),
-		suppress = b.role == "Support" and knownSpot(b, now) ~= nil,
+		-- (a Mage's medium shots go at a known enemy's cover too: user "Soldiers and their cover")
+		suppress = (b.role == "Support" or staff) and knownSpot(b, now) ~= nil,
 	}
 	local was = b.brain.state
 	local hadTarget = b.brain.targetId ~= nil
@@ -2135,7 +2345,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		say(b, "Spotted")
 	elseif b.brain.state ~= was and b.brain.state == "Cover" then
 		say(b, "Cover")
-	elseif intent.reload then
+	elseif intent.reload and not staff then
 		say(b, "Reload")
 	end
 
@@ -2144,7 +2354,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local zone, radius = objective(b)
 	local goal: Vector3? = nil
 	local targetPart = if target then aimPart(target.model) else nil
-	local suppressAt = if b.role == "Support" and not targetPart then knownSpot(b, now) else nil
+	local suppressAt = if (b.role == "Support" or staff) and not targetPart then knownSpot(b, now) else nil
 	local aimAt: Vector3? = if targetPart then targetPart.Position else (suppressAt or b.lastSeenAt)
 	local move = intent.move
 	-- Normal: a hunt that would lead it far from its order's sector gives way to the order
@@ -2219,8 +2429,8 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	elseif move ~= "Strafe" and move ~= "Peek" and move ~= "Hold" then
 		b.nav.goal = nil
 	end
-	if Healing.busy(m) then
-		-- being healed: it stands for it (the heal breaks off once the two are Break studs apart)
+	if Healing.busy(m) or (b.cast and (b.cast :: Cast).stage == #SpellsCfg.Stages) then
+		-- being healed: it stands for it (the heal breaks off once the two are Break studs apart); charging a mega shot
 		b.nav.goal, b.nav.direct = nil, nil
 	end
 	follow(b, now)
@@ -2272,7 +2482,9 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	end
 
 	-- the weapon
-	if intent.stopLoad then
+	if staff then
+		staffFire(b, intent.fire, target, suppressAt, facing, d, now)
+	elseif intent.stopLoad then
 		Firing.actAs(m, "StopLoad")
 	elseif intent.reload then
 		Firing.actAs(m, "Reload")
@@ -3124,7 +3336,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -3162,6 +3374,10 @@ local function report(now: number)
 			onSteps,
 			inReserve,
 			stats.lost,
+			stats.casts1,
+			stats.casts2,
+			stats.casts3,
+			stats.dropped,
 			stats.doors,
 			windows,
 			clearing,
