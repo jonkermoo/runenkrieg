@@ -92,6 +92,13 @@ local Build = {
 		spacing = 32,
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
+		-- the run's slope measured over this many studs (a voxel's step between two samples 3 studs apart read as too
+		-- steep on gentle hills)
+		slopeSpan = 8,
+		-- a square lies tilted with the ground across it (user 2026-11-02: "make the terrain match the angle of the slope,
+		-- not make it flat"): its hole, walls and pieces turned by the slope from one wall top to the other, refused
+		-- over `maxCross` degrees there (sharp ground, craters)
+		maxCross = 25,
 		planLife = 180, -- seconds an undug plan stays
 		-- a swing works the square whose line is this close, in front of you (19: from anywhere on its dirt, out to the
 		-- skirt past its heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox")

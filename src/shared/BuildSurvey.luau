@@ -6,7 +6,7 @@
 -- A piece's frame: its centre on the ground, RightVector along its width, LookVector to its front. Laid pieces carry
 -- attributes: "Piece" (Config/Build key), "Team", "Frame" (CFrame), "Size" (Vector3: width, height, depth). Trench
 -- blocks (src/server/Trenches) carry "Kind" = "TrenchBlock", "Team", "BlockA" / "BlockB" (their ends on the ground),
--- "LinkA" / "LinkB" ("end", "tee" or "" for a dead end), "Work", "Need". A gun piece's "Frame" is its footprint's
+-- "Tilt" (the ground's rise per stud across them), "LinkA" / "LinkB" ("end", "tee" or "" for a dead end), "Work", "Need". A gun piece's "Frame" is its footprint's
 -- centre (Survey.box); "At" (CFrame) is the gun itself, on the ground, looking out along the muzzle. A bridge's "Frame"
 -- is its trench square's centre on the ground, RightVector along the trench, LookVector across it.
 
@@ -362,8 +362,11 @@ function Survey.bridgeSpot(
 		end
 	end
 	-- (along the trench's own slope, end to end: user round 7, "make it be parallel to the surface of the trench its on")
+	-- (and across with the square's tilt, "Tilt": user 2026-11-02, trenches follow the slope)
 	local along = (b - a).Unit
-	local up = (Vector3.yAxis - along * along.Y).Unit
+	local tilt = m:GetAttribute("Tilt")
+	local side = Vector3.new(-dir.Z, if type(tilt) == "number" then tilt else 0, dir.X).Unit
+	local up = side:Cross(along).Unit
 	return spot, CFrame.fromMatrix(centre, along, up), (b - a).Magnitude, m
 end
 

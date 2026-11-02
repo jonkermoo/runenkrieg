@@ -326,6 +326,46 @@ function Build.trenchProfile(r: number, share: number, t: any): number?
 	return nil
 end
 
+-- The steepest slope (degrees) along a run's ground `heights` (1..n, `step` studs apart), each measured over about
+-- `span` studs, so a voxel's step between two close samples is not read as a slope
+function Build.runSlope(heights: { number }, step: number, span: number): number
+	local n = #heights
+	local k = math.clamp(math.round(span / step), 1, math.max(n - 1, 1))
+	local worst = 0
+	for i = 1, n - k do
+		worst = math.max(worst, Build.slope(heights[i], heights[i + k], step * k))
+	end
+	return worst
+end
+
+-- A trench square's tilt across its line (user 2026-11-02: "make the terrain match the angle of the slope, not make it
+-- flat"): the ground's mean rise per stud from `left` (heights `half` studs to its left) to `right` (as far to its
+-- right); nil when any pair is steeper than `maxDeg` degrees (sharp ground, a crater).
+function Build.crossTilt(left: { number }, right: { number }, half: number, maxDeg: number): number?
+	local sum = 0
+	for i, l in left do
+		if Build.slope(l, right[i], 2 * half) > maxDeg then
+			return nil
+		end
+		sum += right[i] - l
+	end
+	return if #left > 0 then sum / #left / (2 * half) else 0
+end
+
+-- A tilted square's cut under the ground `v` studs (flat) across its line: the square's profile turned whole by its
+-- `tilt` (rise per stud across), `depthAt(w)` its cut (<= 0) at `w` across in its own frame. The reach across in that
+-- frame and the height there over the line's ground at the centre (the ground's own rise plus the turned cut).
+function Build.tiltedCut(v: number, tilt: number, depthAt: (number) -> number): (number, number)
+	local c = 1 / math.sqrt(1 + tilt * tilt)
+	local s = tilt * c
+	-- a point `w` across and `d` down in the square's frame is v = w c - d s across in the world: solved for w
+	local w = v / c
+	for _ = 1, 8 do
+		w = (v + math.min(depthAt(w), 0) * s) / c
+	end
+	return w, w * s + math.min(depthAt(w), 0) * c
+end
+
 -- Whether a point `d` studs (flat) from a trench square's line and `dy` above its ground line there is in that square's
 -- dirt: its hole, walls and banks, from under its floor to over its bank, `slack` more each way (the terrain is carved
 -- in 4-stud voxels). A bullet meeting the ground there hits the square (src/server/Trenches.shot).
