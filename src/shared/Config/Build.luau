@@ -20,6 +20,11 @@ local Build = {
 	Focus = { fill = 0.93, outline = 0.6 },
 	-- swings faster than this share of the shortest time between two strikes (Rules/Build.strikeGap) are ignored
 	SwingSlack = 0.8,
+	-- what one swing does, against each piece's own amounts below (hp.swing, hp.destroy, a gun's repair share): a
+	-- Build swing `build` of it, and a class in `class` that much again on both its Build and Destroy swings
+	-- (Rules/Build.swingPower; user 2026-11-02: "let's half the building power of both soldiers and engineers",
+	-- "apply building buff to destruction as well for engineers")
+	Power = { build = 0.5, class = { Engineer = 1.5 } :: { [string]: number } },
 	-- a blueprint nobody has worked on goes after this (seconds)
 	BlueprintLife = 120,
 	-- live pieces (blueprints count) per player and per team: a piece with its own `playerCap` (Pieces) counts only

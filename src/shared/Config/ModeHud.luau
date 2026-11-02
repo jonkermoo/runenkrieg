@@ -14,9 +14,9 @@ local ModeHud = {
 	ShowKey = Enum.KeyCode.M, -- user 2026-10-31: "V and map conflicts. make it holding m" (V is melee)
 	FadeSeconds = 0.12,
 	Dot = { size = 10, above = 3.2 }, -- the teammate dot: pixels across, studs above the head's centre
-	-- the open points' world marker (its diamond is the spec's PinHQ, its label PinLabel): pixels wide x tall, studs
-	-- above the flagpole's top
-	Marker = { size = { 44, 52 }, above = 3 },
+	-- the open points' world beacon (src/client/PointSeal's seal, as on the sketch map; its label the spec's PinLabel):
+	-- pixels wide x tall, studs above the flagpole's top, the seal's size and ring, the capture bar's width x height
+	Marker = { size = { 56, 70 }, above = 3, seal = 38, ring = 3, bar = { 34, 4 } },
 	-- Territory Push: the countdown while the soldier stands frozen in its wave line (user 2026-11-01: players who deploy
 	-- "just stand in the spawn until the wave unlocks, with no idea when the countdown ends"): this line over the
 	-- seconds left (ModeHud.json WaveBar)

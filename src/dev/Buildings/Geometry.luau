@@ -899,6 +899,419 @@ function Geometry.signal(parent: Instance, ctx: Ctx, at: CFrame, H: number)
 	Geometry.part(sec, ctx, "Cap", at * CFrame.new(0, H + 0.25, 0), Vector3.new(0.9, 0.5, 0.9), "Metal")
 end
 
+-- A festival piece (Palette.Buildings.Festival `key`: canvas, rune paint, a paper lantern).
+local function festival(sec: Instance, ctx: Ctx, name: string, cf: CFrame, size: Vector3, key: string): BasePart
+	local p = Geometry.part(sec, ctx, name, cf, size, "Festival")
+	p:SetAttribute("Swatch", key)
+	return p
+end
+
+-- A paper lantern on a cord, hanging from `y` (its top) at x, z in `at`; soldiers walk through it.
+local function lantern(sec: Instance, ctx: Ctx, at: CFrame, x: number, y: number, z: number)
+	for _, p in
+		{
+			Geometry.part(sec, ctx, "Cord", at * CFrame.new(x, y - 0.4, z), Vector3.new(0.12, 0.8, 0.12), "Metal"),
+			Geometry.part(sec, ctx, "Cap", at * CFrame.new(x, y - 0.9, z), Vector3.new(1, 0.2, 1), "Metal"),
+			festival(sec, ctx, "Lantern", at * CFrame.new(x, y - 1.6, z), Vector3.new(0.9, 1.2, 0.9), "Lantern"),
+		}
+	do
+		p.CanCollide = false
+	end
+end
+
+-- A festival stage, `W` across (local X) and `Dp` deep, its front -Z: a stone plinth whose wooden deck is `h` up, steps
+-- up to it at the middle of its front and back (the lowest of each a Doorstep: VillageBuild adds steps down a bank),
+-- timber posts `H` over the deck at its corners, a canvas backdrop between the back ones, a painted board with a rune
+-- circle across the front ones, lanterns hanging under it and a striped canvas awning rising to the back.
+function Geometry.stage(parent: Instance, ctx: Ctx, at: CFrame, W: number, Dp: number, h: number, H: number)
+	local S = ctx.B.Stage
+	local depth = ctx.B.FoundationDepth
+	local plinth = Geometry.section(parent, ctx, "Platform", "Stone", -1)
+	Geometry.part(
+		plinth,
+		ctx,
+		"Plinth",
+		at * CFrame.new(0, (h - 0.3 - depth) / 2, 0),
+		Vector3.new(W, h - 0.3 + depth, Dp),
+		"Foundation"
+	)
+	Geometry.part(
+		plinth,
+		ctx,
+		"Coping",
+		at * CFrame.new(0, h - 0.45, -Dp / 2 + 0.4),
+		Vector3.new(W + 0.3, 0.3, 1),
+		"Quoin"
+	)
+	local deck = Geometry.section(parent, ctx, "Deck", "Wood", 0)
+	Geometry.part(deck, ctx, "Deck", at * CFrame.new(0, h - 0.15, 0), Vector3.new(W - 0.4, 0.3, Dp - 0.4), "Floor")
+	-- steps: each solid down into the ground, the lowest of each flight turned outward and named Doorstep
+	local St = S.step
+	local n = math.max(1, math.ceil(h / St.rise) - 1)
+	for _, side in { -1, 1 } do
+		local sec = Geometry.section(parent, ctx, "Steps", "Stone", -1)
+		for i = 1, n do
+			local top = h - i * St.rise
+			local z = side * (Dp / 2 + (i - 0.5) * St.run)
+			local cf = at * CFrame.new(0, (top - depth) / 2, z) * CFrame.Angles(0, if side > 0 then math.pi else 0, 0)
+			local name = if i == n then "Doorstep" else "Step"
+			Geometry.part(sec, ctx, name, cf, Vector3.new(St.width, top + depth, St.run), "Quoin")
+		end
+	end
+	-- posts at the corners
+	for _, c in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
+		local sec = Geometry.section(parent, ctx, "Post", "Wood", 0)
+		Geometry.part(
+			sec,
+			ctx,
+			"Post",
+			at * CFrame.new(c[1] * (W / 2 - 0.8), h + H / 2, c[2] * (Dp / 2 - 0.8)),
+			Vector3.new(0.9, H, 0.9),
+			"Trim"
+		)
+	end
+	local back = Geometry.section(parent, ctx, "Backdrop", "Wood", 0)
+	festival(
+		back,
+		ctx,
+		"Backdrop",
+		at * CFrame.new(0, h + (H - 0.5) / 2, Dp / 2 - 0.8),
+		Vector3.new(W - 1.6, H - 0.5, 0.3),
+		"Canvas"
+	)
+	-- the painted board over the front: rune-blue edges, a lantern-gold circle in a blue ring, brackets under its ends
+	local board = Geometry.section(parent, ctx, "Board", "Wood", 99)
+	local bz = -Dp / 2 + 0.35
+	local by = h + H - S.board / 2
+	Geometry.part(board, ctx, "Board", at * CFrame.new(0, by, bz), Vector3.new(W + 0.4, S.board, 0.5), "Wall")
+	for _, dy in { -1, 1 } do
+		festival(
+			board,
+			ctx,
+			"Edge",
+			at * CFrame.new(0, by + dy * (S.board / 2 - 0.175), bz - 0.3),
+			Vector3.new(W + 0.6, 0.35, 0.2),
+			"RunePaint"
+		)
+	end
+	for _, dx in { -1, 1 } do
+		festival(
+			board,
+			ctx,
+			"Edge",
+			at * CFrame.new(dx * (W / 2 + 0.1), by, bz - 0.3),
+			Vector3.new(0.35, S.board, 0.2),
+			"RunePaint"
+		)
+		Geometry.part(
+			board,
+			ctx,
+			"Bracket",
+			at
+				* CFrame.new(dx * (W / 2 - 2.3), by - S.board / 2 - 0.9, bz + 0.4)
+				* CFrame.Angles(0, 0, math.rad(dx * 40)),
+			Vector3.new(3.2, 0.5, 0.4),
+			"Wall"
+		)
+	end
+	local disc = CFrame.Angles(0, math.pi / 2, 0) -- a cylinder's axis (X) turned to face the front
+	local ring =
+		festival(board, ctx, "Ring", at * CFrame.new(0, by, bz - 0.35) * disc, Vector3.new(0.2, 3, 3), "RunePaint")
+	ring.Shape = Enum.PartType.Cylinder
+	local sun =
+		festival(board, ctx, "Rune", at * CFrame.new(0, by, bz - 0.45) * disc, Vector3.new(0.2, 2.3, 2.3), "Lantern")
+	sun.Shape = Enum.PartType.Cylinder
+	-- lanterns hanging under the board between the front posts
+	local lanterns = Geometry.section(parent, ctx, "Lanterns", "Wood", 99)
+	for i = 1, S.lanterns do
+		lantern(lanterns, ctx, at, -W / 2 + 0.8 + i * (W - 1.6) / (S.lanterns + 1), by - S.board / 2, bz)
+	end
+	-- the awning: canvas stripes from the board's top rising to the back posts
+	local roof = Geometry.section(parent, ctx, "Roof", "Wood", 99)
+	local tilt = math.atan(S.rise / Dp)
+	for i = 1, S.stripes do
+		festival(
+			roof,
+			ctx,
+			"Awning",
+			at
+				* CFrame.new(-W / 2 - 0.3 + (i - 0.5) * (W + 0.6) / S.stripes, h + H + S.rise / 2 + 0.2, 0)
+				* CFrame.Angles(-tilt, 0, 0),
+			Vector3.new((W + 0.6) / S.stripes + 0.02, 0.35, Dp / math.cos(tilt) + 0.6),
+			if i % 2 == 1 then "Canvas" else "RunePaint"
+		)
+	end
+end
+
+-- An arcade along a wall (its back, local +Z, against the building's front): `bays` arches `L` along local X, `D` deep,
+-- `H` to the top of its wall band. Chunky piers, each arch's head stepped in corbels (hand-made, not a true curve), a
+-- stone floor, a lean-to roof rising `rise` to the wall behind, a lantern hanging in every bay. `raised`: a loggia on
+-- an upper floor (a thin floor slab on the arcade below it, a parapet between its piers); `roof` false: none (another
+-- arcade stands on it).
+function Geometry.arcade(
+	parent: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	L: number,
+	D: number,
+	H: number,
+	bays: number,
+	raised: boolean?,
+	roof: boolean?
+)
+	local A = ctx.B.Arcade
+	local depth = if raised then A.slab else ctx.B.FoundationDepth
+	local story = if raised then 1 else 0
+	local floor = Geometry.section(parent, ctx, "Floor", "Stone", story - 1)
+	Geometry.part(
+		floor,
+		ctx,
+		"Paving",
+		at * CFrame.new(0, (A.floor - depth) / 2, 0),
+		Vector3.new(L + 0.6, A.floor + depth, D),
+		if raised then "Floor" else "Foundation"
+	)
+	local fz = -D / 2 + A.pier / 2 -- the front line of piers
+	local bay = L / bays
+	local span = bay - A.pier
+	local top = H - A.band
+	for i = 0, bays do
+		local sec = Geometry.section(parent, ctx, "Pier", ctx.class, story)
+		Geometry.part(
+			sec,
+			ctx,
+			"Pier",
+			at * CFrame.new(-L / 2 + i * bay, A.floor + (top - A.floor) / 2, fz),
+			Vector3.new(A.pier, top - A.floor, A.pier),
+			"Wall"
+		)
+	end
+	local band = Geometry.section(parent, ctx, "Arcade", ctx.class, story)
+	Geometry.part(
+		band,
+		ctx,
+		"Band",
+		at * CFrame.new(0, H - A.band / 2, fz),
+		Vector3.new(L + A.pier, A.band, A.pier),
+		"Wall"
+	)
+	local lanterns = Geometry.section(parent, ctx, "Lanterns", "Wood", 99)
+	for i = 1, bays do
+		local cx = -L / 2 + (i - 0.5) * bay
+		-- the arch's head: corbels stepping in from each pier, narrowing down from the band
+		for k, w in A.corbels do
+			local y = top - (k - 0.5) * A.step
+			for _, side in { -1, 1 } do
+				Geometry.part(
+					band,
+					ctx,
+					"Corbel",
+					at * CFrame.new(cx + side * (span / 2 - w * span / 2), y, fz),
+					Vector3.new(w * span, A.step, A.pier),
+					"Wall"
+				)
+			end
+		end
+		lantern(lanterns, ctx, at, cx, top, fz + 1.2)
+		if raised then
+			Geometry.part(
+				band,
+				ctx,
+				"Parapet",
+				at * CFrame.new(cx, A.floor + A.parapet / 2, fz),
+				Vector3.new(span + 0.05, A.parapet, A.pier * 0.7),
+				"Wall"
+			)
+		end
+	end
+	if roof == false then
+		return
+	end
+	-- the lean-to roof from the band up to the wall
+	local cover = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	local tilt = math.atan(A.rise / D)
+	Geometry.part(
+		cover,
+		ctx,
+		"Roof",
+		at * CFrame.new(0, H + A.rise / 2 + 0.2, 0) * CFrame.Angles(-tilt, 0, 0),
+		Vector3.new(L + A.pier + 1, 0.5, D / math.cos(tilt) + 0.8),
+		"Roof"
+	)
+end
+
+-- A river landing: a stone quay `L` along local X and `D` deep, its top at the base, its face to the water (local -Z)
+-- with `steps` steps down from it, a coping along its edge and a mooring post with a lantern at each front corner.
+function Geometry.landing(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number, steps: number)
+	local S = ctx.B.Landing
+	local depth = ctx.B.FoundationDepth
+	local quay = Geometry.section(parent, ctx, "Platform", "Stone", -1)
+	Geometry.part(
+		quay,
+		ctx,
+		"Quay",
+		at * CFrame.new(0, (S.top - depth) / 2, 0),
+		Vector3.new(L, S.top + depth, D),
+		"Foundation"
+	)
+	Geometry.part(quay, ctx, "Coping", at * CFrame.new(0, S.top + 0.1, -D / 2 + 0.6), Vector3.new(L, 0.3, 1.2), "Quoin")
+	for i = 1, steps do
+		local top = S.top - i * S.rise
+		Geometry.part(
+			quay,
+			ctx,
+			"Step",
+			at * CFrame.new(0, (top - depth) / 2, -D / 2 - (i - 0.5) * S.run),
+			Vector3.new(S.width, top + depth, S.run),
+			"Quoin"
+		)
+	end
+	local posts = Geometry.section(parent, ctx, "Posts", "Wood", 0)
+	for _, side in { -1, 1 } do
+		local x, z = side * (L / 2 - 1), -D / 2 + 1
+		Geometry.part(
+			posts,
+			ctx,
+			"Post",
+			at * CFrame.new(x, S.top + S.post / 2, z),
+			Vector3.new(0.8, S.post, 0.8),
+			"Trim"
+		)
+		Geometry.part(
+			posts,
+			ctx,
+			"Hook",
+			at * CFrame.new(x, S.top + S.post - 0.3, z - 0.6),
+			Vector3.new(0.3, 0.3, 1.2),
+			"Metal"
+		)
+		lantern(posts, ctx, at, x, S.top + S.post - 0.45, z - 1.1)
+	end
+end
+
+-- A rowing boat `L` long (local Z), its keel on the river's water line (the section is OnWater: VillageBuild puts it
+-- there): a plank hull, two thwarts, a pair of oars.
+function Geometry.boat(parent: Instance, ctx: Ctx, at: CFrame, L: number)
+	local sec = Geometry.section(parent, ctx, "Boat", "Wood", 0)
+	sec:SetAttribute("OnWater", true)
+	local w = ctx.B.Landing.boat
+	Geometry.part(sec, ctx, "Bottom", at * CFrame.new(0, 0.1, 0), Vector3.new(w - 0.8, 0.3, L - 1), "Wood")
+	for _, side in { -1, 1 } do
+		Geometry.part(
+			sec,
+			ctx,
+			"Side",
+			at * CFrame.new(side * (w / 2 - 0.2), 0.6, 0),
+			Vector3.new(0.3, 1.1, L - 1),
+			"Wood"
+		)
+		Geometry.part(
+			sec,
+			ctx,
+			"Oar",
+			at * CFrame.new(side * (w / 2 + 0.3), 1.2, 0.5),
+			Vector3.new(0.2, 0.15, L * 0.6),
+			"Trim"
+		)
+	end
+	for _, z in { -1, 1 } do
+		Geometry.part(
+			sec,
+			ctx,
+			"End",
+			at * CFrame.new(0, 0.6, z * (L / 2 - 0.3)),
+			Vector3.new(w - 0.4, 1.1, 0.4),
+			"Wood"
+		)
+		Geometry.part(sec, ctx, "Thwart", at * CFrame.new(0, 0.9, z * L / 5), Vector3.new(w - 0.6, 0.2, 0.8), "Trim")
+	end
+end
+
+-- A brick lattice vent on a wall (a Selvaran hay barn's gable): a dark backing `W` x `H` and bricks over it in a
+-- checker of `Lattice.cell` squares standing proud of it, so the gaps read as holes. `at` is its centre, the wall
+-- behind it (local +Z).
+function Geometry.lattice(parent: Instance, ctx: Ctx, at: CFrame, W: number, H: number)
+	local c = ctx.B.Lattice.cell
+	local sec = Geometry.section(parent, ctx, "Lattice", ctx.class, 1)
+	Geometry.part(sec, ctx, "Backing", at * CFrame.new(0, 0, 0.1), Vector3.new(W, H, 0.2), "DoorDark")
+	local cols, rows = math.floor(W / c), math.floor(H / c)
+	for i = 0, cols - 1 do
+		for j = 0, rows - 1 do
+			if (i + j) % 2 == 0 or i == 0 or j == 0 or i == cols - 1 or j == rows - 1 then
+				Geometry.part(
+					sec,
+					ctx,
+					"Brick",
+					at * CFrame.new((i + 0.5) * c - cols * c / 2, (j + 0.5) * c - rows * c / 2, -0.15),
+					Vector3.new(c + 0.02, c + 0.02, 0.4),
+					"Wall"
+				)
+			end
+		end
+	end
+end
+
+-- A soldiers' ridge tent `L` long (local Z), `W` wide and `H` high, standing on the real ground (OnGround): two canvas
+-- sides, canvas ends (a dark door flap in the front one, local -Z), a ridge pole. Its canvas is a Festival key
+-- (TentGrey for Katzmark, TentGreen for Selvara).
+function Geometry.tent(parent: Instance, ctx: Ctx, at: CFrame, L: number, W: number, H: number, canvas: string?)
+	local key = canvas or "TentGrey"
+	local sec = Geometry.section(parent, ctx, "Tent", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local a = math.atan(H / (W / 2))
+	local slant = math.sqrt((W / 2) ^ 2 + H * H)
+	for _, side in { -1, 1 } do
+		festival(
+			sec,
+			ctx,
+			"Canvas",
+			at * CFrame.new(side * W / 4, H / 2, 0) * CFrame.Angles(0, 0, -side * a),
+			Vector3.new(slant, 0.25, L),
+			key
+		)
+	end
+	for _, z in { -L / 2, L / 2 } do
+		for _, p in triangle(sec, ctx, at * CFrame.new(0, 0, z), W - 0.3, H - 0.15, 0.2, "Festival") do
+			p:SetAttribute("Swatch", key)
+		end
+	end
+	Geometry.part(
+		sec,
+		ctx,
+		"Flap",
+		at * CFrame.new(0, H * 0.3, -L / 2 - 0.15),
+		Vector3.new(1.4, H * 0.6, 0.12),
+		"DoorDark"
+	)
+	Geometry.part(sec, ctx, "Ridge", at * CFrame.new(0, H + 0.05, 0), Vector3.new(0.3, 0.3, L + 0.8), "Trim")
+end
+
+-- A stack of supply crates on the real ground (OnGround): `count` along the bottom, one on top.
+function Geometry.crates(parent: Instance, ctx: Ctx, at: CFrame, count: number)
+	local sec = Geometry.section(parent, ctx, "Crates", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local s = ctx.B.Crate
+	for i = 1, count do
+		local x = (i - (count + 1) / 2) * (s + 0.2)
+		Geometry.part(
+			sec,
+			ctx,
+			"Crate",
+			at * CFrame.new(x, s / 2, 0) * CFrame.Angles(0, math.rad(i * 7), 0),
+			Vector3.new(s, s, s),
+			"Wood"
+		)
+	end
+	Geometry.part(
+		sec,
+		ctx,
+		"Crate",
+		at * CFrame.new(-0.3, s * 1.5, 0.1) * CFrame.Angles(0, math.rad(-12), 0),
+		Vector3.new(s, s, s),
+		"Wood"
+	)
+end
+
 -- A hanging inn sign: a post `height` high, an arm off its top along local X, a framed board hanging under the arm.
 function Geometry.sign(parent: Instance, ctx: Ctx, at: CFrame, height: number)
 	local S = ctx.B.InnSign

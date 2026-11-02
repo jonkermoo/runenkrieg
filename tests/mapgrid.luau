@@ -1,34 +1,42 @@
 --!strict
--- Map 1's walk grid for the map checker (Rules/MapCheck), built once and shared by tests/mapcheck.spec.luau and the
--- report (tests/mapreport.luau).
+-- A frontline map's walk grid for the map checker (Rules/MapCheck), built once per map and shared by
+-- tests/mapcheck.spec.luau, tests/sectors.spec.luau and the report (tests/mapreport.luau): grid(map).
 local Assets = require("../src/shared/Config/Assets")
 local B = require("../src/shared/Config/Buildings")
 local Cfg = require("../src/shared/Config/MapCheck")
 local M = require("../src/shared/Config/Metrics")
-local Map1 = require("../src/shared/Config/Maps/Map1")
 local P = require("../src/shared/Config/Props")
 local Check = require("../src/shared/Rules/MapCheck")
 local MT = require("../src/shared/Rules/MapTerrain")
 local V = require("../src/shared/Rules/Village")
 
-local layout = V.layout(Map1, B, M, MT, P)
 local Line = require("../src/shared/Config/Frontline").Line
-local lines = require("../src/shared/Rules/Frontline").lineQuads(Map1.sectors, Line, Line.treeClear)
-local trees = V.naturalTrees(Map1, MT, layout.lots, Map1.village.trees.buildingClear, lines)
-for _, t in layout.trees do
-	table.insert(trees, t)
-end
-local lots = {}
-for _, l in layout.lots do
-	table.insert(lots, { corners = V.corners(l, 0), stories = l.stories, storyHeight = l.storyHeight })
-end
-local g = Check.grid(Map1, MT, Cfg, trees, lots, Assets.TreeTargetHeight, M.Movement.MaxSlopeAngle)
+local Frontline = require("../src/shared/Rules/Frontline")
 
-local spawns = {}
-local walks = {}
-for team, r in Map1.spawnZones do
-	spawns[team] = Check.cellsIn(g, r)
-	walks[team] = Check.walk(g, spawns[team])
-end
+local cache: { [any]: any } = {}
 
-return { grid = g, spawns = spawns, walks = walks, map = Map1, cfg = Cfg, metrics = M }
+return function(map: any): any
+	if cache[map] then
+		return cache[map]
+	end
+	local layout = V.layout(map, B, M, MT, P)
+	local lines = Frontline.lineQuads(map.sectors, Line, Line.treeClear)
+	local trees = V.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear, lines)
+	for _, t in layout.trees do
+		table.insert(trees, t)
+	end
+	local lots = {}
+	for _, l in layout.lots do
+		table.insert(lots, { corners = V.corners(l, 0), stories = l.stories, storyHeight = l.storyHeight })
+	end
+	local g = Check.grid(map, MT, Cfg, trees, lots, Assets.TreeTargetHeight, M.Movement.MaxSlopeAngle)
+
+	local spawns = {}
+	local walks = {}
+	for team, r in map.spawnZones do
+		spawns[team] = Check.cellsIn(g, r)
+		walks[team] = Check.walk(g, spawns[team])
+	end
+	cache[map] = { grid = g, spawns = spawns, walks = walks, map = map, cfg = Cfg, metrics = M, layout = layout }
+	return cache[map]
+end

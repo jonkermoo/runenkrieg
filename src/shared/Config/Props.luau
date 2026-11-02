@@ -12,6 +12,9 @@ local Props = {
 	Pole = { height = 22, spacing = 48, class = "Wood" },
 	Wire = { sag = 1.2, segments = 4 },
 	Signpost = { height = 7.5 },
+	-- a festival lantern pole (Lantern Meadows): a post `height` high, a crossbar `arm` across its top, a paper lantern
+	-- hanging off each end
+	LanternPole = { height = 11, arm = 3.4 },
 	-- the railway (a map's village.railX, src/dev/Greybox/VillageBuild): two rails `gauge` apart, `height` over the
 	-- bed, on sleepers (`sleepers` to a `segment`), each segment laid on the highest ground under it (`samples` along it,
 	-- across the sleepers' width; Rules/Village.railBed: the ground never rises over a rail), `beyond` past the bounds
@@ -33,6 +36,7 @@ local Props = {
 		"Hedge",
 		"Pole",
 		"Signpost",
+		"LanternPole",
 		"Well",
 		"Trough",
 		"Barrels",

@@ -32,6 +32,27 @@ local Dragging = {
 	MaxVelocity = 12, -- studs/s the collar may chase the grip at
 	Responsiveness = 25,
 
+	-- Over anything (user 2026-11-02: "they should just go over the gap anyways"): while dragged the body collides with
+	-- nothing (the `Group` collision group), so no trench lip, gap, heap, sandbag or wall catches it, and each of the
+	-- `Lift.parts` is held `lie` studs over the ground under it (a ray from `from` studs above it, `reach` down, through
+	-- soldiers) by a vertical pull of up to `force`, `speed` studs/s, so the body slides down into a trench and up out of
+	-- it after the dragger. With no ground to rub on, its sideways speed dies away at `friction` a second (else it swings
+	-- round the hands for ever; Studio 2026-11-02). Let go with anything solid between the dragger and the body (or the body in it), the body
+	-- settles at the dragger's level, at the hands (Grip); let go anywhere, no limb stays under the ground (lifted to
+	-- `clear` studs over it), so it never ends up in the ground or a wall.
+	Group = "Dragged",
+	Lift = {
+		parts = { "Torso", "Head", "Left Arm", "Right Arm" },
+		lie = 0.55,
+		from = 4.5,
+		reach = 16,
+		force = 20000,
+		speed = 20,
+		responsiveness = 30,
+		friction = 6,
+		clear = 0.05,
+	},
+
 	-- The dragger's pull (tools/animation/dragging.luau): both hands low on the collar, a slow tug, looping over the
 	-- crouch walk (the dragger crouches while dragging: src/client/Stance).
 	Animation = { id = 90887292928815 }, -- DragPull
