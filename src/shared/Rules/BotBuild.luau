@@ -183,4 +183,70 @@ function BotBuild.nudge(job: Job, tries: number, step: number): (number, number)
 	return job.x - job.fz * step * k, job.z + job.fx * step * k
 end
 
+-- A breastwork along the line A-B (a trench run the ground refused, user 2026-11-02: "Breastworks"): a lay job every
+-- `step` studs along it, the keys taken in turn from `keys` (sandbag piles and barriers), facing (fx, fz).
+function BotBuild.line(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	fx: number,
+	fz: number,
+	step: number,
+	keys: { string }
+): { Job }
+	local dx, dz = bx - ax, bz - az
+	local len = math.sqrt(dx * dx + dz * dz)
+	local n = math.max(1, math.floor(len / step + 0.5))
+	local jobs: { Job } = {}
+	for i = 0, n - 1 do
+		local t = (i + 0.5) / n
+		table.insert(jobs, { key = keys[i % #keys + 1], x = ax + dx * t, z = az + dz * t, fx = fx, fz = fz })
+	end
+	return jobs
+end
+
+-- A wall of `count` sandbag piles `ahead` studs on the enemy side (fx, fz) of a nest or gun at (x, z), `spread` studs
+-- apart across (user 2026-11-02: "Walls round nest and gun").
+function BotBuild.wall(
+	x: number,
+	z: number,
+	fx: number,
+	fz: number,
+	ahead: number,
+	spread: number,
+	count: number
+): { Job }
+	local jobs: { Job } = {}
+	for i = 1, count do
+		local off = (i - (count + 1) / 2) * spread
+		table.insert(jobs, {
+			key = "SandbagPile",
+			x = x + fx * ahead - fz * off,
+			z = z + fz * ahead + fx * off,
+			fx = fx,
+			fz = fz,
+		})
+	end
+	return jobs
+end
+
+-- Whether a bot is pinned in the open and lays a sandbag pile in front of itself (user 2026-11-02: "Pile under
+-- fire"): shot at within `threat` seconds, at least `shaken` suppressed, no cover found or under way, not in a
+-- trench, and its last such pile at least `every` seconds ago.
+function BotBuild.pinned(
+	sinceThreat: number,
+	shaken: number,
+	hasCover: boolean,
+	inTrench: boolean,
+	sinceLast: number,
+	cfg: { threat: number, shaken: number, every: number }
+): boolean
+	return sinceThreat <= cfg.threat
+		and shaken >= cfg.shaken
+		and not hasCover
+		and not inTrench
+		and sinceLast >= cfg.every
+end
+
 return BotBuild
