@@ -534,9 +534,21 @@ function Bots.lead(p: number, v: number, lag: number, lead: number): number
 	return p + v * lag * (lead - 1)
 end
 
--- Whether a bot meant to be moving has stalled: under `distance` studs made over `window` seconds.
-function Bots.stuck(moved: number, elapsed: number, window: number, distance: number): boolean
-	return elapsed >= window and moved < distance
+-- Whether a bot meant to be moving has stalled: under `distance` studs made over `window` seconds. A sample older
+-- than `stale` seconds says nothing (it wasn't walking meanwhile: held in the wave line, down, standing up).
+function Bots.stuck(moved: number, elapsed: number, window: number, distance: number, stale: number): boolean
+	return elapsed >= window and elapsed < stale and moved < distance
+end
+
+-- (x, z) moved inside `bounds` by `margin` studs (the map's walls stop soldiers, but paths don't see them)
+function Bots.inside(
+	x: number,
+	z: number,
+	bounds: { minX: number, maxX: number, minZ: number, maxZ: number },
+	margin: number
+): (number, number)
+	return math.clamp(x, bounds.minX + margin, bounds.maxX - margin),
+		math.clamp(z, bounds.minZ + margin, bounds.maxZ - margin)
 end
 
 return Bots

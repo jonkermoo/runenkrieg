@@ -1070,6 +1070,16 @@ local function computePath(b: Bot, goal: Vector3, own: boolean?): boolean
 	return true
 end
 
+-- `v` moved inside the map's walls (Config/Bots.Move.Edge): paths don't see the walls, so a goal beyond them leaves
+-- the bot pressed against one
+local function inside(b: Bot, v: Vector3): Vector3
+	if b.mode ~= "Normal" then
+		return v
+	end
+	local x, z = Rules.inside(v.X, v.Z, Map.bounds, MV.Edge)
+	return if x == v.X and z == v.Z then v else Vector3.new(x, v.Y, z)
+end
+
 local function setGoal(b: Bot, goal: Vector3?, now: number)
 	local nav = b.nav
 	if goal == nil then
@@ -1077,7 +1087,7 @@ local function setGoal(b: Bot, goal: Vector3?, now: number)
 		nav.waypoints = {}
 		return
 	end
-	local g = goal :: Vector3
+	local g = inside(b, goal :: Vector3)
 	local changed = nav.goal == nil or (flat((nav.goal :: Vector3) - g)).Magnitude > 4
 	if changed then
 		nav.goal = g
@@ -1097,7 +1107,7 @@ end
 local function follow(b: Bot, now: number)
 	local nav = b.nav
 	local humanoid, root = b.humanoid :: Humanoid, b.root :: BasePart
-	local target: Vector3? = nav.direct
+	local target: Vector3? = if nav.direct then inside(b, nav.direct :: Vector3) else nil
 	if not target and nav.goal then
 		local wp = nav.waypoints[nav.index]
 		if wp then
@@ -1128,7 +1138,7 @@ local function follow(b: Bot, now: number)
 	local elapsed = now - nav.sampleAt
 	if elapsed >= MV.StuckWindow then
 		local moved = flat(root.Position - nav.samplePos).Magnitude
-		if Rules.stuck(moved, elapsed, MV.StuckWindow, MV.StuckDistance) then
+		if Rules.stuck(moved, elapsed, MV.StuckWindow, MV.StuckDistance, MV.StuckStale) then
 			stats.stuck += 1
 			if nav.direct then
 				nav.direct = nil -- (a straight step into something: give it up)
