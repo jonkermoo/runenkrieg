@@ -475,6 +475,79 @@ end
 
 -- A staff beam of `stage` from `origin` to where it landed: the leaves it passes through or near lose HP, and every
 -- client shakes them and drops leaves there (scaled by the stage, Leaves.react).
+-- the standing trees by Leaves.cell-stud square of their pivot, kept as the tag comes and goes (a felled tree loses it
+-- before it falls, so a tagged tree never moves)
+local cells: { [number]: { [Model]: true } } = {}
+local cellOf: { [Instance]: number } = {}
+local gridding = false
+-- (a number for a key: equal Vector2s are different table keys)
+local function cellKey(cx: number, cz: number): number
+	return cx * 65536 + cz
+end
+local function cellAt(x: number, z: number): (number, number)
+	return math.floor(x / L.cell), math.floor(z / L.cell)
+end
+local function grid(tree: Instance)
+	if not tree:IsA("Model") or cellOf[tree] then
+		return
+	end
+	local p = tree:GetPivot().Position
+	local key = cellKey(cellAt(p.X, p.Z))
+	cellOf[tree] = key
+	local set = cells[key]
+	if not set then
+		set = {}
+		cells[key] = set
+	end
+	set[tree :: Model] = true
+end
+local function ungrid(tree: Instance)
+	local key = cellOf[tree]
+	if key then
+		cellOf[tree] = nil
+		local set = cells[key]
+		if set then
+			set[tree :: Model] = nil
+			if next(set) == nil then
+				cells[key] = nil
+			end
+		end
+	end
+end
+-- the standing trees whose square lies within `reach` of the flat line `a` to `b`
+local function treesNear(a: Vector3, b: Vector3, reach: number): { Model }
+	if not gridding then
+		gridding = true
+		CollectionService:GetInstanceAddedSignal(TreeCfg.Tag):Connect(grid)
+		CollectionService:GetInstanceRemovedSignal(TreeCfg.Tag):Connect(ungrid)
+		for _, tree in CollectionService:GetTagged(TreeCfg.Tag) do
+			grid(tree)
+		end
+	end
+	local out, seen = {}, {}
+	local dx, dz = b.X - a.X, b.Z - a.Z
+	local length = math.sqrt(dx * dx + dz * dz)
+	local steps = math.max(math.ceil(length / (L.cell / 2)), 1)
+	local span = math.ceil(reach / L.cell)
+	for i = 0, steps do
+		local t = i / steps
+		local x0, z0 = cellAt(a.X + dx * t, a.Z + dz * t)
+		for cx = x0 - span, x0 + span do
+			for cz = z0 - span, z0 + span do
+				local key = cellKey(cx, cz)
+				local set = not seen[key] and cells[key]
+				seen[key] = true
+				if set then
+					for tree in set do
+						table.insert(out, tree)
+					end
+				end
+			end
+		end
+	end
+	return out
+end
+
 function Trees.beam(origin: Vector3, landed: Vector3, stage: number)
 	local line = landed - origin
 	local length = line.Magnitude
@@ -485,7 +558,7 @@ function Trees.beam(origin: Vector3, landed: Vector3, stage: number)
 	local d = line / length
 	local mid = (origin + landed) / 2
 	local hits = {}
-	for _, tree in CollectionService:GetTagged(TreeCfg.Tag) do
+	for _, tree in treesNear(origin, landed, L.reach + near) do
 		local canopy = tree:IsA("Model") and tree:FindFirstChild("Canopy") :: BasePart?
 		if canopy and not CollectionService:HasTag(tree, TreeCfg.ShedTag) then
 			local half = canopy.Size / 2
