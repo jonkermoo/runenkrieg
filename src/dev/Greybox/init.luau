@@ -4,6 +4,8 @@
 --   require(game.ServerStorage.Dev.Greybox:Clone()).build("Map1")
 -- or only the sector dividers and markers, over a map already built:
 --   require(game.ServerStorage.Dev.Greybox:Clone()).sectors("Map1")
+-- and check a built map against the map rules (docs/maps/MAP_RULES.md; read-only, any place):
+--   require(game.ServerStorage.Dev.Greybox:Clone()).audit("Map1")
 -- Cloning bypasses the require cache so Rojo edits take effect without restarting Studio.
 -- Replaces Workspace.<map> and ALL terrain, generated from Config/Maps/<map> via Rules/MapTerrain; a map with `offMap`
 -- (Config/Maps/Playtest) replaces only the terrain round itself and adds no spawn.
@@ -60,9 +62,14 @@ function Greybox.build(mapName: string): string
 	local P = fresh(Shared.Config.Props)
 	local fixed = if map.layout then VillageRules.fixed(map, B, M, MT) else nil
 	local layout = fixed or (if map.village then VillageRules.layout(map, B, M, MT, P) else nil)
+	-- and the frontline's wave lines stand on open ground (Rules/Frontline.lineQuads)
+	local lineCfg = fresh(Shared.Config.Frontline).Line
+	local lines = if map.sectors and #map.sectors >= 3
+		then fresh(Shared.Rules.Frontline).lineQuads(map.sectors, lineCfg, lineCfg.treeClear)
+		else nil
 	local natural = if fixed
 		then fixed.trees
-		elseif layout then VillageRules.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear)
+		elseif layout then VillageRules.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear, lines)
 		else nil
 	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette, natural)
 	-- Village: roads are painted into the terrain by Rules/MapTerrain; buildings + props from the library.
@@ -137,6 +144,18 @@ function Greybox.sectors(mapName: string): string
 		fresh(Shared.Rules.Sectors)
 	)
 	return string.format("Built %s sectors: %d divider blocks, %d points.", mapName, dividers, points)
+end
+
+-- The map rules' checks on a built map (src/dev/Greybox/Audit): a report, a FAIL line for each thing to fix.
+function Greybox.audit(mapName: string): string
+	local Shared = ReplicatedStorage:WaitForChild("Shared")
+	return require(script.Audit).run(mapName, {
+		B = fresh(Shared.Config.Buildings),
+		Front = fresh(Shared.Config.Frontline),
+		M = fresh(Shared.Config.Metrics),
+		FrontRules = fresh(Shared.Rules.Frontline),
+		map = fresh(Shared.Config.Maps:FindFirstChild(mapName) :: Instance),
+	})
 end
 
 return Greybox

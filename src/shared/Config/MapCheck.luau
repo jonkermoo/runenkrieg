@@ -14,8 +14,9 @@ local MapCheck = {
 	Step = 3, -- along a sight line
 	-- Each spawn's sprint time to its own nearest sector and to the neutral centre sector (s, over the real ground),
 	-- and how much longer one team's run to the centre may be than the other's (share).
-	-- (ownFirst 45, was 30: the first fought-over sector is an HQ's ~225 plus one ~420 spacing out since 2026-11-01)
-	Limits = { ownFirst = 45, centre = 90, fairness = 0.2 },
+	-- (ownFirst 60, was 45, before that 30: the first fought-over sector is an HQ's ~400 plus one ~420 spacing out since
+	-- 2026-11-02; centre 100, was 90: plus another spacing)
+	Limits = { ownFirst = 60, centre = 100, fairness = 0.2 },
 	-- Frontline (Config/Sectors): the most a sector's point may favour one side, as the gap between the sprint times
 	-- to it from the neighbouring point on each side (s); and the most a divider may favour one side, as the mean gap
 	-- between the sprint times to the two points it divides, along it (s).

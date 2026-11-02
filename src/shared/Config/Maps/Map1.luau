@@ -72,8 +72,10 @@ local Map1 = {
 	-- each side's spawn, behind its HQ (S1 / S5) as far out as the old HQ points were from theirs (~225 studs, ~12 s
 	-- sprint; user 2026-10-27: an HQ point too near its spawn is too hard to take)
 	spawnZones = {
-		West = { minX = 140, maxX = 210, minZ = -60, maxZ = 60 } :: Rect,
-		East = { minX = 2240, maxX = 2310, minZ = 40, maxZ = 130 } :: Rect, -- (clear of the village houses)
+		-- ~400 behind each HQ, as far back as its sector goes with room to spare (user 2026-11-02: "can we move the
+		-- spawn even further back? still be in the same sector though"; was ~225, 140..210 and 2240..2310)
+		West = { minX = -40, maxX = 30, minZ = -60, maxZ = 60 } :: Rect,
+		East = { minX = 2420, maxX = 2490, minZ = 120, maxZ = 210 } :: Rect, -- (clear of the village houses and the halt)
 	},
 
 	-- Terrain shape
@@ -195,7 +197,7 @@ local Map1 = {
 			{ x = 2100, z = -30, r = 34 },
 			{ x = 1660, z = -40, r = 60 },
 			{ x = 2080, z = 40, r = 60 },
-			{ x = 2275, z = 85, r = 70 },
+			{ x = 2455, z = 165, r = 58 }, -- the East spawn zone (its corners 57 out)
 			{ x = 2400, z = 0, r = 70 },
 			{ x = 2505, z = 0, r = 55 },
 		},
