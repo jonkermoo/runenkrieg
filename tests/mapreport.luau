@@ -1,8 +1,11 @@
 --!strict
--- The map checker's report on Map 1 (roadmap 2.1): `lune run tests/mapreport`. Travel times from each spawn, the
--- sight lines round each sector, pits and cut-off pockets. The pass / fail rules are in tests/mapcheck.spec.luau.
+-- The map checker's report on a frontline map (roadmap 2.1): `lune run tests/mapreport [<map>]` (default Map1).
+-- Travel times from each spawn, the sight lines round each sector, pits and cut-off pockets. The pass / fail rules are
+-- in tests/mapcheck.spec.luau.
+local process = require("@lune/process")
 local Check = require("../src/shared/Rules/MapCheck")
-local S = require("./mapgrid")
+local name = process.args[1] or "Map1"
+local S = require("./mapgrid")((require :: any)(`../src/shared/Config/Maps/{name}`))
 
 local g, map, M = S.grid, S.map, S.metrics
 local walk, sprint = M.Movement.WalkSpeed, M.Movement.SprintSpeed

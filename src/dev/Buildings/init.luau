@@ -86,7 +86,9 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				CFrame.new(-W / 2 + T / 2, y, 0) * CFrame.Angles(0, math.pi / 2, 0),
 				sideL,
 				ends(sideL, Dp / 2),
-				if story == 0 and t.leftDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				if (story == 0 and t.leftDoor) or (story == 1 and t.upperDoor == "left")
+					then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } }
+					else nil,
 				t.windows or 1,
 			},
 			{
@@ -94,7 +96,10 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				CFrame.new(W / 2 - T / 2, y, 0) * CFrame.Angles(0, -math.pi / 2, 0),
 				sideL,
 				ends(sideL, Dp / 2),
-				if story == 0 and t.rightDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				-- (an upper door on a gable: VillageBuild's steps down from it make an outside stair)
+				if (story == 0 and t.rightDoor) or (story == 1 and t.upperDoor == "right")
+					then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } }
+					else nil,
 				t.windows or 1,
 			},
 		}
@@ -222,6 +227,21 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.waterTower(model, ctx, at, f.size, f.height)
 			elseif f.kind == "Signal" then
 				Geometry.signal(model, ctx, at, f.height)
+			elseif f.kind == "Lattice" then
+				Geometry.lattice(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height)
+			elseif f.kind == "Tent" then
+				Geometry.tent(model, ctx, at, f.length, f.width, f.height, f.canvas)
+			elseif f.kind == "Crates" then
+				Geometry.crates(model, ctx, at, f.count)
+			elseif f.kind == "Landing" then
+				Geometry.landing(model, ctx, at, f.length, f.depth, f.steps)
+			elseif f.kind == "Boat" then
+				Geometry.boat(model, ctx, at, f.length)
+			elseif f.kind == "Arcade" then
+				local y = CFrame.new(0, f.y or 0, 0)
+				Geometry.arcade(model, ctx, at * y, f.length, f.depth, f.height, f.bays, f.raised, f.roof)
+			elseif f.kind == "Stage" then
+				Geometry.stage(model, ctx, at, f.width, f.depth, f.height, f.posts)
 			elseif f.kind == "Waterwheel" then
 				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
 			else
@@ -268,6 +288,8 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 				c = rgb(P.Walls[swatch])
 			elseif swatch and role == "Roof" and P.Roofs[swatch] then
 				c = rgb(P.Roofs[swatch])
+			elseif swatch and role == "Festival" and P.Festival[swatch] then
+				c = rgb(P.Festival[swatch]) -- a festival stage's canvas, rune paint and lanterns
 			end
 			if c then
 				-- hand-made look: each piece a few % lighter/darker (deterministic Tone from generation)

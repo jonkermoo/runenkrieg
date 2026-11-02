@@ -63,13 +63,62 @@ local function roadBox(map: any): { minX: number, maxX: number, minZ: number, ma
 	return b
 end
 
+-- A straight river's middle line (Map 1: north-south along x, meandering).
 function MapTerrain.riverCenterX(map: any, z: number): number
 	local r = map.river
+	assert(not r.path, "a river with a path has no single x per z: use riverNearest")
 	return r.x + r.meanderAmp * math.sin(z / r.meanderLen * 2 * math.pi)
 end
 
+-- A river along a path (Config/Maps/LanternMeadows: { x, z } points, bending), each piece's box padded by FAR: a point
+-- further than FAR from every piece is just "far" (every use of the distance asks about less than that)
+local FAR = 160
+local pathBoxes: { [any]: { { number } } } = {}
+local function riverPieces(r: any): { { number } }
+	local pieces = pathBoxes[r]
+	if not pieces then
+		pieces = {}
+		for i = 1, #r.path - 1 do
+			local a, b = r.path[i], r.path[i + 1]
+			table.insert(pieces, {
+				math.min(a[1], b[1]) - FAR,
+				math.max(a[1], b[1]) + FAR,
+				math.min(a[2], b[2]) - FAR,
+				math.max(a[2], b[2]) + FAR,
+				i,
+			})
+		end
+		pathBoxes[r] = pieces
+	end
+	return pieces
+end
+
+-- Distance from (x, z) to the river's middle line and the nearest point on it.
+function MapTerrain.riverNearest(map: any, x: number, z: number): (number, number, number)
+	local r = map.river
+	if not r.path then
+		local cx = MapTerrain.riverCenterX(map, z)
+		return math.abs(x - cx), cx, z
+	end
+	local best, bx, bz = math.huge, x, z
+	for _, p in riverPieces(r) do
+		if x >= p[1] and x <= p[2] and z >= p[3] and z <= p[4] then
+			local a, b = r.path[p[5]], r.path[p[5] + 1]
+			local dx, dz = b[1] - a[1], b[2] - a[2]
+			local len2 = dx * dx + dz * dz
+			local t = if len2 == 0 then 0 else math.clamp(((x - a[1]) * dx + (z - a[2]) * dz) / len2, 0, 1)
+			local qx, qz = a[1] + dx * t, a[2] + dz * t
+			local d = math.sqrt((x - qx) ^ 2 + (z - qz) ^ 2)
+			if d < best then
+				best, bx, bz = d, qx, qz
+			end
+		end
+	end
+	return best, bx, bz
+end
+
 function MapTerrain.riverDistance(map: any, x: number, z: number): number
-	return math.abs(x - MapTerrain.riverCenterX(map, z))
+	return (MapTerrain.riverNearest(map, x, z))
 end
 
 local function ridgeHeight(map: any, x: number): number
@@ -183,7 +232,7 @@ function MapTerrain.heightAt(map: any, x: number, z: number): number
 	if not r then
 		return land
 	end
-	local d = MapTerrain.riverDistance(map, x, z)
+	local d, qx, qz = MapTerrain.riverNearest(map, x, z)
 	local bedHalf = r.width / 2 - 2
 	-- Lift low land near the river above the water line so water stays inside the channel.
 	local shore = r.waterY + 1.5
@@ -193,7 +242,8 @@ function MapTerrain.heightAt(map: any, x: number, z: number): number
 	end
 	local bed = r.bedY
 	for _, f in r.fords do
-		local fz = math.abs(z - f.z)
+		-- how far along the river from the ford (a straight river's ford is a z; a path river's a point on it)
+		local fz = math.sqrt((qx - (f.x or qx)) ^ 2 + (qz - f.z) ^ 2)
 		if fz < f.width / 2 + 6 then
 			bed = math.max(bed, f.bedY - (f.bedY - r.bedY) * smooth((fz - f.width / 2) / 6))
 		end

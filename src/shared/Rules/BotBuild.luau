@@ -38,7 +38,7 @@ end
 
 -- The Engineers' build list at its side's front `zone`, the enemy's way in along (tx, tz) (a flat unit): a sandbag pile
 -- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the edge, an MG nest at the hold spot nearest the enemy, and the
--- guns `guns` names (the keys the artillery level opens) behind the zone.
+-- guns `guns` names (the keys its side may build) behind the zone.
 function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns: { string }, cfg: any): { Job }
 	local jobs: { Job } = {}
 	-- across: the line at right angles to the way in
@@ -295,6 +295,69 @@ function BotBuild.pinned(
 		and not hasCover
 		and not inTrench
 		and sinceLast >= cfg.every
+end
+
+-- how far (x, z) is from the segment (ax, az)-(bx, bz)
+local function offSegment(x: number, z: number, ax: number, az: number, bx: number, bz: number): number
+	local dx, dz = bx - ax, bz - az
+	local len2 = dx * dx + dz * dz
+	local t = if len2 > 0 then math.clamp(((x - ax) * dx + (z - az) * dz) / len2, 0, 1) else 0
+	return math.sqrt((x - (ax + dx * t)) ^ 2 + (z - (az + dz * t)) ^ 2)
+end
+
+-- Where wire planned at (x, z) goes so it is only in the enemy's way (user 2026-11-02 hand test: "they should be very
+-- safe as not to annoy real players. place where it would only be an inconvenience to enemies"): `cfg.gap` studs off
+-- each of its own side's ways forward (`lines`: { ax, az, bx, bz }) and `cfg.spawn` off its spawn (`spawn`: a rect),
+-- moved across (ux, uz) by `cfg.step` up to `cfg.shift` studs either way, the nearest first; nil, nil if nowhere.
+function BotBuild.wireSpot(
+	x: number,
+	z: number,
+	ux: number,
+	uz: number,
+	lines: { { ax: number, az: number, bx: number, bz: number } },
+	spawn: { minX: number, maxX: number, minZ: number, maxZ: number }?,
+	cfg: { gap: number, spawn: number, step: number, shift: number }
+): (number?, number?)
+	local function clear(px: number, pz: number): boolean
+		for _, l in lines do
+			if offSegment(px, pz, l.ax, l.az, l.bx, l.bz) < cfg.gap then
+				return false
+			end
+		end
+		if spawn then
+			local dx = math.max(spawn.minX - px, px - spawn.maxX, 0)
+			local dz = math.max(spawn.minZ - pz, pz - spawn.maxZ, 0)
+			if math.sqrt(dx * dx + dz * dz) < cfg.spawn then
+				return false
+			end
+		end
+		return true
+	end
+	local k = 0
+	while k * cfg.step <= cfg.shift do
+		for _, sign in (if k == 0 then { 1 } else { 1, -1 }) do
+			local px, pz = x + ux * k * cfg.step * sign, z + uz * k * cfg.step * sign
+			if clear(px, pz) then
+				return px, pz
+			end
+		end
+		k += 1
+	end
+	return nil, nil
+end
+
+-- Whether bots may swing at a piece of theirs that lost HP `since` seconds ago (user 2026-11-02 hand test: "Dont let
+-- ai repair structures that are being destroyed by players. if players start destroying and stop, have a timer before
+-- friendly AI repairs it"): `wait` seconds after it last lost any.
+function BotBuild.mayRepair(since: number, wait: number): boolean
+	return since >= wait
+end
+
+-- Whether a bot with an enemy within a butt stroke's reach strikes (user 2026-11-02: "allow AI to melee (dont force
+-- them to just because are withing range)", "Sometimes"): a roll (`roll` 0..1) under `cfg.chance`, `cfg.empty` with
+-- its gun empty or loading.
+function BotBuild.strikes(empty: boolean, roll: number, cfg: { chance: number, empty: number }): boolean
+	return roll < (if empty then cfg.empty else cfg.chance)
 end
 
 return BotBuild

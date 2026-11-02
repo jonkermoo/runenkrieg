@@ -25,6 +25,7 @@ export type Template = {
 	backDoor: (boolean | { { center: number, w: number?, h: number? } })?, -- a door in the back wall too (story 0), or a list
 	leftDoor: boolean?, -- and in the -X / +X side walls (a porch turned to face its gable forward)
 	rightDoor: boolean?,
+	upperDoor: string?, -- "left" / "right": a door on that gable's first floor (its outside stair: VillageBuild's steps)
 	windows: number?, -- windows per wall, every wall (default 2 front and back, 1 on the sides)
 	climb: boolean?, -- one more flight up through the ceiling onto the roof (a tower's roof walk)
 	waterside: boolean?, -- stands at the river's edge on purpose (a mill): the village check lets it into the river banks
@@ -40,8 +41,14 @@ export type Template = {
 	-- (a stone yard wall from a to b, { x, z } each), { kind = "Waterwheel", x, z, y, yaw?, radius, width } (its axle
 	-- along local Z, its centre y over the base), { kind = "Canopy", x, z, length, depth, height } (a station canopy, its
 	-- wall side +Z), { kind = "Platform", x, z, length, depth, height } (its edge -Z), { kind = "WaterTower", x, z, size,
-	-- height }, { kind = "Signal", x, z, height }. A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
-	-- the copy's scheme.
+	-- height }, { kind = "Signal", x, z, height }, { kind = "Stage", x, z, width, depth, height, posts } (a festival
+	-- stage, its front -Z, its deck `height` up, its posts `posts` over the deck). A block's `wall` / `roof`
+	-- (Palette.Buildings keys) colour it apart from the copy's scheme. { kind = "Arcade", x, z, length, depth, height, bays }
+	-- (an arcade, its back +Z against a block's front wall), { kind = "Landing", x, z, length, depth, steps } (a river
+	-- quay, its face -Z), { kind = "Boat", x, z, yaw?, length } (on the river's water line), { kind = "Tent", x, z, yaw?,
+	-- length, width, height } (a ridge tent, its door -Z), { kind = "Crates", x, z, yaw?, count }, { kind = "Lattice", x,
+	-- z, y, yaw?, width, height } (a brick vent on a wall, the wall behind it +Z). An Arcade may stand `y` up, `raised`
+	-- (a loggia on the one below) or with `roof = false`; a Tent's `canvas` is a Palette.Buildings.Festival key.
 	features: { any }?,
 	description: string,
 }
@@ -60,8 +67,9 @@ local Buildings = {
 	-- rising `grade` per stud out to `reach`, in columns `cell` across
 	GroundCut = { margin = 3, reach = 14, grade = 0.9, cell = 2 },
 	-- and a door whose step stands higher than a step over the ground outside gets stone steps down to it
-	-- (Rules/Village.steps): `rise` each (under Metrics.Character.MaxStepUp), `run` deep, at most `max`
-	Steps = { rise = 0.8, run = 1.4, max = 16 },
+	-- (Rules/Village.steps): `rise` each (under Metrics.Character.MaxStepUp), `run` deep, at most `max` (24: an upper
+	-- gable door's outside stair on a slope, Lantern Meadows' Selvaran houses)
+	Steps = { rise = 0.8, run = 1.4, max = 24 },
 	-- the map audit (src/dev/Greybox/Audit, docs/maps/MAP_RULES.md): sample spacing, how far round the walls the ground
 	-- may not stand over a floor, how far out from each door to walk, the slack on each test
 	Audit = { step = 1, wallReach = 3, walkOut = 24, slack = 0.2 },
@@ -91,6 +99,29 @@ local Buildings = {
 	Canopy = { posts = 5.5, rise = 1.2, roof = "Slate", valance = "WhiteBoard" },
 	WaterTower = { tank = "TarBoard", spout = 2.4 },
 	Signal = { post = "WhiteBoard", armRoof = "RedTile", arm = 3.2 },
+	-- a festival stage (Lantern Meadows): steps `step` (rise under Metrics.Character.MaxStepUp, `width` across) front and
+	-- back, the painted board over its front `board` high, its canvas awning rising `rise` to the back in `stripes`
+	-- stripes, `lanterns` hanging under the board
+	-- an arcade (Lantern Meadows' lantern-makers' hall): piers `pier` square, a wall band `band` high over the arches,
+	-- each arch's head `corbels` steps `step` high (each a fraction of the span, from the pier in), its floor `floor` up,
+	-- its lean-to roof rising `rise` to the wall behind
+	-- (a raised one, a loggia: a floor slab `slab` thick, a parapet `parapet` high between its piers)
+	Arcade = {
+		pier = 1.6,
+		band = 1.8,
+		corbels = { 0.3, 0.17, 0.07 },
+		step = 0.7,
+		floor = 0.4,
+		rise = 2.2,
+		slab = 0.8,
+		parapet = 1.2,
+	},
+	-- a river landing (Lantern Meadows' ferry house): the quay's top `top` over the base, steps `rise` x `run`, `width`
+	-- across, mooring posts `post` high, the ferry's boat `boat` wide
+	Landing = { top = 0.2, rise = 0.8, run = 1.4, width = 6, post = 4, boat = 3.4 },
+	Crate = 2.4, -- a supply crate's side (the Katzmark camp)
+	Lattice = { cell = 0.9 }, -- a brick lattice vent's squares (the field barn)
+	Stage = { board = 3.2, rise = 2.2, stripes = 8, lanterns = 5, step = { rise = 0.8, run = 1.4, width = 8 } },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -185,6 +216,73 @@ local Buildings = {
 			walls = { "TarBoard", "BarnRed", "WhiteBoard" },
 			roofs = { "DarkTile", "Slate" },
 			description = "Small board shed.",
+		},
+
+		-- Selvara's house kit (user 2026-11-01: "yes, Selvaran kit"; Lantern Meadows' hamlet, Selvara's later maps): warm
+		-- stucco under low terracotta roofs. A one-storey casetta; a two-storey house whose upper door opens on its
+		-- gable, reached by an outside stone stair (VillageBuild's steps), its stable door below; a long two-storey house
+		-- with a three-arch portico along half its front.
+		SelvaCasetta = {
+			folder = "Houses",
+			width = 20,
+			depth = 13,
+			stories = 1,
+			roofPitch = 26,
+			roofStyle = "Tile",
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Cream", "Ochre", "Rose" },
+			roofs = { "Terracotta" },
+			gableChimney = 1,
+			description = "Selvaran casetta: one storey of stucco under a low terracotta roof, a gable chimney.",
+		},
+		SelvaStairHouse = {
+			folder = "Houses",
+			width = 22,
+			depth = 14,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 26,
+			roofStyle = "Tile",
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Rose", "Ochre", "Sienna" },
+			roofs = { "Terracotta" },
+			doors = { { center = 4, w = 5.4, h = 7.5 } }, -- the stable door
+			upperDoor = "left",
+			gableChimney = 1,
+			description = "Selvaran house with an outside stair: two storeys of stucco, a stable door below, the stair up the gable.",
+		},
+		SelvaLongHouse = {
+			folder = "Houses",
+			width = 32,
+			depth = 20,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 26,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Ochre", "Cream", "Rose" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "House",
+					x = 0,
+					z = 3,
+					width = 30,
+					depth = 13,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 26,
+					roofStyle = "Tile",
+					gableChimney = 1,
+					doors = { { center = -6 }, { center = 9 } },
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = -6, z = -6.2, length = 18, depth = 5.4, height = 9, bays = 3 },
+			},
+			description = "Selvaran long house: two storeys of stucco under terracotta, a three-arch portico along half its front.",
 		},
 
 		-- Map 1's landmarks (user 2026-11-01, the six designs: church, coaching inn, oast house, Dutch barn, watermill,
@@ -443,7 +541,258 @@ local Buildings = {
 			},
 			description = "The railway halt: a small brick station, platform and canopy, a water tower and a signal.",
 		},
+		-- Lantern Meadows' landmarks (user 2026-11-01, the six designs: watchtower, field barn, festival stage,
+		-- lantern-makers' hall, ferry house, cascina), one at a time. The festival stage on the festival ground north of
+		-- S3, on its x, facing the point: a stone plinth with steps front and back, timber posts, a canvas backdrop, a
+		-- painted board with a rune circle over its front, lanterns under it and a striped canvas awning. Its lantern poles
+		-- stand round the ground (the map's village features).
+		FestivalStage = {
+			folder = "Landmarks",
+			width = 34,
+			depth = 26,
+			stories = 1,
+			storyHeight = 10,
+			roofPitch = 0,
+			class = "Wood",
+			wallThickness = 1,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {},
+			features = {
+				{ kind = "Stage", x = 0, z = 0, width = 32, depth = 14, height = 3.2, posts = 10 },
+			},
+			description = "The festival stage: a stone plinth with steps, timber posts, a painted rune board, lanterns and a striped awning.",
+		},
+		-- The lantern-makers' hall behind the stage, on S3's x, facing the festival ground: a long cream stucco
+		-- workshop under terracotta, a five-bay arcade along its front with a lantern hanging in every arch, doors
+		-- front and back.
+		LanternHall = {
+			folder = "Landmarks",
+			width = 44,
+			depth = 22,
+			stories = 1,
+			storyHeight = 11,
+			roofPitch = 30,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Hall",
+					x = 0,
+					z = 3.5,
+					width = 40,
+					depth = 14,
+					stories = 1,
+					storyHeight = 11,
+					roofPitch = 30,
+					roofStyle = "Tile",
+					doors = { { center = -8 }, { center = 0, w = 5, h = 8 }, { center = 8 } },
+					backDoor = true,
+					gableChimney = 1,
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = 0, z = -6.4, length = 40, depth = 5.4, height = 8, bays = 5 },
+			},
+			description = "The lantern-makers' hall: a long cream stucco workshop under terracotta, a five-bay arcade hung with lanterns.",
+		},
+		-- The ferry house on the east bank by the festival ford, facing the river: a two-storey rose stucco house under
+		-- terracotta with an outside stone stair down its south gable (toward the ford) from the upper door, a stone
+		-- landing on the bank with steps down to the water, mooring posts with lanterns, and the ferry's boat on the water.
+		FerryHouse = {
+			folder = "Landmarks",
+			width = 26,
+			depth = 34,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 32,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Rose" },
+			roofs = { "Terracotta" },
+			waterside = true,
+			blocks = {
+				{
+					name = "House",
+					x = 0,
+					z = 8,
+					width = 20,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 32,
+					roofStyle = "Tile",
+					gableChimney = -1,
+					upperDoor = "right",
+					backDoor = true,
+				},
+			},
+			features = {
+				{ kind = "Landing", x = 0, z = -8, length = 22, depth = 8, steps = 4 },
+				{ kind = "Boat", x = 6, z = -25, yaw = 90, length = 9 },
+			},
+			description = "The ferry house: a two-storey rose stucco house with an outside stair, a stone landing, mooring posts and the boat.",
+		},
+		-- The old watchtower on S1's hill, north of the point on its x, facing it: a square four-stage stone tower with a
+		-- battlemented roof walk you can climb to; Katzmark's camp round its foot, grey ridge tents and supply crates.
+		Watchtower = {
+			folder = "Landmarks",
+			width = 40,
+			depth = 26,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate" },
+			blocks = {
+				{
+					name = "Tower",
+					x = 0,
+					z = 3,
+					width = 14,
+					depth = 14,
+					stories = 4, -- 28 high: no taller than the church tower on Map 1
+					storyHeight = 7,
+					windows = 1,
+					roofPitch = 0,
+					roofStyle = "Battlement",
+					quoins = true,
+					climb = true,
+				},
+			},
+			features = {
+				{ kind = "Tent", x = -14, z = -5, length = 9, width = 7, height = 5.5 },
+				{ kind = "Tent", x = 14, z = -5, length = 9, width = 7, height = 5.5 },
+				{ kind = "Tent", x = -14, z = 7, yaw = 180, length = 8, width = 6, height = 5 },
+				{ kind = "Crates", x = 13, z = 8, count = 3 },
+				{ kind = "Crates", x = 9, z = -10, yaw = 20, count = 2 },
+			},
+			description = "The old watchtower: a square stone tower with a climbable battlemented roof walk, Katzmark's tents and crates round it.",
+		},
+		-- The field barn among S2's hedgerows, south of the point on its x, facing it: a Selvaran hay barn, two storeys
+		-- of brick under a low terracotta roof, three wide barn doors below and brick lattice vents in the hayloft
+		-- above, no glass. Haystacks beside it (the map's village features).
+		FieldBarn = {
+			folder = "Landmarks",
+			width = 34,
+			depth = 18,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 24,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick", "RedBrick" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Barn",
+					x = 0,
+					z = 0,
+					width = 32,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 24,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 0,
+					doors = {
+						{ center = -10, w = 6, h = 7 },
+						{ center = 0, w = 6, h = 7 },
+						{ center = 10, w = 6, h = 7 },
+					},
+					backDoor = { { center = 0, w = 6, h = 7 } },
+				},
+			},
+			features = {
+				{ kind = "Lattice", x = -10, z = -7.2, y = 15.6, width = 7.2, height = 5.4 },
+				{ kind = "Lattice", x = 0, z = -7.2, y = 15.6, width = 7.2, height = 5.4 },
+				{ kind = "Lattice", x = 10, z = -7.2, y = 15.6, width = 7.2, height = 5.4 },
+				{ kind = "Lattice", x = -8, z = 7.2, y = 15.6, yaw = 180, width = 7.2, height = 5.4 },
+				{ kind = "Lattice", x = 8, z = 7.2, y = 15.6, yaw = 180, width = 7.2, height = 5.4 },
+			},
+			description = "The field barn: a two-storey brick hay barn under terracotta, three wide doors, brick lattice vents.",
+		},
+		-- The cascina at S5, south of the point on its x between it and the river, facing it: a two-storey ochre farmhouse
+		-- under terracotta with a portico below and an open loggia above, an arched gateway through to the courtyard
+		-- behind, a three-stage dovecote tower at its west end (pigeon holes at the top, stairs inside: about the
+		-- watchtower's height at the other end) and Selvara's green tents and crates in front.
+		Cascina = {
+			folder = "Landmarks",
+			width = 64,
+			depth = 30,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 26,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Ochre" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "House",
+					x = -4,
+					z = 2,
+					width = 36,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 26,
+					roofStyle = "Tile",
+					gableChimney = -1,
+					doors = { { center = -7.2 }, { center = 0, w = 6, h = 8 }, { center = 7.2 } },
+					backDoor = { { center = 0, w = 6, h = 8 } },
+				},
+				{
+					name = "Dovecote",
+					x = 21,
+					z = 2,
+					width = 12,
+					depth = 12,
+					stories = 3,
+					storyHeight = 8,
+					roofPitch = 40,
+					roofStyle = "Tile",
+					windows = 1,
+					quoins = true,
+					wall = "Sienna",
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = -4, z = -7.7, length = 36, depth = 5.4, height = 10, bays = 5, roof = false },
+				{
+					kind = "Arcade",
+					x = -4,
+					z = -7.7,
+					y = 10.2,
+					length = 36,
+					depth = 5.4,
+					height = 8,
+					bays = 5,
+					raised = true,
+				},
+				{ kind = "Lattice", x = 21, z = -4.2, y = 21, width = 6.3, height = 2.7 },
+				{ kind = "Tent", x = -27, z = -9, length = 8, width = 6, height = 5, canvas = "TentGreen" },
+				{ kind = "Tent", x = 30, z = -10, yaw = 90, length = 8, width = 6, height = 5, canvas = "TentGreen" },
+				{ kind = "Crates", x = 14, z = -12, count = 3 },
+			},
+			description = "The cascina: an ochre farmhouse with a portico and loggia, an arched gateway and a dovecote tower, Selvara's tents in front.",
+		},
 	} :: { [string]: Template },
+
+	-- A map's house kit (its village.kit): which templates along which kind of road, and its plot boundaries (else
+	-- RoadTemplates and Config/Props.BoundaryKinds: Map 1's English cottages).
+	Kits = {
+		Selvara = {
+			Main = { "SelvaCasetta", "SelvaStairHouse", "SelvaLongHouse", "SelvaCasetta" },
+			Lane = { "SelvaCasetta", "SelvaStairHouse", "SelvaCasetta" },
+			Row = { "SelvaStairHouse" },
+			boundaries = { "StoneWall", "StoneWall", "Hedge", "RailFence" },
+		},
+	},
 
 	-- Village placement: which templates appear along which kind of road (picked by hash).
 	RoadTemplates = {

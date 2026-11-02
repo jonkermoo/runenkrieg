@@ -23,10 +23,20 @@ end
 
 -- The gun's lay after `dt` seconds working toward the wanted world yaw and elevation: the mount traverses toward the
 -- aim within +-`gun.traverse` at `traverseRate`; while the aim lies past that and the mount is at its stop, the whole
--- gun swings at `swing`. Elevation goes toward the wanted one, clamped, at `elevationRate`.
+-- gun swings at `swing`. A mount that goes right round (`gun.traverse` 180, the howitzer's ring) turns the short way
+-- to the aim and on past the back, its traverse going on round past 180 (user 2026-11-02: "the artys cant turn fully";
+-- it stopped at the back, as the aim there wrapped round to the other side; unwrapped, its hand wheel never jumps). Elevation goes toward the wanted one,
+-- clamped, at `elevationRate`.
 function Artillery.lay(state: Lay, wantYaw: number, wantElevation: number, gun: any, dt: number): Lay
 	local rel = Artillery.wrap(wantYaw - state.yaw)
 	local limit = gun.traverse
+	local elevation =
+		toward(state.elevation, math.clamp(wantElevation, gun.elevation[1], gun.elevation[2]), gun.elevationRate * dt)
+	if limit >= 180 then
+		local off = Artillery.wrap(rel - state.traverse)
+		local traverse = toward(state.traverse, state.traverse + off, gun.traverseRate * dt)
+		return { yaw = state.yaw, traverse = traverse, elevation = elevation }
+	end
 	local target = math.clamp(rel, -limit, limit)
 	local traverse = toward(state.traverse, target, gun.traverseRate * dt)
 	local yaw = state.yaw
@@ -37,8 +47,6 @@ function Artillery.lay(state: Lay, wantYaw: number, wantElevation: number, gun: 
 		yaw = Artillery.wrap(yaw + sign * turn)
 		-- the mount stays on its stop: the aim relative to the turned gun is still past it
 	end
-	local elevation =
-		toward(state.elevation, math.clamp(wantElevation, gun.elevation[1], gun.elevation[2]), gun.elevationRate * dt)
 	return { yaw = yaw, traverse = traverse, elevation = elevation }
 end
 
@@ -136,6 +144,26 @@ function Artillery.recoilLength(full: number, elevation: number, trunnionY: numb
 end
 
 -- The share of the reload done (0..1) at `now`, the gun ready at `readyAt` after `reload` seconds.
+-- The screen points (fractions of the view, 0..1 across and down) a gunner's sight is cast through to find what stands
+-- in its way (Config/Artillery.ViewFade): `cols` x `rows` evenly over the box `box` = { left, top, right, bottom }.
+function Artillery.sightPoints(cols: number, rows: number, box: { number }): { { number } }
+	local out = {}
+	for r = 1, rows do
+		for c = 1, cols do
+			local u = if cols > 1 then (c - 1) / (cols - 1) else 0.5
+			local v = if rows > 1 then (r - 1) / (rows - 1) else 0.5
+			table.insert(out, { box[1] + (box[3] - box[1]) * u, box[2] + (box[4] - box[2]) * v })
+		end
+	end
+	return out
+end
+
+-- A faded piece's see-through share stepped `dt` seconds toward `want` at `rate` a second.
+function Artillery.fadeStep(now: number, want: number, rate: number, dt: number): number
+	local step = rate * dt
+	return if now < want then math.min(want, now + step) else math.max(want, now - step)
+end
+
 function Artillery.loaded(now: number, readyAt: number, reload: number): number
 	if reload <= 0 then
 		return 1
@@ -339,32 +367,6 @@ function Artillery.nearSpawn(
 		end
 	end
 	return false
-end
-
--- Artillery.lay kept off where `blocked(lay)` (a spawn): a step that would lay it there turns only the axis that stays
--- clear (sliding along the edge), or nothing; true when it was held. A lay already there moves freely (the spawn came
--- to it).
-function Artillery.layClear(
-	state: Lay,
-	wantYaw: number,
-	wantElevation: number,
-	gun: any,
-	dt: number,
-	blocked: (Lay) -> boolean
-): (Lay, boolean)
-	local step = Artillery.lay(state, wantYaw, wantElevation, gun, dt)
-	if not blocked(step) or blocked(state) then
-		return step, false
-	end
-	local turn = Artillery.lay(state, wantYaw, state.elevation, gun, dt)
-	if not blocked(turn) then
-		return turn, true
-	end
-	local raise = Artillery.lay(state, state.yaw + state.traverse, wantElevation, gun, dt)
-	if not blocked(raise) then
-		return raise, true
-	end
-	return state, true
 end
 
 -- The server's check of an aim sent by the gunner: real numbers in range.

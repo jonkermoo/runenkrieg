@@ -20,6 +20,11 @@ local Build = {
 	Focus = { fill = 0.93, outline = 0.6 },
 	-- swings faster than this share of the shortest time between two strikes (Rules/Build.strikeGap) are ignored
 	SwingSlack = 0.8,
+	-- what one swing does, against each piece's own amounts below (hp.swing, hp.destroy, a gun's repair share): a
+	-- Build swing `build` of it, and a class in `class` that much again on both its Build and Destroy swings
+	-- (Rules/Build.swingPower; user 2026-11-02: "let's half the building power of both soldiers and engineers",
+	-- "apply building buff to destruction as well for engineers")
+	Power = { build = 0.5, class = { Engineer = 1.5 } :: { [string]: number } },
 	-- a blueprint nobody has worked on goes after this (seconds)
 	BlueprintLife = 120,
 	-- live pieces (blueprints count) per player and per team: a piece with its own `playerCap` (Pieces) counts only
@@ -104,6 +109,10 @@ local Build = {
 		-- 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible"): the
 		-- cut is its top edges (Rules.trenchTop) less this much a piece may hang over the edge from its bank
 		overhang = 0.5,
+		-- no square is planned with a standing tree's trunk (at its widest, the roots' flare) within its cut, on its walls
+		-- or on its dirt heaps (Rules.trenchTop + joins.heapReach), nor within `treeClear` studs past them (user
+		-- 2026-11-02: "also trees are going into trenches. increase the boundaries")
+		treeClear = 2,
 		planLife = 180, -- seconds an undug plan stays
 		-- a swing works the square whose line is this close, in front of you (from anywhere on its dirt, out past its
 		-- heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox"; 19 to 13 with the narrower trench)

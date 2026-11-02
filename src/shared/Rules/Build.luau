@@ -62,7 +62,7 @@ export type Placing = {
 	perTeam: number,
 	allowed: boolean?, -- false: the builder's class may not build this kind (Rules/Classes.mayBuild)
 	spot: string?, -- a bridge: why its trench square won't take it (Build.bridgeSpot), nil when it will
-	locked: string?, -- a gun the match's artillery level hasn't reached yet: why (Rules/Frontline.gunLocked)
+	locked: string?, -- a gun the builder's side may not build yet: why (Rules/Frontline.gunLocked)
 	kind: number?, -- the team's live pieces of this one's key (its `teamCap`, Config/Build.Pieces)
 	mineKind: number?, -- the builder's live pieces of this one's key (its `playerCap`)
 	sector: number?, -- the team's live pieces of this one's key in the sector it is in (its `sectorCap`)
@@ -199,6 +199,13 @@ end
 -- whether a sandbag pile's mesh is a bag's tie (`<bag>Cord`, Config/Palette.Build.SandbagCord) rather than the bag
 function Build.isPileCord(name: string): boolean
 	return string.sub(name, -4) == "Cord"
+end
+
+-- How much of a piece's own swing amount one swing of `mode` by a soldier of `class` does (Config/Build.Power): a Build
+-- swing `build` of it, times the class's own share on either mode (1 for a class not listed)
+function Build.swingPower(mode: string, class: string?, power: any): number
+	local k = if class then power.class[class] or 1 else 1
+	return if mode == "Build" then power.build * k else k
 end
 
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
@@ -495,6 +502,21 @@ local function toSeg(px: number, pz: number, s: { number }): number
 	local len2 = dx * dx + dz * dz
 	local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
 	return math.sqrt((px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2)
+end
+
+-- Whether a standing tree whose trunk is at (x, z), `trunk` studs across at its widest, is too near a trench run from
+-- (ax, az) to (bx, bz) (Config/Build.Trench `t`): in its cut, on its walls or dirt heaps, or within `treeClear` of them
+function Build.treeTooNear(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	x: number,
+	z: number,
+	trunk: number,
+	t: any
+): boolean
+	return toSeg(x, z, { ax, az, bx, bz }) < Build.trenchTop(t) + t.joins.heapReach + trunk / 2 + t.treeClear
 end
 
 -- The trench squares a plan's end at (x, z) joins: those within `touch` of it (the square it extends or tees into),
@@ -880,6 +902,13 @@ function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
 		end
 	end
 	return true
+end
+
+-- whether the point (x, z) lies on footprint `f` or within `margin` of it (a planned square's stake under a piece:
+-- src/server/Trenches; user 2026-11-02: "remove the stakes on the points if things get built over or under it")
+function Build.onFootprintAt(x: number, z: number, f: Footprint, margin: number): boolean
+	local dx, dz = x - f.x, z - f.z
+	return Build.onFootprint(dx * f.rx + dz * f.rz, -dx * f.rz + dz * f.rx, f.width, f.depth, margin)
 end
 
 -- A trench square's open cut as a footprint (Build.footprintsOverlap): from its end (ax, az) to (bx, bz), `half`
