@@ -683,6 +683,88 @@ function Ground.pit(
 	return out
 end
 
+-- The ground a foxhole is carved in (src/server/Build, Config/Build.Foxhole), read once as it is laid: a box `reach`
+-- studs each way round `position` and `down` under / `up` over it; per column (keyed "ix,iz" in the box) its voxels as
+-- they were and the top of its ground (nil: none in the box)
+export type Plot = {
+	region: Region3,
+	cols: { [string]: { occs: { number }, mats: { Enum.Material }, top: number?, at: Vector3 } },
+}
+
+function Ground.plot(position: Vector3, reach: number, down: number, up: number): Plot?
+	local terrain = workspace.Terrain
+	local region = Region3.new(position - Vector3.new(reach, down, reach), position + Vector3.new(reach, up, reach))
+		:ExpandToGrid(VOXEL)
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return nil
+	end
+	local size = mats.Size
+	local corner = region.CFrame.Position - region.Size / 2
+	local cols = {}
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local o, m, top = {}, {}, nil
+			for iy = 1, size.Y do
+				o[iy], m[iy] = occs[ix][iy][iz], mats[ix][iy][iz]
+				if o[iy] > 0 and m[iy] ~= Enum.Material.Water then
+					top = corner.Y + (iy - 0.5) * VOXEL + o[iy] * VOXEL
+				end
+			end
+			local at = Vector3.new(corner.X + (ix - 0.5) * VOXEL, top or position.Y, corner.Z + (iz - 0.5) * VOXEL)
+			cols[`{ix},{iz}`] = { occs = o, mats = m, top = top, at = at }
+		end
+	end
+	return { region = region, cols = cols }
+end
+
+-- Shapes a plot's ground (Ground.plot): each column `height` takes (its middle on the ground as it lay; nil: left as it
+-- is now) is set to its ground as it lay raised or lowered by that many studs. Cut down to it in `cut`, filled up to it
+-- in `fill` (a voxel that was air), back to just as it was at 0. Voxel by voxel with fractional occupancy, as
+-- Ground.pit; a column with water or no ground is left alone. Its columns are dug ground: no crater fills them back.
+-- `bare` (optional): materials turned to `fill` in every column it shapes (the grass off its dirt; nil puts them back).
+function Ground.shapeColumns(
+	plot: Plot,
+	height: (Vector3) -> number?,
+	cut: Enum.Material,
+	fill: Enum.Material,
+	bare: { Enum.Material }?
+)
+	local terrain = workspace.Terrain
+	local region = plot.region
+	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
+	if not ok then
+		return
+	end
+	local size = mats.Size
+	local gx, gy, gz, corner = gridOf(region)
+	for ix = 1, size.X do
+		for iz = 1, size.Z do
+			local col = plot.cols[`{ix},{iz}`]
+			local h = col and col.top and height(col.at)
+			if col and col.top and h and not table.find(col.mats, Enum.Material.Water) then
+				local want = col.top + h
+				for iy = 1, size.Y do
+					local was, mat = col.occs[iy], col.mats[iy]
+					local mid = corner.Y + (iy - 0.5) * VOXEL
+					local target = math.clamp((want - mid) / VOXEL, 0, 1)
+					if h < 0 and target < was then
+						was, mat = target, if target <= 0 then Enum.Material.Air else cut
+					elseif h > 0 and target > was then
+						was, mat = target, if mat == Enum.Material.Air then fill else mat
+					end
+					if bare and table.find(bare, mat) then
+						mat = fill
+					end
+					occs[ix][iy][iz], mats[ix][iy][iz] = was, mat
+					pitted[`{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`] = true
+				end
+			end
+		end
+	end
+	terrain:WriteVoxels(region, VOXEL, mats, occs)
+end
+
 -- The ground under a gun standing on the terrain (src/server/Artillery, Config/Artillery `level`): within the box
 -- `lo`..`hi` (x, z in the space of `pivot`, whose height is the gun's foot) cut down or filled up to a level floor at
 -- the foot, easing back to the ground as it was over the next `blend` studs (Rules/Artillery.levelAt); its top

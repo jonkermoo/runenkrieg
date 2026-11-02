@@ -32,6 +32,49 @@ end
 local T = table.clone(C.Trench) :: any
 
 return {
+	["foxhole: one swing digs it, then it is only ground; deep as a crouch, a lip in front, its own dark dirt"] = function()
+		local p = B.piece("Foxhole", C.Pieces) :: any
+		local F = C.Foxhole
+		-- no HP, no progression, no limits (user 2026-11-02)
+		assert(p and p.kind == "Foxhole" and p.work == 1 and B.buildSwings(p, C) == 1, "one Build swing")
+		assert(B.hpOf(p, C) == nil and B.hpRules("Foxhole", C) == nil, "no HP")
+		assert(p.sectorCap == nil and p.teamCap == nil and p.playerCap == math.huge, "no cap")
+		local w, gone = B.swing(0, p.work, true)
+		assert(w == p.work and not gone, "dug at the first swing")
+		-- the cover (Config/Metrics: a crouched head about 4.1, the aimed muzzle 4.3): a crouched head at or under the
+		-- ground's level; standing, the eyes and the muzzle over it
+		assert(F.depth >= 4.1, "crouched, below the ground")
+		assert(F.depth < M.Character.AimMuzzleHeight and F.depth < M.Character.EyeHeight, "standing, you fire out")
+		-- its shape (facing -Z): the floor, the wall, the heap in front only, nothing past its reach
+		local reach = B.foxholeReach(F)
+		assert(near(B.foxholeHeight(0, 0, 0, -1, F) :: number, -F.depth))
+		local top = F.radius + F.depth / math.tan(math.rad(F.wall))
+		local mid = top + F.heap.width / 2
+		assert(near(B.foxholeHeight(0, -mid, 0, -1, F) :: number, F.heap.height), "the heap straight ahead")
+		assert(B.foxholeHeight(0, mid, 0, -1, F) == 0, "no heap behind")
+		assert(B.foxholeHeight(mid, 0, 0, -1, F) == 0, "none at the side (past half the arc)")
+		local side = B.foxholeHeight(mid * math.sin(math.rad(35)), -mid * math.cos(math.rad(35)), 0, -1, F) :: number
+		assert(side > 0 and side < F.heap.height, "fading toward the arc's ends")
+		assert(B.foxholeHeight(0, -(reach + 0.1), 0, -1, F) == nil, "past its reach: not its ground")
+		local wall = B.foxholeHeight((F.radius + top) / 2, 0, 0, -1, F) :: number
+		assert(wall < 0 and wall > -F.depth, "the wall between")
+		-- the voxel grid: snapped to a grid corner; the pit is the four columns round it, all four floor deep
+		assert(B.foxholeSnap(0.3, 4) == 0 and B.foxholeSnap(-2.1, 4) == -4 and B.foxholeSnap(5.9, 4) == 4)
+		for _, c in { { 2, 2 }, { -2, 2 }, { 2, -2 }, { -2, -2 } } do
+			assert(near(B.foxholeHeight(c[1], c[2], 0, -1, F) :: number, -F.depth), "the pit's four columns")
+		end
+		-- its own dark dirt: a material no other ground uses, darker than any other ground, and no grass on it
+		local P = require("../src/shared/Config/Palette")
+		local soil = P.Terrain[F.soil]
+		assert(soil, "coloured with the terrain")
+		local function lum(c: { number }): number
+			return c[1] + c[2] + c[3]
+		end
+		for name, c in P.Terrain do
+			assert(name == F.soil or lum(c) > lum(soil), name .. " is lighter")
+		end
+		assert(table.find(F.bare, "Grass") and table.find(F.bare, "LeafyGrass") and not table.find(F.bare, F.soil))
+	end,
 	["an admin dig step works its share of the whole, rounded up, never less than a normal swing"] = function()
 		assert(B.digAmount(20, 100, nil) == 20 and B.digAmount(20, 100, 0) == 20)
 		assert(B.digAmount(1, 20, 0.25) == 5 and B.digAmount(1, 40, 0.1) == 4 and B.digAmount(1, 3, 0.1) == 1)
@@ -56,6 +99,7 @@ return {
 					or p.kind == "Hesco"
 					or p.kind == "Bridge"
 					or p.kind == "Nest"
+					or p.kind == "Foxhole"
 					or p.kind == "Dugout",
 				p.key
 			)

@@ -125,7 +125,7 @@ return {
 			assert(h.folder == A.Entries[kit.headwear].folder, kitName .. " the team's own helmet")
 			assert(h.fit.shell == (A.Entries[kit.headwear] :: any).fit.shell, kitName .. " fits the kit's hair")
 		end
-		for _, kind in { "Trench", "Sandbags", "Wire", "Hesco", "Bridge" } do
+		for _, kind in { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge" } do
 			assert(R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind)
 		end
 		for kind in ENGINEER do

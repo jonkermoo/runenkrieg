@@ -224,6 +224,22 @@ local Build = {
 			kind = "Trench", -- planned by two clicks, dug block by block (Trench above)
 			work = 8,
 		},
+		-- The foxhole (user 2026-11-02, design approved by the user): a one-man pit dug almost anywhere, cover for a
+		-- soldier caught in the open (Foxhole below). Everyone builds it (Config/Classes SMALL). `width` x `depth` its
+		-- footprint round the pit (the ground surveyed, kept off other pieces), `height` what must stand clear over it.
+		{
+			key = "Foxhole",
+			name = "Foxhole",
+			kind = "Foxhole",
+			work = 1, -- one Build swing digs it (user 2026-11-02: no HP or progression)
+			-- no cap (user 2026-11-02: "no limits"): a cap of its own nothing reaches, so it never counts against
+			-- PerPlayer either
+			playerCap = math.huge,
+			width = 8,
+			depth = 8,
+			height = 3,
+			maxSlope = 25,
+		},
 		-- The sandbag pile (user 2026-10-27: pillow bags, "layer 1 2 bags, layer 2 1 bag", "make it even smaller ... ads
 		-- still wont work", "make the sandbags longer"; the old low and high walls removed: "remove the old sand bag piles
 		-- completely, keep the present ones"): Config/Assets `asset`'s meshes, one section for the whole pile, built and
@@ -608,6 +624,38 @@ local Build = {
 		spacing = 12,
 		plate = 0.3,
 		ghost = 0.4,
+	},
+
+	-- Foxholes (Pieces kind "Foxhole"; user 2026-11-02, design approved by the user; then "make foxhole dugouts not have
+	-- HP or progression. it solely alters the map ... it will be treated just the same as terrain"): laid as a marked
+	-- spot (a scraped `patch` lying on the ground, blocking nothing; gone after BlueprintLife untouched, or at a Destroy
+	-- swing), one Build swing (Pieces `work`) carves it and the piece is gone: from then on it is only ground, worn by
+	-- what wears the terrain. Carved round the grid corner its centre is snapped to (Rules.foxholeSnap), each 4-stud
+	-- `voxel` column of its ground set to a height from the ground as it lay (src/server/Ground.shapeColumns): within
+	-- `radius` of the centre (the four columns round the corner) a floor `depth` down, the wall at `wall` degrees (near
+	-- upright: the terrain rounds it into a bowl about 6 across), and past the wall's top an earth heap `heap.height`
+	-- high over the next `heap.width` studs, only toward its front (`heap.arc` degrees round the way it faces, fading
+	-- at the arc's ends). (One column cut alone rendered 2 to 3.4 deep by how the ground lay in its voxel; four render
+	-- the depth asked for, within 0.1: Studio 2026-11-02.)
+	-- Its depth is a crouched soldier's (Config/Metrics: the head about 4.1): crouched, the head is at the ground's
+	-- level; standing, the eyes (4.5) and the aimed muzzle (4.3) come just over it. The heap is added to part-full
+	-- voxels, which the terrain renders lower than asked: 2.4 makes a lip about 1.2 over the ground in front. Crouched
+	-- head and standing muzzle are only 0.2 apart, so the lip that hides one blocks the other; the user chose the middle
+	-- (2026-11-02, "Balanced": from 18 enemy spots ahead, 15-40 studs off, a crouched head in sight of 7, a standing rifle
+	-- clear to 6; a 1.6 heap: 13 and 13, a 3.2 heap: 2 and 2). `lip`: the lip as it renders (the build mode ghost's heap).
+	-- Its ground, pit, walls and heap and all within its reach, is `soil`, a dark dirt of its own (user 2026-11-02: "give
+	-- it a darker dirt to make obvious"; Config/Palette.Terrain, a material the map uses nowhere else): its `bare`
+	-- materials turn to it, so no grass grows in it.
+	Foxhole = {
+		voxel = 4,
+		radius = 3,
+		depth = 4.2,
+		wall = 89,
+		heap = { height = 2.4, width = 4.5, arc = 140 },
+		lip = 1.2,
+		soil = "Salt",
+		bare = { "Grass", "LeafyGrass", "Ground", "Mud", "Sand" },
+		patch = { size = 6, thick = 0.1 },
 	},
 
 	-- Dugouts (Pieces kind "Dugout"; src/server/Build, Rules dugoutSpot). User 2026-11-02: "just a hole dug into a trench

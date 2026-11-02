@@ -1162,4 +1162,45 @@ function Build.workLeft(hp: number, max: number, swing: number): number
 	return math.ceil((max - hp) / swing - 1e-9)
 end
 
+-- Foxholes (Config/Build.Foxhole `f`). A coordinate snapped to the nearest line of the `voxel`-stud terrain grid (it
+-- starts at 0), so a foxhole's pit is the 2 x 2 voxel columns round a grid corner wherever it is laid (one column cut
+-- alone rendered 2 to 3.4 deep by how the ground lay in its voxel; four rendered the depth asked for, Studio
+-- 2026-11-02)
+function Build.foxholeSnap(x: number, voxel: number): number
+	return math.round(x / voxel) * voxel
+end
+
+-- how far out from its centre a foxhole reaches (flat studs) dug full: its wall's top and its heap past it
+function Build.foxholeReach(f: any): number
+	return f.radius + f.depth / math.tan(math.rad(f.wall)) + f.heap.width
+end
+
+-- The height (studs, from the ground as it lay) a dug foxhole wants its ground at `dx`, `dz` (flat) from its centre,
+-- facing `fx`, `fz` (flat, unit): under it in the pit (its floor within `radius`, the wall leaning back at `wall` to
+-- the ground), over it on the heap past the wall's top toward the front (`heap.height`, fading to nothing at the arc's
+-- ends), 0 elsewhere within its reach; nil past its reach (that ground isn't its)
+function Build.foxholeHeight(dx: number, dz: number, fx: number, fz: number, f: any): number?
+	local d = math.sqrt(dx * dx + dz * dz)
+	if d > Build.foxholeReach(f) then
+		return nil
+	end
+	local lean = 1 / math.tan(math.rad(f.wall))
+	local top = f.radius + f.depth * lean
+	if d <= f.radius then
+		return -f.depth
+	elseif d <= top then
+		return -f.depth + (d - f.radius) / lean
+	end
+	local h = f.heap
+	if d > top + h.width then
+		return 0
+	end
+	local angle = math.deg(math.acos(math.clamp((dx * fx + dz * fz) / d, -1, 1)))
+	local half = h.arc / 2
+	if angle >= half then
+		return 0
+	end
+	return h.height * (1 - angle / half)
+end
+
 return Build
