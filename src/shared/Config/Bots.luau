@@ -291,6 +291,23 @@ local Bots = {
 		Breast = { step = 8, keys = { "SandbagPile", "Hesco" } },
 		Walls = { ahead = 5, spread = 8.5, count = 2 },
 		Pinned = { threat = 1.5, shaken = 0.5, every = 45, ahead = 2.5, near = 20 },
+		-- Gun crews (Rules/BotBuild.crewWanted / gunSpots; user 2026-11-02: "if artillery has been unlocked for a side and
+		-- not a lot of any has been placed, some bots should take priority in getting engineer and start building it in
+		-- strategic places"; "Up to 2, if they can pay"): while a side has fewer than `enough` guns standing (anyone's
+		-- field guns and howitzers), up to `max` of its bots pick Engineer when they respawn (paid as any class; one that
+		-- can't pay picks as usual) and take gun jobs first, from anywhere on the front. Back to their usual picks on the
+		-- next respawn once the side has enough. The guns' spots (scored: "Scored spots behind the line"): `back` studs
+		-- behind the front zone's edge by `across` studs either side of its middle, farthest back first, each kept only
+		-- where the gun reaches the enemy's nearest sector's middle (Rules/Artillery.layFor) and lies `spawnGap` studs
+		-- clear of every spawn and wave line (Rules/Artillery.nearSpawn), `spacing` (Config/Build.Pieces) from the other
+		-- guns' spots; the bots' share of each gun (`caps` above) gets a spot. None fits: the fixed spot (`Guns` above).
+		Crews = {
+			max = 2,
+			enough = 3,
+			back = { 90, 60, 30 },
+			across = { 0, -60, 60, -120, 120, -180, 180 },
+			spawnGap = 40,
+		},
 	},
 
 	-- Normal: sapping forward (Rules/BotSap; user 2026-11-02: "AI ... should [build trenches to push forward] if they are
