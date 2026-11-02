@@ -45,7 +45,8 @@ export type Template = {
 	-- stage, its front -Z, its deck `height` up, its posts `posts` over the deck). A block's `wall` / `roof`
 	-- (Palette.Buildings keys) colour it apart from the copy's scheme. { kind = "Arcade", x, z, length, depth, height, bays }
 	-- (an arcade, its back +Z against a block's front wall), { kind = "Landing", x, z, length, depth, steps } (a river
-	-- quay, its face -Z), { kind = "Boat", x, z, yaw?, length } (on the river's water line).
+	-- quay, its face -Z), { kind = "Boat", x, z, yaw?, length } (on the river's water line), { kind = "Tent", x, z, yaw?,
+	-- length, width, height } (a ridge tent, its door -Z), { kind = "Crates", x, z, yaw?, count }.
 	features: { any }?,
 	description: string,
 }
@@ -105,6 +106,7 @@ local Buildings = {
 	-- a river landing (Lantern Meadows' ferry house): the quay's top `top` over the base, steps `rise` x `run`, `width`
 	-- across, mooring posts `post` high, the ferry's boat `boat` wide
 	Landing = { top = 0.2, rise = 0.8, run = 1.4, width = 6, post = 4, boat = 3.4 },
+	Crate = 2.4, -- a supply crate's side (the Katzmark camp)
 	Stage = { board = 3.2, rise = 2.2, stripes = 8, lanterns = 5, step = { rise = 0.8, run = 1.4, width = 8 } },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
@@ -551,6 +553,43 @@ local Buildings = {
 				{ kind = "Boat", x = 6, z = -25, yaw = 90, length = 9 },
 			},
 			description = "The ferry house: a two-storey rose stucco house with an outside stair, a stone landing, mooring posts and the boat.",
+		},
+		-- The old watchtower on S1's hill, north of the point on its x, facing it: a square four-stage stone tower with a
+		-- battlemented roof walk you can climb to; Katzmark's camp round its foot, grey ridge tents and supply crates.
+		Watchtower = {
+			folder = "Landmarks",
+			width = 40,
+			depth = 26,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate" },
+			blocks = {
+				{
+					name = "Tower",
+					x = 0,
+					z = 3,
+					width = 14,
+					depth = 14,
+					stories = 4, -- 28 high: no taller than the church tower on Map 1
+					storyHeight = 7,
+					windows = 1,
+					roofPitch = 0,
+					roofStyle = "Battlement",
+					quoins = true,
+					climb = true,
+				},
+			},
+			features = {
+				{ kind = "Tent", x = -14, z = -5, length = 9, width = 7, height = 5.5 },
+				{ kind = "Tent", x = 14, z = -5, length = 9, width = 7, height = 5.5 },
+				{ kind = "Tent", x = -14, z = 7, yaw = 180, length = 8, width = 6, height = 5 },
+				{ kind = "Crates", x = 13, z = 8, count = 3 },
+				{ kind = "Crates", x = 9, z = -10, yaw = 20, count = 2 },
+			},
+			description = "The old watchtower: a square stone tower with a climbable battlemented roof walk, Katzmark's tents and crates round it.",
 		},
 	} :: { [string]: Template },
 

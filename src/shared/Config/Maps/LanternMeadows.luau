@@ -232,6 +232,8 @@ local LanternMeadows = {
 			{ id = "Stage", style = "FestivalStage", x = S3[1], z = CZ + 86, front = { 0, -1 } },
 			-- the lantern-makers' hall behind it, on the same x, its arcade facing the festival ground
 			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 146, front = { 0, -1 } },
+			-- the old watchtower on S1's hill, north of the point on its x, Katzmark's camp round it
+			{ id = "Watchtower", style = "Watchtower", x = 400, z = CZ + 100, front = { 0, -1 } },
 			-- the ferry house on the east bank just north of the festival ford, its landing and boat on the river (west)
 			{ id = "Ferry", style = "FerryHouse", x = 1483, z = CZ + 55, front = { -1, 0 } },
 		},

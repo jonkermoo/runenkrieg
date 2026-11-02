@@ -88,8 +88,14 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 		-- a landmark's headstones and gateway stand on the real ground where they are, not the building's level
 		for _, d in copy:GetDescendants() do
 			if d:IsA("Model") and d:GetAttribute("OnGround") then
-				local p = d:GetPivot().Position
-				d:PivotTo(d:GetPivot() + Vector3.new(0, ground(p.X, p.Z) - hi, 0))
+				-- on the highest ground under it (its box's corners and middle), so no end of a tent sinks into a slope
+				local box, size = d:GetBoundingBox()
+				local top = -math.huge
+				for _, o in { { 0, 0 }, { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
+					local q = box * CFrame.new(o[1] * size.X / 2, 0, o[2] * size.Z / 2)
+					top = math.max(top, ground(q.X, q.Z))
+				end
+				d:PivotTo(d:GetPivot() + Vector3.new(0, top - hi, 0))
 			elseif d:IsA("Model") and d:GetAttribute("OnWater") and map.river then
 				-- (a ferry's boat floats on the river)
 				d:PivotTo(d:GetPivot() + Vector3.new(0, map.river.waterY - hi, 0))

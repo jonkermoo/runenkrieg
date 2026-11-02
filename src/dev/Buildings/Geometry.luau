@@ -1201,6 +1201,65 @@ function Geometry.boat(parent: Instance, ctx: Ctx, at: CFrame, L: number)
 	end
 end
 
+-- A soldiers' ridge tent `L` long (local Z), `W` wide and `H` high, standing on the real ground (OnGround): two canvas
+-- sides, canvas ends (a dark door flap in the front one, local -Z), a ridge pole. Its canvas is Festival TentGrey.
+function Geometry.tent(parent: Instance, ctx: Ctx, at: CFrame, L: number, W: number, H: number)
+	local sec = Geometry.section(parent, ctx, "Tent", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local a = math.atan(H / (W / 2))
+	local slant = math.sqrt((W / 2) ^ 2 + H * H)
+	for _, side in { -1, 1 } do
+		festival(
+			sec,
+			ctx,
+			"Canvas",
+			at * CFrame.new(side * W / 4, H / 2, 0) * CFrame.Angles(0, 0, -side * a),
+			Vector3.new(slant, 0.25, L),
+			"TentGrey"
+		)
+	end
+	for _, z in { -L / 2, L / 2 } do
+		for _, p in triangle(sec, ctx, at * CFrame.new(0, 0, z), W - 0.3, H - 0.15, 0.2, "Festival") do
+			p:SetAttribute("Swatch", "TentGrey")
+		end
+	end
+	Geometry.part(
+		sec,
+		ctx,
+		"Flap",
+		at * CFrame.new(0, H * 0.3, -L / 2 - 0.15),
+		Vector3.new(1.4, H * 0.6, 0.12),
+		"DoorDark"
+	)
+	Geometry.part(sec, ctx, "Ridge", at * CFrame.new(0, H + 0.05, 0), Vector3.new(0.3, 0.3, L + 0.8), "Trim")
+end
+
+-- A stack of supply crates on the real ground (OnGround): `count` along the bottom, one on top.
+function Geometry.crates(parent: Instance, ctx: Ctx, at: CFrame, count: number)
+	local sec = Geometry.section(parent, ctx, "Crates", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local s = ctx.B.Crate
+	for i = 1, count do
+		local x = (i - (count + 1) / 2) * (s + 0.2)
+		Geometry.part(
+			sec,
+			ctx,
+			"Crate",
+			at * CFrame.new(x, s / 2, 0) * CFrame.Angles(0, math.rad(i * 7), 0),
+			Vector3.new(s, s, s),
+			"Wood"
+		)
+	end
+	Geometry.part(
+		sec,
+		ctx,
+		"Crate",
+		at * CFrame.new(-0.3, s * 1.5, 0.1) * CFrame.Angles(0, math.rad(-12), 0),
+		Vector3.new(s, s, s),
+		"Wood"
+	)
+end
+
 -- A hanging inn sign: a post `height` high, an arm off its top along local X, a framed board hanging under the arm.
 function Geometry.sign(parent: Instance, ctx: Ctx, at: CFrame, height: number)
 	local S = ctx.B.InnSign

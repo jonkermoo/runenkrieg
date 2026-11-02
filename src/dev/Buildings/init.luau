@@ -227,6 +227,10 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.waterTower(model, ctx, at, f.size, f.height)
 			elseif f.kind == "Signal" then
 				Geometry.signal(model, ctx, at, f.height)
+			elseif f.kind == "Tent" then
+				Geometry.tent(model, ctx, at, f.length, f.width, f.height)
+			elseif f.kind == "Crates" then
+				Geometry.crates(model, ctx, at, f.count)
 			elseif f.kind == "Landing" then
 				Geometry.landing(model, ctx, at, f.length, f.depth, f.steps)
 			elseif f.kind == "Boat" then
