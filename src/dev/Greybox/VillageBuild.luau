@@ -90,6 +90,9 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 			if d:IsA("Model") and d:GetAttribute("OnGround") then
 				local p = d:GetPivot().Position
 				d:PivotTo(d:GetPivot() + Vector3.new(0, ground(p.X, p.Z) - hi, 0))
+			elseif d:IsA("Model") and d:GetAttribute("OnWater") and map.river then
+				-- (a ferry's boat floats on the river)
+				d:PivotTo(d:GetPivot() + Vector3.new(0, map.river.waterY - hi, 0))
 			end
 		end
 		-- stone steps down from any door left up a bank (Rules/Village.steps), each step solid down into the ground

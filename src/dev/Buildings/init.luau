@@ -86,7 +86,9 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				CFrame.new(-W / 2 + T / 2, y, 0) * CFrame.Angles(0, math.pi / 2, 0),
 				sideL,
 				ends(sideL, Dp / 2),
-				if story == 0 and t.leftDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				if (story == 0 and t.leftDoor) or (story == 1 and t.upperDoor == "left")
+					then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } }
+					else nil,
 				t.windows or 1,
 			},
 			{
@@ -94,7 +96,10 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				CFrame.new(W / 2 - T / 2, y, 0) * CFrame.Angles(0, -math.pi / 2, 0),
 				sideL,
 				ends(sideL, Dp / 2),
-				if story == 0 and t.rightDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				-- (an upper door on a gable: VillageBuild's steps down from it make an outside stair)
+				if (story == 0 and t.rightDoor) or (story == 1 and t.upperDoor == "right")
+					then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } }
+					else nil,
 				t.windows or 1,
 			},
 		}
@@ -222,6 +227,10 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.waterTower(model, ctx, at, f.size, f.height)
 			elseif f.kind == "Signal" then
 				Geometry.signal(model, ctx, at, f.height)
+			elseif f.kind == "Landing" then
+				Geometry.landing(model, ctx, at, f.length, f.depth, f.steps)
+			elseif f.kind == "Boat" then
+				Geometry.boat(model, ctx, at, f.length)
 			elseif f.kind == "Arcade" then
 				Geometry.arcade(model, ctx, at, f.length, f.depth, f.height, f.bays)
 			elseif f.kind == "Stage" then

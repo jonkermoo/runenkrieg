@@ -1114,6 +1114,93 @@ function Geometry.arcade(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: n
 	)
 end
 
+-- A river landing: a stone quay `L` along local X and `D` deep, its top at the base, its face to the water (local -Z)
+-- with `steps` steps down from it, a coping along its edge and a mooring post with a lantern at each front corner.
+function Geometry.landing(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number, steps: number)
+	local S = ctx.B.Landing
+	local depth = ctx.B.FoundationDepth
+	local quay = Geometry.section(parent, ctx, "Platform", "Stone", -1)
+	Geometry.part(
+		quay,
+		ctx,
+		"Quay",
+		at * CFrame.new(0, (S.top - depth) / 2, 0),
+		Vector3.new(L, S.top + depth, D),
+		"Foundation"
+	)
+	Geometry.part(quay, ctx, "Coping", at * CFrame.new(0, S.top + 0.1, -D / 2 + 0.6), Vector3.new(L, 0.3, 1.2), "Quoin")
+	for i = 1, steps do
+		local top = S.top - i * S.rise
+		Geometry.part(
+			quay,
+			ctx,
+			"Step",
+			at * CFrame.new(0, (top - depth) / 2, -D / 2 - (i - 0.5) * S.run),
+			Vector3.new(S.width, top + depth, S.run),
+			"Quoin"
+		)
+	end
+	local posts = Geometry.section(parent, ctx, "Posts", "Wood", 0)
+	for _, side in { -1, 1 } do
+		local x, z = side * (L / 2 - 1), -D / 2 + 1
+		Geometry.part(
+			posts,
+			ctx,
+			"Post",
+			at * CFrame.new(x, S.top + S.post / 2, z),
+			Vector3.new(0.8, S.post, 0.8),
+			"Trim"
+		)
+		Geometry.part(
+			posts,
+			ctx,
+			"Hook",
+			at * CFrame.new(x, S.top + S.post - 0.3, z - 0.6),
+			Vector3.new(0.3, 0.3, 1.2),
+			"Metal"
+		)
+		lantern(posts, ctx, at, x, S.top + S.post - 0.45, z - 1.1)
+	end
+end
+
+-- A rowing boat `L` long (local Z), its keel on the river's water line (the section is OnWater: VillageBuild puts it
+-- there): a plank hull, two thwarts, a pair of oars.
+function Geometry.boat(parent: Instance, ctx: Ctx, at: CFrame, L: number)
+	local sec = Geometry.section(parent, ctx, "Boat", "Wood", 0)
+	sec:SetAttribute("OnWater", true)
+	local w = ctx.B.Landing.boat
+	Geometry.part(sec, ctx, "Bottom", at * CFrame.new(0, 0.1, 0), Vector3.new(w - 0.8, 0.3, L - 1), "Wood")
+	for _, side in { -1, 1 } do
+		Geometry.part(
+			sec,
+			ctx,
+			"Side",
+			at * CFrame.new(side * (w / 2 - 0.2), 0.6, 0),
+			Vector3.new(0.3, 1.1, L - 1),
+			"Wood"
+		)
+		Geometry.part(
+			sec,
+			ctx,
+			"Oar",
+			at * CFrame.new(side * (w / 2 + 0.3), 1.2, 0.5),
+			Vector3.new(0.2, 0.15, L * 0.6),
+			"Trim"
+		)
+	end
+	for _, z in { -1, 1 } do
+		Geometry.part(
+			sec,
+			ctx,
+			"End",
+			at * CFrame.new(0, 0.6, z * (L / 2 - 0.3)),
+			Vector3.new(w - 0.4, 1.1, 0.4),
+			"Wood"
+		)
+		Geometry.part(sec, ctx, "Thwart", at * CFrame.new(0, 0.9, z * L / 5), Vector3.new(w - 0.6, 0.2, 0.8), "Trim")
+	end
+end
+
 -- A hanging inn sign: a post `height` high, an arm off its top along local X, a framed board hanging under the arm.
 function Geometry.sign(parent: Instance, ctx: Ctx, at: CFrame, height: number)
 	local S = ctx.B.InnSign

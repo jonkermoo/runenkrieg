@@ -25,6 +25,7 @@ export type Template = {
 	backDoor: (boolean | { { center: number, w: number?, h: number? } })?, -- a door in the back wall too (story 0), or a list
 	leftDoor: boolean?, -- and in the -X / +X side walls (a porch turned to face its gable forward)
 	rightDoor: boolean?,
+	upperDoor: string?, -- "left" / "right": a door on that gable's first floor (its outside stair: VillageBuild's steps)
 	windows: number?, -- windows per wall, every wall (default 2 front and back, 1 on the sides)
 	climb: boolean?, -- one more flight up through the ceiling onto the roof (a tower's roof walk)
 	waterside: boolean?, -- stands at the river's edge on purpose (a mill): the village check lets it into the river banks
@@ -43,7 +44,8 @@ export type Template = {
 	-- height }, { kind = "Signal", x, z, height }, { kind = "Stage", x, z, width, depth, height, posts } (a festival
 	-- stage, its front -Z, its deck `height` up, its posts `posts` over the deck). A block's `wall` / `roof`
 	-- (Palette.Buildings keys) colour it apart from the copy's scheme. { kind = "Arcade", x, z, length, depth, height, bays }
-	-- (an arcade, its back +Z against a block's front wall).
+	-- (an arcade, its back +Z against a block's front wall), { kind = "Landing", x, z, length, depth, steps } (a river
+	-- quay, its face -Z), { kind = "Boat", x, z, yaw?, length } (on the river's water line).
 	features: { any }?,
 	description: string,
 }
@@ -100,6 +102,9 @@ local Buildings = {
 	-- each arch's head `corbels` steps `step` high (each a fraction of the span, from the pier in), its floor `floor` up,
 	-- its lean-to roof rising `rise` to the wall behind
 	Arcade = { pier = 1.6, band = 1.8, corbels = { 0.3, 0.17, 0.07 }, step = 0.7, floor = 0.4, rise = 2.2 },
+	-- a river landing (Lantern Meadows' ferry house): the quay's top `top` over the base, steps `rise` x `run`, `width`
+	-- across, mooring posts `post` high, the ferry's boat `boat` wide
+	Landing = { top = 0.2, rise = 0.8, run = 1.4, width = 6, post = 4, boat = 3.4 },
 	Stage = { board = 3.2, rise = 2.2, stripes = 8, lanterns = 5, step = { rise = 0.8, run = 1.4, width = 8 } },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
@@ -509,6 +514,43 @@ local Buildings = {
 				{ kind = "Arcade", x = 0, z = -6.4, length = 40, depth = 5.4, height = 8, bays = 5 },
 			},
 			description = "The lantern-makers' hall: a long cream stucco workshop under terracotta, a five-bay arcade hung with lanterns.",
+		},
+		-- The ferry house on the east bank by the festival ford, facing the river: a two-storey rose stucco house under
+		-- terracotta with an outside stone stair down its south gable (toward the ford) from the upper door, a stone
+		-- landing on the bank with steps down to the water, mooring posts with lanterns, and the ferry's boat on the water.
+		FerryHouse = {
+			folder = "Landmarks",
+			width = 26,
+			depth = 34,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 32,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Rose" },
+			roofs = { "Terracotta" },
+			waterside = true,
+			blocks = {
+				{
+					name = "House",
+					x = 0,
+					z = 8,
+					width = 20,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 32,
+					roofStyle = "Tile",
+					gableChimney = -1,
+					upperDoor = "right",
+					backDoor = true,
+				},
+			},
+			features = {
+				{ kind = "Landing", x = 0, z = -8, length = 22, depth = 8, steps = 4 },
+				{ kind = "Boat", x = 6, z = -25, yaw = 90, length = 9 },
+			},
+			description = "The ferry house: a two-storey rose stucco house with an outside stair, a stone landing, mooring posts and the boat.",
 		},
 	} :: { [string]: Template },
 

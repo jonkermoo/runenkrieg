@@ -203,7 +203,7 @@ return {
 					nearest, d = s, e
 				end
 			end
-			if d < 200 then
+			if d < Map.rise.radius then -- (on a point's rise; the ferry house at the ford is fair by the sector tests)
 				assert(l.x == nearest.x, `{l.id} isn't on {nearest.id}'s x`)
 			end
 		end
