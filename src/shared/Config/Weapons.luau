@@ -1123,7 +1123,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		hidden = { "Casing", "Clip" }, -- the clip shows only while reloading
 		attachments = {
-			Muzzle = { 0, 0.065, -2.5323 },
+			Muzzle = { 0, 0.065, -2.6047 }, -- the real 1250 mm (2026-11-02; was -2.5323)
 			Aim = { 0, 0.1218, 0.45 }, -- on the sight line: barleycorn tip + rear notch, 0.057 over the bore
 			Eject = { 0.035, 0.075, -0.3031 }, -- the ejection port, right side
 		},
@@ -1157,7 +1157,7 @@ local Weapons: { [string]: Weapon } = {
 			strike = 73567308916252, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
-		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.5 -> 5.25 studs long
+		scale = { 2.5, 2.5, 1.5 }, -- as the Carcano: 3.57 -> 5.36 studs long
 		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
