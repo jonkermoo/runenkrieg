@@ -290,6 +290,19 @@ POINT.Pole = function(m: Model, ctx: Ctx, P: any)
 	)
 end
 
+-- a festival lantern pole (Lantern Meadows): a dark post, a crossbar on top, a paper lantern hanging off each end
+POINT.LanternPole = function(m: Model, ctx: Ctx, P: any)
+	local sec = section(m, ctx, "LanternPole", "Wood")
+	local h, arm = P.LanternPole.height, P.LanternPole.arm
+	part(sec, ctx, "Post", CFrame.new(0, h / 2 - 0.5, 0), Vector3.new(0.5, h + 1, 0.5), "WoodDark")
+	part(sec, ctx, "Crossbar", CFrame.new(0, h - 0.4, 0), Vector3.new(arm, 0.3, 0.3), "WoodDark")
+	part(sec, ctx, "Cap", CFrame.new(0, h + 0.1, 0), Vector3.new(0.7, 0.25, 0.7), "WoodDark")
+	for _, x in { -arm / 2 + 0.3, arm / 2 - 0.3 } do
+		part(sec, ctx, "Cord", CFrame.new(x, h - 0.9, 0), Vector3.new(0.1, 0.7, 0.1), "Metal")
+		part(sec, ctx, "Lantern", CFrame.new(x, h - 1.8, 0), Vector3.new(0.8, 1.1, 0.8), "Lantern")
+	end
+end
+
 POINT.Signpost = function(m: Model, ctx: Ctx, P: any)
 	local sec = section(m, ctx, "Signpost", "Wood")
 	local h = P.Signpost.height

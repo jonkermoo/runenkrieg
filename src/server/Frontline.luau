@@ -11,9 +11,9 @@
 -- Respawning goes in waves (Config/Frontline.Waves): one clock for both sides; a soldier who deploys stands in its side's
 -- wave line (Rules/Frontline.slot), frozen and shielded, until the wave goes, then keeps the shield a moment. The line
 -- stands at the side's spawn sector (Rules/Frontline.spawnSector: its HQ, in its spawn zone Map1.spawnZones, until the
--- first capture; then its frontmost, by the flag, or one back while the enemy leads there). Each sector lost raises
--- both sides' artillery level (Config/Frontline.Artillery, read by src/server/Build), and a badly outnumbered side is
--- reinforced (src/server/Loadouts pays it more). The state is replicated as
+-- first capture; then its frontmost, by the flag, or one back while the enemy leads there). Each side's sectors held
+-- from its end are published (Config/Frontline.Artillery: a side at its last sector may build the howitzer, read by
+-- src/server/Build), and a badly outnumbered side is reinforced (src/server/Loadouts pays it more). The state is replicated as
 -- attributes on Workspace's "Frontline" folder (Config/Frontline.FolderName, read by src/client/ModeHud). The sector
 -- markers (src/dev/Greybox, shown by the admin's switch: src/server/Sectors) are coloured by owner and labelled with
 -- control and head counts. The admin panel ends and restarts a match and takes a side's next sector
@@ -82,7 +82,6 @@ local ending = false
 local starting = false -- set by the admin to skip the wait for players
 local still = 0 -- seconds since the last capture (the momentum)
 local captured = false -- any capture this match (spawns leave the HQs)
-local lost = 0 -- sectors lost this match (the artillery level)
 local latest: { { West: number, East: number } } = {} -- the last tick's soldiers in each zone
 local waveAt: number? = nil -- the next wave's server time while the line holds (countdown and play)
 local slots: { [string]: number } = { West = 0, East = 0 } -- the wave line's slots taken since the last wave
@@ -456,6 +455,7 @@ local function publish(counts: { { West: number, East: number } })
 		end
 	end
 	for _, side in { "West", "East" } do
+		folder:SetAttribute(side .. Cfg.HeldAttribute, Rules.held(state, side))
 		folder:SetAttribute(side .. Cfg.SpawnAttribute, spawnSector(side))
 		folder:SetAttribute(side .. Cfg.LineAttribute, (lineOf(side)))
 	end
@@ -541,7 +541,7 @@ local function newMatch(reset: boolean?)
 	workspace:SetAttribute(Cfg.TeamsAttribute, Rules.pairText(pair))
 	state = Rules.new(sectors)
 	ending = false
-	captured, lost = false, 0
+	captured = false
 	latest = empty()
 	table.clear(log)
 	setWave(nil)
@@ -549,7 +549,6 @@ local function newMatch(reset: boolean?)
 	folder:SetAttribute("East", pair.East)
 	folder:SetAttribute("Winner", nil)
 	folder:SetAttribute("Momentum", 1)
-	folder:SetAttribute(Cfg.LevelAttribute, 0)
 	folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
 	publish(empty())
 end
@@ -614,10 +613,6 @@ local function run()
 					still = 0
 					captured = true
 					table.insert(log, { t = os.clock() - playedAt, index = ev.index, side = ev.side })
-				else
-					-- (a holder lost it: both sides' artillery goes up a level)
-					lost += 1
-					folder:SetAttribute(Cfg.LevelAttribute, Rules.gunLevel(Cfg.Artillery, lost))
 				end
 				local reason = if ev.kind == "Captured" then "Capture" else "Neutralise"
 				for _, who in inside[ev.index] do
@@ -789,10 +784,6 @@ function Frontline.take(player: Player)
 	local t = side and Rules.target(state, side)
 	if not thread or folder:GetAttribute("Phase") ~= "Playing" or not side or not t then
 		return
-	end
-	if state.owner[t] ~= "Neutral" then
-		lost += 1
-		folder:SetAttribute(Cfg.LevelAttribute, Rules.gunLevel(Cfg.Artillery, lost))
 	end
 	state.owner[t] = side
 	state.control[t] = Rules.rest(side)

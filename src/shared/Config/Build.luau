@@ -13,6 +13,10 @@ local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
 	Reach = 14,
 	SwingReach = 8,
+	-- a piece keeps this far from anything solid round its footprint, from the ground up (buildings, props, trunks, low
+	-- walls, rubble; other pieces go by footprint, Survey.onPiece; soldiers only on it) (user 2026-11-02: "make it a
+	-- generous stud margin", "i want to adjust them so it stops colliding with stuff")
+	Margin = 2,
 	-- the structure your shovel would work (a trench square, any piece; a standing gun itself), or the trench square
 	-- you're extending or branching off, is lit faintly (a Highlight in Palette.Build.Focus: its fill and outline
 	-- transparency; user 2026-10-25: "a slight slight indicator for which segment you are focused on"; 2026-10-27: "be
@@ -20,6 +24,11 @@ local Build = {
 	Focus = { fill = 0.93, outline = 0.6 },
 	-- swings faster than this share of the shortest time between two strikes (Rules/Build.strikeGap) are ignored
 	SwingSlack = 0.8,
+	-- what one swing does, against each piece's own amounts below (hp.swing, hp.destroy, a gun's repair share): a
+	-- Build swing `build` of it, and a class in `class` that much again on both its Build and Destroy swings
+	-- (Rules/Build.swingPower; user 2026-11-02: "let's half the building power of both soldiers and engineers",
+	-- "apply building buff to destruction as well for engineers")
+	Power = { build = 0.5, class = { Engineer = 1.5 } :: { [string]: number } },
 	-- a blueprint nobody has worked on goes after this (seconds)
 	BlueprintLife = 120,
 	-- live pieces (blueprints count) per player and per team: a piece with its own `playerCap` (Pieces) counts only
@@ -104,6 +113,15 @@ local Build = {
 		-- 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible"): the
 		-- cut is its top edges (Rules.trenchTop) less this much a piece may hang over the edge from its bank
 		overhang = 0.5,
+		-- no square is planned with a standing tree's trunk (at its widest, the roots' flare) within its cut, on its walls
+		-- or on its dirt heaps (Rules.trenchTop + joins.heapReach), nor within `treeClear` studs past them (user
+		-- 2026-11-02: "also trees are going into trenches. increase the boundaries")
+		treeClear = 2,
+		-- nothing solid (buildings, props, fallen trunks) across a planned square's whole width out to its dirt heaps'
+		-- edge (Rules.trenchTop + joins.heapReach), from its lowest ground to `wayHeight` over its highest, nor past its
+		-- dead ends by its end heap (user 2026-11-02: "i want to adjust them so it stops colliding with stuff"; was a
+		-- strip 4 either side of the line, 1 to 6 up)
+		wayHeight = 6,
 		planLife = 180, -- seconds an undug plan stays
 		-- a swing works the square whose line is this close, in front of you (from anywhere on its dirt, out past its
 		-- heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox"; 19 to 13 with the narrower trench)
@@ -136,9 +154,8 @@ local Build = {
 		-- (just a bit) so our character can walk out of (not smoothly and easily of course)", 48, then "make the slope
 		-- more aggressive. have an inbetween from what we had before and now")
 		wallAngle = 59,
-		-- the terrain is cut this much deeper and wider than the pieces lie (trench_pieces v11's boards, duckboards and
-		-- floor dirt collide, so it is what you stand on; Studio round 2026-11-02: the 4-stud voxels rounded the floor
-		-- into a bowl over the lower boards and the duckboard): the cut at the ground still ends under the top plank
+		-- the terrain is cut this much deeper and wider than the pieces lie (their base slabs collide, so they are what
+		-- you stand on; Studio round 2026-11-02: the 4-stud voxels rounded the floor into a bowl over the pieces)
 		carve = { wider = 0.6, deeper = 0.8 },
 		bank = { width = 3, height = 1.2 }, -- (width 5 to 3 with the narrower trench, under its smaller heap)
 		-- a bullet meeting the ground this close round a square's hole, walls and banks hits the square (studs; the
@@ -166,19 +183,21 @@ local Build = {
 		-- wall a side (Wall1..`walls`) and a floor (Floor1..`floors`), rolled from its seed (Rules.trenchPieces); the
 		-- `wood` walls carry plank steps, rolled at `woodChance` a side, never on two squares in a row on one side. Made
 		-- `segment` long, stretched along a shorter square; a dead end gets a plain wall across.
-		-- (trench_pieces v11, tools/blender/trench/trench_timber.py; user 2026-11-02: "base it off how our dug out is looking", "create constructtion statuses and destruction statuses": timbered, six walls (wall 2 corrugated
-		-- iron, wall 5 with climbing cleats, the "wood" one) and three duckboard floors)
-		pieces = { segment = 8, walls = 6, floors = 3, wood = { 5 }, woodChance = 0.25 },
-		-- the pieces' stages (Rules.trenchStage, % of hp.max): construction Dig1-4 from each of `dig` while it is first
-		-- dug (timbers waiting, the cut deepening, posts set, the lower boards up), destruction Hit1-3 under each of
-		-- `hit` once dug full (a board hanging; boards gone and a post leaning; the lining half down and a post snapped)
-		stages = { dig = { 20, 40, 60, 80 }, hit = { 75, 50, 25 } },
+		-- (trench_pieces v12, tools/blender/trench/trench_wood.py; user 2026-11-02: "only use our old trench model
+		-- again, but the one with wood on it and we make random variations of that": every one of the eight walls has
+		-- plank steps, so none is set apart as `wood` and each side rolls any of them)
+		pieces = { segment = 8, walls = 8, floors = 4, wood = {}, woodChance = 0 },
+		-- the pieces' stages (Rules.trenchStage, % of hp.max): none while it is first dug (its markers and the cut
+		-- deepening a swing at a time), the finished pieces at full HP, then destruction Hit1-3 under each of `hit`
+		-- (boards working loose; the upper slabs and half the boards down; a few boards and one low slab left, earth
+		-- slumped) while the fill rises (hp.hold)
+		stages = { hit = { 75, 50, 25 } },
 		-- where pieces meet (src/server/Trenches; user 2026-10-24: "make sure that the joints connect by the walls"): how far
 		-- out past a wall's top edge its dirt heap reaches (it keeps that whole depth out of other trenches; 11 to 6 since
 		-- trench_pieces v9, one lower heap and no skirt: user 2026-11-02, "make it a little more narrow and less thick",
 		-- option B), and how much further the side heaps run on round a dead end and its heap reaches past the side
 		-- walls' tops
-		joins = { heapReach = 7, deadEndHeap = 3 }, -- (7 since v11: its mound starts behind the top plank)
+		joins = { heapReach = 6, deadEndHeap = 3 },
 		-- (trench_pieces v9 has no skirt; kept for a piece set that has one) the skirt behind a heap (Wall<i>Apron, low slabs meant to lie half sunk in the ground) is laid only where the
 		-- ground under it comes within `apronHang` studs of its underside everywhere (Rules.thinPieceSits); where the
 		-- trench pokes out over ground that falls away it would hang in the air as thin sheets, so the heap's full blocks
@@ -696,11 +715,8 @@ local Build = {
 			{ "Frames" },
 			{ "Lining", "Ceiling", "Floorboards" },
 		},
-		falls = { { "Fall1", "Fall1Wood" }, { "Fall2" }, { "Fall3" } },
-		cave = { 75, 50, 25 },
-		heaps = { {}, { 0.45, 1, 0.55 }, { 0.07, 0.6, 0.85 } },
 		-- the meshes' tones by name: the soil's (Trenches.soilColor) for these, the dark timber for these, else the plank
-		soil = { "SlotEarth", "RoomEarth", "Fall1", "Fall2", "Fall3" },
+		soil = { "SlotEarth", "RoomEarth" },
 		dark = { "PileDark", "Steps", "Frames", "Floorboards" },
 		soak = 0.1,
 		drop = 7,
@@ -721,6 +737,18 @@ local Build = {
 		bridgeGap = 1,
 		same = 1,
 		openFront = 0.5,
+		-- its doorway (dugout_pieces v3; user 2026-11-02: "redesign the dugout door to be build over a wall", "the dug
+		-- out should be lined with the wall not sticking out"): cut in the wall's face under a lintel this high over the
+		-- trench floor, the wall's heap whole over it, a roofed tunnel down (Rules.dugoutRoof); worn under `fillFrom`% HP
+		-- (where it used to start caving in) it fills with earth from its room's floor up to the lintel by 0 HP
+		-- (Rules.dugoutShown, Rules.dugoutFillHeight), anyone it reaches lifted onto it with
+		-- `lift` over it (their root over their feet) while there is `headroom` between the earth and the roof, else put
+		-- out; it fills again by a whole `fillStep` share at a time
+		lintel = 3.4,
+		fillFrom = 75,
+		lift = 3,
+		headroom = 5.2,
+		fillStep = 0.1,
 	},
 
 	-- Barbed wire (user 2026-10-27): its meshes are

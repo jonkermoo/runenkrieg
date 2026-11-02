@@ -188,4 +188,24 @@ return {
 		end)
 		assert(#none == 0)
 	end,
+	["wireSpot: off its own side's ways and spawn, moved across, or nowhere"] = function()
+		local Wr = B.Wire
+		local lines = { { ax = 0, az = 0, bx = 100, bz = 0 } }
+		local x, z = R.wireSpot(50, 0, 0, 1, lines, nil, Wr)
+		assert(x == 50 and z and math.abs(z) >= Wr.gap, "moved off the way")
+		local cx, cz = R.wireSpot(50, 40, 0, 1, lines, nil, Wr)
+		assert(cx == 50 and cz == 40, "clear where planned")
+		local wide = { gap = 100, spawn = Wr.spawn, step = Wr.step, shift = Wr.shift }
+		assert(R.wireSpot(50, 0, 0, 1, lines, nil, wide) == nil, "nowhere clear")
+		local spawn = { minX = 0, maxX = 10, minZ = 0, maxZ = 10 }
+		assert(R.wireSpot(20, 5, 0, 1, {}, spawn, { gap = 0, spawn = 30, step = 6, shift = 12 }) == nil, "by the spawn")
+	end,
+	["mayRepair: only after the wait"] = function()
+		assert(not R.mayRepair(B.repairWait - 1, B.repairWait) and R.mayRepair(B.repairWait, B.repairWait))
+	end,
+	["strikes: sometimes, likelier empty"] = function()
+		local Me = Cfg.Melee
+		assert(R.strikes(false, Me.chance - 0.01, Me) and not R.strikes(false, Me.chance + 0.01, Me))
+		assert(R.strikes(true, Me.empty - 0.01, Me) and not R.strikes(true, Me.empty + 0.01, Me))
+	end,
 }

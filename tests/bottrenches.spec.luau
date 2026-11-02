@@ -2,6 +2,7 @@
 local Cfg = require("../src/shared/Config/Bots")
 local Build = require("../src/shared/Config/Build")
 local R = require("../src/shared/Rules/BotTrenches")
+local Rules = require("../src/shared/Rules/Build")
 
 local T = Cfg.Trenches
 
@@ -80,13 +81,57 @@ return {
 	["fireStep: up the forward wall toward the enemy, by the trench's shape"] = function()
 		local TB = Build.Trench
 		local step = R.stepOut(TB.floor, TB.wallAngle, T.rise)
-		local x, z = R.fireStep(10, 5, -1, 0, step)
-		assert(near(x, 10 - step) and near(z, 5))
+		local flat = { ax = 10, ay = 2, az = 1, bx = 10, by = 2, bz = 9, tilt = 0 }
+		local p = R.firePost(flat, -1, 0, step, T.rise, TB.depth, 0)
+		assert(near(p.sx, 10 - step) and near(p.sz, 5) and near(p.sy, 2 + T.rise - TB.depth))
+		assert(near(p.fx, 10) and near(p.fz, 5) and near(p.fy, 2 - TB.depth))
+		assert(near(p.ox, -1) and near(p.oz, 0))
 		-- (on the wall, short of its top edge, high enough to see over the parapet)
 		assert(step > TB.floor and step < TB.floor + TB.depth / math.tan(math.rad(TB.wallAngle)))
 		assert(T.rise + 4.5 > TB.depth + 2.3, "eyes over the parapet")
 		assert(math.abs(R.stepOut(4.25, 59, T.rise) - 6.29) < 0.05, "the wider trench: 6.3 as before")
 		assert(math.abs(R.stepOut(3, 59, T.rise) - 5.04) < 0.05, "the slimmer trench: about 5.05")
+	end,
+	["firePost: on the forward wall across the square's own line, turned with its tilt"] = function()
+		local TB = Build.Trench
+		local step = R.stepOut(TB.floor, TB.wallAngle, T.rise)
+		local top = Rules.trenchTop(TB)
+		local function wall(r: number): number
+			return Rules.trenchProfile(math.abs(r), 1, TB) or 0
+		end
+		-- a square slanted 30 degrees off square to the enemy (+X), sloping along it, tilted both ways across
+		for _, tilt in { -0.4, -0.15, 0, 0.15, 0.4 } do
+			local a, b = math.rad(120), 8
+			local sq = { ax = 0, ay = 5, az = 0, bx = math.cos(a) * b, by = 7, bz = math.sin(a) * b, tilt = tilt }
+			local p = R.firePost(sq, 1, 0, step, T.rise, TB.depth, 0)
+			local mx, my, mz = sq.bx / 2, 6, sq.bz / 2
+			local rx, rz = -math.sin(a), math.cos(a) -- (the square's right: away from the enemy here, its left wall)
+			local v = (p.sx - mx) * rx + (p.sz - mz) * rz
+			assert(v < 0 and (p.sx - mx) > 0, "on the enemy's side")
+			assert(near((p.sx - mx) * math.cos(a) + (p.sz - mz) * math.sin(a), 0), "at right angles to the line")
+			assert(near(p.ox, -rx) and near(p.oz, -rz), "facing out across its line")
+			-- on the wall its pieces lie on: back in the square's own (tilted) frame, the profile's height at that reach
+			local c = 1 / math.sqrt(1 + tilt * tilt)
+			local function frame(across: number, up: number): (number, number)
+				return across * c + up * tilt * c, up * c - across * tilt * c
+			end
+			local w, d = frame(v, p.sy - my)
+			assert(near(d, wall(w), 1e-6) and near(math.abs(w), step), `on the wall at tilt {tilt}`)
+			-- under the parapet: its eyes (4.5 up) over the wall top on that side, its feet under it
+			local ty = -top * tilt * c
+			assert(p.sy - my < ty and p.sy - my + 4.5 > ty + TB.bank.height, "eyes just over the forward wall")
+			-- the floor below, in the middle, on the turned floor
+			local fv = (p.fx - mx) * rx + (p.fz - mz) * rz
+			local fw, fd = frame(fv, p.fy - my)
+			assert(near(fw, 0) and near(fd, -TB.depth), "on the floor")
+			local q = R.firePost(sq, 1, 0, step, T.rise, TB.depth, 2)
+			assert(q.fy > p.fy + 1.5 and near(q.sy, p.sy), "the floor rides up on the fill, the step stays")
+		end
+		-- the enemy the other way: the other wall
+		local sq = { ax = 0, ay = 0, az = 0, bx = 0, by = 0, bz = 8, tilt = 0.3 }
+		local e, w = R.firePost(sq, 1, 0, step, T.rise, TB.depth, 0), R.firePost(sq, -1, 0, step, T.rise, TB.depth, 0)
+		assert(e.sx > 0 and w.sx < 0 and e.ox > 0 and w.ox < 0)
+		assert(e.sy ~= w.sy, "the tilt lifts one wall's step and drops the other's")
 	end,
 	["digs: half the squad digs, the rest guard"] = function()
 		assert(R.digs(1, 4, T.share) and R.digs(2, 4, T.share) and not R.digs(3, 4, T.share))

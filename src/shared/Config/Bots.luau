@@ -164,6 +164,14 @@ local Bots = {
 		hop = 30,
 		arrive = 6,
 		spread = 5,
+		-- Pushing a group (Rules/BotSquads.group, confident; user 2026-11-02 hand test: "make AI push as a team / group if
+		-- they are confident they can take out a section/group of enemies. they can coordinate too (cover, grenades,
+		-- etc)"; "Outnumber 1.5 to 1"; "if they have a grenade, use it. if not, just cover each other as you rush. cover,
+		-- (grenade if applicable), bound"): an attacking squad not yet pushing into the zone, with known enemies within
+		-- `reach` studs (a group: those within `cluster` of the nearest), and its side's soldiers within `near` studs of it
+		-- at least `odds` times the group, bounds at the group (half covering, half rushing, swapping); a Grenadier of it
+		-- within reach of the group throws at it first, for up to `bombFor` seconds.
+		Push = { odds = 1.5, reach = 90, cluster = 20, near = 40, bombFor = 10 },
 	},
 	-- Normal routes (Rules/BotSquads; user 2026-11-01: "take advantage of the size of the map"): round each sector,
 	-- approach spots on rings `rings` studs out from its zone's edge (`perRing` across `arc` degrees each side of the way
@@ -203,6 +211,20 @@ local Bots = {
 	--   unseen) for `hidden` s, `min`-`max` studs off, no teammate within `safe` studs of it; at most one throw every
 	--   `every` s a bot and `squadEvery` s a squad. The gun goes away and the grenade is in hand for `hold` s before it
 	--   goes (user: "Swap for ~0.6 s"); aimed `short` of the spot (it rolls on) on the low arc.
+	-- Spreading out (user 2026-11-02 hand test: "bots walk neck to neck. make them spread out a little even if they are
+	-- going to the same place"): walking a path with a teammate within `apart` studs, a bot's next step goes `push`
+	-- studs aside, away from them.
+	Spread = { apart = 3.5, push = 2.5 },
+	-- Firing only with a line of sight (user 2026-11-02 hand test: "some bots are shooting through terrain even though
+	-- they cant physicall see the enemy"): each shot needs a clear line from the muzzle to the target (anything in the
+	-- way, terrain too); covering fire at a known spot a clear line to within `near` studs of it.
+	Sight = { near = 6 },
+	-- Butt strokes (Rules/BotBuild.strikes, src/server/Melee.strikeAs; user 2026-11-02 hand test: "also allow AI to melee
+	-- (dont force them to just because are withing range)"; "Sometimes"): with its target within Config/Melee.Hit.reach
+	-- less `margin`, a bot strikes on a roll under `chance` (`empty` with its gun empty or loading), rolled at most every
+	-- `every` seconds.
+	Melee = { chance = 0.33, empty = 0.8, every = 1.5, margin = 1 },
+
 	Actions = {
 		every = 0.5,
 		Drag = { within = 12, cover = 15, seconds = 8 },
@@ -252,7 +274,7 @@ local Bots = {
 	-- - Bags: a sandbag pile `ahead` studs in front of each outdoor hold spot with no cover (the first `max`).
 	-- - Wire: a strip `out` studs past the zone's edge on each of `lanes` (studs across from the middle).
 	-- - Nest: an MG nest `ahead` of the hold spot nearest the enemy.
-	-- - Guns: the guns the artillery level opens, `back` studs behind the zone's middle, `side` apart.
+	-- - Guns: the guns its side may build (Rules/Frontline.gunLocked), `back` studs behind the zone's middle, `side` apart.
 	-- - repairs: own pieces within `repair` studs past the zone's edge that want swings (the nearest `repairs`).
 	-- (the trenches: Trenches below.) Engineers take the nearest job within `take` studs; a digger (Trenches.share of a
 	-- holding squad) takes a trench job within `take` and helps work wire within `help`. A bot
@@ -275,7 +297,12 @@ local Bots = {
 		repair = 30,
 		repairs = 6,
 		Bags = { ahead = 3, max = 8 }, -- (8: any class lays them now, user 2026-11-02: "Piles at open holds")
-		Wire = { out = 40, lanes = { -40, 0, 40 } },
+		-- (wire only in the enemy's way, user 2026-11-02 hand test: `gap` studs off its own side's ways forward and
+		-- `spawn` off its spawn, moved across `step` at a time up to `shift`, else not laid: Rules/BotBuild.wireSpot)
+		Wire = { out = 40, lanes = { -40, 0, 40 }, gap = 12, spawn = 60, step = 6, shift = 24 },
+		-- no swing at a piece of theirs within `repairWait` s of it losing HP (user 2026-11-02 hand test: "Dont let ai
+		-- repair structures that are being destroyed by players"; "20 seconds": Rules/BotBuild.mayRepair)
+		repairWait = 20,
 		Nest = { ahead = 2 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
@@ -665,6 +692,32 @@ local Bots = {
 			lead = 0.9,
 			fireGap = { 0.15, 0.4 },
 		},
+	},
+
+	-- Normal: bots on the guns (Rules/BotCrew, src/server/Bots/Crew; user 2026-11-02, stage 2g). Each commander tick a
+	-- free, unbroken field gun, howitzer or MG on a sector its side holds gets a gunner: the nearest defender (or an
+	-- Engineer on gun duty, counted `crewFirst` studs nearer) within `walk` studs, at most `max` gunners a side. It
+	-- walks there (giving up after `walkFor` s) and mans it; it fights no other way while on it, holds no post and is
+	-- in no squad. A teammate taking the gun over (E) sends it back to duty, not on a gun again for `kicked` s.
+	-- - Field guns and howitzers (user: "Known enemy groups, else sector"): the biggest group of the enemies its
+	--   squads know (`cluster` studs across) the gun reaches, else the enemy sector its side attacks (or the one next
+	--   to its front), a shot anywhere within `scatter` studs of its middle; looked at again every `retarget` s and
+	--   after each shot. Fired every reload once laid, held while a teammate is within `hold` of the aim point (user:
+	--   "Every reload, hold near own"; `big` for a shell of `bigKg` kg or more, the howitzer).
+	-- - MGs (user: "Yes, at seen enemies"): at a target it sees within the gun's range, bursts `burst.on` s held and
+	--   `burst.off` s let go; a new box once the box is empty, or under `topUp` of it with nothing to shoot at.
+	Crew = {
+		max = 4,
+		walk = 300,
+		crewFirst = 60,
+		walkFor = 45,
+		kicked = 60,
+		cluster = 20,
+		scatter = 25,
+		retarget = 6,
+		hold = { small = 25, big = 40, bigKg = 50 },
+		burst = { on = 1.2, off = 0.8 },
+		topUp = 0.4,
 	},
 
 	-- the server's log line (cost and how the fights go) every this many seconds while bots are on; 0 none

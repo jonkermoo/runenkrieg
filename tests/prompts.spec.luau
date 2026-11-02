@@ -14,6 +14,18 @@ local function seen(id: string, dist: number, extra: { [string]: any }?): R.Seen
 end
 
 return {
+	["a prompt kept for one kit is in use for every other"] = function()
+		local why, kept = R.blocked(nil, "Allies", "Allies")
+		assert(why == nil and not kept, "a teammate may use it")
+		why, kept = R.blocked(nil, "Allies", "Central")
+		assert(why == "InUse" and kept)
+		why, kept = R.blocked(nil, "Allies", nil)
+		assert(why == "InUse" and kept, "no kit (dead, spectating): in use")
+		why, kept = R.blocked("Broken", "Allies", "Central")
+		assert(why == "Broken" and not kept, "its own reason first")
+		assert(R.blocked(nil, nil, "Central") == nil, "kept for no kit: free")
+		assert(Cfg.KitOthersAction ~= "" and Cfg.Reasons.InUse)
+	end,
 	["the shown prompt is near, the others in reach only pins"] = function()
 		local out = R.states({ seen("a", 4), seen("b", 6), seen("c", 30) }, "a", 2, 8)
 		assert(out.a == "near")

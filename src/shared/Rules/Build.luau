@@ -62,7 +62,7 @@ export type Placing = {
 	perTeam: number,
 	allowed: boolean?, -- false: the builder's class may not build this kind (Rules/Classes.mayBuild)
 	spot: string?, -- a bridge: why its trench square won't take it (Build.bridgeSpot), nil when it will
-	locked: string?, -- a gun the match's artillery level hasn't reached yet: why (Rules/Frontline.gunLocked)
+	locked: string?, -- a gun the builder's side may not build yet: why (Rules/Frontline.gunLocked)
 	kind: number?, -- the team's live pieces of this one's key (its `teamCap`, Config/Build.Pieces)
 	mineKind: number?, -- the builder's live pieces of this one's key (its `playerCap`)
 	sector: number?, -- the team's live pieces of this one's key in the sector it is in (its `sectorCap`)
@@ -199,6 +199,13 @@ end
 -- whether a sandbag pile's mesh is a bag's tie (`<bag>Cord`, Config/Palette.Build.SandbagCord) rather than the bag
 function Build.isPileCord(name: string): boolean
 	return string.sub(name, -4) == "Cord"
+end
+
+-- How much of a piece's own swing amount one swing of `mode` by a soldier of `class` does (Config/Build.Power): a Build
+-- swing `build` of it, times the class's own share on either mode (1 for a class not listed)
+function Build.swingPower(mode: string, class: string?, power: any): number
+	local k = if class then power.class[class] or 1 else 1
+	return if mode == "Build" then power.build * k else k
 end
 
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
@@ -443,23 +450,15 @@ function Build.trenchSink(share: number, t: any): (number, number)
 	return t.depth * fill, t.heapSink * fill
 end
 
--- Which pieces a trench square shows (user 2026-11-02: "base it off how our dug out is looking", "create constructtion statuses and destruction statuses"; Config/Build.Trench.stages): while it is first being dug, the
--- construction stage its HP has reached ("Dig", the last of `stages.dig` (% of `h.max`) it is at or past, at least the
--- first; nil at 0 HP: still a plan); dug full once, the finished pieces ("Full", 0) until its HP falls under each of
--- `stages.hit` (%), then that destruction stage ("Hit", 1..).
+-- Which pieces a trench square shows (Config/Build.Trench.stages; user 2026-11-02: "the original design was good where
+-- the flag just stays and we dig physical terrain deeper and deeper until 100HP and a trench appears. then it plays the
+-- trench destruction sequence as it takes damage"): none while it is first being dug (nil: its markers and the cut
+-- alone); dug full once, the finished pieces ("Full", 0) until its HP falls under each of `stages.hit` (% of `h.max`),
+-- then that destruction stage ("Hit", 1..).
 function Build.trenchStage(hp: number, built: boolean, h: any, stages: any): (string?, number)
 	local pct = hp / h.max * 100
 	if not built then
-		if hp <= 0 then
-			return nil, 0
-		end
-		local k = 1
-		for i, at in stages.dig do
-			if pct >= at - 1e-6 then
-				k = i
-			end
-		end
-		return "Dig", k
+		return nil, 0
 	end
 	local k = 0
 	for i, at in stages.hit do
@@ -503,6 +502,21 @@ local function toSeg(px: number, pz: number, s: { number }): number
 	local len2 = dx * dx + dz * dz
 	local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
 	return math.sqrt((px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2)
+end
+
+-- Whether a standing tree whose trunk is at (x, z), `trunk` studs across at its widest, is too near a trench run from
+-- (ax, az) to (bx, bz) (Config/Build.Trench `t`): in its cut, on its walls or dirt heaps, or within `treeClear` of them
+function Build.treeTooNear(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	x: number,
+	z: number,
+	trunk: number,
+	t: any
+): boolean
+	return toSeg(x, z, { ax, az, bx, bz }) < Build.trenchTop(t) + t.joins.heapReach + trunk / 2 + t.treeClear
 end
 
 -- The trench squares a plan's end at (x, z) joins: those within `touch` of it (the square it extends or tees into),
@@ -664,20 +678,31 @@ function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
 	return nil
 end
 
--- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`): while it is built (`built` false: it has
--- never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only `d.laid`) and no caving; once it has
--- stood, every build stage and as many of `d.falls` as `d.cave` thresholds its HP has dropped under
+-- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`), and how far it has filled in: while it
+-- is built (`built` false: it has never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only
+-- `d.laid`) and nothing filled; once it has stood, every build stage and, under `d.fillFrom`% of its HP, filled by
+-- what it has lost since (0..1 at 0 HP, from its room's floor up to its doorframe's lintel; user 2026-11-02: "can we
+-- make dugouts fill completely all the way to the door frame? also can we fill it with terrain instead of blocks?")
 function Build.dugoutShown(hp: number, max: number, built: boolean, d: any): (number, number)
 	if not built then
 		return Build.hescoStage(hp, max, #d.build), 0
 	end
-	local share, falls = if max > 0 then hp / max * 100 else 0, 0
-	for _, at in d.cave do
-		if share < at then
-			falls += 1
-		end
-	end
-	return #d.build, falls
+	return #d.build, if max > 0 then math.clamp(1 - hp / max * 100 / d.fillFrom, 0, 1) else 1
+end
+
+-- How high a dugout's earth has filled (studs over its room's floor) at `fill` (Build.dugoutShown): from nothing to its
+-- doorframe's lintel (`d.lintel` over the trench floor, `d.drop` under it)
+function Build.dugoutFillHeight(fill: number, d: any): number
+	return math.clamp(fill, 0, 1) * (d.drop + d.lintel)
+end
+
+-- The underside of a dugout's tunnel roof (studs over the trench floor) at `z` back into the wall from its foot: under
+-- the doorframe's lintel where the lintel meets the wall's face (`run` back over the trench's `depth`), down to the
+-- room's ceiling (`height` over its floor) where the tunnel meets the room
+function Build.dugoutRoof(z: number, d: any, height: number, run: number, depth: number): number
+	local z0 = run * d.lintel / depth
+	local t = math.clamp((z - z0) / (d.stair - z0), 0, 1)
+	return d.lintel + (height - d.drop - d.lintel) * t
 end
 
 -- Whether a dugout shelters the soldiers in its room: it has stood once and has HP left (user 2026-11-02: "anything
@@ -861,6 +886,30 @@ function Build.groundPlane(
 	return sum / n, if sxx > 0 then sxh / sxx else 0, if szz > 0 then szh / szz else 0
 end
 
+-- How far a trench's line keeps from a `piece`'s footprint (Config/Build.Trench `t`), nil for a piece that may stand on
+-- its bank: a foxhole, barbed wire or a gun keeps off the walls and the bank, a gun `trenchGap` more. Both ways: no such
+-- piece laid that near a trench, no trench planned that near one (user 2026-11-02, Survey.nearTrench / Trenches.plan).
+function Build.trenchKeep(piece: Piece, t: any): number?
+	if piece.kind ~= "Gun" and piece.kind ~= "Wire" and piece.kind ~= "Foxhole" then
+		return nil
+	end
+	return Build.trenchTop(t) + t.bank.width + (piece.trenchGap or 0)
+end
+
+-- the flat distance from footprint `f` (0 on or inside it) to the segment (ax, az)-(bx, bz), sampled every `step` studs
+function Build.footprintToSeg(f: Footprint, ax: number, az: number, bx: number, bz: number, step: number): number
+	local dx, dz = bx - ax, bz - az
+	local steps = math.max(math.ceil(math.sqrt(dx * dx + dz * dz) / step), 1)
+	local best = math.huge
+	for i = 0, steps do
+		local px, pz = ax + dx * i / steps - f.x, az + dz * i / steps - f.z
+		local u = math.max(math.abs(px * f.rx + pz * f.rz) - f.width / 2, 0)
+		local v = math.max(math.abs(-px * f.rz + pz * f.rx) - f.depth / 2, 0)
+		best = math.min(best, math.sqrt(u * u + v * v))
+	end
+	return best
+end
+
 -- whether two footprints overlap (by more than a touch: separating axes, each box's own two)
 function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
 	local dx, dz = b.x - a.x, b.z - a.z
@@ -877,6 +926,13 @@ function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
 		end
 	end
 	return true
+end
+
+-- whether the point (x, z) lies on footprint `f` or within `margin` of it (a planned square's stake under a piece:
+-- src/server/Trenches; user 2026-11-02: "remove the stakes on the points if things get built over or under it")
+function Build.onFootprintAt(x: number, z: number, f: Footprint, margin: number): boolean
+	local dx, dz = x - f.x, z - f.z
+	return Build.onFootprint(dx * f.rx + dz * f.rz, -dx * f.rz + dz * f.rx, f.width, f.depth, margin)
 end
 
 -- A trench square's open cut as a footprint (Build.footprintsOverlap): from its end (ax, az) to (bx, bz), `half`

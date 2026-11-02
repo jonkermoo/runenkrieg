@@ -42,6 +42,9 @@ local Palette = {
 			BarnRed = { 126, 72, 58 },
 			TarBoard = { 76, 68, 62 },
 			WhiteBoard = { 212, 206, 190 },
+			-- Selvara (Lantern Meadows, user 2026-11-01: its own house kit): warm stucco
+			Rose = { 196, 150, 128 },
+			Sienna = { 176, 120, 86 },
 		},
 		Roofs = {
 			Thatch = { 158, 128, 84 },
@@ -50,6 +53,7 @@ local Palette = {
 			DarkTile = { 90, 78, 72 },
 			Slate = { 84, 86, 92 },
 			RedTile = { 138, 86, 68 },
+			Terracotta = { 164, 96, 64 }, -- Selvara's pan tiles
 		},
 		Trim = { { 82, 66, 54 }, { 104, 86, 68 }, { 70, 60, 54 } }, -- dark weathered wood
 		Doors = { { 112, 88, 64 }, { 80, 92, 72 }, { 112, 62, 52 }, { 84, 92, 102 } },
@@ -63,6 +67,14 @@ local Palette = {
 		Metal = { 54, 52, 50 }, -- iron hinges, handles
 		Sign = { 210, 196, 162 },
 		Wood = { 104, 82, 62 },
+		-- the lantern festival's pieces (Lantern Meadows' stage, lantern poles; a part's Paint "Festival", its Swatch the key)
+		Festival = {
+			Canvas = { 200, 184, 148 },
+			RunePaint = { 92, 124, 148 },
+			Lantern = { 232, 196, 120 },
+			TentGrey = { 124, 126, 120 }, -- Katzmark's tents
+			TentGreen = { 98, 122, 84 }, -- Selvara's
+		},
 		ToneJitter = 0.04, -- +-4% per piece: hand-made, not factory-flat
 		Dust = { 200, 192, 176 }, -- a pulverised section's puff (src/client/Debris), half way from its own colour
 	},
@@ -76,6 +88,7 @@ local Palette = {
 		Hedge = { 74, 108, 58 },
 		HedgeDark = { 62, 92, 50 },
 		Hay = { 182, 156, 96 },
+		Lantern = { 232, 196, 120 }, -- a lantern pole's paper lanterns (Palette.Buildings.Festival.Lantern)
 		Metal = { 54, 52, 50 },
 		Rubber = { 34, 32, 30 },
 		Water = { 92, 124, 128 },
@@ -232,12 +245,8 @@ local Palette = {
 		SandbagCord = { 122, 100, 68 }, -- the tie round a pile bag's neck (Config/Assets sandbag_pile Bag<i>Cord)
 		SandbagPatch = { 138, 112, 84 }, -- a pile's scraped ground (sandbag_pile Patch)
 		SandbagSacks = { 186, 168, 128 }, -- its empty sacks before any is filled (sandbag_pile Sacks)
-		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
+		Plank = { 134, 102, 70 }, -- the plank steps on a trench's walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
 		PlankDark = { 98, 74, 52 },
-		-- (trench_pieces v11: weathered boards, the corrugated iron and its rusted sheets, bolts)
-		PlankPale = { 158, 134, 104 },
-		TrenchIron = { 74, 74, 76 },
-		TrenchRust = { 110, 78, 58 },
 		-- a trench bridge's planks (meshes Bridge<v><set>, <set>Dark; user 2026-10-27: pine, "a different color as the
 		-- trench", then "a slightly darker tint": was 186, 146, 94 and 152, 114, 72)
 		Bridge = { 164, 126, 80 },

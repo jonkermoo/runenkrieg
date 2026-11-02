@@ -232,6 +232,7 @@ local DevTools = {
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the
 	-- start of a play test and put back on the button; the terrain inside these boxes (studs) too, craters filled.
 	World = {
+		Chunk = 64, -- the terrain is saved and put back in square chunks this many studs across (Rules/MapReset)
 		Terrain = {
 			{ min = { -580, -64, -710 }, max = { 2980, 112, 710 } }, -- Config/Maps/Map1 bounds + terrainMargin
 			{ min = { -320, -32, 2580 }, max = { 320, 88, 3020 } }, -- Config/Maps/Playtest bounds + terrainMargin

@@ -129,10 +129,47 @@ function BotTrenches.stepOut(floor: number, angle: number, rise: number): number
 	return floor + rise / math.tan(math.rad(angle))
 end
 
--- A fire step on a dug fire-trench square at (x, z): up its forward wall under the parapet, `step` studs from the
--- square's line toward the enemy (tx, tz), facing out.
-function BotTrenches.fireStep(x: number, z: number, tx: number, tz: number, step: number): (number, number)
-	return x + tx * step, z + tz * step
+-- A dug trench square: its ground line's ends A and B, and its ground's rise per stud across to its right (its "Tilt":
+-- src/server/Trenches turns its whole cross-section by it, Rules/Build.tiltedCut)
+export type Square = { ax: number, ay: number, az: number, bx: number, by: number, bz: number, tilt: number }
+
+-- A fire-trench square's post facing the enemy's way (tx, tz): its fire step on the wall at right angles to its line on
+-- the enemy's side, `step` studs out (stepOut) and `rise` up from its floor `depth` under the line, in the square's own
+-- tilted frame, so a bot there has its eyes just over that wall's parapet on any slope; the floor in its middle below,
+-- `fill` studs up off the full floor as the square is buried (Rules/Build.trenchSink); the flat way out (ox, oz).
+export type FirePost =
+	{ sx: number, sy: number, sz: number, fx: number, fy: number, fz: number, ox: number, oz: number }
+
+function BotTrenches.firePost(
+	sq: Square,
+	tx: number,
+	tz: number,
+	step: number,
+	rise: number,
+	depth: number,
+	fill: number
+): FirePost
+	local dx, dz = sq.bx - sq.ax, sq.bz - sq.az
+	local len = math.sqrt(dx * dx + dz * dz)
+	-- (its right, src/server/Trenches' `across`; a square with no length faces the enemy straight)
+	local rx, rz = if len > 1e-6 then -dz / len else tx, if len > 1e-6 then dx / len else tz
+	local side = if rx * tx + rz * tz >= 0 then 1 else -1
+	local mx, my, mz = (sq.ax + sq.bx) / 2, (sq.ay + sq.by) / 2, (sq.az + sq.bz) / 2
+	-- a point `w` across (to its right) and `d` up in the square's frame: w c - d t c across, w t c + d c up
+	local t = sq.tilt
+	local c = 1 / math.sqrt(1 + t * t)
+	local w, d = side * step, rise - depth
+	local v = (w - d * t) * c
+	return {
+		sx = mx + rx * v,
+		sy = my + (w * t + d) * c,
+		sz = mz + rz * v,
+		fx = mx + rx * (depth - fill) * t * c,
+		fy = my - (depth - fill) * c,
+		fz = mz + rz * (depth - fill) * t * c,
+		ox = rx * side,
+		oz = rz * side,
+	}
 end
 
 -- Whether a bot is a digger: half of a holding squad digs (`share`), the rest stand guard (user 2026-11-02: "Half dig,
