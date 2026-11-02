@@ -229,6 +229,10 @@ local Palette = {
 		SandbagSacks = { 186, 168, 128 }, -- its empty sacks before any is filled (sandbag_pile Sacks)
 		Plank = { 134, 102, 70 }, -- the plank steps on a trench's wood walls (meshes Wall<i>Planks, Wall<i>PlanksDark)
 		PlankDark = { 98, 74, 52 },
+		-- (trench_pieces v11: weathered boards, the corrugated iron and its rusted sheets, bolts)
+		PlankPale = { 158, 134, 104 },
+		TrenchIron = { 74, 74, 76 },
+		TrenchRust = { 110, 78, 58 },
 		-- a trench bridge's planks (meshes Bridge<v><set>, <set>Dark; user 2026-10-27: pine, "a different color as the
 		-- trench", then "a slightly darker tint": was 186, 146, 94 and 152, 114, 72)
 		Bridge = { 164, 126, 80 },

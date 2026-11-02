@@ -438,6 +438,33 @@ function Build.trenchSink(share: number, t: any): (number, number)
 	return t.depth * fill, t.heapSink * fill
 end
 
+-- Which pieces a trench square shows (user 2026-11-02: "base it off how our dug out is looking", "create constructtion statuses and destruction statuses"; Config/Build.Trench.stages): while it is first being dug, the
+-- construction stage its HP has reached ("Dig", the last of `stages.dig` (% of `h.max`) it is at or past, at least the
+-- first; nil at 0 HP: still a plan); dug full once, the finished pieces ("Full", 0) until its HP falls under each of
+-- `stages.hit` (%), then that destruction stage ("Hit", 1..).
+function Build.trenchStage(hp: number, built: boolean, h: any, stages: any): (string?, number)
+	local pct = hp / h.max * 100
+	if not built then
+		if hp <= 0 then
+			return nil, 0
+		end
+		local k = 1
+		for i, at in stages.dig do
+			if pct >= at - 1e-6 then
+				k = i
+			end
+		end
+		return "Dig", k
+	end
+	local k = 0
+	for i, at in stages.hit do
+		if pct < at then
+			k = i
+		end
+	end
+	return if k == 0 then "Full" else "Hit", k
+end
+
 -- The soil under a trench square: the first of `names` (terrain materials from its ground line down) not in
 -- `soil.skip`, else `soil.fallback` (Config/Build.Trench.soil).
 function Build.trenchSoil(names: { string }, soil: any): string
