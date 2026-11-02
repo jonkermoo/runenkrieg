@@ -1481,8 +1481,8 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		-- (none over a trench's open cut, dug or planned: the bots' pieces too, Build.placeAs)
 		overTrench = not inTrench and Survey.overTrench(piece, frame, f),
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
-		-- (a wire keeps off trenches too: their hole, walls and bank)
-		nearTrench = (gunPiece or piece.kind == "Wire" or foxhole) and Survey.nearTrench(piece, frame, f),
+		-- (a foxhole, wire or gun keeps off trenches: their hole, walls and bank; Rules.trenchKeep)
+		nearTrench = Survey.nearTrench(piece, frame, f),
 		mine = if dev then 0 else count(team, b.id, "shared"),
 		team = if dev then 0 else count(team, nil),
 		kind = if dev then 0 else count(team, nil, piece.key),

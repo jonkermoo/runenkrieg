@@ -13,6 +13,10 @@ local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
 	Reach = 14,
 	SwingReach = 8,
+	-- a piece keeps this far from anything solid round its footprint, from the ground up (buildings, props, trunks, low
+	-- walls, rubble; other pieces go by footprint, Survey.onPiece; soldiers only on it) (user 2026-11-02: "make it a
+	-- generous stud margin", "i want to adjust them so it stops colliding with stuff")
+	Margin = 2,
 	-- the structure your shovel would work (a trench square, any piece; a standing gun itself), or the trench square
 	-- you're extending or branching off, is lit faintly (a Highlight in Palette.Build.Focus: its fill and outline
 	-- transparency; user 2026-10-25: "a slight slight indicator for which segment you are focused on"; 2026-10-27: "be
@@ -113,6 +117,11 @@ local Build = {
 		-- or on its dirt heaps (Rules.trenchTop + joins.heapReach), nor within `treeClear` studs past them (user
 		-- 2026-11-02: "also trees are going into trenches. increase the boundaries")
 		treeClear = 2,
+		-- nothing solid (buildings, props, fallen trunks) across a planned square's whole width out to its dirt heaps'
+		-- edge (Rules.trenchTop + joins.heapReach), from its lowest ground to `wayHeight` over its highest, nor past its
+		-- dead ends by its end heap (user 2026-11-02: "i want to adjust them so it stops colliding with stuff"; was a
+		-- strip 4 either side of the line, 1 to 6 up)
+		wayHeight = 6,
 		planLife = 180, -- seconds an undug plan stays
 		-- a swing works the square whose line is this close, in front of you (from anywhere on its dirt, out past its
 		-- heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox"; 19 to 13 with the narrower trench)

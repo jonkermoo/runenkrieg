@@ -145,7 +145,8 @@ end
 -- props, other pieces, soldiers). Trench blocks don't count: sandbags and wire go on their banks (their open cut:
 -- Survey.overTrench). `ignore` is left out
 -- of the search (the builder, the client's ghost). Soldiers don't stop a gun (its ground is wide: they step aside or
--- fall in its pit).
+-- fall in its pit). Round the footprint, `C.Margin` out and from the ground up, anything solid that isn't a soldier,
+-- a piece or a trench stops it too (pieces go by footprint: Survey.onPiece).
 function Survey.blocked(piece: Rules.Piece, frame: CFrame, low: number, ignore: { Instance }?): boolean
 	local size = Survey.footprint(piece)
 	local params = OverlapParams.new()
@@ -166,6 +167,25 @@ function Survey.blocked(piece: Rules.Piece, frame: CFrame, low: number, ignore: 
 		local trench = model and model:GetAttribute("Kind") == "TrenchBlock"
 		local stops = if soldier then piece.kind ~= "Gun" else part.CanCollide
 		if stops and not trench then
+			return true
+		end
+	end
+	local structures = workspace:FindFirstChild(C.Folder)
+	if structures then
+		table.insert(skip, structures)
+	end
+	params.FilterDescendantsInstances = skip
+	local m = C.Margin
+	local around = CFrame.fromMatrix(
+		Vector3.new(frame.Position.X, low + (0.8 + size.Y) / 2, frame.Position.Z),
+		frame.RightVector,
+		Vector3.yAxis
+	)
+	for _, part in
+		workspace:GetPartBoundsInBox(around, Vector3.new(size.X + 2 * m, 0.8 + size.Y, size.Z + 2 * m), params)
+	do
+		local model = part:FindFirstAncestorWhichIsA("Model")
+		if part.CanCollide and not (model and model:FindFirstChildOfClass("Humanoid")) then
 			return true
 		end
 	end
@@ -236,11 +256,14 @@ function Survey.gunGap(piece: Rules.Piece, at: Vector3, structures: Instance?, s
 	return false
 end
 
--- Whether a trench (any block in `structures`, planned or dug) runs within a gun piece's `trenchGap` of its footprint
--- at `box` (Survey.box): from the trench's line, its half width over the walls and its bank, then the gap.
+-- Whether a trench (any block in `structures`, planned or dug) runs within Rules.trenchKeep of the footprint of a
+-- `piece` at `box` (Survey.box): from the trench's line, its half width over the walls and its bank, a gun's gap more.
+-- False for a piece that may stand on a bank.
 function Survey.nearTrench(piece: Rules.Piece, box: CFrame, structures: Instance?): boolean
-	local T = C.Trench
-	local reach = Rules.trenchTop(T) + T.bank.width + (piece.trenchGap or 0)
+	local reach = Rules.trenchKeep(piece, C.Trench)
+	if not reach then
+		return false
+	end
 	local hx, hz = piece.width / 2, piece.depth / 2
 	for _, m in (if structures then structures:GetChildren() else {}) do
 		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
@@ -257,6 +280,30 @@ function Survey.nearTrench(piece: Rules.Piece, box: CFrame, structures: Instance
 		end
 	end
 	return false
+end
+
+-- The name of the first piece in `structures` a trench run from `a` to `b` would come nearer than its
+-- Rules.trenchKeep (a foxhole, wire or a gun keeps the trench off as it keeps off trenches), nil when none
+function Survey.nearPieces(a: Vector3, b: Vector3, structures: Instance?): string?
+	for _, m in (if structures then structures:GetChildren() else {}) do
+		local p = Rules.piece(m:GetAttribute("Piece"), C.Pieces)
+		local frame, size = m:GetAttribute("Frame"), m:GetAttribute("Size")
+		local keep = p and Rules.trenchKeep(p, C.Trench)
+		if p and keep and typeof(frame) == "CFrame" and typeof(size) == "Vector3" then
+			local f: Rules.Footprint = {
+				x = frame.Position.X,
+				z = frame.Position.Z,
+				rx = frame.RightVector.X,
+				rz = frame.RightVector.Z,
+				width = size.X,
+				depth = size.Z,
+			}
+			if Rules.footprintToSeg(f, a.X, a.Z, b.X, b.Z, 1) < keep then
+				return p.name
+			end
+		end
+	end
+	return nil
 end
 
 -- Whether a piece laid with its footprint at `box` (Survey.box) reaches over a trench square's open cut (Rules.trenchCut:

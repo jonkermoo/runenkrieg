@@ -1055,6 +1055,7 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 	-- each square's tilt across, from the ground at its wall tops either side (Rules.crossTilt)
 	local across = Vector3.new(-flat.Unit.Z, 0, flat.Unit.X)
 	local tilts = {}
+	local lows, highs = {}, {} -- (each square's lowest and highest ground: its line and wall tops)
 	for i, span in spans do
 		local left, right = {}, {}
 		for _, f in { 0.2, 0.5, 0.8 } do
@@ -1073,24 +1074,48 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			return "Too steep"
 		end
 		tilts[i] = tilt
-	end
-	local params = OverlapParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { workspace.Terrain, folder() }
-	local mid = a + flat / 2
-	local box = CFrame.lookAt(
-		Vector3.new(mid.X, heights[math.floor(samples / 2)] + 3.5, mid.Z),
-		Vector3.new(b.X, heights[math.floor(samples / 2)] + 3.5, b.Z)
-	)
-	for _, p in workspace:GetPartBoundsInBox(box, Vector3.new(2 * T.floor + 2, 5, math.max(length - 2, 1)), params) do
-		local model = p:FindFirstAncestorWhichIsA("Model")
-		if p.CanCollide and not (model and model:FindFirstChildOfClass("Humanoid")) then
-			return "In the way"
+		local lo, hi = math.huge, -math.huge
+		for _, h in left do
+			lo, hi = math.min(lo, h), math.max(hi, h)
 		end
+		for _, h in right do
+			lo, hi = math.min(lo, h), math.max(hi, h)
+		end
+		for j = math.floor(span.from / length * samples), math.ceil(span.to / length * samples) do
+			local h = heights[math.clamp(j, 0, samples)]
+			lo, hi = math.min(lo, h), math.max(hi, h)
+		end
+		lows[i], highs[i] = lo, hi
 	end
 	-- nor by a tree: none whose trunk would stand in its cut, on its walls or on its heaps (Trench.treeClear)
 	if Survey.treeNear(a, b) then
 		return "A tree is in the way"
+	end
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { workspace.Terrain, folder() }
+	-- nothing solid over any square's whole width out to its heaps' edge, from its lowest ground to Trench.wayHeight
+	-- over its highest, the end squares on past their dead ends by the end heap (Trench.wayHeight)
+	local half = TOP + T.joins.heapReach
+	local past = TOP + T.joins.deadEndHeap
+	for i, span in spans do
+		local from = span.from - (if i == 1 then past else 0)
+		local to = span.to + (if i == #spans then past else 0)
+		local c = a + dir * ((from + to) / 2)
+		local y = (lows[i] + highs[i] + T.wayHeight) / 2
+		local box = CFrame.lookAt(Vector3.new(c.X, y, c.Z), Vector3.new(c.X + dir.X, y, c.Z + dir.Z))
+		local size = Vector3.new(2 * half, highs[i] - lows[i] + T.wayHeight, to - from)
+		for _, p in workspace:GetPartBoundsInBox(box, size, params) do
+			local model = p:FindFirstAncestorWhichIsA("Model")
+			if p.CanCollide and not (model and model:FindFirstChildOfClass("Humanoid")) then
+				return "In the way"
+			end
+		end
+	end
+	-- nor near a foxhole, wire or gun: as far off as they keep from a trench (Rules.trenchKeep)
+	local near = Survey.nearPieces(a, b, folder())
+	if near then
+		return `Too close to the {string.lower(near)}`
 	end
 	-- nor under a piece: no structure's footprint over its open cut (Config/Build.Trench.overhang; the same rule as a
 	-- piece over a trench, Survey.overTrench), except a bridge, which lies across the trench it joins
