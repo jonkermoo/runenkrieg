@@ -21,7 +21,8 @@ export type Def = {
 -- what everyone may build (user: "everyone else can only build trenches and other small assets")
 -- (Hesco barriers and sandbag piles were the Engineer's from round 7 to 2026-11-02; everyone's again, user 2026-11-02:
 -- "allow sandbags and barriers to be built by ordinary soldiers too")
-local SMALL = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge" }
+-- (foxholes everyone's, user 2026-11-02)
+local SMALL = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge" }
 
 local Classes = {
 	-- the loadout's kit cards (UI overhaul, user 2026-10-30): each class's rune (Config/Runes), the picked card raised
@@ -121,7 +122,7 @@ local Classes = {
 			grenades = false,
 			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
 			helmet = "engineerCap",
-			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
+			builds = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
 		},
 		-- the team's goggles (user 2026-10-27: "goggles on mage")
 		Mage = {

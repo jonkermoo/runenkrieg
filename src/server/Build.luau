@@ -27,6 +27,11 @@
 --   "Sandbag" section, on HP in 4 stages like a Hesco barrier's: laid flat (empty sacks, the M2 in pieces on the
 --   ground), the bags filled and the gun set up on the mount bag stage by stage (Artillery.parts / assemble,
 --   Rules.nestShown); once it has stood its HP is its gun's, worn and fixed as a built field gun's.
+-- - Foxholes (Config/Build.Foxhole): carved in the terrain round the voxel column they are snapped to, each column of
+--   its ground set from how it lay (Ground.plot / shapeColumns, Rules.foxholeHeight): a pit and a heap toward the front
+--   as deep and high as its share of HP (Foxhole.hp), so Build swings dig it, Destroy swings, blasts and shots fill it
+--   back in; at 0 its ground is as it was. Laid at 0 with a scraped patch on the ground; an unseen disc over the pit is
+--   what the shovel's light shows.
 -- - Bridges (Config/Build.Bridge): laid on a trench square (Survey.bridgeSpot), its planks the Config/Assets
 --   bridge_pieces layout its seed rolls, stretched to the square's length; on HP (Bridge.hp): laid at stage 1, Build
 --   swings add HP, Destroy swings and weapons take it, its boards standing by HP (Rules.bridgeStage). At 0, or once its
@@ -106,6 +111,10 @@ type Rec = {
 	square: Model?, -- a bridge: the trench square it is on
 	watch: { RBXScriptConnection }?, -- and its watch on that square
 	sector: string?, -- the Map1 sector it stands in (a piece with a `sectorCap`)
+	plot: Ground.Plot?, -- a foxhole: its ground as it lay, the share of HP it is shaped to now, its patch and disc
+	carved: number?,
+	patch: BasePart?,
+	mark: BasePart?,
 }
 
 -- src/server/Artillery, handed in at start (it needs Damage, which needs this)
@@ -793,6 +802,13 @@ local function remove(r: Rec)
 		Ground.restore(r.pitBase)
 		Net.event("GroundDug"):FireAllClients(r.frame.Position, r.piece.depth)
 	end
+	-- a foxhole: its ground as it lay
+	if r.plot and (r.carved or 0) > 0 then
+		local centre, look = r.frame.Position, r.frame.LookVector
+		Ground.shapeColumns(r.plot, function(at: Vector3): number?
+			return Rules.foxholeHeight(at.X - centre.X, at.Z - centre.Z, look.X, look.Z, 0, C.Foxhole)
+		end, Enum.Material.Mud, Enum.Material.Ground)
+	end
 	r.model:Destroy()
 end
 
@@ -888,6 +904,31 @@ showGun = function(r: Rec)
 	end
 end
 
+-- a foxhole as its HP stands: its ground shaped to its share of HP (once that has moved Foxhole.step, or reached
+-- either end), the scraped patch while nothing is dug, the disc over the pit as wide as its wall's top
+local function showFoxhole(r: Rec)
+	local F = C.Foxhole
+	local share = math.clamp(r.work / r.need, 0, 1)
+	if r.patch then
+		r.patch.Transparency = if share > 0 then 1 else 0
+	end
+	local carved = r.carved or 0
+	local due = share ~= carved and (share <= 0 or share >= 1 or math.abs(share - carved) >= F.step)
+	if not due or not r.plot then
+		return
+	end
+	r.carved = share
+	local centre, look = r.frame.Position, r.frame.LookVector
+	Ground.shapeColumns(r.plot, function(at: Vector3): number?
+		return Rules.foxholeHeight(at.X - centre.X, at.Z - centre.Z, look.X, look.Z, share, F)
+	end, Enum.Material.Mud, Enum.Material.Ground)
+	Net.event("GroundDug"):FireAllClients(centre, Rules.foxholeReach(F))
+	if r.mark then
+		local top = F.radius + F.depth * share / math.tan(math.rad(F.wall))
+		r.mark.Size = Vector3.new(r.mark.Size.X, top * 2, top * 2)
+	end
+end
+
 -- shows a piece as its HP stands now
 function apply(r: Rec)
 	r.model:SetAttribute("Work", r.work)
@@ -923,6 +964,8 @@ function apply(r: Rec)
 		showHesco(r)
 	elseif kind == "Bridge" then
 		showBridge(r)
+	elseif kind == "Foxhole" then
+		showFoxhole(r)
 	end
 end
 
@@ -1056,6 +1099,46 @@ local function award(b: Builder, reason: string)
 	end
 end
 
+-- whether a foxhole centred at `p` (snapped) would share a voxel column with another's ground (Rules.foxholesClash)
+local function foxholeCrowded(p: Vector3): boolean
+	for _, r in recs do
+		local q = r.frame.Position
+		if r.piece.kind == "Foxhole" and Rules.foxholesClash(p.X, p.Z, q.X, q.Z, C.Foxhole, C.Foxhole.voxel) then
+			return true
+		end
+	end
+	return false
+end
+
+-- a foxhole's parts: the scraped patch on the ground (shown while nothing is dug) and an unseen disc over its pit (what
+-- the shovel's light shows); neither blocks, is hit or touched
+local function layoutFoxhole(r: Rec)
+	local F = C.Foxhole
+	local function flat(name: string, size: Vector3, cf: CFrame, color: Color3): Part
+		local p = newPart(r.model, name, size, cf, color)
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		return p
+	end
+	r.patch = flat(
+		"Patch",
+		Vector3.new(F.patch.size, F.patch.thick, F.patch.size),
+		r.frame * CFrame.new(0, F.patch.thick / 2, 0),
+		rgb(Palette.Build.SandbagPatch)
+	)
+	local mark = flat(
+		"Mark",
+		Vector3.new(0.05, F.radius * 2, F.radius * 2),
+		r.frame * CFrame.new(0, 0.1, 0) * CFrame.Angles(0, 0, math.rad(90)),
+		rgb(Palette.Build.Focus)
+	)
+	mark.Shape = Enum.PartType.Cylinder
+	mark.Transparency = 0.98
+	r.mark = mark
+end
+
 -- Lays a blueprint (Net "Build" "Place"). `dev`: the admin panel's spawn list (Build.devPlace): no shovel, reach or
 -- limits, and a sandbag pile or MG nest stands finished at once. Returns why it was refused, nil when laid.
 local function place(b: Builder, key: any, at: any, dev: boolean?): string?
@@ -1067,7 +1150,17 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	if not team then
 		return "No team (the character has no Kit)"
 	end
-	local frame = Survey.frame(at.Position, at.LookVector)
+	local foxhole = piece.kind == "Foxhole"
+	local F = C.Foxhole
+	-- (a foxhole: on the middle of its voxel column, Rules.foxholeSnap)
+	local spot0 = if foxhole
+		then Vector3.new(
+			Rules.foxholeSnap(at.Position.X, F.voxel),
+			at.Position.Y,
+			Rules.foxholeSnap(at.Position.Z, F.voxel)
+		)
+		else at.Position
+	local frame = Survey.frame(spot0, at.LookVector)
 	-- (a gun: `frame` the gun, `box` the ground it needs; any other piece: the same)
 	local gunAt: CFrame? = nil
 	if piece.kind == "Gun" then
@@ -1103,10 +1196,12 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		water = not bridge and report.water,
 		overlap = if bridge
 			then Survey.onPiece(piece, frame, f)
-			else Survey.blocked(piece, frame, report.low, { character }) or Survey.onPiece(piece, frame, f),
+			else Survey.blocked(piece, frame, report.low, { character })
+				or Survey.onPiece(piece, frame, f)
+				or (foxhole and foxholeCrowded(frame.Position)),
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
 		-- (a wire keeps off trenches too: their hole, walls and bank)
-		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
+		nearTrench = (gunPiece or piece.kind == "Wire" or foxhole) and Survey.nearTrench(piece, frame, f),
 		mine = if dev then 0 else count(team, b.id, "shared"),
 		team = if dev then 0 else count(team, nil),
 		kind = if dev then 0 else count(team, nil, piece.key),
@@ -1163,6 +1258,14 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	elseif bridge and square and length then
 		r.square = square
 		layoutBridge(r, length, bridgeRoll:NextInteger(0, 2 ^ 20))
+	elseif foxhole then
+		r.plot = Ground.plot(frame.Position, Rules.foxholeReach(F), F.depth + F.voxel * 2, F.heap.height + F.voxel * 2)
+		if not r.plot then
+			model:Destroy()
+			tell(b, "Can't build here")
+			return "The ground can't be read"
+		end
+		layoutFoxhole(r)
 	end
 	model:SetAttribute("Piece", piece.key)
 	model:SetAttribute("Team", team)
@@ -1177,7 +1280,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	end
 	recs[model] = r
 	model.Parent = f
-	if dev and (bags or nest) then
+	if dev and (bags or nest or foxhole) then
 		-- (finished, as if dug to the end; no match points for it)
 		r.work = r.need
 		r.built, r.paid = true, true
@@ -1685,6 +1788,15 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			if share > 0 then
 				table.insert(worn, { r = r, amount = r.need * share / 100 })
 			end
+		elseif r.piece.kind == "Foxhole" then
+			-- by how far the blast is from its pit as it is dug now, Foxhole.soak of a trench square's share
+			local c = frame.Position
+			local d = Vector3.new(position.X - c.X, 0, position.Z - c.Z).Magnitude
+			local gap = Rules.foxholeGap(d, position.Y - c.Y, r.work / r.need, C.Foxhole)
+			local share = Rules.structureHit(gap, src, S.edge) * C.Foxhole.soak
+			if share > 0 then
+				table.insert(worn, { r = r, amount = r.need * share / 100 })
+			end
 		end
 	end
 	for _, r in cut do
@@ -1713,6 +1825,19 @@ function Build.shot(part: Instance, point: Vector3)
 	local r = if model and model:IsA("Model") then recs[model] else nil
 	if r and r.piece.kind == "Hesco" then
 		wear(r, r.need * C.Structures.bullet.hit * C.Hesco.soak / 100)
+		return
+	end
+	-- the ground of a foxhole's pit or heap
+	if part == workspace.Terrain then
+		local F = C.Foxhole
+		for _, o in recs do
+			local c = o.frame.Position
+			local d = Vector3.new(point.X - c.X, 0, point.Z - c.Z).Magnitude
+			if o.piece.kind == "Foxhole" and Rules.inFoxholeGround(d, point.Y - c.Y, F, F.shotSlack) then
+				wear(o, o.need * C.Structures.bullet.hit * F.soak / 100)
+				return
+			end
+		end
 	end
 end
 
@@ -1759,6 +1884,19 @@ function Build.onHesco(p: Vector3): boolean
 			if Rules.onFootprint(l.X, l.Z, r.piece.width, r.piece.depth, C.Hesco.ground) then
 				return true
 			end
+		end
+	end
+	return false
+end
+
+-- whether `p` is on a foxhole's ground (its pit and heap, Rules.foxholeReach of its centre, flat): craters never carve
+-- it (src/server/Ground.guard); the blast fills it in by its HP instead (Build.blast)
+function Build.onFoxhole(p: Vector3): boolean
+	local reach = Rules.foxholeReach(C.Foxhole)
+	for _, r in recs do
+		local c = r.frame.Position
+		if r.piece.kind == "Foxhole" and Vector3.new(p.X - c.X, 0, p.Z - c.Z).Magnitude <= reach then
+			return true
 		end
 	end
 	return false
@@ -1829,6 +1967,7 @@ function Build.start(artillery: Guns)
 	Trenches.start()
 	Ground.guard(Build.onHesco)
 	Ground.guard(Build.onNest)
+	Ground.guard(Build.onFoxhole)
 	Ground.ceiling(Build.nestCeiling)
 	Net.event("Dug").OnServerEvent:Connect(dug)
 	Net.event("Build").OnServerEvent:Connect(function(player: Player, kind: any, a: any, b: any)

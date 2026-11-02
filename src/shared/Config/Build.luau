@@ -204,6 +204,22 @@ local Build = {
 			kind = "Trench", -- planned by two clicks, dug block by block (Trench above)
 			work = 8,
 		},
+		-- The foxhole (user 2026-11-02, design approved by the user): a one-man pit dug in a few swings almost anywhere,
+		-- cover for a soldier caught in the open (Foxhole below). Everyone builds it (Config/Classes SMALL). `width` x
+		-- `depth` its footprint round the pit (the ground surveyed, kept off other pieces), `height` what must stand clear
+		-- over it.
+		{
+			key = "Foxhole",
+			name = "Foxhole",
+			kind = "Foxhole",
+			-- per team in each sector (user 2026-11-02: "make it a sector cap, but give a good amount (every player
+			-- should be able to place 1 or 2)": 20 bots a side and the players)
+			sectorCap = 40,
+			width = 8,
+			depth = 8,
+			height = 3,
+			maxSlope = 25,
+		},
 		-- The sandbag pile (user 2026-10-27: pillow bags, "layer 1 2 bags, layer 2 1 bag", "make it even smaller ... ads
 		-- still wont work", "make the sandbags longer"; the old low and high walls removed: "remove the old sand bag piles
 		-- completely, keep the present ones"): Config/Assets `asset`'s meshes, one section for the whole pile, built and
@@ -528,6 +544,41 @@ local Build = {
 		spacing = 12,
 		plate = 0.3,
 		ghost = 0.4,
+	},
+
+	-- Foxholes (Pieces kind "Foxhole"; user 2026-11-02, design approved by the user): carved in the terrain round the
+	-- grid corner its centre is snapped to (Rules.foxholeSnap), each 4-stud voxel column of its ground set to a height
+	-- from the ground as it lay (src/server/Ground.shapeColumns): within `radius` of the centre (the four columns round
+	-- the corner) a floor `depth` down, the wall leaning back at `wall` degrees (near upright: the terrain rounds it into
+	-- a bowl about 6 across), and past the wall's top an earth heap `heap.height` high over the next `heap.width` studs,
+	-- only toward its front (`heap.arc` degrees round the way it faces, fading to nothing at the arc's ends). Its depth
+	-- is a crouched soldier's (Config/Metrics: the head about 4.1): crouched, the head is at the ground's level; standing,
+	-- the eyes (4.5) and the aimed muzzle (4.3) come just over it. The heap is added to part-full voxels, which the
+	-- terrain renders lower than asked: 2.4 makes a lip about 1.2 over the ground in front (Studio 2026-11-02). Crouched
+	-- head and standing muzzle are only 0.2 apart, so the lip that hides one blocks the other; the user chose the middle
+	-- (2026-11-02, "Balanced": from 18 enemy spots ahead, 15-40 studs off, a crouched head in sight of 7, a standing rifle
+	-- clear to 6; a 1.6 heap: 13 and 13, a 3.2 heap: 2 and 2). The floor renders at the depth asked, within 0.1. Its
+	-- floor and walls mud, its heap earth. `lip`: the lip as it renders (the build mode ghost's heap).
+	-- On HP like every structure: laid at `hp.place` (grass cleared, a scraped `patch` lying on the ground that blocks
+	-- nothing), a Build swing of its team adds `hp.swing` (3 dig it full), a Destroy swing takes `hp.destroy`; its depth
+	-- and heap are its share of HP, so it digs deeper with each swing and fills back in as it loses HP; at 0 its ground is
+	-- put back as it was and it is gone. Blasts take Structures `hit` x `soak` by how far they are from its pit; a bullet
+	-- meeting the ground of its pit or heap (within `shotSlack` over it) bullet.hit x `soak`. Craters never carve its
+	-- ground. Two foxholes keep apart so no column is both's (Rules.foxholesClash: 16 studs straight on, 12 diagonally).
+	-- `voxel`: the terrain's voxel (studs); its ground is shaped again only once its share of HP has moved `step` (a
+	-- bullet's scratch doesn't rewrite it).
+	Foxhole = {
+		hp = { max = 100, place = 0, swing = 34, destroy = 25 },
+		voxel = 4,
+		step = 0.05,
+		radius = 3,
+		depth = 4.2,
+		wall = 89,
+		heap = { height = 2.4, width = 4.5, arc = 140 },
+		lip = 1.2,
+		soak = 2,
+		shotSlack = 2,
+		patch = { size = 6, thick = 0.1 },
 	},
 
 	-- Barbed wire (user 2026-10-27): its meshes are
