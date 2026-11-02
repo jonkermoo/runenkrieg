@@ -159,11 +159,6 @@ table.insert(MARKERS, {
 	end,
 })
 
--- the rune on point `i`'s seal (an HQ's is hagalaz), as the map draws it (src/client/MatchCutscene stamps the same)
-function SketchMap.runeOf(i: number, hq: boolean): string
-	return if hq then "hagalaz" else RUNE_FOR[i] or "isa"
-end
-
 -- the map's sectors west to east and the borders between them (each a polyline of { x, z }, z from min to max),
 -- with the drawn area's edges as the first and last
 local function layout(key: string, m: any): ({ Point }, { { { number } } })

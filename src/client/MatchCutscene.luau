@@ -28,6 +28,7 @@ local Rules = require(Shared.Rules.Cutscenes)
 local Ink = require(script.Parent.Ink)
 local DevPanel = require(script.Parent.DevPanel)
 local MatchCam = require(script.Parent.MatchCam)
+local PointSeal = require(script.Parent.PointSeal)
 local Menus = require(script.Parent.Menus) :: any
 local SketchMap = require(script.Parent.SketchMap)
 
@@ -212,7 +213,7 @@ local function makeSeals(map: any)
 		s.disc:Destroy()
 	end
 	table.clear(seals)
-	for i, s in map.sectors do
+	for i in map.sectors do
 		local disc = Instance.new("Frame")
 		disc.Name = "Seal" .. i
 		disc.BackgroundColor3 = rgb(GR.ink)
@@ -238,7 +239,7 @@ local function makeSeals(map: any)
 		disc.Parent = sealRow
 		table.insert(
 			seals,
-			{ disc = disc, ring = ring, canvas = Ink.canvas(box), rune = SketchMap.runeOf(i, s.isHQ == true) }
+			{ disc = disc, ring = ring, canvas = Ink.canvas(box), rune = PointSeal.rune(i, #map.sectors) }
 		)
 	end
 end
