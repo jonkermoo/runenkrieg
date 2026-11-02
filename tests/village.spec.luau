@@ -178,4 +178,9 @@ return {
 			end
 		end
 	end,
+	["the railway: Map 1's along its east edge, none on a map without a village (Playtest)"] = function()
+		assert(V.railX(Map1) == cfg.railX)
+		assert(V.railX(require("../src/shared/Config/Maps/Playtest")) == nil)
+		assert(V.railX({}) == nil)
+	end,
 }

@@ -68,6 +68,11 @@ function Village.cutHeight(base: number, d: number, cut: any): number?
 	return base + math.max(0, d - cut.margin) * cut.grade
 end
 
+-- The x of a map's railway (its village's railX), or nil: a map without a village (Config/Maps/Playtest) has none.
+function Village.railX(map: any): number?
+	return map.village and map.village.railX
+end
+
 -- The height a railway segment is laid at: the highest of the ground samples across and along it, so the ground never
 -- rises over a rail.
 function Village.railBed(samples: { number }): number

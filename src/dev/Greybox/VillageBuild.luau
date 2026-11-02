@@ -161,12 +161,12 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 	deps.Props.paint(wires, palette)
 
 	-- the railway: two rails on sleepers along x = railX through the map and past it, each segment following the ground
-	if map.village.railX then
+	local x0 = deps.VillageRules.railX(map)
+	if x0 then
 		local R = deps.P.Railway
 		local rf = folder(root, "Railway")
 		local metal = Color3.fromRGB(table.unpack(palette.Buildings.Metal))
 		local wood = Color3.fromRGB(table.unpack(palette.Props.WoodDark))
-		local x0 = map.village.railX
 		local z0, z1 = map.bounds.minZ - R.beyond, map.bounds.maxZ + R.beyond
 		local n = math.ceil((z1 - z0) / R.segment)
 		-- each joint's bed: the highest ground round it, across the sleepers and halfway to the joints either side
