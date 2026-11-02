@@ -225,6 +225,7 @@ type Bot = {
 	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
 	threwAt: number,
 	away: boolean, -- its gun put away for an action
+	slung: Model?, -- its gun's copy on the pack's strap while the gun is out of its hands (Armory.stowed)
 	shovel: Tool?, -- its shovel, out of its hands until it builds
 	digger: boolean?, -- Normal: one of its holding squad's diggers (Config/Bots.Trenches.share)
 	postFloor: Vector3?, -- its post is a fire step: the trench floor below it (its cover)
@@ -473,6 +474,19 @@ local function newNav(at: Vector3): Nav
 end
 
 -- A body for `b` at a spawn point, dressed in its class, armed and on its feet.
+-- its gun slung on the pack's strap while it is out of its hands (Armory.stowed: a player's put-away gun; user
+-- 2026-11-02: "whenever the gun is down for ai's, it should be on the bag strap"), or taken off it
+local function sling(b: Bot, on: boolean)
+	local m = b.m :: Model
+	if on and not b.slung then
+		b.slung = Armory.stowed(m, b.weapon)
+	end
+	local slung = b.slung
+	if slung and slung.Parent ~= (if on then m else nil) then
+		slung.Parent = if on then m else nil
+	end
+end
+
 spawnBody = function(b: Bot)
 	if b.spawning then
 		return
@@ -578,7 +592,10 @@ spawnBody = function(b: Bot)
 	if b.shovel then
 		(b.shovel :: Tool):Destroy()
 	end
-	b.grenades, b.act, b.away, b.shovel = nil, nil, false, nil
+	if b.slung then
+		(b.slung :: Model):Destroy()
+	end
+	b.grenades, b.act, b.away, b.shovel, b.slung = nil, nil, false, nil, nil
 	local nade = Loadouts.gear(m).Grenade
 	if nade then
 		local given, g = pcall(Armory.tool, nade, b.kit)
@@ -629,6 +646,7 @@ spawnBody = function(b: Bot)
 			if tool.Parent ~= m and pcall(function()
 				tool.Parent = m
 			end) then
+				sling(b, false)
 				hold.Part0 = torso
 				if b.anim then
 					(b.anim :: Animate.Handle).equip()
@@ -678,7 +696,10 @@ local function despawn(b: Bot)
 	if b.shovel then
 		(b.shovel :: Tool):Destroy()
 	end
-	b.grenades, b.act, b.away, b.shovel = nil, nil, false, nil
+	if b.slung then
+		(b.slung :: Model):Destroy()
+	end
+	b.grenades, b.act, b.away, b.shovel, b.slung = nil, nil, false, nil, nil
 end
 
 local function add(mode: string, side: string?)
@@ -1395,6 +1416,7 @@ local function stow(b: Bot)
 	local m, tool = b.m :: Model, b.tool :: Tool
 	b.stowed = true
 	tool.Parent = nil
+	sling(b, true)
 	if b.turn then
 		(b.turn :: AlignOrientation).Enabled = false
 	end
@@ -1408,6 +1430,7 @@ local function draw(b: Bot)
 	local m, tool = b.m :: Model, b.tool :: Tool
 	b.stowed = false
 	tool.Parent = m
+	sling(b, false)
 	local torso = m:FindFirstChild("Torso") :: BasePart?
 	if b.grip and torso then
 		(b.grip :: Motor6D).Part0 = torso
@@ -1427,6 +1450,7 @@ local function putAway(b: Bot, on: boolean)
 	end
 	local m, tool = b.m :: Model, b.tool :: Tool
 	b.away = on
+	sling(b, on)
 	if on then
 		tool.Parent = nil
 		if b.anim then
@@ -1882,6 +1906,9 @@ end
 local function doAct(b: Bot, now: number): boolean
 	local act = b.act :: Act
 	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
+	-- (the gun on the pack's strap from the start: walking to it with the gun in hands and no hold left it through the
+	-- body, user 2026-11-02)
+	putAway(b, true)
 	if act.kind == "Build" then
 		return doBuild(b, act, now)
 	end
