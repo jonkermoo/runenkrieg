@@ -597,6 +597,7 @@ local Build = {
 		slotCut = 2,
 		ground = 2,
 		eject = 3,
+		ejectRay = { 40, 80 }, -- (the ground over its room found from this high over its floor, this far down)
 		dug = 95,
 		spare = 1,
 		spacing = 10,

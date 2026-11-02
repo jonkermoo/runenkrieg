@@ -919,11 +919,11 @@ local function ejectDugout(r: Rec)
 	if r.square and r.square.Parent then
 		spot = (r.frame * CFrame.new(0, G.eject, -G.slot / 2)).Position
 	else
-		local over = (r.frame * CFrame.new(0, 40, G.stair + p.depth / 2)).Position
+		local over = (r.frame * CFrame.new(0, G.ejectRay[1], G.stair + p.depth / 2)).Position
 		local params = RaycastParams.new()
 		params.FilterType = Enum.RaycastFilterType.Include
 		params.FilterDescendantsInstances = { workspace.Terrain }
-		local hit = workspace:Raycast(over, Vector3.new(0, -80, 0), params)
+		local hit = workspace:Raycast(over, Vector3.new(0, -G.ejectRay[2], 0), params)
 		spot = (if hit then hit.Position else over) + Vector3.new(0, G.eject, 0)
 	end
 	local seen: { [Model]: boolean } = {}
