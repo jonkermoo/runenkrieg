@@ -163,20 +163,40 @@ function Ground.skirt(map: any, MT: any)
 	end
 	-- Carry the river through the skirt so it flows out into the fog instead of ending at a wall.
 	local r = map.river
-	if r then
+	local function channel(cf: CFrame, len: number)
+		terrain:FillBlock(
+			cf + Vector3.new(0, (r.bedY + 4) / 2, 0),
+			Vector3.new(r.width + 8, 4 - r.bedY, len),
+			Enum.Material.Air
+		)
+		terrain:FillBlock(
+			cf + Vector3.new(0, (r.bedY - 4 + r.waterY) / 2, 0),
+			Vector3.new(r.width, r.waterY - r.bedY + 4, len),
+			Enum.Material.Water
+		)
+	end
+	if r and r.path then
+		-- a river along a path: each piece of it out past the detailed ground, 16 studs at a time
+		for i = 1, #r.path - 1 do
+			local pa = Vector3.new(r.path[i][1], 0, r.path[i][2])
+			local pb = Vector3.new(r.path[i + 1][1], 0, r.path[i + 1][2])
+			local n = math.max(1, math.ceil((pb - pa).Magnitude / 16))
+			for k = 0, n - 1 do
+				local p = pa:Lerp(pb, (k + 0.5) / n)
+				if p.X < ix0 or p.X > ix1 or p.Z < iz0 or p.Z > iz1 then
+					channel(CFrame.lookAt(p, p + (pb - pa)), (pb - pa).Magnitude / n + 2)
+				end
+			end
+		end
+		task.wait()
+	elseif r then
 		local seg = 16
 		for _, span in { { oz0, iz0 }, { iz1, oz1 } } do
 			local z = span[1]
 			while z < span[2] do
 				local zc = z + seg / 2
 				local x = MT.riverCenterX(map, zc)
-				local cf = CFrame.new(x, (r.bedY + 4) / 2, zc)
-				terrain:FillBlock(cf, Vector3.new(r.width + 8, 4 - r.bedY, seg + 2), Enum.Material.Air)
-				terrain:FillBlock(
-					CFrame.new(x, (r.bedY - 4 + r.waterY) / 2, zc),
-					Vector3.new(r.width, r.waterY - r.bedY + 4, seg + 2),
-					Enum.Material.Water
-				)
+				channel(CFrame.new(x, 0, zc), seg + 2)
 				z += seg
 			end
 		end
