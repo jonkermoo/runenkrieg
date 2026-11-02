@@ -42,6 +42,7 @@ type Drag = {
 	pulls: { AlignPosition },
 	lifts: { [BasePart]: AlignPosition },
 	groups: { [BasePart]: string },
+	added: RBXScriptConnection,
 	made: { Instance },
 	held: Tool?,
 }
@@ -198,8 +199,9 @@ local function stop(dragger: Model)
 	end
 	drags[dragger] = nil
 	if d.body.Parent then
-		settle(d)
+		pcall(settle, d) -- (whatever happens there, the clean-up below still runs)
 	end
+	d.added:Disconnect()
 	for _, i in d.made do
 		i:Destroy()
 	end
@@ -280,12 +282,16 @@ local function start(character: Model?, target: Model)
 	-- over anything: the body collides with nothing, each Lift part held over the ground under it (tick)
 	noCollide()
 	local groups: { [BasePart]: string } = {}
-	for _, p in body:GetDescendants() do
-		if p:IsA("BasePart") then
+	local function over(p: Instance)
+		if p:IsA("BasePart") and not groups[p] then
 			groups[p] = p.CollisionGroup
 			p.CollisionGroup = Cfg.Group
 		end
 	end
+	for _, p in body:GetDescendants() do
+		over(p)
+	end
+	local added = body.DescendantAdded:Connect(over) -- (a part added mid-drag goes over too)
 	local L = Cfg.Lift
 	local lifts: { [BasePart]: AlignPosition } = {}
 	for _, name in L.parts do
@@ -320,6 +326,7 @@ local function start(character: Model?, target: Model)
 		pulls = pulls,
 		lifts = lifts,
 		groups = groups,
+		added = added,
 		made = made,
 		held = held,
 	}
