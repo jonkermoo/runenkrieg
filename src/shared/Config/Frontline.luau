@@ -68,8 +68,10 @@ local Frontline = {
 	-- Artillery levels (user 2026-10-31, docs CAMPAIGN.md: "whenever a sector is lost, both teams should level up in
 	-- artillery"): both sides start each match at level 0 and go up one each time a sector is lost (taken from the side
 	-- that held it), at most `max`; a gun is built from its level on (Config/Build.Pieces `key`). The level is the
-	-- Frontline folder's `LevelAttribute` (src/server/Build reads it).
-	Artillery = { max = 2, unlock = { FieldGun = 1, Howitzer = 2 } },
+	-- Frontline folder's `LevelAttribute` (src/server/Build reads it). Nothing waits on it now (user 2026-11-02: "also
+	-- remove the rule for sector taking before building artillerly"): field guns and howitzers are built from a match's
+	-- start, under their per-team caps (Config/Build.Pieces `teamCap`); was { FieldGun = 1, Howitzer = 2 }.
+	Artillery = { max = 2, unlock = {} },
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
 	-- of mis match"): while the bigger side has at least `gap` more players AND `share` more, the smaller side's points
 	-- are paid `times` over (src/server/Loadouts)
