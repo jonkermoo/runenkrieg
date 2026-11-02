@@ -16,7 +16,7 @@ return {
 			table.insert(picks, rule[2])
 		end
 		for _, s in picks do
-			assert((F.Count[s] or 0) > 0, `surface {s} has no recordings`)
+			assert(R.count(F, s) > 0, `surface {s} has no recordings`)
 			assert(F.Surface[s], `surface {s} has no level`)
 		end
 	end,
@@ -29,8 +29,8 @@ return {
 		assert(start == 0 and len == F.Length and len <= F.Slot, "the first step starts the sheet")
 		local last = R.slot(F, F.Order[#F.Order], F.Count[F.Order[#F.Order]])
 		assert(math.abs(last - (total - 1) * F.Slot) < 1e-9, "the last step sits in the last slot")
-		assert(R.slot(F, "leaves", 1) == F.Count.grass * F.Slot, "leaves follow grass")
-		assert(R.slot(F, "wood", F.Count.wood + 1) == R.slot(F, "wood", 1), "recordings wrap")
+		assert(R.slot(F, "stone", 1) == R.slot(F, "grass", 1), "every surface plays the leather steps")
+		assert(R.slot(F, "wood", R.count(F, "wood") + 1) == R.slot(F, "wood", 1), "recordings wrap")
 	end,
 	["the ground picks its surface"] = function()
 		assert(R.surface(F, "Grass", nil, nil) == "grass")

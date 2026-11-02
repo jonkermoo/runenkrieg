@@ -7,26 +7,36 @@
 -- Data only (Lune tests read it).
 
 local Footsteps = {
-	-- One sound holds every step (assets/audio/footsteps/make_sheet.py; CC0: Fantozzi, TinyWorlds; ASSETS_LICENSES.md),
-	-- each in its own `Slot` seconds, the surfaces one after another in `Order` with `Count` steps each. A step plays
-	-- its slot's first `Length` seconds (Sound.PlaybackRegion).
-	Sheet = 97413442276762,
+	-- One sound holds every step (assets/audio/footsteps/make_sheet_leather.py; CC0: HaelDB; ASSETS_LICENSES.md), each
+	-- in its own `Slot` seconds, the recordings one group after another in `Order` with `Count` steps each. A step plays
+	-- its slot's first `Length` seconds (Sound.PlaybackRegion). Every surface plays the soft leather steps (user
+	-- 2026-11-02: "i hate the footstep noise. lets find something more subtle", then picked soft leather, whole, quieter,
+	-- ~10% higher; the pitch is in the sheet); `Recordings` says which group a surface plays.
+	Sheet = 109260086411382,
 	Slot = 0.5,
-	Length = 0.45,
-	Order = { "grass", "leaves", "mud", "gravel", "wood", "stone" },
-	Count = { grass = 6, leaves = 2, mud = 1, gravel = 1, wood = 3, stone = 6 },
+	Length = 0.3,
+	Order = { "leather" },
+	Count = { leather = 4 },
+	Recordings = {
+		grass = "leather",
+		leaves = "leather",
+		mud = "leather",
+		gravel = "leather",
+		wood = "leather",
+		stone = "leather",
+	},
 
-	Volume = 0.3, -- a walking step on grass, heard from right beside it
+	Volume = 0.042, -- a walking step, heard from right beside it (the sheet peaks at 0.9: ~a quarter of the first set's)
 	Own = 0.7, -- this player's own steps (heard from the camera, right over them) a little under everyone else's
 	-- by gait (the track the marker came from)
 	Gait = { walk = 1, sprint = 1.8, crouch = 0.35 },
-	-- by surface: what the recordings need to sit level with each other
-	Surface = { grass = 1, leaves = 1, mud = 1, gravel = 0.8, wood = 0.9, stone = 0.9 },
+	-- by surface: one recording for all of them for now
+	Surface = { grass = 1, leaves = 1, mud = 1, gravel = 1, wood = 1, stone = 1 },
 	Pitch = 1,
-	PitchJitter = 0.06, -- each step varies by up to this much either way (single-recording surfaces most of all)
+	PitchJitter = 0.04, -- each step varies by up to this much either way
 	-- studs from the camera past which a step isn't played at all (the falloff, Config/Audio.Profiles.Footstep, has it
 	-- nearly silent there anyway); sprinting carries furthest
-	Range = { walk = 70, sprint = 120, crouch = 30 },
+	Range = { walk = 40, sprint = 80, crouch = 20 },
 
 	-- the ground under a step: terrain by material (anything not listed is TerrainDefault) ...
 	Terrain = {
