@@ -131,15 +131,36 @@ local function worldRay(): RaycastParams
 	return params
 end
 
--- the ground's height under `pos` (nil: nothing within Lift.reach)
-local function ground(pos: Vector3, params: RaycastParams): number?
+-- the ground's height under `pos` (nil: nothing within Lift.reach), looking down from Lift.from over `pos` or over
+-- `top` (the dragger's root), whichever is higher: a body pulled up out of a trench is still below the ground it goes
+-- onto (Studio 2026-11-02: from over the body alone the ray started inside the earth and missed it)
+local function ground(pos: Vector3, params: RaycastParams, top: number): number?
 	local L = Cfg.Lift
-	local hit = workspace:Raycast(pos + Vector3.new(0, L.from, 0), Vector3.new(0, -L.reach, 0), params)
+	local y = math.max(pos.Y, top) + L.from
+	local hit =
+		workspace:Raycast(Vector3.new(pos.X, y, pos.Z), Vector3.new(0, -(y - pos.Y) - L.reach + L.from, 0), params)
 	return if hit then hit.Position.Y else nil
 end
 
--- Let go with something solid between the dragger and the body (or the body inside it): the body to the dragger's
--- hands, lying on the ground at the dragger's level, so it never stays in the ground or a wall.
+-- the lowest point of the body's limbs (their boxes' bottoms)
+local function lowest(body: Model): number
+	local low = math.huge
+	for _, name in PARTS do
+		local p = body:FindFirstChild(name) :: BasePart?
+		if p then
+			local cf, half = p.CFrame, p.Size / 2
+			local reach = math.abs(cf.RightVector.Y) * half.X
+				+ math.abs(cf.UpVector.Y) * half.Y
+				+ math.abs(cf.LookVector.Y) * half.Z
+			low = math.min(low, p.Position.Y - reach)
+		end
+	end
+	return low
+end
+
+-- On letting go, before the body collides again: with something solid between the dragger and the body (or the body
+-- in it), the body to the dragger's hands at the dragger's level; and wherever it lies, no limb left under the ground
+-- (it would drop through and out of the world: Studio 2026-11-02).
 local function settle(d: Drag)
 	local root = d.dragger:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local torso = d.body:FindFirstChild("Torso") :: BasePart?
@@ -148,13 +169,23 @@ local function settle(d: Drag)
 	end
 	local params = worldRay()
 	local aim = torso.Position + Vector3.new(0, Cfg.Lift.lie, 0)
-	if not workspace:Raycast(root.Position, aim - root.Position, params) then
-		return
+	local blocked = workspace:Raycast(root.Position, aim - root.Position, params) ~= nil
+	local at = torso.Position
+	if blocked then
+		local grip = root.CFrame:PointToWorldSpace(vec(Cfg.Grip))
+		at = Vector3.new(grip.X, root.Position.Y, grip.Z)
 	end
-	local grip = root.CFrame:PointToWorldSpace(vec(Cfg.Grip))
-	local floor = ground(Vector3.new(grip.X, root.Position.Y, grip.Z), params)
-	local y = (floor or grip.Y) + Cfg.Lift.lie
-	d.body:PivotTo(d.body:GetPivot() + (Vector3.new(grip.X, y, grip.Z) - torso.Position))
+	local floor = ground(at, params, root.Position.Y)
+	local move = Vector3.new(at.X - torso.Position.X, 0, at.Z - torso.Position.Z)
+	if floor then
+		local rise = floor + Cfg.Lift.clear - lowest(d.body)
+		if blocked or rise > 0 then
+			move += Vector3.new(0, rise, 0)
+		end
+	end
+	if move.Magnitude > 1e-3 then
+		d.body:PivotTo(d.body:GetPivot() + move)
+	end
 	for part in d.groups do
 		part.AssemblyLinearVelocity = Vector3.zero
 	end
@@ -296,7 +327,7 @@ local function start(character: Model?, target: Model)
 	dragger:SetAttribute("Dragging", true)
 end
 
-local function tick()
+local function tick(dt: number)
 	local params: RaycastParams? = nil
 	for dragger, d in drags do
 		local _, dh = soldier(dragger)
@@ -316,10 +347,17 @@ local function tick()
 		-- each Lift part over the ground under it (kept where it was over nothing)
 		params = params or worldRay()
 		for part, lift in d.lifts do
-			local y = ground(part.Position, params :: RaycastParams)
+			local y =
+				ground(part.Position, params :: RaycastParams, if hands then hands.Position.Y else part.Position.Y)
 			if y then
 				lift.Position = Vector3.new(part.Position.X, y + Cfg.Lift.lie, part.Position.Z)
 			end
+		end
+		-- the ground's rub it no longer has: its sideways speed dies away
+		local keep = math.exp(-Cfg.Lift.friction * dt)
+		for part in d.groups do
+			local v = part.AssemblyLinearVelocity
+			part.AssemblyLinearVelocity = Vector3.new(v.X * keep, v.Y, v.Z * keep)
 		end
 		-- the body's physics stays the server's for the whole drag
 		for _, name in PARTS do
