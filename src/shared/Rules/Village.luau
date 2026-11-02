@@ -495,8 +495,9 @@ end
 -- The map's natural trees (Rules/MapTerrain.trees) less those within `clear` of a hand-placed landmark: a landmark
 -- out in the open (a mill on the river bank) never has a tree through it. Village lots stand in reserved ground,
 -- which grows no natural trees.
-function Village.naturalTrees(map: any, MT: any, lots: { Lot }, clear: number): { any }
-	local quads = {}
+function Village.naturalTrees(map: any, MT: any, lots: { Lot }, clear: number, keepOut: { any }?): { any }
+	-- (keepOut: more ground kept clear, as quads: the wave lines' ground, Rules/Frontline.lineQuads)
+	local quads = table.clone(keepOut or {})
 	for _, l in lots do
 		if l.special then
 			table.insert(quads, Village.corners(l, clear))

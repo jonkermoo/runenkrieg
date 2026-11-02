@@ -86,6 +86,31 @@ return {
 			end
 		end
 	end,
+	["the wave lines' ground is clear of trees (Rules/Frontline.lineQuads)"] = function()
+		local B = require("../src/shared/Config/Buildings")
+		local P = require("../src/shared/Config/Props")
+		local V = require("../src/shared/Rules/Village")
+		local lots = V.layout(Map1, B, M, MT, P).lots
+		local quads = R.lineQuads(sectors, Front.Line, Front.Line.treeClear)
+		assert(#quads == 2 * (#sectors - 2), `{#quads} line quads`)
+		local rows = Front.Line.tries // Front.Line.perRow
+		for i = 2, #sectors - 1 do
+			for _, side in { "West", "East" } do
+				for _, p in waveLine(side, i, rows) do
+					local inside = false
+					for _, q in quads do
+						inside = inside or V.pointInQuad(p[1], p[2], q)
+					end
+					assert(inside, `a slot of {side}'s line at {sectors[i].id} isn't in its cleared ground`)
+				end
+			end
+		end
+		for _, t in V.naturalTrees(Map1, MT, lots, Map1.village.trees.buildingClear, quads) do
+			for _, q in quads do
+				assert(not V.pointInQuad(t.x, t.z, q), "a tree on a wave line's ground")
+			end
+		end
+	end,
 	["points on rises: the same crest everywhere, the zone's edge within the zone's height of its point"] = function()
 		for _, s in sectors do
 			local top = MT.heightAt(Map1, s.x, s.z)

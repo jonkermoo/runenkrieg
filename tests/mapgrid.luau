@@ -12,7 +12,9 @@ local MT = require("../src/shared/Rules/MapTerrain")
 local V = require("../src/shared/Rules/Village")
 
 local layout = V.layout(Map1, B, M, MT, P)
-local trees = V.naturalTrees(Map1, MT, layout.lots, Map1.village.trees.buildingClear)
+local Line = require("../src/shared/Config/Frontline").Line
+local lines = require("../src/shared/Rules/Frontline").lineQuads(Map1.sectors, Line, Line.treeClear)
+local trees = V.naturalTrees(Map1, MT, layout.lots, Map1.village.trees.buildingClear, lines)
 for _, t in layout.trees do
 	table.insert(trees, t)
 end

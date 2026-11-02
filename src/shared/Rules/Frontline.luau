@@ -101,6 +101,37 @@ function Frontline.slot(k: number, line: any): (number, number)
 	return right * line.gap, row * line.rowGap
 end
 
+-- The ground each wave line at a fought-over sector stands on (src/server/Frontline's lineOf: `line.edge` past the zone
+-- toward the side's own end, facing the sector it attacks; every slot up to `line.tries`), as quads of { x, z } corners
+-- grown by `pad`: kept clear of trees so a whole line stands (user 2026-11-02, the lines moved back into the groves).
+function Frontline.lineQuads(sectors: { any }, line: any, pad: number): { { { number } } }
+	local out = {}
+	local n = #sectors
+	local rows = math.ceil(line.tries / line.perRow)
+	local half = (line.perRow - 1) / 2 * line.gap + pad
+	for i = 2, n - 1 do
+		local s = sectors[i]
+		for _, side in { "West", "East" } do
+			local back = sectors[if side == "West" then i - 1 else i + 1]
+			local aim = sectors[if side == "West" then i + 1 else i - 1]
+			local bx, bz = back.x - s.x, back.z - s.z
+			local bl = math.sqrt(bx * bx + bz * bz)
+			local cx, cz = s.x + bx / bl * (s.radius + line.edge), s.z + bz / bl * (s.radius + line.edge)
+			local fx, fz = aim.x - cx, aim.z - cz
+			local fl = math.sqrt(fx * fx + fz * fz)
+			fx, fz = fx / fl, fz / fl
+			local rx, rz = -fz, fx
+			local front, rear = pad, (rows - 1) * line.rowGap + pad
+			local q = {}
+			for _, c in { { -half, front }, { half, front }, { half, -rear }, { -half, -rear } } do
+				table.insert(q, { cx + rx * c[1] + fx * c[2], cz + rz * c[1] + fz * c[2] })
+			end
+			table.insert(out, q)
+		end
+	end
+	return out
+end
+
 -- The artillery level after `lost` sectors were lost this match (CAMPAIGN.md: both sides up one each time, at most
 -- `cfg.max`), and why a gun `key` can't be built at `level` (nil: it can; keys without a level never wait).
 function Frontline.gunLevel(cfg: any, lost: number): number
