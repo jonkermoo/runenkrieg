@@ -170,4 +170,38 @@ function BotSquads.quietLane(crowd: { [number]: number }): number
 	return bestLane
 end
 
+-- A group of enemies a squad at (mx, mz) could push at (user 2026-11-02 hand test: "make AI push as a team / group if
+-- they are confident they can take out a section/group of enemies"): the known enemy (`known`) nearest it within
+-- `cfg.reach` studs and every other within `cfg.cluster` studs of that one; their middle and how many. Nil if none.
+function BotSquads.group(
+	known: { { x: number, z: number } },
+	mx: number,
+	mz: number,
+	cfg: { reach: number, cluster: number }
+): (number?, number?, number)
+	local first, firstD = nil, cfg.reach
+	for _, k in known do
+		local d = math.sqrt((k.x - mx) ^ 2 + (k.z - mz) ^ 2)
+		if d <= firstD then
+			first, firstD = k, d
+		end
+	end
+	if not first then
+		return nil, nil, 0
+	end
+	local sx, sz, n = 0, 0, 0
+	for _, k in known do
+		if math.sqrt((k.x - first.x) ^ 2 + (k.z - first.z) ^ 2) <= cfg.cluster then
+			sx, sz, n = sx + k.x, sz + k.z, n + 1
+		end
+	end
+	return sx / n, sz / n, n
+end
+
+-- Whether a squad is confident it can take a group (user 2026-11-02: "Outnumber 1.5 to 1"): its side's soldiers near
+-- it (`ours`) at least `cfg.odds` times the group (`theirs`).
+function BotSquads.confident(ours: number, theirs: number, cfg: { odds: number }): boolean
+	return theirs > 0 and ours >= cfg.odds * theirs
+end
+
 return BotSquads

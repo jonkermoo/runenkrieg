@@ -279,6 +279,7 @@ type Bot = {
 	crew: boolean?, -- Normal: an Engineer on gun duty this life (Config/Bots.Build.Crews): gun jobs first
 	sapper: boolean?, -- Normal: one of its squad's sappers (Config/Bots.Sap.share)
 	pileAt: number?, -- when it last laid a sandbag pile pinned down (Config/Bots.Build.Pinned)
+	meleeAt: number?, -- when it may next weigh a butt stroke (Config/Bots.Melee.every)
 	postFloor: Vector3?, -- its post is a fire step: the trench floor below it (its cover)
 	postKind: string?, -- "step", "reserve" (the support line), "window" or "open"
 }
@@ -312,6 +313,13 @@ for _, name in TM.materials do
 	ByTrench.costs[name] = TM.open
 end
 ByTrench.costs[TM.label] = 1
+
+-- Normal: fighting together and up close, in one table (the module is at Luau's limit of locals): the butt stroke
+-- (src/server/Melee.strikeAs, Config/Melee: its reach)
+local Tactics = {
+	melee = require(script.Parent.Melee),
+	meleeCfg = require(Shared.Config.Melee),
+}
 local count = 0
 local folder: Folder? = nil
 local random = Random.new()
@@ -368,6 +376,13 @@ local stats = {
 	overTop = 0, -- squads over the top from their jump-off trench
 	lost = 0, -- fire trenches lost (the holders fell back)
 	covering = 0, -- shots of covering fire
+	blocked = 0, -- shots held: the muzzle's line to the aim point blocked (Config/Bots.Sight)
+	strikes = 0, -- butt strokes that went (Config/Bots.Melee)
+	pushes = 0, -- squads that pushed a group they outnumber (Config/Bots.Squads.Push)
+	pushBombs = 0, -- grenades thrown to open such a push
+	wireMoved = 0, -- wire spots moved off (or dropped from) its own side's ways (Config/Bots.Build.Wire)
+	waited = 0, -- swings put off at pieces that lost HP lately (Config/Bots.Build.repairWait)
+	spread = 0, -- path steps pushed aside off a teammate walking too close (Config/Bots.Spread)
 	assaults = 0, -- squads that pushed into a zone
 	stoodUp = 0, -- bodies found lying after a knock, stood up
 	since = os.clock(),
@@ -385,6 +400,9 @@ type SquadState = {
 	known: { Known },
 	seen: number, -- the commander's tick it was last formed (gone ones are dropped)
 	threwAt: number?, -- its last grenade (Config/Bots.Actions.Grenade.squadEvery)
+	push: Vector3?, -- pushing a group of enemies it can take (Config/Bots.Squads.Push): their middle
+	bomb: Vector3?, -- the group its Grenadier throws at first, until `bombAt` + Push.bombFor
+	bombAt: number?,
 	clear: Vector3?, -- pushing in: the indoor spot by a known enemy inside a building (its Assault bots go there)
 	markAt: number?, -- when it last gained Config/Bots.Sap.progress studs toward its objective, and how far it was
 	markDist: number?,
@@ -418,6 +436,7 @@ type SideBuild = {
 	trench: { TrenchSquare }, -- every own trench square, dug or not (saps)
 	lines: { BotTrenches.Run }, -- trench lines its bots lay no piece on: every square's, its runs', its saps'
 	guns: number, -- the side's guns standing (anyone's; Config/Bots.Build.Crews)
+	hurt: { [Model]: { hp: number, at: number } }, -- its works' HP last tick and when each last lost any (repairWait)
 }
 local buildLists: { [string]: SideBuild } = {}
 local commandTick = 0
@@ -1515,6 +1534,17 @@ local function follow(b: Bot, now: number)
 			if wp.Action == Enum.PathWaypointAction.Jump then
 				humanoid.Jump = true
 			end
+			-- a teammate walking too close: the step pushed aside, away from them (Config/Bots.Spread)
+			local mate = mateNear(b, root.Position, Cfg.Spread.apart)
+			local along = flat(wp.Position - root.Position)
+			if mate and along.Magnitude > Cfg.Spread.push then
+				local away = flat(root.Position - mate :: Vector3)
+				local u = along.Unit
+				local side = away - u * away:Dot(u)
+				side = if side.Magnitude > 1e-3 then side.Unit else u:Cross(Vector3.yAxis)
+				target = wp.Position + side * Cfg.Spread.push
+				stats.spread += 1
+			end
 		else
 			target = nav.goal
 		end
@@ -1733,8 +1763,11 @@ end
 -- the build job a bot takes on its side's list (Rules/BotBuild.pick): an Engineer any within Build.take; a digger (half
 -- a holding squad, any class) a trench run or square within Build.take, wire wanting swings within Build.help; nil if
 -- none
-local SMALL = { Trench = true, SandbagPile = true, Hesco = true } -- (every class builds them: Config/Classes)
-local GUN = { FieldGun = true, Howitzer = true }
+-- the pieces every class builds (Config/Classes) and the guns, in one table (the module is at Luau's limit of locals)
+local Kinds = {
+	small = { Trench = true, SandbagPile = true, Hesco = true },
+	gun = { FieldGun = true, Howitzer = true },
+}
 local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 	local engineer = any or Loadouts.classOf(b.m :: Model) == "Engineer"
 	local root = (b.root :: BasePart).Position
@@ -1759,14 +1792,14 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 			work = r.model ~= nil,
 		}
 		local d = flat(Vector3.new(list[k].x, 0, list[k].z) - root).Magnitude
-		local fits = engineer or SMALL[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
+		local fits = engineer or Kinds.small[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
 		taken[k] = held[r] == true or not fits
 	end
 	-- on gun duty (Config/Bots.Build.Crews): the nearest gun job anywhere on the list first
 	if b.crew then
 		local notGun: { [number]: boolean } = {}
 		for k, r in open do
-			notGun[k] = taken[k] or not GUN[r.job.key]
+			notGun[k] = taken[k] or not Kinds.gun[r.job.key]
 		end
 		local g = BotBuild.pick(list, root.X, root.Z, math.huge, notGun, {}, nil)
 		if g then
@@ -1895,6 +1928,24 @@ local function weigh(b: Bot, now: number)
 		or (sq and now - ((sq :: SquadState).threwAt or -math.huge) < G.squadEvery)
 	then
 		return
+	end
+	-- its squad pushing a group it outnumbers: the grenade at the group first (Config/Bots.Squads.Push)
+	local bombAt = sq and (sq :: SquadState).bomb
+	if bombAt then
+		local d = flat(bombAt - root.Position).Magnitude
+		local clear = d >= G.min and d <= G.max
+		for k = 1, n do
+			local o = all[k]
+			if clear and o.model ~= m and friendly(m, kit, o) and flat(o.pos - bombAt).Magnitude < G.safe then
+				clear = false
+			end
+		end
+		if clear then
+			(sq :: SquadState).bomb = nil
+			stats.pushBombs += 1
+			b.act = { kind = "Throw", at = bombAt, started = now }
+			return
+		end
 	end
 	local known: { Known } = if sq then (sq :: SquadState).known else {}
 	if not sq and b.target and b.lastSeenAt then
@@ -2753,7 +2804,33 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		(b.anim :: Animate.Handle).update(speed, hold, pitch)
 	end
 
-	-- the weapon
+	-- the weapon: a butt stroke now and then with the target in reach (Config/Bots.Melee), else the gun
+	local struck = false
+	local MC = Cfg.Melee
+	if
+		not staff
+		and target
+		and target.visible
+		and now >= (b.meleeAt or 0)
+		and target.distance <= Tactics.meleeCfg.Hit.reach - MC.margin
+	then
+		b.meleeAt = now + MC.every
+		local part = aimPart(target.model)
+		if part and BotBuild.strikes(kitNow.magazine <= 0 or kitNow.loading, random:NextNumber(), MC) then
+			local dir = part.Position - eye(b)
+			if dir.Magnitude > 1e-3 and Tactics.melee.strikeAs(m, dir.Unit) then
+				struck = true
+				stats.strikes += 1
+				local holds = W[b.weapon] and (W[b.weapon].holds :: any)
+				if b.anim and holds and holds.strike then
+					(b.anim :: Animate.Handle).play(holds.strike)
+				end
+			end
+		end
+	end
+	if struck then
+		return -- (the stroke is under way: no shot, bolt or reload until the gun is back)
+	end
 	if staff then
 		staffFire(b, intent.fire, target, suppressAt, facing, d, now)
 	elseif intent.stopLoad then
@@ -2786,7 +2863,13 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			)
 			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
-			if Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
+			-- only with a clear line from the muzzle (the eye's look can be stale, or over a lip the muzzle is under)
+			rayParams.FilterDescendantsInstances = { m }
+			local hit = workspace:Raycast(origin, line, rayParams)
+			stats.rays += 1
+			if hit and not hit.Instance:IsDescendantOf(target.model) then
+				stats.blocked += 1
+			elseif Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
 				stats.shots += 1
 			end
 		end
@@ -2800,7 +2883,13 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			local err = Rules.shakenAim(d.aimFloor + brainCfg.SuppressSpread, shakenNow(b, now), brainCfg.SuppressedAim)
 			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
-			if Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
+			-- only with a clear line to near the spot (no covering fire into a hill or a wall: Config/Bots.Sight)
+			rayParams.FilterDescendantsInstances = { m }
+			local hit = workspace:Raycast(origin, line, rayParams)
+			stats.rays += 1
+			if hit and hit.Distance < line.Magnitude - Cfg.Sight.near then
+				stats.blocked += 1
+			elseif Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
 				stats.shots += 1
 				stats.covering += 1
 			end
@@ -3354,6 +3443,56 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 				end
 			end
+			-- a group of enemies it can take (Config/Bots.Squads.Push): cover, a grenade if it has one, a bound at them
+			local PU = SQ.Push
+			local pushAt: Vector3? = nil
+			local lead: Bot? = nil
+			for _, b in members do
+				if b.m and alive(b) then
+					lead = b
+					break
+				end
+			end
+			if not defend and sqs.sq.phase ~= "Assault" and lead then
+				local kn = {}
+				for _, known in sqs.known do
+					if now - known.at <= SQ.knownFor then
+						table.insert(kn, { x = known.pos.X, z = known.pos.Z })
+					end
+				end
+				local gx, gz, many = Squads.group(kn, mid.X, mid.Z, PU)
+				if gx and gz then
+					local lm = (lead :: Bot).m :: Model
+					local lkit = lm:GetAttribute("Kit")
+					local all, cnt = soldiersNow()
+					local ours = 0
+					for j = 1, cnt do
+						local o = all[j]
+						if flat(o.pos - mid).Magnitude <= PU.near and (o.model == lm or friendly(lm, lkit, o)) then
+							ours += 1
+						end
+					end
+					if Squads.confident(ours, many, PU) then
+						pushAt = Routes.ground(gx, gz)
+					end
+				end
+			end
+			if pushAt and not sqs.push then
+				stats.pushes += 1
+				sqs.bomb, sqs.bombAt = pushAt, now
+				for _, b in members do
+					if say(b, "Push") then
+						break
+					end
+				end
+			end
+			sqs.push = pushAt
+			if pushAt and sqs.sq.phase ~= "Bound" then
+				sqs.sq.phase, sqs.sq.moving, sqs.sq.swapAt = "Bound", 1, now + SQ.boundMax
+			end
+			if sqs.bomb and now - (sqs.bombAt or 0) > PU.bombFor then
+				sqs.bomb = nil
+			end
 			-- pushing in: a known enemy inside a building there is cleared out (its Assault bots go to the spot by it)
 			sqs.clear = nil
 			if sqs.sq.phase == "Assault" then
@@ -3394,7 +3533,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			if defend or sqs.sq.phase == "Assault" or not sb then
 				sqs.jump, sqs.jumpAlong, sqs.jumpAt = nil, nil, nil
 			end
-			local route = sqs.jump or sqs.mid or sqs.approach or c
+			local route = sqs.push or sqs.jump or sqs.mid or sqs.approach or c
 			local ahead = flat(route - mid)
 			local right = if ahead.Magnitude > 1 then ahead.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
 			for idx, b in members do
@@ -3494,7 +3633,7 @@ local Guns = {
 	ground = RaycastParams.new(),
 }
 for _, piece in BuildCfg.Pieces do
-	if GUN[piece.key] then
+	if Kinds.gun[piece.key] then
 		Guns.asset[piece.key] = piece.gun
 		Guns.spacing[piece.key] = piece.spacing
 	end
@@ -3573,6 +3712,7 @@ local function buildList(side: string, owner: { string }, level: number)
 			trench = {},
 			lines = {},
 			guns = 0,
+			hurt = {},
 		}
 		buildLists[side] = sb
 	end
@@ -3606,8 +3746,39 @@ local function buildList(side: string, owner: { string }, level: number)
 		-- the guns on scored spots behind the line (Rules/BotBuild.gunSpots), else the plan's fixed ones
 		local spotted = Guns.spots(front :: number, side, zone, tx, guns)
 		sbs.lay = {}
+		-- (wire only in the enemy's way, Rules/BotBuild.wireSpot: off its own side's ways forward, from the front to the
+		-- enemy's nearest sector and the approach spots round it, and off its spawn)
+		local ways: { { ax: number, az: number, bx: number, bz: number } } = {}
+		local nextS, nextD = nil, math.huge
+		for i, sec in Map.sectors do
+			local dx = (sec.x - s.x) * tx
+			if owner[i] ~= side and dx > 0 and dx < nextD then
+				nextS, nextD = i, dx
+			end
+		end
+		if nextS then
+			local sec = Map.sectors[nextS]
+			table.insert(ways, { ax = s.x, az = s.z, bx = sec.x, bz = sec.z })
+			for _, sp in Routes.spots(nextS, side, false) or {} do
+				table.insert(ways, { ax = s.x, az = s.z, bx = sp.pos.X, bz = sp.pos.Z })
+			end
+		end
 		for _, job in BotBuild.plan(zone, tx, 0, holds, if #spotted > 0 then {} else guns, BD) do
-			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+			local keep = true
+			if job.key == "Wire" then
+				local wx, wz = BotBuild.wireSpot(job.x, job.z, 0, 1, ways, (Map.spawnZones :: any)[side], BD.Wire)
+				if wx ~= job.x or wz ~= job.z then
+					stats.wireMoved += 1
+				end
+				if wx and wz then
+					job = { key = job.key, x = wx, z = wz, fx = job.fx, fz = job.fz }
+				else
+					keep = false
+				end
+			end
+			if keep then
+				table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+			end
 		end
 		for _, job in spotted do
 			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
@@ -3621,12 +3792,40 @@ local function buildList(side: string, owner: { string }, level: number)
 		sbs.front, sbs.level, sbs.holds = front, level, spots ~= nil
 	end
 	local works = Build.worksOf(kit)
+	-- what lost HP lately (Rules/BotBuild.mayRepair): no swings at it until BD.repairWait after
+	local hurt = sbs.hurt
+	local present: { [Model]: boolean } = {}
+	for _, w in works do
+		local h = hurt[w.model]
+		if h and w.hp < h.hp - 1e-3 then
+			h.at = now
+		end
+		if h then
+			h.hp = w.hp
+		else
+			hurt[w.model] = { hp = w.hp, at = -math.huge }
+		end
+		present[w.model] = true
+	end
+	for model in hurt do
+		if not present[model] then
+			hurt[model] = nil
+		end
+	end
+	local function quiet(model: Model): boolean
+		local h = hurt[model]
+		local ok = BotBuild.mayRepair(now - (if h then h.at else -math.huge), BD.repairWait)
+		if not ok then
+			stats.waited += 1
+		end
+		return ok
+	end
 	local pieces: { BotBuild.Piece } = {}
 	local mine, ofKey = 0, {}
 	sbs.guns = 0
 	for i, w in works do
 		pieces[i] = { key = w.key, x = w.at.X, z = w.at.Z, left = w.left }
-		if GUN[w.key] then
+		if Kinds.gun[w.key] then
 			sbs.guns += 1
 		end
 		if w.owner and (w.owner :: number) < 0 then
@@ -3704,7 +3903,7 @@ local function buildList(side: string, owner: { string }, level: number)
 			do
 				table.insert(more, job)
 			end
-		elseif i and not r.done and works[i].built and (r.job.key == "MGNest" or GUN[r.job.key]) then
+		elseif i and not r.done and works[i].built and (r.job.key == "MGNest" or Kinds.gun[r.job.key]) then
 			-- a wall on the enemy side of a nest or gun that stands (user 2026-11-02: "Walls round nest and gun")
 			r.done = true
 			stats.walls += 1
@@ -3721,7 +3920,7 @@ local function buildList(side: string, owner: { string }, level: number)
 			local w = works[i]
 			r.model, r.at, r.left = w.model, w.at, w.left
 			claimed[w.model] = true
-			r.open = w.left > 0
+			r.open = w.left > 0 and quiet(w.model)
 		else
 			r.model, r.at, r.left = nil, nil, 0
 			local key = r.job.key
@@ -3772,7 +3971,7 @@ local function buildList(side: string, owner: { string }, level: number)
 	for _, i in BotBuild.repairs(pieces, zone, BD.repair, #pieces) do
 		local w = works[i]
 		local square = w.key == "Trench"
-		if not claimed[w.model] and (if square then nd < TR.digs else n < BD.repairs) then
+		if not claimed[w.model] and (if square then nd < TR.digs else n < BD.repairs) and quiet(w.model) then
 			if square then
 				nd += 1
 			else
@@ -3976,7 +4175,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -4025,6 +4224,13 @@ local function report(now: number)
 			stats.dangerPaths,
 			stats.intoTrench,
 			stats.overTop,
+			stats.pushes,
+			stats.pushBombs,
+			stats.strikes,
+			stats.blocked,
+			stats.spread,
+			stats.wireMoved,
+			stats.waited,
 			stats.casts1,
 			stats.casts2,
 			stats.casts3,

@@ -116,4 +116,17 @@ return {
 		assert(R.quietLane({ [0] = 1 }) == -1)
 		assert(R.quietLane({ [0] = 1, [-1] = 1 }) == 1)
 	end,
+	["group: the nearest known enemy in reach and those close to it"] = function()
+		local P = SQ.Push
+		local known = { { x = 50, z = 0 }, { x = 55, z = 5 }, { x = 50 + P.cluster + 5, z = 0 }, { x = 300, z = 0 } }
+		local x, z, n = R.group(known, 0, 0, P)
+		assert(n == 2 and x and z and math.abs(x - 52.5) < 1e-6 and math.abs(z - 2.5) < 1e-6, "the two together")
+		local nx, _, none = R.group({ { x = P.reach + 1, z = 0 } }, 0, 0, P)
+		assert(nx == nil and none == 0, "none in reach")
+	end,
+	["confident: 1.5 to 1"] = function()
+		local P = SQ.Push
+		assert(R.confident(3, 2, P) and not R.confident(2, 2, P), "3 on 2, not 2 on 2")
+		assert(not R.confident(5, 0, P), "nobody to push at")
+	end,
 }
