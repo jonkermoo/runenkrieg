@@ -165,4 +165,69 @@ function BotTrenches.inSquare(px: number, pz: number, squares: { { x: number, z:
 	return best
 end
 
+-- Whether a bot at (x, z) knows there's danger (user 2026-11-02: "they should ideally use trenches to get around if
+-- they know there's danger. if it's an open field with no enemies they should just walk"): shot at within `cfg.shot`
+-- seconds (`sinceShot`), an enemy known (`known`: { x, z, at }) within `cfg.near` studs in the last `cfg.known`
+-- seconds, a shell or grenade (`blasts`: { x, z, at }) within `cfg.blastNear` studs in the last `cfg.blast` seconds, or
+-- its goal's sector `contested` (enemies in it).
+function BotTrenches.danger(
+	now: number,
+	x: number,
+	z: number,
+	sinceShot: number,
+	known: { { x: number, z: number, at: number } },
+	blasts: { { x: number, z: number, at: number } },
+	contested: boolean,
+	cfg: { shot: number, known: number, near: number, blast: number, blastNear: number }
+): boolean
+	if contested or sinceShot <= cfg.shot then
+		return true
+	end
+	for _, k in known do
+		if now - k.at <= cfg.known and math.sqrt((k.x - x) ^ 2 + (k.z - z) ^ 2) <= cfg.near then
+			return true
+		end
+	end
+	for _, k in blasts do
+		if now - k.at <= cfg.blast and math.sqrt((k.x - x) ^ 2 + (k.z - z) ^ 2) <= cfg.blastNear then
+			return true
+		end
+	end
+	return false
+end
+
+-- An attacking squad's jump-off trench (user 2026-11-02: "Yes, gather then go"): of its side's dug squares
+-- (`squares`), the one nearest its objective (cx, cz) that lies outside the objective's zone (`radius`), no more than
+-- `cfg.reach` studs past its edge, and at least `cfg.ahead` studs nearer it than the squad (mx, mz); nil if none.
+function BotTrenches.jumpOff(
+	squares: { { x: number, z: number } },
+	mx: number,
+	mz: number,
+	cx: number,
+	cz: number,
+	radius: number,
+	cfg: { reach: number, ahead: number }
+): number?
+	local here = math.sqrt((mx - cx) ^ 2 + (mz - cz) ^ 2)
+	local best, bestD = nil, math.huge
+	for i, s in squares do
+		local d = math.sqrt((s.x - cx) ^ 2 + (s.z - cz) ^ 2)
+		if d >= radius and d <= radius + cfg.reach and d <= here - cfg.ahead and d < bestD then
+			best, bestD = i, d
+		end
+	end
+	return best
+end
+
+-- Whether a squad gathered in its jump-off trench goes over the top: `cfg.gather` of its living members there, or
+-- `cfg.wait` seconds since the first got there (no waiting for ever on a straggler).
+function BotTrenches.overTop(
+	there: number,
+	living: number,
+	since: number,
+	cfg: { gather: number, wait: number }
+): boolean
+	return living > 0 and (there / living >= cfg.gather or since >= cfg.wait)
+end
+
 return BotTrenches
