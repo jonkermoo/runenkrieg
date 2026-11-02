@@ -100,6 +100,10 @@ local Build = {
 		-- not make it flat"): its hole, walls and pieces turned by the slope from one wall top to the other, refused
 		-- over `maxCross` degrees there (sharp ground, craters)
 		maxCross = 25,
+		-- no piece stands over a square's open cut, dug or only planned, nor is a square planned under one (user
+		-- 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible"): the
+		-- cut is its top edges (Rules.trenchTop) less this much a piece may hang over the edge from its bank
+		overhang = 0.5,
 		planLife = 180, -- seconds an undug plan stays
 		-- a swing works the square whose line is this close, in front of you (from anywhere on its dirt, out past its
 		-- heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox"; 19 to 13 with the narrower trench)
@@ -448,6 +452,11 @@ local Build = {
 	-- (Pieces `stage1`); each Build swing fills a bag, every `swing` of HP a bag (0, 34, 68, 100: no bag, one, two, all
 	-- three; Rules.pileBags).
 	Sandbags = { hp = { max = 100, place = 0, swing = 34, destroy = 10 }, shade = 0.06, sink = 0.15 },
+
+	-- Nothing is left hanging in the air (user 2026-11-02: "make sure floating parts are not possible"): after a blast,
+	-- a sandbag pile, wire or Hesco barrier within `reach` of it whose ground under fewer than `share` of its footprint's
+	-- samples is still within `gap` below where it was laid (Rules.supported) is gone, like a piece at 0 HP
+	Support = { reach = 40, gap = 1.5, share = 0.6 },
 
 	-- MG nests (Pieces kind "Nest"; user 2026-10-27, design approved by the user, Blender
 	-- approved "besides that its good"): one section of class "Sandbag" (the bags; Sandbags.shade, Sandbags.sink).

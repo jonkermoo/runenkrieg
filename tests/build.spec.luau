@@ -123,6 +123,7 @@ return {
 		assert(why({ water = true }) == "Not in water")
 		assert(why({ slope = 21 }) == "Too steep")
 		assert(why({ overlap = true }) == "In the way")
+		assert(why({ overTrench = true }) == "Over a trench")
 		assert(why({ gunGap = true }) == "Too close to another gun")
 		assert(why({ nearTrench = true }) == "Too close to a trench")
 		assert(why({ mine = C.PerPlayer }) == "You have too many pieces")
@@ -952,5 +953,47 @@ return {
 		assert(st(100, true) == "Full0" and st(75, true) == "Full0", "finished down to the first threshold")
 		assert(st(74, true) == "Hit1" and st(49, true) == "Hit2" and st(24, true) == "Hit3" and st(1, true) == "Hit3")
 		assert(#S.dig == 4 and #S.hit == 3, "the meshes trench_pieces v11 has: Dig1-4, Hit1-3")
+	end,
+	-- (user 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible")
+	["nothing over a trench's open cut, dug or planned; its bank is fine"] = function()
+		local T = C.Trench
+		local half = B.trenchTop(T) - T.overhang
+		assert(T.overhang >= 0 and half > T.floor, "the cut is wider than the floor")
+		local cut = B.trenchCut(0, 0, 8, 0, half)
+		assert(cut.x == 4 and cut.z == 0 and cut.rx == 1 and cut.rz == 0 and cut.width == 8 and cut.depth == 2 * half)
+		local function bags(x: number, z: number, deg: number): B.Footprint
+			local r = math.rad(deg)
+			return { x = x, z = z, rx = math.cos(r), rz = math.sin(r), width = 6, depth = 2 }
+		end
+		assert(B.footprintsOverlap(cut, bags(4, 0, 90)), "across the trench (the floating pile)")
+		assert(B.footprintsOverlap(cut, bags(4, 0, 0)), "along its floor")
+		assert(B.footprintsOverlap(cut, bags(4, half + 0.9, 0)), "hanging over the edge past the overhang")
+		assert(not B.footprintsOverlap(cut, bags(4, half + 1.1, 0)), "on the bank along its edge")
+		assert(not B.footprintsOverlap(cut, bags(12, 0, 90)), "past its end")
+		-- turned: the same cut from a diagonal run
+		local diag = B.trenchCut(0, 0, 6, 6, half)
+		assert(B.footprintsOverlap(diag, bags(3, 3, 0)) and not B.footprintsOverlap(diag, bags(-6, 9, 45)))
+		local dot = B.trenchCut(2, 2, 2, 2, half)
+		assert(dot.width == 0 and dot.rx == 1, "a point: no length, no turn")
+	end,
+	-- (user 2026-11-02: "make sure floating parts are not possible")
+	["a piece whose ground was blasted from under it is unsupported"] = function()
+		local S = C.Support
+		assert(S.reach > 0 and S.gap > 0 and S.share > 0 and S.share <= 1)
+		local laid = { 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 }
+		local function now(sunk: number, by: number): { number }
+			local out = table.clone(laid)
+			for i = 1, sunk do
+				out[i] = laid[i] - by
+			end
+			return out
+		end
+		assert(B.supported(laid, laid, S.gap, S.share), "as laid")
+		assert(B.supported(laid, now(10, S.gap - 0.1), S.gap, S.share), "settled a little all over")
+		assert(B.supported(laid, now(4, 6), S.gap, S.share), "a crater under its end: it stands on the rest")
+		assert(not B.supported(laid, now(5, 6), S.gap, S.share), "half its ground gone: it would hang")
+		assert(not B.supported(laid, now(10, 3), S.gap, S.share), "all of it sunk")
+		assert(B.supported(laid, now(10, -2), S.gap, S.share), "earth thrown over it holds it up")
+		assert(B.supported({}, {}, S.gap, S.share), "no samples: left alone")
 	end,
 }

@@ -1045,6 +1045,26 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			return "In the way"
 		end
 	end
+	-- nor under a piece: no structure's footprint over its open cut (Config/Build.Trench.overhang; the same rule as a
+	-- piece over a trench, Survey.overTrench), except a bridge, which lies across the trench it joins
+	local cut = Rules.trenchCut(a.X, a.Z, b.X, b.Z, TOP - T.overhang)
+	for _, m in folder():GetChildren() do
+		local frame, size = m:GetAttribute("Frame"), m:GetAttribute("Size")
+		local piece = Rules.piece(m:GetAttribute("Piece"), C.Pieces)
+		if typeof(frame) == "CFrame" and typeof(size) == "Vector3" and not (piece and piece.kind == "Bridge") then
+			local theirs: Rules.Footprint = {
+				x = frame.Position.X,
+				z = frame.Position.Z,
+				rx = frame.RightVector.X,
+				rz = frame.RightVector.Z,
+				width = size.X,
+				depth = size.Z,
+			}
+			if Rules.footprintsOverlap(cut, theirs) then
+				return "A structure is in the way"
+			end
+		end
+	end
 	-- lay it: the run's blocks, linked end to end, and to the trenches it joins
 	local run: { Block } = {}
 	local now = os.clock()

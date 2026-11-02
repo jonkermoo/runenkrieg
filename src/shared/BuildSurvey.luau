@@ -117,7 +117,8 @@ function Survey.toSegment(p: Vector3, a: Vector3, b: Vector3): number
 end
 
 -- Whether a piece laid at `frame` (ground `low`) runs into anything standing over its footprint (buildings, trees,
--- props, other pieces, soldiers). Trench blocks don't count: sandbags and wire go on their banks. `ignore` is left out
+-- props, other pieces, soldiers). Trench blocks don't count: sandbags and wire go on their banks (their open cut:
+-- Survey.overTrench). `ignore` is left out
 -- of the search (the builder, the client's ghost). Soldiers don't stop a gun (its ground is wide: they step aside or
 -- fall in its pit).
 function Survey.blocked(piece: Rules.Piece, frame: CFrame, low: number, ignore: { Instance }?): boolean
@@ -227,6 +228,30 @@ function Survey.nearTrench(piece: Rules.Piece, box: CFrame, structures: Instance
 				if dx * dx + dz * dz < reach * reach then
 					return true
 				end
+			end
+		end
+	end
+	return false
+end
+
+-- Whether a piece laid with its footprint at `box` (Survey.box) reaches over a trench square's open cut (Rules.trenchCut:
+-- its top edges less Trench.overhang), dug or only planned: any block in `structures`. Its bank is fine.
+function Survey.overTrench(piece: Rules.Piece, box: CFrame, structures: Instance?): boolean
+	local size = Survey.footprint(piece)
+	local mine: Rules.Footprint = {
+		x = box.Position.X,
+		z = box.Position.Z,
+		rx = box.RightVector.X,
+		rz = box.RightVector.Z,
+		width = size.X,
+		depth = size.Z,
+	}
+	local half = Rules.trenchTop(C.Trench) - C.Trench.overhang
+	for _, m in (if structures then structures:GetChildren() else {}) do
+		local a, b = m:GetAttribute("BlockA"), m:GetAttribute("BlockB")
+		if typeof(a) == "Vector3" and typeof(b) == "Vector3" then
+			if Rules.footprintsOverlap(mine, Rules.trenchCut(a.X, a.Z, b.X, b.Z, half)) then
+				return true
 			end
 		end
 	end

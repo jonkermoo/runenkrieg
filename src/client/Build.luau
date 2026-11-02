@@ -494,6 +494,7 @@ local function surveyPiece(character: Model, root: BasePart)
 		ground = report.ground,
 		water = report.water,
 		overlap = Survey.blocked(p, box, report.low, ignore) or Survey.onPiece(p, box, f),
+		overTrench = Survey.overTrench(p, box, f),
 		gunGap = gun and Survey.gunGap(p, at, f),
 		nearTrench = (gun or p.kind == "Wire") and Survey.nearTrench(p, box, f),
 		mine = 0, -- (the caps are the server's to check)

@@ -53,6 +53,7 @@ export type Placing = {
 	ground: boolean, -- every sample found terrain under it
 	water: boolean, -- water under any sample
 	overlap: boolean, -- it overlaps a building, another piece or a soldier
+	overTrench: boolean?, -- its footprint reaches over a trench square's open cut, dug or planned (Build.trenchCut)
 	gunGap: boolean?, -- a gun: too close to another gun (Build.gunsClear)
 	nearTrench: boolean?, -- a gun or a wire: a trench within its trenchGap (a wire: on a trench or its bank)
 	mine: number, -- the builder's live pieces without a `playerCap` of their own (Config/Build.PerPlayer)
@@ -100,6 +101,9 @@ function Build.canPlace(p: Placing): (boolean, string?)
 	end
 	if p.overlap then
 		return false, "In the way"
+	end
+	if p.overTrench then
+		return false, "Over a trench"
 	end
 	if p.gunGap then
 		return false, "Too close to another gun"
@@ -833,6 +837,36 @@ function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
 		end
 	end
 	return true
+end
+
+-- A trench square's open cut as a footprint (Build.footprintsOverlap): from its end (ax, az) to (bx, bz), `half`
+-- either side of its line (Config/Build.Trench.overhang). No piece stands over it and no square is planned under one
+-- (user 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible").
+function Build.trenchCut(ax: number, az: number, bx: number, bz: number, half: number): Footprint
+	local dx, dz = bx - ax, bz - az
+	local length = math.sqrt(dx * dx + dz * dz)
+	local rx, rz = 1, 0
+	if length > 1e-6 then
+		rx, rz = dx / length, dz / length
+	end
+	return { x = (ax + bx) / 2, z = (az + bz) / 2, rx = rx, rz = rz, width = length, depth = 2 * half }
+end
+
+-- Whether a piece still stands on its ground: `laid` the ground's heights under it when it was laid (BuildSurvey's
+-- samples), `now` the same samples today. It does while at least `share` of them are no more than `gap` below where
+-- they were (Config/Build.Support; user 2026-11-02: "make sure floating parts are not possible").
+function Build.supported(laid: { number }, now: { number }, gap: number, share: number): boolean
+	if #laid == 0 then
+		return true
+	end
+	local held = 0
+	for i, h in laid do
+		local n = now[i]
+		if n and n >= h - gap then
+			held += 1
+		end
+	end
+	return held >= #laid * share - 1e-9
 end
 
 -- whether a point in a box's own space (`lx`, `ly`, `lz` from its centre) is inside it (`sx`, `sy`, `sz` its size)

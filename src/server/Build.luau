@@ -102,6 +102,7 @@ type Rec = {
 	gun: Model?,
 	pitBase: Ground.PitBase?,
 	dug: number?,
+	laid: { number }?, -- a sandbag pile, wire or Hesco barrier: its ground's heights when laid (Build.blast's support)
 	ground: CFrame?, -- an MG nest: the ground at the ring's middle (its building site stands on it)
 	-- an MG nest: its ground as it was laid (put back once it is fixed whole) and the top of it in each column (a blast's
 	-- earth heaps no higher than Config/Build.Nest.heap over it)
@@ -1380,6 +1381,8 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 			then Survey.onPiece({ width = dugSize.X, depth = dugSize.Z, height = dugSize.Y }, dugBox, f)
 			elseif inTrench then Survey.onPiece(piece, frame, f)
 			else Survey.blocked(piece, frame, report.low, { character }) or Survey.onPiece(piece, frame, f),
+		-- (none over a trench's open cut, dug or planned: the bots' pieces too, Build.placeAs)
+		overTrench = not inTrench and Survey.overTrench(piece, frame, f),
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
 		-- (a wire keeps off trenches too: their hole, walls and bank)
 		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
@@ -1419,6 +1422,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		frame = frame,
 		sector = sector,
 		at = gunAt,
+		laid = if bags or piece.kind == "Wire" or piece.kind == "Hesco" then report.heights else nil,
 	}
 	if bags then
 		if not layoutPile(r, Survey.onGround(piece, frame, report)) then
@@ -1992,6 +1996,16 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 	end
 	for _, w in worn do
 		wear(w.r, w.amount)
+	end
+	-- and a piece whose ground the crater took from under it is gone, never left hanging (Config/Build.Support)
+	local SUP = C.Support
+	for _, r in recs do
+		local laid = r.laid
+		if laid and recs[r.model] and (r.frame.Position - position).Magnitude < SUP.reach then
+			if not Rules.supported(laid, Survey.ground(r.piece, r.frame).heights, SUP.gap, SUP.share) then
+				remove(r)
+			end
+		end
 	end
 end
 
