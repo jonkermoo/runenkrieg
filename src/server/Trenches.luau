@@ -988,7 +988,7 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			table.insert(segs, { blk.a.X, blk.a.Z, blk.b.X, blk.b.Z })
 		end
 	end
-	if Rules.tooClose(a.X, a.Z, b.X, b.Z, linkA ~= nil, linkB ~= nil, segs, T.spacing) then
+	if Rules.tooClose(a.X, a.Z, b.X, b.Z, linkA ~= nil, linkB ~= nil, segs, T.spacing, TOP) then
 		return "Too close to another trench: extend it instead"
 	end
 	-- the ground along it: no water, not too steep along, nothing standing in the way
@@ -1043,6 +1043,26 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 		local model = p:FindFirstAncestorWhichIsA("Model")
 		if p.CanCollide and not (model and model:FindFirstChildOfClass("Humanoid")) then
 			return "In the way"
+		end
+	end
+	-- nor under a piece: no structure's footprint over its open cut (Config/Build.Trench.overhang; the same rule as a
+	-- piece over a trench, Survey.overTrench), except a bridge, which lies across the trench it joins
+	local cut = Rules.trenchCut(a.X, a.Z, b.X, b.Z, TOP - T.overhang)
+	for _, m in folder():GetChildren() do
+		local frame, size = m:GetAttribute("Frame"), m:GetAttribute("Size")
+		local piece = Rules.piece(m:GetAttribute("Piece"), C.Pieces)
+		if typeof(frame) == "CFrame" and typeof(size) == "Vector3" and not (piece and piece.kind == "Bridge") then
+			local theirs: Rules.Footprint = {
+				x = frame.Position.X,
+				z = frame.Position.Z,
+				rx = frame.RightVector.X,
+				rz = frame.RightVector.Z,
+				width = size.X,
+				depth = size.Z,
+			}
+			if Rules.footprintsOverlap(cut, theirs) then
+				return "A structure is in the way"
+			end
 		end
 	end
 	-- lay it: the run's blocks, linked end to end, and to the trenches it joins

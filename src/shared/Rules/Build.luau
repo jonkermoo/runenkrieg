@@ -53,6 +53,7 @@ export type Placing = {
 	ground: boolean, -- every sample found terrain under it
 	water: boolean, -- water under any sample
 	overlap: boolean, -- it overlaps a building, another piece or a soldier
+	overTrench: boolean?, -- its footprint reaches over a trench square's open cut, dug or planned (Build.trenchCut)
 	gunGap: boolean?, -- a gun: too close to another gun (Build.gunsClear)
 	nearTrench: boolean?, -- a gun or a wire: a trench within its trenchGap (a wire: on a trench or its bank)
 	mine: number, -- the builder's live pieces without a `playerCap` of their own (Config/Build.PerPlayer)
@@ -100,6 +101,9 @@ function Build.canPlace(p: Placing): (boolean, string?)
 	end
 	if p.overlap then
 		return false, "In the way"
+	end
+	if p.overTrench then
+		return false, "Over a trench"
 	end
 	if p.gunGap then
 		return false, "Too close to another gun"
@@ -493,8 +497,49 @@ function Build.freeRuns(blocked: { boolean }): { { number } }
 	return runs
 end
 
--- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat) to any of `segs` (other trenches' squares,
--- { ax, az, bx, bz } each), leaving out the stretch within `spacing` of an end that joins a trench (`joinA`, `joinB`).
+-- the flat distance from (px, pz) to the segment s = { ax, az, bx, bz }
+local function toSeg(px: number, pz: number, s: { number }): number
+	local dx, dz = s[3] - s[1], s[4] - s[2]
+	local len2 = dx * dx + dz * dz
+	local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
+	return math.sqrt((px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2)
+end
+
+-- The trench squares a plan's end at (x, z) joins: those within `touch` of it (the square it extends or tees into),
+-- then every square touching one of those (end to end, or a tee's end on its side), out to `reach` of the end. A set
+-- of indices into `segs` ({ ax, az, bx, bz } each).
+function Build.joinedAt(x: number, z: number, segs: { { number } }, touch: number, reach: number): { [number]: boolean }
+	local set: { [number]: boolean } = {}
+	local open: { number } = {}
+	for j, s in segs do
+		if toSeg(x, z, s) < touch then
+			set[j] = true
+			table.insert(open, j)
+		end
+	end
+	while #open > 0 do
+		local s = segs[table.remove(open) :: number]
+		for k, o in segs do
+			if not set[k] and toSeg(x, z, o) < reach then
+				local touching = toSeg(s[1], s[2], o) < touch
+					or toSeg(s[3], s[4], o) < touch
+					or toSeg(o[1], o[2], s) < touch
+					or toSeg(o[3], o[4], s) < touch
+				if touching then
+					set[k] = true
+					table.insert(open, k)
+				end
+			end
+		end
+	end
+	return set
+end
+
+-- Whether a plan from (ax, az) to (bx, bz) comes nearer than `spacing` (flat, centre line to centre line: about a
+-- trench's width of clear ground between them) to any of `segs` (the trenches' squares, { ax, az, bx, bz } each).
+-- Only the trench an end joins (`joinA`, `joinB`: Build.joinedAt, `touch` of the end) may be nearer, and only along
+-- the stretch within `spacing` of that end (user 2026-11-02: "a trench cant be built or extended right next to another
+-- path, there should be some space": every other trench keeps its distance all along, the joint too).
 function Build.tooClose(
 	ax: number,
 	az: number,
@@ -503,22 +548,21 @@ function Build.tooClose(
 	joinA: boolean,
 	joinB: boolean,
 	segs: { { number } },
-	spacing: number
+	spacing: number,
+	touch: number
 ): boolean
 	local length = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	local setA = if joinA then Build.joinedAt(ax, az, segs, touch, 2 * spacing) else {}
+	local setB = if joinB then Build.joinedAt(bx, bz, segs, touch, 2 * spacing) else {}
 	local n = math.max(math.ceil(length), 1)
 	for i = 0, n do
 		local t = i / n
 		local along = t * length
-		if not ((joinA and along < spacing) or (joinB and length - along < spacing)) then
-			local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
-			for _, s in segs do
-				local dx, dz = s[3] - s[1], s[4] - s[2]
-				local len2 = dx * dx + dz * dz
-				local k = if len2 > 0 then math.clamp(((px - s[1]) * dx + (pz - s[2]) * dz) / len2, 0, 1) else 0
-				if (px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2 < spacing * spacing then
-					return true
-				end
+		local nearA, nearB = joinA and along < spacing, joinB and length - along < spacing
+		local px, pz = ax + (bx - ax) * t, az + (bz - az) * t
+		for j, s in segs do
+			if not ((nearA and setA[j]) or (nearB and setB[j])) and toSeg(px, pz, s) < spacing then
+				return true
 			end
 		end
 	end
@@ -833,6 +877,36 @@ function Build.footprintsOverlap(a: Footprint, b: Footprint): boolean
 		end
 	end
 	return true
+end
+
+-- A trench square's open cut as a footprint (Build.footprintsOverlap): from its end (ax, az) to (bx, bz), `half`
+-- either side of its line (Config/Build.Trench.overhang). No piece stands over it and no square is planned under one
+-- (user 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible").
+function Build.trenchCut(ax: number, az: number, bx: number, bz: number, half: number): Footprint
+	local dx, dz = bx - ax, bz - az
+	local length = math.sqrt(dx * dx + dz * dz)
+	local rx, rz = 1, 0
+	if length > 1e-6 then
+		rx, rz = dx / length, dz / length
+	end
+	return { x = (ax + bx) / 2, z = (az + bz) / 2, rx = rx, rz = rz, width = length, depth = 2 * half }
+end
+
+-- Whether a piece still stands on its ground: `laid` the ground's heights under it when it was laid (BuildSurvey's
+-- samples), `now` the same samples today. It does while at least `share` of them are no more than `gap` below where
+-- they were (Config/Build.Support; user 2026-11-02: "make sure floating parts are not possible").
+function Build.supported(laid: { number }, now: { number }, gap: number, share: number): boolean
+	if #laid == 0 then
+		return true
+	end
+	local held = 0
+	for i, h in laid do
+		local n = now[i]
+		if n and n >= h - gap then
+			held += 1
+		end
+	end
+	return held >= #laid * share - 1e-9
 end
 
 -- whether a point in a box's own space (`lx`, `ly`, `lz` from its centre) is inside it (`sx`, `sy`, `sz` its size)

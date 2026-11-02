@@ -11,7 +11,7 @@ local SketchMap = {
 		-- cropped closer to the spawns (user 2026-10-31: "cut off more unnecessary parts of the map and expand it"); redrawn
 		-- for the longer, narrower map (2026-11-01; was 87971867576424, 1024 x 542 over x 120..1700, z -400..400)
 		Map1 = {
-			image = 136207333793204,
+			image = 88967963615019, -- (the Image behind the uploaded Decal 136207333793204: a Decal id shows nothing)
 			size = { 1024, 295 },
 			pad = 24,
 			x = { 120, 2330 },

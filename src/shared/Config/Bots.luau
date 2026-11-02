@@ -291,6 +291,23 @@ local Bots = {
 		Breast = { step = 8, keys = { "SandbagPile", "Hesco" } },
 		Walls = { ahead = 5, spread = 8.5, count = 2 },
 		Pinned = { threat = 1.5, shaken = 0.5, every = 45, ahead = 2.5, near = 20 },
+		-- Gun crews (Rules/BotBuild.crewWanted / gunSpots; user 2026-11-02: "if artillery has been unlocked for a side and
+		-- not a lot of any has been placed, some bots should take priority in getting engineer and start building it in
+		-- strategic places"; "Up to 2, if they can pay"): while a side has fewer than `enough` guns standing (anyone's
+		-- field guns and howitzers), up to `max` of its bots pick Engineer when they respawn (paid as any class; one that
+		-- can't pay picks as usual) and take gun jobs first, from anywhere on the front. Back to their usual picks on the
+		-- next respawn once the side has enough. The guns' spots (scored: "Scored spots behind the line"): `back` studs
+		-- behind the front zone's edge by `across` studs either side of its middle, farthest back first, each kept only
+		-- where the gun reaches the enemy's nearest sector's middle (Rules/Artillery.layFor) and lies `spawnGap` studs
+		-- clear of every spawn and wave line (Rules/Artillery.nearSpawn), `spacing` (Config/Build.Pieces) from the other
+		-- guns' spots; the bots' share of each gun (`caps` above) gets a spot. None fits: the fixed spot (`Guns` above).
+		Crews = {
+			max = 2,
+			enough = 3,
+			back = { 90, 60, 30 },
+			across = { 0, -60, 60, -120, 120, -180, 180 },
+			spawnGap = 40,
+		},
 	},
 
 	-- Normal: sapping forward (Rules/BotSap; user 2026-11-02: "AI ... should [build trenches to push forward] if they are
@@ -371,6 +388,48 @@ local Bots = {
 		clearWithin = 8,
 		clear = 1.5,
 		tear = { SandbagPile = true, Hesco = true, Wire = true },
+	},
+
+	-- Normal: moving by trench (Rules/BotTrenches.danger; user 2026-11-02: "most pvp should be trench based. if bots can,
+	-- they should ideally use trenches to get around if they know there's danger. if it's an open field with no enemies
+	-- they should just walk of course. make it realistic, this is mostly a trench fighting game").
+	-- - Danger (all four, "Shot at recently, Enemy known near, Shelling near, Contested goal"): shot at within `shot`
+	--   seconds; an enemy known to it or its squad within `near` studs in the last `known` seconds; a shell or grenade
+	--   within `blastNear` studs in the last `blast` seconds; its goal's sector with enemies in it.
+	-- - Knowing there's danger, its path costs `open` times as much over `materials` (the open ground) as along a dug
+	--   trench square (each square's hole is marked `label` for pathfinding): a trench route wins while it is under
+	--   `open` times the open stretch it stands in for ("Strong, x4"). With no danger it walks straight across.
+	-- - Shot at in the open with an own dug trench square within `cover` studs, it drops into it (its cover).
+	-- - Over the top ("Yes, gather then go"): an attacking squad gathers first in its side's dug trench square nearest
+	--   the objective (no more than `Jump.reach` studs past the zone's edge, `Jump.ahead` studs nearer it than the
+	--   squad), within `Jump.at` studs of it; it goes once `Jump.gather` of it is there, or `Jump.wait` seconds after
+	--   the first got there.
+	TrenchMove = {
+		shot = 10,
+		known = 15,
+		near = 120,
+		blast = 15,
+		blastNear = 40,
+		open = 4,
+		label = "Trench",
+		materials = {
+			"Grass",
+			"LeafyGrass",
+			"Ground",
+			"Mud",
+			"Sand",
+			"Rock",
+			"Slate",
+			"Sandstone",
+			"Limestone",
+			"Basalt",
+			"Snow",
+			"Pavement",
+			"Asphalt",
+			"Cobblestone",
+		},
+		cover = 25,
+		Jump = { reach = 120, ahead = 15, at = 10, gather = 0.75, wait = 25 },
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above
