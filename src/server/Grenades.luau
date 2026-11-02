@@ -128,6 +128,40 @@ local function throw(character: Model, name: string, origin: Vector3, velocity: 
 	end)
 end
 
+-- the throw a soldier asks for (a player's Net "GrenadeThrow", a bot's Grenades.throwAs): `key` is whose cooldown
+local last: { [any]: number } = setmetatable({}, { __mode = "k" }) :: any
+local function throwFrom(character: Model, direction: any, key: any): boolean
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local head = character:FindFirstChild("Head") :: BasePart?
+	if not humanoid or humanoid.Health <= 0 or not head or typeof(direction) ~= "Vector3" then
+		return false
+	end
+	local tool, name = held(character)
+	local count = tool and tool:GetAttribute("Count")
+	if not tool or not name or type(count) ~= "number" or count < 1 then
+		return false
+	end
+	local now = os.clock()
+	if now - (last[key] or -math.huge) < Cfg.Cooldown then
+		return false
+	end
+	local d = direction :: Vector3
+	local origin = Grenades.hand(character, head.Position, if d.Magnitude > 1e-3 then d else Vector3.zAxis)
+	if not Rules.throwOk(d.X, d.Y, d.Z, (origin - head.Position).Magnitude, Cfg.Throw.reach) then
+		return false
+	end
+	last[key] = now
+	count -= 1
+	tool:SetAttribute("Count", count)
+	tool.Name = Armory.label(name, count)
+	local vx, vy, vz = Rules.launch(d.X, d.Y, d.Z, Cfg.Throw.loft, Cfg.Types[name].speed)
+	throw(character, name, origin, Vector3.new(vx, vy, vz))
+	if count <= 0 then
+		tool:Destroy() -- the last one thrown: an empty hand
+	end
+	return true
+end
+
 function Grenades.start()
 	if not PhysicsService:IsCollisionGroupRegistered(GROUP) then
 		PhysicsService:RegisterCollisionGroup(GROUP)
@@ -138,41 +172,20 @@ function Grenades.start()
 		end
 	end
 
-	local last: { [Player]: number } = {}
 	Net.event("GrenadeThrow").OnServerEvent:Connect(function(player: Player, direction: any)
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local head = character and character:FindFirstChild("Head") :: BasePart?
-		if not character or not humanoid or humanoid.Health <= 0 or not head or typeof(direction) ~= "Vector3" then
-			return
-		end
-		local tool, name = held(character)
-		local count = tool and tool:GetAttribute("Count")
-		if not tool or not name or type(count) ~= "number" or count < 1 then
-			return
-		end
-		local now = os.clock()
-		if now - (last[player] or -math.huge) < Cfg.Cooldown then
-			return
-		end
-		local d = direction :: Vector3
-		local origin = Grenades.hand(character, head.Position, if d.Magnitude > 1e-3 then d else Vector3.zAxis)
-		if not Rules.throwOk(d.X, d.Y, d.Z, (origin - head.Position).Magnitude, Cfg.Throw.reach) then
-			return
-		end
-		last[player] = now
-		count -= 1
-		tool:SetAttribute("Count", count)
-		tool.Name = Armory.label(name, count)
-		local vx, vy, vz = Rules.launch(d.X, d.Y, d.Z, Cfg.Throw.loft, Cfg.Types[name].speed)
-		throw(character, name, origin, Vector3.new(vx, vy, vz))
-		if count <= 0 then
-			tool:Destroy() -- the last one thrown: an empty hand
+		if player.Character then
+			throwFrom(player.Character, direction, player)
 		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		last[player] = nil
 	end)
+end
+
+-- A bot soldier's throw (src/server/Bots) along `direction` (its look) with its grenade Tool in hand: the same checks
+-- and throw as a player's. True if thrown.
+function Grenades.throwAs(model: Model, direction: Vector3): boolean
+	return throwFrom(model, direction, model)
 end
 
 return Grenades

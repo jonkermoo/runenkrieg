@@ -53,6 +53,12 @@ local Classes = require(Shared.Config.Classes)
 local DamageCfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
 local FrontCfg = require(Shared.Config.Frontline)
+local IndoorCfg = require(Shared.Config.Indoors)
+local DragCfg = require(Shared.Config.Dragging)
+local BuildCfg = require(Shared.Config.Build)
+local GrenadeCfg = require(Shared.Config.Grenades)
+local HealCfg = require(Shared.Config.Healing)
+local W = require(Shared.Config.Weapons)
 local Loco = require(Shared.Config.Locomotion)
 local Net = require(Shared.Net)
 local Map = require(Shared.Config.Maps.Map1)
@@ -65,17 +71,26 @@ local ZoneCfg = require(Shared.Config.ZoneMatch)
 local F = require(Shared.Rules.Firing)
 local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
+local Actions = require(Shared.Rules.BotActions)
+local Buildings = require(Shared.Rules.BotBuildings)
+local BotBuild = require(Shared.Rules.BotBuild)
 local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
 local ShotRules = require(Shared.Rules.ShotAudio)
 local Sup = require(Shared.Rules.Suppression)
 local Teams = require(Shared.Rules.Teams)
 local Armory = require(script.Parent.Armory)
+local Build = require(script.Parent.Build)
 local Concussion = require(script.Parent.Concussion)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
+local Doors = require(script.Parent.Doors)
+local Dragging = require(script.Parent.Dragging)
 local Firing = require(script.Parent.Firing)
 local Frontline = require(script.Parent.Frontline)
+local Grenades = require(script.Parent.Grenades)
+local Healing = require(script.Parent.Healing)
+local Indoors = require(script.Parent.Indoors)
 local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
 local MatchStats = require(script.Parent.MatchStats)
@@ -96,6 +111,9 @@ local RT = Cfg.Routes
 local BG = Cfg.Budget
 local CV = MV.Cover
 local brainCfg = Cfg.Brain :: any
+local AC = Cfg.Actions
+local IN = Cfg.Indoors
+local BD = Cfg.Build
 
 type Target = { model: Model, distance: number, visible: boolean }
 
@@ -110,6 +128,34 @@ type Nav = {
 	jumps: number,
 	repaths: number,
 	direct: Vector3?, -- a point walked to straight, without a path (strafing, a peek, a step aside)
+	doorAt: number, -- when it last opened a door on its way (it waits while the door swings)
+}
+
+-- Normal: a job on its side's build list (Rules/BotBuild): where it is now (moved by refusals), the piece once laid
+-- and the Build swings it still wants (src/server/Build.worksOf, each commander tick)
+type BuildJob = {
+	job: BotBuild.Job, -- (its spot moved by refusals)
+	base: BotBuild.Job, -- as planned
+	model: Model?,
+	at: Vector3?, -- the piece's spot once laid (what it swings at)
+	left: number,
+	tries: number,
+	waitUntil: number,
+	open: boolean, -- on the list this tick
+}
+
+-- Normal: what a bot does instead of fighting for a while (Rules/BotActions): a drag of `who` to `to` (cover from the
+-- enemy spot `from`), a heal of `who`, a grenade at `at`
+type Act = {
+	kind: string, -- "Drag", "Heal", "Throw" or "Build"
+	who: Model?,
+	at: Vector3?,
+	from: Vector3?,
+	to: Vector3?,
+	started: number,
+	phase: string?, -- the drag's "pull", the heal's "heal", the throw's "throw" and "done"
+	job: BuildJob?, -- a build's job
+	swingAt: number?, -- a build's next swing
 }
 
 type Bot = {
@@ -161,6 +207,7 @@ type Bot = {
 	stop: Vector3?, -- Normal: a bound's next stop
 	post: Vector3?, -- Normal: where it holds (its covering-fire spot, or its hold spot in the zone)
 	postSector: number?, -- the sector its hold spot is in
+	postFace: Vector3?, -- its hold spot is a window or doorway facing this way out (src/server/Indoors)
 	roleWas: Squads.Role?,
 	grip: Motor6D?, -- the gun's hold joint (to the torso)
 	stowed: boolean, -- its gun put away (standing in the wave line)
@@ -170,6 +217,12 @@ type Bot = {
 	senseHz: number,
 	lod: string, -- "near", "middle" or "distant" (the report)
 	nearest: number, -- studs to the nearest player at its last think (callouts)
+	act: Act?, -- Normal: a drag, a heal or a grenade under way
+	actAt: number, -- when it next weighs one (Config/Bots.Actions.every)
+	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
+	threwAt: number,
+	away: boolean, -- its gun put away for an action
+	shovel: Tool?, -- its shovel, out of its hands until it builds
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -208,6 +261,13 @@ local stats = {
 	pathsShared = 0, -- paths taken from another bot's
 	reowned = 0, -- bodies whose physics a player had taken, given back to the server
 	callouts = 0, -- lines said
+	throws = 0, -- grenades thrown
+	heals = 0, -- heals started
+	drags = 0, -- drags started
+	doors = 0, -- doors opened on the way
+	laid = 0, -- pieces laid and trenches planned
+	swings = 0, -- Build swings that landed
+	refused = 0, -- lays refused (the spot moved)
 	covering = 0, -- shots of covering fire
 	assaults = 0, -- squads that pushed into a zone
 	stoodUp = 0, -- bodies found lying after a knock, stood up
@@ -225,8 +285,23 @@ type SquadState = {
 	mid: Vector3?,
 	known: { Known },
 	seen: number, -- the commander's tick it was last formed (gone ones are dropped)
+	threwAt: number?, -- its last grenade (Config/Bots.Actions.Grenade.squadEvery)
+	clear: Vector3?, -- pushing in: the indoor spot by a known enemy inside a building (its Assault bots go there)
 }
 local squads: { [string]: SquadState } = {}
+
+-- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again
+-- when the front or the artillery level changes, or once the hold spots are found), each matched to its piece once
+-- laid, and the own pieces near the front wanting swings; `open` the jobs a bot may take now
+type SideBuild = {
+	front: number?,
+	level: number,
+	holds: boolean,
+	lay: { BuildJob },
+	works: { [Model]: BuildJob },
+	open: { BuildJob },
+}
+local buildLists: { [string]: SideBuild } = {}
 local commandTick = 0
 
 -- the budget's running state
@@ -376,6 +451,7 @@ local function newNav(at: Vector3): Nav
 		jumps = 0,
 		repaths = 0,
 		direct = nil,
+		doorAt = -math.huge,
 	}
 end
 
@@ -478,6 +554,21 @@ spawnBody = function(b: Bot)
 		m, humanoid, root, m:FindFirstChild("Head") :: BasePart, tool, turn
 	b.grip, b.stowed = hold, false
 	b.anim = Animate.attach(m, b.weapon)
+	-- a Grenadier's grenades (Config/Classes `grenades`), held only for a throw
+	if b.grenades then
+		(b.grenades :: Tool):Destroy()
+	end
+	if b.shovel then
+		(b.shovel :: Tool):Destroy()
+	end
+	b.grenades, b.act, b.away, b.shovel = nil, nil, false, nil
+	local nade = Loadouts.gear(m).Grenade
+	if nade then
+		local given, g = pcall(Armory.tool, nade, b.kit)
+		if given then
+			b.grenades = g
+		end
+	end
 	b.brain = Rules.new()
 	b.target, b.lastSeenAt, b.lastOpen, b.spotted = nil, nil, nil, false
 	b.hurtAt, b.threatAt, b.threatFrom, b.cover, b.coverFrom = nil, nil, nil, nil, nil
@@ -564,6 +655,13 @@ local function despawn(b: Bot)
 		(b.m :: Model):Destroy()
 	end
 	b.m, b.humanoid, b.root, b.head, b.tool, b.anim, b.turn = nil, nil, nil, nil, nil, nil, nil
+	if b.grenades then
+		(b.grenades :: Tool):Destroy()
+	end
+	if b.shovel then
+		(b.shovel :: Tool):Destroy()
+	end
+	b.grenades, b.act, b.away, b.shovel = nil, nil, false, nil
 end
 
 local function add(mode: string, side: string?)
@@ -593,6 +691,9 @@ local function add(mode: string, side: string?)
 		senseHz = Cfg.Sense,
 		lod = "near",
 		nearest = math.huge,
+		actAt = 0,
+		threwAt = -math.huge,
+		away = false,
 	}
 	b.name = freeName()
 	table.insert(bots, b)
@@ -625,7 +726,7 @@ local function aimPart(target: Model): BasePart?
 end
 
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
-type Soldier = { model: Model, part: BasePart, kit: any, pos: Vector3, look: Vector3 }
+type Soldier = { model: Model, part: BasePart, kit: any, pos: Vector3, look: Vector3, health: number, down: boolean }
 local snapshot: { Soldier } = {}
 local snapCount = 0
 local snapFrame = -1
@@ -651,6 +752,7 @@ local function soldiersNow(): ({ Soldier }, number)
 			end
 			e.model, e.part, e.kit, e.pos = m, part, m:GetAttribute("Kit"), part.Position
 			e.look = if look.Magnitude > 1e-3 then look.Unit else Vector3.zero
+			e.health, e.down = h.Health / math.max(h.MaxHealth, 1), Ragdoll.active(m)
 		end
 	end
 	debug.profileend()
@@ -826,6 +928,50 @@ local function findCover(b: Bot, now: number)
 	b.coverJob = { threat = threat, ring = 1, here = flat(root.Position - threat).Magnitude }
 end
 
+-- whether a building has a way in (a door link: src/server/Indoors makes none for a door far up a bank)
+local enterable: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local function canEnter(building: Model): boolean
+	local known = enterable[building]
+	if known == nil then
+		known = false
+		for _, d in building:GetDescendants() do
+			if d:IsA("PathfindingLink") and d.Label == IndoorCfg.Links.door then
+				known = true
+				break
+			end
+		end
+		enterable[building] = known
+	end
+	return known :: boolean
+end
+
+-- the indoor spots (src/server/Indoors) within `within` studs of `at` in buildings with a way in, looked up by
+-- Config/Bots.Indoors `cell`-stud squares, each kept `keep` seconds (a building broken meanwhile shows up at the next
+-- look)
+local indoorCells: { [string]: { at: number, spots: { Indoors.Spot } } } = {}
+local function indoorNear(at: Vector3, within: number): { Indoors.Spot }
+	local cx, cz = math.floor(at.X / IN.cell), math.floor(at.Z / IN.cell)
+	local key = `{cx}:{cz}`
+	local now = os.clock()
+	local c = indoorCells[key]
+	if not c or now - c.at > IN.keep then
+		local centre = Vector3.new((cx + 0.5) * IN.cell, at.Y, (cz + 0.5) * IN.cell)
+		c = { at = now, spots = Indoors.near(centre, IN.cell * 0.71 + within + IN.slack) }
+		indoorCells[key] = c
+	end
+	local out = {}
+	for _, s in (c :: any).spots do
+		if flat(s.at - at).Magnitude <= within and canEnter(s.building) then
+			table.insert(out, s)
+		end
+	end
+	return out
+end
+
+local function asSpot(s: Indoors.Spot, taken: number): Buildings.Spot
+	return { x = s.at.X, z = s.at.Z, fx = s.face.X, fz = s.face.Z, story = s.story, taken = taken }
+end
+
 -- the nearest teammate (from this frame's snapshot) within `within` studs of `at`, not `b` itself; nil if none
 local function mateNear(b: Bot, at: Vector3, within: number): Vector3?
 	local all, n = soldiersNow()
@@ -864,6 +1010,32 @@ local function coverStep(b: Bot)
 			table.insert(spots, g)
 			table.insert(points, {
 				distance = r,
+				hidden = hidden(job.threat, g, exclude),
+				threat = flat(g - job.threat).Magnitude,
+				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil,
+			})
+		end
+	end
+	-- the first ring also tries the indoor cover spots close by (Config/Bots.Indoors.cover)
+	if job.ring == 1 then
+		local indoor = {}
+		for _, s in indoorNear(root.Position, CV.reach) do
+			if s.kind == "Cover" then
+				table.insert(indoor, s)
+			end
+		end
+		local list = {}
+		for k, s in indoor do
+			list[k] = asSpot(s, 0)
+		end
+		local p = root.Position
+		for _, k in
+			Buildings.coverCandidates(list, p.X, p.Z, job.threat.X, job.threat.Z, CV.reach, CV.minThreatGain, IN.cover)
+		do
+			local g = indoor[k].at
+			table.insert(spots, g)
+			table.insert(points, {
+				distance = flat(g - p).Magnitude,
 				hidden = hidden(job.threat, g, exclude),
 				threat = flat(g - job.threat).Magnitude,
 				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil,
@@ -1038,6 +1210,7 @@ local function computePath(b: Bot, goal: Vector3, own: boolean?): boolean
 			AgentHeight = MV.AgentHeight,
 			AgentCanJump = true,
 			WaypointSpacing = MV.WaypointSpacing,
+			Costs = IndoorCfg.PathCosts, -- (through doorways and up stairs: src/server/Indoors' links)
 		})
 		pathOf[b.id] = path
 	end
@@ -1110,6 +1283,21 @@ local function follow(b: Bot, now: number)
 	local target: Vector3? = if nav.direct then inside(b, nav.direct :: Vector3) else nil
 	if not target and nav.goal then
 		local wp = nav.waypoints[nav.index]
+		-- a door on the way (a "Door" link's waypoint): opened from its reach, then a moment while it swings
+		if wp and wp.Label == IndoorCfg.Links.door then
+			local d = flat(wp.Position - root.Position).Magnitude
+			local door = if d <= IN.doorReach then Doors.nearest(wp.Position, 8) else nil
+			local shut = door ~= nil and not Doors.isOpen(door)
+			if door and shut and Doors.openFor(b.m :: Model, door) then
+				nav.doorAt = now
+				stats.doors += 1
+			end
+			if door and Buildings.waitForDoor(true, d, shut, now - nav.doorAt, IN) then
+				humanoid:MoveTo(root.Position)
+				nav.sampleAt, nav.samplePos = now, root.Position
+				return
+			end
+		end
 		if wp then
 			-- (thinking less often, it counts a waypoint reached from farther, so it never stops at one)
 			local arrive = math.max(MV.Arrive, humanoid.WalkSpeed / b.thinkHz * 0.6)
@@ -1213,6 +1401,575 @@ local function draw(b: Bot)
 	DevDummies.own(m)
 end
 
+-- actions besides fighting (Normal; Rules/BotActions, Config/Bots.Actions) -----------------------------------------
+
+-- its gun put away for an action (a heal, a drag, a throw), or taken out again
+local function putAway(b: Bot, on: boolean)
+	if on == b.away then
+		return
+	end
+	local m, tool = b.m :: Model, b.tool :: Tool
+	b.away = on
+	if on then
+		tool.Parent = nil
+		if b.anim then
+			(b.anim :: Animate.Handle).update(0, "none", 0)
+		end
+	else
+		tool.Parent = m
+		local torso = m:FindFirstChild("Torso") :: BasePart?
+		if b.grip and torso then
+			(b.grip :: Motor6D).Part0 = torso
+		end
+		if b.anim then
+			(b.anim :: Animate.Handle).equip()
+		end
+	end
+	DevDummies.own(m) -- (a joint made or broken: the body's physics kept the server's)
+end
+
+-- turned to face `at` (the body it drags, the one it heals, where its grenade goes)
+local function face(b: Bot, at: Vector3)
+	local root, turn = b.root :: BasePart, b.turn :: AlignOrientation
+	local f = flat(at - root.Position)
+	if f.Magnitude > 1e-3 then
+		(b.humanoid :: Humanoid).AutoRotate = false
+		turn.CFrame = CFrame.lookAt(Vector3.zero, f.Unit)
+		turn.Enabled = true
+	end
+end
+
+-- its shovel in its hands (made the first time; its gun put away), or put back
+local function holdShovel(b: Bot, on: boolean)
+	local m = b.m :: Model
+	if not on then
+		if b.shovel and (b.shovel :: Tool).Parent ~= nil then
+			(b.shovel :: Tool).Parent = nil
+		end
+		return
+	end
+	putAway(b, true)
+	if not b.shovel then
+		local made, t = pcall(Armory.tool, "shovel", b.kit)
+		if made then
+			b.shovel = t
+		end
+	end
+	local t = b.shovel
+	if t and t.Parent ~= m then
+		local hold = t:FindFirstChild("Hold", true) :: Motor6D?
+		t.Parent = m
+		if hold then
+			hold.Part0 = m:FindFirstChild("Torso") :: BasePart?
+		end
+		DevDummies.own(m)
+	end
+end
+
+-- the action over (done, given up, or cut short): the heal or the drag stopped, the grenades put back, the gun out
+local function finish(b: Bot)
+	local act = b.act
+	if not act then
+		return
+	end
+	b.act = nil
+	local m = b.m
+	if m then
+		if act.kind == "Heal" then
+			Healing.stopAs(m)
+		elseif act.kind == "Drag" then
+			Dragging.stopAs(m)
+		end
+	end
+	if b.shovel then
+		holdShovel(b, false)
+	end
+	local g = b.grenades
+	if g then
+		local left = g:GetAttribute("Count")
+		if type(left) ~= "number" or left < 1 then
+			b.grenades = nil -- (the last one thrown: the Tool is gone)
+		elseif g.Parent ~= nil then
+			g.Parent = nil
+		end
+	end
+	if b.anim then
+		(b.anim :: Animate.Handle).stop()
+	end
+	if b.turn then
+		(b.turn :: AlignOrientation).Enabled = false
+	end
+	if b.humanoid then
+		(b.humanoid :: Humanoid).AutoRotate = true
+	end
+	if m and not Ragdoll.active(m) then
+		putAway(b, false)
+	else
+		b.away = false -- (a knock: the get-up draws the gun, see spawnBody)
+	end
+end
+
+-- the throw's look from its head toward `at` (a soldier's torso): the low arc that lands `short` of it
+local function throwLook(b: Bot, at: Vector3): Vector3
+	local head = (b.head :: BasePart).Position
+	local off = flat(at - head)
+	local name = (b.grenades :: Tool):GetAttribute("Weapon")
+	local speed = (GrenadeCfg.Types :: any)[name].speed
+	local ground = at.Y - CV.chest -- (about where its feet are)
+	local pitch = Actions.lobPitch(off.Magnitude * AC.Grenade.short, ground - head.Y, speed, workspace.Gravity)
+		or math.rad(45)
+	pitch -= math.rad(GrenadeCfg.Throw.loft)
+	local u = if off.Magnitude > 1e-3 then off.Unit else Vector3.zAxis
+	return u * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
+end
+
+-- the build job a bot takes on its side's list (Rules/BotBuild.pick): an Engineer any within Build.take, any other bot
+-- a trench or wire wanting swings within Build.help; nil if none
+local HELPS = { Trench = true, Wire = true }
+local function pickJob(b: Bot): BuildJob?
+	local sb = buildLists[b.side :: string]
+	if not sb or #sb.open == 0 then
+		return nil
+	end
+	local engineer = Loadouts.classOf(b.m :: Model) == "Engineer"
+	local held: { [BuildJob]: boolean } = {}
+	for _, o in bots do
+		local a = o.act
+		if a and a.kind == "Build" and a.job then
+			held[a.job :: BuildJob] = true
+		end
+	end
+	local list: { BotBuild.Job } = {}
+	local taken: { [number]: boolean } = {}
+	for k, r in sb.open do
+		local at = r.at
+		local j = r.job
+		list[k] = {
+			key = j.key,
+			x = if at then at.X else j.x,
+			z = if at then at.Z else j.z,
+			fx = j.fx,
+			fz = j.fz,
+			work = r.model ~= nil,
+		}
+		taken[k] = held[r] == true
+	end
+	local root = (b.root :: BasePart).Position
+	local within = if engineer then BD.take else BD.help
+	local k = BotBuild.pick(list, root.X, root.Z, within, taken, {}, if engineer then nil else HELPS)
+	return if k then sb.open[k] else nil
+end
+
+-- what to do besides fighting, if anything (drag > heal > build > grenade)
+local function weigh(b: Bot, now: number)
+	b.actAt = now + AC.every
+	local m, root = b.m :: Model, b.root :: BasePart
+	if Healing.busy(m) then
+		return -- (being healed: it stays for it)
+	end
+	local all, n = soldiersNow()
+	local kit = m:GetAttribute("Kit")
+	local spot = knownSpot(b, now) or b.lastSeenAt
+	local mates: { Actions.Mate } = {}
+	local who: { Soldier } = {}
+	local near = math.max(AC.Drag.within, AC.Heal.within)
+	for k = 1, n do
+		local o = all[k]
+		if o.model ~= m and friendly(m, kit, o) then
+			local d = flat(o.pos - root.Position).Magnitude
+			if d <= near then
+				local busy = Healing.busy(o.model) or o.model:GetAttribute("Dragged") == true
+				table.insert(mates, { distance = d, health = o.health, down = o.down, busy = busy, exposed = false })
+				table.insert(who, o)
+			end
+		end
+	end
+	-- a downed teammate in sight of where the enemy is
+	if spot then
+		local eyeAt = (spot :: Vector3) + Vector3.yAxis * Cfg.Eye
+		for i, mt in mates do
+			if mt.down and not mt.busy and mt.distance <= AC.Drag.within and raysLeft > 0 then
+				rayParams.FilterDescendantsInstances = { m }
+				local hit = workspace:Raycast(eyeAt, who[i].pos - eyeAt, rayParams)
+				stats.rays += 1
+				raysLeft -= 1
+				mt.exposed = hit == nil or hit.Instance:IsDescendantOf(who[i].model)
+			end
+		end
+	end
+	local i = Actions.dragPick(mates, AC.Drag)
+	if i and spot then
+		b.act = { kind = "Drag", who = who[i].model, from = spot, started = now }
+		return
+	end
+	local sq = b.squad and squads[b.squad :: string]
+	local pushing = sq ~= nil and (sq :: SquadState).sq.phase == "Assault"
+	local sinceThreat = if b.threatAt then now - (b.threatAt :: number) else math.huge
+	local sinceHurt = if b.hurtAt then now - (b.hurtAt :: number) else math.huge
+	if not pushing and Actions.calm(sinceThreat, sinceHurt, AC.Heal.calm) then
+		i = Actions.healPick(mates, AC.Heal)
+		if i then
+			b.act = { kind = "Heal", who = who[i].model, started = now }
+			return
+		end
+	end
+	-- a job on its side's build list, when calm and it sees no enemy (Config/Bots.Build)
+	local seen = b.target ~= nil and (b.target :: Target).visible
+	if not pushing and not seen and b.side and Actions.calm(sinceThreat, sinceHurt, BD.calm) then
+		local r = pickJob(b)
+		if r then
+			b.act = { kind = "Build", job = r, started = now }
+			return
+		end
+	end
+	-- a Grenadier's grenade at what its squad knows of the enemy
+	local G = AC.Grenade
+	if
+		not b.grenades
+		or now - b.threwAt < G.every
+		or (sq and now - ((sq :: SquadState).threwAt or -math.huge) < G.squadEvery)
+	then
+		return
+	end
+	local known: { Known } = if sq then (sq :: SquadState).known else {}
+	if not sq and b.target and b.lastSeenAt then
+		known = { { model = (b.target :: Target).model, pos = b.lastSeenAt :: Vector3, at = now } }
+	end
+	local enemies: { Actions.Enemy } = {}
+	local points: { Vector3 } = {}
+	for _, k in known do
+		local model = k.model
+		local h = model and model:FindFirstChildOfClass("Humanoid")
+		local part = model and aimPart(model :: Model)
+		if model and h and part and h.Health > 0 and now - k.at <= SQ.knownFor then
+			local visible = b.target ~= nil and (b.target :: Target).model == model and (b.target :: Target).visible
+			local p = if visible then part.Position else k.pos
+			table.insert(enemies, {
+				x = p.X,
+				z = p.Z,
+				distance = flat(p - root.Position).Magnitude,
+				visible = visible,
+				hiddenFor = if visible then 0 else now - k.at,
+			})
+			table.insert(points, p)
+		end
+	end
+	if #enemies == 0 then
+		return
+	end
+	local friends = {}
+	for k = 1, n do
+		local o = all[k]
+		if o.model ~= m and friendly(m, kit, o) then
+			table.insert(friends, { x = o.pos.X, z = o.pos.Z })
+		end
+	end
+	i = Actions.grenadeAt(enemies, friends, G)
+	if i then
+		b.act = { kind = "Throw", at = points[i], started = now }
+	end
+end
+
+-- the walk's pose while it acts (the gun away: empty hands)
+local function actPose(b: Bot)
+	local speed = flat((b.root :: BasePart).AssemblyLinearVelocity).Magnitude
+	if b.anim then
+		(b.anim :: Animate.Handle).update(speed, "none", 0)
+	end
+end
+
+-- the grenade out of the pack: the pin, the wind-up, the throw (Config/Grenades.Throw: the release into the throw's
+-- animation), then the gun back
+local function throwSequence(b: Bot, act: Act)
+	local m, g = b.m :: Model, b.grenades :: Tool
+	putAway(b, true)
+	local hold = g:FindFirstChild("Hold", true) :: Motor6D?
+	g.Parent = m
+	if hold then
+		hold.Part0 = m:FindFirstChild("Torso") :: BasePart?
+	end
+	DevDummies.own(m)
+	local holds = W[g:GetAttribute("Weapon") :: string].holds :: any
+	if b.anim then
+		(b.anim :: Animate.Handle).play(holds.pin)
+	end
+	task.spawn(function()
+		task.wait(AC.Grenade.hold)
+		if b.act ~= act or b.m ~= m or Ragdoll.active(m) then
+			return
+		end
+		if b.anim then
+			(b.anim :: Animate.Handle).play(holds.throw)
+		end
+		task.wait(GrenadeCfg.Throw.release)
+		if b.act ~= act or b.m ~= m or not b.head then
+			return
+		end
+		if Grenades.throwAs(m, throwLook(b, act.at :: Vector3)) then
+			stats.throws += 1
+			b.threwAt = os.clock()
+			local sq = b.squad and squads[b.squad :: string]
+			if sq then
+				(sq :: SquadState).threwAt = b.threwAt
+			end
+			say(b, "Grenade")
+		end
+		task.wait(math.max(GrenadeCfg.Throw.length - GrenadeCfg.Throw.release, 0))
+		if b.act == act then
+			act.phase = "done"
+		end
+	end)
+end
+
+-- the healer's animations, as src/client/Healing plays a player's: the grab, then the wrap or the open and press
+local function healAnimations(b: Bot, act: Act)
+	local m = b.m :: Model
+	local kind = m:GetAttribute("Healing")
+	local A = HealCfg.Animations :: any
+	local function later(delay: number, name: string)
+		task.delay(delay, function()
+			if b.act == act and b.anim and m:GetAttribute("Healing") == kind then
+				(b.anim :: Animate.Handle).play(A[name].id)
+			end
+		end)
+	end
+	later(0, "grab")
+	if kind == "Bandage" then
+		later(HealCfg.Grab.time, "wrap")
+	else
+		later(HealCfg.Grab.time, "open")
+		later(HealCfg.Grab.time + HealCfg.Open.time, "press")
+	end
+end
+
+-- standing still facing `at` (a heal under way, a throw)
+local function standFacing(b: Bot, at: Vector3, now: number)
+	setGoal(b, nil, now)
+	follow(b, now)
+	face(b, at)
+end
+
+-- the piece a bot just laid for `job`: its side's work of the key nearest the spot (a trench: its first end), or nil
+local function laidFor(b: Bot, job: BotBuild.Job): Build.Work?
+	local best, bestD = nil, BD.match
+	for _, w in Build.worksOf(b.kit) do
+		local d = math.sqrt((w.at.X - job.x) ^ 2 + (w.at.Z - job.z) ^ 2)
+		if w.key == job.key and d <= bestD then
+			best, bestD = w, d
+		end
+	end
+	return best
+end
+
+-- a refused lay: its spot moved across (Rules/BotBuild.nudge), after Build.tries the planned spot again a while later
+local function refused(r: BuildJob, now: number)
+	stats.refused += 1
+	r.tries += 1
+	local base = r.base
+	if r.tries >= BD.tries then
+		r.tries, r.job, r.waitUntil, r.open = 0, base, now + BD.retry, false
+		return
+	end
+	local x, z = BotBuild.nudge(base, r.tries, BD.nudge)
+	local dx, dz = x - base.x, z - base.z
+	r.job = {
+		key = base.key,
+		x = x,
+		z = z,
+		ex = if base.ex then (base.ex :: number) + dx else nil,
+		ez = if base.ez then (base.ez :: number) + dz else nil,
+		fx = base.fx,
+		fz = base.fz,
+	}
+end
+
+-- a build, one think of it: to the job, the piece laid (once), then Build swings at it until it wants none, the
+-- shovel in hand; given up when it's shot at, sees an enemy, the job leaves the list or takes too long
+local function doBuild(b: Bot, act: Act, now: number): boolean
+	local r = act.job :: BuildJob
+	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
+	local sinceThreat = if b.threatAt then now - (b.threatAt :: number) else math.huge
+	local hurt = b.hurtAt ~= nil and (b.hurtAt :: number) > act.started
+	local seen = b.target ~= nil and (b.target :: Target).visible
+	if not r.open or now - act.started > BD.seconds or hurt or sinceThreat < BD.calm or seen then
+		finish(b)
+		return false
+	end
+	local job = r.job
+	local f = Vector3.new(job.fx, 0, job.fz)
+	local spot = if r.model and r.at then r.at :: Vector3 else Routes.ground(job.x, job.z)
+	-- (it lays a piece from behind it, its own side; it swings at one from where it is)
+	local reach = if r.model then BuildCfg.SwingReach - 1 else BD.stand + 2
+	if flat(spot - root.Position).Magnitude > reach then
+		humanoid.WalkSpeed = M.WalkSpeed
+		setGoal(b, if r.model then spot else spot - f * BD.stand, now)
+		follow(b, now)
+		actPose(b)
+		return true
+	end
+	holdShovel(b, true)
+	if not act.phase then
+		act.phase = "dig"
+		if b.anim then
+			(b.anim :: Animate.Handle).play(W.shovel.holds.dig, true)
+		end
+	end
+	standFacing(b, if r.model then spot else spot + f, now)
+	if not r.model then
+		local reason = if job.key == "Trench"
+			then Build.planAs(m, spot, Routes.ground(job.ex :: number, job.ez :: number))
+			else Build.placeAs(m, job.key, spot, f)
+		if reason then
+			refused(r, now)
+			finish(b)
+			return false
+		end
+		stats.laid += 1
+		local w = laidFor(b, job)
+		if not w then
+			finish(b) -- (it is on the next tick's list)
+			return false
+		end
+		r.model, r.at, r.left = w.model, w.at, w.left
+		act.swingAt = now + Build.swingGap()
+		return true
+	end
+	if now >= (act.swingAt or 0) then
+		local reason = Build.workAs(m, r.model :: Model, "Build")
+		if reason == nil then
+			stats.swings += 1
+			act.swingAt = now + Build.swingGap()
+		elseif reason ~= "Too soon" then
+			finish(b) -- (whole now, or gone)
+			return false
+		end
+	end
+	return true
+end
+
+-- the action under way, one think of it; false once it's over (the bot fights again this think)
+local function doAct(b: Bot, now: number): boolean
+	local act = b.act :: Act
+	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
+	if act.kind == "Build" then
+		return doBuild(b, act, now)
+	end
+	if act.kind == "Throw" then
+		if act.phase == "done" or now - act.started > AC.Grenade.hold + GrenadeCfg.Throw.length + 1 then
+			finish(b)
+			return false
+		end
+		if not act.phase then
+			act.phase = "throw"
+			throwSequence(b, act)
+		end
+		standFacing(b, act.at :: Vector3, now)
+		return true
+	end
+
+	local other = act.who :: Model
+	local oh = other.Parent and other:FindFirstChildOfClass("Humanoid")
+	local part = aimPart(other)
+	if not oh or not part or oh.Health <= 0 or (b.hurtAt and (b.hurtAt :: number) > act.started) then
+		finish(b) -- (gone, dead, or it was hit meanwhile)
+		return false
+	end
+	local at = (part :: BasePart).Position
+	local dist = flat(at - root.Position).Magnitude
+
+	if act.kind == "Drag" then
+		if act.phase == "pull" and not Dragging.dragging(m) then
+			-- let go (there, caught on something, up again): then a heal if they're hurt
+			finish(b)
+			if oh.Health / math.max(oh.MaxHealth, 1) < AC.Heal.below then
+				b.act = { kind = "Heal", who = other, started = now }
+				return true
+			end
+			return false
+		end
+		if now - act.started > AC.Drag.seconds or (act.phase == nil and not Ragdoll.active(other)) then
+			finish(b)
+			return false
+		end
+		if act.phase == nil then
+			if dist > DragCfg.Range - 1 then
+				humanoid.WalkSpeed = M.SprintSpeed
+				setGoal(b, at, now)
+				follow(b, now)
+				actPose(b)
+				return true
+			end
+			putAway(b, true)
+			if not Dragging.startAs(m, other) then
+				finish(b)
+				return false
+			end
+			act.phase = "pull"
+			stats.drags += 1
+			if b.anim then
+				(b.anim :: Animate.Handle).play(DragCfg.Animation.id, true)
+			end
+			-- where to: cover from the enemy spot (the cover search's rings), else straight away from it
+			b.threatFrom = (act.from :: Vector3) + Vector3.yAxis * Cfg.Eye
+			b.cover = nil
+			findCover(b, now)
+		end
+		if not act.to then
+			if b.coverJob then
+				coverStep(b)
+			end
+			if b.cover then
+				act.to = b.cover
+			elseif not b.coverJob then
+				local back = flat(root.Position - (act.from :: Vector3))
+				back = if back.Magnitude > 1e-3 then back.Unit else -flat(root.CFrame.LookVector)
+				act.to = inside(b, root.Position + back * AC.Drag.cover)
+			end
+		end
+		if act.to and flat((act.to :: Vector3) - root.Position).Magnitude < MV.Arrive then
+			Dragging.stopAs(m) -- (there: a heal next think, if they're hurt)
+			return true
+		end
+		humanoid.WalkSpeed = DragCfg.Speed
+		setGoal(b, act.to, now)
+		follow(b, now)
+		face(b, at)
+		return true
+	end
+
+	-- a heal
+	if act.phase == "heal" then
+		if not Healing.busy(m) then
+			finish(b) -- (done, or broken off)
+			return false
+		end
+		standFacing(b, at, now)
+		return true
+	end
+	if oh.Health >= oh.MaxHealth or now - act.started > AC.Heal.seconds or Healing.busy(other) then
+		finish(b)
+		return false
+	end
+	if dist > AC.Heal.reach then
+		humanoid.WalkSpeed = if dist > MV.SprintFrom then M.SprintSpeed else M.WalkSpeed
+		setGoal(b, at, now)
+		follow(b, now)
+		actPose(b)
+		return true
+	end
+	putAway(b, true)
+	if not Healing.startAs(m, other) then
+		finish(b)
+		return false
+	end
+	act.phase = "heal"
+	stats.heals += 1
+	say(b, "Heal")
+	healAnimations(b, act)
+	standFacing(b, at, now)
+	return true
+end
+
 local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local m, humanoid, root, tool = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart, b.tool :: Tool
 	local entry = Firing.entry(tool)
@@ -1224,9 +1981,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		if not Ragdoll.active(m) then
 			humanoid:MoveTo(root.Position) -- getting up (src/server/DevDummies.getUp): standing still meanwhile
 		end
+		finish(b)
 		return -- (down: nothing until it is up again)
 	end
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
+		finish(b)
 		-- standing in the wave line until the wave goes: idle, nothing in the hands (user 2026-11-01)
 		if not b.stowed then
 			stow(b)
@@ -1280,6 +2039,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		end
 	end
 	debug.profileend()
+	-- Normal: a drag, a heal or a grenade instead of fighting for a while (Rules/BotActions)
+	if b.mode == "Normal" then
+		debug.profilebegin("Bots.act")
+		if not b.act and now >= b.actAt then
+			weigh(b, now)
+		end
+		local acting = b.act ~= nil and doAct(b, now)
+		debug.profileend()
+		if acting then
+			return
+		end
+	end
 	-- cover from the threat, while there is one
 	local threatened = b.threatAt ~= nil and now - (b.threatAt :: number) < brainCfg.ThreatMemory
 	if b.coverJob then
@@ -1412,6 +2183,10 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	elseif move ~= "Strafe" and move ~= "Peek" and move ~= "Hold" then
 		b.nav.goal = nil
 	end
+	if Healing.busy(m) then
+		-- being healed: it stands for it (the heal breaks off once the two are Break studs apart)
+		b.nav.goal, b.nav.direct = nil, nil
+	end
 	follow(b, now)
 	debug.profileend()
 
@@ -1436,6 +2211,16 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			facing = look.Magnitude > 1e-3 and look.Unit:Dot(f.Unit) > math.cos(math.rad(Cfg.FacingWithin))
 		end
 		pitch = math.clamp(math.deg(math.atan2(to.Y, math.max(f.Magnitude, 1e-3))), -Cfg.PitchLimit, Cfg.PitchLimit)
+	elseif
+		b.postFace
+		and b.role == "Hold"
+		and b.post
+		and flat((b.post :: Vector3) - root.Position).Magnitude < MV.Arrive
+	then
+		-- at its window or doorway with nothing to aim at: looking out of it
+		humanoid.AutoRotate = false
+		turn.CFrame = CFrame.lookAt(Vector3.zero, b.postFace :: Vector3)
+		turn.Enabled = true
 	else
 		humanoid.AutoRotate = true
 		turn.Enabled = false
@@ -1653,6 +2438,35 @@ local function holdSpot(side: string, i: number, taken: { [Vector3]: number }): 
 	return bestAt
 end
 
+-- a window or doorway in sector `i`'s zone facing the enemy's way in, not taken (Rules/BotBuildings.pickHold), or nil
+local function indoorHold(side: string, i: number, taken: { [Vector3]: number }): Indoors.Spot?
+	local s = Map.sectors[i]
+	local c = sectorPoint(i)
+	local within = s.radius + IN.around
+	local spots = {}
+	for _, sp in indoorNear(c, within) do
+		if sp.kind ~= "Cover" then
+			table.insert(spots, sp)
+		end
+	end
+	if #spots == 0 then
+		return nil
+	end
+	local list, rolls = {}, {}
+	for k, sp in spots do
+		list[k] = asSpot(sp, taken[sp.at] or 0)
+		rolls[k] = random:NextNumber()
+	end
+	local toward = if side == "West" then 1 else -1 -- (the enemy's home end: Map 1 runs west to east)
+	local k = Buildings.pickHold(list, c.X, c.Z, within, toward, 0, rolls, IN)
+	if not k then
+		return nil
+	end
+	local sp = spots[k]
+	taken[sp.at] = (taken[sp.at] or 0) + 1
+	return sp
+end
+
 -- Normal: `side`'s bots in squads by order and sector (Rules/BotSquads): each squad's phase this tick, its route
 -- (lane, approach spot, a waypoint on the lane's side) and each member's role and goal
 local function formSquads(side: string, counts: { { West: number, East: number } })
@@ -1679,6 +2493,11 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		end
 	end
 	local taken: { [Vector3]: number } = {}
+	for _, b in bots do
+		if b.side == side and b.postFace and b.post then
+			taken[b.post :: Vector3] = (taken[b.post :: Vector3] or 0) + 1 -- (windows held already)
+		end
+	end
 	for _, gkey in order do
 		local list = groups[gkey]
 		local first = list[1]
@@ -1782,7 +2601,31 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 				end
 			end
+			-- pushing in: a known enemy inside a building there is cleared out (its Assault bots go to the spot by it)
+			sqs.clear = nil
+			if sqs.sq.phase == "Assault" then
+				for _, kn in sqs.known do
+					if now - kn.at <= SQ.knownFor and flat(kn.pos - c).Magnitude <= s.radius + IN.around then
+						local near = indoorNear(kn.pos, IN.clearWithin)
+						local nearSpots = {}
+						for j, sp in near do
+							nearSpots[j] = asSpot(sp, 0)
+						end
+						local by = Buildings.inside(nearSpots, kn.pos.X, kn.pos.Z, IN.clearWithin)
+						if by then
+							sqs.clear = near[by].at
+							break
+						end
+					end
+				end
+			end
 			-- each member's role and goal
+			local indoorHeld = 0
+			for _, b in members do
+				if b.role == "Hold" and b.postFace then
+					indoorHeld += 1
+				end
+			end
 			local route = sqs.mid or sqs.approach or c
 			local ahead = flat(route - mid)
 			local right = if ahead.Magnitude > 1 then ahead.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
@@ -1792,12 +2635,19 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				local p = if b.root then (b.root :: BasePart).Position else mid
 				if role == "Hold" then
 					if not b.post or b.postSector ~= sector or b.roleWas ~= "Hold" then
-						b.post = holdSpot(side, sector, taken) or b.stand
+						-- a few at windows and doorways (Config/Bots.Indoors.perSquad), the rest outside
+						local sp = if indoorHeld < IN.perSquad then indoorHold(side, sector, taken) else nil
+						if sp then
+							indoorHeld += 1
+							b.post, b.postFace = sp.at, sp.face
+						else
+							b.post, b.postFace = holdSpot(side, sector, taken) or b.stand, nil
+						end
 						b.postSector = sector
 					end
 					b.goal = b.post
 				elseif role == "Assault" then
-					b.goal = b.stand
+					b.goal = sqs.clear or b.stand
 				elseif role == "Support" then
 					if b.roleWas ~= "Support" then
 						b.post = p -- (it holds where it stands, covering the others)
@@ -1829,6 +2679,112 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			end
 		end
 	end
+end
+
+-- Normal: `side`'s build list at its front (Rules/BotBuild; Config/Bots.Build): the lay jobs, each matched to its
+-- piece once laid (open while it wants swings; an unlaid one while the bots' caps allow it and it isn't waiting), and
+-- the own pieces near the front wanting swings
+local GUNS = { "FieldGun", "Howitzer" }
+local function buildList(side: string, owner: { string }, level: number)
+	local now = os.clock()
+	local kit: string? = nil
+	for _, b in bots do
+		if b.side == side then
+			kit = b.kit
+			break
+		end
+	end
+	local sb = buildLists[side]
+	if not sb then
+		sb = { front = nil, level = -1, holds = false, lay = {}, works = {}, open = {} }
+		buildLists[side] = sb
+	end
+	local sbs = sb :: SideBuild
+	sbs.open = {}
+	for _, r in sbs.lay do
+		r.open = false
+	end
+	local front = BotBuild.front(Map.sectors, owner, side)
+	if not front or not kit then
+		sbs.front, sbs.lay, sbs.works = nil, {}, {}
+		return
+	end
+	local s = Map.sectors[front :: number]
+	local zone = { x = s.x, z = s.z, radius = s.radius }
+	local tx = if side == "West" then 1 else -1 -- (the enemy's home end: Map 1 runs west to east)
+	local spots = Routes.spots(front :: number, side, true)
+	if front ~= sbs.front or level ~= sbs.level or (not sbs.holds and spots ~= nil) then
+		local holds = {}
+		for _, sp in spots or {} do
+			table.insert(holds, { x = sp.pos.X, z = sp.pos.Z, hidden = sp.hidden })
+		end
+		local guns = {}
+		for _, key in GUNS do
+			if FrontRules.gunLocked(FrontCfg.Artillery, key, level) == nil then
+				table.insert(guns, key)
+			end
+		end
+		sbs.lay = {}
+		for _, job in BotBuild.plan(zone, tx, 0, holds, guns, BD) do
+			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+		end
+		sbs.front, sbs.level, sbs.holds = front, level, spots ~= nil
+	end
+	local works = Build.worksOf(kit)
+	local pieces: { BotBuild.Piece } = {}
+	local mine, ofKey = 0, {}
+	for i, w in works do
+		pieces[i] = { key = w.key, x = w.at.X, z = w.at.Z, left = w.left }
+		if w.owner and (w.owner :: number) < 0 then
+			mine += 1
+			ofKey[w.key] = (ofKey[w.key] or 0) + 1
+		end
+	end
+	local jobs = {}
+	for k, r in sbs.lay do
+		jobs[k] = r.job
+	end
+	local matched = BotBuild.match(jobs, pieces, BD.match)
+	local claimed: { [Model]: boolean } = {}
+	for k, r in sbs.lay do
+		local i = matched[k]
+		if i then
+			local w = works[i]
+			r.model, r.at, r.left = w.model, w.at, w.left
+			claimed[w.model] = true
+			r.open = w.left > 0
+		else
+			r.model, r.at, r.left = nil, nil, 0
+			local key = r.job.key
+			r.open = now >= r.waitUntil and (key == "Trench" or BotBuild.allowed(key, mine, ofKey[key] or 0, BD.caps))
+		end
+		if r.open then
+			table.insert(sbs.open, r)
+		end
+	end
+	local keep: { [Model]: BuildJob } = {}
+	local n = 0
+	for _, i in BotBuild.repairs(pieces, zone, BD.repair, BD.repairs + #sbs.lay) do
+		local w = works[i]
+		if not claimed[w.model] and n < BD.repairs then
+			n += 1
+			local r = sbs.works[w.model]
+			if not r then
+				local job = { key = w.key, x = w.at.X, z = w.at.Z, fx = tx, fz = 0, work = true }
+				r = { job = job, base = job, model = w.model, tries = 0, waitUntil = 0, left = 0, open = true }
+			end
+			local rr = r :: BuildJob
+			rr.at, rr.left, rr.open = w.at, w.left, true
+			keep[w.model] = rr
+			table.insert(sbs.open, rr)
+		end
+	end
+	for model, r in sbs.works do
+		if not keep[model] then
+			r.open = false
+		end
+	end
+	sbs.works = keep
 end
 
 -- Normal: each side's commander (Rules/BotOrders) from the sectors on the Frontline folder: who attacks the side's
@@ -1874,6 +2830,8 @@ local function command()
 			end
 		end
 		formSquads(side, counts)
+		local level = f:GetAttribute(FrontCfg.LevelAttribute)
+		buildList(side, owner, if type(level) == "number" then level else 0)
 	end
 	-- squads no longer formed go
 	for key, sq in squads do
@@ -1894,8 +2852,21 @@ local function report(now: number)
 	local sides: { [string]: number } = {}
 	local roles: { [string]: number } = {}
 	local lods: { [string]: number } = {}
+	local windows, clearing = 0, 0
+	local jobsOpen = 0
+	for _, sb in buildLists do
+		jobsOpen += #sb.open
+	end
+	for _, sq in squads do
+		if sq.clear then
+			clearing += 1
+		end
+	end
 	for _, b in bots do
 		lods[b.lod] = (lods[b.lod] or 0) + 1
+		if b.postFace and b.role == "Hold" and alive(b) then
+			windows += 1
+		end
 		if b.side then
 			sides[b.side :: string] = (sides[b.side :: string] or 0) + 1
 		end
@@ -1927,7 +2898,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -1954,6 +2925,16 @@ local function report(now: number)
 			stats.covering,
 			if #roleParts > 0 then table.concat(roleParts, ", ") else "none",
 			stats.callouts,
+			stats.throws,
+			stats.heals,
+			stats.drags,
+			stats.laid,
+			stats.swings,
+			stats.refused,
+			jobsOpen,
+			stats.doors,
+			windows,
+			clearing,
 			stats.shots,
 			stats.deaths,
 			stats.covers,
@@ -2033,7 +3014,7 @@ function Bots.start()
 				despawn(b)
 				b.deadAt, b.respawnAt = nil, nil
 				b.order, b.sector, b.stand = nil, nil, nil
-				b.squad, b.role, b.goal, b.stop, b.post, b.roleWas = nil, nil, nil, nil, nil, nil
+				b.squad, b.role, b.goal, b.stop, b.post, b.roleWas, b.postFace = nil, nil, nil, nil, nil, nil, nil
 				spawnBody(b)
 			end
 		end
@@ -2043,6 +3024,8 @@ function Bots.start()
 	end)
 	Frontline.onMatchStart(function()
 		Routes.clear() -- (the map is put back: spots worked out again)
+		table.clear(indoorCells)
+		table.clear(buildLists)
 		table.clear(squads)
 		respawnAll("Normal")
 	end)

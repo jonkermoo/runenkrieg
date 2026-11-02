@@ -122,8 +122,8 @@ local function stop(dragger: Model)
 	end
 end
 
-local function start(player: Player, target: Model)
-	local dragger, dh = soldier(player.Character)
+local function start(character: Model?, target: Model)
+	local dragger, dh = soldier(character)
 	local body, bh = soldier(target)
 	if not dragger or not dh or not body or not bh or drags[dragger] then
 		return
@@ -205,6 +205,23 @@ local function tick()
 	end
 end
 
+-- A bot soldier (src/server/Bots) drags `body`: the same checks as a player's ask. True if the drag started. (A bot
+-- draws its own gun again after: the player's re-equip in stop is for a Backpack.)
+function Dragging.startAs(dragger: Model, body: Model): boolean
+	start(dragger, body)
+	return drags[dragger] ~= nil
+end
+
+-- A bot soldier lets go of the body it drags.
+function Dragging.stopAs(dragger: Model)
+	stop(dragger)
+end
+
+-- Whether `dragger` drags a body now.
+function Dragging.dragging(dragger: Model): boolean
+	return drags[dragger] ~= nil
+end
+
 function Dragging.start()
 	Net.event("Drag").OnServerEvent:Connect(function(player: Player, action: unknown, body: unknown)
 		local now = os.clock()
@@ -213,7 +230,7 @@ function Dragging.start()
 		end
 		lastAsk[player] = now
 		if action == "Start" and typeof(body) == "Instance" and body:IsA("Model") then
-			start(player, body)
+			start(player.Character, body)
 		elseif action == "Stop" then
 			local c = player.Character
 			if c then
