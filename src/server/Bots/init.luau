@@ -3997,7 +3997,6 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	end
 	sbs.works = keep
 	-- the posts its trenches give: a fire step on each dug fire-trench square, a place on each support-line square
-	local outward = Vector3.new(tx, 0, 0)
 	sbs.steps, sbs.reserve, sbs.squares = {}, {}, {}
 	for _, w in works do
 		if w.key == "Trench" and w.built and w.hp >= TR.standHp then
@@ -4006,8 +4005,21 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				local d, t = BotTrenches.offRun(w.at.X, w.at.Z, run.ax, run.az, run.bx, run.bz)
 				if d <= TR.on + 1 and t >= -0.05 and t <= 1.05 then
 					if run.kind == "Fire" then
-						local x, z = BotTrenches.fireStep(w.at.X, w.at.Z, tx, 0, STEP)
-						table.insert(sbs.steps, { pos = Vector3.new(x, w.at.Y, z), floor = w.at, face = outward })
+						-- (across its own line, turned with its tilt; its floor riding up as it is buried)
+						local m = w.model
+						local a, e, tilt = m:GetAttribute("BlockA"), m:GetAttribute("BlockB"), m:GetAttribute("Tilt")
+						if typeof(a) == "Vector3" and typeof(e) == "Vector3" then
+							local TB, B = BuildCfg.Trench, require(Shared.Rules.Build)
+							local lean = if type(tilt) == "number" then tilt else 0
+							local sq = { ax = a.X, ay = a.Y, az = a.Z, bx = e.X, by = e.Y, bz = e.Z, tilt = lean }
+							local fill = B.trenchSink(B.trenchDepth(w.hp, true, TB.hp), TB)
+							local p = BotTrenches.firePost(sq, tx, 0, STEP, TR.rise, TB.depth, fill)
+							table.insert(sbs.steps, {
+								pos = Vector3.new(p.sx, p.sy, p.sz),
+								floor = Vector3.new(p.fx, p.fy, p.fz),
+								face = Vector3.new(p.ox, 0, p.oz),
+							})
+						end
 					elseif run.kind == "Support" then
 						table.insert(sbs.reserve, { pos = w.at })
 					end
