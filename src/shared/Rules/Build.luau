@@ -593,26 +593,64 @@ function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
 	return nil
 end
 
--- Whether a dugout at `hp` of `max` shelters the soldiers inside (Config/Build.Dugout `d`): its timber roof is up (its
--- stage, Build.hescoStage, at `d.shelter` or over)
-function Build.dugoutShelters(hp: number, max: number, d: any): boolean
-	return Build.hescoStage(hp, max, d.stages) >= d.shelter
+-- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`): while it is built (`built` false: it has
+-- never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only `d.laid`) and no caving; once it has
+-- stood, every build stage and as many of `d.falls` as `d.cave` thresholds its HP has dropped under
+function Build.dugoutShown(hp: number, max: number, built: boolean, d: any): (number, number)
+	if not built then
+		return Build.hescoStage(hp, max, #d.build), 0
+	end
+	local share, falls = if max > 0 then hp / max * 100 else 0, 0
+	for _, at in d.cave do
+		if share < at then
+			falls += 1
+		end
+	end
+	return #d.build, falls
 end
 
--- How far a blast at `lx`, `ly`, `lz` in a dugout's own frame is from it (`piece` its inside, Config/Build.Dugout `d`):
--- from the box of its inside, the earth packed round its sides and back and its roof; 0 on or in it
-function Build.dugoutDistance(lx: number, ly: number, lz: number, piece: Piece, d: any): number
-	local top = piece.height + d.beam + d.earth
-	local dx = math.max(math.abs(lx) - (piece.width / 2 + d.fill), 0)
-	local dy = math.max(ly - top, -ly, 0)
-	local dz = math.max(-piece.depth / 2 - lz, lz - (piece.depth / 2 + d.fill), 0)
+-- Whether a dugout shelters the soldiers in its room: it has stood once and has HP left (user 2026-11-02: "anything
+-- above them should not hurt them")
+function Build.dugoutShelters(hp: number, built: boolean): boolean
+	return built and hp > 0
+end
+
+-- Whether a point in a dugout's own frame (`lx`, `ly`, `lz` from the foot of the wall it is cut into: x along the
+-- trench, y up from the trench floor, z back into the wall) is in its room (`piece`: width, height, depth; past its
+-- steps, Config/Build.Dugout `d`)
+function Build.inDugout(lx: number, ly: number, lz: number, piece: Piece, d: any): boolean
+	local floor = -d.drop
+	return math.abs(lx) <= piece.width / 2
+		and ly >= floor
+		and ly <= floor + piece.height
+		and lz >= d.stair
+		and lz <= d.stair + piece.depth
+end
+
+-- how far a point is from a box (`x0`..`x1` and so on), 0 in it
+local function boxGap(
+	lx: number,
+	ly: number,
+	lz: number,
+	x: number,
+	y0: number,
+	y1: number,
+	z0: number,
+	z1: number
+): number
+	local dx = math.max(math.abs(lx) - x, 0)
+	local dy = math.max(y0 - ly, ly - y1, 0)
+	local dz = math.max(z0 - lz, lz - z1, 0)
 	return math.sqrt(dx * dx + dy * dy + dz * dz)
 end
 
--- Whether a point in a dugout's own frame (`lx`, `ly`, `lz` from its floor's centre, y up) is inside it (`width` x
--- `height` x `depth`, from its floor up)
-function Build.inDugout(lx: number, ly: number, lz: number, width: number, height: number, depth: number): boolean
-	return Build.inBox(lx, ly - height / 2, lz, width, height, depth)
+-- How far a blast at `lx`, `ly`, `lz` in a dugout's own frame (Build.inDugout) is from it: from its slot (open from
+-- the room's floor up to the ground, `top` over the trench floor) or its room, whichever is nearer; 0 in either
+function Build.dugoutDistance(lx: number, ly: number, lz: number, piece: Piece, d: any, top: number): number
+	local floor = -d.drop
+	local slot = boxGap(lx, ly, lz, d.slot / 2, floor, top, 0, d.stair)
+	local room = boxGap(lx, ly, lz, piece.width / 2, floor, floor + piece.height, d.stair, d.stair + piece.depth)
+	return math.min(slot, room)
 end
 
 -- Which of `variants` board layouts a bridge with `seed` shows, and whether it is turned round

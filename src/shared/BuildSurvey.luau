@@ -370,12 +370,20 @@ function Survey.bridgeSpot(
 	return spot, CFrame.fromMatrix(centre, along, up), (b - a).Magnitude, m
 end
 
+-- The middle of a dugout's footprint, its steps and room, laid at `frame` (Survey.dugoutSpot), on the trench floor;
+-- its size: Vector3(width, height, its steps' run plus its depth)
+function Survey.dugoutBox(piece: Rules.Piece, frame: CFrame): (CFrame, Vector3)
+	local run = C.Dugout.stair + piece.depth
+	return frame * CFrame.new(0, 0, run / 2), Vector3.new(piece.width, piece.height, run)
+end
+
 -- The trench square wall a dugout laid at `p` would go in (Config/Build.Dugout, Rules.dugoutSpot): the block in
 -- `structures` whose line `p` is nearest (within its wall tops and Dugout.reach past them, along it), the wall on the
 -- side `p` is on, and what decides it: its HP and length, whether a trench tees into that wall, a bridge on it, how far
--- the nearest other dugout is (`skip` left out). Also the dugout's frame when there is a square: the middle of its
--- floor (the square's floor at the foot of that wall, its middle along it, `depth` / 2 back into the wall), level,
--- LookVector out of the door into the trench; and the square's model.
+-- the nearest other dugout is (`skip` left out). Also the dugout's frame when there is a square: the square's floor at
+-- the foot of that wall, in its middle along it, level, LookVector out into the trench (its Config/Assets pieces' space:
+-- +Z back into the wall); and the square's model. (A laid dugout's "Frame" is the middle of its footprint, steps and
+-- room: Survey.dugoutBox.)
 function Survey.dugoutSpot(structures: Instance?, p: Vector3, skip: Instance?): (Rules.DugoutSpot, CFrame?, Model?)
 	local spot: Rules.DugoutSpot =
 		{ found = false, dug = 0, length = 0, teed = false, bridge = false, nearest = math.huge }
@@ -430,8 +438,8 @@ function Survey.dugoutSpot(structures: Instance?, p: Vector3, skip: Instance?): 
 	local outT = across * c + Vector3.yAxis * t * c
 	local upT = Vector3.yAxis * c - across * t * c
 	local foot = mid + outT * (side * T.floor) - upT * T.depth
-	local centre = foot + across * side * (piece.depth / 2)
-	local frame = CFrame.lookAt(centre, centre - across * side)
+	local frame = CFrame.lookAt(foot, foot - across * side)
+	local centre = Survey.dugoutBox(piece, frame).Position
 	for _, o in structures:GetChildren() do
 		local f = o:GetAttribute("Frame")
 		local q = Rules.piece(o:GetAttribute("Piece"), C.Pieces)

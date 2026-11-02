@@ -256,10 +256,10 @@ local Build = {
 			depth = 19.2,
 			height = 3.1,
 		},
-		-- The dugout (user 2026-11-02, design approved): a roofed shelter cut into the wall of a dug trench square, its door
-		-- on the trench floor (Dugout below). Engineers only (Config/Classes), `playerCap` each (user: "2 per player").
-		-- `width` along the trench x `height` x `depth` back into the wall: its inside, from the trench floor (a standing
-		-- soldier is 5.13).
+		-- The dugout (user 2026-11-02, design approved): steps cut down through the wall of a dug trench square into a
+		-- small timbered room under the ground (Dugout below). Engineers only (Config/Classes), `playerCap` each (user: "2
+		-- per player"). Its room `width` along the trench x `height` x `depth` back (a standing soldier is 5.13), past its
+		-- steps (Dugout.stair).
 		{
 			key = "Dugout",
 			name = "Dugout",
@@ -267,7 +267,7 @@ local Build = {
 			playerCap = 2,
 			width = 7,
 			depth = 6,
-			height = 6.2,
+			height = 6,
 		},
 		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
 		-- chaining or planner; the look: Config/Assets barbed_wire, Wire below)
@@ -543,46 +543,64 @@ local Build = {
 		ghost = 0.4,
 	},
 
-	-- Dugouts (Pieces kind "Dugout"; user 2026-11-02: "a roofed shelter cut into a trench's rear wall, roofed with timber
-	-- and earth. It's safe from shells and grenades, and it's where the reserve waits"; src/server/Build, Rules
-	-- dugoutSpot). Cut and cover, as they were dug: the ground behind the wall is cut down to the trench floor
-	-- (src/server/Trenches.pocket, `cut` studs past its inside: the terrain's 4-stud voxels), lined with planks, roofed
-	-- with timber and earth, earth packed round it `fill` studs out on its sides and back.
-	-- Laid on the wall of the square the cursor is on (within `reach` of the square's line past its wall tops), on a
-	-- square dug to at least `dug`% and at least the dugout's width plus `spare` long, not on a wall another trench joins,
-	-- not on a square with a bridge, `spacing` studs (centre to centre) from any other dugout. Gone with its square.
-	-- On HP like every structure: laid at `hp.place` (stage 0: its timbers lying on the trench floor), a Build swing of
-	-- its team adds `hp.swing` (repairs too), a Destroy swing takes `hp.destroy`, weapons take `soak` of what they take
-	-- from a sandbag pile (Structures above; user: "shell-proof": a direct rune-mortar shell ~23%); gone at 0, the
-	-- ground filled back. Its stage by HP as a Hesco barrier's (Rules.hescoStage, `stages`): 1 the pocket and its posts,
-	-- 2 the plank lining and the door frame, 3 the timber roof, 4 the earth roof. From `shelter` on (the timber roof up)
-	-- soldiers inside are safe from every blast outside it (src/server/Damage.blast, Build.sheltered; user: a blast
-	-- inside, a grenade through the door, hurts as normal). Sizes: `post` square posts, `plank` thick lining, `beam`
-	-- the roof's timbers, `earth` the earth roof's thickness; the timber roof runs `deckBack` back over the earth behind,
-	-- the earth roof `earthFront` out over the door; the door `door` wide and high; the timbers lying on the trench floor
-	-- at stage 0 `pile` (`count`, `length` long, the first row `gap` in front of the wall, rows `row` apart). Survey:
-	-- another trench's end within `teeGap` of the floor's edge tees into that wall, a bridge whose middle is within
-	-- `bridgeGap` of the square's is on it, a dugout within `same` of another's middle is that one; the walls and heaps
-	-- open from `openFront` in front of its door back past its earth.
+	-- Dugouts (Pieces kind "Dugout"; src/server/Build, Rules dugoutSpot). User 2026-11-02: "just a hole dug into a trench
+	-- wall that goes lower into an empty dugout ... planks on the walls that acts as reinforcements"; from outside the
+	-- trench it "shouldnt look much different". Config/Assets `asset` (tools/blender/dugout/dugout.py): timber steps cut
+	-- down through the wall, `drop` studs over `stair`, `slot` wide, into a room (Pieces: `width` along the trench x
+	-- `height` x `depth` back) under the ground; the ground over the room stays (4-stud voxels: its ceiling must lie a
+	-- stud under the trench floor for whole voxels of earth to stay over it, Studio check 2026-11-02).
+	-- The ground (src/server/Trenches.pocket): the slot cut down to the room's floor `slotCut` studs either side of it, the
+	-- room hollowed `cut` studs past its walls and floor and `cutTop` past its ceiling (the meshes' dirt and planks hide
+	-- the voxels); the trench's walls and heaps open over the slot from `openFront` in front of it. Craters keep `ground`
+	-- studs off it.
+	-- Laid in the wall of the square the cursor is on (within `reach` of the square's line past its wall tops), on a
+	-- square dug to at least `dug`% and at least the dugout's width plus `spare` long, not in a wall another trench joins
+	-- (an end within `teeGap` of its floor's edge), not on a square with a bridge (its middle within `bridgeGap`),
+	-- `spacing` studs (middle to middle) from any other dugout (`same`: that one). It keeps its own HP: a square filled in
+	-- leaves it standing, its steps opening on the fill.
+	-- On HP like every structure: laid at `hp.place` (its timbers lying on the trench floor), a Build swing of its team
+	-- adds `hp.swing` (repairs too), a Destroy swing takes `hp.destroy`, weapons take `soak` of what they take from a
+	-- sandbag pile (Structures above, by how far they are from its slot and room; user: deep in the ground, "heavily
+	-- reduced": a direct rune-mortar shell ~9%). While it is built, its stage by HP (Rules.hescoStage, the meshes of
+	-- `build`[1..stage]; 0: `laid`); once it has stood, all of them, and as it wears it caves in (user: "as the HP goes
+	-- down, it should cave it, forcing players to leave"): under each `cave`% of its HP the next of `falls` shows and its
+	-- heap stands in the room (`heaps`: from, to back along the room as shares of its depth, how high as a share of its
+	-- height). Soldiers inside a dugout that has stood are safe from every blast outside it (src/server/Damage.blast,
+	-- Build.sheltered; user: "anything above them should not hurt them"); a blast in the room hurts as normal. At 0 it
+	-- falls in, the ground filled back, and anyone inside is put `eject` studs over the trench floor in front of its
+	-- steps, or over the ground above if the trench is gone (user: "kick the player into the attached trench or on the
+	-- ground above if the trench fell too"). `walk`: the thickness of the unseen plates you walk and bump on (the meshes
+	-- don't collide).
 	Dugout = {
 		hp = { max = 100, place = 0, swing = 10, destroy = 10 },
-		stages = 4,
-		shelter = 3,
-		soak = 0.25,
+		asset = "dugout_pieces",
+		laid = { "Pile", "PileDark" },
+		build = {
+			{ "SlotEarth", "Steps", "Risers" },
+			{ "RoomEarth" },
+			{ "Frames" },
+			{ "Lining", "Ceiling", "Floorboards" },
+		},
+		falls = { { "Fall1", "Fall1Wood" }, { "Fall2" }, { "Fall3" } },
+		cave = { 75, 50, 25 },
+		heaps = { {}, { 0.45, 1, 0.55 }, { 0.07, 0.6, 0.85 } },
+		-- the meshes' tones by name: the soil's (Trenches.soilColor) for these, the dark timber for these, else the plank
+		soil = { "SlotEarth", "RoomEarth", "Fall1", "Fall2", "Fall3" },
+		dark = { "PileDark", "Steps", "Frames", "Floorboards" },
+		soak = 0.1,
+		drop = 7,
+		stair = 7.5,
+		slot = 3.6,
+		walk = 0.4,
+		cut = 4,
+		cutTop = 1,
+		slotCut = 2,
+		ground = 2,
+		eject = 3,
 		dug = 95,
 		spare = 1,
 		spacing = 10,
 		reach = 6,
-		cut = 2,
-		fill = 3.5,
-		post = 0.5,
-		plank = 0.2,
-		beam = 0.45,
-		earth = 1.3,
-		deckBack = 1.75,
-		earthFront = 0.6,
-		door = { 3.5, 5.6 },
-		pile = { count = 4, length = 5, gap = 0.8, row = 0.1 },
 		teeGap = 1,
 		bridgeGap = 1,
 		same = 1,

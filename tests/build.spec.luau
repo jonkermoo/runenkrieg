@@ -831,34 +831,50 @@ return {
 		assert(spot({ nearest = d.spacing - 1 }) == "Too close to another dugout")
 		assert(spot({ nearest = d.spacing }) == nil)
 	end,
-	["dugouts: Engineers only, 2 each, 10 swings, shelter once the timber roof is up"] = function()
+	["dugouts: Engineers only, 2 each, 10 swings, stages by HP while built, caving in once stood"] = function()
 		local d = C.Dugout
 		local piece = assert(B.piece("Dugout", C.Pieces))
 		assert(piece.playerCap == 2)
 		assert(B.buildSwings(piece, C) == 10)
 		local h = assert(B.hpOf(piece, C))
 		assert(h.place == 0 and h.max == 100)
-		assert(not B.dugoutShelters(0, 100, d) and not B.dugoutShelters(50, 100, d), "no roof yet")
-		assert(B.dugoutShelters(60, 100, d) and B.dugoutShelters(100, 100, d), "the timber roof up")
-		assert(B.hescoStage(60, 100, d.stages) == 3 and B.hescoStage(100, 100, d.stages) == 4)
-		-- a soldier stands upright inside, a 5.13 soldier under the roof
-		assert(piece.height > 5.13 and d.door[2] > 5.13 and d.door[2] < piece.height)
-		assert(B.inDugout(0, 2.5, 0, piece.width, piece.height, piece.depth), "standing in it")
-		assert(not B.inDugout(0, piece.height + 1, 0, piece.width, piece.height, piece.depth), "on its roof")
-		assert(not B.inDugout(0, 2.5, -piece.depth / 2 - 1, piece.width, piece.height, piece.depth), "in the trench")
-		-- shell-proof: a direct rune-mortar shell takes about a quarter of it
-		local howitzer = C.Structures.howitzer.hit * d.soak
-		assert(howitzer > 20 and howitzer < 25)
+		local function shown(hp: number, built: boolean): string
+			local s, f = B.dugoutShown(hp, 100, built, d)
+			return `{s},{f}`
+		end
+		assert(shown(0, false) == "0,0", "laid: its timbers")
+		assert(shown(10, false) == "1,0" and shown(50, false) == "2,0" and shown(90, false) == "4,0", "built by HP")
+		assert(shown(100, true) == "4,0" and shown(80, true) == "4,0", "whole")
+		assert(shown(70, true) == "4,1" and shown(45, true) == "4,2" and shown(20, true) == "4,3", "caving in")
+		assert(#d.falls == #d.cave and #d.heaps == #d.falls)
+		assert(not B.dugoutShelters(100, false), "never stood")
+		assert(B.dugoutShelters(100, true) and B.dugoutShelters(5, true) and not B.dugoutShelters(0, true))
+		-- a soldier stands upright in it; its ceiling lies under the trench floor (whole voxels of earth over it)
+		assert(piece.height > 5.13 and -d.drop + piece.height <= -1)
+		-- its steps: a slope a soldier walks (Config/Metrics: 50 degrees at most)
+		assert(math.deg(math.atan(d.drop / d.stair)) < 50)
 	end,
-	["dugouts: a blast's distance from the dugout, its earth and roof"] = function()
+	["dugouts: in its room, and a blast's distance from its slot and room"] = function()
 		local d = C.Dugout
 		local piece = assert(B.piece("Dugout", C.Pieces))
-		local top = piece.height + d.beam + d.earth
-		assert(B.dugoutDistance(0, 2, 0, piece, d) == 0, "inside")
-		assert(near(B.dugoutDistance(0, top + 3, 0, piece, d), 3), "over its roof")
-		assert(near(B.dugoutDistance(piece.width / 2 + d.fill + 2, 2, 0, piece, d), 2), "beside its earth")
-		assert(near(B.dugoutDistance(0, 2, piece.depth / 2 + d.fill + 4, piece, d), 4), "behind it")
-		assert(near(B.dugoutDistance(0, 2, -piece.depth / 2 - 5, piece, d), 5), "in the trench, off its door")
-		assert(near(B.dugoutDistance(0, -3, -piece.depth / 2 - 4, piece, d), 5), "under the floor and off the door")
+		local floor, back = -d.drop, d.stair + piece.depth
+		local mid = d.stair + piece.depth / 2
+		assert(B.inDugout(0, floor + 2.5, mid, piece, d), "standing in the room")
+		assert(not B.inDugout(0, floor + 2.5, d.stair - 1, piece, d), "on its steps")
+		assert(not B.inDugout(0, 3, mid, piece, d), "on the ground over it")
+		assert(not B.inDugout(piece.width, floor + 2.5, mid, piece, d), "beside it")
+		local top = C.Trench.depth
+		assert(B.dugoutDistance(0, floor + 2, mid, piece, d, top) == 0, "in the room")
+		assert(B.dugoutDistance(0, 1, 2, piece, d, top) == 0, "in the slot")
+		-- over its back: as far as the nearer of its room under the ground and the end of its open slot
+		local slotGap = math.sqrt((back - d.stair) ^ 2 + 9)
+		local roomGap = top + 3 - (floor + piece.height)
+		assert(near(B.dugoutDistance(0, top + 3, back, piece, d, top), math.min(slotGap, roomGap)), "over its back")
+		assert(near(B.dugoutDistance(0, top + 3, 2, piece, d, top), 3), "over its slot")
+		assert(near(B.dugoutDistance(0, 1, -2, piece, d, top), 2), "in the trench, off its steps")
+		assert(near(B.dugoutDistance(0, floor + 2, back + 4, piece, d, top), 4), "behind it")
+		-- deep in the ground: a direct rune-mortar shell takes about a tenth of it
+		local howitzer = C.Structures.howitzer.hit * d.soak
+		assert(howitzer > 5 and howitzer < 12)
 	end,
 }
