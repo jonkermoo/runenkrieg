@@ -5,7 +5,7 @@
 
 local VillageBuild = {}
 
--- deps: { MT, B, P, D, palette, RulesD, Props, Buildings, Library }
+-- deps: { MT, B, P, D, palette, RulesD, Props, Buildings, Library, VillageRules }
 function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): { [string]: number }
 	local MT, B, palette = deps.MT, deps.B, deps.palette
 	local propDeps = { P = deps.P, D = deps.D }
@@ -42,16 +42,56 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 		local copy = template:Clone()
 		copy.Name = lot.id
 		deps.Buildings.paint(copy, deps.RulesD.scheme(B.Templates[lot.style], palette, lot.colorSeed), palette)
-		-- stand on the highest ground under the footprint; the deep foundation fills down the slope
+		-- stand on the highest ground under the footprint and just round its walls, sampled all over it (never sunk
+		-- into a rise between samples); the deep foundation fills down the slope, with a footing under it where the
+		-- ground falls further than it reaches
 		local rx, rz = -lot.fz, lot.fx
-		local hi = -math.huge
-		for _, s in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 }, { 0, 0 }, { 0, -1 }, { 0, 1 } } do
-			local x = lot.x + rx * lot.width / 2 * s[1] + lot.fx * lot.depth / 2 * s[2]
-			local z = lot.z + rz * lot.width / 2 * s[1] + lot.fz * lot.depth / 2 * s[2]
-			hi = math.max(hi, ground(x, z))
+		local hi, lo = -math.huge, math.huge
+		for _, p in deps.VillageRules.footprintPoints(lot, B.GroundSample.pad, B.GroundSample.step) do
+			local y = ground(p[1], p[2])
+			hi, lo = math.max(hi, y), math.min(lo, y)
 		end
 		local pos = Vector3.new(lot.x, hi, lot.z)
-		copy:PivotTo(CFrame.lookAt(pos, pos + Vector3.new(lot.fx, 0, lot.fz)))
+		local at = CFrame.lookAt(pos, pos + Vector3.new(lot.fx, 0, lot.fz))
+		copy:PivotTo(at)
+		local extra = deps.VillageRules.footing(hi, lo, B.FoundationDepth)
+		if extra > 0 then
+			local footing = Instance.new("Part")
+			footing.Name = "Footing"
+			footing.Anchored = true
+			footing.Material = Enum.Material.SmoothPlastic
+			footing.Color = Color3.fromRGB(table.unpack(palette.Buildings.Foundation))
+			footing.Size = Vector3.new(lot.width + 0.6, extra + 1, lot.depth + 0.6)
+			footing.CFrame = at * CFrame.new(0, -B.FoundationDepth - extra / 2 + 0.5, 0)
+			footing.Parent = copy
+		end
+		-- cut the hillside back round it (Rules/Village.cutHeight): a dug terrace, never ground climbing its walls
+		local cut = B.GroundCut
+		local hw, hd = lot.width / 2, lot.depth / 2
+		for u = -hw - cut.reach, hw + cut.reach, cut.cell do
+			for v = -hd - cut.reach, hd + cut.reach, cut.cell do
+				local du, dv = math.max(0, math.abs(u) - hw), math.max(0, math.abs(v) - hd)
+				local allowed = deps.VillageRules.cutHeight(hi, math.sqrt(du * du + dv * dv), cut)
+				if allowed then
+					local x, z = lot.x + rx * u + lot.fx * v, lot.z + rz * u + lot.fz * v
+					local g = ground(x, z)
+					if g > allowed + 0.2 then
+						workspace.Terrain:FillBlock(
+							CFrame.new(x, (allowed + g) / 2 + 2, z),
+							Vector3.new(cut.cell + 0.4, g - allowed + 4, cut.cell + 0.4),
+							Enum.Material.Air
+						)
+					end
+				end
+			end
+		end
+		-- a landmark's headstones and gateway stand on the real ground where they are, not the building's level
+		for _, d in copy:GetDescendants() do
+			if d:IsA("Model") and d:GetAttribute("OnGround") then
+				local p = d:GetPivot().Position
+				d:PivotTo(d:GetPivot() + Vector3.new(0, ground(p.X, p.Z) - hi, 0))
+			end
+		end
 		copy.Parent = bf
 		-- bare-earth yard: no grass tufts (or terrain decoration) poking through the floor
 		local pad = 1.5 -- just around the walls; wider yards blend into the dirt roads
@@ -119,6 +159,61 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 		end
 	end
 	deps.Props.paint(wires, palette)
+
+	-- the railway: two rails on sleepers along x = railX through the map and past it, each segment following the ground
+	if map.village.railX then
+		local R = deps.P.Railway
+		local rf = folder(root, "Railway")
+		local metal = Color3.fromRGB(table.unpack(palette.Buildings.Metal))
+		local wood = Color3.fromRGB(table.unpack(palette.Props.WoodDark))
+		local x0 = map.village.railX
+		local z0, z1 = map.bounds.minZ - R.beyond, map.bounds.maxZ + R.beyond
+		local n = math.ceil((z1 - z0) / R.segment)
+		-- each joint's bed: the highest ground round it, across the sleepers and halfway to the joints either side
+		local bed = {}
+		for i = 0, n do
+			local z = z0 + i * (z1 - z0) / n
+			local samples = {}
+			for k = -R.samples, R.samples do
+				local zk = z + k / R.samples * R.segment / 2
+				for _, dx in { -(R.gauge / 2 + 1), 0, R.gauge / 2 + 1 } do
+					table.insert(samples, ground(x0 + dx, zk))
+				end
+			end
+			bed[i] = deps.VillageRules.railBed(samples)
+		end
+		for i = 0, n - 1 do
+			local seg = Instance.new("Model")
+			seg.Name = "Track"
+			local za, zb = z0 + i * (z1 - z0) / n, z0 + (i + 1) * (z1 - z0) / n
+			local ya, yb = bed[i], bed[i + 1]
+			local function part(name: string, cf: CFrame, size: Vector3, color: Color3)
+				local p = Instance.new("Part")
+				p.Name = name
+				p.Anchored = true
+				p.Material = Enum.Material.SmoothPlastic
+				p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+				p.CFrame, p.Size, p.Color = cf, size, color
+				p.Parent = seg
+			end
+			for _, side in { -1, 1 } do
+				local x = x0 + side * R.gauge / 2
+				local a, b = Vector3.new(x, ya + R.height, za), Vector3.new(x, yb + R.height, zb)
+				part("Rail", CFrame.lookAt((a + b) / 2, b), Vector3.new(0.3, 0.35, (b - a).Magnitude + 0.05), metal)
+			end
+			for k = 0, R.sleepers - 1 do
+				local t = (k + 0.5) / R.sleepers
+				part(
+					"Sleeper",
+					CFrame.new(x0, ya + (yb - ya) * t + 0.12, za + (zb - za) * t),
+					Vector3.new(R.gauge + 2, 0.3, 0.9),
+					wood
+				)
+			end
+			seg.Parent = rf
+		end
+		task.wait()
+	end
 
 	-- point props: signposts, cars, yard clutter, features
 	local props = folder(root, "Props")

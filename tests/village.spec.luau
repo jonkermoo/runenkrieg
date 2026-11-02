@@ -54,7 +54,7 @@ return {
 					assert((c[1] - k.x) ^ 2 + (c[2] - k.z) ^ 2 >= k.r * k.r, `{l.id} in a kept-clear square`)
 				end
 			end
-			assert(not MT.isRiver(Map1, l.x, l.z), `{l.id} in the river`)
+			assert(not MT.isRiver(Map1, l.x, l.z) or B.Templates[l.style].waterside, `{l.id} in the river`)
 		end
 	end,
 	["every road-side house faces its road (door within reach of the road)"] = function()
@@ -133,6 +133,49 @@ return {
 		for _, y in layout.yard do
 			assert(table.find(P.Kinds, y.kind), `unknown yard prop {y.kind}`)
 			assert(MT.roadDistance(Map1, y.x, y.z) > 0, `{y.kind} on a road`)
+		end
+	end,
+	["ground sampled over the whole footprint and round it: corners, edges and inside, no gap over the step"] = function()
+		local g = B.GroundSample
+		for _, l in lots do
+			local pts = V.footprintPoints(l, g.pad, g.step)
+			for _, c in V.corners(l, g.pad) do
+				local hit = false
+				for _, p in pts do
+					hit = hit or (math.abs(p[1] - c[1]) < 1e-6 and math.abs(p[2] - c[2]) < 1e-6)
+				end
+				assert(hit, `{l.id}: a corner isn't sampled`)
+			end
+			local nu = math.ceil((l.width + 2 * g.pad) / g.step)
+			local nv = math.ceil((l.depth + 2 * g.pad) / g.step)
+			assert(#pts == (nu + 1) * (nv + 1), `{l.id}: {#pts} samples`)
+			assert((l.width + 2 * g.pad) / nu <= g.step and (l.depth + 2 * g.pad) / nv <= g.step)
+		end
+	end,
+	["the ground round a building: level with its base near the walls, rising beyond, natural past the reach"] = function()
+		local c = B.GroundCut
+		assert(V.cutHeight(5, 0, c) == 5 and V.cutHeight(5, c.margin, c) == 5)
+		assert(math.abs((V.cutHeight(5, c.margin + 2, c) :: number) - (5 + 2 * c.grade)) < 1e-9)
+		assert(V.cutHeight(5, c.reach + 0.1, c) == nil)
+		assert(V.railBed({ 1, 3.5, -2 }) == 3.5)
+	end,
+	["a footing only where the ground falls past the foundation"] = function()
+		assert(V.footing(10, 5, B.FoundationDepth) == 0)
+		assert(V.footing(10, 0, B.FoundationDepth) == 0)
+		assert(V.footing(10, -4, B.FoundationDepth) == 4)
+	end,
+	["the railway runs clear of every building (a station's footprint stops short of its near rail)"] = function()
+		local x0, half = cfg.railX, P.Railway.gauge / 2 + 0.3
+		for _, l in lots do
+			local q = V.corners(l, 0)
+			local lo, hi = math.huge, -math.huge
+			for _, c in q do
+				lo, hi = math.min(lo, c[1]), math.max(hi, c[1])
+			end
+			assert(hi < x0 - half or lo > x0 + half, `{l.id} stands on the railway`)
+			if B.Templates[l.style].railside then
+				assert(x0 - half - hi < 3, `{l.id} is a station far from its line`)
+			end
 		end
 	end,
 }

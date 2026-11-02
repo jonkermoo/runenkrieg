@@ -204,6 +204,15 @@ local Map1 = {
 		-- time. front = direction the door faces. The church south of the church square, facing it.
 		specials = {
 			{ id = "Church", style = "Church", x = 2100, z = -90, front = { 0, 1 } },
+			-- the coaching inn north of the bridge-head square, facing it across the main road
+			{ id = "Inn", style = "CoachingInn", x = 1800, z = 42, front = { 0, -1 } },
+			-- the farm north of S3, on the point's x: the oast house facing the point, its yard behind
+			{ id = "Oast", style = "OastHouse", x = 1240, z = 72, front = { 0, -1 } },
+			{ id = "FarmYard", style = "HayBarn", x = 1240, z = 118, front = { 0, -1 } },
+			-- the watermill on the S3 bank just south of the lock ford, its door to the west, its wheel in the river
+			{ id = "Mill", style = "Watermill", x = 1450, z = -234, front = { -1, 0 } },
+			-- the railway halt behind the East spawn, facing the line at railX (its platform edge 1.65 off the near rail)
+			{ id = "Halt", style = "RailwayHalt", x = 2517, z = 100, front = { 1, 0 } },
 		},
 
 		railX = 2530,

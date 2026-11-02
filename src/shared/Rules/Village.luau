@@ -35,6 +35,49 @@ function Village.corners(l: Lot, pad: number): { { number } }
 	return out
 end
 
+-- Points over a lot's footprint grown by `pad` all round, no more than `step` apart along each side (corners and edges
+-- included): where the ground is sampled to stand the building on (user 2026-11-01: "make sure no buildings are
+-- submerged"; seven samples missed a rise under a 54-wide church).
+function Village.footprintPoints(l: Lot, pad: number, step: number): { { number } }
+	local rx, rz = -l.fz, l.fx
+	local hw, hd = l.width / 2 + pad, l.depth / 2 + pad
+	local nu, nv = math.max(1, math.ceil(2 * hw / step)), math.max(1, math.ceil(2 * hd / step))
+	local out = {}
+	for i = 0, nu do
+		for j = 0, nv do
+			local u, v = -hw + 2 * hw * i / nu, -hd + 2 * hd * j / nv
+			table.insert(out, { l.x + rx * u + l.fx * v, l.z + rz * u + l.fz * v })
+		end
+	end
+	return out
+end
+
+-- How far below the building's base the ground falls at most, past its foundation's own `depth`: the footing a copy
+-- needs added under it so it never stands on air (0 when the foundation reaches).
+function Village.footing(base: number, lowest: number, depth: number): number
+	return math.max(0, base - lowest - depth)
+end
+
+-- How high the ground may stand `d` studs outside a building's footprint (0 inside it) with its base at `base`: level
+-- with the base out to `cut.margin`, then rising `cut.grade` per stud (a dug terrace, so a hillside never climbs its
+-- walls; user 2026-11-01: "it is still colliding with the texture"); nil past `cut.reach` (natural ground).
+function Village.cutHeight(base: number, d: number, cut: any): number?
+	if d > cut.reach then
+		return nil
+	end
+	return base + math.max(0, d - cut.margin) * cut.grade
+end
+
+-- The height a railway segment is laid at: the highest of the ground samples across and along it, so the ground never
+-- rises over a rail.
+function Village.railBed(samples: { number }): number
+	local y = -math.huge
+	for _, s in samples do
+		y = math.max(y, s)
+	end
+	return y
+end
+
 -- Separating-axis test for two convex quads.
 local function quadsOverlap(a: { { number } }, b: { { number } }): boolean
 	for _, poly in { a, b } do
@@ -419,6 +462,32 @@ local function segmentDistance(x: number, z: number, a: { number }, b: { number 
 	local len2 = dx * dx + dz * dz
 	local t = if len2 == 0 then 0 else math.clamp(((x - a[1]) * dx + (z - a[2]) * dz) / len2, 0, 1)
 	return math.sqrt((x - a[1] - dx * t) ^ 2 + (z - a[2] - dz * t) ^ 2)
+end
+
+-- The map's natural trees (Rules/MapTerrain.trees) less those within `clear` of a hand-placed landmark: a landmark
+-- out in the open (a mill on the river bank) never has a tree through it. Village lots stand in reserved ground,
+-- which grows no natural trees.
+function Village.naturalTrees(map: any, MT: any, lots: { Lot }, clear: number): { any }
+	local quads = {}
+	for _, l in lots do
+		if l.special then
+			table.insert(quads, Village.corners(l, clear))
+		end
+	end
+	local out = {}
+	for _, t in MT.trees(map) do
+		local ok = true
+		for _, q in quads do
+			if Village.pointInQuad(t.x, t.z, q) then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			table.insert(out, t)
+		end
+	end
+	return out
 end
 
 -- A hand-placed layout (a map's `layout`: lots, fences and yard pieces in world studs, as Config/Maps/Playtest) in

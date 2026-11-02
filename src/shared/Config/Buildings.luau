@@ -22,17 +22,26 @@ export type Template = {
 	wallThickness: number?, -- defaults to WallThickness
 	quoins: boolean?, -- stone corner blocks
 	doors: { { center: number, w: number?, h: number? } }?, -- front doors (default: one centered, Metrics size)
-	backDoor: boolean?, -- a door in the back wall too (story 0)
+	backDoor: (boolean | { { center: number, w: number?, h: number? } })?, -- a door in the back wall too (story 0), or a list
 	leftDoor: boolean?, -- and in the -X / +X side walls (a porch turned to face its gable forward)
 	rightDoor: boolean?,
 	windows: number?, -- windows per wall, every wall (default 2 front and back, 1 on the sides)
 	climb: boolean?, -- one more flight up through the ceiling onto the roof (a tower's roof walk)
+	waterside: boolean?, -- stands at the river's edge on purpose (a mill): the village check lets it into the river banks
+	railside: boolean?, -- stands by the railway on purpose (a station): its footprint's front edge may run up to the line
 	-- A landmark (one map's own buildings; user 2026-11-01: "somewhat unique to each map"): several blocks in the
 	-- template's footprint (width x depth), each with the building fields above plus x, z (its centre in the
 	-- footprint), yaw (degrees) and a name; roofStyle "Battlement" is a flat roof walk with a crenellated parapet.
 	blocks: { any }?,
 	-- and things built with it, in the footprint: { kind = "Graves", x, z, yaw?, count, gap } (a row of headstones),
-	-- { kind = "Lychgate", x, z, yaw?, width } (a roofed gateway, open along local Z)
+	-- { kind = "Lychgate", x, z, yaw?, width } (a roofed gateway, open along local Z), { kind = "Sign", x, z, yaw?, height }
+	-- (a hanging inn sign, its arm along local X), { kind = "Kiln", x, z, radius, height, cone } (a round oast kiln),
+	-- { kind = "HayBarn", x, z, length, span, height } (an open-sided barn, ridge along local X), { kind = "Wall", a, b }
+	-- (a stone yard wall from a to b, { x, z } each), { kind = "Waterwheel", x, z, y, yaw?, radius, width } (its axle
+	-- along local Z, its centre y over the base), { kind = "Canopy", x, z, length, depth, height } (a station canopy, its
+	-- wall side +Z), { kind = "Platform", x, z, length, depth, height } (its edge -Z), { kind = "WaterTower", x, z, size,
+	-- height }, { kind = "Signal", x, z, height }. A block's `wall` / `roof` (Palette.Buildings keys) colour it apart from
+	-- the copy's scheme.
 	features: { any }?,
 	description: string,
 }
@@ -43,11 +52,39 @@ local Buildings = {
 	OpeningMargin = 0.35, -- clear gap between an opening's frame and any quoin, chimney or other opening
 	FramePost = 0.5, -- width of the timber posts either side of an opening
 	Foundation = 0.6, -- floor top above the highest ground under the footprint
+	FoundationDepth = 10, -- the template's foundation reaches this far under the base; a copy on steeper ground gets more
+	-- placing a copy: the ground is sampled over its footprint plus `pad` (the walls' outer faces and the plinth), at most
+	-- `step` apart; it stands on the highest sample (src/dev/Greybox/VillageBuild)
+	GroundSample = { pad = 1.5, step = 3 },
+	-- then the terrain round it is cut back (Rules/Village.cutHeight): level with the base `margin` past the walls,
+	-- rising `grade` per stud out to `reach`, in columns `cell` across
+	GroundCut = { margin = 3, reach = 14, grade = 0.9, cell = 2 },
 	WallThickness = 1,
 	-- landmark pieces (Template `blocks` / `features`)
 	Battlement = { wall = 1.6, height = 1.8, merlon = 2.2 }, -- parapet height, merlons on it, a merlon's length
 	Graves = { width = 2, height = 2.8, thick = 0.5, sink = 0.6 }, -- a headstone, sunk into the ground
 	Lychgate = { height = 7, depth = 5, pitch = 40 }, -- post height to the eaves, front to back, roof pitch
+	InnSign = { arm = 3.6, board = { 3, 2.4 } }, -- the arm's reach, the board's width x height
+	-- an oast kiln's colours (Palette.Buildings keys) and its cowl (across, high)
+	Kiln = { wall = "RedBrick", roof = "RedTile", cowlWall = "WhiteBoard", cowl = { 2.6, 3.2 } },
+	-- a Dutch barn: a post every `bay` studs, the roof's arc `rise` over the eaves in `segments` panels a side, `overhang`
+	-- past the posts, its colour; the hay stacks' heights bay by bay and their colour
+	HayBarn = {
+		bay = 6,
+		rise = 4,
+		segments = 3,
+		overhang = 1.2,
+		roof = "RedTile",
+		hay = { 7, 4.5, 8, 2.5 },
+		hayRoof = "Thatch",
+	},
+	YardWall = { height = 2, thick = 1.2, piece = 6, sink = 0.5 }, -- hoppable (Metrics.Cover.HopableLedgeMax)
+	-- a waterwheel: rim pieces round it, spokes across each face, a paddle's reach past the rim, the axle's length
+	Waterwheel = { pieces = 14, spokes = 4, paddle = 1.6, axle = 7 },
+	-- the railway halt's pieces: a canopy post every `posts`, its roof rising `rise` to the wall; colours (Palette keys)
+	Canopy = { posts = 5.5, rise = 1.2, roof = "Slate", valance = "WhiteBoard" },
+	WaterTower = { tank = "TarBoard", spout = 2.4 },
+	Signal = { post = "WhiteBoard", armRoof = "RedTile", arm = 3.2 },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -211,6 +248,194 @@ local Buildings = {
 				{ kind = "Graves", x = -6, z = 22.5, count = 8, gap = 4.4 },
 			},
 			description = "The village church: stone nave and slate roof, a climbable battlemented west tower, a porch, lychgate and churchyard.",
+		},
+		-- The coaching inn on the bridge-head square, the first house over the middle ford: a long two-storey
+		-- whitewashed inn with a cart arch through to its yard (coach doors front and back), a gable chimney and a roof
+		-- one, a tarred-board stable wing with its own wide door, and a hanging sign by the road.
+		CoachingInn = {
+			folder = "Landmarks",
+			width = 46,
+			depth = 22,
+			stories = 2,
+			roofPitch = 40,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Whitewash", "Cream" },
+			roofs = { "DarkTile", "RedTile" },
+			blocks = {
+				{
+					name = "Inn",
+					x = -8,
+					z = -1,
+					width = 30,
+					depth = 16,
+					stories = 2,
+					roofPitch = 40,
+					roofStyle = "Tile",
+					quoins = true,
+					gableChimney = -1,
+					chimneys = { 0.5 },
+					doors = { { center = -10 }, { center = 2, w = 6, h = 8.5 } }, -- the front door, the cart arch
+					backDoor = { { center = 2, w = 6, h = 8.5 } },
+				},
+				{
+					name = "Stable",
+					x = 14,
+					z = 1,
+					width = 14,
+					depth = 12,
+					stories = 1,
+					storyHeight = 10,
+					roofPitch = 35,
+					roofStyle = "Tile",
+					class = "Wood",
+					wallThickness = 1.2,
+					wall = "TarBoard",
+					roof = "Slate",
+					doors = { { center = 0, w = 6, h = 8 } },
+				},
+			},
+			features = {
+				{ kind = "Sign", x = -20, z = -10.5, yaw = 180, height = 9 }, -- by the corner, its arm out over the road
+			},
+			description = "The coaching inn: two-storey whitewashed inn with a cart arch, chimneys, a tarred-board stable wing and a hanging sign.",
+		},
+		-- The farm by S3 (the farm reserve, centred on the point's x so neither approach gets more cover): an oast house,
+		-- two round brick hop kilns with red cones and white cowls at the ends of a two-storey weatherboard store.
+		OastHouse = {
+			folder = "Landmarks",
+			width = 52,
+			depth = 16,
+			stories = 2,
+			roofPitch = 40,
+			class = "Wood",
+			wallThickness = 1.2,
+			walls = { "WhiteBoard" },
+			roofs = { "Slate", "DarkTile" },
+			blocks = {
+				{
+					name = "Store",
+					x = 0,
+					z = 0,
+					width = 26,
+					depth = 14,
+					stories = 2,
+					storyHeight = 9,
+					roofPitch = 40,
+					roofStyle = "Tile",
+					doors = { { center = -4, w = 6, h = 7.5 } },
+				},
+			},
+			features = {
+				{ kind = "Kiln", x = -19, z = 0, radius = 6.5, height = 13, cone = 12 },
+				{ kind = "Kiln", x = 19, z = 0, radius = 6.5, height = 13, cone = 12 },
+			},
+			description = "The farm's oast house: two round brick hop kilns with red cones and white cowls, a weatherboard store between.",
+		},
+		-- and its yard behind: an open-sided Dutch hay barn with hay in its bays, a small shed, stone walls round the back
+		-- and sides (the yard opens to the front)
+		HayBarn = {
+			folder = "Landmarks",
+			width = 40,
+			depth = 30,
+			stories = 1,
+			roofPitch = 30,
+			class = "Wood",
+			wallThickness = 1,
+			walls = { "TarBoard", "BarnRed" },
+			roofs = { "DarkTile", "Slate" },
+			blocks = {
+				{
+					name = "Shed",
+					x = 13,
+					z = 8,
+					width = 10,
+					depth = 8,
+					stories = 1,
+					storyHeight = 9,
+					roofPitch = 30,
+					roofStyle = "Tile",
+				},
+			},
+			features = {
+				{ kind = "HayBarn", x = -6, z = -4, length = 24, span = 14, height = 11 },
+				{ kind = "Wall", a = { -20, 14 }, b = { 20, 14 } },
+				{ kind = "Wall", a = { -20, -14 }, b = { -20, 14 } },
+				{ kind = "Wall", a = { 20, -14 }, b = { 20, 14 } },
+			},
+			description = "The farm's yard: an open-sided Dutch hay barn with hay, a shed and stone yard walls.",
+		},
+		-- The watermill at the lock ford: a two-storey stone mill on the river bank (its back over the bank on a stone
+		-- footing), slate roof, a gable chimney, its door away from the water and a wooden waterwheel beside its river
+		-- wall, its foot in the water.
+		Watermill = {
+			folder = "Landmarks",
+			width = 22,
+			depth = 24,
+			stories = 2,
+			roofPitch = 42,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate", "DarkTile" },
+			storyHeight = 10,
+			waterside = true,
+			blocks = {
+				{
+					name = "Mill",
+					x = 0,
+					z = -3,
+					width = 20,
+					depth = 16,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 42,
+					roofStyle = "Tile",
+					quoins = true,
+					gableChimney = -1,
+				},
+			},
+			features = {
+				{ kind = "Waterwheel", x = 2, z = 7.5, y = 2.5, radius = 7, width = 3.4 },
+			},
+			description = "The watermill at the lock ford: two-storey stone mill on the bank, slate roof, a wooden waterwheel by the river.",
+		},
+		-- The railway halt behind the East spawn, on the line along the map's east edge (Map1.village.railX): a small
+		-- brick station with two chimneys, a canopy over the platform, a water tower at the platform's end and a signal.
+		-- Its front (local -Z) faces the track.
+		RailwayHalt = {
+			folder = "Landmarks",
+			width = 44,
+			depth = 20,
+			stories = 1,
+			storyHeight = 11,
+			roofPitch = 38,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick", "RedBrick" },
+			roofs = { "Slate" },
+			railside = true,
+			blocks = {
+				{
+					name = "Station",
+					x = -6,
+					z = 5,
+					width = 18,
+					depth = 10,
+					stories = 1,
+					storyHeight = 11,
+					roofPitch = 38,
+					roofStyle = "Tile",
+					chimneys = { -0.6, 0.6 },
+				},
+			},
+			features = {
+				{ kind = "Platform", x = 0, z = -4.5, length = 44, depth = 9, height = 1 },
+				{ kind = "Canopy", x = -6, z = -4, length = 22, depth = 8, height = 9 },
+				{ kind = "WaterTower", x = 17, z = 5, size = 6, height = 13 },
+				{ kind = "Signal", x = 20.5, z = -7.5, height = 12 },
+			},
+			description = "The railway halt: a small brick station, platform and canopy, a water tower and a signal.",
 		},
 	} :: { [string]: Template },
 

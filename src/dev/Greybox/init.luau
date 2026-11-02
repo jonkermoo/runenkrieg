@@ -55,15 +55,19 @@ function Greybox.build(mapName: string): string
 	root.Name = mapName
 	root.Parent = workspace
 
-	-- a hand-placed layout (map.layout) keeps its natural trees off its buildings (Rules/Village.fixed)
+	-- a hand-placed layout (map.layout) keeps its natural trees off its buildings (Rules/Village.fixed); a village's
+	-- landmarks out in the open clear theirs too (Rules/Village.naturalTrees)
+	local P = fresh(Shared.Config.Props)
 	local fixed = if map.layout then VillageRules.fixed(map, B, M, MT) else nil
-	local trees =
-		Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette, if fixed then fixed.trees else nil)
+	local layout = fixed or (if map.village then VillageRules.layout(map, B, M, MT, P) else nil)
+	local natural = if fixed
+		then fixed.trees
+		elseif layout then VillageRules.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear)
+		else nil
+	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette, natural)
 	-- Village: roads are painted into the terrain by Rules/MapTerrain; buildings + props from the library.
 	local villageStats = ""
-	if map.village or fixed then
-		local P = fresh(Shared.Config.Props)
-		local layout = fixed or VillageRules.layout(map, B, M, MT, P)
+	if layout then
 		if not fixed then
 			Trees.build(Parts.folder(root, "VillageTrees"), map, MT, treeKit, assets, palette, layout.trees)
 		end
@@ -77,6 +81,7 @@ function Greybox.build(mapName: string): string
 			Props = fresh(game:GetService("ServerStorage").Dev.Props),
 			Buildings = fresh(game:GetService("ServerStorage").Dev.Buildings),
 			Library = Library,
+			VillageRules = VillageRules,
 		})
 		villageStats = string.format(
 			" Village: %d buildings, %d boundary runs, %d poles, %d props, %d garden trees.",

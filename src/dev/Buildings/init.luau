@@ -31,8 +31,8 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 		ctx,
 		"Foundation",
 		-- deep foundation: placed copies sit on the highest ground under the footprint (uneven terrain)
-		CFrame.new(0, (floorTop - 1 - 10) / 2, 0),
-		Vector3.new(W + 0.6, floorTop - 1 + 10, Dp + 0.6),
+		CFrame.new(0, (floorTop - 1 - B.FoundationDepth) / 2, 0),
+		Vector3.new(W + 0.6, floorTop - 1 + B.FoundationDepth, Dp + 0.6),
 		"Foundation"
 	)
 	Geometry.slab(model, ctx, cf, { -W / 2, W / 2, -Dp / 2, Dp / 2 }, floorTop, "Floor", -1, "Floor")
@@ -72,8 +72,13 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				CFrame.new(0, y, Dp / 2 - T / 2) * CFrame.Angles(0, math.pi, 0),
 				W,
 				ends(W, W / 2),
-				-- a back door (a church porch's, opening on the nave's front door behind it)
-				if story == 0 and t.backDoor then { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } } else nil,
+				-- a back door (a church porch's, opening on the nave's front door behind it), or a list of them (an inn's
+				-- cart arch through to the yard)
+				if story == 0 and t.backDoor
+					then (if type(t.backDoor) == "table"
+						then t.backDoor
+						else { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } })
+					else nil,
 				t.windows or 2,
 			},
 			{
@@ -176,6 +181,7 @@ function Buildings.build(name: string, deps: Deps): Model
 			sub.Name = b.name or `Block{i}`
 			ctx.T = b.wallThickness or t.wallThickness or deps.B.WallThickness
 			ctx.class = b.class or t.class
+			ctx.wallKey, ctx.roofKey = b.wall, b.roof
 			local _, wallTop = shell(sub, b, ctx, deps)
 			roofAndExtras(sub, b, ctx, wallTop)
 			for key, n in sub:GetAttributes() do
@@ -184,9 +190,13 @@ function Buildings.build(name: string, deps: Deps): Model
 					sub:SetAttribute(key, nil)
 				end
 			end
+			-- (a new Model's pivot is its bounding box's centre: put it back on the block's ground first, or the block
+			-- sinks by half its height)
+			sub.WorldPivot = CFrame.identity
 			sub:PivotTo(CFrame.new(b.x, 0, b.z) * CFrame.Angles(0, math.rad(b.yaw or 0), 0))
 			sub.Parent = model
 		end
+		ctx.wallKey, ctx.roofKey = nil, nil
 		for key, n in counts do
 			model:SetAttribute(key, n)
 		end
@@ -196,6 +206,24 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.graves(model, ctx, at, f.count, f.gap)
 			elseif f.kind == "Lychgate" then
 				Geometry.lychgate(model, ctx, at, f.width)
+			elseif f.kind == "Sign" then
+				Geometry.sign(model, ctx, at, f.height)
+			elseif f.kind == "Kiln" then
+				Geometry.kiln(model, ctx, at, f.radius, f.height, f.cone)
+			elseif f.kind == "HayBarn" then
+				Geometry.hayBarn(model, ctx, at, f.length, f.span, f.height)
+			elseif f.kind == "Wall" then
+				Geometry.yardWall(model, ctx, f.a, f.b)
+			elseif f.kind == "Canopy" then
+				Geometry.canopy(model, ctx, at, f.length, f.depth, f.height)
+			elseif f.kind == "Platform" then
+				Geometry.platform(model, ctx, at, f.length, f.depth, f.height)
+			elseif f.kind == "WaterTower" then
+				Geometry.waterTower(model, ctx, at, f.size, f.height)
+			elseif f.kind == "Signal" then
+				Geometry.signal(model, ctx, at, f.height)
+			elseif f.kind == "Waterwheel" then
+				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end
@@ -234,6 +262,13 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 		if d:IsA("BasePart") then
 			local role = d:GetAttribute("Paint")
 			local c = role and colors[role]
+			-- a landmark block's own colour (Geometry.part's Swatch: a stable's tarred boards beside a whitewashed inn)
+			local swatch = d:GetAttribute("Swatch")
+			if swatch and role == "Wall" and P.Walls[swatch] then
+				c = rgb(P.Walls[swatch])
+			elseif swatch and role == "Roof" and P.Roofs[swatch] then
+				c = rgb(P.Roofs[swatch])
+			end
 			if c then
 				-- hand-made look: each piece a few % lighter/darker (deterministic Tone from generation)
 				local k = 1 + jit * (d:GetAttribute("Tone") or 0)
