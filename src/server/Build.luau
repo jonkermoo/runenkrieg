@@ -1270,14 +1270,21 @@ local function sectorOf(p: Vector3): string
 	return SectorRules.sectorAt(Map1, MapTerrain, p.X, p.Z, SectorCfg.Divider.RiverSegments)
 end
 
--- why a gun can't be built yet in a Normal match (its artillery level, src/server/Frontline); nil outside one
-local function gunLocked(key: string): string?
+-- why `team` can't build a gun yet in a Normal match (its side's sectors held, src/server/Frontline); nil outside one
+local function gunLocked(key: string, team: string?): string?
 	local front = workspace:FindFirstChild(FrontCfg.FolderName)
-	local level = front and front:GetAttribute(FrontCfg.LevelAttribute)
-	if type(level) ~= "number" then
+	if not front or not team then
 		return nil
 	end
-	return FrontRules.gunLocked(FrontCfg.Artillery, key, level)
+	local side = if front:GetAttribute("West") == team
+		then "West"
+		elseif front:GetAttribute("East") == team then "East"
+		else nil
+	local held = side and front:GetAttribute(side .. FrontCfg.HeldAttribute)
+	if type(held) ~= "number" then
+		return nil
+	end
+	return FrontRules.gunLocked(FrontCfg.Artillery, key, held)
 end
 
 -- who builds: a player's character or a bot soldier (Config/Bots.Tag), its id (a UserId or a bot's negative
@@ -1464,7 +1471,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		kind = if dev then 0 else count(team, nil, piece.key),
 		mineKind = if dev then 0 else count(team, b.id, piece.key),
 		sector = if dev or not sector then 0 else count(team, nil, piece.key, sector),
-		locked = if dev then nil else gunLocked(piece.key),
+		locked = if dev then nil else gunLocked(piece.key, team),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
 		-- (only engineers build guns: Config/Classes; the admin panel's build anything: everyone)

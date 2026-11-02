@@ -274,7 +274,7 @@ local Bots = {
 	-- - Bags: a sandbag pile `ahead` studs in front of each outdoor hold spot with no cover (the first `max`).
 	-- - Wire: a strip `out` studs past the zone's edge on each of `lanes` (studs across from the middle).
 	-- - Nest: an MG nest `ahead` of the hold spot nearest the enemy.
-	-- - Guns: the guns the artillery level opens, `back` studs behind the zone's middle, `side` apart.
+	-- - Guns: the guns its side may build (Rules/Frontline.gunLocked), `back` studs behind the zone's middle, `side` apart.
 	-- - repairs: own pieces within `repair` studs past the zone's edge that want swings (the nearest `repairs`).
 	-- (the trenches: Trenches below.) Engineers take the nearest job within `take` studs; a digger (Trenches.share of a
 	-- holding squad) takes a trench job within `take` and helps work wire within `help`. A bot

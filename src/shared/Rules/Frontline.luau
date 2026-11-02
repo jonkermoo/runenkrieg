@@ -160,17 +160,18 @@ function Frontline.lineQuads(sectors: { any }, line: any, pad: number): { { { nu
 	return out
 end
 
--- The artillery level after `lost` sectors were lost this match (CAMPAIGN.md: both sides up one each time, at most
--- `cfg.max`), and why a gun `key` can't be built at `level` (nil: it can; keys without a level never wait).
-function Frontline.gunLevel(cfg: any, lost: number): number
-	return math.clamp(lost, 0, cfg.max)
+-- How many sectors `side` holds in an unbroken run from its own end (1: only its HQ).
+function Frontline.held(state: State, side: Side): number
+	return run(state, side)
 end
-function Frontline.gunLocked(cfg: any, key: string, level: number): string?
-	local need = cfg.unlock[key]
-	if not need or level >= need then
-		return nil
+
+-- Why `side` can't build gun `key` while it holds `held` sectors from its end (Config/Frontline.Artillery: a
+-- `lastStand` gun only at its last sector); nil: it can, and keys not listed never wait.
+function Frontline.gunLocked(cfg: any, key: string, held: number): string?
+	if cfg.lastStand[key] and held > 1 then
+		return cfg.why
 	end
-	return if need <= 1 then "Unlocks when a sector is lost" else `Unlocks when {need} sectors are lost`
+	return nil
 end
 
 -- The side the reinforcements boost goes to (Config/Frontline.Reinforcements): the smaller one, while the other has

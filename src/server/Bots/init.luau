@@ -415,12 +415,13 @@ type SquadState = {
 local squads: { [string]: SquadState } = {}
 
 -- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again
--- when the front or the artillery level changes, or once the hold spots are found), each matched to its piece once
--- laid, and the own pieces near the front wanting swings; `open` the jobs a bot may take now
+-- when the front or the side's sectors held change, which sets the guns it may build, or once the hold spots are
+-- found), each matched to its piece once laid, and the own pieces near the front wanting swings; `open` the jobs a bot
+-- may take now
 type TrenchPost = { pos: Vector3, floor: Vector3?, face: Vector3? }
 type SideBuild = {
 	front: number?,
-	level: number,
+	held: number, -- its sectors held from its end when planned (Rules/Frontline.held)
 	holds: boolean,
 	lay: { BuildJob },
 	works: { [Model]: BuildJob },
@@ -3687,7 +3688,7 @@ function Guns.spots(front: number, side: string, zone: BotBuild.Zone, tx: number
 		return ArtRules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y) ~= nil
 	end)
 end
-local function buildList(side: string, owner: { string }, level: number)
+local function buildList(side: string, owner: { string }, fromEnd: number)
 	local now = os.clock()
 	local kit: string? = nil
 	for _, b in bots do
@@ -3700,7 +3701,7 @@ local function buildList(side: string, owner: { string }, level: number)
 	if not sb then
 		sb = {
 			front = nil,
-			level = -1,
+			held = -1,
 			holds = false,
 			lay = {},
 			works = {},
@@ -3733,14 +3734,14 @@ local function buildList(side: string, owner: { string }, level: number)
 	local zone = { x = s.x, z = s.z, radius = s.radius }
 	local tx = if side == "West" then 1 else -1 -- (the enemy's home end: Map 1 runs west to east)
 	local spots = Routes.spots(front :: number, side, true)
-	if front ~= sbs.front or level ~= sbs.level or (not sbs.holds and spots ~= nil) then
+	if front ~= sbs.front or fromEnd ~= sbs.held or (not sbs.holds and spots ~= nil) then
 		local holds = {}
 		for _, sp in spots or {} do
 			table.insert(holds, { x = sp.pos.X, z = sp.pos.Z, hidden = sp.hidden })
 		end
 		local guns = {}
 		for _, key in Guns.list do
-			if FrontRules.gunLocked(FrontCfg.Artillery, key, level) == nil then
+			if FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd) == nil then
 				table.insert(guns, key)
 			end
 		end
@@ -3790,7 +3791,7 @@ local function buildList(side: string, owner: { string }, level: number)
 			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = run }
 			table.insert(sbs.lay, r)
 		end
-		sbs.front, sbs.level, sbs.holds = front, level, spots ~= nil
+		sbs.front, sbs.held, sbs.holds = front, fromEnd, spots ~= nil
 	end
 	local works = Build.worksOf(kit)
 	-- what lost HP lately (Rules/BotBuild.mayRepair): no swings at it until BD.repairWait after
@@ -4101,8 +4102,7 @@ local function command()
 			end
 		end
 		formSquads(side, counts)
-		local level = f:GetAttribute(FrontCfg.LevelAttribute)
-		buildList(side, owner, if type(level) == "number" then level else 0)
+		buildList(side, owner, FrontRules.held(state, side))
 	end
 	ByTrench.mark()
 	-- squads no longer formed go
