@@ -110,4 +110,13 @@ function Camera.spring(x: number, v: number, target: number, rate: number, dt: n
 	return target + (d + k) * e, (v - rate * k) * e
 end
 
+-- How far out from the head the camera may sit while knocked down (Config/Camera.Down): the `want` distance, or `gap`
+-- short of what a sweep from the head hit `hit` studs out (nil: nothing), never behind the head.
+function Camera.downReach(want: number, hit: number?, gap: number): number
+	if hit == nil then
+		return want
+	end
+	return math.clamp(hit - gap, 0, want)
+end
+
 return Camera
