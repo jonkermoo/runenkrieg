@@ -98,7 +98,7 @@ local function attach(character: Model)
 		last = now
 		local surface = surfaceOf(hit)
 		-- a different recording from this surface's last one
-		local count = Cfg.Count[surface]
+		local count = Rules.count(Cfg, surface)
 		local k = rng:NextInteger(1, count)
 		if k == lastPick[surface] and count > 1 then
 			k = k % count + 1

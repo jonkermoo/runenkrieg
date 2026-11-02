@@ -33,15 +33,21 @@ function Footsteps.heard(cfg: any, gait: string, distance: number): boolean
 	return distance <= (cfg.Range[gait] or cfg.Range.walk)
 end
 
+-- How many recordings `surface` has (its group in the sheet: Config/Footsteps.Recordings, else its own name).
+function Footsteps.count(cfg: any, surface: string): number
+	return cfg.Count[cfg.Recordings[surface] or surface] or 0
+end
+
 -- Where the `k`th recording (1-based, wrapping) of `surface` starts in the sheet, and how long it plays.
 function Footsteps.slot(cfg: any, surface: string, k: number): (number, number)
+	local group = cfg.Recordings[surface] or surface
 	local first = 0
-	for _, s in cfg.Order do
-		if s == surface then
-			local i = (k - 1) % cfg.Count[s]
+	for _, g in cfg.Order do
+		if g == group then
+			local i = (k - 1) % cfg.Count[g]
 			return (first + i) * cfg.Slot, cfg.Length
 		end
-		first += cfg.Count[s]
+		first += cfg.Count[g]
 	end
 	error(`no footsteps for surface {surface}`)
 end
