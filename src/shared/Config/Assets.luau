@@ -81,14 +81,16 @@ local Assets = {
 			description = "Nagant M1895 revolver, the olive team's Engineer pistol (its shape from a low-poly reference: tools/blender/weapons/trace/nagant.py; a round part per chamber shows the rounds left). Rigged from Config/Weapons.",
 		},
 		rifle_g98 = {
-			-- v3: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds should be);
-			-- v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
-			id = 71283772137659,
+			-- v4 (2026-11-02): polished against a reference model: the real 1250 mm, the Lange Visier's curved side
+			-- plates, a narrow middle band, the handguard 4 mm taller (master assets/weapons/grey/rifle_g98.blend)
+			-- v3 71283772137659: a metal-lined magazine well under the action (user 2026-10-19: wood showed where the rounds
+			-- should be); v2 87306177976563: sight line 0.057 over the bore (v1 78115054198721)
+			id = 110880808137596,
 			category = "Weapons",
 			folder = "Grey/Rifles",
 			source = "assets/weapons/grey/rifle_g98.fbx",
-			generator = "tools/blender/weapons/gewehr98.py",
-			description = "Gewehr 98 rifle, the grey team's default (built from its trace: tools/blender/weapons/trace/gewehr98.py). Rigged from Config/Weapons.",
+			generator = "tools/blender/weapons/export_blend.py",
+			description = "Gewehr 98 rifle, the grey team's default (master: assets/weapons/grey/rifle_g98.blend, from its trace and tools/blender/weapons/polish_g98.py). Rigged from Config/Weapons.",
 		},
 		pistol_c96 = {
 			id = 94392928383424,
