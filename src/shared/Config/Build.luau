@@ -731,6 +731,8 @@ local Build = {
 		ejectRay = { 40, 80 }, -- (the ground over its room found from this high over its floor, this far down)
 		dug = 95,
 		spare = 1,
+		-- (a square's measured length comes up this much short of whole: an 8-stud square on the flat reads 7.99993)
+		lengthSlack = 0.01,
 		spacing = 10,
 		reach = 6,
 		teeGap = 1,
