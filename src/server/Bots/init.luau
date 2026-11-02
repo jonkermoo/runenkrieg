@@ -53,6 +53,7 @@ local Classes = require(Shared.Config.Classes)
 local DamageCfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
 local FrontCfg = require(Shared.Config.Frontline)
+local IndoorCfg = require(Shared.Config.Indoors)
 local DragCfg = require(Shared.Config.Dragging)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local HealCfg = require(Shared.Config.Healing)
@@ -70,6 +71,7 @@ local F = require(Shared.Rules.Firing)
 local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
 local Actions = require(Shared.Rules.BotActions)
+local Buildings = require(Shared.Rules.BotBuildings)
 local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
 local ShotRules = require(Shared.Rules.ShotAudio)
@@ -79,11 +81,13 @@ local Armory = require(script.Parent.Armory)
 local Concussion = require(script.Parent.Concussion)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
+local Doors = require(script.Parent.Doors)
 local Dragging = require(script.Parent.Dragging)
 local Firing = require(script.Parent.Firing)
 local Frontline = require(script.Parent.Frontline)
 local Grenades = require(script.Parent.Grenades)
 local Healing = require(script.Parent.Healing)
+local Indoors = require(script.Parent.Indoors)
 local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
 local MatchStats = require(script.Parent.MatchStats)
@@ -105,6 +109,7 @@ local BG = Cfg.Budget
 local CV = MV.Cover
 local brainCfg = Cfg.Brain :: any
 local AC = Cfg.Actions
+local IN = Cfg.Indoors
 
 type Target = { model: Model, distance: number, visible: boolean }
 
@@ -119,6 +124,7 @@ type Nav = {
 	jumps: number,
 	repaths: number,
 	direct: Vector3?, -- a point walked to straight, without a path (strafing, a peek, a step aside)
+	doorAt: number, -- when it last opened a door on its way (it waits while the door swings)
 }
 
 -- Normal: what a bot does instead of fighting for a while (Rules/BotActions): a drag of `who` to `to` (cover from the
@@ -182,6 +188,7 @@ type Bot = {
 	stop: Vector3?, -- Normal: a bound's next stop
 	post: Vector3?, -- Normal: where it holds (its covering-fire spot, or its hold spot in the zone)
 	postSector: number?, -- the sector its hold spot is in
+	postFace: Vector3?, -- its hold spot is a window or doorway facing this way out (src/server/Indoors)
 	roleWas: Squads.Role?,
 	grip: Motor6D?, -- the gun's hold joint (to the torso)
 	stowed: boolean, -- its gun put away (standing in the wave line)
@@ -237,6 +244,7 @@ local stats = {
 	throws = 0, -- grenades thrown
 	heals = 0, -- heals started
 	drags = 0, -- drags started
+	doors = 0, -- doors opened on the way
 	covering = 0, -- shots of covering fire
 	assaults = 0, -- squads that pushed into a zone
 	stoodUp = 0, -- bodies found lying after a knock, stood up
@@ -255,6 +263,7 @@ type SquadState = {
 	known: { Known },
 	seen: number, -- the commander's tick it was last formed (gone ones are dropped)
 	threwAt: number?, -- its last grenade (Config/Bots.Actions.Grenade.squadEvery)
+	clear: Vector3?, -- pushing in: the indoor spot by a known enemy inside a building (its Assault bots go there)
 }
 local squads: { [string]: SquadState } = {}
 local commandTick = 0
@@ -406,6 +415,7 @@ local function newNav(at: Vector3): Nav
 		jumps = 0,
 		repaths = 0,
 		direct = nil,
+		doorAt = -math.huge,
 	}
 end
 
@@ -876,6 +886,32 @@ local function findCover(b: Bot, now: number)
 	b.coverJob = { threat = threat, ring = 1, here = flat(root.Position - threat).Magnitude }
 end
 
+-- the indoor spots (src/server/Indoors) within `within` studs of `at`, looked up by Config/Bots.Indoors `cell`-stud
+-- squares, each kept `keep` seconds (a building broken meanwhile shows up at the next look)
+local indoorCells: { [string]: { at: number, spots: { Indoors.Spot } } } = {}
+local function indoorNear(at: Vector3, within: number): { Indoors.Spot }
+	local cx, cz = math.floor(at.X / IN.cell), math.floor(at.Z / IN.cell)
+	local key = `{cx}:{cz}`
+	local now = os.clock()
+	local c = indoorCells[key]
+	if not c or now - c.at > IN.keep then
+		local centre = Vector3.new((cx + 0.5) * IN.cell, at.Y, (cz + 0.5) * IN.cell)
+		c = { at = now, spots = Indoors.near(centre, IN.cell * 0.71 + within + IN.slack) }
+		indoorCells[key] = c
+	end
+	local out = {}
+	for _, s in (c :: any).spots do
+		if flat(s.at - at).Magnitude <= within then
+			table.insert(out, s)
+		end
+	end
+	return out
+end
+
+local function asSpot(s: Indoors.Spot, taken: number): Buildings.Spot
+	return { x = s.at.X, z = s.at.Z, fx = s.face.X, fz = s.face.Z, story = s.story, taken = taken }
+end
+
 -- the nearest teammate (from this frame's snapshot) within `within` studs of `at`, not `b` itself; nil if none
 local function mateNear(b: Bot, at: Vector3, within: number): Vector3?
 	local all, n = soldiersNow()
@@ -914,6 +950,32 @@ local function coverStep(b: Bot)
 			table.insert(spots, g)
 			table.insert(points, {
 				distance = r,
+				hidden = hidden(job.threat, g, exclude),
+				threat = flat(g - job.threat).Magnitude,
+				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil,
+			})
+		end
+	end
+	-- the first ring also tries the indoor cover spots close by (Config/Bots.Indoors.cover)
+	if job.ring == 1 then
+		local indoor = {}
+		for _, s in indoorNear(root.Position, CV.reach) do
+			if s.kind == "Cover" then
+				table.insert(indoor, s)
+			end
+		end
+		local list = {}
+		for k, s in indoor do
+			list[k] = asSpot(s, 0)
+		end
+		local p = root.Position
+		for _, k in
+			Buildings.coverCandidates(list, p.X, p.Z, job.threat.X, job.threat.Z, CV.reach, CV.minThreatGain, IN.cover)
+		do
+			local g = indoor[k].at
+			table.insert(spots, g)
+			table.insert(points, {
+				distance = flat(g - p).Magnitude,
 				hidden = hidden(job.threat, g, exclude),
 				threat = flat(g - job.threat).Magnitude,
 				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil,
@@ -1088,6 +1150,7 @@ local function computePath(b: Bot, goal: Vector3, own: boolean?): boolean
 			AgentHeight = MV.AgentHeight,
 			AgentCanJump = true,
 			WaypointSpacing = MV.WaypointSpacing,
+			Costs = IndoorCfg.PathCosts, -- (through doorways and up stairs: src/server/Indoors' links)
 		})
 		pathOf[b.id] = path
 	end
@@ -1160,6 +1223,21 @@ local function follow(b: Bot, now: number)
 	local target: Vector3? = if nav.direct then inside(b, nav.direct :: Vector3) else nil
 	if not target and nav.goal then
 		local wp = nav.waypoints[nav.index]
+		-- a door on the way (a "Door" link's waypoint): opened from its reach, then a moment while it swings
+		if wp and wp.Label == IndoorCfg.Links.door then
+			local d = flat(wp.Position - root.Position).Magnitude
+			local door = if d <= IN.doorReach then Doors.nearest(wp.Position, 8) else nil
+			local shut = door ~= nil and not Doors.isOpen(door)
+			if door and shut and Doors.openFor(b.m :: Model, door) then
+				nav.doorAt = now
+				stats.doors += 1
+			end
+			if door and Buildings.waitForDoor(true, d, shut, now - nav.doorAt, IN) then
+				humanoid:MoveTo(root.Position)
+				nav.sampleAt, nav.samplePos = now, root.Position
+				return
+			end
+		end
 		if wp then
 			-- (thinking less often, it counts a waypoint reached from farther, so it never stops at one)
 			local arrive = math.max(MV.Arrive, humanoid.WalkSpeed / b.thinkHz * 0.6)
@@ -1896,6 +1974,16 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			facing = look.Magnitude > 1e-3 and look.Unit:Dot(f.Unit) > math.cos(math.rad(Cfg.FacingWithin))
 		end
 		pitch = math.clamp(math.deg(math.atan2(to.Y, math.max(f.Magnitude, 1e-3))), -Cfg.PitchLimit, Cfg.PitchLimit)
+	elseif
+		b.postFace
+		and b.role == "Hold"
+		and b.post
+		and flat((b.post :: Vector3) - root.Position).Magnitude < MV.Arrive
+	then
+		-- at its window or doorway with nothing to aim at: looking out of it
+		humanoid.AutoRotate = false
+		turn.CFrame = CFrame.lookAt(Vector3.zero, b.postFace :: Vector3)
+		turn.Enabled = true
 	else
 		humanoid.AutoRotate = true
 		turn.Enabled = false
@@ -2113,6 +2201,35 @@ local function holdSpot(side: string, i: number, taken: { [Vector3]: number }): 
 	return bestAt
 end
 
+-- a window or doorway in sector `i`'s zone facing the enemy's way in, not taken (Rules/BotBuildings.pickHold), or nil
+local function indoorHold(side: string, i: number, taken: { [Vector3]: number }): Indoors.Spot?
+	local s = Map.sectors[i]
+	local c = sectorPoint(i)
+	local within = s.radius + IN.around
+	local spots = {}
+	for _, sp in indoorNear(c, within) do
+		if sp.kind ~= "Cover" then
+			table.insert(spots, sp)
+		end
+	end
+	if #spots == 0 then
+		return nil
+	end
+	local list, rolls = {}, {}
+	for k, sp in spots do
+		list[k] = asSpot(sp, taken[sp.at] or 0)
+		rolls[k] = random:NextNumber()
+	end
+	local toward = if side == "West" then 1 else -1 -- (the enemy's home end: Map 1 runs west to east)
+	local k = Buildings.pickHold(list, c.X, c.Z, within, toward, 0, rolls, IN)
+	if not k then
+		return nil
+	end
+	local sp = spots[k]
+	taken[sp.at] = (taken[sp.at] or 0) + 1
+	return sp
+end
+
 -- Normal: `side`'s bots in squads by order and sector (Rules/BotSquads): each squad's phase this tick, its route
 -- (lane, approach spot, a waypoint on the lane's side) and each member's role and goal
 local function formSquads(side: string, counts: { { West: number, East: number } })
@@ -2139,6 +2256,11 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		end
 	end
 	local taken: { [Vector3]: number } = {}
+	for _, b in bots do
+		if b.side == side and b.postFace and b.post then
+			taken[b.post :: Vector3] = (taken[b.post :: Vector3] or 0) + 1 -- (windows held already)
+		end
+	end
 	for _, gkey in order do
 		local list = groups[gkey]
 		local first = list[1]
@@ -2242,7 +2364,31 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 				end
 			end
+			-- pushing in: a known enemy inside a building there is cleared out (its Assault bots go to the spot by it)
+			sqs.clear = nil
+			if sqs.sq.phase == "Assault" then
+				for _, kn in sqs.known do
+					if now - kn.at <= SQ.knownFor and flat(kn.pos - c).Magnitude <= s.radius + IN.around then
+						local near = indoorNear(kn.pos, IN.clearWithin)
+						local nearSpots = {}
+						for j, sp in near do
+							nearSpots[j] = asSpot(sp, 0)
+						end
+						local by = Buildings.inside(nearSpots, kn.pos.X, kn.pos.Z, IN.clearWithin)
+						if by then
+							sqs.clear = near[by].at
+							break
+						end
+					end
+				end
+			end
 			-- each member's role and goal
+			local indoorHeld = 0
+			for _, b in members do
+				if b.role == "Hold" and b.postFace then
+					indoorHeld += 1
+				end
+			end
 			local route = sqs.mid or sqs.approach or c
 			local ahead = flat(route - mid)
 			local right = if ahead.Magnitude > 1 then ahead.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
@@ -2252,12 +2398,19 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				local p = if b.root then (b.root :: BasePart).Position else mid
 				if role == "Hold" then
 					if not b.post or b.postSector ~= sector or b.roleWas ~= "Hold" then
-						b.post = holdSpot(side, sector, taken) or b.stand
+						-- a few at windows and doorways (Config/Bots.Indoors.perSquad), the rest outside
+						local sp = if indoorHeld < IN.perSquad then indoorHold(side, sector, taken) else nil
+						if sp then
+							indoorHeld += 1
+							b.post, b.postFace = sp.at, sp.face
+						else
+							b.post, b.postFace = holdSpot(side, sector, taken) or b.stand, nil
+						end
 						b.postSector = sector
 					end
 					b.goal = b.post
 				elseif role == "Assault" then
-					b.goal = b.stand
+					b.goal = sqs.clear or b.stand
 				elseif role == "Support" then
 					if b.roleWas ~= "Support" then
 						b.post = p -- (it holds where it stands, covering the others)
@@ -2354,8 +2507,17 @@ local function report(now: number)
 	local sides: { [string]: number } = {}
 	local roles: { [string]: number } = {}
 	local lods: { [string]: number } = {}
+	local windows, clearing = 0, 0
+	for _, sq in squads do
+		if sq.clear then
+			clearing += 1
+		end
+	end
 	for _, b in bots do
 		lods[b.lod] = (lods[b.lod] or 0) + 1
+		if b.postFace and b.role == "Hold" and alive(b) then
+			windows += 1
+		end
 		if b.side then
 			sides[b.side :: string] = (sides[b.side :: string] or 0) + 1
 		end
@@ -2387,7 +2549,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -2417,6 +2579,9 @@ local function report(now: number)
 			stats.throws,
 			stats.heals,
 			stats.drags,
+			stats.doors,
+			windows,
+			clearing,
 			stats.shots,
 			stats.deaths,
 			stats.covers,
@@ -2496,7 +2661,7 @@ function Bots.start()
 				despawn(b)
 				b.deadAt, b.respawnAt = nil, nil
 				b.order, b.sector, b.stand = nil, nil, nil
-				b.squad, b.role, b.goal, b.stop, b.post, b.roleWas = nil, nil, nil, nil, nil, nil
+				b.squad, b.role, b.goal, b.stop, b.post, b.roleWas, b.postFace = nil, nil, nil, nil, nil, nil, nil
 				spawnBody(b)
 			end
 		end
@@ -2506,6 +2671,7 @@ function Bots.start()
 	end)
 	Frontline.onMatchStart(function()
 		Routes.clear() -- (the map is put back: spots worked out again)
+		table.clear(indoorCells)
 		table.clear(squads)
 		respawnAll("Normal")
 	end)

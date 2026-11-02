@@ -219,6 +219,31 @@ local Bots = {
 		},
 	},
 
+	-- Normal bots and buildings (Rules/BotBuildings; user 2026-11-02, src/server/Indoors spots, Doors):
+	-- - doors: a path's door waypoint (Config/Indoors.Links.door) within `doorReach` studs: it opens the door
+	--   (Doors.openFor) and waits `doorWait` s while it swings; paths cost Config/Indoors.PathCosts.
+	-- - holds: each defending squad puts up to `perSquad` bots at window or doorway spots within the zone's radius plus
+	--   `around`, facing the enemy's way in by more than `facing`, `upstairs` a story above the ground, `random` to spread
+	--   them (user: "A few (1-2 a squad)"); with no target it faces out of the window.
+	-- - cover: a cover search also tries up to `cover` indoor cover spots within its reach.
+	-- - clearing (user: "Yes, clear buildings"): a pushing squad's Assault bots go for the indoor spot nearest a known
+	--   enemy within `clearWithin` studs of one (that enemy is inside).
+	-- Spots are looked up by `cell`-stud squares, each kept `keep` s (`slack` studs more round each square).
+	Indoors = {
+		doorReach = 6,
+		doorWait = 0.8,
+		perSquad = 2,
+		around = 15,
+		facing = 0.3,
+		upstairs = 0.5,
+		random = 0.5,
+		cover = 4,
+		clearWithin = 6,
+		cell = 50,
+		keep = 20,
+		slack = 10,
+	},
+
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above
 	-- their person) ... dont let them spam it ... only when necessary", plain English): a bubble over the bot's head on a
 	-- real event, only while a player is within `near` studs, shown to players within `hear`. A bot waits `botEvery`
