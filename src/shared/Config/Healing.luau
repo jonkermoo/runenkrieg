@@ -8,7 +8,9 @@
 
 local Healing = {
 	MedPackFrom = 70, -- the patient's health from which the med pack is used; below it, the bandage
-	SecondsPerHp = 0.05, -- heal time grows with the health healed (user: "should not take more than 5 seconds")
+	-- heal time grows with the health healed (user: "should not take more than 5 seconds"; 2026-11-02: "increase
+	-- healing by the tiniest bit": 0.05 to 0.045, a full heal 4.5 s)
+	SecondsPerHp = 0.045,
 	MaxSeconds = 5,
 	Range = 6, -- studs between the two soldiers' roots to start a heal (and the prompt shows)
 	Break = 8, -- studs apart at which a heal stops (the health healed so far stays)

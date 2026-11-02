@@ -10,8 +10,11 @@
 -- dragger takes out again whatever they held before the drag (user 2026-10-26), if their hands are still free.
 
 local Dragging = {
-	Range = 6, -- studs between the two soldiers' roots to start a drag (and the prompt shows)
-	Break = 8, -- studs apart (roots) at which the drag lets go: the body caught on something
+	-- studs between the two soldiers' roots to start a drag (and the prompt shows); reaches a body lying on the edge
+	-- from down in a trench (user 2026-11-02: "so players can drag down ones from inside trenches"; Config/Build's
+	-- trench is 5.5 deep)
+	Range = 9,
+	Break = 11, -- studs apart (roots) at which the drag lets go: the body caught on something
 	PickCone = 25, -- the client's pick: the downed teammate in Range nearest the look, within this many degrees of it
 	StartSlack = 1.5, -- studs the server allows past Range when a start arrives (lag)
 	AskGap = 0.25, -- seconds between a player's drag requests the server takes (rate limit)

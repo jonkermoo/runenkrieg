@@ -138,11 +138,11 @@ local function reinforced(player: Player): number
 end
 
 -- Pays `player` the Config/Classes.Earn for `reason` ("Kill", "Assist", "Capture", "Piece", ...), `times` over, and
--- the live mode's boost on top (Config/Modes `earn`) and a Normal match's reinforcements.
+-- Config/Classes.Pay, the live mode's boost on top (Config/Modes `earn`) and a Normal match's reinforcements.
 function Loadouts.award(player: Player, reason: string, times: number?)
 	local amount = C.Earn[reason]
 	assert(amount, "unknown award " .. reason)
-	local boost = Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute)) * reinforced(player)
+	local boost = C.Pay * Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute)) * reinforced(player)
 	points[player] = Rules.earn(Loadouts.points(player), amount * (times or 1) * boost)
 	for _, fn in earnWatchers do
 		task.spawn(fn, player, amount * (times or 1) * boost)
@@ -182,7 +182,7 @@ end
 function Loadouts.awardBot(id: number, reason: string, times: number?)
 	local amount = C.Earn[reason]
 	assert(amount, "unknown award " .. reason)
-	local boost = Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute))
+	local boost = C.Pay * Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute))
 	botPoints[id] = Rules.earn(Loadouts.botPoints(id), amount * (times or 1) * boost)
 end
 
