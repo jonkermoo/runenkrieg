@@ -298,20 +298,6 @@ local function showFoxholeGhost(key: string, at: CFrame, ok: boolean)
 	heap.Color = color
 end
 
--- whether a foxhole centred at `p` (snapped) would share a voxel column with another's ground (Rules.foxholesClash; the
--- server's check too)
-local function foxholeCrowded(p: Vector3, f: Instance?): boolean
-	for _, m in (if f then f:GetChildren() else {}) do
-		local at = m:GetAttribute("Frame")
-		if m:GetAttribute("Piece") == "Foxhole" and typeof(at) == "CFrame" then
-			if Rules.foxholesClash(p.X, p.Z, at.Position.X, at.Position.Z, C.Foxhole, C.Foxhole.voxel) then
-				return true
-			end
-		end
-	end
-	return false
-end
-
 -- a shape in an icon, in the badge's unit square (x, y, width, height), rotated by `rotation` degrees
 local function shape(parent: Instance, x: number, y: number, w: number, h: number, color: { number }, rotation: number?)
 	local f = Instance.new("Frame")
@@ -479,7 +465,7 @@ local function surveyPiece(character: Model, root: BasePart)
 		showGhost(p.key, at * CFrame.new(0, deck - g / 2, 0), Vector3.new(length or p.width, g, p.depth), ok)
 		return
 	end
-	-- (a foxhole: on the middle of its voxel column, as the server snaps it: Rules.foxholeSnap)
+	-- (a foxhole: round its grid corner, as the server snaps it: Rules.foxholeSnap)
 	local foxhole = p.kind == "Foxhole"
 	local spot = hit.Position
 	if foxhole then
@@ -506,9 +492,7 @@ local function surveyPiece(character: Model, root: BasePart)
 		maxSlope = p.maxSlope or T.maxSlope,
 		ground = report.ground,
 		water = report.water,
-		overlap = Survey.blocked(p, box, report.low, ignore)
-			or Survey.onPiece(p, box, f)
-			or (foxhole and foxholeCrowded(box.Position, f)),
+		overlap = Survey.blocked(p, box, report.low, ignore) or Survey.onPiece(p, box, f),
 		gunGap = gun and Survey.gunGap(p, at, f),
 		nearTrench = (gun or p.kind == "Wire" or foxhole) and Survey.nearTrench(p, box, f),
 		mine = 0, -- (the caps are the server's to check)
@@ -982,7 +966,13 @@ function Build.start()
 					hp, max = m:GetAttribute("Work"), m:GetAttribute("Need")
 				end
 				view.title = if block then "Trench square" else ((p or { name = "Piece" }) :: any).name
-				view.sub = if type(hp) == "number" and type(max) == "number" then `HP {math.ceil(hp)} / {max}` else nil
+				-- (a foxhole's spot has no HP: one swing digs it)
+				local spot = p and p.kind == "Foxhole"
+				view.sub = if type(hp) == "number"
+						and type(max) == "number"
+						and not spot
+					then `HP {math.ceil(hp)} / {max}`
+					else nil
 			elseif m then
 				view.title = "Tree"
 			end

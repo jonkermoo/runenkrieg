@@ -722,7 +722,14 @@ end
 -- is now) is set to its ground as it lay raised or lowered by that many studs. Cut down to it in `cut`, filled up to it
 -- in `fill` (a voxel that was air), back to just as it was at 0. Voxel by voxel with fractional occupancy, as
 -- Ground.pit; a column with water or no ground is left alone. Its columns are dug ground: no crater fills them back.
-function Ground.shapeColumns(plot: Plot, height: (Vector3) -> number?, cut: Enum.Material, fill: Enum.Material)
+-- `bare` (optional): materials turned to `fill` in every column it shapes (the grass off its dirt; nil puts them back).
+function Ground.shapeColumns(
+	plot: Plot,
+	height: (Vector3) -> number?,
+	cut: Enum.Material,
+	fill: Enum.Material,
+	bare: { Enum.Material }?
+)
 	local terrain = workspace.Terrain
 	local region = plot.region
 	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
@@ -745,6 +752,9 @@ function Ground.shapeColumns(plot: Plot, height: (Vector3) -> number?, cut: Enum
 						was, mat = target, if target <= 0 then Enum.Material.Air else cut
 					elseif h > 0 and target > was then
 						was, mat = target, if mat == Enum.Material.Air then fill else mat
+					end
+					if bare and table.find(bare, mat) then
+						mat = fill
 					end
 					occs[ix][iy][iz], mats[ix][iy][iz] = was, mat
 					pitted[`{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`] = true

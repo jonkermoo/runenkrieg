@@ -180,7 +180,6 @@ function Build.hpOf(p: Piece, c: any): Hp?
 		elseif p.kind == "Bridge" then c.Bridge
 		elseif p.kind == "Sandbags" then c.Sandbags
 		elseif p.kind == "Nest" then c.Nest
-		elseif p.kind == "Foxhole" then c.Foxhole
 		else nil
 	return own and own.hp
 end
@@ -919,7 +918,6 @@ function Build.hpRules(kind: string, cfg: any, p: Piece?): HpRules?
 		elseif kind == "Bridge" then cfg.Bridge.hp
 		elseif kind == "Wire" then cfg.Wire.hp
 		elseif kind == "Nest" then cfg.Nest.hp
-		elseif kind == "Foxhole" then cfg.Foxhole.hp
 		else nil
 	if h then
 		return { place = h.place or 0, max = h.max, swing = h.swing, destroy = h.destroy }
@@ -963,26 +961,24 @@ function Build.foxholeReach(f: any): number
 	return f.radius + f.depth / math.tan(math.rad(f.wall)) + f.heap.width
 end
 
--- The height (studs, from the ground as it lay) a foxhole dug to `share` (0..1, its HP's share) wants its ground at
--- `dx`, `dz` (flat) from its centre, facing `fx`, `fz` (flat, unit): under it in the pit (its floor within `radius`, the
--- wall leaning back at `wall` to the ground), over it on the heap past the wall's top toward the front (`heap.height`,
--- fading to nothing at the arc's ends), 0 elsewhere within its reach; nil past its reach (that ground isn't its)
-function Build.foxholeHeight(dx: number, dz: number, fx: number, fz: number, share: number, f: any): number?
+-- The height (studs, from the ground as it lay) a dug foxhole wants its ground at `dx`, `dz` (flat) from its centre,
+-- facing `fx`, `fz` (flat, unit): under it in the pit (its floor within `radius`, the wall leaning back at `wall` to
+-- the ground), over it on the heap past the wall's top toward the front (`heap.height`, fading to nothing at the arc's
+-- ends), 0 elsewhere within its reach; nil past its reach (that ground isn't its)
+function Build.foxholeHeight(dx: number, dz: number, fx: number, fz: number, f: any): number?
 	local d = math.sqrt(dx * dx + dz * dz)
 	if d > Build.foxholeReach(f) then
 		return nil
 	end
-	local s = math.clamp(share, 0, 1)
-	local depth = f.depth * s
 	local lean = 1 / math.tan(math.rad(f.wall))
-	local top = f.radius + depth * lean
+	local top = f.radius + f.depth * lean
 	if d <= f.radius then
-		return -depth
+		return -f.depth
 	elseif d <= top then
-		return -depth + (d - f.radius) / lean
+		return -f.depth + (d - f.radius) / lean
 	end
 	local h = f.heap
-	if d > top + h.width or d <= 1e-6 then
+	if d > top + h.width then
 		return 0
 	end
 	local angle = math.deg(math.acos(math.clamp((dx * fx + dz * fz) / d, -1, 1)))
@@ -990,56 +986,7 @@ function Build.foxholeHeight(dx: number, dz: number, fx: number, fz: number, sha
 	if angle >= half then
 		return 0
 	end
-	return h.height * s * (1 - angle / half)
-end
-
--- The voxel columns a foxhole's ground takes, by index from its centre (a grid corner: column `i`, `j`'s middle is
--- (i + 0.5, j + 0.5) voxels from it): every one whose middle is within its reach
-function Build.foxholeColumns(f: any, voxel: number): { { number } }
-	local reach = Build.foxholeReach(f)
-	local n = math.ceil(reach / voxel)
-	local out = {}
-	for i = -n, n - 1 do
-		for j = -n, n - 1 do
-			if math.sqrt((i + 0.5) ^ 2 + (j + 0.5) ^ 2) * voxel <= reach then
-				table.insert(out, { i, j })
-			end
-		end
-	end
-	return out
-end
-
--- Whether two foxholes centred at (ax, az) and (bx, bz) (snapped, Build.foxholeSnap) would share a voxel column of
--- their ground (each shapes its own columns from the ground as it lay, so a shared one would undo the other's)
-function Build.foxholesClash(ax: number, az: number, bx: number, bz: number, f: any, voxel: number): boolean
-	local di, dj = math.round((bx - ax) / voxel), math.round((bz - az) / voxel)
-	local cols = Build.foxholeColumns(f, voxel)
-	local mine = {}
-	for _, c in cols do
-		mine[`{c[1]},{c[2]}`] = true
-	end
-	for _, c in cols do
-		if mine[`{c[1] + di},{c[2] + dj}`] then
-			return true
-		end
-	end
-	return false
-end
-
--- How far a point `d` studs (flat) from a foxhole's centre and `dy` over the ground as it lay is from its pit (0: in
--- it), dug to `share`: past the wall's top, under its floor, over the ground
-function Build.foxholeGap(d: number, dy: number, share: number, f: any): number
-	local depth = f.depth * math.clamp(share, 0, 1)
-	local top = f.radius + depth / math.tan(math.rad(f.wall))
-	local flat = math.max(d - top, 0)
-	local up = math.max(dy, -depth - dy, 0)
-	return math.sqrt(flat * flat + up * up)
-end
-
--- Whether a point `d` studs (flat) from a foxhole's centre and `dy` over the ground as it lay is on its ground (its pit
--- and heap, `slack` more each way): a bullet meeting the ground there hits it
-function Build.inFoxholeGround(d: number, dy: number, f: any, slack: number): boolean
-	return d <= Build.foxholeReach(f) + slack and dy >= -(f.depth + slack) and dy <= f.heap.height + slack
+	return h.height * (1 - angle / half)
 end
 
 return Build

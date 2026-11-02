@@ -32,65 +32,48 @@ end
 local T = table.clone(C.Trench) :: any
 
 return {
-	["foxhole: everyone digs it in 3 swings, 4 fill it; deep with a front heap; crouched hidden, the muzzle clears"] = function()
+	["foxhole: one swing digs it, then it is only ground; deep as a crouch, a lip in front, its own dark dirt"] = function()
 		local p = B.piece("Foxhole", C.Pieces) :: any
 		local F = C.Foxhole
-		assert(p and p.kind == "Foxhole" and p.sectorCap and p.sectorCap >= 20, "a sector cap of a good amount")
-		assert(p.playerCap == nil and p.teamCap == nil)
-		local h = B.hpOf(p, C) :: B.Hp
-		local function count(build: boolean, from: number): number
-			local hp, gone, n = from, false, 0
-			repeat
-				hp, gone = B.hpSwing(hp, build, h)
-				n += 1
-			until (build and hp >= h.max) or gone
-			return n
-		end
-		assert(h.place == 0 and count(true, 0) == 3, "3 Build swings dig it")
-		assert(count(false, h.max) == 4, "4 Destroy swings fill it")
-		assert(B.buildSwings(p, C) == 3)
-		local hr = B.hpRules("Foxhole", C) :: any
-		assert(hr.swing == F.hp.swing and B.workLeft(0, hr.max, hr.swing) == 3 and B.workLeft(68, 100, hr.swing) == 1)
+		-- no HP, no progression, no limits (user 2026-11-02)
+		assert(p and p.kind == "Foxhole" and p.work == 1 and B.buildSwings(p, C) == 1, "one Build swing")
+		assert(B.hpOf(p, C) == nil and B.hpRules("Foxhole", C) == nil, "no HP")
+		assert(p.sectorCap == nil and p.teamCap == nil and p.playerCap == math.huge, "no cap")
+		local w, gone = B.swing(0, p.work, true)
+		assert(w == p.work and not gone, "dug at the first swing")
 		-- the cover (Config/Metrics: a crouched head about 4.1, the aimed muzzle 4.3): a crouched head at or under the
 		-- ground's level; standing, the eyes and the muzzle over it
 		assert(F.depth >= 4.1, "crouched, below the ground")
 		assert(F.depth < M.Character.AimMuzzleHeight and F.depth < M.Character.EyeHeight, "standing, you fire out")
 		-- its shape (facing -Z): the floor, the wall, the heap in front only, nothing past its reach
 		local reach = B.foxholeReach(F)
-		assert(near(B.foxholeHeight(0, 0, 0, -1, 1, F) :: number, -F.depth))
-		assert(near(B.foxholeHeight(0, 0, 0, -1, 0, F) :: number, 0), "laid: nothing dug")
-		assert(near(B.foxholeHeight(0, 0, 0, -1, 0.5, F) :: number, -F.depth / 2), "half its HP, half as deep")
+		assert(near(B.foxholeHeight(0, 0, 0, -1, F) :: number, -F.depth))
 		local top = F.radius + F.depth / math.tan(math.rad(F.wall))
 		local mid = top + F.heap.width / 2
-		assert(near(B.foxholeHeight(0, -mid, 0, -1, 1, F) :: number, F.heap.height), "the heap straight ahead")
-		assert(B.foxholeHeight(0, mid, 0, -1, 1, F) == 0, "no heap behind")
-		assert(B.foxholeHeight(mid, 0, 0, -1, 1, F) == 0, "none at the side (past half the arc)")
-		local side = B.foxholeHeight(mid * math.sin(math.rad(35)), -mid * math.cos(math.rad(35)), 0, -1, 1, F) :: number
+		assert(near(B.foxholeHeight(0, -mid, 0, -1, F) :: number, F.heap.height), "the heap straight ahead")
+		assert(B.foxholeHeight(0, mid, 0, -1, F) == 0, "no heap behind")
+		assert(B.foxholeHeight(mid, 0, 0, -1, F) == 0, "none at the side (past half the arc)")
+		local side = B.foxholeHeight(mid * math.sin(math.rad(35)), -mid * math.cos(math.rad(35)), 0, -1, F) :: number
 		assert(side > 0 and side < F.heap.height, "fading toward the arc's ends")
-		assert(B.foxholeHeight(0, -(reach + 0.1), 0, -1, 1, F) == nil, "past its reach: not its ground")
-		local wall = B.foxholeHeight((F.radius + top) / 2, 0, 0, -1, 1, F) :: number
+		assert(B.foxholeHeight(0, -(reach + 0.1), 0, -1, F) == nil, "past its reach: not its ground")
+		local wall = B.foxholeHeight((F.radius + top) / 2, 0, 0, -1, F) :: number
 		assert(wall < 0 and wall > -F.depth, "the wall between")
 		-- the voxel grid: snapped to a grid corner; the pit is the four columns round it, all four floor deep
 		assert(B.foxholeSnap(0.3, 4) == 0 and B.foxholeSnap(-2.1, 4) == -4 and B.foxholeSnap(5.9, 4) == 4)
 		for _, c in { { 2, 2 }, { -2, 2 }, { 2, -2 }, { -2, -2 } } do
-			assert(near(B.foxholeHeight(c[1], c[2], 0, -1, 1, F) :: number, -F.depth), "the pit's four columns")
+			assert(near(B.foxholeHeight(c[1], c[2], 0, -1, F) :: number, -F.depth), "the pit's four columns")
 		end
-		local cols = B.foxholeColumns(F, 4)
-		assert(#cols == 12, `the 4 x 4 columns round it but its corners ({#cols})`)
-		assert(B.foxholesClash(0, 0, 12, 0, F, 4), "three voxels apart they share a column")
-		assert(not B.foxholesClash(0, 0, 16, 0, F, 4) and not B.foxholesClash(0, 0, 12, 12, F, 4), "four apart, none")
-		-- blasts by their distance to the pit; bullets on its ground
-		assert(B.foxholeGap(top - 0.1, -1, 1, F) == 0 and near(B.foxholeGap(top + 2, 0, 1, F), 2))
-		assert(near(B.foxholeGap(0, -F.depth - 1, 1, F), 1) and near(B.foxholeGap(0, 3, 1, F), 3))
-		assert(B.inFoxholeGround(1, -F.depth, F, F.shotSlack) and B.inFoxholeGround(reach, F.heap.height, F, 0))
-		assert(not B.inFoxholeGround(reach + F.shotSlack + 0.1, 0, F, F.shotSlack))
-		assert(not B.inFoxholeGround(0, F.heap.height + F.shotSlack + 0.1, F, F.shotSlack))
-		-- a howitzer shell buries it at once; a field shell takes most of it; a grenade little
-		local S = C.Structures
-		assert(B.structureHit(0, S.howitzer, S.edge) * F.soak >= 100)
-		local field = B.structureHit(0, S.field, S.edge) * F.soak
-		assert(field > 50 and field < 100)
-		assert(B.structureHit(0, S.grenade, S.edge) * F.soak < 10)
+		-- its own dark dirt: a material no other ground uses, darker than any other ground, and no grass on it
+		local P = require("../src/shared/Config/Palette")
+		local soil = P.Terrain[F.soil]
+		assert(soil, "coloured with the terrain")
+		local function lum(c: { number }): number
+			return c[1] + c[2] + c[3]
+		end
+		for name, c in P.Terrain do
+			assert(name == F.soil or lum(c) > lum(soil), name .. " is lighter")
+		end
+		assert(table.find(F.bare, "Grass") and table.find(F.bare, "LeafyGrass") and not table.find(F.bare, F.soil))
 	end,
 	["an admin dig step works its share of the whole, rounded up, never less than a normal swing"] = function()
 		assert(B.digAmount(20, 100, nil) == 20 and B.digAmount(20, 100, 0) == 20)

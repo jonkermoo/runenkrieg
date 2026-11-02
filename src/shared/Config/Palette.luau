@@ -11,6 +11,9 @@ local Palette = {
 		Sand = { 168, 146, 112 }, -- roads
 		Mud = { 112, 94, 74 }, -- river bed, blasted and churned ground
 		Basalt = { 74, 58, 44 }, -- the root balls of uprooted trees: darker than mud (user 2026-10-17)
+		-- foxholes' dug earth (Config/Build.Foxhole.soil; user 2026-11-02: "give it a darker dirt to make obvious"):
+		-- darker than any other ground
+		Salt = { 62, 46, 34 },
 		Rock = { 98, 94, 90 },
 	},
 	Water = { color = { 72, 124, 134 }, transparency = 0.35, reflectance = 0, waveSize = 0.05 },
