@@ -222,6 +222,8 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.waterTower(model, ctx, at, f.size, f.height)
 			elseif f.kind == "Signal" then
 				Geometry.signal(model, ctx, at, f.height)
+			elseif f.kind == "Arcade" then
+				Geometry.arcade(model, ctx, at, f.length, f.depth, f.height, f.bays)
 			elseif f.kind == "Stage" then
 				Geometry.stage(model, ctx, at, f.width, f.depth, f.height, f.posts)
 			elseif f.kind == "Waterwheel" then

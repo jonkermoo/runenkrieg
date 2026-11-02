@@ -42,7 +42,8 @@ export type Template = {
 	-- wall side +Z), { kind = "Platform", x, z, length, depth, height } (its edge -Z), { kind = "WaterTower", x, z, size,
 	-- height }, { kind = "Signal", x, z, height }, { kind = "Stage", x, z, width, depth, height, posts } (a festival
 	-- stage, its front -Z, its deck `height` up, its posts `posts` over the deck). A block's `wall` / `roof`
-	-- (Palette.Buildings keys) colour it apart from the copy's scheme.
+	-- (Palette.Buildings keys) colour it apart from the copy's scheme. { kind = "Arcade", x, z, length, depth, height, bays }
+	-- (an arcade, its back +Z against a block's front wall).
 	features: { any }?,
 	description: string,
 }
@@ -95,6 +96,10 @@ local Buildings = {
 	-- a festival stage (Lantern Meadows): steps `step` (rise under Metrics.Character.MaxStepUp, `width` across) front and
 	-- back, the painted board over its front `board` high, its canvas awning rising `rise` to the back in `stripes`
 	-- stripes, `lanterns` hanging under the board
+	-- an arcade (Lantern Meadows' lantern-makers' hall): piers `pier` square, a wall band `band` high over the arches,
+	-- each arch's head `corbels` steps `step` high (each a fraction of the span, from the pier in), its floor `floor` up,
+	-- its lean-to roof rising `rise` to the wall behind
+	Arcade = { pier = 1.6, band = 1.8, corbels = { 0.3, 0.17, 0.07 }, step = 0.7, floor = 0.4, rise = 2.2 },
 	Stage = { board = 3.2, rise = 2.2, stripes = 8, lanterns = 5, step = { rise = 0.8, run = 1.4, width = 8 } },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
@@ -469,6 +474,41 @@ local Buildings = {
 				{ kind = "Stage", x = 0, z = 0, width = 32, depth = 14, height = 3.2, posts = 10 },
 			},
 			description = "The festival stage: a stone plinth with steps, timber posts, a painted rune board, lanterns and a striped awning.",
+		},
+		-- The lantern-makers' hall behind the stage, on S3's x, facing the festival ground: a long cream stucco
+		-- workshop under terracotta, a five-bay arcade along its front with a lantern hanging in every arch, doors
+		-- front and back.
+		LanternHall = {
+			folder = "Landmarks",
+			width = 44,
+			depth = 22,
+			stories = 1,
+			storyHeight = 11,
+			roofPitch = 30,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Hall",
+					x = 0,
+					z = 3.5,
+					width = 40,
+					depth = 14,
+					stories = 1,
+					storyHeight = 11,
+					roofPitch = 30,
+					roofStyle = "Tile",
+					doors = { { center = -8 }, { center = 0, w = 5, h = 8 }, { center = 8 } },
+					backDoor = true,
+					gableChimney = 1,
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = 0, z = -6.4, length = 40, depth = 5.4, height = 8, bays = 5 },
+			},
+			description = "The lantern-makers' hall: a long cream stucco workshop under terracotta, a five-bay arcade hung with lanterns.",
 		},
 	} :: { [string]: Template },
 

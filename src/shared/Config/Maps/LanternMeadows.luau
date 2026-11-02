@@ -230,6 +230,8 @@ local LanternMeadows = {
 		-- its x, facing the point.
 		specials = {
 			{ id = "Stage", style = "FestivalStage", x = S3[1], z = CZ + 86, front = { 0, -1 } },
+			-- the lantern-makers' hall behind it, on the same x, its arcade facing the festival ground
+			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 146, front = { 0, -1 } },
 		},
 		-- the hedgerow fields round S2, the same either side of its x (the point stays fair), with gaps to pass
 		hedgerows = (function()

@@ -906,6 +906,19 @@ local function festival(sec: Instance, ctx: Ctx, name: string, cf: CFrame, size:
 	return p
 end
 
+-- A paper lantern on a cord, hanging from `y` (its top) at x, z in `at`; soldiers walk through it.
+local function lantern(sec: Instance, ctx: Ctx, at: CFrame, x: number, y: number, z: number)
+	for _, p in
+		{
+			Geometry.part(sec, ctx, "Cord", at * CFrame.new(x, y - 0.4, z), Vector3.new(0.12, 0.8, 0.12), "Metal"),
+			Geometry.part(sec, ctx, "Cap", at * CFrame.new(x, y - 0.9, z), Vector3.new(1, 0.2, 1), "Metal"),
+			festival(sec, ctx, "Lantern", at * CFrame.new(x, y - 1.6, z), Vector3.new(0.9, 1.2, 0.9), "Lantern"),
+		}
+	do
+		p.CanCollide = false
+	end
+end
+
 -- A festival stage, `W` across (local X) and `Dp` deep, its front -Z: a stone plinth whose wooden deck is `h` up, steps
 -- up to it at the middle of its front and back (the lowest of each a Doorstep: VillageBuild adds steps down a bank),
 -- timber posts `H` over the deck at its corners, a canvas backdrop between the back ones, a painted board with a rune
@@ -1011,11 +1024,7 @@ function Geometry.stage(parent: Instance, ctx: Ctx, at: CFrame, W: number, Dp: n
 	-- lanterns hanging under the board between the front posts
 	local lanterns = Geometry.section(parent, ctx, "Lanterns", "Wood", 99)
 	for i = 1, S.lanterns do
-		local x = -W / 2 + 0.8 + i * (W - 1.6) / (S.lanterns + 1)
-		local y = by - S.board / 2
-		Geometry.part(lanterns, ctx, "Cord", at * CFrame.new(x, y - 0.4, bz), Vector3.new(0.12, 0.8, 0.12), "Metal")
-		Geometry.part(lanterns, ctx, "Cap", at * CFrame.new(x, y - 0.9, bz), Vector3.new(1, 0.2, 1), "Metal")
-		festival(lanterns, ctx, "Lantern", at * CFrame.new(x, y - 1.6, bz), Vector3.new(0.9, 1.2, 0.9), "Lantern")
+		lantern(lanterns, ctx, at, -W / 2 + 0.8 + i * (W - 1.6) / (S.lanterns + 1), by - S.board / 2, bz)
 	end
 	-- the awning: canvas stripes from the board's top rising to the back posts
 	local roof = Geometry.section(parent, ctx, "Roof", "Wood", 99)
@@ -1032,6 +1041,77 @@ function Geometry.stage(parent: Instance, ctx: Ctx, at: CFrame, W: number, Dp: n
 			if i % 2 == 1 then "Canvas" else "RunePaint"
 		)
 	end
+end
+
+-- An arcade along a wall (its back, local +Z, against the building's front): `bays` arches `L` along local X, `D` deep,
+-- `H` to the top of its wall band. Chunky piers, each arch's head stepped in corbels (hand-made, not a true curve), a
+-- stone floor, a lean-to roof rising `rise` to the wall behind, a lantern hanging in every bay.
+function Geometry.arcade(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number, H: number, bays: number)
+	local A = ctx.B.Arcade
+	local depth = ctx.B.FoundationDepth
+	local floor = Geometry.section(parent, ctx, "Floor", "Stone", -1)
+	Geometry.part(
+		floor,
+		ctx,
+		"Paving",
+		at * CFrame.new(0, (A.floor - depth) / 2, 0),
+		Vector3.new(L + 0.6, A.floor + depth, D),
+		"Foundation"
+	)
+	local fz = -D / 2 + A.pier / 2 -- the front line of piers
+	local bay = L / bays
+	local span = bay - A.pier
+	local top = H - A.band
+	for i = 0, bays do
+		local sec = Geometry.section(parent, ctx, "Pier", ctx.class, 0)
+		Geometry.part(
+			sec,
+			ctx,
+			"Pier",
+			at * CFrame.new(-L / 2 + i * bay, A.floor + (top - A.floor) / 2, fz),
+			Vector3.new(A.pier, top - A.floor, A.pier),
+			"Wall"
+		)
+	end
+	local band = Geometry.section(parent, ctx, "Arcade", ctx.class, 0)
+	Geometry.part(
+		band,
+		ctx,
+		"Band",
+		at * CFrame.new(0, H - A.band / 2, fz),
+		Vector3.new(L + A.pier, A.band, A.pier),
+		"Wall"
+	)
+	local lanterns = Geometry.section(parent, ctx, "Lanterns", "Wood", 99)
+	for i = 1, bays do
+		local cx = -L / 2 + (i - 0.5) * bay
+		-- the arch's head: corbels stepping in from each pier, narrowing down from the band
+		for k, w in A.corbels do
+			local y = top - (k - 0.5) * A.step
+			for _, side in { -1, 1 } do
+				Geometry.part(
+					band,
+					ctx,
+					"Corbel",
+					at * CFrame.new(cx + side * (span / 2 - w * span / 2), y, fz),
+					Vector3.new(w * span, A.step, A.pier),
+					"Wall"
+				)
+			end
+		end
+		lantern(lanterns, ctx, at, cx, top, fz + 1.2)
+	end
+	-- the lean-to roof from the band up to the wall
+	local roof = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	local tilt = math.atan(A.rise / D)
+	Geometry.part(
+		roof,
+		ctx,
+		"Roof",
+		at * CFrame.new(0, H + A.rise / 2 + 0.2, 0) * CFrame.Angles(-tilt, 0, 0),
+		Vector3.new(L + A.pier + 1, 0.5, D / math.cos(tilt) + 0.8),
+		"Roof"
+	)
 end
 
 -- A hanging inn sign: a post `height` high, an arm off its top along local X, a framed board hanging under the arm.
