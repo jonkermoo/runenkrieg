@@ -886,8 +886,26 @@ local function findCover(b: Bot, now: number)
 	b.coverJob = { threat = threat, ring = 1, here = flat(root.Position - threat).Magnitude }
 end
 
--- the indoor spots (src/server/Indoors) within `within` studs of `at`, looked up by Config/Bots.Indoors `cell`-stud
--- squares, each kept `keep` seconds (a building broken meanwhile shows up at the next look)
+-- whether a building has a way in (a door link: src/server/Indoors makes none for a door far up a bank)
+local enterable: { [Model]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local function canEnter(building: Model): boolean
+	local known = enterable[building]
+	if known == nil then
+		known = false
+		for _, d in building:GetDescendants() do
+			if d:IsA("PathfindingLink") and d.Label == IndoorCfg.Links.door then
+				known = true
+				break
+			end
+		end
+		enterable[building] = known
+	end
+	return known :: boolean
+end
+
+-- the indoor spots (src/server/Indoors) within `within` studs of `at` in buildings with a way in, looked up by
+-- Config/Bots.Indoors `cell`-stud squares, each kept `keep` seconds (a building broken meanwhile shows up at the next
+-- look)
 local indoorCells: { [string]: { at: number, spots: { Indoors.Spot } } } = {}
 local function indoorNear(at: Vector3, within: number): { Indoors.Spot }
 	local cx, cz = math.floor(at.X / IN.cell), math.floor(at.Z / IN.cell)
@@ -901,7 +919,7 @@ local function indoorNear(at: Vector3, within: number): { Indoors.Spot }
 	end
 	local out = {}
 	for _, s in (c :: any).spots do
-		if flat(s.at - at).Magnitude <= within then
+		if flat(s.at - at).Magnitude <= within and canEnter(s.building) then
 			table.insert(out, s)
 		end
 	end
