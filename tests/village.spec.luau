@@ -215,5 +215,12 @@ return Maps.each(function(map: any, name: string)
 			assert(V.railX(require("../src/shared/Config/Maps/Playtest")) == nil)
 			assert(V.railX({}) == nil)
 		end,
+		["no telegraph pole in a kept-clear square"] = function()
+			for _, p in layout.poles do
+				for _, k in cfg.keepClear do
+					assert((p.x - k.x) ^ 2 + (p.z - k.z) ^ 2 >= k.r * k.r, "a pole in a kept-clear square")
+				end
+			end
+		end,
 	}
 end)

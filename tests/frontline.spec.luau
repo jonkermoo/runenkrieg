@@ -30,6 +30,21 @@ local function hold(state: R.State, counts: any, seconds: number, rate: number?)
 end
 
 return {
+	["feet on the ground: the footprint covers the middle and the corners; a held soldier lifted only when the ground rose"] = function()
+		local f = R.footprint(Cfg.Line.foot)
+		assert(#f == 9, `{#f} samples`)
+		local corners = 0
+		for _, o in f do
+			if math.abs(o[1]) == Cfg.Line.foot and math.abs(o[2]) == Cfg.Line.foot then
+				corners += 1
+			end
+		end
+		assert(corners == 4, "the four corners sampled")
+		assert(R.liftNeeded(10.2, 10, 0.2) == 0, "standing right: no lift")
+		assert(R.liftNeeded(11, 10, 0.2) == 0, "standing higher: no lift (never pushed down)")
+		assert(math.abs(R.liftNeeded(9, 10, 0.2) - 1.2) < 1e-9, "ground 1 over the feet: lifted 1.2")
+		assert(Cfg.Line.recheck > 0 and Cfg.Line.recheck <= 1 and Cfg.Line.relift >= 0)
+	end,
 	["Map 1 starts: West holds S1-S2, S3 neutral, East holds S4-S5; both attack S3"] = function()
 		local s = R.new(Map1.sectors)
 		assert(N == 5)
@@ -203,9 +218,12 @@ return {
 		local r3 = R.slot(3, L)
 		assert(r1 == 0 and r2 == L.gap and r3 == -L.gap, "the middle, then right, then left")
 	end,
-	["artillery levels: both sides up one per sector lost, field gun then mortar (CAMPAIGN.md)"] = function()
-		local A = Cfg.Artillery
-		assert(A.max == 2 and A.unlock.FieldGun == 1 and A.unlock.Howitzer == 2)
+	["artillery levels: both sides up one per sector lost; guns wait on a level only where told"] = function()
+		-- every gun from a match's start (user 2026-11-02)
+		for _, key in { "FieldGun", "Howitzer" } do
+			assert(R.gunLocked(Cfg.Artillery, key, 0) == nil, key)
+		end
+		local A = { max = 2, unlock = { FieldGun = 1, Howitzer = 2 } }
 		assert(R.gunLevel(A, 0) == 0 and R.gunLevel(A, 1) == 1 and R.gunLevel(A, 5) == 2)
 		assert(R.gunLocked(A, "FieldGun", 0) ~= nil and R.gunLocked(A, "FieldGun", 1) == nil)
 		assert(R.gunLocked(A, "Howitzer", 1) ~= nil and R.gunLocked(A, "Howitzer", 2) == nil)

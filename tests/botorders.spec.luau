@@ -17,6 +17,13 @@ return {
 		local p = R.plan("West", OWNER, REST, counts({ { 3, 0 }, { 2, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }), 3, 0.5)
 		assert(p.attack == 3 and p.defend == nil and p.share == 0)
 	end,
+	["plan: with nothing under attack, a share holds the front (dug in there)"] = function()
+		local quiet = counts({ { 3, 0 }, { 2, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } })
+		local p = R.plan("West", OWNER, REST, quiet, 3, 0.5, 2, 0.3)
+		assert(p.attack == 3 and p.defend == 2 and p.share == 0.3)
+		p = R.plan("West", OWNER, REST, counts({ { 0, 0 }, { 1, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }), 3, 0.5, 2, 0.3)
+		assert(p.defend == 2 and p.share == 0.5, "under attack: the defend share")
+	end,
 	["plan: an own sector the enemy leads in, or is draining, is defended"] = function()
 		local p = R.plan("West", OWNER, REST, counts({ { 0, 0 }, { 1, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }), 3, 0.5)
 		assert(p.defend == 2 and p.share == 0.5 and p.attack == 3)

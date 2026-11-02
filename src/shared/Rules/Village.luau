@@ -434,6 +434,10 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 					blocked = true
 				end
 			end
+			-- (and none in a kept-clear square: a square, a spawn, a wave line's ground)
+			for _, c in cfg.keepClear do
+				blocked = blocked or (x - c.x) ^ 2 + (z - c.z) ^ 2 < c.r * c.r
+			end
 			if not blocked and not MT.isRiver(map, x, z) then
 				table.insert(poles, { x = x, z = z, dx = dx, dz = dz })
 			end
@@ -516,8 +520,9 @@ end
 -- The map's natural trees (Rules/MapTerrain.trees) less those within `clear` of a hand-placed landmark: a landmark
 -- out in the open (a mill on the river bank) never has a tree through it. Village lots stand in reserved ground,
 -- which grows no natural trees.
-function Village.naturalTrees(map: any, MT: any, lots: { Lot }, clear: number): { any }
-	local quads = {}
+function Village.naturalTrees(map: any, MT: any, lots: { Lot }, clear: number, keepOut: { any }?): { any }
+	-- (keepOut: more ground kept clear, as quads: the wave lines' ground, Rules/Frontline.lineQuads)
+	local quads = table.clone(keepOut or {})
 	for _, l in lots do
 		if l.special then
 			table.insert(quads, Village.corners(l, clear))

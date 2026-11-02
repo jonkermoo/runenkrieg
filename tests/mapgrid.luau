@@ -10,6 +10,9 @@ local Check = require("../src/shared/Rules/MapCheck")
 local MT = require("../src/shared/Rules/MapTerrain")
 local V = require("../src/shared/Rules/Village")
 
+local Line = require("../src/shared/Config/Frontline").Line
+local Frontline = require("../src/shared/Rules/Frontline")
+
 local cache: { [any]: any } = {}
 
 return function(map: any): any
@@ -17,7 +20,8 @@ return function(map: any): any
 		return cache[map]
 	end
 	local layout = V.layout(map, B, M, MT, P)
-	local trees = V.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear)
+	local lines = Frontline.lineQuads(map.sectors, Line, Line.treeClear)
+	local trees = V.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear, lines)
 	for _, t in layout.trees do
 		table.insert(trees, t)
 	end

@@ -62,9 +62,14 @@ function Greybox.build(mapName: string): string
 	local P = fresh(Shared.Config.Props)
 	local fixed = if map.layout then VillageRules.fixed(map, B, M, MT) else nil
 	local layout = fixed or (if map.village then VillageRules.layout(map, B, M, MT, P) else nil)
+	-- and the frontline's wave lines stand on open ground (Rules/Frontline.lineQuads)
+	local lineCfg = fresh(Shared.Config.Frontline).Line
+	local lines = if map.sectors and #map.sectors >= 3
+		then fresh(Shared.Rules.Frontline).lineQuads(map.sectors, lineCfg, lineCfg.treeClear)
+		else nil
 	local natural = if fixed
 		then fixed.trees
-		elseif layout then VillageRules.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear)
+		elseif layout then VillageRules.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear, lines)
 		else nil
 	local trees = Trees.build(Parts.folder(root, "Trees"), map, MT, treeKit, assets, palette, natural)
 	-- Village: roads are painted into the terrain by Rules/MapTerrain; buildings + props from the library.

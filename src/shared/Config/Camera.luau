@@ -197,6 +197,12 @@ local Camera = {
 		-- the most any weapon turns (Max and every ClassMax within it): what goes to the others, what the server takes
 		Limit = { yaw = 60, pitch = 60 },
 	},
+	-- Knocked down (src/client/DownCamera; user 2026-11-01: "when knocked down in first person, your character is able to
+	-- freely see through everything"): the camera kept out of the ground and walls. A sphere `radius` across is swept
+	-- from the head out to where the camera was put; on a hit it stops `gap` short. A head on (within `lift`) or sunk into
+	-- the ground starts `lift` studs over the surface found by a ray from `probe` studs above it (not further: a roof over
+	-- the body); `lift` is more than `radius`, so the sweep never starts inside the ground.
+	Down = { radius = 0.3, gap = 0.1, lift = 0.4, probe = 1 },
 }
 
 return table.freeze(Camera)

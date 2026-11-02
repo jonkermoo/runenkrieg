@@ -12,6 +12,9 @@ local Cases = {
 	bounce = 0.3,
 	bounces = 2,
 	settle = 3,
+	-- it lies down only on what is flat enough to rest on: a surface whose normal points up at least `floor` (about 45
+	-- degrees); off a wall or a steep slope it bounces and falls on (user 2026-11-02: "bullet casings attach to walls")
+	floor = 0.7,
 	life = 4,
 	-- a gun's spent case (dropped with its cartridge's `case`, Config/Weapons `casing`: pitch, volume, eq) lies where it
 	-- fell longer, `rest` s, the oldest going once more than `max` lie about (the MG's cases and links don't count)

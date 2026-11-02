@@ -12,7 +12,8 @@
 --   the crouch, the animations, facing the patient).
 -- - Slow recovery: every soldier (players and DEV dummies) regains Recovery.rate a second up to Recovery.cap, from
 --   Recovery.delay seconds after their health last dropped (DEV dummies only with Recovery.dummies, so they keep
---   their damage for tests).
+--   their damage for tests; the bot soldiers with Recovery.bots).
+-- - Bots (src/server/Bots) heal through Healing.startAs / stopAs, with the same checks as a player's ask.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -22,6 +23,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Healing)
 local DevCfg = require(Shared.Config.DevTools)
+local BotsCfg = require(Shared.Config.Bots)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Healing)
@@ -94,8 +96,8 @@ local function wrap(patient: Model)
 	end
 end
 
-local function start(player: Player, patient: Model)
-	local healer, hh = soldier(player.Character)
+local function start(character: Model?, patient: Model)
+	local healer, hh = soldier(character)
 	local target, th = soldier(patient)
 	if not healer or not hh or not target or not th or target == healer or heals[healer] then
 		return
@@ -202,11 +204,36 @@ local function tick(dt: number)
 	for _, p in Players:GetPlayers() do
 		recover(p.Character)
 	end
-	if Cfg.Recovery.dummies then
-		for _, m in CollectionService:GetTagged(DevCfg.Dummies.Tag) do
+	for _, m in CollectionService:GetTagged(DevCfg.Dummies.Tag) do
+		-- (the bots, tagged as dummies too, recover like players: Recovery.bots)
+		if if CollectionService:HasTag(m, BotsCfg.Tag) then Cfg.Recovery.bots else Cfg.Recovery.dummies then
 			recover(m)
 		end
 	end
+end
+
+-- A bot soldier (src/server/Bots) heals `patient`: the same checks as a player's ask. True if the heal started.
+function Healing.startAs(healer: Model, patient: Model): boolean
+	start(healer, patient)
+	return heals[healer] ~= nil
+end
+
+-- A bot soldier stops its heal (the health healed so far stays).
+function Healing.stopAs(healer: Model)
+	stop(healer)
+end
+
+-- Whether `m` is healing someone now, or being healed.
+function Healing.busy(m: Model): boolean
+	if heals[m] then
+		return true
+	end
+	for _, h in heals do
+		if h.patient == m then
+			return true
+		end
+	end
+	return false
 end
 
 function Healing.start()
@@ -217,7 +244,7 @@ function Healing.start()
 		end
 		lastAsk[player] = now
 		if action == "Start" and typeof(patient) == "Instance" and patient:IsA("Model") then
-			start(player, patient)
+			start(player.Character, patient)
 		elseif action == "Stop" then
 			local c = player.Character
 			if c then

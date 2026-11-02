@@ -5,6 +5,8 @@ local M = require("../src/shared/Config/Metrics")
 local Map1 = require("../src/shared/Config/Maps/Map1")
 local MT = require("../src/shared/Rules/MapTerrain")
 local R = require("../src/shared/Rules/Frontline")
+local Sec = require("../src/shared/Rules/Sectors")
+local SecCfg = require("../src/shared/Config/Sectors")
 
 local sectors = Map1.sectors
 
@@ -18,7 +20,7 @@ local function unit(x: number, z: number): (number, number)
 end
 
 -- the first `rows` rows of `side`'s wave line at sector `i`, as src/server/Frontline stands it: at its own HQ in its
--- spawn zone, else Line.edge past the zone toward its own end, facing the sector it attacks
+-- spawn zone, else Line.back of the way to the point behind (Rules/Frontline.lineCentre), facing the sector it attacks
 local function waveLine(side: string, i: number, rows: number): { { number } }
 	local s = sectors[i]
 	local cx, cz
@@ -26,9 +28,7 @@ local function waveLine(side: string, i: number, rows: number): { { number } }
 		local r = Map1.spawnZones[side]
 		cx, cz = (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2
 	else
-		local b = sectors[if side == "West" then i - 1 else i + 1]
-		local dx, dz = unit(b.x - s.x, b.z - s.z)
-		cx, cz = s.x + dx * (s.radius + Front.Line.edge), s.z + dz * (s.radius + Front.Line.edge)
+		cx, cz = R.lineCentre(sectors, i, side :: any, Front.Line)
 	end
 	local aim = sectors[if side == "West" then i + 1 else i - 1]
 	local fx, fz = unit(aim.x - cx, aim.z - cz)
@@ -69,6 +69,50 @@ return {
 						)
 					end
 				end
+			end
+		end
+	end,
+	["every wave line stands closer to the point behind than to its front point, on its own side's ground, out of the river (user 2026-11-02)"] = function()
+		local rows = Front.Line.tries // Front.Line.perRow
+		assert(Front.Line.back > 0.5 and Front.Line.back < 1, "past halfway back, short of the point behind")
+		for i = 2, #sectors - 1 do
+			for _, side in { "West", "East" } do
+				local front, rear = sectors[i], sectors[if side == "West" then i - 1 else i + 1]
+				for _, p in waveLine(side, i, rows) do
+					local df = math.sqrt((p[1] - front.x) ^ 2 + (p[2] - front.z) ^ 2)
+					local dr = math.sqrt((p[1] - rear.x) ^ 2 + (p[2] - rear.z) ^ 2)
+					assert(dr < df, `{side}'s line at {front.id} is nearer {front.id} than {rear.id}`)
+					assert(dr > rear.radius + 20, `{side}'s line at {front.id} crowds {rear.id}'s zone`)
+					-- in the front sector or the one behind: both its own while it holds the front one
+					local id = Sec.sectorAt(Map1, MT, p[1], p[2], SecCfg.Divider.RiverSegments)
+					assert(id == front.id or id == rear.id, `{side}'s line at {front.id} reaches into {id}`)
+					assert(not MT.isRiver(Map1, p[1], p[2]), `{side}'s line at {front.id} stands in the river`)
+				end
+			end
+		end
+	end,
+	["the wave lines' ground is clear of trees (Rules/Frontline.lineQuads)"] = function()
+		local B = require("../src/shared/Config/Buildings")
+		local P = require("../src/shared/Config/Props")
+		local V = require("../src/shared/Rules/Village")
+		local lots = V.layout(Map1, B, M, MT, P).lots
+		local quads = R.lineQuads(sectors, Front.Line, Front.Line.treeClear)
+		assert(#quads == 2 * (#sectors - 2), `{#quads} line quads`)
+		local rows = Front.Line.tries // Front.Line.perRow
+		for i = 2, #sectors - 1 do
+			for _, side in { "West", "East" } do
+				for _, p in waveLine(side, i, rows) do
+					local inside = false
+					for _, q in quads do
+						inside = inside or V.pointInQuad(p[1], p[2], q)
+					end
+					assert(inside, `a slot of {side}'s line at {sectors[i].id} isn't in its cleared ground`)
+				end
+			end
+		end
+		for _, t in V.naturalTrees(Map1, MT, lots, Map1.village.trees.buildingClear, quads) do
+			for _, q in quads do
+				assert(not V.pointInQuad(t.x, t.z, q), "a tree on a wave line's ground")
 			end
 		end
 	end,
@@ -144,11 +188,17 @@ return {
 		end
 		assert(wide >= 1 and narrow >= 2, "need 1+ vehicle ford and 2+ infantry fords")
 	end,
-	["each spawn sits behind its own HQ, about as far out as the old HQ points (~225 studs)"] = function()
+	["each spawn sits behind its own HQ, ~400 out, still in the HQ's sector (user 2026-11-02)"] = function()
 		for side, i in { West = 1, East = #sectors } do
 			local r, hq = Map1.spawnZones[side], sectors[i]
 			local d = dist({ x = (r.minX + r.maxX) / 2, z = (r.minZ + r.maxZ) / 2 }, hq)
-			assert(d > 180 and d < 270, `{side} spawn {d} from its HQ`)
+			assert(d > 360 and d < 440, `{side} spawn {d} from its HQ`)
+			for _, c in { { r.minX, r.minZ }, { r.maxX, r.minZ }, { r.maxX, r.maxZ }, { r.minX, r.maxZ } } do
+				assert(
+					Sec.sectorAt(Map1, MT, c[1], c[2], SecCfg.Divider.RiverSegments) == hq.id,
+					`{side} spawn leaves {hq.id}`
+				)
+			end
 			local behind = if side == "West" then r.maxX < hq.x - hq.radius else r.minX > hq.x + hq.radius
 			assert(behind, `{side} spawn isn't behind its HQ`)
 		end

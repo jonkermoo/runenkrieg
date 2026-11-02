@@ -53,33 +53,53 @@ local Frontline = {
 	Waves = { every = 15, dead = 5, shield = 3 },
 	-- The wave line (user 2026-10-31: "make sure spawns are lined up and they spawn in the general area of the flag"):
 	-- `perRow` soldiers side by side `gap` apart, filled from the middle out, each row `rowGap` behind the last, facing
-	-- the side's target sector. At a sector the line's front stands `edge` studs outside its zone toward the side's own
-	-- end; at a side's own HQ sector the line is in its spawn zone (Config/Maps/Map1.spawnZones). A slot needs `clear`
+	-- the side's target sector. At a fought-over sector the line's front row stands `back` of the way from its point to
+	-- the point behind it (Rules/Frontline.lineCentre): closer to the sector behind (user 2026-11-02: "spawns still need
+	-- to be pushed back. it should be closer to the previous sector than the furthest sector they have"; was `edge` 90
+	-- past the zone, before that 20 and 8). On Map 1 0.60-0.75 stay hidden and dry; 0.55 puts the S3 / S4 line in the
+	-- river. At a side's own HQ sector the line is in its spawn zone (Config/Maps/Map1.spawnZones). A slot needs `clear`
 	-- (across, high, deep) studs of open ground over dry terrain; a blocked one is skipped (up to `tries` slots).
-	-- (edge 20, was 8: the line stands down the back slope of the point's rise, under the next point's sight line;
-	-- user 2026-11-01: "the spawn behind that elevated position (as natural cover)", tests/map1.spec.luau)
 	-- A soldier stands on the highest ground within `foot` studs of its slot's middle (on the slope no foot is buried;
 	-- user 2026-11-01: "my body was in the ground"), its feet `lift` over it, its root at its own standing height
 	-- (legs, root, hip height) over that.
-	Line = { perRow = 8, gap = 4, rowGap = 5, edge = 20, clear = { 3, 6, 3 }, tries = 40, foot = 1, lift = 0.2 },
+	-- No natural trees on a line's ground at a fought-over sector, `treeClear` round it (Rules/Frontline.lineQuads).
+	Line = {
+		perRow = 8,
+		gap = 4,
+		rowGap = 5,
+		back = 0.65,
+		treeClear = 4,
+		clear = { 3, 6, 3 },
+		tries = 40,
+		foot = 1,
+		lift = 0.2,
+		-- while held, every `recheck` seconds a soldier is lifted back over the ground if it rose more than `relift` under
+		-- its feet (src/server/Frontline keepUp; user 2026-11-02: "plays spawn under the ground")
+		recheck = 0.25,
+		relift = 0.05,
+	},
 	-- the shield round a soldier in the wave line: a ball `size` studs across in its team's magic colour
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },
 	-- Artillery levels (user 2026-10-31, docs CAMPAIGN.md: "whenever a sector is lost, both teams should level up in
 	-- artillery"): both sides start each match at level 0 and go up one each time a sector is lost (taken from the side
 	-- that held it), at most `max`; a gun is built from its level on (Config/Build.Pieces `key`). The level is the
-	-- Frontline folder's `LevelAttribute` (src/server/Build reads it).
-	Artillery = { max = 2, unlock = { FieldGun = 1, Howitzer = 2 } },
+	-- Frontline folder's `LevelAttribute` (src/server/Build reads it). Nothing waits on it now (user 2026-11-02: "also
+	-- remove the rule for sector taking before building artillerly"): field guns and howitzers are built from a match's
+	-- start, under their per-team caps (Config/Build.Pieces `teamCap`); was { FieldGun = 1, Howitzer = 2 }.
+	Artillery = { max = 2, unlock = {} },
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
 	-- of mis match"): while the bigger side has at least `gap` more players AND `share` more, the smaller side's points
 	-- are paid `times` over (src/server/Loadouts)
 	Reinforcements = { gap = 3, share = 0.25, times = 1.5 },
 	-- on the Frontline folder: the next wave's server time; the artillery level; the side reinforced (or nil); each side's
-	-- spawn sector (an index, "<Side>Spawn"). On a character: while it stands in the wave line.
+	-- spawn sector (an index, "<Side>Spawn") and its wave line's centre (a Vector3, "<Side>Line": no shells there,
+	-- Config/Artillery.SpawnGuard). On a character: while it stands in the wave line.
 	WaveAttribute = "WaveAt",
 	LevelAttribute = "GunLevel",
 	ReinforcedAttribute = "Reinforced",
 	SpawnAttribute = "Spawn",
+	LineAttribute = "Line",
 	HoldAttribute = "WaveHold",
 }
 

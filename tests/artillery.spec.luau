@@ -2,6 +2,8 @@
 local C = require("../src/shared/Config/Artillery")
 local A = require("../src/shared/Rules/Artillery")
 local Assets = require("../src/shared/Config/Assets")
+local Map1 = require("../src/shared/Config/Maps/Map1")
+local Playtest = require("../src/shared/Config/Maps/Playtest")
 
 local GRAVITY = 196.2 -- Roblox's default workspace.Gravity
 local function near(a: number, b: number, eps: number?): boolean
@@ -89,18 +91,46 @@ return {
 		end
 		assert(flight(QF, 16) > 3 and flight(HOW, 45) > 5)
 	end,
-	["the mortar's breech clears its platform even at full elevation"] = function()
+	["the howitzer recharges with nobody on it; the field gun and MG start their reload over (user 2026-11-03)"] = function()
+		assert(HOW.keepsReload == true, "the howitzer's crystal fills unmanned")
+		assert(not QF.keepsReload and not C.Guns.mg08.keepsReload, "user 2026-11-01: restarted if cancelled")
+	end,
+	["the howitzer's breech clears its turntable even at full elevation"] = function()
 		local c = HOW.recoilClear
 		local e = HOW.elevation[2]
 		local r = A.recoilLength(HOW.recoil, e, HOW.trunnion[2], c)
 		local a = math.rad(e)
 		assert(HOW.trunnion[2] - (c.along + r) * math.sin(a) - c.below * math.cos(a) >= c.floor - 1e-6)
 	end,
-	["scatter stays within its most and is nothing for even numbers"] = function()
-		local y, e, s = A.scatter(QF.scatter, { 0.5, 0.5, 0.5, 0.5, 0.5, 0.5 })
-		assert(near(y, 0) and near(e, 0) and near(s, 1))
-		y, e, s = A.scatter(QF.scatter, { 1, 1, 0, 0, 1, 1 })
-		assert(near(y, QF.scatter.yaw) and near(e, -QF.scatter.elevation) and near(s, 1 + QF.scatter.speed))
+	["a shell misses by a little: mostly half its radius, rarely on the aim, never past it"] = function()
+		assert(QF.miss and HOW.miss and C.Guns.mg08.miss == nil, "the field gun and howitzer only")
+		local right, beyond = A.miss(36, 1, 1, 0)
+		assert(near(right, 0) and near(beyond, 36), "the most: straight beyond")
+		right, beyond = A.miss(36, 0.5, 0.5, 0.25)
+		assert(near(right, 18) and near(beyond, 0, 1e-9), "half the radius, to the right")
+		math.randomseed(7)
+		local close, off, n = 0, 0, 4000
+		for _ = 1, n do
+			local x, z = A.miss(36, math.random(), math.random(), math.random())
+			local d = math.sqrt(x * x + z * z)
+			assert(d <= 36 + 1e-9)
+			if d < 3.6 then
+				close += 1
+			end
+			off += d
+		end
+		assert(close / n < 0.05, "rarely right on the aim")
+		assert(near(off / n, 18, 1), "mostly about half off")
+	end,
+	["a miss is turned into a lay: beyond is faster, right is a turn to the right"] = function()
+		local yaw, speed = A.missLay(1000, 0, 210)
+		assert(near(yaw, 0) and near(speed, math.sqrt(1.21)))
+		local x, z = A.landing(BORE, { yaw = 0, traverse = 0, elevation = 10 }, 0, 0)
+		local reach = math.sqrt((x :: number) ^ 2 + (z :: number) ^ 2)
+		yaw = A.missLay(reach, 30, 0)
+		local x2 = A.landing(BORE, { yaw = 0, traverse = yaw, elevation = 10 }, 0, 0)
+		assert(near((x2 :: number) - (x :: number), 30, 1), "30 studs to the right (+X facing -Z)")
+		assert(select(2, A.missLay(0, 5, 5)) == 1, "no reach: no change")
 	end,
 	["the recoil goes back fast and runs out again"] = function()
 		local t = QF.recoilTimes
@@ -200,10 +230,51 @@ return {
 		assert(C.Wreck.unusable == 2 and at[C.Wreck.unusable] == 50) -- user 2026-10-25: "let's say 50%"
 		assert(#C.Wreck.scorch == #at and #C.Wreck.tilt == #at and #C.Wreck.sink == #at)
 	end,
-	["the howitzer's mound is player height or less"] = function()
+	["the Rune howitzer is semi dug: a shallow pit inside its sandbag ring, walked out of up its ramp"] = function()
+		-- user 2026-11-02: "we can keep the howizer semi dugged, but have sandbags around it"
+		local Build = require("../src/shared/Config/Build")
 		local d = HOW.dig :: any
-		assert(d.rimHeight <= 5) -- user 2026-10-25: "the mound should be player height or less"
-		assert(d.depth + d.rimHeight >= 14.8) -- as much cover over the bed as before
+		local n = Build.GunRing.artillery_howitzer
+		local ring = n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))
+		local inner = ring - n.ring.bag / 4 -- (a bag lies ~1.6 deep across the ring's line)
+		assert(d.depth <= 4 and d.rim == 0 and d.rimHeight == 0 and not d.slabs, "shallow, no mound, no slabs")
+		local top = d.radius + d.depth / math.tan(math.rad(d.wall))
+		assert(top < inner, `the pit's wall top {top} inside the bags {inner}`)
+		-- the ramp is up at the ground before the bags (their ground stays whole), walkable (under 50 degrees), two
+		-- voxels wide
+		assert(d.radius + d.ramp.length < inner)
+		assert(math.deg(math.atan(d.depth / d.ramp.length)) < 50 and d.ramp.width >= 8)
+		-- the gunner stands on the turntable inside the pit's floor
+		assert(math.sqrt(HOW.crew[1] ^ 2 + HOW.crew[2] ^ 2) + 1 < d.radius)
+	end,
+	["the howitzer's barrel engravings rise through the charge-up and fade after the shot (user 2026-11-02)"] = function()
+		local E = C.Crystal.engraving
+		assert(table.find(HOW.barrel, E.part), "they recoil with the barrel")
+		local charge = HOW.charge
+		assert(A.engravingShown(-1, charge, 100, E.fade) == 0, "unseen before the charge-up")
+		assert(near(A.engravingShown(charge / 2, charge, 100, E.fade), 0.5))
+		assert(A.engravingShown(charge * 0.99, charge, 100, E.fade) > 0.95, "nearly full by the shot")
+		assert(near(A.engravingShown(charge, charge, 0, E.fade), 1), "lit at the shot")
+		assert(near(A.engravingShown(charge + E.fade / 2, charge, E.fade / 2, E.fade), 0.5))
+		assert(A.engravingShown(charge + E.fade, charge, E.fade, E.fade) == 0, "gone again")
+		assert(A.engravingShown(1e9, charge, 5, E.fade) == 0, "unseen through the reload")
+	end,
+	["the Rune howitzer hits harder than the field gun, over less ground (user 2026-11-02)"] = function()
+		-- "make it stronger than the field cannon, but less AOE but keep direct damage strong, just scale it with the
+		-- lowered AOE radius", "it should still be a deadly weapon": its blast kills further out than the field gun's
+		-- fragments, but hurts over less ground than they do, and less than the 42 cm's 340 kg did
+		local Blast = require("../src/shared/Rules/Blast")
+		local D = require("../src/shared/Config/Damage").Blast
+		local kill = Blast.reachOf(D.Soldier.kill, HOW.kg, D)
+		local hurt = Blast.reachOf(D.Soldier.from, HOW.kg, D)
+		assert(kill > QF.fragments.lethal and kill > HOW.fragments.lethal, `kills to {kill}`)
+		assert(hurt < QF.fragments.wound and HOW.fragments.wound <= hurt + 1, `hurts to {hurt}`)
+		assert(hurt < Blast.reachOf(D.Soldier.from, 340, D))
+		assert(math.abs(HOW.zone - hurt) < 2, "its impact zone is where its blast still hurts")
+		-- trenches: it still buries what it hits, over a smaller reach than before
+		local S = require("../src/shared/Config/Build").Structures
+		assert(S.howitzer.hit >= 100 and S.howitzer.reach < 20 and S.howitzer.hit > S.field.hit)
+		assert(C.Hits.howitzer.direct > C.Hits.field.direct and C.Hits.howitzer.reach < 30)
 	end,
 	["the MG gunner's stances blend by the lay: level at 0, all low or high at its stops"] = function()
 		local MG = C.Guns.mg08
@@ -533,5 +604,66 @@ return {
 	["only a teammate takes a gun over from a bot"] = function()
 		assert(A.mayTakeOver("uniform1", "uniform1"))
 		assert(not A.mayTakeOver("uniform2", "uniform1") and not A.mayTakeOver(nil, nil))
+	end,
+	["a shot comes down along its lay, its range out from the muzzle"] = function()
+		for _, g in { QF, HOW } do
+			local e = (g.elevation[1] + g.elevation[2]) / 2
+			local mx, _, mz = A.muzzle(g, 0, e)
+			local r = A.range(g.speed, e + (g.aimTilt or 0), g.gravity)
+			local x, z = A.landing(g, { yaw = 0, traverse = 0, elevation = e }, 100, 50)
+			assert(x and z and near(x, 100 + mx, 1e-3) and near(z, 50 + mz - r, 1e-3))
+			-- turned a quarter round (whole gun or mount alike): toward -X
+			local x2, z2 = A.landing(g, { yaw = 60, traverse = 30, elevation = e }, 0, 0)
+			assert(x2 and z2 and x2 < -r * 0.9 and math.abs(z2) < r * 0.1)
+		end
+	end,
+	["near a spawn: within the margin of a spawn zone or round a wave line"] = function()
+		local zones = { West = { minX = 0, maxX = 10, minZ = 0, maxZ = 10 } }
+		assert(A.nearSpawn(5, 5, zones, {}, 0) and A.nearSpawn(-19, 5, zones, {}, 20))
+		assert(A.nearSpawn(24, 24, zones, {}, 20) and not A.nearSpawn(25, 25, zones, {}, 20))
+		assert(not A.nearSpawn(-21, 5, zones, {}, 20))
+		local lines = { { 500, 0, 24 } }
+		assert(A.nearSpawn(543, 0, {}, lines, 20) and not A.nearSpawn(545, 0, {}, lines, 20))
+		-- every map's spawn zones count (one rule for every map)
+		for _, map in { Map1, Playtest } :: { any } do
+			for _, r in map.spawnZones do
+				assert(A.nearSpawn((r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2, map.spawnZones, {}, C.SpawnGuard.gap))
+			end
+		end
+	end,
+	["a gun won't lay onto a spawn: it slides along the edge or holds"] = function()
+		local g = QF
+		local e0 = g.elevation[1]
+		local start = { yaw = 0, traverse = 0, elevation = e0 }
+		local x0, z0 = A.landing(g, start, 0, 0)
+		assert(x0 and z0)
+		-- a spawn just past where it lands now, straight ahead (-Z): raising the barrel walks into it
+		local far = z0 - 60
+		local zones = { S = { minX = -10, maxX = 10, minZ = far - 10, maxZ = far + 10 } }
+		local margin = g.zone + C.SpawnGuard.gap
+		local function blocked(l: any): boolean
+			local x, z = A.landing(g, l, 0, 0)
+			return x ~= nil and z ~= nil and A.nearSpawn(x, z, zones, {}, margin)
+		end
+		assert(not blocked(start))
+		local l = start
+		local held = false
+		for _ = 1, 200 do
+			local h
+			l, h = A.layClear(l, 0, g.elevation[2], g, 0.05, blocked)
+			held = held or h
+			assert(not blocked(l))
+		end
+		assert(held and l.elevation < g.elevation[2])
+		-- turning away still works while it is held at the edge
+		local turned = A.layClear(l, 40, g.elevation[2], g, 0.5, blocked)
+		assert(turned.traverse > l.traverse and not blocked(turned))
+		-- a gun already laid on a spawn (the wave line came to it) moves freely
+		local onIt = { yaw = 0, traverse = 0, elevation = l.elevation }
+		local function always(_: any): boolean
+			return true
+		end
+		local moved, h2 = A.layClear(onIt, 10, onIt.elevation, g, 0.5, always)
+		assert(not h2 and moved.traverse > 0)
 	end,
 }

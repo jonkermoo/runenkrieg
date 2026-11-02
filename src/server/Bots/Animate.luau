@@ -25,6 +25,10 @@ local Animate = {}
 export type Handle = {
 	update: (speed: number, hold: string, pitch: number) -> (),
 	equip: () -> (), -- the draw once over the hold (spawning, getting up from a knock)
+	-- an animation by id over everything else (a heal, the drag, a grenade's pin, wind-up and throw), loaded once;
+	-- `stop` ends every one of them
+	play: (id: number, looped: boolean?) -> (),
+	stop: () -> (),
 }
 
 local function load(animator: Animator, id: number, priority: Enum.AnimationPriority, looped: boolean): AnimationTrack
@@ -125,7 +129,24 @@ function Animate.attach(m: Model, weapon: string): Handle
 		end
 	end
 
-	return { update = update, equip = equip }
+	local extra: { [number]: AnimationTrack } = {}
+	local function play(id: number, looped: boolean?)
+		local t = extra[id]
+		if not t then
+			t = load(a, id, Enum.AnimationPriority.Action2, looped == true)
+			extra[id] = t
+		end
+		(t :: AnimationTrack):Play(Loco.HoldFade)
+	end
+	local function stop()
+		for _, t in extra do
+			if t.IsPlaying then
+				t:Stop(Loco.HoldFade)
+			end
+		end
+	end
+
+	return { update = update, equip = equip, play = play, stop = stop }
 end
 
 return Animate

@@ -77,16 +77,23 @@ function Artillery.yawOf(x: number, z: number): number
 	return math.deg(math.atan2(-x, -z))
 end
 
--- The stray of one shot from three random numbers in 0..1 each pair (r1 + r2 is a triangle: most shots near the aim,
--- none past the most): degrees of yaw, degrees of elevation, the speed's share.
-function Artillery.scatter(
-	s: { yaw: number, elevation: number, speed: number },
-	r: { number }
-): (number, number, number)
-	local function tri(a: number, b: number): number
-		return a + b - 1
+-- Where one shot comes down against its aim (Config/Artillery `miss`), from three random numbers in 0..1: `radius`
+-- times (r1 + r2) / 2 studs off (a triangle: mostly half the radius, rarely on the aim, never past the radius), r3 of
+-- the way round. Studs right of and beyond the aim point along the line of fire.
+function Artillery.miss(radius: number, r1: number, r2: number, r3: number): (number, number)
+	local d = radius * (r1 + r2) / 2
+	local a = r3 * 2 * math.pi
+	return d * math.sin(a), d * math.cos(a)
+end
+
+-- The turn (degrees, + to the left as Artillery.lay) and the speed's share that move a shot landing `reach` studs out
+-- `right` and `beyond` studs (its reach grows as the speed squared).
+function Artillery.missLay(reach: number, right: number, beyond: number): (number, number)
+	if reach < 1 then
+		return 0, 1
 	end
-	return s.yaw * tri(r[1], r[2]), s.elevation * tri(r[3], r[4]), 1 + s.speed * tri(r[5], r[6])
+	local far = math.max(reach + beyond, reach * 0.25)
+	return -math.deg(math.atan2(right, far)), math.sqrt(far / reach)
 end
 
 -- How far the barrel is back `t` seconds after a shot: straight back over `times[1]`, running out again over
@@ -157,6 +164,19 @@ end
 --   "Awake"    the moment it's full: a bright bloom for `awake` s;
 --   "Ready"    a slow breath.
 -- Returns the state, the glow (0 dark .. 1 full, above 1: white-hot) and the share charged (0..1, the runes lit).
+-- How much of the howitzer's barrel engravings shows (0 unseen .. 1 lit; Config/Artillery.Crystal.engraving): rising
+-- through the charge-up (`up` s into its `charge`), lit at the shot and fading over `fade` s after it (`since`), unseen
+-- otherwise
+function Artillery.engravingShown(up: number, charge: number, since: number, fade: number): number
+	if charge > 0 and up >= 0 and up < charge then
+		return up / charge
+	end
+	if fade > 0 and since >= 0 and since < fade then
+		return 1 - since / fade
+	end
+	return 0
+end
+
 function Artillery.crystal(
 	now: number,
 	firedAt: number,
@@ -278,6 +298,73 @@ end
 -- can man any free gun, only teammates may kick them off").
 function Artillery.mayTakeOver(playerKit: any, botKit: any): boolean
 	return type(playerKit) == "string" and playerKit == botKit
+end
+
+-- Where a shot from the gun standing at (px, pz) laid `lay` comes down on flat ground at its muzzle's height (world x,
+-- z); nil when it points straight up.
+function Artillery.landing(gun: any, lay: Lay, px: number, pz: number): (number?, number?)
+	local mx, _, mz, dx, dy, dz = Artillery.muzzle(gun, lay.traverse, lay.elevation)
+	mx, _, mz = aboutY(mx, 0, mz, lay.yaw)
+	dx, _, dz = aboutY(dx, dy, dz, lay.yaw)
+	local flat = math.sqrt(dx * dx + dz * dz)
+	if flat < 1e-3 then
+		return nil, nil
+	end
+	local reach = Artillery.range(gun.speed, math.deg(math.atan2(dy, flat)), gun.gravity)
+	return px + mx + dx / flat * reach, pz + mz + dz / flat * reach
+end
+
+-- Whether (x, z) lies within `margin` studs of a spawn (user 2026-11-02: guns "shouldnt be able to reach the exact
+-- spawn no matter where its placed ... make it consistent throughout all maps"): of a rect in `zones` (a map's
+-- spawnZones) or of a circle in `lines` ({ x, z, radius }: a side's wave line now).
+function Artillery.nearSpawn(
+	x: number,
+	z: number,
+	zones: { [any]: any },
+	lines: { { number } },
+	margin: number
+): boolean
+	for _, r in zones do
+		local dx = math.max(r.minX - x, 0, x - r.maxX)
+		local dz = math.max(r.minZ - z, 0, z - r.maxZ)
+		if dx * dx + dz * dz <= margin * margin then
+			return true
+		end
+	end
+	for _, c in lines do
+		local m = c[3] + margin
+		local dx, dz = x - c[1], z - c[2]
+		if dx * dx + dz * dz <= m * m then
+			return true
+		end
+	end
+	return false
+end
+
+-- Artillery.lay kept off where `blocked(lay)` (a spawn): a step that would lay it there turns only the axis that stays
+-- clear (sliding along the edge), or nothing; true when it was held. A lay already there moves freely (the spawn came
+-- to it).
+function Artillery.layClear(
+	state: Lay,
+	wantYaw: number,
+	wantElevation: number,
+	gun: any,
+	dt: number,
+	blocked: (Lay) -> boolean
+): (Lay, boolean)
+	local step = Artillery.lay(state, wantYaw, wantElevation, gun, dt)
+	if not blocked(step) or blocked(state) then
+		return step, false
+	end
+	local turn = Artillery.lay(state, wantYaw, state.elevation, gun, dt)
+	if not blocked(turn) then
+		return turn, true
+	end
+	local raise = Artillery.lay(state, state.yaw + state.traverse, wantElevation, gun, dt)
+	if not blocked(raise) then
+		return raise, true
+	end
+	return state, true
 end
 
 -- The server's check of an aim sent by the gunner: real numbers in range.

@@ -44,8 +44,14 @@ export type Gun = {
 	kg: number, -- the shell's filling as TNT (Damage.blast)
 	craterScale: number?, -- its crater's size against a charge's own (Rules/Blast.craterPlan; nil: 1)
 	fragments: { lethal: number, wound: number, max: number, near: number, far: number }?, -- Rules/Grenade.fragments
-	scatter: { yaw: number, elevation: number, speed: number }, -- the most a shot strays: degrees, degrees, share
+	-- a field gun's or howitzer's shell comes down up to `miss` studs from where it was laid (Rules.miss; user
+	-- 2026-11-02: "the artillery (mg nest excluded) should be way less accurate. it should miss a lot of its shots by a
+	-- little (not exactly where ur aiming)"): mostly about half that, rarely on the aim; nil for the machine gun
+	miss: number?,
 	reload: number, -- seconds from a shot to the next
+	-- its reload runs on when its gunner gets off (nil: broken off and started over once it is manned again, the field
+	-- gun's and the MG's; src/server/Artillery cancelReload)
+	keepsReload: boolean?,
 	breechOpen: number, -- degrees the breech swings open
 	breechTimes: { number }, -- seconds after the shot it opens, and before ready it closes
 	recoil: number, -- studs back along the bore
@@ -251,6 +257,23 @@ local Artillery = {
 	-- degrees; a bot put off for a player is set down `aside` studs to the gun's side of the crew spot. While a bot mans
 	-- it, the prompt reads `takeOver` for its teammates.
 	Bot = { reach = 1.5, laid = 0.5, aside = 4, takeOver = "Take over the gun" },
+
+	-- No shells on the spawns (user 2026-11-02: "it shouldnt be able to reach the exact spawn no matter where its placed?
+	-- make it consistent throughout all maps"; Rules.nearSpawn): a field gun or howitzer won't lay or fire where its
+	-- shell would come down (its path cast on the terrain) within its `zone` plus `gap` studs of a spawn: either side's
+	-- spawn zone (the map's spawnZones) or, in a Normal match, either side's wave line now, a circle `line` studs round
+	-- its centre (Config/Frontline.LineAttribute). Turning onto one tells the gunner `aimWhy` at most every `every` seconds.
+	SpawnGuard = {
+		gap = 20,
+		line = 24,
+		why = "Can't fire on a spawn",
+		aimWhy = "Can't aim at a spawn",
+		every = 2,
+	},
+	-- A field gun's or howitzer's miss (its `miss`; src/server/Artillery missOf): rolled again, up to `tries` times,
+	-- while its path traced on the terrain comes down on a spawn or more than `stray` times the radius off (rough
+	-- ground: a longer shot clearing a crest); none after that.
+	Miss = { tries = 8, stray = 1.25 },
 
 	-- The arc line and landing marker while manning (src/client/Artillery): the line is one Beam bent to the path
 	-- (as the grenade's, Palette.Artillery.Arc), the marker a ring and the range on top of everything (seen past the fog)
@@ -493,7 +516,11 @@ local Artillery = {
 		awakeGlow = 0.6,
 		breath = 0.2,
 		pulse = 1.6,
-		alsoRunes = { "BarrelRunes" }, -- (the bed's runes are gone: user 2026-10-26)
+		alsoRunes = { "BarrelRunes", "CradleRunes" }, -- (the bed's runes are gone: user 2026-10-26; the collar's, 2026-11-02)
+		-- the rune engravings round the barrel (user 2026-11-02: "make rune engravings appear on the barrel when the gun
+		-- is charging up to be fired"; Rules/Artillery.engravingShown): unseen till the charge-up, fading in through it
+		-- toward `glow` (Crystal colours: past 1 toward white-hot), full on the shot, gone again over `fade` s after it
+		engraving = { part = "BarrelEngraving", glow = 1.4, fade = 1 },
 		-- the orbiting runes' strokes (user 2026-10-26: "more ... curve. it looks too blocky"; their halos taken off
 		-- again: "it makes the runes indecipherable"): each bows `bow` of its length off true (alternate strokes the
 		-- other way) in `pieces` rounded pieces, swelling to `swell` x the stroke in its middle, `tip` x at its ends
@@ -501,8 +528,8 @@ local Artillery = {
 		runesFloor = 0.15,
 		light = { range = 14, brightness = 2.5 },
 		runes = 8,
-		orbit = 2.9, -- (round the bigger gem)
-		size = 0.9,
+		orbit = 1.9, -- (round the Rune howitzer's caged crystal, 2026-11-02; was 2.9 round the 42 cm's gem)
+		size = 0.6,
 		spin = 25,
 		bob = 0.15,
 		scatter = 2.5,
@@ -581,7 +608,8 @@ local Artillery = {
 		staff2 = { direct = 6, near = 1, reach = 5 },
 		staff3 = { direct = 18, near = 4, reach = 10 },
 		field = { direct = 60, near = 8, reach = 12 }, -- (a field gun: two; the howitzer: four)
-		howitzer = { direct = 150, near = 25, reach = 30 }, -- (a field gun at once; the howitzer: two)
+		-- (user 2026-11-02, the damage rework: its 100 kg shell reaches less far; was near 25, reach 30)
+		howitzer = { direct = 150, near = 30, reach = 14 }, -- (a field gun at once; the howitzer: two)
 		byCharge = {
 			{ kg = 0.5, source = "grenade" },
 			{ kg = 5, source = "field" },
@@ -680,7 +708,7 @@ local Artillery = {
 			-- out to ~10 m and wounds to ~25-30 m, and its charge as TNT here is raised to 2.5 kg so it breaks walls
 			kg = 2.5,
 			fragments = { lethal = 12, wound = 40, max = 100, near = 70, far = 15 },
-			scatter = { yaw = 0.8, elevation = 0.25, speed = 0.012 },
+			miss = 36, -- (mostly ~18 studs off: past its lethal 12, inside its wounding 40)
 			reload = 10,
 			breechOpen = 100,
 			breechTimes = { 1.2, 1 },
@@ -769,15 +797,20 @@ local Artillery = {
 				{ names = { "Breech" }, at = 4 },
 			},
 		} :: Gun,
-		-- The magic howitzer v6 (user 2026-10-21: "look like the big bertha", "no tires ... the turning being controlled by
-		-- giant gears"; tools/blender/artillery/bertha.py, approved v10): a 42 cm siege mortar, its riveted box carriage
-		-- turning all the way round on a giant ring gear, the barrel trunnioned high between its walls. A short-arc mortar
-		-- (user: "make the howitzer more of a short arc mortar weapon"): it only lobs, 45..80 degrees, 160 studs/s under
-		-- its own lighter gravity: ~590 studs at 45 down to ~200 at 80, 5-7 s in the air. Its recoil is cut short at
-		-- high elevation so the gem under the breech clears the turntable (~1 at 80). Dug in when placed (`dig`).
+		-- The Rune howitzer v7 (user 2026-11-02: "completely remake a new howitzer model ... make it stronger than the field
+		-- cannon, but less AOE but keep direct damage strong"; "lets take inspiration from these styles": the US 240 mm
+		-- and 8-inch M1 heavy howitzers in their sandbagged pits; "keep the howizer semi dugged, but have sandbags around
+		-- it that behave similarily to how the mg nest sandbags behave"; "make it even bigger. it should still be a deadly
+		-- weapon"; "this is still a magic howitzer. no shells or anything and include a rune crystal somehow";
+		-- tools/blender/artillery/rune_howitzer.py; was the 42 cm Bertha mortar v6, bertha.py): a long barrel under twin
+		-- recuperators in a sleigh cradle, trunnioned between the riveted walls of a top carriage turning right round on a
+		-- toothed ring gear, the big cracked rune crystal caged on the cradle over the breech. It still only lobs, 45..80
+		-- degrees at 160 studs/s under its own lighter gravity: ~590 studs at 45 down to ~200 at 80, 5-7 s in the air.
+		-- Its recoil is cut short at high elevation so the breech's carrier handle clears the turntable. Built 3 down in a
+		-- shallow pit (`dig`) in a ring of sandbags (Config/Build.GunRing).
 		artillery_howitzer = {
 			asset = "artillery_howitzer",
-			name = "42 cm Rune mortar",
+			name = "Rune howitzer",
 			base = "Bed",
 			mount = {
 				"Mount",
@@ -790,32 +823,39 @@ local Artillery = {
 				"ElevationPinion",
 				"ElevationWheel",
 			},
-			-- the traverse pinion rolls round the 60-tooth ring gear (10 teeth: 6 turns to the gun's one), its hand wheel
-			-- on its shaft; the elevating pinion (8 teeth) meshes the cradle's 50-tooth sector, against it (bertha.py)
+			-- the traverse pinion rolls round the 54-tooth ring gear (10 teeth: 5.4 turns to the gun's one), its hand wheel
+			-- on its shaft; the elevating pinion (8 teeth) meshes the cradle's 40-tooth sector (rune_howitzer.py)
 			gears = {
-				{ part = "TraversePinion", centre = { -5.576, 1.09, -4.515 }, axis = "Y", by = "traverse", ratio = 6 },
-				{ part = "TraverseWheel", centre = { -5.576, 4.4, -1.2 }, axis = "Z", by = "traverse", ratio = 6 },
+				{
+					part = "TraversePinion",
+					centre = { -3.546, 0.73, -4.539 },
+					axis = "Y",
+					by = "traverse",
+					ratio = 5.4,
+				},
+				{ part = "TraverseWheel", centre = { -3.546, 2.75, -0.3 }, axis = "Z", by = "traverse", ratio = 5.4 },
 				{
 					part = "ElevationPinion",
-					centre = { -3.81, 3.973, -0.104 },
+					centre = { -2.15, 2.236, 0.583 },
 					axis = "X",
 					by = "elevation",
-					ratio = -6.25,
+					ratio = -5,
 				},
 				{
 					part = "ElevationWheel",
-					centre = { -4.15, 3.973, -0.104 },
+					centre = { -2.62, 2.236, 0.583 },
 					axis = "X",
 					by = "elevation",
-					ratio = -6.25,
+					ratio = -5,
 				},
 			},
-			cradle = { "Cradle", "CradleTrim" },
-			barrel = { "Barrel", "BarrelRunes", "Bore", "BarrelTrim" },
-			breech = { "Breech", "Crystal", "CrystalCracks" },
-			trunnion = { 0, 7.4, 0.5 },
-			hinge = { 0, 7.4, 3.1 }, -- (the breech never opens)
-			muzzle = { 0, 7.4, -10.6 },
+			-- (the crystal rides the cradle: it elevates with the gun but never recoils)
+			cradle = { "Cradle", "CradleTrim", "CradleFittings", "CradleRunes", "Crystal", "CrystalCracks" },
+			barrel = { "Barrel", "BarrelRunes", "BarrelEngraving", "Bore", "BarrelTrim" },
+			breech = { "Breech" },
+			trunnion = { 0, 4.6, 1.0 },
+			hinge = { 0, 4.6, 3.1 }, -- (the breech never opens)
+			muzzle = { 0, 4.6, -10.6 },
 			boreCentre = 0.123,
 			traverse = 180, -- right round on its ring gear
 			elevation = { 45, 80 },
@@ -826,77 +866,54 @@ local Artillery = {
 			gravity = 43.5, -- (340 under 196.2 before: the same ranges, ~2.1x the flight: 5.2 s at 45, 7.2 at 80)
 			charge = 1.8, -- its magic charge-up (user 2026-10-21: "make the howitzer have a cinematic magic charge up")
 			breechOpens = false, -- (user 2026-10-21: "remove the close and opening on the howitzer, leave it closed")
-			-- (user 2026-10-21: "significantly more damage (close to the 50kg bomb)"; was 15 kg, no fragments): 50 kg,
-			-- like the dev blast menu's 50 kg bomb (lethal by blast to ~14 studs, a crater ~34 across), and a 42 cm
-			-- shell's fragments flying far
-			-- (user 2026-10-22: "a direct hit from the howitzer should destroy an entire house and some of its
-			-- surroundings"): every wall, roof and door class fails at 1,000 kPa (Damage.Blast.Fail, stone 1,200), which a
-			-- charge reaches out to ~0.95 x kg^(1/3) studs. A shell on the ridge of a village cottage (up to 24 x 21, one
-			-- 12-stud story, the ridge ~16 up) has its farthest ground-floor wall sections ~19 studs off: 400 kg breaks walls
-			-- to ~20.7 (stone ~19), so the whole house comes down; round it trees fall to ~72, glass breaks to ~128, a
-			-- crater ~68 across, soldiers die to ~27 by blast and are hurt to ~51 (was 50 kg: walls to ~10, a hole in one
-			-- side; Studio round 1 at 250 kg: walls to ~17.7 took 19 of a cottage's 38 sections, a wall stood)
-			-- (user 2026-10-22: "lower how big the explosion is a tiny bit"; was 400 kg): 340 kg, every reach x0.95 (the
-			-- cube root): walls to ~19.6 (stone ~18), trees to ~68, glass to ~121, a crater ~64 across, soldiers die to
-			-- ~26 by blast and are hurt to ~48
-			kg = 340,
-			-- (user 2026-10-23: "lower the crater of the howitzer cannon even more? a few shots from multiple people could
-			-- clear out an entire section"; was ~65 across, ~9.7 deep): half the hole, ~32 across and ~5 deep; its damage,
-			-- reach, mud and broken buildings stay the 340 kg blast's
+			-- (user 2026-11-02, the damage rework, table approved: "make it stronger than the field cannon, but less AOE but
+			-- keep direct damage strong, just scale it with the lowered AOE radius", "it should still be a deadly weapon";
+			-- was 340 kg, crater x0.5, fragments lethal 18 / wound 60): 100 kg, every reach x0.67 (the cube root): soldiers
+			-- die to ~19.6 by blast (the field gun's fragments kill to 12) and are hurt to ~32 (the field gun wounds to 40),
+			-- walls break to ~13 (most of a cottage, no longer the whole house), trees fall to ~45; its crater kept at
+			-- half its charge's own (user 2026-10-23: "lower the crater of the howitzer cannon even more"), ~22 across
+			kg = 100,
 			craterScale = 0.5,
-			fragments = { lethal = 18, wound = 60, max = 100, near = 80, far = 20 },
-			scatter = { yaw = 0.9, elevation = 0.35, speed = 0.015 },
+			fragments = { lethal = 16, wound = 30, max = 100, near = 70, far = 15 },
+			miss = 60,
 			reload = 30,
+			-- (user 2026-11-03: "recharing the howitzer should happen even if you're not on the gun"): its crystal fills
+			-- whether anyone is on it or not, and everyone sees how far it has come (src/client/ArtilleryCrystal)
+			keepsReload = true,
 			breechOpen = 100,
 			breechTimes = { 2, 2 },
-			recoil = 2.5,
+			recoil = 1.2,
 			recoilTimes = { 0.12, 2 },
-			recoilClear = { floor = 1.9, along = 4.58, below = 0 }, -- the gem's point over the turntable (1.6)
-			-- on the step on the carriage's left wall by the hand wheels (user 2026-10-21: "a small platform you stand on the
-			-- side of the cannon to arm it and control it"; bertha.py STEP)
-			crew = { -4.45, 1.4 },
-			crewY = 3.2, -- the step's top
+			recoilClear = { floor = 1.35, along = 2.12, below = 0.6 }, -- the carrier handle over the turntable (1.15)
+			-- the gunner on the turntable behind the hand wheels, left of the carriage (turning with it)
+			crew = { -3.65, 1.6 },
+			crewY = 1.15, -- the turntable's top
 			crewTurns = true,
-			prompt = 12,
-			-- dug in when placed (user 2026-10-21: "slightly underground to give it cover ... naturally destroy the terrain";
-			-- "Pit to the axle"): a pit `radius` round it `depth` deep, an earth rim `rim` wide and `rimHeight` high round that
-			-- (Studio round 13c: the level floor must reach past the bed's corners, ~10.2 out, so the pit reaches a voxel
-			-- further; a rim narrower than two voxels never formed)
-			-- (13d-e: the voxel columns along an axis sit 10.2 and 14.14 out, so a pit under 14.2 stops at the first and the
-			-- bed's corners ~10.2 out end up in its wall; at 2.8 the rim stands ~1.6)
-			-- (user 2026-10-22: "have the howitzer really dug down. only the barrel should really be exposed"; was 1.5): the
-			-- carriage walls' crowns stand 9.3 over the bed's underside (bertha.py) and the cradle round the barrel rose to
-			-- 15.3 at 45 degrees (Studio round 1 at 9.5 deep: 3.3 over the ground), so at 12 only the barrel rises out of the
-			-- ground, and the rim covers the rest; a ramp `width` wide climbs out behind the gun over `length` studs (~20
-			-- degrees; at least two voxels wide, as the rim)
-			-- (user 2026-10-22: "lift the mortal ... formed on a hill (mortal should not be as deep but have same cover)"; was
-			-- depth 12, rim 9, rimHeight 2.8): half as deep, on a mound of earth thrown up round it, so the cover stands as
-			-- high over the bed as before (14.8)
-			-- (user 2026-10-25: "push the howitzer down so there isnt as big of a mound. the mound should be player height or
-			-- less. then add the described trench style on it"; "a ramp that slowly goes to floor level"; was depth 6,
-			-- rimHeight 8.8, ramp 33 long, walls cut straight down): 10.5 deep under a 4.5 mound, the same cover over the
-			-- bed (15); the walls leaning back at a trench's 59 degrees with rough trench slabs on them (Slabs), the floor
-			-- still 15 round; the ramp 40 long (~15 degrees)
+			prompt = 9,
+			-- (user 2026-11-02: "we can keep the howizer semi dugged"; was 10.5 deep in a 15-stud pit under a 4.5 earth
+			-- rim, its walls lined with trench slabs): 3 down, the floor 8.5 round (past the bed's corners, ~8.1 out), the
+			-- walls leaning back at a trench's 59 degrees to ~10.3, no rim or slabs (the sandbag ring stands round it from
+			-- ~11.9, Config/Build.GunRing); a ramp out behind (~43 degrees, walkable under 50) that is up at the ground
+			-- before the ring, so the bags by its doorway stand on whole ground; at least two voxels wide
 			dig = {
-				depth = 10.5,
-				radius = 15,
-				rim = 14,
-				rimHeight = 4.5,
-				ramp = { width = 10, length = 40 },
+				depth = 3,
+				radius = 8.5,
+				rim = 0,
+				rimHeight = 0,
+				ramp = { width = 8, length = 3.2 },
 				wall = 59,
-				slabs = true,
 			},
 			hp = 100,
 			armour = 2.4,
 			repair = 30, -- (half the swings it takes to build)
 			wreckParts = { "Bed", "Mount", "Cradle" }, -- (the moving ones carried by src/client/Artillery)
-			holeSize = { 0.7, 1.4 },
+			holeSize = { 0.4, 0.9 },
 			vfx = { scheme = "Arcane", magic = true },
-			muzzleScale = 2.2,
+			muzzleScale = 1.6,
 			sound = {
-				-- a 42 cm siege mortar's deep, slow boom, dry beside it: Sonic Boom 2 rolls on at -1..-10 dB for ~3 s after
+				-- a heavy howitzer's deep, slow boom, dry beside it: Sonic Boom 2 rolls on at -1..-10 dB for ~3 s after
 				-- its 0.3 s of lead-in silence and dies out over 6.5 s (measured 2026-10-28), so it plays from 0.25 s and dies
-				-- away from 1.2 s (an exponential fade); Mortar Explosion 5 a fifth lower (0.85) for the far bigger charge
+				-- away from 1.2 s (an exponential fade); Mortar Explosion 5 a fifth lower (0.85)
 				fire = {
 					-- Sonic Boom 2: a huge single boom
 					{
@@ -922,26 +939,26 @@ local Artillery = {
 				},
 				whistleLead = 2.5,
 			},
-			zone = 48, -- 340 kg: lethal by blast to ~26, the blast hurting to ~48 (400 kg: 27 and 51)
+			zone = 32, -- 100 kg: lethal by blast to ~19.6, the blast hurting to ~32 (was 340 kg: 48)
 			-- a bright four-point star (user 2026-10-21: "a bright 4 point star"): a white-hot core, the spikes (below), a
 			-- strong light; a blue trail of light and static crackling round it
 			shell = {
-				size = 2.4,
+				size = 2,
 				color = { 235, 250, 255 },
 				tail = { 90, 170, 255 },
-				trail = 1.4,
-				light = 40,
+				trail = 1.2,
+				light = 34,
 				magic = true,
 				static = "Glow",
 				-- the anime four-point sparkle: four long tapered spikes `long` studs out, `width` wide at the core; four short
 				-- faint ones `diag` out between them; a soft `halo` ball; `twinkle` the flutter, `spin` deg/s
 				star = {
-					long = 11,
-					width = 1.3,
-					diag = 3.5,
-					diagWidth = 0.5,
+					long = 9,
+					width = 1.1,
+					diag = 3,
+					diagWidth = 0.45,
 					diagFade = 0.45,
-					halo = 4.5,
+					halo = 3.8,
 					haloFade = 0.75,
 					twinkle = 0.18,
 					spin = 15,
@@ -950,19 +967,11 @@ local Artillery = {
 					color = { 225, 245, 255 },
 				},
 			},
-			-- (Studio round 10: at pitch 8 + 0.3 x elevation the landing fell out of the bottom of the frame at 80)
-			-- (dug 12 down; was side -16, up 8, back 18, pitch 6: that put it inside the ground round the pit, and from up
-			-- over the ground, Studio round 2, the rim hid the gunner, who stands >30 degrees under any line over it): down
-			-- in the pit behind the gunner's left, 2 under the ground, the gunner ~22 degrees under it; the landing marker is
-			-- drawn over the pit's wall (AlwaysOnTop)
-			-- (user 2026-10-22: "angle the camera way up more? our avatar should look pretty small. we also cant see where
-			-- we are aiming"; was side -10, up 10, back 9, pitch -6, fov 65): high up behind it, over the mound, looking
-			-- down into the pit: the gunner ~42 degrees under the camera, the landing 0-6 under the horizon at every lay, so
-			-- a steady pitch between them keeps both in view (Studio round 1 at pitch -8 + 0.12 x elevation: the mound's
-			-- near side filled the bottom of the frame and the gunner was under it)
-			-- (dug 10.5 down, was 6: `up` 4.5 higher, so it stands as high over the ground as before; was 24)
-			camera = { side = -12, up = 28.5, back = 20, yaw = 25, pitch = -21, follow = 0, fov = 70 },
-			-- the bed and its ring gear first, then the carriage, the cradle, the barrel, the breech and gem last
+			-- (the 42 cm's was side -12, up 28.5, back 20, pitch -21, fov 70, from high over its 10.5-deep pit; this one
+			-- stands 3 down, so the camera comes down and in with it: high behind the gunner's left over the sandbags,
+			-- looking down past the crystal at the landing)
+			camera = { side = -9, up = 16, back = 15, yaw = 25, pitch = -16, follow = 0, fov = 70 },
+			-- the bed and its ring gear first, then the carriage, the cradle, the barrel, the breech and the crystal last
 			assembly = {
 				{ names = { "Bed", "RingGear" }, at = 0 },
 				{ names = { "Mount", "Traverse", "Elevation" }, at = 1 },
@@ -1006,7 +1015,6 @@ local Artillery = {
 			charge = 0,
 			breechOpens = false,
 			kg = 0.01,
-			scatter = { yaw = 0.6, elevation = 0.6, speed = 0 },
 			reload = 12, -- (the box reload, the design's long wait)
 			breechOpen = 0,
 			breechTimes = { 0, 0 },

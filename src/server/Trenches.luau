@@ -8,12 +8,21 @@
 --   to Trench.maxBend) or the side of one of its squares (a T); it may not cross a trench. Undug plans go after
 --   Trench.planLife.
 -- - Each square has HP like any structure, and its depth is its HP (user: "they have hp. how dug in they are are
---   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build); at full HP its dirt pieces go in
---   (Config/Assets trench_pieces): a wall each side and a floor rolled from its seed (Rules.trenchPieces), some walls
---   with plank steps, a wall across a dead end, none where another trench tees in.
+--   determined by hp"): Build swings add HP (Trenches.work, from src/server/Build). Its pieces (Config/Assets
+--   trench_pieces v12: chunky earth slabs with plank steps, heaps of earth along the top) show its stage
+--   (Rules.trenchStage): while it is dug, construction stages (the cut deepening, the heap growing); dug full, a wall
+--   each side and a floor rolled from its seed (Rules.trenchPieces), a wall across a dead end, none where another
+--   trench tees in; damaged, destruction stages (boards working loose, then slabs and boards down, earth and boards
+--   slumped on the floor).
 -- - Destroy swings (any team's trench), blasts and bullets (Trenches.blast / Trenches.shot, from src/server/Build, by
 --   Config/Build.Structures) take HP off: it is buried (filled in with mud, no clods thrown); at 0 it is a scar, a
 --   lumpy dip of churned earth that stays.
+-- - Each square lies tilted with the ground across it (Rules.crossTilt; user 2026-11-02: "make the terrain match the
+--   angle of the slope, not make it flat"): its hole, walls and pieces turned whole by the slope from one wall top to
+--   the other (Rules.tiltedCut), refused over Trench.maxCross.
+-- - Dugouts (src/server/Build, Config/Build.Dugout) are cut into a square's wall (Trenches.pocket) in the same
+--   reshape: their slot down to the room's floor, open to the sky, and their room hollowed out under the ground; the
+--   walls and heaps of every square give way over the slot.
 -- The terrain is reshaped from the ground as it was before any trench touched it (kept per voxel), so digging,
 -- joining, falling in and scars are all the one union of every square's profile over that ground.
 
@@ -30,10 +39,19 @@ local Net = require(Shared.Net)
 local Trenches = {}
 
 local T = C.Trench
+local D = C.Dugout
 local VOXEL = 4
 local TOP = Rules.trenchTop(T)
+-- the terrain is cut a little deeper and wider than the pieces lie (Config/Build.Trench.carve), so its 4-stud voxels
+-- stay behind the boards and under the floor instead of poking through them
+local CARVE = table.clone(T)
+CARVE.floor = T.floor + T.carve.wider
+CARVE.depth = T.depth + T.carve.deeper
 local RIM = math.max(T.bank.width, T.grassClear) -- how far past its wall tops a square changes the ground
 local KIND = "TrenchBlock"
+-- the meshes of a wall (its smooth slab, its earth slabs, plank steps in two tones) and of a floor (its slab, its slabs)
+local WALL_PARTS = { "", "Chunks", "Planks", "PlanksDark" }
+local FLOOR_PARTS = { "", "Chunks" }
 
 type Link = { kind: string, other: Block, which: string? } -- "end" (with `which` end of `other`) or "tee"
 
@@ -45,6 +63,8 @@ export type Block = {
 	dir: Vector3, -- flat unit, A to B
 	across: Vector3, -- flat unit, to the block's right
 	length: number,
+	-- the ground's rise per stud across it, to `across` (Rules.crossTilt): its hole, walls and pieces turned with it
+	tilt: number,
 	hp: number, -- its depth: hp / Trench.hp.max of the full depth
 	falling: boolean, -- lost HP since it was last full
 	built: boolean, -- dug full once: from then on it is buried by the HP it loses (Rules.trenchDepth)
@@ -59,6 +79,10 @@ export type Block = {
 }
 
 local blocks: { [number]: Block } = {}
+-- dugouts' pockets (Trenches.pocket), by their dugout's model: its frame (on the trench floor at the foot of the wall,
+-- level, looking out into the trench: +Z back into the wall), its square, its room's size (width, height, depth)
+type Pocket = { frame: CFrame, blk: Block, room: Vector3 }
+local pockets: { [Instance]: Pocket } = {}
 local byModel: { [Model]: Block } = {}
 local nextId = 0
 -- the ground before any trench: per voxel ("x,y,z" in voxel units), { occupancy, material }
@@ -101,10 +125,17 @@ local function part(parent: Instance, name: string, size: Vector3, cf: CFrame, c
 	return p
 end
 
--- a block's point `u` along, `v` across, on its ground line (flat parts from end A)
+-- a block's point `u` along, `v` across, on its ground (flat parts from end A; its line tilted across by its tilt)
 local function at(blk: Block, u: number, v: number): Vector3
-	local y = blk.a.Y + (blk.b.Y - blk.a.Y) * math.clamp(u / blk.length, 0, 1)
+	local y = blk.a.Y + (blk.b.Y - blk.a.Y) * math.clamp(u / blk.length, 0, 1) + v * blk.tilt
 	return Vector3.new(blk.a.X, y, blk.a.Z) + blk.dir * u + blk.across * v
+end
+
+-- a block's way out to `across` and its up, both turned by its tilt (its cross-section's own frame)
+local function tilted(blk: Block): (Vector3, Vector3)
+	local c = 1 / math.sqrt(1 + blk.tilt * blk.tilt)
+	local s = blk.tilt * c
+	return blk.across * c + Vector3.yAxis * s, Vector3.yAxis * c - blk.across * s
 end
 
 local function live(blk: Block?): boolean
@@ -221,20 +252,29 @@ local function reshape(centre: Vector3, reach: number)
 				local blk: Block = n.blk
 				local rel = Vector3.new(x - blk.a.X, 0, z - blk.a.Z)
 				local u, v = rel:Dot(blk.dir), rel:Dot(blk.across)
-				local r = Rules.trenchReach(u, v, n.shape, T.floor)
+				-- (a tilted square's profile is turned whole: its reach across in its own frame and the cut there, over
+				-- the line's ground at the centre)
+				local w, lift = v, 0
+				if blk.tilt ~= 0 and not blk.scar then
+					w, lift = Rules.tiltedCut(v, blk.tilt, function(off: number): number
+						local rx = Rules.trenchReach(u, off, n.shape, T.floor)
+						return if rx then Rules.trenchProfile(rx, n.share, CARVE) or 0 else 0
+					end)
+				end
+				local r = Rules.trenchReach(u, w, n.shape, T.floor)
 				if r then
 					local line = blk.a.Y + (blk.b.Y - blk.a.Y) * math.clamp(u / blk.length, 0, 1)
 					if blk.scar then
 						if r <= TOP then
-							local want = line - T.scar.depth * (1 - r / TOP)
+							local want = line + v * blk.tilt - T.scar.depth * (1 - r / TOP)
 							if not cut or want < cut then
 								cut, soil = want, soilOf(blk)
 							end
 						end
 					else
-						local h = Rules.trenchProfile(r, n.share, T)
+						local h = Rules.trenchProfile(r, n.share, CARVE)
 						if h and h < 0 then
-							local want = line + h
+							local want = line + (if blk.tilt ~= 0 then lift else h)
 							if not cut or want < cut then
 								cut, soil = want, soilOf(blk) -- (filled in with its soil, the colour of its pieces)
 							end
@@ -247,7 +287,22 @@ local function reshape(centre: Vector3, reach: number)
 					end
 				end
 			end
-			if cut or bank or soil then
+			-- a dugout: its slot cut down to its room's floor, its room hollowed out under the ground (the voxels whose
+			-- middles lie in `hollow`; Config/Build.Dugout cut, cutTop, slotCut)
+			local hollow: { number }? = nil
+			for _, pk in pockets do
+				local l = pk.frame:PointToObjectSpace(Vector3.new(x, pk.frame.Position.Y, z))
+				local floor = pk.frame.Position.Y - D.drop
+				local inSlot = math.abs(l.X) <= D.slot / 2 + D.slotCut and l.Z >= -D.slotCut and l.Z <= D.stair
+				if inSlot and (not cut or floor < cut) then
+					cut, soil = floor, soilOf(pk.blk)
+				end
+				local back = D.stair + pk.room.Z + D.cut
+				if math.abs(l.X) <= pk.room.X / 2 + D.cut and l.Z >= D.stair - D.cut and l.Z <= back then
+					hollow = { floor - D.cut, floor + pk.room.Y + D.cutTop }
+				end
+			end
+			if cut or bank or soil or hollow then
 				for iy = 1, size.Y do
 					local key = `{gx + ix - 1},{gy + iy - 1},{gz + iz - 1}`
 					if not original[key] then
@@ -281,6 +336,15 @@ local function reshape(centre: Vector3, reach: number)
 						if out[iy] > column[iy] or m == Enum.Material.Grass or m == Enum.Material.LeafyGrass then
 							mats[ix][iy][iz] = soil
 						end
+					end
+				end
+			end
+			if hollow then
+				for iy = 1, size.Y do
+					local y = corner.Y + (iy - 0.5) * VOXEL
+					if y >= hollow[1] and y <= hollow[2] then
+						occs[ix][iy][iz] = 0
+						mats[ix][iy][iz] = Enum.Material.Air
 					end
 				end
 			end
@@ -397,21 +461,20 @@ end
 -- the color of the mud"; 2026-11-01: "match the color of the terrain underneath (not the grass)"); planks their own wood
 local function pieceColor(name: string, soil: Enum.Material?): Color3
 	local B = Palette.Build
-	local i = tonumber(string.match(name, "^Wall(%d+)"))
 	if string.find(name, "PlanksDark") then
 		return rgb(B.PlankDark)
 	elseif string.find(name, "Planks") then
 		return rgb(B.Plank)
 	end
+	local i = tonumber(string.match(name, "^Wall(%d+)"))
+	local tone = ((i or 1) - 1) % #B.TrenchWall + 1
 	local shade
-	if i then
-		local tone = (i - 1) % #B.TrenchWall + 1
-		shade = if string.find(name, "Parapet") or string.find(name, "Apron")
-			then B.TrenchParapet[tone]
-			elseif string.find(name, "Chunks") then B.TrenchWallChunks[tone]
-			else B.TrenchWall[tone]
-	else
+	if string.find(name, "Parapet") or string.find(name, "Apron") or string.find(name, "Fall") then
+		shade = B.TrenchParapet[tone]
+	elseif string.find(name, "^Floor") then
 		shade = if string.find(name, "Chunks") then B.TrenchFloorChunks else B.TrenchFloor
+	else
+		shade = if string.find(name, "Chunks") then B.TrenchWallChunks[tone] else B.TrenchWall[tone]
 	end
 	local base = workspace.Terrain:GetMaterialColor(soil or Enum.Material.Mud)
 	return Color3.new(math.min(base.R * shade, 1), math.min(base.G * shade, 1), math.min(base.B * shade, 1))
@@ -458,6 +521,17 @@ local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: 
 						inside = true
 						break
 					end
+				end
+			end
+			-- a dugout's slot: no wall or heap over it
+			for _, pk in pockets do
+				local l = pk.frame:PointToObjectSpace(p)
+				if
+					math.abs(l.X) <= D.slot / 2 + D.openFront
+					and l.Z >= -D.openFront
+					and l.Z <= D.stair + D.openFront
+				then
+					inside = true
 				end
 			end
 			if inside then
@@ -553,10 +627,15 @@ local function pieces(blk: Block)
 	-- keeps clear of their holes and walls all the way back, not just their floors)
 	local walls, heaps = {}, {}
 	-- buried by what it lost: the floor up on the fill, the heaps sunk (Rules.trenchSink; in tenths, rebuilt as it moves)
+	-- (a square being dug shows its construction stage's pieces, cut to that stage's depth: nothing rides or sinks)
+	local stage, stageN = Rules.trenchStage(blk.hp, blk.built, T.hp, T.stages)
 	local rise, drop = Rules.trenchSink(shareOf(blk), T)
+	if stage == "Dig" then
+		rise, drop = 0, 0
+	end
 	rise, drop = math.round(rise * 10) / 10, math.round(drop * 10) / 10
 	local soil = soilOf(blk)
-	local sig = `{closeA}{closeB}{rise},{drop}`
+	local sig = `{stage}{stageN}{closeA}{closeB}{rise},{drop}`
 	for side, sign in { 1, -1 } do
 		walls[side] = sideSpans(blk, sign, WALL_PROBES, wallExt)
 		heaps[side] = sideSpans(blk, sign, HEAP_PROBES, heapExt)
@@ -582,9 +661,10 @@ local function pieces(blk: Block)
 	local i = table.find(blk.run, blk)
 	local prev = if i and i > 1 then blk.run[i - 1] else nil
 	local roll = Rules.trenchPieces(blk.seed, prev and prev.seed, P)
-	local down = Vector3.new(0, T.depth, 0)
+	-- (all in the square's cross-section turned by its tilt: `v` across and the depth down in that frame)
+	local outT, upT = tilted(blk)
 	local function floorAt(u: number, v: number): Vector3
-		return at(blk, u, v) - down
+		return at(blk, u, 0) + outT * v - upT * T.depth
 	end
 	local along = (floorAt(blk.length, 0) - floorAt(0, 0)).Unit
 	local flat = blk.dir
@@ -595,14 +675,18 @@ local function pieces(blk: Block)
 		local x = Vector3.new(0, 1, 0):Cross(out)
 		local origin
 		if ending then
-			origin = floorAt(if out:Dot(flat) < 0 then 0 else blk.length, 0) - x * (u0 or T.floor)
+			local side = x:Dot(blk.across)
+			origin = floorAt(if out:Dot(flat) < 0 then 0 else blk.length, -side * (u0 or T.floor))
+			x = outT * side -- (across the end, tilted with the square)
 		else
 			local fromStart = x:Dot(flat) > 0
 			x = if fromStart then along else -along
 			local u = if fromStart then u0 or 0 else u1 or blk.length
 			origin = floorAt(u, if onLine then 0 else out:Dot(blk.across) * T.floor)
+			out = outT * out:Dot(blk.across) -- (out of a side, tilted with the square)
 		end
-		return CFrame.fromMatrix(origin, x, out:Cross(x).Unit, out)
+		local y = out:Cross(x).Unit
+		return CFrame.fromMatrix(origin, x, y, x:Cross(y).Unit)
 	end
 	local function place(name: string, cf: CFrame, stretch: number, tone: string?)
 		local src = k:FindFirstChild(name)
@@ -610,7 +694,7 @@ local function pieces(blk: Block)
 		if not (src and src:IsA("BasePart") and off) then
 			return
 		end
-		if string.find(name, "Parapet") or string.find(name, "Apron") then
+		if string.find(name, "Parapet") or string.find(name, "Apron") or string.find(name, "Heap") then
 			cf -= Vector3.new(0, drop, 0)
 		end
 		if string.find(name, "Apron") and not sitsOnGround(src, off, cf, stretch) then
@@ -627,9 +711,17 @@ local function pieces(blk: Block)
 		p.CanTouch = false
 		p.Parent = holder
 	end
+	-- the stage's pieces (Config/Assets trench_pieces v12, tools/blender/trench/trench_wood.py): finished, wall
+	-- variant `n`'s; being dug, construction stage Dig<k>'s; damaged, destruction stage Hit<k>'s
+	local wallName = function(n: number): string
+		return if stage == "Dig" then `Dig{stageN}Wall` elseif stage == "Hit" then `Hit{stageN}Wall` else `Wall{n}`
+	end
+	local heapName = function(n: number): string
+		return if stage == "Dig" then `Dig{stageN}Heap` else `Wall{n}Parapet`
+	end
 	local function wall(n: number, cf: CFrame, stretch: number)
-		for _, suffix in { "", "Chunks", "Planks", "PlanksDark" } do
-			place(`Wall{n}{suffix}`, cf, stretch)
+		for _, suffix in WALL_PARTS do
+			place(`{wallName(n)}{suffix}`, cf, stretch, `Wall{n}{suffix}`)
 		end
 	end
 	local stretch = blk.length / P.segment
@@ -661,14 +753,26 @@ local function pieces(blk: Block)
 		for _, s in heaps[side] do
 			for _, c in pieceRuns(s.u0, s.u1) do
 				local cf = frame(out, false, false, c[1], c[2])
-				place(`Wall{n}Parapet`, cf, (c[2] - c[1]) / P.segment)
-				place(`Wall{n}Apron`, cf, (c[2] - c[1]) / P.segment) -- (the skirt of dirt behind it)
+				place(heapName(n), cf, (c[2] - c[1]) / P.segment, `Wall{n}Parapet`)
 			end
 		end
 	end
 	local floorCf = frame(if roll.flip then blk.across else -blk.across, false, true) + Vector3.new(0, rise, 0)
-	place(`Floor{roll.floor}`, floorCf, stretch)
-	place(`Floor{roll.floor}Chunks`, floorCf, stretch)
+	if stage == "Dig" then
+		place(`Dig{stageN}Floor`, floorCf, stretch, "Floor")
+	else
+		for _, suffix in FLOOR_PARTS do
+			place(`Floor{roll.floor}{suffix}`, floorCf, stretch)
+		end
+	end
+	-- the earth and boards fallen off a damaged square's wall onto its floor, against one side (by its seed)
+	local side = if roll.flip then 1 else -1
+	local sideCf = frame(blk.across * side, false, false, 0, blk.length)
+	if stage == "Hit" then
+		for _, suffix in { "", "Planks", "PlanksDark" } do
+			place(`Hit{stageN}Fall{suffix}`, sideCf, stretch, `Fall{suffix}`)
+		end
+	end
 	-- dead ends: a plain wall across, as wide as the trench at the top (its foot runs on behind the side walls) and its
 	-- heap (a thick pile of dirt behind its top edge that collides: Config/Build.Trench) wider still, over the side
 	-- heaps' ends
@@ -678,8 +782,7 @@ local function pieces(blk: Block)
 			wall(roll.ends[e], frame(out, true, false, TOP), 2 * TOP / P.segment)
 			for _, start in { TOP + T.joins.deadEndHeap, 0 } do -- in two, so its slabs aren't stretched long
 				local cf = frame(out, true, false, start)
-				place(`Wall{roll.ends[e]}Parapet`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
-				place(`Wall{roll.ends[e]}Apron`, cf, (TOP + T.joins.deadEndHeap) / P.segment)
+				place(heapName(roll.ends[e]), cf, (TOP + T.joins.deadEndHeap) / P.segment, `Wall{roll.ends[e]}Parapet`)
 			end
 		end
 	end
@@ -719,9 +822,9 @@ local function apply(blk: Block, reshapeIt: boolean)
 	elseif not markersOn and pegs then
 		pegs:Destroy()
 	end
-	-- the dirt pieces lie in a square once it has been dug full, buried by the fill as it loses HP, to the end (0 HP
-	-- fills it in: finish)
-	if blk.built then
+	-- its pieces from the first swing: the construction stages while it is dug, then the finished pieces, buried by the
+	-- fill and worn through the destruction stages as it loses HP, to the end (0 HP fills it in: finish)
+	if blk.built or blk.hp > 0 then
 		pieces(blk)
 	else
 		local old = m:FindFirstChild("Pieces")
@@ -803,7 +906,7 @@ local function groundAt(x: number, z: number, near: number): (number?, boolean)
 		local rel = Vector3.new(x - blk.a.X, 0, z - blk.a.Z)
 		local u, v = rel:Dot(blk.dir), rel:Dot(blk.across)
 		if u >= -TOP and u <= blk.length + TOP and math.abs(v) <= TOP + T.bank.width then
-			return blk.a.Y + (blk.b.Y - blk.a.Y) * math.clamp(u / blk.length, 0, 1), false
+			return at(blk, u, v).Y, false
 		end
 	end
 	local hit = workspace:Raycast(Vector3.new(x, near + 60, z), Vector3.new(0, -160, 0), terrainOnly)
@@ -874,12 +977,12 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			table.insert(segs, { blk.a.X, blk.a.Z, blk.b.X, blk.b.Z })
 		end
 	end
-	if Rules.tooClose(a.X, a.Z, b.X, b.Z, linkA ~= nil, linkB ~= nil, segs, T.spacing) then
+	if Rules.tooClose(a.X, a.Z, b.X, b.Z, linkA ~= nil, linkB ~= nil, segs, T.spacing, TOP) then
 		return "Too close to another trench: extend it instead"
 	end
 	-- the ground along it: no water, not too steep along, nothing standing in the way
 	local samples = math.max(math.ceil(length / 3), 1)
-	local heights = {}
+	local heights, line = {}, {}
 	for i = 0, samples do
 		local p = a + flat * (i / samples)
 		local h, wet = groundAt(p.X, p.Z, a.Y)
@@ -890,9 +993,32 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			return "Not in water"
 		end
 		heights[i] = h
-		if i > 0 and Rules.slope(heights[i - 1], h, length / samples) > T.maxSlope then
+		line[i + 1] = h
+	end
+	if Rules.runSlope(line, length / samples, T.slopeSpan) > T.maxSlope then
+		return "Too steep"
+	end
+	-- each square's tilt across, from the ground at its wall tops either side (Rules.crossTilt)
+	local across = Vector3.new(-flat.Unit.Z, 0, flat.Unit.X)
+	local tilts = {}
+	for i, span in spans do
+		local left, right = {}, {}
+		for _, f in { 0.2, 0.5, 0.8 } do
+			local p = a + flat.Unit * (span.from + (span.to - span.from) * f)
+			for _, side in { -1, 1 } do
+				local q = p + across * side * TOP
+				local h, wet = groundAt(q.X, q.Z, a.Y)
+				if not h or wet then
+					return if wet then "Not in water" else "Needs open ground"
+				end
+				table.insert(if side < 0 then left else right, h)
+			end
+		end
+		local tilt = Rules.crossTilt(left, right, TOP, T.maxCross)
+		if not tilt then
 			return "Too steep"
 		end
+		tilts[i] = tilt
 	end
 	local params = OverlapParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -906,6 +1032,26 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 		local model = p:FindFirstAncestorWhichIsA("Model")
 		if p.CanCollide and not (model and model:FindFirstChildOfClass("Humanoid")) then
 			return "In the way"
+		end
+	end
+	-- nor under a piece: no structure's footprint over its open cut (Config/Build.Trench.overhang; the same rule as a
+	-- piece over a trench, Survey.overTrench), except a bridge, which lies across the trench it joins
+	local cut = Rules.trenchCut(a.X, a.Z, b.X, b.Z, TOP - T.overhang)
+	for _, m in folder():GetChildren() do
+		local frame, size = m:GetAttribute("Frame"), m:GetAttribute("Size")
+		local piece = Rules.piece(m:GetAttribute("Piece"), C.Pieces)
+		if typeof(frame) == "CFrame" and typeof(size) == "Vector3" and not (piece and piece.kind == "Bridge") then
+			local theirs: Rules.Footprint = {
+				x = frame.Position.X,
+				z = frame.Position.Z,
+				rx = frame.RightVector.X,
+				rz = frame.RightVector.Z,
+				width = size.X,
+				depth = size.Z,
+			}
+			if Rules.footprintsOverlap(cut, theirs) then
+				return "A structure is in the way"
+			end
 		end
 	end
 	-- lay it: the run's blocks, linked end to end, and to the trenches it joins
@@ -929,6 +1075,7 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			dir = dir,
 			across = Vector3.new(-dir.Z, 0, dir.X),
 			length = span.to - span.from,
+			tilt = tilts[i],
 			hp = 0,
 			falling = false,
 			built = false,
@@ -982,6 +1129,7 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 		m:SetAttribute("Team", team)
 		m:SetAttribute("BlockA", blk.a)
 		m:SetAttribute("BlockB", blk.b)
+		m:SetAttribute("Tilt", blk.tilt)
 		m:SetAttribute("Owner", owner)
 		blk.model = m
 		byModel[m] = blk
@@ -1111,7 +1259,8 @@ function Trenches.shot(struck: Instance, point: Vector3?): boolean
 			if live(o) and o.hp > 0 then
 				local d = Survey.toSegment(point, o.a, o.b)
 				local u = math.clamp((point - o.a):Dot(o.dir), 0, o.length)
-				if d < best and Rules.inTrenchGround(d, point.Y - at(o, u, 0).Y, T, T.shotSlack) then
+				local v = (point - o.a):Dot(o.across)
+				if d < best and Rules.inTrenchGround(d, point.Y - at(o, u, v).Y, T, T.shotSlack) then
 					blk, best = o, d
 				end
 			end
@@ -1137,6 +1286,40 @@ function Trenches.near(p: Vector3, extra: number): boolean
 	return false
 end
 
+-- A dugout (src/server/Build): `key` its model, cut into `square`'s wall at `frame` (on the trench floor at the foot of
+-- the wall, looking out into the trench), its room `room` (width, height, depth) past its steps; nil `frame` fills it
+-- back. Reshapes the ground there and the walls and heaps of the squares round it.
+function Trenches.pocket(key: Instance, square: Model?, frame: CFrame?, room: Vector3?)
+	local old = pockets[key]
+	local blk = square and byModel[square]
+	if frame and room and blk then
+		pockets[key] = { frame = frame, blk = blk, room = room }
+	else
+		pockets[key] = nil
+	end
+	local spot = if frame then frame.Position elseif old then old.frame.Position else nil
+	if not spot or (not frame and not old) then
+		return
+	end
+	local reach = D.stair + (if room then room.Z elseif old then old.room.Z else 0) + D.cut + VOXEL
+	reshape(spot, reach)
+	for _, o in blocks do
+		local mid = (o.a + o.b) / 2
+		if live(o) and o.model and o.model:FindFirstChild("Pieces") then
+			if Vector3.new(mid.X - spot.X, 0, mid.Z - spot.Z).Magnitude <= reach + o.length / 2 then
+				pieces(o)
+			end
+		end
+	end
+end
+
+-- a square's dirt colour for `name` (a trench piece's name: its shade) in the soil it is dug into, for the earth of
+-- a dugout in it (src/server/Build)
+function Trenches.soilColor(square: Model, name: string): Color3
+	local blk = byModel[square]
+	return pieceColor(name, if blk then soilOf(blk) else nil)
+end
+
 -- whether a trench ever touched voxel `key` ("x,y,z" in voxel units)
 function Trenches.dug(key: string): boolean
 	return original[key] ~= nil
@@ -1148,6 +1331,7 @@ function Trenches.clear()
 	for _, blk in blocks do
 		table.insert(list, blk)
 	end
+	table.clear(pockets)
 	for _, blk in list do
 		if blk.model then
 			byModel[blk.model] = nil

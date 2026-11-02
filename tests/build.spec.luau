@@ -32,6 +32,49 @@ end
 local T = table.clone(C.Trench) :: any
 
 return {
+	["foxhole: one swing digs it, then it is only ground; deep as a crouch, a lip in front, its own dark dirt"] = function()
+		local p = B.piece("Foxhole", C.Pieces) :: any
+		local F = C.Foxhole
+		-- no HP, no progression, no limits (user 2026-11-02)
+		assert(p and p.kind == "Foxhole" and p.work == 1 and B.buildSwings(p, C) == 1, "one Build swing")
+		assert(B.hpOf(p, C) == nil and B.hpRules("Foxhole", C) == nil, "no HP")
+		assert(p.sectorCap == nil and p.teamCap == nil and p.playerCap == math.huge, "no cap")
+		local w, gone = B.swing(0, p.work, true)
+		assert(w == p.work and not gone, "dug at the first swing")
+		-- the cover (Config/Metrics: a crouched head about 4.1, the aimed muzzle 4.3): a crouched head at or under the
+		-- ground's level; standing, the eyes and the muzzle over it
+		assert(F.depth >= 4.1, "crouched, below the ground")
+		assert(F.depth < M.Character.AimMuzzleHeight and F.depth < M.Character.EyeHeight, "standing, you fire out")
+		-- its shape (facing -Z): the floor, the wall, the heap in front only, nothing past its reach
+		local reach = B.foxholeReach(F)
+		assert(near(B.foxholeHeight(0, 0, 0, -1, F) :: number, -F.depth))
+		local top = F.radius + F.depth / math.tan(math.rad(F.wall))
+		local mid = top + F.heap.width / 2
+		assert(near(B.foxholeHeight(0, -mid, 0, -1, F) :: number, F.heap.height), "the heap straight ahead")
+		assert(B.foxholeHeight(0, mid, 0, -1, F) == 0, "no heap behind")
+		assert(B.foxholeHeight(mid, 0, 0, -1, F) == 0, "none at the side (past half the arc)")
+		local side = B.foxholeHeight(mid * math.sin(math.rad(35)), -mid * math.cos(math.rad(35)), 0, -1, F) :: number
+		assert(side > 0 and side < F.heap.height, "fading toward the arc's ends")
+		assert(B.foxholeHeight(0, -(reach + 0.1), 0, -1, F) == nil, "past its reach: not its ground")
+		local wall = B.foxholeHeight((F.radius + top) / 2, 0, 0, -1, F) :: number
+		assert(wall < 0 and wall > -F.depth, "the wall between")
+		-- the voxel grid: snapped to a grid corner; the pit is the four columns round it, all four floor deep
+		assert(B.foxholeSnap(0.3, 4) == 0 and B.foxholeSnap(-2.1, 4) == -4 and B.foxholeSnap(5.9, 4) == 4)
+		for _, c in { { 2, 2 }, { -2, 2 }, { 2, -2 }, { -2, -2 } } do
+			assert(near(B.foxholeHeight(c[1], c[2], 0, -1, F) :: number, -F.depth), "the pit's four columns")
+		end
+		-- its own dark dirt: a material no other ground uses, darker than any other ground, and no grass on it
+		local P = require("../src/shared/Config/Palette")
+		local soil = P.Terrain[F.soil]
+		assert(soil, "coloured with the terrain")
+		local function lum(c: { number }): number
+			return c[1] + c[2] + c[3]
+		end
+		for name, c in P.Terrain do
+			assert(name == F.soil or lum(c) > lum(soil), name .. " is lighter")
+		end
+		assert(table.find(F.bare, "Grass") and table.find(F.bare, "LeafyGrass") and not table.find(F.bare, F.soil))
+	end,
 	["an admin dig step works its share of the whole, rounded up, never less than a normal swing"] = function()
 		assert(B.digAmount(20, 100, nil) == 20 and B.digAmount(20, 100, 0) == 20)
 		assert(B.digAmount(1, 20, 0.25) == 5 and B.digAmount(1, 40, 0.1) == 4 and B.digAmount(1, 3, 0.1) == 1)
@@ -55,7 +98,9 @@ return {
 					or p.kind == "Gun"
 					or p.kind == "Hesco"
 					or p.kind == "Bridge"
-					or p.kind == "Nest",
+					or p.kind == "Nest"
+					or p.kind == "Foxhole"
+					or p.kind == "Dugout",
 				p.key
 			)
 			-- (every piece but a trench square and the old sandbag walls is on HP out of 100, Rules.hpOf)
@@ -122,13 +167,14 @@ return {
 		assert(why({ water = true }) == "Not in water")
 		assert(why({ slope = 21 }) == "Too steep")
 		assert(why({ overlap = true }) == "In the way")
+		assert(why({ overTrench = true }) == "Over a trench")
 		assert(why({ gunGap = true }) == "Too close to another gun")
 		assert(why({ nearTrench = true }) == "Too close to a trench")
 		assert(why({ mine = C.PerPlayer }) == "You have too many pieces")
 		assert(why({ team = C.PerTeam }) == "Your team has too many pieces")
 		assert(why({ locked = "Unlocks when a sector is lost" }) == "Unlocks when a sector is lost")
 	end,
-	["guns per team: 6 field guns, 2 mortars (user 2026-10-31)"] = function()
+	["guns per team: 6 field guns, 2 howitzers (user 2026-10-31)"] = function()
 		local field = B.piece("FieldGun", C.Pieces) :: any
 		local how = B.piece("Howitzer", C.Pieces) :: any
 		assert(field.teamCap == 6 and how.teamCap == 2)
@@ -137,12 +183,31 @@ return {
 		assert(not ok and reason == "Your team has 6 already")
 		assert(not B.canPlace(placing({ piece = how, kind = 2 })) and B.canPlace(placing({ piece = how, kind = 1 })))
 	end,
+	["per player: 30 sandbags, wire and barriers each, the rest 8 together; MG nests 3 per sector (user 2026-11-01)"] = function()
+		for _, key in { "SandbagPile", "Wire", "Hesco" } do
+			local p = B.piece(key, C.Pieces) :: any
+			assert(p.playerCap >= 25 and p.playerCap <= 30, `{key}: 25-30 each`)
+			-- (its own cap only: the shared count doesn't stop it)
+			assert(B.canPlace(placing({ piece = p, mine = C.PerPlayer, mineKind = p.playerCap - 1 })))
+			local ok, reason = B.canPlace(placing({ piece = p, mineKind = p.playerCap }))
+			assert(not ok and reason == `You have {p.playerCap} already`, key)
+		end
+		local nest = B.piece("MGNest", C.Pieces) :: any
+		assert(nest.sectorCap == 3 and nest.playerCap == nil)
+		assert(B.canPlace(placing({ piece = nest, sector = 2 })))
+		local ok, reason = B.canPlace(placing({ piece = nest, sector = 3 }))
+		assert(not ok and reason == "Your team has 3 in this sector already")
+		assert(B.canPlace(placing({ piece = nest, sector = 2, mineKind = 99 })), "no cap of its own")
+		assert(not B.canPlace(placing({ piece = nest, mine = C.PerPlayer })), "under the shared count")
+		-- the guns keep their team caps, no per-sector one
+		assert((B.piece("FieldGun", C.Pieces) :: any).sectorCap == nil)
+	end,
 	["guns: one per kind within its spacing, any two their clears apart; both teams build both"] = function()
 		local field = B.piece("FieldGun", C.Pieces) :: any
 		local how = B.piece("Howitzer", C.Pieces) :: any
 		assert(field.spacing == 60 and how.spacing == 120)
 		assert(not B.gunsClear(59, true, 60, 9, 9) and B.gunsClear(60, true, 60, 9, 9))
-		assert(B.gunsClear(50, false, 60, 9, 36) and not B.gunsClear(44, false, 60, 9, 36))
+		assert(how.clear == 15 and B.gunsClear(24, false, 60, 9, 15) and not B.gunsClear(23, false, 60, 9, 15))
 		for _, kit in { "uniform1", "uniform2", "uniform3" } do
 			assert(C.Guns.paint[kit] ~= nil, kit)
 		end
@@ -393,15 +458,30 @@ return {
 	end,
 	["trenches v2: a new trench keeps its distance from others unless it joins one"] = function()
 		local S = C.Trench.spacing
+		local TOP = B.trenchTop(C.Trench)
 		local other = { { 0, 0, 24, 0 } }
-		assert(B.tooClose(0, S - 1, 24, S - 1, false, false, other, S), "alongside, too near")
-		assert(not B.tooClose(0, S + 1, 24, S + 1, false, false, other, S), "far enough")
+		assert(B.tooClose(0, S - 1, 24, S - 1, false, false, other, S, TOP), "alongside, too near")
+		assert(not B.tooClose(0, S + 1, 24, S + 1, false, false, other, S, TOP), "far enough")
 		-- a branch off its side: starts at the wall and runs out; only its first `spacing` studs may be near
 		local w = C.Trench.floor
-		assert(not B.tooClose(12, w, 12, w + 30, true, false, other, S), "a branch off the side")
-		assert(B.tooClose(12, w, 12, w + 30, false, false, other, S), "the same, not joined")
+		assert(not B.tooClose(12, w, 12, w + 30, true, false, other, S, TOP), "a branch off the side")
+		assert(B.tooClose(12, w, 12, w + 30, false, false, other, S, TOP), "the same, not joined")
 		-- leaving an end but bending back alongside
-		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S), "doubling back alongside")
+		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S, TOP), "doubling back alongside")
+		-- (user 2026-11-02: "a trench cant be built or extended right next to another path, there should be some space")
+		-- a second trench past the spacing: a stub off the first one's end may not run up beside it, the joint or not
+		local two = { { 0, 0, 24, 0 }, { 0, S + 1, 24, S + 1 } }
+		assert(B.tooClose(24, 0, 24, S - 6, true, false, two, S, TOP), "off one's end, up beside the other")
+		assert(B.tooClose(24, 0, 34, 6, true, false, two, S, TOP), "a short bend off one's end, near the other")
+		assert(not B.tooClose(24, 0, 48, 0, true, false, two, S, TOP), "straight on from its end")
+		-- a deliberate link between them, joined at both ends, is fine
+		assert(not B.tooClose(12, w, 12, S + 1 - w, true, true, two, S, TOP), "a communication trench across")
+		-- the squares linked to the one it joins count as joined near the joint (a bend off a run's end)
+		local run = { { 0, 0, 8, 0 }, { 8, 0, 16, 0 }, { 16, 0, 24, 0 } }
+		assert(not B.tooClose(24, 0, 24 + 12, 12, true, false, run, S, TOP), "a 45 degree bend off its end")
+		local set = B.joinedAt(24, 0, run, TOP, 2 * S)
+		assert(set[1] and set[2] and set[3], "the whole run near the joint")
+		assert(next(B.joinedAt(24, 50, run, TOP, 2 * S)) == nil, "nothing joined from out in the open")
 	end,
 	["trenches v2: a heap's thin skirt is laid only where the ground holds it, never hanging in the air"] = function()
 		local hang = C.Trench.apronHang
@@ -423,7 +503,8 @@ return {
 		assert(#B.freeRuns({ true, true }) == 0, "all blocked")
 	end,
 	["trenches v2: each square rolls its walls and floor, wood walls now and then but never twice in a row"] = function()
-		local P = C.Trench.pieces
+		-- (a piece set with wood walls set apart; v12's walls all have planks: Config/Build.Trench.pieces.wood is empty)
+		local P = { segment = 8, walls = 6, floors = 3, wood = { 5 }, woodChance = 0.25 }
 		local wood, total, prev = 0, 0, nil
 		local seen = {}
 		for seed = 1, 400 do
@@ -452,6 +533,16 @@ return {
 			assert(seen[i], `wall {i} comes up`)
 		end
 		assert(wood / total > 0.1 and wood / total < P.woodChance + 0.05, `wood walls now and then ({wood} of {total})`)
+		-- every wall alike (none set apart as wood): each side and each dead end rolls any of them
+		local A, ends = C.Trench.pieces, {}
+		for seed = 1, 400 do
+			local r = B.trenchPieces(seed * 7919, (seed - 1) * 7919, A)
+			assert(r.walls[1] and r.walls[2] and r.ends[1] and r.ends[2], "a wall for every side and end")
+			ends[r.walls[1]], ends[r.ends[1]] = true, true
+		end
+		for i = 1, A.walls do
+			assert(ends[i], `wall {i} comes up with every wall alike`)
+		end
 	end,
 	["built things: each weapon takes its share, grenades and staffs least, the howitzer most"] = function()
 		local S = C.Structures
@@ -469,8 +560,10 @@ return {
 		assert(at("staff3", 10, 0) < at(nil, 2.5, 0), "a full beam is still less than a field gun shell")
 		local field = at(nil, 2.5, 1)
 		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
-		local howitzer = at(nil, 340, 3)
-		assert(howitzer >= 90 and howitzer < 100, `the howitzer buries it but leaves some ({howitzer})`)
+		-- (user 2026-11-02, the damage rework: its 100 kg shell buries what it hits, over a smaller reach)
+		local howitzer = at(nil, 100, 3)
+		assert(howitzer >= 100, `the howitzer buries it at once ({howitzer})`)
+		assert(at(nil, 100, 16) == 0, "nothing past its reach")
 		assert(
 			at("bullet", 0, 0) > 0 and at("bullet", 0, 0) < 0.5 and at("bullet", 0, 1) == 0,
 			"a bullet: on it, a little"
@@ -694,6 +787,61 @@ return {
 		assert(B.nestStanding(12, 0.01) == 1 and B.nestStanding(12, 0) == 0)
 		assert(B.nestWearOrder(5, true) < B.nestWearOrder(2, false), "the top bags go first")
 	end,
+	["the Rune howitzer's sandbag ring: round its pivot, the back open, no bag on another (user 2026-11-02)"] = function()
+		local how = B.piece("Howitzer", C.Pieces) :: any
+		local n = C.GunRing[how.ring]
+		assert(n and how.kind == "Gun", "a gun with a ring of its own")
+		local bags, radius = B.nestRing(n.ring)
+		assert(radius > 12 and radius < 14, "~27 across with its bags")
+		assert(2 * (radius + n.ring.bag / 4) <= math.min(how.width, how.depth) + 1e-6, "inside its footprint")
+		local back, front = 0, 0
+		for _, b in bags do
+			assert(near(math.sqrt(b.x ^ 2 + b.z ^ 2), radius, 1.5))
+			if b.z > radius * 0.95 then
+				back += 1
+			end
+			if b.z < -radius * 0.9 then
+				front += 1
+			end
+		end
+		assert(back == 0 and front > 0, "a doorway at the back, the front closed")
+		local function flat(b: any): any
+			return { x = b.x, z = b.z, dx = b.dx, dz = b.dz, length = n.ring.bag - 0.3, width = 1.4 }
+		end
+		for i, a in bags do
+			for j = i + 1, #bags do
+				local b = bags[j]
+				if a.slot ~= 3 and b.slot ~= 3 then
+					assert(B.boxGap(flat(a), flat(b)) > -0.1, `bottom bags {i} and {j} overlap`)
+				end
+			end
+		end
+	end,
+	["the Rune howitzer's sandbags go up with it and come down with its damage stages"] = function()
+		local n = C.GunRing.artillery_howitzer
+		assert(B.ringShown(0, 100, n) == "none", "laid: every bag its empty sack")
+		assert(B.ringShown(100, 100, n) == "all")
+		local last = 0
+		for hp = 0, 100, 5 do
+			local shown = B.ringShown(hp, 100, n) :: string
+			local rank = ({ none = 0, bottom = 1, all = 2 })[shown]
+			assert(rank and rank >= last, `{hp}: {shown}`)
+			last = rank
+		end
+		assert(B.ringShown(100, 100, n, 0) == "all", "stood and whole")
+		for i = 1, 4 do
+			assert(B.ringShown(100, 100, n, i) == n.wear[i])
+		end
+		for i = 2, 4 do
+			assert(n.wear[i] < n.wear[i - 1], "each stage takes more bags")
+		end
+		-- craters keep off the band its bags stand on, not the pit inside
+		local _, radius = B.nestRing(n.ring)
+		assert(B.onRing({ X = radius, Z = 0 } :: any, n) and B.onRing({ X = 0, Z = -radius - 1 } :: any, n))
+		assert(
+			not B.onRing({ X = 0, Z = 0 } :: any, n) and not B.onRing({ X = radius - n.ground - 1, Z = 0 } :: any, n)
+		)
+	end,
 	["an MG nest's building site stands inside its ring, clear of the mount bag and the doorway"] = function()
 		local spec = C.Scaffold.mg08
 		local _, radius = B.nestRing(C.Nest.ring)
@@ -759,5 +907,163 @@ return {
 			seen += 1
 		end
 		assert(seen >= 10, "the stage pieces are listed")
+	end,
+	-- (user 2026-11-02: "make the terrain match the angle of the slope, not make it flat")
+	["a trench square tilts with the ground across it, measured over its wall tops, and refuses sharp ground"] = function()
+		assert(near(B.crossTilt({ 10, 10 }, { 12, 14 }, 5, 30) :: number, 0.3), "the mean rise per stud")
+		assert(B.crossTilt({ 10 }, { 10 + 10 * math.tan(math.rad(31)) }, 5, 30) == nil, "too steep")
+		assert(B.crossTilt({}, {}, 5, 30) == 0)
+		assert(C.Trench.maxCross > 0 and C.Trench.maxCross < 45)
+		-- flat: the profile as it was
+		local function cut(w: number): number
+			return B.trenchProfile(math.abs(w), 1, T) or 0
+		end
+		local w, h = B.tiltedCut(2, 0, cut)
+		assert(near(w, 2) and near(h, -T.depth))
+		-- tilted: the floor's middle lies the depth down its own up, so off downhill of the line, and the wall tops
+		-- meet the ground on both sides (no step where the ground runs on)
+		local tilt = math.tan(math.rad(20))
+		local top = B.trenchTop(T)
+		local c, s = math.cos(math.rad(20)), math.sin(math.rad(20))
+		w, h = B.tiltedCut(T.depth * s, tilt, cut)
+		assert(near(w, 0, 1e-3) and near(h, -T.depth * c, 1e-3), "the floor's middle")
+		for _, side in { 1, -1 } do
+			w, h = B.tiltedCut(side * top * c, tilt, cut)
+			assert(near(w, side * top, 1e-3) and near(h, side * top * s, 1e-3), "a wall top on the ground")
+		end
+		-- along: one voxel's step between close samples is not a steep run, a real hill is
+		assert(B.slope(0, 2, 3) > C.Trench.maxSlope, "the old reading")
+		assert(B.runSlope({ 0, 0, 2, 2, 2, 4, 4 }, 3, C.Trench.slopeSpan) < C.Trench.maxSlope)
+		assert(B.runSlope({ 0, 3, 6, 9 }, 3, C.Trench.slopeSpan) > C.Trench.maxSlope)
+		assert(near(B.runSlope({ 0, 1 }, 3, 8), B.slope(0, 1, 3)), "short runs: end to end")
+	end,
+	["dugouts: in a dug square's wall, long enough, no tee, no bridge, apart from each other"] = function()
+		local d = C.Dugout
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		local function spot(over: { [string]: any }): string?
+			local s: any =
+				{ found = true, dug = 100, length = C.Trench.block, teed = false, bridge = false, nearest = 99 }
+			for k, v in over do
+				s[k] = v
+			end
+			return B.dugoutSpot(s, d, piece.width)
+		end
+		assert(spot({}) == nil, "a full square")
+		assert(spot({ found = false }) == "Needs a dug trench")
+		assert(spot({ dug = d.dug - 1 }) == "Needs a dug trench", "not dug full")
+		assert(piece.width + d.spare <= C.Trench.block, "fits a full square")
+		assert(spot({ length = piece.width }) == "This trench square is too short")
+		assert(spot({ bridge = true }) == "A bridge is here")
+		assert(spot({ teed = true }) == "A trench joins this wall")
+		assert(spot({ nearest = 0 }) == "A dugout is already here")
+		assert(spot({ nearest = d.spacing - 1 }) == "Too close to another dugout")
+		assert(spot({ nearest = d.spacing }) == nil)
+	end,
+	["dugouts: Engineers only, 2 each, 10 swings, stages by HP while built, caving in once stood"] = function()
+		local d = C.Dugout
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		assert(piece.playerCap == 2)
+		assert(B.buildSwings(piece, C) == 10)
+		local h = assert(B.hpOf(piece, C))
+		assert(h.place == 0 and h.max == 100)
+		local function shown(hp: number, built: boolean): string
+			local s, f = B.dugoutShown(hp, 100, built, d)
+			return `{s},{f}`
+		end
+		assert(shown(0, false) == "0,0", "laid: its timbers")
+		assert(shown(10, false) == "1,0" and shown(50, false) == "2,0" and shown(90, false) == "4,0", "built by HP")
+		assert(shown(100, true) == "4,0" and shown(80, true) == "4,0", "whole")
+		assert(shown(70, true) == "4,1" and shown(45, true) == "4,2" and shown(20, true) == "4,3", "caving in")
+		assert(#d.falls == #d.cave and #d.heaps == #d.falls)
+		assert(not B.dugoutShelters(100, false), "never stood")
+		assert(B.dugoutShelters(100, true) and B.dugoutShelters(5, true) and not B.dugoutShelters(0, true))
+		-- a soldier stands upright in it; its ceiling lies under the trench floor (whole voxels of earth over it)
+		assert(piece.height > 5.13 and -d.drop + piece.height <= -1)
+		-- its steps: a slope a soldier walks (Config/Metrics: 50 degrees at most)
+		assert(math.deg(math.atan(d.drop / d.stair)) < 50)
+	end,
+	["dugouts: in its room, and a blast's distance from its slot and room"] = function()
+		local d = C.Dugout
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		local floor, back = -d.drop, d.stair + piece.depth
+		local mid = d.stair + piece.depth / 2
+		assert(B.inDugout(0, floor + 2.5, mid, piece, d), "standing in the room")
+		assert(not B.inDugout(0, floor + 2.5, d.stair - 1, piece, d), "on its steps")
+		assert(not B.inDugout(0, 3, mid, piece, d), "on the ground over it")
+		assert(not B.inDugout(piece.width, floor + 2.5, mid, piece, d), "beside it")
+		local top = C.Trench.depth
+		assert(B.dugoutDistance(0, floor + 2, mid, piece, d, top) == 0, "in the room")
+		assert(B.dugoutDistance(0, 1, 2, piece, d, top) == 0, "in the slot")
+		-- over its back: as far as the nearer of its room under the ground and the end of its open slot
+		local slotGap = math.sqrt((back - d.stair) ^ 2 + 9)
+		local roomGap = top + 3 - (floor + piece.height)
+		assert(near(B.dugoutDistance(0, top + 3, back, piece, d, top), math.min(slotGap, roomGap)), "over its back")
+		assert(near(B.dugoutDistance(0, top + 3, 2, piece, d, top), 3), "over its slot")
+		assert(near(B.dugoutDistance(0, 1, -2, piece, d, top), 2), "in the trench, off its steps")
+		assert(near(B.dugoutDistance(0, floor + 2, back + 4, piece, d, top), 4), "behind it")
+		-- deep in the ground: a direct rune-mortar shell takes about a tenth of it
+		local howitzer = C.Structures.howitzer.hit * d.soak
+		assert(howitzer > 5 and howitzer < 12)
+	end,
+	-- (user 2026-11-02: "create constructtion statuses and destruction statuses")
+	["a trench square shows construction stages while dug, then finished, then destruction stages as it loses HP"] = function()
+		local H, S = C.Trench.hp, C.Trench.stages
+		local function st(hp: number, built: boolean): string
+			local kind, n = B.trenchStage(hp, built, H, S)
+			return `{kind}{n}`
+		end
+		assert(B.trenchStage(0, false, H, S) == nil, "a plan shows no pieces")
+		assert(st(5, false) == "Dig1" and st(20, false) == "Dig1", "the first swing: stage 1")
+		assert(
+			st(40, false) == "Dig2" and st(60, false) == "Dig3" and st(80, false) == "Dig4" and st(99, false) == "Dig4"
+		)
+		for k = 1, #S.dig do
+			assert(st(H.swing * k, false) == `Dig{k}`, "a stage a swing")
+		end
+		assert(st(100, true) == "Full0" and st(75, true) == "Full0", "finished down to the first threshold")
+		assert(st(74, true) == "Hit1" and st(49, true) == "Hit2" and st(24, true) == "Hit3" and st(1, true) == "Hit3")
+		assert(#S.dig == 4 and #S.hit == 3, "the meshes trench_pieces v12 has: Dig1-4, Hit1-3")
+	end,
+	-- (user 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible")
+	["nothing over a trench's open cut, dug or planned; its bank is fine"] = function()
+		local T = C.Trench
+		local half = B.trenchTop(T) - T.overhang
+		assert(T.overhang >= 0 and half > T.floor, "the cut is wider than the floor")
+		local cut = B.trenchCut(0, 0, 8, 0, half)
+		assert(cut.x == 4 and cut.z == 0 and cut.rx == 1 and cut.rz == 0 and cut.width == 8 and cut.depth == 2 * half)
+		local function bags(x: number, z: number, deg: number): B.Footprint
+			local r = math.rad(deg)
+			return { x = x, z = z, rx = math.cos(r), rz = math.sin(r), width = 6, depth = 2 }
+		end
+		assert(B.footprintsOverlap(cut, bags(4, 0, 90)), "across the trench (the floating pile)")
+		assert(B.footprintsOverlap(cut, bags(4, 0, 0)), "along its floor")
+		assert(B.footprintsOverlap(cut, bags(4, half + 0.9, 0)), "hanging over the edge past the overhang")
+		assert(not B.footprintsOverlap(cut, bags(4, half + 1.1, 0)), "on the bank along its edge")
+		assert(not B.footprintsOverlap(cut, bags(12, 0, 90)), "past its end")
+		-- turned: the same cut from a diagonal run
+		local diag = B.trenchCut(0, 0, 6, 6, half)
+		assert(B.footprintsOverlap(diag, bags(3, 3, 0)) and not B.footprintsOverlap(diag, bags(-6, 9, 45)))
+		local dot = B.trenchCut(2, 2, 2, 2, half)
+		assert(dot.width == 0 and dot.rx == 1, "a point: no length, no turn")
+	end,
+	-- (user 2026-11-02: "make sure floating parts are not possible")
+	["a piece whose ground was blasted from under it is unsupported"] = function()
+		local S = C.Support
+		assert(S.reach > 0 and S.gap > 0 and S.share > 0 and S.share <= 1)
+		local laid = { 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 }
+		local function now(sunk: number, by: number): { number }
+			local out = table.clone(laid)
+			for i = 1, sunk do
+				out[i] = laid[i] - by
+			end
+			return out
+		end
+		assert(B.supported(laid, laid, S.gap, S.share), "as laid")
+		assert(B.supported(laid, now(10, S.gap - 0.1), S.gap, S.share), "settled a little all over")
+		assert(B.supported(laid, now(4, 6), S.gap, S.share), "a crater under its end: it stands on the rest")
+		assert(not B.supported(laid, now(5, 6), S.gap, S.share), "half its ground gone: it would hang")
+		assert(not B.supported(laid, now(10, 3), S.gap, S.share), "all of it sunk")
+		assert(B.supported(laid, now(10, -2), S.gap, S.share), "earth thrown over it holds it up")
+		assert(B.supported({}, {}, S.gap, S.share), "no samples: left alone")
 	end,
 }

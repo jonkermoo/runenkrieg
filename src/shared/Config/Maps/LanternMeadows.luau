@@ -129,10 +129,10 @@ local LanternMeadows = {
 			}),
 		},
 	},
-	-- each side's spawn ~225 behind its HQ, on the back slope
+	-- each side's spawn ~400 behind its HQ, as far back as its sector goes (MAP_RULES, user 2026-11-02; was ~225)
 	spawnZones = {
-		West = rect(140, 210, -60, 60),
-		East = rect(2240, 2310, -100, 20),
+		West = rect(-40, 30, -60, 60),
+		East = rect(2420, 2490, -120, 0),
 	},
 
 	-- open meadows: gentler rolling ground than Map 1's valley
@@ -238,7 +238,7 @@ local LanternMeadows = {
 			{ x = 1240, z = CZ + 20, r = 50 },
 			{ x = 1660, z = CZ - 30, r = 50 },
 			{ x = 2080, z = CZ - 60, r = 50 },
-			{ x = 2275, z = CZ - 40, r = 80 }, -- the East spawn
+			{ x = 2455, z = CZ - 60, r = 80 }, -- the East spawn
 			{ x = 1880, z = CZ + 40, r = 30 }, -- clear of the S4|S5 divider
 		},
 		-- the map's own landmarks (Config/Buildings, one at a time; user 2026-11-01). The festival stage north of S3, on

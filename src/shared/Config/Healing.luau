@@ -8,7 +8,9 @@
 
 local Healing = {
 	MedPackFrom = 70, -- the patient's health from which the med pack is used; below it, the bandage
-	SecondsPerHp = 0.05, -- heal time grows with the health healed (user: "should not take more than 5 seconds")
+	-- heal time grows with the health healed (user: "should not take more than 5 seconds"; 2026-11-02: "increase
+	-- healing by the tiniest bit": 0.05 to 0.045, a full heal 4.5 s)
+	SecondsPerHp = 0.045,
 	MaxSeconds = 5,
 	Range = 6, -- studs between the two soldiers' roots to start a heal (and the prompt shows)
 	Break = 8, -- studs apart at which a heal stops (the health healed so far stays)
@@ -19,8 +21,9 @@ local Healing = {
 
 	-- Slow recovery on your own (user: "you slowly recover health to up to 70 hp"): from `delay` seconds after the last
 	-- drop in health (a hit, a fall, a dev tool), `rate` health a second up to `cap`. Any drop starts the wait again.
-	-- `dummies`: DEV target dummies recover too (off: they keep their damage for tests).
-	Recovery = { cap = 70, delay = 8, rate = 2, dummies = false },
+	-- `dummies`: DEV target dummies recover too (off: they keep their damage for tests); `bots`: the bot soldiers do
+	-- (src/server/Bots; user 2026-11-01: "Bots recover like players").
+	Recovery = { cap = 70, delay = 8, rate = 2, dummies = false, bots = true },
 
 	-- Each finished bandage heal puts the next wrap on the patient (user: left arm, right leg, head; after the third no
 	-- new wraps). Config/Assets entries and the R6 part each sits on (its Origin at the part's centre). With the head

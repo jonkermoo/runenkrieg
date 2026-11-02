@@ -71,8 +71,11 @@ local Bots = {
 	-- come later
 	Classes = {
 		{ key = "Rifleman" },
+		{ key = "Grenadier" }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
 		{ key = "AutoRifler" },
 		{ key = "Shotgunner", push = 18 },
+		{ key = "Engineer" }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
+		{ key = "Mage" }, -- (user 2026-11-02: Mage bots in Normal and FFA, by points; Config/Bots.Staff)
 	},
 	-- the share of the battle points (Config/Classes.Earn: the kill, headshot and assists) a bot's death pays its killer
 	-- (user 2026-10-30: "make the AIs count half the battle points when you kill them")
@@ -188,6 +191,245 @@ local Bots = {
 		midShare = 0.5,
 		laneOffset = 0.25,
 		weights = { hidden = 3, near = 0.6, distance = 0.02, crowd = 1.5, random = 1 },
+	},
+
+	-- Normal's actions besides fighting (Rules/BotActions; user 2026-11-01), weighed every `every` seconds a bot:
+	-- - Drag: a knocked-down teammate in sight of a known enemy within `within` studs is dragged to cover (Rules/Bots'
+	--   cover points, away from the threat) at most `cover` studs off, for at most `seconds`; then healed if hurt.
+	-- - Heal: with nobody shooting at it or hitting it for `calm` seconds, a bot walks to the nearest teammate under
+	--   `below` health within `within` studs and heals them (Healing.startAs) from `reach` studs; it gives up after
+	--   `seconds` walking. Squads pushing in don't stop for it.
+	-- - Grenade (Grenadiers): at an enemy with `group` or more enemies within `cluster` studs, or one in cover (known,
+	--   unseen) for `hidden` s, `min`-`max` studs off, no teammate within `safe` studs of it; at most one throw every
+	--   `every` s a bot and `squadEvery` s a squad. The gun goes away and the grenade is in hand for `hold` s before it
+	--   goes (user: "Swap for ~0.6 s"); aimed `short` of the spot (it rolls on) on the low arc.
+	Actions = {
+		every = 0.5,
+		Drag = { within = 12, cover = 15, seconds = 8 },
+		Heal = { calm = 3, below = 0.7, within = 25, reach = 4, seconds = 10 },
+		Grenade = {
+			min = 15,
+			max = 35,
+			cluster = 6,
+			group = 2,
+			hidden = 3,
+			safe = 12,
+			every = 8,
+			squadEvery = 4,
+			hold = 0.6,
+			short = 0.85,
+		},
+	},
+
+	-- Normal bots and buildings (Rules/BotBuildings; user 2026-11-02, src/server/Indoors spots, Doors):
+	-- - doors: a path's door waypoint (Config/Indoors.Links.door) within `doorReach` studs: it opens the door
+	--   (Doors.openFor) and waits `doorWait` s while it swings; paths cost Config/Indoors.PathCosts.
+	-- - holds: each defending squad puts up to `perSquad` bots at window or doorway spots within the zone's radius plus
+	--   `around` (windows overlooking it count), facing the enemy's way in by more than `facing`, `upstairs` a story above the ground, `random` to spread
+	--   them (user: "A few (1-2 a squad)"); with no target it faces out of the window.
+	-- - cover: a cover search also tries up to `cover` indoor cover spots within its reach.
+	-- - clearing (user: "Yes, clear buildings"): a pushing squad's Assault bots go for the indoor spot nearest a known
+	--   enemy within `clearWithin` studs of one (that enemy is inside).
+	-- Spots are looked up by `cell`-stud squares, each kept `keep` s (`slack` studs more round each square).
+	Indoors = {
+		doorReach = 6,
+		doorWait = 0.8,
+		perSquad = 2,
+		around = 55, -- (Map 1's houses stand 82+ studs from the zones' centres; user 2026-11-02: "Widen to 100")
+		facing = 0.3,
+		upstairs = 0.5,
+		random = 0.5,
+		cover = 4,
+		clearWithin = 6,
+		cell = 50,
+		keep = 20,
+		slack = 10,
+	},
+
+	-- Normal: bots building (Rules/BotBuild; src/server/Build placeAs / planAs / workAs, the players' checks; user
+	-- 2026-11-02: "Engineers + small help", "Only when calm"). Each side's commander keeps a build list at its front (the
+	-- sector it holds nearest the enemy), facing the enemy's way in:
+	-- - Bags: a sandbag pile `ahead` studs in front of each outdoor hold spot with no cover (the first `max`).
+	-- - Wire: a strip `out` studs past the zone's edge on each of `lanes` (studs across from the middle).
+	-- - Nest: an MG nest `ahead` of the hold spot nearest the enemy.
+	-- - Guns: the guns the artillery level opens, `back` studs behind the zone's middle, `side` apart.
+	-- - repairs: own pieces within `repair` studs past the zone's edge that want swings (the nearest `repairs`).
+	-- (the trenches: Trenches below.) Engineers take the nearest job within `take` studs; a digger (Trenches.share of a
+	-- holding squad) takes a trench job within `take` and helps work wire within `help`. A bot
+	-- builds only when nobody has shot at it or hurt it for `calm` s and it sees no enemy; it stands `stand` studs from
+	-- a piece's spot to lay it, gives a job up after `seconds`; a refused spot moves `nudge` studs across (a trench
+	-- run's far end swings aside: Rules/BotTrenches.swing; up to `tries` times), then waits `retry` s. A piece of the job's key within `match` studs of
+	-- its spot is the job's.
+	-- Caps (user: "A third, half the guns"): the bots lay at most `caps.pieces` of the team's Config/Build.PerTeam and
+	-- `caps.<key>` of a gun's.
+	Build = {
+		calm = 3,
+		take = 90,
+		help = 25,
+		stand = 4,
+		seconds = 60,
+		nudge = 6,
+		tries = 8, -- (steps of `nudge` out to 24 studs each way: Map 1's tree clumps stand on some fronts' lines)
+		retry = 30,
+		match = 8,
+		repair = 30,
+		repairs = 6,
+		Bags = { ahead = 3, max = 8 }, -- (8: any class lays them now, user 2026-11-02: "Piles at open holds")
+		Wire = { out = 40, lanes = { -40, 0, 40 } },
+		Nest = { ahead = 2 },
+		Guns = { back = 60, side = 24 },
+		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
+		caps = { pieces = 100, FieldGun = 3, Howitzer = 1 },
+		-- Cover (user 2026-11-02: "have AI build areas of cover with sandbags and barriers", all four kinds; any class
+		-- lays sandbag piles and barriers, Config/Classes):
+		-- - Breast: a trench run refused at every spot (Trenches.tries) gets a breastwork along its line instead, a lay job
+		--   every `step` studs, the `keys` in turn.
+		-- - Walls: once an MG nest or gun stands, `count` sandbag piles `ahead` studs on its enemy side, `spread` apart.
+		-- - Pinned: a bot shot at within `threat` s, suppressed `shaken` or more, with no cover found within `near` studs and
+		--   not in a trench, lays a sandbag pile `ahead` studs toward the threat and fills it under fire (at most every
+		--   `every` s).
+		Breast = { step = 8, keys = { "SandbagPile", "Hesco" } },
+		Walls = { ahead = 5, spread = 8.5, count = 2 },
+		Pinned = { threat = 1.5, shaken = 0.5, every = 45, ahead = 2.5, near = 20 },
+		-- Gun crews (Rules/BotBuild.crewWanted / gunSpots; user 2026-11-02: "if artillery has been unlocked for a side and
+		-- not a lot of any has been placed, some bots should take priority in getting engineer and start building it in
+		-- strategic places"; "Up to 2, if they can pay"): while a side has fewer than `enough` guns standing (anyone's
+		-- field guns and howitzers), up to `max` of its bots pick Engineer when they respawn (paid as any class; one that
+		-- can't pay picks as usual) and take gun jobs first, from anywhere on the front. Back to their usual picks on the
+		-- next respawn once the side has enough. The guns' spots (scored: "Scored spots behind the line"): `back` studs
+		-- behind the front zone's edge by `across` studs either side of its middle, farthest back first, each kept only
+		-- where the gun reaches the enemy's nearest sector's middle (Rules/Artillery.layFor) and lies `spawnGap` studs
+		-- clear of every spawn and wave line (Rules/Artillery.nearSpawn), `spacing` (Config/Build.Pieces) from the other
+		-- guns' spots; the bots' share of each gun (`caps` above) gets a spot. None fits: the fixed spot (`Guns` above).
+		Crews = {
+			max = 2,
+			enough = 3,
+			back = { 90, 60, 30 },
+			across = { 0, -60, 60, -120, 120, -180, 180 },
+			spawnGap = 40,
+		},
+	},
+
+	-- Normal: sapping forward (Rules/BotSap; user 2026-11-02: "AI ... should [build trenches to push forward] if they are
+	-- obviously unable to advance under fire", "30 s stuck, half dig"). An attacking squad moving up (Move / Bound) is
+	-- stuck once `stall` s pass since it last gained `progress` studs toward its objective, while shot at or with `losses`
+	-- members down since. It then saps: `share` of it digs (any class) a run `run` studs long from its most forward
+	-- member toward the objective, turned `angle` degrees one way then the other (a zig-zag), each run planned once the
+	-- last is dug, the rest holding where they are giving covering fire, then all moving up to its head. Sappers dig
+	-- under fire (only a hit stops them). It is over at `edge` of the zone's radius from the objective, or after `quiet`
+	-- s with nobody shooting at the squad.
+	Sap = {
+		stall = 30,
+		progress = 10,
+		losses = 2,
+		share = 0.5,
+		run = 16,
+		angle = 25,
+		edge = 1.1,
+		quiet = 20,
+	},
+
+	-- Mage bots (Rules/BotStaff; src/server/StaffCast openAs / aimAs / castAs, the players' mana, cooldowns and holds;
+	-- user 2026-11-02): the stage by Rules/BotStaff.stage (Config/Damage.Staff.Range each stage's reach); a mega shot
+	-- at `megaGroup` enemies within `cluster` studs of the target, or a target in a building, an MG nest or within `gun`
+	-- studs of a gun ("Groups and strongpoints"), never with a teammate within `blast` studs of where it lands; no
+	-- shot with a teammate within `line` studs of the beam. Seen-or-not: medium and mega shots also go at where its
+	-- squad last knew an enemy (their cover: "Soldiers and their cover"). An open circle is dropped once the target
+	-- has been out of sight `lost` seconds; a mega shot is charged standing still.
+	Staff = {
+		megaGroup = 2,
+		cluster = 10,
+		gun = 8,
+		blast = 25,
+		line = 4,
+		lost = 0.8,
+	},
+
+	-- Normal: bots and trenches (Rules/BotTrenches; user 2026-11-02: "bots that arent engineers should build trenches
+	-- too. they should follow real strategy and tactics and have their own advanced trench behavior"). Any class digs.
+	-- - Who: `share` of each squad holding its side's front zone digs when calm, the rest stand guard ("Half dig, half
+	--   guard"). With no own sector under attack, `hold` of the side holds the front zone (a zone just taken is dug in
+	--   at once: "Yes, dig in at once").
+	-- - The system ("Fire + support + comms"), dug in that order: Fire, a trench `width` wide across the zone's enemy
+	--   edge (`edge` of its radius out) in `bays` runs, every other joint `traverse` studs forward (bays and traverses);
+	--   Support, a line `back` studs behind it, `width` wide; Comm, from the support line's middle to the fire trench's,
+	--   jogging `jog` studs across half way, stopping `short` studs off each line. A run counts as planned once a square
+	--   lies within `on` studs of its line, `ends` of its length in from either end. A side's bots keep at most `cap`
+	--   squares planned or dug, and work the nearest `digs` squares wanting swings at once.
+	-- - Fighting: a fire-trench square dug full once and at `standHp` HP or more gives a fire step `rise` studs up its
+	--   forward wall from the floor (Rules/BotTrenches.stepOut of Config/Build.Trench's floor and wall angle: under the
+	--   parapet, eyes over it); holders take fire steps first. Shot at, reloading or pinned there, a bot drops to the
+	--   square's floor (its cover). About half the holders wait in the support line until an enemy is known within
+	--   `alarm` studs of the fire trench (they stand to). When enemies are known in the fire trench and fewer than `keep`
+	--   of its holders still stand, it is lost: the rest fall back to the support line for `fallback` seconds.
+	-- - Clearing ("Yes, clear along them"): a pushing squad's Assault bots go down into an enemy trench square within
+	--   `clearWithin` studs of a known enemy and fight along it.
+	-- - Keeping the lines clear (user 2026-11-02: "bots should either plan around structures, destroy them if
+	--   necessary, or never have structures where trenches should be"): no bot lays a piece within `clear` studs past
+	--   a trench's wall top of a run planned or dug, a sap's run or its next one, or any trench square; a digger tears
+	--   down a `tear` piece (the enemy's or a bot's) in its run's way first, and swings the run aside round anything
+	--   else.
+	Trenches = {
+		share = 0.5,
+		hold = 0.3,
+		Fire = { edge = 0.9, width = 48, bays = 3, traverse = 6 },
+		-- (56: past the zone's flagpole in its middle, which a line 40 back ran into; past Config/Build.Trench.spacing)
+		Support = { back = 56, width = 32 },
+		Comm = { jog = 6, short = 1 },
+		on = 2,
+		ends = 0.15,
+		cap = 60,
+		digs = 12,
+		standHp = 60,
+		rise = 3.4, -- (6.3 from the line in the 4.25 floor trench, 5.05 in the slimmer 3 floor one)
+		alarm = 60,
+		keep = 0.5,
+		fallback = 30,
+		clearWithin = 8,
+		clear = 1.5,
+		tear = { SandbagPile = true, Hesco = true, Wire = true },
+	},
+
+	-- Normal: moving by trench (Rules/BotTrenches.danger; user 2026-11-02: "most pvp should be trench based. if bots can,
+	-- they should ideally use trenches to get around if they know there's danger. if it's an open field with no enemies
+	-- they should just walk of course. make it realistic, this is mostly a trench fighting game").
+	-- - Danger (all four, "Shot at recently, Enemy known near, Shelling near, Contested goal"): shot at within `shot`
+	--   seconds; an enemy known to it or its squad within `near` studs in the last `known` seconds; a shell or grenade
+	--   within `blastNear` studs in the last `blast` seconds; its goal's sector with enemies in it.
+	-- - Knowing there's danger, its path costs `open` times as much over `materials` (the open ground) as along a dug
+	--   trench square (each square's hole is marked `label` for pathfinding): a trench route wins while it is under
+	--   `open` times the open stretch it stands in for ("Strong, x4"). With no danger it walks straight across.
+	-- - Shot at in the open with an own dug trench square within `cover` studs, it drops into it (its cover).
+	-- - Over the top ("Yes, gather then go"): an attacking squad gathers first in its side's dug trench square nearest
+	--   the objective (no more than `Jump.reach` studs past the zone's edge, `Jump.ahead` studs nearer it than the
+	--   squad), within `Jump.at` studs of it; it goes once `Jump.gather` of it is there, or `Jump.wait` seconds after
+	--   the first got there.
+	TrenchMove = {
+		shot = 10,
+		known = 15,
+		near = 120,
+		blast = 15,
+		blastNear = 40,
+		open = 4,
+		label = "Trench",
+		materials = {
+			"Grass",
+			"LeafyGrass",
+			"Ground",
+			"Mud",
+			"Sand",
+			"Rock",
+			"Slate",
+			"Sandstone",
+			"Limestone",
+			"Basalt",
+			"Snow",
+			"Pavement",
+			"Asphalt",
+			"Cobblestone",
+		},
+		cover = 25,
+		Jump = { reach = 120, ahead = 15, at = 10, gather = 0.75, wait = 25 },
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above

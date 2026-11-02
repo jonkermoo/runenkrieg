@@ -19,9 +19,10 @@ export type Def = {
 }
 
 -- what everyone may build (user: "everyone else can only build trenches and other small assets")
--- (Hesco barriers and sandbag piles are the Engineer's since round 7, user 2026-10-27: "hesco barriers should and
--- sandbags should be engineer only")
-local SMALL = { "Trench", "Wire", "Bridge" }
+-- (Hesco barriers and sandbag piles were the Engineer's from round 7 to 2026-11-02; everyone's again, user 2026-11-02:
+-- "allow sandbags and barriers to be built by ordinary soldiers too")
+-- (foxholes everyone's, user 2026-11-02)
+local SMALL = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge" }
 
 local Classes = {
 	-- the loadout's kit cards (UI overhaul, user 2026-10-30): each class's rune (Config/Runes), the picked card raised
@@ -121,7 +122,8 @@ local Classes = {
 			grenades = false,
 			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
 			helmet = "engineerCap",
-			builds = { "Trench", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest" }, -- (Nest: the MG nest, user 2026-10-27)
+			-- (Nest: the MG nest, user 2026-10-27; Dugout: user 2026-11-02, "Engineers only")
+			builds = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest", "Dugout" },
 		},
 		-- the team's goggles (user 2026-10-27: "goggles on mage")
 		Mage = {
@@ -168,6 +170,9 @@ local Classes = {
 			engineerCap = "cap_trench",
 		},
 	} :: { [string]: { [string]: string } },
+	-- every award below paid this many times over, in every mode (user 2026-11-02: "1.5x the marks earned in both
+	-- modes"); the points may then hold halves, shown rounded down (src/client/Menus)
+	Pay = 1.5,
 	-- points earned (user: kills, assists, captures, building; prices scaled down, so these are too)
 	Earn = {
 		Kill = 10,
