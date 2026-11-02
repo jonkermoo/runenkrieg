@@ -2963,8 +2963,15 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		strafeStep(b, aimAt or zone, now)
 	end
 	-- a dugout (Config/Bots.Dugouts): paths don't go down its steps, so a path to its foot, then straight down them to
-	-- the room; out of it, straight up to the foot first
+	-- the room, crouched under its low doorway; out of it, straight up to the foot first
 	local foot = b.postFoot
+	local handle = b.anim
+	if handle then
+		local near = foot and flat(foot - root.Position).Magnitude
+		handle.crouch(
+			foot ~= nil and (near :: number) <= 16 and (root.Position.Y < foot.Y - 1 or (near :: number) <= 3.5)
+		)
+	end
 	if foot then
 		local below = root.Position.Y < foot.Y - 1 and flat(foot - root.Position).Magnitude <= 16
 		local atSteps = flat(foot - root.Position).Magnitude <= 3.5
@@ -4282,7 +4289,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- the posts its trenches give: a fire step on each dug fire-trench square, a place on each support-line square
 	sbs.steps, sbs.reserve, sbs.squares = {}, {}, {}
 	local bays: { [number]: boolean } = {}
-	local support: { { x: number, z: number, share: number, w: Build.Work } } = {}
+	local support: { { x: number, z: number, share: number, len: number, w: Build.Work } } = {}
 	for _, w in works do
 		if w.key == "Trench" and w.built and w.hp >= TR.standHp then
 			table.insert(sbs.squares, { x = w.at.X, z = w.at.Z, at = w.at })
@@ -4308,7 +4315,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 						end
 					elseif run.kind == "Support" then
 						table.insert(sbs.reserve, { pos = w.at })
-						table.insert(support, { x = w.at.X, z = w.at.Z, share = w.hp / math.max(w.max, 1), w = w })
+						local a, e = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
+						local len = if typeof(a) == "Vector3" and typeof(e) == "Vector3"
+							then flat(e - a).Magnitude
+							else 0
+						table.insert(
+							support,
+							{ x = w.at.X, z = w.at.Z, share = w.hp / math.max(w.max, 1), len = len, w = w }
+						)
 					end
 					break
 				end
@@ -4347,7 +4361,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	local want = BotTrenches.dugoutsWanted(sbs.shelledOnce, holders, sbs.bays, DG) - #have
-	for _, i in BotTrenches.dugoutSquares(support, have, want, DG) do
+	-- (a square long enough on the flat for one: the dugout's width and its spare, Config/Build)
+	local long = BuildCfg.Dugout.spare
+	for _, pc in BuildCfg.Pieces do
+		if pc.key == "Dugout" then
+			long += (pc :: any).width
+		end
+	end
+	for _, i in BotTrenches.dugoutSquares(support, have, want, DG, long) do
 		local w = support[i].w
 		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
 		if typeof(a) == "Vector3" and typeof(c) == "Vector3" then

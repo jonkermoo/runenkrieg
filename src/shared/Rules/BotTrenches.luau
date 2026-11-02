@@ -316,14 +316,16 @@ function BotTrenches.dugoutsWanted(shelledOnce: boolean, holders: number, bays: 
 	return math.ceil(math.max(holders - bays, 0) / cfg.room)
 end
 
--- Where a side's next dugouts go: up to `want` of its support line's squares (`squares`, each dug `share` of its HP),
--- dug to `cfg.dug` or more, `cfg.spacing` studs (centre to centre) from every dugout it has (`have`) and from each
--- other, the nearest to the line's middle first. Returns indices into `squares`.
+-- Where a side's next dugouts go: up to `want` of its support line's squares (`squares`, each dug `share` of its HP,
+-- `len` studs long on the flat), dug to `cfg.dug` or more, at least `long` studs long (a dugout's width and its spare:
+-- Config/Build.Dugout), `cfg.spacing` studs (centre to centre) from every dugout it has (`have`) and from each other,
+-- the nearest to the line's middle first. Returns indices into `squares`.
 function BotTrenches.dugoutSquares(
-	squares: { { x: number, z: number, share: number } },
+	squares: { { x: number, z: number, share: number, len: number } },
 	have: { { x: number, z: number } },
 	want: number,
-	cfg: { dug: number, spacing: number }
+	cfg: { dug: number, spacing: number },
+	long: number
 ): { number }
 	local mx, mz, n = 0, 0, 0
 	for _, s in squares do
@@ -335,7 +337,7 @@ function BotTrenches.dugoutSquares(
 	mx, mz = mx / n, mz / n
 	local order = {}
 	for i, s in squares do
-		if s.share >= cfg.dug then
+		if s.share >= cfg.dug and s.len >= long then
 			table.insert(order, i)
 		end
 	end

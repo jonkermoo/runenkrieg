@@ -207,10 +207,10 @@ return {
 		local D = Cfg.Dugouts
 		local squares = {}
 		for k = 0, 6 do
-			table.insert(squares, { x = 0, z = k * 8, share = 1 })
+			table.insert(squares, { x = 0, z = k * 8, share = 1, len = 8 })
 		end
 		squares[4].share = 0.5 -- (the middle one, z 24, not dug yet)
-		local got = R.dugoutSquares(squares, {}, 2, D)
+		local got = R.dugoutSquares(squares, {}, 2, D, 8)
 		assert(#got == 2, "two")
 		for _, i in got do
 			assert(i ~= 4, "not on an undug square")
@@ -218,10 +218,11 @@ return {
 		local a, b = squares[got[1]], squares[got[2]]
 		assert(math.abs(a.z - b.z) >= D.spacing, "spaced")
 		assert(math.abs(a.z - 24) <= 8, "the middle first")
-		assert(#R.dugoutSquares(squares, { { x = 0, z = 24 } }, 1, D) == 1)
-		local near = R.dugoutSquares(squares, { { x = 0, z = 24 } }, 1, D)
+		assert(#R.dugoutSquares(squares, { { x = 0, z = 24 } }, 1, D, 8) == 1)
+		local near = R.dugoutSquares(squares, { { x = 0, z = 24 } }, 1, D, 8)
 		assert(math.abs(squares[near[1]].z - 24) >= D.spacing, "off the one it has")
-		assert(#R.dugoutSquares(squares, {}, 0, D) == 0, "none wanted")
+		assert(#R.dugoutSquares(squares, {}, 0, D, 8) == 0, "none wanted")
+		assert(#R.dugoutSquares(squares, {}, 2, D, 8.1) == 0, "too short on the flat")
 	end,
 	["seat: the nearest dugout with a place"] = function()
 		local rooms = { { x = 0, z = 0, free = 0 }, { x = 20, z = 0, free = 1 }, { x = 50, z = 0, free = 2 } }

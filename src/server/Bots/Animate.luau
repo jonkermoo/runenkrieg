@@ -29,6 +29,9 @@ export type Handle = {
 	-- `stop` ends every one of them
 	play: (id: number, looped: boolean?) -> (),
 	stop: () -> (),
+	-- crouched from now on, or up again: the crouch idle and walk in place of the idle, walk and sprint (a dugout's
+	-- low doorway: src/server/Bots)
+	crouch: (on: boolean) -> (),
 }
 
 local function load(animator: Animator, id: number, priority: Enum.AnimationPriority, looped: boolean): AnimationTrack
@@ -48,14 +51,20 @@ function Animate.attach(m: Model, weapon: string): Handle
 	animator.Parent = humanoid
 	local a = animator :: Animator
 	local base: { [string]: AnimationTrack } = {}
-	for _, name in { "idle", "walk", "sprint" } do
-		base[name] = load(
-			a,
-			(Anims :: any)[name].id,
-			if name == "idle" then Enum.AnimationPriority.Idle else Enum.AnimationPriority.Core,
-			true
-		)
+	for _, name in { "idle", "walk", "sprint", "crouchIdle", "crouchWalk" } do
+		local anim = (Anims :: any)[name]
+		if anim then
+			base[name] = load(
+				a,
+				anim.id,
+				if name == "idle" or name == "crouchIdle"
+					then Enum.AnimationPriority.Idle
+					else Enum.AnimationPriority.Core,
+				true
+			)
+		end
 	end
+	local crouched = false
 	local holds: { [string]: AnimationTrack } = {}
 	for hold, id in MovementSet.holds(Loco, weapon, W[weapon].holds) do
 		if hold == "ready" or hold == "walk" or hold == "carry" or hold == "aim" or hold == "equip" then
@@ -88,6 +97,9 @@ function Animate.attach(m: Model, weapon: string): Handle
 		end
 		-- the ground cycle by speed, at its game pace
 		local name = if speed < Loco.IdleBelow then "idle" elseif speed > Loco.SprintAbove then "sprint" else "walk"
+		if crouched and base.crouchIdle and base.crouchWalk then
+			name = if name == "idle" then "crouchIdle" else "crouchWalk"
+		end
 		if name ~= current then
 			if current then
 				base[current]:Stop(Loco.Fade)
@@ -146,7 +158,11 @@ function Animate.attach(m: Model, weapon: string): Handle
 		end
 	end
 
-	return { update = update, equip = equip, play = play, stop = stop }
+	local function crouch(on: boolean)
+		crouched = on
+	end
+
+	return { update = update, equip = equip, play = play, stop = stop, crouch = crouch }
 end
 
 return Animate
