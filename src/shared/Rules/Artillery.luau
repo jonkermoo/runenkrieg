@@ -328,6 +328,21 @@ function Artillery.mayTakeOver(playerKit: any, botKit: any): boolean
 	return type(playerKit) == "string" and playerKit == botKit
 end
 
+-- Whether a gun's "Gunner" is a bot: its BotId (Config/Bots.IdAttribute, a negative number), not a player's UserId.
+function Artillery.botGunner(id: any): boolean
+	return type(id) == "number" and id < 0
+end
+
+-- How long from `t` until a gunner's brace plays for the shot braced at `braceAt` (the server's "BraceAt"): its pull
+-- (`pull` s in) lands on the shot, `charge` s after the brace (at once when the pull is longer than the charge); nil
+-- once the shot has gone.
+function Artillery.braceWait(braceAt: number, t: number, charge: number, pull: number): number?
+	if t > braceAt + charge then
+		return nil
+	end
+	return math.max(braceAt + math.max(charge - pull, 0) - t, 0)
+end
+
 -- Where a shot from the gun standing at (px, pz) laid `lay` comes down on flat ground at its muzzle's height (world x,
 -- z); nil when it points straight up.
 function Artillery.landing(gun: any, lay: Lay, px: number, pz: number): (number?, number?)

@@ -257,6 +257,10 @@ local Artillery = {
 	-- degrees; a bot put off for a player is set down `aside` studs to the gun's side of the crew spot. While a bot mans
 	-- it, the prompt reads `takeOver` for its teammates.
 	Bot = { reach = 1.5, laid = 0.5, aside = 4, takeOver = "Take over the gun" },
+	-- a bot gunner's tracks on every client (src/client/Artillery), each an AnimationPriority a step over its own (brace
+	-- Action3, loading and box reload Action2, hand wheel and stance Action): over the bot's weapon hold (Action, played
+	-- from the server: src/server/Bots/Animate), in a player gunner's order
+	BotPose = { brace = "Action4", load = "Action3", reload = "Action3", crank = "Action2", stand = "Action2" },
 
 	-- No shells on the spawns (user 2026-11-02: "it shouldnt be able to reach the exact spawn no matter where its placed?
 	-- make it consistent throughout all maps"; Rules.nearSpawn): a field gun or howitzer won't fire where its shell
@@ -315,10 +319,11 @@ local Artillery = {
 	-- (tools/animation/artillery.luau ArtilleryBrace: reach for the lever, lean away, pull) and the shot goes `delay` s
 	-- after the click, at its "Fire". Turning (user: "add an animation for turning the weapon too"): while the gun is
 	-- being laid (the aim more than `moving` degrees off its lay) the gunner winds the hand wheel (`crank`, a loop),
-	-- easing in and out over `fade` s. nil: not uploaded yet.
+	-- easing in and out over `fade` s; a bot gunner (whose aim no client knows) winds it while its gun's lay has moved
+	-- in the last `held` s. nil: not uploaded yet.
 	-- (the delay is each gun's `charge`; the brace starts so its pull, `pull` s into it, lands on the shot)
 	Brace = { animation = 110111507484119 :: number?, pull = 0.45 },
-	Turn = { crank = 80321147839061 :: number?, moving = 0.3, fade = 0.2 },
+	Turn = { crank = 80321147839061 :: number?, moving = 0.3, fade = 0.2, held = 0.25 },
 
 	-- A warm barrel (src/client/BarrelHeat, each gun's `heat`; user 2026-10-29: "make the barrel get warmer from the tip
 	-- as you hold it (steam a little too)", then "make the barrel start gradual and heat up way more (50% of the

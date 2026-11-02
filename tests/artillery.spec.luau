@@ -23,6 +23,24 @@ return {
 		end
 		assert(QF.reload == 10 and HOW.reload == 30) -- user 2026-10-20
 	end,
+	["a bot's BotId is told from a player's UserId"] = function()
+		assert(A.botGunner(-3) and not A.botGunner(12345) and not A.botGunner(nil) and not A.botGunner("x"))
+	end,
+	["a bot gunner's tracks each name a priority over the hold, in a player's order"] = function()
+		local rank = { Action = 1, Action2 = 2, Action3 = 3, Action4 = 4 }
+		local P = C.BotPose
+		for _, key in { "brace", "load", "reload", "crank", "stand" } do
+			assert(rank[(P :: any)[key]] and rank[(P :: any)[key]] > 1, key)
+		end
+		assert(rank[P.brace] > rank[P.load] and rank[P.load] > rank[P.crank] and P.stand == P.crank)
+	end,
+	["a bot gunner's brace lands its pull on the shot"] = function()
+		assert(near(A.braceWait(10, 10, 2, 0.45) :: number, 1.55), "the howitzer: the pull at its charge's end")
+		assert(A.braceWait(10, 10, 0.3, 0.45) == 0, "a charge shorter than the pull: at once")
+		assert(near(A.braceWait(10, 11, 2, 0.45) :: number, 0.55), "seen part way: the rest")
+		assert(A.braceWait(10, 11.6, 2, 0.45) == 0, "seen late: at once")
+		assert(A.braceWait(10, 12.5, 2, 0.45) == nil, "the shot gone: none")
+	end,
 	["wrap keeps angles in -180..180"] = function()
 		assert(near(A.wrap(190), -170) and near(A.wrap(-190), 170) and near(A.wrap(45), 45))
 	end,
