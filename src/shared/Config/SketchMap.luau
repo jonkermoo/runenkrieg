@@ -33,6 +33,13 @@ local SketchMap = {
 	-- (user 2026-10-31: "... and expand it")
 	Hud = { x = 12, y = 10, width = 486 },
 	-- sizes as shares of the drawn area's width
+	-- each point's rune by its place in the chain (the HQs at the two ends `hq`), the same on the sketch map and on the
+	-- beacon over its flag (src/client/PointSeal)
+	Runes = {
+		order = { "hagalaz", "sowilo", "tiwaz", "raidho", "othala", "algiz", "berkanan" },
+		hq = "hagalaz",
+		fallback = "isa",
+	},
 	Point = { radius = 0.028, hqRadius = 0.034, ring = 0.005, rune = 0.62 }, -- a rune's height in its circle's width
 	Label = { size = 0.038, below = 0.008 }, -- a point's name under it
 	Border = { thick = 0.0016, dash = 0.012, gap = 0.009, transparency = 0.35 }, -- the sector borders (dashed blue)
