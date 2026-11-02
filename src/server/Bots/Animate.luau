@@ -5,7 +5,7 @@
 -- holds as a player's: idle / walk / sprint by speed at the Config/Locomotion pace, and the weapon's hold over them
 -- (ready, walk, carry while sprinting, aim; the equip once on spawning and on getting up), Action priority. The hold goes on the "Hold"
 -- attribute (src/client/GunFx picks the bolt's body animation by it) and the look pitch out to every client like a
--- player's tilt (Net "LookPitch", src/client/LookTilt poses the torso, arms and gun).
+-- player's tilt (Net "LookPitch", src/client/LookTilt poses the torso, arms and gun). Dead, it plays nothing.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -14,6 +14,7 @@ local Loco = require(Shared.Config.Locomotion)
 local CameraCfg = require(Shared.Config.Camera)
 local W = require(Shared.Config.Weapons)
 local MovementSet = require(Shared.Rules.MovementSet)
+local RagdollRules = require(Shared.Rules.Ragdoll)
 local Net = require(Shared.Net)
 
 local Anims = MovementSet.animations(Loco)
@@ -69,7 +70,18 @@ function Animate.attach(m: Model, weapon: string): Handle
 	end
 	equip()
 
+	-- dead: every track stops, the body lies still (user 2026-11-01: a dead bot's torso kept breathing)
+	humanoid.Died:Connect(function()
+		for _, t in a:GetPlayingAnimationTracks() do
+			t:Stop(0.1)
+		end
+		current, held = nil, nil
+	end)
+
 	local function update(speed: number, hold: string, pitch: number)
+		if not RagdollRules.animates(humanoid.Health) then
+			return
+		end
 		-- the ground cycle by speed, at its game pace
 		local name = if speed < Loco.IdleBelow then "idle" elseif speed > Loco.SprintAbove then "sprint" else "walk"
 		if name ~= current then

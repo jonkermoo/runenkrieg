@@ -49,6 +49,47 @@ return {
 		local heavy = R.getUp(C.Knocks.Torso.getUp, 70, B) -- a bolt rifle in the torso
 		assert(light < 1 and heavy > 1.8, "light " .. light .. " heavy " .. heavy)
 	end,
+	["a knocked-down soldier breathes while alive, a dead body is still"] = function()
+		assert(R.animates(100) and R.animates(1), "alive")
+		assert(not R.animates(0) and not R.animates(-5), "dead")
+	end,
+	["holding the stay-down key keeps you down past the wait, letting go gets you up"] = function()
+		local S = C.StayDown
+		assert(not R.rises(nil, false, 100, S), "the wait not over")
+		assert(not R.rises(10, false, 9.9, S), "not yet")
+		assert(R.rises(10, false, 10, S), "not held: up at the usual time")
+		assert(not R.rises(10, true, 10, S), "held: stays down")
+		assert(not R.rises(10, true, 10 + S.max - 0.1, S), "still held")
+		assert(R.rises(10, false, 25, S), "let go: up")
+		assert(R.rises(10, true, 10 + S.max, S), "held too long: up anyway")
+	end,
+	["lying on the back gets up toward the feet, on the front toward the head"] = function()
+		local function v(x: number, y: number, z: number): any
+			return { x = x, y = y, z = z }
+		end
+		-- on the back, head to +x: stands facing -x
+		local w, fx, fz = R.getUpWay(v(0, 1, 0), v(1, 0, 0))
+		assert(w == "Back" and near(fx, -1) and near(fz, 0), "back " .. w .. " " .. fx)
+		-- face down, head to +z: stands facing +z
+		w, fx, fz = R.getUpWay(v(0, -1, 0), v(0, 0, 1))
+		assert(w == "Front" and near(fx, 0) and near(fz, 1), "front " .. w)
+		-- tipped, still facing a little up: the back, the flat way normalised
+		w, fx, fz = R.getUpWay(v(0.6, 0.2, 0), v(0, 0.3, -0.9))
+		assert(w == "Back" and near(fx * fx + fz * fz, 1) and fz > 0.99, "tipped")
+		-- not lying down (head up): along the chest
+		w, fx, fz = R.getUpWay(v(0, -0.1, -1), v(0, 1, 0))
+		assert(w == "Front" and near(fz, -1), "upright")
+	end,
+	["get-up settings are sane"] = function()
+		local G = C.GetUp
+		assert(G.Back.id > 0 and G.Front.id > 0 and G.Back.id ~= G.Front.id, "two animations")
+		assert(G.length > 0.5 and G.length < 3 and G.fade >= 0, "length")
+		assert(G.Back.ahead > 0 and G.Front.ahead < 0, "back rises past the feet, front back over the knees")
+	end,
+	["stay-down settings are sane"] = function()
+		local S = C.StayDown
+		assert(S.key == "Space" and S.max > 5 and S.rate >= 2, "key, cap, rate")
+	end,
 	["by-damage settings are sane"] = function()
 		assert(B.floor > 0 and B.ceiling > B.floor and B.ceiling < C.maxDown + 2, "floor and ceiling")
 		assert(B.full > 0 and B.full <= 100, "full damage")

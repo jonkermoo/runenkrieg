@@ -86,6 +86,9 @@ local Remotes: { string } = {
 	-- client -> server: (knock: string, direction: Vector3) knock myself (Config/Ragdoll.SelfKnocks: the staff's
 	-- recoil, the float fall); rate limited
 	"KnockSelf",
+	-- client -> server: (holding: boolean) Space held or let go while knocked down: held, the soldier stays down
+	-- (Config/Ragdoll.StayDown); rate limited
+	"StayDown",
 	-- client -> server: ({ [key]: value }) the player's settings to save in their profile (src/client/Settings sends,
 	-- src/server/Profile keeps only valid entries, Rules/Settings.clean; rate limited)
 	"SaveSettings",

@@ -17,6 +17,7 @@ local Loco = require(Shared.Config.Locomotion)
 local Anims = require(Shared.Rules.MovementSet).animations(Loco) -- the movement set in play
 local Metrics = require(Shared.Config.Metrics)
 local RagdollCfg = require(Shared.Config.Ragdoll)
+local RagdollRules = require(Shared.Rules.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local Rules = require(Shared.Rules.DevActions)
 local Helmets = require(script.Parent.Helmets)
@@ -140,6 +141,40 @@ local function steady(humanoid: Humanoid)
 	humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
 end
 
+-- each soldier's get-up tracks, loaded on first use (a plain table, dropped with the Humanoid: KNOWN_TRAPS 64 tracks)
+local getUps: { [Humanoid]: { [string]: AnimationTrack } } = {}
+local function getUpTrack(humanoid: Humanoid, way: string): AnimationTrack
+	local set = getUps[humanoid]
+	if not set then
+		set = {}
+		getUps[humanoid] = set
+		humanoid.Destroying:Connect(function()
+			getUps[humanoid] = nil
+		end)
+		-- knocked again while getting up: stopped
+		local m = humanoid.Parent :: Model
+		m:GetAttributeChangedSignal("Ragdolled"):Connect(function()
+			if m:GetAttribute("Ragdolled") == true then
+				for _, t in getUps[humanoid] or {} do
+					t:Stop(0)
+				end
+			end
+		end)
+	end
+	local track = set[way]
+	if not track then
+		local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+		animator.Parent = humanoid
+		local anim = Instance.new("Animation")
+		anim.AnimationId = "rbxassetid://" .. (RagdollCfg.GetUp :: any)[way].id
+		track = (animator :: Animator):LoadAnimation(anim)
+		track.Priority = Enum.AnimationPriority.Action4
+		track.Looped = false
+		set[way] = track
+	end
+	return track
+end
+
 -- up again once src/server/Ragdoll clears "Ragdolled" (the joints back): stood upright on its feet where it lies, facing
 -- the way it lay, its physics on the server again (the body is one assembly once more), then GettingUp
 -- (Config/Ragdoll.Stand; a GettingUp from flat on the ground alone left server-owned bodies lying or half up)
@@ -154,22 +189,29 @@ local function getUp(m: Model, humanoid: Humanoid)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { m }
-	local at = torso.Position
-	local hit = workspace:Raycast(at + Vector3.yAxis, Vector3.new(0, -(S.probe + 1), 0), params)
+	-- getting up by the animation (src/server/Ragdoll "GetUp", Config/Ragdoll.GetUp): stood where it will stand, facing
+	-- the way it rises (Rules/Ragdoll.getUpWay), the root on the ground (the animation lies the torso down there)
+	local way = m:GetAttribute("GetUp")
+	local g = if type(way) == "string" then (RagdollCfg.GetUp :: any)[way] else nil
+	local cf = torso.CFrame
+	local _, fx, fz = RagdollRules.getUpWay(
+		{ x = cf.LookVector.X, y = cf.LookVector.Y, z = cf.LookVector.Z },
+		{ x = cf.UpVector.X, y = cf.UpVector.Y, z = cf.UpVector.Z }
+	)
+	local look = Vector3.new(fx, 0, fz)
+	local at = torso.Position + (if g then look * g.ahead else Vector3.zero)
+	local hit = workspace:Raycast(at + Vector3.yAxis * 2, Vector3.new(0, -(S.probe + 2), 0), params)
 	local leg = m:FindFirstChild("Left Leg") :: BasePart?
 	local height = (if leg then leg.Size.Y else 2) + root.Size.Y / 2 + humanoid.HipHeight
-	local y = if hit then hit.Position.Y + height + S.lift else at.Y
-	-- facing: the way the torso's front (or, lying face up or down, its top) points, flat
-	local look = Vector3.new(torso.CFrame.LookVector.X, 0, torso.CFrame.LookVector.Z)
-	if look.Magnitude < 0.3 then
-		local up = torso.CFrame.UpVector
-		look = Vector3.new(up.X, 0, up.Z)
-	end
+	local y = if hit then hit.Position.Y + height + (if g then 0 else S.lift) else at.Y
 	local pos = Vector3.new(at.X, y, at.Z)
 	root.AssemblyLinearVelocity = Vector3.zero
 	root.AssemblyAngularVelocity = Vector3.zero
-	root.CFrame = if look.Magnitude > 1e-3 then CFrame.lookAt(pos, pos + look.Unit) else CFrame.new(pos)
+	root.CFrame = CFrame.lookAt(pos, pos + look)
 	humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+	if g then
+		getUpTrack(humanoid, way :: string):Play(RagdollCfg.GetUp.fade)
+	end
 end
 
 -- (src/server/Bots: the bot soldiers' bodies are handled the same way)
@@ -193,8 +235,15 @@ local function animate(humanoid: Humanoid)
 	local idle, walk = track("idle"), track("walk")
 	local W = Anims.walk
 	idle:Play(Loco.Fade)
+	-- dead: still (Rules/Ragdoll.animates; the idle's breath kept a dead dummy's torso moving)
+	humanoid.Died:Connect(function()
+		idle:Stop(0.1)
+		walk:Stop(0.1)
+	end)
 	humanoid.Running:Connect(function(speed)
-		if speed > Loco.IdleBelow then
+		if not RagdollRules.animates(humanoid.Health) then
+			return
+		elseif speed > Loco.IdleBelow then
 			if not walk.IsPlaying then
 				walk:Play(Loco.Fade)
 			end
