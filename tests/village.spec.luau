@@ -159,6 +159,26 @@ return {
 		assert(V.cutHeight(5, c.reach + 0.1, c) == nil)
 		assert(V.railBed({ 1, 3.5, -2 }) == 3.5)
 	end,
+	["steps down from a high door: a rise each, until the ground is within a step"] = function()
+		local S = B.Steps
+		assert(#V.steps(10, function()
+			return 9.5
+		end, S.rise, S.run, S.max) == 0, "a door within a step of the ground gets none")
+		local flat = V.steps(10, function()
+			return 4
+		end, S.rise, S.run, S.max)
+		assert(#flat == math.ceil((10 - 4) / S.rise) - 1, `{#flat} steps down 6`)
+		assert(
+			flat[#flat].top - 4 <= S.rise
+				and flat[1].top == 10 - S.rise
+				and math.abs(flat[2].out - flat[1].out - S.run) < 1e-9
+		)
+		assert(S.rise <= M.Character.MaxStepUp, "a step a soldier walks up")
+		local slope = V.steps(10, function(d: number)
+			return 6 - d
+		end, S.rise, S.run, S.max)
+		assert(#slope == S.max, "the ground falling away as fast: at most max")
+	end,
 	["a footing only where the ground falls past the foundation"] = function()
 		assert(V.footing(10, 5, B.FoundationDepth) == 0)
 		assert(V.footing(10, 0, B.FoundationDepth) == 0)
