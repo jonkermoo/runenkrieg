@@ -142,12 +142,15 @@ local Assets = {
 			description = "Mondragón FSK 15 semi-automatic rifle, the grey team's (W2; master: assets/weapons/grey/rifle_mondragon.blend, from its trace and tools/blender/weapons/polish_mondragon.py). Rigged from Config/Weapons.",
 		},
 		rifle_remington8 = {
-			id = 120790254551949,
+			-- v2 (2026-11-02): polished against a reference model: the real 1048 mm, a short tapered forend without its
+			-- band, the receiver longer at the back, a bigger trigger guard, a slimmer butt (master
+			-- assets/weapons/olive/rifle_remington8.blend; v1 120790254551949)
+			id = 139034558380892,
 			category = "Weapons",
 			folder = "Olive/Rifles",
 			source = "assets/weapons/olive/rifle_remington8.fbx",
-			generator = "tools/blender/weapons/remington8.py",
-			description = "Remington Model 8 semi-automatic rifle, the olive team's (W2; built from its trace: tools/blender/weapons/trace/remington8.py; review assets/weapons/olive/review/rifle_remington8_v4.blend). Rigged from Config/Weapons.",
+			generator = "tools/blender/weapons/export_blend.py",
+			description = "Remington Model 8 semi-automatic rifle, the olive team's (W2; master: assets/weapons/olive/rifle_remington8.blend, from its trace and tools/blender/weapons/polish_remington8.py). Rigged from Config/Weapons.",
 		},
 		rifle_winchester1907 = {
 			id = 80789332043518,

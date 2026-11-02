@@ -1431,7 +1431,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		hidden = { "Casing", "Clip" }, -- the charger shows only while reloading
 		attachments = {
-			Muzzle = { 0, 0.065, -1.8912 },
+			Muzzle = { 0, 0.065, -1.948 }, -- the real 1048 mm (2026-11-02)
 			Aim = { 0, 0.1308, 0.45 }, -- on the sight line, 0.066 over the bore
 			Eject = { 0.02, 0.09, -0.2399 }, -- out of the open top
 		},
@@ -1464,7 +1464,7 @@ local Weapons: { [string]: Weapon } = {
 			strike = 78851384495308, -- the butt stroke (2026-10-22)
 		},
 		shouldered = { 0.4, 1.45, -0.6 },
-		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.94 -> 4.4 studs long
+		scale = { 2.5, 2.5, 1.5 }, -- as the bolt rifles: 2.99 -> 4.49 studs long
 		-- strapped upright on the right side of the pack (user 2026-10-20: "strap all the rifles to the right
 		-- of the bag (the side)", then "point straight up"; it may touch the bag a little), leaning 3 degrees out
 		stow = {
