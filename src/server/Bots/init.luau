@@ -282,6 +282,8 @@ type Bot = {
 	meleeAt: number?, -- when it may next weigh a butt stroke (Config/Bots.Melee.every)
 	postFloor: Vector3?, -- its post is a fire step: the trench floor below it (its cover)
 	postKind: string?, -- "step", "reserve" (the support line), "window" or "open"
+	gun: Model?, -- Normal: the gun its commander gave it (src/server/Bots/Crew): it walks there, mans and fires it
+	gunWait: number?, -- not given a gun again before this (taken over by a teammate, or gave up the walk)
 }
 
 type CoverJob = { threat: Vector3, ring: number, here: number }
@@ -319,6 +321,7 @@ ByTrench.costs[TM.label] = 1
 local Tactics = {
 	melee = require(script.Parent.Melee),
 	meleeCfg = require(Shared.Config.Melee),
+	crew = require(script.Crew), -- (bots on the guns: Config/Bots.Crew)
 }
 local count = 0
 local folder: Folder? = nil
@@ -2604,6 +2607,10 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		end
 	end
 	debug.profileend()
+	-- Normal: on a gun, or walking to the one it was given (src/server/Bots/Crew), instead of all the rest
+	if b.mode == "Normal" and (b.gun or Artillery.gunOf(m)) and Tactics.crew.think(b, now) then
+		return
+	end
 	-- Normal: a drag, a heal or a grenade instead of fighting for a while (Rules/BotActions)
 	if b.mode == "Normal" then
 		debug.profilebegin("Bots.act")
@@ -3275,7 +3282,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	local groups: { [string]: { Bot } } = {}
 	local order: { string } = {}
 	for _, b in bots do
-		if b.side == side and b.sector and b.order then
+		if b.side == side and b.sector and b.order and not b.gun then
 			local key = `{side}{b.order}{b.sector}`
 			if not groups[key] then
 				groups[key] = {}
@@ -4113,6 +4120,20 @@ local function command()
 				end
 			end
 		end
+		-- its gunners (src/server/Bots/Crew): at the enemies its squads know, else the sector it attacks (or the
+		-- enemy's next to its front)
+		local known = {}
+		for _, sq in squads do
+			if sq.side == side then
+				for _, kn in sq.known do
+					if os.clock() - kn.at <= SQ.knownFor then
+						table.insert(known, kn.pos)
+					end
+				end
+			end
+		end
+		local shell = plan.attack or (front and front + (if side == "West" then 1 else -1))
+		Tactics.crew.command(side, owner, known, if shell and Map.sectors[shell] then sectorPoint(shell) else nil)
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))
 	end
@@ -4188,7 +4209,7 @@ local function report(now: number)
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -4256,6 +4277,7 @@ local function report(now: number)
 			stats.covers,
 			stats.peeks,
 			stats.upgrades,
+			Tactics.crew.report(),
 			if stats.toZoneCount > 0 then stats.toZone / stats.toZoneCount else 0,
 			stats.toZoneCount,
 			workspace:GetRealPhysicsFPS(),
@@ -4291,6 +4313,29 @@ function Bots.start()
 		end
 	end)
 	Firing.onShot(shotPassed)
+	Tactics.crew.init({
+		bots = bots,
+		alive = alive,
+		setGoal = setGoal,
+		follow = follow,
+		finish = finish,
+		dropCast = dropCast,
+		putAway = putAway,
+		aimPart = aimPart,
+		friends = function(b: Bot)
+			local all, n = soldiersNow()
+			local m = b.m :: Model
+			local kit = m:GetAttribute("Kit")
+			local out = {}
+			for k = 1, n do
+				local o = all[k]
+				if o.model ~= m and friendly(m, kit, o) then
+					table.insert(out, { x = o.pos.X, z = o.pos.Z })
+				end
+			end
+			return out
+		end,
+	})
 	-- explosions suppress bots as they do players (Config/Suppression.Blast), and count as a threat close by
 	Damage.onBlast(function(pos: Vector3, kg: number)
 		local now = os.clock()
@@ -4348,6 +4393,7 @@ function Bots.start()
 		table.clear(indoorCells)
 		table.clear(buildLists)
 		table.clear(squads)
+		Tactics.crew.clear()
 		respawnAll("Normal")
 	end)
 	-- the director in its own loop: a new body yields (the avatar is built), never inside the frame's step

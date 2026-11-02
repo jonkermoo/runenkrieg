@@ -661,6 +661,32 @@ local Bots = {
 		},
 	},
 
+	-- Normal: bots on the guns (Rules/BotCrew, src/server/Bots/Crew; user 2026-11-02, stage 2g). Each commander tick a
+	-- free, unbroken field gun, howitzer or MG on a sector its side holds gets a gunner: the nearest defender (or an
+	-- Engineer on gun duty, counted `crewFirst` studs nearer) within `walk` studs, at most `max` gunners a side. It
+	-- walks there (giving up after `walkFor` s) and mans it; it fights no other way while on it, holds no post and is
+	-- in no squad. A teammate taking the gun over (E) sends it back to duty, not on a gun again for `kicked` s.
+	-- - Field guns and howitzers (user: "Known enemy groups, else sector"): the biggest group of the enemies its
+	--   squads know (`cluster` studs across) the gun reaches, else the enemy sector its side attacks (or the one next
+	--   to its front), a shot anywhere within `scatter` studs of its middle; looked at again every `retarget` s and
+	--   after each shot. Fired every reload once laid, held while a teammate is within `hold` of the aim point (user:
+	--   "Every reload, hold near own"; `big` for a shell of `bigKg` kg or more, the howitzer).
+	-- - MGs (user: "Yes, at seen enemies"): at a target it sees within the gun's range, bursts `burst.on` s held and
+	--   `burst.off` s let go; a new box once the box is empty, or under `topUp` of it with nothing to shoot at.
+	Crew = {
+		max = 4,
+		walk = 300,
+		crewFirst = 60,
+		walkFor = 45,
+		kicked = 60,
+		cluster = 20,
+		scatter = 25,
+		retarget = 6,
+		hold = { small = 25, big = 40, bigKg = 50 },
+		burst = { on = 1.2, off = 0.8 },
+		topUp = 0.4,
+	},
+
 	-- the server's log line (cost and how the fights go) every this many seconds while bots are on; 0 none
 	ReportEvery = 15,
 }
