@@ -443,7 +443,8 @@ return {
 		assert(#B.freeRuns({ true, true }) == 0, "all blocked")
 	end,
 	["trenches v2: each square rolls its walls and floor, wood walls now and then but never twice in a row"] = function()
-		local P = C.Trench.pieces
+		-- (a piece set with wood walls set apart; v12's walls all have planks: Config/Build.Trench.pieces.wood is empty)
+		local P = { segment = 8, walls = 6, floors = 3, wood = { 5 }, woodChance = 0.25 }
 		local wood, total, prev = 0, 0, nil
 		local seen = {}
 		for seed = 1, 400 do
@@ -472,6 +473,16 @@ return {
 			assert(seen[i], `wall {i} comes up`)
 		end
 		assert(wood / total > 0.1 and wood / total < P.woodChance + 0.05, `wood walls now and then ({wood} of {total})`)
+		-- every wall alike (none set apart as wood): each side and each dead end rolls any of them
+		local A, ends = C.Trench.pieces, {}
+		for seed = 1, 400 do
+			local r = B.trenchPieces(seed * 7919, (seed - 1) * 7919, A)
+			assert(r.walls[1] and r.walls[2] and r.ends[1] and r.ends[2], "a wall for every side and end")
+			ends[r.walls[1]], ends[r.ends[1]] = true, true
+		end
+		for i = 1, A.walls do
+			assert(ends[i], `wall {i} comes up with every wall alike`)
+		end
 	end,
 	["built things: each weapon takes its share, grenades and staffs least, the howitzer most"] = function()
 		local S = C.Structures
@@ -951,6 +962,6 @@ return {
 		end
 		assert(st(100, true) == "Full0" and st(75, true) == "Full0", "finished down to the first threshold")
 		assert(st(74, true) == "Hit1" and st(49, true) == "Hit2" and st(24, true) == "Hit3" and st(1, true) == "Hit3")
-		assert(#S.dig == 4 and #S.hit == 3, "the meshes trench_pieces v11 has: Dig1-4, Hit1-3")
+		assert(#S.dig == 4 and #S.hit == 3, "the meshes trench_pieces v12 has: Dig1-4, Hit1-3")
 	end,
 }
