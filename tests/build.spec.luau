@@ -123,6 +123,7 @@ return {
 		assert(why({ water = true }) == "Not in water")
 		assert(why({ slope = 21 }) == "Too steep")
 		assert(why({ overlap = true }) == "In the way")
+		assert(why({ overTrench = true }) == "Over a trench")
 		assert(why({ gunGap = true }) == "Too close to another gun")
 		assert(why({ nearTrench = true }) == "Too close to a trench")
 		assert(why({ mine = C.PerPlayer }) == "You have too many pieces")
@@ -413,15 +414,30 @@ return {
 	end,
 	["trenches v2: a new trench keeps its distance from others unless it joins one"] = function()
 		local S = C.Trench.spacing
+		local TOP = B.trenchTop(C.Trench)
 		local other = { { 0, 0, 24, 0 } }
-		assert(B.tooClose(0, S - 1, 24, S - 1, false, false, other, S), "alongside, too near")
-		assert(not B.tooClose(0, S + 1, 24, S + 1, false, false, other, S), "far enough")
+		assert(B.tooClose(0, S - 1, 24, S - 1, false, false, other, S, TOP), "alongside, too near")
+		assert(not B.tooClose(0, S + 1, 24, S + 1, false, false, other, S, TOP), "far enough")
 		-- a branch off its side: starts at the wall and runs out; only its first `spacing` studs may be near
 		local w = C.Trench.floor
-		assert(not B.tooClose(12, w, 12, w + 30, true, false, other, S), "a branch off the side")
-		assert(B.tooClose(12, w, 12, w + 30, false, false, other, S), "the same, not joined")
+		assert(not B.tooClose(12, w, 12, w + 30, true, false, other, S, TOP), "a branch off the side")
+		assert(B.tooClose(12, w, 12, w + 30, false, false, other, S, TOP), "the same, not joined")
 		-- leaving an end but bending back alongside
-		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S), "doubling back alongside")
+		assert(B.tooClose(24, 0, 4, S - 4, true, false, other, S, TOP), "doubling back alongside")
+		-- (user 2026-11-02: "a trench cant be built or extended right next to another path, there should be some space")
+		-- a second trench past the spacing: a stub off the first one's end may not run up beside it, the joint or not
+		local two = { { 0, 0, 24, 0 }, { 0, S + 1, 24, S + 1 } }
+		assert(B.tooClose(24, 0, 24, S - 6, true, false, two, S, TOP), "off one's end, up beside the other")
+		assert(B.tooClose(24, 0, 34, 6, true, false, two, S, TOP), "a short bend off one's end, near the other")
+		assert(not B.tooClose(24, 0, 48, 0, true, false, two, S, TOP), "straight on from its end")
+		-- a deliberate link between them, joined at both ends, is fine
+		assert(not B.tooClose(12, w, 12, S + 1 - w, true, true, two, S, TOP), "a communication trench across")
+		-- the squares linked to the one it joins count as joined near the joint (a bend off a run's end)
+		local run = { { 0, 0, 8, 0 }, { 8, 0, 16, 0 }, { 16, 0, 24, 0 } }
+		assert(not B.tooClose(24, 0, 24 + 12, 12, true, false, run, S, TOP), "a 45 degree bend off its end")
+		local set = B.joinedAt(24, 0, run, TOP, 2 * S)
+		assert(set[1] and set[2] and set[3], "the whole run near the joint")
+		assert(next(B.joinedAt(24, 50, run, TOP, 2 * S)) == nil, "nothing joined from out in the open")
 	end,
 	["trenches v2: a heap's thin skirt is laid only where the ground holds it, never hanging in the air"] = function()
 		local hang = C.Trench.apronHang
@@ -952,5 +968,47 @@ return {
 		assert(st(100, true) == "Full0" and st(75, true) == "Full0", "finished down to the first threshold")
 		assert(st(74, true) == "Hit1" and st(49, true) == "Hit2" and st(24, true) == "Hit3" and st(1, true) == "Hit3")
 		assert(#S.dig == 4 and #S.hit == 3, "the meshes trench_pieces v11 has: Dig1-4, Hit1-3")
+	end,
+	-- (user 2026-11-02: "things cant be built if something is in its way, so floating sad bag shouldnt be possible")
+	["nothing over a trench's open cut, dug or planned; its bank is fine"] = function()
+		local T = C.Trench
+		local half = B.trenchTop(T) - T.overhang
+		assert(T.overhang >= 0 and half > T.floor, "the cut is wider than the floor")
+		local cut = B.trenchCut(0, 0, 8, 0, half)
+		assert(cut.x == 4 and cut.z == 0 and cut.rx == 1 and cut.rz == 0 and cut.width == 8 and cut.depth == 2 * half)
+		local function bags(x: number, z: number, deg: number): B.Footprint
+			local r = math.rad(deg)
+			return { x = x, z = z, rx = math.cos(r), rz = math.sin(r), width = 6, depth = 2 }
+		end
+		assert(B.footprintsOverlap(cut, bags(4, 0, 90)), "across the trench (the floating pile)")
+		assert(B.footprintsOverlap(cut, bags(4, 0, 0)), "along its floor")
+		assert(B.footprintsOverlap(cut, bags(4, half + 0.9, 0)), "hanging over the edge past the overhang")
+		assert(not B.footprintsOverlap(cut, bags(4, half + 1.1, 0)), "on the bank along its edge")
+		assert(not B.footprintsOverlap(cut, bags(12, 0, 90)), "past its end")
+		-- turned: the same cut from a diagonal run
+		local diag = B.trenchCut(0, 0, 6, 6, half)
+		assert(B.footprintsOverlap(diag, bags(3, 3, 0)) and not B.footprintsOverlap(diag, bags(-6, 9, 45)))
+		local dot = B.trenchCut(2, 2, 2, 2, half)
+		assert(dot.width == 0 and dot.rx == 1, "a point: no length, no turn")
+	end,
+	-- (user 2026-11-02: "make sure floating parts are not possible")
+	["a piece whose ground was blasted from under it is unsupported"] = function()
+		local S = C.Support
+		assert(S.reach > 0 and S.gap > 0 and S.share > 0 and S.share <= 1)
+		local laid = { 10, 10, 10, 10, 10, 10, 10, 10, 10, 10 }
+		local function now(sunk: number, by: number): { number }
+			local out = table.clone(laid)
+			for i = 1, sunk do
+				out[i] = laid[i] - by
+			end
+			return out
+		end
+		assert(B.supported(laid, laid, S.gap, S.share), "as laid")
+		assert(B.supported(laid, now(10, S.gap - 0.1), S.gap, S.share), "settled a little all over")
+		assert(B.supported(laid, now(4, 6), S.gap, S.share), "a crater under its end: it stands on the rest")
+		assert(not B.supported(laid, now(5, 6), S.gap, S.share), "half its ground gone: it would hang")
+		assert(not B.supported(laid, now(10, 3), S.gap, S.share), "all of it sunk")
+		assert(B.supported(laid, now(10, -2), S.gap, S.share), "earth thrown over it holds it up")
+		assert(B.supported({}, {}, S.gap, S.share), "no samples: left alone")
 	end,
 }
