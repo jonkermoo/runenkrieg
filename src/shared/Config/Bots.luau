@@ -249,16 +249,16 @@ local Bots = {
 	-- Normal: bots building (Rules/BotBuild; src/server/Build placeAs / planAs / workAs, the players' checks; user
 	-- 2026-11-02: "Engineers + small help", "Only when calm"). Each side's commander keeps a build list at its front (the
 	-- sector it holds nearest the enemy), facing the enemy's way in:
-	-- - Trench: one line `length` studs across the zone, `edge` of its radius out toward the enemy.
 	-- - Bags: a sandbag pile `ahead` studs in front of each outdoor hold spot with no cover (the first `max`).
 	-- - Wire: a strip `out` studs past the zone's edge on each of `lanes` (studs across from the middle).
 	-- - Nest: an MG nest `ahead` of the hold spot nearest the enemy.
 	-- - Guns: the guns the artillery level opens, `back` studs behind the zone's middle, `side` apart.
 	-- - repairs: own pieces within `repair` studs past the zone's edge that want swings (the nearest `repairs`).
-	-- Engineers take the nearest job within `take` studs; any other bot helps work a trench or wire within `help`. A bot
+	-- (the trenches: Trenches below.) Engineers take the nearest job within `take` studs; a digger (Trenches.share of a
+	-- holding squad) takes a trench job within `take` and helps work wire within `help`. A bot
 	-- builds only when nobody has shot at it or hurt it for `calm` s and it sees no enemy; it stands `stand` studs from
 	-- a piece's spot to lay it, gives a job up after `seconds`; a refused spot moves `nudge` studs across (a trench
-	-- line back and forth; up to `tries` times), then waits `retry` s. A piece of the job's key within `match` studs of
+	-- run's far end swings aside: Rules/BotTrenches.swing; up to `tries` times), then waits `retry` s. A piece of the job's key within `match` studs of
 	-- its spot is the job's.
 	-- Caps (user: "A third, half the guns"): the bots lay at most `caps.pieces` of the team's Config/Build.PerTeam and
 	-- `caps.<key>` of a gun's.
@@ -274,7 +274,6 @@ local Bots = {
 		match = 8,
 		repair = 30,
 		repairs = 6,
-		Trench = { edge = 0.9, length = 30 },
 		Bags = { ahead = 3, max = 4 },
 		Wire = { out = 40, lanes = { -40, 0, 40 } },
 		Nest = { ahead = 2 },
@@ -296,6 +295,43 @@ local Bots = {
 		blast = 25,
 		line = 4,
 		lost = 0.8,
+	},
+
+	-- Normal: bots and trenches (Rules/BotTrenches; user 2026-11-02: "bots that arent engineers should build trenches
+	-- too. they should follow real strategy and tactics and have their own advanced trench behavior"). Any class digs.
+	-- - Who: `share` of each squad holding its side's front zone digs when calm, the rest stand guard ("Half dig, half
+	--   guard"). With no own sector under attack, `hold` of the side holds the front zone (a zone just taken is dug in
+	--   at once: "Yes, dig in at once").
+	-- - The system ("Fire + support + comms"), dug in that order: Fire, a trench `width` wide across the zone's enemy
+	--   edge (`edge` of its radius out) in `bays` runs, every other joint `traverse` studs forward (bays and traverses);
+	--   Support, a line `back` studs behind it, `width` wide; Comm, from the support line's middle to the fire trench's,
+	--   jogging `jog` studs across half way, stopping `short` studs off each line. A run counts as planned once a square
+	--   lies within `on` studs of its line, `ends` of its length in from either end. A side's bots keep at most `cap`
+	--   squares planned or dug, and work the nearest `digs` squares wanting swings at once.
+	-- - Fighting: a fire-trench square dug full once and at `standHp` HP or more gives a fire step `step` studs toward
+	--   the enemy from its line (up the forward wall, under the parapet); holders take fire steps first. Shot at, reloading or pinned there, a bot drops to the
+	--   square's floor (its cover). About half the holders wait in the support line until an enemy is known within
+	--   `alarm` studs of the fire trench (they stand to). When enemies are known in the fire trench and fewer than `keep`
+	--   of its holders still stand, it is lost: the rest fall back to the support line for `fallback` seconds.
+	-- - Clearing ("Yes, clear along them"): a pushing squad's Assault bots go down into an enemy trench square within
+	--   `clearWithin` studs of a known enemy and fight along it.
+	Trenches = {
+		share = 0.5,
+		hold = 0.3,
+		Fire = { edge = 0.9, width = 48, bays = 3, traverse = 6 },
+		-- (56: past the zone's flagpole in its middle, which a line 40 back ran into; past Config/Build.Trench.spacing)
+		Support = { back = 56, width = 32 },
+		Comm = { jog = 6, short = 1 },
+		on = 2,
+		ends = 0.15,
+		cap = 60,
+		digs = 12,
+		standHp = 60,
+		step = 6.3,
+		alarm = 60,
+		keep = 0.5,
+		fallback = 30,
+		clearWithin = 8,
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above

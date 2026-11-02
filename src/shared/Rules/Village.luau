@@ -68,6 +68,34 @@ function Village.cutHeight(base: number, d: number, cut: any): number?
 	return base + math.max(0, d - cut.margin) * cut.grade
 end
 
+-- Steps down from a doorstep whose top is `top`, out over ground `groundAt(d)` (its height `d` studs out from the
+-- doorstep's outer edge): a step `rise` lower every `run` out, until the ground is within a step of the last one, at
+-- most `max` (user 2026-11-01: doors left 5-9 studs up a bank nobody could walk in). Each step: its top and the
+-- distance out of its middle. None when the doorstep is already within a step of the ground.
+function Village.steps(
+	top: number,
+	groundAt: (number) -> number,
+	rise: number,
+	run: number,
+	max: number
+): { { top: number, out: number } }
+	local out = {}
+	local last = top
+	for i = 1, max do
+		if last - groundAt((i - 1) * run + run / 2) <= rise then
+			break
+		end
+		last -= rise
+		table.insert(out, { top = last, out = (i - 0.5) * run })
+	end
+	return out
+end
+
+-- The x of a map's railway (its village's railX), or nil: a map without a village (Config/Maps/Playtest) has none.
+function Village.railX(map: any): number?
+	return map.village and map.village.railX
+end
+
 -- The height a railway segment is laid at: the highest of the ground samples across and along it, so the ground never
 -- rises over a rail.
 function Village.railBed(samples: { number }): number

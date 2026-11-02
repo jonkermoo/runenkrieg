@@ -26,7 +26,7 @@ return {
 		assert(R.front(sectors, owner, "East") == 3)
 		assert(R.front(sectors, { "East", "East", "East", "East" }, "West") == nil, "none held")
 	end,
-	["plan: a trench across the edge, bags at open holds, wire, a nest, the open guns behind"] = function()
+	["plan: bags at open holds, wire, a nest, the open guns behind (no trench: Rules/BotTrenches)"] = function()
 		local zone = { x = 0, z = 0, radius = 50 }
 		local holds = {
 			{ x = 10, z = 0, hidden = false },
@@ -34,15 +34,11 @@ return {
 			{ x = -5, z = 10, hidden = false },
 		}
 		local jobs = R.plan(zone, 1, 0, holds, { "FieldGun" }, B)
-		assert(count(jobs, "Trench") == 1 and count(jobs, "SandbagPile") == 2, "bags only at the open holds")
+		assert(count(jobs, "Trench") == 0 and count(jobs, "SandbagPile") == 2, "bags only at the open holds")
 		assert(count(jobs, "Wire") == #B.Wire.lanes and count(jobs, "MGNest") == 1 and count(jobs, "FieldGun") == 1)
 		assert(count(jobs, "Howitzer") == 0, "only the guns the level opens")
 		for _, j in jobs do
-			if j.key == "Trench" then
-				-- across the way in (north-south), at the edge toward the enemy (east)
-				assert(near(j.x, zone.radius * B.Trench.edge) and near(j.ex :: number, j.x), "at the edge")
-				assert(near(math.abs((j.ez :: number) - j.z), B.Trench.length), "its length")
-			elseif j.key == "MGNest" then
+			if j.key == "MGNest" then
 				assert(near(j.x, 30 + B.Nest.ahead), "at the hold nearest the enemy")
 			elseif j.key == "FieldGun" then
 				assert(near(j.x, -B.Guns.back), "behind the zone")

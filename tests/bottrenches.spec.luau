@@ -1,0 +1,99 @@
+--!strict
+local Cfg = require("../src/shared/Config/Bots")
+local Build = require("../src/shared/Config/Build")
+local R = require("../src/shared/Rules/BotTrenches")
+
+local T = Cfg.Trenches
+
+local function near(a: number, b: number, eps: number?): boolean
+	return math.abs(a - b) < (eps or 1e-6)
+end
+
+local function of(runs: { R.Run }, kind: string): { R.Run }
+	local out = {}
+	for _, r in runs do
+		if r.kind == kind then
+			table.insert(out, r)
+		end
+	end
+	return out
+end
+
+local function len(r: R.Run): number
+	return math.sqrt((r.bx - r.ax) ^ 2 + (r.bz - r.az) ^ 2)
+end
+
+return {
+	["layout: a fire trench of bays and traverses, joined end to end, at the zone's enemy edge"] = function()
+		local zone = { x = 0, z = 0, radius = 50 }
+		local fire = of(R.layout(zone, 1, 0, T), "Fire")
+		assert(#fire == T.Fire.bays)
+		local edge = zone.radius * T.Fire.edge
+		for k, r in fire do
+			assert(r.ax >= edge - 1e-6 and r.ax <= edge + T.Fire.traverse + 1e-6, "at the edge, toward the enemy")
+			assert(len(r) <= Build.Trench.maxPlan, "one plan each")
+			if k > 1 then
+				assert(near(r.ax, fire[k - 1].bx) and near(r.az, fire[k - 1].bz), "joined end to end")
+			end
+		end
+		assert(near(fire[1].ax, edge) and near(fire[1].bx, edge + T.Fire.traverse), "every other joint forward")
+		assert(near(math.abs(fire[#fire].bz - fire[1].az), T.Fire.width), "its width across")
+	end,
+	["layout: the support line behind, the communication trench between, in two jogging runs"] = function()
+		local runs = R.layout({ x = 100, z = 0, radius = 50 }, -1, 0, T) -- (East: the enemy to the west)
+		local support = of(runs, "Support")
+		local comm = of(runs, "Comm")
+		assert(#support == 1 and #comm == 2)
+		local edge = 100 - 50 * T.Fire.edge
+		assert(near(support[1].ax, edge + T.Support.back), "behind the fire trench (east of it)")
+		assert(T.Support.back >= Build.Trench.spacing, "far enough from the fire trench for the planner")
+		assert(near(comm[1].bx, comm[2].ax) and near(comm[1].bz, comm[2].az), "the two runs joined")
+		assert(not near(comm[1].bz, comm[1].az, 1), "it jogs across")
+		assert(comm[1].ax < edge + T.Support.back and comm[2].bx > edge - T.Fire.traverse, "between the two lines")
+		assert(runs[1].kind == "Fire" and runs[#runs].kind == "Comm", "dug in order")
+		assert(#R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T, true) == T.Fire.bays, "the fire trench alone")
+	end,
+	["laid: a square on the run's line, in its middle part"] = function()
+		local run: R.Run = { kind = "Fire", ax = 0, az = 0, bx = 0, bz = 16 }
+		assert(R.laid(run, { { x = 0.5, z = 8 } }, T.on, T.ends) == 1)
+		assert(R.laid(run, { { x = 0, z = 0.5 } }, T.on, T.ends) == nil, "at its end: the run it joins")
+		assert(R.laid(run, { { x = 4, z = 8 } }, T.on, T.ends) == nil, "off its line")
+	end,
+	["ready: each run once every run before it is planned"] = function()
+		local runs = R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T)
+		assert(R.ready({}, 1) and not R.ready({}, 2), "the first bay first")
+		assert(R.ready({ true }, 2) and not R.ready({ true }, 3))
+		local all = {}
+		for k = 1, #runs - 1 do
+			all[k] = true
+		end
+		assert(R.ready(all, #runs), "the communication trench last")
+		all[2] = false
+		assert(not R.ready(all, #runs), "a bay missing")
+	end,
+	["swing: the far end steps aside, one way then the other; the start stays"] = function()
+		local x1, z1 = R.swing(0, 0, 0, 16, 1, 6)
+		local x2, z2 = R.swing(0, 0, 0, 16, 2, 6)
+		local x3 = R.swing(0, 0, 0, 16, 3, 6)
+		assert(near(x1, -6) and near(z1, 16) and near(x2, 6) and near(z2, 16) and near(x3, -12))
+	end,
+	["fireStep: up the forward wall toward the enemy"] = function()
+		local x, z = R.fireStep(10, 5, -1, 0, T.step)
+		assert(near(x, 10 - T.step) and near(z, 5))
+		-- (under the parapet: on the wall, short of its top edge)
+		assert(
+			T.step > Build.Trench.floor and T.step < Build.Trench.floor + Build.Trench.depth / math.tan(math.rad(59))
+		)
+	end,
+	["digs: half the squad digs, the rest guard"] = function()
+		assert(R.digs(1, 4, T.share) and R.digs(2, 4, T.share) and not R.digs(3, 4, T.share))
+		assert(R.digs(1, 1, T.share), "a lone bot digs")
+		assert(R.digs(1, 3, T.share) and R.digs(2, 3, T.share) and not R.digs(3, 3, T.share))
+	end,
+	["overrun, standTo, inSquare"] = function()
+		assert(R.overrun(1, 1, 4, T.keep) and not R.overrun(1, 3, 4, T.keep) and not R.overrun(0, 0, 4, T.keep))
+		assert(R.standTo(T.alarm - 1, T.alarm) and not R.standTo(T.alarm + 1, T.alarm))
+		local squares = { { x = 0, z = 0 }, { x = 8, z = 0 } }
+		assert(R.inSquare(7, 1, squares, 4) == 2 and R.inSquare(20, 0, squares, 4) == nil)
+	end,
+}

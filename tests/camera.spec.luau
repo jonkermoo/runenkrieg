@@ -6,6 +6,14 @@ local Camera = require("../src/shared/Rules/Camera")
 local S = Cfg.Staff
 
 return {
+	["knocked down, the camera stops short of the ground and walls"] = function()
+		local D = Cfg.Down
+		assert(Camera.downReach(0.5, nil, D.gap) == 0.5, "nothing in the way: where it was")
+		assert(math.abs(Camera.downReach(0.5, 0.3, D.gap) - (0.3 - D.gap)) < 1e-9, "a hit: short of it")
+		assert(Camera.downReach(0.5, 0.05, D.gap) == 0, "a hit at the head: at the head, never behind it")
+		assert(Camera.downReach(0.5, 3, D.gap) == 0.5, "a hit past it: where it was")
+		assert(D.radius > 0 and D.radius < 1 and D.gap >= 0 and D.lift > D.radius and D.probe > D.lift, "settings")
+	end,
 	["the staff takes the gun's camera and aims in place; guns aim in first person"] = function()
 		assert(not Camera.thirdPerson(Cfg.ThirdPersonClasses, "Staff"))
 		assert(not Camera.thirdPerson(Cfg.ThirdPersonClasses, "BoltRifle"))

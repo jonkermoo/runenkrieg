@@ -54,6 +54,10 @@ local FrontCfg = require(Shared.Config.Frontline)
 local FrontRules = require(Shared.Rules.Frontline)
 local Scaffold = require(Shared.Rules.Scaffold)
 local Survey = require(Shared.BuildSurvey)
+local SectorCfg = require(Shared.Config.Sectors)
+local Map1 = require(Shared.Config.Maps.Map1)
+local MapTerrain = require(Shared.Rules.MapTerrain)
+local SectorRules = require(Shared.Rules.Sectors)
 local Net = require(Shared.Net)
 local Ground = require(script.Parent.Ground)
 local Trees = require(script.Parent.Trees)
@@ -101,6 +105,7 @@ type Rec = {
 	sacks: { [BasePart]: Sack }?, -- an MG nest: each bag full and as its empty sack
 	square: Model?, -- a bridge: the trench square it is on
 	watch: { RBXScriptConnection }?, -- and its watch on that square
+	sector: string?, -- the Map1 sector it stands in (a piece with a `sectorCap`)
 }
 
 -- src/server/Artillery, handed in at start (it needs Damage, which needs this)
@@ -947,14 +952,28 @@ local function wear(r: Rec, amount: number)
 	apply(r)
 end
 
-local function count(team: string, owner: number?, key: string?): number
+-- `team`'s live pieces: `owner`'s only (nil: anyone's), of `key` only (nil: any; "shared": those without a
+-- `playerCap` of their own, Config/Build.PerPlayer), in `sector` only (nil: anywhere)
+local function count(team: string, owner: number?, key: string?, sector: string?): number
 	local n = 0
 	for _, r in recs do
-		if r.team == team and (owner == nil or r.owner == owner) and (key == nil or r.piece.key == key) then
+		local p = r.piece
+		local keyed = key == nil or (if key == "shared" then p.playerCap == nil else p.key == key)
+		if
+			r.team == team
+			and (owner == nil or r.owner == owner)
+			and keyed
+			and (sector == nil or r.sector == sector)
+		then
 			n += 1
 		end
 	end
 	return n
+end
+
+-- the Map1 sector `p` lies in (Rules/Sectors.sectorAt)
+local function sectorOf(p: Vector3): string
+	return SectorRules.sectorAt(Map1, MapTerrain, p.X, p.Z, SectorCfg.Divider.RiverSegments)
 end
 
 -- why a gun can't be built yet in a Normal match (its artillery level, src/server/Frontline); nil outside one
@@ -1072,6 +1091,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
 	end
 	local gunPiece = gunAt ~= nil
+	local sector = if piece.sectorCap then sectorOf(frame.Position) else nil
 	local ok, reason = Rules.canPlace({
 		piece = piece,
 		distance = if dev then 0 else (root.Position - (if gunAt then gunAt.Position else frame.Position)).Magnitude,
@@ -1087,9 +1107,11 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		gunGap = gunPiece and Survey.gunGap(piece, (gunAt :: CFrame).Position, f),
 		-- (a wire keeps off trenches too: their hole, walls and bank)
 		nearTrench = (gunPiece or piece.kind == "Wire") and Survey.nearTrench(piece, frame, f),
-		mine = if dev then 0 else count(team, b.id),
+		mine = if dev then 0 else count(team, b.id, "shared"),
 		team = if dev then 0 else count(team, nil),
 		kind = if dev then 0 else count(team, nil, piece.key),
+		mineKind = if dev then 0 else count(team, b.id, piece.key),
+		sector = if dev or not sector then 0 else count(team, nil, piece.key, sector),
 		locked = if dev then nil else gunLocked(piece.key),
 		perPlayer = C.PerPlayer,
 		perTeam = C.PerTeam,
@@ -1119,6 +1141,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		born = now,
 		worked = now,
 		frame = frame,
+		sector = sector,
 		at = gunAt,
 	}
 	if bags then
