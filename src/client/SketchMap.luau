@@ -38,6 +38,7 @@ local TeamRules = require(Shared.Rules.Teams)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Playtest = require(Shared.Config.Maps.Playtest)
 local Ink = require(script.Parent.Ink)
+local PointSeal = require(script.Parent.PointSeal)
 
 local SketchMap = {}
 
@@ -46,7 +47,6 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 local FONT = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
-local RUNE_FOR = { "hagalaz", "sowilo", "tiwaz", "raidho", "othala", "algiz", "berkanan" } -- by sector order; HQs hagalaz
 local BOT_TAG = require(Shared.Config.Bots).Tag -- the bot soldiers (src/server/Bots)
 local FOLDER = "Frontline" -- Config/Frontline.FolderName (Territory Push; read by name so main without it still runs)
 
@@ -302,8 +302,9 @@ function SketchMap.new(
 		end)
 	end
 
-	-- the points: a seal (ink disc, ring, rune) and the name under it
-	type Seal = { disc: Frame, ring: UIStroke, canvas: Ink.Canvas, rune: string, label: TextLabel, colour: Color3? }
+	-- the points: a seal (ink disc, ring, rune: src/client/PointSeal, the same as the beacon over its flag) and the name
+	-- under it
+	type Seal = PointSeal.Seal & { label: TextLabel }
 	local seals: { [string]: Seal } = {}
 	for i, p in points do
 		local r = if p.hq then Cfg.Point.hqRadius else Cfg.Point.radius
@@ -312,24 +313,7 @@ function SketchMap.new(
 		disc.AnchorPoint = Vector2.new(0.5, 0.5)
 		disc.Position = UDim2.fromScale(u(p.x), v(p.z))
 		disc.Size = UDim2.fromScale(2 * r, 2 * r)
-		disc.BackgroundColor3 = ink
-		disc.BorderSizePixel = 0
-		local aspect = Instance.new("UIAspectRatioConstraint")
-		aspect.DominantAxis = Enum.DominantAxis.Width
-		aspect.Parent = disc
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
-		corner.Parent = disc
-		local ring = Instance.new("UIStroke")
-		ring.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		ring.Color = rgb(C.neutral)
-		ring.Parent = disc
-		local runeBox = Instance.new("Frame")
-		runeBox.BackgroundTransparency = 1
-		runeBox.AnchorPoint = Vector2.new(0.5, 0.5)
-		runeBox.Position = UDim2.fromScale(0.5, 0.5)
-		runeBox.Size = UDim2.fromScale(Cfg.Point.rune * 0.6, Cfg.Point.rune)
-		runeBox.Parent = disc
+		local seal = PointSeal.new(disc, PointSeal.rune(i, #points), ink, rgb(C.neutral))
 		local label = Instance.new("TextLabel")
 		label.BackgroundTransparency = 1
 		label.AnchorPoint = Vector2.new(0.5, 0)
@@ -343,22 +327,9 @@ function SketchMap.new(
 		label.TextStrokeTransparency = 0
 		label.Parent = area
 		disc.Parent = area
-		seals[p.id] = {
-			disc = disc,
-			ring = ring,
-			canvas = Ink.canvas(runeBox),
-			rune = if p.hq then "hagalaz" else RUNE_FOR[i] or "isa",
-			label = label,
-		}
-	end
-	local function paintSeal(s: Seal, colour: Color3)
-		if s.colour == colour then
-			return
-		end
-		s.colour = colour
-		s.canvas.set(function(holder, w, h)
-			Ink.rune(holder, s.rune, 0, 0, w, h, math.max(1, h * 0.13), colour)
-		end)
+		local s = seal :: Seal
+		s.label = label
+		seals[p.id] = s
 	end
 	local function placeLabels()
 		local a = area.AbsoluteSize
@@ -559,24 +530,15 @@ function SketchMap.new(
 			local sector = folder and folder:FindFirstChild(p.id)
 			if not sector then
 				live = false
-				paintSeal(s, rgb(C.neutral))
-				s.ring.Color = rgb(C.neutral)
+				PointSeal.paint(s, rgb(C.neutral), rgb(C.neutral))
 				continue
 			end
 			local owner = if r then r.owners[i] else sector:GetAttribute("Owner")
 			local control = if r then FrontRules.rest(owner) else (sector:GetAttribute("Control") :: number?) or 0
 			total += (control + 1) / 2
 			local kit = if owner == "West" then west elseif owner == "East" then east else nil
-			local magic = kit and C.Magic[kit]
-			local colour = if magic then rgb(magic) else rgb(C.neutral)
-			paintSeal(s, colour)
 			local w, e = (sector:GetAttribute("West") :: number?) or 0, (sector:GetAttribute("East") :: number?) or 0
-			if not r and w > 0 and w == e then
-				local beat = (math.sin(now / Cfg.ContestedPulse * 2 * math.pi) + 1) / 2
-				s.ring.Color = colour:Lerp(rgb(C.amber), 0.4 + 0.6 * beat)
-			else
-				s.ring.Color = colour
-			end
+			PointSeal.paint(s, PointSeal.colours(kit, not r and w > 0 and w == e, now))
 			if total >= i - 1 and total < i then
 				frontName = p.name
 			end

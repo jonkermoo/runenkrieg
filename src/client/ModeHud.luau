@@ -39,7 +39,7 @@ local SketchCfg = require(Shared.Config.SketchMap) :: any
 local FrontlineCfg = require(Shared.Config.Frontline)
 local SketchMap = require(script.Parent.SketchMap)
 local U = require(Shared.Config.Uniforms)
-local Map1 = require(Shared.Config.Maps.Map1)
+local PointSeal = require(script.Parent.PointSeal)
 local Playtest = require(Shared.Config.Maps.Playtest)
 local Rules = require(Shared.Rules.ModeHud)
 local ZoneRules = require(Shared.Rules.ZoneMatch)
@@ -82,8 +82,10 @@ local function find(n: any, id: string): any
 end
 
 -- a sector's id -> its map entry (isHQ)
+-- the live frontline map's sectors by id (Config/Frontline.MapKey: any map, not only Map 1)
+local LIVE_MAP = require(Shared.Config.Maps:FindFirstChild(FrontlineCfg.MapKey) :: ModuleScript) :: any
 local SECTORS: { [string]: any } = {}
-for _, s in Map1.sectors do
+for _, s in LIVE_MAP.sectors do
 	SECTORS[s.id] = s
 end
 
@@ -285,11 +287,12 @@ local function paint(d: Diamond, pin: Rules.Pin, west: string?, east: string?, f
 end
 
 -- Territory Push: the points that can be taken now, marked in the world over their flagpole (src/server/Flagpoles), seen
--- through walls: the bar's diamond and its label
-type Marker = { gui: BillboardGui, diamond: Diamond, label: TextLabel }
+-- through walls: the point's seal as the sketch map draws it (src/client/PointSeal; user 2026-11-02: "make the flag
+-- beacons match its symbol on the map"), its map name under it, and a thin bar of its capture (the side it leans to)
+type Marker = { gui: BillboardGui, group: CanvasGroup, seal: PointSeal.Seal, label: TextLabel, fill: Frame }
 local markers: { [string]: Marker } = {}
 
-local function newMarker(id: string, text: string): Marker?
+local function newMarker(id: string, text: string, rune: string): Marker?
 	local poles = workspace:FindFirstChild(PoleCfg.FolderName)
 	local model = poles and poles:FindFirstChild(id)
 	local pole = model and (model :: Model).PrimaryPart
@@ -306,26 +309,56 @@ local function newMarker(id: string, text: string): Marker?
 	g.Adornee = pole
 	g.StudsOffsetWorldSpace = Vector3.new(0, pole.Size.Y / 2 + M.above, 0)
 	g.Enabled = false
-	local d = diamond(find(Spec.root, "PinHQ"), g, 0.5)
-	d.box.AnchorPoint = Vector2.new(0.5, 0)
-	d.box.Position = UDim2.fromScale(0.5, 0)
+	-- (one group, so the whole beacon fades with the M key)
+	local group = Instance.new("CanvasGroup")
+	group.BackgroundTransparency = 1
+	group.Size = UDim2.fromScale(1, 1)
+	group.Parent = g
+	local G = (Palette.UI :: any).Grimoire
+	local disc = Instance.new("Frame")
+	disc.Name = "Seal"
+	disc.AnchorPoint = Vector2.new(0.5, 0)
+	disc.Position = UDim2.new(0.5, 0, 0, M.ring)
+	disc.Size = UDim2.fromOffset(M.seal, M.seal)
+	disc.Parent = group
+	local seal = PointSeal.new(disc, rune, rgb(G.ink), rgb(G.neutral))
+	seal.ring.Thickness = M.ring
 	local label = make(find(Spec.root, "PinLabel"), nil) :: TextLabel
 	binds.pin = nil -- (set directly)
 	label.Text = text
-	label.AnchorPoint = Vector2.new(0.5, 1)
-	label.Position = UDim2.fromScale(0.5, 1)
-	label.Parent = g
+	label.AnchorPoint = Vector2.new(0.5, 0)
+	label.Position = UDim2.new(0.5, 0, 0, M.seal + 2 * M.ring)
+	label.Parent = group
+	local track = Instance.new("Frame")
+	track.Name = "Capture"
+	track.AnchorPoint = Vector2.new(0.5, 1)
+	track.Position = UDim2.fromScale(0.5, 1)
+	track.Size = UDim2.fromOffset(M.bar[1], M.bar[2])
+	track.BackgroundColor3 = rgb(G.ink)
+	track.BorderSizePixel = 0
+	track.Parent = group
+	local fill = Instance.new("Frame")
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.Parent = track
 	g.Parent = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
-	return { gui = g, diamond = d, label = label }
+	return { gui = g, group = group, seal = seal, label = label, fill = fill }
+end
+
+-- a beacon now: the seal in its holder's colours (contested: the beat), its capture bar as far as the control goes, in
+-- the colour of the side it leans to
+local function paintMarker(m: Marker, pin: Rules.Pin, owner: string?, west: string?, east: string?, now: number)
+	local holder = if owner == "West" then west elseif owner == "East" then east else nil
+	PointSeal.paint(m.seal, PointSeal.colours(holder, pin.state == "Contested", now))
+	local kit = if pin.fillSide == "West" then west elseif pin.fillSide == "East" then east else nil
+	m.fill.Size = UDim2.fromScale(math.clamp(pin.fill, 0, 1), 1)
+	m.fill.BackgroundColor3 = teamRim(kit)
 end
 
 local function showMarkers(shown: number)
 	for _, m in markers do
 		m.gui.Enabled = shown > 0
-		m.diamond.face.BackgroundTransparency = 1 - shown
-		m.diamond.edge.Transparency = 1 - shown
-		m.label.TextTransparency = 1 - shown
-		m.label.TextStrokeTransparency = 1 - shown * 0.6
+		m.group.GroupTransparency = 1 - shown
 	end
 end
 
@@ -388,10 +421,11 @@ local function updateFront(folder: Instance, now: number)
 		paint(d, pin, west, east, flashOn)
 		local m = markers[f.Name]
 		if open[f.Name] then
-			m = m or newMarker(f.Name, label)
+			local index = (f:GetAttribute("Index") :: number?) or slot
+			m = m or newMarker(f.Name, if s then s.name else f.Name, PointSeal.rune(index, n))
 			if m then
 				markers[f.Name] = m
-				paint(m.diamond, pin, west, east, flashOn)
+				paintMarker(m, pin, f:GetAttribute("Owner") :: string?, west, east, now)
 			end
 		elseif m then
 			m.gui:Destroy()
