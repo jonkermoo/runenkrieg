@@ -6,7 +6,7 @@
 -- small fell straight through terrain and never touched it (user 2026-10-29: "casings just fall through terrains
 -- though and i never hear the sound"), so each frame casts its path ahead and stops it on the first thing in the way.
 -- A gun's spent case clinks as its cartridge (Config/Weapons `casing`) and as the ground it lands on sounds
--- (Rules/Casing), and lies `rest` s, the oldest going past `max`.
+-- (Rules/Casing), and lies `rest` s, the oldest going past `max`, only on ground flat enough to rest on.
 -- drop(template, at, push, sound, skip, case) throws one (and returns it); preload() loads the clinks.
 
 local Debris = game:GetService("Debris")
@@ -131,7 +131,8 @@ local function fly(p: Piece, dt: number): boolean
 	end
 	p.bounces += 1
 	local v = (p.v - n * 2 * p.v:Dot(n)) * Cfg.bounce
-	if p.bounces > Cfg.bounces or v.Magnitude < Cfg.settle then
+	-- (off a wall it never lies down there: it bounces away and falls on to the ground)
+	if CasingRules.restsOn(n.Y, Cfg) and (p.bounces > Cfg.bounces or v.Magnitude < Cfg.settle) then
 		lie(p, hit.Position, n)
 		local kind = p.sound and Cfg.Sounds[p.sound]
 		if kind and kind.roll then
