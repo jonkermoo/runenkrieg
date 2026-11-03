@@ -77,9 +77,17 @@ end
 function TeamHealth.start()
 	local me = Players.LocalPlayer
 	local playerGui = me:WaitForChild("PlayerGui")
-	local holder = Instance.new("Folder")
-	holder.Name = "TeamHealth"
-	holder.Parent = playerGui
+	-- (a folder in PlayerGui goes with the character on respawn: a new one then, the old bars with it)
+	local holder: Folder? = nil
+	local function folder(): Folder
+		if not holder or not holder.Parent then
+			local f = Instance.new("Folder")
+			f.Name = "TeamHealth"
+			f.Parent = playerGui
+			holder = f
+		end
+		return holder :: Folder
+	end
 	local bars: { [Model]: Bar } = {}
 	local function screenOn(): boolean
 		for _, name in SCREENS do
@@ -131,7 +139,10 @@ function TeamHealth.start()
 						return
 					end
 					seen[m] = true
-					local b = bars[m] or newBar(holder)
+					local b = bars[m]
+					if not b or not b.gui.Parent then
+						b = newBar(folder())
+					end
 					bars[m] = b
 					b.gui.Adornee = head
 					local share, look = Rules.look(h.Health, h.MaxHealth, m:GetAttribute("Ragdolled") == true, HealCfg)
