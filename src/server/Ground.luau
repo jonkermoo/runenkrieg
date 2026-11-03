@@ -780,7 +780,8 @@ end
 -- `lo`..`hi` (x, z in the space of `pivot`, whose height is the gun's foot) cut down or filled up to a level floor at
 -- the foot, easing back to the ground as it was over the next `blend` studs (Rules/Artillery.levelAt); its top
 -- `material` (no grass); older craters there no longer fill back. Voxel by voxel with fractional occupancy, as Ground.pit. Columns with water, or no ground
--- within reach, are left alone. Returns how far out from the pivot it reached.
+-- within reach, are left alone. A tilted `pivot` (a gun or MG nest laid on a slope, Config/Build.Slope) levels to its
+-- own plane, tilted with it. Returns how far out from the pivot it reached.
 function Ground.level(pivot: CFrame, lo: { number }, hi: { number }, blend: number, material: Enum.Material): number
 	local terrain = workspace.Terrain
 	local foot = pivot.Position
@@ -788,7 +789,13 @@ function Ground.level(pivot: CFrame, lo: { number }, hi: { number }, blend: numb
 	for _, c in { { lo[1], lo[2] }, { lo[1], hi[2] }, { hi[1], lo[2] }, { hi[1], hi[2] } } do
 		out = math.max(out, Vector2.new(c[1], c[2]).Magnitude + blend)
 	end
-	local reach = Vector3.new(out, blend + VOXEL * 4, out)
+	-- (the pivot's plane at a column: its height there, foot level when the pivot stands upright)
+	local up = pivot.UpVector
+	local function planeAt(x: number, z: number): number
+		return foot.Y - (up.X * (x - foot.X) + up.Z * (z - foot.Z)) / math.max(up.Y, 0.2)
+	end
+	-- (reaching up and down as far as a slope as steep as Config/Build's steepest `maxSlope` climbs over it)
+	local reach = Vector3.new(out, math.max(blend, out * 0.75) + VOXEL * 4, out)
 	local region = Region3.new(foot - reach, foot + reach):ExpandToGrid(VOXEL)
 	local ok, mats, occs = pcall(terrain.ReadVoxels, terrain, region, VOXEL)
 	if not ok then
@@ -800,7 +807,8 @@ function Ground.level(pivot: CFrame, lo: { number }, hi: { number }, blend: numb
 	for ix = 1, size.X do
 		for iz = 1, size.Z do
 			local x, z = corner.X + (ix - 0.5) * VOXEL, corner.Z + (iz - 0.5) * VOXEL
-			local l = pivot:PointToObjectSpace(Vector3.new(x, foot.Y, z))
+			local flat = planeAt(x, z)
+			local l = pivot:PointToObjectSpace(Vector3.new(x, flat, z))
 			-- the column's top as it is (nil: none in reach, or water in it)
 			local ground: number? = nil
 			for iy = size.Y, 1, -1 do
@@ -812,7 +820,7 @@ function Ground.level(pivot: CFrame, lo: { number }, hi: { number }, blend: numb
 					ground = corner.Y + (iy - 0.5) * VOXEL + occs[ix][iy][iz] * VOXEL
 				end
 			end
-			local want = if ground then Rules.levelAt(l.X, l.Z, lo, hi, blend, foot.Y, ground) else nil
+			local want = if ground then Rules.levelAt(l.X, l.Z, lo, hi, blend, flat, ground) else nil
 			if want then
 				for iy = 1, size.Y do
 					-- the ground levelled is the ground now: older craters here no longer fill back to before it

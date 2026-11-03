@@ -491,7 +491,7 @@ local function surveyPiece(character: Model, root: BasePart)
 			piece = p,
 			distance = (root.Position - at.Position).Magnitude,
 			reach = C.Reach,
-			spot = Rules.dugoutSpot(s, C.Dugout, p.width),
+			spot = Rules.dugoutSpot(s, C.Dugout),
 			slope = 0,
 			maxSlope = 0,
 			ground = true,
@@ -544,10 +544,13 @@ local function surveyPiece(character: Model, root: BasePart)
 		perTeam = C.PerTeam,
 	})
 	current = { frame = if gun then frame else box, ok = ok, reason = reason }
+	-- (a gun or an MG nest on a slope: shown on the plane the server lays it on, tilted by as much: Survey.lay)
+	local plane = if p.lay then Survey.lay(p, box, report) else nil
 	local gunCfg = if gun then ArtilleryCfg.Guns[p.gun or ""] else nil
 	if gunCfg then
 		-- (the gun as it will stand, not its whole box: user 2026-10-27)
-		if showGunGhost(p.key, gunCfg, frame, ok, p.ring and C.GunRing[p.ring]) then
+		local stand = if plane then plane * CFrame.new(0, 0, -(p.back or 0)) else frame
+		if showGunGhost(p.key, gunCfg, stand, ok, p.ring and C.GunRing[p.ring]) then
 			return
 		end
 	end
@@ -556,6 +559,10 @@ local function surveyPiece(character: Model, root: BasePart)
 		return
 	end
 	local size = Survey.footprint(p)
+	if plane then
+		showGhost(p.key, plane * CFrame.new(0, size.Y / 2, 0), size, ok)
+		return
+	end
 	showGhost(p.key, CFrame.new(box.Position.X, report.low + size.Y / 2, box.Position.Z) * box.Rotation, size, ok)
 end
 
