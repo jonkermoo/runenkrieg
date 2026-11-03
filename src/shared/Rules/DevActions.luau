@@ -107,6 +107,11 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Admin.BotDig.steps, value) ~= nil
 	elseif action == "BotShell" or action == "FrontPush" then
 		return table.find(cfg.Admin.Sides, value) ~= nil
+	elseif action == "BotPlan" then
+		-- (a side's fighting plan forced, or "auto": Rules/BotFront, src/server/Bots.dev "Plan")
+		return type(value) == "table"
+			and table.find(cfg.Admin.Sides, value.side) ~= nil
+			and (value.plan == "auto" or table.find(cfg.Admin.BotPlans, value.plan) ~= nil)
 	elseif action == "FrontCapture" then
 		return type(value) == "table"
 			and table.find(cfg.Admin.Sides, value.side) ~= nil

@@ -428,9 +428,12 @@ local function weigh(b: Bot, now: number)
 	if not i then
 		b.guard = nil -- (nobody to guard: up, healed, or gone)
 	end
-	-- on its way to a job it took (or back to one danger stopped): worked once there and safe, else kept a while
+	-- on its way to a job it took (or back to one danger stopped): worked once there and safe, else kept a while; a
+	-- sapper lets any other go for its squad's sap
+	local sap = sq and (sq :: SquadState).sap
+	local sapping = b.sapper == true and sap ~= nil and #(sap :: Sap).open > 0
 	local w = b.work
-	if w and (not w.job.open or now - w.since > BD.Work.keep) then
+	if w and (not w.job.open or now - w.since > BD.Work.keep or (sapping and not w.brave)) then
 		b.work, b.workState, w = nil, nil, nil
 	end
 	if w then
@@ -440,7 +443,6 @@ local function weigh(b: Bot, now: number)
 		end
 	end
 	-- a sapper digs its squad's sap, under fire too (Rules/BotSap: only a hit stops it)
-	local sap = sq and (sq :: SquadState).sap
 	if b.sapper and sap and #(sap :: Sap).open > 0 and not w then
 		local r = pickFrom(b, (sap :: Sap).open, true)
 		if r then

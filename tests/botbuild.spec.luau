@@ -219,6 +219,35 @@ return {
 			return false
 		end)
 		assert(#none == 0)
+		-- the flanks (Config/Bots.Front.Flank): every `every`-th spot at least `gunFrom` across
+		local Fl = Cfg.Front.Flank
+		local FC = { back = C.back, across = C.across, flank = Fl }
+		local flanked = R.gunSpots(zone, 1, 0, want, FC, spacing, any)
+		assert(#flanked == 4, "as many")
+		for i, j in flanked do
+			if i % Fl.every == 0 then
+				assert(math.abs(j.z) >= Fl.gunFrom - 1e-6, "a flank spot")
+			end
+		end
+	end,
+	["plan: every third MG nest at the hold spot farthest across (Config/Bots.Front.Flank)"] = function()
+		local zone = { x = 0, z = 0, radius = 50 }
+		local holds = {
+			{ x = 30, z = 0, hidden = true },
+			{ x = 25, z = 5, hidden = true },
+			{ x = 20, z = -2, hidden = true },
+			{ x = 0, z = 45, hidden = true },
+		}
+		local cfg = table.clone(B)
+		cfg.Flank = Cfg.Front.Flank
+		local nests = {}
+		for _, j in R.plan(zone, 1, 0, holds, {}, cfg, 3) do
+			if j.key == "MGNest" then
+				table.insert(nests, j)
+			end
+		end
+		assert(#nests == 3 and near(nests[1].x, 30 + B.Nest.ahead) and near(nests[2].x, 25 + B.Nest.ahead))
+		assert(near(nests[3].z, 45), "the third off to the side")
 	end,
 	["wireSpot: off its own side's ways and spawn, moved across, or nowhere"] = function()
 		local Wr = B.Wire

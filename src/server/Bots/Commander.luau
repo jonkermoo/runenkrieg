@@ -19,6 +19,7 @@ local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotSap = require(Shared.Rules.BotSap)
 local Survey = require(Shared.BuildSurvey)
 local BotCrew = require(Shared.Rules.BotCrew)
+local BotFront = require(Shared.Rules.BotFront)
 local Build = require(script.Parent.Parent.Build)
 local Frontline = require(script.Parent.Parent.Frontline)
 local Indoors = require(script.Parent.Parent.Indoors)
@@ -34,6 +35,11 @@ local BD = Cfg.Build
 local TR = Cfg.Trenches
 local TM = Cfg.TrenchMove
 local SP = Cfg.Sap
+local FR = Cfg.Front
+-- (the build list's and the gun spots' settings with the flanks', Config/Bots.Front.Flank)
+local Flanked = { plan = table.clone(BD), guns = table.clone(BD.Crews) }
+Flanked.plan.Flank = FR.Flank
+Flanked.guns.flank = FR.Flank
 -- the fire step's distance from a trench square's line (Rules/BotTrenches.stepOut: it follows the trench's shape)
 local STEP = BotTrenches.stepOut(BuildCfg.Trench.floor, BuildCfg.Trench.wallAngle, TR.rise)
 
@@ -47,7 +53,7 @@ type TrenchPost = Types.TrenchPost
 type SideBuild = Types.SideBuild
 
 local State = require(script.Parent.State)
-local Clear, bots, ByTrench, Tactics, random, stats, squads, buildLists, Kinds =
+local Clear, bots, ByTrench, Tactics, random, stats, squads, buildLists, Kinds, fronts =
 	State.Clear,
 	State.bots,
 	State.ByTrench,
@@ -56,7 +62,8 @@ local Clear, bots, ByTrench, Tactics, random, stats, squads, buildLists, Kinds =
 	State.stats,
 	State.squads,
 	State.buildLists,
-	State.Kinds
+	State.Kinds,
+	State.fronts
 
 local Move = require(script.Parent.Move)
 local liveMode, flat, alive, say, terrainOnly, sectorPoint, centre, soldiersNow, friendly, indoorNear, asSpot =
@@ -155,7 +162,15 @@ end
 -- ground gained toward `objective` for Sap.stall s), it saps from its most forward member, run by run, half of it
 -- digging (Build.planAs, then each square's swings), the rest holding there giving covering fire, all moving up to the
 -- head of the last run dug; over at the objective's edge or once nobody has shot at it for Sap.quiet s
-local function sapTick(sqs: SquadState, members: { Bot }, mid: Vector3, goalAt: Vector3, radius: number, now: number)
+local function sapTick(
+	sqs: SquadState,
+	members: { Bot },
+	mid: Vector3,
+	goalAt: Vector3,
+	radius: number,
+	now: number,
+	plan: string
+)
 	local sb = buildLists[sqs.side]
 	local d = flat(mid - goalAt).Magnitude
 	local lost = 0
@@ -181,7 +196,9 @@ local function sapTick(sqs: SquadState, members: { Bot }, mid: Vector3, goalAt: 
 			sqs.markAt, sqs.markDist = now, d
 		end
 		local since, gained = now - (sqs.markAt :: number), (sqs.markDist :: number) - d
-		if d <= radius * SP.edge or not BotSap.stalled(since, gained, underFire, lost, SP) then
+		-- (stuck under fire; fighting by trench, also once near the objective: Rules/BotFront.sapNow)
+		local stalled = BotSap.stalled(since, gained, underFire, lost, SP)
+		if d <= radius * SP.edge or not BotFront.sapNow(plan, stalled, d - radius, FR) then
 			return
 		end
 		local head, best = nil, math.huge
@@ -201,7 +218,11 @@ local function sapTick(sqs: SquadState, members: { Bot }, mid: Vector3, goalAt: 
 	end
 	local sap = sqs.sap :: Sap
 	sap.goal = goalAt
-	local over = BotSap.over(flat(sap.head - goalAt).Magnitude, radius * SP.edge, now - (sqs.firedAt or now), SP.quiet)
+	-- (fighting by trench it runs on through quiet spells, until its parallel is dug: Config/Bots.Front)
+	local headTo = flat(sap.head - goalAt).Magnitude
+	local over = if plan == "open"
+		then BotSap.over(headTo, radius * SP.edge, now - (sqs.firedAt or now), SP.quiet)
+		else (sap.parallel == true and not sap.run) or headTo <= radius * SP.edge or plan == "assault"
 	if over or not sb or (sap.run and (sap.run :: BuildJob).gaveUp) then
 		sqs.sap = nil
 		sqs.markAt, sqs.markDist = now, d
@@ -255,10 +276,17 @@ local function sapTick(sqs: SquadState, members: { Bot }, mid: Vector3, goalAt: 
 	end
 	if not sap.run then
 		sap.k += 1
-		local bx, bz = BotSap.run(sap.head.X, sap.head.Z, goalAt.X, goalAt.Z, sap.k, SP)
+		local ax, az = sap.head.X, sap.head.Z
+		local bx, bz = BotSap.run(ax, az, goalAt.X, goalAt.Z, sap.k, SP)
+		if plan ~= "open" and BotFront.parallelNow(headTo - radius, FR) then
+			-- close: the parallel across, the squad's jump-off (Rules/BotTrenches.jumpOff)
+			ax, az, bx, bz = BotFront.parallel(sap.head.X, sap.head.Z, goalAt.X, goalAt.Z, FR.parallel.width)
+			sap.parallel = true
+			stats.parallels += 1
+		end
 		local to = flat(goalAt - sap.head)
 		to = if to.Magnitude > 1e-3 then to.Unit else Vector3.xAxis
-		local job = { key = "Trench", x = sap.head.X, z = sap.head.Z, ex = bx, ez = bz, fx = to.X, fz = to.Z }
+		local job = { key = "Trench", x = ax, z = az, ex = bx, ez = bz, fx = to.X, fz = to.Z }
 		local run = { kind = "Sap", ax = job.x, az = job.z, bx = bx, bz = bz }
 		local nr =
 			{ job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true, run = run, underFire = true }
@@ -329,6 +357,7 @@ end
 -- (lane, approach spot, a waypoint on the lane's side) and each member's role and goal
 local function formSquads(side: string, counts: { { West: number, East: number } })
 	local now = os.clock()
+	local front = fronts.sides[side] or { plan = "open" }
 	local enemy = if side == "West" then "East" else "West"
 	local groups: { [string]: { Bot } } = {}
 	local order: { string } = {}
@@ -385,11 +414,50 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				local lanes = crowd[sector] or {}
 				crowd[sector] = lanes
 				local lane = Squads.quietLane(lanes)
+				-- (attacking: a share up the flanks, Rules/BotFront.flank)
+				local flank: number? = nil
+				if not defend then
+					local total, left, right = 1, 0, 0
+					for _, o in squads do
+						if o.side == side and o.seen >= commandTick - 1 and o.approach ~= nil then
+							total += 1
+							left += if o.flank == -1 then 1 else 0
+							right += if o.flank == 1 then 1 else 0
+						end
+					end
+					flank = BotFront.flank(total, left, right, FR.Flank.share)
+				end
+				lane = flank or lane
 				lanes[lane] = (lanes[lane] or 0) + 1
-				st = { sq = Squads.new(), side = side, sector = sector, lane = lane, known = {}, seen = commandTick }
+				st = {
+					sq = Squads.new(),
+					side = side,
+					sector = sector,
+					lane = lane,
+					known = {},
+					seen = commandTick,
+					flank = flank,
+				}
 				squads[key] = st
 			end
 			local sqs = st :: SquadState
+			-- the admin panel's flank push: every attacking squad up a flank now, alternating (its route found again)
+			if front.plan == "flank" and not defend and not sqs.flank then
+				local left = 0
+				for _, o in squads do
+					left += if o.side == side and o.flank == -1 then 1 else 0
+				end
+				local right = 0
+				for _, o in squads do
+					right += if o.side == side and o.flank == 1 then 1 else 0
+				end
+				sqs.flank = if left <= right then -1 else 1
+				sqs.lane, sqs.approach, sqs.mid = sqs.flank :: number, nil, nil
+			end
+			-- the admin panel's assault: over the top now
+			if front.plan == "assault" and not defend then
+				sqs.sq.phase = "Assault"
+			end
 			sqs.seen = commandTick
 			local mid = centre(members) or c
 			-- the route: an approach spot in its lane, and on a long way a waypoint off to that side
@@ -409,7 +477,12 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						local off = flat(spot.pos - c)
 						local home = flat(mid - c)
 						local across = if home.Magnitude > 1 then off - home.Unit * off:Dot(home.Unit) else Vector3.zero
-						if way.Magnitude > RT.midFrom and across.Magnitude > 1 then
+						if sqs.flank and home.Magnitude > 1 then
+							-- up a flank: by a point `Front.Flank.offset` studs off the straight way, to that side
+							local side1 = Vector3.new(-home.Unit.Z, 0, home.Unit.X) * (sqs.flank :: number)
+							local p = mid:Lerp(spot.pos, RT.midShare) + side1 * FR.Flank.offset
+							sqs.mid = Routes.ground(p.X, p.Z)
+						elseif way.Magnitude > RT.midFrom and across.Magnitude > 1 then
 							local p = mid:Lerp(spot.pos, RT.midShare) + across.Unit * way.Magnitude * RT.laneOffset
 							sqs.mid = Routes.ground(p.X, p.Z)
 						end
@@ -471,6 +544,12 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				if now - kn.at <= SQ.knownFor and flat(kn.pos - mid).Magnitude <= SQ.contact then
 					contact = true
 				end
+			end
+			-- (its side's first contact: from now on it fights forward by trench, Config/Bots.Front)
+			local shotAt = sqs.firedAt ~= nil and now - (sqs.firedAt :: number) < brainCfg.ThreatMemory
+			if (contact or shotAt) and not front.contactAt then
+				front.contactAt = now
+				stats.contacts += 1
 			end
 			local was = sqs.sq.phase
 			local readyShare = if living > 0 then ready / living else 0
@@ -724,7 +803,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			if defend then
 				sqs.sap = nil
 			else
-				sapTick(sqs, members, mid, c, s.radius, now)
+				sapTick(sqs, members, mid, c, s.radius, now, front.plan)
 			end
 		end
 	end
@@ -767,7 +846,7 @@ function Guns.spots(
 	tz: number,
 	guns: { string }
 ): { BotBuild.Job }
-	local C = BD.Crews
+	local C = Flanked.guns
 	local enemy = Map.sectors[front + (if side == "West" then 1 else -1)]
 	if not enemy then
 		return {}
@@ -911,7 +990,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		end
 		local missing = math.max(BD.Nest.count - nests, 0)
-		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then {} else guns, BD, missing) do
+		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then {} else guns, Flanked.plan, missing) do
 			local keep = true
 			if job.key == "Wire" then
 				local wx, wz = BotBuild.wireSpot(job.x, job.z, -tz, tx, ways, (Map.spawnZones :: any)[side], BD.Wire)
@@ -1324,6 +1403,18 @@ local function command()
 	end
 	local state = { owner = owner, control = control }
 	ByTrench.counts = counts
+	-- (a capture is contact for both sides; each side's plan: Rules/BotFront)
+	local captured = BotFront.captured(fronts.owners, owner)
+	fronts.owners = owner
+	for _, side in { "West", "East" } do
+		local fs = fronts.sides[side] or { plan = "open" }
+		fronts.sides[side] = fs
+		if captured and not fs.contactAt then
+			fs.contactAt = os.clock()
+			stats.contacts += 1
+		end
+		fs.plan = BotFront.plan(fs.contactAt, fs.forced)
+	end
 	for _, side in { "West", "East" } do
 		local ids, current = {}, {}
 		for _, b in bots do
