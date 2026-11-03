@@ -4,8 +4,9 @@
 -- the sketch map's place, in Field Grimoire's bare ink (Palette UI.Grimoire): the words in warm shades with a dark
 -- edge, an ink wash only while in use. Roblox's chat window and input bar are off; its bubbles stay.
 -- - Quiet: the newest lines, fading out FadeAfter seconds after they came; "Press / to chat".
--- - In use (the mouse over it, or typing): every line, the wash, the view tabs (All / Server / Team / Global, a red
---   mark on one with unread lines), the bar with the channel it sends to and, near the limit, the characters used.
+-- - In use (the mouse over it, or typing): the tab's lines, the wash, the view tabs (Team / Server / Global, a red
+--   mark on one with unread lines; the tab is also the channel the bar sends to, whispers and system lines show in
+--   all), the bar with that channel and, near the limit, the characters used.
 -- - / starts typing, Enter sends, Esc leaves; Tab (in the bar) cycles the channel; Rules/Chat reads commands: /t /s /g
 --   to send once, /c to change channel, /w name and /r to whisper, /mute and /unmute (here only), /help.
 -- - Server lines go to Roblox's general channel, Team to the team's (src/server/Chat), whispers to a channel the server
@@ -202,17 +203,26 @@ function Chat.start()
 	setHidden(false)
 
 	-- the view tabs
-	local view = "All"
+	local view = Cfg.Views[1]
 	local unread: { [string]: boolean } = {}
 	type Tab = { button: TextButton, mark: Frame }
 	local tabButtons: { [string]: Tab } = {}
-	local sendChannel = "Server"
+	local sendChannel = Cfg.Send[1]
 	local function paintTag()
 		tag.Text = sendChannel:upper()
 		tag.TextColor3 = rgb(GR.Chat[sendChannel])
 	end
 	local refreshLines: () -> ()
-	local function paintTabs()
+	local paintTabs: () -> ()
+	-- the tab shown and the channel sent to go together
+	local function setChannel(name: string)
+		view, sendChannel = name, name
+		unread[name] = nil
+		paintTag()
+		paintTabs()
+		refreshLines()
+	end
+	function paintTabs()
 		for name, t in tabButtons do
 			local on = name == view
 			t.button.TextSize = if on then P.tabSize else P.tabSizeOff
@@ -244,14 +254,7 @@ function Chat.start()
 		mark.Parent = b
 		tabButtons[name] = { button = b, mark = mark }
 		b.Activated:Connect(function()
-			view = name
-			unread[name] = nil
-			if name ~= "All" then
-				sendChannel = name
-				paintTag()
-			end
-			paintTabs()
-			refreshLines()
+			setChannel(name)
 		end)
 	end
 	paintTag()
@@ -266,7 +269,7 @@ function Chat.start()
 		stuckToBottom = list.CanvasPosition.Y >= bottom - 4
 	end)
 	local function shows(kind: string): boolean
-		return view == "All" or kind == view or kind == "Whisper" or kind == "System"
+		return kind == view or kind == "Whisper" or kind == "System"
 	end
 	function refreshLines()
 		for _, l in lines do
@@ -382,8 +385,7 @@ function Chat.start()
 		if cmd.kind == "send" then
 			sendTo(cmd.channel or sendChannel, text)
 		elseif cmd.kind == "switch" then
-			sendChannel = cmd.channel :: string
-			paintTag()
+			setChannel(cmd.channel :: string)
 		elseif cmd.kind == "whisper" or cmd.kind == "reply" then
 			local target = if cmd.kind == "reply"
 				then (lastWhisperFrom and Players:GetPlayerByUserId(lastWhisperFrom))
@@ -476,8 +478,7 @@ function Chat.start()
 		local t = box.Text
 		if t:find("\t") then
 			box.Text = (t:gsub("\t", ""))
-			sendChannel = R.cycle(sendChannel, Cfg.Send)
-			paintTag()
+			setChannel(R.cycle(sendChannel, Cfg.Send))
 			return
 		end
 		local clipped = R.clip(t, Cfg.MaxLength)

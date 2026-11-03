@@ -627,6 +627,66 @@ return {
 			"the howitzer lays the high arc (its low one is under its limits)"
 		)
 	end,
+	["no shell lands past one sector's spacing plus the margin, on either map (user 2026-11-03)"] = function()
+		local R = C.Reach
+		assert(R.sectors == 1 and R.margin == 90)
+		for _, name in { "Map1", "LanternMeadows" } do
+			local map = require(`../src/shared/Config/Maps/{name}`) :: any
+			local span = A.sectorSpan(map.sectors)
+			assert(span > 400 and span < 450, `{name} span {span}`)
+			local cap = A.reachCap(span, R)
+			for key, g in { qf = QF, how = HOW } do
+				local lims = A.capped(g, cap)
+				assert(lims[1] >= g.elevation[1] and lims[2] <= g.elevation[2] and lims[1] <= lims[2], key)
+				-- every lay within the limits lands within the cap, and the limit itself lands right at it
+				for k = 0, 10 do
+					local e = lims[1] + (lims[2] - lims[1]) * k / 10
+					assert(A.range(g.speed, e + (g.aimTilt or 0), g.gravity) <= cap + 1e-3, `{name} {key} {e}`)
+				end
+				local edge = if g == HOW then lims[1] else lims[2]
+				assert(near(A.range(g.speed, edge + (g.aimTilt or 0), g.gravity), cap, 1e-3), `{name} {key} edge`)
+				-- out past it: no lay; inside it: a lay within the limits
+				assert(A.layFor(g, cap + 20, 0, lims) == nil, `{name} {key} past the cap`)
+				local e = A.layFor(g, cap - 20, 0, lims)
+				assert(e and e >= lims[1] - 1e-6 and e <= lims[2] + 1e-6, `{name} {key} within it`)
+			end
+			-- the field gun still reaches its shortest ~300: one sector's worth of lay, raised only part of its dial
+			local q = A.capped(QF, cap)
+			assert(q[1] == QF.elevation[1] and q[2] < 0, "the field gun stops low on its dial")
+			assert(A.capped(HOW, cap)[1] > 55, "the howitzer stops high")
+		end
+		-- ground lower out there (a gun on a hill firing into a valley): it stops lower, its shell coming down at the
+		-- cap on that ground; higher ground: it may raise further
+		local cap = 500
+		local flat, down, up = A.capped(QF, cap), A.capped(QF, cap, -15), A.capped(QF, cap, 30)
+		assert(down[2] < flat[2] and up[2] > flat[2])
+		local launch = down[2] + QF.aimTilt
+		local vx, vy = QF.speed * math.cos(math.rad(launch)), QF.speed * math.sin(math.rad(launch))
+		local t = cap / vx
+		assert(near(vy * t - QF.gravity * t * t / 2, -15, 1e-3), "it comes down on that ground at the cap")
+		assert(A.capped(HOW, cap, -40)[1] > A.capped(HOW, cap)[1], "the howitzer stops higher over lower ground")
+		-- the lay stops at the limits, a machine gun keeps its own
+		local lims = { -5, -2.5 }
+		local lay = A.lay({ yaw = 0, traverse = 0, elevation = -3 }, 0, 16, QF, 10, lims)
+		assert(near(lay.elevation, -2.5, 1e-6))
+		local MG = C.Guns.mg08
+		local m = A.capped(MG, 100)
+		assert(m[1] == MG.elevation[1] and m[2] == MG.elevation[2])
+		assert(A.sectorSpan({ { x = 0, z = 0 } }) == 0)
+	end,
+	["the field gun's shell arcs a touch higher and slower, the same shortest shot (user 2026-11-03)"] = function()
+		-- "just the TINIEST more arc": 420 studs/s with +8.5 (was 450 with +8)
+		assert(QF.speed == 420 and QF.aimTilt == 8.5)
+		local function shot(speed: number, d: number): (number, number)
+			local e = A.solve(speed, QF.gravity, d, 0, false) :: number
+			local vy = speed * math.sin(math.rad(e))
+			return vy * vy / (2 * QF.gravity), 2 * vy / QF.gravity -- (its top, its flight)
+		end
+		local top, t = shot(420, 420)
+		local top0, t0 = shot(450, 420)
+		assert(top > top0 * 1.1 and top < top0 * 1.2, "a little higher")
+		assert(t > t0 * 1.05 and t < t0 * 1.1, "a little slower")
+	end,
 	["layFor on a machine gun is the straight line within its range and limits"] = function()
 		local MG = C.Guns.mg08
 		local e = A.layFor(MG, 100, 0) :: number

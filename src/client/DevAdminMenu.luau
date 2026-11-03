@@ -30,10 +30,12 @@ local ClassCfg = require(Shared.Config.Classes)
 local ModeCfg = require(Shared.Config.Modes)
 local SectorCfg = require(Shared.Config.Sectors)
 local TeamCfg = require(Shared.Config.Teams)
-local TeamHealthCfg = require(Shared.Config.TeamHealth)
+local TeamOutlineCfg = require(Shared.Config.TeamOutline)
 local EnvCfg = require(Shared.Config.Environment)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
+local FrontCfg = require(Shared.Config.Frontline)
+local FrontRules = require(Shared.Rules.Frontline)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local Hitches = require(Shared.Hitches)
@@ -255,6 +257,37 @@ local function build(player: Player): DevPanel.Panel
 			)
 		end
 	end
+	-- the capture readout (Config/Frontline.BotWeight: a player 1, a bot half): each sector's weights in its zone, its
+	-- control, its speed (control per second, momentum in) and the seconds left to the capture
+	local readout: { TextLabel } = {}
+	for i = 1, #LiveMap.map.sectors do
+		order += 1
+		readout[i] = DevPanel.heading(p.panel, `S{i}`, order)
+	end
+	local function num(x: number): string
+		return string.format("%g", math.round(x * 100) / 100)
+	end
+	task.spawn(function()
+		while p.gui.Parent do
+			local f = workspace:FindFirstChild(FrontCfg.FolderName)
+			for i, label in readout do
+				local s = f and f:FindFirstChild(LiveMap.map.sectors[i] and LiveMap.map.sectors[i].id or "")
+				if s then
+					local w, e = (s:GetAttribute("West") :: number?) or 0, (s:GetAttribute("East") :: number?) or 0
+					local control = (s:GetAttribute("Control") :: number?) or 0
+					local rate = (s:GetAttribute(FrontCfg.RateAttribute) :: number?) or 0
+					local eta = FrontRules.eta(control, rate)
+					local moving = if eta
+						then ` · {if rate > 0 then "West" else "East"} {num(math.abs(rate))}/s, {num(eta)} s`
+						else " · still"
+					label.Text = `S{i} W {num(w)} · E {num(e)} · control {num(control)}{moving}`
+				else
+					label.Text = `S{i} (no match)`
+				end
+			end
+			task.wait(A.CaptureReadout)
+		end
+	end)
 	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes
 	heading("Match (FFA)")
 	local match: { TextButton } = {
@@ -397,11 +430,11 @@ local function build(player: Player): DevPanel.Panel
 	end)
 	player:GetAttributeChangedSignal(A.LabelsAttribute):Connect(showLabels)
 	showLabels()
-	-- the teammates' health outlines (src/client/TeamHealth; client only): off, and your own outlined too
+	-- the teammates' health outlines (src/client/TeamOutline; client only): off, and your own outlined too
 	for i, t in
 		{
-			{ id = "TeamOutlines", label = "Team outlines", attribute = TeamHealthCfg.OffAttribute, on = false },
-			{ id = "TeamOutlineSelf", label = "Outline me too", attribute = TeamHealthCfg.SelfAttribute, on = true },
+			{ id = "TeamOutlines", label = "Team outlines", attribute = TeamOutlineCfg.OffAttribute, on = false },
+			{ id = "TeamOutlineSelf", label = "Outline me too", attribute = TeamOutlineCfg.SelfAttribute, on = true },
 		}
 	do
 		local b = DevPanel.button(p.panel, t.id, "", order + i)

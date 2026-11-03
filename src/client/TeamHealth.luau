@@ -1,118 +1,170 @@
 --!strict
--- Teammates' health as a coloured outline (Config/TeamHealth, Rules/TeamHealth): the nearest living teammates (the
--- same "Kit" as your soldier, Rules/Teams: players, bot soldiers and the admin panel's dummies; nobody in a
--- free-for-all) each get a Highlight on this client only, adorning their character, its outline shaded from green at
--- full health to red when badly hurt (Palette.UI.TeamHealth). Roblox draws at most 31 Highlights at once, so only
--- Cfg.MaxOutlines of them, the nearest. Off during the match cutscenes and while the admin panel hides the game HUD.
+-- Teammates' health over their heads while the map key is held (Config/TeamHealth, Rules/TeamHealth; user 2026-11-03:
+-- "can we add teammate HP being visible (when close) when holding M?"): a small flat bar over each teammate in range
+-- (players and bot soldiers of the viewer's kit, Rules/Teams), red with Down over it when knocked down (the
+-- "Ragdolled" attribute, src/server/Ragdoll), amber when hurt enough for a bandage. Never an enemy's. Off on the title
+-- and loadout screens and in the match's cutscenes. Client only: the Humanoid's health is already replicated.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.TeamHealth)
 local BotsCfg = require(Shared.Config.Bots)
-local DevCfg = require(Shared.Config.DevTools)
+local HealCfg = require(Shared.Config.Healing)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.TeamHealth)
 local Teams = require(Shared.Rules.Teams)
-local MatchCutscene = require(script.Parent.MatchCutscene)
-local DevCinematic = require(script.Parent.DevCinematic)
+local Settings = require(script.Parent.Settings)
 
 local TeamHealth = {}
 
-local outlines: { [Model]: Highlight } = {}
-
-local function rgb(c: { number }): Color3
+local C = Palette.UI.Hud :: any
+local function tok(name: string): Color3
+	local c = C[name]
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
+local FILL: { [Rules.Look]: Color3 } = { Ok = tok("healthOk"), Low = tok("healthLow"), Down = tok("healthDown") }
+local SCREENS = { "TitleScreen", "LoadoutMenu", "MatchCutscene", "EndScenes" } -- (any of these on: no bars)
 
-local function newOutline(model: Model): Highlight
-	local h = Instance.new("Highlight")
-	h.Name = "TeamHealth"
-	h.FillTransparency = Cfg.FillTransparency
-	h.OutlineTransparency = Cfg.OutlineTransparency
-	h.DepthMode = (Enum.HighlightDepthMode :: any)[Cfg.DepthMode]
-	h.Adornee = model
-	h.Parent = workspace.CurrentCamera -- (client only)
-	return h
-end
+type Bar = { gui: BillboardGui, fill: Frame, down: TextLabel }
 
--- the living teammates to outline now (nearest first, at most the cap), each with its humanoid
-local function wanted(me: Player): { [Model]: Humanoid }
-	local out: { [Model]: Humanoid } = {}
-	local mine = me.Character
-	if
-		not mine
-		or me:GetAttribute(Cfg.OffAttribute) == true
-		or MatchCutscene.playing()
-		or DevCinematic.hidden(me, "Hud")
-	then
-		return out
-	end
-	local kit = mine:GetAttribute("Kit")
-	local ffa = workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
-	local andMe = me:GetAttribute(Cfg.SelfAttribute) == true
-	local eye = workspace.CurrentCamera.CFrame.Position
-	local candidates: { { key: Model, dist: number } } = {}
-	local humanoids: { [Model]: Humanoid } = {}
-	local function consider(m: Model?)
-		if not m or not m:IsDescendantOf(workspace) then
-			return
-		end
-		if m == mine then
-			if not andMe then
-				return
-			end
-		elseif not Teams.same(kit, m:GetAttribute("Kit"), ffa) then
-			return
-		end
-		local h = m:FindFirstChildOfClass("Humanoid")
-		local root = m.PrimaryPart or m:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if h and root and h.Health > 0 then
-			humanoids[m] = h
-			table.insert(candidates, { key = m, dist = (root.Position - eye).Magnitude })
-		end
-	end
-	for _, p in Players:GetPlayers() do
-		consider(p.Character)
-	end
-	for _, tag in { BotsCfg.Tag, DevCfg.Dummies.Tag } do -- (bot soldiers; the admin panel's target dummies)
-		for _, m in CollectionService:GetTagged(tag) do
-			if m:IsA("Model") then
-				consider(m)
-			end
-		end
-	end
-	for _, m in Rules.pick(candidates, Cfg.MaxOutlines, Cfg.MaxDistance) do
-		out[m] = humanoids[m]
-	end
-	return out
-end
-
-local function refresh()
-	local want = wanted(Players.LocalPlayer)
-	for m, h in outlines do
-		if not want[m] then
-			h:Destroy()
-			outlines[m] = nil
-		end
-	end
-	for m, humanoid in want do
-		local h = outlines[m] or newOutline(m)
-		outlines[m] = h
-		h.OutlineColor = rgb(Rules.shade(humanoid.Health, humanoid.MaxHealth, Palette.UI.TeamHealth))
-	end
+local function newBar(parent: Instance): Bar
+	local B, D = Cfg.Bar, Cfg.Down
+	local g = Instance.new("BillboardGui")
+	g.Name = "TeamHealth"
+	g.AlwaysOnTop = true
+	g.LightInfluence = 0
+	g.ResetOnSpawn = false
+	g.Size = UDim2.fromOffset(B.width, B.height + D.tall)
+	g.StudsOffset = Vector3.new(0, Cfg.Bar.above, 0)
+	g.MaxDistance = Cfg.Range * 1.5 -- (the range check is the loop's; this only stops a far one drawing)
+	local track = Instance.new("Frame")
+	track.Name = "Track"
+	track.AnchorPoint = Vector2.new(0.5, 1)
+	track.Position = UDim2.fromScale(0.5, 1)
+	track.Size = UDim2.fromOffset(B.width, B.height)
+	track.BackgroundColor3 = tok("healthTrack")
+	track.BorderSizePixel = 0
+	local edge = Instance.new("UIStroke")
+	edge.Thickness = B.edge
+	edge.Color = tok("healthEdge")
+	edge.Parent = track
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.fromScale(1, 1)
+	fill.Parent = track
+	track.Parent = g
+	local down = Instance.new("TextLabel")
+	down.Name = "Down"
+	down.BackgroundTransparency = 1
+	down.Size = UDim2.new(1, 0, 0, D.tall)
+	down.Font = Enum.Font.GothamBold
+	down.TextSize = D.size
+	down.Text = D.text
+	down.TextColor3 = tok("healthDown")
+	down.TextStrokeColor3 = tok("healthEdge")
+	down.TextStrokeTransparency = 0.2
+	down.Parent = g
+	g.Parent = parent
+	return { gui = g, fill = fill, down = down }
 end
 
 function TeamHealth.start()
-	local since = 0
-	RunService.Heartbeat:Connect(function(dt)
-		since += dt
-		if since >= Cfg.Rate then
-			since = 0
-			refresh()
+	local me = Players.LocalPlayer
+	local playerGui = me:WaitForChild("PlayerGui")
+	-- (a folder in PlayerGui goes with the character on respawn: a new one then, the old bars with it)
+	local holder: Folder? = nil
+	local function folder(): Folder
+		if not holder or not holder.Parent then
+			local f = Instance.new("Folder")
+			f.Name = "TeamHealth"
+			f.Parent = playerGui
+			holder = f
+		end
+		return holder :: Folder
+	end
+	local bars: { [Model]: Bar } = {}
+	local function screenOn(): boolean
+		for _, name in SCREENS do
+			local g = playerGui:FindFirstChild(name)
+			if g and g:IsA("ScreenGui") and g.Enabled then
+				return true
+			end
+		end
+		return false
+	end
+	local function drop(m: Model)
+		local b = bars[m]
+		if b then
+			b.gui:Destroy()
+			bars[m] = nil
+		end
+	end
+	-- the key read every frame, so the bars go the moment it is let go (they come at the next look)
+	local held = false
+	RunService.RenderStepped:Connect(function()
+		held = Settings.held("Key_Map")
+		if not held then
+			for m in bars do
+				drop(m)
+			end
+		end
+	end)
+	task.spawn(function()
+		while true do
+			local mine = me.Character
+			local root = mine and mine:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local on = held and root ~= nil and not screenOn()
+			local seen: { [Model]: boolean } = {}
+			if on then
+				local kit = (mine :: Model):GetAttribute("Kit")
+				local ffa = workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
+				local function consider(m: Instance?)
+					if not m or m == mine or not m:IsA("Model") or seen[m] then
+						return
+					end
+					local head = m:FindFirstChild("Head")
+					local their = m:FindFirstChild("HumanoidRootPart")
+					local h = m:FindFirstChildOfClass("Humanoid")
+					if not (head and head:IsA("BasePart") and their and their:IsA("BasePart") and h) then
+						return
+					end
+					local far = ((their :: BasePart).Position - (root :: BasePart).Position).Magnitude
+					if not Rules.shown(Teams.same(kit, m:GetAttribute("Kit"), ffa), h.Health, far, Cfg.Range) then
+						return
+					end
+					seen[m] = true
+					local b = bars[m]
+					if not b or not b.gui.Parent then
+						b = newBar(folder())
+					end
+					bars[m] = b
+					b.gui.Adornee = head
+					local share, look = Rules.look(h.Health, h.MaxHealth, m:GetAttribute("Ragdolled") == true, HealCfg)
+					b.fill.Size = UDim2.fromScale(share, 1)
+					b.fill.BackgroundColor3 = FILL[look]
+					b.down.Visible = look == "Down"
+				end
+				for _, p in Players:GetPlayers() do
+					if p ~= me then
+						consider(p.Character)
+					end
+				end
+				for _, m in CollectionService:GetTagged(BotsCfg.Tag) do
+					consider(m)
+				end
+			end
+			for m in bars do
+				if not seen[m] then
+					drop(m)
+				end
+			end
+			task.wait(Cfg.Refresh)
 		end
 	end)
 end

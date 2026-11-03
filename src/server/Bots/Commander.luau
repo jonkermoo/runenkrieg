@@ -798,7 +798,10 @@ function Guns.spots(
 			return false
 		end
 		local off = target - at
-		return ArtRules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y) ~= nil
+		-- (within its reach on this map: Config/Artillery.Reach)
+		local d = Vector3.new(off.X, 0, off.Z).Magnitude
+		return d <= ArtRules.reachCap(ArtRules.sectorSpan(Map.sectors), ArtCfg.Reach)
+			and ArtRules.layFor(gun, d, off.Y) ~= nil
 	end)
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)
@@ -1295,8 +1298,9 @@ local function command()
 		owner[i] = if type(o) == "string" then o else s.startOwner
 		local c = sf and sf:GetAttribute("Control")
 		control[i] = if type(c) == "number" then c else FrontRules.rest(owner[i])
-		local w = sf and sf:GetAttribute("West")
-		local e = sf and sf:GetAttribute("East")
+		-- (by head: Config/Frontline.HeadsSuffix; the "West" / "East" weights count a bot as half for the capture)
+		local w = sf and sf:GetAttribute("West" .. FrontCfg.HeadsSuffix)
+		local e = sf and sf:GetAttribute("East" .. FrontCfg.HeadsSuffix)
 		counts[i] = { West = if type(w) == "number" then w else 0, East = if type(e) == "number" then e else 0 }
 	end
 	local state = { owner = owner, control = control }
