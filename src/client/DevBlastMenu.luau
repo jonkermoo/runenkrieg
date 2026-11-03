@@ -56,7 +56,7 @@ local function build(player: Player): ScreenGui
 		end)
 	end
 	-- (a refused piece shows why on its button for a moment: src/server/DevTools)
-	local pieceNames: { [string]: string } = { MGNest = "Place MG nest" }
+	local pieceNames: { [string]: string } = { MGNest = "Place MG nest", Dugout = "Place dugout (at a trench wall)" }
 	local pieceButtons: { [string]: TextButton } = {}
 	for _, key in B.Pieces do
 		order += 1

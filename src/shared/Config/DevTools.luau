@@ -252,8 +252,9 @@ local DevTools = {
 		-- button removing them all (user 2026-10-20: dev-placed until the build system)
 		Guns = { "artillery_qf18", "artillery_howitzer" },
 		-- Config/Build pieces placed finished at the aim point, facing away from you, for your team (Build.devPlace;
-		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn")
-		Pieces = { "MGNest" },
+		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn"); a dugout into the trench wall aimed at,
+		-- facing you in the trench (the bot tests: sheltering, bombing one out)
+		Pieces = { "MGNest", "Dugout" },
 		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
 		RefusedSeconds = 3,
 	},

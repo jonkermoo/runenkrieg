@@ -121,6 +121,9 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		if away.Magnitude < 1e-3 then
 			away = Vector3.new(0, 0, -1)
 		end
+		if value == "Dugout" then
+			away = -away -- (dug into the wall aimed at, its steps coming out to you)
+		end
 		local refused = Build.devPlace(player, value, CFrame.lookAt(aim, aim + away))
 		if refused then
 			-- (shown on the admin panel's button, src/client/DevBlastMenu)
