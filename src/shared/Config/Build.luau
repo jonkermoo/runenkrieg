@@ -173,6 +173,10 @@ local Build = {
 		-- there is its soil until it is filled in to 0 HP (user 2026-11-01: "make sure the area outside the terrain has
 		-- its grass removed too")
 		grassClear = 7,
+		-- the terrain reshaped a few voxel columns at a time (src/server/Trenches): `columns` across a step, steps for at
+		-- most `budget` ms a frame, then the squares' pieces, one in a frame of its own; a square's reshape in one go was
+		-- 2-8 ms
+		reshape = { columns = 2, budget = 1 },
 		-- markers (src/server/Trenches; user 2026-10-24): a
 		-- stake (width, height) at each corner of a square, its top `top` studs painted (Palette.Build.PegTop), cord
 		-- `string` wide between the stake tops sagging by `sag` of its length (a Beam's curve); no flags

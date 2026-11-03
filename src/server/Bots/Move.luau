@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
+local Hitches = require(Shared.Hitches)
 local DamageCfg = require(Shared.Config.Damage)
 local FrontCfg = require(Shared.Config.Frontline)
 local IndoorCfg = require(Shared.Config.Indoors)
@@ -948,6 +949,7 @@ local function holdShovel(b: Bot, on: boolean)
 		return
 	end
 	putAway(b, true)
+	local t0 = os.clock()
 	if not b.shovel then
 		local made, t = pcall(Armory.tool, "shovel", b.kit)
 		if made then
@@ -962,6 +964,7 @@ local function holdShovel(b: Bot, on: boolean)
 			hold.Part0 = m:FindFirstChild("Torso") :: BasePart?
 		end
 		DevDummies.own(m)
+		Hitches.since("Bot shovel out", t0)
 	end
 end
 

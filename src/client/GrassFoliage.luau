@@ -91,19 +91,32 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 		end
 	end
 
+	-- the ground under candidate `c`, if grass grows there
+	local function groundOf(c: Grass.Tuft): RaycastResult?
+		local hit = workspace:Raycast(Vector3.new(c.x, 150, c.z), Vector3.new(0, -400, 0), params)
+		return if hit and grows[hit.Material] and not underTrunk(c.x, c.z) then hit else nil
+	end
+	-- where candidate `c`'s tuft `p` stands on the ground at `hit`
+	local function baseOf(c: Grass.Tuft, p: BasePart, hit: RaycastResult): CFrame
+		return CFrame.new(hit.Position.X, hit.Position.Y + p.Size.Y / 2 - Cfg.Sink, hit.Position.Z)
+			* CFrame.Angles(0, math.rad(c.yaw), 0)
+	end
+	local function grow(c: Grass.Tuft, hit: RaycastResult): Tuft
+		local p = templates[c.variant % #templates + 1]:Clone()
+		p.Size *= c.scale
+		p.Color = shades[c.shade % #shades + 1]
+		local base = baseOf(c, p, hit)
+		p.CFrame = base
+		p.Parent = container
+		return { part = p, base = base, x = c.x, z = c.z }
+	end
+
 	local function load(cx: number, cz: number)
 		local chunk: Chunk = { tufts = {} }
 		for _, c in Grass.chunk(cx, cz, level.density, Cfg) do
-			local hit = workspace:Raycast(Vector3.new(c.x, 150, c.z), Vector3.new(0, -400, 0), params)
-			if hit and grows[hit.Material] and not underTrunk(c.x, c.z) then
-				local p = templates[c.variant % #templates + 1]:Clone()
-				p.Size *= c.scale
-				p.Color = shades[c.shade % #shades + 1]
-				local base = CFrame.new(hit.Position.X, hit.Position.Y + p.Size.Y / 2 - Cfg.Sink, hit.Position.Z)
-					* CFrame.Angles(0, math.rad(c.yaw), 0)
-				p.CFrame = base
-				p.Parent = container
-				table.insert(chunk.tufts, { part = p, base = base, x = c.x, z = c.z })
+			local hit = groundOf(c)
+			if hit then
+				table.insert(chunk.tufts, grow(c, hit))
 			end
 		end
 		loaded[cx .. ":" .. cz] = chunk
@@ -147,25 +160,89 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 		scrubNow(position, r, depth)
 		Hitches.since("Grass scrub", t0)
 	end
-	-- the cells within `r` of `position` placed again from the ground as it is now (a trench's bare rim, and its grass
-	-- back once it is filled in)
-	local function regrowNow(position: Vector3, r: number)
+	-- the chunks within `r` of `position` whose grass follows the ground as it is now (a trench's bare rim, and its
+	-- grass back once it is filled in), oldest first: a few candidates at a time, for at most Foliage.Regrow.budget ms a
+	-- frame (a chunk loaded afresh in one go was up to 35 ms); a tuft whose ground stayed put is kept, one whose ground
+	-- moved is moved, a new one made only where there was none
+	type Regrow = { cx: number, cz: number, chunk: Chunk, spots: { Grass.Tuft }?, i: number, was: { [string]: Tuft } }
+	local regrowing: { Regrow } = {}
+	local function regrow(position: Vector3, r: number)
 		local size = Cfg.ChunkSize
 		for cx = math.floor((position.X - r) / size), math.floor((position.X + r) / size) do
 			for cz = math.floor((position.Z - r) / size), math.floor((position.Z + r) / size) do
-				local key = cx .. ":" .. cz
-				if loaded[key] then
-					unload(key)
-					load(cx, cz)
+				local chunk = loaded[cx .. ":" .. cz]
+				local waiting = false
+				for _, job in regrowing do
+					waiting = waiting or job.chunk == chunk
+				end
+				if chunk and not waiting then
+					table.insert(regrowing, { cx = cx, cz = cz, chunk = chunk, i = 1, was = {} })
 				end
 			end
 		end
 	end
-	local function regrow(position: Vector3, r: number)
-		local t0 = os.clock()
-		regrowNow(position, r)
-		Hitches.since("Grass regrow", t0)
+	-- one candidate of the oldest chunk waiting
+	local function regrowStep()
+		local job = regrowing[1]
+		local chunk = job.chunk
+		if loaded[job.cx .. ":" .. job.cz] ~= chunk then
+			for _, t in job.was do
+				t.part:Destroy()
+			end
+			table.remove(regrowing, 1) -- (unloaded since)
+			return
+		end
+		local spots = job.spots
+		if not spots then
+			spots = Grass.chunk(job.cx, job.cz, level.density, Cfg)
+			job.spots = spots
+			for _, t in chunk.tufts do
+				job.was[t.x .. ":" .. t.z] = t
+			end
+			table.clear(chunk.tufts)
+		end
+		local c = (spots :: { Grass.Tuft })[job.i]
+		if not c then
+			for _, t in job.was do
+				t.part:Destroy() -- (its spot gone)
+			end
+			table.remove(regrowing, 1)
+			return
+		end
+		job.i += 1
+		local key = c.x .. ":" .. c.z
+		local had = job.was[key]
+		job.was[key] = nil
+		if had and had.part.Parent == nil then
+			had = nil -- (scrubbed meanwhile)
+		end
+		local hit = groundOf(c)
+		if not hit then
+			if had then
+				had.part:Destroy()
+			end
+		elseif had then
+			local base = baseOf(c, had.part, hit)
+			if (base.Position - had.base.Position).Magnitude > 0.01 then
+				had.base = base
+				had.part.CFrame = base
+			end
+			table.insert(chunk.tufts, had)
+		else
+			table.insert(chunk.tufts, grow(c, hit))
+		end
 	end
+	RunService.Heartbeat:Connect(function()
+		if not regrowing[1] then
+			return
+		end
+		local t0 = os.clock()
+		local stop = t0 + Foliage.Regrow.budget / 1000
+		repeat
+			regrowStep()
+		until not regrowing[1] or os.clock() >= stop
+		Hitches.since("Grass regrow", t0)
+	end)
 	-- a gun dug in (src/server/Artillery): every tuft within the pit goes, now and once its voxels have arrived; a
 	-- trench (`follow`, src/server/Trenches): the grass there follows the ground once its voxels have arrived
 	Net.event("GroundDug").OnClientEvent:Connect(function(position: Vector3, radius: number, follow: boolean?)
