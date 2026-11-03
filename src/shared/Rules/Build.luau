@@ -227,6 +227,17 @@ function Build.swingPower(mode: string, class: string?, power: any): number
 	return if mode == "Build" then power.build * k else k
 end
 
+-- Whether a bridge falls in with its trench square at `hp` of `max` (Config/Build.Bridge `fall`%)
+function Build.bridgeFalls(hp: number, max: number, fall: number): boolean
+	return hp < max * fall / 100
+end
+
+-- What one swing works on a piece without HP: `amount` (Build.swingPower), or the whole of a `oneSwing` piece (a
+-- foxhole: one swing digs it, whoever swings, however the build power is cut; Config/Build.Pieces)
+function Build.swingWork(piece: Piece, amount: number): number
+	return if piece.oneSwing then piece.work or 1 else amount
+end
+
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
 -- never less than `normal`
 function Build.digAmount(normal: number, full: number, share: number?): number
