@@ -116,6 +116,33 @@ local tests: { [string]: () -> () } = {
 			end
 		end
 	end,
+	["first person: aim, turn and glance"] = function()
+		local near = function(a: number, b: number): boolean
+			return math.abs(a - b) < 1e-6
+		end
+		local y, p = R.aim(0, 0, -1)
+		assert(near(y, 0) and near(p, 0), "straight ahead is -z")
+		y, p = R.aim(0, -1, -1)
+		assert(near(p, -math.pi / 4), "looking down is a negative pitch")
+		y = R.aim(0, 0, 1)
+		assert(near(math.abs(y), math.pi), "behind is half a turn")
+		-- the turn round to the board: to the right means the yaw shrinks, all the way round if need be
+		assert(near(R.turn(0, math.pi, 0.5, -1), -math.pi / 2), "right")
+		assert(near(R.turn(0, math.pi, 0.5, 1), math.pi / 2), "left")
+		assert(near(R.turn(0.1, -0.1, 1, 0), -0.1), "the short way")
+		assert(near(R.turn(3, -3, 1, 0), 3 + (2 * math.pi - 6)), "the short way across the back")
+		-- the table's glances: the first look from the start, each next one eased in from the previous t1
+		local looks = { { t1 = 6 }, { t1 = 14 } }
+		local i, k = R.glance(looks, 1.4, 0)
+		assert(i == 1 and k == 1)
+		i, k = R.glance(looks, 1.4, 6.7)
+		assert(i == 2 and near(k, R.ease(0.5)))
+		i, k = R.glance(looks, 1.4, 20)
+		assert(i == 2 and k == 1, "the last look held on")
+		local W = Cfg.View
+		assert(W.walk.t1 > W.turn and W.walk.t1 < Front.VoteSeconds, "the walk ends inside the vote")
+		assert(W.pick.ease < Cfg.Vote.pick.hold, "at the order before the vote's hold is over")
+	end,
 	["no bayonets in the closing calls (user 2026-11-02)"] = function()
 		for _, line in Cfg.Speech.close do
 			assert(not line:lower():find("bayonet", 1, true), line)

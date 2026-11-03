@@ -669,8 +669,9 @@ end
 local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel)
 	local B = Cfg.Board
 	local mid = o + v3(B.at)
-	-- (facing the room, its own x runs to the room's -x: places across it are given as the room sees them, negated)
-	local cf = CFrame.lookAt(mid, mid + V(0, 0, 1))
+	-- (facing the room, its own x runs to the room's +x, the viewer's left: places across it are given as the viewer
+	-- sees them, negated)
+	local cf = CFrame.lookAt(mid, mid - V(0, 0, 1))
 	local w, h = B.size[1], B.size[2]
 	part(folder, "Cork", V(w, h, 0.2), cf, CORK, Enum.Material.Cardboard)
 	for _, f in

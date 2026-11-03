@@ -41,6 +41,37 @@ local function ease(u: number): number
 end
 Cutscenes.ease = ease
 
+-- First person (the command post, Config/Cutscenes.View): the yaw and pitch (radians) of a look along (dx, dy, dz),
+-- as CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0) turns the -z look
+function Cutscenes.aim(dx: number, dy: number, dz: number): (number, number)
+	return math.atan2(-dx, -dz), math.atan2(dy, math.sqrt(dx * dx + dz * dz))
+end
+
+-- A head turn from yaw `a` to `b`, `k` (0..1) of the way: the short way round for `dir` 0, else to the left (`dir`
+-- above 0, the yaw growing) or to the right (below 0) whatever the distance.
+function Cutscenes.turn(a: number, b: number, k: number, dir: number): number
+	local d = (b - a) % (2 * math.pi) -- 0 .. 2 pi: the turn to the left
+	if dir < 0 or (dir == 0 and d > math.pi) then
+		d -= 2 * math.pi
+	end
+	return a + d * k
+end
+
+-- Where the eyes rest at time `t` on `looks` (each { t1, look } held until its t1, the last held on): which look they
+-- move to and how far (0..1, eased), a glance taking `glance` seconds from the previous look's t1. The first look is
+-- there from the start.
+function Cutscenes.glance(looks: { { t1: number } }, glance: number, t: number): (number, number)
+	for i, l in looks do
+		if t < l.t1 or i == #looks then
+			if i == 1 then
+				return 1, 1
+			end
+			return i, ease(math.clamp((t - looks[i - 1].t1) / glance, 0, 1))
+		end
+	end
+	return 1, 1
+end
+
 local function centre(r: any): { number }
 	return { (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2 }
 end

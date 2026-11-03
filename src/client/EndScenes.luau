@@ -206,7 +206,7 @@ end
 
 -- the stamping arm: an R6 right arm in the winners' uniform, a wooden stamp in its hand
 local arm: Model? = nil
-local function stampArm(kit: string?, sheet: CommandPost.Order, at: CFrame)
+local function stampArm(kit: string?, sheet: CommandPost.Order, at: CFrame, from: Vector3)
 	if arm then
 		(arm :: Model):Destroy()
 	end
@@ -244,11 +244,9 @@ local function stampArm(kit: string?, sheet: CommandPost.Order, at: CFrame)
 	block.Parent = m
 	m.Parent = set
 	arm = m
-	-- the stamp pressed square to the sheet; the arm comes in from the right and toward the camera (`angle`), its hand
-	-- (the arm's lower end) on the stamp's back
-	-- (the sheet faces the camera, so the camera's right is the sheet's -RightVector)
-	local right = -at.RightVector
-	local axis = (right * math.cos(math.rad(A.angle)) + at.LookVector * math.sin(math.rad(A.angle))).Unit
+	-- the stamp pressed square to the sheet; the arm reaches in from `from` (our shoulder, at the screen's lower right),
+	-- its hand (the arm's lower end) on the stamp's back
+	local axis = (from - (at.Position + at.LookVector * A.stamp[3])).Unit
 	local across = axis:Cross(at.UpVector).Unit
 	local function place(out: number)
 		local face = at.Position + at.LookVector * (A.stamp[3] / 2 + out)
@@ -258,9 +256,9 @@ local function stampArm(kit: string?, sheet: CommandPost.Order, at: CFrame)
 		torso.CFrame = CFrame.fromMatrix(hand + axis * 2.5, across, axis)
 	end
 	task.spawn(function()
-		local side = right * A.reach
+		local side = axis * A.reach
 		local t0 = os.clock()
-		-- in from the side, over the sheet
+		-- in from our shoulder, over the sheet
 		while os.clock() - t0 < A.down + 0.4 do
 			local u = math.clamp((os.clock() - t0) / (A.down + 0.4), 0, 1)
 			local ease = Rules.ease(u)
@@ -291,7 +289,7 @@ local function stampArm(kit: string?, sheet: CommandPost.Order, at: CFrame)
 			place(A.lift * math.clamp((os.clock() - t0) / A.up, 0, 1))
 			task.wait()
 		end
-		-- and away out of the shot, the stamp left on the order
+		-- and back out of sight, the stamp left on the order
 		t0 = os.clock()
 		while os.clock() - t0 < A.down + 0.4 do
 			place(A.lift)
@@ -320,49 +318,64 @@ local function lookCf(from: Vector3, to: Vector3): CFrame
 	return CFrame.lookAt(from, to)
 end
 
-local pickedAt = 0 -- os.clock() of the pick (the close shot eases in from it)
+local pickedAt = 0 -- os.clock() of the pick (we step up to the order from it)
 
--- a shot's camera: from `from` to `to` (eased by `u`) looking at `look`, studs from `base`; straight down if `down`
-local function shotCf(s: any, base: Vector3, u: number): CFrame
-	local from = base + v3(s.from):Lerp(v3(s.to or s.from), Rules.ease(u))
-	if s.down then
-		return CFrame.lookAt(from, base + v3(s.look), V(0, 0, -1))
-	end
-	return lookCf(from, base + v3(s.look))
+-- first person (Config/Cutscenes.View): an eye at `pos` turned `yaw`, tipped `pitch`, breathing
+local function eyeCf(pos: Vector3, yaw: number, pitch: number): CFrame
+	local W = Cfg.View
+	local breath = W.sway.amount * math.sin(os.clock() * W.sway.rate * 2 * math.pi)
+	return CFrame.new(pos + V(0, breath, 0)) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
 end
 
-local function tableCam(t: number): (CFrame, number)
-	local shots = Cfg.Table.shots
-	local t0 = 0
-	for _, s in shots do
-		if t < s.t1 or s == shots[#shots] then
-			return shotCf(s, post.origin, math.clamp((t - t0) / (s.t1 - t0), 0, 1)), s.fov or Cfg.Fov
-		end
-		t0 = s.t1
-	end
-	return CFrame.new(), Cfg.Fov
+local function aimAt(from: Vector3, to: Vector3): (number, number)
+	local d = to - from
+	return Rules.aim(d.X, d.Y, d.Z)
 end
 
-local function boardCam(t: number): (CFrame, number)
-	local B = Cfg.Board
-	local cf = shotCf(B.shot, post.origin, math.clamp(t / FrontCfg.VoteSeconds, 0, 1))
-	local fov = B.shot.fov
-	if t < B.turn then -- (turning round from the table)
-		local k = Rules.ease(t / B.turn)
-		local last, lastFov = tableCam(Cfg.Table.shots[#Cfg.Table.shots].t1)
-		cf, fov = last:Lerp(cf, k), lastFov + (fov - lastFov) * k
+-- at the table: standing at its near side, the eyes on the map, then on the report
+local function tableView(t: number): (Vector3, number, number)
+	local W = Cfg.View
+	local pos = post.origin + V(W.stand[1], W.eye, W.stand[2])
+	local looks = W.table.looks
+	local i, k = Rules.glance(looks, W.table.glance, t)
+	local y1, p1 = aimAt(pos, post.origin + v3(looks[math.max(i - 1, 1)].look))
+	local y2, p2 = aimAt(pos, post.origin + v3(looks[i].look))
+	return pos, Rules.turn(y1, y2, k, 0), p1 + (p2 - p1) * k
+end
+
+-- the eye standing in front of the picked order, looking at it
+local function pickEye(o: CommandPost.Order): (Vector3, number, number)
+	local P = Cfg.View.pick
+	local mid = o.part.Position
+	local eye = mid + o.part.CFrame.LookVector * P.back + V(0, P.up, 0)
+	local yaw, pitch = aimAt(eye, mid)
+	return eye, yaw, pitch
+end
+
+-- the vote: turning round to the board (to the right), a few steps toward it, and at the pick up to the order
+local function boardView(t: number): (Vector3, number, number)
+	local W = Cfg.View
+	local pos0, y0, p0 = tableView(FrontCfg.TableSeconds)
+	local look = post.origin + v3(W.board)
+	local to = post.origin + V(W.walk.to[1], W.eye, W.walk.to[2])
+	local yB, pB = aimAt(pos0, look)
+	local pos, yaw, pitch
+	if t < W.turn then
+		local k = Rules.ease(math.clamp(t / W.turn, 0, 1))
+		pos, yaw, pitch = pos0, Rules.turn(y0, yB, k, -1), p0 + (pB - p0) * k
+	else
+		local k = Rules.ease(math.clamp((t - W.turn) / (W.walk.t1 - W.turn), 0, 1))
+		pos = pos0:Lerp(to, k)
+		yaw, pitch = aimAt(pos, look)
 	end
-	-- at the pick, the close shot on the picked order
 	for _, o in post.orders do
 		if picked and o.key == picked then
-			local mid = o.part.Position
-			local C = B.close
-			local close = lookCf(mid + v3(C.from), mid + v3(C.look))
-			local k = Rules.ease(math.clamp((os.clock() - pickedAt) / C.ease, 0, 1))
-			cf, fov = cf:Lerp(close, k), fov + (C.fov - fov) * k
+			local eye, yP, pP = pickEye(o)
+			local k = Rules.ease(math.clamp((os.clock() - pickedAt) / W.pick.ease, 0, 1))
+			pos, yaw, pitch = pos:Lerp(eye, k), Rules.turn(yaw, yP, k, 0), pitch + (pP - pitch) * k
 		end
 	end
-	return cf, fov
+	return pos, yaw, pitch
 end
 
 local function armoryCam(t: number): CFrame
@@ -429,9 +442,9 @@ local function step()
 		return
 	end
 	local t = workspace:GetServerTimeNow() - sceneAt
-	local cf, fov = nil, Cfg.Fov
+	local cf, fov = nil, Cfg.View.fov
 	if scene == "Table" then
-		cf, fov = tableCam(t)
+		cf = eyeCf(tableView(t))
 		typeReport(t)
 	elseif scene == "Vote" then
 		CommandPost.signatures(post, folder, winnersPresent(), inkOf)
@@ -443,7 +456,19 @@ local function step()
 				if o.key == pick then
 					local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
 					local kitText = if type(spoken) == "string" then string.split(spoken, ",")[1] else "none"
-					stampArm(if kitText ~= "none" then kitText else nil, o, o.part.CFrame)
+					-- our arm, once we stand at the order: from our shoulder at the screen's lower right
+					local W = Cfg.View
+					local eye, yaw, pitch = pickEye(o)
+					local at = CFrame.new(eye) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+					local from = eye
+						+ at.RightVector * W.arm.right
+						- at.UpVector * W.arm.down
+						+ at.LookVector * W.arm.ahead
+					task.delay(W.pick.ease * 0.6, function()
+						if picked == pick and scene == "Vote" then
+							stampArm(if kitText ~= "none" then kitText else nil, o, o.part.CFrame, from)
+						end
+					end)
 				end
 			end
 			freeMouse.Visible = false
@@ -451,9 +476,9 @@ local function step()
 		-- the time left on the board's paper
 		local left = math.max(0, math.ceil(FrontCfg.VoteSeconds - t))
 		post.timer.Text = if picked then Cfg.Board.timer.closed else string.format("%d:%02d", left // 60, left % 60)
-		cf, fov = boardCam(t)
+		cf = eyeCf(boardView(t))
 	else
-		cf = armoryCam(t)
+		cf, fov = armoryCam(t), Cfg.Fov
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CFrame = cf

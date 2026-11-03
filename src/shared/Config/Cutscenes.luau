@@ -115,14 +115,14 @@ local Cutscenes = {
 	PixelsPerStud = 60,
 	Stage = { tent = { 0, 1800, 0 }, armory = { 0, 1800, 400 } },
 	-- The command post (the approved render, user 2026-11-03: src/client/CommandPost): a flat-roofed timber hut with
-	-- the war table in the middle and the orders board on the back wall. The render's metres at 10/3 studs each; places
-	-- in studs from the hut floor's middle, x across, y up, the board toward -z. Solemn light: a warm lamp over the
-	-- table, a low wash on the board, a dim cool fill.
+	-- the war table in the middle and the orders board on the front wall, behind us as we stand at the table (first
+	-- person, View). The render's metres at 10/3 studs each; places in studs from the hut floor's middle, x across, y
+	-- up, the board toward +z. Solemn light: a warm lamp over the table, a low wash on the board, a dim cool fill.
 	Post = {
-		room = { size = { 20, 11, 20 }, z = 1.67 }, -- inside: x -10..10, z -8.33 (the back wall) .. 11.67
+		room = { size = { 20, 11, 20 }, z = 1.67 }, -- inside: x -10..10, z -8.33 .. 11.67 (the board's wall)
 		lamp = { at = { 7.2, 7.7, 1.3 }, range = 16, brightness = 1.8, color = { 255, 206, 150 } },
-		wash = { at = { 0, 10.4, -2 }, range = 16, brightness = 1.4, angle = 70, color = { 255, 224, 184 } },
-		fill = { at = { 0, 9, 7 }, range = 26, brightness = 0.35, color = { 170, 186, 214 } },
+		wash = { at = { 0, 10.4, 5 }, range = 16, brightness = 1.4, angle = 70, color = { 255, 224, 184 } },
+		fill = { at = { 0, 9, -2 }, range = 26, brightness = 0.35, color = { 170, 186, 214 } },
 		-- the game's own models on the table at real size x1.35 (their longest side in studs), coloured as the game
 		-- colours them; places on the table top from its middle (x, z), turned `yaw` degrees, lying on a side if `side`
 		props = {
@@ -136,8 +136,7 @@ local Cutscenes = {
 	-- The war table: its top `size` (x, z) `top` studs over the floor; one sheet over the whole top: the played map's
 	-- sketch across its upper part (`strip`: from its top-left and its width, fractions of the sheet) with this match's
 	-- captures in red pencil, the grid's letters and numbers, a legend; the after-action report flat on its lower
-	-- right (nothing on it). The camera: shot 1 3/4 from above, shot 2 straight down (the render's two table shots);
-	-- studs from the floor's middle, `fov` the vertical field of view.
+	-- right (nothing on it), all reading from the near side, where we stand (View).
 	Table = {
 		size = { 12, 6 },
 		top = 3,
@@ -149,19 +148,37 @@ local Cutscenes = {
 		top3 = 3, -- the report's top soldiers (by battle points)
 		-- the report's lines typed one after another, `type` seconds apart from `lead`
 		typing = { lead = 0.8, type = 0.4 },
-		shots = {
-			{ t1 = 7, from = { -7.7, 7.8, 8.3 }, to = { -6.4, 7.4, 7.4 }, look = { 0.5, 3, 0 }, fov = 40 },
-			{ t1 = 14, from = { 0, 10.4, 0.25 }, to = { 0, 10.1, 0.25 }, look = { 0, 3, 0.25 }, fov = 72, down = true },
-		},
 	},
-	-- The orders board on the back wall (the camera turns round to it): "VOTE" on a plaque beside a paper counting the
+	-- First person (user 2026-11-03: "just like a natural first person"): standing at the war table's near side (`stand`,
+	-- x and z; eyes `eye` over the floor) looking down at the map, the eyes resting on each `looks` point until its t1
+	-- and moving on over `glance` seconds; at the vote turning round to the right to the board over `turn` seconds,
+	-- then stepping toward it (`walk`: to x, z by its t1), looking at `board`; at the pick stepping up to the winning
+	-- order (`pick`: `back` in front of it, `up` over its middle, over `ease` seconds) and stamping it with our own arm.
+	-- Studs from the hut floor's middle; `fov` vertical; a slow breath under it all (`sway` studs, `rate` a second).
+	View = {
+		eye = 5.8,
+		fov = 62,
+		sway = { amount = 0.025, rate = 0.25 },
+		stand = { 0, 4.6 },
+		table = {
+			glance = 1.4,
+			looks = { { t1 = 6, look = { -1.2, 3, -0.6 } }, { t1 = 14, look = { 3.4, 3, 1.2 } } },
+		},
+		turn = 1.5,
+		walk = { t1 = 3.6, to = { 0, 6.4 } },
+		board = { 0, 5.0, 11.27 },
+		pick = { back = 2.6, up = 0.5, ease = 0.9 },
+		-- where our arm comes from on the screen: right of, under and ahead of the eye (studs)
+		arm = { right = 0.9, down = 1.4, ahead = 0.3 },
+	},
+	-- The orders board on the front wall (we turn round to it from the table): "VOTE" on a plaque beside a paper counting the
 	-- vote's time down (user 2026-11-03: no words in the bars), one OPERATION ORDER
 	-- per map on offer (`slots` of them, `xs` across; an empty slot "to be announced"), photos pinned round them with red
 	-- string, a field telegram with the plan. Each order: its objective, a clipping of its map, its orders
 	-- (Vote.Orders), and "SIGNED, FOR THE FRONT" over a `grid` of signature lines (cols x rows: up to 40 signers, user
 	-- 2026-11-03) with the count out of the winners present. Studs; the board's middle `at` from the floor's middle.
 	Board = {
-		at = { 0, 5.83, -7.93 },
+		at = { 0, 5.83, 11.27 },
 		size = { 11.3, 8.7 },
 		title = { text = "VOTE", x = -1.3, y = 3.2, size = { 2.4, 0.9 } },
 		timer = { x = 1.5, y = 3.2, size = { 1.7, 0.9 }, label = "POLLS CLOSE IN", closed = "CLOSED" },
@@ -169,10 +186,6 @@ local Cutscenes = {
 		sheet = { width = 2.85, height = 3.75, xs = { -3.5, 0, 3.5 }, y = -0.9, tilt = 1, pixelsPerStud = 200 },
 		grid = { cols = 4, rows = 10 },
 		placeholder = { "TO BE ANNOUNCED", "TO BE DRAWN", "ORDERS TO FOLLOW" },
-		turn = 1.2, -- seconds the camera takes to turn round from the table
-		shot = { from = { 0, 6.3, 5.6 }, to = { 0, 6.2, 4.8 }, look = { 0, 6.0, -7.93 }, fov = 47 },
-		-- at the pick, the close shot on the picked order (the render's 4th): eye and look-at from that order's middle
-		close = { from = { -4.5, 0.3, 7.9 }, look = { 1, -0.6, 0 }, fov = 37, ease = 0.6 },
 		-- the field telegram's lines ({winner}: the winning nation)
 		planLines = {
 			"FIELD TELEGRAM",
@@ -185,10 +198,10 @@ local Cutscenes = {
 		write = 0.9, -- seconds a signature takes to write, letter by letter, in the signer's nation's ink
 		-- the stamp's thump as it lands (Roblox-licensed "Rock Impact Dirt Hard Muted Thuds 1", quickened)
 		stampSound = { id = 9118616114, volume = 0.9, speed = 1.3 },
-		-- the arm (an R6 right arm in the winners' uniform holding a wooden stamp), only at the pick: in from `reach` studs right of the
-		-- order, `lift` over it; down over `down`, a beat, back up over `up`; the arm `angle` degrees out of the board
-		-- toward the camera; the stamp's block (studs)
-		arm = { reach = 6, lift = 1.6, down = 0.35, hold = 0.25, up = 0.4, angle = 35, stamp = { 1, 0.4, 0.7 } },
+		-- our arm (an R6 right arm in the winners' uniform holding a wooden stamp), only at the pick: in `reach` studs
+		-- from the lower right of the screen (View.arm), `lift` off the order; down over `down`, a beat, back up over
+		-- `up`, then away; the stamp's block (studs)
+		arm = { reach = 2.5, lift = 0.8, down = 0.3, hold = 0.25, up = 0.35, stamp = { 0.9, 0.35, 0.6 } },
 	},
 	-- The armory while the next map loads: the six approved angles (render session, 2026-11-02), a slow drift each, a
 	-- cut every `cut` seconds; studs from the armory floor's middle. A placeholder room until the render is modelled.
@@ -272,7 +285,7 @@ local Cutscenes = {
 		},
 		maxCards = 3, -- at most this many maps offered (the live one among them)
 		-- the end: the winner stamped NEXT, shown `hold` seconds before the armory (src/server/Frontline)
-		pick = { hold = 1.5 },
+		pick = { hold = 3 },
 		rate = 0.25, -- seconds between a player's votes (the server's limit)
 	},
 
