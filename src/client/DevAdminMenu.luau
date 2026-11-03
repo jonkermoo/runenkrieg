@@ -349,6 +349,41 @@ local function build(player: Player): DevPanel.Panel
 	onOff("BotState", "Bot state labels", "BotState", workspace, A.BotState.attribute)
 	onOff("FreeEngineer", "Bots: Engineer for free", "FreeEngineer", workspace, A.FreeEngineerAttribute)
 	onOff("FreeGrenadier", "Bots: Grenadier for free", "FreeGrenadier", workspace, A.FreeGrenadierAttribute)
+	-- which bot rescues which casualty now (one each: Config/Bots.Actions.Rescue)
+	order += 1
+	local rescues = DevPanel.heading(p.panel, "", order)
+	rescues.Size = UDim2.new(1, -8, 0, 72)
+	rescues.TextWrapped = true
+	rescues.TextYAlignment = Enum.TextYAlignment.Top
+	local function showRescues()
+		local s = workspace:GetAttribute(A.BotRescuesAttribute)
+		rescues.Text = `Bot rescues:\n{if type(s) == "string" then s else "none now"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotRescuesAttribute):Connect(showRescues)
+	showRescues()
+	-- each side's bot classes now (Normal: rolled by Config/Bots.Classes weights)
+	order += 1
+	local mix = DevPanel.heading(p.panel, "", order)
+	mix.Size = UDim2.new(1, -8, 0, 54)
+	mix.TextWrapped = true
+	local function showMix()
+		local s = workspace:GetAttribute(A.BotClassesAttribute)
+		mix.Text = `Bot classes (Normal):\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotClassesAttribute):Connect(showMix)
+	showMix()
+	-- each side's Engineer bots: what each builds, or why nothing
+	order += 1
+	local engineers = DevPanel.heading(p.panel, "", order)
+	engineers.Size = UDim2.new(1, -8, 0, 96)
+	engineers.TextWrapped = true
+	engineers.TextYAlignment = Enum.TextYAlignment.Top
+	local function showEngineers()
+		local s = workspace:GetAttribute(A.BotEngineersAttribute)
+		engineers.Text = `Engineer bots:\n{if type(s) == "string" then s else "none now"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotEngineersAttribute):Connect(showEngineers)
+	showEngineers()
 	local botDigs: { [number]: TextButton } = {}
 	for _, k in A.BotDig.steps do
 		botDigs[k] = row(`BotDig{k}`, if k == 1 then "Bot digging: normal" else `Bot digging: x{k}`, "BotDig", k)
