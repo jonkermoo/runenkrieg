@@ -150,7 +150,7 @@ local function step()
 	if camera and b.Parent ~= camera then
 		b.Parent, g.Parent = camera, camera -- (a new camera)
 	end
-	b.Size = s.blur * f * k
+	b.Size = s.blur * fr * k -- (with the ring: as loud, as blurred)
 	b.Enabled = Settings.get("ScreenBlur") ~= "Off" and b.Size > Cfg.Shown.blur
 	local flash = s.flash * Rules.kick(e, Cfg.Flash.time)
 	g.Saturation = s.saturation * f * k

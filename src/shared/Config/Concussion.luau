@@ -30,10 +30,14 @@ local Concussion = {
 
 	-- the effects by kind, Light (strength `at`) to Heavy (strength 1). Seconds unless noted:
 	--   duration: the picture's effects, held at full for `hold`, then fading out (`Fade`)
-	--   blur: BlurEffect.Size; saturation, brightness: ColorCorrection added; vignette: the screen's edges darkened
+	--   blur: BlurEffect.Size at the start; it follows the ring (held and fading with it, user 2026-11-03: "make the
+	--   blur be to scale with the ringing volume and fade"); saturation, brightness: ColorCorrection added; vignette:
+	--   the screen's edges darkened
 	--   (0..1); tilt: the view rolled to one side (degrees), fading; sway: a slow dizzy wobble (degrees)
 	--   snap: the head thrown away from the shot (degrees, over `Snap.time`); flash: a white flash (brightness)
 	--   ring: the ring's volume, lasting `ringFor` (held for `hold`, fading `RingFade`); pitch: its playback speed
+	--   (user 2026-11-03: "make overall ringing shorter by a little ... and also lower how loud it can actually get":
+	--   ringFor x0.75, the loudest 0.85 -> 0.6)
 	--   muffle: how deep the world's sound is muffled (0..1, the highs cut first: `Muffle`), held `muffleFor`, back to
 	--   clear over `muffleBack`; duck: every other sound's volume share at full muffle
 	--   getUp: seconds added to a ragdoll's get-up wait (players and bots; only hits that knock: src/server/Ragdoll)
@@ -52,8 +56,8 @@ local Concussion = {
 				sway = 0,
 				snap = 0,
 				flash = 0,
-				ring = 0.12,
-				ringFor = 1.5,
+				ring = 0.08,
+				ringFor = 1.1,
 				pitch = 1,
 				muffle = 0.25,
 				muffleFor = 0.2,
@@ -74,8 +78,8 @@ local Concussion = {
 				sway = 1.5,
 				snap = 0,
 				flash = 0.25,
-				ring = 0.8,
-				ringFor = 12,
+				ring = 0.55,
+				ringFor = 9,
 				pitch = 1,
 				muffle = 1,
 				muffleFor = 2.5,
@@ -100,8 +104,8 @@ local Concussion = {
 				sway = 1.5,
 				snap = 6,
 				flash = 0.4,
-				ring = 0.7,
-				ringFor = 10,
+				ring = 0.5,
+				ringFor = 7.5,
 				pitch = 1.3,
 				muffle = 0.85,
 				muffleFor = 2,
@@ -122,8 +126,8 @@ local Concussion = {
 				sway = 2.5,
 				snap = 9,
 				flash = 0.5,
-				ring = 0.85,
-				ringFor = 14,
+				ring = 0.6,
+				ringFor = 10.5,
 				pitch = 1.3,
 				muffle = 1,
 				muffleFor = 3,
