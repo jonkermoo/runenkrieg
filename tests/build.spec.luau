@@ -41,6 +41,15 @@ return {
 		assert(p.sectorCap == nil and p.teamCap == nil and p.playerCap == math.huge, "no cap")
 		local w, gone = B.swing(0, p.work, true)
 		assert(w == p.work and not gone, "dug at the first swing")
+		-- with the build power cut (Config/Build.Power: a soldier's and an engineer's swings), still one
+		for _, class in { "Rifleman", "Engineer" } do
+			local amount = B.swingWork(p, B.swingPower("Build", class, C.Power))
+			w = B.swing(0, p.work, true, B.digAmount(amount, p.work))
+			assert(w == p.work, class .. ": dug at the first swing")
+			assert(B.workLeft(0, p.work, B.swingWork(p, C.Power.build)) == 1, "the bots count one swing")
+		end
+		local pile = assert(B.piece("SandbagPile", C.Pieces))
+		assert(B.swingWork(pile, 0.5) == 0.5, "any other piece: the power's share")
 		-- the cover (Config/Metrics: a crouched head about 4.1, the aimed muzzle 4.3): a crouched head at or under the
 		-- ground's level; standing, the eyes and the muzzle over it
 		assert(F.depth >= 4.1, "crouched, below the ground")
@@ -559,7 +568,7 @@ return {
 		assert(at("staff1", 1, 0) < at("staff2", 1, 0) and at("staff2", 1, 0) < at("staff3", 1, 0), "stage by stage")
 		assert(at("staff3", 10, 0) < at(nil, 2.5, 0), "a full beam is still less than a field gun shell")
 		local field = at(nil, 2.5, 1)
-		assert(field > 25 and field < 40, `a few field gun shells bury it ({field})`)
+		assert(field > 25 and field <= 40, `a few field gun shells bury it, 40 at most ({field})`)
 		-- (user 2026-11-02, the damage rework: its 100 kg shell buries what it hits, over a smaller reach)
 		local howitzer = at(nil, 100, 3)
 		assert(howitzer >= 100, `the howitzer buries it at once ({howitzer})`)
@@ -1162,5 +1171,22 @@ return {
 		assert(near(B.footprintToSeg(f, 7, 5, 7, 5, 0.5), math.sqrt(9 + 9)), "a point off its corner")
 		local turned: B.Footprint = { x = 0, z = 0, rx = 0, rz = 1, width = 8, depth = 4 }
 		assert(near(B.footprintToSeg(turned, -20, 10, 20, 10, 0.5), 6), "turned a quarter: its long side along z")
+	end,
+	-- (a bridge's square buried: it read Trench.hp.bare, gone since trenches fill by HP to 0, and errored)
+	["a bridge falls in with its square"] = function()
+		local fall = C.Bridge.fall
+		assert(type(fall) == "number" and fall > 0 and fall < C.Bridge.dug, "between buried and laid on")
+		assert(not B.bridgeFalls(100, 100, fall) and not B.bridgeFalls(fall, 100, fall), "dug: it stands")
+		assert(B.bridgeFalls(fall - 0.1, 100, fall) and B.bridgeFalls(0, 100, fall), "buried past it: it falls")
+	end,
+	-- (user 2026-11-03: "thats assuming its a direct hit. make it maximum 40 on a direct hit")
+	["a field shell takes 40 on a direct hit, less off it"] = function()
+		local S = C.Structures
+		local field = S.field
+		assert(field.hit == 40, "40 at most")
+		assert(near(B.structureHit(0, field, S.edge), 40), "a direct hit")
+		assert(3 * B.structureHit(0, field, S.edge) >= 100, "three direct hits bury a trench")
+		assert(B.structureHit(field.edge + 2, field, S.edge) < 40, "off it: less")
+		assert(B.structureHit(field.reach, field, S.edge) == 0)
 	end,
 }
