@@ -129,6 +129,9 @@ local DevTools = {
 		SpeedSteps = { 1, 2, 4, 8 },
 		-- flying: studs/s at x1; WASD moves along the camera's view, Space / E up, Q / LeftControl down
 		FlySpeed = 32,
+		-- Match (Normal): each sector's capture readout (the sides' weights, its control, its speed and the seconds to
+		-- the capture), refreshed every `CaptureReadout` seconds
+		CaptureReadout = 0.25,
 		FlyUpKeys = { "Space", "E" },
 		FlyDownKeys = { "Q", "LeftControl" },
 		Attribute = "DevSpeed", -- the chosen multiplier, on the Player (read by src/client/Stance)

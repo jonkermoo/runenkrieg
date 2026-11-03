@@ -1295,8 +1295,9 @@ local function command()
 		owner[i] = if type(o) == "string" then o else s.startOwner
 		local c = sf and sf:GetAttribute("Control")
 		control[i] = if type(c) == "number" then c else FrontRules.rest(owner[i])
-		local w = sf and sf:GetAttribute("West")
-		local e = sf and sf:GetAttribute("East")
+		-- (by head: Config/Frontline.HeadsSuffix; the "West" / "East" weights count a bot as half for the capture)
+		local w = sf and sf:GetAttribute("West" .. FrontCfg.HeadsSuffix)
+		local e = sf and sf:GetAttribute("East" .. FrontCfg.HeadsSuffix)
 		counts[i] = { West = if type(w) == "number" then w else 0, East = if type(e) == "number" then e else 0 }
 	end
 	local state = { owner = owner, control = control }

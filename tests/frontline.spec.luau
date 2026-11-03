@@ -64,6 +64,33 @@ return {
 		assert(near(R.push(Cfg, 3, 1, 1) :: number, R.push(Cfg, 2, 0, 1) :: number), "by the lead")
 		assert(R.push(Cfg, 0, 0, 1) == nil and R.push(Cfg, 2, 2, 1) == nil)
 	end,
+	["a bot counts half a player: two bots push as one player, a bot alone at half speed (user 2026-11-03)"] = function()
+		assert(R.weight(Cfg, false) == 1 and R.weight(Cfg, true) == Cfg.BotWeight and Cfg.BotWeight == 0.5)
+		local bot = R.weight(Cfg, true)
+		assert(near(R.push(Cfg, bot, 0, 1) :: number, R.push(Cfg, 1, 0, 1) :: number / 2), "a bot alone: half speed")
+		assert(near(R.push(Cfg, 2 * bot, 0, 1) :: number, R.push(Cfg, 1, 0, 1) :: number), "two bots: one player")
+		assert(R.push(Cfg, 1, 2 * bot, 1) == nil, "a player against two bots: contested")
+		assert(near(R.push(Cfg, 1 + bot, 1, 1) :: number, R.push(Cfg, bot, 0, 1) :: number), "by the lead in weight")
+		-- a bot alone takes the neutral S3 in the whole capture time
+		local s = R.new(Map1.sectors)
+		local c = at(3, 0, 0)
+		c[3].West = bot
+		assert(#hold(s, c, Cfg.CaptureSeconds - 0.5) == 0 and s.owner[3] ~= "West", "not yet just before")
+		hold(s, c, 1)
+		assert(s.owner[3] == "West", "taken at the full capture time")
+	end,
+	["the admin readout's rates: only the sectors either side may attack move"] = function()
+		local s = R.new(Map1.sectors)
+		local c = at(3, 2, 0)
+		c[1].East = 4 -- deep in West's ground: out of East's reach
+		local r = R.rates(s, Cfg, c, 1)
+		assert(near(r[3], 2 * 2 / Cfg.CaptureSeconds), "S3: two soldiers' lead, per second")
+		assert(r[1] == 0 and r[2] == 0, "out of reach / empty")
+		assert(near(R.rates(s, Cfg, c, 2)[3], 2 * r[3]), "times the momentum")
+		c[3].East = 2
+		assert(R.rates(s, Cfg, c, 1)[3] == 0, "contested")
+		assert(near(R.eta(0, 0.1) :: number, 10) and near(R.eta(0.5, -0.1) :: number, 15) and R.eta(0.3, 0) == nil)
+	end,
 	["an enemy sector goes neutral first, then is taken"] = function()
 		local s = R.new(Map1.sectors)
 		hold(s, at(3, 1, 0), Cfg.CaptureSeconds / 2) -- West takes S3
