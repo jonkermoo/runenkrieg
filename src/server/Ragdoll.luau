@@ -181,7 +181,8 @@ local function serverThrow(character: Model, knock: { [string]: number }, direct
 			if not diedAt and (not humanoid or humanoid.Health <= 0) then
 				diedAt = now
 			end
-			if root:GetNetworkOwner() == nil then
+			-- (CanSetNetworkOwnership first: GetNetworkOwner throws on an anchored root, e.g. a soldier anchored by a test)
+			if root:CanSetNetworkOwnership() and root:GetNetworkOwner() == nil then
 				local settled = diedAt ~= nil and now - diedAt >= T.settle
 				if (not thrownAt and settled) or (thrownAt and now - thrownAt < T.hold) then
 					thrownAt = thrownAt or now

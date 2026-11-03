@@ -325,10 +325,13 @@ local function release()
 		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
 			root.Anchored = false
-			if CollectionService:HasTag(character, BotsCfg.Tag) then
-				root:SetNetworkOwner(nil) -- (a bot stays the server's)
-			else
-				root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+			-- (unless still held by something anchored, e.g. a test: the ownership calls would throw)
+			if root:CanSetNetworkOwnership() then
+				if CollectionService:HasTag(character, BotsCfg.Tag) then
+					root:SetNetworkOwner(nil) -- (a bot stays the server's)
+				else
+					root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+				end
 			end
 		end
 		local ball = character:FindFirstChild(Cfg.Shield.name) :: BasePart?

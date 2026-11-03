@@ -376,7 +376,8 @@ function DevDummies.heal()
 	end
 end
 
--- Every living dummy knocked down (Config/DevTools.Dummies.KnockDown), thrown away from `from` (else backwards).
+-- Every living dummy knocked down and kept down (Config/DevTools.Dummies.KnockDown), thrown away from `from` (else
+-- backwards).
 function DevDummies.knockDown(from: Vector3?)
 	local K = D.KnockDown
 	for _, m in folder():GetChildren() do
@@ -386,6 +387,7 @@ function DevDummies.knockDown(from: Vector3?)
 			local away = if from then at.Position - from else -at.LookVector
 			away = Vector3.new(away.X, 0, away.Z)
 			Ragdoll.knock(m :: Model, K.knock, if away.Magnitude > 1e-3 then away.Unit else -at.LookVector, 1, K.damage)
+			m:SetAttribute("StayDown", true) -- (cleared when it gets up: src/server/Ragdoll)
 		end
 	end
 end
