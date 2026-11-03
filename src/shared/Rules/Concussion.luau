@@ -58,6 +58,11 @@ function Concussion.near(kpa: number, n: { from: number, full: number, most: num
 	return n.most * math.clamp(math.log(kpa / n.from) / math.log(n.full / n.from), 0, 1)
 end
 
+-- Whether a blast of `kg` going off `d` studs from the head rings the ears and muffles them (cfg.Ears).
+function Concussion.ears(kg: number, d: number, e: { kg: number, within: number }): boolean
+	return kg >= e.kg and d <= e.within
+end
+
 -- The effects at the start of a concussion of `strength` of `kind` (cfg.Kinds[kind]): Light at `Light.at`, Heavy at 1,
 -- in between in a straight line; weaker than `Light.at`, the Light values shrunk in step (multipliers towards 1).
 function Concussion.shape(strength: number, kind: Kind, cfg: any): Shape

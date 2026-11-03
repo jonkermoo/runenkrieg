@@ -1,10 +1,11 @@
 --!strict
 -- Concussion and shell shock on the own view (Config/Concussion, Rules/Concussion): a near blast (every blast shown:
 -- src/client/Vfx/Blast calls Concussion.near, when its sound gets here), a blast's throw survived and a helmet knocked
--- off (src/server/Concussion sends Net "Concussed"). A high ring, every other sound muffled (the highs first) and
--- coming back, a pressure thump (blasts) or a clang (the helmet); blur, a greyer, dimmer picture, dark edges, the view
--- tilted and wobbling, the head thrown by a helmet hit, all fading out. A second one restarts it at the stronger of the
--- two, never adds up. The "ShellShock" setting scales it (0: off); the blur also follows "ScreenBlur". The HUD stays
+-- off (src/server/Concussion sends Net "Concussed"). The picture: blur, a greyer, dimmer picture, dark edges, the view
+-- tilted and wobbling, the head thrown by a helmet hit, all fading out, with a pressure thump (near blasts) or a clang
+-- (the helmet). The ears, only for a big charge close by (Config/Concussion.Ears: a howitzer shell): a high ring and
+-- every other sound muffled (the highs first) and coming back. A second one restarts the picture at the stronger of
+-- the two, never adds up; a second ring stops the first. The "ShellShock" setting scales it (0: off); the blur also follows "ScreenBlur". The HUD stays
 -- on top. Ends at death and on a new soldier. (The slower get-up is the server's: src/server/Ragdoll.)
 
 local Players = game:GetService("Players")
@@ -33,6 +34,8 @@ local edges: ScreenGui? = nil
 local frame: RBXScriptConnection? = nil
 local state: Rules.State? = nil
 local shape: Rules.Shape? = nil
+local ears: Rules.State? = nil -- (the ring and the muffle, on their own timing: Config/Concussion.Ears)
+local earShape: Rules.Shape? = nil
 local snapPitch, snapYaw, side = 0, 0, 1
 local life = 0 -- (a near blast still on its way when the soldier died or respawned is dropped)
 
@@ -57,6 +60,7 @@ local function stop()
 		RunService:UnbindFromRenderStep("Concussion")
 	end
 	state, shape = nil, nil
+	ears, earShape = nil, nil
 	if blur then
 		blur.Enabled = false
 	end
@@ -136,11 +140,18 @@ local function step()
 	if not st or not s then
 		return
 	end
-	local e = os.clock() - st.at
+	local now = os.clock()
+	local e = now - st.at
 	local f = Rules.held(e, s.hold, s.duration, Cfg.Fade)
 	local fr = Rules.held(e, s.hold, s.ringFor, Cfg.RingFade)
-	local m = Rules.muffle(e, s, Cfg.Muffle.attack)
-	if f <= 0 and fr <= 0 and m <= 0 then
+	local er, m = 0, 0
+	local et, es = ears, earShape
+	if et and es then
+		local ee = now - et.at
+		er = Rules.held(ee, es.hold, es.ringFor, Cfg.RingFade)
+		m = Rules.muffle(ee, es, Cfg.Muffle.attack)
+	end
+	if f <= 0 and fr <= 0 and er <= 0 and m <= 0 then
 		stop()
 		return
 	end
@@ -150,7 +161,7 @@ local function step()
 	if camera and b.Parent ~= camera then
 		b.Parent, g.Parent = camera, camera -- (a new camera)
 	end
-	b.Size = s.blur * fr * k -- (with the ring: as loud, as blurred)
+	b.Size = s.blur * fr * k -- (on the ring's timing: as loud as it would be, as blurred)
 	b.Enabled = Settings.get("ScreenBlur") ~= "Off" and b.Size > Cfg.Shown.blur
 	local flash = s.flash * Rules.kick(e, Cfg.Flash.time)
 	g.Saturation = s.saturation * f * k
@@ -162,14 +173,14 @@ local function step()
 			(child :: Frame).BackgroundTransparency = 1 - dark
 		end
 	end
-	r.Volume = s.ring * fr * k * Audio.volume()
-	if fr <= 0 and r.IsPlaying then
+	r.Volume = if es then es.ring * er * k * Audio.volume() else 0
+	if er <= 0 and r.IsPlaying then
 		r:Stop()
 	end
 	local depth = m * k
 	local M = Cfg.Muffle
 	Audio.muffle(-M.high * depth, -M.mid * depth, M.low * depth)
-	Audio.duck(1 + (s.duck - 1) * (if s.muffle > 0 then m / s.muffle else 0) * k)
+	Audio.duck(if es and es.muffle > 0 then 1 + (es.duck - 1) * (m / es.muffle) * k else 1)
 end
 
 -- after the camera is placed: the head snap, the tilt and the dizzy wobble
@@ -194,8 +205,9 @@ local function view()
 end
 
 -- Shows a concussion of `strength` (0..1) and `kind` from now, over whatever was showing (the stronger of the two).
--- `from`: the way a helmet hit travelled (the head is thrown along it); `heard`: a near blast's thump.
-function Concussion.show(strength: number, kind: Rules.Kind, from: Vector3?, heard: boolean?)
+-- `from`: the way a helmet hit travelled (the head is thrown along it); `heard`: a near blast's thump; `rung`: it rings
+-- the ears and muffles them too (Config/Concussion.Ears).
+function Concussion.show(strength: number, kind: Rules.Kind, from: Vector3?, heard: boolean?, rung: boolean?)
 	if not alive() then
 		return
 	end
@@ -215,33 +227,36 @@ function Concussion.show(strength: number, kind: Rules.Kind, from: Vector3?, hea
 		c.TimePosition = 0
 		c:Play()
 	end
-	if not st then
-		return -- (a weaker one over a stronger one still going: kept)
-	end
-	local s = Rules.shape(st.strength, st.kind, Cfg)
-	if s.duration <= 0 and s.ringFor <= 0 and s.muffle <= 0 then
-		return
-	end
-	state, shape = st, s
-	side = if math.random() < 0.5 then -1 else 1
-	snapPitch, snapYaw = 0, 0
-	local camera = workspace.CurrentCamera
-	if from and camera and from.Magnitude > 0 then
-		-- thrown along the shot: hit from the front, the head goes back (looks up); from the left, it turns right
-		local l = camera.CFrame:VectorToObjectSpace(from.Unit)
-		snapPitch, snapYaw = math.clamp(l.Z, -1, 1), -math.clamp(l.X, -1, 1)
-		if math.abs(snapPitch) + math.abs(snapYaw) < Cfg.Snap.crown then
-			snapPitch = 1 -- (straight down on the crown: a nod back all the same)
+	if rung then
+		local es = Rules.shape(strength, kind, Cfg)
+		if es.ringFor > 0 or es.muffle > 0 then
+			ears, earShape = { at = now, strength = strength, kind = kind }, es
+			-- a new one over a ring still going: the old one stops, the new one starts from the top
+			local r = ring :: Sound
+			r.PlaybackSpeed = es.pitch
+			r:Stop()
+			r.TimePosition = 0
+			r:Play()
 		end
 	end
-	local g, r = grade :: ColorCorrectionEffect, ring :: Sound
-	g.Enabled = true
-	r.PlaybackSpeed = s.pitch
-	if s.ringFor > 0 then
-		-- a new one over a ring still going: the old one stops, the new one starts from the top
-		r:Stop()
-		r.TimePosition = 0
-		r:Play()
+	local s = st and Rules.shape(st.strength, st.kind, Cfg)
+	if st and s and (s.duration > 0 or s.ringFor > 0) then
+		state, shape = st, s
+		side = if math.random() < 0.5 then -1 else 1
+		snapPitch, snapYaw = 0, 0
+		local camera = workspace.CurrentCamera
+		if from and camera and from.Magnitude > 0 then
+			-- thrown along the shot: hit from the front, the head goes back (looks up); from the left, it turns right
+			local l = camera.CFrame:VectorToObjectSpace(from.Unit)
+			snapPitch, snapYaw = math.clamp(l.Z, -1, 1), -math.clamp(l.X, -1, 1)
+			if math.abs(snapPitch) + math.abs(snapYaw) < Cfg.Snap.crown then
+				snapPitch = 1 -- (straight down on the crown: a nod back all the same)
+			end
+		end
+		(grade :: ColorCorrectionEffect).Enabled = true
+	end
+	if not state then
+		return -- (nothing showing: the ears go with a picture)
 	end
 	if not frame then
 		frame = RunService.RenderStepped:Connect(step)
@@ -251,7 +266,7 @@ function Concussion.show(strength: number, kind: Rules.Kind, from: Vector3?, hea
 end
 
 -- A blast of `kg` of TNT at `at` (every blast shown, src/client/Vfx/Blast): felt by its overpressure at the own head
--- (Config/Concussion.Near), once its sound gets here.
+-- (Config/Concussion.Near), once its sound gets here; a big one close by rings the ears too (Config/Concussion.Ears).
 function Concussion.near(at: Vector3, kg: number)
 	local head = alive()
 	if not head or kg <= 0 then
@@ -262,10 +277,11 @@ function Concussion.near(at: Vector3, kg: number)
 	if strength <= 0 then
 		return
 	end
+	local rung = Rules.ears(kg, d, Cfg.Ears)
 	local mine = life
 	task.delay(d / AudioCfg.Heard.speed, function()
 		if life == mine then
-			Concussion.show(strength, "Blast", nil, true)
+			Concussion.show(strength, "Blast", nil, true, rung)
 		end
 	end)
 end

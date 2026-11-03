@@ -17,6 +17,20 @@ return {
 		assert(near(R.blast(1, C.Blast), 1), "the hardest")
 		assert(near(R.blast(5, C.Blast), 1), "clamped")
 	end,
+	["only a big charge close by rings the ears (a howitzer shell, not a field shell, grenade or staff)"] = function()
+		local E = C.Ears
+		local Art = require("../src/shared/Config/Artillery")
+		local Gr = require("../src/shared/Config/Grenades")
+		assert(R.ears(Art.Guns.artillery_howitzer.kg, E.within, E), "a howitzer shell at the edge")
+		assert(not R.ears(Art.Guns.artillery_howitzer.kg, E.within + 1, E), "past it")
+		assert(not R.ears(Art.Guns.artillery_qf18.kg, 1, E), "a field shell never")
+		for name, g in Gr.Types do
+			assert(not R.ears(g.kg or 0, 1, E), `grenade {name} never`)
+		end
+		for stage, kg in require("../src/shared/Config/CameraShake").Stages do
+			assert(not R.ears(kg, 1, E), `staff stage {stage} never`)
+		end
+	end,
 	["a near blast concusses by its overpressure, on a log scale up to most"] = function()
 		local N = C.Near
 		assert(R.near(N.from, N) == 0 and R.near(1, N) == 0, "under from: nothing")

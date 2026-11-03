@@ -27,15 +27,22 @@ local Concussion = {
 	-- and thrown too: the heavier thrown concussion, Blast above, takes over; Studio 2026-11-03: from 5 kPa a field shell
 	-- 60 studs off left almost nothing, too quiet for ~170 dB at the ear)
 	Near = { from = 2, full = 110, most = 0.8 },
+	-- the ears (the ring and the muffle) only for a charge of at least `kg` going off within `within` studs of the head:
+	-- a howitzer shell (Config/Artillery.Guns, 100 kg; its blast hurts to ~32 studs) close by. Every other concussion
+	-- (grenades, field shells, staffs, a blast's throw, a helmet hit) shows the picture only (user 2026-11-03: "the
+	-- ringing is too annoying. make it only for a close howitzer shot. everything else should just be the blur effect
+	-- standalone"; the muffle with the ring only, 40 studs)
+	Ears = { kg = 50, within = 40 },
 
 	-- the effects by kind, Light (strength `at`) to Heavy (strength 1). Seconds unless noted:
 	--   duration: the picture's effects, held at full for `hold`, then fading out (`Fade`)
-	--   blur: BlurEffect.Size at the start; it follows the ring (held and fading with it, user 2026-11-03: "make the
-	--   blur be to scale with the ringing volume and fade"); saturation, brightness: ColorCorrection added; vignette:
+	--   blur: BlurEffect.Size at the start; it runs on the ring's timing (`ringFor`, held and fading with it, user
+	--   2026-11-03: "make the blur be to scale with the ringing volume and fade"), rung or not (`Ears`); saturation,
+	--   brightness: ColorCorrection added; vignette:
 	--   the screen's edges darkened
 	--   (0..1); tilt: the view rolled to one side (degrees), fading; sway: a slow dizzy wobble (degrees)
 	--   snap: the head thrown away from the shot (degrees, over `Snap.time`); flash: a white flash (brightness)
-	--   ring: the ring's volume, lasting `ringFor` (held for `hold`, fading `RingFade`); pitch: its playback speed
+	--   ring (only within `Ears`, as the muffle): the ring's volume, lasting `ringFor` (held for `hold`, fading `RingFade`); pitch: its playback speed
 	--   (user 2026-11-03: "make overall ringing shorter by a little ... and also lower how loud it can actually get":
 	--   ringFor x0.75, the loudest 0.85 -> 0.6)
 	--   muffle: how deep the world's sound is muffled (0..1, the highs cut first: `Muffle`), held `muffleFor`, back to
