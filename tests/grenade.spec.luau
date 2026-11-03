@@ -115,20 +115,20 @@ return {
 		local mid = G.fragments((f.lethal + f.wound) / 2, f)
 		assert(mid < f.near and mid > f.far)
 	end,
-	["the real grenades' reach (user 2026-11-01): Mills kills to ~4 m, wounds to ~15 m"] = function()
+	["the grenades' reach (user 2026-11-03: halved): Mills kills to ~2 m, wounds to ~7.5 m"] = function()
 		local M = require("../src/shared/Config/Damage").Blast.MetresPerStud
 		local mills, sipe, stick = C.Types.grenade_mills, C.Types.grenade_sipe, C.Types.grenade_stick
-		assert(math.abs(mills.fragments.lethal * M - 4) < 0.5 and math.abs(mills.fragments.wound * M - 15) < 1)
-		assert(math.abs(sipe.fragments.wound * M - 12) < 1)
-		assert(math.abs(stick.fragments.wound * M - 15) < 1, "the stick's rated ~15 m on open ground")
+		assert(math.abs(mills.fragments.lethal * M - 2) < 0.5 and math.abs(mills.fragments.wound * M - 7.5) < 1)
+		assert(math.abs(sipe.fragments.wound * M - 6) < 1)
+		assert(math.abs(stick.fragments.wound * M - 7.5) < 1, "the stick as far as the Mills")
 		-- damage pinned at a few distances (studs to the torso, before cover)
 		local function at(t, d)
 			return math.floor(G.fragments(d, t.fragments) + 0.5)
 		end
-		assert(at(mills, 10) == 100 and at(mills, 20) == 54 and at(mills, 28) == 40 and at(mills, 35) == 27)
-		assert(at(mills, 43) == 0)
-		assert(at(sipe, 10) == 100 and at(sipe, 20) == 44 and at(sipe, 28) == 28 and at(sipe, 35) == 0)
-		assert(at(stick, 8) == 100 and at(stick, 10) == 48 and at(stick, 20) == 36 and at(stick, 35) == 18)
+		assert(at(mills, 6) == 100 and at(mills, 10) == 55 and at(mills, 15) == 37 and at(mills, 20) == 19)
+		assert(at(mills, 22) == 0)
+		assert(at(sipe, 6) == 100 and at(sipe, 10) == 47 and at(sipe, 15) == 24 and at(sipe, 18) == 0)
+		assert(at(stick, 6) == 100 and at(stick, 10) == 39 and at(stick, 15) == 26 and at(stick, 20) == 13)
 		-- the stick's thin can: lighter hits than the cast-iron Mills at the same distance
 		assert(at(stick, 20) < at(mills, 20))
 	end,

@@ -286,7 +286,6 @@ export type BlastOpts = {
 	own: number?,
 	ownFling: boolean?, -- false: the one who set it off isn't thrown by it either (the staff's)
 	flingLeast: number?, -- the least throw for whoever it hurts (nil: Config/Damage.Blast.Fling.least)
-	flingReach: number?, -- studs: farther off, whoever it hurts (and lives) is hurt but neither thrown nor concussed
 	crater: boolean?,
 	craterScale: number?, -- the hole's size (Rules/Blast.craterPlan; nil: 1): the howitzer's, Config/Artillery
 	wear: number?,
@@ -421,14 +420,6 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 				local scale = if left <= 0 then 1 else Blast.fling(full, B.Soldier.max, o.flingLeast or B.Fling.least)
 				if own and o.ownFling == false and left > 0 then
 					scale = nil -- (user 2026-10-21: a point-blank staff blast threw its own caster to their death)
-				end
-				if o.flingReach and d > o.flingReach and left > 0 then
-					-- a far splinter wound: hurt where it stands, no throw, no concussion (user 2026-11-03: "40 stud
-					-- grenade shouldnt shell shock too much or knock back")
-					scale = nil
-					if amount > 0 then
-						hurt(character, humanoid, left, nil, flat(torso.Position - position), nil, by)
-					end
 				end
 				if scale then
 					knocked[character] = true

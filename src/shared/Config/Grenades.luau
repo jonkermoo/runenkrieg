@@ -17,10 +17,6 @@ local Grenades = {
 	-- whoever it hurts is thrown at least this share of the blast throw (Config/Damage.Blast.Fling `least`, 0.3 for
 	-- other blasts; user 2026-11-01: more knockback): a fragment wound drops a soldier clearly; a kill throws in full
 	FlingLeast = 0.5,
-	-- ...but only within this share of its splinters' `wound` reach (a Mills 21 studs, the SIPE 17, the stick 21): farther
-	-- off a splinter still wounds, without the throw or the concussion (user 2026-11-03: "40 stud grenade shouldnt shell
-	-- shock too much or knock back. move the 40 stud effects to 20")
-	FlingReach = 0.5,
 
 	-- The throw: along the camera's look, lifted `loft` degrees (so a level look still lobs it), at the grenade's own
 	-- `speed` (studs/s, below). From the head, `from` studs out in the camera's space (+X right, +Y up, -Z forward): the
@@ -119,6 +115,10 @@ local Grenades = {
 	-- scaled from a modern grenade's (180 g: lethal 5 m, casualties 15 m), kill to ~4 m and wound to ~15 m; the SIPE's
 	-- black powder bursts its cast iron weaker (~3.5 / 12 m); the stick is a blast grenade, rated ~15 m on open ground,
 	-- so it reaches as far but each hit is lighter. Fragments flew further still (~90 m), not modelled.
+	-- Halved on 2026-11-03 (user: "40 stud grenade shouldnt shell shock too much or knock back. move the 40 stud effects
+	-- to 20 ... the damage should carry over too. scale everything else appropriately as well"): wound 42 / 34 / 42 ->
+	-- 21 / 17 / 21, and so the throw, the concussion and the flinch band (all from these); lethal 11 / 10 / 8 -> 6, not
+	-- under ~5.3 (user 2026-10-23: one 4 studs off on the ground kills).
 	-- motion: its tumble in the air (`spin`, radians/s) and how it bounces and rolls (Motion above): the stick turns end
 	-- over end fast and rolls only a little across its handle; the egg-shaped Mills and the round SIPE spin slowly and
 	-- roll further.
@@ -126,7 +126,7 @@ local Grenades = {
 		grenade_mills = {
 			speed = 128,
 			kg = 0.071,
-			fragments = { lethal = 11, wound = 42, max = 100, near = 70, far = 15 },
+			fragments = { lethal = 6, wound = 21, max = 100, near = 70, far = 15 },
 			pitch = 1.1, -- its bang's pitch (Sound below)
 			motion = {
 				spin = 5,
@@ -142,7 +142,7 @@ local Grenades = {
 		grenade_sipe = {
 			speed = 128,
 			kg = 0.1,
-			fragments = { lethal = 10, wound = 34, max = 100, near = 65, far = 15 },
+			fragments = { lethal = 6, wound = 17, max = 100, near = 65, far = 15 },
 			pitch = 1, -- its bang's pitch (Sound below)
 			motion = {
 				spin = 4,
@@ -159,8 +159,8 @@ local Grenades = {
 			speed = 139,
 			kg = 0.17,
 			-- (lethal 4 -> 6, user 2026-10-23: a stick 3-4 studs off on the ground left ~50; the torso is ~2.4-3.3 up;
-			-- 6 / 14 -> 8 / 42 on 2026-11-01, its rated ~15 m on open ground)
-			fragments = { lethal = 8, wound = 42, max = 100, near = 50, far = 10 },
+			-- 6 / 14 -> 8 / 42 on 2026-11-01, its rated ~15 m on open ground; halved to 6 / 21 on 2026-11-03, above)
+			fragments = { lethal = 6, wound = 21, max = 100, near = 50, far = 10 },
 			pitch = 0.9, -- its bang's pitch (Sound below)
 			motion = {
 				spin = 12,
