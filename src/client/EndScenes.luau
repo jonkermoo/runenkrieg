@@ -1,14 +1,16 @@
 --!strict
 -- The end of a Normal match after the fade (user 2026-11-02; Config/Cutscenes Table / Board / Armory / Speech,
 -- Workspace.Frontline's Phase "Table", "Vote", "Loading"), on the server's clock for every player:
--- - Table: the war table in the command post (src/client/CommandPost), the played map's sketch on its sheet with this
---   match's captures redrawn in red pencil, the after-action report on its lower right typing itself out (Net
---   "MatchResults": the winner, the length, the top soldiers, your own line); 3/4 from above, then straight down;
+-- - Table: the war table in the command post (src/client/CommandPost), the played map's sketch over its whole sheet
+--   with this match's captures redrawn in red pencil over the phase, each side's painted block moving with them and the
+--   points' pennants flipping to their takers, the after-action report on its clipboard typing itself out (Net
+--   "MatchResults": the winner, the length, the top soldiers, your own line) and ticked in red pencil; the lamp sways;
 -- - Vote: the camera turns round to the orders board: an OPERATION ORDER per offered map (an empty slot "to be
 --   announced"), the field telegram with the plan. Those who may sign (the Player's MaySign: the winners, src/server/
 --   MapVote) click an order to sign it (Net "MapVote"); every signature is written letter by letter in the winners'
---   ink down the order's grid, its count out of the winners present. At the pick (VotePick) the camera closes on it and
---   an R6 arm in the winners' uniform holding a wooden stamp stamps NEXT on it;
+--   ink down the order's grid, its count out of the winners present (rolling up). A brass stopwatch sweeps the time, a
+--   red string runs from the VOTE sign to the leading order. At the pick (VotePick) the camera closes on it and an R6
+--   arm in the winners' uniform holding a wooden stamp stamps NEXT on it; the losing orders swing on one pin;
 -- - Loading: the empty armory, a slow drift on each approved angle in turn, while the narrator speaks the first part
 --   (src/client/Speech); it gives way to the pre-match flight at the countdown (src/client/MatchCutscene), or, if the
 --   match waits for players, once the narrator is done.
@@ -63,7 +65,7 @@ local set: Folder? = nil
 local post: CommandPost.Post = nil :: any
 local armory: Vector3
 local armoryModel = false -- the modelled hall stands (else the placeholder room)
-local reportLines: { TextLabel }, reportStamp: TextLabel? = {}, nil
+local reportLines: { TextLabel }, reportTick: ((number) -> ())? = {}, nil
 local mapSheet: any = nil
 
 local function part(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?): Part
@@ -471,14 +473,15 @@ local function typeReport(t: number)
 		local u = math.clamp((t - start) / T.typing.type, 0, 1)
 		l.MaxVisibleGraphemes = math.floor(u * (utf8.len(l.Text) or #l.Text) + 0.5)
 	end
-	if reportStamp then
-		reportStamp.Visible = t > T.typing.lead + #reportLines * T.typing.type
+	if reportTick then
+		local typed = T.typing.lead + #reportLines * T.typing.type
+		reportTick((t - typed - T.tick.after) / T.tick.draw)
 	end
 end
 
 local function fillReport()
 	local r = results or {}
-	reportLines, reportStamp = CommandPost.report(post, r, nationOf)
+	reportLines, reportTick = CommandPost.report(post, r, nationOf)
 	-- the played map on the sheet, this match's captures redrawn on it
 	if mapSheet then
 		mapSheet.destroy()
@@ -486,7 +489,7 @@ local function fillReport()
 	end
 	local key = if type(r.map) == "string" then r.map else LiveMap.key()
 	mapSheet = SketchMap.new(post.strip, key, {})
-	mapSheet.replay(r.log or {}, r.winner ~= nil)
+	mapSheet.replay(r.log or {}, r.winner ~= nil, Cfg.Table.replay)
 end
 
 local function finish()
@@ -524,6 +527,7 @@ local function step()
 	if scene == "Table" then
 		cf = eyeCf(tableView(t))
 		typeReport(t)
+		CommandPost.stepTable(post, mapSheet, folder, t)
 	elseif scene == "Vote" then
 		CommandPost.signatures(post, folder, winnersPresent(), inkOf)
 		local pick = folder:GetAttribute("VotePick")
@@ -551,10 +555,13 @@ local function step()
 			end
 			freeMouse.Visible = false
 		end
-		-- the time left on the board's paper
+		-- the time left: the stopwatch's hand and the window in its dial
 		local left = math.max(0, math.ceil(FrontCfg.VoteSeconds - t))
-		post.timer.Text = if picked then Cfg.Board.timer.closed else string.format("%d:%02d", left // 60, left % 60)
-		post.timer.TextColor3 = if left <= Cfg.Board.timer.warn then rgb(GR.pencil) else INK
+		post.timer.Text = if picked then Cfg.Board.watch.closed else string.format("%d:%02d", left // 60, left % 60)
+		post.timer.TextColor3 = if picked or left <= Cfg.Board.timer.warn then rgb(GR.pencil) else INK
+		local sweep = if picked then 0 else math.clamp(FrontCfg.VoteSeconds - t, 0, FrontCfg.VoteSeconds)
+		post.hand.Color = if picked or left <= Cfg.Board.timer.warn then rgb(GR.pencil) else rgb(GR.ink)
+		CommandPost.stepBoard(post, sweep, FrontCfg.VoteSeconds, picked, os.clock() - pickedAt)
 		cf = eyeCf(boardView(t))
 	else
 		cf, fov = armoryCam(t)
@@ -592,6 +599,7 @@ local function begin(name: string, folder: Instance)
 		fillReport()
 	elseif name == "Vote" then
 		picked = nil
+		CommandPost.resetBoard(post)
 		local offer = folder:GetAttribute("VoteOffer")
 		CommandPost.orders(post, if type(offer) == "string" then string.split(offer, ",") else {}, function(key: string)
 			if player:GetAttribute("MaySign") == true then

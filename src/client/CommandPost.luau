@@ -17,6 +17,7 @@ local SketchCfg = require(Shared.Config.SketchMap) :: any
 local WeaponsCfg = require(Shared.Config.Weapons) :: any
 local LiveMap = require(Shared.LiveMap)
 local Rules = require(Shared.Rules.Cutscenes)
+local Ink = require(script.Parent.Ink)
 local SketchMap = require(script.Parent.SketchMap)
 
 local CommandPost = {}
@@ -49,6 +50,11 @@ export type Order = {
 	stamp: TextLabel,
 	signed: { [string]: TextLabel },
 	art: any,
+	-- (Field kit) the count's last value and when it last went up, the value rolling out, the paper's place
+	n: number,
+	rollAt: number,
+	countOld: TextLabel,
+	rest: CFrame,
 }
 export type Post = {
 	origin: Vector3,
@@ -67,6 +73,23 @@ export type Post = {
 	reportPx: number, -- the report's and the telegram's heights in pixels
 	telegramPx: number,
 	pins: boolean, -- pins drawn for the orders (the parts set; the model has its own)
+	-- (Field kit, user 2026-11-03) a place on the table sheet (shares of its face: x right, y down), on its face
+	sheetAt: (Vector2) -> Vector3,
+	tableKit: Folder, -- the blocks and pennants, laid for each match's map
+	blocks: { [string]: Model },
+	pennants: { Model },
+	doneAt: { [number]: number }, -- when each capture of the replay was first seen drawn (os.clock)
+	light: BasePart?, -- the lamp's light (it sways), and where it hangs
+	lightAt: CFrame,
+	hand: BasePart, -- the stopwatch's hand, and the dial's middle (facing the room)
+	dial: CFrame,
+	stringFrom: BasePart, -- the red string's ends: its pin under the sign, and the end at the leader
+	stringTo: BasePart,
+	beam: Beam,
+	leader: number?,
+	leadAt: number, -- (os.clock) when the string set off for the leader, from `leadFrom`
+	leadFrom: Vector3,
+	title: TextLabel, -- the sheet's title ("SHEET 1 - <map>")
 }
 
 -- pieces ---------------------------------------------------------------------------------------------------------------
@@ -155,6 +178,23 @@ local function outline(f: GuiObject, color: Color3, thickness: number)
 	s.Parent = f
 end
 
+-- where a SurfaceGui on `face` of `p` lies: its x (right) and down directions, the way it faces, its width and height
+-- (its last: half the part's thickness through that face)
+local function faceAxes(p: BasePart, face: Enum.NormalId): (Vector3, Vector3, Vector3, number, number, number)
+	local cf = p.CFrame
+	if face == Enum.NormalId.Top then
+		-- (a Top-face gui runs its width along the part's -z and its top along -x)
+		return cf.LookVector, cf.RightVector, cf.UpVector, p.Size.Z, p.Size.X, p.Size.Y / 2
+	end
+	return -cf.RightVector, -cf.UpVector, cf.LookVector, p.Size.X, p.Size.Y, p.Size.Z / 2
+end
+
+-- a place on `face` of `p` from shares of its gui (x right, y down), `out` studs off it
+local function faceAt(p: BasePart, face: Enum.NormalId, at: Vector2, out: number): Vector3
+	local x, down, n, w, h, half = faceAxes(p, face)
+	return p.Position + x * ((at.X - 0.5) * w) + down * ((at.Y - 0.5) * h) + n * (half + out)
+end
+
 -- a paper lying on the table, its text reading from the camera's side (a Top-face gui runs its width along the part's
 -- -z and its top along -x: a quarter turn lays it across the table, its size given as (depth, width))
 local FLAT = CFrame.Angles(0, -math.pi / 2, 0)
@@ -231,6 +271,244 @@ end
 local function settle(m: Model, y: number)
 	local bb, size = m:GetBoundingBox()
 	m:PivotTo(m:GetPivot() + V(0, y - (bb.Position.Y - size.Y / 2), 0))
+end
+
+local function pin(folder: Instance, at: Vector3)
+	local p = part(folder, "Pin", V(0.14, 0.14, 0.14), CFrame.new(at), PENCIL)
+	p.Shape = Enum.PartType.Ball
+end
+
+-- the Field kit (picked from the drafts, user 2026-11-03: Config/Cutscenes Table / Board) ---------------------------------
+local BRASS, BRASS_DARK = Color3.fromRGB(196, 160, 84), Color3.fromRGB(150, 116, 52)
+local ENAMEL, RED_PIN, NIB = Color3.fromRGB(244, 241, 232), Color3.fromRGB(176, 40, 32), Color3.fromRGB(26, 24, 22)
+
+-- a cylinder `r` round and `long` along `axis` (a unit vector), its middle at `at`
+local function rodAlong(
+	parent: Instance,
+	name: string,
+	r: number,
+	long: number,
+	at: Vector3,
+	axis: Vector3,
+	color: Color3,
+	material: Enum.Material?
+): Part
+	local side = if math.abs(axis.Y) < 0.9 then V(0, 1, 0) else V(1, 0, 0)
+	local y = side:Cross(axis).Unit
+	local p = part(parent, name, V(long, r * 2, r * 2), CFrame.fromMatrix(at, axis, y), color, material)
+	p.Shape = Enum.PartType.Cylinder
+	return p
+end
+
+local function ball(parent: Instance, name: string, r: number, at: Vector3, color: Color3): Part
+	local p = part(parent, name, V(r * 2, r * 2, r * 2), CFrame.new(at), color)
+	p.Shape = Enum.PartType.Ball
+	return p
+end
+
+-- the clipboard under the report (a hardboard with a steel clip over its top edge), `report` written on `face`
+local function clipboard(folder: Instance, report: BasePart, face: Enum.NormalId)
+	local K = Cfg.Table.clipboard
+	local x, down, n, w, h, half = faceAxes(report, face)
+	local z = x:Cross(n).Unit -- (a part's z along the gui's up or down)
+	local thick = 0.016
+	local mid = report.Position + down * ((K.margin - K.top) / 2) - n * (half + thick / 2 + 0.002)
+	local board = part(
+		folder,
+		"Clipboard",
+		V(w + 2 * K.margin, thick, h + K.margin + K.top),
+		CFrame.fromMatrix(mid, x, n, z),
+		rgb(K.color),
+		Enum.Material.Wood
+	)
+	board.CastShadow = true
+	-- the clip: its body on the board's top margin, its lip just over the paper, two rivets, the wire loop
+	local edge = report.Position - down * (h / 2)
+	local function slab(name: string, size: Vector3, at: Vector3)
+		part(folder, name, size, CFrame.fromMatrix(at, x, n, z), STEEL, Enum.Material.Metal)
+	end
+	slab("Clip", V(0.8, 0.05, 0.24), edge - down * (K.top * 0.45) + n * (half + 0.03))
+	slab("ClipLip", V(0.62, 0.03, 0.1), edge - down * 0.06 + n * (half + 0.02)) -- (short of the paper: its head stays clear)
+	for _, sx in { -1, 1 } do
+		ball(folder, "Rivet", 0.03, edge - down * (K.top * 0.45) + x * (sx * 0.3) + n * (half + 0.06), BRASS)
+	end
+	rodAlong(folder, "Loop", 0.025, 0.5, edge - down * (K.top * 0.8) + n * (half + 0.05), x, STEEL, Enum.Material.Metal)
+end
+
+-- VOTE stencilled on a plank nailed over the board's VOTE paper `paper` (facing the room), the hint on a paper
+-- strip under it; returns where the red string's pin is (under the strip's middle)
+local function voteSign(folder: Instance, paper: BasePart): Vector3
+	local S = Cfg.Board.sign
+	local cf = paper.CFrame
+	local w, h = paper.Size.X + S.grow, paper.Size.Y + S.grow
+	local plank = part(
+		folder,
+		"VoteSign",
+		V(w, h, S.deep),
+		cf * CFrame.new(0, 0, -(paper.Size.Z / 2 + S.deep / 2 + 0.002)),
+		rgb(S.color),
+		Enum.Material.Wood
+	)
+	plank.CastShadow = true
+	local _, f = surface(plank, Enum.NormalId.Front, 120)
+	f.BackgroundColor3 = rgb(S.color)
+	-- the wood's grain and the joins between its boards
+	local rng = Random.new(5)
+	for k = 1, 9 do
+		local g = box(f, 0, k / 10 + rng:NextNumber(-0.03, 0.03), 1, 0.012, DARK)
+		g.BackgroundTransparency = if k % 3 == 0 then 0.2 else 0.75
+	end
+	local word = text(f, Cfg.Board.title.text, SLAB, PAPER, 0.08, 0.14, 0.84, 0.72, h * 120)
+	word.TextXAlignment = Enum.TextXAlignment.Center
+	word.TextTransparency = 0.08
+	for _, sx in { -1, 1 } do
+		ball(folder, "Nail", 0.05, (cf * CFrame.new(sx * (w / 2 - 0.16), h / 2 - 0.16, -(S.deep + 0.03))).Position, NIB)
+	end
+	local H = S.hint
+	local strip = part(folder, "Hint", V(H.size[1], H.size[2], 0.004), cf * CFrame.new(0, -H.down, -0.006), PAPER)
+	local _, hf = surface(strip, Enum.NormalId.Front, 200)
+	local l = text(hf, H.text, TYPE, INK, 0.08, 0.12, 0.84, 0.76, H.size[2] * 200)
+	l.TextXAlignment = Enum.TextXAlignment.Center
+	for _, sx in { -1, 1 } do
+		pin(folder, (strip.CFrame * CFrame.new(sx * (H.size[1] / 2 - 0.08), 0, -0.04)).Position)
+	end
+	return (strip.CFrame * CFrame.new(0, -H.size[2] / 2 + 0.02, -0.05)).Position
+end
+
+-- the brass stopwatch hung on the time's paper `paper` (facing the room): its label on the paper, the dial (30 seconds
+-- round, the last `warn` red) with the time in a small window (returned), its hand and the dial's middle
+local function stopwatch(folder: Instance, paper: BasePart): (TextLabel, BasePart, CFrame)
+	local W, warn = Cfg.Board.watch, Cfg.Board.timer.warn
+	local cf = paper.CFrame
+	local r, deep = W.radius, W.deep
+	local _, pf = surface(paper, Enum.NormalId.Front, 120)
+	local label = text(pf, W.label, SLAB, INK, 0.06, 0.88, 0.88, 0.1, paper.Size.Y * 120)
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	local mid = cf * CFrame.new(0, W.up, -(paper.Size.Z / 2 + deep / 2 + 0.004))
+	local axis = cf.LookVector
+	local behind = (mid * CFrame.new(0, 0, deep * 0.2)).Position
+	rodAlong(folder, "WatchBack", r * 1.04, deep * 0.6, behind, axis, BRASS_DARK, Enum.Material.Metal)
+	rodAlong(folder, "WatchCase", r, deep, mid.Position, axis, BRASS, Enum.Material.Metal)
+	local up = cf.UpVector
+	rodAlong(folder, "Crown", 0.05, 0.12, (mid * CFrame.new(0, r + 0.05, 0)).Position, up, BRASS, Enum.Material.Metal)
+	rodAlong(
+		folder,
+		"Bow",
+		0.09,
+		0.025,
+		(mid * CFrame.new(0, r + 0.17, 0)).Position,
+		axis,
+		BRASS_DARK,
+		Enum.Material.Metal
+	)
+	ball(folder, "Nail", 0.035, (mid * CFrame.new(0, r + 0.22, deep / 2)).Position, NIB)
+	-- the dial: a face part, its gui round
+	local face = part(folder, "Dial", V(r * 1.8, r * 1.8, 0.002), mid * CFrame.new(0, 0, -(deep / 2 + 0.002)), ENAMEL)
+	face.Transparency = 1
+	local _, df = surface(face, Enum.NormalId.Front, 400)
+	df.BackgroundColor3 = ENAMEL
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(0.5, 0)
+	round.Parent = df
+	local dpx = r * 1.8 * 400
+	for i = 0, 29 do
+		-- (clockwise from the top, as the hand turns: the last seconds just past the top)
+		local a = math.rad(i * 12)
+		local major = i % 5 == 0
+		local len = if major then 0.11 else 0.06
+		local tick = box(df, 0, 0, if major then 0.014 else 0.008, len, if i < warn then rgb(GR.pencil) else INK)
+		tick.AnchorPoint = Vector2.new(0.5, 0.5)
+		tick.Position = UDim2.fromScale(0.5 + math.sin(a) * (0.47 - len / 2), 0.5 - math.cos(a) * (0.47 - len / 2))
+		tick.Rotation = i * 12
+	end
+	for k, v in { 30, 5, 10, 15, 20, 25 } do
+		local a = math.rad((k - 1) * 60)
+		local n = text(df, tostring(v), SLAB, if v == 5 then rgb(GR.pencil) else INK, 0, 0, 0.16, 0.11, dpx)
+		n.AnchorPoint = Vector2.new(0.5, 0.5)
+		n.Position = UDim2.fromScale(0.5 + math.sin(a) * 0.3, 0.5 - math.cos(a) * 0.3)
+		n.TextXAlignment = Enum.TextXAlignment.Center
+	end
+	local window = box(df, 0.25, 0.58, 0.5, 0.19, PAPER)
+	outline(window, INK, 2)
+	local time = text(window, "", SLAB, INK, 0, 0.05, 1, 0.9, 0.19 * dpx)
+	time.TextXAlignment = Enum.TextXAlignment.Center
+	-- the hand (a needle from the middle) and the cap over its pin
+	local dial = mid * CFrame.new(0, 0, -(deep / 2 + 0.008))
+	local hand = part(folder, "WatchHand", V(0.028, r * 0.95, 0.008), dial, NIB)
+	local cap = (dial * CFrame.new(0, 0, -0.008)).Position
+	rodAlong(folder, "HandCap", 0.035, 0.02, cap, axis, BRASS_DARK, Enum.Material.Metal)
+	return time, hand, dial
+end
+
+-- the red string from the pin under the sign (`from`) to the leading order: a Beam between two pins, hanging
+local function redString(folder: Instance, from: Vector3): (BasePart, BasePart, Beam)
+	local S = Cfg.Board.string
+	local function holder(axis: Vector3): (BasePart, Attachment)
+		local p = ball(folder, "StringEnd", 0.05, from, RED_PIN)
+		local a = Instance.new("Attachment")
+		a.Axis, a.SecondaryAxis = axis, V(0, 0, 1)
+		a.Parent = p
+		return p, a
+	end
+	local p0, a0 = holder(V(0, -1, 0))
+	local p1, a1 = holder(V(0, 1, 0))
+	local beam = Instance.new("Beam")
+	beam.Attachment0, beam.Attachment1 = a0, a1
+	beam.Color = ColorSequence.new(rgb(S.color))
+	beam.Width0, beam.Width1 = S.width, S.width
+	beam.CurveSize0, beam.CurveSize1 = S.sag, S.sag
+	beam.FaceCamera = true
+	beam.Segments = 16
+	beam.LightInfluence = 1
+	beam.Enabled = false
+	beam.Parent = p0
+	p1.Transparency = 1
+	return p0, p1, beam
+end
+
+-- a painted wooden block for a side (its bottom middle its pivot): the body, a lighter top, a paper chevron, a dark
+-- base band
+local function unitBlock(parent: Instance, color: Color3): Model
+	local B = Cfg.Table.blocks
+	local w, d, h = B.size[1], B.size[2], B.size[3]
+	local m = Instance.new("Model")
+	m.Name = "Block"
+	part(m, "Body", V(w, h, d), CFrame.new(0, h / 2, 0), color, Enum.Material.Wood).CastShadow = true
+	local top = color:Lerp(Color3.new(1, 1, 1), 0.12)
+	part(m, "Top", V(w * 0.88, 0.02, d * 0.82), CFrame.new(0, h + 0.005, 0), top, Enum.Material.Wood)
+	for _, sx in { -1, 1 } do
+		local at = CFrame.new(sx * 0.07, h + 0.018, -0.02) * CFrame.Angles(0, math.rad(-sx * 38), 0)
+		part(m, "Chevron", V(0.2, 0.012, 0.04), at, PAPER)
+	end
+	part(m, "Base", V(w * 1.02, 0.04, d * 1.02), CFrame.new(0, 0.02, 0), color:Lerp(INK, 0.5), Enum.Material.Wood)
+	m.WorldPivot = CFrame.new()
+	m.Parent = parent
+	return m
+end
+
+-- a map pin with a pennant (its foot its pivot): the steel pin, its red head, a cloth pennant flying to the right
+local function pennant(parent: Instance): Model
+	local P = Cfg.Table.pennants
+	local m = Instance.new("Model")
+	m.Name = "Pennant"
+	rodAlong(m, "Pin", 0.018, P.tall, V(0, P.tall / 2, 0), V(0, 1, 0), STEEL, Enum.Material.Metal).CastShadow = true
+	ball(m, "Head", 0.045, V(0, P.tall + 0.03, 0), RED_PIN)
+	local long, high = P.flag[1], P.flag[2]
+	-- (two wedges, their square sides on the pin, meeting at the tip: the flag's plane faces us, its tip to the right)
+	for _, sy in { 1, -1 } do
+		local wedge = Instance.new("WedgePart")
+		wedge.Name = "Flag"
+		wedge.Anchored, wedge.CanCollide, wedge.CanQuery, wedge.CanTouch = true, false, false, false
+		wedge.Size = V(0.012, high / 2, long)
+		wedge.Material = Enum.Material.Fabric
+		local mid = V(long / 2, P.tall - high / 4 - (if sy < 0 then high / 2 else 0), 0)
+		local flip = CFrame.Angles(0, 0, if sy < 0 then math.pi else 0)
+		wedge.CFrame = CFrame.fromMatrix(mid, V(0, 0, 1), V(0, 1, 0)) * flip
+		wedge.Parent = m
+	end
+	m.WorldPivot = CFrame.new()
+	m.Parent = parent
+	return m
 end
 
 -- the hut ---------------------------------------------------------------------------------------------------------------
@@ -374,9 +652,30 @@ end
 
 -- the war table ---------------------------------------------------------------------------------------------------------
 -- the table sheet's face (`px` its height in pixels): the trench map's frame and grid, its letters and numbers, the
--- legend, and the strip where the played map goes (returned)
-local function drawSheet(sf: Frame, px: number): Frame
+-- heights' contours, the legend, the scale and the sheet's title (returned, its map named at the report), and the
+-- strip where the played map goes (returned)
+local CONTOUR = Color3.fromRGB(150, 104, 64)
+local function drawSheet(sf: Frame, px: number): (Frame, TextLabel)
 	local T = Cfg.Table
+	-- (under the map: the contours run on round it, as on the render's sheet)
+	Ink.draw(sf, function(holder, w, h)
+		local thick = math.max(1, 0.003 * h)
+		for _, c in T.contours do
+			local cx, cy, rings, rx, ry = c[1] * w, c[2] * h, c[3], c[4] * w, c[5] * w
+			for k = rings, 1, -1 do
+				local last: Vector2? = nil
+				for i = 0, 36 do
+					local a = i / 36 * 2 * math.pi
+					local j = 1 + 0.08 * math.sin(3 * a + c[1] * 9) + 0.05 * math.sin(5 * a + c[2] * 9)
+					local pt = Vector2.new(cx + math.cos(a) * rx * k / rings * j, cy + math.sin(a) * ry * k / rings * j)
+					if last then
+						Ink.segment(holder, last, pt, if k == rings then thick * 1.5 else thick, CONTOUR)
+					end
+					last = pt
+				end
+			end
+		end
+	end)
 	local frame = box(sf, 0.025, 0.05, 0.95, 0.9, PAPER)
 	frame.BackgroundTransparency = 1
 	outline(frame, INK, 3)
@@ -398,6 +697,7 @@ local function drawSheet(sf: Frame, px: number): Frame
 	local strip = box(sf, T.strip.at[1], T.strip.at[2], T.strip.width, 0.5, PAPER)
 	strip.Name = "Strip"
 	strip.BackgroundTransparency = 1
+	strip.ZIndex = 2
 	local legend = box(sf, 0.05, 0.66, 0.2, 0.24, PAPER)
 	outline(legend, INK, 2)
 	text(legend, "LEGEND", SLAB, INK, 0.08, 0.06, 0.8, 0.2, 0.24 * px)
@@ -411,10 +711,17 @@ local function drawSheet(sf: Frame, px: number): Frame
 	corner.CornerRadius = UDim.new(0.5, 0)
 	corner.Parent = ring
 	text(legend, "THE FRONT", TYPE, INK, 0.4, 0.66, 0.55, 0.18, 0.24 * px)
-	return strip
+	-- the scale (five bars, ink and paper by turns) and the sheet's title, clear of the report
+	for k = 0, 4 do
+		local bar = box(sf, 0.3125 + k * 0.0342, 0.865, 0.0342, 0.021, if k % 2 == 0 then INK else PAPER)
+		outline(bar, INK, 1)
+	end
+	text(sf, "0    500 YDS", TYPE, INK, 0.3125, 0.815, 0.18, 0.04, px)
+	local title = text(sf, "SHEET 1", TYPE, INK, 0.493, 0.855, 0.215, 0.045, px)
+	return strip, title
 end
 
-local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
+local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame, BasePart, TextLabel)
 	local T, P = Cfg.Table, Cfg.Post
 	local w, d, top = T.size[1], T.size[2], T.top
 	local tableTop = o + V(0, top, 0)
@@ -454,11 +761,12 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 	local sheet = lyingPaper(folder, "Sheet", tableTop + V(0, 0.02, 0), T.sheet[1], T.sheet[2], 0)
 	local px = T.sheet[2] * T.pixelsPerStud -- (the sheet's height in pixels: its depth on the table)
 	local _, sf = surface(sheet, Enum.NormalId.Top, T.pixelsPerStud)
-	local strip = drawSheet(sf, px)
-	-- the report on the lower right, nothing on it
+	local strip, title = drawSheet(sf, px)
+	-- the report on the lower right, nothing on it, on its clipboard
 	local R = T.report
 	local report = lyingPaper(folder, "Report", tableTop + V(R.at[1], 0.05, R.at[2]), R.size[1], R.size[2], R.tilt)
 	local _, rf = surface(report, Enum.NormalId.Top, R.pixelsPerStud)
+	clipboard(folder, report, Enum.NormalId.Top)
 	-- the game's models round it
 	for _, p in P.props do
 		local yaw = CFrame.Angles(0, math.rad(p.yaw), 0)
@@ -487,7 +795,7 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 	end
 	-- the small things on the table, each built from its parts: a compass, a pocket watch on its chain, binoculars,
 	-- an ink bottle with a dip pen, a pencil
-	local BRASS, BLACK = Color3.fromRGB(196, 160, 84), Color3.fromRGB(28, 28, 30)
+	local BLACK = Color3.fromRGB(28, 28, 30)
 	-- a disc lying flat (its axis up), `r` across the middle, `h` tall, its middle `at` over the table top's middle
 	local function disc(name: string, r: number, h: number, at: Vector3, color: Color3, material: Enum.Material?): Part
 		local p = part(
@@ -629,15 +937,10 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 	rod("Lead", 0.012, a1 + dir * 0.08, a1 + dir * 0.12, BLACK)
 	rod("Ferrule", 0.042, a0 - dir * 0.06, a0, Color3.fromRGB(180, 180, 176), Enum.Material.Metal)
 	rod("Eraser", 0.038, a0 - dir * 0.13, a0 - dir * 0.06, Color3.fromRGB(206, 120, 120))
-	return tableTop, strip, rf
+	return tableTop, strip, rf, sheet, title
 end
 
 -- the board -------------------------------------------------------------------------------------------------------------
-local function pin(folder: Instance, at: Vector3)
-	local p = part(folder, "Pin", V(0.14, 0.14, 0.14), CFrame.new(at), PENCIL)
-	p.Shape = Enum.PartType.Ball
-end
-
 -- a sepia field photograph on `on`'s front: sky over ground and, by `i`, a church tower, a field gun, a row of
 -- soldiers or a biplane in silhouette
 local SEPIA =
@@ -682,24 +985,7 @@ local function photo(on: BasePart, i: number)
 	end
 end
 
--- the board's "VOTE" card (`px` its height in pixels)
-local function drawVote(tf: Frame, px: number)
-	local inner = box(tf, 0.04, 0.1, 0.92, 0.8, PAPER)
-	outline(inner, INK, 3)
-	local title = text(tf, Cfg.Board.title.text, SLAB, INK, 0.08, 0.15, 0.84, 0.7, px)
-	title.TextXAlignment = Enum.TextXAlignment.Center
-end
-
--- the vote's countdown paper: its label, and the time left (returned)
-local function drawTimer(cf2: Frame, px: number): TextLabel
-	local label = text(cf2, Cfg.Board.timer.label, SLAB, INK, 0.08, 0.08, 0.84, 0.24, px)
-	label.TextXAlignment = Enum.TextXAlignment.Center
-	local timer = text(cf2, "", SLAB, PENCIL, 0.08, 0.36, 0.84, 0.54, px)
-	timer.TextXAlignment = Enum.TextXAlignment.Center
-	return timer
-end
-
-local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel, { CFrame })
+local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel, { CFrame }, Vector3, BasePart, CFrame)
 	local B = Cfg.Board
 	local mid = o + v3(B.at)
 	-- (facing the room, its own x runs to the room's +x, the viewer's left: places across it are given as the viewer
@@ -732,13 +1018,10 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel
 	-- "VOTE" on a plaque, the time left on a paper beside it
 	local T = B.title
 	local plaque = part(folder, "Title", V(T.size[1], T.size[2], 0.06), cf * CFrame.new(-T.x, T.y, -0.13), PAPER)
-	local _, tf = surface(plaque, Enum.NormalId.Front, 120)
-	drawVote(tf, T.size[2] * 120)
+	local stringAt = voteSign(folder, plaque)
 	local C = B.timer
 	local clock = part(folder, "Timer", V(C.size[1], C.size[2], 0.04), cf * CFrame.new(-C.x, C.y, -0.13), PAPER)
-	pin(folder, (clock.CFrame * CFrame.new(0, C.size[2] / 2 - 0.08, -0.04)).Position)
-	local _, cf2 = surface(clock, Enum.NormalId.Front, 120)
-	local timer = drawTimer(cf2, C.size[2] * 120)
+	local timer, hand, dial = stopwatch(folder, clock)
 	-- photos pinned round the orders, red string between them
 	local photos = {
 		{ -4.6, 2.2 },
@@ -799,7 +1082,7 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel
 		local tilt = (if i % 2 == 0 then 1 else -1) * S.tilt
 		orderAt[i] = cf * CFrame.new(-S.xs[i], S.y, -0.14) * CFrame.Angles(0, 0, math.rad(tilt))
 	end
-	return cf, tgf, timer, orderAt
+	return cf, tgf, timer, orderAt, stringAt, hand, dial
 end
 
 -- the modelled set ------------------------------------------------------------------------------------------------------
@@ -862,23 +1145,27 @@ end
 
 local function buildSet(folder: Folder, origin: Vector3): Post?
 	local S = Cfg.Post.set
-	if not CommandPost.loadSet(folder, S.asset, origin, S.turn, S.images) then
+	local set = CommandPost.loadSet(folder, S.asset, origin, S.turn, S.images)
+	if not set then
 		return nil
+	end
+	-- (the orders' own papers stand in for the set's blank ones, which would show behind a swinging order)
+	for _, d in set:GetDescendants() do
+		if d:IsA("BasePart") and string.match(d.Name, "^Paper_Order") then
+			d.Transparency = 1
+		end
 	end
 	local papers = S.papers
 	local T = Cfg.Table
 	local sheet = setPaper(folder, origin, papers.TableSheet, "Sheet")
 	local sheetPx = papers.TableSheet.size[2] * T.pixelsPerStud
 	local _, sf = surface(sheet, Enum.NormalId.Front, T.pixelsPerStud)
-	local strip = drawSheet(sf, sheetPx)
+	local strip, title = drawSheet(sf, sheetPx)
 	local report = setPaper(folder, origin, papers.Report, "Report")
 	local _, rf = surface(report, Enum.NormalId.Front, T.report.pixelsPerStud)
-	local vote = setPaper(folder, origin, papers.Vote, "Vote")
-	local _, vf = surface(vote, Enum.NormalId.Front, 120)
-	drawVote(vf, papers.Vote.size[2] * 120)
-	local clock = setPaper(folder, origin, papers.Timer, "Timer")
-	local _, cf2 = surface(clock, Enum.NormalId.Front, 120)
-	local timer = drawTimer(cf2, papers.Timer.size[2] * 120)
+	clipboard(folder, report, Enum.NormalId.Front)
+	local stringAt = voteSign(folder, setPaper(folder, origin, papers.Vote, "Vote"))
+	local timer, hand, dial = stopwatch(folder, setPaper(folder, origin, papers.Timer, "Timer"))
 	local tg = setPaper(folder, origin, papers.Telegram, "Telegram")
 	local _, tgf = surface(tg, Enum.NormalId.Front, 180)
 	local orderAt = {}
@@ -908,6 +1195,10 @@ local function buildSet(folder: Folder, origin: Vector3): Post?
 	local fill = Instance.new("PointLight")
 	fill.Range, fill.Brightness, fill.Color = P.fill.range, P.fill.brightness, rgb(P.fill.color)
 	fill.Parent = light(origin + v3(P.fill.at))
+	local from, to, beam = redString(folder, stringAt)
+	local kit = Instance.new("Folder")
+	kit.Name = "TableKit"
+	kit.Parent = folder
 	return {
 		origin = origin,
 		tableTop = origin + V(0, papers.TableSheet.at[2], 0),
@@ -925,6 +1216,24 @@ local function buildSet(folder: Folder, origin: Vector3): Post?
 		reportPx = papers.Report.size[2] * T.report.pixelsPerStud,
 		telegramPx = papers.Telegram.size[2] * 180,
 		pins = false,
+		sheetAt = function(share: Vector2): Vector3
+			return faceAt(sheet, Enum.NormalId.Front, share, 0)
+		end,
+		tableKit = kit,
+		blocks = {},
+		pennants = {},
+		doneAt = {},
+		light = lamp,
+		lightAt = lamp.CFrame,
+		hand = hand,
+		dial = dial,
+		stringFrom = from,
+		stringTo = to,
+		beam = beam,
+		leader = nil,
+		leadAt = 0,
+		leadFrom = to.Position,
+		title = title,
 	}
 end
 
@@ -934,8 +1243,12 @@ function CommandPost.build(folder: Folder, origin: Vector3): Post
 		return made
 	end
 	buildHut(folder, origin)
-	local tableTop, strip, report = buildTable(folder, origin)
-	local board, telegram, timer, orderAt = buildBoard(folder, origin)
+	local tableTop, strip, report, sheet, title = buildTable(folder, origin)
+	local board, telegram, timer, orderAt, stringAt, hand, dial = buildBoard(folder, origin)
+	local from, to, beam = redString(folder, stringAt)
+	local kit = Instance.new("Folder")
+	kit.Name = "TableKit"
+	kit.Parent = folder
 	local P = Cfg.Post
 	local at = origin + v3(P.lamp.at)
 	local lamp = part(
@@ -999,6 +1312,24 @@ function CommandPost.build(folder: Folder, origin: Vector3): Post
 		reportPx = Cfg.Table.report.size[2] * Cfg.Table.report.pixelsPerStud,
 		telegramPx = 180,
 		pins = true,
+		sheetAt = function(share: Vector2): Vector3
+			return faceAt(sheet, Enum.NormalId.Top, share, 0)
+		end,
+		tableKit = kit,
+		blocks = {},
+		pennants = {},
+		doneAt = {},
+		light = nil, -- (the parts lamp hangs still)
+		lightAt = lamp.CFrame,
+		hand = hand,
+		dial = dial,
+		stringFrom = from,
+		stringTo = to,
+		beam = beam,
+		leader = nil,
+		leadAt = 0,
+		leadFrom = to.Position,
+		title = title,
 	}
 end
 
@@ -1008,8 +1339,9 @@ local function clock(seconds: number): string
 end
 
 -- Writes the after-action report from the latest results (Net "MatchResults"): its lines, in typing order, and the
--- stamp to show once they're typed. `nation(kit)` names a winner's nation.
-function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({ TextLabel }, TextLabel)
+-- red pencil tick beside the result once they're typed (drawn `u` 0..1 of the way). `nation(kit)` names a winner's
+-- nation.
+function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({ TextLabel }, (number) -> ())
 	local T = Cfg.Table
 	local f = post.report
 	f:ClearAllChildren()
@@ -1044,21 +1376,54 @@ function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({
 	band.BackgroundTransparency = 0.35
 	add(string.format("%-10s%5d%5d%6d", "YOU", you.Kills or 0, you.Healed or 0, you.Built or 0), SLAB, INK, 0.67, 0.05)
 	add(`+{you.Earned or 0} battle points`, TYPE, PENCIL, 0.735, 0.045)
-	local stamp = text(f, if winner then "VICTORY" else "STALEMATE", SLAB, PENCIL, 0.35, 0.82, 0.58, 0.1, px)
-	stamp.TextXAlignment = Enum.TextXAlignment.Center
-	stamp.Rotation = -12
-	outline(stamp, PENCIL, 3)
-	stamp.Visible = false
+	-- the tick: a short stroke down, a long one up (pixels of its box)
+	local tickBox = box(f, 0.84, 0.165, 0.12, 0.09, PAPER)
+	tickBox.BackgroundTransparency = 1
+	tickBox.ZIndex = 3
+	local canvas = Ink.canvas(tickBox)
+	local drawn = -1
+	local function tick(u: number)
+		u = math.clamp(u, 0, 1)
+		if u == drawn then
+			return
+		end
+		drawn = u
+		canvas.set(function(holder, w, h)
+			local a, b, c =
+				Vector2.new(0.05 * w, 0.55 * h), Vector2.new(0.38 * w, 0.92 * h), Vector2.new(0.98 * w, 0.04 * h)
+			local thick = math.max(2, 0.12 * h)
+			local first = 0.3 -- (the share of the stroke the short one takes)
+			if u > 0 then
+				Ink.segment(holder, a, a:Lerp(b, math.clamp(u / first, 0, 1)), thick, PENCIL)
+			end
+			if u > first then
+				Ink.segment(holder, b, b:Lerp(c, (u - first) / (1 - first)), thick, PENCIL)
+			end
+		end)
+	end
+	tick(0)
 	-- the played map on the sheet, this match's captures redrawn on it
 	local key = if type(r.map) == "string" then r.map else LiveMap.key()
 	post.strip:ClearAllChildren()
 	local m = SketchCfg.Maps[key]
 	if m then
-		local w = post.strip.Size.X.Scale
-		local sheetAspect = post.sheetAspect
-		post.strip.Size = UDim2.fromScale(w, w * sheetAspect * m.size[2] / m.size[1])
+		-- across the sheet; a taller map no taller than `most`, narrower and in the middle
+		local S = T.strip
+		local w = S.width
+		local h = w * post.sheetAspect * m.size[2] / m.size[1]
+		if h > S.most then
+			w, h = w * S.most / h, S.most
+		end
+		post.strip.Position = UDim2.fromScale(S.at[1] + (S.width - w) / 2, S.at[2])
+		post.strip.Size = UDim2.fromScale(w, h)
 	end
-	return lines, stamp
+	post.title.Text = `SHEET 1 - {string.upper(mapName)}`
+	-- the blocks and pennants are laid again for this map
+	post.tableKit:ClearAllChildren()
+	table.clear(post.blocks)
+	table.clear(post.pennants)
+	table.clear(post.doneAt)
+	return lines, tick
 end
 
 -- the telegram's plan for this match's winner
@@ -1128,6 +1493,10 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 			stamp = nil :: any,
 			signed = {},
 			art = nil,
+			n = 0,
+			rollAt = -math.huge,
+			countOld = nil :: any,
+			rest = cf,
 		}
 		if key and SketchCfg.Maps[key] then
 			local sm = SketchCfg.Maps[key]
@@ -1146,9 +1515,13 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 		box(f, 0.05, 0.455, 0.9, 0.003, INK)
 		text(f, "SIGNED, FOR THE FRONT:", TYPE, INK, 0.06, 0.47, 0.6, 0.03, px)
 		local countBox = box(f, 0.66, 0.465, 0.28, 0.04, INK)
+		countBox.ClipsDescendants = true -- (its digits roll up through it)
 		local count = text(countBox, "0 / 0", SLAB, PAPER, 0, 0.1, 1, 0.8, 0.04 * px)
 		count.TextXAlignment = Enum.TextXAlignment.Center
 		order.count = count
+		local old = text(countBox, "", SLAB, PAPER, 0, -1, 1, 0.8, 0.04 * px)
+		old.TextXAlignment = Enum.TextXAlignment.Center
+		order.countOld = old
 		-- the signature grid: `cols` columns of `rows` lines, filled down each column
 		local grid = box(f, 0.05, 0.52, 0.9, 0.45, PAPER)
 		grid.BackgroundTransparency = 1
@@ -1229,11 +1602,178 @@ function CommandPost.signatures(post: Post, folder: Instance, total: number, ink
 					o.signed[name] = nil
 				end
 			end
-			o.count.Text = `{n} / {math.max(total, n)}`
+			local shown = `{n} / {math.max(total, n)}`
+			if n > o.n then -- (a new signature: the count rolls up)
+				o.countOld.Text = o.count.Text
+				o.rollAt = os.clock()
+			end
+			o.n = n
+			o.count.Text = shown
 		else
 			o.count.Text = `0 / {total}`
 		end
 	end
+end
+
+-- the Field kit's moves ------------------------------------------------------------------------------------------------
+local function sideColour(kit: string?): Color3
+	local c = kit and GR.Wash[kit]
+	return if c then rgb(c):Lerp(INK, 0.2) else PAPER
+end
+
+-- The war table each frame (`t` seconds into the phase): the painted blocks and the pin pennants follow the replay on
+-- `sheet` (the played map's SketchMap), the lamp's light sways. `folder` names each side's kit (its West / East).
+function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: number)
+	local T = Cfg.Table
+	local P = Cfg.Post
+	if post.light then
+		local W = P.sway
+		post.light.CFrame = post.lightAt + V(W.x * math.sin(t * W.rates[1]), 0, W.z * math.cos(t * W.rates[2]))
+	end
+	if not sheet or not sheet.state then
+		return
+	end
+	local places, caps = sheet.state()
+	if #places == 0 then
+		return
+	end
+	local kits = { West = folder:GetAttribute("West") :: string?, East = folder:GetAttribute("East") :: string? }
+	-- the image's shares onto the sheet (the strip's place on it)
+	local sp, ss = post.strip.Position, post.strip.Size
+	local function onSheet(at: Vector2): Vector3
+		return post.sheetAt(Vector2.new(sp.X.Scale + at.X * ss.X.Scale, sp.Y.Scale + at.Y * ss.Y.Scale))
+	end
+	if #post.pennants ~= #places then
+		post.tableKit:ClearAllChildren()
+		table.clear(post.pennants)
+		table.clear(post.blocks)
+		for i = 1, #places do
+			post.pennants[i] = pennant(post.tableKit)
+		end
+		for _, side in { "West", "East" } do
+			post.blocks[side] = unitBlock(post.tableKit, sideColour(kits[side]))
+		end
+	end
+	-- where each side's block rests: by its front point, on the side it faces the enemy from
+	local B, PN = T.blocks, T.pennants
+	local function rest(i: number, side: string): Vector3
+		local s = if side == "West" then 1 else -1
+		return onSheet(places[i].at) + V(s * B.rest[1], 0, B.rest[2])
+	end
+	local owners: { string } = {}
+	for i, p in places do
+		owners[i] = p.start
+	end
+	local function front(side: string): Vector3
+		local i = Rules.frontPoint(owners, side :: any)
+		if i then
+			return rest(i, side)
+		end
+		-- (a side holding nothing: its block off the map's edge beyond its last HQ)
+		local edge = if side == "West" then 1 else #places
+		return onSheet(places[edge].at) + V(if side == "West" then -B.off else B.off, 0, B.rest[2])
+	end
+	local pos = { West = front("West"), East = front("East") }
+	local lift = { West = 0, East = 0 }
+	local flips: { [number]: { k: number, before: string } } = {}
+	local now = os.clock()
+	for k, c in caps or {} do
+		if c.q <= 0 then
+			break
+		end
+		local taker, other = c.side, if c.side == "West" then "East" else "West"
+		if c.q < 1 then
+			-- the taker's block slides with the pencil, bowed as the arrow is, lifting at the middle
+			local e = Rules.ease(c.q)
+			local bend = onSheet((c.a:Lerp(c.mid, e)):Lerp(c.mid:Lerp(c.b, e), e)) - onSheet(c.a:Lerp(c.b, e))
+			pos[taker] = pos[taker]:Lerp(rest(c.index, taker), e) + V(bend.X, 0, bend.Z)
+			lift[taker] = B.lift * math.sin(math.pi * c.q)
+			break
+		end
+		flips[c.index] = { k = k, before = owners[c.index] }
+		owners[c.index] = taker
+		post.doneAt[k] = post.doneAt[k] or now
+		pos[taker] = rest(c.index, taker)
+		-- the side pushed off its point slides back to its new front
+		local u = Rules.ease(math.clamp((now - post.doneAt[k]) / B.back, 0, 1))
+		pos[other] = pos[other]:Lerp(front(other), u)
+	end
+	for side, m in post.blocks do
+		local at = pos[side]
+		local face = if side == "West" then 0 else math.pi
+		m:PivotTo(CFrame.new(at + V(0, lift[side], 0)) * CFrame.Angles(0, face, 0))
+	end
+	-- the pennants: each its point's holder's colour; at a capture it lifts, changes at the top, and drops back
+	for i, m in post.pennants do
+		local holder, up = owners[i], 0
+		local f = flips[i]
+		if f then
+			local u = math.clamp((now - post.doneAt[f.k]) / PN.flip, 0, 1)
+			up = PN.lift * math.sin(math.pi * u)
+			if u < 0.5 then
+				holder = f.before
+			end
+		end
+		local colour = sideColour(kits[holder])
+		for _, d in m:GetChildren() do
+			if d.Name == "Flag" and d:IsA("BasePart") then
+				d.Color = colour
+			end
+		end
+		m:PivotTo(CFrame.new(onSheet(places[i].at) + V(PN.at[1], up, PN.at[2])))
+	end
+end
+
+-- The board each frame: the stopwatch's hand round the time `left` of `total`, the red string to the leading order,
+-- the counts rolling up; after the pick (`picked` its key, `since` seconds ago) the losing orders swing on one pin.
+function CommandPost.stepBoard(post: Post, left: number, total: number, picked: string?, since: number)
+	local B = Cfg.Board
+	local angle = Rules.watchAngle(left, total)
+	post.hand.CFrame = post.dial * CFrame.Angles(0, 0, math.rad(angle)) * CFrame.new(0, post.hand.Size.Y * 0.32, 0)
+	local now = os.clock()
+	-- the counts' digits, rolling up through their boxes
+	for _, o in post.orders do
+		local u = Rules.ease(math.clamp((now - o.rollAt) / B.roll, 0, 1))
+		o.count.Position = UDim2.fromScale(0, 0.1 + (1 - u))
+		o.countOld.Position = UDim2.fromScale(0, 0.1 - u)
+		o.countOld.Visible = u < 1
+	end
+	-- the string: off to a clear new leader from where its end was
+	local counts = {}
+	for i, o in post.orders do
+		counts[i] = if o.key then o.n else 0
+	end
+	local lead = Rules.leader(counts, post.leader)
+	local function pinOf(i: number): Vector3
+		local o = post.orders[i]
+		return (o.part.CFrame * CFrame.new(0, o.part.Size.Y / 2 - 0.1, -0.05)).Position
+	end
+	if lead ~= post.leader then
+		post.leadFrom = if post.leader then post.stringTo.Position else post.stringFrom.Position
+		post.leader, post.leadAt = lead, now
+	end
+	post.beam.Enabled = lead ~= nil
+	post.stringTo.Transparency = if lead then 0 else 1
+	if lead and post.orders[lead] then
+		local u = Rules.overshoot(math.clamp((now - post.leadAt) / B.string.slide, 0, 1))
+		post.stringTo.Position = post.leadFrom:Lerp(pinOf(lead), u)
+	end
+	-- the losing orders swing once on their outer top pin and come to rest
+	for i, o in post.orders do
+		local swing = if picked and o.key ~= picked then Rules.swing(B.lose, since - B.lose.after) else 0
+		local outer = if i < #post.orders / 2 + 0.5 then 1 else -1 -- (the viewer's left order hangs on its left pin)
+		local w, h = o.part.Size.X, o.part.Size.Y
+		local hinge = o.rest * CFrame.new(outer * (w / 2 - 0.12), h / 2 - 0.1, 0)
+		o.part.CFrame = hinge * CFrame.Angles(0, 0, math.rad(swing * outer)) * hinge:Inverse() * o.rest
+	end
+end
+
+-- A new vote: no string until someone leads.
+function CommandPost.resetBoard(post: Post)
+	post.leader = nil
+	post.beam.Enabled = false
+	post.stringTo.Transparency = 1
+	post.stringTo.Position = post.stringFrom.Position
 end
 
 return CommandPost

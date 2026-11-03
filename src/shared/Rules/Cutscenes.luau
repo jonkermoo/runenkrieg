@@ -350,4 +350,58 @@ function Cutscenes.pick(tally: { [string]: number }, offer: { string }, r: numbe
 	return tied[math.clamp(math.floor(r * #tied) + 1, 1, #tied)]
 end
 
+-- The command post's Field kit (Config/Cutscenes Table / Board, user 2026-11-03) ---------------------------------------
+
+-- The point a side's block rests at: its front, the West's last held point going east, the East's first; nil when
+-- it holds none (`owners` west to east: "West" / "East" / anything else for nobody).
+function Cutscenes.frontPoint(owners: { string }, side: Side): number?
+	local found: number? = nil
+	for i, o in owners do
+		if o == side then
+			if side == "East" then
+				return i
+			end
+			found = i
+		end
+	end
+	return found
+end
+
+-- The order the red string runs to: the one with the most signatures when no other has as many; on a tie, or with
+-- none signed, the last leader (`last`, nil before anyone has led).
+function Cutscenes.leader(counts: { number }, last: number?): number?
+	local best, at, tied = 0, nil :: number?, false
+	for i, n in counts do
+		if n > best then
+			best, at, tied = n, i, false
+		elseif n == best and n > 0 then
+			tied = true
+		end
+	end
+	return if at and not tied then at else last
+end
+
+-- The stopwatch's hand for `left` of `total` seconds: degrees round from the top, clockwise as we see the dial (the
+-- full time at the top, the last seconds just past it).
+function Cutscenes.watchAngle(left: number, total: number): number
+	return math.clamp(left / math.max(total, 1e-6), 0, 1) * 360
+end
+
+-- Past the end and back: `u` (0..1) of a slide that overshoots a little before it settles.
+function Cutscenes.overshoot(u: number): number
+	local c = 1.70158
+	local v = math.clamp(u, 0, 1) - 1
+	return 1 + (c + 1) * v * v * v + c * v * v
+end
+
+-- A losing order's swing on its one pin `u` seconds after it lets go (degrees; Config/Cutscenes.Board.lose): a swing
+-- dying away round a rest a little off straight.
+function Cutscenes.swing(lose: any, u: number): number
+	if u <= 0 then
+		return 0
+	end
+	return lose.swing * math.exp(-lose.decay * u) * math.sin(lose.rate * u)
+		+ lose.rest * math.clamp(u / lose.settle, 0, 1)
+end
+
 return Cutscenes

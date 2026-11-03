@@ -379,8 +379,18 @@ function SketchMap.new(
 	-- way (arrows, drawings, markers, all leading to the end of the game)"): each capture an arrow in its taker's colour
 	-- with its time, drawn in turn (Config/Results.Replay, Rules/MatchStats.replayAt); the sectors' owners follow the
 	-- replay; the winning capture ringed in red pencil.
-	type Replay =
-		{ log: { any }, timed: { boolean }, start: number, winner: boolean, owners: { string }, drawn: number }
+	-- (`timing`: its seconds, lead, tail and draw, Config/Results.Replay unless the caller gives its own; `progress`: how
+	-- far each capture's arrow is drawn, 0..1)
+	type Replay = {
+		log: { any },
+		timed: { boolean },
+		start: number,
+		winner: boolean,
+		owners: { string },
+		drawn: number,
+		timing: any,
+		progress: { number },
+	}
 	local replay: Replay? = nil
 	local A, RP = ResultsCfg.Arrow, ResultsCfg.Replay
 	local replayBox = Instance.new("Frame")
@@ -433,10 +443,11 @@ function SketchMap.new(
 		for i, p in points do
 			r.owners[i] = p.start
 		end
-		local progress: { number } = {}
+		local progress: { number } = r.progress
+		local P = r.timing
 		for k, e in r.log do
-			local at = StatsRules.replayAt(k, n, RP.seconds, RP.lead, RP.tail)
-			progress[k] = math.clamp((elapsed - at) / RP.draw, 0, 1)
+			local at = StatsRules.replayAt(k, n, P.seconds, P.lead, P.tail)
+			progress[k] = math.clamp((elapsed - at) / P.draw, 0, 1)
 			if progress[k] >= 1 then
 				r.owners[e.index] = e.side
 			end
@@ -746,10 +757,52 @@ function SketchMap.new(
 		deployName = function(): string?
 			return deployName
 		end,
-		-- plays the match's captures (`log`: { { t, index, side } } in order) from now; `won`: the last took the match
-		replay = function(log: { any }, won: boolean)
+		-- plays the match's captures (`log`: { { t, index, side } } in order) from now; `won`: the last took the match;
+		-- `timing` (seconds, lead, tail, draw) in place of Config/Results.Replay's
+		replay = function(log: { any }, won: boolean, timing: any?)
 			local shown, timed = StatsRules.replayLog(log, RP.most)
-			replay = { log = shown, timed = timed, start = os.clock(), winner = won, owners = {}, drawn = -1 }
+			replay = {
+				log = shown,
+				timed = timed,
+				start = os.clock(),
+				winner = won,
+				owners = {},
+				drawn = -1,
+				timing = timing or RP,
+				progress = {},
+			}
+		end,
+		-- where things stand on the sketch, for props laid on it (the command post's blocks and pennants): each point's
+		-- place and whether it's an HQ, and the replay's captures (their point, taker, how far drawn, and their arrow's
+		-- start, bend and end), all in shares of the whole image (its torn edge included: x right, y down); nil captures
+		-- without a replay
+		state = function(): ({ { at: Vector2, hq: boolean, start: string } }, { any }?)
+			local o = Vector2.new(m.pad / m.size[1], m.pad / m.size[2])
+			local span = Vector2.new(1, 1) - o * 2
+			local function image(p: Vector2): Vector2
+				return o + p * span
+			end
+			local places = {}
+			for i, p in points do
+				places[i] = { at = image(Vector2.new(u(p.x), v(p.z))), hq = p.hq, start = p.start }
+			end
+			local r = replay
+			if not r then
+				return places, nil
+			end
+			local caps = {}
+			for k, e in r.log do
+				local a, mid, b = arrowOf(e, k)
+				caps[k] = {
+					index = e.index,
+					side = e.side,
+					q = r.progress[k] or 0,
+					a = image(a),
+					mid = image(mid),
+					b = image(b),
+				}
+			end
+			return places, caps
 		end,
 		-- back to the live state
 		stopReplay = function()

@@ -121,6 +121,9 @@ local Cutscenes = {
 	Post = {
 		room = { size = { 20, 11, 20 }, z = 1.67 }, -- inside: x -10..10, z -8.33 .. 11.67 (the board's wall)
 		lamp = { at = { 7.2, 7.7, 1.3 }, range = 16, brightness = 1.8, color = { 255, 206, 150 } },
+		-- the lamp's slow sway over the table (Field kit, user 2026-11-03): its light drifts `x` and `z` studs either way,
+		-- at `rates` (radians a second)
+		sway = { x = 0.24, z = 0.08, rates = { 0.9, 0.7 } },
 		wash = { at = { 0, 10.4, 5 }, range = 16, brightness = 1.4, angle = 70, color = { 255, 224, 184 } },
 		fill = { at = { 0, 9, -2 }, range = 26, brightness = 0.35, color = { 170, 186, 214 } },
 		-- the game's own models on the table at real size x1.35 (their longest side in studs), coloured as the game
@@ -200,16 +203,42 @@ local Cutscenes = {
 			},
 		},
 	},
-	-- The war table: its top `size` (x, z) `top` studs over the floor; one sheet over the whole top: the played map's
-	-- sketch across its upper part (`strip`: from its top-left and its width, fractions of the sheet) with this match's
-	-- captures in red pencil, the grid's letters and numbers, a legend; the after-action report flat on its lower
+	-- The war table: its top `size` (x, z) `top` studs over the floor; one sheet over the whole top, the whole of it the
+	-- map (user 2026-11-03: "use the other map design though where the whole table is the map", the approved render):
+	-- the played map's sketch across the sheet (`strip`: from its top-left and its width, fractions of the sheet, at
+	-- most `most` of its height) with this match's captures in red pencil, the grid's letters and numbers, heights'
+	-- contours round it, the legend, the scale and the sheet's title below; the after-action report flat on its lower
 	-- right (nothing on it), all reading from the near side, where we stand (View).
+	-- Field kit (picked from the drafts, user 2026-11-03): a painted wooden block per side moves with the replay and a
+	-- pin pennant on each point flips to its taker's colour; the report on a clipboard.
 	Table = {
 		size = { 12, 6 },
 		top = 3,
 		sheet = { 11.3, 5.3 },
 		pixelsPerStud = 110,
-		strip = { at = { 0.05, 0.1 }, width = 0.66 },
+		strip = { at = { 0.039, 0.083 }, width = 0.922, most = 0.58 },
+		-- heights' contours on the sheet: middle (sheet shares), rings, half-width and half-height (shares of the width)
+		contours = {
+			{ 0.127, 0.833, 5, 0.107, 0.054 },
+			{ 0.605, 0.854, 4, 0.088, 0.044 },
+			{ 0.928, 0.135, 4, 0.073, 0.034 },
+			{ 0.073, 0.135, 3, 0.054, 0.029 },
+			{ 0.479, 0.094, 3, 0.073, 0.022 },
+		},
+		-- the replay on the table: spread over the whole phase (not the results screen's Config/Results.Replay)
+		replay = { seconds = 14, lead = 0.6, tail = 2.6, draw = 1.0 },
+		-- the painted blocks (studs: across, deep, tall), each resting `rest` (x right, z toward us, studs) from its
+		-- side's front point; the taker's slides there along its arrow while the arrow is drawn, lifting `lift` at the
+		-- middle; a block pushed off its point slides back over `back` seconds (once its side holds nothing, `off`
+		-- beyond its HQ, clear of the taker's block there)
+		blocks = { size = { 0.55, 0.35, 0.25 }, rest = { 0.55, 0.05 }, lift = 0.12, back = 0.6, off = 1.35 },
+		-- the pin pennants: pin `tall` studs, pennant `flag` (long, high); on a capture it lifts `lift` and drops back
+		-- over `flip` seconds, changing colour at the top
+		pennants = { tall = 0.55, flag = { 0.32, 0.2 }, lift = 0.1, flip = 0.45, at = { 0.14, -0.06 } },
+		-- the clipboard under the report: its margin round the paper (studs), more above for the clip
+		clipboard = { margin = 0.12, top = 0.38, color = { 110, 75, 43 } },
+		-- a red pencil tick beside the result, `after` the last line is typed, drawn over `draw` seconds
+		tick = { after = 0.2, draw = 0.35 },
 		grid = { cols = 11, rows = 6 },
 		report = { at = { 3.75, 1.3 }, size = { 2.6, 3.3 }, tilt = 6, pixelsPerStud = 200 },
 		top3 = 3, -- the report's top soldiers (by battle points)
@@ -252,6 +281,25 @@ local Cutscenes = {
 		at = { 0, 5.83, 11.27 },
 		size = { 11.3, 8.7 },
 		title = { text = "VOTE", x = -1.3, y = 3.2, size = { 2.4, 0.9 } },
+		-- (Field kit) VOTE stencilled on a plank nailed over its paper (`grow` studs bigger each way, `deep` thick, its
+		-- wood's colour), and under it a strip of paper (`hint`: width, height, how far under the plank's middle)
+		sign = {
+			grow = 0.18,
+			deep = 0.1,
+			color = { 122, 85, 50 },
+			hint = { text = "SIGN ONE ORDER", size = { 2.2, 0.24 }, down = 0.63 },
+		},
+		-- a brass stopwatch hung on the time's paper: `radius` studs, its middle `up` over the paper's; 30 seconds round
+		-- the dial, the last `warn` in red; its hand sweeps round the time left; the label on the paper under it
+		watch = { radius = 0.36, up = 0.08, deep = 0.08, label = "POLLS CLOSE IN", closed = "--" },
+		-- the red string from a pin under the sign to the leading order's top pin, sliding to a new leader over `slide`
+		-- seconds (a little past, then back); `width` studs, its sag `sag`
+		string = { width = 0.03, sag = 0.35, slide = 1.0, color = { 168, 38, 31 } },
+		-- the count's digits rolling up in their box when it goes up (seconds)
+		roll = 0.25,
+		-- after the stamp (`after` seconds past the pick), each losing order swings on one pin: `swing` degrees, dying
+		-- away by `decay` a second at `rate` radians a second, coming to rest `rest` degrees off
+		lose = { after = 2.0, swing = 9, decay = 2.4, rate = 7, rest = 3, settle = 0.3 },
 		-- (the time left in ink, in red pencil for the last `warn` seconds)
 		timer = { x = 1.5, y = 3.2, size = { 1.7, 0.9 }, label = "POLLS CLOSE IN", closed = "CLOSED", warn = 5 },
 		slots = 3,

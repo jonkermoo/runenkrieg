@@ -18,6 +18,52 @@ local function inBounds(map: any, p: R.Place, margin: number): boolean
 end
 
 local tests: { [string]: () -> () } = {
+	["a side's block rests at its front point"] = function()
+		local owners = { "West", "West", "None", "East", "East" }
+		assert(R.frontPoint(owners, "West") == 2 and R.frontPoint(owners, "East") == 4)
+		owners[3] = "West"
+		assert(R.frontPoint(owners, "West") == 3, "a capture moves the front on")
+		assert(R.frontPoint({ "West", "West" }, "East") == nil, "a side holding nothing has no front")
+	end,
+	["the string runs to a clear leader; a tie keeps the last one"] = function()
+		assert(R.leader({ 0, 0, 0 }, nil) == nil, "nobody leads before a signature")
+		assert(R.leader({ 1, 0, 0 }, nil) == 1)
+		assert(R.leader({ 1, 1, 0 }, 1) == 1, "a tie keeps the leader")
+		assert(R.leader({ 1, 2, 0 }, 1) == 2, "a clear new leader takes the string")
+		assert(R.leader({ 2, 2, 0 }, nil) == nil, "a tie with no leader yet: none")
+	end,
+	["the stopwatch hand sweeps round the time left"] = function()
+		assert(R.watchAngle(30, 30) == 360 and R.watchAngle(15, 30) == 180 and R.watchAngle(0, 30) == 0)
+		assert(R.watchAngle(-3, 30) == 0 and R.watchAngle(40, 30) == 360, "kept on the dial")
+	end,
+	["the string's slide goes past and comes back"] = function()
+		assert(math.abs(R.overshoot(0)) < 1e-9 and math.abs(R.overshoot(1) - 1) < 1e-9)
+		local most = 0
+		for k = 1, 99 do
+			most = math.max(most, R.overshoot(k / 100))
+		end
+		assert(most > 1 and most < 1.15, "a little past the end, not far")
+	end,
+	["a losing order swings and comes to rest a little off straight"] = function()
+		local L = Cfg.Board.lose
+		assert(R.swing(L, 0) == 0 and R.swing(L, -1) == 0)
+		assert(math.abs(R.swing(L, 6) - L.rest) < 0.01, "at rest, its rest angle")
+		local most = 0
+		for k = 1, 100 do
+			most = math.max(most, math.abs(R.swing(L, k / 50)))
+		end
+		assert(most <= L.swing + L.rest, "never past its swing")
+	end,
+	["the table's replay is drawn inside the table phase"] = function()
+		local P = Cfg.Table.replay
+		assert(P.seconds == Front.TableSeconds, "spread over the whole phase")
+		local Stats = require("../src/shared/Rules/MatchStats")
+		local Results = require("../src/shared/Config/Results")
+		for n = 1, Results.Replay.most do
+			local last = Stats.replayAt(n, n, P.seconds, P.lead, P.tail)
+			assert(last + P.draw <= P.seconds - 1, `{n} captures are drawn a second before the turn`)
+		end
+	end,
 	["the pre-match cut is exactly the countdown"] = function()
 		assert(R.length(Cfg.Pre) == Front.CountdownSeconds, "the pre-match cut fills the countdown")
 		for _, cut in { Cfg.Pre } do
