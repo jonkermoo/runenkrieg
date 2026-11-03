@@ -3,7 +3,7 @@
 -- Normal; everyone respawned; the sector borders; kept teams + the loadout menu's team cards for testing), the Normal Match rows (end, restart, take our next sector) and the FFA Match rows (end, restart, skip the zone, the clock, zone
 -- score), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode, unlimited ammo and no staff cooldown), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
+-- god mode, unlimited ammo and no staff cooldown), Weapon (the visible gun's sight lines, client only: src/client/DevSights), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
 -- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
 -- weather off / on); Time and Weather are for everyone (src/server/Environment). Last the Cinematic rows for filming
@@ -36,6 +36,7 @@ local Net = require(Shared.Net)
 local LiveMap = require(Shared.LiveMap)
 local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
+local DevSights = require(script.Parent.DevSights)
 local Settings = require(script.Parent.Settings)
 
 local DevAdminMenu = {}
@@ -368,6 +369,21 @@ local function build(player: Player): DevPanel.Panel
 	showGod()
 	onOff("Ammo", "Unlimited ammo, no cooldown", "Ammo", player, A.AmmoAttribute)
 
+	-- Weapon: the visible gun's Muzzle / Aim / Eject and its lines of fire and sight (src/client/DevSights, client only)
+	heading("Weapon")
+	order += 1
+	local sights = DevPanel.button(p.panel, "Sights", "", order)
+	local function showSights()
+		local on = player:GetAttribute(A.Sights.attribute) == true
+		sights.Text = `Sight lines (muzzle red, aim green, eject yellow): {if on then "on" else "off"}`
+		paint(sights, on)
+	end
+	sights.Activated:Connect(function()
+		player:SetAttribute(A.Sights.attribute, if player:GetAttribute(A.Sights.attribute) == true then nil else true)
+	end)
+	player:GetAttributeChangedSignal(A.Sights.attribute):Connect(showSights)
+	showSights()
+
 	-- Loadout (src/server/Loadouts): match points, a class every life (free, locked or not) or your own picks again
 	heading("Loadout")
 	for _, n in A.Points do
@@ -560,12 +576,14 @@ function DevAdminMenu.start()
 		elseif not allowed and panel then
 			land(player)
 			player:SetAttribute(A.Attribute, nil)
+			player:SetAttribute(A.Sights.attribute, nil)
 			DevCinematic.clear(player)
 			panel.gui:Destroy()
 			panel = nil
 		end
 	end
 	DevCinematic.start(player)
+	DevSights.start(player)
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if panel and not processed and Settings.pressed("Key_AdminPanel", input) then
 			panel.toggle()
