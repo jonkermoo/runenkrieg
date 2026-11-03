@@ -488,7 +488,7 @@ local function fillReport()
 		mapSheet = nil
 	end
 	local key = if type(r.map) == "string" then r.map else LiveMap.key()
-	mapSheet = SketchMap.new(post.strip, key, {})
+	mapSheet = SketchMap.new(post.strip, key, { sheet = post.strip.Parent :: GuiObject })
 	mapSheet.replay(r.log or {}, r.winner ~= nil, Cfg.Table.replay)
 end
 
@@ -525,6 +525,7 @@ local function step()
 	local t = workspace:GetServerTimeNow() - sceneAt
 	local cf, fov = nil, Cfg.View.fov
 	if scene == "Table" then
+		fov = Cfg.View.table.fov
 		cf = eyeCf(tableView(t))
 		typeReport(t)
 		CommandPost.stepTable(post, mapSheet, folder, t)
@@ -563,6 +564,8 @@ local function step()
 		post.hand.Color = if picked or left <= Cfg.Board.timer.warn then rgb(GR.pencil) else rgb(GR.ink)
 		CommandPost.stepBoard(post, sweep, FrontCfg.VoteSeconds, picked, os.clock() - pickedAt)
 		cf = eyeCf(boardView(t))
+		local W = Cfg.View
+		fov = W.table.fov + (W.fov - W.table.fov) * Rules.ease(math.clamp(t / W.turn, 0, 1))
 	else
 		cf, fov = armoryCam(t)
 		local phaseNow = folder:GetAttribute("Phase")

@@ -21,7 +21,8 @@
 --   zone where it stands now (the Playtest map's Config/ZoneMatch marker): plain while free, your team's magic colour
 --   while you hold it, red pencil while someone else does, flashing amber while contested. The markers are layers in
 --   MARKERS: later kinds go there. opts.still: never the live state (the map vote's sheets); a map that isn't the
---   match's (src/shared/LiveMap) never shows it either.
+--   match's (src/shared/LiveMap) never shows it either. opts.sheet: drawn in pencil over the whole of that sheet
+--   instead of the image (the command post's war table: Config/SketchMap.Pencil), the replay's arrows all in red.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -162,7 +163,7 @@ table.insert(MARKERS, {
 
 -- the map's sectors west to east and the borders between them (each a polyline of { x, z }, z from min to max),
 -- with the drawn area's edges as the first and last
-local function layout(key: string, m: any): ({ Point }, { { { number } } })
+local function layout(key: string, m: any): ({ Point }, { { { number } } }, any)
 	local mapCfg = require(Shared.Config.Maps[key]) :: any
 	local points: { Point } = {}
 	for _, s in mapCfg.sectors do
@@ -188,7 +189,7 @@ local function layout(key: string, m: any): ({ Point }, { { { number } } })
 		end
 	end
 	table.insert(borders, { { m.x[2], m.z[1] }, { m.x[2], m.z[2] } })
-	return points, borders
+	return points, borders, mapCfg
 end
 
 local function borderX(b: { { number } }, z: number): number
@@ -202,14 +203,149 @@ local function borderX(b: { { number } }, z: number): number
 	return b[#b][1]
 end
 
+-- The ground in pencil over the whole of `sheet` (Config/SketchMap.Pencil), drawn in `area`'s pixels out to the sheet's
+-- edges: the river's two banks, a zigzag trench along each other border, a dashed road through the points, scrub.
+-- `m`: the map's Config/SketchMap entry; `u` / `v`: world x / z to shares of the area.
+local function pencilGround(
+	area: Frame,
+	sheet: GuiObject,
+	m: any,
+	mapCfg: any,
+	points: { Point },
+	u: (number) -> number,
+	v: (number) -> number
+)
+	local Pn = Cfg.Pencil
+	local lead, water = rgb(Pn.lead), rgb(Pn.river)
+	local r = mapCfg.river
+	local function riverX(z: number): number
+		return r.x + r.meanderAmp * math.sin(z / r.meanderLen * 2 * math.pi)
+	end
+	Ink.draw(area, function(holder, w, h)
+		local o = sheet.AbsolutePosition - area.AbsolutePosition
+		local x0, y0 = o.X, o.Y
+		local x1, y1 = x0 + sheet.AbsoluteSize.X, y0 + sheet.AbsoluteSize.Y
+		local thick = math.max(1, Pn.thick * w)
+		local function zAt(y: number): number
+			return m.z[1] + (m.z[2] - m.z[1]) * y / h
+		end
+		local function at(x: number, z: number): Vector2
+			return Vector2.new(u(x) * w, v(z) * h)
+		end
+		local function stroke(line: { Vector2 }, colour: Color3, dash: number?, gap: number?)
+			for k = 2, #line do
+				local a, b = line[k - 1], line[k]
+				if not dash then
+					Ink.segment(holder, a, b, thick, colour, 0.1)
+					continue
+				end
+				local len, dir, t = (b - a).Magnitude, (b - a).Unit, 0
+				while t < len do
+					Ink.segment(holder, a + dir * t, a + dir * math.min(len, t + dash), thick, colour, 0.1)
+					t += dash + (gap or dash)
+				end
+			end
+		end
+		-- the river: its two banks, a little ragged
+		if r then
+			for _, side in { -1, 1 } do
+				local line = {}
+				for y = y0, y1, 5 do
+					local z = zAt(y)
+					local wob = math.noise(z * 0.03, side * 3.1) * 4
+					table.insert(line, Vector2.new(u(riverX(z) + side * Pn.bank + wob) * w, y))
+				end
+				stroke(line, water)
+			end
+		end
+		-- the trenches: a zigzag along each other border, on to the sheet's edges
+		for _, d in mapCfg.dividers or {} do
+			if not d.points then
+				continue
+			end
+			local path = { Vector2.new(at(d.points[1][1], 0).X, y0) }
+			for _, q in d.points do
+				table.insert(path, at(q[1], q[2]))
+			end
+			table.insert(path, Vector2.new(at(d.points[#d.points][1], 0).X, y1))
+			local zig, tooth, out, flip = { path[1] }, Pn.trench.tooth * w, Pn.trench.out * w, 1
+			for k = 2, #path do
+				local a, b = path[k - 1], path[k]
+				local len, dir = (b - a).Magnitude, (b - a).Unit
+				local across = Vector2.new(-dir.Y, dir.X)
+				for t = tooth, len, tooth do
+					flip = -flip
+					table.insert(zig, a + dir * t + across * out * flip)
+				end
+			end
+			stroke(zig, lead)
+		end
+		-- the road through the points west to east, bowing between them, on to the sheet's edges
+		local first, last = at(points[1].x, points[1].z), at(points[#points].x, points[#points].z)
+		local road = { Vector2.new(x0, first.Y) }
+		for k = 1, #points - 1 do
+			local a, b = at(points[k].x, points[k].z), at(points[k + 1].x, points[k + 1].z)
+			local d = b - a
+			local across = Vector2.new(-d.Y, d.X) * Pn.road.bow * (if k % 2 == 0 then 1 else -1)
+			for i = 0, 11 do
+				local t = i / 12
+				table.insert(road, a:Lerp(b, t) + across * math.sin(t * math.pi))
+			end
+		end
+		table.insert(road, last)
+		table.insert(road, Vector2.new(x1, last.Y))
+		stroke(road, lead, Pn.road.dash * w, Pn.road.gap * w)
+		-- scrub: clusters of small rings, clear of the points and the river
+		local S = Pn.scrub
+		local rng = Random.new(S.seed)
+		local clear = S.clear * w
+		for _ = 1, S.clusters do
+			local c = Vector2.new(rng:NextNumber(x0, x1), rng:NextNumber(y0, y1))
+			local near = r ~= nil and math.abs(c.X - u(riverX(zAt(c.Y))) * w) < clear
+			for _, p in points do
+				near = near or (c - at(p.x, p.z)).Magnitude < clear * 1.4
+			end
+			if near then
+				continue
+			end
+			for _ = 1, rng:NextInteger(S.rings[1], S.rings[2]) do
+				local size = rng:NextNumber(S.size[1], S.size[2]) * w
+				local ringAt = c + Vector2.new(rng:NextNumber(-1, 1), rng:NextNumber(-1, 1)) * S.spread * w
+				local f = Instance.new("Frame")
+				f.BackgroundTransparency = 1
+				f.AnchorPoint = Vector2.new(0.5, 0.5)
+				f.Position = UDim2.fromOffset(ringAt.X, ringAt.Y)
+				f.Size = UDim2.fromOffset(size, size * rng:NextNumber(0.8, 1))
+				local round = Instance.new("UICorner")
+				round.CornerRadius = UDim.new(0.5, 0)
+				round.Parent = f
+				local line = Instance.new("UIStroke")
+				line.Color = lead
+				line.Thickness = thick
+				line.Transparency = 0.2
+				line.Parent = f
+				f.Parent = holder
+			end
+		end
+	end)
+end
+
 function SketchMap.new(
 	box: GuiObject,
 	mapKey: string?,
-	opts: { you: boolean?, deploy: boolean?, teammates: boolean?, zone: boolean?, still: boolean? }?
+	opts: {
+		you: boolean?,
+		deploy: boolean?,
+		teammates: boolean?,
+		zone: boolean?,
+		still: boolean?,
+		sheet: GuiObject?,
+	}?
 )
 	local key = mapKey or "Map1"
 	local m = Cfg.Maps[key]
-	local points, borders = layout(key, m)
+	local points, borders, mapCfg = layout(key, m)
+	local sheet = opts and opts.sheet
 
 	local img = Instance.new("ImageLabel")
 	img.Name = "SketchMap"
@@ -254,7 +390,16 @@ function SketchMap.new(
 
 	-- the borders (still) and the front (live): pixel strokes, redrawn on resize
 	local blue, ink = rgb(C.blue), rgb(C.ink)
+	if sheet then
+		img.ImageTransparency = 1
+		area.ClipsDescendants = false
+		washes.Visible = false
+		pencilGround(area, sheet, m, mapCfg, points, u, v)
+	end
 	Ink.draw(area, function(holder, w, h)
+		if sheet then
+			return
+		end
 		local thick, dash, gap = math.max(1, Cfg.Border.thick * w), Cfg.Border.dash * w, Cfg.Border.gap * w
 		for i = 2, #borders - 1 do
 			local line = borders[i]
@@ -275,6 +420,7 @@ function SketchMap.new(
 	frontBox.Name = "Front"
 	frontBox.BackgroundTransparency = 1
 	frontBox.Size = UDim2.fromScale(1, 1)
+	frontBox.Visible = sheet == nil
 	frontBox.Parent = area
 	local frontCanvas = Ink.canvas(frontBox)
 	local frontAt: number? = nil -- the front's place along the chain (0..#points), nil without a match
@@ -309,6 +455,7 @@ function SketchMap.new(
 	-- under it
 	type Seal = PointSeal.Seal & { label: TextLabel }
 	local seals: { [string]: Seal } = {}
+	local rings: { UIStroke } = {} -- (on a sheet: the pencil rings)
 	for i, p in points do
 		local r = if p.hq then Cfg.Point.hqRadius else Cfg.Point.radius
 		local disc = Instance.new("Frame")
@@ -330,6 +477,37 @@ function SketchMap.new(
 		label.TextStrokeTransparency = 0
 		label.Parent = area
 		disc.Parent = area
+		if sheet then
+			disc.Visible = false
+			label.FontFace = Font.fromEnum(Enum.Font.Code)
+			label.TextColor3 = ink
+			label.TextStrokeTransparency = 1
+			local mark = Instance.new("Frame")
+			mark.Name = "Mark" .. p.id
+			mark.BackgroundColor3 = rgb(C.paper)
+			mark.AnchorPoint = Vector2.new(0.5, 0.5)
+			mark.Position = disc.Position
+			mark.Size = UDim2.fromScale(2 * Cfg.Pencil.ring, 2 * Cfg.Pencil.ring)
+			mark.SizeConstraint = Enum.SizeConstraint.RelativeXX
+			mark.ZIndex = 2
+			local round = Instance.new("UICorner")
+			round.CornerRadius = UDim.new(0.5, 0)
+			round.Parent = mark
+			local line = Instance.new("UIStroke")
+			line.Color = ink
+			line.Parent = mark
+			table.insert(rings, line)
+			local number = Instance.new("TextLabel")
+			number.BackgroundTransparency = 1
+			number.Size = UDim2.fromScale(1, 1)
+			number.FontFace = HAND
+			number.Text = tostring(i)
+			number.TextScaled = true
+			number.TextColor3 = ink
+			number.ZIndex = 2
+			number.Parent = mark
+			mark.Parent = area
+		end
 		local s = seal :: Seal
 		s.label = label
 		seals[p.id] = s
@@ -341,10 +519,14 @@ function SketchMap.new(
 		end
 		for _, p in points do
 			local s = seals[p.id]
-			local r = if p.hq then Cfg.Point.hqRadius else Cfg.Point.radius
+			local r = if sheet then Cfg.Pencil.ring elseif p.hq then Cfg.Point.hqRadius else Cfg.Point.radius
+			local tall = if sheet then Cfg.Pencil.label else Cfg.Label.size
 			s.label.Position = UDim2.fromScale(u(p.x), v(p.z) + (r + Cfg.Label.below) * a.X / a.Y)
-			s.label.Size = UDim2.fromScale(0.1, Cfg.Label.size * a.X / a.Y)
+			s.label.Size = UDim2.fromScale(0.1, tall * a.X / a.Y)
 			s.ring.Thickness = math.max(1, Cfg.Point.ring * a.X)
+		end
+		for _, line in rings do
+			line.Thickness = math.max(1, Cfg.Pencil.thick * 1.6 * a.X)
 		end
 	end
 	area:GetPropertyChangedSignal("AbsoluteSize"):Connect(placeLabels)
@@ -467,7 +649,10 @@ function SketchMap.new(
 					end
 					local kit = folder and folder:GetAttribute(e.side)
 					local magic = kit and C.Magic[kit]
-					local colour = if magic then rgb(magic):Lerp(rgb(C.ink), 0.35) else rgb(C.ink)
+					local colour = if sheet
+						then rgb(C.pencil)
+						elseif magic then rgb(magic):Lerp(rgb(C.ink), 0.35)
+						else rgb(C.ink)
 					local a, mid, b = arrowOf(e, k)
 					local thick = math.max(2, A.thick * w)
 					-- in pencil: the line wavers and its weight comes and goes, a fainter stroke beside it
@@ -517,7 +702,7 @@ function SketchMap.new(
 				stamp.FontFace = HAND
 				stamp.TextScaled = true
 				stamp.Rotation = (math.noise(k * 2.3, 0.4) * 2) * A.tilt
-				stamp.TextColor3 = rgb(C.ink)
+				stamp.TextColor3 = if sheet then rgb(C.pencil) else rgb(C.ink)
 				stamp.ZIndex = 5
 				stamp.Parent = area
 				stamps[k] = stamp

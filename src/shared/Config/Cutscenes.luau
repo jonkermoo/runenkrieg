@@ -257,12 +257,15 @@ local Cutscenes = {
 		fov = 70, -- (the render session's first-person renders)
 		sway = { amount = 0.025, rate = 0.25 },
 		-- at the table: leaning over it, the whole table in view, the map and the report at once (user 2026-11-03: "we
-		-- should over look the entire table the whole time without changing view")
-		over = { 0, 9.4, 4.4 },
+		-- should over look the entire table the whole time without changing view"); straight down over the sheet's
+		-- middle with a narrower `fov` there, the sheet's edges just inside the bars (user 2026-11-03: the render's
+		-- angle), easing to the room's `fov` as we turn to the board
+		over = { 0, 9.2, 0.01 },
 		table = {
+			fov = 60,
 			glance = 1.4,
 			-- (one look, held until the turn; more would glance between them, an `eye` moving the eyes with its glance)
-			looks = { { t1 = 14, look = { 0, 3, 0.3 } } },
+			looks = { { t1 = 14, look = { 0, 3, 0 } } },
 		},
 		turn = 1.5,
 		walk = { t1 = 3.6, to = { 0, 5.9 } },

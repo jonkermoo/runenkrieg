@@ -58,6 +58,22 @@ local SketchMap = {
 	Teammate = { size = 0.022, edge = 0.003 },
 	Zone = { size = 0.05, flash = 0.4 }, -- the FFA zone's mark, across; a contested one flashes every `flash` seconds -- a teammate's dot, across (under a point's seal), and its ink edge
 	Deploy = { ring = 1.9, thick = 0.004 }, -- the loadout's ring round where you deploy: radii of its point, line
+	-- On a sheet of its own (the command post's war table, user 2026-11-03: "make it look more like this", the render's
+	-- sheet): no image, the ground in pencil over the whole sheet. Shares of the drawn area's width: the lines' weight,
+	-- each point's circle (radius) with its number, its name's height; the river's banks either side of its middle
+	-- (studs), the trenches' zigzag (each tooth, how far out), the road's dashes, the scrub (clusters of small rings,
+	-- kept `clear` off the points and the river)
+	Pencil = {
+		lead = { 88, 84, 78 },
+		river = { 96, 112, 128 },
+		thick = 0.0011,
+		ring = 0.014,
+		label = 0.018,
+		bank = 18,
+		trench = { tooth = 0.007, out = 0.004 },
+		road = { dash = 0.008, gap = 0.006, bow = 0.04 },
+		scrub = { seed = 11, clusters = 70, rings = { 2, 6 }, spread = 0.018, size = { 0.003, 0.007 }, clear = 0.045 },
+	},
 	WashTransparency = 0.55, -- each side's land
 	WashBands = 32, -- the washes are this many strips, top to bottom (their steps hide under the front's ink)
 	ContestedPulse = 0.9, -- seconds per beat of a contested point's amber ring

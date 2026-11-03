@@ -654,7 +654,7 @@ end
 -- the table sheet's face (`px` its height in pixels): the trench map's frame and grid, its letters and numbers, the
 -- heights' contours, the legend, the scale and the sheet's title (returned, its map named at the report), and the
 -- strip where the played map goes (returned)
-local CONTOUR = Color3.fromRGB(150, 104, 64)
+local CONTOUR = rgb(SketchCfg.Pencil.lead)
 local function drawSheet(sf: Frame, px: number): (Frame, TextLabel)
 	local T = Cfg.Table
 	-- (under the map: the contours run on round it, as on the render's sheet)
@@ -678,7 +678,7 @@ local function drawSheet(sf: Frame, px: number): (Frame, TextLabel)
 	end)
 	local frame = box(sf, 0.025, 0.05, 0.95, 0.9, PAPER)
 	frame.BackgroundTransparency = 1
-	outline(frame, INK, 3)
+	outline(frame, DIM, 1)
 	local cols, rows = T.grid.cols, T.grid.rows
 	for c = 1, cols - 1 do
 		box(frame, c / cols, 0, 0.0015, 1, DIM).BackgroundTransparency = 0.7
@@ -698,26 +698,69 @@ local function drawSheet(sf: Frame, px: number): (Frame, TextLabel)
 	strip.Name = "Strip"
 	strip.BackgroundTransparency = 1
 	strip.ZIndex = 2
-	local legend = box(sf, 0.05, 0.66, 0.2, 0.24, PAPER)
-	outline(legend, INK, 2)
-	text(legend, "LEGEND", SLAB, INK, 0.08, 0.06, 0.8, 0.2, 0.24 * px)
-	box(legend, 0.08, 0.45, 0.25, 0.035, PENCIL)
-	text(legend, "CAPTURED", TYPE, INK, 0.4, 0.36, 0.55, 0.18, 0.24 * px)
-	local ring = box(legend, 0.12, 0.66, 0.15, 0.2, PAPER)
+	-- the legend on its own paper, lower left, over the map's ground: the advance, a sector, a trench, the river, the
+	-- scale (five bars, ink and paper by turns)
+	local legend = box(sf, 0.05, 0.6, 0.21, 0.29, PAPER)
+	legend.ZIndex = 3
+	outline(legend, INK, 1)
+	text(legend, "LEGEND", SLAB, INK, 0.07, 0.04, 0.8, 0.13, 0.29 * px)
+	box(legend, 0.07, 0.17, 0.86, 0.006, INK)
+	local lh = 0.29 * px
+	local entries = { "ADVANCE", "SECTOR", "TRENCH", "RIVER" }
+	for i, name in entries do
+		text(legend, name, TYPE, INK, 0.42, 0.2 + (i - 1) * 0.15, 0.55, 0.11, lh)
+	end
+	local key = box(legend, 0.07, 0.2, 0.3, 0.6, PAPER)
+	key.BackgroundTransparency = 1
+	local lead = rgb(SketchCfg.Pencil.lead)
+	Ink.draw(key, function(holder, w, h)
+		local thick = math.max(1, 0.025 * h)
+		local function y(i: number): number
+			return (0.09 + (i - 1) * 0.25) * h
+		end
+		-- the advance: a red pencil stroke with its head
+		Ink.segment(holder, Vector2.new(0.05 * w, y(1)), Vector2.new(0.85 * w, y(1)), thick * 1.4, PENCIL)
+		Ink.segment(holder, Vector2.new(0.85 * w, y(1)), Vector2.new(0.72 * w, y(1) - 0.06 * h), thick * 1.4, PENCIL)
+		Ink.segment(holder, Vector2.new(0.85 * w, y(1)), Vector2.new(0.72 * w, y(1) + 0.06 * h), thick * 1.4, PENCIL)
+		-- the trench's zigzag and the river's two banks
+		local last = Vector2.new(0.05 * w, y(3))
+		for k = 1, 8 do
+			local pt = Vector2.new((0.05 + k * 0.1) * w, y(3) + (if k % 2 == 0 then -1 else 1) * 0.04 * h)
+			Ink.segment(holder, last, pt, thick, lead)
+			last = pt
+		end
+		for _, off in { -0.03, 0.03 } do
+			Ink.segment(
+				holder,
+				Vector2.new(0.05 * w, y(4) + off * h),
+				Vector2.new(0.85 * w, y(4) + off * h),
+				thick,
+				lead
+			)
+		end
+	end)
+	local ring = box(legend, 0.15, 0.25, 0.08, 0.08, PAPER)
 	ring.BackgroundTransparency = 1
+	ring.AnchorPoint = Vector2.new(0, 0.5)
+	ring.Position = UDim2.fromScale(0.15, 0.2 + 0.6 * 0.34)
 	ring.SizeConstraint = Enum.SizeConstraint.RelativeYY
-	outline(ring, PENCIL, 3)
+	outline(ring, INK, 1)
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0.5, 0)
 	corner.Parent = ring
-	text(legend, "THE FRONT", TYPE, INK, 0.4, 0.66, 0.55, 0.18, 0.24 * px)
-	-- the scale (five bars, ink and paper by turns) and the sheet's title, clear of the report
 	for k = 0, 4 do
-		local bar = box(sf, 0.3125 + k * 0.0342, 0.865, 0.0342, 0.021, if k % 2 == 0 then INK else PAPER)
+		local bar = box(legend, 0.07 + k * 0.1, 0.84, 0.1, 0.035, if k % 2 == 0 then INK else PAPER)
 		outline(bar, INK, 1)
 	end
-	text(sf, "0    500 YDS", TYPE, INK, 0.3125, 0.815, 0.18, 0.04, px)
-	local title = text(sf, "SHEET 1", TYPE, INK, 0.493, 0.855, 0.215, 0.045, px)
+	text(legend, "500 YDS", TYPE, INK, 0.6, 0.8, 0.35, 0.1, lh)
+	-- the sheet's title on its own patch of paper, bottom middle, clear of the report
+	local patch = box(sf, 0.37, 0.86, 0.25, 0.1, PAPER)
+	patch.ZIndex = 3
+	local title = text(patch, "SHEET 1", SLAB, INK, 0.05, 0.08, 0.9, 0.48, 0.1 * px)
+	title.TextXAlignment = Enum.TextXAlignment.Center
+	local sub = text(patch, "SCALE 1:50000", TYPE, INK, 0.05, 0.58, 0.9, 0.34, 0.1 * px)
+	sub.TextXAlignment = Enum.TextXAlignment.Center
+	box(patch, 0.05, 0.55, 0.9, 0.012, INK)
 	return strip, title
 end
 
@@ -1346,8 +1389,10 @@ function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({
 	local f = post.report
 	f:ClearAllChildren()
 	local px = post.reportPx
-	local head = box(f, 0, 0, 1, 0.09, INK)
-	text(head, "AFTER-ACTION REPORT", SLAB, PAPER, 0.06, 0.1, 0.9, 0.8, 0.09 * px)
+	-- (typed, ruled twice under it, as the render's)
+	text(f, "AFTER-ACTION REPORT", SLAB, INK, 0.07, 0.025, 0.86, 0.06, px)
+	box(f, 0.07, 0.09, 0.86, 0.005, INK)
+	box(f, 0.07, 0.1, 0.86, 0.0025, INK)
 	local winner = r.winner
 	local lines: { TextLabel } = {}
 	local function add(s: string, font: Font, color: Color3, y: number, h: number)
@@ -1372,8 +1417,7 @@ function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({
 		add(s, TYPE, INK, 0.44 + i * 0.055, 0.045)
 	end
 	local you = r.you or {}
-	local band = box(f, 0.05, 0.665, 0.9, 0.06, Color3.fromRGB(232, 206, 120))
-	band.BackgroundTransparency = 0.35
+	box(f, 0.07, 0.722, 0.86, 0.004, INK) -- (your own line underlined)
 	add(string.format("%-10s%5d%5d%6d", "YOU", you.Kills or 0, you.Healed or 0, you.Built or 0), SLAB, INK, 0.67, 0.05)
 	add(`+{you.Earned or 0} battle points`, TYPE, PENCIL, 0.735, 0.045)
 	-- the tick: a short stroke down, a long one up (pixels of its box)
