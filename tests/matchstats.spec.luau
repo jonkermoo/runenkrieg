@@ -35,8 +35,8 @@ return {
 		local last = R.replayAt(n, n, r.seconds, r.lead, r.tail)
 		assert(math.abs(last - (r.seconds - r.tail)) < 1e-9)
 		assert(
-			last + r.draw <= r.seconds and r.seconds < Front.ResultsSeconds,
-			"the last arrow drawn before the next match"
+			last + r.draw <= r.seconds and r.seconds < Front.TableSeconds,
+			"the last arrow drawn while the battle table is shown"
 		)
 		assert(R.replayAt(1, 1, r.seconds, r.lead, r.tail) == r.lead, "one capture")
 	end,

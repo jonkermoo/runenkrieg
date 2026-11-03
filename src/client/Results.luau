@@ -4,8 +4,8 @@
 -- (Normal: the nation in its colour; FFA: the player), TAKES THE FIELD, the three honours with their runes, your own
 -- line and the next match's countdown; on the right Normal's sketch map replaying the match's captures
 -- (src/client/SketchMap.replay, on the map the match was played on) or FFA's standings, each row's bar filling in
--- turn. Normal's opens once the post-match cutscene is over or skipped (src/client/MatchCutscene: the results arrive
--- as it starts). It closes when the next match (or the map vote) is due.
+-- turn. It closes when the next match is due. A Normal match's results are the after-action report on the battle
+-- table instead (user 2026-11-02; src/client/EndScenes), so this screen opens for the FFA only.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,8 +22,7 @@ local Spec = require(Shared.ui.Results) :: any
 local Ink = require(script.Parent.Ink)
 local Menus = require(script.Parent.Menus) :: any
 local SketchMap = require(script.Parent.SketchMap)
-local MatchCutscene = require(script.Parent.MatchCutscene)
-local LiveMap = require(Shared.LiveMap)
+local ZoneCfg = require(Shared.Config.ZoneMatch)
 local SketchCfg = require(Shared.Config.SketchMap) :: any
 
 local Results = {}
@@ -80,17 +79,6 @@ function Results.start()
 		return maps[key].map
 	end
 	map = mapFor(FrontCfg.MapKey)
-	-- what follows the results: the map vote when there are maps to choose from (src/server/MapVote), else the match
-	local function nextWords(): string
-		local n = 0
-		for _, k in LiveMap.frontline() do
-			if LiveMap.built(k) and SketchCfg.Maps[k] then
-				n += 1
-			end
-		end
-		return if n > 1 then Cfg.NextVote else Cfg.NextMatch
-	end
-	local pending = 0
 	local runes = {}
 	for i = 1, #Cfg.Honours do
 		runes[i] = Ink.canvas(N["Rune" .. i])
@@ -172,8 +160,8 @@ function Results.start()
 	end
 
 	Net.event("MatchResults").OnClientEvent:Connect(function(r: any)
-		if type(r) ~= "table" then
-			return
+		if type(r) ~= "table" or r.mode == "Normal" then
+			return -- (Normal's report is on the battle table: src/client/EndScenes)
 		end
 		local normal = r.mode == "Normal"
 		-- the winner: Normal's nation in its colour, FFA's player in amber
@@ -225,43 +213,21 @@ function Results.start()
 				else `You · {you.Kills or 0} kills`
 		end
 		-- the right: the replay or the standings
-		endsAt = type(r.endsAt) == "number" and r.endsAt or workspace:GetServerTimeNow() + FrontCfg.ResultsSeconds
+		endsAt = type(r.endsAt) == "number" and r.endsAt or workspace:GetServerTimeNow() + ZoneCfg.ResultsSeconds
 		N.MapHolder.Visible = normal
 		N.Ledger.Visible = not normal
 		standings = if normal then {} else (r.standings or {})
 		if normal and type(r.map) == "string" and SketchCfg.Maps[r.map] then
 			map = mapFor(r.map)
 		end
-		-- Normal's opens after the post-match cut (the phase moves on, or the cut ends or is skipped)
-		pending += 1
-		local mine = pending
-		task.spawn(function()
-			local over = false
-			local conn = MatchCutscene.ended:Connect(function(kind: string)
-				if kind == "Post" then
-					over = true
-				end
-			end)
-			while mine == pending and not over do
-				local f = workspace:FindFirstChild(FrontCfg.FolderName)
-				if not (normal and f and f:GetAttribute("Phase") == "Finale") then
-					break
-				end
-				task.wait(0.05)
-			end
-			conn:Disconnect()
-			if mine ~= pending then
-				return
-			end
-			shownAt = os.clock()
-			screen.gui.Enabled = true
-			screen.relayout()
-			if normal then
-				map.replay(r.log or {}, r.winner ~= nil)
-			else
-				placeRows()
-			end
-		end)
+		shownAt = os.clock()
+		screen.gui.Enabled = true
+		screen.relayout()
+		if normal then
+			map.replay(r.log or {}, r.winner ~= nil)
+		else
+			placeRows()
+		end
 	end)
 
 	RunService.RenderStepped:Connect(function()
@@ -273,7 +239,7 @@ function Results.start()
 			close()
 			return
 		end
-		nextLabel.Text = `{nextWords()} {if left > 0 then math.ceil(left) else 0}`
+		nextLabel.Text = `{Cfg.NextMatch} {if left > 0 then math.ceil(left) else 0}`
 	end)
 end
 
