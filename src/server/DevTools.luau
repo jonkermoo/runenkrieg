@@ -129,6 +129,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		DevDummies.heal()
 	elseif action == "ClearDummies" then
 		DevDummies.clear()
+	elseif action == "KnockDummies" then
+		DevDummies.knockDown(if character then character:GetPivot().Position else nil)
 	elseif (action == "BlastStage" or action == "BlastKg") and aim then
 		local by = if player:GetAttribute(Cfg.Blasts.HurtAttribute) == true then nil else character
 		Net.event("DevBlast")
