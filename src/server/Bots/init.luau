@@ -1191,6 +1191,9 @@ function Bots.start()
 	end)
 	-- every frame: the bots due think, round-robin, until the frame's milliseconds are spent
 	RunService.Heartbeat:Connect(function(dt: number)
+		if Frontline.over() then
+			return -- (a Normal match's end: everyone stands frozen while the table, vote and armory play)
+		end
 		local t0 = os.clock()
 		budget.frame += 1
 		budget.rays = BG.raysPerFrame

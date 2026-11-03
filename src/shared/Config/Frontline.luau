@@ -18,8 +18,8 @@ local Frontline = {
 	Momentum = { after = 180, perMinute = 0.25, max = 2 },
 	-- the match's start: waiting until each side has this many players, then the countdown (captures don't count yet)
 	MinPerSide = 1,
-	-- (the pre-match cutscene plays over it: Config/Cutscenes.Pre's length, user 2026-11-02; was 10)
-	CountdownSeconds = 12,
+	-- (the pre-match cutscene and the spoken plan play over it: Config/Cutscenes.Pre's length, user 2026-11-02; was 10)
+	CountdownSeconds = 19,
 	-- a Defend award (Config/Classes.Earn): a kill with the killer or the victim within the sector's radius plus this
 	-- of its point, while the enemy is attacking that sector of the killer's side
 	DefendReach = 20,
@@ -27,18 +27,23 @@ local Frontline = {
 	-- the ground at its point
 	Height = 8,
 	Tick = 0.2, -- seconds between the server's zone checks
-	-- a match's end (user 2026-11-02: "cutscene animations before and after matches along with the voting screen for a
-	-- new map"): the post-match cutscene (Config/Cutscenes.Post's length), the results, then the map vote (the map is
-	-- put back behind it; src/server/MapVote), then a new match on the chosen map
-	FinaleSeconds = 7,
-	ResultsSeconds = 10,
+	-- a match's end (user 2026-11-02, the match-end sequence; Config/Cutscenes): everyone frozen and the screen faded
+	-- to the winner's colour, the after-action report on the battle table, the map vote on the board (src/server/
+	-- MapVote; skipped with one map to offer), then the armory while the map is put back and moved to the pick: at
+	-- least as long as the narrator's first part (its words at Cutscenes.Speech.wordsPerSecond), at most `max`
+	FadeSeconds = 3,
+	TableSeconds = 14,
 	VoteSeconds = 15,
+	Loading = { least = 8, max = 40 },
+	-- on the Frontline folder from a match's end to the next countdown's end: what the narrator speaks of, "<winner
+	-- kit or none>,<the map just played>" (src/client/MatchCutscene)
+	SpeechAttribute = "Speech",
 	SpawnLift = 3.2, -- a spawned root this far over the ground (standing)
 	SpawnWait = 10, -- seconds a new character's root is waited for
 	FeetBelowRoot = 3, -- a soldier's feet this far under the root (what counts as in the zone: Height round them)
 	GroundRay = { top = 300, depth = 600 }, -- the ground found by a ray this high, this long, down on terrain only
 	-- replicated state (read by src/client/ModeHud): a Folder in Workspace with the match's attributes (Phase "Waiting"
-	-- / "Countdown" / "Playing" / "Finale" / "Results" / "Vote", PhaseEndsAt (server time, for the countdown and results), Winner (a
+	-- / "Countdown" / "Playing" / "Fade" / "Table" / "Vote" / "Loading", PhaseEndsAt (server time), Winner (a
 	-- side), Momentum (the capture speed's multiplier), West and East (each side's team, Config/Uniforms.Teams)) and one
 	-- child Folder per sector (Index, Owner, Control, and the West / East soldiers in its zone)
 	FolderName = "Frontline",
