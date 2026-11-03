@@ -1129,7 +1129,7 @@ function Build.wireShake(t: number, w: any): number
 end
 
 -- An MG nest's bags on its ring (Config/Build.Nest `ring`: `sides`-sided, `bag`-stud sides, `piles` each an end, its
--- bend and its other end as ring vertices, 0 the front point), in build order: two piles at a time, their bottom bags,
+-- bend and its other end as ring vertices, or a one-bag pile's two ends; 0 the front point), in build order: two piles at a time, their bottom bags,
 -- then their top bags (none on a pile in `low`). Plan space: the ring's middle at 0, x right, z back (the front point at z = -radius). Each bag:
 -- its pile (1..), `slot` (1, 2 the bottom bags, 3 the top), its middle (`x`, `z`) and the way it lies (`dx`, `dz`, a
 -- unit vector from its first end to its second). The top bag lies over the bend, on the bottom bags' middle line.
@@ -1155,15 +1155,17 @@ function Build.nestRing(ring: any): ({ NestBag }, number)
 			local k = ring.piles[i]
 			local x0, z0 = vertex(k[1])
 			local x1, z1 = vertex(k[2])
-			local x2, z2 = vertex(k[3])
 			local dx, dz = lie(x0, z0, x1, z1)
 			table.insert(out, { pile = i, slot = 1, x = (x0 + x1) / 2, z = (z0 + z1) / 2, dx = dx, dz = dz })
-			dx, dz = lie(x1, z1, x2, z2)
-			table.insert(out, { pile = i, slot = 2, x = (x1 + x2) / 2, z = (z1 + z2) / 2, dx = dx, dz = dz })
+			if k[3] then
+				local x2, z2 = vertex(k[3])
+				dx, dz = lie(x1, z1, x2, z2)
+				table.insert(out, { pile = i, slot = 2, x = (x1 + x2) / 2, z = (z1 + z2) / 2, dx = dx, dz = dz })
+			end
 		end
 		for _, i in pair do
-			if ring.low and table.find(ring.low, i) then
-				continue -- (a low pile: its bottom bags only)
+			if ring.low and table.find(ring.low, i) or not ring.piles[i][3] then
+				continue -- (a low pile, or a one-bag one: its bottom bags only)
 			end
 			local k = ring.piles[i]
 			local x0, z0 = vertex(k[1])

@@ -719,35 +719,35 @@ return {
 		assert(B.hpSwing(h.max, false, h, 50) == 50, "an admin dig step in place of a swing")
 		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
 	end,
-	["an MG nest's ring: eight bottom bags on a regular ring, the back open, the top bags over the side piles' bends"] = function()
+	["an MG nest's ring: a bag on every side of a regular ring, closed and one high (user 2026-11-03)"] = function()
+		-- user 2026-11-03: "make the mgnest a full circular sandbag instead of the half and stack at the end"
 		local n = C.Nest
 		local bags, radius = B.nestRing(n.ring)
-		assert(#bags == 10, "four piles of two bottom bags, the two side ones topped")
+		assert(#bags == n.ring.sides, "a bag on every side, none open")
 		assert(near(radius, n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))))
 		local apothem = radius * math.cos(math.pi / n.ring.sides)
+		local sides = {}
 		for _, b in bags do
-			-- every bag's middle on the bottom bags' line, lying along the ring (square to its radius)
+			assert(b.slot ~= 3, "no stacked bags: one high all round")
+			-- every bag's middle on the ring's line, lying along it (square to its radius)
 			assert(near(math.sqrt(b.x * b.x + b.z * b.z), apothem, 1e-6), "on the ring")
 			assert(near((b.x * b.dx + b.z * b.dz) / apothem, 0, 1e-6), "along the ring")
+			local side = math.round((math.deg(math.atan2(b.z, b.x)) + 90) / (360 / n.ring.sides) - 0.5) % n.ring.sides
+			assert(not sides[side], "each side once")
+			sides[side] = true
 		end
-		-- built two piles at a time: the front two's bottoms, then their tops, then the back two's
-		local slots = {}
+		-- a bag straight behind the middle: no doorway left
+		local back = false
 		for _, b in bags do
-			table.insert(slots, b.slot)
+			back = back or (math.abs(b.x) < 1 and b.z > 0)
 		end
-		assert(table.concat(slots, ",") == "1,2,1,2,1,2,1,2,3,3", "the front two low")
-		-- mirror-symmetric about x = 0, nothing straight behind the middle (the doorway)
-		for _, b in bags do
-			local mirror = false
-			for _, o in bags do
-				mirror = mirror or (near(o.x, -b.x, 1e-6) and near(o.z, b.z, 1e-6))
-			end
-			assert(mirror, "symmetric")
-			assert(not (math.abs(b.x) < 1 and b.z > 0), "the doorway at the back is open")
-		end
+		assert(back, "closed at the back")
 		-- the front point is where two piles' ends meet: the first two bags start there
 		assert(near(bags[1].x - bags[1].dx * n.ring.bag / 2, 0, 1e-6))
 		assert(near(bags[1].z - bags[1].dz * n.ring.bag / 2, -radius, 1e-6))
+		-- a one-bag pile lays just its bag; a pile not low still gets its top bag over the bend
+		local one = B.nestRing({ sides = 11, bag = 3.6, piles = { { 0, 1, 2 }, { 5, 6 } } })
+		assert(#one == 4 and one[3].pile == 2 and one[3].slot == 1 and one[4].slot == 3 and one[4].pile == 1)
 	end,
 	["the MG nest's gunner, gun and bullets clear its bags all round the gun's traverse"] = function()
 		-- user 2026-11-01: "nearly a 180 view angle (maybe 140) ... make sure players dont clip with the sandbag"
@@ -771,7 +771,7 @@ return {
 		-- and the bullets: the front piles topped, they would shoot into them
 		local topped = table.clone(n) :: any
 		topped.ring = table.clone(n.ring)
-		topped.ring.low = nil
+		topped.ring.low = { 5, 6 }
 		local _, _, _, into = B.nestFit(topped, 40, crew, muzzle)
 		assert(into and not select(4, B.nestFit(topped, 0, crew, muzzle)), "only the front notch clear")
 	end,
@@ -814,7 +814,7 @@ return {
 		bags, q = B.nestShown(n.hp.swing, n)
 		assert(bags == "none" and q == 0, "a swing in: still laid (stages at 25, 50, 75, 100)")
 		bags, q = B.nestShown(25, n)
-		assert(bags == "bottom" and q == 1, "stage 1: the bottom bags, the mount on its bag")
+		assert(bags == 0 and q == 1, "stage 1: the mount on its bag, the ring still sacks")
 		bags, q = B.nestShown(50, n)
 		assert(type(bags) == "number" and q == 2, "stage 2: more of the ring, the gun on the mount")
 		bags, q = B.nestShown(75, n)
