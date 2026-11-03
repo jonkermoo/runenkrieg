@@ -69,6 +69,10 @@ return {
 		assert(not A.valid(Cfg, "Team", "uniform9") and not A.valid(Cfg, "Team", nil))
 		assert(A.valid(Cfg, "God", false) and not A.valid(Cfg, "God", nil) and not A.valid(Cfg, "God", 1))
 		assert(not A.valid(Cfg, "Nope", nil) and not A.valid(Cfg, 5, nil) and not A.valid(Cfg, nil, nil))
+		local maps = { modes = {}, classes = {}, maps = { Map1 = true, LanternMeadows = true } }
+		assert(A.valid(Cfg, "FrontMap", "LanternMeadows", maps) and A.valid(Cfg, "FrontMap", "Map1", maps))
+		assert(not A.valid(Cfg, "FrontMap", "Playtest", maps) and not A.valid(Cfg, "FrontMap", nil, maps))
+		assert(not A.valid(Cfg, "FrontMap", "Map1") and not A.valid(Cfg, "FrontMap", 1, maps), "no maps: refused")
 		local d = { kit = Cfg.Dummies.Kits[1].kit, helmet = true, move = "Walk" }
 		assert(A.valid(Cfg, "Dummy", d))
 		assert(not A.valid(Cfg, "Dummy", { kit = "nope", helmet = true, move = "Walk" }))

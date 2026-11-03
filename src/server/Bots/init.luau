@@ -2081,8 +2081,8 @@ local function weigh(b: Bot, now: number)
 			)
 		then
 			Tactics.dug.tried[b.id] = now
-			local tx = if b.side == "West" then 1 else -1
-			local job = { key = "Foxhole", x = post.X, z = post.Z, fx = tx, fz = 0 }
+			local tx, tz = BotBuild.toward(Map.sectors, b.sector or 1, b.side)
+			local job = { key = "Foxhole", x = post.X, z = post.Z, fx = tx, fz = tz }
 			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true }
 			b.act = { kind = "Build", job = r, started = now }
 			return
@@ -3306,8 +3306,8 @@ local function indoorHold(side: string, i: number, taken: { [Vector3]: number })
 		list[k] = asSpot(sp, taken[sp.at] or 0)
 		rolls[k] = random:NextNumber()
 	end
-	local toward = if side == "West" then 1 else -1 -- (the enemy's home end: Map 1 runs west to east)
-	local k = Buildings.pickHold(list, c.X, c.Z, within, toward, 0, rolls, IN)
+	local tx, tz = BotBuild.toward(Map.sectors, i, side) -- (the enemy's way, from the live map's sector chain)
+	local k = Buildings.pickHold(list, c.X, c.Z, within, tx, tz, rolls, IN)
 	if not k then
 		return nil
 	end
@@ -3931,7 +3931,14 @@ function Guns.terrainAt(x: number, z: number): Vector3?
 	local hit = workspace:Raycast(Vector3.new(x, 400, z), Vector3.new(0, -800, 0), Guns.ground)
 	return hit and hit.Position
 end
-function Guns.spots(front: number, side: string, zone: BotBuild.Zone, tx: number, guns: { string }): { BotBuild.Job }
+function Guns.spots(
+	front: number,
+	side: string,
+	zone: BotBuild.Zone,
+	tx: number,
+	tz: number,
+	guns: { string }
+): { BotBuild.Job }
 	local C = BD.Crews
 	local enemy = Map.sectors[front + (if side == "West" then 1 else -1)]
 	if not enemy then
@@ -3952,7 +3959,7 @@ function Guns.spots(front: number, side: string, zone: BotBuild.Zone, tx: number
 			table.insert(want, { key = key, count = BD.caps[key] })
 		end
 	end
-	return BotBuild.gunSpots(zone, tx, 0, want, C, Guns.spacing, function(key, x, z)
+	return BotBuild.gunSpots(zone, tx, tz, want, C, Guns.spacing, function(key, x, z)
 		local gun = ArtCfg.Guns[Guns.asset[key]]
 		local B = Map.bounds
 		if not gun or not target or x < B.minX or x > B.maxX or z < B.minZ or z > B.maxZ then
@@ -4019,7 +4026,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	end
 	local s = Map.sectors[front :: number]
 	local zone = { x = s.x, z = s.z, radius = s.radius }
-	local tx = if side == "West" then 1 else -1 -- (the enemy's home end: Map 1 runs west to east)
+	local tx, tz = BotBuild.toward(Map.sectors, front :: number, side) -- (the enemy's way, from the live map's chain)
 	local spots = Routes.spots(front :: number, side, true)
 	if front ~= sbs.front or fromEnd ~= sbs.held or (not sbs.holds and spots ~= nil) then
 		local holds = {}
@@ -4033,14 +4040,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		end
 		-- the guns on scored spots behind the line (Rules/BotBuild.gunSpots), else the plan's fixed ones
-		local spotted = Guns.spots(front :: number, side, zone, tx, guns)
+		local spotted = Guns.spots(front :: number, side, zone, tx, tz, guns)
 		sbs.lay = {}
 		-- (wire only in the enemy's way, Rules/BotBuild.wireSpot: off its own side's ways forward, from the front to the
 		-- enemy's nearest sector and the approach spots round it, and off its spawn)
 		local ways: { { ax: number, az: number, bx: number, bz: number } } = {}
 		local nextS, nextD = nil, math.huge
 		for i, sec in Map.sectors do
-			local dx = (sec.x - s.x) * tx
+			local dx = (sec.x - s.x) * tx + (sec.z - s.z) * tz
 			if owner[i] ~= side and dx > 0 and dx < nextD then
 				nextS, nextD = i, dx
 			end
@@ -4052,10 +4059,10 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				table.insert(ways, { ax = s.x, az = s.z, bx = sp.pos.X, bz = sp.pos.Z })
 			end
 		end
-		for _, job in BotBuild.plan(zone, tx, 0, holds, if #spotted > 0 then {} else guns, BD) do
+		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then {} else guns, BD) do
 			local keep = true
 			if job.key == "Wire" then
-				local wx, wz = BotBuild.wireSpot(job.x, job.z, 0, 1, ways, (Map.spawnZones :: any)[side], BD.Wire)
+				local wx, wz = BotBuild.wireSpot(job.x, job.z, -tz, tx, ways, (Map.spawnZones :: any)[side], BD.Wire)
 				if wx ~= job.x or wz ~= job.z then
 					stats.wireMoved += 1
 				end
@@ -4073,8 +4080,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
 		end
 		-- the trench system (Rules/BotTrenches): fire, support and communication trenches, dug in that order
-		for _, run in BotTrenches.layout(zone, tx, 0, TR) do
-			local job = { key = "Trench", x = run.ax, z = run.az, ex = run.bx, ez = run.bz, fx = tx, fz = 0 }
+		for _, run in BotTrenches.layout(zone, tx, tz, TR) do
+			local job = { key = "Trench", x = run.ax, z = run.az, ex = run.bx, ez = run.bz, fx = tx, fz = tz }
 			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = run }
 			table.insert(sbs.lay, r)
 		end
@@ -4191,7 +4198,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			stats.breastworks += 1
 			local b0 = r.base
 			for _, job in
-				BotBuild.line(b0.x, b0.z, b0.ex :: number, b0.ez :: number, tx, 0, BD.Breast.step, BD.Breast.keys)
+				BotBuild.line(b0.x, b0.z, b0.ex :: number, b0.ez :: number, tx, tz, BD.Breast.step, BD.Breast.keys)
 			do
 				table.insert(more, job)
 			end
@@ -4200,7 +4207,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			r.done = true
 			stats.walls += 1
 			local at = works[i].at
-			for _, job in BotBuild.wall(at.X, at.Z, tx, 0, WL.ahead, WL.spread, WL.count) do
+			for _, job in BotBuild.wall(at.X, at.Z, tx, tz, WL.ahead, WL.spread, WL.count) do
 				table.insert(more, job)
 			end
 		end
@@ -4271,7 +4278,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 			local r = sbs.works[w.model]
 			if not r then
-				local job = { key = w.key, x = w.at.X, z = w.at.Z, fx = tx, fz = 0, work = true }
+				local job = { key = w.key, x = w.at.X, z = w.at.Z, fx = tx, fz = tz, work = true }
 				r = { job = job, base = job, model = w.model, tries = 0, waitUntil = 0, left = 0, open = true }
 			end
 			local rr = r :: BuildJob
@@ -4305,7 +4312,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 							local lean = if type(tilt) == "number" then tilt else 0
 							local sq = { ax = a.X, ay = a.Y, az = a.Z, bx = e.X, by = e.Y, bz = e.Z, tilt = lean }
 							local fill = B.trenchSink(B.trenchDepth(w.hp, true, TB.hp), TB)
-							local p = BotTrenches.firePost(sq, tx, 0, STEP, TR.rise, TB.depth, fill)
+							local p = BotTrenches.firePost(sq, tx, tz, STEP, TR.rise, TB.depth, fill)
 							table.insert(sbs.steps, {
 								pos = Vector3.new(p.sx, p.sy, p.sz),
 								floor = Vector3.new(p.fx, p.fy, p.fz),
@@ -4375,7 +4382,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			-- its rear wall (away from the enemy), the dugout facing out of it into the trench
 			local along = flat(c - a)
 			local out = if along.Magnitude > 1e-3 then along.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
-			if out.X * tx > 0 then
+			if out.X * tx + out.Z * tz > 0 then
 				out = -out
 			end
 			local at = w.at + out * (BuildCfg.Trench.floor + 0.5)
@@ -4393,7 +4400,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- the support line stands to with an enemy known near the fire trench; the fire trench is lost with enemies known
 	-- in it or past it and too few of its holders standing
 	local nearest, enemiesIn = math.huge, 0
-	local edgeX = zone.x + tx * zone.radius * TR.Fire.edge
+	local edgeX, edgeZ = zone.x + tx * zone.radius * TR.Fire.edge, zone.z + tz * zone.radius * TR.Fire.edge
 	for _, sq in squads do
 		if sq.side == side then
 			for _, kn in sq.known do
@@ -4405,7 +4412,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 						end
 					end
 					nearest = math.min(nearest, d)
-					local past = (kn.pos.X - edgeX) * tx < 0
+					local past = (kn.pos.X - edgeX) * tx + (kn.pos.Z - edgeZ) * tz < 0
 						and flat(kn.pos - sectorPoint(front :: number)).Magnitude <= zone.radius
 					if d <= TR.clearWithin or past then
 						enemiesIn += 1
@@ -4659,6 +4666,23 @@ local function report(now: number)
 	stats.since = now
 end
 
+-- Forgets every map-derived thing the bots keep (a new match: the map put back; or the match moved to another map,
+-- src/server/Frontline's vote): spots, build lists, squads, crews, each sector's ground, dug foxholes, blasts, shared
+-- paths. Their trench marks go at the next commander tick (ByTrench.mark: no build list, no mark).
+function Bots.forgetMap()
+	Routes.clear()
+	table.clear(indoorCells)
+	table.clear(buildLists)
+	table.clear(squads)
+	Tactics.crew.clear()
+	table.clear(sectorY)
+	table.clear(Tactics.dug.holes)
+	table.clear(Tactics.dug.tried)
+	table.clear(ByTrench.blasts)
+	ByTrench.counts = {}
+	table.clear(sharedPaths)
+end
+
 function Bots.start()
 	if not Cfg.Enabled then
 		return
@@ -4743,6 +4767,9 @@ function Bots.start()
 				b.deadAt, b.respawnAt = nil, nil
 				b.order, b.sector, b.stand = nil, nil, nil
 				b.squad, b.role, b.goal, b.stop, b.post, b.roleWas, b.postFace = nil, nil, nil, nil, nil, nil, nil
+				-- (nothing of the last match's ground kept: it may have been another map)
+				b.postSector, b.postFloor, b.postKind, b.postFoot, b.gun, b.gunWait = nil, nil, nil, nil, nil, nil
+				b.wander, b.coverJob = nil, nil
 				spawnBody(b)
 			end
 		end
@@ -4751,13 +4778,11 @@ function Bots.start()
 		respawnAll("FFA")
 	end)
 	Frontline.onMatchStart(function()
-		Routes.clear() -- (the map is put back: spots worked out again)
-		table.clear(indoorCells)
-		table.clear(buildLists)
-		table.clear(squads)
-		Tactics.crew.clear()
+		Bots.forgetMap() -- (the map is put back, or another map: spots worked out again)
 		respawnAll("Normal")
 	end)
+	-- the match moved to another map (src/server/Frontline: the vote's pick): nothing of the old one kept meanwhile
+	workspace:GetAttributeChangedSignal(FrontCfg.MapAttribute):Connect(Bots.forgetMap)
 	-- the director in its own loop: a new body yields (the avatar is built), never inside the frame's step
 	task.spawn(function()
 		while true do

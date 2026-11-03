@@ -817,6 +817,28 @@ function Frontline.restart()
 	end
 end
 
+-- Admin: the match moves to map `key` now (a frontline map built in Workspace: Greybox.build) and starts over there,
+-- as after the vote: the old map put back, a fresh match, everyone alive respawned on the new one. False when it
+-- can't (no match, the map not built, already on it).
+function Frontline.switchMap(key: string): boolean
+	if not thread or key == LiveMap.key() or not LiveMap.built(key) or not table.find(LiveMap.frontline(), key) then
+		return false
+	end
+	task.cancel(thread :: thread)
+	putBack()
+	useMap(key)
+	newMatch()
+	thread = task.spawn(run)
+	task.defer(function() -- (src/server/Deploy splits everyone over the new pair first)
+		for _, p in Players:GetPlayers() do
+			if alive(p) then
+				p:LoadCharacter()
+			end
+		end
+	end)
+	return true
+end
+
 -- Admin: the match starts now, without waiting for each side's players (a solo test)
 function Frontline.begin()
 	if thread and folder:GetAttribute("Phase") == "Waiting" then

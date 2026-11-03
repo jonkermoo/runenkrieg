@@ -26,6 +26,28 @@ return {
 		assert(R.front(sectors, owner, "East") == 3)
 		assert(R.front(sectors, { "East", "East", "East", "East" }, "West") == nil, "none held")
 	end,
+	["front: by the sector chain, not by x (a map running east to west, or north)"] = function()
+		local sectors = { { x = 300 }, { x = 200 }, { x = 100 }, { x = 0 } }
+		local owner = { "West", "West", "East", "East" }
+		assert(R.front(sectors, owner, "West") == 2)
+		assert(R.front(sectors, owner, "East") == 3)
+	end,
+	["toward: the enemy's way from the chain, on any heading"] = function()
+		local line = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 200, z = 0 } }
+		local tx, tz = R.toward(line, 2, "West")
+		assert(near(tx, 1) and near(tz, 0), "West up the chain")
+		tx, tz = R.toward(line, 2, "East")
+		assert(near(tx, -1) and near(tz, 0), "East down it")
+		tx, tz = R.toward(line, 3, "West")
+		assert(near(tx, 1) and near(tz, 0), "at the chain's end: on from the one before")
+		local north = { { x = 0, z = 0 }, { x = 0, z = -300 }, { x = 40, z = -600 } }
+		tx, tz = R.toward(north, 1, "West")
+		assert(near(tx, 0) and near(tz, -1), "a chain running north")
+		tx, tz = R.toward(north, 3, "East")
+		assert(near(tx, -40 / math.sqrt(40 * 40 + 300 * 300)) and near(tz, 300 / math.sqrt(40 * 40 + 300 * 300)))
+		tx, tz = R.toward({ { x = 5, z = 5 } }, 1, "East")
+		assert(tx == -1 and tz == 0, "no heading: the old default")
+	end,
 	["plan: bags at open holds, wire, a nest, the open guns behind (no trench: Rules/BotTrenches)"] = function()
 		local zone = { x = 0, z = 0, radius = 50 }
 		local holds = {

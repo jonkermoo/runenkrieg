@@ -46,7 +46,11 @@ local Net = require(Shared.Net)
 
 local DevTools = {}
 
-local DEFS = { modes = ModeCfg.Defs, classes = ClassCfg.Defs } -- (the "Mode" and "Class" values, Rules/DevActions)
+-- (the "Mode", "Class" and "FrontMap" values, Rules/DevActions)
+local DEFS = { modes = ModeCfg.Defs, classes = ClassCfg.Defs, maps = {} :: { [string]: boolean } }
+for _, key in require(Shared.LiveMap).frontline() do
+	DEFS.maps[key] = true
+end
 -- the admin settings a player loses with the tools (the server's mode closing them)
 local REVOKED = {
 	Cfg.Admin.GodAttribute,
@@ -179,6 +183,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		end
 	elseif action == "FrontStart" then
 		Frontline.begin()
+	elseif action == "FrontMap" then
+		Frontline.switchMap(value)
 	elseif action == "FrontTake" then
 		Frontline.take(player)
 	elseif action == "Sectors" then

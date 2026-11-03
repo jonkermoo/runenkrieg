@@ -23,17 +23,35 @@ export type Zone = { x: number, z: number, radius: number }
 export type Hold = { x: number, z: number, hidden: boolean }
 export type Piece = { key: string, x: number, z: number, left: number }
 
--- The sector a side holds nearest the enemy (Map 1 runs west to east: West's easternmost, East's westernmost), or nil.
-function BotBuild.front(sectors: { { x: number } }, owner: { string }, side: string): number?
-	local best, bestX = nil, nil
-	for i, s in sectors do
-		if owner[i] == side then
-			if bestX == nil or (side == "West" and s.x > bestX) or (side ~= "West" and s.x < bestX) then
-				best, bestX = i, s.x
-			end
+-- The sector a side holds nearest the enemy along the map's sector chain (West's home is sector 1, East's the last:
+-- West's highest it holds, East's lowest), or nil.
+function BotBuild.front(sectors: { any }, owner: { string }, side: string): number?
+	local best = nil
+	for i in sectors do
+		if owner[i] == side and (best == nil or (if side == "West" then i > best else i < best)) then
+			best = i
 		end
 	end
 	return best
+end
+
+-- The enemy's way at sector `i` for `side` (a flat unit (tx, tz)), taken from the map's sector chain (any map, any
+-- heading): toward the next sector on the enemy's side, else (at the chain's end) on from the one before; West goes
+-- up the chain, East down it. (1, 0) / (-1, 0) when the chain gives no heading.
+function BotBuild.toward(sectors: { { x: number, z: number } }, i: number, side: string): (number, number)
+	local step = if side == "West" then 1 else -1
+	local a, b = sectors[i], sectors[i + step]
+	if not b then
+		a, b = sectors[i - step], sectors[i]
+	end
+	if a and b then
+		local dx, dz = b.x - a.x, b.z - a.z
+		local d = math.sqrt(dx * dx + dz * dz)
+		if d > 1e-6 then
+			return dx / d, dz / d
+		end
+	end
+	return step, 0
 end
 
 -- The Engineers' build list at its side's front `zone`, the enemy's way in along (tx, tz) (a flat unit): a sandbag pile

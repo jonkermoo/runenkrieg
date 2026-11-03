@@ -16,6 +16,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
 local FrontCfg = require(Shared.Config.Frontline)
 local Map = require(Shared.LiveMap).map -- (the match's map)
+local BotBuild = require(Shared.Rules.BotBuild)
 local Squads = require(Shared.Rules.BotSquads)
 local Rules = require(Shared.Rules.Bots)
 
@@ -63,7 +64,9 @@ local function homeward(i: number, side: string): Vector3
 	local s = Map.sectors[i]
 	local d = if back then Vector3.new(back.x - s.x, 0, back.z - s.z) else Vector3.zero
 	if d.Magnitude < 1 then
-		d = if side == "West" then -Vector3.xAxis else Vector3.xAxis
+		-- (its home end: away from the enemy's way, from the live map's sector chain)
+		local tx, tz = BotBuild.toward(Map.sectors, i, side)
+		d = Vector3.new(-tx, 0, -tz)
 	end
 	return d.Unit
 end

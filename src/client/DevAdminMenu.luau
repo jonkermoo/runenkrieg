@@ -226,6 +226,21 @@ local function build(player: Player): DevPanel.Panel
 		row("FrontRestart", "Restart match", "MatchRestart"),
 		row("FrontTake", "Take our next sector", "FrontTake"),
 	}
+	-- the match moved to another frontline map now (src/server/Frontline.switchMap; it must be built: Greybox.build),
+	-- the live one lit
+	local maps: { [string]: TextButton } = {}
+	local LiveMap = require(Shared.LiveMap)
+	for _, key in LiveMap.frontline() do
+		maps[key] = row("FrontMap_" .. key, `Map now: {LiveMap.get(key).name or key}`, "FrontMap", key)
+		table.insert(front, maps[key])
+	end
+	local function showMap()
+		for key, b in maps do
+			paint(b, key == LiveMap.key())
+		end
+	end
+	workspace:GetAttributeChangedSignal(require(Shared.Config.Frontline).MapAttribute):Connect(showMap)
+	showMap()
 	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes
 	heading("Match (FFA)")
 	local match: { TextButton } = {
