@@ -214,6 +214,20 @@ local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 		if rounds < box * C.topUp and info.loaded then
 			Artillery.reloadAs(m)
 		end
+		-- (nothing in sight: turned toward the nearest enemy its side knows of in range, right round the 360 nest if it
+		-- has to, so it sees them when they show)
+		local known = targets[b.side]
+		local pivot = info.model:GetPivot().Position
+		local best, bestD = nil, (gun.mg :: any).range
+		for _, at in if known then known.groups else {} do
+			local d = flat(at - pivot).Magnitude
+			if d < bestD then
+				best, bestD = at, d
+			end
+		end
+		if best then
+			Artillery.aimAtAs(m, best)
+		end
 		return
 	end
 	if not Artillery.aimAtAs(m, part.Position) or not Artillery.laidAs(m) then
@@ -243,6 +257,11 @@ function Crew.think(b: any, now: number): boolean
 			gunning[b] = g
 		end
 		local info = infoOf(on, now)
+		local v = verdicts[on]
+		if v and v.verdict ~= "use" then
+			Artillery.leaveAs(m) -- (a captured gun found not worth it: off it, Crew.judge)
+			return true
+		end
 		if info then
 			seated(b)
 			if b.anim then
