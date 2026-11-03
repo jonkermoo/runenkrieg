@@ -166,9 +166,9 @@ function Frontline.held(state: State, side: Side): number
 end
 
 -- Why `side` can't build gun `key` while it holds `held` sectors from its end (Config/Frontline.Artillery: a
--- `lastStand` gun only at its last sector); nil: it can, and keys not listed never wait.
+-- `lastStand` gun only while it holds `unlockAt` or fewer); nil: it can, and keys not listed never wait.
 function Frontline.gunLocked(cfg: any, key: string, held: number): string?
-	if cfg.lastStand[key] and held > 1 then
+	if cfg.lastStand[key] and held > cfg.unlockAt then
 		return cfg.why
 	end
 	return nil

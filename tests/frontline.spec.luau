@@ -218,20 +218,22 @@ return {
 		local r3 = R.slot(3, L)
 		assert(r1 == 0 and r2 == L.gap and r3 == -L.gap, "the middle, then right, then left")
 	end,
-	["the howitzer only for a side pushed back to its last sector; the field gun always (user 2026-11-02)"] = function()
+	["the howitzer only for a side down to its last two sectors; the field gun always (user 2026-11-03)"] = function()
 		local A = Cfg.Artillery
+		assert(A.unlockAt == 2) -- user 2026-11-03: "unlock at the second to last sector, not the last sector"
 		local s = R.new(Map1.sectors)
 		assert(R.held(s, "West") == 2 and R.held(s, "East") == 2, "each starts with its HQ and the next")
-		assert(R.gunLocked(A, "Howitzer", R.held(s, "West")) == A.why, "not at the start")
-		assert(R.gunLocked(A, "FieldGun", 2) == nil and R.gunLocked(A, "FieldGun", 1) == nil)
-		assert(R.gunLocked(A, "Trench", 1) == nil, "other pieces never wait")
-		-- West's S2 gone neutral: West holds its HQ only, East still two
-		s.owner = { "West", "Neutral", "Neutral", "East", "East" }
-		assert(R.held(s, "West") == 1 and R.gunLocked(A, "Howitzer", R.held(s, "West")) == nil, "West at its last")
-		assert(R.gunLocked(A, "Howitzer", R.held(s, "East")) ~= nil, "East not")
-		-- pushing out again locks it
-		s.owner = { "West", "West", "Neutral", "East", "East" }
-		assert(R.gunLocked(A, "Howitzer", R.held(s, "West")) ~= nil)
+		assert(R.gunLocked(A, "Howitzer", R.held(s, "West")) == nil, "from the start (user: 'Yes, from the start')")
+		assert(R.gunLocked(A, "FieldGun", 3) == nil and R.gunLocked(A, "FieldGun", 1) == nil)
+		assert(R.gunLocked(A, "Trench", 3) == nil, "other pieces never wait")
+		-- West takes the middle: three from its end, locked; East still two
+		s.owner = { "West", "West", "West", "East", "East" }
+		assert(R.held(s, "West") == 3 and R.gunLocked(A, "Howitzer", R.held(s, "West")) == A.why, "West pushed out")
+		assert(R.gunLocked(A, "Howitzer", R.held(s, "East")) == nil, "East at its last two")
+		-- pushed back to its HQ: still unlocked
+		s.owner = { "West", "Neutral", "East", "East", "East" }
+		assert(R.held(s, "West") == 1 and R.gunLocked(A, "Howitzer", R.held(s, "West")) == nil)
+		assert(R.held(s, "East") == 3 and R.gunLocked(A, "Howitzer", R.held(s, "East")) ~= nil)
 	end,
 	["reinforcements only on a big mismatch (user 2026-10-29)"] = function()
 		local C = Cfg.Reinforcements
