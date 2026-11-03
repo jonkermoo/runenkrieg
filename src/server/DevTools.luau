@@ -217,6 +217,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		else
 			Damage.staffBlast(aim, value, by)
 		end
+	elseif action == "Shells" and aim then
+		Artillery.devShells(value, aim)
 	elseif action == "BlastHurts" then
 		player:SetAttribute(Cfg.Blasts.HurtAttribute, if value then true else nil)
 	elseif action == "DigStep" then

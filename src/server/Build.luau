@@ -69,6 +69,7 @@ local Map1 = require(Shared.LiveMap).map -- (the match's map)
 local MapTerrain = require(Shared.Rules.MapTerrain)
 local SectorRules = require(Shared.Rules.Sectors)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local Ground = require(script.Parent.Ground)
 local Trees = require(script.Parent.Trees)
 local Trenches = require(script.Parent.Trenches)
@@ -2036,7 +2037,9 @@ end
 function Build.blast(position: Vector3, kg: number, key: string?)
 	local S = C.Structures
 	local src = Rules.structureSource(key, kg, S)
+	local t0 = os.clock()
 	Trenches.blast(position, src)
+	Hitches.since("Blast trenches", t0)
 	local cut = {}
 	local worn: { { r: Rec, amount: number } } = {} -- (Hesco barriers: worn after the loop, which bursting changes)
 	for _, r in recs do
@@ -2119,6 +2122,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 		wear(w.r, w.amount)
 	end
 	-- and a piece whose ground the crater took from under it is gone, never left hanging (Config/Build.Support)
+	local t1 = os.clock()
 	local SUP = C.Support
 	for _, r in recs do
 		local laid = r.laid
@@ -2128,6 +2132,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			end
 		end
 	end
+	Hitches.since("Blast support", t1)
 end
 
 -- A bullet meeting `part` at `point` (src/server/Firing): a trench square (a piece, or the ground in it) or a sandbag
