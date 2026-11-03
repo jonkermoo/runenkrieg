@@ -66,9 +66,14 @@ return {
 		assert(R.channelOf(w, Cfg) == "Whisper", "whisper")
 		assert(R.channelOf("Something", Cfg) == nil, "other")
 	end,
+	["three tabs: Team, Server, Global, each one a channel to send to (user 2026-11-03)"] = function()
+		assert(table.concat(Cfg.Views, ",") == "Team,Server,Global", "no All tab")
+		assert(table.concat(Cfg.Send, ",") == table.concat(Cfg.Views, ","), "a tab is the channel it sends to")
+	end,
 	["Tab cycles the send channels"] = function()
-		assert(R.cycle("Server", Cfg.Send) == "Team", "server -> team")
-		assert(R.cycle("Global", Cfg.Send) == "Server", "wraps")
+		assert(R.cycle("Team", Cfg.Send) == "Server", "team -> server")
+		assert(R.cycle("Server", Cfg.Send) == "Global", "server -> global")
+		assert(R.cycle("Global", Cfg.Send) == "Team", "wraps")
 		assert(R.cycle("Nowhere", Cfg.Send) == Cfg.Send[1], "unknown starts at the first")
 	end,
 }

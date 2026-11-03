@@ -2,7 +2,7 @@
 -- Client settings. The source of truth is an attribute on the local Player ("Setting_<Key>"), so the menu, any client
 -- system and tests share one value. The server sets the saved ones when the profile loads (src/server/Profile);
 -- a change here is sent back to be saved (Net "SaveSettings", Config/Settings.SendDelay after the last change).
--- Settings.get(key), Settings.set(key, value), Settings.changed(key, fn), Settings.key(action) for a keybind.
+-- Settings.get(key), Settings.set(key, value), Settings.changed(key, fn), Settings.key(action) for a keybind, Settings.held(action) for one held down.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -93,6 +93,17 @@ end
 function Settings.pressed(action: string, input: InputObject): boolean
 	local k = Settings.key(action)
 	return input.KeyCode == k or input.UserInputType == k
+end
+
+-- Whether the key or mouse button bound to an action is held down now (not while typing in a text box).
+function Settings.held(action: string): boolean
+	local k = Settings.key(action)
+	if UserInputService:GetFocusedTextBox() ~= nil then
+		return false
+	elseif k.EnumType == Enum.KeyCode then
+		return UserInputService:IsKeyDown(k :: Enum.KeyCode)
+	end
+	return UserInputService:IsMouseButtonPressed(k :: Enum.UserInputType)
 end
 
 return Settings

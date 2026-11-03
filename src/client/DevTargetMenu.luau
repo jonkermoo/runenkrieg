@@ -57,7 +57,10 @@ local function build(player: Player): ScreenGui
 	DevPanel.button(p.panel, "Knock", "Knock all dummies down", 6).Activated:Connect(function()
 		Net.event("DevAction"):FireServer("KnockDummies")
 	end)
-	DevPanel.button(p.panel, "Clear", "Clear all dummies", 7).Activated:Connect(function()
+	DevPanel.button(p.panel, "Say", "All dummies say hey (chat bubbles)", 7).Activated:Connect(function()
+		Net.event("DevAction"):FireServer("SayDummies")
+	end)
+	DevPanel.button(p.panel, "Clear", "Clear all dummies", 8).Activated:Connect(function()
 		Net.event("DevAction"):FireServer("ClearDummies")
 	end)
 	return p.gui

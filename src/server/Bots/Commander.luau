@@ -18,6 +18,7 @@ local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotSap = require(Shared.Rules.BotSap)
 local Survey = require(Shared.BuildSurvey)
+local BotCrew = require(Shared.Rules.BotCrew)
 local Build = require(script.Parent.Parent.Build)
 local Frontline = require(script.Parent.Parent.Frontline)
 local Indoors = require(script.Parent.Parent.Indoors)
@@ -809,7 +810,10 @@ function Guns.spots(
 			end
 		end
 		local off = target - at
-		return ArtRules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y) ~= nil
+		-- (within its reach on this map: Config/Artillery.Reach)
+		local d = Vector3.new(off.X, 0, off.Z).Magnitude
+		return d <= ArtRules.reachCap(ArtRules.sectorSpan(Map.sectors), ArtCfg.Reach)
+			and ArtRules.layFor(gun, d, off.Y) ~= nil
 	end)
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)
@@ -1103,13 +1107,30 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- swings wanted: the nearest pieces (Build.repairs of them) and trench squares (Trenches.digs)
 	local keep: { [Model]: BuildJob } = {}
 	local n, nd = 0, 0
-	for _, i in BotBuild.repairs(pieces, zone, BD.repair, #pieces) do
+	-- (its guns out of service first, wherever they stand: fixed before anyone mans them, Rules/BotCrew.repairOrder)
+	local fixable = {}
+	for i, w in works do
+		local at = BotCrew.sectorAt(w.at.X, w.at.Z, Map.sectors)
+		fixable[i] = {
+			gun = w.kind == "Gun" or w.kind == "Nest",
+			built = w.built,
+			held = at ~= nil and owner[at] == side,
+			hp = w.hp,
+			max = w.max,
+		}
+	end
+	local order, fix = BotCrew.repairOrder(fixable, BotBuild.repairs(pieces, zone, BD.repair, #pieces), ArtCfg.Man.keep)
+	for _, i in order do
 		local w = works[i]
 		local square = w.key == "Trench"
-		if not claimed[w.model] and (if square then nd < TR.digs else n < BD.repairs) and quiet(w.model) then
+		if
+			not claimed[w.model]
+			and (fix[i] or (if square then nd < TR.digs else n < BD.repairs))
+			and quiet(w.model)
+		then
 			if square then
 				nd += 1
-			else
+			elseif not fix[i] then
 				n += 1
 			end
 			local r = sbs.works[w.model]
@@ -1118,7 +1139,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				r = { job = job, base = job, model = w.model, tries = 0, waitUntil = 0, left = 0, open = true }
 			end
 			local rr = r :: BuildJob
-			rr.at, rr.left, rr.open = w.at, w.left, true
+			rr.at, rr.left, rr.open, rr.fix = w.at, w.left, true, fix[i] == true
 			keep[w.model] = rr
 			table.insert(sbs.open, rr)
 		end
@@ -1289,8 +1310,9 @@ local function command()
 		owner[i] = if type(o) == "string" then o else s.startOwner
 		local c = sf and sf:GetAttribute("Control")
 		control[i] = if type(c) == "number" then c else FrontRules.rest(owner[i])
-		local w = sf and sf:GetAttribute("West")
-		local e = sf and sf:GetAttribute("East")
+		-- (by head: Config/Frontline.HeadsSuffix; the "West" / "East" weights count a bot as half for the capture)
+		local w = sf and sf:GetAttribute("West" .. FrontCfg.HeadsSuffix)
+		local e = sf and sf:GetAttribute("East" .. FrontCfg.HeadsSuffix)
 		counts[i] = { West = if type(w) == "number" then w else 0, East = if type(e) == "number" then e else 0 }
 	end
 	local state = { owner = owner, control = control }
