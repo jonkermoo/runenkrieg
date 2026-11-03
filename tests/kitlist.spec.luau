@@ -23,8 +23,26 @@ return {
 		for _, r in out do
 			table.insert(got, r.slot)
 		end
-		assert(table.concat(got, ",") == "Primary,Grenade,Shovel,Extra,Other", table.concat(got, ","))
+		assert(table.concat(got, ",") == "Primary,Shovel,Grenade,Extra,Other", table.concat(got, ","))
 		assert(rows[1].slot == "Shovel", "the input is left as it is")
+	end,
+	["keys: the gun 1, the shovel 2, grenades 3, with or without grenades (user 2026-11-03)"] = function()
+		local function keysOf(rows: { any }): string
+			local got = {}
+			for _, r in R.sort(rows, K.order) do
+				table.insert(got, r.slot)
+			end
+			return table.concat(got, ",")
+		end
+		local all = {
+			{ slot = "Grenade", first = 0 },
+			{ slot = "Shovel", first = 1 },
+			{ slot = "Primary", first = 2 },
+		}
+		assert(keysOf(all) == "Primary,Shovel,Grenade", keysOf(all))
+		local none = { { slot = "Shovel", first = 0 }, { slot = "Primary", first = 1 } }
+		assert(keysOf(none) == "Primary,Shovel", "no grenades: the shovel still 2")
+		assert(K.keys[1] == "One" and K.keys[2] == "Two" and K.keys[3] == "Three")
 	end,
 	["every weapon slot in Config/Weapons has a place in the order"] = function()
 		for name, w in W :: any do
