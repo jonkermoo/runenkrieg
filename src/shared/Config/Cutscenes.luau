@@ -468,7 +468,8 @@ local Cutscenes = {
 		},
 		bar = { width = 0.3, height = 0.008, track = { 60, 54, 46 }, fill = { 230, 220, 193 }, most = 0.95 },
 	},
-	-- The narrator (Roblox text-to-speech: AudioTextToSpeech, voice "1" British male), slowed and lowered. Part one in
+	-- The narrator: a British woman's voice, every line recorded (Config/NarratorClips; user 2026-11-03), and Roblox
+	-- text-to-speech (AudioTextToSpeech, voice "1" British male, slowed and lowered) for a line not recorded. Part one in
 	-- the armory: where they won (by the map just played) and the momentum (by the winning nation). Part two over the
 	-- flight: the plan (by the next map: the dive's line, then a line as each point's seal is stamped) and the closing
 	-- call on the whistle. Lines play one after another, never over each other, each no earlier than its cue; the
@@ -480,8 +481,9 @@ local Cutscenes = {
 		pitch = -2,
 		volume = 1.6,
 		gap = 0.3, -- seconds of quiet between lines
-		-- the voice's pace (measured in Studio 2026-11-02: 29 words in 8.9 s at speed 0.92), for the server's guess of
-		-- part one's length (the armory's least time) and for keeping each order inside its point's moment
+		-- the text-to-speech voice's pace (measured in Studio 2026-11-02: 29 words in 8.9 s at speed 0.92): how long a
+		-- line not recorded takes (a recorded line takes its clip's length), for the server's guess of part one's
+		-- length (the armory's least time) and for keeping each order inside its point's moment
 		wordsPerSecond = 3.0,
 		won = {
 			Map1 = "{winner} holds the valley. Their colours fly from the church tower, and the enemy's last line lies broken in the mud of the river ford.",
@@ -492,7 +494,7 @@ local Cutscenes = {
 			LanternMeadows = "The festival lanterns of the Aurel burn for no one tonight. The meadows are trampled flat, and neither army holds them.",
 		},
 		momentum = {
-			uniform1 = "Katzmark does not rest on a victory. The frost-mages are already marching, rifles slung, while the enemy is still counting its dead.",
+			uniform1 = "Katzmark does not rest on a victory. The mages are already marching, rifles slung, while the enemy is still counting its dead.",
 			uniform2 = "Selvara rides the current of this victory. The brass of their mages is still ringing in the hills, and they mean to strike again before the mud can dry.",
 			uniform3 = "Sowilo's banners are torn, but they have tasted blood. The crimson rune-casters swear on their scars that the next field will be theirs by nightfall.",
 			none = "Neither side could break the other. Both armies limp from the field, and both have sworn the next fight will end it.",
@@ -516,12 +518,12 @@ local Cutscenes = {
 				"Drive them out of the cascina.",
 			},
 		},
-		-- (no bayonets in this army: user 2026-11-02)
+		-- the closing call, by the player's own kit: the same whether their side won or lost (user 2026-11-03; no
+		-- bayonets in this army: user 2026-11-02)
 		close = {
-			uniform1 = "For Katzmark. Not one step back.",
-			uniform2 = "For Selvara. The river remembers.",
-			uniform3 = "For Sowilo. Light the runes.",
-			none = "Stand to. Wait for the whistle.",
+			uniform1 = "For Katzmark! Not one step back!",
+			uniform2 = "For Selvara! The river remembers!",
+			uniform3 = "For Sowilo! Light the runes!",
 		},
 		subtitle = 22, -- the subtitles' size (pixels at an 800-pixel-tall screen), in the bottom bar
 	},

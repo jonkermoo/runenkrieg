@@ -661,12 +661,12 @@ local function begin(kind: string, folder: Instance)
 	}
 	sheetFor(key)
 	makeSeals(map)
-	-- the narrator's plan over the flight (the match before: "<winner kit or none>,<map played>")
+	-- the narrator's plan over the flight, its closing call by the player's own kit
 	local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
 	if kind == "Pre" and type(spoken) == "string" then
-		local kitText = string.split(spoken, ",")[1]
-		local winnerKit = if kitText ~= "none" then kitText else nil
-		local lines = Rules.partTwo(Cfg.Speech, cut, winnerKit, key, #map.sectors)
+		local ownKit = if home then folder:GetAttribute(home) else nil
+		local lines =
+			Rules.partTwo(Cfg.Speech, cut, if type(ownKit) == "string" then ownKit else nil, key, #map.sectors)
 		Speech.queue(lines, os.clock() + (startAt - workspace:GetServerTimeNow()))
 	end
 	skip.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled

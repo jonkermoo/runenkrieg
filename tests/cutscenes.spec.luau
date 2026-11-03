@@ -2,6 +2,8 @@
 local Cfg = require("../src/shared/Config/Cutscenes")
 local Front = require("../src/shared/Config/Frontline")
 local R = require("../src/shared/Rules/Cutscenes")
+local Clips = require("../src/shared/Config/NarratorClips")
+local Uniforms = require("../src/shared/Config/Uniforms")
 local Maps = require("./frontlinemaps")
 
 local function points(map: any): { { number } }
@@ -88,7 +90,7 @@ local tests: { [string]: () -> () } = {
 			assert(not l.text:find("{", 1, true), "every token filled")
 		end
 	end,
-	["part two: a line as the dive starts, one at each point, the call on the whistle"] = function()
+	["part two: a line as the dive starts, one at each point, the player's own call on the whistle"] = function()
 		local sp, cut = Cfg.Speech, Cfg.Pre
 		local two = R.partTwo(sp, cut, "uniform3", "Map1", 5)
 		assert(#two == 7, "the dive, five points, the call")
@@ -100,8 +102,10 @@ local tests: { [string]: () -> () } = {
 			assert(two[i + 1].at >= two[i].at, "in order along the flight")
 		end
 		assert(two[7].text == sp.close.uniform3 and two[7].at == R.start(cut, #cut.shots))
-		local bare = R.partTwo(sp, cut, nil, "Nowhere", 5)
-		assert(#bare == 1 and bare[1].text == sp.close.none, "a map without a plan: the call alone")
+		local bare = R.partTwo(sp, cut, "uniform1", "Nowhere", 5)
+		assert(#bare == 1 and bare[1].text == sp.close.uniform1, "a map without a plan: the call alone")
+		local noKit = R.partTwo(sp, cut, nil, "Map1", 5)
+		assert(#noKit == 6 and noKit[6].text == sp.plans.Map1[6], "no kit of their own: the plan, no call")
 	end,
 	["each order is said before the flight reaches the next point"] = function()
 		local sp, cut = Cfg.Speech, Cfg.Pre
@@ -111,7 +115,7 @@ local tests: { [string]: () -> () } = {
 			local n = #plan - 1
 			for i = 1, n - 1 do
 				local room = R.orderTime(front, t0, i + 1, n) - R.orderTime(front, t0, i, n)
-				local say = R.speechSeconds({ { text = plan[i + 1], at = 0 } }, sp.wordsPerSecond, 0) + sp.gap
+				local say = R.lineSeconds(plan[i + 1], sp.wordsPerSecond, Clips.clips) + sp.gap
 				assert(say <= room, `{key}: "{plan[i + 1]}" takes {say} s, the point gives {room} s`)
 			end
 		end
@@ -175,8 +179,55 @@ local tests: { [string]: () -> () } = {
 		for key in sp.won do
 			for kit in sp.momentum do
 				local one = R.partOne(sp, if kit == "none" then nil else kit, key, "Katzmark")
-				assert(R.speechSeconds(one, sp.wordsPerSecond, sp.gap) < Front.Loading.max, "part one fits")
+				local secs = R.speechSeconds(one, sp.wordsPerSecond, sp.gap, Clips.clips)
+				assert(secs < Front.Loading.max, "part one fits")
 			end
+		end
+	end,
+	["a recorded line takes its clip's length; any other its words' (user 2026-11-03)"] = function()
+		local clips = { ["Hold the rise."] = { 12, 1.75 } }
+		assert(R.lineSeconds("Hold the rise.", 3, clips) == 1.75)
+		assert(R.lineSeconds("Cross the meadow now.", 2, clips) == 2, "no clip: 4 words at 2 a second")
+		assert(R.lineSeconds("Hold the rise.", 3, nil) == 1)
+		local two = R.speechSeconds({ { text = "Hold the rise.", at = 0 }, { text = "Go on.", at = 0 } }, 2, 0.5, clips)
+		assert(math.abs(two - (1.75 + 0.5 + 1)) < 1e-9)
+	end,
+	["every line the narrator can say is listed once, each won line for each nation"] = function()
+		local nations = { "Katzmark", "Selvara", "Sowilo" }
+		local all = R.allLines(Cfg.Speech, nations)
+		local seen = {}
+		for _, line in all do
+			assert(not seen[line], "listed twice: " .. line)
+			seen[line] = true
+			assert(not line:find("{", 1, true), "unfilled: " .. line)
+		end
+		for _, nation in nations do
+			assert(seen[R.text(Cfg.Speech.won.Map1, { winner = nation })], nation)
+		end
+		for _, line in Cfg.Speech.close do
+			assert(seen[line], line)
+		end
+	end,
+	["with a recorded sheet, every line has its clip, inside the sheet, in order"] = function()
+		if Clips.asset == "" then
+			return -- (no recording yet: text-to-speech speaks every line)
+		end
+		local nations = {}
+		for _, kit in (Uniforms :: any).Kits do
+			table.insert(nations, kit.team)
+		end
+		local spans = {}
+		for _, line in R.allLines(Cfg.Speech, nations) do
+			local clip = Clips.clips[line]
+			assert(clip, "not recorded (run tools/narrator): " .. line)
+			assert(clip[1] >= 0 and clip[2] > 0.3 and clip[2] < 20, line)
+			table.insert(spans, clip)
+		end
+		table.sort(spans, function(a, b)
+			return a[1] < b[1]
+		end)
+		for i = 2, #spans do
+			assert(spans[i][1] >= spans[i - 1][1] + spans[i - 1][2], "clips overlap")
 		end
 	end,
 	["the winners sign; everyone when there is no winner or no winner is playing"] = function()

@@ -239,9 +239,9 @@ function Cutscenes.orderTime(shot: any, t0: number, i: number, n: number): numbe
 end
 
 -- Part two, over the pre-match flight `cut` on a map with `n` points (`nextMap` its key): the plan's first line as the
--- dive starts, one as the camera comes up on each point, then the closing call (by the winning kit) as the camera goes into
--- the soldier's eyes. A map without a plan gets only the call.
-function Cutscenes.partTwo(speech: any, cut: any, winner: string?, nextMap: string, n: number): { Line }
+-- dive starts, one as the camera comes up on each point, then the closing call (by the player's own kit `own`, nil: no
+-- call) as the camera goes into the soldier's eyes. A map without a plan gets only the call.
+function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string, n: number): { Line }
 	local out: { Line } = {}
 	local plan = speech.plans[nextMap]
 	local starts: { [string]: number } = {}
@@ -264,21 +264,58 @@ function Cutscenes.partTwo(speech: any, cut: any, winner: string?, nextMap: stri
 			end
 		end
 	end
-	local close = speech.close[winner or "none"]
+	local close = own and speech.close[own]
 	if close then
 		table.insert(out, { text = close, at = starts.Eyes or Cutscenes.length(cut) })
 	end
 	return out
 end
 
--- About how long `lines` take spoken one after another: their words at `wps` words a second, `gap` between lines.
-function Cutscenes.speechSeconds(lines: { Line }, wps: number, gap: number): number
+-- How long one line takes: its recorded clip's length (`clips`: Config/NarratorClips.clips, by text), else its words at
+-- `wps` words a second.
+function Cutscenes.lineSeconds(text: string, wps: number, clips: { [string]: { number } }?): number
+	local clip = clips and clips[text]
+	if clip then
+		return clip[2]
+	end
+	local _, words = string.gsub(text, "%S+", "")
+	return words / wps
+end
+
+-- About how long `lines` take spoken one after another (Cutscenes.lineSeconds each), `gap` between lines.
+function Cutscenes.speechSeconds(lines: { Line }, wps: number, gap: number, clips: { [string]: { number } }?): number
 	local total = 0
 	for k, l in lines do
-		local _, words = string.gsub(l.text, "%S+", "")
-		total += words / wps + (if k > 1 then gap else 0)
+		total += Cutscenes.lineSeconds(l.text, wps, clips) + (if k > 1 then gap else 0)
 	end
 	return total
+end
+
+-- Every line the narrator can say, each once, sorted: the won lines filled with each of `nations`, the no-winner
+-- lines, the momentum lines, every plan's lines and the closing calls (for recording them, and checking each has a clip).
+function Cutscenes.allLines(speech: any, nations: { string }): { string }
+	local seen: { [string]: boolean } = {}
+	for _, template in speech.won do
+		for _, nation in nations do
+			seen[Cutscenes.text(template, { winner = nation })] = true
+		end
+	end
+	for _, group in { speech.wonNone, speech.momentum, speech.close } do
+		for _, line in group do
+			seen[line] = true
+		end
+	end
+	for _, plan in speech.plans do
+		for _, line in plan do
+			seen[line] = true
+		end
+	end
+	local out = {}
+	for line in seen do
+		table.insert(out, line)
+	end
+	table.sort(out)
+	return out
 end
 
 -- When each line starts, given how long each takes (`seconds`, by index): no earlier than its cue, never before the

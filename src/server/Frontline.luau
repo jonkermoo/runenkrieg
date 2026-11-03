@@ -34,6 +34,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Frontline)
 local CutCfg = require(Shared.Config.Cutscenes)
 local CutRules = require(Shared.Rules.Cutscenes)
+local NarratorClips = require(Shared.Config.NarratorClips)
 local BotsCfg = require(Shared.Config.Bots)
 local DamageCfg = require(Shared.Config.Damage)
 local SectorCfg = require(Shared.Config.Sectors)
@@ -754,7 +755,12 @@ local function run()
 		end
 		local nation = if winnerKit then (U.Kits :: any)[winnerKit].team else ""
 		local S = CutCfg.Speech
-		local spoken = CutRules.speechSeconds(CutRules.partOne(S, winnerKit, played, nation), S.wordsPerSecond, S.gap)
+		local spoken = CutRules.speechSeconds(
+			CutRules.partOne(S, winnerKit, played, nation),
+			S.wordsPerSecond,
+			S.gap,
+			NarratorClips.clips
+		)
 		local least = math.clamp(spoken, Cfg.Loading.least, Cfg.Loading.max)
 		local loading = os.clock()
 		phase("Loading", least)
