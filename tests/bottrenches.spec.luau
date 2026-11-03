@@ -186,4 +186,63 @@ return {
 		assert(R.overTop(1, 4, J.wait, J), "no waiting for ever")
 		assert(not R.overTop(0, 0, J.wait, J), "nobody left")
 	end,
+	["shelled: a shell near the trench lately, not a grenade"] = function()
+		local D = Cfg.Dugouts
+		local squares = { { x = 0, z = 0 } }
+		local shell = { x = D.near - 1, z = 0, at = 100, kg = D.shell }
+		assert(R.shelled(100, { shell }, squares, D), "a shell near")
+		assert(not R.shelled(100 + D.recent + 1, { shell }, squares, D), "long ago")
+		assert(not R.shelled(100, { { x = 1, z = 0, at = 100, kg = 0.17 } }, squares, D), "a grenade")
+		assert(not R.shelled(100, { { x = D.near + 1, z = 0, at = 100, kg = 5 } }, squares, D), "too far")
+		assert(not R.shelled(100, { shell }, {}, D), "no trench")
+	end,
+	["dugoutsWanted: none before shelling, then room for all but the sentries"] = function()
+		local D = Cfg.Dugouts
+		assert(R.dugoutsWanted(false, 12, 2, D) == 0, "never shelled")
+		assert(R.dugoutsWanted(true, 2, 2, D) == 0, "only sentries")
+		assert(R.dugoutsWanted(true, 2 + D.room, 2, D) == 1)
+		assert(R.dugoutsWanted(true, 3 + D.room, 2, D) == 2, "one more over")
+	end,
+	["dugoutSquares: dug squares, spaced, the middle first"] = function()
+		local D = Cfg.Dugouts
+		local squares = {}
+		for k = 0, 6 do
+			table.insert(squares, { x = 0, z = k * 8, share = 1, len = 8 })
+		end
+		squares[4].share = 0.5 -- (the middle one, z 24, not dug yet)
+		local got = R.dugoutSquares(squares, {}, 2, D, 8)
+		assert(#got == 2, "two")
+		for _, i in got do
+			assert(i ~= 4, "not on an undug square")
+		end
+		local a, b = squares[got[1]], squares[got[2]]
+		assert(math.abs(a.z - b.z) >= D.spacing, "spaced")
+		assert(math.abs(a.z - 24) <= 8, "the middle first")
+		assert(#R.dugoutSquares(squares, { { x = 0, z = 24 } }, 1, D, 8) == 1)
+		local near = R.dugoutSquares(squares, { { x = 0, z = 24 } }, 1, D, 8)
+		assert(math.abs(squares[near[1]].z - 24) >= D.spacing, "off the one it has")
+		assert(#R.dugoutSquares(squares, {}, 0, D, 8) == 0, "none wanted")
+		assert(#R.dugoutSquares(squares, {}, 2, D, 8.1) == 0, "too short on the flat")
+	end,
+	["seat: the nearest dugout with a place"] = function()
+		local rooms = { { x = 0, z = 0, free = 0 }, { x = 20, z = 0, free = 1 }, { x = 50, z = 0, free = 2 } }
+		assert(R.seat(rooms, 1, 0) == 2, "the full one skipped")
+		assert(R.seat(rooms, 48, 0) == 3)
+		assert(R.seat({ { x = 0, z = 0, free = 0 } }, 0, 0) == nil, "all full")
+	end,
+	["foxholeWanted: an open post with no trench near and no foxhole there"] = function()
+		local F = Cfg.Dugouts.Fox
+		assert(R.foxholeWanted(0, 0, {}, {}, F), "open ground")
+		assert(not R.foxholeWanted(0, 0, { { x = F.trench - 1, z = 0 } }, {}, F), "a trench near")
+		assert(not R.foxholeWanted(0, 0, {}, { { x = F.apart - 1, z = 0 } }, F), "dug already")
+		assert(R.foxholeWanted(0, 0, { { x = F.trench + 1, z = 0 } }, { { x = F.apart + 1, z = 0 } }, F))
+	end,
+	["occupied: a known enemy in the room, under the trench floor"] = function()
+		local B = Cfg.Dugouts.Bomb
+		local room = { x = 0, z = 0 }
+		assert(R.occupied({ { x = 1, y = -3, z = 1 } }, room, -1, B), "in it")
+		assert(not R.occupied({ { x = 1, y = 0, z = 1 } }, room, -1, B), "up in the trench")
+		assert(not R.occupied({ { x = B.inside + 1, y = -3, z = 0 } }, room, -1, B), "elsewhere")
+		assert(not R.occupied({}, room, -1, B), "nobody known")
+	end,
 }

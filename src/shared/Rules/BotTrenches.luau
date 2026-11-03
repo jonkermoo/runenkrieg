@@ -286,4 +286,137 @@ function BotTrenches.overTop(
 	return living > 0 and (there / living >= cfg.gather or since >= cfg.wait)
 end
 
+-- Whether a side's trenches are being shelled (user 2026-11-02, dugouts): a shell (a blast of `cfg.shell` kg or more,
+-- not a grenade) within `cfg.near` studs of any of its trench squares (`squares`) in the last `cfg.recent` seconds.
+function BotTrenches.shelled(
+	now: number,
+	blasts: { { x: number, z: number, at: number, kg: number } },
+	squares: { { x: number, z: number } },
+	cfg: { shell: number, near: number, recent: number }
+): boolean
+	for _, k in blasts do
+		if k.kg >= cfg.shell and now - k.at <= cfg.recent then
+			for _, s in squares do
+				if math.sqrt((k.x - s.x) ^ 2 + (k.z - s.z) ^ 2) <= cfg.near then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+-- How many dugouts a side wants (user 2026-11-02: "whenever they need one but dont make bots abuse it"): none until its
+-- trenches have been shelled, then room (`cfg.room` each) for its holders but its sentries ("1 per fire bay", one
+-- each of `bays`).
+function BotTrenches.dugoutsWanted(shelledOnce: boolean, holders: number, bays: number, cfg: { room: number }): number
+	if not shelledOnce then
+		return 0
+	end
+	return math.ceil(math.max(holders - bays, 0) / cfg.room)
+end
+
+-- Where a side's next dugouts go: up to `want` of its support line's squares (`squares`, each dug `share` of its HP,
+-- `len` studs long on the flat), dug to `cfg.dug` or more, at least `long` studs long (a dugout's width and its spare:
+-- Config/Build.Dugout), `cfg.spacing` studs (centre to centre) from every dugout it has (`have`) and from each other,
+-- the nearest to the line's middle first. Returns indices into `squares`.
+function BotTrenches.dugoutSquares(
+	squares: { { x: number, z: number, share: number, len: number } },
+	have: { { x: number, z: number } },
+	want: number,
+	cfg: { dug: number, spacing: number },
+	long: number
+): { number }
+	local mx, mz, n = 0, 0, 0
+	for _, s in squares do
+		mx, mz, n = mx + s.x, mz + s.z, n + 1
+	end
+	if n == 0 or want <= 0 then
+		return {}
+	end
+	mx, mz = mx / n, mz / n
+	local order = {}
+	for i, s in squares do
+		if s.share >= cfg.dug and s.len >= long then
+			table.insert(order, i)
+		end
+	end
+	table.sort(order, function(a, b)
+		local sa, sb = squares[a], squares[b]
+		return (sa.x - mx) ^ 2 + (sa.z - mz) ^ 2 < (sb.x - mx) ^ 2 + (sb.z - mz) ^ 2
+	end)
+	local taken = table.clone(have)
+	local out = {}
+	for _, i in order do
+		if #out >= want then
+			break
+		end
+		local s = squares[i]
+		local free = true
+		for _, h in taken do
+			if math.sqrt((h.x - s.x) ^ 2 + (h.z - s.z) ^ 2) < cfg.spacing then
+				free = false
+				break
+			end
+		end
+		if free then
+			table.insert(out, i)
+			table.insert(taken, { x = s.x, z = s.z })
+		end
+	end
+	return out
+end
+
+-- The dugout a holder shelters in: of `rooms` (each with `free` places left), the nearest to (px, pz) with a place;
+-- nil if none.
+function BotTrenches.seat(rooms: { { x: number, z: number, free: number } }, px: number, pz: number): number?
+	local best, bestD = nil, math.huge
+	for i, r in rooms do
+		local d = (r.x - px) ^ 2 + (r.z - pz) ^ 2
+		if r.free > 0 and d < bestD then
+			best, bestD = i, d
+		end
+	end
+	return best
+end
+
+-- Whether a holder at an open post (x, z) digs a foxhole there (user 2026-11-02: "Holding before trench"): no dug own
+-- trench square (`squares`) within `cfg.trench` studs and no foxhole (`holes`) within `cfg.apart`.
+function BotTrenches.foxholeWanted(
+	x: number,
+	z: number,
+	squares: { { x: number, z: number } },
+	holes: { { x: number, z: number } },
+	cfg: { trench: number, apart: number }
+): boolean
+	for _, s in squares do
+		if math.sqrt((s.x - x) ^ 2 + (s.z - z) ^ 2) <= cfg.trench then
+			return false
+		end
+	end
+	for _, h in holes do
+		if math.sqrt((h.x - x) ^ 2 + (h.z - z) ^ 2) <= cfg.apart then
+			return false
+		end
+	end
+	return true
+end
+
+-- Whether an enemy dugout's room (its floor's middle `room`) has someone in it its attackers know of (user 2026-11-02,
+-- bombing out dugouts): a known enemy (`known`) within `cfg.inside` studs of it across and below the trench floor
+-- (`floorY`).
+function BotTrenches.occupied(
+	known: { { x: number, y: number, z: number } },
+	room: { x: number, z: number },
+	floorY: number,
+	cfg: { inside: number }
+): boolean
+	for _, k in known do
+		if k.y < floorY and math.sqrt((k.x - room.x) ^ 2 + (k.z - room.z) ^ 2) <= cfg.inside then
+			return true
+		end
+	end
+	return false
+end
+
 return BotTrenches
