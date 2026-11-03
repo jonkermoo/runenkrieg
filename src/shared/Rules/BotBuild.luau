@@ -419,4 +419,25 @@ function BotBuild.strikes(empty: boolean, roll: number, cfg: { chance: number, e
 	return roll < (if empty then cfg.empty else cfg.chance)
 end
 
+-- Whether a bot at its build job's spot may put its gun away and work (user 2026-11-03 play test: "they should always
+-- be ready to shoot and fight until they know they are safe to work on trench"): its own foxhole or pile dug pinned
+-- down (`underFire`: that is the point of it); else no enemy in sight, and either nothing shot at it or hurt it for
+-- `calm` seconds or the spot is hidden from where the last threat came from (`hidden`).
+function BotBuild.safeToWork(
+	underFire: boolean,
+	seen: boolean,
+	sinceThreat: number,
+	sinceHurt: number,
+	hidden: boolean,
+	calm: number
+): boolean
+	if underFire then
+		return true
+	end
+	if seen then
+		return false
+	end
+	return (sinceThreat >= calm and sinceHurt >= calm) or hidden
+end
+
 return BotBuild

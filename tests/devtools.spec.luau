@@ -60,6 +60,8 @@ return {
 		assert(not A.valid(Cfg, "Health", "100") and not A.valid(Cfg, "Health", nil))
 		assert(A.valid(Cfg, "BlastKg", Cfg.Blasts.Kg[1]) and not A.valid(Cfg, "BlastKg", 1e9))
 		assert(A.valid(Cfg, "BlastStage", 3) and not A.valid(Cfg, "BlastStage", 0))
+		assert(A.valid(Cfg, "Shells", Cfg.Blasts.Guns[1]) and not A.valid(Cfg, "Shells", "nope") and A.Aimed.Shells)
+		assert(Cfg.Blasts.Shells.count >= 1 and Cfg.Blasts.Shells.every > 0)
 		assert(A.valid(Cfg, "PlacePiece", Cfg.Blasts.Pieces[1]) and A.Aimed.PlacePiece)
 		assert(not A.valid(Cfg, "PlacePiece", "Trench") and not A.valid(Cfg, "PlacePiece", nil))
 		assert(A.valid(Cfg, "GunHp", 49) and A.Aimed.GunHp and not A.valid(Cfg, "GunHp", 10))
@@ -182,7 +184,7 @@ return {
 		for _, sw in { "BotState", "FreeEngineer", "FreeGrenadier" } do
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
-		for _, aimed in { "BotPush", "BotStrike", "BotGun" } do
+		for _, aimed in { "BotPush", "BotStrike", "BotGun", "BotWork", "BotDown" } do
 			assert(A.valid(Cfg, aimed, nil) and not A.valid(Cfg, aimed, 1) and A.Aimed[aimed], aimed)
 		end
 		assert(A.valid(Cfg, "BotDig", Cfg.Admin.BotDig.steps[2]) and not A.valid(Cfg, "BotDig", 1e6))

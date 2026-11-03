@@ -7,6 +7,7 @@ local DevActions = {}
 -- actions that act at the aim point (the middle of the player's screen)
 DevActions.Aimed = table.freeze({
 	BlastStage = true,
+	Shells = true,
 	BlastKg = true,
 	Dummy = true,
 	PlaceGun = true,
@@ -15,6 +16,8 @@ DevActions.Aimed = table.freeze({
 	BotPush = true,
 	BotStrike = true,
 	BotGun = true,
+	BotWork = true,
+	BotDown = true,
 })
 
 -- actions with no value (or a plain on/off)
@@ -39,6 +42,8 @@ local PLAIN = table.freeze({
 	BotPush = true,
 	BotStrike = true,
 	BotGun = true,
+	BotWork = true,
+	BotDown = true,
 	RebuildMaps = true,
 	HitchReport = true,
 })
@@ -139,7 +144,7 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Blasts.Stages, value) ~= nil
 	elseif action == "BlastKg" then
 		return table.find(cfg.Blasts.Kg, value) ~= nil
-	elseif action == "PlaceGun" then
+	elseif action == "PlaceGun" or action == "Shells" then
 		return table.find(cfg.Blasts.Guns, value) ~= nil
 	elseif action == "PlacePiece" then
 		return table.find(cfg.Blasts.Pieces, value) ~= nil

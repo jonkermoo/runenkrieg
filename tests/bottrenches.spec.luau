@@ -217,6 +217,7 @@ return {
 		end
 		local a, b = squares[got[1]], squares[got[2]]
 		assert(math.abs(a.z - b.z) >= D.spacing, "spaced")
+		assert(D.spacing >= Build.Dugout.spacing, "bots plan no nearer than a dugout is refused")
 		assert(math.abs(a.z - 24) <= 8, "the middle first")
 		assert(#R.dugoutSquares(squares, { { x = 0, z = 24 } }, 1, D, 8) == 1)
 		local near = R.dugoutSquares(squares, { { x = 0, z = 24 } }, 1, D, 8)

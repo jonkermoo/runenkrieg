@@ -140,6 +140,11 @@ local DevTools = {
 		Health = { 100, 75, 50, 25, 10 },
 		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
 		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+		-- the admin panel's readout of which bot rescues which casualty (src/server/Bots, every commander tick)
+		BotRescuesAttribute = "DevBotRescues",
+		DownHealth = 0.4, -- "Nearest bot knocked down here": its health share after (src/server/Bots.dev "Down")
+		-- the admin panel's readout of each side's bot classes (src/server/Bots, every commander tick in Normal)
+		BotClassesAttribute = "DevBotClasses",
 		-- the admin panel's readout of each side's Engineer bots: each one's build job, or why it has none
 		-- (src/server/Bots, every commander tick)
 		BotEngineersAttribute = "DevBotEngineers",
@@ -265,6 +270,19 @@ local DevTools = {
 		-- "Shovel" build-anything switch (user 2026-10-27: "add admin shovel option to build anything"): lay and build
 		-- every piece whatever the class (src/server/Build, src/client/Build), on the Player while on
 		BuildAllAttribute = "DevBuildAll",
+		-- "Shovel" slope readout (src/client/DevSlope; user 2026-11-03, guns and MG nests on steeper hills, Config/Build
+		-- .Slope): under the cursor, the ground's slope and how each of `pieces` would lie there (the earth levelled,
+		-- its tilt, or too steep), and the first one's plane shown; on the Player while on, for this player only.
+		-- `every` seconds between readings, the label `width` x `tall` px, its text `size`, the plane `see`-through
+		Slope = {
+			attribute = "DevSlope",
+			pieces = { "FieldGun", "MGNest", "Howitzer" },
+			every = 0.15,
+			width = 320,
+			tall = 96,
+			size = 14,
+			see = 0.6,
+		},
 		-- unlimited ammo and no staff cooldown (src/server/Firing tops the magazine up after each shot; src/client/
 		-- StaffAttack and src/server/StaffCast: no cooldown, the mana full again), on the Player while on
 		AmmoAttribute = "DevAmmo",
@@ -340,6 +358,9 @@ local DevTools = {
 		GunReach = 20,
 		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
 		RefusedSeconds = 3,
+		-- the shelling rows (src/server/Artillery.devShells): `count` of a gun's shells round the aim point, `every` s
+		-- apart, within `spread` studs (a trench line under fire: the hitch log's blast numbers)
+		Shells = { count = 6, every = 0.5, spread = 6 },
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the

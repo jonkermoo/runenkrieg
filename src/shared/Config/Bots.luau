@@ -66,21 +66,23 @@ local Bots = {
 	-- after a death: the respawn wait (Config/Metrics.Combat.RespawnDelay, as a player's) plus this long in the loadout
 	-- menu (seconds, a random share between), as a player picks a class and deploys
 	MenuTime = { 1, 5 },
-	-- the classes a bot can play and buy with its match points (Config/Classes; the first is the free default), the
-	-- range a short gun closes in to (nil: it fights from where it is); the others (grenades, the staff, the pistol)
-	-- come later
+	-- the classes a bot can play (Config/Classes; the first is the free default) and the range a short gun closes in to
+	-- (nil: it fights from where it is). In FFA a bot buys them with its match points; in Normal it rolls one each
+	-- life by `weight` (user 2026-11-03: "just remove bot point earnings entirely and just have each class be a chance
+	-- of spawning", so every class is seen: Rules/Bots.rollClass); gun and dugout duty still make an Engineer.
 	Classes = {
-		{ key = "Rifleman" },
-		{ key = "Grenadier" }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
-		{ key = "AutoRifler" },
-		{ key = "Shotgunner", push = 18 },
-		{ key = "Engineer" }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
-		{ key = "Mage" }, -- (user 2026-11-02: Mage bots in Normal and FFA, by points; Config/Bots.Staff)
+		{ key = "Rifleman", weight = 35 },
+		{ key = "Grenadier", weight = 15 }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
+		{ key = "AutoRifler", weight = 15 },
+		{ key = "Shotgunner", push = 18, weight = 12 },
+		{ key = "Engineer", weight = 13 }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
+		{ key = "Mage", weight = 10 }, -- (user 2026-11-02: Mage bots in Normal and FFA; Config/Bots.Staff)
 	},
 	-- the share of the battle points (Config/Classes.Earn: the kill, headshot and assists) a bot's death pays its killer
 	-- (user 2026-10-30: "make the AIs count half the battle points when you kill them")
 	KillShare = 0.5,
-	-- the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves up)
+	-- FFA: the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves
+	-- up)
 	Buy = 0.6,
 	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none.
 	-- Normal tops up each side (Rules/Bots.wantedSides; user 2026-10-31: "this will be a 50vs50 map. however, if there is
@@ -229,6 +231,15 @@ local Bots = {
 		every = 0.5,
 		Drag = { within = 12, cover = 15, seconds = 8 },
 		Heal = { calm = 3, below = 0.7, within = 25, reach = 4, seconds = 10 },
+		-- in a fight a teammate is dragged or healed only from cover or in cover (Rules/BotActions.mayTend; user
+		-- 2026-11-03: "they protect you and grab/heal you once it is safe"): else the bot stays within `near` studs of
+		-- them with its gun out, fighting, for up to `keep` s, and goes to them once it may
+		Guard = { near = 6, keep = 20 },
+		-- one rescuer a casualty (Rules/BotActions.rescuer; user 2026-11-03: "only have 1 soldier save them"): the nearest
+		-- free bot of its side within `range` studs, one of its squad first; the rest keep their push, post and
+		-- formation. A bot in a push never breaks off for one. A rescuer that dies or is pulled away lets it go, and
+		-- another may take it `wait` s later.
+		Rescue = { range = 40, wait = 3 },
 		Grenade = {
 			min = 15,
 			max = 35,
@@ -307,6 +318,11 @@ local Bots = {
 		-- no swing at a piece of theirs within `repairWait` s of it losing HP (user 2026-11-02 hand test: "Dont let ai
 		-- repair structures that are being destroyed by players"; "20 seconds": Rules/BotBuild.mayRepair)
 		repairWait = 20,
+		-- a job is walked to with the gun out, fighting on the way (user 2026-11-03 play test: "shooting and protecting
+		-- themselves and finding cover as they move to where they want to go"): the gun goes away only within `near`
+		-- studs of where it works and once it is safe there (Rules/BotBuild.safeToWork); danger mid-work drops the tool
+		-- and it fights, then goes back to it. The job is kept `keep` s from when it was taken.
+		Work = { near = 3, keep = 60 },
 		Nest = { ahead = 2, count = 3 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
@@ -507,7 +523,7 @@ local Bots = {
 		recent = 8,
 		room = 3,
 		dug = 0.95,
-		spacing = 12,
+		spacing = 16, -- (as Config/Build.Dugout.spacing: a dugout there is refused nearer)
 		engineers = 1,
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },
