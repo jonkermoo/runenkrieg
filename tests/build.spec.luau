@@ -719,32 +719,36 @@ return {
 		assert(B.hpSwing(h.max, false, h, 50) == 50, "an admin dig step in place of a swing")
 		assert(pile.height < M.Character.AimMuzzleHeight and pile.height >= M.Cover.LowCoverMin)
 	end,
-	["an MG nest's ring: twelve bags one high, a closed circle round the gun (user 2026-11-03)"] = function()
-		-- "make the mgnest a 360 nest, so the sandbags would just be a 1 layer circle"
+	["an MG nest's ring: a bag on every side of a regular ring, closed and one high (user 2026-11-03)"] = function()
+		-- user 2026-11-03: "make the mgnest a full circular sandbag instead of the half and stack at the end"
 		local n = C.Nest
 		local bags, radius = B.nestRing(n.ring)
-		assert(#bags == 12, "six piles of two bags, none topped")
-		assert(near(n.gunBack, radius, 0.01), "the gun at the ring's middle")
+		assert(#bags == n.ring.sides, "a bag on every side, none open")
+		assert(near(n.gunBack, radius, 0.01), "the gun at the ring's middle (user 2026-11-03: a 360 nest)")
 		assert(near(radius, n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))))
 		local apothem = radius * math.cos(math.pi / n.ring.sides)
+		local sides = {}
 		for _, b in bags do
-			-- every bag's middle on the bottom bags' line, lying along the ring (square to its radius)
+			assert(b.slot ~= 3, "no stacked bags: one high all round")
+			-- every bag's middle on the ring's line, lying along it (square to its radius)
 			assert(near(math.sqrt(b.x * b.x + b.z * b.z), apothem, 1e-6), "on the ring")
 			assert(near((b.x * b.dx + b.z * b.dz) / apothem, 0, 1e-6), "along the ring")
+			local side = math.round((math.deg(math.atan2(b.z, b.x)) + 90) / (360 / n.ring.sides) - 0.5) % n.ring.sides
+			assert(not sides[side], "each side once")
+			sides[side] = true
 		end
-		-- one high all round, closed (a bag on every side of the ring)
-		local around = {}
+		-- a bag straight behind the middle: no doorway left
+		local back = false
 		for _, b in bags do
-			assert(b.slot < 3, "no top bags")
-			local side = math.floor((math.deg(math.atan2(b.z, b.x)) + 360) % 360 / 30)
-			around[side] = true
+			back = back or (math.abs(b.x) < n.ring.bag / 2 and b.z > 0)
 		end
-		for side = 0, 11 do
-			assert(around[side], `a bag on side {side}`)
-		end
+		assert(back, "closed at the back")
 		-- the front point is where two piles' ends meet: the first two bags start there
 		assert(near(bags[1].x - bags[1].dx * n.ring.bag / 2, 0, 1e-6))
 		assert(near(bags[1].z - bags[1].dz * n.ring.bag / 2, -radius, 1e-6))
+		-- a one-bag pile lays just its bag; a pile not low still gets its top bag over the bend
+		local one = B.nestRing({ sides = 11, bag = 3.6, piles = { { 0, 1, 2 }, { 5, 6 } } })
+		assert(#one == 4 and one[3].pile == 2 and one[3].slot == 1 and one[4].slot == 3 and one[4].pile == 1)
 	end,
 	["the MG nest's gunner, gun and bullets clear its bags all round the gun's traverse"] = function()
 		-- user 2026-11-03: "make the mgnest a 360 nest" (was 140 in all, user 2026-11-01: "make sure players dont clip
@@ -770,7 +774,10 @@ return {
 		local topped = table.clone(n) :: any
 		topped.ring = table.clone(n.ring)
 		topped.ring.low = nil
-		local _, _, _, into = B.nestFit(topped, 40, crew, muzzle)
+		local into = false
+		for a = -180, 180, 5 do
+			into = into or select(4, B.nestFit(topped, a, crew, muzzle))
+		end
 		assert(into, "a ring two high would stop its shots")
 	end,
 	["two flat boxes' gap: apart, touching, overlapping"] = function()
@@ -812,7 +819,7 @@ return {
 		bags, q = B.nestShown(n.hp.swing, n)
 		assert(bags == "none" and q == 0, "a swing in: still laid (stages at 25, 50, 75, 100)")
 		bags, q = B.nestShown(25, n)
-		assert(bags == "bottom" and q == 1, "stage 1: the bottom bags, the mount on its bag")
+		assert(bags == 0 and q == 1, "stage 1: the mount on its bag, the ring still sacks")
 		bags, q = B.nestShown(50, n)
 		assert(type(bags) == "number" and q == 2, "stage 2: more of the ring, the gun on the mount")
 		bags, q = B.nestShown(75, n)
