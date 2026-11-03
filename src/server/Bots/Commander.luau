@@ -1095,7 +1095,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- (its guns out of service first, wherever they stand: fixed before anyone mans them, Rules/BotCrew.repairOrder)
 	local fixable = {}
 	for i, w in works do
-		fixable[i] = { gun = w.kind == "Gun" or w.kind == "Nest", built = w.built, hp = w.hp, max = w.max }
+		local at = BotCrew.sectorAt(w.at.X, w.at.Z, Map.sectors)
+		fixable[i] = {
+			gun = w.kind == "Gun" or w.kind == "Nest",
+			built = w.built,
+			held = at ~= nil and owner[at] == side,
+			hp = w.hp,
+			max = w.max,
+		}
 	end
 	local order, fix = BotCrew.repairOrder(fixable, BotBuild.repairs(pieces, zone, BD.repair, #pieces), ArtCfg.Man.keep)
 	for _, i in order do
@@ -1117,7 +1124,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				r = { job = job, base = job, model = w.model, tries = 0, waitUntil = 0, left = 0, open = true }
 			end
 			local rr = r :: BuildJob
-			rr.at, rr.left, rr.open = w.at, w.left, true
+			rr.at, rr.left, rr.open, rr.fix = w.at, w.left, true, fix[i] == true
 			keep[w.model] = rr
 			table.insert(sbs.open, rr)
 		end
