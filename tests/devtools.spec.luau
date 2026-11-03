@@ -169,10 +169,10 @@ return {
 		)
 		assert(A.valid(Cfg, "BotsAuto", nil) and not A.valid(Cfg, "BotsAuto", 3))
 		assert(A.valid(Cfg, "BotDifficulty", "Hard") and not A.valid(Cfg, "BotDifficulty", "Nightmare"))
-		for _, plain in { "MatchEnd", "MatchRestart", "ZoneSkip", "RespawnAll" } do
+		for _, plain in { "MatchEnd", "MatchRestart", "ZoneSkip", "RespawnAll", "HitchReport" } do
 			assert(A.valid(Cfg, plain, nil) and not A.valid(Cfg, plain, true), plain)
 		end
-		for _, sw in { "BuildAll", "Ammo", "KeptTeams" } do
+		for _, sw in { "BuildAll", "Ammo", "KeptTeams", "HitchLog" } do
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
 		assert(ClassCfg.Defs[Cfg.Admin.Normal] == nil, "the Normal value isn't a class")

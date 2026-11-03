@@ -48,6 +48,7 @@ local LiveMap = require(Shared.LiveMap)
 local Rules = require(Shared.Rules.DevTeleports)
 local Actions = require(Shared.Rules.DevActions)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 
 local DevTools = {}
 
@@ -209,6 +210,10 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(Cfg.TestShooter.Attribute, if value then true else nil)
 	elseif action == "UndoDestruction" then
 		DevWorld.undo()
+	elseif action == "HitchLog" then
+		workspace:SetAttribute(Cfg.Admin.Hitches.attribute, if value then true else nil)
+	elseif action == "HitchReport" then
+		print(Hitches.report())
 	elseif action == "Clock" then
 		Environment.setClock(value)
 	elseif action == "ClockPaused" then

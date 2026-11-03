@@ -5,7 +5,8 @@
 -- Engineer / Grenadier for free, dig speed, shelling a side's trenches), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
 -- god mode, unlimited ammo and no staff cooldown), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
--- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction) and Time
+-- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction, the
+-- hitch log and print: src/shared/Hitches) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
 -- weather off / on); Time and Weather are for everyone (src/server/Environment). Last the Cinematic rows for filming
 -- (src/client/DevCinematic): one switch hides every item, a row per item, and the Game switch (what any other player
@@ -34,6 +35,7 @@ local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local LiveMap = require(Shared.LiveMap)
 local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
@@ -487,7 +489,7 @@ local function build(player: Player): DevPanel.Panel
 	showDig()
 	onOff("BuildAll", "Build anything", "BuildAll", player, A.BuildAllAttribute)
 
-	-- World: the range's test shooters (Config/DevTools.TestShooter), undo destruction (src/server/DevWorld)
+	-- World: the range's test shooters (Config/DevTools.TestShooter), undo destruction (src/server/DevWorld), hitches
 	DevPanel.heading(p.panel, "World", order + 1)
 	order += 2
 	local shooters = DevPanel.button(p.panel, "Shooters", "", order)
@@ -503,6 +505,12 @@ local function build(player: Player): DevPanel.Panel
 	workspace:GetAttributeChangedSignal(S):Connect(showShooters)
 	showShooters()
 	row("Undo", "Undo destruction", "UndoDestruction")
+	-- the hitch timings (src/shared/Hitches): the log of each job over Hitches.over ms, on the server and every client;
+	-- the print is this client's and the server's (the output in Studio, F9 in a live game)
+	onOff("HitchLog", `Hitch log (over {A.Hitches.over} ms)`, "HitchLog", workspace, A.Hitches.attribute)
+	row("HitchReport", "Print hitches", "HitchReport").Activated:Connect(function()
+		print(Hitches.report())
+	end)
 
 	-- Time: jump the clock (Config/DevTools.Admin.Times), pause / resume the day cycle (src/server/Environment)
 	DevPanel.heading(p.panel, "Time", order + 1)
