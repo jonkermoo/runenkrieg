@@ -27,7 +27,7 @@ local Flagpole = {
 		-- an unheld point (user 2026-11-03: "either a white placeholder flag or no flag at all"): "white" flies a plain
 		-- cloth (Palette.Flagpole.Neutral) at the top, "none" leaves the pole bare; a capture swaps in the holder's flag
 		-- at the bottom and hauls it up, going neutral again swaps the placeholder back
-		neutral = "white",
+		neutral = "none", -- user 2026-11-03: "No flag"
 		pixelsPerStud = 32, -- the flag image's SurfaceGui resolution
 	},
 	-- the flap (Rules/Flagpole.flap): each strip turns from the one before by a wave travelling out to the free edge,
