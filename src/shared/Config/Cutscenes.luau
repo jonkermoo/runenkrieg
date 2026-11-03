@@ -114,50 +114,77 @@ local Cutscenes = {
 	-- the papers on them drawn at this many pixels a stud
 	PixelsPerStud = 60,
 	Stage = { tent = { 0, 1800, 0 }, armory = { 0, 1800, 400 } },
-	-- The battle table (placeholder: a tent, a table, the papers flat on it): its top `size` (x, z) `top` studs over the
-	-- tent floor; the played map's sketch sheet and the after-action report lie flat on it (sizes in studs, places from
-	-- the table's middle, x along it); the camera drifts from `from` to `to` (studs from the table top's middle),
-	-- looking at `look`.
+	-- The command post (the approved render, user 2026-11-03: src/client/CommandPost): a flat-roofed timber hut with
+	-- the war table in the middle and the orders board on the back wall. The render's metres at 10/3 studs each; places
+	-- in studs from the hut floor's middle, x across, y up, the board toward -z. Solemn light: a warm lamp over the
+	-- table, a low wash on the board, a dim cool fill.
+	Post = {
+		room = { size = { 20, 11, 20 }, z = 1.67 }, -- inside: x -10..10, z -8.33 (the back wall) .. 11.67
+		lamp = { at = { 7.2, 7.7, 1.3 }, range = 16, brightness = 1.8, color = { 255, 206, 150 } },
+		wash = { at = { 0, 10.4, -2 }, range = 16, brightness = 1.4, angle = 70, color = { 255, 224, 184 } },
+		fill = { at = { 0, 9, 7 }, range = 26, brightness = 0.35, color = { 170, 186, 214 } },
+		-- the game's own models on the table at real size x1.35 (their longest side in studs), coloured as the game
+		-- colours them; places on the table top from its middle (x, z), turned `yaw` degrees, lying on a side if `side`
+		props = {
+			{ asset = "rifle_g98", length = 5.6, at = { -1.6, -2.3 }, yaw = 90, side = true },
+			{ asset = "staff", length = 6.4, at = { -0.9, 2.35 }, yaw = 92, side = true },
+			{ asset = "helmet_stahl", length = 1.7, at = { 5.0, -1.9 }, yaw = 30 },
+			{ asset = "round_qf18", length = 2.1, at = { -6.2, -0.5 }, yaw = -95, side = true },
+		},
+		casings = { count = 7, at = { -0.6, 0.2 }, spread = 1.4, length = 0.38 },
+	},
+	-- The war table: its top `size` (x, z) `top` studs over the floor; one sheet over the whole top: the played map's
+	-- sketch across its upper part (`strip`: from its top-left and its width, fractions of the sheet) with this match's
+	-- captures in red pencil, the grid's letters and numbers, a legend; the after-action report flat on its lower
+	-- right (nothing on it). The camera: shot 1 3/4 from above, shot 2 straight down (the render's two table shots);
+	-- studs from the floor's middle, `fov` the vertical field of view.
 	Table = {
-		size = { 16, 10 },
-		top = 3.4,
-		map = { at = { -2.6, 0.5 }, size = { 9.6, 2.77 } },
-		report = { at = { 5.2, 0 }, size = { 4.4, 6 }, tilt = 6 },
-		lines = 7, -- the report's lines: title, map and length, the winner, three honours, your own
+		size = { 12, 6 },
+		top = 3,
+		sheet = { 11.3, 5.3 },
+		pixelsPerStud = 110,
+		strip = { at = { 0.05, 0.1 }, width = 0.66 },
+		grid = { cols = 11, rows = 6 },
+		report = { at = { 3.5, 1.45 }, size = { 2.1, 2.7 }, tilt = 6, pixelsPerStud = 200 },
+		top3 = 3, -- the report's top soldiers (by battle points)
 		-- the report's lines typed one after another, `type` seconds apart from `lead`
-		typing = { lead = 0.8, type = 0.45 },
+		typing = { lead = 0.8, type = 0.4 },
 		shots = {
-			{ t1 = 7, from = { -7, 8, 7 }, to = { -1, 9, 6 }, look = { -2, 0, 0.5 } },
-			{ t1 = 14, from = { 4, 7.5, 3.5 }, to = { 5, 7, 2.5 }, look = { 5.2, 0, 0 } },
+			{ t1 = 7, from = { -7.7, 7.8, 8.3 }, to = { -6.4, 7.4, 7.4 }, look = { 0.5, 3, 0 }, fov = 40 },
+			{ t1 = 14, from = { 0, 9.6, 0.25 }, to = { 0, 8.9, 0.25 }, look = { 0, 3, 0.25 }, fov = 62, down = true },
 		},
 	},
-	-- The map board on the tent wall behind the table (the camera turns round to it), `slots` sheets side by side (a
-	-- slot with no map is a placeholder), the operations plan beside them. Studs; the camera from the board's middle.
+	-- The orders board on the back wall (the camera turns round to it): "ORDERS · THE NEXT FRONT", one OPERATION ORDER
+	-- per map on offer (`slots` of them, `xs` across; an empty slot "to be announced"), photos pinned round them with red
+	-- string, a field telegram with the plan. Each order: its objective, a clipping of its map, its orders
+	-- (Vote.Orders), and "SIGNED, FOR THE FRONT" over a `grid` of signature lines (cols x rows: up to 40 signers, user
+	-- 2026-11-03) with the count out of the winners present. Studs; the board's middle `at` from the floor's middle.
 	Board = {
-		behind = 9, -- studs behind the table's middle, facing it
-		lift = 3.6, -- its foot this far over the floor (clear over the table top, as the camera sees it)
-		size = { 22, 10 },
+		at = { 0, 5.83, -7.93 },
+		size = { 11.3, 8.7 },
+		title = { y = 3.25, size = { 5.6, 0.8 } },
 		slots = 3,
-		sheet = { width = 4.8, height = 6.4, gap = 0.7, tilt = 2 },
-		plan = { width = 3.4, height = 4.6 },
-		placeholder = "to be drawn",
+		sheet = { width = 2.85, height = 3.75, xs = { -3.5, 0, 3.5 }, y = -0.9, tilt = 1, pixelsPerStud = 200 },
+		grid = { cols = 4, rows = 10 },
+		placeholder = { "TO BE ANNOUNCED", "TO BE DRAWN", "ORDERS TO FOLLOW" },
 		turn = 1.2, -- seconds the camera takes to turn round from the table
-		shot = { from = { 0, 5.5, 19 }, to = { 0, 5.5, 17 }, look = { 0, 5, 0 } },
-		-- the operations plan's lines ({winner}: the winning nation)
+		shot = { from = { 0, 6.2, 5.3 }, to = { 0, 6.1, 4.4 }, look = { 0, 5.7, -7.93 }, fov = 42 },
+		-- at the pick, the close shot on the picked order (the render's 4th): eye and look-at from that order's middle
+		close = { from = { -4.5, 0.3, 7.9 }, look = { 1, -0.6, 0 }, fov = 37, ease = 0.6 },
+		-- the field telegram's lines ({winner}: the winning nation)
 		planLines = {
-			"OPERATIONS PLAN",
-			"{winner} High Command",
-			"Objective: carry the front onto new ground.",
-			"The officers signed below choose the field.",
-			"H-hour: at the whistle.",
+			"FIELD TELEGRAM",
+			"{winner} HIGH COMMAND",
+			"CARRY THE FRONT ONTO NEW GROUND",
+			"OFFICERS SIGN THE ORDER BELOW",
+			"H-HOUR AT THE WHISTLE",
 		},
-		noWinnerLines = { "OPERATIONS PLAN", "Joint orders", "Neither side holds the field.", "All officers choose." },
+		noWinnerLines = { "FIELD TELEGRAM", "JOINT ORDERS", "NEITHER SIDE HOLDS THE FIELD", "ALL OFFICERS SIGN" },
 		write = 0.9, -- seconds a signature takes to write, letter by letter, in the signer's nation's ink
-		signature = 0.2, -- a signature's height, of the space under the map on its sheet
 		-- the arm (an R6 right arm in the winners' uniform holding a wooden stamp): in from `reach` studs right of the
-		-- sheet, `lift` over it; down over `down`, a beat, back up over `up`; the arm `angle` degrees out of the board
+		-- order, `lift` over it; down over `down`, a beat, back up over `up`; the arm `angle` degrees out of the board
 		-- toward the camera; the stamp's block (studs)
-		arm = { reach = 8, lift = 2.5, down = 0.35, hold = 0.25, up = 0.4, angle = 35, stamp = { 1.4, 0.5, 0.9 } },
+		arm = { reach = 6, lift = 1.6, down = 0.35, hold = 0.25, up = 0.4, angle = 35, stamp = { 1, 0.4, 0.7 } },
 	},
 	-- The armory while the next map loads: the six approved angles (render session, 2026-11-02), a slow drift each, a
 	-- cut every `cut` seconds; studs from the armory floor's middle. A placeholder room until the render is modelled.
@@ -234,11 +261,14 @@ local Cutscenes = {
 	-- sign the sheet of the map they want (user 2026-11-02: "winners sign"; everyone if the winning side has no players
 	-- or there was no winner), the others watch; the most signatures wins and the arm stamps NEXT on it.
 	Vote = {
+		-- each map's orders on its sheet (by Config/Maps key; the approved render's)
+		Orders = {
+			Map1 = { "HOLD ALL 5 SECTORS", "TAKE THE BRIDGE", "GUNS BEHIND LINE 2" },
+			LanternMeadows = { "ADVANCE ON THE ROAD", "SEIZE THE LANTERN RING", "HOLD THE FARMS" },
+		},
 		maxCards = 3, -- at most this many maps offered (the live one among them)
 		-- the end: the winner stamped NEXT, shown `hold` seconds before the armory (src/server/Frontline)
 		pick = { hold = 1.5 },
-		-- each map's line under its name on the sheet (by Config/Maps key; others show none)
-		Regions = { Map1 = "an English valley", LanternMeadows = "festival meadows on the Aurel" },
 		rate = 0.25, -- seconds between a player's votes (the server's limit)
 		hint = "Click a map to sign for it",
 		watch = "{winner} chooses the next field",

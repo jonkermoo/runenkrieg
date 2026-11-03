@@ -74,6 +74,21 @@ function MatchStats.send(extra: { [string]: any }, kitOf: (Player) -> string?)
 		Healed = Rules.best(list, "Healed"),
 		Built = Rules.best(list, "Built"),
 	}
+	-- the best `extra.top` by battle points (the war table's report: each one's kills, healing, building)
+	local top = {}
+	if type(extra.top) == "number" then
+		for i, r in Rules.ranked(list, "Earned") do
+			if i > extra.top then
+				break
+			end
+			table.insert(top, {
+				name = r.name,
+				Kills = r.Kills or 0,
+				Healed = math.floor((r.Healed or 0) + 0.5),
+				Built = math.floor((r.Built or 0) + 0.5),
+			})
+		end
+	end
 	local scored: { Rules.Row } = {}
 	if extra.scores then
 		for id, s in extra.scores do
@@ -85,6 +100,7 @@ function MatchStats.send(extra: { [string]: any }, kitOf: (Player) -> string?)
 		local payload = table.clone(extra)
 		payload.scores = nil
 		payload.honours = honours
+		payload.top = if type(extra.top) == "number" then top else nil
 		payload.you = {
 			Kills = me.Kills,
 			Healed = math.floor(me.Healed + 0.5),

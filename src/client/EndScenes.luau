@@ -1,17 +1,18 @@
 --!strict
 -- The end of a Normal match after the fade (user 2026-11-02; Config/Cutscenes Table / Board / Armory / Speech,
 -- Workspace.Frontline's Phase "Table", "Vote", "Loading"), on the server's clock for every player:
--- - Table: the battle table in the command tent, the played map's sketch sheet flat on it with this match's captures
---   redrawn in red pencil, the after-action report flat beside it typing itself out (Net "MatchResults": the winner,
---   the length, the honours, your own line), the camera drifting over both;
--- - Vote: the camera turns round to the map board on the tent wall: "ORDERS · THE NEXT FRONT", a sheet per offered map
---   (a placeholder for an empty slot) and the operations plan. Those who may sign (the Player's MaySign, src/server/
---   MapVote) click a sheet to sign it (Net "MapVote"); every signature is written letter by letter in the signer's
---   nation's ink. At the pick (VotePick) an R6 arm in the winners' uniform holding a wooden stamp stamps NEXT on it;
+-- - Table: the war table in the command post (src/client/CommandPost), the played map's sketch on its sheet with this
+--   match's captures redrawn in red pencil, the after-action report on its lower right typing itself out (Net
+--   "MatchResults": the winner, the length, the top soldiers, your own line); 3/4 from above, then straight down;
+-- - Vote: the camera turns round to the orders board: an OPERATION ORDER per offered map (an empty slot "to be
+--   announced"), the field telegram with the plan. Those who may sign (the Player's MaySign: the winners, src/server/
+--   MapVote) click an order to sign it (Net "MapVote"); every signature is written letter by letter in the winners'
+--   ink down the order's grid, its count out of the winners present. At the pick (VotePick) the camera closes on it and
+--   an R6 arm in the winners' uniform holding a wooden stamp stamps NEXT on it;
 -- - Loading: the empty armory, a slow drift on each approved angle in turn, while the narrator speaks the first part
 --   (src/client/Speech); it gives way to the pre-match flight at the countdown (src/client/MatchCutscene), or, if the
 --   match waits for players, once the narrator is done.
--- The sets are built on each client at Config/Cutscenes.Stage (placeholders until the approved renders are modelled).
+-- The sets are built on each client at Config/Cutscenes.Stage (the armory a placeholder until its render is modelled).
 -- Widescreen bars throughout; the HUD and the rest are covered (MatchCutscene.cover).
 
 local Players = game:GetService("Players")
@@ -31,6 +32,7 @@ local MatchCam = require(script.Parent.MatchCam)
 local MatchCutscene = require(script.Parent.MatchCutscene)
 local SketchMap = require(script.Parent.SketchMap)
 local Speech = require(script.Parent.Speech)
+local CommandPost = require(script.Parent.CommandPost)
 
 local EndScenes = {}
 
@@ -38,9 +40,7 @@ local GR = (Palette.UI :: any).Grimoire
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
-local PAPER, INK, PENCIL = rgb(GR.paper), rgb(GR.ink), rgb(GR.pencil)
-local TYPE = Font.fromEnum(Enum.Font.Code)
-local HAND = Font.fromEnum(Enum.Font.IndieFlower)
+local INK = rgb(GR.ink)
 local BOLD = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
 local V = Vector3.new
 local player = Players.LocalPlayer
@@ -61,11 +61,10 @@ end
 
 -- the sets ------------------------------------------------------------------------------------------------------------
 local set: Folder? = nil
-local tableTop: Vector3, boardBase: Vector3, armory: Vector3
-local mapSurface: Frame, reportLines: { TextLabel } = nil :: any, {}
+local post: CommandPost.Post = nil :: any
+local armory: Vector3
+local reportLines: { TextLabel }, reportStamp: TextLabel? = {}, nil
 local mapSheet: any = nil
-local sheetGuis: { SurfaceGui } = {}
-local lamp: Part
 
 local function part(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?): Part
 	local p = Instance.new("Part")
@@ -76,110 +75,6 @@ local function part(name: string, size: Vector3, cf: CFrame, color: Color3, mate
 	p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
 	p.Parent = set
 	return p
-end
-
-local function surface(on: BasePart, face: Enum.NormalId, interactive: boolean?): (SurfaceGui, Frame)
-	local g = Instance.new("SurfaceGui")
-	g.Face = face
-	g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	g.PixelsPerStud = Cfg.PixelsPerStud
-	g.LightInfluence = 0.6
-	g.Adornee = on
-	g.ResetOnSpawn = false
-	-- (a gui that takes clicks lives in the PlayerGui, pointed at its part)
-	g.Parent = if interactive then player:WaitForChild("PlayerGui") else on
-	local f = Instance.new("Frame")
-	f.Size = UDim2.fromScale(1, 1)
-	f.BackgroundColor3 = PAPER
-	f.BorderSizePixel = 0
-	f.Parent = g
-	return g, f
-end
-
-local function text(parent: Instance, s: string, font: Font, color: Color3, y: number, h: number): TextLabel
-	local l = Instance.new("TextLabel")
-	l.BackgroundTransparency = 1
-	l.FontFace = font
-	l.TextColor3 = color
-	l.TextScaled = true
-	l.Text = s
-	l.Position = UDim2.fromScale(0.06, y)
-	l.Size = UDim2.fromScale(0.88, h)
-	l.TextXAlignment = Enum.TextXAlignment.Left
-	l.Parent = parent
-	return l
-end
-
-local function buildTent(origin: Vector3)
-	local T, B = Cfg.Table, Cfg.Board
-	local canvas, wood, dark = Color3.fromRGB(154, 140, 104), Color3.fromRGB(108, 76, 46), Color3.fromRGB(62, 46, 32)
-	part("Floor", V(40, 1, 40), CFrame.new(origin - V(0, 0.5, 0)), Color3.fromRGB(92, 78, 58), Enum.Material.WoodPlanks)
-	for _, w in
-		{
-			{ V(40, 16, 1), V(0, 8, -20) },
-			{ V(40, 16, 1), V(0, 8, 20) },
-			{ V(1, 16, 40), V(-20, 8, 0) },
-			{ V(1, 16, 40), V(20, 8, 0) },
-		}
-	do
-		part("Canvas", w[1], CFrame.new(origin + w[2]), canvas, Enum.Material.Fabric)
-	end
-	part("Roof", V(40, 1, 40), CFrame.new(origin + V(0, 16, 0)), canvas, Enum.Material.Fabric)
-	tableTop = origin + V(0, T.top, 0)
-	part("TableTop", V(T.size[1], 0.4, T.size[2]), CFrame.new(tableTop - V(0, 0.2, 0)), wood, Enum.Material.Wood)
-	for _, sx in { -1, 1 } do
-		for _, sz in { -1, 1 } do
-			local at = V(sx * (T.size[1] / 2 - 0.6), T.top / 2, sz * (T.size[2] / 2 - 0.6))
-			part("Leg", V(0.5, T.top - 0.4, 0.5), CFrame.new(origin + at - V(0, 0.2, 0)), dark, Enum.Material.Wood)
-		end
-	end
-	lamp = part("Lamp", V(1.2, 0.8, 1.2), CFrame.new(tableTop + V(0, 7, 0)), Color3.fromRGB(70, 60, 44))
-	local light = Instance.new("PointLight")
-	light.Range, light.Brightness, light.Color = 24, 2.2, Color3.fromRGB(255, 214, 160)
-	light.Shadows = true
-	light.Parent = lamp
-	-- the played map, flat on the table (its replay drawn on it), and the after-action report beside it
-	local m = T.map
-	-- (a Top-face gui runs its width along the part's -z and its top along -x: a quarter turn lays a paper's text across
-	-- the table, reading from the camera's side, its size given as (depth, width))
-	local flat = CFrame.Angles(0, -math.pi / 2, 0)
-	local sheet =
-		part("MapSheet", V(m.size[2], 0.05, m.size[1]), CFrame.new(tableTop + V(m.at[1], 0.03, m.at[2])) * flat, PAPER)
-	local _, f = surface(sheet, Enum.NormalId.Top)
-	f.BackgroundTransparency = 1
-	mapSurface = f
-	local r = T.report
-	local rcf = CFrame.new(tableTop + V(r.at[1], 0.04, r.at[2])) * CFrame.Angles(0, math.rad(r.tilt), 0) * flat
-	local report = part("Report", V(r.size[2], 0.05, r.size[1]), rcf, PAPER)
-	local _, rf = surface(report, Enum.NormalId.Top)
-	for k = 1, T.lines do
-		local l =
-			text(rf, "", if k == 1 then BOLD else TYPE, INK, 0.05 + (k - 1) * (0.9 / T.lines), 0.9 / T.lines * 0.7)
-		table.insert(reportLines, l)
-	end
-	-- the game's props round them, flat (placeholders: the render's are modelled later)
-	part("Rifle", V(7, 0.25, 0.35), CFrame.new(tableTop + V(-3, 0.13, -3.6)) * CFrame.Angles(0, math.rad(8), 0), dark)
-	part("Helmet", V(1.6, 0.7, 1.6), CFrame.new(tableTop + V(5.5, 0.35, -3.4)), Color3.fromRGB(96, 104, 92))
-	part("Glasses", V(1, 0.4, 0.7), CFrame.new(tableTop + V(2.4, 0.2, -3.6)), Color3.fromRGB(40, 38, 34))
-	for k = 0, 2 do
-		local c = part(
-			"Case",
-			V(0.25, 0.9, 0.25),
-			CFrame.new(tableTop + V(-7 + k * 0.4, 0.13, 3.6)) * CFrame.Angles(0, 0, math.rad(90)),
-			Color3.fromRGB(176, 140, 70),
-			Enum.Material.Metal
-		)
-		c.Shape = Enum.PartType.Cylinder
-	end
-	part("InkPot", V(0.5, 0.5, 0.5), CFrame.new(tableTop + V(2.6, 0.25, 3.8)), Color3.fromRGB(28, 30, 40))
-	-- the map board on the tent wall behind the table, facing it
-	boardBase = origin + V(0, B.lift, -B.behind)
-	local bcf = CFrame.lookAt(boardBase + V(0, B.size[2] / 2 + 0.6, 0), boardBase + V(0, B.size[2] / 2 + 0.6, 10))
-	local board = part("Board", V(B.size[1], B.size[2], 0.4), bcf, wood, Enum.Material.Wood)
-	local _, bf = surface(board, Enum.NormalId.Front)
-	bf.BackgroundTransparency = 1
-	local title = text(bf, "ORDERS · THE NEXT FRONT", BOLD, PAPER, 0.02, 0.09)
-	title.TextXAlignment = Enum.TextXAlignment.Center
 end
 
 -- the armory (placeholder room): an empty hall, racks with gaps, a stripped field gun, helmets, a workbench, a door
@@ -266,7 +161,7 @@ local function buildSets()
 	local f = Instance.new("Folder")
 	f.Name = "EndScenesSet"
 	set = f
-	buildTent(v3(Cfg.Stage.tent))
+	post = CommandPost.build(f, v3(Cfg.Stage.tent))
 	buildArmory(v3(Cfg.Stage.armory))
 	f.Parent = workspace
 end
@@ -309,159 +204,20 @@ local function buildGui()
 	gui.Parent = player:WaitForChild("PlayerGui")
 end
 
--- the board's sheets ----------------------------------------------------------------------------------------------------
-type Sheet =
-	{ key: string?, gui: SurfaceGui, names: Frame, stamp: TextLabel, signed: { [string]: TextLabel }, art: any }
-local sheets: { Sheet } = {}
-
-local function clearSheets()
-	for _, s in sheets do
-		if s.art then
-			s.art.destroy()
-		end
-		s.gui:Destroy()
-	end
-	table.clear(sheets)
-	for _, g in sheetGuis do
-		g:Destroy()
-	end
-	table.clear(sheetGuis)
-	local old = set and (set :: Folder):FindFirstChild("Sheets")
-	if old then
-		old:Destroy()
-	end
-end
-
-local function buildSheets(offer: { string }, winnerKit: string?)
-	clearSheets()
-	local B = Cfg.Board
-	local holder = Instance.new("Folder")
-	holder.Name = "Sheets"
-	holder.Parent = set
-	local w, h, gap = B.sheet.width, B.sheet.height, B.sheet.gap
-	local row = B.slots * w + (B.slots - 1) * gap + gap + B.plan.width
-	local x0 = -row / 2 + w / 2
-	local y = B.size[2] / 2 + 0.3
-	for i = 1, B.slots do
-		local key = offer[i]
-		local at = boardBase + V(x0 + (i - 1) * (w + gap), y, 0.25)
-		local cf = CFrame.lookAt(at, at + V(0, 0, 1))
-			* CFrame.Angles(0, 0, math.rad((if i % 2 == 0 then 1 else -1) * B.sheet.tilt))
-		local p = Instance.new("Part")
-		p.Name = "Sheet" .. i
-		p.Anchored, p.CanCollide, p.CanTouch = true, false, false
-		p.Size, p.CFrame, p.Color = V(w, h, 0.05), cf, PAPER
-		p.Material = Enum.Material.SmoothPlastic
-		p.Parent = holder
-		local g, f = surface(p, Enum.NormalId.Front, key ~= nil)
-		table.insert(sheetGuis, g)
-		local m = key and LiveMap.get(key)
-		local name = text(f, if m then m.name else "Map " .. i, BOLD, if key then INK else rgb(GR.inkDim), 0.03, 0.09)
-		name.TextXAlignment = Enum.TextXAlignment.Center
-		local region =
-			text(f, if key then Cfg.Vote.Regions[key] or "" else B.placeholder, TYPE, rgb(GR.inkDim), 0.12, 0.05)
-		region.TextXAlignment = Enum.TextXAlignment.Center
-		local art = Instance.new("Frame")
-		art.BackgroundTransparency = 1
-		art.Position = UDim2.fromScale(0.05, 0.19)
-		art.Size = UDim2.fromScale(0.9, 0.9 * (w / h) * 295 / 1024)
-		art.Parent = f
-		local names = Instance.new("Frame")
-		names.BackgroundTransparency = 1
-		names.Position = UDim2.fromScale(0.08, 0.42)
-		names.Size = UDim2.fromScale(0.84, 0.54)
-		names.Parent = f
-		local list = Instance.new("UIListLayout")
-		list.Padding = UDim.new(0.01, 0)
-		list.Parent = names
-		local stamp = text(f, "NEXT", BOLD, PENCIL, 0.5, 0.22)
-		stamp.TextXAlignment = Enum.TextXAlignment.Center
-		stamp.Rotation = -12
-		stamp.Visible = false
-		local sheet: Sheet = { key = key, gui = g, names = names, stamp = stamp, signed = {}, art = nil }
-		if key then
-			sheet.art = SketchMap.new(art, key, { still = true })
-			local button = Instance.new("TextButton")
-			button.BackgroundTransparency = 1
-			button.Text = ""
-			button.Size = UDim2.fromScale(1, 1)
-			button.Parent = f
-			button.Activated:Connect(function()
-				if player:GetAttribute("MaySign") == true then
-					Net.event("MapVote"):FireServer(key)
-				end
-			end)
-		end
-		table.insert(sheets, sheet)
-	end
-	-- the operations plan, pinned beside the sheets
-	local px = x0 + B.slots * (w + gap) - w / 2 + B.plan.width / 2
-	local at = boardBase + V(px, y + (h - B.plan.height) / 2, 0.25)
-	local p = Instance.new("Part")
-	p.Name = "Plan"
-	p.Anchored, p.CanCollide, p.CanTouch = true, false, false
-	p.Size, p.CFrame, p.Color = V(B.plan.width, B.plan.height, 0.05), CFrame.lookAt(at, at + V(0, 0, 1)), PAPER
-	p.Parent = holder
-	local _, pf = surface(p, Enum.NormalId.Front)
-	local lines = if winnerKit then B.planLines else B.noWinnerLines
-	for k, l in lines do
-		text(
-			pf,
-			Rules.text(l, { winner = nationOf(winnerKit) }),
-			if k == 1 then BOLD else TYPE,
-			INK,
-			0.05 + (k - 1) * 0.12,
-			0.08
-		)
-	end
-end
-
--- the signatures on each sheet from the folder's Votes_<key> ("Name:kit|..."), new ones written letter by letter
-local function updateSignatures(folder: Instance)
-	for _, s in sheets do
-		if s.key then
-			local raw = folder:GetAttribute(`Votes_{s.key}`)
-			local seen: { [string]: boolean } = {}
-			for _, entry in (if type(raw) == "string" and raw ~= "" then string.split(raw, "|") else {}) do
-				local name, kit = string.match(entry, "^(.-):(.*)$")
-				if name then
-					seen[name] = true
-					if not s.signed[name] then
-						local l = Instance.new("TextLabel")
-						l.BackgroundTransparency = 1
-						l.FontFace = HAND
-						l.TextScaled = true
-						l.TextColor3 = inkOf(kit)
-						l.Size = UDim2.fromScale(1, Cfg.Board.signature)
-						l.TextXAlignment = Enum.TextXAlignment.Left
-						l.Text = name
-						l.MaxVisibleGraphemes = 0
-						l.Parent = s.names
-						s.signed[name] = l
-						local start = os.clock()
-						task.spawn(function()
-							while l.Parent and l.MaxVisibleGraphemes < #name do
-								local k = math.clamp((os.clock() - start) / Cfg.Board.write, 0, 1)
-								l.MaxVisibleGraphemes = math.ceil(k * #name)
-								task.wait()
-							end
-						end)
-					end
-				end
-			end
-			for name, l in s.signed do
-				if not seen[name] then -- (signed another sheet instead)
-					l:Destroy()
-					s.signed[name] = nil
-				end
-			end
+-- the winners present: who may sign this vote (everyone signs when no winner is here)
+local function winnersPresent(): number
+	local n = 0
+	for _, p in Players:GetPlayers() do
+		if p:GetAttribute("MaySign") == true then
+			n += 1
 		end
 	end
+	return n
 end
 
 -- the stamping arm: an R6 right arm in the winners' uniform, a wooden stamp in its hand
 local arm: Model? = nil
-local function stampArm(kit: string?, sheet: Sheet, at: CFrame)
+local function stampArm(kit: string?, sheet: CommandPost.Order, at: CFrame)
 	if arm then
 		(arm :: Model):Destroy()
 	end
@@ -555,29 +311,49 @@ local function lookCf(from: Vector3, to: Vector3): CFrame
 	return CFrame.lookAt(from, to)
 end
 
-local function tableCam(t: number): CFrame
+local pickedAt = 0 -- os.clock() of the pick (the close shot eases in from it)
+
+-- a shot's camera: from `from` to `to` (eased by `u`) looking at `look`, studs from `base`; straight down if `down`
+local function shotCf(s: any, base: Vector3, u: number): CFrame
+	local from = base + v3(s.from):Lerp(v3(s.to or s.from), Rules.ease(u))
+	if s.down then
+		return CFrame.lookAt(from, base + v3(s.look), V(0, 0, -1))
+	end
+	return lookCf(from, base + v3(s.look))
+end
+
+local function tableCam(t: number): (CFrame, number)
 	local shots = Cfg.Table.shots
 	local t0 = 0
 	for _, s in shots do
 		if t < s.t1 or s == shots[#shots] then
-			local u = math.clamp((t - t0) / (s.t1 - t0), 0, 1)
-			local e = Rules.ease(u)
-			return lookCf(tableTop + v3(s.from):Lerp(v3(s.to), e), tableTop + v3(s.look))
+			return shotCf(s, post.origin, math.clamp((t - t0) / (s.t1 - t0), 0, 1)), s.fov or Cfg.Fov
 		end
 		t0 = s.t1
 	end
-	return CFrame.new()
+	return CFrame.new(), Cfg.Fov
 end
 
-local function boardCam(t: number): CFrame
+local function boardCam(t: number): (CFrame, number)
 	local B = Cfg.Board
-	local s = B.shot
-	local u = math.clamp(t / FrontCfg.VoteSeconds, 0, 1)
-	local cf = lookCf(boardBase + v3(s.from):Lerp(v3(s.to), Rules.ease(u)), boardBase + v3(s.look))
+	local cf = shotCf(B.shot, post.origin, math.clamp(t / FrontCfg.VoteSeconds, 0, 1))
+	local fov = B.shot.fov
 	if t < B.turn then -- (turning round from the table)
-		cf = tableCam(Cfg.Table.shots[#Cfg.Table.shots].t1):Lerp(cf, Rules.ease(t / B.turn))
+		local k = Rules.ease(t / B.turn)
+		local last, lastFov = tableCam(Cfg.Table.shots[#Cfg.Table.shots].t1)
+		cf, fov = last:Lerp(cf, k), lastFov + (fov - lastFov) * k
 	end
-	return cf
+	-- at the pick, the close shot on the picked order
+	for _, o in post.orders do
+		if picked and o.key == picked then
+			local mid = o.part.Position
+			local C = B.close
+			local close = lookCf(mid + v3(C.from), mid + v3(C.look))
+			local k = Rules.ease(math.clamp((os.clock() - pickedAt) / C.ease, 0, 1))
+			cf, fov = cf:Lerp(close, k), fov + (C.fov - fov) * k
+		end
+	end
+	return cf, fov
 end
 
 local function armoryCam(t: number): CFrame
@@ -593,49 +369,24 @@ local function typeReport(t: number)
 	for k, l in reportLines do
 		local start = T.typing.lead + (k - 1) * T.typing.type
 		local u = math.clamp((t - start) / T.typing.type, 0, 1)
-		l.MaxVisibleGraphemes = math.floor(u * #l.Text + 0.5)
+		l.MaxVisibleGraphemes = math.floor(u * (utf8.len(l.Text) or #l.Text) + 0.5)
+	end
+	if reportStamp then
+		reportStamp.Visible = t > T.typing.lead + #reportLines * T.typing.type
 	end
 end
 
 local function fillReport()
 	local r = results or {}
-	local winnerKit = r.winner
-	local lines = {
-		"AFTER-ACTION REPORT",
-		`{if r.map then LiveMap.get(r.map).name else ""} · {string.format(
-			"%d:%02d",
-			(r.length or 0) // 60,
-			(r.length or 0) % 60
-		)}`,
-		if winnerKit then `{string.upper(nationOf(winnerKit))} holds the field` else "NO VICTOR",
-	}
-	for _, h in { { "Kills", "kills" }, { "Healed", "HP healed" }, { "Built", "HP built" } } do
-		local got = r.honours and r.honours[h[1]]
-		table.insert(lines, if got then `{got.name} · {got.value} {h[2]}` else `Nobody · {h[2]}`)
-	end
-	local you = r.you or {}
-	table.insert(
-		lines,
-		`You · {you.Kills or 0} kills · {you.Healed or 0} healed · {you.Built or 0} built · +{you.Earned or 0}`
-	)
-	for k, l in reportLines do
-		l.Text = lines[k] or ""
-		l.TextColor3 = if k == #lines then PENCIL else INK
-		l.MaxVisibleGraphemes = 0
-	end
-	-- the played map on the table, this match's captures redrawn on it
+	reportLines, reportStamp = CommandPost.report(post, r, nationOf)
+	-- the played map on the sheet, this match's captures redrawn on it
 	if mapSheet then
 		mapSheet.destroy()
 		mapSheet = nil
 	end
 	local key = if type(r.map) == "string" then r.map else LiveMap.key()
-	local holder = mapSurface:FindFirstChild("Map") or Instance.new("Frame")
-	holder.Name = "Map"
-	(holder :: Frame).BackgroundTransparency = 1
-	(holder :: Frame).Size = UDim2.fromScale(1, 1)
-	holder.Parent = mapSurface
-	mapSheet = SketchMap.new(holder :: Frame, key, {})
-	mapSheet.replay(r.log or {}, winnerKit ~= nil)
+	mapSheet = SketchMap.new(post.strip, key, {})
+	mapSheet.replay(r.log or {}, r.winner ~= nil)
 end
 
 local function finish()
@@ -669,32 +420,33 @@ local function step()
 		return
 	end
 	local t = workspace:GetServerTimeNow() - sceneAt
-	local cf
+	local cf, fov = nil, Cfg.Fov
 	if scene == "Table" then
-		cf = tableCam(t)
+		cf, fov = tableCam(t)
 		typeReport(t)
 	elseif scene == "Vote" then
-		cf = boardCam(t)
-		updateSignatures(folder)
+		CommandPost.signatures(post, folder, winnersPresent(), inkOf)
 		local pick = folder:GetAttribute("VotePick")
 		if type(pick) == "string" and pick ~= picked then
 			picked = pick
-			for _, s in sheets do
-				if s.key == pick then
+			pickedAt = os.clock()
+			for _, o in post.orders do
+				if o.key == pick then
 					local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
 					local kitText = if type(spoken) == "string" then string.split(spoken, ",")[1] else "none"
-					stampArm(if kitText ~= "none" then kitText else nil, s, (s.gui.Adornee :: BasePart).CFrame)
+					stampArm(if kitText ~= "none" then kitText else nil, o, o.part.CFrame)
 				end
 			end
 			freeMouse.Visible = false
 			hint.Text = ""
 		end
+		cf, fov = boardCam(t)
 	else
 		cf = armoryCam(t)
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CFrame = cf
-	camera.FieldOfView = Cfg.Fov
+	camera.FieldOfView = fov
 	UserInputService.MouseIconEnabled = scene == "Vote"
 end
 
@@ -711,7 +463,7 @@ local function begin(name: string, folder: Instance)
 	gui.Enabled = true
 	hint.Text = ""
 	freeMouse.Visible = false
-	lamp.Transparency = if name == "Vote" then 1 else 0 -- (its shade hangs in the board's shot; its light stays)
+	post.lamp.Transparency = if name == "Vote" then 1 else 0 -- (its shade hangs in the board's shot; its light stays)
 	local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
 	local parts = if type(spoken) == "string" then string.split(spoken, ",") else { "none", LiveMap.key() }
 	local winnerKit = if parts[1] ~= "none" then parts[1] else nil
@@ -720,7 +472,12 @@ local function begin(name: string, folder: Instance)
 	elseif name == "Vote" then
 		picked = nil
 		local offer = folder:GetAttribute("VoteOffer")
-		buildSheets(if type(offer) == "string" then string.split(offer, ",") else {}, winnerKit)
+		CommandPost.orders(post, if type(offer) == "string" then string.split(offer, ",") else {}, function(key: string)
+			if player:GetAttribute("MaySign") == true then
+				Net.event("MapVote"):FireServer(key)
+			end
+		end)
+		CommandPost.plan(post, if winnerKit then nationOf(winnerKit) else nil)
 		local may = player:GetAttribute("MaySign") == true
 		hint.Text = if may then Cfg.Vote.hint else Rules.text(Cfg.Vote.watch, { winner = nationOf(winnerKit) })
 		freeMouse.Visible = may

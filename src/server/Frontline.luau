@@ -729,6 +729,7 @@ local function run()
 			log = table.clone(log),
 			length = os.clock() - playedAt,
 			map = played,
+			top = CutCfg.Table.top3,
 			endsAt = workspace:GetServerTimeNow() + Cfg.FadeSeconds + Cfg.TableSeconds,
 		}, function(p: Player): string?
 			return Kits.next(p)
