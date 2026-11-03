@@ -1505,7 +1505,10 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		return reason or "Can't build here"
 	end
 	-- a gun or an MG nest (Config/Build.Slope, Rules.slopeLay): the earth under it cut and filled to the plane it lies
-	-- on as it is laid, level or tilted, and the ground read again, so nothing of it floats or sinks at any stage
+	-- on as it is laid, level or tilted, and everything of it laid on that plane, so nothing floats or sinks at any
+	-- stage (laid on the plane, not the ground read again: a terrain raycast in the same frame as the write still finds
+	-- the ground as it was, Studio 2026-11-03)
+	local laidOn: CFrame? = nil
 	if piece.lay and not inTrench then
 		local plane = Survey.lay(piece, frame, report)
 		if not plane then
@@ -1516,8 +1519,8 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		local w, d = piece.width / 2 + S.pad, piece.depth / 2 + S.pad
 		local reach = Ground.level(plane, { -w, -d }, { w, d }, S.blend, (Enum.Material :: any)[S.material])
 		Net.event("GroundDug"):FireAllClients(plane.Position, reach)
-		report = Survey.ground(piece, frame)
-		frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
+		frame = CFrame.new(frame.Position.X, plane.Position.Y, frame.Position.Z) * frame.Rotation
+		laidOn = plane
 		if gunAt then
 			gunAt = plane * CFrame.new(0, 0, -(piece.back or 0))
 		end
@@ -1552,7 +1555,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 			return "The asset library lacks the sandbag pile"
 		end
 	elseif nest then
-		if not layoutNest(r, Survey.onGround(piece, frame, report)) then
+		if not layoutNest(r, laidOn or Survey.onGround(piece, frame, report)) then
 			model:Destroy()
 			tell(b, "Can't build here") -- (the dev place's asset library lacks the pile or the mount bag)
 			return "The asset library lacks the pile or the mount bag"
