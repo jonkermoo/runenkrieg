@@ -365,13 +365,13 @@ local Weapons: { [string]: Weapon } = {
 			Pump = { 0, -0.0245, -0.9398 }, -- slides back the stroke and forward
 			Bolt = { 0, 0.0755, -0.3501 }, -- the slide in the receiver's top: back with the pump, out over the wrist
 			Hammer = { 0, 0.0281, -0.0395 }, -- its pin: rests cocked, falls 90 deg forward on a shot
-			Trigger = { 0, -0.0877, -0.029 }, -- the trigger pin
+			Trigger = { 0, -0.0877, 0.021 }, -- the trigger pin (0.05 back with the guard, polish v4)
 			Shell = { 0, 0.0229, -0.1448 }, -- the shell on the carrier (its head)
 			ShellHead = { 0, 0.0229, -0.1448 }, -- moves with it
 		},
 		hidden = {},
 		attachments = {
-			Muzzle = { 0, 0.065, -1.7735 }, -- the bore on the mount's front face: pellets' origin, flash
+			Muzzle = { 0, 0.065, -1.8378 }, -- the bore on the mount's front face: pellets' origin, flash
 			Aim = { 0, 0.1071, 0.45 }, -- the eye, on the sight line: the bead in the rear sight's notch
 			Eject = { 0.052, 0.0597, -0.2369 }, -- the ejection port, right side
 		},

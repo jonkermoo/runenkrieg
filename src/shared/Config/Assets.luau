@@ -171,14 +171,15 @@ local Assets = {
 			description = "The mage staff, shared by every team: knotted faceted wood, an iron sleeve at the grip and a foot cap, a metal band and a ring under the head, a cloth binding and a ribbon (assets/weapons/staff/staff.blend, exported in gun space by tools/blender/weapons/export_staff.py). Rigged and colored per team from Config/Weapons (staff_grey / staff_olive / staff_brown).",
 		},
 		shotgun_m1897 = {
-			-- v3: the hammer in its own slot, cocked lower under the bolt (v2 118242502631158: the bolt's channel in the
-			-- receiver's back, 68 bigger holes; v1 112699594475693)
-			id = 109341050997401,
+			-- v4: real length, the front mount's band close under the tube, the stock higher, fuller receiver walls, the
+			-- guard and trigger further back, simpler curves (v3 109341050997401: the hammer in its own slot; v2
+			-- 118242502631158; v1 112699594475693)
+			id = 98038372980843,
 			category = "Weapons",
 			folder = "Shared/Shotguns",
 			source = "assets/weapons/shared/shotgun_m1897.fbx",
-			generator = "tools/blender/weapons/m1897.py",
-			description = "Winchester M1897 trench gun, the shotgun of all three teams (built from its trace: tools/blender/weapons/trace/m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
+			generator = "tools/blender/weapons/export_blend.py",
+			description = "Winchester M1897 trench gun, the shotgun of all three teams (master: assets/weapons/shared/shotgun_m1897.blend, from its trace tools/blender/weapons/trace/m1897.py and tools/blender/weapons/polish_m1897.py; a shell on the carrier shows through the port). Rigged from Config/Weapons.",
 		},
 		-- the grenades, one per team (tools/blender/weapons/grenades.py; Config/Weapons, Config/Grenades)
 		grenade_mills = {
