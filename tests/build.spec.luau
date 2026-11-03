@@ -276,6 +276,22 @@ return {
 		assert(near(B.strikeGap({ dig, chip }), 0.95), "chip rest 1.0 - strike 0.5 + dig strike 0.45")
 		assert(near(B.strikeGap({ { length = 0.5, strike = 0.1, rest = 0.9 } }), 0.5), "never longer than a swing")
 	end,
+	["a held swing: the first hit at its strike, then one a loop from when the last was due"] = function()
+		local dig = { length = 2.6, strike = 0.45, rest = 1.82 }
+		assert(near(B.nextSwing(dig, nil, 10), 10.45), "the first at the strike")
+		assert(near(B.nextSwing(dig, 10.45, 10.5), 13.05), "landed a tick late: the next still a loop after it was due")
+		assert(near(B.nextSwing(dig, 10, 13), 15.6), "a loop late: a loop from now, no catching up")
+		local t, due, hits = 0, nil, 0
+		while t < 26 + 1e-9 do
+			due = due or B.nextSwing(dig, nil, t)
+			if t + 1e-9 >= due then
+				hits += 1
+				due = B.nextSwing(dig, due, t)
+			end
+			t += 0.5 -- (a distant bot's think)
+		end
+		assert(hits == 10, "ten hits in 26 s on half-second ticks, as a player's: " .. hits)
+	end,
 	["swings faster than the dig are ignored"] = function()
 		assert(not B.tooSoon(10, nil, 0.85, 0.8))
 		assert(B.tooSoon(10.5, 10, 0.85, 0.8) and not B.tooSoon(10.7, 10, 0.85, 0.8))

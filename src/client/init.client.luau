@@ -17,6 +17,7 @@ require(script.BotSay).start() -- (bot soldiers' callouts: bubbles over their he
 require(script.DevTeleportMenu).start()
 require(script.DevWeaponMenu).start()
 require(script.DevAdminMenu).start()
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared").Hitches).watch() -- (the hitch log's long frames)
 require(script.DevTargetMenu).start()
 require(script.DevBlastMenu).start()
 require(script.DevBotLabels).start() -- (the admin panel's bot state labels)

@@ -293,10 +293,12 @@ local Bots = {
 	-- builds only when nobody has shot at it or hurt it for `calm` s and it sees no enemy; it stands `stand` studs from
 	-- a piece's spot to lay it, gives a job up after `seconds`; a refused spot moves `nudge` studs across (a trench
 	-- run's far end swings aside: Rules/BotTrenches.swing; up to `tries` times), then waits `retry` s. A piece of the job's key within `match` studs of
-	-- its spot is the job's.
+	-- its spot is the job's. The list's swings left are reckoned for a `builder` (a Config/Classes key: its Build swing
+	-- share, Config/Build.Power).
 	-- Caps (user: "A third, half the guns"): the bots lay at most `caps.pieces` of the team's Config/Build.PerTeam and
 	-- `caps.<key>` of a gun's.
 	Build = {
+		builder = "Engineer",
 		calm = 3,
 		take = 90,
 		-- an Engineer takes a job this far off (user 2026-11-03 play test: "even when i give free engineers, the bots arent
@@ -361,6 +363,13 @@ local Bots = {
 			spawnGap = 40,
 			arc = { step = 0.1, within = 25, near = 8 },
 		},
+		-- Trees in the way (Rules/BotBuild.treesInWay, src/server/Bots/Fell; user 2026-11-03: the forest either side of
+		-- the middle stood untouched): Engineers fell the standing trees within `clear` studs of the side's trench lines
+		-- (planned or dug runs and squares, its saps' runs), its MG nests' and guns' spots, and a gun's firing line out
+		-- to `fireLine` studs ahead of it, the nearest the work first, `open` at once. One tree per Engineer at most every
+		-- `every` s, `perSide` a side a match; never a tree in one of the map's buildings. Each stands `stand` studs
+		-- from the trunk to chop it.
+		Trees = { clear = 8, fireLine = 60, every = 20, perSide = 40, open = 3, stand = 5 },
 	},
 
 	-- Normal: sapping forward (Rules/BotSap; user 2026-11-02: "AI ... should [build trenches to push forward] if they are
@@ -371,6 +380,23 @@ local Bots = {
 	-- last is dug, the rest holding where they are giving covering fire, then all moving up to its head. Sappers dig
 	-- under fire (only a hit stops them). It is over at `edge` of the zone's radius from the objective, or after `quiet`
 	-- s with nobody shooting at the squad.
+	-- Normal: how a side fights forward (Rules/BotFront; user 2026-11-03: "once points are starting be captured and
+	-- fights start (pretty early), bots should prioritize trenching lines (use real strategies) to push, rather than the
+	-- open field"; "At first contact"). Until contact (the first capture, or the first shots at one of its squads) a
+	-- side walks where it's safe; then its attacking squads sap (Sap above: `share` dig, zig-zag runs) once within
+	-- `sapFrom` studs of their objective's zone edge, without waiting to be stuck; within `parallel.at` of it the sap
+	-- turns into a parallel `parallel.width` studs across, and the squad gathers there and goes over the top together
+	-- (Config/Bots.TrenchMove.Jump).
+	-- Flank (user: "bots are too focused on pushing down the center"; "1 squad in 3"): `share` of a side's attacking
+	-- squads take a lane off to one side (alternating), walking by a point `offset` studs across from the straight
+	-- way; every `every`-th MG nest goes at the hold spot farthest across, every `every`-th gun spot at least `gunFrom`
+	-- studs across (shelling the enemy's front from an angle).
+	Front = {
+		sapFrom = 150,
+		parallel = { at = 40, width = 24 },
+		Flank = { share = 1 / 3, offset = 90, every = 3, gunFrom = 120 },
+	},
+
 	Sap = {
 		stall = 30,
 		progress = 10,

@@ -251,6 +251,9 @@ local DevTools = {
 		},
 		-- - BotDig: the bots' shovel swings work this many times a normal one (src/server/Build), on Workspace while not 1
 		BotDig = { attribute = "DevBotDig", steps = { 1, 3, 10 } },
+		-- - BotTrees: each side's trees felled in the way of its works and the one being chopped (Config/Bots.Build.Trees,
+		--   src/server/Bots/Fell), on Workspace as `attribute` .. side, once a commander tick
+		BotTrees = { attribute = "DevBotTrees" },
 		-- - FreeEngineer / FreeGrenadier: bots pick Engineer (gun duty, dugout duty) / Grenadier (the push's grenade,
 		--   bombing out dugouts) without the points, on Workspace while on
 		FreeEngineerAttribute = "DevFreeEngineer",
@@ -259,6 +262,10 @@ local DevTools = {
 		--   (dugout sheltering under shelling)
 		Shell = { count = 8, kg = 2, every = 0.4, spread = 6 },
 		Sides = { "West", "East" },
+		-- a side's bot fighting plan the admin panel can force (Rules/BotFront.Plans; "auto" lets it go)
+		BotPlans = { "open", "trench", "assault", "flank" },
+		-- the readout of each side's plan and its attacking squads (src/server/Bots, every commander tick)
+		BotFrontAttribute = "DevBotFront",
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier
 		--   throwing first); the nearest bot butt-strokes toward it; the nearest free gun goes to the nearest bot
 		BotNear = 80,
@@ -269,7 +276,7 @@ local DevTools = {
 		--   knocked off, a weapon made, the grass regrown), timed on the server and each client. With the log on (on
 		--   Workspace), each one over `over` ms prints at once ("[Hitch] server/client name ms"), and "Print hitches"
 		--   prints each name's count, average, most and how many went over since the last print
-		Hitches = { attribute = "DevHitchLog", over = 2 },
+		Hitches = { attribute = "DevHitchLog", over = 2, frame = 50 },
 		-- "Loadout" rows (src/server/Loadouts): give yourself these match points, or be one class every life (any class,
 		-- locked or not, free; `Normal` goes back to your picks), on the Player as `ClassAttribute`
 		Points = { 50, 200 },
@@ -294,6 +301,17 @@ local DevTools = {
 		-- unlimited ammo and no staff cooldown (src/server/Firing tops the magazine up after each shot; src/client/
 		-- StaffAttack and src/server/StaffCast: no cooldown, the mana full again), on the Player while on
 		AmmoAttribute = "DevAmmo",
+		-- "Weapon" sight lines (user 2026-11-03: "always add additional admin panel settings as we go"; src/client/
+		-- DevSights): the visible gun's Muzzle, Aim and Eject drawn as dots, the line of fire (from Muzzle) and the line
+		-- of sight (from Aim) out `length` studs along each one's -Z; aimed, the two run parallel. On the Player while on.
+		Sights = {
+			attribute = "DevSights",
+			length = 150,
+			width = 0.012,
+			dot = 0.05,
+			colors = { Muzzle = { 235, 64, 52 }, Aim = { 70, 200, 90 }, Eject = { 240, 200, 60 } },
+			lines = { "Muzzle", "Aim" },
+		},
 		-- "Team" rows (user 2026-10-26: "add respawn as a different team in admin panel"): respawn now as one of
 		-- Dummies.Kits (its kit, loadout, rig and species), kept on every respawn until another pick; `Random` goes back to
 		-- a random team each life. The pick is the Player's "Kit" attribute (src/server/Kits).

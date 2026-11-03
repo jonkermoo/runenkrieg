@@ -24,6 +24,9 @@ local Build = {
 	Focus = { fill = 0.93, outline = 0.6 },
 	-- swings faster than this share of the shortest time between two strikes (Rules/Build.strikeGap) are ignored
 	SwingSlack = 0.8,
+	-- the shovel swing (Config/Shovel) each mode swings: a bot's swings land on its cadence, as a player holding the
+	-- key (Rules/Build.nextSwing; user alpha: bots build at the same speed)
+	Swings = { Build = "Dig", Destroy = "Chip" } :: { [string]: string },
 	-- what one swing does, against each piece's own amounts below (hp.swing, hp.destroy, a gun's repair share): a
 	-- Build swing `build` of it, and a class in `class` that much again on both its Build and Destroy swings
 	-- (Rules/Build.swingPower; user 2026-11-02: "let's half the building power of both soldiers and engineers",

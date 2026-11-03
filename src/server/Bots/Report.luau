@@ -21,8 +21,8 @@ local Types = require(script.Parent.Types)
 type Bot = Types.Bot
 
 local State = require(script.Parent.State)
-local bots, Tactics, random, stats, squads, buildLists, rescue =
-	State.bots, State.Tactics, State.random, State.stats, State.squads, State.buildLists, State.rescue
+local bots, Tactics, random, stats, squads, buildLists, fronts, rescue =
+	State.bots, State.Tactics, State.random, State.stats, State.squads, State.buildLists, State.fronts, State.rescue
 
 local Move = require(script.Parent.Move)
 local flat, alive, finish = Move.flat, Move.alive, Move.finish
@@ -91,7 +91,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; front %d contacts, %d parallels; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -146,6 +146,8 @@ local function report(now: number, governor: { cap: number })
 			stats.guarded,
 			stats.rescues,
 			stats.rescuesLet,
+			stats.contacts,
+			stats.parallels,
 			stats.pushes,
 			stats.pushBombs,
 			stats.strikes,
@@ -173,6 +175,7 @@ local function report(now: number, governor: { cap: number })
 			stats.peeks,
 			stats.upgrades,
 			Tactics.crew.report(),
+			Tactics.fell.report(),
 			if stats.toZoneCount > 0 then stats.toZone / stats.toZoneCount else 0,
 			stats.toZoneCount,
 			workspace:GetRealPhysicsFPS(),
@@ -269,10 +272,43 @@ local function engineers()
 	workspace:SetAttribute(DevCfg.Admin.BotEngineersAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- each side's fighting plan and what its attacking squads do (Config/DevTools.Admin.BotFrontAttribute)
+local function frontLine()
+	local lines = {}
+	for _, side in { "West", "East" } do
+		local fs = fronts.sides[side]
+		if fs then
+			local parts = {}
+			for _, sq in squads do
+				if sq.side == side and sq.approach then
+					local lane = if sq.flank == -1
+						then "left flank"
+						elseif sq.flank == 1 then "right flank"
+						elseif sq.lane == 0 then "centre"
+						else "side"
+					local sap = sq.sap
+					local doing = if sap and sap.parallel
+						then "parallel"
+						elseif sap then `sap run {sap.k}`
+						elseif sq.jump then "jump-off"
+						else string.lower(sq.sq.phase)
+					table.insert(parts, `S{sq.sector} {lane}: {doing}`)
+				end
+			end
+			table.sort(parts)
+			local plan = fs.plan .. (if fs.forced then " (forced)" else "")
+			table.insert(lines, `{side} {plan}: {if #parts > 0 then table.concat(parts, "; ") else "no attack"}`)
+		end
+	end
+	workspace:SetAttribute(DevCfg.Admin.BotFrontAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 local function label()
+	frontLine()
 	rescues()
 	classMix()
 	engineers()
+	Tactics.fell.readout()
 	local S = DevCfg.Admin.BotState
 	local on = workspace:GetAttribute(S.attribute) == true
 	if not on and not Tactics.dev.labelled then
@@ -321,6 +357,16 @@ end
 -- Config/Bots.Actions.Guard). Why not, else nil and what was done.
 local function dev(action: string, value: any): (string?, string?)
 	local A = DevCfg.Admin
+	if action == "Plan" then
+		-- (a side's fighting plan forced, or "auto": Config/Bots.Front)
+		local fs = fronts.sides[value.side]
+		if not fs then
+			fs = { plan = "open" }
+			fronts.sides[value.side] = fs
+		end
+		fs.forced = if value.plan == "auto" then nil else value.plan
+		return nil, `{value.side}: {value.plan}`
+	end
 	if action == "Shell" then
 		local sb = buildLists[value :: string]
 		local dug: { Vector3 } = {}

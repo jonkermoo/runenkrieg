@@ -133,7 +133,7 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boole
 		}
 		local d = flat(Vector3.new(list[k].x, 0, list[k].z) - root).Magnitude
 		local fits = engineer or Kinds.small[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
-		taken[k] = held[r] == true or not fits
+		taken[k] = held[r] == true or not fits or (j.key == "Tree" and not Tactics.fell.ready(b.id))
 	end
 	-- a gun of its side out of service (Rules/BotCrew.repairOrder): the nearest anywhere first, fixed before it is manned
 	local notFix: { [number]: boolean } = {}
@@ -428,9 +428,12 @@ local function weigh(b: Bot, now: number)
 	if not i then
 		b.guard = nil -- (nobody to guard: up, healed, or gone)
 	end
-	-- on its way to a job it took (or back to one danger stopped): worked once there and safe, else kept a while
+	-- on its way to a job it took (or back to one danger stopped): worked once there and safe, else kept a while; a
+	-- sapper lets any other go for its squad's sap
+	local sap = sq and (sq :: SquadState).sap
+	local sapping = b.sapper == true and sap ~= nil and #(sap :: Sap).open > 0
 	local w = b.work
-	if w and (not w.job.open or now - w.since > BD.Work.keep) then
+	if w and (not w.job.open or now - w.since > BD.Work.keep or (sapping and not w.brave)) then
 		b.work, b.workState, w = nil, nil, nil
 	end
 	if w then
@@ -440,7 +443,6 @@ local function weigh(b: Bot, now: number)
 		end
 	end
 	-- a sapper digs its squad's sap, under fire too (Rules/BotSap: only a hit stops it)
-	local sap = sq and (sq :: SquadState).sap
 	if b.sapper and sap and #(sap :: Sap).open > 0 and not w then
 		local r = pickFrom(b, (sap :: Sap).open, true)
 		if r then
@@ -681,7 +683,7 @@ end
 -- the piece a bot just laid for `job`: its side's work of the key nearest the spot (a trench: its first end), or nil
 local function laidFor(b: Bot, job: BotBuild.Job): Build.Work?
 	local best, bestD = nil, BD.match
-	for _, w in (Tactics.dug.works(b.kit)) do
+	for _, w in (Tactics.dug.works(b.kit, Loadouts.classOf(b.m :: Model))) do
 		local d = math.sqrt((w.at.X - job.x) ^ 2 + (w.at.Z - job.z) ^ 2)
 		if w.key == job.key and d <= bestD then
 			best, bestD = w, d
@@ -718,6 +720,15 @@ local function refused(r: BuildJob, now: number)
 		fx = base.fx,
 		fz = base.fz,
 	}
+end
+
+-- whether a bot's swing of `mode` at `target` is due: a player's cadence holding the key (Build.nextSwing), the first
+-- at the swing's strike once it stands at the target
+local function swingDue(act: Act, target: Instance, mode: string, now: number): boolean
+	if act.swingOn ~= target then
+		act.swingOn, act.swingAt = target, Build.nextSwing(mode, nil, now)
+	end
+	return now >= (act.swingAt or 0)
 end
 
 -- a build, one think of it: to the job, the piece laid (once), then Build swings at it until it wants none, the
@@ -764,7 +775,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	local swingAt = if tear then tear.at elseif r.model and r.at then r.at :: Vector3 else nil
 	local spot = swingAt or Routes.ground(job.x, job.z)
 	-- (it lays a piece from behind it, its own side; it swings at one from where it is)
-	local reach = if swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
+	local reach = if job.key == "Tree" then BD.Trees.stand elseif swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
 	if flat(spot - root.Position).Magnitude > reach then
 		if work and flat(spot - root.Position).Magnitude > reach + BD.Work.near * 2 then
 			-- (far off still: walked to with the gun out, fighting on the way)
@@ -773,6 +784,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			return false
 		end
 		humanoid.WalkSpeed = M.WalkSpeed
+		act.swingOn = nil -- (back in reach, its first swing at the strike again)
 		setGoal(b, if swingAt then spot else spot - f * BD.stand, now)
 		follow(b, now)
 		actPose(b)
@@ -787,11 +799,11 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	end
 	standFacing(b, if swingAt then spot else spot + f, now)
 	if tear then
-		if now >= (act.swingAt or 0) then
+		if swingDue(act, tear.model, "Destroy", now) then
 			local reason = Build.workAs(m, tear.model, "Destroy")
 			if reason == nil then
 				stats.torn += 1
-				act.swingAt = now + Build.swingGap()
+				act.swingAt = Build.nextSwing("Destroy", act.swingAt, now)
 			elseif reason ~= "Too soon" then
 				quit(b) -- (gone, or out of reach)
 				return false
@@ -841,11 +853,13 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			return false
 		end
 		r.model, r.at, r.left = w.model, w.at, w.left
-		act.swingAt = now + Build.swingGap()
 		return true
 	end
-	if now >= (act.swingAt or 0) then
-		local reason = Build.workAs(m, r.model :: Model, "Build")
+	local mode = if job.key == "Tree" then "Destroy" else "Build" -- (a tree is chopped)
+	if swingDue(act, r.model :: Model, mode, now) then
+		local reason = if job.key == "Tree"
+			then Tactics.fell.chop(m, b.id, b.side :: string, r)
+			else Build.workAs(m, r.model :: Model, "Build")
 		if reason == nil and job.key == "Foxhole" then
 			-- one swing digs it: into it (pinned: its cover; holding: its post, facing the enemy)
 			stats.swings += 1
@@ -860,7 +874,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			return false
 		elseif reason == nil then
 			stats.swings += 1
-			act.swingAt = now + Build.swingGap()
+			act.swingAt = Build.nextSwing(mode, act.swingAt, now)
 		elseif reason ~= "Too soon" then
 			quit(b) -- (whole now, or gone)
 			return false

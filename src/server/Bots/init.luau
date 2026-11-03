@@ -1091,12 +1091,16 @@ function Bots.forgetMap()
 	table.clear(buildLists)
 	table.clear(squads)
 	Tactics.crew.clear()
+	Tactics.fell.clear()
 	table.clear(sectorY)
 	table.clear(Tactics.dug.holes)
 	table.clear(Tactics.dug.tried)
 	table.clear(ByTrench.blasts)
 	ByTrench.counts = {}
 	table.clear(sharedPaths)
+	-- (each side back to walking until its first contact there: Config/Bots.Front)
+	table.clear(State.fronts.sides)
+	State.fronts.owners = nil
 end
 
 function Bots.start()
