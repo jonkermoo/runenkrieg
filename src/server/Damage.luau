@@ -507,12 +507,20 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): (Vector3?,
 		and humanoid.Health > 0
 		and not Damage.spares(caster, character)
 	then
-		-- the zone of the part it hit (anything else of the body: the torso); on the helmet's half of the head with the
-		-- helmet on, it comes off (a soft cap too, but that stays a head hit: Helmets.soft)
-		local part = (result :: RaycastResult).Instance
+		-- the zone of the part the beam's middle line meets on that soldier (the wide beam touches a shoulder before the
+		-- head it was aimed at), else the part it touched (anything else of the body: the torso); on the helmet's half
+		-- of the head with the helmet on, it comes off (a soft cap too, but that stays a head hit: Helmets.soft)
+		local part, point = (result :: RaycastResult).Instance, (result :: RaycastResult).Position
+		local only = RaycastParams.new()
+		only.FilterType = Enum.RaycastFilterType.Include
+		only.FilterDescendantsInstances = { character }
+		local centre = workspace:Raycast(origin, direction * range, only)
+		if centre and Rules.zone(centre.Instance.Name) then
+			part, point = centre.Instance, centre.Position
+		end
 		local zone = Rules.zone(part.Name) or "Torso"
 		local soft = Helmets.soft(character)
-		if Helmets.hit(part, (result :: RaycastResult).Position, direction) and not soft then
+		if Helmets.hit(part, point, direction) and not soft then
 			zone = "Helmet"
 		end
 		local left, knock, counted = Rules.staff(stage, humanoid.Health, zone, S, Cfg.Knocks, Cfg.HelmetFloor)
