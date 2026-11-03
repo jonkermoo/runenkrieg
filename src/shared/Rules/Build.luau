@@ -142,6 +142,15 @@ function Build.pileBags(hp: number, swing: number, bags: number): number
 	return math.clamp(math.ceil(hp / swing - 1e-9), 0, bags)
 end
 
+-- How many of a sandbag pile's `bags` bags stand at `hp` of `max`: while it is first built (`stood` false), a bag at
+-- each whole share of its HP, so the last only at full (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not early"); once it has stood, Build.pileBags
+function Build.pileShown(hp: number, max: number, swing: number, bags: number, stood: boolean): number
+	if stood then
+		return Build.pileBags(hp, swing, bags)
+	end
+	return Build.stageOf(hp, max, bags)
+end
+
 -- The stage of `stages` a Hesco barrier stands at with `hp` of `max` (Config/Build.Hesco.hp): 0 at no HP (just laid,
 -- lying flat), else its share of them rounded up, so the empty perimeter (stage 1) stands from its first HP on
 function Build.hescoStage(hp: number, max: number, stages: number): number
@@ -149,6 +158,16 @@ function Build.hescoStage(hp: number, max: number, stages: number): number
 		return 0
 	end
 	return math.clamp(math.ceil(hp / max * stages - 1e-9), 1, stages)
+end
+
+-- The stage of `stages` a staged structure stands at with `hp` of `max`: while it is first built (`stood` false), a
+-- stage at each whole share of its HP (25, 50, 75, 100 for four), the last only at full (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not early"); once it has stood, as
+-- it wears, Build.hescoStage (a scratch takes none off)
+function Build.builtStage(hp: number, max: number, stages: number, stood: boolean): number
+	if stood then
+		return Build.hescoStage(hp, max, stages)
+	end
+	return Build.stageOf(hp, max, stages)
 end
 
 -- Whether a point `lx`, `lz` in a piece's own frame (its centre, along its width and depth) is on its footprint of
@@ -583,6 +602,12 @@ function Build.tooClose(
 	return false
 end
 
+-- A square's HP as its panel shows it (whole numbers): full only once it is (a blast's share leaves a fraction short, 99.6
+-- is 99; user 2026-11-03: "this trench is at 100HP but its not built")
+function Build.trenchShownHP(hp: number, max: number): number
+	return if hp >= max then max else math.min(math.floor(hp + 0.5), max - 1)
+end
+
 -- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
 function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
 	if build then
@@ -596,7 +621,11 @@ end
 -- moment it is laid at 0 HP; 2 every board, while it keeps over half (user 2026-10-27: "stage 2 is 50+ where the bridge
 -- has just as many planks. stage 1 will be less planks but still usable"). (At 0 after a hit or a Destroy swing it is
 -- gone: src/server/Build.)
-function Build.bridgeStage(hp: number, max: number): number
+-- While it is first built (`whole` false: never at full yet) every board only at full (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not early").
+function Build.bridgeStage(hp: number, max: number, whole: boolean?): number
+	if whole == false then
+		return if hp >= max - 1e-9 then 2 else 1
+	end
 	return if hp > max / 2 + 1e-9 then 2 else 1
 end
 
@@ -651,19 +680,60 @@ export type DugoutSpot = {
 	length: number, -- that square's length
 	teed: boolean, -- another trench joins the wall it would go in
 	bridge: boolean, -- a bridge on that square
-	nearest: number, -- flat, centre to centre, to the nearest other dugout
+	nearest: number, -- flat, doorway to doorway, to the nearest other dugout
+	clash: boolean?, -- its room or tunnel within Dugout.apart of another's (Build.dugoutClash)
 }
 
--- Why a dugout `width` wide can't go in the trench square wall `s` describes (Config/Build.Dugout `d`), nil when it can:
--- a square dug out and long enough, no trench joining that wall, no bridge over it, no other dugout close by
-function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
+-- A dugout's dug-out space in its own frame (x along the trench, y up from the trench floor, z back into the wall from
+-- the wall's foot; Config/Build.Dugout `d`, the piece's room): its tunnel and room as one box, `pad` more each way
+export type DugoutDig = { x: number, y0: number, y1: number, z0: number, z1: number }
+function Build.dugoutDig(piece: Piece, d: any, pad: number): DugoutDig
+	return {
+		x = piece.width / 2 + pad,
+		y0 = -d.drop - pad,
+		y1 = math.max(-d.drop + piece.height, d.lintel) + pad,
+		z0 = -pad,
+		z1 = d.stair + piece.depth + pad,
+	}
+end
+
+-- Whether two dugouts' rooms and tunnels come within `d.apart` of each other ({ x, y, z } their wall feet, { rx, rz }
+-- their flat right, along the trench; Build.dugoutDig half of `apart` round each), in 3D: the boxes' plans overlap
+-- (separating axes) and so do their heights
+function Build.dugoutClash(a: any, b: any, piece: Piece, d: any): boolean
+	local g = Build.dugoutDig(piece, d, d.apart / 2)
+	if a.y + g.y1 < b.y + g.y0 or b.y + g.y1 < a.y + g.y0 then
+		return false
+	end
+	local zm, zh = (g.z0 + g.z1) / 2, (g.z1 - g.z0) / 2
+	-- each box: its middle, its axes (right, into the wall: right turned a quarter) and half sizes
+	local function box(f: any): { number }
+		local ix, iz = -f.rz, f.rx
+		return { f.x + ix * zm, f.z + iz * zm, f.rx, f.rz, ix, iz }
+	end
+	local A, B = box(a), box(b)
+	local dx, dz = B[1] - A[1], B[2] - A[2]
+	for _, ax in { { A[3], A[4] }, { A[5], A[6] }, { B[3], B[4] }, { B[5], B[6] } } do
+		local function reach(o: { number }): number
+			return g.x * math.abs(o[3] * ax[1] + o[4] * ax[2]) + zh * math.abs(o[5] * ax[1] + o[6] * ax[2])
+		end
+		if math.abs(dx * ax[1] + dz * ax[2]) > reach(A) + reach(B) then
+			return false
+		end
+	end
+	return true
+end
+
+-- Why a dugout can't go in the trench square wall `s` describes (Config/Build.Dugout `d`), nil when it can: a square
+-- dug out and long enough for its doorway, no trench joining that wall, no bridge over it, no other dugout close by
+function Build.dugoutSpot(s: DugoutSpot, d: any): string?
 	if not s.found or s.dug < d.dug then
 		return "Needs a dug trench"
 	end
 	if s.nearest < d.same then
 		return "A dugout is already here"
 	end
-	if s.length < width + d.spare - d.lengthSlack then
+	if s.length < d.door + d.spare - d.lengthSlack then
 		return "This trench square is too short"
 	end
 	if s.bridge then
@@ -672,20 +742,20 @@ function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
 	if s.teed then
 		return "A trench joins this wall"
 	end
-	if s.nearest < d.spacing then
-		return "Too close to another dugout"
+	if s.nearest < d.spacing or s.clash then
+		return `Too close to another dugout (keep {d.spacing} studs apart)`
 	end
 	return nil
 end
 
 -- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`), and how far it has filled in: while it
--- is built (`built` false: it has never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only
+-- is built (`built` false: it has never stood) its build stage by HP (Build.builtStage over `d.build`; 0: only
 -- `d.laid`) and nothing filled; once it has stood, every build stage and, under `d.fillFrom`% of its HP, filled by
 -- what it has lost since (0..1 at 0 HP, from its room's floor up to its doorframe's lintel; user 2026-11-02: "can we
 -- make dugouts fill completely all the way to the door frame? also can we fill it with terrain instead of blocks?")
 function Build.dugoutShown(hp: number, max: number, built: boolean, d: any): (number, number)
 	if not built then
-		return Build.hescoStage(hp, max, #d.build), 0
+		return Build.builtStage(hp, max, #d.build, false), 0
 	end
 	return #d.build, if max > 0 then math.clamp(1 - hp / max * 100 / d.fillFrom, 0, 1) else 1
 end
@@ -1020,8 +1090,10 @@ end
 -- slows and hurts) from there up
 export type WireLook = "Bundle" | "Standing"
 
-function Build.wireLook(hp: number, maxHP: number, w: any): WireLook
-	return if hp >= maxHP * w.stand - 1e-9 then "Standing" else "Bundle"
+-- While it is first built (`stood` false) it stands only at full (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not early").
+function Build.wireLook(hp: number, maxHP: number, w: any, stood: boolean?): WireLook
+	local at = if stood == false then maxHP else maxHP * w.stand
+	return if hp >= at - 1e-9 then "Standing" else "Bundle"
 end
 
 -- How far a shaken wire is pushed `t` seconds into a shake (Config/Build.Wire: `shake` long, `wobble` studs, `rate` Hz):
@@ -1150,28 +1222,29 @@ function Build.nestFit(n: any, traverse: number, crew: number, muzzle: number): 
 end
 
 -- What an MG nest shows (Config/Build.Nest `n`): the bags filled ("none", "bottom": the mount bag and the piles'
--- bottom bags, "all") and how many of its gun's `quarters` are set up. Being built: by its `hp`, a stage as a Hesco
--- barrier's (Build.hescoStage). Once it has stood: by its gun's Wreck stage `wreck` (Config/Artillery.Wreck; 0 whole),
+-- bottom bags, "all", or a share of the ring's bags, the top ones last) and how many of its gun's `quarters` are set up.
+-- Being built: by its `hp`, a stage at each whole share (Build.builtStage). Once it has stood: by its gun's Wreck stage `wreck` (Config/Artillery.Wreck; 0 whole),
 -- the gun standing.
 function Build.nestShown(hp: number, n: any, wreck: number?): (string | number, number)
 	if wreck then
 		return if wreck > 0 then n.wear[wreck] else "all", n.quarters
 	end
-	local stage = Build.hescoStage(hp, n.hp.max, #n.build)
+	local stage = Build.builtStage(hp, n.hp.max, #n.build, false)
 	if stage == 0 then
 		return "none", 0
 	end
 	return n.build[stage].bags, n.build[stage].gun
 end
 
--- What a gun's sandbag ring shows (Config/Build.GunRing `n`): being built, by its gun's `hp` of `max`, a stage as a
--- Hesco barrier's (Build.hescoStage) over `n.build` ("none" every bag its empty sack, "bottom", "all"); once the gun
--- has stood, by its Wreck stage `wreck` (0 whole): "all", or the share of its bags still standing (`n.wear`)
+-- What a gun's sandbag ring shows (Config/Build.GunRing `n`): being built, by its gun's `hp` of `max`, a stage at each
+-- whole share (Build.builtStage) over `n.build` ("none" every bag its empty sack, "bottom", a share of the bags,
+-- "all"); once the gun has stood, by its Wreck stage `wreck` (0 whole): "all", or the share of its bags still standing
+-- (`n.wear`)
 function Build.ringShown(hp: number, max: number, n: any, wreck: number?): string | number
 	if wreck then
 		return if wreck > 0 then n.wear[wreck] else "all"
 	end
-	local stage = Build.hescoStage(hp, max, #n.build)
+	local stage = Build.builtStage(hp, max, #n.build, false)
 	return if stage == 0 then "none" else n.build[stage]
 end
 

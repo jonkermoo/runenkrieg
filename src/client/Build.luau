@@ -491,7 +491,7 @@ local function surveyPiece(character: Model, root: BasePart)
 			piece = p,
 			distance = (root.Position - at.Position).Magnitude,
 			reach = C.Reach,
-			spot = Rules.dugoutSpot(s, C.Dugout, p.width),
+			spot = Rules.dugoutSpot(s, C.Dugout),
 			slope = 0,
 			maxSlope = 0,
 			ground = true,

@@ -1225,13 +1225,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	local want = BotTrenches.dugoutsWanted(sbs.shelledOnce, holders, sbs.bays, DG) - #have
-	-- (a square long enough on the flat for one: the dugout's width and its spare less the slack, Config/Build)
-	local long = BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
-	for _, pc in BuildCfg.Pieces do
-		if pc.key == "Dugout" then
-			long += (pc :: any).width
-		end
-	end
+	-- (a square long enough on the flat for one: its doorway and its spare less the slack, Config/Build)
+	local long = BuildCfg.Dugout.door + BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
 	for _, i in BotTrenches.dugoutSquares(support, have, want, DG, long) do
 		local w = support[i].w
 		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")

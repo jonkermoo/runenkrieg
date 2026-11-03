@@ -15,7 +15,7 @@
 -- - Barbed wire: Config/Assets barbed_wire's meshes in two looks by HP (Rules.wireLook: on the ground, standing),
 --   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. On HP (Wire.hp).
 -- - Hesco barriers (kind "Hesco"; Config/Build.Hesco): on HP (its work is its HP), laid with the empty perimeter
---   standing; the model's pieces for the stage its HP stands at (Rules.hescoStage: the perimeter, then the dirt rising,
+--   standing; the model's pieces for the stage its HP stands at (Rules.builtStage: the perimeter, then the dirt rising,
 --   slumping as it wears), cloned from the asset library; only the dirt collides and stops bullets; gone at 0.
 -- - Guns (Config/Build.Pieces kind "Gun"; Config/Build.Guns): a holder model in the folder (what swings go to) with the
 --   gun's parts in it (src/server/Artillery.parts), laid out on the ground and fitted a quarter of its HP at a time
@@ -644,7 +644,7 @@ local function showWire(r: Rec)
 	if not holder then
 		return
 	end
-	local look = Rules.wireLook(r.work, r.need, C.Wire)
+	local look = Rules.wireLook(r.work, r.need, C.Wire, r.built)
 	for _, p in holder:GetChildren() do
 		if p:IsA("BasePart") then
 			p.Transparency = if p:GetAttribute("Look") == look then 0 else 1
@@ -757,7 +757,7 @@ end
 local function showHesco(r: Rec)
 	r.model:SetAttribute("HP", math.ceil(r.work))
 	r.model:SetAttribute("MaxHP", r.need)
-	local stage = Rules.hescoStage(r.work, r.need, r.piece.stages)
+	local stage = Rules.builtStage(r.work, r.need, r.piece.stages, r.built)
 	if r.shown == stage or not layHesco(r) then
 		return
 	end
@@ -813,7 +813,7 @@ end
 local function showBridge(r: Rec)
 	r.model:SetAttribute("HP", math.ceil(r.work))
 	r.model:SetAttribute("MaxHP", r.need)
-	local stage = Rules.bridgeStage(r.work, r.need)
+	local stage = Rules.bridgeStage(r.work, r.need, r.paid == true)
 	for _, part in r.model:GetChildren() do
 		if part:IsA("BasePart") then
 			if part.Name == "Walk" then
@@ -1211,7 +1211,7 @@ function apply(r: Rec)
 		-- (its work is its HP: shown on the shovel's panel like a gun's)
 		r.model:SetAttribute("HP", r.work)
 		r.model:SetAttribute("MaxHP", r.need)
-		showSandbags(r, Rules.pileBags(r.work, C.Sandbags.hp.swing, #r.piece.bags))
+		showSandbags(r, Rules.pileShown(r.work, r.need, C.Sandbags.hp.swing, #r.piece.bags, r.built))
 	elseif kind == "Nest" then
 		showNest(r)
 		-- (stood once: its gun's HP)
@@ -1458,7 +1458,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	local dugout = piece.kind == "Dugout"
 	if dugout then
 		local s, df, m = Survey.dugoutSpot(f, frame.Position)
-		spot = Rules.dugoutSpot(s, C.Dugout, piece.width)
+		spot = Rules.dugoutSpot(s, C.Dugout)
 		if df and m then
 			frame, square = df, m
 		end
