@@ -27,6 +27,48 @@ local DevTools = {
 		-- spawns its players here). map = on another generated map: the server finds its ground
 		{ id = "PlaytestWest", name = "Playtest West", x = -161, z = 2800, look = { 160, 2800 }, map = "Playtest" },
 		{ id = "PlaytestEast", name = "Playtest East", x = 161, z = 2800, look = { -160, 2800 }, map = "Playtest" },
+		-- Lantern Meadows (Config/Maps/LanternMeadows, its middle line at z -6000; its sectors come with every frontline
+		-- map's, Rules/DevTeleports): its landmarks and the west bank of each ford, facing across
+		{
+			id = "LM_Watchtower",
+			name = "Lantern Meadows: watchtower (S1)",
+			x = 400,
+			z = -5885,
+			look = { 400, -6000 },
+			map = "LanternMeadows",
+		},
+		{
+			id = "LM_Cascina",
+			name = "Lantern Meadows: cascina (S5)",
+			x = 2080,
+			z = -6140,
+			look = { 2080, -6170 },
+			map = "LanternMeadows",
+		},
+		{
+			id = "LM_FordFestival",
+			name = "Lantern Meadows: festival ford",
+			x = 1405,
+			z = -6000,
+			look = { 1500, -6000 },
+			map = "LanternMeadows",
+		},
+		{
+			id = "LM_FordUpstream",
+			name = "Lantern Meadows: upstream ford",
+			x = 1410,
+			z = -5800,
+			look = { 1500, -5800 },
+			map = "LanternMeadows",
+		},
+		{
+			id = "LM_FordStones",
+			name = "Lantern Meadows: stepping stones",
+			x = 1432,
+			z = -6145,
+			look = { 1520, -6145 },
+			map = "LanternMeadows",
+		},
 		{
 			id = "Gallery",
 			name = "Asset gallery",

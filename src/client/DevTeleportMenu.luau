@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
 local Map1 = require(Shared.Config.Maps.Map1)
+local LiveMap = require(Shared.LiveMap)
 local Rules = require(Shared.Rules.DevTeleports)
 local Net = require(Shared.Net)
 local DevPanel = require(script.Parent.DevPanel)
@@ -16,7 +17,13 @@ local DevTeleportMenu = {}
 
 local function build(player: Player): ScreenGui
 	local p = DevPanel.new(player, "DevTeleportMenu", "📍", 1, "Teleport (dev)")
-	for i, dest in Rules.list(Map1, Cfg) do
+	local others = {}
+	for _, k in LiveMap.frontline() do
+		if k ~= "Map1" then
+			table.insert(others, { key = k, map = LiveMap.get(k) })
+		end
+	end
+	for i, dest in Rules.list(Map1, Cfg, others) do
 		DevPanel.button(p.panel, dest.id, dest.name, i).Activated:Connect(function()
 			Net.event("DevTeleport"):FireServer(dest.id)
 			p.panel.Visible = false
