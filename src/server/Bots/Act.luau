@@ -140,7 +140,9 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 			return open[g]
 		end
 	end
-	local k = BotBuild.pick(list, root.X, root.Z, BD.take, taken, {}, nil)
+	-- (an Engineer any job on its side's front, from where its squad is: Build.engineerTake)
+	local reach = if engineer and not any then BD.engineerTake else BD.take
+	local k = BotBuild.pick(list, root.X, root.Z, reach, taken, {}, nil)
 	return if k then open[k] else nil
 end
 
@@ -158,7 +160,8 @@ local function pickJob(b: Bot): (BuildJob?, string?)
 		return nil, "not a builder"
 	end
 	local r = pickFrom(b, sb.open, false)
-	return r, if r then nil else `none within {BD.take} studs`
+	local reach = if Loadouts.classOf(b.m :: Model) == "Engineer" then BD.engineerTake else BD.take
+	return r, if r then nil else `none within {reach} studs`
 end
 
 -- an enemy dugout's steps to throw down, if its squad `sq` knows someone is in it (Rules/BotTrenches.occupied): within

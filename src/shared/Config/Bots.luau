@@ -288,6 +288,9 @@ local Bots = {
 	Build = {
 		calm = 3,
 		take = 90,
+		-- an Engineer takes a job this far off (user 2026-11-03 play test: "even when i give free engineers, the bots arent
+		-- building": the front's jobs lay past `take` from the sector their squads were sent to)
+		engineerTake = 400,
 		help = 25,
 		stand = 4,
 		seconds = 60,
