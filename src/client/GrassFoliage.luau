@@ -163,8 +163,17 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 	-- the chunks within `r` of `position` whose grass follows the ground as it is now (a trench's bare rim, and its
 	-- grass back once it is filled in), oldest first: a few candidates at a time, for at most Foliage.Regrow.budget ms a
 	-- frame (a chunk loaded afresh in one go was up to 35 ms); a tuft whose ground stayed put is kept, one whose ground
-	-- moved is moved, a new one made only where there was none
-	type Regrow = { cx: number, cz: number, chunk: Chunk, spots: { Grass.Tuft }?, i: number, was: { [string]: Tuft } }
+	-- moved is moved, a new one made only where there was none (the chunk's tufts stay listed meanwhile, so a blast's
+	-- scrub still finds them)
+	type Regrow = {
+		cx: number,
+		cz: number,
+		chunk: Chunk,
+		spots: { Grass.Tuft }?,
+		i: number,
+		was: { [string]: Tuft },
+		kept: { Tuft },
+	}
 	local regrowing: { Regrow } = {}
 	local function regrow(position: Vector3, r: number)
 		local size = Cfg.ChunkSize
@@ -176,7 +185,7 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 					waiting = waiting or job.chunk == chunk
 				end
 				if chunk and not waiting then
-					table.insert(regrowing, { cx = cx, cz = cz, chunk = chunk, i = 1, was = {} })
+					table.insert(regrowing, { cx = cx, cz = cz, chunk = chunk, i = 1, was = {}, kept = {} })
 				end
 			end
 		end
@@ -186,10 +195,7 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 		local job = regrowing[1]
 		local chunk = job.chunk
 		if loaded[job.cx .. ":" .. job.cz] ~= chunk then
-			for _, t in job.was do
-				t.part:Destroy()
-			end
-			table.remove(regrowing, 1) -- (unloaded since)
+			table.remove(regrowing, 1) -- (unloaded since: its tufts went with it)
 			return
 		end
 		local spots = job.spots
@@ -199,12 +205,18 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 			for _, t in chunk.tufts do
 				job.was[t.x .. ":" .. t.z] = t
 			end
-			table.clear(chunk.tufts)
 		end
 		local c = (spots :: { Grass.Tuft })[job.i]
 		if not c then
 			for _, t in job.was do
 				t.part:Destroy() -- (its spot gone)
+			end
+			-- the chunk's tufts now: those kept or made, less any scrubbed meanwhile
+			table.clear(chunk.tufts)
+			for _, t in job.kept do
+				if t.part.Parent then
+					table.insert(chunk.tufts, t)
+				end
 			end
 			table.remove(regrowing, 1)
 			return
@@ -220,6 +232,10 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 		if not hit then
 			if had then
 				had.part:Destroy()
+				local at = table.find(chunk.tufts, had)
+				if at then
+					table.remove(chunk.tufts, at)
+				end
 			end
 		elseif had then
 			local base = baseOf(c, had.part, hit)
@@ -227,9 +243,11 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 				had.base = base
 				had.part.CFrame = base
 			end
-			table.insert(chunk.tufts, had)
+			table.insert(job.kept, had)
 		else
-			table.insert(chunk.tufts, grow(c, hit))
+			local t = grow(c, hit)
+			table.insert(job.kept, t)
+			table.insert(chunk.tufts, t)
 		end
 	end
 	RunService.Heartbeat:Connect(function()

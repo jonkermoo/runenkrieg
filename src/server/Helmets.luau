@@ -210,7 +210,8 @@ function Helmets.dress(character: Model, headwear: string?, species: string?)
 		on:SetAttribute("HitBox", head.CFrame:ToObjectSpace(box))
 		on:SetAttribute("HitSize", size)
 		on.Parent = character
-		local bare = hair(character, head, nil)
+		-- (under a head wrap the helmet-on hair stays on: made at the knock-off)
+		local bare = if character:GetAttribute("HeadWrap") == true then nil else hair(character, head, nil)
 		if bare then
 			local at = {}
 			for _, p in bare:GetDescendants() do
@@ -219,6 +220,13 @@ function Helmets.dress(character: Model, headwear: string?, species: string?)
 				end
 			end
 			spares[character] = { model = bare, at = at }
+			character.Destroying:Once(function()
+				local spare = spares[character]
+				if spare then
+					spare.model:Destroy()
+					spares[character] = nil
+				end
+			end)
 		end
 	end
 	character:SetAttribute("HelmetOn", on ~= nil)
