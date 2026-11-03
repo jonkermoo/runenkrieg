@@ -2,7 +2,7 @@
 -- Normal: bots on the guns (Config/Bots.Crew, Rules/BotCrew; user 2026-11-02, stage 2g). The commander gives each
 -- free gun on its side's sectors a gunner (Crew.command); the gunner walks there and mans it, then lays and fires it
 -- (Crew.think, in place of its own think); a teammate taking it over (E) sends it back to duty (Artillery.onBotLeft).
--- Kept out of src/server/Bots (that module is at Luau's limit of locals); it hands over what it needs (Crew.init).
+-- Kept out of src/server/Bots; it hands over what it needs (Crew.init).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
