@@ -11,6 +11,9 @@ local Frontline = {
 	CaptureSeconds = 20,
 	-- a bigger lead pushes faster, up to this many soldiers' worth (user's GDD: "rate scales with the player advantage")
 	MaxAdvantage = 3,
+	-- what a soldier in the zone counts for (user 2026-11-03: "make flag capture speed be scale to how many on the
+	-- point to players (include AI count as half a player)"): a player 1, a bot this; the lead is the sides' weights
+	BotWeight = 0.5,
 	-- seconds for a sector left empty (or out of reach) to drift from neutral back to its holder's end
 	DrainSeconds = 20,
 	-- Momentum (user 2026-10-27: "momentum, but there is a reasonable cap"): once the front has gone `after` seconds
@@ -45,7 +48,7 @@ local Frontline = {
 	-- replicated state (read by src/client/ModeHud): a Folder in Workspace with the match's attributes (Phase "Waiting"
 	-- / "Countdown" / "Playing" / "Fade" / "Table" / "Vote" / "Loading", PhaseEndsAt (server time), Winner (a
 	-- side), Momentum (the capture speed's multiplier), West and East (each side's team, Config/Uniforms.Teams)) and one
-	-- child Folder per sector (Index, Owner, Control, and the West / East soldiers in its zone)
+	-- child Folder per sector (Index, Owner, Control, the West / East soldiers in its zone weighed by BotWeight, Rate)
 	FolderName = "Frontline",
 	-- the map's key in Config/Maps: the built map's model in Workspace has this name (src/dev/Greybox), not its `name`
 	MapKey = "Map1",
@@ -111,6 +114,10 @@ local Frontline = {
 	-- line.
 	WaveAttribute = "WaveAt",
 	HeldAttribute = "Held",
+	RateAttribute = "Rate", -- each sector's: its control per second now (Rules/Frontline.rates; the admin readout)
+	-- each sector's "<Side>" .. this: the side's soldiers in its zone by head, unweighed (the bots' planning reads it;
+	-- "West" / "East" are weighed by BotWeight)
+	HeadsSuffix = "Heads",
 	ReinforcedAttribute = "Reinforced",
 	SpawnAttribute = "Spawn",
 	LineAttribute = "Line",

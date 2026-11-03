@@ -187,6 +187,11 @@ function Frontline.reinforced(cfg: any, west: number, east: number): Side?
 	return nil
 end
 
+-- What one soldier in a zone counts for (Config/Frontline.BotWeight): a player 1, a bot `BotWeight`.
+function Frontline.weight(cfg: any, bot: boolean): number
+	return if bot then cfg.BotWeight else 1
+end
+
 -- How far control moves in `dt` seconds with soldiers `west` and `east` in the zone: by the lead (at most
 -- MaxAdvantage) at one soldier's rate times `rate` (momentum), toward the side ahead; nil when nobody leads (empty,
 -- or even: contested).
@@ -255,6 +260,35 @@ function Frontline.step(
 		end
 	end
 	return events
+end
+
+-- Each sector's control per second now (+ toward West, - toward East): the lead's push in the sectors either side may
+-- attack, 0 where nothing moves it (contested, empty or out of reach; the drift back isn't counted). For the admin
+-- readout.
+function Frontline.rates(state: State, cfg: any, counts: { { West: number, East: number } }, rate: number?): { number }
+	local live: { [number]: boolean } = {}
+	for _, side in { "West", "East" } do
+		local t = Frontline.target(state, side)
+		if t then
+			live[t] = true
+		end
+	end
+	local out = {}
+	for i in state.owner do
+		local c = counts[i] or { West = 0, East = 0 }
+		out[i] = if live[i] then Frontline.push(cfg, c.West or 0, c.East or 0, 1, rate) or 0 else 0
+	end
+	return out
+end
+
+-- Seconds until control moving at `perSecond` (Frontline.rates) reaches the end it heads for (a capture there); nil
+-- when it isn't moving.
+function Frontline.eta(control: number, perSecond: number): number?
+	if perSecond == 0 then
+		return nil
+	end
+	local to = if perSecond > 0 then 1 else -1
+	return math.abs(to - control) / math.abs(perSecond)
 end
 
 -- The capture speed's multiplier after `still` seconds without a capture (Config/Frontline.Momentum): 1 until
