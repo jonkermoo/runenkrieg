@@ -63,7 +63,8 @@ function DevWorld.touchRegion(r: Region3)
 	DevWorld.touch(r.CFrame.Position - half, r.CFrame.Position + half)
 end
 
--- what to copy: the buildings, the sections and doors outside them, the trees (each once, outermost first)
+-- what to copy: the buildings, the sections and doors outside them, the trees, the telegraph wires' spans
+-- (src/server/PoleWires; each once, outermost first)
 local function roots(): { Instance }
 	local out: { Instance } = {}
 	local seen: { [Instance]: boolean } = {}
@@ -81,7 +82,15 @@ local function roots(): { Instance }
 		seen[i] = true
 		table.insert(out, i)
 	end
-	for _, tag in { DestructionCfg.BuildingTag, DestructionCfg.SectionTag, DestructionCfg.DoorTag, TreeCfg.Tag } do
+	for _, tag in
+		{
+			DestructionCfg.BuildingTag,
+			DestructionCfg.SectionTag,
+			DestructionCfg.DoorTag,
+			TreeCfg.Tag,
+			DestructionCfg.Wires.Tag,
+		}
+	do
 		for _, i in CollectionService:GetTagged(tag) do
 			local b = i:FindFirstAncestorWhichIsA("Model")
 			while b and not CollectionService:HasTag(b, DestructionCfg.BuildingTag) do
