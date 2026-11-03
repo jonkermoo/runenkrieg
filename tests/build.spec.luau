@@ -972,21 +972,46 @@ return {
 			for k, v in over do
 				s[k] = v
 			end
-			return B.dugoutSpot(s, d, piece.width)
+			return B.dugoutSpot(s, d)
 		end
 		assert(spot({}) == nil, "a full square")
 		assert(spot({ found = false }) == "Needs a dug trench")
 		assert(spot({ dug = d.dug - 1 }) == "Needs a dug trench", "not dug full")
-		assert(piece.width + d.spare <= C.Trench.block, "fits a full square")
-		assert(spot({ length = piece.width }) == "This trench square is too short")
+		assert(d.door + d.spare <= C.Trench.block, "its doorway fits a full square")
+		assert(spot({ length = d.door }) == "This trench square is too short")
 		-- (a whole square measures a hair under its length on the flat: 7.99993 of 8)
 		assert(spot({ length = C.Trench.block - 7e-5 }) == nil, "a whole square, measured a hair short")
-		assert(spot({ length = piece.width + d.spare - 0.1 }) == "This trench square is too short")
+		assert(spot({ length = d.door + d.spare - 0.1 }) == "This trench square is too short")
 		assert(spot({ bridge = true }) == "A bridge is here")
 		assert(spot({ teed = true }) == "A trench joins this wall")
 		assert(spot({ nearest = 0 }) == "A dugout is already here")
-		assert(spot({ nearest = d.spacing - 1 }) == "Too close to another dugout")
+		assert(string.find(spot({ nearest = d.spacing - 1 }) or "", "Too close to another dugout") ~= nil)
 		assert(spot({ nearest = d.spacing }) == nil)
+		assert(spot({ clash = true }) ~= nil, "its room against another's")
+	end,
+	["dugouts: room for three, no two rooms within apart of each other in 3D (user 2026-11-03)"] = function()
+		local d = C.Dugout
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		-- (three soldiers of 2 x 1 standing side by side with room between, and one more stride's depth)
+		assert(piece.width >= 3 * 2 + 3 and piece.depth >= 7 and piece.height >= C.Trench.depth)
+		local function foot(x: number, y: number, z: number, rx: number, rz: number): any
+			return { x = x, y = y, z = z, rx = rx, rz = rz }
+		end
+		local a = foot(0, 0, 0, 1, 0) -- (into the wall along +z: right turned a quarter)
+		assert(not B.dugoutClash(a, foot(d.spacing, 0, 0, 1, 0), piece, d), "along the wall, spacing apart")
+		assert(piece.width + d.apart <= d.spacing, "the door spacing clears side-by-side rooms")
+		assert(B.dugoutClash(a, foot(piece.width + d.apart - 0.5, 0, 0, 1, 0), piece, d), "rooms side by side, close")
+		assert(
+			not B.dugoutClash(a, foot(0, 0, -2 * C.Trench.floor, -1, 0), piece, d),
+			"across the trench, back to back"
+		)
+		-- a trench behind, its dugout's room facing back toward this one's under the ground
+		local back = d.stair + piece.depth
+		assert(B.dugoutClash(a, foot(0, 0, 2 * back, -1, 0), piece, d), "rooms meeting under the ground")
+		assert(not B.dugoutClash(a, foot(0, 0, 2 * back + d.apart + 0.1, -1, 0), piece, d))
+		assert(not B.dugoutClash(a, foot(0, -30, 6, 1, 0), piece, d), "far under (a hill's other side)")
+		-- turned: a trench teed in behind, its dugout's room running across this one's
+		assert(B.dugoutClash(a, foot(-6, 0, d.stair + piece.depth / 2, 0, 1), piece, d), "across it")
 	end,
 	["dugouts: Engineers only, 2 each, 10 swings, stages by HP while built, filling in once stood"] = function()
 		local d = C.Dugout

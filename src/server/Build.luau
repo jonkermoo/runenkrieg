@@ -1454,7 +1454,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	local dugout = piece.kind == "Dugout"
 	if dugout then
 		local s, df, m = Survey.dugoutSpot(f, frame.Position)
-		spot = Rules.dugoutSpot(s, C.Dugout, piece.width)
+		spot = Rules.dugoutSpot(s, C.Dugout)
 		if df and m then
 			frame, square = df, m
 		end

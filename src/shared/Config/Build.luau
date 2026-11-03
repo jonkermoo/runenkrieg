@@ -316,14 +316,14 @@ local Build = {
 		-- The dugout (user 2026-11-02, design approved): steps cut down through the wall of a dug trench square into a
 		-- small timbered room under the ground (Dugout below). Engineers only (Config/Classes), `playerCap` each (user: "2
 		-- per player"). Its room `width` along the trench x `height` x `depth` back (a standing soldier is 5.13), past its
-		-- steps (Dugout.stair).
+		-- steps (Dugout.stair). (10 x 6 x 8 for three soldiers, was 7 x 6 x 6; user 2026-11-03: "increase the space in the dugouts. make it spacious enough for 3 people. prevent additional dugouts from being built close to each other (to prevent collision and too many dugouts)")
 		{
 			key = "Dugout",
 			name = "Dugout",
 			kind = "Dugout",
 			playerCap = 2,
-			width = 7,
-			depth = 6,
+			width = 10,
+			depth = 8,
 			height = 6,
 		},
 		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
@@ -693,9 +693,10 @@ local Build = {
 	-- the voxels); the trench's walls and heaps open over the slot from `openFront` in front of it. Craters keep `ground`
 	-- studs off it.
 	-- Laid in the wall of the square the cursor is on (within `reach` of the square's line past its wall tops), on a
-	-- square dug to at least `dug`% and at least the dugout's width plus `spare` long, not in a wall another trench joins
+	-- square dug to at least `dug`% and at least its `door` plus `spare` long, not in a wall another trench joins
 	-- (an end within `teeGap` of its floor's edge), not on a square with a bridge (its middle within `bridgeGap`),
-	-- `spacing` studs (middle to middle) from any other dugout (`same`: that one). It keeps its own HP: a square filled in
+	-- `spacing` studs (doorway to doorway) from any other dugout (`same`: that one) and its room clear of theirs
+	-- (`apart`). It keeps its own HP: a square filled in
 	-- leaves it standing, its steps opening on the fill.
 	-- On HP like every structure: laid at `hp.place` (its timbers lying on the trench floor), a Build swing of its team
 	-- adds `hp.swing` (repairs too), a Destroy swing takes `hp.destroy`, weapons take `soak` of what they take from a
@@ -715,13 +716,13 @@ local Build = {
 		asset = "dugout_pieces",
 		laid = { "Pile", "PileDark" },
 		build = {
-			{ "SlotEarth", "Steps", "Risers" },
+			{ "SlotEarth", "Steps", "Risers", "Shell" },
 			{ "RoomEarth" },
 			{ "Frames" },
 			{ "Lining", "Ceiling", "Floorboards" },
 		},
 		-- the meshes' tones by name: the soil's (Trenches.soilColor) for these, the dark timber for these, else the plank
-		soil = { "SlotEarth", "RoomEarth" },
+		soil = { "SlotEarth", "RoomEarth", "Shell" },
 		dark = { "PileDark", "Steps", "Frames", "Floorboards" },
 		soak = 0.1,
 		drop = 7,
@@ -738,7 +739,12 @@ local Build = {
 		spare = 1,
 		-- (a square's measured length comes up this much short of whole: an 8-stud square on the flat reads 7.99993)
 		lengthSlack = 0.01,
-		spacing = 10,
+		-- (its doorway and frames take `door` of the square's length, so a whole 8-stud square holds one, its wider room
+		-- running on behind the neighbours' walls; no other dugout's doorway within `spacing` studs of its own, nor its
+		-- room and tunnel within `apart` studs of another's, in 3D: Rules.dugoutClash)
+		door = 7,
+		spacing = 16,
+		apart = 2,
 		reach = 6,
 		teeGap = 1,
 		bridgeGap = 1,

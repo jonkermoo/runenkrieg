@@ -680,19 +680,60 @@ export type DugoutSpot = {
 	length: number, -- that square's length
 	teed: boolean, -- another trench joins the wall it would go in
 	bridge: boolean, -- a bridge on that square
-	nearest: number, -- flat, centre to centre, to the nearest other dugout
+	nearest: number, -- flat, doorway to doorway, to the nearest other dugout
+	clash: boolean?, -- its room or tunnel within Dugout.apart of another's (Build.dugoutClash)
 }
 
--- Why a dugout `width` wide can't go in the trench square wall `s` describes (Config/Build.Dugout `d`), nil when it can:
--- a square dug out and long enough, no trench joining that wall, no bridge over it, no other dugout close by
-function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
+-- A dugout's dug-out space in its own frame (x along the trench, y up from the trench floor, z back into the wall from
+-- the wall's foot; Config/Build.Dugout `d`, the piece's room): its tunnel and room as one box, `pad` more each way
+export type DugoutDig = { x: number, y0: number, y1: number, z0: number, z1: number }
+function Build.dugoutDig(piece: Piece, d: any, pad: number): DugoutDig
+	return {
+		x = piece.width / 2 + pad,
+		y0 = -d.drop - pad,
+		y1 = math.max(-d.drop + piece.height, d.lintel) + pad,
+		z0 = -pad,
+		z1 = d.stair + piece.depth + pad,
+	}
+end
+
+-- Whether two dugouts' rooms and tunnels come within `d.apart` of each other ({ x, y, z } their wall feet, { rx, rz }
+-- their flat right, along the trench; Build.dugoutDig half of `apart` round each), in 3D: the boxes' plans overlap
+-- (separating axes) and so do their heights
+function Build.dugoutClash(a: any, b: any, piece: Piece, d: any): boolean
+	local g = Build.dugoutDig(piece, d, d.apart / 2)
+	if a.y + g.y1 < b.y + g.y0 or b.y + g.y1 < a.y + g.y0 then
+		return false
+	end
+	local zm, zh = (g.z0 + g.z1) / 2, (g.z1 - g.z0) / 2
+	-- each box: its middle, its axes (right, into the wall: right turned a quarter) and half sizes
+	local function box(f: any): { number }
+		local ix, iz = -f.rz, f.rx
+		return { f.x + ix * zm, f.z + iz * zm, f.rx, f.rz, ix, iz }
+	end
+	local A, B = box(a), box(b)
+	local dx, dz = B[1] - A[1], B[2] - A[2]
+	for _, ax in { { A[3], A[4] }, { A[5], A[6] }, { B[3], B[4] }, { B[5], B[6] } } do
+		local function reach(o: { number }): number
+			return g.x * math.abs(o[3] * ax[1] + o[4] * ax[2]) + zh * math.abs(o[5] * ax[1] + o[6] * ax[2])
+		end
+		if math.abs(dx * ax[1] + dz * ax[2]) > reach(A) + reach(B) then
+			return false
+		end
+	end
+	return true
+end
+
+-- Why a dugout can't go in the trench square wall `s` describes (Config/Build.Dugout `d`), nil when it can: a square
+-- dug out and long enough for its doorway, no trench joining that wall, no bridge over it, no other dugout close by
+function Build.dugoutSpot(s: DugoutSpot, d: any): string?
 	if not s.found or s.dug < d.dug then
 		return "Needs a dug trench"
 	end
 	if s.nearest < d.same then
 		return "A dugout is already here"
 	end
-	if s.length < width + d.spare - d.lengthSlack then
+	if s.length < d.door + d.spare - d.lengthSlack then
 		return "This trench square is too short"
 	end
 	if s.bridge then
@@ -701,8 +742,8 @@ function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
 	if s.teed then
 		return "A trench joins this wall"
 	end
-	if s.nearest < d.spacing then
-		return "Too close to another dugout"
+	if s.nearest < d.spacing or s.clash then
+		return `Too close to another dugout (keep {d.spacing} studs apart)`
 	end
 	return nil
 end
