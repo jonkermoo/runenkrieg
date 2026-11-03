@@ -80,10 +80,10 @@ local Cutscenes = {
 				look = { at = "S1" },
 				paper = "out",
 			},
-			{ name = "Front", t1 = 15.0, kind = "Front", up = 55, side = 110, lead = 180, back = 0.3, stamps = true },
+			{ name = "Front", t1 = 16.0, kind = "Front", up = 55, side = 110, lead = 180, back = 0.3, stamps = true },
 			{
 				name = "WestLine",
-				t1 = 15.8,
+				t1 = 16.8,
 				kind = "Move",
 				from = { at = "WestSpawn", dx = 70, dz = 12, up = 24 },
 				to = { at = "WestSpawn", dx = 50, dz = 8, up = 18 },
@@ -92,14 +92,14 @@ local Cutscenes = {
 			},
 			{
 				name = "EastLine",
-				t1 = 16.6,
+				t1 = 17.6,
 				kind = "Move",
 				from = { at = "EastSpawn", dx = -70, dz = -12, up = 24 },
 				to = { at = "EastSpawn", dx = -50, dz = -8, up = 18 },
 				look = { at = "EastSpawn", up = 5 },
 				caption = "East",
 			},
-			{ name = "Eyes", t1 = 18, kind = "Eyes", from = { at = "Home", dx = -30, up = 10 }, mirror = "home" },
+			{ name = "Eyes", t1 = 19, kind = "Eyes", from = { at = "Home", dx = -30, up = 10 }, mirror = "home" },
 		},
 	},
 
@@ -135,13 +135,14 @@ local Cutscenes = {
 	-- slot with no map is a placeholder), the operations plan beside them. Studs; the camera from the board's middle.
 	Board = {
 		behind = 9, -- studs behind the table's middle, facing it
+		lift = 3.6, -- its foot this far over the floor (clear over the table top, as the camera sees it)
 		size = { 22, 10 },
 		slots = 3,
 		sheet = { width = 4.8, height = 6.4, gap = 0.7, tilt = 2 },
 		plan = { width = 3.4, height = 4.6 },
 		placeholder = "to be drawn",
 		turn = 1.2, -- seconds the camera takes to turn round from the table
-		shot = { from = { 0, 5, 16 }, to = { 0, 5, 14 }, look = { 0, 5, 0 } },
+		shot = { from = { 0, 5.5, 19 }, to = { 0, 5.5, 17 }, look = { 0, 5, 0 } },
 		-- the operations plan's lines ({winner}: the winning nation)
 		planLines = {
 			"OPERATIONS PLAN",
@@ -151,10 +152,12 @@ local Cutscenes = {
 			"H-hour: at the whistle.",
 		},
 		noWinnerLines = { "OPERATIONS PLAN", "Joint orders", "Neither side holds the field.", "All officers choose." },
-		write = 0.9, -- seconds a signature takes to write, letter by letter, in the signer's nation's ink (Magic)
+		write = 0.9, -- seconds a signature takes to write, letter by letter, in the signer's nation's ink
+		signature = 0.2, -- a signature's height, of the space under the map on its sheet
 		-- the arm (an R6 right arm in the winners' uniform holding a wooden stamp): in from `reach` studs right of the
-		-- sheet, `lift` over it; down over `down`, a beat, back up over `up`; the stamp's block (studs)
-		arm = { reach = 8, lift = 2.5, down = 0.35, hold = 0.25, up = 0.4, stamp = { 1.4, 0.5, 0.9 } },
+		-- sheet, `lift` over it; down over `down`, a beat, back up over `up`; the arm `angle` degrees out of the board
+		-- toward the camera; the stamp's block (studs)
+		arm = { reach = 8, lift = 2.5, down = 0.35, hold = 0.25, up = 0.4, angle = 35, stamp = { 1.4, 0.5, 0.9 } },
 	},
 	-- The armory while the next map loads: the six approved angles (render session, 2026-11-02), a slow drift each, a
 	-- cut every `cut` seconds; studs from the armory floor's middle. A placeholder room until the render is modelled.
@@ -181,7 +184,9 @@ local Cutscenes = {
 		pitch = -2,
 		volume = 1.6,
 		gap = 0.3, -- seconds of quiet between lines
-		wordsPerSecond = 2.3, -- the server's guess of part one's length (the armory's least time)
+		-- the voice's pace (measured in Studio 2026-11-02: 29 words in 8.9 s at speed 0.92), for the server's guess of
+		-- part one's length (the armory's least time) and for keeping each order inside its point's moment
+		wordsPerSecond = 3.0,
 		won = {
 			Map1 = "{winner} holds the valley. Their colours fly from the church tower, and the enemy's last line lies broken in the mud of the river ford.",
 			LanternMeadows = "The lanterns of the Aurel burn for {winner} tonight. The enemy has been driven from the festival ground, and the meadows belong to them.",
@@ -196,22 +201,23 @@ local Cutscenes = {
 			uniform3 = "Sowilo's banners are torn, but they have tasted blood. The crimson rune-casters swear on their scars that the next field will be theirs by nightfall.",
 			none = "Neither side could break the other. Both armies limp from the field, and both have sworn the next fight will end it.",
 		},
+		-- (each order short enough to finish before the next point, about 7 words: tests/cutscenes.spec)
 		plans = {
 			Map1 = {
 				"Orders for the valley.",
-				"Hold the western rise. It is the only high ground you will be given.",
-				"Push through the open meadow at the double. Do not stop in the grass.",
-				"Take the farm and the oast house. Whoever holds the kilns holds the centre.",
-				"Cross at the ford by the coaching inn, and clear it room by room.",
-				"And do not stop until the church tower falls.",
+				"Hold the western rise.",
+				"Cross the meadow at the double.",
+				"Take the oast house. Hold the centre.",
+				"Ford the river by the coaching inn.",
+				"Then bring down the church tower.",
 			},
 			LanternMeadows = {
 				"Orders for the Aurel.",
-				"From the old watchtower, look east. That is where we are going.",
-				"Cross the hedgerow fields by the barn. Use every hedge, and trust none of them.",
-				"Take the festival ground under the lantern poles. Let them see our colours in the light.",
-				"Ford the river by the ferry house before they can hold the far bank.",
-				"Then drive them out of the cascina and into the Aurel.",
+				"From the watchtower, look east.",
+				"Through the hedgerows by the barn.",
+				"Take the festival ground under the lanterns.",
+				"Cross the river at the ferry.",
+				"Drive them out of the cascina.",
 			},
 		},
 		-- (no bayonets in this army: user 2026-11-02)

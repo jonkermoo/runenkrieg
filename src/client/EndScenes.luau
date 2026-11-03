@@ -65,6 +65,7 @@ local tableTop: Vector3, boardBase: Vector3, armory: Vector3
 local mapSurface: Frame, reportLines: { TextLabel } = nil :: any, {}
 local mapSheet: any = nil
 local sheetGuis: { SurfaceGui } = {}
+local lamp: Part
 
 local function part(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?): Part
 	local p = Instance.new("Part")
@@ -132,21 +133,24 @@ local function buildTent(origin: Vector3)
 			part("Leg", V(0.5, T.top - 0.4, 0.5), CFrame.new(origin + at - V(0, 0.2, 0)), dark, Enum.Material.Wood)
 		end
 	end
-	local lamp = part("Lamp", V(1.2, 0.8, 1.2), CFrame.new(tableTop + V(0, 7, 0)), Color3.fromRGB(70, 60, 44))
+	lamp = part("Lamp", V(1.2, 0.8, 1.2), CFrame.new(tableTop + V(0, 7, 0)), Color3.fromRGB(70, 60, 44))
 	local light = Instance.new("PointLight")
 	light.Range, light.Brightness, light.Color = 24, 2.2, Color3.fromRGB(255, 214, 160)
 	light.Shadows = true
 	light.Parent = lamp
 	-- the played map, flat on the table (its replay drawn on it), and the after-action report beside it
 	local m = T.map
+	-- (a Top-face gui runs its width along the part's -z and its top along -x: a quarter turn lays a paper's text across
+	-- the table, reading from the camera's side, its size given as (depth, width))
+	local flat = CFrame.Angles(0, -math.pi / 2, 0)
 	local sheet =
-		part("MapSheet", V(m.size[1], 0.05, m.size[2]), CFrame.new(tableTop + V(m.at[1], 0.03, m.at[2])), PAPER)
+		part("MapSheet", V(m.size[2], 0.05, m.size[1]), CFrame.new(tableTop + V(m.at[1], 0.03, m.at[2])) * flat, PAPER)
 	local _, f = surface(sheet, Enum.NormalId.Top)
 	f.BackgroundTransparency = 1
 	mapSurface = f
 	local r = T.report
-	local rcf = CFrame.new(tableTop + V(r.at[1], 0.04, r.at[2])) * CFrame.Angles(0, math.rad(r.tilt), 0)
-	local report = part("Report", V(r.size[1], 0.05, r.size[2]), rcf, PAPER)
+	local rcf = CFrame.new(tableTop + V(r.at[1], 0.04, r.at[2])) * CFrame.Angles(0, math.rad(r.tilt), 0) * flat
+	local report = part("Report", V(r.size[2], 0.05, r.size[1]), rcf, PAPER)
 	local _, rf = surface(report, Enum.NormalId.Top)
 	for k = 1, T.lines do
 		local l =
@@ -169,7 +173,7 @@ local function buildTent(origin: Vector3)
 	end
 	part("InkPot", V(0.5, 0.5, 0.5), CFrame.new(tableTop + V(2.6, 0.25, 3.8)), Color3.fromRGB(28, 30, 40))
 	-- the map board on the tent wall behind the table, facing it
-	boardBase = origin + V(0, 0, -B.behind)
+	boardBase = origin + V(0, B.lift, -B.behind)
 	local bcf = CFrame.lookAt(boardBase + V(0, B.size[2] / 2 + 0.6, 0), boardBase + V(0, B.size[2] / 2 + 0.6, 10))
 	local board = part("Board", V(B.size[1], B.size[2], 0.4), bcf, wood, Enum.Material.Wood)
 	local _, bf = surface(board, Enum.NormalId.Front)
@@ -428,7 +432,7 @@ local function updateSignatures(folder: Instance)
 						l.FontFace = HAND
 						l.TextScaled = true
 						l.TextColor3 = inkOf(kit)
-						l.Size = UDim2.fromScale(1, 0.13)
+						l.Size = UDim2.fromScale(1, Cfg.Board.signature)
 						l.TextXAlignment = Enum.TextXAlignment.Left
 						l.Text = name
 						l.MaxVisibleGraphemes = 0
@@ -495,16 +499,21 @@ local function stampArm(kit: string?, sheet: Sheet, at: CFrame)
 	block.Parent = m
 	m.Parent = set
 	arm = m
-	-- the arm lies along the board's normal, its hand (the lower end) toward the sheet, the stamp under the hand
+	-- the stamp pressed square to the sheet; the arm comes in from the right and toward the camera (`angle`), its hand
+	-- (the arm's lower end) on the stamp's back
+	-- (the sheet faces the camera, so the camera's right is the sheet's -RightVector)
+	local right = -at.RightVector
+	local axis = (right * math.cos(math.rad(A.angle)) + at.LookVector * math.sin(math.rad(A.angle))).Unit
+	local across = axis:Cross(at.UpVector).Unit
 	local function place(out: number)
 		local face = at.Position + at.LookVector * (A.stamp[3] / 2 + out)
-		local blockCf = CFrame.lookAt(face, face + at.LookVector)
-		block.CFrame = blockCf
-		limb.CFrame = blockCf * CFrame.new(0, 0, -(A.stamp[3] / 2 + 1)) * CFrame.Angles(math.rad(90), 0, 0)
-		torso.CFrame = limb.CFrame * CFrame.new(-1.5, 1, 0)
+		block.CFrame = CFrame.lookAt(face, face + at.LookVector)
+		local hand = face + at.LookVector * (A.stamp[3] / 2)
+		limb.CFrame = CFrame.fromMatrix(hand + axis * 1, across, axis)
+		torso.CFrame = CFrame.fromMatrix(hand + axis * 2.5, across, axis)
 	end
 	task.spawn(function()
-		local side = at.RightVector * A.reach
+		local side = right * A.reach
 		local t0 = os.clock()
 		-- in from the side, over the sheet
 		while os.clock() - t0 < A.down + 0.4 do
@@ -593,7 +602,11 @@ local function fillReport()
 	local winnerKit = r.winner
 	local lines = {
 		"AFTER-ACTION REPORT",
-		`{if r.map then LiveMap.get(r.map).name else ""} · {math.floor((r.length or 0) / 60)} min`,
+		`{if r.map then LiveMap.get(r.map).name else ""} · {string.format(
+			"%d:%02d",
+			(r.length or 0) // 60,
+			(r.length or 0) % 60
+		)}`,
 		if winnerKit then `{string.upper(nationOf(winnerKit))} holds the field` else "NO VICTOR",
 	}
 	for _, h in { { "Kills", "kills" }, { "Healed", "HP healed" }, { "Built", "HP built" } } do
@@ -698,6 +711,7 @@ local function begin(name: string, folder: Instance)
 	gui.Enabled = true
 	hint.Text = ""
 	freeMouse.Visible = false
+	lamp.Transparency = if name == "Vote" then 1 else 0 -- (its shade hangs in the board's shot; its light stays)
 	local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
 	local parts = if type(spoken) == "string" then string.split(spoken, ",") else { "none", LiveMap.key() }
 	local winnerKit = if parts[1] ~= "none" then parts[1] else nil

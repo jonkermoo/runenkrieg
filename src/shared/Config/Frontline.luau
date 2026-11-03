@@ -19,7 +19,7 @@ local Frontline = {
 	-- the match's start: waiting until each side has this many players, then the countdown (captures don't count yet)
 	MinPerSide = 1,
 	-- (the pre-match cutscene and the spoken plan play over it: Config/Cutscenes.Pre's length, user 2026-11-02; was 10)
-	CountdownSeconds = 18,
+	CountdownSeconds = 19,
 	-- a Defend award (Config/Classes.Earn): a kill with the killer or the victim within the sector's radius plus this
 	-- of its point, while the enemy is attacking that sector of the killer's side
 	DefendReach = 20,

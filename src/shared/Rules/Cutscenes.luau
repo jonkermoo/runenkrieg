@@ -201,14 +201,14 @@ function Cutscenes.partOne(speech: any, winner: string?, played: string, nation:
 	return out
 end
 
--- When point `i` of `n` is stamped in the flight's `shot` (which runs from `t0`): Rules.stamped's moment.
-function Cutscenes.stampTime(shot: any, t0: number, i: number, n: number): number
-	local u = math.clamp((i - 1.5) / math.max(n - 1, 1), 0, 1)
-	return t0 + u * (shot.t1 - t0)
+-- When the order for point `i` of `n` is spoken in the flight's `shot` (which runs from `t0`): the flight shared out
+-- evenly, the first at its start, each as the camera comes up on its point.
+function Cutscenes.orderTime(shot: any, t0: number, i: number, n: number): number
+	return t0 + (i - 1) / math.max(n, 1) * (shot.t1 - t0)
 end
 
 -- Part two, over the pre-match flight `cut` on a map with `n` points (`nextMap` its key): the plan's first line as the
--- dive starts, one as each point's seal is stamped, then the closing call (by the winning kit) as the camera goes into
+-- dive starts, one as the camera comes up on each point, then the closing call (by the winning kit) as the camera goes into
 -- the soldier's eyes. A map without a plan gets only the call.
 function Cutscenes.partTwo(speech: any, cut: any, winner: string?, nextMap: string, n: number): { Line }
 	local out: { Line } = {}
@@ -228,7 +228,7 @@ function Cutscenes.partTwo(speech: any, cut: any, winner: string?, nextMap: stri
 		for i = 1, n do
 			local line = plan[i + 1]
 			if line then
-				local at = if front then Cutscenes.stampTime(front, frontT0, i, n) else 0
+				local at = if front then Cutscenes.orderTime(front, frontT0, i, n) else 0
 				table.insert(out, { text = line, at = at })
 			end
 		end

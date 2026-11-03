@@ -33,7 +33,7 @@ local tests: { [string]: () -> () } = {
 		assert(i == 1 and s.name == "Sheet" and u == 0)
 		s, i, u = R.at(Cfg.Pre, 1.6)
 		assert(i == 2 and u == 0, "a shot starts where the last ends (a hard cut)")
-		s, i, u = R.at(Cfg.Pre, 8.9)
+		s, i, u = R.at(Cfg.Pre, 9.4)
 		assert(s.kind == "Front" and math.abs(u - 0.5) < 1e-6)
 		s, i, u = R.at(Cfg.Pre, 99)
 		assert(i == #Cfg.Pre.shots and u == 1, "past the end: the last shot, done")
@@ -88,7 +88,7 @@ local tests: { [string]: () -> () } = {
 			assert(not l.text:find("{", 1, true), "every token filled")
 		end
 	end,
-	["part two: a line as the dive starts, one at each point's seal, the call on the whistle"] = function()
+	["part two: a line as the dive starts, one at each point, the call on the whistle"] = function()
 		local sp, cut = Cfg.Speech, Cfg.Pre
 		local two = R.partTwo(sp, cut, "uniform3", "Map1", 5)
 		assert(#two == 7, "the dive, five points, the call")
@@ -96,12 +96,25 @@ local tests: { [string]: () -> () } = {
 		local front = cut.shots[3]
 		for i = 1, 5 do
 			assert(two[i + 1].text == sp.plans.Map1[i + 1])
-			assert(math.abs(two[i + 1].at - R.stampTime(front, R.start(cut, 3), i, 5)) < 1e-9)
-			assert(R.stamped(front, (two[i + 1].at - R.start(cut, 3)) / (front.t1 - R.start(cut, 3)) + 1e-6, 5) >= i)
+			assert(math.abs(two[i + 1].at - R.orderTime(front, R.start(cut, 3), i, 5)) < 1e-9)
+			assert(two[i + 1].at >= two[i].at, "in order along the flight")
 		end
 		assert(two[7].text == sp.close.uniform3 and two[7].at == R.start(cut, #cut.shots))
 		local bare = R.partTwo(sp, cut, nil, "Nowhere", 5)
 		assert(#bare == 1 and bare[1].text == sp.close.none, "a map without a plan: the call alone")
+	end,
+	["each order is said before the flight reaches the next point"] = function()
+		local sp, cut = Cfg.Speech, Cfg.Pre
+		local front = cut.shots[3]
+		local t0 = R.start(cut, 3)
+		for key, plan in sp.plans do
+			local n = #plan - 1
+			for i = 1, n - 1 do
+				local room = R.orderTime(front, t0, i + 1, n) - R.orderTime(front, t0, i, n)
+				local say = R.speechSeconds({ { text = plan[i + 1], at = 0 } }, sp.wordsPerSecond, 0) + sp.gap
+				assert(say <= room, `{key}: "{plan[i + 1]}" takes {say} s, the point gives {room} s`)
+			end
+		end
 	end,
 	["no bayonets in the closing calls (user 2026-11-02)"] = function()
 		for _, line in Cfg.Speech.close do
