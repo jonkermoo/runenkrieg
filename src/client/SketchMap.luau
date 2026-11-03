@@ -49,6 +49,7 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 local FONT = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
+local HAND = Font.fromEnum(Enum.Font.IndieFlower) -- (the replay's times, written in pencil)
 local BOT_TAG = require(Shared.Config.Bots).Tag -- the bot soldiers (src/server/Bots)
 local FOLDER = "Frontline" -- Config/Frontline.FolderName (Territory Push; read by name so main without it still runs)
 
@@ -378,7 +379,8 @@ function SketchMap.new(
 	-- way (arrows, drawings, markers, all leading to the end of the game)"): each capture an arrow in its taker's colour
 	-- with its time, drawn in turn (Config/Results.Replay, Rules/MatchStats.replayAt); the sectors' owners follow the
 	-- replay; the winning capture ringed in red pencil.
-	type Replay = { log: { any }, start: number, winner: boolean, owners: { string }, drawn: number }
+	type Replay =
+		{ log: { any }, timed: { boolean }, start: number, winner: boolean, owners: { string }, drawn: number }
 	local replay: Replay? = nil
 	local A, RP = ResultsCfg.Arrow, ResultsCfg.Replay
 	local replayBox = Instance.new("Frame")
@@ -457,13 +459,30 @@ function SketchMap.new(
 					local colour = if magic then rgb(magic):Lerp(rgb(C.ink), 0.35) else rgb(C.ink)
 					local a, mid, b = arrowOf(e, k)
 					local thick = math.max(2, A.thick * w)
-					local last = a * size
+					-- in pencil: the line wavers and its weight comes and goes, a fainter stroke beside it
+					local across = (b - a).Unit
+					across = Vector2.new(-across.Y, across.X)
+					local function at(t: number, wob: number): Vector2
+						local pt = (a:Lerp(mid, t)):Lerp(mid:Lerp(b, t), t)
+						return (pt + across * wob * A.wobble * math.noise(k * 1.7, t * 5.3, wob)) * size
+					end
 					local steps = math.max(1, math.floor(A.steps * q + 0.5))
-					for i = 1, steps do
-						local t = i / A.steps
-						local pt = (a:Lerp(mid, t)):Lerp(mid:Lerp(b, t), t) * size
-						Ink.segment(holder, last, pt, thick, colour)
-						last = pt
+					for _, pass in { 0, 1 } do
+						local last = at(0, 1) + across * size * A.pass * pass
+						for i = 1, steps do
+							local t = i / A.steps
+							local pt = at(t, 1) + across * size * A.pass * pass
+							local weight = 1 + A.weight * math.noise(k * 0.9, t * 7.1, 0.5)
+							Ink.segment(
+								holder,
+								last,
+								pt,
+								thick * weight * (if pass == 1 then 0.6 else 1),
+								colour,
+								if pass == 1 then A.passFade else 0.08
+							)
+							last = pt
+						end
 					end
 					if q >= 1 then
 						local tip = b * size
@@ -484,8 +503,9 @@ function SketchMap.new(
 				stamp = Instance.new("TextLabel")
 				stamp.BackgroundTransparency = 1
 				stamp.AnchorPoint = Vector2.new(0.5, 0.5)
-				stamp.FontFace = FONT
+				stamp.FontFace = HAND
 				stamp.TextScaled = true
+				stamp.Rotation = (math.noise(k * 2.3, 0.4) * 2) * A.tilt
 				stamp.TextColor3 = rgb(C.ink)
 				stamp.ZIndex = 5
 				stamp.Parent = area
@@ -498,7 +518,7 @@ function SketchMap.new(
 			stamp.Text = StatsRules.clock(e.t)
 			stamp.Position = UDim2.fromScale(at.X, at.Y)
 			stamp.Size = UDim2.fromScale(A.stamp * 3, A.stamp * area.AbsoluteSize.X / math.max(area.AbsoluteSize.Y, 1))
-			stamp.Visible = progress[k] >= 0.5
+			stamp.Visible = progress[k] >= 0.5 and r.timed[k] ~= false
 		end
 		for k = n + 1, #stamps do
 			stamps[k].Visible = false
@@ -728,7 +748,8 @@ function SketchMap.new(
 		end,
 		-- plays the match's captures (`log`: { { t, index, side } } in order) from now; `won`: the last took the match
 		replay = function(log: { any }, won: boolean)
-			replay = { log = log, start = os.clock(), winner = won, owners = {}, drawn = -1 }
+			local shown, timed = StatsRules.replayLog(log, RP.most)
+			replay = { log = shown, timed = timed, start = os.clock(), winner = won, owners = {}, drawn = -1 }
 		end,
 		-- back to the live state
 		stopReplay = function()

@@ -215,8 +215,8 @@ local Cutscenes = {
 		report = { at = { 3.75, 1.3 }, size = { 2.6, 3.3 }, tilt = 6, pixelsPerStud = 200 },
 		top3 = 3, -- the report's top soldiers (by battle points)
 		-- the report's lines typed one after another, `type` seconds apart from `lead`
-		-- (once the eyes are on it: after the map's replay, View.table)
-		typing = { lead = 8.8, type = 0.3 },
+		-- (beside the map's replay, both in view the whole time: View.table)
+		typing = { lead = 0.8, type = 0.4 },
 	},
 	-- First person (user 2026-11-03: "just like a natural first person"): standing at the war table's near side (`stand`,
 	-- x and z; eyes `eye` over the floor) looking down at the map, the eyes resting on each `looks` point until its t1
@@ -228,17 +228,13 @@ local Cutscenes = {
 		eye = 5.8,
 		fov = 70, -- (the render session's first-person renders)
 		sway = { amount = 0.025, rate = 0.25 },
-		-- at the table: leaning over it, the eyes here (user 2026-11-03: "we should look over the table")
-		over = { 0, 8.2, 2.4 },
+		-- at the table: leaning over it, the whole table in view, the map and the report at once (user 2026-11-03: "we
+		-- should over look the entire table the whole time without changing view")
+		over = { 0, 9.4, 4.4 },
 		table = {
 			glance = 1.4,
-			-- (`eye`: where the eyes are while they rest on it, moving with the glance: along the table to stand over the
-			-- report, so it reads the right way up)
-			-- (on the map until its replay is done: Config/Results.Replay.seconds; user 2026-11-03)
-			looks = {
-				{ t1 = 8.4, look = { -0.8, 3, -0.8 } },
-				{ t1 = 14, look = { 3.5, 3, 1.3 }, eye = { 3.3, 7.4, 3.9 } },
-			},
+			-- (one look, held until the turn; more would glance between them, an `eye` moving the eyes with its glance)
+			looks = { { t1 = 14, look = { 0, 3, 0.3 } } },
 		},
 		turn = 1.5,
 		walk = { t1 = 3.6, to = { 0, 5.9 } },
