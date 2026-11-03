@@ -96,6 +96,12 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
+-- a gun's traverse of `deg` in gun space: about its `pintle` (Config/Artillery; the origin when it has none)
+local function turnAt(gun: any, deg: number): CFrame
+	local p = gun.pintle or { 0, 0 }
+	return CFrame.new(p[1], 0, p[2]) * CFrame.Angles(0, math.rad(deg), 0) * CFrame.new(-p[1], 0, -p[2])
+end
+
 local function now(): number
 	return workspace:GetServerTimeNow()
 end
@@ -163,7 +169,7 @@ local function track(model: Model)
 				p.named[name] = part
 				if i == 1 and gun.crewTurns then
 					-- the server turns this mount too: its rest is where it stands at traverse 0
-					p.rest[part] = CFrame.Angles(0, -math.rad(p.traverse), 0) * p.rest[part]
+					p.rest[part] = turnAt(gun, -p.traverse) * p.rest[part]
 				end
 				p.stage[part] = i
 				if name == "Crystal" then
@@ -354,7 +360,7 @@ local function pose(model: Model, p: Pose, dt: number)
 	local trunnion = CFrame.new(v3(gun.trunnion))
 	local hinge = CFrame.new(v3(gun.hinge))
 	local frames = {}
-	frames[1] = pivot * CFrame.Angles(0, math.rad(p.traverse), 0)
+	frames[1] = pivot * turnAt(gun, p.traverse) -- (about its pintle: the MG spins on its tripod)
 	frames[2] = frames[1] * trunnion * CFrame.Angles(math.rad(p.elevation), 0, 0) * trunnion:Inverse()
 	frames[3] = frames[2] * CFrame.new(0, 0, recoil)
 	frames[4] = frames[3] * hinge * CFrame.Angles(0, math.rad(open), 0) * hinge:Inverse()

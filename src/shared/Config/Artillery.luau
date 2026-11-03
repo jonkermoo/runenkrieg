@@ -64,6 +64,9 @@ export type Gun = {
 	crew: { number },
 	crewY: number?,
 	crewTurns: boolean,
+	-- the traverse turns about the vertical line through this gun-space (x, z) (nil: the origin): the MG's tripod
+	-- pintle, so it spins on its mount (user 2026-11-03: "make it spin from the mount")
+	pintle: { number }?,
 	prompt: number, -- reach of the E prompt, studs
 	vfx: { scheme: string, magic: boolean },
 	muzzleScale: number, -- the muzzle blast's scale (Config/Vfx.Muzzle)
@@ -1075,6 +1078,10 @@ local Artillery = {
 			-- way, 140 in all): right round, its gunner walking round with it (`crewTurns`), the gun and its shots over the
 			-- one-bag ring all the way (Config/Build.Nest `ring`, `fit`; Rules/Build.nestFit)
 			traverse = 180,
+			-- (user 2026-11-03, the 360 nest: "the gun insnt spinning. make it spin from the mount"): on the tripod's
+			-- pintle, 0.43 behind gun space's origin (the Mount's middle at rest); about the origin the whole top swung
+			-- off the tripod as it went round
+			pintle = { 0, 0.43 },
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
 			traverseRate = 60,

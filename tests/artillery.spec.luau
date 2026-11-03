@@ -523,6 +523,25 @@ return {
 		assert(A.mgShown(0, 100, 0, 20, 10, 20.01) == 100, "the reload over, before the server's refill lands")
 		assert(A.mgShown(97, 100, 1, 20, 21, 22) == 96, "firing again after the refill")
 	end,
+	["the MG spins on its tripod's pintle, its muzzle and sight going round it (user 2026-11-03)"] = function()
+		-- "the gun insnt spinning. make it spin from the mount"
+		local MG = C.Guns.mg08
+		local p = MG.pintle :: { number }
+		assert(p and p[1] == 0 and p[2] > 0)
+		local function off(x: number, z: number): number
+			return math.sqrt((x - p[1]) ^ 2 + (z - p[2]) ^ 2)
+		end
+		local x0, _, z0 = A.muzzle(MG, 0, 0)
+		for _, t in { 45, 90, 180, -120 } do
+			local x, _, z = A.muzzle(MG, t, 0)
+			assert(near(off(x, z), off(x0, z0), 1e-6), `the muzzle as far from the pintle at {t}`)
+			local ex, _, ez = A.eye(MG, t, 0)
+			local ex0, _, ez0 = A.eye(MG, 0, 0)
+			assert(near(off(ex, ez), off(ex0, ez0), 1e-6), `the sight as far from the pintle at {t}`)
+		end
+		local x, _, z = A.muzzle(MG, 180, 0)
+		assert(near(x, 2 * p[1] - x0, 1e-6) and near(z, 2 * p[2] - z0, 1e-6), "turned right round across the pintle")
+	end,
 	["the MG's ammo can turns with the gun right round its 360 nest (user 2026-11-03)"] = function()
 		local MG = C.Guns.mg08
 		for _, name in { "BoxKit", "BoxTrim", "BoxFittings", "Belt" } do
