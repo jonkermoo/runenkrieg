@@ -350,12 +350,18 @@ local Bots = {
 		-- where the gun reaches the enemy's nearest sector's middle (Rules/Artillery.layFor) and lies `spawnGap` studs
 		-- clear of every spawn and wave line (Rules/Artillery.nearSpawn), `spacing` (Config/Build.Pieces) from the other
 		-- guns' spots; the bots' share of each gun (`caps` above) gets a spot. None fits: the fixed spot (`Guns` above).
+		-- A spot's shot is flown first (user 2026-11-03: "bots will build cannons behind the hill. they should be sure the
+		-- cannon would be able to hit where they want it to hit"): the shell's path from the muzzle laid on that target
+		-- (Rules/Artillery.path, `arc.step` s a sample) cast against the world past `arc.near` studs out (its own ground,
+		-- levelled when it is laid), kept only where it first comes down within `arc.within` studs of the target (no hill,
+		-- house or tree in the way); Config/DevTools.Admin.GunArcs shows them.
 		Crews = {
 			max = 2,
 			enough = 4, -- (all the guns its bots build: caps 3 field guns and 1 howitzer, user 2026-11-03)
 			back = { 90, 60, 30 },
 			across = { 0, -60, 60, -120, 120, -180, 180 },
 			spawnGap = 40,
+			arc = { step = 0.1, within = 25, near = 8 },
 		},
 		-- Trees in the way (Rules/BotBuild.treesInWay, src/server/Bots/Fell; user 2026-11-03: the forest either side of
 		-- the middle stood untouched): Engineers fell the standing trees within `clear` studs of the side's trench lines
@@ -764,6 +770,11 @@ local Bots = {
 		hold = { small = 25, big = 40, bigKg = 50 },
 		burst = { on = 1.2, off = 0.8 },
 		topUp = 0.4,
+		-- (user 2026-11-03, bots "still firing into hills"): a field gun or howitzer fires only where its shot, flown as the
+		-- gun spots' are (Build.Crews `arc`), comes down on its target; a sector shot tries `tries` spots in its spread.
+		-- A gunner whose every target in reach was blocked `looks` looks in a row leaves the gun, given no gunner for
+		-- `wait` s.
+		blind = { tries = 3, looks = 3, wait = 90 },
 	},
 
 	-- the server's log line (cost and how the fights go) every this many seconds while bots are on; 0 none

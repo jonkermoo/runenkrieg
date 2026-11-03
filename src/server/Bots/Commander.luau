@@ -820,6 +820,9 @@ local Guns = {
 	spacing = {} :: { [string]: number },
 	piece = {} :: { [string]: { [string]: any } },
 	ground = RaycastParams.new(),
+	world = RaycastParams.new(), -- (a shot's path: everything but soldiers)
+	drawn = {} :: { { points: { { number } }, clear: boolean } }, -- the shots checked this plan (Admin.GunArcs)
+	dev = require(Shared.Config.DevTools).Admin.GunArcs,
 }
 for _, piece in BuildCfg.Pieces do
 	if Kinds.gun[piece.key] then
@@ -838,6 +841,106 @@ function Guns.terrainAt(x: number, z: number): Vector3?
 	local hit = workspace:Raycast(Vector3.new(x, 400, z), Vector3.new(0, -800, 0), Guns.ground)
 	return hit and hit.Position
 end
+-- Whether a shot from gun `gun` standing on `at` comes down on `target` (Config/Bots.Build.Crews `arc`): laid on it
+-- from its muzzle (Rules/Artillery.layFor, within its reach), its path (Rules/Artillery.path) cast against the world;
+-- false when out of reach, or a hill, house or tree stops it short. Each one checked is kept for Admin.GunArcs.
+function Guns.clearShot(gun: any, at: Vector3, target: Vector3): boolean
+	local A = BD.Crews.arc
+	-- (from its muzzle over the ground as it is now: a howitzer's pit is dug round it later)
+	local frame = CFrame.lookAt(at, Vector3.new(target.X, at.Y, target.Z))
+	local mx, my, mz = ArtRules.muzzle(gun, 0, 0)
+	local origin = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local off = target - origin
+	local d = Vector3.new(off.X, 0, off.Z).Magnitude
+	local e = if d <= ArtRules.reachCap(ArtRules.sectorSpan(Map.sectors), ArtCfg.Reach)
+		then ArtRules.layFor(gun, d, off.Y)
+		else nil
+	if not e then
+		return false
+	end
+	local _, _, _, dx, dy, dz = ArtRules.muzzle(gun, 0, e)
+	local v = frame:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
+	local floor = math.min(origin.Y, target.Y) - 50
+	local points =
+		ArtRules.path(origin.X, origin.Y, origin.Z, v.X, v.Y, v.Z, gun.gravity, A.step, ArtCfg.MaxFlight, floor)
+	local skip = {}
+	for _, b in bots do
+		if b.m then
+			table.insert(skip, b.m)
+		end
+	end
+	for _, p in game:GetService("Players"):GetPlayers() do
+		if p.Character then
+			table.insert(skip, p.Character)
+		end
+	end
+	local arcs = workspace:FindFirstChild(Guns.dev.folder)
+	if arcs then
+		table.insert(skip, arcs)
+	end
+	Guns.world.FilterDescendantsInstances = skip
+	local clear, drawn = false, {}
+	for i = 2, #points do
+		local a, b = points[i - 1], points[i]
+		local from = Vector3.new(a[1], a[2], a[3])
+		if Vector3.new(b[1] - origin.X, 0, b[3] - origin.Z).Magnitude < A.near then
+			continue -- (its own ground, levelled when it is laid)
+		end
+		local hit = workspace:Raycast(from, Vector3.new(b[1], b[2], b[3]) - from, Guns.world)
+		table.insert(drawn, a)
+		if hit then
+			table.insert(drawn, { hit.Position.X, hit.Position.Y, hit.Position.Z })
+			clear = Vector3.new(hit.Position.X - target.X, 0, hit.Position.Z - target.Z).Magnitude <= A.within
+			break
+		end
+	end
+	table.insert(Guns.drawn, { points = drawn, clear = clear })
+	return clear
+end
+
+-- Admin.GunArcs: `side`'s checked shots drawn (a folder per side, redrawn each plan), or taken down while it is off
+function Guns.draw(side: string)
+	local G = Guns.dev
+	local root = workspace:FindFirstChild(G.folder)
+	local old = root and root:FindFirstChild(side)
+	if old then
+		old:Destroy()
+	end
+	if workspace:GetAttribute(G.attribute) ~= true then
+		if root and #root:GetChildren() == 0 then
+			root:Destroy()
+		end
+		return
+	end
+	if not root then
+		root = Instance.new("Folder")
+		root.Name = G.folder
+		root.Parent = workspace
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = side
+	for _, arc in Guns.drawn do
+		local c = if arc.clear then G.clear else G.blocked
+		local color = Color3.fromRGB(c[1], c[2], c[3])
+		local pts = arc.points
+		local i = 1
+		while i < #pts do
+			local j = math.min(i + G.every, #pts)
+			local a = Vector3.new(pts[i][1], pts[i][2], pts[i][3])
+			local b = Vector3.new(pts[j][1], pts[j][2], pts[j][3])
+			local part = Instance.new("Part")
+			part.Anchored, part.CanCollide, part.CanQuery, part.CanTouch = true, false, false, false
+			part.Material = Enum.Material.Neon
+			part.Color = color
+			part.Size = Vector3.new(G.width, G.width, (b - a).Magnitude)
+			part.CFrame = CFrame.lookAt((a + b) / 2, b)
+			part.Parent = folder
+			i = j
+		end
+	end
+	folder.Parent = root
+end
+
 function Guns.spots(
 	front: number,
 	side: string,
@@ -888,11 +991,8 @@ function Guns.spots(
 				return false
 			end
 		end
-		local off = target - at
-		-- (within its reach on this map: Config/Artillery.Reach)
-		local d = Vector3.new(off.X, 0, off.Z).Magnitude
-		return d <= ArtRules.reachCap(ArtRules.sectorSpan(Map.sectors), ArtCfg.Reach)
-			and ArtRules.layFor(gun, d, off.Y) ~= nil
+		-- (its shot flown: within its reach on this map, Config/Artillery.Reach, and nothing in the way)
+		return Guns.clearShot(gun, at, target)
 	end)
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)
@@ -959,7 +1059,9 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		end
 		-- the guns on scored spots behind the line (Rules/BotBuild.gunSpots), else the plan's fixed ones
+		table.clear(Guns.drawn)
 		local spotted = Guns.spots(front :: number, side, zone, tx, tz, guns)
+		Guns.draw(side)
 		sbs.lay = {}
 		-- (wire only in the enemy's way, Rules/BotBuild.wireSpot: off its own side's ways forward, from the front to the
 		-- enemy's nearest sector and the approach spots round it, and off its spawn)
