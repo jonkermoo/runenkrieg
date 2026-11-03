@@ -346,6 +346,9 @@ local DevTools = {
 		GunReach = 20,
 		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
 		RefusedSeconds = 3,
+		-- the shelling rows (src/server/Artillery.devShells): `count` of a gun's shells round the aim point, `every` s
+		-- apart, within `spread` studs (a trench line under fire: the hitch log's blast numbers)
+		Shells = { count = 6, every = 0.5, spread = 6 },
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the
