@@ -352,8 +352,8 @@ local Build = {
 			maxSlope = 30,
 		},
 		-- The MG nest (user 2026-10-27, design approved by the user): Engineers only
-		-- (Config/Classes); four sandbag piles (Config/Assets `asset`'s bags) on a ring round the gunner, the M2
-		-- (Config/Artillery.Guns `gun`) on its tripod on two mount bags (`mountBag`) in the point where the two front
+		-- (Config/Classes); sandbag piles (Config/Assets `asset`'s bags) in a closed ring round the gunner, the M2
+		-- (Config/Artillery.Guns `gun`) on its tripod on two mount bags (`mountBag`) behind the point where the two front
 		-- piles meet (Nest below). `width` x `depth` its footprint round the ring, `height` its top (the MG 08's shield
 		-- set it; the 11-sided ring's 12.8 across and a bag's depth). (`stage1.sacks` unused here: a nest's empty sacks lie on their own spots, Nest.flat)
 		{
@@ -531,7 +531,7 @@ local Build = {
 	-- its built ... they can just appear as its being built. just have some signs of "construction""); a Build swing
 	-- of its team adds `hp.swing`, a Destroy swing takes `hp.destroy`, weapons take Structures as a sandbag pile's; its
 	-- stage by HP (Rules.builtStage: at 25, 50, 75, 100 for stages 1-4), each stage's bags filled
-	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
+	-- (`build[i].bags`: a share of the ring's bags, the mount bag always, or "all") and gun quarters set up (`gun`, of
 	-- `quarters`), the real gun standing at stage 4. Once it has stood it is the gun's (as a built field gun): its HP is
 	-- the gun's own, worn by weapons, blasts at the bags and Destroy swings, fixed by Build swings (Config/Artillery
 	-- Repair), its 4 stages the gun's Wreck stages (unusable under half its HP, Config/Artillery.Man), the share of the ring's bags still
@@ -539,10 +539,9 @@ local Build = {
 	-- the top bags go first, then the bottom ones, scattered round the ring, Rules.nestWearOrder; the mount bags stay
 	-- under the gun); hit at 0 it is gone.
 	-- The ring (user: "make the nest more circular shaped ... smoother and even and symmetrical"; Rules.nestRing): the
-	-- eight bottom bags of the four piles on a regular `ring.sides`-sided ring of `ring.bag`-stud sides, the side at the
-	-- back left open as the doorway; each pile bent at its joint, its top bag over the bend on the bottom bags' line; the
-	-- front point is where two piles' ends meet, the notch between their top bags the gun's window. `ring.piles`: each
-	-- pile's ring vertices (an end, its bend, the other end; 0 the front point), in build order. The gun's pivot stands
+	-- bags of the piles on a regular `ring.sides`-sided ring of `ring.bag`-stud sides, a bag on every side, one high;
+	-- the front point is where two piles' ends meet. `ring.piles`: each pile's ring vertices (an end, its bend, the
+	-- other end; a one-bag pile's two ends; 0 the front point), in build order. The gun's pivot stands
 	-- `gunBack` behind the point, gun space's origin `bagTop` over the ground under it (the MG 08's mount bag top; the
 	-- M2's tripod stands lower, on its two bags), the mount bags' middle `mountBack` (the M2's pair: 0.65 behind the
 	-- pivot; the MG 08's round bag was 1.86).
@@ -553,22 +552,24 @@ local Build = {
 		build = {
 			-- (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not
 			-- early": at 25, 50, 75, 100 HP, Rules.builtStage; the ring's bags filling in across them, a share of them
-			-- standing, the top bags last, and the full ring only at 100)
-			{ bags = "bottom", gun = 1 }, -- (the mount on its bag)
-			{ bags = 0.8, gun = 2 }, -- (the gun on it)
-			{ bags = 0.9, gun = 3 }, -- (the ammo can)
+			-- standing, and the full ring only at 100)
+			{ bags = 0, gun = 1 }, -- (the mount on its bag)
+			{ bags = 0.35, gun = 2 }, -- (the gun on it)
+			{ bags = 0.7, gun = 3 }, -- (the ammo can)
 			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
 		wear = { 1, 0.7, 0.45, 0.2 },
 		-- (user 2026-11-01: "it should have nearly a 180 view angle (maybe 140) ... make sure players dont clip with the
-		-- sandbag"; was 9 sides, the gun 1.66 behind the point, +-20 in the notch): 11 sides, the back three open as a
-		-- wide doorway, the gun near the middle; the two front piles (`low`) one bag high so the barrel and its bullets
-		-- clear the front across the whole traverse (Config/Artillery mg08 `traverse`; Rules.nestFit, `fit` below)
+		-- sandbag"; was 9 sides, the gun 1.66 behind the point, +-20 in the notch): 11 sides, the gun near the middle;
+		-- (user 2026-11-03: "make the mgnest a full circular sandbag instead of the half and stack at the end"; was the
+		-- back three sides open as a doorway, the side piles topped): every side a bag, the ring closed and one bag high
+		-- all round (`low` every pile), the gunner stepping over it, and the barrel and its bullets clear of it across
+		-- the whole traverse (Config/Artillery mg08 `traverse`; Rules.nestFit, `fit` below)
 		ring = {
 			sides = 11,
 			bag = 3.6,
-			piles = { { 0, 1, 2 }, { 0, 10, 9 }, { 2, 3, 4 }, { 9, 8, 7 } },
-			low = { 1, 2 },
+			piles = { { 0, 1, 2 }, { 0, 10, 9 }, { 2, 3, 4 }, { 9, 8, 7 }, { 4, 5, 6 }, { 7, 6 } },
+			low = { 1, 2, 3, 4, 5, 6 },
 		},
 		gunBack = 5.5,
 		mountBack = 6.15,
