@@ -809,8 +809,9 @@ local function setPaper(folder: Folder, origin: Vector3, spec: any, name: string
 	local back = -front
 	local right = v3(spec.up):Cross(back).Unit
 	local up = back:Cross(right)
-	local at = origin + v3(spec.at) + front * 0.012
-	local p = part(folder, name, V(spec.size[1], spec.size[2], 0.02), CFrame.fromMatrix(at, right, up, back), PAPER)
+	-- (a paper's thickness over the set's own, so what lies on it isn't sunk through it)
+	local at = origin + v3(spec.at) + front * 0.0012
+	local p = part(folder, name, V(spec.size[1], spec.size[2], 0.002), CFrame.fromMatrix(at, right, up, back), PAPER)
 	return p
 end
 
@@ -875,7 +876,7 @@ local function buildSet(folder: Folder, origin: Vector3): Post?
 		local spec = papers[`Order{i}`]
 		local front = v3(spec.front).Unit
 		local right = v3(spec.up):Cross(-front).Unit
-		orderAt[i] = CFrame.fromMatrix(origin + v3(spec.at) + front * 0.012, right, (-front):Cross(right), -front)
+		orderAt[i] = CFrame.fromMatrix(origin + v3(spec.at) + front * 0.0012, right, (-front):Cross(right), -front)
 	end
 	-- the lights: the lamp's warm pool on the table, the wash on the board, the cool fill
 	local P = Cfg.Post
@@ -1093,7 +1094,7 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 	for i = 1, B.slots do
 		local key = offer[i]
 		local cf = post.orderAt[i]
-		local p = part(post.folder, "Order" .. i, V(w, h, 0.03), cf, PAPER)
+		local p = part(post.folder, "Order" .. i, V(w, h, if post.pins then 0.03 else 0.002), cf, PAPER)
 		if post.pins then
 			pin(post.folder, (cf * CFrame.new(-w / 2 + 0.12, h / 2 - 0.1, -0.04)).Position)
 			pin(post.folder, (cf * CFrame.new(w / 2 - 0.12, h / 2 - 0.1, -0.04)).Position)

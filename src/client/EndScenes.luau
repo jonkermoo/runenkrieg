@@ -351,7 +351,7 @@ end
 -- at the table: standing at its near side, the eyes on the map, then on the report
 local function tableView(t: number): (Vector3, number, number)
 	local W = Cfg.View
-	local pos = post.origin + V(W.stand[1], W.eye, W.stand[2])
+	local pos = post.origin + v3(W.over)
 	local looks = W.table.looks
 	local i, k = Rules.glance(looks, W.table.glance, t)
 	local from, to = looks[math.max(i - 1, 1)], looks[i]

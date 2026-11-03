@@ -142,6 +142,11 @@ local tests: { [string]: () -> () } = {
 		local W = Cfg.View
 		assert(W.walk.t1 > W.turn and W.walk.t1 < Front.VoteSeconds, "the walk ends inside the vote")
 		assert(W.pick.ease < Cfg.Vote.pick.hold, "at the order before the vote's hold is over")
+		-- the map's replay plays out before the eyes leave it (user 2026-11-03), and the report is typed by the turn
+		local Results = require("../src/shared/Config/Results")
+		assert(W.table.looks[1].t1 >= Results.Replay.seconds, "the eyes stay on the map through its replay")
+		assert(Cfg.Table.typing.lead >= W.table.looks[1].t1, "the report types once the eyes are on it")
+		assert(Cfg.Table.typing.lead + 12 * Cfg.Table.typing.type <= Front.TableSeconds, "typed before the turn")
 	end,
 	["no bayonets in the closing calls (user 2026-11-02)"] = function()
 		for _, line in Cfg.Speech.close do
