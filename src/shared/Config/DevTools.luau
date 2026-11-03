@@ -140,6 +140,21 @@ local DevTools = {
 		Health = { 100, 75, 50, 25, 10 },
 		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
 		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+		-- "Shell shock" rows (src/server/DevTools, Config/Concussion; user 2026-11-03): a real grenade (Config/Grenades
+		-- .Types) or shell (Config/Artillery.Guns) going off on the ground this many studs in front of you, your own
+		-- (knocks you, hurts you only with "My blasts hurt me" on); and a helmet shot from the front by `HelmetWeapon`
+		-- (Config/Damage.Weapons), as a real one
+		Shock = {
+			Sources = {
+				{ key = "grenade_mills", label = "Grenade", grenade = true },
+				{ key = "artillery_qf18", label = "Field shell" },
+				{ key = "artillery_howitzer", label = "Howitzer shell" },
+			},
+			-- (splinters wound to ~21 studs from a grenade, 40 a field shell, 30 the howitzer: past them only the blast)
+			Distances = { 5, 10, 20, 40, 60, 100, 150 },
+			HelmetWeapon = "BoltRifle",
+			OwnShare = 0, -- the share of your own test grenade that hurts you (the game's: Config/Grenades.Own)
+		},
 		-- the admin panel's readout of which bot rescues which casualty (src/server/Bots, every commander tick)
 		BotRescuesAttribute = "DevBotRescues",
 		DownHealth = 0.4, -- "Nearest bot knocked down here": its health share after (src/server/Bots.dev "Down")

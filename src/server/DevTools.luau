@@ -30,6 +30,7 @@ local Build = require(script.Parent.Build)
 local DevWorld = require(script.Parent.DevWorld)
 local Environment = require(script.Parent.Environment)
 local Helmets = require(script.Parent.Helmets)
+local Grenades = require(script.Parent.Grenades)
 local Loadouts = require(script.Parent.Loadouts)
 local Frontline = require(script.Parent.Frontline)
 local Modes = require(script.Parent.Modes)
@@ -347,6 +348,32 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			Ragdoll.knock(character, Cfg.Admin.SelfKnock, -root.CFrame.LookVector)
 		elseif action == "HelmetOff" then
 			Helmets.knockOff(character, -root.CFrame.LookVector)
+		elseif action == "HelmetShot" then
+			-- a round from in front ringing off the helmet (Config/DevTools.Admin.Shock)
+			local along = -root.CFrame.LookVector
+			if character:GetAttribute("HelmetOn") == true then
+				Helmets.knockOff(character, along)
+				Damage.helmetShot(character, Cfg.Admin.Shock.HelmetWeapon, along)
+			end
+		elseif action == "ShockAt" then
+			-- a grenade or shell on the ground `distance` studs in front (Config/DevTools.Admin.Shock)
+			local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+			local over = root.Position + (if look.Magnitude > 0 then look.Unit else Vector3.zAxis) * value.distance
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = { character }
+			local hit = workspace:Raycast(over + Vector3.new(0, 20, 0), Vector3.new(0, -200, 0), params)
+			local at = if hit then hit.Position + hit.Normal * 0.3 else over
+			local by = if player:GetAttribute(Cfg.Blasts.HurtAttribute) == true then nil else character
+			for _, src in Cfg.Admin.Shock.Sources do
+				if src.key == value.source then
+					if src.grenade then
+						Grenades.goOff(at, src.key, by, if by then Cfg.Admin.Shock.OwnShare else nil)
+					else
+						Artillery.land(at, src.key, by)
+					end
+				end
+			end
 		elseif action == "Grenade" then
 			Armory.give(player, value) -- a full count, in place of the grenade carried
 		end
