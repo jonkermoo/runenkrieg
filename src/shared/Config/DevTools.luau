@@ -293,6 +293,9 @@ local DevTools = {
 		-- as a player holding the stay-down key is (Config/Ragdoll.StayDown: up to its `max` past the get-up wait); for
 		-- dragging and healing tests (user 2026-11-02: "always add additional admin panel settings as we go throughout")
 		KnockDown = { knock = "Torso", damage = 80 },
+		-- "Say": every living dummy says this in a chat bubble (src/client/ChatBubbles, as a bot's callout), to check the
+		-- bubbles' height and range (user 2026-11-03: bubbles only near you, a little over the head)
+		Say = "hey",
 		-- the hit readout over a dummy's head: the damage, the knock and the health left, for `show` seconds (`width` x
 		-- `tall` px, text `size` px, its outline `stroke` transparency); a knock with no damage shows after `knockWait` s
 		Readout = {
