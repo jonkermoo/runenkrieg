@@ -155,12 +155,12 @@ local Assets = {
 			description = "Remington Model 8 semi-automatic rifle, the olive team's (W2; master: assets/weapons/olive/rifle_remington8.blend, from its trace and tools/blender/weapons/polish_remington8.py). Rigged from Config/Weapons.",
 		},
 		rifle_winchester1907 = {
-			id = 80789332043518,
+			id = 119728146508940, -- v2: real length, the stock blended into the receiver, a thicker butt plate, a short rear sight
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_winchester1907.fbx",
-			generator = "tools/blender/weapons/winchester1907.py",
-			description = "Winchester 1907 semi-automatic rifle, the brown team's (W2; built from its trace: tools/blender/weapons/trace/winchester1907.py; review assets/weapons/white/review/rifle_winchester1907_v6.blend; a detachable 15-round box). Rigged from Config/Weapons.",
+			generator = "tools/blender/weapons/export_blend.py",
+			description = "Winchester 1907 semi-automatic rifle, the brown team's (W2; master: assets/weapons/white/rifle_winchester1907.blend, from its trace and tools/blender/weapons/polish_winchester1907.py; a detachable 15-round box). Rigged from Config/Weapons.",
 		},
 		staff = {
 			id = 109018663192748, -- v2: team accents (binding, ribbon, head ring, foot cap), colored per team

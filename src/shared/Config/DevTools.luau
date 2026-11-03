@@ -282,6 +282,17 @@ local DevTools = {
 		-- unlimited ammo and no staff cooldown (src/server/Firing tops the magazine up after each shot; src/client/
 		-- StaffAttack and src/server/StaffCast: no cooldown, the mana full again), on the Player while on
 		AmmoAttribute = "DevAmmo",
+		-- "Weapon" sight lines (user 2026-11-03: "always add additional admin panel settings as we go"; src/client/
+		-- DevSights): the visible gun's Muzzle, Aim and Eject drawn as dots, the line of fire (from Muzzle) and the line
+		-- of sight (from Aim) out `length` studs along each one's -Z; aimed, the two run parallel. On the Player while on.
+		Sights = {
+			attribute = "DevSights",
+			length = 150,
+			width = 0.012,
+			dot = 0.05,
+			colors = { Muzzle = { 235, 64, 52 }, Aim = { 70, 200, 90 }, Eject = { 240, 200, 60 } },
+			lines = { "Muzzle", "Aim" },
+		},
 		-- "Team" rows (user 2026-10-26: "add respawn as a different team in admin panel"): respawn now as one of
 		-- Dummies.Kits (its kit, loadout, rig and species), kept on every respawn until another pick; `Random` goes back to
 		-- a random team each life. The pick is the Player's "Kit" attribute (src/server/Kits).
