@@ -178,7 +178,7 @@ return {
 		assert(ClassCfg.Defs[Cfg.Admin.Normal] == nil, "the Normal value isn't a class")
 	end,
 	["the bot test actions take only their Config values, the aimed ones an aim point"] = function()
-		for _, sw in { "BotState", "FreeEngineer" } do
+		for _, sw in { "BotState", "FreeEngineer", "FreeGrenadier" } do
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
 		for _, aimed in { "BotPush", "BotStrike", "BotGun" } do

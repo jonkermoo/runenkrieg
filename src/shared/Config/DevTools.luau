@@ -172,8 +172,10 @@ local DevTools = {
 		},
 		-- - BotDig: the bots' shovel swings work this many times a normal one (src/server/Build), on Workspace while not 1
 		BotDig = { attribute = "DevBotDig", steps = { 1, 3, 10 } },
-		-- - FreeEngineer: bots pick Engineer (gun duty, dugout duty) without the points, on Workspace while on
+		-- - FreeEngineer / FreeGrenadier: bots pick Engineer (gun duty, dugout duty) / Grenadier (the push's grenade,
+		--   bombing out dugouts) without the points, on Workspace while on
 		FreeEngineerAttribute = "DevFreeEngineer",
+		FreeGrenadierAttribute = "DevFreeGrenadier",
 		-- - Shell: `count` blasts of `kg` near a side's dug trench squares, `every` seconds apart, within `spread` studs
 		--   (dugout sheltering under shelling)
 		Shell = { count = 8, kg = 2, every = 0.4, spread = 6 },

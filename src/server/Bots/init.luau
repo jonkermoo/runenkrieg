@@ -569,12 +569,13 @@ end
 local function chooseClass(b: Bot): (string, number?)
 	local options = {}
 	local push = {}
-	-- (the admin panel's free Engineer: Config/DevTools.Admin.FreeEngineerAttribute)
+	-- (the admin panel's free Engineer and Grenadier: Config/DevTools.Admin)
 	local free = workspace:GetAttribute(DevCfg.Admin.FreeEngineerAttribute) == true
+	local gratis = { Engineer = free, Grenadier = workspace:GetAttribute(DevCfg.Admin.FreeGrenadierAttribute) == true }
 	for _, c in Cfg.Classes do
 		local def = Classes.Defs[c.key]
 		if def and not def.locked then
-			table.insert(options, { key = c.key, cost = if free and c.key == "Engineer" then 0 else def.cost })
+			table.insert(options, { key = c.key, cost = if (gratis :: any)[c.key] then 0 else def.cost })
 			push[c.key] = c.push
 		end
 	end
@@ -4710,9 +4711,9 @@ end
 
 -- The admin panel's bot tests (src/server/DevTools; Config/DevTools.Admin): "Shell" a barrage on side `value`'s dug
 -- trench squares; at the point `value`: "Push" the nearest squad pushes there now (its Grenadier throwing first),
--- "Strike" the nearest bot butt-strokes toward it, "Gun" the nearest free gun goes to the nearest bot to crew. Nil
--- when done, else why not.
-function Bots.dev(action: string, value: any): string?
+-- "Strike" the nearest bot butt-strokes toward it, "Gun" the nearest free gun goes to the nearest bot to crew. Why
+-- not, else nil and what was done.
+function Bots.dev(action: string, value: any): (string?, string?)
 	local A = DevCfg.Admin
 	if action == "Shell" then
 		local sb = buildLists[value :: string]
@@ -4723,7 +4724,7 @@ function Bots.dev(action: string, value: any): string?
 			end
 		end
 		if #dug == 0 then
-			return "no dug trench"
+			return "no dug trench", nil
 		end
 		local S = A.Shell
 		task.spawn(function()
@@ -4736,7 +4737,7 @@ function Bots.dev(action: string, value: any): string?
 				task.wait(S.every)
 			end
 		end)
-		return nil
+		return nil, `{A.Shell.count} shells on {#dug} squares`
 	end
 	local at = value :: Vector3
 	local near = at
@@ -4750,7 +4751,7 @@ function Bots.dev(action: string, value: any): string?
 			end
 		end
 		if not gun then
-			return "no free gun"
+			return "no free gun", nil
 		end
 	end
 	local pick: Bot? = nil
@@ -4758,7 +4759,7 @@ function Bots.dev(action: string, value: any): string?
 	for _, b in bots do
 		local ok = b.root ~= nil and b.m ~= nil and alive(b) and not b.deadAt
 		if action == "Push" then
-			ok = ok and b.squad ~= nil and squads[b.squad :: string] ~= nil
+			ok = ok and b.order == "Attack" and b.squad ~= nil and squads[b.squad :: string] ~= nil
 		elseif action == "Gun" then
 			ok = ok and b.mode == "Normal" and not b.gun and not Artillery.gunOf(b.m :: Model)
 		end
@@ -4768,17 +4769,23 @@ function Bots.dev(action: string, value: any): string?
 		end
 	end
 	if not pick then
-		return "no bot near"
+		return "no bot near", nil
 	end
 	local b = pick :: Bot
 	if action == "Push" then
 		local sqs = squads[b.squad :: string]
 		sqs.devPush = { at = Routes.ground(at.X, at.Z), till = os.clock() + A.PushSeconds }
 	elseif action == "Strike" then
-		local m = b.m :: Model
-		local dir = flat(at - eye(b))
-		if dir.Magnitude < 1e-3 or not Tactics.melee.strikeAs(m, dir.Unit) then
-			return "no stroke"
+		-- (its act given up, its gun in its hands and the body turned to the point at once: the stroke's cone)
+		local m, root = b.m :: Model, b.root :: BasePart
+		finish(b)
+		local dir = flat(at - root.Position)
+		if dir.Magnitude < 1e-3 then
+			return "no stroke", nil
+		end
+		root.CFrame = CFrame.lookAt(root.Position, root.Position + dir)
+		if not Tactics.melee.strikeAs(m, dir.Unit) then
+			return "no stroke", nil
 		end
 		stats.strikes += 1
 		b.meleeAt = os.clock() + Cfg.Melee.every
@@ -4789,7 +4796,7 @@ function Bots.dev(action: string, value: any): string?
 	elseif action == "Gun" then
 		Tactics.crew.give(b, gun :: Model)
 	end
-	return nil
+	return nil, b.name
 end
 
 function Bots.start()

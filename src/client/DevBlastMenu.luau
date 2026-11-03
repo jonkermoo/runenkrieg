@@ -90,7 +90,7 @@ local function build(player: Player): ScreenGui
 	end
 	local refusals = Net.event("DevAction").OnClientEvent:Connect(function(kind: any, key: any, reason: any)
 		local button = type(key) == "string" and pieceButtons[key]
-		if kind ~= "Refused" or not button or type(reason) ~= "string" then
+		if (kind ~= "Refused" and kind ~= "Done") or not button or type(reason) ~= "string" then
 			return
 		end
 		local label = pieceNames[key] or key

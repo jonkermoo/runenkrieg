@@ -49,6 +49,7 @@ local SWITCHES = table.freeze({
 	Sectors = true,
 	BotState = true,
 	FreeEngineer = true,
+	FreeGrenadier = true,
 })
 
 local function finite(n: any): boolean

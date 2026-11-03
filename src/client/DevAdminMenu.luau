@@ -2,7 +2,7 @@
 -- Dev admin menu: a button next to the weapon pin. First the Server rows (the game mode, Config/Modes: Admin / FFA /
 -- Normal; everyone respawned; the sector borders; kept teams + the loadout menu's team cards for testing), the Normal Match rows (end, restart, take our next sector) and the FFA Match rows (end, restart, skip the zone, the clock, zone
 -- score; each side's next sector or any sector to a side), the Bots rows (the count, difficulty, state labels,
--- Engineer for free, dig speed, shelling a side's trenches), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
+-- Engineer / Grenadier for free, dig speed, shelling a side's trenches), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
 -- god mode, unlimited ammo and no staff cooldown), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
 -- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction) and Time
@@ -297,10 +297,11 @@ local function build(player: Player): DevPanel.Panel
 	workspace:GetAttributeChangedSignal(BotsCfg.Attribute):Connect(showBots)
 	workspace:GetAttributeChangedSignal(BotsCfg.DifficultyAttribute):Connect(showBots)
 	showBots()
-	-- bot tests (Normal; src/server/Bots.dev): the state labels (src/client/DevBotLabels), Engineer for free, the dig
+	-- bot tests (Normal; src/server/Bots.dev): the state labels (src/client/DevBotLabels), Engineer / Grenadier for free, the dig
 	-- speed, a barrage on a side's trench line (the aimed ones are on the blast panel)
 	onOff("BotState", "Bot state labels", "BotState", workspace, A.BotState.attribute)
 	onOff("FreeEngineer", "Bots: Engineer for free", "FreeEngineer", workspace, A.FreeEngineerAttribute)
+	onOff("FreeGrenadier", "Bots: Grenadier for free", "FreeGrenadier", workspace, A.FreeGrenadierAttribute)
 	local botDigs: { [number]: TextButton } = {}
 	for _, k in A.BotDig.steps do
 		botDigs[k] = row(`BotDig{k}`, if k == 1 then "Bot digging: normal" else `Bot digging: x{k}`, "BotDig", k)
@@ -318,9 +319,9 @@ local function build(player: Player): DevPanel.Panel
 		local label = `Shell {side}'s trenches ({A.Shell.count} x {A.Shell.kg} kg)`
 		shells[side] = row("BotShell" .. side, label, "BotShell", side)
 	end
-	-- (refused: why, on the button a moment)
+	-- (why it was refused, or what was done, on the buttons a moment)
 	local refusals = Net.event("DevAction").OnClientEvent:Connect(function(kind: any, action: any, reason: any)
-		if kind ~= "Refused" or action ~= "BotShell" or type(reason) ~= "string" then
+		if (kind ~= "Refused" and kind ~= "Done") or action ~= "BotShell" or type(reason) ~= "string" then
 			return
 		end
 		for side, b in shells do
