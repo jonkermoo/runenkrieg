@@ -1362,9 +1362,12 @@ local function shareOf(b: Builder): number?
 	return if b.player then digShare(b.player) else nil
 end
 
--- how much of a piece's own swing amount this builder's swing of `mode` does (Config/Build.Power)
+-- how much of a piece's own swing amount this builder's swing of `mode` does (Config/Build.Power); a bot's times the
+-- admin panel's bot dig speed (Config/DevTools.Admin.BotDig, on Workspace while not 1)
 local function powerOf(b: Builder, mode: string): number
-	return Rules.swingPower(mode, Loadouts.classOf(b.character), C.Power)
+	local k = Rules.swingPower(mode, Loadouts.classOf(b.character), C.Power)
+	local fast = if b.player then nil else workspace:GetAttribute(DevCfg.Admin.BotDig.attribute)
+	return if type(fast) == "number" and fast > 0 then k * fast else k
 end
 
 local function allBuild(b: Builder): boolean

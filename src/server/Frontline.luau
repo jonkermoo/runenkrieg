@@ -619,7 +619,11 @@ local function run()
 					Frontline.deployBot(m)
 				end
 			end
-			task.wait(Cfg.CountdownSeconds)
+			-- (the admin's "Start now" cuts it short: Frontline.begin)
+			while not starting and not ending and workspace:GetServerTimeNow() < start do
+				task.wait(0.1)
+			end
+			starting = false
 			release()
 			setWave(Rules.nextWave(start, Cfg.Waves.every, workspace:GetServerTimeNow() + 0.05))
 			phase("Playing")
@@ -817,9 +821,10 @@ function Frontline.restart()
 	end
 end
 
--- Admin: the match starts now, without waiting for each side's players (a solo test)
+-- Admin: the match starts now, without waiting for each side's players (a solo test) or the rest of the countdown
 function Frontline.begin()
-	if thread and folder:GetAttribute("Phase") == "Waiting" then
+	local now = if thread then folder:GetAttribute("Phase") else nil
+	if now == "Waiting" or now == "Countdown" then
 		starting = true
 	end
 end
@@ -831,19 +836,32 @@ function Frontline.finish()
 	end
 end
 
--- Admin: `player`'s side takes the sector it is attacking now (counts as a capture: the momentum starts over; no
--- points paid).
-function Frontline.take(player: Player)
-	local side = sideOf(player)
-	local t = side and Rules.target(state, side)
-	if not thread or folder:GetAttribute("Phase") ~= "Playing" or not side or not t then
-		return
+-- Admin: `side` takes sector `index` now (counts as a capture: the momentum starts over; no points paid). False
+-- outside play or with no such sector.
+function Frontline.capture(side: Rules.Side, index: number): boolean
+	if not thread or folder:GetAttribute("Phase") ~= "Playing" or not sectors[index] or state.owner[index] == side then
+		return false
 	end
-	state.owner[t] = side
-	state.control[t] = Rules.rest(side)
+	state.owner[index] = side
+	state.control[index] = Rules.rest(side)
 	still = 0
 	captured = true
-	table.insert(log, { t = os.clock() - playedAt, index = t, side = side })
+	table.insert(log, { t = os.clock() - playedAt, index = index, side = side })
+	return true
+end
+
+-- Admin: `side` takes the sector it is attacking now (the front moves one sector).
+function Frontline.push(side: Rules.Side): boolean
+	local t = thread and Rules.target(state, side)
+	return t ~= nil and Frontline.capture(side, t)
+end
+
+-- Admin: `player`'s side takes the sector it is attacking now.
+function Frontline.take(player: Player)
+	local side = sideOf(player)
+	if side then
+		Frontline.push(side)
+	end
 end
 
 return Frontline

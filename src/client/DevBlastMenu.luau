@@ -4,7 +4,7 @@
 -- destruction (src/server/Damage.blast) and sends Net "DevBlast" to everyone, shown here (src/client/Vfx/Blast).
 -- The artillery buttons place a field gun or a howitzer at the aim point, muzzle away from you, or remove them all
 -- (src/server/Artillery; E mans one); "Place MG nest" lays a finished MG nest there, its gun facing away from you
--- (src/server/Build.devPlace; dig it apart to remove it).
+-- (src/server/Build.devPlace; dig it apart to remove it). The bot rows act at the aim point too (src/server/Bots.dev).
 -- "My blasts hurt me": off, your own blast knocks you but never hurts you (as in the game). The menu is only shown when
 -- the server marked this player with the DevTools attribute; every client shows the explosions.
 
@@ -56,7 +56,7 @@ local function build(player: Player): ScreenGui
 		end)
 	end
 	-- (a refused piece shows why on its button for a moment: src/server/DevTools)
-	local pieceNames = { MGNest = "Place MG nest" }
+	local pieceNames: { [string]: string } = { MGNest = "Place MG nest" }
 	local pieceButtons: { [string]: TextButton } = {}
 	for _, key in B.Pieces do
 		order += 1
@@ -66,6 +66,25 @@ local function build(player: Player): ScreenGui
 			local aim = DevAim.point()
 			if aim then
 				Net.event("DevAction"):FireServer("PlacePiece", key, aim)
+			end
+		end)
+	end
+	-- the bots at the aim point (Normal; src/server/Bots.dev): the nearest squad pushes there, the nearest bot
+	-- butt-strokes toward it, the nearest free gun goes to the nearest bot
+	local botRows = {
+		{ action = "BotPush", label = "Nearest squad pushes here" },
+		{ action = "BotStrike", label = "Nearest bot butt-strokes here" },
+		{ action = "BotGun", label = "Nearest gun to nearest bot" },
+	}
+	for _, r in botRows do
+		order += 1
+		local button = DevPanel.button(p.panel, r.action, r.label, order)
+		pieceButtons[r.action] = button
+		pieceNames[r.action] = r.label
+		button.Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer(r.action, nil, aim)
 			end
 		end)
 	end

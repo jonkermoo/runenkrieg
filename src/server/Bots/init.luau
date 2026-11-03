@@ -324,6 +324,8 @@ local Tactics = {
 	melee = require(script.Parent.Melee),
 	meleeCfg = require(Shared.Config.Melee),
 	crew = require(script.Crew), -- (bots on the guns: Config/Bots.Crew)
+	-- the admin panel's bot tests (Bots.dev, Tactics.label): whether the labels are up, their text (Rules/DevActions)
+	dev = { labelled = false, rules = require(Shared.Rules.DevActions) },
 }
 
 -- Normal: dugouts and foxholes (Config/Bots.Dugouts), in Tactics (the module is at Luau's limit of locals):
@@ -471,6 +473,7 @@ type SquadState = {
 	jump: Vector3?, -- attacking: its jump-off trench square's floor (Rules/BotTrenches.jumpOff), gathered in first
 	jumpAlong: Vector3?, -- along that square
 	jumpAt: number?, -- when the first of it got there
+	devPush: { at: Vector3, till: number }?, -- the admin panel's push at a point (Bots.dev "Push"), until `till`
 }
 local squads: { [string]: SquadState } = {}
 
@@ -566,10 +569,12 @@ end
 local function chooseClass(b: Bot): (string, number?)
 	local options = {}
 	local push = {}
+	-- (the admin panel's free Engineer: Config/DevTools.Admin.FreeEngineerAttribute)
+	local free = workspace:GetAttribute(DevCfg.Admin.FreeEngineerAttribute) == true
 	for _, c in Cfg.Classes do
 		local def = Classes.Defs[c.key]
 		if def and not def.locked then
-			table.insert(options, { key = c.key, cost = def.cost })
+			table.insert(options, { key = c.key, cost = if free and c.key == "Engineer" then 0 else def.cost })
 			push[c.key] = c.push
 		end
 	end
@@ -579,7 +584,8 @@ local function chooseClass(b: Bot): (string, number?)
 	b.crew = nil
 	local sb = b.side and buildLists[b.side :: string]
 	local eng = Classes.Defs.Engineer
-	if sb and sb.front and eng and not eng.locked and eng.cost <= Loadouts.botPoints(b.id) then
+	local engCost = if free then 0 elseif eng then eng.cost else math.huge
+	if sb and sb.front and eng and not eng.locked and engCost <= Loadouts.botPoints(b.id) then
 		local crews = 0
 		for _, o in bots do
 			if o ~= b and o.side == b.side and o.crew then
@@ -587,12 +593,12 @@ local function chooseClass(b: Bot): (string, number?)
 			end
 		end
 		if BotBuild.crewWanted(sb.guns, crews, BD.Crews) then
-			key, cost, b.crew = "Engineer", eng.cost, true
+			key, cost, b.crew = "Engineer", engCost, true
 		end
 	end
 	-- dugout duty (Config/Bots.Dugouts.engineers): an Engineer while its side has dugouts to dig, if it can pay
 	b.dugouts = nil
-	if not b.crew and sb and sb.digging > 0 and eng and not eng.locked and eng.cost <= Loadouts.botPoints(b.id) then
+	if not b.crew and sb and sb.digging > 0 and eng and not eng.locked and engCost <= Loadouts.botPoints(b.id) then
 		local on = 0
 		for _, o in bots do
 			if o ~= b and o.side == b.side and o.dugouts then
@@ -600,7 +606,7 @@ local function chooseClass(b: Bot): (string, number?)
 			end
 		end
 		if on < Cfg.Dugouts.engineers then
-			key, cost, b.dugouts = "Engineer", eng.cost, true
+			key, cost, b.dugouts = "Engineer", engCost, true
 		end
 	end
 	if cost > 0 then
@@ -3729,6 +3735,12 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 				end
 			end
+			local forced = sqs.devPush
+			if forced and now < forced.till and sqs.sq.phase ~= "Assault" then
+				pushAt = pushAt or forced.at
+			elseif forced and now >= forced.till then
+				sqs.devPush = nil
+			end
 			if pushAt and not sqs.push then
 				stats.pushes += 1
 				sqs.bomb, sqs.bombAt = pushAt, now
@@ -4493,6 +4505,7 @@ local function command()
 		buildList(side, owner, FrontRules.held(state, side))
 	end
 	ByTrench.mark()
+	Tactics.label()
 	-- squads no longer formed go
 	for key, sq in squads do
 		if sq.seen ~= commandTick then
@@ -4657,6 +4670,126 @@ local function report(now: number)
 	end
 	table.clear(samples)
 	stats.since = now
+end
+
+-- the admin panel's labels over the bots (Config/DevTools.Admin.BotState), once a commander tick while asked for; taken
+-- off once it is off
+function Tactics.label()
+	local S = DevCfg.Admin.BotState
+	local on = workspace:GetAttribute(S.attribute) == true
+	if not on and not Tactics.dev.labelled then
+		return
+	end
+	Tactics.dev.labelled = on
+	for _, b in bots do
+		local m = b.m
+		if m then
+			local text: string? = nil
+			if on then
+				local sqs = b.squad and squads[b.squad :: string]
+				local act = b.act
+				local what = act and act.kind
+				if act and act.job then
+					what = `{act.kind} {act.job.job.key}`
+				end
+				text = Tactics.dev.rules.botLabel({
+					order = b.order,
+					sector = b.sector,
+					phase = sqs and sqs.sq.phase,
+					role = b.role,
+					post = b.postKind,
+					act = what,
+					gun = if b.gun then (b.gun :: Model).Name elseif Artillery.gunOf(m) then "on" else nil,
+					danger = b.danger,
+				})
+			end
+			m:SetAttribute(S.label, text)
+		end
+	end
+end
+
+-- The admin panel's bot tests (src/server/DevTools; Config/DevTools.Admin): "Shell" a barrage on side `value`'s dug
+-- trench squares; at the point `value`: "Push" the nearest squad pushes there now (its Grenadier throwing first),
+-- "Strike" the nearest bot butt-strokes toward it, "Gun" the nearest free gun goes to the nearest bot to crew. Nil
+-- when done, else why not.
+function Bots.dev(action: string, value: any): string?
+	local A = DevCfg.Admin
+	if action == "Shell" then
+		local sb = buildLists[value :: string]
+		local dug: { Vector3 } = {}
+		for _, t in (if sb then sb.trench else {}) do
+			if t.built then
+				table.insert(dug, t.at)
+			end
+		end
+		if #dug == 0 then
+			return "no dug trench"
+		end
+		local S = A.Shell
+		task.spawn(function()
+			for _ = 1, S.count do
+				local at = dug[random:NextInteger(1, #dug)]
+				local r, a = random:NextNumber() * S.spread, random:NextNumber() * math.pi * 2
+				local p = Routes.ground(at.X + math.cos(a) * r, at.Z + math.sin(a) * r)
+				Net.event("DevBlast"):FireAllClients(p, nil, S.kg)
+				Damage.blast(p, S.kg, nil)
+				task.wait(S.every)
+			end
+		end)
+		return nil
+	end
+	local at = value :: Vector3
+	local near = at
+	local gun: Model? = nil
+	if action == "Gun" then
+		local best = math.huge
+		for _, g in Artillery.list() do
+			local d = flat(g.crew - at).Magnitude
+			if g.free and not g.broken and g.model.Parent and d < best then
+				gun, best, near = g.model, d, g.crew
+			end
+		end
+		if not gun then
+			return "no free gun"
+		end
+	end
+	local pick: Bot? = nil
+	local bestD = if gun then math.huge else A.BotNear
+	for _, b in bots do
+		local ok = b.root ~= nil and b.m ~= nil and alive(b) and not b.deadAt
+		if action == "Push" then
+			ok = ok and b.squad ~= nil and squads[b.squad :: string] ~= nil
+		elseif action == "Gun" then
+			ok = ok and b.mode == "Normal" and not b.gun and not Artillery.gunOf(b.m :: Model)
+		end
+		local d = if ok then flat((b.root :: BasePart).Position - near).Magnitude else math.huge
+		if d < bestD then
+			pick, bestD = b, d
+		end
+	end
+	if not pick then
+		return "no bot near"
+	end
+	local b = pick :: Bot
+	if action == "Push" then
+		local sqs = squads[b.squad :: string]
+		sqs.devPush = { at = Routes.ground(at.X, at.Z), till = os.clock() + A.PushSeconds }
+	elseif action == "Strike" then
+		local m = b.m :: Model
+		local dir = flat(at - eye(b))
+		if dir.Magnitude < 1e-3 or not Tactics.melee.strikeAs(m, dir.Unit) then
+			return "no stroke"
+		end
+		stats.strikes += 1
+		b.meleeAt = os.clock() + Cfg.Melee.every
+		local holds = W[b.weapon] and (W[b.weapon].holds :: any)
+		if b.anim and holds and holds.strike then
+			(b.anim :: Animate.Handle).play(holds.strike)
+		end
+	elseif action == "Gun" then
+		Tactics.crew.give(b, gun :: Model)
+	end
+	return nil
 end
 
 function Bots.start()
