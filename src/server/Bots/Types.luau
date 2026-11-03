@@ -192,6 +192,8 @@ export type SquadState = {
 	jumpAlong: Vector3?, -- along that square
 	jumpAt: number?, -- when the first of it got there
 	devPush: { at: Vector3, till: number }?, -- the admin panel's push at a point (Bots.dev "Push"), until `till`
+	midAt: number?, -- when the first of its free members reached its waypoint, and its approach spot (Squads.waitMax)
+	readyAt: number?,
 	flank: number?, -- attacking up a flank (-1 or 1, Config/Bots.Front.Flank): its route by a point off to that side
 }
 -- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again

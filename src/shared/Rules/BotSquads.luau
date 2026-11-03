@@ -158,6 +158,21 @@ function BotSquads.lane(hx: number, hz: number, gx: number, gz: number, px: numb
 	return if cross > 0 then 1 else -1
 end
 
+-- Whether a squad moves on from a point it walks to (its waypoint, its approach spot; Config/Bots.Squads.waitMax): `there`
+-- of its `free` members (those not off building, rescuing or guarding) there, `cfg.readyShare` of them at least one;
+-- or anyone there for `waited` >= `cfg.waitMax` seconds.
+function BotSquads.moveOn(
+	there: number,
+	free: number,
+	waited: number,
+	cfg: { readyShare: number, waitMax: number }
+): boolean
+	if there <= 0 then
+		return false
+	end
+	return there >= math.max(1, math.ceil(free * cfg.readyShare)) or waited >= cfg.waitMax
+end
+
 -- The lane with the fewest squads (`crowd`), the centre first on a tie, then -1, then 1.
 function BotSquads.quietLane(crowd: { [number]: number }): number
 	local best, bestLane = math.huge, 0

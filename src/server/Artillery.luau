@@ -1860,6 +1860,12 @@ function Artillery.onBotLeft(fn: (Model, Model, string) -> ())
 	table.insert(botLeft, fn)
 end
 
+-- A shell of gun `key` (Config/Artillery.Guns) going off at `at`, fired by `by` (also the admin panel's "Shell shock"
+-- rows: src/server/DevTools).
+function Artillery.land(at: Vector3, key: string, by: Model?)
+	burst(key, at, by)
+end
+
 function Artillery.start()
 	Damage.onBlast(blast)
 	Ground.guard(Artillery.onGround)

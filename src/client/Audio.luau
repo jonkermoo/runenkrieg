@@ -45,6 +45,24 @@ function Audio.duck(share: number)
 	end
 end
 
+-- Every game sound muffled (src/client/Concussion): `high`, `mid`, `low` dB on the group's equalizer bands (all 0: clear).
+local muffler: EqualizerSoundEffect? = nil
+function Audio.muffle(high: number, mid: number, low: number)
+	if not muffler then
+		if high == 0 and mid == 0 and low == 0 then
+			return
+		end
+		local e = Instance.new("EqualizerSoundEffect")
+		e.Name = "Muffle"
+		e.HighGain, e.MidGain, e.LowGain = 0, 0, 0
+		e.Parent = Audio.effects()
+		muffler = e
+	end
+	local e = muffler :: EqualizerSoundEffect
+	e.HighGain, e.MidGain, e.LowGain = high, mid, low
+	e.Enabled = high ~= 0 or mid ~= 0 or low ~= 0
+end
+
 -- The player's Master x Effects volume, not ducked (for a sound outside the group).
 function Audio.volume(): number
 	return SettingsRules.volume(Settings.get("MasterVolume"), Settings.get("EffectsVolume"))

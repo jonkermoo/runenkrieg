@@ -6,6 +6,11 @@ local Destruction = {
 	SectionTag = "DestructibleSection",
 	DoorTag = "Door",
 	BuildingTag = "NaturalBuilding",
+	-- The telegraph wires (src/server/PoleWires; user 2026-11-03: "make sure the telephone pole wires disappear too"):
+	-- each span between two poles is a model tagged `Tag`, put back with the map (src/server/DevWorld); it drops as
+	-- debris once a pole it hangs from breaks (no insulator left within `reach` studs of its end). Segment ends within
+	-- `join` studs are one point.
+	Wires = { Tag = "PoleWire", join = 0.05, reach = 0.3 },
 
 	-- Per material class: section HP, whether rifle bullets pass through it, whether fire spreads on it.
 	Materials = {
