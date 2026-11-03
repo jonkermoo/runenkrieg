@@ -369,6 +369,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotFrontAttribute):Connect(showPlans)
 	showPlans()
+	-- each side's latest runs toward the enemy: straight, or a zig-zag where the enemy can see down them (and why)
+	order += 1
+	local runs = DevPanel.heading(p.panel, "", order)
+	runs.Size = UDim2.new(1, -8, 0, 96)
+	runs.TextWrapped = true
+	runs.TextYAlignment = Enum.TextYAlignment.Top
+	local function showRuns()
+		local s = workspace:GetAttribute(A.BotRunsAttribute)
+		runs.Text = `Bot trench runs:\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotRunsAttribute):Connect(showRuns)
+	showRuns()
 	-- which bot rescues which casualty now (one each: Config/Bots.Actions.Rescue)
 	order += 1
 	local rescues = DevPanel.heading(p.panel, "", order)

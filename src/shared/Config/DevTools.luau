@@ -266,6 +266,8 @@ local DevTools = {
 		BotPlans = { "open", "trench", "assault", "flank" },
 		-- the readout of each side's plan and its attacking squads (src/server/Bots, every commander tick)
 		BotFrontAttribute = "DevBotFront",
+		-- the readout of each side's latest runs toward the enemy, straight or zig-zag and why (src/server/Bots)
+		BotRunsAttribute = "DevBotRuns",
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier
 		--   throwing first); the nearest bot butt-strokes toward it; the nearest free gun goes to the nearest bot
 		BotNear = 80,

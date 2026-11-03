@@ -53,6 +53,7 @@ export type Sap = {
 	run: BuildJob?,
 	open: { BuildJob },
 	digs: { [Model]: BuildJob },
+	angle: number?, -- the turn its runs take now: 0 while safe, a zig-zag's against a threat (Config/Bots.Trenches.Zigzag)
 	parallel: boolean?, -- its last run the parallel across (Config/Bots.Front): dug, it is over and the squad goes over
 }
 export type TrenchSquare = { x: number, z: number, at: Vector3, model: Model, left: number, built: boolean }
@@ -224,6 +225,8 @@ export type SideBuild = {
 	bays: number,
 	digging: number, -- its dugouts wanted not yet stood (laid or not)
 	hurt: { [Model]: { hp: number, at: number } }, -- its works' HP last tick and when each last lost any (repairWait)
+	-- its runs toward the enemy lately, each straight or a zig-zag and why (Config/Bots.Trenches.Zigzag; the newest last)
+	runNotes: { string },
 }
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
 export type Soldier = {

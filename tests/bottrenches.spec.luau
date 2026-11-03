@@ -246,4 +246,34 @@ return {
 		assert(not R.occupied({ { x = B.inside + 1, y = -3, z = 0 } }, room, -1, B), "elsewhere")
 		assert(not R.occupied({}, room, -1, B), "nobody known")
 	end,
+	["exposed: a threat in line ahead of the run, or above it; not off to the side or behind"] = function()
+		local Z = T.Zigzag
+		local run = { kind = "Comm", ax = 0, az = 0, bx = 30, bz = 0 }
+		assert(R.exposed(run, 0, { x = 200, y = 0, z = 10 }, Z) == "in line", "straight ahead")
+		assert(R.exposed(run, 0, { x = 100, y = 40, z = 60 }, Z) == "from above", "uphill, off the line")
+		assert(R.exposed(run, 0, { x = 100, y = 0, z = 80 }, Z) == nil, "off to the side, level")
+		assert(R.exposed(run, 0, { x = -100, y = 50, z = 0 }, Z) == nil, "behind")
+	end,
+	["zigAngle: steeper the higher the threat, within its bounds"] = function()
+		local A = T.Zigzag.angle
+		assert(near(R.zigAngle(0, A), A.min) and near(R.zigAngle(-5, A), A.min))
+		assert(R.zigAngle(10, A) > A.min and near(R.zigAngle(1000, A), A.max))
+	end,
+	["zigzag: legs of its length, alternating, ending on B, never further than B"] = function()
+		local run = { kind = "Sap", ax = 0, az = 0, bx = 60, bz = 0 }
+		local legs = R.zigzag(run, 30, 12)
+		assert(#legs >= 5, "several legs")
+		assert(near(legs[1].ax, 0) and near(legs[#legs].bx, 60) and near(legs[#legs].bz, 0), "from A onto B")
+		for i, l in legs do
+			assert(l.kind == "Sap", "its kind")
+			if i > 1 then
+				assert(near(l.ax, legs[i - 1].bx) and near(l.az, legs[i - 1].bz), "joined end to end")
+			end
+			if i < #legs then
+				assert(near(len(l), 12), "its length")
+			end
+		end
+		assert(legs[1].bz > 0 and legs[2].bz < legs[1].bz, "one way, then back")
+		assert(#R.zigzag(run, 30, 0) == 1, "no legs: straight")
+	end,
 }
