@@ -588,7 +588,13 @@ local function build(player: Player): DevPanel.Panel
 	row("Undo", "Undo destruction", "UndoDestruction")
 	-- the hitch timings (src/shared/Hitches): the log of each job over Hitches.over ms, on the server and every client;
 	-- the print is this client's and the server's (the output in Studio, F9 in a live game)
-	onOff("HitchLog", `Hitch log (over {A.Hitches.over} ms)`, "HitchLog", workspace, A.Hitches.attribute)
+	onOff(
+		"HitchLog",
+		`Hitch log (jobs over {A.Hitches.over} ms, frames over {A.Hitches.frame})`,
+		"HitchLog",
+		workspace,
+		A.Hitches.attribute
+	)
 	row("HitchReport", "Print hitches", "HitchReport").Activated:Connect(function()
 		print(Hitches.report())
 	end)
