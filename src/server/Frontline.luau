@@ -884,7 +884,8 @@ function Frontline.restart()
 end
 
 -- Admin: the match moves to map `key` now (it must be built: src/dev/Greybox): a fresh match there, the map put back,
--- everyone alive deployed again on it (the bots too, by src/server/Bots on their respawn).
+-- everyone alive deployed again on it (the bots by src/server/Bots: the match start respawns each on the new map; killed
+-- here as well, the new bodies died before their death was hooked up and never came back).
 function Frontline.switchMap(key: string): boolean
 	if not thread or not LiveMap.built(key) then
 		return false
@@ -900,12 +901,6 @@ function Frontline.switchMap(key: string): boolean
 				task.spawn(function()
 					p:LoadCharacter()
 				end)
-			end
-		end
-		for _, m in bots() do
-			local h = m:FindFirstChildOfClass("Humanoid")
-			if h then
-				h.Health = 0
 			end
 		end
 	end)
