@@ -185,6 +185,7 @@ local stats = {
 	workTaken = 0, -- build jobs taken, walked to with the gun out (Config/Bots.Build.Work)
 	workStarted = 0, -- tools out there, once safe
 	workStopped = 0, -- tools dropped for the gun mid-work (danger)
+	guarded = 0, -- teammates guarded, gun out, before a drag or heal (Config/Bots.Actions.Guard)
 	pushes = 0, -- squads that pushed a group they outnumber (Config/Bots.Squads.Push)
 	pushBombs = 0, -- grenades thrown to open such a push
 	wireMoved = 0, -- wire spots moved off (or dropped from) its own side's ways (Config/Bots.Build.Wire)

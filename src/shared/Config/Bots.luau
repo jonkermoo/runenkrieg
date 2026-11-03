@@ -229,6 +229,10 @@ local Bots = {
 		every = 0.5,
 		Drag = { within = 12, cover = 15, seconds = 8 },
 		Heal = { calm = 3, below = 0.7, within = 25, reach = 4, seconds = 10 },
+		-- in a fight a teammate is dragged or healed only from cover or in cover (Rules/BotActions.mayTend; user
+		-- 2026-11-03: "they protect you and grab/heal you once it is safe"): else the bot stays within `near` studs of
+		-- them with its gun out, fighting, for up to `keep` s, and goes to them once it may
+		Guard = { near = 6, keep = 20 },
 		Grenade = {
 			min = 15,
 			max = 35,

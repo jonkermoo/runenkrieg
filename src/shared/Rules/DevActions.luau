@@ -15,6 +15,7 @@ DevActions.Aimed = table.freeze({
 	BotStrike = true,
 	BotGun = true,
 	BotWork = true,
+	BotDown = true,
 })
 
 -- actions with no value (or a plain on/off)
@@ -39,6 +40,7 @@ local PLAIN = table.freeze({
 	BotStrike = true,
 	BotGun = true,
 	BotWork = true,
+	BotDown = true,
 	RebuildMaps = true,
 })
 local SWITCHES = table.freeze({

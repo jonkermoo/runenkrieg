@@ -271,6 +271,7 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		or action == "BotStrike"
 		or action == "BotGun"
 		or action == "BotWork"
+		or action == "BotDown"
 	then
 		-- (why not, or what was done, shown on the button: src/client/DevBlastMenu, DevAdminMenu)
 		local why, done = Bots.dev(string.sub(action, 4), if action == "BotShell" then value else aim)

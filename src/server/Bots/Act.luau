@@ -273,7 +273,8 @@ local function weigh(b: Bot, now: number)
 	if spot then
 		local eyeAt = (spot :: Vector3) + Vector3.yAxis * Cfg.Eye
 		for i, mt in mates do
-			if mt.down and not mt.busy and mt.distance <= AC.Drag.within and budget.rays > 0 then
+			local wants = (mt.down and mt.distance <= AC.Drag.within) or mt.health < AC.Heal.below
+			if wants and not mt.busy and budget.rays > 0 then
 				rayParams.FilterDescendantsInstances = { m }
 				local hit = workspace:Raycast(eyeAt, who[i].pos - eyeAt, rayParams)
 				stats.rays += 1
@@ -282,21 +283,49 @@ local function weigh(b: Bot, now: number)
 			end
 		end
 	end
+	-- in a fight only from cover or to a teammate in cover; else it guards them, gun out, until it may
+	-- (Config/Bots.Actions.Guard)
+	local sinceThreat = if b.threatAt then now - (b.threatAt :: number) else math.huge
+	local sinceHurt = if b.hurtAt then now - (b.hurtAt :: number) else math.huge
+	local seen = b.target ~= nil and (b.target :: Target).visible
+	local safe = BotBuild.safeToWork(false, seen, sinceThreat, sinceHurt, false, BD.calm)
+	local selfHidden: boolean? = nil
+	local function mayTend(k: number): boolean
+		if not safe and selfHidden == nil then
+			selfHidden = b.threatFrom ~= nil
+				and budget.rays > 0
+				and hidden(b.threatFrom :: Vector3, root.Position, exclusions(b))
+		end
+		if Actions.mayTend(safe, selfHidden == true, mates[k].exposed) then
+			b.guard = nil
+			return true
+		end
+		if not b.guard or b.guard.who ~= who[k].model then
+			b.guard = { who = who[k].model, since = now }
+			stats.guarded += 1
+		end
+		return false
+	end
+	local g = b.guard
+	if g and (now - g.since > AC.Guard.keep or not g.who.Parent) then
+		b.guard = nil
+	end
 	local i = Actions.dragPick(mates, AC.Drag)
-	if i and spot then
+	if i and spot and mayTend(i) then
 		b.act = { kind = "Drag", who = who[i].model, from = spot, started = now }
 		return
 	end
 	local sq = b.squad and squads[b.squad :: string]
 	local pushing = sq ~= nil and (sq :: SquadState).sq.phase == "Assault"
-	local sinceThreat = if b.threatAt then now - (b.threatAt :: number) else math.huge
-	local sinceHurt = if b.hurtAt then now - (b.hurtAt :: number) else math.huge
-	if not pushing and Actions.calm(sinceThreat, sinceHurt, AC.Heal.calm) then
+	if not pushing and not i then
 		i = Actions.healPick(mates, AC.Heal)
-		if i then
+		if i and mayTend(i) then
 			b.act = { kind = "Heal", who = who[i].model, started = now }
 			return
 		end
+	end
+	if not i then
+		b.guard = nil -- (nobody to guard: up, healed, or gone)
 	end
 	-- on its way to a job it took (or back to one danger stopped): worked once there and safe, else kept a while
 	local w = b.work
@@ -346,7 +375,6 @@ local function weigh(b: Bot, now: number)
 		return
 	end
 	-- a job on its side's build list, when calm and it sees no enemy (Config/Bots.Build)
-	local seen = b.target ~= nil and (b.target :: Target).visible
 	-- holding an open post with no trench near: a foxhole there, facing the enemy (Config/Bots.Dugouts.Fox)
 	local post = b.post
 	if

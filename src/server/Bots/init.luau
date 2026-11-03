@@ -388,7 +388,7 @@ spawnBody = function(b: Bot)
 		(b.slung :: Model):Destroy()
 	end
 	b.grenades, b.act, b.away, b.shovel, b.cast, b.slung = nil, nil, false, nil, nil, nil
-	b.work, b.workState = nil, nil
+	b.work, b.workState, b.guard = nil, nil, nil
 	local nade = Loadouts.gear(m).Grenade
 	if nade then
 		local given, g = pcall(Armory.tool, nade, b.kit)
@@ -493,7 +493,7 @@ local function despawn(b: Bot)
 		(b.slung :: Model):Destroy()
 	end
 	b.grenades, b.act, b.away, b.shovel, b.cast, b.slung = nil, nil, false, nil, nil, nil
-	b.work, b.workState = nil, nil
+	b.work, b.workState, b.guard = nil, nil, nil
 end
 
 local function add(mode: string, side: string?)
@@ -546,6 +546,17 @@ local function remove(i: number)
 end
 
 -- sensing ------------------------------------------------------------------------------------------------------------
+
+-- where a bot guarding a teammate stands (Config/Bots.Actions.Guard): by them, nil while near enough or none
+local function guardSpot(b: Bot): Vector3?
+	local g = b.guard
+	local part = g and g.who:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not part or not b.root then
+		return nil
+	end
+	local at = (part :: BasePart).Position
+	return if flat(at - (b.root :: BasePart).Position).Magnitude > Cfg.Actions.Guard.near then at else nil
+end
 
 local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local m, humanoid, root, tool = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart, b.tool :: Tool
@@ -732,14 +743,17 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		-- (Normal: outside the zone its squad's route: a waypoint, a bound's stop, the approach spot; then its own
 		-- stand point there)
 		goal = if inZone and b.role ~= "Move" then b.wander elseif b.flank then b.flank else (b.goal or b.stand or z)
-		-- (a build job it took: there, fighting on the way; Config/Bots.Build.Work)
-		if b.work then
+		-- (a teammate it guards: by them; a build job it took: there; fighting on the way: Config/Bots.Actions.Guard,
+		-- Build.Work)
+		if b.guard then
+			goal = guardSpot(b) or root.Position -- (by them: it stays)
+		elseif b.work then
 			goal = b.work.at
 		end
 		b.nav.direct = nil
 	elseif move == "Hold" then
 		-- on its spot (covering fire, or a hold spot in the zone); there, it stands
-		local post = if b.work then b.work.at else (b.goal or b.post)
+		local post = if b.guard then guardSpot(b) elseif b.work then b.work.at else (b.goal or b.post)
 		if post and flat((post :: Vector3) - root.Position).Magnitude > MV.Arrive then
 			goal = post
 		else
@@ -1161,7 +1175,7 @@ function Bots.start()
 				b.squad, b.role, b.goal, b.stop, b.post, b.roleWas, b.postFace = nil, nil, nil, nil, nil, nil, nil
 				-- (nothing of the last match's ground kept: it may have been another map)
 				b.postSector, b.postFloor, b.postKind, b.postFoot, b.gun, b.gunWait = nil, nil, nil, nil, nil, nil
-				b.wander, b.coverJob, b.work, b.workState = nil, nil, nil, nil
+				b.wander, b.coverJob, b.work, b.workState, b.guard = nil, nil, nil, nil, nil
 				spawnBody(b)
 			end
 		end

@@ -13,6 +13,13 @@ local function enemy(x: number, z: number, visible: boolean?, hiddenFor: number?
 end
 
 return {
+
+	["mayTend: safe, or in a fight only from cover or to a teammate in cover"] = function()
+		assert(R.mayTend(true, false, true), "safe")
+		assert(not R.mayTend(false, false, true), "in a fight, both in the open")
+		assert(R.mayTend(false, true, true), "the bot in cover")
+		assert(R.mayTend(false, false, false), "the teammate in cover")
+	end,
 	["calm: nobody shooting at it or hitting it for long enough"] = function()
 		assert(R.calm(5, 5, A.Heal.calm))
 		assert(not R.calm(1, 5, A.Heal.calm), "shot at lately")

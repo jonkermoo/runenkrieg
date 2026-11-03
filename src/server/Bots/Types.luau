@@ -135,6 +135,8 @@ export type Bot = {
 	-- "working")
 	work: { job: BuildJob, at: Vector3, since: number, brave: boolean }?,
 	workState: string?,
+	-- Normal: a downed or hurt teammate it guards, gun out, until it may drag or heal them (Config/Bots.Actions.Guard)
+	guard: { who: Model, since: number }?,
 	actAt: number, -- when it next weighs one (Config/Bots.Actions.every)
 	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
 	threwAt: number,

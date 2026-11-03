@@ -26,6 +26,14 @@ function BotActions.calm(sinceThreat: number, sinceHurt: number, calm: number): 
 	return sinceThreat >= calm and sinceHurt >= calm
 end
 
+-- Whether a bot may drag or heal a teammate now (user 2026-11-03: "when in a fight bots should only grab you if in
+-- cover. else, they protect you and grab/heal you once it is safe"): when it is safe (Rules/BotBuild.safeToWork), or in
+-- a fight with the bot itself hidden from the threat where it stands (`selfHidden`) or the teammate out of the enemy's
+-- sight (`exposed` false).
+function BotActions.mayTend(safe: boolean, selfHidden: boolean, exposed: boolean): boolean
+	return safe or selfHidden or not exposed
+end
+
 -- The nearest hurt teammate to heal (under `below` health, within `within` studs, alive, not being healed), or nil.
 function BotActions.healPick(mates: { Mate }, cfg: { below: number, within: number }): number?
 	local best, bestD = nil, math.huge
