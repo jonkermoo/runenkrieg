@@ -266,6 +266,10 @@ local DevTools = {
 		BotPlans = { "open", "trench", "assault", "flank" },
 		-- the readout of each side's plan and its attacking squads (src/server/Bots, every commander tick)
 		BotFrontAttribute = "DevBotFront",
+		-- the readout of bots standing still: none moved `stuckFor` s, not on a gun or at a post, with their state
+		-- (src/server/Bots, every commander tick)
+		BotStuckAttribute = "DevBotStuck",
+		stuckFor = 12,
 		-- the readout of each side's latest runs toward the enemy, straight or zig-zag and why (src/server/Bots)
 		BotRunsAttribute = "DevBotRuns",
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier

@@ -369,6 +369,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotFrontAttribute):Connect(showPlans)
 	showPlans()
+	-- bots standing still (none moved A.stuckFor s, not on a gun) and what each is doing
+	order += 1
+	local stuck = DevPanel.heading(p.panel, "", order)
+	stuck.Size = UDim2.new(1, -8, 0, 140)
+	stuck.TextWrapped = true
+	stuck.TextYAlignment = Enum.TextYAlignment.Top
+	local function showStuck()
+		local s = workspace:GetAttribute(A.BotStuckAttribute)
+		stuck.Text = `Bots standing still ({A.stuckFor}s+):\n{if type(s) == "string" then s else "none"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotStuckAttribute):Connect(showStuck)
+	showStuck()
 	-- each side's latest runs toward the enemy: straight, or a zig-zag where the enemy can see down them (and why)
 	order += 1
 	local runs = DevPanel.heading(p.panel, "", order)

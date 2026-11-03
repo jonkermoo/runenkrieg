@@ -186,6 +186,7 @@ local stats = {
 	strikes = 0, -- butt strokes that went (Config/Bots.Melee)
 	zigzags = 0, -- runs toward the enemy dug as a zig-zag, in a threat's line of fire (Config/Bots.Trenches.Zigzag)
 	straights = 0, -- and straight, out of it
+	stuck = 0, -- bots standing still at the commander's last tick (Config/DevTools.Admin.stuckFor; not reset)
 	contacts = 0, -- sides that had their first contact (Config/Bots.Front: from then on by trench)
 	parallels = 0, -- parallels planned across close to an objective (Config/Bots.Front)
 	workTaken = 0, -- build jobs taken, walked to with the gun out (Config/Bots.Build.Work)

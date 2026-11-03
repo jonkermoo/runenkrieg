@@ -7,6 +7,7 @@ local Stats = game:GetService("Stats")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
+local FrontCfg = require(Shared.Config.Frontline)
 local W = require(Shared.Config.Weapons)
 local Net = require(Shared.Net)
 local Map = require(Shared.LiveMap).map -- (the match's map)
@@ -317,7 +318,55 @@ local function runLines()
 	workspace:SetAttribute(DevCfg.Admin.BotRunsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- the bots standing still (Config/DevTools.Admin.BotStuckAttribute): alive, not on a gun, none moved `stuckFor` s
+-- (studs over the ground), with what they are doing; where each last moved and when
+local still: { [Bot]: { at: Vector3, since: number } } = setmetatable({}, { __mode = "k" }) :: any
+local function stuckLine()
+	local A = DevCfg.Admin
+	local now = os.clock()
+	local lines = {}
+	for _, b in bots do
+		local root = b.root
+		local m = b.m
+		if not root or not m or not alive(b) or b.deadAt or b.gun or Artillery.gunOf(m) then
+			still[b] = nil
+			continue
+		end
+		local p = (root :: BasePart).Position
+		local s = still[b]
+		if not s or flat(p - s.at).Magnitude > 1.5 then
+			still[b] = { at = p, since = now }
+		elseif now - s.since >= A.stuckFor then
+			local act = b.act
+			local goal = b.nav.goal
+			local parts = {
+				`{b.name} {math.floor(now - s.since)}s`,
+				`{b.side or "?"} {b.order or "-"} S{b.sector or "-"}`,
+				`role {b.role or "-"}`,
+				`brain {b.brain.state}`,
+				if act then `act {act.kind}{if act.job then " " .. act.job.job.key else ""}` else "no act",
+				if b.work then `work {b.workState or "?"} {b.work.job.job.key}` else "",
+				if goal then `goal {math.floor(flat((goal :: Vector3) - p).Magnitude)} studs` else "no goal",
+				if b.post then `post {math.floor(flat((b.post :: Vector3) - p).Magnitude)} studs` else "",
+				if (root :: BasePart).Anchored then "ANCHORED" else "",
+				if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then "held in the wave line" else "",
+				`think in {string.format("%.1f", b.nextThink - now)}s`,
+			}
+			local kept = {}
+			for _, x in parts do
+				if x ~= "" then
+					table.insert(kept, x)
+				end
+			end
+			table.insert(lines, table.concat(kept, ", "))
+		end
+	end
+	stats.stuck = #lines
+	workspace:SetAttribute(A.BotStuckAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 local function label()
+	stuckLine()
 	frontLine()
 	runLines()
 	rescues()
