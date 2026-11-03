@@ -583,6 +583,12 @@ function Build.tooClose(
 	return false
 end
 
+-- A square's HP as its panel shows it (whole numbers): full only once it is (a blast's share leaves a fraction short, 99.6
+-- is 99; user 2026-11-03: "this trench is at 100HP but its not built")
+function Build.trenchShownHP(hp: number, max: number): number
+	return if hp >= max then max else math.min(math.floor(hp + 0.5), max - 1)
+end
+
 -- A square's HP after a swing: Build adds `swing` up to `max`, Destroy takes it off. Second: whether it's gone.
 function Build.trenchSwing(hp: number, max: number, swing: number, build: boolean): (number, boolean)
 	if build then

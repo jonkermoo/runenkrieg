@@ -140,9 +140,7 @@ local Build = {
 		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
 		heapSink = 2.6,
 		-- the shape: floor half width, depth, walls at `wallAngle` (Metrics MaxSlopeAngle decides whether you can walk
-		-- up them), earth thrown up as a bank along both edges (the pit's rim) under each wall's parapet (Config/Assets
-		-- trench_pieces Wall<i>Parapet: a thick heap of dirt just behind the wall's top edge, about 2.1 to 2.5 over the
-		-- ground, a 74 degree face toward the trench: too steep to walk up, chest high cover to shoot over)
+		-- up them), earth thrown up as a bank along both edges (the pit's rim; `bank` below)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
 		-- (user 2026-10-23: 1.5x wider, then "a little more narrow"; 4.25 to 3, user 2026-11-02, "make it a little more narrow and less thick", option B: the 6-stud floor of
@@ -157,7 +155,11 @@ local Build = {
 		-- the terrain is cut this much deeper and wider than the pieces lie (their base slabs collide, so they are what
 		-- you stand on; Studio round 2026-11-02: the 4-stud voxels rounded the floor into a bowl over the pieces)
 		carve = { wider = 0.6, deeper = 0.8 },
-		bank = { width = 3, height = 1.2 }, -- (width 5 to 3 with the narrower trench, under its smaller heap)
+		-- the dirt heaped behind each wall's top edge is the terrain itself, a rounded bank `width` out and `height` over
+		-- the ground at its middle, sinking as the square is buried: low cover, a crouch behind it (user 2026-11-03: "can
+		-- we make the trench pile blended into the terrain so it doesnt look like bricks still? it should still provide
+		-- slight cover though"; was 3 by 1.2 under a Wall<i>Parapet mesh heap)
+		bank = { width = 6, height = 2 },
 		-- a bullet meeting the ground this close round a square's hole, walls and banks hits the square (studs; the
 		-- terrain is carved in 4-stud voxels, so a shot at a wall often meets the ground just in front of its slab)
 		shotSlack = 2,

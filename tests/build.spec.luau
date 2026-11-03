@@ -419,6 +419,11 @@ return {
 		hp, gone = B.trenchSwing(10, H.max, H.swing, false)
 		assert(hp == 0 and gone)
 	end,
+	["trenches: a square's panel shows it full only once it is"] = function()
+		local max = C.Trench.hp.max
+		assert(B.trenchShownHP(99.6, max) == max - 1, "a blast's fraction short isn't shown full")
+		assert(B.trenchShownHP(max, max) == max and B.trenchShownHP(42.4, max) == 42 and B.trenchShownHP(0, max) == 0)
+	end,
 	["trenches v2: a built square is buried by what it loses: a little at 80%, nearly level at 5-10%"] = function()
 		local H = C.Trench.hp
 		assert(near(B.trenchDepth(H.max / 2, false, H), 0.5), "digging: depth is the HP's share")
