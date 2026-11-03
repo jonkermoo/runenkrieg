@@ -361,7 +361,6 @@ local function stuckLine()
 			table.insert(lines, table.concat(kept, ", "))
 		end
 	end
-	stats.stuck = #lines
 	workspace:SetAttribute(A.BotStuckAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
