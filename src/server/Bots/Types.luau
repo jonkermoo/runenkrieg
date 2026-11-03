@@ -68,6 +68,7 @@ export type Act = {
 	phase: string?, -- the drag's "pull", the heal's "heal", the throw's "throw" and "done"
 	job: BuildJob?, -- a build's job
 	swingAt: number?, -- a build's next swing
+	swingOn: Instance?, -- what that swing is at (another: its first lands at the swing's strike)
 }
 
 export type Bot = {

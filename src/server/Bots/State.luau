@@ -89,9 +89,10 @@ function Tactics.dug.foot(model: Model): Vector3?
 	end
 	return nil
 end
--- `team`'s works (Build.worksOf) with a dugout's `at` its foot; and each dugout's room (the middle of its floor)
-function Tactics.dug.works(team: string?): ({ Build.Work }, { [Model]: Vector3 })
-	local works = Build.worksOf(team)
+-- `team`'s works (Build.worksOf, its swings a `class` builder's) with a dugout's `at` its foot; and each dugout's room
+-- (the middle of its floor)
+function Tactics.dug.works(team: string?, class: string?): ({ Build.Work }, { [Model]: Vector3 })
+	local works = Build.worksOf(team, class)
 	local rooms: { [Model]: Vector3 } = {}
 	for _, w in works do
 		if w.key == "Dugout" then

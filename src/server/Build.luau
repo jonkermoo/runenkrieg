@@ -1973,7 +1973,8 @@ function Build.planAs(model: Model, from: Vector3, to: Vector3): string?
 end
 
 -- One shovel swing at `target` (a piece's model, a trench square's model or a tree's part) in `mode` ("Build" or
--- "Destroy"), no sooner than Build.swingGap() after its last; within Config/Build.SwingReach of a piece
+-- "Destroy"), no sooner than Config/Build.SwingSlack of the shortest strike gap after its last (it swings on
+-- Build.nextSwing); within Config/Build.SwingReach of a piece
 -- (Trench.swingReach of a square). Nil when the swing landed.
 function Build.workAs(model: Model, target: Instance, mode: string): string?
 	local b = bot(model)
@@ -1991,9 +1992,10 @@ function Build.workAs(model: Model, target: Instance, mode: string): string?
 	return b.said or "Nothing to work there"
 end
 
--- the shortest time between two swings that land (Rules.strikeGap of the shovel's swings)
-function Build.swingGap(): number
-	return GAP
+-- when a bot's next swing of `mode` ("Build" or "Destroy") is due: a player's cadence holding the key, the first
+-- (`due` nil) at the swing's strike, then one each loop (Config/Build.Swings, Rules.nextSwing)
+function Build.nextSwing(mode: string, due: number?, now: number): number
+	return Rules.nextSwing(ShovelCfg[C.Swings[mode]], due, now)
 end
 
 -- A built thing and the work it wants (Build.worksOf)
@@ -2006,14 +2008,16 @@ export type Work = {
 	at: Vector3, -- where to stand near (a gun's own spot; a square's middle)
 	hp: number, -- its HP now (a standing gun's: the gun's)
 	max: number,
-	swing: number, -- HP one Build swing adds (a soldier's of no listed class: Config/Build.Power)
+	swing: number, -- HP one Build swing of the class asked for adds (none: a soldier's of no listed class; Config/Build.Power)
 	left: number, -- Build swings to full (Rules.workLeft); 0 when whole
 	built: boolean, -- has stood once (a standing gun is repaired, not built)
 }
 
--- Every piece and trench square of `team` (nil: every team's) and the work each wants
-function Build.worksOf(team: string?): { Work }
+-- Every piece and trench square of `team` (nil: every team's) and the work each wants of a builder of `class` (nil: a
+-- soldier of no listed class)
+function Build.worksOf(team: string?, class: string?): { Work }
 	local out: { Work } = {}
+	local power = Rules.swingPower("Build", class, C.Power)
 	for _, r in recs do
 		if team == nil or r.team == team then
 			local hp, max = r.work, r.need
@@ -2024,7 +2028,7 @@ function Build.worksOf(team: string?): { Work }
 			if r.built and g and type(gunHp) == "number" then
 				hp, max, swing = gunHp, g.hp, g.hp / g.repair
 			end
-			swing *= C.Power.build
+			swing *= power
 			table.insert(out, {
 				model = r.model,
 				key = r.piece.key,
@@ -2050,8 +2054,8 @@ function Build.worksOf(team: string?): { Work }
 			at = s.at,
 			hp = s.hp,
 			max = T.max,
-			swing = T.swing * C.Power.build,
-			left = Rules.workLeft(s.hp, T.max, T.swing * C.Power.build),
+			swing = T.swing * power,
+			left = Rules.workLeft(s.hp, T.max, T.swing * power),
 			built = s.built,
 		})
 	end

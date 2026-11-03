@@ -490,7 +490,7 @@ end
 -- the piece a bot just laid for `job`: its side's work of the key nearest the spot (a trench: its first end), or nil
 local function laidFor(b: Bot, job: BotBuild.Job): Build.Work?
 	local best, bestD = nil, BD.match
-	for _, w in (Tactics.dug.works(b.kit)) do
+	for _, w in (Tactics.dug.works(b.kit, Loadouts.classOf(b.m :: Model))) do
 		local d = math.sqrt((w.at.X - job.x) ^ 2 + (w.at.Z - job.z) ^ 2)
 		if w.key == job.key and d <= bestD then
 			best, bestD = w, d
@@ -529,6 +529,15 @@ local function refused(r: BuildJob, now: number)
 	}
 end
 
+-- whether a bot's swing of `mode` at `target` is due: a player's cadence holding the key (Build.nextSwing), the first
+-- at the swing's strike once it stands at the target
+local function swingDue(act: Act, target: Instance, mode: string, now: number): boolean
+	if act.swingOn ~= target then
+		act.swingOn, act.swingAt = target, Build.nextSwing(mode, nil, now)
+	end
+	return now >= (act.swingAt or 0)
+end
+
 -- a build, one think of it: to the job, the piece laid (once), then Build swings at it until it wants none, the
 -- shovel in hand; given up when it's shot at, sees an enemy, the job leaves the list or takes too long
 local function doBuild(b: Bot, act: Act, now: number): boolean
@@ -562,6 +571,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	local reach = if swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
 	if flat(spot - root.Position).Magnitude > reach then
 		humanoid.WalkSpeed = M.WalkSpeed
+		act.swingOn = nil -- (back in reach, its first swing at the strike again)
 		setGoal(b, if swingAt then spot else spot - f * BD.stand, now)
 		follow(b, now)
 		actPose(b)
@@ -576,11 +586,11 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	end
 	standFacing(b, if swingAt then spot else spot + f, now)
 	if tear then
-		if now >= (act.swingAt or 0) then
+		if swingDue(act, tear.model, "Destroy", now) then
 			local reason = Build.workAs(m, tear.model, "Destroy")
 			if reason == nil then
 				stats.torn += 1
-				act.swingAt = now + Build.swingGap()
+				act.swingAt = Build.nextSwing("Destroy", act.swingAt, now)
 			elseif reason ~= "Too soon" then
 				finish(b) -- (gone, or out of reach)
 				return false
@@ -630,10 +640,9 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			return false
 		end
 		r.model, r.at, r.left = w.model, w.at, w.left
-		act.swingAt = now + Build.swingGap()
 		return true
 	end
-	if now >= (act.swingAt or 0) then
+	if swingDue(act, r.model :: Model, "Build", now) then
 		local reason = Build.workAs(m, r.model :: Model, "Build")
 		if reason == nil and job.key == "Foxhole" then
 			-- one swing digs it: into it (pinned: its cover; holding: its post, facing the enemy)
@@ -649,7 +658,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			return false
 		elseif reason == nil then
 			stats.swings += 1
-			act.swingAt = now + Build.swingGap()
+			act.swingAt = Build.nextSwing("Build", act.swingAt, now)
 		elseif reason ~= "Too soon" then
 			finish(b) -- (whole now, or gone)
 			return false
