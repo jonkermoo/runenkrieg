@@ -355,12 +355,11 @@ local function tableView(t: number): (Vector3, number, number)
 	local looks = W.table.looks
 	local i, k = Rules.glance(looks, W.table.glance, t)
 	local from, to = looks[math.max(i - 1, 1)], looks[i]
-	-- (leaning in toward what the eyes rest on)
-	local function leanTo(l: any): Vector3
-		local d = post.origin + v3(l.look) - pos
-		return V(d.X, 0, d.Z).Unit * (l.lean or 0)
+	-- (moving along the table with the glance where a look has its own eye)
+	local function eyeOf(l: any): Vector3
+		return if l.eye then post.origin + v3(l.eye) else pos
 	end
-	pos += leanTo(from):Lerp(leanTo(to), k)
+	pos = eyeOf(from):Lerp(eyeOf(to), k)
 	local y1, p1 = aimAt(pos, post.origin + v3(from.look))
 	local y2, p2 = aimAt(pos, post.origin + v3(to.look))
 	return pos, Rules.turn(y1, y2, k, 0), p1 + (p2 - p1) * k

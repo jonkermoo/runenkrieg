@@ -703,8 +703,9 @@ function SketchMap.new(
 	end
 
 	local conn = RunService.Heartbeat:Connect(function()
-		if img.Parent and box.Visible and (box:FindFirstAncestorOfClass("ScreenGui") :: ScreenGui?) then
-			local gui = box:FindFirstAncestorOfClass("ScreenGui") :: ScreenGui
+		-- (on a screen, or on a paper in the world: the war table's sheet, src/client/CommandPost)
+		local gui = box:FindFirstAncestorWhichIsA("LayerCollector")
+		if img.Parent and box.Visible and gui then
 			if gui.Enabled then
 				update(os.clock())
 				placeMarkers()

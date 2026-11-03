@@ -232,9 +232,13 @@ local Cutscenes = {
 		over = { 0, 8.2, 2.4 },
 		table = {
 			glance = 1.4,
-			-- (`lean`: studs the eyes lean in toward it, across the floor)
+			-- (`eye`: where the eyes are while they rest on it, moving with the glance: along the table to stand over the
+			-- report, so it reads the right way up)
 			-- (on the map until its replay is done: Config/Results.Replay.seconds; user 2026-11-03)
-			looks = { { t1 = 8.4, look = { -0.8, 3, -0.8 } }, { t1 = 14, look = { 3.5, 3, 1.3 }, lean = 1.0 } },
+			looks = {
+				{ t1 = 8.4, look = { -0.8, 3, -0.8 } },
+				{ t1 = 14, look = { 3.5, 3, 1.3 }, eye = { 3.3, 7.4, 3.9 } },
+			},
 		},
 		turn = 1.5,
 		walk = { t1 = 3.6, to = { 0, 5.9 } },
