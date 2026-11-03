@@ -55,17 +55,21 @@ local function held(character: Model): (Tool?, string?)
 	return nil, nil
 end
 
-local function goOff(position: Vector3, name: string, by: Model?)
+local function goOff(position: Vector3, name: string, by: Model?, own: number?)
 	local t = Cfg.Types[name]
 	Damage.blast(position, t.kg, by, {
 		fell = false,
 		fragments = t.fragments,
-		own = Cfg.Own,
+		own = own or Cfg.Own,
 		flingLeast = Cfg.FlingLeast,
 		structure = "grenade",
 	})
 	Net.event("GrenadeBlast"):FireAllClients(position, t.kg, name)
 end
+
+-- A grenade of type `name` going off at `position`, set off by `by` (the admin panel's "Shell shock" rows:
+-- src/server/DevTools), as a thrown one; `own` the share that hurts `by` (default Config/Grenades.Own).
+Grenades.goOff = goOff
 
 local function throw(character: Model, name: string, origin: Vector3, velocity: Vector3)
 	local B = Cfg.Body

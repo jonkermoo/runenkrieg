@@ -192,6 +192,8 @@ export type SquadState = {
 	jumpAlong: Vector3?, -- along that square
 	jumpAt: number?, -- when the first of it got there
 	devPush: { at: Vector3, till: number }?, -- the admin panel's push at a point (Bots.dev "Push"), until `till`
+	midAt: number?, -- when the first of its free members reached its waypoint, and its approach spot (Squads.waitMax)
+	readyAt: number?,
 	flank: number?, -- attacking up a flank (-1 or 1, Config/Bots.Front.Flank): its route by a point off to that side
 }
 -- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again
@@ -227,6 +229,7 @@ export type SideBuild = {
 	hurt: { [Model]: { hp: number, at: number } }, -- its works' HP last tick and when each last lost any (repairWait)
 	-- its runs toward the enemy lately, each straight or a zig-zag and why (Config/Bots.Trenches.Zigzag; the newest last)
 	runNotes: { string },
+	gunNote: string?, -- why each gun is or isn't on its list (locked, its spots, or why none fit; the Engineer readout)
 }
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
 export type Soldier = {

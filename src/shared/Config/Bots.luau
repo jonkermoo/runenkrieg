@@ -166,6 +166,10 @@ local Bots = {
 		hop = 30,
 		arrive = 6,
 		spread = 5,
+		-- a squad moves on from a point on its way (its waypoint, its approach spot) once `readyShare` of its free
+		-- members (not building, rescuing or guarding) are there, or anyone has waited there `waitMax` s (user
+		-- 2026-11-03 play test: "a lot of AI's frozen after a sector taken": members off on jobs kept the rest waiting)
+		waitMax = 20,
 		-- Pushing a group (Rules/BotSquads.group, confident; user 2026-11-02 hand test: "make AI push as a team / group if
 		-- they are confident they can take out a section/group of enemies. they can coordinate too (cover, grenades,
 		-- etc)"; "Outnumber 1.5 to 1"; "if they have a grenade, use it. if not, just cover each other as you rush. cover,
@@ -422,6 +426,10 @@ local Bots = {
 		blast = 25,
 		line = 4,
 		lost = 0.8,
+		-- a cast is held while its beam from the head would hit something short of its point (user 2026-11-03 play test:
+		-- "mages ... shoot their own trench by accident, then repair it"); within `ownWithin` studs of the caster (its own
+		-- cover) it counts as a self-hit held off
+		ownWithin = 6,
 	},
 
 	-- Normal: bots and trenches (Rules/BotTrenches; user 2026-11-02: "bots that arent engineers should build trenches

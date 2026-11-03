@@ -4,9 +4,10 @@
 -- score; each side's next sector or any sector to a side), the Bots rows (the count, difficulty, state labels,
 -- Engineer / Grenadier for free, dig speed, shelling a side's trenches), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode, unlimited ammo and no staff cooldown), Weapon (the visible gun's sight lines, client only: src/client/DevSights), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
--- a full count of one), Shovel (the dig step, build anything, the slope readout), World (the range's test shooters, undo
--- destruction, the hitch log and print: src/shared/Hitches) and Time
+-- god mode, unlimited ammo and no staff cooldown), Weapon (the visible gun's sight lines, client only: src/client/DevSights), Shell shock (a grenade / shell at a chosen distance in front, a helmet
+-- shot: src/client/Concussion), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
+-- a full count of one), Shovel (the dig step, build anything, the slope readout), World (the range's test shooters, undo destruction, the
+-- hitch log and print: src/shared/Hitches) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
 -- weather off / on); Time and Weather are for everyone (src/server/Environment). Last the Cinematic rows for filming
 -- (src/client/DevCinematic): one switch hides every item, a row per item, and the Game switch (what any other player
@@ -370,6 +371,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotFrontAttribute):Connect(showPlans)
 	showPlans()
+	-- bots standing still (none moved A.stuckFor s, not on a gun) and what each is doing
+	order += 1
+	local stuck = DevPanel.heading(p.panel, "", order)
+	stuck.Size = UDim2.new(1, -8, 0, 140)
+	stuck.TextWrapped = true
+	stuck.TextYAlignment = Enum.TextYAlignment.Top
+	local function showStuck()
+		local s = workspace:GetAttribute(A.BotStuckAttribute)
+		stuck.Text = `Bots standing still ({A.stuckFor}s+):\n{if type(s) == "string" then s else "none"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotStuckAttribute):Connect(showStuck)
+	showStuck()
 	-- each side's latest runs toward the enemy: straight, or a zig-zag where the enemy can see down them (and why)
 	order += 1
 	local runs = DevPanel.heading(p.panel, "", order)
@@ -548,6 +561,17 @@ local function build(player: Player): DevPanel.Panel
 	end)
 	player:GetAttributeChangedSignal(A.Sights.attribute):Connect(showSights)
 	showSights()
+
+	-- Shell shock (src/server/DevTools, Config/DevTools.Admin.Shock): a real grenade or shell going off in front of you at
+	-- a chosen distance (yours: it knocks you, hurts you only with "My blasts hurt me" on), and a helmet shot from the
+	-- front; what you see and hear is src/client/Concussion
+	heading("Shell shock")
+	row("HelmetShot", "Helmet shot (from the front)", "HelmetShot")
+	for _, src in A.Shock.Sources do
+		for _, d in A.Shock.Distances do
+			row(`Shock_{src.key}_{d}`, `{src.label} at {d} studs`, "ShockAt", { source = src.key, distance = d })
+		end
+	end
 
 	-- Loadout (src/server/Loadouts): match points, a class every life (free, locked or not) or your own picks again
 	heading("Loadout")

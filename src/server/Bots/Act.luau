@@ -1093,6 +1093,29 @@ end
 -- the staff, one think: an open circle aimed and released once charged (dropped once its seen target has been out
 -- of sight a while); else, when the brain fires, the stage Rules/BotStaff.stage picks at the target (or a known
 -- enemy's cover): a quick shot at once, a medium or mega shot's circle opened
+-- whether a staff beam from `b`'s head to `at` (the target's body, or a spot) is clear (user 2026-11-03 play test:
+-- "mages frequently gets stuck in this loop where they shoot their own trench by accident, then repair it"): anything
+-- in the way short of `Sight.near` studs of the point holds it (it casts once it peeks out). Blocked close by
+-- (`Staff.ownWithin` studs: its own trench's wall or bank, a sandbag): counted.
+local function clearBeam(b: Bot, at: Vector3, target: Model?): boolean
+	local head = (b.head :: BasePart).Position
+	local line = at - head
+	rayParams.FilterDescendantsInstances = { b.m :: Model }
+	local hit = workspace:Raycast(head, line, rayParams)
+	stats.rays += 1
+	if
+		not hit
+		or (target and hit.Instance:IsDescendantOf(target))
+		or hit.Distance >= line.Magnitude - Cfg.Sight.near
+	then
+		return true
+	end
+	if hit.Distance <= ST.ownWithin then
+		stats.selfHits += 1
+	end
+	return false
+end
+
 local function staffFire(b: Bot, fire: boolean, target: Target?, coverAt: Vector3?, facing: boolean, d, now: number)
 	local m, head = b.m :: Model, b.head :: BasePart
 	local part = if target and target.visible then aimPart(target.model) else nil
@@ -1106,7 +1129,8 @@ local function staffFire(b: Bot, fire: boolean, target: Target?, coverAt: Vector
 		end
 		StaffCast.aimAs(m, c.at)
 		local hold = SpellsCfg.Stages[c.stage].hold
-		if facing and BotStaff.release(now - c.openedAt, hold, StaffCast.readyIn(m)) then
+		local ready = facing and BotStaff.release(now - c.openedAt, hold, StaffCast.readyIn(m))
+		if ready and clearBeam(b, c.at, if target then target.model else nil) then
 			if StaffCast.castAs(m, c.stage, c.at) then
 				(stats :: any)[`casts{c.stage}`] += 1
 			end
@@ -1129,6 +1153,9 @@ local function staffFire(b: Bot, fire: boolean, target: Target?, coverAt: Vector
 		return
 	end
 	local p = at :: Vector3
+	if not clearBeam(b, p, if part then (target :: Target).model else nil) then
+		return -- (nothing in the way it would hit: its own cover)
+	end
 	local all, n = soldiersNow()
 	local kit = m:GetAttribute("Kit")
 	local mates = {}
