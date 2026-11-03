@@ -693,7 +693,7 @@ local function run()
 			local w, e = heads()
 			folder:SetAttribute(Cfg.ReinforcedAttribute, Rules.reinforced(Cfg.Reinforcements, w, e))
 			local counts, inside, inZone = occupancy()
-			latest = counts
+			latest = inZone -- (the spawn choice by head, as before; the weights are the capture's)
 			for _, ev in Rules.step(state, Cfg, counts, dt, rate) do
 				if ev.kind == "Captured" then
 					still = 0
