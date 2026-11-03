@@ -319,7 +319,7 @@ function Menus.start()
 	local playerGui = player:WaitForChild("PlayerGui")
 	local title = build(TitleSpec, "TitleScreen", playerGui)
 	local loadout = build(LoadoutSpec, "LoadoutMenu", playerGui)
-	-- a match cutscene or the map vote over the menus (src/client/MatchCutscene, src/client/MapVote): their contents
+	-- a match cutscene or an end scene over the menus (src/client/MatchCutscene, src/client/EndScenes): their contents
 	-- hidden meanwhile, the menus otherwise as they are (open or not, the menu camera running under the cut)
 	function Menus.cover(on: boolean)
 		for screen, spec in { [title] = TitleSpec, [loadout] = LoadoutSpec } do

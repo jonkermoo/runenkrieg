@@ -660,8 +660,8 @@ function ModeHud.start()
 			local folder = workspace:FindFirstChild(Cfg.FrontlineFolder)
 			local map = workspace:FindFirstChild(Playtest.name)
 			local zone = map and map:FindFirstChild(ZoneCfg.MarkerName)
-			-- (the match's cutscenes and the map vote hide the HUD: src/client/MatchCutscene, src/client/MapVote)
-			local title = screenOn("TitleScreen") or screenOn("MatchCutscene") or screenOn("MapVote")
+			-- (the match's cutscenes and end scenes hide the HUD: src/client/MatchCutscene, src/client/EndScenes)
+			local title = screenOn("TitleScreen") or screenOn("MatchCutscene") or screenOn("EndScenes")
 			local ffa = zone ~= nil and workspace:GetAttribute(ModesCfg.Attribute) == "FFA"
 			ffaOn = ffa
 			front = not ffa and folder ~= nil and folder:IsA("Folder")

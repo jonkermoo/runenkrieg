@@ -33,6 +33,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Frontline)
 local CutCfg = require(Shared.Config.Cutscenes)
+local CutRules = require(Shared.Rules.Cutscenes)
 local BotsCfg = require(Shared.Config.Bots)
 local DamageCfg = require(Shared.Config.Damage)
 local SectorCfg = require(Shared.Config.Sectors)
@@ -92,6 +93,7 @@ local latest: { { West: number, East: number } } = {} -- the last tick's soldier
 local waveAt: number? = nil -- the next wave's server time while the line holds (countdown and play)
 local slots: { [string]: number } = { West = 0, East = 0 } -- the wave line's slots taken since the last wave
 local holding: { [Model]: boolean } = {} -- the soldiers standing in a wave line
+local frozen: { BasePart } = {} -- the roots anchored at a match's end, until the next match
 local playedAt = 0 -- os.clock() when play began (the capture log's times)
 local log: { { t: number, index: number, side: string } } = {} -- the match's captures, in order (the results' replay)
 
@@ -316,6 +318,33 @@ local function shield(character: Model, root: BasePart)
 end
 
 -- the wave goes: everyone in the line can move, the shield fading over Waves.shield
+-- A match's end (on): every soldier, player or bot, anchored where it stands (the bots stop thinking: Frontline.over);
+-- off: let go again.
+local function freeze(on: boolean)
+	for _, root in frozen do
+		if root.Parent then
+			root.Anchored = false
+		end
+	end
+	table.clear(frozen)
+	if not on then
+		return
+	end
+	local function hold(character: Model?)
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and not root.Anchored then
+			root.Anchored = true
+			table.insert(frozen, root)
+		end
+	end
+	for _, p in Players:GetPlayers() do
+		hold(p.Character)
+	end
+	for _, m in bots() do
+		hold(m)
+	end
+end
+
 local function release()
 	for character in holding do
 		if not character.Parent then
@@ -621,6 +650,7 @@ local function run()
 			end
 			task.wait(Cfg.CountdownSeconds)
 			release()
+			folder:SetAttribute(Cfg.SpeechAttribute, nil) -- (the narrator has spoken)
 			setWave(Rules.nextWave(start, Cfg.Waves.every, workspace:GetServerTimeNow() + 0.05))
 			phase("Playing")
 			playedAt = os.clock()
@@ -677,35 +707,54 @@ local function run()
 		release()
 		setWave(nil)
 		folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
-		-- the post-match cutscene (the results are sent now: the screen opens when the cut ends or is skipped), the
-		-- results, then the map vote with the map put back behind it
-		phase("Finale", Cfg.FinaleSeconds)
+		-- the end (Config/Cutscenes; user 2026-11-02): everyone frozen where they stand and the screen faded to the
+		-- winner's colour, the after-action report on the battle table (the results are sent now), the winners' vote on
+		-- the map board, then the armory while the map is put back and moved to the pick: at least as long as the
+		-- narrator's first part. The narrator's subject stays on the folder until the next countdown has played.
+		freeze(true)
+		local winnerKit: string? = if winner then pair[winner] else nil
+		local played = LiveMap.key()
+		folder:SetAttribute(Cfg.SpeechAttribute, `{winnerKit or "none"},{played}`)
+		phase("Fade", Cfg.FadeSeconds)
 		MatchStats.send({
 			mode = "Normal",
-			winner = if winner then pair[winner] else nil,
+			winner = winnerKit,
 			log = table.clone(log),
 			length = os.clock() - playedAt,
-			map = LiveMap.key(),
-			endsAt = workspace:GetServerTimeNow() + Cfg.FinaleSeconds + Cfg.ResultsSeconds,
+			map = played,
+			endsAt = workspace:GetServerTimeNow() + Cfg.FadeSeconds + Cfg.TableSeconds,
 		}, function(p: Player): string?
 			return Kits.next(p)
 		end)
-		task.wait(Cfg.FinaleSeconds)
-		phase("Results", Cfg.ResultsSeconds)
-		task.wait(Cfg.ResultsSeconds)
+		task.wait(Cfg.FadeSeconds)
+		phase("Table", Cfg.TableSeconds)
+		task.wait(Cfg.TableSeconds)
+		local pick = played
 		local offer = MapVote.offer()
 		if #offer > 1 then
+			local winners = false
+			for _, p in Players:GetPlayers() do
+				winners = winners or (winner ~= nil and Rules.sideOf(pair, Kits.next(p)) == winner)
+			end
 			phase("Vote", Cfg.VoteSeconds)
-			MapVote.open(folder, offer)
-			putBack()
+			MapVote.open(folder, offer, function(p: Player): boolean
+				return CutRules.maySign(Rules.sideOf(pair, Kits.next(p)), winner, winners)
+			end)
 			task.wait(Cfg.VoteSeconds)
-			local pick = MapVote.close(folder, math.random()) or LiveMap.key()
-			task.wait(CutCfg.Vote.pick.hold) -- (the winner stamped NEXT on every screen)
-			useMap(pick)
-			newMatch()
-		else
-			newMatch(true)
+			pick = MapVote.close(folder, math.random()) or played
+			task.wait(CutCfg.Vote.pick.hold) -- (the arm stamps NEXT on every screen)
 		end
+		local nation = if winnerKit then (U.Kits :: any)[winnerKit].team else ""
+		local S = CutCfg.Speech
+		local spoken = CutRules.speechSeconds(CutRules.partOne(S, winnerKit, played, nation), S.wordsPerSecond, S.gap)
+		local least = math.clamp(spoken, Cfg.Loading.least, Cfg.Loading.max)
+		local loading = os.clock()
+		phase("Loading", least)
+		putBack()
+		useMap(pick)
+		newMatch()
+		task.wait(math.max(least - (os.clock() - loading), 0))
+		freeze(false)
 		task.wait() -- (src/server/Deploy splits everyone over the new pair first)
 		for _, p in Players:GetPlayers() do
 			if alive(p) then
@@ -752,6 +801,13 @@ function Frontline.deployBot(m: Model)
 end
 
 -- Whether the match is running (the server's mode is Normal).
+-- Whether the match is over and its end is playing (the fade, the table, the vote, the armory): nobody fights.
+local OVER = { Fade = true, Table = true, Vote = true, Loading = true }
+function Frontline.over(): boolean
+	local ph = thread and folder and folder:GetAttribute("Phase")
+	return type(ph) == "string" and OVER[ph] == true
+end
+
 function Frontline.running(): boolean
 	return thread ~= nil
 end
@@ -797,6 +853,7 @@ function Frontline.stop()
 	task.cancel(thread :: thread)
 	thread = nil
 	release()
+	freeze(false)
 	for _, c in conns do
 		c:Disconnect()
 	end
@@ -812,6 +869,8 @@ end
 function Frontline.restart()
 	if thread then
 		task.cancel(thread :: thread)
+		freeze(false)
+		folder:SetAttribute(Cfg.SpeechAttribute, nil)
 		newMatch(true)
 		thread = task.spawn(run)
 	end

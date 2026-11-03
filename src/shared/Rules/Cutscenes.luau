@@ -183,6 +183,94 @@ function Cutscenes.text(template: string?, fill: { [string]: string }): string
 	end))
 end
 
+-- The narrator (Config/Cutscenes.Speech). A line: its words and the earliest it may start (seconds into its part).
+export type Line = { text: string, at: number }
+
+-- Part one, in the armory: where the match was won (`played`: the map's key) and the momentum, for the winning kit
+-- (`winner`, nil: no winner) whose nation is `nation`. Every line at 0: they follow one another.
+function Cutscenes.partOne(speech: any, winner: string?, played: string, nation: string): { Line }
+	local won = if winner then speech.won[played] else speech.wonNone[played]
+	local out: { Line } = {}
+	if won then
+		table.insert(out, { text = Cutscenes.text(won, { winner = nation }), at = 0 })
+	end
+	local momentum = speech.momentum[winner or "none"]
+	if momentum then
+		table.insert(out, { text = momentum, at = 0 })
+	end
+	return out
+end
+
+-- When point `i` of `n` is stamped in the flight's `shot` (which runs from `t0`): Rules.stamped's moment.
+function Cutscenes.stampTime(shot: any, t0: number, i: number, n: number): number
+	local u = math.clamp((i - 1.5) / math.max(n - 1, 1), 0, 1)
+	return t0 + u * (shot.t1 - t0)
+end
+
+-- Part two, over the pre-match flight `cut` on a map with `n` points (`nextMap` its key): the plan's first line as the
+-- dive starts, one as each point's seal is stamped, then the closing call (by the winning kit) as the camera goes into
+-- the soldier's eyes. A map without a plan gets only the call.
+function Cutscenes.partTwo(speech: any, cut: any, winner: string?, nextMap: string, n: number): { Line }
+	local out: { Line } = {}
+	local plan = speech.plans[nextMap]
+	local starts: { [string]: number } = {}
+	local front, frontT0 = nil, 0
+	for i, s in cut.shots do
+		starts[s.kind] = starts[s.kind] or Cutscenes.start(cut, i)
+		if s.kind == "Front" and not front then
+			front, frontT0 = s, Cutscenes.start(cut, i)
+		end
+	end
+	if plan then
+		if plan[1] then
+			table.insert(out, { text = plan[1], at = starts.Move or 0 })
+		end
+		for i = 1, n do
+			local line = plan[i + 1]
+			if line then
+				local at = if front then Cutscenes.stampTime(front, frontT0, i, n) else 0
+				table.insert(out, { text = line, at = at })
+			end
+		end
+	end
+	local close = speech.close[winner or "none"]
+	if close then
+		table.insert(out, { text = close, at = starts.Eyes or Cutscenes.length(cut) })
+	end
+	return out
+end
+
+-- About how long `lines` take spoken one after another: their words at `wps` words a second, `gap` between lines.
+function Cutscenes.speechSeconds(lines: { Line }, wps: number, gap: number): number
+	local total = 0
+	for k, l in lines do
+		local _, words = string.gsub(l.text, "%S+", "")
+		total += words / wps + (if k > 1 then gap else 0)
+	end
+	return total
+end
+
+-- When each line starts, given how long each takes (`seconds`, by index): no earlier than its cue, never before the
+-- line before it has ended and `gap` passed.
+function Cutscenes.schedule(lines: { Line }, seconds: { number }, gap: number): { number }
+	local out, free = {}, -math.huge
+	for k, l in lines do
+		local start = math.max(l.at, free)
+		out[k] = start
+		free = start + (seconds[k] or 0) + gap
+	end
+	return out
+end
+
+-- Whether a soldier of `side` may sign for the next map: the winners only (user 2026-11-02: "winners sign"), everyone
+-- when there is no winner or no player on the winning side (`winnersPresent` false).
+function Cutscenes.maySign(side: Side?, winner: Side?, winnersPresent: boolean): boolean
+	if not winner or not winnersPresent then
+		return true
+	end
+	return side == winner
+end
+
 -- The vote's offer: the frontline maps in `keys` that are built (`built[key]`), the live one first, at most `max`.
 function Cutscenes.offer(keys: { string }, built: { [string]: boolean }, live: string, max: number): { string }
 	local out = {}
