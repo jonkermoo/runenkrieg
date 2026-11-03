@@ -13,6 +13,25 @@ local function enemy(x: number, z: number, visible: boolean?, hiddenFor: number?
 end
 
 return {
+
+	["rescuer: one of the casualty's squad first, then the nearest, within range"] = function()
+		local cands = {
+			{ distance = 5, sameSquad = false },
+			{ distance = 20, sameSquad = true },
+			{ distance = 12, sameSquad = true },
+			{ distance = 90, sameSquad = true },
+		}
+		assert(R.rescuer(cands, A.Rescue.range) == 3, "its squad's nearest")
+		assert(R.rescuer({ { distance = 9, sameSquad = false }, { distance = 4, sameSquad = false } }, 40) == 2)
+		assert(R.rescuer({ { distance = 50, sameSquad = true } }, 40) == nil, "out of range")
+		assert(R.rescuer({}, 40) == nil)
+	end,
+	["mayTend: safe, or in a fight only from cover or to a teammate in cover"] = function()
+		assert(R.mayTend(true, false, true), "safe")
+		assert(not R.mayTend(false, false, true), "in a fight, both in the open")
+		assert(R.mayTend(false, true, true), "the bot in cover")
+		assert(R.mayTend(false, false, false), "the teammate in cover")
+	end,
 	["calm: nobody shooting at it or hitting it for long enough"] = function()
 		assert(R.calm(5, 5, A.Heal.calm))
 		assert(not R.calm(1, 5, A.Heal.calm), "shot at lately")
