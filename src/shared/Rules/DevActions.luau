@@ -28,6 +28,7 @@ local PLAIN = table.freeze({
 	Respawn = true,
 	KnockMe = true,
 	HelmetOff = true,
+	HelmetShot = true,
 	HealDummies = true,
 	KnockDummies = true,
 	SayDummies = true,
@@ -126,6 +127,16 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Admin.Points, value) ~= nil
 	elseif action == "Grenade" then
 		return table.find(cfg.Admin.Grenades, value) ~= nil
+	elseif action == "ShockAt" then
+		if type(value) ~= "table" or table.find(cfg.Admin.Shock.Distances, value.distance) == nil then
+			return false
+		end
+		for _, s in cfg.Admin.Shock.Sources do
+			if s.key == value.source then
+				return true
+			end
+		end
+		return false
 	elseif action == "Weather" then
 		return table.find(cfg.Admin.Weather, value) ~= nil
 	elseif action == "Clock" then

@@ -218,7 +218,7 @@ local function shot(shooter: Model, weapon: string, hits: { RayHit })
 			local left = Rules.after(e.humanoid.Health, total, helmet, Cfg.HelmetFloor)
 			-- the helmet shot off and alive: concussed (src/server/Concussion), before the knock reads it
 			if e.helmet and left > 0 and e.humanoid.Health > 0 and not Damage.protected(character) then
-				Concussion.helmet(character, left, e.humanoid.MaxHealth)
+				Concussion.helmet(character, left, e.humanoid.MaxHealth, e.direction)
 			end
 			hurt(
 				character,
@@ -239,6 +239,22 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 	Hitches.since("Shot damage", t0)
 end
 
+-- A helmet shot on `character` by `weapon` (Config/Damage.Weapons) travelling along `direction`, as a real one: hurt,
+-- concussed and knocked (the admin panel's "Helmet shot": src/server/DevTools; the helmet itself comes off there).
+function Damage.helmetShot(character: Model, weapon: string, direction: Vector3)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local t = Cfg.Weapons[weapon]
+	if not humanoid or humanoid.Health <= 0 or not t then
+		return
+	end
+	local amount = Rules.amount(t, "Helmet")
+	local left = Rules.after(humanoid.Health, amount, amount, Cfg.HelmetFloor)
+	if left > 0 and not Damage.protected(character) then
+		Concussion.helmet(character, left, humanoid.MaxHealth, direction)
+	end
+	hurt(character, humanoid, left, Rules.knock("Helmet", left <= 0, Cfg.Knocks), flat(direction), nil, nil, "Helmet")
+end
+
 -- A butt stroke (src/server/Melee) from `striker` on the body part `part` in `zone` (a helmet hit already took the
 -- helmet off), along `direction`: Config/Damage.Melee's damage and knock. True when it hurt a soldier.
 function Damage.melee(striker: Model, part: BasePart, zone: string, direction: Vector3): boolean
@@ -255,7 +271,7 @@ function Damage.melee(striker: Model, part: BasePart, zone: string, direction: V
 	end
 	local left, knock = MeleeRules.hit(zone, humanoid.Health, Cfg.Melee, Cfg.Knocks.Killed, Cfg.HelmetFloor)
 	if zone == "Helmet" and left > 0 and not Damage.protected(character) then
-		Concussion.helmet(character, left, humanoid.MaxHealth) -- the helmet struck off: concussed
+		Concussion.helmet(character, left, humanoid.MaxHealth, direction) -- the helmet struck off: concussed
 	end
 	hurt(character, humanoid, left, knock, flat(direction), nil, striker, zone)
 	return true

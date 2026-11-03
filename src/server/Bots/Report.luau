@@ -7,6 +7,7 @@ local Stats = game:GetService("Stats")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
+local FrontCfg = require(Shared.Config.Frontline)
 local W = require(Shared.Config.Weapons)
 local Net = require(Shared.Net)
 local Map = require(Shared.LiveMap).map -- (the match's map)
@@ -91,7 +92,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; front %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -146,6 +147,7 @@ local function report(now: number, governor: { cap: number })
 			stats.guarded,
 			stats.rescues,
 			stats.rescuesLet,
+			stats.movedOn,
 			stats.contacts,
 			stats.parallels,
 			stats.zigzags,
@@ -168,6 +170,7 @@ local function report(now: number, governor: { cap: number })
 			stats.casts2,
 			stats.casts3,
 			stats.dropped,
+			stats.selfHits,
 			stats.doors,
 			windows,
 			clearing,
@@ -270,6 +273,10 @@ local function engineers()
 		if #parts > 0 then
 			table.insert(lines, `{side}: {table.concat(parts, "; ")}`)
 		end
+		local sb = buildLists[side]
+		if sb and sb.gunNote then
+			table.insert(lines, `{side} guns: {sb.gunNote}`)
+		end
 	end
 	workspace:SetAttribute(DevCfg.Admin.BotEngineersAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
@@ -317,7 +324,85 @@ local function runLines()
 	workspace:SetAttribute(DevCfg.Admin.BotRunsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- the bots standing still (Config/DevTools.Admin.BotStuckAttribute): alive, not on a gun, at work or on a post, none
+-- moved `stuckFor` s
+-- (studs over the ground), with what they are doing; where each last moved and when
+-- a bot's squad as the stuck readout shows it: its phase, and how far the bot is from its approach spot, waypoint and
+-- jump-off
+local function squadNote(b: Bot, p: Vector3): string
+	local sq = b.squad and squads[b.squad :: string]
+	if not sq then
+		return "no squad"
+	end
+	local parts = { `squad {sq.sq.phase}` }
+	for _, w in { { "approach", sq.approach }, { "waypoint", sq.mid }, { "jump", sq.jump }, { "push", sq.push } } do
+		local at = w[2] :: Vector3?
+		if at then
+			table.insert(parts, `{w[1]} {math.floor(flat(at - p).Magnitude)}`)
+		end
+	end
+	if sq.sap then
+		table.insert(parts, "sapping")
+	end
+	return table.concat(parts, " ")
+end
+
+local still: { [Bot]: { at: Vector3, since: number } } = setmetatable({}, { __mode = "k" }) :: any
+local function stuckLine()
+	local A = DevCfg.Admin
+	local now = os.clock()
+	local lines = {}
+	for _, b in bots do
+		local root = b.root
+		local m = b.m
+		if not root or not m or not alive(b) or b.deadAt or b.gun or Artillery.gunOf(m) then
+			still[b] = nil
+			continue
+		end
+		local p = (root :: BasePart).Position
+		-- (standing meant: building, healing or dragging, or on its post)
+		local post = b.post
+		if b.act or (post and flat((post :: Vector3) - p).Magnitude <= 4) then
+			still[b] = nil
+			continue
+		end
+		local s = still[b]
+		if not s or flat(p - s.at).Magnitude > 1.5 then
+			still[b] = { at = p, since = now }
+		elseif now - s.since >= A.stuckFor then
+			local act = b.act
+			local goal = b.nav.goal
+			local parts = {
+				`{b.name} {math.floor(now - s.since)}s`,
+				`{b.side or "?"} {b.order or "-"} S{b.sector or "-"}`,
+				`role {b.role or "-"}`,
+				`brain {b.brain.state}`,
+				if act then `act {act.kind}{if act.job then " " .. act.job.job.key else ""}` else "no act",
+				if b.work then `work {b.workState or "?"} {b.work.job.job.key}` else "",
+				if goal then `goal {math.floor(flat((goal :: Vector3) - p).Magnitude)} studs` else "no goal",
+				if b.post then `post {math.floor(flat((b.post :: Vector3) - p).Magnitude)} studs` else "",
+				if (root :: BasePart).Anchored then "ANCHORED" else "",
+				squadNote(b, p),
+				if b.stop then `stop {math.floor(flat((b.stop :: Vector3) - p).Magnitude)} studs` else "",
+				if b.guard then `guarding {b.guard.who.Name}` else "",
+				`path {#b.nav.waypoints} pts{if b.nav.computing then " computing" else ""}`,
+				if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then "held in the wave line" else "",
+				`think in {string.format("%.1f", b.nextThink - now)}s`,
+			}
+			local kept = {}
+			for _, x in parts do
+				if x ~= "" then
+					table.insert(kept, x)
+				end
+			end
+			table.insert(lines, table.concat(kept, ", "))
+		end
+	end
+	workspace:SetAttribute(A.BotStuckAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 local function label()
+	stuckLine()
 	frontLine()
 	runLines()
 	rescues()
