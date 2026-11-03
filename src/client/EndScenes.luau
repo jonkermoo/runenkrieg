@@ -166,10 +166,9 @@ local function buildSets()
 	local A = Cfg.Armory.set
 	armoryModel = CommandPost.loadSet(f, A.asset, at, A.turn, A.images) ~= nil
 	if armoryModel then
-		-- its lights, and the fields past the door (the model's space turned as the model is)
-		local turn = CFrame.Angles(0, math.rad(A.turn), 0)
+		-- its lights, and the fields past the door (in the part list's space: the model once turned)
 		local function place(p: { number }): Vector3
-			return at + turn * v3(p)
+			return at + v3(p)
 		end
 		for _, l in A.points do
 			local holder = part("Light", V(0.2, 0.2, 0.2), CFrame.new(place(l.at)), rgb(l.colour))
@@ -181,7 +180,7 @@ local function buildSets()
 		end
 		for _, l in A.fills do
 			local from = place(l.at)
-			local holder = part("Fill", V(0.2, 0.2, 0.2), CFrame.lookAt(from, from + turn * v3(l.face)), rgb(l.colour))
+			local holder = part("Fill", V(0.2, 0.2, 0.2), CFrame.lookAt(from, from + v3(l.face)), rgb(l.colour))
 			holder.Transparency = 1
 			local light = Instance.new("SurfaceLight")
 			light.Face, light.Range, light.Brightness, light.Angle = Enum.NormalId.Front, l.range, l.brightness, l.angle
@@ -450,16 +449,15 @@ local function armoryCam(t: number): (CFrame, number)
 		return lookCf(armory + v3(s.from):Lerp(v3(s.to), u), armory + v3(s.look)), Cfg.Fov
 	end
 	local s = A.shots[math.floor(t / A.cut) % #A.shots + 1]
-	local turn = CFrame.Angles(0, math.rad(A.set.turn), 0)
-	local from, look = turn * v3(s.from), turn * v3(s.look)
+	local from, look = v3(s.from), v3(s.look) -- (the part list's space: the model once turned)
 	local kind, amount = s.drift[1], s.drift[2] * u
 	if kind == "push" then
 		from += (look - from).Unit * amount
 	elseif kind == "rise" then
 		from += V(0, amount, 0)
 	elseif kind == "truck" then
-		from += turn * V(amount, 0, 0)
-		look += turn * V(amount, 0, 0)
+		from += V(amount, 0, 0)
+		look += V(amount, 0, 0)
 	elseif kind == "arc" then
 		from = look + CFrame.Angles(0, math.rad(amount), 0) * (from - look)
 	end

@@ -818,7 +818,7 @@ end
 -- The set from the library's command_post (nil where the library hasn't got it): its meshes coloured by name, its
 -- printed papers given their images, its blank papers covered by the game's own.
 -- A modelled set out of the library (Config/Assets `key`), nil where it hasn't got it: its meshes coloured by name
--- (C_RRGGBB flat, G_RRGGBB glowing), its printed papers given `images` (mesh name -> image id), its blank papers in
+-- (C_RRGGBB flat, G_RRGGBB glowing; a big mesh's pieces C_RRGGBB_<n>), its printed papers given `images` (mesh name -> image id), its blank papers in
 -- paper colour, stood with its Origin at `origin`, turned `turn` degrees.
 function CommandPost.loadSet(folder: Instance, key: string, origin: Vector3, turn: number, images: any): Model?
 	local e = AssetsCfg.Entries[key]
@@ -837,7 +837,7 @@ function CommandPost.loadSet(folder: Instance, key: string, origin: Vector3, tur
 		if d:IsA("BasePart") then
 			d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
 			d.CastShadow = true
-			local kind, hex = string.match(d.Name, "^([CG])_(%x%x%x%x%x%x)$")
+			local kind, hex = string.match(d.Name, "^([CG])_(%x%x%x%x%x%x)")
 			if kind and hex then
 				d.Color = Color3.fromHex(hex)
 				d.Material = if kind == "G" then Enum.Material.Neon else Enum.Material.SmoothPlastic
