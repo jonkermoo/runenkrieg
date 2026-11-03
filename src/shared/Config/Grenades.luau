@@ -17,6 +17,10 @@ local Grenades = {
 	-- whoever it hurts is thrown at least this share of the blast throw (Config/Damage.Blast.Fling `least`, 0.3 for
 	-- other blasts; user 2026-11-01: more knockback): a fragment wound drops a soldier clearly; a kill throws in full
 	FlingLeast = 0.5,
+	-- ...but only within this share of its splinters' `wound` reach (a Mills 21 studs, the SIPE 17, the stick 21): farther
+	-- off a splinter still wounds, without the throw or the concussion (user 2026-11-03: "40 stud grenade shouldnt shell
+	-- shock too much or knock back. move the 40 stud effects to 20")
+	FlingReach = 0.5,
 
 	-- The throw: along the camera's look, lifted `loft` degrees (so a level look still lobs it), at the grenade's own
 	-- `speed` (studs/s, below). From the head, `from` studs out in the camera's space (+X right, +Y up, -Z forward): the

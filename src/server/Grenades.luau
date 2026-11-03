@@ -62,6 +62,7 @@ local function goOff(position: Vector3, name: string, by: Model?, own: number?)
 		fragments = t.fragments,
 		own = own or Cfg.Own,
 		flingLeast = Cfg.FlingLeast,
+		flingReach = t.fragments.wound * Cfg.FlingReach,
 		structure = "grenade",
 	})
 	Net.event("GrenadeBlast"):FireAllClients(position, t.kg, name)
