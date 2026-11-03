@@ -145,6 +145,9 @@ local DevTools = {
 		DownHealth = 0.4, -- "Nearest bot knocked down here": its health share after (src/server/Bots.dev "Down")
 		-- the admin panel's readout of each side's bot classes (src/server/Bots, every commander tick in Normal)
 		BotClassesAttribute = "DevBotClasses",
+		-- the admin panel's readout of each side's Engineer bots: each one's build job, or why it has none
+		-- (src/server/Bots, every commander tick)
+		BotEngineersAttribute = "DevBotEngineers",
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
 		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },

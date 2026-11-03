@@ -156,23 +156,33 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boole
 			return open[g]
 		end
 	end
-	local k = BotBuild.pick(list, root.X, root.Z, BD.take, taken, {}, nil)
+	-- (an Engineer any job on its side's front, from where its squad is: Build.engineerTake)
+	local reach = if engineer and not any then BD.engineerTake else BD.take
+	local k = BotBuild.pick(list, root.X, root.Z, reach, taken, {}, nil)
 	return if k then open[k] else nil
 end
 
 -- the build job a bot takes on its side's list: an Engineer any; a digger (half a holding squad, any class) a trench
 -- run or square, a sandbag pile or barrier, wire wanting swings within Build.help; a defender a gun out of service;
--- nil if none
-local function pickJob(b: Bot): BuildJob?
+-- nil if none (and why, for the admin panel's readout)
+local function pickJob(b: Bot): (BuildJob?, string?)
 	local sb = buildLists[b.side :: string]
-	if not sb or #sb.open == 0 then
-		return nil
+	if not sb or not sb.front then
+		return nil, "no front"
+	end
+	if #sb.open == 0 then
+		return nil, "no jobs open"
 	end
 	if not b.digger and Loadouts.classOf(b.m :: Model) ~= "Engineer" then
 		-- a defender (who would crew it: src/server/Bots/Crew) fixes a gun of its side out of service, nothing else
-		return if b.order == "Defend" then pickFrom(b, sb.open, true, true) else nil
+		if b.order == "Defend" then
+			return pickFrom(b, sb.open, true, true), nil
+		end
+		return nil, "not a builder"
 	end
-	return pickFrom(b, sb.open, false)
+	local r = pickFrom(b, sb.open, false)
+	local reach = if Loadouts.classOf(b.m :: Model) == "Engineer" then BD.engineerTake else BD.take
+	return r, if r then nil else `none within {reach} studs`
 end
 
 -- an enemy dugout's steps to throw down, if its squad `sq` knows someone is in it (Rules/BotTrenches.occupied): within
@@ -497,8 +507,20 @@ local function weigh(b: Bot, now: number)
 			return
 		end
 	end
+	-- (an Engineer's job, or why it has none: the admin panel's readout)
+	if Loadouts.classOf(m) == "Engineer" then
+		b.buildWhy = if w
+			then "on its job"
+			elseif pushing then "pushing"
+			elseif seen then "enemy in sight"
+			elseif not Actions.calm(sinceThreat, sinceHurt, BD.calm) then "under fire"
+			else nil
+	end
 	if not pushing and not seen and not w and b.side and Actions.calm(sinceThreat, sinceHurt, BD.calm) then
-		local r = pickJob(b)
+		local r, why = pickJob(b)
+		if Loadouts.classOf(m) == "Engineer" then
+			b.buildWhy = if r then r.job.key else why
+		end
 		if r then
 			takeJob(b, r, now)
 			return

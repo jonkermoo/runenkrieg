@@ -372,6 +372,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotClassesAttribute):Connect(showMix)
 	showMix()
+	-- each side's Engineer bots: what each builds, or why nothing
+	order += 1
+	local engineers = DevPanel.heading(p.panel, "", order)
+	engineers.Size = UDim2.new(1, -8, 0, 96)
+	engineers.TextWrapped = true
+	engineers.TextYAlignment = Enum.TextYAlignment.Top
+	local function showEngineers()
+		local s = workspace:GetAttribute(A.BotEngineersAttribute)
+		engineers.Text = `Engineer bots:\n{if type(s) == "string" then s else "none now"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotEngineersAttribute):Connect(showEngineers)
+	showEngineers()
 	local botDigs: { [number]: TextButton } = {}
 	for _, k in A.BotDig.steps do
 		botDigs[k] = row(`BotDig{k}`, if k == 1 then "Bot digging: normal" else `Bot digging: x{k}`, "BotDig", k)

@@ -55,9 +55,19 @@ function BotBuild.toward(sectors: { { x: number, z: number } }, i: number, side:
 end
 
 -- The Engineers' build list at its side's front `zone`, the enemy's way in along (tx, tz) (a flat unit): a sandbag pile
--- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the edge, an MG nest at the hold spot nearest the enemy, and the
--- guns `guns` names (the keys its side may build) behind the zone.
-function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns: { string }, cfg: any): { Job }
+-- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the
+-- edge, MG nests ahead of the `nests` hold spots nearest the enemy (default `cfg.Nest.count`: those missing, user
+-- 2026-11-03: "3 mg nests if there arent built"), and the guns `guns` names (the keys its side may build) behind the
+-- zone.
+function BotBuild.plan(
+	zone: Zone,
+	tx: number,
+	tz: number,
+	holds: { Hold },
+	guns: { string },
+	cfg: any,
+	nests: number?
+): { Job }
 	local jobs: { Job } = {}
 	-- across: the line at right angles to the way in
 	local ax, az = -tz, tx
@@ -83,16 +93,14 @@ function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns
 			fz = tz,
 		})
 	end
-	local best, bestDot = nil, -math.huge
-	for _, h in holds do
-		local dot = (h.x - zone.x) * tx + (h.z - zone.z) * tz
-		if dot > bestDot then
-			best, bestDot = h, dot
-		end
-	end
-	if best then
-		local N = cfg.Nest
-		table.insert(jobs, { key = "MGNest", x = best.x + tx * N.ahead, z = best.z + tz * N.ahead, fx = tx, fz = tz })
+	local N = cfg.Nest
+	local order = table.clone(holds)
+	table.sort(order, function(a, b)
+		return (a.x - zone.x) * tx + (a.z - zone.z) * tz > (b.x - zone.x) * tx + (b.z - zone.z) * tz
+	end)
+	for k = 1, math.min(nests or N.count, #order) do
+		local h = order[k]
+		table.insert(jobs, { key = "MGNest", x = h.x + tx * N.ahead, z = h.z + tz * N.ahead, fx = tx, fz = tz })
 	end
 	local G = cfg.Guns
 	for k, key in guns do

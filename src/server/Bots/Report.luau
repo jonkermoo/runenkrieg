@@ -244,9 +244,35 @@ local function classMix()
 	workspace:SetAttribute(DevCfg.Admin.BotClassesAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- each side's Engineer bots: what each builds, or why nothing (Config/DevTools.Admin.BotEngineersAttribute)
+local function engineers()
+	local lines = {}
+	for _, side in { "West", "East" } do
+		local parts = {}
+		for _, b in bots do
+			local m = b.m
+			if m and b.side == side and m:GetAttribute("Class") == "Engineer" then
+				local act = b.act
+				local what = if act and act.job
+					then `building {act.job.job.key}`
+					elseif act then act.kind
+					elseif b.gun or Artillery.gunOf(m) then "on a gun"
+					elseif b.work then `{b.workState or "going"} to {b.work.job.job.key}`
+					else (b.buildWhy or "not weighed yet")
+				table.insert(parts, `{b.name}: {what}`)
+			end
+		end
+		if #parts > 0 then
+			table.insert(lines, `{side}: {table.concat(parts, "; ")}`)
+		end
+	end
+	workspace:SetAttribute(DevCfg.Admin.BotEngineersAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 local function label()
 	rescues()
 	classMix()
+	engineers()
 	local S = DevCfg.Admin.BotState
 	local on = workspace:GetAttribute(S.attribute) == true
 	if not on and not Tactics.dev.labelled then

@@ -284,7 +284,8 @@ local Bots = {
 	-- sector it holds nearest the enemy), facing the enemy's way in:
 	-- - Bags: a sandbag pile `ahead` studs in front of each outdoor hold spot with no cover (the first `max`).
 	-- - Wire: a strip `out` studs past the zone's edge on each of `lanes` (studs across from the middle).
-	-- - Nest: an MG nest `ahead` of the hold spot nearest the enemy.
+	-- - Nest: MG nests `ahead` of the `count` hold spots nearest the enemy, less those of its side's already standing
+	--   at the front (user 2026-11-03: "3 mg nests if there arent built").
 	-- - Guns: the guns its side may build (Rules/Frontline.gunLocked), `back` studs behind the zone's middle, `side` apart.
 	-- - repairs: own pieces within `repair` studs past the zone's edge that want swings (the nearest `repairs`).
 	-- (the trenches: Trenches below.) Engineers take the nearest job within `take` studs; a digger (Trenches.share of a
@@ -298,6 +299,9 @@ local Bots = {
 	Build = {
 		calm = 3,
 		take = 90,
+		-- an Engineer takes a job this far off (user 2026-11-03 play test: "even when i give free engineers, the bots arent
+		-- building": the front's jobs lay past `take` from the sector their squads were sent to)
+		engineerTake = 400,
 		help = 25,
 		stand = 4,
 		seconds = 60,
@@ -319,7 +323,7 @@ local Bots = {
 		-- studs of where it works and once it is safe there (Rules/BotBuild.safeToWork); danger mid-work drops the tool
 		-- and it fights, then goes back to it. The job is kept `keep` s from when it was taken.
 		Work = { near = 3, keep = 60 },
-		Nest = { ahead = 2 },
+		Nest = { ahead = 2, count = 3 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
 		caps = { pieces = 100, FieldGun = 3, Howitzer = 1 },
@@ -346,7 +350,7 @@ local Bots = {
 		-- guns' spots; the bots' share of each gun (`caps` above) gets a spot. None fits: the fixed spot (`Guns` above).
 		Crews = {
 			max = 2,
-			enough = 3,
+			enough = 4, -- (all the guns its bots build: caps 3 field guns and 1 howitzer, user 2026-11-03)
 			back = { 90, 60, 30 },
 			across = { 0, -60, 60, -120, 120, -180, 180 },
 			spawnGap = 40,
@@ -723,7 +727,7 @@ local Bots = {
 	-- - MGs (user: "Yes, at seen enemies"): at a target it sees within the gun's range, bursts `burst.on` s held and
 	--   `burst.off` s let go; a new box once the box is empty, or under `topUp` of it with nothing to shoot at.
 	Crew = {
-		max = 4,
+		max = 7, -- (every gun and nest its bots build manned: 4 guns and 3 nests, user 2026-11-03: "utilize cannons and mgnests more")
 		walk = 300,
 		crewFirst = 60,
 		walkFor = 45,
