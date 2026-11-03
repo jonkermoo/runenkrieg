@@ -229,6 +229,15 @@ local Bots = {
 		every = 0.5,
 		Drag = { within = 12, cover = 15, seconds = 8 },
 		Heal = { calm = 3, below = 0.7, within = 25, reach = 4, seconds = 10 },
+		-- in a fight a teammate is dragged or healed only from cover or in cover (Rules/BotActions.mayTend; user
+		-- 2026-11-03: "they protect you and grab/heal you once it is safe"): else the bot stays within `near` studs of
+		-- them with its gun out, fighting, for up to `keep` s, and goes to them once it may
+		Guard = { near = 6, keep = 20 },
+		-- one rescuer a casualty (Rules/BotActions.rescuer; user 2026-11-03: "only have 1 soldier save them"): the nearest
+		-- free bot of its side within `range` studs, one of its squad first; the rest keep their push, post and
+		-- formation. A bot in a push never breaks off for one. A rescuer that dies or is pulled away lets it go, and
+		-- another may take it `wait` s later.
+		Rescue = { range = 40, wait = 3 },
 		Grenade = {
 			min = 15,
 			max = 35,
@@ -303,6 +312,11 @@ local Bots = {
 		-- no swing at a piece of theirs within `repairWait` s of it losing HP (user 2026-11-02 hand test: "Dont let ai
 		-- repair structures that are being destroyed by players"; "20 seconds": Rules/BotBuild.mayRepair)
 		repairWait = 20,
+		-- a job is walked to with the gun out, fighting on the way (user 2026-11-03 play test: "shooting and protecting
+		-- themselves and finding cover as they move to where they want to go"): the gun goes away only within `near`
+		-- studs of where it works and once it is safe there (Rules/BotBuild.safeToWork); danger mid-work drops the tool
+		-- and it fights, then goes back to it. The job is kept `keep` s from when it was taken.
+		Work = { near = 3, keep = 60 },
 		Nest = { ahead = 2 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)

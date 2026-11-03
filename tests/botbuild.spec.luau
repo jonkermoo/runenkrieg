@@ -225,6 +225,15 @@ return {
 	["mayRepair: only after the wait"] = function()
 		assert(not R.mayRepair(B.repairWait - 1, B.repairWait) and R.mayRepair(B.repairWait, B.repairWait))
 	end,
+	["safeToWork: pinned always; never with an enemy in sight; else calm or hidden from the threat"] = function()
+		local c = B.calm
+		assert(R.safeToWork(true, true, 0, 0, false, c), "its own foxhole under fire")
+		assert(not R.safeToWork(false, true, math.huge, math.huge, true, c), "an enemy in sight")
+		assert(R.safeToWork(false, false, c, c, false, c), "calm")
+		assert(not R.safeToWork(false, false, c - 0.1, math.huge, false, c), "shot at lately")
+		assert(not R.safeToWork(false, false, math.huge, c - 0.1, false, c), "hurt lately")
+		assert(R.safeToWork(false, false, 0, 0, true, c), "the spot hidden from the threat")
+	end,
 	["strikes: sometimes, likelier empty"] = function()
 		local Me = Cfg.Melee
 		assert(R.strikes(false, Me.chance - 0.01, Me) and not R.strikes(false, Me.chance + 0.01, Me))
