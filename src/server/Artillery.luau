@@ -1718,6 +1718,63 @@ function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
 	return true
 end
 
+-- Whether the bot's field gun or howitzer laid on world `point` would land there (user 2026-11-03: "AI still firing into
+-- hills"): the shell's path from its muzzle at that lay (Rules.path) cast against the world, soldiers and the gun left
+-- out and the first Config/Bots.Build.Crews `arc.near` studs skipped (its own ground and pit), first coming down within
+-- `arc.within` studs of the point; and whether it can lay there at all (in its reach). False, false when it is on no
+-- gun. (A machine gun: true, true.)
+local shotParams = RaycastParams.new()
+function Artillery.shotClearAs(model: Model, point: Vector3): (boolean, boolean)
+	local s = stateOfBot(model)
+	if not s then
+		return false, false
+	end
+	local gun = s.gun
+	if gun.mg then
+		return true, true
+	end
+	local yaw, elevation = layOn(s, point)
+	if not yaw or not elevation then
+		return false, false
+	end
+	local A = BotCfg.Build.Crews.arc
+	local frame = CFrame.new(s.model:GetPivot().Position) * CFrame.Angles(0, math.rad(yaw), 0)
+	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, 0, elevation)
+	local origin = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local v = frame:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
+	local points = Rules.path(
+		origin.X,
+		origin.Y,
+		origin.Z,
+		v.X,
+		v.Y,
+		v.Z,
+		gun.gravity,
+		A.step,
+		Cfg.MaxFlight,
+		math.min(origin.Y, point.Y) - 50
+	)
+	local skip: { Instance } = { s.model }
+	if s.pit then
+		table.insert(skip, s.pit)
+	end
+	for _, m in Damage.soldiers() do
+		table.insert(skip, m)
+	end
+	shotParams.FilterDescendantsInstances = skip
+	for i = 2, #points do
+		local a, b = points[i - 1], points[i]
+		if Vector3.new(b[1] - origin.X, 0, b[3] - origin.Z).Magnitude >= A.near then
+			local from = Vector3.new(a[1], a[2], a[3])
+			local hit = workspace:Raycast(from, Vector3.new(b[1], b[2], b[3]) - from, shotParams)
+			if hit then
+				return Vector3.new(hit.Position.X - point.X, 0, hit.Position.Z - point.Z).Magnitude <= A.within, true
+			end
+		end
+	end
+	return false, true
+end
+
 -- The bot's gun laid to land on world `point` (the low arc where it can, else the high). False when it is on no gun or
 -- the point is out of its reach or its shell would come down on a spawn (the lay left as it was).
 function Artillery.aimAtAs(model: Model, point: Vector3): boolean
