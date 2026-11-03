@@ -17,6 +17,10 @@ local Results = {
 		from = 0.25,
 		to = 0.86,
 		bend = 0.18,
+		-- a second capture between the same two points bows the other way; each pair of lanes past that bows `lane`
+		-- more, and a lane's ends sit `laneEnds` (shares of the map) off the first's
+		lane = 0.9,
+		laneEnds = 0.04,
 		thick = 0.009,
 		head = 0.25,
 		spread = 28,

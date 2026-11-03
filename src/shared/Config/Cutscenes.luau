@@ -129,7 +129,7 @@ local Cutscenes = {
 		-- the game's own models on the table at real size x1.35 (their longest side in studs), coloured as the game
 		-- colours them; places on the table top from its middle (x, z), turned `yaw` degrees, lying on a side if `side`
 		props = {
-			{ asset = "rifle_g98", length = 5.6, at = { -1.6, -2.3 }, yaw = 90, side = true },
+			{ asset = "rifle_g98", length = 4.4, at = { -1.6, -2.3 }, yaw = 90, side = true }, -- (true to scale: set.rifle)
 			{ asset = "staff", length = 6.4, at = { -0.9, 2.35 }, yaw = 92, side = true },
 			{ asset = "helmet_stahl", length = 1.7, at = { 5.0, -1.9 }, yaw = 30 },
 			{ asset = "round_qf18", length = 2.1, at = { -6.2, -0.5 }, yaw = -95, side = true },
@@ -143,6 +143,32 @@ local Cutscenes = {
 		set = {
 			asset = "command_post",
 			turn = 180,
+			-- its meshes taken out (Studio 2026-11-03): its own map pins and their flags (the game's pennants stand on
+			-- the played map's points), and its rifles, the one on the table half again too long (user 2026-11-03:
+			-- "the rifle is not to proper size") with the rack's behind it (out of every view)
+			hide = { "C_9898A0", "C_A0A0A0", "C_98A0A0", "C_505858", "C_904828", "C_303838" },
+			-- the game's own rifle in its place, true to scale: the eye 5.8 studs over the floor (about 1.65 m), so a
+			-- stud is about 0.28 m and the Gewehr 98's 1.25 m is 4.4 studs; from its middle (x, z studs from the
+			-- Origin) along x, on its side, clear of the shell and the pocket watch; kept clear of like the props below
+			rifle = { asset = "rifle_g98", length = 4.4, at = { -1.5, -2.3 }, r = 0.17, h = 0.3 },
+			-- the props merged into its big meshes, lying on the table (a ray finds their hull, not them: Studio
+			-- 2026-11-03), kept clear by hand: each from `a` to `b` (x, z studs from the Origin; one place for a round
+			-- thing) `r` round and `h` tall over the sheet; measured from the straight-down view
+			keepOut = {
+				{ a = { -4.99, -2.17 }, b = { -4.25, 0.14 }, r = 0.32, h = 0.45 }, -- the shell
+				{ a = { 5.09, -1.96 }, b = { 5.09, -1.96 }, r = 1.05, h = 1.0 }, -- the helmet
+				{ a = { 0.75, -0.45 }, b = { 0.95, 0.3 }, r = 0.15, h = 0.1 }, -- the dividers
+				-- the casings
+				{ a = { -1.43, -0.13 }, b = { -1.43, -0.13 }, r = 0.15, h = 0.1 },
+				{ a = { -0.84, -0.34 }, b = { -0.84, -0.34 }, r = 0.15, h = 0.1 },
+				{ a = { -0.5, -0.08 }, b = { -0.5, -0.08 }, r = 0.15, h = 0.1 },
+				{ a = { -0.14, -0.24 }, b = { -0.14, -0.24 }, r = 0.15, h = 0.1 },
+				{ a = { 0.2, 0.03 }, b = { 0.2, 0.03 }, r = 0.15, h = 0.1 },
+				{ a = { 0.47, -0.11 }, b = { 0.47, -0.11 }, r = 0.15, h = 0.1 },
+				{ a = { -1.02, 0.95 }, b = { -1.02, 0.95 }, r = 0.15, h = 0.1 },
+				{ a = { 0.12, 2.42 }, b = { 0.12, 2.42 }, r = 0.2, h = 0.1 },
+				{ a = { -3.75, 0.36 }, b = { -3.75, 0.36 }, r = 0.15, h = 0.1 },
+			},
 			papers = {
 				TableSheet = { at = { 0, 3.007, 0 }, size = { 11.333, 5.312 }, front = { 0, 1, 0 }, up = { 0, 0, -1 } },
 				Report = {
@@ -233,14 +259,15 @@ local Cutscenes = {
 		-- beyond its HQ, clear of the taker's block there)
 		blocks = { rest = { 0.55, 0.05 }, lift = 0.12, back = 0.6, off = 1.35 },
 		-- each side's piece a chess rook (user 2026-11-03: "use chess pieces for the pieces"), lacquered in its side's
-		-- colour on a felt base: `radius` and `tall` studs
-		piece = { radius = 0.16, tall = 0.46 },
+		-- colour on a felt base: `radius` and `tall` studs; kept `clear` studs off each point (its ring and name) and
+		-- off the arrows' heads
+		piece = { radius = 0.16, tall = 0.46, clear = 0.3 },
 		-- nothing on the table inside another (user 2026-11-03: "if an item is inside another it should be put in
 		-- another spot or stacked on top (realistically)"): a piece or pin rests on the nearest level place to where it
 		-- belongs, out in rings `step` studs apart (`rings` of them, `around` places each); level: its footprint's
-		-- heights within `level` studs and no slope, so it stands on a paper or the clipboard but never across an edge
-		-- or on a round prop; it stays `edge` studs inside the table
-		spot = { step = 0.1, rings = 12, around = 12, level = 0.03, edge = 0.25 },
+		-- heights within `level` studs (a paper's edge, not the clipboard's) and no slope, so it stands on a paper or the
+		-- clipboard but never across the board's edge or on a round prop; it stays `edge` studs inside the table
+		spot = { step = 0.1, rings = 12, around = 12, level = 0.01, edge = 0.25 },
 		-- the pin pennants: pin `tall` studs, pennant `flag` (long, high); on a capture it lifts `lift` and drops back
 		-- over `flip` seconds, changing colour at the top
 		pennants = { tall = 0.55, flag = { 0.32, 0.2 }, lift = 0.1, flip = 0.45, at = { 0.14, -0.06 } },
@@ -267,9 +294,10 @@ local Cutscenes = {
 		sway = { amount = 0.025, rate = 0.25 },
 		-- at the table: leaning over it, the whole table in view, the map and the report at once (user 2026-11-03: "we
 		-- should over look the entire table the whole time without changing view"); straight down over the sheet's
-		-- middle with a narrower `fov` there, the sheet's edges just inside the bars (user 2026-11-03: the render's
-		-- angle), easing to the room's `fov` as we turn to the board
-		over = { 0, 9.2, 0.01 },
+		-- middle (a little from our side, so the pennants show their cloth) with a narrower `fov` there, the sheet's
+		-- edges just inside the bars (user 2026-11-03: the render's angle), easing to the room's `fov` as we turn to the
+		-- board
+		over = { 0, 9.2, 1.7 },
 		table = {
 			fov = 60,
 			glance = 1.4,

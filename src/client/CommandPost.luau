@@ -91,6 +91,7 @@ export type Post = {
 	leadFrom: Vector3,
 	title: TextLabel, -- the sheet's title ("SHEET 1 - <map>")
 	ground: RaycastParams, -- the set's own things (the table's surface under a piece: CommandPost.restSpot)
+	keepOut: { { a: Vector3, b: Vector3, r: number, h: number } }, -- props a ray can't see (on the sheet's face)
 	spots: { [string]: Vector3 }, -- where each piece and pin rests, once found (laid again for each map)
 }
 
@@ -269,10 +270,13 @@ local function model(parent: Instance, key: string, length: number, cf: CFrame):
 	return m
 end
 
--- lays `m` on the surface at height `y` (its lowest point there)
+-- lays `m` on the surface at height `y` (its lowest point there, however its box is turned)
 local function settle(m: Model, y: number)
 	local bb, size = m:GetBoundingBox()
-	m:PivotTo(m:GetPivot() + V(0, y - (bb.Position.Y - size.Y / 2), 0))
+	local down = math.abs(bb.RightVector.Y) * size.X
+		+ math.abs(bb.UpVector.Y) * size.Y
+		+ math.abs(bb.LookVector.Y) * size.Z
+	m:PivotTo(m:GetPivot() + V(0, y - (bb.Position.Y - down / 2), 0))
 end
 
 local function pin(folder: Instance, at: Vector3)
@@ -526,16 +530,39 @@ end
 
 -- the set's own things for a ray down to the table's surface (each made queryable; the pieces and pins laid later
 -- stay out of it)
+-- stay out of it): the small ones and the flat ones (a big merged mesh's hull covers the table where it has nothing:
+-- Config/Cutscenes.Post.set.keepOut holds what lies in those)
 local function groundOf(folder: Instance): RaycastParams
+	local list = {}
 	for _, d in folder:GetDescendants() do
-		if d:IsA("BasePart") then
+		local size = if d:IsA("BasePart") and d.Transparency < 1 then d.Size else nil
+		if size and (math.max(size.X, size.Y, size.Z) <= 2.5 or math.min(size.X, size.Y, size.Z) <= 0.05) then
 			d.CanQuery = true
+			table.insert(list, d)
 		end
 	end
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { folder }
+	params.FilterDescendantsInstances = list
 	return params
+end
+
+-- the set's keep-outs in the world (`origin` its Origin, on the sheet at `top`)
+local function keepOutOf(
+	origin: Vector3,
+	top: number,
+	list: { any }
+): { { a: Vector3, b: Vector3, r: number, h: number } }
+	local out = {}
+	for _, k in list do
+		table.insert(out, {
+			a = V(origin.X + k.a[1], top, origin.Z + k.a[2]),
+			b = V(origin.X + k.b[1], top, origin.Z + k.b[2]),
+			r = k.r,
+			h = k.h,
+		})
+	end
+	return out
 end
 
 -- the hut ---------------------------------------------------------------------------------------------------------------
@@ -727,12 +754,11 @@ local function drawSheet(sf: Frame, px: number): (Frame, TextLabel)
 	strip.ZIndex = 2
 	-- the legend on its own paper, lower left, over the map's ground: the advance, a sector, a trench, the river, the
 	-- scale (five bars, ink and paper by turns)
-	local legend = box(sf, 0.05, 0.6, 0.21, 0.29, PAPER)
-	legend.ZIndex = 3
+	local legend = box(sf, 0.06, 0.68, 0.21, 0.27, PAPER)
 	outline(legend, INK, 1)
-	text(legend, "LEGEND", SLAB, INK, 0.07, 0.04, 0.8, 0.13, 0.29 * px)
+	local lh = 0.27 * px
+	text(legend, "LEGEND", SLAB, INK, 0.07, 0.04, 0.8, 0.13, lh)
 	box(legend, 0.07, 0.17, 0.86, 0.006, INK)
-	local lh = 0.29 * px
 	local entries = { "ADVANCE", "SECTOR", "TRENCH", "RIVER" }
 	for i, name in entries do
 		text(legend, name, TYPE, INK, 0.42, 0.2 + (i - 1) * 0.15, 0.55, 0.11, lh)
@@ -781,13 +807,18 @@ local function drawSheet(sf: Frame, px: number): (Frame, TextLabel)
 	end
 	text(legend, "500 YDS", TYPE, INK, 0.6, 0.8, 0.35, 0.1, lh)
 	-- the sheet's title on its own patch of paper, bottom middle, clear of the report
-	local patch = box(sf, 0.37, 0.86, 0.25, 0.1, PAPER)
-	patch.ZIndex = 3
+	local patch = box(sf, 0.29, 0.86, 0.22, 0.1, PAPER)
 	local title = text(patch, "SHEET 1", SLAB, INK, 0.05, 0.08, 0.9, 0.48, 0.1 * px)
 	title.TextXAlignment = Enum.TextXAlignment.Center
 	local sub = text(patch, "SCALE 1:50000", TYPE, INK, 0.05, 0.58, 0.9, 0.34, 0.1 * px)
 	sub.TextXAlignment = Enum.TextXAlignment.Center
 	box(patch, 0.05, 0.55, 0.9, 0.012, INK)
+	-- (both over the strip's drawing, all that's in them with them)
+	legend.ZIndex, patch.ZIndex = 3, 3
+	local gui = sf:FindFirstAncestorOfClass("SurfaceGui")
+	if gui then
+		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	end
 	return strip, title
 end
 
@@ -1219,12 +1250,32 @@ local function buildSet(folder: Folder, origin: Vector3): Post?
 	if not set then
 		return nil
 	end
-	-- (the orders' own papers stand in for the set's blank ones, which would show behind a swinging order)
+	-- (the orders' own papers stand in for the set's blank ones, which would show behind a swinging order; the
+	-- pennants for its pins; the game's rifle for its own)
+	local hide = {}
+	for _, n in S.hide do
+		hide[n] = true
+	end
 	for _, d in set:GetDescendants() do
-		if d:IsA("BasePart") and string.match(d.Name, "^Paper_Order") then
+		if d:IsA("BasePart") and (string.match(d.Name, "^Paper_Order") or hide[d.Name]) then
 			d.Transparency = 1
+			d.CastShadow = false
 		end
 	end
+	local R = S.rifle
+	local sheetTop = origin.Y + S.papers.TableSheet.at[2]
+	local rifle = model(
+		folder,
+		R.asset,
+		R.length,
+		CFrame.new(origin + V(R.at[1], S.papers.TableSheet.at[2] + 1, R.at[2]))
+			* CFrame.Angles(0, math.pi / 2, 0)
+			* CFrame.Angles(0, 0, math.pi / 2)
+	)
+	settle(rifle, sheetTop + 0.005)
+	local keep = table.clone(S.keepOut)
+	local half = R.length / 2
+	table.insert(keep, { a = { R.at[1] - half, R.at[2] }, b = { R.at[1] + half, R.at[2] }, r = R.r, h = R.h })
 	local papers = S.papers
 	local T = Cfg.Table
 	local sheet = setPaper(folder, origin, papers.TableSheet, "Sheet")
@@ -1286,6 +1337,7 @@ local function buildSet(folder: Folder, origin: Vector3): Post?
 		reportPx = papers.Report.size[2] * T.report.pixelsPerStud,
 		telegramPx = papers.Telegram.size[2] * 180,
 		pins = false,
+		keepOut = keepOutOf(origin, sheetTop, keep),
 		sheetAt = function(share: Vector2): Vector3
 			return faceAt(sheet, Enum.NormalId.Front, share, 0)
 		end,
@@ -1384,6 +1436,7 @@ function CommandPost.build(folder: Folder, origin: Vector3): Post
 		reportPx = Cfg.Table.report.size[2] * Cfg.Table.report.pixelsPerStud,
 		telegramPx = 180,
 		pins = true,
+		keepOut = {},
 		sheetAt = function(share: Vector2): Vector3
 			return faceAt(sheet, Enum.NormalId.Top, share, 0)
 		end,
@@ -1715,6 +1768,14 @@ local FOOT = {
 	V(0.7, 0, -0.7),
 	V(-0.7, 0, -0.7),
 }
+-- how far `at` (x, z) is from a keep-out's line
+local function offLine(k: { a: Vector3, b: Vector3 }, at: Vector3): number
+	local a, b, p = Vector2.new(k.a.X, k.a.Z), Vector2.new(k.b.X, k.b.Z), Vector2.new(at.X, at.Z)
+	local d = b - a
+	local u = if d.Magnitude < 1e-3 then 0 else math.clamp((p - a):Dot(d) / d:Dot(d), 0, 1)
+	return (p - (a + d * u)).Magnitude
+end
+
 local function footprint(post: Post, at: Vector3, radius: number): (number, number, boolean)
 	local top, low, level = -math.huge, math.huge, true
 	for _, o in FOOT do
@@ -1747,6 +1808,9 @@ function CommandPost.restSpot(
 			local ok = math.abs(d.X) <= half.X and math.abs(d.Z) <= half.Y
 			for _, o in avoid do
 				ok = ok and Vector2.new(c.X - o.at.X, c.Z - o.at.Z).Magnitude >= radius + o.r
+			end
+			for _, out in post.keepOut do
+				ok = ok and offLine(out, c) >= radius + out.r
 			end
 			if not ok then
 				continue
@@ -1817,10 +1881,18 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 			})
 		local at = post.spots[key]
 		table.insert(pins, { at = at, r = 0.05 })
-		table.insert(pins, { at = at + V(PN.flag[1] / 2, 0, 0), r = PN.flag[1] / 2 })
+		table.insert(pins, { at = at + V(PN.flag[1] / 2, 0, 0), r = PN.flag[1] / 2 + 0.08 })
+	end
+	-- (and off the points' rings and names, and the arrows' heads)
+	local clear = table.clone(pins)
+	for _, p in places do
+		table.insert(clear, { at = onSheet(p.at), r = PC.clear })
+	end
+	for _, c in caps or {} do
+		table.insert(clear, { at = onSheet(c.b), r = PC.radius })
 	end
 	local function spot(key: string, want: Vector3): Vector3
-		post.spots[key] = post.spots[key] or CommandPost.restSpot(post, want, PC.radius, pins)
+		post.spots[key] = post.spots[key] or CommandPost.restSpot(post, want, PC.radius, clear)
 		return post.spots[key]
 	end
 	-- where each side's piece rests: by its front point, on the side it faces the enemy from
@@ -1871,6 +1943,11 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 		local at = pos[side]
 		local face = if side == "West" then 0 else math.pi
 		local y = footprint(post, at, PC.radius)
+		for _, k in post.keepOut do
+			if offLine(k, at) < PC.radius + k.r then
+				y = math.max(y, k.a.Y + k.h)
+			end
+		end
 		m:PivotTo(CFrame.new(V(at.X, y + lift[side], at.Z)) * CFrame.Angles(0, face, 0))
 	end
 	-- the pennants: each its point's holder's colour; at a capture it lifts, changes at the top, and drops back

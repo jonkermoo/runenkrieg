@@ -572,6 +572,7 @@ function SketchMap.new(
 		drawn: number,
 		timing: any,
 		progress: { number },
+		lanes: { number },
 	}
 	local replay: Replay? = nil
 	local A, RP = ResultsCfg.Arrow, ResultsCfg.Replay
@@ -603,7 +604,10 @@ function SketchMap.new(
 		end)
 	end
 	winRing.Parent = area
-	-- capture `e`'s arrow (the k-th): from the neighbour its taker came from toward the point, in map shares
+	-- capture `e`'s arrow (the k-th): from the neighbour its taker came from toward the point, in map shares. Captures
+	-- between the same two points each take a lane of their own (user 2026-11-03: "never directly on top"): the first
+	-- bowing above the line between them, the next below, then further above and further below; each lane's ends set
+	-- off it a little, so no two heads land together.
 	local function arrowOf(e: any, k: number): (Vector2, Vector2, Vector2)
 		local p = points[e.index]
 		local here = Vector2.new(u(p.x), v(p.z))
@@ -614,9 +618,25 @@ function SketchMap.new(
 		local a = from:Lerp(here, A.from)
 		local b = from:Lerp(here, A.to)
 		local d = b - a
-		local side = if k % 2 == 0 then 1 else -1
-		local mid = (a + b) / 2 + Vector2.new(-d.Y, d.X) * A.bend * side
-		return a, mid, b
+		local lane = if replay then replay.lanes[k] or 0 else 0
+		local bow = Vector2.new(-d.Y, d.X)
+		if bow.Y > 0 then
+			bow = -bow -- (up the sheet, whichever way the arrow runs)
+		end
+		if lane == 0 then
+			return a, (a + b) / 2 + bow * A.bend, b
+		end
+		-- (a later lane: square to the arrow as drawn, the area being `wide` times as wide as it's tall, down the sheet
+		-- and then up by turns, each pair further out)
+		local wide = (m.size[1] - 2 * m.pad) / (m.size[2] - 2 * m.pad)
+		local up = Vector2.new(-d.Y / wide, d.X * wide)
+		if up.Y > 0 then
+			up = -up
+		end
+		local away = if lane % 2 == 0 then 1 else -1
+		local reach = 1 + (lane // 2) * A.lane
+		local off = up.Unit * A.laneEnds * (lane // 2 + 1) * away
+		return a + off, (a + b) / 2 + up * A.bend * away * reach, b + off
 	end
 	local function drawReplay(r: Replay, now: number)
 		local folder = workspace:FindFirstChild(FOLDER)
@@ -707,10 +727,11 @@ function SketchMap.new(
 				stamp.Parent = area
 				stamps[k] = stamp
 			end
-			local _, mid = arrowOf(e, k)
-			-- (above the arrow's bend: the points' names sit under them)
+			local a, mid, b = arrowOf(e, k)
+			-- (on the outside of the arrow's bow: above one bowing up, under one bowing down)
 			local tall = A.stamp * area.AbsoluteSize.X / math.max(area.AbsoluteSize.Y, 1)
-			local at = mid - Vector2.new(0, tall * A.lift)
+			local below = mid.Y > (a.Y + b.Y) / 2
+			local at = mid + Vector2.new(0, tall * A.lift * (if below then 1 else -1))
 			stamp.Text = StatsRules.clock(e.t)
 			stamp.Position = UDim2.fromScale(at.X, at.Y)
 			stamp.Size = UDim2.fromScale(A.stamp * 3, A.stamp * area.AbsoluteSize.X / math.max(area.AbsoluteSize.Y, 1))
@@ -946,6 +967,13 @@ function SketchMap.new(
 		-- `timing` (seconds, lead, tail, draw) in place of Config/Results.Replay's
 		replay = function(log: { any }, won: boolean, timing: any?)
 			local shown, timed = StatsRules.replayLog(log, RP.most)
+			local lanes, used = {}, {}
+			for k, e in shown do
+				local other = e.index + (if e.side == "West" then -1 else 1)
+				local pair = math.min(e.index, other) .. ":" .. math.max(e.index, other)
+				lanes[k] = used[pair] or 0
+				used[pair] = lanes[k] + 1
+			end
 			replay = {
 				log = shown,
 				timed = timed,
@@ -955,6 +983,7 @@ function SketchMap.new(
 				drawn = -1,
 				timing = timing or RP,
 				progress = {},
+				lanes = lanes,
 			}
 		end,
 		-- where things stand on the sketch, for props laid on it (the command post's blocks and pennants): each point's
