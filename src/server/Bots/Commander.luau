@@ -17,6 +17,7 @@ local Buildings = require(Shared.Rules.BotBuildings)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotSap = require(Shared.Rules.BotSap)
+local Survey = require(Shared.BuildSurvey)
 local BotCrew = require(Shared.Rules.BotCrew)
 local Build = require(script.Parent.Parent.Build)
 local Frontline = require(script.Parent.Parent.Frontline)
@@ -733,17 +734,19 @@ end
 -- piece once laid (open while it wants swings; an unlaid one while the bots' caps allow it and it isn't waiting), and
 -- the own pieces near the front wanting swings
 -- (the bots' guns in one table: `asset` each gun piece's Config/Artillery.Guns
--- key, `spacing` its own)
+-- key, `spacing` its own, `piece` its Config/Build piece)
 local Guns = {
 	list = { "FieldGun", "Howitzer" },
 	asset = {} :: { [string]: string },
 	spacing = {} :: { [string]: number },
+	piece = {} :: { [string]: { [string]: any } },
 	ground = RaycastParams.new(),
 }
 for _, piece in BuildCfg.Pieces do
 	if Kinds.gun[piece.key] then
 		Guns.asset[piece.key] = piece.gun
 		Guns.spacing[piece.key] = piece.spacing
+		Guns.piece[piece.key] = piece
 	end
 end
 
@@ -796,6 +799,15 @@ function Guns.spots(
 		local at = Guns.terrainAt(x, z)
 		if not at then
 			return false
+		end
+		-- (ground it can be laid on, facing the target: no steeper than its `maxSlope`, the same survey as
+		-- Build.placeAs's, which then levels or tilts it, Config/Build.Slope)
+		local piece = Guns.piece[key]
+		if piece then
+			local report = Survey.ground(piece, Survey.box(piece, Survey.frame(at, target - at)))
+			if not report.ground or report.water or report.slope > (piece.maxSlope or 90) then
+				return false
+			end
 		end
 		local off = target - at
 		-- (within its reach on this map: Config/Artillery.Reach)
@@ -1213,13 +1225,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	local want = BotTrenches.dugoutsWanted(sbs.shelledOnce, holders, sbs.bays, DG) - #have
-	-- (a square long enough on the flat for one: the dugout's width and its spare less the slack, Config/Build)
-	local long = BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
-	for _, pc in BuildCfg.Pieces do
-		if pc.key == "Dugout" then
-			long += (pc :: any).width
-		end
-	end
+	-- (a square long enough on the flat for one: its doorway and its spare less the slack, Config/Build)
+	local long = BuildCfg.Dugout.door + BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
 	for _, i in BotTrenches.dugoutSquares(support, have, want, DG, long) do
 		local w = support[i].w
 		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")

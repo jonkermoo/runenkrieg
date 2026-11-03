@@ -140,9 +140,7 @@ local Build = {
 		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
 		heapSink = 2.6,
 		-- the shape: floor half width, depth, walls at `wallAngle` (Metrics MaxSlopeAngle decides whether you can walk
-		-- up them), earth thrown up as a bank along both edges (the pit's rim) under each wall's parapet (Config/Assets
-		-- trench_pieces Wall<i>Parapet: a thick heap of dirt just behind the wall's top edge, about 2.1 to 2.5 over the
-		-- ground, a 74 degree face toward the trench: too steep to walk up, chest high cover to shoot over)
+		-- up them), earth thrown up as a bank along both edges (the pit's rim; `bank` below)
 		-- (carved in 4-stud voxels the floor rounds into a bowl and the walls soften: Studio round t1023-2101 measured a
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
 		-- (user 2026-10-23: 1.5x wider, then "a little more narrow"; 4.25 to 3, user 2026-11-02, "make it a little more narrow and less thick", option B: the 6-stud floor of
@@ -157,7 +155,11 @@ local Build = {
 		-- the terrain is cut this much deeper and wider than the pieces lie (their base slabs collide, so they are what
 		-- you stand on; Studio round 2026-11-02: the 4-stud voxels rounded the floor into a bowl over the pieces)
 		carve = { wider = 0.6, deeper = 0.8 },
-		bank = { width = 3, height = 1.2 }, -- (width 5 to 3 with the narrower trench, under its smaller heap)
+		-- the dirt heaped behind each wall's top edge is the terrain itself, a rounded bank `width` out and `height` over
+		-- the ground at its middle, sinking as the square is buried: low cover, a crouch behind it (user 2026-11-03: "can
+		-- we make the trench pile blended into the terrain so it doesnt look like bricks still? it should still provide
+		-- slight cover though"; was 3 by 1.2 under a Wall<i>Parapet mesh heap)
+		bank = { width = 6, height = 2 },
 		-- a bullet meeting the ground this close round a square's hole, walls and banks hits the square (studs; the
 		-- terrain is carved in 4-stud voxels, so a shot at a wall often meets the ground just in front of its slab)
 		shotSlack = 2,
@@ -318,14 +320,15 @@ local Build = {
 		-- The dugout (user 2026-11-02, design approved): steps cut down through the wall of a dug trench square into a
 		-- small timbered room under the ground (Dugout below). Engineers only (Config/Classes), `playerCap` each (user: "2
 		-- per player"). Its room `width` along the trench x `height` x `depth` back (a standing soldier is 5.13), past its
-		-- steps (Dugout.stair).
+		-- steps (Dugout.stair). (10 x 6 x 7 for three soldiers, was 7 x 6 x 6, its back and cut short of a trench the
+		-- least Trench.spacing behind; user 2026-11-03: "increase the space in the dugouts. make it spacious enough for 3 people. prevent additional dugouts from being built close to each other (to prevent collision and too many dugouts)")
 		{
 			key = "Dugout",
 			name = "Dugout",
 			kind = "Dugout",
 			playerCap = 2,
-			width = 7,
-			depth = 6,
+			width = 10,
+			depth = 7,
 			height = 6,
 		},
 		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
@@ -359,7 +362,8 @@ local Build = {
 			width = 14.4,
 			depth = 14.4,
 			height = 4.6,
-			maxSlope = 15,
+			maxSlope = 30,
+			lay = { flat = 15, tilt = 10 }, -- (Slope)
 		},
 		-- The guns (user 2026-10-26: "add building the artilleries to shovels"; Config/Artillery.Guns `gun`, src/server/
 		-- Artillery stands them): every team builds both, in its own paint (Guns.paint). On HP (Guns.hp below): laid at
@@ -382,7 +386,8 @@ local Build = {
 			depth = 15,
 			height = 5,
 			back = 2,
-			maxSlope = 15,
+			maxSlope = 30,
+			lay = { flat = 15, tilt = 10 }, -- (Slope)
 			spacing = 60,
 			clear = 9,
 			trenchGap = 2,
@@ -403,12 +408,22 @@ local Build = {
 			depth = 28,
 			height = 6,
 			back = 0,
-			maxSlope = 12,
+			maxSlope = 20,
+			lay = { flat = 20, tilt = 0 }, -- (its pit's floor is level: flattened only, Slope)
 			spacing = 120,
 			clear = 15,
 			trenchGap = 2,
 		},
 	},
+
+	-- A gun or an MG nest on a slope (Rules/Build.slopeLay; user 2026-11-03: "allow cannons and mg to be built on steeper
+	-- hills too. just do a good blend between of flattening the land and just being tilted on the slope"). Each piece's
+	-- `lay`: on ground up to `flat` degrees (its fitted plane, Rules/Build.groundPlane) the earth is cut and filled level
+	-- under it; steeper, it tilts with what is over `flat`, up to `tilt` degrees, and the earth takes the rest; past its
+	-- `maxSlope` (the steepest between samples, as every piece) it is refused. The earth is shaped as it is laid
+	-- (src/server/Ground.level, put back at the next match: DevWorld.touch): its footprint and `pad` studs round it to
+	-- the plane it lies on, easing back to the ground as it was over `blend` studs, its top bare `material`.
+	Slope = { pad = 1, blend = 8, material = "Ground" },
 
 	-- Built guns, on HP like every structure (user 2026-10-27: "all structures follow an HP strucutre, not how many
 	-- digs"; round 5: start at 0 HP with stage 1 down): `hp.max`, laid at `hp.place`; while it is built a Destroy swing
@@ -506,7 +521,7 @@ local Build = {
 	-- it) and a building site in the ring (Scaffold mg08; user 2026-10-28: "not all the parts have to be present before
 	-- its built ... they can just appear as its being built. just have some signs of "construction""); a Build swing
 	-- of its team adds `hp.swing`, a Destroy swing takes `hp.destroy`, weapons take Structures as a sandbag pile's; its
-	-- stage by HP as a Hesco barrier's (Rules.hescoStage: 25, 50, 75, 100 for stages 1-4), each stage's bags filled
+	-- stage by HP (Rules.builtStage: at 25, 50, 75, 100 for stages 1-4), each stage's bags filled
 	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
 	-- `quarters`), the real gun standing at stage 4. Once it has stood it is the gun's (as a built field gun): its HP is
 	-- the gun's own, worn by weapons, blasts at the bags and Destroy swings, fixed by Build swings (Config/Artillery
@@ -527,9 +542,12 @@ local Build = {
 		flat = 0.14,
 		quarters = 4,
 		build = {
+			-- (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not
+			-- early": at 25, 50, 75, 100 HP, Rules.builtStage; the ring's bags filling in across them, a share of them
+			-- standing, the top bags last, and the full ring only at 100)
 			{ bags = "bottom", gun = 1 }, -- (the mount on its bag)
-			{ bags = "all", gun = 2 }, -- (the gun on it)
-			{ bags = "all", gun = 3 }, -- (the ammo can)
+			{ bags = 0.8, gun = 2 }, -- (the gun on it)
+			{ bags = 0.9, gun = 3 }, -- (the ammo can)
 			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
 		wear = { 1, 0.7, 0.45, 0.2 },
@@ -572,7 +590,7 @@ local Build = {
 	-- MG nest's bags (`asset`, its `bags`) on a bigger ring round the gun's pivot (Rules.nestRing: `ring.sides`-sided,
 	-- `ring.bag`-stud sides, `ring.piles` each an end, its bend and its other end, 0 the front point), the back side left
 	-- open as a doorway over the pit's ramp. Not a structure of its own: it goes up and comes down with the gun. Being
-	-- built: by the gun's HP, a stage as a Hesco barrier's (Rules.hescoStage over `build`): first every bag lying as its
+	-- built: by the gun's HP, a stage at each quarter (Rules.builtStage over `build`): first every bag lying as its
 	-- empty sack (`flat` of its height), then "bottom" the piles' bottom bags filled, then "all". Once the gun has stood:
 	-- by its Wreck stage, the share of the ring's bags still standing (`wear[i]`, the top bags first, Rules.nestWearOrder).
 	-- Blasts never carve the ground under it (`ground` studs round its bags; Build.onNest).
@@ -581,7 +599,7 @@ local Build = {
 			asset = "sandbag_pile",
 			bags = { "Bag1", "Bag2", "Bag3" },
 			flat = 0.14,
-			build = { "none", "bottom", "all", "all" },
+			build = { "bottom", 0.8, 0.9, "all" }, -- (25, 50, 75, 100 HP; the full ring only at 100, as the nest's)
 			wear = { 1, 0.7, 0.45, 0.2 },
 			-- 22 sides of 3.6 (~12.65 out, ~27 across over the bags), the two at the back open (~7.1 wide), behind the pit's ramp
 			ring = {
@@ -604,7 +622,7 @@ local Build = {
 		},
 	},
 
-	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
+	-- Hesco barriers (src/server/Build, Rules.builtStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
 	-- barriers block stuff. meaning stage 1 and 2 barriers will provide little to no protection"): the wire, liner and
 	-- flaps stop nothing, bullets and soldiers pass. On HP like every structure (user 2026-10-27: "all strucuttres use
 	-- HP rule, not how many digs", "stage 1 should always be when its placed ... like a cannon, where if its placed,
@@ -692,14 +710,15 @@ local Build = {
 	-- the voxels); the trench's walls and heaps open over the slot from `openFront` in front of it. Craters keep `ground`
 	-- studs off it.
 	-- Laid in the wall of the square the cursor is on (within `reach` of the square's line past its wall tops), on a
-	-- square dug to at least `dug`% and at least the dugout's width plus `spare` long, not in a wall another trench joins
+	-- square dug to at least `dug`% and at least its `door` plus `spare` long, not in a wall another trench joins
 	-- (an end within `teeGap` of its floor's edge), not on a square with a bridge (its middle within `bridgeGap`),
-	-- `spacing` studs (middle to middle) from any other dugout (`same`: that one). It keeps its own HP: a square filled in
+	-- `spacing` studs (doorway to doorway) from any other dugout (`same`: that one) and its room clear of theirs
+	-- (`apart`). It keeps its own HP: a square filled in
 	-- leaves it standing, its steps opening on the fill.
 	-- On HP like every structure: laid at `hp.place` (its timbers lying on the trench floor), a Build swing of its team
 	-- adds `hp.swing` (repairs too), a Destroy swing takes `hp.destroy`, weapons take `soak` of what they take from a
 	-- sandbag pile (Structures above, by how far they are from its slot and room; user: deep in the ground, "heavily
-	-- reduced": a direct rune-mortar shell ~9%). While it is built, its stage by HP (Rules.hescoStage, the meshes of
+	-- reduced": a direct rune-mortar shell ~9%). While it is built, its stage by HP (Rules.builtStage, the meshes of
 	-- `build`[1..stage]; 0: `laid`); once it has stood, all of them, and as it wears it caves in (user: "as the HP goes
 	-- down, it should cave it, forcing players to leave"): under each `cave`% of its HP the next of `falls` shows and its
 	-- heap stands in the room (`heaps`: from, to back along the room as shares of its depth, how high as a share of its
@@ -714,13 +733,13 @@ local Build = {
 		asset = "dugout_pieces",
 		laid = { "Pile", "PileDark" },
 		build = {
-			{ "SlotEarth", "Steps", "Risers" },
+			{ "SlotEarth", "Steps", "Risers", "Shell" },
 			{ "RoomEarth" },
 			{ "Frames" },
 			{ "Lining", "Ceiling", "Floorboards" },
 		},
 		-- the meshes' tones by name: the soil's (Trenches.soilColor) for these, the dark timber for these, else the plank
-		soil = { "SlotEarth", "RoomEarth" },
+		soil = { "SlotEarth", "RoomEarth", "Shell" },
 		dark = { "PileDark", "Steps", "Frames", "Floorboards" },
 		soak = 0.1,
 		drop = 7,
@@ -737,7 +756,12 @@ local Build = {
 		spare = 1,
 		-- (a square's measured length comes up this much short of whole: an 8-stud square on the flat reads 7.99993)
 		lengthSlack = 0.01,
-		spacing = 10,
+		-- (its doorway and frames take `door` of the square's length, so a whole 8-stud square holds one, its wider room
+		-- running on behind the neighbours' walls; no other dugout's doorway within `spacing` studs of its own, nor its
+		-- room and tunnel within `apart` studs of another's, in 3D: Rules.dugoutClash)
+		door = 7,
+		spacing = 16,
+		apart = 2,
 		reach = 6,
 		teeGap = 1,
 		bridgeGap = 1,

@@ -45,6 +45,18 @@ local function build(player: Player): ScreenGui
 			fire("BlastKg", kg)
 		end)
 	end
+	-- a gun's shells landing round the aim point (src/server/Artillery.devShells: a trench line shelled)
+	local shellNames = { artillery_qf18 = "field gun", artillery_howitzer = "rune howitzer" }
+	for _, key in B.Guns do
+		order += 1
+		local label = `{B.Shells.count} {shellNames[key] or key} shells at aim`
+		DevPanel.button(p.panel, "Shells_" .. key, label, order).Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer("Shells", key, aim)
+			end
+		end)
+	end
 	-- artillery at the aim point (src/server/Artillery), and clearing them
 	local names = { artillery_qf18 = "Place field gun", artillery_howitzer = "Place rune howitzer" }
 	for _, key in B.Guns do

@@ -41,6 +41,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Artillery)
+local DevCfg = require(Shared.Config.DevTools)
 local FiringCfg = require(Shared.Config.Firing)
 local Palette = require(Shared.Config.Palette)
 local PromptCfg = require(Shared.Config.Prompts)
@@ -226,7 +227,9 @@ local function crewSpot(s: State, character: Model): CFrame?
 	end
 	local y = floor + leg.Size.Y + root.Size.Y / 2
 	local at = Vector3.new(above.X, y, above.Z)
-	return CFrame.lookAt(at, at + pivot.LookVector)
+	-- (upright, along the gun's flat look: a gun laid tilted on a slope, Config/Build.Slope, doesn't lean its gunner)
+	local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
+	return CFrame.lookAt(at, at + (if look.Magnitude > 1e-3 then look.Unit else Vector3.new(0, 0, -1)))
 end
 
 -- A machine gun's box reload: unable to fire for the gun's `reload`, then full again
@@ -430,6 +433,14 @@ local function man(s: State, player: Player)
 	seat(s, character, player, nil)
 end
 
+-- gun `key`'s shell going off at `at` (by `by`): every client's blast first, so it shows even if the damage fails or
+-- runs long, then the blast (src/server/Damage)
+local function burst(key: string, at: Vector3, by: Model?)
+	local gun = Cfg.Guns[key]
+	Net.event("ArtilleryBlast"):FireAllClients(at, key)
+	Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
+end
+
 -- the shell's flight from `origin` at `velocity`, stepped against the world; goes off where it hits
 local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 	local params = RaycastParams.new()
@@ -440,7 +451,7 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 	local g = s.gun.gravity -- (its own: slow shells, same ranges)
 	local t = 0
 	local prev = origin
-	local key, gun = s.key, s.gun
+	local key = s.key
 	local conn: RBXScriptConnection
 	conn = RunService.Heartbeat:Connect(function(dt)
 		t += dt
@@ -449,10 +460,7 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 		local hit = workspace:Raycast(prev, p - prev, params)
 		if hit then
 			conn:Disconnect()
-			local at = hit.Position + hit.Normal * 0.3
-			-- every client's blast first, so it shows even if the damage below fails or runs long
-			Net.event("ArtilleryBlast"):FireAllClients(at, key)
-			Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
+			burst(key, hit.Position + hit.Normal * 0.3, by)
 		elseif t > Cfg.MaxFlight then
 			conn:Disconnect()
 		end
@@ -1030,8 +1038,14 @@ end
 
 -- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
 -- `opts`: `paint` (a Config/Palette.Artillery.Paint key: a player-built gun in its team's paint); `dug`: its pit is
--- already carved round `at` (src/server/Build digs a built gun's pit stage by stage), only its slabs laid here.
-function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint: string?, dug: boolean? }?): Model?
+-- already carved round `at` (src/server/Build digs a built gun's pit stage by stage), only its slabs laid here; `up`:
+-- the gun stands tilted to it (laid on a slope, Config/Build.Slope), its ground levelled to that plane.
+function Artillery.place(
+	key: string,
+	at: Vector3,
+	look: Vector3,
+	opts: { paint: string?, dug: boolean?, up: Vector3? }?
+): Model?
 	local gun = Cfg.Guns[key]
 	if not gun then
 		return nil
@@ -1050,7 +1064,13 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 	elseif gun.dig then
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
-	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
+	local up = opts and opts.up
+	if up and up.Y > 0.5 and not gun.dig then
+		local along = flat.Unit - up * flat.Unit:Dot(up)
+		model:PivotTo(CFrame.lookAt(at, at + along.Unit, up.Unit))
+	else
+		model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
+	end
 	-- (a machine gun stands on its nest's mount bag: no earth, a little box of ground kept from craters)
 	local under, over
 	if gun.nestGround then
@@ -1753,6 +1773,24 @@ end
 
 -- `fn(model, gun, why)` on every bot leaving a gun: why "Kicked" (a teammate took it over: the bot stands beside it),
 -- "Broken", "Died", "Gone" (the bot or the gun removed) or "Left" (Artillery.leaveAs)
+-- The admin panel's shelling (src/server/DevTools, Config/DevTools.Blasts.Shells): `count` of gun `key`'s shells
+-- landing round `at`, `every` s apart, within `spread` studs, on the ground there (a trench line under fire)
+function Artillery.devShells(key: string, at: Vector3)
+	local S = DevCfg.Blasts.Shells
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	task.spawn(function()
+		for _ = 1, S.count do
+			local r, a = math.random() * S.spread, math.random() * math.pi * 2
+			local p = at + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+			local hit = workspace:Raycast(p + Vector3.new(0, 30, 0), Vector3.new(0, -60, 0), params)
+			burst(key, if hit then hit.Position + hit.Normal * 0.3 else p, nil)
+			task.wait(S.every)
+		end
+	end)
+end
+
 function Artillery.onBotLeft(fn: (Model, Model, string) -> ())
 	table.insert(botLeft, fn)
 end
