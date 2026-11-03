@@ -817,15 +817,17 @@ end
 
 -- The set from the library's command_post (nil where the library hasn't got it): its meshes coloured by name, its
 -- printed papers given their images, its blank papers covered by the game's own.
-local function buildSet(folder: Folder, origin: Vector3): Post?
-	local S = Cfg.Post.set
-	local e = AssetsCfg.Entries[S.asset]
+-- A modelled set out of the library (Config/Assets `key`), nil where it hasn't got it: its meshes coloured by name
+-- (C_RRGGBB flat, G_RRGGBB glowing), its printed papers given `images` (mesh name -> image id), its blank papers in
+-- paper colour, stood with its Origin at `origin`, turned `turn` degrees.
+function CommandPost.loadSet(folder: Instance, key: string, origin: Vector3, turn: number, images: any): Model?
+	local e = AssetsCfg.Entries[key]
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
 	f = f and f:FindFirstChild(e.category)
 	for _, sub in string.split(e.folder, "/") do
 		f = f and f:FindFirstChild(sub)
 	end
-	local src = f and f:FindFirstChild(S.asset)
+	local src = f and f:FindFirstChild(key)
 	if not src or not src:IsA("Model") then
 		return nil
 	end
@@ -845,16 +847,24 @@ local function buildSet(folder: Folder, origin: Vector3): Post?
 			elseif string.sub(d.Name, 1, 6) == "Paper_" then
 				d.Color = PAPER
 				d.Material = Enum.Material.SmoothPlastic
-			elseif S.images[d.Name] and d:IsA("MeshPart") then
-				d.TextureID = `rbxassetid://{S.images[d.Name]}`
+			elseif images[d.Name] and d:IsA("MeshPart") then
+				d.TextureID = `rbxassetid://{images[d.Name]}`
 				d.Color = Color3.new(1, 1, 1)
 				d.Material = Enum.Material.SmoothPlastic
 			end
 		end
 	end
 	m.WorldPivot = CFrame.new(if zero then zero.Position else m:GetPivot().Position)
-	m:PivotTo(CFrame.new(origin) * CFrame.Angles(0, math.rad(S.turn), 0))
+	m:PivotTo(CFrame.new(origin) * CFrame.Angles(0, math.rad(turn), 0))
 	m.Parent = folder
+	return m
+end
+
+local function buildSet(folder: Folder, origin: Vector3): Post?
+	local S = Cfg.Post.set
+	if not CommandPost.loadSet(folder, S.asset, origin, S.turn, S.images) then
+		return nil
+	end
 	local papers = S.papers
 	local T = Cfg.Table
 	local sheet = setPaper(folder, origin, papers.TableSheet, "Sheet")

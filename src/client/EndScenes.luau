@@ -62,6 +62,7 @@ end
 local set: Folder? = nil
 local post: CommandPost.Post = nil :: any
 local armory: Vector3
+local armoryModel = false -- the modelled hall stands (else the placeholder room)
 local reportLines: { TextLabel }, reportStamp: TextLabel? = {}, nil
 local mapSheet: any = nil
 
@@ -161,7 +162,47 @@ local function buildSets()
 	f.Name = "EndScenesSet"
 	set = f
 	post = CommandPost.build(f, v3(Cfg.Stage.tent))
-	buildArmory(v3(Cfg.Stage.armory))
+	local at = v3(Cfg.Stage.armory)
+	local A = Cfg.Armory.set
+	armoryModel = CommandPost.loadSet(f, A.asset, at, A.turn, A.images) ~= nil
+	if armoryModel then
+		-- its lights, and the fields past the door (the model's space turned as the model is)
+		local turn = CFrame.Angles(0, math.rad(A.turn), 0)
+		local function place(p: { number }): Vector3
+			return at + turn * v3(p)
+		end
+		for _, l in A.points do
+			local holder = part("Light", V(0.2, 0.2, 0.2), CFrame.new(place(l.at)), rgb(l.colour))
+			holder.Transparency = 1
+			local light = Instance.new("PointLight")
+			light.Range, light.Brightness, light.Color, light.Shadows =
+				l.range, l.brightness, rgb(l.colour), l.shadows == true
+			light.Parent = holder
+		end
+		for _, l in A.fills do
+			local from = place(l.at)
+			local holder = part("Fill", V(0.2, 0.2, 0.2), CFrame.lookAt(from, from + turn * v3(l.face)), rgb(l.colour))
+			holder.Transparency = 1
+			local light = Instance.new("SurfaceLight")
+			light.Face, light.Range, light.Brightness, light.Angle = Enum.NormalId.Front, l.range, l.brightness, l.angle
+			light.Color = rgb(l.colour)
+			light.Parent = holder
+		end
+		for _, o in A.outside do
+			local lo, hi = place(o.min), place(o.max)
+			local mid = (lo + hi) / 2
+			local size = V(math.abs(hi.X - lo.X), math.max(math.abs(hi.Y - lo.Y), 0.2), math.abs(hi.Z - lo.Z))
+			part(
+				"Field",
+				V(math.min(size.X, 2048), math.min(size.Y, 2048), math.min(size.Z, 2048)),
+				CFrame.new(mid),
+				rgb(o.colour)
+			)
+		end
+		armory = at
+	else
+		buildArmory(at)
+	end
 	f.Parent = workspace
 end
 
@@ -400,12 +441,29 @@ local function boardView(t: number): (Vector3, number, number)
 	return pos, yaw, pitch
 end
 
-local function armoryCam(t: number): CFrame
+-- the armory's shots in turn, each drifting over its cut (the modelled hall's, else the placeholder room's)
+local function armoryCam(t: number): (CFrame, number)
 	local A = Cfg.Armory
-	local i = math.floor(t / A.cut) % #A.shots + 1
-	local s = A.shots[i]
 	local u = (t % A.cut) / A.cut
-	return lookCf(armory + v3(s.from):Lerp(v3(s.to), u), armory + v3(s.look))
+	if not armoryModel then
+		local s = A.placeholder[math.floor(t / A.cut) % #A.placeholder + 1]
+		return lookCf(armory + v3(s.from):Lerp(v3(s.to), u), armory + v3(s.look)), Cfg.Fov
+	end
+	local s = A.shots[math.floor(t / A.cut) % #A.shots + 1]
+	local turn = CFrame.Angles(0, math.rad(A.set.turn), 0)
+	local from, look = turn * v3(s.from), turn * v3(s.look)
+	local kind, amount = s.drift[1], s.drift[2] * u
+	if kind == "push" then
+		from += (look - from).Unit * amount
+	elseif kind == "rise" then
+		from += V(0, amount, 0)
+	elseif kind == "truck" then
+		from += turn * V(amount, 0, 0)
+		look += turn * V(amount, 0, 0)
+	elseif kind == "arc" then
+		from = look + CFrame.Angles(0, math.rad(amount), 0) * (from - look)
+	end
+	return lookCf(armory + from, armory + look), s.fov
 end
 
 local function typeReport(t: number)
@@ -501,7 +559,7 @@ local function step()
 		post.timer.TextColor3 = if left <= Cfg.Board.timer.warn then rgb(GR.pencil) else INK
 		cf = eyeCf(boardView(t))
 	else
-		cf, fov = armoryCam(t), Cfg.Fov
+		cf, fov = armoryCam(t)
 		local phaseNow = folder:GetAttribute("Phase")
 		local B = Cfg.Armory.bar
 		local k = if phaseNow == "Loading" then math.clamp(t / math.max(loadEnds - sceneAt, 0.1), 0, B.most) else 1 -- (the match is ready: the narrator finishing)

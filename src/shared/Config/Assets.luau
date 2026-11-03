@@ -377,6 +377,16 @@ local Assets = {
 			source = "assets/props/scenes/command_post.fbx",
 			description = "The command post set, studs (10/3 a metre), Origin on the floor under the war table's middle: a timber hut, the war table (its papers reading from +z), the orders board on the +z wall facing -z, the game's models and props; meshes C_RRGGBB (flat colour), G_RRGGBB (glow), Img_<n> (printed papers), Paper_<Name> (blank papers for the game's text; part list assets/props/scenes/command_post_parts.json).",
 		},
+		-- the armory the next map loads over (user 2026-11-03, the approved render; src/client/EndScenes): one model at
+		-- 1 stud = 0.28 m, flat colours by mesh name (C_RRGGBB SmoothPlastic, G_RRGGBB Neon), printed labels Img_<n>
+		-- (Config/Cutscenes.Armory.set.images), Origin on the floor in the hall's middle
+		armory = {
+			id = 116648169688525,
+			category = "Props",
+			folder = "Scenes",
+			source = "assets/props/scenes/armory.fbx",
+			description = "The armory hall, studs at 0.28 m, Origin on the floor in the hall's middle: the stripped rune howitzer, the nations' rifle racks and helmet shelves, the workbench, the door onto a poplar road; meshes C_RRGGBB (flat colour), G_RRGGBB (glow), Img_<n> (printed labels, signs, flags; part list assets/props/scenes/armory_parts.json). The sky dome and far fields are left out (Config/Cutscenes.Armory.set.outside).",
+		},
 		-- the sandbag pile (user 2026-10-27: pillow bags, two under one, "give it some firmth"): each bag its own mesh, so
 		-- a pile is built a bag at a time; colored from Config/Palette.Build by mesh name. v2: stage 1, the scraped Patch
 		-- and the empty Sacks ("a new stage 1, where no sandbags are placed"; v1 92308983969194)
