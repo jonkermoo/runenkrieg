@@ -1,6 +1,8 @@
 --!strict
 -- Dev blast menu: a button next to the target pin setting off an explosion at the aim point (the middle of the screen:
--- DevAim; Config/DevTools.Blasts): a staff stage's blast or a real charge in kg. The server does the damage, knocks and
+-- DevAim; Config/DevTools.Blasts): a staff stage's blast or a real charge in kg. The beam rows fire a staff stage's beam from
+-- your head at the aim point (src/server/Damage.staff: by the zone it hits; its button shows the zone and the health
+-- it took, e.g. a dummy's head). The server does the damage, knocks and
 -- destruction (src/server/Damage.blast) and sends Net "DevBlast" to everyone, shown here (src/client/Vfx/Blast).
 -- The artillery buttons place a field gun or a howitzer at the aim point, muzzle away from you, or remove them all
 -- (src/server/Artillery; E mans one); "Place MG nest" lays a finished MG nest there, its gun facing away from you
@@ -39,6 +41,17 @@ local function build(player: Player): ScreenGui
 			fire("BlastStage", s)
 		end)
 	end
+	-- (the beams' buttons show what they did: the refusals below)
+	local beamButtons: { [string]: TextButton } = {}
+	for _, s in B.Stages do
+		order += 1
+		local label = `Staff beam {s} at aim`
+		local button = DevPanel.button(p.panel, "Beam" .. s, label, order)
+		beamButtons["Beam" .. s] = button
+		button.Activated:Connect(function()
+			fire("BeamStage", s)
+		end)
+	end
 	for _, kg in B.Kg do
 		order += 1
 		DevPanel.button(p.panel, `Kg{kg}`, `{kg} kg TNT`, order).Activated:Connect(function()
@@ -71,6 +84,9 @@ local function build(player: Player): ScreenGui
 	-- (a refused piece shows why on its button for a moment: src/server/DevTools)
 	local pieceNames: { [string]: string } = { MGNest = "Place MG nest", Dugout = "Place dugout (at a trench wall)" }
 	local pieceButtons: { [string]: TextButton } = {}
+	for key, button in beamButtons do
+		pieceButtons[key], pieceNames[key] = button, button.Text
+	end
 	for _, key in B.Pieces do
 		order += 1
 		local button = DevPanel.button(p.panel, "Piece_" .. key, pieceNames[key] or key, order)
@@ -98,11 +114,15 @@ local function build(player: Player): ScreenGui
 		end)
 	end
 	-- the bots at the aim point (Normal; src/server/Bots.dev): the nearest squad pushes there, the nearest bot
-	-- butt-strokes toward it, the nearest free gun goes to the nearest bot
+	-- butt-strokes toward it, the nearest free gun goes to the nearest bot, the nearest bot digs a foxhole there (gun out
+	-- until it is safe to dig: the bot labels show "going", "waiting" or "Build"), the nearest bot knocked down there (its
+	-- teammates guard it until they may drag or heal it: "covering")
 	local botRows = {
 		{ action = "BotPush", label = "Nearest squad pushes here" },
 		{ action = "BotStrike", label = "Nearest bot butt-strokes here" },
 		{ action = "BotGun", label = "Nearest gun to nearest bot" },
+		{ action = "BotWork", label = "Nearest bot digs here (gun out until safe)" },
+		{ action = "BotDown", label = "Nearest bot knocked down here (teammates guard it)" },
 	}
 	for _, r in botRows do
 		order += 1

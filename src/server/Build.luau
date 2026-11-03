@@ -34,7 +34,7 @@
 -- - Bridges (Config/Build.Bridge): laid on a trench square (Survey.bridgeSpot), its planks the Config/Assets
 --   bridge_pieces layout its seed rolls, stretched to the square's length; on HP (Bridge.hp): laid at stage 1, Build
 --   swings add HP, Destroy swings and weapons take it, its boards standing by HP (Rules.bridgeStage). At 0, or once its
---   square is buried under Trench.hp.bare% (or gone), it is simply gone: no debris.
+--   square is buried under Bridge.fall% (or gone), it is simply gone: no debris.
 -- - Dugouts (kind "Dugout"; Config/Build.Dugout): steps cut down through a trench square's wall into a room under the
 --   ground (Survey.dugoutSpot, Trenches.pocket), Config/Assets dugout_pieces' meshes shown by HP (Rules.dugoutShown:
 --   built in 4 stages, then filling with earth from its room's floor up to its doorframe as it wears, anyone it reaches
@@ -1632,7 +1632,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	if square then
 		local function check()
 			local hp, max = square:GetAttribute("HP"), square:GetAttribute("MaxHP")
-			local buried = type(hp) == "number" and type(max) == "number" and hp < max * C.Trench.hp.bare / 100
+			local buried = type(hp) == "number" and type(max) == "number" and Rules.bridgeFalls(hp, max, C.Bridge.fall)
 			if recs[model] and (buried or not square.Parent) then
 				remove(r)
 			end
@@ -1911,7 +1911,8 @@ local function work(b: Builder, target: any, mode: any)
 		return
 	end
 	local was = r.work
-	local left, gone = Rules.swing(r.work, r.need, mode == "Build", Rules.digAmount(k, r.need, shareOf(b)))
+	local amount = Rules.digAmount(Rules.swingWork(r.piece, k), r.need, shareOf(b))
+	local left, gone = Rules.swing(r.work, r.need, mode == "Build", amount)
 	if gone then
 		remove(r) -- (at 0 it is simply gone)
 		return
@@ -1973,7 +1974,8 @@ function Build.planAs(model: Model, from: Vector3, to: Vector3): string?
 end
 
 -- One shovel swing at `target` (a piece's model, a trench square's model or a tree's part) in `mode` ("Build" or
--- "Destroy"), no sooner than Build.swingGap() after its last; within Config/Build.SwingReach of a piece
+-- "Destroy"), no sooner than Config/Build.SwingSlack of the shortest strike gap after its last (it swings on
+-- Build.nextSwing); within Config/Build.SwingReach of a piece
 -- (Trench.swingReach of a square). Nil when the swing landed.
 function Build.workAs(model: Model, target: Instance, mode: string): string?
 	local b = bot(model)
@@ -1991,9 +1993,10 @@ function Build.workAs(model: Model, target: Instance, mode: string): string?
 	return b.said or "Nothing to work there"
 end
 
--- the shortest time between two swings that land (Rules.strikeGap of the shovel's swings)
-function Build.swingGap(): number
-	return GAP
+-- when a bot's next swing of `mode` ("Build" or "Destroy") is due: a player's cadence holding the key, the first
+-- (`due` nil) at the swing's strike, then one each loop (Config/Build.Swings, Rules.nextSwing)
+function Build.nextSwing(mode: string, due: number?, now: number): number
+	return Rules.nextSwing(ShovelCfg[C.Swings[mode]], due, now)
 end
 
 -- A built thing and the work it wants (Build.worksOf)
@@ -2006,14 +2009,16 @@ export type Work = {
 	at: Vector3, -- where to stand near (a gun's own spot; a square's middle)
 	hp: number, -- its HP now (a standing gun's: the gun's)
 	max: number,
-	swing: number, -- HP one Build swing adds (a soldier's of no listed class: Config/Build.Power)
+	swing: number, -- HP one Build swing of the class asked for adds (none: a soldier's of no listed class; Config/Build.Power)
 	left: number, -- Build swings to full (Rules.workLeft); 0 when whole
 	built: boolean, -- has stood once (a standing gun is repaired, not built)
 }
 
--- Every piece and trench square of `team` (nil: every team's) and the work each wants
-function Build.worksOf(team: string?): { Work }
+-- Every piece and trench square of `team` (nil: every team's) and the work each wants of a builder of `class` (nil: a
+-- soldier of no listed class)
+function Build.worksOf(team: string?, class: string?): { Work }
 	local out: { Work } = {}
+	local power = Rules.swingPower("Build", class, C.Power)
 	for _, r in recs do
 		if team == nil or r.team == team then
 			local hp, max = r.work, r.need
@@ -2024,7 +2029,7 @@ function Build.worksOf(team: string?): { Work }
 			if r.built and g and type(gunHp) == "number" then
 				hp, max, swing = gunHp, g.hp, g.hp / g.repair
 			end
-			swing *= C.Power.build
+			swing = Rules.swingWork(r.piece, swing * power)
 			table.insert(out, {
 				model = r.model,
 				key = r.piece.key,
@@ -2050,8 +2055,8 @@ function Build.worksOf(team: string?): { Work }
 			at = s.at,
 			hp = s.hp,
 			max = T.max,
-			swing = T.swing * C.Power.build,
-			left = Rules.workLeft(s.hp, T.max, T.swing * C.Power.build),
+			swing = T.swing * power,
+			left = Rules.workLeft(s.hp, T.max, T.swing * power),
 			built = s.built,
 		})
 	end
@@ -2102,9 +2107,13 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			end
 		elseif
 			r.piece.kind == "Sandbags"
-			or (r.piece.kind == "Nest" and not (r.built and r.gun)) -- (stood: the blast hits its gun, Artillery)
+			-- (stood: the blast hits its gun, Artillery)
+			or (r.piece.kind == "Nest" and not (r.built and r.gun))
+			-- (a field gun or howitzer being built, as an MG nest being built: its parts and pit go back a stage as its
+			-- HP falls, at 0 it is gone; bullets don't wear it, Build.shot)
+			or (r.piece.kind == "Gun" and not r.built)
 		then
-			-- the pile (or MG nest) by how far the blast is from its box (Destruction leaves class Sandbag to this)
+			-- the pile (or MG nest, or gun) by how far the blast is from its box (Destruction leaves class Sandbag to this)
 			local p = r.piece
 			local l = frame:PointToObjectSpace(position)
 			local d = Vector3.new(

@@ -8,6 +8,7 @@ local DevActions = {}
 DevActions.Aimed = table.freeze({
 	BlastStage = true,
 	Shells = true,
+	BeamStage = true,
 	BlastKg = true,
 	Dummy = true,
 	PlaceGun = true,
@@ -16,6 +17,8 @@ DevActions.Aimed = table.freeze({
 	BotPush = true,
 	BotStrike = true,
 	BotGun = true,
+	BotWork = true,
+	BotDown = true,
 })
 
 -- actions with no value (or a plain on/off)
@@ -40,6 +43,8 @@ local PLAIN = table.freeze({
 	BotPush = true,
 	BotStrike = true,
 	BotGun = true,
+	BotWork = true,
+	BotDown = true,
 	RebuildMaps = true,
 	HitchReport = true,
 })
@@ -102,6 +107,11 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Admin.BotDig.steps, value) ~= nil
 	elseif action == "BotShell" or action == "FrontPush" then
 		return table.find(cfg.Admin.Sides, value) ~= nil
+	elseif action == "BotPlan" then
+		-- (a side's fighting plan forced, or "auto": Rules/BotFront, src/server/Bots.dev "Plan")
+		return type(value) == "table"
+			and table.find(cfg.Admin.Sides, value.side) ~= nil
+			and (value.plan == "auto" or table.find(cfg.Admin.BotPlans, value.plan) ~= nil)
 	elseif action == "FrontCapture" then
 		return type(value) == "table"
 			and table.find(cfg.Admin.Sides, value.side) ~= nil
@@ -131,7 +141,7 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 			end
 		end
 		return false
-	elseif action == "BlastStage" then
+	elseif action == "BlastStage" or action == "BeamStage" then
 		return table.find(cfg.Blasts.Stages, value) ~= nil
 	elseif action == "BlastKg" then
 		return table.find(cfg.Blasts.Kg, value) ~= nil

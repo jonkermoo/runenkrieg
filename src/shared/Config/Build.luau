@@ -24,6 +24,9 @@ local Build = {
 	Focus = { fill = 0.93, outline = 0.6 },
 	-- swings faster than this share of the shortest time between two strikes (Rules/Build.strikeGap) are ignored
 	SwingSlack = 0.8,
+	-- the shovel swing (Config/Shovel) each mode swings: a bot's swings land on its cadence, as a player holding the
+	-- key (Rules/Build.nextSwing; user alpha: bots build at the same speed)
+	Swings = { Build = "Dig", Destroy = "Chip" } :: { [string]: string },
 	-- what one swing does, against each piece's own amounts below (hp.swing, hp.destroy, a gun's repair share): a
 	-- Build swing `build` of it, and a class in `class` that much again on both its Build and Destroy swings
 	-- (Rules/Build.swingPower; user 2026-11-02: "let's half the building power of both soldiers and engineers",
@@ -131,7 +134,8 @@ local Build = {
 		-- `hold`% HP, then filled in with the rest (80%: a little earth in it; 5-10%: nearly level, unusable), its pieces
 		-- under the fill (user 2026-10-24: "an 80% trench should start visibly filling a little bit, but not an unusable
 		-- amount"; "way way more durable")
-		-- (5 Build swings dig a square: "make building take a bit longer", user 2026-10-24)
+		-- (Build swings dig a square: 10, an engineer's 7, since build power was halved (Power above; was 5: "make
+		-- building take a bit longer", user 2026-10-24))
 		-- (its neighbours add no walls round a buried square, user 2026-10-25: "just make it fill, no need to add
 		-- additional walls")
 		-- (user 2026-11-01: "always be slowly filled up and dug in as HP drops and only breaks at HP 0": its pieces stay
@@ -231,7 +235,9 @@ local Build = {
 		staff1 = { hit = 2, reach = 4, wire = 0, bridge = 0 },
 		staff2 = { hit = 6, reach = 6, wire = 15, bridge = 5 },
 		staff3 = { hit = 18, reach = 10, wire = 50, bridge = 25 }, -- (two full beams cut wire)
-		field = { hit = 33, reach = 10, edge = 3, wire = 100, bridge = 100 }, -- (three bury a trench)
+		-- (user 2026-11-03: "thats assuming its a direct hit. make it maximum 40 on a direct hit": 40 within `edge`, fading
+		-- to nothing at `reach`; three direct hits bury a trench, a near miss less)
+		field = { hit = 40, reach = 10, edge = 3, wire = 100, bridge = 100 },
 		-- (user 2026-11-02, the damage rework: a smaller blast that still buries what it hits; was hit 93, reach 20, edge 8)
 		howitzer = { hit = 100, reach = 14, edge = 5, wire = 100, bridge = 100 }, -- (buries it at once)
 		byCharge = {
@@ -257,6 +263,7 @@ local Build = {
 			name = "Foxhole",
 			kind = "Foxhole",
 			work = 1, -- one Build swing digs it (user 2026-11-02: no HP or progression)
+			oneSwing = true, -- (whoever swings: Config Power doesn't cut it, Rules/Build.swingWork)
 			-- no cap (user 2026-11-02: "no limits"): a cap of its own nothing reaches, so it never counts against
 			-- PerPlayer either
 			playerCap = math.huge,
@@ -331,7 +338,8 @@ local Build = {
 			depth = 7,
 			height = 6,
 		},
-		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
+		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings, 4 since build power
+		-- was halved (Wire below); laid on its own, no
 		-- chaining or planner; the look: Config/Assets barbed_wire, Wire below)
 		{
 			key = "Wire",
@@ -368,7 +376,7 @@ local Build = {
 		-- The guns (user 2026-10-26: "add building the artilleries to shovels"; Config/Artillery.Guns `gun`, src/server/
 		-- Artillery stands them): every team builds both, in its own paint (Guns.paint). On HP (Guns.hp below): laid at
 		-- 0 with its first parts and the building site down, each Build swing adds `swing` HP (user: field 20 swings,
-		-- howitzer 40), its parts fitted a quarter at a time and the howitzer's pit (its Config/Artillery `dig`) dug deeper
+		-- howitzer 40; 40 and 80 since build power was halved, an engineer's 27 and 54: Power above), its parts fitted a quarter at a time and the howitzer's pit (its Config/Artillery `dig`) dug deeper
 		-- at each of `stages` (user: "deeper with each stage"), standing at full HP. A gun keeps `spacing` studs from
 		-- every other gun of its kind, any team's (user: "cannons cant be placed within certain distances of another,
 		-- howitzer with howitzer": 60 and 120), and `clear` + the other's `clear` from any gun. `width` x `depth` (`height`
@@ -380,7 +388,7 @@ local Build = {
 			kind = "Gun",
 			gun = "artillery_qf18",
 			teamCap = 6, -- standing at once per team (user 2026-10-31: "limit to 6 friendly cannons and 2 friendly mortars")
-			swing = 5, -- (20 swings)
+			swing = 5, -- (40 swings, an engineer's 27)
 			stages = 4,
 			width = 7,
 			depth = 15,
@@ -402,7 +410,7 @@ local Build = {
 			gun = "artillery_howitzer",
 			ring = "artillery_howitzer", -- its sandbag ring (GunRing)
 			teamCap = 2,
-			swing = 2.5, -- (40 swings)
+			swing = 2.5, -- (80 swings, an engineer's 54)
 			stages = 4,
 			width = 28,
 			depth = 28,
@@ -503,8 +511,9 @@ local Build = {
 	-- weapons take Structures above; its bags stand by HP (Rules.pileBags: one at least while it has any), gone at 0.
 	-- Stage 1 (user 2026-10-27: "a new stage 1, where no sandbags are placed, that way we can have 1 new sandbag per
 	-- dig"): laid at 0 HP (user 2026-10-27: "yes", like the Hesco), the pile is its scraped ground and empty sacks
-	-- (Pieces `stage1`); each Build swing fills a bag, every `swing` of HP a bag (0, 34, 68, 100: no bag, one, two, all
-	-- three; Rules.pileBags).
+	-- (Pieces `stage1`); a bag for every `swing` of HP begun (0, 34, 68, 100: no bag, one, two, all three;
+	-- Rules.pileBags): each Build swing filled a bag, and since build power was halved (Power above) a bag every other
+	-- swing, 6 to full, an engineer's 4.
 	Sandbags = { hp = { max = 100, place = 0, swing = 34, destroy = 10 }, shade = 0.06, sink = 0.15 },
 
 	-- Nothing is left hanging in the air (user 2026-11-02: "make sure floating parts are not possible"): after a blast,
@@ -631,7 +640,8 @@ local Build = {
 	-- lying folded flat), a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes
 	-- `hp.destroy`, weapons take `soak` of what they take from a sandbag pile (Structures above); its stage stands by HP
 	-- (the dirt slumps as it wears); a Destroy swing or a hit at 0 and it is gone, no rubble (user: "remove the crumble.
-	-- 0 hp should just disappear"). (0: laid flat; up to 25, 50, 75, 100: stages 1-4; 8 Build swings from laid to full,
+	-- 0 hp should just disappear"). (0: laid flat; up to 25, 50, 75, 100: stages 1-4; 16 Build swings from laid to full,
+	-- an engineer's 11 (Power above),
 	-- 10 Destroy swings from full to gone.) Craters never carve the ground under it or within `ground` studs round it:
 	-- the barrier takes the blast instead (user round 5: "make sure that the ground below the barrier and the surround
 	-- (the hitbox) does not break. it willbe obsorbed by the barrier").
@@ -652,15 +662,18 @@ local Build = {
 	-- just disappear").
 	-- Laid only on a square dug to at least `dug`% of its HP, with a trench square joined straight on at both ends (bent
 	-- up to `maxBend` degrees) and none teed into its sides, `spacing` studs (centre to centre) from any other bridge (one
-	-- free square between). It falls in once the square under it is buried under Trench.hp.bare%. An unseen `plate` (its
+	-- free square between). It falls in once the square under it is buried under `fall`% of its HP (Rules.bridgeFalls; the
+	-- old Trench.hp.bare's 75, from before trenches filled by HP all the way down). An unseen `plate` (its
 	-- thickness) along the deck's top is what you walk on: the boards don't collide (nobody snags on a gap or a tipped
 	-- board) and bullets pass them. The build mode ghost: a slab `ghost` thick along the deck.
 	-- (0, 60, 100: stage 1 when laid, stage 2 after a swing, whole after two, as before laying started at 0 HP, user
-	-- round 5: "should still start at 0 HP")
+	-- round 5: "should still start at 0 HP"; since build power was halved, Power above: stage 2 after two swings, whole
+	-- after four, an engineer's three)
 	Bridge = {
 		hp = { max = 100, place = 0, swing = 60, destroy = 25 },
 		variants = 6,
 		dug = 95,
+		fall = 75,
 		maxBend = 20,
 		spacing = 12,
 		plate = 0.3,
@@ -796,8 +809,9 @@ local Build = {
 	-- ground; a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`,
 	-- blasts Structures `wire`% of `hp.max`. Its look is its HP alone (user round 7: "barbwire should jsut hp"): under
 	-- `stand` of its HP it lies bundled on the ground and does nothing, from there up it stands and works; a Destroy
-	-- swing or a hit at 0 and it is gone, nothing left (user: "remove the crumble. 0 hp should just disappear"). (2 Build
-	-- swings stand it, 4 make it whole; a Destroy swing at a whole one knocks it down, the next takes it away.) The grass
+	-- swing or a hit at 0 and it is gone, nothing left (user: "remove the crumble. 0 hp should just disappear"). (4 Build
+	-- swings stand it, 8 make it whole, an engineer's 3 and 6 (Power above); a Destroy swing at a whole one knocks it
+	-- down, the next takes it away.) The grass
 	-- goes from under it (Net GroundDug, `grass` studs round its centre) as it is laid.
 	Wire = {
 		hp = { max = 100, place = 0, swing = 25, destroy = 60 },

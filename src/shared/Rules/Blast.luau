@@ -6,6 +6,13 @@
 local Blast = {}
 
 -- the scaled distance (m / kg^(1/3)) at `studs` from a `kg` charge
+-- What a blast of `kg` set off by `structure` (a Config/Build.Structures key, or nil) reaches: the charge's own effects
+-- (the map, the ground, trees, soldiers) only with a charge; built things and guns by their named source even with
+-- none (the staff's stage 1 beam: no blast, a small hit on what it lands on)
+function Blast.reaches(kg: number, structure: string?): (boolean, boolean)
+	return kg > 0, kg > 0 or structure ~= nil
+end
+
 function Blast.scaled(studs: number, kg: number, metresPerStud: number): number
 	if kg <= 0 then
 		return math.huge

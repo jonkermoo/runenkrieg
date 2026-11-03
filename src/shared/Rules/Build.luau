@@ -227,6 +227,17 @@ function Build.swingPower(mode: string, class: string?, power: any): number
 	return if mode == "Build" then power.build * k else k
 end
 
+-- Whether a bridge falls in with its trench square at `hp` of `max` (Config/Build.Bridge `fall`%)
+function Build.bridgeFalls(hp: number, max: number, fall: number): boolean
+	return hp < max * fall / 100
+end
+
+-- What one swing works on a piece without HP: `amount` (Build.swingPower), or the whole of a `oneSwing` piece (a
+-- foxhole: one swing digs it, whoever swings, however the build power is cut; Config/Build.Pieces)
+function Build.swingWork(piece: Piece, amount: number): number
+	return if piece.oneSwing then piece.work or 1 else amount
+end
+
 -- What one swing works: `normal`, or with an admin dig step (Config/DevTools.Admin.Dig) `share` of `full`, rounded up and
 -- never less than `normal`
 function Build.digAmount(normal: number, full: number, share: number?): number
@@ -278,6 +289,17 @@ end
 -- whether a swing comes too soon after the last (`slack` x the dig's length)
 function Build.tooSoon(now: number, last: number?, length: number, slack: number): boolean
 	return last ~= nil and now - last < length * slack
+end
+
+-- when a held swing's next hit is due (a bot's swings on a player's cadence, Config/Build.Swings): the first (`due`
+-- nil) at the swing's strike from `now`; then one loop after the last was due, so a hit landing late on a think tick
+-- doesn't push the rest back; one more than a loop late starts a loop from `now`
+function Build.nextSwing(swing: { strike: number, length: number }, due: number?, now: number): number
+	if due == nil then
+		return now + swing.strike
+	end
+	local after = due + swing.length
+	return if after > now then after else now + swing.length
 end
 
 -- Trenches v2 (Config/Build.Trench, src/server/Trenches). A trench is made of blocks along straight runs; inside a block

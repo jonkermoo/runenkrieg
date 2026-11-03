@@ -90,9 +90,10 @@ function Tactics.dug.foot(model: Model): Vector3?
 	end
 	return nil
 end
--- `team`'s works (Build.worksOf) with a dugout's `at` its foot; and each dugout's room (the middle of its floor)
-function Tactics.dug.works(team: string?): ({ Build.Work }, { [Model]: Vector3 })
-	local works = Build.worksOf(team)
+-- `team`'s works (Build.worksOf, its swings a `class` builder's) with a dugout's `at` its foot; and each dugout's room
+-- (the middle of its floor)
+function Tactics.dug.works(team: string?, class: string?): ({ Build.Work }, { [Model]: Vector3 })
+	local works = Build.worksOf(team, class)
 	local rooms: { [Model]: Vector3 } = {}
 	for _, w in works do
 		if w.key == "Dugout" then
@@ -183,6 +184,14 @@ local stats = {
 	covering = 0, -- shots of covering fire
 	blocked = 0, -- shots held: the muzzle's line to the aim point blocked (Config/Bots.Sight)
 	strikes = 0, -- butt strokes that went (Config/Bots.Melee)
+	contacts = 0, -- sides that had their first contact (Config/Bots.Front: from then on by trench)
+	parallels = 0, -- parallels planned across close to an objective (Config/Bots.Front)
+	workTaken = 0, -- build jobs taken, walked to with the gun out (Config/Bots.Build.Work)
+	workStarted = 0, -- tools out there, once safe
+	workStopped = 0, -- tools dropped for the gun mid-work (danger)
+	guarded = 0, -- teammates guarded, gun out, before a drag or heal (Config/Bots.Actions.Guard)
+	rescues = 0, -- casualties claimed by one rescuer (Config/Bots.Actions.Rescue)
+	rescuesLet = 0, -- claims let go (the rescuer dead or pulled away)
 	pushes = 0, -- squads that pushed a group they outnumber (Config/Bots.Squads.Push)
 	pushBombs = 0, -- grenades thrown to open such a push
 	wireMoved = 0, -- wire spots moved off (or dropped from) its own side's ways (Config/Bots.Build.Wire)
@@ -193,9 +202,21 @@ local stats = {
 	since = os.clock(),
 }
 
+-- one rescuer a casualty (Config/Bots.Actions.Rescue): who rescues each and since when; when a claim was let go
+local rescue = {
+	claims = {} :: { [Model]: { by: Bot, at: number } },
+	freed = {} :: { [Model]: number },
+}
 local squads: { [string]: SquadState } = {}
 
 local buildLists: { [string]: SideBuild } = {}
+
+-- Normal: how each side fights forward (Rules/BotFront, Config/Bots.Front): when it first had contact, the admin
+-- panel's plan for it, its plan now; and the sectors' owners at the commander's last look (a capture is contact)
+local fronts = {
+	sides = {} :: { [string]: { contactAt: number?, forced: string?, plan: string } },
+	owners = nil :: { string }?,
+}
 -- the build job a bot takes on its side's list (Rules/BotBuild.pick): an Engineer any within Build.take; a digger (half
 -- a holding squad, any class) a trench run or square within Build.take, wire wanting swings within Build.help; nil if
 -- none
@@ -265,7 +286,9 @@ return {
 	random = random,
 	stats = stats,
 	squads = squads,
+	rescue = rescue,
 	buildLists = buildLists,
 	Kinds = Kinds,
 	budget = budget,
+	fronts = fronts,
 }

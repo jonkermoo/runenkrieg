@@ -221,6 +221,11 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		end
 	elseif action == "Shells" and aim then
 		Artillery.devShells(value, aim)
+	elseif action == "BeamStage" and aim and character then
+		-- a staff beam from your head at the aim point, as a cast (Damage.staff: by the zone it hits); what it did shows
+		-- on its button (src/client/DevBlastMenu)
+		local _, did = Damage.staff(character, value, aim)
+		Net.event("DevAction"):FireClient(player, "Done", `Beam{value}`, did or "no soldier hit")
 	elseif action == "BlastHurts" then
 		player:SetAttribute(Cfg.Blasts.HurtAttribute, if value then true else nil)
 	elseif action == "DigStep" then
@@ -291,7 +296,14 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(Cfg.Admin.FreeGrenadierAttribute, if value then true else nil)
 	elseif action == "BotDig" then
 		workspace:SetAttribute(Cfg.Admin.BotDig.attribute, if value == 1 then nil else value)
-	elseif action == "BotShell" or action == "BotPush" or action == "BotStrike" or action == "BotGun" then
+	elseif
+		action == "BotShell"
+		or action == "BotPush"
+		or action == "BotStrike"
+		or action == "BotGun"
+		or action == "BotWork"
+		or action == "BotDown"
+	then
 		-- (why not, or what was done, shown on the button: src/client/DevBlastMenu, DevAdminMenu)
 		local why, done = Bots.dev(string.sub(action, 4), if action == "BotShell" then value else aim)
 		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", action, why or done)
@@ -299,6 +311,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		Frontline.push(value)
 	elseif action == "FrontCapture" then
 		Frontline.capture(value.side, value.index)
+	elseif action == "BotPlan" then
+		Bots.dev("Plan", value)
 	elseif action == "Points" then
 		Loadouts.grant(player, value)
 	elseif action == "Class" then

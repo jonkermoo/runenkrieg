@@ -140,6 +140,14 @@ local DevTools = {
 		Health = { 100, 75, 50, 25, 10 },
 		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
 		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+		-- the admin panel's readout of which bot rescues which casualty (src/server/Bots, every commander tick)
+		BotRescuesAttribute = "DevBotRescues",
+		DownHealth = 0.4, -- "Nearest bot knocked down here": its health share after (src/server/Bots.dev "Down")
+		-- the admin panel's readout of each side's bot classes (src/server/Bots, every commander tick in Normal)
+		BotClassesAttribute = "DevBotClasses",
+		-- the admin panel's readout of each side's Engineer bots: each one's build job, or why it has none
+		-- (src/server/Bots, every commander tick)
+		BotEngineersAttribute = "DevBotEngineers",
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
 		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },
@@ -242,6 +250,10 @@ local DevTools = {
 		--   (dugout sheltering under shelling)
 		Shell = { count = 8, kg = 2, every = 0.4, spread = 6 },
 		Sides = { "West", "East" },
+		-- a side's bot fighting plan the admin panel can force (Rules/BotFront.Plans; "auto" lets it go)
+		BotPlans = { "open", "trench", "assault", "flank" },
+		-- the readout of each side's plan and its attacking squads (src/server/Bots, every commander tick)
+		BotFrontAttribute = "DevBotFront",
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier
 		--   throwing first); the nearest bot butt-strokes toward it; the nearest free gun goes to the nearest bot
 		BotNear = 80,
@@ -277,6 +289,17 @@ local DevTools = {
 		-- unlimited ammo and no staff cooldown (src/server/Firing tops the magazine up after each shot; src/client/
 		-- StaffAttack and src/server/StaffCast: no cooldown, the mana full again), on the Player while on
 		AmmoAttribute = "DevAmmo",
+		-- "Weapon" sight lines (user 2026-11-03: "always add additional admin panel settings as we go"; src/client/
+		-- DevSights): the visible gun's Muzzle, Aim and Eject drawn as dots, the line of fire (from Muzzle) and the line
+		-- of sight (from Aim) out `length` studs along each one's -Z; aimed, the two run parallel. On the Player while on.
+		Sights = {
+			attribute = "DevSights",
+			length = 150,
+			width = 0.012,
+			dot = 0.05,
+			colors = { Muzzle = { 235, 64, 52 }, Aim = { 70, 200, 90 }, Eject = { 240, 200, 60 } },
+			lines = { "Muzzle", "Aim" },
+		},
 		-- "Team" rows (user 2026-10-26: "add respawn as a different team in admin panel"): respawn now as one of
 		-- Dummies.Kits (its kit, loadout, rig and species), kept on every respawn until another pick; `Random` goes back to
 		-- a random team each life. The pick is the Player's "Kit" attribute (src/server/Kits).
