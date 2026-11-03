@@ -177,6 +177,44 @@ return {
 		end
 		assert(ClassCfg.Defs[Cfg.Admin.Normal] == nil, "the Normal value isn't a class")
 	end,
+	["the bot test actions take only their Config values, the aimed ones an aim point"] = function()
+		for _, sw in { "BotState", "FreeEngineer", "FreeGrenadier" } do
+			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
+		end
+		for _, aimed in { "BotPush", "BotStrike", "BotGun" } do
+			assert(A.valid(Cfg, aimed, nil) and not A.valid(Cfg, aimed, 1) and A.Aimed[aimed], aimed)
+		end
+		assert(A.valid(Cfg, "BotDig", Cfg.Admin.BotDig.steps[2]) and not A.valid(Cfg, "BotDig", 1e6))
+		assert(Cfg.Admin.BotDig.steps[1] == 1, "the first dig step is the normal one")
+		for _, a in { "BotShell", "FrontPush" } do
+			assert(A.valid(Cfg, a, "West") and A.valid(Cfg, a, "East") and not A.valid(Cfg, a, "North"), a)
+		end
+		assert(A.valid(Cfg, "FrontCapture", { side = "East", index = 2 }))
+		assert(not A.valid(Cfg, "FrontCapture", { side = "East", index = 1.5 }))
+		assert(not A.valid(Cfg, "FrontCapture", { side = "East", index = 0 }))
+		assert(not A.valid(Cfg, "FrontCapture", { side = "East", index = Cfg.Admin.MaxSectors + 1 }))
+		assert(
+			not A.valid(Cfg, "FrontCapture", { side = "Neutral", index = 2 }) and not A.valid(Cfg, "FrontCapture", 2)
+		)
+		assert(not A.Aimed.BotShell and not A.Aimed.FrontPush)
+		assert(Map1.sectors and #Map1.sectors <= Cfg.Admin.MaxSectors, "every Map1 sector can be captured")
+	end,
+	["a bot's state label leaves out what it hasn't got"] = function()
+		local full = A.botLabel({
+			order = "Attack",
+			sector = 3,
+			phase = "Bound",
+			role = "Assault",
+			post = "step",
+			act = "Throw",
+			gun = "artillery_qf18",
+			danger = true,
+		})
+		assert(full == "Attack S3 · Bound/Assault\nstep · Throw · gun artillery_qf18 · DANGER", full)
+		assert(A.botLabel({}) == "-")
+		assert(A.botLabel({ order = "Defend" }) == "Defend")
+		assert(A.botLabel({ role = "Hold", post = "dugout" }) == "?/Hold\ndugout")
+	end,
 	["Lantern Meadows: its sectors and landmarks as teleports, on its own map, inside its bounds"] = function()
 		local LM = require("../src/shared/Config/Maps/LanternMeadows")
 		local list = T.list(Map1, Cfg, { { key = "LanternMeadows", map = LM } })

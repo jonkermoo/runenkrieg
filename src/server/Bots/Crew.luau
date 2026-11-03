@@ -362,6 +362,15 @@ function Crew.report(): string
 	return s
 end
 
+-- The admin panel (Bots.dev "Gun"): bot `b` given `gun` now, as the commander gives one
+function Crew.give(b: any, gun: Model)
+	release(b)
+	b.gun = gun
+	gunning[b] = { m = b.m, since = os.clock(), retargetAt = 0 }
+	b.post, b.postKind, b.postFloor, b.postFace = nil, nil, nil, nil
+	stats.given += 1
+end
+
 -- A new match: every gunner back to duty
 function Crew.clear()
 	for _, b in ctx.bots do
