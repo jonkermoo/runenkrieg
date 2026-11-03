@@ -47,6 +47,38 @@ function BotCrew.assign(
 	return out
 end
 
+-- The pieces to swing at, in order (user 2026-11-03: a gun is operated down to half its HP; the bots fix one below that
+-- before manning it): every built gun on its side's ground (`held`) under `keep`% of its HP first, however far from the
+-- front, then `near` (the usual repairs near the front) not listed already. Also which of them are such fixes.
+export type Fixable = { gun: boolean, built: boolean, held: boolean, hp: number, max: number }
+function BotCrew.repairOrder(pieces: { Fixable }, near: { number }, keep: number): ({ number }, { [number]: boolean })
+	local out, fix = {}, {}
+	for i, p in pieces do
+		if p.gun and p.built and p.held and p.max > 0 and p.hp / p.max * 100 < keep - 1e-6 then
+			table.insert(out, i)
+			fix[i] = true
+		end
+	end
+	for _, i in near do
+		if not fix[i] then
+			table.insert(out, i)
+		end
+	end
+	return out, fix
+end
+
+-- The sector (index into `sectors`) nearest (`x`, `z`): whose ground a gun stands on
+function BotCrew.sectorAt(x: number, z: number, sectors: { { x: number, z: number } }): number?
+	local best, bestD = nil, math.huge
+	for i, s in sectors do
+		local d = (s.x - x) ^ 2 + (s.z - z) ^ 2
+		if d < bestD then
+			best, bestD = i, d
+		end
+	end
+	return best
+end
+
 -- Known enemies in groups (user: "Known enemy groups, else sector"): the spot with the most others within `cluster`
 -- studs first, its members taken out, then the next. Each group's middle and size, biggest first.
 function BotCrew.groups(points: { Spot }, cluster: number): { Group }

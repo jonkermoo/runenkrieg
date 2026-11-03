@@ -2,12 +2,14 @@
 -- The capture-point flags (Config/Flagpole, Rules/Flagpole; FLAGPOLE.md, user 2026-10-27), this client's side of the
 -- poles src/server/Flagpoles stands: on each pole the holder's flag (Config/Uniforms.Kits[kit].flag.pole, split over 4
 -- hinged strips) eased toward the sector's replicated control (Workspace.Frontline.<sector>.Control): at the top for
--- full control, lowered as it is lost, gone at neutral (a bare pole, the halyard slack), the other side's rising as they
--- gain it. It flies downwind along workspace.GlobalWind and flaps harder in stronger wind and while contested; a bullet
--- through or near it jolts it (Flagpoles.shot, from src/client/Impacts), a blast nearby whips it (Flagpoles.blast,
--- from src/client/Vfx/Blast). The zone stakes carry a rag in the holder's colour (bare at neutral) and hide where
--- their ground has been dug away. Sounds (3D at the pole): the cloth's flap, and the halyard once when the point is
--- taken (the flag hauled up). Full rate near the camera, slower further off, frozen far away.
+-- full control, lowered as it is lost. An unheld point flies a plain white placeholder at the top, or nothing (a bare
+-- pole, the halyard slack; Config/Flagpole.Flag.neutral); a capture swaps in the holder's flag at the bottom and hauls
+-- it up. By owner, as the beacons and the map's seals go. It flies downwind along workspace.GlobalWind and flaps harder
+-- in stronger wind and while contested; a bullet through or near it jolts it (Flagpoles.shot, from src/client/Impacts),
+-- a blast nearby whips it (Flagpoles.blast, from src/client/Vfx/Blast). The zone stakes carry a rag in the holder's
+-- colour (bare at neutral) and hide where their ground has been dug away. Sounds (3D at the pole): the cloth's flap,
+-- and the halyard once when the point is taken (the flag hauled up). Full rate near the camera, slower further off,
+-- frozen far away.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -45,8 +47,9 @@ type Pole = {
 	images: { ImageLabel },
 	rope: BasePart,
 	stakes: { Stake },
-	shown: number, -- the control shown (eased toward the replicated one)
-	kit: string?, -- whose flag the strips carry
+	shown: number, -- how far up the flag is shown (0 .. 1, eased toward Rules.flag's)
+	kit: string?, -- whose flag the strips carry (NEUTRAL: the placeholder)
+	seen: boolean, -- updated once (the first shows the flag where it stands, no haul)
 	up: boolean, -- the flag shown
 	owner: string?,
 	ragKit: string?, -- whose rags the stakes carry
@@ -58,6 +61,8 @@ type Pole = {
 }
 
 local poles: { [Model]: Pole } = {}
+
+local NEUTRAL = "Neutral" -- the placeholder's kit
 
 local function flagImage(kit: string?): string
 	local k = kit and U.Kits[kit]
@@ -158,6 +163,7 @@ local function build(model: Model): Pole?
 		stakes = stakes,
 		shown = 0,
 		kit = nil,
+		seen = false,
 		up = false,
 		owner = nil,
 		ragKit = nil,
@@ -190,7 +196,7 @@ local function setKit(p: Pole, kit: string?)
 		i.Image = img
 	end
 	-- (the cloth's edges in the flag's main colour)
-	local c = kit and COLORS.Rags[kit]
+	local c = if kit == NEUTRAL then COLORS.Neutral else kit and COLORS.Rags[kit]
 	for _, s in p.strips do
 		s.Color = if c then rgb(c) else Color3.new(1, 1, 1)
 	end
@@ -203,8 +209,8 @@ local function radiusAt(p: Pole, y: number): number
 end
 
 local function pose(p: Pole, now: number, contested: boolean)
-	local side, share = Rules.flag(p.shown)
-	local up = share > 0 and p.kit ~= nil
+	local share = p.shown
+	local up = share > 0.005 and p.kit ~= nil
 	if up ~= p.up then
 		p.up = up
 		for _, s in p.strips do
@@ -243,7 +249,6 @@ local function pose(p: Pole, now: number, contested: boolean)
 	local lean = if up then 0 else math.rad(R.slackLean)
 	p.rope.Size = Vector3.new(R.thickness, (high - low).Magnitude, R.thickness)
 	p.rope.CFrame = CFrame.fromMatrix(mid, dir:Cross(Vector3.yAxis), Vector3.yAxis) * CFrame.Angles(lean, 0, 0)
-	return side
 end
 
 local function rags(p: Pole, owner: string?, front: Instance)
@@ -289,10 +294,11 @@ local function update(p: Pole, front: Instance, now: number, dt: number, camPos:
 	local owner = f:GetAttribute("Owner") :: string?
 	local west, east = (f:GetAttribute("West") :: number?) or 0, (f:GetAttribute("East") :: number?) or 0
 	local contested = west > 0 and west == east
-	-- taken: the halyard once, the flag hauled up (not when a new match puts the sectors back: the flag is then far from
-	-- the control)
-	local taken = owner ~= p.owner and (owner == "West" or owner == "East") and p.owner ~= nil
-	if taken and math.abs(p.shown - control) < 0.5 then
+	-- taken (always from neutral): the halyard once, the flag hauled up (not when a new match puts the sectors back)
+	local taken = p.owner == "Neutral"
+		and (owner == "West" or owner == "East")
+		and front:GetAttribute("Phase") == "Playing"
+	if taken then
 		local h = p.sounds.Halyard
 		if h then
 			h:Play()
@@ -300,15 +306,22 @@ local function update(p: Pole, front: Instance, now: number, dt: number, camPos:
 	end
 	rags(p, owner, front)
 	p.owner = owner
-	p.shown = Rules.ease(p.shown, control, F.ease, dt)
-	local side = Rules.flag(p.shown)
-	setKit(p, if side then front:GetAttribute(side) :: string? else nil)
+	local who, target = Rules.flag(owner, control, F.neutral)
+	local kit = if who == NEUTRAL then NEUTRAL elseif who then front:GetAttribute(who) :: string? else nil
+	if not p.seen then
+		p.seen = true
+		p.shown = target
+	elseif kit ~= p.kit then
+		p.shown = 0 -- the new flag goes on at the bottom
+	end
+	setKit(p, kit)
+	p.shown = Rules.ease(p.shown, target, F.ease, dt)
 	p.extra *= math.exp(-p.extraDecay * dt)
 	-- sounds
 	local strength = Rules.wind(workspace.GlobalWind.X, workspace.GlobalWind.Z, FL)
 	local flap = p.sounds.Flap
 	if flap then
-		local on = side ~= nil
+		local on = p.kit ~= nil and p.shown > 0.005
 		if on and not flap.IsPlaying then
 			flap:Play()
 		elseif not on and flap.IsPlaying then

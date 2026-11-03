@@ -27,6 +27,9 @@ local Foliage = {
 	-- After a blast (src/client/GrassFoliage) the tufts on the churned ground go at once; then, `after` s later (once
 	-- the voxels have arrived), any within the churn radius plus `margin` studs whose ground no longer grows grass.
 	Scrub = { after = { 0.5, 3 }, margin = 4 },
+	-- where a trench reshapes the ground, the grass there follows it a few tufts at a time: at most `budget` ms a frame
+	-- for each layer (src/client/GrassFoliage)
+	Regrow = { budget = 0.5 },
 	-- no grass under a fallen trunk while it lies there: within `radius` studs of its line (user 2026-10-17)
 	UnderTrunk = { radius = 3 }, -- (covers its imprint: Damage.Trees.Fall.Imprint)
 

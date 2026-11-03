@@ -11,6 +11,7 @@ DevActions.Aimed = table.freeze({
 	Dummy = true,
 	PlaceGun = true,
 	PlacePiece = true,
+	GunHp = true,
 	BotPush = true,
 	BotStrike = true,
 	BotGun = true,
@@ -25,6 +26,7 @@ local PLAIN = table.freeze({
 	HelmetOff = true,
 	HealDummies = true,
 	KnockDummies = true,
+	SayDummies = true,
 	ClearDummies = true,
 	UndoDestruction = true,
 	ClearGuns = true,
@@ -38,6 +40,7 @@ local PLAIN = table.freeze({
 	BotStrike = true,
 	BotGun = true,
 	RebuildMaps = true,
+	HitchReport = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
@@ -52,6 +55,7 @@ local SWITCHES = table.freeze({
 	BotState = true,
 	FreeEngineer = true,
 	FreeGrenadier = true,
+	HitchLog = true,
 })
 
 local function finite(n: any): boolean
@@ -134,6 +138,8 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Blasts.Guns, value) ~= nil
 	elseif action == "PlacePiece" then
 		return table.find(cfg.Blasts.Pieces, value) ~= nil
+	elseif action == "GunHp" then
+		return table.find(cfg.Blasts.GunHp, value) ~= nil
 	elseif action == "Dummy" then
 		return type(value) == "table"
 			and kitOf(cfg, value.kit) ~= nil

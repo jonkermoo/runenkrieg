@@ -234,6 +234,7 @@ local Palette = {
 		Cleat = { 88, 66, 46 },
 		Stake = { 116, 92, 62 },
 		Rope = { 206, 196, 170 },
+		Neutral = { 226, 222, 210 }, -- an unheld point's plain placeholder flag (Config/Flagpole.Flag.neutral "white")
 		Rags = {
 			uniform1 = { 82, 86, 88 },
 			uniform2 = { 98, 102, 66 },
@@ -431,6 +432,13 @@ local Palette = {
 			pinEdge = { 10, 11, 12 },
 			pinContested = { 230, 160, 40 },
 			pinAttacked = { 220, 96, 70 },
+			-- teammates' health bars (Config/TeamHealth): the empty track and its dark edge, the fill when fine, hurt enough
+			-- for a bandage (amber, as contested), knocked down (red pencil)
+			healthTrack = { 20, 21, 23 },
+			healthEdge = { 10, 11, 12 },
+			healthOk = { 236, 232, 220 },
+			healthLow = { 230, 160, 40 },
+			healthDown = { 214, 64, 50 },
 			-- the kit list (Config/Hud.Kit): the names and keys of the rows not in the hands, an empty row's name
 			kitName = { 168, 168, 158 },
 			kitKey = { 154, 154, 144 },
