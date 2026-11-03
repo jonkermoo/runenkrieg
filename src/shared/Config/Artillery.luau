@@ -235,9 +235,14 @@ local function beltOf(names: { string }, colors: { [string]: { number } }): ({ s
 	end
 	return names, colors
 end
+-- (its ammo can and the belt in it too: they turn with the gun right round the 360 nest, user 2026-11-03)
 local mgMount, mgColors = beltOf({
 	"Mount",
 	"MountFittings",
+	"BoxKit",
+	"BoxTrim",
+	"BoxFittings",
+	"Belt",
 }, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 40, 40, 38 } })
 
 local Artillery = {
@@ -1055,9 +1060,10 @@ local Artillery = {
 			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
 			mount = mgMount, -- (and each round on the belt: beltOf above)
-			-- the ammo can and the belt in it stand on the mount bag (user 2026-10-29: "dont make the box follow the gun
-			-- turning either. it clips into the sandbags"); the belt's rounds bend from it to the feed (src/client/Artillery)
-			fixed = { "BoxKit", "BoxTrim", "BoxFittings", "Belt" },
+			-- the ammo can and the belt in it turn with the gun now (in `mount`; user 2026-11-03: "make the mgnest a 360
+			-- nest": was standing still on the mount bag so it wouldn't clip the old nest's high front bags); the belt's
+			-- rounds bend from it to the feed (src/client/Artillery)
+			fixed = {},
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},
@@ -1065,9 +1071,10 @@ local Artillery = {
 			hinge = { 0, 1.035, 0 },
 			muzzle = { 0, 1.25, -4.226 },
 			boreCentre = 0.009,
-			-- (user 2026-11-01: "nearly a 180 view angle (maybe 140)"; was +-20 in the notch the front piles left): 140 in
-			-- all, the gunner and gun clear of the bags all the way (Config/Build.Nest `ring`, `fit`; Rules/Build.nestFit)
-			traverse = 70,
+			-- (user 2026-11-03: "make the mgnest a 360 nest, so the sandbags would just be a 1 layer circle"; was 70 each
+			-- way, 140 in all): right round, its gunner walking round with it (`crewTurns`), the gun and its shots over the
+			-- one-bag ring all the way (Config/Build.Nest `ring`, `fit`; Rules/Build.nestFit)
+			traverse = 180,
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
 			traverseRate = 60,

@@ -361,7 +361,7 @@ local function pose(model: Model, p: Pose, dt: number)
 	for part, rest in p.rest do
 		part.CFrame = frames[p.stage[part]] * rest
 	end
-	feed(p, pivot, frames[2])
+	feed(p, frames[1], frames[2]) -- (the belt's can turns with the mount: the MG's 360 nest)
 	BarrelHeat.step(model, gun, dt, p.named, p.rest)
 	-- its gears turning with the lay, each by its tooth ratio about its own axis (Config/Artillery `gears`)
 	for _, g in gun.gears or {} do

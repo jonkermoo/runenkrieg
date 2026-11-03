@@ -491,8 +491,9 @@ local Build = {
 		-- (in an MG nest: on the ground at the ring's middle, x right, z back from the gun; inside the bags, clear of the
 		-- M2's two mount bags and the doorway at the back)
 		mg08 = {
-			crates = { { x = -2.6, z = 1.4, yaw = 20, size = { 1, 0.6, 0.7 } } },
-			planks = { { x = 2.7, z = 1.0, yaw = -12, count = 2, length = 2.6 } },
+			-- (inside the 360 ring, behind the mount bags at its middle)
+			crates = { { x = -3.2, z = 2.6, yaw = 20, size = { 1, 0.6, 0.7 } } },
+			planks = { { x = 3.2, z = 2.2, yaw = -12, count = 2, length = 2.6 } },
 		},
 		-- (the Rune howitzer, 2026-11-02: on its pit's floor inside the sandbag ring, off its bed's corners; the 42 cm's
 		-- scaffold frame round it is gone with its deep pit)
@@ -560,18 +561,18 @@ local Build = {
 			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
 		wear = { 1, 0.7, 0.45, 0.2 },
-		-- (user 2026-11-01: "it should have nearly a 180 view angle (maybe 140) ... make sure players dont clip with the
-		-- sandbag"; was 9 sides, the gun 1.66 behind the point, +-20 in the notch): 11 sides, the back three open as a
-		-- wide doorway, the gun near the middle; the two front piles (`low`) one bag high so the barrel and its bullets
-		-- clear the front across the whole traverse (Config/Artillery mg08 `traverse`; Rules.nestFit, `fit` below)
+		-- (user 2026-11-03: "make the mgnest a 360 nest, so the sandbags would just be a 1 layer circle"; was 11 sides,
+		-- the back three open as a doorway, the two front piles low and the rest two bags high, the gun turning 140):
+		-- a closed ring of 12 bags one high (every pile `low`), the gun at its middle turning right round over them
+		-- (Config/Artillery mg08 `traverse`; Rules.nestFit, `fit` below), stepped over to get in
 		ring = {
-			sides = 11,
+			sides = 12,
 			bag = 3.6,
-			piles = { { 0, 1, 2 }, { 0, 10, 9 }, { 2, 3, 4 }, { 9, 8, 7 } },
-			low = { 1, 2 },
+			piles = { { 0, 1, 2 }, { 6, 7, 8 }, { 2, 3, 4 }, { 8, 9, 10 }, { 4, 5, 6 }, { 10, 11, 0 } },
+			low = { 1, 2, 3, 4, 5, 6 },
 		},
-		gunBack = 5.5,
-		mountBack = 6.15,
+		gunBack = 6.95, -- (the ring's radius: the gun at its middle)
+		mountBack = 7.6,
 		-- what must clear the bags at every lay (Rules.nestFit, tests/build.spec): the gunner's legs (`legs`, across and
 		-- deep) against the bottom bags, the torso and arms out to the grips (`body`) against the top bags, the gun
 		-- (`gun`: from `back` behind the pivot, `length` long, `width` across) and its bullets against the top bags; each

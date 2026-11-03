@@ -523,10 +523,10 @@ return {
 		assert(A.mgShown(0, 100, 0, 20, 10, 20.01) == 100, "the reload over, before the server's refill lands")
 		assert(A.mgShown(97, 100, 1, 20, 21, 22) == 96, "firing again after the refill")
 	end,
-	["the MG's ammo can stands still as the gun turns, named all the same"] = function()
+	["the MG's ammo can turns with the gun right round its 360 nest (user 2026-11-03)"] = function()
 		local MG = C.Guns.mg08
 		for _, name in { "BoxKit", "BoxTrim", "BoxFittings", "Belt" } do
-			assert(table.find(MG.fixed :: any, name) and not table.find(MG.mount, name), name)
+			assert(table.find(MG.mount, name) and not table.find(MG.fixed or {}, name), name)
 		end
 		assert(
 			table.find(MG.mount, "Rounds01") and table.find(MG.mount, "Links01"),
@@ -593,7 +593,7 @@ return {
 		local y, e = A.mgLay(30, 0, 30, -10, 0, MG)
 		assert(near(y, 30 + 10 * MG.mg.look) and e == 0, "the mouse moved left turns it left (yaw up)")
 		y = A.mgLay(30, 0, 30, -1e6, 0, MG)
-		assert(near(y, 30 + MG.traverse), "stops at its traverse")
+		assert(near(y, A.wrap(30 + MG.traverse)), "right round to the back")
 		y = A.mgLay(170, 0, 170, -1e6, 0, MG)
 		assert(near(y, A.wrap(170 + MG.traverse)), "across 180")
 		local _, up = A.mgLay(0, 0, 0, 0, -1e6, MG)
@@ -716,7 +716,7 @@ return {
 		assert(near(e + (MG.aimTilt or 0), 0))
 		assert(A.layFor(MG, MG.mg.range + 1, 0) == nil, "past its range")
 		assert(A.layFor(MG, 10, 100) == nil, "past its elevation")
-		assert(A.mgTurns(MG, 0, MG.traverse) and not A.mgTurns(MG, 0, MG.traverse + 1))
+		assert(A.mgTurns(MG, 0, 180) and A.mgTurns(MG, 0, -179), "right round")
 		assert(A.mgTurns(MG, 170, A.wrap(170 + MG.traverse)), "across 180")
 	end,
 	["laid: within the tolerance of the wanted world yaw and elevation"] = function()
