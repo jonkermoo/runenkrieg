@@ -199,6 +199,10 @@ local DevTools = {
 		Arrive = 1, -- studs from a patrol point that count as there
 		Poll = 0.1, -- seconds between patrol checks (and `Poll` x 2 while knocked down)
 		RootHeight = 3, -- the root's height over the ground it stands on
+		-- "Knock down": every living dummy knocked with this Config/Ragdoll.Knocks entry as if it took `damage` (so it
+		-- stays down a while: Config/Ragdoll.ByDamage), thrown away from you; for dragging and healing tests
+		-- (user 2026-11-02: "always add additional admin panel settings as we go throughout")
+		KnockDown = { knock = "Torso", damage = 80 },
 		-- the hit readout over a dummy's head: the damage, the knock and the health left, for `show` seconds (`width` x
 		-- `tall` px, text `size` px, its outline `stroke` transparency); a knock with no damage shows after `knockWait` s
 		Readout = {

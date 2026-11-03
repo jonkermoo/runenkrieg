@@ -373,7 +373,9 @@ local function tick(dt: number)
 		-- the body's physics stays the server's for the whole drag
 		for _, name in PARTS do
 			local p = d.body:FindFirstChild(name) :: BasePart?
-			if p and not p.Anchored and p:GetNetworkOwner() ~= nil then
+			-- (CanSetNetworkOwnership first: GetNetworkOwner throws on a part held by an anchored one, e.g. a soldier
+			-- anchored by a test or the wave line)
+			if p and not p.Anchored and p:CanSetNetworkOwnership() and p:GetNetworkOwner() ~= nil then
 				own(d.body, true)
 				break
 			end

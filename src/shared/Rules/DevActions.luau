@@ -15,6 +15,7 @@ local PLAIN = table.freeze({
 	KnockMe = true,
 	HelmetOff = true,
 	HealDummies = true,
+	KnockDummies = true,
 	ClearDummies = true,
 	UndoDestruction = true,
 	ClearGuns = true,
