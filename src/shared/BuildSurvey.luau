@@ -109,6 +109,28 @@ function Survey.onGround(piece: Rules.Piece, frame: CFrame, report: Report): CFr
 	return CFrame.fromMatrix(Vector3.new(frame.Position.X, h, frame.Position.Z), right.Unit, up)
 end
 
+-- How a piece with a `lay` (a gun, an MG nest: Config/Build.Slope, Rules.slopeLay) lies on the ground under it
+-- (`report`, from Survey.ground at `frame`, its footprint's centre): the plane it is laid on, through the fitted
+-- ground's height at its centre and tilted down the same slope by its tilt, and that tilt in degrees and the degrees
+-- the earth takes out; nil when the slope is past its `maxSlope`. A piece without a `lay`: level, as `frame`.
+function Survey.lay(piece: Rules.Piece, frame: CFrame, report: Report): (CFrame?, number, number)
+	local size = Survey.footprint(piece)
+	local h, gx, gz = Rules.groundPlane(report.heights, ROWS, COLS, size.X, size.Z)
+	local level = CFrame.new(frame.Position.X, h, frame.Position.Z) * frame.Rotation
+	local lay = piece.lay
+	if not lay then
+		return level, 0, 0
+	end
+	local tilt, cut = Rules.slopeLay(Rules.planeSlope(gx, gz), lay, piece.maxSlope or 90)
+	if not tilt then
+		return nil, 0, 0
+	end
+	local tx, tz = Rules.layPlane(gx, gz, tilt)
+	local right = frame.RightVector + Vector3.yAxis * tx
+	local up = right:Cross(frame.LookVector + Vector3.yAxis * tz).Unit
+	return CFrame.fromMatrix(level.Position, right.Unit, up), tilt, cut
+end
+
 -- the closest distance between a point and the segment a-b, flat
 function Survey.toSegment(p: Vector3, a: Vector3, b: Vector3): number
 	local ab = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
