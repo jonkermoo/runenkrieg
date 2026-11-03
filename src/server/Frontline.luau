@@ -325,10 +325,13 @@ local function release()
 		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
 			root.Anchored = false
-			if CollectionService:HasTag(character, BotsCfg.Tag) then
-				root:SetNetworkOwner(nil) -- (a bot stays the server's)
-			else
-				root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+			-- (unless still held by something anchored, e.g. a test: the ownership calls would throw)
+			if root:CanSetNetworkOwnership() then
+				if CollectionService:HasTag(character, BotsCfg.Tag) then
+					root:SetNetworkOwner(nil) -- (a bot stays the server's)
+				else
+					root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+				end
 			end
 		end
 		local ball = character:FindFirstChild(Cfg.Shield.name) :: BasePart?
@@ -819,6 +822,35 @@ function Frontline.restart()
 		newMatch(true)
 		thread = task.spawn(run)
 	end
+end
+
+-- Admin: the match moves to map `key` now (it must be built: src/dev/Greybox): a fresh match there, the map put back,
+-- everyone alive deployed again on it (the bots too, by src/server/Bots on their respawn).
+function Frontline.switchMap(key: string): boolean
+	if not thread or not LiveMap.built(key) then
+		return false
+	end
+	task.cancel(thread :: thread)
+	putBack()
+	useMap(key)
+	newMatch()
+	thread = task.spawn(run)
+	task.defer(function()
+		for _, p in Players:GetPlayers() do
+			if alive(p) then
+				task.spawn(function()
+					p:LoadCharacter()
+				end)
+			end
+		end
+		for _, m in bots() do
+			local h = m:FindFirstChildOfClass("Humanoid")
+			if h then
+				h.Health = 0
+			end
+		end
+	end)
+	return true
 end
 
 -- Admin: the match starts now, without waiting for each side's players (a solo test) or the rest of the countdown

@@ -1,5 +1,6 @@
 --!strict
--- Teleport destinations: every sector of the map (in front-line order) plus Config/DevTools.Extra.
+-- Teleport destinations: every sector of the map (in front-line order), every sector of the other frontline maps
+-- (`others`: { key, map }, named by their map; user 2026-11-02: Lantern Meadows' teleports), plus Config/DevTools.Extra.
 
 local DevTeleports = {}
 
@@ -14,18 +15,26 @@ export type Dest = {
 	map: string?, -- on another generated map (Config/Maps), not Map 1
 }
 
-function DevTeleports.list(map: any, cfg: any): { Dest }
+function DevTeleports.list(map: any, cfg: any, others: { { key: string, map: any } }?): { Dest }
 	local out: { Dest } = {}
-	for i, s in map.sectors do
-		-- face the next sector along the front (the last one faces back the way it came)
-		local nxt = map.sectors[i + 1] or map.sectors[i - 1]
-		table.insert(out, {
-			id = s.id,
-			name = if s.isHQ then s.name else `{s.id} ({s.startOwner})`,
-			x = s.x,
-			z = s.z,
-			look = { nxt.x, nxt.z },
-		})
+	local function sectors(m: any, key: string?)
+		for i, s in m.sectors do
+			-- face the next sector along the front (the last one faces back the way it came)
+			local nxt = m.sectors[i + 1] or m.sectors[i - 1]
+			local name = if s.isHQ then `{s.name} (HQ)` else `{s.id} ({s.startOwner})`
+			table.insert(out, {
+				id = if key then `{key}_{s.id}` else s.id,
+				name = if key then `{m.name}: {name}` else (if s.isHQ then s.name else name),
+				x = s.x,
+				z = s.z,
+				look = { nxt.x, nxt.z },
+				map = key,
+			})
+		end
+	end
+	sectors(map, nil)
+	for _, o in others or {} do
+		sectors(o.map, o.key)
 	end
 	for _, e in cfg.Extra do
 		table.insert(out, e)
@@ -33,8 +42,8 @@ function DevTeleports.list(map: any, cfg: any): { Dest }
 	return out
 end
 
-function DevTeleports.find(map: any, cfg: any, id: string): Dest?
-	for _, d in DevTeleports.list(map, cfg) do
+function DevTeleports.find(map: any, cfg: any, id: string, others: { { key: string, map: any } }?): Dest?
+	for _, d in DevTeleports.list(map, cfg, others) do
 		if d.id == id then
 			return d
 		end

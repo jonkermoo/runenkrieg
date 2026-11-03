@@ -35,6 +35,44 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 	end
 	local stats = { buildings = 0, boundaries = 0, poles = 0, props = 0 }
 
+	-- How far an arcade's paving (src/dev/Buildings Geometry: a portico's, a loggia's) runs out from a doorstep at its
+	-- level (nil: none there). A ground-floor door's steps start where its portico ends, not under the paving; an upper
+	-- door onto a loggia needs none (it is reached from inside). By the paving's own box: the copy isn't in the world
+	-- yet, so a ray can't find it.
+	local function pavingRun(copy: Instance, d: BasePart): number?
+		local paving = {}
+		for _, p in copy:GetDescendants() do
+			if p:IsA("BasePart") and p.Name == "Paving" then
+				table.insert(paving, p)
+			end
+		end
+		local top = d.Position.Y + d.Size.Y / 2
+		local edge = d.Position + d.CFrame.LookVector * (d.Size.Z / 2)
+		local function on(dist: number): boolean
+			local at = edge + d.CFrame.LookVector * dist
+			for _, p in paving do
+				local lp = p.CFrame:PointToObjectSpace(at)
+				local surface = p.Position.Y + p.Size.Y / 2
+				if
+					math.abs(lp.X) <= p.Size.X / 2
+					and math.abs(lp.Z) <= p.Size.Z / 2
+					and math.abs(top - surface) <= B.Steps.rise
+				then
+					return true
+				end
+			end
+			return false
+		end
+		if not on(0.5) then
+			return nil
+		end
+		local run = 0.5
+		while run < 40 and on(run + 0.5) do
+			run += 0.5
+		end
+		return run
+	end
+
 	-- buildings
 	local bf = folder(root, "Buildings")
 	for _, lot in layout.lots do
@@ -103,10 +141,13 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 		end
 		-- stone steps down from any door left up a bank (Rules/Village.steps), each step solid down into the ground
 		for _, d in copy:GetDescendants() do
-			if d:IsA("BasePart") and d.Name == "Doorstep" then
+			local run = d:IsA("BasePart") and d.Name == "Doorstep" and pavingRun(copy, d) or nil
+			local upper = ((d.Parent and d.Parent:GetAttribute("Story")) or 0) >= 1
+			if d:IsA("BasePart") and d.Name == "Doorstep" and not (run and upper) then
 				local S = B.Steps
 				local look = d.CFrame.LookVector -- (a wall frame's -Z is its outside)
-				local edge = d.Position + look * (d.Size.Z / 2)
+				-- (from the portico's front edge when the door opens onto one)
+				local edge = d.Position + look * (d.Size.Z / 2 + (run or 0))
 				local side = d.CFrame.RightVector
 				local w = d.Size.X
 				local function lowest(dist: number): number

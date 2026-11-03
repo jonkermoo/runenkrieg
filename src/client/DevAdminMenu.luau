@@ -220,6 +220,18 @@ local function build(player: Player): DevPanel.Panel
 	onOff("KeptTeams", "Kept teams + team cards", "KeptTeams", workspace, TeamCfg.DevAttribute)
 	-- the sector dividers and point markers in play (src/server/Sectors; off by default in Normal)
 	onOff("Sectors", "Sector borders", "Sectors", workspace, SectorCfg.ShowAttribute)
+	-- Map (Normal): play a built frontline map now (a fresh match there), or rebuild the maps (DEV place, slow)
+	heading("Map (Normal)")
+	for _, key in LiveMap.frontline() do
+		local name = LiveMap.get(key).name
+		if LiveMap.built(key) then
+			row("Map_" .. key, `Map: {name}`, "Map", key)
+		else
+			order += 1
+			DevPanel.button(p.panel, "Map_" .. key, `Map: {name} (not built)`, order, Palette.UI.outline)
+		end
+	end
+	row("RebuildMaps", "Rebuild maps (slow: Map 1, then the others beside it)", "RebuildMaps")
 	-- Match (Normal, src/server/Frontline): end it, a fresh one, your side takes the sector it's attacking
 	heading("Match (Normal)")
 	local front: { TextButton } = {

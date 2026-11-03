@@ -215,4 +215,31 @@ return {
 		assert(A.botLabel({ order = "Defend" }) == "Defend")
 		assert(A.botLabel({ role = "Hold", post = "dugout" }) == "?/Hold\ndugout")
 	end,
+	["Lantern Meadows: its sectors and landmarks as teleports, on its own map, inside its bounds"] = function()
+		local LM = require("../src/shared/Config/Maps/LanternMeadows")
+		local list = T.list(Map1, Cfg, { { key = "LanternMeadows", map = LM } })
+		local ids = {}
+		for _, d in list do
+			ids[d.id] = d
+		end
+		for _, s in LM.sectors do
+			local d = ids[`LanternMeadows_{s.id}`]
+			assert(d and d.map == "LanternMeadows", `no teleport to Lantern Meadows' {s.id}`)
+		end
+		for _, id in { "LM_Watchtower", "LM_Cascina", "LM_FordFestival", "LM_FordUpstream", "LM_FordStones" } do
+			local d = ids[id]
+			assert(d and d.map == "LanternMeadows", `no {id}`)
+			local b = LM.bounds
+			assert(d.x > b.minX and d.x < b.maxX and d.z > b.minZ and d.z < b.maxZ, `{id} outside Lantern Meadows`)
+		end
+		assert(T.find(Map1, Cfg, "LanternMeadows_S3", { { key = "LanternMeadows", map = LM } }) ~= nil)
+		assert(T.find(Map1, Cfg, "S3") ~= nil and T.find(Map1, Cfg, "S3").map == nil, "Map 1's own sectors unchanged")
+	end,
+	["admin: switch to a frontline map by key, rebuild the maps"] = function()
+		local A = require("../src/shared/Rules/DevActions")
+		local defs = { modes = {}, classes = {}, maps = { "LanternMeadows", "Map1" } }
+		assert(A.valid(Cfg, "Map", "LanternMeadows", defs))
+		assert(not A.valid(Cfg, "Map", "Nowhere", defs) and not A.valid(Cfg, "Map", 3, defs))
+		assert(A.valid(Cfg, "RebuildMaps", nil, defs) and not A.valid(Cfg, "RebuildMaps", true, defs))
+	end,
 }

@@ -70,8 +70,14 @@ local function place(sound: Sound, at: Instance | Vector3, life: number?)
 		a.WorldPosition = at
 		a.Parent = workspace.Terrain
 		sound.Parent = a
+		-- (deferred: destroying the attachment while the sound in it is being destroyed set the locked sound's Parent,
+		-- "The Parent property of SoundFx.Sound is locked"; and Debris may have taken the attachment already)
 		sound.Destroying:Once(function()
-			a:Destroy()
+			task.defer(function()
+				if a.Parent then
+					a:Destroy()
+				end
+			end)
 		end)
 		Debris:AddItem(a, life or 10)
 	else
