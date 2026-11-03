@@ -1,6 +1,8 @@
 --!strict
 -- The match's cutscenes (user 2026-11-02: "cutscene animations before and after matches"; Config/Cutscenes, Rules/
--- Cutscenes): the pre-match flight over the countdown (Workspace.Frontline's Phase "Countdown") and, at a match's end,
+-- Cutscenes): the pre-match flight over the countdown after a match (Workspace.Frontline's Phase "Countdown": a shot
+-- round each point's landmark as the narrator gives its order; a fresh server's first countdown is a loading screen
+-- instead, src/client/EndScenes), the dips to black between the end's scenes, and, at a match's end,
 -- the fade to the winner's colour (Phase "Fade": the world's colour drained, then the winner's land colour with their
 -- name; it holds until src/client/EndScenes takes over with the battle table). Every player sees them on the server's
 -- clock (PhaseEndsAt), so a player who comes in late joins where it is. Over the flight: the widescreen bars, the title
@@ -493,12 +495,18 @@ local function streamAhead(p: Play, t: number)
 		if not p.streamed[i] and t >= t0 - Cfg.StreamAhead and shot.kind ~= "Paper" then
 			p.streamed[i] = true
 			local flip = Rules.mirrored(shot, p.home, p.winner)
-			for _, u in { 0, 0.5, 1 } do
+			local at = { 0, 0.5, 1 }
+			if shot.kind == "Sectors" then -- (each point's own shot)
+				for k = 1, #p.points do
+					table.insert(at, (k - 0.5) / #p.points)
+				end
+			end
+			for _, u in at do
 				local pose = Rules.pose(shot, u, p.anchors, p.points, flip, Cfg.Paper.up)
-				local at = Vector3.new(pose.look.x, 0, pose.look.z)
+				local look = Vector3.new(pose.look.x, 0, pose.look.z)
 				task.spawn(function()
 					pcall(function()
-						player:RequestStreamAroundAsync(at)
+						player:RequestStreamAroundAsync(look)
 					end)
 				end)
 			end
@@ -593,7 +601,7 @@ local function step(dt: number)
 				elseif s.startOwner == "East" then magicOf(p.fill.EastKit)
 				else rgb(GR.neutral)
 		end
-		if shot.kind == "Front" then
+		if shot.kind == "Front" or shot.kind == "Sectors" then
 			local id = Rules.landmark(p.map, shown, Cfg.LandmarkReach)
 			local name = id and Cfg.Names[id]
 			place.Text = if name then `{p.map.sectors[shown].name} · {name}` else p.map.sectors[shown].name
@@ -677,8 +685,33 @@ local function begin(kind: string, folder: Instance)
 	RunService:BindToRenderStep("MatchCutscene", Enum.RenderPriority.Camera.Value + 2, step)
 end
 
+-- The dips to black between scenes (Config/Cutscenes.Dip; the folder's DipAt, set by src/server/Frontline as it
+-- changes scene): a black screen over everything, the bars, the subtitles and the end scenes too.
+local function dips()
+	local g = Instance.new("ScreenGui")
+	g.Name = "SceneDip"
+	g.ResetOnSpawn = false
+	g.IgnoreGuiInset = true
+	g.DisplayOrder = Cfg.DisplayOrder + 5
+	local black = Instance.new("Frame")
+	black.Size = UDim2.fromScale(1, 1)
+	black.BackgroundColor3 = Color3.new(0, 0, 0)
+	black.BorderSizePixel = 0
+	black.Visible = false
+	black.Parent = g
+	g.Parent = player:WaitForChild("PlayerGui")
+	RunService.RenderStepped:Connect(function()
+		local folder = workspace:FindFirstChild(FrontCfg.FolderName)
+		local at = folder and folder:GetAttribute(FrontCfg.DipAttribute)
+		local k = Rules.dip(workspace:GetServerTimeNow(), if type(at) == "number" then at else nil, Cfg.Dip)
+		black.Visible = k > 0
+		black.BackgroundTransparency = 1 - k
+	end)
+end
+
 function MatchCutscene.start()
 	build()
+	dips()
 	skip.Activated:Connect(function()
 		if play then
 			(play :: Play).skipHeld = math.huge
@@ -694,7 +727,10 @@ function MatchCutscene.start()
 				seen = phase :: string?
 				if folder and phase == "Countdown" then
 					MatchCutscene.clearFade()
-					begin("Pre", folder)
+					-- (after a match only: a fresh server's first countdown is a loading screen, src/client/EndScenes)
+					if type(folder:GetAttribute(FrontCfg.SpeechAttribute)) == "string" then
+						begin("Pre", folder)
+					end
 				elseif folder and phase == "Fade" then
 					finish()
 					startFade(folder)

@@ -64,23 +64,78 @@ local Cutscenes = {
 		Ferry = "The ferry house",
 	},
 
-	-- Pre A, "The Line Is Drawn" (plays over the countdown, Config/Frontline.CountdownSeconds): the sheet with the
-	-- front drawn in red pencil, the dive into the West HQ, the flight along the front with each point's seal stamped
-	-- (long enough for the plan's line at each point: Speech.plans), each side's wave line, then into your own
-	-- soldier's eyes on the whistle.
+	-- The pre-match flight (plays over the countdown, Config/Frontline.CountdownSeconds, after a match: a fresh server
+	-- goes in behind a loading screen instead, src/client/EndScenes). User 2026-11-03: "cinematic shots circling and
+	-- going around and peeking points of interest in sectors ... change angles to a new sector whenever a new sector is
+	-- being described ... not just flying over the map showing everything": a high slow orbit over the middle with
+	-- the title, then one shot per point (`Sectors`: the point's share of the shot each, cut as the narrator's order for
+	-- it starts, Speech.plans) round its landmark, its seal stamped as it cuts in; each side's wave line, then into your
+	-- own soldier's eyes on the whistle.
+	-- A "Sectors" shot's own shots are its `styles` in turn, at the point's landmark ("Mark") or the point ("S"); an
+	-- orbit's angles turned `turn` radians further at each point, so no two cuts look the same way.
 	Pre = {
 		shots = {
-			{ name = "Sheet", t1 = 1.6, kind = "Paper", caption = "Title", pencil = true },
 			{
-				name = "Dive",
+				name = "Establish",
 				t1 = 2.8,
-				kind = "Move",
-				from = { at = "S1", dx = -260, dz = 30, up = 520 },
-				to = { at = "S1", dx = -200, dz = 60, up = 120 },
-				look = { at = "S1" },
-				paper = "out",
+				kind = "Orbit",
+				at = "Centre",
+				radius = 380,
+				up = 170,
+				lookUp = 0,
+				from = -1.95,
+				to = -1.6,
+				fov = 50,
+				caption = "Title",
 			},
-			{ name = "Front", t1 = 16.0, kind = "Front", up = 55, side = 110, lead = 180, back = 0.3, stamps = true },
+			{
+				name = "Sectors",
+				t1 = 16.0,
+				kind = "Sectors",
+				stamps = true,
+				turn = 1.1,
+				styles = {
+					-- circling the landmark, high enough to see over its roof
+					{
+						kind = "Orbit",
+						at = "Mark",
+						radius = 85,
+						up = 36,
+						lookUp = 8,
+						from = -2.3,
+						to = -1.75,
+						fov = 48,
+					},
+					-- peeking at it low over the fields, pushing in
+					{
+						kind = "Move",
+						from = { at = "Mark", dx = -120, dz = -80, up = 18 },
+						to = { at = "Mark", dx = -90, dz = -58, up = 15 },
+						look = { at = "Mark", up = 9 },
+						fov = 40,
+					},
+					-- a crane rising off the ground beside it
+					{
+						kind = "Move",
+						from = { at = "Mark", dx = 75, dz = -95, up = 14 },
+						to = { at = "Mark", dx = 68, dz = -85, up = 62 },
+						look = { at = "Mark", up = 10 },
+						fov = 46,
+					},
+					-- a tight orbit with a Dutch tilt
+					{
+						kind = "Orbit",
+						at = "Mark",
+						radius = 65,
+						up = 24,
+						lookUp = 12,
+						from = 0.4,
+						to = 0.95,
+						roll = -7,
+						fov = 44,
+					},
+				},
+			},
 			{
 				name = "WestLine",
 				t1 = 16.8,
@@ -110,6 +165,11 @@ local Cutscenes = {
 	-- Fade: the bars in, the world's colour drained over `drain` of the fade, then the winner's land colour
 	-- (Config/Palette UI.Grimoire.Wash; `noWinner` without one) fills the screen and holds with the winner's name.
 	Fade = { drain = 0.6, cover = 0.35, noWinner = { 21, 18, 15 } },
+	-- The dips to black between the end's scenes (user 2026-11-03: the victor screen, fade out, fade into the war room,
+	-- ..., fade out, fade into the loading screen, ..., fade out, fade into the map cutscene): the screen darkens over
+	-- `out` seconds to the moment the server changes scene (Config/Frontline.DipAttribute), stays black `hold`, clears
+	-- over `inn`.
+	Dip = { out = 0.5, hold = 0.3, inn = 0.6 },
 	-- where the sets stand (studs): high over the world's origin, out of every map's sight (each client builds its own);
 	-- the papers on them drawn at this many pixels a stud
 	PixelsPerStud = 60,
@@ -251,8 +311,18 @@ local Cutscenes = {
 			{ 0.073, 0.135, 3, 0.054, 0.029 },
 			{ 0.479, 0.094, 3, 0.073, 0.022 },
 		},
-		-- the replay on the table: spread over the whole phase (not the results screen's Config/Results.Replay)
-		replay = { seconds = 14, lead = 0.6, tail = 2.6, draw = 1.0 },
+		-- the replay on the table (not the results screen's Config/Results.Replay): a capture every `every` seconds from
+		-- `lead`, `tail` after the last start, the whole of it at most `most` (Rules/Cutscenes.replaySeconds)
+		replay = { most = 14, every = 1.5, lead = 0.6, tail = 0.4, draw = 1.0 },
+		-- how long the table plays (Rules/Cutscenes.tableSeconds; user 2026-11-03): until the replay and the report are
+		-- both done, then `hold`; at least `least`, at most `most` seconds
+		hold = 1.2,
+		least = 6,
+		most = 24,
+		-- the losing side's piece topples once the last capture is drawn and the pieces have settled (`after`): falling
+		-- over `fall` seconds onto its side (the way off the map, else where it's clear), a small bounce (`bounce`
+		-- degrees, `rate` radians a second, dying by `decay` a second)
+		topple = { after = 0.3, fall = 0.55, bounce = 5, rate = 14, decay = 7 },
 		-- the painted blocks (studs: across, deep, tall), each resting `rest` (x right, z toward us, studs) from its
 		-- side's front point; the taker's slides there along its arrow while the arrow is drawn, lifting `lift` at the
 		-- middle; a block pushed off its point slides back over `back` seconds (once its side holds nothing, `off`
@@ -316,7 +386,7 @@ local Cutscenes = {
 	-- per map on offer (`slots` of them, `xs` across; an empty slot "to be announced"), photos pinned round them with red
 	-- string, a field telegram with the plan. Each order: its objective, a clipping of its map, its orders
 	-- (Vote.Orders), and "SIGNED, FOR THE FRONT" over a `grid` of signature lines (cols x rows: up to 40 signers, user
-	-- 2026-11-03) with the count out of the winners present. Studs; the board's middle `at` from the floor's middle.
+	-- 2026-11-03), the names alone (no count: user 2026-11-03). Studs; the board's middle `at` from the floor's middle.
 	Board = {
 		at = { 0, 5.83, 11.27 },
 		size = { 11.3, 8.7 },
@@ -335,8 +405,8 @@ local Cutscenes = {
 		-- the red string from a pin under the sign to the leading order's top pin, sliding to a new leader over `slide`
 		-- seconds (a little past, then back); `width` studs, its sag `sag`
 		string = { width = 0.03, sag = 0.35, slide = 1.0, color = { 168, 38, 31 } },
-		-- the count's digits rolling up in their box when it goes up (seconds)
-		roll = 0.25,
+		-- once you've signed (a vote can't be taken back, user 2026-11-03): the strip under the sign says so
+		signed = "YOUR ORDER IS SIGNED",
 		-- after the stamp (`after` seconds past the pick), each losing order swings on one pin: `swing` degrees, dying
 		-- away by `decay` a second at `rate` radians a second, coming to rest `rest` degrees off
 		lose = { after = 2.0, swing = 9, decay = 2.4, rate = 7, rest = 3, settle = 0.3 },
@@ -368,8 +438,10 @@ local Cutscenes = {
 	-- or "rise" by studs, "truck" along x by studs, "arc" round the look-at by degrees). The modelled hall (`set`,
 	-- Config/Assets armory) with its lights and the fields outside the door; a placeholder room (`placeholder` shots)
 	-- where the library hasn't got it.
-	-- A loading bar in the bottom bar (`bar`: width and height of the screen, its colours) fills over the least
-	-- loading time (the phase's end), short of full until the match is ready.
+	-- The loading ring in the bottom left (user 2026-11-03: "move the loading bar bottom left as a circle with a %";
+	-- `ring`: `dots` round a circle `size` of the screen's height across, its middle `at` (shares of the width from the
+	-- left, of the height from the bottom), each dot `dot` of the ring across, its colours, the % in the middle) fills over
+	-- the least loading time (the phase's end), short of full (`most`) until the match is ready.
 	Armory = {
 		cut = 3,
 		shots = {
@@ -415,6 +487,19 @@ local Cutscenes = {
 		set = {
 			asset = "armory",
 			turn = 180,
+			-- the walls' brick and the floor's concrete in Roblox's own materials (the export flattens the render's brick
+			-- and concrete shaders to one pale colour; user 2026-11-03: "the walls look too basic"), the boarded dado, its rails, the
+			-- brick string courses and the wall plate (the armory's v2 export) in wood and brick: each a mesh name's
+			-- start, at least `taller` / at most `flatter` studs tall, an Enum.Material name and a colour
+			looks = {
+				{ prefix = "C_E8E8E8", taller = 5, material = "Brick", colour = { 120, 84, 70 } },
+				{ prefix = "C_909080", material = "Concrete" },
+				{ prefix = "C_604030", material = "Wood" },
+				{ prefix = "C_503828", material = "Wood" },
+				{ prefix = "C_403020", material = "Wood" },
+				{ prefix = "C_483028", material = "Wood" },
+				{ prefix = "C_784838", material = "Brick" },
+			},
 			images = {
 				Img_1 = 116344564819606,
 				Img_2 = 122778476046810,
@@ -554,7 +639,16 @@ local Cutscenes = {
 			{ from = { -2, 4.5, -2 }, to = { -1, 4, -3 }, look = { -2, 2.6, -9 } },
 			{ from = { 0, 4, -6 }, to = { 0, 4.3, -2 }, look = { 0, 4, 18 } },
 		},
-		bar = { width = 0.3, height = 0.008, track = { 60, 54, 46 }, fill = { 230, 220, 193 }, most = 0.95 },
+		ring = {
+			size = 0.075,
+			at = { 0.045, 0.055 },
+			dots = 36,
+			dot = 0.1,
+			track = { 60, 54, 46 },
+			fill = { 230, 220, 193 },
+			text = 0.3, -- (the %'s height, of the ring's)
+			most = 0.95,
+		},
 	},
 	-- The narrator: a British woman's voice, every line recorded (Config/NarratorClips; user 2026-11-03), and Roblox
 	-- text-to-speech (AudioTextToSpeech, voice "1" British male, slowed and lowered) for a line not recorded. Part one in

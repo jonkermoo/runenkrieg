@@ -130,6 +130,40 @@ local function mix(a: Place, b: Place, u: number): Place
 	return { x = a.x + (b.x - a.x) * u, z = a.z + (b.z - a.z) * u, up = a.up + (b.up - a.up) * u }
 end
 
+-- Which of `n` points a "Sectors" shot shows `u` through it (each its equal share of the shot, west to east) and how
+-- far through that point's own shot (0..1).
+function Cutscenes.sector(u: number, n: number): (number, number)
+	local s = math.clamp(u, 0, 1) * math.max(n, 1)
+	local i = math.clamp(math.floor(s) + 1, 1, math.max(n, 1))
+	return i, math.clamp(s - (i - 1), 0, 1)
+end
+
+-- A "Sectors" shot's own shot at point `i`: its styles taken in turn, their anchors "S" and "Mark" named for that point
+-- (S3, Mark3), their orbits turned `turn` radians a point on.
+function Cutscenes.sectorShot(shot: any, i: number): any
+	local style = shot.styles[(i - 1) % #shot.styles + 1]
+	local out = table.clone(style)
+	local function named(key: any): any
+		if type(key) ~= "table" then
+			return key
+		end
+		local k = table.clone(key)
+		if k.at == "S" or k.at == "Mark" then
+			k.at = `{k.at}{i}`
+		end
+		return k
+	end
+	out.from, out.to, out.look, out.lookTo = named(style.from), named(style.to), named(style.look), named(style.lookTo)
+	if type(style.at) == "string" and (style.at == "S" or style.at == "Mark") then
+		out.at = `{style.at}{i}`
+	end
+	if out.kind == "Orbit" then
+		local spin = (shot.turn or 0) * (i - 1)
+		out.from, out.to = style.from + spin, style.to + spin
+	end
+	return out
+end
+
 -- Where the camera is and looks `u` through `shot` (Config/Cutscenes' kinds), on a map with these `anchors`, its
 -- points `points` ({ { x, z } } west to east), `flip`ped east-west or not; `paperUp` the parked camera's height. An
 -- "Eyes" shot's pose is its `from` (the client blends into the soldier's head).
@@ -141,6 +175,10 @@ function Cutscenes.pose(
 	flip: boolean,
 	paperUp: number
 ): Pose
+	if shot.kind == "Sectors" then
+		local i, v = Cutscenes.sector(u, #points)
+		return Cutscenes.pose(Cutscenes.sectorShot(shot, i), v, anchors, points, false, paperUp)
+	end
 	local roll = (shot.roll or 0) * (if flip then -1 else 1)
 	if shot.kind == "Paper" then
 		local c = anchors.Centre
@@ -155,6 +193,7 @@ function Cutscenes.pose(
 			eye = { x = c[1] + math.cos(a) * shot.radius, z = c[2] + math.sin(a) * shot.radius, up = shot.up },
 			look = { x = c[1], z = c[2], up = shot.lookUp or 0 },
 			roll = roll,
+			fov = shot.fov,
 		}
 	elseif shot.kind == "Front" then
 		local n = #points
@@ -186,7 +225,9 @@ end
 -- the way to each point (the first at once, the last before the shot ends, so it's seen), any other's one after
 -- another over the shot.
 function Cutscenes.stamped(shot: any, u: number, n: number): number
-	if shot.kind == "Front" then
+	if shot.kind == "Sectors" then
+		return (Cutscenes.sector(u, n)) -- (each point's seal as its own shot cuts in)
+	elseif shot.kind == "Front" then
 		return math.clamp(math.floor(u * (n - 1) + 0.5) + 1, 1, n)
 	end
 	return math.clamp(math.floor(u * (n + 0.999)), 0, n)
@@ -239,7 +280,7 @@ function Cutscenes.orderTime(shot: any, t0: number, i: number, n: number): numbe
 end
 
 -- Part two, over the pre-match flight `cut` on a map with `n` points (`nextMap` its key): the plan's first line as the
--- dive starts, one as the camera comes up on each point, then the closing call (by the player's own kit `own`, nil: no
+-- flight opens, one as the camera comes up on each point (its Front or Sectors shot), then the closing call (by the player's own kit `own`, nil: no
 -- call) as the camera goes into the soldier's eyes. A map without a plan gets only the call.
 function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string, n: number): { Line }
 	local out: { Line } = {}
@@ -248,13 +289,13 @@ function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string,
 	local front, frontT0 = nil, 0
 	for i, s in cut.shots do
 		starts[s.kind] = starts[s.kind] or Cutscenes.start(cut, i)
-		if s.kind == "Front" and not front then
+		if (s.kind == "Front" or s.kind == "Sectors") and not front then
 			front, frontT0 = s, Cutscenes.start(cut, i)
 		end
 	end
 	if plan then
 		if plan[1] then
-			table.insert(out, { text = plan[1], at = starts.Move or 0 })
+			table.insert(out, { text = plan[1], at = 0 })
 		end
 		for i = 1, n do
 			local line = plan[i + 1]
@@ -439,6 +480,66 @@ function Cutscenes.swing(lose: any, u: number): number
 	end
 	return lose.swing * math.exp(-lose.decay * u) * math.sin(lose.rate * u)
 		+ lose.rest * math.clamp(u / lose.settle, 0, 1)
+end
+
+-- Whether a signature for map `key` counts from a player who has signed `signed` (nil: not yet): a vote can't be taken
+-- back (user 2026-11-03), so only the first, and only for a map on `offer`.
+function Cutscenes.signs(signed: string?, key: string, offer: { string }): boolean
+	return signed == nil and table.find(offer, key) ~= nil
+end
+
+-- The after-action report's typed lines with `top` soldiers listed (src/client/CommandPost.report: the map, the
+-- winner, its line, the length, "TOP SOLDIERS", the columns' heads, the soldiers, your line, your points).
+function Cutscenes.reportLines(top: number): number
+	return 8 + top
+end
+
+-- The table's replay span for `captures` (the ones it draws: Config/Results.Replay.most at most): `every` seconds
+-- between captures from `lead`, `tail` after the last, no longer than `most` (Config/Cutscenes.Table.replay).
+function Cutscenes.replaySeconds(replay: any, captures: number): number
+	local span = replay.lead + math.max(captures - 1, 0) * replay.every + replay.tail
+	return math.min(span, replay.most)
+end
+
+-- How long the war table plays (Config/Cutscenes.Table; user 2026-11-03: turn to the board once the replay and the
+-- report are both done, never before, never long after): the replay's last arrow drawn (and, with a winner, the
+-- loser's piece toppled), the report typed and ticked, then `hold`; at least `least`, at most `most`.
+function Cutscenes.tableSeconds(T: any, captures: number, lines: number, won: boolean): number
+	local R = T.replay
+	local replay = 0
+	if captures > 0 then
+		replay = Cutscenes.replaySeconds(R, captures) - R.tail + R.draw
+		if won then
+			replay += T.blocks.back + T.topple.after + T.topple.fall
+		end
+	end
+	local report = T.typing.lead + lines * T.typing.type + T.tick.after + T.tick.draw
+	return math.clamp(math.max(replay, report) + T.hold, T.least, T.most)
+end
+
+-- How black the screen is at server time `now` round a dip to black that's full at `at` (Config/Cutscenes.Dip):
+-- darkening over `out` before it, held `hold`, clearing over `inn` (0 clear, 1 black; no dip: 0).
+function Cutscenes.dip(now: number, at: number?, d: any): number
+	if not at then
+		return 0
+	end
+	if now < at then
+		return 1 - math.clamp((at - now) / d.out, 0, 1)
+	end
+	return 1 - math.clamp((now - at - d.hold) / d.inn, 0, 1)
+end
+
+-- The losing piece's topple `u` seconds in (Config/Cutscenes.Table.topple): degrees off upright, falling faster and
+-- faster to `rest` (lying on its side) over `fall` seconds, then a small bounce dying away.
+function Cutscenes.topple(t: any, u: number, rest: number): number
+	if u <= 0 then
+		return 0
+	elseif u < t.fall then
+		local k = u / t.fall
+		return rest * k * k
+	end
+	local v = u - t.fall
+	return rest - t.bounce * math.abs(math.sin(v * t.rate)) * math.exp(-t.decay * v)
 end
 
 return Cutscenes

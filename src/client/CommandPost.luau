@@ -46,14 +46,12 @@ export type Order = {
 	part: BasePart,
 	gui: SurfaceGui,
 	grid: Frame,
-	count: TextLabel,
 	stamp: TextLabel,
 	signed: { [string]: TextLabel },
+	button: TextButton?,
 	art: any,
-	-- (Field kit) the count's last value and when it last went up, the value rolling out, the paper's place
+	-- (Field kit) its signatures, the paper's place
 	n: number,
-	rollAt: number,
-	countOld: TextLabel,
 	rest: CFrame,
 }
 export type Post = {
@@ -373,8 +371,13 @@ local function voteSign(folder: Instance, paper: BasePart): Vector3
 	local H = S.hint
 	local strip = part(folder, "Hint", V(H.size[1], H.size[2], 0.004), cf * CFrame.new(0, -H.down, -0.006), PAPER)
 	local _, hf = surface(strip, Enum.NormalId.Front, 200)
-	local l = text(hf, H.text, TYPE, INK, 0.08, 0.12, 0.84, 0.76, H.size[2] * 200)
-	l.TextXAlignment = Enum.TextXAlignment.Center
+	-- (and once you've signed, that it's signed: CommandPost.signedHint)
+	for _, say in { { "Ask", H.text }, { "Signed", Cfg.Board.signed } } do
+		local l = text(hf, say[2], TYPE, INK, 0.08, 0.12, 0.84, 0.76, H.size[2] * 200)
+		l.Name = say[1]
+		l.TextXAlignment = Enum.TextXAlignment.Center
+		l.Visible = say[1] == "Ask"
+	end
 	for _, sx in { -1, 1 } do
 		pin(folder, (strip.CFrame * CFrame.new(sx * (H.size[1] / 2 - 0.08), 0, -0.04)).Position)
 	end
@@ -1204,7 +1207,16 @@ end
 -- A modelled set out of the library (Config/Assets `key`), nil where it hasn't got it: its meshes coloured by name
 -- (C_RRGGBB flat, G_RRGGBB glowing; a big mesh's pieces C_RRGGBB_<n>), its printed papers given `images` (mesh name -> image id), its blank papers in
 -- paper colour, stood with its Origin at `origin`, turned `turn` degrees.
-function CommandPost.loadSet(folder: Instance, key: string, origin: Vector3, turn: number, images: any): Model?
+-- (`looks`: meshes given a Roblox material, and a colour, by their name's start and how tall they are: e.g. the walls
+-- in Brick, the export having flattened the brick's shader to one colour)
+function CommandPost.loadSet(
+	folder: Instance,
+	key: string,
+	origin: Vector3,
+	turn: number,
+	images: any,
+	looks: { any }?
+): Model?
 	local e = AssetsCfg.Entries[key]
 	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
 	f = f and f:FindFirstChild(e.category)
@@ -1225,6 +1237,19 @@ function CommandPost.loadSet(folder: Instance, key: string, origin: Vector3, tur
 			if kind and hex then
 				d.Color = Color3.fromHex(hex)
 				d.Material = if kind == "G" then Enum.Material.Neon else Enum.Material.SmoothPlastic
+				for _, l in looks or {} do
+					local tall = d.Size.Y
+					if
+						string.sub(d.Name, 1, #l.prefix) == l.prefix
+						and tall >= (l.taller or 0)
+						and tall <= (l.flatter or math.huge)
+					then
+						d.Material = (Enum.Material :: any)[l.material]
+						if l.colour then
+							d.Color = rgb(l.colour)
+						end
+					end
+				end
 			elseif d.Name == "Origin" then
 				zero = d
 				d.Transparency = 1
@@ -1618,13 +1643,11 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 			part = p,
 			gui = g,
 			grid = nil :: any,
-			count = nil :: any,
 			stamp = nil :: any,
 			signed = {},
+			button = nil,
 			art = nil,
 			n = 0,
-			rollAt = -math.huge,
-			countOld = nil :: any,
 			rest = cf,
 		}
 		if key and SketchCfg.Maps[key] then
@@ -1642,15 +1665,8 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 			text(f, if key then `{k}. {l}` else l, TYPE, INK, 0.06, 0.335 + (k - 1) * 0.035, 0.88, 0.028, px)
 		end
 		box(f, 0.05, 0.455, 0.9, 0.003, INK)
+		-- (the names alone, no count: user 2026-11-03)
 		text(f, "SIGNED, FOR THE FRONT:", TYPE, INK, 0.06, 0.47, 0.6, 0.03, px)
-		local countBox = box(f, 0.66, 0.465, 0.28, 0.04, INK)
-		countBox.ClipsDescendants = true -- (its digits roll up through it)
-		local count = text(countBox, "0 / 0", SLAB, PAPER, 0, 0.1, 1, 0.8, 0.04 * px)
-		count.TextXAlignment = Enum.TextXAlignment.Center
-		order.count = count
-		local old = text(countBox, "", SLAB, PAPER, 0, -1, 1, 0.8, 0.04 * px)
-		old.TextXAlignment = Enum.TextXAlignment.Center
-		order.countOld = old
 		-- the signature grid: `cols` columns of `rows` lines, filled down each column
 		local grid = box(f, 0.05, 0.52, 0.9, 0.45, PAPER)
 		grid.BackgroundTransparency = 1
@@ -1679,14 +1695,30 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 			button.Activated:Connect(function()
 				sign(key)
 			end)
+			order.button = button
 		end
 		table.insert(post.orders, order)
 	end
 end
 
+-- Once you've signed (a vote can't be taken back, user 2026-11-03): the strip under the sign says so and no order
+-- takes a click.
+function CommandPost.signedHint(post: Post, signed: boolean)
+	for _, d in post.folder:GetDescendants() do
+		if d:IsA("TextLabel") and (d.Name == "Ask" or d.Name == "Signed") then
+			d.Visible = (d.Name == "Signed") == signed
+		end
+	end
+	for _, o in post.orders do
+		if o.button then
+			o.button.Visible = not signed
+		end
+	end
+end
+
 -- The signatures on each order from the folder's Votes_<key> ("Name:kit|..."), in signing order down the grid, new
--- ones written letter by letter in `ink(kit)`; each count out of `total` (the winners present).
-function CommandPost.signatures(post: Post, folder: Instance, total: number, ink: (string?) -> Color3)
+-- ones written letter by letter in `ink(kit)`.
+function CommandPost.signatures(post: Post, folder: Instance, ink: (string?) -> Color3)
 	local G = Cfg.Board.grid
 	for _, o in post.orders do
 		if o.key then
@@ -1731,15 +1763,7 @@ function CommandPost.signatures(post: Post, folder: Instance, total: number, ink
 					o.signed[name] = nil
 				end
 			end
-			local shown = `{n} / {math.max(total, n)}`
-			if n > o.n then -- (a new signature: the count rolls up)
-				o.countOld.Text = o.count.Text
-				o.rollAt = os.clock()
-			end
 			o.n = n
-			o.count.Text = shown
-		else
-			o.count.Text = `0 / {total}`
 		end
 	end
 end
@@ -1828,6 +1852,42 @@ function CommandPost.restSpot(
 		end
 	end
 	return V(want.X, (footprint(post, want, radius)), want.Z)
+end
+
+-- The way a side's piece standing at `at` falls (once found, kept): away from the enemy (the West's west), else the
+-- nearest way round where all of it would lie inside the table, level with its foot and clear of `avoid`.
+local CROWN = 0.76 -- (the rook's crown's radius, of its foot's: chessPiece)
+local function fallWay(post: Post, at: Vector3, side: string, avoid: { { at: Vector3, r: number } }): Vector3
+	local key = "fall" .. side
+	if post.spots[key] then
+		return post.spots[key]
+	end
+	local T, PC = Cfg.Table, Cfg.Table.piece
+	local half = Vector2.new(T.size[1] / 2, T.size[2] / 2) - Vector2.one * T.spot.edge
+	local away = if side == "West" then -1 else 1
+	local found = V(away, 0, 0)
+	for _, deg in { 0, 30, -30, 60, -60, 90, -90, 120, -120, 150, -150, 180 } do
+		local a = math.rad(deg)
+		local dir = V(away * math.cos(a), 0, math.sin(a))
+		local ok = true
+		for _, s in { 0.3, 0.6, 1 } do
+			local p = at + dir * (PC.radius + s * PC.tall)
+			local d = p - post.tableTop
+			ok = ok and math.abs(d.X) <= half.X and math.abs(d.Z) <= half.Y
+			for _, o in avoid do
+				ok = ok and Vector2.new(p.X - o.at.X, p.Z - o.at.Z).Magnitude >= PC.radius * CROWN + o.r
+			end
+			-- (across its whole width as it lies, so nothing beside it is touched either)
+			local top, low, level = footprint(post, p, PC.radius * 1.15)
+			ok = ok and level and math.abs(top - at.Y) <= T.spot.level and math.abs(low - at.Y) <= T.spot.level
+		end
+		if ok then
+			found = dir
+			break
+		end
+	end
+	post.spots[key] = found
+	return found
 end
 
 local function sideColour(kit: string?): Color3
@@ -1938,6 +1998,11 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 		local u = Rules.ease(math.clamp((now - post.doneAt[k]) / B.back, 0, 1))
 		pos[other] = pos[other]:Lerp(front(other), u)
 	end
+	-- the losing side's piece topples once the last capture is drawn and the pieces have settled (user 2026-11-03)
+	local winner = folder:GetAttribute("Winner")
+	local loser = if winner == "West" then "East" elseif winner == "East" then "West" else nil
+	local lastAt = caps and #caps > 0 and post.doneAt[#caps]
+	local fallen = if loser and lastAt then now - (lastAt + B.back + T.topple.after) else 0
 	-- (standing on the highest thing under it: on the way it rides over whatever it crosses)
 	for side, m in post.blocks do
 		local at = pos[side]
@@ -1948,7 +2013,16 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 				y = math.max(y, k.a.Y + k.h)
 			end
 		end
-		m:PivotTo(CFrame.new(V(at.X, y + lift[side], at.Z)) * CFrame.Angles(0, face, 0))
+		local cf = CFrame.new(V(at.X, y + lift[side], at.Z)) * CFrame.Angles(0, face, 0)
+		if side == loser and fallen > 0 then
+			local dir = fallWay(post, V(at.X, y, at.Z), side, clear)
+			-- over the foot's edge on that side, past upright until the narrower crown lies on the table
+			local edge = V(at.X, y, at.Z) + dir * PC.radius
+			local lying = 90 + math.deg(math.atan((1 - CROWN) * PC.radius / PC.tall))
+			local tip = CFrame.fromAxisAngle(V(0, 1, 0):Cross(dir), math.rad(Rules.topple(T.topple, fallen, lying)))
+			cf = CFrame.new(edge) * tip * CFrame.new(-edge) * cf
+		end
+		m:PivotTo(cf)
 	end
 	-- the pennants: each its point's holder's colour; at a capture it lifts, changes at the top, and drops back
 	for i, m in post.pennants do
@@ -1971,20 +2045,13 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 	end
 end
 
--- The board each frame: the stopwatch's hand round the time `left` of `total`, the red string to the leading order,
--- the counts rolling up; after the pick (`picked` its key, `since` seconds ago) the losing orders swing on one pin.
+-- The board each frame: the stopwatch's hand round the time `left` of `total`, the red string to the leading order;
+-- after the pick (`picked` its key, `since` seconds ago) the losing orders swing on one pin.
 function CommandPost.stepBoard(post: Post, left: number, total: number, picked: string?, since: number)
 	local B = Cfg.Board
 	local angle = Rules.watchAngle(left, total)
 	post.hand.CFrame = post.dial * CFrame.Angles(0, 0, math.rad(angle)) * CFrame.new(0, post.hand.Size.Y * 0.32, 0)
 	local now = os.clock()
-	-- the counts' digits, rolling up through their boxes
-	for _, o in post.orders do
-		local u = Rules.ease(math.clamp((now - o.rollAt) / B.roll, 0, 1))
-		o.count.Position = UDim2.fromScale(0, 0.1 + (1 - u))
-		o.countOld.Position = UDim2.fromScale(0, 0.1 - u)
-		o.countOld.Visible = u < 1
-	end
 	-- the string: off to a clear new leader from where its end was
 	local counts = {}
 	for i, o in post.orders do

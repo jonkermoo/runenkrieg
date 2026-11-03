@@ -56,15 +56,60 @@ local tests: { [string]: () -> () } = {
 		end
 		assert(most <= L.swing + L.rest, "never past its swing")
 	end,
-	["the table's replay is drawn inside the table phase"] = function()
-		local P = Cfg.Table.replay
-		assert(P.seconds == Front.TableSeconds, "spread over the whole phase")
+	["the table plays until its replay and report are done, then turns (user 2026-11-03)"] = function()
+		local T = Cfg.Table
+		local P = T.replay
 		local Stats = require("../src/shared/Rules/MatchStats")
 		local Results = require("../src/shared/Config/Results")
-		for n = 1, Results.Replay.most do
-			local last = Stats.replayAt(n, n, P.seconds, P.lead, P.tail)
-			assert(last + P.draw <= P.seconds - 1, `{n} captures are drawn a second before the turn`)
+		local lines = R.reportLines(T.top3)
+		local typed = T.typing.lead + lines * T.typing.type + T.tick.after + T.tick.draw
+		for n = 0, Results.Replay.most do
+			for _, won in { true, false } do
+				local length = R.tableSeconds(T, n, lines, won)
+				local span = R.replaySeconds(P, n)
+				local drawn = if n > 0 then Stats.replayAt(n, n, span, P.lead, P.tail) + P.draw else 0
+				if n > 0 and won then
+					drawn += T.blocks.back + T.topple.after + T.topple.fall
+				end
+				assert(length >= drawn and length >= typed, `{n} captures: the turn waits for the replay and report`)
+				assert(
+					length <= math.max(drawn, typed, T.least) + T.hold + 1e-9,
+					`{n} captures: no long wait once both are done`
+				)
+				assert(length >= T.least and length <= T.most, "kept within its least and most")
+			end
 		end
+		assert(R.replaySeconds(P, 1) < R.replaySeconds(P, 4), "a short match replays quicker")
+		assert(R.replaySeconds(P, 100) == P.most, "a long one no longer than the most")
+		assert(R.tableSeconds(T, 0, 200, false) == T.most, "a report past the most still turns at the most")
+	end,
+	["a vote can't be taken back: only a first signature counts, for a map on offer"] = function()
+		local offer = { "Map1", "LanternMeadows" }
+		assert(R.signs(nil, "Map1", offer), "a first signature counts")
+		assert(not R.signs("Map1", "LanternMeadows", offer), "a second, for another map, is ignored")
+		assert(not R.signs("Map1", "Map1", offer), "signing the same again changes nothing")
+		assert(not R.signs(nil, "Nowhere", offer), "a map not on offer is ignored")
+	end,
+	["the dips to black: darkening to the change, held, clearing"] = function()
+		local D = Cfg.Dip
+		assert(R.dip(5, nil, D) == 0, "no dip: clear")
+		assert(R.dip(10 - D.out, 10, D) == 0 and math.abs(R.dip(10 - D.out / 2, 10, D) - 0.5) < 1e-9)
+		assert(R.dip(10, 10, D) == 1 and R.dip(10 + D.hold / 2, 10, D) == 1, "black at the change and over the hold")
+		assert(math.abs(R.dip(10 + D.hold + D.inn / 2, 10, D) - 0.5) < 1e-9)
+		assert(R.dip(10 + D.hold + D.inn, 10, D) == 0 and R.dip(99, 10, D) == 0, "clear after")
+		assert(R.dip(1, 10, D) == 0, "clear long before")
+	end,
+	["the losing piece falls faster and faster onto its side, then settles"] = function()
+		local T = Cfg.Table.topple
+		assert(R.topple(T, 0, 85) == 0 and R.topple(T, -1, 85) == 0)
+		local a, b = R.topple(T, T.fall * 0.25, 85), R.topple(T, T.fall * 0.5, 85)
+		assert(b - a > a, "speeding up as it goes")
+		assert(math.abs(R.topple(T, T.fall, 85) - 85) < 1e-9, "on its side at the end of the fall")
+		for k = 0, 40 do
+			local d = R.topple(T, T.fall + k / 20, 85)
+			assert(d <= 85 + 1e-9 and d >= 85 - T.bounce, "a bounce off the table, never through it")
+		end
+		assert(math.abs(R.topple(T, T.fall + 3, 85) - 85) < 0.01, "at rest")
 	end,
 	["the pre-match cut is exactly the countdown"] = function()
 		assert(R.length(Cfg.Pre) == Front.CountdownSeconds, "the pre-match cut fills the countdown")
@@ -78,14 +123,14 @@ local tests: { [string]: () -> () } = {
 	end,
 	["the shot at a time, and how far through it"] = function()
 		local s, i, u = R.at(Cfg.Pre, 0)
-		assert(i == 1 and s.name == "Sheet" and u == 0)
-		s, i, u = R.at(Cfg.Pre, 1.6)
+		assert(i == 1 and s.name == "Establish" and u == 0)
+		s, i, u = R.at(Cfg.Pre, 2.8)
 		assert(i == 2 and u == 0, "a shot starts where the last ends (a hard cut)")
 		s, i, u = R.at(Cfg.Pre, 9.4)
-		assert(s.kind == "Front" and math.abs(u - 0.5) < 1e-6)
+		assert(s.kind == "Sectors" and math.abs(u - 0.5) < 1e-6)
 		s, i, u = R.at(Cfg.Pre, 99)
 		assert(i == #Cfg.Pre.shots and u == 1, "past the end: the last shot, done")
-		assert(R.start(Cfg.Pre, 3) == 2.8)
+		assert(R.start(Cfg.Pre, 3) == 16)
 	end,
 	["a map with its own cuts plays them; the others the shared ones"] = function()
 		local stub = { Pre = "shared", Post = "sharedPost", Maps = { Capital = { Pre = "own" } } }
@@ -104,14 +149,17 @@ local tests: { [string]: () -> () } = {
 		assert(R.text("{nope}!", {}) == "!" and R.text(nil, {}) == "")
 	end,
 	["the sheet covers the sheet shots, fades out over the dive and in at the end"] = function()
-		local sheet, dive, post = Cfg.Pre.shots[1], Cfg.Pre.shots[2], { kind = "Paper", paper = "in" }
+		local sheet, dive, post = { kind = "Paper" }, { kind = "Move", paper = "out" }, { kind = "Paper", paper = "in" }
 		assert(R.paper(sheet, 0.5, 0.35) == 1)
 		assert(R.paper(dive, 0, 0.35) == 1 and R.paper(dive, 0.35, 0.35) == 0)
 		assert(R.paper(post, 0, 0.35) == 0 and R.paper(post, 1, 0.35) == 1)
-		assert(R.paper(Cfg.Pre.shots[3], 0.5, 0.35) == 0)
+		assert(R.paper(Cfg.Pre.shots[2], 0.5, 0.35) == 0)
 	end,
 	["the seals are stamped as the flight passes each point, the winner's one by one"] = function()
-		local front = Cfg.Pre.shots[3]
+		local sectors = Cfg.Pre.shots[2]
+		assert(R.stamped(sectors, 0, 5) == 1 and R.stamped(sectors, 0.19, 5) == 1 and R.stamped(sectors, 0.21, 5) == 2)
+		assert(R.stamped(sectors, 0.81, 5) == 5 and R.stamped(sectors, 1, 5) == 5, "each as its own shot cuts in")
+		local front = { kind = "Front" }
 		assert(R.stamped(front, 0, 5) == 1 and R.stamped(front, 0.12, 5) == 1 and R.stamped(front, 0.13, 5) == 2)
 		assert(R.stamped(front, 0.9, 5) == 5, "the last is stamped while the flight still shows it")
 		assert(R.stamped(front, 1, 5) == 5)
@@ -140,11 +188,11 @@ local tests: { [string]: () -> () } = {
 		local sp, cut = Cfg.Speech, Cfg.Pre
 		local two = R.partTwo(sp, cut, "uniform3", "Map1", 5)
 		assert(#two == 7, "the dive, five points, the call")
-		assert(two[1].at == R.start(cut, 2), "the first order as the dive starts")
-		local front = cut.shots[3]
+		assert(two[1].at == 0, "the first order as the flight opens")
+		local front = cut.shots[2]
 		for i = 1, 5 do
 			assert(two[i + 1].text == sp.plans.Map1[i + 1])
-			assert(math.abs(two[i + 1].at - R.orderTime(front, R.start(cut, 3), i, 5)) < 1e-9)
+			assert(math.abs(two[i + 1].at - R.orderTime(front, R.start(cut, 2), i, 5)) < 1e-9)
 			assert(two[i + 1].at >= two[i].at, "in order along the flight")
 		end
 		assert(two[7].text == sp.close.uniform3 and two[7].at == R.start(cut, #cut.shots))
@@ -155,8 +203,8 @@ local tests: { [string]: () -> () } = {
 	end,
 	["each order is said before the flight reaches the next point"] = function()
 		local sp, cut = Cfg.Speech, Cfg.Pre
-		local front = cut.shots[3]
-		local t0 = R.start(cut, 3)
+		local front = cut.shots[2]
+		local t0 = R.start(cut, 2)
 		for key, plan in sp.plans do
 			local n = #plan - 1
 			for i = 1, n - 1 do
@@ -192,10 +240,6 @@ local tests: { [string]: () -> () } = {
 		local W = Cfg.View
 		assert(W.walk.t1 > W.turn and W.walk.t1 < Front.VoteSeconds, "the walk ends inside the vote")
 		assert(W.pick.ease < Cfg.Vote.pick.hold, "at the order before the vote's hold is over")
-		-- the map's replay and the report both play out before the turn (user 2026-11-03)
-		local Results = require("../src/shared/Config/Results")
-		assert(Results.Replay.seconds <= Front.TableSeconds, "the replay is done before the turn")
-		assert(Cfg.Table.typing.lead + 12 * Cfg.Table.typing.type <= Front.TableSeconds, "typed before the turn")
 	end,
 	["no bayonets in the closing calls (user 2026-11-02)"] = function()
 		for _, line in Cfg.Speech.close do
@@ -328,17 +372,29 @@ for name, fn in
 					end
 				end
 			end,
-			["the flight runs west to east over every point"] = function()
+			["the flight cuts to each point in turn, west to east, each from a new angle"] = function()
 				local pts = points(map)
 				local anchors = R.anchors(map, "West", nil, Cfg.LandmarkReach)
-				local front = Cfg.Pre.shots[3]
-				local a = R.pose(front, 0, anchors, pts, false, 0)
-				local b = R.pose(front, 1, anchors, pts, false, 0)
-				assert(a.look.x == pts[1][1] + front.lead and b.look.x == pts[#pts][1] + front.lead)
+				local shot = Cfg.Pre.shots[2]
+				local n = #pts
+				local last: { number }? = nil
+				for i = 1, n do
+					local mark = anchors[`Mark{i}`]
+					local p = R.pose(shot, (i - 0.5) / n, anchors, pts, false, 0)
+					local d = math.sqrt((p.look.x - mark[1]) ^ 2 + (p.look.z - mark[2]) ^ 2)
+					assert(d < 1e-6, `point {i}'s shot looks at its landmark`)
+					local dir = { p.eye.x - mark[1], p.eye.z - mark[2] }
+					if last then
+						local dot = (dir[1] * last[1] + dir[2] * last[2])
+							/ (math.sqrt(dir[1] ^ 2 + dir[2] ^ 2) * math.sqrt(last[1] ^ 2 + last[2] ^ 2))
+						assert(dot < 0.97, `point {i} is seen from another side than point {i - 1}`)
+					end
+					last = dir
+				end
 			end,
 			["the line shots frame each side's spawn, the finale the loser's HQ"] = function()
 				local anchors = R.anchors(map, "East", "East", Cfg.LandmarkReach)
-				local west = R.pose(Cfg.Pre.shots[4], 1, anchors, points(map), false, 0)
+				local west = R.pose(Cfg.Pre.shots[3], 1, anchors, points(map), false, 0)
 				local wc = anchors.WestSpawn
 				assert(west.look.x == wc[1] and west.look.z == wc[2])
 				assert(anchors.Home == anchors.EastSpawn and anchors.Taken[1] == map.sectors[1].x)

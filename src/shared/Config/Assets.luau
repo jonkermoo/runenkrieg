@@ -381,7 +381,7 @@ local Assets = {
 		-- 1 stud = 0.28 m, flat colours by mesh name (C_RRGGBB SmoothPlastic, G_RRGGBB Neon), printed labels Img_<n>
 		-- (Config/Cutscenes.Armory.set.images), Origin on the floor in the hall's middle
 		armory = {
-			id = 116648169688525,
+			id = 95546753128497, -- (v2 2026-11-03: the coats spaced, the bench's Mills bombs out, the walls boarded below the dado, string courses and a wall plate, the floor its own mesh; v1 116648169688525)
 			category = "Props",
 			folder = "Scenes",
 			source = "assets/props/scenes/armory.fbx",

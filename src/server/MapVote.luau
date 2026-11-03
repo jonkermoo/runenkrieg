@@ -2,7 +2,8 @@
 -- The map vote between Normal matches on the map board (user 2026-11-02; Config/Cutscenes.Vote, Rules/Cutscenes,
 -- src/client/EndScenes): src/server/Frontline opens it after the battle table with the maps on offer (the built
 -- frontline maps, the live one first: MapVote.offer) and who may sign (the winners: Rules/Cutscenes.maySign). A signer
--- signs one sheet and may sign another instead until it closes (Net "MapVote": (key: string)); the most signatures
+-- signs one sheet, once: a signature can't be taken back (user 2026-11-03; Rules/Cutscenes.signs: a later one is
+-- ignored) (Net "MapVote": (key: string)); the most signatures
 -- picks the next map (a tie drawn at random). The state is on the Frontline folder for every client: VoteOffer
 -- ("Map1,LanternMeadows"), Votes_<key> (the signatures in order, "Name:kit|Name:kit": the name written in the kit's ink)
 -- and, once closed, VotePick; each player's MaySign attribute says whether they may sign this vote.
@@ -101,7 +102,7 @@ end
 
 function MapVote.start()
 	Net.event("MapVote").OnServerEvent:Connect(function(player: Player, key: unknown)
-		if not open or type(key) ~= "string" or not table.find(offered, key) or not may(player) then
+		if not open or type(key) ~= "string" or not may(player) then
 			return
 		end
 		local now = os.clock()
@@ -109,9 +110,10 @@ function MapVote.start()
 			return
 		end
 		last[player] = now
-		if not votes[player] then
-			table.insert(order, player)
+		if not Rules.signs(votes[player], key, offered) then
+			return -- (signed already: the vote stands)
 		end
+		table.insert(order, player)
 		votes[player] = key
 		kits[player] = Kits.next(player)
 		publish()

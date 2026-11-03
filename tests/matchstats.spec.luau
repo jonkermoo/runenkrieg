@@ -1,7 +1,7 @@
 --!strict
 local R = require("../src/shared/Rules/MatchStats")
 local Cfg = require("../src/shared/Config/Results")
-local Front = require("../src/shared/Config/Frontline")
+local Table = require("../src/shared/Config/Cutscenes").Table
 
 local rows = {
 	{ id = 1, name = "Kessel", kit = "uniform2", Kills = 27, Healed = 0, Built = 400, Points = 900 },
@@ -35,7 +35,7 @@ return {
 		local last = R.replayAt(n, n, r.seconds, r.lead, r.tail)
 		assert(math.abs(last - (r.seconds - r.tail)) < 1e-9)
 		assert(
-			last + r.draw <= r.seconds and r.seconds < Front.TableSeconds,
+			last + r.draw <= r.seconds and r.seconds < Table.most,
 			"the last arrow drawn while the battle table is shown"
 		)
 		assert(R.replayAt(1, 1, r.seconds, r.lead, r.tail) == r.lead, "one capture")

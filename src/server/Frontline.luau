@@ -35,6 +35,7 @@ local Cfg = require(Shared.Config.Frontline)
 local CutCfg = require(Shared.Config.Cutscenes)
 local CutRules = require(Shared.Rules.Cutscenes)
 local NarratorClips = require(Shared.Config.NarratorClips)
+local ResultsCfg = require(Shared.Config.Results)
 local BotsCfg = require(Shared.Config.Bots)
 local DamageCfg = require(Shared.Config.Damage)
 local SectorCfg = require(Shared.Config.Sectors)
@@ -139,8 +140,17 @@ local function bots(): { Model }
 end
 
 local function phase(name: string, seconds: number?)
+	local now = workspace:GetServerTimeNow()
 	folder:SetAttribute("Phase", name)
-	folder:SetAttribute("PhaseEndsAt", if seconds then workspace:GetServerTimeNow() + seconds else nil)
+	folder:SetAttribute("PhaseAt", now)
+	folder:SetAttribute("PhaseEndsAt", if seconds then now + seconds else nil)
+end
+
+-- A dip to black between scenes (Config/Cutscenes.Dip): every screen darkens, and phase `name` starts once black.
+local function dipTo(name: string, seconds: number?)
+	folder:SetAttribute(Cfg.DipAttribute, workspace:GetServerTimeNow() + CutCfg.Dip.out)
+	task.wait(CutCfg.Dip.out)
+	phase(name, seconds)
 end
 
 -- The side `player` plays on this life (nil: not in the match, e.g. a testing kit of a team that isn't playing).
@@ -637,9 +647,21 @@ local function run()
 		end
 		starting = false
 		if not ending then
-			-- everyone into their HQ's wave line; the first wave goes when the countdown ends
-			phase("Countdown", Cfg.CountdownSeconds)
-			local start = workspace:GetServerTimeNow() + Cfg.CountdownSeconds
+			-- everyone into their HQ's wave line; the first wave goes when the countdown ends. After a match the
+			-- flight over the map plays over it (src/client/MatchCutscene); a fresh server (nothing played yet: no
+			-- narrator's subject) shows a short loading screen instead and dips to black into the game at the whistle
+			-- (src/client/EndScenes; user 2026-11-03)
+			local fresh = folder:GetAttribute(Cfg.SpeechAttribute) == nil
+			local seconds = if fresh then Cfg.FreshCountdownSeconds else Cfg.CountdownSeconds
+			dipTo("Countdown", seconds)
+			local start = workspace:GetServerTimeNow() + seconds
+			if fresh then
+				task.delay(CutCfg.Dip.hold + CutCfg.Dip.inn, function()
+					if folder.Parent and folder:GetAttribute("Phase") == "Countdown" then
+						folder:SetAttribute(Cfg.DipAttribute, start)
+					end
+				end)
+			end
 			setWave(start) -- (the lines start empty: slots from 1)
 			for _, p in Players:GetPlayers() do
 				local character = p.Character
@@ -724,6 +746,13 @@ local function run()
 		local played = LiveMap.key()
 		folder:SetAttribute(Cfg.SpeechAttribute, `{winnerKit or "none"},{played}`)
 		phase("Fade", Cfg.FadeSeconds)
+		-- the table until its replay and report are done (Rules/Cutscenes.tableSeconds: every client draws the same)
+		local tableSeconds = CutRules.tableSeconds(
+			CutCfg.Table,
+			math.min(#log, ResultsCfg.Replay.most),
+			CutRules.reportLines(CutCfg.Table.top3),
+			winner ~= nil
+		)
 		MatchStats.send({
 			mode = "Normal",
 			winner = winnerKit,
@@ -731,13 +760,13 @@ local function run()
 			length = os.clock() - playedAt,
 			map = played,
 			top = CutCfg.Table.top3,
-			endsAt = workspace:GetServerTimeNow() + Cfg.FadeSeconds + Cfg.TableSeconds,
+			endsAt = workspace:GetServerTimeNow() + Cfg.FadeSeconds + CutCfg.Dip.out + tableSeconds,
 		}, function(p: Player): string?
 			return Kits.next(p)
 		end)
 		task.wait(Cfg.FadeSeconds)
-		phase("Table", Cfg.TableSeconds)
-		task.wait(Cfg.TableSeconds)
+		dipTo("Table", tableSeconds)
+		task.wait(tableSeconds)
 		local pick = played
 		local offer = MapVote.offer()
 		if #offer > 1 then
@@ -762,8 +791,8 @@ local function run()
 			NarratorClips.clips
 		)
 		local least = math.clamp(spoken, Cfg.Loading.least, Cfg.Loading.max)
+		dipTo("Loading", least)
 		local loading = os.clock()
-		phase("Loading", least)
 		putBack()
 		useMap(pick)
 		newMatch()

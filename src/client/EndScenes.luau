@@ -5,15 +5,21 @@
 --   with this match's captures redrawn in red pencil over the phase, each side's painted block moving with them and the
 --   points' pennants flipping to their takers, the after-action report on its clipboard typing itself out (Net
 --   "MatchResults": the winner, the length, the top soldiers, your own line) and ticked in red pencil; the lamp sways;
+--   the losing side's piece topples once it's all drawn; the table turns to the board once the replay and the report are
+--   both done (the server's Table length: Rules/Cutscenes.tableSeconds);
 -- - Vote: the camera turns round to the orders board: an OPERATION ORDER per offered map (an empty slot "to be
 --   announced"), the field telegram with the plan. Those who may sign (the Player's MaySign: the winners, src/server/
---   MapVote) click an order to sign it (Net "MapVote"); every signature is written letter by letter in the winners'
---   ink down the order's grid, its count out of the winners present (rolling up). A brass stopwatch sweeps the time, a
---   red string runs from the VOTE sign to the leading order. At the pick (VotePick) the camera closes on it and an R6
---   arm in the winners' uniform holding a wooden stamp stamps NEXT on it; the losing orders swing on one pin;
--- - Loading: the empty armory, a slow drift on each approved angle in turn, while the narrator speaks the first part
---   (src/client/Speech); it gives way to the pre-match flight at the countdown (src/client/MatchCutscene), or, if the
---   match waits for players, once the narrator is done.
+--   MapVote) click an order to sign it (Net "MapVote"), once: a signature can't be taken back, so the orders stop
+--   taking clicks and the strip under the sign says it's signed; every signature is written letter by letter in the
+--   winners' ink down the order's grid (the names alone). A brass stopwatch sweeps the time, a red string runs from the
+--   VOTE sign to the leading order. At the pick (VotePick) the camera closes on it and an R6 arm in the winners'
+--   uniform holding a wooden stamp stamps NEXT on it; the losing orders swing on one pin;
+-- - Loading: the empty armory, a slow drift on each approved angle in turn, a loading ring with its % in the bottom
+--   left, while the narrator speaks the first part (src/client/Speech); it gives way to the pre-match flight at the
+--   countdown (src/client/MatchCutscene), or, if the match waits for players, once the narrator is done;
+-- - Fresh: a fresh server's first countdown (nothing played yet: no narrator's subject, user 2026-11-03): the armory
+--   and the ring as a loading screen, full at the whistle, then into the game.
+-- Between scenes the screen dips to black (src/client/MatchCutscene, Config/Cutscenes.Dip).
 -- The sets are built on each client at Config/Cutscenes.Stage (the armory a placeholder until its render is modelled).
 -- Widescreen bars throughout; the HUD and the rest are covered (MatchCutscene.cover).
 
@@ -25,6 +31,7 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Cutscenes)
 local FrontCfg = require(Shared.Config.Frontline)
+local ResultsCfg = require(Shared.Config.Results)
 local Palette = require(Shared.Config.Palette)
 local U = require(Shared.Config.Uniforms)
 local LiveMap = require(Shared.LiveMap)
@@ -166,7 +173,7 @@ local function buildSets()
 	post = CommandPost.build(f, v3(Cfg.Stage.tent))
 	local at = v3(Cfg.Stage.armory)
 	local A = Cfg.Armory.set
-	armoryModel = CommandPost.loadSet(f, A.asset, at, A.turn, A.images) ~= nil
+	armoryModel = CommandPost.loadSet(f, A.asset, at, A.turn, A.images, A.looks) ~= nil
 	if armoryModel then
 		-- its lights, and the fields past the door (in the part list's space: the model once turned)
 		local function place(p: { number }): Vector3
@@ -207,8 +214,9 @@ local function buildSets()
 	f.Parent = workspace
 end
 
--- the screen: the bars, a modal button that frees the mouse while signing
-local gui: ScreenGui, freeMouse: TextButton, loadTrack: Frame, loadFill: Frame
+-- the screen: the bars, a modal button that frees the mouse while signing, the loading ring
+local gui: ScreenGui, freeMouse: TextButton, ring: Frame, ringText: TextLabel
+local ringDots: { Frame } = {}
 local loadEnds = 0 -- the server time the least loading time is up
 local function buildGui()
 	gui = Instance.new("ScreenGui")
@@ -226,21 +234,41 @@ local function buildGui()
 		bar.Position = UDim2.fromScale(0, i)
 		bar.Parent = gui
 	end
-	-- the armory's loading bar, in the bottom bar
-	local B = Cfg.Armory.bar
-	loadTrack = Instance.new("Frame")
-	loadTrack.BorderSizePixel = 0
-	loadTrack.BackgroundColor3 = rgb(B.track)
-	loadTrack.AnchorPoint = Vector2.new(0.5, 0.5)
-	loadTrack.Position = UDim2.fromScale(0.5, 1 - Cfg.Bars / 2)
-	loadTrack.Size = UDim2.fromScale(B.width, B.height)
-	loadTrack.Visible = false
-	loadTrack.Parent = gui
-	loadFill = Instance.new("Frame")
-	loadFill.BorderSizePixel = 0
-	loadFill.BackgroundColor3 = rgb(B.fill)
-	loadFill.Size = UDim2.fromScale(0, 1)
-	loadFill.Parent = loadTrack
+	-- the loading ring in the bottom left: dots round a circle lit in turn, the % in its middle
+	local R = Cfg.Armory.ring
+	ring = Instance.new("Frame")
+	ring.Name = "Loading"
+	ring.BackgroundTransparency = 1
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.Position = UDim2.fromScale(R.at[1], 1 - R.at[2])
+	ring.Size = UDim2.fromScale(R.size, R.size)
+	ring.SizeConstraint = Enum.SizeConstraint.RelativeYY
+	ring.Visible = false
+	ring.Parent = gui
+	for k = 1, R.dots do
+		local a = (k - 1) / R.dots * 2 * math.pi -- (clockwise from the top)
+		local dot = Instance.new("Frame")
+		dot.BorderSizePixel = 0
+		dot.AnchorPoint = Vector2.new(0.5, 0.5)
+		dot.Position = UDim2.fromScale(0.5 + math.sin(a) * (0.5 - R.dot / 2), 0.5 - math.cos(a) * (0.5 - R.dot / 2))
+		dot.Size = UDim2.fromScale(R.dot, R.dot)
+		dot.BackgroundColor3 = rgb(R.track)
+		local round = Instance.new("UICorner")
+		round.CornerRadius = UDim.new(0.5, 0)
+		round.Parent = dot
+		dot.Parent = ring
+		ringDots[k] = dot
+	end
+	ringText = Instance.new("TextLabel")
+	ringText.BackgroundTransparency = 1
+	ringText.AnchorPoint = Vector2.new(0.5, 0.5)
+	ringText.Position = UDim2.fromScale(0.5, 0.5)
+	ringText.Size = UDim2.fromScale(0.7, R.text)
+	ringText.TextScaled = true
+	ringText.FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
+	ringText.TextColor3 = rgb(R.fill)
+	ringText.Text = "0%"
+	ringText.Parent = ring
 	freeMouse = Instance.new("TextButton")
 	freeMouse.BackgroundTransparency = 1
 	freeMouse.Text = ""
@@ -251,15 +279,26 @@ local function buildGui()
 	gui.Parent = player:WaitForChild("PlayerGui")
 end
 
--- the winners present: who may sign this vote (everyone signs when no winner is here)
-local function winnersPresent(): number
-	local n = 0
-	for _, p in Players:GetPlayers() do
-		if p:GetAttribute("MaySign") == true then
-			n += 1
+-- the ring at `k` (0..1) loaded
+local function showLoaded(k: number)
+	local lit = math.floor(k * #ringDots + 0.5)
+	for i, d in ringDots do
+		d.BackgroundColor3 = rgb(if i <= lit then Cfg.Armory.ring.fill else Cfg.Armory.ring.track)
+	end
+	ringText.Text = `{math.floor(k * 100 + 0.5)}%`
+end
+
+-- whether we've signed an order of this vote (folder's Votes_<key>: our name in one): it's final
+local function signedVote(folder: Instance): boolean
+	for _, o in post.orders do
+		local raw = o.key and folder:GetAttribute(`Votes_{o.key}`)
+		for _, entry in (if type(raw) == "string" and raw ~= "" then string.split(raw, "|") else {}) do
+			if string.match(entry, "^(.-):") == player.DisplayName then
+				return true
+			end
 		end
 	end
-	return n
+	return false
 end
 
 -- the stamping arm: an R6 right arm in the winners' uniform, a wooden stamp in its hand
@@ -370,6 +409,7 @@ local scene: string? = nil
 local sceneAt = 0 -- server time the scene started
 local covered = false
 local picked: string? = nil
+local signed = false -- (we've signed this vote: it's final)
 local speechStarted = false
 
 local function lookCf(from: Vector3, to: Vector3): CFrame
@@ -419,7 +459,7 @@ end
 -- the vote: turning round to the board (to the right), a few steps toward it, and at the pick up to the order
 local function boardView(t: number): (Vector3, number, number)
 	local W = Cfg.View
-	local pos0, y0, p0 = tableView(FrontCfg.TableSeconds)
+	local pos0, y0, p0 = tableView(math.huge) -- (where the table left the eyes: its last look)
 	local look = post.origin + v3(W.board)
 	local to = post.origin + V(W.walk.to[1], W.eye, W.walk.to[2])
 	local yB, pB = aimAt(pos0, look)
@@ -489,7 +529,14 @@ local function fillReport()
 	end
 	local key = if type(r.map) == "string" then r.map else LiveMap.key()
 	mapSheet = SketchMap.new(post.strip, key, { sheet = post.strip.Parent :: GuiObject })
-	mapSheet.replay(r.log or {}, r.winner ~= nil, Cfg.Table.replay)
+	-- (its span by how many captures it draws, as the server times the table: Rules/Cutscenes.tableSeconds)
+	local P = Cfg.Table.replay
+	local n = math.min(#(r.log or {}), ResultsCfg.Replay.most)
+	mapSheet.replay(
+		r.log or {},
+		r.winner ~= nil,
+		{ seconds = Rules.replaySeconds(P, n), lead = P.lead, tail = P.tail, draw = P.draw }
+	)
 end
 
 local function finish()
@@ -530,7 +577,13 @@ local function step()
 		typeReport(t)
 		CommandPost.stepTable(post, mapSheet, folder, t)
 	elseif scene == "Vote" then
-		CommandPost.signatures(post, folder, winnersPresent(), inkOf)
+		CommandPost.signatures(post, folder, inkOf)
+		-- once signed, it's final: the orders take no more clicks and the mouse goes back
+		if not signed and signedVote(folder) then
+			signed = true
+			CommandPost.signedHint(post, true)
+			freeMouse.Visible = false
+		end
 		local pick = folder:GetAttribute("VotePick")
 		if type(pick) == "string" and pick ~= picked then
 			picked = pick
@@ -569,21 +622,25 @@ local function step()
 	else
 		cf, fov = armoryCam(t)
 		local phaseNow = folder:GetAttribute("Phase")
-		local B = Cfg.Armory.bar
-		local k = if phaseNow == "Loading" then math.clamp(t / math.max(loadEnds - sceneAt, 0.1), 0, B.most) else 1 -- (the match is ready: the narrator finishing)
-		loadFill.Size = UDim2.fromScale(k, 1)
+		local span = math.max(loadEnds - sceneAt, 0.1)
+		-- (loading: short of full until the match is ready; a fresh server's screen full at the whistle)
+		local k = if phaseNow == "Loading"
+			then math.clamp(t / span, 0, Cfg.Armory.ring.most)
+			elseif phaseNow == "Countdown" then math.clamp(t / span, 0, 1)
+			else 1
+		showLoaded(k)
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CFrame = cf
 	camera.FieldOfView = fov
-	UserInputService.MouseIconEnabled = scene == "Vote"
+	UserInputService.MouseIconEnabled = scene == "Vote" and not signed
 end
 
 local function begin(name: string, folder: Instance)
 	buildSets()
 	local endsAt = folder:GetAttribute("PhaseEndsAt")
-	local length = if name == "Table" then FrontCfg.TableSeconds elseif name == "Vote" then FrontCfg.VoteSeconds else 0
-	sceneAt = if type(endsAt) == "number" and length > 0 then endsAt - length else workspace:GetServerTimeNow()
+	local startedAt = folder:GetAttribute("PhaseAt")
+	sceneAt = if type(startedAt) == "number" then startedAt else workspace:GetServerTimeNow()
 	scene = name
 	if not covered then
 		covered = true
@@ -602,20 +659,23 @@ local function begin(name: string, folder: Instance)
 		fillReport()
 	elseif name == "Vote" then
 		picked = nil
+		signed = false
 		CommandPost.resetBoard(post)
 		local offer = folder:GetAttribute("VoteOffer")
 		CommandPost.orders(post, if type(offer) == "string" then string.split(offer, ",") else {}, function(key: string)
-			if player:GetAttribute("MaySign") == true then
+			if player:GetAttribute("MaySign") == true and not signed then
 				Net.event("MapVote"):FireServer(key)
 			end
 		end)
+		CommandPost.signedHint(post, false)
 		CommandPost.plan(post, if winnerKit then nationOf(winnerKit) else nil)
 		local may = player:GetAttribute("MaySign") == true
 		freeMouse.Visible = may
 	end
-	loadTrack.Visible = name == "Loading"
-	if name == "Loading" then
+	ring.Visible = name == "Loading" or name == "Fresh"
+	if name == "Loading" or name == "Fresh" then
 		loadEnds = if type(endsAt) == "number" then endsAt else workspace:GetServerTimeNow() + 8
+		showLoaded(0)
 	end
 	if name == "Loading" and not speechStarted then
 		speechStarted = true
@@ -643,14 +703,21 @@ function EndScenes.start()
 				seen = phase :: string?
 				if folder and (phase == "Table" or phase == "Vote" or phase == "Loading") then
 					begin(phase :: string, folder)
+				elseif folder and phase == "Countdown" and folder:GetAttribute(FrontCfg.SpeechAttribute) == nil then
+					begin("Fresh", folder) -- (a fresh server: a loading screen, no flight)
 				elseif phase == "Fade" then
 					speechStarted = false
 				elseif scene then
 					-- the countdown takes over (the flight); waiting for players, the armory stays till the narrator ends
+					-- (and through the dip to black into the countdown, when it comes at once)
 					if phase == "Waiting" and scene == "Loading" then
 						task.spawn(function()
-							while Speech.busy() and scene == "Loading" do
-								task.wait(0.2)
+							local function dipping(): boolean
+								local at = folder and folder:GetAttribute(FrontCfg.DipAttribute)
+								return type(at) == "number" and workspace:GetServerTimeNow() < at + Cfg.Dip.hold
+							end
+							while (Speech.busy() or dipping()) and scene == "Loading" do
+								task.wait(0.1)
 							end
 							if scene == "Loading" then
 								finish()

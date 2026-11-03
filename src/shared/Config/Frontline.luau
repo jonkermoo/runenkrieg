@@ -20,6 +20,9 @@ local Frontline = {
 	MinPerSide = 1,
 	-- (the pre-match cutscene and the spoken plan play over it: Config/Cutscenes.Pre's length, user 2026-11-02; was 10)
 	CountdownSeconds = 19,
+	-- a fresh server's first match (nothing played on it yet, user 2026-11-03): no flight, a short loading screen over
+	-- this countdown, then into the game
+	FreshCountdownSeconds = 8,
 	-- a Defend award (Config/Classes.Earn): a kill with the killer or the victim within the sector's radius plus this
 	-- of its point, while the enemy is attacking that sector of the killer's side
 	DefendReach = 20,
@@ -31,13 +34,16 @@ local Frontline = {
 	-- to the winner's colour, the after-action report on the battle table, the map vote on the board (src/server/
 	-- MapVote; skipped with one map to offer), then the armory while the map is put back and moved to the pick: at
 	-- least as long as the narrator's first part (its words at Cutscenes.Speech.wordsPerSecond), at most `max`
+	-- (the table's own length: Rules/Cutscenes.tableSeconds, until its replay and report are done)
 	FadeSeconds = 3,
-	TableSeconds = 14,
 	VoteSeconds = 30, -- (the approved demo, user 2026-11-03: the countdown from 0:30; was 15)
 	Loading = { least = 8, max = 40 },
 	-- on the Frontline folder from a match's end to the next countdown's end: what the narrator speaks of, "<winner
 	-- kit or none>,<the map just played>" (src/client/MatchCutscene)
 	SpeechAttribute = "Speech",
+	-- on the Frontline folder: the server time of the latest dip to black between scenes (Config/Cutscenes.Dip: the
+	-- next phase starts there), and PhaseAt the server time the phase started
+	DipAttribute = "DipAt",
 	SpawnLift = 3.2, -- a spawned root this far over the ground (standing)
 	SpawnWait = 10, -- seconds a new character's root is waited for
 	FeetBelowRoot = 3, -- a soldier's feet this far under the root (what counts as in the zone: Height round them)
