@@ -53,9 +53,11 @@ end
 
 -- Whether a player gets the dev tools: the allowed users always; anyone in a Studio play test or the DEV place only
 -- while `open` (the server's mode is one that opens them, Config/Modes; user 2026-10-27: "for any mode thats not the
--- admin mode, make everyone but me [not] have admin privileges"). `open` nil: open.
+-- admin mode, make everyone but me [not] have admin privileges"). `open` nil: open. In Studio a Clients and Servers
+-- test's players (Player1, Player2: user ids under 0, never a real account) are the creator testing, so they always
+-- have them (user 2026-11-03: "i dont have access to admin stuff on a clients and servers game").
 function DevTeleports.allowed(cfg: any, userId: number, isStudio: boolean, placeId: number?, open: boolean?): boolean
-	if table.find(cfg.AllowedUserIds, userId) ~= nil then
+	if table.find(cfg.AllowedUserIds, userId) ~= nil or (isStudio and cfg.AllowInStudio and userId < 0) then
 		return true
 	end
 	return open ~= false and ((cfg.AllowInStudio and isStudio) or (cfg.AllowInDevPlace and placeId == cfg.DevPlaceId))
