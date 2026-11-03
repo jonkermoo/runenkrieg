@@ -1,9 +1,9 @@
 --!strict
 -- Teammates' health as a coloured outline (Config/TeamHealth, Rules/TeamHealth): the nearest living teammates (the
--- same "Kit" as your soldier, Rules/Teams: players and bot soldiers; nobody in a free-for-all) each get a Highlight on
--- this client only, adorning their character, its outline shaded from green at full health to red when badly hurt
--- (Palette.UI.TeamHealth). Roblox draws at most 31 Highlights at once, so only Cfg.MaxOutlines of them, the nearest.
--- Off during the match cutscenes and while the admin panel hides the game HUD.
+-- same "Kit" as your soldier, Rules/Teams: players, bot soldiers and the admin panel's dummies; nobody in a
+-- free-for-all) each get a Highlight on this client only, adorning their character, its outline shaded from green at
+-- full health to red when badly hurt (Palette.UI.TeamHealth). Roblox draws at most 31 Highlights at once, so only
+-- Cfg.MaxOutlines of them, the nearest. Off during the match cutscenes and while the admin panel hides the game HUD.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -12,6 +12,7 @@ local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Cfg = require(Shared.Config.TeamHealth)
 local BotsCfg = require(Shared.Config.Bots)
+local DevCfg = require(Shared.Config.DevTools)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.TeamHealth)
@@ -77,9 +78,11 @@ local function wanted(me: Player): { [Model]: Humanoid }
 	for _, p in Players:GetPlayers() do
 		consider(p.Character)
 	end
-	for _, m in CollectionService:GetTagged(BotsCfg.Tag) do
-		if m:IsA("Model") then
-			consider(m)
+	for _, tag in { BotsCfg.Tag, DevCfg.Dummies.Tag } do -- (bot soldiers; the admin panel's target dummies)
+		for _, m in CollectionService:GetTagged(tag) do
+			if m:IsA("Model") then
+				consider(m)
+			end
 		end
 	end
 	for _, m in Rules.pick(candidates, Cfg.MaxOutlines, Cfg.MaxDistance) do
