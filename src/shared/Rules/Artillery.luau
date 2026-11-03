@@ -276,6 +276,33 @@ function Artillery.fall(height: number, vy: number, gravity: number): number?
 	return if t > 0 then t else nil
 end
 
+-- A shell's path from (`ox`, `oy`, `oz`) at velocity (`vx`, `vy`, `vz`) under `gravity`: a point every `step` s
+-- (flat x, y, z), out to `maxT` s or until it has fallen below `floor`; each point's time is (its index - 1) * step.
+function Artillery.path(
+	ox: number,
+	oy: number,
+	oz: number,
+	vx: number,
+	vy: number,
+	vz: number,
+	gravity: number,
+	step: number,
+	maxT: number,
+	floor: number
+): { { number } }
+	local out = {}
+	local t = 0
+	while t <= maxT + 1e-9 do
+		local x, y, z = Artillery.at(t, ox, oy, oz, vx, vy, vz, gravity)
+		table.insert(out, { x, y, z })
+		if y < floor then
+			break
+		end
+		t += step
+	end
+	return out
+end
+
 -- How far it lands on ground level with the muzzle at `elevation` degrees (flat ground, from the ground).
 function Artillery.range(speed: number, elevation: number, gravity: number): number
 	return speed * speed * math.sin(math.rad(2 * elevation)) / gravity

@@ -347,6 +347,7 @@ local function build(player: Player): DevPanel.Panel
 	-- bot tests (Normal; src/server/Bots.dev): the state labels (src/client/DevBotLabels), Engineer / Grenadier for free, the dig
 	-- speed, a barrage on a side's trench line (the aimed ones are on the blast panel)
 	onOff("BotState", "Bot state labels", "BotState", workspace, A.BotState.attribute)
+	onOff("GunArcs", "Bots' gun spot shots", "GunArcs", workspace, A.GunArcs.attribute)
 	onOff("FreeEngineer", "Bots: Engineer for free", "FreeEngineer", workspace, A.FreeEngineerAttribute)
 	onOff("FreeGrenadier", "Bots: Grenadier for free", "FreeGrenadier", workspace, A.FreeGrenadierAttribute)
 	-- which bot rescues which casualty now (one each: Config/Bots.Actions.Rescue)

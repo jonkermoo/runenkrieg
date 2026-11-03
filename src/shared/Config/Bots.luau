@@ -348,12 +348,18 @@ local Bots = {
 		-- where the gun reaches the enemy's nearest sector's middle (Rules/Artillery.layFor) and lies `spawnGap` studs
 		-- clear of every spawn and wave line (Rules/Artillery.nearSpawn), `spacing` (Config/Build.Pieces) from the other
 		-- guns' spots; the bots' share of each gun (`caps` above) gets a spot. None fits: the fixed spot (`Guns` above).
+		-- A spot's shot is flown first (user 2026-11-03: "bots will build cannons behind the hill. they should be sure the
+		-- cannon would be able to hit where they want it to hit"): the shell's path from the muzzle laid on that target
+		-- (Rules/Artillery.path, `arc.step` s a sample) cast against the world past `arc.near` studs out (its own ground,
+		-- levelled when it is laid), kept only where it first comes down within `arc.within` studs of the target (no hill,
+		-- house or tree in the way); Config/DevTools.Admin.GunArcs shows them.
 		Crews = {
 			max = 2,
 			enough = 4, -- (all the guns its bots build: caps 3 field guns and 1 howitzer, user 2026-11-03)
 			back = { 90, 60, 30 },
 			across = { 0, -60, 60, -120, 120, -180, 180 },
 			spawnGap = 40,
+			arc = { step = 0.1, within = 25, near = 8 },
 		},
 	},
 

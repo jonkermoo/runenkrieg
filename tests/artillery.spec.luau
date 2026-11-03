@@ -674,6 +674,16 @@ return {
 		assert(m[1] == MG.elevation[1] and m[2] == MG.elevation[2])
 		assert(A.sectorSpan({ { x = 0, z = 0 } }) == 0)
 	end,
+	["path: the shell's points along its flight, until it falls below the floor"] = function()
+		local pts = A.path(0, 10, 0, 100, 50, 0, 50, 0.5, 20, 0)
+		assert(near(pts[1][1], 0) and near(pts[1][2], 10))
+		for i, p in pts do
+			local x, y, z = A.at((i - 1) * 0.5, 0, 10, 0, 100, 50, 0, 50)
+			assert(near(p[1], x) and near(p[2], y) and near(p[3], z))
+		end
+		assert(pts[#pts][2] < 0 and pts[#pts - 1][2] >= 0, "stops once below the floor")
+		assert(#A.path(0, 10, 0, 100, 50, 0, 50, 0.5, 1, -1e9) == 3, "or at its longest flight")
+	end,
 	["the field gun's shell arcs a touch higher and slower, the same shortest shot (user 2026-11-03)"] = function()
 		-- "just the TINIEST more arc": 420 studs/s with +8.5 (was 450 with +8)
 		assert(QF.speed == 420 and QF.aimTilt == 8.5)

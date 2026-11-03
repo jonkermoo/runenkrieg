@@ -237,6 +237,18 @@ local DevTools = {
 			tall = 44,
 			size = 13,
 		},
+		-- - GunArcs: each side's planned gun spots' checked shots (src/server/Bots/Commander, Config/Bots.Build.Crews
+		--   `arc`) drawn as lines of `width` studs in a Workspace folder named `folder` while Workspace has `attribute`:
+		--   `clear` colour where the shell comes down on the target, `blocked` where a hill or a house stops it first
+		--   (one segment in `every` samples), redrawn each time the side plans its guns
+		GunArcs = {
+			attribute = "DevGunArcs",
+			folder = "DevGunArcs",
+			width = 0.5,
+			every = 2,
+			clear = { 90, 220, 110 },
+			blocked = { 230, 70, 60 },
+		},
 		-- - BotDig: the bots' shovel swings work this many times a normal one (src/server/Build), on Workspace while not 1
 		BotDig = { attribute = "DevBotDig", steps = { 1, 3, 10 } },
 		-- - FreeEngineer / FreeGrenadier: bots pick Engineer (gun duty, dugout duty) / Grenadier (the push's grenade,
