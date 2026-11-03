@@ -90,6 +90,8 @@ export type Post = {
 	leadAt: number, -- (os.clock) when the string set off for the leader, from `leadFrom`
 	leadFrom: Vector3,
 	title: TextLabel, -- the sheet's title ("SHEET 1 - <map>")
+	ground: RaycastParams, -- the set's own things (the table's surface under a piece: CommandPost.restSpot)
+	spots: { [string]: Vector3 }, -- where each piece and pin rests, once found (laid again for each map)
 }
 
 -- pieces ---------------------------------------------------------------------------------------------------------------
@@ -466,21 +468,32 @@ local function redString(folder: Instance, from: Vector3): (BasePart, BasePart, 
 	return p0, p1, beam
 end
 
--- a painted wooden block for a side (its bottom middle its pivot): the body, a lighter top, a paper chevron, a dark
--- base band
-local function unitBlock(parent: Instance, color: Color3): Model
-	local B = Cfg.Table.blocks
-	local w, d, h = B.size[1], B.size[2], B.size[3]
+-- a side's chess piece (its bottom middle its pivot): a rook turned in wood, lacquered in `color`, on green felt; its
+-- foot, a waist, the shaft narrowing up, a collar and the crown with six merlons round a dark hollow
+local function chessPiece(parent: Instance, color: Color3): Model
+	local C = Cfg.Table.piece
+	local r, h = C.radius, C.tall
 	local m = Instance.new("Model")
-	m.Name = "Block"
-	part(m, "Body", V(w, h, d), CFrame.new(0, h / 2, 0), color, Enum.Material.Wood).CastShadow = true
-	local top = color:Lerp(Color3.new(1, 1, 1), 0.12)
-	part(m, "Top", V(w * 0.88, 0.02, d * 0.82), CFrame.new(0, h + 0.005, 0), top, Enum.Material.Wood)
-	for _, sx in { -1, 1 } do
-		local at = CFrame.new(sx * 0.07, h + 0.018, -0.02) * CFrame.Angles(0, math.rad(-sx * 38), 0)
-		part(m, "Chevron", V(0.2, 0.012, 0.04), at, PAPER)
+	m.Name = "Piece"
+	local function turned(name: string, rad: number, y0: number, y1: number, col: Color3, mat: Enum.Material?)
+		local p = rodAlong(m, name, rad * r, (y1 - y0) * h, V(0, (y0 + y1) / 2 * h, 0), V(0, 1, 0), col, mat)
+		p.CastShadow = true
+		return p
 	end
-	part(m, "Base", V(w * 1.02, 0.04, d * 1.02), CFrame.new(0, 0.02, 0), color:Lerp(INK, 0.5), Enum.Material.Wood)
+	local wood, dark = Enum.Material.Wood, color:Lerp(INK, 0.45)
+	turned("Felt", 0.97, 0, 0.03, Color3.fromRGB(38, 56, 40), Enum.Material.Fabric)
+	turned("Body", 1, 0.03, 0.12, color, wood)
+	turned("Body", 0.86, 0.12, 0.17, color, wood)
+	turned("Ring", 0.7, 0.17, 0.2, dark, wood)
+	turned("Body", 0.6, 0.2, 0.45, color, wood)
+	turned("Body", 0.52, 0.45, 0.68, color, wood)
+	turned("Ring", 0.68, 0.68, 0.72, dark, wood)
+	turned("Body", 0.76, 0.72, 0.9, color, wood)
+	turned("Hollow", 0.5, 0.9, 0.905, dark, wood)
+	for k = 0, 5 do
+		local cf = CFrame.Angles(0, k / 6 * 2 * math.pi, 0) * CFrame.new(0.6 * r, 0.95 * h, 0)
+		part(m, "Body", V(0.3 * r, 0.1 * h, 0.42 * r), cf, color, wood).CastShadow = true
+	end
 	m.WorldPivot = CFrame.new()
 	m.Parent = parent
 	return m
@@ -509,6 +522,20 @@ local function pennant(parent: Instance): Model
 	m.WorldPivot = CFrame.new()
 	m.Parent = parent
 	return m
+end
+
+-- the set's own things for a ray down to the table's surface (each made queryable; the pieces and pins laid later
+-- stay out of it)
+local function groundOf(folder: Instance): RaycastParams
+	for _, d in folder:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CanQuery = true
+		end
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { folder }
+	return params
 end
 
 -- the hut ---------------------------------------------------------------------------------------------------------------
@@ -1277,6 +1304,8 @@ local function buildSet(folder: Folder, origin: Vector3): Post?
 		leadAt = 0,
 		leadFrom = to.Position,
 		title = title,
+		ground = groundOf(folder),
+		spots = {},
 	}
 end
 
@@ -1373,6 +1402,8 @@ function CommandPost.build(folder: Folder, origin: Vector3): Post
 		leadAt = 0,
 		leadFrom = to.Position,
 		title = title,
+		ground = groundOf(folder),
+		spots = {},
 	}
 end
 
@@ -1467,6 +1498,7 @@ function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({
 	table.clear(post.blocks)
 	table.clear(post.pennants)
 	table.clear(post.doneAt)
+	table.clear(post.spots)
 	return lines, tick
 end
 
@@ -1660,6 +1692,80 @@ function CommandPost.signatures(post: Post, folder: Instance, total: number, ink
 end
 
 -- the Field kit's moves ------------------------------------------------------------------------------------------------
+-- the table's surface under `at` (x, z): the height of the highest thing there and whether it's level (a ray down
+-- through the set's own things: the sheet, the papers, the clipboard, the props)
+local function groundAt(post: Post, at: Vector3): (number, boolean)
+	local hit = workspace:Raycast(V(at.X, post.tableTop.Y + 3, at.Z), V(0, -3.5, 0), post.ground)
+	if not hit then
+		return post.tableTop.Y, true
+	end
+	return hit.Position.Y, hit.Normal.Y > 0.96
+end
+
+-- the highest of the surface under a footprint `radius` round at `at` (its middle, four edges and four diagonals),
+-- the lowest, and whether all of it is level
+local FOOT = {
+	V(0, 0, 0),
+	V(1, 0, 0),
+	V(-1, 0, 0),
+	V(0, 0, 1),
+	V(0, 0, -1),
+	V(0.7, 0, 0.7),
+	V(-0.7, 0, 0.7),
+	V(0.7, 0, -0.7),
+	V(-0.7, 0, -0.7),
+}
+local function footprint(post: Post, at: Vector3, radius: number): (number, number, boolean)
+	local top, low, level = -math.huge, math.huge, true
+	for _, o in FOOT do
+		local y, flat = groundAt(post, at + o * radius)
+		top, low, level = math.max(top, y), math.min(low, y), level and flat
+	end
+	return top, low, level
+end
+
+-- Where something `radius` round rests nearest `want` (Config/Cutscenes.Table.spot): the first place out from it in
+-- rings whose footprint is level (so it stands on the sheet, or on a paper or the clipboard lying on it, never half
+-- over an edge or on a round prop), inside the table, clear of each `avoid` disc ({ at, r }), and with nothing under
+-- each of `over` ({ off, below }: the surface at that offset no higher than `below` over the rest, for a pennant's
+-- flag) ; the spot on that surface.
+function CommandPost.restSpot(
+	post: Post,
+	want: Vector3,
+	radius: number,
+	avoid: { { at: Vector3, r: number } },
+	over: { { off: Vector3, below: number } }?
+): Vector3
+	local S = Cfg.Table.spot
+	local half = Vector2.new(Cfg.Table.size[1] / 2, Cfg.Table.size[2] / 2) - Vector2.one * (S.edge + radius)
+	for ring = 0, S.rings do
+		local n = if ring == 0 then 1 else S.around
+		for k = 0, n - 1 do
+			local a = (k / n + ring * 0.37) * 2 * math.pi
+			local c = want + V(math.cos(a), 0, math.sin(a)) * ring * S.step
+			local d = c - post.tableTop
+			local ok = math.abs(d.X) <= half.X and math.abs(d.Z) <= half.Y
+			for _, o in avoid do
+				ok = ok and Vector2.new(c.X - o.at.X, c.Z - o.at.Z).Magnitude >= radius + o.r
+			end
+			if not ok then
+				continue
+			end
+			local top, low, level = footprint(post, c, radius)
+			if not level or top - low > S.level then
+				continue
+			end
+			for _, o in over or {} do
+				ok = ok and groundAt(post, c + o.off) <= top + o.below
+			end
+			if ok then
+				return V(c.X, top, c.Z)
+			end
+		end
+	end
+	return V(want.X, (footprint(post, want, radius)), want.Z)
+end
+
 local function sideColour(kit: string?): Color3
 	local c = kit and GR.Wash[kit]
 	return if c then rgb(c):Lerp(INK, 0.2) else PAPER
@@ -1695,14 +1801,32 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 			post.pennants[i] = pennant(post.tableKit)
 		end
 		for _, side in { "West", "East" } do
-			post.blocks[side] = unitBlock(post.tableKit, sideColour(kits[side]))
+			post.blocks[side] = chessPiece(post.tableKit, sideColour(kits[side]))
 		end
 	end
-	-- where each side's block rests: by its front point, on the side it faces the enemy from
-	local B, PN = T.blocks, T.pennants
+	-- the pins first, each on the nearest level place to its point with its flag clear; the pieces then keep off them
+	local B, PN, PC = T.blocks, T.pennants, T.piece
+	local pins: { { at: Vector3, r: number } } = {}
+	local flagBelow = PN.tall - PN.flag[2] - 0.02
+	for i, p in places do
+		local key = "pin" .. i
+		post.spots[key] = post.spots[key]
+			or CommandPost.restSpot(post, onSheet(p.at) + V(PN.at[1], 0, PN.at[2]), 0.05, pins, {
+				{ off = V(PN.flag[1] / 2, 0, 0), below = flagBelow },
+				{ off = V(PN.flag[1], 0, 0), below = flagBelow },
+			})
+		local at = post.spots[key]
+		table.insert(pins, { at = at, r = 0.05 })
+		table.insert(pins, { at = at + V(PN.flag[1] / 2, 0, 0), r = PN.flag[1] / 2 })
+	end
+	local function spot(key: string, want: Vector3): Vector3
+		post.spots[key] = post.spots[key] or CommandPost.restSpot(post, want, PC.radius, pins)
+		return post.spots[key]
+	end
+	-- where each side's piece rests: by its front point, on the side it faces the enemy from
 	local function rest(i: number, side: string): Vector3
 		local s = if side == "West" then 1 else -1
-		return onSheet(places[i].at) + V(s * B.rest[1], 0, B.rest[2])
+		return spot(side .. i, onSheet(places[i].at) + V(s * B.rest[1], 0, B.rest[2]))
 	end
 	local owners: { string } = {}
 	for i, p in places do
@@ -1715,7 +1839,7 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 		end
 		-- (a side holding nothing: its block off the map's edge beyond its last HQ)
 		local edge = if side == "West" then 1 else #places
-		return onSheet(places[edge].at) + V(if side == "West" then -B.off else B.off, 0, B.rest[2])
+		return spot(side .. "off", onSheet(places[edge].at) + V(if side == "West" then -B.off else B.off, 0, B.rest[2]))
 	end
 	local pos = { West = front("West"), East = front("East") }
 	local lift = { West = 0, East = 0 }
@@ -1742,10 +1866,12 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 		local u = Rules.ease(math.clamp((now - post.doneAt[k]) / B.back, 0, 1))
 		pos[other] = pos[other]:Lerp(front(other), u)
 	end
+	-- (standing on the highest thing under it: on the way it rides over whatever it crosses)
 	for side, m in post.blocks do
 		local at = pos[side]
 		local face = if side == "West" then 0 else math.pi
-		m:PivotTo(CFrame.new(at + V(0, lift[side], 0)) * CFrame.Angles(0, face, 0))
+		local y = footprint(post, at, PC.radius)
+		m:PivotTo(CFrame.new(V(at.X, y + lift[side], at.Z)) * CFrame.Angles(0, face, 0))
 	end
 	-- the pennants: each its point's holder's colour; at a capture it lifts, changes at the top, and drops back
 	for i, m in post.pennants do
@@ -1764,7 +1890,7 @@ function CommandPost.stepTable(post: Post, sheet: any, folder: Instance, t: numb
 				d.Color = colour
 			end
 		end
-		m:PivotTo(CFrame.new(onSheet(places[i].at) + V(PN.at[1], up, PN.at[2])))
+		m:PivotTo(CFrame.new(post.spots["pin" .. i] + V(0, up, 0)))
 	end
 end
 

@@ -231,7 +231,16 @@ local Cutscenes = {
 		-- side's front point; the taker's slides there along its arrow while the arrow is drawn, lifting `lift` at the
 		-- middle; a block pushed off its point slides back over `back` seconds (once its side holds nothing, `off`
 		-- beyond its HQ, clear of the taker's block there)
-		blocks = { size = { 0.55, 0.35, 0.25 }, rest = { 0.55, 0.05 }, lift = 0.12, back = 0.6, off = 1.35 },
+		blocks = { rest = { 0.55, 0.05 }, lift = 0.12, back = 0.6, off = 1.35 },
+		-- each side's piece a chess rook (user 2026-11-03: "use chess pieces for the pieces"), lacquered in its side's
+		-- colour on a felt base: `radius` and `tall` studs
+		piece = { radius = 0.16, tall = 0.46 },
+		-- nothing on the table inside another (user 2026-11-03: "if an item is inside another it should be put in
+		-- another spot or stacked on top (realistically)"): a piece or pin rests on the nearest level place to where it
+		-- belongs, out in rings `step` studs apart (`rings` of them, `around` places each); level: its footprint's
+		-- heights within `level` studs and no slope, so it stands on a paper or the clipboard but never across an edge
+		-- or on a round prop; it stays `edge` studs inside the table
+		spot = { step = 0.1, rings = 12, around = 12, level = 0.03, edge = 0.25 },
 		-- the pin pennants: pin `tall` studs, pennant `flag` (long, high); on a capture it lifts `lift` and drops back
 		-- over `flip` seconds, changing colour at the top
 		pennants = { tall = 0.55, flag = { 0.32, 0.2 }, lift = 0.1, flip = 0.45, at = { 0.14, -0.06 } },
