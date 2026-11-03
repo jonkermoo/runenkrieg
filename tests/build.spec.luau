@@ -994,6 +994,11 @@ return {
 		local piece = assert(B.piece("Dugout", C.Pieces))
 		-- (three soldiers of 2 x 1 standing side by side with room between, and one more stride's depth)
 		assert(piece.width >= 3 * 2 + 3 and piece.depth >= 7 and piece.height >= C.Trench.depth)
+		local T = C.Trench
+		assert(
+			T.floor + d.stair + piece.depth + d.cut <= T.spacing - T.floor,
+			"its dig stops short of the next trench's floor"
+		)
 		local function foot(x: number, y: number, z: number, rx: number, rz: number): any
 			return { x = x, y = y, z = z, rx = rx, rz = rz }
 		end

@@ -444,15 +444,15 @@ local Assets = {
 			-- be build over a wall", "lined with the wall not sticking out ... plank doorframes", "fill it with terrain
 			-- instead of blocks"): a doorway in the wall's face under a plank frame, a roofed tunnel of steps, no caving
 			-- pieces, about 6.7k triangles (v2 74269418602475); v4 (user 2026-11-03: "you can see through dugouts", "make it
-			-- spacious enough for 3 people"): a room 10 x 6 x 8, a closed shell of earth round the tunnel and room, the
+			-- spacious enough for 3 people"): a room 10 x 6 x 7, a closed shell of earth round the tunnel and room, the
 			-- tunnel's dirt sides out over the cut, about 7.4k triangles (v3 75104467463103)
-			id = 91425483047734,
+			id = 94881061580243,
 			category = "Props",
 			folder = "Dugout",
 			source = "assets/props/dugout_pieces.fbx",
 			generator = "tools/blender/dugout/dugout.py",
 			fidelity = "Box",
-			description = "A dugout's pieces in piece space (origin on the trench floor at the foot of the wall it is cut into, in the middle along the trench; x along the trench, y up, z back into the wall; Origin at 0): a doorway in the wall's face under a lintel 3.4 up, steps down 7 over 7.5 under a sloping roof to a room 10 wide, 8 deep, 6 high. Pile, PileDark (timbers lying on the trench floor), SlotEarth (the tunnel's dirt sides, its roof of earth, the wall's face over the doorway), Steps, Risers, Shell (plain slabs of earth closing the tunnel and room behind their dirt faces), RoomEarth (the room's dirt faces), Frames (the doorframe's posts, lintel and header lying on the wall's face, a frame in the tunnel, the room's frames), Lining (plank steps along the walls and tunnel), Ceiling (the room's boards and the tunnel's roof boards), Floorboards (a duckboard and the lining's dark boards).",
+			description = "A dugout's pieces in piece space (origin on the trench floor at the foot of the wall it is cut into, in the middle along the trench; x along the trench, y up, z back into the wall; Origin at 0): a doorway in the wall's face under a lintel 3.4 up, steps down 7 over 7.5 under a sloping roof to a room 10 wide, 7 deep, 6 high. Pile, PileDark (timbers lying on the trench floor), SlotEarth (the tunnel's dirt sides, its roof of earth, the wall's face over the doorway), Steps, Risers, Shell (plain slabs of earth closing the tunnel and room behind their dirt faces), RoomEarth (the room's dirt faces), Frames (the doorframe's posts, lintel and header lying on the wall's face, a frame in the tunnel, the room's frames), Lining (plank steps along the walls and tunnel), Ceiling (the room's boards and the tunnel's roof boards), Floorboards (a duckboard and the lining's dark boards).",
 		},
 		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown
 		-- at a time

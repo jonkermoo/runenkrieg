@@ -316,14 +316,15 @@ local Build = {
 		-- The dugout (user 2026-11-02, design approved): steps cut down through the wall of a dug trench square into a
 		-- small timbered room under the ground (Dugout below). Engineers only (Config/Classes), `playerCap` each (user: "2
 		-- per player"). Its room `width` along the trench x `height` x `depth` back (a standing soldier is 5.13), past its
-		-- steps (Dugout.stair). (10 x 6 x 8 for three soldiers, was 7 x 6 x 6; user 2026-11-03: "increase the space in the dugouts. make it spacious enough for 3 people. prevent additional dugouts from being built close to each other (to prevent collision and too many dugouts)")
+		-- steps (Dugout.stair). (10 x 6 x 7 for three soldiers, was 7 x 6 x 6, its back and cut short of a trench the
+		-- least Trench.spacing behind; user 2026-11-03: "increase the space in the dugouts. make it spacious enough for 3 people. prevent additional dugouts from being built close to each other (to prevent collision and too many dugouts)")
 		{
 			key = "Dugout",
 			name = "Dugout",
 			kind = "Dugout",
 			playerCap = 2,
 			width = 10,
-			depth = 8,
+			depth = 7,
 			height = 6,
 		},
 		-- (user 2026-10-27: a section 8 long, 4 wide, 3/5 of a soldier high (3.1), stood in 2 swings; laid on its own, no
