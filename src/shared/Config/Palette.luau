@@ -367,6 +367,13 @@ local Palette = {
 		outline = { 24, 28, 22 },
 		text = { 236, 232, 220 },
 		stroke = 2,
+		-- a teammate's health outline (Config/TeamHealth, src/client/TeamHealth): the colour at each share of full
+		-- health, shaded in between; at or below the lowest share it stays the lowest's
+		TeamHealth = {
+			{ at = 1, color = { 110, 220, 110 } }, -- full: green
+			{ at = 0.5, color = { 255, 196, 60 } }, -- half: amber
+			{ at = 0.2, color = { 235, 60, 48 } }, -- badly hurt: red
+		},
 		-- the build HUD panel (src/client/Build; user 2026-10-24): the panel, its edge (go / no-go / the shovel out, not
 		-- planning), the title (red when it can't go), the line beside it, the key caps and their hints
 		BuildHud = {

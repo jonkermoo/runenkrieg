@@ -30,6 +30,7 @@ local ClassCfg = require(Shared.Config.Classes)
 local ModeCfg = require(Shared.Config.Modes)
 local SectorCfg = require(Shared.Config.Sectors)
 local TeamCfg = require(Shared.Config.Teams)
+local TeamHealthCfg = require(Shared.Config.TeamHealth)
 local EnvCfg = require(Shared.Config.Environment)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
@@ -396,6 +397,27 @@ local function build(player: Player): DevPanel.Panel
 	end)
 	player:GetAttributeChangedSignal(A.LabelsAttribute):Connect(showLabels)
 	showLabels()
+	-- the teammates' health outlines (src/client/TeamHealth; client only): off, and your own outlined too
+	for i, t in
+		{
+			{ id = "TeamOutlines", label = "Team outlines", attribute = TeamHealthCfg.OffAttribute, on = false },
+			{ id = "TeamOutlineSelf", label = "Outline me too", attribute = TeamHealthCfg.SelfAttribute, on = true },
+		}
+	do
+		local b = DevPanel.button(p.panel, t.id, "", order + i)
+		local function show()
+			-- (the off switch's attribute reads backwards: set = outlines off)
+			local on = (player:GetAttribute(t.attribute) == true) == t.on
+			b.Text = `{t.label}: {if on then "on" else "off"}`
+			paint(b, on)
+		end
+		b.Activated:Connect(function()
+			player:SetAttribute(t.attribute, if player:GetAttribute(t.attribute) == true then nil else true)
+		end)
+		player:GetAttributeChangedSignal(t.attribute):Connect(show)
+		show()
+	end
+	order += 2
 
 	-- You (src/server/DevTools): health steps, death, respawn, god mode, a knock, the helmet off, unlimited ammo
 	DevPanel.heading(p.panel, "You", order + 1)
