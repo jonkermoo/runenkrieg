@@ -166,7 +166,8 @@ local function buildSets()
 end
 
 -- the screen: the bars, a modal button that frees the mouse while signing
-local gui: ScreenGui, freeMouse: TextButton
+local gui: ScreenGui, freeMouse: TextButton, loadTrack: Frame, loadFill: Frame
+local loadEnds = 0 -- the server time the least loading time is up
 local function buildGui()
 	gui = Instance.new("ScreenGui")
 	gui.Name = "EndScenes"
@@ -183,6 +184,21 @@ local function buildGui()
 		bar.Position = UDim2.fromScale(0, i)
 		bar.Parent = gui
 	end
+	-- the armory's loading bar, in the bottom bar
+	local B = Cfg.Armory.bar
+	loadTrack = Instance.new("Frame")
+	loadTrack.BorderSizePixel = 0
+	loadTrack.BackgroundColor3 = rgb(B.track)
+	loadTrack.AnchorPoint = Vector2.new(0.5, 0.5)
+	loadTrack.Position = UDim2.fromScale(0.5, 1 - Cfg.Bars / 2)
+	loadTrack.Size = UDim2.fromScale(B.width, B.height)
+	loadTrack.Visible = false
+	loadTrack.Parent = gui
+	loadFill = Instance.new("Frame")
+	loadFill.BorderSizePixel = 0
+	loadFill.BackgroundColor3 = rgb(B.fill)
+	loadFill.Size = UDim2.fromScale(0, 1)
+	loadFill.Parent = loadTrack
 	freeMouse = Instance.new("TextButton")
 	freeMouse.BackgroundTransparency = 1
 	freeMouse.Text = ""
@@ -476,9 +492,14 @@ local function step()
 		-- the time left on the board's paper
 		local left = math.max(0, math.ceil(FrontCfg.VoteSeconds - t))
 		post.timer.Text = if picked then Cfg.Board.timer.closed else string.format("%d:%02d", left // 60, left % 60)
+		post.timer.TextColor3 = if left <= Cfg.Board.timer.warn then rgb(GR.pencil) else INK
 		cf = eyeCf(boardView(t))
 	else
 		cf, fov = armoryCam(t), Cfg.Fov
+		local phaseNow = folder:GetAttribute("Phase")
+		local B = Cfg.Armory.bar
+		local k = if phaseNow == "Loading" then math.clamp(t / math.max(loadEnds - sceneAt, 0.1), 0, B.most) else 1 -- (the match is ready: the narrator finishing)
+		loadFill.Size = UDim2.fromScale(k, 1)
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CFrame = cf
@@ -502,7 +523,6 @@ local function begin(name: string, folder: Instance)
 		(arm :: Model):Destroy()
 		arm = nil
 	end
-	post.lamp.Transparency = if name == "Vote" then 1 else 0 -- (its shade hangs in the board's shot; its light stays)
 	local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
 	local parts = if type(spoken) == "string" then string.split(spoken, ",") else { "none", LiveMap.key() }
 	local winnerKit = if parts[1] ~= "none" then parts[1] else nil
@@ -519,7 +539,12 @@ local function begin(name: string, folder: Instance)
 		CommandPost.plan(post, if winnerKit then nationOf(winnerKit) else nil)
 		local may = player:GetAttribute("MaySign") == true
 		freeMouse.Visible = may
-	elseif name == "Loading" and not speechStarted then
+	end
+	loadTrack.Visible = name == "Loading"
+	if name == "Loading" then
+		loadEnds = if type(endsAt) == "number" then endsAt else workspace:GetServerTimeNow() + 8
+	end
+	if name == "Loading" and not speechStarted then
 		speechStarted = true
 		Speech.stop()
 		Speech.queue(Rules.partOne(Cfg.Speech, winnerKit, parts[2] or LiveMap.key(), nationOf(winnerKit)), os.clock())

@@ -46,7 +46,7 @@ local Cutscenes = {
 		Title = { big = "{map}", small = "{west} · West    vs    {east} · East" },
 		West = { big = "{west}" },
 		East = { big = "{east}" },
-		Winner = { big = "{winner}", small = "takes the field", noWinner = "NO VICTOR" },
+		Winner = { big = "{winner}", small = "VICTORY", noWinner = "NO VICTOR" }, -- ("KATZMARK VICTORY": the demo)
 	},
 	-- the landmarks' names under their seals (by village.specials id; others show the point's name alone)
 	Names = {
@@ -245,7 +245,8 @@ local Cutscenes = {
 		at = { 0, 5.83, 11.27 },
 		size = { 11.3, 8.7 },
 		title = { text = "VOTE", x = -1.3, y = 3.2, size = { 2.4, 0.9 } },
-		timer = { x = 1.5, y = 3.2, size = { 1.7, 0.9 }, label = "POLLS CLOSE IN", closed = "CLOSED" },
+		-- (the time left in ink, in red pencil for the last `warn` seconds)
+		timer = { x = 1.5, y = 3.2, size = { 1.7, 0.9 }, label = "POLLS CLOSE IN", closed = "CLOSED", warn = 5 },
 		slots = 3,
 		sheet = { width = 2.85, height = 3.75, xs = { -3.5, 0, 3.5 }, y = -0.9, tilt = 1, pixelsPerStud = 200 },
 		grid = { cols = 4, rows = 10 },
@@ -269,8 +270,11 @@ local Cutscenes = {
 	},
 	-- The armory while the next map loads: the six approved angles (render session, 2026-11-02), a slow drift each, a
 	-- cut every `cut` seconds; studs from the armory floor's middle. A placeholder room until the render is modelled.
+	-- A loading bar in the bottom bar (`bar`: width and height of the screen, its colours) fills over the least
+	-- loading time (the phase's end), short of full until the match is ready.
 	Armory = {
-		cut = 4.5,
+		cut = 3,
+		bar = { width = 0.3, height = 0.008, track = { 60, 54, 46 }, fill = { 230, 220, 193 }, most = 0.95 },
 		shots = {
 			{ name = "Wide", from = { -14, 7, 16 }, to = { -11, 7, 15 }, look = { 4, 2, -4 } },
 			{ name = "FieldGun", from = { 2, 2.5, 6 }, to = { 3.5, 2.6, 5.5 }, look = { 6, 1.6, -2 } },

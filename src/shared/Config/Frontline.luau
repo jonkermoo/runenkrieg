@@ -33,7 +33,7 @@ local Frontline = {
 	-- least as long as the narrator's first part (its words at Cutscenes.Speech.wordsPerSecond), at most `max`
 	FadeSeconds = 3,
 	TableSeconds = 14,
-	VoteSeconds = 15,
+	VoteSeconds = 30, -- (the approved demo, user 2026-11-03: the countdown from 0:30; was 15)
 	Loading = { least = 8, max = 40 },
 	-- on the Frontline folder from a match's end to the next countdown's end: what the narrator speaks of, "<winner
 	-- kit or none>,<the map just played>" (src/client/MatchCutscene)
