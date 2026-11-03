@@ -449,6 +449,14 @@ local Bots = {
 		-- (56: past the zone's flagpole in its middle, which a line 40 back ran into; past Config/Build.Trench.spacing)
 		Support = { back = 56, width = 32 },
 		Comm = { jog = 6, short = 1 },
+		-- a run dug toward the enemy (a communication trench, a sap) where the enemy can see down it is dug in a
+		-- zig-zag (user 2026-11-03 play test: "building straight down will be in line of fire of the enemies uphill.
+		-- however if we zigzag, we are in cover while building forward"; Rules/BotTrenches.exposed, zigzag): exposed
+		-- with a threat (the enemy's next sector, or an enemy its squad knows of within `range` studs) within `cone`
+		-- degrees of the run's line, or above it by `plunge` degrees of elevation, that a ray from its eye over the
+		-- ground reaches; then legs `leg` studs long, each turned off the line by `angle.min` degrees plus `angle.perStud`
+		-- for each stud the threat stands above the run (up to `angle.max`), alternately. Safe: straight.
+		Zigzag = { cone = 20, plunge = 10, range = 250, leg = 12, angle = { min = 25, perStud = 1, max = 45 } },
 		on = 2,
 		ends = 0.15,
 		cap = 60,

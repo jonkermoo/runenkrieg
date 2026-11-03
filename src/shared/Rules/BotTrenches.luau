@@ -419,4 +419,63 @@ function BotTrenches.occupied(
 	return false
 end
 
+-- Why a run dug from A toward B lies in the line of fire of a threat at (x, y, z) (user 2026-11-03 play test: "building
+-- straight down will be in line of fire of the enemies uphill"; Config/Bots.Trenches.Zigzag): "in line" with the
+-- threat within `cfg.cone` degrees of the run's line, ahead of it; "from above" with it `cfg.plunge` degrees or more up
+-- from the run's start (ground `groundY`); nil while it can't look down the run. The server checks the threat can see
+-- the ground there at all (a ray over the terrain).
+function BotTrenches.exposed(
+	run: Run,
+	groundY: number,
+	threat: { x: number, y: number, z: number },
+	cfg: { cone: number, plunge: number }
+): string?
+	local dx, dz = run.bx - run.ax, run.bz - run.az
+	local tx, tz = threat.x - run.ax, threat.z - run.az
+	local dl, tl = math.sqrt(dx * dx + dz * dz), math.sqrt(tx * tx + tz * tz)
+	if dl < 1e-6 or tl < 1e-6 then
+		return nil
+	end
+	local cos = (dx * tx + dz * tz) / (dl * tl)
+	if cos >= math.cos(math.rad(cfg.cone)) then
+		return "in line"
+	end
+	if cos > 0 and math.deg(math.atan((threat.y - groundY) / tl)) >= cfg.plunge then
+		return "from above"
+	end
+	return nil
+end
+
+-- The turn off a run's line for each zig-zag leg against a threat `height` studs above it (Config/Bots.Trenches.Zigzag
+-- `angle`): steeper the higher it stands. Degrees.
+function BotTrenches.zigAngle(height: number, cfg: { min: number, perStud: number, max: number }): number
+	return math.clamp(cfg.min + math.max(height, 0) * cfg.perStud, cfg.min, cfg.max)
+end
+
+-- A run from A to B dug as a zig-zag: legs `leg` studs long, each turned `angle` degrees off the line to B, one way
+-- then the other, the last straight onto B (each leg's line ends off the next one's: no straight sight down it). The
+-- legs, of the run's kind.
+function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
+	local dx, dz = run.bx - run.ax, run.bz - run.az
+	local d = math.sqrt(dx * dx + dz * dz)
+	if d < 1e-6 or leg <= 0 then
+		return { run }
+	end
+	local ux, uz = dx / d, dz / d
+	local cx, cz = -uz, ux -- (across)
+	local a = math.rad(angle)
+	local fwd, side = math.cos(a) * leg, math.sin(a) * leg
+	local legs: { Run } = {}
+	local px, pz, done, sign = run.ax, run.az, 0, 1
+	while d - done > fwd + 1e-6 do
+		local nx = px + ux * fwd + cx * side * sign
+		local nz = pz + uz * fwd + cz * side * sign
+		table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = nx, bz = nz })
+		px, pz, done = nx, nz, done + fwd
+		sign = -sign
+	end
+	table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = run.bx, bz = run.bz })
+	return legs
+end
+
 return BotTrenches

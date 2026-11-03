@@ -35,6 +35,7 @@ local BD = Cfg.Build
 local TR = Cfg.Trenches
 local TM = Cfg.TrenchMove
 local SP = Cfg.Sap
+local CV = Cfg.Move.Cover
 local FR = Cfg.Front
 -- (the build list's and the gun spots' settings with the flanks', Config/Bots.Front.Flank)
 local Flanked = { plan = table.clone(BD), guns = table.clone(BD.Crews) }
@@ -162,6 +163,48 @@ end
 -- ground gained toward `objective` for Sap.stall s), it saps from its most forward member, run by run, half of it
 -- digging (Build.planAs, then each square's swings), the rest holding there giving covering fire, all moving up to the
 -- head of the last run dug; over at the objective's edge or once nobody has shot at it for Sap.quiet s
+-- Whether a run toward the enemy lies in a threat's line of fire (Config/Bots.Trenches.Zigzag; user 2026-11-03: "make
+-- bots do that if its not safe"): the threats (points on the ground) in line with it or above it (Rules/BotTrenches
+-- .exposed) and seeing the ground at its start or middle over the terrain. The turn its legs take (0: straight) and why.
+local function runCover(run: BotTrenches.Run, threats: { Vector3 }): (number, string)
+	local Z = TR.Zigzag
+	local a = Routes.ground(run.ax, run.az)
+	local m = Routes.ground((run.ax + run.bx) / 2, (run.az + run.bz) / 2)
+	for _, t in threats do
+		if flat(t - a).Magnitude <= Z.range then
+			local eyeAt = t + Vector3.yAxis * Cfg.Eye
+			local why = BotTrenches.exposed(run, a.Y, { x = eyeAt.X, y = eyeAt.Y, z = eyeAt.Z }, Z)
+			if why then
+				for _, p in { a, m } do
+					local to = p + Vector3.yAxis * (CV.chest + 1.8) - eyeAt
+					local hit = workspace:Raycast(eyeAt, to, terrainOnly)
+					if not hit or hit.Distance >= to.Magnitude - 1 then
+						local up = eyeAt.Y - a.Y
+						return BotTrenches.zigAngle(up, Z.angle), `{why}, {math.floor(up + 0.5)} studs up`
+					end
+				end
+			end
+		end
+	end
+	return 0, "no sight down it"
+end
+
+-- a side's note on a run toward the enemy (the admin panel's readout; the newest few)
+local function noteRun(sb: SideBuild?, what: string, angle: number, why: string)
+	if angle > 0 then
+		stats.zigzags += 1
+	else
+		stats.straights += 1
+	end
+	if sb then
+		local notes = (sb :: SideBuild).runNotes
+		table.insert(notes, `{what} {if angle > 0 then `zigzag {math.floor(angle + 0.5)}°` else "straight"} ({why})`)
+		if #notes > 6 then
+			table.remove(notes, 1)
+		end
+	end
+end
+
 local function sapTick(
 	sqs: SquadState,
 	members: { Bot },
@@ -277,7 +320,18 @@ local function sapTick(
 	if not sap.run then
 		sap.k += 1
 		local ax, az = sap.head.X, sap.head.Z
-		local bx, bz = BotSap.run(ax, az, goalAt.X, goalAt.Z, sap.k, SP)
+		-- (straight while nothing can see down it, else a zig-zag against the threat: Trenches.Zigzag)
+		local threats = { goalAt }
+		for _, kn in sqs.known do
+			if now - kn.at <= SQ.knownFor then
+				table.insert(threats, kn.pos)
+			end
+		end
+		local ex, ez = BotSap.run(ax, az, goalAt.X, goalAt.Z, 1, { run = SP.run, angle = 0 })
+		local turn, why = runCover({ kind = "Sap", ax = ax, az = az, bx = ex, bz = ez }, threats)
+		sap.angle = turn
+		noteRun(sb, `S{sqs.sector} sap`, turn, why)
+		local bx, bz = BotSap.run(ax, az, goalAt.X, goalAt.Z, sap.k, { run = SP.run, angle = turn })
 		if plan ~= "open" and BotFront.parallelNow(headTo - radius, FR) then
 			-- close: the parallel across, the squad's jump-off (Rules/BotTrenches.jumpOff)
 			ax, az, bx, bz = BotFront.parallel(sap.head.X, sap.head.Z, goalAt.X, goalAt.Z, FR.parallel.width)
@@ -927,6 +981,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			bays = 0,
 			digging = 0,
 			hurt = {},
+			runNotes = {},
 		}
 		buildLists[side] = sb
 	end
@@ -1011,10 +1066,36 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
 		end
 		-- the trench system (Rules/BotTrenches): fire, support and communication trenches, dug in that order
+		-- (its communication trenches run toward the enemy: a zig-zag where the enemy's next sector, or an enemy its
+		-- squads know of, can see down one; Trenches.Zigzag)
+		local threats: { Vector3 } = {}
+		local ahead = Map.sectors[front + (if side == "West" then 1 else -1)]
+		if ahead then
+			table.insert(threats, Routes.ground(ahead.x, ahead.z))
+		end
+		for _, sq in squads do
+			if sq.side == side then
+				for _, kn in sq.known do
+					if now - kn.at <= SQ.knownFor then
+						table.insert(threats, kn.pos)
+					end
+				end
+			end
+		end
 		for _, run in BotTrenches.layout(zone, tx, tz, TR) do
-			local job = { key = "Trench", x = run.ax, z = run.az, ex = run.bx, ez = run.bz, fx = tx, fz = tz }
-			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = run }
-			table.insert(sbs.lay, r)
+			local legs = { run }
+			if run.kind == "Comm" then
+				local turn, why = runCover(run, threats)
+				noteRun(sbs, "comm", turn, why)
+				if turn > 0 then
+					legs = BotTrenches.zigzag(run, turn, TR.Zigzag.leg)
+				end
+			end
+			for _, leg in legs do
+				local job = { key = "Trench", x = leg.ax, z = leg.az, ex = leg.bx, ez = leg.bz, fx = tx, fz = tz }
+				local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = leg }
+				table.insert(sbs.lay, r)
+			end
 		end
 		if front ~= sbs.front then
 			sbs.shelledOnce = false
@@ -1190,7 +1271,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				table.insert(lines, { kind = "Sap", ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number })
 				hx, hz = j.ex :: number, j.ez :: number
 			end
-			local bx, bz = BotSap.run(hx, hz, sap.goal.X, sap.goal.Z, sap.k + 1, SP)
+			local bx, bz =
+				BotSap.run(hx, hz, sap.goal.X, sap.goal.Z, sap.k + 1, { run = SP.run, angle = sap.angle or SP.angle })
 			table.insert(lines, { kind = "Sap", ax = hx, az = hz, bx = bx, bz = bz })
 		end
 	end
