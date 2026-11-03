@@ -330,6 +330,13 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		return
 	end
 	local o: BlastOpts = opts or {}
+	local t0 = os.clock()
+	local tb = t0
+	-- (each part's time: the hitch log, src/shared/Hitches)
+	local function took(name: string)
+		Hitches.since(name, tb)
+		tb = os.clock()
+	end
 	local reach = Blast.studsAt(B.Reach, kg, B.MetresPerStud)
 	local function kpaAt(d: number): number
 		return Blast.kpa(d, kg, B)
@@ -357,13 +364,16 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		local destroy = class and (B.Destroy :: any)[class]
 		return if destroy then Blast.reachOf(destroy, kg, B) else 0
 	end)
+	took("Blast map")
 	-- the crater first, so the trees it fells lie on the ground as it is after
 	if o.crater ~= false then
 		Ground.crater(position, Blast.craterPlan(kg, B.Crater, o.craterScale), B.Crater)
 	end
+	took("Blast crater")
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
+	took("Blast trees")
 	-- who sits in a dugout safe from it, taken before the map is hit: a blast that buries the dugout's trench puts them
 	-- out on the ground over it, unhurt (user 2026-11-02: "if the trench gets destroyed, the dugout should automatically
 	-- be destroyed too, putting all players above ground")
@@ -376,10 +386,12 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	end
 	-- player-built pieces: trenches buried, sandbags and wire worn down (src/server/Build, Config/Build.Structures)
 	Build.blast(position, kg, o.structure)
+	took("Blast built")
 	-- and whatever else watches blasts (the guns: src/server/Artillery)
 	for _, watch in watchers do
 		watch(position, kg, o.structure)
 	end
+	took("Blast guns")
 	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
 	local everyone = Dev.soldiers()
 	local soldiers: { Model } = if o.soldiers == false then {} else everyone
@@ -416,8 +428,10 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 			end
 		end
 	end
+	took("Blast soldiers")
 	-- everyone else near it, with nothing in the hands, ducks and holds the helmet (src/server/Flinch)
 	Flinch.blast(position, kg, o.fragments and o.fragments.wound, knocked, everyone)
+	Hitches.since("Blast", t0)
 end
 
 -- A staff stage's blast at `position` (Config/Damage.Staff.Charge and Blasts), set off by `by`.

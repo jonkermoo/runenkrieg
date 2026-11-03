@@ -49,6 +49,7 @@ local LiveMap = require(Shared.LiveMap)
 local Grenade = require(Shared.Rules.Grenade)
 local ShotRules = require(Shared.Rules.ShotAudio)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
 local ArtilleryFx = require(script.Parent.ArtilleryFx)
 local BarrelHeat = require(script.Parent.BarrelHeat)
@@ -1488,12 +1489,14 @@ function Artillery.start()
 		if not gun then
 			return
 		end
+		local t0 = os.clock()
 		Vfx.Blast.play(position, {
 			normal = Vector3.yAxis,
 			kg = gun.kg,
 			scheme = gun.vfx.scheme,
 			magic = gun.vfx.magic,
 		})
+		Hitches.since("Shell blast fx", t0)
 		ArtilleryFx.blast(gun, position)
 		local d = (camera.CFrame.Position - position).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)

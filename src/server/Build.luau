@@ -15,7 +15,7 @@
 -- - Barbed wire: Config/Assets barbed_wire's meshes in two looks by HP (Rules.wireLook: on the ground, standing),
 --   nothing queries them (bullets pass); src/server/Wire slows soldiers in it and hurts the enemy. On HP (Wire.hp).
 -- - Hesco barriers (kind "Hesco"; Config/Build.Hesco): on HP (its work is its HP), laid with the empty perimeter
---   standing; the model's pieces for the stage its HP stands at (Rules.hescoStage: the perimeter, then the dirt rising,
+--   standing; the model's pieces for the stage its HP stands at (Rules.builtStage: the perimeter, then the dirt rising,
 --   slumping as it wears), cloned from the asset library; only the dirt collides and stops bullets; gone at 0.
 -- - Guns (Config/Build.Pieces kind "Gun"; Config/Build.Guns): a holder model in the folder (what swings go to) with the
 --   gun's parts in it (src/server/Artillery.parts), laid out on the ground and fitted a quarter of its HP at a time
@@ -69,6 +69,7 @@ local Map1 = require(Shared.LiveMap).map -- (the match's map)
 local MapTerrain = require(Shared.Rules.MapTerrain)
 local SectorRules = require(Shared.Rules.Sectors)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local Ground = require(script.Parent.Ground)
 local Trees = require(script.Parent.Trees)
 local Trenches = require(script.Parent.Trenches)
@@ -126,7 +127,7 @@ type Rec = {
 
 -- src/server/Artillery, handed in at start (it needs Damage, which needs this)
 type Guns = {
-	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
+	place: (string, Vector3, Vector3, { paint: string?, dug: boolean?, up: Vector3? }?) -> Model?,
 	parts: (string, string?) -> Model?,
 	assemble: (Model, string, CFrame, number, CFrame?) -> (),
 	repair: (Model, number) -> (string?, number),
@@ -485,9 +486,10 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 		r.nestBase = Ground.snapshot(on.Position, across, n.snapshot[1], n.snapshot[2])
 		r.nestTops = if r.nestBase then Ground.surface(r.nestBase) else nil
 	end
-	-- the gun, in parts, on the mount bag's top under its pivot, standing level, each set up in its quarter
+	-- the gun, in parts, on the mount bag's top under its pivot, tilted with the nest (level unless it was laid on a
+	-- slope, Config/Build.Slope), each set up in its quarter
 	r.ground = on
-	r.at = CFrame.new((base * CFrame.new(0, n.bagTop, -radius + n.gunBack)).Position) * r.frame.Rotation
+	r.at = base * CFrame.new(0, n.bagTop, -radius + n.gunBack)
 	if guns then
 		r.parts = guns.parts(p.gun, C.Guns.paint[r.team])
 		if r.parts then
@@ -562,7 +564,8 @@ local function showNest(r: Rec)
 			r.parts:Destroy()
 			r.parts = nil
 		end
-		local gun = guns.place(p.gun, r.at.Position, r.at.LookVector, { paint = C.Guns.paint[r.team] })
+		local gun =
+			guns.place(p.gun, r.at.Position, r.at.LookVector, { paint = C.Guns.paint[r.team], up = r.at.UpVector })
 		r.gun = gun
 		if gun then
 			gun:SetAttribute("Piece", p.key)
@@ -641,7 +644,7 @@ local function showWire(r: Rec)
 	if not holder then
 		return
 	end
-	local look = Rules.wireLook(r.work, r.need, C.Wire)
+	local look = Rules.wireLook(r.work, r.need, C.Wire, r.built)
 	for _, p in holder:GetChildren() do
 		if p:IsA("BasePart") then
 			p.Transparency = if p:GetAttribute("Look") == look then 0 else 1
@@ -754,7 +757,7 @@ end
 local function showHesco(r: Rec)
 	r.model:SetAttribute("HP", math.ceil(r.work))
 	r.model:SetAttribute("MaxHP", r.need)
-	local stage = Rules.hescoStage(r.work, r.need, r.piece.stages)
+	local stage = Rules.builtStage(r.work, r.need, r.piece.stages, r.built)
 	if r.shown == stage or not layHesco(r) then
 		return
 	end
@@ -810,7 +813,7 @@ end
 local function showBridge(r: Rec)
 	r.model:SetAttribute("HP", math.ceil(r.work))
 	r.model:SetAttribute("MaxHP", r.need)
-	local stage = Rules.bridgeStage(r.work, r.need)
+	local stage = Rules.bridgeStage(r.work, r.need, r.paid == true)
 	for _, part in r.model:GetChildren() do
 		if part:IsA("BasePart") then
 			if part.Name == "Walk" then
@@ -1117,7 +1120,8 @@ showGun = function(r: Rec)
 				r.site:Destroy()
 			end
 			r.parts, r.site = nil, nil
-			local gun = guns.place(p.gun, at.Position, at.LookVector, { paint = paint, dug = d ~= nil })
+			local gun =
+				guns.place(p.gun, at.Position, at.LookVector, { paint = paint, dug = d ~= nil, up = at.UpVector })
 			r.gun = gun
 			if gun then
 				gun:SetAttribute("Piece", p.key)
@@ -1157,7 +1161,7 @@ showGun = function(r: Rec)
 		end
 	end
 	local floor = at.Position - Vector3.new(0, if d then d.depth * share else 0, 0)
-	local on = CFrame.lookAt(floor, floor + at.LookVector)
+	local on = at.Rotation + floor -- (tilted as it was laid on a slope: Config/Build.Slope)
 	if r.parts then
 		local quarters = Rules.stageOf(r.work, r.need, ArtilleryCfg.Assembly.quarters)
 		guns.assemble(r.parts, p.gun, on, quarters)
@@ -1207,7 +1211,7 @@ function apply(r: Rec)
 		-- (its work is its HP: shown on the shovel's panel like a gun's)
 		r.model:SetAttribute("HP", r.work)
 		r.model:SetAttribute("MaxHP", r.need)
-		showSandbags(r, Rules.pileBags(r.work, C.Sandbags.hp.swing, #r.piece.bags))
+		showSandbags(r, Rules.pileShown(r.work, r.need, C.Sandbags.hp.swing, #r.piece.bags, r.built))
 	elseif kind == "Nest" then
 		showNest(r)
 		-- (stood once: its gun's HP)
@@ -1454,7 +1458,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	local dugout = piece.kind == "Dugout"
 	if dugout then
 		local s, df, m = Survey.dugoutSpot(f, frame.Position)
-		spot = Rules.dugoutSpot(s, C.Dugout, piece.width)
+		spot = Rules.dugoutSpot(s, C.Dugout)
 		if df and m then
 			frame, square = df, m
 		end
@@ -1501,6 +1505,27 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		tell(b, reason or "Can't build here")
 		return reason or "Can't build here"
 	end
+	-- a gun or an MG nest (Config/Build.Slope, Rules.slopeLay): the earth under it cut and filled to the plane it lies
+	-- on as it is laid, level or tilted, and everything of it laid on that plane, so nothing floats or sinks at any
+	-- stage (laid on the plane, not the ground read again: a terrain raycast in the same frame as the write still finds
+	-- the ground as it was, Studio 2026-11-03)
+	local laidOn: CFrame? = nil
+	if piece.lay and not inTrench then
+		local plane = Survey.lay(piece, frame, report)
+		if not plane then
+			tell(b, "Too steep")
+			return "Too steep"
+		end
+		local S = C.Slope
+		local w, d = piece.width / 2 + S.pad, piece.depth / 2 + S.pad
+		local reach = Ground.level(plane, { -w, -d }, { w, d }, S.blend, (Enum.Material :: any)[S.material])
+		Net.event("GroundDug"):FireAllClients(plane.Position, reach)
+		frame = CFrame.new(frame.Position.X, plane.Position.Y, frame.Position.Z) * frame.Rotation
+		laidOn = plane
+		if gunAt then
+			gunAt = plane * CFrame.new(0, 0, -(piece.back or 0))
+		end
+	end
 	local model = Instance.new("Model")
 	model.Name = piece.key
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
@@ -1531,7 +1556,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 			return "The asset library lacks the sandbag pile"
 		end
 	elseif nest then
-		if not layoutNest(r, Survey.onGround(piece, frame, report)) then
+		if not layoutNest(r, laidOn or Survey.onGround(piece, frame, report)) then
 			model:Destroy()
 			tell(b, "Can't build here") -- (the dev place's asset library lacks the pile or the mount bag)
 			return "The asset library lacks the pile or the mount bag"
@@ -2037,7 +2062,9 @@ end
 function Build.blast(position: Vector3, kg: number, key: string?)
 	local S = C.Structures
 	local src = Rules.structureSource(key, kg, S)
+	local t0 = os.clock()
 	Trenches.blast(position, src)
+	Hitches.since("Blast trenches", t0)
 	local cut = {}
 	local worn: { { r: Rec, amount: number } } = {} -- (Hesco barriers: worn after the loop, which bursting changes)
 	for _, r in recs do
@@ -2124,6 +2151,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 		wear(w.r, w.amount)
 	end
 	-- and a piece whose ground the crater took from under it is gone, never left hanging (Config/Build.Support)
+	local t1 = os.clock()
 	local SUP = C.Support
 	for _, r in recs do
 		local laid = r.laid
@@ -2133,6 +2161,7 @@ function Build.blast(position: Vector3, kg: number, key: string?)
 			end
 		end
 	end
+	Hitches.since("Blast support", t1)
 end
 
 -- A bullet meeting `part` at `point` (src/server/Firing): a trench square (a piece, or the ground in it) or a sandbag

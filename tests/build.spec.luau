@@ -428,6 +428,11 @@ return {
 		hp, gone = B.trenchSwing(10, H.max, H.swing, false)
 		assert(hp == 0 and gone)
 	end,
+	["trenches: a square's panel shows it full only once it is"] = function()
+		local max = C.Trench.hp.max
+		assert(B.trenchShownHP(99.6, max) == max - 1, "a blast's fraction short isn't shown full")
+		assert(B.trenchShownHP(max, max) == max and B.trenchShownHP(42.4, max) == 42 and B.trenchShownHP(0, max) == 0)
+	end,
 	["trenches v2: a built square is buried by what it loses: a little at 80%, nearly level at 5-10%"] = function()
 		local H = C.Trench.hp
 		assert(near(B.trenchDepth(H.max / 2, false, H), 0.5), "digging: depth is the HP's share")
@@ -771,16 +776,35 @@ return {
 		local _, yTop = B.nestSack(1.6, n.flat, true)
 		assert(near(yTop, h * 1.5), "a top sack rests on the bottom sacks")
 	end,
+	["built things: nothing looks finished before 100 HP, a stage at each quarter (user 2026-11-03)"] = function()
+		assert(B.builtStage(24, 100, 4, false) == 0 and B.builtStage(25, 100, 4, false) == 1)
+		assert(B.builtStage(99, 100, 4, false) == 3 and B.builtStage(100, 100, 4, false) == 4)
+		assert(B.builtStage(99, 100, 4, true) == 4, "stood: a scratch takes no stage off")
+		local S = C.Sandbags.hp
+		assert(
+			B.pileShown(S.swing * 2, S.max, S.swing, 3, false) == 2 and B.pileShown(99, S.max, S.swing, 3, false) == 2
+		)
+		assert(B.pileShown(S.max, S.max, S.swing, 3, false) == 3, "every bag only at full")
+		assert(B.pileShown(S.max - 1, S.max, S.swing, 3, true) == 3, "stood: a scratch takes no bag")
+		assert(B.wireLook(99, 100, C.Wire, false) == "Bundle" and B.wireLook(100, 100, C.Wire, false) == "Standing")
+		assert(B.wireLook(60, 100, C.Wire, true) == "Standing", "stood: standing down to Wire.stand")
+		assert(B.bridgeStage(60, 100, false) == 1 and B.bridgeStage(100, 100, false) == 2)
+		assert(B.bridgeStage(60, 100, true) == 2, "whole once: every board while over half")
+	end,
 	["an MG nest builds in 4 stages like a barrier, then wears by its gun's stages"] = function()
 		local n = C.Nest
 		local bags, q = B.nestShown(0, n)
 		assert(bags == "none" and q == 0, "laid: all sacks flat, no gun yet")
 		bags, q = B.nestShown(n.hp.swing, n)
+		assert(bags == "none" and q == 0, "a swing in: still laid (stages at 25, 50, 75, 100)")
+		bags, q = B.nestShown(25, n)
 		assert(bags == "bottom" and q == 1, "stage 1: the bottom bags, the mount on its bag")
 		bags, q = B.nestShown(50, n)
-		assert(bags == "all" and q == 2, "stage 2: the ring whole, the gun on the mount")
+		assert(type(bags) == "number" and q == 2, "stage 2: more of the ring, the gun on the mount")
 		bags, q = B.nestShown(75, n)
-		assert(bags == "all" and q == 3, "stage 3: the shield")
+		assert(type(bags) == "number" and q == 3, "stage 3: the shield")
+		bags, q = B.nestShown(99, n)
+		assert(bags ~= "all" and q < n.quarters, "nothing finished before 100 (user 2026-11-03)")
 		bags, q = B.nestShown(n.hp.max, n)
 		assert(bags == "all" and q == n.quarters, "stage 4: the real gun")
 		assert(#n.build == 4 and #n.wear == 4)
@@ -832,9 +856,11 @@ return {
 		assert(B.ringShown(100, 100, n) == "all")
 		local last = 0
 		for hp = 0, 100, 5 do
-			local shown = B.ringShown(hp, 100, n) :: string
-			local rank = ({ none = 0, bottom = 1, all = 2 })[shown]
+			local shown = B.ringShown(hp, 100, n)
+			-- (a share of the bags standing ranks between the bottom bags and all of them)
+			local rank = if type(shown) == "number" then 1 + shown else ({ none = 0, bottom = 1, all = 2 })[shown]
 			assert(rank and rank >= last, `{hp}: {shown}`)
+			assert(hp == 100 or shown ~= "all", `{hp}: the full ring only at 100 (user 2026-11-03)`)
 			last = rank
 		end
 		assert(B.ringShown(100, 100, n, 0) == "all", "stood and whole")
@@ -955,21 +981,51 @@ return {
 			for k, v in over do
 				s[k] = v
 			end
-			return B.dugoutSpot(s, d, piece.width)
+			return B.dugoutSpot(s, d)
 		end
 		assert(spot({}) == nil, "a full square")
 		assert(spot({ found = false }) == "Needs a dug trench")
 		assert(spot({ dug = d.dug - 1 }) == "Needs a dug trench", "not dug full")
-		assert(piece.width + d.spare <= C.Trench.block, "fits a full square")
-		assert(spot({ length = piece.width }) == "This trench square is too short")
+		assert(d.door + d.spare <= C.Trench.block, "its doorway fits a full square")
+		assert(spot({ length = d.door }) == "This trench square is too short")
 		-- (a whole square measures a hair under its length on the flat: 7.99993 of 8)
 		assert(spot({ length = C.Trench.block - 7e-5 }) == nil, "a whole square, measured a hair short")
-		assert(spot({ length = piece.width + d.spare - 0.1 }) == "This trench square is too short")
+		assert(spot({ length = d.door + d.spare - 0.1 }) == "This trench square is too short")
 		assert(spot({ bridge = true }) == "A bridge is here")
 		assert(spot({ teed = true }) == "A trench joins this wall")
 		assert(spot({ nearest = 0 }) == "A dugout is already here")
-		assert(spot({ nearest = d.spacing - 1 }) == "Too close to another dugout")
+		assert(string.find(spot({ nearest = d.spacing - 1 }) or "", "Too close to another dugout") ~= nil)
 		assert(spot({ nearest = d.spacing }) == nil)
+		assert(spot({ clash = true }) ~= nil, "its room against another's")
+	end,
+	["dugouts: room for three, no two rooms within apart of each other in 3D (user 2026-11-03)"] = function()
+		local d = C.Dugout
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		-- (three soldiers of 2 x 1 standing side by side with room between, and one more stride's depth)
+		assert(piece.width >= 3 * 2 + 3 and piece.depth >= 7 and piece.height >= C.Trench.depth)
+		local T = C.Trench
+		assert(
+			T.floor + d.stair + piece.depth + d.cut <= T.spacing - T.floor,
+			"its dig stops short of the next trench's floor"
+		)
+		local function foot(x: number, y: number, z: number, rx: number, rz: number): any
+			return { x = x, y = y, z = z, rx = rx, rz = rz }
+		end
+		local a = foot(0, 0, 0, 1, 0) -- (into the wall along +z: right turned a quarter)
+		assert(not B.dugoutClash(a, foot(d.spacing, 0, 0, 1, 0), piece, d), "along the wall, spacing apart")
+		assert(piece.width + d.apart <= d.spacing, "the door spacing clears side-by-side rooms")
+		assert(B.dugoutClash(a, foot(piece.width + d.apart - 0.5, 0, 0, 1, 0), piece, d), "rooms side by side, close")
+		assert(
+			not B.dugoutClash(a, foot(0, 0, -2 * C.Trench.floor, -1, 0), piece, d),
+			"across the trench, back to back"
+		)
+		-- a trench behind, its dugout's room facing back toward this one's under the ground
+		local back = d.stair + piece.depth
+		assert(B.dugoutClash(a, foot(0, 0, 2 * back, -1, 0), piece, d), "rooms meeting under the ground")
+		assert(not B.dugoutClash(a, foot(0, 0, 2 * back + d.apart + 0.1, -1, 0), piece, d))
+		assert(not B.dugoutClash(a, foot(0, -30, 6, 1, 0), piece, d), "far under (a hill's other side)")
+		-- turned: a trench teed in behind, its dugout's room running across this one's
+		assert(B.dugoutClash(a, foot(-6, 0, d.stair + piece.depth / 2, 0, 1), piece, d), "across it")
 	end,
 	["dugouts: Engineers only, 2 each, 10 swings, stages by HP while built, filling in once stood"] = function()
 		local d = C.Dugout
@@ -983,7 +1039,8 @@ return {
 			return `{s},{f}`
 		end
 		assert(shown(0, false) == "0,0", "laid: its timbers")
-		assert(shown(10, false) == "1,0" and shown(50, false) == "2,0" and shown(90, false) == "4,0", "built by HP")
+		assert(shown(10, false) == "0,0" and shown(25, false) == "1,0", "a stage at each quarter (user 2026-11-03)")
+		assert(shown(50, false) == "2,0" and shown(90, false) == "3,0" and shown(100, false) == "4,0", "built by HP")
 		assert(shown(100, true) == "4,0", "whole")
 		assert(shown(d.fillFrom, true) == "4,0" and shown(90, true) == "4,0", "a hit or two leaves it clear")
 		local _, half = B.dugoutShown(d.fillFrom / 2, 100, true, d)
@@ -1188,5 +1245,37 @@ return {
 		assert(3 * B.structureHit(0, field, S.edge) >= 100, "three direct hits bury a trench")
 		assert(B.structureHit(field.edge + 2, field, S.edge) < 40, "off it: less")
 		assert(B.structureHit(field.reach, field, S.edge) == 0)
+	end,
+	-- (user 2026-11-03: "allow cannons and mg to be built on steeper hills too. just do a good blend between of
+	-- flattening the land and just being tilted on the slope")
+	["a gun or MG nest on a slope: levelled, then tilted, then refused"] = function()
+		local lay = { flat = 15, tilt = 10 }
+		local tilt, cut = B.slopeLay(10, lay, 30)
+		assert(tilt == 0 and near(cut, 10), "gentle ground: all of it levelled")
+		tilt, cut = B.slopeLay(20, lay, 30)
+		assert(near(assert(tilt), 5) and near(cut, 15), "steeper: tilted by what is over the flat share")
+		tilt, cut = B.slopeLay(30, lay, 30)
+		assert(near(assert(tilt), 10) and near(cut, 20), "at the maximum: the tilt capped, the earth the rest")
+		assert(B.slopeLay(30.5, lay, 30) == nil, "past the maximum: refused")
+		assert(B.slopeLay(18, { flat = 20, tilt = 0 }, 20) == 0, "no tilt allowed: levelled only")
+		for _, key in { "FieldGun", "MGNest", "Howitzer" } do
+			local p = assert(B.piece(key, C.Pieces))
+			local l = assert(p.lay, key)
+			assert(p.maxSlope >= l.flat and l.tilt >= 0 and l.tilt <= p.maxSlope - l.flat, key)
+		end
+		local field = assert(B.piece("FieldGun", C.Pieces))
+		assert(field.maxSlope > 15, "steeper hills than before (15)")
+		assert(C.Slope.blend > 0 and C.Slope.pad >= 0)
+	end,
+	["the plane a piece is laid on"] = function()
+		assert(near(B.planeSlope(1, 0), 45) and near(B.planeSlope(0, 0), 0))
+		local rise = math.tan(math.rad(20))
+		local gx, gz = B.layPlane(rise * 0.6, rise * 0.8, 5)
+		assert(near(B.planeSlope(gx, gz), 5), "brought down to its tilt")
+		assert(near(gx / gz, 0.75), "still falling the same way")
+		gx, gz = B.layPlane(rise, 0, 0)
+		assert(gx == 0 and gz == 0, "no tilt: level")
+		local h, px, pz = B.groundPlane({ 0, 1, 2, 0, 1, 2 }, 2, 3, 4, 6)
+		assert(near(h, 1) and near(px, 0.5) and near(pz, 0), "a plane rising along its width")
 	end,
 }
