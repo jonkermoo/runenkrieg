@@ -41,6 +41,7 @@ export type BuildJob = {
 	underFire: boolean?, -- worked under fire (a sap, a pile laid when pinned): only a hit stops it
 	gaveUp: boolean?, -- refused at every spot it was moved to (a trench run: a breastwork goes there instead)
 	done: boolean?, -- its breastwork or walls are on the list
+	fix: boolean?, -- a gun of its side out of service (Rules/BotCrew.repairOrder): fixed first, wherever it stands
 }
 
 -- a squad's sap forward (Rules/BotSap): its head (where the next run starts), the run being planned or dug, the jobs

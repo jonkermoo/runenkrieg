@@ -20,6 +20,7 @@ local RagdollCfg = require(Shared.Config.Ragdoll)
 local RagdollRules = require(Shared.Rules.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local Rules = require(Shared.Rules.DevActions)
+local Net = require(Shared.Net)
 local Helmets = require(script.Parent.Helmets)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
@@ -388,6 +389,17 @@ function DevDummies.knockDown(from: Vector3?)
 			away = Vector3.new(away.X, 0, away.Z)
 			Ragdoll.knock(m :: Model, K.knock, if away.Magnitude > 1e-3 then away.Unit else -at.LookVector, 1, K.damage)
 			m:SetAttribute("StayDown", true) -- (cleared when it gets up: src/server/Ragdoll)
+		end
+	end
+end
+
+-- Every living dummy says Config/DevTools.Dummies.Say in a chat bubble, to everyone (each client shows it only within
+-- its bubble range: src/client/ChatBubbles).
+function DevDummies.say()
+	for _, m in folder():GetChildren() do
+		local humanoid = m:IsA("Model") and m:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			Net.event("BotSay"):FireAllClients(m, D.Say)
 		end
 	end
 end
