@@ -226,7 +226,9 @@ local function crewSpot(s: State, character: Model): CFrame?
 	end
 	local y = floor + leg.Size.Y + root.Size.Y / 2
 	local at = Vector3.new(above.X, y, above.Z)
-	return CFrame.lookAt(at, at + pivot.LookVector)
+	-- (upright, along the gun's flat look: a gun laid tilted on a slope, Config/Build.Slope, doesn't lean its gunner)
+	local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
+	return CFrame.lookAt(at, at + (if look.Magnitude > 1e-3 then look.Unit else Vector3.new(0, 0, -1)))
 end
 
 -- A machine gun's box reload: unable to fire for the gun's `reload`, then full again
@@ -1030,8 +1032,14 @@ end
 
 -- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
 -- `opts`: `paint` (a Config/Palette.Artillery.Paint key: a player-built gun in its team's paint); `dug`: its pit is
--- already carved round `at` (src/server/Build digs a built gun's pit stage by stage), only its slabs laid here.
-function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint: string?, dug: boolean? }?): Model?
+-- already carved round `at` (src/server/Build digs a built gun's pit stage by stage), only its slabs laid here; `up`:
+-- the gun stands tilted to it (laid on a slope, Config/Build.Slope), its ground levelled to that plane.
+function Artillery.place(
+	key: string,
+	at: Vector3,
+	look: Vector3,
+	opts: { paint: string?, dug: boolean?, up: Vector3? }?
+): Model?
 	local gun = Cfg.Guns[key]
 	if not gun then
 		return nil
@@ -1050,7 +1058,13 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 	elseif gun.dig then
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
-	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
+	local up = opts and opts.up
+	if up and up.Y > 0.5 and not gun.dig then
+		local along = flat.Unit - up * flat.Unit:Dot(up)
+		model:PivotTo(CFrame.lookAt(at, at + along.Unit, up.Unit))
+	else
+		model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
+	end
 	-- (a machine gun stands on its nest's mount bag: no earth, a little box of ground kept from craters)
 	local under, over
 	if gun.nestGround then

@@ -359,7 +359,8 @@ local Build = {
 			width = 14.4,
 			depth = 14.4,
 			height = 4.6,
-			maxSlope = 15,
+			maxSlope = 30,
+			lay = { flat = 15, tilt = 10 }, -- (Slope)
 		},
 		-- The guns (user 2026-10-26: "add building the artilleries to shovels"; Config/Artillery.Guns `gun`, src/server/
 		-- Artillery stands them): every team builds both, in its own paint (Guns.paint). On HP (Guns.hp below): laid at
@@ -382,7 +383,8 @@ local Build = {
 			depth = 15,
 			height = 5,
 			back = 2,
-			maxSlope = 15,
+			maxSlope = 30,
+			lay = { flat = 15, tilt = 10 }, -- (Slope)
 			spacing = 60,
 			clear = 9,
 			trenchGap = 2,
@@ -403,12 +405,22 @@ local Build = {
 			depth = 28,
 			height = 6,
 			back = 0,
-			maxSlope = 12,
+			maxSlope = 20,
+			lay = { flat = 20, tilt = 0 }, -- (its pit's floor is level: flattened only, Slope)
 			spacing = 120,
 			clear = 15,
 			trenchGap = 2,
 		},
 	},
+
+	-- A gun or an MG nest on a slope (Rules/Build.slopeLay; user 2026-11-03: "allow cannons and mg to be built on steeper
+	-- hills too. just do a good blend between of flattening the land and just being tilted on the slope"). Each piece's
+	-- `lay`: on ground up to `flat` degrees (its fitted plane, Rules/Build.groundPlane) the earth is cut and filled level
+	-- under it; steeper, it tilts with what is over `flat`, up to `tilt` degrees, and the earth takes the rest; past its
+	-- `maxSlope` (the steepest between samples, as every piece) it is refused. The earth is shaped as it is laid
+	-- (src/server/Ground.level, put back at the next match: DevWorld.touch): its footprint and `pad` studs round it to
+	-- the plane it lies on, easing back to the ground as it was over `blend` studs, its top bare `material`.
+	Slope = { pad = 1, blend = 8, material = "Ground" },
 
 	-- Built guns, on HP like every structure (user 2026-10-27: "all structures follow an HP strucutre, not how many
 	-- digs"; round 5: start at 0 HP with stage 1 down): `hp.max`, laid at `hp.place`; while it is built a Destroy swing

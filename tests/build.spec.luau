@@ -1163,4 +1163,36 @@ return {
 		local turned: B.Footprint = { x = 0, z = 0, rx = 0, rz = 1, width = 8, depth = 4 }
 		assert(near(B.footprintToSeg(turned, -20, 10, 20, 10, 0.5), 6), "turned a quarter: its long side along z")
 	end,
+	-- (user 2026-11-03: "allow cannons and mg to be built on steeper hills too. just do a good blend between of
+	-- flattening the land and just being tilted on the slope")
+	["a gun or MG nest on a slope: levelled, then tilted, then refused"] = function()
+		local lay = { flat = 15, tilt = 10 }
+		local tilt, cut = B.slopeLay(10, lay, 30)
+		assert(tilt == 0 and near(cut, 10), "gentle ground: all of it levelled")
+		tilt, cut = B.slopeLay(20, lay, 30)
+		assert(near(assert(tilt), 5) and near(cut, 15), "steeper: tilted by what is over the flat share")
+		tilt, cut = B.slopeLay(30, lay, 30)
+		assert(near(assert(tilt), 10) and near(cut, 20), "at the maximum: the tilt capped, the earth the rest")
+		assert(B.slopeLay(30.5, lay, 30) == nil, "past the maximum: refused")
+		assert(B.slopeLay(18, { flat = 20, tilt = 0 }, 20) == 0, "no tilt allowed: levelled only")
+		for _, key in { "FieldGun", "MGNest", "Howitzer" } do
+			local p = assert(B.piece(key, C.Pieces))
+			local l = assert(p.lay, key)
+			assert(p.maxSlope >= l.flat and l.tilt >= 0 and l.tilt <= p.maxSlope - l.flat, key)
+		end
+		local field = assert(B.piece("FieldGun", C.Pieces))
+		assert(field.maxSlope > 15, "steeper hills than before (15)")
+		assert(C.Slope.blend > 0 and C.Slope.pad >= 0)
+	end,
+	["the plane a piece is laid on"] = function()
+		assert(near(B.planeSlope(1, 0), 45) and near(B.planeSlope(0, 0), 0))
+		local rise = math.tan(math.rad(20))
+		local gx, gz = B.layPlane(rise * 0.6, rise * 0.8, 5)
+		assert(near(B.planeSlope(gx, gz), 5), "brought down to its tilt")
+		assert(near(gx / gz, 0.75), "still falling the same way")
+		gx, gz = B.layPlane(rise, 0, 0)
+		assert(gx == 0 and gz == 0, "no tilt: level")
+		local h, px, pz = B.groundPlane({ 0, 1, 2, 0, 1, 2 }, 2, 3, 4, 6)
+		assert(near(h, 1) and near(px, 0.5) and near(pz, 0), "a plane rising along its width")
+	end,
 }

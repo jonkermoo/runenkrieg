@@ -126,7 +126,7 @@ type Rec = {
 
 -- src/server/Artillery, handed in at start (it needs Damage, which needs this)
 type Guns = {
-	place: (string, Vector3, Vector3, { paint: string?, dug: boolean? }?) -> Model?,
+	place: (string, Vector3, Vector3, { paint: string?, dug: boolean?, up: Vector3? }?) -> Model?,
 	parts: (string, string?) -> Model?,
 	assemble: (Model, string, CFrame, number, CFrame?) -> (),
 	repair: (Model, number) -> (string?, number),
@@ -485,9 +485,10 @@ local function layoutNest(r: Rec, on: CFrame): boolean
 		r.nestBase = Ground.snapshot(on.Position, across, n.snapshot[1], n.snapshot[2])
 		r.nestTops = if r.nestBase then Ground.surface(r.nestBase) else nil
 	end
-	-- the gun, in parts, on the mount bag's top under its pivot, standing level, each set up in its quarter
+	-- the gun, in parts, on the mount bag's top under its pivot, tilted with the nest (level unless it was laid on a
+	-- slope, Config/Build.Slope), each set up in its quarter
 	r.ground = on
-	r.at = CFrame.new((base * CFrame.new(0, n.bagTop, -radius + n.gunBack)).Position) * r.frame.Rotation
+	r.at = base * CFrame.new(0, n.bagTop, -radius + n.gunBack)
 	if guns then
 		r.parts = guns.parts(p.gun, C.Guns.paint[r.team])
 		if r.parts then
@@ -562,7 +563,8 @@ local function showNest(r: Rec)
 			r.parts:Destroy()
 			r.parts = nil
 		end
-		local gun = guns.place(p.gun, r.at.Position, r.at.LookVector, { paint = C.Guns.paint[r.team] })
+		local gun =
+			guns.place(p.gun, r.at.Position, r.at.LookVector, { paint = C.Guns.paint[r.team], up = r.at.UpVector })
 		r.gun = gun
 		if gun then
 			gun:SetAttribute("Piece", p.key)
@@ -1117,7 +1119,8 @@ showGun = function(r: Rec)
 				r.site:Destroy()
 			end
 			r.parts, r.site = nil, nil
-			local gun = guns.place(p.gun, at.Position, at.LookVector, { paint = paint, dug = d ~= nil })
+			local gun =
+				guns.place(p.gun, at.Position, at.LookVector, { paint = paint, dug = d ~= nil, up = at.UpVector })
 			r.gun = gun
 			if gun then
 				gun:SetAttribute("Piece", p.key)
@@ -1157,7 +1160,7 @@ showGun = function(r: Rec)
 		end
 	end
 	local floor = at.Position - Vector3.new(0, if d then d.depth * share else 0, 0)
-	local on = CFrame.lookAt(floor, floor + at.LookVector)
+	local on = at.Rotation + floor -- (tilted as it was laid on a slope: Config/Build.Slope)
 	if r.parts then
 		local quarters = Rules.stageOf(r.work, r.need, ArtilleryCfg.Assembly.quarters)
 		guns.assemble(r.parts, p.gun, on, quarters)
@@ -1501,6 +1504,27 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 		tell(b, reason or "Can't build here")
 		return reason or "Can't build here"
 	end
+	-- a gun or an MG nest (Config/Build.Slope, Rules.slopeLay): the earth under it cut and filled to the plane it lies
+	-- on as it is laid, level or tilted, and everything of it laid on that plane, so nothing floats or sinks at any
+	-- stage (laid on the plane, not the ground read again: a terrain raycast in the same frame as the write still finds
+	-- the ground as it was, Studio 2026-11-03)
+	local laidOn: CFrame? = nil
+	if piece.lay and not inTrench then
+		local plane = Survey.lay(piece, frame, report)
+		if not plane then
+			tell(b, "Too steep")
+			return "Too steep"
+		end
+		local S = C.Slope
+		local w, d = piece.width / 2 + S.pad, piece.depth / 2 + S.pad
+		local reach = Ground.level(plane, { -w, -d }, { w, d }, S.blend, (Enum.Material :: any)[S.material])
+		Net.event("GroundDug"):FireAllClients(plane.Position, reach)
+		frame = CFrame.new(frame.Position.X, plane.Position.Y, frame.Position.Z) * frame.Rotation
+		laidOn = plane
+		if gunAt then
+			gunAt = plane * CFrame.new(0, 0, -(piece.back or 0))
+		end
+	end
 	local model = Instance.new("Model")
 	model.Name = piece.key
 	model.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
@@ -1531,7 +1555,7 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 			return "The asset library lacks the sandbag pile"
 		end
 	elseif nest then
-		if not layoutNest(r, Survey.onGround(piece, frame, report)) then
+		if not layoutNest(r, laidOn or Survey.onGround(piece, frame, report)) then
 			model:Destroy()
 			tell(b, "Can't build here") -- (the dev place's asset library lacks the pile or the mount bag)
 			return "The asset library lacks the pile or the mount bag"

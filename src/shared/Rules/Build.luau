@@ -886,6 +886,35 @@ function Build.groundPlane(
 	return sum / n, if sxx > 0 then sxh / sxx else 0, if szz > 0 then szh / szz else 0
 end
 
+-- How a gun or an MG nest lies on a slope (Config/Build.Pieces `lay`, Slope; user 2026-11-03: "allow cannons and mg to
+-- be built on steeper hills too. just do a good blend between of flattening the land and just being tilted on the
+-- slope"): on ground up to `flat` degrees the earth is cut and filled level under it; steeper, the piece tilts with
+-- what is over `flat`, up to `tilt` degrees, and the earth is cut and filled through the rest. Its tilt and the
+-- degrees of slope the earth takes out (`slope` the ground's, Build.groundPlane's); nil past `max` (refused: "Too steep").
+function Build.slopeLay(slope: number, lay: { flat: number, tilt: number }, max: number): (number?, number)
+	if slope > max then
+		return nil, 0
+	end
+	local tilt = math.clamp(slope - lay.flat, 0, lay.tilt)
+	return tilt, slope - tilt
+end
+
+-- the degrees of a plane rising `gx`, `gz` per stud (Build.groundPlane)
+function Build.planeSlope(gx: number, gz: number): number
+	return math.deg(math.atan(math.sqrt(gx * gx + gz * gz)))
+end
+
+-- The plane a piece lies on (Build.slopeLay): the ground's rise per stud `gx`, `gz` (Build.groundPlane) brought down
+-- to `tilt` degrees, still falling the same way
+function Build.layPlane(gx: number, gz: number, tilt: number): (number, number)
+	local g = math.sqrt(gx * gx + gz * gz)
+	if g < 1e-6 or tilt <= 0 then
+		return 0, 0
+	end
+	local k = math.tan(math.rad(tilt)) / g
+	return gx * k, gz * k
+end
+
 -- How far a trench's line keeps from a `piece`'s footprint (Config/Build.Trench `t`), nil for a piece that may stand on
 -- its bank: a foxhole, barbed wire or a gun keeps off the walls and the bank, a gun `trenchGap` more. Both ways: no such
 -- piece laid that near a trench, no trench planned that near one (user 2026-11-02, Survey.nearTrench / Trenches.plan).

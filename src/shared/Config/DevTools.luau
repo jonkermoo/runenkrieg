@@ -258,6 +258,19 @@ local DevTools = {
 		-- "Shovel" build-anything switch (user 2026-10-27: "add admin shovel option to build anything"): lay and build
 		-- every piece whatever the class (src/server/Build, src/client/Build), on the Player while on
 		BuildAllAttribute = "DevBuildAll",
+		-- "Shovel" slope readout (src/client/DevSlope; user 2026-11-03, guns and MG nests on steeper hills, Config/Build
+		-- .Slope): under the cursor, the ground's slope and how each of `pieces` would lie there (the earth levelled,
+		-- its tilt, or too steep), and the first one's plane shown; on the Player while on, for this player only.
+		-- `every` seconds between readings, the label `width` x `tall` px, its text `size`, the plane `see`-through
+		Slope = {
+			attribute = "DevSlope",
+			pieces = { "FieldGun", "MGNest", "Howitzer" },
+			every = 0.15,
+			width = 320,
+			tall = 96,
+			size = 14,
+			see = 0.6,
+		},
 		-- unlimited ammo and no staff cooldown (src/server/Firing tops the magazine up after each shot; src/client/
 		-- StaffAttack and src/server/StaffCast: no cooldown, the mana full again), on the Player while on
 		AmmoAttribute = "DevAmmo",
