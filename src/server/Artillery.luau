@@ -41,6 +41,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Artillery)
+local DevCfg = require(Shared.Config.DevTools)
 local FiringCfg = require(Shared.Config.Firing)
 local Palette = require(Shared.Config.Palette)
 local PromptCfg = require(Shared.Config.Prompts)
@@ -91,6 +92,7 @@ type State = {
 	-- the ground it stands on (Artillery.onGround): its pivot as placed and the box under it (x, z in gun space)
 	ground: { at: CFrame, lo: { number }, hi: { number } },
 	pit: Model?, -- its pit's slabs
+	capAt: { yaw: number, at: number, lims: { number } }?, -- its elevation limits along its lay lately (limitsOf)
 	-- a machine gun (Config/Artillery.Guns `mg`): its fire held down, its heat (Rules.mgHeat), when its next shot is
 	-- due (a fresh pull not yet fired: `pull`), and a box reload under way
 	trigger: boolean,
@@ -110,6 +112,11 @@ local botLeft: { (Model, Model, string) -> () } = {}
 
 local function now(): number
 	return workspace:GetServerTimeNow()
+end
+
+-- How far a field gun or howitzer reaches on the live map (Config/Artillery.Reach: no shell past a sector away)
+local function reachCap(): number
+	return Rules.reachCap(Rules.sectorSpan(Map1.sectors), Cfg.Reach)
 end
 
 local function folder(): Folder
@@ -220,7 +227,9 @@ local function crewSpot(s: State, character: Model): CFrame?
 	end
 	local y = floor + leg.Size.Y + root.Size.Y / 2
 	local at = Vector3.new(above.X, y, above.Z)
-	return CFrame.lookAt(at, at + pivot.LookVector)
+	-- (upright, along the gun's flat look: a gun laid tilted on a slope, Config/Build.Slope, doesn't lean its gunner)
+	local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
+	return CFrame.lookAt(at, at + (if look.Magnitude > 1e-3 then look.Unit else Vector3.new(0, 0, -1)))
 end
 
 -- A machine gun's box reload: unable to fire for the gun's `reload`, then full again
@@ -353,6 +362,13 @@ local function seat(s: State, character: Model, player: Player?, bot: Model?): b
 	weld.Part1 = holder
 	weld.Parent = root
 	s.weld = weld
+	-- the weld broken from outside (a knock throws the gunner off: src/server/Ragdoll): off the gun
+	weld.AncestryChanged:Connect(function()
+		if s.weld == weld and not weld:IsDescendantOf(game) then
+			s.weld = nil
+			leave(s, "Knocked")
+		end
+	end)
 	root.Anchored = false
 	-- and platform-standing (user 2026-10-22: "the field cannon is unoperable. the character starts tweaking out with
 	-- the cannon. it only fixes when you have fly on": the dev Fly platform-stands): held by the weld, the humanoid
@@ -424,6 +440,14 @@ local function man(s: State, player: Player)
 	seat(s, character, player, nil)
 end
 
+-- gun `key`'s shell going off at `at` (by `by`): every client's blast first, so it shows even if the damage fails or
+-- runs long, then the blast (src/server/Damage)
+local function burst(key: string, at: Vector3, by: Model?)
+	local gun = Cfg.Guns[key]
+	Net.event("ArtilleryBlast"):FireAllClients(at, key)
+	Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
+end
+
 -- the shell's flight from `origin` at `velocity`, stepped against the world; goes off where it hits
 local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 	local params = RaycastParams.new()
@@ -443,8 +467,7 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 		local hit = workspace:Raycast(prev, p - prev, params)
 		if hit then
 			conn:Disconnect()
-			local at = hit.Position + hit.Normal * 0.3
-			Artillery.land(at, key, by)
+			burst(key, hit.Position + hit.Normal * 0.3, by)
 		elseif t > Cfg.MaxFlight then
 			conn:Disconnect()
 		end
@@ -1022,8 +1045,14 @@ end
 
 -- Places a gun (a Config/Artillery.Guns key) at `at`, its muzzle toward `look` (flattened); a gun with `dig` is dug in.
 -- `opts`: `paint` (a Config/Palette.Artillery.Paint key: a player-built gun in its team's paint); `dug`: its pit is
--- already carved round `at` (src/server/Build digs a built gun's pit stage by stage), only its slabs laid here.
-function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint: string?, dug: boolean? }?): Model?
+-- already carved round `at` (src/server/Build digs a built gun's pit stage by stage), only its slabs laid here; `up`:
+-- the gun stands tilted to it (laid on a slope, Config/Build.Slope), its ground levelled to that plane.
+function Artillery.place(
+	key: string,
+	at: Vector3,
+	look: Vector3,
+	opts: { paint: string?, dug: boolean?, up: Vector3? }?
+): Model?
 	local gun = Cfg.Guns[key]
 	if not gun then
 		return nil
@@ -1042,7 +1071,13 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 	elseif gun.dig then
 		at, pit = dig(at, gun.dig, -flat.Unit)
 	end
-	model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
+	local up = opts and opts.up
+	if up and up.Y > 0.5 and not gun.dig then
+		local along = flat.Unit - up * flat.Unit:Dot(up)
+		model:PivotTo(CFrame.lookAt(at, at + along.Unit, up.Unit))
+	else
+		model:PivotTo(CFrame.lookAt(at, at + flat.Unit))
+	end
 	-- (a machine gun stands on its nest's mount bag: no earth, a little box of ground kept from craters)
 	local under, over
 	if gun.nestGround then
@@ -1052,7 +1087,9 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 	end
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
-	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)
+	local lims = Rules.capped(gun, reachCap())
+	-- the lowest it lays (a mortar never lies flat), within its reach (on level ground)
+	local low = math.clamp(math.max(gun.elevation[1], 0), lims[1], lims[2])
 	model:SetAttribute("Elevation", low)
 	model:SetAttribute("HP", gun.hp)
 	model:SetAttribute("Stage", 0)
@@ -1521,8 +1558,40 @@ local function stateOfBot(model: Model): State?
 	return nil
 end
 
+-- `s`'s elevation limits now (Rules.capped): its shell no farther than reachCap() on the ground that far out along its
+-- lay (one terrain ray, cast again once it has turned a degree or a second has passed); a machine gun's own
+local capGround = RaycastParams.new()
+capGround.FilterType = Enum.RaycastFilterType.Include
+local function limitsOf(s: State): { number }
+	local gun = s.gun
+	if gun.mg then
+		return gun.elevation
+	end
+	local pivot = s.model:GetPivot()
+	local mx, my, mz, dx, _, dz = Rules.muzzle(gun, s.lay.traverse, s.lay.elevation)
+	local dir = pivot:VectorToWorldSpace(Vector3.new(dx, 0, dz))
+	if dir.Magnitude < 1e-3 then
+		return Rules.capped(gun, reachCap())
+	end
+	local yaw = math.deg(math.atan2(dir.X, dir.Z))
+	local c = s.capAt
+	local t = now()
+	if c and math.abs(Rules.wrap(c.yaw - yaw)) < 1 and t - c.at < 1 then
+		return c.lims
+	end
+	local cap = reachCap()
+	local muzzle = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local out = muzzle + dir.Unit * cap
+	capGround.FilterDescendantsInstances = { workspace.Terrain }
+	local hit = workspace:Raycast(Vector3.new(out.X, muzzle.Y + 600, out.Z), Vector3.new(0, -1500, 0), capGround)
+	local lims = Rules.capped(gun, cap, if hit then hit.Position.Y - muzzle.Y else nil)
+	s.capAt = { yaw = yaw, at = t, lims = lims }
+	return lims
+end
+
 -- The world yaw and the elevation that put `s`'s shot on `point` (Rules.layFor, from its muzzle where that lay puts
--- it); nil when out of its reach, or for a machine gun past its stops.
+-- it); nil when out of its reach (a field gun's or howitzer's past reachCap() flat), or for a machine gun past its
+-- stops.
 local function layOn(s: State, point: Vector3): (number?, number?)
 	local gun = s.gun
 	local at = s.model:GetPivot().Position
@@ -1532,7 +1601,8 @@ local function layOn(s: State, point: Vector3): (number?, number?)
 	for _ = 1, 2 do
 		local off = point - origin
 		yaw = Rules.yawOf(off.X, off.Z)
-		elevation = Rules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y)
+		local d = Vector3.new(off.X, 0, off.Z).Magnitude
+		elevation = if gun.mg or d <= reachCap() then Rules.layFor(gun, d, off.Y) else nil
 		if not elevation then
 			return nil, nil
 		end
@@ -1643,8 +1713,66 @@ function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
 	if gun.mg then
 		yaw, elevation = Rules.mgLay(yaw, elevation, s.lay.yaw, 0, 0, gun)
 	end
-	s.want = { yaw = Rules.wrap(yaw), elevation = math.clamp(elevation, gun.elevation[1], gun.elevation[2]) }
+	local lims = limitsOf(s)
+	s.want = { yaw = Rules.wrap(yaw), elevation = math.clamp(elevation, lims[1], lims[2]) }
 	return true
+end
+
+-- Whether the bot's field gun or howitzer laid on world `point` would land there (user 2026-11-03, bots "still firing into
+-- hills"): the shell's path from its muzzle at that lay (Rules.path) cast against the world, soldiers and the gun left
+-- out and the first Config/Bots.Build.Crews `arc.near` studs skipped (its own ground and pit), first coming down within
+-- `arc.within` studs of the point; and whether it can lay there at all (in its reach). False, false when it is on no
+-- gun. (A machine gun: true, true.)
+local shotParams = RaycastParams.new()
+function Artillery.shotClearAs(model: Model, point: Vector3): (boolean, boolean)
+	local s = stateOfBot(model)
+	if not s then
+		return false, false
+	end
+	local gun = s.gun
+	if gun.mg then
+		return true, true
+	end
+	local yaw, elevation = layOn(s, point)
+	if not yaw or not elevation then
+		return false, false
+	end
+	local A = BotCfg.Build.Crews.arc
+	local frame = CFrame.new(s.model:GetPivot().Position) * CFrame.Angles(0, math.rad(yaw), 0)
+	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, 0, elevation)
+	local origin = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local v = frame:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
+	local points = Rules.path(
+		origin.X,
+		origin.Y,
+		origin.Z,
+		v.X,
+		v.Y,
+		v.Z,
+		gun.gravity,
+		A.step,
+		Cfg.MaxFlight,
+		math.min(origin.Y, point.Y) - 50
+	)
+	local skip: { Instance } = { s.model }
+	if s.pit then
+		table.insert(skip, s.pit)
+	end
+	for _, m in Damage.soldiers() do
+		table.insert(skip, m)
+	end
+	shotParams.FilterDescendantsInstances = skip
+	for i = 2, #points do
+		local a, b = points[i - 1], points[i]
+		if Vector3.new(b[1] - origin.X, 0, b[3] - origin.Z).Magnitude >= A.near then
+			local from = Vector3.new(a[1], a[2], a[3])
+			local hit = workspace:Raycast(from, Vector3.new(b[1], b[2], b[3]) - from, shotParams)
+			if hit then
+				return Vector3.new(hit.Position.X - point.X, 0, hit.Position.Z - point.Z).Magnitude <= A.within, true
+			end
+		end
+	end
+	return false, true
 end
 
 -- The bot's gun laid to land on world `point` (the low arc where it can, else the high). False when it is on no gun or
@@ -1708,7 +1836,26 @@ function Artillery.leaveAs(model: Model)
 end
 
 -- `fn(model, gun, why)` on every bot leaving a gun: why "Kicked" (a teammate took it over: the bot stands beside it),
--- "Broken", "Died", "Gone" (the bot or the gun removed) or "Left" (Artillery.leaveAs)
+-- "Broken", "Died", "Knocked" (thrown off by a blast: src/server/Ragdoll), "Gone" (the bot or the gun removed) or
+-- "Left" (Artillery.leaveAs)
+-- The admin panel's shelling (src/server/DevTools, Config/DevTools.Blasts.Shells): `count` of gun `key`'s shells
+-- landing round `at`, `every` s apart, within `spread` studs, on the ground there (a trench line under fire)
+function Artillery.devShells(key: string, at: Vector3)
+	local S = DevCfg.Blasts.Shells
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	task.spawn(function()
+		for _ = 1, S.count do
+			local r, a = math.random() * S.spread, math.random() * math.pi * 2
+			local p = at + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+			local hit = workspace:Raycast(p + Vector3.new(0, 30, 0), Vector3.new(0, -60, 0), params)
+			burst(key, if hit then hit.Position + hit.Normal * 0.3 else p, nil)
+			task.wait(S.every)
+		end
+	end)
+end
+
 function Artillery.onBotLeft(fn: (Model, Model, string) -> ())
 	table.insert(botLeft, fn)
 end
@@ -1716,10 +1863,7 @@ end
 -- A shell of gun `key` (Config/Artillery.Guns) going off at `at`, fired by `by` (also the admin panel's "Shell shock"
 -- rows: src/server/DevTools).
 function Artillery.land(at: Vector3, key: string, by: Model?)
-	local gun = Cfg.Guns[key]
-	-- every client's blast first, so it shows even if the damage below fails or runs long
-	Net.event("ArtilleryBlast"):FireAllClients(at, key)
-	Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
+	burst(key, at, by)
 end
 
 function Artillery.start()
@@ -1770,7 +1914,7 @@ function Artillery.start()
 			if not s.gunner and not s.bot then
 				continue
 			end
-			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt)
+			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt, limitsOf(s))
 			if t - s.sent < 1 / Cfg.Send then
 				continue
 			end

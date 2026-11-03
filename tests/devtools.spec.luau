@@ -42,6 +42,8 @@ return {
 		assert(not T.allowed(Cfg, 1, false, 71611711100478), "nobody else in the live place")
 		assert(not T.allowed(Cfg, 1, true, Cfg.DevPlaceId, false), "a closed mode: no playtester")
 		assert(T.allowed(Cfg, 180563380, false, Cfg.DevPlaceId, false), "the creator always")
+		assert(T.allowed(Cfg, -1, true, nil, false), "a Studio Clients and Servers test player, even in a closed mode")
+		assert(not T.allowed(Cfg, -1, false, 71611711100478, false), "never outside Studio")
 		assert(T.allowed(Cfg, 1, true, nil, true))
 		assert(T.find(Map1, Cfg, "Gallery") ~= nil and T.find(Map1, Cfg, "nope") == nil)
 	end,
@@ -60,6 +62,9 @@ return {
 		assert(not A.valid(Cfg, "Health", "100") and not A.valid(Cfg, "Health", nil))
 		assert(A.valid(Cfg, "BlastKg", Cfg.Blasts.Kg[1]) and not A.valid(Cfg, "BlastKg", 1e9))
 		assert(A.valid(Cfg, "BlastStage", 3) and not A.valid(Cfg, "BlastStage", 0))
+		assert(A.valid(Cfg, "Shells", Cfg.Blasts.Guns[1]) and not A.valid(Cfg, "Shells", "nope") and A.Aimed.Shells)
+		assert(Cfg.Blasts.Shells.count >= 1 and Cfg.Blasts.Shells.every > 0)
+		assert(A.valid(Cfg, "BeamStage", 1) and not A.valid(Cfg, "BeamStage", 4) and A.Aimed.BeamStage)
 		assert(A.valid(Cfg, "PlacePiece", Cfg.Blasts.Pieces[1]) and A.Aimed.PlacePiece)
 		assert(not A.valid(Cfg, "PlacePiece", "Trench") and not A.valid(Cfg, "PlacePiece", nil))
 		assert(A.valid(Cfg, "GunHp", 49) and A.Aimed.GunHp and not A.valid(Cfg, "GunHp", 10))
@@ -182,11 +187,14 @@ return {
 		for _, sw in { "BotState", "FreeEngineer", "FreeGrenadier" } do
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
-		for _, aimed in { "BotPush", "BotStrike", "BotGun" } do
+		for _, aimed in { "BotPush", "BotStrike", "BotGun", "BotWork", "BotDown" } do
 			assert(A.valid(Cfg, aimed, nil) and not A.valid(Cfg, aimed, 1) and A.Aimed[aimed], aimed)
 		end
 		assert(A.valid(Cfg, "BotDig", Cfg.Admin.BotDig.steps[2]) and not A.valid(Cfg, "BotDig", 1e6))
 		assert(Cfg.Admin.BotDig.steps[1] == 1, "the first dig step is the normal one")
+		assert(A.valid(Cfg, "BotPlan", { side = "West", plan = "trench" }), "a plan forced")
+		assert(A.valid(Cfg, "BotPlan", { side = "East", plan = "auto" }), "let go")
+		assert(not A.valid(Cfg, "BotPlan", { side = "East", plan = "retreat" }) and not A.valid(Cfg, "BotPlan", "West"))
 		for _, a in { "BotShell", "FrontPush" } do
 			assert(A.valid(Cfg, a, "West") and A.valid(Cfg, a, "East") and not A.valid(Cfg, a, "North"), a)
 		end

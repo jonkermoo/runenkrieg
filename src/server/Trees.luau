@@ -419,60 +419,6 @@ function Trees.direct(part: Instance?, stage: number, direction: Vector3)
 	end
 end
 
-local function trees(): { Model }
-	local out = {}
-	for _, tag in { TreeCfg.Tag, TreeCfg.FallenTag } do
-		for _, m in CollectionService:GetTagged(tag) do
-			if m:IsA("Model") and m:IsDescendantOf(workspace) and treeOf(m:FindFirstChild("Trunk")) then
-				table.insert(out, m)
-			end
-		end
-	end
-	return out
-end
-
--- a blast at `position` reaching `reach` studs; `kpaAt(distance)` its overpressure. A standing tree by its trunk base,
--- a lying one by its trunk, the leaves by the canopy.
--- felling = false: only the leaves are hurt (a grenade's, Config/Grenades: user 2026-10-18 "a grenade should only strip it
--- leaves and shake it, no falling"); every client shakes the trees from the blast's "Explosion" anyway.
-function Trees.blast(position: Vector3, reach: number, kpaAt: (number) -> number, felling: boolean?)
-	local B = Cfg.Blast
-	for _, tree in trees() do
-		local trunk = tree:FindFirstChild("Trunk") :: BasePart
-		local at = if standing(tree) then tree:GetPivot().Position else trunk.Position
-		local d = (at - position).Magnitude
-		local canopy = tree:FindFirstChild("Canopy") :: BasePart?
-		if canopy and standing(tree) and (canopy.Position - position).Magnitude <= reach then
-			local _, full = leafHP(tree)
-			local kpa = kpaAt((canopy.Position - position).Magnitude)
-			hurtLeaves(tree, (Rules.blastDamage(kpa, L.blastFail, full, L.blastWeaken)))
-		end
-		if d <= reach and felling ~= false then
-			local _, full = hp(tree)
-			local kpa = kpaAt(d)
-			local amount, whole = Rules.blastDamage(kpa, B.Tree.fail, full, B.Tree.weaken)
-			if BlastRules.band(kpa, B.Tree.fail, B.Tree.splinter) == "destroy" then
-				splinter(tree, position)
-			elseif amount > 0 then
-				hurt(tree, amount, at - position, false, whole)
-			end
-		end
-	end
-	-- stumps the blast's crater left standing over nothing go too
-	for i = #stumps, 1, -1 do
-		local p = stumps[i]
-		if not p.Parent then
-			table.remove(stumps, i)
-		elseif (p.Position - position).Magnitude <= reach then
-			local bottom = p.Position.Y - p.Size.X / 2
-			if groundAt(p.Position) < bottom + T.Stump.floatTolerance then
-				table.remove(stumps, i)
-				p:Destroy()
-			end
-		end
-	end
-end
-
 -- A staff beam of `stage` from `origin` to where it landed: the leaves it passes through or near lose HP, and every
 -- client shakes them and drops leaves there (scaled by the stage, Leaves.react).
 -- the standing trees by Leaves.cell-stud square of their pivot, kept as the tag comes and goes (a felled tree loses it
@@ -548,6 +494,59 @@ local function treesNear(a: Vector3, b: Vector3, reach: number): { Model }
 	return out
 end
 
+-- a blast at `position` reaching `reach` studs; `kpaAt(distance)` its overpressure. A standing tree by its trunk base,
+-- a lying one by its trunk, the leaves by the canopy.
+-- felling = false: only the leaves are hurt (a grenade's, Config/Grenades: user 2026-10-18 "a grenade should only strip it
+-- leaves and shake it, no falling"); every client shakes the trees from the blast's "Explosion" anyway.
+function Trees.blast(position: Vector3, reach: number, kpaAt: (number) -> number, felling: boolean?)
+	local B = Cfg.Blast
+	-- the standing trees whose square lies within reach (and a cell more: a leaning canopy), and every lying one (a
+	-- loop over every tree on the map was 10-100 ms a blast)
+	local near = treesNear(position, position, reach + L.cell)
+	for _, m in CollectionService:GetTagged(TreeCfg.FallenTag) do
+		if not standing(m) then
+			table.insert(near, m)
+		end
+	end
+	for _, tree in near do
+		if not (tree:IsA("Model") and tree:IsDescendantOf(workspace) and treeOf(tree:FindFirstChild("Trunk"))) then
+			continue
+		end
+		local trunk = tree:FindFirstChild("Trunk") :: BasePart
+		local at = if standing(tree) then tree:GetPivot().Position else trunk.Position
+		local d = (at - position).Magnitude
+		local canopy = tree:FindFirstChild("Canopy") :: BasePart?
+		if canopy and standing(tree) and (canopy.Position - position).Magnitude <= reach then
+			local _, full = leafHP(tree)
+			local kpa = kpaAt((canopy.Position - position).Magnitude)
+			hurtLeaves(tree, (Rules.blastDamage(kpa, L.blastFail, full, L.blastWeaken)))
+		end
+		if d <= reach and felling ~= false then
+			local _, full = hp(tree)
+			local kpa = kpaAt(d)
+			local amount, whole = Rules.blastDamage(kpa, B.Tree.fail, full, B.Tree.weaken)
+			if BlastRules.band(kpa, B.Tree.fail, B.Tree.splinter) == "destroy" then
+				splinter(tree, position)
+			elseif amount > 0 then
+				hurt(tree, amount, at - position, false, whole)
+			end
+		end
+	end
+	-- stumps the blast's crater left standing over nothing go too
+	for i = #stumps, 1, -1 do
+		local p = stumps[i]
+		if not p.Parent then
+			table.remove(stumps, i)
+		elseif (p.Position - position).Magnitude <= reach then
+			local bottom = p.Position.Y - p.Size.X / 2
+			if groundAt(p.Position) < bottom + T.Stump.floatTolerance then
+				table.remove(stumps, i)
+				p:Destroy()
+			end
+		end
+	end
+end
+
 function Trees.beam(origin: Vector3, landed: Vector3, stage: number)
 	local line = landed - origin
 	local length = line.Magnitude
@@ -583,5 +582,10 @@ function Trees.beam(origin: Vector3, landed: Vector3, stage: number)
 		Net.event("LeavesHit"):FireAllClients(hits)
 	end
 end
+
+-- The standing trees whose square lies within `reach` of the flat line `a` to `b` (some farther: the caller measures),
+-- and whether a tree still stands (src/server/Bots/Fell)
+Trees.near = treesNear
+Trees.standing = standing
 
 return Trees

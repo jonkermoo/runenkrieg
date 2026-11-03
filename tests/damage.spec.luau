@@ -124,18 +124,52 @@ return {
 			assert(k.tumble > 0, `{name}: tips over (nobody ragdolls standing up)`)
 		end
 	end,
+	["the staff's hit zones: a bare head more, a limb less, the helmet off and never fatal until the full beam"] = function()
+		local S, K, F = D.Staff, D.Knocks, D.HelmetFloor
+		for stage = 1, 3 do
+			local t = S.Damage[stage]
+			assert(
+				t.Head >= t.Torso and t.Torso >= t.Limb and t.Limb >= t.Helmet,
+				`stage {stage}: head >= torso >= limb`
+			)
+			if stage > 1 then
+				local was = S.Damage[stage - 1]
+				for zone, n in t do
+					assert(n >= (was :: any)[zone], `stage {stage} {zone}: no less than the stage before`)
+				end
+			end
+		end
+		-- stage 1: a bare head takes double the torso; a limb less
+		local head = Damage.staff(1, 100, "Head", S, K, F)
+		local limb = Damage.staff(1, 100, "Limb", S, K, F)
+		assert(head == 100 - S.Damage[1].Head and (limb :: number) > 100 - S.Damage[1].Torso)
+		-- stage 2: a bare head kills from full health; the helmet comes off, never fatal by itself
+		local left, knock = Damage.staff(2, 100, "Head", S, K, F)
+		assert(left == 0 and knock == K.Killed.Head, "stage 2 headshot: a kill, the headshot collapse")
+		local zone
+		left, knock, zone = Damage.staff(2, 30, "Helmet", S, K, F)
+		assert(left == F and zone == "Helmet" and knock == K.Alive.Helmet, "the helmet saves even a hurt soldier")
+		-- stage 3: a helmet hit counts as a head hit
+		left, knock, zone = Damage.staff(3, 100, "Helmet", S, K, F)
+		assert(left == 0 and zone == "Head" and knock == "StaffThrow")
+		assert(S.HelmetLethal == 3 and S.Throw[1] == false and S.Throw[2] == false)
+	end,
 	["the staff: range grows per stage, no falloff, stage 3 kills"] = function()
 		local S = D.Staff
 		assert(#S.Range == 3 and S.Range[1] < S.Range[2] and S.Range[2] < S.Range[3])
-		local left, knock = Damage.staff(1, 100, S)
-		assert(left == 100 - S.Damage[1] and knock == S.Knock[1])
-		left, knock = Damage.staff(2, 100, S)
+		local K, F = D.Knocks, D.HelmetFloor
+		local function staff(stage: number, health: number, zone: string)
+			return Damage.staff(stage, health, zone, S, K, F)
+		end
+		local left, knock = staff(1, 100, "Torso")
+		assert(left == 100 - S.Damage[1].Torso and knock == K.Alive.Torso)
+		left, knock = staff(2, 100, "Torso")
 		assert(left and left > 0 and knock == "Torso", "stage 2: alive from full, a medium ragdoll")
-		left, knock = Damage.staff(2, left :: number, S)
-		assert(left == 0 and knock == S.Killed[2], "stage 2 twice kills")
-		left, knock = Damage.staff(3, 100, S)
-		assert(left == 0 and knock == "StaffThrow", "the full beam kills and throws")
-		assert(Damage.staff(4, 100, S) == nil and Damage.staff(0, 100, S) == nil)
+		left, knock = staff(2, left :: number, "Torso")
+		assert(left == 0 and knock == K.Killed.Torso, "stage 2 twice kills")
+		left, knock = staff(3, 100, "Limb")
+		assert(left == 0 and knock == "StaffThrow", "the full beam kills anywhere and throws")
+		assert(staff(4, 100, "Torso") == nil and staff(0, 100, "Torso") == nil)
 		assert(
 			S.SelfSafe > D.Trees.Fall.time,
 			"your own felled tree can't hurt you until it has landed (Trees.Fall.time)"

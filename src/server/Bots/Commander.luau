@@ -17,7 +17,9 @@ local Buildings = require(Shared.Rules.BotBuildings)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotSap = require(Shared.Rules.BotSap)
+local Survey = require(Shared.BuildSurvey)
 local BotCrew = require(Shared.Rules.BotCrew)
+local BotFront = require(Shared.Rules.BotFront)
 local Build = require(script.Parent.Parent.Build)
 local Frontline = require(script.Parent.Parent.Frontline)
 local Indoors = require(script.Parent.Parent.Indoors)
@@ -33,6 +35,12 @@ local BD = Cfg.Build
 local TR = Cfg.Trenches
 local TM = Cfg.TrenchMove
 local SP = Cfg.Sap
+local CV = Cfg.Move.Cover
+local FR = Cfg.Front
+-- (the build list's and the gun spots' settings with the flanks', Config/Bots.Front.Flank)
+local Flanked = { plan = table.clone(BD), guns = table.clone(BD.Crews) }
+Flanked.plan.Flank = FR.Flank
+Flanked.guns.flank = FR.Flank
 -- the fire step's distance from a trench square's line (Rules/BotTrenches.stepOut: it follows the trench's shape)
 local STEP = BotTrenches.stepOut(BuildCfg.Trench.floor, BuildCfg.Trench.wallAngle, TR.rise)
 
@@ -46,7 +54,7 @@ type TrenchPost = Types.TrenchPost
 type SideBuild = Types.SideBuild
 
 local State = require(script.Parent.State)
-local Clear, bots, ByTrench, Tactics, random, stats, squads, buildLists, Kinds =
+local Clear, bots, ByTrench, Tactics, random, stats, squads, buildLists, Kinds, fronts =
 	State.Clear,
 	State.bots,
 	State.ByTrench,
@@ -55,7 +63,8 @@ local Clear, bots, ByTrench, Tactics, random, stats, squads, buildLists, Kinds =
 	State.stats,
 	State.squads,
 	State.buildLists,
-	State.Kinds
+	State.Kinds,
+	State.fronts
 
 local Move = require(script.Parent.Move)
 local liveMode, flat, alive, say, terrainOnly, sectorPoint, centre, soldiersNow, friendly, indoorNear, asSpot =
@@ -154,7 +163,57 @@ end
 -- ground gained toward `objective` for Sap.stall s), it saps from its most forward member, run by run, half of it
 -- digging (Build.planAs, then each square's swings), the rest holding there giving covering fire, all moving up to the
 -- head of the last run dug; over at the objective's edge or once nobody has shot at it for Sap.quiet s
-local function sapTick(sqs: SquadState, members: { Bot }, mid: Vector3, goalAt: Vector3, radius: number, now: number)
+-- Whether a run toward the enemy lies in a threat's line of fire (Config/Bots.Trenches.Zigzag; user 2026-11-03: "make
+-- bots do that if its not safe"): the threats (points on the ground) in line with it or above it (Rules/BotTrenches
+-- .exposed) and seeing the ground at its start or middle over the terrain. The turn its legs take (0: straight) and why.
+local function runCover(run: BotTrenches.Run, threats: { Vector3 }): (number, string)
+	local Z = TR.Zigzag
+	local a = Routes.ground(run.ax, run.az)
+	local m = Routes.ground((run.ax + run.bx) / 2, (run.az + run.bz) / 2)
+	for _, t in threats do
+		if flat(t - a).Magnitude <= Z.range then
+			local eyeAt = t + Vector3.yAxis * Cfg.Eye
+			local why = BotTrenches.exposed(run, a.Y, { x = eyeAt.X, y = eyeAt.Y, z = eyeAt.Z }, Z)
+			if why then
+				for _, p in { a, m } do
+					local to = p + Vector3.yAxis * (CV.chest + 1.8) - eyeAt
+					local hit = workspace:Raycast(eyeAt, to, terrainOnly)
+					if not hit or hit.Distance >= to.Magnitude - 1 then
+						local up = eyeAt.Y - a.Y
+						return BotTrenches.zigAngle(up, Z.angle), `{why}, {math.floor(up + 0.5)} studs up`
+					end
+				end
+			end
+		end
+	end
+	return 0, "no sight down it"
+end
+
+-- a side's note on a run toward the enemy (the admin panel's readout; the newest few)
+local function noteRun(sb: SideBuild?, what: string, angle: number, why: string)
+	if angle > 0 then
+		stats.zigzags += 1
+	else
+		stats.straights += 1
+	end
+	if sb then
+		local notes = (sb :: SideBuild).runNotes
+		table.insert(notes, `{what} {if angle > 0 then `zigzag {math.floor(angle + 0.5)}°` else "straight"} ({why})`)
+		if #notes > 6 then
+			table.remove(notes, 1)
+		end
+	end
+end
+
+local function sapTick(
+	sqs: SquadState,
+	members: { Bot },
+	mid: Vector3,
+	goalAt: Vector3,
+	radius: number,
+	now: number,
+	plan: string
+)
 	local sb = buildLists[sqs.side]
 	local d = flat(mid - goalAt).Magnitude
 	local lost = 0
@@ -180,7 +239,9 @@ local function sapTick(sqs: SquadState, members: { Bot }, mid: Vector3, goalAt: 
 			sqs.markAt, sqs.markDist = now, d
 		end
 		local since, gained = now - (sqs.markAt :: number), (sqs.markDist :: number) - d
-		if d <= radius * SP.edge or not BotSap.stalled(since, gained, underFire, lost, SP) then
+		-- (stuck under fire; fighting by trench, also once near the objective: Rules/BotFront.sapNow)
+		local stalled = BotSap.stalled(since, gained, underFire, lost, SP)
+		if d <= radius * SP.edge or not BotFront.sapNow(plan, stalled, d - radius, FR) then
 			return
 		end
 		local head, best = nil, math.huge
@@ -200,7 +261,11 @@ local function sapTick(sqs: SquadState, members: { Bot }, mid: Vector3, goalAt: 
 	end
 	local sap = sqs.sap :: Sap
 	sap.goal = goalAt
-	local over = BotSap.over(flat(sap.head - goalAt).Magnitude, radius * SP.edge, now - (sqs.firedAt or now), SP.quiet)
+	-- (fighting by trench it runs on through quiet spells, until its parallel is dug: Config/Bots.Front)
+	local headTo = flat(sap.head - goalAt).Magnitude
+	local over = if plan == "open"
+		then BotSap.over(headTo, radius * SP.edge, now - (sqs.firedAt or now), SP.quiet)
+		else (sap.parallel == true and not sap.run) or headTo <= radius * SP.edge or plan == "assault"
 	if over or not sb or (sap.run and (sap.run :: BuildJob).gaveUp) then
 		sqs.sap = nil
 		sqs.markAt, sqs.markDist = now, d
@@ -254,10 +319,28 @@ local function sapTick(sqs: SquadState, members: { Bot }, mid: Vector3, goalAt: 
 	end
 	if not sap.run then
 		sap.k += 1
-		local bx, bz = BotSap.run(sap.head.X, sap.head.Z, goalAt.X, goalAt.Z, sap.k, SP)
+		local ax, az = sap.head.X, sap.head.Z
+		-- (straight while nothing can see down it, else a zig-zag against the threat: Trenches.Zigzag)
+		local threats = { goalAt }
+		for _, kn in sqs.known do
+			if now - kn.at <= SQ.knownFor then
+				table.insert(threats, kn.pos)
+			end
+		end
+		local ex, ez = BotSap.run(ax, az, goalAt.X, goalAt.Z, 1, { run = SP.run, angle = 0 })
+		local turn, why = runCover({ kind = "Sap", ax = ax, az = az, bx = ex, bz = ez }, threats)
+		sap.angle = turn
+		noteRun(sb, `S{sqs.sector} sap`, turn, why)
+		local bx, bz = BotSap.run(ax, az, goalAt.X, goalAt.Z, sap.k, { run = SP.run, angle = turn })
+		if plan ~= "open" and BotFront.parallelNow(headTo - radius, FR) then
+			-- close: the parallel across, the squad's jump-off (Rules/BotTrenches.jumpOff)
+			ax, az, bx, bz = BotFront.parallel(sap.head.X, sap.head.Z, goalAt.X, goalAt.Z, FR.parallel.width)
+			sap.parallel = true
+			stats.parallels += 1
+		end
 		local to = flat(goalAt - sap.head)
 		to = if to.Magnitude > 1e-3 then to.Unit else Vector3.xAxis
-		local job = { key = "Trench", x = sap.head.X, z = sap.head.Z, ex = bx, ez = bz, fx = to.X, fz = to.Z }
+		local job = { key = "Trench", x = ax, z = az, ex = bx, ez = bz, fx = to.X, fz = to.Z }
 		local run = { kind = "Sap", ax = job.x, az = job.z, bx = bx, bz = bz }
 		local nr =
 			{ job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true, run = run, underFire = true }
@@ -328,6 +411,7 @@ end
 -- (lane, approach spot, a waypoint on the lane's side) and each member's role and goal
 local function formSquads(side: string, counts: { { West: number, East: number } })
 	local now = os.clock()
+	local front = fronts.sides[side] or { plan = "open" }
 	local enemy = if side == "West" then "East" else "West"
 	local groups: { [string]: { Bot } } = {}
 	local order: { string } = {}
@@ -384,11 +468,50 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				local lanes = crowd[sector] or {}
 				crowd[sector] = lanes
 				local lane = Squads.quietLane(lanes)
+				-- (attacking: a share up the flanks, Rules/BotFront.flank)
+				local flank: number? = nil
+				if not defend then
+					local total, left, right = 1, 0, 0
+					for _, o in squads do
+						if o.side == side and o.seen >= commandTick - 1 and o.approach ~= nil then
+							total += 1
+							left += if o.flank == -1 then 1 else 0
+							right += if o.flank == 1 then 1 else 0
+						end
+					end
+					flank = BotFront.flank(total, left, right, FR.Flank.share)
+				end
+				lane = flank or lane
 				lanes[lane] = (lanes[lane] or 0) + 1
-				st = { sq = Squads.new(), side = side, sector = sector, lane = lane, known = {}, seen = commandTick }
+				st = {
+					sq = Squads.new(),
+					side = side,
+					sector = sector,
+					lane = lane,
+					known = {},
+					seen = commandTick,
+					flank = flank,
+				}
 				squads[key] = st
 			end
 			local sqs = st :: SquadState
+			-- the admin panel's flank push: every attacking squad up a flank now, alternating (its route found again)
+			if front.plan == "flank" and not defend and not sqs.flank then
+				local left = 0
+				for _, o in squads do
+					left += if o.side == side and o.flank == -1 then 1 else 0
+				end
+				local right = 0
+				for _, o in squads do
+					right += if o.side == side and o.flank == 1 then 1 else 0
+				end
+				sqs.flank = if left <= right then -1 else 1
+				sqs.lane, sqs.approach, sqs.mid = sqs.flank :: number, nil, nil
+			end
+			-- the admin panel's assault: over the top now
+			if front.plan == "assault" and not defend then
+				sqs.sq.phase = "Assault"
+			end
 			sqs.seen = commandTick
 			local mid = centre(members) or c
 			-- the route: an approach spot in its lane, and on a long way a waypoint off to that side
@@ -408,7 +531,12 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						local off = flat(spot.pos - c)
 						local home = flat(mid - c)
 						local across = if home.Magnitude > 1 then off - home.Unit * off:Dot(home.Unit) else Vector3.zero
-						if way.Magnitude > RT.midFrom and across.Magnitude > 1 then
+						if sqs.flank and home.Magnitude > 1 then
+							-- up a flank: by a point `Front.Flank.offset` studs off the straight way, to that side
+							local side1 = Vector3.new(-home.Unit.Z, 0, home.Unit.X) * (sqs.flank :: number)
+							local p = mid:Lerp(spot.pos, RT.midShare) + side1 * FR.Flank.offset
+							sqs.mid = Routes.ground(p.X, p.Z)
+						elseif way.Magnitude > RT.midFrom and across.Magnitude > 1 then
 							local p = mid:Lerp(spot.pos, RT.midShare) + across.Unit * way.Magnitude * RT.laneOffset
 							sqs.mid = Routes.ground(p.X, p.Z)
 						end
@@ -470,6 +598,12 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				if now - kn.at <= SQ.knownFor and flat(kn.pos - mid).Magnitude <= SQ.contact then
 					contact = true
 				end
+			end
+			-- (its side's first contact: from now on it fights forward by trench, Config/Bots.Front)
+			local shotAt = sqs.firedAt ~= nil and now - (sqs.firedAt :: number) < brainCfg.ThreatMemory
+			if (contact or shotAt) and not front.contactAt then
+				front.contactAt = now
+				stats.contacts += 1
 			end
 			local was = sqs.sq.phase
 			local readyShare = if living > 0 then ready / living else 0
@@ -723,7 +857,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			if defend then
 				sqs.sap = nil
 			else
-				sapTick(sqs, members, mid, c, s.radius, now)
+				sapTick(sqs, members, mid, c, s.radius, now, front.plan)
 			end
 		end
 	end
@@ -733,17 +867,22 @@ end
 -- piece once laid (open while it wants swings; an unlaid one while the bots' caps allow it and it isn't waiting), and
 -- the own pieces near the front wanting swings
 -- (the bots' guns in one table: `asset` each gun piece's Config/Artillery.Guns
--- key, `spacing` its own)
+-- key, `spacing` its own, `piece` its Config/Build piece)
 local Guns = {
 	list = { "FieldGun", "Howitzer" },
 	asset = {} :: { [string]: string },
 	spacing = {} :: { [string]: number },
+	piece = {} :: { [string]: { [string]: any } },
 	ground = RaycastParams.new(),
+	world = RaycastParams.new(), -- (a shot's path: everything but soldiers)
+	drawn = {} :: { { points: { { number } }, clear: boolean } }, -- the shots checked this plan (Admin.GunArcs)
+	dev = require(Shared.Config.DevTools).Admin.GunArcs,
 }
 for _, piece in BuildCfg.Pieces do
 	if Kinds.gun[piece.key] then
 		Guns.asset[piece.key] = piece.gun
 		Guns.spacing[piece.key] = piece.spacing
+		Guns.piece[piece.key] = piece
 	end
 end
 
@@ -756,6 +895,106 @@ function Guns.terrainAt(x: number, z: number): Vector3?
 	local hit = workspace:Raycast(Vector3.new(x, 400, z), Vector3.new(0, -800, 0), Guns.ground)
 	return hit and hit.Position
 end
+-- Whether a shot from gun `gun` standing on `at` comes down on `target` (Config/Bots.Build.Crews `arc`): laid on it
+-- from its muzzle (Rules/Artillery.layFor, within its reach), its path (Rules/Artillery.path) cast against the world;
+-- false when out of reach, or a hill, house or tree stops it short. Each one checked is kept for Admin.GunArcs.
+function Guns.clearShot(gun: any, at: Vector3, target: Vector3): boolean
+	local A = BD.Crews.arc
+	-- (from its muzzle over the ground as it is now: a howitzer's pit is dug round it later)
+	local frame = CFrame.lookAt(at, Vector3.new(target.X, at.Y, target.Z))
+	local mx, my, mz = ArtRules.muzzle(gun, 0, 0)
+	local origin = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local off = target - origin
+	local d = Vector3.new(off.X, 0, off.Z).Magnitude
+	local e = if d <= ArtRules.reachCap(ArtRules.sectorSpan(Map.sectors), ArtCfg.Reach)
+		then ArtRules.layFor(gun, d, off.Y)
+		else nil
+	if not e then
+		return false
+	end
+	local _, _, _, dx, dy, dz = ArtRules.muzzle(gun, 0, e)
+	local v = frame:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed
+	local floor = math.min(origin.Y, target.Y) - 50
+	local points =
+		ArtRules.path(origin.X, origin.Y, origin.Z, v.X, v.Y, v.Z, gun.gravity, A.step, ArtCfg.MaxFlight, floor)
+	local skip = {}
+	for _, b in bots do
+		if b.m then
+			table.insert(skip, b.m)
+		end
+	end
+	for _, p in game:GetService("Players"):GetPlayers() do
+		if p.Character then
+			table.insert(skip, p.Character)
+		end
+	end
+	local arcs = workspace:FindFirstChild(Guns.dev.folder)
+	if arcs then
+		table.insert(skip, arcs)
+	end
+	Guns.world.FilterDescendantsInstances = skip
+	local clear, drawn = false, {}
+	for i = 2, #points do
+		local a, b = points[i - 1], points[i]
+		local from = Vector3.new(a[1], a[2], a[3])
+		if Vector3.new(b[1] - origin.X, 0, b[3] - origin.Z).Magnitude < A.near then
+			continue -- (its own ground, levelled when it is laid)
+		end
+		local hit = workspace:Raycast(from, Vector3.new(b[1], b[2], b[3]) - from, Guns.world)
+		table.insert(drawn, a)
+		if hit then
+			table.insert(drawn, { hit.Position.X, hit.Position.Y, hit.Position.Z })
+			clear = Vector3.new(hit.Position.X - target.X, 0, hit.Position.Z - target.Z).Magnitude <= A.within
+			break
+		end
+	end
+	table.insert(Guns.drawn, { points = drawn, clear = clear })
+	return clear
+end
+
+-- Admin.GunArcs: `side`'s checked shots drawn (a folder per side, redrawn each plan), or taken down while it is off
+function Guns.draw(side: string)
+	local G = Guns.dev
+	local root = workspace:FindFirstChild(G.folder)
+	local old = root and root:FindFirstChild(side)
+	if old then
+		old:Destroy()
+	end
+	if workspace:GetAttribute(G.attribute) ~= true then
+		if root and #root:GetChildren() == 0 then
+			root:Destroy()
+		end
+		return
+	end
+	if not root then
+		root = Instance.new("Folder")
+		root.Name = G.folder
+		root.Parent = workspace
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = side
+	for _, arc in Guns.drawn do
+		local c = if arc.clear then G.clear else G.blocked
+		local color = Color3.fromRGB(c[1], c[2], c[3])
+		local pts = arc.points
+		local i = 1
+		while i < #pts do
+			local j = math.min(i + G.every, #pts)
+			local a = Vector3.new(pts[i][1], pts[i][2], pts[i][3])
+			local b = Vector3.new(pts[j][1], pts[j][2], pts[j][3])
+			local part = Instance.new("Part")
+			part.Anchored, part.CanCollide, part.CanQuery, part.CanTouch = true, false, false, false
+			part.Material = Enum.Material.Neon
+			part.Color = color
+			part.Size = Vector3.new(G.width, G.width, (b - a).Magnitude)
+			part.CFrame = CFrame.lookAt((a + b) / 2, b)
+			part.Parent = folder
+			i = j
+		end
+	end
+	folder.Parent = root
+end
+
 function Guns.spots(
 	front: number,
 	side: string,
@@ -764,7 +1003,7 @@ function Guns.spots(
 	tz: number,
 	guns: { string }
 ): { BotBuild.Job }
-	local C = BD.Crews
+	local C = Flanked.guns
 	local enemy = Map.sectors[front + (if side == "West" then 1 else -1)]
 	if not enemy then
 		return {}
@@ -797,8 +1036,17 @@ function Guns.spots(
 		if not at then
 			return false
 		end
-		local off = target - at
-		return ArtRules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y) ~= nil
+		-- (ground it can be laid on, facing the target: no steeper than its `maxSlope`, the same survey as
+		-- Build.placeAs's, which then levels or tilts it, Config/Build.Slope)
+		local piece = Guns.piece[key]
+		if piece then
+			local report = Survey.ground(piece, Survey.box(piece, Survey.frame(at, target - at)))
+			if not report.ground or report.water or report.slope > (piece.maxSlope or 90) then
+				return false
+			end
+		end
+		-- (its shot flown: within its reach on this map, Config/Artillery.Reach, and nothing in the way)
+		return Guns.clearShot(gun, at, target)
 	end)
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)
@@ -833,6 +1081,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			bays = 0,
 			digging = 0,
 			hurt = {},
+			runNotes = {},
 		}
 		buildLists[side] = sb
 	end
@@ -865,7 +1114,9 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		end
 		-- the guns on scored spots behind the line (Rules/BotBuild.gunSpots), else the plan's fixed ones
+		table.clear(Guns.drawn)
 		local spotted = Guns.spots(front :: number, side, zone, tx, tz, guns)
+		Guns.draw(side)
 		sbs.lay = {}
 		-- (wire only in the enemy's way, Rules/BotBuild.wireSpot: off its own side's ways forward, from the front to the
 		-- enemy's nearest sector and the approach spots round it, and off its spawn)
@@ -884,7 +1135,19 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				table.insert(ways, { ax = s.x, az = s.z, bx = sp.pos.X, bz = sp.pos.Z })
 			end
 		end
-		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then {} else guns, BD) do
+		-- (MG nests: those missing of Build.Nest.count, its side's standing ones at the front counted)
+		local nests = 0
+		for _, w in Build.worksOf(kit) do
+			if
+				w.key == "MGNest"
+				and w.built
+				and flat(w.at - Vector3.new(zone.x, w.at.Y, zone.z)).Magnitude <= zone.radius + BD.repair
+			then
+				nests += 1
+			end
+		end
+		local missing = math.max(BD.Nest.count - nests, 0)
+		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then {} else guns, Flanked.plan, missing) do
 			local keep = true
 			if job.key == "Wire" then
 				local wx, wz = BotBuild.wireSpot(job.x, job.z, -tz, tx, ways, (Map.spawnZones :: any)[side], BD.Wire)
@@ -905,17 +1168,43 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
 		end
 		-- the trench system (Rules/BotTrenches): fire, support and communication trenches, dug in that order
+		-- (its communication trenches run toward the enemy: a zig-zag where the enemy's next sector, or an enemy its
+		-- squads know of, can see down one; Trenches.Zigzag)
+		local threats: { Vector3 } = {}
+		local ahead = Map.sectors[front + (if side == "West" then 1 else -1)]
+		if ahead then
+			table.insert(threats, Routes.ground(ahead.x, ahead.z))
+		end
+		for _, sq in squads do
+			if sq.side == side then
+				for _, kn in sq.known do
+					if now - kn.at <= SQ.knownFor then
+						table.insert(threats, kn.pos)
+					end
+				end
+			end
+		end
 		for _, run in BotTrenches.layout(zone, tx, tz, TR) do
-			local job = { key = "Trench", x = run.ax, z = run.az, ex = run.bx, ez = run.bz, fx = tx, fz = tz }
-			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = run }
-			table.insert(sbs.lay, r)
+			local legs = { run }
+			if run.kind == "Comm" then
+				local turn, why = runCover(run, threats)
+				noteRun(sbs, "comm", turn, why)
+				if turn > 0 then
+					legs = BotTrenches.zigzag(run, turn, TR.Zigzag.leg)
+				end
+			end
+			for _, leg in legs do
+				local job = { key = "Trench", x = leg.ax, z = leg.az, ex = leg.bx, ez = leg.bz, fx = tx, fz = tz }
+				local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = leg }
+				table.insert(sbs.lay, r)
+			end
 		end
 		if front ~= sbs.front then
 			sbs.shelledOnce = false
 		end
 		sbs.front, sbs.held, sbs.holds = front, fromEnd, spots ~= nil
 	end
-	local works, roomOf = Tactics.dug.works(kit)
+	local works, roomOf = Tactics.dug.works(kit, BD.builder)
 	-- what lost HP lately (Rules/BotBuild.mayRepair): no swings at it until BD.repairWait after
 	local hurt = sbs.hurt
 	local present: { [Model]: boolean } = {}
@@ -1084,7 +1373,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				table.insert(lines, { kind = "Sap", ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number })
 				hx, hz = j.ex :: number, j.ez :: number
 			end
-			local bx, bz = BotSap.run(hx, hz, sap.goal.X, sap.goal.Z, sap.k + 1, SP)
+			local bx, bz =
+				BotSap.run(hx, hz, sap.goal.X, sap.goal.Z, sap.k + 1, { run = SP.run, angle = sap.angle or SP.angle })
 			table.insert(lines, { kind = "Sap", ax = hx, az = hz, bx = bx, bz = bz })
 		end
 	end
@@ -1210,13 +1500,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	local want = BotTrenches.dugoutsWanted(sbs.shelledOnce, holders, sbs.bays, DG) - #have
-	-- (a square long enough on the flat for one: the dugout's width and its spare less the slack, Config/Build)
-	local long = BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
-	for _, pc in BuildCfg.Pieces do
-		if pc.key == "Dugout" then
-			long += (pc :: any).width
-		end
-	end
+	-- (a square long enough on the flat for one: its doorway and its spare less the slack, Config/Build)
+	local long = BuildCfg.Dugout.door + BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
 	for _, i in BotTrenches.dugoutSquares(support, have, want, DG, long) do
 		local w = support[i].w
 		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
@@ -1295,12 +1580,25 @@ local function command()
 		owner[i] = if type(o) == "string" then o else s.startOwner
 		local c = sf and sf:GetAttribute("Control")
 		control[i] = if type(c) == "number" then c else FrontRules.rest(owner[i])
-		local w = sf and sf:GetAttribute("West")
-		local e = sf and sf:GetAttribute("East")
+		-- (by head: Config/Frontline.HeadsSuffix; the "West" / "East" weights count a bot as half for the capture)
+		local w = sf and sf:GetAttribute("West" .. FrontCfg.HeadsSuffix)
+		local e = sf and sf:GetAttribute("East" .. FrontCfg.HeadsSuffix)
 		counts[i] = { West = if type(w) == "number" then w else 0, East = if type(e) == "number" then e else 0 }
 	end
 	local state = { owner = owner, control = control }
 	ByTrench.counts = counts
+	-- (a capture is contact for both sides; each side's plan: Rules/BotFront)
+	local captured = BotFront.captured(fronts.owners, owner)
+	fronts.owners = owner
+	for _, side in { "West", "East" } do
+		local fs = fronts.sides[side] or { plan = "open" }
+		fronts.sides[side] = fs
+		if captured and not fs.contactAt then
+			fs.contactAt = os.clock()
+			stats.contacts += 1
+		end
+		fs.plan = BotFront.plan(fs.contactAt, fs.forced)
+	end
 	for _, side in { "West", "East" } do
 		local ids, current = {}, {}
 		for _, b in bots do
@@ -1340,6 +1638,7 @@ local function command()
 		Tactics.crew.command(side, owner, known, if shell and Map.sectors[shell] then sectorPoint(shell) else nil)
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))
+		Tactics.fell.list(side, buildLists[side])
 	end
 	markTrenches()
 	label()

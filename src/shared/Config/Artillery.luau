@@ -663,6 +663,12 @@ local Artillery = {
 	-- only then); once built it can be manned at or above `keep`% of its HP, and below that its gunner is put off until
 	-- repairs bring it back to `keep`%. For players and bots alike.
 	Man = { built = 100, keep = 50 },
+	-- How far a field gun or howitzer reaches (Rules/Artillery.capped; user 2026-11-03: "adjust cannons so that they
+	-- cannot be shot over a sector away. same thing with the howitzer"): `sectors` of the live map's sector spacing
+	-- (Rules/Artillery.sectorSpan: ~423 studs on Map 1) plus `margin` studs (two zone radii: a gun anywhere in its
+	-- sector reaches anywhere in the next), on flat ground: the lay stops there (the field gun raises no higher, the
+	-- howitzer lowers no further). Bots aim within it too. Machine guns keep their own range.
+	Reach = { sectors = 1, margin = 90 },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		dark = 4,
@@ -727,8 +733,11 @@ local Artillery = {
 			swing = 10,
 			traverseRate = 6,
 			elevationRate = 4,
-			speed = 450,
-			gravity = 71.6, -- (745 studs/s under 196.2 before: the same ranges, ~1.7x the flight: up to ~3.5 s)
+			-- (user 2026-11-03: "add just the TINIEST more arc to a cannon"): 420 (was 450) with `aimTilt` 8.5 (was 8): the
+			-- same shortest shot, a shot one sector out leaves ~0.6 degrees higher, tops out ~14% higher and lands ~7%
+			-- later (was 745 studs/s under 196.2 before that: the same ranges, ~1.7x the flight)
+			speed = 420,
+			gravity = 71.6,
 			charge = 0.45,
 			breechOpens = true,
 			-- (user 2026-10-21: "the explosives to be a lot more damaging and destructive ... realistic"; was 0.6 kg,
@@ -746,9 +755,9 @@ local Artillery = {
 			hp = 100,
 			repair = 10, -- (half the swings it takes to build)
 			-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
-			-- hit enemy sectors)"; picked: the shortest shot ~300 studs, one sector): +8 on every shot, so -5..16 on the
-			-- dial throws 3..24: ~300 to ~2,100 studs
-			aimTilt = 8,
+			-- hit enemy sectors)"; picked: the shortest shot ~300 studs, one sector): +8.5 on every shot, so the dial's -5
+			-- throws 3.5: ~300 studs; it raises only as far as Reach allows (~-2.5 on Map 1: ~510 studs)
+			aimTilt = 8.5,
 			-- (user 2026-10-26: "add a platform hitbox for the cannon"; picked: the ground it stands on counts as the gun)
 			platform = { pad = 3, thick = 1.5 },
 			-- (user 2026-10-27: "the field cannon shouldnt have a platform, it should just make the ground its on lose its

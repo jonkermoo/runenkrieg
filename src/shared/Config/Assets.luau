@@ -155,12 +155,12 @@ local Assets = {
 			description = "Remington Model 8 semi-automatic rifle, the olive team's (W2; master: assets/weapons/olive/rifle_remington8.blend, from its trace and tools/blender/weapons/polish_remington8.py). Rigged from Config/Weapons.",
 		},
 		rifle_winchester1907 = {
-			id = 80789332043518,
+			id = 119728146508940, -- v2: real length, the stock blended into the receiver, a thicker butt plate, a short rear sight
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_winchester1907.fbx",
-			generator = "tools/blender/weapons/winchester1907.py",
-			description = "Winchester 1907 semi-automatic rifle, the brown team's (W2; built from its trace: tools/blender/weapons/trace/winchester1907.py; review assets/weapons/white/review/rifle_winchester1907_v6.blend; a detachable 15-round box). Rigged from Config/Weapons.",
+			generator = "tools/blender/weapons/export_blend.py",
+			description = "Winchester 1907 semi-automatic rifle, the brown team's (W2; master: assets/weapons/white/rifle_winchester1907.blend, from its trace and tools/blender/weapons/polish_winchester1907.py; a detachable 15-round box). Rigged from Config/Weapons.",
 		},
 		staff = {
 			id = 109018663192748, -- v2: team accents (binding, ribbon, head ring, foot cap), colored per team
@@ -443,14 +443,16 @@ local Assets = {
 			-- slabs and plank steps, board frames (v1 89203369169985); v3 (user 2026-11-02: "redesign the dugout door to
 			-- be build over a wall", "lined with the wall not sticking out ... plank doorframes", "fill it with terrain
 			-- instead of blocks"): a doorway in the wall's face under a plank frame, a roofed tunnel of steps, no caving
-			-- pieces, about 6.7k triangles (v2 74269418602475)
-			id = 75104467463103,
+			-- pieces, about 6.7k triangles (v2 74269418602475); v4 (user 2026-11-03: "you can see through dugouts", "make it
+			-- spacious enough for 3 people"): a room 10 x 6 x 7, a closed shell of earth round the tunnel and room, the
+			-- tunnel's dirt sides out over the cut, about 7.4k triangles (v3 75104467463103)
+			id = 94881061580243,
 			category = "Props",
 			folder = "Dugout",
 			source = "assets/props/dugout_pieces.fbx",
 			generator = "tools/blender/dugout/dugout.py",
 			fidelity = "Box",
-			description = "A dugout's pieces in piece space (origin on the trench floor at the foot of the wall it is cut into, in the middle along the trench; x along the trench, y up, z back into the wall; Origin at 0): a doorway in the wall's face under a lintel 3.4 up, steps down 7 over 7.5 under a sloping roof to a room 7 wide, 6 deep, 6 high. Pile, PileDark (timbers lying on the trench floor), SlotEarth (the tunnel's dirt sides, its roof of earth, the wall's face over the doorway), Steps, Risers, RoomEarth (the room's dirt faces), Frames (the doorframe's posts, lintel and header lying on the wall's face, a frame in the tunnel, the room's frames), Lining (plank steps along the walls and tunnel), Ceiling (the room's boards and the tunnel's roof boards), Floorboards (a duckboard and the lining's dark boards).",
+			description = "A dugout's pieces in piece space (origin on the trench floor at the foot of the wall it is cut into, in the middle along the trench; x along the trench, y up, z back into the wall; Origin at 0): a doorway in the wall's face under a lintel 3.4 up, steps down 7 over 7.5 under a sloping roof to a room 10 wide, 7 deep, 6 high. Pile, PileDark (timbers lying on the trench floor), SlotEarth (the tunnel's dirt sides, its roof of earth, the wall's face over the doorway), Steps, Risers, Shell (plain slabs of earth closing the tunnel and room behind their dirt faces), RoomEarth (the room's dirt faces), Frames (the doorframe's posts, lintel and header lying on the wall's face, a frame in the tunnel, the room's frames), Lining (plank steps along the walls and tunnel), Ceiling (the room's boards and the tunnel's roof boards), Floorboards (a duckboard and the lining's dark boards).",
 		},
 		-- the shovel's barbed wire (user 2026-10-27, tools/blender/wire/wire.py): laid by src/server/Build, one look shown
 		-- at a time

@@ -1530,7 +1530,7 @@ local Weapons: { [string]: Weapon } = {
 		},
 		hidden = { "Casing" },
 		attachments = {
-			Muzzle = { 0, 0.065, -1.7297 },
+			Muzzle = { 0, 0.065, -1.7841 },
 			Aim = { 0, 0.1092, 0.45 }, -- on the sight line, 0.044 over the bore
 			Eject = { 0.035, 0.07, -0.1105 }, -- the port, right side
 		},

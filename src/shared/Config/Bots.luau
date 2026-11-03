@@ -66,21 +66,23 @@ local Bots = {
 	-- after a death: the respawn wait (Config/Metrics.Combat.RespawnDelay, as a player's) plus this long in the loadout
 	-- menu (seconds, a random share between), as a player picks a class and deploys
 	MenuTime = { 1, 5 },
-	-- the classes a bot can play and buy with its match points (Config/Classes; the first is the free default), the
-	-- range a short gun closes in to (nil: it fights from where it is); the others (grenades, the staff, the pistol)
-	-- come later
+	-- the classes a bot can play (Config/Classes; the first is the free default) and the range a short gun closes in to
+	-- (nil: it fights from where it is). In FFA a bot buys them with its match points; in Normal it rolls one each
+	-- life by `weight` (user 2026-11-03: "just remove bot point earnings entirely and just have each class be a chance
+	-- of spawning", so every class is seen: Rules/Bots.rollClass); gun and dugout duty still make an Engineer.
 	Classes = {
-		{ key = "Rifleman" },
-		{ key = "Grenadier" }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
-		{ key = "AutoRifler" },
-		{ key = "Shotgunner", push = 18 },
-		{ key = "Engineer" }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
-		{ key = "Mage" }, -- (user 2026-11-02: Mage bots in Normal and FFA, by points; Config/Bots.Staff)
+		{ key = "Rifleman", weight = 35 },
+		{ key = "Grenadier", weight = 15 }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
+		{ key = "AutoRifler", weight = 15 },
+		{ key = "Shotgunner", push = 18, weight = 12 },
+		{ key = "Engineer", weight = 13 }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
+		{ key = "Mage", weight = 10 }, -- (user 2026-11-02: Mage bots in Normal and FFA; Config/Bots.Staff)
 	},
 	-- the share of the battle points (Config/Classes.Earn: the kill, headshot and assists) a bot's death pays its killer
 	-- (user 2026-10-30: "make the AIs count half the battle points when you kill them")
 	KillShare = 0.5,
-	-- the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves up)
+	-- FFA: the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves
+	-- up)
 	Buy = 0.6,
 	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none.
 	-- Normal tops up each side (Rules/Bots.wantedSides; user 2026-10-31: "this will be a 50vs50 map. however, if there is
@@ -229,6 +231,15 @@ local Bots = {
 		every = 0.5,
 		Drag = { within = 12, cover = 15, seconds = 8 },
 		Heal = { calm = 3, below = 0.7, within = 25, reach = 4, seconds = 10 },
+		-- in a fight a teammate is dragged or healed only from cover or in cover (Rules/BotActions.mayTend; user
+		-- 2026-11-03: "they protect you and grab/heal you once it is safe"): else the bot stays within `near` studs of
+		-- them with its gun out, fighting, for up to `keep` s, and goes to them once it may
+		Guard = { near = 6, keep = 20 },
+		-- one rescuer a casualty (Rules/BotActions.rescuer; user 2026-11-03: "only have 1 soldier save them"): the nearest
+		-- free bot of its side within `range` studs, one of its squad first; the rest keep their push, post and
+		-- formation. A bot in a push never breaks off for one. A rescuer that dies or is pulled away lets it go, and
+		-- another may take it `wait` s later.
+		Rescue = { range = 40, wait = 3 },
 		Grenade = {
 			min = 15,
 			max = 35,
@@ -273,7 +284,8 @@ local Bots = {
 	-- sector it holds nearest the enemy), facing the enemy's way in:
 	-- - Bags: a sandbag pile `ahead` studs in front of each outdoor hold spot with no cover (the first `max`).
 	-- - Wire: a strip `out` studs past the zone's edge on each of `lanes` (studs across from the middle).
-	-- - Nest: an MG nest `ahead` of the hold spot nearest the enemy.
+	-- - Nest: MG nests `ahead` of the `count` hold spots nearest the enemy, less those of its side's already standing
+	--   at the front (user 2026-11-03: "3 mg nests if there arent built").
 	-- - Guns: the guns its side may build (Rules/Frontline.gunLocked), `back` studs behind the zone's middle, `side` apart.
 	-- - repairs: own pieces within `repair` studs past the zone's edge that want swings (the nearest `repairs`).
 	-- (the trenches: Trenches below.) Engineers take the nearest job within `take` studs; a digger (Trenches.share of a
@@ -281,12 +293,17 @@ local Bots = {
 	-- builds only when nobody has shot at it or hurt it for `calm` s and it sees no enemy; it stands `stand` studs from
 	-- a piece's spot to lay it, gives a job up after `seconds`; a refused spot moves `nudge` studs across (a trench
 	-- run's far end swings aside: Rules/BotTrenches.swing; up to `tries` times), then waits `retry` s. A piece of the job's key within `match` studs of
-	-- its spot is the job's.
+	-- its spot is the job's. The list's swings left are reckoned for a `builder` (a Config/Classes key: its Build swing
+	-- share, Config/Build.Power).
 	-- Caps (user: "A third, half the guns"): the bots lay at most `caps.pieces` of the team's Config/Build.PerTeam and
 	-- `caps.<key>` of a gun's.
 	Build = {
+		builder = "Engineer",
 		calm = 3,
 		take = 90,
+		-- an Engineer takes a job this far off (user 2026-11-03 play test: "even when i give free engineers, the bots arent
+		-- building": the front's jobs lay past `take` from the sector their squads were sent to)
+		engineerTake = 400,
 		help = 25,
 		stand = 4,
 		seconds = 60,
@@ -303,7 +320,12 @@ local Bots = {
 		-- no swing at a piece of theirs within `repairWait` s of it losing HP (user 2026-11-02 hand test: "Dont let ai
 		-- repair structures that are being destroyed by players"; "20 seconds": Rules/BotBuild.mayRepair)
 		repairWait = 20,
-		Nest = { ahead = 2 },
+		-- a job is walked to with the gun out, fighting on the way (user 2026-11-03 play test: "shooting and protecting
+		-- themselves and finding cover as they move to where they want to go"): the gun goes away only within `near`
+		-- studs of where it works and once it is safe there (Rules/BotBuild.safeToWork); danger mid-work drops the tool
+		-- and it fights, then goes back to it. The job is kept `keep` s from when it was taken.
+		Work = { near = 3, keep = 60 },
+		Nest = { ahead = 2, count = 3 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
 		caps = { pieces = 100, FieldGun = 3, Howitzer = 1 },
@@ -328,13 +350,26 @@ local Bots = {
 		-- where the gun reaches the enemy's nearest sector's middle (Rules/Artillery.layFor) and lies `spawnGap` studs
 		-- clear of every spawn and wave line (Rules/Artillery.nearSpawn), `spacing` (Config/Build.Pieces) from the other
 		-- guns' spots; the bots' share of each gun (`caps` above) gets a spot. None fits: the fixed spot (`Guns` above).
+		-- A spot's shot is flown first (user 2026-11-03: "bots will build cannons behind the hill. they should be sure the
+		-- cannon would be able to hit where they want it to hit"): the shell's path from the muzzle laid on that target
+		-- (Rules/Artillery.path, `arc.step` s a sample) cast against the world past `arc.near` studs out (its own ground,
+		-- levelled when it is laid), kept only where it first comes down within `arc.within` studs of the target (no hill,
+		-- house or tree in the way); Config/DevTools.Admin.GunArcs shows them.
 		Crews = {
 			max = 2,
-			enough = 3,
+			enough = 4, -- (all the guns its bots build: caps 3 field guns and 1 howitzer, user 2026-11-03)
 			back = { 90, 60, 30 },
 			across = { 0, -60, 60, -120, 120, -180, 180 },
 			spawnGap = 40,
+			arc = { step = 0.1, within = 25, near = 8 },
 		},
+		-- Trees in the way (Rules/BotBuild.treesInWay, src/server/Bots/Fell; user 2026-11-03: the forest either side of
+		-- the middle stood untouched): Engineers fell the standing trees within `clear` studs of the side's trench lines
+		-- (planned or dug runs and squares, its saps' runs), its MG nests' and guns' spots, and a gun's firing line out
+		-- to `fireLine` studs ahead of it, the nearest the work first, `open` at once. One tree per Engineer at most every
+		-- `every` s, `perSide` a side a match; never a tree in one of the map's buildings. Each stands `stand` studs
+		-- from the trunk to chop it.
+		Trees = { clear = 8, fireLine = 60, every = 20, perSide = 40, open = 3, stand = 5 },
 	},
 
 	-- Normal: sapping forward (Rules/BotSap; user 2026-11-02: "AI ... should [build trenches to push forward] if they are
@@ -345,6 +380,23 @@ local Bots = {
 	-- last is dug, the rest holding where they are giving covering fire, then all moving up to its head. Sappers dig
 	-- under fire (only a hit stops them). It is over at `edge` of the zone's radius from the objective, or after `quiet`
 	-- s with nobody shooting at the squad.
+	-- Normal: how a side fights forward (Rules/BotFront; user 2026-11-03: "once points are starting be captured and
+	-- fights start (pretty early), bots should prioritize trenching lines (use real strategies) to push, rather than the
+	-- open field"; "At first contact"). Until contact (the first capture, or the first shots at one of its squads) a
+	-- side walks where it's safe; then its attacking squads sap (Sap above: `share` dig, zig-zag runs) once within
+	-- `sapFrom` studs of their objective's zone edge, without waiting to be stuck; within `parallel.at` of it the sap
+	-- turns into a parallel `parallel.width` studs across, and the squad gathers there and goes over the top together
+	-- (Config/Bots.TrenchMove.Jump).
+	-- Flank (user: "bots are too focused on pushing down the center"; "1 squad in 3"): `share` of a side's attacking
+	-- squads take a lane off to one side (alternating), walking by a point `offset` studs across from the straight
+	-- way; every `every`-th MG nest goes at the hold spot farthest across, every `every`-th gun spot at least `gunFrom`
+	-- studs across (shelling the enemy's front from an angle).
+	Front = {
+		sapFrom = 150,
+		parallel = { at = 40, width = 24 },
+		Flank = { share = 1 / 3, offset = 90, every = 3, gunFrom = 120 },
+	},
+
 	Sap = {
 		stall = 30,
 		progress = 10,
@@ -403,6 +455,14 @@ local Bots = {
 		-- (56: past the zone's flagpole in its middle, which a line 40 back ran into; past Config/Build.Trench.spacing)
 		Support = { back = 56, width = 32 },
 		Comm = { jog = 6, short = 1 },
+		-- a run dug toward the enemy (a communication trench, a sap) where the enemy can see down it is dug in a
+		-- zig-zag (user 2026-11-03 play test: "building straight down will be in line of fire of the enemies uphill.
+		-- however if we zigzag, we are in cover while building forward"; Rules/BotTrenches.exposed, zigzag): exposed
+		-- with a threat (the enemy's next sector, or an enemy its squad knows of, within `range` studs: 500 reaches the
+		-- next sector, Map 1's are some 420 apart) within `cone` degrees of the run's line, or above it by `plunge` degrees of elevation, that a ray from its eye over the
+		-- ground reaches; then legs `leg` studs long, each turned off the line by `angle.min` degrees plus `angle.perStud`
+		-- for each stud the threat stands above the run (up to `angle.max`), alternately. Safe: straight.
+		Zigzag = { cone = 20, plunge = 10, range = 500, leg = 12, angle = { min = 25, perStud = 1, max = 45 } },
 		on = 2,
 		ends = 0.15,
 		cap = 60,
@@ -486,7 +546,7 @@ local Bots = {
 		recent = 8,
 		room = 3,
 		dug = 0.95,
-		spacing = 12,
+		spacing = 16, -- (as Config/Build.Dugout.spacing: a dugout there is refused nearer)
 		engineers = 1,
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },
@@ -707,7 +767,7 @@ local Bots = {
 	-- - MGs (user: "Yes, at seen enemies"): at a target it sees within the gun's range, bursts `burst.on` s held and
 	--   `burst.off` s let go; a new box once the box is empty, or under `topUp` of it with nothing to shoot at.
 	Crew = {
-		max = 4,
+		max = 7, -- (every gun and nest its bots build manned: 4 guns and 3 nests, user 2026-11-03: "utilize cannons and mgnests more")
 		walk = 300,
 		crewFirst = 60,
 		walkFor = 45,
@@ -718,6 +778,11 @@ local Bots = {
 		hold = { small = 25, big = 40, bigKg = 50 },
 		burst = { on = 1.2, off = 0.8 },
 		topUp = 0.4,
+		-- (user 2026-11-03, bots "still firing into hills"): a field gun or howitzer fires only where its shot, flown as the
+		-- gun spots' are (Build.Crews `arc`), comes down on its target; a sector shot tries `tries` spots in its spread.
+		-- A gunner whose every target in reach was blocked `looks` looks in a row leaves the gun, given no gunner for
+		-- `wait` s.
+		blind = { tries = 3, looks = 3, wait = 90 },
 	},
 
 	-- the server's log line (cost and how the fights go) every this many seconds while bots are on; 0 none

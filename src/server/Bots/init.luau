@@ -202,17 +202,27 @@ local function chooseClass(b: Bot): (string, number?)
 	local options = {}
 	local push = {}
 	-- (the admin panel's free Engineer and Grenadier: Config/DevTools.Admin)
-	local free = workspace:GetAttribute(DevCfg.Admin.FreeEngineerAttribute) == true
-	local gratis = { Engineer = free, Grenadier = workspace:GetAttribute(DevCfg.Admin.FreeGrenadierAttribute) == true }
+	-- Normal: every class free, rolled by weight (Config/Bots.Classes; no points spent); FFA: bought with points
+	local normal = b.mode == "Normal"
+	local free = normal or workspace:GetAttribute(DevCfg.Admin.FreeEngineerAttribute) == true
+	local gratis = {
+		Engineer = free,
+		Grenadier = normal or workspace:GetAttribute(DevCfg.Admin.FreeGrenadierAttribute) == true,
+	}
+	local weights = {}
 	for _, c in Cfg.Classes do
 		local def = Classes.Defs[c.key]
 		if def and not def.locked then
-			table.insert(options, { key = c.key, cost = if (gratis :: any)[c.key] then 0 else def.cost })
+			table.insert(options, { key = c.key, cost = if normal or (gratis :: any)[c.key] then 0 else def.cost })
+			table.insert(weights, { key = c.key, weight = c.weight or 0 })
 			push[c.key] = c.push
 		end
 	end
 	local key, cost =
 		Rules.chooseClass(Loadouts.botPoints(b.id), options, Cfg.Buy, random:NextNumber(), random:NextNumber())
+	if normal then
+		key, cost = Rules.rollClass(weights, random:NextNumber()) or options[1].key, 0
+	end
 	-- gun duty (Config/Bots.Build.Crews): an Engineer while its side has too few guns standing, if it can pay
 	b.crew = nil
 	local sb = b.side and buildLists[b.side :: string]
@@ -388,6 +398,7 @@ spawnBody = function(b: Bot)
 		(b.slung :: Model):Destroy()
 	end
 	b.grenades, b.act, b.away, b.shovel, b.cast, b.slung = nil, nil, false, nil, nil, nil
+	b.work, b.workState, b.guard = nil, nil, nil
 	local nade = Loadouts.gear(m).Grenade
 	if nade then
 		local given, g = pcall(Armory.tool, nade, b.kit)
@@ -492,6 +503,7 @@ local function despawn(b: Bot)
 		(b.slung :: Model):Destroy()
 	end
 	b.grenades, b.act, b.away, b.shovel, b.cast, b.slung = nil, nil, false, nil, nil, nil
+	b.work, b.workState, b.guard = nil, nil, nil
 end
 
 local function add(mode: string, side: string?)
@@ -544,6 +556,17 @@ local function remove(i: number)
 end
 
 -- sensing ------------------------------------------------------------------------------------------------------------
+
+-- where a bot guarding a teammate stands (Config/Bots.Actions.Guard): by them, nil while near enough or none
+local function guardSpot(b: Bot): Vector3?
+	local g = b.guard
+	local part = g and g.who:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not part or not b.root then
+		return nil
+	end
+	local at = (part :: BasePart).Position
+	return if flat(at - (b.root :: BasePart).Position).Magnitude > Cfg.Actions.Guard.near then at else nil
+end
 
 local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local m, humanoid, root, tool = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart, b.tool :: Tool
@@ -730,10 +753,17 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		-- (Normal: outside the zone its squad's route: a waypoint, a bound's stop, the approach spot; then its own
 		-- stand point there)
 		goal = if inZone and b.role ~= "Move" then b.wander elseif b.flank then b.flank else (b.goal or b.stand or z)
+		-- (a teammate it guards: by them; a build job it took: there; fighting on the way: Config/Bots.Actions.Guard,
+		-- Build.Work)
+		if b.guard then
+			goal = guardSpot(b) or root.Position -- (by them: it stays)
+		elseif b.work then
+			goal = b.work.at
+		end
 		b.nav.direct = nil
 	elseif move == "Hold" then
 		-- on its spot (covering fire, or a hold spot in the zone); there, it stands
-		local post = b.goal or b.post
+		local post = if b.guard then guardSpot(b) elseif b.work then b.work.at else (b.goal or b.post)
 		if post and flat((post :: Vector3) - root.Position).Magnitude > MV.Arrive then
 			goal = post
 		else
@@ -1061,12 +1091,16 @@ function Bots.forgetMap()
 	table.clear(buildLists)
 	table.clear(squads)
 	Tactics.crew.clear()
+	Tactics.fell.clear()
 	table.clear(sectorY)
 	table.clear(Tactics.dug.holes)
 	table.clear(Tactics.dug.tried)
 	table.clear(ByTrench.blasts)
 	ByTrench.counts = {}
 	table.clear(sharedPaths)
+	-- (each side back to walking until its first contact there: Config/Bots.Front)
+	table.clear(State.fronts.sides)
+	State.fronts.owners = nil
 end
 
 function Bots.start()
@@ -1155,7 +1189,7 @@ function Bots.start()
 				b.squad, b.role, b.goal, b.stop, b.post, b.roleWas, b.postFace = nil, nil, nil, nil, nil, nil, nil
 				-- (nothing of the last match's ground kept: it may have been another map)
 				b.postSector, b.postFloor, b.postKind, b.postFoot, b.gun, b.gunWait = nil, nil, nil, nil, nil, nil
-				b.wander, b.coverJob = nil, nil
+				b.wander, b.coverJob, b.work, b.workState, b.guard = nil, nil, nil, nil, nil
 				spawnBody(b)
 			end
 		end

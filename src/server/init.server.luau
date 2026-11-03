@@ -49,6 +49,7 @@ for _, p in Players:GetPlayers() do
 end
 
 require(script.Profile).start() -- (the saved settings)
+require(ReplicatedStorage:WaitForChild("Shared").Hitches).watch() -- (the hitch log's long frames)
 require(script.Environment).start()
 require(script.Loadouts).start() -- (the class each life spawns as, the match currency)
 require(script.Bodies).start() -- (dresses the helmet and hair: script.Helmets)

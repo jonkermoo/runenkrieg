@@ -53,6 +53,8 @@ export type Sap = {
 	run: BuildJob?,
 	open: { BuildJob },
 	digs: { [Model]: BuildJob },
+	angle: number?, -- the turn its runs take now: 0 while safe, a zig-zag's against a threat (Config/Bots.Trenches.Zigzag)
+	parallel: boolean?, -- its last run the parallel across (Config/Bots.Front): dug, it is over and the squad goes over
 }
 export type TrenchSquare = { x: number, z: number, at: Vector3, model: Model, left: number, built: boolean }
 
@@ -68,6 +70,7 @@ export type Act = {
 	phase: string?, -- the drag's "pull", the heal's "heal", the throw's "throw" and "done"
 	job: BuildJob?, -- a build's job
 	swingAt: number?, -- a build's next swing
+	swingOn: Instance?, -- what that swing is at (another: its first lands at the swing's strike)
 }
 
 export type Bot = {
@@ -131,6 +134,14 @@ export type Bot = {
 	lod: string, -- "near", "middle" or "distant" (the report)
 	nearest: number, -- studs to the nearest player at its last think (callouts)
 	act: Act?, -- Normal: a drag, a heal or a grenade under way
+	-- Normal: a build job it took, walked to with the gun out (Config/Bots.Build.Work): where it works from, when it took
+	-- it, whether it works under fire (a sapper); and how it stands with it ("going", "waiting" there until safe,
+	-- "working")
+	work: { job: BuildJob, at: Vector3, since: number, brave: boolean }?,
+	workState: string?,
+	-- Normal: a downed or hurt teammate it guards, gun out, until it may drag or heal them (Config/Bots.Actions.Guard)
+	guard: { who: Model, since: number }?,
+	buildWhy: string?, -- Normal, an Engineer: its build job's key, or why it has none (the admin panel's readout)
 	actAt: number, -- when it next weighs one (Config/Bots.Actions.every)
 	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
 	threwAt: number,
@@ -181,6 +192,7 @@ export type SquadState = {
 	jumpAlong: Vector3?, -- along that square
 	jumpAt: number?, -- when the first of it got there
 	devPush: { at: Vector3, till: number }?, -- the admin panel's push at a point (Bots.dev "Push"), until `till`
+	flank: number?, -- attacking up a flank (-1 or 1, Config/Bots.Front.Flank): its route by a point off to that side
 }
 -- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again
 -- when the front or the side's sectors held change, which sets the guns it may build, or once the hold spots are
@@ -213,6 +225,8 @@ export type SideBuild = {
 	bays: number,
 	digging: number, -- its dugouts wanted not yet stood (laid or not)
 	hurt: { [Model]: { hp: number, at: number } }, -- its works' HP last tick and when each last lost any (repairWait)
+	-- its runs toward the enemy lately, each straight or a zig-zag and why (Config/Bots.Trenches.Zigzag; the newest last)
+	runNotes: { string },
 }
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
 export type Soldier = {

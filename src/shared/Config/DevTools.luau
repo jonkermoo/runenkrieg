@@ -129,6 +129,9 @@ local DevTools = {
 		SpeedSteps = { 1, 2, 4, 8 },
 		-- flying: studs/s at x1; WASD moves along the camera's view, Space / E up, Q / LeftControl down
 		FlySpeed = 32,
+		-- Match (Normal): each sector's capture readout (the sides' weights, its control, its speed and the seconds to
+		-- the capture), refreshed every `CaptureReadout` seconds
+		CaptureReadout = 0.25,
 		FlyUpKeys = { "Space", "E" },
 		FlyDownKeys = { "Q", "LeftControl" },
 		Attribute = "DevSpeed", -- the chosen multiplier, on the Player (read by src/client/Stance)
@@ -147,11 +150,19 @@ local DevTools = {
 				{ key = "artillery_qf18", label = "Field shell" },
 				{ key = "artillery_howitzer", label = "Howitzer shell" },
 			},
-			-- (splinters wound to ~42 studs from a grenade, 40 a field shell, 30 the howitzer: past them only the blast)
+			-- (splinters wound to ~21 studs from a grenade, 40 a field shell, 30 the howitzer: past them only the blast)
 			Distances = { 5, 10, 20, 40, 60, 100, 150 },
 			HelmetWeapon = "BoltRifle",
 			OwnShare = 0, -- the share of your own test grenade that hurts you (the game's: Config/Grenades.Own)
 		},
+		-- the admin panel's readout of which bot rescues which casualty (src/server/Bots, every commander tick)
+		BotRescuesAttribute = "DevBotRescues",
+		DownHealth = 0.4, -- "Nearest bot knocked down here": its health share after (src/server/Bots.dev "Down")
+		-- the admin panel's readout of each side's bot classes (src/server/Bots, every commander tick in Normal)
+		BotClassesAttribute = "DevBotClasses",
+		-- the admin panel's readout of each side's Engineer bots: each one's build job, or why it has none
+		-- (src/server/Bots, every commander tick)
+		BotEngineersAttribute = "DevBotEngineers",
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
 		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },
@@ -241,8 +252,23 @@ local DevTools = {
 			tall = 44,
 			size = 13,
 		},
+		-- - GunArcs: each side's planned gun spots' checked shots (src/server/Bots/Commander, Config/Bots.Build.Crews
+		--   `arc`) drawn as lines of `width` studs in a Workspace folder named `folder` while Workspace has `attribute`:
+		--   `clear` colour where the shell comes down on the target, `blocked` where a hill or a house stops it first
+		--   (one segment in `every` samples), redrawn each time the side plans its guns
+		GunArcs = {
+			attribute = "DevGunArcs",
+			folder = "DevGunArcs",
+			width = 0.5,
+			every = 2,
+			clear = { 90, 220, 110 },
+			blocked = { 230, 70, 60 },
+		},
 		-- - BotDig: the bots' shovel swings work this many times a normal one (src/server/Build), on Workspace while not 1
 		BotDig = { attribute = "DevBotDig", steps = { 1, 3, 10 } },
+		-- - BotTrees: each side's trees felled in the way of its works and the one being chopped (Config/Bots.Build.Trees,
+		--   src/server/Bots/Fell), on Workspace as `attribute` .. side, once a commander tick
+		BotTrees = { attribute = "DevBotTrees" },
 		-- - FreeEngineer / FreeGrenadier: bots pick Engineer (gun duty, dugout duty) / Grenadier (the push's grenade,
 		--   bombing out dugouts) without the points, on Workspace while on
 		FreeEngineerAttribute = "DevFreeEngineer",
@@ -251,6 +277,12 @@ local DevTools = {
 		--   (dugout sheltering under shelling)
 		Shell = { count = 8, kg = 2, every = 0.4, spread = 6 },
 		Sides = { "West", "East" },
+		-- a side's bot fighting plan the admin panel can force (Rules/BotFront.Plans; "auto" lets it go)
+		BotPlans = { "open", "trench", "assault", "flank" },
+		-- the readout of each side's plan and its attacking squads (src/server/Bots, every commander tick)
+		BotFrontAttribute = "DevBotFront",
+		-- the readout of each side's latest runs toward the enemy, straight or zig-zag and why (src/server/Bots)
+		BotRunsAttribute = "DevBotRuns",
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier
 		--   throwing first); the nearest bot butt-strokes toward it; the nearest free gun goes to the nearest bot
 		BotNear = 80,
@@ -261,7 +293,7 @@ local DevTools = {
 		--   knocked off, a weapon made, the grass regrown), timed on the server and each client. With the log on (on
 		--   Workspace), each one over `over` ms prints at once ("[Hitch] server/client name ms"), and "Print hitches"
 		--   prints each name's count, average, most and how many went over since the last print
-		Hitches = { attribute = "DevHitchLog", over = 2 },
+		Hitches = { attribute = "DevHitchLog", over = 2, frame = 50 },
 		-- "Loadout" rows (src/server/Loadouts): give yourself these match points, or be one class every life (any class,
 		-- locked or not, free; `Normal` goes back to your picks), on the Player as `ClassAttribute`
 		Points = { 50, 200 },
@@ -270,9 +302,33 @@ local DevTools = {
 		-- "Shovel" build-anything switch (user 2026-10-27: "add admin shovel option to build anything"): lay and build
 		-- every piece whatever the class (src/server/Build, src/client/Build), on the Player while on
 		BuildAllAttribute = "DevBuildAll",
+		-- "Shovel" slope readout (src/client/DevSlope; user 2026-11-03, guns and MG nests on steeper hills, Config/Build
+		-- .Slope): under the cursor, the ground's slope and how each of `pieces` would lie there (the earth levelled,
+		-- its tilt, or too steep), and the first one's plane shown; on the Player while on, for this player only.
+		-- `every` seconds between readings, the label `width` x `tall` px, its text `size`, the plane `see`-through
+		Slope = {
+			attribute = "DevSlope",
+			pieces = { "FieldGun", "MGNest", "Howitzer" },
+			every = 0.15,
+			width = 320,
+			tall = 96,
+			size = 14,
+			see = 0.6,
+		},
 		-- unlimited ammo and no staff cooldown (src/server/Firing tops the magazine up after each shot; src/client/
 		-- StaffAttack and src/server/StaffCast: no cooldown, the mana full again), on the Player while on
 		AmmoAttribute = "DevAmmo",
+		-- "Weapon" sight lines (user 2026-11-03: "always add additional admin panel settings as we go"; src/client/
+		-- DevSights): the visible gun's Muzzle, Aim and Eject drawn as dots, the line of fire (from Muzzle) and the line
+		-- of sight (from Aim) out `length` studs along each one's -Z; aimed, the two run parallel. On the Player while on.
+		Sights = {
+			attribute = "DevSights",
+			length = 150,
+			width = 0.012,
+			dot = 0.05,
+			colors = { Muzzle = { 235, 64, 52 }, Aim = { 70, 200, 90 }, Eject = { 240, 200, 60 } },
+			lines = { "Muzzle", "Aim" },
+		},
 		-- "Team" rows (user 2026-10-26: "add respawn as a different team in admin panel"): respawn now as one of
 		-- Dummies.Kits (its kit, loadout, rig and species), kept on every respawn until another pick; `Random` goes back to
 		-- a random team each life. The pick is the Player's "Kit" attribute (src/server/Kits).
@@ -308,6 +364,9 @@ local DevTools = {
 		-- as a player holding the stay-down key is (Config/Ragdoll.StayDown: up to its `max` past the get-up wait); for
 		-- dragging and healing tests (user 2026-11-02: "always add additional admin panel settings as we go throughout")
 		KnockDown = { knock = "Torso", damage = 80 },
+		-- "Say": every living dummy says this in a chat bubble (src/client/ChatBubbles, as a bot's callout), to check the
+		-- bubbles' height and range (user 2026-11-03: bubbles only near you, a little over the head)
+		Say = "hey",
 		-- the hit readout over a dummy's head: the damage, the knock and the health left, for `show` seconds (`width` x
 		-- `tall` px, text `size` px, its outline `stroke` transparency); a knock with no damage shows after `knockWait` s
 		Readout = {
@@ -342,6 +401,9 @@ local DevTools = {
 		GunReach = 20,
 		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
 		RefusedSeconds = 3,
+		-- the shelling rows (src/server/Artillery.devShells): `count` of a gun's shells round the aim point, `every` s
+		-- apart, within `spread` studs (a trench line under fire: the hitch log's blast numbers)
+		Shells = { count = 6, every = 0.5, spread = 6 },
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the

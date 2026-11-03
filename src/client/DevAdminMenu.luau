@@ -4,9 +4,9 @@
 -- score; each side's next sector or any sector to a side), the Bots rows (the count, difficulty, state labels,
 -- Engineer / Grenadier for free, dig speed, shelling a side's trenches), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode, unlimited ammo and no staff cooldown), Shell shock (a grenade / shell at a chosen distance in front, a helmet
+-- god mode, unlimited ammo and no staff cooldown), Weapon (the visible gun's sight lines, client only: src/client/DevSights), Shell shock (a grenade / shell at a chosen distance in front, a helmet
 -- shot: src/client/Concussion), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
--- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction, the
+-- a full count of one), Shovel (the dig step, build anything, the slope readout), World (the range's test shooters, undo destruction, the
 -- hitch log and print: src/shared/Hitches) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
 -- weather off / on); Time and Weather are for everyone (src/server/Environment). Last the Cinematic rows for filming
@@ -34,12 +34,15 @@ local TeamCfg = require(Shared.Config.Teams)
 local EnvCfg = require(Shared.Config.Environment)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
+local FrontCfg = require(Shared.Config.Frontline)
+local FrontRules = require(Shared.Rules.Frontline)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local Hitches = require(Shared.Hitches)
 local LiveMap = require(Shared.LiveMap)
 local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
+local DevSights = require(script.Parent.DevSights)
 local Settings = require(script.Parent.Settings)
 
 local DevAdminMenu = {}
@@ -255,6 +258,37 @@ local function build(player: Player): DevPanel.Panel
 			)
 		end
 	end
+	-- the capture readout (Config/Frontline.BotWeight: a player 1, a bot half): each sector's weights in its zone, its
+	-- control, its speed (control per second, momentum in) and the seconds left to the capture
+	local readout: { TextLabel } = {}
+	for i = 1, #LiveMap.map.sectors do
+		order += 1
+		readout[i] = DevPanel.heading(p.panel, `S{i}`, order)
+	end
+	local function num(x: number): string
+		return string.format("%g", math.round(x * 100) / 100)
+	end
+	task.spawn(function()
+		while p.gui.Parent do
+			local f = workspace:FindFirstChild(FrontCfg.FolderName)
+			for i, label in readout do
+				local s = f and f:FindFirstChild(LiveMap.map.sectors[i] and LiveMap.map.sectors[i].id or "")
+				if s then
+					local w, e = (s:GetAttribute("West") :: number?) or 0, (s:GetAttribute("East") :: number?) or 0
+					local control = (s:GetAttribute("Control") :: number?) or 0
+					local rate = (s:GetAttribute(FrontCfg.RateAttribute) :: number?) or 0
+					local eta = FrontRules.eta(control, rate)
+					local moving = if eta
+						then ` · {if rate > 0 then "West" else "East"} {num(math.abs(rate))}/s, {num(eta)} s`
+						else " · still"
+					label.Text = `S{i} W {num(w)} · E {num(e)} · control {num(control)}{moving}`
+				else
+					label.Text = `S{i} (no match)`
+				end
+			end
+			task.wait(A.CaptureReadout)
+		end
+	end)
 	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes
 	heading("Match (FFA)")
 	local match: { TextButton } = {
@@ -315,8 +349,74 @@ local function build(player: Player): DevPanel.Panel
 	-- bot tests (Normal; src/server/Bots.dev): the state labels (src/client/DevBotLabels), Engineer / Grenadier for free, the dig
 	-- speed, a barrage on a side's trench line (the aimed ones are on the blast panel)
 	onOff("BotState", "Bot state labels", "BotState", workspace, A.BotState.attribute)
+	onOff("GunArcs", "Bots' gun spot shots", "GunArcs", workspace, A.GunArcs.attribute)
 	onOff("FreeEngineer", "Bots: Engineer for free", "FreeEngineer", workspace, A.FreeEngineerAttribute)
 	onOff("FreeGrenadier", "Bots: Grenadier for free", "FreeGrenadier", workspace, A.FreeGrenadierAttribute)
+	-- each side's fighting plan (Config/Bots.Front): forced, or let go ("auto"); its attacking squads' lanes and steps
+	for _, side in A.Sides do
+		row(`BotPlanAuto{side}`, `{side} bots: plan by itself`, "BotPlan", { side = side, plan = "auto" })
+		for _, plan in A.BotPlans do
+			row(`BotPlan{plan}{side}`, `{side} bots: {plan} now`, "BotPlan", { side = side, plan = plan })
+		end
+	end
+	order += 1
+	local plans = DevPanel.heading(p.panel, "", order)
+	plans.Size = UDim2.new(1, -8, 0, 110)
+	plans.TextWrapped = true
+	plans.TextYAlignment = Enum.TextYAlignment.Top
+	local function showPlans()
+		local s = workspace:GetAttribute(A.BotFrontAttribute)
+		plans.Text = `Bot plans:\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotFrontAttribute):Connect(showPlans)
+	showPlans()
+	-- each side's latest runs toward the enemy: straight, or a zig-zag where the enemy can see down them (and why)
+	order += 1
+	local runs = DevPanel.heading(p.panel, "", order)
+	runs.Size = UDim2.new(1, -8, 0, 96)
+	runs.TextWrapped = true
+	runs.TextYAlignment = Enum.TextYAlignment.Top
+	local function showRuns()
+		local s = workspace:GetAttribute(A.BotRunsAttribute)
+		runs.Text = `Bot trench runs:\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotRunsAttribute):Connect(showRuns)
+	showRuns()
+	-- which bot rescues which casualty now (one each: Config/Bots.Actions.Rescue)
+	order += 1
+	local rescues = DevPanel.heading(p.panel, "", order)
+	rescues.Size = UDim2.new(1, -8, 0, 72)
+	rescues.TextWrapped = true
+	rescues.TextYAlignment = Enum.TextYAlignment.Top
+	local function showRescues()
+		local s = workspace:GetAttribute(A.BotRescuesAttribute)
+		rescues.Text = `Bot rescues:\n{if type(s) == "string" then s else "none now"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotRescuesAttribute):Connect(showRescues)
+	showRescues()
+	-- each side's bot classes now (Normal: rolled by Config/Bots.Classes weights)
+	order += 1
+	local mix = DevPanel.heading(p.panel, "", order)
+	mix.Size = UDim2.new(1, -8, 0, 54)
+	mix.TextWrapped = true
+	local function showMix()
+		local s = workspace:GetAttribute(A.BotClassesAttribute)
+		mix.Text = `Bot classes (Normal):\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotClassesAttribute):Connect(showMix)
+	showMix()
+	-- each side's Engineer bots: what each builds, or why nothing
+	order += 1
+	local engineers = DevPanel.heading(p.panel, "", order)
+	engineers.Size = UDim2.new(1, -8, 0, 96)
+	engineers.TextWrapped = true
+	engineers.TextYAlignment = Enum.TextYAlignment.Top
+	local function showEngineers()
+		local s = workspace:GetAttribute(A.BotEngineersAttribute)
+		engineers.Text = `Engineer bots:\n{if type(s) == "string" then s else "none now"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotEngineersAttribute):Connect(showEngineers)
+	showEngineers()
 	local botDigs: { [number]: TextButton } = {}
 	for _, k in A.BotDig.steps do
 		botDigs[k] = row(`BotDig{k}`, if k == 1 then "Bot digging: normal" else `Bot digging: x{k}`, "BotDig", k)
@@ -329,6 +429,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotDig.attribute):Connect(showBotDig)
 	showBotDig()
+	-- the bots' tree felling (src/server/Bots/Fell): each side's trees felled and the one being chopped
+	for _, side in A.Sides do
+		order += 1
+		local label = DevPanel.heading(p.panel, `Trees {side}`, order)
+		local key = A.BotTrees.attribute .. side
+		local function show()
+			local text = workspace:GetAttribute(key)
+			label.Text = if type(text) == "string" then `Trees {text}` else `Trees {side}: none yet`
+		end
+		workspace:GetAttributeChangedSignal(key):Connect(show)
+		show()
+	end
 	local shells: { [string]: TextButton } = {}
 	for _, side in A.Sides do
 		local label = `Shell {side}'s trenches ({A.Shell.count} x {A.Shell.kg} kg)`
@@ -422,6 +534,21 @@ local function build(player: Player): DevPanel.Panel
 	showGod()
 	onOff("Ammo", "Unlimited ammo, no cooldown", "Ammo", player, A.AmmoAttribute)
 
+	-- Weapon: the visible gun's Muzzle / Aim / Eject and its lines of fire and sight (src/client/DevSights, client only)
+	heading("Weapon")
+	order += 1
+	local sights = DevPanel.button(p.panel, "Sights", "", order)
+	local function showSights()
+		local on = player:GetAttribute(A.Sights.attribute) == true
+		sights.Text = `Sight lines (muzzle red, aim green, eject yellow): {if on then "on" else "off"}`
+		paint(sights, on)
+	end
+	sights.Activated:Connect(function()
+		player:SetAttribute(A.Sights.attribute, if player:GetAttribute(A.Sights.attribute) == true then nil else true)
+	end)
+	player:GetAttributeChangedSignal(A.Sights.attribute):Connect(showSights)
+	showSights()
+
 	-- Shell shock (src/server/DevTools, Config/DevTools.Admin.Shock): a real grenade or shell going off in front of you at
 	-- a chosen distance (yours: it knocks you, hurts you only with "My blasts hurt me" on), and a helmet shot from the
 	-- front; what you see and hear is src/client/Concussion
@@ -500,6 +627,19 @@ local function build(player: Player): DevPanel.Panel
 	player:GetAttributeChangedSignal(A.Dig.attribute):Connect(showDig)
 	showDig()
 	onOff("BuildAll", "Build anything", "BuildAll", player, A.BuildAllAttribute)
+	-- (the slope readout, src/client/DevSlope: this player's own, no server)
+	order += 1
+	local slope = DevPanel.button(p.panel, "Slope", "", order)
+	local function showSlope()
+		local on = player:GetAttribute(A.Slope.attribute) == true
+		slope.Text = `Slope readout: {if on then "on" else "off"}`
+		paint(slope, on)
+	end
+	slope.Activated:Connect(function()
+		player:SetAttribute(A.Slope.attribute, if player:GetAttribute(A.Slope.attribute) == true then nil else true)
+	end)
+	player:GetAttributeChangedSignal(A.Slope.attribute):Connect(showSlope)
+	showSlope()
 
 	-- World: the range's test shooters (Config/DevTools.TestShooter), undo destruction (src/server/DevWorld), hitches
 	DevPanel.heading(p.panel, "World", order + 1)
@@ -519,7 +659,13 @@ local function build(player: Player): DevPanel.Panel
 	row("Undo", "Undo destruction", "UndoDestruction")
 	-- the hitch timings (src/shared/Hitches): the log of each job over Hitches.over ms, on the server and every client;
 	-- the print is this client's and the server's (the output in Studio, F9 in a live game)
-	onOff("HitchLog", `Hitch log (over {A.Hitches.over} ms)`, "HitchLog", workspace, A.Hitches.attribute)
+	onOff(
+		"HitchLog",
+		`Hitch log (jobs over {A.Hitches.over} ms, frames over {A.Hitches.frame})`,
+		"HitchLog",
+		workspace,
+		A.Hitches.attribute
+	)
 	row("HitchReport", "Print hitches", "HitchReport").Activated:Connect(function()
 		print(Hitches.report())
 	end)
@@ -631,12 +777,14 @@ function DevAdminMenu.start()
 		elseif not allowed and panel then
 			land(player)
 			player:SetAttribute(A.Attribute, nil)
+			player:SetAttribute(A.Sights.attribute, nil)
 			DevCinematic.clear(player)
 			panel.gui:Destroy()
 			panel = nil
 		end
 	end
 	DevCinematic.start(player)
+	DevSights.start(player)
 	UserInputService.InputBegan:Connect(function(input, processed)
 		if panel and not processed and Settings.pressed("Key_AdminPanel", input) then
 			panel.toggle()

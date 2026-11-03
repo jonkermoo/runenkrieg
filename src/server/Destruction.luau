@@ -15,6 +15,7 @@ local Shatter = require(Shared.Config.Firing).Shatter
 local Shots = require(Shared.Rules.Firing)
 local Rules = require(Shared.Rules.Destruction)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 
 local Destruction = {}
 
@@ -313,7 +314,9 @@ local function dropUnsupported(building: Model, origin: Vector3)
 	end
 end
 
--- buildings that lost something this frame: checked for unsupported pieces once, after the whole blast
+-- buildings that lost something this frame: checked once, after the whole blast, for a story that lost too many walls
+-- (checkCollapse) and then for unsupported pieces (each looks over every part of the building: once per broken
+-- section was most of a shell's time on a building)
 local unsettled: { [Model]: Vector3 } = {}
 
 local function settleLater(building: Model, origin: Vector3)
@@ -323,7 +326,12 @@ local function settleLater(building: Model, origin: Vector3)
 	unsettled[building] = origin
 	task.defer(function()
 		unsettled[building] = nil
-		dropUnsupported(building, origin)
+		if building.Parent then
+			local t0 = os.clock()
+			checkCollapse(building, origin)
+			dropUnsupported(building, origin)
+			Hitches.since("Building settle", t0)
+		end
 	end)
 end
 
@@ -350,7 +358,6 @@ function Destruction.damage(section: Model, amount: number, origin: Vector3?, cu
 		breakAll({ section }, at, if cut and cut.distance <= cut.dust then "dust" else nil)
 	end
 	if building then
-		checkCollapse(building, at)
 		settleLater(building, at)
 	end
 end
@@ -368,7 +375,6 @@ function Destruction.shot(part: Instance, point: Vector3, line: Vector3): boolea
 	local building = buildingOf(s)
 	breakAll({ s }, point - line * Shatter.behind, "shot")
 	if building then
-		checkCollapse(building, point)
 		settleLater(building, point)
 	end
 	return true

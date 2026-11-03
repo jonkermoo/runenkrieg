@@ -109,6 +109,28 @@ function Survey.onGround(piece: Rules.Piece, frame: CFrame, report: Report): CFr
 	return CFrame.fromMatrix(Vector3.new(frame.Position.X, h, frame.Position.Z), right.Unit, up)
 end
 
+-- How a piece with a `lay` (a gun, an MG nest: Config/Build.Slope, Rules.slopeLay) lies on the ground under it
+-- (`report`, from Survey.ground at `frame`, its footprint's centre): the plane it is laid on, through the fitted
+-- ground's height at its centre and tilted down the same slope by its tilt, and that tilt in degrees and the degrees
+-- the earth takes out; nil when the slope is past its `maxSlope`. A piece without a `lay`: level, as `frame`.
+function Survey.lay(piece: Rules.Piece, frame: CFrame, report: Report): (CFrame?, number, number)
+	local size = Survey.footprint(piece)
+	local h, gx, gz = Rules.groundPlane(report.heights, ROWS, COLS, size.X, size.Z)
+	local level = CFrame.new(frame.Position.X, h, frame.Position.Z) * frame.Rotation
+	local lay = piece.lay
+	if not lay then
+		return level, 0, 0
+	end
+	local tilt, cut = Rules.slopeLay(Rules.planeSlope(gx, gz), lay, piece.maxSlope or 90)
+	if not tilt then
+		return nil, 0, 0
+	end
+	local tx, tz = Rules.layPlane(gx, gz, tilt)
+	local right = frame.RightVector + Vector3.yAxis * tx
+	local up = right:Cross(frame.LookVector + Vector3.yAxis * tz).Unit
+	return CFrame.fromMatrix(level.Position, right.Unit, up), tilt, cut
+end
+
 -- the closest distance between a point and the segment a-b, flat
 function Survey.toSegment(p: Vector3, a: Vector3, b: Vector3): number
 	local ab = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
@@ -477,10 +499,10 @@ end
 -- The trench square wall a dugout laid at `p` would go in (Config/Build.Dugout, Rules.dugoutSpot): the block in
 -- `structures` whose line `p` is nearest (within its wall tops and Dugout.reach past them, along it), the wall on the
 -- side `p` is on, and what decides it: its HP and length, whether a trench tees into that wall, a bridge on it, how far
--- the nearest other dugout is (`skip` left out). Also the dugout's frame when there is a square: the square's floor at
--- the foot of that wall, in its middle along it, level, LookVector out into the trench (its Config/Assets pieces' space:
--- +Z back into the wall); and the square's model. (A laid dugout's "Frame" is the middle of its footprint, steps and
--- room: Survey.dugoutBox.)
+-- the nearest other dugout's doorway is and whether its room clashes with this one's (Rules.dugoutClash; `skip` left
+-- out). Also the dugout's frame when there is a square: the square's floor at the foot of that wall, in its middle
+-- along it, level, LookVector out into the trench (its Config/Assets pieces' space: +Z back into the wall); and the
+-- square's model. (A laid dugout's "Frame" is the middle of its footprint, steps and room: Survey.dugoutBox.)
 function Survey.dugoutSpot(structures: Instance?, p: Vector3, skip: Instance?): (Rules.DugoutSpot, CFrame?, Model?)
 	local spot: Rules.DugoutSpot =
 		{ found = false, dug = 0, length = 0, teed = false, bridge = false, nearest = math.huge }
@@ -536,14 +558,20 @@ function Survey.dugoutSpot(structures: Instance?, p: Vector3, skip: Instance?): 
 	local upT = Vector3.yAxis * c - across * t * c
 	local foot = mid + outT * (side * T.floor) - upT * T.depth
 	local frame = CFrame.lookAt(foot, foot - across * side)
-	local centre = Survey.dugoutBox(piece, frame).Position
+	-- (another dugout's "Frame" is the middle of its box: its wall foot is back out of it along its run)
+	local function feet(f: CFrame): any
+		return { x = f.Position.X, y = f.Position.Y, z = f.Position.Z, rx = f.RightVector.X, rz = f.RightVector.Z }
+	end
+	local mine = feet(frame)
 	for _, o in structures:GetChildren() do
 		local f = o:GetAttribute("Frame")
 		local q = Rules.piece(o:GetAttribute("Piece"), C.Pieces)
 		if o ~= skip and q and typeof(f) == "CFrame" then
-			local d = Vector3.new(f.Position.X - centre.X, 0, f.Position.Z - centre.Z).Magnitude
 			if q.kind == "Dugout" then
+				local its = f * CFrame.new(0, 0, -(D.stair + piece.depth) / 2)
+				local d = Vector3.new(its.X - frame.X, 0, its.Z - frame.Z).Magnitude
 				spot.nearest = math.min(spot.nearest, d)
+				spot.clash = spot.clash or Rules.dugoutClash(mine, feet(its), piece, D)
 			elseif
 				q.kind == "Bridge"
 				and Vector3.new(f.Position.X - mid.X, 0, f.Position.Z - mid.Z).Magnitude < D.bridgeGap

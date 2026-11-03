@@ -11,6 +11,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.TreeSway)
 local S = require(Shared.Rules.TreeSway)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local Settings = require(script.Parent.Settings)
 
 type Tree = {
@@ -120,7 +121,9 @@ function TreeSwayClient.start()
 	end)
 
 	Net.event("Explosion").OnClientEvent:Connect(function(position: Vector3, radius: number, strength: number?)
+		local t0 = os.clock()
 		TreeSwayClient.explode(position, radius, strength)
+		Hitches.since("Tree sway kick", t0)
 	end)
 
 	local parts: { BasePart } = {}
