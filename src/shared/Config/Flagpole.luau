@@ -2,8 +2,9 @@
 -- The capture-point flagpoles in Territory Push (FLAGPOLE.md, user 2026-10-27; built 2026-10-29): src/server/Flagpoles
 -- stands a pole on each sector point while the frontline match runs (Workspace's Frontline folder), with the zone's ring of
 -- stakes and, at the HQs, a knee-high ring of sandbags; src/client/Flagpoles raises the holder's flag as far as the
--- sector's control goes (bare pole at neutral), flaps it downwind, ties the holder's rags on the stakes and plays the
--- sounds. Rules/Flagpole is the maths. Colours Config/Palette.Flagpole; the flag image Config/Uniforms.Kits[kit].flag.pole.
+-- sector's control goes (an unheld point: a white placeholder or a bare pole, Flag.neutral), flaps it downwind, ties
+-- the holder's rags on the stakes and plays the sounds. Rules/Flagpole is the maths. Colours Config/Palette.Flagpole;
+-- the flag image Config/Uniforms.Kits[kit].flag.pole.
 local Flagpole = {
 	FolderName = "Flagpoles", -- the poles' Workspace folder (one Model per sector, named by its id)
 	Asset = "flagpole", -- Config/Assets: Pole, Knob, Cleat, Stake
@@ -23,6 +24,10 @@ local Flagpole = {
 		gap = 0.08, -- off the pole's surface
 		image = { strip = { 128, 328 } }, -- each strip's share of the `pole` flag image (512 x 328)
 		ease = 3, -- per second: how fast the shown height follows the control
+		-- an unheld point (user 2026-11-03: "either a white placeholder flag or no flag at all"): "white" flies a plain
+		-- cloth (Palette.Flagpole.Neutral) at the top, "none" leaves the pole bare; a capture swaps in the holder's flag
+		-- at the bottom and hauls it up, going neutral again swaps the placeholder back
+		neutral = "white",
 		pixelsPerStud = 32, -- the flag image's SurfaceGui resolution
 	},
 	-- the flap (Rules/Flagpole.flap): each strip turns from the one before by a wave travelling out to the free edge,

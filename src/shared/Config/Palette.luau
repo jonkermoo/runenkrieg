@@ -234,6 +234,7 @@ local Palette = {
 		Cleat = { 88, 66, 46 },
 		Stake = { 116, 92, 62 },
 		Rope = { 206, 196, 170 },
+		Neutral = { 226, 222, 210 }, -- an unheld point's plain placeholder flag (Config/Flagpole.Flag.neutral "white")
 		Rags = {
 			uniform1 = { 82, 86, 88 },
 			uniform2 = { 98, 102, 66 },
