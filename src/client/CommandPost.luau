@@ -462,16 +462,16 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 		p.Shape = Enum.PartType.Cylinder
 		return p
 	end
-	disc("Compass", 0.45, 0.12, V(-4.0, 0.1, -0.2), Color3.fromRGB(200, 170, 96), Enum.Material.Metal)
-	disc("Glass", 0.38, 0.13, V(-4.0, 0.11, -0.2), Color3.fromRGB(226, 232, 230), Enum.Material.Glass)
-	disc("Watch", 0.32, 0.12, V(-3.6, 0.1, 1.0), Color3.fromRGB(200, 170, 96), Enum.Material.Metal)
+	disc("Compass", 0.45, 0.12, V(-2.4, 0.1, 0.55), Color3.fromRGB(200, 170, 96), Enum.Material.Metal)
+	disc("Glass", 0.38, 0.13, V(-2.4, 0.11, 0.55), Color3.fromRGB(226, 232, 230), Enum.Material.Glass)
+	disc("Watch", 0.32, 0.12, V(1.6, 0.1, 0.45), Color3.fromRGB(200, 170, 96), Enum.Material.Metal)
 	disc("Ink", 0.25, 0.4, V(-1.1, 0.24, 1.2), Color3.fromRGB(24, 26, 34), Enum.Material.Glass)
 	for _, dx in { -0.35, 0.35 } do
 		local b = part(
 			folder,
 			"Binocular",
-			V(1.1, 0.5, 0.5),
-			CFrame.new(tableTop + V(-5.0 + dx, 0.27, -2.2)) * CFrame.Angles(0, math.pi / 2, 0),
+			V(0.75, 0.32, 0.32),
+			CFrame.new(tableTop + V(-5.0 + dx * 0.6, 0.18, -2.2)) * CFrame.Angles(0, math.pi / 2, 0),
 			Color3.fromRGB(30, 30, 30)
 		)
 		b.Shape = Enum.PartType.Cylinder
@@ -487,7 +487,7 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 		folder,
 		"Block",
 		V(0.7, 0.18, 0.5),
-		CFrame.new(tableTop + V(1.3, 0.1, -2.35)) * CFrame.Angles(0, math.rad(12), 0),
+		CFrame.new(tableTop + V(2.7, 0.1, -1.6)) * CFrame.Angles(0, math.rad(12), 0),
 		PENCIL
 	)
 	return tableTop, strip, rf
@@ -502,9 +502,10 @@ end
 local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
 	local B = Cfg.Board
 	local mid = o + v3(B.at)
+	-- (facing the room, its own x runs to the room's -x: places across it are given as the room sees them, negated)
 	local cf = CFrame.lookAt(mid, mid + V(0, 0, 1))
 	local w, h = B.size[1], B.size[2]
-	part(folder, "Cork", V(w, h, 0.2), cf, CORK, Enum.Material.Fabric)
+	part(folder, "Cork", V(w, h, 0.2), cf, CORK, Enum.Material.Cardboard)
 	for _, f in
 		{
 			{ V(w + 0.6, 0.3, 0.35), V(0, h / 2, 0) },
@@ -552,7 +553,7 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
 	local rng = Random.new(11)
 	local tops: { Vector3 } = {}
 	for i, ph in photos do
-		local at = cf * CFrame.new(ph[1], ph[2], -0.13) * CFrame.Angles(0, 0, math.rad(rng:NextNumber(-8, 8)))
+		local at = cf * CFrame.new(-ph[1], ph[2], -0.13) * CFrame.Angles(0, 0, math.rad(rng:NextNumber(-8, 8)))
 		part(folder, "Photo" .. i, V(0.75, 0.85, 0.03), at, Color3.fromRGB(236, 230, 214))
 		local shade = 70 + rng:NextInteger(0, 30)
 		part(
@@ -577,7 +578,7 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
 		folder,
 		"Telegram",
 		V(1.6, 1.2, 0.03),
-		cf * CFrame.new(-4.75, 0.9, -0.14) * CFrame.Angles(0, 0, math.rad(4)),
+		cf * CFrame.new(4.75, 0.9, -0.14) * CFrame.Angles(0, 0, math.rad(4)),
 		Color3.fromRGB(226, 200, 150)
 	)
 	local _, tgf = surface(tg, Enum.NormalId.Front, 150)
@@ -587,7 +588,7 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
 		folder,
 		"Notice",
 		V(1, 1.3, 0.03),
-		cf * CFrame.new(4.9, -2.1, -0.14) * CFrame.Angles(0, 0, math.rad(-3)),
+		cf * CFrame.new(-2.9, -3.5, -0.14) * CFrame.Angles(0, 0, math.rad(-3)),
 		PAPER
 	)
 	local _, nf = surface(note, Enum.NormalId.Front, 150)
@@ -708,7 +709,7 @@ function CommandPost.plan(post: Post, winner: string?)
 	f:ClearAllChildren()
 	local lines = if winner then B.planLines else B.noWinnerLines
 	for k, l in lines do
-		text(
+		local label = text(
 			f,
 			Rules.text(l, { winner = string.upper(winner or "") }),
 			if k == 1 then SLAB else TYPE,
@@ -719,6 +720,7 @@ function CommandPost.plan(post: Post, winner: string?)
 			if k == 1 then 0.14 else 0.11,
 			180
 		)
+		label.TextScaled = true
 	end
 end
 
@@ -743,7 +745,7 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 	for i = 1, B.slots do
 		local key = offer[i]
 		local tilt = (if i % 2 == 0 then 1 else -1) * S.tilt
-		local cf = post.board * CFrame.new(S.xs[i], S.y, -0.14) * CFrame.Angles(0, 0, math.rad(tilt))
+		local cf = post.board * CFrame.new(-S.xs[i], S.y, -0.14) * CFrame.Angles(0, 0, math.rad(tilt))
 		local p = part(post.folder, "Order" .. i, V(S.width, S.height, 0.03), cf, PAPER)
 		pin(post.folder, (cf * CFrame.new(-S.width / 2 + 0.12, S.height / 2 - 0.1, -0.04)).Position)
 		pin(post.folder, (cf * CFrame.new(S.width / 2 - 0.12, S.height / 2 - 0.1, -0.04)).Position)
@@ -808,7 +810,7 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 			box(grid, c / G.cols, 0, 0.003, 1, DIM).BackgroundTransparency = 0.7
 		end
 		order.grid = grid
-		local stamp = text(f, "NEXT", SLAB, PENCIL, 0.15, 0.6, 0.7, 0.14, px)
+		local stamp = text(f, "NEXT", SLAB, PENCIL, 0.15, 0.43, 0.7, 0.14, px)
 		stamp.TextXAlignment = Enum.TextXAlignment.Center
 		stamp.Rotation = -12
 		stamp.ZIndex = 3
@@ -878,6 +880,8 @@ function CommandPost.signatures(post: Post, folder: Instance, total: number, ink
 				end
 			end
 			o.count.Text = `{n} / {math.max(total, n)}`
+		else
+			o.count.Text = `0 / {total}`
 		end
 	end
 end

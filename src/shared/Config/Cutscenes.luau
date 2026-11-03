@@ -151,7 +151,7 @@ local Cutscenes = {
 		typing = { lead = 0.8, type = 0.4 },
 		shots = {
 			{ t1 = 7, from = { -7.7, 7.8, 8.3 }, to = { -6.4, 7.4, 7.4 }, look = { 0.5, 3, 0 }, fov = 40 },
-			{ t1 = 14, from = { 0, 9.6, 0.25 }, to = { 0, 8.9, 0.25 }, look = { 0, 3, 0.25 }, fov = 62, down = true },
+			{ t1 = 14, from = { 0, 10.4, 0.25 }, to = { 0, 10.1, 0.25 }, look = { 0, 3, 0.25 }, fov = 72, down = true },
 		},
 	},
 	-- The orders board on the back wall (the camera turns round to it): "ORDERS · THE NEXT FRONT", one OPERATION ORDER
@@ -162,13 +162,13 @@ local Cutscenes = {
 	Board = {
 		at = { 0, 5.83, -7.93 },
 		size = { 11.3, 8.7 },
-		title = { y = 3.25, size = { 5.6, 0.8 } },
+		title = { y = 3.0, size = { 5.6, 0.8 } },
 		slots = 3,
 		sheet = { width = 2.85, height = 3.75, xs = { -3.5, 0, 3.5 }, y = -0.9, tilt = 1, pixelsPerStud = 200 },
 		grid = { cols = 4, rows = 10 },
 		placeholder = { "TO BE ANNOUNCED", "TO BE DRAWN", "ORDERS TO FOLLOW" },
 		turn = 1.2, -- seconds the camera takes to turn round from the table
-		shot = { from = { 0, 6.2, 5.3 }, to = { 0, 6.1, 4.4 }, look = { 0, 5.7, -7.93 }, fov = 42 },
+		shot = { from = { 0, 6.3, 5.6 }, to = { 0, 6.2, 4.8 }, look = { 0, 6.0, -7.93 }, fov = 47 },
 		-- at the pick, the close shot on the picked order (the render's 4th): eye and look-at from that order's middle
 		close = { from = { -4.5, 0.3, 7.9 }, look = { 1, -0.6, 0 }, fov = 37, ease = 0.6 },
 		-- the field telegram's lines ({winner}: the winning nation)
@@ -270,7 +270,7 @@ local Cutscenes = {
 		-- the end: the winner stamped NEXT, shown `hold` seconds before the armory (src/server/Frontline)
 		pick = { hold = 1.5 },
 		rate = 0.25, -- seconds between a player's votes (the server's limit)
-		hint = "Click a map to sign for it",
+		hint = "Click an order to sign it",
 		watch = "{winner} chooses the next field",
 	},
 
