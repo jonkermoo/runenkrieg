@@ -11,6 +11,17 @@ local function kpa(studs: number, kg: number?): number
 end
 
 return {
+	["the staff's stage 1 beam: no blast, but its hit on built things and guns where it lands"] = function()
+		local Build = require("../src/shared/Config/Build")
+		local Artillery = require("../src/shared/Config/Artillery")
+		local charged, built = Blast.reaches(D.Staff.Charge[1], "staff1")
+		assert(D.Staff.Charge[1] == 0 and not charged and built)
+		assert(Build.Structures.staff1.hit > 0 and Artillery.Hits.staff1.direct > 0)
+		local c0, b0 = Blast.reaches(0, nil)
+		assert(not c0 and not b0, "nothing named, no charge: nothing")
+		local c3, b3 = Blast.reaches(D.Staff.Charge[3], "staff3")
+		assert(c3 and b3)
+	end,
 	["damage bands: wear, crumple, destroy, scaled by material"] = function()
 		assert(Blast.band(500, 1000, 3000) == "wear")
 		assert(Blast.band(1000, 1000, 3000) == "crumple")
