@@ -186,6 +186,7 @@ local stats = {
 	strikes = 0, -- butt strokes that went (Config/Bots.Melee)
 	zigzags = 0, -- runs toward the enemy dug as a zig-zag, in a threat's line of fire (Config/Bots.Trenches.Zigzag)
 	straights = 0, -- and straight, out of it
+	selfHits = 0, -- staff casts held: the beam would hit something right by the caster (its own cover; Staff.ownWithin)
 	movedOn = 0, -- squads that moved on from a waypoint without waiting for members off on jobs (Squads.waitMax)
 	contacts = 0, -- sides that had their first contact (Config/Bots.Front: from then on by trench)
 	parallels = 0, -- parallels planned across close to an objective (Config/Bots.Front)

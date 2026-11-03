@@ -426,6 +426,10 @@ local Bots = {
 		blast = 25,
 		line = 4,
 		lost = 0.8,
+		-- a cast is held while its beam from the head would hit something short of its point (user 2026-11-03 play test:
+		-- "mages ... shoot their own trench by accident, then repair it"); within `ownWithin` studs of the caster (its own
+		-- cover) it counts as a self-hit held off
+		ownWithin = 6,
 	},
 
 	-- Normal: bots and trenches (Rules/BotTrenches; user 2026-11-02: "bots that arent engineers should build trenches
