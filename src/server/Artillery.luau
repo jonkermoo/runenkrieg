@@ -115,8 +115,8 @@ local function now(): number
 end
 
 -- How far a field gun or howitzer reaches on the live map (Config/Artillery.Reach: no shell past a sector away)
-local function reachCap(): number
-	return Rules.reachCap(Rules.sectorSpan(Map1.sectors), Cfg.Reach)
+local function reachCap(key: string): number
+	return Rules.reachCap(Rules.sectorSpan(Map1.sectors), Cfg.Reach, key)
 end
 
 local function folder(): Folder
@@ -1087,9 +1087,9 @@ function Artillery.place(
 	end
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
-	local lims = Rules.capped(gun, reachCap())
-	-- the lowest it lays (a mortar never lies flat), within its reach (on level ground)
-	local low = math.clamp(math.max(gun.elevation[1], 0), lims[1], lims[2])
+	local lims = Rules.capped(gun, reachCap(key))
+	-- its `rest` lay, else the lowest it lays (a mortar never lies flat), within its reach (on level ground)
+	local low = math.clamp(gun.rest or math.max(gun.elevation[1], 0), lims[1], lims[2])
 	model:SetAttribute("Elevation", low)
 	model:SetAttribute("HP", gun.hp)
 	model:SetAttribute("Stage", 0)
@@ -1571,7 +1571,7 @@ local function limitsOf(s: State): { number }
 	local mx, my, mz, dx, _, dz = Rules.muzzle(gun, s.lay.traverse, s.lay.elevation)
 	local dir = pivot:VectorToWorldSpace(Vector3.new(dx, 0, dz))
 	if dir.Magnitude < 1e-3 then
-		return Rules.capped(gun, reachCap())
+		return Rules.capped(gun, reachCap(s.key))
 	end
 	local yaw = math.deg(math.atan2(dir.X, dir.Z))
 	local c = s.capAt
@@ -1579,7 +1579,7 @@ local function limitsOf(s: State): { number }
 	if c and math.abs(Rules.wrap(c.yaw - yaw)) < 1 and t - c.at < 1 then
 		return c.lims
 	end
-	local cap = reachCap()
+	local cap = reachCap(s.key)
 	local muzzle = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local out = muzzle + dir.Unit * cap
 	capGround.FilterDescendantsInstances = { workspace.Terrain }
@@ -1592,7 +1592,7 @@ end
 -- The world yaw and the elevation that put `s`'s shot on `point` (Rules.layFor, from its muzzle where that lay puts
 -- it); nil when out of its reach (a field gun's or howitzer's past reachCap() flat), or for a machine gun past its
 -- stops.
-local function layOn(s: State, point: Vector3): (number?, number?)
+local function layOn(s: State, point: Vector3, arc: string?): (number?, number?)
 	local gun = s.gun
 	local at = s.model:GetPivot().Position
 	local mx, my, mz = Rules.muzzle(gun, s.lay.traverse, s.lay.elevation)
@@ -1602,7 +1602,7 @@ local function layOn(s: State, point: Vector3): (number?, number?)
 		local off = point - origin
 		yaw = Rules.yawOf(off.X, off.Z)
 		local d = Vector3.new(off.X, 0, off.Z).Magnitude
-		elevation = if gun.mg or d <= reachCap() then Rules.layFor(gun, d, off.Y) else nil
+		elevation = if gun.mg or d <= reachCap(s.key) then Rules.layFor(gun, d, off.Y, nil, arc) else nil
 		if not elevation then
 			return nil, nil
 		end
@@ -1721,19 +1721,13 @@ end
 -- Whether the bot's field gun or howitzer laid on world `point` would land there (user 2026-11-03, bots "still firing into
 -- hills"): the shell's path from its muzzle at that lay (Rules.path) cast against the world, soldiers and the gun left
 -- out and the first Config/Bots.Build.Crews `arc.near` studs skipped (its own ground and pit), first coming down within
--- `arc.within` studs of the point; and whether it can lay there at all (in its reach). False, false when it is on no
--- gun. (A machine gun: true, true.)
+-- `arc.within` studs of the point; and whether it can lay there at all (in its reach). The low arc first, then the
+-- lobbed one (user 2026-11-03: the field gun fires over cover; aimAtAs that `arc`). False, false when it is on no gun.
+-- (A machine gun: true, true.)
 local shotParams = RaycastParams.new()
-function Artillery.shotClearAs(model: Model, point: Vector3): (boolean, boolean)
-	local s = stateOfBot(model)
-	if not s then
-		return false, false
-	end
+local function flown(s: State, point: Vector3, arc: string): (boolean, boolean)
 	local gun = s.gun
-	if gun.mg then
-		return true, true
-	end
-	local yaw, elevation = layOn(s, point)
+	local yaw, elevation = layOn(s, point, arc)
 	if not yaw or not elevation then
 		return false, false
 	end
@@ -1774,15 +1768,34 @@ function Artillery.shotClearAs(model: Model, point: Vector3): (boolean, boolean)
 	end
 	return false, true
 end
+function Artillery.shotClearAs(model: Model, point: Vector3): (boolean, boolean, string?)
+	local s = stateOfBot(model)
+	if not s then
+		return false, false, nil
+	end
+	if s.gun.mg then
+		return true, true, nil
+	end
+	local reach = false
+	for _, arc in { "low", "high" } do
+		local clear, can = flown(s, point, arc)
+		reach = reach or can
+		if clear then
+			return true, true, arc
+		end
+	end
+	return false, reach, nil
+end
 
--- The bot's gun laid to land on world `point` (the low arc where it can, else the high). False when it is on no gun or
--- the point is out of its reach or its shell would come down on a spawn (the lay left as it was).
-function Artillery.aimAtAs(model: Model, point: Vector3): boolean
+-- The bot's gun laid to land on world `point` (the low arc where it can, else the high; `arc` "low" or "high": that
+-- one). False when it is on no gun or the point is out of its reach or its shell would come down on a spawn (the lay
+-- left as it was).
+function Artillery.aimAtAs(model: Model, point: Vector3, arc: string?): boolean
 	local s = stateOfBot(model)
 	if not s then
 		return false
 	end
-	local yaw, elevation = layOn(s, point)
+	local yaw, elevation = layOn(s, point, arc)
 	if not yaw or not elevation or onSpawn(s, layTo(yaw, elevation)) then
 		return false
 	end
