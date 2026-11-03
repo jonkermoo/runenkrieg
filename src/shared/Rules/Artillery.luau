@@ -27,11 +27,18 @@ end
 -- to the aim and on past the back, its traverse going on round past 180 (user 2026-11-02: "the artys cant turn fully";
 -- it stopped at the back, as the aim there wrapped round to the other side; unwrapped, its hand wheel never jumps). Elevation goes toward the wanted one,
 -- clamped, at `elevationRate`.
-function Artillery.lay(state: Lay, wantYaw: number, wantElevation: number, gun: any, dt: number): Lay
+function Artillery.lay(
+	state: Lay,
+	wantYaw: number,
+	wantElevation: number,
+	gun: any,
+	dt: number,
+	limits: { number }?
+): Lay
 	local rel = Artillery.wrap(wantYaw - state.yaw)
 	local limit = gun.traverse
-	local elevation =
-		toward(state.elevation, math.clamp(wantElevation, gun.elevation[1], gun.elevation[2]), gun.elevationRate * dt)
+	local lims = limits or gun.elevation
+	local elevation = toward(state.elevation, math.clamp(wantElevation, lims[1], lims[2]), gun.elevationRate * dt)
 	if limit >= 180 then
 		local off = Artillery.wrap(rel - state.traverse)
 		local traverse = toward(state.traverse, state.traverse + off, gun.traverseRate * dt)
@@ -291,9 +298,10 @@ end
 
 -- The gun's elevation (its lay: the shell leaves `aimTilt` over it) that lands on a point `d` studs off flat and `h`
 -- up from its muzzle: the low arc where the gun lays it, else the high one; a machine gun's straight line within its
--- `mg.range`. Nil when out of its reach or its elevation's limits.
-function Artillery.layFor(gun: any, d: number, h: number): number?
-	local lo, hi, tilt = gun.elevation[1], gun.elevation[2], gun.aimTilt or 0
+-- `mg.range`. Nil when out of its reach or its elevation's limits (`limits`: Artillery.capped's, else its own).
+function Artillery.layFor(gun: any, d: number, h: number, limits: { number }?): number?
+	local lims = limits or gun.elevation
+	local lo, hi, tilt = lims[1], lims[2], gun.aimTilt or 0
 	if gun.mg then
 		if math.sqrt(d * d + h * h) > gun.mg.range then
 			return nil
@@ -309,6 +317,46 @@ function Artillery.layFor(gun: any, d: number, h: number): number?
 		end
 	end
 	return nil
+end
+
+-- How far apart a map's sectors stand: the mean distance between neighbours along its chain (flat; 0 for fewer than
+-- two)
+function Artillery.sectorSpan(sectors: { { x: number, z: number } }): number
+	if #sectors < 2 then
+		return 0
+	end
+	local sum = 0
+	for i = 2, #sectors do
+		local a, b = sectors[i - 1], sectors[i]
+		sum += math.sqrt((b.x - a.x) ^ 2 + (b.z - a.z) ^ 2)
+	end
+	return sum / (#sectors - 1)
+end
+
+-- The farthest a field gun's or howitzer's shell may land (Config/Artillery.Reach): `cfg.sectors` sector spans plus
+-- `cfg.margin` studs
+function Artillery.reachCap(span: number, cfg: { sectors: number, margin: number }): number
+	return span * cfg.sectors + cfg.margin
+end
+
+-- The gun's elevation limits that keep its shell within `cap` studs on flat ground (Config/Artillery.Reach; user
+-- 2026-11-03: "cannot be shot over a sector away"): a low-arc gun stops raising at the elevation that lands at `cap`,
+-- a high-arc one (the howitzer, 45 degrees and up) stops lowering there. A machine gun's own limits.
+function Artillery.capped(gun: any, cap: number): { number }
+	local lo, hi = gun.elevation[1], gun.elevation[2]
+	if gun.mg then
+		return { lo, hi }
+	end
+	local tilt = gun.aimTilt or 0
+	local most = gun.speed * gun.speed / gun.gravity -- (its reach at 45 degrees)
+	if cap >= most then
+		return { lo, hi }
+	end
+	local low = math.deg(math.asin(math.max(cap, 0) / most)) / 2 -- (the low-arc launch that lands at `cap`)
+	if lo + tilt >= 45 then
+		return { math.min(math.max(lo, 90 - low - tilt), hi), hi }
+	end
+	return { lo, math.max(math.min(hi, low - tilt), lo) }
 end
 
 -- Whether the gun's lay has come to within `tol` degrees of the wanted world yaw and elevation.

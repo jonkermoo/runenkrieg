@@ -112,6 +112,11 @@ local function now(): number
 	return workspace:GetServerTimeNow()
 end
 
+-- A gun's elevation limits on the live map (Config/Artillery.Reach: no shell past a sector away; a machine gun's own)
+local function limitsOf(gun: Cfg.Gun): { number }
+	return Rules.capped(gun, Rules.reachCap(Rules.sectorSpan(Map1.sectors), Cfg.Reach))
+end
+
 local function folder(): Folder
 	local f = workspace:FindFirstChild(Cfg.Folder)
 	if not f then
@@ -1054,7 +1059,9 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 	end
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
-	local low = math.max(gun.elevation[1], 0) -- the lowest it lays (a mortar never lies flat)
+	local lims = limitsOf(gun)
+	-- the lowest it lays (a mortar never lies flat), within its reach
+	local low = math.clamp(math.max(gun.elevation[1], 0), lims[1], lims[2])
 	model:SetAttribute("Elevation", low)
 	model:SetAttribute("HP", gun.hp)
 	model:SetAttribute("Stage", 0)
@@ -1524,7 +1531,7 @@ local function stateOfBot(model: Model): State?
 end
 
 -- The world yaw and the elevation that put `s`'s shot on `point` (Rules.layFor, from its muzzle where that lay puts
--- it); nil when out of its reach, or for a machine gun past its stops.
+-- it, within limitsOf); nil when out of its reach, or for a machine gun past its stops.
 local function layOn(s: State, point: Vector3): (number?, number?)
 	local gun = s.gun
 	local at = s.model:GetPivot().Position
@@ -1534,7 +1541,7 @@ local function layOn(s: State, point: Vector3): (number?, number?)
 	for _ = 1, 2 do
 		local off = point - origin
 		yaw = Rules.yawOf(off.X, off.Z)
-		elevation = Rules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y)
+		elevation = Rules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y, limitsOf(gun))
 		if not elevation then
 			return nil, nil
 		end
@@ -1645,7 +1652,8 @@ function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
 	if gun.mg then
 		yaw, elevation = Rules.mgLay(yaw, elevation, s.lay.yaw, 0, 0, gun)
 	end
-	s.want = { yaw = Rules.wrap(yaw), elevation = math.clamp(elevation, gun.elevation[1], gun.elevation[2]) }
+	local lims = limitsOf(gun)
+	s.want = { yaw = Rules.wrap(yaw), elevation = math.clamp(elevation, lims[1], lims[2]) }
 	return true
 end
 
@@ -1763,7 +1771,7 @@ function Artillery.start()
 			if not s.gunner and not s.bot then
 				continue
 			end
-			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt)
+			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt, limitsOf(s.gun))
 			if t - s.sent < 1 / Cfg.Send then
 				continue
 			end

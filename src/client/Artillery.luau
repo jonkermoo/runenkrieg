@@ -45,6 +45,7 @@ local TreeSway = require(Shared.Config.TreeSway)
 local Damage = require(Shared.Config.Damage)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
+local LiveMap = require(Shared.LiveMap)
 local Grenade = require(Shared.Rules.Grenade)
 local ShotRules = require(Shared.Rules.ShotAudio)
 local Net = require(Shared.Net)
@@ -831,6 +832,12 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	end
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
 	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
+	if Players.LocalPlayer:GetAttribute("DevTools") == true and not gun.mg then
+		-- the admin's readout (Config/Artillery.Reach): this lay's flat range and the reach cap, in studs
+		local cap = Rules.reachCap(Rules.sectorSpan(LiveMap.map.sectors), Cfg.Reach)
+		local reach = Rules.range(gun.speed, p.elevation + (gun.aimTilt or 0), gun.gravity)
+		label.Text ..= ` · {math.round(reach)} / cap {math.round(cap)} studs`
+	end
 end
 
 -- a bot on a gun, posed here as its gunner's own client would (no client owns a bot): the bot's character, the lay it
@@ -1230,7 +1237,9 @@ function Artillery.start()
 			wantYaw, wantElevation = Rules.mgLay(wantYaw, wantElevation, math.deg(pivotYaw), delta.X, delta.Y, gun)
 		else
 			wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
-			wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, gun.elevation[1], gun.elevation[2])
+			-- (within its reach on this map: Config/Artillery.Reach, no shell past a sector away)
+			local lims = Rules.capped(gun, Rules.reachCap(Rules.sectorSpan(LiveMap.map.sectors), Cfg.Reach))
+			wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, lims[1], lims[2])
 		end
 
 		-- the aim, sent at most Aim.rate a second when it changed
