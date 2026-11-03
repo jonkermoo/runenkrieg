@@ -10,7 +10,10 @@
 -- (src/server/TestShooter), undo destruction (src/server/DevWorld) and the clock (src/server/Environment: set the time,
 -- pause the day cycle; start fog / rain / clear sky now, the random weather off / on), the server's game mode
 -- (src/server/Modes), the FFA match (src/server/ZoneMatch: end, restart, skip the zone, more time, score), match points
--- and a class pinned every life (src/server/Loadouts), building anything, unlimited ammo, everyone respawned.
+-- and a class pinned every life (src/server/Loadouts), building anything, unlimited ammo, everyone respawned; the
+-- Normal match's sectors (src/server/Frontline: a side takes one, or its next one) and the bot tests (src/server/Bots.dev:
+-- the state labels, a barrage on a side's trenches, a push, a butt stroke or a gun at the aim point, the bots' dig
+-- speed, a free Engineer).
 -- DevTools.teleport(player, id) is also used directly by tests/demos.
 
 local Players = game:GetService("Players")
@@ -20,6 +23,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Armory = require(script.Parent.Armory)
 local Artillery = require(script.Parent.Artillery)
+local Bots = require(script.Parent.Bots)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
 local Build = require(script.Parent.Build)
@@ -165,6 +169,9 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		if away.Magnitude < 1e-3 then
 			away = Vector3.new(0, 0, -1)
 		end
+		if value == "Dugout" then
+			away = -away -- (dug into the wall aimed at, its steps coming out to you)
+		end
 		local refused = Build.devPlace(player, value, CFrame.lookAt(aim, aim + away))
 		if refused then
 			-- (shown on the admin panel's button, src/client/DevBlastMenu)
@@ -250,6 +257,22 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(BotsCfg.Attribute, nil)
 	elseif action == "BotDifficulty" then
 		workspace:SetAttribute(BotsCfg.DifficultyAttribute, value)
+	elseif action == "BotState" then
+		workspace:SetAttribute(Cfg.Admin.BotState.attribute, if value then true else nil)
+	elseif action == "FreeEngineer" then
+		workspace:SetAttribute(Cfg.Admin.FreeEngineerAttribute, if value then true else nil)
+	elseif action == "FreeGrenadier" then
+		workspace:SetAttribute(Cfg.Admin.FreeGrenadierAttribute, if value then true else nil)
+	elseif action == "BotDig" then
+		workspace:SetAttribute(Cfg.Admin.BotDig.attribute, if value == 1 then nil else value)
+	elseif action == "BotShell" or action == "BotPush" or action == "BotStrike" or action == "BotGun" then
+		-- (why not, or what was done, shown on the button: src/client/DevBlastMenu, DevAdminMenu)
+		local why, done = Bots.dev(string.sub(action, 4), if action == "BotShell" then value else aim)
+		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", action, why or done)
+	elseif action == "FrontPush" then
+		Frontline.push(value)
+	elseif action == "FrontCapture" then
+		Frontline.capture(value.side, value.index)
 	elseif action == "Points" then
 		Loadouts.grant(player, value)
 	elseif action == "Class" then

@@ -5,7 +5,16 @@
 local DevActions = {}
 
 -- actions that act at the aim point (the middle of the player's screen)
-DevActions.Aimed = table.freeze({ BlastStage = true, BlastKg = true, Dummy = true, PlaceGun = true, PlacePiece = true })
+DevActions.Aimed = table.freeze({
+	BlastStage = true,
+	BlastKg = true,
+	Dummy = true,
+	PlaceGun = true,
+	PlacePiece = true,
+	BotPush = true,
+	BotStrike = true,
+	BotGun = true,
+})
 
 -- actions with no value (or a plain on/off)
 local PLAIN = table.freeze({
@@ -25,6 +34,9 @@ local PLAIN = table.freeze({
 	RespawnAll = true,
 	FrontTake = true,
 	FrontStart = true,
+	BotPush = true,
+	BotStrike = true,
+	BotGun = true,
 	RebuildMaps = true,
 })
 local SWITCHES = table.freeze({
@@ -37,6 +49,9 @@ local SWITCHES = table.freeze({
 	Ammo = true,
 	KeptTeams = true,
 	Sectors = true,
+	BotState = true,
+	FreeEngineer = true,
+	FreeGrenadier = true,
 })
 
 local function finite(n: any): boolean
@@ -78,6 +93,17 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Admin.BotCounts, value) ~= nil
 	elseif action == "BotDifficulty" then
 		return table.find(cfg.Admin.BotDifficulties, value) ~= nil
+	elseif action == "BotDig" then
+		return table.find(cfg.Admin.BotDig.steps, value) ~= nil
+	elseif action == "BotShell" or action == "FrontPush" then
+		return table.find(cfg.Admin.Sides, value) ~= nil
+	elseif action == "FrontCapture" then
+		return type(value) == "table"
+			and table.find(cfg.Admin.Sides, value.side) ~= nil
+			and type(value.index) == "number"
+			and value.index == math.floor(value.index)
+			and value.index >= 1
+			and value.index <= cfg.Admin.MaxSectors
 	elseif action == "ZoneScore" then
 		return table.find(cfg.Admin.ZoneScore, value) ~= nil
 	elseif action == "Points" then
@@ -142,6 +168,44 @@ function DevActions.readout(amount: number, knock: string?, left: number): strin
 	local mid = if knock then ` {knock}` else ""
 	local tail = if left <= 0 then "dead" else tostring(math.round(left))
 	return `{head}{mid} -> {tail}`
+end
+
+export type BotState = {
+	order: string?,
+	sector: number?,
+	phase: string?,
+	role: string?,
+	post: string?,
+	act: string?,
+	gun: string?,
+	danger: boolean?,
+}
+
+-- The admin panel's label over a bot (Config/DevTools.Admin.BotState): "Attack S3 · Bound/Assault" over
+-- "step · Build · gun field gun · DANGER"; a missing part is left out ("-" for a missing first line).
+function DevActions.botLabel(s: BotState): string
+	local top = {}
+	if s.order then
+		table.insert(top, if s.sector then `{s.order} S{s.sector}` else s.order)
+	end
+	if s.phase or s.role then
+		table.insert(top, `{s.phase or "?"}/{s.role or "?"}`)
+	end
+	local bottom = {}
+	if s.post then
+		table.insert(bottom, s.post)
+	end
+	if s.act then
+		table.insert(bottom, s.act)
+	end
+	if s.gun then
+		table.insert(bottom, `gun {s.gun}`)
+	end
+	if s.danger then
+		table.insert(bottom, "DANGER")
+	end
+	local first = if #top > 0 then table.concat(top, " · ") else "-"
+	return if #bottom > 0 then `{first}\n{table.concat(bottom, " · ")}` else first
 end
 
 -- The display name of a dummy kit ("Grey"), or nil.

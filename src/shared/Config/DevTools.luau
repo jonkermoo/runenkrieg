@@ -213,6 +213,35 @@ local DevTools = {
 		-- (Config/Bots.Difficulty keys)
 		BotCounts = { 0, 2, 5, 10, 20, 30, 39 },
 		BotDifficulties = { "Easy", "Medium", "Hard" },
+		-- bot test rows (user 2026-11-02: "always add additional admin panel settings as we go throughout";
+		-- src/server/Bots.dev, Normal only):
+		-- - BotState: a label over each bot (its order and sector, squad phase and role, post, act, gun, danger), set on
+		--   the bot's model as `label` once a commander tick while Workspace has `attribute` (src/client/DevBotLabels)
+		BotState = {
+			attribute = "DevBotState",
+			label = "DevBotLabel",
+			height = 4.2, -- studs over the head
+			range = 180, -- studs it is seen within
+			width = 300,
+			tall = 44,
+			size = 13,
+		},
+		-- - BotDig: the bots' shovel swings work this many times a normal one (src/server/Build), on Workspace while not 1
+		BotDig = { attribute = "DevBotDig", steps = { 1, 3, 10 } },
+		-- - FreeEngineer / FreeGrenadier: bots pick Engineer (gun duty, dugout duty) / Grenadier (the push's grenade,
+		--   bombing out dugouts) without the points, on Workspace while on
+		FreeEngineerAttribute = "DevFreeEngineer",
+		FreeGrenadierAttribute = "DevFreeGrenadier",
+		-- - Shell: `count` blasts of `kg` near a side's dug trench squares, `every` seconds apart, within `spread` studs
+		--   (dugout sheltering under shelling)
+		Shell = { count = 8, kg = 2, every = 0.4, spread = 6 },
+		Sides = { "West", "East" },
+		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier
+		--   throwing first); the nearest bot butt-strokes toward it; the nearest free gun goes to the nearest bot
+		BotNear = 80,
+		PushSeconds = 20,
+		-- - Capture: the most sectors a map has (the capture rows; the server checks the live map's)
+		MaxSectors = 9,
 		-- "Loadout" rows (src/server/Loadouts): give yourself these match points, or be one class every life (any class,
 		-- locked or not, free; `Normal` goes back to your picks), on the Player as `ClassAttribute`
 		Points = { 50, 200 },
@@ -283,8 +312,9 @@ local DevTools = {
 		-- button removing them all (user 2026-10-20: dev-placed until the build system)
 		Guns = { "artillery_qf18", "artillery_howitzer" },
 		-- Config/Build pieces placed finished at the aim point, facing away from you, for your team (Build.devPlace;
-		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn")
-		Pieces = { "MGNest" },
+		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn"); a dugout into the trench wall aimed at,
+		-- facing you in the trench (the bot tests: sheltering, bombing one out)
+		Pieces = { "MGNest", "Dugout" },
 		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
 		RefusedSeconds = 3,
 	},
