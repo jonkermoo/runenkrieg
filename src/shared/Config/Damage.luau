@@ -66,7 +66,8 @@ local Damage = {
 		Knock = { "Limb", "Torso", "StaffThrow" }, -- alive; killed: the Killed knock below
 		Killed = { "TorsoDrop", "TorsoDrop", "StaffThrow" },
 		-- where a stage's beam lands: a blast (Blast below) of this many kg of TNT; 0 = no blast (user: "it should
-		-- destroy the map on a full beam")
+		-- destroy the map on a full beam"), only its Config/Build.Structures and Config/Artillery.Hits `staff<stage>` hit
+		-- on the built things and guns there
 		Charge = { 0, 0.5, 10 },
 		-- what each stage's blast does (user 2026-10-17: "a stage 2 should be capable of causing tree recoil and breaking
 		-- surrounding glass, but not destroy a building part (maybe damage it)"): `soldiers` hurt and knocked by it

@@ -6,7 +6,8 @@
 --   (src/server/Ragdoll).
 -- - Damage.staff: a staff shot (src/server/StaffCast): a sphere cast as wide as the beam, as long as the stage's range,
 --   from the caster's head toward its aim; the stage's damage and knock, no zones, no falloff; where it lands, the
---   stage's blast (Damage.staffBlast: stage 2 a light one for the map only, the full beam a big one).
+--   stage's blast (Damage.staffBlast: stage 1 none, only a small hit on built things and guns, Config/Build.Structures
+--   and Config/Artillery.Hits staff1; stage 2 a light one for the map only, the full beam a big one).
 -- - Damage.blast: a real-scaled blast (Rules/Blast): soldiers hurt and knocked by the overpressure at their torso, map
 --   sections by their class (src/server/Destruction.blast), trees by their HP (src/server/Trees), a crater with a rim
 --   and churned earth round it.
@@ -326,10 +327,18 @@ end
 function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts?)
 	attacks(by)
 	local B = Cfg.Blast
-	if kg <= 0 then
+	local o: BlastOpts = opts or {}
+	local charged, built = Blast.reaches(kg, o.structure)
+	if not charged then
+		-- no charge (the staff's stage 1 beam): only its named hit on built things and guns where it lands
+		if built then
+			Build.blast(position, kg, o.structure)
+			for _, watch in watchers do
+				watch(position, kg, o.structure)
+			end
+		end
 		return
 	end
-	local o: BlastOpts = opts or {}
 	local t0 = os.clock()
 	local tb = t0
 	-- (each part's time: the hitch log, src/shared/Hitches)
