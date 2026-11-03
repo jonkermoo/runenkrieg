@@ -15,6 +15,9 @@ local Metrics = require(Shared.Config.Metrics)
 local Loco = require(Shared.Config.Locomotion)
 local Rules = require(Shared.Rules.BotCrew)
 local Artillery = require(script.Parent.Parent.Artillery)
+local Build = require(script.Parent.Parent.Build)
+local Damage = require(script.Parent.Parent.Damage)
+local DevCfg = require(Shared.Config.DevTools).Admin.Captured
 
 local Crew = {}
 
@@ -52,6 +55,14 @@ local targets: { [string]: { groups: { Vector3 }, fallback: Vector3? } } = {}
 local random = Random.new()
 -- this report's counts
 local stats = { shells = 0, bursts = 0, held = 0, kicked = 0, given = 0, gaveUp = 0, blocked = 0, blinded = 0 }
+-- Guns the enemy built on ground a side now holds (Config/Bots.Crew `captured`, Rules.captured): each one's verdict
+-- ("use", "wreck" or "ignore"), when it was given, the side it is for and the Build work it stands in; and each side's
+-- wreck jobs by that work's model
+type Verdict = { verdict: string, at: number, side: string, work: Build.Work }
+local verdicts: { [Model]: Verdict } = setmetatable({}, { __mode = "k" }) :: any
+local wreckJobs: { [string]: { [Model]: any } } = { West = {}, East = {} }
+local sightParams = RaycastParams.new()
+
 -- guns given no gunner until then: every shot they could lay stopped short (Config/Bots.Crew `blind`)
 local blindUntil: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 -- the guns' list once a frame (Artillery.list, no point)
@@ -309,6 +320,7 @@ function Crew.command(side: string, owner: { string }, known: { Vector3 }, fallb
 			and not g.broken
 			and not taken[g.model]
 			and now >= (blindUntil[g.model] or 0)
+			and (not verdicts[g.model] or verdicts[g.model].verdict == "use") -- (a captured gun: only one worth it)
 			and g.model.Parent ~= nil
 			and ownerAt(g.crew, owner) == side
 		then
@@ -362,6 +374,144 @@ function Crew.command(side: string, owner: { string }, known: { Vector3 }, fallb
 		table.insert(groups, Vector3.new(grp.x, y, grp.z))
 	end
 	targets[side] = { groups = groups, fallback = fallback }
+end
+
+-- Admin.Captured: a label over each captured gun with its verdict, while Workspace has the switch on
+local function showVerdicts()
+	local folder = workspace:FindFirstChild(DevCfg.folder)
+	if folder then
+		folder:Destroy()
+	end
+	if workspace:GetAttribute(DevCfg.attribute) ~= true then
+		return
+	end
+	local made = Instance.new("Folder")
+	made.Name = DevCfg.folder
+	for model, v in verdicts do
+		if model.Parent then
+			local gui = Instance.new("BillboardGui")
+			gui.Size = UDim2.fromOffset(DevCfg.width, DevCfg.tall)
+			gui.StudsOffsetWorldSpace = Vector3.new(0, DevCfg.height, 0)
+			gui.AlwaysOnTop = true
+			gui.MaxDistance = DevCfg.range
+			gui.Adornee = model.PrimaryPart
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.fromScale(1, 1)
+			label.BackgroundTransparency = 0.4
+			label.BackgroundColor3 = Color3.new(0, 0, 0)
+			label.TextColor3 = Color3.new(1, 1, 1)
+			label.TextSize = DevCfg.size
+			label.Text = v.side .. " captured: " .. v.verdict
+			label.Parent = gui
+			gui.Parent = made
+		end
+	end
+	made.Parent = workspace
+end
+
+-- `side`'s commander tick: every gun the enemy built on ground it holds looked at again (each `captured.every` s): its
+-- shot toward `target` (the enemy sector it shells) flown (`fly`: a field gun's or howitzer's, low or lobbed; an MG's
+-- line along its sight), and its verdict given (Rules.captured)
+function Crew.judge(
+	side: string,
+	owner: { string },
+	target: Vector3?,
+	fly: (gun: any, key: string, at: Vector3, target: Vector3, arc: string) -> boolean
+)
+	local K = C.captured
+	local now = os.clock()
+	local front = workspace:FindFirstChild(FrontCfg.FolderName)
+	local kit = front and front:GetAttribute(side)
+	for model, v in verdicts do
+		if v.side == side and (now - v.at >= K.every or not model.Parent) then
+			verdicts[model] = nil -- (looked at again below while it still stands on the side's ground)
+		end
+	end
+	if type(kit) ~= "string" or not target then
+		return
+	end
+	local works = Build.worksOf(nil)
+	for _, g in Artillery.list() do
+		local at = g.model:GetPivot().Position
+		local v = verdicts[g.model]
+		if ownerAt(g.crew, owner) ~= side then
+			if v and v.side == side then
+				verdicts[g.model] = nil
+			end
+			continue
+		end
+		-- its builder: the gun's or nest's work standing at it
+		local work, best = nil, 12
+		for _, w in works do
+			if (w.kind == "Gun" or w.kind == "Nest") and w.built then
+				local d = flat(w.at - at).Magnitude
+				if d < best then
+					work, best = w, d
+				end
+			end
+		end
+		if not work or work.team == kit then
+			continue
+		end
+		if v and v.side == side then
+			v.work = work
+			continue
+		end
+		local gun = ArtCfg.Guns[g.key]
+		local clear: boolean
+		if g.mg then
+			local eye = at + Vector3.new(0, K.eye, 0)
+			local dir = Vector3.new(target.X - eye.X, 0, target.Z - eye.Z)
+			local skip: { Instance } = { g.model, work.model }
+			for _, m in Damage.soldiers() do
+				table.insert(skip, m)
+			end
+			sightParams.FilterDescendantsInstances = skip
+			clear = dir.Magnitude > 1 and workspace:Raycast(eye, dir.Unit * K.sight, sightParams) == nil
+		else
+			clear = fly(gun, g.key, at, target, "low") or fly(gun, g.key, at, target, "high")
+		end
+		local hp = g.model:GetAttribute("HP")
+		local swings = math.ceil((if type(hp) == "number" then hp else gun.hp) / (gun.hp / gun.repair))
+		verdicts[g.model] = { verdict = Rules.captured(g.mg, clear, swings, K), at = now, side = side, work = work }
+	end
+	showVerdicts()
+end
+
+-- `side`'s wreck jobs this tick on `sb.open` (Commander, after its build list): each captured MG nest it judged
+-- "wreck", Destroy swings at its work until it is gone (an Engineer's job: src/server/Bots/Act)
+function Crew.wrecks(side: string, sb: any)
+	local keep = {}
+	if sb then
+		for _, v in verdicts do
+			local w = v.work
+			if v.side == side and v.verdict == "wreck" and w.model.Parent then
+				local r = wreckJobs[side][w.model]
+				if not r then
+					local job = { key = "Wreck", x = w.at.X, z = w.at.Z, fx = 0, fz = 1, work = true }
+					r = {
+						job = job,
+						base = job,
+						model = w.model,
+						at = w.at,
+						tries = 0,
+						waitUntil = 0,
+						left = 1,
+						open = true,
+					}
+				end
+				r.open = true
+				keep[w.model] = r
+				table.insert(sb.open, r)
+			end
+		end
+	end
+	for model, r in wreckJobs[side] do
+		if not keep[model] then
+			r.open = false
+		end
+	end
+	wreckJobs[side] = keep
 end
 
 -- The report's piece: gunners on guns and walking to them, and what they did since the last

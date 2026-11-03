@@ -783,6 +783,12 @@ local Bots = {
 		-- A gunner whose every target in reach was blocked `looks` looks in a row leaves the gun, given no gunner for
 		-- `wait` s.
 		blind = { tries = 3, looks = 3, wait = 90 },
+		-- A gun the enemy built on ground the side now holds (Rules/BotCrew.captured): looked at every `every` s; an MG
+		-- nest's shot is clear when nothing stands within `sight` studs along its line toward the enemy (its sight
+		-- `eye` studs over its pivot), a field gun's or howitzer's when its flown shot (low or lobbed) lands on the
+		-- enemy's sector; a blocked MG nest is wrecked by an Engineer if it takes at most `wreckSwings` Destroy swings.
+		-- Config/DevTools.Admin.Captured labels each with its verdict.
+		captured = { every = 10, sight = 60, eye = 1.7, wreckSwings = 12 },
 	},
 
 	-- the server's log line (cost and how the fights go) every this many seconds while bots are on; 0 none

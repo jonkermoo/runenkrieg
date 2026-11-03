@@ -855,11 +855,12 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		r.model, r.at, r.left = w.model, w.at, w.left
 		return true
 	end
-	local mode = if job.key == "Tree" then "Destroy" else "Build" -- (a tree is chopped)
+	-- (a tree is chopped, a captured enemy MG nest wrecked: src/server/Bots/Crew)
+	local mode = if job.key == "Tree" or job.key == "Wreck" then "Destroy" else "Build"
 	if swingDue(act, r.model :: Model, mode, now) then
 		local reason = if job.key == "Tree"
 			then Tactics.fell.chop(m, b.id, b.side :: string, r)
-			else Build.workAs(m, r.model :: Model, "Build")
+			else Build.workAs(m, r.model :: Model, mode)
 		if reason == nil and job.key == "Foxhole" then
 			-- one swing digs it: into it (pinned: its cover; holding: its post, facing the enemy)
 			stats.swings += 1

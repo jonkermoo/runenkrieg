@@ -45,6 +45,13 @@ return {
 		assert(#order == 4 and order[1] == 2 and order[2] == 5 and order[3] == 3 and order[4] == 1)
 		assert(fix[2] and fix[5] and not fix[3] and not fix[1] and not fix[4] and not fix[6])
 	end,
+	["captured: used when its shot is clear, a blocked MG nest wrecked if cheap, the rest left alone"] = function()
+		local K = C.captured
+		assert(R.captured(true, true, 5, K) == "use" and R.captured(false, true, 99, K) == "use")
+		assert(R.captured(true, false, K.wreckSwings, K) == "wreck")
+		assert(R.captured(true, false, K.wreckSwings + 1, K) == "ignore", "too dear to wreck")
+		assert(R.captured(false, false, 1, K) == "ignore", "a blind field gun or howitzer is left alone")
+	end,
 	["sectorAt: the nearest sector's index"] = function()
 		local sectors = { { x = 0, z = 0 }, { x = 400, z = 0 }, { x = 800, z = 30 } }
 		assert(
