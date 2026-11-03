@@ -339,24 +339,25 @@ function Artillery.reachCap(span: number, cfg: { sectors: number, margin: number
 	return span * cfg.sectors + cfg.margin
 end
 
--- The gun's elevation limits that keep its shell within `cap` studs on flat ground (Config/Artillery.Reach; user
--- 2026-11-03: "cannot be shot over a sector away"): a low-arc gun stops raising at the elevation that lands at `cap`,
--- a high-arc one (the howitzer, 45 degrees and up) stops lowering there. A machine gun's own limits.
-function Artillery.capped(gun: any, cap: number): { number }
+-- The gun's elevation limits that keep its shell within `cap` studs (Config/Artillery.Reach; user 2026-11-03: "cannot
+-- be shot over a sector away"), where the ground `cap` studs out along its lay is `h` studs above its muzzle (nil:
+-- level): a low-arc gun stops raising at the lay that comes down there, a high-arc one (the howitzer, 45 degrees and
+-- up) stops lowering there. No limit while it can't reach that far at all; a machine gun's own limits.
+function Artillery.capped(gun: any, cap: number, h: number?): { number }
 	local lo, hi = gun.elevation[1], gun.elevation[2]
 	if gun.mg then
 		return { lo, hi }
 	end
 	local tilt = gun.aimTilt or 0
-	local most = gun.speed * gun.speed / gun.gravity -- (its reach at 45 degrees)
-	if cap >= most then
+	local high = lo + tilt >= 45
+	local launch = Artillery.solve(gun.speed, gun.gravity, math.max(cap, 1e-3), h or 0, high)
+	if not launch then
 		return { lo, hi }
 	end
-	local low = math.deg(math.asin(math.max(cap, 0) / most)) / 2 -- (the low-arc launch that lands at `cap`)
-	if lo + tilt >= 45 then
-		return { math.min(math.max(lo, 90 - low - tilt), hi), hi }
+	if high then
+		return { math.min(math.max(lo, launch - tilt), hi), hi }
 	end
-	return { lo, math.max(math.min(hi, low - tilt), lo) }
+	return { lo, math.max(math.min(hi, launch - tilt), lo) }
 end
 
 -- Whether the gun's lay has come to within `tol` degrees of the wanted world yaw and elevation.

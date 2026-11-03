@@ -833,10 +833,10 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
 	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
 	if Players.LocalPlayer:GetAttribute("DevTools") == true and not gun.mg then
-		-- the admin's readout (Config/Artillery.Reach): this lay's flat range and the reach cap, in studs
+		-- the admin's readout (Config/Artillery.Reach): where this lay comes down, flat from the muzzle, and the reach
+		-- cap, in studs
 		local cap = Rules.reachCap(Rules.sectorSpan(LiveMap.map.sectors), Cfg.Reach)
-		local reach = Rules.range(gun.speed, p.elevation + (gun.aimTilt or 0), gun.gravity)
-		label.Text ..= ` · {math.round(reach)} / cap {math.round(cap)} studs`
+		label.Text ..= ` · {math.round(flat)} / cap {math.round(cap)} studs`
 	end
 end
 
@@ -1237,8 +1237,19 @@ function Artillery.start()
 			wantYaw, wantElevation = Rules.mgLay(wantYaw, wantElevation, math.deg(pivotYaw), delta.X, delta.Y, gun)
 		else
 			wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
-			-- (within its reach on this map: Config/Artillery.Reach, no shell past a sector away)
-			local lims = Rules.capped(gun, Rules.reachCap(Rules.sectorSpan(LiveMap.map.sectors), Cfg.Reach))
+			-- (within its reach on this map: Config/Artillery.Reach, no shell past a sector away, on the ground that far
+			-- out along its lay as far as it is streamed in here; the server holds it there too)
+			local cap = Rules.reachCap(Rules.sectorSpan(LiveMap.map.sectors), Cfg.Reach)
+			local pivot = model:GetPivot()
+			local mx, my, mz, dx, _, dz = Rules.muzzle(gun, p.traverse, p.elevation)
+			local muzzle = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
+			local dir = pivot:VectorToWorldSpace(Vector3.new(dx, 0, dz))
+			local out = muzzle + (if dir.Magnitude > 1e-3 then dir.Unit else Vector3.zero) * cap
+			local ground = RaycastParams.new()
+			ground.FilterType = Enum.RaycastFilterType.Include
+			ground.FilterDescendantsInstances = { workspace.Terrain }
+			local hit = workspace:Raycast(Vector3.new(out.X, muzzle.Y + 600, out.Z), Vector3.new(0, -1500, 0), ground)
+			local lims = Rules.capped(gun, cap, if hit then hit.Position.Y - muzzle.Y else nil)
 			wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, lims[1], lims[2])
 		end
 

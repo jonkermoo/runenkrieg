@@ -655,6 +655,16 @@ return {
 			assert(q[1] == QF.elevation[1] and q[2] < 0, "the field gun stops low on its dial")
 			assert(A.capped(HOW, cap)[1] > 55, "the howitzer stops high")
 		end
+		-- ground lower out there (a gun on a hill firing into a valley): it stops lower, its shell coming down at the
+		-- cap on that ground; higher ground: it may raise further
+		local cap = 500
+		local flat, down, up = A.capped(QF, cap), A.capped(QF, cap, -15), A.capped(QF, cap, 30)
+		assert(down[2] < flat[2] and up[2] > flat[2])
+		local launch = down[2] + QF.aimTilt
+		local vx, vy = QF.speed * math.cos(math.rad(launch)), QF.speed * math.sin(math.rad(launch))
+		local t = cap / vx
+		assert(near(vy * t - QF.gravity * t * t / 2, -15, 1e-3), "it comes down on that ground at the cap")
+		assert(A.capped(HOW, cap, -40)[1] > A.capped(HOW, cap)[1], "the howitzer stops higher over lower ground")
 		-- the lay stops at the limits, a machine gun keeps its own
 		local lims = { -5, -2.5 }
 		local lay = A.lay({ yaw = 0, traverse = 0, elevation = -3 }, 0, 16, QF, 10, lims)

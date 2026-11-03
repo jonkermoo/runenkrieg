@@ -91,6 +91,7 @@ type State = {
 	-- the ground it stands on (Artillery.onGround): its pivot as placed and the box under it (x, z in gun space)
 	ground: { at: CFrame, lo: { number }, hi: { number } },
 	pit: Model?, -- its pit's slabs
+	capAt: { yaw: number, at: number, lims: { number } }?, -- its elevation limits along its lay lately (limitsOf)
 	-- a machine gun (Config/Artillery.Guns `mg`): its fire held down, its heat (Rules.mgHeat), when its next shot is
 	-- due (a fresh pull not yet fired: `pull`), and a box reload under way
 	trigger: boolean,
@@ -112,9 +113,9 @@ local function now(): number
 	return workspace:GetServerTimeNow()
 end
 
--- A gun's elevation limits on the live map (Config/Artillery.Reach: no shell past a sector away; a machine gun's own)
-local function limitsOf(gun: Cfg.Gun): { number }
-	return Rules.capped(gun, Rules.reachCap(Rules.sectorSpan(Map1.sectors), Cfg.Reach))
+-- How far a field gun or howitzer reaches on the live map (Config/Artillery.Reach: no shell past a sector away)
+local function reachCap(): number
+	return Rules.reachCap(Rules.sectorSpan(Map1.sectors), Cfg.Reach)
 end
 
 local function folder(): Folder
@@ -1059,8 +1060,8 @@ function Artillery.place(key: string, at: Vector3, look: Vector3, opts: { paint:
 	end
 	model:SetAttribute("Gun", key)
 	model:SetAttribute("Traverse", 0)
-	local lims = limitsOf(gun)
-	-- the lowest it lays (a mortar never lies flat), within its reach
+	local lims = Rules.capped(gun, reachCap())
+	-- the lowest it lays (a mortar never lies flat), within its reach (on level ground)
 	local low = math.clamp(math.max(gun.elevation[1], 0), lims[1], lims[2])
 	model:SetAttribute("Elevation", low)
 	model:SetAttribute("HP", gun.hp)
@@ -1530,8 +1531,40 @@ local function stateOfBot(model: Model): State?
 	return nil
 end
 
+-- `s`'s elevation limits now (Rules.capped): its shell no farther than reachCap() on the ground that far out along its
+-- lay (one terrain ray, cast again once it has turned a degree or a second has passed); a machine gun's own
+local capGround = RaycastParams.new()
+capGround.FilterType = Enum.RaycastFilterType.Include
+local function limitsOf(s: State): { number }
+	local gun = s.gun
+	if gun.mg then
+		return gun.elevation
+	end
+	local pivot = s.model:GetPivot()
+	local mx, my, mz, dx, _, dz = Rules.muzzle(gun, s.lay.traverse, s.lay.elevation)
+	local dir = pivot:VectorToWorldSpace(Vector3.new(dx, 0, dz))
+	if dir.Magnitude < 1e-3 then
+		return Rules.capped(gun, reachCap())
+	end
+	local yaw = math.deg(math.atan2(dir.X, dir.Z))
+	local c = s.capAt
+	local t = now()
+	if c and math.abs(Rules.wrap(c.yaw - yaw)) < 1 and t - c.at < 1 then
+		return c.lims
+	end
+	local cap = reachCap()
+	local muzzle = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
+	local out = muzzle + dir.Unit * cap
+	capGround.FilterDescendantsInstances = { workspace.Terrain }
+	local hit = workspace:Raycast(Vector3.new(out.X, muzzle.Y + 600, out.Z), Vector3.new(0, -1500, 0), capGround)
+	local lims = Rules.capped(gun, cap, if hit then hit.Position.Y - muzzle.Y else nil)
+	s.capAt = { yaw = yaw, at = t, lims = lims }
+	return lims
+end
+
 -- The world yaw and the elevation that put `s`'s shot on `point` (Rules.layFor, from its muzzle where that lay puts
--- it, within limitsOf); nil when out of its reach, or for a machine gun past its stops.
+-- it); nil when out of its reach (a field gun's or howitzer's past reachCap() flat), or for a machine gun past its
+-- stops.
 local function layOn(s: State, point: Vector3): (number?, number?)
 	local gun = s.gun
 	local at = s.model:GetPivot().Position
@@ -1541,7 +1574,8 @@ local function layOn(s: State, point: Vector3): (number?, number?)
 	for _ = 1, 2 do
 		local off = point - origin
 		yaw = Rules.yawOf(off.X, off.Z)
-		elevation = Rules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y, limitsOf(gun))
+		local d = Vector3.new(off.X, 0, off.Z).Magnitude
+		elevation = if gun.mg or d <= reachCap() then Rules.layFor(gun, d, off.Y) else nil
 		if not elevation then
 			return nil, nil
 		end
@@ -1652,7 +1686,7 @@ function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
 	if gun.mg then
 		yaw, elevation = Rules.mgLay(yaw, elevation, s.lay.yaw, 0, 0, gun)
 	end
-	local lims = limitsOf(gun)
+	local lims = limitsOf(s)
 	s.want = { yaw = Rules.wrap(yaw), elevation = math.clamp(elevation, lims[1], lims[2]) }
 	return true
 end
@@ -1771,7 +1805,7 @@ function Artillery.start()
 			if not s.gunner and not s.bot then
 				continue
 			end
-			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt, limitsOf(s.gun))
+			s.lay = Rules.lay(s.lay, s.want.yaw, s.want.elevation, s.gun, dt, limitsOf(s))
 			if t - s.sent < 1 / Cfg.Send then
 				continue
 			end
