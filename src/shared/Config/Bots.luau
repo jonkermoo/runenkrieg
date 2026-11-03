@@ -66,21 +66,23 @@ local Bots = {
 	-- after a death: the respawn wait (Config/Metrics.Combat.RespawnDelay, as a player's) plus this long in the loadout
 	-- menu (seconds, a random share between), as a player picks a class and deploys
 	MenuTime = { 1, 5 },
-	-- the classes a bot can play and buy with its match points (Config/Classes; the first is the free default), the
-	-- range a short gun closes in to (nil: it fights from where it is); the others (grenades, the staff, the pistol)
-	-- come later
+	-- the classes a bot can play (Config/Classes; the first is the free default) and the range a short gun closes in to
+	-- (nil: it fights from where it is). In FFA a bot buys them with its match points; in Normal it rolls one each
+	-- life by `weight` (user 2026-11-03: "just remove bot point earnings entirely and just have each class be a chance
+	-- of spawning", so every class is seen: Rules/Bots.rollClass); gun and dugout duty still make an Engineer.
 	Classes = {
-		{ key = "Rifleman" },
-		{ key = "Grenadier" }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
-		{ key = "AutoRifler" },
-		{ key = "Shotgunner", push = 18 },
-		{ key = "Engineer" }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
-		{ key = "Mage" }, -- (user 2026-11-02: Mage bots in Normal and FFA, by points; Config/Bots.Staff)
+		{ key = "Rifleman", weight = 35 },
+		{ key = "Grenadier", weight = 15 }, -- (user 2026-11-01: bots play it; only Grenadiers throw)
+		{ key = "AutoRifler", weight = 15 },
+		{ key = "Shotgunner", push = 18, weight = 12 },
+		{ key = "Engineer", weight = 13 }, -- (user 2026-11-02: Engineer bots build; Config/Bots.Build)
+		{ key = "Mage", weight = 10 }, -- (user 2026-11-02: Mage bots in Normal and FFA; Config/Bots.Staff)
 	},
 	-- the share of the battle points (Config/Classes.Earn: the kill, headshot and assists) a bot's death pays its killer
 	-- (user 2026-10-30: "make the AIs count half the battle points when you kill them")
 	KillShare = 0.5,
-	-- the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves up)
+	-- FFA: the chance a bot buys the dearest class it can pay for each life (else one it can pay for at random: it saves
+	-- up)
 	Buy = 0.6,
 	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none.
 	-- Normal tops up each side (Rules/Bots.wantedSides; user 2026-10-31: "this will be a 50vs50 map. however, if there is

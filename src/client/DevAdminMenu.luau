@@ -361,6 +361,17 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotRescuesAttribute):Connect(showRescues)
 	showRescues()
+	-- each side's bot classes now (Normal: rolled by Config/Bots.Classes weights)
+	order += 1
+	local mix = DevPanel.heading(p.panel, "", order)
+	mix.Size = UDim2.new(1, -8, 0, 54)
+	mix.TextWrapped = true
+	local function showMix()
+		local s = workspace:GetAttribute(A.BotClassesAttribute)
+		mix.Text = `Bot classes (Normal):\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotClassesAttribute):Connect(showMix)
+	showMix()
 	local botDigs: { [number]: TextButton } = {}
 	for _, k in A.BotDig.steps do
 		botDigs[k] = row(`BotDig{k}`, if k == 1 then "Bot digging: normal" else `Bot digging: x{k}`, "BotDig", k)

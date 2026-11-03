@@ -217,8 +217,36 @@ local function rescues()
 	workspace:SetAttribute(DevCfg.Admin.BotRescuesAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- each side's bot classes now, for the admin panel's readout (Config/DevTools.Admin.BotClassesAttribute)
+local function classMix()
+	local by: { [string]: { [string]: number } } = {}
+	for _, b in bots do
+		local class = b.m and b.side and (b.m :: Model):GetAttribute("Class")
+		if type(class) == "string" then
+			local side = by[b.side :: string] or {}
+			by[b.side :: string] = side
+			side[class] = (side[class] or 0) + 1
+		end
+	end
+	local lines = {}
+	for _, side in { "West", "East" } do
+		local parts = {}
+		for _, c in Cfg.Classes do
+			local n = by[side] and by[side][c.key]
+			if n then
+				table.insert(parts, `{c.key} {n}`)
+			end
+		end
+		if #parts > 0 then
+			table.insert(lines, `{side}: {table.concat(parts, ", ")}`)
+		end
+	end
+	workspace:SetAttribute(DevCfg.Admin.BotClassesAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 local function label()
 	rescues()
+	classMix()
 	local S = DevCfg.Admin.BotState
 	local on = workspace:GetAttribute(S.attribute) == true
 	if not on and not Tactics.dev.labelled then
