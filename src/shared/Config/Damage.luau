@@ -57,14 +57,23 @@ local Damage = {
 	},
 
 	-- The staff (user 2026-10-17): checked on the server, a sphere cast from the caster's head toward the target, as wide
-	-- as the beam, as long as the stage's range; no hit zones and no damage falloff (user: "no damage fall off, but
-	-- increase the range throughout each stage of the charge"). Per stage 1..3.
+	-- as the beam, as long as the stage's range; no damage falloff (user: "no damage fall off, but increase the range
+	-- throughout each stage of the charge"). Per stage 1..3.
 	Staff = {
 		Range = { 150, 300, 500 }, -- studs
 		Radius = { 0.5, 0.9, 1.6 }, -- the beam's half width for hits, studs
-		Damage = { 35, 70, 200 },
-		Knock = { "Limb", "Torso", "StaffThrow" }, -- alive; killed: the Killed knock below
-		Killed = { "TorsoDrop", "TorsoDrop", "StaffThrow" },
+		-- by the zone of the part the beam hit, as a bullet's (user 2026-11-03: "fix staffs so they can also have headshot
+		-- damage"; numbers approved the same day): the torso as before, a bare head double (stage 2 kills), a limb a
+		-- little less; a helmet hit knocks it off and is never fatal by itself (HelmetFloor), but from stage
+		-- `HelmetLethal` it counts as a head hit (the helmet still comes off): the full beam kills anywhere
+		Damage = {
+			{ Head = 70, Torso = 35, Limb = 25, Helmet = 20 },
+			{ Head = 140, Torso = 70, Limb = 50, Helmet = 40 },
+			{ Head = 200, Torso = 200, Limb = 200, Helmet = 200 },
+		},
+		HelmetLethal = 3,
+		-- a stage's own knock (alive or killed), or false: the bullets' knock by zone (Knocks below)
+		Throw = { false, false, "StaffThrow" } :: { string | false },
 		-- where a stage's beam lands: a blast (Blast below) of this many kg of TNT; 0 = no blast (user: "it should
 		-- destroy the map on a full beam"), only its Config/Build.Structures and Config/Artillery.Hits `staff<stage>` hit
 		-- on the built things and guns there

@@ -221,6 +221,11 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		end
 	elseif action == "Shells" and aim then
 		Artillery.devShells(value, aim)
+	elseif action == "BeamStage" and aim and character then
+		-- a staff beam from your head at the aim point, as a cast (Damage.staff: by the zone it hits); what it did shows
+		-- on its button (src/client/DevBlastMenu)
+		local _, did = Damage.staff(character, value, aim)
+		Net.event("DevAction"):FireClient(player, "Done", `Beam{value}`, did or "no soldier hit")
 	elseif action == "BlastHurts" then
 		player:SetAttribute(Cfg.Blasts.HurtAttribute, if value then true else nil)
 	elseif action == "DigStep" then

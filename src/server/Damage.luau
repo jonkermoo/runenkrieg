@@ -5,7 +5,8 @@
 --   helmet hit never fatal by itself), the pellets' falloff; then the knock by the zone that took the most
 --   (src/server/Ragdoll).
 -- - Damage.staff: a staff shot (src/server/StaffCast): a sphere cast as wide as the beam, as long as the stage's range,
---   from the caster's head toward its aim; the stage's damage and knock, no zones, no falloff; where it lands, the
+--   from the caster's head toward its aim; the stage's damage by the zone of the part it hit, as a bullet's (a helmet
+--   hit knocks it off: src/server/Helmets), no falloff; the knock by zone, the full beam's its own; where it lands, the
 --   stage's blast (Damage.staffBlast: stage 1 none, only a small hit on built things and guns, Config/Build.Structures
 --   and Config/Artillery.Hits staff1; stage 2 a light one for the map only, the full beam a big one).
 -- - Damage.blast: a real-scaled blast (Rules/Blast): soldiers hurt and knocked by the overpressure at their torso, map
@@ -41,6 +42,7 @@ local Flinch = require(script.Parent.Flinch)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Ground = require(script.Parent.Ground)
 local Healing = require(script.Parent.Healing)
+local Helmets = require(script.Parent.Helmets)
 local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
 local Trees = require(script.Parent.Trees)
@@ -475,8 +477,8 @@ end
 Trees.onCrush(Damage.crush)
 
 -- A staff shot of `stage` from `caster` toward `target`: returns where it lands (the end of its range if it hits
--- nothing).
-function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
+-- nothing), and what it did to a soldier it hit ("<zone>: <health before> -> <after>"; the admin panel's beam rows).
+function Damage.staff(caster: Model, stage: number, target: Vector3): (Vector3?, string?)
 	attacks(caster)
 	local S = Cfg.Staff
 	local head = caster:FindFirstChild("Head") :: BasePart?
@@ -496,6 +498,7 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 	local result = workspace:Spherecast(origin, radius, direction * range, params)
 	local landed = if result then result.Position else origin + direction * range
 	castAt[caster] = os.clock()
+	local did: string? = nil
 	local character, humanoid = victim(result and result.Instance)
 	if
 		character
@@ -504,9 +507,26 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 		and humanoid.Health > 0
 		and not Damage.spares(caster, character)
 	then
-		local left, knock = Rules.staff(stage, humanoid.Health, S)
+		-- the zone of the part it hit (anything else of the body: the torso); on the helmet's half of the head with the
+		-- helmet on, it comes off (a soft cap too, but that stays a head hit: Helmets.soft)
+		local part = (result :: RaycastResult).Instance
+		local zone = Rules.zone(part.Name) or "Torso"
+		local soft = Helmets.soft(character)
+		if Helmets.hit(part, (result :: RaycastResult).Position, direction) and not soft then
+			zone = "Helmet"
+		end
+		local left, knock, counted = Rules.staff(stage, humanoid.Health, zone, S, Cfg.Knocks, Cfg.HelmetFloor)
 		if left then
-			hurt(character, humanoid, left, knock, flat(direction), nil, caster)
+			-- the helmet shot off and alive: concussed (src/server/Concussion), as by a bullet
+			if counted == "Helmet" and left > 0 and not Damage.protected(character) then
+				Concussion.helmet(character, left, humanoid.MaxHealth)
+			end
+			local before = humanoid.Health
+			hurt(character, humanoid, left, knock, flat(direction), nil, caster, counted)
+			did =
+				`{if zone == "Helmet" and counted == "Head" then "Helmet (as Head)" else counted}: {math.round(before)} -> {math.round(
+					humanoid.Health
+				)}`
 		end
 	end
 	Trees.direct(result and result.Instance, stage, direction) -- a trunk hit straight on (src/server/Trees)
@@ -514,7 +534,7 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 	if result then
 		Damage.staffBlast(landed, stage, caster)
 	end
-	return landed
+	return landed, did
 end
 
 function Damage.start()
