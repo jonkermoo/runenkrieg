@@ -102,7 +102,9 @@ local Assets = {
 			description = "Mauser C96 pistol, the grey team's Engineer pistol (built from its trace: tools/blender/weapons/trace/c96.py). Rigged from Config/Weapons.",
 		},
 		rifle_smle = {
-			-- v7 (2026-11-02): polished against a reference model: the real 1130 mm, the rear sight's protector ears, a
+			-- v8 (2026-11-02): v7 trimmed under the 3,000 triangles (3,326 -> 2,970): the nose cap's ears with fewer facets,
+			-- faces buried inside other pieces off; same look, same bounds
+			-- v7 113800211047692 (2026-11-02): polished against a reference model: the real 1130 mm, the rear sight's protector ears, a
 			-- 30 mm butt, a boxier magazine, the forend and handguards joined, the receiver ring round the handguard, a
 			-- bolt way cut through the receiver and wood (user: the bolt worked through solid metal), no wood face in
 			-- a metal one's plane (z-fighting) (master assets/weapons/white/rifle_smle.blend)
@@ -110,7 +112,7 @@ local Assets = {
 			-- v5 130639053099807: the bolt handle in a notch in the body and socket, the butt clear of the cocking piece (user 2026-10-13:
 			-- clipping at the bolt's end and lever); v4 113048279523913: stock flat beside the action, the bridge on both
 			-- walls (v1-v3 see-through in first person)
-			id = 113800211047692,
+			id = 73648123710615,
 			category = "Weapons",
 			folder = "White/Rifles",
 			source = "assets/weapons/white/rifle_smle.fbx",
