@@ -32,6 +32,7 @@ local MeleeRules = require(Shared.Rules.Melee)
 local Teams = require(Shared.Rules.Teams)
 local Rules = require(Shared.Rules.Damage)
 local TreeRules = require(Shared.Rules.Trees)
+local Hitches = require(Shared.Hitches)
 local Build = require(script.Parent.Build)
 local Concussion = require(script.Parent.Concussion)
 local Destruction = require(script.Parent.Destruction)
@@ -172,7 +173,7 @@ function Damage.hurtBy(character: Model, amount: number)
 	end
 end
 
-function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
+local function shot(shooter: Model, weapon: string, hits: { RayHit })
 	attacks(shooter)
 	-- a held weapon (Config/Weapons) by its class, or a class itself (a mounted gun's: Config/Artillery.Guns `mg.class`)
 	local w = W[weapon]
@@ -228,6 +229,11 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 			)
 		end
 	end
+end
+function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
+	local t0 = os.clock()
+	shot(shooter, weapon, hits)
+	Hitches.since("Shot damage", t0)
 end
 
 -- A butt stroke (src/server/Melee) from `striker` on the body part `part` in `zone` (a helmet hit already took the

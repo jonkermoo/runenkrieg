@@ -215,7 +215,10 @@ local Hud = {
 	-- this life at the bottom left, as stencil plates (user 2026-10-27: "Stencil plates with the basic font"). Colours:
 	-- Palette.UI.Hud kitName / kitKey / kitEmpty / kitHeldText, count, countLow, the team's field and rim (Teams).
 	Kit = {
-		order = { "Primary", "Grenade", "Shovel" }, -- Config/Weapons slots top to bottom; any other after, as it came
+		-- Config/Weapons slots top to bottom, so keys 1-3 (user 2026-11-03: "make grenades binded to 3 (shovel should
+		-- always be 2, gun at 1)"): every class carries a primary and the shovel, so they always hold 1 and 2; any other
+		-- slot after, as it came
+		order = { "Primary", "Shovel", "Grenade" },
 		-- KeyCode names: key n draws row n's item, and puts it away again if it is in the hands
 		keys = { "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine" },
 		-- shown fully for `linger` seconds after any change (a number key, a draw or put-away, an item come or gone, a

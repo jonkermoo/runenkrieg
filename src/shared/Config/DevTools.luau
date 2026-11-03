@@ -129,6 +129,9 @@ local DevTools = {
 		SpeedSteps = { 1, 2, 4, 8 },
 		-- flying: studs/s at x1; WASD moves along the camera's view, Space / E up, Q / LeftControl down
 		FlySpeed = 32,
+		-- Match (Normal): each sector's capture readout (the sides' weights, its control, its speed and the seconds to
+		-- the capture), refreshed every `CaptureReadout` seconds
+		CaptureReadout = 0.25,
 		FlyUpKeys = { "Space", "E" },
 		FlyDownKeys = { "Q", "LeftControl" },
 		Attribute = "DevSpeed", -- the chosen multiplier, on the Player (read by src/client/Stance)
@@ -244,6 +247,11 @@ local DevTools = {
 		PushSeconds = 20,
 		-- - Capture: the most sectors a map has (the capture rows; the server checks the live map's)
 		MaxSectors = 9,
+		-- - Hitches (src/shared/Hitches): the one-off jobs a player can feel as a hitch (a trench square reshaped, a helmet
+		--   knocked off, a weapon made, the grass regrown), timed on the server and each client. With the log on (on
+		--   Workspace), each one over `over` ms prints at once ("[Hitch] server/client name ms"), and "Print hitches"
+		--   prints each name's count, average, most and how many went over since the last print
+		Hitches = { attribute = "DevHitchLog", over = 2 },
 		-- "Loadout" rows (src/server/Loadouts): give yourself these match points, or be one class every life (any class,
 		-- locked or not, free; `Normal` goes back to your picks), on the Player as `ClassAttribute`
 		Points = { 50, 200 },
@@ -290,6 +298,9 @@ local DevTools = {
 		-- as a player holding the stay-down key is (Config/Ragdoll.StayDown: up to its `max` past the get-up wait); for
 		-- dragging and healing tests (user 2026-11-02: "always add additional admin panel settings as we go throughout")
 		KnockDown = { knock = "Torso", damage = 80 },
+		-- "Say": every living dummy says this in a chat bubble (src/client/ChatBubbles, as a bot's callout), to check the
+		-- bubbles' height and range (user 2026-11-03: bubbles only near you, a little over the head)
+		Say = "hey",
 		-- the hit readout over a dummy's head: the damage, the knock and the health left, for `show` seconds (`width` x
 		-- `tall` px, text `size` px, its outline `stroke` transparency); a knock with no damage shows after `knockWait` s
 		Readout = {
@@ -317,6 +328,11 @@ local DevTools = {
 		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn"); a dugout into the trench wall aimed at,
 		-- facing you in the trench (the bot tests: sheltering, bombing one out)
 		Pieces = { "MGNest", "Dugout" },
+		-- the gun nearest the aim point (within `GunReach` studs) set to one of these % of its HP (src/server/Artillery
+		-- .setHp; user 2026-11-03: manned down to half its HP, Config/Artillery.Man): testing it going out of service
+		-- and back
+		GunHp = { 100, 75, 50, 49, 25 },
+		GunReach = 20,
 		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
 		RefusedSeconds = 3,
 	},

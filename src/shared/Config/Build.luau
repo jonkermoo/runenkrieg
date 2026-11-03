@@ -173,6 +173,10 @@ local Build = {
 		-- there is its soil until it is filled in to 0 HP (user 2026-11-01: "make sure the area outside the terrain has
 		-- its grass removed too")
 		grassClear = 7,
+		-- the terrain reshaped a few voxel columns at a time (src/server/Trenches): `columns` across a step, steps for at
+		-- most `budget` ms a frame, then the squares' pieces, one in a frame of its own; a square's reshape in one go was
+		-- 2-8 ms
+		reshape = { columns = 2, budget = 1 },
 		-- markers (src/server/Trenches; user 2026-10-24): a
 		-- stake (width, height) at each corner of a square, its top `top` studs painted (Palette.Build.PegTop), cord
 		-- `string` wide between the stake tops sagging by `sag` of its length (a Beam's curve); no flags
@@ -506,7 +510,7 @@ local Build = {
 	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
 	-- `quarters`), the real gun standing at stage 4. Once it has stood it is the gun's (as a built field gun): its HP is
 	-- the gun's own, worn by weapons, blasts at the bags and Destroy swings, fixed by Build swings (Config/Artillery
-	-- Repair), its 4 stages the gun's Wreck stages (unusable from stage 2, 50%), the share of the ring's bags still
+	-- Repair), its 4 stages the gun's Wreck stages (unusable under half its HP, Config/Artillery.Man), the share of the ring's bags still
 	-- standing at each `wear[i]` (user 2026-10-29: "make the sandbags also destroy as part of each destruction phase":
 	-- the top bags go first, then the bottom ones, scattered round the ring, Rules.nestWearOrder; the mount bags stay
 	-- under the gun); hit at 0 it is gone.

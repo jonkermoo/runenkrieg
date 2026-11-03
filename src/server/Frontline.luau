@@ -15,8 +15,8 @@
 -- wave line (Rules/Frontline.slot), frozen and shielded, until the wave goes, then keeps the shield a moment. The line
 -- stands at the side's spawn sector (Rules/Frontline.spawnSector: its HQ, in its spawn zone Map1.spawnZones, until the
 -- first capture; then its frontmost, by the flag, or one back while the enemy leads there). Each side's sectors held
--- from its end are published (Config/Frontline.Artillery: a side at its last sector may build the howitzer, read by
--- src/server/Build), and a badly outnumbered side is reinforced (src/server/Loadouts pays it more). The state is replicated as
+-- from its end are published (Config/Frontline.Artillery: a side down to its last `unlockAt` sectors may build the
+-- howitzer, read by src/server/Build), and a badly outnumbered side is reinforced (src/server/Loadouts pays it more). The state is replicated as
 -- attributes on Workspace's "Frontline" folder (Config/Frontline.FolderName, read by src/client/ModeHud). The sector
 -- markers (src/dev/Greybox, shown by the admin's switch: src/server/Sectors) are coloured by owner and labelled with
 -- control and head counts. The admin panel ends and restarts a match and takes a side's next sector
@@ -482,14 +482,22 @@ local function showMarkers(counts: { { West: number, East: number } })
 	end
 end
 
-local function publish(counts: { { West: number, East: number } })
+local function publish(
+	counts: { { West: number, East: number } },
+	rate: number?,
+	heads: { { West: number, East: number } }?
+)
+	local rates = Rules.rates(state, Cfg, counts, rate)
 	for i, s in sectors do
 		local f = folder:FindFirstChild(s.id)
 		if f then
+			f:SetAttribute(Cfg.RateAttribute, rates[i]) -- (control per second now: the admin readout)
 			f:SetAttribute("Owner", state.owner[i])
 			f:SetAttribute("Control", state.control[i])
 			f:SetAttribute("West", counts[i].West)
 			f:SetAttribute("East", counts[i].East)
+			f:SetAttribute("West" .. Cfg.HeadsSuffix, (heads or counts)[i].West)
+			f:SetAttribute("East" .. Cfg.HeadsSuffix, (heads or counts)[i].East)
 		end
 	end
 	for _, side in { "West", "East" } do
@@ -508,9 +516,14 @@ local function empty(): { { West: number, East: number } }
 	return counts
 end
 
--- each sector's soldiers in its zone by side, and the soldiers in each zone (players and bots)
-local function occupancy(): ({ { West: number, East: number } }, { { Player | Model } })
-	local counts, inside = empty(), {}
+-- each sector's soldiers in its zone by side, weighed (Rules/Frontline.weight: a player 1, a bot Config BotWeight), the
+-- soldiers in each zone (players and bots), and their heads by side (unweighed: the bots' planning)
+local function occupancy(): (
+	{ { West: number, East: number } },
+	{ { Player | Model } },
+	{ { West: number, East: number } }
+)
+	local counts, inside, byHead = empty(), {}, empty()
 	for i in sectors do
 		inside[i] = {}
 	end
@@ -519,7 +532,8 @@ local function occupancy(): ({ { West: number, East: number } }, { { Player | Mo
 			local feet = root.Position - Vector3.new(0, Cfg.FeetBelowRoot, 0)
 			for i, s in sectors do
 				if Rules.inZone(feet.X - s.x, feet.Z - s.z, feet.Y - zoneY[i], s.radius, Cfg.Height) then
-					counts[i][side] += 1
+					counts[i][side] += Rules.weight(Cfg, not isPlayer(who))
+					byHead[i][side] += 1
 					table.insert(inside[i], who)
 					break
 				end
@@ -535,7 +549,7 @@ local function occupancy(): ({ { West: number, East: number } }, { { Player | Mo
 			count(m, m, m:FindFirstChild("HumanoidRootPart") :: BasePart?, sideOfModel(m))
 		end
 	end
-	return counts, inside
+	return counts, inside, byHead
 end
 
 -- how many players each side has (by their next life's team); `withBots`: and its bot soldiers (a match's start counts
@@ -678,8 +692,8 @@ local function run()
 			end
 			local w, e = heads()
 			folder:SetAttribute(Cfg.ReinforcedAttribute, Rules.reinforced(Cfg.Reinforcements, w, e))
-			local counts, inside = occupancy()
-			latest = counts
+			local counts, inside, inZone = occupancy()
+			latest = inZone -- (the spawn choice by head, as before; the weights are the capture's)
 			for _, ev in Rules.step(state, Cfg, counts, dt, rate) do
 				if ev.kind == "Captured" then
 					still = 0
@@ -694,7 +708,7 @@ local function run()
 					end
 				end
 			end
-			publish(counts)
+			publish(counts, rate, inZone)
 			winner = Rules.winner(state)
 		end
 		-- the results
@@ -884,7 +898,8 @@ function Frontline.restart()
 end
 
 -- Admin: the match moves to map `key` now (it must be built: src/dev/Greybox): a fresh match there, the map put back,
--- everyone alive deployed again on it (the bots too, by src/server/Bots on their respawn).
+-- everyone alive deployed again on it (the bots by src/server/Bots: the match start respawns each on the new map; killed
+-- here as well, the new bodies died before their death was hooked up and never came back).
 function Frontline.switchMap(key: string): boolean
 	if not thread or not LiveMap.built(key) then
 		return false
@@ -900,12 +915,6 @@ function Frontline.switchMap(key: string): boolean
 				task.spawn(function()
 					p:LoadCharacter()
 				end)
-			end
-		end
-		for _, m in bots() do
-			local h = m:FindFirstChildOfClass("Humanoid")
-			if h then
-				h.Health = 0
 			end
 		end
 	end)
