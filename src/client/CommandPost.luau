@@ -30,6 +30,7 @@ local TYPE = Font.fromEnum(Enum.Font.Code)
 local HAND = Font.fromEnum(Enum.Font.IndieFlower)
 local SLAB = Font.new("rbxasset://fonts/families/RobotoMono.json", Enum.FontWeight.Bold)
 local V = Vector3.new
+local CHAR = 0.62 -- a letter's width over the text size (Code, RobotoMono)
 local player = Players.LocalPlayer
 
 local WOOD, DARK, PLANK = Color3.fromRGB(122, 84, 50), Color3.fromRGB(58, 40, 26), Color3.fromRGB(98, 70, 46)
@@ -131,10 +132,6 @@ local function text(
 	l.BackgroundTransparency = 1
 	l.FontFace = font
 	l.TextColor3 = color
-	local most = Instance.new("UITextSizeConstraint")
-	most.MaxTextSize = math.max(6, math.floor(h * px * 0.9))
-	most.Parent = l
-	l.TextScaled = true -- (a long line shrinks to stay on its paper)
 	l.TextWrapped = false
 	l.Text = s
 	l.Position = UDim2.fromScale(x, y)
@@ -142,6 +139,11 @@ local function text(
 	l.TextXAlignment = Enum.TextXAlignment.Left
 	l.TextYAlignment = Enum.TextYAlignment.Center
 	l.Parent = parent
+	-- its size: the line's height, shrunk so a long line stays on its paper (the fonts' letters are all about `CHAR`
+	-- of the size wide; TextScaled came out at 8 px on the board's papers, Studio 2026-11-03)
+	local most = math.max(6, math.floor(h * px * 0.9))
+	local wide = l.AbsoluteSize.X
+	l.TextSize = if wide > 0 and #s > 0 then math.clamp(math.floor(wide / (CHAR * #s)), 6, most) else most
 	return l
 end
 
@@ -850,7 +852,7 @@ local function buildSet(folder: Folder, origin: Vector3): Post?
 		end
 	end
 	m.WorldPivot = CFrame.new(if zero then zero.Position else m:GetPivot().Position)
-	m:PivotTo(CFrame.new(origin))
+	m:PivotTo(CFrame.new(origin) * CFrame.Angles(0, math.rad(S.turn), 0))
 	m.Parent = folder
 	local papers = S.papers
 	local T = Cfg.Table
@@ -1055,7 +1057,7 @@ function CommandPost.plan(post: Post, winner: string?)
 	f:ClearAllChildren()
 	local lines = if winner then B.planLines else B.noWinnerLines
 	for k, l in lines do
-		local label = text(
+		text(
 			f,
 			Rules.text(l, { winner = string.upper(winner or "") }),
 			if k == 1 then SLAB else TYPE,
@@ -1066,7 +1068,6 @@ function CommandPost.plan(post: Post, winner: string?)
 			if k == 1 then 0.14 else 0.11,
 			post.telegramPx
 		)
-		label.TextScaled = true
 	end
 end
 

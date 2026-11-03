@@ -354,8 +354,15 @@ local function tableView(t: number): (Vector3, number, number)
 	local pos = post.origin + V(W.stand[1], W.eye, W.stand[2])
 	local looks = W.table.looks
 	local i, k = Rules.glance(looks, W.table.glance, t)
-	local y1, p1 = aimAt(pos, post.origin + v3(looks[math.max(i - 1, 1)].look))
-	local y2, p2 = aimAt(pos, post.origin + v3(looks[i].look))
+	local from, to = looks[math.max(i - 1, 1)], looks[i]
+	-- (leaning in toward what the eyes rest on)
+	local function leanTo(l: any): Vector3
+		local d = post.origin + v3(l.look) - pos
+		return V(d.X, 0, d.Z).Unit * (l.lean or 0)
+	end
+	pos += leanTo(from):Lerp(leanTo(to), k)
+	local y1, p1 = aimAt(pos, post.origin + v3(from.look))
+	local y2, p2 = aimAt(pos, post.origin + v3(to.look))
 	return pos, Rules.turn(y1, y2, k, 0), p1 + (p2 - p1) * k
 end
 

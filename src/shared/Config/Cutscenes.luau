@@ -135,8 +135,12 @@ local Cutscenes = {
 		-- the modelled set (Config/Assets command_post, the render session's export 2026-11-03): built from it when the
 		-- library has it, else from parts as above. Its blank papers (studs from its Origin: middle, width x height, the
 		-- way their text faces and its top) take the game's text; its printed papers take these images.
+		-- (`turn`: the degrees the uploaded model turns about its Origin to stand as its part list says; the images are
+		-- the uploaded Decals' ids, which a MeshPart's TextureID takes: the Images behind them drew blank, Studio
+		-- 2026-11-03)
 		set = {
 			asset = "command_post",
+			turn = 180,
 			papers = {
 				TableSheet = { at = { 0, 3.007, 0 }, size = { 11.333, 5.312 }, front = { 0, 1, 0 }, up = { 0, 0, -1 } },
 				Report = {
@@ -221,19 +225,20 @@ local Cutscenes = {
 	-- Studs from the hut floor's middle; `fov` vertical; a slow breath under it all (`sway` studs, `rate` a second).
 	View = {
 		eye = 5.8,
-		fov = 62,
+		fov = 70, -- (the render session's first-person renders)
 		sway = { amount = 0.025, rate = 0.25 },
 		stand = { 0, 4.6 },
 		table = {
 			glance = 1.4,
-			looks = { { t1 = 6, look = { -1.2, 3, -0.6 } }, { t1 = 14, look = { 3.4, 3, 1.2 } } },
+			-- (`lean`: studs the eyes lean in toward it, across the floor)
+			looks = { { t1 = 6, look = { -1.2, 3, -0.6 } }, { t1 = 14, look = { 3.5, 3, 1.3 }, lean = 1.2 } },
 		},
 		turn = 1.5,
-		walk = { t1 = 3.6, to = { 0, 6.4 } },
-		board = { 0, 5.0, 11.27 },
-		pick = { back = 2.6, up = 0.5, ease = 0.9 },
+		walk = { t1 = 3.6, to = { 0, 5.9 } },
+		board = { 0, 5.6, 11.25 },
+		pick = { back = 3.6, up = 0.5, ease = 0.9 },
 		-- where our arm comes from on the screen: right of, under and ahead of the eye (studs)
-		arm = { right = 0.9, down = 1.4, ahead = 0.3 },
+		arm = { right = 1.1, down = 1.6, ahead = 0.4 },
 	},
 	-- The orders board on the front wall (we turn round to it from the table): "VOTE" on a plaque beside a paper counting the
 	-- vote's time down (user 2026-11-03: no words in the bars), one OPERATION ORDER
