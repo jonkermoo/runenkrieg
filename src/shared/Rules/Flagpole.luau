@@ -5,13 +5,18 @@
 
 local Flagpole = {}
 
--- Whose flag flies and how far up (0 bottom .. 1 top): the side the control leans to, as far as it goes; none at 0.
-function Flagpole.flag(control: number): (string?, number)
-	local share = math.clamp(math.abs(control), 0, 1)
-	if share <= 0 then
-		return nil, 0
+-- Whose flag flies and how far up (0 bottom .. 1 top), by the sector's owner, as the beacons and the map's seals go:
+-- a held sector its holder's, as far as its control toward the holder's end goes; an unheld one the plain placeholder
+-- ("Neutral", at the top) when `neutral` is "white", else a bare pole (user 2026-11-03).
+function Flagpole.flag(owner: string?, control: number, neutral: string): (string?, number)
+	if owner == "West" or owner == "East" then
+		local sign = if owner == "West" then 1 else -1
+		return owner, math.clamp(control * sign, 0, 1)
 	end
-	return if control > 0 then "West" else "East", share
+	if neutral == "white" then
+		return "Neutral", 1
+	end
+	return nil, 0
 end
 
 -- The flag's top over the pole's foot for a height share: from `bottomGap` + the flag's height (lowest) up to the pole's

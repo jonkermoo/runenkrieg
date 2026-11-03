@@ -21,6 +21,7 @@ local DamageCfg = require(Shared.Config.Damage)
 local Blast = require(Shared.Rules.Blast)
 local Holes = require(Shared.Rules.Holes)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local W = require(Shared.Config.Weapons)
 local Audio = require(script.Parent.Audio)
 local CaseDrop = require(script.Parent.CaseDrop)
@@ -330,13 +331,18 @@ function GunFx.hole(at: Vector3, normal: Vector3?, part: Instance?)
 end
 
 -- the ground reshaped within `radius` of `position`: the holes on it there go
-local function reshape(position: Vector3, radius: number)
+local function reshapeNow(position: Vector3, radius: number)
 	for i = #holes, 1, -1 do
 		local hole = holes[i]
 		if not hole.on and Holes.reshaped((hole.at - position).Magnitude, radius, E.Hole.margin) then
 			release(hole)
 		end
 	end
+end
+local function reshape(position: Vector3, radius: number)
+	local t0 = os.clock()
+	reshapeNow(position, radius)
+	Hitches.since("Holes reshape", t0)
 end
 Net.event("Explosion").OnClientEvent:Connect(function(position: Vector3, reach: number)
 	-- (Destruction.explode sends a plain radius, not a reach: it only takes a little less ground)

@@ -712,6 +712,48 @@ local Vfx = {
 		},
 	},
 
+	-- The machine gun's firing smoke (src/client/Vfx/Gunsmoke; src/client/Artillery's MGShot, bots' shots too; user
+	-- 2026-11-03: "add better smoke effects to the MG. i dont like the sparkle"): no glowing ball or light any more,
+	-- `Flash` a short flat flame `long` x `wide` studs out of the muzzle along the bore for `time` s, in `color`
+	-- (Palette.Magic) with a hot `core` inside; `Puff` `count` thin puffs a shot thrown out along the bore at `speed`
+	-- studs/s (slowed by `drag`, spread `spread` degrees), growing from `size[1]` to `size[2]` studs, at `thick`
+	-- (transparency) after fading in over `fadeIn` of their `life` s; `Haze` a light haze building round the gun in a
+	-- long burst: each shot adds 1 to the gun's heat, which falls `decay` a second (at most `cap`); from `start` to
+	-- `full` heat the haze grows to `rate` puffs a second, rising at `rise` studs/s^2 and drifting on `wind`. Beyond
+	-- `far` studs from the camera only the flash and one puff a shot.
+	Gunsmoke = {
+		Flash = { long = 0.9, wide = 0.28, time = 0.04, color = "Flame", core = "EmberGold", coreShare = 0.5 },
+		Puff = {
+			count = 2,
+			speed = { 6, 14 },
+			drag = 5,
+			spread = 12,
+			size = { 0.35, 2.2 },
+			thick = 0.55,
+			life = { 0.9, 1.6 },
+			color = "Smoke",
+		},
+		Haze = {
+			start = 4,
+			full = 20,
+			cap = 30,
+			decay = 3,
+			rate = 7,
+			speed = { 0.5, 1.5 },
+			spread = 60,
+			size = { 1.5, 6 },
+			thick = 0.8,
+			life = { 3, 5 },
+			rise = 0.6,
+			ahead = 1.5,
+			color = "Smoke",
+		},
+		fadeIn = 0.1,
+		wind = { 0.8, 0, 0.4 },
+		spin = 20,
+		far = 220,
+	},
+
 	-- A gun's muzzle blast (src/client/Vfx/Muzzle; the artillery, Config/Artillery `muzzle` scale): `Flash` a ball `size`
 	-- studs across in `color` (Palette.Magic) lighting `light` studs at `brightness` for `time` s; `Jet` grey smoke
 	-- thrown out along the bore, `Side` a ring of it puffing out round the muzzle, `Dust` off the ground under it (if

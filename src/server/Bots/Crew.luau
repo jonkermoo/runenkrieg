@@ -66,14 +66,8 @@ end
 
 -- the side holding the sector nearest `p`
 local function ownerAt(p: Vector3, owner: { string }): string?
-	local best, bestD = nil, math.huge
-	for i, s in Map.sectors do
-		local d = (s.x - p.X) ^ 2 + (s.z - p.Z) ^ 2
-		if d < bestD then
-			best, bestD = owner[i], d
-		end
-	end
-	return best
+	local i = Rules.sectorAt(p.X, p.Z, Map.sectors)
+	return if i then owner[i] else nil
 end
 
 local function release(b: any, wait: number?)

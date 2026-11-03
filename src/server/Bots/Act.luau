@@ -105,7 +105,7 @@ local function throwLook(b: Bot, at: Vector3): Vector3
 	return u * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
 end
 
-local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
+local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boolean?): BuildJob?
 	local engineer = any or Loadouts.classOf(b.m :: Model) == "Engineer"
 	local root = (b.root :: BasePart).Position
 	local held: { [BuildJob]: boolean } = {}
@@ -135,6 +135,15 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 		local fits = engineer or Kinds.small[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
 		taken[k] = held[r] == true or not fits
 	end
+	-- a gun of its side out of service (Rules/BotCrew.repairOrder): the nearest anywhere first, fixed before it is manned
+	local notFix: { [number]: boolean } = {}
+	for k, r in open do
+		notFix[k] = taken[k] or not r.fix
+	end
+	local f = BotBuild.pick(list, root.X, root.Z, math.huge, notFix, {}, nil)
+	if f or fixOnly then
+		return if f then open[f] else nil
+	end
 	-- on gun duty (Config/Bots.Build.Crews) or dugout duty (Config/Bots.Dugouts.engineers): the nearest such job
 	-- anywhere on the list first
 	if b.crew or b.dugouts then
@@ -152,14 +161,16 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 end
 
 -- the build job a bot takes on its side's list: an Engineer any; a digger (half a holding squad, any class) a trench
--- run or square, a sandbag pile or barrier, wire wanting swings within Build.help; nil if none
+-- run or square, a sandbag pile or barrier, wire wanting swings within Build.help; a defender a gun out of service;
+-- nil if none
 local function pickJob(b: Bot): BuildJob?
 	local sb = buildLists[b.side :: string]
 	if not sb or #sb.open == 0 then
 		return nil
 	end
 	if not b.digger and Loadouts.classOf(b.m :: Model) ~= "Engineer" then
-		return nil
+		-- a defender (who would crew it: src/server/Bots/Crew) fixes a gun of its side out of service, nothing else
+		return if b.order == "Defend" then pickFrom(b, sb.open, true, true) else nil
 	end
 	return pickFrom(b, sb.open, false)
 end

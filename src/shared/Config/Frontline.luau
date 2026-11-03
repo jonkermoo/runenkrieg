@@ -11,6 +11,9 @@ local Frontline = {
 	CaptureSeconds = 20,
 	-- a bigger lead pushes faster, up to this many soldiers' worth (user's GDD: "rate scales with the player advantage")
 	MaxAdvantage = 3,
+	-- what a soldier in the zone counts for (user 2026-11-03: "make flag capture speed be scale to how many on the
+	-- point to players (include AI count as half a player)"): a player 1, a bot this; the lead is the sides' weights
+	BotWeight = 0.5,
 	-- seconds for a sector left empty (or out of reach) to drift from neutral back to its holder's end
 	DrainSeconds = 20,
 	-- Momentum (user 2026-10-27: "momentum, but there is a reasonable cap"): once the front has gone `after` seconds
@@ -45,7 +48,7 @@ local Frontline = {
 	-- replicated state (read by src/client/ModeHud): a Folder in Workspace with the match's attributes (Phase "Waiting"
 	-- / "Countdown" / "Playing" / "Fade" / "Table" / "Vote" / "Loading", PhaseEndsAt (server time), Winner (a
 	-- side), Momentum (the capture speed's multiplier), West and East (each side's team, Config/Uniforms.Teams)) and one
-	-- child Folder per sector (Index, Owner, Control, and the West / East soldiers in its zone)
+	-- child Folder per sector (Index, Owner, Control, the West / East soldiers in its zone weighed by BotWeight, Rate)
 	FolderName = "Frontline",
 	-- the map's key in Config/Maps: the built map's model in Workspace has this name (src/dev/Greybox), not its `name`
 	MapKey = "Map1",
@@ -95,12 +98,18 @@ local Frontline = {
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },
 	-- Artillery locks (user 2026-11-02: "only unlock the rune for the team that gets pushed back to their last sector
-	-- (all artys still only for engineers)"): a gun in `lastStand` is built only by a side holding no sector but its own
-	-- HQ (Rules/Frontline.held: the run from its end; it locks again once the side pushes out), and is told `why`
-	-- otherwise; every other gun from a match's start, under its per-team cap (Config/Build.Pieces `teamCap`). Was a level
-	-- per sector lost (2026-10-31), then no locks (earlier 2026-11-02). Each side's held count is the Frontline folder's
-	-- "<Side>" .. `HeldAttribute` (src/server/Build reads it; the bots count it from the sectors' owners).
-	Artillery = { lastStand = { Howitzer = true }, why = "Unlocks when pushed back to your last sector" },
+	-- (all artys still only for engineers)"): a gun in `lastStand` is built only by a side holding `unlockAt` sectors or
+	-- fewer (Rules/Frontline.held: the run from its end; it locks again once the side pushes out past that), and is told
+	-- `why` otherwise; every other gun from a match's start, under its per-team cap (Config/Build.Pieces `teamCap`).
+	-- `unlockAt` 2 (user 2026-11-03: "make field mortars unlock at the second to last sector, not the last sector"; its
+	-- HQ and the one before, so on Map 1 and Lantern Meadows from the start, user: "Yes, from the start"); was 1. Was a
+	-- level per sector lost (2026-10-31), then no locks (earlier 2026-11-02). Each side's held count is the Frontline
+	-- folder's "<Side>" .. `HeldAttribute` (src/server/Build reads it; the bots count it from the sectors' owners).
+	Artillery = {
+		lastStand = { Howitzer = true },
+		unlockAt = 2,
+		why = "Unlocks while you hold only your last two sectors",
+	},
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
 	-- of mis match"): while the bigger side has at least `gap` more players AND `share` more, the smaller side's points
 	-- are paid `times` over (src/server/Loadouts)
@@ -111,6 +120,10 @@ local Frontline = {
 	-- line.
 	WaveAttribute = "WaveAt",
 	HeldAttribute = "Held",
+	RateAttribute = "Rate", -- each sector's: its control per second now (Rules/Frontline.rates; the admin readout)
+	-- each sector's "<Side>" .. this: the side's soldiers in its zone by head, unweighed (the bots' planning reads it;
+	-- "West" / "East" are weighed by BotWeight)
+	HeadsSuffix = "Heads",
 	ReinforcedAttribute = "Reinforced",
 	SpawnAttribute = "Spawn",
 	LineAttribute = "Line",

@@ -8,6 +8,7 @@
 --   Burst.play(pos, { scheme?, normal?, debrisColor? })                         impact burst
 --   Blast.play(pos, { scheme?, normal?, debrisColor?, stage? | kg?, magic?, pop? })  every explosion
 --   Muzzle.play(origin, direction, scale?)                                      a gun's muzzle blast
+--   Gunsmoke.shot(gun, origin, direction)                                       the machine gun's flash and smoke
 --   Shockwave.play(center, normal), Star.play(pos), Spikes.play(pos)            rings and flashes
 --   Lightning.bolt(from, to, t?), Aura.play(partOrPoint, t)                     lightning
 --   Zoltraak.play(tipCFrame, ignore?, scheme?)                                   the full spell
@@ -29,6 +30,7 @@ return {
 	Burst = require(script.Burst),
 	Blast = require(script.Blast),
 	Muzzle = require(script.Muzzle),
+	Gunsmoke = require(script.Gunsmoke),
 	Shockwave = require(script.Shockwave),
 	Star = require(script.Star),
 	Spikes = require(script.Spikes),
