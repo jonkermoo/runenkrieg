@@ -60,6 +60,12 @@ export type Post = {
 	lamp: BasePart,
 	folder: Folder,
 	orders: { Order },
+	orderAt: { CFrame }, -- each order's paper (its front toward the room)
+	orderSize: Vector2,
+	sheetAspect: number, -- the table sheet's width over its height
+	reportPx: number, -- the report's and the telegram's heights in pixels
+	telegramPx: number,
+	pins: boolean, -- pins drawn for the orders (the parts set; the model has its own)
 }
 
 -- pieces ---------------------------------------------------------------------------------------------------------------
@@ -365,6 +371,47 @@ local function buildHut(folder: Folder, o: Vector3)
 end
 
 -- the war table ---------------------------------------------------------------------------------------------------------
+-- the table sheet's face (`px` its height in pixels): the trench map's frame and grid, its letters and numbers, the
+-- legend, and the strip where the played map goes (returned)
+local function drawSheet(sf: Frame, px: number): Frame
+	local T = Cfg.Table
+	local frame = box(sf, 0.025, 0.05, 0.95, 0.9, PAPER)
+	frame.BackgroundTransparency = 1
+	outline(frame, INK, 3)
+	local cols, rows = T.grid.cols, T.grid.rows
+	for c = 1, cols - 1 do
+		box(frame, c / cols, 0, 0.0015, 1, DIM).BackgroundTransparency = 0.7
+	end
+	for r = 1, rows - 1 do
+		box(frame, 0, r / rows, 1, 0.003, DIM).BackgroundTransparency = 0.7
+	end
+	for c = 1, cols do
+		local l =
+			text(sf, string.char(64 + c), TYPE, INK, 0.025 + (c - 0.5) / cols * 0.95 - 0.02, 0.008, 0.04, 0.035, px)
+		l.TextXAlignment = Enum.TextXAlignment.Center
+	end
+	for r = 1, rows do
+		text(sf, tostring(r), TYPE, INK, 0.008, 0.05 + (r - 0.5) / rows * 0.9 - 0.02, 0.02, 0.04, px)
+	end
+	local strip = box(sf, T.strip.at[1], T.strip.at[2], T.strip.width, 0.5, PAPER)
+	strip.Name = "Strip"
+	strip.BackgroundTransparency = 1
+	local legend = box(sf, 0.05, 0.66, 0.2, 0.24, PAPER)
+	outline(legend, INK, 2)
+	text(legend, "LEGEND", SLAB, INK, 0.08, 0.06, 0.8, 0.2, 0.24 * px)
+	box(legend, 0.08, 0.45, 0.25, 0.035, PENCIL)
+	text(legend, "CAPTURED", TYPE, INK, 0.4, 0.36, 0.55, 0.18, 0.24 * px)
+	local ring = box(legend, 0.12, 0.66, 0.15, 0.2, PAPER)
+	ring.BackgroundTransparency = 1
+	ring.SizeConstraint = Enum.SizeConstraint.RelativeYY
+	outline(ring, PENCIL, 3)
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = ring
+	text(legend, "THE FRONT", TYPE, INK, 0.4, 0.66, 0.55, 0.18, 0.24 * px)
+	return strip
+end
+
 local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 	local T, P = Cfg.Table, Cfg.Post
 	local w, d, top = T.size[1], T.size[2], T.top
@@ -405,40 +452,7 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 	local sheet = lyingPaper(folder, "Sheet", tableTop + V(0, 0.02, 0), T.sheet[1], T.sheet[2], 0)
 	local px = T.sheet[2] * T.pixelsPerStud -- (the sheet's height in pixels: its depth on the table)
 	local _, sf = surface(sheet, Enum.NormalId.Top, T.pixelsPerStud)
-	local frame = box(sf, 0.025, 0.05, 0.95, 0.9, PAPER)
-	frame.BackgroundTransparency = 1
-	outline(frame, INK, 3)
-	local cols, rows = T.grid.cols, T.grid.rows
-	for c = 1, cols - 1 do
-		box(frame, c / cols, 0, 0.0015, 1, DIM).BackgroundTransparency = 0.7
-	end
-	for r = 1, rows - 1 do
-		box(frame, 0, r / rows, 1, 0.003, DIM).BackgroundTransparency = 0.7
-	end
-	for c = 1, cols do
-		local l =
-			text(sf, string.char(64 + c), TYPE, INK, 0.025 + (c - 0.5) / cols * 0.95 - 0.02, 0.008, 0.04, 0.035, px)
-		l.TextXAlignment = Enum.TextXAlignment.Center
-	end
-	for r = 1, rows do
-		text(sf, tostring(r), TYPE, INK, 0.008, 0.05 + (r - 0.5) / rows * 0.9 - 0.02, 0.02, 0.04, px)
-	end
-	local strip = box(sf, T.strip.at[1], T.strip.at[2], T.strip.width, 0.5, PAPER)
-	strip.Name = "Strip"
-	strip.BackgroundTransparency = 1
-	local legend = box(sf, 0.05, 0.66, 0.2, 0.24, PAPER)
-	outline(legend, INK, 2)
-	text(legend, "LEGEND", SLAB, INK, 0.08, 0.06, 0.8, 0.2, 0.24 * px)
-	box(legend, 0.08, 0.45, 0.25, 0.035, PENCIL)
-	text(legend, "CAPTURED", TYPE, INK, 0.4, 0.36, 0.55, 0.18, 0.24 * px)
-	local ring = box(legend, 0.12, 0.66, 0.15, 0.2, PAPER)
-	ring.BackgroundTransparency = 1
-	ring.SizeConstraint = Enum.SizeConstraint.RelativeYY
-	outline(ring, PENCIL, 3)
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.5, 0)
-	corner.Parent = ring
-	text(legend, "THE FRONT", TYPE, INK, 0.4, 0.66, 0.55, 0.18, 0.24 * px)
+	local strip = drawSheet(sf, px)
 	-- the report on the lower right, nothing on it
 	local R = T.report
 	local report = lyingPaper(folder, "Report", tableTop + V(R.at[1], 0.05, R.at[2]), R.size[1], R.size[2], R.tilt)
@@ -666,7 +680,24 @@ local function photo(on: BasePart, i: number)
 	end
 end
 
-local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel)
+-- the board's "VOTE" card (`px` its height in pixels)
+local function drawVote(tf: Frame, px: number)
+	local inner = box(tf, 0.04, 0.1, 0.92, 0.8, PAPER)
+	outline(inner, INK, 3)
+	local title = text(tf, Cfg.Board.title.text, SLAB, INK, 0.08, 0.15, 0.84, 0.7, px)
+	title.TextXAlignment = Enum.TextXAlignment.Center
+end
+
+-- the vote's countdown paper: its label, and the time left (returned)
+local function drawTimer(cf2: Frame, px: number): TextLabel
+	local label = text(cf2, Cfg.Board.timer.label, SLAB, INK, 0.08, 0.08, 0.84, 0.24, px)
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	local timer = text(cf2, "", SLAB, PENCIL, 0.08, 0.36, 0.84, 0.54, px)
+	timer.TextXAlignment = Enum.TextXAlignment.Center
+	return timer
+end
+
+local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel, { CFrame })
 	local B = Cfg.Board
 	local mid = o + v3(B.at)
 	-- (facing the room, its own x runs to the room's +x, the viewer's left: places across it are given as the viewer
@@ -700,19 +731,12 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel
 	local T = B.title
 	local plaque = part(folder, "Title", V(T.size[1], T.size[2], 0.06), cf * CFrame.new(-T.x, T.y, -0.13), PAPER)
 	local _, tf = surface(plaque, Enum.NormalId.Front, 120)
-	local inner = box(tf, 0.04, 0.1, 0.92, 0.8, PAPER)
-	outline(inner, INK, 3)
-	local title = text(tf, T.text, SLAB, INK, 0.08, 0.15, 0.84, 0.7, T.size[2] * 120)
-	title.TextXAlignment = Enum.TextXAlignment.Center
+	drawVote(tf, T.size[2] * 120)
 	local C = B.timer
 	local clock = part(folder, "Timer", V(C.size[1], C.size[2], 0.04), cf * CFrame.new(-C.x, C.y, -0.13), PAPER)
 	pin(folder, (clock.CFrame * CFrame.new(0, C.size[2] / 2 - 0.08, -0.04)).Position)
 	local _, cf2 = surface(clock, Enum.NormalId.Front, 120)
-	local cpx = C.size[2] * 120
-	local label = text(cf2, C.label, SLAB, INK, 0.08, 0.08, 0.84, 0.24, cpx)
-	label.TextXAlignment = Enum.TextXAlignment.Center
-	local timer = text(cf2, "", SLAB, PENCIL, 0.08, 0.36, 0.84, 0.54, cpx)
-	timer.TextXAlignment = Enum.TextXAlignment.Center
+	local timer = drawTimer(cf2, C.size[2] * 120)
 	-- photos pinned round the orders, red string between them
 	local photos = {
 		{ -4.6, 2.2 },
@@ -767,13 +791,138 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel
 	for k, l in { "NO LIGHTS", "AFTER DARK", "KEEP YOUR", "MASK READY" } do
 		text(nf, l, TYPE, INK, 0.08, 0.22 + k * 0.12, 0.84, 0.09, 195)
 	end
-	return cf, tgf, timer
+	local S = B.sheet
+	local orderAt = {}
+	for i = 1, B.slots do
+		local tilt = (if i % 2 == 0 then 1 else -1) * S.tilt
+		orderAt[i] = cf * CFrame.new(-S.xs[i], S.y, -0.14) * CFrame.Angles(0, 0, math.rad(tilt))
+	end
+	return cf, tgf, timer, orderAt
+end
+
+-- the modelled set ------------------------------------------------------------------------------------------------------
+-- a blank paper of the set (Post.set.papers): a thin part over it, its front face the paper's, for the game's text
+local function setPaper(folder: Folder, origin: Vector3, spec: any, name: string): Part
+	local front = v3(spec.front).Unit
+	local back = -front
+	local right = v3(spec.up):Cross(back).Unit
+	local up = back:Cross(right)
+	local at = origin + v3(spec.at) + front * 0.012
+	local p = part(folder, name, V(spec.size[1], spec.size[2], 0.02), CFrame.fromMatrix(at, right, up, back), PAPER)
+	return p
+end
+
+-- The set from the library's command_post (nil where the library hasn't got it): its meshes coloured by name, its
+-- printed papers given their images, its blank papers covered by the game's own.
+local function buildSet(folder: Folder, origin: Vector3): Post?
+	local S = Cfg.Post.set
+	local e = AssetsCfg.Entries[S.asset]
+	local f: Instance? = ReplicatedStorage:FindFirstChild("Assets")
+	f = f and f:FindFirstChild(e.category)
+	for _, sub in string.split(e.folder, "/") do
+		f = f and f:FindFirstChild(sub)
+	end
+	local src = f and f:FindFirstChild(S.asset)
+	if not src or not src:IsA("Model") then
+		return nil
+	end
+	local m = src:Clone()
+	local zero: BasePart? = nil
+	for _, d in m:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
+			d.CastShadow = true
+			local kind, hex = string.match(d.Name, "^([CG])_(%x%x%x%x%x%x)$")
+			if kind and hex then
+				d.Color = Color3.fromHex(hex)
+				d.Material = if kind == "G" then Enum.Material.Neon else Enum.Material.SmoothPlastic
+			elseif d.Name == "Origin" then
+				zero = d
+				d.Transparency = 1
+			elseif string.sub(d.Name, 1, 6) == "Paper_" then
+				d.Color = PAPER
+				d.Material = Enum.Material.SmoothPlastic
+			elseif S.images[d.Name] and d:IsA("MeshPart") then
+				d.TextureID = `rbxassetid://{S.images[d.Name]}`
+				d.Color = Color3.new(1, 1, 1)
+				d.Material = Enum.Material.SmoothPlastic
+			end
+		end
+	end
+	m.WorldPivot = CFrame.new(if zero then zero.Position else m:GetPivot().Position)
+	m:PivotTo(CFrame.new(origin))
+	m.Parent = folder
+	local papers = S.papers
+	local T = Cfg.Table
+	local sheet = setPaper(folder, origin, papers.TableSheet, "Sheet")
+	local sheetPx = papers.TableSheet.size[2] * T.pixelsPerStud
+	local _, sf = surface(sheet, Enum.NormalId.Front, T.pixelsPerStud)
+	local strip = drawSheet(sf, sheetPx)
+	local report = setPaper(folder, origin, papers.Report, "Report")
+	local _, rf = surface(report, Enum.NormalId.Front, T.report.pixelsPerStud)
+	local vote = setPaper(folder, origin, papers.Vote, "Vote")
+	local _, vf = surface(vote, Enum.NormalId.Front, 120)
+	drawVote(vf, papers.Vote.size[2] * 120)
+	local clock = setPaper(folder, origin, papers.Timer, "Timer")
+	local _, cf2 = surface(clock, Enum.NormalId.Front, 120)
+	local timer = drawTimer(cf2, papers.Timer.size[2] * 120)
+	local tg = setPaper(folder, origin, papers.Telegram, "Telegram")
+	local _, tgf = surface(tg, Enum.NormalId.Front, 180)
+	local orderAt = {}
+	for i = 1, Cfg.Board.slots do
+		local spec = papers[`Order{i}`]
+		local front = v3(spec.front).Unit
+		local right = v3(spec.up):Cross(-front).Unit
+		orderAt[i] = CFrame.fromMatrix(origin + v3(spec.at) + front * 0.012, right, (-front):Cross(right), -front)
+	end
+	-- the lights: the lamp's warm pool on the table, the wash on the board, the cool fill
+	local P = Cfg.Post
+	local function light(at: Vector3, look: Vector3?): Part
+		local p =
+			part(folder, "Light", V(0.2, 0.2, 0.2), if look then CFrame.lookAt(at, look) else CFrame.new(at), PAPER)
+		p.Transparency = 1
+		return p
+	end
+	local lamp = light(origin + v3(P.lamp.at))
+	local bulb = Instance.new("PointLight")
+	bulb.Range, bulb.Brightness, bulb.Color, bulb.Shadows = P.lamp.range, P.lamp.brightness, rgb(P.lamp.color), true
+	bulb.Parent = lamp
+	local spot = Instance.new("SpotLight")
+	spot.Face, spot.Range, spot.Brightness, spot.Angle =
+		Enum.NormalId.Front, P.wash.range, P.wash.brightness, P.wash.angle
+	spot.Color = rgb(P.wash.color)
+	spot.Parent = light(origin + v3(P.wash.at), origin + v3(papers.Order2.at))
+	local fill = Instance.new("PointLight")
+	fill.Range, fill.Brightness, fill.Color = P.fill.range, P.fill.brightness, rgb(P.fill.color)
+	fill.Parent = light(origin + v3(P.fill.at))
+	return {
+		origin = origin,
+		tableTop = origin + V(0, papers.TableSheet.at[2], 0),
+		board = orderAt[2],
+		strip = strip,
+		report = rf,
+		telegram = tgf,
+		timer = timer,
+		lamp = lamp,
+		folder = folder,
+		orders = {},
+		orderAt = orderAt,
+		orderSize = Vector2.new(papers.Order1.size[1], papers.Order1.size[2]),
+		sheetAspect = papers.TableSheet.size[1] / papers.TableSheet.size[2],
+		reportPx = papers.Report.size[2] * T.report.pixelsPerStud,
+		telegramPx = papers.Telegram.size[2] * 180,
+		pins = false,
+	}
 end
 
 function CommandPost.build(folder: Folder, origin: Vector3): Post
+	local made = buildSet(folder, origin)
+	if made then
+		return made
+	end
 	buildHut(folder, origin)
 	local tableTop, strip, report = buildTable(folder, origin)
-	local board, telegram, timer = buildBoard(folder, origin)
+	local board, telegram, timer, orderAt = buildBoard(folder, origin)
 	local P = Cfg.Post
 	local at = origin + v3(P.lamp.at)
 	local lamp = part(
@@ -831,6 +980,12 @@ function CommandPost.build(folder: Folder, origin: Vector3): Post
 		lamp = lamp,
 		folder = folder,
 		orders = {},
+		orderAt = orderAt,
+		orderSize = Vector2.new(Cfg.Board.sheet.width, Cfg.Board.sheet.height),
+		sheetAspect = Cfg.Table.sheet[1] / Cfg.Table.sheet[2],
+		reportPx = Cfg.Table.report.size[2] * Cfg.Table.report.pixelsPerStud,
+		telegramPx = 180,
+		pins = true,
 	}
 end
 
@@ -845,7 +1000,7 @@ function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({
 	local T = Cfg.Table
 	local f = post.report
 	f:ClearAllChildren()
-	local px = T.report.size[2] * T.report.pixelsPerStud
+	local px = post.reportPx
 	local head = box(f, 0, 0, 1, 0.09, INK)
 	text(head, "AFTER-ACTION REPORT", SLAB, PAPER, 0.06, 0.1, 0.9, 0.8, 0.09 * px)
 	local winner = r.winner
@@ -887,7 +1042,7 @@ function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({
 	local m = SketchCfg.Maps[key]
 	if m then
 		local w = post.strip.Size.X.Scale
-		local sheetAspect = T.sheet[1] / T.sheet[2]
+		local sheetAspect = post.sheetAspect
 		post.strip.Size = UDim2.fromScale(w, w * sheetAspect * m.size[2] / m.size[1])
 	end
 	return lines, stamp
@@ -909,7 +1064,7 @@ function CommandPost.plan(post: Post, winner: string?)
 			0.06 + (k - 1) * 0.17,
 			0.9,
 			if k == 1 then 0.14 else 0.11,
-			180
+			post.telegramPx
 		)
 		label.TextScaled = true
 	end
@@ -932,14 +1087,16 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 	CommandPost.clearOrders(post)
 	local B = Cfg.Board
 	local S = B.sheet
-	local px = S.height * S.pixelsPerStud
+	local w, h = post.orderSize.X, post.orderSize.Y
+	local px = h * S.pixelsPerStud
 	for i = 1, B.slots do
 		local key = offer[i]
-		local tilt = (if i % 2 == 0 then 1 else -1) * S.tilt
-		local cf = post.board * CFrame.new(-S.xs[i], S.y, -0.14) * CFrame.Angles(0, 0, math.rad(tilt))
-		local p = part(post.folder, "Order" .. i, V(S.width, S.height, 0.03), cf, PAPER)
-		pin(post.folder, (cf * CFrame.new(-S.width / 2 + 0.12, S.height / 2 - 0.1, -0.04)).Position)
-		pin(post.folder, (cf * CFrame.new(S.width / 2 - 0.12, S.height / 2 - 0.1, -0.04)).Position)
+		local cf = post.orderAt[i]
+		local p = part(post.folder, "Order" .. i, V(w, h, 0.03), cf, PAPER)
+		if post.pins then
+			pin(post.folder, (cf * CFrame.new(-w / 2 + 0.12, h / 2 - 0.1, -0.04)).Position)
+			pin(post.folder, (cf * CFrame.new(w / 2 - 0.12, h / 2 - 0.1, -0.04)).Position)
+		end
 		local g, f = surface(p, Enum.NormalId.Front, S.pixelsPerStud, key ~= nil)
 		local head = box(f, 0, 0, 1, 0.07, INK)
 		text(head, "OPERATION ORDER", SLAB, PAPER, 0.06, 0.15, 0.6, 0.7, 0.07 * px)
@@ -962,7 +1119,7 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 		}
 		if key and SketchCfg.Maps[key] then
 			local sm = SketchCfg.Maps[key]
-			clip.Size = UDim2.fromScale(0.62, 0.62 * (S.width / S.height) * sm.size[2] / sm.size[1])
+			clip.Size = UDim2.fromScale(0.62, 0.62 * (w / h) * sm.size[2] / sm.size[1])
 			order.art = SketchMap.new(clip, key, { still = true })
 		else
 			clip.Position = UDim2.fromScale(0.1, 0.19)

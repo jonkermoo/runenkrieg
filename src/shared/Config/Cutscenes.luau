@@ -132,6 +132,70 @@ local Cutscenes = {
 			{ asset = "round_qf18", length = 2.1, at = { -6.2, -0.5 }, yaw = -95, side = true },
 		},
 		casings = { count = 7, at = { -0.6, 0.2 }, spread = 1.4, length = 0.38 },
+		-- the modelled set (Config/Assets command_post, the render session's export 2026-11-03): built from it when the
+		-- library has it, else from parts as above. Its blank papers (studs from its Origin: middle, width x height, the
+		-- way their text faces and its top) take the game's text; its printed papers take these images.
+		set = {
+			asset = "command_post",
+			papers = {
+				TableSheet = { at = { 0, 3.007, 0 }, size = { 11.333, 5.312 }, front = { 0, 1, 0 }, up = { 0, 0, -1 } },
+				Report = {
+					at = { 3.5, 3.03, 1.333 },
+					size = { 2, 2.842 },
+					front = { 0, 1, 0 },
+					up = { -0.0698, 0, -0.9976 },
+				},
+				Vote = { at = { 0.333, 7.733, 11.25 }, size = { 2.667, 0.948 }, front = { 0, 0, -1 }, up = { 0, 1, 0 } },
+				Timer = {
+					at = { -2.4, 7.767, 11.243 },
+					size = { 1, 1 },
+					front = { 0, 0, -1 },
+					up = { 0.0523, 0.9986, 0 },
+				},
+				Order1 = {
+					at = { 3.5, 4.933, 11.25 },
+					size = { 2.833, 4 },
+					front = { 0, 0, -1 },
+					up = { 0.0262, 0.9997, 0 },
+				},
+				Order2 = {
+					at = { 0, 4.933, 11.25 },
+					size = { 2.833, 4 },
+					front = { 0, 0, -1 },
+					up = { -0.014, 0.9999, 0 },
+				},
+				Order3 = {
+					at = { -3.5, 4.933, 11.25 },
+					size = { 2.833, 4 },
+					front = { 0, 0, -1 },
+					up = { -0.0314, 0.9995, 0 },
+				},
+				Telegram = {
+					at = { 5, 7.067, 11.24 },
+					size = { 1.067, 0.686 },
+					front = { 0, 0, -1 },
+					up = { 0.1045, 0.9945, 0 },
+				},
+			},
+			images = {
+				Img_1 = 138301981593552,
+				Img_2 = 129212884588351,
+				Img_3 = 94649461078249,
+				Img_4 = 95040580116295,
+				Img_5 = 111147688606628,
+				Img_6 = 134416554491092,
+				Img_7 = 94649461078249,
+				Img_8 = 78117184810401,
+				Img_9 = 81014158693634,
+				Img_10 = 79981934279343,
+				Img_11 = 97338082074898,
+				Img_12 = 78117184810401,
+				Img_13 = 81014158693634,
+				Img_14 = 79981934279343,
+				Img_15 = 97338082074898,
+				Img_16 = 78117184810401,
+			},
+		},
 	},
 	-- The war table: its top `size` (x, z) `top` studs over the floor; one sheet over the whole top: the played map's
 	-- sketch across its upper part (`strip`: from its top-left and its width, fractions of the sheet) with this match's
