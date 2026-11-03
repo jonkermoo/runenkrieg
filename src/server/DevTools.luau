@@ -48,6 +48,7 @@ local LiveMap = require(Shared.LiveMap)
 local Rules = require(Shared.Rules.DevTeleports)
 local Actions = require(Shared.Rules.DevActions)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 
 local DevTools = {}
 
@@ -178,6 +179,23 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			warn(`[DevTools] {player.Name} placing {value}: {refused}`)
 			Net.event("DevAction"):FireClient(player, "Refused", value, refused)
 		end
+	elseif action == "GunHp" and aim then
+		-- the gun nearest the aim point set to `value`% of its HP (shown on the button: src/client/DevBlastMenu)
+		local best, bestD = nil, Cfg.Blasts.GunReach
+		for _, g in Artillery.list() do
+			local d = (g.model:GetPivot().Position - aim).Magnitude
+			if d < bestD then
+				best, bestD = g, d
+			end
+		end
+		local key = `GunHp{value}`
+		if best then
+			local full = require(Shared.Config.Artillery).Guns[best.key].hp
+			Artillery.setHp(best.model, full * value / 100)
+			Net.event("DevAction"):FireClient(player, "Done", key, `{best.key} at {value}%`)
+		else
+			Net.event("DevAction"):FireClient(player, "Refused", key, "no gun near")
+		end
 	elseif action == "ClearGuns" then
 		Artillery.clear()
 	elseif action == "HealDummies" then
@@ -186,6 +204,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		DevDummies.clear()
 	elseif action == "KnockDummies" then
 		DevDummies.knockDown(if character then character:GetPivot().Position else nil)
+	elseif action == "SayDummies" then
+		DevDummies.say()
 	elseif (action == "BlastStage" or action == "BlastKg") and aim then
 		local by = if player:GetAttribute(Cfg.Blasts.HurtAttribute) == true then nil else character
 		Net.event("DevBlast")
@@ -209,6 +229,10 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(Cfg.TestShooter.Attribute, if value then true else nil)
 	elseif action == "UndoDestruction" then
 		DevWorld.undo()
+	elseif action == "HitchLog" then
+		workspace:SetAttribute(Cfg.Admin.Hitches.attribute, if value then true else nil)
+	elseif action == "HitchReport" then
+		print(Hitches.report())
 	elseif action == "Clock" then
 		Environment.setClock(value)
 	elseif action == "ClockPaused" then

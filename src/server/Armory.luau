@@ -25,6 +25,7 @@ local L = require(Shared.Config.Locomotion)
 local U = require(Shared.Config.Uniforms)
 local W = require(Shared.Config.Weapons)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
 
@@ -135,7 +136,7 @@ end
 -- The weapon as a Tool. No Handle, so Roblox adds no grip weld: the "Hold" Motor6D joins the Gun part to the
 -- Torso while equipped (Part0 set by Armory.give, and by the owner's client at once, src/client/Locomotion). With
 -- C0 = C1 = identity, the hold animation's "Gun" pose is the gun origin in the torso's space. `kit`: whose colors.
-function Armory.tool(name: string, kit: string?): Tool
+local function makeTool(name: string, kit: string?): Tool
 	local w = W[name]
 	local model = Armory.build(name, kit)
 	local tool = Instance.new("Tool")
@@ -157,6 +158,12 @@ function Armory.tool(name: string, kit: string?): Tool
 		tool.Name = Armory.label(name, G.Carried)
 	end
 	return tool
+end
+function Armory.tool(name: string, kit: string?): Tool
+	local t0 = os.clock()
+	local t = makeTool(name, kit)
+	Hitches.since("Weapon made", t0)
+	return t
 end
 
 -- The weapon's stowed copy on the character (not parented: Armory.give shows it while the Tool is put away); nil for

@@ -13,10 +13,11 @@ local Chat = {
 	FadeAfter = 25, -- seconds a line stays up in the quiet view, then it fades out
 	FadeTime = 1.5,
 	QuietTransparency = 0.25, -- a fresh line's words in the quiet view
-	-- the channels: the view tabs left to right (All shows every line), the ones a line can be sent to (Tab cycles
-	-- them), and each one's word on a line and its colour (Palette UI.Grimoire.Chat)
-	Views = { "All", "Server", "Team", "Global" },
-	Send = { "Server", "Team", "Global" },
+	-- the channels (user 2026-11-03: "make chat just team, server, global"; no All tab, Team first): the view tabs left
+	-- to right, each also the channel a line is sent to (Tab cycles them; the first is where you start), each one's
+	-- word on a line and its colour (Palette UI.Grimoire.Chat). Whispers and system lines show in every tab.
+	Views = { "Team", "Server", "Global" },
+	Send = { "Team", "Server", "Global" },
 	-- TextChatService channel names: Roblox's general one is the server channel; ours are made by src/server/Chat
 	ServerChannel = "RBXGeneral",
 	SystemChannel = "RBXSystem",
