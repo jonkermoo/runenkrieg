@@ -1232,7 +1232,7 @@ local Artillery = {
 				look = 0.12,
 				-- right round (`traverse` 180): the mouse's aim runs at most this many degrees ahead of the gun
 				-- (Rules/Artillery.mgLay)
-				lead = 20,
+				lead = 45, -- (20 lost mouse motion once the lay it sees comes 0.2 s late)
 				-- the report (Pro Sound Effects "Rifle Single Shots 1", a heavy single shot, its crack and first boom: one
 				-- a round, 7.5 a second, so the tail is cut short before the take's metal clink at 0.6 s (Studio: loud
 				-- to 0.06 s, mostly gone by 0.45); was the rifles' shot as a placeholder)
