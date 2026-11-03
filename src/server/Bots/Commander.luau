@@ -883,7 +883,19 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				table.insert(ways, { ax = s.x, az = s.z, bx = sp.pos.X, bz = sp.pos.Z })
 			end
 		end
-		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then {} else guns, BD) do
+		-- (MG nests: those missing of Build.Nest.count, its side's standing ones at the front counted)
+		local nests = 0
+		for _, w in Build.worksOf(kit) do
+			if
+				w.key == "MGNest"
+				and w.built
+				and flat(w.at - Vector3.new(zone.x, w.at.Y, zone.z)).Magnitude <= zone.radius + BD.repair
+			then
+				nests += 1
+			end
+		end
+		local missing = math.max(BD.Nest.count - nests, 0)
+		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then {} else guns, BD, missing) do
 			local keep = true
 			if job.key == "Wire" then
 				local wx, wz = BotBuild.wireSpot(job.x, job.z, -tz, tx, ways, (Map.spawnZones :: any)[side], BD.Wire)

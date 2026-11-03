@@ -57,11 +57,21 @@ return {
 		}
 		local jobs = R.plan(zone, 1, 0, holds, { "FieldGun" }, B)
 		assert(count(jobs, "Trench") == 0 and count(jobs, "SandbagPile") == 2, "bags only at the open holds")
-		assert(count(jobs, "Wire") == #B.Wire.lanes and count(jobs, "MGNest") == 1 and count(jobs, "FieldGun") == 1)
+		assert(count(jobs, "Wire") == #B.Wire.lanes and count(jobs, "FieldGun") == 1)
+		assert(count(jobs, "MGNest") == math.min(B.Nest.count, #holds), "a nest at each of the nearest holds")
+		assert(count(R.plan(zone, 1, 0, holds, {}, B, 0), "MGNest") == 0, "none missing: none")
+		assert(count(R.plan(zone, 1, 0, holds, {}, B, 1), "MGNest") == 1, "one missing: one")
 		assert(count(jobs, "Howitzer") == 0, "only the guns the level opens")
+		local first = nil
+		for _, j in R.plan(zone, 1, 0, holds, {}, B, 1) do
+			if j.key == "MGNest" then
+				first = j
+			end
+		end
+		assert(first and near(first.x, 30 + B.Nest.ahead), "the first at the hold nearest the enemy")
 		for _, j in jobs do
 			if j.key == "MGNest" then
-				assert(near(j.x, 30 + B.Nest.ahead), "at the hold nearest the enemy")
+				assert(j.x >= -5 + B.Nest.ahead - 0.01, "ahead of a hold")
 			elseif j.key == "FieldGun" then
 				assert(near(j.x, -B.Guns.back), "behind the zone")
 			elseif j.key == "Wire" then

@@ -130,6 +130,7 @@ export type Bot = {
 	lod: string, -- "near", "middle" or "distant" (the report)
 	nearest: number, -- studs to the nearest player at its last think (callouts)
 	act: Act?, -- Normal: a drag, a heal or a grenade under way
+	buildWhy: string?, -- Normal, an Engineer: its build job's key, or why it has none (the admin panel's readout)
 	actAt: number, -- when it next weighs one (Config/Bots.Actions.every)
 	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
 	threwAt: number,
