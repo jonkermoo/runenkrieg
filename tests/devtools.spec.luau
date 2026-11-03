@@ -187,6 +187,9 @@ return {
 		end
 		assert(A.valid(Cfg, "BotDig", Cfg.Admin.BotDig.steps[2]) and not A.valid(Cfg, "BotDig", 1e6))
 		assert(Cfg.Admin.BotDig.steps[1] == 1, "the first dig step is the normal one")
+		assert(A.valid(Cfg, "BotPlan", { side = "West", plan = "trench" }), "a plan forced")
+		assert(A.valid(Cfg, "BotPlan", { side = "East", plan = "auto" }), "let go")
+		assert(not A.valid(Cfg, "BotPlan", { side = "East", plan = "retreat" }) and not A.valid(Cfg, "BotPlan", "West"))
 		for _, a in { "BotShell", "FrontPush" } do
 			assert(A.valid(Cfg, a, "West") and A.valid(Cfg, a, "East") and not A.valid(Cfg, a, "North"), a)
 		end

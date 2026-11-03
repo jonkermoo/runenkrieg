@@ -349,6 +349,23 @@ local Bots = {
 	-- last is dug, the rest holding where they are giving covering fire, then all moving up to its head. Sappers dig
 	-- under fire (only a hit stops them). It is over at `edge` of the zone's radius from the objective, or after `quiet`
 	-- s with nobody shooting at the squad.
+	-- Normal: how a side fights forward (Rules/BotFront; user 2026-11-03: "once points are starting be captured and
+	-- fights start (pretty early), bots should prioritize trenching lines (use real strategies) to push, rather than the
+	-- open field"; "At first contact"). Until contact (the first capture, or the first shots at one of its squads) a
+	-- side walks where it's safe; then its attacking squads sap (Sap above: `share` dig, zig-zag runs) once within
+	-- `sapFrom` studs of their objective's zone edge, without waiting to be stuck; within `parallel.at` of it the sap
+	-- turns into a parallel `parallel.width` studs across, and the squad gathers there and goes over the top together
+	-- (Config/Bots.TrenchMove.Jump).
+	-- Flank (user: "bots are too focused on pushing down the center"; "1 squad in 3"): `share` of a side's attacking
+	-- squads take a lane off to one side (alternating), walking by a point `offset` studs across from the straight
+	-- way; every `every`-th MG nest goes at the hold spot farthest across, every `every`-th gun spot at least `gunFrom`
+	-- studs across (shelling the enemy's front from an angle).
+	Front = {
+		sapFrom = 150,
+		parallel = { at = 40, width = 24 },
+		Flank = { share = 1 / 3, offset = 90, every = 3, gunFrom = 120 },
+	},
+
 	Sap = {
 		stall = 30,
 		progress = 10,

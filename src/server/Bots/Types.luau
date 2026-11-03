@@ -53,6 +53,7 @@ export type Sap = {
 	run: BuildJob?,
 	open: { BuildJob },
 	digs: { [Model]: BuildJob },
+	parallel: boolean?, -- its last run the parallel across (Config/Bots.Front): dug, it is over and the squad goes over
 }
 export type TrenchSquare = { x: number, z: number, at: Vector3, model: Model, left: number, built: boolean }
 
@@ -182,6 +183,7 @@ export type SquadState = {
 	jumpAlong: Vector3?, -- along that square
 	jumpAt: number?, -- when the first of it got there
 	devPush: { at: Vector3, till: number }?, -- the admin panel's push at a point (Bots.dev "Push"), until `till`
+	flank: number?, -- attacking up a flank (-1 or 1, Config/Bots.Front.Flank): its route by a point off to that side
 }
 -- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again
 -- when the front or the side's sectors held change, which sets the guns it may build, or once the hold spots are

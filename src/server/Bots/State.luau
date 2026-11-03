@@ -182,6 +182,8 @@ local stats = {
 	covering = 0, -- shots of covering fire
 	blocked = 0, -- shots held: the muzzle's line to the aim point blocked (Config/Bots.Sight)
 	strikes = 0, -- butt strokes that went (Config/Bots.Melee)
+	contacts = 0, -- sides that had their first contact (Config/Bots.Front: from then on by trench)
+	parallels = 0, -- parallels planned across close to an objective (Config/Bots.Front)
 	pushes = 0, -- squads that pushed a group they outnumber (Config/Bots.Squads.Push)
 	pushBombs = 0, -- grenades thrown to open such a push
 	wireMoved = 0, -- wire spots moved off (or dropped from) its own side's ways (Config/Bots.Build.Wire)
@@ -195,6 +197,13 @@ local stats = {
 local squads: { [string]: SquadState } = {}
 
 local buildLists: { [string]: SideBuild } = {}
+
+-- Normal: how each side fights forward (Rules/BotFront, Config/Bots.Front): when it first had contact, the admin
+-- panel's plan for it, its plan now; and the sectors' owners at the commander's last look (a capture is contact)
+local fronts = {
+	sides = {} :: { [string]: { contactAt: number?, forced: string?, plan: string } },
+	owners = nil :: { string }?,
+}
 -- the build job a bot takes on its side's list (Rules/BotBuild.pick): an Engineer any within Build.take; a digger (half
 -- a holding squad, any class) a trench run or square within Build.take, wire wanting swings within Build.help; nil if
 -- none
@@ -267,4 +276,5 @@ return {
 	buildLists = buildLists,
 	Kinds = Kinds,
 	budget = budget,
+	fronts = fronts,
 }

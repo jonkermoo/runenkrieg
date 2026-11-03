@@ -242,6 +242,10 @@ local DevTools = {
 		--   (dugout sheltering under shelling)
 		Shell = { count = 8, kg = 2, every = 0.4, spread = 6 },
 		Sides = { "West", "East" },
+		-- a side's bot fighting plan the admin panel can force (Rules/BotFront.Plans; "auto" lets it go)
+		BotPlans = { "open", "trench", "assault", "flank" },
+		-- the readout of each side's plan and its attacking squads (src/server/Bots, every commander tick)
+		BotFrontAttribute = "DevBotFront",
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier
 		--   throwing first); the nearest bot butt-strokes toward it; the nearest free gun goes to the nearest bot
 		BotNear = 80,
