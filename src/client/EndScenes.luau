@@ -41,7 +41,6 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 local INK = rgb(GR.ink)
-local BOLD = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Bold)
 local V = Vector3.new
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -166,8 +165,8 @@ local function buildSets()
 	f.Parent = workspace
 end
 
--- the screen: the bars, the hint over the board, a modal button that frees the mouse while signing
-local gui: ScreenGui, hint: TextLabel, freeMouse: TextButton
+-- the screen: the bars, a modal button that frees the mouse while signing
+local gui: ScreenGui, freeMouse: TextButton
 local function buildGui()
 	gui = Instance.new("ScreenGui")
 	gui.Name = "EndScenes"
@@ -184,16 +183,6 @@ local function buildGui()
 		bar.Position = UDim2.fromScale(0, i)
 		bar.Parent = gui
 	end
-	hint = Instance.new("TextLabel")
-	hint.BackgroundTransparency = 1
-	hint.FontFace = BOLD
-	hint.TextColor3 = rgb(GR.text)
-	hint.TextScaled = true
-	hint.AnchorPoint = Vector2.new(0.5, 0.5)
-	hint.Position = UDim2.fromScale(0.5, Cfg.Bars / 2)
-	hint.Size = UDim2.fromScale(0.6, Cfg.Bars * 0.45)
-	hint.Text = ""
-	hint.Parent = gui
 	freeMouse = Instance.new("TextButton")
 	freeMouse.BackgroundTransparency = 1
 	freeMouse.Text = ""
@@ -290,11 +279,31 @@ local function stampArm(kit: string?, sheet: CommandPost.Order, at: CFrame)
 		end
 		place(0)
 		sheet.stamp.Visible = true
+		local S = Cfg.Board.stampSound
+		local thump = Instance.new("Sound")
+		thump.SoundId = `rbxassetid://{S.id}`
+		thump.Volume, thump.PlaybackSpeed = S.volume, S.speed
+		thump.Parent = block
+		thump:Play()
 		task.wait(A.hold)
 		t0 = os.clock()
 		while os.clock() - t0 < A.up do
 			place(A.lift * math.clamp((os.clock() - t0) / A.up, 0, 1))
 			task.wait()
+		end
+		-- and away out of the shot, the stamp left on the order
+		t0 = os.clock()
+		while os.clock() - t0 < A.down + 0.4 do
+			place(A.lift)
+			local shift = side * Rules.ease(math.clamp((os.clock() - t0) / (A.down + 0.4), 0, 1))
+			for _, p in { block, limb, torso } do
+				p.CFrame += shift
+			end
+			task.wait()
+		end
+		if arm == m then
+			m:Destroy()
+			arm = nil
 		end
 	end)
 end
@@ -438,8 +447,10 @@ local function step()
 				end
 			end
 			freeMouse.Visible = false
-			hint.Text = ""
 		end
+		-- the time left on the board's paper
+		local left = math.max(0, math.ceil(FrontCfg.VoteSeconds - t))
+		post.timer.Text = if picked then Cfg.Board.timer.closed else string.format("%d:%02d", left // 60, left % 60)
 		cf, fov = boardCam(t)
 	else
 		cf = armoryCam(t)
@@ -461,8 +472,11 @@ local function begin(name: string, folder: Instance)
 		MatchCutscene.cover(true)
 	end
 	gui.Enabled = true
-	hint.Text = ""
 	freeMouse.Visible = false
+	if arm then -- (the arm comes only with the pick)
+		(arm :: Model):Destroy()
+		arm = nil
+	end
 	post.lamp.Transparency = if name == "Vote" then 1 else 0 -- (its shade hangs in the board's shot; its light stays)
 	local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
 	local parts = if type(spoken) == "string" then string.split(spoken, ",") else { "none", LiveMap.key() }
@@ -479,7 +493,6 @@ local function begin(name: string, folder: Instance)
 		end)
 		CommandPost.plan(post, if winnerKit then nationOf(winnerKit) else nil)
 		local may = player:GetAttribute("MaySign") == true
-		hint.Text = if may then Cfg.Vote.hint else Rules.text(Cfg.Vote.watch, { winner = nationOf(winnerKit) })
 		freeMouse.Visible = may
 	elseif name == "Loading" and not speechStarted then
 		speechStarted = true

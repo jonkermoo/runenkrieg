@@ -145,7 +145,7 @@ local Cutscenes = {
 		pixelsPerStud = 110,
 		strip = { at = { 0.05, 0.1 }, width = 0.66 },
 		grid = { cols = 11, rows = 6 },
-		report = { at = { 3.5, 1.45 }, size = { 2.1, 2.7 }, tilt = 6, pixelsPerStud = 200 },
+		report = { at = { 3.75, 1.3 }, size = { 2.6, 3.3 }, tilt = 6, pixelsPerStud = 200 },
 		top3 = 3, -- the report's top soldiers (by battle points)
 		-- the report's lines typed one after another, `type` seconds apart from `lead`
 		typing = { lead = 0.8, type = 0.4 },
@@ -154,7 +154,8 @@ local Cutscenes = {
 			{ t1 = 14, from = { 0, 10.4, 0.25 }, to = { 0, 10.1, 0.25 }, look = { 0, 3, 0.25 }, fov = 72, down = true },
 		},
 	},
-	-- The orders board on the back wall (the camera turns round to it): "ORDERS · THE NEXT FRONT", one OPERATION ORDER
+	-- The orders board on the back wall (the camera turns round to it): "VOTE" on a plaque beside a paper counting the
+	-- vote's time down (user 2026-11-03: no words in the bars), one OPERATION ORDER
 	-- per map on offer (`slots` of them, `xs` across; an empty slot "to be announced"), photos pinned round them with red
 	-- string, a field telegram with the plan. Each order: its objective, a clipping of its map, its orders
 	-- (Vote.Orders), and "SIGNED, FOR THE FRONT" over a `grid` of signature lines (cols x rows: up to 40 signers, user
@@ -162,7 +163,8 @@ local Cutscenes = {
 	Board = {
 		at = { 0, 5.83, -7.93 },
 		size = { 11.3, 8.7 },
-		title = { y = 3.0, size = { 5.6, 0.8 } },
+		title = { text = "VOTE", x = -1.3, y = 3.2, size = { 2.4, 0.9 } },
+		timer = { x = 1.5, y = 3.2, size = { 1.7, 0.9 }, label = "POLLS CLOSE IN", closed = "CLOSED" },
 		slots = 3,
 		sheet = { width = 2.85, height = 3.75, xs = { -3.5, 0, 3.5 }, y = -0.9, tilt = 1, pixelsPerStud = 200 },
 		grid = { cols = 4, rows = 10 },
@@ -181,7 +183,9 @@ local Cutscenes = {
 		},
 		noWinnerLines = { "FIELD TELEGRAM", "JOINT ORDERS", "NEITHER SIDE HOLDS THE FIELD", "ALL OFFICERS SIGN" },
 		write = 0.9, -- seconds a signature takes to write, letter by letter, in the signer's nation's ink
-		-- the arm (an R6 right arm in the winners' uniform holding a wooden stamp): in from `reach` studs right of the
+		-- the stamp's thump as it lands (Roblox-licensed "Rock Impact Dirt Hard Muted Thuds 1", quickened)
+		stampSound = { id = 9118616114, volume = 0.9, speed = 1.3 },
+		-- the arm (an R6 right arm in the winners' uniform holding a wooden stamp), only at the pick: in from `reach` studs right of the
 		-- order, `lift` over it; down over `down`, a beat, back up over `up`; the arm `angle` degrees out of the board
 		-- toward the camera; the stamp's block (studs)
 		arm = { reach = 6, lift = 1.6, down = 0.35, hold = 0.25, up = 0.4, angle = 35, stamp = { 1, 0.4, 0.7 } },
@@ -270,8 +274,6 @@ local Cutscenes = {
 		-- the end: the winner stamped NEXT, shown `hold` seconds before the armory (src/server/Frontline)
 		pick = { hold = 1.5 },
 		rate = 0.25, -- seconds between a player's votes (the server's limit)
-		hint = "Click an order to sign it",
-		watch = "{winner} chooses the next field",
 	},
 
 	DisplayOrder = 9, -- the cut's bars, cards and subtitles: over the menus

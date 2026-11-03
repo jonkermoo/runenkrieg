@@ -3,7 +3,7 @@
 -- of a Normal match plays in (src/client/EndScenes runs the scenes and the cameras). A flat-roofed timber hut; the war
 -- table in the middle with one sheet over its top (the played map's sketch with this match's captures, the grid, a
 -- legend), the game's own models on it and the after-action report on its lower right; the orders board on the back
--- wall: "ORDERS · THE NEXT FRONT", one OPERATION ORDER per map on offer with its signature grid, photos on red string,
+-- wall: "VOTE" and the time left, one OPERATION ORDER per map on offer with its signature grid, photos on red string,
 -- a field telegram with the plan. Built on each client, out of every map's sight.
 
 local Players = game:GetService("Players")
@@ -56,6 +56,7 @@ export type Post = {
 	strip: Frame, -- the played map's place on the table sheet
 	report: Frame,
 	telegram: Frame,
+	timer: TextLabel, -- the vote's time left
 	lamp: BasePart,
 	folder: Folder,
 	orders: { Order },
@@ -85,7 +86,7 @@ local function surface(on: BasePart, face: Enum.NormalId, pps: number, interacti
 	g.Face = face
 	g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	g.PixelsPerStud = pps
-	g.LightInfluence = 0.75
+	g.LightInfluence = 0.35 -- (the lamp mustn't bleach one paper whiter than the next)
 	g.Adornee = on
 	g.ResetOnSpawn = false
 	-- (a gui that takes clicks lives in the PlayerGui, pointed at its part)
@@ -124,7 +125,10 @@ local function text(
 	l.BackgroundTransparency = 1
 	l.FontFace = font
 	l.TextColor3 = color
-	l.TextSize = math.max(6, math.floor(h * px * 0.9))
+	local most = Instance.new("UITextSizeConstraint")
+	most.MaxTextSize = math.max(6, math.floor(h * px * 0.9))
+	most.Parent = l
+	l.TextScaled = true -- (a long line shrinks to stay on its paper)
 	l.TextWrapped = false
 	l.Text = s
 	l.Position = UDim2.fromScale(x, y)
@@ -269,57 +273,81 @@ local function buildHut(folder: Folder, o: Vector3)
 			Enum.Material.Wood
 		)
 	end
-	part(
-		folder,
-		"Rug",
-		V(14, 0.05, 8.5),
-		CFrame.new(o + V(0, 0.03, 0)),
-		Color3.fromRGB(104, 42, 36),
-		Enum.Material.Fabric
-	)
+	-- the rug under the table: a red field inside a darker border and a pale stripe
+	part(folder, "Rug", V(14, 0.04, 8.5), CFrame.new(o + V(0, 0.02, 0)), Color3.fromRGB(70, 30, 28))
+	part(folder, "RugStripe", V(13.2, 0.045, 7.7), CFrame.new(o + V(0, 0.025, 0)), Color3.fromRGB(196, 168, 120))
+	part(folder, "RugField", V(12.8, 0.05, 7.3), CFrame.new(o + V(0, 0.03, 0)), Color3.fromRGB(112, 44, 38))
 	-- along the walls: a shelf of books and a crate on the left, a rifle rack and a helmet on the right, a banner
 	part(folder, "Shelf", V(1.2, 0.2, 5), CFrame.new(o + V(-sx / 2 + 0.6, 3.6, back + 4)), DARK, Enum.Material.Wood)
 	for k = 0, 6 do
 		local c = ({ Color3.fromRGB(110, 40, 34), Color3.fromRGB(46, 66, 52), Color3.fromRGB(150, 130, 96) })[k % 3 + 1]
 		part(folder, "Book", V(0.9, 1.1, 0.32), CFrame.new(o + V(-sx / 2 + 0.6, 4.25, back + 2 + k * 0.4)), c)
 	end
-	part(
-		folder,
-		"Crate",
-		V(2.4, 1.8, 2.2),
-		CFrame.new(o + V(-sx / 2 + 1.6, 0.9, back + 2)),
-		Color3.fromRGB(70, 82, 58),
-		Enum.Material.Wood
-	)
-	part(
-		folder,
-		"Crate",
-		V(2.2, 2.4, 2.2),
-		CFrame.new(o + V(sx / 2 - 2, 1.2, back + 2)),
-		WOOD,
-		Enum.Material.WoodPlanks
-	)
+	local function crate(size: Vector3, at: Vector3, color: Color3)
+		part(folder, "Crate", size, CFrame.new(o + at), color, Enum.Material.Wood)
+		local edge = color:Lerp(DARK, 0.5)
+		for _, sx2 in { -1, 1 } do
+			for _, sz2 in { -1, 1 } do
+				part(
+					folder,
+					"Batten",
+					V(0.16, size.Y + 0.02, 0.16),
+					CFrame.new(o + at + V(sx2 * size.X / 2, 0, sz2 * size.Z / 2)),
+					edge,
+					Enum.Material.Wood
+				)
+			end
+		end
+		part(
+			folder,
+			"Lid",
+			V(size.X + 0.04, 0.12, size.Z + 0.04),
+			CFrame.new(o + at + V(0, size.Y / 2 - 0.2, 0)),
+			edge,
+			Enum.Material.Wood
+		)
+		part(
+			folder,
+			"Rope",
+			V(size.X + 0.06, 0.06, 0.12),
+			CFrame.new(o + at + V(0, 0, 0)),
+			Color3.fromRGB(150, 128, 88)
+		)
+	end
+	crate(V(2.4, 1.8, 2.2), V(-sx / 2 + 1.6, 0.9, back + 2), Color3.fromRGB(70, 82, 58))
+	crate(V(2.2, 2.4, 2.2), V(sx / 2 - 2, 1.2, back + 2), WOOD)
 	part(folder, "Rack", V(0.4, 0.3, 3.4), CFrame.new(o + V(sx / 2 - 0.4, 6.3, back + 5.5)), DARK, Enum.Material.Wood)
 	for k = 0, 2 do
 		local at = o + V(sx / 2 - 0.9, 3.3, back + 4.4 + k * 1.1)
 		model(folder, "rifle_g98", 5.6, CFrame.new(at) * CFrame.Angles(math.rad(90), 0, math.rad(-6)))
 	end
-	local banner = part(
+	-- the flag on the left wall: cloth on a pole with finials, the team's band and a roundel
+	local fx, fz = -sx / 2 + 0.2, back + 3.4
+	local cloth = part(folder, "Flag", V(0.06, 2.2, 4.4), CFrame.new(o + V(fx, 6.5, fz)), Color3.fromRGB(46, 48, 52))
+	part(folder, "Band", V(0.08, 0.45, 4.4), cloth.CFrame, rgb(GR.Name.uniform1 or { 204, 172, 92 }))
+	local roundel = part(folder, "Roundel", V(0.1, 1.1, 1.1), cloth.CFrame, Color3.fromRGB(204, 172, 92))
+	roundel.Shape = Enum.PartType.Cylinder
+	local inner = part(folder, "Roundel", V(0.12, 0.8, 0.8), cloth.CFrame, Color3.fromRGB(46, 48, 52))
+	inner.Shape = Enum.PartType.Cylinder
+	local pole = part(
 		folder,
-		"Banner",
-		V(0.1, 2.2, 4.6),
-		CFrame.new(o + V(-sx / 2 + 0.15, 6.6, back + 3.4)),
-		Color3.fromRGB(38, 40, 44),
-		Enum.Material.Fabric
+		"Pole",
+		V(4.9, 0.12, 0.12),
+		CFrame.new(o + V(fx + 0.05, 7.68, fz)) * CFrame.Angles(0, math.pi / 2, 0),
+		DARK
 	)
-	part(
-		folder,
-		"Stripe",
-		V(0.12, 0.5, 4.6),
-		banner.CFrame,
-		rgb(GR.Name.uniform1 or { 204, 172, 92 }),
-		Enum.Material.Fabric
-	)
+	pole.Shape = Enum.PartType.Cylinder
+	for _, dz in { -2.5, 2.5 } do
+		local finial = part(
+			folder,
+			"Finial",
+			V(0.22, 0.22, 0.22),
+			CFrame.new(o + V(fx + 0.05, 7.68, fz + dz)),
+			Color3.fromRGB(196, 160, 84),
+			Enum.Material.Metal
+		)
+		finial.Shape = Enum.PartType.Ball
+	end
 	-- the duty roster on the right wall, by the board
 	local roster = part(
 		folder,
@@ -332,7 +360,7 @@ local function buildHut(folder: Folder, o: Vector3)
 	text(rf, "DUTY ROSTER", SLAB, INK, 0.08, 0.04, 0.84, 0.06, 208)
 	for k = 1, 12 do
 		box(rf, 0.08, 0.13 + k * 0.065, 0.84, 0.004, DIM)
-		text(rf, `Watch {k}`, TYPE, DIM, 0.1, 0.09 + k * 0.065, 0.4, 0.035, 208)
+		text(rf, `Watch {k}`, TYPE, INK, 0.1, 0.09 + k * 0.065, 0.4, 0.04, 208)
 	end
 end
 
@@ -395,14 +423,6 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 	for r = 1, rows do
 		text(sf, tostring(r), TYPE, INK, 0.008, 0.05 + (r - 0.5) / rows * 0.9 - 0.02, 0.02, 0.04, px)
 	end
-	-- fields under the paper's lower half, the colour of washed pencil
-	for _, b in { { 0.3, 0.68, 0.18, 0.12 }, { 0.52, 0.74, 0.2, 0.14 }, { 0.14, 0.8, 0.1, 0.1 } } do
-		local f = box(sf, b[1], b[2], b[3], b[4], Color3.fromRGB(196, 204, 150))
-		f.BackgroundTransparency = 0.45
-		local c = Instance.new("UICorner")
-		c.CornerRadius = UDim.new(0.5, 0)
-		c.Parent = f
-	end
 	local strip = box(sf, T.strip.at[1], T.strip.at[2], T.strip.width, 0.5, PAPER)
 	strip.Name = "Strip"
 	strip.BackgroundTransparency = 1
@@ -449,7 +469,10 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 		)
 		settle(m, tableTop.Y + 0.04)
 	end
-	-- a compass, a pocket watch, binoculars, an ink pot and a pencil
+	-- the small things on the table, each built from its parts: a compass, a pocket watch on its chain, binoculars,
+	-- an ink bottle with a dip pen, a pencil
+	local BRASS, BLACK = Color3.fromRGB(196, 160, 84), Color3.fromRGB(28, 28, 30)
+	-- a disc lying flat (its axis up), `r` across the middle, `h` tall, its middle `at` over the table top's middle
 	local function disc(name: string, r: number, h: number, at: Vector3, color: Color3, material: Enum.Material?): Part
 		local p = part(
 			folder,
@@ -462,34 +485,134 @@ local function buildTable(folder: Folder, o: Vector3): (Vector3, Frame, Frame)
 		p.Shape = Enum.PartType.Cylinder
 		return p
 	end
-	disc("Compass", 0.45, 0.12, V(-2.4, 0.1, 0.55), Color3.fromRGB(200, 170, 96), Enum.Material.Metal)
-	disc("Glass", 0.38, 0.13, V(-2.4, 0.11, 0.55), Color3.fromRGB(226, 232, 230), Enum.Material.Glass)
-	disc("Watch", 0.32, 0.12, V(1.6, 0.1, 0.45), Color3.fromRGB(200, 170, 96), Enum.Material.Metal)
-	disc("Ink", 0.25, 0.4, V(-1.1, 0.24, 1.2), Color3.fromRGB(24, 26, 34), Enum.Material.Glass)
-	for _, dx in { -0.35, 0.35 } do
-		local b = part(
+	-- a rod lying along the table, from `a` to `b` (over the table top's middle)
+	local function rod(name: string, r: number, a: Vector3, b: Vector3, color: Color3, material: Enum.Material?): Part
+		local p = part(
 			folder,
-			"Binocular",
-			V(0.75, 0.32, 0.32),
-			CFrame.new(tableTop + V(-5.0 + dx * 0.6, 0.18, -2.2)) * CFrame.Angles(0, math.pi / 2, 0),
-			Color3.fromRGB(30, 30, 30)
+			name,
+			V((b - a).Magnitude, r * 2, r * 2),
+			CFrame.lookAt(tableTop + (a + b) / 2, tableTop + b) * CFrame.Angles(0, math.pi / 2, 0),
+			color,
+			material
 		)
-		b.Shape = Enum.PartType.Cylinder
+		p.Shape = Enum.PartType.Cylinder
+		return p
+	end
+	-- the compass: a brass case, a paper card, a red and a black needle, its pin, the lid's hinge
+	local cp = V(-2.4, 0, 0.6)
+	disc("CompassCase", 0.42, 0.12, cp + V(0, 0.06, 0), BRASS, Enum.Material.Metal)
+	disc("CompassCard", 0.35, 0.02, cp + V(0, 0.125, 0), PAPER)
+	for k = 0, 7 do
+		local a = k * math.pi / 4
+		part(
+			folder,
+			"Tick",
+			V(0.02, 0.01, 0.07),
+			CFrame.new(tableTop + cp + V(math.sin(a) * 0.3, 0.14, math.cos(a) * 0.3)) * CFrame.Angles(0, a, 0),
+			INK
+		)
 	end
 	part(
 		folder,
-		"Pencil",
-		V(0.08, 0.08, 1.3),
-		CFrame.new(tableTop + V(-0.6, 0.06, 1.0)) * CFrame.Angles(0, math.rad(25), 0),
-		Color3.fromRGB(30, 30, 30)
+		"NeedleN",
+		V(0.05, 0.02, 0.28),
+		CFrame.new(tableTop + cp + V(0.04, 0.15, -0.12)) * CFrame.Angles(0, math.rad(20), 0),
+		PENCIL
 	)
 	part(
 		folder,
-		"Block",
-		V(0.7, 0.18, 0.5),
-		CFrame.new(tableTop + V(2.7, 0.1, -1.6)) * CFrame.Angles(0, math.rad(12), 0),
-		PENCIL
+		"NeedleS",
+		V(0.05, 0.02, 0.28),
+		CFrame.new(tableTop + cp + V(-0.04, 0.15, 0.12)) * CFrame.Angles(0, math.rad(20), 0),
+		BLACK
 	)
+	local pinHead =
+		part(folder, "Pin", V(0.06, 0.06, 0.06), CFrame.new(tableTop + cp + V(0, 0.17, 0)), BRASS, Enum.Material.Metal)
+	pinHead.Shape = Enum.PartType.Ball
+	part(
+		folder,
+		"Hinge",
+		V(0.16, 0.08, 0.08),
+		CFrame.new(tableTop + cp + V(0, 0.08, -0.44)),
+		BRASS,
+		Enum.Material.Metal
+	)
+	-- the pocket watch: a brass case, its face and hands, the crown and bow, the chain trailing off
+	local wp = V(1.7, 0, 0.5)
+	disc("WatchCase", 0.3, 0.1, wp + V(0, 0.05, 0), BRASS, Enum.Material.Metal)
+	disc("WatchFace", 0.25, 0.02, wp + V(0, 0.105, 0), PAPER)
+	for k = 0, 11 do
+		local a = k * math.pi / 6
+		part(
+			folder,
+			"Hour",
+			V(0.015, 0.01, 0.04),
+			CFrame.new(tableTop + wp + V(math.sin(a) * 0.21, 0.115, math.cos(a) * 0.21)) * CFrame.Angles(0, a, 0),
+			INK
+		)
+	end
+	part(
+		folder,
+		"HandHour",
+		V(0.025, 0.01, 0.12),
+		CFrame.new(tableTop + wp + V(0.03, 0.12, -0.05)) * CFrame.Angles(0, math.rad(-30), 0),
+		INK
+	)
+	part(
+		folder,
+		"HandMinute",
+		V(0.02, 0.01, 0.18),
+		CFrame.new(tableTop + wp + V(-0.06, 0.12, -0.06)) * CFrame.Angles(0, math.rad(45), 0),
+		INK
+	)
+	rod("Crown", 0.05, wp + V(0, 0.05, -0.3), wp + V(0, 0.05, -0.38), BRASS, Enum.Material.Metal)
+	local bow = disc("Bow", 0.09, 0.03, wp + V(0, 0.03, -0.45), BRASS, Enum.Material.Metal)
+	bow.Transparency = 0
+	for k = 1, 10 do
+		local u = k / 10
+		local link = part(
+			folder,
+			"Link",
+			V(0.05, 0.05, 0.05),
+			CFrame.new(tableTop + wp + V(0.25 * math.sin(u * 3), 0.025, -0.5 - u * 0.7)),
+			BRASS,
+			Enum.Material.Metal
+		)
+		link.Shape = Enum.PartType.Ball
+	end
+	-- the binoculars: two barrels with brass rims and eyepieces, the bridge and its focus wheel
+	local bp = V(-5.0, 0.17, -2.15)
+	for _, dx in { -0.2, 0.2 } do
+		rod("Barrel", 0.15, bp + V(dx, 0, -0.32), bp + V(dx, 0, 0.2), BLACK)
+		rod("Rim", 0.17, bp + V(dx, 0, -0.38), bp + V(dx, 0, -0.3), BRASS, Enum.Material.Metal)
+		rod("Eyepiece", 0.1, bp + V(dx, -0.04, 0.2), bp + V(dx, -0.04, 0.36), BLACK)
+	end
+	part(folder, "Bridge", V(0.28, 0.08, 0.3), CFrame.new(tableTop + bp + V(0, 0.08, 0)), BLACK)
+	rod("Focus", 0.07, bp + V(-0.06, 0.15, 0.05), bp + V(0.06, 0.15, 0.05), BRASS, Enum.Material.Metal)
+	-- the ink bottle (square glass, a neck, a cork) and the dip pen by it
+	local ip = V(-1.2, 0, 1.3)
+	local glass = part(
+		folder,
+		"Bottle",
+		V(0.36, 0.3, 0.36),
+		CFrame.new(tableTop + ip + V(0, 0.15, 0)),
+		Color3.fromRGB(40, 60, 80),
+		Enum.Material.Glass
+	)
+	glass.Transparency = 0.25
+	part(folder, "Ink", V(0.3, 0.16, 0.3), CFrame.new(tableTop + ip + V(0, 0.09, 0)), Color3.fromRGB(18, 20, 40))
+	disc("Neck", 0.09, 0.1, ip + V(0, 0.34, 0), Color3.fromRGB(40, 60, 80), Enum.Material.Glass)
+	disc("Cork", 0.08, 0.08, ip + V(0, 0.43, 0), Color3.fromRGB(150, 110, 70), Enum.Material.Wood)
+	rod("PenHolder", 0.03, ip + V(0.35, 0.03, -0.3), ip + V(0.9, 0.03, 0.2), BLACK)
+	rod("Nib", 0.02, ip + V(0.28, 0.03, -0.36), ip + V(0.35, 0.03, -0.3), BRASS, Enum.Material.Metal)
+	-- the pencil: a yellow body, the sharpened wood and lead, a ferrule and eraser
+	local a0, a1 = V(-0.9, 0.04, 0.6), V(0.3, 0.04, 1.15)
+	local dir = (a1 - a0).Unit
+	rod("Pencil", 0.04, a0, a1, Color3.fromRGB(214, 168, 52))
+	rod("Wood", 0.03, a1, a1 + dir * 0.08, Color3.fromRGB(210, 172, 120), Enum.Material.Wood)
+	rod("Lead", 0.012, a1 + dir * 0.08, a1 + dir * 0.12, BLACK)
+	rod("Ferrule", 0.042, a0 - dir * 0.06, a0, Color3.fromRGB(180, 180, 176), Enum.Material.Metal)
+	rod("Eraser", 0.038, a0 - dir * 0.13, a0 - dir * 0.06, Color3.fromRGB(206, 120, 120))
 	return tableTop, strip, rf
 end
 
@@ -499,7 +622,51 @@ local function pin(folder: Instance, at: Vector3)
 	p.Shape = Enum.PartType.Ball
 end
 
-local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
+-- a sepia field photograph on `on`'s front: sky over ground and, by `i`, a church tower, a field gun, a row of
+-- soldiers or a biplane in silhouette
+local SEPIA =
+	{ sky = Color3.fromRGB(196, 176, 140), ground = Color3.fromRGB(120, 100, 74), dark = Color3.fromRGB(52, 42, 32) }
+local function photo(on: BasePart, i: number)
+	local _, f = surface(on, Enum.NormalId.Front, 200)
+	f.BackgroundColor3 = SEPIA.sky
+	box(f, 0, 0.62, 1, 0.38, SEPIA.ground)
+	local kind = (i - 1) % 4
+	if kind == 0 then -- the church tower: its tower, the spire, the nave beside it
+		box(f, 0.42, 0.22, 0.14, 0.42, SEPIA.dark)
+		local spire = box(f, 0.455, 0.1, 0.07, 0.14, SEPIA.dark)
+		spire.Rotation = 0
+		box(f, 0.56, 0.42, 0.3, 0.22, SEPIA.dark)
+	elseif kind == 1 then -- the field gun: a wheel, the barrel cocked up, the trail
+		local wheel = box(f, 0.32, 0.46, 0.22, 0.22, SEPIA.dark)
+		wheel.SizeConstraint = Enum.SizeConstraint.RelativeYY
+		local round = Instance.new("UICorner")
+		round.CornerRadius = UDim.new(0.5, 0)
+		round.Parent = wheel
+		local barrel = box(f, 0.38, 0.42, 0.42, 0.05, SEPIA.dark)
+		barrel.Rotation = -18
+		local trail = box(f, 0.12, 0.6, 0.3, 0.04, SEPIA.dark)
+		trail.Rotation = 10
+	elseif kind == 2 then -- a row of soldiers: heads, bodies, rifles slung
+		for k = 0, 4 do
+			local x = 0.1 + k * 0.17
+			box(f, x, 0.36, 0.1, 0.3, SEPIA.dark)
+			local head = box(f, x + 0.015, 0.27, 0.07, 0.08, SEPIA.dark)
+			local c = Instance.new("UICorner")
+			c.CornerRadius = UDim.new(0.5, 0)
+			c.Parent = head
+			local rifle = box(f, x + 0.08, 0.22, 0.015, 0.3, SEPIA.dark)
+			rifle.Rotation = 12
+		end
+	else -- a biplane in the sky: two wings, the body, the tail
+		box(f, 0.2, 0.22, 0.6, 0.04, SEPIA.dark)
+		box(f, 0.24, 0.34, 0.52, 0.04, SEPIA.dark)
+		box(f, 0.44, 0.24, 0.06, 0.12, SEPIA.dark)
+		box(f, 0.3, 0.27, 0.4, 0.05, SEPIA.dark)
+		box(f, 0.66, 0.22, 0.04, 0.1, SEPIA.dark)
+	end
+end
+
+local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame, TextLabel)
 	local B = Cfg.Board
 	local mid = o + v3(B.at)
 	-- (facing the room, its own x runs to the room's -x: places across it are given as the room sees them, negated)
@@ -528,14 +695,23 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
 			)
 		end
 	end
-	-- "ORDERS · THE NEXT FRONT" on a plaque
-	local plaque =
-		part(folder, "Title", V(B.title.size[1], B.title.size[2], 0.06), cf * CFrame.new(0, B.title.y, -0.13), PAPER)
+	-- "VOTE" on a plaque, the time left on a paper beside it
+	local T = B.title
+	local plaque = part(folder, "Title", V(T.size[1], T.size[2], 0.06), cf * CFrame.new(-T.x, T.y, -0.13), PAPER)
 	local _, tf = surface(plaque, Enum.NormalId.Front, 120)
-	local inner = box(tf, 0.02, 0.1, 0.96, 0.8, PAPER)
+	local inner = box(tf, 0.04, 0.1, 0.92, 0.8, PAPER)
 	outline(inner, INK, 3)
-	local title = text(tf, "ORDERS  ·  THE NEXT FRONT", SLAB, INK, 0, 0.15, 1, 0.7, B.title.size[2] * 120)
+	local title = text(tf, T.text, SLAB, INK, 0.08, 0.15, 0.84, 0.7, T.size[2] * 120)
 	title.TextXAlignment = Enum.TextXAlignment.Center
+	local C = B.timer
+	local clock = part(folder, "Timer", V(C.size[1], C.size[2], 0.04), cf * CFrame.new(-C.x, C.y, -0.13), PAPER)
+	pin(folder, (clock.CFrame * CFrame.new(0, C.size[2] / 2 - 0.08, -0.04)).Position)
+	local _, cf2 = surface(clock, Enum.NormalId.Front, 120)
+	local cpx = C.size[2] * 120
+	local label = text(cf2, C.label, SLAB, INK, 0.08, 0.08, 0.84, 0.24, cpx)
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	local timer = text(cf2, "", SLAB, PENCIL, 0.08, 0.36, 0.84, 0.54, cpx)
+	timer.TextXAlignment = Enum.TextXAlignment.Center
 	-- photos pinned round the orders, red string between them
 	local photos = {
 		{ -4.6, 2.2 },
@@ -554,15 +730,9 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
 	local tops: { Vector3 } = {}
 	for i, ph in photos do
 		local at = cf * CFrame.new(-ph[1], ph[2], -0.13) * CFrame.Angles(0, 0, math.rad(rng:NextNumber(-8, 8)))
-		part(folder, "Photo" .. i, V(0.75, 0.85, 0.03), at, Color3.fromRGB(236, 230, 214))
-		local shade = 70 + rng:NextInteger(0, 30)
-		part(
-			folder,
-			"Print",
-			V(0.6, 0.55, 0.035),
-			at * CFrame.new(0, 0.07, 0),
-			Color3.fromRGB(shade, shade - 4, shade - 12)
-		)
+		part(folder, "Photo" .. i, V(0.75, 0.85, 0.03), at, PAPER)
+		local print = part(folder, "Print", V(0.6, 0.55, 0.035), at * CFrame.new(0, 0.07, 0), PAPER)
+		photo(print, i)
 		tops[i] = (at * CFrame.new(0, 0.35, -0.05)).Position
 		pin(folder, tops[i])
 	end
@@ -579,10 +749,9 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
 		"Telegram",
 		V(1.6, 1.2, 0.03),
 		cf * CFrame.new(4.75, 0.9, -0.14) * CFrame.Angles(0, 0, math.rad(4)),
-		Color3.fromRGB(226, 200, 150)
+		PAPER
 	)
 	local _, tgf = surface(tg, Enum.NormalId.Front, 150)
-	tgf.BackgroundColor3 = Color3.fromRGB(226, 200, 150)
 	pin(folder, (tg.CFrame * CFrame.new(0, 0.55, -0.05)).Position)
 	local note = part(
 		folder,
@@ -597,22 +766,42 @@ local function buildBoard(folder: Folder, o: Vector3): (CFrame, Frame)
 	for k, l in { "NO LIGHTS", "AFTER DARK", "KEEP YOUR", "MASK READY" } do
 		text(nf, l, TYPE, INK, 0.08, 0.22 + k * 0.12, 0.84, 0.09, 195)
 	end
-	return cf, tgf
+	return cf, tgf, timer
 end
 
 function CommandPost.build(folder: Folder, origin: Vector3): Post
 	buildHut(folder, origin)
 	local tableTop, strip, report = buildTable(folder, origin)
-	local board, telegram = buildBoard(folder, origin)
+	local board, telegram, timer = buildBoard(folder, origin)
 	local P = Cfg.Post
+	local at = origin + v3(P.lamp.at)
 	local lamp = part(
 		folder,
 		"Lamp",
-		V(1.1, 0.55, 1.1),
-		CFrame.new(origin + v3(P.lamp.at)),
-		Color3.fromRGB(46, 58, 44),
+		V(0.2, 1.3, 1.3),
+		CFrame.new(at) * CFrame.Angles(0, 0, math.pi / 2),
+		Color3.fromRGB(46, 70, 52),
 		Enum.Material.Metal
 	)
+	lamp.Shape = Enum.PartType.Cylinder
+	local cap = part(
+		folder,
+		"Cap",
+		V(0.35, 0.7, 0.7),
+		CFrame.new(at + V(0, 0.25, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+		Color3.fromRGB(46, 70, 52),
+		Enum.Material.Metal
+	)
+	cap.Shape = Enum.PartType.Cylinder
+	local glow = part(
+		folder,
+		"Bulb",
+		V(0.35, 0.35, 0.35),
+		CFrame.new(at - V(0, 0.15, 0)),
+		Color3.fromRGB(255, 228, 170),
+		Enum.Material.Neon
+	)
+	glow.Shape = Enum.PartType.Ball
 	local cordLength = Cfg.Post.room.size[2] - P.lamp.at[2]
 	part(folder, "Cord", V(0.06, cordLength, 0.06), CFrame.new(origin + v3(P.lamp.at) + V(0, cordLength / 2, 0)), DARK)
 	local bulb = Instance.new("PointLight")
@@ -637,6 +826,7 @@ function CommandPost.build(folder: Folder, origin: Vector3): Post
 		strip = strip,
 		report = report,
 		telegram = telegram,
+		timer = timer,
 		lamp = lamp,
 		folder = folder,
 		orders = {},
@@ -665,26 +855,26 @@ function CommandPost.report(post: Post, r: any, nation: (string?) -> string): ({
 		table.insert(lines, l)
 	end
 	local mapName = if r.map then LiveMap.get(r.map).name else ""
-	add(`SECTOR    {string.upper(mapName)}`, TYPE, DIM, 0.12, 0.035)
-	add(if winner then string.upper(nation(winner)) else "NO VICTOR", SLAB, INK, 0.17, 0.075)
-	add(if winner then "HOLDS THE LINE" else "THE LINE STANDS", TYPE, INK, 0.255, 0.04)
-	add(`LENGTH    {clock(math.floor(r.length or 0))}`, TYPE, DIM, 0.3, 0.035)
-	box(f, 0.07, 0.36, 0.86, 0.004, INK)
-	add("TOP SOLDIERS", SLAB, INK, 0.385, 0.045)
-	add(string.format("%-12s%6s%5s%6s", "", "KILLS", "HEAL", "BUILT"), TYPE, DIM, 0.44, 0.03)
+	add(string.upper(mapName), SLAB, INK, 0.115, 0.045)
+	add(if winner then string.upper(nation(winner)) else "NO VICTOR", SLAB, INK, 0.17, 0.085)
+	add(if winner then "HOLDS THE LINE" else "THE LINE STANDS", TYPE, INK, 0.26, 0.045)
+	add(`LENGTH {clock(math.floor(r.length or 0))}`, TYPE, INK, 0.31, 0.045)
+	box(f, 0.07, 0.37, 0.86, 0.005, INK)
+	add("TOP SOLDIERS", SLAB, INK, 0.385, 0.05)
+	add(string.format("%-10s%5s%5s%6s", "", "KILL", "HEAL", "BUILT"), SLAB, INK, 0.44, 0.04)
 	local top = if type(r.top) == "table" then r.top else {}
 	for i = 1, T.top3 do
 		local row = top[i]
 		local s = if row
-			then string.format("%d %-10s%6d%5d%6d", i, string.sub(row.name, 1, 10), row.Kills, row.Healed, row.Built)
+			then string.format("%d %-8s%5d%5d%6d", i, string.sub(row.name, 1, 8), row.Kills, row.Healed, row.Built)
 			else `{i} -`
-		add(s, TYPE, INK, 0.44 + i * 0.05, 0.035)
+		add(s, TYPE, INK, 0.44 + i * 0.055, 0.045)
 	end
 	local you = r.you or {}
-	local band = box(f, 0.05, 0.66, 0.9, 0.05, Color3.fromRGB(232, 206, 120))
+	local band = box(f, 0.05, 0.665, 0.9, 0.06, Color3.fromRGB(232, 206, 120))
 	band.BackgroundTransparency = 0.35
-	add(string.format("%-12s%6d%5d%6d", "YOU", you.Kills or 0, you.Healed or 0, you.Built or 0), TYPE, INK, 0.665, 0.04)
-	add(`+{you.Earned or 0} battle points`, TYPE, PENCIL, 0.72, 0.035)
+	add(string.format("%-10s%5d%5d%6d", "YOU", you.Kills or 0, you.Healed or 0, you.Built or 0), SLAB, INK, 0.67, 0.05)
+	add(`+{you.Earned or 0} battle points`, TYPE, PENCIL, 0.735, 0.045)
 	local stamp = text(f, if winner then "VICTORY" else "STALEMATE", SLAB, PENCIL, 0.35, 0.82, 0.58, 0.1, px)
 	stamp.TextXAlignment = Enum.TextXAlignment.Center
 	stamp.Rotation = -12
@@ -754,7 +944,7 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 		text(head, "OPERATION ORDER", SLAB, PAPER, 0.06, 0.15, 0.6, 0.7, 0.07 * px)
 		local no = text(head, `No.{i}`, SLAB, PAPER, 0.7, 0.15, 0.24, 0.7, 0.07 * px)
 		no.TextXAlignment = Enum.TextXAlignment.Right
-		text(f, "OBJECTIVE", TYPE, DIM, 0.06, 0.085, 0.5, 0.025, px)
+		text(f, "OBJECTIVE", SLAB, INK, 0.06, 0.08, 0.5, 0.03, px)
 		local m = key and LiveMap.get(key)
 		text(f, if m then string.upper(m.name) else B.placeholder[1], SLAB, INK, 0.06, 0.115, 0.88, 0.045, px)
 		local clip = box(f, 0.06, 0.175, 0.62, 0.15, PAPER)
@@ -776,22 +966,12 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 		else
 			clip.Position = UDim2.fromScale(0.1, 0.19)
 			clip.Size = UDim2.fromScale(0.8, 0.1)
-			local l = text(clip, B.placeholder[2], TYPE, DIM, 0, 0.25, 1, 0.5, 0.1 * px)
+			local l = text(clip, B.placeholder[2], SLAB, INK, 0, 0.25, 1, 0.5, 0.1 * px)
 			l.TextXAlignment = Enum.TextXAlignment.Center
 		end
 		local orders = if key then Cfg.Vote.Orders[key] or {} else { B.placeholder[3] }
 		for k, l in orders do
-			text(
-				f,
-				if key then `{k}. {l}` else l,
-				TYPE,
-				if key then INK else DIM,
-				0.06,
-				0.335 + (k - 1) * 0.035,
-				0.88,
-				0.028,
-				px
-			)
+			text(f, if key then `{k}. {l}` else l, TYPE, INK, 0.06, 0.335 + (k - 1) * 0.035, 0.88, 0.028, px)
 		end
 		box(f, 0.05, 0.455, 0.9, 0.003, INK)
 		text(f, "SIGNED, FOR THE FRONT:", TYPE, INK, 0.06, 0.47, 0.6, 0.03, px)
