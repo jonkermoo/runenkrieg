@@ -1717,7 +1717,10 @@ function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
 	end
 	local gun = s.gun
 	if gun.mg then
-		yaw, elevation = Rules.mgLay(yaw, elevation, s.lay.yaw, 0, 0, gun)
+		-- (a bot's lay goes straight in on a gun that turns right round: the 360 nest)
+		if gun.traverse < 180 then
+			yaw, elevation = Rules.mgLay(yaw, elevation, s.lay.yaw, 0, 0, gun)
+		end
 	end
 	local lims = limitsOf(s)
 	s.want = { yaw = Rules.wrap(yaw), elevation = math.clamp(elevation, lims[1], lims[2]) }

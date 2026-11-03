@@ -600,8 +600,16 @@ function Artillery.mgLay(
 	dy: number,
 	gun: any
 ): (number, number)
+	local e = math.clamp(wantElevation - dy * gun.mg.look, gun.elevation[1], gun.elevation[2])
+	if gun.traverse >= 180 then
+		-- right round (the 360 nest; user 2026-11-03: "the gun turning controls are weird ... it goes by itself sometimes
+		-- and also gets blocked"): no stops, but never more than `mg.lead` degrees ahead of the lay `base` (the gun
+		-- as it points now), so the gun never takes the long way round toward an aim run far ahead of it
+		local rel = math.clamp(Artillery.wrap(wantYaw - base) - dx * gun.mg.look, -gun.mg.lead, gun.mg.lead)
+		return Artillery.wrap(base + rel), e
+	end
 	local rel = math.clamp(Artillery.wrap(wantYaw - base) - dx * gun.mg.look, -gun.traverse, gun.traverse)
-	return Artillery.wrap(base + rel), math.clamp(wantElevation - dy * gun.mg.look, gun.elevation[1], gun.elevation[2])
+	return Artillery.wrap(base + rel), e
 end
 
 -- Seconds between a machine gun's shots at `rate` rounds a minute

@@ -613,10 +613,17 @@ return {
 		local MG = C.Guns.mg08
 		local y, e = A.mgLay(30, 0, 30, -10, 0, MG)
 		assert(near(y, 30 + 10 * MG.mg.look) and e == 0, "the mouse moved left turns it left (yaw up)")
+		-- right round (the 360 nest): the aim never more than `lead` ahead of the gun, and on past the back with no stop
 		y = A.mgLay(30, 0, 30, -1e6, 0, MG)
-		assert(near(y, A.wrap(30 + MG.traverse)), "right round to the back")
+		assert(near(y, 30 + MG.mg.lead), "no further ahead of the gun than its lead")
+		local lay, aim = 0, 0
+		for _ = 1, 200 do
+			aim = A.mgLay(aim, 0, lay, -20, 0, MG) -- (the mouse moved left)
+			lay = aim -- (the gun keeps up)
+		end
+		assert(near(A.wrap(lay - 0), A.wrap(200 * 20 * MG.mg.look), 1e-6), "round and round, never blocked at the back")
 		y = A.mgLay(170, 0, 170, -1e6, 0, MG)
-		assert(near(y, A.wrap(170 + MG.traverse)), "across 180")
+		assert(near(y, A.wrap(170 + MG.mg.lead)), "across 180")
 		local _, up = A.mgLay(0, 0, 0, 0, -1e6, MG)
 		assert(up == MG.elevation[2])
 		local _, down = A.mgLay(0, 0, 0, 0, 1e6, MG)

@@ -1085,7 +1085,9 @@ local Artillery = {
 			pintle = { 0, 0 },
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
-			traverseRate = 60,
+			-- (user 2026-11-03, the 360 nest: "the gun turning controls are weird"; was 60): swung by hand on its pintle, it
+			-- keeps up with the mouse
+			traverseRate = 240,
 			elevationRate = 40,
 			speed = 900,
 			gravity = 196.2,
@@ -1228,6 +1230,9 @@ local Artillery = {
 				-- gunner"): wide and high enough that the line down to the gun passes over the right shoulder
 				shoulder = { 2.5, 1 },
 				look = 0.12,
+				-- right round (`traverse` 180): the mouse's aim runs at most this many degrees ahead of the gun
+				-- (Rules/Artillery.mgLay)
+				lead = 20,
 				-- the report (Pro Sound Effects "Rifle Single Shots 1", a heavy single shot, its crack and first boom: one
 				-- a round, 7.5 a second, so the tail is cut short before the take's metal clink at 0.6 s (Studio: loud
 				-- to 0.06 s, mostly gone by 0.45); was the rifles' shot as a placeholder)

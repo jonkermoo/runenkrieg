@@ -1241,7 +1241,9 @@ function Artillery.start()
 			-- the mouse lays a machine gun, straight off, within its stops (no swinging past them)
 			local delta = if menu then Vector2.zero else UserInputService:GetMouseDelta()
 			delta *= if aimT > 0.5 then CameraCfg.AimSensitivity else 1 -- (slower in the sight, as a rifle)
-			wantYaw, wantElevation = Rules.mgLay(wantYaw, wantElevation, math.deg(pivotYaw), delta.X, delta.Y, gun)
+			-- (right round, the 360 nest: from the gun's lay now, so the aim never runs far ahead of it)
+			local base = if gun.traverse >= 180 then layYaw else math.deg(pivotYaw)
+			wantYaw, wantElevation = Rules.mgLay(wantYaw, wantElevation, base, delta.X, delta.Y, gun)
 		else
 			wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
 			-- (within its reach on this map: Config/Artillery.Reach, no shell past a sector away, on the ground that far
