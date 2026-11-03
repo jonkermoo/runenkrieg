@@ -261,7 +261,7 @@ local DevTools = {
 		--   knocked off, a weapon made, the grass regrown), timed on the server and each client. With the log on (on
 		--   Workspace), each one over `over` ms prints at once ("[Hitch] server/client name ms"), and "Print hitches"
 		--   prints each name's count, average, most and how many went over since the last print
-		Hitches = { attribute = "DevHitchLog", over = 2 },
+		Hitches = { attribute = "DevHitchLog", over = 2, frame = 50 },
 		-- "Loadout" rows (src/server/Loadouts): give yourself these match points, or be one class every life (any class,
 		-- locked or not, free; `Normal` goes back to your picks), on the Player as `ClassAttribute`
 		Points = { 50, 200 },
