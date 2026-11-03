@@ -147,7 +147,8 @@ local DevTools = {
 				{ key = "artillery_qf18", label = "Field shell" },
 				{ key = "artillery_howitzer", label = "Howitzer shell" },
 			},
-			Distances = { 5, 10, 20, 40, 80 },
+			-- (splinters wound to ~42 studs from a grenade, 40 a field shell, 30 the howitzer: past them only the blast)
+			Distances = { 5, 10, 20, 40, 60, 100, 150 },
 			HelmetWeapon = "BoltRifle",
 		},
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these

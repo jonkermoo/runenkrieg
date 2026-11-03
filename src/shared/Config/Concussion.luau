@@ -23,6 +23,8 @@ local Concussion = {
 	--   faint 5-15 kPa: a grenade 11-17, a field shell 30-60, the howitzer 90-150
 	--   close 15-40 kPa: a field shell 18-30, the howitzer 55-90 (a grenade's splinters kill this close)
 	--   very close 40-110 kPa: a field shell 10-18, the howitzer 30-55
+	-- (inside a casing's splinter reach, Config/Grenades and Config/Artillery fragments, the soldier is usually wounded
+	-- and thrown too: the heavier thrown concussion, Blast above, takes over)
 	Near = { from = 5, full = 110, most = 0.8 },
 
 	-- the effects by kind, Light (strength `at`) to Heavy (strength 1). Seconds unless noted:
