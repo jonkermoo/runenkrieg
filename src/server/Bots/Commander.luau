@@ -897,8 +897,9 @@ function Guns.terrainAt(x: number, z: number): Vector3?
 end
 -- Whether a shot from gun `gun` standing on `at` comes down on `target` (Config/Bots.Build.Crews `arc`): laid on it
 -- from its muzzle (Rules/Artillery.layFor, within its reach), its path (Rules/Artillery.path) cast against the world;
--- false when out of reach, or a hill, house or tree stops it short. Each one checked is kept for Admin.GunArcs.
-function Guns.clearShot(gun: any, at: Vector3, target: Vector3): boolean
+-- false when out of reach, or a hill, house or tree stops it short. The low arc, then the lobbed one (the field gun
+-- fires over cover). Each one checked is kept for Admin.GunArcs.
+function Guns.flyShot(gun: any, key: string, at: Vector3, target: Vector3, arc: string): boolean
 	local A = BD.Crews.arc
 	-- (from its muzzle over the ground as it is now: a howitzer's pit is dug round it later)
 	local frame = CFrame.lookAt(at, Vector3.new(target.X, at.Y, target.Z))
@@ -906,8 +907,8 @@ function Guns.clearShot(gun: any, at: Vector3, target: Vector3): boolean
 	local origin = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local off = target - origin
 	local d = Vector3.new(off.X, 0, off.Z).Magnitude
-	local e = if d <= ArtRules.reachCap(ArtRules.sectorSpan(Map.sectors), ArtCfg.Reach)
-		then ArtRules.layFor(gun, d, off.Y)
+	local e = if d <= ArtRules.reachCap(ArtRules.sectorSpan(Map.sectors), ArtCfg.Reach, key)
+		then ArtRules.layFor(gun, d, off.Y, nil, arc)
 		else nil
 	if not e then
 		return false
@@ -1046,7 +1047,8 @@ function Guns.spots(
 			end
 		end
 		-- (its shot flown: within its reach on this map, Config/Artillery.Reach, and nothing in the way)
-		return Guns.clearShot(gun, at, target)
+		return Guns.flyShot(gun, Guns.asset[key], at, target, "low")
+			or Guns.flyShot(gun, Guns.asset[key], at, target, "high")
 	end)
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)

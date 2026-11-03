@@ -324,9 +324,10 @@ function Artillery.solve(speed: number, gravity: number, d: number, h: number, h
 end
 
 -- The gun's elevation (its lay: the shell leaves `aimTilt` over it) that lands on a point `d` studs off flat and `h`
--- up from its muzzle: the low arc where the gun lays it, else the high one; a machine gun's straight line within its
--- `mg.range`. Nil when out of its reach or its elevation's limits (`limits`: Artillery.capped's, else its own).
-function Artillery.layFor(gun: any, d: number, h: number, limits: { number }?): number?
+-- up from its muzzle: the low arc where the gun lays it, else the high one (`arc` "low" or "high": only that one); a
+-- machine gun's straight line within its `mg.range`. Nil when out of its reach or its elevation's limits (`limits`:
+-- Artillery.capped's, else its own).
+function Artillery.layFor(gun: any, d: number, h: number, limits: { number }?, arc: string?): number?
 	local lims = limits or gun.elevation
 	local lo, hi, tilt = lims[1], lims[2], gun.aimTilt or 0
 	if gun.mg then
@@ -337,6 +338,9 @@ function Artillery.layFor(gun: any, d: number, h: number, limits: { number }?): 
 		return if e >= lo and e <= hi then e else nil
 	end
 	for _, high in { false, true } do
+		if arc and (arc == "high") ~= high then
+			continue
+		end
 		local launch = Artillery.solve(gun.speed, gun.gravity, d, h, high)
 		local e = launch and launch - tilt
 		if e and e >= lo and e <= hi then
@@ -360,10 +364,12 @@ function Artillery.sectorSpan(sectors: { { x: number, z: number } }): number
 	return sum / (#sectors - 1)
 end
 
--- The farthest a field gun's or howitzer's shell may land (Config/Artillery.Reach): `cfg.sectors` sector spans plus
--- `cfg.margin` studs
-function Artillery.reachCap(span: number, cfg: { sectors: number, margin: number }): number
-	return span * cfg.sectors + cfg.margin
+-- The farthest a field gun's or howitzer's shell may land (Config/Artillery.Reach): `sectors` sector spans plus
+-- `margin` studs, gun `key`'s own (`cfg.guns[key]`) where it has them
+function Artillery.reachCap(span: number, cfg: any, key: string?): number
+	local own = key and cfg.guns and cfg.guns[key]
+	local c = own or cfg
+	return span * c.sectors + c.margin
 end
 
 -- The gun's elevation limits that keep its shell within `cap` studs (Config/Artillery.Reach; user 2026-11-03: "cannot
@@ -376,6 +382,9 @@ function Artillery.capped(gun: any, cap: number, h: number?): { number }
 		return { lo, hi }
 	end
 	local tilt = gun.aimTilt or 0
+	if lo + tilt < 45 and hi + tilt > 45 then
+		return { lo, hi } -- (laid both low and lobbed, the field gun: its own longest shot, at 45, is its reach)
+	end
 	local high = lo + tilt >= 45
 	local launch = Artillery.solve(gun.speed, gun.gravity, math.max(cap, 1e-3), h or 0, high)
 	if not launch then

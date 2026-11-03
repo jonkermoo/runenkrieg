@@ -86,7 +86,9 @@ export type Gun = {
 	-- the gunner's camera (user 2026-10-20: "a cinematic lower left angle camera pov"): out at the gun's left, `side` (-
 	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
 	-- the gunner right of centre, the target left of it) and `pitch` up, plus the
-	-- elevation x `follow` (a high lob stays in view)
+	-- elevation x `follow` (a high lob stays in view); with `lob` (the field gun, laid up to lob over cover: user
+	-- 2026-11-03, "notice how i cant see over the hill im trying to shoot over") it rises `lob.up` and backs off
+	-- `lob.back` studs a degree of elevation and looks down at where the shell comes down instead of following it up
 	-- dug in when placed (src/server/Artillery); `ramp`: a way down into the pit behind the gun (Ground.pit); `wall`: the
 	-- pit's walls lean back at this many degrees (nil: cut straight down); `slabs`: trench dirt slabs laid on them (Slabs)
 	dig: {
@@ -116,7 +118,18 @@ export type Gun = {
 	-- the parts shell holes are punched into as it is damaged (Wreck), and the holes' size range (studs)
 	wreckParts: { string },
 	holeSize: { number },
-	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
+	camera: {
+		side: number,
+		up: number,
+		back: number,
+		yaw: number,
+		pitch: number,
+		follow: number,
+		fov: number,
+		lob: { up: number, back: number }?,
+	},
+	-- the elevation it is placed at (nil: level, or its lowest when that is above level)
+	rest: number?,
 	-- set up in an MG nest (Config/Build.Nest) instead of on its own (its building site in the nest's ring), and it fires
 	-- bullets, not shells; nil: an artillery piece
 	nest: boolean?,
@@ -667,8 +680,10 @@ local Artillery = {
 	-- cannot be shot over a sector away. same thing with the howitzer"): `sectors` of the live map's sector spacing
 	-- (Rules/Artillery.sectorSpan: ~423 studs on Map 1) plus `margin` studs (two zone radii: a gun anywhere in its
 	-- sector reaches anywhere in the next), on flat ground: the lay stops there (the field gun raises no higher, the
-	-- howitzer lowers no further). Bots aim within it too. Machine guns keep their own range.
-	Reach = { sectors = 1, margin = 90 },
+	-- howitzer lowers no further). Bots aim within it too. Machine guns keep their own range. `guns`: a gun's own (the
+	-- field gun, user 2026-11-03: "i think you nerfed the range a little too hard": 1.5 sectors, 725 studs on Map 1, 722
+	-- on Lantern Meadows; its own longest shot, 720 at 45 degrees, is what stops it).
+	Reach = { sectors = 1, margin = 90, guns = { artillery_qf18 = { sectors = 1.5, margin = 90 } } },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		dark = 4,
@@ -729,14 +744,19 @@ local Artillery = {
 			muzzle = { 0, 2.855, -4.808 },
 			boreCentre = 0.123,
 			traverse = 4.5,
-			elevation = { -5, 16 },
+			-- (user 2026-11-03: "alter the field gun so its more 'arc'. it should fire similarily to a mortar, maybe with
+			-- less arc", "allowing cannons to be angled upwards ... its too flat"): laid from 5 up to 70 degrees (was -5
+			-- to 16, with a hidden +8.5): low shots to 45, then lobbed over cover from 45 to 70 (its lobs reach 463 to 720
+			-- studs), short of the howitzer's 80; placed at `rest` 20
+			elevation = { 5, 70 },
+			rest = 20,
 			swing = 10,
 			traverseRate = 6,
 			elevationRate = 4,
-			-- (user 2026-11-03: "add just the TINIEST more arc to a cannon"): 420 (was 450) with `aimTilt` 8.5 (was 8): the
-			-- same shortest shot, a shot one sector out leaves ~0.6 degrees higher, tops out ~14% higher and lands ~7%
-			-- later (was 745 studs/s under 196.2 before that: the same ranges, ~1.7x the flight)
-			speed = 420,
+			-- 227 studs/s (was 420): 125 studs at 5 degrees, 460 at 20, 625 at 30, 720 at 45 (its longest), 463 lobbed at
+			-- 70 (topping out ~320 up, ~6 s in the air); 2.2 s at 20, 4.5 s at 45 (was 420 with a hidden +8.5: 300 to
+			-- 2,100 studs, nearly flat)
+			speed = 227,
 			gravity = 71.6,
 			charge = 0.45,
 			breechOpens = true,
@@ -754,10 +774,6 @@ local Artillery = {
 			recoilClear = nil,
 			hp = 100,
 			repair = 10, -- (half the swings it takes to build)
-			-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
-			-- hit enemy sectors)"; picked: the shortest shot ~300 studs, one sector): +8.5 on every shot, so the dial's -5
-			-- throws 3.5: ~300 studs; it raises only as far as Reach allows (~-2.5 on Map 1: ~510 studs)
-			aimTilt = 8.5,
 			-- (user 2026-10-26: "add a platform hitbox for the cannon"; picked: the ground it stands on counts as the gun)
 			platform = { pad = 3, thick = 1.5 },
 			-- (user 2026-10-27: "the field cannon shouldnt have a platform, it should just make the ground its on lose its
@@ -819,7 +835,16 @@ local Artillery = {
 			-- (user 2026-10-21: "closer but from a similar angle we want to be able to see our avatar")
 			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
 			-- (user 2026-10-22: "have the cannon further back and up more"; was up 4, back 7)
-			camera = { side = -6.5, up = 5.5, back = 10, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			camera = {
+				side = -6.5,
+				up = 5.5,
+				back = 10,
+				yaw = 25,
+				pitch = 2,
+				follow = 0.4,
+				fov = 60,
+				lob = { up = 0.45, back = 0.25 },
+			},
 			-- (user 2026-10-29: the MG's warm barrel, steam and the gunner's recoil "apply to the field cannons too (not
 			-- the howitzer)"): a third of the way warm a shot, cooling over ~40 s, half its barrel glowing; the gunner thrown
 			-- back by each shot

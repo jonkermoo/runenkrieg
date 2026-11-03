@@ -122,9 +122,9 @@ local function aim(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	-- bots "still firing into hills")
 	local blocked = false
 	local function try(at: Vector3): boolean
-		local clear, reach = Artillery.shotClearAs(m, at)
+		local clear, reach, arc = Artillery.shotClearAs(m, at)
 		blocked = blocked or (reach and not clear)
-		return clear and Artillery.aimAtAs(m, at)
+		return clear and Artillery.aimAtAs(m, at, arc) -- (lobbed over a crest when the low shot is stopped)
 	end
 	for _, at in t.groups do
 		if Rules.clear(at.X, at.Z, friends, radius) and try(at) then
