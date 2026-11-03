@@ -49,6 +49,17 @@ local Settings = {
 		},
 		-- the short blur when a bullet passes close or something blows up nearby (Config/ScreenBlur; user 2026-10-22)
 		ScreenBlur = { kind = "choice", label = "Screen blur", values = { "On", "Off" }, default = "On" },
+		-- the ring, muffled hearing, blur, grey and tilted view after a blast near you or a helmet hit, this share of full
+		-- (src/client/Concussion, Config/Concussion; 0 = off; user 2026-11-03)
+		ShellShock = {
+			kind = "slider",
+			label = "Shell shock",
+			min = 0,
+			max = 100,
+			step = 5,
+			default = 100,
+			format = "%d%%",
+		},
 		-- the kit list and the gun's cut-away, this many times their size (src/client/HudKit; user 2026-10-27: "add an
 		-- option in graphics to adjust hud size (inventory and the reloading diagram)")
 		HudSize = {
@@ -146,6 +157,7 @@ local Settings = {
 				"Debris",
 				"FieldOfView",
 				"ScreenBlur",
+				"ShellShock",
 				"HudSize",
 			},
 		},

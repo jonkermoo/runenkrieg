@@ -434,7 +434,7 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 	local g = s.gun.gravity -- (its own: slow shells, same ranges)
 	local t = 0
 	local prev = origin
-	local key, gun = s.key, s.gun
+	local key = s.key
 	local conn: RBXScriptConnection
 	conn = RunService.Heartbeat:Connect(function(dt)
 		t += dt
@@ -444,9 +444,7 @@ local function fly(s: State, origin: Vector3, velocity: Vector3, by: Model?)
 		if hit then
 			conn:Disconnect()
 			local at = hit.Position + hit.Normal * 0.3
-			-- every client's blast first, so it shows even if the damage below fails or runs long
-			Net.event("ArtilleryBlast"):FireAllClients(at, key)
-			Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
+			Artillery.land(at, key, by)
 		elseif t > Cfg.MaxFlight then
 			conn:Disconnect()
 		end
@@ -1713,6 +1711,15 @@ end
 -- "Broken", "Died", "Gone" (the bot or the gun removed) or "Left" (Artillery.leaveAs)
 function Artillery.onBotLeft(fn: (Model, Model, string) -> ())
 	table.insert(botLeft, fn)
+end
+
+-- A shell of gun `key` (Config/Artillery.Guns) going off at `at`, fired by `by` (also the admin panel's "Shell shock"
+-- rows: src/server/DevTools).
+function Artillery.land(at: Vector3, key: string, by: Model?)
+	local gun = Cfg.Guns[key]
+	-- every client's blast first, so it shows even if the damage below fails or runs long
+	Net.event("ArtilleryBlast"):FireAllClients(at, key)
+	Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
 end
 
 function Artillery.start()

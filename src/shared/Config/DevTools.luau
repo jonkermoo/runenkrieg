@@ -137,6 +137,19 @@ local DevTools = {
 		Health = { 100, 75, 50, 25, 10 },
 		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
 		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+		-- "Shell shock" rows (src/server/DevTools, Config/Concussion; user 2026-11-03): a real grenade (Config/Grenades
+		-- .Types) or shell (Config/Artillery.Guns) going off on the ground this many studs in front of you, your own
+		-- (knocks you, hurts you only with "My blasts hurt me" on); and a helmet shot from the front by `HelmetWeapon`
+		-- (Config/Damage.Weapons), as a real one
+		Shock = {
+			Sources = {
+				{ key = "grenade_mills", label = "Grenade", grenade = true },
+				{ key = "artillery_qf18", label = "Field shell" },
+				{ key = "artillery_howitzer", label = "Howitzer shell" },
+			},
+			Distances = { 5, 10, 20, 40, 80 },
+			HelmetWeapon = "BoltRifle",
+		},
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
 		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },

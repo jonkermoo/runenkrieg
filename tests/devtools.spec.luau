@@ -243,4 +243,17 @@ return {
 		assert(not A.valid(Cfg, "Map", "Nowhere", defs) and not A.valid(Cfg, "Map", 3, defs))
 		assert(A.valid(Cfg, "RebuildMaps", nil, defs) and not A.valid(Cfg, "RebuildMaps", true, defs))
 	end,
+	["the shell shock rows take a listed source at a listed distance, the helmet shot nothing"] = function()
+		local S = Cfg.Admin.Shock
+		local src, d = S.Sources[1].key, S.Distances[1]
+		assert(A.valid(Cfg, "ShockAt", { source = src, distance = d }), "listed")
+		assert(not A.valid(Cfg, "ShockAt", { source = "nuke", distance = d }), "unknown source")
+		assert(not A.valid(Cfg, "ShockAt", { source = src, distance = 7.5 }), "unlisted distance")
+		assert(not A.valid(Cfg, "ShockAt", src), "not a table")
+		assert(A.valid(Cfg, "HelmetShot", nil) and not A.valid(Cfg, "HelmetShot", 1), "plain")
+		assert(DamageCfg.Weapons[S.HelmetWeapon] ~= nil, "a real weapon")
+		for _, g in S.Sources do
+			assert(g.label ~= nil, `{g.key} labelled`)
+		end
+	end,
 }

@@ -4,7 +4,8 @@
 -- score; each side's next sector or any sector to a side), the Bots rows (the count, difficulty, state labels,
 -- Engineer / Grenadier for free, dig speed, shelling a side's trenches), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
--- god mode, unlimited ammo and no staff cooldown), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
+-- god mode, unlimited ammo and no staff cooldown), Shell shock (a grenade / shell at a chosen distance in front, a helmet
+-- shot: src/client/Concussion), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
 -- a full count of one), Shovel (the dig step, build anything), World (the range's test shooters, undo destruction, the
 -- hitch log and print: src/shared/Hitches) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
@@ -420,6 +421,17 @@ local function build(player: Player): DevPanel.Panel
 	player:GetAttributeChangedSignal(A.GodAttribute):Connect(showGod)
 	showGod()
 	onOff("Ammo", "Unlimited ammo, no cooldown", "Ammo", player, A.AmmoAttribute)
+
+	-- Shell shock (src/server/DevTools, Config/DevTools.Admin.Shock): a real grenade or shell going off in front of you at
+	-- a chosen distance (yours: it knocks you, hurts you only with "My blasts hurt me" on), and a helmet shot from the
+	-- front; what you see and hear is src/client/Concussion
+	heading("Shell shock")
+	row("HelmetShot", "Helmet shot (from the front)", "HelmetShot")
+	for _, src in A.Shock.Sources do
+		for _, d in A.Shock.Distances do
+			row(`Shock_{src.key}_{d}`, `{src.label} at {d} studs`, "ShockAt", { source = src.key, distance = d })
+		end
+	end
 
 	-- Loadout (src/server/Loadouts): match points, a class every life (free, locked or not) or your own picks again
 	heading("Loadout")
