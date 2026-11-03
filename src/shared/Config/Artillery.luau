@@ -713,21 +713,23 @@ local Artillery = {
 	},
 
 	Guns = {
-		-- QF 18-pounder (A1): traverse 4.5, elevation -5..16 about the trunnion, recoil 46 in, the breech 100 degrees.
-		-- 745 studs/s: ~1,500 studs at 16 degrees (Map 1 HQ to HQ 1,800), ~2 s in the air.
+		-- The field gun (A1), the Italian 75/27 mod. 1911 Deport since v6 (user 2026-11-03: "find field cannon designs that
+		-- look like this and rebuild the field cannon", so its barrel lays up to 70 without passing through it; was the QF
+		-- 18-pounder, still its key): traverse 4.5, recoil 46 in, the breech 100 degrees.
 		artillery_qf18 = {
 			asset = "artillery_qf18",
-			name = "QF 18-pounder",
+			name = "75/27 Déport",
 			base = "Carriage",
 			-- (each part's accent pieces, Palette.Artillery.Roles, ride with it)
 			mount = { "Mount", "MountTrim", "MountFittings", "MountMarking" },
 			cradle = { "Cradle", "CradleFittings" },
 			barrel = { "Barrel", "Bore", "BarrelTrim", "BarrelFittings" },
 			breech = { "Breech" },
-			trunnion = { 0, 2.544, -0.266 },
-			hinge = { 0.457, 2.855, 2.398 },
-			muzzle = { 0, 2.855, -4.808 },
-			boreCentre = 0.123,
+			-- (v6) the trunnions 1.0 behind the axle, near the breech, so laid high it drops between the trail legs
+			trunnion = { 0, 2.55, 1.0 },
+			hinge = { 0.28, 2.95, 2.35 },
+			muzzle = { 0, 2.95, -3.75 },
+			boreCentre = 0.18,
 			traverse = 4.5,
 			elevation = { -5, 16 },
 			swing = 10,
@@ -751,7 +753,9 @@ local Artillery = {
 			breechTimes = { 1.2, 1 },
 			recoil = 3.34,
 			recoilTimes = { 0.08, 1.2 },
-			recoilClear = nil,
+			-- (v6) laid high the recoil is cut short, as a high-angle gun's: the breech block's low edge (1.57 behind the
+			-- trunnion, 0.23 over its axis) stays 0.35 over the ground; full up to ~30 degrees, ~0.9 at 70
+			recoilClear = { floor = 0.35, along = 1.57, below = -0.23 },
 			hp = 100,
 			repair = 10, -- (half the swings it takes to build)
 			-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
@@ -765,7 +769,7 @@ local Artillery = {
 			level = { pad = 2, blend = 8, material = "Ground" },
 			wreckParts = { "Carriage", "Wheels", "Mount" }, -- (the mount turns at most 4.5 degrees)
 			holeSize = { 0.3, 0.6 },
-			crew = { -1.6, 3.4 }, -- left of the breech, behind it (the loading reaches it), clear of the trail
+			crew = { -2.4, 2.8 }, -- left of the breech, behind it (the loading reaches it), outside the left trail leg
 			crewTurns = false,
 			prompt = 8,
 			vfx = { scheme = "Ember", magic = false },
@@ -823,7 +827,8 @@ local Artillery = {
 			-- (user 2026-10-29: the MG's warm barrel, steam and the gunner's recoil "apply to the field cannons too (not
 			-- the howitzer)"): a third of the way warm a shot, cooling over ~40 s, half its barrel glowing; the gunner thrown
 			-- back by each shot
-			heat = { per = 0.3, cool = 0.025, length = 2.5, radius = 2.9, segments = 8, steam = 0.25, steamRate = 8 },
+			-- (v6: radius 1.7, was 2.9 round the 18-pounder's smaller Bore disc: a little over the 75's barrel)
+			heat = { per = 0.3, cool = 0.025, length = 2.5, radius = 1.7, segments = 8, steam = 0.25, steamRate = 8 },
 			kick = { arms = 12, torso = 5, time = 0.4 },
 			-- the trail on its wheels first, then the shield and mount, the cradle, the barrel, the breech last
 			assembly = {
