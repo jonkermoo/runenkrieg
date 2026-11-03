@@ -270,6 +270,10 @@ local function engineers()
 		if #parts > 0 then
 			table.insert(lines, `{side}: {table.concat(parts, "; ")}`)
 		end
+		local sb = buildLists[side]
+		if sb and sb.gunNote then
+			table.insert(lines, `{side} guns: {sb.gunNote}`)
+		end
 	end
 	workspace:SetAttribute(DevCfg.Admin.BotEngineersAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end

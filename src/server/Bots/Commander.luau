@@ -876,6 +876,8 @@ local Guns = {
 	ground = RaycastParams.new(),
 	world = RaycastParams.new(), -- (a shot's path: everything but soldiers)
 	drawn = {} :: { { points: { { number } }, clear: boolean } }, -- the shots checked this plan (Admin.GunArcs)
+	-- why each gun's candidate spots were turned down this plan, a count each (the Engineer bots readout)
+	why = {} :: { [string]: { [string]: number } },
 	dev = require(Shared.Config.DevTools).Admin.GunArcs,
 }
 for _, piece in BuildCfg.Pieces do
@@ -1023,18 +1025,24 @@ function Guns.spots(
 			table.insert(want, { key = key, count = BD.caps[key] })
 		end
 	end
+	local function no(key: string, why: string): boolean
+		local w = Guns.why[key] or {}
+		Guns.why[key] = w
+		w[why] = (w[why] or 0) + 1
+		return false
+	end
 	return BotBuild.gunSpots(zone, tx, tz, want, C, Guns.spacing, function(key, x, z)
 		local gun = ArtCfg.Guns[Guns.asset[key]]
 		local B = Map.bounds
 		if not gun or not target or x < B.minX or x > B.maxX or z < B.minZ or z > B.maxZ then
-			return false
+			return no(key, "off the map")
 		end
 		if ArtRules.nearSpawn(x, z, Map.spawnZones, lines, C.spawnGap) then
-			return false
+			return no(key, "by a spawn")
 		end
 		local at = Guns.terrainAt(x, z)
 		if not at then
-			return false
+			return no(key, "no ground")
 		end
 		-- (ground it can be laid on, facing the target: no steeper than its `maxSlope`, the same survey as
 		-- Build.placeAs's, which then levels or tilts it, Config/Build.Slope)
@@ -1042,11 +1050,11 @@ function Guns.spots(
 		if piece then
 			local report = Survey.ground(piece, Survey.box(piece, Survey.frame(at, target - at)))
 			if not report.ground or report.water or report.slope > (piece.maxSlope or 90) then
-				return false
+				return no(key, if report.water then "water" else "too steep")
 			end
 		end
 		-- (its shot flown: within its reach on this map, Config/Artillery.Reach, and nothing in the way)
-		return Guns.clearShot(gun, at, target)
+		return Guns.clearShot(gun, at, target) or no(key, "shot blocked or out of reach")
 	end)
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)
@@ -1115,8 +1123,36 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 		-- the guns on scored spots behind the line (Rules/BotBuild.gunSpots), else the plan's fixed ones
 		table.clear(Guns.drawn)
+		table.clear(Guns.why)
 		local spotted = Guns.spots(front :: number, side, zone, tx, tz, guns)
 		Guns.draw(side)
+		-- (a gun its side may build with no scored spot gets the plan's fixed one, behind the zone: Build.placeAs then
+		-- nudges it; and why each gun is or isn't planned, for the Engineer bots readout)
+		local unplaced: { string } = {}
+		local notes: { string } = {}
+		for _, key in Guns.list do
+			local placed = 0
+			for _, j in spotted do
+				placed += if j.key == key then 1 else 0
+			end
+			local locked = FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd)
+			if locked then
+				table.insert(notes, `{key} locked ({locked})`)
+			elseif (BD.caps[key] or 0) <= 0 then
+				table.insert(notes, `{key} none for bots`)
+			elseif placed > 0 then
+				table.insert(notes, `{key} {placed} spot{if placed > 1 then "s" else ""}`)
+			else
+				table.insert(unplaced, key)
+				local why = {}
+				for w, n in Guns.why[key] or {} do
+					table.insert(why, `{w} {n}`)
+				end
+				table.sort(why)
+				table.insert(notes, `{key} no scored spot ({table.concat(why, ", ")}): the fixed one`)
+			end
+		end
+		sbs.gunNote = table.concat(notes, "; ")
 		sbs.lay = {}
 		-- (wire only in the enemy's way, Rules/BotBuild.wireSpot: off its own side's ways forward, from the front to the
 		-- enemy's nearest sector and the approach spots round it, and off its spawn)
@@ -1147,7 +1183,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		end
 		local missing = math.max(BD.Nest.count - nests, 0)
-		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then {} else guns, Flanked.plan, missing) do
+		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then unplaced else guns, Flanked.plan, missing) do
 			local keep = true
 			if job.key == "Wire" then
 				local wx, wz = BotBuild.wireSpot(job.x, job.z, -tz, tx, ways, (Map.spawnZones :: any)[side], BD.Wire)
