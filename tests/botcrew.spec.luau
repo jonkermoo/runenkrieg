@@ -31,6 +31,19 @@ return {
 		local gunners = { { x = 20, z = 0, crew = false }, { x = 20 + C.crewFirst / 2, z = 0, crew = true } }
 		assert(R.assign(guns, gunners, 4, C)[1] == 2)
 	end,
+	["repairOrder: built guns under half first, wherever they are, then the usual repairs"] = function()
+		local keep = require("../src/shared/Config/Artillery").Man.keep
+		local pieces = {
+			{ gun = false, built = true, hp = 10, max = 100 }, -- a trench, badly hurt
+			{ gun = true, built = true, hp = 49, max = 100 }, -- out of service
+			{ gun = true, built = true, hp = 50, max = 100 }, -- still in service
+			{ gun = true, built = false, hp = 20, max = 100 }, -- being built
+			{ gun = true, built = true, hp = 100, max = 240 }, -- the howitzer, out of service
+		}
+		local order, fix = R.repairOrder(pieces, { 3, 2, 1 }, keep)
+		assert(#order == 4 and order[1] == 2 and order[2] == 5 and order[3] == 3 and order[4] == 1)
+		assert(fix[2] and fix[5] and not fix[3] and not fix[1] and not fix[4])
+	end,
 	["groups: the biggest cluster first, its middle"] = function()
 		local pts = {
 			{ x = 0, z = 0 },

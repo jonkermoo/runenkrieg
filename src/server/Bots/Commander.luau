@@ -17,6 +17,7 @@ local Buildings = require(Shared.Rules.BotBuildings)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotSap = require(Shared.Rules.BotSap)
+local BotCrew = require(Shared.Rules.BotCrew)
 local Build = require(script.Parent.Parent.Build)
 local Frontline = require(script.Parent.Parent.Frontline)
 local Indoors = require(script.Parent.Parent.Indoors)
@@ -1091,13 +1092,23 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- swings wanted: the nearest pieces (Build.repairs of them) and trench squares (Trenches.digs)
 	local keep: { [Model]: BuildJob } = {}
 	local n, nd = 0, 0
-	for _, i in BotBuild.repairs(pieces, zone, BD.repair, #pieces) do
+	-- (its guns out of service first, wherever they stand: fixed before anyone mans them, Rules/BotCrew.repairOrder)
+	local fixable = {}
+	for i, w in works do
+		fixable[i] = { gun = w.kind == "Gun" or w.kind == "Nest", built = w.built, hp = w.hp, max = w.max }
+	end
+	local order, fix = BotCrew.repairOrder(fixable, BotBuild.repairs(pieces, zone, BD.repair, #pieces), ArtCfg.Man.keep)
+	for _, i in order do
 		local w = works[i]
 		local square = w.key == "Trench"
-		if not claimed[w.model] and (if square then nd < TR.digs else n < BD.repairs) and quiet(w.model) then
+		if
+			not claimed[w.model]
+			and (fix[i] or (if square then nd < TR.digs else n < BD.repairs))
+			and quiet(w.model)
+		then
 			if square then
 				nd += 1
-			else
+			elseif not fix[i] then
 				n += 1
 			end
 			local r = sbs.works[w.model]

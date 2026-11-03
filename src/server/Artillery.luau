@@ -15,8 +15,9 @@
 --   every client shows it (Net "ArtilleryBlast").
 -- - Every blast wears the guns down (Damage.onBlast; Config/Artillery.Hits): a direct hit on a gun takes a lot, one on
 --   its pit, mound or the ground round it little. Its HP ("HP") falls through the Config/Artillery.Wreck stages
---   ("Stage"): scorched, then unusable ("Broken": its gunner thrown off, the prompt dimmed, the barrel knocked down, the
---   howitzer's crystal dead), leaning and sinking more each stage; at 0 a wreck that stays.
+--   ("Stage"): scorched, leaning and sinking more each stage; at 0 a wreck that stays. Under Config/Artillery.Man
+--   `keep` of its HP it is out of service ("Broken": its gunner thrown off, the prompt dimmed, the barrel knocked down,
+--   the howitzer's crystal dead) until repairs bring it back to that.
 -- - A machine gun (Config/Artillery.Guns `mg`, the MG nest's M2; set up by src/server/Build): no earth under it
 --   (it stands on its mount bag); "Trigger" held fires bullets at its rate from its box ("Rounds"), each cast from the
 --   muzzle along its lay plus a stray growing with its heat, hurting as a rifle shot does (src/server/Damage, by its
@@ -82,7 +83,7 @@ type State = {
 	bracing: boolean, -- a shot on its way (the gunner bracing)
 	hp: number,
 	stage: number, -- its Config/Artillery.Wreck stage (0: unhurt)
-	broken: boolean, -- past Wreck.unusable: nobody can man it
+	broken: boolean, -- under Man.keep of its HP (Rules.mannable): nobody can man it
 	colors: { [BasePart]: Color3 }, -- as painted
 	holes: number, -- shell holes punched in it so far (Wreck.holes)
 	upright: CFrame?, -- its pivot before it first leaned
@@ -1168,7 +1169,7 @@ function Artillery.repair(model: Model, amount: number): (string?, number)
 		return nil, 0
 	end
 	local what
-	s.hp, what = Rules.repaired(s.hp, s.gun.hp, amount, Cfg.Repair.usable, s.broken)
+	s.hp, what = Rules.repaired(s.hp, s.gun.hp, amount, Cfg.Man.keep, s.broken)
 	model:SetAttribute("HP", math.round(s.hp * 10) / 10)
 	return what, s.hp
 end
@@ -1317,13 +1318,11 @@ local function blowOff(s: State, roles: { string })
 end
 
 -- A gun's look at its Wreck stage: scorched toward Palette.Artillery.Scorched, holed and stripped of its accents
--- (Wreck.holes, Wreck.lose), knocked out of action from Wreck.unusable, its glow dead from Wreck.dark, leaning and sunk
--- (Config/Artillery.Wreck).
+-- (Wreck.holes, Wreck.lose), its glow dead from Wreck.dark, leaning and sunk (Config/Artillery.Wreck).
 local function wreck(s: State)
 	local W = Cfg.Wreck
 	local art = Palette.Artillery
 	local stage = s.stage
-	local broken = stage >= W.unusable
 	local dark = stage >= W.dark
 	local scorched, dead = rgb(art.Scorched), rgb(art.Dead)
 	for _ = s.holes + 1, W.holes[stage] or 0 do
@@ -1342,36 +1341,53 @@ local function wreck(s: State)
 			p.Color = c:Lerp(scorched, W.scorch[stage] or 0)
 		end
 	end
-	if broken and not s.broken then
-		s.broken = true
-		s.model:SetAttribute("Broken", true)
-		if s.gunner or s.bot then
-			leave(s, "Broken")
-		end
-		s.prompt.Enabled = false
-		s.prompt:SetAttribute(PromptCfg.BlockedAttr, "Broken")
-		-- the barrel knocked down to its lowest lay and round a little
-		local gun = s.gun
-		local knock = math.min(W.knock, gun.traverse)
-		s.lay = {
-			yaw = s.lay.yaw,
-			traverse = if gun.traverse >= 180
-				then s.lay.traverse + random:NextNumber(-knock, knock) -- (a ring mount: no stops)
-				else math.clamp(s.lay.traverse + random:NextNumber(-knock, knock), -gun.traverse, gun.traverse),
-			elevation = gun.elevation[1],
-		}
-		s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
-		s.model:SetAttribute("Traverse", math.round(s.lay.traverse * 100) / 100)
-		s.model:SetAttribute("Elevation", s.lay.elevation)
-		if gun.crewTurns then
-			turnMount(s)
-		end
-	end
 	local tilt, sink = W.tilt[stage] or 0, W.sink[stage] or 0
 	if tilt > 0 or sink > 0 then
 		s.upright = s.upright or s.model:GetPivot()
 		local axis = Vector3.new(math.cos(s.lean), 0, math.sin(s.lean))
 		s.model:PivotTo(CFrame.new(0, -sink, 0) * (s.upright :: CFrame) * CFrame.fromAxisAngle(axis, math.rad(tilt)))
+	end
+end
+
+-- In or out of service by its HP (Rules.mannable; user 2026-11-03: "it can still be operated until low HP (50%)"):
+-- under Man.keep its gunner is put off, the prompt dimmed and the barrel knocked down; back at it (a repair, the admin
+-- HP) it can be manned again. (A gun being built has no state here yet: src/server/Build places it once built.)
+local function service(s: State)
+	local ok = Rules.mannable(s.hp, s.gun.hp, true, Cfg.Man)
+	if ok and s.broken then
+		s.broken = false
+		s.model:SetAttribute("Broken", nil)
+		if not s.gunner and not s.bot then
+			s.prompt.Enabled = true
+			s.prompt:SetAttribute(PromptCfg.BlockedAttr, nil)
+		end
+		return
+	end
+	if ok or s.broken then
+		return
+	end
+	s.broken = true
+	s.model:SetAttribute("Broken", true)
+	if s.gunner or s.bot then
+		leave(s, "Broken")
+	end
+	s.prompt.Enabled = false
+	s.prompt:SetAttribute(PromptCfg.BlockedAttr, "Broken")
+	-- the barrel knocked down to its lowest lay and round a little
+	local gun = s.gun
+	local knock = math.min(Cfg.Wreck.knock, gun.traverse)
+	s.lay = {
+		yaw = s.lay.yaw,
+		traverse = if gun.traverse >= 180
+			then s.lay.traverse + random:NextNumber(-knock, knock) -- (a ring mount: no stops)
+			else math.clamp(s.lay.traverse + random:NextNumber(-knock, knock), -gun.traverse, gun.traverse),
+		elevation = gun.elevation[1],
+	}
+	s.want = { yaw = s.lay.yaw + s.lay.traverse, elevation = s.lay.elevation }
+	s.model:SetAttribute("Traverse", math.round(s.lay.traverse * 100) / 100)
+	s.model:SetAttribute("Elevation", s.lay.elevation)
+	if gun.crewTurns then
+		turnMount(s)
 	end
 end
 
@@ -1389,6 +1405,7 @@ function Artillery.setHp(model: Model, hp: number)
 		model:SetAttribute("Stage", stage)
 		wreck(s)
 	end
+	service(s)
 end
 
 -- `amount` HP off a gun, through its wreck stages
@@ -1404,6 +1421,7 @@ local function hurt(s: State, amount: number)
 		s.model:SetAttribute("Stage", stage)
 		wreck(s)
 	end
+	service(s)
 end
 
 -- A blast at `position` (Damage.onBlast; `structure`: what set it off, a Config/Artillery.Hits key, nil: by its `kg`)

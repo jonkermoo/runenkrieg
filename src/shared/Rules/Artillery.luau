@@ -450,8 +450,15 @@ function Artillery.onGround(x: number, z: number, lo: { number }, hi: { number }
 	return x >= lo[1] and x <= hi[1] and z >= lo[2] and z <= hi[2]
 end
 
+-- Whether a gun at `hp` of `max` can be manned (Config/Artillery.Man): one still being built (`built` false) only
+-- once its HP has reached `cfg.built`% of `max`, a built one while it is at or above `cfg.keep`%.
+function Artillery.mannable(hp: number, max: number, built: boolean, cfg: { built: number, keep: number }): boolean
+	local share = if max > 0 then hp / max * 100 else 0
+	return share >= (if built then cfg.keep else cfg.built) - 1e-6
+end
+
 -- A gun's HP after a repair swing giving back `amount` (Config/Artillery.Repair), and what that makes it: "whole",
--- "usable" (it was `broken` and is back to `usable`% of `max`) or nil.
+-- "usable" (it was `broken` and is back to `usable`% of `max`: Config/Artillery.Man `keep`) or nil.
 function Artillery.repaired(hp: number, max: number, amount: number, usable: number, broken: boolean): (number, string?)
 	local after = math.min(hp + amount, max)
 	if after >= max - 1e-6 then

@@ -178,6 +178,23 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			warn(`[DevTools] {player.Name} placing {value}: {refused}`)
 			Net.event("DevAction"):FireClient(player, "Refused", value, refused)
 		end
+	elseif action == "GunHp" and aim then
+		-- the gun nearest the aim point set to `value`% of its HP (shown on the button: src/client/DevBlastMenu)
+		local best, bestD = nil, Cfg.Blasts.GunReach
+		for _, g in Artillery.list() do
+			local d = (g.model:GetPivot().Position - aim).Magnitude
+			if d < bestD then
+				best, bestD = g, d
+			end
+		end
+		local key = `GunHp{value}`
+		if best then
+			local full = require(Shared.Config.Artillery).Guns[best.key].hp
+			Artillery.setHp(best.model, full * value / 100)
+			Net.event("DevAction"):FireClient(player, "Done", key, `{best.key} at {value}%`)
+		else
+			Net.event("DevAction"):FireClient(player, "Refused", key, "no gun near")
+		end
 	elseif action == "ClearGuns" then
 		Artillery.clear()
 	elseif action == "HealDummies" then
