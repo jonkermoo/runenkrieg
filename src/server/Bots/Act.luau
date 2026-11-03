@@ -133,7 +133,7 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boole
 		}
 		local d = flat(Vector3.new(list[k].x, 0, list[k].z) - root).Magnitude
 		local fits = engineer or Kinds.small[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
-		taken[k] = held[r] == true or not fits
+		taken[k] = held[r] == true or not fits or (j.key == "Tree" and not Tactics.fell.ready(b.id))
 	end
 	-- a gun of its side out of service (Rules/BotCrew.repairOrder): the nearest anywhere first, fixed before it is manned
 	local notFix: { [number]: boolean } = {}
@@ -775,7 +775,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	local swingAt = if tear then tear.at elseif r.model and r.at then r.at :: Vector3 else nil
 	local spot = swingAt or Routes.ground(job.x, job.z)
 	-- (it lays a piece from behind it, its own side; it swings at one from where it is)
-	local reach = if swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
+	local reach = if job.key == "Tree" then BD.Trees.stand elseif swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
 	if flat(spot - root.Position).Magnitude > reach then
 		if work and flat(spot - root.Position).Magnitude > reach + BD.Work.near * 2 then
 			-- (far off still: walked to with the gun out, fighting on the way)
@@ -855,8 +855,11 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		r.model, r.at, r.left = w.model, w.at, w.left
 		return true
 	end
-	if swingDue(act, r.model :: Model, "Build", now) then
-		local reason = Build.workAs(m, r.model :: Model, "Build")
+	local mode = if job.key == "Tree" then "Destroy" else "Build" -- (a tree is chopped)
+	if swingDue(act, r.model :: Model, mode, now) then
+		local reason = if job.key == "Tree"
+			then Tactics.fell.chop(m, b.id, b.side :: string, r)
+			else Build.workAs(m, r.model :: Model, "Build")
 		if reason == nil and job.key == "Foxhole" then
 			-- one swing digs it: into it (pinned: its cover; holding: its post, facing the enemy)
 			stats.swings += 1
@@ -871,7 +874,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			return false
 		elseif reason == nil then
 			stats.swings += 1
-			act.swingAt = Build.nextSwing("Build", act.swingAt, now)
+			act.swingAt = Build.nextSwing(mode, act.swingAt, now)
 		elseif reason ~= "Too soon" then
 			quit(b) -- (whole now, or gone)
 			return false

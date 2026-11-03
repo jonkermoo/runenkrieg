@@ -68,6 +68,7 @@ local Tactics = {
 	melee = require(script.Parent.Parent.Melee),
 	meleeCfg = require(Shared.Config.Melee),
 	crew = require(script.Parent.Crew), -- (bots on the guns: Config/Bots.Crew)
+	fell = require(script.Parent.Fell), -- (trees in the way of the works: Config/Bots.Build.Trees)
 	-- the admin panel's bot tests (Bots.dev, Tactics.label): whether the labels are up, their text (Rules/DevActions)
 	dev = { labelled = false, rules = require(Shared.Rules.DevActions) },
 }

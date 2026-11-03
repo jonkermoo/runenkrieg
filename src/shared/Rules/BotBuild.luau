@@ -364,6 +364,56 @@ local function offSegment(x: number, z: number, ax: number, az: number, bx: numb
 	return math.sqrt((x - (ax + dx * t)) ^ 2 + (z - (az + dz * t)) ^ 2)
 end
 
+-- The trees (indexes into `trees`) in the way of a side's works (Config/Bots.Build.Trees; user 2026-11-03): within
+-- `clear` studs of any of `ways` (segments: trench runs and squares, saps, a nest's or gun's spot as a point, a gun's
+-- firing line), never one in a building, nearest its way first (then by index).
+function BotBuild.treesInWay(
+	trees: { { x: number, z: number, building: boolean? } },
+	ways: { { ax: number, az: number, bx: number, bz: number } },
+	clear: number
+): { number }
+	local list: { { i: number, d: number } } = {}
+	for i, t in trees do
+		if not t.building then
+			local best = math.huge
+			for _, w in ways do
+				best = math.min(best, offSegment(t.x, t.z, w.ax, w.az, w.bx, w.bz))
+			end
+			if best <= clear then
+				table.insert(list, { i = i, d = best })
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.d ~= b.d then
+			return a.d < b.d
+		end
+		return a.i < b.i
+	end)
+	local out = {}
+	for k, e in list do
+		out[k] = e.i
+	end
+	return out
+end
+
+-- A gun's firing line: from its spot (x, z) `length` studs along its facing (fx, fz).
+function BotBuild.fireLine(
+	x: number,
+	z: number,
+	fx: number,
+	fz: number,
+	length: number
+): { ax: number, az: number, bx: number, bz: number }
+	return { ax = x, az = z, bx = x + fx * length, bz = z + fz * length }
+end
+
+-- Whether an Engineer may fell one more tree (Config/Bots.Build.Trees): its side under `perSide` this match and its
+-- own last at least `every` s ago (`sinceLast` nil: none yet).
+function BotBuild.mayFell(felled: number, sinceLast: number?, cfg: { perSide: number, every: number }): boolean
+	return felled < cfg.perSide and (sinceLast == nil or sinceLast >= cfg.every)
+end
+
 -- Where wire planned at (x, z) goes so it is only in the enemy's way (user 2026-11-02 hand test: "they should be very
 -- safe as not to annoy real players. place where it would only be an inconvenience to enemies"): `cfg.gap` studs off
 -- each of its own side's ways forward (`lines`: { ax, az, bx, bz }) and `cfg.spawn` off its spawn (`spawn`: a rect),

@@ -239,6 +239,9 @@ local DevTools = {
 		},
 		-- - BotDig: the bots' shovel swings work this many times a normal one (src/server/Build), on Workspace while not 1
 		BotDig = { attribute = "DevBotDig", steps = { 1, 3, 10 } },
+		-- - BotTrees: each side's trees felled in the way of its works and the one being chopped (Config/Bots.Build.Trees,
+		--   src/server/Bots/Fell), on Workspace as `attribute` .. side, once a commander tick
+		BotTrees = { attribute = "DevBotTrees" },
 		-- - FreeEngineer / FreeGrenadier: bots pick Engineer (gun duty, dugout duty) / Grenadier (the push's grenade,
 		--   bombing out dugouts) without the points, on Workspace while on
 		FreeEngineerAttribute = "DevFreeEngineer",

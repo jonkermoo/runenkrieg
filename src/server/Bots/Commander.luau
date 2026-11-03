@@ -1454,6 +1454,7 @@ local function command()
 		Tactics.crew.command(side, owner, known, if shell and Map.sectors[shell] then sectorPoint(shell) else nil)
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))
+		Tactics.fell.list(side, buildLists[side])
 	end
 	markTrenches()
 	label()
