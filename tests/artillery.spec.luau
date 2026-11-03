@@ -525,9 +525,11 @@ return {
 	end,
 	["the MG spins on its tripod's pintle, its muzzle and sight going round it (user 2026-11-03)"] = function()
 		-- "the gun insnt spinning. make it spin from the mount"
+		-- "be sure the center of the nest is the point where it spins": the tripod head, gun space's origin, at the
+		-- ring's middle (Config/Build.Nest gunBack, tests/build.spec)
 		local MG = C.Guns.mg08
 		local p = MG.pintle :: { number }
-		assert(p and p[1] == 0 and p[2] > 0)
+		assert(p and p[1] == 0 and p[2] == 0)
 		local function off(x: number, z: number): number
 			return math.sqrt((x - p[1]) ^ 2 + (z - p[2]) ^ 2)
 		end

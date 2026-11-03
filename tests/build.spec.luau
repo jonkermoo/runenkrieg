@@ -724,7 +724,7 @@ return {
 		local n = C.Nest
 		local bags, radius = B.nestRing(n.ring)
 		assert(#bags == n.ring.sides, "a bag on every side, none open")
-		assert(near(n.gunBack, radius, 0.01), "the gun at the ring's middle (user 2026-11-03: a 360 nest)")
+		assert(near(n.gunBack, radius, 0.001), "the gun's pintle at the ring's middle (user 2026-11-03: a 360 nest)")
 		assert(near(radius, n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))))
 		local apothem = radius * math.cos(math.pi / n.ring.sides)
 		local sides = {}

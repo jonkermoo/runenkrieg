@@ -1078,10 +1078,11 @@ local Artillery = {
 			-- way, 140 in all): right round, its gunner walking round with it (`crewTurns`), the gun and its shots over the
 			-- one-bag ring all the way (Config/Build.Nest `ring`, `fit`; Rules/Build.nestFit)
 			traverse = 180,
-			-- (user 2026-11-03, the 360 nest: "the gun insnt spinning. make it spin from the mount"): on the tripod's
-			-- pintle, 0.43 behind gun space's origin (the Mount's middle at rest); about the origin the whole top swung
-			-- off the tripod as it went round
-			pintle = { 0, 0.43 },
+			-- (user 2026-11-03, the 360 nest: "make it spin from the mount", "be sure the center of the nest is the point
+			-- where it spins"): on the tripod head's pintle, gun space's origin (the head's top measured on the model at
+			-- x 0, z 0; the Mount's box middle, 0.43 back, swung it off centre), which stands at the ring's middle
+			-- (Config/Build.Nest `gunBack`)
+			pintle = { 0, 0 },
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
 			traverseRate = 60,

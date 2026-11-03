@@ -571,8 +571,8 @@ local Build = {
 			piles = { { 0, 1, 2 }, { 6, 7, 8 }, { 2, 3, 4 }, { 8, 9, 10 }, { 4, 5, 6 }, { 10, 11, 0 } },
 			low = { 1, 2, 3, 4, 5, 6 },
 		},
-		gunBack = 6.95, -- (the ring's radius: the gun at its middle)
-		mountBack = 7.6,
+		gunBack = 6.9545, -- (the ring's radius: the gun's pintle, where it spins, at its middle)
+		mountBack = 7.6045,
 		-- what must clear the bags at every lay (Rules.nestFit, tests/build.spec): the gunner's legs (`legs`, across and
 		-- deep) against the bottom bags, the torso and arms out to the grips (`body`) against the top bags, the gun
 		-- (`gun`: from `back` behind the pivot, `length` long, `width` across) and its bullets against the top bags; each
