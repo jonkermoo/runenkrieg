@@ -20,12 +20,13 @@ local Concussion = {
 	-- a blast near the own soldier, hurt or not (src/client/Concussion.near, every blast shown): by its overpressure at
 	-- the head (Rules/Blast.kpa, Config/Damage.Blast), nothing under `from` kPa, `most` at `full` kPa and over, on a log
 	-- scale between. Starts when the blast's sound gets there (Config/Audio.Heard.speed). Bands, studs from the blast:
-	--   faint 5-15 kPa: a grenade 11-17, a field shell 30-60, the howitzer 90-150
-	--   close 15-40 kPa: a field shell 18-30, the howitzer 55-90 (a grenade's splinters kill this close)
-	--   very close 40-110 kPa: a field shell 10-18, the howitzer 30-55
+	--   faint 2-9 kPa (~160-173 dB: a short quiet ring): a grenade 12-35, a field shell 42-130, the howitzer 135-260
+	--   close 9-31 kPa: a grenade 6-12, a field shell 18-42, the howitzer 63-135
+	--   very close 31-110 kPa: a field shell 10-18, the howitzer 34-63
 	-- (inside a casing's splinter reach, Config/Grenades and Config/Artillery fragments, the soldier is usually wounded
-	-- and thrown too: the heavier thrown concussion, Blast above, takes over)
-	Near = { from = 5, full = 110, most = 0.8 },
+	-- and thrown too: the heavier thrown concussion, Blast above, takes over; Studio 2026-11-03: from 5 kPa a field shell
+	-- 60 studs off left almost nothing, too quiet for ~170 dB at the ear)
+	Near = { from = 2, full = 110, most = 0.8 },
 
 	-- the effects by kind, Light (strength `at`) to Heavy (strength 1). Seconds unless noted:
 	--   duration: the picture's effects, held at full for `hold`, then fading out (`Fade`)
@@ -40,7 +41,7 @@ local Concussion = {
 	Kinds = {
 		Blast = {
 			Light = {
-				at = 0.15, -- (~7 kPa near miss)
+				at = 0.15, -- (a near miss at ~4 kPa)
 				duration = 0.6,
 				hold = 0,
 				blur = 1,
