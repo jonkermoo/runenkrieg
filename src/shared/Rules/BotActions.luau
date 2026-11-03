@@ -34,6 +34,27 @@ function BotActions.mayTend(safe: boolean, selfHidden: boolean, exposed: boolean
 	return safe or selfHidden or not exposed
 end
 
+-- Who rescues a casualty (user 2026-11-03 play test: "a downed soldier currently causes AI to scramble around the
+-- downed soldier to heal them, breaking all push and formation ... only have 1 soldier save them"): among the free
+-- bots of its side within `range` studs (each its distance and whether it is in the casualty's squad), one of its own
+-- squad first, then the nearest. The index, or nil.
+function BotActions.rescuer(cands: { { distance: number, sameSquad: boolean } }, range: number): number?
+	local best: number? = nil
+	for i, c in cands do
+		if c.distance <= range then
+			local o = best and cands[best]
+			if
+				not o
+				or (c.sameSquad and not o.sameSquad)
+				or (c.sameSquad == o.sameSquad and c.distance < o.distance)
+			then
+				best = i
+			end
+		end
+	end
+	return best
+end
+
 -- The nearest hurt teammate to heal (under `below` health, within `within` studs, alive, not being healed), or nil.
 function BotActions.healPick(mates: { Mate }, cfg: { below: number, within: number }): number?
 	local best, bestD = nil, math.huge

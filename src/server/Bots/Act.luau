@@ -55,7 +55,7 @@ type Soldier = Types.Soldier
 type Arms = Types.Arms
 
 local State = require(script.Parent.State)
-local Clear, bots, Tactics, random, stats, squads, buildLists, Kinds, budget =
+local Clear, bots, Tactics, random, stats, squads, buildLists, Kinds, budget, rescue =
 	State.Clear,
 	State.bots,
 	State.Tactics,
@@ -64,11 +64,13 @@ local Clear, bots, Tactics, random, stats, squads, buildLists, Kinds, budget =
 	State.squads,
 	State.buildLists,
 	State.Kinds,
-	State.budget
+	State.budget,
+	State.rescue
 
 local Move = require(script.Parent.Move)
-local flat, say, hidden, exclusions, rayParams, aimPart, soldiersNow, friendly, knownSpot, findCover, indoorNear, coverStep, shakenNow, inside, setGoal, follow, putAway, face, holdShovel, finish =
+local flat, alive, say, hidden, exclusions, rayParams, aimPart, soldiersNow, friendly, knownSpot, findCover, indoorNear, coverStep, shakenNow, inside, setGoal, follow, putAway, face, holdShovel, finish =
 	Move.flat,
+	Move.alive,
 	Move.say,
 	Move.hidden,
 	Move.exclusions,
@@ -245,6 +247,72 @@ local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
 	end
 end
 
+-- who rescues casualty `c` now (Config/Bots.Actions.Rescue): its claim holds while the rescuer lives and still means
+-- them (guarding, dragging or healing them); else let go
+local function rescuerOf(c: Model, now: number): Bot?
+	local cl = rescue.claims[c]
+	if not cl then
+		return nil
+	end
+	local r = cl.by
+	local on = r.m ~= nil
+		and alive(r)
+		and not r.deadAt
+		and ((r.guard ~= nil and r.guard.who == c) or (r.act ~= nil and r.act.who == c))
+	if on then
+		return r
+	end
+	rescue.claims[c] = nil
+	rescue.freed[c] = now
+	stats.rescuesLet += 1
+	return nil
+end
+
+-- whether `b` is the one to rescue casualty `c` (Rules/BotActions.rescuer): free bots of its side, its squad first
+local function mineToRescue(b: Bot, c: Model, at: Vector3, now: number): boolean
+	local by = rescuerOf(c, now)
+	if by then
+		return by == b
+	end
+	if now - (rescue.freed[c] or -math.huge) < AC.Rescue.wait then
+		return false
+	end
+	local squadOf: string? = nil
+	for _, o in bots do
+		if o.m == c then
+			squadOf = o.squad
+			break
+		end
+	end
+	local cands: { { distance: number, sameSquad: boolean } } = {}
+	local mine: number? = nil
+	for _, o in bots do
+		local om = o.m
+		local sq = o.squad and squads[o.squad :: string]
+		local free = om ~= nil
+			and o.root ~= nil
+			and om ~= c
+			and o.side == b.side
+			and alive(o)
+			and not o.deadAt
+			and not o.gun
+			and not Ragdoll.active(om)
+			and (o.act == nil or o.act.who == c)
+			and (o.guard == nil or o.guard.who == c)
+			and not (sq and (sq :: SquadState).sq.phase == "Assault")
+		if free then
+			table.insert(cands, {
+				distance = flat((o.root :: BasePart).Position - at).Magnitude,
+				sameSquad = squadOf ~= nil and o.squad == squadOf,
+			})
+			if o == b then
+				mine = #cands
+			end
+		end
+	end
+	return mine ~= nil and Actions.rescuer(cands, AC.Rescue.range) == mine
+end
+
 -- what to do besides fighting, if anything (drag > heal > build > grenade)
 local function weigh(b: Bot, now: number)
 	b.actAt = now + AC.every
@@ -269,6 +337,13 @@ local function weigh(b: Bot, now: number)
 			end
 		end
 	end
+	-- one rescuer a casualty: the others leave it to them (Config/Bots.Actions.Rescue)
+	for i, mt in mates do
+		local wants = (mt.down and mt.distance <= AC.Drag.within) or mt.health < AC.Heal.below
+		if wants and not mt.busy and not mineToRescue(b, who[i].model, who[i].pos, now) then
+			mt.busy = true
+		end
+	end
 	-- a downed teammate in sight of where the enemy is
 	if spot then
 		local eyeAt = (spot :: Vector3) + Vector3.yAxis * Cfg.Eye
@@ -291,6 +366,11 @@ local function weigh(b: Bot, now: number)
 	local safe = BotBuild.safeToWork(false, seen, sinceThreat, sinceHurt, false, BD.calm)
 	local selfHidden: boolean? = nil
 	local function mayTend(k: number): boolean
+		local c = who[k].model
+		if not rescue.claims[c] then
+			rescue.claims[c] = { by = b, at = now }
+			stats.rescues += 1
+		end
 		if not safe and selfHidden == nil then
 			selfHidden = b.threatFrom ~= nil
 				and budget.rays > 0

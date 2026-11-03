@@ -186,6 +186,8 @@ local stats = {
 	workStarted = 0, -- tools out there, once safe
 	workStopped = 0, -- tools dropped for the gun mid-work (danger)
 	guarded = 0, -- teammates guarded, gun out, before a drag or heal (Config/Bots.Actions.Guard)
+	rescues = 0, -- casualties claimed by one rescuer (Config/Bots.Actions.Rescue)
+	rescuesLet = 0, -- claims let go (the rescuer dead or pulled away)
 	pushes = 0, -- squads that pushed a group they outnumber (Config/Bots.Squads.Push)
 	pushBombs = 0, -- grenades thrown to open such a push
 	wireMoved = 0, -- wire spots moved off (or dropped from) its own side's ways (Config/Bots.Build.Wire)
@@ -196,6 +198,11 @@ local stats = {
 	since = os.clock(),
 }
 
+-- one rescuer a casualty (Config/Bots.Actions.Rescue): who rescues each and since when; when a claim was let go
+local rescue = {
+	claims = {} :: { [Model]: { by: Bot, at: number } },
+	freed = {} :: { [Model]: number },
+}
 local squads: { [string]: SquadState } = {}
 
 local buildLists: { [string]: SideBuild } = {}
@@ -268,6 +275,7 @@ return {
 	random = random,
 	stats = stats,
 	squads = squads,
+	rescue = rescue,
 	buildLists = buildLists,
 	Kinds = Kinds,
 	budget = budget,

@@ -21,8 +21,8 @@ local Types = require(script.Parent.Types)
 type Bot = Types.Bot
 
 local State = require(script.Parent.State)
-local bots, Tactics, random, stats, squads, buildLists =
-	State.bots, State.Tactics, State.random, State.stats, State.squads, State.buildLists
+local bots, Tactics, random, stats, squads, buildLists, rescue =
+	State.bots, State.Tactics, State.random, State.stats, State.squads, State.buildLists, State.rescue
 
 local Move = require(script.Parent.Move)
 local flat, alive, finish = Move.flat, Move.alive, Move.finish
@@ -91,7 +91,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -144,6 +144,8 @@ local function report(now: number, governor: { cap: number })
 			stats.workStarted,
 			stats.workStopped,
 			stats.guarded,
+			stats.rescues,
+			stats.rescuesLet,
 			stats.pushes,
 			stats.pushBombs,
 			stats.strikes,
@@ -192,7 +194,31 @@ end
 
 -- the admin panel's labels over the bots (Config/DevTools.Admin.BotState), once a commander tick while asked for; taken
 -- off once it is off
+-- who rescues whom now, for the admin panel's readout (Config/DevTools.Admin.BotRescuesAttribute); claims on bodies
+-- gone and old let-gos dropped
+local function rescues()
+	local lines = {}
+	for c, cl in rescue.claims do
+		if not c.Parent then
+			rescue.claims[c] = nil
+		else
+			local r = cl.by
+			local doing = if r.act and r.act.who == c then r.act.kind else "covering"
+			table.insert(lines, `{r.name} > {c.Name} ({doing})`)
+		end
+	end
+	local now = os.clock()
+	for c, at in rescue.freed do
+		if not c.Parent or now - at > Cfg.Actions.Rescue.wait then
+			rescue.freed[c] = nil
+		end
+	end
+	table.sort(lines)
+	workspace:SetAttribute(DevCfg.Admin.BotRescuesAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 local function label()
+	rescues()
 	local S = DevCfg.Admin.BotState
 	local on = workspace:GetAttribute(S.attribute) == true
 	if not on and not Tactics.dev.labelled then
@@ -209,6 +235,8 @@ local function label()
 				local what = act and act.kind
 				if act and act.job then
 					what = `{act.kind} {act.job.job.key}`
+				elseif act and act.who then
+					what = `{act.kind} {act.who.Name}`
 				elseif not act and b.guard and b.guard.who.Parent then
 					what = `covering {b.guard.who.Name}`
 				elseif not act and b.work then

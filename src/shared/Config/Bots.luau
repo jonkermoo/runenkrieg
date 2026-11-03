@@ -233,6 +233,11 @@ local Bots = {
 		-- 2026-11-03: "they protect you and grab/heal you once it is safe"): else the bot stays within `near` studs of
 		-- them with its gun out, fighting, for up to `keep` s, and goes to them once it may
 		Guard = { near = 6, keep = 20 },
+		-- one rescuer a casualty (Rules/BotActions.rescuer; user 2026-11-03: "only have 1 soldier save them"): the nearest
+		-- free bot of its side within `range` studs, one of its squad first; the rest keep their push, post and
+		-- formation. A bot in a push never breaks off for one. A rescuer that dies or is pulled away lets it go, and
+		-- another may take it `wait` s later.
+		Rescue = { range = 40, wait = 3 },
 		Grenade = {
 			min = 15,
 			max = 35,
