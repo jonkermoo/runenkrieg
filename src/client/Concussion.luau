@@ -94,7 +94,7 @@ local function edge(parent: Instance, rotation: number, size: UDim2, position: U
 	g.Parent = f
 end
 
--- made once and kept (a Sound made when needed plays late: brain known-traps)
+-- made once and kept (a Sound made when needed plays late)
 local function build()
 	if blur then
 		return
@@ -152,12 +152,12 @@ local function step()
 		b.Parent, g.Parent = camera, camera -- (a new camera)
 	end
 	b.Size = s.blur * f * k
-	b.Enabled = Settings.get("ScreenBlur") ~= "Off" and b.Size > 0.05
+	b.Enabled = Settings.get("ScreenBlur") ~= "Off" and b.Size > Cfg.Shown.blur
 	local flash = s.flash * Rules.kick(e, Cfg.Flash.time)
 	g.Saturation = s.saturation * f * k
 	g.Brightness = (s.brightness * f + flash) * k
 	local dark = s.vignette * f * k
-	v.Enabled = dark > 0.01
+	v.Enabled = dark > Cfg.Shown.vignette
 	if v.Enabled then
 		for _, child in v:GetChildren() do
 			(child :: Frame).BackgroundTransparency = 1 - dark
@@ -184,8 +184,9 @@ local function view()
 	local f = Rules.held(e, s.hold, s.duration, Cfg.Fade) * k
 	local kick = Rules.kick(e, Cfg.Snap.time) * s.snap * k
 	local w = 2 * math.pi * Cfg.Sway.rate * e
-	local pitch = snapPitch * kick + s.sway * 0.5 * f * math.sin(w * 0.7 + 1)
-	local yaw = snapYaw * kick + s.sway * 0.4 * f * math.sin(w * 0.55 + 2)
+	local W = Cfg.Sway
+	local pitch = snapPitch * kick + s.sway * W.pitch.size * f * math.sin(w * W.pitch.rate + W.pitch.phase)
+	local yaw = snapYaw * kick + s.sway * W.yaw.size * f * math.sin(w * W.yaw.rate + W.yaw.phase)
 	local roll = side * s.tilt * f + s.sway * f * math.sin(w)
 	if pitch ~= 0 or yaw ~= 0 or roll ~= 0 then
 		local camera = workspace.CurrentCamera
@@ -230,7 +231,7 @@ function Concussion.show(strength: number, kind: Rules.Kind, from: Vector3?, hea
 		-- thrown along the shot: hit from the front, the head goes back (looks up); from the left, it turns right
 		local l = camera.CFrame:VectorToObjectSpace(from.Unit)
 		snapPitch, snapYaw = math.clamp(l.Z, -1, 1), -math.clamp(l.X, -1, 1)
-		if math.abs(snapPitch) + math.abs(snapYaw) < 0.3 then
+		if math.abs(snapPitch) + math.abs(snapYaw) < Cfg.Snap.crown then
 			snapPitch = 1 -- (straight down on the crown: a nod back all the same)
 		end
 	end

@@ -145,13 +145,21 @@ local Concussion = {
 	-- mids, dB onto the lows (the pressure in the ears); it comes in over `attack` s, so the bang itself is heard first
 	Muffle = { high = 45, mid = 20, low = 3, attack = 0.12 },
 	-- the head thrown by a helmet hit: dies away squared over `time` s
-	Snap = { time = 0.4 },
+	-- (a hit this little across the view, straight down on the crown, nods the head back all the same)
+	Snap = { time = 0.4, crown = 0.3 },
 	-- the white flash: dies away squared over `time` s
 	Flash = { time = 0.2 },
 	-- the dark edges: each a gradient this share of the screen deep
 	Vignette = { size = 0.3 },
-	-- the dizzy wobble's rate (cycles a second)
-	Sway = { rate = 0.35 },
+	-- the dizzy wobble: the roll at `rate` cycles a second, the pitch and yaw as shares of its size, at their own rates
+	-- (x `rate`) and phases (radians), so it never repeats in step
+	Sway = {
+		rate = 0.35,
+		pitch = { size = 0.5, rate = 0.7, phase = 1 },
+		yaw = { size = 0.4, rate = 0.55, phase = 2 },
+	},
+	-- under these the blur and the dark edges are switched off, not drawn faintly
+	Shown = { blur = 0.05, vignette = 0.01 },
 
 	-- the ring: "Ear Ring Tone", our own 10 s, 3.5 kHz tone (ASSETS_LICENSES.md), heard flat (not from a point),
 	-- unmuffled, at the player's Master x Effects volume; the kind's `pitch` its playback speed

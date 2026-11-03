@@ -348,7 +348,7 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			for _, src in Cfg.Admin.Shock.Sources do
 				if src.key == value.source then
 					if src.grenade then
-						Grenades.goOff(at, src.key, by, if by then 0 else nil) -- (yours: knocks, never hurts)
+						Grenades.goOff(at, src.key, by, if by then Cfg.Admin.Shock.OwnShare else nil)
 					else
 						Artillery.land(at, src.key, by)
 					end

@@ -150,6 +150,7 @@ local DevTools = {
 			-- (splinters wound to ~42 studs from a grenade, 40 a field shell, 30 the howitzer: past them only the blast)
 			Distances = { 5, 10, 20, 40, 60, 100, 150 },
 			HelmetWeapon = "BoltRifle",
+			OwnShare = 0, -- the share of your own test grenade that hurts you (the game's: Config/Grenades.Own)
 		},
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
