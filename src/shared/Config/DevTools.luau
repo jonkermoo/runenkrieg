@@ -137,6 +137,8 @@ local DevTools = {
 		Health = { 100, 75, 50, 25, 10 },
 		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
 		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+		-- the admin panel's readout of each side's bot classes (src/server/Bots, every commander tick in Normal)
+		BotClassesAttribute = "DevBotClasses",
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
 		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },

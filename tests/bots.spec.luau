@@ -135,6 +135,10 @@ return {
 	end,
 	["class: the dearest it can pay for when buying, the default when broke"] = function()
 		local opts = { { key = "R", cost = 0 }, { key = "A", cost = 100 }, { key = "S", cost = 150 } }
+		local w = { { key = "A", weight = 1 }, { key = "B", weight = 0 }, { key = "C", weight = 3 } }
+		assert(R.rollClass(w, 0) == "A" and R.rollClass(w, 0.24) == "A", "the first quarter")
+		assert(R.rollClass(w, 0.26) == "C" and R.rollClass(w, 1) == "C", "the rest, never a weight of 0")
+		assert(R.rollClass({}, 0.5) == nil and R.rollClass({ { key = "A", weight = 0 } }, 0.5) == nil, "none")
 		local k, c = R.chooseClass(0, opts, 0.6, 0, 0)
 		assert(k == "R" and c == 0)
 		k, c = R.chooseClass(120, opts, 0.6, 0, 0)

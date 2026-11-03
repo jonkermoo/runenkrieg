@@ -202,17 +202,27 @@ local function chooseClass(b: Bot): (string, number?)
 	local options = {}
 	local push = {}
 	-- (the admin panel's free Engineer and Grenadier: Config/DevTools.Admin)
-	local free = workspace:GetAttribute(DevCfg.Admin.FreeEngineerAttribute) == true
-	local gratis = { Engineer = free, Grenadier = workspace:GetAttribute(DevCfg.Admin.FreeGrenadierAttribute) == true }
+	-- Normal: every class free, rolled by weight (Config/Bots.Classes; no points spent); FFA: bought with points
+	local normal = b.mode == "Normal"
+	local free = normal or workspace:GetAttribute(DevCfg.Admin.FreeEngineerAttribute) == true
+	local gratis = {
+		Engineer = free,
+		Grenadier = normal or workspace:GetAttribute(DevCfg.Admin.FreeGrenadierAttribute) == true,
+	}
+	local weights = {}
 	for _, c in Cfg.Classes do
 		local def = Classes.Defs[c.key]
 		if def and not def.locked then
-			table.insert(options, { key = c.key, cost = if (gratis :: any)[c.key] then 0 else def.cost })
+			table.insert(options, { key = c.key, cost = if normal or (gratis :: any)[c.key] then 0 else def.cost })
+			table.insert(weights, { key = c.key, weight = c.weight or 0 })
 			push[c.key] = c.push
 		end
 	end
 	local key, cost =
 		Rules.chooseClass(Loadouts.botPoints(b.id), options, Cfg.Buy, random:NextNumber(), random:NextNumber())
+	if normal then
+		key, cost = Rules.rollClass(weights, random:NextNumber()) or options[1].key, 0
+	end
 	-- gun duty (Config/Bots.Build.Crews): an Engineer while its side has too few guns standing, if it can pay
 	b.crew = nil
 	local sb = b.side and buildLists[b.side :: string]
