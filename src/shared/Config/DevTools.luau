@@ -320,6 +320,11 @@ local DevTools = {
 		-- user 2026-10-29: "add the MG nest to the list of stuff we can spawn"); a dugout into the trench wall aimed at,
 		-- facing you in the trench (the bot tests: sheltering, bombing one out)
 		Pieces = { "MGNest", "Dugout" },
+		-- the gun nearest the aim point (within `GunReach` studs) set to one of these % of its HP (src/server/Artillery
+		-- .setHp; user 2026-11-03: manned down to half its HP, Config/Artillery.Man): testing it going out of service
+		-- and back
+		GunHp = { 100, 75, 50, 49, 25 },
+		GunReach = 20,
 		-- how long a refused piece's button shows why (src/client/DevBlastMenu)
 		RefusedSeconds = 3,
 	},

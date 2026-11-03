@@ -569,7 +569,7 @@ local Artillery = {
 		flicker = { rate = { 5, 0.8, 0.3 }, length = { 0.04, 0.2 }, depth = { 0.35, 0.9 }, wobble = 0.1 },
 		-- dying (user 2026-10-26: "make the lights flicker more deathly when its low HP"): hurt past `from` of its HP,
 		-- the drop-outs come up to `rate` more a second, `depth` deep (from the second up to the first); knocked out
-		-- (Wreck.unusable) it no longer charges or fires but sputters on, holding at `glow` and black for `blackout` of
+		-- (Broken: below Man.keep) it no longer charges or fires but sputters on, holding at `glow` and black for `blackout` of
 		-- the time, now and then a weak flare of `flare` lasting `flareLength` s (`flareEvery` s apart on average), the
 		-- light toward `tint` (RGB); at Wreck.dark it dies
 		dying = {
@@ -642,8 +642,8 @@ local Artillery = {
 	},
 	-- A damaged gun (user 2026-10-25: "once it gets to a critical percentage (let's say 50%) it becomes unusable, but not
 	-- completely wrecked. make it 4 stages, each at 25%, each more damaged"): stage i once its HP is down to `at[i]`% of
-	-- full; from stage `unusable` nobody can man it (its gunner is thrown off), its barrel knocked down to its lowest lay
-	-- and up to `knock` degrees round, the howitzer's crystal dead. Each stage scorches it `scorch[i]` of the way to
+	-- full; below Man `keep` nobody can man it (its gunner is thrown off), its barrel knocked down to its lowest lay
+	-- and up to `knock` degrees round, the howitzer's crystal dying. Each stage scorches it `scorch[i]` of the way to
 	-- Palette.Artillery.Scorched, leans it `tilt[i]` degrees and sinks it `sink[i]` studs.
 	-- Physically damaged too (user 2026-10-26: "make the physical model look damaged throughout each phase too? along
 	-- with the darkening. make the lights flicker more deathly when its low HP"): by stage i it has `holes[i]` shell
@@ -654,13 +654,17 @@ local Artillery = {
 	-- Fixing a gun with the shovel (src/server/Build, Artillery.repair; user 2026-10-27: "make it so you can fix a
 	-- artillery by digging too", "enemie teams should be able to repair and fix enemie trenches and artillery, as they
 	-- should be able to use it if they earn the sector"): a Build swing by any team's soldier gives back the gun's `hp` /
-	-- `repair` (an admin dig step: that share of its full HP). An unusable gun is usable again from `usable`% ("the
-	-- artillery should be in a damaged but usable status at 75%"): a fresh gun stands in its place, damaged to the HP it
-	-- has; whole, a fresh gun again. Each time its ground is flattened out again (the howitzer's pit dug out again).
-	Repair = { usable = 75 },
+	-- `repair` (an admin dig step: that share of its full HP). An unusable gun is usable again from Man `keep`%: a fresh
+	-- gun stands in its place, damaged to the HP it has; whole, a fresh gun again. Each time its ground is flattened out
+	-- again (the howitzer's pit dug out again).
+	-- Manning a gun (Rules/Artillery.mannable; user 2026-11-03: "manning the gun for any arty should be be available
+	-- until CONTRUCTION to 100 HP. after constructed, it can still be operated until low HP (50%)"): any gun (field gun,
+	-- howitzer, MG) being built can't be manned until its HP first reaches `built`% (src/server/Build places the real gun
+	-- only then); once built it can be manned at or above `keep`% of its HP, and below that its gunner is put off until
+	-- repairs bring it back to `keep`%. For players and bots alike.
+	Man = { built = 100, keep = 50 },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
-		unusable = 2,
 		dark = 4,
 		holes = { 2, 5, 9, 14 },
 		lose = { {}, { "Kit" }, { "Kit", "Marking" }, { "Kit", "Marking", "Trim" } },

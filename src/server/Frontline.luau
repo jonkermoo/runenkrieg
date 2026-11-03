@@ -15,8 +15,8 @@
 -- wave line (Rules/Frontline.slot), frozen and shielded, until the wave goes, then keeps the shield a moment. The line
 -- stands at the side's spawn sector (Rules/Frontline.spawnSector: its HQ, in its spawn zone Map1.spawnZones, until the
 -- first capture; then its frontmost, by the flag, or one back while the enemy leads there). Each side's sectors held
--- from its end are published (Config/Frontline.Artillery: a side at its last sector may build the howitzer, read by
--- src/server/Build), and a badly outnumbered side is reinforced (src/server/Loadouts pays it more). The state is replicated as
+-- from its end are published (Config/Frontline.Artillery: a side down to its last `unlockAt` sectors may build the
+-- howitzer, read by src/server/Build), and a badly outnumbered side is reinforced (src/server/Loadouts pays it more). The state is replicated as
 -- attributes on Workspace's "Frontline" folder (Config/Frontline.FolderName, read by src/client/ModeHud). The sector
 -- markers (src/dev/Greybox, shown by the admin's switch: src/server/Sectors) are coloured by owner and labelled with
 -- control and head counts. The admin panel ends and restarts a match and takes a side's next sector

@@ -4,7 +4,8 @@
 -- destruction (src/server/Damage.blast) and sends Net "DevBlast" to everyone, shown here (src/client/Vfx/Blast).
 -- The artillery buttons place a field gun or a howitzer at the aim point, muzzle away from you, or remove them all
 -- (src/server/Artillery; E mans one); "Place MG nest" lays a finished MG nest there, its gun facing away from you
--- (src/server/Build.devPlace; dig it apart to remove it). The bot rows act at the aim point too (src/server/Bots.dev).
+-- (src/server/Build.devPlace; dig it apart to remove it). The gun HP rows set the gun at the aim point to a share of its
+-- HP (under half it is out of service). The bot rows act at the aim point too (src/server/Bots.dev).
 -- "My blasts hurt me": off, your own blast knocks you but never hurts you (as in the game). The menu is only shown when
 -- the server marked this player with the DevTools attribute; every client shows the explosions.
 
@@ -66,6 +67,21 @@ local function build(player: Player): ScreenGui
 			local aim = DevAim.point()
 			if aim then
 				Net.event("DevAction"):FireServer("PlacePiece", key, aim)
+			end
+		end)
+	end
+	-- the gun nearest the aim point to a share of its HP (src/server/DevTools; Config/Artillery.Man: under half it can't
+	-- be manned)
+	for _, pct in B.GunHp do
+		order += 1
+		local key = `GunHp{pct}`
+		local button = DevPanel.button(p.panel, key, `Gun at aim to {pct}% HP`, order)
+		pieceButtons[key] = button
+		pieceNames[key] = `Gun at aim to {pct}% HP`
+		button.Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer("GunHp", pct, aim)
 			end
 		end)
 	end

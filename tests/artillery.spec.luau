@@ -253,12 +253,11 @@ return {
 		assert(beams >= 5 and beams <= 6, `5-6 full beams wreck a field gun ({beams})`)
 		assert(A.gunHit(0, H.staff3, H.direct) < hit, "a beam is still less than a cannon shell")
 	end,
-	["a gun's damage stages every 25%, unusable from half"] = function()
+	["a gun's damage stages every 25%"] = function()
 		local at = C.Wreck.at
 		assert(A.wreckStage(100, 100, at) == 0 and A.wreckStage(76, 100, at) == 0)
 		assert(A.wreckStage(75, 100, at) == 1 and A.wreckStage(50, 100, at) == 2)
 		assert(A.wreckStage(24, 100, at) == 3 and A.wreckStage(0, 100, at) == 4)
-		assert(C.Wreck.unusable == 2 and at[C.Wreck.unusable] == 50) -- user 2026-10-25: "let's say 50%"
 		assert(#C.Wreck.scorch == #at and #C.Wreck.tilt == #at and #C.Wreck.sink == #at)
 	end,
 	["the Rune howitzer is semi dug: a shallow pit inside its sandbag ring, walked out of up its ramp"] = function()
@@ -395,10 +394,21 @@ return {
 		assert(A.onGround(0, 0, lo, hi) and A.onGround(2, 5, lo, hi) and A.onGround(-2, -5, lo, hi))
 		assert(not A.onGround(2.1, 0, lo, hi) and not A.onGround(0, -5.1, lo, hi))
 	end,
-	["digging fixes a gun in its repair swings, usable again at 75%, never past whole"] = function()
-		-- user 2026-10-27: "make it so you can fix a artillery by digging too", "damaged but usable status at 75%"
-		local R = C.Repair
-		assert(R.usable == 75)
+	["manned once built to 100 HP, then while at or above half (players and bots)"] = function()
+		-- user 2026-11-03: "available until CONTRUCTION to 100 HP. after constructed, it can still be operated until low
+		-- HP (50%)"
+		local M = C.Man
+		assert(M.built == 100 and M.keep == 50)
+		assert(not A.mannable(99, 100, false, M), "still being built")
+		assert(A.mannable(100, 100, false, M), "built")
+		assert(A.mannable(100, 100, true, M) and A.mannable(50, 100, true, M), "built, at half")
+		assert(not A.mannable(49.9, 100, true, M), "under half")
+		assert(A.mannable(120, 240, true, M) and not A.mannable(119, 240, true, M), "the howitzer's 240 HP")
+		assert(not A.mannable(0, 0, true, M))
+	end,
+	["digging fixes a gun in its repair swings, usable again at half, never past whole"] = function()
+		-- user 2026-10-27: "make it so you can fix a artillery by digging too"; 2026-11-03: operated down to 50%
+		local R = { usable = C.Man.keep }
 		for key, g in C.Guns do
 			assert(g.repair >= 1, key)
 			local hp, what, n, usableAt = 0, nil, 0, nil
@@ -411,9 +421,8 @@ return {
 				assert(n <= g.repair, key)
 			end
 			assert(n == g.repair and hp == g.hp, key)
-			assert(usableAt and usableAt >= g.hp * 0.75 - 1e-6, key)
-			-- usable again past the stage it stopped being usable at
-			assert(A.wreckStage(usableAt, g.hp, C.Wreck.at) < C.Wreck.unusable, key)
+			assert(usableAt and usableAt >= g.hp * 0.5 - 1e-6, key)
+			assert(A.mannable(usableAt, g.hp, true, C.Man), key)
 		end
 		local hp, what = A.repaired(95, 100, 10, 75, false)
 		assert(hp == 100 and what == "whole")
