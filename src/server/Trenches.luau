@@ -37,6 +37,7 @@ local Rules = require(Shared.Rules.Build)
 local Survey = require(Shared.BuildSurvey)
 local DevWorld = require(script.Parent.DevWorld)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 
 local Trenches = {}
 
@@ -242,7 +243,7 @@ end
 
 -- Reshapes the terrain round `centre` (within `reach`, flat): back to the ground before any trench where one touched
 -- it, then cut by every square there (the deepest cut wins), banks thrown up where nothing cuts, scars as shallow dips.
-local function reshape(centre: Vector3, reach: number)
+local function reshapeNow(centre: Vector3, reach: number)
 	local terrain = workspace.Terrain
 	local half = Vector3.new(reach, T.depth + T.bank.height + VOXEL * 4, reach)
 	local region = Region3.new(centre - half, centre + half):ExpandToGrid(VOXEL)
@@ -400,6 +401,11 @@ local function reshape(centre: Vector3, reach: number)
 	terrain:WriteVoxels(region, VOXEL, mats, occs)
 	DevWorld.touchRegion(region) -- (put back at the next match: src/server/DevWorld)
 	Net.event("GroundDug"):FireAllClients(centre, reach, true) -- (the grass follows the ground, back where it came back)
+end
+local function reshape(centre: Vector3, reach: number)
+	local t0 = os.clock()
+	reshapeNow(centre, reach)
+	Hitches.since("Trench reshape", t0)
 end
 
 local function reshapeBlock(blk: Block)
@@ -651,7 +657,7 @@ end
 -- A square's dirt pieces: a wall each side and a floor (Rules.trenchPieces), a plain wall across each dead end, laid in
 -- piece space (x along, y up from the floor, z out of the trench) on the square's floor, stretched along a short one.
 -- Rebuilt only when its ends or tees change.
-local function pieces(blk: Block)
+local function piecesNow(blk: Block)
 	local m = blk.model :: Model
 	local k = pieceKit()
 	if not k then
@@ -841,6 +847,11 @@ local function pieces(blk: Block)
 		end
 	end
 end
+local function pieces(blk: Block)
+	local t0 = os.clock()
+	piecesNow(blk)
+	Hitches.since("Trench pieces", t0)
+end
 
 local function linked(blk: Block): { Block }
 	local out = {}
@@ -861,7 +872,7 @@ local function linked(blk: Block): { Block }
 end
 
 -- shows a square as its HP stands
-local function apply(blk: Block, reshapeIt: boolean)
+local function applyNow(blk: Block, reshapeIt: boolean)
 	if reshapeIt then
 		reshapeBlock(blk)
 	end
@@ -898,6 +909,11 @@ local function apply(blk: Block, reshapeIt: boolean)
 		end
 	end
 	publish(blk)
+end
+local function apply(blk: Block, reshapeIt: boolean)
+	local t0 = os.clock()
+	applyNow(blk, reshapeIt)
+	Hitches.since("Trench square", t0)
 end
 
 -- a block gone (an undug plan pulled up) or filled in to a scar: the blocks joined to it close up

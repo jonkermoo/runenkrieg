@@ -18,6 +18,7 @@ local HairCfg = require(Shared.Config.HairMotion)
 local HairSway = require(Shared.Rules.HairMotion)
 local U = require(Shared.Config.Uniforms)
 local Looks = require(Shared.Rules.Looks)
+local Hitches = require(Shared.Hitches)
 local Kits = require(script.Parent.Kits)
 
 local Helmets = {}
@@ -280,7 +281,7 @@ function Helmets.hit(part: Instance?, point: Vector3, direction: Vector3): boole
 end
 
 -- The helmet flies off along `direction` and the original hair goes on.
-function Helmets.knockOff(character: Model, direction: Vector3)
+local function knockOff(character: Model, direction: Vector3)
 	local head = character:FindFirstChild("Head") :: BasePart?
 	local worn = character:FindFirstChild("Helmet") :: Model?
 	if not head or not worn then
@@ -331,6 +332,11 @@ function Helmets.knockOff(character: Model, direction: Vector3)
 	root.AssemblyAngularVelocity = Vector3.new(math.random() * 2 - 1, math.random() * 2 - 1, math.random() * 2 - 1)
 		* O.spin
 	Debris:AddItem(loose, O.despawn)
+end
+function Helmets.knockOff(character: Model, direction: Vector3)
+	local t0 = os.clock()
+	knockOff(character, direction)
+	Hitches.since("Helmet off", t0)
 end
 
 return Helmets

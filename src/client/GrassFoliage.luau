@@ -18,6 +18,7 @@ local Grass = require(Shared.Rules.Grass)
 local Blast = require(Shared.Rules.Blast)
 local DamageCfg = require(Shared.Config.Damage)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local TreeCfg = require(Shared.Config.TreeSway)
 local Settings = require(script.Parent.Settings)
 
@@ -118,7 +119,7 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 	-- "grass should be instantly gone after an explosion"). Checked again once the voxels have arrived.
 	-- `depth`: tufts within `r` across and this far up or down from the blast go whatever the ground says (the server
 	-- churns exactly that: src/server/Damage); the rest go if their ground no longer grows grass
-	local function scrub(position: Vector3, r: number, depth: number)
+	local function scrubNow(position: Vector3, r: number, depth: number)
 		local size = Cfg.ChunkSize
 		for cx = math.floor((position.X - r) / size), math.floor((position.X + r) / size) do
 			for cz = math.floor((position.Z - r) / size), math.floor((position.Z + r) / size) do
@@ -141,9 +142,14 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 			end
 		end
 	end
+	local function scrub(position: Vector3, r: number, depth: number)
+		local t0 = os.clock()
+		scrubNow(position, r, depth)
+		Hitches.since("Grass scrub", t0)
+	end
 	-- the cells within `r` of `position` placed again from the ground as it is now (a trench's bare rim, and its grass
 	-- back once it is filled in)
-	local function regrow(position: Vector3, r: number)
+	local function regrowNow(position: Vector3, r: number)
 		local size = Cfg.ChunkSize
 		for cx = math.floor((position.X - r) / size), math.floor((position.X + r) / size) do
 			for cz = math.floor((position.Z - r) / size), math.floor((position.Z + r) / size) do
@@ -154,6 +160,11 @@ local function layer(entryName: string, variant: string, Cfg: any, palette: { { 
 				end
 			end
 		end
+	end
+	local function regrow(position: Vector3, r: number)
+		local t0 = os.clock()
+		regrowNow(position, r)
+		Hitches.since("Grass regrow", t0)
 	end
 	-- a gun dug in (src/server/Artillery): every tuft within the pit goes, now and once its voxels have arrived; a
 	-- trench (`follow`, src/server/Trenches): the grass there follows the ground once its voxels have arrived
