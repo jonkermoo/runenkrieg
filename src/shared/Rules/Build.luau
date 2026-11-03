@@ -663,7 +663,7 @@ function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
 	if s.nearest < d.same then
 		return "A dugout is already here"
 	end
-	if s.length < width + d.spare then
+	if s.length < width + d.spare - d.lengthSlack then
 		return "This trench square is too short"
 	end
 	if s.bridge then
