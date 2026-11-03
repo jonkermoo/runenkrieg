@@ -161,9 +161,10 @@ local Concussion = {
 	-- under these the blur and the dark edges are switched off, not drawn faintly
 	Shown = { blur = 0.05, vignette = 0.01 },
 
-	-- the ring: "Ear Ring Tone", our own 10 s, 3.5 kHz tone (ASSETS_LICENSES.md), heard flat (not from a point),
-	-- unmuffled, at the player's Master x Effects volume; the kind's `pitch` its playback speed
-	Ring = { id = 120218650833901 },
+	-- the ring: "Ear Ring Tone Long", our own `length` s, 3.5 kHz tone (ASSETS_LICENSES.md), heard flat (not from a point),
+	-- unmuffled, at the player's Master x Effects volume; the kind's `pitch` its playback speed. One take, never looped
+	-- (user 2026-11-03: "it should be 1 continuous ringing"): every kind's `ringFor` x `pitch` fits in it
+	Ring = { id = 77120881063360, length = 20 },
 	-- a near blast's pressure on the ears: "Blast Thump", our own 1.4 s low fall (ASSETS_LICENSES.md), flat, at
 	-- `volume` x its near strength over `full` (at most 1), not under `from`
 	Thump = { id = 127738397510840, volume = 1.4, full = 0.6, from = 0.1 },

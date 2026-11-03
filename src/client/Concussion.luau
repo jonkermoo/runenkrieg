@@ -111,8 +111,7 @@ local function build()
 	g.Enabled = false
 	g.Parent = camera
 	grade = g
-	ring = sound("ConcussionRing", Cfg.Ring.id);
-	(ring :: Sound).Looped = true
+	ring = sound("ConcussionRing", Cfg.Ring.id) -- (one long take, never looped: a loop's seam is heard)
 	thump = sound("ConcussionThump", Cfg.Thump.id)
 	for i, id in Cfg.Clang.ids do
 		clangs[i] = sound("ConcussionClang", id)
@@ -239,6 +238,8 @@ function Concussion.show(strength: number, kind: Rules.Kind, from: Vector3?, hea
 	g.Enabled = true
 	r.PlaybackSpeed = s.pitch
 	if s.ringFor > 0 then
+		-- a new one over a ring still going: the old one stops, the new one starts from the top
+		r:Stop()
 		r.TimePosition = 0
 		r:Play()
 	end

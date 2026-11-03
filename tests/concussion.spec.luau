@@ -72,6 +72,13 @@ return {
 		assert(half > 0 and half < s.muffle, "clearing")
 		assert(R.muffle(s.muffleFor + s.muffleBack, s, A) == 0, "clear")
 	end,
+	["the ring is one take: every kind's longest ring fits in the tone at its pitch"] = function()
+		for kind, K in C.Kinds do
+			for _, end_ in { K.Light, K.Heavy } do
+				assert(end_.ringFor * end_.pitch <= C.Ring.length, `{kind}: {end_.ringFor} s at {end_.pitch}x`)
+			end
+		end
+	end,
 	["a kick dies away to nothing"] = function()
 		assert(R.kick(0, 0.4) == 1 and R.kick(0.4, 0.4) == 0 and R.kick(0.2, 0.4) < 0.5, "squared")
 	end,
