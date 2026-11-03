@@ -1,10 +1,11 @@
 --!strict
--- The map vote between Normal matches (user 2026-11-02; Config/Cutscenes.Vote, Rules/Cutscenes, src/client/MapVote):
--- src/server/Frontline opens it after the results with the maps on offer (the built frontline maps, the live one
--- first: MapVote.offer), every player may vote for one and change it until it closes (Net "MapVote": (key: string)),
--- and the most votes picks the next map (a tie drawn at random). The state is on the Frontline folder for every client:
--- VoteOffer ("Map1,LanternMeadows"), Votes_<key> (the voters' kits in order, "uniform1,uniform2": the wax seals) and,
--- once closed, VotePick.
+-- The map vote between Normal matches on the map board (user 2026-11-02; Config/Cutscenes.Vote, Rules/Cutscenes,
+-- src/client/EndScenes): src/server/Frontline opens it after the battle table with the maps on offer (the built
+-- frontline maps, the live one first: MapVote.offer) and who may sign (the winners: Rules/Cutscenes.maySign). A signer
+-- signs one sheet and may sign another instead until it closes (Net "MapVote": (key: string)); the most signatures
+-- picks the next map (a tie drawn at random). The state is on the Frontline folder for every client: VoteOffer
+-- ("Map1,LanternMeadows"), Votes_<key> (the signatures in order, "Name:kit|Name:kit": the name written in the kit's ink)
+-- and, once closed, VotePick; each player's MaySign attribute says whether they may sign this vote.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,15 +24,18 @@ local open: Folder? = nil
 local offered: { string } = {}
 local votes: { [Player]: string } = {}
 local kits: { [Player]: string } = {}
-local order: { Player } = {} -- who voted, first vote first (the seals' order)
+local order: { Player } = {} -- who signed, first first (the signatures' order on a sheet)
 local last: { [Player]: number } = {}
+local may: (Player) -> boolean = function(_: Player): boolean
+	return true
+end
 
 -- the maps on offer now: the built frontline maps, the live one first
 function MapVote.offer(): { string }
 	local built = {}
 	local keys = LiveMap.frontline()
 	for _, k in keys do
-		built[k] = LiveMap.built(k) and SketchCfg.Maps[k] ~= nil -- (its sheet on the vote needs its sketch art)
+		built[k] = LiveMap.built(k) and SketchCfg.Maps[k] ~= nil -- (its sheet on the board needs its sketch art)
 	end
 	return Rules.offer(keys, built, LiveMap.key(), Cfg.maxCards)
 end
@@ -42,13 +46,13 @@ local function publish()
 		return
 	end
 	for _, k in offered do
-		local seals = {}
+		local names = {}
 		for _, p in order do
 			if votes[p] == k then
-				table.insert(seals, kits[p] or "")
+				table.insert(names, `{p.DisplayName}:{kits[p] or ""}`)
 			end
 		end
-		folder:SetAttribute(`Votes_{k}`, table.concat(seals, ","))
+		folder:SetAttribute(`Votes_{k}`, table.concat(names, "|"))
 	end
 end
 
@@ -61,6 +65,9 @@ function MapVote.clear(folder: Folder?)
 			end
 		end
 	end
+	for _, p in Players:GetPlayers() do
+		p:SetAttribute("MaySign", nil)
+	end
 	open = nil
 	table.clear(offered)
 	table.clear(votes)
@@ -68,10 +75,17 @@ function MapVote.clear(folder: Folder?)
 	table.clear(order)
 end
 
-function MapVote.open(folder: Folder, offer: { string })
+-- Opens the vote on `offer`; `maySign(player)`: whether that player signs (asked now and for anyone who joins).
+function MapVote.open(folder: Folder, offer: { string }, maySign: ((Player) -> boolean)?)
 	MapVote.clear(folder)
 	open = folder
 	offered = table.clone(offer)
+	may = maySign or function(_: Player): boolean
+		return true
+	end
+	for _, p in Players:GetPlayers() do
+		p:SetAttribute("MaySign", may(p))
+	end
 	folder:SetAttribute("VoteOffer", table.concat(offer, ","))
 	publish()
 end
@@ -87,7 +101,7 @@ end
 
 function MapVote.start()
 	Net.event("MapVote").OnServerEvent:Connect(function(player: Player, key: unknown)
-		if not open or type(key) ~= "string" or not table.find(offered, key) then
+		if not open or type(key) ~= "string" or not table.find(offered, key) or not may(player) then
 			return
 		end
 		local now = os.clock()
@@ -101,6 +115,11 @@ function MapVote.start()
 		votes[player] = key
 		kits[player] = Kits.next(player)
 		publish()
+	end)
+	Players.PlayerAdded:Connect(function(player)
+		if open then
+			player:SetAttribute("MaySign", may(player))
+		end
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		last[player] = nil

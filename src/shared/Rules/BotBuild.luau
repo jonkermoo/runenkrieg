@@ -23,23 +23,51 @@ export type Zone = { x: number, z: number, radius: number }
 export type Hold = { x: number, z: number, hidden: boolean }
 export type Piece = { key: string, x: number, z: number, left: number }
 
--- The sector a side holds nearest the enemy (Map 1 runs west to east: West's easternmost, East's westernmost), or nil.
-function BotBuild.front(sectors: { { x: number } }, owner: { string }, side: string): number?
-	local best, bestX = nil, nil
-	for i, s in sectors do
-		if owner[i] == side then
-			if bestX == nil or (side == "West" and s.x > bestX) or (side ~= "West" and s.x < bestX) then
-				best, bestX = i, s.x
-			end
+-- The sector a side holds nearest the enemy along the map's sector chain (West's home is sector 1, East's the last:
+-- West's highest it holds, East's lowest), or nil.
+function BotBuild.front(sectors: { any }, owner: { string }, side: string): number?
+	local best = nil
+	for i in sectors do
+		if owner[i] == side and (best == nil or (if side == "West" then i > best else i < best)) then
+			best = i
 		end
 	end
 	return best
 end
 
+-- The enemy's way at sector `i` for `side` (a flat unit (tx, tz)), taken from the map's sector chain (any map, any
+-- heading): toward the next sector on the enemy's side, else (at the chain's end) on from the one before; West goes
+-- up the chain, East down it. (1, 0) / (-1, 0) when the chain gives no heading.
+function BotBuild.toward(sectors: { { x: number, z: number } }, i: number, side: string): (number, number)
+	local step = if side == "West" then 1 else -1
+	local a, b = sectors[i], sectors[i + step]
+	if not b then
+		a, b = sectors[i - step], sectors[i]
+	end
+	if a and b then
+		local dx, dz = b.x - a.x, b.z - a.z
+		local d = math.sqrt(dx * dx + dz * dz)
+		if d > 1e-6 then
+			return dx / d, dz / d
+		end
+	end
+	return step, 0
+end
+
 -- The Engineers' build list at its side's front `zone`, the enemy's way in along (tx, tz) (a flat unit): a sandbag pile
--- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the edge, an MG nest at the hold spot nearest the enemy, and the
--- guns `guns` names (the keys its side may build) behind the zone.
-function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns: { string }, cfg: any): { Job }
+-- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the
+-- edge, MG nests ahead of the `nests` hold spots nearest the enemy (default `cfg.Nest.count`: those missing, user
+-- 2026-11-03: "3 mg nests if there arent built"), and the guns `guns` names (the keys its side may build) behind the
+-- zone.
+function BotBuild.plan(
+	zone: Zone,
+	tx: number,
+	tz: number,
+	holds: { Hold },
+	guns: { string },
+	cfg: any,
+	nests: number?
+): { Job }
 	local jobs: { Job } = {}
 	-- across: the line at right angles to the way in
 	local ax, az = -tz, tx
@@ -65,16 +93,14 @@ function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns
 			fz = tz,
 		})
 	end
-	local best, bestDot = nil, -math.huge
-	for _, h in holds do
-		local dot = (h.x - zone.x) * tx + (h.z - zone.z) * tz
-		if dot > bestDot then
-			best, bestDot = h, dot
-		end
-	end
-	if best then
-		local N = cfg.Nest
-		table.insert(jobs, { key = "MGNest", x = best.x + tx * N.ahead, z = best.z + tz * N.ahead, fx = tx, fz = tz })
+	local N = cfg.Nest
+	local order = table.clone(holds)
+	table.sort(order, function(a, b)
+		return (a.x - zone.x) * tx + (a.z - zone.z) * tz > (b.x - zone.x) * tx + (b.z - zone.z) * tz
+	end)
+	for k = 1, math.min(nests or N.count, #order) do
+		local h = order[k]
+		table.insert(jobs, { key = "MGNest", x = h.x + tx * N.ahead, z = h.z + tz * N.ahead, fx = tx, fz = tz })
 	end
 	local G = cfg.Guns
 	for k, key in guns do
@@ -358,6 +384,27 @@ end
 -- its gun empty or loading.
 function BotBuild.strikes(empty: boolean, roll: number, cfg: { chance: number, empty: number }): boolean
 	return roll < (if empty then cfg.empty else cfg.chance)
+end
+
+-- Whether a bot at its build job's spot may put its gun away and work (user 2026-11-03 play test: "they should always
+-- be ready to shoot and fight until they know they are safe to work on trench"): its own foxhole or pile dug pinned
+-- down (`underFire`: that is the point of it); else no enemy in sight, and either nothing shot at it or hurt it for
+-- `calm` seconds or the spot is hidden from where the last threat came from (`hidden`).
+function BotBuild.safeToWork(
+	underFire: boolean,
+	seen: boolean,
+	sinceThreat: number,
+	sinceHurt: number,
+	hidden: boolean,
+	calm: number
+): boolean
+	if underFire then
+		return true
+	end
+	if seen then
+		return false
+	end
+	return (sinceThreat >= calm and sinceHurt >= calm) or hidden
 end
 
 return BotBuild

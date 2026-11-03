@@ -26,6 +26,28 @@ return {
 		assert(R.front(sectors, owner, "East") == 3)
 		assert(R.front(sectors, { "East", "East", "East", "East" }, "West") == nil, "none held")
 	end,
+	["front: by the sector chain, not by x (a map running east to west, or north)"] = function()
+		local sectors = { { x = 300 }, { x = 200 }, { x = 100 }, { x = 0 } }
+		local owner = { "West", "West", "East", "East" }
+		assert(R.front(sectors, owner, "West") == 2)
+		assert(R.front(sectors, owner, "East") == 3)
+	end,
+	["toward: the enemy's way from the chain, on any heading"] = function()
+		local line = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 200, z = 0 } }
+		local tx, tz = R.toward(line, 2, "West")
+		assert(near(tx, 1) and near(tz, 0), "West up the chain")
+		tx, tz = R.toward(line, 2, "East")
+		assert(near(tx, -1) and near(tz, 0), "East down it")
+		tx, tz = R.toward(line, 3, "West")
+		assert(near(tx, 1) and near(tz, 0), "at the chain's end: on from the one before")
+		local north = { { x = 0, z = 0 }, { x = 0, z = -300 }, { x = 40, z = -600 } }
+		tx, tz = R.toward(north, 1, "West")
+		assert(near(tx, 0) and near(tz, -1), "a chain running north")
+		tx, tz = R.toward(north, 3, "East")
+		assert(near(tx, -40 / math.sqrt(40 * 40 + 300 * 300)) and near(tz, 300 / math.sqrt(40 * 40 + 300 * 300)))
+		tx, tz = R.toward({ { x = 5, z = 5 } }, 1, "East")
+		assert(tx == -1 and tz == 0, "no heading: the old default")
+	end,
 	["plan: bags at open holds, wire, a nest, the open guns behind (no trench: Rules/BotTrenches)"] = function()
 		local zone = { x = 0, z = 0, radius = 50 }
 		local holds = {
@@ -35,11 +57,21 @@ return {
 		}
 		local jobs = R.plan(zone, 1, 0, holds, { "FieldGun" }, B)
 		assert(count(jobs, "Trench") == 0 and count(jobs, "SandbagPile") == 2, "bags only at the open holds")
-		assert(count(jobs, "Wire") == #B.Wire.lanes and count(jobs, "MGNest") == 1 and count(jobs, "FieldGun") == 1)
+		assert(count(jobs, "Wire") == #B.Wire.lanes and count(jobs, "FieldGun") == 1)
+		assert(count(jobs, "MGNest") == math.min(B.Nest.count, #holds), "a nest at each of the nearest holds")
+		assert(count(R.plan(zone, 1, 0, holds, {}, B, 0), "MGNest") == 0, "none missing: none")
+		assert(count(R.plan(zone, 1, 0, holds, {}, B, 1), "MGNest") == 1, "one missing: one")
 		assert(count(jobs, "Howitzer") == 0, "only the guns the level opens")
+		local first = nil
+		for _, j in R.plan(zone, 1, 0, holds, {}, B, 1) do
+			if j.key == "MGNest" then
+				first = j
+			end
+		end
+		assert(first and near(first.x, 30 + B.Nest.ahead), "the first at the hold nearest the enemy")
 		for _, j in jobs do
 			if j.key == "MGNest" then
-				assert(near(j.x, 30 + B.Nest.ahead), "at the hold nearest the enemy")
+				assert(j.x >= -5 + B.Nest.ahead - 0.01, "ahead of a hold")
 			elseif j.key == "FieldGun" then
 				assert(near(j.x, -B.Guns.back), "behind the zone")
 			elseif j.key == "Wire" then
@@ -202,6 +234,15 @@ return {
 	end,
 	["mayRepair: only after the wait"] = function()
 		assert(not R.mayRepair(B.repairWait - 1, B.repairWait) and R.mayRepair(B.repairWait, B.repairWait))
+	end,
+	["safeToWork: pinned always; never with an enemy in sight; else calm or hidden from the threat"] = function()
+		local c = B.calm
+		assert(R.safeToWork(true, true, 0, 0, false, c), "its own foxhole under fire")
+		assert(not R.safeToWork(false, true, math.huge, math.huge, true, c), "an enemy in sight")
+		assert(R.safeToWork(false, false, c, c, false, c), "calm")
+		assert(not R.safeToWork(false, false, c - 0.1, math.huge, false, c), "shot at lately")
+		assert(not R.safeToWork(false, false, math.huge, c - 0.1, false, c), "hurt lately")
+		assert(R.safeToWork(false, false, 0, 0, true, c), "the spot hidden from the threat")
 	end,
 	["strikes: sometimes, likelier empty"] = function()
 		local Me = Cfg.Melee

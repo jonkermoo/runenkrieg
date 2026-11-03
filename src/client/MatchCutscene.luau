@@ -1,15 +1,18 @@
 --!strict
 -- The match's cutscenes (user 2026-11-02: "cutscene animations before and after matches"; Config/Cutscenes, Rules/
--- Cutscenes): the pre-match cut over the countdown (Workspace.Frontline's Phase "Countdown") and the post-match cut
--- (Phase "Finale"), for every player, each on the server's clock (PhaseEndsAt), so everyone sees the same shot and a
--- player who comes in late joins the cut where it is. The camera follows the shot list; over it the widescreen bars, the
--- title cards, the point seals stamped along the bottom bar, the sketch-map sheet the cuts open and close on, and the
--- impact frame. The HUD (Config/DevTools Cinematic HudGuis, the chat) and the menus' contents are hidden meanwhile and
--- the soldier's controls are off. Holding Space (or the Skip button on a touch screen) ends it early: the camera goes
--- back to the soldier (still frozen in the wave line until the whistle) or, after the finale, the results open.
---   MatchCutscene.start(), MatchCutscene.playing(kind?) -> boolean, MatchCutscene.ended: Event (kind: "Pre" | "Post"),
---   MatchCutscene.cover(on) (the HUD, dev pins, menus and controls away: the map vote uses it too)
+-- Cutscenes): the pre-match flight over the countdown (Workspace.Frontline's Phase "Countdown") and, at a match's end,
+-- the fade to the winner's colour (Phase "Fade": the world's colour drained, then the winner's land colour with their
+-- name; it holds until src/client/EndScenes takes over with the battle table). Every player sees them on the server's
+-- clock (PhaseEndsAt), so a player who comes in late joins where it is. Over the flight: the widescreen bars, the title
+-- cards, the point seals stamped along the bottom bar, the sketch-map sheet it opens on; the narrator speaks the plan
+-- (src/client/Speech, Config/Cutscenes.Speech part two) when the folder's Speech attribute names the match before.
+-- While anything plays the HUD, the dev pins, the menus' contents and the world's sounds are put away and the
+-- soldier's controls are off (MatchCutscene.cover, counted: EndScenes covers too). Holding Space (or the Skip button
+-- on a touch screen) ends the flight early: the camera goes back to the soldier (still frozen until the whistle).
+--   MatchCutscene.start(), MatchCutscene.playing(kind?) -> boolean, MatchCutscene.ended: Event (kind),
+--   MatchCutscene.cover(on), MatchCutscene.clearFade() (EndScenes: its set is up)
 
+local ContextActionService = game:GetService("ContextActionService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,11 +29,13 @@ local U = require(Shared.Config.Uniforms)
 local LiveMap = require(Shared.LiveMap)
 local Rules = require(Shared.Rules.Cutscenes)
 local Ink = require(script.Parent.Ink)
+local Audio = require(script.Parent.Audio)
 local DevPanel = require(script.Parent.DevPanel)
 local MatchCam = require(script.Parent.MatchCam)
 local PointSeal = require(script.Parent.PointSeal)
 local Menus = require(script.Parent.Menus) :: any
 local SketchMap = require(script.Parent.SketchMap)
+local Speech = require(script.Parent.Speech)
 
 local MatchCutscene = {}
 
@@ -82,6 +87,8 @@ local sheets: { [string]: Frame } = {}
 local sealRow: Frame
 local seals: { { disc: Frame, ring: UIStroke, canvas: Ink.Canvas, rune: string } } = {}
 local grade: ColorCorrectionEffect
+local fadeFill: Frame
+local drain: ColorCorrectionEffect
 
 local function label(name: string, size: number, parent: Instance): TextLabel
 	local l = Instance.new("TextLabel")
@@ -175,6 +182,17 @@ local function build()
 	skip.Size = UDim2.fromOffset(220, 44)
 	skip.ZIndex = 4
 	skip.Parent = gui
+	-- the fade's colour fill (under the bars) and the colour drain
+	fadeFill = Instance.new("Frame")
+	fadeFill.Name = "Fade"
+	fadeFill.Size = UDim2.fromScale(1, 1)
+	fadeFill.BorderSizePixel = 0
+	fadeFill.Visible = false
+	fadeFill.Parent = gui
+	drain = Instance.new("ColorCorrectionEffect")
+	drain.Name = "CutsceneDrain"
+	drain.Enabled = false
+	drain.Parent = Lighting
 	grade = Instance.new("ColorCorrectionEffect")
 	grade.Name = "CutsceneImpact"
 	grade.Saturation = -1
@@ -252,7 +270,7 @@ end
 
 local function paintSeals(shown: number, owners: { Color3 })
 	for i, s in seals do
-		s.disc.Visible = i <= shown or play ~= nil and (play :: Play).kind == "Post"
+		s.disc.Visible = i <= shown
 		s.ring.Color = owners[i] or rgb(GR.neutral)
 		s.canvas.set(function(holder, w, h)
 			Ink.rune(holder, s.rune, 0, 0, w, h, math.max(1, h * 0.13), rgb(GR.text))
@@ -313,30 +331,59 @@ local function hideHud()
 	end
 end
 
+-- the soldier's controls on or off, never waiting: the movement and jump keys sunk above the default controls (this
+-- place has no PlayerModule: src/client/Artillery moveKeys; a wait on it never ended and the cut hung, the HUD hidden),
+-- and the PlayerModule's controls too where there is one
+local sinkKeys: { Enum.KeyCode } = {}
+for _, name in Cfg.SinkKeys do
+	table.insert(sinkKeys, (Enum.KeyCode :: any)[name])
+end
 local function controls(on: boolean)
-	local ok, module = pcall(function()
-		return require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: ModuleScript) :: any
-	end)
-	if ok and module then
-		local c = module:GetControls()
-		if on then
-			c:Enable()
-		else
-			c:Disable()
-		end
+	if on then
+		ContextActionService:UnbindAction("MatchCutsceneKeys")
+	else
+		ContextActionService:BindActionAtPriority("MatchCutsceneKeys", function()
+			return Enum.ContextActionResult.Sink
+		end, false, Enum.ContextActionPriority.High.Value, table.unpack(sinkKeys))
+	end
+	local scripts = player:FindFirstChild("PlayerScripts")
+	local pm = scripts and scripts:FindFirstChild("PlayerModule")
+	if pm and pm:IsA("ModuleScript") then
+		pcall(function()
+			local c = (require(pm) :: any):GetControls()
+			if on then
+				c:Enable()
+			else
+				c:Disable()
+			end
+		end)
 	end
 end
 
--- The screen cleared for a cut or the map vote (src/client/MapVote): the HUD, the dev pins and the menus' contents
--- put away and the soldier's controls off; `on` false gives them back.
+-- The screen cleared for a cut or an end scene (src/client/EndScenes): the HUD, the dev pins and the menus' contents
+-- put away, the world's sounds silenced and the soldier's controls off; each cover(true) is undone by one cover(false)
+-- (the last gives them back).
+local covers = 0
+local worldVolume = 1
 function MatchCutscene.cover(on: boolean)
-	if on then
+	local was = covers
+	covers = math.max(covers + (if on then 1 else -1), 0)
+	if (was > 0) == (covers > 0) then
+		return
+	end
+	local sounds = Audio.effects()
+	if covers > 0 then
 		hideHud()
+		worldVolume = sounds.Volume
+		sounds.Volume = 0
 	else
 		releaseAll()
+		sounds.Volume = worldVolume
 	end
-	Menus.cover(on)
-	controls(not on)
+	controls(covers == 0)
+	if Menus.cover then -- (set once the menus have started)
+		Menus.cover(covers > 0)
+	end
 end
 
 -- the ground under (x, z): terrain only, so a roof or a treetop never lifts the camera
@@ -366,6 +413,73 @@ end
 local function nation(kit: unknown): string
 	local k = type(kit) == "string" and (U.Kits :: any)[kit]
 	return if k then k.team else ""
+end
+
+-- the fade at a match's end: the world drained of colour, then the winner's land colour over it with their name;
+-- held until EndScenes' set is up (MatchCutscene.clearFade)
+local fadeFolder: Instance? = nil
+local fading = false
+local function fadeStep()
+	local folder = fadeFolder
+	if not folder then
+		return
+	end
+	local endsAt = folder:GetAttribute("PhaseEndsAt")
+	local length = FrontCfg.FadeSeconds
+	local t = if type(endsAt) == "number" then length - (endsAt - workspace:GetServerTimeNow()) else length
+	local u = math.clamp(t / length, 0, 1)
+	drain.Saturation = -math.clamp(u / Cfg.Fade.drain, 0, 1)
+	local cover = math.clamp((u - (1 - Cfg.Fade.cover)) / Cfg.Fade.cover, 0, 1)
+	fadeFill.BackgroundTransparency = 1 - cover
+	big.TextTransparency = 1 - cover
+	big.TextStrokeTransparency = 1 - cover * 0.6
+	small.TextTransparency = 1 - cover
+	small.TextStrokeTransparency = 1 - cover * 0.6
+end
+
+local function startFade(folder: Instance)
+	if fading then
+		return
+	end
+	fading = true
+	fadeFolder = folder
+	local winner = folder:GetAttribute("Winner")
+	local kit = if winner == "West" or winner == "East" then folder:GetAttribute(winner) else nil
+	local wash = type(kit) == "string" and GR.Wash[kit]
+	fadeFill.BackgroundColor3 = if wash then rgb(wash) else rgb(Cfg.Fade.noWinner)
+	local c = Cfg.Captions.Winner
+	big.Text = if kit then string.upper(nation(kit)) else c.noWinner
+	big.TextColor3 = rgb(GR.text)
+	big.Position = UDim2.fromScale(0.5, 0.45)
+	small.Text = if kit then c.small else ""
+	small.Position = UDim2.fromScale(0.5, 0.53)
+	place.Text, skip.Text = "", ""
+	sealRow.Visible = false
+	sheet.BackgroundTransparency = 1
+	for _, f in sheets do
+		f.Visible = false
+	end
+	drain.Enabled = true
+	fadeFill.Visible = true
+	MatchCutscene.cover(true)
+	gui.Enabled = true
+	RunService:BindToRenderStep("MatchFade", Enum.RenderPriority.Camera.Value + 2, fadeStep)
+end
+
+function MatchCutscene.clearFade()
+	if not fading then
+		return
+	end
+	fading = false
+	fadeFolder = nil
+	RunService:UnbindFromRenderStep("MatchFade")
+	drain.Enabled = false
+	fadeFill.Visible = false
+	big.Text, small.Text = "", ""
+	if not play then
+		gui.Enabled = false
+	end
+	MatchCutscene.cover(false)
 end
 
 local function finish()
@@ -492,14 +606,10 @@ local function step(dt: number)
 	if shot.stamps then
 		shown = Rules.stamped(shot, u, #p.map.sectors)
 		for k, s in p.map.sectors do
-			if p.kind == "Post" then
-				owners[k] = if k <= shown and p.winner then magicOf(p.fill[p.winner .. "Kit"]) else rgb(GR.neutral)
-			else
-				owners[k] = if s.startOwner == "West"
-					then magicOf(p.fill.WestKit)
-					elseif s.startOwner == "East" then magicOf(p.fill.EastKit)
-					else rgb(GR.neutral)
-			end
+			owners[k] = if s.startOwner == "West"
+				then magicOf(p.fill.WestKit)
+				elseif s.startOwner == "East" then magicOf(p.fill.EastKit)
+				else rgb(GR.neutral)
 		end
 		if shot.kind == "Front" then
 			local id = Rules.landmark(p.map, shown, Cfg.LandmarkReach)
@@ -569,6 +679,14 @@ local function begin(kind: string, folder: Instance)
 	}
 	sheetFor(key)
 	makeSeals(map)
+	-- the narrator's plan over the flight (the match before: "<winner kit or none>,<map played>")
+	local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
+	if kind == "Pre" and type(spoken) == "string" then
+		local kitText = string.split(spoken, ",")[1]
+		local winnerKit = if kitText ~= "none" then kitText else nil
+		local lines = Rules.partTwo(Cfg.Speech, cut, winnerKit, key, #map.sectors)
+		Speech.queue(lines, os.clock() + (startAt - workspace:GetServerTimeNow()))
+	end
 	skip.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 		then Cfg.Skip.touch
 		else Cfg.Skip.text
@@ -593,11 +711,16 @@ function MatchCutscene.start()
 			if phase ~= seen then
 				seen = phase :: string?
 				if folder and phase == "Countdown" then
+					MatchCutscene.clearFade()
 					begin("Pre", folder)
-				elseif folder and phase == "Finale" then
-					begin("Post", folder)
+				elseif folder and phase == "Fade" then
+					finish()
+					startFade(folder)
 				elseif play then
 					finish() -- (the phase moved on: an admin's restart, the mode switched)
+				end
+				if phase ~= "Fade" and phase ~= "Table" and phase ~= "Vote" and phase ~= "Loading" then
+					MatchCutscene.clearFade() -- (EndScenes never took over: a restart, a switch of mode)
 				end
 			end
 			task.wait(0.1)

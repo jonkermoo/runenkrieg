@@ -2,7 +2,7 @@
 -- Normal: bots on the guns (Config/Bots.Crew, Rules/BotCrew; user 2026-11-02, stage 2g). The commander gives each
 -- free gun on its side's sectors a gunner (Crew.command); the gunner walks there and mans it, then lays and fires it
 -- (Crew.think, in place of its own think); a teammate taking it over (E) sends it back to duty (Artillery.onBotLeft).
--- Kept out of src/server/Bots (that module is at Luau's limit of locals); it hands over what it needs (Crew.init).
+-- Kept out of src/server/Bots; it hands over what it needs (Crew.init).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -66,14 +66,8 @@ end
 
 -- the side holding the sector nearest `p`
 local function ownerAt(p: Vector3, owner: { string }): string?
-	local best, bestD = nil, math.huge
-	for i, s in Map.sectors do
-		local d = (s.x - p.X) ^ 2 + (s.z - p.Z) ^ 2
-		if d < bestD then
-			best, bestD = owner[i], d
-		end
-	end
-	return best
+	local i = Rules.sectorAt(p.X, p.Z, Map.sectors)
+	return if i then owner[i] else nil
 end
 
 local function release(b: any, wait: number?)
@@ -360,6 +354,15 @@ function Crew.report(): string
 		stats[k] = 0
 	end
 	return s
+end
+
+-- The admin panel (Bots.dev "Gun"): bot `b` given `gun` now, as the commander gives one
+function Crew.give(b: any, gun: Model)
+	release(b)
+	b.gun = gun
+	gunning[b] = { m = b.m, since = os.clock(), retargetAt = 0 }
+	b.post, b.postKind, b.postFloor, b.postFace = nil, nil, nil, nil
+	stats.given += 1
 end
 
 -- A new match: every gunner back to duty

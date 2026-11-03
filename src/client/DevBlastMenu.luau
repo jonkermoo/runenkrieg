@@ -1,10 +1,13 @@
 --!strict
 -- Dev blast menu: a button next to the target pin setting off an explosion at the aim point (the middle of the screen:
--- DevAim; Config/DevTools.Blasts): a staff stage's blast or a real charge in kg. The server does the damage, knocks and
+-- DevAim; Config/DevTools.Blasts): a staff stage's blast or a real charge in kg. The beam rows fire a staff stage's beam from
+-- your head at the aim point (src/server/Damage.staff: by the zone it hits; its button shows the zone and the health
+-- it took, e.g. a dummy's head). The server does the damage, knocks and
 -- destruction (src/server/Damage.blast) and sends Net "DevBlast" to everyone, shown here (src/client/Vfx/Blast).
 -- The artillery buttons place a field gun or a howitzer at the aim point, muzzle away from you, or remove them all
 -- (src/server/Artillery; E mans one); "Place MG nest" lays a finished MG nest there, its gun facing away from you
--- (src/server/Build.devPlace; dig it apart to remove it).
+-- (src/server/Build.devPlace; dig it apart to remove it). The gun HP rows set the gun at the aim point to a share of its
+-- HP (under half it is out of service). The bot rows act at the aim point too (src/server/Bots.dev).
 -- "My blasts hurt me": off, your own blast knocks you but never hurts you (as in the game). The menu is only shown when
 -- the server marked this player with the DevTools attribute; every client shows the explosions.
 
@@ -38,10 +41,33 @@ local function build(player: Player): ScreenGui
 			fire("BlastStage", s)
 		end)
 	end
+	-- (the beams' buttons show what they did: the refusals below)
+	local beamButtons: { [string]: TextButton } = {}
+	for _, s in B.Stages do
+		order += 1
+		local label = `Staff beam {s} at aim`
+		local button = DevPanel.button(p.panel, "Beam" .. s, label, order)
+		beamButtons["Beam" .. s] = button
+		button.Activated:Connect(function()
+			fire("BeamStage", s)
+		end)
+	end
 	for _, kg in B.Kg do
 		order += 1
 		DevPanel.button(p.panel, `Kg{kg}`, `{kg} kg TNT`, order).Activated:Connect(function()
 			fire("BlastKg", kg)
+		end)
+	end
+	-- a gun's shells landing round the aim point (src/server/Artillery.devShells: a trench line shelled)
+	local shellNames = { artillery_qf18 = "field gun", artillery_howitzer = "rune howitzer" }
+	for _, key in B.Guns do
+		order += 1
+		local label = `{B.Shells.count} {shellNames[key] or key} shells at aim`
+		DevPanel.button(p.panel, "Shells_" .. key, label, order).Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer("Shells", key, aim)
+			end
 		end)
 	end
 	-- artillery at the aim point (src/server/Artillery), and clearing them
@@ -56,8 +82,11 @@ local function build(player: Player): ScreenGui
 		end)
 	end
 	-- (a refused piece shows why on its button for a moment: src/server/DevTools)
-	local pieceNames = { MGNest = "Place MG nest" }
+	local pieceNames: { [string]: string } = { MGNest = "Place MG nest", Dugout = "Place dugout (at a trench wall)" }
 	local pieceButtons: { [string]: TextButton } = {}
+	for key, button in beamButtons do
+		pieceButtons[key], pieceNames[key] = button, button.Text
+	end
 	for _, key in B.Pieces do
 		order += 1
 		local button = DevPanel.button(p.panel, "Piece_" .. key, pieceNames[key] or key, order)
@@ -69,9 +98,47 @@ local function build(player: Player): ScreenGui
 			end
 		end)
 	end
+	-- the gun nearest the aim point to a share of its HP (src/server/DevTools; Config/Artillery.Man: under half it can't
+	-- be manned)
+	for _, pct in B.GunHp do
+		order += 1
+		local key = `GunHp{pct}`
+		local button = DevPanel.button(p.panel, key, `Gun at aim to {pct}% HP`, order)
+		pieceButtons[key] = button
+		pieceNames[key] = `Gun at aim to {pct}% HP`
+		button.Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer("GunHp", pct, aim)
+			end
+		end)
+	end
+	-- the bots at the aim point (Normal; src/server/Bots.dev): the nearest squad pushes there, the nearest bot
+	-- butt-strokes toward it, the nearest free gun goes to the nearest bot, the nearest bot digs a foxhole there (gun out
+	-- until it is safe to dig: the bot labels show "going", "waiting" or "Build"), the nearest bot knocked down there (its
+	-- teammates guard it until they may drag or heal it: "covering")
+	local botRows = {
+		{ action = "BotPush", label = "Nearest squad pushes here" },
+		{ action = "BotStrike", label = "Nearest bot butt-strokes here" },
+		{ action = "BotGun", label = "Nearest gun to nearest bot" },
+		{ action = "BotWork", label = "Nearest bot digs here (gun out until safe)" },
+		{ action = "BotDown", label = "Nearest bot knocked down here (teammates guard it)" },
+	}
+	for _, r in botRows do
+		order += 1
+		local button = DevPanel.button(p.panel, r.action, r.label, order)
+		pieceButtons[r.action] = button
+		pieceNames[r.action] = r.label
+		button.Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer(r.action, nil, aim)
+			end
+		end)
+	end
 	local refusals = Net.event("DevAction").OnClientEvent:Connect(function(kind: any, key: any, reason: any)
 		local button = type(key) == "string" and pieceButtons[key]
-		if kind ~= "Refused" or not button or type(reason) ~= "string" then
+		if (kind ~= "Refused" and kind ~= "Done") or not button or type(reason) ~= "string" then
 			return
 		end
 		local label = pieceNames[key] or key

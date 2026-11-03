@@ -5,8 +5,10 @@
 --   helmet hit never fatal by itself), the pellets' falloff; then the knock by the zone that took the most
 --   (src/server/Ragdoll).
 -- - Damage.staff: a staff shot (src/server/StaffCast): a sphere cast as wide as the beam, as long as the stage's range,
---   from the caster's head toward its aim; the stage's damage and knock, no zones, no falloff; where it lands, the
---   stage's blast (Damage.staffBlast: stage 2 a light one for the map only, the full beam a big one).
+--   from the caster's head toward its aim; the stage's damage by the zone of the part it hit, as a bullet's (a helmet
+--   hit knocks it off: src/server/Helmets), no falloff; the knock by zone, the full beam's its own; where it lands, the
+--   stage's blast (Damage.staffBlast: stage 1 none, only a small hit on built things and guns, Config/Build.Structures
+--   and Config/Artillery.Hits staff1; stage 2 a light one for the map only, the full beam a big one).
 -- - Damage.blast: a real-scaled blast (Rules/Blast): soldiers hurt and knocked by the overpressure at their torso, map
 --   sections by their class (src/server/Destruction.blast), trees by their HP (src/server/Trees), a crater with a rim
 --   and churned earth round it.
@@ -32,6 +34,7 @@ local MeleeRules = require(Shared.Rules.Melee)
 local Teams = require(Shared.Rules.Teams)
 local Rules = require(Shared.Rules.Damage)
 local TreeRules = require(Shared.Rules.Trees)
+local Hitches = require(Shared.Hitches)
 local Build = require(script.Parent.Build)
 local Concussion = require(script.Parent.Concussion)
 local Destruction = require(script.Parent.Destruction)
@@ -39,6 +42,7 @@ local Flinch = require(script.Parent.Flinch)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Ground = require(script.Parent.Ground)
 local Healing = require(script.Parent.Healing)
+local Helmets = require(script.Parent.Helmets)
 local Kits = require(script.Parent.Kits)
 local Loadouts = require(script.Parent.Loadouts)
 local Trees = require(script.Parent.Trees)
@@ -172,7 +176,7 @@ function Damage.hurtBy(character: Model, amount: number)
 	end
 end
 
-function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
+local function shot(shooter: Model, weapon: string, hits: { RayHit })
 	attacks(shooter)
 	-- a held weapon (Config/Weapons) by its class, or a class itself (a mounted gun's: Config/Artillery.Guns `mg.class`)
 	local w = W[weapon]
@@ -228,6 +232,11 @@ function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
 			)
 		end
 	end
+end
+function Damage.shot(shooter: Model, weapon: string, hits: { RayHit })
+	local t0 = os.clock()
+	shot(shooter, weapon, hits)
+	Hitches.since("Shot damage", t0)
 end
 
 -- A butt stroke (src/server/Melee) from `striker` on the body part `part` in `zone` (a helmet hit already took the
@@ -320,10 +329,25 @@ end
 function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts?)
 	attacks(by)
 	local B = Cfg.Blast
-	if kg <= 0 then
+	local o: BlastOpts = opts or {}
+	local charged, built = Blast.reaches(kg, o.structure)
+	if not charged then
+		-- no charge (the staff's stage 1 beam): only its named hit on built things and guns where it lands
+		if built then
+			Build.blast(position, kg, o.structure)
+			for _, watch in watchers do
+				watch(position, kg, o.structure)
+			end
+		end
 		return
 	end
-	local o: BlastOpts = opts or {}
+	local t0 = os.clock()
+	local tb = t0
+	-- (each part's time: the hitch log, src/shared/Hitches)
+	local function took(name: string)
+		Hitches.since(name, tb)
+		tb = os.clock()
+	end
 	local reach = Blast.studsAt(B.Reach, kg, B.MetresPerStud)
 	local function kpaAt(d: number): number
 		return Blast.kpa(d, kg, B)
@@ -351,13 +375,16 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 		local destroy = class and (B.Destroy :: any)[class]
 		return if destroy then Blast.reachOf(destroy, kg, B) else 0
 	end)
+	took("Blast map")
 	-- the crater first, so the trees it fells lie on the ground as it is after
 	if o.crater ~= false then
 		Ground.crater(position, Blast.craterPlan(kg, B.Crater, o.craterScale), B.Crater)
 	end
+	took("Blast crater")
 	if o.trees ~= false then
 		Trees.blast(position, reach, kpaAt, o.fell)
 	end
+	took("Blast trees")
 	-- who sits in a dugout safe from it, taken before the map is hit: a blast that buries the dugout's trench puts them
 	-- out on the ground over it, unhurt (user 2026-11-02: "if the trench gets destroyed, the dugout should automatically
 	-- be destroyed too, putting all players above ground")
@@ -370,10 +397,12 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 	end
 	-- player-built pieces: trenches buried, sandbags and wire worn down (src/server/Build, Config/Build.Structures)
 	Build.blast(position, kg, o.structure)
+	took("Blast built")
 	-- and whatever else watches blasts (the guns: src/server/Artillery)
 	for _, watch in watchers do
 		watch(position, kg, o.structure)
 	end
+	took("Blast guns")
 	-- soldiers (players' characters, DEV dummies), last: the map's damage first, so cover it broke is no cover
 	local everyone = Dev.soldiers()
 	local soldiers: { Model } = if o.soldiers == false then {} else everyone
@@ -410,8 +439,10 @@ function Damage.blast(position: Vector3, kg: number, by: Model?, opts: BlastOpts
 			end
 		end
 	end
+	took("Blast soldiers")
 	-- everyone else near it, with nothing in the hands, ducks and holds the helmet (src/server/Flinch)
 	Flinch.blast(position, kg, o.fragments and o.fragments.wound, knocked, everyone)
+	Hitches.since("Blast", t0)
 end
 
 -- A staff stage's blast at `position` (Config/Damage.Staff.Charge and Blasts), set off by `by`.
@@ -446,8 +477,8 @@ end
 Trees.onCrush(Damage.crush)
 
 -- A staff shot of `stage` from `caster` toward `target`: returns where it lands (the end of its range if it hits
--- nothing).
-function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
+-- nothing), and what it did to a soldier it hit ("<zone>: <health before> -> <after>"; the admin panel's beam rows).
+function Damage.staff(caster: Model, stage: number, target: Vector3): (Vector3?, string?)
 	attacks(caster)
 	local S = Cfg.Staff
 	local head = caster:FindFirstChild("Head") :: BasePart?
@@ -467,6 +498,7 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 	local result = workspace:Spherecast(origin, radius, direction * range, params)
 	local landed = if result then result.Position else origin + direction * range
 	castAt[caster] = os.clock()
+	local did: string? = nil
 	local character, humanoid = victim(result and result.Instance)
 	if
 		character
@@ -475,9 +507,34 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 		and humanoid.Health > 0
 		and not Damage.spares(caster, character)
 	then
-		local left, knock = Rules.staff(stage, humanoid.Health, S)
+		-- the zone of the part the beam's middle line meets on that soldier (the wide beam touches a shoulder before the
+		-- head it was aimed at), else the part it touched (anything else of the body: the torso); on the helmet's half
+		-- of the head with the helmet on, it comes off (a soft cap too, but that stays a head hit: Helmets.soft)
+		local part, point = (result :: RaycastResult).Instance, (result :: RaycastResult).Position
+		local only = RaycastParams.new()
+		only.FilterType = Enum.RaycastFilterType.Include
+		only.FilterDescendantsInstances = { character }
+		local centre = workspace:Raycast(origin, direction * range, only)
+		if centre and Rules.zone(centre.Instance.Name) then
+			part, point = centre.Instance, centre.Position
+		end
+		local zone = Rules.zone(part.Name) or "Torso"
+		local soft = Helmets.soft(character)
+		if Helmets.hit(part, point, direction) and not soft then
+			zone = "Helmet"
+		end
+		local left, knock, counted = Rules.staff(stage, humanoid.Health, zone, S, Cfg.Knocks, Cfg.HelmetFloor)
 		if left then
-			hurt(character, humanoid, left, knock, flat(direction), nil, caster)
+			-- the helmet shot off and alive: concussed (src/server/Concussion), as by a bullet
+			if counted == "Helmet" and left > 0 and not Damage.protected(character) then
+				Concussion.helmet(character, left, humanoid.MaxHealth)
+			end
+			local before = humanoid.Health
+			hurt(character, humanoid, left, knock, flat(direction), nil, caster, counted)
+			did =
+				`{if zone == "Helmet" and counted == "Head" then "Helmet (as Head)" else counted}: {math.round(before)} -> {math.round(
+					humanoid.Health
+				)}`
 		end
 	end
 	Trees.direct(result and result.Instance, stage, direction) -- a trunk hit straight on (src/server/Trees)
@@ -485,7 +542,7 @@ function Damage.staff(caster: Model, stage: number, target: Vector3): Vector3?
 	if result then
 		Damage.staffBlast(landed, stage, caster)
 	end
-	return landed
+	return landed, did
 end
 
 function Damage.start()

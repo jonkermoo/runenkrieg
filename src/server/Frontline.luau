@@ -15,8 +15,8 @@
 -- wave line (Rules/Frontline.slot), frozen and shielded, until the wave goes, then keeps the shield a moment. The line
 -- stands at the side's spawn sector (Rules/Frontline.spawnSector: its HQ, in its spawn zone Map1.spawnZones, until the
 -- first capture; then its frontmost, by the flag, or one back while the enemy leads there). Each side's sectors held
--- from its end are published (Config/Frontline.Artillery: a side at its last sector may build the howitzer, read by
--- src/server/Build), and a badly outnumbered side is reinforced (src/server/Loadouts pays it more). The state is replicated as
+-- from its end are published (Config/Frontline.Artillery: a side down to its last `unlockAt` sectors may build the
+-- howitzer, read by src/server/Build), and a badly outnumbered side is reinforced (src/server/Loadouts pays it more). The state is replicated as
 -- attributes on Workspace's "Frontline" folder (Config/Frontline.FolderName, read by src/client/ModeHud). The sector
 -- markers (src/dev/Greybox, shown by the admin's switch: src/server/Sectors) are coloured by owner and labelled with
 -- control and head counts. The admin panel ends and restarts a match and takes a side's next sector
@@ -33,6 +33,7 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Frontline)
 local CutCfg = require(Shared.Config.Cutscenes)
+local CutRules = require(Shared.Rules.Cutscenes)
 local BotsCfg = require(Shared.Config.Bots)
 local DamageCfg = require(Shared.Config.Damage)
 local SectorCfg = require(Shared.Config.Sectors)
@@ -92,6 +93,7 @@ local latest: { { West: number, East: number } } = {} -- the last tick's soldier
 local waveAt: number? = nil -- the next wave's server time while the line holds (countdown and play)
 local slots: { [string]: number } = { West = 0, East = 0 } -- the wave line's slots taken since the last wave
 local holding: { [Model]: boolean } = {} -- the soldiers standing in a wave line
+local frozen: { BasePart } = {} -- the roots anchored at a match's end, until the next match
 local playedAt = 0 -- os.clock() when play began (the capture log's times)
 local log: { { t: number, index: number, side: string } } = {} -- the match's captures, in order (the results' replay)
 
@@ -316,6 +318,33 @@ local function shield(character: Model, root: BasePart)
 end
 
 -- the wave goes: everyone in the line can move, the shield fading over Waves.shield
+-- A match's end (on): every soldier, player or bot, anchored where it stands (the bots stop thinking: Frontline.over);
+-- off: let go again.
+local function freeze(on: boolean)
+	for _, root in frozen do
+		if root.Parent then
+			root.Anchored = false
+		end
+	end
+	table.clear(frozen)
+	if not on then
+		return
+	end
+	local function hold(character: Model?)
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and not root.Anchored then
+			root.Anchored = true
+			table.insert(frozen, root)
+		end
+	end
+	for _, p in Players:GetPlayers() do
+		hold(p.Character)
+	end
+	for _, m in bots() do
+		hold(m)
+	end
+end
+
 local function release()
 	for character in holding do
 		if not character.Parent then
@@ -453,14 +482,22 @@ local function showMarkers(counts: { { West: number, East: number } })
 	end
 end
 
-local function publish(counts: { { West: number, East: number } })
+local function publish(
+	counts: { { West: number, East: number } },
+	rate: number?,
+	heads: { { West: number, East: number } }?
+)
+	local rates = Rules.rates(state, Cfg, counts, rate)
 	for i, s in sectors do
 		local f = folder:FindFirstChild(s.id)
 		if f then
+			f:SetAttribute(Cfg.RateAttribute, rates[i]) -- (control per second now: the admin readout)
 			f:SetAttribute("Owner", state.owner[i])
 			f:SetAttribute("Control", state.control[i])
 			f:SetAttribute("West", counts[i].West)
 			f:SetAttribute("East", counts[i].East)
+			f:SetAttribute("West" .. Cfg.HeadsSuffix, (heads or counts)[i].West)
+			f:SetAttribute("East" .. Cfg.HeadsSuffix, (heads or counts)[i].East)
 		end
 	end
 	for _, side in { "West", "East" } do
@@ -479,9 +516,14 @@ local function empty(): { { West: number, East: number } }
 	return counts
 end
 
--- each sector's soldiers in its zone by side, and the soldiers in each zone (players and bots)
-local function occupancy(): ({ { West: number, East: number } }, { { Player | Model } })
-	local counts, inside = empty(), {}
+-- each sector's soldiers in its zone by side, weighed (Rules/Frontline.weight: a player 1, a bot Config BotWeight), the
+-- soldiers in each zone (players and bots), and their heads by side (unweighed: the bots' planning)
+local function occupancy(): (
+	{ { West: number, East: number } },
+	{ { Player | Model } },
+	{ { West: number, East: number } }
+)
+	local counts, inside, byHead = empty(), {}, empty()
 	for i in sectors do
 		inside[i] = {}
 	end
@@ -490,7 +532,8 @@ local function occupancy(): ({ { West: number, East: number } }, { { Player | Mo
 			local feet = root.Position - Vector3.new(0, Cfg.FeetBelowRoot, 0)
 			for i, s in sectors do
 				if Rules.inZone(feet.X - s.x, feet.Z - s.z, feet.Y - zoneY[i], s.radius, Cfg.Height) then
-					counts[i][side] += 1
+					counts[i][side] += Rules.weight(Cfg, not isPlayer(who))
+					byHead[i][side] += 1
 					table.insert(inside[i], who)
 					break
 				end
@@ -506,7 +549,7 @@ local function occupancy(): ({ { West: number, East: number } }, { { Player | Mo
 			count(m, m, m:FindFirstChild("HumanoidRootPart") :: BasePart?, sideOfModel(m))
 		end
 	end
-	return counts, inside
+	return counts, inside, byHead
 end
 
 -- how many players each side has (by their next life's team); `withBots`: and its bot soldiers (a match's start counts
@@ -622,8 +665,13 @@ local function run()
 					Frontline.deployBot(m)
 				end
 			end
-			task.wait(Cfg.CountdownSeconds)
+			-- (the admin's "Start now" cuts it short: Frontline.begin)
+			while not starting and not ending and workspace:GetServerTimeNow() < start do
+				task.wait(0.1)
+			end
+			starting = false
 			release()
+			folder:SetAttribute(Cfg.SpeechAttribute, nil) -- (the narrator has spoken)
 			setWave(Rules.nextWave(start, Cfg.Waves.every, workspace:GetServerTimeNow() + 0.05))
 			phase("Playing")
 			playedAt = os.clock()
@@ -644,8 +692,8 @@ local function run()
 			end
 			local w, e = heads()
 			folder:SetAttribute(Cfg.ReinforcedAttribute, Rules.reinforced(Cfg.Reinforcements, w, e))
-			local counts, inside = occupancy()
-			latest = counts
+			local counts, inside, inZone = occupancy()
+			latest = inZone -- (the spawn choice by head, as before; the weights are the capture's)
 			for _, ev in Rules.step(state, Cfg, counts, dt, rate) do
 				if ev.kind == "Captured" then
 					still = 0
@@ -660,7 +708,7 @@ local function run()
 					end
 				end
 			end
-			publish(counts)
+			publish(counts, rate, inZone)
 			winner = Rules.winner(state)
 		end
 		-- the results
@@ -680,35 +728,54 @@ local function run()
 		release()
 		setWave(nil)
 		folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
-		-- the post-match cutscene (the results are sent now: the screen opens when the cut ends or is skipped), the
-		-- results, then the map vote with the map put back behind it
-		phase("Finale", Cfg.FinaleSeconds)
+		-- the end (Config/Cutscenes; user 2026-11-02): everyone frozen where they stand and the screen faded to the
+		-- winner's colour, the after-action report on the battle table (the results are sent now), the winners' vote on
+		-- the map board, then the armory while the map is put back and moved to the pick: at least as long as the
+		-- narrator's first part. The narrator's subject stays on the folder until the next countdown has played.
+		freeze(true)
+		local winnerKit: string? = if winner then pair[winner] else nil
+		local played = LiveMap.key()
+		folder:SetAttribute(Cfg.SpeechAttribute, `{winnerKit or "none"},{played}`)
+		phase("Fade", Cfg.FadeSeconds)
 		MatchStats.send({
 			mode = "Normal",
-			winner = if winner then pair[winner] else nil,
+			winner = winnerKit,
 			log = table.clone(log),
 			length = os.clock() - playedAt,
-			map = LiveMap.key(),
-			endsAt = workspace:GetServerTimeNow() + Cfg.FinaleSeconds + Cfg.ResultsSeconds,
+			map = played,
+			endsAt = workspace:GetServerTimeNow() + Cfg.FadeSeconds + Cfg.TableSeconds,
 		}, function(p: Player): string?
 			return Kits.next(p)
 		end)
-		task.wait(Cfg.FinaleSeconds)
-		phase("Results", Cfg.ResultsSeconds)
-		task.wait(Cfg.ResultsSeconds)
+		task.wait(Cfg.FadeSeconds)
+		phase("Table", Cfg.TableSeconds)
+		task.wait(Cfg.TableSeconds)
+		local pick = played
 		local offer = MapVote.offer()
 		if #offer > 1 then
+			local winners = false
+			for _, p in Players:GetPlayers() do
+				winners = winners or (winner ~= nil and Rules.sideOf(pair, Kits.next(p)) == winner)
+			end
 			phase("Vote", Cfg.VoteSeconds)
-			MapVote.open(folder, offer)
-			putBack()
+			MapVote.open(folder, offer, function(p: Player): boolean
+				return CutRules.maySign(Rules.sideOf(pair, Kits.next(p)), winner, winners)
+			end)
 			task.wait(Cfg.VoteSeconds)
-			local pick = MapVote.close(folder, math.random()) or LiveMap.key()
-			task.wait(CutCfg.Vote.pick.hold) -- (the winner stamped NEXT on every screen)
-			useMap(pick)
-			newMatch()
-		else
-			newMatch(true)
+			pick = MapVote.close(folder, math.random()) or played
+			task.wait(CutCfg.Vote.pick.hold) -- (the arm stamps NEXT on every screen)
 		end
+		local nation = if winnerKit then (U.Kits :: any)[winnerKit].team else ""
+		local S = CutCfg.Speech
+		local spoken = CutRules.speechSeconds(CutRules.partOne(S, winnerKit, played, nation), S.wordsPerSecond, S.gap)
+		local least = math.clamp(spoken, Cfg.Loading.least, Cfg.Loading.max)
+		local loading = os.clock()
+		phase("Loading", least)
+		putBack()
+		useMap(pick)
+		newMatch()
+		task.wait(math.max(least - (os.clock() - loading), 0))
+		freeze(false)
 		task.wait() -- (src/server/Deploy splits everyone over the new pair first)
 		for _, p in Players:GetPlayers() do
 			if alive(p) then
@@ -755,6 +822,13 @@ function Frontline.deployBot(m: Model)
 end
 
 -- Whether the match is running (the server's mode is Normal).
+-- Whether the match is over and its end is playing (the fade, the table, the vote, the armory): nobody fights.
+local OVER = { Fade = true, Table = true, Vote = true, Loading = true }
+function Frontline.over(): boolean
+	local ph = thread and folder and folder:GetAttribute("Phase")
+	return type(ph) == "string" and OVER[ph] == true
+end
+
 function Frontline.running(): boolean
 	return thread ~= nil
 end
@@ -800,6 +874,7 @@ function Frontline.stop()
 	task.cancel(thread :: thread)
 	thread = nil
 	release()
+	freeze(false)
 	for _, c in conns do
 		c:Disconnect()
 	end
@@ -815,13 +890,16 @@ end
 function Frontline.restart()
 	if thread then
 		task.cancel(thread :: thread)
+		freeze(false)
+		folder:SetAttribute(Cfg.SpeechAttribute, nil)
 		newMatch(true)
 		thread = task.spawn(run)
 	end
 end
 
 -- Admin: the match moves to map `key` now (it must be built: src/dev/Greybox): a fresh match there, the map put back,
--- everyone alive deployed again on it (the bots too, by src/server/Bots on their respawn).
+-- everyone alive deployed again on it (the bots by src/server/Bots: the match start respawns each on the new map; killed
+-- here as well, the new bodies died before their death was hooked up and never came back).
 function Frontline.switchMap(key: string): boolean
 	if not thread or not LiveMap.built(key) then
 		return false
@@ -839,19 +917,14 @@ function Frontline.switchMap(key: string): boolean
 				end)
 			end
 		end
-		for _, m in bots() do
-			local h = m:FindFirstChildOfClass("Humanoid")
-			if h then
-				h.Health = 0
-			end
-		end
 	end)
 	return true
 end
 
--- Admin: the match starts now, without waiting for each side's players (a solo test)
+-- Admin: the match starts now, without waiting for each side's players (a solo test) or the rest of the countdown
 function Frontline.begin()
-	if thread and folder:GetAttribute("Phase") == "Waiting" then
+	local now = if thread then folder:GetAttribute("Phase") else nil
+	if now == "Waiting" or now == "Countdown" then
 		starting = true
 	end
 end
@@ -863,19 +936,32 @@ function Frontline.finish()
 	end
 end
 
--- Admin: `player`'s side takes the sector it is attacking now (counts as a capture: the momentum starts over; no
--- points paid).
-function Frontline.take(player: Player)
-	local side = sideOf(player)
-	local t = side and Rules.target(state, side)
-	if not thread or folder:GetAttribute("Phase") ~= "Playing" or not side or not t then
-		return
+-- Admin: `side` takes sector `index` now (counts as a capture: the momentum starts over; no points paid). False
+-- outside play or with no such sector.
+function Frontline.capture(side: Rules.Side, index: number): boolean
+	if not thread or folder:GetAttribute("Phase") ~= "Playing" or not sectors[index] or state.owner[index] == side then
+		return false
 	end
-	state.owner[t] = side
-	state.control[t] = Rules.rest(side)
+	state.owner[index] = side
+	state.control[index] = Rules.rest(side)
 	still = 0
 	captured = true
-	table.insert(log, { t = os.clock() - playedAt, index = t, side = side })
+	table.insert(log, { t = os.clock() - playedAt, index = index, side = side })
+	return true
+end
+
+-- Admin: `side` takes the sector it is attacking now (the front moves one sector).
+function Frontline.push(side: Rules.Side): boolean
+	local t = thread and Rules.target(state, side)
+	return t ~= nil and Frontline.capture(side, t)
+end
+
+-- Admin: `player`'s side takes the sector it is attacking now.
+function Frontline.take(player: Player)
+	local side = sideOf(player)
+	if side then
+		Frontline.push(side)
+	end
 end
 
 return Frontline

@@ -11,6 +11,9 @@ local Frontline = {
 	CaptureSeconds = 20,
 	-- a bigger lead pushes faster, up to this many soldiers' worth (user's GDD: "rate scales with the player advantage")
 	MaxAdvantage = 3,
+	-- what a soldier in the zone counts for (user 2026-11-03: "make flag capture speed be scale to how many on the
+	-- point to players (include AI count as half a player)"): a player 1, a bot this; the lead is the sides' weights
+	BotWeight = 0.5,
 	-- seconds for a sector left empty (or out of reach) to drift from neutral back to its holder's end
 	DrainSeconds = 20,
 	-- Momentum (user 2026-10-27: "momentum, but there is a reasonable cap"): once the front has gone `after` seconds
@@ -18,8 +21,8 @@ local Frontline = {
 	Momentum = { after = 180, perMinute = 0.25, max = 2 },
 	-- the match's start: waiting until each side has this many players, then the countdown (captures don't count yet)
 	MinPerSide = 1,
-	-- (the pre-match cutscene plays over it: Config/Cutscenes.Pre's length, user 2026-11-02; was 10)
-	CountdownSeconds = 12,
+	-- (the pre-match cutscene and the spoken plan play over it: Config/Cutscenes.Pre's length, user 2026-11-02; was 10)
+	CountdownSeconds = 19,
 	-- a Defend award (Config/Classes.Earn): a kill with the killer or the victim within the sector's radius plus this
 	-- of its point, while the enemy is attacking that sector of the killer's side
 	DefendReach = 20,
@@ -27,20 +30,25 @@ local Frontline = {
 	-- the ground at its point
 	Height = 8,
 	Tick = 0.2, -- seconds between the server's zone checks
-	-- a match's end (user 2026-11-02: "cutscene animations before and after matches along with the voting screen for a
-	-- new map"): the post-match cutscene (Config/Cutscenes.Post's length), the results, then the map vote (the map is
-	-- put back behind it; src/server/MapVote), then a new match on the chosen map
-	FinaleSeconds = 7,
-	ResultsSeconds = 10,
+	-- a match's end (user 2026-11-02, the match-end sequence; Config/Cutscenes): everyone frozen and the screen faded
+	-- to the winner's colour, the after-action report on the battle table, the map vote on the board (src/server/
+	-- MapVote; skipped with one map to offer), then the armory while the map is put back and moved to the pick: at
+	-- least as long as the narrator's first part (its words at Cutscenes.Speech.wordsPerSecond), at most `max`
+	FadeSeconds = 3,
+	TableSeconds = 14,
 	VoteSeconds = 15,
+	Loading = { least = 8, max = 40 },
+	-- on the Frontline folder from a match's end to the next countdown's end: what the narrator speaks of, "<winner
+	-- kit or none>,<the map just played>" (src/client/MatchCutscene)
+	SpeechAttribute = "Speech",
 	SpawnLift = 3.2, -- a spawned root this far over the ground (standing)
 	SpawnWait = 10, -- seconds a new character's root is waited for
 	FeetBelowRoot = 3, -- a soldier's feet this far under the root (what counts as in the zone: Height round them)
 	GroundRay = { top = 300, depth = 600 }, -- the ground found by a ray this high, this long, down on terrain only
 	-- replicated state (read by src/client/ModeHud): a Folder in Workspace with the match's attributes (Phase "Waiting"
-	-- / "Countdown" / "Playing" / "Finale" / "Results" / "Vote", PhaseEndsAt (server time, for the countdown and results), Winner (a
+	-- / "Countdown" / "Playing" / "Fade" / "Table" / "Vote" / "Loading", PhaseEndsAt (server time), Winner (a
 	-- side), Momentum (the capture speed's multiplier), West and East (each side's team, Config/Uniforms.Teams)) and one
-	-- child Folder per sector (Index, Owner, Control, and the West / East soldiers in its zone)
+	-- child Folder per sector (Index, Owner, Control, the West / East soldiers in its zone weighed by BotWeight, Rate)
 	FolderName = "Frontline",
 	-- the map's key in Config/Maps: the built map's model in Workspace has this name (src/dev/Greybox), not its `name`
 	MapKey = "Map1",
@@ -90,12 +98,18 @@ local Frontline = {
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },
 	-- Artillery locks (user 2026-11-02: "only unlock the rune for the team that gets pushed back to their last sector
-	-- (all artys still only for engineers)"): a gun in `lastStand` is built only by a side holding no sector but its own
-	-- HQ (Rules/Frontline.held: the run from its end; it locks again once the side pushes out), and is told `why`
-	-- otherwise; every other gun from a match's start, under its per-team cap (Config/Build.Pieces `teamCap`). Was a level
-	-- per sector lost (2026-10-31), then no locks (earlier 2026-11-02). Each side's held count is the Frontline folder's
-	-- "<Side>" .. `HeldAttribute` (src/server/Build reads it; the bots count it from the sectors' owners).
-	Artillery = { lastStand = { Howitzer = true }, why = "Unlocks when pushed back to your last sector" },
+	-- (all artys still only for engineers)"): a gun in `lastStand` is built only by a side holding `unlockAt` sectors or
+	-- fewer (Rules/Frontline.held: the run from its end; it locks again once the side pushes out past that), and is told
+	-- `why` otherwise; every other gun from a match's start, under its per-team cap (Config/Build.Pieces `teamCap`).
+	-- `unlockAt` 2 (user 2026-11-03: "make field mortars unlock at the second to last sector, not the last sector"; its
+	-- HQ and the one before, so on Map 1 and Lantern Meadows from the start, user: "Yes, from the start"); was 1. Was a
+	-- level per sector lost (2026-10-31), then no locks (earlier 2026-11-02). Each side's held count is the Frontline
+	-- folder's "<Side>" .. `HeldAttribute` (src/server/Build reads it; the bots count it from the sectors' owners).
+	Artillery = {
+		lastStand = { Howitzer = true },
+		unlockAt = 2,
+		why = "Unlocks while you hold only your last two sectors",
+	},
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
 	-- of mis match"): while the bigger side has at least `gap` more players AND `share` more, the smaller side's points
 	-- are paid `times` over (src/server/Loadouts)
@@ -106,6 +120,10 @@ local Frontline = {
 	-- line.
 	WaveAttribute = "WaveAt",
 	HeldAttribute = "Held",
+	RateAttribute = "Rate", -- each sector's: its control per second now (Rules/Frontline.rates; the admin readout)
+	-- each sector's "<Side>" .. this: the side's soldiers in its zone by head, unweighed (the bots' planning reads it;
+	-- "West" / "East" are weighed by BotWeight)
+	HeadsSuffix = "Heads",
 	ReinforcedAttribute = "Reinforced",
 	SpawnAttribute = "Spawn",
 	LineAttribute = "Line",

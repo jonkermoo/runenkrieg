@@ -102,18 +102,27 @@ function Damage.knock(
 	return if killed then knocks.Killed[zone] else knocks.Alive[zone]
 end
 
--- The staff's damage and knock for a stage (Config/Damage.Staff); stages outside 1..#Damage are nil.
+-- A staff beam of `stage` hitting `zone` (Config/Damage.Staff): the health left, the knock, and the zone it counted as
+-- (a helmet hit from `HelmetLethal` on is a head hit). Stages outside 1..#Damage are nil.
 function Damage.staff(
 	stage: number,
 	health: number,
-	s: { Damage: { number }, Knock: { string }, Killed: { string } }
-): (number?, string?)
-	local amount = s.Damage[stage]
-	if not amount then
-		return nil, nil
+	zone: string,
+	s: { Damage: { Table }, HelmetLethal: number, Throw: { string | false } },
+	knocks: { Alive: { [string]: string }, Killed: { [string]: string } },
+	floor: number
+): (number?, string?, string?)
+	local t = s.Damage[stage]
+	if not t then
+		return nil, nil, nil
 	end
-	local left = math.max(health - amount, 0)
-	return left, if left <= 0 then s.Killed[stage] else s.Knock[stage]
+	if zone == "Helmet" and stage >= s.HelmetLethal then
+		zone = "Head"
+	end
+	local amount = Damage.amount(t, zone)
+	local left = Damage.after(health, amount, if zone == "Helmet" then amount else 0, floor)
+	local throw = s.Throw[stage]
+	return left, if throw then throw else Damage.knock(zone, left <= 0, knocks), zone
 end
 
 return Damage

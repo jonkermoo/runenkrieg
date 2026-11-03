@@ -55,7 +55,7 @@ local Remotes: { string } = {
 	-- server -> clients: (character: Model, pitch: number, follow: number) clamped and quantized, throttled per soldier
 	"LookPitch",
 	-- server -> clients near the bot: (bot: Model, text: string) a bot soldier's callout, shown as a bubble over its head
-	-- (src/server/Bots, Rules/BotCallouts; src/client/BotSay), never in the chat log
+	-- (src/server/Bots, Rules/BotCallouts; src/client/BotSay), never in the chat log; also the dev dummies' "Say", to all
 	"BotSay",
 	-- The head's turn toward the look, shown to soldiers nearby (src/client/LookTilt, src/server/LookTilt;
 	-- Config/Locomotion.LookTilt.Head): client -> server: (yaw: number) degrees from the torso's facing; server ->

@@ -60,8 +60,12 @@ return {
 		assert(not A.valid(Cfg, "Health", "100") and not A.valid(Cfg, "Health", nil))
 		assert(A.valid(Cfg, "BlastKg", Cfg.Blasts.Kg[1]) and not A.valid(Cfg, "BlastKg", 1e9))
 		assert(A.valid(Cfg, "BlastStage", 3) and not A.valid(Cfg, "BlastStage", 0))
+		assert(A.valid(Cfg, "Shells", Cfg.Blasts.Guns[1]) and not A.valid(Cfg, "Shells", "nope") and A.Aimed.Shells)
+		assert(Cfg.Blasts.Shells.count >= 1 and Cfg.Blasts.Shells.every > 0)
+		assert(A.valid(Cfg, "BeamStage", 1) and not A.valid(Cfg, "BeamStage", 4) and A.Aimed.BeamStage)
 		assert(A.valid(Cfg, "PlacePiece", Cfg.Blasts.Pieces[1]) and A.Aimed.PlacePiece)
 		assert(not A.valid(Cfg, "PlacePiece", "Trench") and not A.valid(Cfg, "PlacePiece", nil))
+		assert(A.valid(Cfg, "GunHp", 49) and A.Aimed.GunHp and not A.valid(Cfg, "GunHp", 10))
 		assert(A.valid(Cfg, "Kill", nil) and not A.valid(Cfg, "Kill", true))
 		assert(A.valid(Cfg, "Grenade", Cfg.Admin.Grenades[1]) and not A.valid(Cfg, "Grenade", "rifle_g98"))
 		assert(not A.valid(Cfg, "Grenade", nil))
@@ -169,13 +173,51 @@ return {
 		)
 		assert(A.valid(Cfg, "BotsAuto", nil) and not A.valid(Cfg, "BotsAuto", 3))
 		assert(A.valid(Cfg, "BotDifficulty", "Hard") and not A.valid(Cfg, "BotDifficulty", "Nightmare"))
-		for _, plain in { "MatchEnd", "MatchRestart", "ZoneSkip", "RespawnAll" } do
+		for _, plain in { "MatchEnd", "MatchRestart", "ZoneSkip", "RespawnAll", "HitchReport" } do
 			assert(A.valid(Cfg, plain, nil) and not A.valid(Cfg, plain, true), plain)
 		end
-		for _, sw in { "BuildAll", "Ammo", "KeptTeams" } do
+		for _, sw in { "BuildAll", "Ammo", "KeptTeams", "HitchLog" } do
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
 		assert(ClassCfg.Defs[Cfg.Admin.Normal] == nil, "the Normal value isn't a class")
+	end,
+	["the bot test actions take only their Config values, the aimed ones an aim point"] = function()
+		for _, sw in { "BotState", "FreeEngineer", "FreeGrenadier" } do
+			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
+		end
+		for _, aimed in { "BotPush", "BotStrike", "BotGun", "BotWork", "BotDown" } do
+			assert(A.valid(Cfg, aimed, nil) and not A.valid(Cfg, aimed, 1) and A.Aimed[aimed], aimed)
+		end
+		assert(A.valid(Cfg, "BotDig", Cfg.Admin.BotDig.steps[2]) and not A.valid(Cfg, "BotDig", 1e6))
+		assert(Cfg.Admin.BotDig.steps[1] == 1, "the first dig step is the normal one")
+		for _, a in { "BotShell", "FrontPush" } do
+			assert(A.valid(Cfg, a, "West") and A.valid(Cfg, a, "East") and not A.valid(Cfg, a, "North"), a)
+		end
+		assert(A.valid(Cfg, "FrontCapture", { side = "East", index = 2 }))
+		assert(not A.valid(Cfg, "FrontCapture", { side = "East", index = 1.5 }))
+		assert(not A.valid(Cfg, "FrontCapture", { side = "East", index = 0 }))
+		assert(not A.valid(Cfg, "FrontCapture", { side = "East", index = Cfg.Admin.MaxSectors + 1 }))
+		assert(
+			not A.valid(Cfg, "FrontCapture", { side = "Neutral", index = 2 }) and not A.valid(Cfg, "FrontCapture", 2)
+		)
+		assert(not A.Aimed.BotShell and not A.Aimed.FrontPush)
+		assert(Map1.sectors and #Map1.sectors <= Cfg.Admin.MaxSectors, "every Map1 sector can be captured")
+	end,
+	["a bot's state label leaves out what it hasn't got"] = function()
+		local full = A.botLabel({
+			order = "Attack",
+			sector = 3,
+			phase = "Bound",
+			role = "Assault",
+			post = "step",
+			act = "Throw",
+			gun = "artillery_qf18",
+			danger = true,
+		})
+		assert(full == "Attack S3 · Bound/Assault\nstep · Throw · gun artillery_qf18 · DANGER", full)
+		assert(A.botLabel({}) == "-")
+		assert(A.botLabel({ order = "Defend" }) == "Defend")
+		assert(A.botLabel({ role = "Hold", post = "dugout" }) == "?/Hold\ndugout")
 	end,
 	["Lantern Meadows: its sectors and landmarks as teleports, on its own map, inside its bounds"] = function()
 		local LM = require("../src/shared/Config/Maps/LanternMeadows")

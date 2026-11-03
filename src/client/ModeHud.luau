@@ -27,7 +27,6 @@ local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.ModeHud)
@@ -41,6 +40,7 @@ local SketchMap = require(script.Parent.SketchMap)
 local U = require(Shared.Config.Uniforms)
 local LiveMap = require(Shared.LiveMap)
 local PointSeal = require(script.Parent.PointSeal)
+local Settings = require(script.Parent.Settings)
 local Playtest = require(Shared.Config.Maps.Playtest)
 local Rules = require(Shared.Rules.ModeHud)
 local ZoneRules = require(Shared.Rules.ZoneMatch)
@@ -660,8 +660,8 @@ function ModeHud.start()
 			local folder = workspace:FindFirstChild(Cfg.FrontlineFolder)
 			local map = workspace:FindFirstChild(Playtest.name)
 			local zone = map and map:FindFirstChild(ZoneCfg.MarkerName)
-			-- (the match's cutscenes and the map vote hide the HUD: src/client/MatchCutscene, src/client/MapVote)
-			local title = screenOn("TitleScreen") or screenOn("MatchCutscene") or screenOn("MapVote")
+			-- (the match's cutscenes and end scenes hide the HUD: src/client/MatchCutscene, src/client/EndScenes)
+			local title = screenOn("TitleScreen") or screenOn("MatchCutscene") or screenOn("EndScenes")
 			local ffa = zone ~= nil and workspace:GetAttribute(ModesCfg.Attribute) == "FFA"
 			ffaOn = ffa
 			front = not ffa and folder ~= nil and folder:IsA("Folder")
@@ -687,7 +687,7 @@ function ModeHud.start()
 	-- the map, the dots and the markers while M is held in play; the bar only for the result
 	RunService.RenderStepped:Connect(function(dt)
 		local title, loadout = screenOn("TitleScreen"), screenOn("LoadoutMenu")
-		local held = UserInputService:IsKeyDown(Cfg.ShowKey) and UserInputService:GetFocusedTextBox() == nil
+		local held = Settings.held("Key_Map")
 		local inPlay = front and not title and not loadout
 		barShown = Rules.fade(barShown, if results and not title then 1 else 0, dt, Cfg.FadeSeconds)
 		nodes.SketchMap.Visible = inPlay and held
