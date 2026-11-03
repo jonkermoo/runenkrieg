@@ -34,6 +34,9 @@ local Results = {
 	},
 	NoWinner = "NO VICTOR", -- a match ended with no winner (the admin's End match now)
 	Takes = "TAKES THE FIELD",
+	-- the countdown under the results: to the map vote (when there are maps to choose from), else to the next match
+	NextVote = "Map vote in",
+	NextMatch = "Next match in",
 	DisplayOrder = 7, -- over the loadout and title screens (src/client/Menus)
 }
 

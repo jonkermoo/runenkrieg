@@ -11,10 +11,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Flagpole)
 local HudCfg = require(Shared.Config.ModeHud)
+local FrontCfg = require(Shared.Config.Frontline)
 local Assets = require(Shared.Config.Assets)
 local Palette = require(Shared.Config.Palette)
 local Build = Palette.Build :: any
-local Map = require(Shared.Config.Maps.Map1)
+local Map = require(Shared.LiveMap).map
 local Rules = require(Shared.Rules.Flagpole)
 
 local Flagpoles = {}
@@ -204,6 +205,13 @@ function Flagpoles.start()
 	if existing then
 		added(existing)
 	end
+	-- the match moved to another map (src/server/Frontline, the vote's pick): its points' poles instead
+	workspace:GetAttributeChangedSignal(FrontCfg.MapAttribute):Connect(function()
+		local front = workspace:FindFirstChild(HudCfg.FrontlineFolder)
+		if front then
+			task.defer(standAll, front)
+		end
+	end)
 end
 
 return Flagpoles

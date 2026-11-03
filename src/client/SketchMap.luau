@@ -20,7 +20,8 @@
 --   and the loadout; never on the title screen); teammate bots (tagged "Bot") too; opts.zone: the zone-capture match's
 --   zone where it stands now (the Playtest map's Config/ZoneMatch marker): plain while free, your team's magic colour
 --   while you hold it, red pencil while someone else does, flashing amber while contested. The markers are layers in
---   MARKERS: later kinds go there.
+--   MARKERS: later kinds go there. opts.still: never the live state (the map vote's sheets); a map that isn't the
+--   match's (src/shared/LiveMap) never shows it either.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -37,6 +38,7 @@ local StatsRules = require(Shared.Rules.MatchStats)
 local TeamRules = require(Shared.Rules.Teams)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Playtest = require(Shared.Config.Maps.Playtest)
+local LiveMap = require(Shared.LiveMap)
 local Ink = require(script.Parent.Ink)
 local PointSeal = require(script.Parent.PointSeal)
 
@@ -202,7 +204,7 @@ end
 function SketchMap.new(
 	box: GuiObject,
 	mapKey: string?,
-	opts: { you: boolean?, deploy: boolean?, teammates: boolean?, zone: boolean? }?
+	opts: { you: boolean?, deploy: boolean?, teammates: boolean?, zone: boolean?, still: boolean? }?
 )
 	local key = mapKey or "Map1"
 	local m = Cfg.Maps[key]
@@ -516,7 +518,8 @@ function SketchMap.new(
 	-- the live state
 	local frontName: string? = nil
 	local function update(now: number)
-		local folder = workspace:FindFirstChild(FOLDER)
+		-- (only the match's own map shows its state; a still map, the ground and the points alone)
+		local folder = if (opts and opts.still) or key ~= LiveMap.key() then nil else workspace:FindFirstChild(FOLDER)
 		local west = folder and folder:GetAttribute("West")
 		local east = folder and folder:GetAttribute("East")
 		local total = 0

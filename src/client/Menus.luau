@@ -41,6 +41,7 @@ local SketchMap = require(script.Parent.SketchMap)
 local DevPanel = require(script.Parent.DevPanel)
 local ModesCfg = require(Shared.Config.Modes)
 local Playtest = require(Shared.Config.Maps.Playtest)
+local LiveMap = require(Shared.LiveMap)
 
 local Menus = {}
 
@@ -222,7 +223,7 @@ local function build(spec: any, name: string, parent: Instance): Screen
 		elseif n.kind == "trench" then
 			Ink.trench(obj, col("ink"), col("text"))
 		elseif n.kind == "sketchmap" then
-			screen.maps[n.id] = SketchMap.new(obj, nil, { deploy = n.deploy, teammates = n.deploy })
+			screen.maps[n.id] = SketchMap.new(obj, LiveMap.key(), { deploy = n.deploy, teammates = n.deploy })
 			if n.follow then
 				-- a second map, the zone-capture FFA's (only the zone on it), shown in place of the first in FFA
 				local other = Instance.new("Frame")
@@ -318,6 +319,16 @@ function Menus.start()
 	local playerGui = player:WaitForChild("PlayerGui")
 	local title = build(TitleSpec, "TitleScreen", playerGui)
 	local loadout = build(LoadoutSpec, "LoadoutMenu", playerGui)
+	-- a match cutscene or the map vote over the menus (src/client/MatchCutscene, src/client/MapVote): their contents
+	-- hidden meanwhile, the menus otherwise as they are (open or not, the menu camera running under the cut)
+	function Menus.cover(on: boolean)
+		for screen, spec in { [title] = TitleSpec, [loadout] = LoadoutSpec } do
+			local root = screen.node[spec.root.id]
+			if root then
+				root.Visible = not on
+			end
+		end
+	end
 	local L = loadout.node
 
 	-- the class rows: the spec's first row is the template, one copy per class (the samples go)
@@ -727,6 +738,21 @@ function Menus.start()
 		end
 	end
 	local loadoutMap = loadout.maps.Map
+	-- the match moved to another map (the vote's pick): the menus' maps are drawn again for it
+	workspace:GetAttributeChangedSignal(FrontCfg.MapAttribute):Connect(function()
+		local key = LiveMap.key()
+		if not SketchCfg.Maps[key] then
+			return
+		end
+		for _, screen in { title, loadout } do
+			local old, n = screen.maps.Map, screen.spec.Map
+			if old and n then
+				old.destroy()
+				screen.maps.Map = SketchMap.new(screen.node.Map, key, { deploy = n.deploy, teammates = n.deploy })
+			end
+		end
+		titleMap, loadoutMap = title.maps.Map, loadout.maps.Map
+	end)
 	local loadoutCaption = L.Caption :: TextLabel
 	-- the maps follow the live mode: the zone-capture FFA's map in place of Map 1 (its own image under the first's)
 	local function follow(screen: Screen)

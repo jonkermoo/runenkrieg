@@ -18,7 +18,8 @@ local Frontline = {
 	Momentum = { after = 180, perMinute = 0.25, max = 2 },
 	-- the match's start: waiting until each side has this many players, then the countdown (captures don't count yet)
 	MinPerSide = 1,
-	CountdownSeconds = 10,
+	-- (the pre-match cutscene plays over it: Config/Cutscenes.Pre's length, user 2026-11-02; was 10)
+	CountdownSeconds = 12,
 	-- a Defend award (Config/Classes.Earn): a kill with the killer or the victim within the sector's radius plus this
 	-- of its point, while the enemy is attacking that sector of the killer's side
 	DefendReach = 20,
@@ -26,18 +27,25 @@ local Frontline = {
 	-- the ground at its point
 	Height = 8,
 	Tick = 0.2, -- seconds between the server's zone checks
-	ResultsSeconds = 10, -- the winner shown, then a new match
+	-- a match's end (user 2026-11-02: "cutscene animations before and after matches along with the voting screen for a
+	-- new map"): the post-match cutscene (Config/Cutscenes.Post's length), the results, then the map vote (the map is
+	-- put back behind it; src/server/MapVote), then a new match on the chosen map
+	FinaleSeconds = 7,
+	ResultsSeconds = 10,
+	VoteSeconds = 15,
 	SpawnLift = 3.2, -- a spawned root this far over the ground (standing)
 	SpawnWait = 10, -- seconds a new character's root is waited for
 	FeetBelowRoot = 3, -- a soldier's feet this far under the root (what counts as in the zone: Height round them)
 	GroundRay = { top = 300, depth = 600 }, -- the ground found by a ray this high, this long, down on terrain only
 	-- replicated state (read by src/client/ModeHud): a Folder in Workspace with the match's attributes (Phase "Waiting"
-	-- / "Countdown" / "Playing" / "Results", PhaseEndsAt (server time, for the countdown and results), Winner (a
+	-- / "Countdown" / "Playing" / "Finale" / "Results" / "Vote", PhaseEndsAt (server time, for the countdown and results), Winner (a
 	-- side), Momentum (the capture speed's multiplier), West and East (each side's team, Config/Uniforms.Teams)) and one
 	-- child Folder per sector (Index, Owner, Control, and the West / East soldiers in its zone)
 	FolderName = "Frontline",
 	-- the map's key in Config/Maps: the built map's model in Workspace has this name (src/dev/Greybox), not its `name`
 	MapKey = "Map1",
+	-- on Workspace: the key of the map the match is on now (src/shared/LiveMap; the vote's pick), MapKey until set
+	MapAttribute = "MatchMap",
 	-- on Workspace while a match runs: the two teams playing, "west,east" (Rules/Frontline.pairText); kept teams and the
 	-- loadout menu's team cards use only these (src/server/Deploy)
 	TeamsAttribute = "MatchTeams",

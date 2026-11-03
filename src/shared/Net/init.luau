@@ -160,6 +160,10 @@ local Remotes: { string } = {
 	-- not allowed) | ("Global", line: { u: number, n: string, k: string?, t: string, s: string }) a filtered global
 	-- line (sender id, display name, kit, words, server tag) | ("Notice", text: string) a line only for this player
 	"Chat",
+	-- The map vote between Normal matches (src/client/MapVote sends, src/server/MapVote counts; Config/Cutscenes.Vote,
+	-- Rules/Cutscenes): client -> server: (key: string) my vote for this offered map (Config/Maps key), changeable
+	-- until the vote closes; the tally is on the Frontline folder's attributes
+	"MapVote",
 }
 local Functions: { string } = {}
 

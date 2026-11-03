@@ -11,7 +11,7 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Classes).Cam
-local Map = require(Shared.Config.Maps.Map1)
+local Map = require(Shared.LiveMap).map -- (the match's map)
 -- the zone match's spots ({ x, z }), when that map's config is in this build
 local zoneSpots: { { number } } = (function()
 	local m = Shared.Config.Maps:FindFirstChild("Playtest")
@@ -66,6 +66,11 @@ local function anywhere(): Vector3
 		end
 	end
 	return spot
+end
+
+-- Whether the menu camera is on (src/client/MatchCutscene leaves the camera to it after a cut).
+function MatchCam.running(): boolean
+	return running
 end
 
 function MatchCam.start()

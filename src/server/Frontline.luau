@@ -1,13 +1,16 @@
 --!strict
 -- The frontline match, Normal mode (Config/Frontline, Rules/Frontline; user 2026-10-27: "a standard 5 stage territory
--- push between 2 sides") on Map 1's sector chain (Config/Maps/Map1.sectors: S1 the West HQ, S5 the East HQ).
+-- push between 2 sides") on the live map's sector chain (src/shared/LiveMap: Map 1 until a vote picks another;
+-- Config/Maps/<key>.sectors: S1 the West HQ, the last the East HQ).
 -- src/server/Modes starts and stops it. Each match draws two teams (Workspace's MatchTeams attribute,
 -- Rules/Frontline.pair), one on each side; a soldier's side is their team's (the character's "Kit"). A match waits
 -- until each side has its players, counts down, then plays: every Tick the soldiers alive and on their feet in each
 -- sector's zone push its control, faster the longer the front has stood still (momentum). Captures and
 -- neutralisations pay each soldier of that side in the zone, a kill near your side's attacked sector pays a Defend,
--- and taking the enemy HQ wins (everyone on the winning side paid); then the results and a fresh match (the map put
--- back: built pieces cleared, buildings, trees and ground restored; sides reset, a new pair, everyone respawns).
+-- and taking the enemy HQ wins (everyone on the winning side paid); then the post-match cutscene (Finale), the results
+-- and the map vote (src/server/MapVote; the map put back behind it: built pieces cleared, buildings, trees and ground
+-- restored), and a fresh match on the chosen map (sides reset, a new pair, everyone respawns). The pre-match cutscene
+-- plays over the countdown (src/client/MatchCutscene, Config/Cutscenes).
 -- Respawning goes in waves (Config/Frontline.Waves): one clock for both sides; a soldier who deploys stands in its side's
 -- wave line (Rules/Frontline.slot), frozen and shielded, until the wave goes, then keeps the shield a moment. The line
 -- stands at the side's spawn sector (Rules/Frontline.spawnSector: its HQ, in its spawn zone Map1.spawnZones, until the
@@ -29,23 +32,26 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Frontline)
+local CutCfg = require(Shared.Config.Cutscenes)
 local BotsCfg = require(Shared.Config.Bots)
 local DamageCfg = require(Shared.Config.Damage)
 local SectorCfg = require(Shared.Config.Sectors)
 local Palette = require(Shared.Config.Palette)
 local U = require(Shared.Config.Uniforms)
-local Map = require(Shared.Config.Maps.Map1)
+local LiveMap = require(Shared.LiveMap)
+local Map = LiveMap.map
 local Rules = require(Shared.Rules.Frontline)
 local Build = require(script.Parent.Build)
 local Damage = require(script.Parent.Damage)
 local DevWorld = require(script.Parent.DevWorld)
+local MapVote = require(script.Parent.MapVote)
 local MatchStats = require(script.Parent.MatchStats)
 local Kits = require(script.Parent.Kits)
 local Ragdoll = require(script.Parent.Ragdoll)
 
 local Frontline = {}
 
-local sectors: { any } = Map.sectors
+local sectors: { any } = Map.sectors -- (the live map's: useMap sets it again)
 
 local terrainOnly = RaycastParams.new()
 terrainOnly.FilterType = Enum.RaycastFilterType.Include
@@ -420,7 +426,7 @@ end
 
 -- the sector markers (when built) coloured by owner, labelled with control and who's in the zone
 local function showMarkers(counts: { { West: number, East: number } })
-	local root = workspace:FindFirstChild(Cfg.MapKey)
+	local root = workspace:FindFirstChild(LiveMap.key())
 	local markers = root and root:FindFirstChild("Sectors")
 	if not markers then
 		return
@@ -529,14 +535,43 @@ local function setWave(at: number?)
 	folder:SetAttribute(Cfg.WaveAttribute, at)
 end
 
+-- The match moves to map `key` (the vote's pick): Workspace's MapAttribute names it (LiveMap, so every module reads
+-- its config from now on), and the sectors, their zones' ground and the sector folders are its own. (src/server/
+-- Flagpoles stands its poles again on the attribute's change.)
+local function useMap(key: string)
+	if key == LiveMap.key() then
+		return
+	end
+	workspace:SetAttribute(Cfg.MapAttribute, key)
+	sectors = Map.sectors
+	table.clear(zoneY)
+	for _, f in folder:GetChildren() do
+		if f:IsA("Folder") and f:GetAttribute("Index") then
+			f:Destroy()
+		end
+	end
+	for i, s in sectors do
+		zoneY[i] = ground(s.x, s.z)
+		local f = Instance.new("Folder")
+		f.Name = s.id
+		f:SetAttribute("Index", i)
+		f.Parent = folder
+	end
+end
+
 -- A fresh match. `reset`: the map is put back first (user 2026-10-29: everything): every built piece cleared, the
 -- buildings, trees and ground (craters, mud) as they were when the match mode started (src/server/DevWorld).
+local function putBack()
+	release()
+	Build.clear()
+	DevWorld.undo()
+end
+
 local function newMatch(reset: boolean?)
 	if reset then
-		release()
-		Build.clear()
-		DevWorld.undo()
+		putBack()
 	end
+	MapVote.clear(folder)
 	pair = Rules.pair(U.Teams, Cfg.AlwaysTeam, math.random(), math.random())
 	workspace:SetAttribute(Cfg.TeamsAttribute, Rules.pairText(pair))
 	state = Rules.new(sectors)
@@ -642,18 +677,35 @@ local function run()
 		release()
 		setWave(nil)
 		folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
-		phase("Results", Cfg.ResultsSeconds)
+		-- the post-match cutscene (the results are sent now: the screen opens when the cut ends or is skipped), the
+		-- results, then the map vote with the map put back behind it
+		phase("Finale", Cfg.FinaleSeconds)
 		MatchStats.send({
 			mode = "Normal",
 			winner = if winner then pair[winner] else nil,
 			log = table.clone(log),
 			length = os.clock() - playedAt,
-			endsAt = folder:GetAttribute("PhaseEndsAt"),
+			map = LiveMap.key(),
+			endsAt = workspace:GetServerTimeNow() + Cfg.FinaleSeconds + Cfg.ResultsSeconds,
 		}, function(p: Player): string?
 			return Kits.next(p)
 		end)
+		task.wait(Cfg.FinaleSeconds)
+		phase("Results", Cfg.ResultsSeconds)
 		task.wait(Cfg.ResultsSeconds)
-		newMatch(true)
+		local offer = MapVote.offer()
+		if #offer > 1 then
+			phase("Vote", Cfg.VoteSeconds)
+			MapVote.open(folder, offer)
+			putBack()
+			task.wait(Cfg.VoteSeconds)
+			local pick = MapVote.close(folder, math.random()) or LiveMap.key()
+			task.wait(CutCfg.Vote.pick.hold) -- (the winner stamped NEXT on every screen)
+			useMap(pick)
+			newMatch()
+		else
+			newMatch(true)
+		end
 		task.wait() -- (src/server/Deploy splits everyone over the new pair first)
 		for _, p in Players:GetPlayers() do
 			if alive(p) then
@@ -709,10 +761,12 @@ function Frontline.start(): boolean
 	if thread then
 		return false
 	end
-	if not workspace:FindFirstChild(Cfg.MapKey) then
-		warn(`[Frontline] the map isn't built: Greybox.build("{Cfg.MapKey}")`)
+	if not workspace:FindFirstChild(LiveMap.key()) then
+		warn(`[Frontline] the map isn't built: Greybox.build("{LiveMap.key()}")`)
 		return false
 	end
+	sectors = Map.sectors
+	table.clear(zoneY)
 	folder = Instance.new("Folder")
 	folder.Name = Cfg.FolderName
 	for i, s in sectors do

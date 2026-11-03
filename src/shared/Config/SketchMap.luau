@@ -17,6 +17,16 @@ local SketchMap = {
 			x = { 120, 2330 },
 			z = { -280, 280 },
 		},
+		-- the campaign's opening map (map vote, user 2026-11-02): the same area as Map 1's image, in world z (its middle
+		-- line at z -6000); drawn like Map 1's from Config/Maps/LanternMeadows and its village layout (the Image behind
+		-- the uploaded Decal 110579689265385)
+		LanternMeadows = {
+			image = 107148285709134,
+			size = { 1024, 295 },
+			pad = 24,
+			x = { 120, 2330 },
+			z = { -6280, -5720 },
+		},
 		-- the zone-capture FFA map (tools/ui/sketchmap_playtest.py; user 2026-10-30: "make the hold v to show map appear
 		-- for FFA mode ... also the title mode too. just have your player and the moving point"): the same image shape
 		Playtest = {
