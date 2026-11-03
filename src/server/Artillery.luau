@@ -1718,7 +1718,7 @@ function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
 	return true
 end
 
--- Whether the bot's field gun or howitzer laid on world `point` would land there (user 2026-11-03: "AI still firing into
+-- Whether the bot's field gun or howitzer laid on world `point` would land there (user 2026-11-03, bots "still firing into
 -- hills"): the shell's path from its muzzle at that lay (Rules.path) cast against the world, soldiers and the gun left
 -- out and the first Config/Bots.Build.Crews `arc.near` studs skipped (its own ground and pit), first coming down within
 -- `arc.within` studs of the point; and whether it can lay there at all (in its reach). False, false when it is on no

@@ -118,8 +118,8 @@ local function aim(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	end
 	local friends = ctx.friends(b)
 	local radius = Rules.danger(ArtCfg.Guns[info.key].kg or 0, C.hold)
-	-- (only where its shot comes down there: no hill or house in the way, Artillery.shotClearAs; user 2026-11-03: "AI
-	-- still firing into hills")
+	-- (only where its shot comes down there: no hill or house in the way, Artillery.shotClearAs; user 2026-11-03, the
+	-- bots "still firing into hills")
 	local blocked = false
 	local function try(at: Vector3): boolean
 		local clear, reach = Artillery.shotClearAs(m, at)

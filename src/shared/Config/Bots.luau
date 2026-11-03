@@ -770,7 +770,7 @@ local Bots = {
 		hold = { small = 25, big = 40, bigKg = 50 },
 		burst = { on = 1.2, off = 0.8 },
 		topUp = 0.4,
-		-- (user 2026-11-03: "AI still firing into hills"): a field gun or howitzer fires only where its shot, flown as the
+		-- (user 2026-11-03, bots "still firing into hills"): a field gun or howitzer fires only where its shot, flown as the
 		-- gun spots' are (Build.Crews `arc`), comes down on its target; a sector shot tries `tries` spots in its spread.
 		-- A gunner whose every target in reach was blocked `looks` looks in a row leaves the gun, given no gunner for
 		-- `wait` s.
