@@ -67,9 +67,11 @@ local Clear, bots, Tactics, random, stats, squads, buildLists, Kinds, budget =
 	State.budget
 
 local Move = require(script.Parent.Move)
-local flat, say, rayParams, aimPart, soldiersNow, friendly, knownSpot, findCover, indoorNear, coverStep, shakenNow, inside, setGoal, follow, putAway, face, holdShovel, finish =
+local flat, say, hidden, exclusions, rayParams, aimPart, soldiersNow, friendly, knownSpot, findCover, indoorNear, coverStep, shakenNow, inside, setGoal, follow, putAway, face, holdShovel, finish =
 	Move.flat,
 	Move.say,
+	Move.hidden,
+	Move.exclusions,
 	Move.rayParams,
 	Move.aimPart,
 	Move.soldiersNow,
@@ -109,6 +111,9 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean): BuildJob?
 		local a = o.act
 		if a and a.kind == "Build" and a.job then
 			held[a.job :: BuildJob] = true
+		end
+		if o.work then
+			held[o.work.job] = true -- (on its way to it)
 		end
 	end
 	local list: { BotBuild.Job } = {}
@@ -196,6 +201,50 @@ local function bombOut(b: Bot, sq: SquadState, at: Vector3, now: number): Vector
 	return nil
 end
 
+-- where a build job is worked from: the piece's spot (laid: swung at), else behind the spot to lay it; and how near
+-- counts as there
+local function workAt(r: BuildJob): (Vector3, number)
+	if r.model and r.at then
+		return r.at :: Vector3, BuildCfg.SwingReach - 1
+	end
+	local job = r.job
+	return Routes.ground(job.x, job.z) - Vector3.new(job.fx, 0, job.fz) * BD.stand, BD.stand + 2
+end
+
+-- whether `b` may put its gun away and work where it is (Rules/BotBuild.safeToWork; `brave`: a sapper, under fire too)
+local function safeHere(b: Bot, r: BuildJob, brave: boolean, now: number): boolean
+	local sinceThreat = if b.threatAt then now - (b.threatAt :: number) else math.huge
+	local sinceHurt = if b.hurtAt then now - (b.hurtAt :: number) else math.huge
+	local seen = b.target ~= nil and (b.target :: Target).visible
+	local hid = false
+	if not seen and b.threatFrom and sinceThreat < BD.calm and budget.rays > 0 then
+		hid = hidden(b.threatFrom :: Vector3, (b.root :: BasePart).Position, exclusions(b))
+	end
+	return BotBuild.safeToWork(r.underFire == true or brave, seen, sinceThreat, sinceHurt, hid, BD.calm)
+end
+
+-- a build job taken (or gone back to): worked now if it is there and safe, else walked to with the gun out, fighting on
+-- the way (b.work: think's goal; Config/Bots.Build.Work)
+local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
+	local at, reach = workAt(r)
+	local w = b.work
+	if not w or w.job ~= r then
+		w = { job = r, at = at, since = now, brave = brave == true }
+		b.work = w
+		stats.workTaken += 1
+	else
+		w.at = at
+	end
+	local near = flat(at - (b.root :: BasePart).Position).Magnitude <= reach + BD.Work.near
+	if near and safeHere(b, r, (w :: any).brave, now) then
+		b.act = { kind = "Build", job = r, started = now }
+		b.workState = "working"
+		stats.workStarted += 1
+	else
+		b.workState = if near then "waiting" else "going"
+	end
+end
+
 -- what to do besides fighting, if anything (drag > heal > build > grenade)
 local function weigh(b: Bot, now: number)
 	b.actAt = now + AC.every
@@ -249,12 +298,23 @@ local function weigh(b: Bot, now: number)
 			return
 		end
 	end
+	-- on its way to a job it took (or back to one danger stopped): worked once there and safe, else kept a while
+	local w = b.work
+	if w and (not w.job.open or now - w.since > BD.Work.keep) then
+		b.work, b.workState, w = nil, nil, nil
+	end
+	if w then
+		takeJob(b, w.job, now, w.brave)
+		if b.act then
+			return
+		end
+	end
 	-- a sapper digs its squad's sap, under fire too (Rules/BotSap: only a hit stops it)
 	local sap = sq and (sq :: SquadState).sap
-	if b.sapper and sap and #(sap :: Sap).open > 0 then
+	if b.sapper and sap and #(sap :: Sap).open > 0 and not w then
 		local r = pickFrom(b, (sap :: Sap).open, true)
 		if r then
-			b.act = { kind = "Build", job = r, started = now }
+			takeJob(b, r, now, true)
 			return
 		end
 	end
@@ -282,7 +342,7 @@ local function weigh(b: Bot, now: number)
 		local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true, underFire = true }
 		b.pileAt = now
 		stats.pinnedHoles += 1
-		b.act = { kind = "Build", job = r, started = now }
+		takeJob(b, r, now)
 		return
 	end
 	-- a job on its side's build list, when calm and it sees no enemy (Config/Bots.Build)
@@ -291,6 +351,7 @@ local function weigh(b: Bot, now: number)
 	local post = b.post
 	if
 		b.role == "Hold"
+		and not w
 		and b.postKind == "open"
 		and post
 		and b.side
@@ -313,14 +374,14 @@ local function weigh(b: Bot, now: number)
 			local tx, tz = BotBuild.toward(Map.sectors, b.sector or 1, b.side)
 			local job = { key = "Foxhole", x = post.X, z = post.Z, fx = tx, fz = tz }
 			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true }
-			b.act = { kind = "Build", job = r, started = now }
+			takeJob(b, r, now)
 			return
 		end
 	end
-	if not pushing and not seen and b.side and Actions.calm(sinceThreat, sinceHurt, BD.calm) then
+	if not pushing and not seen and not w and b.side and Actions.calm(sinceThreat, sinceHurt, BD.calm) then
 		local r = pickJob(b)
 		if r then
-			b.act = { kind = "Build", job = r, started = now }
+			takeJob(b, r, now)
 			return
 		end
 	end
@@ -520,15 +581,29 @@ end
 
 -- a build, one think of it: to the job, the piece laid (once), then Build swings at it until it wants none, the
 -- shovel in hand; given up when it's shot at, sees an enemy, the job leaves the list or takes too long
+-- the job over (done, refused, gone): nothing to go back to
+local function quit(b: Bot)
+	b.work, b.workState = nil, nil
+	finish(b)
+end
+
 local function doBuild(b: Bot, act: Act, now: number): boolean
 	local r = act.job :: BuildJob
 	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
-	local sinceThreat = if b.threatAt then now - (b.threatAt :: number) else math.huge
+	if not r.open or now - act.started > BD.seconds then
+		quit(b)
+		return false
+	end
+	-- danger mid-work: the tool dropped, the gun out, the job kept to go back to once safe (Config/Bots.Build.Work)
+	local work = b.work
 	local hurt = b.hurtAt ~= nil and (b.hurtAt :: number) > act.started
-	local seen = b.target ~= nil and (b.target :: Target).visible
-	local calm = r.underFire or (sinceThreat >= BD.calm and not seen)
-	if not r.open or now - act.started > BD.seconds or hurt or not calm then
+	if hurt or not safeHere(b, r, work ~= nil and work.brave, now) then
+		stats.workStopped += 1
 		finish(b)
+		if work then
+			work.since = math.max(work.since, now - BD.Work.keep / 2) -- (a while yet to get back to it)
+			b.workState = "going"
+		end
 		return false
 	end
 	local job = r.job
@@ -540,7 +615,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		if w and how == "around" then
 			stats.around += 1
 			refused(r, now)
-			finish(b)
+			quit(b)
 			return false
 		end
 		tear = w
@@ -550,6 +625,12 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	-- (it lays a piece from behind it, its own side; it swings at one from where it is)
 	local reach = if swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
 	if flat(spot - root.Position).Magnitude > reach then
+		if work and flat(spot - root.Position).Magnitude > reach + BD.Work.near * 2 then
+			-- (far off still: walked to with the gun out, fighting on the way)
+			finish(b)
+			b.workState = "going"
+			return false
+		end
 		humanoid.WalkSpeed = M.WalkSpeed
 		setGoal(b, if swingAt then spot else spot - f * BD.stand, now)
 		follow(b, now)
@@ -571,7 +652,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 				stats.torn += 1
 				act.swingAt = now + Build.swingGap()
 			elseif reason ~= "Too soon" then
-				finish(b) -- (gone, or out of reach)
+				quit(b) -- (gone, or out of reach)
 				return false
 			end
 		end
@@ -595,7 +676,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			end
 			stats.keptOff += 1
 			refused(r, now)
-			finish(b)
+			quit(b)
 			return false
 		end
 		local reason = if job.key == "Trench"
@@ -606,7 +687,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		end
 		if reason then
 			refused(r, now)
-			finish(b)
+			quit(b)
 			return false
 		end
 		stats.laid += 1
@@ -615,7 +696,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		end
 		local w = laidFor(b, job)
 		if not w then
-			finish(b) -- (it is on the next tick's list)
+			quit(b) -- (it is on the next tick's list)
 			return false
 		end
 		r.model, r.at, r.left = w.model, w.at, w.left
@@ -634,13 +715,13 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			elseif b.postKind == "open" and b.post and flat((b.post :: Vector3) - floor).Magnitude <= BD.stand + 4 then
 				b.post, b.postFloor, b.goal = floor, floor, floor
 			end
-			finish(b)
+			quit(b)
 			return false
 		elseif reason == nil then
 			stats.swings += 1
 			act.swingAt = now + Build.swingGap()
 		elseif reason ~= "Too soon" then
-			finish(b) -- (whole now, or gone)
+			quit(b) -- (whole now, or gone)
 			return false
 		end
 	end
@@ -947,4 +1028,5 @@ return {
 	strongpoint = strongpoint,
 	staffFire = staffFire,
 	bombOut = bombOut,
+	takeJob = takeJob,
 }

@@ -130,6 +130,11 @@ export type Bot = {
 	lod: string, -- "near", "middle" or "distant" (the report)
 	nearest: number, -- studs to the nearest player at its last think (callouts)
 	act: Act?, -- Normal: a drag, a heal or a grenade under way
+	-- Normal: a build job it took, walked to with the gun out (Config/Bots.Build.Work): where it works from, when it took
+	-- it, whether it works under fire (a sapper); and how it stands with it ("going", "waiting" there until safe,
+	-- "working")
+	work: { job: BuildJob, at: Vector3, since: number, brave: boolean }?,
+	workState: string?,
 	actAt: number, -- when it next weighs one (Config/Bots.Actions.every)
 	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
 	threwAt: number,

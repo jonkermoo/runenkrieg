@@ -9,6 +9,8 @@ local Cfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
 local W = require(Shared.Config.Weapons)
 local Net = require(Shared.Net)
+local Map = require(Shared.LiveMap).map -- (the match's map)
+local BotBuild = require(Shared.Rules.BotBuild)
 local Artillery = require(script.Parent.Parent.Artillery)
 local Damage = require(script.Parent.Parent.Damage)
 local Animate = require(script.Parent.Animate)
@@ -23,6 +25,8 @@ local bots, Tactics, random, stats, squads, buildLists =
 
 local Move = require(script.Parent.Move)
 local flat, alive, finish = Move.flat, Move.alive, Move.finish
+
+local Act = require(script.Parent.Act)
 
 local function report(now: number, governor: { cap: number })
 	if Cfg.ReportEvery <= 0 or now - stats.since < Cfg.ReportEvery or #bots == 0 then
@@ -86,7 +90,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -135,6 +139,9 @@ local function report(now: number, governor: { cap: number })
 			stats.dangerPaths,
 			stats.intoTrench,
 			stats.overTop,
+			stats.workTaken,
+			stats.workStarted,
+			stats.workStopped,
 			stats.pushes,
 			stats.pushBombs,
 			stats.strikes,
@@ -200,6 +207,9 @@ local function label()
 				local what = act and act.kind
 				if act and act.job then
 					what = `{act.kind} {act.job.job.key}`
+				elseif not act and b.work then
+					-- (on its way to a job, gun out, or there and waiting until it is safe: Config/Bots.Build.Work)
+					what = `{b.workState or "going"} to {b.work.job.job.key}`
 				end
 				text = Tactics.dev.rules.botLabel({
 					order = b.order,
@@ -219,7 +229,8 @@ end
 
 -- The admin panel's bot tests (src/server/DevTools; Config/DevTools.Admin): "Shell" a barrage on side `value`'s dug
 -- trench squares; at the point `value`: "Push" the nearest squad pushes there now (its Grenadier throwing first),
--- "Strike" the nearest bot butt-strokes toward it, "Gun" the nearest free gun goes to the nearest bot to crew. Why
+-- "Strike" the nearest bot butt-strokes toward it, "Gun" the nearest free gun goes to the nearest bot to crew, "Work"
+-- the nearest bot takes a foxhole job there (walked to with the gun out, dug once safe: Config/Bots.Build.Work). Why
 -- not, else nil and what was done.
 local function dev(action: string, value: any): (string?, string?)
 	local A = DevCfg.Admin
@@ -270,6 +281,8 @@ local function dev(action: string, value: any): (string?, string?)
 			ok = ok and b.order == "Attack" and b.squad ~= nil and squads[b.squad :: string] ~= nil
 		elseif action == "Gun" then
 			ok = ok and b.mode == "Normal" and not b.gun and not Artillery.gunOf(b.m :: Model)
+		elseif action == "Work" then
+			ok = ok and b.mode == "Normal" and b.side ~= nil and not b.gun and not Artillery.gunOf(b.m :: Model)
 		end
 		local d = if ok then flat((b.root :: BasePart).Position - near).Magnitude else math.huge
 		if d < bestD then
@@ -303,6 +316,14 @@ local function dev(action: string, value: any): (string?, string?)
 		end
 	elseif action == "Gun" then
 		Tactics.crew.give(b, gun :: Model)
+	elseif action == "Work" then
+		local tx, tz = BotBuild.toward(Map.sectors, b.sector or 1, b.side :: string)
+		local job = { key = "Foxhole", x = at.X, z = at.Z, fx = tx, fz = tz }
+		local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true }
+		finish(b)
+		b.work = nil
+		Act.takeJob(b, r, os.clock())
+		return nil, `{b.name} ({b.workState})`
 	end
 	return nil, b.name
 end

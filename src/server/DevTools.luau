@@ -265,7 +265,13 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(Cfg.Admin.FreeGrenadierAttribute, if value then true else nil)
 	elseif action == "BotDig" then
 		workspace:SetAttribute(Cfg.Admin.BotDig.attribute, if value == 1 then nil else value)
-	elseif action == "BotShell" or action == "BotPush" or action == "BotStrike" or action == "BotGun" then
+	elseif
+		action == "BotShell"
+		or action == "BotPush"
+		or action == "BotStrike"
+		or action == "BotGun"
+		or action == "BotWork"
+	then
 		-- (why not, or what was done, shown on the button: src/client/DevBlastMenu, DevAdminMenu)
 		local why, done = Bots.dev(string.sub(action, 4), if action == "BotShell" then value else aim)
 		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", action, why or done)

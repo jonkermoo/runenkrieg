@@ -303,6 +303,11 @@ local Bots = {
 		-- no swing at a piece of theirs within `repairWait` s of it losing HP (user 2026-11-02 hand test: "Dont let ai
 		-- repair structures that are being destroyed by players"; "20 seconds": Rules/BotBuild.mayRepair)
 		repairWait = 20,
+		-- a job is walked to with the gun out, fighting on the way (user 2026-11-03 play test: "shooting and protecting
+		-- themselves and finding cover as they move to where they want to go"): the gun goes away only within `near`
+		-- studs of where it works and once it is safe there (Rules/BotBuild.safeToWork); danger mid-work drops the tool
+		-- and it fights, then goes back to it. The job is kept `keep` s from when it was taken.
+		Work = { near = 3, keep = 60 },
 		Nest = { ahead = 2 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
