@@ -543,8 +543,27 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 				end
 			end
-			if sqs.mid and flat((sqs.mid :: Vector3) - mid).Magnitude < SQ.arrive * 3 then
-				sqs.mid = nil
+			-- (its members off building, rescuing or guarding don't hold the rest at a point: Rules/BotSquads.moveOn)
+			local loose, atMid = 0, 0
+			for _, b in members do
+				if b.root and alive(b) and not (b.act or b.work or b.guard) then
+					loose += 1
+					local at = sqs.mid
+					if at and flat((b.root :: BasePart).Position - at :: Vector3).Magnitude < SQ.arrive * 3 then
+						atMid += 1
+					end
+				end
+			end
+			sqs.midAt = if atMid > 0 then sqs.midAt or now else nil
+			if
+				sqs.mid
+				and (
+					flat((sqs.mid :: Vector3) - mid).Magnitude < SQ.arrive * 3
+					or Squads.moveOn(atMid, loose, now - (sqs.midAt or now), SQ)
+				)
+			then
+				sqs.mid, sqs.midAt = nil, nil
+				stats.movedOn += 1
 			end
 			if not defend and sb and not sqs.jump and sqs.sq.phase ~= "Assault" then
 				local dug = {}
@@ -606,7 +625,12 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				stats.contacts += 1
 			end
 			local was = sqs.sq.phase
-			local readyShare = if living > 0 then ready / living else 0
+			-- (ready: its free members at the approach spot, or anyone waited there long enough: Squads.waitMax)
+			sqs.readyAt = if ready > 0 then sqs.readyAt or now else nil
+			local readyShare = if Squads.moveOn(ready, loose, now - (sqs.readyAt or now), SQ)
+				then 1
+				elseif living > 0 then ready / living
+				else 0
 			if sqs.jump then
 				-- gathered in the jump-off trench: ready only once over the top
 				local there = 0

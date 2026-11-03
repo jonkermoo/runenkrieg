@@ -145,9 +145,9 @@ local Remotes: { string } = {
 	-- server -> one client: (weight: number) a blast near that player's soldier, outside its knock reach: flinch
 	-- (src/server/Flinch decides, src/client/Flinch plays it on the own character, so everyone sees it; Config/Flinch)
 	"Flinch",
-	-- server -> one client: (strength: number) that player's soldier was concussed (a helmet knocked off, a blast's
-	-- throw survived): blur, ring, sounds ducked (src/server/Concussion decides, src/client/Concussion shows it;
-	-- Config/Concussion)
+	-- server -> one client: (strength: number, kind: "Blast" | "Helmet", from: Vector3?) that player's soldier was
+	-- concussed (a helmet knocked off along `from`, a blast's throw survived): blur, ring, muffle, the head snap
+	-- (src/server/Concussion decides, src/client/Concussion shows it; Config/Concussion)
 	"Concussed",
 	-- The class picked for the next life and the match currency (src/server/Loadouts; Config/Classes, Rules/Classes):
 	-- client -> server: ("Pick", class: string) | ("Ask") | ("Deploy": spawn now, once the respawn delay is over;

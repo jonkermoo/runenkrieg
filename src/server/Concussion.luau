@@ -16,29 +16,30 @@ local Concussion = {}
 
 local states: { [Model]: Rules.State } = setmetatable({} :: any, { __mode = "k" })
 
--- Concusses `character` with `strength` (0..1); a weaker one over a stronger one still going changes nothing.
-function Concussion.hit(character: Model, strength: number)
+-- Concusses `character` with `strength` (0..1) of `kind`; a weaker one over a stronger one still going changes
+-- nothing. `from`: the way the hit travelled (the own view's head snap), if any.
+function Concussion.hit(character: Model, strength: number, kind: Rules.Kind, from: Vector3?)
 	local now = os.clock()
-	local s = Rules.add(states[character], strength, now, Cfg)
+	local s = Rules.add(states[character], strength, kind, now, Cfg)
 	if not s then
 		return
 	end
 	states[character] = s
 	local player = Players:GetPlayerFromCharacter(character)
 	if player then
-		Net.event("Concussed"):FireClient(player, strength)
+		Net.event("Concussed"):FireClient(player, strength, kind, from)
 	end
 end
 
--- A helmet knocked off `character` by a hit that left it `left` health (alive).
-function Concussion.helmet(character: Model, left: number, maxHealth: number)
-	Concussion.hit(character, Rules.helmet(left, maxHealth, Cfg.Helmet))
+-- A helmet knocked off `character` by a hit along `direction` that left it `left` health (alive).
+function Concussion.helmet(character: Model, left: number, maxHealth: number, direction: Vector3?)
+	Concussion.hit(character, Rules.helmet(left, maxHealth, Cfg.Helmet), "Helmet", direction)
 end
 
 -- A blast's throw survived by `character`; `fling` how hard it was, 0..1 (its damage over
 -- Config/Damage.Blast.Soldier.max).
 function Concussion.blast(character: Model, fling: number)
-	Concussion.hit(character, Rules.blast(fling, Cfg.Blast))
+	Concussion.hit(character, Rules.blast(fling, Cfg.Blast), "Blast")
 end
 
 -- Seconds the concussion adds to `character`'s get-up wait now (0: none).
