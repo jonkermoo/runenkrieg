@@ -22,6 +22,15 @@ function ModeHud.fade(shown: number, target: number, dt: number, seconds: number
 	return if shown < target then math.min(target, shown + step) else math.max(target, shown - step)
 end
 
+-- A teammate dot's size in pixels `distance` studs from the camera (user 2026-11-03: "make the teammate dots ... get
+-- smaller with distance"): full `size` up to `near`, then shrinking as a thing that far would, never under `min`.
+function ModeHud.dotSize(distance: number, size: number, near: number, min: number): number
+	if distance <= near then
+		return size
+	end
+	return math.max(min, size * near / distance)
+end
+
 export type Pin = {
 	fillSide: string?, -- whose colour fills the diamond (nil: empty)
 	fill: number, -- 0..1, the diamond filled from its bottom tip (the flag's height on the pole)

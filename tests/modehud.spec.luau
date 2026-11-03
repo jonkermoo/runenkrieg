@@ -6,6 +6,12 @@ local function near(a: number, b: number): boolean
 end
 
 return {
+	["teammate dots: full size up close, smaller with distance, never under the minimum"] = function()
+		assert(R.dotSize(0, 10, 25, 4) == 10 and R.dotSize(25, 10, 25, 4) == 10, "up close: full")
+		assert(near(R.dotSize(50, 10, 25, 4), 5), "twice as far: half")
+		assert(R.dotSize(1000, 10, 25, 4) == 4, "far: the minimum")
+		assert(R.dotSize(40, 10, 25, 4) < R.dotSize(30, 10, 25, 4), "farther is smaller")
+	end,
 	["slot: the viewer's own side always on the left"] = function()
 		assert(R.slot(1, 5, "West") == 1 and R.slot(5, 5, "West") == 5)
 		assert(R.slot(1, 5, "East") == 5 and R.slot(5, 5, "East") == 1)
