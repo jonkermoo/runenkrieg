@@ -1453,8 +1453,9 @@ function Artillery.start()
 					SoundFx.play(mg.boom, origin, nil, { pitch = vary, delay = d / AudioCfg.Heard.speed })
 				end
 			end
-			-- (a rifle's flash: the guns' blast, even scaled down, lit the whole view 7 times a second)
-			GunFx.flashAt(CFrame.new(origin))
+			-- its own short flash and smoke (the guns' blast, even scaled down, lit the whole view 7 times a second; the
+			-- rifle's glowing flash read as a sparkle: user 2026-11-03)
+			Vfx.Gunsmoke.shot(model, origin, hit - origin)
 			GunFx.tracer(origin, hit)
 			if part then
 				GunFx.hole(hit, normal, part)
