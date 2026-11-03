@@ -15,6 +15,7 @@ local PLAIN = table.freeze({
 	KnockMe = true,
 	HelmetOff = true,
 	HealDummies = true,
+	KnockDummies = true,
 	ClearDummies = true,
 	UndoDestruction = true,
 	ClearGuns = true,
@@ -24,6 +25,7 @@ local PLAIN = table.freeze({
 	RespawnAll = true,
 	FrontTake = true,
 	FrontStart = true,
+	RebuildMaps = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
@@ -50,10 +52,9 @@ local function kitOf(cfg: any, kit: any): { kit: string, name: string }?
 	return nil
 end
 
--- Whether `value` is one `action` takes. `defs`: the game modes (Config/Modes.Defs), classes (Config/Classes.Defs) and
--- frontline maps (a set of Config/Maps keys: LiveMap.frontline) the "Mode", "Class" and "FrontMap" actions name;
--- without them those are refused.
-function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any, classes: any, maps: any? }?): boolean
+-- Whether `value` is one `action` takes. `defs`: the game modes (Config/Modes.Defs) and classes (Config/Classes.Defs)
+-- the "Mode" and "Class" actions name; without them those are refused.
+function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any, classes: any }?): boolean
 	if type(action) ~= "string" then
 		return false
 	end
@@ -67,8 +68,8 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return value == cfg.Admin.Random or kitOf(cfg, value) ~= nil
 	elseif action == "Mode" then
 		return defs ~= nil and type(value) == "string" and defs.modes[value] ~= nil
-	elseif action == "FrontMap" then
-		return defs ~= nil and defs.maps ~= nil and type(value) == "string" and defs.maps[value] == true
+	elseif action == "Map" then
+		return defs ~= nil and defs.maps ~= nil and type(value) == "string" and table.find(defs.maps, value) ~= nil
 	elseif action == "Class" then
 		return defs ~= nil and type(value) == "string" and (value == cfg.Admin.Normal or defs.classes[value] ~= nil)
 	elseif action == "MatchTime" then

@@ -33,6 +33,7 @@ local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
+local LiveMap = require(Shared.LiveMap)
 local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
 local Settings = require(script.Parent.Settings)
@@ -218,6 +219,18 @@ local function build(player: Player): DevPanel.Panel
 	onOff("KeptTeams", "Kept teams + team cards", "KeptTeams", workspace, TeamCfg.DevAttribute)
 	-- the sector dividers and point markers in play (src/server/Sectors; off by default in Normal)
 	onOff("Sectors", "Sector borders", "Sectors", workspace, SectorCfg.ShowAttribute)
+	-- Map (Normal): play a built frontline map now (a fresh match there), or rebuild the maps (DEV place, slow)
+	heading("Map (Normal)")
+	for _, key in LiveMap.frontline() do
+		local name = LiveMap.get(key).name
+		if LiveMap.built(key) then
+			row("Map_" .. key, `Map: {name}`, "Map", key)
+		else
+			order += 1
+			DevPanel.button(p.panel, "Map_" .. key, `Map: {name} (not built)`, order, Palette.UI.outline)
+		end
+	end
+	row("RebuildMaps", "Rebuild maps (slow: Map 1, then the others beside it)", "RebuildMaps")
 	-- Match (Normal, src/server/Frontline): end it, a fresh one, your side takes the sector it's attacking
 	heading("Match (Normal)")
 	local front: { TextButton } = {
@@ -226,21 +239,6 @@ local function build(player: Player): DevPanel.Panel
 		row("FrontRestart", "Restart match", "MatchRestart"),
 		row("FrontTake", "Take our next sector", "FrontTake"),
 	}
-	-- the match moved to another frontline map now (src/server/Frontline.switchMap; it must be built: Greybox.build),
-	-- the live one lit
-	local maps: { [string]: TextButton } = {}
-	local LiveMap = require(Shared.LiveMap)
-	for _, key in LiveMap.frontline() do
-		maps[key] = row("FrontMap_" .. key, `Map now: {LiveMap.get(key).name or key}`, "FrontMap", key)
-		table.insert(front, maps[key])
-	end
-	local function showMap()
-		for key, b in maps do
-			paint(b, key == LiveMap.key())
-		end
-	end
-	workspace:GetAttributeChangedSignal(require(Shared.Config.Frontline).MapAttribute):Connect(showMap)
-	showMap()
 	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes
 	heading("Match (FFA)")
 	local match: { TextButton } = {

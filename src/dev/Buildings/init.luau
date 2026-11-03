@@ -58,13 +58,21 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 		for _, d in t.doors or { { center = 0 } } do
 			table.insert(frontDoors, { center = d.center, w = d.w or Bm.DoorWidth, h = d.h or Bm.DoorHeight })
 		end
+		local upperDoors = nil
+		if t.upperDoors then
+			upperDoors = {}
+			for _, d in t.upperDoors do
+				table.insert(upperDoors, { center = d.center, w = d.w or Bm.DoorWidth, h = d.h or Bm.DoorHeight })
+			end
+		end
 		local walls = {
 			{
 				"front",
 				CFrame.new(0, y, -Dp / 2 + T / 2),
 				W,
 				ends(W, W / 2),
-				if story == 0 then frontDoors else nil,
+				-- (story 1 may have doors too: out onto a loggia over a portico, the cascina's)
+				if story == 0 then frontDoors elseif story == 1 then upperDoors else nil,
 				t.windows or 2,
 			},
 			{

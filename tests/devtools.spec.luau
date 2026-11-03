@@ -69,10 +69,6 @@ return {
 		assert(not A.valid(Cfg, "Team", "uniform9") and not A.valid(Cfg, "Team", nil))
 		assert(A.valid(Cfg, "God", false) and not A.valid(Cfg, "God", nil) and not A.valid(Cfg, "God", 1))
 		assert(not A.valid(Cfg, "Nope", nil) and not A.valid(Cfg, 5, nil) and not A.valid(Cfg, nil, nil))
-		local maps = { modes = {}, classes = {}, maps = { Map1 = true, LanternMeadows = true } }
-		assert(A.valid(Cfg, "FrontMap", "LanternMeadows", maps) and A.valid(Cfg, "FrontMap", "Map1", maps))
-		assert(not A.valid(Cfg, "FrontMap", "Playtest", maps) and not A.valid(Cfg, "FrontMap", nil, maps))
-		assert(not A.valid(Cfg, "FrontMap", "Map1") and not A.valid(Cfg, "FrontMap", 1, maps), "no maps: refused")
 		local d = { kit = Cfg.Dummies.Kits[1].kit, helmet = true, move = "Walk" }
 		assert(A.valid(Cfg, "Dummy", d))
 		assert(not A.valid(Cfg, "Dummy", { kit = "nope", helmet = true, move = "Walk" }))
@@ -180,5 +176,32 @@ return {
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
 		assert(ClassCfg.Defs[Cfg.Admin.Normal] == nil, "the Normal value isn't a class")
+	end,
+	["Lantern Meadows: its sectors and landmarks as teleports, on its own map, inside its bounds"] = function()
+		local LM = require("../src/shared/Config/Maps/LanternMeadows")
+		local list = T.list(Map1, Cfg, { { key = "LanternMeadows", map = LM } })
+		local ids = {}
+		for _, d in list do
+			ids[d.id] = d
+		end
+		for _, s in LM.sectors do
+			local d = ids[`LanternMeadows_{s.id}`]
+			assert(d and d.map == "LanternMeadows", `no teleport to Lantern Meadows' {s.id}`)
+		end
+		for _, id in { "LM_Watchtower", "LM_Cascina", "LM_FordFestival", "LM_FordUpstream", "LM_FordStones" } do
+			local d = ids[id]
+			assert(d and d.map == "LanternMeadows", `no {id}`)
+			local b = LM.bounds
+			assert(d.x > b.minX and d.x < b.maxX and d.z > b.minZ and d.z < b.maxZ, `{id} outside Lantern Meadows`)
+		end
+		assert(T.find(Map1, Cfg, "LanternMeadows_S3", { { key = "LanternMeadows", map = LM } }) ~= nil)
+		assert(T.find(Map1, Cfg, "S3") ~= nil and T.find(Map1, Cfg, "S3").map == nil, "Map 1's own sectors unchanged")
+	end,
+	["admin: switch to a frontline map by key, rebuild the maps"] = function()
+		local A = require("../src/shared/Rules/DevActions")
+		local defs = { modes = {}, classes = {}, maps = { "LanternMeadows", "Map1" } }
+		assert(A.valid(Cfg, "Map", "LanternMeadows", defs))
+		assert(not A.valid(Cfg, "Map", "Nowhere", defs) and not A.valid(Cfg, "Map", 3, defs))
+		assert(A.valid(Cfg, "RebuildMaps", nil, defs) and not A.valid(Cfg, "RebuildMaps", true, defs))
 	end,
 }

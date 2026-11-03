@@ -325,10 +325,13 @@ local function release()
 		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
 			root.Anchored = false
-			if CollectionService:HasTag(character, BotsCfg.Tag) then
-				root:SetNetworkOwner(nil) -- (a bot stays the server's)
-			else
-				root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+			-- (unless still held by something anchored, e.g. a test: the ownership calls would throw)
+			if root:CanSetNetworkOwnership() then
+				if CollectionService:HasTag(character, BotsCfg.Tag) then
+					root:SetNetworkOwner(nil) -- (a bot stays the server's)
+				else
+					root:SetNetworkOwnershipAuto() -- (back to its player, as Roblox gives a character)
+				end
 			end
 		end
 		local ball = character:FindFirstChild(Cfg.Shield.name) :: BasePart?
@@ -817,11 +820,10 @@ function Frontline.restart()
 	end
 end
 
--- Admin: the match moves to map `key` now (a frontline map built in Workspace: Greybox.build) and starts over there,
--- as after the vote: the old map put back, a fresh match, everyone alive respawned on the new one. False when it
--- can't (no match, the map not built, already on it).
+-- Admin: the match moves to map `key` now (it must be built: src/dev/Greybox): a fresh match there, the map put back,
+-- everyone alive deployed again on it (the bots too, by src/server/Bots on their respawn).
 function Frontline.switchMap(key: string): boolean
-	if not thread or key == LiveMap.key() or not LiveMap.built(key) or not table.find(LiveMap.frontline(), key) then
+	if not thread or not LiveMap.built(key) then
 		return false
 	end
 	task.cancel(thread :: thread)
@@ -829,10 +831,18 @@ function Frontline.switchMap(key: string): boolean
 	useMap(key)
 	newMatch()
 	thread = task.spawn(run)
-	task.defer(function() -- (src/server/Deploy splits everyone over the new pair first)
+	task.defer(function()
 		for _, p in Players:GetPlayers() do
 			if alive(p) then
-				p:LoadCharacter()
+				task.spawn(function()
+					p:LoadCharacter()
+				end)
+			end
+		end
+		for _, m in bots() do
+			local h = m:FindFirstChildOfClass("Humanoid")
+			if h then
+				h.Health = 0
 			end
 		end
 	end)

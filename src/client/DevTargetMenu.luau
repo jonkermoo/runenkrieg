@@ -1,7 +1,8 @@
 --!strict
 -- Dev target menu: a button next to the admin pin for the target dummies (Config/DevTools.Dummies; src/server/DevDummies):
 -- pick the team kit, the helmet and how it moves, then spawn one at the aim point (the middle of the screen: DevAim),
--- facing you. Heal brings every dummy back to full health (dead ones come back), Clear removes them all. Only shown
+-- facing you. Heal brings every dummy back to full health (dead ones come back), Knock knocks every living one down (to drag or heal),
+-- Clear removes them all. Only shown
 -- when the server marked this player with the DevTools attribute.
 
 local Players = game:GetService("Players")
@@ -53,7 +54,10 @@ local function build(player: Player): ScreenGui
 	DevPanel.button(p.panel, "Heal", "Heal all dummies", 5).Activated:Connect(function()
 		Net.event("DevAction"):FireServer("HealDummies")
 	end)
-	DevPanel.button(p.panel, "Clear", "Clear all dummies", 6).Activated:Connect(function()
+	DevPanel.button(p.panel, "Knock", "Knock all dummies down", 6).Activated:Connect(function()
+		Net.event("DevAction"):FireServer("KnockDummies")
+	end)
+	DevPanel.button(p.panel, "Clear", "Clear all dummies", 7).Activated:Connect(function()
 		Net.event("DevAction"):FireServer("ClearDummies")
 	end)
 	return p.gui

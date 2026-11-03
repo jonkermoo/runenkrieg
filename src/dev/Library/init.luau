@@ -14,7 +14,11 @@ local ServerStorage = game:GetService("ServerStorage")
 local Library = {}
 
 local DEV_PLACE_ID = 103459731368962
-local GALLERY_ORIGIN = Vector3.new(0, 0, -2600) -- beyond the map skirt and the fog
+-- beyond every map's footprint, skirt and fog (Config/DevTools.Gallery)
+local GALLERY =
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"):WaitForChild("DevTools")).Gallery
+local GALLERY_ORIGIN = Vector3.new(GALLERY.x, 0, GALLERY.z)
+local FLOOR_RUN = 2000 -- the floor in pieces this long at most (a part is at most 2048 studs)
 local PAD_GAP = 12
 
 local function fresh(module: Instance): any
@@ -365,15 +369,21 @@ function Library.gallery(): string
 		end
 		z += rowDepth + 12
 	end
-	-- neutral floor under everything
-	local floor = Instance.new("Part")
-	floor.Name = "Floor"
-	floor.Anchored = true
-	floor.Material = Enum.Material.SmoothPlastic
-	floor.Color = Color3.fromRGB(104, 128, 76)
-	floor.Size = Vector3.new(width + 80, 2, z + 80)
-	floor.Position = GALLERY_ORIGIN + Vector3.new(width / 2, -1.2, z / 2 - 20)
-	floor.Parent = g
+	-- neutral floor under everything, in pieces along the rows
+	local from, to = -60, z + 20
+	local start = from
+	while start < to do
+		local run = math.min(FLOOR_RUN, to - start)
+		local floor = Instance.new("Part")
+		floor.Name = "Floor"
+		floor.Anchored = true
+		floor.Material = Enum.Material.SmoothPlastic
+		floor.Color = Color3.fromRGB(104, 128, 76)
+		floor.Size = Vector3.new(width + 80, 2, run)
+		floor.Position = GALLERY_ORIGIN + Vector3.new(width / 2, -1.2, start + run / 2)
+		floor.Parent = g
+		start += run
+	end
 	g.Parent = workspace
 	return string.format(
 		"Gallery: %d assets at %s (select Workspace.DevGallery, press F)",
