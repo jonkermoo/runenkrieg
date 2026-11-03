@@ -362,6 +362,13 @@ local function seat(s: State, character: Model, player: Player?, bot: Model?): b
 	weld.Part1 = holder
 	weld.Parent = root
 	s.weld = weld
+	-- the weld broken from outside (a knock throws the gunner off: src/server/Ragdoll): off the gun
+	weld.AncestryChanged:Connect(function()
+		if s.weld == weld and not weld:IsDescendantOf(game) then
+			s.weld = nil
+			leave(s, "Knocked")
+		end
+	end)
 	root.Anchored = false
 	-- and platform-standing (user 2026-10-22: "the field cannon is unoperable. the character starts tweaking out with
 	-- the cannon. it only fixes when you have fly on": the dev Fly platform-stands): held by the weld, the humanoid
@@ -1772,7 +1779,8 @@ function Artillery.leaveAs(model: Model)
 end
 
 -- `fn(model, gun, why)` on every bot leaving a gun: why "Kicked" (a teammate took it over: the bot stands beside it),
--- "Broken", "Died", "Gone" (the bot or the gun removed) or "Left" (Artillery.leaveAs)
+-- "Broken", "Died", "Knocked" (thrown off by a blast: src/server/Ragdoll), "Gone" (the bot or the gun removed) or
+-- "Left" (Artillery.leaveAs)
 -- The admin panel's shelling (src/server/DevTools, Config/DevTools.Blasts.Shells): `count` of gun `key`'s shells
 -- landing round `at`, `every` s apart, within `spread` studs, on the ground there (a trench line under fire)
 function Artillery.devShells(key: string, at: Vector3)
