@@ -731,7 +731,7 @@ end
 -- Normal: `side`'s build list at its front (Rules/BotBuild; Config/Bots.Build): the lay jobs, each matched to its
 -- piece once laid (open while it wants swings; an unlaid one while the bots' caps allow it and it isn't waiting), and
 -- the own pieces near the front wanting swings
--- (the bots' guns in one table, the module is at Luau's limit of locals: `asset` each gun piece's Config/Artillery.Guns
+-- (the bots' guns in one table: `asset` each gun piece's Config/Artillery.Guns
 -- key, `spacing` its own)
 local Guns = {
 	list = { "FieldGun", "Howitzer" },
