@@ -798,7 +798,10 @@ function Guns.spots(
 			return false
 		end
 		local off = target - at
-		return ArtRules.layFor(gun, Vector3.new(off.X, 0, off.Z).Magnitude, off.Y) ~= nil
+		-- (within its reach on this map: Config/Artillery.Reach)
+		local d = Vector3.new(off.X, 0, off.Z).Magnitude
+		return d <= ArtRules.reachCap(ArtRules.sectorSpan(Map.sectors), ArtCfg.Reach)
+			and ArtRules.layFor(gun, d, off.Y) ~= nil
 	end)
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)
