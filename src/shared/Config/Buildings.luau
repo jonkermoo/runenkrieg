@@ -22,7 +22,8 @@ export type Template = {
 	wallThickness: number?, -- defaults to WallThickness
 	quoins: boolean?, -- stone corner blocks
 	doors: { { center: number, w: number?, h: number? } }?, -- front doors (default: one centered, Metrics size)
-	backDoor: (boolean | { { center: number, w: number?, h: number? } })?, -- a door in the back wall too (story 0), or a list
+	backDoor: (boolean | { { center: number, w: number?, h: number? } })?,
+	upperDoors: { { center: number, w: number?, h: number? } }?, -- doors in the front wall's story 1 (onto a loggia) -- a door in the back wall too (story 0), or a list
 	leftDoor: boolean?, -- and in the -X / +X side walls (a porch turned to face its gable forward)
 	rightDoor: boolean?,
 	upperDoor: string?, -- "left" / "right": a door on that gable's first floor (its outside stair: VillageBuild's steps)
@@ -745,6 +746,8 @@ local Buildings = {
 					gableChimney = -1,
 					doors = { { center = -7.2 }, { center = 0, w = 6, h = 8 }, { center = 7.2 } },
 					backDoor = { { center = 0, w = 6, h = 8 } },
+					-- out onto the loggia from the upper floor (its stairs inside; user 2026-11-02)
+					upperDoors = { { center = -7.2 }, { center = 7.2 } },
 				},
 				{
 					name = "Dovecote",

@@ -82,14 +82,45 @@ function Audit.run(mapName: string, deps: any): string
 					end
 				end
 			end
+			-- (a portico's or loggia's paving counts as ground to walk out onto: src/dev/Buildings Geometry's arcades)
+			local paving = {}
+			for _, p in b:GetDescendants() do
+				if p:IsA("BasePart") and p.Name == "Paving" then
+					table.insert(paving, p)
+				end
+			end
+			local mine = RaycastParams.new()
+			mine.FilterType = Enum.RaycastFilterType.Include
+			mine.FilterDescendantsInstances = paving
 			for _, d in b:GetDescendants() do
-				if d:IsA("BasePart") and d.Name == "Doorstep" then
+				-- (an upper door onto its loggia's paving is reached from inside: not walked out from)
+				local upper = d:IsA("BasePart")
+					and d.Name == "Doorstep"
+					and ((d.Parent and d.Parent:GetAttribute("Story")) or 0) >= 1
+				local onto = upper
+					and #paving > 0
+					and workspace:Raycast(
+						d.Position + d.CFrame.LookVector * (d.Size.Z / 2 + 1) + Vector3.new(0, 1, 0),
+						Vector3.new(0, -(1 + B.Steps.rise + A.slack), 0),
+						mine
+					)
+				if d:IsA("BasePart") and d.Name == "Doorstep" and not onto then
 					doors += 1
 					local look = d.CFrame.LookVector
 					local y = d.Position.Y + d.Size.Y / 2
 					for k = 1, math.ceil(A.walkOut / 0.7) do
 						local p = d.Position + look * (d.Size.Z / 2 + k * 0.7)
 						local h = ground(p.X, p.Z, y) or -math.huge
+						-- (or its paving under foot: a loggia's before an upper door)
+						local own = #paving > 0
+							and workspace:Raycast(
+								Vector3.new(p.X, y + 1, p.Z),
+								Vector3.new(0, -(1 + B.Steps.rise + A.slack), 0),
+								mine
+							)
+						if own then
+							h = math.max(h, own.Position.Y)
+						end
 						for _, s in steps do
 							local lp = s.CFrame:PointToObjectSpace(Vector3.new(p.X, s.Position.Y, p.Z))
 							if math.abs(lp.X) <= s.Size.X / 2 and math.abs(lp.Z) <= s.Size.Z / 2 + 0.05 then

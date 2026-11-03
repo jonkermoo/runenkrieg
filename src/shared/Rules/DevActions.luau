@@ -24,6 +24,7 @@ local PLAIN = table.freeze({
 	RespawnAll = true,
 	FrontTake = true,
 	FrontStart = true,
+	RebuildMaps = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
@@ -66,6 +67,8 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return value == cfg.Admin.Random or kitOf(cfg, value) ~= nil
 	elseif action == "Mode" then
 		return defs ~= nil and type(value) == "string" and defs.modes[value] ~= nil
+	elseif action == "Map" then
+		return defs ~= nil and defs.maps ~= nil and type(value) == "string" and table.find(defs.maps, value) ~= nil
 	elseif action == "Class" then
 		return defs ~= nil and type(value) == "string" and (value == cfg.Admin.Normal or defs.classes[value] ~= nil)
 	elseif action == "MatchTime" then

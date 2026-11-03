@@ -40,13 +40,15 @@ local TeamCfg = require(Shared.Config.Teams)
 local ModeRules = require(Shared.Rules.Modes)
 local W = require(Shared.Config.Weapons)
 local Map1 = require(Shared.Config.Maps.Map1)
+local LiveMap = require(Shared.LiveMap)
 local Rules = require(Shared.Rules.DevTeleports)
 local Actions = require(Shared.Rules.DevActions)
 local Net = require(Shared.Net)
 
 local DevTools = {}
 
-local DEFS = { modes = ModeCfg.Defs, classes = ClassCfg.Defs } -- (the "Mode" and "Class" values, Rules/DevActions)
+-- (the "Mode", "Class" and "Map" values, Rules/DevActions)
+local DEFS = { modes = ModeCfg.Defs, classes = ClassCfg.Defs, maps = require(Shared.LiveMap).frontline() }
 -- the admin settings a player loses with the tools (the server's mode closing them)
 local REVOKED = {
 	Cfg.Admin.GodAttribute,
@@ -69,8 +71,54 @@ local function groundY(x: number, z: number, ignore: { Instance }): number
 	return if hit then hit.Position.Y else 0
 end
 
+-- every frontline map besides Map 1, for their sectors' teleports (Rules/DevTeleports)
+local function others(): { { key: string, map: any } }
+	local out = {}
+	for _, k in LiveMap.frontline() do
+		if k ~= "Map1" then
+			table.insert(out, { key = k, map = LiveMap.get(k) })
+		end
+	end
+	return out
+end
+
+-- Admin "Rebuild maps" (DEV place, src/dev/Greybox): Map 1 again (that wipes all terrain), then every other map that
+-- stood beside it (`offMap`), the world saved anew for the match reset and a fresh match. Slow: tens of seconds.
+local rebuilding = false
+local function rebuildMaps()
+	local Dev = game:GetService("ServerStorage"):FindFirstChild("Dev")
+	local Greybox = Dev and Dev:FindFirstChild("Greybox")
+	if rebuilding or not Greybox then
+		return
+	end
+	rebuilding = true
+	task.spawn(function()
+		local ok, err = pcall(function()
+			local builder = require((Greybox :: Instance):Clone() :: ModuleScript) :: any
+			-- (the maps beside Map 1 that stand now: Map 1's build wipes their terrain, so each is built again after it)
+			local again = {}
+			for _, m in workspace:GetChildren() do
+				local cfg = Shared.Config.Maps:FindFirstChild(m.Name)
+				if m.Name ~= "Map1" and cfg and (require(cfg :: ModuleScript) :: any).offMap then
+					table.insert(again, m.Name)
+				end
+			end
+			print(`[DevTools] {builder.build("Map1")}`)
+			for _, k in again do
+				print(`[DevTools] {builder.build(k)}`)
+			end
+			DevWorld.save()
+			Frontline.restart()
+		end)
+		if not ok then
+			warn(`[DevTools] rebuilding the maps failed: {err}`)
+		end
+		rebuilding = false
+	end)
+end
+
 function DevTools.teleport(player: Player, id: string): boolean
-	local dest = Rules.find(Map1, Cfg, id)
+	local dest = Rules.find(Map1, Cfg, id, others())
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not dest or not character or not root then
@@ -179,6 +227,10 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		end
 	elseif action == "FrontStart" then
 		Frontline.begin()
+	elseif action == "Map" then
+		Frontline.switchMap(value)
+	elseif action == "RebuildMaps" then
+		rebuildMaps()
 	elseif action == "FrontTake" then
 		Frontline.take(player)
 	elseif action == "Sectors" then
