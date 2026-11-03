@@ -583,4 +583,9 @@ function Trees.beam(origin: Vector3, landed: Vector3, stage: number)
 	end
 end
 
+-- The standing trees whose square lies within `reach` of the flat line `a` to `b` (some farther: the caller measures),
+-- and whether a tree still stands (src/server/Bots/Fell)
+Trees.near = treesNear
+Trees.standing = standing
+
 return Trees

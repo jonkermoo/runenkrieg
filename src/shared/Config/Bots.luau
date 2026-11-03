@@ -335,6 +335,13 @@ local Bots = {
 			across = { 0, -60, 60, -120, 120, -180, 180 },
 			spawnGap = 40,
 		},
+		-- Trees in the way (Rules/BotBuild.treesInWay, src/server/Bots/Fell; user 2026-11-03: the forest either side of
+		-- the middle stood untouched): Engineers fell the standing trees within `clear` studs of the side's trench lines
+		-- (planned or dug runs and squares, its saps' runs), its MG nests' and guns' spots, and a gun's firing line out
+		-- to `fireLine` studs ahead of it, the nearest the work first, `open` at once. One tree per Engineer at most every
+		-- `every` s, `perSide` a side a match; never a tree in one of the map's buildings. Each stands `stand` studs
+		-- from the trunk to chop it.
+		Trees = { clear = 8, fireLine = 60, every = 20, perSide = 40, open = 3, stand = 5 },
 	},
 
 	-- Normal: sapping forward (Rules/BotSap; user 2026-11-02: "AI ... should [build trenches to push forward] if they are

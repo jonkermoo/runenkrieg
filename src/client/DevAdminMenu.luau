@@ -361,6 +361,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotDig.attribute):Connect(showBotDig)
 	showBotDig()
+	-- the bots' tree felling (src/server/Bots/Fell): each side's trees felled and the one being chopped
+	for _, side in A.Sides do
+		order += 1
+		local label = DevPanel.heading(p.panel, `Trees {side}`, order)
+		local key = A.BotTrees.attribute .. side
+		local function show()
+			local text = workspace:GetAttribute(key)
+			label.Text = if type(text) == "string" then `Trees {text}` else `Trees {side}: none yet`
+		end
+		workspace:GetAttributeChangedSignal(key):Connect(show)
+		show()
+	end
 	local shells: { [string]: TextButton } = {}
 	for _, side in A.Sides do
 		local label = `Shell {side}'s trenches ({A.Shell.count} x {A.Shell.kg} kg)`

@@ -126,7 +126,7 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boole
 		}
 		local d = flat(Vector3.new(list[k].x, 0, list[k].z) - root).Magnitude
 		local fits = engineer or Kinds.small[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
-		taken[k] = held[r] == true or not fits
+		taken[k] = held[r] == true or not fits or (j.key == "Tree" and not Tactics.fell.ready(b.id))
 	end
 	-- a gun of its side out of service (Rules/BotCrew.repairOrder): the nearest anywhere first, fixed before it is manned
 	local notFix: { [number]: boolean } = {}
@@ -559,7 +559,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	local swingAt = if tear then tear.at elseif r.model and r.at then r.at :: Vector3 else nil
 	local spot = swingAt or Routes.ground(job.x, job.z)
 	-- (it lays a piece from behind it, its own side; it swings at one from where it is)
-	local reach = if swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
+	local reach = if job.key == "Tree" then BD.Trees.stand elseif swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
 	if flat(spot - root.Position).Magnitude > reach then
 		humanoid.WalkSpeed = M.WalkSpeed
 		setGoal(b, if swingAt then spot else spot - f * BD.stand, now)
@@ -634,7 +634,9 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		return true
 	end
 	if now >= (act.swingAt or 0) then
-		local reason = Build.workAs(m, r.model :: Model, "Build")
+		local reason = if job.key == "Tree"
+			then Tactics.fell.chop(m, b.id, b.side :: string, r)
+			else Build.workAs(m, r.model :: Model, "Build")
 		if reason == nil and job.key == "Foxhole" then
 			-- one swing digs it: into it (pinned: its cover; holding: its post, facing the enemy)
 			stats.swings += 1
