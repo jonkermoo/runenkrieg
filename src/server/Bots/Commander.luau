@@ -942,7 +942,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 		sbs.front, sbs.held, sbs.holds = front, fromEnd, spots ~= nil
 	end
-	local works, roomOf = Tactics.dug.works(kit)
+	local works, roomOf = Tactics.dug.works(kit, BD.builder)
 	-- what lost HP lately (Rules/BotBuild.mayRepair): no swings at it until BD.repairWait after
 	local hurt = sbs.hurt
 	local present: { [Model]: boolean } = {}

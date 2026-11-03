@@ -291,6 +291,17 @@ function Build.tooSoon(now: number, last: number?, length: number, slack: number
 	return last ~= nil and now - last < length * slack
 end
 
+-- when a held swing's next hit is due (a bot's swings on a player's cadence, Config/Build.Swings): the first (`due`
+-- nil) at the swing's strike from `now`; then one loop after the last was due, so a hit landing late on a think tick
+-- doesn't push the rest back; one more than a loop late starts a loop from `now`
+function Build.nextSwing(swing: { strike: number, length: number }, due: number?, now: number): number
+	if due == nil then
+		return now + swing.strike
+	end
+	local after = due + swing.length
+	return if after > now then after else now + swing.length
+end
+
 -- Trenches v2 (Config/Build.Trench, src/server/Trenches). A trench is made of blocks along straight runs; inside a block
 -- `u` runs along it from end A (0) to end B (`length`) and `v` across it, from its centre line.
 

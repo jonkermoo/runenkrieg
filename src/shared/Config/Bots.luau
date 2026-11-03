@@ -293,10 +293,12 @@ local Bots = {
 	-- builds only when nobody has shot at it or hurt it for `calm` s and it sees no enemy; it stands `stand` studs from
 	-- a piece's spot to lay it, gives a job up after `seconds`; a refused spot moves `nudge` studs across (a trench
 	-- run's far end swings aside: Rules/BotTrenches.swing; up to `tries` times), then waits `retry` s. A piece of the job's key within `match` studs of
-	-- its spot is the job's.
+	-- its spot is the job's. The list's swings left are reckoned for a `builder` (a Config/Classes key: its Build swing
+	-- share, Config/Build.Power).
 	-- Caps (user: "A third, half the guns"): the bots lay at most `caps.pieces` of the team's Config/Build.PerTeam and
 	-- `caps.<key>` of a gun's.
 	Build = {
+		builder = "Engineer",
 		calm = 3,
 		take = 90,
 		-- an Engineer takes a job this far off (user 2026-11-03 play test: "even when i give free engineers, the bots arent
