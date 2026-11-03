@@ -767,16 +767,35 @@ return {
 		local _, yTop = B.nestSack(1.6, n.flat, true)
 		assert(near(yTop, h * 1.5), "a top sack rests on the bottom sacks")
 	end,
+	["built things: nothing looks finished before 100 HP, a stage at each quarter (user 2026-11-03)"] = function()
+		assert(B.builtStage(24, 100, 4, false) == 0 and B.builtStage(25, 100, 4, false) == 1)
+		assert(B.builtStage(99, 100, 4, false) == 3 and B.builtStage(100, 100, 4, false) == 4)
+		assert(B.builtStage(99, 100, 4, true) == 4, "stood: a scratch takes no stage off")
+		local S = C.Sandbags.hp
+		assert(
+			B.pileShown(S.swing * 2, S.max, S.swing, 3, false) == 2 and B.pileShown(99, S.max, S.swing, 3, false) == 2
+		)
+		assert(B.pileShown(S.max, S.max, S.swing, 3, false) == 3, "every bag only at full")
+		assert(B.pileShown(S.max - 1, S.max, S.swing, 3, true) == 3, "stood: a scratch takes no bag")
+		assert(B.wireLook(99, 100, C.Wire, false) == "Bundle" and B.wireLook(100, 100, C.Wire, false) == "Standing")
+		assert(B.wireLook(60, 100, C.Wire, true) == "Standing", "stood: standing down to Wire.stand")
+		assert(B.bridgeStage(60, 100, false) == 1 and B.bridgeStage(100, 100, false) == 2)
+		assert(B.bridgeStage(60, 100, true) == 2, "whole once: every board while over half")
+	end,
 	["an MG nest builds in 4 stages like a barrier, then wears by its gun's stages"] = function()
 		local n = C.Nest
 		local bags, q = B.nestShown(0, n)
 		assert(bags == "none" and q == 0, "laid: all sacks flat, no gun yet")
 		bags, q = B.nestShown(n.hp.swing, n)
+		assert(bags == "none" and q == 0, "a swing in: still laid (stages at 25, 50, 75, 100)")
+		bags, q = B.nestShown(25, n)
 		assert(bags == "bottom" and q == 1, "stage 1: the bottom bags, the mount on its bag")
 		bags, q = B.nestShown(50, n)
-		assert(bags == "all" and q == 2, "stage 2: the ring whole, the gun on the mount")
+		assert(type(bags) == "number" and q == 2, "stage 2: more of the ring, the gun on the mount")
 		bags, q = B.nestShown(75, n)
-		assert(bags == "all" and q == 3, "stage 3: the shield")
+		assert(type(bags) == "number" and q == 3, "stage 3: the shield")
+		bags, q = B.nestShown(99, n)
+		assert(bags ~= "all" and q < n.quarters, "nothing finished before 100 (user 2026-11-03)")
 		bags, q = B.nestShown(n.hp.max, n)
 		assert(bags == "all" and q == n.quarters, "stage 4: the real gun")
 		assert(#n.build == 4 and #n.wear == 4)
@@ -828,9 +847,11 @@ return {
 		assert(B.ringShown(100, 100, n) == "all")
 		local last = 0
 		for hp = 0, 100, 5 do
-			local shown = B.ringShown(hp, 100, n) :: string
-			local rank = ({ none = 0, bottom = 1, all = 2 })[shown]
+			local shown = B.ringShown(hp, 100, n)
+			-- (a share of the bags standing ranks between the bottom bags and all of them)
+			local rank = if type(shown) == "number" then 1 + shown else ({ none = 0, bottom = 1, all = 2 })[shown]
 			assert(rank and rank >= last, `{hp}: {shown}`)
+			assert(hp == 100 or shown ~= "all", `{hp}: the full ring only at 100 (user 2026-11-03)`)
 			last = rank
 		end
 		assert(B.ringShown(100, 100, n, 0) == "all", "stood and whole")
@@ -979,7 +1000,8 @@ return {
 			return `{s},{f}`
 		end
 		assert(shown(0, false) == "0,0", "laid: its timbers")
-		assert(shown(10, false) == "1,0" and shown(50, false) == "2,0" and shown(90, false) == "4,0", "built by HP")
+		assert(shown(10, false) == "0,0" and shown(25, false) == "1,0", "a stage at each quarter (user 2026-11-03)")
+		assert(shown(50, false) == "2,0" and shown(90, false) == "3,0" and shown(100, false) == "4,0", "built by HP")
 		assert(shown(100, true) == "4,0", "whole")
 		assert(shown(d.fillFrom, true) == "4,0" and shown(90, true) == "4,0", "a hit or two leaves it clear")
 		local _, half = B.dugoutShown(d.fillFrom / 2, 100, true, d)

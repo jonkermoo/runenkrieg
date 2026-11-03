@@ -504,7 +504,7 @@ local Build = {
 	-- it) and a building site in the ring (Scaffold mg08; user 2026-10-28: "not all the parts have to be present before
 	-- its built ... they can just appear as its being built. just have some signs of "construction""); a Build swing
 	-- of its team adds `hp.swing`, a Destroy swing takes `hp.destroy`, weapons take Structures as a sandbag pile's; its
-	-- stage by HP as a Hesco barrier's (Rules.hescoStage: 25, 50, 75, 100 for stages 1-4), each stage's bags filled
+	-- stage by HP (Rules.builtStage: at 25, 50, 75, 100 for stages 1-4), each stage's bags filled
 	-- (`build[i].bags`: "bottom" the mount bag and the piles' bottom bags, "all") and gun quarters set up (`gun`, of
 	-- `quarters`), the real gun standing at stage 4. Once it has stood it is the gun's (as a built field gun): its HP is
 	-- the gun's own, worn by weapons, blasts at the bags and Destroy swings, fixed by Build swings (Config/Artillery
@@ -525,9 +525,12 @@ local Build = {
 		flat = 0.14,
 		quarters = 4,
 		build = {
+			-- (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not
+			-- early": at 25, 50, 75, 100 HP, Rules.builtStage; the ring's bags filling in across them, a share of them
+			-- standing, the top bags last, and the full ring only at 100)
 			{ bags = "bottom", gun = 1 }, -- (the mount on its bag)
-			{ bags = "all", gun = 2 }, -- (the gun on it)
-			{ bags = "all", gun = 3 }, -- (the ammo can)
+			{ bags = 0.8, gun = 2 }, -- (the gun on it)
+			{ bags = 0.9, gun = 3 }, -- (the ammo can)
 			{ bags = "all", gun = 4 }, -- (its belt: the real gun)
 		},
 		wear = { 1, 0.7, 0.45, 0.2 },
@@ -570,7 +573,7 @@ local Build = {
 	-- MG nest's bags (`asset`, its `bags`) on a bigger ring round the gun's pivot (Rules.nestRing: `ring.sides`-sided,
 	-- `ring.bag`-stud sides, `ring.piles` each an end, its bend and its other end, 0 the front point), the back side left
 	-- open as a doorway over the pit's ramp. Not a structure of its own: it goes up and comes down with the gun. Being
-	-- built: by the gun's HP, a stage as a Hesco barrier's (Rules.hescoStage over `build`): first every bag lying as its
+	-- built: by the gun's HP, a stage at each quarter (Rules.builtStage over `build`): first every bag lying as its
 	-- empty sack (`flat` of its height), then "bottom" the piles' bottom bags filled, then "all". Once the gun has stood:
 	-- by its Wreck stage, the share of the ring's bags still standing (`wear[i]`, the top bags first, Rules.nestWearOrder).
 	-- Blasts never carve the ground under it (`ground` studs round its bags; Build.onNest).
@@ -579,7 +582,7 @@ local Build = {
 			asset = "sandbag_pile",
 			bags = { "Bag1", "Bag2", "Bag3" },
 			flat = 0.14,
-			build = { "none", "bottom", "all", "all" },
+			build = { "bottom", 0.8, 0.9, "all" }, -- (25, 50, 75, 100 HP; the full ring only at 100, as the nest's)
 			wear = { 1, 0.7, 0.45, 0.2 },
 			-- 22 sides of 3.6 (~12.65 out, ~27 across over the bags), the two at the back open (~7.1 wide), behind the pit's ramp
 			ring = {
@@ -602,7 +605,7 @@ local Build = {
 		},
 	},
 
-	-- Hesco barriers (src/server/Build, Rules.hescoStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
+	-- Hesco barriers (src/server/Build, Rules.builtStage): only the dirt blocks (user 2026-10-27: "only the dirt in the
 	-- barriers block stuff. meaning stage 1 and 2 barriers will provide little to no protection"): the wire, liner and
 	-- flaps stop nothing, bullets and soldiers pass. On HP like every structure (user 2026-10-27: "all strucuttres use
 	-- HP rule, not how many digs", "stage 1 should always be when its placed ... like a cannon, where if its placed,
@@ -697,7 +700,7 @@ local Build = {
 	-- On HP like every structure: laid at `hp.place` (its timbers lying on the trench floor), a Build swing of its team
 	-- adds `hp.swing` (repairs too), a Destroy swing takes `hp.destroy`, weapons take `soak` of what they take from a
 	-- sandbag pile (Structures above, by how far they are from its slot and room; user: deep in the ground, "heavily
-	-- reduced": a direct rune-mortar shell ~9%). While it is built, its stage by HP (Rules.hescoStage, the meshes of
+	-- reduced": a direct rune-mortar shell ~9%). While it is built, its stage by HP (Rules.builtStage, the meshes of
 	-- `build`[1..stage]; 0: `laid`); once it has stood, all of them, and as it wears it caves in (user: "as the HP goes
 	-- down, it should cave it, forcing players to leave"): under each `cave`% of its HP the next of `falls` shows and its
 	-- heap stands in the room (`heaps`: from, to back along the room as shares of its depth, how high as a share of its

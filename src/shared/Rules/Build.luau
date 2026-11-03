@@ -142,6 +142,15 @@ function Build.pileBags(hp: number, swing: number, bags: number): number
 	return math.clamp(math.ceil(hp / swing - 1e-9), 0, bags)
 end
 
+-- How many of a sandbag pile's `bags` bags stand at `hp` of `max`: while it is first built (`stood` false), a bag at
+-- each whole share of its HP, so the last only at full (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not early"); once it has stood, Build.pileBags
+function Build.pileShown(hp: number, max: number, swing: number, bags: number, stood: boolean): number
+	if stood then
+		return Build.pileBags(hp, swing, bags)
+	end
+	return Build.stageOf(hp, max, bags)
+end
+
 -- The stage of `stages` a Hesco barrier stands at with `hp` of `max` (Config/Build.Hesco.hp): 0 at no HP (just laid,
 -- lying flat), else its share of them rounded up, so the empty perimeter (stage 1) stands from its first HP on
 function Build.hescoStage(hp: number, max: number, stages: number): number
@@ -149,6 +158,16 @@ function Build.hescoStage(hp: number, max: number, stages: number): number
 		return 0
 	end
 	return math.clamp(math.ceil(hp / max * stages - 1e-9), 1, stages)
+end
+
+-- The stage of `stages` a staged structure stands at with `hp` of `max`: while it is first built (`stood` false), a
+-- stage at each whole share of its HP (25, 50, 75, 100 for four), the last only at full (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not early"); once it has stood, as
+-- it wears, Build.hescoStage (a scratch takes none off)
+function Build.builtStage(hp: number, max: number, stages: number, stood: boolean): number
+	if stood then
+		return Build.hescoStage(hp, max, stages)
+	end
+	return Build.stageOf(hp, max, stages)
 end
 
 -- Whether a point `lx`, `lz` in a piece's own frame (its centre, along its width and depth) is on its footprint of
@@ -602,7 +621,11 @@ end
 -- moment it is laid at 0 HP; 2 every board, while it keeps over half (user 2026-10-27: "stage 2 is 50+ where the bridge
 -- has just as many planks. stage 1 will be less planks but still usable"). (At 0 after a hit or a Destroy swing it is
 -- gone: src/server/Build.)
-function Build.bridgeStage(hp: number, max: number): number
+-- While it is first built (`whole` false: never at full yet) every board only at full (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not early").
+function Build.bridgeStage(hp: number, max: number, whole: boolean?): number
+	if whole == false then
+		return if hp >= max - 1e-9 then 2 else 1
+	end
 	return if hp > max / 2 + 1e-9 then 2 else 1
 end
 
@@ -685,13 +708,13 @@ function Build.dugoutSpot(s: DugoutSpot, d: any, width: number): string?
 end
 
 -- Which of a dugout's meshes show at `hp` of `max` (Config/Build.Dugout `d`), and how far it has filled in: while it
--- is built (`built` false: it has never stood) its build stage by HP (Build.hescoStage over `d.build`; 0: only
+-- is built (`built` false: it has never stood) its build stage by HP (Build.builtStage over `d.build`; 0: only
 -- `d.laid`) and nothing filled; once it has stood, every build stage and, under `d.fillFrom`% of its HP, filled by
 -- what it has lost since (0..1 at 0 HP, from its room's floor up to its doorframe's lintel; user 2026-11-02: "can we
 -- make dugouts fill completely all the way to the door frame? also can we fill it with terrain instead of blocks?")
 function Build.dugoutShown(hp: number, max: number, built: boolean, d: any): (number, number)
 	if not built then
-		return Build.hescoStage(hp, max, #d.build), 0
+		return Build.builtStage(hp, max, #d.build, false), 0
 	end
 	return #d.build, if max > 0 then math.clamp(1 - hp / max * 100 / d.fillFrom, 0, 1) else 1
 end
@@ -997,8 +1020,10 @@ end
 -- slows and hurts) from there up
 export type WireLook = "Bundle" | "Standing"
 
-function Build.wireLook(hp: number, maxHP: number, w: any): WireLook
-	return if hp >= maxHP * w.stand - 1e-9 then "Standing" else "Bundle"
+-- While it is first built (`stood` false) it stands only at full (user 2026-11-03: "make gun stages appear by 25. sand bags should all be set up at 100 as well, not early").
+function Build.wireLook(hp: number, maxHP: number, w: any, stood: boolean?): WireLook
+	local at = if stood == false then maxHP else maxHP * w.stand
+	return if hp >= at - 1e-9 then "Standing" else "Bundle"
 end
 
 -- How far a shaken wire is pushed `t` seconds into a shake (Config/Build.Wire: `shake` long, `wobble` studs, `rate` Hz):
@@ -1127,28 +1152,29 @@ function Build.nestFit(n: any, traverse: number, crew: number, muzzle: number): 
 end
 
 -- What an MG nest shows (Config/Build.Nest `n`): the bags filled ("none", "bottom": the mount bag and the piles'
--- bottom bags, "all") and how many of its gun's `quarters` are set up. Being built: by its `hp`, a stage as a Hesco
--- barrier's (Build.hescoStage). Once it has stood: by its gun's Wreck stage `wreck` (Config/Artillery.Wreck; 0 whole),
+-- bottom bags, "all", or a share of the ring's bags, the top ones last) and how many of its gun's `quarters` are set up.
+-- Being built: by its `hp`, a stage at each whole share (Build.builtStage). Once it has stood: by its gun's Wreck stage `wreck` (Config/Artillery.Wreck; 0 whole),
 -- the gun standing.
 function Build.nestShown(hp: number, n: any, wreck: number?): (string | number, number)
 	if wreck then
 		return if wreck > 0 then n.wear[wreck] else "all", n.quarters
 	end
-	local stage = Build.hescoStage(hp, n.hp.max, #n.build)
+	local stage = Build.builtStage(hp, n.hp.max, #n.build, false)
 	if stage == 0 then
 		return "none", 0
 	end
 	return n.build[stage].bags, n.build[stage].gun
 end
 
--- What a gun's sandbag ring shows (Config/Build.GunRing `n`): being built, by its gun's `hp` of `max`, a stage as a
--- Hesco barrier's (Build.hescoStage) over `n.build` ("none" every bag its empty sack, "bottom", "all"); once the gun
--- has stood, by its Wreck stage `wreck` (0 whole): "all", or the share of its bags still standing (`n.wear`)
+-- What a gun's sandbag ring shows (Config/Build.GunRing `n`): being built, by its gun's `hp` of `max`, a stage at each
+-- whole share (Build.builtStage) over `n.build` ("none" every bag its empty sack, "bottom", a share of the bags,
+-- "all"); once the gun has stood, by its Wreck stage `wreck` (0 whole): "all", or the share of its bags still standing
+-- (`n.wear`)
 function Build.ringShown(hp: number, max: number, n: any, wreck: number?): string | number
 	if wreck then
 		return if wreck > 0 then n.wear[wreck] else "all"
 	end
-	local stage = Build.hescoStage(hp, max, #n.build)
+	local stage = Build.builtStage(hp, max, #n.build, false)
 	return if stage == 0 then "none" else n.build[stage]
 end
 
