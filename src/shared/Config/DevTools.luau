@@ -282,6 +282,9 @@ local DevTools = {
 		-- - BotTrees: each side's trees felled in the way of its works and the one being chopped (Config/Bots.Build.Trees,
 		--   src/server/Bots/Fell), on Workspace as `attribute` .. side, once a commander tick
 		BotTrees = { attribute = "DevBotTrees" },
+		-- - Stumps: the felled trees' stumps on the map, those a shovel cleared, and the last one's swings so far
+		--   (Config/Damage.Trees.Chop.stumpSwings, src/server/Trees), on Workspace
+		Stumps = { attribute = "DevStumps" },
 		-- - FreeEngineer / FreeGrenadier: bots pick Engineer (gun duty, dugout duty) / Grenadier (the push's grenade,
 		--   bombing out dugouts) without the points, on Workspace while on
 		FreeEngineerAttribute = "DevFreeEngineer",

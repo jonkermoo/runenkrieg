@@ -2,8 +2,9 @@
 -- Normal: Engineers fell the trees in the way of their side's works (Config/Bots.Build.Trees, Rules/BotBuild.treesInWay;
 -- user 2026-11-03), kept out of src/server/Bots: each commander tick the side's trench lines, nest and gun spots and the
 -- guns' firing lines are looked along for standing trees, and the nearest few go on its build list as "Tree" jobs; a
--- bot on one swings its shovel's Destroy at the trunk (src/server/Build, Trees.chop) until it falls. What a felled tree
--- changes is put back at the next match (src/server/DevWorld: the tree by its copy, the ground by DevWorld.touch).
+-- bot on one swings its shovel's Destroy at the trunk (src/server/Build, Trees.chop) until it falls, then at its stump
+-- until that is cleared too (Config/Damage.Trees.Chop.stumpSwings). What a felled tree changes is put back at the next
+-- match (src/server/DevWorld: the tree by its copy, the ground by DevWorld.touch).
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -33,8 +34,9 @@ type Side = {
 }
 local sides: { [string]: Side } = {}
 local lastFell: { [number]: number } = {} -- each bot's last tree felled (os.clock)
+local stumpOf: { [BuildJob]: BasePart } = {} -- a tree job whose tree is down: its stump, still to clear
 -- the report's counters since its last line
-local counts = { listed = 0, swings = 0, felled = 0 }
+local counts = { listed = 0, swings = 0, felled = 0, stumps = 0 }
 
 local function sideOf(side: string): Side
 	local s = sides[side]
@@ -113,11 +115,21 @@ function Fell.list(side: string, sb: SideBuild?)
 		keep[tree] = rr
 		table.insert(sb.open, rr)
 	end
-	-- (the one being chopped stays on, nearest or not)
+	-- (a felled tree's stump still to clear stays on, and the one being chopped, nearest or not)
+	for tree, r in s.jobs do
+		local st = stumpOf[r]
+		if st and st.Parent and not keep[tree] then
+			r.open = true
+			keep[tree] = r
+			table.insert(sb.open, r)
+		elseif st and not st.Parent then
+			stumpOf[r] = nil
+		end
+	end
 	local c = s.current
 	if c and not keep[c.tree] then
 		local r = s.jobs[c.tree]
-		if r and Trees.standing(c.tree) then
+		if r and (Trees.standing(c.tree) or stumpOf[r]) then
 			r.open = true
 			keep[c.tree] = r
 			table.insert(sb.open, r)
@@ -134,10 +146,30 @@ function Fell.ready(id: number): boolean
 	return BotBuild.mayFell(0, if last then os.clock() - last else nil, T)
 end
 
--- One Destroy swing by bot `model` (its BotId `id`, its side `side`) at tree job `r`'s trunk, as Build.workAs: nil when
--- it landed. A tree that falls closes the job and counts to its side.
+-- One Destroy swing by bot `model` (its BotId `id`, its side `side`) at tree job `r`'s trunk, then its stump, as
+-- Build.workAs: nil when it landed. A tree that falls counts to its side; the job closes once its stump is cleared too.
 function Fell.chop(model: Model, id: number, side: string, r: BuildJob): string?
 	local tree = r.model
+	local st = stumpOf[r]
+	if st then
+		if not st.Parent then
+			stumpOf[r] = nil
+			r.open = false
+			return "Gone"
+		end
+		local reason = Build.workAs(model, st, "Destroy")
+		if reason ~= nil then
+			return reason
+		end
+		counts.swings += 1
+		if not st.Parent then
+			stumpOf[r] = nil
+			sideOf(side).current = nil
+			counts.stumps += 1
+			r.open = false
+		end
+		return nil
+	end
 	local trunk = tree and tree:FindFirstChild("Trunk")
 	if not tree or not trunk or not Trees.standing(tree) then
 		r.open = false
@@ -156,10 +188,16 @@ function Fell.chop(model: Model, id: number, side: string, r: BuildJob): string?
 		local reach = math.max(size.X, size.Y, size.Z) + 8
 		DevWorld.touch(p - Vector3.one * reach, p + Vector3.one * reach)
 		s.felled += 1
-		s.current = nil
 		counts.felled += 1
 		lastFell[id] = os.clock()
-		r.open = false
+		local stump = tree and Trees.stumpOf(tree)
+		if stump then
+			stumpOf[r] = stump
+			s.current = { tree = tree, name = `{tree.Name} stump`, at = r.at :: Vector3, by = model.Name }
+		else
+			s.current = nil
+			r.open = false
+		end
 	end
 	return nil
 end
@@ -182,13 +220,13 @@ function Fell.readout()
 	end
 end
 
--- the report line's counters since the last (then cleared): tree jobs put on the lists, swings at trunks, trees felled,
--- each side's this match
+-- the report line's counters since the last (then cleared): tree jobs put on the lists, swings at trunks and stumps,
+-- trees felled, stumps cleared, each side's felled this match
 function Fell.report(): string
 	local w, e = sideOf("West"), sideOf("East")
-	local text =
-		`trees {counts.listed} listed, {counts.swings} chops, {counts.felled} felled (W {w.felled}, E {e.felled})`
-	counts.listed, counts.swings, counts.felled = 0, 0, 0
+	local text = `trees {counts.listed} listed, {counts.swings} chops, {counts.felled} felled, {counts.stumps} stumps `
+		.. `cleared (W {w.felled}, E {e.felled})`
+	counts.listed, counts.swings, counts.felled, counts.stumps = 0, 0, 0, 0
 	return text
 end
 
@@ -196,6 +234,7 @@ end
 function Fell.clear()
 	table.clear(sides)
 	table.clear(lastFell)
+	table.clear(stumpOf)
 end
 
 return Fell

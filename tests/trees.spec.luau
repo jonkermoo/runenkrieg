@@ -25,6 +25,19 @@ return {
 			assert(D.Weapons[class], "a weapon class Config/Damage knows: " .. class)
 		end
 	end,
+	["a stump clears in fewer shovel swings than its tree falls in"] = function()
+		local C = T.Chop
+		assert(C.stumpSwings >= 1 and C.stumpSwings < C.swings)
+		local n, cleared = 0, false
+		local swings = 0
+		while not cleared do
+			n, cleared = Trees.stumpChop(n, C.stumpSwings)
+			swings += 1
+		end
+		assert(swings == C.stumpSwings and n == C.stumpSwings)
+		local _, one = Trees.stumpChop(0, 0)
+		assert(one, "at least one swing")
+	end,
 	["HP runs down to 0 and only a real hit fells"] = function()
 		local left, felled = Trees.after(15, 10)
 		assert(left == 5 and not felled)

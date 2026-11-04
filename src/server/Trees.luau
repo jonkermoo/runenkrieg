@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Assets = require(Shared.Config.Assets)
 local Cfg = require(Shared.Config.Damage)
+local DevCfg = require(Shared.Config.DevTools)
 local TreeCfg = require(Shared.Config.TreeSway)
 local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Trees)
@@ -159,6 +160,18 @@ local function groundAt(base: Vector3): number
 end
 
 local stumps: { BasePart } = {}
+local stumpOf: { [Model]: BasePart } = setmetatable({}, { __mode = "k" }) :: any
+-- the admin panel's stump readout (Config/DevTools.Admin.Stumps): stumps on the map, cleared, the last one's swings
+local cleared = 0
+
+local function showStumps(last: number?)
+	local n = 0
+	for _, p in stumps do
+		n += if p.Parent then 1 else 0
+	end
+	local swings = if last then ` · last {last}/{T.Chop.stumpSwings} swings` else ""
+	workspace:SetAttribute(DevCfg.Admin.Stumps.attribute, `Stumps: {n} on the map · {cleared} cleared{swings}`)
+end
 
 -- from under the ground (the sunk base, or deeper where a crater took the ground away) up to `Stump.height` over it
 local function stump(tree: Model, trunk: BasePart, base: Vector3)
@@ -176,7 +189,10 @@ local function stump(tree: Model, trunk: BasePart, base: Vector3)
 	p.Material = Enum.Material.SmoothPlastic
 	p.Color = trunk.Color
 	p.Parent = tree.Parent
+	CollectionService:AddTag(p, TreeCfg.StumpTag)
 	table.insert(stumps, p)
+	stumpOf[tree] = p
+	showStumps()
 end
 
 local function thickness(trunk: BasePart): number
@@ -388,9 +404,42 @@ function Trees.shot(part: Instance?, class: string?, direction: Vector3)
 	end
 end
 
+-- one shovel swing at a stump: Chop.stumpSwings clear it, in a puff of splinters (Net "SectionBroken")
+local function chopStump(p: BasePart)
+	local n, gone = Rules.stumpChop(p:GetAttribute("Chops") :: number? or 0, T.Chop.stumpSwings)
+	p:SetAttribute("Chops", n)
+	if gone then
+		local piece = { cf = p.CFrame, size = p.Size, color = p.Color, t = 0, m = "dust" }
+		Net.event("SectionBroken"):FireAllClients({ piece }, p.Position)
+		local i = table.find(stumps, p)
+		if i then
+			table.remove(stumps, i)
+		end
+		p:Destroy()
+		cleared += 1
+	end
+	showStumps(n)
+end
+
+-- (a stump gone some other way, e.g. DevWorld.undo, leaves the readout too)
+CollectionService:GetInstanceRemovedSignal(TreeCfg.StumpTag):Connect(function()
+	task.defer(showStumps)
+end)
+
+-- a felled tree's stump while it is there (src/server/Bots/Fell clears it after the tree)
+function Trees.stumpOf(tree: Model): BasePart?
+	local p = stumpOf[tree]
+	return if p and p.Parent then p else nil
+end
+
 -- a shovel's Destroy swing at the tree `part` belongs to, from `from` (src/server/Build): a share of its MaxHP
--- (Config/Damage.Trees.Chop.swings fell it), falling away from the swing and leaving a stump. Whether it was a tree.
+-- (Config/Damage.Trees.Chop.swings fell it), falling away from the swing and leaving a stump; at a stump, one of the
+-- Chop.stumpSwings that clear it. Whether it was a tree or a stump.
 function Trees.chop(part: Instance?, from: Vector3): boolean
+	if part and part:IsA("BasePart") and CollectionService:HasTag(part, TreeCfg.StumpTag) then
+		chopStump(part)
+		return true
+	end
 	local tree = treeOf(part)
 	if not tree or not standing(tree) then
 		return false

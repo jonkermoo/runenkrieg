@@ -49,6 +49,12 @@ function Trees.after(hp: number, amount: number): (number, boolean)
 	return left, left <= 0 and amount > 0
 end
 
+-- a stump's shovel swings after one more, and whether that clears it (`swings` of them do)
+function Trees.stumpChop(chops: number, swings: number): (number, boolean)
+	local n = math.max(chops, 0) + 1
+	return n, n >= math.max(swings, 1)
+end
+
 -- The tilt (degrees from upright) at which a felled tree lies on the ground without sinking into it: `samples` are
 -- { x, need } pairs, `x` studs out along the fall from its hinge and `need` the height the trunk must clear there (the
 -- ground's rise over the hinge plus the trunk's half thickness). The steepest need wins; clamped to [minTilt, maxTilt].

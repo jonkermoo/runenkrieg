@@ -789,7 +789,8 @@ local function surveyPlan(player: Player, character: Model, root: BasePart, dt: 
 	drawPlan(player, character, root, a, aim, spans, ok, tooFar, { aKind, aimKind }, dt)
 end
 
--- what a swing goes to: the trench block or piece in reach most toward the cursor, or (Destroy) a tree you point at
+-- what a swing goes to: the trench block or piece in reach most toward the cursor, or (Destroy) a tree or a felled
+-- tree's stump you point at
 local function target(character: Model, root: BasePart): Instance?
 	local f = workspace:FindFirstChild(C.Folder)
 	local look = aimRay().Direction
@@ -822,7 +823,8 @@ local function target(character: Model, root: BasePart): Instance?
 	end
 	if mode == "Destroy" then
 		local hit = aimHit(character, 12)
-		if hit and hit.Instance.Name == "Trunk" and (not best or bestScore < 0.5) then
+		local wood = hit and (hit.Instance.Name == "Trunk" or hit.Instance.Name == "Stump")
+		if hit and wood and (not best or bestScore < 0.5) then
 			return hit.Instance
 		end
 	end
