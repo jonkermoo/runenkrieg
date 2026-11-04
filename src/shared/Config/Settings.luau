@@ -131,7 +131,8 @@ local Settings = {
 		-- dragged by a teammate: break free and stand, once your stand-up time is over (user 2026-10-26; Config/Dragging)
 		Key_DragEscape = { kind = "key", label = "Break free of a drag", default = "Space" },
 		-- held: the map, a dot over each teammate (src/client/ModeHud; user 2026-10-31: "make it holding m") and their
-		-- health when near (src/client/TeamHealth; user 2026-11-03)
+		-- health as a coloured outline (src/client/TeamOutline; user 2026-11-03: "remove the health bar above their head.
+		-- just use the outline status")
 		Key_Map = { kind = "key", label = "Map and teammate health (hold)", default = "M" },
 		Key_Build = { kind = "key", label = "Build mode", default = "B" }, -- the shovel in the hands (Config/Build)
 		Key_BuildTurn = { kind = "key", label = "Turn piece", default = "T" }, -- in build mode
