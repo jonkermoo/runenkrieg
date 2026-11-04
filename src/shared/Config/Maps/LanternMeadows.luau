@@ -40,6 +40,14 @@ end
 for _, q in { { 1220, 74 }, { 1260, 74 }, { 1307, -45 }, { 1335, -34 }, { 1362, -23 }, { 1390, -11 } } do
 	table.insert(lanterns, { kind = "LanternPole", x = q[1], z = CZ + q[2] })
 end
+-- cover by the two new crossings, the same on each bank: a cart by each end of the footbridge (turned about its middle)
+-- and barrels by the old bridge's stumps (mirrored over the river)
+for _, q in { { 1410, 103, 80 }, { 1488, 127, 260 } } do
+	table.insert(lanterns, { kind = "Cart", x = q[1], z = CZ + q[2], yaw = q[3] })
+end
+for _, x in { 1422, 1496 } do
+	table.insert(lanterns, { kind = "Barrels", x = x, z = CZ - 133, yaw = 0 })
+end
 -- and the field barn's haystacks, one either side (S2's cover stays the same both ways)
 for _, x in { 794, 846 } do
 	table.insert(lanterns, { kind = "Haystack", x = x, z = CZ - 136, yaw = 15 })
@@ -186,11 +194,25 @@ local LanternMeadows = {
 			{ x = 1444, z = CZ + 0, width = 30, bedY = -3.6 }, -- the festival ford: wide and shallow, by the landing
 			{ x = 1447, z = CZ + 200, width = 9, bedY = -3.8 }, -- a narrow ford upstream
 			{ x = 1470, z = CZ - 145, width = 8, bedY = -3.8 }, -- stepping stones at the bend
+			-- the old bridge's ford: its span long fallen, the river wadeable under it (user 2026-11-04)
+			{ x = 1458, z = CZ - 114, width = 18, bedY = -3.6 },
+		},
+		-- Crossings built over the river (src/dev/Greybox/Bridges; user 2026-11-04 approved the spots), ~115 either side
+		-- of the festival ford so each bot lane (Config/Bots.Routes) has its own way over. (x, z) on the river's line;
+		-- `length` across it, `width` along it. `deck`: walkable over deep water (the walk grid opens it,
+		-- Rules/MapCheck), a straight run from bank to bank raised `hump` in the middle; else stone stumps either end
+		-- over a ford (the cover stays, the span is gone).
+		bridges = {
+			{ id = "Footbridge", x = 1449, z = CZ + 115, length = 64, width = 8, deck = true, hump = 2 },
+			{ id = "OldBridge", x = 1454, z = CZ - 94, length = 64, width = 7, stump = 11 },
 		},
 	},
 	-- tree-free ground: the festival ground behind S3 (its stage, later its lantern-makers' hall)
 	reserved = {
 		{ id = "Festival", minX = 1180, maxX = 1300, minZ = CZ + 60, maxZ = CZ + 170 },
+		-- the two crossings' banks (no trees on the bridges or their approaches)
+		{ id = "Footbridge", minX = 1395, maxX = 1505, minZ = CZ + 85, maxZ = CZ + 145 },
+		{ id = "OldBridge", minX = 1400, maxX = 1515, minZ = CZ - 140, maxZ = CZ - 78 },
 	},
 
 	-- The festival road through the meadows and over the ford, its landmarks and the fields' hedgerows
@@ -271,6 +293,12 @@ local LanternMeadows = {
 					table.insert(out, { a = p(run[1], z), b = p(run[2], z) })
 				end
 			end
+			-- by the crossings: a hedge on each bank of the footbridge (turned about its middle) and a low rubble wall on
+			-- each bank of the old bridge (mirrored), all along the river to face across it
+			table.insert(out, { a = p(1404, 122), b = p(1404, 142) })
+			table.insert(out, { a = p(1494, 88), b = p(1494, 108) })
+			table.insert(out, { kind = "StoneWall", a = p(1418, -128), b = p(1418, -114) })
+			table.insert(out, { kind = "StoneWall", a = p(1500, -128), b = p(1500, -114) })
 			return out
 		end)(),
 		trees = { cell = 18, density = 0.05, roadClear = 5, buildingClear = 6 },
