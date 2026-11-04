@@ -56,6 +56,39 @@ local tests: { [string]: () -> () } = {
 		end
 		assert(most <= L.swing + L.rest, "never past its swing")
 	end,
+	["the flight ends round your own soldier and into its view, no team lines (user 2026-11-03)"] = function()
+		local shots = Cfg.Pre.shots
+		local last = shots[#shots]
+		assert(last.kind == "Self" and last.t1 == Front.CountdownSeconds, "the last shot ends on the whistle")
+		for _, s in shots do
+			assert(s.kind ~= "Eyes" and s.caption ~= "West" and s.caption ~= "East", "no team lines")
+		end
+		local a0, b0 = R.selfPose(last, 0)
+		local a1, b1 = R.selfPose(last, 1)
+		assert(a0 == last.from and b0 == 0, "starts round the soldier, out of its view")
+		assert(math.abs(a1 - last.to) < 1e-9 and b1 == 1, "ends behind it, in its view")
+		assert(math.abs(last.from - last.to) > math.pi / 2, "a real circle round it")
+		assert(select(2, R.selfPose(last, 1 - last.into - 0.01)) == 0, "the circle alone until its last share")
+		local prev = -1
+		for k = 0, 20 do
+			local _, b = R.selfPose(last, k / 20)
+			assert(b >= prev, "the blend never goes back")
+			prev = b
+		end
+	end,
+	["the armory waits for the next map to stream in, at most Loading.max (user 2026-11-03)"] = function()
+		local L = Front.Loading
+		assert(not R.loadOver(L.least - 1, L.least, L.max, 0), "the narrator's first part first")
+		assert(not R.loadOver(L.least + 1, L.least, L.max, 1), "a player still loading: wait")
+		assert(R.loadOver(L.least + 1, L.least, L.max, 0), "all in: go")
+		assert(R.loadOver(L.max, L.least, L.max, 3), "never past the most")
+		local most = Cfg.Armory.ring.most
+		assert(R.loadRing(1, 0.4, most) == 0.4, "the map behind: the ring shows it")
+		assert(R.loadRing(0.3, 1, most) == 0.3, "the narrator behind: the ring shows it")
+		assert(R.loadRing(1.2, 0.99, most) == most, "short of full until both are done")
+		assert(R.loadRing(1.2, 1, most) == 1, "full when both are done")
+		assert(R.loadRing(-1, 0, most) == 0)
+	end,
 	["the table plays until its replay and report are done, then turns (user 2026-11-03)"] = function()
 		local T = Cfg.Table
 		local P = T.replay
@@ -195,7 +228,7 @@ local tests: { [string]: () -> () } = {
 			assert(math.abs(two[i + 1].at - R.orderTime(front, R.start(cut, 2), i, 5)) < 1e-9)
 			assert(two[i + 1].at >= two[i].at, "in order along the flight")
 		end
-		assert(two[7].text == sp.close.uniform3 and two[7].at == R.start(cut, #cut.shots))
+		assert(two[7].text == sp.close.uniform3 and two[7].at == R.length(cut), "the call on the whistle")
 		local bare = R.partTwo(sp, cut, "uniform1", "Nowhere", 5)
 		assert(#bare == 1 and bare[1].text == sp.close.uniform1, "a map without a plan: the call alone")
 		local noKit = R.partTwo(sp, cut, nil, "Map1", 5)
@@ -392,11 +425,12 @@ for name, fn in
 					last = dir
 				end
 			end,
-			["the line shots frame each side's spawn, the finale the loser's HQ"] = function()
+			["the last shot is over your own side's spawn, the finale the loser's HQ"] = function()
 				local anchors = R.anchors(map, "East", "East", Cfg.LandmarkReach)
-				local west = R.pose(Cfg.Pre.shots[3], 1, anchors, points(map), false, 0)
-				local wc = anchors.WestSpawn
-				assert(west.look.x == wc[1] and west.look.z == wc[2])
+				local shots = Cfg.Pre.shots
+				local own = R.pose(shots[#shots], 1, anchors, points(map), false, 0)
+				local ec = anchors.EastSpawn
+				assert(own.look.x == ec[1] and own.look.z == ec[2])
 				assert(anchors.Home == anchors.EastSpawn and anchors.Taken[1] == map.sectors[1].x)
 				local orbit = { kind = "Orbit", at = "Taken", radius = 75, up = 26, lookUp = 28, from = 2.7, to = 1.5 }
 				local p = R.pose(orbit, 0.5, anchors, points(map), true, 0)

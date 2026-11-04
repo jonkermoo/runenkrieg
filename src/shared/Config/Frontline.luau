@@ -33,7 +33,8 @@ local Frontline = {
 	-- a match's end (user 2026-11-02, the match-end sequence; Config/Cutscenes): everyone frozen and the screen faded
 	-- to the winner's colour, the after-action report on the battle table, the map vote on the board (src/server/
 	-- MapVote; skipped with one map to offer), then the armory while the map is put back and moved to the pick: at
-	-- least as long as the narrator's first part (its words at Cutscenes.Speech.wordsPerSecond), at most `max`
+	-- least as long as the narrator's first part (its words at Cutscenes.Speech.wordsPerSecond) and until every
+	-- player has streamed in the next map (Net "MapLoad"), at most `max`
 	-- (the table's own length: Rules/Cutscenes.tableSeconds, until its replay and report are done)
 	FadeSeconds = 3,
 	VoteSeconds = 30, -- (the approved demo, user 2026-11-03: the countdown from 0:30; was 15)

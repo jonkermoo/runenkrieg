@@ -42,6 +42,7 @@ local SectorCfg = require(Shared.Config.Sectors)
 local Palette = require(Shared.Config.Palette)
 local U = require(Shared.Config.Uniforms)
 local LiveMap = require(Shared.LiveMap)
+local Net = require(Shared.Net)
 local Map = LiveMap.map
 local Rules = require(Shared.Rules.Frontline)
 local Build = require(script.Parent.Build)
@@ -87,6 +88,9 @@ local matchWatchers: { () -> () } = {}
 -- while running: the match loop, the player hooks; set by the admin to end the match now
 local thread: thread? = nil
 local conns: { RBXScriptConnection } = {}
+-- the next map streamed in by each player in the armory (Net "MapLoad"): the map asked for, and who hasn't said so yet
+local loadingMap: string? = nil
+local stillLoading: { [Player]: boolean } = {}
 local ending = false
 local starting = false -- set by the admin to skip the wait for players
 local still = 0 -- seconds since the last capture (the momentum)
@@ -796,7 +800,25 @@ local function run()
 		putBack()
 		useMap(pick)
 		newMatch()
-		task.wait(math.max(least - (os.clock() - loading), 0))
+		-- every player streams in what the next flight shows: its narrator's part waits for them all (user
+		-- 2026-11-03), or Loading.max at the most
+		table.clear(stillLoading)
+		for _, p in Players:GetPlayers() do
+			stillLoading[p] = true
+		end
+		loadingMap = pick
+		Net.event("MapLoad"):FireAllClients(pick)
+		while true do
+			local pending = 0
+			for p in stillLoading do
+				pending += if p.Parent then 1 else 0
+			end
+			if CutRules.loadOver(os.clock() - loading, least, Cfg.Loading.max, pending) then
+				break
+			end
+			task.wait(0.1)
+		end
+		loadingMap = nil
 		freeze(false)
 		task.wait() -- (src/server/Deploy splits everyone over the new pair first)
 		for _, p in Players:GetPlayers() do
@@ -881,6 +903,14 @@ function Frontline.start(): boolean
 	-- (the first pair before anyone joins, so their first kit is rolled from it)
 	newMatch()
 	table.insert(conns, Players.PlayerAdded:Connect(join))
+	table.insert(
+		conns,
+		Net.event("MapLoad").OnServerEvent:Connect(function(p: Player, key: unknown)
+			if loadingMap ~= nil and key == loadingMap then
+				stillLoading[p] = nil
+			end
+		end)
+	)
 	for _, p in Players:GetPlayers() do
 		join(p)
 	end

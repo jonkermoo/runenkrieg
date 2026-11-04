@@ -19,7 +19,8 @@
 --     north), looking at `lookUp` over it;
 --   "Front": along the points S1 -> last at `up`, `side` studs north of the chain, looking `lead` ahead, the camera
 --     `back` of `lead` behind the spot it passes;
---   "Eyes": `from`, then into the local soldier's head (where it stands in its wave line).
+--   "Self": round the local soldier where it stands (`radius` out, `up` high, looking at `lookUp` over its feet), from
+--     angle `from` to `to` (radians, 0 = straight behind it), blending into its own view over the last `into` share.
 -- A place: { at = anchor, dx, dz, up } (studs east, north and over the ground at that spot). Anchors: S1..Sn (the
 -- points), Mark1..Markn (each point's landmark: Rules/Cutscenes.landmark), WestSpawn / EastSpawn (the spawn zones'
 -- middles), Home (the viewer's side's spawn), Taken (the match's last capture: the loser's HQ; no winner: the middle
@@ -39,6 +40,9 @@ local Cutscenes = {
 	LandmarkReach = 200,
 	-- the far ground the camera may show ahead is asked to stream in this many seconds before each shot
 	StreamAhead = 1.2,
+	-- the armory streams in every spot the next flight looks at before it plays (Net "MapLoad"): spots this many studs
+	-- apart (closer ones are asked for once)
+	LoadSpacing = 60,
 	-- skipping: hold this key (or press the Skip button) this long
 	Skip = { key = "Space", hold = 0.6, text = "Hold Space to skip", touch = "Skip" }, -- (an Enum.KeyCode name)
 	-- the title cards: text keys (the client fills in the map, the nations, the winner)
@@ -69,8 +73,8 @@ local Cutscenes = {
 	-- going around and peeking points of interest in sectors ... change angles to a new sector whenever a new sector is
 	-- being described ... not just flying over the map showing everything": a high slow orbit over the middle with
 	-- the title, then one shot per point (`Sectors`: the point's share of the shot each, cut as the narrator's order for
-	-- it starts, Speech.plans) round its landmark, its seal stamped as it cuts in; each side's wave line, then into your
-	-- own soldier's eyes on the whistle.
+	-- it starts, Speech.plans) round its landmark, its seal stamped as it cuts in; then round your own soldier and into
+	-- its own view by the whistle.
 	-- A "Sectors" shot's own shots are its `styles` in turn, at the point's landmark ("Mark") or the point ("S"); an
 	-- orbit's angles turned `turn` radians further at each point, so no two cuts look the same way.
 	Pre = {
@@ -136,25 +140,20 @@ local Cutscenes = {
 					},
 				},
 			},
+			-- round your own soldier where it stands in its wave line, then into your own view; the closing call on the
+			-- whistle (user 2026-11-03: no team lines)
 			{
-				name = "WestLine",
-				t1 = 16.8,
-				kind = "Move",
-				from = { at = "WestSpawn", dx = 70, dz = 12, up = 24 },
-				to = { at = "WestSpawn", dx = 50, dz = 8, up = 18 },
-				look = { at = "WestSpawn", up = 5 },
-				caption = "West",
+				name = "Self",
+				t1 = 19,
+				kind = "Self",
+				from = 3.4,
+				to = 0,
+				radius = 11,
+				up = 4.5,
+				lookUp = 1.5,
+				into = 0.35,
+				fov = 55,
 			},
-			{
-				name = "EastLine",
-				t1 = 17.6,
-				kind = "Move",
-				from = { at = "EastSpawn", dx = -70, dz = -12, up = 24 },
-				to = { at = "EastSpawn", dx = -50, dz = -8, up = 18 },
-				look = { at = "EastSpawn", up = 5 },
-				caption = "East",
-			},
-			{ name = "Eyes", t1 = 19, kind = "Eyes", from = { at = "Home", dx = -30, up = 10 }, mirror = "home" },
 		},
 	},
 

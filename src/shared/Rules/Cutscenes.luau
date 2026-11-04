@@ -166,7 +166,7 @@ end
 
 -- Where the camera is and looks `u` through `shot` (Config/Cutscenes' kinds), on a map with these `anchors`, its
 -- points `points` ({ { x, z } } west to east), `flip`ped east-west or not; `paperUp` the parked camera's height. An
--- "Eyes" shot's pose is its `from` (the client blends into the soldier's head).
+-- "Self" shot's pose is over the viewer's spawn (Home: the client circles its own soldier, Cutscenes.selfPose).
 function Cutscenes.pose(
 	shot: any,
 	u: number,
@@ -207,10 +207,14 @@ function Cutscenes.pose(
 			look = { x = x + shot.lead, z = z, up = 0 },
 			roll = roll,
 		}
-	elseif shot.kind == "Eyes" then
-		local e = place(shot.from, anchors, flip)
-		local dir = if flip then -1 else 1
-		return { eye = e, look = { x = e.x + dir * 400, z = e.z, up = 4 }, roll = 0 }
+	elseif shot.kind == "Self" then
+		local h = anchors.Home or { 0, 0 }
+		return {
+			eye = { x = h[1] - (shot.radius or 0), z = h[2], up = shot.up },
+			look = { x = h[1], z = h[2], up = 0 },
+			roll = 0,
+			fov = shot.fov,
+		}
 	end
 	local k = ease(u)
 	local eye = mix(place(shot.from, anchors, flip), place(shot.to or shot.from, anchors, flip), k)
@@ -219,6 +223,15 @@ function Cutscenes.pose(
 		look = mix(look, place(shot.lookTo, anchors, flip), k)
 	end
 	return { eye = eye, look = look, roll = roll, fov = shot.fov }
+end
+
+-- A "Self" shot `u` through: the camera's angle round the local soldier (radians from straight behind it, `from` ->
+-- `to`) and how far it has blended into the soldier's own view (0..1: over the shot's last `into` share).
+function Cutscenes.selfPose(shot: any, u: number): (number, number)
+	local a = shot.from + (shot.to - shot.from) * ease(u)
+	local into = shot.into or 0
+	local blend = if into > 0 then math.clamp((u - (1 - into)) / into, 0, 1) else 0
+	return a, ease(blend)
 end
 
 -- How many of the `n` point seals are stamped `u` through a `stamps` shot: the Front's as the camera comes within half
@@ -307,7 +320,7 @@ function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string,
 	end
 	local close = own and speech.close[own]
 	if close then
-		table.insert(out, { text = close, at = starts.Eyes or Cutscenes.length(cut) })
+		table.insert(out, { text = close, at = Cutscenes.length(cut) }) -- (on the whistle)
 	end
 	return out
 end
@@ -540,6 +553,21 @@ function Cutscenes.topple(t: any, u: number, rest: number): number
 	end
 	local v = u - t.fall
 	return rest - t.bounce * math.abs(math.sin(v * t.rate)) * math.exp(-t.decay * v)
+end
+
+-- Whether the armory may give way to the next match `elapsed` seconds in: past `least` (the narrator's first part)
+-- with no player still loading the next map (`pending`), or at `most` whatever is still loading.
+function Cutscenes.loadOver(elapsed: number, least: number, most: number, pending: number): boolean
+	return elapsed >= most or (elapsed >= least and pending <= 0)
+end
+
+-- The loading ring's share (0..1): the narrator's share of the armory's least time (`spoken`) and the next map's share
+-- streamed in (`loaded`), whichever is behind; short of full (`most`) until both are done.
+function Cutscenes.loadRing(spoken: number, loaded: number, most: number): number
+	if spoken >= 1 and loaded >= 1 then
+		return 1
+	end
+	return math.clamp(math.min(spoken, loaded), 0, most)
 end
 
 return Cutscenes

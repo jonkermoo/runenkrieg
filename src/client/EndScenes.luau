@@ -15,7 +15,8 @@
 --   VOTE sign to the leading order. At the pick (VotePick) the camera closes on it and an R6 arm in the winners'
 --   uniform holding a wooden stamp stamps NEXT on it; the losing orders swing on one pin;
 -- - Loading: the empty armory, a slow drift on each approved angle in turn, a loading ring with its % in the bottom
---   left, while the narrator speaks the first part (src/client/Speech); it gives way to the pre-match flight at the
+--   left, while the narrator speaks the first part (src/client/Speech) and the next map streams in (Net "MapLoad",
+--   src/client/MatchCutscene: the ring shows whichever is behind); it gives way to the pre-match flight at the
 --   countdown (src/client/MatchCutscene), or, if the match waits for players, once the narrator is done;
 -- - Fresh: a fresh server's first countdown (nothing played yet: no narrator's subject, user 2026-11-03): the armory
 --   and the ring as a loading screen, full at the whistle, then into the game.
@@ -623,9 +624,10 @@ local function step()
 		cf, fov = armoryCam(t)
 		local phaseNow = folder:GetAttribute("Phase")
 		local span = math.max(loadEnds - sceneAt, 0.1)
-		-- (loading: short of full until the match is ready; a fresh server's screen full at the whistle)
+		-- (loading: the narrator's first part and the next map streamed in, whichever is behind, full once both are
+		-- done; a fresh server's screen full at the whistle)
 		local k = if phaseNow == "Loading"
-			then math.clamp(t / span, 0, Cfg.Armory.ring.most)
+			then Rules.loadRing(t / span, MatchCutscene.loaded(), Cfg.Armory.ring.most)
 			elseif phaseNow == "Countdown" then math.clamp(t / span, 0, 1)
 			else 1
 		showLoaded(k)
@@ -707,6 +709,7 @@ function EndScenes.start()
 					begin("Fresh", folder) -- (a fresh server: a loading screen, no flight)
 				elseif phase == "Fade" then
 					speechStarted = false
+					MatchCutscene.forgetLoad()
 				elseif scene then
 					-- the countdown takes over (the flight); waiting for players, the armory stays till the narrator ends
 					-- (and through the dip to black into the countdown, when it comes at once)
