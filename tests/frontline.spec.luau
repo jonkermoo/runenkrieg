@@ -187,6 +187,20 @@ return {
 		assert(not R.inZone(40, 30, 0, 45, Cfg.Height))
 		assert(not R.inZone(0, 0, Cfg.Height + 1, 45, Cfg.Height) and R.inZone(0, 0, -Cfg.Height, 45, Cfg.Height))
 	end,
+	["each map is fought by its own pair (user 2026-11-04), a bad or missing one rolled"] = function()
+		local teams = { "uniform1", "uniform2", "uniform3" }
+		local p = R.mapPair({ West = "uniform1", East = "uniform3" }, teams, "uniform1", 0.9, 0.9)
+		assert(p.West == "uniform1" and p.East == "uniform3")
+		for _, bad in { nil, {}, { West = "uniform2", East = "uniform3" }, { West = "uniform1", East = "uniform1" } } do
+			local r = R.mapPair(bad, teams, "uniform1", 0, 0)
+			assert(r.West == "uniform1" or r.East == "uniform1", "rolled, grey in it")
+		end
+		for _, key in { "Map1", "LanternMeadows" } do
+			local map = require(`../src/shared/Config/Maps/{key}`) :: any
+			local mp = R.mapPair(map.pair, teams, "uniform1", 0, 0)
+			assert(mp.West == map.pair.West and mp.East == map.pair.East, `{key}'s own pair`)
+		end
+	end,
 	["the grey team every match, against green or brown, either side; never green against brown"] = function()
 		local teams = { "uniform1", "uniform2", "uniform3" }
 		local seen: { [string]: boolean } = {}

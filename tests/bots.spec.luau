@@ -1,6 +1,7 @@
 --!strict
 local Cfg = require("../src/shared/Config/Bots")
 local R = require("../src/shared/Rules/Bots")
+local OLD = { perSide = 20, sideMost = 20 } -- (the fill before 2026-11-04: perSide bots less the side's players)
 
 local brainCfg = Cfg.Brain :: any
 local D = Cfg.Difficulty.Medium
@@ -351,28 +352,77 @@ return {
 		end
 		assert(Cfg.Difficulty[Cfg.Default], "the default is one of them")
 	end,
+	["wantedSides: 20 bots a side, fewer once a side's players and bots pass 30 (user 2026-11-04)"] = function()
+		local fill = Cfg.Fill.Normal
+		assert(fill.perSide == 20 and fill.sideMost == 30)
+		local cases = { { 0, 20 }, { 2, 20 }, { 10, 20 }, { 11, 19 }, { 25, 5 }, { 30, 0 }, { 40, 0 } }
+		for _, c in cases do
+			local w, e = R.wantedSides(fill, c[1], c[1], 999)
+			assert(w == c[2] and e == c[2], `{c[1]} players: {w} bots`)
+		end
+		local w, e = R.wantedSides(fill, 25, 2, 999)
+		assert(w == 5 and e == 20, "each side by its own players")
+	end,
 	["wantedSides: each side topped up to its fill with its own players first"] = function()
-		local w, e = R.wantedSides(20, 1, 0, 39)
+		local w, e = R.wantedSides(OLD, 1, 0, 39)
 		assert(w == 19 and e == 20, "one player: 20 v 20")
-		w, e = R.wantedSides(20, 12, 9, 39)
+		w, e = R.wantedSides(OLD, 12, 9, 39)
 		assert(w == 8 and e == 11)
-		w, e = R.wantedSides(20, 25, 25, 39)
+		w, e = R.wantedSides(OLD, 25, 25, 39)
 		assert(w == 0 and e == 0, "past the fill: none")
 	end,
 	["wantedSides: over the budget the side with more soldiers gives up a bot at a time"] = function()
-		local w, e = R.wantedSides(20, 0, 0, 30)
+		local w, e = R.wantedSides(OLD, 0, 0, 30)
 		assert(w == 15 and e == 15)
-		w, e = R.wantedSides(20, 0, 0, 7)
+		w, e = R.wantedSides(OLD, 0, 0, 7)
 		assert(w + e == 7 and math.abs(w - e) <= 1)
-		w, e = R.wantedSides(20, 0, 10, 12)
+		w, e = R.wantedSides(OLD, 0, 10, 12)
 		assert(w == 11 and e == 1, "the soldiers kept even: " .. w .. " " .. e)
-		w, e = R.wantedSides(20, 0, 0, 0)
+		w, e = R.wantedSides(OLD, 0, 0, 0)
 		assert(w == 0 and e == 0)
 	end,
+	["over the count bots retire at death: the dead first, then not crewing, farthest from players (user 2026-11-04)"] = function()
+		local function c(id, dead, marked, crewing, far)
+			return { id = id, dead = dead, marked = marked, crewing = crewing, far = far }
+		end
+		local cands = {
+			c(1, false, false, false, 50),
+			c(2, false, false, true, 900),
+			c(3, true, false, false, 10),
+			c(4, false, false, false, 400),
+			c(5, false, true, false, 5),
+		}
+		local r = R.retiring(cands, 1)
+		assert(r[3] and not r[1], "a dead one first")
+		r = R.retiring(cands, 2)
+		assert(r[3] and r[5], "then the one already marked: no churn")
+		r = R.retiring(cands, 3)
+		assert(r[3] and r[5] and r[4], "then the farthest not crewing a gun")
+		r = R.retiring(cands, 5)
+		assert(r[2], "the gun crew last")
+		assert(next(R.retiring(cands, 0)) == nil and next(R.retiring(cands, -3)) == nil, "at or under the count: none")
+		local n = 0
+		for _ in R.retiring(cands, 99) do
+			n += 1
+		end
+		assert(n == #cands, "never more than there are")
+		-- the admin's pin from 50 a side back to auto: 30 over on a side, all retiring, none removed alive
+		local many = {}
+		for id = 1, 50 do
+			table.insert(many, c(id, false, false, false, id))
+		end
+		local w = R.wantedSides(Cfg.Fill.Normal, 0, 0, 999)
+		r = R.retiring(many, 50 - w)
+		local k = 0
+		for _ in r do
+			k += 1
+		end
+		assert(k == 30 and r[50] and not r[1], "the 30 farthest retire")
+	end,
 	["wantedSides: a pinned total is split evenly, West taking the odd one"] = function()
-		local w, e = R.wantedSides(20, 5, 5, 39, 9)
+		local w, e = R.wantedSides(OLD, 5, 5, 39, 9)
 		assert(w == 5 and e == 4)
-		w, e = R.wantedSides(20, 0, 0, 10, 30)
+		w, e = R.wantedSides(OLD, 0, 0, 10, 30)
 		assert(w == 5 and e == 5, "the pin still under the budget")
 	end,
 	["govern: trims one under the bots on after a spell over budget, then one per trimEvery"] = function()

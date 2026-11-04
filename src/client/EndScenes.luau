@@ -687,10 +687,14 @@ local function begin(name: string, folder: Instance)
 		Speech.stop()
 		local played = parts[2] or LiveMap.key()
 		local playedMap = LiveMap.get(played)
-		Speech.queue(
-			Rules.partOne(Cfg.Speech, winnerKit, played, nationOf(winnerKit), playedMap and playedMap.name),
-			os.clock()
-		)
+		local loserKit = if parts[3] and parts[3] ~= "none" then parts[3] else nil
+		local own = player:GetAttribute(FrontCfg.MatchKitAttribute)
+		local kit, result = Rules.scriptOf(if type(own) == "string" then own else nil, winnerKit, loserKit)
+		local nations: { [string]: string } = {}
+		for k, def in U.Kits :: any do
+			nations[k] = def.team
+		end
+		Speech.queue(Rules.partOne(Cfg.Speech, kit, result, played, nations, playedMap and playedMap.name), os.clock())
 	end
 	MatchCutscene.clearFade() -- (the set is up: the fade's colour gives way to it)
 	RunService:UnbindFromRenderStep("EndScenes")

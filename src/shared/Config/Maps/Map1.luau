@@ -20,6 +20,9 @@ export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
 local Map1 = {
 	name = "Map 1",
 	seed = 1337,
+	-- the two nations that fight here (user 2026-11-04, "fixed pair per map": Rules/Frontline.mapPair), Katzmark always
+	-- one of them; the Allies (Selvara, Sowilo) wear the map's own
+	pair = { West = "uniform1", East = "uniform3" },
 	-- playable area: long and narrow (user 2026-11-01: "we need more distance between sectors ... we can make the map less
 	-- wide and longer instead"; was 2,100 x 800)
 	bounds = { minX = -150, maxX = 2550, minZ = -280, maxZ = 280 } :: Rect,

@@ -702,7 +702,7 @@ local function newMatch(reset: boolean?)
 		putBack()
 	end
 	MapVote.clear(folder)
-	pair = Rules.pair(U.Teams, Cfg.AlwaysTeam, math.random(), math.random())
+	pair = Rules.mapPair(LiveMap.get(LiveMap.key()).pair, U.Teams, Cfg.AlwaysTeam, math.random(), math.random())
 	workspace:SetAttribute(Cfg.TeamsAttribute, Rules.pairText(pair))
 	state = Rules.new(sectors)
 	ending = false
@@ -843,8 +843,14 @@ local function run()
 		-- narrator's first part. The narrator's subject stays on the folder until the next countdown has played.
 		freeze(true)
 		local winnerKit: string? = if winner then pair[winner] else nil
+		local loserKit: string? = if winner then pair[if winner == "West" then "East" else "West"] else nil
 		local played = LiveMap.key()
-		folder:SetAttribute(Cfg.SpeechAttribute, `{winnerKit or "none"},{played}`)
+		folder:SetAttribute(Cfg.SpeechAttribute, `{winnerKit or "none"},{played},{loserKit or "none"}`)
+		-- the kit each player fought in, for their side's script in the armory (Rules/Cutscenes.scriptOf)
+		for _, p in Players:GetPlayers() do
+			local kit = Kits.next(p)
+			p:SetAttribute(Cfg.MatchKitAttribute, if Rules.sideOf(pair, kit) then kit else nil)
+		end
 		phase("Fade", Cfg.FadeSeconds)
 		-- the table until its replay and report are done (Rules/Cutscenes.tableSeconds: every client draws the same)
 		local tableSeconds = CutRules.tableSeconds(
@@ -885,14 +891,17 @@ local function run()
 			pick = MapVote.close(folder, math.random(), if force then force.map else nil) or played
 			task.wait(CutCfg.Vote.pick.hold) -- (the arm stamps NEXT on every screen)
 		end
-		local nation = if winnerKit then (U.Kits :: any)[winnerKit].team else ""
+		-- the armory lasts the longer of the two sides' scripts
+		local nations: { [string]: string } = {}
+		for kit, k in U.Kits :: any do
+			nations[kit] = k.team
+		end
 		local S = CutCfg.Speech
-		local spoken = CutRules.speechSeconds(
-			CutRules.partOne(S, winnerKit, played, nation, LiveMap.get(played).name),
-			S.wordsPerSecond,
-			S.gap,
-			NarratorClips.clips
-		)
+		local spoken = 0
+		for _, side in { { winnerKit, "won" }, { loserKit, "lost" } } do
+			local one = CutRules.partOne(S, side[1], side[2] :: any, played, nations, LiveMap.get(played).name)
+			spoken = math.max(spoken, CutRules.speechSeconds(one, S.wordsPerSecond, S.gap, NarratorClips.clips))
+		end
 		local least = math.clamp(spoken, Cfg.Loading.least, Cfg.Loading.max)
 		dipTo("Loading", least)
 		local loading = os.clock()

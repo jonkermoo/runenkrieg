@@ -998,18 +998,53 @@ end
 local nextJoin, nextLeave = 0, 0
 
 -- tops the bots of `side` (nil: FFA's) up or down to `want`, one in or out at a time; true when it acted
+-- how far `b` is from the nearest player's soldier (studs; math.huge: none), for picking who retires
+local function fromPlayers(b: Bot): number
+	local root = b.root
+	if not root then
+		return math.huge
+	end
+	local best = math.huge
+	for _, p in Players:GetPlayers() do
+		local c = p.Character
+		local r = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if r then
+			best = math.min(best, (r.Position - (root :: BasePart).Position).Magnitude)
+		end
+	end
+	return best
+end
+
+-- One group (a side in Normal, everyone in FFA) towards `want` bots: one in at a time while short; over it, the surplus
+-- marked retiring (Rules/Bots.retiring), a dead retiring one gone (the living fight on and leave at their death:
+-- user 2026-11-04); back at or under it, every mark lifted.
 local function balance(mode: string, side: string?, want: number, now: number): boolean
 	local have = 0
-	local dead: number? = nil
-	local last: number? = nil
+	local cands: { Rules.RetireCand } = {}
+	local byId: { [number]: number } = {}
 	for i, b in bots do
 		if b.side == side then
 			have += 1
-			if b.deadAt and not dead then
-				dead = i
-			end
-			last = i
+			byId[b.id] = i
+			local m = b.m
+			table.insert(cands, {
+				id = b.id,
+				dead = b.deadAt ~= nil,
+				marked = b.retiring == true,
+				crewing = b.gun ~= nil or (m ~= nil and Artillery.gunOf(m) ~= nil),
+				far = fromPlayers(b),
+			})
 		end
+	end
+	local marks = Rules.retiring(cands, have - want)
+	local retiring = 0
+	for id, i in byId do
+		bots[i].retiring = if marks[id] then true else nil
+		retiring += if marks[id] then 1 else 0
+	end
+	local key = Cfg.RetiringAttribute .. (side or "")
+	if botFolder():GetAttribute(key) ~= retiring then
+		botFolder():SetAttribute(key, retiring)
 	end
 	if have < want then
 		if now >= nextJoin then
@@ -1018,23 +1053,11 @@ local function balance(mode: string, side: string?, want: number, now: number): 
 			return true
 		end
 	elseif have > want and now >= nextLeave then
-		-- a dead one goes first; else the one longest over the count
-		if dead then
-			nextLeave = now + Cfg.LeaveEvery
-			remove(dead :: number)
-			return true
-		end
-		local b = bots[last :: number]
-		b.overSince = b.overSince or now
-		if now - (b.overSince :: number) >= Cfg.LeaveAliveAfter then
-			nextLeave = now + Cfg.LeaveEvery
-			remove(last :: number)
-			return true
-		end
-	elseif have <= want then
-		for _, b in bots do
-			if b.side == side then
-				b.overSince = nil
+		for id, i in byId do
+			if marks[id] and bots[i].deadAt then
+				nextLeave = now + Cfg.LeaveEvery
+				remove(i)
+				return true
 			end
 		end
 	end
@@ -1057,7 +1080,7 @@ local function direct(now: number)
 			end
 		end
 		local cap = math.min(Cfg.Max.Normal, governor.cap)
-		wants.West, wants.East = Rules.wantedSides(Cfg.Fill.Normal.perSide, players.West, players.East, cap, pinned)
+		wants.West, wants.East = Rules.wantedSides(Cfg.Fill.Normal, players.West, players.East, cap, pinned)
 	elseif Cfg.Enabled and mode == "FFA" and ZoneMatch.running() then
 		local cap = math.min(Cfg.Max.FFA, governor.cap)
 		wants[""] = Rules.wanted(Cfg.Fill.FFA, #Players:GetPlayers(), cap, pinned)
@@ -1082,7 +1105,7 @@ local function direct(now: number)
 		end
 		local key = b.side or ""
 		if b.deadAt and now >= (b.respawnAt or math.huge) then
-			if have[key] > wants[key] then
+			if b.retiring or have[key] > wants[key] then -- (a retiring bot doesn't come back)
 				remove(i)
 				have[key] -= 1
 			else
@@ -1091,6 +1114,18 @@ local function direct(now: number)
 			end
 		elseif not b.m and not b.deadAt then
 			spawnBody(b) -- (no spawn point earlier)
+		end
+	end
+	-- each side's bots, for the menu's team counts ("players + bots": src/client/Menus)
+	local onSide = { West = 0, East = 0 }
+	for _, b in bots do
+		if b.side == "West" or b.side == "East" then
+			onSide[b.side] += 1
+		end
+	end
+	for side, n in onSide do
+		if botFolder():GetAttribute(Cfg.SideAttribute .. side) ~= n then
+			botFolder():SetAttribute(Cfg.SideAttribute .. side, n)
 		end
 	end
 	for _, side in { "West", "East", "" } do

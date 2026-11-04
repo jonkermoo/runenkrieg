@@ -17,6 +17,9 @@ local Bots = {
 	-- on the bots' Workspace folder, per bot (the id's number without its sign): its name and zone score, for every
 	-- client's match HUD (src/client/ZoneHud)
 	NameAttribute = "Name_",
+	-- on the bots' Workspace folder: how many bots fight on each side in Normal ("West" / "East" after it), for the
+	-- loadout menu's team counts (src/client/Menus)
+	SideAttribute = "Side_",
 	ScoreAttribute = "Score_",
 	-- the names bots play under (each bot keeps one; no two at once)
 	Names = {
@@ -86,19 +89,24 @@ local Bots = {
 	Buy = 0.6,
 	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none.
 	-- Normal tops up each side (Rules/Bots.wantedSides; user 2026-10-31: "this will be a 50vs50 map. however, if there is
-	-- only 1 player, lets make it a 20 v 20 game")
+	-- only 1 player, lets make it a 20 v 20 game"); 2026-11-04: "Bots should always be 20 on each side but is removed if
+	-- total count exceeds 30" (a side's players and bots: 25 players get 5 bots, 40 none)
 	Fill = {
 		FFA = { total = 8 },
-		Normal = { perSide = 20 },
+		Normal = { perSide = 20, sideMost = 30 },
 	},
 	-- the most bots one server runs in each mode, whatever the fill (the server's budget; FFA Stage 1 measured 10 and
 	-- 20); the governor (Budget) may hold it lower
 	Max = { FFA = 20, Normal = 39 },
-	-- one bot in (or out) at most this often, so a join or a leave never brings a crowd at once
+	-- one bot in (or a dead retiring one out) at most this often, so a join or a leave never brings a crowd at once
 	JoinEvery = 1.5,
 	LeaveEvery = 4,
-	-- a bot over the count leaves only while dead, or after this long over it (seconds) even alive
-	LeaveAliveAfter = 20,
+	-- Over the count (a player joins, a side passes Fill.Normal.sideMost, the admin's pin drops): living bots are never
+	-- taken out of the fight (user 2026-11-04: "it should stay alive and once it dies, it wont respawn"). The surplus
+	-- is marked retiring (Rules/Bots.retiring: the dead first, then those not crewing a gun, farthest from any player)
+	-- and leaves at its death; the count back up un-marks them before any new bot comes. On the bots' folder for the
+	-- admin panel: how many retire on each side ("West" / "East", or "" in FFA, after it)
+	RetiringAttribute = "Retiring_",
 
 	-- the server's budget for all the bots together (src/server/Bots)
 	Budget = {

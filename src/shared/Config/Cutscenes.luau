@@ -703,10 +703,10 @@ local Cutscenes = {
 	},
 	-- The narrator: a British woman's voice, every line recorded (Config/NarratorClips; user 2026-11-03), and Roblox
 	-- text-to-speech (AudioTextToSpeech, voice "1" British male, slowed and lowered) for a line not recorded. Part one in
-	-- the armory: where they won (by the map just played) and the momentum (by the winning nation). Part two over the
+	-- the armory: each side's own script of the map just played, won or lost (`outcome`). Part two over the
 	-- flight: the plan (by the next map: the dive's line, then a line as each point's seal is stamped) and the closing
 	-- call on the whistle. Lines play one after another, never over each other, each no earlier than its cue; the
-	-- subtitle shows the line playing. {winner}: the winning nation; `none`: no winner. A map without its own plan
+	-- subtitle shows the line playing. A map without its own plan
 	-- gets none.
 	Speech = {
 		voice = "1",
@@ -718,19 +718,55 @@ local Cutscenes = {
 		-- line not recorded takes (a recorded line takes its clip's length), for the server's guess of part one's
 		-- length (the armory's least time) and for keeping each order inside its point's moment
 		wordsPerSecond = 3.0,
-		won = {
-			Map1 = "{winner} holds the valley. Their colours fly from the church tower, and the enemy's last line lies broken in the mud of the river ford.",
-			LanternMeadows = "The lanterns of the Aurel burn for {winner} tonight. The enemy has been driven from the festival ground, and the meadows belong to them.",
-		},
-		wonNone = {
-			Map1 = "No banner flies over the valley tonight. The guns have fallen silent above the watermill, and the dead lie on both banks of the river.",
-			LanternMeadows = "The festival lanterns of the Aurel burn for no one tonight. The meadows are trampled flat, and neither army holds them.",
-		},
-		momentum = {
-			uniform1 = "Katzmark does not rest on a victory. The mages are already marching, rifles slung, while the enemy is still counting its dead.",
-			uniform2 = "Selvara rides the current of this victory. The brass of their mages is still ringing in the hills, and they mean to strike again before the mud can dry.",
-			uniform3 = "Sowilo's banners are torn, but they have tasted blood. The crimson rune-casters swear on their scars that the next field will be theirs by nightfall.",
-			none = "Neither side could break the other. Both armies limp from the field, and both have sworn the next fight will end it.",
+		-- part one, in the armory: what each side hears of the map just played, by the kit they fought in there (user
+		-- 2026-11-04: "1 winning script and 1 losing script for each team that plays on the map", in the third person),
+		-- two lines: what happened, then the side's resolve. Each map's two nations (Config/Maps `pair`). Nobody won: no
+		-- part one ("just leave it without a script"). Rules/Cutscenes.partOne
+		outcome = {
+			Map1 = {
+				uniform1 = {
+					won = {
+						"Katzmark holds the valley. Their colours fly from the church tower, and the enemy's last line lies broken in the mud of the river ford.",
+						"Katzmark does not rest on a victory. The mages are already marching, rifles slung, while the enemy is still counting its dead.",
+					},
+					lost = {
+						"Katzmark has lost the valley. Sowilo's banners fly from the church tower, and the grey mages were driven back across the ford.",
+						"But Katzmark does not break. Its mages fall back, dig in, and swear to take back every yard they gave.",
+					},
+				},
+				uniform3 = {
+					won = {
+						"Sowilo holds the valley. Their colours fly from the church tower, and the enemy's last line lies broken in the mud of the river ford.",
+						"Sowilo's banners are torn, but they have tasted blood. The crimson rune-casters swear on their scars that the next field will be theirs by nightfall.",
+					},
+					lost = {
+						"Sowilo has lost the valley. Grey colours fly from the church tower, and the rune-casters left their dead on both banks of the river.",
+						"But Sowilo does not fight alone. With Selvara at its side, the alliance will light its runes again, and the next field will be paid for in grey.",
+					},
+				},
+			},
+			LanternMeadows = {
+				uniform1 = {
+					won = {
+						"The lanterns of the Aurel burn for Katzmark tonight. The enemy has been driven from the festival ground, and the meadows belong to them.",
+						"Katzmark does not rest on a victory. The mages are already marching, rifles slung, while the enemy is still counting its dead.",
+					},
+					lost = {
+						"The lanterns of the Aurel burn for Selvara tonight. Katzmark has been driven from the festival ground, back into the hills.",
+						"But Katzmark does not break. The grey mages regroup on the high ground, and they will not give up another yard.",
+					},
+				},
+				uniform2 = {
+					won = {
+						"The lanterns of the Aurel burn for Selvara tonight. The enemy has been driven from the festival ground, and the meadows belong to them.",
+						"Selvara rides the current of this victory. The brass of their mages is still ringing in the hills, and they mean to strike again before the mud can dry.",
+					},
+					lost = {
+						"Selvara has lost the meadows. Katzmark holds the festival ground, and the lanterns of the Aurel have gone dark.",
+						"But the river remembers. Selvara and Sowilo will cross it together, and the lanterns will burn again.",
+					},
+				},
+			},
 		},
 		-- (each order short enough to finish before the next point, about 7 words: tests/cutscenes.spec)
 		plans = {
@@ -753,10 +789,13 @@ local Cutscenes = {
 		},
 		-- a map with no lines of its own written above (a new map: user 2026-11-03, "we need one of these for every
 		-- map"): its lines made from its name and its points' landmarks (Rules/Cutscenes.placeNames; `unnamed` a point
-		-- with none), spoken by text-to-speech until they're written and recorded. {map}, {winner}, {place}, {i}
+		-- with none), spoken by text-to-speech until they're written and recorded. {map}, {nation}, {place}, {i}
 		fallback = {
-			won = "{winner} holds {map}. The enemy has been driven from the field.",
-			wonNone = "No banner flies over {map} tonight. Neither army could hold it.",
+			won = {
+				"{nation} holds {map}. The enemy has been driven from the field.",
+				"{nation} means to strike again before the enemy can dig in.",
+			},
+			lost = { "{nation} has lost {map}.", "But {nation} will be back for every yard of it." },
 			first = "Orders for {map}.",
 			points = { "Hold {place}.", "Push on to {place}.", "Take {place}.", "Then bring down {place}." },
 			unnamed = "point {i}",

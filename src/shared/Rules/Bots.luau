@@ -96,16 +96,24 @@ function Bots.wanted(fill: { total: number }?, players: number, max: number, ove
 	return math.clamp(fill.total - players, 0, max)
 end
 
--- Bots each side runs in Normal: each side topped up to `perSide` with its own players first; a test's pin (`override`,
--- a total) split evenly, West taking the odd one. Over `max` the side with more soldiers (players and bots; on a tie the
--- one with more bots, then West) gives up a bot at a time, so the sides stay as even as the bots can make them.
-function Bots.wantedSides(perSide: number, west: number, east: number, max: number, override: number?): (number, number)
+-- Bots each side runs in Normal (`fill`: Config/Bots.Fill.Normal): `perSide` bots, fewer once the side's players and
+-- bots would pass `sideMost` (user 2026-11-04: 25 players get 5, 40 none); a test's pin (`override`, a total) split
+-- evenly, West taking the odd one. Over `max` the side with more soldiers (players and bots; on a tie the one with more
+-- bots, then West) gives up a bot at a time, so the sides stay as even as the bots can make them.
+function Bots.wantedSides(
+	fill: { perSide: number, sideMost: number },
+	west: number,
+	east: number,
+	max: number,
+	override: number?
+): (number, number)
 	local w, e
 	if override then
 		local total = math.max(0, math.floor(override))
 		w, e = math.ceil(total / 2), math.floor(total / 2)
 	else
-		w, e = math.max(0, perSide - west), math.max(0, perSide - east)
+		w = math.clamp(fill.sideMost - west, 0, fill.perSide)
+		e = math.clamp(fill.sideMost - east, 0, fill.perSide)
 	end
 	max = math.max(0, math.floor(max))
 	if override then
@@ -120,6 +128,37 @@ function Bots.wantedSides(perSide: number, west: number, east: number, max: numb
 		end
 	end
 	return w, e
+end
+
+-- A bot that may retire (Config/Bots.RetiringAttribute): dead, already marked, crewing a gun, and how far it is from
+-- the nearest player (studs; math.huge: no player).
+export type RetireCand = { id: number, dead: boolean, marked: boolean, crewing: boolean, far: number }
+
+-- Which of `cands` retire when a group has `surplus` bots over its count (user 2026-11-04: none taken out alive): the
+-- dead first (they just don't come back), then those already marked (no churn), then those not crewing a gun, the
+-- farthest from any player first. Their ids.
+function Bots.retiring(cands: { RetireCand }, surplus: number): { [number]: boolean }
+	local order = table.clone(cands)
+	table.sort(order, function(a, b)
+		if a.dead ~= b.dead then
+			return a.dead
+		end
+		if a.marked ~= b.marked then
+			return a.marked
+		end
+		if a.crewing ~= b.crewing then
+			return b.crewing
+		end
+		if a.far ~= b.far then
+			return a.far > b.far
+		end
+		return a.id < b.id
+	end)
+	local out: { [number]: boolean } = {}
+	for k = 1, math.min(math.max(0, surplus), #order) do
+		out[order[k].id] = true
+	end
+	return out
 end
 
 export type Governor = { cap: number, bad: number, good: number }
