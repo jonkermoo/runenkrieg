@@ -637,4 +637,21 @@ end
 Trees.near = treesNear
 Trees.standing = standing
 
+-- A tree felled to clear the way (the bots' trench lines, src/server/Bots/Fell): it sinks away once it has fallen
+-- rather than lying across the way as cover (Fall.lifetime), and its stump goes with it (a trench is refused over one)
+function Trees.clearAway(tree: Model)
+	local base = tree:GetPivot().Position
+	task.delay(T.Fall.time + 0.5, function()
+		sink(tree)
+		for i = #stumps, 1, -1 do
+			local p = stumps[i]
+			local d = Vector3.new(p.Position.X - base.X, 0, p.Position.Z - base.Z).Magnitude
+			if d <= math.max(p.Size.Y, p.Size.Z) then
+				table.remove(stumps, i)
+				p:Destroy()
+			end
+		end
+	end)
+end
+
 return Trees

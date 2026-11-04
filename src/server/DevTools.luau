@@ -307,6 +307,7 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(Cfg.Admin.BotDig.attribute, if value == 1 then nil else value)
 	elseif
 		action == "BotShell"
+		or action == "BotShellHere"
 		or action == "BotPush"
 		or action == "BotStrike"
 		or action == "BotGun"

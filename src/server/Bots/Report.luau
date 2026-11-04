@@ -12,6 +12,8 @@ local W = require(Shared.Config.Weapons)
 local Net = require(Shared.Net)
 local Map = require(Shared.LiveMap).map -- (the match's map)
 local BotBuild = require(Shared.Rules.BotBuild)
+local BotTrenches = require(Shared.Rules.BotTrenches)
+local Trenches = require(script.Parent.Parent.Trenches)
 local Artillery = require(script.Parent.Parent.Artillery)
 local Damage = require(script.Parent.Parent.Damage)
 local Ragdoll = require(script.Parent.Parent.Ragdoll)
@@ -432,7 +434,90 @@ local function stuckLine()
 	workspace:SetAttribute(A.BotStuckAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- each side's dugouts (Config/DevTools.Admin.BotDugoutsAttribute; Config/Bots.Dugouts.Heat): each one's holders down
+-- in it now, how many went down into it this match, how hot it is, and who went last and why; and the holders resting
+-- (up to fight after a stay)
+local function dugoutLines()
+	local HT = Cfg.Dugouts.Heat
+	local now = os.clock()
+	local lines = {}
+	for _, side in { "West", "East" } do
+		local sb = buildLists[side]
+		local parts = {}
+		for i, rm in (if sb then sb.rooms else {}) do
+			local inside = 0
+			for _, b in bots do
+				if b.side == side and b.postKind == "dugout" and b.post == rm.room then
+					inside += 1
+				end
+			end
+			local h = BotTrenches.heat(now, rm.x, rm.z, side, Tactics.dug.heat, sb.enemies, HT)
+			local u = Tactics.dug.use[rm.model]
+			local last = if u then `; last {u.who}: {u.why}` else ""
+			table.insert(
+				parts,
+				string.format("D%d: %d in, used %d, heat %.1f", i, inside, if u then u.count else 0, h) .. last
+			)
+		end
+		local resting = 0
+		for _, b in bots do
+			if b.side == side and b.dugRest and now < b.dugRest then
+				resting += 1
+			end
+		end
+		if sb and (#parts > 0 or sb.digging > 0) then
+			table.insert(
+				lines,
+				`{side} ({sb.digging} to dig, {resting} up from a stay): {if #parts > 0
+					then table.concat(parts, " | ")
+					else "none standing"}`
+			)
+		end
+	end
+	workspace:SetAttribute(DevCfg.Admin.BotDugoutsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
+-- each side's trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute): its squares dug (and only planned), the
+-- dug ones blasts and bullets buried this match, its fire steps and the bots on them, its pioneers, and its bots'
+-- deaths: in a trench, in the open, by a shell (Rules/BotTrenches.deathKind)
+local function trenchStats()
+	local lines = {}
+	for _, side in { "West", "East" } do
+		local sb = buildLists[side]
+		local dug, planned, onStep, pioneers, kit = 0, 0, 0, 0, nil
+		for _, t in (if sb then sb.trench else {}) do
+			if t.built then
+				dug += 1
+			else
+				planned += 1
+			end
+		end
+		for _, b in bots do
+			if b.side == side then
+				kit = kit or b.kit
+				onStep += if b.postKind == "step" and not b.deadAt then 1 else 0
+				pioneers += if b.pioneer then 1 else 0
+			end
+		end
+		local d = State.ByTrench.deaths[side] or { all = 0, trench = 0, shell = 0 }
+		local function pct(n: number): string
+			return if d.all > 0 then `{math.floor(n / d.all * 100 + 0.5)}%` else "-"
+		end
+		table.insert(
+			lines,
+			`{side}: {dug} dug ({planned} planned), {if kit then Trenches.buried(kit) else 0} buried by fire; fire steps {onStep} manned of {if sb
+				then #sb.steps
+				else 0}; {pioneers} pioneers; deaths {d.all}: {d.trench} in a trench ({pct(d.trench)}), {d.all - d.trench} in the open, {d.shell} by shells ({pct(
+				d.shell
+			)})`
+		)
+	end
+	workspace:SetAttribute(DevCfg.Admin.BotTrenchStatsAttribute, table.concat(lines, "\n"))
+end
+
 local function label()
+	trenchStats()
+	dugoutLines()
 	stuckLine()
 	frontLine()
 	runLines()
@@ -498,18 +583,42 @@ local function dev(action: string, value: any): (string?, string?)
 		fs.forced = if value.plan == "auto" then nil else value.plan
 		return nil, `{value.side}: {value.plan}`
 	end
-	if action == "Shell" then
-		local sb = buildLists[value :: string]
+	if action == "Shell" or action == "ShellHere" then
+		-- (a side's dug squares; or, at the aim point, either side's dug squares within Shell.here of the nearest one)
+		local S = A.Shell
 		local dug: { Vector3 } = {}
-		for _, t in (if sb then sb.trench else {}) do
-			if t.built then
-				table.insert(dug, t.at)
+		if action == "Shell" then
+			local sb = buildLists[value :: string]
+			for _, t in (if sb then sb.trench else {}) do
+				if t.built then
+					table.insert(dug, t.at)
+				end
+			end
+		else
+			local aim = value :: Vector3
+			local all: { Vector3 } = {}
+			local nearest, best = nil, S.reach
+			for _, side in A.Sides do
+				local sb = buildLists[side]
+				for _, t in (if sb then sb.trench else {}) do
+					if t.built then
+						table.insert(all, t.at)
+						local d = flat(t.at - aim).Magnitude
+						if d < best then
+							nearest, best = t.at, d
+						end
+					end
+				end
+			end
+			for _, at in all do
+				if nearest and flat(at - nearest).Magnitude <= S.here then
+					table.insert(dug, at)
+				end
 			end
 		end
 		if #dug == 0 then
 			return "no dug trench", nil
 		end
-		local S = A.Shell
 		task.spawn(function()
 			for _ = 1, S.count do
 				local at = dug[random:NextInteger(1, #dug)]

@@ -187,7 +187,7 @@ return {
 		for _, sw in { "BotState", "FreeEngineer", "FreeGrenadier" } do
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
-		for _, aimed in { "BotPush", "BotStrike", "BotGun", "BotWork", "BotDown" } do
+		for _, aimed in { "BotPush", "BotStrike", "BotGun", "BotWork", "BotDown", "BotShellHere" } do
 			assert(A.valid(Cfg, aimed, nil) and not A.valid(Cfg, aimed, 1) and A.Aimed[aimed], aimed)
 		end
 		assert(A.valid(Cfg, "BotDig", Cfg.Admin.BotDig.steps[2]) and not A.valid(Cfg, "BotDig", 1e6))

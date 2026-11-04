@@ -69,6 +69,42 @@ function BotTrenches.layout(zone: Zone, tx: number, tz: number, cfg: any, fireOn
 	return runs
 end
 
+-- The middle of a system's fire trench (its runs from layout or forward): the middle of its middle bay
+function BotTrenches.fireMid(runs: { Run }): { x: number, z: number }
+	local fire = {}
+	for _, r in runs do
+		if r.kind == "Fire" then
+			table.insert(fire, r)
+		end
+	end
+	local r = fire[math.max(math.ceil(#fire / 2), 1)]
+	if not r then
+		return { x = 0, z = 0 }
+	end
+	return { x = (r.ax + r.bx) / 2, z = (r.az + r.bz) / 2 }
+end
+
+-- A forward line (Config/Bots.Trenches.Forward): a fire trench across (ux, uz) at `at`, as layout's (`Fire` bays and
+-- traverses), then a communication trench from the last line's fire trench middle `from` up to its middle, stopping
+-- `Comm.short` studs off each (the planner tees it into their sides)
+function BotTrenches.forward(
+	from: { x: number, z: number },
+	at: { x: number, z: number },
+	ux: number,
+	uz: number,
+	cfg: any
+): { Run }
+	local runs = BotTrenches.layout({ x = at.x, z = at.z, radius = 0 }, ux, uz, cfg, true)
+	local mid = BotTrenches.fireMid(runs)
+	local dx, dz = mid.x - from.x, mid.z - from.z
+	local len = math.sqrt(dx * dx + dz * dz)
+	if len > 2 * cfg.Comm.short then
+		local sx, sz = dx / len * cfg.Comm.short, dz / len * cfg.Comm.short
+		table.insert(runs, { kind = "Comm", ax = from.x + sx, az = from.z + sz, bx = mid.x - sx, bz = mid.z - sz })
+	end
+	return runs
+end
+
 -- How far (px, pz) lies from the segment A-B, and where along it (0 at A, 1 at B; outside 0..1 past an end).
 function BotTrenches.offRun(px: number, pz: number, ax: number, az: number, bx: number, bz: number): (number, number)
 	local dx, dz = bx - ax, bz - az
@@ -92,8 +128,13 @@ end
 
 -- Whether run `k` of `runs` may be planned yet: every run before it planned (`laid`), so each one joins the last (a
 -- run that joins nothing must keep Config/Build.Trench.spacing from every other trench, and the bays lie closer):
--- the fire trench bay by bay, then the support line, then the communication trench.
-function BotTrenches.ready(laid: { [number]: boolean }, k: number): boolean
+-- the fire trench bay by bay, then the support line, then the communication trench. The support line joins nothing and
+-- lies `Support.back` behind, so it may be planned at once alongside the fire trench (`kinds`: each run's kind; user
+-- 2026-11-04, the trench priority: one run open at a time left a side's diggers idle).
+function BotTrenches.ready(laid: { [number]: boolean }, k: number, kinds: { string }?): boolean
+	if kinds and kinds[k] == "Support" then
+		return true
+	end
 	for i = 1, k - 1 do
 		if not laid[i] then
 			return false
@@ -306,8 +347,89 @@ function BotTrenches.shelled(
 	return false
 end
 
+-- How hot a spot (x, z) of `side`'s trenches is (user 2026-11-03: "make bots utilize dug outs more often, especially in
+-- trenches highly contested or often shelled"; Config/Bots.Dugouts.Heat `cfg`): each shell (`events` kind "shell") and
+-- each of the side's own deaths ("death", its `side`) within `cfg.radius` studs, its `cfg.weight` by kind from full at
+-- the spot to `cfg.edge` of it at the radius, fading by e every `fade` seconds (`cfg.fade` unless given); and each
+-- enemy known within `cfg.enemyNear` (`enemies`) `cfg.weight.enemy`, at most `cfg.enemyMost` in all. Returns the heat
+-- and its shells', deaths' and enemies' shares.
+export type HeatEvent = { x: number, z: number, at: number, kind: string, side: string? }
+function BotTrenches.heat(
+	now: number,
+	x: number,
+	z: number,
+	side: string,
+	events: { HeatEvent },
+	enemies: { { x: number, z: number } },
+	cfg: any,
+	fade: number?
+): (number, number, number, number)
+	local f = fade or cfg.fade
+	local shells, deaths = 0, 0
+	for _, e in events do
+		local age = now - e.at
+		if age >= 0 and (e.kind == "shell" or (e.kind == "death" and e.side == side)) then
+			local d = math.sqrt((e.x - x) ^ 2 + (e.z - z) ^ 2)
+			if d <= cfg.radius then
+				local v = cfg.weight[e.kind] * (1 - (1 - cfg.edge) * d / cfg.radius) * math.exp(-age / f)
+				if e.kind == "shell" then
+					shells += v
+				else
+					deaths += v
+				end
+			end
+		end
+	end
+	local near = 0
+	for _, k in enemies do
+		if math.sqrt((k.x - x) ^ 2 + (k.z - z) ^ 2) <= cfg.enemyNear then
+			near += 1
+		end
+	end
+	local foes = math.min(near * cfg.weight.enemy, cfg.enemyMost)
+	return shells + deaths + foes, shells, deaths, foes
+end
+
+-- Whether a holder shelters in a dugout at `heat` (BotTrenches.heat; Config/Bots.Dugouts.Heat `cfg`), and why: down
+-- once it reaches `cfg.enter`, unless it is resting (up again after a stay, to fight); once down (`inside`) it stays
+-- while the heat is `cfg.leave` or more, but never `cfg.stay` seconds (`stayed`) at a time: "stay" is up to fight for
+-- `cfg.rest` before it may go down again ("They still need to come back out and fight").
+function BotTrenches.shelter(
+	inside: boolean,
+	heat: number,
+	stayed: number,
+	resting: boolean,
+	cfg: any
+): (boolean, string)
+	if inside then
+		if stayed >= cfg.stay then
+			return false, "stay"
+		end
+		return heat >= cfg.leave, if heat >= cfg.leave then "hot" else "calm"
+	end
+	if resting then
+		return false, "resting"
+	end
+	return heat >= cfg.enter, if heat >= cfg.enter then "hot" else "calm"
+end
+
+-- Why a holder went down, for the admin readout: the heat and what made it
+function BotTrenches.heatWhy(heat: number, shells: number, deaths: number, foes: number): string
+	local parts = {}
+	if shells > 0.05 then
+		table.insert(parts, string.format("shells %.1f", shells))
+	end
+	if deaths > 0.05 then
+		table.insert(parts, string.format("deaths %.1f", deaths))
+	end
+	if foes > 0.05 then
+		table.insert(parts, string.format("enemies %.1f", foes))
+	end
+	return string.format("heat %.1f", heat) .. (if #parts > 0 then ` ({table.concat(parts, ", ")})` else "")
+end
+
 -- How many dugouts a side wants (user 2026-11-02: "whenever they need one but dont make bots abuse it"): none until its
--- trenches have been shelled, then room (`cfg.room` each) for its holders but its sentries ("1 per fire bay", one
+-- trenches have been shelled or fought over (Config/Bots.Dugouts.Heat.build), then room (`cfg.room` each) for its holders but its sentries ("1 per fire bay", one
 -- each of `bays`).
 function BotTrenches.dugoutsWanted(shelledOnce: boolean, holders: number, bays: number, cfg: { room: number }): number
 	if not shelledOnce then
@@ -319,9 +441,10 @@ end
 -- Where a side's next dugouts go: up to `want` of its support line's squares (`squares`, each dug `share` of its HP,
 -- `len` studs long on the flat), dug to `cfg.dug` or more, at least `long` studs long (a dugout's width and its spare:
 -- Config/Build.Dugout), `cfg.spacing` studs (centre to centre) from every dugout it has (`have`) and from each other,
--- the nearest to the line's middle first. Returns indices into `squares`.
+-- the hottest first (each square's `heat`, BotTrenches.heat over the side's memory: often shelled or fought over),
+-- then the nearest to the line's middle. Returns indices into `squares`.
 function BotTrenches.dugoutSquares(
-	squares: { { x: number, z: number, share: number, len: number } },
+	squares: { { x: number, z: number, share: number, len: number, heat: number? } },
 	have: { { x: number, z: number } },
 	want: number,
 	cfg: { dug: number, spacing: number },
@@ -343,6 +466,10 @@ function BotTrenches.dugoutSquares(
 	end
 	table.sort(order, function(a, b)
 		local sa, sb = squares[a], squares[b]
+		local ha, hb = sa.heat or 0, sb.heat or 0
+		if math.abs(ha - hb) > 1e-6 then
+			return ha > hb
+		end
 		return (sa.x - mx) ^ 2 + (sa.z - mz) ^ 2 < (sb.x - mx) ^ 2 + (sb.z - mz) ^ 2
 	end)
 	local taken = table.clone(have)
@@ -476,6 +603,31 @@ function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	end
 	table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = run.bx, bz = run.bz })
 	return legs
+end
+
+-- How a soldier at (px, pz) died, for the trench stats (Config/Bots.Trenches.Stats `cfg`): in a dug trench square
+-- (`squares`, any side's: inSquare within `cfg.floor`), and by a shell (`blasts`: { x, z, at, kg }, one of `shell` kg or
+-- more within `cfg.shellNear` studs in the last `cfg.shellAge` seconds before `now`)
+function BotTrenches.deathKind(
+	px: number,
+	pz: number,
+	now: number,
+	squares: { { x: number, z: number } },
+	blasts: { { x: number, z: number, at: number, kg: number } },
+	shell: number,
+	cfg: any
+): (boolean, boolean)
+	local byShell = false
+	for _, b in blasts do
+		if
+			b.kg >= shell
+			and now - b.at <= cfg.shellAge
+			and math.sqrt((b.x - px) ^ 2 + (b.z - pz) ^ 2) <= cfg.shellNear
+		then
+			byShell = true
+		end
+	end
+	return BotTrenches.inSquare(px, pz, squares, cfg.floor) ~= nil, byShell
 end
 
 return BotTrenches

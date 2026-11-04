@@ -304,7 +304,7 @@ local Bots = {
 	Build = {
 		builder = "Engineer",
 		calm = 3,
-		take = 90,
+		take = 150, -- (was 90: diggers walked off their front's runs)
 		-- an Engineer takes a job this far off (user 2026-11-03 play test: "even when i give free engineers, the bots arent
 		-- building": the front's jobs lay past `take` from the sector their squads were sent to)
 		engineerTake = 400,
@@ -377,7 +377,10 @@ local Bots = {
 		-- to `fireLine` studs ahead of it, the nearest the work first, `open` at once. One tree per Engineer at most every
 		-- `every` s, `perSide` a side a match; never a tree in one of the map's buildings. Each stands `stand` studs
 		-- from the trunk to chop it.
-		Trees = { clear = 8, fireLine = 60, every = 20, perSide = 40, open = 3, stand = 5 },
+		-- (`every` 20 to 8, `open` 3 to 6 and `clear` 8 to 15 with the trench priority, user 2026-11-04: Map 1's sectors
+		-- stand in woods and the lines waited on their trees; a trench is refused for a tree out to about 14 studs from its
+		-- line, its cut, walls and dirt heaps, Config/Build.Trench.treeClear)
+		Trees = { clear = 15, fireLine = 60, every = 8, perSide = 40, open = 6, stand = 5 },
 	},
 
 	-- Normal: sapping forward (Rules/BotSap; user 2026-11-02: "AI ... should [build trenches to push forward] if they are
@@ -460,10 +463,40 @@ local Bots = {
 	--   a trench's wall top of a run planned or dug, a sap's run or its next one, or any trench square; a digger tears
 	--   down a `tear` piece (the enemy's or a bot's) in its run's way first, and swings the run aside round anything
 	--   else.
+	-- - Trench first (user 2026-11-04: "theres not enough trench fighting ... can we make trench more of a priority that
+	--   way we can see whole maps being filled with trenches"; a measured match dug no fire step in 11 min: diggers seen
+	--   at the zone's edge stopped, Engineers were on the guns): a trench job is dug under fire (only a hit stops it, as
+	--   a sap), and up to `pioneers` of a side's bots (any class, defenders first, never a gun crew) are on trench duty:
+	--   they take its trench jobs before anything else, from up to `pioneerTake` studs off.
 	Trenches = {
 		share = 0.5,
-		hold = 0.3,
-		Fire = { edge = 0.9, width = 48, bays = 3, traverse = 6 },
+		pioneers = 3,
+		pioneerTake = 400,
+		-- a run refused for a tree in its way (Config/Bots.Build.Trees: the pioneers and Engineers fell it) waits `wait` s
+		-- for it to come down, up to `waits` times, before it swings aside as for any other refusal (a measured match:
+		-- every refusal a try, Map 1's trees had each side's fire trench given up for breastworks within a minute)
+		Tree = { wait = 15, waits = 8 },
+		-- forward lines (Rules/BotTrenches.forward): a side keeps each sector's system while it holds it (the front moving
+		-- back and forth finds its runs as it left them); once its front's fire trench is planned, `lines` more fire
+		-- trenches, each `step` of the way on to the enemy's next sector, joined back by a communication trench (a
+		-- zig-zag where the enemy sees down it), none within `keep` studs of that sector's zone
+		Forward = { lines = 2, step = 1 / 3, keep = 60 },
+		-- the enemy's dug squares within `takeOver` studs of its front zone's edge give it fire steps as its own (the
+		-- parapet turned: user 2026-11-04, "bots just destroy incoming trenches")
+		takeOver = 30,
+		-- a system sited on the clearest ground (Map 1's sectors stand in woods: a measured match's runs met a tree 64
+		-- times in 81 tries): of its fire line `edges` of the zone's radius out (a forward line: that far on or back from
+		-- its spot) and `shifts` studs across, the first with the fewest standing trees within `clear` studs of its fire
+		-- and support runs, each spot every Trench.block studs along any run in water counting `wet` trees and each solid
+		-- thing across a run (Map 1's stone walls, poles and houses: Trenches' "In the way") `solid`
+		-- (`clear` 16: a square's cut, walls and dirt heaps reach about 14 from its line, Config/Build.Trench.treeClear)
+		Site = { edges = { 0.6, 0.35, 0.85, 0.1 }, shifts = { 0, -20, 20, -40, 40 }, clear = 16, wet = 5, solid = 4 },
+		-- the admin trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute; Rules/BotTrenches.deathKind): a bot
+		-- dying within `floor` studs of a dug square's middle died in a trench; one of Dugouts.shell kg or more within
+		-- `shellNear` studs in the `shellAge` s before, by a shell
+		Stats = { floor = 5, shellNear = 20, shellAge = 0.6 },
+		hold = 0.45, -- (was 0.3: more holders to man the fire steps, user 2026-11-04 trench priority)
+		Fire = { edge = 0.6, width = 80, bays = 5, traverse = 6 }, -- (80: across the zone, r 45; was 48 in 3; 0.6 was 0.9: diggers on the edge were always under fire)
 		-- (56: past the zone's flagpole in its middle, which a line 40 back ran into; past Config/Build.Trench.spacing)
 		Support = { back = 56, width = 32 },
 		Comm = { jog = 6, short = 1 },
@@ -477,7 +510,10 @@ local Bots = {
 		Zigzag = { cone = 20, plunge = 10, range = 500, leg = 12, angle = { min = 25, perStud = 1, max = 45 } },
 		on = 2,
 		ends = 0.15,
-		cap = 60,
+		cap = 160, -- (was 60)
+		-- its squares wanting swings within this of its front zone's edge are dug (Build.repair for other pieces; its
+		-- forward lines lie a third of the way to the next sector, Forward)
+		digReach = 220,
 		digs = 12,
 		standHp = 60,
 		rise = 3.4, -- (6.3 from the line in the 4.25 floor trench, 5.05 in the slimmer 3 floor one)
@@ -509,7 +545,7 @@ local Bots = {
 		near = 120,
 		blast = 15,
 		blastNear = 40,
-		open = 4,
+		open = 6, -- (was 4: with the trench priority's lines to use, user 2026-11-04)
 		label = "Trench",
 		materials = {
 			"Grass",
@@ -536,14 +572,20 @@ local Bots = {
 	-- - Shelled: a shell (a blast of `shell` kg or more: not a grenade) within `near` studs of a side's trench squares in
 	--   the last `recent` seconds.
 	-- - Building ("whenever they need one but dont make bots abuse it"): none until the side's trenches at its front have
-	--   been shelled; then room for its holders but its sentries, `room` to a dugout, in its support line's squares dug
-	--   to `dug` of their HP, the rear wall (away from the enemy), `spacing` studs apart, the line's middle first.
+	--   been shelled, or one of its squares has been `Heat.build` hot; then room for its holders but its sentries, `room` to a dugout, in its support line's squares dug
+	--   to `dug` of their HP, and its fire trench's squares `Heat.build` hot, the rear wall (away from the enemy),
+	--   `spacing` studs apart, the hottest squares first (their heat over `Heat.memory` s: the often shelled and fought
+	--   over), then the line's middle.
 	--   Engineers dig them when calm, as any job on the list; while a side has one to dig, up to `engineers` of its bots
 	--   pick Engineer when they respawn, if they can pay (dugout duty, as the gun crews: Build.Crews), and take dugout
 	--   jobs first.
-	-- - Sheltering: while its trenches are shelled (and not standing to, not falling back), one holder per fire bay
-	--   stays on the fire step as a sentry ("1 per fire bay"); the others go down into the nearest standing dugout with
-	--   a place, and come up to their posts as soon as the shelling stops or the side stands to.
+	-- - Sheltering (user 2026-11-03: "make bots utilize dug outs more often, especially in trenches highly contested or
+	--   often shelled"): by how hot its post is (Rules/BotTrenches.heat, `Heat`): shells landing within `Heat.radius`,
+	--   the side's own dead there and enemies known within `Heat.enemyNear`, each fading by e every `Heat.fade` s. At
+	--   `Heat.enter` (and not standing to, not falling back) a holder goes down into the nearest standing dugout with a
+	--   place, one per fire bay staying on the fire step as a sentry ("1 per fire bay"); it comes up to its post once
+	--   its dugout cools under `Heat.leave`, the side stands to, or after `Heat.stay` s down, then fights `Heat.rest` s
+	--   before it may go down again ("They still need to come back out and fight").
 	-- - Bombing out ("Yes"): a Grenadier of a pushing squad throws a grenade down the steps of an enemy dugout its squad
 	--   knows someone is in (a known enemy within `Bomb.inside` studs of its room, under the trench floor), from `min`-`max`
 	--   studs, no teammate within Actions.Grenade.safe of the steps.
@@ -562,6 +604,23 @@ local Bots = {
 		engineers = 1,
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },
+		-- (`weight`: a shell, an own death, an enemy known near; `edge`: a shell's or death's share at `radius`;
+		-- `keep`: the seconds a shell or death is remembered; `enemyMost`: the most heat its known enemies add)
+		Heat = {
+			radius = 30,
+			edge = 0.6,
+			fade = 25,
+			memory = 90,
+			keep = 120,
+			weight = { shell = 1, death = 0.6, enemy = 0.1 },
+			enemyNear = 70,
+			enemyMost = 0.5,
+			enter = 0.8,
+			leave = 0.35,
+			stay = 40,
+			rest = 12,
+			build = 1.5,
+		},
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above
@@ -779,7 +838,12 @@ local Bots = {
 	-- - MGs (user: "Yes, at seen enemies"): at a target it sees within the gun's range, bursts `burst.on` s held and
 	--   `burst.off` s let go; a new box once the box is empty, or under `topUp` of it with nothing to shoot at.
 	Crew = {
-		max = 7, -- (every gun and nest its bots build manned: 4 guns and 3 nests, user 2026-11-03: "utilize cannons and mgnests more")
+		-- (every gun and nest its bots build manned: 4 guns and 3 nests, user 2026-11-03: "utilize cannons and mgnests
+		-- more"; 7 to 5 with the trench priority, user 2026-11-04: "most fights end up being artillery")
+		max = 5,
+		-- its guns shell the known groups in the open first, then those within `trench` studs of an enemy dug square
+		-- (Rules/BotCrew.openFirst)
+		trench = 8,
 		walk = 300,
 		crewFirst = 60,
 		walkFor = 45,

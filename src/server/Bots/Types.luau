@@ -35,6 +35,7 @@ export type BuildJob = {
 	at: Vector3?, -- the piece's spot once laid (what it swings at)
 	left: number,
 	tries: number,
+	treeWaits: number?, -- a trench run's waits for a tree in its way (Config/Bots.Trenches.Tree)
 	waitUntil: number,
 	open: boolean, -- on the list this tick
 	run: BotTrenches.Run?, -- a trench run of the side's system (Rules/BotTrenches): planned, then its squares dug
@@ -43,7 +44,12 @@ export type BuildJob = {
 	done: boolean?, -- its breastwork or walls are on the list
 	fix: boolean?, -- a gun of its side out of service (Rules/BotCrew.repairOrder): fixed first, wherever it stands
 	why: string?, -- why it was last refused (Build.placeAs; the Engineer readout)
+	from: { x: number, z: number }?, -- a trench run planned part way: where it began (its job goes on from the part's end)
+	sys: string?, -- a trench run's system: "S<sector>", or "S<sector>F<k>" a forward line (Config/Bots.Trenches.Forward)
 }
+-- a side's trench system at a sector (its runs as jobs, kept while the side holds the sector) or a forward line out from
+-- it, and the middle of its fire trench (where the next line's communication trench joins it)
+export type TrenchSystem = { sector: number, runs: { BuildJob }, mid: { x: number, z: number } }
 
 -- a squad's sap forward (Rules/BotSap): its head (where the next run starts), the run being planned or dug, the jobs
 -- open on it, its squares' jobs by model
@@ -151,6 +157,7 @@ export type Bot = {
 	shovel: Tool?, -- its shovel, out of its hands until it builds
 	cast: Cast?, -- a Mage's circle open
 	digger: boolean?, -- Normal: one of its holding squad's diggers (Config/Bots.Trenches.share)
+	pioneer: boolean?, -- Normal: on its side's trench duty (Config/Bots.Trenches.pioneers)
 	crew: boolean?, -- Normal: an Engineer on gun duty this life (Config/Bots.Build.Crews): gun jobs first
 	dugouts: boolean?, -- Normal: an Engineer on dugout duty this life (Config/Bots.Dugouts.engineers): dugout jobs first
 	sapper: boolean?, -- Normal: one of its squad's sappers (Config/Bots.Sap.share)
@@ -159,6 +166,8 @@ export type Bot = {
 	postFloor: Vector3?, -- its post is a fire step: the trench floor below it (its cover)
 	postKind: string?, -- "step", "reserve" (the support line), "dugout" (sheltering), "window" or "open"
 	postFoot: Vector3?, -- its dugout's foot (where the steps start): walked straight down from there, and up to it
+	dugSince: number?, -- when it went down into its dugout (Config/Bots.Dugouts.Heat.stay)
+	dugRest: number?, -- up to fight till then, after a stay (Dugouts.Heat.rest)
 	gun: Model?, -- Normal: the gun its commander gave it (src/server/Bots/Crew): it walks there, mans and fires it
 	gunWait: number?, -- not given a gun again before this (taken over by a teammate, or gave up the walk)
 }
@@ -222,7 +231,8 @@ export type SideBuild = {
 	guns: number, -- the side's guns standing (anyone's; Config/Bots.Build.Crews)
 	-- its dugouts (Config/Bots.Dugouts): the rooms that shelter (the middle of each floor), whether its trenches are
 	-- shelled now and have been at this front, its fire bays with a step (one sentry each)
-	rooms: { { x: number, z: number, room: Vector3, foot: Vector3 } },
+	rooms: { { x: number, z: number, room: Vector3, foot: Vector3, model: Model } },
+	enemies: { { x: number, z: number } }, -- the enemies its squads know of now (Dugouts.Heat)
 	shelled: boolean,
 	shelledOnce: boolean,
 	bays: number,
@@ -232,6 +242,7 @@ export type SideBuild = {
 	runNotes: { string },
 	gunNote: string?, -- why each gun is or isn't on its list (locked, its spots, or why none fit; the Engineer readout)
 	inFront: { [string]: number }?, -- its guns and MG nests in its front sector by key, captured ones it uses counted
+	systems: { [string]: TrenchSystem }, -- its trench systems by key (BuildJob.sys)
 }
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
 export type Soldier = {

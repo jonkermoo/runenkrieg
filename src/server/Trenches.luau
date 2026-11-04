@@ -1342,6 +1342,22 @@ function Trenches.work(blk: Block, _team: string, mode: string, power: number, s
 	return false, 0
 end
 
+-- Structures' blasts as they hit a trench square (Trench.blast in place of their own numbers)
+local squareBlast: { [any]: any } = {}
+for key, src in C.Structures do
+	local o = T.blast[key]
+	if type(src) == "table" and o then
+		local merged = table.clone(src)
+		for k, v in o do
+			merged[k] = v
+		end
+		squareBlast[src] = merged
+	end
+end
+
+-- dug squares buried by blasts and bullets this match, by team (the admin trench stats: src/server/Bots/Report)
+local buried: { [string]: number } = {}
+
 -- A square loses `amount` HP to a blast or a bullet (Config/Build.Structures): buried by that much (reshaped only when
 -- its depth changes: a bullet's chip doesn't), filled in to a scar at 0
 local function harm(blk: Block, amount: number)
@@ -1352,6 +1368,9 @@ local function harm(blk: Block, amount: number)
 	blk.hp = math.max(blk.hp - amount, 0)
 	blk.falling = true
 	if blk.hp <= 0 then
+		if blk.built then
+			buried[blk.team] = (buried[blk.team] or 0) + 1
+		end
 		finish(blk, true)
 	else
 		apply(blk, math.abs(shareOf(blk) - before) > 0.005)
@@ -1362,6 +1381,7 @@ end
 -- share by how far the blast is from its ground (its hole, walls and banks: 0 on or in them)
 function Trenches.blast(position: Vector3, src: any)
 	local S = C.Structures
+	src = squareBlast[src] or src
 	local hit = {}
 	for _, blk in blocks do
 		if live(blk) and blk.hp > 0 then
@@ -1461,7 +1481,13 @@ function Trenches.dug(key: string): boolean
 end
 
 -- Removes every trench and scar, the ground put back (dev: the admin panel's undo)
+-- the dug squares of `team` blasts and bullets have buried this match
+function Trenches.buried(team: string): number
+	return buried[team] or 0
+end
+
 function Trenches.clear()
+	table.clear(buried)
 	local list = {}
 	for _, blk in blocks do
 		table.insert(list, blk)
@@ -1505,14 +1531,16 @@ function Trenches.start()
 		end
 		Hitches.since("Trench frame", t0)
 	end)
-	-- plans nobody digs go after Trench.planLife
+	-- plans nobody digs go after Trench.planLife (a bot's after botPlanLife)
 	task.spawn(function()
 		while true do
 			task.wait(10)
 			local now = os.clock()
 			local stale = {}
 			for _, blk in blocks do
-				if live(blk) and blk.hp <= 0 and not blk.falling and now - blk.worked > T.planLife then
+				local owner = blk.model and (blk.model :: Model):GetAttribute("Owner")
+				local life = if type(owner) == "number" and owner < 0 then T.botPlanLife else T.planLife
+				if live(blk) and blk.hp <= 0 and not blk.falling and now - blk.worked > life then
 					table.insert(stale, blk)
 				end
 			end

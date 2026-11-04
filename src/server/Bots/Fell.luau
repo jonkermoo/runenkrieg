@@ -188,6 +188,8 @@ function Fell.chop(model: Model, id: number, side: string, r: BuildJob): string?
 		local reach = math.max(size.X, size.Y, size.Z) + 8
 		DevWorld.touch(p - Vector3.one * reach, p + Vector3.one * reach)
 		s.felled += 1
+		-- (not left lying across the lines it was felled for: Trenches' "In the way", user 2026-11-04 trench priority)
+		Trees.clearAway(tree)
 		counts.felled += 1
 		lastFell[id] = os.clock()
 		local stump = tree and Trees.stumpOf(tree)

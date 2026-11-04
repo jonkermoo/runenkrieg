@@ -71,6 +71,13 @@ return {
 		assert(R.ready(all, #runs), "the communication trench last")
 		all[2] = false
 		assert(not R.ready(all, #runs), "a bay missing")
+		local kinds = {}
+		for k, r in runs do
+			kinds[k] = r.kind
+		end
+		local support = table.find(kinds, "Support") :: number
+		assert(R.ready({}, support, kinds), "the support line alongside the fire trench")
+		assert(not R.ready({}, support + 1, kinds), "the communication trench still last")
 	end,
 	["swing: the far end steps aside, one way then the other; the start stays"] = function()
 		local x1, z1 = R.swing(0, 0, 0, 16, 1, 6)
@@ -138,6 +145,47 @@ return {
 		assert(R.digs(1, 1, T.share), "a lone bot digs")
 		assert(R.digs(1, 3, T.share) and R.digs(2, 3, T.share) and not R.digs(3, 3, T.share))
 	end,
+	["forward: a fire trench across the way at the point, joined back to the last line's middle"] = function()
+		local runs = R.forward({ x = 0, z = 0 }, { x = 140, z = 0 }, 1, 0, T)
+		local fire = of(runs, "Fire")
+		local comm = of(runs, "Comm")
+		assert(#fire == T.Fire.bays and #comm == 1)
+		local mid = R.fireMid(runs)
+		assert(math.abs(mid.x - 140) <= T.Fire.traverse and math.abs(mid.z) <= T.Fire.width / T.Fire.bays)
+		assert(near(comm[1].ax, T.Comm.short) and near(comm[1].az, 0), "off the last line's middle")
+		local main = R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T)
+		local m = R.fireMid(main)
+		assert(m.x > 0 and m.x <= 50, "the main system's fire trench lies forward of the zone's middle")
+	end,
+
+	["openFirst: crews shell the groups in the open before those in a trench"] = function()
+		local Crew = require("../src/shared/Rules/BotCrew")
+		local groups = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 200, z = 0 } }
+		local out = Crew.openFirst(groups, { { x = 2, z = 0 } }, Cfg.Crew.trench)
+		assert(out[1] == 2 and out[2] == 3 and out[3] == 1)
+		assert(#Crew.openFirst({ groups[1] }, {}, Cfg.Crew.trench) == 1)
+	end,
+
+	["trench squares under shells: sturdier than other structures"] = function()
+		local T2 = Build.Trench.blast
+		assert(T2.field.hit < Build.Structures.field.hit and T2.howitzer.hit < Build.Structures.howitzer.hit)
+		assert(math.ceil(Build.Trench.hp.max / T2.field.hit) >= 4, "four direct field hits to bury a square")
+	end,
+
+	["deathKind: in a trench square, by a shell"] = function()
+		local S = T.Stats
+		local squares = { { x = 0, z = 0 }, { x = 8, z = 0 } }
+		local shell = { x = 3, z = 0, at = 10, kg = 5 }
+		local inT, byShell = R.deathKind(7, 1, 10.2, squares, { shell }, 1, S)
+		assert(inT and byShell)
+		inT, byShell = R.deathKind(40, 0, 10.2, squares, { shell }, 1, S)
+		assert(not inT and not byShell, "out of the shell's reach, in the open")
+		inT, byShell = R.deathKind(3, 0, 10 + S.shellAge + 0.1, squares, { shell }, 1, S)
+		assert(inT and not byShell, "the shell too long ago")
+		inT, byShell = R.deathKind(3, 0, 10.1, squares, { { x = 3, z = 0, at = 10, kg = 0.5 } }, 1, S)
+		assert(not byShell, "a grenade is no shell")
+	end,
+
 	["overrun, standTo, inSquare"] = function()
 		assert(R.overrun(1, 1, 4, T.keep) and not R.overrun(1, 3, 4, T.keep) and not R.overrun(0, 0, 4, T.keep))
 		assert(R.standTo(T.alarm - 1, T.alarm) and not R.standTo(T.alarm + 1, T.alarm))
@@ -202,6 +250,65 @@ return {
 		assert(R.dugoutsWanted(true, 2, 2, D) == 0, "only sentries")
 		assert(R.dugoutsWanted(true, 2 + D.room, 2, D) == 1)
 		assert(R.dugoutsWanted(true, 3 + D.room, 2, D) == 2, "one more over")
+	end,
+	["a trench's heat: shells and its own dead close by, fading; enemies known near, capped (user 2026-11-03)"] = function()
+		-- user 2026-11-03: "make bots utilize dug outs more often, especially in trenches highly contested or often shelled"
+		local H = Cfg.Dugouts.Heat
+		local shell = { x = 0, z = 0, at = 100, kind = "shell" }
+		assert(near((R.heat(100, 0, 0, "West", { shell }, {}, H)), H.weight.shell), "a shell on the spot, full")
+		assert(near((R.heat(100, H.radius, 0, "West", { shell }, {}, H)), H.weight.shell * H.edge), "at the radius")
+		assert(R.heat(100, H.radius + 1, 0, "West", { shell }, {}, H) == 0, "past it")
+		assert(near((R.heat(100 + H.fade, 0, 0, "West", { shell }, {}, H)), H.weight.shell / math.exp(1)), "fades")
+		assert((R.heat(100 + H.fade, 0, 0, "West", { shell }, {}, H, H.memory)) > H.weight.shell * 0.7, "remembered")
+		local dead = { x = 0, z = 0, at = 100, kind = "death", side = "West" }
+		assert(near((R.heat(100, 0, 0, "West", { dead }, {}, H)), H.weight.death), "its own dead")
+		assert(R.heat(100, 0, 0, "East", { dead }, {}, H) == 0, "not the enemy's dead")
+		local foes = {}
+		for i = 1, 20 do
+			table.insert(foes, { x = i, z = 0 })
+		end
+		local h, s, d, f = R.heat(100, 0, 0, "West", { shell, dead }, foes, H)
+		assert(near(f, H.enemyMost) and near(h, s + d + f), "enemies known near, capped")
+		assert(H.enemyMost < H.enter, "enemies alone never send them down")
+		assert(R.heat(100, 0, 0, "West", {}, { { x = H.enemyNear + 1, z = 0 } }, H) == 0, "a far enemy")
+		local why = R.heatWhy(h, s, d, f)
+		assert(string.find(why, "shells") and string.find(why, "deaths") and string.find(why, "enemies"), why)
+	end,
+	["shelter: down when hot, up when it cools or after a stay, then a rest up to fight"] = function()
+		local H = Cfg.Dugouts.Heat
+		assert(H.leave < H.enter and H.rest > 0 and H.stay > H.rest, "a margin, and longer down than up")
+		assert(R.shelter(false, H.enter, 0, false, H), "hot: down")
+		assert(not R.shelter(false, H.enter - 0.01, 0, false, H), "not hot enough")
+		local down, why = R.shelter(false, 5, 0, true, H)
+		assert(not down and why == "resting", "resting: up, fighting")
+		assert(R.shelter(true, H.leave, 1, false, H), "still warm: stays")
+		down, why = R.shelter(true, H.leave - 0.01, 1, false, H)
+		assert(not down and why == "calm", "cooled: up")
+		down, why = R.shelter(true, 5, H.stay, false, H)
+		assert(not down and why == "stay", "down long enough: up to fight")
+		-- one shell near a trench is enough, and they stay down longer than the old 8 s
+		local shell = { { x = 0, z = 0, at = 0, kind = "shell" } }
+		assert((R.heat(0, 10, 0, "West", shell, {}, H)) >= H.enter, "a shell 10 studs off")
+		local t = H.fade * math.log(H.weight.shell / H.leave)
+		assert(t > Cfg.Dugouts.recent, "longer than the old shelling")
+		-- often shelled (a shell every 10 s): still hot after a stay, so a holder rests up a while and goes back down
+		local often = {}
+		for i = 0, 5 do
+			table.insert(often, { x = 0, z = 0, at = i * 10, kind = "shell" })
+		end
+		assert((R.heat(H.stay + H.rest, 0, 0, "West", often, {}, H)) >= H.enter, "hot after a stay and a rest")
+	end,
+	["dugoutSquares: the hottest squares first"] = function()
+		local D = Cfg.Dugouts
+		local sq = {
+			{ x = 0, z = 0, share = 1, len = 20, heat = 0 },
+			{ x = 40, z = 0, share = 1, len = 20, heat = 3 },
+			{ x = -40, z = 0, share = 1, len = 20, heat = 1 },
+		}
+		local out = R.dugoutSquares(sq, {}, 2, D, 10)
+		assert(out[1] == 2 and out[2] == 3, "hottest, then the next")
+		sq[2].heat, sq[3].heat = 0, 0
+		assert(R.dugoutSquares(sq, {}, 1, D, 10)[1] == 1, "none hot: the middle")
 	end,
 	["dugoutSquares: dug squares, spaced, the middle first"] = function()
 		local D = Cfg.Dugouts

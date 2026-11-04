@@ -105,7 +105,14 @@ local function throwLook(b: Bot, at: Vector3): Vector3
 	return u * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
 end
 
-local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boolean?): BuildJob?
+local function pickFrom(
+	b: Bot,
+	open: { BuildJob },
+	any: boolean,
+	fixOnly: boolean?,
+	far: number?,
+	share: boolean?
+): BuildJob?
 	local engineer = any or Loadouts.classOf(b.m :: Model) == "Engineer"
 	local root = (b.root :: BasePart).Position
 	local held: { [BuildJob]: boolean } = {}
@@ -133,7 +140,9 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boole
 		}
 		local d = flat(Vector3.new(list[k].x, 0, list[k].z) - root).Magnitude
 		local fits = engineer or Kinds.small[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
-		taken[k] = held[r] == true or not fits or (j.key == "Tree" and not Tactics.fell.ready(b.id))
+		-- (`share`: a square wanting swings may have more than one digger)
+		local busy = held[r] == true and not (share and r.model ~= nil)
+		taken[k] = busy or not fits or (j.key == "Tree" and not Tactics.fell.ready(b.id))
 	end
 	-- a gun of its side out of service (Rules/BotCrew.repairOrder): the nearest anywhere first, fixed before it is manned
 	local notFix: { [number]: boolean } = {}
@@ -157,7 +166,7 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boole
 		end
 	end
 	-- (an Engineer any job on its side's front, from where its squad is: Build.engineerTake)
-	local reach = if engineer and not any then BD.engineerTake else BD.take
+	local reach = far or (if engineer and not any then BD.engineerTake else BD.take)
 	local k = BotBuild.pick(list, root.X, root.Z, reach, taken, {}, nil)
 	return if k then open[k] else nil
 end
@@ -183,6 +192,22 @@ local function pickJob(b: Bot): (BuildJob?, string?)
 	local r = pickFrom(b, sb.open, false)
 	local reach = if Loadouts.classOf(b.m :: Model) == "Engineer" then BD.engineerTake else BD.take
 	return r, if r then nil else `none within {reach} studs`
+end
+
+-- a pioneer's trench job (Config/Bots.Trenches.pioneers): the nearest trench run or square on its side's list, or a
+-- tree in the way of its lines (Config/Bots.Build.Trees: a run refused for a tree waits on it)
+local function pickTrench(b: Bot): BuildJob?
+	local sb = buildLists[b.side :: string]
+	if not sb or not sb.front then
+		return nil
+	end
+	local trench = {}
+	for _, r in sb.open do
+		if r.job.key == "Trench" or r.job.key == "Tree" then
+			table.insert(trench, r)
+		end
+	end
+	return if #trench > 0 then pickFrom(b, trench, true, false, Cfg.Trenches.pioneerTake, true) else nil
 end
 
 -- an enemy dugout's steps to throw down, if its squad `sq` knows someone is in it (Rules/BotTrenches.occupied): within
@@ -243,7 +268,9 @@ local function safeHere(b: Bot, r: BuildJob, brave: boolean, now: number): boole
 	if not seen and b.threatFrom and sinceThreat < BD.calm and budget.rays > 0 then
 		hid = hidden(b.threatFrom :: Vector3, (b.root :: BasePart).Position, exclusions(b))
 	end
-	return BotBuild.safeToWork(r.underFire == true or brave, seen, sinceThreat, sinceHurt, hid, BD.calm)
+	-- (a trench is dug under fire, as a sap: only a hit stops it, Config/Bots.Trenches.pioneers)
+	local dig = r.job.key == "Trench"
+	return BotBuild.safeToWork(r.underFire == true or brave or dig, seen, sinceThreat, sinceHurt, hid, BD.calm)
 end
 
 -- a build job taken (or gone back to): worked now if it is there and safe, else walked to with the gun out, fighting on
@@ -435,6 +462,16 @@ local function weigh(b: Bot, now: number)
 	local w = b.work
 	if w and (not w.job.open or now - w.since > BD.Work.keep or (sapping and not w.brave)) then
 		b.work, b.workState, w = nil, nil, nil
+	end
+	-- a pioneer leaves any other job for its side's trench lines, and digs them under fire too
+	-- (Config/Bots.Trenches.pioneers)
+	if b.pioneer and not pushing and not (w and (w.job.job.key == "Trench" or w.job.job.key == "Tree")) then
+		local r = pickTrench(b)
+		if r then
+			b.work, b.workState, w = nil, nil, nil
+			takeJob(b, r, now, true)
+			return
+		end
 	end
 	if w then
 		takeJob(b, w.job, now, w.brave)
@@ -692,9 +729,19 @@ local function laidFor(b: Bot, job: BotBuild.Job): Build.Work?
 	return best
 end
 
+-- (Trenches.plan's refusal for a tree in the way)
+local TREE = "A tree is in the way"
+
 -- a refused lay: its spot moved across (Rules/BotBuild.nudge), after Build.tries the planned spot again a while later
 local function refused(r: BuildJob, now: number, why: string?)
 	stats.refused += 1
+	-- (a tree in a trench run's way: it waits for the tree to be felled, Config/Bots.Trenches.Tree)
+	local TT = Cfg.Trenches.Tree
+	if r.run and why == TREE and (r.treeWaits or 0) < TT.waits then
+		r.treeWaits = (r.treeWaits or 0) + 1
+		r.waitUntil, r.open = now + TT.wait, false
+		return
+	end
 	-- (each spot's reason in turn, from the planned one: the readout)
 	r.why = if r.tries > 0 and r.why then `{r.why}, {why or "?"}` else why
 	r.tries += 1
@@ -837,6 +884,24 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		local reason = if job.key == "Trench"
 			then Build.planAs(m, spot, Routes.ground(job.ex :: number, job.ez :: number))
 			else Build.placeAs(m, job.key, spot, f)
+		-- a run of its side's lines refused whole: planned as far as it goes, halving down to a square, the rest of it
+		-- from there on (Config/Bots.Trenches.Tree; a measured match's runs on Map 1 met a tree 69 times in 78 tries)
+		if reason and r.run then
+			local far = Routes.ground(job.ex :: number, job.ez :: number)
+			local along = flat(far - spot)
+			local step = along.Magnitude / 2
+			while step >= BuildCfg.Trench.block do
+				local to = Routes.ground(spot.X + along.Unit.X * step, spot.Z + along.Unit.Z * step)
+				if Build.planAs(m, spot, to) == nil then
+					stats.partRuns += 1
+					r.from = r.from or { x = job.x, z = job.z }
+					r.job = { key = job.key, x = to.X, z = to.Z, ex = job.ex, ez = job.ez, fx = job.fx, fz = job.fz }
+					reason = nil
+					break
+				end
+				step /= 2
+			end
+		end
 		if reason and pileInstead() then
 			return true
 		end
