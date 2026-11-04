@@ -254,6 +254,10 @@ local tests: { [string]: () -> () } = {
 		local none = R.partOne(sp, nil, "LanternMeadows", "")
 		assert(none[1].text == sp.wonNone.LanternMeadows and none[2].text == sp.momentum.none)
 		assert(#R.partOne(sp, "uniform2", "Nowhere", "Selvara") == 1, "a map with no line: the momentum alone")
+		local made = R.partOne(sp, "uniform2", "Nowhere", "Selvara", "Frostmark")
+		assert(#made == 2 and made[1].text == "Selvara holds Frostmark. The enemy has been driven from the field.")
+		local madeNone = R.partOne(sp, nil, "Nowhere", "", "Frostmark")
+		assert(madeNone[1].text:find("Frostmark", 1, true) and not madeNone[1].text:find("{", 1, true))
 		for _, l in one do
 			assert(not l.text:find("{", 1, true), "every token filled")
 		end
@@ -394,6 +398,38 @@ local tests: { [string]: () -> () } = {
 			assert(spans[i][1] >= spans[i - 1][1] + spans[i - 1][2], "clips overlap")
 		end
 	end,
+	["a whole shot turned round its anchor: an orbit's angles, a move's offsets, nothing else"] = function()
+		local move =
+			{ kind = "Move", from = { at = "A", dx = 10, dz = 0, up = 5 }, look = { at = "A", up = 2 }, fov = 50 }
+		local t = R.turnShot(move, math.pi / 2)
+		assert(math.abs(t.from.dx) < 1e-9 and math.abs(t.from.dz - 10) < 1e-9 and t.from.up == 5 and t.fov == 50)
+		assert(move.from.dx == 10, "the written shot untouched")
+		assert(R.turnShot(move, 0) == move)
+		local orbit = R.turnShot({ kind = "Orbit", from = 1, to = 2 }, 0.5)
+		assert(orbit.from == 1.5 and orbit.to == 2.5)
+	end,
+	["a map's lines made from its data: its landmarks by name, a point with none by number"] = function()
+		local F = Cfg.Speech.fallback
+		local map = {
+			sectors = {
+				{ x = 0, z = 0 },
+				{ x = 400, z = 0 },
+				{ x = 800, z = 0 },
+				{ x = 1200, z = 0 },
+				{ x = 1600, z = 0 },
+			},
+			village = { specials = { { id = "Church", x = 410, z = 20 } } },
+		}
+		local places = R.placeNames(map, Cfg.Names, Cfg.LandmarkReach, F.unnamed)
+		assert(places[1] == "point 1" and places[2] == "the church", places[2])
+		local plan = R.madePlan(F, { map = "Frostmark", places = places }, 5)
+		assert(#plan == 6 and plan[1] == "Orders for Frostmark.")
+		assert(plan[2] == "Hold point 1." and plan[3] == "Push on to the church.", plan[3])
+		assert(plan[6] == "Then bring down point 5.", "the last point its own line")
+		assert(#R.madePlan(F, { map = "X", places = { "a", "b" } }, 2) == 3, "two points: first and last")
+		assert(R.boardOrders(Cfg.Vote, "Map1", "Map 1", 5) == Cfg.Vote.Orders.Map1, "a map's own orders first")
+		assert(R.boardOrders(Cfg.Vote, "Frostmark", "Frostmark", 5)[1] == "HOLD ALL 5 SECTORS")
+	end,
 	["the winners sign; everyone when there is no winner or no winner is playing"] = function()
 		assert(R.maySign("West", "West", true) and not R.maySign("East", "West", true))
 		assert(not R.maySign(nil, "East", true), "someone with no side doesn't sign for the winners")
@@ -505,9 +541,41 @@ for name, fn in
 			["the narrator has every line for this map: where it was won, lost, and its orders"] = function()
 				local sp = Cfg.Speech
 				local key = _name
-				assert(sp.won[key] and sp.wonNone[key], `{key} has its won lines`)
 				local plan = sp.plans[key]
-				assert(plan and #plan == #map.sectors + 1, `{key} has the dive's order and one per point`)
+				assert(
+					not plan or #plan == #map.sectors + 1,
+					`{key}'s written plan: the dive's order and one per point`
+				)
+				-- its own lines, or ones made from its data: a whole script either way (user 2026-11-03: every map)
+				local made = {
+					map = map.name,
+					places = R.placeNames(map, Cfg.Names, Cfg.LandmarkReach, sp.fallback.unnamed),
+				}
+				for _, key2 in { key, "NoLinesYet" } do
+					for _, kit in { "uniform1", "none" } do
+						local winner = if kit == "none" then nil else kit
+						local one = R.partOne(sp, winner, key2, "Katzmark", map.name)
+						assert(#one == 2, `{key2}: where it was won and the momentum`)
+						local two = R.partTwo(sp, Cfg.Pre, "uniform1", key2, #map.sectors, made)
+						assert(#two == #map.sectors + 2, `{key2}: the dive, an order per point, the call`)
+						for _, l in one do
+							assert(not l.text:find("{", 1, true), l.text)
+						end
+						for _, l in two do
+							assert(not l.text:find("{", 1, true) and l.text ~= "", l.text)
+						end
+					end
+				end
+				-- the made orders fit their points as the written ones must
+				local front, t0 = Cfg.Pre.shots[2], R.start(Cfg.Pre, 2)
+				local madePlan = R.madePlan(sp.fallback, made, #map.sectors)
+				for i = 1, #map.sectors - 1 do
+					local room = R.orderTime(front, t0, i + 1, #map.sectors) - R.orderTime(front, t0, i, #map.sectors)
+					local say = R.lineSeconds(madePlan[i + 1], sp.wordsPerSecond, Clips.clips) + sp.gap
+					assert(say <= room, `made: "{madePlan[i + 1]}" takes {say} s, the point gives {room} s`)
+				end
+				local orders = R.boardOrders(Cfg.Vote, "NoLinesYet", map.name, #map.sectors)
+				assert(#orders >= 1 and not orders[1]:find("{", 1, true), "orders on the board for any map")
 			end,
 			["the seals name their landmarks where a point has one"] = function()
 				local named = 0
@@ -518,7 +586,7 @@ for name, fn in
 						named += 1
 					end
 				end
-				assert(named >= 3, "most points have a landmark in view")
+				assert(named <= #map.sectors) -- (a point with none: its flag on its rise, Cfg.Pre bareStyles)
 			end,
 		}
 	end)

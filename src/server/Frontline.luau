@@ -818,7 +818,7 @@ local function run()
 		local nation = if winnerKit then (U.Kits :: any)[winnerKit].team else ""
 		local S = CutCfg.Speech
 		local spoken = CutRules.speechSeconds(
-			CutRules.partOne(S, winnerKit, played, nation),
+			CutRules.partOne(S, winnerKit, played, nation, LiveMap.get(played).name),
 			S.wordsPerSecond,
 			S.gap,
 			NarratorClips.clips

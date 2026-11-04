@@ -167,24 +167,30 @@ function Cutscenes.sectorShot(shot: any, i: number, bare: boolean?): any
 		out.from, out.to = style.from + spin, style.to + spin
 	end
 	-- turned further round the point by `spins[i]` radians (the client's: a view the trees don't block)
-	local spin = shot.spins and shot.spins[i] or 0
-	if spin ~= 0 then
-		if out.kind == "Orbit" then
-			out.from, out.to = out.from + spin, out.to + spin
-		else
-			local c, sn = math.cos(spin), math.sin(spin)
-			local function turned(key: any): any
-				if type(key) ~= "table" then
-					return key
-				end
-				local k = table.clone(key)
-				local dx, dz = k.dx or 0, k.dz or 0
-				k.dx, k.dz = dx * c - dz * sn, dx * sn + dz * c
-				return k
+	return Cutscenes.turnShot(out, shot.spins and shot.spins[i] or 0)
+end
+
+-- Shot `shot` turned `spin` radians round its anchors (an orbit's angles; a move's offsets from its places), the same
+-- distance from what it looks at: the client's clear view (Config/Cutscenes.ClearView).
+function Cutscenes.turnShot(shot: any, spin: number): any
+	if spin == 0 then
+		return shot
+	end
+	local out = table.clone(shot)
+	if out.kind == "Orbit" then
+		out.from, out.to = out.from + spin, out.to + spin
+	else
+		local c, sn = math.cos(spin), math.sin(spin)
+		local function turned(key: any): any
+			if type(key) ~= "table" then
+				return key
 			end
-			out.from, out.to, out.look, out.lookTo =
-				turned(out.from), turned(out.to), turned(out.look), turned(out.lookTo)
+			local k = table.clone(key)
+			local dx, dz = k.dx or 0, k.dz or 0
+			k.dx, k.dz = dx * c - dz * sn, dx * sn + dz * c
+			return k
 		end
+		out.from, out.to, out.look, out.lookTo = turned(out.from), turned(out.to), turned(out.look), turned(out.lookTo)
 	end
 	return out
 end
@@ -295,6 +301,8 @@ function Cutscenes.paper(shot: any, u: number, fade: number): number
 end
 
 -- A caption's text: `{map}`, `{west}`, `{east}`, `{winner}` filled from `fill`.
+export type Made = { map: string, places: { string } }
+
 function Cutscenes.text(template: string?, fill: { [string]: string }): string
 	if not template then
 		return ""
@@ -309,11 +317,14 @@ export type Line = { text: string, at: number }
 
 -- Part one, in the armory: where the match was won (`played`: the map's key) and the momentum, for the winning kit
 -- (`winner`, nil: no winner) whose nation is `nation`. Every line at 0: they follow one another.
-function Cutscenes.partOne(speech: any, winner: string?, played: string, nation: string): { Line }
+function Cutscenes.partOne(speech: any, winner: string?, played: string, nation: string, mapName: string?): { Line }
 	local won = if winner then speech.won[played] else speech.wonNone[played]
+	if not won and mapName then -- (a map with no lines of its own: the made ones, by its name)
+		won = if winner then speech.fallback.won else speech.fallback.wonNone
+	end
 	local out: { Line } = {}
 	if won then
-		table.insert(out, { text = Cutscenes.text(won, { winner = nation }), at = 0 })
+		table.insert(out, { text = Cutscenes.text(won, { winner = nation, map = mapName or "" }), at = 0 })
 	end
 	local momentum = speech.momentum[winner or "none"]
 	if momentum then
@@ -331,9 +342,9 @@ end
 -- Part two, over the pre-match flight `cut` on a map with `n` points (`nextMap` its key): the plan's first line as the
 -- flight opens, one as the camera comes up on each point (its Front or Sectors shot), then the closing call (by the player's own kit `own`, nil: no
 -- call) as the camera goes into the soldier's eyes. A map without a plan gets only the call.
-function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string, n: number): { Line }
+function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string, n: number, made: Made?): { Line }
 	local out: { Line } = {}
-	local plan = speech.plans[nextMap]
+	local plan = speech.plans[nextMap] or (if made then Cutscenes.madePlan(speech.fallback, made, n) else nil)
 	local starts: { [string]: number } = {}
 	local front, frontT0 = nil, 0
 	for i, s in cut.shots do
@@ -357,6 +368,48 @@ function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string,
 	local close = own and speech.close[own]
 	if close then
 		table.insert(out, { text = close, at = Cutscenes.length(cut) }) -- (on the whistle)
+	end
+	return out
+end
+
+-- What the narrator calls each of `map`'s points: its landmark's name (Config/Cutscenes.Names, within `reach`; "the
+-- church"), else "point 3" (`unnamed`): a map's lines made from its own data when it has none written.
+function Cutscenes.placeNames(map: any, names: { [string]: string }, reach: number, unnamed: string): { string }
+	local out = {}
+	for i in map.sectors do
+		local id = Cutscenes.landmark(map, i, reach)
+		local name = id and names[id]
+		out[i] = if name
+			then string.lower(string.sub(name, 1, 1)) .. string.sub(name, 2)
+			else Cutscenes.text(unnamed, { i = tostring(i) })
+	end
+	return out
+end
+
+-- The orders over the flight for a map with none written (`F`: Config/Cutscenes.Speech.fallback; `made`: its name and
+-- its points' place names): the dive's line, then one per point, the first and last their own, the ones between in
+-- turn.
+function Cutscenes.madePlan(F: any, made: Made, n: number): { string }
+	local out = { Cutscenes.text(F.first, { map = made.map }) }
+	for i = 1, n do
+		local line = if i == 1
+			then F.points[1]
+			elseif i == n then F.points[#F.points]
+			else F.points[(i - 2) % (#F.points - 2) + 2]
+		table.insert(out, Cutscenes.text(line, { place = made.places[i] or "" }))
+	end
+	return out
+end
+
+-- A map's orders on the vote board: its own (Config/Cutscenes.Vote.Orders), else made from its name and point count.
+function Cutscenes.boardOrders(vote: any, key: string, mapName: string, n: number): { string }
+	local own = vote.Orders[key]
+	if own then
+		return own
+	end
+	local out = {}
+	for _, line in vote.fallback do
+		table.insert(out, Cutscenes.text(line, { MAP = string.upper(mapName), n = tostring(n) }))
 	end
 	return out
 end

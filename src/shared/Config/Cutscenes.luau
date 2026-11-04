@@ -40,13 +40,14 @@ local Cutscenes = {
 	-- a point's landmark: the map's nearest special building (village.specials) within this many studs of the point
 	LandmarkReach = 200,
 	-- the far ground the camera may show ahead is asked to stream in this many seconds before each shot
-	StreamAhead = 1.2,
+	StreamAhead = 3, -- (Roblox streams round the soldier, not the camera: a far shot's ground is asked for again)
 	-- the armory streams in every spot the next flight looks at before it plays (Net "MapLoad"): spots this many studs
 	-- apart (closer ones are asked for once)
 	LoadSpacing = 60,
 	-- then the map's meshes, textures and decals preloaded (ContentProvider), this many instances at a time, before the
 	-- client says it's loaded: nothing pops in during the flight (user 2026-11-03: "make sure the map is FULLY loaded")
 	PreloadBatch = 40,
+	PreloadDrain = 10, -- then at most this many seconds for the download queue to empty
 	-- each point's shot in the flight turned round its point (radians, tried in order) until no tree, hill or other house
 	-- stands between the camera and what it looks at (`at`: through the point's shot; rays to the spot looked at, `wide`
 	-- of the half frame to either side and over it; a hit within `near` studs of where a ray aims, or on the point's own
@@ -106,6 +107,7 @@ local Cutscenes = {
 				look = { at = "Landmark", up = 20 },
 				fov = 50,
 				caption = "Title",
+				clear = true, -- (turned round the landmark till no tree stands in front: ClearView)
 			},
 			{
 				name = "Sectors",
@@ -744,6 +746,16 @@ local Cutscenes = {
 				"Drive them out of the cascina.",
 			},
 		},
+		-- a map with no lines of its own written above (a new map: user 2026-11-03, "we need one of these for every
+		-- map"): its lines made from its name and its points' landmarks (Rules/Cutscenes.placeNames; `unnamed` a point
+		-- with none), spoken by text-to-speech until they're written and recorded. {map}, {winner}, {place}, {i}
+		fallback = {
+			won = "{winner} holds {map}. The enemy has been driven from the field.",
+			wonNone = "No banner flies over {map} tonight. Neither army could hold it.",
+			first = "Orders for {map}.",
+			points = { "Hold {place}.", "Push on to {place}.", "Take {place}.", "Then bring down {place}." },
+			unnamed = "point {i}",
+		},
 		-- the closing call, by the player's own kit: the same whether their side won or lost (user 2026-11-03; no
 		-- bayonets in this army: user 2026-11-02)
 		close = {
@@ -763,6 +775,8 @@ local Cutscenes = {
 			Map1 = { "HOLD ALL 5 SECTORS", "TAKE THE BRIDGE", "GUNS BEHIND LINE 2" },
 			LanternMeadows = { "ADVANCE ON THE ROAD", "SEIZE THE LANTERN RING", "HOLD THE FARMS" },
 		},
+		-- a map with no orders of its own above: made from its name and point count ({MAP}, {n})
+		fallback = { "HOLD ALL {n} SECTORS", "ADVANCE ON {MAP}" },
 		maxCards = 3, -- at most this many maps offered (the live one among them)
 		-- the end: the winner stamped NEXT, shown `hold` seconds before the armory (src/server/Frontline)
 		pick = { hold = 3 },

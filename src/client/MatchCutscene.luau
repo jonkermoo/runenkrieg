@@ -420,7 +420,44 @@ local function clearViews(
 	local buildings = root and root:FindFirstChild("Village") and (root :: any).Village:FindFirstChild("Buildings")
 	local out = table.clone(cut)
 	out.shots = table.clone(cut.shots)
+	-- whether shot `s` from `t0` to `t1` through it has a clear view (a hit on `target`, its landmark, counts as clear);
+	-- a shot marked `clear` (the opening) is turned as a whole the same way
+	local function clearOf(s: any, t0: number, t1: number, target: Instance?): boolean
+		for _, u in V.at do
+			local pose = Rules.pose(s, t0 + (t1 - t0) * u, anchors, points, false, Cfg.Paper.up)
+			local eye, look = world(pose.eye), world(pose.look)
+			-- nothing right at the camera (a trunk filling half the frame)
+			if #workspace:GetPartBoundsInRadius(eye, V.room) > 0 then
+				return false
+			end
+			-- and nothing across the frame: rays to the spot looked at and to either side and over it
+			local cf = CFrame.lookAt(eye, look)
+			local half = (look - eye).Magnitude * math.tan(math.rad(pose.fov or Cfg.Fov) / 2) * V.wide
+			for _, to in
+				{ look, look + cf.RightVector * half, look - cf.RightVector * half, look + cf.UpVector * half * 0.6 }
+			do
+				local hit = workspace:Raycast(eye, to - eye)
+				if
+					hit
+					and (hit.Position - to).Magnitude > V.near
+					and not (target and hit.Instance:IsDescendantOf(target))
+				then
+					return false
+				end
+			end
+		end
+		return true
+	end
 	for k, shot in out.shots do
+		if shot.clear then
+			for _, spin in V.turns do
+				local turned = Rules.turnShot(shot, spin)
+				if clearOf(turned, 0, 1, nil) then
+					out.shots[k] = turned
+					break
+				end
+			end
+		end
 		if shot.kind == "Sectors" then
 			local s = table.clone(shot)
 			s.spins = {}
@@ -428,35 +465,7 @@ local function clearViews(
 				local id = Rules.landmark(map, i, Cfg.LandmarkReach)
 				local target = id and buildings and buildings:FindFirstChild(id)
 				local function clear(): boolean
-					for _, u in V.at do
-						local pose = Rules.pose(s, (i - 1 + u) / #points, anchors, points, false, Cfg.Paper.up)
-						local eye, look = world(pose.eye), world(pose.look)
-						-- nothing right at the camera (a trunk filling half the frame)
-						if #workspace:GetPartBoundsInRadius(eye, V.room) > 0 then
-							return false
-						end
-						-- and nothing across the frame: rays to the spot looked at and to either side and over it
-						local cf = CFrame.lookAt(eye, look)
-						local half = (look - eye).Magnitude * math.tan(math.rad(pose.fov or Cfg.Fov) / 2) * V.wide
-						for _, to in
-							{
-								look,
-								look + cf.RightVector * half,
-								look - cf.RightVector * half,
-								look + cf.UpVector * half * 0.6,
-							}
-						do
-							local hit = workspace:Raycast(eye, to - eye)
-							if
-								hit
-								and (hit.Position - to).Magnitude > V.near
-								and not (target and hit.Instance:IsDescendantOf(target))
-							then
-								return false
-							end
-						end
-					end
-					return true
+					return clearOf(s, (i - 1) / #points, i / #points, target)
 				end
 				local found = false
 				for _, spin in V.turns do
@@ -604,7 +613,8 @@ local function finish()
 	endedEvent:Fire(p.kind)
 end
 
--- the spots on the ground shot `shot` of a cut looks at (its start, middle and end; each point's own shot's middle)
+-- the spots on the ground shot `shot` of a cut looks at and looks from (its start, middle and end; each point's own
+-- shot's middle)
 local function looksOf(shot: any, anchors: { [string]: { number } }, points: { { number } }, flip: boolean): { Vector3 }
 	local at = { 0, 0.5, 1 }
 	if shot.kind == "Sectors" then
@@ -616,6 +626,7 @@ local function looksOf(shot: any, anchors: { [string]: { number } }, points: { {
 	for _, u in at do
 		local pose = Rules.pose(shot, u, anchors, points, flip, Cfg.Paper.up)
 		table.insert(out, Vector3.new(pose.look.x, 0, pose.look.z))
+		table.insert(out, Vector3.new(pose.eye.x, 0, pose.eye.z))
 	end
 	return out
 end
@@ -719,6 +730,14 @@ local function loadMap(key: string)
 		end
 		pcall(ContentProvider.PreloadAsync, ContentProvider, table.move(list, k, math.min(k + batch - 1, #list), 1, {}))
 		this.done += math.min(batch, #list - k + 1)
+	end
+	-- and nothing of it still downloading (the preloads queue it), at most PreloadDrain seconds
+	local drainFrom = os.clock()
+	while ContentProvider.RequestQueueSize > 0 and os.clock() - drainFrom < Cfg.PreloadDrain do
+		if loading ~= this then
+			return
+		end
+		task.wait(0.1)
 	end
 	this.done = this.total
 	Net.event("MapLoad"):FireServer(key)
@@ -904,7 +923,10 @@ local function begin(kind: string, folder: Instance)
 	if kind == "Pre" and type(spoken) == "string" then
 		local ownKit = if home then folder:GetAttribute(home) else nil
 		local lines =
-			Rules.partTwo(Cfg.Speech, cut, if type(ownKit) == "string" then ownKit else nil, key, #map.sectors)
+			Rules.partTwo(Cfg.Speech, cut, if type(ownKit) == "string" then ownKit else nil, key, #map.sectors, {
+				map = map.name,
+				places = Rules.placeNames(map, Cfg.Names, Cfg.LandmarkReach, Cfg.Speech.fallback.unnamed),
+			})
 		Speech.queue(lines, os.clock() + (startAt - workspace:GetServerTimeNow()))
 	end
 	skip.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
