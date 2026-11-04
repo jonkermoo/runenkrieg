@@ -11,6 +11,9 @@ local TeamOutline = {
 	MaxOutlines = 24,
 	-- teammates farther than this (studs, from the camera) get none (the M map's dots find the far ones)
 	MaxDistance = 400,
+	-- shown only while this Config/Settings key is held (user 2026-11-03: "the health outline stays on even when im
+	-- not holding M"): the map key, with the map, the teammate dots and the health bars
+	Key = "Key_Map",
 	-- how often the outlined set and their colours are picked again (seconds)
 	Rate = 0.1,
 	-- the outline: its transparency, its fill (1 = none), "Occluded" = only where they're in sight ("AlwaysOnTop":
@@ -18,9 +21,10 @@ local TeamOutline = {
 	OutlineTransparency = 0,
 	FillTransparency = 1,
 	DepthMode = "Occluded",
-	-- on the local Player, set by the admin panel (client only): outlines off; your own character outlined too (to
-	-- see the colours alone in a test with the "Health" buttons)
+	-- on the local Player, set by the admin panel (client only): outlines off; shown without holding the key; your own
+	-- character outlined too (to see the colours alone in a test with the "Health" buttons)
 	OffAttribute = "DevTeamOutlinesOff",
+	AlwaysAttribute = "DevTeamOutlinesAlways",
 	SelfAttribute = "DevTeamOutlineSelf",
 }
 

@@ -2,6 +2,7 @@
 local Cfg = require("../src/shared/Config/TeamOutline")
 local Palette = require("../src/shared/Config/Palette")
 local R = require("../src/shared/Rules/TeamOutline")
+local Settings = require("../src/shared/Config/Settings")
 
 local stops = Palette.UI.TeamOutline
 
@@ -56,5 +57,10 @@ return {
 		assert(Cfg.MaxOutlines > 0 and Cfg.MaxOutlines <= 28, "room for the game's other Highlights")
 		assert(Cfg.Rate > 0 and Cfg.MaxDistance > 0, "a rate and a range")
 		assert(Cfg.DepthMode == "Occluded" or Cfg.DepthMode == "AlwaysOnTop", "a HighlightDepthMode")
+	end,
+	["shown only while the map key is held"] = function()
+		assert(Cfg.Key == "Key_Map", "the map key, with the dots and the health bars")
+		assert(Settings.Options[Cfg.Key] ~= nil, "a real keybind")
+		assert(Cfg.AlwaysAttribute ~= Cfg.OffAttribute and Cfg.AlwaysAttribute ~= Cfg.SelfAttribute, "its own switch")
 	end,
 }
