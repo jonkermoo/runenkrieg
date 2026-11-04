@@ -853,7 +853,13 @@ local function follow(b: Bot, now: number)
 		local moved = flat(root.Position - nav.samplePos).Magnitude
 		if Rules.stuck(moved, elapsed, MV.StuckWindow, MV.StuckDistance, MV.StuckStale) then
 			stats.stuck += 1
-			if nav.direct then
+			-- a shut door right in front of it (a path straight through a doorway, with no door link on the way: the
+			-- navmesh fits it through some, and a shut door passes paths through): it opens it
+			local door = Doors.nearest(root.Position, IN.bump)
+			if door and not Doors.isOpen(door) and Doors.openFor(b.m :: Model, door) then
+				nav.doorAt = now
+				stats.doorsBumped += 1
+			elseif nav.direct then
 				nav.direct = nil -- (a straight step into something: give it up)
 			elseif nav.jumps < MV.StuckJumps then
 				nav.jumps += 1

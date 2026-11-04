@@ -275,6 +275,7 @@ local Bots = {
 		doorReach = 6,
 		doorWait = 0.8,
 		Swung = { near = 40, after = 0.5 },
+		bump = 4, -- a bot stuck within this of a shut door's panel opens it (a path through a doorway with no link)
 		perSquad = 2,
 		around = 55, -- (Map 1's houses stand 82+ studs from the zones' centres; user 2026-11-02: "Widen to 100")
 		facing = 0.3,
