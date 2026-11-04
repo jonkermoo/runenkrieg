@@ -742,10 +742,10 @@ local Artillery = {
 	-- cannot be shot over a sector away. same thing with the howitzer"): `sectors` of the live map's sector spacing
 	-- (Rules/Artillery.sectorSpan: ~423 studs on Map 1) plus `margin` studs (two zone radii: a gun anywhere in its
 	-- sector reaches anywhere in the next), on flat ground: the lay stops there (the field gun raises no higher, the
-	-- howitzer lowers no further). Bots aim within it too. Machine guns keep their own range. `guns`: a gun's own (the
-	-- field gun, user 2026-11-03: "i think you nerfed the range a little too hard": 1.5 sectors, 725 studs on Map 1, 722
-	-- on Lantern Meadows; its own longest shot, 720 at 45 degrees, is what stops it).
-	Reach = { sectors = 1, margin = 90, guns = { artillery_qf18 = { sectors = 1.5, margin = 90 } } },
+	-- howitzer lowers no further). Bots aim within it too. Machine guns keep their own range. `guns`: a gun's own, keyed
+	-- by gun (none now: the field cannon is back at one sector, user 2026-11-03 "keep the 1 sector range of the field
+	-- cannon", by a slower shell whose longest shot is inside it, so it still lays its whole dial; was 1.5 sectors).
+	Reach = { sectors = 1, margin = 90, guns = {} },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		dark = 4,
@@ -817,10 +817,11 @@ local Artillery = {
 			swing = 10,
 			traverseRate = 6,
 			elevationRate = 4,
-			-- 227 studs/s (was 420): 125 studs at 5 degrees, 460 at 20, 625 at 30, 720 at 45 (its longest), 463 lobbed at
-			-- 70 (topping out ~320 up, ~6 s in the air); 2.2 s at 20, 4.5 s at 45 (was 420 with a hidden +8.5: 300 to
-			-- 2,100 studs, nearly flat)
-			speed = 227,
+			-- 190 studs/s (user 2026-11-03 picked "a slower shell so the longest shot, 45°, lands at ~510 studs": one
+			-- sector, Reach, with the whole dial still laid; was 227, 720 at 45): 88 studs at 5 degrees, 324 at 20, 437 at
+			-- 30, 504 at 45 (its longest, inside Map 1's 513 and Lantern Meadows' 512), 324 lobbed at 70 (topping out ~220
+			-- up, ~5 s in the air); 1.8 s at 20, 3.8 s at 45
+			speed = 190,
 			gravity = 71.6,
 			charge = 0.45,
 			breechOpens = true,

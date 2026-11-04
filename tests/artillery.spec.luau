@@ -104,14 +104,14 @@ return {
 		local _, _, _, dx, _, dz = A.muzzle(BORE, 30, 0)
 		assert(near(A.yawOf(dx, dz), 30, 1e-6))
 	end,
-	["the agreed ranges: the field gun lobs out to ~720, the howitzer a short-arc mortar"] = function()
-		-- (user 2026-11-03: "it should fire similarily to a mortar, maybe with less arc", "its too flat", "increase the
-		-- range of the field cannons"): 5 to 55 degrees, no hidden tilt, 720 studs at 45
+	["the agreed ranges: the field gun lobs out to ~505 (one sector), the howitzer a short-arc mortar"] = function()
+		-- (user 2026-11-03: "it should fire similarily to a mortar, maybe with less arc", "its too flat", then "keep the 1
+		-- sector range of the field cannon", a slower shell): 5 to 70 degrees, no hidden tilt, ~505 studs at 45
 		assert(QF.elevation[1] == 5 and QF.elevation[2] == 70 and (QF.aimTilt or 0) == 0 and QF.rest == 20)
 		local most = QF.speed * QF.speed / QF.gravity
-		assert(math.abs(most - 720) < 5, most)
-		assert(math.abs(A.range(QF.speed, 5, QF.gravity) - 125) < 5)
-		assert(math.abs(A.range(QF.speed, 70, QF.gravity) - 463) < 5, "lobbed at its highest")
+		assert(math.abs(most - 505) < 5, most)
+		assert(math.abs(A.range(QF.speed, 5, QF.gravity) - 88) < 5)
+		assert(math.abs(A.range(QF.speed, 70, QF.gravity) - 324) < 5, "lobbed at its highest")
 		assert(QF.elevation[2] < HOW.elevation[2], "flatter than the howitzer")
 		assert(HOW.elevation[1] >= 45) -- it only lobs
 		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 590) < 20)
@@ -120,7 +120,7 @@ return {
 		local function flight(g: any, e: number): number
 			return 2 * g.speed * math.sin(math.rad(e)) / g.gravity
 		end
-		assert(flight(QF, 45) > 4 and flight(HOW, 45) > 5)
+		assert(flight(QF, 45) > 3.5 and flight(HOW, 45) > 5)
 	end,
 	["the howitzer recharges with nobody on it; the field gun and MG start their reload over (user 2026-11-03)"] = function()
 		assert(HOW.keepsReload == true, "the howitzer's crystal fills unmanned")
@@ -665,11 +665,11 @@ return {
 			local span = A.sectorSpan(map.sectors)
 			assert(span > 400 and span < 450, `{name} span {span}`)
 			local cap = A.reachCap(span, R)
-			-- the field gun's own reach, 1.5 sectors (user 2026-11-03: "i think you nerfed the range a little too hard"):
-			-- past its longest shot, so it lays its whole dial, low and lobbed
+			-- the field cannon at one sector too (user 2026-11-03: "keep the 1 sector range of the field cannon"), its
+			-- longest shot inside it, so it lays its whole dial, low and lobbed
 			local qcap = A.reachCap(span, R, "artillery_qf18")
-			assert(near(qcap, span * 1.5 + 90, 1e-6) and qcap > 715, `{name} field gun reach {qcap}`)
-			assert(QF.speed * QF.speed / QF.gravity <= qcap + 10)
+			assert(near(qcap, cap, 1e-6), `{name} field cannon reach {qcap}`)
+			assert(QF.speed * QF.speed / QF.gravity <= qcap and QF.speed * QF.speed / QF.gravity > qcap - 20)
 			local q = A.capped(QF, qcap)
 			assert(q[1] == QF.elevation[1] and q[2] == QF.elevation[2], "the field gun's whole dial")
 			for key, g in { how = HOW } do
