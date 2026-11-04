@@ -44,6 +44,9 @@ local Cutscenes = {
 	-- the armory streams in every spot the next flight looks at before it plays (Net "MapLoad"): spots this many studs
 	-- apart (closer ones are asked for once)
 	LoadSpacing = 60,
+	-- then the map's meshes, textures and decals preloaded (ContentProvider), this many instances at a time, before the
+	-- client says it's loaded: nothing pops in during the flight (user 2026-11-03: "make sure the map is FULLY loaded")
+	PreloadBatch = 40,
 	-- each point's shot in the flight turned round its point (radians, tried in order) until no tree, hill or other house
 	-- stands between the camera and what it looks at (`at`: through the point's shot; rays to the spot looked at, `wide`
 	-- of the half frame to either side and over it; a hit within `near` studs of where a ray aims, or on the point's own
@@ -204,6 +207,10 @@ local Cutscenes = {
 	-- `out` seconds to the moment the server changes scene (Config/Frontline.DipAttribute), stays black `hold`, clears
 	-- over `inn`.
 	Dip = { out = 0.5, hold = 0.3, inn = 0.6 },
+	-- the dip from the armory into the map flight: longer, a breath of black between the narrator's first part and the
+	-- orders over the map (user 2026-11-03: "a longer fade before the orders part and we start showing the map"); the
+	-- countdown is the flight's length plus `hold` (Rules/Cutscenes.flightSeconds), the flight starting as it clears
+	FlightDip = { out = 1.0, hold = 2.0, inn = 1.0 },
 	-- where the sets stand (studs): high over the world's origin, out of every map's sight (each client builds its own);
 	-- the papers on them drawn at this many pixels a stud
 	PixelsPerStud = 60,

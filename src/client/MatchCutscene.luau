@@ -15,6 +15,7 @@
 --   MatchCutscene.cover(on), MatchCutscene.clearFade() (EndScenes: its set is up)
 
 local ContextActionService = game:GetService("ContextActionService")
+local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -649,7 +650,9 @@ local function loadMap(key: string)
 			end
 		end
 	end
-	local this = { key = key, done = 0, total = #spots }
+	-- then the meshes, textures and decals of everything streamed in (one instance for each of their assets), so
+	-- nothing pops in mid-shot: the ring counts both
+	local this = { key = key, done = 0, total = #spots + 1 }
 	loading = this
 	for _, v in spots do -- (one after another: the server streams each before the next)
 		if loading ~= this then
@@ -658,6 +661,41 @@ local function loadMap(key: string)
 		streamAround(v)
 		this.done += 1
 	end
+	local root = workspace:FindFirstChild(key)
+	local list: { Instance } = {}
+	local seen: { [string]: boolean } = {}
+	local function addAssets(d: Instance, ...: string)
+		local new = false
+		for _, id in { ... } do
+			if id ~= "" and not seen[id] then
+				seen[id], new = true, true
+			end
+		end
+		if new then
+			table.insert(list, d)
+		end
+	end
+	for _, d in (if root then root:GetDescendants() else {}) do
+		if d:IsA("MeshPart") then
+			addAssets(d, d.MeshId, d.TextureID)
+		elseif d:IsA("SpecialMesh") then
+			addAssets(d, d.MeshId, d.TextureId)
+		elseif d:IsA("Decal") then -- (Textures too)
+			addAssets(d, d.Texture)
+		elseif d:IsA("SurfaceAppearance") then
+			table.insert(list, d)
+		end
+	end
+	this.total = #spots + math.max(#list, 1)
+	local batch = Cfg.PreloadBatch
+	for k = 1, #list, batch do
+		if loading ~= this then
+			return
+		end
+		pcall(ContentProvider.PreloadAsync, ContentProvider, table.move(list, k, math.min(k + batch - 1, #list), 1, {}))
+		this.done += math.min(batch, #list - k + 1)
+	end
+	this.done = this.total
 	Net.event("MapLoad"):FireServer(key)
 end
 
@@ -871,7 +909,10 @@ local function dips()
 	RunService.RenderStepped:Connect(function()
 		local folder = workspace:FindFirstChild(FrontCfg.FolderName)
 		local at = folder and folder:GetAttribute(FrontCfg.DipAttribute)
-		local k = Rules.dip(workspace:GetServerTimeNow(), if type(at) == "number" then at else nil, Cfg.Dip)
+		local d = if folder and folder:GetAttribute(FrontCfg.DipKindAttribute) == "Flight"
+			then Cfg.FlightDip
+			else Cfg.Dip
+		local k = Rules.dip(workspace:GetServerTimeNow(), if type(at) == "number" then at else nil, d)
 		black.Visible = k > 0
 		black.BackgroundTransparency = 1 - k
 	end)

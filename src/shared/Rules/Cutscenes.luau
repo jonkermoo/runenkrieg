@@ -569,6 +569,12 @@ function Cutscenes.dip(now: number, at: number?, d: any): number
 	return 1 - math.clamp((now - at - d.hold) / d.inn, 0, 1)
 end
 
+-- The countdown after a match: the flight's `length` plus the black `d.hold` the dip into it (Config/Cutscenes.FlightDip)
+-- keeps before it, so the flight starts as the black clears and plays whole to the whistle.
+function Cutscenes.flightSeconds(length: number, d: any): number
+	return length + d.hold
+end
+
 -- The losing piece's topple `u` seconds in (Config/Cutscenes.Table.topple): degrees off upright, falling faster and
 -- faster to `rest` (lying on its side) over `fall` seconds, then a small bounce dying away.
 function Cutscenes.topple(t: any, u: number, rest: number): number

@@ -97,6 +97,20 @@ local tests: { [string]: () -> () } = {
 			assert(math.abs(plain.eye.x - spun.eye.x) + math.abs(plain.eye.z - spun.eye.z) > 1, "from somewhere else")
 		end
 	end,
+	["a longer black into the flight, which then plays whole to the whistle (user 2026-11-03)"] = function()
+		local F, D = Cfg.FlightDip, Cfg.Dip
+		assert(F.hold > D.hold and F.out >= D.out and F.inn >= D.inn, "longer than the other dips")
+		local length = R.length(Cfg.Pre)
+		local seconds = R.flightSeconds(Front.CountdownSeconds, F)
+		assert(seconds == Front.CountdownSeconds + F.hold)
+		-- the countdown starts at 0 (the dip's full black), ends at `seconds`; the flight is anchored to its end
+		local startAt = seconds - length
+		assert(math.abs(startAt - F.hold) < 1e-9, "the flight starts as the black starts clearing")
+		assert(R.dip(startAt - 0.01, 0, F) == 1, "black right up to the flight")
+		assert(R.dip(startAt + F.inn, 0, F) == 0, "clear within the flight's first shot")
+		assert(F.inn < Cfg.Pre.shots[1].t1, "(the opening shot outlasts the clearing)")
+		assert(R.dip(-F.out, 0, F) == 0 and R.dip(-F.out / 2, 0, F) > 0, "darkening over its own out")
+	end,
 	["the armory waits for the next map to stream in, at most Loading.max (user 2026-11-03)"] = function()
 		local L = Front.Loading
 		assert(not R.loadOver(L.least - 1, L.least, L.max, 0), "the narrator's first part first")

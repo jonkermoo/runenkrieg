@@ -151,9 +151,11 @@ local function phase(name: string, seconds: number?)
 end
 
 -- A dip to black between scenes (Config/Cutscenes.Dip): every screen darkens, and phase `name` starts once black.
-local function dipTo(name: string, seconds: number?)
-	folder:SetAttribute(Cfg.DipAttribute, workspace:GetServerTimeNow() + CutCfg.Dip.out)
-	task.wait(CutCfg.Dip.out)
+local function dipTo(name: string, seconds: number?, kind: string?)
+	local d = if kind == "Flight" then CutCfg.FlightDip else CutCfg.Dip
+	folder:SetAttribute(Cfg.DipKindAttribute, kind)
+	folder:SetAttribute(Cfg.DipAttribute, workspace:GetServerTimeNow() + d.out)
+	task.wait(d.out)
 	phase(name, seconds)
 end
 
@@ -670,8 +672,11 @@ local function run()
 			-- narrator's subject) shows a short loading screen instead and dips to black into the game at the whistle
 			-- (src/client/EndScenes; user 2026-11-03)
 			local fresh = folder:GetAttribute(Cfg.SpeechAttribute) == nil
-			local seconds = if fresh then Cfg.FreshCountdownSeconds else Cfg.CountdownSeconds
-			dipTo("Countdown", seconds)
+			-- (after a match: a longer black into the flight, which starts as it clears: Rules/Cutscenes.flightSeconds)
+			local seconds = if fresh
+				then Cfg.FreshCountdownSeconds
+				else CutRules.flightSeconds(Cfg.CountdownSeconds, CutCfg.FlightDip)
+			dipTo("Countdown", seconds, if fresh then nil else "Flight")
 			local start = workspace:GetServerTimeNow() + seconds
 			if fresh then
 				task.delay(CutCfg.Dip.hold + CutCfg.Dip.inn, function()
