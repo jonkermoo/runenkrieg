@@ -12,6 +12,12 @@ local Shovel = {
 	-- back to the ready (its "Rest" marker: after the toss, or the chip wrenched loose)
 	Dig = { length = 2.6, strike = 0.45, rest = 1.82 },
 	Chip = { length = 1.5, strike = 0.5, rest = 1.0 },
+	-- the sound (Sounds below) each swing plays at its markers: the swinger's own in src/client/Locomotion, a bot's sent
+	-- by src/server/Build when its swing lands (it lands on the strike)
+	Marks = {
+		Dig = { Strike = "Dig", Rest = "Toss" },
+		Chip = { Strike = "Chip" },
+	} :: { [string]: { Strike: string, Rest: string? } },
 	-- the swings' sounds (user 2026-10-24: "give me a digging and chipping sound"), Pro Sound Effects, each trimmed so
 	-- its hit lands on the marker it plays at (src/client/Locomotion; others hear them through Net "Dug"):
 	-- Dig at the dig's "Strike": "Shovel Dirt 1", the blade into the dirt through the push and the lever;

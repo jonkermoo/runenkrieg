@@ -2019,6 +2019,38 @@ function Build.planAs(model: Model, from: Vector3, to: Vector3): string?
 	return plan(b, from, to)
 end
 
+-- a shovel swing's sound (Net "Dug") from `character` to every player but `except` (the swinger, who plays its own),
+-- one swinger's (`key`: a Player or a bot's model) no closer together than Config/Shovel.SoundGap
+local lastSound: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
+local function sendDug(key: Instance, character: Model, kind: string, except: Player?)
+	local now = os.clock()
+	if lastSound[key] and now - lastSound[key] < ShovelCfg.SoundGap then
+		return
+	end
+	lastSound[key] = now
+	for _, p in Players:GetPlayers() do
+		if p ~= except then
+			Net.event("Dug"):FireClient(p, character, kind)
+		end
+	end
+end
+
+-- a bot's swing of `mode` that landed, heard by every player as a player's: its swing's marker sounds
+-- (Config/Shovel.Marks), the strike's now (the hit lands on it) and the rest's that much later
+local function botDug(b: Builder, mode: string)
+	local name = C.Swings[mode]
+	local swing, marks = (ShovelCfg :: any)[name], ShovelCfg.Marks[name]
+	sendDug(b.key, b.character, marks.Strike)
+	if marks.Rest then
+		local humanoid = b.character:FindFirstChildOfClass("Humanoid")
+		task.delay(swing.rest - swing.strike, function()
+			if b.character.Parent and humanoid and humanoid.Health > 0 then
+				sendDug(b.key, b.character, marks.Rest)
+			end
+		end)
+	end
+end
+
 -- One shovel swing at `target` (a piece's model, a trench square's model or a tree's part) in `mode` ("Build" or
 -- "Destroy"), no sooner than Config/Build.SwingSlack of the shortest strike gap after its last (it swings on
 -- Build.nextSwing); within Config/Build.SwingReach of a piece
@@ -2034,6 +2066,7 @@ function Build.workAs(model: Model, target: Instance, mode: string): string?
 	end
 	work(b, target, mode)
 	if lastSwing[model] ~= before then
+		botDug(b, mode)
 		return nil
 	end
 	return b.said or "Nothing to work there"
@@ -2365,23 +2398,14 @@ function Build.clear()
 	Trenches.clear()
 end
 
--- a shovel swing's sound (Net "Dug"), passed on to everyone else
-local lastSound: { [Player]: number } = {}
+-- a player's shovel swing's sound (Net "Dug"), passed on to everyone else
 local function dug(player: Player, kind: any)
 	if kind ~= "Dig" and kind ~= "Toss" and kind ~= "Chip" then
 		return
 	end
 	local b = soldier(player, true)
-	local character = b and b.character
-	local now = os.clock()
-	if not character or (lastSound[player] and now - lastSound[player] < ShovelCfg.SoundGap) then
-		return
-	end
-	lastSound[player] = now
-	for _, p in Players:GetPlayers() do
-		if p ~= player then
-			Net.event("Dug"):FireClient(p, character, kind)
-		end
+	if b then
+		sendDug(player, b.character, kind, player)
 	end
 end
 

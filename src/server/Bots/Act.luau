@@ -772,10 +772,16 @@ local function refused(r: BuildJob, now: number, why: string?)
 end
 
 -- whether a bot's swing of `mode` at `target` is due: a player's cadence holding the key (Build.nextSwing), the first
--- at the swing's strike once it stands at the target
-local function swingDue(act: Act, target: Instance, mode: string, now: number): boolean
+-- at the swing's strike once it stands at the target; its swing (the dig, or the chip in Destroy) loops from the top
+-- then, so each strike is seen and heard as the hit lands (Build.workAs sends its sounds)
+local function swingDue(b: Bot, act: Act, target: Instance, mode: string, now: number): boolean
 	if act.swingOn ~= target then
 		act.swingOn, act.swingAt = target, Build.nextSwing(mode, nil, now)
+		if b.anim then
+			local anim = b.anim :: Animate.Handle
+			anim.stop()
+			anim.play(if mode == "Destroy" then W.shovel.holds.chip else W.shovel.holds.dig, true)
+		end
 	end
 	return now >= (act.swingAt or 0)
 end
@@ -840,15 +846,9 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		return true
 	end
 	holdShovel(b, true)
-	if not act.phase then
-		act.phase = "dig"
-		if b.anim then
-			(b.anim :: Animate.Handle).play(W.shovel.holds.dig, true)
-		end
-	end
 	standFacing(b, if swingAt then spot else spot + f, now)
 	if tear then
-		if swingDue(act, tear.model, "Destroy", now) then
+		if swingDue(b, act, tear.model, "Destroy", now) then
 			local reason = Build.workAs(m, tear.model, "Destroy")
 			if reason == nil then
 				stats.torn += 1
@@ -924,7 +924,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	end
 	-- (a tree is chopped, a captured enemy MG nest wrecked: src/server/Bots/Crew)
 	local mode = if job.key == "Tree" or job.key == "Wreck" then "Destroy" else "Build"
-	if swingDue(act, r.model :: Model, mode, now) then
+	if swingDue(b, act, r.model :: Model, mode, now) then
 		local reason = if job.key == "Tree"
 			then Tactics.fell.chop(m, b.id, b.side :: string, r)
 			else Build.workAs(m, r.model :: Model, mode)
