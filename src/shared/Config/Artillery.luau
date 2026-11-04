@@ -64,6 +64,9 @@ export type Gun = {
 	crew: { number },
 	crewY: number?,
 	crewTurns: boolean,
+	-- the traverse turns about the vertical line through this gun-space (x, z) (nil: the origin): the MG's tripod
+	-- pintle, so it spins on its mount (user 2026-11-03: "make it spin from the mount")
+	pintle: { number }?,
 	prompt: number, -- reach of the E prompt, studs
 	vfx: { scheme: string, magic: boolean },
 	muzzleScale: number, -- the muzzle blast's scale (Config/Vfx.Muzzle)
@@ -235,9 +238,14 @@ local function beltOf(names: { string }, colors: { [string]: { number } }): ({ s
 	end
 	return names, colors
 end
+-- (its ammo can and the belt in it too: they turn with the gun right round the 360 nest, user 2026-11-03)
 local mgMount, mgColors = beltOf({
 	"Mount",
 	"MountFittings",
+	"BoxKit",
+	"BoxTrim",
+	"BoxFittings",
+	"Belt",
 }, { Cradle = { 46, 48, 51 }, Barrel = { 46, 48, 51 }, Belt = { 40, 40, 38 } })
 
 local Artillery = {
@@ -1060,9 +1068,10 @@ local Artillery = {
 			nestGround = { lo = { -0.5, -0.5 }, hi = { 0.5, 0.5 } },
 			base = "Carriage",
 			mount = mgMount, -- (and each round on the belt: beltOf above)
-			-- the ammo can and the belt in it stand on the mount bag (user 2026-10-29: "dont make the box follow the gun
-			-- turning either. it clips into the sandbags"); the belt's rounds bend from it to the feed (src/client/Artillery)
-			fixed = { "BoxKit", "BoxTrim", "BoxFittings", "Belt" },
+			-- the ammo can and the belt in it turn with the gun now (in `mount`; user 2026-11-03: "make the mgnest a 360
+			-- nest": was standing still on the mount bag so it wouldn't clip the old nest's high front bags); the belt's
+			-- rounds bend from it to the feed (src/client/Artillery)
+			fixed = {},
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},
@@ -1070,12 +1079,20 @@ local Artillery = {
 			hinge = { 0, 1.035, 0 },
 			muzzle = { 0, 1.25, -4.226 },
 			boreCentre = 0.009,
-			-- (user 2026-11-01: "nearly a 180 view angle (maybe 140)"; was +-20 in the notch the front piles left): 140 in
-			-- all, the gunner and gun clear of the bags all the way (Config/Build.Nest `ring`, `fit`; Rules/Build.nestFit)
-			traverse = 70,
+			-- (user 2026-11-03: "make the mgnest a 360 nest, so the sandbags would just be a 1 layer circle"; was 70 each
+			-- way, 140 in all): right round, its gunner walking round with it (`crewTurns`), the gun and its shots over the
+			-- one-bag ring all the way (Config/Build.Nest `ring`, `fit`; Rules/Build.nestFit)
+			traverse = 180,
+			-- (user 2026-11-03, the 360 nest: "make it spin from the mount", "be sure the center of the nest is the point
+			-- where it spins"): on the tripod head's pintle, gun space's origin (the head's top measured on the model at
+			-- x 0, z 0; the Mount's box middle, 0.43 back, swung it off centre), which stands at the ring's middle
+			-- (Config/Build.Nest `gunBack`)
+			pintle = { 0, 0 },
 			elevation = { -8, 10 },
 			swing = 0.001, -- (it never swings past its stops: the nest holds it)
-			traverseRate = 60,
+			-- (user 2026-11-03, the 360 nest: "the gun turning controls are weird"; was 60): swung by hand on its pintle, it
+			-- keeps up with the mouse
+			traverseRate = 240,
 			elevationRate = 40,
 			speed = 900,
 			gravity = 196.2,
@@ -1218,6 +1235,9 @@ local Artillery = {
 				-- gunner"): wide and high enough that the line down to the gun passes over the right shoulder
 				shoulder = { 2.5, 1 },
 				look = 0.12,
+				-- right round (`traverse` 180): the mouse's aim runs at most this many degrees ahead of the gun
+				-- (Rules/Artillery.mgLay)
+				lead = 45, -- (20 lost mouse motion once the lay it sees comes 0.2 s late)
 				-- the report (Pro Sound Effects "Rifle Single Shots 1", a heavy single shot, its crack and first boom: one
 				-- a round, 7.5 a second, so the tail is cut short before the take's metal clink at 0.6 s (Studio: loud
 				-- to 0.06 s, mostly gone by 0.45); was the rifles' shot as a placeholder)

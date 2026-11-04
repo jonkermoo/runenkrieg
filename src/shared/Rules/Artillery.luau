@@ -72,6 +72,13 @@ local function aboutY(x: number, y: number, z: number, deg: number): (number, nu
 	return x * c + z * s, y, -x * s + z * c
 end
 
+-- (x, y, z) turned `deg` about the gun's traverse axis: up through its `pintle` (gun space x, z; nil: the origin)
+local function aboutPintle(gun: any, x: number, y: number, z: number, deg: number): (number, number, number)
+	local p = gun.pintle or { 0, 0 }
+	local tx, ty, tz = aboutY(x - p[1], y, z - p[2], deg)
+	return tx + p[1], ty, tz + p[2]
+end
+
 -- The muzzle point and the direction the shell leaves in (gun space) for a traverse and elevation: the bore's, raised
 -- by the gun's unseen `aimTilt` degrees (Config/Artillery).
 function Artillery.muzzle(
@@ -81,7 +88,7 @@ function Artillery.muzzle(
 ): (number, number, number, number, number, number)
 	local m, t = gun.muzzle, gun.trunnion
 	local x, y, z = aboutX(m[1], m[2], m[3], t, elevation)
-	x, y, z = aboutY(x, y, z, traverse)
+	x, y, z = aboutPintle(gun, x, y, z, traverse)
 	local dx, dy, dz = aboutX(0, 0, -1, { 0, 0, 0 }, elevation + (gun.aimTilt or 0))
 	dx, dy, dz = aboutY(dx, dy, dz, traverse)
 	return x, y, z, dx, dy, dz
@@ -572,14 +579,14 @@ end
 function Artillery.eye(gun: any, traverse: number, elevation: number): (number, number, number)
 	local e, t = gun.mg.eye, gun.trunnion
 	local x, y, z = aboutX(e[1], e[2], e[3], t, elevation)
-	return aboutY(x, y, z, traverse)
+	return aboutPintle(gun, x, y, z, traverse)
 end
 
 -- The eye of a machine gun's gunner at the hip (gun space, Config/Artillery.Guns `mg.over`) for a traverse: over the
 -- shield, turning with the mount as the shield does (the gun's lift leaves it)
 function Artillery.over(gun: any, traverse: number): (number, number, number)
 	local e = gun.mg.over
-	return aboutY(e[1], e[2], e[3], traverse)
+	return aboutPintle(gun, e[1], e[2], e[3], traverse)
 end
 
 -- A machine gun laid by the mouse (`dx`, `dy` pixels; Config/Artillery.Guns `mg.look` degrees a pixel): the wanted
@@ -593,8 +600,16 @@ function Artillery.mgLay(
 	dy: number,
 	gun: any
 ): (number, number)
+	local e = math.clamp(wantElevation - dy * gun.mg.look, gun.elevation[1], gun.elevation[2])
+	if gun.traverse >= 180 then
+		-- right round (the 360 nest; user 2026-11-03: "the gun turning controls are weird ... it goes by itself sometimes
+		-- and also gets blocked"): no stops, but never more than `mg.lead` degrees ahead of the lay `base` (the gun
+		-- as it points now), so the gun never takes the long way round toward an aim run far ahead of it
+		local rel = math.clamp(Artillery.wrap(wantYaw - base) - dx * gun.mg.look, -gun.mg.lead, gun.mg.lead)
+		return Artillery.wrap(base + rel), e
+	end
 	local rel = math.clamp(Artillery.wrap(wantYaw - base) - dx * gun.mg.look, -gun.traverse, gun.traverse)
-	return Artillery.wrap(base + rel), math.clamp(wantElevation - dy * gun.mg.look, gun.elevation[1], gun.elevation[2])
+	return Artillery.wrap(base + rel), e
 end
 
 -- Seconds between a machine gun's shots at `rate` rounds a minute

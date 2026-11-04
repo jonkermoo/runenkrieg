@@ -110,6 +110,12 @@ local random = Random.new()
 -- who hears a bot leaving a gun (Artillery.onBotLeft)
 local botLeft: { (Model, Model, string) -> () } = {}
 
+-- a gun's traverse of `deg` in gun space: about its `pintle` (Config/Artillery; the origin when it has none)
+local function turnAt(gun: Cfg.Gun, deg: number): CFrame
+	local p = gun.pintle or { 0, 0 }
+	return CFrame.new(p[1], 0, p[2]) * CFrame.Angles(0, math.rad(deg), 0) * CFrame.new(-p[1], 0, -p[2])
+end
+
 local function now(): number
 	return workspace:GetServerTimeNow()
 end
@@ -203,7 +209,7 @@ local function crewSpot(s: State, character: Model): CFrame?
 	-- (on the mount, the spot turns with its traverse)
 	local pivot = s.model:GetPivot()
 	if s.gun.crewTurns then
-		pivot *= CFrame.Angles(0, math.rad(s.lay.traverse), 0)
+		pivot *= turnAt(s.gun, s.lay.traverse)
 	end
 	local c = s.gun.crew
 	local above = pivot:PointToWorldSpace(Vector3.new(c[1], 20, c[2]))
@@ -1220,7 +1226,7 @@ end
 -- and its step stand where every client draws them
 local function turnMount(s: State)
 	s.crewAt = s.lay.traverse
-	local frame = s.model:GetPivot() * CFrame.Angles(0, math.rad(s.lay.traverse), 0)
+	local frame = s.model:GetPivot() * turnAt(s.gun, s.lay.traverse)
 	for p, rest in s.mountRest do
 		p.CFrame = frame * rest
 	end
@@ -1711,7 +1717,10 @@ function Artillery.aimAs(model: Model, yaw: number, elevation: number): boolean
 	end
 	local gun = s.gun
 	if gun.mg then
-		yaw, elevation = Rules.mgLay(yaw, elevation, s.lay.yaw, 0, 0, gun)
+		-- (a bot's lay goes straight in on a gun that turns right round: the 360 nest)
+		if gun.traverse < 180 then
+			yaw, elevation = Rules.mgLay(yaw, elevation, s.lay.yaw, 0, 0, gun)
+		end
 	end
 	local lims = limitsOf(s)
 	s.want = { yaw = Rules.wrap(yaw), elevation = math.clamp(elevation, lims[1], lims[2]) }

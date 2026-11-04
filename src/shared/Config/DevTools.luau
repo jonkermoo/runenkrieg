@@ -264,6 +264,18 @@ local DevTools = {
 			clear = { 90, 220, 110 },
 			blocked = { 230, 70, 60 },
 		},
+		-- - Captured: a label over each enemy-built gun on a side's ground with what that side's bots do with it ("use",
+		--   "wreck" or "ignore": Config/Bots.Crew `captured`), in a Workspace folder `folder` while Workspace has
+		--   `attribute`, redrawn each commander tick
+		Captured = {
+			attribute = "DevCaptured",
+			folder = "DevCaptured",
+			height = 6,
+			range = 300,
+			width = 220,
+			tall = 30,
+			size = 14,
+		},
 		-- - BotDig: the bots' shovel swings work this many times a normal one (src/server/Build), on Workspace while not 1
 		BotDig = { attribute = "DevBotDig", steps = { 1, 3, 10 } },
 		-- - BotTrees: each side's trees felled in the way of its works and the one being chopped (Config/Bots.Build.Trees,

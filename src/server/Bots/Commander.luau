@@ -925,7 +925,7 @@ end
 -- from its muzzle (Rules/Artillery.layFor, within its reach), its path (Rules/Artillery.path) cast against the world;
 -- false when out of reach, or a hill, house or tree stops it short. The low arc, then the lobbed one (the field gun
 -- fires over cover). Each one checked is kept for Admin.GunArcs.
-function Guns.flyShot(gun: any, key: string, at: Vector3, target: Vector3, arc: string): boolean
+function Guns.flyShot(gun: any, key: string, at: Vector3, target: Vector3, arc: string, quiet: boolean?): boolean
 	local A = BD.Crews.arc
 	-- (from its muzzle over the ground as it is now: a howitzer's pit is dug round it later)
 	local frame = CFrame.lookAt(at, Vector3.new(target.X, at.Y, target.Z))
@@ -975,7 +975,9 @@ function Guns.flyShot(gun: any, key: string, at: Vector3, target: Vector3, arc: 
 			break
 		end
 	end
-	table.insert(Guns.drawn, { points = drawn, clear = clear })
+	if not quiet then
+		table.insert(Guns.drawn, { points = drawn, clear = clear })
+	end
 	return clear
 end
 
@@ -1702,6 +1704,12 @@ local function command()
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))
 		Tactics.fell.list(side, buildLists[side])
+		-- the enemy's guns on its ground: used, wrecked or let be (src/server/Bots/Crew)
+		local aimAt = if shell and Map.sectors[shell] then sectorPoint(shell) else nil
+		Tactics.crew.judge(side, owner, aimAt, function(g, k, a, t, arc)
+			return Guns.flyShot(g, k, a, t, arc, true)
+		end)
+		Tactics.crew.wrecks(side, buildLists[side])
 	end
 	markTrenches()
 	label()

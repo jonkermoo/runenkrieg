@@ -724,6 +724,7 @@ return {
 		local n = C.Nest
 		local bags, radius = B.nestRing(n.ring)
 		assert(#bags == n.ring.sides, "a bag on every side, none open")
+		assert(near(n.gunBack, radius, 0.001), "the gun's pintle at the ring's middle (user 2026-11-03: a 360 nest)")
 		assert(near(radius, n.ring.bag / (2 * math.sin(math.pi / n.ring.sides))))
 		local apothem = radius * math.cos(math.pi / n.ring.sides)
 		local sides = {}
@@ -739,7 +740,7 @@ return {
 		-- a bag straight behind the middle: no doorway left
 		local back = false
 		for _, b in bags do
-			back = back or (math.abs(b.x) < 1 and b.z > 0)
+			back = back or (math.abs(b.x) < n.ring.bag / 2 and b.z > 0)
 		end
 		assert(back, "closed at the back")
 		-- the front point is where two piles' ends meet: the first two bags start there
@@ -750,11 +751,12 @@ return {
 		assert(#one == 4 and one[3].pile == 2 and one[3].slot == 1 and one[4].slot == 3 and one[4].pile == 1)
 	end,
 	["the MG nest's gunner, gun and bullets clear its bags all round the gun's traverse"] = function()
-		-- user 2026-11-01: "nearly a 180 view angle (maybe 140) ... make sure players dont clip with the sandbag"
+		-- user 2026-11-03: "make the mgnest a 360 nest" (was 140 in all, user 2026-11-01: "make sure players dont clip
+		-- with the sandbag")
 		local n, MG = C.Nest, A.Guns.mg08
-		assert(MG.traverse * 2 >= 140, "140 degrees in all")
+		assert(MG.traverse == 180, "right round")
 		local crew, muzzle = MG.crew[2], -MG.muzzle[3]
-		for a = -MG.traverse, MG.traverse, 1 do
+		for a = -180, 180, 1 do
 			local legs, body, gun, blocked = B.nestFit(n, a, crew, muzzle)
 			assert(legs >= n.fit.margin, `legs {legs} at {a}`)
 			assert(body >= n.fit.margin, `torso and arms {body} at {a}`)
@@ -771,9 +773,12 @@ return {
 		-- and the bullets: the front piles topped, they would shoot into them
 		local topped = table.clone(n) :: any
 		topped.ring = table.clone(n.ring)
-		topped.ring.low = { 5, 6 }
-		local _, _, _, into = B.nestFit(topped, 40, crew, muzzle)
-		assert(into and not select(4, B.nestFit(topped, 0, crew, muzzle)), "only the front notch clear")
+		topped.ring.low = nil
+		local into = false
+		for a = -180, 180, 5 do
+			into = into or select(4, B.nestFit(topped, a, crew, muzzle))
+		end
+		assert(into, "a ring two high would stop its shots")
 	end,
 	["two flat boxes' gap: apart, touching, overlapping"] = function()
 		local function box(x: number, z: number, a: number): any

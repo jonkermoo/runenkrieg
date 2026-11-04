@@ -523,10 +523,31 @@ return {
 		assert(A.mgShown(0, 100, 0, 20, 10, 20.01) == 100, "the reload over, before the server's refill lands")
 		assert(A.mgShown(97, 100, 1, 20, 21, 22) == 96, "firing again after the refill")
 	end,
-	["the MG's ammo can stands still as the gun turns, named all the same"] = function()
+	["the MG spins on its tripod's pintle, its muzzle and sight going round it (user 2026-11-03)"] = function()
+		-- "the gun insnt spinning. make it spin from the mount"
+		-- "be sure the center of the nest is the point where it spins": the tripod head, gun space's origin, at the
+		-- ring's middle (Config/Build.Nest gunBack, tests/build.spec)
+		local MG = C.Guns.mg08
+		local p = MG.pintle :: { number }
+		assert(p and p[1] == 0 and p[2] == 0)
+		local function off(x: number, z: number): number
+			return math.sqrt((x - p[1]) ^ 2 + (z - p[2]) ^ 2)
+		end
+		local x0, _, z0 = A.muzzle(MG, 0, 0)
+		for _, t in { 45, 90, 180, -120 } do
+			local x, _, z = A.muzzle(MG, t, 0)
+			assert(near(off(x, z), off(x0, z0), 1e-6), `the muzzle as far from the pintle at {t}`)
+			local ex, _, ez = A.eye(MG, t, 0)
+			local ex0, _, ez0 = A.eye(MG, 0, 0)
+			assert(near(off(ex, ez), off(ex0, ez0), 1e-6), `the sight as far from the pintle at {t}`)
+		end
+		local x, _, z = A.muzzle(MG, 180, 0)
+		assert(near(x, 2 * p[1] - x0, 1e-6) and near(z, 2 * p[2] - z0, 1e-6), "turned right round across the pintle")
+	end,
+	["the MG's ammo can turns with the gun right round its 360 nest (user 2026-11-03)"] = function()
 		local MG = C.Guns.mg08
 		for _, name in { "BoxKit", "BoxTrim", "BoxFittings", "Belt" } do
-			assert(table.find(MG.fixed :: any, name) and not table.find(MG.mount, name), name)
+			assert(table.find(MG.mount, name) and not table.find(MG.fixed or {}, name), name)
 		end
 		assert(
 			table.find(MG.mount, "Rounds01") and table.find(MG.mount, "Links01"),
@@ -592,10 +613,17 @@ return {
 		local MG = C.Guns.mg08
 		local y, e = A.mgLay(30, 0, 30, -10, 0, MG)
 		assert(near(y, 30 + 10 * MG.mg.look) and e == 0, "the mouse moved left turns it left (yaw up)")
+		-- right round (the 360 nest): the aim never more than `lead` ahead of the gun, and on past the back with no stop
 		y = A.mgLay(30, 0, 30, -1e6, 0, MG)
-		assert(near(y, 30 + MG.traverse), "stops at its traverse")
+		assert(near(y, 30 + MG.mg.lead), "no further ahead of the gun than its lead")
+		local lay, aim = 0, 0
+		for _ = 1, 200 do
+			aim = A.mgLay(aim, 0, lay, -20, 0, MG) -- (the mouse moved left)
+			lay = aim -- (the gun keeps up)
+		end
+		assert(near(A.wrap(lay - 0), A.wrap(200 * 20 * MG.mg.look), 1e-6), "round and round, never blocked at the back")
 		y = A.mgLay(170, 0, 170, -1e6, 0, MG)
-		assert(near(y, A.wrap(170 + MG.traverse)), "across 180")
+		assert(near(y, A.wrap(170 + MG.mg.lead)), "across 180")
 		local _, up = A.mgLay(0, 0, 0, 0, -1e6, MG)
 		assert(up == MG.elevation[2])
 		local _, down = A.mgLay(0, 0, 0, 0, 1e6, MG)
@@ -716,7 +744,7 @@ return {
 		assert(near(e + (MG.aimTilt or 0), 0))
 		assert(A.layFor(MG, MG.mg.range + 1, 0) == nil, "past its range")
 		assert(A.layFor(MG, 10, 100) == nil, "past its elevation")
-		assert(A.mgTurns(MG, 0, MG.traverse) and not A.mgTurns(MG, 0, MG.traverse + 1))
+		assert(A.mgTurns(MG, 0, 180) and A.mgTurns(MG, 0, -179), "right round")
 		assert(A.mgTurns(MG, 170, A.wrap(170 + MG.traverse)), "across 180")
 	end,
 	["laid: within the tolerance of the wanted world yaw and elevation"] = function()

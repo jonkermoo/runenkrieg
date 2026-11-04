@@ -67,6 +67,19 @@ function BotCrew.repairOrder(pieces: { Fixable }, near: { number }, keep: number
 	return out, fix
 end
 
+-- What a side does with a gun the enemy built on ground it now holds (Config/Bots.Crew `captured`; user 2026-11-03:
+-- "teamamtes should turn the enemy mg around if it actually aims at enemies. if deemed unusable because of its angle,
+-- they will destroy it or not use it"): "use" (manned like its own) when its shot at the enemy is `clear`; else an MG
+-- nest is wrecked ("wreck", by Engineers' Destroy swings) when that takes at most `cfg.wreckSwings` swings (`swings`),
+-- and anything else is left alone ("ignore": a field gun or howitzer with no clear shot, user: "Blind ones are left
+-- alone, not destroyed").
+function BotCrew.captured(mg: boolean, clear: boolean, swings: number, cfg: { wreckSwings: number }): string
+	if clear then
+		return "use"
+	end
+	return if mg and swings <= cfg.wreckSwings then "wreck" else "ignore"
+end
+
 -- The sector (index into `sectors`) nearest (`x`, `z`): whose ground a gun stands on
 function BotCrew.sectorAt(x: number, z: number, sectors: { { x: number, z: number } }): number?
 	local best, bestD = nil, math.huge

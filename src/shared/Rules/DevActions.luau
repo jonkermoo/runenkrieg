@@ -61,6 +61,7 @@ local SWITCHES = table.freeze({
 	Sectors = true,
 	BotState = true,
 	GunArcs = true,
+	Captured = true,
 	FreeEngineer = true,
 	FreeGrenadier = true,
 	HitchLog = true,
