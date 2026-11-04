@@ -13,6 +13,8 @@ export type Shape = {
 	vignette: number,
 	tilt: number,
 	sway: number,
+	moveHold: number, -- (the tilt and sway's own hold and length: the kind's `motion` kind's, else hold / duration)
+	moveFor: number,
 	snap: number,
 	flash: number,
 	ring: number,
@@ -64,7 +66,8 @@ function Concussion.ears(kg: number, d: number, e: { kg: number, within: number 
 end
 
 -- The effects at the start of a concussion of `strength` of `kind` (cfg.Kinds[kind]): Light at `Light.at`, Heavy at 1,
--- in between in a straight line; weaker than `Light.at`, the Light values shrunk in step (multipliers towards 1).
+-- in between in a straight line; weaker than `Light.at`, the Light values shrunk in step (multipliers towards 1). A kind
+-- with a `motion` kind moves the view (tilt, sway and their timing) as that kind does at the same strength.
 function Concussion.shape(strength: number, kind: Kind, cfg: any): Shape
 	local K = cfg.Kinds[kind]
 	local L, H = K.Light, K.Heavy
@@ -80,6 +83,12 @@ function Concussion.shape(strength: number, kind: Kind, cfg: any): Shape
 		for k in H do
 			out[k] = lerp(if NEUTRAL[k] then 1 else 0, L[k], t)
 		end
+	end
+	if K.motion then
+		local m = Concussion.shape(s, K.motion, cfg)
+		out.tilt, out.sway, out.moveHold, out.moveFor = m.tilt, m.sway, m.hold, m.duration
+	else
+		out.moveHold, out.moveFor = out.hold, out.duration
 	end
 	return out :: Shape
 end
