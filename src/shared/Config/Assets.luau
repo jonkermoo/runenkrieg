@@ -624,7 +624,7 @@ local Assets = {
 			folder = "Grey/Packs",
 			source = "assets/teams/grey/packs/pack_tornister.fbx",
 			generator = "tools/blender/gear/pack.py",
-			sling = 1.2, -- the closure straps reach 1.68 (user 2026-10-19: the rifle rides over the pack)
+			sling = 1.135, -- the flap reaches 1.635 where the staff crosses it (user 2026-10-19: the rifle rides over the pack)
 			description = "German Tornister, the grey team's pack: a firm canvas body rounded on every edge under a hide flap with "
 				.. "round corners and leather piping, two closure straps to buckles, a cinched blanket roll across the top (1440 "
 				.. "tris); hangs from the rig's bands.",
@@ -635,7 +635,7 @@ local Assets = {
 			folder = "Olive/Packs",
 			source = "assets/teams/olive/packs/pack_zaino.fbx",
 			generator = "tools/blender/gear/pack.py",
-			sling = 1.18, -- the straps over the bulging flap reach 1.66 in the middle
+			sling = 1.081, -- the bulging canvas reaches 1.58 where the staff crosses it
 			description = "Italian zaino M1907, the olive team's pack: a soft rounded bulging canvas sack, a round-cornered flap "
 				.. "following the bulge, two side straps and a centre strap to buckles, a cinched blanket roll across the top (1452 "
 				.. "tris); hangs from the rig's bands.",
@@ -646,7 +646,7 @@ local Assets = {
 			folder = "White/Packs",
 			source = "assets/teams/white/packs/pack_p08.fbx",
 			generator = "tools/blender/gear/pack.py",
-			sling = 1.13, -- the mess tin and its strap reach 1.61
+			sling = 1.057, -- the mess tin's strap reaches 1.56 where the staff crosses it
 			description = "British 1908 web large pack, the brown team's: a rounded web box, a flap two thirds down, two short "
 				.. "straps to steel buckles, a rounded mess tin on the flap, a cinched blanket roll across the top (1532 tris); "
 				.. "hangs from the rig's bands.",

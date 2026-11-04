@@ -180,12 +180,13 @@ function Armory.stowed(character: Model, name: string): Model?
 	local kit = Kits.of(character)
 	local model = Armory.build(name, kit)
 	model.Name = "Stowed_" .. name
-	-- over the worn pack (src/server/Packs; the kit's until it is on): further back by the pack's `sling`, unless
-	-- strapped beside it (`beside`)
+	-- over the worn pack (src/server/Packs; the kit's until it is on): further back by the pack's `sling` (or the
+	-- weapon's own for that pack, `packs`), unless strapped beside it (`beside`)
 	local worn = character:FindFirstChild("Pack")
 	local pack = worn and worn:GetAttribute("Entry") or (U.Kits[kit] :: any).pack
 	local entry = type(pack) == "string" and A.Entries[pack]
-	local at = v3(s.at) + Vector3.new(0, 0, if entry and not s.beside then entry.sling or 0 else 0)
+	local push = if entry and not s.beside then (s.packs and s.packs[pack :: string]) or entry.sling or 0 else 0
+	local at = v3(s.at) + Vector3.new(0, 0, push)
 	local muzzle, side = v3(s.muzzle).Unit, v3(s.side).Unit
 	-- gun axes in the part's space: +X = side, -Z = muzzle, +Y completes the frame
 	local z = -muzzle

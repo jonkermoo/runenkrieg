@@ -111,7 +111,16 @@ export type Weapon = {
 	-- muzzle points, `side` the way the gun's right side (+X, the bolt handle) faces.
 	-- None: nothing shows on the body while it's put away (the grenades).
 	-- beside: strapped to the side of the pack, so not pushed back by the pack's `sling` (src/server/Armory).
-	stow: { part: string, at: { number }, muzzle: { number }, side: { number }, beside: boolean? }?,
+	-- packs: this weapon's own push over each pack (Config/Assets entry -> studs), in place of the pack's `sling`,
+	-- where it crosses the pack somewhere the pack's surface lies lower (the shotgun, off to the right of the bulge).
+	stow: {
+		part: string,
+		at: { number },
+		muzzle: { number },
+		side: { number },
+		beside: boolean?,
+		packs: { [string]: number }?,
+	}?,
 	-- Shooting (Config/Firing, Rules/Firing): rounds per clip and how the clip loads ("Enbloc": the whole clip goes
 	-- into the magazine and drops out the bottom when empty, only reloaded empty; "Stripper": the rounds are pushed
 	-- down out of a clip held in the guides, topping the magazine up). Guns only: an item without `ammo` doesn't fire
@@ -438,6 +447,9 @@ local Weapons: { [string]: Weapon } = {
 			at = { 0.5, -0.04, 0.71 },
 			muzzle = { 0.309, 0.9511, 0 },
 			side = { 0, 0, 1 },
+			-- resting on each pack where it crosses it right of the middle (user 2026-11-04: "shotguns are floating on
+			-- the bag"; measured: the packs' `sling` left it 0.13 to 0.29 off them)
+			packs = { pack_tornister = 1.066, pack_zaino = 0.975, pack_p08 = 0.857 },
 		},
 		ammo = { capacity = 5, clip = "Loose" }, -- 5 in the tube + 1 (user 2026-10-13)
 		-- the pump: no turn, the stroke 3 1/4 in (the trace's 88 px); reloadTime unused (loose shells only). Slowed
