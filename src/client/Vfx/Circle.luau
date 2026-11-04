@@ -389,7 +389,7 @@ function Circle.open(
 			light.Brightness = Cfg.Light.brightness * lit * (1 - veil)
 		end
 		return true
-	end)
+	end, done) -- a step that errors puts the circle away too, not left glowing where it was
 
 	local function close()
 		if not closedAt then
