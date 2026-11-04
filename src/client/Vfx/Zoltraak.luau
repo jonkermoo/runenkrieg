@@ -34,12 +34,13 @@ function Zoltraak.play(tip: CFrame, ignore: { Instance }?, scheme: string?)
 	local c = tip.Position + look * Cfg.CircleAhead
 	local circle = Circle.open(CFrame.lookAt(c, c + look), Cfg.CircleDiameter)
 	Charge.play(c, Cfg.Charge)
+	local _, total = Ray.times()
+	-- the close is set first: a failed trace or beam can't leave the circle open
+	task.delay(Cfg.Charge + total - Vfx.Ray.Fade + Cfg.CloseAfter, circle.close)
 	task.delay(Cfg.Charge, function()
 		local to, normal, color = Util.cast(c, look, Cfg.Range, ignore)
 		Star.play(c)
 		Ray.play(c, to, { scheme = scheme, normal = normal, hitColor = color })
-		local _, total = Ray.times()
-		task.delay(total - Vfx.Ray.Fade + Cfg.CloseAfter, circle.close)
 	end)
 end
 
@@ -270,6 +271,26 @@ function Zoltraak.begin(
 		end
 	end
 
+	-- stage n's beam from `from`, traced from the staff's head, not the circle ahead of it: aimed at ground or a wall
+	-- close by, the circle is already in it and a trace from there ran on underground (Studio: stage 1 landing ~145
+	-- studs below). The trace and the beam can't stop the cast: a failed trace lands at full reach (a cast into the
+	-- river left its circles hanging there when the trace errored on water), a failed beam is only warned. Where it
+	-- landed.
+	local function shoot(n: number, from: Vector3, ignore: { Instance }?): Vector3
+		local look = current.LookVector
+		local ok, to, normal, color = pcall(Util.cast, current.Position, look, Reach[n], ignore)
+		if not ok then
+			warn("Vfx staff trace failed: " .. tostring(to))
+			to, normal, color = current.Position + look * Reach[n], -look, nil
+		end
+		local opts = { scheme = scheme, normal = normal, hitColor = color, profile = S[n].beam, blast = n }
+		local drawn, why = pcall(Ray.play, from, to, opts)
+		if not drawn then
+			warn("Vfx staff beam failed: " .. tostring(why))
+		end
+		return to
+	end
+
 	update(0)
 	return {
 		aim = aim,
@@ -291,15 +312,13 @@ function Zoltraak.begin(
 			local n = math.clamp(stage, 1, #circles)
 			local beam = S[n].beam
 			local from = centre(1)
-			-- traced from the staff's head, not the circle ahead of it: aimed at ground or a wall close by, the circle is
-			-- already in it and a trace from there ran on underground (Studio: stage 1 landing ~145 studs below)
-			local to, normal, color = Util.cast(current.Position, current.LookVector, Reach[n], ignore)
+			local reach, total = Ray.times(beam)
+			-- the circles' close goes first: nothing after it can leave them open
+			closeAll(n, total - (Vfx.Beams :: any)[beam].Fade + C.CloseAfter)
 			if n == last then
 				Star.play(from, schemeCfg.flash, C.FireStar)
 			end
-			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam, blast = n })
-			local reach, total = Ray.times(beam)
-			closeAll(n, total - (Vfx.Beams :: any)[beam].Fade + C.CloseAfter)
+			local to = shoot(n, from, ignore)
 			sound(Snd.Fire[n], from, n)
 			sound(Snd.Impact[n], to, n, reach) -- where it lands, as the beam gets there
 			return to
@@ -318,8 +337,7 @@ function Zoltraak.begin(
 			applyVeil()
 			local beam = S[1].beam
 			local from = centre(1)
-			local to, normal, color = Util.cast(current.Position, current.LookVector, Reach[1], ignore)
-			Ray.play(from, to, { scheme = scheme, normal = normal, hitColor = color, profile = beam, blast = 1 })
+			local to = shoot(1, from, ignore)
 			sound(Snd.Fire[1], from, 1)
 			sound(Snd.Impact[1], to, 1, (Ray.times(beam)))
 			return to
