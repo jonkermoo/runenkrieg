@@ -33,6 +33,10 @@ local MovementSet = require(Shared.Rules.MovementSet)
 local Net = require(Shared.Net)
 local TitleSpec = require(Shared.ui.TitleScreen) :: any
 local LoadoutSpec = require(Shared.ui.LoadoutMenu) :: any
+local JoinSpec = require(Shared.ui.JoinLoading) :: any
+local JoinCfg = require(Shared.Config.JoinLoading)
+local JoinRules = require(Shared.Rules.JoinLoading)
+local JoinLoad = require(script.Parent.JoinLoad)
 local SketchCfg = require(Shared.Config.SketchMap) :: any
 local Ink = require(script.Parent.Ink)
 local MatchCam = require(script.Parent.MatchCam)
@@ -834,12 +838,51 @@ function Menus.start()
 		end
 	end)
 
-	-- the join: the title screen (unless a soldier is already out, e.g. a respawn from the dev tools)
+	-- the join: a loading screen until the match's map is loaded (src/client/JoinLoad; user 2026-11-04: "the main menu
+	-- should not even be visible until the current map is done loading"; Skip goes straight on), then the title screen
+	-- (unless a soldier is already out, e.g. a respawn from the dev tools). Between matches there is none.
 	if player.Character then
 		state = { alive = true }
 	else
-		open(title)
 		Net.event("Loadout"):FireServer("Ask") -- (the team line and the preview get ready meanwhile)
+		local loading = build(JoinSpec, "JoinLoading", playerGui)
+		loading.gui.DisplayOrder = DISPLAY_ORDER + 1
+		loading.gui.Enabled = true
+		loading.relayout()
+		local status = loading.node.Status :: TextLabel
+		status.Text = JoinRules.status(0)
+		MatchCam.start() -- (the menus' camera already out, its ground streaming in with the rest)
+		local finished = false
+		local function finish()
+			if finished then
+				return
+			end
+			finished = true
+			loading.gui:Destroy()
+			if not player.Character then
+				open(title)
+			end
+		end
+		local skip = loading.node.Skip :: TextButton
+		skip.Activated:Connect(finish)
+		skip.MouseEnter:Connect(function()
+			skip.TextTransparency = 0
+		end)
+		skip.MouseLeave:Connect(function()
+			skip.TextTransparency = loading.spec.Skip.fade or 0
+		end)
+		task.spawn(function()
+			JoinLoad.run(function(progress: number)
+				if not finished then
+					status.Text = JoinRules.status(progress)
+				end
+			end)
+			if not finished then
+				status.Text = JoinRules.status(1)
+				task.wait(JoinCfg.Hold)
+				finish()
+			end
+		end)
 	end
 end
 

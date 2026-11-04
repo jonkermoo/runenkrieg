@@ -1,0 +1,65 @@
+{
+	"name": "JoinLoading",
+	"_doc": "The loading screen on joining a server (src/client/Menus, Config/JoinLoading; user 2026-11-04: the menu hidden until the map is loaded, the RUNENKRIEG words of the main menu on it, a skip button bottom right; not between matches). The title screen's name, trench line and font where they stand on the title screen, over black; under them how far the map is loaded; Skip on the bottom right opens the title screen at once. Colours: Config/Palette UI.Grimoire.",
+	"theme": {
+		"palette": "Grimoire",
+		"scale": { "referenceHeight": 800, "min": 0.65, "max": 1.25 },
+		"fitMargin": 16,
+		"minTap": 32,
+		"minText": 12,
+		"textStroke": 0,
+		"outline": 0,
+		"corner": 0,
+		"scrollBar": 4,
+		"fonts": { "body": { "family": "SourceSansPro", "weight": "Bold", "file": "SourceSansPro-Bold.ttf" } }
+	},
+	"modal": true,
+	"preview": { "status": "Loading the front · 100%" },
+	"root": {
+		"id": "Screen",
+		"kind": "group",
+		"size": [1, 0, 1, 0],
+		"children": [
+			{ "id": "Black", "kind": "overlay", "from": 0, "to": 0, "size": [1, 0, 1, 0] },
+			{
+				"id": "Name",
+				"kind": "label",
+				"text": "RUNEN\nKRIEG",
+				"textSize": 112,
+				"lineHeight": 0.98,
+				"textColor": "text",
+				"shade": 0.45,
+				"align": "left",
+				"pos": [0, 64, 0, 92],
+				"size": [0, 640, 0, 224]
+			},
+			{ "id": "Trench", "kind": "trench", "pos": [0, 62, 0, 322], "size": [0, 438, 0, 32] },
+			{
+				"id": "Status",
+				"kind": "label",
+				"bind": "status",
+				"text": "",
+				"textSize": 30,
+				"textColor": "dim",
+				"shade": 0.45,
+				"align": "left",
+				"pos": [0, 68, 0, 372],
+				"size": [0, 520, 0, 36]
+			},
+			{
+				"id": "Skip",
+				"kind": "button",
+				"clear": true,
+				"text": "SKIP",
+				"textSize": 28,
+				"textColor": "text",
+				"fade": 0.3,
+				"shade": 0.55,
+				"align": "right",
+				"anchor": [1, 1],
+				"pos": [1, -48, 1, -36],
+				"size": [0, 160, 0, 62]
+			}
+		]
+	}
+}
