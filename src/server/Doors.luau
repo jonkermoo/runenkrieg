@@ -3,14 +3,17 @@
 -- its panel. Triggering swings the door about its Hinge (panel-space attribute) by SwingAngle. State is
 -- the "Open" attribute, so toggle() is stateless and safe to call from anywhere on the server. The prompt is drawn in
 -- the game's own look (Style Custom, tagged Config/Prompts.Tag: src/client/Prompts), reach Config/Prompts.Door.
--- Pathfinding goes through doors, open or shut: every part of one gets a PathfindingModifier (Config/Indoors.Door,
--- cost Config/Indoors.PathCosts). For a soldier who isn't a player (Rules/Indoors):
+-- Pathfinding goes through a shut door: every part of one gets a PathfindingModifier (Config/Indoors.Door, cost
+-- Config/Indoors.PathCosts), passing through while it is shut; open, it stands in the room and paths go round it
+-- (user 2026-11-04 play test: "opening the door breaks their path finding"). For a soldier who isn't a player
+-- (Rules/Indoors):
 --   Doors.nearest(at, within) -> Model?    the nearest door still standing, by its shut place
 --   Doors.isOpen(door) -> boolean
 --   Doors.openFor(model, door) -> boolean    opens it if the model's root is in the prompt's reach (true if it is open
 --                                            or opening now; never shuts it)
 --   Doors.passage(door) -> (Vector3, Vector3)?    the points outside and inside its doorway (its PathfindingLink's ends:
 --                                                 src/server/Indoors)
+--   Doors.onSwung(fn(door))    after any door has swung open or shut (the bots' paths near it go stale)
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,6 +30,29 @@ local Indoors = require(script.Parent.Indoors)
 local Doors = {}
 
 local SWING_TIME = 0.35
+
+local swung: { (Model) -> () } = {}
+
+function Doors.onSwung(fn: (Model) -> ())
+	table.insert(swung, fn)
+end
+
+-- pathfinding goes through the door while it is shut (a path goes through it and the soldier opens it on the way), and
+-- round it while it is open
+local function passable(door: Instance)
+	local through = door:GetAttribute("Open") ~= true
+	for _, part in door:GetDescendants() do
+		if part:IsA("BasePart") then
+			local m = part:FindFirstChildWhichIsA("PathfindingModifier")
+			if not m then
+				m = Instance.new("PathfindingModifier")
+				m.Label = IndoorsCfg.Door.label
+				m.Parent = part
+			end
+			(m :: PathfindingModifier).PassThrough = through
+		end
+	end
+end
 
 function Doors.toggle(door: Model)
 	if door:GetAttribute("Busy") or not door.Parent then
@@ -64,6 +90,10 @@ function Doors.toggle(door: Model)
 			conn:Disconnect()
 			door:SetAttribute("Open", opening)
 			door:SetAttribute("Busy", nil)
+			passable(door)
+			for _, fn in swung do
+				task.spawn(fn, door)
+			end
 			local prompt = door:FindFirstChildWhichIsA("ProximityPrompt", true)
 			if prompt then
 				prompt.ActionText = if opening then "Close" else "Open"
@@ -136,18 +166,6 @@ function Doors.passage(door: Model): (Vector3?, Vector3?)
 	end
 	local outside, inside = Rules.passage(piece, IndoorsCfg.Links)
 	return Vector3.new(outside.x, outside.y, outside.z), Vector3.new(inside.x, inside.y, inside.z)
-end
-
--- pathfinding treats the door as open: a path goes through it and the soldier opens it on the way
-local function passable(door: Instance)
-	for _, part in door:GetDescendants() do
-		if part:IsA("BasePart") and not part:FindFirstChildWhichIsA("PathfindingModifier") then
-			local m = Instance.new("PathfindingModifier")
-			m.Label = IndoorsCfg.Door.label
-			m.PassThrough = true
-			m.Parent = part
-		end
-	end
 end
 
 local function hook(door: Instance)

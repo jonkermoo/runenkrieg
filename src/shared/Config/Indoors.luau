@@ -4,8 +4,8 @@
 -- could use (src/server/Indoors, worked out by Rules/Indoors from the walls). Data only.
 
 local Indoors = {
-	-- every part of a door gets a PathfindingModifier with this label, passing through, so a path isn't stopped by a
-	-- door open or shut
+	-- every part of a door gets a PathfindingModifier with this label, passing through while it is shut (a path isn't
+	-- stopped by a shut door) and not while it is open (it stands in the room: paths go round it)
 	Door = { label = "Door" },
 	-- A doorway (4.6 wide) is too narrow for the navmesh with the bots' agent (radius 1.6, Config/Bots.Move), and some
 	-- flights of stairs too, so each gets a PathfindingLink (both ways): a doorway's from `approach` studs out of its

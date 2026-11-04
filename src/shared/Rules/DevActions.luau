@@ -20,6 +20,7 @@ DevActions.Aimed = table.freeze({
 	BotWork = true,
 	BotDown = true,
 	BotShellHere = true,
+	BotHouse = true,
 })
 
 -- actions with no value (or a plain on/off)
@@ -48,6 +49,7 @@ local PLAIN = table.freeze({
 	BotWork = true,
 	BotDown = true,
 	BotShellHere = true,
+	BotHouse = true,
 	RebuildMaps = true,
 	HitchReport = true,
 	GunDummy = true,

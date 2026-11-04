@@ -86,6 +86,20 @@ return {
 		local side = 4.6 / 2 + S.side
 		assert(near(math.abs(spots[2].at.z), side) and near(spots[2].at.z, -spots[3].at.z))
 	end,
+	["the spot past the hinge's edge is behind the open door; the doorway and the other side aren't"] = function()
+		local d = piece("door", 0, 4.6)
+		local spots = R.spots({ d }, S)
+		local hinge = p(-2.3, 1, -7)
+		local behind = 0
+		for _, s in spots do
+			if R.behindDoor(d, hinge, s.at) then
+				behind += 1
+				assert(s.at.x < -2.3, "the spot past the hinge")
+			end
+		end
+		assert(behind == 1, `one spot behind the door, got {behind}`)
+		assert(not R.behindDoor(d, p(2.3, 1, -7), p(-4, 1, -10)), "the hinge on the other side")
+	end,
 	["a doorway's passage is outside then inside"] = function()
 		local o, i = R.passage(piece("door", 2, 4.6), L)
 		assert(near(o.z, -7 - 0.7 - L.approach) and near(i.z, -7 + 0.7 + L.approach))

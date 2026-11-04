@@ -25,6 +25,8 @@ local L = Cfg.Links
 
 local Indoors = {}
 
+Indoors.behind = 0 -- spots left out, behind an open door (Rules/Indoors.behindDoor; the bots' log)
+
 export type Spot = { kind: Rules.Kind, at: Vector3, face: Vector3, story: number, building: Model }
 
 local cache: { [Model]: { Spot } } = setmetatable({}, { __mode = "k" }) :: any
@@ -109,6 +111,20 @@ local function standable(b: Model, at: Vector3): boolean
 	return workspace:Raycast(at + Vector3.new(0, 1, 0), Vector3.new(0, -1 - S.floorProbe, 0), ray) ~= nil
 end
 
+-- a doorway's door hinge (the Hinge attribute, in its shut panel's space: src/server/Doors), or nil
+local function hingeOf(section: Instance): Vector3?
+	for _, c in section:GetChildren() do
+		if c:IsA("Model") and CollectionService:HasTag(c, D.DoorTag) and c.PrimaryPart then
+			local shut = c:GetAttribute("ClosedPanel")
+			local panel = if typeof(shut) == "CFrame" then shut else (c.PrimaryPart :: BasePart).CFrame
+			local h = c:GetAttribute("Hinge")
+			return (panel * CFrame.new(if typeof(h) == "Vector3" then h else Vector3.zero)).Position
+		end
+	end
+	return nil
+end
+
+-- a doorway's side spot past its door's hinge isn't kept: the door, open, shuts it in against the wall
 function Indoors.spots(b: Model): { Spot }
 	local got = cache[b]
 	if got then
@@ -122,18 +138,36 @@ function Indoors.spots(b: Model): { Spot }
 		end)
 	end
 	local pieces: { Rules.Piece } = {}
+	local hinges: { { piece: Rules.Piece, hinge: Rules.P } } = {}
 	for _, d in b:GetDescendants() do
 		if CollectionService:HasTag(d, D.SectionTag) and building(d) == b then
 			local w = Indoors.piece(d)
 			if w then
 				table.insert(pieces, w)
+				local h = if w.kind == "door" then hingeOf(d) else nil
+				if h then
+					table.insert(hinges, { piece = w, hinge = p(h) })
+				end
 			end
 		end
 	end
 	local out: { Spot } = {}
 	for _, s in Rules.spots(pieces, S) do
 		local at = v3(s.at)
-		if standable(b, at) then
+		local behind = false
+		for _, h in hinges do
+			-- (the doorway's own side spot: wedged between the open door and the wall; others are walked round to)
+			if
+				s.kind == "Doorway"
+				and h.piece.story == s.story
+				and Rules.distance(h.piece.at, s.at) < h.piece.width + S.side + S.stand
+			then
+				behind = behind or Rules.behindDoor(h.piece, h.hinge, s.at)
+			end
+		end
+		if behind then
+			Indoors.behind += 1
+		elseif standable(b, at) then
 			table.insert(out, { kind = s.kind, at = at, face = v3(s.face), story = s.story, building = b })
 		end
 	end
