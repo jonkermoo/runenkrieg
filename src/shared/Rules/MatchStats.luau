@@ -61,6 +61,28 @@ function MatchStats.replayAt(k: number, n: number, total: number, lead: number, 
 	return lead + (k - 1) * (total - lead - tail) / (n - 1)
 end
 
+-- The replay of a long match (user 2026-11-03: "if the match summary is really long, how will we deal with that?"):
+-- its last `most` captures (it always takes the same time, so more would crowd it), and which of them carry their
+-- time: the latest at each point only (a point taken back and forth shows one time, not a stack).
+function MatchStats.replayLog(log: { { index: number } }, most: number): ({ any }, { boolean })
+	local first = math.max(1, #log - most + 1)
+	local shown = {}
+	for k = first, #log do
+		table.insert(shown, log[k])
+	end
+	local timed = {}
+	for k, e in shown do
+		timed[k] = true
+		for j = k + 1, #shown do
+			if shown[j].index == e.index then
+				timed[k] = false
+				break
+			end
+		end
+	end
+	return shown, timed
+end
+
 -- A match clock's text: minutes and seconds ("14:32").
 function MatchStats.clock(seconds: number): string
 	local s = math.max(math.floor(seconds), 0)

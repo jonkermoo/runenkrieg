@@ -5,20 +5,33 @@ local Results = {
 	-- Normal: the map replays the match's captures in order, each arrow drawn over `draw` seconds; the first `lead` in,
 	-- the last done `tail` before `seconds`, which ends before the next match (Config/Frontline.ResultsSeconds; user:
 	-- "the animation should be finished before the next match is ready")
-	Replay = { seconds = 7, lead = 0.4, tail = 1.2, draw = 0.7 },
+	-- At most `most` captures, the latest (Rules/MatchStats.replayLog).
+	Replay = { seconds = 7, lead = 0.4, tail = 1.2, draw = 0.7, most = 8 },
 	-- an arrow: from `from` of the way from the neighbour it came from to the point it took, to `to`; bent `bend` of its
 	-- length to one side (alternating), `thick` of the map's width; the head's two strokes `head` of its length, `spread`
-	-- degrees off it; its time `stamp` of the map's width tall, `lift` of that over the arrow's bend
+	-- degrees off it; its time `stamp` of the map's width tall, `lift` of that over the arrow's bend. Drawn by hand in
+	-- pencil (user 2026-11-03: "make sure these look hand drawn"): the line wavers `wobble` of the map's width, its
+	-- weight `weight` either way, a second fainter stroke `pass` beside it (`passFade` see-through), the time in
+	-- handwriting tilted up to `tilt` degrees
 	Arrow = {
 		from = 0.25,
 		to = 0.86,
 		bend = 0.18,
+		-- a second capture between the same two points bows the other way; each pair of lanes past that bows `lane`
+		-- more, and a lane's ends sit `laneEnds` (shares of the map) off the first's
+		lane = 0.9,
+		laneEnds = 0.04,
 		thick = 0.009,
 		head = 0.25,
 		spread = 28,
 		stamp = 0.036,
 		lift = 0.9,
 		steps = 12,
+		wobble = 0.0035,
+		weight = 0.3,
+		pass = 0.0022,
+		passFade = 0.6,
+		tilt = 7,
 	},
 	-- the winning capture ringed in red pencil, `ring` times the point's radius
 	Win = { ring = 2.2, thick = 0.007 },

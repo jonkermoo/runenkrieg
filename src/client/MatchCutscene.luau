@@ -1,6 +1,8 @@
 --!strict
 -- The match's cutscenes (user 2026-11-02: "cutscene animations before and after matches"; Config/Cutscenes, Rules/
--- Cutscenes): the pre-match flight over the countdown (Workspace.Frontline's Phase "Countdown") and, at a match's end,
+-- Cutscenes): the pre-match flight over the countdown after a match (Workspace.Frontline's Phase "Countdown": a shot
+-- round each point's landmark as the narrator gives its order; a fresh server's first countdown is a loading screen
+-- instead, src/client/EndScenes), the dips to black between the end's scenes, and, at a match's end,
 -- the fade to the winner's colour (Phase "Fade": the world's colour drained, then the winner's land colour with their
 -- name; it holds until src/client/EndScenes takes over with the battle table). Every player sees them on the server's
 -- clock (PhaseEndsAt), so a player who comes in late joins where it is. Over the flight: the widescreen bars, the title
@@ -36,6 +38,7 @@ local PointSeal = require(script.Parent.PointSeal)
 local Menus = require(script.Parent.Menus) :: any
 local SketchMap = require(script.Parent.SketchMap)
 local Speech = require(script.Parent.Speech)
+local Net = require(Shared.Net)
 
 local MatchCutscene = {}
 
@@ -504,24 +507,97 @@ local function finish()
 	endedEvent:Fire(p.kind)
 end
 
+-- the spots on the ground shot `shot` of a cut looks at (its start, middle and end; each point's own shot's middle)
+local function looksOf(shot: any, anchors: { [string]: { number } }, points: { { number } }, flip: boolean): { Vector3 }
+	local at = { 0, 0.5, 1 }
+	if shot.kind == "Sectors" then
+		for k = 1, #points do
+			table.insert(at, (k - 0.5) / #points)
+		end
+	end
+	local out = {}
+	for _, u in at do
+		local pose = Rules.pose(shot, u, anchors, points, flip, Cfg.Paper.up)
+		table.insert(out, Vector3.new(pose.look.x, 0, pose.look.z))
+	end
+	return out
+end
+
+local function streamAround(spot: Vector3)
+	pcall(function()
+		player:RequestStreamAroundAsync(spot)
+	end)
+end
+
 -- asks for the ground round each upcoming shot's camera before it starts (StreamingEnabled)
 local function streamAhead(p: Play, t: number)
 	for i, shot in p.cut.shots do
 		local t0 = Rules.start(p.cut, i)
 		if not p.streamed[i] and t >= t0 - Cfg.StreamAhead and shot.kind ~= "Paper" then
 			p.streamed[i] = true
-			local flip = Rules.mirrored(shot, p.home, p.winner)
-			for _, u in { 0, 0.5, 1 } do
-				local pose = Rules.pose(shot, u, p.anchors, p.points, flip, Cfg.Paper.up)
-				local at = Vector3.new(pose.look.x, 0, pose.look.z)
-				task.spawn(function()
-					pcall(function()
-						player:RequestStreamAroundAsync(at)
-					end)
-				end)
+			for _, look in looksOf(shot, p.anchors, p.points, Rules.mirrored(shot, p.home, p.winner)) do
+				task.spawn(streamAround, look)
 			end
 		end
 	end
+end
+
+-- The next map loaded in the armory (Net "MapLoad", src/server/Frontline): every spot its flight looks at streamed in,
+-- for either side and either winner (the sides are dealt after), then the server told. `loaded` the share done.
+local loading = { key = "", done = 0, total = 0 }
+local function loadMap(key: string)
+	local map = LiveMap.get(key)
+	if not map then
+		loading = { key = key, done = 0, total = 0 }
+		Net.event("MapLoad"):FireServer(key)
+		return
+	end
+	local cut = Rules.cut(Cfg, "Pre", key)
+	local points = {}
+	for _, s in map.sectors do
+		table.insert(points, { s.x, s.z })
+	end
+	local spots: { Vector3 } = {}
+	local function add(v: Vector3)
+		for _, o in spots do
+			if (o - v).Magnitude < Cfg.LoadSpacing then
+				return
+			end
+		end
+		table.insert(spots, v)
+	end
+	for _, home: Rules.Side in { "West", "East" } do
+		for _, winner: Rules.Side in { "West", "East" } do
+			local anchors = Rules.anchors(map, home, winner, Cfg.LandmarkReach)
+			for _, shot in cut.shots do
+				if shot.kind ~= "Paper" then
+					for _, v in looksOf(shot, anchors, points, Rules.mirrored(shot, home, winner)) do
+						add(v)
+					end
+				end
+			end
+		end
+	end
+	local this = { key = key, done = 0, total = #spots }
+	loading = this
+	for _, v in spots do -- (one after another: the server streams each before the next)
+		if loading ~= this then
+			return -- (a newer map asked for)
+		end
+		streamAround(v)
+		this.done += 1
+	end
+	Net.event("MapLoad"):FireServer(key)
+end
+
+-- A match's end: the next map not asked for yet.
+function MatchCutscene.forgetLoad()
+	loading = { key = "", done = 0, total = 0 }
+end
+
+-- How much of the next map is streamed in (0..1; 0 before the server asks).
+function MatchCutscene.loaded(): number
+	return if loading.total > 0 then loading.done / loading.total elseif loading.key ~= "" then 1 else 0
 end
 
 local function caption(p: Play, shot: any)
@@ -577,18 +653,27 @@ local function step(dt: number)
 	local pose = Rules.pose(shot, u, p.anchors, p.points, flip, Cfg.Paper.up)
 	local eye, look = world(pose.eye), world(pose.look)
 	local cf = CFrame.lookAt(eye, look) * CFrame.Angles(0, 0, math.rad(pose.roll))
-	if shot.kind == "Eyes" then
+	local fov = pose.fov or Cfg.Fov
+	if shot.kind == "Self" then
+		-- round your own soldier, then into its eyes (the first-person view it starts in)
 		local head = player.Character and player.Character:FindFirstChild("Head") :: BasePart?
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if head and root then
+			local a, blend = Rules.selfPose(shot, u)
+			local back = CFrame.Angles(0, a, 0):VectorToWorldSpace(-root.CFrame.LookVector)
+			local feet = root.Position - Vector3.new(0, 3, 0)
+			local round = CFrame.lookAt(
+				feet + back * shot.radius + Vector3.new(0, shot.up, 0),
+				feet + Vector3.new(0, shot.lookUp, 0)
+			)
 			local at = head.Position + Vector3.new(0, 0.4, 0)
-			local into = CFrame.lookAt(at, at + root.CFrame.LookVector)
-			cf = cf:Lerp(into, Rules.ease(u))
+			cf = round:Lerp(CFrame.lookAt(at, at + root.CFrame.LookVector), blend)
+			fov += (p.fov - fov) * blend
 		end
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CFrame = cf
-	camera.FieldOfView = pose.fov or Cfg.Fov
+	camera.FieldOfView = fov
 	-- the movie layer: the sheet, the impact frame, the caption fading in, the seals
 	-- (the ink ground fades; the sketch on it, drawn in many pieces, cuts in or out halfway)
 	local paper = Rules.paper(shot, u, Cfg.Paper.fade)
@@ -611,7 +696,7 @@ local function step(dt: number)
 				elseif s.startOwner == "East" then magicOf(p.fill.EastKit)
 				else rgb(GR.neutral)
 		end
-		if shot.kind == "Front" then
+		if shot.kind == "Front" or shot.kind == "Sectors" then
 			local id = Rules.landmark(p.map, shown, Cfg.LandmarkReach)
 			local name = id and Cfg.Names[id]
 			place.Text = if name then `{p.map.sectors[shown].name} · {name}` else p.map.sectors[shown].name
@@ -679,12 +764,12 @@ local function begin(kind: string, folder: Instance)
 	}
 	sheetFor(key)
 	makeSeals(map)
-	-- the narrator's plan over the flight (the match before: "<winner kit or none>,<map played>")
+	-- the narrator's plan over the flight, its closing call by the player's own kit
 	local spoken = folder:GetAttribute(FrontCfg.SpeechAttribute)
 	if kind == "Pre" and type(spoken) == "string" then
-		local kitText = string.split(spoken, ",")[1]
-		local winnerKit = if kitText ~= "none" then kitText else nil
-		local lines = Rules.partTwo(Cfg.Speech, cut, winnerKit, key, #map.sectors)
+		local ownKit = if home then folder:GetAttribute(home) else nil
+		local lines =
+			Rules.partTwo(Cfg.Speech, cut, if type(ownKit) == "string" then ownKit else nil, key, #map.sectors)
 		Speech.queue(lines, os.clock() + (startAt - workspace:GetServerTimeNow()))
 	end
 	skip.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -695,8 +780,38 @@ local function begin(kind: string, folder: Instance)
 	RunService:BindToRenderStep("MatchCutscene", Enum.RenderPriority.Camera.Value + 2, step)
 end
 
+-- The dips to black between scenes (Config/Cutscenes.Dip; the folder's DipAt, set by src/server/Frontline as it
+-- changes scene): a black screen over everything, the bars, the subtitles and the end scenes too.
+local function dips()
+	local g = Instance.new("ScreenGui")
+	g.Name = "SceneDip"
+	g.ResetOnSpawn = false
+	g.IgnoreGuiInset = true
+	g.DisplayOrder = Cfg.DisplayOrder + 5
+	local black = Instance.new("Frame")
+	black.Size = UDim2.fromScale(1, 1)
+	black.BackgroundColor3 = Color3.new(0, 0, 0)
+	black.BorderSizePixel = 0
+	black.Visible = false
+	black.Parent = g
+	g.Parent = player:WaitForChild("PlayerGui")
+	RunService.RenderStepped:Connect(function()
+		local folder = workspace:FindFirstChild(FrontCfg.FolderName)
+		local at = folder and folder:GetAttribute(FrontCfg.DipAttribute)
+		local k = Rules.dip(workspace:GetServerTimeNow(), if type(at) == "number" then at else nil, Cfg.Dip)
+		black.Visible = k > 0
+		black.BackgroundTransparency = 1 - k
+	end)
+end
+
 function MatchCutscene.start()
 	build()
+	dips()
+	Net.event("MapLoad").OnClientEvent:Connect(function(key: unknown)
+		if type(key) == "string" then
+			loadMap(key)
+		end
+	end)
 	skip.Activated:Connect(function()
 		if play then
 			(play :: Play).skipHeld = math.huge
@@ -712,7 +827,10 @@ function MatchCutscene.start()
 				seen = phase :: string?
 				if folder and phase == "Countdown" then
 					MatchCutscene.clearFade()
-					begin("Pre", folder)
+					-- (after a match only: a fresh server's first countdown is a loading screen, src/client/EndScenes)
+					if type(folder:GetAttribute(FrontCfg.SpeechAttribute)) == "string" then
+						begin("Pre", folder)
+					end
 				elseif folder and phase == "Fade" then
 					finish()
 					startFade(folder)

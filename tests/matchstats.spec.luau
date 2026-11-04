@@ -1,7 +1,7 @@
 --!strict
 local R = require("../src/shared/Rules/MatchStats")
 local Cfg = require("../src/shared/Config/Results")
-local Front = require("../src/shared/Config/Frontline")
+local Table = require("../src/shared/Config/Cutscenes").Table
 
 local rows = {
 	{ id = 1, name = "Kessel", kit = "uniform2", Kills = 27, Healed = 0, Built = 400, Points = 900 },
@@ -35,10 +35,27 @@ return {
 		local last = R.replayAt(n, n, r.seconds, r.lead, r.tail)
 		assert(math.abs(last - (r.seconds - r.tail)) < 1e-9)
 		assert(
-			last + r.draw <= r.seconds and r.seconds < Front.TableSeconds,
+			last + r.draw <= r.seconds and r.seconds < Table.most,
 			"the last arrow drawn while the battle table is shown"
 		)
 		assert(R.replayAt(1, 1, r.seconds, r.lead, r.tail) == r.lead, "one capture")
+		-- a long match: its last few captures, a point taken back and forth timed once (its latest)
+		local log = {}
+		for k = 1, 12 do
+			table.insert(log, { index = if k % 2 == 0 then 3 else k % 5 + 1, t = k })
+		end
+		local shown, timed = R.replayLog(log, 8)
+		assert(#shown == 8 and shown[1].t == 5 and shown[8].t == 12, "the last 8")
+		local seen = {}
+		for k = #shown, 1, -1 do
+			if timed[k] then
+				assert(not seen[shown[k].index], "one time a point")
+				seen[shown[k].index] = true
+			end
+		end
+		assert(timed[8] and seen[3], "the latest at the point is timed")
+		local few = R.replayLog({ { index = 2 } }, 8)
+		assert(#few == 1, "a short match whole")
 	end,
 	["the match clock"] = function()
 		assert(R.clock(872) == "14:32" and R.clock(5) == "0:05" and R.clock(-3) == "0:00")

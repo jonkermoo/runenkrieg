@@ -164,6 +164,10 @@ local Remotes: { string } = {
 	-- Rules/Cutscenes): client -> server: (key: string) my vote for this offered map (Config/Maps key), changeable
 	-- until the vote closes; the tally is on the Frontline folder's attributes
 	"MapVote",
+	-- The next map loaded in the armory (src/server/Frontline asks, src/client/MatchCutscene streams it in): server ->
+	-- client: (key: string) stream in the ground the next flight shows; client -> server: (key: string) it's in. The
+	-- next match waits for every player asked (Rules/Cutscenes.loadOver; Config/Frontline.Loading.max at the most)
+	"MapLoad",
 }
 local Functions: { string } = {}
 

@@ -34,12 +34,15 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Frontline)
 local CutCfg = require(Shared.Config.Cutscenes)
 local CutRules = require(Shared.Rules.Cutscenes)
+local NarratorClips = require(Shared.Config.NarratorClips)
+local ResultsCfg = require(Shared.Config.Results)
 local BotsCfg = require(Shared.Config.Bots)
 local DamageCfg = require(Shared.Config.Damage)
 local SectorCfg = require(Shared.Config.Sectors)
 local Palette = require(Shared.Config.Palette)
 local U = require(Shared.Config.Uniforms)
 local LiveMap = require(Shared.LiveMap)
+local Net = require(Shared.Net)
 local Map = LiveMap.map
 local Rules = require(Shared.Rules.Frontline)
 local Build = require(script.Parent.Build)
@@ -85,6 +88,9 @@ local matchWatchers: { () -> () } = {}
 -- while running: the match loop, the player hooks; set by the admin to end the match now
 local thread: thread? = nil
 local conns: { RBXScriptConnection } = {}
+-- the next map streamed in by each player in the armory (Net "MapLoad"): the map asked for, and who hasn't said so yet
+local loadingMap: string? = nil
+local stillLoading: { [Player]: boolean } = {}
 local ending = false
 local starting = false -- set by the admin to skip the wait for players
 local still = 0 -- seconds since the last capture (the momentum)
@@ -138,8 +144,17 @@ local function bots(): { Model }
 end
 
 local function phase(name: string, seconds: number?)
+	local now = workspace:GetServerTimeNow()
 	folder:SetAttribute("Phase", name)
-	folder:SetAttribute("PhaseEndsAt", if seconds then workspace:GetServerTimeNow() + seconds else nil)
+	folder:SetAttribute("PhaseAt", now)
+	folder:SetAttribute("PhaseEndsAt", if seconds then now + seconds else nil)
+end
+
+-- A dip to black between scenes (Config/Cutscenes.Dip): every screen darkens, and phase `name` starts once black.
+local function dipTo(name: string, seconds: number?)
+	folder:SetAttribute(Cfg.DipAttribute, workspace:GetServerTimeNow() + CutCfg.Dip.out)
+	task.wait(CutCfg.Dip.out)
+	phase(name, seconds)
 end
 
 -- The side `player` plays on this life (nil: not in the match, e.g. a testing kit of a team that isn't playing).
@@ -650,9 +665,21 @@ local function run()
 		end
 		starting = false
 		if not ending then
-			-- everyone into their HQ's wave line; the first wave goes when the countdown ends
-			phase("Countdown", Cfg.CountdownSeconds)
-			local start = workspace:GetServerTimeNow() + Cfg.CountdownSeconds
+			-- everyone into their HQ's wave line; the first wave goes when the countdown ends. After a match the
+			-- flight over the map plays over it (src/client/MatchCutscene); a fresh server (nothing played yet: no
+			-- narrator's subject) shows a short loading screen instead and dips to black into the game at the whistle
+			-- (src/client/EndScenes; user 2026-11-03)
+			local fresh = folder:GetAttribute(Cfg.SpeechAttribute) == nil
+			local seconds = if fresh then Cfg.FreshCountdownSeconds else Cfg.CountdownSeconds
+			dipTo("Countdown", seconds)
+			local start = workspace:GetServerTimeNow() + seconds
+			if fresh then
+				task.delay(CutCfg.Dip.hold + CutCfg.Dip.inn, function()
+					if folder.Parent and folder:GetAttribute("Phase") == "Countdown" then
+						folder:SetAttribute(Cfg.DipAttribute, start)
+					end
+				end)
+			end
 			setWave(start) -- (the lines start empty: slots from 1)
 			for _, p in Players:GetPlayers() do
 				local character = p.Character
@@ -737,19 +764,27 @@ local function run()
 		local played = LiveMap.key()
 		folder:SetAttribute(Cfg.SpeechAttribute, `{winnerKit or "none"},{played}`)
 		phase("Fade", Cfg.FadeSeconds)
+		-- the table until its replay and report are done (Rules/Cutscenes.tableSeconds: every client draws the same)
+		local tableSeconds = CutRules.tableSeconds(
+			CutCfg.Table,
+			math.min(#log, ResultsCfg.Replay.most),
+			CutRules.reportLines(CutCfg.Table.top3),
+			winner ~= nil
+		)
 		MatchStats.send({
 			mode = "Normal",
 			winner = winnerKit,
 			log = table.clone(log),
 			length = os.clock() - playedAt,
 			map = played,
-			endsAt = workspace:GetServerTimeNow() + Cfg.FadeSeconds + Cfg.TableSeconds,
+			top = CutCfg.Table.top3,
+			endsAt = workspace:GetServerTimeNow() + Cfg.FadeSeconds + CutCfg.Dip.out + tableSeconds,
 		}, function(p: Player): string?
 			return Kits.next(p)
 		end)
 		task.wait(Cfg.FadeSeconds)
-		phase("Table", Cfg.TableSeconds)
-		task.wait(Cfg.TableSeconds)
+		dipTo("Table", tableSeconds)
+		task.wait(tableSeconds)
 		local pick = played
 		local offer = MapVote.offer()
 		if #offer > 1 then
@@ -767,14 +802,37 @@ local function run()
 		end
 		local nation = if winnerKit then (U.Kits :: any)[winnerKit].team else ""
 		local S = CutCfg.Speech
-		local spoken = CutRules.speechSeconds(CutRules.partOne(S, winnerKit, played, nation), S.wordsPerSecond, S.gap)
+		local spoken = CutRules.speechSeconds(
+			CutRules.partOne(S, winnerKit, played, nation),
+			S.wordsPerSecond,
+			S.gap,
+			NarratorClips.clips
+		)
 		local least = math.clamp(spoken, Cfg.Loading.least, Cfg.Loading.max)
+		dipTo("Loading", least)
 		local loading = os.clock()
-		phase("Loading", least)
 		putBack()
 		useMap(pick)
 		newMatch()
-		task.wait(math.max(least - (os.clock() - loading), 0))
+		-- every player streams in what the next flight shows: its narrator's part waits for them all (user
+		-- 2026-11-03), or Loading.max at the most
+		table.clear(stillLoading)
+		for _, p in Players:GetPlayers() do
+			stillLoading[p] = true
+		end
+		loadingMap = pick
+		Net.event("MapLoad"):FireAllClients(pick)
+		while true do
+			local pending = 0
+			for p in stillLoading do
+				pending += if p.Parent then 1 else 0
+			end
+			if CutRules.loadOver(os.clock() - loading, least, Cfg.Loading.max, pending) then
+				break
+			end
+			task.wait(0.1)
+		end
+		loadingMap = nil
 		freeze(false)
 		task.wait() -- (src/server/Deploy splits everyone over the new pair first)
 		for _, p in Players:GetPlayers() do
@@ -859,6 +917,14 @@ function Frontline.start(): boolean
 	-- (the first pair before anyone joins, so their first kit is rolled from it)
 	newMatch()
 	table.insert(conns, Players.PlayerAdded:Connect(join))
+	table.insert(
+		conns,
+		Net.event("MapLoad").OnServerEvent:Connect(function(p: Player, key: unknown)
+			if loadingMap ~= nil and key == loadingMap then
+				stillLoading[p] = nil
+			end
+		end)
+	)
 	for _, p in Players:GetPlayers() do
 		join(p)
 	end
