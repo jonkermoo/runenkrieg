@@ -842,13 +842,20 @@ local function follow(b: Bot, now: number)
 		end
 		if wp then
 			target = wp.Position
+			-- a flight of stairs on the way (a "Stairs" link's waypoint): up and down its middle
+			if wp.Label == IndoorCfg.Links.stairs then
+				target = Indoors.stairWay(root.Position, wp.Position)
+				if target ~= wp.Position then
+					stats.stairSteps += 1
+				end
+			end
 			if wp.Action == Enum.PathWaypointAction.Jump then
 				humanoid.Jump = true
 			end
 			-- a teammate walking too close: the step pushed aside, away from them (Config/Bots.Spread)
 			local mate = mateNear(b, root.Position, Cfg.Spread.apart)
 			local along = flat(wp.Position - root.Position)
-			if mate and along.Magnitude > Cfg.Spread.push then
+			if mate and along.Magnitude > Cfg.Spread.push and wp.Label ~= IndoorCfg.Links.stairs then
 				local away = flat(root.Position - mate :: Vector3)
 				local u = along.Unit
 				local side = away - u * away:Dot(u)

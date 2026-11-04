@@ -283,13 +283,25 @@ local function safeHere(b: Bot, r: BuildJob, brave: boolean, now: number): boole
 	return BotBuild.safeToWork(r.underFire == true or brave or dig, seen, sinceThreat, sinceHurt, hid, BD.calm)
 end
 
+-- job `r` left to others for `seconds` (b.skipJobs), the bot takes another meanwhile
+local function skipJob(b: Bot, r: BuildJob, seconds: number, now: number)
+	local skip = b.skipJobs or setmetatable({}, { __mode = "k" }) :: any
+	for job, untilAt in skip do
+		if untilAt <= now then
+			skip[job] = nil
+		end
+	end
+	skip[r] = now + seconds
+	b.skipJobs = skip
+end
+
 -- a build job taken (or gone back to): worked now if it is there and safe, else walked to with the gun out, fighting on
--- the way (b.work: think's goal; Config/Bots.Build.Work)
+-- the way (b.work: think's goal; Config/Bots.Build.Work); left to others when it gets no nearer (Work.stall)
 local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
 	local at, reach = workAt(r)
 	local w = b.work
 	if not w or w.job ~= r then
-		w = { job = r, at = at, since = now, brave = brave == true }
+		w = { job = r, at = at, since = now, brave = brave == true, bestAt = now }
 		b.work = w
 		stats.workTaken += 1
 		local n = b.jobNote
@@ -307,8 +319,25 @@ local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
 		if b.jobNote then
 			(b.jobNote :: any).starts += 1
 		end
+	elseif near then
+		b.workState = "waiting"
 	else
-		b.workState = if near then "waiting" else "going"
+		b.workState = "going"
+		local dist = flat(at - (b.root :: BasePart).Position).Magnitude
+		local threatened = b.threatAt ~= nil and now - (b.threatAt :: number) < BD.calm
+		local fighting = threatened or (b.target ~= nil and (b.target :: Target).visible)
+		local gave
+		w.best, w.bestAt, gave = BotBuild.stalled(dist, w.best, w.bestAt, now, fighting, BD.Work)
+		if gave then
+			stats.workStalled += 1
+			skipJob(b, r, BD.Work.lost, now)
+			local n = b.jobNote
+			if n then
+				n.stops += 1
+				n.why = "no way there"
+			end
+			b.work, b.workState = nil, nil
+		end
 	end
 end
 
@@ -823,14 +852,7 @@ end
 
 -- refused there (its lay, its way or a swing): the job left to others for Work.skip s, the bot takes another meanwhile
 local function giveUp(b: Bot, r: BuildJob, why: string, now: number)
-	local skip = b.skipJobs or setmetatable({}, { __mode = "k" }) :: any
-	for job, untilAt in skip do
-		if untilAt <= now then
-			skip[job] = nil
-		end
-	end
-	skip[r] = now + BD.Work.skip
-	b.skipJobs = skip
+	skipJob(b, r, BD.Work.skip, now)
 	quit(b, why)
 end
 

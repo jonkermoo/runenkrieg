@@ -90,10 +90,28 @@ end
 -- A flight of stairs' way up (Config/Indoors.Links): `foot` the middle of its lowest step at floor level, `top` the
 -- middle of its highest step's top, `up` the flat unit way it climbs, `room` the flat unit from it into the room, `width`
 -- across it, `run` a step's depth. Returns the floor point beside its foot and the point just beyond its top step, and
--- the top step itself (for when there's no room beyond it: a tower's flights run wall to wall).
-function Indoors.flight(foot: P, top: P, up: P, room: P, width: number, run: number, links: any): (P, P, P)
+-- the top step itself (for when there's no room beyond it: a tower's flights run wall to wall); and `onto`, the
+-- middle of its second step at floor level, where it is stepped onto from the low end (its middle line runs from there).
+function Indoors.flight(foot: P, top: P, up: P, room: P, width: number, run: number, links: any): (P, P, P, P)
 	local low = add(add(foot, up, links.up), room, width / 2 + links.out)
-	return low, add(top, up, run / 2 + links.past), top
+	return low, add(top, up, run / 2 + links.past), top, add(foot, up, run)
+end
+
+-- Where a soldier walking a flight's link heads now (Config/Indoors.Links): along the flight's middle line, `onto` to
+-- `head` (`width` across), never straight from the low end beside the foot to the top. `climbing`: its link waypoint
+-- (`wp`) is the top end. Up: onto the line first, then the top; down: along the line to `onto`, then off to `wp`.
+function Indoors.stairWay(at: P, wp: P, onto: P, head: P, width: number, climbing: boolean, links: any): P
+	local ux, uz = head.x - onto.x, head.z - onto.z
+	local len = math.sqrt(ux * ux + uz * uz)
+	ux, uz = ux / len, uz / len
+	local dx, dz = at.x - onto.x, at.z - onto.z
+	local s = dx * ux + dz * uz
+	local m = links.line
+	local onLine = math.abs(dx * uz - dz * ux) <= width / 2 - m and s >= -m and s <= len + m
+	if climbing then
+		return if onLine then wp else onto
+	end
+	return if onLine and math.sqrt(dx * dx + dz * dz) > 1.5 then onto else wp
 end
 
 -- Whether a spot by doorway `door` is behind its door when open: the door swings into the room about its hinge

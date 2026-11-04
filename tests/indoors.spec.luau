@@ -107,13 +107,28 @@ return {
 	end,
 	["a flight's link runs from the floor beside its foot to just past its top"] = function()
 		-- climbing +X along a back wall at z = 5, the room toward -Z; steps 1.2 deep, 5 wide, top at 12.6
-		local low, beyond, top = R.flight(p(-9, 0.6, 5), p(7.8, 12.6, 5), p(1, 0, 0), p(0, 0, -1), 5, 1.2, L)
+		local low, beyond, top, onto = R.flight(p(-9, 0.6, 5), p(7.8, 12.6, 5), p(1, 0, 0), p(0, 0, -1), 5, 1.2, L)
 		assert(
 			near(low.x, -9 + L.up) and near(low.y, 0.6) and near(low.z, 5 - 2.5 - L.out),
 			"beside the foot, on the floor"
 		)
 		assert(near(beyond.x, 7.8 + 0.6 + L.past) and near(beyond.y, 12.6) and near(beyond.z, 5), "past the top step")
 		assert(top.x == 7.8 and top.y == 12.6, "the top step itself")
+		assert(near(onto.x, -9 + 1.2) and near(onto.z, 5), "onto its second step, on its middle line")
+	end,
+	["a flight is walked along its middle: onto it first going up, off it at its foot going down"] = function()
+		local low, beyond, _, onto = R.flight(p(-9, 0.6, 5), p(7.8, 12.6, 5), p(1, 0, 0), p(0, 0, -1), 5, 1.2, L)
+		local function same(a, b)
+			return near(a.x, b.x) and near(a.z, b.z)
+		end
+		-- up: at the low end (beside the foot) it steps onto the flight first, then straight to the top
+		assert(same(R.stairWay(low, beyond, onto, beyond, 5, true, L), onto), "onto it first")
+		assert(same(R.stairWay(p(-2, 6, 5.5), beyond, onto, beyond, 5, true, L), beyond), "on it: the top")
+		assert(same(R.stairWay(p(-2, 1, 1), beyond, onto, beyond, 5, true, L), onto), "beside it, half way: onto it")
+		-- down: from the top along the middle to its foot, then off to the low end
+		assert(same(R.stairWay(beyond, low, onto, beyond, 5, false, L), onto), "from the top: along it")
+		assert(same(R.stairWay(p(onto.x + 1, 2, 5), low, onto, beyond, 5, false, L), low), "at its foot: off it")
+		assert(same(R.stairWay(p(-6, 1, 0), low, onto, beyond, 5, false, L), low), "off it already")
 	end,
 	["door reach is the prompt's distance, nearest picks within range"] = function()
 		assert(R.reaches(p(0, 0, 0), p(0, 3, 8), 9))
