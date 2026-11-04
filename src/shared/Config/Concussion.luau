@@ -40,7 +40,8 @@ local Concussion = {
 	--   2026-11-03: "make the blur be to scale with the ringing volume and fade"), rung or not (`Ears`); saturation,
 	--   brightness: ColorCorrection added; vignette:
 	--   the screen's edges darkened
-	--   (0..1); tilt: the view rolled to one side (degrees), fading; sway: a slow dizzy wobble (degrees)
+	--   (0..1); tilt: the view rolled to one side (degrees), fading; sway: a slow dizzy wobble (degrees) (a kind's
+	--   `motion`: the kind it moves the view as instead, at the same strength)
 	--   snap: the head thrown away from the shot (degrees, over `Snap.time`); flash: a white flash (brightness)
 	--   ring (only within `Ears`, as the muffle): the ring's volume, lasting `ringFor` (held for `hold`, fading `RingFade`); pitch: its playback speed
 	--   (user 2026-11-03: "make overall ringing shorter by a little ... and also lower how loud it can actually get":
@@ -99,10 +100,11 @@ local Concussion = {
 		},
 		-- a round ringing off the helmet and knocking it away: sharper and higher than a shell, and long (user 2026-11-03).
 		-- The view moves no more than an explosion's knock (user 2026-11-04: "the mouse shakes too much from the helmet
-		-- knock. make it the same intensity as an explosion knock"): tilt and sway as Blast's from its weakest throw
-		-- (Concussion.Blast.least) to Heavy, the head's snap no bigger than a blast's camera kick right by it
+		-- knock. make it the same intensity as an explosion knock"): `motion`, its tilt and sway (and how long they hold
+		-- and last) as Blast's at the same strength; the head's snap no bigger than a blast's camera kick right by it
 		-- (Config/CameraShake.Blast.size)
 		Helmet = {
+			motion = "Blast",
 			Light = {
 				at = 0.3,
 				duration = 10,
@@ -111,8 +113,6 @@ local Concussion = {
 				saturation = -0.3,
 				brightness = -0.05,
 				vignette = 0.5,
-				tilt = 1.4,
-				sway = 0.5,
 				snap = 0.6,
 				flash = 0.4,
 				ring = 0.5,
@@ -133,8 +133,6 @@ local Concussion = {
 				saturation = -0.45,
 				brightness = -0.1,
 				vignette = 0.7,
-				tilt = 4,
-				sway = 1.5,
 				snap = 1.2,
 				flash = 0.5,
 				ring = 0.6,

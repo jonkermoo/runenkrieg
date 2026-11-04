@@ -31,15 +31,18 @@ return {
 			assert(not R.ears(kg, 1, E), `staff stage {stage} never`)
 		end
 	end,
-	["a helmet hit moves the view no more than an explosion's knock"] = function()
-		local blast = { R.shape(C.Blast.least, "Blast", C), R.shape(1, "Blast", C) }
-		local helmet = { R.shape(C.Helmet.least, "Helmet", C), R.shape(1, "Helmet", C) }
+	["a helmet hit moves the view as an explosion's knock of the same strength"] = function()
 		local kick = require("../src/shared/Config/CameraShake").Blast.size
-		for i = 1, 2 do
-			assert(helmet[i].tilt <= blast[i].tilt + 0.05, `tilt {i}`)
-			assert(helmet[i].sway <= blast[i].sway + 0.05, `sway {i}`)
-			assert(helmet[i].snap <= kick, `snap {i}`)
+		for _, x in { 0.1, C.Helmet.least, 0.5, 0.8, 1 } do
+			local h, b = R.shape(x, "Helmet", C), R.shape(x, "Blast", C)
+			for _, k in { "tilt", "sway" } do
+				assert(near(h[k], b[k]), `{k} at {x}`)
+			end
+			assert(near(h.moveHold, b.hold) and near(h.moveFor, b.duration), `timing at {x}`)
+			assert(h.snap <= kick, `snap at {x}`)
 		end
+		local b = R.shape(0.5, "Blast", C)
+		assert(near(b.moveHold, b.hold) and near(b.moveFor, b.duration), "a blast on its own timing")
 	end,
 	["a near blast concusses by its overpressure, on a log scale up to most"] = function()
 		local N = C.Near

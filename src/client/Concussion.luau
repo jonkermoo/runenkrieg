@@ -191,7 +191,7 @@ local function view()
 	end
 	local e = os.clock() - st.at
 	local k = intensity()
-	local f = Rules.held(e, s.hold, s.duration, Cfg.Fade) * k
+	local f = Rules.held(e, s.moveHold, s.moveFor, Cfg.Fade) * k
 	local kick = Rules.kick(e, Cfg.Snap.time) * s.snap * k
 	local w = 2 * math.pi * Cfg.Sway.rate * e
 	local W = Cfg.Sway
