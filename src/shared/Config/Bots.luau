@@ -533,8 +533,9 @@ local Bots = {
 	--   the last `recent` seconds.
 	-- - Building ("whenever they need one but dont make bots abuse it"): none until the side's trenches at its front have
 	--   been shelled, or one of its squares has been `Heat.build` hot; then room for its holders but its sentries, `room` to a dugout, in its support line's squares dug
-	--   to `dug` of their HP, the rear wall (away from the enemy), `spacing` studs apart, the hottest squares first (their
-	--   heat over `Heat.memory` s: the often shelled and fought over), then the line's middle.
+	--   to `dug` of their HP, and its fire trench's squares `Heat.build` hot, the rear wall (away from the enemy),
+	--   `spacing` studs apart, the hottest squares first (their heat over `Heat.memory` s: the often shelled and fought
+	--   over), then the line's middle.
 	--   Engineers dig them when calm, as any job on the list; while a side has one to dig, up to `engineers` of its bots
 	--   pick Engineer when they respawn, if they can pay (dugout duty, as the gun crews: Build.Crews), and take dugout
 	--   jobs first.

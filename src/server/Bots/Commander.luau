@@ -1510,6 +1510,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	sbs.steps, sbs.reserve, sbs.squares = {}, {}, {}
 	local bays: { [number]: boolean } = {}
 	local support: { { x: number, z: number, share: number, len: number, w: Build.Work, heat: number? } } = {}
+	local fireSquares: { { x: number, z: number, share: number, len: number, w: Build.Work, heat: number? } } = {}
 	for _, w in works do
 		if w.key == "Trench" and w.built and w.hp >= TR.standHp then
 			table.insert(sbs.squares, { x = w.at.X, z = w.at.Z, at = w.at })
@@ -1532,6 +1533,13 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 								face = Vector3.new(p.ox, 0, p.oz),
 							})
 							bays[k] = true
+							table.insert(fireSquares, {
+								x = w.at.X,
+								z = w.at.Z,
+								share = w.hp / math.max(w.max, 1),
+								len = flat(e - a).Magnitude,
+								w = w,
+							})
 						end
 					elseif run.kind == "Support" then
 						table.insert(sbs.reserve, { pos = w.at })
@@ -1550,7 +1558,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	-- dugouts (Config/Bots.Dugouts): shelled now and once at this front; the rooms that shelter; once shelled, room for
-	-- its holders but one sentry a fire bay, dug in the support line's rear wall
+	-- its holders but one sentry a fire bay, dug in the support line's rear wall, or a hot fire-trench square's
 	local DG = Cfg.Dugouts
 	sbs.bays = 0
 	for _ in bays do
@@ -1570,10 +1578,17 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		end
 	end
-	for _, sq in support do
-		sq.heat = BotTrenches.heat(now, sq.x, sq.z, side, Tactics.dug.heat, sbs.enemies, HT, HT.memory)
-		if sq.heat >= HT.build then
-			sbs.shelledOnce = true
+	-- (a fire-trench square that hot gets dugouts too: "especially in trenches highly contested or often shelled")
+	local sites = table.clone(support)
+	for _, list in { support, fireSquares } do
+		for _, sq in list do
+			sq.heat = BotTrenches.heat(now, sq.x, sq.z, side, Tactics.dug.heat, sbs.enemies, HT, HT.memory)
+			if (sq.heat :: number) >= HT.build then
+				sbs.shelledOnce = true
+				if list == fireSquares then
+					table.insert(sites, sq)
+				end
+			end
 		end
 	end
 	sbs.shelledOnce = sbs.shelledOnce or sbs.shelled
@@ -1602,8 +1617,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local want = BotTrenches.dugoutsWanted(sbs.shelledOnce, holders, sbs.bays, DG) - #have
 	-- (a square long enough on the flat for one: its doorway and its spare less the slack, Config/Build)
 	local long = BuildCfg.Dugout.door + BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
-	for _, i in BotTrenches.dugoutSquares(support, have, want, DG, long) do
-		local w = support[i].w
+	for _, i in BotTrenches.dugoutSquares(sites, have, want, DG, long) do
+		local w = sites[i].w
 		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
 		if typeof(a) == "Vector3" and typeof(c) == "Vector3" then
 			-- its rear wall (away from the enemy), the dugout facing out of it into the trench
