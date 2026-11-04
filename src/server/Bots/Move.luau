@@ -219,6 +219,7 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 	local parts: { [Model]: Soldier } = {}
 	local all, n = soldiersNow()
 	local kit = m:GetAttribute("Kit")
+	local near = math.huge
 	for k = 1, n do
 		local other = all[k]
 		if other.model == m or friendly(m, kit, other) then
@@ -226,11 +227,13 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 		end
 		local off = other.pos - from
 		local dist = off.Magnitude
+		near = math.min(near, dist)
 		if Rules.inSight(off.X, off.Z, dist, facing.X, facing.Z, d.spotRange, d.fov, alert) then
 			table.insert(seen, { model = other.model, distance = dist, visible = false })
 			parts[other.model] = other
 		end
 	end
+	b.enemyNear = near
 	local rays = math.min(#seen, Cfg.SenseNearest)
 	if rays > budget.rays then
 		stats.senseDeferred += 1
@@ -274,6 +277,7 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 	end
 	if b.target and (b.target :: Target).visible then
 		local part = aimPart((b.target :: Target).model)
+		b.sightAt = now
 		if part then
 			b.lastSeenAt = part.Position
 			-- the squad knows it too (covering fire, contact)
@@ -312,6 +316,22 @@ local function knownSpot(b: Bot, now: number): Vector3?
 		end
 	end
 	return if best then best.pos else nil
+end
+
+-- studs from the bot to the nearest enemy spot its squad knows (math.huge none; Config/Bots.Calm)
+local function knownNear(b: Bot, now: number): number
+	local sq = b.squad and squads[b.squad :: string]
+	local root = b.root
+	if not sq or not root then
+		return math.huge
+	end
+	local best = math.huge
+	for _, k in (sq :: SquadState).known do
+		if now - k.at <= SQ.knownFor then
+			best = math.min(best, flat(k.pos - (root :: BasePart).Position).Magnitude)
+		end
+	end
+	return best
 end
 
 -- a ground point under (x, z) near `y`, or nil (off the map, under water)
@@ -1033,6 +1053,7 @@ return {
 	friendly = friendly,
 	sense = sense,
 	knownSpot = knownSpot,
+	knownNear = knownNear,
 	groundAt = groundAt,
 	hidden = hidden,
 	exclusions = exclusions,

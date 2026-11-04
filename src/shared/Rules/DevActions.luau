@@ -219,6 +219,7 @@ export type BotState = {
 	act: string?,
 	gun: string?,
 	danger: boolean?,
+	sight: string?, -- "sees", "remembers", "calm" or "alert" (Rules/Bots.sightWord)
 }
 
 -- The admin panel's label over a bot (Config/DevTools.Admin.BotState): "Attack S3 · Bound/Assault" over
@@ -243,6 +244,9 @@ function DevActions.botLabel(s: BotState): string
 	end
 	if s.danger then
 		table.insert(bottom, "DANGER")
+	end
+	if s.sight then
+		table.insert(bottom, s.sight)
 	end
 	local first = if #top > 0 then table.concat(top, " · ") else "-"
 	return if #bottom > 0 then `{first}\n{table.concat(bottom, " · ")}` else first
