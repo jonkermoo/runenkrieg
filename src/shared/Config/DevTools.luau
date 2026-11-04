@@ -238,7 +238,8 @@ local DevTools = {
 		-- "Bots" rows (user 2026-10-30: "bring bots to testing"; src/server/Bots): pin the bot count to one of these
 		-- (Workspace's Config/Bots.Attribute) or back to the mode's own fill ("BotsAuto"), and set their difficulty
 		-- (Config/Bots.Difficulty keys)
-		BotCounts = { 0, 2, 5, 10, 20, 30, 39 },
+		-- (100: 50 a side in Normal, over its usual most, Config/Bots.PinMax; user 2026-11-04)
+		BotCounts = { 0, 2, 5, 10, 20, 30, 39, 100 },
 		BotDifficulties = { "Easy", "Medium", "Hard" },
 		-- bot test rows (user 2026-11-02: "always add additional admin panel settings as we go throughout";
 		-- src/server/Bots.dev, Normal only):

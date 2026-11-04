@@ -97,7 +97,10 @@ local Bots = {
 	},
 	-- the most bots one server runs in each mode, whatever the fill (the server's budget; FFA Stage 1 measured 10 and
 	-- 20); the governor (Budget) may hold it lower
-	Max = { FFA = 20, Normal = 39 },
+	Max = { FFA = 20, Normal = 40 },
+	-- the most a test's pin (Attribute) may run in Normal, over Max (user 2026-11-04: "can you give me a 100 bots (50
+	-- each side) option in the admin panel?"); the governor still trims it when the server can't keep up
+	PinMax = { Normal = 100 },
 	-- one bot in (or a dead retiring one out) at most this often, so a join or a leave never brings a crowd at once
 	JoinEvery = 1.5,
 	LeaveEvery = 4,

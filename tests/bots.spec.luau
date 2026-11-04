@@ -339,7 +339,7 @@ return {
 			assert(Cfg.Difficulty[k], k)
 		end
 		for _, n in Dev.Admin.BotCounts do
-			assert(n >= 0 and n <= math.max(Cfg.Max.FFA, Cfg.Max.Normal), `{n}`)
+			assert(n >= 0 and n <= math.max(Cfg.Max.FFA, Cfg.Max.Normal, Cfg.PinMax.Normal), `{n}`)
 		end
 	end,
 	["every difficulty has every knob"] = function()
@@ -418,6 +418,20 @@ return {
 			k += 1
 		end
 		assert(k == 30 and r[50] and not r[1], "the 30 farthest retire")
+	end,
+	["a test's pin may run past the mode's most, up to PinMax: 100 is 50 a side"] = function()
+		local DevCfg = require("../src/shared/Config/DevTools")
+		local top = Cfg.PinMax.Normal
+		assert(R.ceiling(Cfg.Max.Normal, nil, top) == Cfg.Max.Normal, "no pin: the usual most")
+		assert(R.ceiling(Cfg.Max.Normal, 10, top) == Cfg.Max.Normal, "a small pin keeps it")
+		assert(R.ceiling(Cfg.Max.Normal, 100, top) == 100 and R.ceiling(Cfg.Max.Normal, 500, top) == top)
+		assert(R.ceiling(Cfg.Max.FFA, 100, nil) == Cfg.Max.FFA, "no PinMax: never past the most")
+		local w, e = R.wantedSides(Cfg.Fill.Normal, 1, 0, R.ceiling(Cfg.Max.Normal, 100, top), 100)
+		assert(w == 50 and e == 50, `{w} v {e}`)
+		assert(table.find(DevCfg.Admin.BotCounts, 100), "the admin panel's 100 row")
+		local g = R.governor(Cfg.Max.Normal)
+		R.govern(g, 0, 60, 1, 0, R.ceiling(Cfg.Max.Normal, 100, top), Cfg.Budget.governor)
+		assert(g.cap == Cfg.Max.Normal, "the governor never raises past its cap at once")
 	end,
 	["wantedSides: a pinned total is split evenly, West taking the odd one"] = function()
 		local w, e = R.wantedSides(OLD, 5, 5, 39, 9)
