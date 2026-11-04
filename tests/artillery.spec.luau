@@ -301,9 +301,11 @@ return {
 		assert(hurt < QF.fragments.wound and HOW.fragments.wound <= hurt + 1, `hurts to {hurt}`)
 		assert(hurt < Blast.reachOf(D.Soldier.from, 340, D))
 		assert(math.abs(HOW.zone - hurt) < 2, "its impact zone is where its blast still hurts")
-		-- trenches: it still buries what it hits, over a smaller reach than before
+		-- trenches (user 2026-11-03: a tiny nerf, "for trenches mostly"): two direct hits bury a square, still more than
+		-- the field gun's, over a smaller reach than before
 		local S = require("../src/shared/Config/Build").Structures
-		assert(S.howitzer.hit >= 100 and S.howitzer.reach < 20 and S.howitzer.hit > S.field.hit)
+		assert(S.howitzer.hit < 100 and S.howitzer.hit >= 50 and S.howitzer.hit > S.field.hit, "two hits bury it")
+		assert(S.howitzer.reach <= 12 and S.howitzer.reach > S.field.reach)
 		assert(C.Hits.howitzer.direct > C.Hits.field.direct and C.Hits.howitzer.reach < 30)
 	end,
 	["the MG gunner's stances blend by the lay: level at 0, all low or high at its stops"] = function()

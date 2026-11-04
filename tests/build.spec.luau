@@ -590,10 +590,12 @@ return {
 		assert(at("staff3", 10, 0) < at(nil, 2.5, 0), "a full beam is still less than a field gun shell")
 		local field = at(nil, 2.5, 1)
 		assert(field > 25 and field <= 40, `a few field gun shells bury it, 40 at most ({field})`)
-		-- (user 2026-11-02, the damage rework: its 100 kg shell buries what it hits, over a smaller reach)
+		-- (user 2026-11-02, the damage rework: its 100 kg shell over a smaller reach; 2026-11-03, "a tiny bit ... for
+		-- trenches mostly": two direct hits bury it)
 		local howitzer = at(nil, 100, 3)
-		assert(howitzer >= 100, `the howitzer buries it at once ({howitzer})`)
-		assert(at(nil, 100, 16) == 0, "nothing past its reach")
+		assert(howitzer >= 50 and howitzer < 100, `two howitzer shells bury it ({howitzer})`)
+		assert(howitzer > field, "still more than a field gun shell")
+		assert(at(nil, 100, 13) == 0, "nothing past its reach")
 		assert(
 			at("bullet", 0, 0) > 0 and at("bullet", 0, 0) < 0.5 and at("bullet", 0, 1) == 0,
 			"a bullet: on it, a little"
