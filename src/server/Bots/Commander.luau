@@ -1411,7 +1411,7 @@ local function forwardLines(
 end
 
 -- a side's trench duty (Config/Bots.Trenches.pioneers): while its list has a trench job open (or a tree in its lines'
--- way), up to `pioneers` of its
+-- way), up to `pioneers` of its (more as squares wait to be dug, Trenches.More)
 -- living bots (those already on it, then defenders, the nearest its front first; never a gun or dugout Engineer, nor
 -- one manning a gun) dig its lines; none while it has none
 local function pioneers(side: string)
@@ -1424,6 +1424,12 @@ local function pioneers(side: string)
 		end
 	end
 	local at = if want then Map.sectors[(sb :: SideBuild).front :: number] else nil
+	-- (more once its lines are planned: one for each Trenches.More.per squares waiting to be dug)
+	local undug = 0
+	for _, t in (if sb then sb.trench else {}) do
+		undug += if t.built then 0 else 1
+	end
+	local most = BotTrenches.pioneersWanted(TR.pioneers, undug, TR.More)
 	local on, free = 0, {}
 	for _, b in bots do
 		if b.side == side then
@@ -1434,7 +1440,7 @@ local function pioneers(side: string)
 				and not b.crew
 				and not b.dugouts
 				and not b.gun
-			if b.pioneer and fit and on < TR.pioneers then
+			if b.pioneer and fit and on < most then
 				on += 1
 			else
 				b.pioneer = nil
@@ -1449,7 +1455,7 @@ local function pioneers(side: string)
 	table.sort(free, function(x, y)
 		return x.d < y.d
 	end)
-	for i = 1, math.min(TR.pioneers - on, #free) do
+	for i = 1, math.min(most - on, #free) do
 		free[i].b.pioneer = true
 		stats.pioneers += 1
 	end
@@ -1691,26 +1697,47 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	if Clear.everyAt ~= commandTick then
 		Clear.everyAt, Clear.every = commandTick, Build.worksOf(nil)
 	end
-	-- (each fire bay starts where the last one ends, the second communication run where the first ends)
-	local chain: { [string]: BotBuild.Job } = {}
+	-- (each fire bay starts where the last one ends, the second communication run where the first ends: at the real free
+	-- end of its squares as laid (dug or only planned), Trenches.Chain, else its planned end; one planned part way goes
+	-- on from its part's real end. A run already laid keeps its line.)
+	local ends: { { x: number, z: number } } = {}
+	for _, sq in squares do
+		for _, which in { "A", "B" } do
+			local p = sq.model:GetAttribute("Block" .. which)
+			if typeof(p) == "Vector3" and sq.model:GetAttribute("Link" .. which) == "" then
+				table.insert(ends, { x = p.X, z = p.Z })
+			end
+		end
+	end
+	local CH = TR.Chain
+	local chain: { [string]: BuildJob } = {}
 	for _, r in sbs.lay do
 		local run = r.run
 		if run and run.kind ~= "Support" then
 			local last = chain[(r.sys or "") .. run.kind]
 			local j = r.job
-			-- (one planned part way goes on from its part's end)
-			if last and not r.from and (j.x ~= last.ex or j.z ~= last.ez) then
-				r.job = {
-					key = j.key,
-					x = last.ex :: number,
-					z = last.ez :: number,
-					ex = j.ex,
-					ez = j.ez,
-					fx = j.fx,
-					fz = j.fz,
-				}
+			local rest = { kind = run.kind, ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number }
+			if not r.gaveUp and not BotTrenches.laid(rest, squares, TR.on, TR.ends) then
+				local x, z = j.x, j.z
+				if r.from then
+					local e = BotTrenches.lastEnd(ends, r.from.x, r.from.z, j.ex :: number, j.ez :: number, CH.off, 0)
+					if e then
+						x, z = e.x, e.z
+					end
+				elseif last then
+					local lj = last.job
+					local from = last.from or { x = lj.x, z = lj.z }
+					local e =
+						BotTrenches.lastEnd(ends, from.x, from.z, lj.ex :: number, lj.ez :: number, CH.off, CH.past)
+					x, z = if e then e.x else lj.ex :: number, if e then e.z else lj.ez :: number
+				end
+				if x ~= j.x or z ~= j.z then
+					local k = `{side} chained`
+					ByTrench.runs[k] = (ByTrench.runs[k] or 0) + 1
+					r.job = { key = j.key, x = x, z = z, ex = j.ex, ez = j.ez, fx = j.fx, fz = j.fz }
+				end
 			end
-			chain[(r.sys or "") .. run.kind] = r.job
+			chain[(r.sys or "") .. run.kind] = r
 		end
 	end
 	-- (each system's runs in order, for Rules/BotTrenches.ready: its own runs before it, not another system's)
@@ -1792,6 +1819,64 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	for _, job in more do
 		table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
 	end
+	-- a square dug full and buried to nothing (gone from its works) is planned again where it lay, if not at a sector
+	-- the enemy holds, for Trenches.Redig.keep s; open within Trenches.digReach of its front zone (Trenches.Redig)
+	local had = sbs.had or {}
+	sbs.had = had
+	local redigs = sbs.redigs or {}
+	sbs.redigs = redigs
+	local stillDug: { [Model]: boolean } = {}
+	for _, w in works do
+		if w.key == "Trench" and w.built then
+			stillDug[w.model] = true
+			if not had[w.model] then
+				local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
+				if typeof(a) == "Vector3" and typeof(c) == "Vector3" then
+					had[w.model] = { a = a, b = c }
+				end
+			end
+		end
+	end
+	for model, line in had do
+		if not stillDug[model] then
+			had[model] = nil
+			local at = BotCrew.sectorAt((line.a.X + line.b.X) / 2, (line.a.Z + line.b.Z) / 2, Map.sectors)
+			if at == nil or owner[at] == side then
+				local job =
+					{ key = "Trench", x = line.a.X, z = line.a.Z, ex = line.b.X, ez = line.b.Z, fx = tx, fz = tz }
+				table.insert(redigs, {
+					job = job,
+					base = job,
+					left = 0,
+					tries = 0,
+					waitUntil = 0,
+					open = false,
+					redig = now + TR.Redig.keep,
+				})
+			end
+		end
+	end
+	local reach = zone.radius + TR.digReach
+	for k = #redigs, 1, -1 do
+		local r = redigs[k]
+		local j = r.job
+		local line = { kind = "Redig", ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number }
+		local laidAt = BotTrenches.laid(line, squares, TR.on, TR.ends)
+		if laidAt or r.gaveUp or now > (r.redig :: number) then
+			r.open = false
+			table.remove(redigs, k)
+			if laidAt then
+				local tk = `{side} redug`
+				ByTrench.runs[tk] = (ByTrench.runs[tk] or 0) + 1
+			end
+		else
+			local mx, mz = (j.x + (j.ex :: number)) / 2, (j.z + (j.ez :: number)) / 2
+			r.open = now >= r.waitUntil and dug < TR.cap and (mx - zone.x) ^ 2 + (mz - zone.z) ^ 2 <= reach * reach
+			if r.open then
+				table.insert(sbs.open, r)
+			end
+		end
+	end
 	-- the trench lines its bots lay no piece on (user 2026-11-02: "never have structures where trenches should be"):
 	-- every trench square's, any team's; its runs not refused everywhere; each of its saps' run and the next
 	local lines: { BotTrenches.Run } = {}
@@ -1841,14 +1926,21 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		}
 	end
 	-- (its trench squares from further off: its lines at the sectors it holds and its forward lines, Trenches.digReach)
-	local others, squaresOnly = {}, {}
+	-- (the squares shells have buried, dug full once, before the ones not dug yet: Trenches.Redig)
+	local others, squaresOnly, buriedOnly = {}, {}, {}
 	for i, p in pieces do
 		local square = p.key == "Trench"
-		others[i] = if square then { key = p.key, x = p.x, z = p.z, left = 0 } else p
-		squaresOnly[i] = if square then p else { key = p.key, x = p.x, z = p.z, left = 0 }
+		local none = { key = p.key, x = p.x, z = p.z, left = 0 }
+		others[i] = if square then none else p
+		squaresOnly[i] = if square and not works[i].built then p else none
+		buriedOnly[i] = if square and works[i].built then p else none
 	end
 	local near = BotBuild.repairs(others, zone, BD.repair, #pieces)
-	for _, i in BotBuild.repairs(squaresOnly, zone, TR.digReach, TR.digs) do
+	local first = BotBuild.repairs(buriedOnly, zone, TR.digReach, TR.digs)
+	for _, i in first do
+		table.insert(near, i)
+	end
+	for _, i in BotBuild.repairs(squaresOnly, zone, TR.digReach, TR.digs - #first) do
 		table.insert(near, i)
 	end
 	local order, fix = BotCrew.repairOrder(fixable, near, ArtCfg.Man.keep)
@@ -1872,6 +1964,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 			local rr = r :: BuildJob
 			rr.at, rr.left, rr.open, rr.fix = w.at, w.left, true, fix[i] == true
+			rr.buried = square and w.built
 			keep[w.model] = rr
 			table.insert(sbs.open, rr)
 		end

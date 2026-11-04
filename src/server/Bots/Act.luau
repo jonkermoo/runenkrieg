@@ -204,20 +204,27 @@ local function pickJob(b: Bot): (BuildJob?, string?)
 	return r, if r then nil else `none within {reach} studs`
 end
 
--- a pioneer's trench job (Config/Bots.Trenches.pioneers): the nearest trench run or square on its side's list, or a
--- tree in the way of its lines (Config/Bots.Build.Trees: a run refused for a tree waits on it)
+-- a pioneer's trench job (Config/Bots.Trenches.pioneers): the nearest buried square on its side's list, else the
+-- nearest trench run or square, or a tree in the way of its lines (Config/Bots.Build.Trees: a run refused for a tree
+-- waits on it)
 local function pickTrench(b: Bot): BuildJob?
 	local sb = buildLists[b.side :: string]
 	if not sb or not sb.front then
 		return nil
 	end
-	local trench = {}
+	-- (the squares shells have buried first, dug again or planned again where they lay: Config/Bots.Trenches.Redig)
+	local trench, buried = {}, {}
 	for _, r in sb.open do
 		if r.job.key == "Trench" or r.job.key == "Tree" then
 			table.insert(trench, r)
+			if r.buried or r.redig then
+				table.insert(buried, r)
+			end
 		end
 	end
-	return if #trench > 0 then pickFrom(b, trench, true, false, Cfg.Trenches.pioneerTake, true) else nil
+	local take = Cfg.Trenches.pioneerTake
+	return (if #buried > 0 then pickFrom(b, buried, true, false, take, true) else nil)
+		or (if #trench > 0 then pickFrom(b, trench, true, false, take, true) else nil)
 end
 
 -- an enemy dugout's steps to throw down, if its squad `sq` knows someone is in it (Rules/BotTrenches.occupied): within
@@ -791,6 +798,12 @@ local function refused(r: BuildJob, now: number, why: string?)
 	-- (each spot's reason in turn, from the planned one: the readout)
 	r.why = if r.tries > 0 and r.why then `{r.why}, {why or "?"}` else why
 	r.tries += 1
+	-- (a buried square planned again where it lay: nowhere else; tried again a while later, Config/Bots.Trenches.Redig)
+	if r.redig then
+		r.waitUntil, r.open = now + BD.retry, false
+		r.gaveUp = r.tries >= Cfg.Trenches.Redig.tries
+		return
+	end
 	local base = r.base
 	if r.tries >= BD.tries then
 		r.tries, r.job, r.waitUntil, r.open = 0, base, now + BD.retry, false
@@ -979,6 +992,14 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		end
 		if reason and pileInstead() then
 			return true
+		end
+		if r.run or r.redig then
+			-- (the match's run plans laid and refused, by reason: the admin trench stats, State.ByTrench.runs)
+			local runs = State.ByTrench.runs
+			for _, what in (if reason then { "refused", `refused: {reason}` } else { "laid" }) :: { string } do
+				local k = `{b.side} {what}`
+				runs[k] = (runs[k] or 0) + 1
+			end
 		end
 		if reason then
 			refused(r, now, reason)

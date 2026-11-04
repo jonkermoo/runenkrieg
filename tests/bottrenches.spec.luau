@@ -60,6 +60,24 @@ return {
 		assert(R.laid(run, { { x = 0, z = 0.5 } }, T.on, T.ends) == nil, "at its end: the run it joins")
 		assert(R.laid(run, { { x = 4, z = 8 } }, T.on, T.ends) == nil, "off its line")
 	end,
+	["lastEnd: the free end furthest along the run as laid"] = function()
+		local C = T.Chain
+		-- (the run 0,0 -> 0,32 laid part way: squares 0-8 and 8-16, its free end at 16; the start's end at 0 free too)
+		local ends = { { x = 0, z = 0 }, { x = 0.5, z = 16 }, { x = 30, z = 16 } }
+		local e = R.lastEnd(ends, 0, 0, 0, 32, C.off, C.past) :: { x: number, z: number }
+		assert(e and near(e.z, 16) and near(e.x, 0.5), "the part's end, not the planned end or another trench's")
+		assert(R.lastEnd({ { x = 30, z = 16 } }, 0, 0, 0, 32, C.off, C.past) == nil, "nothing of it laid")
+		local past = R.lastEnd({ { x = 0, z = 33 } }, 0, 0, 0, 32, C.off, C.past) :: { x: number, z: number }
+		assert(past and near(past.z, 33), "a little past its end (snapped by the planner)")
+		assert(R.lastEnd({ { x = 0, z = 60 } }, 0, 0, 0, 32, C.off, C.past) == nil, "far past: another run's")
+	end,
+	["pioneersWanted: more as squares wait to be dug, up to the most"] = function()
+		local M = T.More
+		assert(R.pioneersWanted(T.pioneers, 0, M) == T.pioneers)
+		assert(R.pioneersWanted(T.pioneers, M.per, M) == T.pioneers + 1)
+		assert(R.pioneersWanted(T.pioneers, 1000, M) == M.max)
+		assert(M.max > T.pioneers, "rises above the base once lines are planned")
+	end,
 	["ready: each run once every run before it is planned"] = function()
 		local runs = R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T)
 		assert(R.ready({}, 1) and not R.ready({}, 2), "the first bay first")
@@ -140,10 +158,11 @@ return {
 		assert(e.sx > 0 and w.sx < 0 and e.ox > 0 and w.ox < 0)
 		assert(e.sy ~= w.sy, "the tilt lifts one wall's step and drops the other's")
 	end,
-	["digs: half the squad digs, the rest guard"] = function()
-		assert(R.digs(1, 4, T.share) and R.digs(2, 4, T.share) and not R.digs(3, 4, T.share))
-		assert(R.digs(1, 1, T.share), "a lone bot digs")
-		assert(R.digs(1, 3, T.share) and R.digs(2, 3, T.share) and not R.digs(3, 3, T.share))
+	["digs: a share of the squad digs, the rest guard"] = function()
+		assert(R.digs(1, 4, 0.5) and R.digs(2, 4, 0.5) and not R.digs(3, 4, 0.5))
+		assert(R.digs(1, 1, 0.5), "a lone bot digs")
+		assert(R.digs(1, 3, 0.5) and R.digs(2, 3, 0.5) and not R.digs(3, 3, 0.5))
+		assert(R.digs(4, 4, T.share) and R.digs(3, 3, T.share), "every calm holder digs (Trenches.share 1)")
 	end,
 	["forward: a fire trench across the way at the point, joined back to the last line's middle"] = function()
 		local runs = R.forward({ x = 0, z = 0 }, { x = 140, z = 0 }, 1, 0, T)

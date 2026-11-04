@@ -508,9 +508,19 @@ local Bots = {
 	--   at the zone's edge stopped, Engineers were on the guns): a trench job is dug under fire (only a hit stops it, as
 	--   a sap), and up to `pioneers` of a side's bots (any class, defenders first, never a gun crew) are on trench duty:
 	--   they take its trench jobs before anything else, from up to `pioneerTake` studs off.
+	-- - Throughput (2026-11-04, the stale-fights plan: Map 1 dug 10-24 squares a side in 11 min, about 6 in 7 run plans
+	--   refused): every calm holder digs (`share` 1, was 0.5); `pioneers` a side, one more for each `More.per` squares
+	--   planned and not dug yet, up to `More.max`; a run starts from the real free end of the run before it as laid
+	--   (`Chain`: the free square end within `off` studs of that run's line and no more than `past` of its length beyond
+	--   its end, the furthest along), not its planned point, so the planner joins them; pioneers dig the squares shells
+	--   have buried first (a square buried to nothing is planned again where it lay, `Redig`: for up to `keep` s, `tries`
+	--   refusals).
 	Trenches = {
-		share = 0.5,
+		share = 1,
 		pioneers = 3,
+		More = { per = 4, max = 8 },
+		Chain = { off = 4, past = 0.25 },
+		Redig = { keep = 300, tries = 2 },
 		pioneerTake = 400,
 		-- a run refused for a tree in its way (Config/Bots.Build.Trees: the pioneers and Engineers fell it) waits `wait` s
 		-- for it to come down, up to `waits` times, before it swings aside as for any other refusal (a measured match:
