@@ -55,6 +55,7 @@ export type Sap = {
 	digs: { [Model]: BuildJob },
 	angle: number?, -- the turn its runs take now: 0 while safe, a zig-zag's against a threat (Config/Bots.Trenches.Zigzag)
 	parallel: boolean?, -- its last run the parallel across (Config/Bots.Front): dug, it is over and the squad goes over
+	dugAt: number, -- when it began, or its last run was dug (Config/Bots.Sap.dig)
 }
 export type TrenchSquare = { x: number, z: number, at: Vector3, model: Model, left: number, built: boolean }
 
@@ -195,6 +196,11 @@ export type SquadState = {
 	midAt: number?, -- when the first of its free members reached its waypoint, and its approach spot (Squads.waitMax)
 	readyAt: number?,
 	flank: number?, -- attacking up a flank (-1 or 1, Config/Bots.Front.Flank): its route by a point off to that side
+	noSapUntil: number?, -- a sap given up: none again until then (Config/Bots.Sap.rest)
+	stillMid: Vector3?, -- where its middle was when it last moved Squads.Open.moved studs, and when
+	stillAt: number?,
+	inCover: number?, -- its members in cover at the last commander tick
+	pressUntil: number?, -- pinned in the open (Rules/BotSquads.pinned), or a sap given up: pressing on until then
 }
 -- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again
 -- when the front or the side's sectors held change, which sets the guns it may build, or once the hold spots are

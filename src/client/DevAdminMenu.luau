@@ -397,6 +397,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotStuckAttribute):Connect(showStuck)
 	showStuck()
+	-- each squad: phase, what it is doing, how long it has stood still, shot at, in cover
+	order += 1
+	local squadsText = DevPanel.heading(p.panel, "", order)
+	squadsText.Size = UDim2.new(1, -8, 0, 160)
+	squadsText.TextWrapped = true
+	squadsText.TextYAlignment = Enum.TextYAlignment.Top
+	local function showSquads()
+		local s = workspace:GetAttribute(A.BotSquadsAttribute)
+		squadsText.Text = `Bot squads:\n{if type(s) == "string" then s else "none"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotSquadsAttribute):Connect(showSquads)
+	showSquads()
 	-- each side's latest runs toward the enemy: straight, or a zig-zag where the enemy can see down them (and why)
 	order += 1
 	local runs = DevPanel.heading(p.panel, "", order)

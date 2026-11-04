@@ -219,4 +219,17 @@ function BotSquads.confident(ours: number, theirs: number, cfg: { odds: number }
 	return theirs > 0 and ours >= cfg.odds * theirs
 end
 
+-- Whether a squad is pinned in the open (Config/Bots.Squads.Open): shot at (`underFire`), its middle not moved
+-- `cfg.moved` studs for `still` >= `cfg.after` seconds, and fewer than `cfg.cover` of its `living` members in cover
+-- (`inCover`).
+function BotSquads.pinned(
+	still: number,
+	underFire: boolean,
+	inCover: number,
+	living: number,
+	cfg: { after: number, cover: number }
+): boolean
+	return living > 0 and underFire and still >= cfg.after and inCover < living * cfg.cover
+end
+
 return BotSquads

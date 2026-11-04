@@ -170,6 +170,11 @@ local Bots = {
 		-- members (not building, rescuing or guarding) are there, or anyone has waited there `waitMax` s (user
 		-- 2026-11-03 play test: "a lot of AI's frozen after a sector taken": members off on jobs kept the rest waiting)
 		waitMax = 20,
+		-- pinned in the open (user 2026-11-04 play test: "bot groups often stay in place ... making them an open target
+		-- to artillerys"): an attacking squad shot at whose middle hasn't moved `moved` studs in `after` s, with fewer
+		-- than `cover` of its members in cover, presses on toward its objective for `press` s, fighting on the move
+		-- (Rules/BotSquads.pinned)
+		Open = { after = 12, moved = 8, cover = 0.5, press = 20 },
 		-- Pushing a group (Rules/BotSquads.group, confident; user 2026-11-02 hand test: "make AI push as a team / group if
 		-- they are confident they can take out a section/group of enemies. they can coordinate too (cover, grenades,
 		-- etc)"; "Outnumber 1.5 to 1"; "if they have a grenade, use it. if not, just cover each other as you rush. cover,
@@ -308,6 +313,9 @@ local Bots = {
 		-- an Engineer takes a job this far off (user 2026-11-03 play test: "even when i give free engineers, the bots arent
 		-- building": the front's jobs lay past `take` from the sector their squads were sent to)
 		engineerTake = 400,
+		-- an attacking Engineer takes jobs within this of where it is (not back at its side's front: user 2026-11-04,
+		-- "why are they not pushing")
+		attackTake = 120,
 		help = 25,
 		stand = 4,
 		seconds = 60,
@@ -401,7 +409,14 @@ local Bots = {
 		Flank = { share = 1 / 3, offset = 90, every = 3, gunFrom = 120 },
 	},
 
+	-- A sap that gets nowhere is given up (user 2026-11-04: "why are they not pushing": saps at a river bank, uphill,
+	-- refused run after run): a run refused `Build.tries` times, a run through water (looked at every `waterStep` studs
+	-- along it), or no run dug in `dig` s; the squad then presses on (Squads.Open.press) and starts no sap for `rest` s
+	-- (Rules/BotSap.failed).
 	Sap = {
+		dig = 60,
+		rest = 120,
+		waterStep = 4,
 		stall = 30,
 		progress = 10,
 		losses = 2,

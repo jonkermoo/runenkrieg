@@ -24,6 +24,14 @@ local function facts(over: { [string]: any }?): R.Facts
 end
 
 return {
+	["pinned: shot at, standing still long enough, most of it out of cover"] = function()
+		local O = SQ.Open
+		assert(R.pinned(O.after, true, 0, 6, O), "pinned in the open")
+		assert(not R.pinned(O.after - 1, true, 0, 6, O), "not long enough")
+		assert(not R.pinned(O.after, false, 0, 6, O), "not shot at")
+		assert(not R.pinned(O.after, true, 3, 6, O), "half of it in cover")
+		assert(not R.pinned(O.after, true, 0, 0, O), "nobody left")
+	end,
 	["moveOn: half its free members there, or anyone waited long enough; never nobody"] = function()
 		local Q = Cfg.Squads
 		assert(not R.moveOn(0, 4, 999, Q), "nobody there")

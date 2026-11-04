@@ -302,6 +302,9 @@ local DevTools = {
 		-- the readout of bots standing still: none moved `stuckFor` s, not on a gun or at a post, with their state
 		-- (src/server/Bots, every commander tick)
 		BotStuckAttribute = "DevBotStuck",
+		-- the readout of each squad: order, sector, phase, what it is doing (pressing on, a sap, a sap given up), how
+		-- long its middle has stood still, shot at, members in cover (src/server/Bots, every commander tick)
+		BotSquadsAttribute = "DevBotSquads",
 		stuckFor = 12,
 		-- the readout of each side's latest runs toward the enemy, straight or zig-zag and why (src/server/Bots)
 		BotRunsAttribute = "DevBotRuns",

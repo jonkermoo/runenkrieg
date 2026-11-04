@@ -92,7 +92,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug, %d given up; %d squads pressed on out of the open; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -138,6 +138,8 @@ local function report(now: number, governor: { cap: number })
 			stats.around,
 			stats.saps,
 			stats.sapRuns,
+			stats.sapsFailed,
+			stats.pressed,
 			stats.dangerPaths,
 			stats.intoTrench,
 			stats.overTop,
@@ -312,6 +314,46 @@ local function frontLine()
 	workspace:SetAttribute(DevCfg.Admin.BotFrontAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- each squad (Config/DevTools.Admin.BotSquadsAttribute): its side, order and sector, phase, what it is doing, how long
+-- its middle has stood still, shot at or not, and its members in cover (user 2026-11-04: "bot groups often stay in
+-- place")
+local function squadLines()
+	local now = os.clock()
+	local lines = {}
+	for _, sq in squads do
+		local members, alive2, order = 0, 0, "Attack"
+		for _, b in bots do
+			if b.squad and squads[b.squad :: string] == sq then
+				members += 1
+				order = b.order or order
+				if alive(b) then
+					alive2 += 1
+				end
+			end
+		end
+		if members > 0 then
+			local sap = sq.sap
+			local doing = if sq.pressUntil and now < sq.pressUntil
+				then "pressing on"
+				elseif sap and sap.parallel then "parallel"
+				elseif sap then `sap run {sap.k}`
+				elseif sq.jump then "jump-off"
+				elseif sq.noSapUntil and now < sq.noSapUntil then "sap given up"
+				else "-"
+			local still = if sq.stillAt then math.floor(now - sq.stillAt) else 0
+			local shot = sq.firedAt ~= nil and now - sq.firedAt < Cfg.Brain.ThreatMemory
+			table.insert(
+				lines,
+				`{sq.side} {order} S{sq.sector}: {string.lower(sq.sq.phase)}, {doing}, still {still}s{if shot
+					then ", SHOT AT"
+					else ""}, cover {sq.inCover or 0}/{alive2}`
+			)
+		end
+	end
+	table.sort(lines)
+	workspace:SetAttribute(DevCfg.Admin.BotSquadsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 -- each side's latest runs toward the enemy: straight or a zig-zag, and why (Config/DevTools.Admin.BotRunsAttribute)
 local function runLines()
 	local lines = {}
@@ -402,6 +444,7 @@ local function stuckLine()
 end
 
 local function label()
+	squadLines()
 	stuckLine()
 	frontLine()
 	runLines()

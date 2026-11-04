@@ -205,6 +205,33 @@ local function noteRun(sb: SideBuild?, what: string, angle: number, why: string)
 	end
 end
 
+-- whether a run from (ax, az) to (bx, bz) goes through water (Config/Bots.Sap.waterStep)
+local function throughWater(ax: number, az: number, bx: number, bz: number): boolean
+	local len = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	local n = math.max(1, math.ceil(len / SP.waterStep))
+	for k = 0, n do
+		local t = k / n
+		local x, z = ax + (bx - ax) * t, az + (bz - az) * t
+		local hit = workspace:Raycast(Vector3.new(x, 1000, z), Vector3.new(0, -2000, 0), terrainOnly)
+		if hit and hit.Material == Enum.Material.Water then
+			return true
+		end
+	end
+	return false
+end
+
+-- a sap given up (Rules/BotSap.failed): its squad presses on and starts none for Sap.rest seconds
+local function giveUpSap(sqs: SquadState, members: { Bot }, d: number, now: number)
+	sqs.sap = nil
+	sqs.markAt, sqs.markDist = now, d
+	sqs.noSapUntil = now + SP.rest
+	sqs.pressUntil = now + SQ.Open.press
+	stats.sapsFailed += 1
+	for _, b in members do
+		b.sapper = nil
+	end
+end
+
 local function sapTick(
 	sqs: SquadState,
 	members: { Bot },
@@ -241,7 +268,10 @@ local function sapTick(
 		local since, gained = now - (sqs.markAt :: number), (sqs.markDist :: number) - d
 		-- (stuck under fire; fighting by trench, also once near the objective: Rules/BotFront.sapNow)
 		local stalled = BotSap.stalled(since, gained, underFire, lost, SP)
-		if d <= radius * SP.edge or not BotFront.sapNow(plan, stalled, d - radius, FR) then
+		-- (none while one given up rests, or while pressing on out of the open)
+		local resting = (sqs.noSapUntil ~= nil and now < sqs.noSapUntil :: number)
+			or (sqs.pressUntil ~= nil and now < sqs.pressUntil :: number)
+		if resting or d <= radius * SP.edge or not BotFront.sapNow(plan, stalled, d - radius, FR) then
 			return
 		end
 		local head, best = nil, math.huge
@@ -256,7 +286,7 @@ local function sapTick(
 		if not head then
 			return
 		end
-		sqs.sap = { k = 0, head = head, goal = goalAt, open = {}, digs = {} }
+		sqs.sap = { k = 0, head = head, goal = goalAt, open = {}, digs = {}, dugAt = now }
 		stats.saps += 1
 	end
 	local sap = sqs.sap :: Sap
@@ -266,7 +296,12 @@ local function sapTick(
 	local over = if plan == "open"
 		then BotSap.over(headTo, radius * SP.edge, now - (sqs.firedAt or now), SP.quiet)
 		else (sap.parallel == true and not sap.run) or headTo <= radius * SP.edge or plan == "assault"
-	if over or not sb or (sap.run and (sap.run :: BuildJob).gaveUp) then
+	local gaveUp = sap.run ~= nil and (sap.run :: BuildJob).gaveUp == true
+	if not over and sb and BotSap.failed(now - sap.dugAt, gaveUp, false, SP) then
+		giveUpSap(sqs, members, d, now)
+		return
+	end
+	if over or not sb then
 		sqs.sap = nil
 		sqs.markAt, sqs.markDist = now, d
 		for _, b in members do
@@ -308,6 +343,7 @@ local function sapTick(
 				r.open = false
 				sap.head = Vector3.new(j.ex :: number, sap.head.Y, j.ez :: number)
 				sap.run = nil
+				sap.dugAt = now
 				stats.sapRuns += 1
 			end
 		else
@@ -337,6 +373,10 @@ local function sapTick(
 			ax, az, bx, bz = BotFront.parallel(sap.head.X, sap.head.Z, goalAt.X, goalAt.Z, FR.parallel.width)
 			sap.parallel = true
 			stats.parallels += 1
+		end
+		if BotSap.failed(0, false, throughWater(ax, az, bx, bz), SP) then
+			giveUpSap(sqs, members, d, now)
+			return
 		end
 		local to = flat(goalAt - sap.head)
 		to = if to.Magnitude > 1e-3 then to.Unit else Vector3.xAxis
@@ -876,6 +916,35 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 				end
 				b.roleWas = role
+			end
+			-- pinned in the open under fire, not getting anywhere: it presses on toward its objective, fighting on the
+			-- move (Rules/BotSquads.pinned; Config/Bots.Squads.Open)
+			local O = SQ.Open
+			if not sqs.stillMid or not sqs.stillAt or flat(mid - sqs.stillMid :: Vector3).Magnitude > O.moved then
+				sqs.stillMid, sqs.stillAt = mid, now
+			end
+			local inCover, standing = 0, 0
+			for _, b in members do
+				if b.root and alive(b) then
+					standing += 1
+					local cv = b.cover
+					if cv and flat((cv :: Vector3) - (b.root :: BasePart).Position).Magnitude < CV.at then
+						inCover += 1
+					end
+				end
+			end
+			sqs.inCover = inCover
+			local pressing = sqs.pressUntil ~= nil and now < sqs.pressUntil :: number
+			local pinned = Squads.pinned(now - (sqs.stillAt :: number), shotAt, inCover, standing, O)
+			if not defend and not sqs.sap and not pressing and pinned then
+				sqs.pressUntil = now + O.press
+				sqs.stillMid, sqs.stillAt = mid, now
+				stats.pressed += 1
+				for _, b in members do
+					if say(b, "Push") then
+						break
+					end
+				end
 			end
 			-- stuck under fire on the way: a sap forward (Rules/BotSap); a defending squad never saps
 			if defend then
