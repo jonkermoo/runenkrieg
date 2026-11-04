@@ -455,25 +455,28 @@ local function runes(pos: Vector3, normal: Vector3, d: number, strength: number,
 	for _, r in list do
 		total = math.max(total, r.start + r.life)
 	end
+	local function finish()
+		for _, r in list do
+			for _, st in r.strokes do
+				Pool.freeBeam(st.halo)
+				Pool.freeBeam(st.line)
+				Pool.freeAtt(st.a0)
+				Pool.freeAtt(st.a1)
+			end
+		end
+		for _, a in arcs do
+			Arc.free(a)
+		end
+		Ring.free(ring)
+		if light then
+			Pool.freeLight(light)
+		end
+	end
 	local now0, nextDraw = os.clock(), 0
 	Driver.add(function(now: number): boolean
 		local t = now - now0
 		if t >= total then
-			for _, r in list do
-				for _, st in r.strokes do
-					Pool.freeBeam(st.halo)
-					Pool.freeBeam(st.line)
-					Pool.freeAtt(st.a0)
-					Pool.freeAtt(st.a1)
-				end
-			end
-			for _, a in arcs do
-				Arc.free(a)
-			end
-			Ring.free(ring)
-			if light then
-				Pool.freeLight(light)
-			end
+			finish()
 			return false
 		end
 		-- the ground ring, lit as the seal lights and fading once it lifts
@@ -560,7 +563,7 @@ local function runes(pos: Vector3, normal: Vector3, d: number, strength: number,
 			end
 		end
 		return true
-	end)
+	end, finish)
 end
 
 function Blast.play(pos: Vector3, opts: Opts?)
@@ -652,25 +655,28 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local total = math.max(F.light, orbEnd, smokeEnd, spoutEnd, sp.life[2], flight, skirtLife, sodEnd)
 	local g = Vector3.new(0, -SO.gravity, 0)
 	local orbDone = false
+	local function finish()
+		Pool.freePart(flash)
+		if not orbDone then
+			Pool.freePart(orb)
+			Pool.freePart(core)
+		end
+		if light then
+			Pool.freeLight(light)
+		end
+		for _, b in flying do
+			Pool.freePart(b.part)
+		end
+		freeAll(smokes)
+		freeAll(thrown)
+		freeEmitter(spouted)
+		freeEmitter(sparked)
+		freeEmitter(dust)
+	end
 	Driver.add(function(now: number): boolean
 		local t = now - now0
 		if t >= total then
-			Pool.freePart(flash)
-			if not orbDone then
-				Pool.freePart(orb)
-				Pool.freePart(core)
-			end
-			if light then
-				Pool.freeLight(light)
-			end
-			for _, b in flying do
-				Pool.freePart(b.part)
-			end
-			freeAll(smokes)
-			freeAll(thrown)
-			freeEmitter(spouted)
-			freeEmitter(sparked)
-			freeEmitter(dust)
+			finish()
 			return false
 		end
 		if t < F.time then
@@ -710,7 +716,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			b.part.Transparency = math.clamp((t - b.land - SO.rest) / SO.fade, 0, 1)
 		end
 		return true
-	end)
+	end, finish)
 end
 
 return Blast
