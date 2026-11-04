@@ -303,6 +303,19 @@ return {
 		assert(not R.safeToWork(false, false, math.huge, c - 0.1, false, c), "hurt lately")
 		assert(R.safeToWork(false, false, 0, 0, true, c), "the spot hidden from the threat")
 	end,
+	["stalled: nearer by `gain` starts the clock again; fighting too; else gives up after `stall`"] = function()
+		local W = B.Work
+		local best, at, gave = R.stalled(50, nil, 0, 0, false, W)
+		assert(best == 50 and at == 0 and not gave, "first look")
+		best, at, gave = R.stalled(50 - W.gain + 0.5, best, at, W.stall - 1, false, W)
+		assert(best == 50 and at == 0 and not gave, "a little nearer: no")
+		best, at, gave = R.stalled(49, best, at, W.stall, false, W)
+		assert(gave, "no nearer for `stall`")
+		best, at, gave = R.stalled(50 - W.gain - 1, 50, 0, W.stall, false, W)
+		assert(best == 50 - W.gain - 1 and at == W.stall and not gave, "nearer")
+		best, at, gave = R.stalled(60, 50, 0, W.stall + 5, true, W)
+		assert(best == 50 and at == W.stall + 5 and not gave, "fighting on the way")
+	end,
 	["strikes: sometimes, likelier empty"] = function()
 		local Me = Cfg.Melee
 		assert(R.strikes(false, Me.chance - 0.01, Me) and not R.strikes(false, Me.chance + 0.01, Me))

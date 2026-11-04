@@ -358,7 +358,10 @@ local Bots = {
 		-- and it fights, then goes back to it. The job is kept `keep` s from when it was taken. A bot whose lay or swing
 		-- there is refused leaves that job to others for `skip` s and takes another (user 2026-11-04: bots "digging
 		-- animation then stops then goes then stops" at a spot the ground or a trench refused, re-taking it each think).
-		Work = { near = 3, keep = 60, skip = 30 },
+		-- One that gets no `gain` studs nearer it in `stall` s on its way (and isn't fighting) leaves it to others for
+		-- `lost` s (an Engineer stood 4 minutes "going" to a Howitzer spot it had no way to, taking it again each time
+		-- `keep` ran out: Rules/BotBuild.stalled).
+		Work = { near = 3, keep = 60, skip = 30, stall = 20, gain = 3, lost = 120 },
 		Nest = { ahead = 2, count = 3 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)

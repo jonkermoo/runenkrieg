@@ -152,7 +152,8 @@ export type Bot = {
 	-- Normal: a build job it took, walked to with the gun out (Config/Bots.Build.Work): where it works from, when it took
 	-- it, whether it works under fire (a sapper); and how it stands with it ("going", "waiting" there until safe,
 	-- "working")
-	work: { job: BuildJob, at: Vector3, since: number, brave: boolean }?,
+	-- (`best`, `bestAt`: nearest it has got on its way and when, Rules/BotBuild.stalled)
+	work: { job: BuildJob, at: Vector3, since: number, brave: boolean, best: number?, bestAt: number }?,
 	workState: string?,
 	skipJobs: { [BuildJob]: number }?, -- jobs it was refused at, left to others until then (Config/Bots.Build.Work.skip)
 	-- its build job as the admin panel's job readout shows it (Config/DevTools.Admin.BotJobsAttribute): since when, the

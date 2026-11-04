@@ -210,6 +210,10 @@ local function ground(at: Vector3, skip: Instance): Vector3?
 	return if hit then hit.Position else nil
 end
 
+-- each flight's link, its middle line (onto its second step to past its top) and width (Indoors.stairWay)
+type Flight = { link: PathfindingLink, low: Vector3, head: Vector3, onto: Vector3, width: number }
+local flights: { Flight } = {}
+
 local function link(
 	section: Instance,
 	name: string,
@@ -218,7 +222,7 @@ local function link(
 	at0: Vector3,
 	b: BasePart,
 	at1: Vector3
-)
+): PathfindingLink
 	local a0 = Instance.new("Attachment")
 	a0.Name = name .. "0"
 	a0.Parent = a
@@ -234,6 +238,7 @@ local function link(
 	l.Attachment0 = a0
 	l.Attachment1 = a1
 	l.Parent = section
+	return l
 end
 
 -- a doorway's link, outside to inside (none if the ground outside is out of reach: a door up a bank, or blocked)
@@ -305,10 +310,30 @@ local function flight(section: Instance)
 	end
 	local foot = Vector3.new(lo.Position.X, lo.Position.Y - lo.Size.Y / 2, lo.Position.Z)
 	local top = Vector3.new(hi.Position.X, hi.Position.Y + hi.Size.Y / 2, hi.Position.Z)
-	local low, beyond, onTop = Rules.flight(p(foot), p(top), p(up), p(room), lo.Size.Z, lo.Size.X, L)
+	local low, beyond, onTop, onto = Rules.flight(p(foot), p(top), p(up), p(room), lo.Size.Z, lo.Size.X, L)
 	local b = building(section)
 	local head = if b and standable(b, v3(beyond)) then v3(beyond) else v3(onTop)
-	link(section, "StairLink", L.stairs, lo, v3(low), hi, head)
+	local l = link(section, "StairLink", L.stairs, lo, v3(low), hi, head)
+	for i = #flights, 1, -1 do
+		if not flights[i].link:IsDescendantOf(workspace) then
+			table.remove(flights, i) -- (its building rebuilt or gone)
+		end
+	end
+	table.insert(flights, { link = l, low = v3(low), head = head, onto = v3(onto), width = lo.Size.Z })
+end
+
+-- Where a soldier on its way along a flight's link heads now: `wp` its path's waypoint for the link (at the link's far
+-- end); along the flight's middle, not straight from the low end beside its foot into the flight's side (Rules
+-- stairWay). `wp` itself when no flight's end is there.
+function Indoors.stairWay(at: Vector3, wp: Vector3): Vector3
+	for _, f in flights do
+		local up = Rules.distance(p(wp * Vector3.new(1, 0, 1)), p(f.head * Vector3.new(1, 0, 1))) < 2
+		local down = Rules.distance(p(wp * Vector3.new(1, 0, 1)), p(f.low * Vector3.new(1, 0, 1))) < 2
+		if (up or down) and f.link.Parent then
+			return v3(Rules.stairWay(p(at), p(wp), p(f.onto), p(f.head), f.width, up, L))
+		end
+	end
+	return wp
 end
 
 local function hook(section: Instance)

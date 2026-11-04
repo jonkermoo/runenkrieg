@@ -473,6 +473,23 @@ end
 -- be ready to shoot and fight until they know they are safe to work on trench"): its own foxhole or pile dug pinned
 -- down (`underFire`: that is the point of it); else no enemy in sight, and either nothing shot at it or hurt it for
 -- `calm` seconds or the spot is hidden from where the last threat came from (`hidden`).
+-- A bot on its way to its build job: its best (nearest) distance so far and when it got there, now that it is `dist`
+-- off; and whether it has got no `gain` studs nearer for `stall` s (no way there: it leaves the job to others).
+-- `fighting`: it fights on the way, not stuck (the clock starts again).
+function BotBuild.stalled(
+	dist: number,
+	best: number?,
+	bestAt: number,
+	now: number,
+	fighting: boolean,
+	cfg: { stall: number, gain: number }
+): (number, number, boolean)
+	if best == nil or dist < best - cfg.gain or fighting then
+		return math.min(dist, best or dist), now, false
+	end
+	return best, bestAt, now - bestAt >= cfg.stall
+end
+
 function BotBuild.safeToWork(
 	underFire: boolean,
 	seen: boolean,

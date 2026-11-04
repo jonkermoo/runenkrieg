@@ -13,7 +13,9 @@ local Indoors = {
 	-- link if the ground is farther: a door up a bank), the outside end moved out up to `further` studs (one at a time)
 	-- until a soldier has room there (a pole or a fence in front of the door); a flight's from the floor `out` studs
 	-- beside it, `up` studs along from its foot, to `past` studs beyond its top step (or the top step itself when there's
-	-- no room there)
+	-- no room there). A flight is walked up and down its middle: onto its second step from the link's low end (its
+	-- low end is beside the foot, and straight from there to the top runs into the flight's side: user 2026-11-04,
+	-- bots that "couldn't get upstairs" in the Inn), then straight along; on its line within `line` studs of its edge
 	Links = {
 		door = "Door",
 		stairs = "Stairs",
@@ -23,6 +25,7 @@ local Indoors = {
 		up = 2.4,
 		out = 2.5,
 		past = 1,
+		line = 0.6,
 	},
 	-- Costs for CreatePath: through a doorway costs a bit more (a way round through an open gap wins when it is about as
 	-- short)
