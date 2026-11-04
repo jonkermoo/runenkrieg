@@ -73,18 +73,25 @@ return {
 		local d10 = K.a * 10 ^ K.b / K.metresPerStud
 		assert(math.abs(d10 * K.metresPerStud - 8) < 0.5, `10 kg fireball {d10 * K.metresPerStud} m`)
 	end,
-	["stronger blasts: taller, longer clouds and longer leftover runes"] = function()
+	["stronger blasts: taller, longer columns and longer leftover runes"] = function()
 		-- user 2026-10-25: "taller longer lasting clouds the stronger they are", runes and static "longer the stronger"
 		local B = Vfx.Blast
-		for _, pair in { B.Cluster.tall, B.Cluster.life, B.Smoke.life, B.Runes.life, B.Runes.count, B.Static.arcs } do
+		for _, pair in
+			{
+				B.Column.tall,
+				B.Column.life,
+				B.Column.count,
+				B.Skirt.life,
+				B.Spout.count,
+				B.Sods.count,
+				B.Runes.life,
+				B.Runes.count,
+				B.Static.arcs,
+			}
+		do
 			assert(pair[2] > pair[1] and pair[1] > 0, "grows with strength")
 		end
 		assert(B.Scale.big > B.Scale.small and B.Scale.small > 0)
-		local C = B.Cluster
-		assert(0 < C.hot and C.hot < C.burn and C.burn < C.crumble and C.crumble < 1, "hot, burning, dark, crumbling")
-		assert(C.inner < 1 and C.inner + C.toward > 1, "the dark body shows in front with the rim round it")
-		assert(C.min >= 1 and C.max >= C.min)
-		assert(B.Colors.dark > B.Colors.darkMagic, "magic keeps more of its colour")
 		for _, g in B.Glyphs do
 			for _, st in g do
 				assert(#st == 4, "a stroke is x0, y0, x1, y1")
@@ -93,22 +100,42 @@ return {
 				end
 			end
 		end
-		assert(Palette.Terrain[B.Clods.dirt], "the clods' fallback colour is a terrain colour")
-		-- round 2 (user: "the cloud is too high", "i liked the inital blast orb", "more variety of gray smoke")
-		assert(B.Cluster.tall[2] <= 1.5, "a low dome, not a column into the sky")
-		assert(B.Orb.size > 0 and B.Orb.core < 1 and B.Orb.hold > 0, "the orb stays a moment on the hit")
-		assert(#B.Smoke.shades >= 3, "several greys")
-		for _, g in B.Smoke.shades do
-			assert(Palette.Magic[g], `smoke shade {g} is a Palette.Magic colour`)
+		assert(Palette.Terrain[B.Clods.dirt] and Palette.Terrain[B.Sods.grass], "the dirt and sod colours are terrain")
+		-- user 2026-11-03, the earth and smoke column: a blink of fire swallowed by earth, a column that hangs on, a dust
+		-- skirt that outlasts the burst
+		assert(B.Orb.grow + B.Orb.hold + B.Orb.fade <= 0.5, "the fireball is a blink")
+		assert(B.Flash.time <= 0.15, "the flash is a blink")
+		assert(B.Column.tall[2] > 1.5, "a column, not a low dome")
+		assert(B.Column.life[1] > B.Orb.grow + B.Orb.hold + B.Orb.fade, "the smoke outlives the fire")
+		assert(B.Skirt.life[2] >= 8, "the dust lingers on a shell")
+		for _, g in B.Column.shades do
+			assert(g == "Earth" or Palette.Magic[g], `column shade {g} is the ground or a Palette.Magic colour`)
 		end
-		assert(B.Smoke.life[1] > B.Cluster.life[1], "the grey smoke outlives the coloured balls")
+		assert(Palette.Magic[B.Colors.air], "the air ring's colour")
+		-- magic keeps its runes, improved: a seal round the foot that lifts off and spirals up
+		local SE = B.Seal
+		assert(SE.share > 0 and SE.share <= 1 and SE.least >= 1, "some runes in the seal")
+		assert(SE.least <= B.Runes.count[1], "the seal never wants more runes than there are")
+		assert(SE.hold > SE.light and SE.out >= 1 and SE.rise[1] > 0, "lit round the foot, then lifting off")
 		assert(B.Runes.float[2] > 0 and B.Runes.each[1] > B.Runes.appear, "runes float up and fade")
-		-- user: "the grenade needs more blast and effects"
-		assert(B.Pop.rings >= 1 and B.Pop.sparks > 1 and B.Pop.clods > 1, "the grenade's ring, sparks and dirt")
-		assert(B.Pop.smokeLife > 0, "the grenade's grey smoke")
+		-- the grenade: small and short
+		assert(B.Pop.columnLife < B.Column.life[2] and B.Pop.skirtLife < B.Skirt.life[2], "the grenade clears sooner")
+		assert(B.Pop.sparks > 1 and B.Pop.clods > 1, "the grenade's sparks and dirt")
 		local G = require("../src/shared/Config/Grenades")
-		assert(G.Vfx.pop == true, "grenades get their own small explosion (Pop)")
+		assert(G.Vfx.pop == true, "grenades get their own small burst (Pop)")
 		assert(G.Types[Vfx.Showcase.Grenade], "the showcase's grenade exists")
+		-- the admin panel's look rows name real guns, grenades and stages
+		local Dev = require("../src/shared/Config/DevTools").Blasts
+		local Artillery = require("../src/shared/Config/Artillery")
+		for _, e in Dev.Looks do
+			assert(
+				(e.gun and Artillery.Guns[e.gun])
+					or (e.grenade and G.Types[e.grenade])
+					or (e.stage and B.Stages[e.stage]),
+				`look row {e.label}`
+			)
+		end
+		assert(Artillery.Guns[Dev.LookSalvo.gun] and Dev.LookSalvo.count >= 1, "the look salvo's gun")
 	end,
 	["timings and sizes are positive"] = function()
 		assert(Vfx.Circle.Appear > 0 and Vfx.Circle.Close.time > 0 and Vfx.Circle.Diameter > 0)

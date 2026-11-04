@@ -4,7 +4,8 @@
 -- your head at the aim point (src/server/Damage.staff: by the zone it hits; its button shows the zone and the health
 -- it took, e.g. a dummy's head). The server does the damage, knocks and
 -- destruction (src/server/Damage.blast) and sends Net "DevBlast" to everyone, shown here (src/client/Vfx/Blast).
--- The artillery buttons place a field gun or a howitzer at the aim point, muzzle away from you, or remove them all
+-- The look rows play an explosion's look at the aim point on this client only (no damage; Config/DevTools.Blasts
+-- .Looks), then show its cost and the worst frame after it. The artillery buttons place a field gun or a howitzer at the aim point, muzzle away from you, or remove them all
 -- (src/server/Artillery; E mans one); "Place MG nest" lays a finished MG nest there, its gun facing away from you
 -- (src/server/Build.devPlace; dig it apart to remove it). The gun HP rows set the gun at the aim point to a share of its
 -- HP (under half it is out of service). The bot rows act at the aim point too (src/server/Bots.dev).
@@ -13,9 +14,12 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.DevTools)
+local Artillery = require(Shared.Config.Artillery)
+local Grenades = require(Shared.Config.Grenades)
 local Palette = require(Shared.Config.Palette)
 local Net = require(Shared.Net)
 local DevAim = require(script.Parent.DevAim)
@@ -56,6 +60,69 @@ local function build(player: Player): ScreenGui
 		order += 1
 		DevPanel.button(p.panel, `Kg{kg}`, `{kg} kg TNT`, order).Activated:Connect(function()
 			fire("BlastKg", kg)
+		end)
+	end
+	-- each explosion's look at the aim point, here only (no damage): its cost and the worst frame after it on the button
+	local function look(button: TextButton, label: string, play: () -> ())
+		local t0 = os.clock()
+		play()
+		local cost = (os.clock() - t0) * 1000
+		local worst, stop = 0, os.clock() + B.LookWatch
+		local beat: RBXScriptConnection
+		beat = RunService.RenderStepped:Connect(function(dt: number)
+			worst = math.max(worst, dt)
+			if os.clock() >= stop then
+				beat:Disconnect()
+				button.Text = `{label}: {string.format("%.1f", cost)} ms, worst frame {math.round(worst * 1000)} ms`
+			end
+		end)
+	end
+	local function lookAt(entry: any, at: Vector3)
+		if entry.gun then
+			local gun = (Artillery.Guns :: any)[entry.gun]
+			Vfx.Blast.play(at, { normal = Vector3.yAxis, kg = gun.kg, scheme = gun.vfx.scheme, magic = gun.vfx.magic })
+		elseif entry.grenade then
+			local kg = (Grenades.Types :: any)[entry.grenade].kg
+			Vfx.Blast.play(
+				at,
+				{ normal = Vector3.yAxis, kg = kg, scheme = Grenades.Vfx.scheme, magic = false, pop = Grenades.Vfx.pop }
+			)
+		else
+			Vfx.Blast.play(at, { normal = Vector3.yAxis, stage = entry.stage, scheme = "Arcane" })
+		end
+	end
+	for i, entry in B.Looks do
+		order += 1
+		local label = `Look: {entry.label} at aim`
+		local button = DevPanel.button(p.panel, "Look" .. i, label, order)
+		button.Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				look(button, label, function()
+					lookAt(entry, aim)
+				end)
+			end
+		end)
+	end
+	do
+		local S = B.LookSalvo
+		order += 1
+		local label = `Look: {S.count} field gun shells at aim`
+		local button = DevPanel.button(p.panel, "LookSalvo", label, order)
+		button.Activated:Connect(function()
+			local aim = DevAim.point()
+			if not aim then
+				return
+			end
+			look(button, label, function()
+				for k = 1, S.count do
+					task.delay((k - 1) * S.every, function()
+						local a = math.random() * 2 * math.pi
+						local r = S.spread * math.sqrt(math.random())
+						lookAt({ gun = S.gun }, aim + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r))
+					end)
+				end
+			end)
 		end)
 	end
 	-- a gun's shells landing round the aim point (src/server/Artillery.devShells: a trench line shelled)

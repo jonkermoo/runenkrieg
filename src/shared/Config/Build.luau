@@ -238,8 +238,11 @@ local Build = {
 		-- (user 2026-11-03: "thats assuming its a direct hit. make it maximum 40 on a direct hit": 40 within `edge`, fading
 		-- to nothing at `reach`; three direct hits bury a trench, a near miss less)
 		field = { hit = 40, reach = 10, edge = 3, wire = 100, bridge = 100 },
-		-- (user 2026-11-02, the damage rework: a smaller blast that still buries what it hits; was hit 93, reach 20, edge 8)
-		howitzer = { hit = 100, reach = 14, edge = 5, wire = 100, bridge = 100 }, -- (buries it at once)
+		-- (user 2026-11-02, the damage rework: a smaller blast that still buries what it hits; was hit 93, reach 20, edge 8.
+		-- Then 2026-11-03, nerf it "a tiny bit ... i meant for trenches mostly", soldiers and buildings as they were: was
+		-- hit 100, reach 14, edge 5, burying a square at once): a direct hit leaves a trench square at a quarter, the
+		-- second buries it
+		howitzer = { hit = 75, reach = 12, edge = 4, wire = 100, bridge = 100 },
 		byCharge = {
 			{ kg = 0.5, source = "grenade" },
 			{ kg = 5, source = "field" },

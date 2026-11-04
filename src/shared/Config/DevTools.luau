@@ -408,6 +408,19 @@ local DevTools = {
 		-- the shelling rows (src/server/Artillery.devShells): `count` of a gun's shells round the aim point, `every` s
 		-- apart, within `spread` studs (a trench line under fire: the hitch log's blast numbers)
 		Shells = { count = 6, every = 0.5, spread = 6 },
+		-- the look rows (user 2026-11-03, the explosion visual rework): each explosion's look at the aim point, on this
+		-- client only (no damage, no server), as in play (Config/Artillery.Guns[gun].kg and .vfx, Config/Grenades.Types
+		-- [grenade].kg and .Vfx, a staff stage in the Arcane scheme); a salvo of `count` field gun shells `every` s apart
+		-- within `spread` studs. Its button then shows the effect's own cost and the worst frame over `watch` s.
+		Looks = {
+			{ label = "field gun shell", gun = "artillery_qf18" },
+			{ label = "rune howitzer shell", gun = "artillery_howitzer" },
+			{ label = "stick grenade", grenade = "grenade_stick" },
+			{ label = "Mills grenade", grenade = "grenade_mills" },
+			{ label = "staff stage 3", stage = 3 },
+		},
+		LookSalvo = { count = 5, every = 0.15, spread = 14, gun = "artillery_qf18" },
+		LookWatch = 3,
 	},
 
 	-- "Undo destruction" (src/server/DevWorld, DEV place only): every building, map section and tree is copied at the
