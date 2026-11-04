@@ -211,6 +211,8 @@ export type Gun = {
 	-- parts that stand still as it is laid but are looked up by name all the same (the MG's ammo can and the belt in it,
 	-- hidden while its box is changed); nil: none
 	fixed: { string }?,
+	-- the roles blown off it at each Wreck stage, over Wreck.lose (the MG's: none, its ammo box stays on its mount)
+	lose: { { string } }?,
 	-- built with the shovel (Assembly below): the model's parts in groups (`names`: every mesh whose name starts with
 	-- one), each appearing in place once quarter `at` of the work is done (0: from the start; 4: with the gun standing)
 	assembly: { { names: { string }, at: number } },
@@ -696,7 +698,10 @@ local Artillery = {
 		at = { 75, 50, 25, 0 },
 		dark = 4,
 		holes = { 2, 5, 9, 14 },
-		lose = { {}, { "Kit" }, { "Kit", "Marking" }, { "Kit", "Marking", "Trim" } },
+		-- (user 2026-11-03: "dont remove any parts that doesnt make sense to remove if a gun is broken, like the box": was
+		-- Kit from stage 2, Marking 3, Trim 4; bands, stripes and rivets are part of the gun and stay, only the boxes strapped
+		-- on a field gun's or howitzer's carriage come loose, once it is all but wrecked)
+		lose = { {}, {}, { "Kit" }, { "Kit" } },
 		petals = 3,
 		holeDepth = 0.06,
 		debris = { life = 8, speed = { 8, 16 }, spin = 8 },
@@ -1072,6 +1077,9 @@ local Artillery = {
 			-- nest": was standing still on the mount bag so it wouldn't clip the old nest's high front bags); the belt's
 			-- rounds bend from it to the feed (src/client/Artillery)
 			fixed = {},
+			-- (user 2026-11-03: "dont remove any parts that doesnt make sense to remove if a gun is broken, like the box"):
+			-- nothing blown off: its ammo box and the belt in it stay with the gun
+			lose = { {}, {}, {}, {} },
 			cradle = { "Cradle", "CradleTrim", "CradleFittings" },
 			barrel = { "Barrel", "Bore" },
 			breech = {},

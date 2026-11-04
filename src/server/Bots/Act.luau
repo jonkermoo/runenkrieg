@@ -693,8 +693,10 @@ local function laidFor(b: Bot, job: BotBuild.Job): Build.Work?
 end
 
 -- a refused lay: its spot moved across (Rules/BotBuild.nudge), after Build.tries the planned spot again a while later
-local function refused(r: BuildJob, now: number)
+local function refused(r: BuildJob, now: number, why: string?)
 	stats.refused += 1
+	-- (each spot's reason in turn, from the planned one: the readout)
+	r.why = if r.tries > 0 and r.why then `{r.why}, {why or "?"}` else why
 	r.tries += 1
 	local base = r.base
 	if r.tries >= BD.tries then
@@ -828,7 +830,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 				return true
 			end
 			stats.keptOff += 1
-			refused(r, now)
+			refused(r, now, "on its side's trench lines")
 			quit(b)
 			return false
 		end
@@ -839,7 +841,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			return true
 		end
 		if reason then
-			refused(r, now)
+			refused(r, now, reason)
 			quit(b)
 			return false
 		end

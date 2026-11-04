@@ -45,12 +45,20 @@ return {
 		assert(#order == 4 and order[1] == 2 and order[2] == 5 and order[3] == 3 and order[4] == 1)
 		assert(fix[2] and fix[5] and not fix[3] and not fix[1] and not fix[4] and not fix[6])
 	end,
-	["captured: used when its shot is clear, a blocked MG nest wrecked if cheap, the rest left alone"] = function()
-		local K = C.captured
-		assert(R.captured(true, true, 5, K) == "use" and R.captured(false, true, 99, K) == "use")
-		assert(R.captured(true, false, K.wreckSwings, K) == "wreck")
-		assert(R.captured(true, false, K.wreckSwings + 1, K) == "ignore", "too dear to wreck")
-		assert(R.captured(false, false, 1, K) == "ignore", "a blind field gun or howitzer is left alone")
+	["captured: used when its shot is clear and it stands safe, else wrecked"] = function()
+		assert(R.captured(true, true) == "use")
+		assert(R.captured(false, true) == "wreck", "blocked")
+		assert(R.captured(true, false) == "wreck", "unsafe")
+		assert(R.captured(false, false) == "wreck")
+	end,
+	["safeSpot: not out past its sector's middle toward the enemy, no enemy close"] = function()
+		local S = C.captured.safe
+		-- (the enemy's way +x from a sector middle at 0, 0)
+		assert(R.safeSpot(-50, 10, 0, 0, 1, 0, {}, S), "behind the middle")
+		assert(R.safeSpot(S.ahead, 0, 0, 0, 1, 0, {}, S), "just at the edge allowed")
+		assert(not R.safeSpot(S.ahead + 1, 0, 0, 0, 1, 0, {}, S), "out toward the enemy")
+		assert(not R.safeSpot(-50, 0, 0, 0, 1, 0, { { x = -50 + S.threat - 1, z = 0 } }, S), "an enemy close")
+		assert(R.safeSpot(-50, 0, 0, 0, 1, 0, { { x = -50 + S.threat + 1, z = 0 } }, S))
 	end,
 	["sectorAt: the nearest sector's index"] = function()
 		local sectors = { { x = 0, z = 0 }, { x = 400, z = 0 }, { x = 800, z = 30 } }

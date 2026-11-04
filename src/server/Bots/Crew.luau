@@ -58,13 +58,15 @@ local stats = { shells = 0, bursts = 0, held = 0, kicked = 0, given = 0, gaveUp 
 -- Guns the enemy built on ground a side now holds (Config/Bots.Crew `captured`, Rules.captured): each one's verdict
 -- ("use", "wreck" or "ignore"), when it was given, the side it is for and the Build work it stands in; and each side's
 -- wreck jobs by that work's model
-type Verdict = { verdict: string, at: number, side: string, work: Build.Work }
-local verdicts: { [Model]: Verdict } = setmetatable({}, { __mode = "k" }) :: any
+type Verdict = { verdict: string, at: number, side: string, work: Build.Work, why: string? }
+-- (plain tables, not weak-keyed: an Instance's Lua handle can be collected while the Instance stands, dropping its
+-- entry; the gone ones are swept in Crew.judge)
+local verdicts: { [Model]: Verdict } = {}
 local wreckJobs: { [string]: { [Model]: any } } = { West = {}, East = {} }
 local sightParams = RaycastParams.new()
 
 -- guns given no gunner until then: every shot they could lay stopped short (Config/Bots.Crew `blind`)
-local blindUntil: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
+local blindUntil: { [Model]: number } = {}
 -- the guns' list once a frame (Artillery.list, no point)
 local listed: { [Model]: Artillery.GunInfo } = {}
 local listedAt = -1
@@ -420,7 +422,7 @@ local function showVerdicts()
 			label.BackgroundColor3 = Color3.new(0, 0, 0)
 			label.TextColor3 = Color3.new(1, 1, 1)
 			label.TextSize = DevCfg.size
-			label.Text = v.side .. " captured: " .. v.verdict
+			label.Text = v.side .. " captured: " .. v.verdict .. (if v.why then ` ({v.why})` else "")
 			label.Parent = gui
 			gui.Parent = made
 		end
@@ -431,26 +433,37 @@ end
 -- `side`'s commander tick: every gun the enemy built on ground it holds looked at again (each `captured.every` s): its
 -- shot toward `target` (the enemy sector it shells) flown (`fly`: a field gun's or howitzer's, low or lobbed; an MG's
 -- line along its sight), and its verdict given (Rules.captured)
+-- what `side`'s last look found (Crew.judge; the Engineer bots readout)
+Crew.judged = {} :: { [string]: string }
+
 function Crew.judge(
 	side: string,
 	owner: { string },
 	target: Vector3?,
-	fly: (gun: any, key: string, at: Vector3, target: Vector3, arc: string) -> boolean
+	fly: (gun: any, key: string, at: Vector3, target: Vector3, arc: string) -> boolean,
+	safe: (at: Vector3) -> boolean
 )
 	local K = C.captured
 	local now = os.clock()
 	local front = workspace:FindFirstChild(FrontCfg.FolderName)
 	local kit = front and front:GetAttribute(side)
 	for model, v in verdicts do
-		if v.side == side and (now - v.at >= K.every or not model.Parent) then
+		if not model.Parent or (v.side == side and now - v.at >= K.every) then
 			verdicts[model] = nil -- (looked at again below while it still stands on the side's ground)
+		end
+	end
+	for model in blindUntil do
+		if not model.Parent then
+			blindUntil[model] = nil
 		end
 	end
 	if type(kit) ~= "string" or not target then
 		return
 	end
 	local works = Build.worksOf(nil)
+	local seen, ours, theirs = 0, 0, 0
 	for _, g in Artillery.list() do
+		seen += 1
 		local at = g.model:GetPivot().Position
 		local v = verdicts[g.model]
 		if ownerAt(g.crew, owner) ~= side then
@@ -469,9 +482,11 @@ function Crew.judge(
 				end
 			end
 		end
+		ours += 1
 		if not work or work.team == kit then
 			continue
 		end
+		theirs += 1
 		if v and v.side == side then
 			v.work = work
 			continue
@@ -490,14 +505,32 @@ function Crew.judge(
 		else
 			clear = fly(gun, g.key, at, target, "low") or fly(gun, g.key, at, target, "high")
 		end
-		local hp = g.model:GetAttribute("HP")
-		local swings = math.ceil((if type(hp) == "number" then hp else gun.hp) / (gun.hp / gun.repair))
-		verdicts[g.model] = { verdict = Rules.captured(g.mg, clear, swings, K), at = now, side = side, work = work }
+		local isSafe = safe(at)
+		verdicts[g.model] = {
+			verdict = Rules.captured(clear, isSafe),
+			at = now,
+			side = side,
+			work = work,
+			why = if not clear then "shot blocked" elseif not isSafe then "not safe" else nil,
+		}
 	end
+	Crew.judged[side] = `{seen} guns, {ours} on its ground, {theirs} the enemy's`
 	showVerdicts()
 end
 
--- `side`'s wreck jobs this tick on `sb.open` (Commander, after its build list): each captured MG nest it judged
+-- The enemy-built guns `side` judged "use" (Crew.judge): each one's Config/Build piece key and where it stands (its
+-- sector's guns count them, src/server/Bots/Commander)
+function Crew.usable(side: string): { { key: string, at: Vector3 } }
+	local out = {}
+	for model, v in verdicts do
+		if v.side == side and v.verdict == "use" and model.Parent then
+			table.insert(out, { key = v.work.key, at = v.work.at })
+		end
+	end
+	return out
+end
+
+-- `side`'s wreck jobs this tick on `sb.open` (Commander, after its build list): each captured gun or MG nest it judged
 -- "wreck", Destroy swings at its work until it is gone (an Engineer's job: src/server/Bots/Act)
 function Crew.wrecks(side: string, sb: any)
 	local keep = {}

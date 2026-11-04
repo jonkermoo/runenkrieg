@@ -363,7 +363,8 @@ local Build = {
 			key = "MGNest",
 			name = "MG nest",
 			kind = "Nest",
-			sectorCap = 3, -- per team in each sector (user 2026-11-01: "mg nest should be limited to 3 a sector")
+			-- per team in each sector (user 2026-11-03: "max 6 mgs and cannons and 3 howitzers per sector", 6 of each; was 3)
+			sectorCap = 6,
 			asset = "sandbag_pile",
 			mountBag = "sandbag_m2",
 			gun = "mg08",
@@ -390,7 +391,9 @@ local Build = {
 			name = "Field gun",
 			kind = "Gun",
 			gun = "artillery_qf18",
-			teamCap = 6, -- standing at once per team (user 2026-10-31: "limit to 6 friendly cannons and 2 friendly mortars")
+			-- per team in each sector (user 2026-11-03: "cannons and artys built should be by sector. max 6 mgs and cannons and
+			-- 3 howitzers per sector"; was 6 per team over the whole map)
+			sectorCap = 6,
 			swing = 5, -- (40 swings, an engineer's 27)
 			stages = 4,
 			width = 7,
@@ -412,7 +415,7 @@ local Build = {
 			kind = "Gun",
 			gun = "artillery_howitzer",
 			ring = "artillery_howitzer", -- its sandbag ring (GunRing)
-			teamCap = 2,
+			sectorCap = 3, -- per team in each sector (user 2026-11-03, as the field gun's; was 2 per team over the whole map)
 			swing = 2.5, -- (80 swings, an engineer's 54)
 			stages = 4,
 			width = 28,

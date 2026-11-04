@@ -277,6 +277,37 @@ local function engineers()
 		if sb and sb.gunNote then
 			table.insert(lines, `{side} guns: {sb.gunNote}`)
 		end
+		-- (its guns in its front sector against its share there, captured ones it uses counted: Config/Bots.Build.caps)
+		if sb and sb.inFront then
+			local had = {}
+			for _, key in { "FieldGun", "Howitzer", "MGNest" } do
+				table.insert(had, `{key} {sb.inFront[key] or 0}/{Cfg.Build.caps[key] or 0}`)
+			end
+			table.insert(lines, `{side} front sector guns (share): {table.concat(had, ", ")}`)
+		end
+		-- (the guns on its ground it looked at: src/server/Bots/Crew.judge)
+		if Tactics.crew.judged[side] then
+			table.insert(lines, `{side} captured look: {Tactics.crew.judged[side]}`)
+		end
+		-- (its gun jobs refused where they were to go, and why: Build.placeAs)
+		local refusedGuns = {}
+		for _, r in if sb then sb.lay else {} do
+			local key = r.base.key
+			if (key == "FieldGun" or key == "Howitzer" or key == "MGNest") and r.why and not r.model then
+				table.insert(refusedGuns, `{key} {r.why}{if r.gaveUp then " (gave up for now)" else ""}`)
+			end
+		end
+		if #refusedGuns > 0 then
+			table.insert(lines, `{side} gun jobs refused: {table.concat(refusedGuns, "; ")}`)
+		end
+	end
+	-- (the last shells' miss, bots' and players' alike: Config/Artillery `miss`)
+	local shots = {}
+	for _, m in Artillery.misses() do
+		table.insert(shots, `{m.key} {if m.bot then "bot" else "player"} {math.round(m.off)}`)
+	end
+	if #shots > 0 then
+		table.insert(lines, `Shells off their aim (studs, newest first): {table.concat(shots, ", ")}`)
 	end
 	workspace:SetAttribute(DevCfg.Admin.BotEngineersAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
