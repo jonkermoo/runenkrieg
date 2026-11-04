@@ -210,18 +210,21 @@ local Assets = {
 		-- by every team, painted per team (Config/Palette.Artillery). Moving parts are their own meshes; firing is
 		-- later game code.
 		artillery_qf18 = {
+			-- v6 the Italian 75/27 mod. 1911 Deport (user 2026-11-03: rebuilt from it so the barrel lays up to 70: split
+			-- trail, a plain plate shield slotted for the cradle, the barrel on its recoil cylinder between guide rails, the
+			-- trunnions back near the breech; a first take 120139327967900 had a messier hooded shield; v5 117442240826066)
 			-- v5 (user 2026-10-26: a round breech ring and a round collar round the barrel, the slide stepped down and
 			-- shorter, a satchel strapped to the trail's side, no sight post, axle boxes or linch pins, an open muzzle;
 			-- v4 96409235868239)
 			-- v4 (user 2026-10-26: round rivets, the handspike "tail" gone; v3 114781083776162: the shield's top flap flat,
 			-- was tilted forward; team accent pieces <part>Trim / Fittings / Kit / Marking, Config/Palette.Artillery.Team;
 			-- before it 123043192837733)
-			id = 117442240826066,
+			id = 72922666832863,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/artillery_qf18.fbx",
-			generator = "tools/blender/artillery/qf18.py",
-			description = "QF 18-pounder field gun at real size (built from its trace: tools/blender/artillery/trace/qf18.py). Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates, Barrel + Bore recoil, Breech opens.",
+			generator = "tools/blender/artillery/deport.py",
+			description = "The field gun: an Italian 75/27 mod. 1911 Deport at real size (photos: tools/blender/artillery/deport.py), split trail, a plain shield slotted for the cradle. Moving parts: Wheels + Tyres roll, Mount traverses, Cradle elevates about (0, 2.55, 1.0), Barrel + Bore (and the recoil cylinder under it) recoil, Breech opens.",
 		},
 		-- the MG 08's spare ammo box (user 2026-10-28: "the ammo bag as part of the reload animation"): carried by the
 		-- gunner in the box reload (Config/Artillery.Guns mg08 `mg.reload`)
