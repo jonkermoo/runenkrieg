@@ -240,7 +240,11 @@ local Bots = {
 	-- Firing only with a line of sight (user 2026-11-02 hand test: "some bots are shooting through terrain even though
 	-- they cant physicall see the enemy"): each shot needs a clear line from the muzzle to the target (anything in the
 	-- way, terrain too); covering fire at a known spot a clear line to within `near` studs of it.
-	Sight = { near = 6 },
+	-- Aiming only at what it sees (user 2026-11-04: "some AIs still keep aiming through walls and hills at enemies"): a
+	-- target counts as in sight for `stale` seconds past the bot's own look interval (its last ray found it; between
+	-- looks it is not re-checked); a covering-fire spot whose line was blocked is not fired at, nor aimed at, for
+	-- `blockedFor` seconds.
+	Sight = { near = 6, stale = 0.15, blockedFor = 3 },
 	-- Butt strokes (Rules/BotBuild.strikes, src/server/Melee.strikeAs; user 2026-11-02 hand test: "also allow AI to melee
 	-- (dont force them to just because are withing range)"; "Sometimes"): with its target within Config/Melee.Hit.reach
 	-- less `margin`, a bot strikes on a roll under `chance` (`empty` with its gun empty or loading), rolled at most every
@@ -788,7 +792,8 @@ local Bots = {
 		RetreatDistance = 40,
 		RetreatUntil = 0.6, -- health share at which it stops falling back early
 		ReloadBelow = 0.4, -- rounds share under which it reloads when nothing is in sight
-		Forget = 2.5, -- seconds a target out of sight is still hunted (aimed at where it was last seen)
+		Forget = 2.5, -- seconds a target out of sight is still hunted (where it was last seen)
+		AimMemory = 1.2, -- seconds a target out of sight is still aimed at (where it was last seen); then the gun drops
 		Alert = 3, -- seconds after being hit that it looks all round (no view cone)
 		BoltDelay = { 0.25, 0.45 }, -- seconds after a bolt rifle's shot before it works the bolt
 		Reacquire = 1, -- seconds out of sight after which seeing the target again takes the reaction time again
@@ -819,6 +824,13 @@ local Bots = {
 		AlertRadius = 15,
 		SpreadMin = 6,
 	},
+
+	-- At ease (Rules/Bots.calm; user 2026-11-04: "make AI not hold weapons if they know for a FACT that theres no enemies
+	-- around (just so it looks nice)"): a bot with no target for `after` seconds, not hit, shot at or near a shot for
+	-- that long, its suppression under `shaken`, no enemy spot its squad knows within `radius` studs and no enemy at all
+	-- within `near` studs (seen or not) carries its gun low: `move` walking, `stand` standing (Config/Locomotion holds).
+	-- Looks only: it raises the gun the moment one of those changes.
+	Calm = { after = 4, radius = 90, near = 40, shaken = 0.05, move = "carry", stand = "carry" },
 
 	-- difficulty (user 2026-10-30: reaction time, aim error, spot range)
 	Default = "Medium",

@@ -216,6 +216,39 @@ function Bots.new(): Brain
 	}
 end
 
+-- Whether the brain aims at its target: in sight, or out of it under `cfg.AimMemory` seconds (Config/Bots.Brain; never
+-- at one long behind a hill or a wall).
+function Bots.sighted(b: Brain, now: number, cfg: any): boolean
+	return b.targetId ~= nil and now - b.lastSeen <= cfg.AimMemory
+end
+
+-- Whether a bot knows no enemy is near (Config/Bots.Calm, `cfg`), so it carries its gun low: no target for `after`
+-- seconds, not hit or shot at for as long, hardly suppressed, in no fight (cover, a peek, a retreat), no enemy spot its
+-- squad knows within `radius` (`knownNear`: studs to the nearest, math.huge none) and no enemy within `near` at all
+-- (`enemyNear`).
+function Bots.calm(b: Brain, s: Senses, knownNear: number, enemyNear: number, cfg: any): boolean
+	local now = s.now
+	if b.targetId ~= nil or now - b.lastSeen < cfg.after then
+		return false
+	end
+	if (s.hurtAt and now - s.hurtAt < cfg.after) or (s.threatAt and now - s.threatAt < cfg.after) then
+		return false
+	end
+	if (s.suppressed or 0) >= cfg.shaken or s.spotted then
+		return false
+	end
+	if b.state == "Cover" or b.state == "Peek" or b.state == "Retreat" then
+		return false
+	end
+	return knownNear > cfg.radius and enemyNear > cfg.near
+end
+
+-- The admin label's word for what a bot knows: "sees" its target, "remembers" one just lost (still aiming), "calm" or
+-- "alert".
+function Bots.sightWord(visible: boolean, sighted: boolean, calm: boolean): string
+	return if visible then "sees" elseif sighted then "remembers" elseif calm then "calm" else "alert"
+end
+
 -- Rounds in the rifle (the magazine and a live one chambered).
 function Bots.rounds(s: Senses): number
 	return s.magazine + (if s.chambered then 1 else 0)
@@ -307,6 +340,8 @@ function Bots.step(b: Brain, s: Senses, cfg: any, d: Difficulty, roll: number): 
 	end
 	local visible = t ~= nil and t.visible and t.id == b.targetId
 	local hunting = b.targetId ~= nil
+	-- (aims only while it sees it or has just lost it: not at one behind a hill or a wall)
+	local sighted = visible or Bots.sighted(b, now, cfg)
 	local reacted = visible and now - b.seenAt >= d.reaction
 	local rounds = Bots.rounds(s)
 	local hasCover = (s.cover or "none") ~= "none"
@@ -348,7 +383,7 @@ function Bots.step(b: Brain, s: Senses, cfg: any, d: Difficulty, roll: number): 
 	-- covering fire: a Support with an enemy spot known and nothing in sight fires at the spot
 	local suppressing = role == "Support" and s.suppress == true and not visible and (st == "Advance" or st == "Engage")
 	if st == "Engage" then
-		intent.aim = true
+		intent.aim = sighted or suppressing
 		if not visible then
 			intent.move = if pressing then "Objective" elseif holding then "Hold" elseif hunting then "Hunt" else "Strafe"
 		elseif pressing and t and t.distance > cfg.PressWithin then

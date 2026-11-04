@@ -695,6 +695,7 @@ local function label()
 					act = what,
 					gun = if b.gun then (b.gun :: Model).Name elseif Artillery.gunOf(m) then "on" else nil,
 					danger = b.danger,
+					sight = b.sight,
 				})
 			end
 			m:SetAttribute(S.label, text)

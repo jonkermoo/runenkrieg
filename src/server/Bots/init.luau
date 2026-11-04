@@ -147,6 +147,7 @@ local liveMode, flat, alive, talk, CO, say, sectorY, sectorPoint, sling, rayPara
 	Move.draw,
 	Move.putAway,
 	Move.finish
+local knownNear = Move.knownNear
 
 local Act = require(script.Act)
 local weigh, doAct, arms, dropCast, staffFire = Act.weigh, Act.doAct, Act.arms, Act.dropCast, Act.staffFire
@@ -408,6 +409,7 @@ spawnBody = function(b: Bot)
 	end
 	b.brain = Rules.new()
 	b.target, b.lastSeenAt, b.lastOpen, b.spotted = nil, nil, nil, false
+	b.sightAt, b.enemyNear, b.blockedAt, b.blockedUntil = -math.huge, math.huge, nil, 0
 	b.hurtAt, b.threatAt, b.threatFrom, b.cover, b.coverFrom = nil, nil, nil, nil, nil
 	b.nav = newNav(root.Position)
 	b.spawnedAt, b.reachedZone, b.deadAt, b.respawnAt, b.wander = os.clock(), false, nil, nil, nil
@@ -554,6 +556,9 @@ local function add(mode: string, side: string?)
 		senseHz = Cfg.Sense,
 		lod = "near",
 		nearest = math.huge,
+		sightAt = -math.huge,
+		enemyNear = math.huge,
+		blockedUntil = 0,
 		actAt = 0,
 		threwAt = -math.huge,
 		away = false,
@@ -700,6 +705,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 
 	local kitNow = arms(b, entry, now)
 	local target = b.target
+	-- in sight: its last look's ray found it, and that look is fresh (between looks the target can step behind a wall)
+	local seeing = target ~= nil and target.visible and now - b.sightAt <= 1 / b.senseHz + Cfg.Sight.stale
+	-- a covering-fire spot: not one whose line it found blocked lately (no aiming into a hill or a wall)
+	local spot = if b.role == "Support" or staff then knownSpot(b, now) else nil
+	if
+		spot
+		and b.blockedAt
+		and now < b.blockedUntil
+		and flat((spot :: Vector3) - (b.blockedAt :: Vector3)).Magnitude <= Cfg.Sight.near
+	then
+		spot = nil
+	end
 	local senses: Rules.Senses = {
 		now = now,
 		health = humanoid.Health / math.max(humanoid.MaxHealth, 1),
@@ -710,7 +727,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		loading = kitNow.loading,
 		capacity = kitNow.capacity,
 		auto = kitNow.auto,
-		target = if target then { id = target.model, distance = target.distance, visible = target.visible } else nil,
+		target = if target then { id = target.model, distance = target.distance, visible = seeing } else nil,
 		hurtAt = b.hurtAt,
 		threatAt = b.threatAt,
 		spotted = b.spotted,
@@ -719,7 +736,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		role = b.role,
 		suppressed = shakenNow(b, now),
 		-- (a Mage's medium shots go at a known enemy's cover too: user "Soldiers and their cover")
-		suppress = (b.role == "Support" or staff) and knownSpot(b, now) ~= nil,
+		suppress = spot ~= nil,
 	}
 	local was = b.brain.state
 	local hadTarget = b.brain.targetId ~= nil
@@ -740,8 +757,8 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	debug.profilebegin("Bots.move")
 	local zone, radius = objective(b)
 	local goal: Vector3? = nil
-	local targetPart = if target then aimPart(target.model) else nil
-	local suppressAt = if (b.role == "Support" or staff) and not targetPart then knownSpot(b, now) else nil
+	local targetPart = if target and seeing then aimPart(target.model) else nil
+	local suppressAt = if not targetPart then spot else nil
 	local aimAt: Vector3? = if targetPart then targetPart.Position else (suppressAt or b.lastSeenAt)
 	local move = intent.move
 	-- Normal: its squad pressing on out of the open (Config/Bots.Squads.Open): fighting on the move toward its
@@ -907,8 +924,12 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		turn.Enabled = false
 	end
 	local speed = flat(root.AssemblyLinearVelocity).Magnitude
+	-- at ease: no enemy near that it knows of, the gun carried low (Config/Bots.Calm; looks only)
+	local calm = not intent.aim and Rules.calm(b.brain, senses, knownNear(b, now), b.enemyNear, Cfg.Calm)
+	b.sight = Rules.sightWord(seeing, Rules.sighted(b.brain, now, brainCfg), calm)
 	local hold = if intent.aim
 		then "aim"
+		elseif calm then (if speed > Loco.IdleBelow then Cfg.Calm.move else Cfg.Calm.stand)
 		elseif speed > Loco.SprintAbove then "carry"
 		elseif speed > Loco.IdleBelow then "walk"
 		else "ready"
@@ -922,7 +943,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	if
 		not staff
 		and target
-		and target.visible
+		and seeing
 		and now >= (b.meleeAt or 0)
 		and target.distance <= Tactics.meleeCfg.Hit.reach - MC.margin
 	then
@@ -951,7 +972,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		Firing.actAs(m, "Reload")
 	elseif intent.bolt then
 		Firing.actAs(m, "Bolt")
-	elseif intent.fire and facing and target and target.visible then
+	elseif intent.fire and facing and target and seeing then
 		local gun = tool:FindFirstChild("Gun") :: BasePart?
 		local muzzle = gun and gun:FindFirstChild("Muzzle") :: Attachment?
 		local part = aimPart(target.model)
@@ -1001,6 +1022,8 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			stats.rays += 1
 			if hit and hit.Distance < line.Magnitude - Cfg.Sight.near then
 				stats.blocked += 1
+				-- (let that spot be for a while: no aiming into the hill or wall either)
+				b.blockedAt, b.blockedUntil = suppressAt, now + Cfg.Sight.blockedFor
 			elseif Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
 				stats.shots += 1
 				stats.covering += 1

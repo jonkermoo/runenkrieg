@@ -99,6 +99,11 @@ export type Bot = {
 	nextSense: number,
 	target: Target?,
 	lastSeenAt: Vector3?,
+	sightAt: number, -- when its last look's ray found its target
+	enemyNear: number, -- studs to the nearest enemy at its last look, seen or not (Config/Bots.Calm)
+	sight: string?, -- the admin label's "sees", "remembers", "calm" or "alert" (Rules/Bots.sightWord)
+	blockedAt: Vector3?, -- a covering-fire spot whose line was blocked, and until when it is let be (Config/Bots.Sight)
+	blockedUntil: number,
 	lastOpen: Vector3?, -- where it stood when it last saw its target (a peek goes back there)
 	spotted: boolean,
 	hurtAt: number?,

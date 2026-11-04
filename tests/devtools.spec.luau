@@ -223,6 +223,7 @@ return {
 		assert(A.botLabel({}) == "-")
 		assert(A.botLabel({ order = "Defend" }) == "Defend")
 		assert(A.botLabel({ role = "Hold", post = "dugout" }) == "?/Hold\ndugout")
+		assert(A.botLabel({ order = "Attack", sight = "calm" }) == "Attack\ncalm")
 	end,
 	["Lantern Meadows: its sectors and landmarks as teleports, on its own map, inside its bounds"] = function()
 		local LM = require("../src/shared/Config/Maps/LanternMeadows")
