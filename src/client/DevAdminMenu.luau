@@ -523,10 +523,17 @@ local function build(player: Player): DevPanel.Panel
 	end)
 	player:GetAttributeChangedSignal(A.LabelsAttribute):Connect(showLabels)
 	showLabels()
-	-- the teammates' health outlines (src/client/TeamOutline; client only): off, and your own outlined too
+	-- the teammates' health outlines (src/client/TeamOutline; client only): off, shown without holding M, and your own
+	-- outlined too
 	for i, t in
 		{
 			{ id = "TeamOutlines", label = "Team outlines", attribute = TeamOutlineCfg.OffAttribute, on = false },
+			{
+				id = "TeamOutlineAlways",
+				label = "Outlines without M",
+				attribute = TeamOutlineCfg.AlwaysAttribute,
+				on = true,
+			},
 			{ id = "TeamOutlineSelf", label = "Outline me too", attribute = TeamOutlineCfg.SelfAttribute, on = true },
 		}
 	do
@@ -543,7 +550,7 @@ local function build(player: Player): DevPanel.Panel
 		player:GetAttributeChangedSignal(t.attribute):Connect(show)
 		show()
 	end
-	order += 2
+	order += 3
 
 	-- You (src/server/DevTools): health steps, death, respawn, god mode, a knock, the helmet off, unlimited ammo
 	DevPanel.heading(p.panel, "You", order + 1)

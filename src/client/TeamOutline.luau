@@ -3,7 +3,9 @@
 -- same "Kit" as your soldier, Rules/Teams: players, bot soldiers and the admin panel's dummies; nobody in a
 -- free-for-all) each get a Highlight on this client only, adorning their character, its outline shaded from green at
 -- full health to red when badly hurt (Palette.UI.TeamOutline). Roblox draws at most 31 Highlights at once, so only
--- Cfg.MaxOutlines of them, the nearest. Off during the match cutscenes and while the admin panel hides the game HUD.
+-- Cfg.MaxOutlines of them, the nearest. Only while the map key is held (Cfg.Key, with the map, the teammate dots and
+-- the health bars; user 2026-11-03: "the health outline stays on even when im not holding M"), gone the frame it's let
+-- go. Off during the match cutscenes and while the admin panel hides the game HUD.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -19,10 +21,23 @@ local Rules = require(Shared.Rules.TeamOutline)
 local Teams = require(Shared.Rules.Teams)
 local MatchCutscene = require(script.Parent.MatchCutscene)
 local DevCinematic = require(script.Parent.DevCinematic)
+local Settings = require(script.Parent.Settings)
 
 local TeamOutline = {}
 
 local outlines: { [Model]: Highlight } = {}
+
+-- whether the outlines are called up: the map key held, or the admin panel's "always" switch on
+function TeamOutline.held(me: Player): boolean
+	return Settings.held(Cfg.Key) or me:GetAttribute(Cfg.AlwaysAttribute) == true
+end
+
+local function clear()
+	for m, h in outlines do
+		h:Destroy()
+		outlines[m] = nil
+	end
+end
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -45,6 +60,7 @@ local function wanted(me: Player): { [Model]: Humanoid }
 	local mine = me.Character
 	if
 		not mine
+		or not TeamOutline.held(me)
 		or me:GetAttribute(Cfg.OffAttribute) == true
 		or MatchCutscene.playing()
 		or DevCinematic.hidden(me, "Hud")
@@ -107,10 +123,21 @@ local function refresh()
 end
 
 function TeamOutline.start()
-	local since = 0
-	RunService.Heartbeat:Connect(function(dt)
+	local me = Players.LocalPlayer
+	local since, was = 0, false
+	RunService.RenderStepped:Connect(function(dt)
+		-- the key read every frame: off the moment it's let go, on the moment it's pressed
+		local held = TeamOutline.held(me)
+		if not held then
+			if next(outlines) then
+				clear()
+			end
+			was = false
+			return
+		end
 		since += dt
-		if since >= Cfg.Rate then
+		if not was or since >= Cfg.Rate then
+			was = true
 			since = 0
 			refresh()
 		end
