@@ -409,6 +409,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotRunsAttribute):Connect(showRuns)
 	showRuns()
+	-- each side's dugouts (Config/Bots.Dugouts.Heat): holders in each, how often used, how hot, who went last and why
+	order += 1
+	local dugouts = DevPanel.heading(p.panel, "", order)
+	dugouts.Size = UDim2.new(1, -8, 0, 110)
+	dugouts.TextWrapped = true
+	dugouts.TextYAlignment = Enum.TextYAlignment.Top
+	local function showDugouts()
+		local s = workspace:GetAttribute(A.BotDugoutsAttribute)
+		dugouts.Text = `Bot dugouts:\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotDugoutsAttribute):Connect(showDugouts)
+	showDugouts()
 	-- which bot rescues which casualty now (one each: Config/Bots.Actions.Rescue)
 	order += 1
 	local rescues = DevPanel.heading(p.panel, "", order)

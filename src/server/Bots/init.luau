@@ -463,6 +463,10 @@ spawnBody = function(b: Bot)
 	humanoid.Died:Connect(function()
 		stats.deaths += 1
 		b.deadAt = os.clock()
+		-- (its side's trench there heats up: Config/Bots.Dugouts.Heat)
+		if b.side then
+			Tactics.dug.note("death", root.Position.X, root.Position.Z, b.deadAt, b.side)
+		end
 		-- a teammate close by calls it
 		for _, o in bots do
 			if
@@ -1095,6 +1099,8 @@ function Bots.forgetMap()
 	table.clear(sectorY)
 	table.clear(Tactics.dug.holes)
 	table.clear(Tactics.dug.tried)
+	table.clear(Tactics.dug.heat)
+	table.clear(Tactics.dug.use)
 	table.clear(ByTrench.blasts)
 	ByTrench.counts = {}
 	table.clear(sharedPaths)
@@ -1149,6 +1155,10 @@ function Bots.start()
 		table.insert(blasts, { x = pos.X, z = pos.Z, at = now, kg = kg })
 		if #blasts > 24 then
 			table.remove(blasts, 1)
+		end
+		-- (a shell, not a grenade, heats the trenches round it: Config/Bots.Dugouts.Heat)
+		if kg >= Cfg.Dugouts.shell then
+			Tactics.dug.note("shell", pos.X, pos.Z, now)
 		end
 		for _, b in bots do
 			if alive(b) then

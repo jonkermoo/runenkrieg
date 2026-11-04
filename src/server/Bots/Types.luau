@@ -158,6 +158,8 @@ export type Bot = {
 	postFloor: Vector3?, -- its post is a fire step: the trench floor below it (its cover)
 	postKind: string?, -- "step", "reserve" (the support line), "dugout" (sheltering), "window" or "open"
 	postFoot: Vector3?, -- its dugout's foot (where the steps start): walked straight down from there, and up to it
+	dugSince: number?, -- when it went down into its dugout (Config/Bots.Dugouts.Heat.stay)
+	dugRest: number?, -- up to fight till then, after a stay (Dugouts.Heat.rest)
 	gun: Model?, -- Normal: the gun its commander gave it (src/server/Bots/Crew): it walks there, mans and fires it
 	gunWait: number?, -- not given a gun again before this (taken over by a teammate, or gave up the walk)
 }
@@ -221,7 +223,8 @@ export type SideBuild = {
 	guns: number, -- the side's guns standing (anyone's; Config/Bots.Build.Crews)
 	-- its dugouts (Config/Bots.Dugouts): the rooms that shelter (the middle of each floor), whether its trenches are
 	-- shelled now and have been at this front, its fire bays with a step (one sentry each)
-	rooms: { { x: number, z: number, room: Vector3, foot: Vector3 } },
+	rooms: { { x: number, z: number, room: Vector3, foot: Vector3, model: Model } },
+	enemies: { { x: number, z: number } }, -- the enemies its squads know of now (Dugouts.Heat)
 	shelled: boolean,
 	shelledOnce: boolean,
 	bays: number,

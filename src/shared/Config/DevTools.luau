@@ -287,8 +287,12 @@ local DevTools = {
 		FreeEngineerAttribute = "DevFreeEngineer",
 		FreeGrenadierAttribute = "DevFreeGrenadier",
 		-- - Shell: `count` blasts of `kg` near a side's dug trench squares, `every` seconds apart, within `spread` studs
-		--   (dugout sheltering under shelling)
-		Shell = { count = 8, kg = 2, every = 0.4, spread = 6 },
+		--   (dugout sheltering under shelling); "Shell the trench at the aim point": the dug squares (either side's)
+		--   within `here` studs of the one nearest the aim, if one is within `reach`
+		Shell = { count = 8, kg = 2, every = 0.4, spread = 6, here = 20, reach = 60 },
+		-- the readout of each side's dugouts: holders in each, how often used, its heat, who went down last and why
+		-- (src/server/Bots, every commander tick; Config/Bots.Dugouts.Heat)
+		BotDugoutsAttribute = "DevBotDugouts",
 		Sides = { "West", "East" },
 		-- the match's end played into a map (Normal; user 2026-11-03: "a toggle for every possible variation of script for
 		-- each map ... assume your team won"): your side wins, loses or nobody does, then the whole end sequence with

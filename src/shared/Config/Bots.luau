@@ -532,14 +532,19 @@ local Bots = {
 	-- - Shelled: a shell (a blast of `shell` kg or more: not a grenade) within `near` studs of a side's trench squares in
 	--   the last `recent` seconds.
 	-- - Building ("whenever they need one but dont make bots abuse it"): none until the side's trenches at its front have
-	--   been shelled; then room for its holders but its sentries, `room` to a dugout, in its support line's squares dug
-	--   to `dug` of their HP, the rear wall (away from the enemy), `spacing` studs apart, the line's middle first.
+	--   been shelled, or one of its squares has been `Heat.build` hot; then room for its holders but its sentries, `room` to a dugout, in its support line's squares dug
+	--   to `dug` of their HP, the rear wall (away from the enemy), `spacing` studs apart, the hottest squares first (their
+	--   heat over `Heat.memory` s: the often shelled and fought over), then the line's middle.
 	--   Engineers dig them when calm, as any job on the list; while a side has one to dig, up to `engineers` of its bots
 	--   pick Engineer when they respawn, if they can pay (dugout duty, as the gun crews: Build.Crews), and take dugout
 	--   jobs first.
-	-- - Sheltering: while its trenches are shelled (and not standing to, not falling back), one holder per fire bay
-	--   stays on the fire step as a sentry ("1 per fire bay"); the others go down into the nearest standing dugout with
-	--   a place, and come up to their posts as soon as the shelling stops or the side stands to.
+	-- - Sheltering (user 2026-11-03: "make bots utilize dug outs more often, especially in trenches highly contested or
+	--   often shelled"): by how hot its post is (Rules/BotTrenches.heat, `Heat`): shells landing within `Heat.radius`,
+	--   the side's own dead there and enemies known within `Heat.enemyNear`, each fading by e every `Heat.fade` s. At
+	--   `Heat.enter` (and not standing to, not falling back) a holder goes down into the nearest standing dugout with a
+	--   place, one per fire bay staying on the fire step as a sentry ("1 per fire bay"); it comes up to its post once
+	--   its dugout cools under `Heat.leave`, the side stands to, or after `Heat.stay` s down, then fights `Heat.rest` s
+	--   before it may go down again ("They still need to come back out and fight").
 	-- - Bombing out ("Yes"): a Grenadier of a pushing squad throws a grenade down the steps of an enemy dugout its squad
 	--   knows someone is in (a known enemy within `Bomb.inside` studs of its room, under the trench floor), from `min`-`max`
 	--   studs, no teammate within Actions.Grenade.safe of the steps.
@@ -558,6 +563,23 @@ local Bots = {
 		engineers = 1,
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },
+		-- (`weight`: a shell, an own death, an enemy known near; `edge`: a shell's or death's share at `radius`;
+		-- `keep`: the seconds a shell or death is remembered; `enemyMost`: the most heat its known enemies add)
+		Heat = {
+			radius = 30,
+			edge = 0.6,
+			fade = 25,
+			memory = 90,
+			keep = 120,
+			weight = { shell = 1, death = 0.6, enemy = 0.1 },
+			enemyNear = 70,
+			enemyMost = 0.5,
+			enter = 0.8,
+			leave = 0.35,
+			stay = 40,
+			rest = 12,
+			build = 1.5,
+		},
 	},
 
 	-- Callouts (Rules/BotCallouts; user 2026-11-01: "make bots say stuff in chat (doesnt appear in actual chat, just above

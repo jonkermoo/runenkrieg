@@ -77,10 +77,23 @@ local Tactics = {
 -- - holes: the foxholes its bots dug, the newest Dugouts.Fox.keep (a dug foxhole is only terrain: Build lists it no
 --   more), each its middle and its floor
 -- - tried: when each bot last tried to dig one at its hold post (a refused spot isn't tried again at once)
+-- - heat: the shells and own deaths lately (Rules/BotTrenches.heat; Config/Bots.Dugouts.Heat.keep seconds of them)
+-- - use: each dugout's holders gone down into it this match, and why the last one went (the admin readout)
 Tactics.dug = {
 	holes = {} :: { { x: number, z: number, floor: Vector3 } },
 	tried = {} :: { [number]: number },
+	heat = {} :: { BotTrenches.HeatEvent },
+	use = {} :: { [Model]: { count: number, why: string, who: string } },
 }
+-- a shell or an own death remembered for the trenches' heat; the old ones forgotten
+function Tactics.dug.note(kind: string, x: number, z: number, now: number, side: string?)
+	local H = Cfg.Dugouts.Heat
+	local list = Tactics.dug.heat
+	table.insert(list, { x = x, z = z, at = now, kind = kind, side = side })
+	while #list > 0 and now - list[1].at > H.keep do
+		table.remove(list, 1)
+	end
+end
 -- a dugout's foot: where its steps start, on the trench floor at the foot of its wall (where a bot swings at it), from
 -- its "Frame" (the middle of its steps and room, +Z back into the wall) and "Size"
 function Tactics.dug.foot(model: Model): Vector3?

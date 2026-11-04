@@ -37,6 +37,7 @@ local TM = Cfg.TrenchMove
 local SP = Cfg.Sap
 local CV = Cfg.Move.Cover
 local FR = Cfg.Front
+local DH = Cfg.Dugouts.Heat
 -- (the build list's and the gun spots' settings with the flanks', Config/Bots.Front.Flank)
 local Flanked = { plan = table.clone(BD), guns = table.clone(BD.Crews) }
 Flanked.plan.Flank = FR.Flank
@@ -791,27 +792,40 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						else
 							want = "step"
 						end
-						-- shelled: one sentry a fire bay stays up, the rest down into a dugout with a place, until it
-						-- stops or they stand to
-						if want and not fallback and not s2.standTo and s2.shelled then
-							if want == "step" and up < s2.bays then
-								up += 1
-							elseif
-								b.postKind == "dugout"
-								and b.postSector == sector
-								and Tactics.dug.standing(s2, b.post)
-							then
+						-- hot here (shelled, fought over: Dugouts.Heat): one sentry a fire bay stays up, the rest down into
+						-- a dugout with a place, until it cools, they stand to, or they have stayed down long enough
+						local inside = b.postKind == "dugout"
+							and b.postSector == sector
+							and Tactics.dug.standing(s2, b.post)
+						if want and not fallback and not s2.standTo then
+							-- (heat at its dugout, else at its post here, else where it is)
+							local pos = if b.post and b.postSector == sector then b.post :: Vector3 else p
+							local h, hs, hd, he =
+								BotTrenches.heat(now, pos.X, pos.Z, side, Tactics.dug.heat, s2.enemies, DH)
+							local down, why =
+								BotTrenches.shelter(inside, h, now - (b.dugSince or now), now < (b.dugRest or 0), DH)
+							if inside and not down and why == "stay" then
+								b.dugRest = now + DH.rest
+							end
+							if inside and down then
 								want = "dugout"
-							else
+							elseif down and want == "step" and up < s2.bays then
+								up += 1
+							elseif down then
 								local i = BotTrenches.seat(free, p.X, p.Z)
 								if i then
 									free[i].free -= 1
 									want = "dugout"
-									local room = s2.rooms[i].room
-									b.post, b.postFace, b.postKind, b.postFloor = room, nil, "dugout", room
-									b.postFoot = s2.rooms[i].foot
+									local rm = s2.rooms[i]
+									b.post, b.postFace, b.postKind, b.postFloor = rm.room, nil, "dugout", rm.room
+									b.postFoot = rm.foot
 									b.postSector = sector
+									b.dugSince = now
 									stats.sheltered += 1
+									local u = Tactics.dug.use[rm.model] or { count = 0, why = "", who = "" }
+									u.count += 1
+									u.why, u.who = BotTrenches.heatWhy(h, hs, hd, he), b.name
+									Tactics.dug.use[rm.model] = u
 								end
 							end
 						end
@@ -1113,6 +1127,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			lines = {},
 			guns = 0,
 			rooms = {},
+			enemies = {},
 			shelled = false,
 			shelledOnce = false,
 			bays = 0,
@@ -1133,6 +1148,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		sbs.trench = {}
 		sbs.lines = {}
 		sbs.rooms, sbs.shelled, sbs.digging = {}, false, 0
+		sbs.enemies = {}
 		return
 	end
 	local s = Map.sectors[front :: number]
@@ -1493,7 +1509,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- the posts its trenches give: a fire step on each dug fire-trench square, a place on each support-line square
 	sbs.steps, sbs.reserve, sbs.squares = {}, {}, {}
 	local bays: { [number]: boolean } = {}
-	local support: { { x: number, z: number, share: number, len: number, w: Build.Work } } = {}
+	local support: { { x: number, z: number, share: number, len: number, w: Build.Work, heat: number? } } = {}
 	for _, w in works do
 		if w.key == "Trench" and w.built and w.hp >= TR.standHp then
 			table.insert(sbs.squares, { x = w.at.X, z = w.at.Z, at = w.at })
@@ -1541,6 +1557,25 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		sbs.bays += 1
 	end
 	sbs.shelled = BotTrenches.shelled(now, ByTrench.blasts, sbs.squares, DG)
+	-- how hot its trenches are (Dugouts.Heat): the enemies its squads know of now; each support square's heat over the
+	-- side's memory (where dugouts go first); a square that hot once wants dugouts as a shelling does
+	local HT = DG.Heat
+	sbs.enemies = {}
+	for _, sq in squads do
+		if sq.side == side then
+			for _, kn in sq.known do
+				if now - kn.at <= SQ.knownFor then
+					table.insert(sbs.enemies, { x = kn.pos.X, z = kn.pos.Z })
+				end
+			end
+		end
+	end
+	for _, sq in support do
+		sq.heat = BotTrenches.heat(now, sq.x, sq.z, side, Tactics.dug.heat, sbs.enemies, HT, HT.memory)
+		if sq.heat >= HT.build then
+			sbs.shelledOnce = true
+		end
+	end
 	sbs.shelledOnce = sbs.shelledOnce or sbs.shelled
 	sbs.rooms = {}
 	local have: { { x: number, z: number } } = {}
@@ -1549,7 +1584,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		if room then
 			table.insert(have, { x = w.at.X, z = w.at.Z })
 			if w.built and w.hp > 0 then
-				table.insert(sbs.rooms, { x = room.X, z = room.Z, room = room, foot = w.at })
+				table.insert(sbs.rooms, { x = room.X, z = room.Z, room = room, foot = w.at, model = w.model })
 			end
 		end
 	end

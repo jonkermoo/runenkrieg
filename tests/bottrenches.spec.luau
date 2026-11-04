@@ -203,6 +203,65 @@ return {
 		assert(R.dugoutsWanted(true, 2 + D.room, 2, D) == 1)
 		assert(R.dugoutsWanted(true, 3 + D.room, 2, D) == 2, "one more over")
 	end,
+	["a trench's heat: shells and its own dead close by, fading; enemies known near, capped (user 2026-11-03)"] = function()
+		-- user 2026-11-03: "make bots utilize dug outs more often, especially in trenches highly contested or often shelled"
+		local H = Cfg.Dugouts.Heat
+		local shell = { x = 0, z = 0, at = 100, kind = "shell" }
+		assert(near((R.heat(100, 0, 0, "West", { shell }, {}, H)), H.weight.shell), "a shell on the spot, full")
+		assert(near((R.heat(100, H.radius, 0, "West", { shell }, {}, H)), H.weight.shell * H.edge), "at the radius")
+		assert(R.heat(100, H.radius + 1, 0, "West", { shell }, {}, H) == 0, "past it")
+		assert(near((R.heat(100 + H.fade, 0, 0, "West", { shell }, {}, H)), H.weight.shell / math.exp(1)), "fades")
+		assert((R.heat(100 + H.fade, 0, 0, "West", { shell }, {}, H, H.memory)) > H.weight.shell * 0.7, "remembered")
+		local dead = { x = 0, z = 0, at = 100, kind = "death", side = "West" }
+		assert(near((R.heat(100, 0, 0, "West", { dead }, {}, H)), H.weight.death), "its own dead")
+		assert(R.heat(100, 0, 0, "East", { dead }, {}, H) == 0, "not the enemy's dead")
+		local foes = {}
+		for i = 1, 20 do
+			table.insert(foes, { x = i, z = 0 })
+		end
+		local h, s, d, f = R.heat(100, 0, 0, "West", { shell, dead }, foes, H)
+		assert(near(f, H.enemyMost) and near(h, s + d + f), "enemies known near, capped")
+		assert(H.enemyMost < H.enter, "enemies alone never send them down")
+		assert(R.heat(100, 0, 0, "West", {}, { { x = H.enemyNear + 1, z = 0 } }, H) == 0, "a far enemy")
+		local why = R.heatWhy(h, s, d, f)
+		assert(string.find(why, "shells") and string.find(why, "deaths") and string.find(why, "enemies"), why)
+	end,
+	["shelter: down when hot, up when it cools or after a stay, then a rest up to fight"] = function()
+		local H = Cfg.Dugouts.Heat
+		assert(H.leave < H.enter and H.rest > 0 and H.stay > H.rest, "a margin, and longer down than up")
+		assert(R.shelter(false, H.enter, 0, false, H), "hot: down")
+		assert(not R.shelter(false, H.enter - 0.01, 0, false, H), "not hot enough")
+		local down, why = R.shelter(false, 5, 0, true, H)
+		assert(not down and why == "resting", "resting: up, fighting")
+		assert(R.shelter(true, H.leave, 1, false, H), "still warm: stays")
+		down, why = R.shelter(true, H.leave - 0.01, 1, false, H)
+		assert(not down and why == "calm", "cooled: up")
+		down, why = R.shelter(true, 5, H.stay, false, H)
+		assert(not down and why == "stay", "down long enough: up to fight")
+		-- one shell near a trench is enough, and they stay down longer than the old 8 s
+		local shell = { { x = 0, z = 0, at = 0, kind = "shell" } }
+		assert((R.heat(0, 10, 0, "West", shell, {}, H)) >= H.enter, "a shell 10 studs off")
+		local t = H.fade * math.log(H.weight.shell / H.leave)
+		assert(t > Cfg.Dugouts.recent, "longer than the old shelling")
+		-- often shelled (a shell every 10 s): still hot after a stay, so a holder rests up a while and goes back down
+		local often = {}
+		for i = 0, 5 do
+			table.insert(often, { x = 0, z = 0, at = i * 10, kind = "shell" })
+		end
+		assert((R.heat(H.stay + H.rest, 0, 0, "West", often, {}, H)) >= H.enter, "hot after a stay and a rest")
+	end,
+	["dugoutSquares: the hottest squares first"] = function()
+		local D = Cfg.Dugouts
+		local sq = {
+			{ x = 0, z = 0, share = 1, len = 20, heat = 0 },
+			{ x = 40, z = 0, share = 1, len = 20, heat = 3 },
+			{ x = -40, z = 0, share = 1, len = 20, heat = 1 },
+		}
+		local out = R.dugoutSquares(sq, {}, 2, D, 10)
+		assert(out[1] == 2 and out[2] == 3, "hottest, then the next")
+		sq[2].heat, sq[3].heat = 0, 0
+		assert(R.dugoutSquares(sq, {}, 1, D, 10)[1] == 1, "none hot: the middle")
+	end,
 	["dugoutSquares: dug squares, spaced, the middle first"] = function()
 		local D = Cfg.Dugouts
 		local squares = {}
