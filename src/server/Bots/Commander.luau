@@ -25,6 +25,8 @@ local Frontline = require(script.Parent.Parent.Frontline)
 local Indoors = require(script.Parent.Parent.Indoors)
 local Routes = require(script.Parent.Routes)
 local Squads = require(Shared.Rules.BotSquads)
+local Artillery = require(script.Parent.Parent.Artillery)
+local Loadouts = require(script.Parent.Parent.Loadouts)
 
 local NV = Cfg.Normal
 local SQ = Cfg.Squads
@@ -38,6 +40,7 @@ local SP = Cfg.Sap
 local CV = Cfg.Move.Cover
 local FR = Cfg.Front
 local DH = Cfg.Dugouts.Heat
+local OF = Cfg.Offensive
 -- (the build list's and the gun spots' settings with the flanks', Config/Bots.Front.Flank)
 local Flanked = { plan = table.clone(BD), guns = table.clone(BD.Crews) }
 Flanked.plan.Flank = FR.Flank
@@ -234,6 +237,18 @@ local function giveUpSap(sqs: SquadState, members: { Bot }, d: number, now: numb
 	end
 end
 
+-- a sap ended at its deadline, at a ford, or because its side's offensive has moved on past gathering
+-- (Config/Bots.Sap): the squad goes on with the offensive and starts none for Sap.rest seconds
+local function endSap(sqs: SquadState, members: { Bot }, d: number, now: number)
+	sqs.sap = nil
+	sqs.markAt, sqs.markDist = now, d
+	sqs.noSapUntil = now + SP.rest
+	for _, b in members do
+		b.sapper = nil
+	end
+end
+
+-- (`allowed`: its side may start or keep a sap now, Rules/BotFront.sapNow: no initiative yet, or gathering)
 local function sapTick(
 	sqs: SquadState,
 	members: { Bot },
@@ -241,7 +256,8 @@ local function sapTick(
 	goalAt: Vector3,
 	radius: number,
 	now: number,
-	plan: string
+	plan: string,
+	allowed: boolean
 )
 	local sb = buildLists[sqs.side]
 	local d = flat(mid - goalAt).Magnitude
@@ -273,7 +289,7 @@ local function sapTick(
 		-- (none while one given up rests, or while pressing on out of the open)
 		local resting = (sqs.noSapUntil ~= nil and now < sqs.noSapUntil :: number)
 			or (sqs.pressUntil ~= nil and now < sqs.pressUntil :: number)
-		if resting or d <= radius * SP.edge or not BotFront.sapNow(plan, stalled, d - radius, FR) then
+		if resting or d <= radius * SP.edge or not BotFront.sapNow(plan, stalled, d - radius, FR, allowed) then
 			return
 		end
 		local head, best = nil, math.huge
@@ -288,7 +304,7 @@ local function sapTick(
 		if not head then
 			return
 		end
-		sqs.sap = { k = 0, head = head, goal = goalAt, open = {}, digs = {}, dugAt = now }
+		sqs.sap = { k = 0, head = head, goal = goalAt, open = {}, digs = {}, dugAt = now, began = now }
 		stats.saps += 1
 	end
 	local sap = sqs.sap :: Sap
@@ -301,6 +317,12 @@ local function sapTick(
 	local gaveUp = sap.run ~= nil and (sap.run :: BuildJob).gaveUp == true
 	if not over and sb and BotSap.failed(now - sap.dugAt, gaveUp, false, SP) then
 		giveUpSap(sqs, members, d, now)
+		return
+	end
+	if not over and not allowed then
+		-- (its side's offensive past gathering: Config/Bots.Sap)
+		stats.sapsDue += 1
+		endSap(sqs, members, d, now)
 		return
 	end
 	if over or not sb then
@@ -355,6 +377,12 @@ local function sapTick(
 			end
 		end
 	end
+	if not sap.run and BotSap.deadline(sap.k, now - (sap.began or now), SP) then
+		-- (its deadline: Config/Bots.Sap maxRuns, maxSeconds)
+		stats.sapsDue += 1
+		endSap(sqs, members, d, now)
+		return
+	end
 	if not sap.run then
 		sap.k += 1
 		local ax, az = sap.head.X, sap.head.Z
@@ -376,9 +404,27 @@ local function sapTick(
 			sap.parallel = true
 			stats.parallels += 1
 		end
-		if BotSap.failed(0, false, throughWater(ax, az, bx, bz), SP) then
-			giveUpSap(sqs, members, d, now)
-			return
+		if throughWater(ax, az, bx, bz) then
+			-- across water: bent to the nearest ford (Map.river.fords); by it already, the sap is over and the squad
+			-- wades on (Config/Bots.Sap.fordEnd)
+			local river = (Map :: any).river
+			local fx, fz = BotSap.ford(sap.head.X, sap.head.Z, goalAt.X, goalAt.Z, river and river.fords)
+			if not fx or not fz or sap.parallel then
+				giveUpSap(sqs, members, d, now)
+				return
+			end
+			if math.sqrt((fx - sap.head.X) ^ 2 + (fz - sap.head.Z) ^ 2) <= SP.fordEnd then
+				stats.sapFords += 1
+				endSap(sqs, members, d, now)
+				return
+			end
+			ax, az = sap.head.X, sap.head.Z
+			bx, bz = BotSap.run(ax, az, fx, fz, sap.k, { run = SP.run, angle = turn })
+			if throughWater(ax, az, bx, bz) then
+				stats.sapFords += 1
+				endSap(sqs, members, d, now)
+				return
+			end
 		end
 		local to = flat(goalAt - sap.head)
 		to = if to.Magnitude > 1e-3 then to.Unit else Vector3.xAxis
@@ -455,6 +501,12 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	local now = os.clock()
 	local front = fronts.sides[side] or { plan = "open" }
 	local enemy = if side == "West" then "East" else "West"
+	-- its offensive (Config/Bots.Offensive): its attack squads held back while it gathers and shells, then all in; saps
+	-- only before the initiative is first taken, or while gathering
+	local offence = front.off
+	local mayDig = fronts.initiative == nil or (offence ~= nil and offence.phase == "Gather")
+	local strong = fronts.strong[side] or {}
+	front.gathered, front.attackers = 0, 0
 	local groups: { [string]: { Bot } } = {}
 	local order: { string } = {}
 	for _, b in bots do
@@ -496,6 +548,16 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		end
 		table.insert(free, { x = rm.x, z = rm.z, free = n })
 	end
+	-- (exploiting: its first Offensive.exploitHold of the squads hold the zone, the rest cut the defenders' approach)
+	local offSquads, offIndex = 0, 0
+	if offence and offence.phase == "Exploit" then
+		for _, gkey in order do
+			local g1 = groups[gkey][1]
+			if g1.order ~= "Defend" and g1.sector == offence.sector then
+				offSquads += #Squads.form(groups[gkey], SQ.size, SQ.least)
+			end
+		end
+	end
 	for _, gkey in order do
 		local list = groups[gkey]
 		local first = list[1]
@@ -503,6 +565,9 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		local defend = first.order == "Defend"
 		local s = Map.sectors[sector]
 		local c = sectorPoint(sector)
+		local inOff = offence ~= nil and not defend and sector == offence.sector
+		local waitHere = inOff and Orders.waiting(offence)
+		local goHere = inOff and Orders.going(offence)
 		for k, members in Squads.form(list, SQ.size, SQ.least) do
 			local key = `{gkey}#{k}`
 			local st = squads[key]
@@ -673,6 +738,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				then 1
 				elseif living > 0 then ready / living
 				else 0
+			local gatheredHere = ready
 			if sqs.jump then
 				-- gathered in the jump-off trench: ready only once over the top
 				local there = 0
@@ -690,6 +756,11 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				end
 				local since = if sqs.jumpAt then now - (sqs.jumpAt :: number) else 0
 				readyShare = if sqs.jumpAt and BotTrenches.overTop(there, living, since, TM.Jump) then 1 else 0
+				gatheredHere = there
+			end
+			if inOff then
+				front.gathered = (front.gathered :: number) + math.min(gatheredHere, living)
+				front.attackers = (front.attackers :: number) + living
 			end
 			Squads.step(sqs.sq, {
 				now = now,
@@ -701,6 +772,8 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				theirs = (counts[sector] :: any)[enemy],
 				size = living,
 				moversThere = moversThere,
+				wait = waitHere,
+				go = goHere,
 			}, SQ)
 			if sqs.sq.phase == "Assault" and was ~= "Assault" then
 				stats.assaults += 1
@@ -724,7 +797,31 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					break
 				end
 			end
-			if not defend and sqs.sq.phase ~= "Assault" and lead then
+			-- gathering or under its barrage: a known enemy MG nest or gun near is its Grenadier's first throw, and a
+			-- squad with a Grenadier or Mage in it bounds at it while gathering (Config/Bots.Offensive.strong)
+			local strongAt: Vector3? = nil
+			if waitHere then
+				local bestD = OF.strong.reach
+				for _, sp in strong do
+					local dd = flat(sp.at - mid).Magnitude
+					if dd <= bestD then
+						strongAt, bestD = sp.at, dd
+					end
+				end
+			end
+			if strongAt then
+				sqs.bomb, sqs.bombAt = strongAt, now
+				if offence and offence.phase == "Gather" then
+					for _, b in members do
+						local m = b.m
+						if m and alive(b) and (b.grenades or Loadouts.classOf(m) == "Mage") then
+							pushAt = strongAt
+							break
+						end
+					end
+				end
+			end
+			if not pushAt and not defend and sqs.sq.phase ~= "Assault" and lead then
 				local kn = {}
 				for _, known in sqs.known do
 					if now - known.at <= SQ.knownFor then
@@ -769,6 +866,25 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			end
 			if sqs.bomb and now - (sqs.bombAt or 0) > PU.bombFor then
 				sqs.bomb = nil
+			end
+			-- exploiting: the squads past Offensive.exploitHold stand on the defenders' approach spots
+			if goHere and offence and offence.phase == "Exploit" then
+				offIndex += 1
+				if Orders.holdsZone(offIndex, offSquads, OF.exploitHold) then
+					sqs.cut = nil
+				elseif not sqs.cut then
+					local spots = Routes.spots(sector, enemy, false)
+					if spots and #spots > 0 then
+						local rolls = {}
+						for i in spots :: { Routes.Spot } do
+							rolls[i] = random:NextNumber()
+						end
+						local i = Squads.pickSpot(spots :: any, nil, {}, rolls, RT.weights, RT.nearCap)
+						sqs.cut = if i then (spots :: { Routes.Spot })[i].pos else nil
+					end
+				end
+			else
+				sqs.cut = nil
 			end
 			-- pushing in: a known enemy inside a building there is cleared out (its Assault bots go to the spot by it)
 			sqs.clear = nil
@@ -900,7 +1016,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 					b.goal = b.post
 				elseif role == "Assault" then
-					b.goal = sqs.clear or b.stand
+					b.goal = sqs.clear or sqs.cut or b.stand
 				elseif role == "Support" then
 					if b.roleWas ~= "Support" then
 						b.post = p -- (it holds where it stands, covering the others)
@@ -955,17 +1071,40 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				sqs.pressUntil = now + O.press
 				sqs.stillMid, sqs.stillAt = mid, now
 				stats.pressed += 1
+				-- (no ready check for a pinned squad unless its offensive holds it back: in now, fighting on the move)
+				if not waitHere and sqs.sq.phase ~= "Assault" then
+					sqs.sq.phase = "Assault"
+					stats.assaults += 1
+				end
 				for _, b in members do
 					if say(b, "Push") then
 						break
 					end
 				end
 			end
+			-- an Assault squad stuck out of the zone finds its way in again: fresh stand points, fresh paths
+			-- (Config/Bots.Offensive.stuckFor)
+			local share = if living > 0 then inZone / living else 0
+			if
+				not defend
+				and not sqs.cut
+				and Squads.restart(sqs.sq.phase, now - (sqs.stillAt :: number), share, OF.stuckFor)
+			then
+				sqs.stillMid, sqs.stillAt = mid, now
+				sqs.approach, sqs.mid, sqs.cut = nil, nil, nil
+				stats.restarts += 1
+				fronts.tally.restarts = (fronts.tally.restarts or 0) + 1
+				for _, b in members do
+					b.stand = standPoint(sector)
+					b.wander = nil
+					b.nav.pathAt = -math.huge
+				end
+			end
 			-- stuck under fire on the way: a sap forward (Rules/BotSap); a defending squad never saps
 			if defend then
 				sqs.sap = nil
 			else
-				sapTick(sqs, members, mid, c, s.radius, now, front.plan)
+				sapTick(sqs, members, mid, c, s.radius, now, front.plan, mayDig)
 			end
 		end
 	end
@@ -2065,6 +2204,179 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	end
 end
 
+-- Normal: the enemy MG nests and guns `side` knows of (Config/Bots.Offensive.strong): manned, on ground the enemy
+-- holds, with an enemy its squads knew of (`known`) close by; forgotten after `strong.forget` s or once left or wrecked
+local function knowStrong(side: string, owner: { string }, known: { Vector3 }, now: number)
+	local mine = fronts.strong[side] or {}
+	fronts.strong[side] = mine
+	local manned: { [Model]: boolean } = {}
+	for _, g in Artillery.list() do
+		local i = BotCrew.sectorAt(g.crew.X, g.crew.Z, Map.sectors)
+		if not g.free and not g.broken and i and owner[i] ~= side and owner[i] ~= "Neutral" then
+			manned[g.model] = true
+			for _, p in known do
+				if flat(p - g.crew).Magnitude <= OF.strong.seen then
+					mine[g.model] = { at = g.crew, seen = now }
+					break
+				end
+			end
+		end
+	end
+	for model, sp in mine do
+		if not manned[model] or model.Parent == nil or now - sp.seen > OF.strong.forget then
+			mine[model] = nil
+		end
+	end
+end
+
+-- Normal: what `side`'s guns shell before any group (Crew.command `first`; Config/Bots.Offensive): while its
+-- offensive gathers or shells, the known strongpoints within `strong.within` of the target (nearest it first); under
+-- the barrage then spots in the target's zone, then about half the enemy's dug squares there
+local function shellFirst(side: string, off: Orders.Offensive?): { Vector3 }?
+	if not off or not Orders.waiting(off) then
+		return nil
+	end
+	local tc = sectorPoint(off.sector)
+	local list: { Vector3 } = {}
+	for _, sp in fronts.strong[side] or {} do
+		if flat(sp.at - tc).Magnitude <= OF.strong.within then
+			table.insert(list, sp.at)
+		end
+	end
+	table.sort(list, function(a, b)
+		return flat(a - tc).Magnitude < flat(b - tc).Magnitude
+	end)
+	if off.phase == "Barrage" then
+		for _ = 1, OF.barragePoints do
+			local a = random:NextNumber() * 2 * math.pi
+			local r = OF.barrageSpread * math.sqrt(random:NextNumber())
+			table.insert(list, Routes.ground(tc.X + math.cos(a) * r, tc.Z + math.sin(a) * r))
+		end
+		local zone = Map.sectors[off.sector]
+		local foe = buildLists[if side == "West" then "East" else "West"]
+		for _, sq in (if foe then foe.squares else {}) :: { any } do
+			if math.sqrt((sq.x - zone.x) ^ 2 + (sq.z - zone.z) ^ 2) <= zone.radius and random:NextNumber() < 0.5 then
+				table.insert(list, Routes.ground(sq.x, sq.z))
+			end
+		end
+	end
+	return list
+end
+
+-- Normal: the initiative and each side's offensive, one commander tick (Rules/BotOrders.initiative, offensive;
+-- Config/Bots.Offensive): who took a sector, the holder's offensive stepped (its lives in and lost since Go counted),
+-- the initiative passed on a capture or a spent offensive, and the holder's offensive (re)started on its target
+local lives: { [string]: { [any]: any } } = {}
+local function initiativeTick(owner: { string }, counts: { { West: number, East: number } }, state: any, now: number)
+	local was = fronts.owners
+	local by = Orders.capturedBy(was, owner)
+	if was then
+		for i, o in was :: { string } do
+			if (o == "West" or o == "East") and owner[i] ~= o then
+				local l = fronts.lostAt[o] or {}
+				fronts.lostAt[o] = l
+				l[i] = now
+			end
+		end
+	end
+	local holder = fronts.initiative
+	local spent = false
+	local hs = if holder then fronts.sides[holder] else nil
+	local off = if hs then hs.off else nil
+	if holder and hs and off then
+		if Orders.going(off) then
+			local seen = lives[holder] or {}
+			lives[holder] = seen
+			for _, b in bots do
+				if b.side == holder and b.order == "Attack" then
+					if alive(b) and not b.deadAt and seen[b.id] ~= true then
+						seen[b.id] = true
+						off.went += 1
+					elseif b.deadAt and seen[b.id] == true then
+						seen[b.id] = b.deadAt
+						off.lost += 1
+					end
+				end
+			end
+		end
+		local enemy = if holder == "West" then "East" else "West"
+		local c = counts[off.sector] or { West = 0, East = 0 }
+		local was1 = off.phase
+		spent = Orders.offensive(off, {
+			now = now,
+			ready = if (hs.attackers or 0) > 0 then (hs.gathered or 0) / (hs.attackers :: number) else 0,
+			ours = (c :: any)[holder],
+			theirs = (c :: any)[enemy],
+			waveEvery = FrontCfg.Waves.every,
+		}, OF)
+		if off.phase == "Go" and was1 ~= "Go" and was1 ~= "Exploit" then
+			fronts.tally[`go{holder}`] = (fronts.tally[`go{holder}`] or 0) + 1
+		end
+		if spent then
+			fronts.tally[`spent{holder}`] = (fronts.tally[`spent{holder}`] or 0) + 1
+		end
+	end
+	if by and holder == by then
+		fronts.tally[`took{by}`] = (fronts.tally[`took{by}`] or 0) + 1
+	end
+	local now1 = Orders.initiative(holder, by, spent)
+	if now1 ~= holder then
+		for _, side in { "West", "East" } do
+			local fs = fronts.sides[side]
+			if fs then
+				fs.off = nil
+			end
+		end
+		fronts.initiative = now1
+	end
+	if now1 then
+		local fs = fronts.sides[now1]
+		local target = FrontRules.target(state, now1)
+		if fs and target and (not fs.off or (fs.off :: Orders.Offensive).sector ~= target) then
+			local lost = (fronts.lostAt[now1] or {})[target]
+			fs.off = Orders.newOffensive(target, now, lost ~= nil and now - lost <= OF.counterWithin)
+			lives[now1] = {}
+			fronts.tally[`began{now1}`] = (fronts.tally[`began{now1}`] or 0) + 1
+		elseif fs and not target then
+			fs.off = nil
+		end
+	end
+	-- (the readouts: each side's line, and the [Bots] line's summary)
+	for _, side in { "West", "East" } do
+		local fs = fronts.sides[side]
+		if fs then
+			local o = fs.off
+			if not now1 then
+				fs.note = "race for the first capture"
+			elseif o then
+				local t = math.floor(now - o.since)
+				local extra = if o.phase == "Gather"
+					then `, {math.floor(100 * (fs.gathered or 0) / math.max(fs.attackers or 0, 1))}% at the jump-off`
+					elseif Orders.going(o) then `, {o.lost} lost of {o.went} in`
+					else ""
+				local counter = if o.counter then " (counter)" else ""
+				fs.note = `offensive on S{o.sector}{counter}: {string.lower(o.phase)} {t} s{extra}`
+			else
+				fs.note = `holding: {now1} has the initiative`
+			end
+		end
+	end
+	local T = fronts.tally
+	fronts.summary = string.format(
+		"initiative %s; offensives W %d begun, %d went, %d spent, %d took; E %d begun, %d went, %d spent, %d took; %d assault squads restarted",
+		now1 or "none (race)",
+		T.beganWest or 0,
+		T.goWest or 0,
+		T.spentWest or 0,
+		T.tookWest or 0,
+		T.beganEast or 0,
+		T.goEast or 0,
+		T.spentEast or 0,
+		T.tookEast or 0,
+		T.restarts or 0
+	)
+end
+
 -- Normal: each side's commander (Rules/BotOrders) from the sectors on the Frontline folder: who attacks the side's
 -- target sector and who defends an own sector being taken; then its squads (formSquads)
 local function command()
@@ -2088,9 +2400,16 @@ local function command()
 	end
 	local state = { owner = owner, control = control }
 	ByTrench.counts = counts
+	-- (a new match: no initiative yet, the race for the middle)
+	if not fronts.owners then
+		fronts.initiative = nil
+		table.clear(fronts.lostAt)
+		table.clear(fronts.strong)
+		table.clear(fronts.tally)
+		table.clear(lives)
+	end
 	-- (a capture is contact for both sides; each side's plan: Rules/BotFront)
 	local captured = BotFront.captured(fronts.owners, owner)
-	fronts.owners = owner
 	for _, side in { "West", "East" } do
 		local fs = fronts.sides[side] or { plan = "open" }
 		fronts.sides[side] = fs
@@ -2098,7 +2417,12 @@ local function command()
 			fs.contactAt = os.clock()
 			stats.contacts += 1
 		end
-		fs.plan = BotFront.plan(fs.contactAt, fs.forced)
+	end
+	initiativeTick(owner, counts, state, os.clock())
+	fronts.owners = owner
+	for _, side in { "West", "East" } do
+		local fs = fronts.sides[side]
+		fs.plan = BotFront.plan(fs.contactAt, fs.forced, Orders.going(fs.off))
 	end
 	for _, side in { "West", "East" } do
 		local ids, current = {}, {}
@@ -2110,8 +2434,14 @@ local function command()
 		end
 		local front = BotBuild.front(Map.sectors, owner, side)
 		local target = FrontRules.target(state, side)
-		local plan = Orders.plan(side, owner, control, counts, target, NV.defendShare, front, TR.hold)
-		local given = Orders.assign(ids, current, Orders.defenders(#ids, plan.share, plan.attack ~= nil))
+		-- (the initiative: the side with it holds its front lighter; the other defends, but for a screen)
+		local lead = fronts.initiative == side
+		local plan =
+			Orders.plan(side, owner, control, counts, target, NV.defendShare, front, if lead then OF.hold else TR.hold)
+		if fronts.initiative and not lead then
+			plan = Orders.holdBack(plan, front, OF, SQ.size)
+		end
+		local given = Orders.assign(ids, current, Orders.defendersFor(plan, #ids))
 		for _, b in bots do
 			if b.side == side then
 				b.order = given[b.id]
@@ -2137,12 +2467,21 @@ local function command()
 		end
 		local shell = plan.attack or (front and front + (if side == "West" then 1 else -1))
 		local foe = buildLists[if side == "West" then "East" else "West"]
+		-- (its offensive: known MG nests and guns first, then its barrage on the zone: Config/Bots.Offensive)
+		knowStrong(side, owner, known, os.clock())
+		local fsd = fronts.sides[side]
+		local first = shellFirst(side, fsd and fsd.off)
+		local barrage = first ~= nil
+			and fsd ~= nil
+			and fsd.off ~= nil
+			and (fsd.off :: Orders.Offensive).phase == "Barrage"
 		Tactics.crew.command(
 			side,
 			owner,
 			known,
 			if shell and Map.sectors[shell] then sectorPoint(shell) else nil,
-			if foe then foe.squares else {}
+			if foe and not barrage then foe.squares else {},
+			first
 		)
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))

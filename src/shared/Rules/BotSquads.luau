@@ -32,6 +32,8 @@ export type Facts = {
 	theirs: number, -- the enemy's soldiers in the zone
 	size: number, -- the squad's living members
 	moversThere: boolean, -- the running half has reached its next stop
+	wait: boolean?, -- its side's offensive gathers or shells the zone: no push yet (Config/Bots.Offensive)
+	go: boolean?, -- its side's offensive has gone: in now, with no ready check
 }
 export type Spot = { hidden: boolean, near: number, distance: number, lane: number }
 
@@ -67,10 +69,18 @@ function BotSquads.step(sq: Squad, f: Facts, cfg: any)
 	if sq.phase == "Hold" then
 		sq.phase = "Move"
 	end
+	-- (an offensive: held back while it gathers and shells, then all in together)
+	if f.go then
+		sq.phase = "Assault"
+		return
+	end
+	if f.wait and sq.phase == "Assault" then
+		sq.phase = "Move"
+	end
 	-- the push: at the zone's edge with cover from the squad's fire, or nobody in the way, or more of us than them
 	local there = f.ready >= cfg.readyShare or f.inZone >= cfg.readyShare
 	local outnumber = f.ours + f.size > f.theirs + cfg.margin
-	if sq.phase == "Assault" or (there and (not f.contact or sq.phase == "Bound" or outnumber)) then
+	if not f.wait and (sq.phase == "Assault" or (there and (not f.contact or sq.phase == "Bound" or outnumber))) then
 		sq.phase = "Assault"
 		return
 	end
@@ -230,6 +240,12 @@ function BotSquads.pinned(
 	cfg: { after: number, cover: number }
 ): boolean
 	return living > 0 and underFire and still >= cfg.after and inCover < living * cfg.cover
+end
+
+-- Whether an Assault squad finds its way in again (Config/Bots.Offensive.stuckFor; the match test's "assault ... still
+-- 546 s"): out of the zone (`inZone` share of it under a half) with its middle still `still` >= `stuckFor` seconds.
+function BotSquads.restart(phase: Phase, still: number, inZone: number, stuckFor: number): boolean
+	return phase == "Assault" and inZone < 0.5 and still >= stuckFor
 end
 
 return BotSquads

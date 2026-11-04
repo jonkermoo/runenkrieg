@@ -12,10 +12,14 @@ local BotFront = {}
 
 BotFront.Plans = table.freeze({ "open", "trench", "assault", "flank" })
 
--- The side's plan: `forced` (the admin panel) first, else "trench" once it has had contact (`contactAt`), else "open".
-function BotFront.plan(contactAt: number?, forced: string?): string
+-- The side's plan: `forced` (the admin panel) first, else "assault" while its offensive has gone (`going`:
+-- Rules/BotOrders.going; Config/Bots.Offensive), else "trench" once it has had contact (`contactAt`), else "open".
+function BotFront.plan(contactAt: number?, forced: string?, going: boolean?): string
 	if forced then
 		return forced
+	end
+	if going then
+		return "assault"
 	end
 	return if contactAt then "trench" else "open"
 end
@@ -34,9 +38,16 @@ function BotFront.captured(was: { string }?, now: { string }): boolean
 end
 
 -- Whether an attacking squad saps now: stuck under fire (`stalled`: Rules/BotSap.stalled) in any plan; in "trench"
--- (and "flank") also once within `cfg.sapFrom` studs of its objective's zone edge (`toEdge`); never while assaulting.
-function BotFront.sapNow(plan: string, stalled: boolean, toEdge: number, cfg: { sapFrom: number }): boolean
-	if plan == "assault" then
+-- (and "flank") also once within `cfg.sapFrom` studs of its objective's zone edge (`toEdge`); never while assaulting,
+-- nor when `allowed` is false (its side holds the initiative and isn't gathering: Config/Bots.Sap).
+function BotFront.sapNow(
+	plan: string,
+	stalled: boolean,
+	toEdge: number,
+	cfg: { sapFrom: number },
+	allowed: boolean?
+): boolean
+	if plan == "assault" or allowed == false then
 		return false
 	end
 	if plan == "open" then

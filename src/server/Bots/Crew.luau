@@ -320,13 +320,16 @@ end
 
 -- `side`'s commander tick: its free guns on the sectors it holds given gunners (its defenders and Engineers on gun
 -- duty), and its targets: the enemies its squads know (`known`) in groups, and the sector to fall back on
--- (`dug`: the enemy's dug trench squares: its groups in the open shelled before those in a trench, Crew.trench)
+-- (`dug`: the enemy's dug trench squares: its groups in the open shelled before those in a trench, Crew.trench), and
+-- `first`: spots shelled before any group (an offensive's known MG nests and guns, its barrage on the zone:
+-- Config/Bots.Offensive)
 function Crew.command(
 	side: string,
 	owner: { string },
 	known: { Vector3 },
 	fallback: Vector3?,
-	dug: { { x: number, z: number } }?
+	dug: { { x: number, z: number } }?,
+	first: { Vector3 }?
 )
 	local now = os.clock()
 	local have = 0
@@ -405,7 +408,7 @@ function Crew.command(
 	for i, g in groups do
 		spots[i] = { x = g.X, z = g.Z }
 	end
-	local ordered = {}
+	local ordered = table.clone(first or {})
 	for _, i in Rules.openFirst(spots, dug or {}, C.trench) do
 		table.insert(ordered, groups[i])
 	end

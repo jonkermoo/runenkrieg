@@ -9,6 +9,7 @@ local IndoorCfg = require(Shared.Config.Indoors)
 local BuildCfg = require(Shared.Config.Build)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
+local BotOrders = require(Shared.Rules.BotOrders)
 local Build = require(script.Parent.Parent.Build)
 
 local TR = Cfg.Trenches
@@ -194,6 +195,9 @@ local stats = {
 	saps = 0, -- squads that began to sap forward
 	sapRuns = 0, -- sap runs dug
 	sapsFailed = 0, -- saps given up (refused, through water, or none dug in Sap.dig s)
+	sapsDue = 0, -- saps ended at their deadline or as their side's offensive moved on (Config/Bots.Sap)
+	sapFords = 0, -- saps ended at, or bent to, a ford instead of across water
+	restarts = 0, -- Assault squads stuck out of the zone that found their way again (Config/Bots.Offensive.stuckFor)
 	pressed = 0, -- squads pinned in the open that pressed on (Squads.Open)
 	dangerPaths = 0, -- paths asked for knowing there's danger (kept to trenches)
 	intoTrench = 0, -- shot at in the open, down into a trench nearby
@@ -242,10 +246,29 @@ local squads: { [string]: SquadState } = {}
 local buildLists: { [string]: SideBuild } = {}
 
 -- Normal: how each side fights forward (Rules/BotFront, Config/Bots.Front): when it first had contact, the admin
--- panel's plan for it, its plan now; and the sectors' owners at the commander's last look (a capture is contact)
+-- panel's plan for it, its plan now; and the sectors' owners at the commander's last look (a capture is contact).
+-- The initiative (Config/Bots.Offensive): the side holding it (nil: the race at the start), each side's offensive and
+-- its line for the readouts (`note`), its attack squads' members at their jump-off last tick (`gathered` of
+-- `attackers`), when it lost each sector, the enemy strongpoints it knows (gun or nest model: where, when last known),
+-- and the match's tallies (`tally`: offensives begun, gone, spent, captured, per side; Assault squads restarted).
 local fronts = {
-	sides = {} :: { [string]: { contactAt: number?, forced: string?, plan: string } },
+	sides = {} :: {
+		[string]: {
+			contactAt: number?,
+			forced: string?,
+			plan: string,
+			off: BotOrders.Offensive?,
+			note: string?,
+			gathered: number?,
+			attackers: number?,
+		},
+	},
 	owners = nil :: { string }?,
+	initiative = nil :: string?,
+	lostAt = {} :: { [string]: { [number]: number } },
+	strong = {} :: { [string]: { [Model]: { at: Vector3, seen: number } } },
+	tally = {} :: { [string]: number },
+	summary = nil :: string?, -- the [Bots] line's offensives part
 }
 -- the build job a bot takes on its side's list (Rules/BotBuild.pick): an Engineer any within Build.take; a digger (half
 -- a holding squad, any class) a trench run or square within Build.take, wire wanting swings within Build.help; nil if
