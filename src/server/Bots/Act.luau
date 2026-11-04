@@ -142,7 +142,11 @@ local function pickFrom(
 		local fits = engineer or Kinds.small[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
 		-- (`share`: a square wanting swings may have more than one digger)
 		local busy = held[r] == true and not (share and r.model ~= nil)
-		taken[k] = busy or not fits or (j.key == "Tree" and not Tactics.fell.ready(b.id))
+		local skip = b.skipJobs and (b.skipJobs :: any)[r]
+		taken[k] = busy
+			or not fits
+			or (j.key == "Tree" and not Tactics.fell.ready(b.id))
+			or (skip ~= nil and os.clock() < skip)
 	end
 	-- a gun of its side out of service (Rules/BotCrew.repairOrder): the nearest anywhere first, fixed before it is manned
 	local notFix: { [number]: boolean } = {}
@@ -288,6 +292,10 @@ local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
 		w = { job = r, at = at, since = now, brave = brave == true }
 		b.work = w
 		stats.workTaken += 1
+		local n = b.jobNote
+		if not n or n.job ~= r then
+			b.jobNote = { job = r, since = now, landed = now, starts = 0, stops = 0, swings = 0, why = "taken" }
+		end
 	else
 		w.at = at
 	end
@@ -296,6 +304,9 @@ local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
 		b.act = { kind = "Build", job = r, started = now }
 		b.workState = "working"
 		stats.workStarted += 1
+		if b.jobNote then
+			(b.jobNote :: any).starts += 1
+		end
 	else
 		b.workState = if near then "waiting" else "going"
 	end
@@ -794,17 +805,40 @@ end
 
 -- a build, one think of it: to the job, the piece laid (once), then Build swings at it until it wants none, the
 -- shovel in hand; given up when it's shot at, sees an enemy, the job leaves the list or takes too long
+-- why `b` broke off its build job (the job readout, b.jobNote)
+local function stopped(b: Bot, why: string)
+	local n = b.jobNote
+	if n then
+		n.stops += 1
+		n.why = why
+	end
+end
+
 -- the job over (done, refused, gone): nothing to go back to
-local function quit(b: Bot)
+local function quit(b: Bot, why: string)
+	stopped(b, why)
 	b.work, b.workState = nil, nil
 	finish(b)
+end
+
+-- refused there (its lay, its way or a swing): the job left to others for Work.skip s, the bot takes another meanwhile
+local function giveUp(b: Bot, r: BuildJob, why: string, now: number)
+	local skip = b.skipJobs or setmetatable({}, { __mode = "k" }) :: any
+	for job, untilAt in skip do
+		if untilAt <= now then
+			skip[job] = nil
+		end
+	end
+	skip[r] = now + BD.Work.skip
+	b.skipJobs = skip
+	quit(b, why)
 end
 
 local function doBuild(b: Bot, act: Act, now: number): boolean
 	local r = act.job :: BuildJob
 	local m, humanoid, root = b.m :: Model, b.humanoid :: Humanoid, b.root :: BasePart
 	if not r.open or now - act.started > BD.seconds then
-		quit(b)
+		quit(b, if r.open then "too long" else "off the list")
 		return false
 	end
 	-- danger mid-work: the tool dropped, the gun out, the job kept to go back to once safe (Config/Bots.Build.Work)
@@ -812,6 +846,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	local hurt = b.hurtAt ~= nil and (b.hurtAt :: number) > act.started
 	if hurt or not safeHere(b, r, work ~= nil and work.brave, now) then
 		stats.workStopped += 1
+		stopped(b, if hurt then "hurt" else "not safe")
 		finish(b)
 		if work then
 			work.since = math.max(work.since, now - BD.Work.keep / 2) -- (a while yet to get back to it)
@@ -828,7 +863,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		if w and how == "around" then
 			stats.around += 1
 			refused(r, now)
-			quit(b)
+			giveUp(b, r, "way blocked", now)
 			return false
 		end
 		tear = w
@@ -838,8 +873,15 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	-- (it lays a piece from behind it, its own side; it swings at one from where it is)
 	local reach = if job.key == "Tree" then BD.Trees.stand elseif swingAt then BuildCfg.SwingReach - 1 else BD.stand + 2
 	if flat(spot - root.Position).Magnitude > reach then
-		if work and flat(spot - root.Position).Magnitude > reach + BD.Work.near * 2 then
+		-- (far off by takeJob's own measure, from where the job is worked from: by another, a bot near enough to begin
+		-- there was far off here at once, and began again the next think)
+		local from, fromReach = workAt(r)
+		if tear then
+			from, fromReach = spot, reach
+		end
+		if work and flat(from - root.Position).Magnitude > fromReach + BD.Work.near * 2 then
 			-- (far off still: walked to with the gun out, fighting on the way)
+			stopped(b, "far off")
 			finish(b)
 			b.workState = "going"
 			return false
@@ -859,8 +901,13 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			if reason == nil then
 				stats.torn += 1
 				act.swingAt = Build.nextSwing("Destroy", act.swingAt, now)
+				local n = b.jobNote
+				if n then
+					n.swings += 1
+					n.landed = now
+				end
 			elseif reason ~= "Too soon" then
-				quit(b) -- (gone, or out of reach)
+				giveUp(b, r, `tear down: {reason}`, now) -- (gone, or out of reach)
 				return false
 			end
 		end
@@ -884,7 +931,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			end
 			stats.keptOff += 1
 			refused(r, now, "on its side's trench lines")
-			quit(b)
+			giveUp(b, r, "kept off the lines", now)
 			return false
 		end
 		local reason = if job.key == "Trench"
@@ -913,7 +960,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		end
 		if reason then
 			refused(r, now, reason)
-			quit(b)
+			giveUp(b, r, `lay: {reason}`, now)
 			return false
 		end
 		stats.laid += 1
@@ -922,7 +969,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		end
 		local w = laidFor(b, job)
 		if not w then
-			quit(b) -- (it is on the next tick's list)
+			quit(b, "laid, not listed yet") -- (it is on the next tick's list)
 			return false
 		end
 		r.model, r.at, r.left = w.model, w.at, w.left
@@ -944,13 +991,18 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			elseif b.postKind == "open" and b.post and flat((b.post :: Vector3) - floor).Magnitude <= BD.stand + 4 then
 				b.post, b.postFloor, b.goal = floor, floor, floor
 			end
-			quit(b)
+			quit(b, "foxhole dug")
 			return false
 		elseif reason == nil then
 			stats.swings += 1
 			act.swingAt = Build.nextSwing(mode, act.swingAt, now)
+			local n = b.jobNote
+			if n then
+				n.swings += 1
+				n.landed = now
+			end
 		elseif reason ~= "Too soon" then
-			quit(b) -- (whole now, or gone)
+			giveUp(b, r, `swing: {reason}`, now) -- (whole now, or gone; or it can't be worked from here)
 			return false
 		end
 	end

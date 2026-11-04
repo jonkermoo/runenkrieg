@@ -512,6 +512,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotEngineersAttribute):Connect(showEngineers)
 	showEngineers()
+	-- every bot with a build job: how long on it, since its last swing, and why it last broke off
+	order += 1
+	local jobs = DevPanel.heading(p.panel, "", order)
+	jobs.Size = UDim2.new(1, -8, 0, 140)
+	jobs.TextWrapped = true
+	jobs.TextYAlignment = Enum.TextYAlignment.Top
+	local function showJobs()
+		local s = workspace:GetAttribute(A.BotJobsAttribute)
+		jobs.Text = `Bot jobs (longest without a swing first):\n{if type(s) == "string" then s else "none now"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotJobsAttribute):Connect(showJobs)
+	showJobs()
 	local botDigs: { [number]: TextButton } = {}
 	for _, k in A.BotDig.steps do
 		botDigs[k] = row(`BotDig{k}`, if k == 1 then "Bot digging: normal" else `Bot digging: x{k}`, "BotDig", k)
