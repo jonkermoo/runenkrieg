@@ -796,9 +796,12 @@ return {
 		assert(A.fadeStep(0.8, 0, 4, 0.1) == 0.4 and A.fadeStep(0.1, 0, 4, 0.1) == 0, "back, not past")
 		assert(F.see > 0 and F.see < 1, "faded, not gone")
 	end,
-	["the field gun's camera frames its gunner and the landing"] = function()
+	["the field cannon's and the howitzer's cameras frame their gunner and the landing"] = function()
+		for _, g in { QF, HOW } do
+			local f = g.camera.frame :: any
+			assert(f and f.most > 1 and f.step > 0 and f.share > 0 and f.share < 1 and g.sheet == true)
+		end
 		local F = QF.camera.frame :: any
-		assert(F and F.most > 1 and F.step > 0 and F.share > 0 and F.share < 1)
 		-- the gunner at the origin, the landing 400 north (-z): behind (+z), left (-x), up
 		local x, y, z = A.frameAt(F, 1, 0, 0, 0, 0, -400)
 		assert(near(x, F.side) and near(y, F.up) and near(z, F.back), "behind, over and to the side")

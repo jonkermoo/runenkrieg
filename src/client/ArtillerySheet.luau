@@ -1,12 +1,13 @@
 --!strict
 -- The gunner's map sheet and elevation quadrant (Config/Artillery.Sheet; user 2026-11-03, the aiming plan: "Option C,
 -- but move the camera angle too so you can see yourself as well as where you're hitting"), bottom left while I'm on a
--- gun with `sheet` (the field gun), in place of its cut-away panel (src/client/ArtilleryHud):
+-- gun with `sheet` (the field cannon and the howitzer; the crew's panel and its reload stay bottom right:
+-- src/client/ArtilleryHud):
 -- - the sheet: the live map's sketch round the gun (src/client/SketchMap: its sectors, front and points; plain paper on
 --   a map without one), the reach cap's circle dashed, the line the gun is laid along, the gun, and a cross where the
 --   shell comes down with the shell's wounding reach round it, moving as it is laid;
--- - the quadrant: the gun's elevation stops ticked, the lobs past `split` in amber, the needle at the lay, and under it
---   the elevation, the range and the reload (Config/Hud.Artillery.timer, "Ready" once loaded).
+-- - the quadrant: the gun's elevation stops ticked, the lobs past `split` in amber, the needle at the lay, and beside it
+--   the elevation, the range and the flight time.
 --   ArtillerySheet.start(); ArtillerySheet.landing(at?, flight?): where my gun's shell comes down now (src/client/
 --   Artillery), nil while it lands nowhere
 
@@ -17,7 +18,6 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Artillery)
 local Damage = require(Shared.Config.Damage)
-local HudCfg = require(Shared.Config.Hud)
 local Palette = require(Shared.Config.Palette)
 local SketchCfg = require(Shared.Config.SketchMap) :: any
 local LiveMap = require(Shared.LiveMap)
@@ -104,7 +104,6 @@ type View = {
 	needle: Frame,
 	elevation: TextLabel,
 	distance: TextLabel,
-	reload: TextLabel,
 	quadrant: Frame,
 }
 
@@ -183,16 +182,23 @@ local function build(model: Model, gun: any, sheet: Frame, dial: Frame): View
 		local a = math.rad(deg)
 		return pivot + Vector2.new(math.cos(a), -math.sin(a)) * r * k
 	end
+	-- (the low / lob split only on a gun laid both ways: the howitzer only lobs, all amber)
+	local both = lo < S.split and hi > S.split
+	local function lobbed(e: number): boolean
+		return e > S.split or not both
+	end
 	for e = lo, hi, 1 do
-		local col = if e > S.split then amber else paper
+		local col = if lobbed(e) then amber else paper
 		Ink.segment(q, at(e, 1), at(math.min(e + 1, hi), 1), S.stroke, col, 0.1)
 	end
 	for e = math.ceil(lo / S.tick) * S.tick, hi, S.tick do
 		local long = e % 15 == 0 or e == S.split
-		local col = if e > S.split then amber else paper
+		local col = if lobbed(e) then amber else paper
 		Ink.segment(q, at(e, if long then S.long else S.short), at(e, 1), S.stroke, col, 0.1)
 	end
-	Ink.segment(q, at(S.split, S.splitMark[1]), at(S.split, S.splitMark[2]), S.bold, amber, 0)
+	if both then
+		Ink.segment(q, at(S.split, S.splitMark[1]), at(S.split, S.splitMark[2]), S.bold, amber, 0)
+	end
 	local function tickLabel(e: number, s: string)
 		local l = text(q, `Tick{e}`, S.text * 0.75, paper, 2)
 		l.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -202,7 +208,9 @@ local function build(model: Model, gun: any, sheet: Frame, dial: Frame): View
 	end
 	tickLabel(lo, `{lo}°`)
 	tickLabel(hi, `{hi}°`)
-	tickLabel(S.split, "lob")
+	if both then
+		tickLabel(S.split, "lob")
+	end
 	-- (a bar twice the needle's length turned about its middle, only its outer half drawn: a Frame turns about its
 	-- centre)
 	local needle = frame(q, "Needle", nil, 3)
@@ -222,8 +230,6 @@ local function build(model: Model, gun: any, sheet: Frame, dial: Frame): View
 	elevation.Position = UDim2.fromOffset(x, top)
 	local distance = text(q, "Distance", S.text, paper, 4)
 	distance.Position = UDim2.fromOffset(x, top + S.text * S.rows[2])
-	local reload = text(q, "Reload", S.text, paper, 4)
-	reload.Position = UDim2.fromOffset(x, top + S.text * S.rows[3])
 
 	return {
 		model = model,
@@ -239,7 +245,6 @@ local function build(model: Model, gun: any, sheet: Frame, dial: Frame): View
 		needle = needle,
 		elevation = elevation,
 		distance = distance,
-		reload = reload,
 		quadrant = q,
 	}
 end
@@ -297,12 +302,6 @@ local function update(v: View)
 	v.needle.Rotation = -elevation
 	v.elevation.Text = string.format("%.1f°", elevation)
 	v.distance.Text = if metres then `{metres} m · {string.format("%.1f", flightOf or 0)} s` else "no landing"
-	local t = workspace:GetServerTimeNow()
-	local share = Rules.loaded(t, (model:GetAttribute("ReadyAt") :: number?) or -math.huge, gun.reload)
-	v.reload.Text = if share >= 1
-		then "Ready"
-		else `Loading {string.format(HudCfg.Artillery.timer, math.floor(share * 1000) / 10)}`
-	v.reload.TextColor3 = if share >= 1 then rgb(Palette.Artillery.Marker) else rgb(GR.paper)
 end
 
 function ArtillerySheet.start()

@@ -133,7 +133,7 @@ export type Gun = {
 		fov: number,
 		frame: { side: number, back: number, up: number, step: number, most: number, share: number, ease: number }?,
 	},
-	-- the gunner's map sheet and elevation quadrant (src/client/ArtillerySheet) in place of the cut-away panel
+	-- the gunner's map sheet and elevation quadrant (src/client/ArtillerySheet), beside the crew's panel
 	sheet: boolean?,
 	-- the elevation it is placed at (nil: level, or its lowest when that is above level)
 	rest: number?,
@@ -353,8 +353,9 @@ local Artillery = {
 	-- one) round the gun, `around` studs past its reach cap each way along the map, `size` pixels at `margin` from the
 	-- corner; the gun, the line it is laid along, the reach cap (dashed, `dash` / `gap` pixels), the landing cross with
 	-- the shell's wounding reach; the quadrant `dial` pixels, ticked every `tick` degrees, `split` marked (low shots
-	-- under it, lobs over), and beside it a column `readout` pixels wide: the elevation, the range and flight time, the
-	-- reload in tenths of a percent (Config/Hud.Artillery.timer)
+	-- under it, lobs over; a gun laid only over it, the howitzer, all lobs), and beside it a column `readout` pixels
+	-- wide: the elevation, the range and flight time. The reload stays on the crew's panel, bottom right (user
+	-- 2026-11-03: "keep the reload hud on the bottom right")
 	Sheet = {
 		size = { 380, 190 },
 		margin = { 24, 24 },
@@ -385,7 +386,7 @@ local Artillery = {
 		long = 0.86,
 		splitMark = { 0.8, 1.04 },
 		label = 1.12,
-		rows = { 0.22, 2.2, 3.6 },
+		rows = { 0.22, 2.2 },
 	},
 
 	-- Firing (user 2026-10-20: "have the character play a brace animation or prepare for loud explosion animation when
@@ -794,7 +795,7 @@ local Artillery = {
 		-- 18-pounder, still its key): traverse 4.5, recoil 46 in, the breech 100 degrees.
 		artillery_qf18 = {
 			asset = "artillery_qf18",
-			name = "75/27 Déport",
+			name = "Field Cannon", -- (user 2026-11-03: "keep the name of the field cannon a field cannon"; the 75/27 Déport model)
 			base = "Carriage",
 			-- (each part's accent pieces, Palette.Artillery.Roles, ride with it)
 			mount = { "Mount", "MountTrim", "MountFittings", "MountMarking" },
@@ -1099,7 +1100,19 @@ local Artillery = {
 			-- (the 42 cm's was side -12, up 28.5, back 20, pitch -21, fov 70, from high over its 10.5-deep pit; this one
 			-- stands 3 down, so the camera comes down and in with it: high behind the gunner's left over the sandbags,
 			-- looking down past the crystal at the landing)
-			camera = { side = -9, up = 16, back = 15, yaw = 25, pitch = -16, follow = 0, fov = 70 },
+			-- (user 2026-11-03: "do something similar for the howitzer too": framed as the field cannon, from higher up
+			-- over the sandbags round its pit)
+			camera = {
+				side = -9,
+				up = 16,
+				back = 15,
+				yaw = 25,
+				pitch = -16,
+				follow = 0,
+				fov = 70,
+				frame = { side = -6, back = 14, up = 10, step = 0.5, most = 8, share = 0.45, ease = 3 },
+			},
+			sheet = true,
 			-- the bed and its ring gear first, then the carriage, the cradle, the barrel, the breech and the crystal last
 			assembly = {
 				{ names = { "Bed", "RingGear" }, at = 0 },

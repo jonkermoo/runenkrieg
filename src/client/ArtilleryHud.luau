@@ -355,9 +355,7 @@ function ArtilleryHud.start()
 
 	RunService.RenderStepped:Connect(function()
 		local model = mine()
-		-- (a gun with a map sheet shows that instead: src/client/ArtillerySheet)
-		local sheet = model and ((Cfg.Guns :: any)[model:GetAttribute("Gun") :: any] or {}).sheet == true
-		panel.gui.Enabled = model ~= nil and not sheet
+		panel.gui.Enabled = model ~= nil
 		local said = if notice and os.clock() < notice.untilAt then notice.text else nil
 		if model and model:GetAttribute(Cfg.SpawnGuard.attribute) == true then
 			said = Cfg.SpawnGuard.why
