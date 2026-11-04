@@ -31,6 +31,16 @@ return {
 			assert(not R.ears(kg, 1, E), `staff stage {stage} never`)
 		end
 	end,
+	["a helmet hit moves the view no more than an explosion's knock"] = function()
+		local blast = { R.shape(C.Blast.least, "Blast", C), R.shape(1, "Blast", C) }
+		local helmet = { R.shape(C.Helmet.least, "Helmet", C), R.shape(1, "Helmet", C) }
+		local kick = require("../src/shared/Config/CameraShake").Blast.size
+		for i = 1, 2 do
+			assert(helmet[i].tilt <= blast[i].tilt + 0.05, `tilt {i}`)
+			assert(helmet[i].sway <= blast[i].sway + 0.05, `sway {i}`)
+			assert(helmet[i].snap <= kick, `snap {i}`)
+		end
+	end,
 	["a near blast concusses by its overpressure, on a log scale up to most"] = function()
 		local N = C.Near
 		assert(R.near(N.from, N) == 0 and R.near(1, N) == 0, "under from: nothing")

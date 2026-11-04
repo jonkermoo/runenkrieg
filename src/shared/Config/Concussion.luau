@@ -97,7 +97,11 @@ local Concussion = {
 				aim = 2.5,
 			},
 		},
-		-- a round ringing off the helmet and knocking it away: sharper and higher than a shell, and long (user 2026-11-03)
+		-- a round ringing off the helmet and knocking it away: sharper and higher than a shell, and long (user 2026-11-03).
+		-- The view moves no more than an explosion's knock (user 2026-11-04: "the mouse shakes too much from the helmet
+		-- knock. make it the same intensity as an explosion knock"): tilt and sway as Blast's from its weakest throw
+		-- (Concussion.Blast.least) to Heavy, the head's snap no bigger than a blast's camera kick right by it
+		-- (Config/CameraShake.Blast.size)
 		Helmet = {
 			Light = {
 				at = 0.3,
@@ -107,9 +111,9 @@ local Concussion = {
 				saturation = -0.3,
 				brightness = -0.05,
 				vignette = 0.5,
-				tilt = 2,
-				sway = 1.5,
-				snap = 6,
+				tilt = 1.4,
+				sway = 0.5,
+				snap = 0.6,
 				flash = 0.4,
 				ring = 0.5,
 				ringFor = 7.5,
@@ -130,8 +134,8 @@ local Concussion = {
 				brightness = -0.1,
 				vignette = 0.7,
 				tilt = 4,
-				sway = 2.5,
-				snap = 9,
+				sway = 1.5,
+				snap = 1.2,
 				flash = 0.5,
 				ring = 0.6,
 				ringFor = 10.5,
