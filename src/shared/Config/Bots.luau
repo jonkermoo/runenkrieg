@@ -361,7 +361,23 @@ local Bots = {
 		-- One that gets no `gain` studs nearer it in `stall` s on its way (and isn't fighting) leaves it to others for
 		-- `lost` s (an Engineer stood 4 minutes "going" to a Howitzer spot it had no way to, taking it again each time
 		-- `keep` ran out: Rules/BotBuild.stalled).
-		Work = { near = 3, keep = 60, skip = 30, stall = 20, gain = 3, lost = 120 },
+		-- The job's own clock (survives a re-take of the same job, b.jobNote): no swing landed for `noSwing` s since it was
+		-- taken (or its last swing), or begun and broken off within `flapWithin` s of beginning `flapMax` times, and the
+		-- bot leaves it to others for `lost` s (2026-11-04 match test: "Trench going: on it 3,273 s, swings 0"; "began
+		-- 541, broke off 541"). A job `giveUpAfter` bots left for no way there (stall), no swing or flapping is out of
+		-- reach for its side: refused (Act.refused), so the planner nudges its spot or drops it for a while.
+		Work = {
+			near = 3,
+			keep = 60,
+			skip = 30,
+			stall = 20,
+			gain = 3,
+			lost = 120,
+			noSwing = 60,
+			flapMax = 5,
+			flapWithin = 2,
+			giveUpAfter = 3,
+		},
 		Nest = { ahead = 2, count = 3 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
@@ -758,6 +774,12 @@ local Bots = {
 		WaypointSpacing = 6,
 		AgentRadius = 1.6,
 		AgentHeight = 5,
+		-- the idle watchdog (src/server/Bots think): a bot off its post (`post` studs), not crewing, down, acting or
+		-- fighting, out of its zone, that has moved no `studs` in `seconds` s has its job, guard and goal dropped and walks
+		-- to its stand point (else the zone) for up to `push` s; counted in the [Bots] line ("idle resets"). (2026-11-04
+		-- match test: bots stood 2-23 minutes "going to Trench, no goal" or at "goal 0 studs" far from their post.)
+		-- (`seconds` 25, not 20: a squad waits up to Squads.waitMax 20 s at a waypoint for its members)
+		Idle = { seconds = 25, studs = 3, post = 4, push = 15 },
 		InZoneShare = 0.9, -- within this share of the zone's radius it counts as in the zone (and wanders there)
 		SprintFrom = 60, -- studs to the goal over which an advancing bot sprints
 		-- inside the zone: a new spot to stand on every this many seconds, within this share of the radius

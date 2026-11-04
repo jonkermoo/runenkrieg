@@ -56,9 +56,9 @@ local ByTrench = {
 	marks = {} :: { [Model]: BasePart },
 	folder = nil :: Folder?,
 	top = require(Shared.Rules.Build).trenchTop(BuildCfg.Trench), -- (a square's half width at its wall tops)
-	-- each side's bots' deaths this match: all, in a trench square, by a shell (Config/Bots.Trenches.Stats; the admin
+	-- each side's bots' deaths this match: all, in a trench square, by a shell, in a sector's capture zone (Config/Bots.Trenches.Stats; the admin
 	-- trench stats)
-	deaths = {} :: { [string]: { all: number, trench: number, shell: number } },
+	deaths = {} :: { [string]: { all: number, trench: number, shell: number, zone: number } },
 }
 for _, name in TM.materials do
 	ByTrench.costs[name] = TM.open
@@ -219,6 +219,10 @@ local stats = {
 	workStarted = 0, -- tools out there, once safe
 	workStopped = 0, -- tools dropped for the gun mid-work (danger)
 	workStalled = 0, -- jobs left on the way, no nearer for Work.stall s (no way there)
+	workNoSwing = 0, -- jobs left with no swing landed for Work.noSwing s
+	workFlapped = 0, -- jobs left after Work.flapMax starts broken off at once
+	workOutOfReach = 0, -- jobs Work.giveUpAfter bots left: refused for their side (moved or dropped)
+	idleResets = 0, -- bots standing still off their post reset by the idle watchdog (Config/Bots.Move.Idle)
 	guarded = 0, -- teammates guarded, gun out, before a drag or heal (Config/Bots.Actions.Guard)
 	rescues = 0, -- casualties claimed by one rescuer (Config/Bots.Actions.Rescue)
 	rescuesLet = 0, -- claims let go (the rescuer dead or pulled away)
