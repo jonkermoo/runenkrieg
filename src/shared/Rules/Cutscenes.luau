@@ -99,7 +99,8 @@ function Cutscenes.taken(map: any, winner: Side?): number
 end
 
 -- Every anchor a shot can name on `map` ({ x, z }): S1..Sn, Mark1..Markn, WestSpawn, EastSpawn, Home (the spawn of
--- `home`, the West's without one), Taken (for `winner`), Centre.
+-- `home`, the West's without one), Taken (for `winner`), Centre, Landmark (the map's first special building: its
+-- headline one; else Centre).
 function Cutscenes.anchors(map: any, home: Side?, winner: Side?, reach: number): { [string]: { number } }
 	local out: { [string]: { number } } = {}
 	for i, s in map.sectors do
@@ -112,6 +113,8 @@ function Cutscenes.anchors(map: any, home: Side?, winner: Side?, reach: number):
 	out.Home = if home == "East" then out.EastSpawn else out.WestSpawn
 	out.Taken = out[`S{Cutscenes.taken(map, winner)}`]
 	out.Centre = out[`S{math.ceil(#map.sectors / 2)}`]
+	local first = map.village and map.village.specials and map.village.specials[1]
+	out.Landmark = if first then { first.x, first.z } else out.Centre
 	return out
 end
 
@@ -138,10 +141,12 @@ function Cutscenes.sector(u: number, n: number): (number, number)
 	return i, math.clamp(s - (i - 1), 0, 1)
 end
 
--- A "Sectors" shot's own shot at point `i`: its styles taken in turn, their anchors "S" and "Mark" named for that point
--- (S3, Mark3), their orbits turned `turn` radians a point on.
-function Cutscenes.sectorShot(shot: any, i: number): any
-	local style = shot.styles[(i - 1) % #shot.styles + 1]
+-- A "Sectors" shot's own shot at point `i`: its styles taken in turn (a point with no landmark, `bare`, its
+-- `bareStyles`: the flag on its rise), their anchors "S" and "Mark" named for that point (S3, Mark3), their orbits
+-- turned `turn` radians a point on; the whole shot turned round its anchor by `spins[i]` radians when given.
+function Cutscenes.sectorShot(shot: any, i: number, bare: boolean?): any
+	local styles = if bare and shot.bareStyles then shot.bareStyles else shot.styles
+	local style = styles[(i - 1) % #styles + 1]
 	local out = table.clone(style)
 	local function named(key: any): any
 		if type(key) ~= "table" then
@@ -161,6 +166,26 @@ function Cutscenes.sectorShot(shot: any, i: number): any
 		local spin = (shot.turn or 0) * (i - 1)
 		out.from, out.to = style.from + spin, style.to + spin
 	end
+	-- turned further round the point by `spins[i]` radians (the client's: a view the trees don't block)
+	local spin = shot.spins and shot.spins[i] or 0
+	if spin ~= 0 then
+		if out.kind == "Orbit" then
+			out.from, out.to = out.from + spin, out.to + spin
+		else
+			local c, sn = math.cos(spin), math.sin(spin)
+			local function turned(key: any): any
+				if type(key) ~= "table" then
+					return key
+				end
+				local k = table.clone(key)
+				local dx, dz = k.dx or 0, k.dz or 0
+				k.dx, k.dz = dx * c - dz * sn, dx * sn + dz * c
+				return k
+			end
+			out.from, out.to, out.look, out.lookTo =
+				turned(out.from), turned(out.to), turned(out.look), turned(out.lookTo)
+		end
+	end
 	return out
 end
 
@@ -177,7 +202,9 @@ function Cutscenes.pose(
 ): Pose
 	if shot.kind == "Sectors" then
 		local i, v = Cutscenes.sector(u, #points)
-		return Cutscenes.pose(Cutscenes.sectorShot(shot, i), v, anchors, points, false, paperUp)
+		local mark, point = anchors[`Mark{i}`], anchors[`S{i}`]
+		local bare = mark ~= nil and point ~= nil and mark[1] == point[1] and mark[2] == point[2]
+		return Cutscenes.pose(Cutscenes.sectorShot(shot, i, bare), v, anchors, points, false, paperUp)
 	end
 	local roll = (shot.roll or 0) * (if flip then -1 else 1)
 	if shot.kind == "Paper" then

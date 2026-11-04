@@ -24,11 +24,12 @@
 -- A place: { at = anchor, dx, dz, up } (studs east, north and over the ground at that spot). Anchors: S1..Sn (the
 -- points), Mark1..Markn (each point's landmark: Rules/Cutscenes.landmark), WestSpawn / EastSpawn (the spawn zones'
 -- middles), Home (the viewer's side's spawn), Taken (the match's last capture: the loser's HQ; no winner: the middle
--- point), Centre (the middle point). `mirror`: "home" / "winner": a shot written for the West is mirrored east-west when
--- that side is East (dx turned round, orbit angles reflected). `roll`: a Dutch tilt (degrees). `caption`: a title card
--- (Captions). `paper`: "out" (the sheet fades as the shot goes) / "in" (fades in). `flash`: an impact frame (white,
--- then ink). `stamps`: the point seals stamped along the bottom bar as the shot goes (the Front's as it passes each
--- point; otherwise in the winner's colour, one after another). `fov`: the camera's field of view (default `Fov`).
+-- point), Centre (the middle point), Landmark (the map's headline building: its first special). `mirror`: "home" /
+-- "winner": a shot written for the West is mirrored east-west when that side is East (dx turned round, orbit angles
+-- reflected). `roll`: a Dutch tilt (degrees). `caption`: a title card (Captions). `paper`: "out" (the sheet fades as
+-- the shot goes) / "in" (fades in). `flash`: an impact frame (white, then ink). `stamps`: the point seals stamped along
+-- the bottom bar as the shot goes (the Front's as it passes each point; otherwise in the winner's colour, one after
+-- another). `fov`: the camera's field of view (default `Fov`).
 
 local Cutscenes = {
 	Fov = 60,
@@ -43,6 +44,17 @@ local Cutscenes = {
 	-- the armory streams in every spot the next flight looks at before it plays (Net "MapLoad"): spots this many studs
 	-- apart (closer ones are asked for once)
 	LoadSpacing = 60,
+	-- each point's shot in the flight turned round its point (radians, tried in order) until no tree, hill or other house
+	-- stands between the camera and what it looks at (`at`: through the point's shot; rays to the spot looked at, `wide`
+	-- of the half frame to either side and over it; a hit within `near` studs of where a ray aims, or on the point's own
+	-- landmark, counts as clear; no part within `room` studs of the camera): user 2026-11-03, "not just trees"
+	ClearView = {
+		turns = { 0, 0.8, -0.8, 1.6, -1.6, 2.4, -2.4, 3.14, 0.4, -0.4, 1.2, -1.2, 2.0, -2.0, 2.8, -2.8 },
+		at = { 0.1, 0.5, 0.9 },
+		near = 14,
+		wide = 0.6,
+		room = 7,
+	},
 	-- skipping: hold this key (or press the Skip button) this long
 	Skip = { key = "Space", hold = 0.6, text = "Hold Space to skip", touch = "Skip" }, -- (an Enum.KeyCode name)
 	-- the title cards: text keys (the client fills in the map, the nations, the winner)
@@ -71,24 +83,24 @@ local Cutscenes = {
 	-- The pre-match flight (plays over the countdown, Config/Frontline.CountdownSeconds, after a match: a fresh server
 	-- goes in behind a loading screen instead, src/client/EndScenes). User 2026-11-03: "cinematic shots circling and
 	-- going around and peeking points of interest in sectors ... change angles to a new sector whenever a new sector is
-	-- being described ... not just flying over the map showing everything": a high slow orbit over the middle with
-	-- the title, then one shot per point (`Sectors`: the point's share of the shot each, cut as the narrator's order for
-	-- it starts, Speech.plans) round its landmark, its seal stamped as it cuts in; then round your own soldier and into
-	-- its own view by the whistle.
-	-- A "Sectors" shot's own shots are its `styles` in turn, at the point's landmark ("Mark") or the point ("S"); an
-	-- orbit's angles turned `turn` radians further at each point, so no two cuts look the same way.
+	-- being described ... not just flying over the map showing everything": low over the village toward its headline
+	-- landmark with the title (the real map, not a miniature: user 2026-11-03), then one shot per point (`Sectors`: the
+	-- point's share of the shot each, cut as the narrator's order for it starts, Speech.plans) round its landmark, its
+	-- seal stamped as it cuts in; then round your own soldier and into its own view by the whistle.
+	-- A "Sectors" shot's own shots are its `styles` in turn, at the point's landmark ("Mark") or the point ("S"); a
+	-- point with no landmark (an open rise: the only thing there is its flag) its `bareStyles`; an orbit's angles
+	-- turned `turn` radians further at each point, so no two cuts look the same way.
 	Pre = {
 		shots = {
+			-- low over the village, drifting toward the map's headline landmark (the church on Map 1): the map at a
+			-- soldier's scale, its places, not a model of it seen from high up nor a sea of trees (user 2026-11-03)
 			{
 				name = "Establish",
 				t1 = 2.8,
-				kind = "Orbit",
-				at = "Centre",
-				radius = 380,
-				up = 170,
-				lookUp = 0,
-				from = -1.95,
-				to = -1.6,
+				kind = "Move",
+				from = { at = "Landmark", dx = -175, dz = 185, up = 55 },
+				to = { at = "Landmark", dx = -140, dz = 150, up = 50 },
+				look = { at = "Landmark", up = 20 },
 				fov = 50,
 				caption = "Title",
 			},
@@ -137,6 +149,29 @@ local Cutscenes = {
 						to = 0.95,
 						roll = -7,
 						fov = 44,
+					},
+				},
+				-- a point with no building near (an open rise): its flag on the hill, from low on the slope
+				bareStyles = {
+					-- circling the flag low on its rise
+					{
+						kind = "Orbit",
+						at = "S",
+						radius = 55,
+						up = 16,
+						lookUp = 11,
+						from = -2.5,
+						to = -1.9,
+						fov = 42,
+					},
+					-- pushing in over the slope, the flag on the crest
+					{
+						kind = "Move",
+						from = { at = "S", dx = 80, dz = -55, up = 13 },
+						to = { at = "S", dx = 58, dz = -40, up = 15 },
+						look = { at = "S", up = 11 },
+						roll = 4,
+						fov = 38,
 					},
 				},
 			},

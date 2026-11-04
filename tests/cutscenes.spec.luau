@@ -76,6 +76,27 @@ local tests: { [string]: () -> () } = {
 			prev = b
 		end
 	end,
+	["a point's shot turned round its anchor keeps its distance and its target (the client's clear view)"] = function()
+		local anchors = { S1 = { 100, 50 }, Mark1 = { 130, 60 }, S2 = { 500, 0 }, Mark2 = { 520, 30 } }
+		local pts = { { 100, 50 }, { 500, 0 } }
+		local shot = table.clone(Cfg.Pre.shots[2])
+		for _, u in { 0.1, 0.4, 0.6, 0.9 } do
+			local plain = R.pose(shot, u, anchors, pts, false, 0)
+			shot.spins = { 1.3, -2.2 }
+			local spun = R.pose(shot, u, anchors, pts, false, 0)
+			shot.spins = nil
+			local function flat(p: R.Pose): number
+				return math.sqrt((p.eye.x - p.look.x) ^ 2 + (p.eye.z - p.look.z) ^ 2)
+			end
+			assert(math.abs(flat(plain) - flat(spun)) < 1e-6, "the same distance")
+			assert(
+				math.abs(plain.look.x - spun.look.x) < 1e-6 and math.abs(plain.look.z - spun.look.z) < 1e-6,
+				"same target"
+			)
+			assert(plain.eye.up == spun.eye.up, "the same height")
+			assert(math.abs(plain.eye.x - spun.eye.x) + math.abs(plain.eye.z - spun.eye.z) > 1, "from somewhere else")
+		end
+	end,
 	["the armory waits for the next map to stream in, at most Loading.max (user 2026-11-03)"] = function()
 		local L = Front.Loading
 		assert(not R.loadOver(L.least - 1, L.least, L.max, 0), "the narrator's first part first")
@@ -404,6 +425,30 @@ for name, fn in
 						end
 					end
 				end
+			end,
+			["each point's shot frames its building, or its flag where it has none, at a soldier's height"] = function()
+				local pts = points(map)
+				local anchors = R.anchors(map, "West", nil, Cfg.LandmarkReach)
+				local shot = Cfg.Pre.shots[2]
+				local pole = 20 -- (Config/Flagpole.Pole.height)
+				for i = 1, #pts do
+					local p = R.pose(shot, (i - 0.5) / #pts, anchors, pts, false, 0)
+					if R.landmark(map, i, Cfg.LandmarkReach) then
+						assert(
+							p.look.x == anchors[`Mark{i}`][1] and p.look.z == anchors[`Mark{i}`][2],
+							`S{i}: its building`
+						)
+					else
+						assert(p.look.x == pts[i][1] and p.look.z == pts[i][2], `S{i}: its flag`)
+						assert(p.look.up > 0 and p.look.up < pole, `S{i}: looks up at the flag`)
+						assert(p.eye.up < pole, `S{i}: from low on its rise`)
+					end
+				end
+				local open = Cfg.Pre.shots[1]
+				assert(open.from.up < 60, "the opening shot low over the ground, not a model seen from high")
+				local first = map.village.specials[1]
+				local o = R.pose(open, 0.5, anchors, pts, false, 0)
+				assert(o.look.x == first.x and o.look.z == first.z, "the opening looks at the map's headline landmark")
 			end,
 			["the flight cuts to each point in turn, west to east, each from a new angle"] = function()
 				local pts = points(map)

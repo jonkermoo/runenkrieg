@@ -402,6 +402,77 @@ local function world(p: Rules.Place): Vector3
 	return Vector3.new(p.x, groundAt(p.x, p.z) + p.up, p.z)
 end
 
+-- Each point's own shot turned round it until nothing stands between the camera and what it looks at (a tree, the
+-- hill, another house): Config/Cutscenes.ClearView's turns tried in order, the first clear one kept (none clear: the
+-- shot as written).
+local function clearViews(
+	cut: any,
+	map: any,
+	key: string,
+	anchors: { [string]: { number } },
+	points: { { number } }
+): any
+	local V = Cfg.ClearView
+	local root = workspace:FindFirstChild(key)
+	local buildings = root and root:FindFirstChild("Village") and (root :: any).Village:FindFirstChild("Buildings")
+	local out = table.clone(cut)
+	out.shots = table.clone(cut.shots)
+	for k, shot in out.shots do
+		if shot.kind == "Sectors" then
+			local s = table.clone(shot)
+			s.spins = {}
+			for i = 1, #points do
+				local id = Rules.landmark(map, i, Cfg.LandmarkReach)
+				local target = id and buildings and buildings:FindFirstChild(id)
+				local function clear(): boolean
+					for _, u in V.at do
+						local pose = Rules.pose(s, (i - 1 + u) / #points, anchors, points, false, Cfg.Paper.up)
+						local eye, look = world(pose.eye), world(pose.look)
+						-- nothing right at the camera (a trunk filling half the frame)
+						if #workspace:GetPartBoundsInRadius(eye, V.room) > 0 then
+							return false
+						end
+						-- and nothing across the frame: rays to the spot looked at and to either side and over it
+						local cf = CFrame.lookAt(eye, look)
+						local half = (look - eye).Magnitude * math.tan(math.rad(pose.fov or Cfg.Fov) / 2) * V.wide
+						for _, to in
+							{
+								look,
+								look + cf.RightVector * half,
+								look - cf.RightVector * half,
+								look + cf.UpVector * half * 0.6,
+							}
+						do
+							local hit = workspace:Raycast(eye, to - eye)
+							if
+								hit
+								and (hit.Position - to).Magnitude > V.near
+								and not (target and hit.Instance:IsDescendantOf(target))
+							then
+								return false
+							end
+						end
+					end
+					return true
+				end
+				local found = false
+				for _, spin in V.turns do
+					s.spins[i] = spin
+					if clear() then
+						found = true
+						break
+					end
+				end
+				if not found then
+					s.spins[i] = 0
+				end
+			end
+			out.shots[k] = s
+		end
+	end
+	return out
+end
+
 local function sideOfMe(folder: Instance): Rules.Side?
 	local c = player.Character
 	local kit = c and c:GetAttribute("Kit")
@@ -734,6 +805,8 @@ local function begin(kind: string, folder: Instance)
 	for _, s in map.sectors do
 		table.insert(points, { s.x, s.z })
 	end
+	local anchors = Rules.anchors(map, home, winner, Cfg.LandmarkReach)
+	cut = clearViews(cut, map, key, anchors, points)
 	local westKit, eastKit = folder:GetAttribute("West"), folder:GetAttribute("East")
 	local fill = {
 		map = map.name,
@@ -750,7 +823,7 @@ local function begin(kind: string, folder: Instance)
 		length = length,
 		startAt = startAt,
 		map = map,
-		anchors = Rules.anchors(map, home, winner, Cfg.LandmarkReach),
+		anchors = anchors,
 		points = points,
 		home = home,
 		winner = winner,
