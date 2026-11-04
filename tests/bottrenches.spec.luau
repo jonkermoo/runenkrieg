@@ -158,6 +158,20 @@ return {
 		assert(m.x > 0 and m.x <= 50, "the main system's fire trench lies forward of the zone's middle")
 	end,
 
+	["openFirst: crews shell the groups in the open before those in a trench"] = function()
+		local Crew = require("../src/shared/Rules/BotCrew")
+		local groups = { { x = 0, z = 0 }, { x = 100, z = 0 }, { x = 200, z = 0 } }
+		local out = Crew.openFirst(groups, { { x = 2, z = 0 } }, Cfg.Crew.trench)
+		assert(out[1] == 2 and out[2] == 3 and out[3] == 1)
+		assert(#Crew.openFirst({ groups[1] }, {}, Cfg.Crew.trench) == 1)
+	end,
+
+	["trench squares under shells: sturdier than other structures"] = function()
+		local T2 = Build.Trench.blast
+		assert(T2.field.hit < Build.Structures.field.hit and T2.howitzer.hit < Build.Structures.howitzer.hit)
+		assert(math.ceil(Build.Trench.hp.max / T2.field.hit) >= 4, "four direct field hits to bury a square")
+	end,
+
 	["deathKind: in a trench square, by a shell"] = function()
 		local S = T.Stats
 		local squares = { { x = 0, z = 0 }, { x = 8, z = 0 } }

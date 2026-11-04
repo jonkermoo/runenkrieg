@@ -1102,6 +1102,26 @@ function Guns.spots(
 			or no(key, "shot blocked or out of reach")
 	end)
 end
+-- the fire step a dug square gives facing the enemy's way (tx, tz): across its own line, turned with its tilt, its
+-- floor riding up as it is buried (Rules/BotTrenches.firePost); nil for a square with no line
+local function stepOf(w: Build.Work, tx: number, tz: number): TrenchPost?
+	local m = w.model
+	local a, e, tilt = m:GetAttribute("BlockA"), m:GetAttribute("BlockB"), m:GetAttribute("Tilt")
+	if typeof(a) ~= "Vector3" or typeof(e) ~= "Vector3" then
+		return nil
+	end
+	local TB, B = BuildCfg.Trench, require(Shared.Rules.Build)
+	local lean = if type(tilt) == "number" then tilt else 0
+	local sq = { ax = a.X, ay = a.Y, az = a.Z, bx = e.X, by = e.Y, bz = e.Z, tilt = lean }
+	local fill = B.trenchSink(B.trenchDepth(w.hp, true, TB.hp), TB)
+	local p = BotTrenches.firePost(sq, tx, tz, STEP, TR.rise, TB.depth, fill)
+	return {
+		pos = Vector3.new(p.sx, p.sy, p.sz),
+		floor = Vector3.new(p.fx, p.fy, p.fz),
+		face = Vector3.new(p.ox, 0, p.oz),
+	}
+end
+
 -- the threats a side's runs toward the enemy are dug against (Config/Bots.Trenches.Zigzag): the enemy's next sector
 -- from its front, and the enemies its squads know of
 local function threatsOf(side: string, front: number, now: number): { Vector3 }
@@ -1790,20 +1810,11 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				local d, t = BotTrenches.offRun(w.at.X, w.at.Z, run.ax, run.az, run.bx, run.bz)
 				if d <= TR.on + 1 and t >= -0.05 and t <= 1.05 then
 					if run.kind == "Fire" then
-						-- (across its own line, turned with its tilt; its floor riding up as it is buried)
-						local m = w.model
-						local a, e, tilt = m:GetAttribute("BlockA"), m:GetAttribute("BlockB"), m:GetAttribute("Tilt")
-						if typeof(a) == "Vector3" and typeof(e) == "Vector3" then
-							local TB, B = BuildCfg.Trench, require(Shared.Rules.Build)
-							local lean = if type(tilt) == "number" then tilt else 0
-							local sq = { ax = a.X, ay = a.Y, az = a.Z, bx = e.X, by = e.Y, bz = e.Z, tilt = lean }
-							local fill = B.trenchSink(B.trenchDepth(w.hp, true, TB.hp), TB)
-							local p = BotTrenches.firePost(sq, tx, tz, STEP, TR.rise, TB.depth, fill)
-							table.insert(sbs.steps, {
-								pos = Vector3.new(p.sx, p.sy, p.sz),
-								floor = Vector3.new(p.fx, p.fy, p.fz),
-								face = Vector3.new(p.ox, 0, p.oz),
-							})
+						local step = stepOf(w, tx, tz)
+						if step then
+							local a, e =
+								w.model:GetAttribute("BlockA") :: Vector3, w.model:GetAttribute("BlockB") :: Vector3
+							table.insert(sbs.steps, step)
 							bays[k] = true
 							table.insert(fireSquares, {
 								x = w.at.X,
@@ -1826,6 +1837,25 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 					end
 					break
 				end
+			end
+		end
+	end
+	-- the enemy's trench squares dug in its front zone, taken over rather than left (Config/Bots.Trenches.takeOver; user
+	-- 2026-11-04: "bots just destroy incoming trenches"): a fire step on each, facing the enemy's way from here (the
+	-- parapet turned), its holders' posts as their own
+	for _, w in Clear.every do
+		if
+			w.key == "Trench"
+			and w.team ~= kit
+			and w.built
+			and w.hp >= TR.standHp
+			and flat(w.at - Vector3.new(zone.x, w.at.Y, zone.z)).Magnitude <= zone.radius + TR.takeOver
+		then
+			local step = stepOf(w, tx, tz)
+			if step then
+				table.insert(sbs.steps, step)
+				table.insert(sbs.squares, { x = w.at.X, z = w.at.Z, at = w.at })
+				stats.taken += 1
 			end
 		end
 	end
@@ -2022,7 +2052,14 @@ local function command()
 			end
 		end
 		local shell = plan.attack or (front and front + (if side == "West" then 1 else -1))
-		Tactics.crew.command(side, owner, known, if shell and Map.sectors[shell] then sectorPoint(shell) else nil)
+		local foe = buildLists[if side == "West" then "East" else "West"]
+		Tactics.crew.command(
+			side,
+			owner,
+			known,
+			if shell and Map.sectors[shell] then sectorPoint(shell) else nil,
+			if foe then foe.squares else {}
+		)
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))
 		Tactics.fell.list(side, buildLists[side])

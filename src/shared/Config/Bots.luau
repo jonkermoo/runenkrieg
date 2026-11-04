@@ -477,6 +477,9 @@ local Bots = {
 		-- trenches, each `step` of the way on to the enemy's next sector, joined back by a communication trench (a
 		-- zig-zag where the enemy sees down it), none within `keep` studs of that sector's zone
 		Forward = { lines = 2, step = 1 / 3, keep = 60 },
+		-- the enemy's dug squares within `takeOver` studs of its front zone's edge give it fire steps as its own (the
+		-- parapet turned: user 2026-11-04, "bots just destroy incoming trenches")
+		takeOver = 30,
 		-- a system sited on the clearest ground (Map 1's sectors stand in woods: a measured match's runs met a tree 64
 		-- times in 81 tries): of its fire line `edges` of the zone's radius out (a forward line: that far on or back from
 		-- its spot) and `shifts` studs across, the first with the fewest standing trees within `clear` studs of its fire
@@ -538,7 +541,7 @@ local Bots = {
 		near = 120,
 		blast = 15,
 		blastNear = 40,
-		open = 4,
+		open = 6, -- (was 4: with the trench priority's lines to use, user 2026-11-04)
 		label = "Trench",
 		materials = {
 			"Grass",
@@ -831,7 +834,12 @@ local Bots = {
 	-- - MGs (user: "Yes, at seen enemies"): at a target it sees within the gun's range, bursts `burst.on` s held and
 	--   `burst.off` s let go; a new box once the box is empty, or under `topUp` of it with nothing to shoot at.
 	Crew = {
-		max = 7, -- (every gun and nest its bots build manned: 4 guns and 3 nests, user 2026-11-03: "utilize cannons and mgnests more")
+		-- (every gun and nest its bots build manned: 4 guns and 3 nests, user 2026-11-03: "utilize cannons and mgnests
+		-- more"; 7 to 5 with the trench priority, user 2026-11-04: "most fights end up being artillery")
+		max = 5,
+		-- its guns shell the known groups in the open first, then those within `trench` studs of an enemy dug square
+		-- (Rules/BotCrew.openFirst)
+		trench = 8,
 		walk = 300,
 		crewFirst = 60,
 		walkFor = 45,

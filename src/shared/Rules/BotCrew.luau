@@ -156,4 +156,25 @@ function BotCrew.burst(t: number, cfg: { on: number, off: number }): boolean
 	return t >= 0 and t % (cfg.on + cfg.off) < cfg.on
 end
 
+-- The order to shell its known enemy groups (`groups`, biggest first; their indices): those in the open before those
+-- within `within` studs of one of the enemy's dug trench squares (`dug`), each kept in its order (user 2026-11-04, the
+-- trench priority: "most fights end up being artillery"; Config/Bots.Crew.trench)
+function BotCrew.openFirst(groups: { Spot }, dug: { Spot }, within: number): { number }
+	local open, dugIn = {}, {}
+	for i, g in groups do
+		local inTrench = false
+		for _, s in dug do
+			if (s.x - g.x) ^ 2 + (s.z - g.z) ^ 2 <= within * within then
+				inTrench = true
+				break
+			end
+		end
+		table.insert(if inTrench then dugIn else open, i)
+	end
+	for _, i in dugIn do
+		table.insert(open, i)
+	end
+	return open
+end
+
 return BotCrew

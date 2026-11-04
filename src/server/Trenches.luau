@@ -1342,6 +1342,19 @@ function Trenches.work(blk: Block, _team: string, mode: string, power: number, s
 	return false, 0
 end
 
+-- Structures' blasts as they hit a trench square (Trench.blast in place of their own numbers)
+local squareBlast: { [any]: any } = {}
+for key, src in C.Structures do
+	local o = T.blast[key]
+	if type(src) == "table" and o then
+		local merged = table.clone(src)
+		for k, v in o do
+			merged[k] = v
+		end
+		squareBlast[src] = merged
+	end
+end
+
 -- dug squares buried by blasts and bullets this match, by team (the admin trench stats: src/server/Bots/Report)
 local buried: { [string]: number } = {}
 
@@ -1368,6 +1381,7 @@ end
 -- share by how far the blast is from its ground (its hole, walls and banks: 0 on or in them)
 function Trenches.blast(position: Vector3, src: any)
 	local S = C.Structures
+	src = squareBlast[src] or src
 	local hit = {}
 	for _, blk in blocks do
 		if live(blk) and blk.hp > 0 then

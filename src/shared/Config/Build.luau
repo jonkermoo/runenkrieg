@@ -143,6 +143,10 @@ local Build = {
 		-- to the end, the floor riding up on the fill and the dirt heaps sinking `heapSink` studs by 0 HP, so about 20 HP
 		-- is barely any cover; the 75% cut-off where the pieces went is gone)
 		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
+		-- shells at a trench square (user 2026-11-04, the trench priority: "bots just destroy incoming trenches"; a measured
+		-- match's shells buried a side's fresh lines): these in place of Structures' own for a square (soldiers, pieces
+		-- and buildings as there); a dug square takes four direct field hits, a near miss little
+		blast = { field = { hit = 25, reach = 7 }, howitzer = { hit = 50, reach = 9 } },
 		heapSink = 2.6,
 		-- the shape: floor half width, depth, walls at `wallAngle` (Metrics MaxSlopeAngle decides whether you can walk
 		-- up them), earth thrown up as a bank along both edges (the pit's rim; `bank` below)

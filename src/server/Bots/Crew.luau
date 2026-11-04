@@ -318,7 +318,14 @@ end
 
 -- `side`'s commander tick: its free guns on the sectors it holds given gunners (its defenders and Engineers on gun
 -- duty), and its targets: the enemies its squads know (`known`) in groups, and the sector to fall back on
-function Crew.command(side: string, owner: { string }, known: { Vector3 }, fallback: Vector3?)
+-- (`dug`: the enemy's dug trench squares: its groups in the open shelled before those in a trench, Crew.trench)
+function Crew.command(
+	side: string,
+	owner: { string },
+	known: { Vector3 },
+	fallback: Vector3?,
+	dug: { { x: number, z: number } }?
+)
 	local now = os.clock()
 	local have = 0
 	local taken: { [Model]: boolean } = {}
@@ -392,7 +399,15 @@ function Crew.command(side: string, owner: { string }, known: { Vector3 }, fallb
 		end
 		table.insert(groups, Vector3.new(grp.x, y, grp.z))
 	end
-	targets[side] = { groups = groups, fallback = fallback }
+	local spots = {}
+	for i, g in groups do
+		spots[i] = { x = g.X, z = g.Z }
+	end
+	local ordered = {}
+	for _, i in Rules.openFirst(spots, dug or {}, C.trench) do
+		table.insert(ordered, groups[i])
+	end
+	targets[side] = { groups = ordered, fallback = fallback }
 end
 
 -- Admin.Captured: a label over each captured gun with its verdict, while Workspace has the switch on

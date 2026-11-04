@@ -185,6 +185,7 @@ local stats = {
 	breastworks = 0, -- breastworks put on the list where a trench run was refused
 	pioneers = 0, -- bots put on trench duty (Config/Bots.Trenches.pioneers)
 	forward = 0, -- forward lines planned (Config/Bots.Trenches.Forward)
+	taken = 0, -- fire steps on enemy trench squares taken over (Config/Bots.Trenches.takeOver), each tick
 	partRuns = 0, -- trench runs planned part way, the rest from there (Config/Bots.Trenches.Tree)
 	walls = 0, -- walls put on the list round nests and guns
 	saps = 0, -- squads that began to sap forward
