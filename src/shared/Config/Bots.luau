@@ -332,7 +332,11 @@ local Bots = {
 		Nest = { ahead = 2, count = 3 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
-		caps = { pieces = 100, FieldGun = 3, Howitzer = 1 },
+		-- (the guns and MG nests: its share in each sector, user 2026-11-03: "cannons and artys built should be by sector.
+		-- max 6 mgs and cannons and 3 howitzers per sector": half each of Config/Build `sectorCap`, the howitzers' rounded
+		-- up; its team's own there and captured ones it uses count, Rules/BotCrew.captured; was 3 field guns and 1
+		-- howitzer over the whole map)
+		caps = { pieces = 100, FieldGun = 3, Howitzer = 2, MGNest = 3 },
 		-- Cover (user 2026-11-02: "have AI build areas of cover with sandbags and barriers", all four kinds; any class
 		-- lays sandbag piles and barriers, Config/Classes):
 		-- - Breast: a trench run refused at every spot (Trenches.tries) gets a breastwork along its line instead, a lay job
@@ -361,7 +365,7 @@ local Bots = {
 		-- house or tree in the way); Config/DevTools.Admin.GunArcs shows them.
 		Crews = {
 			max = 2,
-			enough = 4, -- (all the guns its bots build: caps 3 field guns and 1 howitzer, user 2026-11-03)
+			enough = 5, -- (all the guns its bots build in a sector: caps 3 field guns and 2 howitzers, user 2026-11-03)
 			back = { 90, 60, 30 },
 			across = { 0, -60, 60, -120, 120, -180, 180 },
 			spawnGap = 40,
@@ -794,9 +798,11 @@ local Bots = {
 		-- A gun the enemy built on ground the side now holds (Rules/BotCrew.captured): looked at every `every` s; an MG
 		-- nest's shot is clear when nothing stands within `sight` studs along its line toward the enemy (its sight
 		-- `eye` studs over its pivot), a field gun's or howitzer's when its flown shot (low or lobbed) lands on the
-		-- enemy's sector; a blocked MG nest is wrecked by an Engineer if it takes at most `wreckSwings` Destroy swings.
-		-- Config/DevTools.Admin.Captured labels each with its verdict.
-		captured = { every = 10, sight = 60, eye = 1.7, wreckSwings = 12 },
+		-- enemy's sector. It stands safe (Rules/BotCrew.safeSpot; user 2026-11-03: "usable and in a safe spot") with no
+		-- enemy its squads know of within `safe.threat` studs and no more than `safe.ahead` studs past its sector's middle
+		-- toward the enemy. Clear and safe: used, and counted against the sector's guns (Build `caps`); otherwise wrecked
+		-- by Engineers (user: "Wreck them all"). Config/DevTools.Admin.Captured labels each with its verdict.
+		captured = { every = 10, sight = 60, eye = 1.7, safe = { threat = 60, ahead = 30 } },
 	},
 
 	-- the server's log line (cost and how the fights go) every this many seconds while bots are on; 0 none

@@ -1964,6 +1964,52 @@ function Build.placeAs(model: Model, key: string, at: Vector3 | CFrame, look: Ve
 	return place(b, key, cf)
 end
 
+-- Why gun `key` (a Config/Build.Pieces key of kind "Gun") can't stand at `at` (its spot, facing its way): the ground
+-- checks a bot's Build.placeAs makes there (open, dry and gentle ground, nothing in the way, off trenches and other
+-- guns, a plane to lay it on), none of the caps or reach; nil when it can (the bots' gun spots, src/server/Bots/Commander;
+-- user 2026-11-03: the bots built no howitzers: the 28-stud pit's scored spots were all "In the way")
+function Build.siteFor(key: string, at: CFrame): string?
+	local piece = Rules.piece(key, C.Pieces)
+	if not piece or piece.kind ~= "Gun" then
+		return "No such gun"
+	end
+	local frame = Survey.frame(at.Position, at.LookVector)
+	local y = Survey.groundAt(frame.Position.X, frame.Position.Z, frame.Position.Y) or frame.Position.Y
+	local gunAt = CFrame.new(frame.Position.X, y, frame.Position.Z) * frame.Rotation
+	frame = Survey.box(piece, gunAt)
+	local f = folder()
+	local report = Survey.ground(piece, frame)
+	frame = CFrame.new(frame.Position.X, report.centre, frame.Position.Z) * frame.Rotation
+	local ok, reason = Rules.canPlace({
+		piece = piece,
+		distance = 0,
+		reach = math.huge,
+		slope = report.slope,
+		maxSlope = piece.maxSlope or C.Trench.maxSlope,
+		ground = report.ground,
+		water = report.water,
+		overlap = Survey.blocked(piece, frame, report.low) or Survey.onPiece(piece, frame, f),
+		overTrench = Survey.overTrench(piece, frame, f),
+		gunGap = Survey.gunGap(piece, gunAt.Position, f),
+		nearTrench = Survey.nearTrench(piece, frame, f),
+		mine = 0,
+		team = 0,
+		kind = 0,
+		mineKind = 0,
+		sector = 0,
+		perPlayer = math.huge,
+		perTeam = math.huge,
+		allowed = true,
+	})
+	if not ok then
+		return reason or "Can't build here"
+	end
+	if piece.lay and not Survey.lay(piece, frame, report) then
+		return "Too steep"
+	end
+	return nil
+end
+
 -- Plans a trench from `from` to `to` (ground points); the bot within Config/Build.Trench.firstReach of either end.
 function Build.planAs(model: Model, from: Vector3, to: Vector3): string?
 	local b = bot(model)

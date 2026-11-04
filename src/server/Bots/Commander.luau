@@ -17,7 +17,6 @@ local Buildings = require(Shared.Rules.BotBuildings)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotSap = require(Shared.Rules.BotSap)
-local Survey = require(Shared.BuildSurvey)
 local BotCrew = require(Shared.Rules.BotCrew)
 local BotFront = require(Shared.Rules.BotFront)
 local Build = require(script.Parent.Parent.Build)
@@ -1071,20 +1070,37 @@ function Guns.spots(
 		if not at then
 			return no(key, "no ground")
 		end
-		-- (ground it can be laid on, facing the target: no steeper than its `maxSlope`, the same survey as
-		-- Build.placeAs's, which then levels or tilts it, Config/Build.Slope)
-		local piece = Guns.piece[key]
-		if piece then
-			local report = Survey.ground(piece, Survey.box(piece, Survey.frame(at, target - at)))
-			if not report.ground or report.water or report.slope > (piece.maxSlope or 90) then
-				return no(key, if report.water then "water" else "too steep")
-			end
+		-- (where Build.placeAs would lay it, facing the enemy's way as its job does: open, gentle ground, nothing in the way, off trenches and
+		-- the other guns; Build then levels or tilts it, Config/Build.Slope)
+		local why = Build.siteFor(key, CFrame.lookAt(at, at + Vector3.new(tx, 0, tz)))
+		if why then
+			return no(key, string.lower(why))
 		end
 		-- (its shot flown: within its reach on this map, Config/Artillery.Reach, and nothing in the way)
 		return Guns.flyShot(gun, Guns.asset[key], at, target, "low")
 			or Guns.flyShot(gun, Guns.asset[key], at, target, "high")
 			or no(key, "shot blocked or out of reach")
 	end)
+end
+-- `side`'s guns and MG nests in sector `i` by Config/Build piece key: its team's own `works` there (laid or standing;
+-- `built`: standing only) and the enemy's there it judged "use" (src/server/Bots/Crew)
+local function sectorGuns(side: string, works: { Build.Work }, i: number, built: boolean?): { [string]: number }
+	local n = {}
+	for _, w in works do
+		if
+			(w.kind == "Gun" or w.kind == "Nest")
+			and (w.built or not built)
+			and BotCrew.sectorAt(w.at.X, w.at.Z, Map.sectors) == i
+		then
+			n[w.key] = (n[w.key] or 0) + 1
+		end
+	end
+	for _, g in Tactics.crew.usable(side) do
+		if BotCrew.sectorAt(g.at.X, g.at.Z, Map.sectors) == i then
+			n[g.key] = (n[g.key] or 0) + 1
+		end
+	end
+	return n
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)
 	local now = os.clock()
@@ -1200,18 +1216,10 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				table.insert(ways, { ax = s.x, az = s.z, bx = sp.pos.X, bz = sp.pos.Z })
 			end
 		end
-		-- (MG nests: those missing of Build.Nest.count, its side's standing ones at the front counted)
-		local nests = 0
-		for _, w in Build.worksOf(kit) do
-			if
-				w.key == "MGNest"
-				and w.built
-				and flat(w.at - Vector3.new(zone.x, w.at.Y, zone.z)).Magnitude <= zone.radius + BD.repair
-			then
-				nests += 1
-			end
-		end
-		local missing = math.max(BD.Nest.count - nests, 0)
+		-- (MG nests: those missing of its share, its side's standing ones in its front sector and captured ones it uses
+		-- there counted; one still going up gets its job again)
+		local standing = sectorGuns(side, Build.worksOf(kit), front :: number, true)
+		local missing = math.max((BD.caps.MGNest or 0) - (standing.MGNest or 0), 0)
 		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then unplaced else guns, Flanked.plan, missing) do
 			local keep = true
 			if job.key == "Wire" then
@@ -1311,6 +1319,11 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			ofKey[w.key] = (ofKey[w.key] or 0) + 1
 		end
 	end
+	-- (its guns and MG nests are counted by the sector: the team's own in its front sector, anyone's laying them, and the
+	-- enemy's there it judged worth using, against its share, BD.caps; user 2026-11-03: "cannons and artys built
+	-- should be by sector")
+	local inFront = sectorGuns(side, works, front :: number)
+	sbs.inFront = inFront
 	-- (a trench run is matched by its squares, Rules/BotTrenches.laid; the rest by BotBuild.match)
 	local jobs = {}
 	local runs: { BotTrenches.Run } = {}
@@ -1402,7 +1415,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		else
 			r.model, r.at, r.left = nil, nil, 0
 			local key = r.job.key
-			r.open = now >= r.waitUntil and (key == "Trench" or BotBuild.allowed(key, mine, ofKey[key] or 0, BD.caps))
+			local had = if BD.caps[key] then inFront[key] or 0 else ofKey[key] or 0
+			r.open = now >= r.waitUntil and (key == "Trench" or BotBuild.allowed(key, mine, had, BD.caps))
 		end
 		if r.open then
 			table.insert(sbs.open, r)
@@ -1706,8 +1720,21 @@ local function command()
 		Tactics.fell.list(side, buildLists[side])
 		-- the enemy's guns on its ground: used, wrecked or let be (src/server/Bots/Crew)
 		local aimAt = if shell and Map.sectors[shell] then sectorPoint(shell) else nil
+		-- (safe: no enemy its squads know of close, not out past its sector's middle toward the enemy)
+		local enemies = {}
+		for _, p in known do
+			table.insert(enemies, { x = p.X, z = p.Z })
+		end
 		Tactics.crew.judge(side, owner, aimAt, function(g, k, a, t, arc)
 			return Guns.flyShot(g, k, a, t, arc, true)
+		end, function(at)
+			local i = BotCrew.sectorAt(at.X, at.Z, Map.sectors)
+			if not i then
+				return false
+			end
+			local sec = Map.sectors[i]
+			local ex, ez = BotBuild.toward(Map.sectors, i, side)
+			return BotCrew.safeSpot(at.X, at.Z, sec.x, sec.z, ex, ez, enemies, Cfg.Crew.captured.safe)
 		end)
 		Tactics.crew.wrecks(side, buildLists[side])
 	end

@@ -109,7 +109,7 @@ local Frontline = {
 	-- Artillery locks (user 2026-11-02: "only unlock the rune for the team that gets pushed back to their last sector
 	-- (all artys still only for engineers)"): a gun in `lastStand` is built only by a side holding `unlockAt` sectors or
 	-- fewer (Rules/Frontline.held: the run from its end; it locks again once the side pushes out past that), and is told
-	-- `why` otherwise; every other gun from a match's start, under its per-team cap (Config/Build.Pieces `teamCap`).
+	-- `why` otherwise; every other gun from a match's start, under its caps (Config/Build.Pieces `sectorCap`).
 	-- `unlockAt` 2 (user 2026-11-03: "make field mortars unlock at the second to last sector, not the last sector"; its
 	-- HQ and the one before, so on Map 1 and Lantern Meadows from the start, user: "Yes, from the start"); was 1. Was a
 	-- level per sector lost (2026-10-31), then no locks (earlier 2026-11-02). Each side's held count is the Frontline

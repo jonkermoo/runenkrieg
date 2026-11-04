@@ -581,7 +581,7 @@ end
 -- The turn and speed share for `s`'s next shell to miss (Rules.miss; Config/Artillery `miss`) where it comes down
 -- now, its path traced on the terrain: rolled again while it would come down on a spawn or farther off than
 -- Miss.stray times the radius (rough ground: a long shot clearing a crest); no miss after Miss.tries.
-local function missOf(s: State): (number, number)
+local function missOf(s: State): (number, number, number)
 	local gun = s.gun
 	if s.gunner and s.gunner:GetAttribute(DevCfg.Admin.GunAim.exact) == true then
 		return 0, 1 -- (the admin panel's "no scatter")
@@ -597,21 +597,33 @@ local function missOf(s: State): (number, number)
 	local origin = shot(0, 1)
 	local flat = land and Vector3.new(land.X - origin.X, 0, land.Z - origin.Z)
 	if not land or not flat or not radius or flat.Magnitude < 1 then
-		return 0, 1
+		return 0, 1, 0
 	end
 	local M = Cfg.Miss
+	-- (none of them in `stray`: the one nearest the aim off any spawn, so a shot over rough ground still misses; user
+	-- 2026-11-03: "make sure howitzer inaccuracy applies to bots too", whose lobs over crests rolled out of `stray`)
+	local best, bestYaw, bestSpeed = math.huge, 0, 1
 	for _ = 1, M.tries do
 		local right, beyond = Rules.miss(radius, random:NextNumber(), random:NextNumber(), random:NextNumber())
 		local dYaw, speed = Rules.missLay(flat.Magnitude, right, beyond)
 		local o, v = shot(dYaw, speed)
 		local down = pathDown(o, v, gun.gravity, pivot.Position.Y)
 		local off = down and Vector3.new(down.X - land.X, 0, down.Z - land.Z).Magnitude
-		if down and off and off <= radius * M.stray and not nearSpawn(s, down) then
-			return dYaw, speed
+		if down and off and not nearSpawn(s, down) then
+			if off <= radius * M.stray then
+				return dYaw, speed, off
+			elseif off < best then
+				best, bestYaw, bestSpeed = off, dYaw, speed
+			end
 		end
 	end
-	return 0, 1
+	return bestYaw, bestSpeed, if best < math.huge then best else 0
 end
+
+-- the last MISSES shells fired, newest first: the gun's key, a bot's or a player's, how far off its aim it was set to
+-- come down (studs; Artillery.misses, the admin readout)
+local MISSES = 10
+local misses: { { key: string, bot: boolean, off: number } } = {}
 
 local function friendlyTarget(s: State): string?
 	local character = body(s)
@@ -638,7 +650,9 @@ local function fire(s: State)
 	end
 	local gun = s.gun
 	local pivot = s.model:GetPivot()
-	local dYaw, speed = missOf(s)
+	local dYaw, speed, off = missOf(s)
+	table.insert(misses, 1, { key = s.key, bot = s.bot ~= nil, off = off })
+	misses[MISSES + 1] = nil
 	local mx, my, mz, dx, dy, dz = Rules.muzzle(gun, s.lay.traverse + dYaw, s.lay.elevation)
 	local origin = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local velocity = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed * speed
@@ -1374,7 +1388,7 @@ local function wreck(s: State)
 		punch(s)
 	end
 	s.holes = math.max(s.holes, W.holes[stage] or 0)
-	blowOff(s, W.lose[stage] or {})
+	blowOff(s, (s.gun.lose or W.lose)[stage] or {})
 	if dark then
 		s.model:SetAttribute("Dead", true)
 	end
@@ -1830,6 +1844,12 @@ function Artillery.fireAs(model: Model): (boolean, string?)
 		return false, nil
 	end
 	return shoot(s)
+end
+
+-- The last shells fired (newest first): each gun's key, whether a bot fired it, and how far off its aim it was set to
+-- come down (Config/Artillery `miss`, studs)
+function Artillery.misses(): { { key: string, bot: boolean, off: number } }
+	return misses
 end
 
 -- The bot's machine gun's trigger held or let go (a fresh pull fires at least one shot). False when it is on no MG.

@@ -42,6 +42,7 @@ export type BuildJob = {
 	gaveUp: boolean?, -- refused at every spot it was moved to (a trench run: a breastwork goes there instead)
 	done: boolean?, -- its breastwork or walls are on the list
 	fix: boolean?, -- a gun of its side out of service (Rules/BotCrew.repairOrder): fixed first, wherever it stands
+	why: string?, -- why it was last refused (Build.placeAs; the Engineer readout)
 }
 
 -- a squad's sap forward (Rules/BotSap): its head (where the next run starts), the run being planned or dug, the jobs
@@ -230,6 +231,7 @@ export type SideBuild = {
 	-- its runs toward the enemy lately, each straight or a zig-zag and why (Config/Bots.Trenches.Zigzag; the newest last)
 	runNotes: { string },
 	gunNote: string?, -- why each gun is or isn't on its list (locked, its spots, or why none fit; the Engineer readout)
+	inFront: { [string]: number }?, -- its guns and MG nests in its front sector by key, captured ones it uses counted
 }
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
 export type Soldier = {

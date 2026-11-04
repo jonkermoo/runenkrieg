@@ -183,16 +183,20 @@ return {
 		assert(why({ team = C.PerTeam }) == "Your team has too many pieces")
 		assert(why({ locked = "Unlocks when a sector is lost" }) == "Unlocks when a sector is lost")
 	end,
-	["guns per team: 6 field guns, 2 howitzers (user 2026-10-31)"] = function()
+	["guns per team in each sector: 6 MG nests, 6 field guns, 3 howitzers (user 2026-11-03)"] = function()
 		local field = B.piece("FieldGun", C.Pieces) :: any
 		local how = B.piece("Howitzer", C.Pieces) :: any
-		assert(field.teamCap == 6 and how.teamCap == 2)
-		assert(B.canPlace(placing({ piece = field, kind = 5 })))
-		local ok, reason = B.canPlace(placing({ piece = field, kind = 6 }))
-		assert(not ok and reason == "Your team has 6 already")
-		assert(not B.canPlace(placing({ piece = how, kind = 2 })) and B.canPlace(placing({ piece = how, kind = 1 })))
+		local nest = B.piece("MGNest", C.Pieces) :: any
+		assert(field.sectorCap == 6 and how.sectorCap == 3 and nest.sectorCap == 6)
+		assert(field.teamCap == nil and how.teamCap == nil and nest.teamCap == nil, "no whole-map cap")
+		assert(B.canPlace(placing({ piece = field, sector = 5, kind = 40 })), "any number over the map")
+		local ok, reason = B.canPlace(placing({ piece = field, sector = 6 }))
+		assert(not ok and reason == "Your team has 6 in this sector already")
+		assert(
+			not B.canPlace(placing({ piece = how, sector = 3 })) and B.canPlace(placing({ piece = how, sector = 2 }))
+		)
 	end,
-	["per player: 30 sandbags, wire and barriers each, the rest 8 together; MG nests 3 per sector (user 2026-11-01)"] = function()
+	["per player: 30 sandbags, wire and barriers each, the rest 8 together; MG nests by the sector"] = function()
 		for _, key in { "SandbagPile", "Wire", "Hesco" } do
 			local p = B.piece(key, C.Pieces) :: any
 			assert(p.playerCap >= 25 and p.playerCap <= 30, `{key}: 25-30 each`)
@@ -202,14 +206,9 @@ return {
 			assert(not ok and reason == `You have {p.playerCap} already`, key)
 		end
 		local nest = B.piece("MGNest", C.Pieces) :: any
-		assert(nest.sectorCap == 3 and nest.playerCap == nil)
-		assert(B.canPlace(placing({ piece = nest, sector = 2 })))
-		local ok, reason = B.canPlace(placing({ piece = nest, sector = 3 }))
-		assert(not ok and reason == "Your team has 3 in this sector already")
+		assert(nest.playerCap == nil)
 		assert(B.canPlace(placing({ piece = nest, sector = 2, mineKind = 99 })), "no cap of its own")
 		assert(not B.canPlace(placing({ piece = nest, mine = C.PerPlayer })), "under the shared count")
-		-- the guns keep their team caps, no per-sector one
-		assert((B.piece("FieldGun", C.Pieces) :: any).sectorCap == nil)
 	end,
 	["guns: one per kind within its spacing, any two their clears apart; both teams build both"] = function()
 		local field = B.piece("FieldGun", C.Pieces) :: any

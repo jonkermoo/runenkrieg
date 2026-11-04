@@ -68,16 +68,36 @@ function BotCrew.repairOrder(pieces: { Fixable }, near: { number }, keep: number
 end
 
 -- What a side does with a gun the enemy built on ground it now holds (Config/Bots.Crew `captured`; user 2026-11-03:
--- "teamamtes should turn the enemy mg around if it actually aims at enemies. if deemed unusable because of its angle,
--- they will destroy it or not use it"): "use" (manned like its own) when its shot at the enemy is `clear`; else an MG
--- nest is wrecked ("wreck", by Engineers' Destroy swings) when that takes at most `cfg.wreckSwings` swings (`swings`),
--- and anything else is left alone ("ignore": a field gun or howitzer with no clear shot, user: "Blind ones are left
--- alone, not destroyed").
-function BotCrew.captured(mg: boolean, clear: boolean, swings: number, cfg: { wreckSwings: number }): string
-	if clear then
-		return "use"
+-- "if artys left by enemies in a captured sector is usable and in a safe spot, we will use those. if not, we will build
+-- more"): "use" (manned like its own, and counted against its sector's guns, src/server/Bots/Commander) when its shot
+-- at the enemy is `clear` and it stands `safe` (BotCrew.safeSpot); else "wreck" (Engineers' Destroy swings; user:
+-- "Wreck them all").
+function BotCrew.captured(clear: boolean, safe: boolean): string
+	return if clear and safe then "use" else "wreck"
+end
+
+-- Whether a gun at (`x`, `z`) stands safe for its side (Config/Bots.Crew.captured `safe`): no enemy it knows of
+-- (`enemies`, each { x, z }) within `threat` studs, and no more than `ahead` studs past the middle (`mx`, `mz`) of the
+-- sector it stands in toward the enemy (`tx`, `tz`, a flat unit): not out on the front edge facing the enemy's line.
+function BotCrew.safeSpot(
+	x: number,
+	z: number,
+	mx: number,
+	mz: number,
+	tx: number,
+	tz: number,
+	enemies: { { x: number, z: number } },
+	cfg: { threat: number, ahead: number }
+): boolean
+	if (x - mx) * tx + (z - mz) * tz > cfg.ahead then
+		return false
 	end
-	return if mg and swings <= cfg.wreckSwings then "wreck" else "ignore"
+	for _, e in enemies do
+		if (e.x - x) ^ 2 + (e.z - z) ^ 2 < cfg.threat * cfg.threat then
+			return false
+		end
+	end
+	return true
 end
 
 -- The sector (index into `sectors`) nearest (`x`, `z`): whose ground a gun stands on
