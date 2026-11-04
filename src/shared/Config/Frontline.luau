@@ -119,10 +119,13 @@ local Frontline = {
 	-- HQ and the one before, so on Map 1 and Lantern Meadows from the start, user: "Yes, from the start"); was 1. Was a
 	-- level per sector lost (2026-10-31), then no locks (earlier 2026-11-02). Each side's held count is the Frontline
 	-- folder's "<Side>" .. `HeldAttribute` (src/server/Build reads it; the bots count it from the sectors' owners).
+	-- While locked, the build panel's title reads "<GUN NAME>: " .. `unavailable` in the bad colour, `why` under it (src/client/Build;
+	-- user 2026-11-04: "clearly make it state in the title card that 'Unavailable'").
 	Artillery = {
 		lastStand = { Howitzer = true },
 		unlockAt = 2,
 		why = "Unlocks while you hold only your last two sectors",
+		unavailable = "Unavailable",
 	},
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
 	-- of mis match"): while the bigger side has at least `gap` more players AND `share` more, the smaller side's points
