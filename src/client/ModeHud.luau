@@ -556,7 +556,14 @@ local function updateDots(kit: string?)
 end
 
 local function showDots(shown: number)
+	local d = Cfg.Dot
+	local eye = workspace.CurrentCamera.CFrame.Position
 	for _, dot in dots do
+		local head = dot.gui.Adornee
+		if shown > 0 and head and head:IsA("BasePart") then
+			local px = Rules.dotSize((head.Position - eye).Magnitude, d.size, d.near, d.min)
+			dot.gui.Size = UDim2.fromOffset(px, px)
+		end
 		dot.gui.Enabled = shown > 0
 		dot.face.BackgroundTransparency = 1 - shown
 		dot.edge.Transparency = 1 - shown

@@ -13,7 +13,9 @@ local ModeHud = {
 	-- "V and map conflicts. make it holding m"), with a dot over each teammate seen through walls (on the loadout
 	-- screen it always shows); both fade in and out in FadeSeconds
 	FadeSeconds = 0.12,
-	Dot = { size = 10, above = 3.2 }, -- the teammate dot: pixels across, studs above the head's centre
+	-- the teammate dot: pixels across, studs above the head's centre; full size up to `near` studs from the camera,
+	-- then smaller with distance down to `min` pixels (Rules/ModeHud.dotSize)
+	Dot = { size = 10, above = 3.2, near = 25, min = 4 },
 	-- the open points' world beacon (src/client/PointSeal's seal, as on the sketch map; its label the spec's PinLabel):
 	-- pixels wide x tall, studs above the flagpole's top, the seal's size and ring, the capture bar's width x height
 	Marker = { size = { 56, 70 }, above = 3, seal = 38, ring = 3, bar = { 34, 4 } },
