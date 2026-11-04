@@ -1410,12 +1410,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			chain[run.kind] = r.job
 		end
 	end
+	local kinds: { string } = {}
 	for k, r in sbs.lay do
 		local j = r.job
 		if r.run then
 			local run =
 				{ kind = (r.run :: BotTrenches.Run).kind, ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number }
 			table.insert(runs, run)
+			table.insert(kinds, run.kind)
 			-- (a run refused everywhere counts as done: a breastwork stands in for it, the next run goes on)
 			runLaid[#runs] = r.gaveUp == true or BotTrenches.laid(run, squares, TR.on, TR.ends) ~= nil
 			jobs[k] = { key = "", x = 0, z = 0, fx = 0, fz = 0 }
@@ -1452,7 +1454,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		if r.run then
 			ri += 1
 			r.model, r.at, r.left = nil, nil, 0
-			r.open = not runLaid[ri] and now >= r.waitUntil and dug < TR.cap and BotTrenches.ready(runLaid, ri)
+			r.open = not runLaid[ri] and now >= r.waitUntil and dug < TR.cap and BotTrenches.ready(runLaid, ri, kinds)
 		elseif i then
 			local w = works[i]
 			r.model, r.at, r.left = w.model, w.at, w.left

@@ -105,7 +105,14 @@ local function throwLook(b: Bot, at: Vector3): Vector3
 	return u * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
 end
 
-local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boolean?, far: number?): BuildJob?
+local function pickFrom(
+	b: Bot,
+	open: { BuildJob },
+	any: boolean,
+	fixOnly: boolean?,
+	far: number?,
+	share: boolean?
+): BuildJob?
 	local engineer = any or Loadouts.classOf(b.m :: Model) == "Engineer"
 	local root = (b.root :: BasePart).Position
 	local held: { [BuildJob]: boolean } = {}
@@ -133,7 +140,9 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boole
 		}
 		local d = flat(Vector3.new(list[k].x, 0, list[k].z) - root).Magnitude
 		local fits = engineer or Kinds.small[j.key] or (j.key == "Wire" and r.model ~= nil and d <= BD.help)
-		taken[k] = held[r] == true or not fits or (j.key == "Tree" and not Tactics.fell.ready(b.id))
+		-- (`share`: a square wanting swings may have more than one digger)
+		local busy = held[r] == true and not (share and r.model ~= nil)
+		taken[k] = busy or not fits or (j.key == "Tree" and not Tactics.fell.ready(b.id))
 	end
 	-- a gun of its side out of service (Rules/BotCrew.repairOrder): the nearest anywhere first, fixed before it is manned
 	local notFix: { [number]: boolean } = {}
@@ -185,7 +194,8 @@ local function pickJob(b: Bot): (BuildJob?, string?)
 	return r, if r then nil else `none within {reach} studs`
 end
 
--- a pioneer's trench job (Config/Bots.Trenches.pioneers): the nearest trench run or square on its side's list
+-- a pioneer's trench job (Config/Bots.Trenches.pioneers): the nearest trench run or square on its side's list, or a
+-- tree in the way of its lines (Config/Bots.Build.Trees: a run refused for a tree waits on it)
 local function pickTrench(b: Bot): BuildJob?
 	local sb = buildLists[b.side :: string]
 	if not sb or not sb.front then
@@ -193,11 +203,11 @@ local function pickTrench(b: Bot): BuildJob?
 	end
 	local trench = {}
 	for _, r in sb.open do
-		if r.job.key == "Trench" then
+		if r.job.key == "Trench" or r.job.key == "Tree" then
 			table.insert(trench, r)
 		end
 	end
-	return if #trench > 0 then pickFrom(b, trench, true, false, Cfg.Trenches.pioneerTake) else nil
+	return if #trench > 0 then pickFrom(b, trench, true, false, Cfg.Trenches.pioneerTake, true) else nil
 end
 
 -- an enemy dugout's steps to throw down, if its squad `sq` knows someone is in it (Rules/BotTrenches.occupied): within
@@ -453,6 +463,16 @@ local function weigh(b: Bot, now: number)
 	if w and (not w.job.open or now - w.since > BD.Work.keep or (sapping and not w.brave)) then
 		b.work, b.workState, w = nil, nil, nil
 	end
+	-- a pioneer leaves any other job for its side's trench lines, and digs them under fire too
+	-- (Config/Bots.Trenches.pioneers)
+	if b.pioneer and not pushing and not (w and (w.job.job.key == "Trench" or w.job.job.key == "Tree")) then
+		local r = pickTrench(b)
+		if r then
+			b.work, b.workState, w = nil, nil, nil
+			takeJob(b, r, now, true)
+			return
+		end
+	end
 	if w then
 		takeJob(b, w.job, now, w.brave)
 		if b.act then
@@ -462,14 +482,6 @@ local function weigh(b: Bot, now: number)
 	-- a sapper digs its squad's sap, under fire too (Rules/BotSap: only a hit stops it)
 	if b.sapper and sap and #(sap :: Sap).open > 0 and not w then
 		local r = pickFrom(b, (sap :: Sap).open, true)
-		if r then
-			takeJob(b, r, now, true)
-			return
-		end
-	end
-	-- a pioneer digs its side's trench lines, under fire too (Config/Bots.Trenches.pioneers)
-	if b.pioneer and not w and not pushing then
-		local r = pickTrench(b)
 		if r then
 			takeJob(b, r, now, true)
 			return
@@ -717,9 +729,19 @@ local function laidFor(b: Bot, job: BotBuild.Job): Build.Work?
 	return best
 end
 
+-- (Trenches.plan's refusal for a tree in the way)
+local TREE = "A tree is in the way"
+
 -- a refused lay: its spot moved across (Rules/BotBuild.nudge), after Build.tries the planned spot again a while later
-local function refused(r: BuildJob, now: number)
+local function refused(r: BuildJob, now: number, reason: string?)
 	stats.refused += 1
+	-- (a tree in a trench run's way: it waits for the tree to be felled, Config/Bots.Trenches.Tree)
+	local TT = Cfg.Trenches.Tree
+	if r.run and reason == TREE and (r.treeWaits or 0) < TT.waits then
+		r.treeWaits = (r.treeWaits or 0) + 1
+		r.waitUntil, r.open = now + TT.wait, false
+		return
+	end
 	r.tries += 1
 	local base = r.base
 	if r.tries >= BD.tries then
@@ -864,7 +886,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 			return true
 		end
 		if reason then
-			refused(r, now)
+			refused(r, now, reason)
 			quit(b)
 			return false
 		end

@@ -465,12 +465,16 @@ local Bots = {
 		share = 0.5,
 		pioneers = 3,
 		pioneerTake = 400,
+		-- a run refused for a tree in its way (Config/Bots.Build.Trees: the pioneers and Engineers fell it) waits `wait` s
+		-- for it to come down, up to `waits` times, before it swings aside as for any other refusal (a measured match:
+		-- every refusal a try, Map 1's trees had each side's fire trench given up for breastworks within a minute)
+		Tree = { wait = 15, waits = 8 },
 		-- the admin trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute; Rules/BotTrenches.deathKind): a bot
 		-- dying within `floor` studs of a dug square's middle died in a trench; one of Dugouts.shell kg or more within
 		-- `shellNear` studs in the `shellAge` s before, by a shell
 		Stats = { floor = 5, shellNear = 20, shellAge = 0.6 },
 		hold = 0.45, -- (was 0.3: more holders to man the fire steps, user 2026-11-04 trench priority)
-		Fire = { edge = 0.9, width = 80, bays = 5, traverse = 6 }, -- (80: across the zone, r 45; was 48 in 3)
+		Fire = { edge = 0.6, width = 80, bays = 5, traverse = 6 }, -- (80: across the zone, r 45; was 48 in 3; 0.6 was 0.9: diggers on the edge were always under fire)
 		-- (56: past the zone's flagpole in its middle, which a line 40 back ran into; past Config/Build.Trench.spacing)
 		Support = { back = 56, width = 32 },
 		Comm = { jog = 6, short = 1 },

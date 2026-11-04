@@ -71,6 +71,13 @@ return {
 		assert(R.ready(all, #runs), "the communication trench last")
 		all[2] = false
 		assert(not R.ready(all, #runs), "a bay missing")
+		local kinds = {}
+		for k, r in runs do
+			kinds[k] = r.kind
+		end
+		local support = table.find(kinds, "Support") :: number
+		assert(R.ready({}, support, kinds), "the support line alongside the fire trench")
+		assert(not R.ready({}, support + 1, kinds), "the communication trench still last")
 	end,
 	["swing: the far end steps aside, one way then the other; the start stays"] = function()
 		local x1, z1 = R.swing(0, 0, 0, 16, 1, 6)

@@ -35,6 +35,7 @@ export type BuildJob = {
 	at: Vector3?, -- the piece's spot once laid (what it swings at)
 	left: number,
 	tries: number,
+	treeWaits: number?, -- a trench run's waits for a tree in its way (Config/Bots.Trenches.Tree)
 	waitUntil: number,
 	open: boolean, -- on the list this tick
 	run: BotTrenches.Run?, -- a trench run of the side's system (Rules/BotTrenches): planned, then its squares dug

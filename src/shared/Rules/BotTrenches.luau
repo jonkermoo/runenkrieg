@@ -92,8 +92,13 @@ end
 
 -- Whether run `k` of `runs` may be planned yet: every run before it planned (`laid`), so each one joins the last (a
 -- run that joins nothing must keep Config/Build.Trench.spacing from every other trench, and the bays lie closer):
--- the fire trench bay by bay, then the support line, then the communication trench.
-function BotTrenches.ready(laid: { [number]: boolean }, k: number): boolean
+-- the fire trench bay by bay, then the support line, then the communication trench. The support line joins nothing and
+-- lies `Support.back` behind, so it may be planned at once alongside the fire trench (`kinds`: each run's kind; user
+-- 2026-11-04, the trench priority: one run open at a time left a side's diggers idle).
+function BotTrenches.ready(laid: { [number]: boolean }, k: number, kinds: { string }?): boolean
+	if kinds and kinds[k] == "Support" then
+		return true
+	end
 	for i = 1, k - 1 do
 		if not laid[i] then
 			return false
