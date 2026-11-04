@@ -62,6 +62,8 @@ local REVOKED = {
 	Cfg.Admin.Dig.attribute,
 	Cfg.Admin.BuildAllAttribute,
 	Cfg.Admin.AmmoAttribute,
+	Cfg.Admin.GunAim.exact,
+	Cfg.Admin.GunAim.quick,
 	Cfg.Admin.ClassAttribute,
 }
 
@@ -328,6 +330,30 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		player:SetAttribute(Cfg.Admin.BuildAllAttribute, if value then true else nil)
 	elseif action == "Ammo" then
 		player:SetAttribute(Cfg.Admin.AmmoAttribute, if value then true else nil)
+	elseif action == "GunExact" then
+		player:SetAttribute(Cfg.Admin.GunAim.exact, if value then true else nil)
+	elseif action == "GunQuick" then
+		player:SetAttribute(Cfg.Admin.GunAim.quick, if value then true else nil)
+	elseif action == "GunDummy" then
+		-- a dummy where my gun's shell comes down as laid (shown on its button: src/client/DevAdminMenu)
+		local at = Artillery.devLanding(player)
+		if at then
+			local face = if root then Vector3.new(root.Position.X, at.Y, root.Position.Z) else at + Vector3.zAxis
+			at += Vector3.new(0, Cfg.Dummies.RootHeight, 0)
+			face = Vector3.new(face.X, at.Y, face.Z)
+			if (face - at).Magnitude < 1e-3 then
+				face = at + Vector3.zAxis
+			end
+			DevDummies.spawn({
+				kit = Cfg.Dummies.Kits[1].kit,
+				helmet = true,
+				move = Cfg.Dummies.Moves[1],
+				at = CFrame.lookAt(at, face),
+			})
+			Net.event("DevAction"):FireClient(player, "Done", "GunDummy", "dummy at the landing")
+		else
+			Net.event("DevAction"):FireClient(player, "Refused", "GunDummy", "not on a gun, or it lands nowhere")
+		end
 	elseif action == "KeptTeams" then
 		-- test the kept teams and the loadout menu's team cards outside Normal (Config/Teams; src/server/Deploy)
 		workspace:SetAttribute(TeamCfg.DevAttribute, if value then true else nil)

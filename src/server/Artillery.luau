@@ -583,6 +583,9 @@ end
 -- Miss.stray times the radius (rough ground: a long shot clearing a crest); no miss after Miss.tries.
 local function missOf(s: State): (number, number)
 	local gun = s.gun
+	if s.gunner and s.gunner:GetAttribute(DevCfg.Admin.GunAim.exact) == true then
+		return 0, 1 -- (the admin panel's "no scatter")
+	end
 	local land = comesDown(s, s.lay)
 	local radius = gun.miss
 	local pivot = s.model:GetPivot()
@@ -640,7 +643,8 @@ local function fire(s: State)
 	local origin = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
 	local velocity = pivot:VectorToWorldSpace(Vector3.new(dx, dy, dz)) * gun.speed * speed
 	s.model:SetAttribute("FiredAt", t)
-	s.model:SetAttribute("ReadyAt", t + gun.reload)
+	local quick = s.gunner and s.gunner:GetAttribute(DevCfg.Admin.GunAim.quick) == true
+	s.model:SetAttribute("ReadyAt", t + (if quick then DevCfg.Admin.GunAim.quickReload else gun.reload))
 	Net.event("ArtilleryShot"):FireAllClients(s.model, origin, velocity)
 	fly(s, origin, velocity, character)
 end
@@ -1855,6 +1859,16 @@ function Artillery.leaveAs(model: Model)
 	if s then
 		leave(s, "Left")
 	end
+end
+
+-- Where the shell of the gun `player` mans comes down as it is laid (the admin panel's "GunDummy"), if anywhere
+function Artillery.devLanding(player: Player): Vector3?
+	for _, s in guns do
+		if s.gunner == player and not s.gun.mg then
+			return comesDown(s, s.lay)
+		end
+	end
+	return nil
 end
 
 -- `fn(model, gun, why)` on every bot leaving a gun: why "Kicked" (a teammate took it over: the bot stands beside it),

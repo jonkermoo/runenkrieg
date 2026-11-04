@@ -48,6 +48,7 @@ local PLAIN = table.freeze({
 	BotDown = true,
 	RebuildMaps = true,
 	HitchReport = true,
+	GunDummy = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
@@ -65,6 +66,8 @@ local SWITCHES = table.freeze({
 	FreeEngineer = true,
 	FreeGrenadier = true,
 	HitchLog = true,
+	GunExact = true,
+	GunQuick = true,
 })
 
 local function finite(n: any): boolean

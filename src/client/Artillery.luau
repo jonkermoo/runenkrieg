@@ -43,6 +43,7 @@ local CameraRules = require(Shared.Rules.Camera)
 local SettingsRules = require(Shared.Rules.Settings)
 local TreeSway = require(Shared.Config.TreeSway)
 local Damage = require(Shared.Config.Damage)
+local DevCfg = require(Shared.Config.DevTools)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
 local LiveMap = require(Shared.LiveMap)
@@ -56,6 +57,7 @@ local BarrelHeat = require(script.Parent.BarrelHeat)
 local CameraShake = require(script.Parent.CameraShake)
 local CaseDrop = require(script.Parent.CaseDrop)
 local GunFx = require(script.Parent.GunFx)
+local ArtillerySheet = require(script.Parent.ArtillerySheet)
 local GunnerKick = require(script.Parent.GunnerKick)
 local Settings = require(script.Parent.Settings)
 local ShotAudio = require(script.Parent.ShotAudio)
@@ -677,6 +679,56 @@ local function pulseZone(clock: number)
 	end
 end
 
+-- the landing's rings over everything (Config/Artillery.Rings): line adornments round a level circle, seen through the
+-- ground in front and as wide on screen at any distance
+type Ring = { lines: { LineHandleAdornment } }
+local rings: { [string]: Ring } = {}
+
+local function ring(name: string, colour: { number }, thick: number, transparency: number): Ring
+	local r = rings[name]
+	if r and r.lines[1].Parent then
+		return r
+	end
+	local lines = {}
+	for i = 1, Cfg.Rings.segments do
+		local l = Instance.new("LineHandleAdornment")
+		l.Name = `{name}{i}`
+		l.AlwaysOnTop = true
+		l.ZIndex = 1
+		l.Thickness = thick
+		l.Color3 = rgb(colour)
+		l.Transparency = transparency
+		l.Adornee = workspace.Terrain
+		l.Visible = false
+		l.Parent = workspace.Terrain
+		table.insert(lines, l)
+	end
+	local made: Ring = { lines = lines }
+	rings[name] = made
+	return made
+end
+
+local function showRing(r: Ring, at: Vector3, radius: number)
+	local n = #r.lines
+	local y = at.Y + Cfg.Rings.lift
+	for i, l in r.lines do
+		local u0, u1 = (i - 1) / n * 2 * math.pi, i / n * 2 * math.pi
+		local p0 = Vector3.new(at.X + math.cos(u0) * radius, y, at.Z + math.sin(u0) * radius)
+		local p1 = Vector3.new(at.X + math.cos(u1) * radius, y, at.Z + math.sin(u1) * radius)
+		l.CFrame = CFrame.lookAt(p0, p1)
+		l.Length = (p1 - p0).Magnitude
+		l.Visible = true
+	end
+end
+
+local function hideRings()
+	for _, r in rings do
+		for _, l in r.lines do
+			l.Visible = false
+		end
+	end
+end
+
 local function arcParts(): (Beam, Attachment, Attachment, BillboardGui, TextLabel)
 	if not beam or not beam.Parent then
 		local A = Cfg.Arc
@@ -702,19 +754,35 @@ local function arcParts(): (Beam, Attachment, Attachment, BillboardGui, TextLabe
 		gui.Name = "ArtilleryMarker"
 		gui.AlwaysOnTop = true
 		gui.LightInfluence = 0
-		gui.Size = UDim2.fromOffset(A.marker * 4, A.marker + A.text * 1.6)
+		gui.Size = UDim2.fromOffset(A.marker * 4, (A.text * 1.6 + A.pin) * 2)
 		gui.Enabled = false
 		-- (no ring over it: user 2026-10-26, "remove the yellow circle, just show the meter and the explosion shadow")
+		-- (the label on a plate over the landing, a pin down to it: user 2026-11-03, the aiming plan)
 		local label = Instance.new("TextLabel")
-		label.AnchorPoint = Vector2.new(0.5, 1)
-		label.Position = UDim2.fromScale(0.5, 1)
-		label.Size = UDim2.new(1, 0, 0, A.text * 1.3)
-		label.BackgroundTransparency = 1
+		label.AnchorPoint = Vector2.new(0.5, 0)
+		label.Position = UDim2.fromScale(0.5, 0)
+		label.Size = UDim2.fromOffset(0, A.text * 1.6)
+		label.AutomaticSize = Enum.AutomaticSize.X
+		label.BackgroundColor3 = rgb(Palette.Artillery.Plate)
+		label.BackgroundTransparency = A.plate
+		label.BorderSizePixel = 0
 		label.Font = Enum.Font.GothamMedium
 		label.TextSize = A.text
 		label.TextColor3 = rgb(Palette.UI.text)
-		label.TextStrokeTransparency = 0.4
 		label.Parent = gui
+		local pad = Instance.new("UIPadding")
+		pad.PaddingLeft, pad.PaddingRight = UDim.new(0, A.text * 0.5), UDim.new(0, A.text * 0.5)
+		pad.Parent = label
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 3)
+		corner.Parent = label
+		local pin = Instance.new("Frame")
+		pin.AnchorPoint = Vector2.new(0.5, 0)
+		pin.Position = UDim2.new(0.5, 0, 0, A.text * 1.6)
+		pin.Size = UDim2.fromOffset(2, A.pin)
+		pin.BorderSizePixel = 0
+		pin.BackgroundColor3 = rgb(Palette.Artillery.Marker)
+		pin.Parent = gui
 		gui.Adornee = a1
 		gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 		marker, rangeLabel = gui, label
@@ -730,6 +798,8 @@ local function hideArc()
 		marker.Enabled = false
 	end
 	hideZone()
+	hideRings()
+	ArtillerySheet.landing(nil, nil)
 end
 
 -- an attachment at `at` whose X axis points along `axis` (the Beam's curve leaves along it)
@@ -796,6 +866,9 @@ local function stream(at: Vector3)
 	end)
 end
 
+-- where my gun's shell comes down as last drawn (the field gun's camera frames it)
+local landAt: Vector3? = nil
+
 -- the arc of a shot with the gun's lay as posed (no scatter), to where it would first hit
 local function drawArc(model: Model, p: Pose, character: Model)
 	local gun = p.gun
@@ -830,15 +903,29 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	b.CurveSize1 = v1.Magnitude * third
 	b.Enabled = true
 	gui.Enabled = finish ~= nil
+	hideRings()
 	if finish then
 		showZone(finish, gun.zone)
 		local z = zoneParts()
 		z.fill.Transparency = Cfg.Zone.fill
+		-- the shell's lethal and wounding reach over everything (and the admin's scatter)
+		local R = Cfg.Rings
+		local f = gun.fragments
+		if f then
+			showRing(ring("Lethal", Palette.Artillery.Marker, R.width[1], R.transparency[1]), finish, f.lethal)
+			showRing(ring("Wound", Palette.Artillery.Marker, R.width[2], R.transparency[2]), finish, f.wound)
+		end
+		if gun.miss and Players.LocalPlayer:GetAttribute(DevCfg.Admin.GunAim.scatter) == true then
+			showRing(ring("Scatter", Palette.Artillery.Scatter, R.width[2], R.transparency[1]), finish, gun.miss)
+		end
 	else
 		hideZone()
 	end
+	landAt = finish
+	ArtillerySheet.landing(finish, last)
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
-	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
+	local metres = math.round(flat * Damage.Blast.MetresPerStud)
+	label.Text = `{if estimated then "~" else ""}{metres} m · {string.format("%.1f", last)} s`
 	if Players.LocalPlayer:GetAttribute("DevTools") == true and not gun.mg then
 		-- the admin's readout (Config/Artillery.Reach): where this lay comes down, flat from the muzzle, and the reach
 		-- cap, in studs
@@ -1014,6 +1101,12 @@ function Artillery.start()
 	local snap = true
 	local fov = camera.FieldOfView
 	local arcAt = 0
+	-- the field gun's framing stretch (Config/Artillery camera `frame`): wanted, eased, and when last worked out
+	local frameK, frameWant, frameAt = 1, 1, 0
+	-- (what hides the landing: the ground, trees and buildings; not my gun, me, or what nothing bumps into)
+	local sightline = RaycastParams.new()
+	sightline.FilterType = Enum.RaycastFilterType.Exclude
+	sightline.RespectCanCollide = true
 	-- on a machine gun: its camera as a rifle's (Config/Camera.Gun): the distance chosen (0 first person), the moving
 	-- one and its spring's speed, aimed (the aim key), the glide into the ring sight (0..1), my body hidden
 	local G = CameraCfg.Gun
@@ -1234,6 +1327,8 @@ function Artillery.start()
 		end
 		local turn = held(Enum.KeyCode.A) - held(Enum.KeyCode.D) -- (+ turns left)
 		local raise = held(Enum.KeyCode.W) - held(Enum.KeyCode.S)
+		-- (Shift held: fine laying, the aim crawling at Fine.share of the gun's rates, never more than `lead` ahead)
+		local fine = held((Enum.KeyCode :: any)[Cfg.Fine.key]) == 1
 		local _, pivotYaw = model:GetPivot():ToOrientation()
 		local layYaw = math.deg(pivotYaw) + p.traverse
 		local mg = gun.mg
@@ -1245,7 +1340,16 @@ function Artillery.start()
 			local base = if gun.traverse >= 180 then layYaw else math.deg(pivotYaw)
 			wantYaw, wantElevation = Rules.mgLay(wantYaw, wantElevation, base, delta.X, delta.Y, gun)
 		else
-			wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
+			wantYaw = if fine
+				then Rules.wrap(
+					layYaw
+						+ math.clamp(
+							Rules.wrap(wantYaw - layYaw) + turn * gun.traverseRate * Cfg.Fine.share * dt,
+							-Cfg.Aim.lead,
+							Cfg.Aim.lead
+						)
+				)
+				else Rules.wrap(layYaw + turn * Cfg.Aim.lead)
 			-- (within its reach on this map: Config/Artillery.Reach, no shell past a sector away, on the ground that far
 			-- out along its lay as far as it is streamed in here; the server holds it there too)
 			local cap =
@@ -1260,7 +1364,18 @@ function Artillery.start()
 			ground.FilterDescendantsInstances = { workspace.Terrain }
 			local hit = workspace:Raycast(Vector3.new(out.X, muzzle.Y + 600, out.Z), Vector3.new(0, -1500, 0), ground)
 			local lims = Rules.capped(gun, cap, if hit then hit.Position.Y - muzzle.Y else nil)
-			wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, lims[1], lims[2])
+			wantElevation = if fine
+				then math.clamp(
+					p.elevation
+						+ math.clamp(
+							wantElevation - p.elevation + raise * gun.elevationRate * Cfg.Fine.share * dt,
+							-Cfg.Aim.lead,
+							Cfg.Aim.lead
+						),
+					lims[1],
+					lims[2]
+				)
+				else math.clamp(p.elevation + raise * Cfg.Aim.lead, lims[1], lims[2])
 		end
 
 		-- the aim, sent at most Aim.rate a second when it changed
@@ -1367,32 +1482,42 @@ function Artillery.start()
 		end
 
 		-- the camera: out at the gun's left, turned right past the aim onto the gun, up with the elevation; a gun that
-		-- lobs over cover (`lob`, the field gun) rises and backs off as it is laid up, looking down at where the shell
-		-- comes down (on level ground) so it sees over the crest
+		-- frames its gunner and the landing (`frame`, the field gun) sits behind the gunner on the line from the
+		-- landing, backing up and rising until it sees the landing over the ground in front, looking between the two
 		local c = gun.camera
 		local pivot = model:GetPivot()
 		local rot = CFrame.Angles(0, math.rad(wantYaw), 0)
 		local base = pivot.Position
 		local up = math.max(wantElevation, 0)
-		local lob = c.lob
-		local at = base
-			+ rot:VectorToWorldSpace(
-				Vector3.new(
-					c.side,
-					c.up + (if lob then up * lob.up else 0),
-					c.back + (if lob then up * lob.back else 0)
-				)
-			)
-		local pitch = c.pitch + up * c.follow
-		if lob then
-			local reach = Rules.range(gun.speed, wantElevation + (gun.aimTilt or 0), gun.gravity)
-			local land = base + rot:VectorToWorldSpace(Vector3.new(0, 0, -reach))
-			local flatTo = Vector3.new(land.X - at.X, 0, land.Z - at.Z).Magnitude
-			pitch = c.pitch + math.deg(math.atan2(land.Y - at.Y, math.max(flatTo, 1)))
+		local goal: CFrame
+		local F = c.frame
+		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if F and root then
+			local land: Vector3 = landAt
+				or base
+					+ rot:VectorToWorldSpace(
+						Vector3.new(0, 0, -Rules.range(gun.speed, wantElevation + (gun.aimTilt or 0), gun.gravity))
+					)
+			local me = root.Position
+			if t - frameAt >= Cfg.Arc.refresh then
+				frameAt = t
+				local to = land + Vector3.new(0, 2, 0)
+				sightline.FilterDescendantsInstances = { model, character }
+				frameWant = Rules.frameStretch(F, function(k: number): boolean
+					local from = Vector3.new(Rules.frameAt(F, k, me.X, me.Y, me.Z, land.X, land.Z))
+					return workspace:Raycast(from, to - from, sightline) == nil
+				end)
+			end
+			frameK = if snap then frameWant else frameK + (frameWant - frameK) * math.min(1, dt * F.ease)
+			local at = Vector3.new(Rules.frameAt(F, frameK, me.X, me.Y, me.Z, land.X, land.Z))
+			local yaw, pitch = Rules.lookBetween(at.X, at.Y, at.Z, me.X, me.Y, me.Z, land.X, land.Y, land.Z, F.share)
+			goal = CFrame.new(at) * CFrame.Angles(0, math.rad(yaw), 0) * CFrame.Angles(math.rad(pitch), 0, 0)
+		else
+			local at = base + rot:VectorToWorldSpace(Vector3.new(c.side, c.up, c.back))
+			goal = CFrame.new(at)
+				* CFrame.Angles(0, math.rad(wantYaw - c.yaw), 0)
+				* CFrame.Angles(math.rad(c.pitch + up * c.follow), 0, 0)
 		end
-		local goal = CFrame.new(at)
-			* CFrame.Angles(0, math.rad(wantYaw - c.yaw), 0)
-			* CFrame.Angles(math.rad(pitch), 0, 0)
 		camera.CFrame = if snap then goal else camera.CFrame:Lerp(goal, math.min(1, dt * Cfg.CameraEase))
 		snap = false
 

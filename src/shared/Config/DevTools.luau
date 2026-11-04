@@ -225,6 +225,7 @@ local DevTools = {
 				"BuildHud",
 				"BuildPlanIcon",
 				"ArtilleryMarker",
+				"ArtillerySheet",
 				"ModeHud",
 			},
 		},
@@ -334,6 +335,11 @@ local DevTools = {
 		-- unlimited ammo and no staff cooldown (src/server/Firing tops the magazine up after each shot; src/client/
 		-- StaffAttack and src/server/StaffCast: no cooldown, the mana full again), on the Player while on
 		AmmoAttribute = "DevAmmo",
+		-- "Gun aim" rows (user 2026-11-03, the field gun's aiming; on the Player while on): `scatter` the gun's miss as a
+		-- red ring round the landing (client only, src/client/Artillery); `exact` my shells land where laid, no miss
+		-- (src/server/Artillery); `quick` my gun reloads in `quickReload` s; "GunDummy" stands a dummy (the first of
+		-- Dummies.Kits) where my gun's shell comes down
+		GunAim = { scatter = "DevGunScatter", exact = "DevGunExact", quick = "DevGunQuick", quickReload = 1 },
 		-- "Weapon" sight lines (user 2026-11-03: "always add additional admin panel settings as we go"; src/client/
 		-- DevSights): the visible gun's Muzzle, Aim and Eject drawn as dots, the line of fire (from Muzzle) and the line
 		-- of sight (from Aim) out `length` studs along each one's -Z; aimed, the two run parallel. On the Player while on.
