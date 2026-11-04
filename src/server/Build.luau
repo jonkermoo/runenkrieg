@@ -1967,7 +1967,7 @@ end
 -- Why gun `key` (a Config/Build.Pieces key of kind "Gun") can't stand at `at` (its spot, facing its way): the ground
 -- checks a bot's Build.placeAs makes there (open, dry and gentle ground, nothing in the way, off trenches and other
 -- guns, a plane to lay it on), none of the caps or reach; nil when it can (the bots' gun spots, src/server/Bots/Commander;
--- user 2026-11-03: "no ai's have built howitzers": the 28-stud pit's scored spots were all "In the way")
+-- user 2026-11-03: the bots built no howitzers: the 28-stud pit's scored spots were all "In the way")
 function Build.siteFor(key: string, at: CFrame): string?
 	local piece = Rules.piece(key, C.Pieces)
 	if not piece or piece.kind ~= "Gun" then
