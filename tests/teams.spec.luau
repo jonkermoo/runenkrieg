@@ -84,6 +84,19 @@ return {
 		assert(#T.playing(U.Teams, nil) == #U.Teams, "no match: all of them")
 		assert(#T.playing(U.Teams, "uniform1,uniform1") == #U.Teams and #T.playing(U.Teams, "uniform1,x") == #U.Teams)
 	end,
+	["sides kept between matches: grey stays grey, the Allies take the next map's Allied kit (user 2026-11-04)"] = function()
+		assert(T.carry("uniform1", { "uniform1", "uniform2" }, "uniform1") == "uniform1")
+		assert(T.carry("uniform3", { "uniform1", "uniform2" }, "uniform1") == "uniform2", "brown becomes green")
+		assert(T.carry("uniform2", { "uniform3", "uniform1" }, "uniform1") == "uniform3", "green becomes brown")
+		assert(T.carry("uniform2", { "uniform1", "uniform2" }, "uniform1") == "uniform2", "their own when it plays")
+		assert(T.carry(nil, { "uniform1", "uniform2" }, "uniform1") == nil, "no kit yet")
+		assert(T.carry("uniform1", { "uniform2", "uniform3" }, "uniform1") == nil, "grey not playing")
+	end,
+	["a switch goes only to the side with fewer players"] = function()
+		assert(T.blocked({ uniform1 = 3, uniform2 = 3 }, "uniform1", "uniform2", Cfg.Gap, 50) == "Bigger", "even: no")
+		assert(T.blocked({ uniform1 = 4, uniform2 = 3 }, "uniform1", "uniform2", Cfg.Gap, 50) == nil, "to the smaller")
+		assert(T.blocked({ uniform1 = 3, uniform2 = 4 }, "uniform1", "uniform2", Cfg.Gap, 50) == "Bigger")
+	end,
 	["a newcomer joins the smallest team, a tie broken at random"] = function()
 		assert(T.smallest({ uniform1 = 2, uniform2 = 1, uniform3 = 2 }, U.Teams, 0.99) == "uniform2")
 		local tie = { uniform1 = 1, uniform2 = 0, uniform3 = 0 }

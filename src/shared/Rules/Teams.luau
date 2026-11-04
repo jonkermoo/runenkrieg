@@ -70,6 +70,27 @@ function Teams.playing(all: { string }, matchTeams: unknown): { string }
 	return all
 end
 
+-- Kept sides between Normal matches (user 2026-11-04: "the victors (gray) stay gray", and Selvara and Sowilo are one
+-- side): the team in `list` (the next match's pair) for a soldier on `kit`. Their own when it plays; `always`'s
+-- soldiers stay on it; any other team's (an Ally) take the pair's team that isn't `always`. Nil: no kit yet.
+function Teams.carry(kit: unknown, list: { string }, always: string): string?
+	if type(kit) ~= "string" or kit == "" then
+		return nil
+	end
+	if table.find(list, kit) then
+		return kit
+	end
+	if kit == always then
+		return nil -- (`always` not playing: no side to keep)
+	end
+	for _, t in list do
+		if t ~= always then
+			return t
+		end
+	end
+	return nil
+end
+
 -- The team a newcomer joins: the one with the fewest soldiers, a tie broken by `r` in [0, 1).
 function Teams.smallest(counts: { [string]: number }, teams: { string }, r: number): string
 	local least = math.huge

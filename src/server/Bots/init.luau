@@ -1036,7 +1036,7 @@ local function direct(now: number)
 			end
 		end
 		local cap = math.min(Cfg.Max.Normal, governor.cap)
-		wants.West, wants.East = Rules.wantedSides(Cfg.Fill.Normal.perSide, players.West, players.East, cap, pinned)
+		wants.West, wants.East = Rules.wantedSides(Cfg.Fill.Normal, players.West, players.East, cap, pinned)
 	elseif Cfg.Enabled and mode == "FFA" and ZoneMatch.running() then
 		local cap = math.min(Cfg.Max.FFA, governor.cap)
 		wants[""] = Rules.wanted(Cfg.Fill.FFA, #Players:GetPlayers(), cap, pinned)
@@ -1070,6 +1070,18 @@ local function direct(now: number)
 			end
 		elseif not b.m and not b.deadAt then
 			spawnBody(b) -- (no spawn point earlier)
+		end
+	end
+	-- each side's bots, for the menu's team counts ("players + bots": src/client/Menus)
+	local onSide = { West = 0, East = 0 }
+	for _, b in bots do
+		if b.side == "West" or b.side == "East" then
+			onSide[b.side] += 1
+		end
+	end
+	for side, n in onSide do
+		if botFolder():GetAttribute(Cfg.SideAttribute .. side) ~= n then
+			botFolder():SetAttribute(Cfg.SideAttribute .. side, n)
 		end
 	end
 	for _, side in { "West", "East", "" } do

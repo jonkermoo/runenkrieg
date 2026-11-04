@@ -315,20 +315,40 @@ end
 -- The narrator (Config/Cutscenes.Speech). A line: its words and the earliest it may start (seconds into its part).
 export type Line = { text: string, at: number }
 
--- Part one, in the armory: where the match was won (`played`: the map's key) and the momentum, for the winning kit
--- (`winner`, nil: no winner) whose nation is `nation`. Every line at 0: they follow one another.
-function Cutscenes.partOne(speech: any, winner: string?, played: string, nation: string, mapName: string?): { Line }
-	local won = if winner then speech.won[played] else speech.wonNone[played]
-	if not won and mapName then -- (a map with no lines of its own: the made ones, by its name)
-		won = if winner then speech.fallback.won else speech.fallback.wonNone
+-- Which side's script a player hears in the armory (user 2026-11-04): their own kit's in the match just ended, won or
+-- lost (`own`: the kit they fought in, nil or another: they weren't in it, and hear the winner's). Nil: nobody won.
+function Cutscenes.scriptOf(own: string?, winner: string?, loser: string?): (string?, "won" | "lost")
+	if not winner then
+		return nil, "won"
 	end
+	if own and own == loser then
+		return own, "lost"
+	end
+	return winner, "won"
+end
+
+-- Part one, in the armory: the script of map `played` for kit `kit` (`result` "won" / "lost"; Config/Cutscenes.Speech
+-- .outcome); a map with none written gets the made one (by its name `mapName`, the kit's nation from `nations`). No kit
+-- (nobody won): nothing. Every line at 0: they follow one another.
+function Cutscenes.partOne(
+	speech: any,
+	kit: string?,
+	result: "won" | "lost",
+	played: string,
+	nations: { [string]: string },
+	mapName: string?
+): { Line }
 	local out: { Line } = {}
-	if won then
-		table.insert(out, { text = Cutscenes.text(won, { winner = nation, map = mapName or "" }), at = 0 })
+	if not kit then
+		return out
 	end
-	local momentum = speech.momentum[winner or "none"]
-	if momentum then
-		table.insert(out, { text = momentum, at = 0 })
+	local scripts = speech.outcome[played]
+	local lines = scripts and scripts[kit] and scripts[kit][result]
+	if not lines and mapName then -- (a map with no lines of its own: the made ones, by its name)
+		lines = speech.fallback[result]
+	end
+	for _, line in lines or {} do
+		table.insert(out, { text = Cutscenes.text(line, { nation = nations[kit] or "", map = mapName or "" }), at = 0 })
 	end
 	return out
 end
@@ -434,19 +454,21 @@ function Cutscenes.speechSeconds(lines: { Line }, wps: number, gap: number, clip
 	return total
 end
 
--- Every line the narrator can say, each once, sorted: the won lines filled with each of `nations`, the no-winner
--- lines, the momentum lines, every plan's lines and the closing calls (for recording them, and checking each has a clip).
-function Cutscenes.allLines(speech: any, nations: { string }): { string }
+-- Every line the narrator can say, each once, sorted: every map's scripts, every plan's lines and the closing calls
+-- (for recording them, and checking each has a clip). The made lines of maps with none written aren't recorded.
+function Cutscenes.allLines(speech: any, _nations: { string }?): { string }
 	local seen: { [string]: boolean } = {}
-	for _, template in speech.won do
-		for _, nation in nations do
-			seen[Cutscenes.text(template, { winner = nation })] = true
+	for _, scripts in speech.outcome do
+		for _, script in scripts do
+			for _, result in { script.won, script.lost } do
+				for _, line in result do
+					seen[line] = true
+				end
+			end
 		end
 	end
-	for _, group in { speech.wonNone, speech.momentum, speech.close } do
-		for _, line in group do
-			seen[line] = true
-		end
+	for _, line in speech.close do
+		seen[line] = true
 	end
 	for _, plan in speech.plans do
 		for _, line in plan do

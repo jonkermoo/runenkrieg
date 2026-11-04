@@ -32,6 +32,9 @@ end
 function Kits.next(player: Player): string
 	local pool = Kits.playing()
 	local kit = planned[player]
+	if kit and not table.find(pool, kit) then
+		kit = Teams.carry(kit, pool, Front.AlwaysTeam) -- (the side kept: an Ally takes this map's Allied kit)
+	end
 	if not kit or not table.find(pool, kit) then
 		kit = Looks.kit(nil, nil, pool, math.random(), U.Kits)
 	end

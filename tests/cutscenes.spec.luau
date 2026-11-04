@@ -246,20 +246,43 @@ local tests: { [string]: () -> () } = {
 			last = n
 		end
 	end,
-	["part one: where they won and the momentum, by map and nation"] = function()
+	["part one: each side's own script of the map just played, won or lost (user 2026-11-04)"] = function()
 		local sp = Cfg.Speech
-		local one = R.partOne(sp, "uniform1", "Map1", "Katzmark")
-		assert(#one == 2 and one[1].text:find("Katzmark holds the valley", 1, true), one[1].text)
-		assert(one[2].text == sp.momentum.uniform1)
-		local none = R.partOne(sp, nil, "LanternMeadows", "")
-		assert(none[1].text == sp.wonNone.LanternMeadows and none[2].text == sp.momentum.none)
-		assert(#R.partOne(sp, "uniform2", "Nowhere", "Selvara") == 1, "a map with no line: the momentum alone")
-		local made = R.partOne(sp, "uniform2", "Nowhere", "Selvara", "Frostmark")
-		assert(#made == 2 and made[1].text == "Selvara holds Frostmark. The enemy has been driven from the field.")
-		local madeNone = R.partOne(sp, nil, "Nowhere", "", "Frostmark")
-		assert(madeNone[1].text:find("Frostmark", 1, true) and not madeNone[1].text:find("{", 1, true))
-		for _, l in one do
+		local nations = { uniform1 = "Katzmark", uniform2 = "Selvara", uniform3 = "Sowilo" }
+		-- who hears what: your own side's, the winner's if you weren't in it, nothing if nobody won
+		local kit, result = R.scriptOf("uniform3", "uniform1", "uniform3")
+		assert(kit == "uniform3" and result == "lost", "the losers hear their own")
+		kit, result = R.scriptOf("uniform1", "uniform1", "uniform3")
+		assert(kit == "uniform1" and result == "won")
+		kit, result = R.scriptOf(nil, "uniform3", "uniform1")
+		assert(kit == "uniform3" and result == "won", "not in the match: the winner's")
+		kit, result = R.scriptOf("uniform2", "uniform3", "uniform1")
+		assert(kit == "uniform3" and result == "won", "another team's kit: the winner's")
+		assert(R.scriptOf("uniform1", nil, nil) == nil, "nobody won: no script")
+		assert(#R.partOne(sp, nil, "won", "Map1", nations, "Map 1") == 0, "nobody won: nothing")
+		local lost = R.partOne(sp, "uniform1", "lost", "Map1", nations)
+		assert(#lost == 2 and lost[1].text == sp.outcome.Map1.uniform1.lost[1], lost[1] and lost[1].text)
+		local won = R.partOne(sp, "uniform3", "won", "Map1", nations)
+		assert(won[1].text:find("Sowilo holds the valley", 1, true), won[1].text)
+		assert(#R.partOne(sp, "uniform2", "won", "Nowhere", nations) == 0, "no lines and no name: nothing")
+		local made = R.partOne(sp, "uniform2", "lost", "Nowhere", nations, "Frostmark")
+		assert(#made == 2 and made[1].text == "Selvara has lost Frostmark.", made[1] and made[1].text)
+		for _, l in made do
 			assert(not l.text:find("{", 1, true), "every token filled")
+		end
+	end,
+	["each map with scripts names its pair, and each of its two nations has a win and a lose script"] = function()
+		local sp = Cfg.Speech
+		for key, scripts in sp.outcome do
+			local map = require(`../src/shared/Config/Maps/{key}`) :: any
+			assert(map.pair, `{key} names its pair (Config/Maps)`)
+			for _, kit in { map.pair.West, map.pair.East } do
+				local script = scripts[kit]
+				assert(script and #script.won == 2 and #script.lost == 2, `{key}: {kit}'s two scripts of two lines`)
+			end
+			for kit in scripts do
+				assert(kit == map.pair.West or kit == map.pair.East, `{key}: {kit} doesn't fight there`)
+			end
 		end
 	end,
 	["part two: a line as the dive starts, one at each point, the player's own call on the whistle"] = function()
@@ -334,21 +357,21 @@ local tests: { [string]: () -> () } = {
 	end,
 	["every line fits text-to-speech's 300 characters, part one fits the armory's longest stay"] = function()
 		local sp = Cfg.Speech
-		for _, group in { sp.won, sp.wonNone, sp.momentum, sp.close } do
-			for _, line in group do
-				assert(#line <= 300, line)
-			end
+		for _, line in R.allLines(sp) do
+			assert(#line <= 300, line)
 		end
 		for _, plan in sp.plans do
 			for _, line in plan do
 				assert(#line <= 300, line)
 			end
 		end
-		for key in sp.won do
-			for kit in sp.momentum do
-				local one = R.partOne(sp, if kit == "none" then nil else kit, key, "Katzmark")
-				local secs = R.speechSeconds(one, sp.wordsPerSecond, sp.gap, Clips.clips)
-				assert(secs < Front.Loading.max, "part one fits")
+		for key, scripts in sp.outcome do
+			for kit in scripts do
+				for _, result in { "won", "lost" } do
+					local one = R.partOne(sp, kit, result :: any, key, {})
+					local secs = R.speechSeconds(one, sp.wordsPerSecond, sp.gap, Clips.clips)
+					assert(secs < Front.Loading.max, "part one fits")
+				end
 			end
 		end
 	end,
@@ -360,7 +383,7 @@ local tests: { [string]: () -> () } = {
 		local two = R.speechSeconds({ { text = "Hold the rise.", at = 0 }, { text = "Go on.", at = 0 } }, 2, 0.5, clips)
 		assert(math.abs(two - (1.75 + 0.5 + 1)) < 1e-9)
 	end,
-	["every line the narrator can say is listed once, each won line for each nation"] = function()
+	["every line the narrator can say is listed once, every side's scripts among them"] = function()
 		local nations = { "Katzmark", "Selvara", "Sowilo" }
 		local all = R.allLines(Cfg.Speech, nations)
 		local seen = {}
@@ -369,8 +392,8 @@ local tests: { [string]: () -> () } = {
 			seen[line] = true
 			assert(not line:find("{", 1, true), "unfilled: " .. line)
 		end
-		for _, nation in nations do
-			assert(seen[R.text(Cfg.Speech.won.Map1, { winner = nation })], nation)
+		for _, script in Cfg.Speech.outcome.Map1 do
+			assert(seen[script.won[1]] and seen[script.lost[2]])
 		end
 		for _, line in Cfg.Speech.close do
 			assert(seen[line], line)
@@ -554,8 +577,8 @@ for name, fn in
 				for _, key2 in { key, "NoLinesYet" } do
 					for _, kit in { "uniform1", "none" } do
 						local winner = if kit == "none" then nil else kit
-						local one = R.partOne(sp, winner, key2, "Katzmark", map.name)
-						assert(#one == 2, `{key2}: where it was won and the momentum`)
+						local one = R.partOne(sp, winner, "lost", key2, { uniform1 = "Katzmark" }, map.name)
+						assert(#one == (if winner then 2 else 0), `{key2}: a side's script, none with no winner`)
 						local two = R.partTwo(sp, Cfg.Pre, "uniform1", key2, #map.sectors, made)
 						assert(#two == #map.sectors + 2, `{key2}: the dive, an order per point, the call`)
 						for _, l in one do

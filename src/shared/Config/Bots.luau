@@ -17,6 +17,9 @@ local Bots = {
 	-- on the bots' Workspace folder, per bot (the id's number without its sign): its name and zone score, for every
 	-- client's match HUD (src/client/ZoneHud)
 	NameAttribute = "Name_",
+	-- on the bots' Workspace folder: how many bots fight on each side in Normal ("West" / "East" after it), for the
+	-- loadout menu's team counts (src/client/Menus)
+	SideAttribute = "Side_",
 	ScoreAttribute = "Score_",
 	-- the names bots play under (each bot keeps one; no two at once)
 	Names = {
@@ -86,10 +89,11 @@ local Bots = {
 	Buy = 0.6,
 	-- soldiers each mode is topped up to: players first, bots for the rest (Rules/Bots.wanted); modes not listed get none.
 	-- Normal tops up each side (Rules/Bots.wantedSides; user 2026-10-31: "this will be a 50vs50 map. however, if there is
-	-- only 1 player, lets make it a 20 v 20 game")
+	-- only 1 player, lets make it a 20 v 20 game"); 2026-11-04: "Bots should always be 20 on each side but is removed if
+	-- total count exceeds 30" (a side's players and bots: 25 players get 5 bots, 40 none)
 	Fill = {
 		FFA = { total = 8 },
-		Normal = { perSide = 20 },
+		Normal = { perSide = 20, sideMost = 30 },
 	},
 	-- the most bots one server runs in each mode, whatever the fill (the server's budget; FFA Stage 1 measured 10 and
 	-- 20); the governor (Budget) may hold it lower

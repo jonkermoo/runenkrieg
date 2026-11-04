@@ -3,8 +3,9 @@
 -- character until the player deploys (src/server/Deploy): the title screen shows on join (Play, Customization still
 -- locked, Settings), Play opens the loadout menu, and the loadout menu opens again Config/Classes.MenuAfterDeath
 -- seconds after every death; its Back button returns to the title screen. Where teams are kept (Config/Teams; the
--- state's `teams`) its "Change team" button opens three team cards (user 2026-10-27): a gradient placeholder for the
--- team's art (Palette UI.Hud.Teams) with its name and "count / room" in the middle, the text white where you can join,
+-- state's `teams`) its "Change team" button opens a card for each team in play (user 2026-10-27; the match's two in
+-- Normal, user 2026-11-04): a gradient placeholder for the team's art (Palette UI.Hud.Teams) with its name and its
+-- soldiers in the middle ("players + bots" in Normal: "2 + 4"; else "count / room"), the text white where you can join,
 -- red where you can't (Rules/Teams.blocked) and grey on your own. A card you can join asks for a second click (the
 -- change resets your Marks), then goes to the server (Net "Loadout" "Team"), which checks the balance again. The menu lists the classes (Config/Classes.List: name, blurb, cost; picked, locked or
 -- not affordable), the match currency (shown only here, user: "they only see their match currency in the loadout menu
@@ -24,7 +25,9 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Classes = require(Shared.Config.Classes)
+local BotCfg = require(Shared.Config.Bots)
 local FrontCfg = require(Shared.Config.Frontline)
+local FrontRules = require(Shared.Rules.Frontline)
 local Locomotion = require(Shared.Config.Locomotion)
 local Palette = require(Shared.Config.Palette)
 local U = require(Shared.Config.Uniforms)
@@ -559,6 +562,36 @@ function Menus.start()
 			end
 		end
 	end
+	-- the bots on team `kit`'s side in a Normal match (src/server/Bots), nil elsewhere
+	local function botsOn(kit: string): number?
+		local pair = FrontRules.parsePair(workspace:GetAttribute(FrontCfg.TeamsAttribute))
+		local side = FrontRules.sideOf(pair, kit)
+		local f = workspace:FindFirstChild(BotCfg.Folder)
+		if not side then
+			return nil
+		end
+		local n = f and f:GetAttribute(BotCfg.SideAttribute .. side)
+		return if type(n) == "number" then n else 0
+	end
+	-- team `kit`'s soldiers as a card or the caption shows them
+	local function countText(t: any, kit: string): string
+		local bots = botsOn(kit)
+		return if bots then `{t.counts[kit] or 0} + {bots}` else `{t.counts[kit] or 0} / {t.room}`
+	end
+	-- each card's place in the spec (reference pixels), for laying out only the teams in play
+	local cardX: { [string]: number } = {}
+	local cardW = 1
+	local function specNodes(n: any)
+		for kit in cards do
+			if n.id == "Card" .. nameOf(kit) then
+				cardX[kit], cardW = n.pos[2], n.size[2]
+			end
+		end
+		for _, c in n.children or {} do
+			specNodes(c)
+		end
+	end
+	specNodes(LoadoutSpec.root)
 	local function renderTeams()
 		local t = state and state.teams
 		teamGroup.Visible = t ~= nil
@@ -572,6 +605,34 @@ function Menus.start()
 		if armed and t.closed[armed] ~= "" then
 			armed = nil
 		end
+		-- only the teams in play, centred where the three sat
+		local inPlay = {}
+		for _, kit in U.Teams do
+			if cards[kit] and table.find(t.list, kit) then
+				table.insert(inPlay, kit)
+			end
+		end
+		local slots = {}
+		for _, kit in U.Teams do
+			if cardX[kit] then
+				table.insert(slots, cardX[kit])
+			end
+		end
+		local step = if #slots > 1 then slots[2] - slots[1] else 0
+		local left = (slots[1] or 0) + (#slots - #inPlay) * step / 2
+		for kit, card in cards do
+			local at = table.find(inPlay, kit)
+			card.Visible = at ~= nil
+			local k = card.Size.X.Offset / cardW -- (the screen's scale: Screen.relayout)
+			if at then
+				card.Position = UDim2.new(
+					card.Position.X.Scale,
+					(left + (at - 1) * step) * k,
+					card.Position.Y.Scale,
+					card.Position.Y.Offset
+				)
+			end
+		end
 		for kit, card in cards do
 			local color = if kit == t.own then "textDim" elseif t.closed[kit] ~= "" then "noText" else "selText"
 			local name = L["Name" .. nameOf(kit)] :: TextLabel
@@ -582,7 +643,7 @@ function Menus.start()
 				-- (a closed team's flag dimmed)
 				flag.ImageTransparency = if t.closed[kit] ~= "" then 0.6 else 0
 			end
-			count.Text = `{t.counts[kit] or 0} / {t.room}`
+			count.Text = countText(t, kit)
 			local stroke = card:FindFirstChildOfClass("UIStroke")
 			if stroke then
 				stroke.Color = rgb(if kit == armed then "selLine" else "line")
@@ -591,6 +652,11 @@ function Menus.start()
 		teamNote.Text = if armed
 			then `Click {nameOf(armed)} again to join: your Marks reset`
 			else "Changing team resets your Marks"
+	end
+	local teamsRelayout = loadout.relayout
+	function loadout.relayout()
+		teamsRelayout()
+		renderTeams() -- (the relayout puts every card back where the spec has it)
 	end
 	changeTeam.Activated:Connect(function()
 		cardsOpen = not cardsOpen
@@ -691,13 +757,23 @@ function Menus.start()
 		if t and t.counts then
 			for _, kit in U.Teams do
 				local c = t.counts[kit]
-				if c then
-					table.insert(parts, `{nameOf(kit)} {c}`)
+				if c and table.find(t.list, kit) then
+					table.insert(parts, `{nameOf(kit)} {countText(t, kit)}`)
 				end
 			end
 		end
 		caption.Text = table.concat(parts, " · ")
 	end
+
+	-- the bots come and go without a new state: their counts on the cards kept up once a second
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if loadout.gui.Enabled and cardsOpen then
+				renderTeams()
+			end
+		end
+	end)
 
 	local deathSeen = 0
 	Net.event("Loadout").OnClientEvent:Connect(function(s: any)

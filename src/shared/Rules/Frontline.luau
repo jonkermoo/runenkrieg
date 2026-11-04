@@ -349,6 +349,24 @@ function Frontline.pair(teams: { string }, always: string, r1: number, r2: numbe
 	return if r2 < 0.5 then { West = always, East = foe } else { West = foe, East = always }
 end
 
+-- The pair a map is fought by (user 2026-11-04, "fixed pair per map"): its own `pair` when that names two different
+-- teams of `teams`, one of them `always`, else a random one (Frontline.pair).
+function Frontline.mapPair(
+	own: unknown,
+	teams: { string },
+	always: string,
+	r1: number,
+	r2: number
+): { West: string, East: string }
+	if type(own) == "table" then
+		local w, e = (own :: any).West, (own :: any).East
+		if w ~= e and table.find(teams, w) and table.find(teams, e) and (w == always or e == always) then
+			return { West = w, East = e }
+		end
+	end
+	return Frontline.pair(teams, always, r1, r2)
+end
+
 -- The pair as Workspace's MatchTeams text ("west,east"), and back (nil when it isn't one).
 function Frontline.pairText(pair: { West: string, East: string }): string
 	return `{pair.West},{pair.East}`

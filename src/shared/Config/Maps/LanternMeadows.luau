@@ -48,6 +48,8 @@ end
 local LanternMeadows = {
 	name = "Lantern Meadows",
 	seed = 4417,
+	-- the two nations that fight here (user 2026-11-04: Rules/Frontline.mapPair)
+	pair = { West = "uniform1", East = "uniform2" },
 	offMap = true, -- built beside Map 1: Greybox clears only its own terrain and adds no test spawn
 	bounds = rect(-150, 2550, -280, 280),
 	terrainMargin = 420,

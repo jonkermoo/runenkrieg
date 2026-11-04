@@ -96,16 +96,24 @@ function Bots.wanted(fill: { total: number }?, players: number, max: number, ove
 	return math.clamp(fill.total - players, 0, max)
 end
 
--- Bots each side runs in Normal: each side topped up to `perSide` with its own players first; a test's pin (`override`,
--- a total) split evenly, West taking the odd one. Over `max` the side with more soldiers (players and bots; on a tie the
--- one with more bots, then West) gives up a bot at a time, so the sides stay as even as the bots can make them.
-function Bots.wantedSides(perSide: number, west: number, east: number, max: number, override: number?): (number, number)
+-- Bots each side runs in Normal (`fill`: Config/Bots.Fill.Normal): `perSide` bots, fewer once the side's players and
+-- bots would pass `sideMost` (user 2026-11-04: 25 players get 5, 40 none); a test's pin (`override`, a total) split
+-- evenly, West taking the odd one. Over `max` the side with more soldiers (players and bots; on a tie the one with more
+-- bots, then West) gives up a bot at a time, so the sides stay as even as the bots can make them.
+function Bots.wantedSides(
+	fill: { perSide: number, sideMost: number },
+	west: number,
+	east: number,
+	max: number,
+	override: number?
+): (number, number)
 	local w, e
 	if override then
 		local total = math.max(0, math.floor(override))
 		w, e = math.ceil(total / 2), math.floor(total / 2)
 	else
-		w, e = math.max(0, perSide - west), math.max(0, perSide - east)
+		w = math.clamp(fill.sideMost - west, 0, fill.perSide)
+		e = math.clamp(fill.sideMost - east, 0, fill.perSide)
 	end
 	max = math.max(0, math.floor(max))
 	if override then

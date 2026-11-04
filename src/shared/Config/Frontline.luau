@@ -44,7 +44,10 @@ local Frontline = {
 	Loading = { least = 8, max = 60 },
 	-- on the Frontline folder from a match's end to the next countdown's end: what the narrator speaks of, "<winner
 	-- kit or none>,<the map just played>" (src/client/MatchCutscene)
+	-- (its third part: the losing kit or none; user 2026-11-04, each side hears its own script)
 	SpeechAttribute = "Speech",
+	-- on each Player at a match's end: the kit they fought in (none: not in the match), whose script they hear
+	MatchKitAttribute = "MatchKit",
 	-- on the Frontline folder: the server time of the latest dip to black between scenes (Config/Cutscenes.Dip: the
 	-- next phase starts there), and PhaseAt the server time the phase started
 	DipAttribute = "DipAt",

@@ -11,8 +11,10 @@
 -- carries `teams` for the menu's team cards: every team's count and room, the player's own, and why each is closed. A
 -- team change ("Team", kit) is checked here again: in the menu only (not alive) and only if it keeps the teams even.
 -- Every head count change (a join, a leave, a change) sends the new counts to everyone in the menus. In Normal mode
--- only the match's two teams are in play (src/server/Kits.playing): the cards show those, and each new pair (a new
--- match, Workspace's MatchTeams) splits everyone evenly over them again.
+-- only the match's two teams are in play (src/server/Kits.playing): the cards show those. Each new pair (a new match,
+-- Workspace's MatchTeams: each map's own, Config/Maps) keeps everyone's side (user 2026-11-04: Katzmark stays
+-- Katzmark, the Allies take the map's Allied kit: Rules/Teams.carry in Kits.next); switching into Normal splits
+-- everyone evenly. A team change goes only to the side with fewer players (bots don't count: Config/Teams.Gap).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -271,8 +273,7 @@ function Deploy.start()
 			end
 		end
 	end
-	-- a new pair of teams in play (Normal mode's next match, or switching into Normal): everyone split evenly over
-	-- them, in a random order
+	-- switching into Normal (or out): everyone split evenly over the teams in play, in a random order
 	local function split()
 		if kept() and workspace:GetAttribute(Front.TeamsAttribute) ~= nil then
 			local list = Kits.playing()
@@ -292,7 +293,21 @@ function Deploy.start()
 	end
 	workspace:GetAttributeChangedSignal(TeamCfg.DevAttribute):Connect(resend)
 	workspace:GetAttributeChangedSignal(ModeCfg.Attribute):Connect(split)
-	workspace:GetAttributeChangedSignal(Front.TeamsAttribute):Connect(split)
+	-- a new pair of teams: Normal's first (no pair before it) splits everyone evenly; each next match's keeps everyone's
+	-- side (Kits.next carries it)
+	local hadPair = workspace:GetAttribute(Front.TeamsAttribute) ~= nil
+	workspace:GetAttributeChangedSignal(Front.TeamsAttribute):Connect(function()
+		local has = workspace:GetAttribute(Front.TeamsAttribute) ~= nil
+		if has and not hadPair then
+			split()
+		else
+			for _, p in Players:GetPlayers() do
+				Kits.next(p)
+			end
+			resend()
+		end
+		hadPair = has
+	end)
 end
 
 return Deploy
