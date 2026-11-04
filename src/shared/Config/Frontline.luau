@@ -41,7 +41,9 @@ local Frontline = {
 	-- (the table's own length: Rules/Cutscenes.tableSeconds, until its replay and report are done)
 	FadeSeconds = 3,
 	VoteSeconds = 30, -- (the approved demo, user 2026-11-03: the countdown from 0:30; was 15)
-	Loading = { least = 8, max = 60 },
+	-- (`tour`: the black before the flight held at most this long while every player's camera tours it unseen, Net
+	-- "MapTour")
+	Loading = { least = 8, max = 60, tour = 15 },
 	-- on the Frontline folder from a match's end to the next countdown's end: what the narrator speaks of, "<winner
 	-- kit or none>,<the map just played>" (src/client/MatchCutscene)
 	SpeechAttribute = "Speech",

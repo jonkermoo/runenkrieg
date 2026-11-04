@@ -596,7 +596,8 @@ local function finish()
 	gui.Enabled = false
 	grade.Enabled = false
 	white.Visible = false
-	camera.FieldOfView = p.fov
+	-- (the player's own field of view, whatever the scene before left: user 2026-11-04, a narrow view after joining)
+	camera.FieldOfView = Settings.get("FieldOfView") :: number
 	if not MatchCam.running() then
 		-- the game's own camera from where the flight left it (a skip too): its angle behind the soldier, its fov
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -653,7 +654,7 @@ end
 -- The next map loaded in the armory (Net "MapLoad", src/server/Frontline): every spot its flight looks at streamed in,
 -- for either side and either winner (the sides are dealt after), then the server told. `loaded` the share done.
 local loading = { key = "", done = 0, total = 0 }
-local function loadMap(key: string)
+local function loadMap(key: string, assets: { string })
 	local map = LiveMap.get(key)
 	if not map then
 		loading = { key = key, done = 0, total = 0 }
@@ -711,6 +712,12 @@ local function loadMap(key: string)
 			table.insert(list, d)
 		end
 	end
+	for _, id in assets do -- (the server's list: the parts not streamed in too)
+		if type(id) == "string" and not seen[id] then
+			seen[id] = true
+			table.insert(list, id :: any)
+		end
+	end
 	for _, d in (if root then root:GetDescendants() else {}) do
 		if d:IsA("MeshPart") then
 			addAssets(d, d.MeshId, d.TextureID)
@@ -741,6 +748,66 @@ local function loadMap(key: string)
 	end
 	this.done = this.total
 	Net.event("MapLoad"):FireServer(key)
+end
+
+-- The flight toured unseen under the black before it (Net "MapTour", src/server/Frontline): the camera held at each
+-- shot's start, middle and end (Rules/Cutscenes.tourAt) a few frames and till nothing is left to download, as a map's
+-- textures and mesh detail load only once a camera looks at them; then the server told (Config/Cutscenes.Tour).
+local function tour(key: string)
+	local folder = workspace:FindFirstChild(FrontCfg.FolderName)
+	local map = LiveMap.get(key)
+	local T = Cfg.Tour
+	local views: { { cf: CFrame, fov: number } } = {}
+	if folder and map then
+		local cut = Rules.cut(Cfg, "Pre", key)
+		local points = {}
+		for _, s in map.sectors do
+			table.insert(points, { s.x, s.z })
+		end
+		local w = folder:GetAttribute("Winner")
+		local winner: Rules.Side? = if w == "West" or w == "East" then w :: Rules.Side else nil
+		local me = sideOfMe(folder)
+		local homes: { Rules.Side } = if me then { me } else { "West", "East" }
+		for _, home in homes do
+			local anchors = Rules.anchors(map, home, winner, Cfg.LandmarkReach)
+			for _, shot in clearViews(cut, map, key, anchors, points).shots do
+				if shot.kind ~= "Paper" and shot.kind ~= "Self" then
+					local flip = Rules.mirrored(shot, home, winner)
+					for _, u in Rules.tourAt(shot, #points) do
+						local pose = Rules.pose(shot, u, anchors, points, flip, Cfg.Paper.up)
+						local eye, look = world(pose.eye), world(pose.look)
+						table.insert(views, { cf = CFrame.lookAt(eye, look), fov = pose.fov or Cfg.Fov })
+						task.spawn(streamAround, look)
+					end
+				end
+			end
+		end
+	end
+	local view = views[1]
+	RunService:BindToRenderStep("MapTour", Enum.RenderPriority.Last.Value, function()
+		if view then
+			camera.CameraType = Enum.CameraType.Scriptable
+			camera.CFrame = view.cf
+			camera.FieldOfView = view.fov
+		end
+	end)
+	local from = os.clock()
+	for _, v in views do
+		if os.clock() - from > T.max then
+			break
+		end
+		view = v
+		local heldAt = os.clock()
+		for _ = 1, T.frames do
+			RunService.RenderStepped:Wait()
+		end
+		while ContentProvider.RequestQueueSize > 0 and os.clock() - heldAt < T.each do
+			RunService.RenderStepped:Wait()
+		end
+	end
+	RunService:UnbindFromRenderStep("MapTour")
+	camera.FieldOfView = Settings.get("FieldOfView") :: number
+	Net.event("MapTour"):FireServer(key)
 end
 
 -- A match's end: the next map not asked for yet.
@@ -967,9 +1034,14 @@ end
 function MatchCutscene.start()
 	build()
 	dips()
-	Net.event("MapLoad").OnClientEvent:Connect(function(key: unknown)
+	Net.event("MapLoad").OnClientEvent:Connect(function(key: unknown, assets: unknown)
 		if type(key) == "string" then
-			loadMap(key)
+			loadMap(key, if type(assets) == "table" then assets :: { string } else {})
+		end
+	end)
+	Net.event("MapTour").OnClientEvent:Connect(function(key: unknown)
+		if type(key) == "string" then
+			tour(key)
 		end
 	end)
 	skip.Activated:Connect(function()

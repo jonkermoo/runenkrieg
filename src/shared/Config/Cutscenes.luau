@@ -48,6 +48,11 @@ local Cutscenes = {
 	-- client says it's loaded: nothing pops in during the flight (user 2026-11-03: "make sure the map is FULLY loaded")
 	PreloadBatch = 40,
 	PreloadDrain = 10, -- then at most this many seconds for the download queue to empty
+	-- and under the black before the flight the camera tours it unseen (Rules/Cutscenes.tourAt: each shot's start,
+	-- middle and end), held at each view `frames` frames and then till nothing is left to download (`each` seconds at
+	-- most), `max` seconds in all: a map's textures and mesh detail load only once a camera looks at them (user
+	-- 2026-11-04: "I should be able to see 100% of the map with no stuff still rendering")
+	Tour = { frames = 6, each = 2, max = 14 },
 	-- each point's shot in the flight turned round its point (radians, tried in order) until no tree, hill or other house
 	-- stands between the camera and what it looks at (`at`: through the point's shot; rays to the spot looked at, `wide`
 	-- of the half frame to either side and over it; a hit within `near` studs of where a ray aims, or on the point's own

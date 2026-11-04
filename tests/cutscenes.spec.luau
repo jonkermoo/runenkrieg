@@ -398,6 +398,15 @@ local tests: { [string]: () -> () } = {
 			assert(spans[i][1] >= spans[i - 1][1] + spans[i - 1][2], "clips overlap")
 		end
 	end,
+	["the hidden tour before the flight: each shot's start, middle and end, each point's own"] = function()
+		assert(#R.tourAt({ kind = "Move" }, 5) == 3)
+		local at = R.tourAt({ kind = "Sectors" }, 4)
+		assert(#at == 12 and at[1] > 0 and at[12] < 1, "three a point, inside the shot")
+		for k = 2, #at do
+			assert(at[k] > at[k - 1], "in order")
+		end
+		assert(math.abs(at[2] - 0.125) < 1e-9, "the first point's middle")
+	end,
 	["a whole shot turned round its anchor: an orbit's angles, a move's offsets, nothing else"] = function()
 		local move =
 			{ kind = "Move", from = { at = "A", dx = 10, dz = 0, up = 5 }, look = { at = "A", up = 2 }, fov = 50 }

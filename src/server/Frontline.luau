@@ -91,6 +91,9 @@ local conns: { RBXScriptConnection } = {}
 -- the next map streamed in by each player in the armory (Net "MapLoad"): the map asked for, and who hasn't said so yet
 local loadingMap: string? = nil
 local stillLoading: { [Player]: boolean } = {}
+-- the flight toured by each player under the black before it (Net "MapTour"): the map, and who hasn't said so yet
+local touring: string? = nil
+local stillTouring: { [Player]: boolean } = {}
 local ending = false
 -- the admin's end into a map (Frontline.endInto): the winner it plays (nil: none) and the map the vote picks
 local forced: { winner: Rules.Side?, map: string }? = nil
@@ -159,6 +162,68 @@ local function dipTo(name: string, seconds: number?, kind: string?)
 	folder:SetAttribute(Cfg.DipAttribute, workspace:GetServerTimeNow() + d.out)
 	task.wait(d.out)
 	phase(name, seconds)
+end
+
+-- The black before the flight (Config/Cutscenes.FlightDip) held while every player's camera tours the flight unseen
+-- (Net "MapTour": a map's textures and mesh detail load only once a camera looks at them; user 2026-11-04: "100% of
+-- the map with no stuff still rendering"), Loading.tour at the most. The countdown then starts as the black's hold.
+local function tourFlight()
+	local d = CutCfg.FlightDip
+	folder:SetAttribute(Cfg.DipKindAttribute, "Flight")
+	folder:SetAttribute(Cfg.DipAttribute, workspace:GetServerTimeNow() + d.out)
+	task.wait(d.out)
+	table.clear(stillTouring)
+	for _, p in Players:GetPlayers() do
+		stillTouring[p] = true
+	end
+	touring = LiveMap.key()
+	Net.event("MapTour"):FireAllClients(touring)
+	local from = os.clock()
+	while true do
+		folder:SetAttribute(Cfg.DipAttribute, workspace:GetServerTimeNow()) -- (the black kept)
+		local pending = 0
+		for p in stillTouring do
+			pending += if p.Parent then 1 else 0
+		end
+		if CutRules.loadOver(os.clock() - from, 0, Cfg.Loading.tour, pending) then
+			break
+		end
+		task.wait(0.1)
+	end
+	touring = nil
+end
+
+-- Every mesh and texture of map `key`'s model (content ids): each client preloads them all in the armory, the parts
+-- it hasn't streamed in too.
+local function assetsOf(key: string): { string }
+	local seen: { [string]: boolean } = {}
+	local out = {}
+	local function add(id: any)
+		if type(id) == "string" and id ~= "" and not seen[id] then
+			seen[id] = true
+			table.insert(out, id)
+		end
+	end
+	local root = workspace:FindFirstChild(key)
+	for _, d in (if root then root:GetDescendants() else {}) do
+		if d:IsA("MeshPart") then
+			add(d.MeshId)
+			add(d.TextureID)
+		elseif d:IsA("SpecialMesh") then
+			add(d.MeshId)
+			add(d.TextureId)
+		elseif d:IsA("Decal") then -- (Textures too)
+			add(d.Texture)
+		elseif d:IsA("SurfaceAppearance") then
+			pcall(function()
+				add(d.ColorMap)
+				add(d.NormalMap)
+				add(d.RoughnessMap)
+				add(d.MetalnessMap)
+			end)
+		end
+	end
+	return out
 end
 
 -- The side `player` plays on this life (nil: not in the match, e.g. a testing kit of a team that isn't playing).
@@ -679,7 +744,12 @@ local function run()
 			local seconds = if fresh
 				then Cfg.FreshCountdownSeconds
 				else CutRules.flightSeconds(Cfg.CountdownSeconds, CutCfg.FlightDip)
-			dipTo("Countdown", seconds, if fresh then nil else "Flight")
+			if fresh then
+				dipTo("Countdown", seconds)
+			else
+				tourFlight()
+				phase("Countdown", seconds)
+			end
 			local start = workspace:GetServerTimeNow() + seconds
 			if fresh then
 				task.delay(CutCfg.Dip.hold + CutCfg.Dip.inn, function()
@@ -836,7 +906,7 @@ local function run()
 			stillLoading[p] = true
 		end
 		loadingMap = pick
-		Net.event("MapLoad"):FireAllClients(pick)
+		Net.event("MapLoad"):FireAllClients(pick, assetsOf(pick))
 		while true do
 			local pending = 0
 			for p in stillLoading do
@@ -937,6 +1007,14 @@ function Frontline.start(): boolean
 		Net.event("MapLoad").OnServerEvent:Connect(function(p: Player, key: unknown)
 			if loadingMap ~= nil and key == loadingMap then
 				stillLoading[p] = nil
+			end
+		end)
+	)
+	table.insert(
+		conns,
+		Net.event("MapTour").OnServerEvent:Connect(function(p: Player, key: unknown)
+			if touring ~= nil and key == touring then
+				stillTouring[p] = nil
 			end
 		end)
 	)

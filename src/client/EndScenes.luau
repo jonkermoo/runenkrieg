@@ -40,6 +40,7 @@ local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Cutscenes)
 local MatchCam = require(script.Parent.MatchCam)
 local MatchCutscene = require(script.Parent.MatchCutscene)
+local Settings = require(script.Parent.Settings)
 local SketchMap = require(script.Parent.SketchMap)
 local Speech = require(script.Parent.Speech)
 local CommandPost = require(script.Parent.CommandPost)
@@ -556,6 +557,8 @@ local function finish()
 		covered = false
 		MatchCutscene.cover(false)
 	end
+	-- the player's own field of view back (the armory's is narrower; user 2026-11-04: a narrow view after joining)
+	camera.FieldOfView = Settings.get("FieldOfView") :: number
 	if not MatchCam.running() then
 		camera.CameraType = Enum.CameraType.Custom
 		local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
