@@ -165,9 +165,14 @@ local Remotes: { string } = {
 	-- until the vote closes; the tally is on the Frontline folder's attributes
 	"MapVote",
 	-- The next map loaded in the armory (src/server/Frontline asks, src/client/MatchCutscene streams it in): server ->
-	-- client: (key: string) stream in the ground the next flight shows; client -> server: (key: string) it's in. The
+	-- client: (key: string, assets: { string }) stream in the ground the next flight shows and preload every mesh and
+	-- texture of the map (the content ids); client -> server: (key: string) it's in. The
 	-- next match waits for every player asked (Rules/Cutscenes.loadOver; Config/Frontline.Loading.max at the most)
 	"MapLoad",
+	-- The flight toured unseen under the black before it (src/server/Frontline asks, src/client/MatchCutscene tours):
+	-- server -> client: (key: string) tour the flight over this map; client -> server: (key: string) done. The black
+	-- holds for every player asked (Config/Frontline.Loading.tour at the most)
+	"MapTour",
 }
 local Functions: { string } = {}
 

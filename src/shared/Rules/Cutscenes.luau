@@ -650,6 +650,21 @@ function Cutscenes.topple(t: any, u: number, rest: number): number
 	return rest - t.bounce * math.abs(math.sin(v * t.rate)) * math.exp(-t.decay * v)
 end
 
+-- Where through shot `shot` the hidden tour before the flight holds the camera (Config/Cutscenes.Tour): its start,
+-- middle and end; a Sectors shot's at each of its `n` points' own start, middle and end.
+function Cutscenes.tourAt(shot: any, n: number): { number }
+	if shot.kind ~= "Sectors" then
+		return { 0, 0.5, 1 }
+	end
+	local out = {}
+	for k = 1, n do
+		for _, f in { 0.02, 0.5, 0.98 } do
+			table.insert(out, (k - 1 + f) / n)
+		end
+	end
+	return out
+end
+
 -- Whether the armory may give way to the next match `elapsed` seconds in: past `least` (the narrator's first part)
 -- with no player still loading the next map (`pending`), or at `most` whatever is still loading.
 function Cutscenes.loadOver(elapsed: number, least: number, most: number, pending: number): boolean
