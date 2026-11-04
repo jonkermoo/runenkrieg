@@ -62,10 +62,18 @@ function Util.cast(from: Vector3, dir: Vector3, range: number, ignore: { Instanc
 		return from + dir.Unit * range, -dir.Unit, nil
 	end
 	local inst = hit.Instance
-	local color = if inst:IsA("Terrain")
-		then inst:GetMaterialColor(hit.Material)
-		elseif inst:IsA("BasePart") then inst.Color
-		else nil
+	local color: Color3? = nil
+	if inst:IsA("Terrain") then
+		-- GetMaterialColor errors on water (its colour is Terrain.WaterColor) and on any other material it doesn't take
+		if hit.Material == Enum.Material.Water then
+			color = (inst :: Terrain).WaterColor
+		else
+			local ok, c = pcall(inst.GetMaterialColor, inst, hit.Material)
+			color = if ok then c else nil
+		end
+	elseif inst:IsA("BasePart") then
+		color = inst.Color
+	end
 	return hit.Position, hit.Normal, color
 end
 
