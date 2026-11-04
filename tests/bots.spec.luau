@@ -381,6 +381,44 @@ return {
 		w, e = R.wantedSides(OLD, 0, 0, 0)
 		assert(w == 0 and e == 0)
 	end,
+	["over the count bots retire at death: the dead first, then not crewing, farthest from players (user 2026-11-04)"] = function()
+		local function c(id, dead, marked, crewing, far)
+			return { id = id, dead = dead, marked = marked, crewing = crewing, far = far }
+		end
+		local cands = {
+			c(1, false, false, false, 50),
+			c(2, false, false, true, 900),
+			c(3, true, false, false, 10),
+			c(4, false, false, false, 400),
+			c(5, false, true, false, 5),
+		}
+		local r = R.retiring(cands, 1)
+		assert(r[3] and not r[1], "a dead one first")
+		r = R.retiring(cands, 2)
+		assert(r[3] and r[5], "then the one already marked: no churn")
+		r = R.retiring(cands, 3)
+		assert(r[3] and r[5] and r[4], "then the farthest not crewing a gun")
+		r = R.retiring(cands, 5)
+		assert(r[2], "the gun crew last")
+		assert(next(R.retiring(cands, 0)) == nil and next(R.retiring(cands, -3)) == nil, "at or under the count: none")
+		local n = 0
+		for _ in R.retiring(cands, 99) do
+			n += 1
+		end
+		assert(n == #cands, "never more than there are")
+		-- the admin's pin from 50 a side back to auto: 30 over on a side, all retiring, none removed alive
+		local many = {}
+		for id = 1, 50 do
+			table.insert(many, c(id, false, false, false, id))
+		end
+		local w = R.wantedSides(Cfg.Fill.Normal, 0, 0, 999)
+		r = R.retiring(many, 50 - w)
+		local k = 0
+		for _ in r do
+			k += 1
+		end
+		assert(k == 30 and r[50] and not r[1], "the 30 farthest retire")
+	end,
 	["wantedSides: a pinned total is split evenly, West taking the odd one"] = function()
 		local w, e = R.wantedSides(OLD, 5, 5, 39, 9)
 		assert(w == 5 and e == 4)

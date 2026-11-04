@@ -130,6 +130,37 @@ function Bots.wantedSides(
 	return w, e
 end
 
+-- A bot that may retire (Config/Bots.RetiringAttribute): dead, already marked, crewing a gun, and how far it is from
+-- the nearest player (studs; math.huge: no player).
+export type RetireCand = { id: number, dead: boolean, marked: boolean, crewing: boolean, far: number }
+
+-- Which of `cands` retire when a group has `surplus` bots over its count (user 2026-11-04: none taken out alive): the
+-- dead first (they just don't come back), then those already marked (no churn), then those not crewing a gun, the
+-- farthest from any player first. Their ids.
+function Bots.retiring(cands: { RetireCand }, surplus: number): { [number]: boolean }
+	local order = table.clone(cands)
+	table.sort(order, function(a, b)
+		if a.dead ~= b.dead then
+			return a.dead
+		end
+		if a.marked ~= b.marked then
+			return a.marked
+		end
+		if a.crewing ~= b.crewing then
+			return b.crewing
+		end
+		if a.far ~= b.far then
+			return a.far > b.far
+		end
+		return a.id < b.id
+	end)
+	local out: { [number]: boolean } = {}
+	for k = 1, math.min(math.max(0, surplus), #order) do
+		out[order[k].id] = true
+	end
+	return out
+end
+
 export type Governor = { cap: number, bad: number, good: number }
 
 -- A fresh governor letting `max` bots run.

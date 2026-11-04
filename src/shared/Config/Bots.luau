@@ -98,11 +98,15 @@ local Bots = {
 	-- the most bots one server runs in each mode, whatever the fill (the server's budget; FFA Stage 1 measured 10 and
 	-- 20); the governor (Budget) may hold it lower
 	Max = { FFA = 20, Normal = 39 },
-	-- one bot in (or out) at most this often, so a join or a leave never brings a crowd at once
+	-- one bot in (or a dead retiring one out) at most this often, so a join or a leave never brings a crowd at once
 	JoinEvery = 1.5,
 	LeaveEvery = 4,
-	-- a bot over the count leaves only while dead, or after this long over it (seconds) even alive
-	LeaveAliveAfter = 20,
+	-- Over the count (a player joins, a side passes Fill.Normal.sideMost, the admin's pin drops): living bots are never
+	-- taken out of the fight (user 2026-11-04: "it should stay alive and once it dies, it wont respawn"). The surplus
+	-- is marked retiring (Rules/Bots.retiring: the dead first, then those not crewing a gun, farthest from any player)
+	-- and leaves at its death; the count back up un-marks them before any new bot comes. On the bots' folder for the
+	-- admin panel: how many retire on each side ("West" / "East", or "" in FFA, after it)
+	RetiringAttribute = "Retiring_",
 
 	-- the server's budget for all the bots together (src/server/Bots)
 	Budget = {

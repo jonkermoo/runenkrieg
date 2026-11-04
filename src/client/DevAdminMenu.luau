@@ -360,6 +360,24 @@ local function build(player: Player): DevPanel.Panel
 	workspace:GetAttributeChangedSignal(BotsCfg.Attribute):Connect(showBots)
 	workspace:GetAttributeChangedSignal(BotsCfg.DifficultyAttribute):Connect(showBots)
 	showBots()
+	-- the bots on now and how many are retiring (over the count: they leave at their death, Config/Bots
+	-- RetiringAttribute), on the auto row, once a second
+	task.spawn(function()
+		while counts.auto.Parent do
+			local f = workspace:FindFirstChild(BotsCfg.Folder)
+			local parts = {}
+			for _, side in { "West", "East", "" } do
+				local on = f and f:GetAttribute(BotsCfg.SideAttribute .. side)
+				local off = f and f:GetAttribute(BotsCfg.RetiringAttribute .. side)
+				if type(off) == "number" and (side ~= "" or off > 0) then
+					local name = if side == "" then "all" else side
+					table.insert(parts, `{name} {if type(on) == "number" then on else "?"} ({off} retiring)`)
+				end
+			end
+			counts.auto.Text = if #parts > 0 then `{auto} · {table.concat(parts, ", ")}` else auto
+			task.wait(1)
+		end
+	end)
 	-- bot tests (Normal; src/server/Bots.dev): the state labels (src/client/DevBotLabels), Engineer / Grenadier for free, the dig
 	-- speed, a barrage on a side's trench line (the aimed ones are on the blast panel)
 	onOff("BotState", "Bot state labels", "BotState", workspace, A.BotState.attribute)

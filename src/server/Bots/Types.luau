@@ -109,7 +109,7 @@ export type Bot = {
 	reachedZone: boolean,
 	deadAt: number?,
 	respawnAt: number?,
-	overSince: number?,
+	retiring: boolean?, -- over the count: leaves at its death instead of coming back (Config/Bots.RetiringAttribute)
 	spawning: boolean, -- a body being built (it yields): never two at once
 	mode: string, -- the mode it plays (a bot of another mode leaves)
 	side: string?, -- Normal: "West" / "East"
