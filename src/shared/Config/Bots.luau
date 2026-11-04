@@ -671,8 +671,10 @@ local Bots = {
 	Callouts = {
 		near = 70,
 		hear = 90,
-		botEvery = 8,
-		sideEvery = 2.5,
+		-- about 40% less chatter (user 2026-11-04: "reduce how much the ai's chat by 40% ish"): botEvery was 8,
+		-- sideEvery 2.5, and the chatter chances (Spotted to Reload) x 0.6 of 0.6 / 0.35; the calls that matter stay at 1
+		botEvery = 13,
+		sideEvery = 4.2,
 		sameEvery = 15,
 		manDownWithin = 40, -- studs: a teammate this close to a fallen bot calls it
 		chance = {
@@ -680,12 +682,12 @@ local Bots = {
 			ManDown = 1,
 			Grenade = 1,
 			Heal = 1,
-			Spotted = 0.6,
-			Cover = 0.6,
-			MoveUp = 0.35,
-			Push = 0.35,
-			Covering = 0.35,
-			Reload = 0.35,
+			Spotted = 0.36,
+			Cover = 0.36,
+			MoveUp = 0.21,
+			Push = 0.21,
+			Covering = 0.21,
+			Reload = 0.21,
 		},
 		-- each team's lines (Config/Uniforms.Kits `team`); Grenade and Heal wait for bots that throw and heal
 		Lines = {
