@@ -303,6 +303,12 @@ local DevTools = {
 		-- (src/server/Bots, every commander tick)
 		BotStuckAttribute = "DevBotStuck",
 		stuckFor = 12,
+		-- - House (at the aim point): the `bots` nearest bots (within BotNear) walk through the house there, each to
+		--   `spots` of its indoor spots in turn (each starting at a different one) and back out where it started, giving up
+		--   after `seconds`; a spot reached within `arrive` studs (and a story's height). The readout `attribute`: each
+		--   walk's spot, time and how long it has stood still, then the last `keep` results (user 2026-11-04: "AI often
+		--   get stuck in houses")
+		House = { attribute = "DevBotHouse", bots = 3, spots = 3, within = 40, seconds = 60, arrive = 2.5, keep = 6 },
 		-- the readout of each side's latest runs toward the enemy, straight or zig-zag and why (src/server/Bots)
 		BotRunsAttribute = "DevBotRuns",
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier

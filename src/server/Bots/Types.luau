@@ -123,6 +123,8 @@ export type Bot = {
 	stop: Vector3?, -- Normal: a bound's next stop
 	post: Vector3?, -- Normal: where it holds (its covering-fire spot, or its hold spot in the zone)
 	postSector: number?, -- the sector its hold spot is in
+	-- the admin panel's walk through a house (Bots.dev "House"): its spots in turn, then back out where it started
+	devHouse: { spots: { Vector3 }, i: number, from: number, till: number, house: string }?,
 	postFace: Vector3?, -- its hold spot is a window or doorway facing this way out (src/server/Indoors)
 	roleWas: Squads.Role?,
 	grip: Motor6D?, -- the gun's hold joint (to the torso)

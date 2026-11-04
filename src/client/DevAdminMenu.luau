@@ -397,6 +397,19 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotStuckAttribute):Connect(showStuck)
 	showStuck()
+	-- bots sent through a house (the bot rows' "walk through the house here"): each walk's spot and time, then results
+	order += 1
+	local house = DevPanel.heading(p.panel, "", order)
+	house.Size = UDim2.new(1, -8, 0, 110)
+	house.TextWrapped = true
+	house.TextYAlignment = Enum.TextYAlignment.Top
+	local function showHouse()
+		local s = workspace:GetAttribute(A.House.attribute)
+		local none = "none sent (bot rows: walk through the house here)"
+		house.Text = `Bots through a house:\n{if type(s) == "string" then s else none}`
+	end
+	workspace:GetAttributeChangedSignal(A.House.attribute):Connect(showHouse)
+	showHouse()
 	-- each side's latest runs toward the enemy: straight, or a zig-zag where the enemy can see down them (and why)
 	order += 1
 	local runs = DevPanel.heading(p.panel, "", order)

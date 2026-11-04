@@ -86,12 +86,14 @@ function BotBuildings.inside(spots: { Spot }, ex: number, ez: number, within: nu
 end
 
 -- Whether a bot walking a path stops for a door: the waypoint ahead is a door link's (`door`), it is within
--- `doorReach` of it, and the door is shut (or it opened it less than `doorWait` seconds ago, while it swings).
-function BotBuildings.waitForDoor(door: boolean, distance: number, shut: boolean, since: number, cfg: any): boolean
+-- `doorReach` of it, and the door is opening for it (`opening`: shut, and it reached it to open) or it opened it less
+-- than `doorWait` seconds ago, while it swings. A shut door it can't open yet (out of the prompt's reach, someone
+-- shutting it) never holds it: it walks on and tries again (user 2026-11-04: "AI often get stuck in houses").
+function BotBuildings.waitForDoor(door: boolean, distance: number, opening: boolean, since: number, cfg: any): boolean
 	if not door or distance > cfg.doorReach then
 		return false
 	end
-	return shut or since < cfg.doorWait
+	return opening or since < cfg.doorWait
 end
 
 return BotBuildings

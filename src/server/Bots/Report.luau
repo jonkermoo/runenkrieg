@@ -14,6 +14,7 @@ local Map = require(Shared.LiveMap).map -- (the match's map)
 local BotBuild = require(Shared.Rules.BotBuild)
 local Artillery = require(script.Parent.Parent.Artillery)
 local Damage = require(script.Parent.Parent.Damage)
+local Indoors = require(script.Parent.Parent.Indoors)
 local Ragdoll = require(script.Parent.Parent.Ragdoll)
 local Animate = require(script.Parent.Animate)
 local Routes = require(script.Parent.Routes)
@@ -92,7 +93,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts; %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened (%d paths again after a swing, %d doorway spots behind a door), %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -172,6 +173,8 @@ local function report(now: number, governor: { cap: number })
 			stats.dropped,
 			stats.selfHits,
 			stats.doors,
+			stats.doorRepaths,
+			Indoors.behind,
 			windows,
 			clearing,
 			stats.shots,
@@ -401,8 +404,70 @@ local function stuckLine()
 	workspace:SetAttribute(A.BotStuckAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- the admin panel's walks through a house (Config/DevTools.Admin.House; Bots.dev "House"): each bot's next spot, else
+-- nil when it is done or gave up (its result kept for the readout)
+local houseDone: { string } = {}
+local function houseEnd(b: Bot, how: string, now: number)
+	local w = b.devHouse :: any
+	b.devHouse = nil
+	table.insert(houseDone, 1, `{b.name} {how} {w.house}: {w.i - 1}/{#w.spots} spots in {math.floor(now - w.from)}s`)
+	houseDone[DevCfg.Admin.House.keep + 1] = nil
+end
+
+local function houseGoal(b: Bot, now: number): Vector3?
+	local w = b.devHouse
+	local root = b.root
+	if not w or not root then
+		return nil
+	end
+	local H = DevCfg.Admin.House
+	if not alive(b) or b.deadAt then
+		houseEnd(b, "died in", now)
+		return nil
+	end
+	if now > w.till then
+		houseEnd(b, "GAVE UP in", now)
+		return nil
+	end
+	local feet = (root :: BasePart).Position - Vector3.new(0, 3, 0)
+	local at = w.spots[w.i]
+	if flat(at - feet).Magnitude < H.arrive and math.abs(at.Y - feet.Y) < 4 then
+		w.i += 1
+		if w.i > #w.spots then
+			houseEnd(b, "walked through", now)
+			return nil
+		end
+		at = w.spots[w.i]
+	end
+	return at
+end
+
+local function houseLine()
+	local H = DevCfg.Admin.House
+	local now = os.clock()
+	local lines = {}
+	for _, b in bots do
+		local w = b.devHouse
+		if w and b.root then
+			local s = still[b]
+			local stood = if s then now - s.since else 0
+			local off = math.floor(flat(w.spots[w.i] - (b.root :: BasePart).Position).Magnitude)
+			local standing = if stood >= 3 then `, STILL {math.floor(stood)}s` else ""
+			table.insert(
+				lines,
+				`{b.name} {w.house}: spot {w.i}/{#w.spots} {off} studs off, {math.floor(now - w.from)}s{standing}`
+			)
+		end
+	end
+	for _, r in houseDone do
+		table.insert(lines, r)
+	end
+	workspace:SetAttribute(H.attribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 local function label()
 	stuckLine()
+	houseLine()
 	frontLine()
 	runLines()
 	rescues()
@@ -514,13 +579,53 @@ local function dev(action: string, value: any): (string?, string?)
 			ok = ok and b.order == "Attack" and b.squad ~= nil and squads[b.squad :: string] ~= nil
 		elseif action == "Gun" then
 			ok = ok and b.mode == "Normal" and not b.gun and not Artillery.gunOf(b.m :: Model)
-		elseif action == "Work" or action == "Down" then
+		elseif action == "Work" or action == "Down" or action == "House" then
 			ok = ok and b.mode == "Normal" and b.side ~= nil and not b.gun and not Artillery.gunOf(b.m :: Model)
 		end
 		local d = if ok then flat((b.root :: BasePart).Position - near).Magnitude else math.huge
 		if d < bestD then
 			pick, bestD = b, d
 		end
+	end
+	if action == "House" then
+		-- (the house nearest the point: its indoor spots, each walk starting at a different one)
+		local H = A.House
+		local found = Indoors.near(at, H.within)
+		if #found == 0 then
+			return "no house here", nil
+		end
+		local house = found[1].building
+		local spots = Indoors.spots(house)
+		local picked: { Bot } = {}
+		for _, b in bots do
+			local free = b.root ~= nil and b.m ~= nil and alive(b) and not b.deadAt and b.mode == "Normal"
+			free = free and not b.gun and not b.devHouse and not Artillery.gunOf(b.m :: Model)
+			if free and flat((b.root :: BasePart).Position - at).Magnitude <= A.BotNear then
+				table.insert(picked, b)
+			end
+		end
+		table.sort(picked, function(x, y)
+			return flat((x.root :: BasePart).Position - at).Magnitude
+				< flat((y.root :: BasePart).Position - at).Magnitude
+		end)
+		local now = os.clock()
+		local names = {}
+		for k = 1, math.min(H.bots, #picked) do
+			local b = picked[k]
+			local route = {}
+			for j = 0, math.min(H.spots, #spots) - 1 do
+				table.insert(route, spots[(k - 1 + j * H.bots) % #spots + 1].at)
+			end
+			table.insert(route, (b.root :: BasePart).Position - Vector3.new(0, 3, 0))
+			finish(b)
+			b.work = nil
+			b.devHouse = { spots = route, i = 1, from = now, till = now + H.seconds, house = house.Name }
+			table.insert(names, b.name)
+		end
+		if #names == 0 then
+			return "no bot near", nil
+		end
+		return nil, `{table.concat(names, ", ")} into {house.Name}`
 	end
 	if not pick then
 		return "no bot near", nil
@@ -569,5 +674,6 @@ end
 return {
 	report = report,
 	label = label,
+	houseGoal = houseGoal,
 	dev = dev,
 }

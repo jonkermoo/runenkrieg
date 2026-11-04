@@ -762,6 +762,32 @@ local function setGoal(b: Bot, goal: Vector3?, now: number)
 	end
 end
 
+-- a door swung open or shut (src/server/Doors): the paths near it are stale (open, it stands in the room and paths go
+-- round it; shut, through it), so the shared paths by it are dropped and the bots close by path again, once the navmesh
+-- has caught up (Config/Bots.Indoors.Swung)
+Doors.onSwung(function(door: Model)
+	local panel = door.PrimaryPart
+	if not panel then
+		return
+	end
+	task.wait(IN.Swung.after)
+	local at = panel.Position
+	for i = #sharedPaths, 1, -1 do
+		for _, w in sharedPaths[i].waypoints do
+			if (w.Position - at).Magnitude < IN.Swung.near then
+				table.remove(sharedPaths, i)
+				break
+			end
+		end
+	end
+	for _, b in bots do
+		if b.root and b.nav.goal and flat((b.root :: BasePart).Position - at).Magnitude < IN.Swung.near then
+			b.nav.pathAt = -1
+			stats.doorRepaths += 1
+		end
+	end
+end)
+
 -- walks along the path (or straight at the goal while there's none); stuck: jumps, then a fresh path, then a step aside
 local function follow(b: Bot, now: number)
 	local nav = b.nav
@@ -773,12 +799,14 @@ local function follow(b: Bot, now: number)
 		if wp and wp.Label == IndoorCfg.Links.door then
 			local d = flat(wp.Position - root.Position).Magnitude
 			local door = if d <= IN.doorReach then Doors.nearest(wp.Position, 8) else nil
-			local shut = door ~= nil and not Doors.isOpen(door)
-			if door and shut and Doors.openFor(b.m :: Model, door) then
+			-- (shut, out of its reach yet or being shut by someone: it walks on and tries again, never stands there)
+			local wasBusy = door ~= nil and door:GetAttribute("Busy") ~= nil
+			local opening = door ~= nil and not Doors.isOpen(door) and Doors.openFor(b.m :: Model, door)
+			if opening and not wasBusy then
 				nav.doorAt = now
 				stats.doors += 1
 			end
-			if door and Buildings.waitForDoor(true, d, shut, now - nav.doorAt, IN) then
+			if door and Buildings.waitForDoor(true, d, opening, now - nav.doorAt, IN) then
 				humanoid:MoveTo(root.Position)
 				nav.sampleAt, nav.samplePos = now, root.Position
 				return

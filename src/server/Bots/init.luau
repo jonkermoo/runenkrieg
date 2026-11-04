@@ -822,6 +822,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			b.postFoot = nil
 		end
 	end
+	-- the admin panel's walk through a house (Bots.dev "House"): its spots in turn, then back out
+	local walk = Report.houseGoal(b, now)
+	if walk then
+		goal, b.nav.direct = walk, nil
+	end
 	if goal then
 		setGoal(b, goal, now)
 	elseif move ~= "Strafe" and move ~= "Peek" and move ~= "Hold" then

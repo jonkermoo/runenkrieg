@@ -183,13 +183,15 @@ local function build(player: Player): ScreenGui
 	-- the bots at the aim point (Normal; src/server/Bots.dev): the nearest squad pushes there, the nearest bot
 	-- butt-strokes toward it, the nearest free gun goes to the nearest bot, the nearest bot digs a foxhole there (gun out
 	-- until it is safe to dig: the bot labels show "going", "waiting" or "Build"), the nearest bot knocked down there (its
-	-- teammates guard it until they may drag or heal it: "covering")
+	-- teammates guard it until they may drag or heal it: "covering"), the nearest bots walk through the house there (its
+	-- indoor spots and back out: the admin panel's "Bots through a house" readout)
 	local botRows = {
 		{ action = "BotPush", label = "Nearest squad pushes here" },
 		{ action = "BotStrike", label = "Nearest bot butt-strokes here" },
 		{ action = "BotGun", label = "Nearest gun to nearest bot" },
 		{ action = "BotWork", label = "Nearest bot digs here (gun out until safe)" },
 		{ action = "BotDown", label = "Nearest bot knocked down here (teammates guard it)" },
+		{ action = "BotHouse", label = "Nearest bots walk through the house here" },
 	}
 	for _, r in botRows do
 		order += 1

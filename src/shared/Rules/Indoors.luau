@@ -96,6 +96,18 @@ function Indoors.flight(foot: P, top: P, up: P, room: P, width: number, run: num
 	return low, add(top, up, run / 2 + links.past), top
 end
 
+-- Whether a spot by doorway `door` is behind its door when open: the door swings into the room about its hinge
+-- (`hinge`, on the doorway's edge), so a spot past that edge, along the wall, is shut in behind the open door
+-- (user 2026-11-04 play test: "AI often get stuck in houses ... opening the door breaks their path finding").
+function Indoors.behindDoor(door: Piece, hinge: P, at: P): boolean
+	local a = along(door.out)
+	local function offset(q: P): number
+		return (q.x - door.at.x) * a.x + (q.z - door.at.z) * a.z
+	end
+	local h, s = offset(hinge), offset(at)
+	return math.abs(s) > door.width / 2 and h * s > 0
+end
+
 -- The door prompt's rule for anyone: within `reach` studs of the door's panel.
 function Indoors.reaches(from: P, panel: P, reach: number): boolean
 	return Indoors.distance(from, panel) <= reach

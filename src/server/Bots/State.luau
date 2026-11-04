@@ -154,6 +154,7 @@ local stats = {
 	heals = 0, -- heals started
 	drags = 0, -- drags started
 	doors = 0, -- doors opened on the way
+	doorRepaths = 0, -- bots that pathed again after a door near them swung open or shut
 	laid = 0, -- pieces laid and trenches planned
 	swings = 0, -- Build swings that landed
 	refused = 0, -- lays refused (the spot moved)

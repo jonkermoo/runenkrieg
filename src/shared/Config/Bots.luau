@@ -260,7 +260,10 @@ local Bots = {
 
 	-- Normal bots and buildings (Rules/BotBuildings; user 2026-11-02, src/server/Indoors spots, Doors):
 	-- - doors: a path's door waypoint (Config/Indoors.Links.door) within `doorReach` studs: it opens the door
-	--   (Doors.openFor) and waits `doorWait` s while it swings; paths cost Config/Indoors.PathCosts.
+	--   (Doors.openFor) and waits `doorWait` s while it swings, never at a shut one out of its reach (it walks on); paths
+	--   cost Config/Indoors.PathCosts. A door swung open or shut (open, it stands in the room: paths go round it): the
+	--   shared paths within `Swung.near` studs of it are dropped and the bots that near path again, `Swung.after` s on
+	--   (the navmesh catching up; user 2026-11-04: "opening thje door bnreaks their path finding").
 	-- - holds: each defending squad puts up to `perSquad` bots at window or doorway spots within the zone's radius plus
 	--   `around` (windows overlooking it count), facing the enemy's way in by more than `facing`, `upstairs` a story above the ground, `random` to spread
 	--   them (user: "A few (1-2 a squad)"); with no target it faces out of the window.
@@ -271,6 +274,7 @@ local Bots = {
 	Indoors = {
 		doorReach = 6,
 		doorWait = 0.8,
+		Swung = { near = 40, after = 0.5 },
 		perSquad = 2,
 		around = 55, -- (Map 1's houses stand 82+ studs from the zones' centres; user 2026-11-02: "Widen to 100")
 		facing = 0.3,

@@ -36,8 +36,9 @@ return {
 		assert(R.inside(spots, 9, 1, I.clearWithin) == 2)
 		assert(R.inside(spots, 40, 0, I.clearWithin) == nil, "out in the street")
 	end,
-	["waitForDoor: only at a shut door's link, and while it swings"] = function()
-		assert(R.waitForDoor(true, 3, true, 99, I))
+	["waitForDoor: only at a door opening for it, and while it swings; never at one it can't open"] = function()
+		assert(R.waitForDoor(true, 3, true, 99, I), "opening")
+		assert(not R.waitForDoor(true, 3, false, 99, I), "shut but out of its reach: it walks on")
 		assert(R.waitForDoor(true, 3, false, 0.2, I), "swinging")
 		assert(not R.waitForDoor(true, 3, false, I.doorWait + 0.1, I), "open")
 		assert(not R.waitForDoor(true, I.doorReach + 1, true, 99, I), "not there yet")
