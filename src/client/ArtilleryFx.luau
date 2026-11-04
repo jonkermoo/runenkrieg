@@ -323,33 +323,37 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 		local x, y, z = Rules.at(t, origin.X, origin.Y, origin.Z, velocity.X, velocity.Y, velocity.Z, g)
 		return Vector3.new(x, y, z)
 	end
+	local function finish()
+		trailOff(kit)
+		Vfx.Pool.freePart(core)
+		for _, e in { screw, sparks } do
+			local em = e :: ParticleEmitter
+			em.Enabled = false
+			task.delay(C.life[2], function()
+				Vfx.Pool.freeEmitter(em)
+			end)
+		end
+		for _, b in spikes do
+			Vfx.Pool.freeBeam(b)
+		end
+		for _, a in tips do
+			Vfx.Pool.freeAtt(a)
+		end
+		if centre then
+			Vfx.Pool.freeAtt(centre)
+		end
+		if halo then
+			Vfx.Pool.freePart(halo)
+		end
+		if light then
+			Vfx.Pool.freeLight(light)
+		end
+	end
+	-- (a step that fails gives its pieces back too: Vfx/Driver)
 	Vfx.Driver.add(function(now: number): boolean
 		local t = now - t0
 		if t >= flight then
-			trailOff(kit)
-			Vfx.Pool.freePart(core)
-			for _, e in { screw, sparks } do
-				local em = e :: ParticleEmitter
-				em.Enabled = false
-				task.delay(C.life[2], function()
-					Vfx.Pool.freeEmitter(em)
-				end)
-			end
-			for _, b in spikes do
-				Vfx.Pool.freeBeam(b)
-			end
-			for _, a in tips do
-				Vfx.Pool.freeAtt(a)
-			end
-			if centre then
-				Vfx.Pool.freeAtt(centre)
-			end
-			if halo then
-				Vfx.Pool.freePart(halo)
-			end
-			if light then
-				Vfx.Pool.freeLight(light)
-			end
+			finish()
 			return false
 		end
 		local p = at(t)
@@ -395,7 +399,7 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 			Vfx.Lightning.bolt(p, p + off, F.Static.life, P.static)
 		end
 		return true
-	end)
+	end, finish)
 end
 
 -- the howitzer's charge-up at `muzzle` (a CFrame looking out of it), from the crystal; returns a stop for the shot
