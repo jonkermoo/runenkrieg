@@ -1035,7 +1035,12 @@ local function direct(now: number)
 				(players :: any)[side] += 1
 			end
 		end
-		local cap = math.min(Cfg.Max.Normal, governor.cap)
+		-- (a test's pin may go past Max, Config/Bots.PinMax; a new pin starts the governor at it)
+		local ceiling = Rules.ceiling(Cfg.Max.Normal, pinned, Cfg.PinMax.Normal)
+		if governor.pinned ~= pinned then
+			governor.pinned, governor.cap, governor.bad, governor.good = pinned, ceiling, 0, 0
+		end
+		local cap = math.min(ceiling, governor.cap)
 		wants.West, wants.East = Rules.wantedSides(Cfg.Fill.Normal.perSide, players.West, players.East, cap, pinned)
 	elseif Cfg.Enabled and mode == "FFA" and ZoneMatch.running() then
 		local cap = math.min(Cfg.Max.FFA, governor.cap)
@@ -1275,7 +1280,9 @@ function Bots.start()
 		govTime += spent
 		govFrames += 1
 		if t0 - govAt >= 1 then
-			local max = if liveMode() == "Normal" then Cfg.Max.Normal else Cfg.Max.FFA
+			local max = if liveMode() == "Normal"
+				then Rules.ceiling(Cfg.Max.Normal, governor.pinned, Cfg.PinMax.Normal)
+				else Cfg.Max.FFA
 			if n > 0 then
 				local ms = govTime / govFrames * 1000
 				Rules.govern(governor, ms, workspace:GetRealPhysicsFPS(), t0 - govAt, n, max, BG.governor)

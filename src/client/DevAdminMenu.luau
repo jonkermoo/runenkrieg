@@ -341,7 +341,8 @@ local function build(player: Player): DevPanel.Panel
 	local auto = `Bots: auto (FFA {BotsCfg.Fill.FFA.total}, Normal {BotsCfg.Fill.Normal.perSide} a side)`
 	counts.auto = row("BotsAuto", auto, "BotsAuto")
 	for _, n in A.BotCounts do
-		counts[n] = row(`Bots{n}`, `Bots: {n}`, "Bots", n)
+		local label = if n > BotsCfg.Max.Normal then `Bots: {n} ({n // 2} a side, Normal)` else `Bots: {n}`
+		counts[n] = row(`Bots{n}`, label, "Bots", n)
 	end
 	local levels: { [string]: TextButton } = {}
 	for _, key in A.BotDifficulties do

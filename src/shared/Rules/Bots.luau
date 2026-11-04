@@ -122,7 +122,15 @@ function Bots.wantedSides(perSide: number, west: number, east: number, max: numb
 	return w, e
 end
 
-export type Governor = { cap: number, bad: number, good: number }
+export type Governor = { cap: number, bad: number, good: number, pinned: number? }
+
+-- The most bots a mode runs: its `max`, or a test's pin (`pinned`) up to `pinMax` when that is higher.
+function Bots.ceiling(max: number, pinned: number?, pinMax: number?): number
+	if pinned and pinMax then
+		return math.max(max, math.min(math.floor(pinned), pinMax))
+	end
+	return max
+end
 
 -- A fresh governor letting `max` bots run.
 function Bots.governor(max: number): Governor
