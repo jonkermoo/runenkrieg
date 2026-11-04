@@ -150,6 +150,7 @@ export type Bot = {
 	shovel: Tool?, -- its shovel, out of its hands until it builds
 	cast: Cast?, -- a Mage's circle open
 	digger: boolean?, -- Normal: one of its holding squad's diggers (Config/Bots.Trenches.share)
+	pioneer: boolean?, -- Normal: on its side's trench duty (Config/Bots.Trenches.pioneers)
 	crew: boolean?, -- Normal: an Engineer on gun duty this life (Config/Bots.Build.Crews): gun jobs first
 	dugouts: boolean?, -- Normal: an Engineer on dugout duty this life (Config/Bots.Dugouts.engineers): dugout jobs first
 	sapper: boolean?, -- Normal: one of its squad's sappers (Config/Bots.Sap.share)

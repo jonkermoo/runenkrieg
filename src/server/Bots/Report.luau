@@ -13,6 +13,7 @@ local Net = require(Shared.Net)
 local Map = require(Shared.LiveMap).map -- (the match's map)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
+local Trenches = require(script.Parent.Parent.Trenches)
 local Artillery = require(script.Parent.Parent.Artillery)
 local Damage = require(script.Parent.Parent.Damage)
 local Ragdoll = require(script.Parent.Parent.Ragdoll)
@@ -445,7 +446,46 @@ local function dugoutLines()
 	workspace:SetAttribute(DevCfg.Admin.BotDugoutsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- each side's trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute): its squares dug (and only planned), the
+-- dug ones blasts and bullets buried this match, its fire steps and the bots on them, its pioneers, and its bots'
+-- deaths: in a trench, in the open, by a shell (Rules/BotTrenches.deathKind)
+local function trenchStats()
+	local lines = {}
+	for _, side in { "West", "East" } do
+		local sb = buildLists[side]
+		local dug, planned, onStep, pioneers, kit = 0, 0, 0, 0, nil
+		for _, t in (if sb then sb.trench else {}) do
+			if t.built then
+				dug += 1
+			else
+				planned += 1
+			end
+		end
+		for _, b in bots do
+			if b.side == side then
+				kit = kit or b.kit
+				onStep += if b.postKind == "step" and not b.deadAt then 1 else 0
+				pioneers += if b.pioneer then 1 else 0
+			end
+		end
+		local d = State.ByTrench.deaths[side] or { all = 0, trench = 0, shell = 0 }
+		local function pct(n: number): string
+			return if d.all > 0 then `{math.floor(n / d.all * 100 + 0.5)}%` else "-"
+		end
+		table.insert(
+			lines,
+			`{side}: {dug} dug ({planned} planned), {if kit then Trenches.buried(kit) else 0} buried by fire; fire steps {onStep} manned of {if sb
+				then #sb.steps
+				else 0}; {pioneers} pioneers; deaths {d.all}: {d.trench} in a trench ({pct(d.trench)}), {d.all - d.trench} in the open, {d.shell} by shells ({pct(
+				d.shell
+			)})`
+		)
+	end
+	workspace:SetAttribute(DevCfg.Admin.BotTrenchStatsAttribute, table.concat(lines, "\n"))
+end
+
 local function label()
+	trenchStats()
 	dugoutLines()
 	stuckLine()
 	frontLine()

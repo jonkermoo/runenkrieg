@@ -293,6 +293,10 @@ local DevTools = {
 		-- the readout of each side's dugouts: holders in each, how often used, its heat, who went down last and why
 		-- (src/server/Bots, every commander tick; Config/Bots.Dugouts.Heat)
 		BotDugoutsAttribute = "DevBotDugouts",
+		-- each side's trench stats this match (src/server/Bots, every commander tick; user 2026-11-04, the trench
+		-- priority: "we will run a test later for good stats"): squares dug and planned, buried by fire, fire steps and
+		-- holders on them, pioneers, and its bots' deaths in a trench, in the open and by shells
+		BotTrenchStatsAttribute = "DevBotTrenchStats",
 		Sides = { "West", "East" },
 		-- the match's end played into a map (Normal; user 2026-11-03: "a toggle for every possible variation of script for
 		-- each map ... assume your team won"): your side wins, loses or nobody does, then the whole end sequence with

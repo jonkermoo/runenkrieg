@@ -466,6 +466,23 @@ spawnBody = function(b: Bot)
 		-- (its side's trench there heats up: Config/Bots.Dugouts.Heat)
 		if b.side then
 			Tactics.dug.note("death", root.Position.X, root.Position.Z, b.deadAt, b.side)
+			-- (the admin trench stats: in a trench or the open, by a shell or not; Rules/BotTrenches.deathKind)
+			local squares = {}
+			for _, sb in buildLists do
+				for _, t in sb.trench do
+					if t.built then
+						table.insert(squares, t)
+					end
+				end
+			end
+			local p = root.Position
+			local inT, byShell =
+				BotTrenches.deathKind(p.X, p.Z, b.deadAt, squares, ByTrench.blasts, Cfg.Dugouts.shell, TR.Stats)
+			local d = ByTrench.deaths[b.side :: string] or { all = 0, trench = 0, shell = 0 }
+			ByTrench.deaths[b.side :: string] = d
+			d.all += 1
+			d.trench += if inT then 1 else 0
+			d.shell += if byShell then 1 else 0
 		end
 		-- a teammate close by calls it
 		for _, o in bots do
@@ -1102,6 +1119,7 @@ function Bots.forgetMap()
 	table.clear(Tactics.dug.heat)
 	table.clear(Tactics.dug.use)
 	table.clear(ByTrench.blasts)
+	table.clear(ByTrench.deaths)
 	ByTrench.counts = {}
 	table.clear(sharedPaths)
 	-- (each side back to walking until its first contact there: Config/Bots.Front)

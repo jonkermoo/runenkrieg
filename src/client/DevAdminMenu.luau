@@ -409,6 +409,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotRunsAttribute):Connect(showRuns)
 	showRuns()
+	-- each side's trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute): squares, fire steps, deaths
+	order += 1
+	local trenchStats = DevPanel.heading(p.panel, "", order)
+	trenchStats.Size = UDim2.new(1, -8, 0, 90)
+	trenchStats.TextWrapped = true
+	trenchStats.TextYAlignment = Enum.TextYAlignment.Top
+	local function showTrenchStats()
+		local s = workspace:GetAttribute(A.BotTrenchStatsAttribute)
+		trenchStats.Text = `Bot trench stats:\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotTrenchStatsAttribute):Connect(showTrenchStats)
+	showTrenchStats()
 	-- each side's dugouts (Config/Bots.Dugouts.Heat): holders in each, how often used, how hot, who went last and why
 	order += 1
 	local dugouts = DevPanel.heading(p.panel, "", order)

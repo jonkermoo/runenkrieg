@@ -564,4 +564,29 @@ function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	return legs
 end
 
+-- How a soldier at (px, pz) died, for the trench stats (Config/Bots.Trenches.Stats `cfg`): in a dug trench square
+-- (`squares`, any side's: inSquare within `cfg.floor`), and by a shell (`blasts`: { x, z, at, kg }, one of `shell` kg or
+-- more within `cfg.shellNear` studs in the last `cfg.shellAge` seconds before `now`)
+function BotTrenches.deathKind(
+	px: number,
+	pz: number,
+	now: number,
+	squares: { { x: number, z: number } },
+	blasts: { { x: number, z: number, at: number, kg: number } },
+	shell: number,
+	cfg: any
+): (boolean, boolean)
+	local byShell = false
+	for _, b in blasts do
+		if
+			b.kg >= shell
+			and now - b.at <= cfg.shellAge
+			and math.sqrt((b.x - px) ^ 2 + (b.z - pz) ^ 2) <= cfg.shellNear
+		then
+			byShell = true
+		end
+	end
+	return BotTrenches.inSquare(px, pz, squares, cfg.floor) ~= nil, byShell
+end
+
 return BotTrenches

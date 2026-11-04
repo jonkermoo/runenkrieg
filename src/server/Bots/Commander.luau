@@ -1100,6 +1100,49 @@ function Guns.spots(
 			or no(key, "shot blocked or out of reach")
 	end)
 end
+-- a side's trench duty (Config/Bots.Trenches.pioneers): while its list has a trench job open, up to `pioneers` of its
+-- living bots (those already on it, then defenders, the nearest its front first; never a gun or dugout Engineer, nor
+-- one manning a gun) dig its lines; none while it has none
+local function pioneers(side: string)
+	local sb = buildLists[side]
+	local want = false
+	for _, r in (if sb and sb.front then sb.open else {}) do
+		if r.job.key == "Trench" then
+			want = true
+			break
+		end
+	end
+	local at = if want then Map.sectors[(sb :: SideBuild).front :: number] else nil
+	local on, free = 0, {}
+	for _, b in bots do
+		if b.side == side then
+			local fit = at ~= nil
+				and b.m ~= nil
+				and b.root ~= nil
+				and not b.deadAt
+				and not b.crew
+				and not b.dugouts
+				and not b.gun
+			if b.pioneer and fit and on < TR.pioneers then
+				on += 1
+			else
+				b.pioneer = nil
+				if fit then
+					local p = (b.root :: BasePart).Position
+					local d = Vector3.new(p.X - at.x, 0, p.Z - at.z).Magnitude
+					table.insert(free, { b = b, d = d + (if b.order == "Defend" then 0 else 1e4) })
+				end
+			end
+		end
+	end
+	table.sort(free, function(x, y)
+		return x.d < y.d
+	end)
+	for i = 1, math.min(TR.pioneers - on, #free) do
+		free[i].b.pioneer = true
+		stats.pioneers += 1
+	end
+end
 local function buildList(side: string, owner: { string }, fromEnd: number)
 	local now = os.clock()
 	local kit: string? = nil
@@ -1753,6 +1796,7 @@ local function command()
 		Tactics.crew.command(side, owner, known, if shell and Map.sectors[shell] then sectorPoint(shell) else nil)
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))
+		pioneers(side)
 		Tactics.fell.list(side, buildLists[side])
 		-- the enemy's guns on its ground: used, wrecked or let be (src/server/Bots/Crew)
 		local aimAt = if shell and Map.sectors[shell] then sectorPoint(shell) else nil

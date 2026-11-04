@@ -105,7 +105,7 @@ local function throwLook(b: Bot, at: Vector3): Vector3
 	return u * math.cos(pitch) + Vector3.yAxis * math.sin(pitch)
 end
 
-local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boolean?): BuildJob?
+local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boolean?, far: number?): BuildJob?
 	local engineer = any or Loadouts.classOf(b.m :: Model) == "Engineer"
 	local root = (b.root :: BasePart).Position
 	local held: { [BuildJob]: boolean } = {}
@@ -157,7 +157,7 @@ local function pickFrom(b: Bot, open: { BuildJob }, any: boolean, fixOnly: boole
 		end
 	end
 	-- (an Engineer any job on its side's front, from where its squad is: Build.engineerTake)
-	local reach = if engineer and not any then BD.engineerTake else BD.take
+	local reach = far or (if engineer and not any then BD.engineerTake else BD.take)
 	local k = BotBuild.pick(list, root.X, root.Z, reach, taken, {}, nil)
 	return if k then open[k] else nil
 end
@@ -183,6 +183,21 @@ local function pickJob(b: Bot): (BuildJob?, string?)
 	local r = pickFrom(b, sb.open, false)
 	local reach = if Loadouts.classOf(b.m :: Model) == "Engineer" then BD.engineerTake else BD.take
 	return r, if r then nil else `none within {reach} studs`
+end
+
+-- a pioneer's trench job (Config/Bots.Trenches.pioneers): the nearest trench run or square on its side's list
+local function pickTrench(b: Bot): BuildJob?
+	local sb = buildLists[b.side :: string]
+	if not sb or not sb.front then
+		return nil
+	end
+	local trench = {}
+	for _, r in sb.open do
+		if r.job.key == "Trench" then
+			table.insert(trench, r)
+		end
+	end
+	return if #trench > 0 then pickFrom(b, trench, true, false, Cfg.Trenches.pioneerTake) else nil
 end
 
 -- an enemy dugout's steps to throw down, if its squad `sq` knows someone is in it (Rules/BotTrenches.occupied): within
@@ -243,7 +258,9 @@ local function safeHere(b: Bot, r: BuildJob, brave: boolean, now: number): boole
 	if not seen and b.threatFrom and sinceThreat < BD.calm and budget.rays > 0 then
 		hid = hidden(b.threatFrom :: Vector3, (b.root :: BasePart).Position, exclusions(b))
 	end
-	return BotBuild.safeToWork(r.underFire == true or brave, seen, sinceThreat, sinceHurt, hid, BD.calm)
+	-- (a trench is dug under fire, as a sap: only a hit stops it, Config/Bots.Trenches.pioneers)
+	local dig = r.job.key == "Trench"
+	return BotBuild.safeToWork(r.underFire == true or brave or dig, seen, sinceThreat, sinceHurt, hid, BD.calm)
 end
 
 -- a build job taken (or gone back to): worked now if it is there and safe, else walked to with the gun out, fighting on
@@ -445,6 +462,14 @@ local function weigh(b: Bot, now: number)
 	-- a sapper digs its squad's sap, under fire too (Rules/BotSap: only a hit stops it)
 	if b.sapper and sap and #(sap :: Sap).open > 0 and not w then
 		local r = pickFrom(b, (sap :: Sap).open, true)
+		if r then
+			takeJob(b, r, now, true)
+			return
+		end
+	end
+	-- a pioneer digs its side's trench lines, under fire too (Config/Bots.Trenches.pioneers)
+	if b.pioneer and not w and not pushing then
+		local r = pickTrench(b)
 		if r then
 			takeJob(b, r, now, true)
 			return

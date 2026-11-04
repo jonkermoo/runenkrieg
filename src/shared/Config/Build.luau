@@ -126,6 +126,7 @@ local Build = {
 		-- strip 4 either side of the line, 1 to 6 up)
 		wayHeight = 6,
 		planLife = 180, -- seconds an undug plan stays
+		botPlanLife = 600, -- a bot's plan (its Owner below 0): its diggers walk to it under fire, so it waits longer
 		-- a swing works the square whose line is this close, in front of you (from anywhere on its dirt, out past its
 		-- heap, joins.heapReach; user 2026-10-25: "can you extend the trench hitbox"; 19 to 13 with the narrower trench)
 		swingReach = 13,

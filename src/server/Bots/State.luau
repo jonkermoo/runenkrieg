@@ -56,6 +56,9 @@ local ByTrench = {
 	marks = {} :: { [Model]: BasePart },
 	folder = nil :: Folder?,
 	top = require(Shared.Rules.Build).trenchTop(BuildCfg.Trench), -- (a square's half width at its wall tops)
+	-- each side's bots' deaths this match: all, in a trench square, by a shell (Config/Bots.Trenches.Stats; the admin
+	-- trench stats)
+	deaths = {} :: { [string]: { all: number, trench: number, shell: number } },
 }
 for _, name in TM.materials do
 	ByTrench.costs[name] = TM.open
@@ -180,6 +183,7 @@ local stats = {
 	runs = 0, -- trench runs planned
 	pinnedPiles = 0, -- sandbag piles laid pinned down in the open
 	breastworks = 0, -- breastworks put on the list where a trench run was refused
+	pioneers = 0, -- bots put on trench duty (Config/Bots.Trenches.pioneers)
 	walls = 0, -- walls put on the list round nests and guns
 	saps = 0, -- squads that began to sap forward
 	sapRuns = 0, -- sap runs dug

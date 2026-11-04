@@ -304,7 +304,7 @@ local Bots = {
 	Build = {
 		builder = "Engineer",
 		calm = 3,
-		take = 90,
+		take = 150, -- (was 90: diggers walked off their front's runs)
 		-- an Engineer takes a job this far off (user 2026-11-03 play test: "even when i give free engineers, the bots arent
 		-- building": the front's jobs lay past `take` from the sector their squads were sent to)
 		engineerTake = 400,
@@ -456,10 +456,21 @@ local Bots = {
 	--   a trench's wall top of a run planned or dug, a sap's run or its next one, or any trench square; a digger tears
 	--   down a `tear` piece (the enemy's or a bot's) in its run's way first, and swings the run aside round anything
 	--   else.
+	-- - Trench first (user 2026-11-04: "theres not enough trench fighting ... can we make trench more of a priority that
+	--   way we can see whole maps being filled with trenches"; a measured match dug no fire step in 11 min: diggers seen
+	--   at the zone's edge stopped, Engineers were on the guns): a trench job is dug under fire (only a hit stops it, as
+	--   a sap), and up to `pioneers` of a side's bots (any class, defenders first, never a gun crew) are on trench duty:
+	--   they take its trench jobs before anything else, from up to `pioneerTake` studs off.
 	Trenches = {
 		share = 0.5,
-		hold = 0.3,
-		Fire = { edge = 0.9, width = 48, bays = 3, traverse = 6 },
+		pioneers = 3,
+		pioneerTake = 400,
+		-- the admin trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute; Rules/BotTrenches.deathKind): a bot
+		-- dying within `floor` studs of a dug square's middle died in a trench; one of Dugouts.shell kg or more within
+		-- `shellNear` studs in the `shellAge` s before, by a shell
+		Stats = { floor = 5, shellNear = 20, shellAge = 0.6 },
+		hold = 0.45, -- (was 0.3: more holders to man the fire steps, user 2026-11-04 trench priority)
+		Fire = { edge = 0.9, width = 80, bays = 5, traverse = 6 }, -- (80: across the zone, r 45; was 48 in 3)
 		-- (56: past the zone's flagpole in its middle, which a line 40 back ran into; past Config/Build.Trench.spacing)
 		Support = { back = 56, width = 32 },
 		Comm = { jog = 6, short = 1 },
@@ -473,7 +484,7 @@ local Bots = {
 		Zigzag = { cone = 20, plunge = 10, range = 500, leg = 12, angle = { min = 25, perStud = 1, max = 45 } },
 		on = 2,
 		ends = 0.15,
-		cap = 60,
+		cap = 160, -- (was 60)
 		digs = 12,
 		standHp = 60,
 		rise = 3.4, -- (6.3 from the line in the 4.25 floor trench, 5.05 in the slimmer 3 floor one)

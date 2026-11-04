@@ -138,6 +138,20 @@ return {
 		assert(R.digs(1, 1, T.share), "a lone bot digs")
 		assert(R.digs(1, 3, T.share) and R.digs(2, 3, T.share) and not R.digs(3, 3, T.share))
 	end,
+	["deathKind: in a trench square, by a shell"] = function()
+		local S = T.Stats
+		local squares = { { x = 0, z = 0 }, { x = 8, z = 0 } }
+		local shell = { x = 3, z = 0, at = 10, kg = 5 }
+		local inT, byShell = R.deathKind(7, 1, 10.2, squares, { shell }, 1, S)
+		assert(inT and byShell)
+		inT, byShell = R.deathKind(40, 0, 10.2, squares, { shell }, 1, S)
+		assert(not inT and not byShell, "out of the shell's reach, in the open")
+		inT, byShell = R.deathKind(3, 0, 10 + S.shellAge + 0.1, squares, { shell }, 1, S)
+		assert(inT and not byShell, "the shell too long ago")
+		inT, byShell = R.deathKind(3, 0, 10.1, squares, { { x = 3, z = 0, at = 10, kg = 0.5 } }, 1, S)
+		assert(not byShell, "a grenade is no shell")
+	end,
+
 	["overrun, standTo, inSquare"] = function()
 		assert(R.overrun(1, 1, 4, T.keep) and not R.overrun(1, 3, 4, T.keep) and not R.overrun(0, 0, 4, T.keep))
 		assert(R.standTo(T.alarm - 1, T.alarm) and not R.standTo(T.alarm + 1, T.alarm))
