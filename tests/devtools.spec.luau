@@ -42,6 +42,8 @@ return {
 		assert(not T.allowed(Cfg, 1, false, 71611711100478), "nobody else in the live place")
 		assert(not T.allowed(Cfg, 1, true, Cfg.DevPlaceId, false), "a closed mode: no playtester")
 		assert(T.allowed(Cfg, 180563380, false, Cfg.DevPlaceId, false), "the creator always")
+		assert(T.allowed(Cfg, -1, true, nil, false), "a Studio Clients and Servers test player, even in a closed mode")
+		assert(not T.allowed(Cfg, -1, false, 71611711100478, false), "never outside Studio")
 		assert(T.allowed(Cfg, 1, true, nil, true))
 		assert(T.find(Map1, Cfg, "Gallery") ~= nil and T.find(Map1, Cfg, "nope") == nil)
 	end,
@@ -60,8 +62,12 @@ return {
 		assert(not A.valid(Cfg, "Health", "100") and not A.valid(Cfg, "Health", nil))
 		assert(A.valid(Cfg, "BlastKg", Cfg.Blasts.Kg[1]) and not A.valid(Cfg, "BlastKg", 1e9))
 		assert(A.valid(Cfg, "BlastStage", 3) and not A.valid(Cfg, "BlastStage", 0))
+		assert(A.valid(Cfg, "Shells", Cfg.Blasts.Guns[1]) and not A.valid(Cfg, "Shells", "nope") and A.Aimed.Shells)
+		assert(Cfg.Blasts.Shells.count >= 1 and Cfg.Blasts.Shells.every > 0)
+		assert(A.valid(Cfg, "BeamStage", 1) and not A.valid(Cfg, "BeamStage", 4) and A.Aimed.BeamStage)
 		assert(A.valid(Cfg, "PlacePiece", Cfg.Blasts.Pieces[1]) and A.Aimed.PlacePiece)
 		assert(not A.valid(Cfg, "PlacePiece", "Trench") and not A.valid(Cfg, "PlacePiece", nil))
+		assert(A.valid(Cfg, "GunHp", 49) and A.Aimed.GunHp and not A.valid(Cfg, "GunHp", 10))
 		assert(A.valid(Cfg, "Kill", nil) and not A.valid(Cfg, "Kill", true))
 		assert(A.valid(Cfg, "Grenade", Cfg.Admin.Grenades[1]) and not A.valid(Cfg, "Grenade", "rifle_g98"))
 		assert(not A.valid(Cfg, "Grenade", nil))
@@ -169,10 +175,10 @@ return {
 		)
 		assert(A.valid(Cfg, "BotsAuto", nil) and not A.valid(Cfg, "BotsAuto", 3))
 		assert(A.valid(Cfg, "BotDifficulty", "Hard") and not A.valid(Cfg, "BotDifficulty", "Nightmare"))
-		for _, plain in { "MatchEnd", "MatchRestart", "ZoneSkip", "RespawnAll" } do
+		for _, plain in { "MatchEnd", "MatchRestart", "ZoneSkip", "RespawnAll", "HitchReport" } do
 			assert(A.valid(Cfg, plain, nil) and not A.valid(Cfg, plain, true), plain)
 		end
-		for _, sw in { "BuildAll", "Ammo", "KeptTeams" } do
+		for _, sw in { "BuildAll", "Ammo", "KeptTeams", "HitchLog" } do
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
 		assert(ClassCfg.Defs[Cfg.Admin.Normal] == nil, "the Normal value isn't a class")
@@ -181,11 +187,14 @@ return {
 		for _, sw in { "BotState", "FreeEngineer", "FreeGrenadier" } do
 			assert(A.valid(Cfg, sw, true) and A.valid(Cfg, sw, false) and not A.valid(Cfg, sw, nil), sw)
 		end
-		for _, aimed in { "BotPush", "BotStrike", "BotGun" } do
+		for _, aimed in { "BotPush", "BotStrike", "BotGun", "BotWork", "BotDown" } do
 			assert(A.valid(Cfg, aimed, nil) and not A.valid(Cfg, aimed, 1) and A.Aimed[aimed], aimed)
 		end
 		assert(A.valid(Cfg, "BotDig", Cfg.Admin.BotDig.steps[2]) and not A.valid(Cfg, "BotDig", 1e6))
 		assert(Cfg.Admin.BotDig.steps[1] == 1, "the first dig step is the normal one")
+		assert(A.valid(Cfg, "BotPlan", { side = "West", plan = "trench" }), "a plan forced")
+		assert(A.valid(Cfg, "BotPlan", { side = "East", plan = "auto" }), "let go")
+		assert(not A.valid(Cfg, "BotPlan", { side = "East", plan = "retreat" }) and not A.valid(Cfg, "BotPlan", "West"))
 		for _, a in { "BotShell", "FrontPush" } do
 			assert(A.valid(Cfg, a, "West") and A.valid(Cfg, a, "East") and not A.valid(Cfg, a, "North"), a)
 		end
@@ -241,5 +250,18 @@ return {
 		assert(A.valid(Cfg, "Map", "LanternMeadows", defs))
 		assert(not A.valid(Cfg, "Map", "Nowhere", defs) and not A.valid(Cfg, "Map", 3, defs))
 		assert(A.valid(Cfg, "RebuildMaps", nil, defs) and not A.valid(Cfg, "RebuildMaps", true, defs))
+	end,
+	["the shell shock rows take a listed source at a listed distance, the helmet shot nothing"] = function()
+		local S = Cfg.Admin.Shock
+		local src, d = S.Sources[1].key, S.Distances[1]
+		assert(A.valid(Cfg, "ShockAt", { source = src, distance = d }), "listed")
+		assert(not A.valid(Cfg, "ShockAt", { source = "nuke", distance = d }), "unknown source")
+		assert(not A.valid(Cfg, "ShockAt", { source = src, distance = 7.5 }), "unlisted distance")
+		assert(not A.valid(Cfg, "ShockAt", src), "not a table")
+		assert(A.valid(Cfg, "HelmetShot", nil) and not A.valid(Cfg, "HelmetShot", 1), "plain")
+		assert(DamageCfg.Weapons[S.HelmetWeapon] ~= nil, "a real weapon")
+		for _, g in S.Sources do
+			assert(g.label ~= nil, `{g.key} labelled`)
+		end
 	end,
 }

@@ -2,8 +2,8 @@
 -- Helmets and hair (docs/HATS.md "Always a head piece; helmets can be shot off", docs/HAIRS.md; user 2026-10-14).
 -- Every soldier spawns with its kit's helmet (Config/Uniforms Kits `headwear`) over the helmet-on version of its
 -- rolled hairstyle (Config/Assets `hair_<style>_<shell>`). A shot in the top half of the head's hitbox (Rules/Looks
--- onHelmet; src/server/Firing) knocks the helmet off: the helmet-on hair is swapped for the original and a loose copy of
--- the helmet flies off along the shot and despawns (Config/Uniforms HelmetOff).
+-- onHelmet; src/server/Firing) knocks the helmet off: the helmet-on hair is swapped for the original (made at spawn,
+-- kept aside) and the helmet itself flies off along the shot and despawns (Config/Uniforms HelmetOff).
 -- Helmet and hair are welded to the Head and never take hits themselves (CanQuery off): the hit zones are the Head
 -- part's own box, plus the worn helmet's shape where it stands out of it (Helmets.crown: the crown and the brim; user
 -- 2026-10-22). The character's "HelmetOn" attribute says whether the helmet is still on.
@@ -18,9 +18,15 @@ local HairCfg = require(Shared.Config.HairMotion)
 local HairSway = require(Shared.Rules.HairMotion)
 local U = require(Shared.Config.Uniforms)
 local Looks = require(Shared.Rules.Looks)
+local Hitches = require(Shared.Hitches)
 local Kits = require(script.Parent.Kits)
 
 local Helmets = {}
+
+-- the original hair of a soldier with a helmet on, made at spawn for when it is knocked off (made then, it was a
+-- hitch): the hair and each part's place on the head
+type Spare = { model: Model, at: { [BasePart]: CFrame } }
+local spares: { [Model]: Spare } = setmetatable({}, { __mode = "k" }) :: any
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -160,6 +166,11 @@ local function clear(character: Model)
 			old:Destroy()
 		end
 	end
+	local spare = spares[character]
+	if spare then
+		spare.model:Destroy()
+		spares[character] = nil
+	end
 end
 
 -- Spawn: the kit's helmet (if any) over the helmet-on hair, or the original hair bareheaded. A soldier of `species`
@@ -199,6 +210,24 @@ function Helmets.dress(character: Model, headwear: string?, species: string?)
 		on:SetAttribute("HitBox", head.CFrame:ToObjectSpace(box))
 		on:SetAttribute("HitSize", size)
 		on.Parent = character
+		-- (under a head wrap the helmet-on hair stays on: made at the knock-off)
+		local bare = if character:GetAttribute("HeadWrap") == true then nil else hair(character, head, nil)
+		if bare then
+			local at = {}
+			for _, p in bare:GetDescendants() do
+				if p:IsA("BasePart") then
+					at[p] = head.CFrame:ToObjectSpace(p.CFrame)
+				end
+			end
+			spares[character] = { model = bare, at = at }
+			character.Destroying:Once(function()
+				local spare = spares[character]
+				if spare then
+					spare.model:Destroy()
+					spares[character] = nil
+				end
+			end)
+		end
 	end
 	character:SetAttribute("HelmetOn", on ~= nil)
 end
@@ -280,24 +309,38 @@ function Helmets.hit(part: Instance?, point: Vector3, direction: Vector3): boole
 end
 
 -- The helmet flies off along `direction` and the original hair goes on.
-function Helmets.knockOff(character: Model, direction: Vector3)
+local function knockOff(character: Model, direction: Vector3)
 	local head = character:FindFirstChild("Head") :: BasePart?
 	local worn = character:FindFirstChild("Helmet") :: Model?
 	if not head or not worn then
 		return
 	end
 	character:SetAttribute("HelmetOn", false)
-	-- the loose helmet: the worn copy, unwelded from the head, its parts welded to the shell, thrown
-	local loose = worn:Clone()
-	worn:Destroy()
 	local old = character:FindFirstChild("Hair")
 	if old then
 		old:Destroy()
 	end
-	local h = hair(character, head, if character:GetAttribute("HeadWrap") == true then shortShell(character) else nil)
+	-- the original hair (the one made at spawn, put on the head where it is now), or the helmet-on hair under a head
+	-- wrap
+	local spare = spares[character]
+	spares[character] = nil
+	local h: Model? = nil
+	if spare and character:GetAttribute("HeadWrap") ~= true then
+		for p, at in spare.at do
+			p.CFrame = head.CFrame * at
+		end
+		h = spare.model
+	else
+		if spare then
+			spare.model:Destroy()
+		end
+		h = hair(character, head, if character:GetAttribute("HeadWrap") == true then shortShell(character) else nil)
+	end
 	if h then
 		h.Parent = character
 	end
+	-- the loose helmet: the worn one, unwelded from the head, its parts welded to the shell, thrown
+	local loose = worn
 	loose.Name = "LooseHelmet"
 	local parts = {}
 	for _, d in loose:GetDescendants() do
@@ -331,6 +374,11 @@ function Helmets.knockOff(character: Model, direction: Vector3)
 	root.AssemblyAngularVelocity = Vector3.new(math.random() * 2 - 1, math.random() * 2 - 1, math.random() * 2 - 1)
 		* O.spin
 	Debris:AddItem(loose, O.despawn)
+end
+function Helmets.knockOff(character: Model, direction: Vector3)
+	local t0 = os.clock()
+	knockOff(character, direction)
+	Hitches.since("Helmet off", t0)
 end
 
 return Helmets

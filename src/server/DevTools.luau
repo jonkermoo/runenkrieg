@@ -30,6 +30,7 @@ local Build = require(script.Parent.Build)
 local DevWorld = require(script.Parent.DevWorld)
 local Environment = require(script.Parent.Environment)
 local Helmets = require(script.Parent.Helmets)
+local Grenades = require(script.Parent.Grenades)
 local Loadouts = require(script.Parent.Loadouts)
 local Frontline = require(script.Parent.Frontline)
 local Modes = require(script.Parent.Modes)
@@ -48,6 +49,7 @@ local LiveMap = require(Shared.LiveMap)
 local Rules = require(Shared.Rules.DevTeleports)
 local Actions = require(Shared.Rules.DevActions)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 
 local DevTools = {}
 
@@ -178,6 +180,23 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			warn(`[DevTools] {player.Name} placing {value}: {refused}`)
 			Net.event("DevAction"):FireClient(player, "Refused", value, refused)
 		end
+	elseif action == "GunHp" and aim then
+		-- the gun nearest the aim point set to `value`% of its HP (shown on the button: src/client/DevBlastMenu)
+		local best, bestD = nil, Cfg.Blasts.GunReach
+		for _, g in Artillery.list() do
+			local d = (g.model:GetPivot().Position - aim).Magnitude
+			if d < bestD then
+				best, bestD = g, d
+			end
+		end
+		local key = `GunHp{value}`
+		if best then
+			local full = require(Shared.Config.Artillery).Guns[best.key].hp
+			Artillery.setHp(best.model, full * value / 100)
+			Net.event("DevAction"):FireClient(player, "Done", key, `{best.key} at {value}%`)
+		else
+			Net.event("DevAction"):FireClient(player, "Refused", key, "no gun near")
+		end
 	elseif action == "ClearGuns" then
 		Artillery.clear()
 	elseif action == "HealDummies" then
@@ -186,6 +205,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		DevDummies.clear()
 	elseif action == "KnockDummies" then
 		DevDummies.knockDown(if character then character:GetPivot().Position else nil)
+	elseif action == "SayDummies" then
+		DevDummies.say()
 	elseif (action == "BlastStage" or action == "BlastKg") and aim then
 		local by = if player:GetAttribute(Cfg.Blasts.HurtAttribute) == true then nil else character
 		Net.event("DevBlast")
@@ -199,6 +220,13 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		else
 			Damage.staffBlast(aim, value, by)
 		end
+	elseif action == "Shells" and aim then
+		Artillery.devShells(value, aim)
+	elseif action == "BeamStage" and aim and character then
+		-- a staff beam from your head at the aim point, as a cast (Damage.staff: by the zone it hits); what it did shows
+		-- on its button (src/client/DevBlastMenu)
+		local _, did = Damage.staff(character, value, aim)
+		Net.event("DevAction"):FireClient(player, "Done", `Beam{value}`, did or "no soldier hit")
 	elseif action == "BlastHurts" then
 		player:SetAttribute(Cfg.Blasts.HurtAttribute, if value then true else nil)
 	elseif action == "DigStep" then
@@ -209,6 +237,10 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(Cfg.TestShooter.Attribute, if value then true else nil)
 	elseif action == "UndoDestruction" then
 		DevWorld.undo()
+	elseif action == "HitchLog" then
+		workspace:SetAttribute(Cfg.Admin.Hitches.attribute, if value then true else nil)
+	elseif action == "HitchReport" then
+		print(Hitches.report())
 	elseif action == "Clock" then
 		Environment.setClock(value)
 	elseif action == "ClockPaused" then
@@ -259,13 +291,22 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(BotsCfg.DifficultyAttribute, value)
 	elseif action == "BotState" then
 		workspace:SetAttribute(Cfg.Admin.BotState.attribute, if value then true else nil)
+	elseif action == "GunArcs" then
+		workspace:SetAttribute(Cfg.Admin.GunArcs.attribute, if value then true else nil)
 	elseif action == "FreeEngineer" then
 		workspace:SetAttribute(Cfg.Admin.FreeEngineerAttribute, if value then true else nil)
 	elseif action == "FreeGrenadier" then
 		workspace:SetAttribute(Cfg.Admin.FreeGrenadierAttribute, if value then true else nil)
 	elseif action == "BotDig" then
 		workspace:SetAttribute(Cfg.Admin.BotDig.attribute, if value == 1 then nil else value)
-	elseif action == "BotShell" or action == "BotPush" or action == "BotStrike" or action == "BotGun" then
+	elseif
+		action == "BotShell"
+		or action == "BotPush"
+		or action == "BotStrike"
+		or action == "BotGun"
+		or action == "BotWork"
+		or action == "BotDown"
+	then
 		-- (why not, or what was done, shown on the button: src/client/DevBlastMenu, DevAdminMenu)
 		local why, done = Bots.dev(string.sub(action, 4), if action == "BotShell" then value else aim)
 		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", action, why or done)
@@ -273,6 +314,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		Frontline.push(value)
 	elseif action == "FrontCapture" then
 		Frontline.capture(value.side, value.index)
+	elseif action == "BotPlan" then
+		Bots.dev("Plan", value)
 	elseif action == "Points" then
 		Loadouts.grant(player, value)
 	elseif action == "Class" then
@@ -305,6 +348,32 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			Ragdoll.knock(character, Cfg.Admin.SelfKnock, -root.CFrame.LookVector)
 		elseif action == "HelmetOff" then
 			Helmets.knockOff(character, -root.CFrame.LookVector)
+		elseif action == "HelmetShot" then
+			-- a round from in front ringing off the helmet (Config/DevTools.Admin.Shock)
+			local along = -root.CFrame.LookVector
+			if character:GetAttribute("HelmetOn") == true then
+				Helmets.knockOff(character, along)
+				Damage.helmetShot(character, Cfg.Admin.Shock.HelmetWeapon, along)
+			end
+		elseif action == "ShockAt" then
+			-- a grenade or shell on the ground `distance` studs in front (Config/DevTools.Admin.Shock)
+			local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+			local over = root.Position + (if look.Magnitude > 0 then look.Unit else Vector3.zAxis) * value.distance
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			params.FilterDescendantsInstances = { character }
+			local hit = workspace:Raycast(over + Vector3.new(0, 20, 0), Vector3.new(0, -200, 0), params)
+			local at = if hit then hit.Position + hit.Normal * 0.3 else over
+			local by = if player:GetAttribute(Cfg.Blasts.HurtAttribute) == true then nil else character
+			for _, src in Cfg.Admin.Shock.Sources do
+				if src.key == value.source then
+					if src.grenade then
+						Grenades.goOff(at, src.key, by, if by then Cfg.Admin.Shock.OwnShare else nil)
+					else
+						Artillery.land(at, src.key, by)
+					end
+				end
+			end
 		elseif action == "Grenade" then
 			Armory.give(player, value) -- a full count, in place of the grenade carried
 		end

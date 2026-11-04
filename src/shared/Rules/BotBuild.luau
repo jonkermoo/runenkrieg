@@ -55,9 +55,19 @@ function BotBuild.toward(sectors: { { x: number, z: number } }, i: number, side:
 end
 
 -- The Engineers' build list at its side's front `zone`, the enemy's way in along (tx, tz) (a flat unit): a sandbag pile
--- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the edge, an MG nest at the hold spot nearest the enemy, and the
--- guns `guns` names (the keys its side may build) behind the zone.
-function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns: { string }, cfg: any): { Job }
+-- in front of each outdoor hold spot with no cover (the first `bags.max`), wire across the approaches out past the
+-- edge, MG nests ahead of the `nests` hold spots nearest the enemy (default `cfg.Nest.count`: those missing, user
+-- 2026-11-03: "3 mg nests if there arent built"), and the guns `guns` names (the keys its side may build) behind the
+-- zone.
+function BotBuild.plan(
+	zone: Zone,
+	tx: number,
+	tz: number,
+	holds: { Hold },
+	guns: { string },
+	cfg: any,
+	nests: number?
+): { Job }
 	local jobs: { Job } = {}
 	-- across: the line at right angles to the way in
 	local ax, az = -tz, tx
@@ -83,16 +93,36 @@ function BotBuild.plan(zone: Zone, tx: number, tz: number, holds: { Hold }, guns
 			fz = tz,
 		})
 	end
-	local best, bestDot = nil, -math.huge
-	for _, h in holds do
-		local dot = (h.x - zone.x) * tx + (h.z - zone.z) * tz
-		if dot > bestDot then
-			best, bestDot = h, dot
+	local N = cfg.Nest
+	local order = table.clone(holds)
+	table.sort(order, function(a, b)
+		return (a.x - zone.x) * tx + (a.z - zone.z) * tz > (b.x - zone.x) * tx + (b.z - zone.z) * tz
+	end)
+	-- (every `cfg.Flank.every`-th at the hold spot farthest across: a flank; Config/Bots.Front)
+	local every = cfg.Flank and cfg.Flank.every
+	local used: { [Hold]: boolean } = {}
+	for k = 1, math.min(nests or N.count, #order) do
+		local h: Hold? = nil
+		if every and k % every == 0 then
+			local far = -1
+			for _, o in order do
+				local across = math.abs((o.x - zone.x) * ax + (o.z - zone.z) * az)
+				if not used[o] and across > far then
+					h, far = o, across
+				end
+			end
 		end
-	end
-	if best then
-		local N = cfg.Nest
-		table.insert(jobs, { key = "MGNest", x = best.x + tx * N.ahead, z = best.z + tz * N.ahead, fx = tx, fz = tz })
+		if not h then
+			for _, o in order do
+				if not used[o] then
+					h = o
+					break
+				end
+			end
+		end
+		local hh = h :: Hold
+		used[hh] = true
+		table.insert(jobs, { key = "MGNest", x = hh.x + tx * N.ahead, z = hh.z + tz * N.ahead, fx = tx, fz = tz })
 	end
 	local G = cfg.Guns
 	for k, key in guns do
@@ -129,27 +159,38 @@ function BotBuild.gunSpots(
 ): { Job }
 	local ax, az = -tz, tx
 	local jobs: { Job } = {}
-	for _, w in want do
-		local made = 0
+	-- (every `flank.every`-th spot at least `flank.gunFrom` studs across, shelling the front from an angle, where one
+	-- fits: Config/Bots.Front.Flank)
+	local flank = cfg.flank
+	local function place(key: string, wide: boolean): boolean
 		for _, back in cfg.back do
 			for _, off in cfg.across do
-				if made >= w.count then
-					break
+				if wide and math.abs(off) < flank.gunFrom then
+					continue
 				end
 				local d = zone.radius + back
 				local x, z = zone.x - tx * d + ax * off, zone.z - tz * d + az * off
 				local clear = true
 				for _, j in jobs do
-					local gap = math.max(spacing[w.key] or 0, spacing[j.key] or 0)
+					local gap = math.max(spacing[key] or 0, spacing[j.key] or 0)
 					if (j.x - x) ^ 2 + (j.z - z) ^ 2 < gap * gap then
 						clear = false
 						break
 					end
 				end
-				if clear and fits(w.key, x, z) then
-					table.insert(jobs, { key = w.key, x = x, z = z, fx = tx, fz = tz })
-					made += 1
+				if clear and fits(key, x, z) then
+					table.insert(jobs, { key = key, x = x, z = z, fx = tx, fz = tz })
+					return true
 				end
+			end
+		end
+		return false
+	end
+	for _, w in want do
+		for _ = 1, w.count do
+			local wide = flank ~= nil and (#jobs + 1) % flank.every == 0
+			if not (wide and place(w.key, true)) and not place(w.key, false) then
+				break
 			end
 		end
 	end
@@ -323,6 +364,56 @@ local function offSegment(x: number, z: number, ax: number, az: number, bx: numb
 	return math.sqrt((x - (ax + dx * t)) ^ 2 + (z - (az + dz * t)) ^ 2)
 end
 
+-- The trees (indexes into `trees`) in the way of a side's works (Config/Bots.Build.Trees; user 2026-11-03): within
+-- `clear` studs of any of `ways` (segments: trench runs and squares, saps, a nest's or gun's spot as a point, a gun's
+-- firing line), never one in a building, nearest its way first (then by index).
+function BotBuild.treesInWay(
+	trees: { { x: number, z: number, building: boolean? } },
+	ways: { { ax: number, az: number, bx: number, bz: number } },
+	clear: number
+): { number }
+	local list: { { i: number, d: number } } = {}
+	for i, t in trees do
+		if not t.building then
+			local best = math.huge
+			for _, w in ways do
+				best = math.min(best, offSegment(t.x, t.z, w.ax, w.az, w.bx, w.bz))
+			end
+			if best <= clear then
+				table.insert(list, { i = i, d = best })
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		if a.d ~= b.d then
+			return a.d < b.d
+		end
+		return a.i < b.i
+	end)
+	local out = {}
+	for k, e in list do
+		out[k] = e.i
+	end
+	return out
+end
+
+-- A gun's firing line: from its spot (x, z) `length` studs along its facing (fx, fz).
+function BotBuild.fireLine(
+	x: number,
+	z: number,
+	fx: number,
+	fz: number,
+	length: number
+): { ax: number, az: number, bx: number, bz: number }
+	return { ax = x, az = z, bx = x + fx * length, bz = z + fz * length }
+end
+
+-- Whether an Engineer may fell one more tree (Config/Bots.Build.Trees): its side under `perSide` this match and its
+-- own last at least `every` s ago (`sinceLast` nil: none yet).
+function BotBuild.mayFell(felled: number, sinceLast: number?, cfg: { perSide: number, every: number }): boolean
+	return felled < cfg.perSide and (sinceLast == nil or sinceLast >= cfg.every)
+end
+
 -- Where wire planned at (x, z) goes so it is only in the enemy's way (user 2026-11-02 hand test: "they should be very
 -- safe as not to annoy real players. place where it would only be an inconvenience to enemies"): `cfg.gap` studs off
 -- each of its own side's ways forward (`lines`: { ax, az, bx, bz }) and `cfg.spawn` off its spawn (`spawn`: a rect),
@@ -376,6 +467,27 @@ end
 -- its gun empty or loading.
 function BotBuild.strikes(empty: boolean, roll: number, cfg: { chance: number, empty: number }): boolean
 	return roll < (if empty then cfg.empty else cfg.chance)
+end
+
+-- Whether a bot at its build job's spot may put its gun away and work (user 2026-11-03 play test: "they should always
+-- be ready to shoot and fight until they know they are safe to work on trench"): its own foxhole or pile dug pinned
+-- down (`underFire`: that is the point of it); else no enemy in sight, and either nothing shot at it or hurt it for
+-- `calm` seconds or the spot is hidden from where the last threat came from (`hidden`).
+function BotBuild.safeToWork(
+	underFire: boolean,
+	seen: boolean,
+	sinceThreat: number,
+	sinceHurt: number,
+	hidden: boolean,
+	calm: number
+): boolean
+	if underFire then
+		return true
+	end
+	if seen then
+		return false
+	end
+	return (sinceThreat >= calm and sinceHurt >= calm) or hidden
 end
 
 return BotBuild

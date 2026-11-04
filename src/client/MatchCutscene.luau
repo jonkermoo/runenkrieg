@@ -14,6 +14,7 @@
 --   MatchCutscene.start(), MatchCutscene.playing(kind?) -> boolean, MatchCutscene.ended: Event (kind),
 --   MatchCutscene.cover(on), MatchCutscene.clearFade() (EndScenes: its set is up)
 
+local ContextActionService = game:GetService("ContextActionService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -333,17 +334,32 @@ local function hideHud()
 	end
 end
 
+-- the soldier's controls on or off, never waiting: the movement and jump keys sunk above the default controls (this
+-- place has no PlayerModule: src/client/Artillery moveKeys; a wait on it never ended and the cut hung, the HUD hidden),
+-- and the PlayerModule's controls too where there is one
+local sinkKeys: { Enum.KeyCode } = {}
+for _, name in Cfg.SinkKeys do
+	table.insert(sinkKeys, (Enum.KeyCode :: any)[name])
+end
 local function controls(on: boolean)
-	local ok, module = pcall(function()
-		return require(player:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule") :: ModuleScript) :: any
-	end)
-	if ok and module then
-		local c = module:GetControls()
-		if on then
-			c:Enable()
-		else
-			c:Disable()
-		end
+	if on then
+		ContextActionService:UnbindAction("MatchCutsceneKeys")
+	else
+		ContextActionService:BindActionAtPriority("MatchCutsceneKeys", function()
+			return Enum.ContextActionResult.Sink
+		end, false, Enum.ContextActionPriority.High.Value, table.unpack(sinkKeys))
+	end
+	local scripts = player:FindFirstChild("PlayerScripts")
+	local pm = scripts and scripts:FindFirstChild("PlayerModule")
+	if pm and pm:IsA("ModuleScript") then
+		pcall(function()
+			local c = (require(pm) :: any):GetControls()
+			if on then
+				c:Enable()
+			else
+				c:Disable()
+			end
+		end)
 	end
 end
 
@@ -367,8 +383,10 @@ function MatchCutscene.cover(on: boolean)
 		releaseAll()
 		sounds.Volume = worldVolume
 	end
-	Menus.cover(covers > 0)
 	controls(covers == 0)
+	if Menus.cover then -- (set once the menus have started)
+		Menus.cover(covers > 0)
+	end
 end
 
 -- the ground under (x, z): terrain only, so a roof or a treetop never lifts the camera

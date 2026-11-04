@@ -27,11 +27,18 @@ end
 -- to the aim and on past the back, its traverse going on round past 180 (user 2026-11-02: "the artys cant turn fully";
 -- it stopped at the back, as the aim there wrapped round to the other side; unwrapped, its hand wheel never jumps). Elevation goes toward the wanted one,
 -- clamped, at `elevationRate`.
-function Artillery.lay(state: Lay, wantYaw: number, wantElevation: number, gun: any, dt: number): Lay
+function Artillery.lay(
+	state: Lay,
+	wantYaw: number,
+	wantElevation: number,
+	gun: any,
+	dt: number,
+	limits: { number }?
+): Lay
 	local rel = Artillery.wrap(wantYaw - state.yaw)
 	local limit = gun.traverse
-	local elevation =
-		toward(state.elevation, math.clamp(wantElevation, gun.elevation[1], gun.elevation[2]), gun.elevationRate * dt)
+	local lims = limits or gun.elevation
+	local elevation = toward(state.elevation, math.clamp(wantElevation, lims[1], lims[2]), gun.elevationRate * dt)
 	if limit >= 180 then
 		local off = Artillery.wrap(rel - state.traverse)
 		local traverse = toward(state.traverse, state.traverse + off, gun.traverseRate * dt)
@@ -269,6 +276,33 @@ function Artillery.fall(height: number, vy: number, gravity: number): number?
 	return if t > 0 then t else nil
 end
 
+-- A shell's path from (`ox`, `oy`, `oz`) at velocity (`vx`, `vy`, `vz`) under `gravity`: a point every `step` s
+-- (flat x, y, z), out to `maxT` s or until it has fallen below `floor`; each point's time is (its index - 1) * step.
+function Artillery.path(
+	ox: number,
+	oy: number,
+	oz: number,
+	vx: number,
+	vy: number,
+	vz: number,
+	gravity: number,
+	step: number,
+	maxT: number,
+	floor: number
+): { { number } }
+	local out = {}
+	local t = 0
+	while t <= maxT + 1e-9 do
+		local x, y, z = Artillery.at(t, ox, oy, oz, vx, vy, vz, gravity)
+		table.insert(out, { x, y, z })
+		if y < floor then
+			break
+		end
+		t += step
+	end
+	return out
+end
+
 -- How far it lands on ground level with the muzzle at `elevation` degrees (flat ground, from the ground).
 function Artillery.range(speed: number, elevation: number, gravity: number): number
 	return speed * speed * math.sin(math.rad(2 * elevation)) / gravity
@@ -290,10 +324,12 @@ function Artillery.solve(speed: number, gravity: number, d: number, h: number, h
 end
 
 -- The gun's elevation (its lay: the shell leaves `aimTilt` over it) that lands on a point `d` studs off flat and `h`
--- up from its muzzle: the low arc where the gun lays it, else the high one; a machine gun's straight line within its
--- `mg.range`. Nil when out of its reach or its elevation's limits.
-function Artillery.layFor(gun: any, d: number, h: number): number?
-	local lo, hi, tilt = gun.elevation[1], gun.elevation[2], gun.aimTilt or 0
+-- up from its muzzle: the low arc where the gun lays it, else the high one (`arc` "low" or "high": only that one); a
+-- machine gun's straight line within its `mg.range`. Nil when out of its reach or its elevation's limits (`limits`:
+-- Artillery.capped's, else its own).
+function Artillery.layFor(gun: any, d: number, h: number, limits: { number }?, arc: string?): number?
+	local lims = limits or gun.elevation
+	local lo, hi, tilt = lims[1], lims[2], gun.aimTilt or 0
 	if gun.mg then
 		if math.sqrt(d * d + h * h) > gun.mg.range then
 			return nil
@@ -302,6 +338,9 @@ function Artillery.layFor(gun: any, d: number, h: number): number?
 		return if e >= lo and e <= hi then e else nil
 	end
 	for _, high in { false, true } do
+		if arc and (arc == "high") ~= high then
+			continue
+		end
 		local launch = Artillery.solve(gun.speed, gun.gravity, d, h, high)
 		local e = launch and launch - tilt
 		if e and e >= lo and e <= hi then
@@ -309,6 +348,52 @@ function Artillery.layFor(gun: any, d: number, h: number): number?
 		end
 	end
 	return nil
+end
+
+-- How far apart a map's sectors stand: the mean distance between neighbours along its chain (flat; 0 for fewer than
+-- two)
+function Artillery.sectorSpan(sectors: { { x: number, z: number } }): number
+	if #sectors < 2 then
+		return 0
+	end
+	local sum = 0
+	for i = 2, #sectors do
+		local a, b = sectors[i - 1], sectors[i]
+		sum += math.sqrt((b.x - a.x) ^ 2 + (b.z - a.z) ^ 2)
+	end
+	return sum / (#sectors - 1)
+end
+
+-- The farthest a field gun's or howitzer's shell may land (Config/Artillery.Reach): `sectors` sector spans plus
+-- `margin` studs, gun `key`'s own (`cfg.guns[key]`) where it has them
+function Artillery.reachCap(span: number, cfg: any, key: string?): number
+	local own = key and cfg.guns and cfg.guns[key]
+	local c = own or cfg
+	return span * c.sectors + c.margin
+end
+
+-- The gun's elevation limits that keep its shell within `cap` studs (Config/Artillery.Reach; user 2026-11-03: "cannot
+-- be shot over a sector away"), where the ground `cap` studs out along its lay is `h` studs above its muzzle (nil:
+-- level): a low-arc gun stops raising at the lay that comes down there, a high-arc one (the howitzer, 45 degrees and
+-- up) stops lowering there. No limit while it can't reach that far at all; a machine gun's own limits.
+function Artillery.capped(gun: any, cap: number, h: number?): { number }
+	local lo, hi = gun.elevation[1], gun.elevation[2]
+	if gun.mg then
+		return { lo, hi }
+	end
+	local tilt = gun.aimTilt or 0
+	if lo + tilt < 45 and hi + tilt > 45 then
+		return { lo, hi } -- (laid both low and lobbed, the field gun: its own longest shot, at 45, is its reach)
+	end
+	local high = lo + tilt >= 45
+	local launch = Artillery.solve(gun.speed, gun.gravity, math.max(cap, 1e-3), h or 0, high)
+	if not launch then
+		return { lo, hi }
+	end
+	if high then
+		return { math.min(math.max(lo, launch - tilt), hi), hi }
+	end
+	return { lo, math.max(math.min(hi, launch - tilt), lo) }
 end
 
 -- Whether the gun's lay has come to within `tol` degrees of the wanted world yaw and elevation.
@@ -450,8 +535,15 @@ function Artillery.onGround(x: number, z: number, lo: { number }, hi: { number }
 	return x >= lo[1] and x <= hi[1] and z >= lo[2] and z <= hi[2]
 end
 
+-- Whether a gun at `hp` of `max` can be manned (Config/Artillery.Man): one still being built (`built` false) only
+-- once its HP has reached `cfg.built`% of `max`, a built one while it is at or above `cfg.keep`%.
+function Artillery.mannable(hp: number, max: number, built: boolean, cfg: { built: number, keep: number }): boolean
+	local share = if max > 0 then hp / max * 100 else 0
+	return share >= (if built then cfg.keep else cfg.built) - 1e-6
+end
+
 -- A gun's HP after a repair swing giving back `amount` (Config/Artillery.Repair), and what that makes it: "whole",
--- "usable" (it was `broken` and is back to `usable`% of `max`) or nil.
+-- "usable" (it was `broken` and is back to `usable`% of `max`: Config/Artillery.Man `keep`) or nil.
 function Artillery.repaired(hp: number, max: number, amount: number, usable: number, broken: boolean): (number, string?)
 	local after = math.min(hp + amount, max)
 	if after >= max - 1e-6 then

@@ -7,15 +7,21 @@ local function near(a: number, b: number, e: number?): boolean
 end
 
 return {
-	["flag: the side the control leans to, as high as it goes; a bare pole at neutral"] = function()
-		local side, share = R.flag(1)
+	["flag: the holder's, as high as its control goes; an unheld point the placeholder or a bare pole"] = function()
+		local side, share = R.flag("West", 1, "white")
 		assert(side == "West" and share == 1)
-		side, share = R.flag(-0.4)
+		side, share = R.flag("East", -0.4, "white")
 		assert(side == "East" and near(share, 0.4))
-		side, share = R.flag(0)
-		assert(side == nil and share == 0)
-		side, share = R.flag(-3)
+		side, share = R.flag("East", -3, "none")
 		assert(side == "East" and share == 1, "clamped")
+		side, share = R.flag("West", -0.2, "white")
+		assert(side == "West" and share == 0, "never the other side's flag on a held point")
+		side, share = R.flag("Neutral", 0.6, "white")
+		assert(side == "Neutral" and share == 1, "an unheld point: the placeholder at the top, whoever leans")
+		side, share = R.flag("Neutral", -0.6, "none")
+		assert(side == nil and share == 0, "or a bare pole")
+		side, share = R.flag(nil, 0, "none")
+		assert(side == nil and share == 0)
 	end,
 	["top: from just over the ground to just under the pole's top"] = function()
 		local F = Cfg.Flag

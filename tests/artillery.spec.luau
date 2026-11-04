@@ -104,15 +104,15 @@ return {
 		local _, _, _, dx, _, dz = A.muzzle(BORE, 30, 0)
 		assert(near(A.yawOf(dx, dz), 30, 1e-6))
 	end,
-	["the agreed ranges: field gun ~1,500 at full elevation, the howitzer a short-arc mortar"] = function()
-		-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
-		-- hit enemy sectors)", the shortest ~300: one sector): the shell leaves aimTilt over the bore
-		local tilt = QF.aimTilt :: number
-		local low = A.range(QF.speed, QF.elevation[1] + tilt, QF.gravity)
-		assert(tilt > 0 and tilt <= 10 and math.abs(low - 300) < 20, low)
-		local _, _, _, _, dy = A.muzzle(QF, 0, 0)
-		assert(near(dy, math.sin(math.rad(tilt))))
-		assert(A.range(QF.speed, QF.elevation[2] + tilt, QF.gravity) > 1500)
+	["the agreed ranges: the field gun lobs out to ~720, the howitzer a short-arc mortar"] = function()
+		-- (user 2026-11-03: "it should fire similarily to a mortar, maybe with less arc", "its too flat", "increase the
+		-- range of the field cannons"): 5 to 55 degrees, no hidden tilt, 720 studs at 45
+		assert(QF.elevation[1] == 5 and QF.elevation[2] == 70 and (QF.aimTilt or 0) == 0 and QF.rest == 20)
+		local most = QF.speed * QF.speed / QF.gravity
+		assert(math.abs(most - 720) < 5, most)
+		assert(math.abs(A.range(QF.speed, 5, QF.gravity) - 125) < 5)
+		assert(math.abs(A.range(QF.speed, 70, QF.gravity) - 463) < 5, "lobbed at its highest")
+		assert(QF.elevation[2] < HOW.elevation[2], "flatter than the howitzer")
 		assert(HOW.elevation[1] >= 45) -- it only lobs
 		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 590) < 20)
 		assert(A.range(HOW.speed, HOW.elevation[2], HOW.gravity) < 250)
@@ -120,7 +120,7 @@ return {
 		local function flight(g: any, e: number): number
 			return 2 * g.speed * math.sin(math.rad(e)) / g.gravity
 		end
-		assert(flight(QF, 16) > 3 and flight(HOW, 45) > 5)
+		assert(flight(QF, 45) > 4 and flight(HOW, 45) > 5)
 	end,
 	["the howitzer recharges with nobody on it; the field gun and MG start their reload over (user 2026-11-03)"] = function()
 		assert(HOW.keepsReload == true, "the howitzer's crystal fills unmanned")
@@ -253,12 +253,11 @@ return {
 		assert(beams >= 5 and beams <= 6, `5-6 full beams wreck a field gun ({beams})`)
 		assert(A.gunHit(0, H.staff3, H.direct) < hit, "a beam is still less than a cannon shell")
 	end,
-	["a gun's damage stages every 25%, unusable from half"] = function()
+	["a gun's damage stages every 25%"] = function()
 		local at = C.Wreck.at
 		assert(A.wreckStage(100, 100, at) == 0 and A.wreckStage(76, 100, at) == 0)
 		assert(A.wreckStage(75, 100, at) == 1 and A.wreckStage(50, 100, at) == 2)
 		assert(A.wreckStage(24, 100, at) == 3 and A.wreckStage(0, 100, at) == 4)
-		assert(C.Wreck.unusable == 2 and at[C.Wreck.unusable] == 50) -- user 2026-10-25: "let's say 50%"
 		assert(#C.Wreck.scorch == #at and #C.Wreck.tilt == #at and #C.Wreck.sink == #at)
 	end,
 	["the Rune howitzer is semi dug: a shallow pit inside its sandbag ring, walked out of up its ramp"] = function()
@@ -395,10 +394,21 @@ return {
 		assert(A.onGround(0, 0, lo, hi) and A.onGround(2, 5, lo, hi) and A.onGround(-2, -5, lo, hi))
 		assert(not A.onGround(2.1, 0, lo, hi) and not A.onGround(0, -5.1, lo, hi))
 	end,
-	["digging fixes a gun in its repair swings, usable again at 75%, never past whole"] = function()
-		-- user 2026-10-27: "make it so you can fix a artillery by digging too", "damaged but usable status at 75%"
-		local R = C.Repair
-		assert(R.usable == 75)
+	["manned once built to 100 HP, then while at or above half (players and bots)"] = function()
+		-- user 2026-11-03: "available until CONTRUCTION to 100 HP. after constructed, it can still be operated until low
+		-- HP (50%)"
+		local M = C.Man
+		assert(M.built == 100 and M.keep == 50)
+		assert(not A.mannable(99, 100, false, M), "still being built")
+		assert(A.mannable(100, 100, false, M), "built")
+		assert(A.mannable(100, 100, true, M) and A.mannable(50, 100, true, M), "built, at half")
+		assert(not A.mannable(49.9, 100, true, M), "under half")
+		assert(A.mannable(120, 240, true, M) and not A.mannable(119, 240, true, M), "the howitzer's 240 HP")
+		assert(not A.mannable(0, 0, true, M))
+	end,
+	["digging fixes a gun in its repair swings, usable again at half, never past whole"] = function()
+		-- user 2026-10-27: "make it so you can fix a artillery by digging too"; 2026-11-03: operated down to 50%
+		local R = { usable = C.Man.keep }
 		for key, g in C.Guns do
 			assert(g.repair >= 1, key)
 			local hp, what, n, usableAt = 0, nil, 0, nil
@@ -411,9 +421,8 @@ return {
 				assert(n <= g.repair, key)
 			end
 			assert(n == g.repair and hp == g.hp, key)
-			assert(usableAt and usableAt >= g.hp * 0.75 - 1e-6, key)
-			-- usable again past the stage it stopped being usable at
-			assert(A.wreckStage(usableAt, g.hp, C.Wreck.at) < C.Wreck.unusable, key)
+			assert(usableAt and usableAt >= g.hp * 0.5 - 1e-6, key)
+			assert(A.mannable(usableAt, g.hp, true, C.Man), key)
 		end
 		local hp, what = A.repaired(95, 100, 10, 75, false)
 		assert(hp == 100 and what == "whole")
@@ -617,6 +626,89 @@ return {
 			near(e + (HOW.aimTilt or 0), 60, 1e-6),
 			"the howitzer lays the high arc (its low one is under its limits)"
 		)
+	end,
+	["no shell lands past one sector's spacing plus the margin, on either map (user 2026-11-03)"] = function()
+		local R = C.Reach
+		assert(R.sectors == 1 and R.margin == 90)
+		for _, name in { "Map1", "LanternMeadows" } do
+			local map = require(`../src/shared/Config/Maps/{name}`) :: any
+			local span = A.sectorSpan(map.sectors)
+			assert(span > 400 and span < 450, `{name} span {span}`)
+			local cap = A.reachCap(span, R)
+			-- the field gun's own reach, 1.5 sectors (user 2026-11-03: "i think you nerfed the range a little too hard"):
+			-- past its longest shot, so it lays its whole dial, low and lobbed
+			local qcap = A.reachCap(span, R, "artillery_qf18")
+			assert(near(qcap, span * 1.5 + 90, 1e-6) and qcap > 715, `{name} field gun reach {qcap}`)
+			assert(QF.speed * QF.speed / QF.gravity <= qcap + 10)
+			local q = A.capped(QF, qcap)
+			assert(q[1] == QF.elevation[1] and q[2] == QF.elevation[2], "the field gun's whole dial")
+			for key, g in { how = HOW } do
+				local lims = A.capped(g, cap)
+				assert(lims[1] >= g.elevation[1] and lims[2] <= g.elevation[2] and lims[1] <= lims[2], key)
+				-- every lay within the limits lands within the cap, and the limit itself lands right at it
+				for k = 0, 10 do
+					local e = lims[1] + (lims[2] - lims[1]) * k / 10
+					assert(A.range(g.speed, e + (g.aimTilt or 0), g.gravity) <= cap + 1e-3, `{name} {key} {e}`)
+				end
+				local edge = if g == HOW then lims[1] else lims[2]
+				assert(near(A.range(g.speed, edge + (g.aimTilt or 0), g.gravity), cap, 1e-3), `{name} {key} edge`)
+				-- out past it: no lay; inside it: a lay within the limits
+				assert(A.layFor(g, cap + 20, 0, lims) == nil, `{name} {key} past the cap`)
+				local e = A.layFor(g, cap - 20, 0, lims)
+				assert(e and e >= lims[1] - 1e-6 and e <= lims[2] + 1e-6, `{name} {key} within it`)
+			end
+			assert(A.capped(HOW, cap)[1] > 55, "the howitzer stops high")
+		end
+		-- ground lower out there (a gun on a hill firing into a valley): it stops lower, its shell coming down at the
+		-- cap on that ground; higher ground: it may raise further
+		-- (a low-arc gun: the old flat field gun's numbers)
+		local LOW = {
+			elevation = { -5, 16 },
+			speed = 420,
+			gravity = 71.6,
+			aimTilt = 8.5,
+			traverse = 4.5,
+			traverseRate = 6,
+			elevationRate = 4,
+			swing = 10,
+		}
+		local cap = 500
+		local flat, down, up = A.capped(LOW, cap), A.capped(LOW, cap, -15), A.capped(LOW, cap, 30)
+		assert(down[2] < flat[2] and up[2] > flat[2])
+		local launch = down[2] + LOW.aimTilt
+		local vx, vy = LOW.speed * math.cos(math.rad(launch)), LOW.speed * math.sin(math.rad(launch))
+		local t = cap / vx
+		assert(near(vy * t - LOW.gravity * t * t / 2, -15, 1e-3), "it comes down on that ground at the cap")
+		assert(A.capped(HOW, cap, -40)[1] > A.capped(HOW, cap)[1], "the howitzer stops higher over lower ground")
+		-- the lay stops at the limits, a machine gun keeps its own
+		local lims = { -5, -2.5 }
+		local lay = A.lay({ yaw = 0, traverse = 0, elevation = -3 }, 0, 16, LOW, 10, lims)
+		assert(near(lay.elevation, -2.5, 1e-6))
+		local MG = C.Guns.mg08
+		local m = A.capped(MG, 100)
+		assert(m[1] == MG.elevation[1] and m[2] == MG.elevation[2])
+		assert(A.sectorSpan({ { x = 0, z = 0 } }) == 0)
+	end,
+	["path: the shell's points along its flight, until it falls below the floor"] = function()
+		local pts = A.path(0, 10, 0, 100, 50, 0, 50, 0.5, 20, 0)
+		assert(near(pts[1][1], 0) and near(pts[1][2], 10))
+		for i, p in pts do
+			local x, y, z = A.at((i - 1) * 0.5, 0, 10, 0, 100, 50, 0, 50)
+			assert(near(p[1], x) and near(p[2], y) and near(p[3], z))
+		end
+		assert(pts[#pts][2] < 0 and pts[#pts - 1][2] >= 0, "stops once below the floor")
+		assert(#A.path(0, 10, 0, 100, 50, 0, 50, 0.5, 1, -1e9) == 3, "or at its longest flight")
+	end,
+	["layFor: the field gun's low arc, or its lob over cover when asked"] = function()
+		local d = 500
+		local lowE = A.layFor(QF, d, 0, nil, "low") :: number
+		local highE = A.layFor(QF, d, 0, nil, "high") :: number
+		assert(lowE < 45 and highE > 45 and highE <= QF.elevation[2], `{lowE} {highE}`)
+		assert(A.layFor(QF, d, 0) == lowE, "the low arc first")
+		assert(
+			near(A.range(QF.speed, lowE, QF.gravity), d, 1e-3) and near(A.range(QF.speed, highE, QF.gravity), d, 1e-3)
+		)
+		assert(A.layFor(QF, 300, 0, nil, "high") == nil, "too near to lob within 70")
 	end,
 	["layFor on a machine gun is the straight line within its range and limits"] = function()
 		local MG = C.Guns.mg08

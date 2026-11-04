@@ -86,7 +86,9 @@ export type Gun = {
 	-- the gunner's camera (user 2026-10-20: "a cinematic lower left angle camera pov"): out at the gun's left, `side` (-
 	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
 	-- the gunner right of centre, the target left of it) and `pitch` up, plus the
-	-- elevation x `follow` (a high lob stays in view)
+	-- elevation x `follow` (a high lob stays in view); with `lob` (the field gun, laid up to lob over cover: user
+	-- 2026-11-03, "notice how i cant see over the hill im trying to shoot over") it rises `lob.up` and backs off
+	-- `lob.back` studs a degree of elevation and looks down at where the shell comes down instead of following it up
 	-- dug in when placed (src/server/Artillery); `ramp`: a way down into the pit behind the gun (Ground.pit); `wall`: the
 	-- pit's walls lean back at this many degrees (nil: cut straight down); `slabs`: trench dirt slabs laid on them (Slabs)
 	dig: {
@@ -116,7 +118,18 @@ export type Gun = {
 	-- the parts shell holes are punched into as it is damaged (Wreck), and the holes' size range (studs)
 	wreckParts: { string },
 	holeSize: { number },
-	camera: { side: number, up: number, back: number, yaw: number, pitch: number, follow: number, fov: number },
+	camera: {
+		side: number,
+		up: number,
+		back: number,
+		yaw: number,
+		pitch: number,
+		follow: number,
+		fov: number,
+		lob: { up: number, back: number }?,
+	},
+	-- the elevation it is placed at (nil: level, or its lowest when that is above level)
+	rest: number?,
 	-- set up in an MG nest (Config/Build.Nest) instead of on its own (its building site in the nest's ring), and it fires
 	-- bullets, not shells; nil: an artillery piece
 	nest: boolean?,
@@ -569,7 +582,7 @@ local Artillery = {
 		flicker = { rate = { 5, 0.8, 0.3 }, length = { 0.04, 0.2 }, depth = { 0.35, 0.9 }, wobble = 0.1 },
 		-- dying (user 2026-10-26: "make the lights flicker more deathly when its low HP"): hurt past `from` of its HP,
 		-- the drop-outs come up to `rate` more a second, `depth` deep (from the second up to the first); knocked out
-		-- (Wreck.unusable) it no longer charges or fires but sputters on, holding at `glow` and black for `blackout` of
+		-- (Broken: below Man.keep) it no longer charges or fires but sputters on, holding at `glow` and black for `blackout` of
 		-- the time, now and then a weak flare of `flare` lasting `flareLength` s (`flareEvery` s apart on average), the
 		-- light toward `tint` (RGB); at Wreck.dark it dies
 		dying = {
@@ -642,8 +655,8 @@ local Artillery = {
 	},
 	-- A damaged gun (user 2026-10-25: "once it gets to a critical percentage (let's say 50%) it becomes unusable, but not
 	-- completely wrecked. make it 4 stages, each at 25%, each more damaged"): stage i once its HP is down to `at[i]`% of
-	-- full; from stage `unusable` nobody can man it (its gunner is thrown off), its barrel knocked down to its lowest lay
-	-- and up to `knock` degrees round, the howitzer's crystal dead. Each stage scorches it `scorch[i]` of the way to
+	-- full; below Man `keep` nobody can man it (its gunner is thrown off), its barrel knocked down to its lowest lay
+	-- and up to `knock` degrees round, the howitzer's crystal dying. Each stage scorches it `scorch[i]` of the way to
 	-- Palette.Artillery.Scorched, leans it `tilt[i]` degrees and sinks it `sink[i]` studs.
 	-- Physically damaged too (user 2026-10-26: "make the physical model look damaged throughout each phase too? along
 	-- with the darkening. make the lights flicker more deathly when its low HP"): by stage i it has `holes[i]` shell
@@ -654,13 +667,25 @@ local Artillery = {
 	-- Fixing a gun with the shovel (src/server/Build, Artillery.repair; user 2026-10-27: "make it so you can fix a
 	-- artillery by digging too", "enemie teams should be able to repair and fix enemie trenches and artillery, as they
 	-- should be able to use it if they earn the sector"): a Build swing by any team's soldier gives back the gun's `hp` /
-	-- `repair` (an admin dig step: that share of its full HP). An unusable gun is usable again from `usable`% ("the
-	-- artillery should be in a damaged but usable status at 75%"): a fresh gun stands in its place, damaged to the HP it
-	-- has; whole, a fresh gun again. Each time its ground is flattened out again (the howitzer's pit dug out again).
-	Repair = { usable = 75 },
+	-- `repair` (an admin dig step: that share of its full HP). An unusable gun is usable again from Man `keep`%: a fresh
+	-- gun stands in its place, damaged to the HP it has; whole, a fresh gun again. Each time its ground is flattened out
+	-- again (the howitzer's pit dug out again).
+	-- Manning a gun (Rules/Artillery.mannable; user 2026-11-03: "manning the gun for any arty should be be available
+	-- until CONTRUCTION to 100 HP. after constructed, it can still be operated until low HP (50%)"): any gun (field gun,
+	-- howitzer, MG) being built can't be manned until its HP first reaches `built`% (src/server/Build places the real gun
+	-- only then); once built it can be manned at or above `keep`% of its HP, and below that its gunner is put off until
+	-- repairs bring it back to `keep`%. For players and bots alike.
+	Man = { built = 100, keep = 50 },
+	-- How far a field gun or howitzer reaches (Rules/Artillery.capped; user 2026-11-03: "adjust cannons so that they
+	-- cannot be shot over a sector away. same thing with the howitzer"): `sectors` of the live map's sector spacing
+	-- (Rules/Artillery.sectorSpan: ~423 studs on Map 1) plus `margin` studs (two zone radii: a gun anywhere in its
+	-- sector reaches anywhere in the next), on flat ground: the lay stops there (the field gun raises no higher, the
+	-- howitzer lowers no further). Bots aim within it too. Machine guns keep their own range. `guns`: a gun's own (the
+	-- field gun, user 2026-11-03: "i think you nerfed the range a little too hard": 1.5 sectors, 725 studs on Map 1, 722
+	-- on Lantern Meadows; its own longest shot, 720 at 45 degrees, is what stops it).
+	Reach = { sectors = 1, margin = 90, guns = { artillery_qf18 = { sectors = 1.5, margin = 90 } } },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
-		unusable = 2,
 		dark = 4,
 		holes = { 2, 5, 9, 14 },
 		lose = { {}, { "Kit" }, { "Kit", "Marking" }, { "Kit", "Marking", "Trim" } },
@@ -719,12 +744,20 @@ local Artillery = {
 			muzzle = { 0, 2.855, -4.808 },
 			boreCentre = 0.123,
 			traverse = 4.5,
-			elevation = { -5, 16 },
+			-- (user 2026-11-03: "alter the field gun so its more 'arc'. it should fire similarily to a mortar, maybe with
+			-- less arc", "allowing cannons to be angled upwards ... its too flat"): laid from 5 up to 70 degrees (was -5
+			-- to 16, with a hidden +8.5): low shots to 45, then lobbed over cover from 45 to 70 (its lobs reach 463 to 720
+			-- studs), short of the howitzer's 80; placed at `rest` 20
+			elevation = { 5, 70 },
+			rest = 20,
 			swing = 10,
 			traverseRate = 6,
 			elevationRate = 4,
-			speed = 450,
-			gravity = 71.6, -- (745 studs/s under 196.2 before: the same ranges, ~1.7x the flight: up to ~3.5 s)
+			-- 227 studs/s (was 420): 125 studs at 5 degrees, 460 at 20, 625 at 30, 720 at 45 (its longest), 463 lobbed at
+			-- 70 (topping out ~320 up, ~6 s in the air); 2.2 s at 20, 4.5 s at 45 (was 420 with a hidden +8.5: 300 to
+			-- 2,100 studs, nearly flat)
+			speed = 227,
+			gravity = 71.6,
 			charge = 0.45,
 			breechOpens = true,
 			-- (user 2026-10-21: "the explosives to be a lot more damaging and destructive ... realistic"; was 0.6 kg,
@@ -741,10 +774,6 @@ local Artillery = {
 			recoilClear = nil,
 			hp = 100,
 			repair = 10, -- (half the swings it takes to build)
-			-- (user 2026-10-26: "angles it slightly (not visibly at all) up, since it will be a mid range weapon (only can
-			-- hit enemy sectors)"; picked: the shortest shot ~300 studs, one sector): +8 on every shot, so -5..16 on the
-			-- dial throws 3..24: ~300 to ~2,100 studs
-			aimTilt = 8,
 			-- (user 2026-10-26: "add a platform hitbox for the cannon"; picked: the ground it stands on counts as the gun)
 			platform = { pad = 3, thick = 1.5 },
 			-- (user 2026-10-27: "the field cannon shouldnt have a platform, it should just make the ground its on lose its
@@ -806,7 +835,16 @@ local Artillery = {
 			-- (user 2026-10-21: "closer but from a similar angle we want to be able to see our avatar")
 			-- (user 2026-10-21: "a little closer to the player"; was side -8, up 4.5, back 9)
 			-- (user 2026-10-22: "have the cannon further back and up more"; was up 4, back 7)
-			camera = { side = -6.5, up = 5.5, back = 10, yaw = 25, pitch = 2, follow = 0.4, fov = 60 },
+			camera = {
+				side = -6.5,
+				up = 5.5,
+				back = 10,
+				yaw = 25,
+				pitch = 2,
+				follow = 0.4,
+				fov = 60,
+				lob = { up = 0.45, back = 0.25 },
+			},
 			-- (user 2026-10-29: the MG's warm barrel, steam and the gunner's recoil "apply to the field cannons too (not
 			-- the howitzer)"): a third of the way warm a shot, cooling over ~40 s, half its barrel glowing; the gunner thrown
 			-- back by each shot

@@ -725,6 +725,8 @@ local Cutscenes = {
 	},
 
 	DisplayOrder = 9, -- the cut's bars, cards and subtitles: over the menus
+	-- the keys sunk while a cut or an end scene covers the screen (Enum.KeyCode names): the soldier stands still
+	SinkKeys = { "W", "A", "S", "D", "Up", "Down", "Left", "Right", "Space" },
 }
 
 return table.freeze(Cutscenes)

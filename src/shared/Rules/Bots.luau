@@ -380,6 +380,30 @@ function Bots.chooseClass(
 	return pick.key, pick.cost
 end
 
+-- A class rolled by weight (Normal; user 2026-11-03: "have each class be a chance of spawning"): `roll` 0..1 over
+-- `options` (each key and weight; a weight of 0 never comes up). Nil with none to roll.
+function Bots.rollClass(options: { { key: string, weight: number } }, roll: number): string?
+	local total = 0
+	for _, o in options do
+		total += math.max(o.weight, 0)
+	end
+	if total <= 0 then
+		return nil
+	end
+	local at = roll * total
+	local last: string? = nil
+	for _, o in options do
+		if o.weight > 0 then
+			last = o.key
+			if at < o.weight then
+				return o.key
+			end
+			at -= o.weight
+		end
+	end
+	return last -- (roll 1)
+end
+
 -- The cover to run to from the candidate points (each its distance from the bot, whether the threat can't see it, how
 -- far it is from the threat, and whether a teammate already stands close to it): the nearest hidden one within
 -- `maxDistance` that isn't nearer the threat than `minThreat` nor crowded (user 2026-11-01: under fire they disperse);

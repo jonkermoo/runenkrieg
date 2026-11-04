@@ -2,7 +2,7 @@
 -- Normal: bots on the guns (Config/Bots.Crew, Rules/BotCrew; user 2026-11-02, stage 2g). The commander gives each
 -- free gun on its side's sectors a gunner (Crew.command); the gunner walks there and mans it, then lays and fires it
 -- (Crew.think, in place of its own think); a teammate taking it over (E) sends it back to duty (Artillery.onBotLeft).
--- Kept out of src/server/Bots (that module is at Luau's limit of locals); it hands over what it needs (Crew.init).
+-- Kept out of src/server/Bots; it hands over what it needs (Crew.init).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -36,7 +36,14 @@ export type Context = {
 
 -- each gunner's own state: the gun's body it was given for, when, the field gun's aim, when it looks again, when its
 -- MG's firing at a target began
-type Gunning = { m: Model?, since: number, point: Vector3?, retargetAt: number, burstFrom: number? }
+type Gunning = {
+	m: Model?,
+	since: number,
+	point: Vector3?,
+	retargetAt: number,
+	burstFrom: number?,
+	blind: number?, -- its looks in a row that found targets in reach but every shot stopped short
+}
 
 local ctx: Context = nil :: any
 local gunning: { [any]: Gunning } = setmetatable({}, { __mode = "k" }) :: any
@@ -44,7 +51,9 @@ local gunning: { [any]: Gunning } = setmetatable({}, { __mode = "k" }) :: any
 local targets: { [string]: { groups: { Vector3 }, fallback: Vector3? } } = {}
 local random = Random.new()
 -- this report's counts
-local stats = { shells = 0, bursts = 0, held = 0, kicked = 0, given = 0, gaveUp = 0 }
+local stats = { shells = 0, bursts = 0, held = 0, kicked = 0, given = 0, gaveUp = 0, blocked = 0, blinded = 0 }
+-- guns given no gunner until then: every shot they could lay stopped short (Config/Bots.Crew `blind`)
+local blindUntil: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 -- the guns' list once a frame (Artillery.list, no point)
 local listed: { [Model]: Artillery.GunInfo } = {}
 local listedAt = -1
@@ -66,14 +75,8 @@ end
 
 -- the side holding the sector nearest `p`
 local function ownerAt(p: Vector3, owner: { string }): string?
-	local best, bestD = nil, math.huge
-	for i, s in Map.sectors do
-		local d = (s.x - p.X) ^ 2 + (s.z - p.Z) ^ 2
-		if d < bestD then
-			best, bestD = owner[i], d
-		end
-	end
-	return best
+	local i = Rules.sectorAt(p.X, p.Z, Map.sectors)
+	return if i then owner[i] else nil
 end
 
 local function release(b: any, wait: number?)
@@ -115,19 +118,36 @@ local function aim(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	end
 	local friends = ctx.friends(b)
 	local radius = Rules.danger(ArtCfg.Guns[info.key].kg or 0, C.hold)
+	-- (only where its shot comes down there: no hill or house in the way, Artillery.shotClearAs; user 2026-11-03, the
+	-- bots "still firing into hills")
+	local blocked = false
+	local function try(at: Vector3): boolean
+		local clear, reach, arc = Artillery.shotClearAs(m, at)
+		blocked = blocked or (reach and not clear)
+		return clear and Artillery.aimAtAs(m, at, arc) -- (lobbed over a crest when the low shot is stopped)
+	end
 	for _, at in t.groups do
-		if Rules.clear(at.X, at.Z, friends, radius) and Artillery.aimAtAs(m, at) then
+		if Rules.clear(at.X, at.Z, friends, radius) and try(at) then
 			g.point = at
-			return
+			break
 		end
 	end
 	local f = t.fallback
-	if f then
-		local x, z = Rules.scatter(f.X, f.Z, C.scatter, random:NextNumber(), random:NextNumber())
-		local at = Vector3.new(x, f.Y, z)
-		if Artillery.aimAtAs(m, at) then
-			g.point = at
+	if f and not g.point then
+		for _ = 1, C.blind.tries do
+			local x, z = Rules.scatter(f.X, f.Z, C.scatter, random:NextNumber(), random:NextNumber())
+			local at = Vector3.new(x, f.Y, z)
+			if try(at) then
+				g.point = at
+				break
+			end
 		end
+	end
+	if g.point or not blocked then
+		g.blind = 0
+	else
+		g.blind = (g.blind or 0) + 1
+		stats.blocked += 1
 	end
 end
 
@@ -135,6 +155,14 @@ end
 local function shell(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	if not g.point or now >= g.retargetAt then
 		aim(b, g, info, now)
+		-- every shot it can lay stopped short again and again: off it, the gun left without a gunner a while (bots
+		-- can't move it)
+		if (g.blind or 0) >= C.blind.looks then
+			blindUntil[info.model] = now + C.blind.wait
+			stats.blinded += 1
+			Artillery.leaveAs(b.m)
+			return
+		end
 	end
 	local p = g.point
 	if not p or not info.loaded or not Artillery.laidAs(b.m) then
@@ -280,6 +308,7 @@ function Crew.command(side: string, owner: { string }, known: { Vector3 }, fallb
 			g.free
 			and not g.broken
 			and not taken[g.model]
+			and now >= (blindUntil[g.model] or 0)
 			and g.model.Parent ~= nil
 			and ownerAt(g.crew, owner) == side
 		then
@@ -346,7 +375,7 @@ function Crew.report(): string
 		end
 	end
 	local s = string.format(
-		"crew %d manned, %d walking, %d given, %d gave up, %d shells, %d MG bursts, %d held (own near), %d taken over",
+		"crew %d manned, %d walking, %d given, %d gave up, %d shells, %d MG bursts, %d held (own near), %d taken over, %d blocked looks, %d left blind",
 		on,
 		walking,
 		stats.given,
@@ -354,7 +383,9 @@ function Crew.report(): string
 		stats.shells,
 		stats.bursts,
 		stats.held,
-		stats.kicked
+		stats.kicked,
+		stats.blocked,
+		stats.blinded
 	)
 	for k in stats do
 		stats[k] = 0

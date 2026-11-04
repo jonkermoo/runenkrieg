@@ -45,9 +45,11 @@ local TreeSway = require(Shared.Config.TreeSway)
 local Damage = require(Shared.Config.Damage)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
+local LiveMap = require(Shared.LiveMap)
 local Grenade = require(Shared.Rules.Grenade)
 local ShotRules = require(Shared.Rules.ShotAudio)
 local Net = require(Shared.Net)
+local Hitches = require(Shared.Hitches)
 local ArtilleryCrystal = require(script.Parent.ArtilleryCrystal)
 local ArtilleryFx = require(script.Parent.ArtilleryFx)
 local BarrelHeat = require(script.Parent.BarrelHeat)
@@ -831,6 +833,12 @@ local function drawArc(model: Model, p: Pose, character: Model)
 	end
 	local flat = Vector3.new(p1.X - o.X, 0, p1.Z - o.Z).Magnitude
 	label.Text = `{if estimated then "~" else ""}{math.round(flat * Damage.Blast.MetresPerStud)} m`
+	if Players.LocalPlayer:GetAttribute("DevTools") == true and not gun.mg then
+		-- the admin's readout (Config/Artillery.Reach): where this lay comes down, flat from the muzzle, and the reach
+		-- cap, in studs
+		local cap = Rules.reachCap(Rules.sectorSpan(LiveMap.map.sectors), Cfg.Reach, model:GetAttribute("Gun") :: any)
+		label.Text ..= ` · {math.round(flat)} / cap {math.round(cap)} studs`
+	end
 end
 
 -- a bot on a gun, posed here as its gunner's own client would (no client owns a bot): the bot's character, the lay it
@@ -1230,7 +1238,21 @@ function Artillery.start()
 			wantYaw, wantElevation = Rules.mgLay(wantYaw, wantElevation, math.deg(pivotYaw), delta.X, delta.Y, gun)
 		else
 			wantYaw = Rules.wrap(layYaw + turn * Cfg.Aim.lead)
-			wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, gun.elevation[1], gun.elevation[2])
+			-- (within its reach on this map: Config/Artillery.Reach, no shell past a sector away, on the ground that far
+			-- out along its lay as far as it is streamed in here; the server holds it there too)
+			local cap =
+				Rules.reachCap(Rules.sectorSpan(LiveMap.map.sectors), Cfg.Reach, model:GetAttribute("Gun") :: any)
+			local pivot = model:GetPivot()
+			local mx, my, mz, dx, _, dz = Rules.muzzle(gun, p.traverse, p.elevation)
+			local muzzle = pivot:PointToWorldSpace(Vector3.new(mx, my, mz))
+			local dir = pivot:VectorToWorldSpace(Vector3.new(dx, 0, dz))
+			local out = muzzle + (if dir.Magnitude > 1e-3 then dir.Unit else Vector3.zero) * cap
+			local ground = RaycastParams.new()
+			ground.FilterType = Enum.RaycastFilterType.Include
+			ground.FilterDescendantsInstances = { workspace.Terrain }
+			local hit = workspace:Raycast(Vector3.new(out.X, muzzle.Y + 600, out.Z), Vector3.new(0, -1500, 0), ground)
+			local lims = Rules.capped(gun, cap, if hit then hit.Position.Y - muzzle.Y else nil)
+			wantElevation = math.clamp(p.elevation + raise * Cfg.Aim.lead, lims[1], lims[2])
 		end
 
 		-- the aim, sent at most Aim.rate a second when it changed
@@ -1336,15 +1358,33 @@ function Artillery.start()
 			end
 		end
 
-		-- the camera: out at the gun's left, turned right past the aim onto the gun, up with the elevation
+		-- the camera: out at the gun's left, turned right past the aim onto the gun, up with the elevation; a gun that
+		-- lobs over cover (`lob`, the field gun) rises and backs off as it is laid up, looking down at where the shell
+		-- comes down (on level ground) so it sees over the crest
 		local c = gun.camera
 		local pivot = model:GetPivot()
 		local rot = CFrame.Angles(0, math.rad(wantYaw), 0)
 		local base = pivot.Position
-		local at = base + rot:VectorToWorldSpace(Vector3.new(c.side, c.up, c.back))
+		local up = math.max(wantElevation, 0)
+		local lob = c.lob
+		local at = base
+			+ rot:VectorToWorldSpace(
+				Vector3.new(
+					c.side,
+					c.up + (if lob then up * lob.up else 0),
+					c.back + (if lob then up * lob.back else 0)
+				)
+			)
+		local pitch = c.pitch + up * c.follow
+		if lob then
+			local reach = Rules.range(gun.speed, wantElevation + (gun.aimTilt or 0), gun.gravity)
+			local land = base + rot:VectorToWorldSpace(Vector3.new(0, 0, -reach))
+			local flatTo = Vector3.new(land.X - at.X, 0, land.Z - at.Z).Magnitude
+			pitch = c.pitch + math.deg(math.atan2(land.Y - at.Y, math.max(flatTo, 1)))
+		end
 		local goal = CFrame.new(at)
 			* CFrame.Angles(0, math.rad(wantYaw - c.yaw), 0)
-			* CFrame.Angles(math.rad(c.pitch + math.max(wantElevation, 0) * c.follow), 0, 0)
+			* CFrame.Angles(math.rad(pitch), 0, 0)
 		camera.CFrame = if snap then goal else camera.CFrame:Lerp(goal, math.min(1, dt * Cfg.CameraEase))
 		snap = false
 
@@ -1453,8 +1493,9 @@ function Artillery.start()
 					SoundFx.play(mg.boom, origin, nil, { pitch = vary, delay = d / AudioCfg.Heard.speed })
 				end
 			end
-			-- (a rifle's flash: the guns' blast, even scaled down, lit the whole view 7 times a second)
-			GunFx.flashAt(CFrame.new(origin))
+			-- its own short flash and smoke (the guns' blast, even scaled down, lit the whole view 7 times a second; the
+			-- rifle's glowing flash read as a sparkle: user 2026-11-03)
+			Vfx.Gunsmoke.shot(model, origin, hit - origin)
 			GunFx.tracer(origin, hit)
 			if part then
 				GunFx.hole(hit, normal, part)
@@ -1467,12 +1508,14 @@ function Artillery.start()
 		if not gun then
 			return
 		end
+		local t0 = os.clock()
 		Vfx.Blast.play(position, {
 			normal = Vector3.yAxis,
 			kg = gun.kg,
 			scheme = gun.vfx.scheme,
 			magic = gun.vfx.magic,
 		})
+		Hitches.since("Shell blast fx", t0)
 		ArtilleryFx.blast(gun, position)
 		local d = (camera.CFrame.Position - position).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)

@@ -49,6 +49,17 @@ local Settings = {
 		},
 		-- the short blur when a bullet passes close or something blows up nearby (Config/ScreenBlur; user 2026-10-22)
 		ScreenBlur = { kind = "choice", label = "Screen blur", values = { "On", "Off" }, default = "On" },
+		-- the ring, muffled hearing, blur, grey and tilted view after a blast near you or a helmet hit, this share of full
+		-- (src/client/Concussion, Config/Concussion; 0 = off; user 2026-11-03)
+		ShellShock = {
+			kind = "slider",
+			label = "Shell shock",
+			min = 0,
+			max = 100,
+			step = 5,
+			default = 100,
+			format = "%d%%",
+		},
 		-- the kit list and the gun's cut-away, this many times their size (src/client/HudKit; user 2026-10-27: "add an
 		-- option in graphics to adjust hud size (inventory and the reloading diagram)")
 		HudSize = {
@@ -119,6 +130,9 @@ local Settings = {
 		Key_Drag = { kind = "key", label = "Drag", default = "G" }, -- drag the downed teammate you look at (Config/Dragging)
 		-- dragged by a teammate: break free and stand, once your stand-up time is over (user 2026-10-26; Config/Dragging)
 		Key_DragEscape = { kind = "key", label = "Break free of a drag", default = "Space" },
+		-- held: the map, a dot over each teammate (src/client/ModeHud; user 2026-10-31: "make it holding m") and their
+		-- health when near (src/client/TeamHealth; user 2026-11-03)
+		Key_Map = { kind = "key", label = "Map and teammate health (hold)", default = "M" },
 		Key_Build = { kind = "key", label = "Build mode", default = "B" }, -- the shovel in the hands (Config/Build)
 		Key_BuildTurn = { kind = "key", label = "Turn piece", default = "T" }, -- in build mode
 		-- pick the piece in build mode (user 2026-10-27: "scrolling and selecting items is conflicted. make it e and q to
@@ -146,6 +160,7 @@ local Settings = {
 				"Debris",
 				"FieldOfView",
 				"ScreenBlur",
+				"ShellShock",
 				"HudSize",
 			},
 		},
@@ -174,6 +189,7 @@ local Settings = {
 				"Key_Crouch",
 				"Key_Heal",
 				"Key_Drag",
+				"Key_Map",
 				"Key_Build",
 				"Key_BuildTurn",
 				"Key_BuildPrev",

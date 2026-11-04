@@ -57,11 +57,21 @@ return {
 		}
 		local jobs = R.plan(zone, 1, 0, holds, { "FieldGun" }, B)
 		assert(count(jobs, "Trench") == 0 and count(jobs, "SandbagPile") == 2, "bags only at the open holds")
-		assert(count(jobs, "Wire") == #B.Wire.lanes and count(jobs, "MGNest") == 1 and count(jobs, "FieldGun") == 1)
+		assert(count(jobs, "Wire") == #B.Wire.lanes and count(jobs, "FieldGun") == 1)
+		assert(count(jobs, "MGNest") == math.min(B.Nest.count, #holds), "a nest at each of the nearest holds")
+		assert(count(R.plan(zone, 1, 0, holds, {}, B, 0), "MGNest") == 0, "none missing: none")
+		assert(count(R.plan(zone, 1, 0, holds, {}, B, 1), "MGNest") == 1, "one missing: one")
 		assert(count(jobs, "Howitzer") == 0, "only the guns the level opens")
+		local first = nil
+		for _, j in R.plan(zone, 1, 0, holds, {}, B, 1) do
+			if j.key == "MGNest" then
+				first = j
+			end
+		end
+		assert(first and near(first.x, 30 + B.Nest.ahead), "the first at the hold nearest the enemy")
 		for _, j in jobs do
 			if j.key == "MGNest" then
-				assert(near(j.x, 30 + B.Nest.ahead), "at the hold nearest the enemy")
+				assert(j.x >= -5 + B.Nest.ahead - 0.01, "ahead of a hold")
 			elseif j.key == "FieldGun" then
 				assert(near(j.x, -B.Guns.back), "behind the zone")
 			elseif j.key == "Wire" then
@@ -209,6 +219,35 @@ return {
 			return false
 		end)
 		assert(#none == 0)
+		-- the flanks (Config/Bots.Front.Flank): every `every`-th spot at least `gunFrom` across
+		local Fl = Cfg.Front.Flank
+		local FC = { back = C.back, across = C.across, flank = Fl }
+		local flanked = R.gunSpots(zone, 1, 0, want, FC, spacing, any)
+		assert(#flanked == 4, "as many")
+		for i, j in flanked do
+			if i % Fl.every == 0 then
+				assert(math.abs(j.z) >= Fl.gunFrom - 1e-6, "a flank spot")
+			end
+		end
+	end,
+	["plan: every third MG nest at the hold spot farthest across (Config/Bots.Front.Flank)"] = function()
+		local zone = { x = 0, z = 0, radius = 50 }
+		local holds = {
+			{ x = 30, z = 0, hidden = true },
+			{ x = 25, z = 5, hidden = true },
+			{ x = 20, z = -2, hidden = true },
+			{ x = 0, z = 45, hidden = true },
+		}
+		local cfg = table.clone(B)
+		cfg.Flank = Cfg.Front.Flank
+		local nests = {}
+		for _, j in R.plan(zone, 1, 0, holds, {}, cfg, 3) do
+			if j.key == "MGNest" then
+				table.insert(nests, j)
+			end
+		end
+		assert(#nests == 3 and near(nests[1].x, 30 + B.Nest.ahead) and near(nests[2].x, 25 + B.Nest.ahead))
+		assert(near(nests[3].z, 45), "the third off to the side")
 	end,
 	["wireSpot: off its own side's ways and spawn, moved across, or nowhere"] = function()
 		local Wr = B.Wire
@@ -222,8 +261,47 @@ return {
 		local spawn = { minX = 0, maxX = 10, minZ = 0, maxZ = 10 }
 		assert(R.wireSpot(20, 5, 0, 1, {}, spawn, { gap = 0, spawn = 30, step = 6, shift = 12 }) == nil, "by the spawn")
 	end,
+	["treesInWay: within clear of a way, nearest first, never in a building"] = function()
+		local T = B.Trees
+		local ways = { { ax = 0, az = 0, bx = 100, bz = 0 }, { ax = 200, az = 50, bx = 200, bz = 50 } }
+		local trees = {
+			{ x = 50, z = T.clear - 1 }, -- 1: near the run
+			{ x = 50, z = T.clear + 1 }, -- 2: just out
+			{ x = 50, z = 1 }, -- 3: nearest
+			{ x = 201, z = 50, building = true }, -- 4: by the point, in a building
+			{ x = 202, z = 52 }, -- 5: by the point
+			{ x = 150, z = 0 }, -- 6: past the run's end
+		}
+		local got = R.treesInWay(trees, ways, T.clear)
+		assert(#got == 3, `{#got} trees`)
+		assert(got[1] == 3 and got[2] == 5 and got[3] == 1, "nearest its way first")
+		assert(#R.treesInWay(trees, {}, T.clear) == 0, "no ways, no trees")
+	end,
+	["fireLine: out along the gun's facing"] = function()
+		local T = B.Trees
+		local l = R.fireLine(10, 20, 0, 1, T.fireLine)
+		assert(l.ax == 10 and l.az == 20 and near(l.bx, 10) and near(l.bz, 20 + T.fireLine))
+		local trees = { { x = 12, z = 20 + T.fireLine - 5 }, { x = 12, z = 20 + T.fireLine + T.clear + 1 } }
+		local got = R.treesInWay(trees, { l }, T.clear)
+		assert(#got == 1 and got[1] == 1, "only within the line's reach")
+	end,
+	["mayFell: one per Engineer every so often, a side's cap"] = function()
+		local T = B.Trees
+		assert(R.mayFell(0, nil, T), "the first")
+		assert(not R.mayFell(0, T.every - 1, T) and R.mayFell(0, T.every, T), "every")
+		assert(not R.mayFell(T.perSide, nil, T), "the side's cap")
+	end,
 	["mayRepair: only after the wait"] = function()
 		assert(not R.mayRepair(B.repairWait - 1, B.repairWait) and R.mayRepair(B.repairWait, B.repairWait))
+	end,
+	["safeToWork: pinned always; never with an enemy in sight; else calm or hidden from the threat"] = function()
+		local c = B.calm
+		assert(R.safeToWork(true, true, 0, 0, false, c), "its own foxhole under fire")
+		assert(not R.safeToWork(false, true, math.huge, math.huge, true, c), "an enemy in sight")
+		assert(R.safeToWork(false, false, c, c, false, c), "calm")
+		assert(not R.safeToWork(false, false, c - 0.1, math.huge, false, c), "shot at lately")
+		assert(not R.safeToWork(false, false, math.huge, c - 0.1, false, c), "hurt lately")
+		assert(R.safeToWork(false, false, 0, 0, true, c), "the spot hidden from the threat")
 	end,
 	["strikes: sometimes, likelier empty"] = function()
 		local Me = Cfg.Melee

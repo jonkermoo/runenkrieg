@@ -24,6 +24,13 @@ local function facts(over: { [string]: any }?): R.Facts
 end
 
 return {
+	["moveOn: half its free members there, or anyone waited long enough; never nobody"] = function()
+		local Q = Cfg.Squads
+		assert(not R.moveOn(0, 4, 999, Q), "nobody there")
+		assert(R.moveOn(2, 4, 0, Q) and not R.moveOn(1, 4, 0, Q), "half its free members")
+		assert(R.moveOn(1, 4, Q.waitMax, Q), "one waited long enough")
+		assert(R.moveOn(1, 0, 0, Q), "nobody free but it")
+	end,
 	["form: squads of the size, a small last one joins the one before"] = function()
 		local s = R.form({ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, 4, 2)
 		assert(#s == 2 and #s[1] == 4 and #s[2] == 5, "the lone ninth joins the second")

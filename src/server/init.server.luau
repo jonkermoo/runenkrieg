@@ -49,6 +49,7 @@ for _, p in Players:GetPlayers() do
 end
 
 require(script.Profile).start() -- (the saved settings)
+require(ReplicatedStorage:WaitForChild("Shared").Hitches).watch() -- (the hitch log's long frames)
 require(script.Environment).start()
 require(script.Loadouts).start() -- (the class each life spawns as, the match currency)
 require(script.Bodies).start() -- (dresses the helmet and hair: script.Helmets)
@@ -60,6 +61,7 @@ require(script.Indoors).start() -- (pathfinding links through doorways and up st
 require(script.Sectors).start() -- (hides the sector dividers and point markers)
 require(script.Flagpoles).start() -- (a pole on each sector point while the frontline match runs)
 require(script.MapVote).start() -- (the next map, voted for between Normal matches)
+require(script.PoleWires).start() -- (the telegraph wires come down with their poles; before DevTools saves the map)
 require(script.DevTools).start()
 require(script.Firing).start()
 require(script.Melee).start()

@@ -262,6 +262,18 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 	-- (knocked again while getting up: down again, the get-up over)
 	character:SetAttribute("GetUp", nil)
 	character:SetAttribute("GetUpAt", nil)
+	-- thrown off anything anchored it is welded to (the gun it mans: src/server/Artillery puts its gunner off as the
+	-- weld goes): held on, the get-up's move of its root took the gun's part with it (user 2026-11-03: "the cannons
+	-- mode[l] is bugged", a knocked bot gunner's field gun lying in pieces)
+	for _, w in character:GetDescendants() do
+		if w:IsA("WeldConstraint") or w:IsA("Weld") then
+			local a, b = w.Part0, w.Part1
+			local other = if a and a:IsDescendantOf(character) then b else a
+			if other and other.Anchored and not other:IsDescendantOf(character) then
+				w:Destroy()
+			end
+		end
+	end
 	local made = loosen(character, torso)
 	made.getUp = getUp
 	down[character] = made
