@@ -487,8 +487,8 @@ local Vfx = {
 		Charge = { a = 3.86, b = 0.32, metresPerStud = 0.357, rings = 1 },
 		Scale = { small = 4, big = 70 },
 		-- The colours, as roles in the cast's scheme (Config/Vfx.Schemes): the fireball's core `hot`, its shell `fire`
-		-- cooling to the scheme's `rim`-th layer; `spark`: sparks, spikes, star; `rune` / `static` / `staticCore`: what
-		-- magic leaves behind. A plain blast's air ring is `air` (Palette.Magic), magic's the rim colour.
+		-- cooling to the scheme's `rim`-th layer (and magic's air rings); `spark`: sparks, spikes, star; `rune` /
+		-- `static` / `staticCore`: what magic leaves behind.
 		Colors = {
 			hot = "flash",
 			fire = "glow",
@@ -497,7 +497,6 @@ local Vfx = {
 			rune = "glow",
 			static = "arc",
 			staticCore = "arcCore",
-			air = "Smoke",
 		},
 		-- the first flash: a ball `size` x D across, gone in `time` s; a light `range` x D (Roblox caps 60) for `light` s
 		Flash = { size = 0.8, time = 0.09, range = 3, brightness = 8, light = 0.7, lift = 2, max = 60 },
@@ -506,7 +505,9 @@ local Vfx = {
 		-- shrinks to `shrink` of itself (the earth swallows it)
 		Orb = { size = 0.6, core = 0.65, sink = 0.2, grow = 0.04, hold = 0.06, fade = 0.22, shrink = 0.5 },
 		Star = 0.6, -- the star glint's length x D (magic)
-		Rings = { to = 2.4, gap = 0.12, grow = 0.25, lift = 0.6 }, -- each air ring out to `to` x D (+`grow` per ring)
+		-- magic's air rings, each out to `to` x D (+`grow` per ring); a plain blast has none (a hard white line on the
+		-- grass in Studio, 2026-11-03)
+		Rings = { to = 2.4, gap = 0.12, grow = 0.25, lift = 0.6 },
 		-- sparks flung out (speed x D / s), slowing, then falling under `gravity`
 		Sparks = {
 			perStud = 2.5,
@@ -524,8 +525,10 @@ local Vfx = {
 		-- slowed by `drag`, so each stops at its own height up to `tall` x D (the higher ones spread wider: the column
 		-- widens at the top); each growing from `size[1]` to `size[2]` x D (the highest shade x `topSize`), drifting on
 		-- the `wind` (studs/s^2, y lifts it), turning up to `spin` degrees/s, `thick` (transparency) after fading in over
-		-- `fadeIn`, living `life` s (x 0.7..1) and thinning over its last `fade` share.
+		-- `fadeIn`, living `life` s (x 0.7..1) and thinning over its last `fade` share. Magic's takes `litMagic` of the
+		-- scene's light (its blue light tinted the smoke violet in Studio).
 		Column = {
+			litMagic = 0.3,
 			shades = { "Earth", "Soot", "SmokeDark", "Ash" },
 			earth = 0.55,
 			count = { 10, 48 },
@@ -534,8 +537,8 @@ local Vfx = {
 			spread = 14,
 			drag = 2.2,
 			tall = { 0.8, 2.1 },
-			size = { 0.22, 0.55 },
-			topSize = 1.5,
+			size = { 0.16, 0.5 },
+			topSize = 1.6,
 			wind = { 1.4, 0.5, 0.6 },
 			spin = 18,
 			thick = 0.08,
@@ -555,7 +558,8 @@ local Vfx = {
 			shade = 0.6,
 			fade = 0.35,
 		},
-		-- Clods thrown up (soft clumps of the ground: the hit thing's colour, else what's under the blast, else `dirt`) in
+		-- Clods thrown up (soft clumps of the ground: the hit thing's colour, else what's under the blast, else `dirt`;
+		-- mixed `soil` of the way to `dirt`, as everything the blast throws up: on grass it shows the earth) in
 		-- two shades x `shade`, `perStud` a stud of D (`min`..`max`), `size` x D^`sizePow` studs, thrown at `speed` x D^0.5
 		-- studs/s (at most `fastest`) within `spread` degrees of straight up, falling under `gravity`, living about as long
 		-- as their flight back down x `airtime`, then fading over their last `fade`.
@@ -573,6 +577,7 @@ local Vfx = {
 			fade = 0.25,
 			spin = 90,
 			dirt = "Mud", -- Palette.Terrain
+			soil = 0.65,
 			shade = { 0.6, 0.9 },
 		},
 		-- Faceted sods (blocks, SmoothPlastic, no physics: moved by the Driver): `count` of them (by strength), `size` x
@@ -608,11 +613,10 @@ local Vfx = {
 			spin = 15,
 			life = { 2.5, 11 },
 		},
-		-- The grenade: the same burst at its own small D with no air ring, x `sparks` sparks, its light x `light`, its
+		-- The grenade: the same burst at its own small D, x `sparks` sparks, its light x `light`, its
 		-- column living `columnLife` s and `tall` x D, its clods x `clods` thrown x `throw` as fast, its skirt living
 		-- `skirtLife` s.
 		Pop = {
-			rings = 0,
 			sparks = 2,
 			light = 1.5,
 			columnLife = 3,

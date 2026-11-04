@@ -111,7 +111,6 @@ return {
 		for _, g in B.Column.shades do
 			assert(g == "Earth" or Palette.Magic[g], `column shade {g} is the ground or a Palette.Magic colour`)
 		end
-		assert(Palette.Magic[B.Colors.air], "the air ring's colour")
 		-- magic keeps its runes, improved: a seal round the foot that lifts off and spirals up
 		local SE = B.Seal
 		assert(SE.share > 0 and SE.share <= 1 and SE.least >= 1, "some runes in the seal")

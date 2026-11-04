@@ -167,16 +167,16 @@ local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
 end
 
--- the colour of what's under the blast (else the hit thing's, else plain mud)
+-- the colour of what's under the blast (else the hit thing's, else plain mud), mixed `soil` of the way to mud: a
+-- blast on grass throws up the earth under it
 local function dirtOf(pos: Vector3, normal: Vector3, given: Color3?): Color3
-	if given then
-		return given
+	local mud = rgb((Palette.Terrain :: any)[Cfg.Clods.dirt])
+	local c = given
+	if not c then
+		local _, _, under = Util.cast(pos + normal * 1, -normal, 4)
+		c = under
 	end
-	local _, _, c = Util.cast(pos + normal * 1, -normal, 4)
-	if c then
-		return c
-	end
-	return rgb((Palette.Terrain :: any)[Cfg.Clods.dirt])
+	return if c then c:Lerp(mud, Cfg.Clods.soil) else mud
 end
 
 local function shaded(c: Color3, k: number): Color3
@@ -230,7 +230,8 @@ local function column(
 	dirt: Color3,
 	strength: number,
 	tall: number,
-	life: number
+	life: number,
+	lit: number
 ): ({ ParticleEmitter }, number)
 	local CO = Cfg.Column
 	local count = math.round(lerp(CO.count[1], CO.count[2], strength))
@@ -241,6 +242,7 @@ local function column(
 		local f = if shades > 1 then (k - 1) / (shades - 1) else 0
 		local color = if shade == "Earth" then shaded(dirt, CO.earth) else Util.color(shade)
 		local e = smoky(upright(pos + normal * d * 0.1, normal), box, color)
+		e.LightInfluence = lit
 		-- each stops where Drag has used up its speed (v / (Drag x ln 2) studs on): its share of the column's height
 		local lo, hi = tall * (0.12 + 0.55 * f), tall * math.min(0.4 + 0.6 * f, 1)
 		local k2 = CO.drag * LN2
@@ -584,7 +586,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local P = Cfg.Pop
 	local popping = o.pop == true
 	if popping then
-		st = { fireball = d, rings = P.rings, spikes = false }
+		st = { fireball = d, rings = 0, spikes = false }
 		magic = false
 	end
 
@@ -607,12 +609,12 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	end
 	local sp = Cfg.Sparks
 	local sparked = sparks(pos, d, sp.perStud * d * (if popping then P.sparks else 1), hot, Util.color(spark))
-	for i = 1, st.rings do
+	for i = 1, if magic then st.rings else 0 do
 		task.delay((i - 1) * Cfg.Rings.gap, function()
 			Shockwave.play(
 				pos + normal * Cfg.Rings.lift,
 				normal,
-				if magic then rimName else CO.air,
+				rimName,
 				d * Cfg.Rings.to * (1 + Cfg.Rings.grow * (i - 1))
 			)
 		end)
@@ -628,7 +630,9 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local CL = Cfg.Column
 	local tall = d * (if popping then P.tall else lerp(CL.tall[1], CL.tall[2], strength))
 	local life = if popping then P.columnLife else lerp(CL.life[1], CL.life[2], strength)
-	local smokes, smokeEnd = column(pos, normal, d, dirt, strength, tall, life)
+	-- (magic's smoke stays grey under its own coloured light: user 2026-10-17, "the actual explosion is blue, but not
+	-- the smoke")
+	local smokes, smokeEnd = column(pos, normal, d, dirt, strength, tall, life, if magic then CL.litMagic else 1)
 	local spouted, spoutEnd = spout(pos, normal, d, dirt, strength, tall)
 	local thrown, flight = clods(pos, normal, d, dirt, if popping then P.clods else 1, if popping then P.throw else 1)
 	local SK = Cfg.Skirt
