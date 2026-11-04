@@ -744,6 +744,13 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local suppressAt = if (b.role == "Support" or staff) and not targetPart then knownSpot(b, now) else nil
 	local aimAt: Vector3? = if targetPart then targetPart.Position else (suppressAt or b.lastSeenAt)
 	local move = intent.move
+	-- Normal: its squad pressing on out of the open (Config/Bots.Squads.Open): fighting on the move toward its
+	-- objective, not in place (in cover it stays)
+	local sqs = if b.squad then squads[b.squad :: string] else nil
+	local pressing = sqs ~= nil and sqs.pressUntil ~= nil and now < sqs.pressUntil :: number and b.order == "Attack"
+	if pressing and coverState ~= "at" and (move == "Strafe" or move == "Hold" or move == "Peek" or move == "Hunt") then
+		move = "Objective"
+	end
 	-- Normal: a hunt that would lead it far from its order's sector gives way to the order
 	if move == "Hunt" and b.mode == "Normal" and zone and b.lastSeenAt then
 		if flat((b.lastSeenAt :: Vector3) - (zone :: Vector3)).Magnitude > NV.leash then
@@ -773,7 +780,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		end
 		-- (Normal: outside the zone its squad's route: a waypoint, a bound's stop, the approach spot; then its own
 		-- stand point there)
-		goal = if inZone and b.role ~= "Move" then b.wander elseif b.flank then b.flank else (b.goal or b.stand or z)
+		goal = if inZone and b.role ~= "Move"
+			then b.wander
+			elseif b.flank then b.flank
+			elseif pressing then (b.stand or z)
+			else (b.goal or b.stand or z)
 		-- (a teammate it guards: by them; a build job it took: there; fighting on the way: Config/Bots.Actions.Guard,
 		-- Build.Work)
 		if b.guard then

@@ -314,6 +314,9 @@ local DevTools = {
 		-- the readout of bots standing still: none moved `stuckFor` s, not on a gun or at a post, with their state
 		-- (src/server/Bots, every commander tick)
 		BotStuckAttribute = "DevBotStuck",
+		-- the readout of each squad: order, sector, phase, what it is doing (pressing on, a sap, a sap given up), how
+		-- long its middle has stood still, shot at, members in cover (src/server/Bots, every commander tick)
+		BotSquadsAttribute = "DevBotSquads",
 		stuckFor = 12,
 		-- - House (at the aim point): the `bots` nearest bots (within BotNear) walk through the house there, each to
 		--   `spots` of its indoor spots in turn (each starting at a different one) and back out where it started, giving up

@@ -49,4 +49,10 @@ function BotSap.over(headToObjective: number, edge: number, sinceFire: number, q
 	return headToObjective <= edge or sinceFire >= quiet
 end
 
+-- Whether a sap is given up (Config/Bots.Sap): its run refused until it gave up (`gaveUp`), its next run through
+-- water (`water`), or no run dug for `sinceDug` >= `cfg.dig` seconds.
+function BotSap.failed(sinceDug: number, gaveUp: boolean, water: boolean, cfg: { dig: number }): boolean
+	return gaveUp or water or sinceDug >= cfg.dig
+end
+
 return BotSap

@@ -9,6 +9,13 @@ local function near(a: number, b: number): boolean
 end
 
 return {
+	["failed: refused until it gave up, through water, or nothing dug for long enough"] = function()
+		assert(not R.failed(0, false, false, S), "fresh")
+		assert(not R.failed(S.dig - 1, false, false, S), "still digging")
+		assert(R.failed(S.dig, false, false, S), "nothing dug in time")
+		assert(R.failed(0, true, false, S), "gave up")
+		assert(R.failed(0, false, true, S), "water")
+	end,
 	["stalled: stuck under fire, or losing men, for long enough"] = function()
 		assert(R.stalled(S.stall, 0, true, 0, S), "pinned the whole time")
 		assert(R.stalled(S.stall + 5, S.progress - 1, false, S.losses, S), "losing men")
