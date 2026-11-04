@@ -69,6 +69,12 @@ local tests: { [string]: () -> () } = {
 		assert(math.abs(a1 - last.to) < 1e-9 and b1 == 1, "ends behind it, in its view")
 		assert(math.abs(last.from - last.to) > math.pi / 2, "a real circle round it")
 		assert(select(2, R.selfPose(last, 1 - last.into - 0.01)) == 0, "the circle alone until its last share")
+		assert(select(2, R.selfPose(last, 1 - last.hold)) == 1, "at the game's camera before the end, held still")
+		local H, C = Cfg.HandOver, require("../src/shared/Config/Camera")
+		assert(R.handZoom(nil, H, C.FreeMinZoom, C.FreeMaxZoom) == math.clamp(H.zoom, C.FreeMinZoom, C.FreeMaxZoom))
+		assert(R.handZoom(6, H, C.FreeMinZoom, C.FreeMaxZoom) == 6, "the player's own zoom")
+		assert(R.handZoom(0.5, H, C.FreeMinZoom, C.FreeMaxZoom) == H.zoom, "first person (a gun drawn): the start zoom")
+		assert(R.handZoom(80, H, C.FreeMinZoom, C.FreeMaxZoom) == C.FreeMaxZoom, "never past the farthest zoom")
 		local prev = -1
 		for k = 0, 20 do
 			local _, b = R.selfPose(last, k / 20)

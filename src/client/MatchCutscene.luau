@@ -24,6 +24,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Cutscenes)
+local CamCfg = require(Shared.Config.Camera)
 local FrontCfg = require(Shared.Config.Frontline)
 local DevCfg = require(Shared.Config.DevTools)
 local SketchCfg = require(Shared.Config.SketchMap) :: any
@@ -39,6 +40,7 @@ local PointSeal = require(script.Parent.PointSeal)
 local Menus = require(script.Parent.Menus) :: any
 local SketchMap = require(script.Parent.SketchMap)
 local Speech = require(script.Parent.Speech)
+local Settings = require(script.Parent.Settings)
 local Net = require(Shared.Net)
 
 local MatchCutscene = {}
@@ -512,9 +514,27 @@ local function fadeStep()
 	small.TextStrokeTransparency = 1 - cover * 0.6
 end
 
+-- the player's camera zoom as the match ended (the game's camera still running), for the hand-over after the flight
+local gameZoom: number? = nil
+
+-- where the game's own camera will be behind the soldier, and its field of view (Config/Cutscenes.HandOver)
+local function gameView(root: BasePart, humanoid: Humanoid?): (CFrame, number)
+	local H = Cfg.HandOver
+	local zoom = Rules.handZoom(gameZoom, H, CamCfg.FreeMinZoom, CamCfg.FreeMaxZoom)
+	local offset = if humanoid then humanoid.CameraOffset else Vector3.zero
+	local focus = root.Position + Vector3.new(0, H.focusUp, 0) + offset
+	local flat = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
+	local pitch = math.rad(H.pitch)
+	local dir = flat * math.cos(pitch) - Vector3.new(0, math.sin(pitch), 0)
+	return CFrame.lookAt(focus - dir * zoom, focus), Settings.get("FieldOfView") :: number
+end
+
 local function startFade(folder: Instance)
 	if fading then
 		return
+	end
+	if camera.CameraType == Enum.CameraType.Custom then
+		gameZoom = (camera.CFrame.Position - camera.Focus.Position).Magnitude
 	end
 	fading = true
 	fadeFolder = folder
@@ -569,6 +589,11 @@ local function finish()
 	white.Visible = false
 	camera.FieldOfView = p.fov
 	if not MatchCam.running() then
+		-- the game's own camera from where the flight left it (a skip too): its angle behind the soldier, its fov
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and p.kind == "Pre" then
+			camera.CFrame, camera.FieldOfView = gameView(root, player.Character:FindFirstChildOfClass("Humanoid"))
+		end
 		camera.CameraType = Enum.CameraType.Custom
 		local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		if h then
@@ -764,10 +789,9 @@ local function step(dt: number)
 	local cf = CFrame.lookAt(eye, look) * CFrame.Angles(0, 0, math.rad(pose.roll))
 	local fov = pose.fov or Cfg.Fov
 	if shot.kind == "Self" then
-		-- round your own soldier, then into its eyes (the first-person view it starts in)
-		local head = player.Character and player.Character:FindFirstChild("Head") :: BasePart?
+		-- round your own soldier, then one move to the game's own camera behind it, held still for the hand-over
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if head and root then
+		if root then
 			local a, blend = Rules.selfPose(shot, u)
 			local back = CFrame.Angles(0, a, 0):VectorToWorldSpace(-root.CFrame.LookVector)
 			local feet = root.Position - Vector3.new(0, 3, 0)
@@ -775,9 +799,9 @@ local function step(dt: number)
 				feet + back * shot.radius + Vector3.new(0, shot.up, 0),
 				feet + Vector3.new(0, shot.lookUp, 0)
 			)
-			local at = head.Position + Vector3.new(0, 0.4, 0)
-			cf = round:Lerp(CFrame.lookAt(at, at + root.CFrame.LookVector), blend)
-			fov += (p.fov - fov) * blend
+			local view, viewFov = gameView(root, player.Character:FindFirstChildOfClass("Humanoid"))
+			cf = round:Lerp(view, blend)
+			fov += (viewFov - fov) * blend
 		end
 	end
 	camera.CameraType = Enum.CameraType.Scriptable

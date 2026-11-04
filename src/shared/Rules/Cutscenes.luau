@@ -253,12 +253,21 @@ function Cutscenes.pose(
 end
 
 -- A "Self" shot `u` through: the camera's angle round the local soldier (radians from straight behind it, `from` ->
--- `to`) and how far it has blended into the soldier's own view (0..1: over the shot's last `into` share).
+-- `to`) and how far it has moved to the game's own camera behind it (0..1: over the shot's last `into` share, there
+-- by its last `hold` share, where it stays still till the hand-over).
 function Cutscenes.selfPose(shot: any, u: number): (number, number)
 	local a = shot.from + (shot.to - shot.from) * ease(u)
-	local into = shot.into or 0
-	local blend = if into > 0 then math.clamp((u - (1 - into)) / into, 0, 1) else 0
+	local into, hold = shot.into or 0, shot.hold or 0
+	local blend = if into > hold then math.clamp((u - (1 - into)) / (into - hold), 0, 1) else 0
 	return a, ease(blend)
+end
+
+-- How far behind the soldier's head the game's own camera sits when the flight hands over: the zoom the player had
+-- as the match ended (`zoom`: nil, or first person, under `least`: Roblox's start, `H.zoom`), within `least`..`most`
+-- (Config/Camera FreeMinZoom..FreeMaxZoom: Roblox's camera with no weapon drawn, as a soldier spawns).
+function Cutscenes.handZoom(zoom: number?, H: any, least: number, most: number): number
+	local z = if zoom and zoom >= least then zoom else H.zoom
+	return math.clamp(z, least, most)
 end
 
 -- How many of the `n` point seals are stamped `u` through a `stamps` shot: the Front's as the camera comes within half

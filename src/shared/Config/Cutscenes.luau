@@ -178,8 +178,10 @@ local Cutscenes = {
 					},
 				},
 			},
-			-- round your own soldier where it stands in its wave line, then into your own view; the closing call on the
-			-- whistle (user 2026-11-03: no team lines)
+			-- round your own soldier where it stands in its wave line, then one move to the game's own camera behind it
+			-- (your zoom and field of view: HandOver), still a moment, and the game takes over; the closing call on the
+			-- whistle (user 2026-11-03: no team lines; "once the cinematics stop, just pan to us, stop the camera, and go
+			-- to our in game camera angle")
 			{
 				name = "Self",
 				t1 = 19,
@@ -189,7 +191,8 @@ local Cutscenes = {
 				radius = 11,
 				up = 4.5,
 				lookUp = 1.5,
-				into = 0.35,
+				into = 0.4,
+				hold = 0.12,
 				fov = 55,
 			},
 		},
@@ -766,6 +769,10 @@ local Cutscenes = {
 		rate = 0.25, -- seconds between a player's votes (the server's limit)
 	},
 
+	-- the game's own camera the flight hands over to (Roblox's, no weapon drawn: aimed `focusUp` over the root, `pitch`
+	-- degrees down along the soldier's facing, at the player's zoom as the match ended: Rules/Cutscenes.handZoom, else
+	-- `zoom`), at the player's field of view setting
+	HandOver = { zoom = 9, pitch = 12, focusUp = 1.5 },
 	DisplayOrder = 9, -- the cut's bars, cards and subtitles: over the menus
 	-- the keys sunk while a cut or an end scene covers the screen (Enum.KeyCode names): the soldier stands still
 	SinkKeys = { "W", "A", "S", "D", "Up", "Down", "Left", "Right", "Space" },
