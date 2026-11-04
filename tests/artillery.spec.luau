@@ -796,4 +796,25 @@ return {
 		assert(A.fadeStep(0.8, 0, 4, 0.1) == 0.4 and A.fadeStep(0.1, 0, 4, 0.1) == 0, "back, not past")
 		assert(F.see > 0 and F.see < 1, "faded, not gone")
 	end,
+	["the field gun's camera frames its gunner and the landing"] = function()
+		local F = QF.camera.frame :: any
+		assert(F and F.most > 1 and F.step > 0 and F.share > 0 and F.share < 1)
+		-- the gunner at the origin, the landing 400 north (-z): behind (+z), left (-x), up
+		local x, y, z = A.frameAt(F, 1, 0, 0, 0, 0, -400)
+		assert(near(x, F.side) and near(y, F.up) and near(z, F.back), "behind, over and to the side")
+		local _, y2, z2 = A.frameAt(F, 2, 0, 0, 0, 0, -400)
+		assert(near(y2, 2 * F.up) and near(z2, 2 * F.back), "stretched along the same line")
+		assert(A.frameStretch(F, function(k)
+			return k >= 3
+		end) == 3, "the least stretch that sees it")
+		assert(A.frameStretch(F, function()
+			return false
+		end) == F.most, "never: the most")
+		local yaw, pitch = A.lookBetween(0, 10, 15, 0, 0, 0, 0, 0, -400, F.share)
+		assert(near(yaw, 0, 1e-6), "turned to the landing (north)")
+		local toGunner = math.deg(math.atan2(-10, 15))
+		local toLand = math.deg(math.atan2(-10, 415))
+		assert(pitch < toLand and pitch > toGunner, "between the two")
+		assert(math.abs(pitch - toGunner) < QF.camera.fov / 2 and math.abs(pitch - toLand) < QF.camera.fov / 2)
+	end,
 }

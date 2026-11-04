@@ -215,6 +215,8 @@ local Palette = {
 		-- the gunner's arc line and landing marker (src/client/Artillery, Config/Artillery.Arc)
 		Arc = { 236, 230, 210 },
 		Marker = { 255, 214, 120 },
+		Plate = { 29, 31, 26 }, -- the range label's plate
+		Scatter = { 200, 60, 50 }, -- the admin's scatter ring (Config/Artillery.Rings)
 	},
 	-- The trench spade (Config/Assets "Shared/Shovels", user 2026-10-19): one model for every team, no team colors,
 	-- brass the only accent; colored by mesh name.

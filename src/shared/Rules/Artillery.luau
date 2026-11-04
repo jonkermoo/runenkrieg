@@ -315,6 +315,62 @@ function Artillery.range(speed: number, elevation: number, gravity: number): num
 	return speed * speed * math.sin(math.rad(2 * elevation)) / gravity
 end
 
+-- The framing camera (Config/Artillery camera `frame`): where it sits at stretch `k`, behind the gunner at (gx, gy, gz)
+-- on the line from the landing (lx, lz): `side` studs to the right of that line (- left), `back` x k behind, `up` x k
+-- over.
+function Artillery.frameAt(
+	f: { side: number, back: number, up: number },
+	k: number,
+	gx: number,
+	gy: number,
+	gz: number,
+	lx: number,
+	lz: number
+): (number, number, number)
+	local dx, dz = lx - gx, lz - gz
+	local n = math.sqrt(dx * dx + dz * dz)
+	if n < 1e-3 then
+		dx, dz, n = 0, -1, 1
+	end
+	dx, dz = dx / n, dz / n
+	local rx, rz = -dz, dx -- (the right of looking along dx, dz)
+	return gx - dx * f.back * k + rx * f.side, gy + f.up * k, gz - dz * f.back * k + rz * f.side
+end
+
+-- The least stretch (1, 1 + `step`, ... `most`) at which `clear(k)` says the camera sees the landing; `most` if none.
+function Artillery.frameStretch(f: { step: number, most: number }, clear: (number) -> boolean): number
+	local k = 1
+	while k < f.most do
+		if clear(k) then
+			return k
+		end
+		k += f.step
+	end
+	return f.most
+end
+
+-- The yaw and pitch (degrees) a camera at (cx, cy, cz) takes to frame the gunner (gx, gy, gz) and the landing (lx, ly,
+-- lz): turned to the landing, pitched `share` of the way from the landing down to the gunner.
+function Artillery.lookBetween(
+	cx: number,
+	cy: number,
+	cz: number,
+	gx: number,
+	gy: number,
+	gz: number,
+	lx: number,
+	ly: number,
+	lz: number,
+	share: number
+): (number, number)
+	local dx, dz = lx - cx, lz - cz
+	local yaw = math.deg(math.atan2(-dx, -dz))
+	local toLand = math.deg(math.atan2(ly - cy, math.max(math.sqrt(dx * dx + dz * dz), 1)))
+	local gdx, gdz = gx - cx, gz - cz
+	local toGunner = math.deg(math.atan2(gy - cy, math.max(math.sqrt(gdx * gdx + gdz * gdz), 1)))
+	return yaw, toLand + (toGunner - toLand) * share
+end
+
 -- The launch elevation (degrees) that lands a shell leaving at `speed` under `gravity` on a point `d` studs off flat
 -- and `h` up from where it leaves: the low arc, or the high one (`high`). Nil when it can't reach.
 function Artillery.solve(speed: number, gravity: number, d: number, h: number, high: boolean): number?

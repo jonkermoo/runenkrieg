@@ -589,6 +589,36 @@ local function build(player: Player): DevPanel.Panel
 	showGod()
 	onOff("Ammo", "Unlimited ammo, no cooldown", "Ammo", player, A.AmmoAttribute)
 
+	-- Gun aim (Config/DevTools.Admin.GunAim): the field gun's aiming tests, on my gun
+	heading("Gun aim")
+	local GA = A.GunAim
+	order += 1
+	local scatter = DevPanel.button(p.panel, "GunScatter", "", order)
+	local function showScatter()
+		local on = player:GetAttribute(GA.scatter) == true
+		scatter.Text = `Scatter ring (where shells can stray): {if on then "on" else "off"}`
+		paint(scatter, on)
+	end
+	scatter.Activated:Connect(function()
+		player:SetAttribute(GA.scatter, if player:GetAttribute(GA.scatter) == true then nil else true)
+	end)
+	player:GetAttributeChangedSignal(GA.scatter):Connect(showScatter)
+	showScatter()
+	onOff("GunExact", "No scatter on my shells", "GunExact", player, GA.exact)
+	onOff("GunQuick", `My gun reloads in {GA.quickReload} s`, "GunQuick", player, GA.quick)
+	local gunDummy = row("GunDummy", "Dummy where my gun lands", "GunDummy")
+	local said = Net.event("DevAction").OnClientEvent:Connect(function(kind: any, action: any, reason: any)
+		if (kind == "Refused" or kind == "Done") and action == "GunDummy" and type(reason) == "string" then
+			gunDummy.Text = `Dummy where my gun lands: {reason}`
+			task.delay(Cfg.Blasts.RefusedSeconds, function()
+				gunDummy.Text = "Dummy where my gun lands"
+			end)
+		end
+	end)
+	p.gui.Destroying:Once(function()
+		said:Disconnect()
+	end)
+
 	-- Weapon: the visible gun's Muzzle / Aim / Eject and its lines of fire and sight (src/client/DevSights, client only)
 	heading("Weapon")
 	order += 1
@@ -833,6 +863,7 @@ function DevAdminMenu.start()
 			land(player)
 			player:SetAttribute(A.Attribute, nil)
 			player:SetAttribute(A.Sights.attribute, nil)
+			player:SetAttribute(A.GunAim.scatter, nil)
 			DevCinematic.clear(player)
 			panel.gui:Destroy()
 			panel = nil

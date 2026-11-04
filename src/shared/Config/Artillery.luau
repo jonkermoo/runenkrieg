@@ -89,9 +89,11 @@ export type Gun = {
 	-- the gunner's camera (user 2026-10-20: "a cinematic lower left angle camera pov"): out at the gun's left, `side` (-
 	-- left), `up` over the ground and `back` behind it along the aim, turned `yaw` degrees right of the aim (the gun and
 	-- the gunner right of centre, the target left of it) and `pitch` up, plus the
-	-- elevation x `follow` (a high lob stays in view); with `lob` (the field gun, laid up to lob over cover: user
-	-- 2026-11-03, "notice how i cant see over the hill im trying to shoot over") it rises `lob.up` and backs off
-	-- `lob.back` studs a degree of elevation and looks down at where the shell comes down instead of following it up
+	-- elevation x `follow` (a high lob stays in view); with `frame` (the field gun: user 2026-11-03, "move the camera
+	-- angle too so you can see yourself as well as where you're hitting") it frames the gunner and the landing instead:
+	-- behind the gunner, `side` studs to the left, `back` behind and `up` over them on the line from the landing, that
+	-- offset times 1, 1 + `step`, ... up to `most` until it sees the landing over the ground in front, looking between
+	-- the two (`share` of the way from the landing down to the gunner), the stretch eased at `ease` a second
 	-- dug in when placed (src/server/Artillery); `ramp`: a way down into the pit behind the gun (Ground.pit); `wall`: the
 	-- pit's walls lean back at this many degrees (nil: cut straight down); `slabs`: trench dirt slabs laid on them (Slabs)
 	dig: {
@@ -129,8 +131,10 @@ export type Gun = {
 		pitch: number,
 		follow: number,
 		fov: number,
-		lob: { up: number, back: number }?,
+		frame: { side: number, back: number, up: number, step: number, most: number, share: number, ease: number }?,
 	},
+	-- the gunner's map sheet and elevation quadrant (src/client/ArtillerySheet) in place of the cut-away panel
+	sheet: boolean?,
 	-- the elevation it is placed at (nil: level, or its lowest when that is above level)
 	rest: number?,
 	-- set up in an MG nest (Config/Build.Nest) instead of on its own (its building site in the nest's ring), and it fires
@@ -258,6 +262,8 @@ local Artillery = {
 	-- gun's own rates (traverse, swing, elevation): held, the aim leads the gun by `lead` degrees; let go, it stops where
 	-- it is. What the gunner sends (Net "Artillery" "Aim"): at most `rate` a second.
 	Aim = { rate = 10, lead = 2 },
+	-- Fine laying (user 2026-11-03, the aiming plan): Shift held lays it at `share` of the gun's own rates
+	Fine = { key = "LeftShift", share = 0.25 },
 	-- the lay the server writes out to the gun (its attributes, the whole gun's swing) at most this often a second
 	Send = 20,
 	-- clients ease the posed lay toward those (per second), and swing the breech open or shut over `breechSwing` s
@@ -333,6 +339,53 @@ local Artillery = {
 		transparency = 0.35,
 		marker = 46, -- the range label's box (pixels), its text `text` high (no ring: user 2026-10-26)
 		text = 18,
+		-- the label's plate under it (Palette.Artillery.Plate) and the pin down from it to the landing
+		plate = 0.35,
+		pin = 22,
+	},
+	-- The landing's rings drawn over everything (user 2026-11-03, the aiming plan "C": seen through the hill in front):
+	-- the shell's lethal and wounding reach (the gun's `fragments`), `width` studs wide each, `transparency`, lying
+	-- `lift` over the ground; the admin's scatter ring (Config/DevTools.Admin.GunAim) the gun's `miss`, Palette
+	-- .Artillery.Scatter
+	Rings = { width = { 1.4, 0.8 }, transparency = { 0.3, 0.5 }, lift = 0.3, segments = 48 },
+	-- The gunner's map sheet and elevation quadrant (src/client/ArtillerySheet; user 2026-11-03, the aiming plan "C"),
+	-- bottom left while I'm on a gun with `sheet`: the live map's sketch (Config/SketchMap; plain paper on a map without
+	-- one) round the gun, `around` studs past its reach cap each way along the map, `size` pixels at `margin` from the
+	-- corner; the gun, the line it is laid along, the reach cap (dashed, `dash` / `gap` pixels), the landing cross with
+	-- the shell's wounding reach; the quadrant `dial` pixels, ticked every `tick` degrees, `split` marked (low shots
+	-- under it, lobs over), and beside it a column `readout` pixels wide: the elevation, the range and flight time, the
+	-- reload in tenths of a percent (Config/Hud.Artillery.timer)
+	Sheet = {
+		size = { 380, 190 },
+		margin = { 24, 24 },
+		around = 80,
+		dash = 6,
+		gap = 5,
+		dial = 170,
+		readout = 130,
+		tick = 5,
+		split = 45,
+		text = 16,
+		-- the drawing (pixels): `stroke` the cap, lay line, arc and ticks, `bold` the cross, split mark and needle; the
+		-- cap's dashes `capSee` see-through; the gun's dot and the needle's hub `dot` across, the cross `cross` each way
+		-- from the landing; `gapX` between the sheet and the quadrant, `inset` the title from the sheet's corner
+		stroke = 2,
+		bold = 3,
+		capSee = 0.25,
+		dot = 9,
+		cross = 6,
+		gapX = 12,
+		inset = 8,
+		-- the quadrant (shares of `dial`): its pivot, the arc's radius; ticks run in to `short` (`long` every 15 degrees
+		-- and at `split`), the split mark from / to `splitMark`, the end labels at `label`; the readout rows' tops
+		-- (`rows`: the first a share of `dial`, then in text heights below it)
+		pivot = { 0.12, 0.9 },
+		radius = 0.78,
+		short = 0.92,
+		long = 0.86,
+		splitMark = { 0.8, 1.04 },
+		label = 1.12,
+		rows = { 0.22, 2.2, 3.6 },
 	},
 
 	-- Firing (user 2026-10-20: "have the character play a brace animation or prepare for loud explosion animation when
@@ -854,9 +907,10 @@ local Artillery = {
 				yaw = 25,
 				pitch = 2,
 				follow = 0.4,
-				fov = 60,
-				lob = { up = 0.45, back = 0.25 },
+				fov = 70,
+				frame = { side = -5, back = 11, up = 6.5, step = 0.5, most = 9, share = 0.45, ease = 3 },
 			},
+			sheet = true,
 			-- (user 2026-10-29: the MG's warm barrel, steam and the gunner's recoil "apply to the field cannons too (not
 			-- the howitzer)"): a third of the way warm a shot, cooling over ~40 s, half its barrel glowing; the gunner thrown
 			-- back by each shot
