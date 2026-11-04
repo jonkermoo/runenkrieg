@@ -21,6 +21,7 @@ local Survey = require(Shared.BuildSurvey)
 local BotCrew = require(Shared.Rules.BotCrew)
 local BotFront = require(Shared.Rules.BotFront)
 local Build = require(script.Parent.Parent.Build)
+local Trees = require(script.Parent.Parent.Trees)
 local Frontline = require(script.Parent.Parent.Frontline)
 local Indoors = require(script.Parent.Parent.Indoors)
 local Routes = require(script.Parent.Routes)
@@ -49,6 +50,7 @@ local Types = require(script.Parent.Types)
 type BuildJob = Types.BuildJob
 type Sap = Types.Sap
 type TrenchSquare = Types.TrenchSquare
+type TrenchSystem = Types.TrenchSystem
 type Bot = Types.Bot
 type SquadState = Types.SquadState
 type TrenchPost = Types.TrenchPost
@@ -1100,14 +1102,217 @@ function Guns.spots(
 			or no(key, "shot blocked or out of reach")
 	end)
 end
--- a side's trench duty (Config/Bots.Trenches.pioneers): while its list has a trench job open, up to `pioneers` of its
+-- the threats a side's runs toward the enemy are dug against (Config/Bots.Trenches.Zigzag): the enemy's next sector
+-- from its front, and the enemies its squads know of
+local function threatsOf(side: string, front: number, now: number): { Vector3 }
+	local threats: { Vector3 } = {}
+	local ahead = Map.sectors[front + (if side == "West" then 1 else -1)]
+	if ahead then
+		table.insert(threats, Routes.ground(ahead.x, ahead.z))
+	end
+	for _, sq in squads do
+		if sq.side == side then
+			for _, kn in sq.known do
+				if now - kn.at <= SQ.knownFor then
+					table.insert(threats, kn.pos)
+				end
+			end
+		end
+	end
+	return threats
+end
+
+-- a trench system's runs as jobs (system `sys`): a communication trench in a zig-zag where the enemy can see down it
+local function systemJobs(
+	sbs: SideBuild,
+	runs: { BotTrenches.Run },
+	threats: { Vector3 },
+	tx: number,
+	tz: number,
+	sys: string
+): { BuildJob }
+	local out: { BuildJob } = {}
+	for _, run in runs do
+		local legs = { run }
+		if run.kind == "Comm" then
+			local turn, why = runCover(run, threats)
+			noteRun(sbs, "comm", turn, why)
+			if turn > 0 then
+				legs = BotTrenches.zigzag(run, turn, TR.Zigzag.leg)
+			end
+		end
+		for _, leg in legs do
+			local job = { key = "Trench", x = leg.ax, z = leg.az, ex = leg.bx, ez = leg.bz, fx = tx, fz = tz }
+			local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = leg, sys = sys }
+			table.insert(out, r)
+		end
+	end
+	return out
+end
+
+-- (terrain only, water too: a square is never planned in water, Trenches.plan)
+local wetParams = RaycastParams.new()
+wetParams.FilterType = Enum.RaycastFilterType.Include
+wetParams.FilterDescendantsInstances = { workspace.Terrain }
+wetParams.IgnoreWater = false
+
+-- (what a run's box meets: solid parts but the soldiers', the trees' and the trenches' own)
+local solidParams = OverlapParams.new()
+solidParams.FilterType = Enum.RaycastFilterType.Exclude
+solidParams.FilterDescendantsInstances = { workspace.Terrain }
+
+-- what stands in a system's way (Config/Bots.Trenches.Site): the standing trees on its fire and support runs (within
+-- `clear` of their lines), what its diggers would wait on; `wet` for each spot along any run (every Trench.block
+-- studs) in water, where no square is planned; and `solid` for each thing standing across a run (walls, poles,
+-- buildings: Trenches.plan's "In the way", which no digger clears)
+local function treesOn(runs: { BotTrenches.Run }): number
+	local n = 0
+	for _, r in runs do
+		local len = math.sqrt((r.bx - r.ax) ^ 2 + (r.bz - r.az) ^ 2)
+		if len > 1e-3 then
+			local mid = Routes.ground((r.ax + r.bx) / 2, (r.az + r.bz) / 2)
+			local box = CFrame.lookAt(mid, mid + Vector3.new(r.bx - r.ax, 0, r.bz - r.az))
+			local seen: { [Instance]: boolean } = {}
+			local size = Vector3.new(2 * TR.Site.clear, 2 * BuildCfg.Trench.wayHeight, len)
+			for _, p in workspace:GetPartBoundsInBox(box, size, solidParams) do
+				local top: Instance = p:FindFirstAncestorWhichIsA("Model") or p
+				local tree = top:IsA("Model") and Trees.standing(top :: Model)
+				if
+					p.CanCollide
+					and not tree
+					and not seen[top]
+					and not (top :: any):FindFirstChildOfClass("Humanoid")
+				then
+					seen[top] = true
+					n += TR.Site.solid
+				end
+			end
+		end
+		for i = 0, math.ceil(len / BuildCfg.Trench.block) do
+			local t = math.min(i * BuildCfg.Trench.block / math.max(len, 1e-3), 1)
+			local x, z = r.ax + (r.bx - r.ax) * t, r.az + (r.bz - r.az) * t
+			local hit = workspace:Raycast(Vector3.new(x, 2000, z), Vector3.new(0, -4000, 0), wetParams)
+			if hit and hit.Material == Enum.Material.Water then
+				n += TR.Site.wet
+			end
+		end
+		if r.kind ~= "Comm" then
+			for _, tree in Trees.near(Vector3.new(r.ax, 0, r.az), Vector3.new(r.bx, 0, r.bz), TR.Site.clear) do
+				local p = tree:GetPivot().Position
+				if Trees.standing(tree) and BotTrenches.offRun(p.X, p.Z, r.ax, r.az, r.bx, r.bz) <= TR.Site.clear then
+					n += 1
+				end
+			end
+		end
+	end
+	return n
+end
+
+-- a system sited on the clearest ground (Config/Bots.Trenches.Site): of `make(edge, shift)`'s layouts, each fire line
+-- `edge` of the zone's radius out and `shift` studs across, the first with the fewest trees on its runs
+local function sited(make: (number, number) -> { BotTrenches.Run }): { BotTrenches.Run }
+	local best, fewest = nil, math.huge
+	for _, edge in TR.Site.edges do
+		for _, shift in TR.Site.shifts do
+			local runs = make(edge, shift)
+			local n = treesOn(runs)
+			if n < fewest then
+				best, fewest = runs, n
+			end
+			if n == 0 then
+				return runs
+			end
+		end
+	end
+	return best :: { BotTrenches.Run }
+end
+
+-- a system's fire trench planned (or refused everywhere: its breastwork stands in), every bay of it
+local function fireLaid(sys: TrenchSystem, squares: { TrenchSquare }): boolean
+	for _, r in sys.runs do
+		local run = r.run :: BotTrenches.Run
+		if run.kind == "Fire" and not r.gaveUp then
+			local j = r.job
+			local at = { kind = run.kind, ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number }
+			if not BotTrenches.laid(at, squares, TR.on, TR.ends) then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+-- the forward fire lines out from a side's front toward the enemy's next sector (Config/Bots.Trenches.Forward; user
+-- 2026-11-04: "we can see whole maps being filled with trenches"): once a system's fire trench is planned, the next
+-- line `step` of the way on, joined back by a communication trench; `lines` of them, none within `keep` studs of the
+-- enemy sector's zone. Its jobs go on the list (`lay`) as it is made.
+local function forwardLines(
+	sbs: SideBuild,
+	side: string,
+	owner: { string },
+	front: number,
+	squares: { TrenchSquare },
+	now: number
+)
+	local F = TR.Forward
+	local last = sbs.systems[`S{front}`]
+	if not last then
+		return
+	end
+	local s = Map.sectors[front]
+	local tx, tz = BotBuild.toward(Map.sectors, front, side)
+	local nextS, nextD = nil, math.huge
+	for i, sec in Map.sectors do
+		local d = (sec.x - s.x) * tx + (sec.z - s.z) * tz
+		if owner[i] ~= side and d > 0 and d < nextD then
+			nextS, nextD = i, d
+		end
+	end
+	if not nextS then
+		return
+	end
+	local e = Map.sectors[nextS]
+	for k = 1, F.lines do
+		local key = `S{front}F{k}`
+		local sys = sbs.systems[key]
+		if not sys then
+			if not fireLaid(last :: TrenchSystem, squares) then
+				return
+			end
+			local px, pz = s.x + (e.x - s.x) * F.step * k, s.z + (e.z - s.z) * F.step * k
+			if math.sqrt((e.x - px) ^ 2 + (e.z - pz) ^ 2) < e.radius + F.keep then
+				return
+			end
+			local dx, dz = e.x - s.x, e.z - s.z
+			local len = math.sqrt(dx * dx + dz * dz)
+			local ux, uz = dx / len, dz / len
+			local runs = sited(function(edge: number, shift: number)
+				-- (nearer or further along the way, across it: Trenches.Site)
+				local along = (edge - TR.Fire.edge) * len * F.step
+				local at = { x = px + ux * along - uz * shift, z = pz + uz * along + ux * shift }
+				return BotTrenches.forward((last :: TrenchSystem).mid, at, ux, uz, TR)
+			end)
+			local made = systemJobs(sbs, runs, threatsOf(side, front, now), ux, uz, key)
+			sbs.systems[key] = { sector = front, runs = made, mid = BotTrenches.fireMid(runs) }
+			for _, r in made do
+				table.insert(sbs.lay, r)
+			end
+			stats.forward += 1
+			return
+		end
+		last = sys
+	end
+end
+
+-- a side's trench duty (Config/Bots.Trenches.pioneers): while its list has a trench job open (or a tree in its lines'
+-- way), up to `pioneers` of its
 -- living bots (those already on it, then defenders, the nearest its front first; never a gun or dugout Engineer, nor
 -- one manning a gun) dig its lines; none while it has none
 local function pioneers(side: string)
 	local sb = buildLists[side]
 	local want = false
 	for _, r in (if sb and sb.front then sb.open else {}) do
-		if r.job.key == "Trench" then
+		if r.job.key == "Trench" or r.job.key == "Tree" then
 			want = true
 			break
 		end
@@ -1177,6 +1382,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			digging = 0,
 			hurt = {},
 			runNotes = {},
+			systems = {},
 		}
 		buildLists[side] = sb
 	end
@@ -1294,33 +1500,25 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		-- the trench system (Rules/BotTrenches): fire, support and communication trenches, dug in that order
 		-- (its communication trenches run toward the enemy: a zig-zag where the enemy's next sector, or an enemy its
 		-- squads know of, can see down one; Trenches.Zigzag)
-		local threats: { Vector3 } = {}
-		local ahead = Map.sectors[front + (if side == "West" then 1 else -1)]
-		if ahead then
-			table.insert(threats, Routes.ground(ahead.x, ahead.z))
+		-- one system a sector, kept while the side holds it, as it was left when the front moved (user 2026-11-04, the
+		-- trench priority: a measured match's fronts flipped every 2 min and each flip planned the lines afresh)
+		local key = `S{front}`
+		if not sbs.systems[key] then
+			local runs = sited(function(edge: number, shift: number)
+				local cfg = table.clone(TR)
+				cfg.Fire = table.clone(TR.Fire)
+				cfg.Fire.edge = edge
+				local at = { x = zone.x - tz * shift, z = zone.z + tx * shift, radius = zone.radius }
+				return BotTrenches.layout(at, tx, tz, cfg)
+			end)
+			local made = systemJobs(sbs, runs, threatsOf(side, front :: number, now), tx, tz, key)
+			sbs.systems[key] = { sector = front :: number, runs = made, mid = BotTrenches.fireMid(runs) }
 		end
-		for _, sq in squads do
-			if sq.side == side then
-				for _, kn in sq.known do
-					if now - kn.at <= SQ.knownFor then
-						table.insert(threats, kn.pos)
-					end
+		for _, sys in sbs.systems do
+			if owner[sys.sector] == side then
+				for _, r in sys.runs do
+					table.insert(sbs.lay, r)
 				end
-			end
-		end
-		for _, run in BotTrenches.layout(zone, tx, tz, TR) do
-			local legs = { run }
-			if run.kind == "Comm" then
-				local turn, why = runCover(run, threats)
-				noteRun(sbs, "comm", turn, why)
-				if turn > 0 then
-					legs = BotTrenches.zigzag(run, turn, TR.Zigzag.leg)
-				end
-			end
-			for _, leg in legs do
-				local job = { key = "Trench", x = leg.ax, z = leg.az, ex = leg.bx, ez = leg.bz, fx = tx, fz = tz }
-				local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false, run = leg }
-				table.insert(sbs.lay, r)
 			end
 		end
 		if front ~= sbs.front then
@@ -1386,6 +1584,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	sbs.trench = squares
+	forwardLines(sbs, side, owner, front :: number, squares, now)
 	if Clear.everyAt ~= commandTick then
 		Clear.everyAt, Clear.every = commandTick, Build.worksOf(nil)
 	end
@@ -1394,9 +1593,10 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	for _, r in sbs.lay do
 		local run = r.run
 		if run and run.kind ~= "Support" then
-			local last = chain[run.kind]
+			local last = chain[(r.sys or "") .. run.kind]
 			local j = r.job
-			if last and (j.x ~= last.ex or j.z ~= last.ez) then
+			-- (one planned part way goes on from its part's end)
+			if last and not r.from and (j.x ~= last.ex or j.z ~= last.ez) then
 				r.job = {
 					key = j.key,
 					x = last.ex :: number,
@@ -1407,19 +1607,32 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 					fz = j.fz,
 				}
 			end
-			chain[run.kind] = r.job
+			chain[(r.sys or "") .. run.kind] = r.job
 		end
 	end
-	local kinds: { string } = {}
+	-- (each system's runs in order, for Rules/BotTrenches.ready: its own runs before it, not another system's)
+	local sysLaid: { [string]: { boolean } } = {}
+	local sysKinds: { [string]: { string } } = {}
+	local sysAt: { [number]: number } = {}
 	for k, r in sbs.lay do
 		local j = r.job
 		if r.run then
-			local run =
-				{ kind = (r.run :: BotTrenches.Run).kind, ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number }
+			-- (a run planned part way: its whole line for the posts, what is left of it to plan)
+			local kind = (r.run :: BotTrenches.Run).kind
+			local from = r.from or { x = j.x, z = j.z }
+			local run = { kind = kind, ax = from.x, az = from.z, bx = j.ex :: number, bz = j.ez :: number }
+			local rest = { kind = kind, ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number }
+			local short = r.from ~= nil
+				and math.sqrt((rest.bx - rest.ax) ^ 2 + (rest.bz - rest.az) ^ 2) < BuildCfg.Trench.block
 			table.insert(runs, run)
-			table.insert(kinds, run.kind)
 			-- (a run refused everywhere counts as done: a breastwork stands in for it, the next run goes on)
-			runLaid[#runs] = r.gaveUp == true or BotTrenches.laid(run, squares, TR.on, TR.ends) ~= nil
+			runLaid[#runs] = r.gaveUp == true or short or BotTrenches.laid(rest, squares, TR.on, TR.ends) ~= nil
+			local sys = r.sys or ""
+			sysLaid[sys] = sysLaid[sys] or {}
+			sysKinds[sys] = sysKinds[sys] or {}
+			table.insert(sysLaid[sys], runLaid[#runs])
+			table.insert(sysKinds[sys], run.kind)
+			sysAt[#runs] = #sysLaid[sys]
 			jobs[k] = { key = "", x = 0, z = 0, fx = 0, fz = 0 }
 		else
 			jobs[k] = j
@@ -1454,7 +1667,10 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		if r.run then
 			ri += 1
 			r.model, r.at, r.left = nil, nil, 0
-			r.open = not runLaid[ri] and now >= r.waitUntil and dug < TR.cap and BotTrenches.ready(runLaid, ri, kinds)
+			r.open = not runLaid[ri]
+				and now >= r.waitUntil
+				and dug < TR.cap
+				and BotTrenches.ready(sysLaid[r.sys or ""], sysAt[ri], sysKinds[r.sys or ""])
 		elseif i then
 			local w = works[i]
 			r.model, r.at, r.left = w.model, w.at, w.left
@@ -1520,7 +1736,18 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			max = w.max,
 		}
 	end
-	local order, fix = BotCrew.repairOrder(fixable, BotBuild.repairs(pieces, zone, BD.repair, #pieces), ArtCfg.Man.keep)
+	-- (its trench squares from further off: its lines at the sectors it holds and its forward lines, Trenches.digReach)
+	local others, squaresOnly = {}, {}
+	for i, p in pieces do
+		local square = p.key == "Trench"
+		others[i] = if square then { key = p.key, x = p.x, z = p.z, left = 0 } else p
+		squaresOnly[i] = if square then p else { key = p.key, x = p.x, z = p.z, left = 0 }
+	end
+	local near = BotBuild.repairs(others, zone, BD.repair, #pieces)
+	for _, i in BotBuild.repairs(squaresOnly, zone, TR.digReach, TR.digs) do
+		table.insert(near, i)
+	end
+	local order, fix = BotCrew.repairOrder(fixable, near, ArtCfg.Man.keep)
 	for _, i in order do
 		local w = works[i]
 		local square = w.key == "Trench"
@@ -1798,8 +2025,8 @@ local function command()
 		Tactics.crew.command(side, owner, known, if shell and Map.sectors[shell] then sectorPoint(shell) else nil)
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))
-		pioneers(side)
 		Tactics.fell.list(side, buildLists[side])
+		pioneers(side) -- (after the trees in its lines' way are on the list)
 		-- the enemy's guns on its ground: used, wrecked or let be (src/server/Bots/Crew)
 		local aimAt = if shell and Map.sectors[shell] then sectorPoint(shell) else nil
 		Tactics.crew.judge(side, owner, aimAt, function(g, k, a, t, arc)

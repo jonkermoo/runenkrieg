@@ -882,6 +882,24 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		local reason = if job.key == "Trench"
 			then Build.planAs(m, spot, Routes.ground(job.ex :: number, job.ez :: number))
 			else Build.placeAs(m, job.key, spot, f)
+		-- a run of its side's lines refused whole: planned as far as it goes, halving down to a square, the rest of it
+		-- from there on (Config/Bots.Trenches.Tree; a measured match's runs on Map 1 met a tree 69 times in 78 tries)
+		if reason and r.run then
+			local far = Routes.ground(job.ex :: number, job.ez :: number)
+			local along = flat(far - spot)
+			local step = along.Magnitude / 2
+			while step >= BuildCfg.Trench.block do
+				local to = Routes.ground(spot.X + along.Unit.X * step, spot.Z + along.Unit.Z * step)
+				if Build.planAs(m, spot, to) == nil then
+					stats.partRuns += 1
+					r.from = r.from or { x = job.x, z = job.z }
+					r.job = { key = job.key, x = to.X, z = to.Z, ex = job.ex, ez = job.ez, fx = job.fx, fz = job.fz }
+					reason = nil
+					break
+				end
+				step /= 2
+			end
+		end
 		if reason and pileInstead() then
 			return true
 		end

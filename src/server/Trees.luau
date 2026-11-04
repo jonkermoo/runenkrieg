@@ -588,4 +588,10 @@ end
 Trees.near = treesNear
 Trees.standing = standing
 
+-- A tree felled to clear the way (the bots' trench lines, src/server/Bots/Fell): it sinks away once it has fallen
+-- rather than lying across the way as cover (Fall.lifetime)
+function Trees.clearAway(tree: Model)
+	task.delay(T.Fall.time + 0.5, sink, tree)
+end
+
 return Trees

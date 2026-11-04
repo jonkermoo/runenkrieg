@@ -69,6 +69,42 @@ function BotTrenches.layout(zone: Zone, tx: number, tz: number, cfg: any, fireOn
 	return runs
 end
 
+-- The middle of a system's fire trench (its runs from layout or forward): the middle of its middle bay
+function BotTrenches.fireMid(runs: { Run }): { x: number, z: number }
+	local fire = {}
+	for _, r in runs do
+		if r.kind == "Fire" then
+			table.insert(fire, r)
+		end
+	end
+	local r = fire[math.max(math.ceil(#fire / 2), 1)]
+	if not r then
+		return { x = 0, z = 0 }
+	end
+	return { x = (r.ax + r.bx) / 2, z = (r.az + r.bz) / 2 }
+end
+
+-- A forward line (Config/Bots.Trenches.Forward): a fire trench across (ux, uz) at `at`, as layout's (`Fire` bays and
+-- traverses), then a communication trench from the last line's fire trench middle `from` up to its middle, stopping
+-- `Comm.short` studs off each (the planner tees it into their sides)
+function BotTrenches.forward(
+	from: { x: number, z: number },
+	at: { x: number, z: number },
+	ux: number,
+	uz: number,
+	cfg: any
+): { Run }
+	local runs = BotTrenches.layout({ x = at.x, z = at.z, radius = 0 }, ux, uz, cfg, true)
+	local mid = BotTrenches.fireMid(runs)
+	local dx, dz = mid.x - from.x, mid.z - from.z
+	local len = math.sqrt(dx * dx + dz * dz)
+	if len > 2 * cfg.Comm.short then
+		local sx, sz = dx / len * cfg.Comm.short, dz / len * cfg.Comm.short
+		table.insert(runs, { kind = "Comm", ax = from.x + sx, az = from.z + sz, bx = mid.x - sx, bz = mid.z - sz })
+	end
+	return runs
+end
+
 -- How far (px, pz) lies from the segment A-B, and where along it (0 at A, 1 at B; outside 0..1 past an end).
 function BotTrenches.offRun(px: number, pz: number, ax: number, az: number, bx: number, bz: number): (number, number)
 	local dx, dz = bx - ax, bz - az

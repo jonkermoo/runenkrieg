@@ -145,6 +145,19 @@ return {
 		assert(R.digs(1, 1, T.share), "a lone bot digs")
 		assert(R.digs(1, 3, T.share) and R.digs(2, 3, T.share) and not R.digs(3, 3, T.share))
 	end,
+	["forward: a fire trench across the way at the point, joined back to the last line's middle"] = function()
+		local runs = R.forward({ x = 0, z = 0 }, { x = 140, z = 0 }, 1, 0, T)
+		local fire = of(runs, "Fire")
+		local comm = of(runs, "Comm")
+		assert(#fire == T.Fire.bays and #comm == 1)
+		local mid = R.fireMid(runs)
+		assert(math.abs(mid.x - 140) <= T.Fire.traverse and math.abs(mid.z) <= T.Fire.width / T.Fire.bays)
+		assert(near(comm[1].ax, T.Comm.short) and near(comm[1].az, 0), "off the last line's middle")
+		local main = R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T)
+		local m = R.fireMid(main)
+		assert(m.x > 0 and m.x <= 50, "the main system's fire trench lies forward of the zone's middle")
+	end,
+
 	["deathKind: in a trench square, by a shell"] = function()
 		local S = T.Stats
 		local squares = { { x = 0, z = 0 }, { x = 8, z = 0 } }

@@ -157,6 +157,8 @@ function Fell.chop(model: Model, id: number, side: string, r: BuildJob): string?
 		DevWorld.touch(p - Vector3.one * reach, p + Vector3.one * reach)
 		s.felled += 1
 		s.current = nil
+		-- (not left lying across the lines it was felled for: Trenches' "In the way", user 2026-11-04 trench priority)
+		Trees.clearAway(tree)
 		counts.felled += 1
 		lastFell[id] = os.clock()
 		r.open = false

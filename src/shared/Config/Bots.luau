@@ -373,7 +373,10 @@ local Bots = {
 		-- to `fireLine` studs ahead of it, the nearest the work first, `open` at once. One tree per Engineer at most every
 		-- `every` s, `perSide` a side a match; never a tree in one of the map's buildings. Each stands `stand` studs
 		-- from the trunk to chop it.
-		Trees = { clear = 8, fireLine = 60, every = 20, perSide = 40, open = 3, stand = 5 },
+		-- (`every` 20 to 8, `open` 3 to 6 and `clear` 8 to 15 with the trench priority, user 2026-11-04: Map 1's sectors
+		-- stand in woods and the lines waited on their trees; a trench is refused for a tree out to about 14 studs from its
+		-- line, its cut, walls and dirt heaps, Config/Build.Trench.treeClear)
+		Trees = { clear = 15, fireLine = 60, every = 8, perSide = 40, open = 6, stand = 5 },
 	},
 
 	-- Normal: sapping forward (Rules/BotSap; user 2026-11-02: "AI ... should [build trenches to push forward] if they are
@@ -469,6 +472,18 @@ local Bots = {
 		-- for it to come down, up to `waits` times, before it swings aside as for any other refusal (a measured match:
 		-- every refusal a try, Map 1's trees had each side's fire trench given up for breastworks within a minute)
 		Tree = { wait = 15, waits = 8 },
+		-- forward lines (Rules/BotTrenches.forward): a side keeps each sector's system while it holds it (the front moving
+		-- back and forth finds its runs as it left them); once its front's fire trench is planned, `lines` more fire
+		-- trenches, each `step` of the way on to the enemy's next sector, joined back by a communication trench (a
+		-- zig-zag where the enemy sees down it), none within `keep` studs of that sector's zone
+		Forward = { lines = 2, step = 1 / 3, keep = 60 },
+		-- a system sited on the clearest ground (Map 1's sectors stand in woods: a measured match's runs met a tree 64
+		-- times in 81 tries): of its fire line `edges` of the zone's radius out (a forward line: that far on or back from
+		-- its spot) and `shifts` studs across, the first with the fewest standing trees within `clear` studs of its fire
+		-- and support runs, each spot every Trench.block studs along any run in water counting `wet` trees and each solid
+		-- thing across a run (Map 1's stone walls, poles and houses: Trenches' "In the way") `solid`
+		-- (`clear` 16: a square's cut, walls and dirt heaps reach about 14 from its line, Config/Build.Trench.treeClear)
+		Site = { edges = { 0.6, 0.35, 0.85, 0.1 }, shifts = { 0, -20, 20, -40, 40 }, clear = 16, wet = 5, solid = 4 },
 		-- the admin trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute; Rules/BotTrenches.deathKind): a bot
 		-- dying within `floor` studs of a dug square's middle died in a trench; one of Dugouts.shell kg or more within
 		-- `shellNear` studs in the `shellAge` s before, by a shell
@@ -489,6 +504,9 @@ local Bots = {
 		on = 2,
 		ends = 0.15,
 		cap = 160, -- (was 60)
+		-- its squares wanting swings within this of its front zone's edge are dug (Build.repair for other pieces; its
+		-- forward lines lie a third of the way to the next sector, Forward)
+		digReach = 220,
 		digs = 12,
 		standHp = 60,
 		rise = 3.4, -- (6.3 from the line in the 4.25 floor trench, 5.05 in the slimmer 3 floor one)
