@@ -1,10 +1,10 @@
 --!strict
 -- The capture-point flagpoles (Config/Flagpole, Rules/Flagpole; FLAGPOLE.md, user 2026-10-27): while the frontline
--- match runs (Workspace's Frontline folder, src/server/Frontline) a pole stands on each of Map 1's sector points,
--- the HQs' bigger with a knee-high ring of sandbags, and the zone's edge is marked by a ring of stakes. The pole blocks
--- bullets like a post; the stakes and bags don't collide. The flag, halyard, rags and sounds are each client's
--- (src/client/Flagpoles). Taken away when the match stops. Pieces from the asset library (Config/Assets flagpole,
--- sandbag_pile).
+-- match runs (Workspace's Frontline folder, src/server/Frontline) a pole stands on each of the match map's sector
+-- points, the HQs' bigger with a knee-high ring of sandbags, and the zone's edge is marked by a ring of stakes. The
+-- pole blocks bullets like a post; the stakes and bags don't collide. The flag, halyard, rags and sounds are each
+-- client's (src/client/Flagpoles). Taken away when the match stops. Pieces from the asset library (Config/Assets
+-- flagpole, sandbag_pile).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
