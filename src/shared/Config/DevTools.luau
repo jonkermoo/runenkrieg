@@ -277,6 +277,11 @@ local DevTools = {
 		--   (dugout sheltering under shelling)
 		Shell = { count = 8, kg = 2, every = 0.4, spread = 6 },
 		Sides = { "West", "East" },
+		-- the match's end played into a map (Normal; user 2026-11-03: "a toggle for every possible variation of script for
+		-- each map ... assume your team won"): your side wins, loses or nobody does, then the whole end sequence with
+		-- that map picked at the vote (src/server/Frontline.endInto). With the Team rows that's every narrator line.
+		EndResults = { "Win", "Lose", "None" },
+		EndLabels = { Win = "We win", Lose = "We lose", None = "No victor" },
 		-- a side's bot fighting plan the admin panel can force (Rules/BotFront.Plans; "auto" lets it go)
 		BotPlans = { "open", "trench", "assault", "flank" },
 		-- the readout of each side's plan and its attacking squads (src/server/Bots, every commander tick)

@@ -250,6 +250,15 @@ return {
 		assert(A.valid(Cfg, "Map", "LanternMeadows", defs))
 		assert(not A.valid(Cfg, "Map", "Nowhere", defs) and not A.valid(Cfg, "Map", 3, defs))
 		assert(A.valid(Cfg, "RebuildMaps", nil, defs) and not A.valid(Cfg, "RebuildMaps", true, defs))
+		for _, r in Cfg.Admin.EndResults do
+			assert(A.valid(Cfg, "EndInto", { result = r, map = "Map1" }, defs), `ends with {r} into a map`)
+			assert(Cfg.Admin.EndLabels[r], `{r} has a label`)
+		end
+		assert(not A.valid(Cfg, "EndInto", { result = "Win", map = "Nowhere" }, defs), "a built frontline map only")
+		assert(not A.valid(Cfg, "EndInto", { result = "Draw", map = "Map1" }, defs), "a listed result only")
+		assert(
+			not A.valid(Cfg, "EndInto", "Map1", defs) and not A.valid(Cfg, "EndInto", { result = "Win", map = "Map1" })
+		)
 	end,
 	["the shell shock rows take a listed source at a listed distance, the helmet shot nothing"] = function()
 		local S = Cfg.Admin.Shock

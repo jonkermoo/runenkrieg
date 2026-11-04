@@ -270,6 +270,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		Frontline.begin()
 	elseif action == "Map" then
 		Frontline.switchMap(value)
+	elseif action == "EndInto" then
+		Frontline.endInto(player, value.result, value.map)
 	elseif action == "RebuildMaps" then
 		rebuildMaps()
 	elseif action == "FrontTake" then

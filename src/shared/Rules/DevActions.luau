@@ -97,6 +97,13 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return defs ~= nil and type(value) == "string" and defs.modes[value] ~= nil
 	elseif action == "Map" then
 		return defs ~= nil and defs.maps ~= nil and type(value) == "string" and table.find(defs.maps, value) ~= nil
+	elseif action == "EndInto" then
+		return type(value) == "table"
+			and table.find(cfg.Admin.EndResults, value.result) ~= nil
+			and defs ~= nil
+			and defs.maps ~= nil
+			and type(value.map) == "string"
+			and table.find(defs.maps, value.map) ~= nil
 	elseif action == "Class" then
 		return defs ~= nil and type(value) == "string" and (value == cfg.Admin.Normal or defs.classes[value] ~= nil)
 	elseif action == "MatchTime" then

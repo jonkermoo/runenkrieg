@@ -246,6 +246,19 @@ local function build(player: Player): DevPanel.Panel
 		row("FrontRestart", "Restart match", "MatchRestart"),
 		row("FrontTake", "Take our next sector", "FrontTake"),
 	}
+	-- the match's end played into a map as a real one would (src/server/Frontline.endInto): your side wins, loses or
+	-- nobody does, then the fade, the table, the vote (that map stamped), the armory and the flight into it
+	for _, key in LiveMap.frontline() do
+		if LiveMap.built(key) then
+			local name = LiveMap.get(key).name
+			for _, r in A.EndResults do
+				table.insert(
+					front,
+					row(`EndInto{key}{r}`, `{A.EndLabels[r]} -> {name}`, "EndInto", { result = r, map = key })
+				)
+			end
+		end
+	end
 	-- a side takes its next sector (the front moves one), or any sector (the live map's; Frontline.capture)
 	for _, side in A.Sides do
 		table.insert(front, row("FrontPush" .. side, `{side} takes its next sector`, "FrontPush", side))

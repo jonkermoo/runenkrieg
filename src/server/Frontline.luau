@@ -92,6 +92,8 @@ local conns: { RBXScriptConnection } = {}
 local loadingMap: string? = nil
 local stillLoading: { [Player]: boolean } = {}
 local ending = false
+-- the admin's end into a map (Frontline.endInto): the winner it plays (nil: none) and the map the vote picks
+local forced: { winner: Rules.Side?, map: string }? = nil
 local starting = false -- set by the admin to skip the wait for players
 local still = 0 -- seconds since the last capture (the momentum)
 local captured = false -- any capture this match (spawns leave the HQs)
@@ -639,6 +641,7 @@ local function newMatch(reset: boolean?)
 	workspace:SetAttribute(Cfg.TeamsAttribute, Rules.pairText(pair))
 	state = Rules.new(sectors)
 	ending = false
+	forced = nil
 	captured = false
 	latest = empty()
 	table.clear(log)
@@ -743,6 +746,10 @@ local function run()
 			publish(counts, rate, inZone)
 			winner = Rules.winner(state)
 		end
+		local force = forced
+		if force then
+			winner = force.winner
+		end
 		-- the results
 		if winner then
 			for _, p in Players:GetPlayers() do
@@ -790,8 +797,11 @@ local function run()
 		task.wait(Cfg.FadeSeconds)
 		dipTo("Table", tableSeconds)
 		task.wait(tableSeconds)
-		local pick = played
+		local pick = if force then force.map else played
 		local offer = MapVote.offer()
+		if force and not table.find(offer, force.map) then
+			offer[#offer] = force.map -- (its sheet on the board, to be stamped)
+		end
 		if #offer > 1 then
 			local winners = false
 			for _, p in Players:GetPlayers() do
@@ -802,7 +812,7 @@ local function run()
 				return CutRules.maySign(Rules.sideOf(pair, Kits.next(p)), winner, winners)
 			end)
 			task.wait(Cfg.VoteSeconds)
-			pick = MapVote.close(folder, math.random()) or played
+			pick = MapVote.close(folder, math.random(), if force then force.map else nil) or played
 			task.wait(CutCfg.Vote.pick.hold) -- (the arm stamps NEXT on every screen)
 		end
 		local nation = if winnerKit then (U.Kits :: any)[winnerKit].team else ""
@@ -998,6 +1008,24 @@ function Frontline.begin()
 	if now == "Waiting" or now == "Countdown" then
 		starting = true
 	end
+end
+
+-- Admin: the match ends now as `result` for `player`'s side ("Win", "Lose" or "None"; the West's for a player with
+-- none) and plays its whole end, the vote picking map `key` (it must be built). False outside a match or once its
+-- end has begun.
+function Frontline.endInto(player: Player, result: string, key: string): boolean
+	local ph = if thread then folder:GetAttribute("Phase") else nil
+	if not thread or not LiveMap.built(key) or (type(ph) == "string" and OVER[ph]) then
+		return false
+	end
+	local mine: Rules.Side = sideOf(player) or Rules.sideOf(pair, Kits.next(player)) or "West"
+	local theirs: Rules.Side = if mine == "West" then "East" else "West"
+	forced = {
+		winner = if result == "Win" then mine elseif result == "Lose" then theirs else nil,
+		map = key,
+	}
+	ending = true
+	return true
 end
 
 -- Admin: the match ends now with no winner (the results, then the next match).
