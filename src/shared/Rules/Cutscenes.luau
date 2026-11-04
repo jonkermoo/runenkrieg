@@ -99,7 +99,8 @@ function Cutscenes.taken(map: any, winner: Side?): number
 end
 
 -- Every anchor a shot can name on `map` ({ x, z }): S1..Sn, Mark1..Markn, WestSpawn, EastSpawn, Home (the spawn of
--- `home`, the West's without one), Taken (for `winner`), Centre.
+-- `home`, the West's without one), Taken (for `winner`), Centre, Landmark (the map's first special building: its
+-- headline one; else Centre).
 function Cutscenes.anchors(map: any, home: Side?, winner: Side?, reach: number): { [string]: { number } }
 	local out: { [string]: { number } } = {}
 	for i, s in map.sectors do
@@ -112,6 +113,8 @@ function Cutscenes.anchors(map: any, home: Side?, winner: Side?, reach: number):
 	out.Home = if home == "East" then out.EastSpawn else out.WestSpawn
 	out.Taken = out[`S{Cutscenes.taken(map, winner)}`]
 	out.Centre = out[`S{math.ceil(#map.sectors / 2)}`]
+	local first = map.village and map.village.specials and map.village.specials[1]
+	out.Landmark = if first then { first.x, first.z } else out.Centre
 	return out
 end
 
@@ -138,10 +141,12 @@ function Cutscenes.sector(u: number, n: number): (number, number)
 	return i, math.clamp(s - (i - 1), 0, 1)
 end
 
--- A "Sectors" shot's own shot at point `i`: its styles taken in turn, their anchors "S" and "Mark" named for that point
--- (S3, Mark3), their orbits turned `turn` radians a point on.
-function Cutscenes.sectorShot(shot: any, i: number): any
-	local style = shot.styles[(i - 1) % #shot.styles + 1]
+-- A "Sectors" shot's own shot at point `i`: its styles taken in turn (a point with no landmark, `bare`, its
+-- `bareStyles`: the flag on its rise), their anchors "S" and "Mark" named for that point (S3, Mark3), their orbits
+-- turned `turn` radians a point on; the whole shot turned round its anchor by `spins[i]` radians when given.
+function Cutscenes.sectorShot(shot: any, i: number, bare: boolean?): any
+	local styles = if bare and shot.bareStyles then shot.bareStyles else shot.styles
+	local style = styles[(i - 1) % #styles + 1]
 	local out = table.clone(style)
 	local function named(key: any): any
 		if type(key) ~= "table" then
@@ -161,6 +166,32 @@ function Cutscenes.sectorShot(shot: any, i: number): any
 		local spin = (shot.turn or 0) * (i - 1)
 		out.from, out.to = style.from + spin, style.to + spin
 	end
+	-- turned further round the point by `spins[i]` radians (the client's: a view the trees don't block)
+	return Cutscenes.turnShot(out, shot.spins and shot.spins[i] or 0)
+end
+
+-- Shot `shot` turned `spin` radians round its anchors (an orbit's angles; a move's offsets from its places), the same
+-- distance from what it looks at: the client's clear view (Config/Cutscenes.ClearView).
+function Cutscenes.turnShot(shot: any, spin: number): any
+	if spin == 0 then
+		return shot
+	end
+	local out = table.clone(shot)
+	if out.kind == "Orbit" then
+		out.from, out.to = out.from + spin, out.to + spin
+	else
+		local c, sn = math.cos(spin), math.sin(spin)
+		local function turned(key: any): any
+			if type(key) ~= "table" then
+				return key
+			end
+			local k = table.clone(key)
+			local dx, dz = k.dx or 0, k.dz or 0
+			k.dx, k.dz = dx * c - dz * sn, dx * sn + dz * c
+			return k
+		end
+		out.from, out.to, out.look, out.lookTo = turned(out.from), turned(out.to), turned(out.look), turned(out.lookTo)
+	end
 	return out
 end
 
@@ -177,7 +208,9 @@ function Cutscenes.pose(
 ): Pose
 	if shot.kind == "Sectors" then
 		local i, v = Cutscenes.sector(u, #points)
-		return Cutscenes.pose(Cutscenes.sectorShot(shot, i), v, anchors, points, false, paperUp)
+		local mark, point = anchors[`Mark{i}`], anchors[`S{i}`]
+		local bare = mark ~= nil and point ~= nil and mark[1] == point[1] and mark[2] == point[2]
+		return Cutscenes.pose(Cutscenes.sectorShot(shot, i, bare), v, anchors, points, false, paperUp)
 	end
 	local roll = (shot.roll or 0) * (if flip then -1 else 1)
 	if shot.kind == "Paper" then
@@ -226,12 +259,21 @@ function Cutscenes.pose(
 end
 
 -- A "Self" shot `u` through: the camera's angle round the local soldier (radians from straight behind it, `from` ->
--- `to`) and how far it has blended into the soldier's own view (0..1: over the shot's last `into` share).
+-- `to`) and how far it has moved to the game's own camera behind it (0..1: over the shot's last `into` share, there
+-- by its last `hold` share, where it stays still till the hand-over).
 function Cutscenes.selfPose(shot: any, u: number): (number, number)
 	local a = shot.from + (shot.to - shot.from) * ease(u)
-	local into = shot.into or 0
-	local blend = if into > 0 then math.clamp((u - (1 - into)) / into, 0, 1) else 0
+	local into, hold = shot.into or 0, shot.hold or 0
+	local blend = if into > hold then math.clamp((u - (1 - into)) / (into - hold), 0, 1) else 0
 	return a, ease(blend)
+end
+
+-- How far behind the soldier's head the game's own camera sits when the flight hands over: the zoom the player had
+-- as the match ended (`zoom`: nil, or first person, under `least`: Roblox's start, `H.zoom`), within `least`..`most`
+-- (Config/Camera FreeMinZoom..FreeMaxZoom: Roblox's camera with no weapon drawn, as a soldier spawns).
+function Cutscenes.handZoom(zoom: number?, H: any, least: number, most: number): number
+	local z = if zoom and zoom >= least then zoom else H.zoom
+	return math.clamp(z, least, most)
 end
 
 -- How many of the `n` point seals are stamped `u` through a `stamps` shot: the Front's as the camera comes within half
@@ -259,6 +301,8 @@ function Cutscenes.paper(shot: any, u: number, fade: number): number
 end
 
 -- A caption's text: `{map}`, `{west}`, `{east}`, `{winner}` filled from `fill`.
+export type Made = { map: string, places: { string } }
+
 function Cutscenes.text(template: string?, fill: { [string]: string }): string
 	if not template then
 		return ""
@@ -273,11 +317,14 @@ export type Line = { text: string, at: number }
 
 -- Part one, in the armory: where the match was won (`played`: the map's key) and the momentum, for the winning kit
 -- (`winner`, nil: no winner) whose nation is `nation`. Every line at 0: they follow one another.
-function Cutscenes.partOne(speech: any, winner: string?, played: string, nation: string): { Line }
+function Cutscenes.partOne(speech: any, winner: string?, played: string, nation: string, mapName: string?): { Line }
 	local won = if winner then speech.won[played] else speech.wonNone[played]
+	if not won and mapName then -- (a map with no lines of its own: the made ones, by its name)
+		won = if winner then speech.fallback.won else speech.fallback.wonNone
+	end
 	local out: { Line } = {}
 	if won then
-		table.insert(out, { text = Cutscenes.text(won, { winner = nation }), at = 0 })
+		table.insert(out, { text = Cutscenes.text(won, { winner = nation, map = mapName or "" }), at = 0 })
 	end
 	local momentum = speech.momentum[winner or "none"]
 	if momentum then
@@ -295,9 +342,9 @@ end
 -- Part two, over the pre-match flight `cut` on a map with `n` points (`nextMap` its key): the plan's first line as the
 -- flight opens, one as the camera comes up on each point (its Front or Sectors shot), then the closing call (by the player's own kit `own`, nil: no
 -- call) as the camera goes into the soldier's eyes. A map without a plan gets only the call.
-function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string, n: number): { Line }
+function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string, n: number, made: Made?): { Line }
 	local out: { Line } = {}
-	local plan = speech.plans[nextMap]
+	local plan = speech.plans[nextMap] or (if made then Cutscenes.madePlan(speech.fallback, made, n) else nil)
 	local starts: { [string]: number } = {}
 	local front, frontT0 = nil, 0
 	for i, s in cut.shots do
@@ -321,6 +368,48 @@ function Cutscenes.partTwo(speech: any, cut: any, own: string?, nextMap: string,
 	local close = own and speech.close[own]
 	if close then
 		table.insert(out, { text = close, at = Cutscenes.length(cut) }) -- (on the whistle)
+	end
+	return out
+end
+
+-- What the narrator calls each of `map`'s points: its landmark's name (Config/Cutscenes.Names, within `reach`; "the
+-- church"), else "point 3" (`unnamed`): a map's lines made from its own data when it has none written.
+function Cutscenes.placeNames(map: any, names: { [string]: string }, reach: number, unnamed: string): { string }
+	local out = {}
+	for i in map.sectors do
+		local id = Cutscenes.landmark(map, i, reach)
+		local name = id and names[id]
+		out[i] = if name
+			then string.lower(string.sub(name, 1, 1)) .. string.sub(name, 2)
+			else Cutscenes.text(unnamed, { i = tostring(i) })
+	end
+	return out
+end
+
+-- The orders over the flight for a map with none written (`F`: Config/Cutscenes.Speech.fallback; `made`: its name and
+-- its points' place names): the dive's line, then one per point, the first and last their own, the ones between in
+-- turn.
+function Cutscenes.madePlan(F: any, made: Made, n: number): { string }
+	local out = { Cutscenes.text(F.first, { map = made.map }) }
+	for i = 1, n do
+		local line = if i == 1
+			then F.points[1]
+			elseif i == n then F.points[#F.points]
+			else F.points[(i - 2) % (#F.points - 2) + 2]
+		table.insert(out, Cutscenes.text(line, { place = made.places[i] or "" }))
+	end
+	return out
+end
+
+-- A map's orders on the vote board: its own (Config/Cutscenes.Vote.Orders), else made from its name and point count.
+function Cutscenes.boardOrders(vote: any, key: string, mapName: string, n: number): { string }
+	local own = vote.Orders[key]
+	if own then
+		return own
+	end
+	local out = {}
+	for _, line in vote.fallback do
+		table.insert(out, Cutscenes.text(line, { MAP = string.upper(mapName), n = tostring(n) }))
 	end
 	return out
 end
@@ -540,6 +629,12 @@ function Cutscenes.dip(now: number, at: number?, d: any): number
 		return 1 - math.clamp((at - now) / d.out, 0, 1)
 	end
 	return 1 - math.clamp((now - at - d.hold) / d.inn, 0, 1)
+end
+
+-- The countdown after a match: the flight's `length` plus the black `d.hold` the dip into it (Config/Cutscenes.FlightDip)
+-- keeps before it, so the flight starts as the black clears and plays whole to the whistle.
+function Cutscenes.flightSeconds(length: number, d: any): number
+	return length + d.hold
 end
 
 -- The losing piece's topple `u` seconds in (Config/Cutscenes.Table.topple): degrees off upright, falling faster and

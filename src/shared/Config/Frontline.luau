@@ -41,13 +41,15 @@ local Frontline = {
 	-- (the table's own length: Rules/Cutscenes.tableSeconds, until its replay and report are done)
 	FadeSeconds = 3,
 	VoteSeconds = 30, -- (the approved demo, user 2026-11-03: the countdown from 0:30; was 15)
-	Loading = { least = 8, max = 40 },
+	Loading = { least = 8, max = 60 },
 	-- on the Frontline folder from a match's end to the next countdown's end: what the narrator speaks of, "<winner
 	-- kit or none>,<the map just played>" (src/client/MatchCutscene)
 	SpeechAttribute = "Speech",
 	-- on the Frontline folder: the server time of the latest dip to black between scenes (Config/Cutscenes.Dip: the
 	-- next phase starts there), and PhaseAt the server time the phase started
 	DipAttribute = "DipAt",
+	-- on the Frontline folder with DipAt: which dip it is ("Flight": Config/Cutscenes.FlightDip; none: Cutscenes.Dip)
+	DipKindAttribute = "DipKind",
 	SpawnLift = 3.2, -- a spawned root this far over the ground (standing)
 	SpawnWait = 10, -- seconds a new character's root is waited for
 	FeetBelowRoot = 3, -- a soldier's feet this far under the root (what counts as in the zone: Height round them)

@@ -24,11 +24,12 @@
 -- A place: { at = anchor, dx, dz, up } (studs east, north and over the ground at that spot). Anchors: S1..Sn (the
 -- points), Mark1..Markn (each point's landmark: Rules/Cutscenes.landmark), WestSpawn / EastSpawn (the spawn zones'
 -- middles), Home (the viewer's side's spawn), Taken (the match's last capture: the loser's HQ; no winner: the middle
--- point), Centre (the middle point). `mirror`: "home" / "winner": a shot written for the West is mirrored east-west when
--- that side is East (dx turned round, orbit angles reflected). `roll`: a Dutch tilt (degrees). `caption`: a title card
--- (Captions). `paper`: "out" (the sheet fades as the shot goes) / "in" (fades in). `flash`: an impact frame (white,
--- then ink). `stamps`: the point seals stamped along the bottom bar as the shot goes (the Front's as it passes each
--- point; otherwise in the winner's colour, one after another). `fov`: the camera's field of view (default `Fov`).
+-- point), Centre (the middle point), Landmark (the map's headline building: its first special). `mirror`: "home" /
+-- "winner": a shot written for the West is mirrored east-west when that side is East (dx turned round, orbit angles
+-- reflected). `roll`: a Dutch tilt (degrees). `caption`: a title card (Captions). `paper`: "out" (the sheet fades as
+-- the shot goes) / "in" (fades in). `flash`: an impact frame (white, then ink). `stamps`: the point seals stamped along
+-- the bottom bar as the shot goes (the Front's as it passes each point; otherwise in the winner's colour, one after
+-- another). `fov`: the camera's field of view (default `Fov`).
 
 local Cutscenes = {
 	Fov = 60,
@@ -39,10 +40,25 @@ local Cutscenes = {
 	-- a point's landmark: the map's nearest special building (village.specials) within this many studs of the point
 	LandmarkReach = 200,
 	-- the far ground the camera may show ahead is asked to stream in this many seconds before each shot
-	StreamAhead = 1.2,
+	StreamAhead = 3, -- (Roblox streams round the soldier, not the camera: a far shot's ground is asked for again)
 	-- the armory streams in every spot the next flight looks at before it plays (Net "MapLoad"): spots this many studs
 	-- apart (closer ones are asked for once)
 	LoadSpacing = 60,
+	-- then the map's meshes, textures and decals preloaded (ContentProvider), this many instances at a time, before the
+	-- client says it's loaded: nothing pops in during the flight (user 2026-11-03: "make sure the map is FULLY loaded")
+	PreloadBatch = 40,
+	PreloadDrain = 10, -- then at most this many seconds for the download queue to empty
+	-- each point's shot in the flight turned round its point (radians, tried in order) until no tree, hill or other house
+	-- stands between the camera and what it looks at (`at`: through the point's shot; rays to the spot looked at, `wide`
+	-- of the half frame to either side and over it; a hit within `near` studs of where a ray aims, or on the point's own
+	-- landmark, counts as clear; no part within `room` studs of the camera): user 2026-11-03, "not just trees"
+	ClearView = {
+		turns = { 0, 0.8, -0.8, 1.6, -1.6, 2.4, -2.4, 3.14, 0.4, -0.4, 1.2, -1.2, 2.0, -2.0, 2.8, -2.8 },
+		at = { 0.1, 0.5, 0.9 },
+		near = 14,
+		wide = 0.6,
+		room = 7,
+	},
 	-- skipping: hold this key (or press the Skip button) this long
 	Skip = { key = "Space", hold = 0.6, text = "Hold Space to skip", touch = "Skip" }, -- (an Enum.KeyCode name)
 	-- the title cards: text keys (the client fills in the map, the nations, the winner)
@@ -71,26 +87,27 @@ local Cutscenes = {
 	-- The pre-match flight (plays over the countdown, Config/Frontline.CountdownSeconds, after a match: a fresh server
 	-- goes in behind a loading screen instead, src/client/EndScenes). User 2026-11-03: "cinematic shots circling and
 	-- going around and peeking points of interest in sectors ... change angles to a new sector whenever a new sector is
-	-- being described ... not just flying over the map showing everything": a high slow orbit over the middle with
-	-- the title, then one shot per point (`Sectors`: the point's share of the shot each, cut as the narrator's order for
-	-- it starts, Speech.plans) round its landmark, its seal stamped as it cuts in; then round your own soldier and into
-	-- its own view by the whistle.
-	-- A "Sectors" shot's own shots are its `styles` in turn, at the point's landmark ("Mark") or the point ("S"); an
-	-- orbit's angles turned `turn` radians further at each point, so no two cuts look the same way.
+	-- being described ... not just flying over the map showing everything": low over the village toward its headline
+	-- landmark with the title (the real map, not a miniature: user 2026-11-03), then one shot per point (`Sectors`: the
+	-- point's share of the shot each, cut as the narrator's order for it starts, Speech.plans) round its landmark, its
+	-- seal stamped as it cuts in; then round your own soldier and into its own view by the whistle.
+	-- A "Sectors" shot's own shots are its `styles` in turn, at the point's landmark ("Mark") or the point ("S"); a
+	-- point with no landmark (an open rise: the only thing there is its flag) its `bareStyles`; an orbit's angles
+	-- turned `turn` radians further at each point, so no two cuts look the same way.
 	Pre = {
 		shots = {
+			-- low over the village, drifting toward the map's headline landmark (the church on Map 1): the map at a
+			-- soldier's scale, its places, not a model of it seen from high up nor a sea of trees (user 2026-11-03)
 			{
 				name = "Establish",
 				t1 = 2.8,
-				kind = "Orbit",
-				at = "Centre",
-				radius = 380,
-				up = 170,
-				lookUp = 0,
-				from = -1.95,
-				to = -1.6,
+				kind = "Move",
+				from = { at = "Landmark", dx = -175, dz = 185, up = 55 },
+				to = { at = "Landmark", dx = -140, dz = 150, up = 50 },
+				look = { at = "Landmark", up = 20 },
 				fov = 50,
 				caption = "Title",
+				clear = true, -- (turned round the landmark till no tree stands in front: ClearView)
 			},
 			{
 				name = "Sectors",
@@ -139,9 +156,34 @@ local Cutscenes = {
 						fov = 44,
 					},
 				},
+				-- a point with no building near (an open rise): its flag on the hill, from low on the slope
+				bareStyles = {
+					-- circling the flag low on its rise
+					{
+						kind = "Orbit",
+						at = "S",
+						radius = 55,
+						up = 16,
+						lookUp = 11,
+						from = -2.5,
+						to = -1.9,
+						fov = 42,
+					},
+					-- pushing in over the slope, the flag on the crest
+					{
+						kind = "Move",
+						from = { at = "S", dx = 80, dz = -55, up = 13 },
+						to = { at = "S", dx = 58, dz = -40, up = 15 },
+						look = { at = "S", up = 11 },
+						roll = 4,
+						fov = 38,
+					},
+				},
 			},
-			-- round your own soldier where it stands in its wave line, then into your own view; the closing call on the
-			-- whistle (user 2026-11-03: no team lines)
+			-- round your own soldier where it stands in its wave line, then one move to the game's own camera behind it
+			-- (your zoom and field of view: HandOver), still a moment, and the game takes over; the closing call on the
+			-- whistle (user 2026-11-03: no team lines; "once the cinematics stop, just pan to us, stop the camera, and go
+			-- to our in game camera angle")
 			{
 				name = "Self",
 				t1 = 19,
@@ -151,7 +193,8 @@ local Cutscenes = {
 				radius = 11,
 				up = 4.5,
 				lookUp = 1.5,
-				into = 0.35,
+				into = 0.4,
+				hold = 0.12,
 				fov = 55,
 			},
 		},
@@ -169,6 +212,10 @@ local Cutscenes = {
 	-- `out` seconds to the moment the server changes scene (Config/Frontline.DipAttribute), stays black `hold`, clears
 	-- over `inn`.
 	Dip = { out = 0.5, hold = 0.3, inn = 0.6 },
+	-- the dip from the armory into the map flight: longer, a breath of black between the narrator's first part and the
+	-- orders over the map (user 2026-11-03: "a longer fade before the orders part and we start showing the map"); the
+	-- countdown is the flight's length plus `hold` (Rules/Cutscenes.flightSeconds), the flight starting as it clears
+	FlightDip = { out = 1.0, hold = 2.0, inn = 1.0 },
 	-- where the sets stand (studs): high over the world's origin, out of every map's sight (each client builds its own);
 	-- the papers on them drawn at this many pixels a stud
 	PixelsPerStud = 60,
@@ -699,6 +746,16 @@ local Cutscenes = {
 				"Drive them out of the cascina.",
 			},
 		},
+		-- a map with no lines of its own written above (a new map: user 2026-11-03, "we need one of these for every
+		-- map"): its lines made from its name and its points' landmarks (Rules/Cutscenes.placeNames; `unnamed` a point
+		-- with none), spoken by text-to-speech until they're written and recorded. {map}, {winner}, {place}, {i}
+		fallback = {
+			won = "{winner} holds {map}. The enemy has been driven from the field.",
+			wonNone = "No banner flies over {map} tonight. Neither army could hold it.",
+			first = "Orders for {map}.",
+			points = { "Hold {place}.", "Push on to {place}.", "Take {place}.", "Then bring down {place}." },
+			unnamed = "point {i}",
+		},
 		-- the closing call, by the player's own kit: the same whether their side won or lost (user 2026-11-03; no
 		-- bayonets in this army: user 2026-11-02)
 		close = {
@@ -718,12 +775,18 @@ local Cutscenes = {
 			Map1 = { "HOLD ALL 5 SECTORS", "TAKE THE BRIDGE", "GUNS BEHIND LINE 2" },
 			LanternMeadows = { "ADVANCE ON THE ROAD", "SEIZE THE LANTERN RING", "HOLD THE FARMS" },
 		},
+		-- a map with no orders of its own above: made from its name and point count ({MAP}, {n})
+		fallback = { "HOLD ALL {n} SECTORS", "ADVANCE ON {MAP}" },
 		maxCards = 3, -- at most this many maps offered (the live one among them)
 		-- the end: the winner stamped NEXT, shown `hold` seconds before the armory (src/server/Frontline)
 		pick = { hold = 3 },
 		rate = 0.25, -- seconds between a player's votes (the server's limit)
 	},
 
+	-- the game's own camera the flight hands over to (Roblox's, no weapon drawn: aimed `focusUp` over the root, `pitch`
+	-- degrees down along the soldier's facing, at the player's zoom as the match ended: Rules/Cutscenes.handZoom, else
+	-- `zoom`), at the player's field of view setting
+	HandOver = { zoom = 9, pitch = 12, focusUp = 1.5 },
 	DisplayOrder = 9, -- the cut's bars, cards and subtitles: over the menus
 	-- the keys sunk while a cut or an end scene covers the screen (Enum.KeyCode names): the soldier stands still
 	SinkKeys = { "W", "A", "S", "D", "Up", "Down", "Left", "Right", "Space" },

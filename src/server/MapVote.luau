@@ -92,9 +92,9 @@ function MapVote.open(folder: Folder, offer: { string }, maySign: ((Player) -> b
 end
 
 -- Closes the vote: the map it picks (`r` 0..1 draws a tie), shown as the folder's VotePick.
-function MapVote.close(folder: Folder, r: number): string?
+function MapVote.close(folder: Folder, r: number, force: string?): string?
 	local tally = Rules.tally(votes :: any, offered)
-	local pick = Rules.pick(tally, offered, r)
+	local pick = if force and table.find(offered, force) then force else Rules.pick(tally, offered, r)
 	open = nil
 	folder:SetAttribute("VotePick", pick)
 	return pick

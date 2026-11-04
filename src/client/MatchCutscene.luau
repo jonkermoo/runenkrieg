@@ -15,6 +15,7 @@
 --   MatchCutscene.cover(on), MatchCutscene.clearFade() (EndScenes: its set is up)
 
 local ContextActionService = game:GetService("ContextActionService")
+local ContentProvider = game:GetService("ContentProvider")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,6 +24,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Cutscenes)
+local CamCfg = require(Shared.Config.Camera)
 local FrontCfg = require(Shared.Config.Frontline)
 local DevCfg = require(Shared.Config.DevTools)
 local SketchCfg = require(Shared.Config.SketchMap) :: any
@@ -38,6 +40,7 @@ local PointSeal = require(script.Parent.PointSeal)
 local Menus = require(script.Parent.Menus) :: any
 local SketchMap = require(script.Parent.SketchMap)
 local Speech = require(script.Parent.Speech)
+local Settings = require(script.Parent.Settings)
 local Net = require(Shared.Net)
 
 local MatchCutscene = {}
@@ -402,6 +405,86 @@ local function world(p: Rules.Place): Vector3
 	return Vector3.new(p.x, groundAt(p.x, p.z) + p.up, p.z)
 end
 
+-- Each point's own shot turned round it until nothing stands between the camera and what it looks at (a tree, the
+-- hill, another house): Config/Cutscenes.ClearView's turns tried in order, the first clear one kept (none clear: the
+-- shot as written).
+local function clearViews(
+	cut: any,
+	map: any,
+	key: string,
+	anchors: { [string]: { number } },
+	points: { { number } }
+): any
+	local V = Cfg.ClearView
+	local root = workspace:FindFirstChild(key)
+	local buildings = root and root:FindFirstChild("Village") and (root :: any).Village:FindFirstChild("Buildings")
+	local out = table.clone(cut)
+	out.shots = table.clone(cut.shots)
+	-- whether shot `s` from `t0` to `t1` through it has a clear view (a hit on `target`, its landmark, counts as clear);
+	-- a shot marked `clear` (the opening) is turned as a whole the same way
+	local function clearOf(s: any, t0: number, t1: number, target: Instance?): boolean
+		for _, u in V.at do
+			local pose = Rules.pose(s, t0 + (t1 - t0) * u, anchors, points, false, Cfg.Paper.up)
+			local eye, look = world(pose.eye), world(pose.look)
+			-- nothing right at the camera (a trunk filling half the frame)
+			if #workspace:GetPartBoundsInRadius(eye, V.room) > 0 then
+				return false
+			end
+			-- and nothing across the frame: rays to the spot looked at and to either side and over it
+			local cf = CFrame.lookAt(eye, look)
+			local half = (look - eye).Magnitude * math.tan(math.rad(pose.fov or Cfg.Fov) / 2) * V.wide
+			for _, to in
+				{ look, look + cf.RightVector * half, look - cf.RightVector * half, look + cf.UpVector * half * 0.6 }
+			do
+				local hit = workspace:Raycast(eye, to - eye)
+				if
+					hit
+					and (hit.Position - to).Magnitude > V.near
+					and not (target and hit.Instance:IsDescendantOf(target))
+				then
+					return false
+				end
+			end
+		end
+		return true
+	end
+	for k, shot in out.shots do
+		if shot.clear then
+			for _, spin in V.turns do
+				local turned = Rules.turnShot(shot, spin)
+				if clearOf(turned, 0, 1, nil) then
+					out.shots[k] = turned
+					break
+				end
+			end
+		end
+		if shot.kind == "Sectors" then
+			local s = table.clone(shot)
+			s.spins = {}
+			for i = 1, #points do
+				local id = Rules.landmark(map, i, Cfg.LandmarkReach)
+				local target = id and buildings and buildings:FindFirstChild(id)
+				local function clear(): boolean
+					return clearOf(s, (i - 1) / #points, i / #points, target)
+				end
+				local found = false
+				for _, spin in V.turns do
+					s.spins[i] = spin
+					if clear() then
+						found = true
+						break
+					end
+				end
+				if not found then
+					s.spins[i] = 0
+				end
+			end
+			out.shots[k] = s
+		end
+	end
+	return out
+end
+
 local function sideOfMe(folder: Instance): Rules.Side?
 	local c = player.Character
 	local kit = c and c:GetAttribute("Kit")
@@ -440,9 +523,27 @@ local function fadeStep()
 	small.TextStrokeTransparency = 1 - cover * 0.6
 end
 
+-- the player's camera zoom as the match ended (the game's camera still running), for the hand-over after the flight
+local gameZoom: number? = nil
+
+-- where the game's own camera will be behind the soldier, and its field of view (Config/Cutscenes.HandOver)
+local function gameView(root: BasePart, humanoid: Humanoid?): (CFrame, number)
+	local H = Cfg.HandOver
+	local zoom = Rules.handZoom(gameZoom, H, CamCfg.FreeMinZoom, CamCfg.FreeMaxZoom)
+	local offset = if humanoid then humanoid.CameraOffset else Vector3.zero
+	local focus = root.Position + Vector3.new(0, H.focusUp, 0) + offset
+	local flat = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
+	local pitch = math.rad(H.pitch)
+	local dir = flat * math.cos(pitch) - Vector3.new(0, math.sin(pitch), 0)
+	return CFrame.lookAt(focus - dir * zoom, focus), Settings.get("FieldOfView") :: number
+end
+
 local function startFade(folder: Instance)
 	if fading then
 		return
+	end
+	if camera.CameraType == Enum.CameraType.Custom then
+		gameZoom = (camera.CFrame.Position - camera.Focus.Position).Magnitude
 	end
 	fading = true
 	fadeFolder = folder
@@ -497,6 +598,11 @@ local function finish()
 	white.Visible = false
 	camera.FieldOfView = p.fov
 	if not MatchCam.running() then
+		-- the game's own camera from where the flight left it (a skip too): its angle behind the soldier, its fov
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if root and p.kind == "Pre" then
+			camera.CFrame, camera.FieldOfView = gameView(root, player.Character:FindFirstChildOfClass("Humanoid"))
+		end
 		camera.CameraType = Enum.CameraType.Custom
 		local h = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		if h then
@@ -507,7 +613,8 @@ local function finish()
 	endedEvent:Fire(p.kind)
 end
 
--- the spots on the ground shot `shot` of a cut looks at (its start, middle and end; each point's own shot's middle)
+-- the spots on the ground shot `shot` of a cut looks at and looks from (its start, middle and end; each point's own
+-- shot's middle)
 local function looksOf(shot: any, anchors: { [string]: { number } }, points: { { number } }, flip: boolean): { Vector3 }
 	local at = { 0, 0.5, 1 }
 	if shot.kind == "Sectors" then
@@ -519,6 +626,7 @@ local function looksOf(shot: any, anchors: { [string]: { number } }, points: { {
 	for _, u in at do
 		local pose = Rules.pose(shot, u, anchors, points, flip, Cfg.Paper.up)
 		table.insert(out, Vector3.new(pose.look.x, 0, pose.look.z))
+		table.insert(out, Vector3.new(pose.eye.x, 0, pose.eye.z))
 	end
 	return out
 end
@@ -578,7 +686,9 @@ local function loadMap(key: string)
 			end
 		end
 	end
-	local this = { key = key, done = 0, total = #spots }
+	-- then the meshes, textures and decals of everything streamed in (one instance for each of their assets), so
+	-- nothing pops in mid-shot: the ring counts both
+	local this = { key = key, done = 0, total = #spots + 1 }
 	loading = this
 	for _, v in spots do -- (one after another: the server streams each before the next)
 		if loading ~= this then
@@ -587,6 +697,49 @@ local function loadMap(key: string)
 		streamAround(v)
 		this.done += 1
 	end
+	local root = workspace:FindFirstChild(key)
+	local list: { Instance } = {}
+	local seen: { [string]: boolean } = {}
+	local function addAssets(d: Instance, ...: string)
+		local new = false
+		for _, id in { ... } do
+			if id ~= "" and not seen[id] then
+				seen[id], new = true, true
+			end
+		end
+		if new then
+			table.insert(list, d)
+		end
+	end
+	for _, d in (if root then root:GetDescendants() else {}) do
+		if d:IsA("MeshPart") then
+			addAssets(d, d.MeshId, d.TextureID)
+		elseif d:IsA("SpecialMesh") then
+			addAssets(d, d.MeshId, d.TextureId)
+		elseif d:IsA("Decal") then -- (Textures too)
+			addAssets(d, d.Texture)
+		elseif d:IsA("SurfaceAppearance") then
+			table.insert(list, d)
+		end
+	end
+	this.total = #spots + math.max(#list, 1)
+	local batch = Cfg.PreloadBatch
+	for k = 1, #list, batch do
+		if loading ~= this then
+			return
+		end
+		pcall(ContentProvider.PreloadAsync, ContentProvider, table.move(list, k, math.min(k + batch - 1, #list), 1, {}))
+		this.done += math.min(batch, #list - k + 1)
+	end
+	-- and nothing of it still downloading (the preloads queue it), at most PreloadDrain seconds
+	local drainFrom = os.clock()
+	while ContentProvider.RequestQueueSize > 0 and os.clock() - drainFrom < Cfg.PreloadDrain do
+		if loading ~= this then
+			return
+		end
+		task.wait(0.1)
+	end
+	this.done = this.total
 	Net.event("MapLoad"):FireServer(key)
 end
 
@@ -655,10 +808,9 @@ local function step(dt: number)
 	local cf = CFrame.lookAt(eye, look) * CFrame.Angles(0, 0, math.rad(pose.roll))
 	local fov = pose.fov or Cfg.Fov
 	if shot.kind == "Self" then
-		-- round your own soldier, then into its eyes (the first-person view it starts in)
-		local head = player.Character and player.Character:FindFirstChild("Head") :: BasePart?
+		-- round your own soldier, then one move to the game's own camera behind it, held still for the hand-over
 		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if head and root then
+		if root then
 			local a, blend = Rules.selfPose(shot, u)
 			local back = CFrame.Angles(0, a, 0):VectorToWorldSpace(-root.CFrame.LookVector)
 			local feet = root.Position - Vector3.new(0, 3, 0)
@@ -666,9 +818,9 @@ local function step(dt: number)
 				feet + back * shot.radius + Vector3.new(0, shot.up, 0),
 				feet + Vector3.new(0, shot.lookUp, 0)
 			)
-			local at = head.Position + Vector3.new(0, 0.4, 0)
-			cf = round:Lerp(CFrame.lookAt(at, at + root.CFrame.LookVector), blend)
-			fov += (p.fov - fov) * blend
+			local view, viewFov = gameView(root, player.Character:FindFirstChildOfClass("Humanoid"))
+			cf = round:Lerp(view, blend)
+			fov += (viewFov - fov) * blend
 		end
 	end
 	camera.CameraType = Enum.CameraType.Scriptable
@@ -734,6 +886,8 @@ local function begin(kind: string, folder: Instance)
 	for _, s in map.sectors do
 		table.insert(points, { s.x, s.z })
 	end
+	local anchors = Rules.anchors(map, home, winner, Cfg.LandmarkReach)
+	cut = clearViews(cut, map, key, anchors, points)
 	local westKit, eastKit = folder:GetAttribute("West"), folder:GetAttribute("East")
 	local fill = {
 		map = map.name,
@@ -750,7 +904,7 @@ local function begin(kind: string, folder: Instance)
 		length = length,
 		startAt = startAt,
 		map = map,
-		anchors = Rules.anchors(map, home, winner, Cfg.LandmarkReach),
+		anchors = anchors,
 		points = points,
 		home = home,
 		winner = winner,
@@ -769,7 +923,10 @@ local function begin(kind: string, folder: Instance)
 	if kind == "Pre" and type(spoken) == "string" then
 		local ownKit = if home then folder:GetAttribute(home) else nil
 		local lines =
-			Rules.partTwo(Cfg.Speech, cut, if type(ownKit) == "string" then ownKit else nil, key, #map.sectors)
+			Rules.partTwo(Cfg.Speech, cut, if type(ownKit) == "string" then ownKit else nil, key, #map.sectors, {
+				map = map.name,
+				places = Rules.placeNames(map, Cfg.Names, Cfg.LandmarkReach, Cfg.Speech.fallback.unnamed),
+			})
 		Speech.queue(lines, os.clock() + (startAt - workspace:GetServerTimeNow()))
 	end
 	skip.Text = if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -798,7 +955,10 @@ local function dips()
 	RunService.RenderStepped:Connect(function()
 		local folder = workspace:FindFirstChild(FrontCfg.FolderName)
 		local at = folder and folder:GetAttribute(FrontCfg.DipAttribute)
-		local k = Rules.dip(workspace:GetServerTimeNow(), if type(at) == "number" then at else nil, Cfg.Dip)
+		local d = if folder and folder:GetAttribute(FrontCfg.DipKindAttribute) == "Flight"
+			then Cfg.FlightDip
+			else Cfg.Dip
+		local k = Rules.dip(workspace:GetServerTimeNow(), if type(at) == "number" then at else nil, d)
 		black.Visible = k > 0
 		black.BackgroundTransparency = 1 - k
 	end)

@@ -1660,7 +1660,10 @@ function CommandPost.orders(post: Post, offer: { string }, sign: (string) -> ())
 			local l = text(clip, B.placeholder[2], SLAB, INK, 0, 0.25, 1, 0.5, 0.1 * px)
 			l.TextXAlignment = Enum.TextXAlignment.Center
 		end
-		local orders = if key then Cfg.Vote.Orders[key] or {} else { B.placeholder[3] }
+		local mapCfg = key and LiveMap.get(key)
+		local orders = if key and mapCfg
+			then Rules.boardOrders(Cfg.Vote, key, mapCfg.name, #mapCfg.sectors)
+			else { B.placeholder[3] }
 		for k, l in orders do
 			text(f, if key then `{k}. {l}` else l, TYPE, INK, 0.06, 0.335 + (k - 1) * 0.035, 0.88, 0.028, px)
 		end

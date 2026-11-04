@@ -682,7 +682,12 @@ local function begin(name: string, folder: Instance)
 	if name == "Loading" and not speechStarted then
 		speechStarted = true
 		Speech.stop()
-		Speech.queue(Rules.partOne(Cfg.Speech, winnerKit, parts[2] or LiveMap.key(), nationOf(winnerKit)), os.clock())
+		local played = parts[2] or LiveMap.key()
+		local playedMap = LiveMap.get(played)
+		Speech.queue(
+			Rules.partOne(Cfg.Speech, winnerKit, played, nationOf(winnerKit), playedMap and playedMap.name),
+			os.clock()
+		)
 	end
 	MatchCutscene.clearFade() -- (the set is up: the fade's colour gives way to it)
 	RunService:UnbindFromRenderStep("EndScenes")
