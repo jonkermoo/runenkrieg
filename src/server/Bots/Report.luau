@@ -281,6 +281,33 @@ local function engineers()
 	workspace:SetAttribute(DevCfg.Admin.BotEngineersAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- every bot with a build job, the longest without a swing landed first (Config/DevTools.Admin.BotJobsAttribute)
+local function jobs()
+	local A = DevCfg.Admin
+	local now = os.clock()
+	local rows = {}
+	for _, b in bots do
+		local act = b.act
+		local r = if act and act.job then act.job elseif b.work then b.work.job else nil
+		local n = b.jobNote
+		if r and n and n.job == r and b.m and alive(b) then
+			local state = if act and act.job then "working" else (b.workState or "going")
+			local on, idle = math.floor(now - n.since), math.floor(now - n.landed)
+			local line = `{b.name} ({b.side or "?"}) {r.job.key} {state}: on it {on}s, no swing {idle}s, `
+				.. `began {n.starts}, broke off {n.stops}, swings {n.swings}, last: {n.why}`
+			table.insert(rows, { idle = now - n.landed, line = line })
+		end
+	end
+	table.sort(rows, function(x, y)
+		return x.idle > y.idle
+	end)
+	local lines = {}
+	for i = 1, math.min(#rows, A.jobsShown) do
+		table.insert(lines, rows[i].line)
+	end
+	workspace:SetAttribute(A.BotJobsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
+end
+
 -- each side's fighting plan and what its attacking squads do (Config/DevTools.Admin.BotFrontAttribute)
 local function frontLine()
 	local lines = {}
@@ -408,6 +435,7 @@ local function label()
 	rescues()
 	classMix()
 	engineers()
+	jobs()
 	Tactics.fell.readout()
 	local S = DevCfg.Admin.BotState
 	local on = workspace:GetAttribute(S.attribute) == true

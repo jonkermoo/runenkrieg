@@ -163,6 +163,11 @@ local DevTools = {
 		-- the admin panel's readout of each side's Engineer bots: each one's build job, or why it has none
 		-- (src/server/Bots, every commander tick)
 		BotEngineersAttribute = "DevBotEngineers",
+		-- the admin panel's readout of every bot with a build job: the job, how long it has been on it and since its last
+		-- swing landed, how often it began and broke off work there, its swings and why it last stopped (the longest
+		-- without a swing first, the first `jobsShown`; src/server/Bots, every commander tick)
+		BotJobsAttribute = "DevBotJobs",
+		jobsShown = 12,
 		-- "Grenades" rows (user 2026-10-18: "add the grenade into the admin panel"): give yourself one of these
 		-- (Config/Weapons) with a full count, replacing the grenade you carry (src/server/Armory.give)
 		Grenades = { "grenade_mills", "grenade_stick", "grenade_sipe" },

@@ -139,6 +139,11 @@ export type Bot = {
 	-- "working")
 	work: { job: BuildJob, at: Vector3, since: number, brave: boolean }?,
 	workState: string?,
+	skipJobs: { [BuildJob]: number }?, -- jobs it was refused at, left to others until then (Config/Bots.Build.Work.skip)
+	-- its build job as the admin panel's job readout shows it (Config/DevTools.Admin.BotJobsAttribute): since when, the
+	-- last swing that landed, how often it began and broke off work there, the swings landed and the last why it stopped
+	-- (kept while it takes the same job again)
+	jobNote: { job: BuildJob, since: number, landed: number, starts: number, stops: number, swings: number, why: string }?,
 	-- Normal: a downed or hurt teammate it guards, gun out, until it may drag or heal them (Config/Bots.Actions.Guard)
 	guard: { who: Model, since: number }?,
 	buildWhy: string?, -- Normal, an Engineer: its build job's key, or why it has none (the admin panel's readout)
