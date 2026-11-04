@@ -468,6 +468,15 @@ local function build(player: Player): DevPanel.Panel
 		workspace:GetAttributeChangedSignal(key):Connect(show)
 		show()
 	end
+	-- the felled trees' stumps (src/server/Trees): on the map, cleared by shovels, the last one's swings
+	order += 1
+	local stumpLabel = DevPanel.heading(p.panel, "Stumps", order)
+	local function showStumps()
+		local text = workspace:GetAttribute(A.Stumps.attribute)
+		stumpLabel.Text = if type(text) == "string" then text else "Stumps: none yet"
+	end
+	workspace:GetAttributeChangedSignal(A.Stumps.attribute):Connect(showStumps)
+	showStumps()
 	local shells: { [string]: TextButton } = {}
 	for _, side in A.Sides do
 		local label = `Shell {side}'s trenches ({A.Shell.count} x {A.Shell.kg} kg)`

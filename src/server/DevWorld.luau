@@ -138,6 +138,10 @@ function DevWorld.save()
 end
 
 function DevWorld.undo()
+	-- (the stumps felled trees left: not on the map as built)
+	for _, p in CollectionService:GetTagged(TreeCfg.StumpTag) do
+		p:Destroy()
+	end
 	local back = 0
 	for _, s in saved do
 		local live = s.live
