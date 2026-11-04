@@ -332,16 +332,22 @@ function Ray.play(from: Vector3, to: Vector3, opts: Opts?)
 
 		if not impacted and reach >= 1 then
 			impacted = true
-			if o.blast then
-				Blast.play(
-					to,
-					{ scheme = schemeName, normal = o.normal or -dir, debrisColor = o.hitColor, stage = o.blast }
-				)
-			else
-				Burst.play(
-					to,
-					{ scheme = schemeName, normal = o.normal or -dir, debrisColor = o.hitColor, scale = P.Impact }
-				)
+			-- (an impact that fails must not stop this step: the beam and its lights would stay lit)
+			local ok, why = pcall(function()
+				if o.blast then
+					Blast.play(
+						to,
+						{ scheme = schemeName, normal = o.normal or -dir, debrisColor = o.hitColor, stage = o.blast }
+					)
+				else
+					Burst.play(
+						to,
+						{ scheme = schemeName, normal = o.normal or -dir, debrisColor = o.hitColor, scale = P.Impact }
+					)
+				end
+			end)
+			if not ok then
+				warn("Vfx impact failed: " .. tostring(why))
 			end
 		end
 
@@ -417,7 +423,7 @@ function Ray.play(from: Vector3, to: Vector3, opts: Opts?)
 			light.Brightness = if l.f <= reach then lc.brightness * glowK * (1 - df) else 0
 		end
 		return true
-	end)
+	end, cleanup)
 end
 
 -- How long Ray.play takes to reach its end and to finish (when the impact lands; when it's gone).

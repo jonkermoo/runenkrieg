@@ -455,25 +455,28 @@ local function runes(pos: Vector3, normal: Vector3, d: number, strength: number,
 	for _, r in list do
 		total = math.max(total, r.start + r.life)
 	end
+	local function finish()
+		for _, r in list do
+			for _, st in r.strokes do
+				Pool.freeBeam(st.halo)
+				Pool.freeBeam(st.line)
+				Pool.freeAtt(st.a0)
+				Pool.freeAtt(st.a1)
+			end
+		end
+		for _, a in arcs do
+			Arc.free(a)
+		end
+		Ring.free(ring)
+		if light then
+			Pool.freeLight(light)
+		end
+	end
 	local now0, nextDraw = os.clock(), 0
 	Driver.add(function(now: number): boolean
 		local t = now - now0
 		if t >= total then
-			for _, r in list do
-				for _, st in r.strokes do
-					Pool.freeBeam(st.halo)
-					Pool.freeBeam(st.line)
-					Pool.freeAtt(st.a0)
-					Pool.freeAtt(st.a1)
-				end
-			end
-			for _, a in arcs do
-				Arc.free(a)
-			end
-			Ring.free(ring)
-			if light then
-				Pool.freeLight(light)
-			end
+			finish()
 			return false
 		end
 		-- the ground ring, lit as the seal lights and fading once it lifts
@@ -560,7 +563,7 @@ local function runes(pos: Vector3, normal: Vector3, d: number, strength: number,
 			end
 		end
 		return true
-	end)
+	end, finish)
 end
 
 function Blast.play(pos: Vector3, opts: Opts?)
@@ -598,11 +601,8 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local spark = s[CO.spark] or s.glow
 	local now0 = os.clock()
 
-	-- the flash, a light, magic's spikes and star, sparks and the air ring
+	-- magic's spikes and star, sparks and the air ring
 	local F = Cfg.Flash
-	local flash = Pool.part(Enum.PartType.Ball, hot, Vector3.one * 0.05, CFrame.new(pos + normal * d * 0.2))
-	local glare = F.brightness * (if popping then P.light else 1)
-	local light = Pool.light(pos + normal * F.lift, fire, math.min(F.range * d, F.max), glare)
 	if st.spikes and magic then
 		Spikes.play(pos + normal * d * 0.2, spark)
 		Star.play(pos + normal * d * 0.2, spark, d * Cfg.Star)
@@ -619,12 +619,6 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			)
 		end)
 	end
-
-	-- the fireball on the hit, swallowed by the earth
-	local O = Cfg.Orb
-	local orbAt = pos + normal * d * O.size * (0.5 - O.sink)
-	local orb = Pool.part(Enum.PartType.Ball, fire, Vector3.one * 0.05, CFrame.new(orbAt))
-	local core = Pool.part(Enum.PartType.Ball, hot, Vector3.one * 0.05, CFrame.new(orbAt))
 
 	-- the earth and the smoke
 	local CL = Cfg.Column
@@ -644,6 +638,15 @@ function Blast.play(pos: Vector3, opts: Opts?)
 		task.delay(Cfg.Runes.delay, runes, pos, normal, d, strength, s)
 	end
 
+	-- the glowing pieces last, just before the step that gives them back starts (a failure building the rest can't
+	-- leave a light or a glowing ball behind): the flash, its light, the fireball swallowed by the earth
+	local flash = Pool.part(Enum.PartType.Ball, hot, Vector3.one * 0.05, CFrame.new(pos + normal * d * 0.2))
+	local glare = F.brightness * (if popping then P.light else 1)
+	local light = Pool.light(pos + normal * F.lift, fire, math.min(F.range * d, F.max), glare)
+	local O = Cfg.Orb
+	local orbAt = pos + normal * d * O.size * (0.5 - O.sink)
+	local orb = Pool.part(Enum.PartType.Ball, fire, Vector3.one * 0.05, CFrame.new(orbAt))
+	local core = Pool.part(Enum.PartType.Ball, hot, Vector3.one * 0.05, CFrame.new(orbAt))
 	local orbEnd = O.grow + O.hold + O.fade
 	local sodEnd = 0
 	for _, b in flying do
@@ -652,25 +655,28 @@ function Blast.play(pos: Vector3, opts: Opts?)
 	local total = math.max(F.light, orbEnd, smokeEnd, spoutEnd, sp.life[2], flight, skirtLife, sodEnd)
 	local g = Vector3.new(0, -SO.gravity, 0)
 	local orbDone = false
+	local function finish()
+		Pool.freePart(flash)
+		if not orbDone then
+			Pool.freePart(orb)
+			Pool.freePart(core)
+		end
+		if light then
+			Pool.freeLight(light)
+		end
+		for _, b in flying do
+			Pool.freePart(b.part)
+		end
+		freeAll(smokes)
+		freeAll(thrown)
+		freeEmitter(spouted)
+		freeEmitter(sparked)
+		freeEmitter(dust)
+	end
 	Driver.add(function(now: number): boolean
 		local t = now - now0
 		if t >= total then
-			Pool.freePart(flash)
-			if not orbDone then
-				Pool.freePart(orb)
-				Pool.freePart(core)
-			end
-			if light then
-				Pool.freeLight(light)
-			end
-			for _, b in flying do
-				Pool.freePart(b.part)
-			end
-			freeAll(smokes)
-			freeAll(thrown)
-			freeEmitter(spouted)
-			freeEmitter(sparked)
-			freeEmitter(dust)
+			finish()
 			return false
 		end
 		if t < F.time then
@@ -710,7 +716,7 @@ function Blast.play(pos: Vector3, opts: Opts?)
 			b.part.Transparency = math.clamp((t - b.land - SO.rest) / SO.fade, 0, 1)
 		end
 		return true
-	end)
+	end, finish)
 end
 
 return Blast

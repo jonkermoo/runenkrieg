@@ -209,6 +209,36 @@ function Muzzle.play(origin: Vector3, direction: Vector3, scale: number?, look: 
 
 	local now0 = os.clock()
 	local flashGone, fireGone, runeGone = false, false, rune == nil
+	local function finish()
+		if not flashGone then
+			flashGone = true
+			Pool.freePart(flash)
+			if light then
+				Pool.freeLight(light)
+			end
+		end
+		if not fireGone then
+			fireGone = true
+			for _, f in flames do
+				Pool.freeBeam(f.beam)
+				Pool.freeAtt(f.tip)
+			end
+			Pool.freeAtt(root)
+		end
+		local ring = rune
+		if ring and not runeGone then
+			runeGone = true
+			Ring.free(ring)
+			for _, tk in ticks do
+				Pool.freeBeam(tk.beam)
+				Pool.freeAtt(tk.a0)
+				Pool.freeAtt(tk.a1)
+			end
+		end
+		for _, e in emitters do
+			Pool.freeEmitter(e)
+		end
+	end
 	Driver.add(function(now: number): boolean
 		local t = now - now0
 		if not flashGone and t >= F.time then
@@ -270,7 +300,7 @@ function Muzzle.play(origin: Vector3, direction: Vector3, scale: number?, look: 
 			return false
 		end
 		return true
-	end)
+	end, finish)
 end
 
 return Muzzle
