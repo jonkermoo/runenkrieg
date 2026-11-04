@@ -295,13 +295,15 @@ end
 type Marker = { gui: BillboardGui, group: CanvasGroup, seal: PointSeal.Seal, label: TextLabel, fill: Frame }
 local markers: { [string]: Marker } = {}
 
-local function newMarker(id: string, text: string, rune: string): Marker?
+-- the pole standing on sector `id` now (src/server/Flagpoles stands them again for each map: every map's points share
+-- the ids S1..S5)
+local function poleOf(id: string): BasePart?
 	local poles = workspace:FindFirstChild(PoleCfg.FolderName)
 	local model = poles and poles:FindFirstChild(id)
-	local pole = model and (model :: Model).PrimaryPart
-	if not pole then
-		return nil
-	end
+	return model and (model :: Model).PrimaryPart
+end
+
+local function newMarker(pole: BasePart, text: string, rune: string): Marker
 	local M = Cfg.Marker
 	local g = Instance.new("BillboardGui")
 	g.Name = "ModeHudPoint"
@@ -423,16 +425,19 @@ local function updateFront(folder: Instance, now: number)
 		)
 		paint(d, pin, west, east, flashOn)
 		local m = markers[f.Name]
-		if open[f.Name] then
-			local index = (f:GetAttribute("Index") :: number?) or slot
-			m = m or newMarker(f.Name, if s then s.name else f.Name, PointSeal.rune(index, n))
-			if m then
-				markers[f.Name] = m
-				paintMarker(m, pin, f:GetAttribute("Owner") :: string?, west, east, now)
-			end
-		elseif m then
+		local pole = poleOf(f.Name)
+		-- (a beacon over a pole that's gone, the match moved to another map or the poles stood again, is built anew on
+		-- the new one; a pole not standing yet is looked for again next frame)
+		if m and (not open[f.Name] or m.gui.Adornee ~= pole) then
 			m.gui:Destroy()
 			markers[f.Name] = nil
+			m = nil
+		end
+		if open[f.Name] and pole then
+			local index = (f:GetAttribute("Index") :: number?) or slot
+			m = m or newMarker(pole, if s then s.name else f.Name, PointSeal.rune(index, n))
+			markers[f.Name] = m
+			paintMarker(m :: Marker, pin, f:GetAttribute("Owner") :: string?, west, east, now)
 		end
 	end
 	if folder:GetAttribute("Phase") == "Results" then
