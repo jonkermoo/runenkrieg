@@ -752,6 +752,7 @@ local function newMatch(reset: boolean?)
 	folder:SetAttribute("East", pair.East)
 	folder:SetAttribute("Winner", nil)
 	folder:SetAttribute(Cfg.LastCaptureAttribute, nil)
+	folder:SetAttribute(Cfg.UnitAttribute, nil)
 	folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
 	publish(empty())
 end
@@ -856,11 +857,12 @@ local function run()
 			-- (a sector just neutralised sits at its neutral rest while the push goes on: it starts over only once nobody
 			-- leads there)
 			for i in sectors do
-				local held = state.owner[i] ~= "Neutral" or counts[i].West == counts[i].East
-				if state.control[i] == Rules.rest(state.owner[i]) and held then
-					pushedAt[i] = nil
+				if state.control[i] == Rules.rest(state.owner[i]) then
+					if state.owner[i] ~= "Neutral" or counts[i].West == counts[i].East then
+						pushedAt[i] = nil
+					end
 				elseif not pushedAt[i] then
-					pushedAt[i] = last
+					pushedAt[i] = last - dt -- (the tick that moved it)
 				end
 			end
 			publish(counts, unit, inZone)
