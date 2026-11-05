@@ -521,7 +521,7 @@ local Bots = {
 		More = { per = 4, max = 8 },
 		Chain = { off = 4, past = 0.25 },
 		Redig = { keep = 300, tries = 2 },
-		pioneerTake = 400,
+		pioneerTake = 600, -- (was 400: Map 1 sectors stand ~420 apart, a held system behind the front out of reach)
 		-- a run refused for a tree in its way (Config/Bots.Build.Trees: the pioneers and Engineers fell it) waits `wait` s
 		-- for it to come down, up to `waits` times, before it swings aside as for any other refusal (a measured match:
 		-- every refusal a try, Map 1's trees had each side's fire trench given up for breastworks within a minute)

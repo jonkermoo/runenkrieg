@@ -1936,12 +1936,31 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		buriedOnly[i] = if square and works[i].built then p else none
 	end
 	local near = BotBuild.repairs(others, zone, BD.repair, #pieces)
-	local first = BotBuild.repairs(buriedOnly, zone, TR.digReach, TR.digs)
-	for _, i in first do
-		table.insert(near, i)
+	-- (near its front zone first, then near each other sector it holds with a trench system: lines left behind as the
+	-- front moved on are dug too, a measured match's front moving on left 19 planned squares out of reach)
+	local digZones = { zone }
+	for _, sys in sbs.systems do
+		local sec = Map.sectors[sys.sector]
+		if sys.sector ~= front and owner[sys.sector] == side and sec then
+			table.insert(digZones, { x = sec.x, z = sec.z, radius = sec.radius })
+		end
 	end
-	for _, i in BotBuild.repairs(squaresOnly, zone, TR.digReach, TR.digs - #first) do
-		table.insert(near, i)
+	local listed: { [number]: boolean } = {}
+	local function dig(list: { BotBuild.Piece })
+		for _, z in digZones do
+			for _, i in BotBuild.repairs(list, z, TR.digReach, TR.digs) do
+				if not listed[i] then
+					listed[i] = true
+					table.insert(near, i)
+				end
+			end
+		end
+	end
+	local before = #near
+	dig(buriedOnly)
+	dig(squaresOnly)
+	for k = #near, before + TR.digs + 1, -1 do
+		table.remove(near, k)
 	end
 	local order, fix = BotCrew.repairOrder(fixable, near, ArtCfg.Man.keep)
 	for _, i in order do
