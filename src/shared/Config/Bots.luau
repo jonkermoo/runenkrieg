@@ -832,6 +832,12 @@ local Bots = {
 		-- (the long walks), the newest `max`
 		Share = { keep = 30, goalWithin = 30, fromWithin = 20, longer = 60, max = 64 },
 		Arrive = 3, -- studs from a waypoint (flat) that count as reached
+		-- a waypoint reached between thinks is walked on from at once (Move.arrived; user 2026-11-04: bots "move like
+		-- 10 studs, stops, then moves again": thinking 2 to 10 times a second, a running bot reached its waypoint and
+		-- stood until its next think, and its legs, set at each think from its speed then, stood too); not again
+		-- within `ArriveGap` s, and only while its last think walked it, within `ArriveStale` s
+		ArriveGap = 0.05,
+		ArriveStale = 0.6,
 		StuckWindow = 1.5, -- seconds over which a moving bot must make StuckDistance of progress
 		StuckDistance = 1.5,
 		-- a progress sample older than this (s) is no sign: the bot wasn't walking (held in the wave line, down)
@@ -925,8 +931,9 @@ local Bots = {
 	-- around (just so it looks nice)"): a bot with no target for `after` seconds, not hit, shot at or near a shot for
 	-- that long, its suppression under `shaken`, no enemy spot its squad knows within `radius` studs and no enemy at all
 	-- within `near` studs (seen or not) carries its gun low: `move` walking, `stand` standing (Config/Locomotion holds).
-	-- Looks only: it raises the gun the moment one of those changes.
-	Calm = { after = 4, radius = 90, near = 40, shaken = 0.05, move = "carry", stand = "carry" },
+	-- Looks only: it raises the gun the moment one of those changes. (`stand` "ready", not "carry": the carry hold is a
+	-- running cycle, and standing still in it the gun shook as if running, user 2026-11-04; Rules/Bots.hold)
+	Calm = { after = 4, radius = 90, near = 40, shaken = 0.05, move = "carry", stand = "ready" },
 
 	-- difficulty (user 2026-10-30: reaction time, aim error, spot range)
 	Default = "Medium",

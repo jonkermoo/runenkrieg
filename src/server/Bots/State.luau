@@ -177,6 +177,7 @@ local stats = {
 	doors = 0, -- doors opened on the way
 	stairSteps = 0, -- thinks a bot walked a flight's middle line, not straight from its link's end (Indoors.stairWay)
 	doorsBumped = 0, -- shut doors a stuck bot opened in front of it (no door link on its path)
+	arrivals = 0, -- waypoints reached between thinks and walked on from at once (Move.arrived)
 	doorRepaths = 0, -- bots that pathed again after a door near them swung open or shut
 	laid = 0, -- pieces laid and trenches planned
 	swings = 0, -- Build swings that landed

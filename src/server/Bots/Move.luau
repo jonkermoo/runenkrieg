@@ -908,6 +908,26 @@ local function follow(b: Bot, now: number)
 end
 
 -- a step left or right of the line to `toward` (sometimes a little forward or back): the strafe in the open
+-- the humanoid reached the point it was walking to, between thinks (its MoveToFinished): on along its path at once,
+-- not standing until its next think (Config/Bots.Move.ArriveGap); only a bot its last think walked along a path (not
+-- down, crewing, acting, stepping straight to a point or waiting at a door)
+local function arrivedAt(b: Bot, reached: boolean)
+	local nav = b.nav
+	local now = os.clock()
+	if not reached or not b.root or not b.humanoid or b.deadAt or b.act or nav.direct then
+		return
+	end
+	if not nav.goal or not nav.waypoints[nav.index] or now - nav.doorAt < IN.doorWait then
+		return
+	end
+	if now - (nav.walkedAt or -math.huge) > MV.ArriveStale or now - (nav.arrivedAt or -math.huge) < MV.ArriveGap then
+		return
+	end
+	nav.arrivedAt = now
+	stats.arrivals += 1
+	follow(b, now)
+end
+
 local function strafeStep(b: Bot, toward: Vector3?, now: number)
 	local root = b.root :: BasePart
 	local nav = b.nav
@@ -1119,6 +1139,7 @@ return {
 	setGoal = setGoal,
 	follow = follow,
 	strafeStep = strafeStep,
+	arrived = arrivedAt,
 	stow = stow,
 	draw = draw,
 	putAway = putAway,

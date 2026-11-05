@@ -24,6 +24,8 @@ export type Nav = {
 	repaths: number,
 	direct: Vector3?, -- a point walked to straight, without a path (strafing, a peek, a step aside)
 	doorAt: number, -- when it last opened a door on its way (it waits while the door swings)
+	walkedAt: number?, -- the last think that walked it along (Move.arrived goes on from there between thinks)
+	arrivedAt: number?, -- when Move.arrived last took it on to its next waypoint
 }
 
 -- Normal: a job on its side's build list (Rules/BotBuild): where it is now (moved by refusals), the piece once laid

@@ -613,6 +613,16 @@ return {
 		local ox, oz = R.heard(5, 5, 5, 5, A, Rg, 0, 1)
 		assert(ox == 5 and oz == 5, "on top of it: no bearing to guess")
 	end,
+	["hold: aim first; calm holds; never a stepping cycle standing still"] = function()
+		local L = { IdleBelow = 0.75, SprintAbove = 13 }
+		local C = { move = "carry", stand = "carry" }
+		assert(R.hold(true, true, 16, C, L) == "aim")
+		assert(R.hold(false, true, 10, C, L) == "carry", "calm, walking")
+		assert(R.hold(false, true, 0, C, L) == "ready", "calm, standing: no carry cycle")
+		assert(R.hold(false, false, 16, C, L) == "carry" and R.hold(false, false, 10, C, L) == "walk")
+		assert(R.hold(false, false, 0.5, C, L) == "ready")
+		assert(R.hold(false, true, 0, Cfg.Calm, L) == "ready", "the game's calm stand")
+	end,
 	["lod: full rate near a player or in a fight, slower out of sight"] = function()
 		local L = Cfg.Budget.lod
 		local t, s = R.lod(10, false, L)
