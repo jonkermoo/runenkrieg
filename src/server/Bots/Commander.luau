@@ -1541,13 +1541,23 @@ end
 -- layouts, each fire line `edge` of the zone's radius out and `shift` studs across, the one with the fewest trees on
 -- its runs and the least shelled and seen ground (`side`; `eye`: where the enemy looks from)
 local function sited(make: (number, number) -> { BotTrenches.Run }, side: string, eye: Vector3?): { BotTrenches.Run }
-	local best, fewest = nil, math.huge
+	-- (the clearest ground first, what the planner refuses; of the layouts within Care.Site.slack of the clearest,
+	-- the least shelled and seen: a measured match sited for cover first ran its fire bays into walls)
+	local all, fewest = {}, math.huge
 	for _, edge in TR.Site.edges do
 		for _, shift in TR.Site.shifts do
 			local runs = make(edge, shift)
-			local n = treesOn(runs) + exposedCost(side, runs, eye)
-			if n < fewest then
-				best, fewest = runs, n
+			local n = treesOn(runs)
+			table.insert(all, { runs = runs, n = n })
+			fewest = math.min(fewest, n)
+		end
+	end
+	local best, least = nil, math.huge
+	for _, c in all do
+		if c.n <= fewest + CA.Site.slack then
+			local e = exposedCost(side, c.runs, eye)
+			if e < least then
+				best, least = c.runs, e
 			end
 		end
 	end
