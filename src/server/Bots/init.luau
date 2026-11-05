@@ -66,6 +66,7 @@ local ZoneCfg = require(Shared.Config.ZoneMatch)
 local FrontRules = require(Shared.Rules.Frontline)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
+local BotWait = require(Shared.Rules.BotWait)
 local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
 local Sup = require(Shared.Rules.Suppression)
@@ -407,6 +408,7 @@ spawnBody = function(b: Bot)
 	b.nav = newNav(root.Position)
 	b.spawnedAt, b.reachedZone, b.deadAt, b.respawnAt, b.wander = os.clock(), false, nil, nil, nil
 	b.coverJob, b.stand = nil, nil
+	b.wait, b.waitAt, b.prog = nil, nil, nil
 	b.shaken, b.shakenAt = 0, 0
 	if b.mode == "Normal" then
 		Frontline.deployBot(m) -- (its side's wave line: held and shielded until the wave goes)
@@ -614,6 +616,7 @@ local function watchdog(b: Bot, now: number, fighting: boolean, zone: Vector3?, 
 		and not b.devHouse
 		and not Healing.busy(b.m :: Model)
 		and not (post and flat((post :: Vector3) - p).Magnitude <= IDLE.post)
+		and not (b.wait and flat(b.wait.at - p).Magnitude <= IDLE.post)
 		and not (zone and flat(p - zone :: Vector3).Magnitude < radius * MV.InZoneShare)
 	if not free or not b.idleAt or flat(p - b.idleAt :: Vector3).Magnitude > IDLE.studs then
 		b.idleAt, b.idleSince = p, now
@@ -639,6 +642,194 @@ local function watchdog(b: Bot, now: number, fighting: boolean, zone: Vector3?, 
 	b.nav.waypoints, b.nav.pathAt, b.nav.direct = {}, -1, nil
 	-- (one down in a dugout's steps or room that isn't sheltering there is walked up its steps, then lifted out, by
 	-- think: freeStuck)
+end
+
+-- waiting instead of milling (Rules/BotWait, Config/Bots.Move.Wait) ----------------------------------------------------
+local WT = MV.Wait
+
+-- the places near (ax, az) a bot of `b`'s side could wait, and each one's point: its side's fire steps (facing out),
+-- support line and dug trench squares, and the hidden spots of its sector
+local function waitSpots(b: Bot, ax: number, az: number, reach: number): ({ BotWait.Spot }, { Vector3 })
+	local out: { BotWait.Spot }, at: { Vector3 } = {}, {}
+	local function put(v: Vector3, kind: string, face: Vector3?)
+		if math.abs(v.X - ax) <= reach and math.abs(v.Z - az) <= reach then
+			local f = if face then flat(face) else nil
+			f = if f and f.Magnitude > 1e-3 then f.Unit else nil
+			table.insert(out, { x = v.X, z = v.Z, kind = kind, fx = f and f.X, fz = f and f.Z })
+			table.insert(at, v)
+		end
+	end
+	local sb = if b.side then buildLists[b.side :: string] else nil
+	if sb then
+		for _, tp in sb.steps do
+			put(tp.pos, "step", tp.face)
+		end
+		for _, tp in sb.reserve do
+			put(tp.pos, "reserve", nil)
+		end
+		for _, sq in sb.squares do
+			put(sq.at, "square", nil)
+		end
+	end
+	if b.sector and b.side then
+		for _, sp in Routes.spots(b.sector :: number, b.side :: string, b.role == "Hold") or {} do
+			if sp.hidden then
+				put(sp.pos, "cover", nil)
+			end
+		end
+	end
+	return out, at
+end
+
+-- the soldiers of its side and the other bots' wait spots within `within` studs of (ax, az), the bot itself left out
+local function waitOthers(b: Bot, ax: number, az: number, within: number): { BotWait.Point }
+	local out: { BotWait.Point } = {}
+	local m = b.m :: Model
+	local kit = m:GetAttribute("Kit")
+	local all, n = soldiersNow()
+	for k = 1, n do
+		local o = all[k]
+		local q = o.pos
+		if o.model ~= m and math.abs(q.X - ax) <= within and math.abs(q.Z - az) <= within and friendly(m, kit, o) then
+			table.insert(out, { x = q.X, z = q.Z })
+		end
+	end
+	for _, o in bots do
+		local w = o.wait
+		if o ~= b and w and not o.deadAt and math.abs(w.at.X - ax) <= within and math.abs(w.at.Z - az) <= within then
+			table.insert(out, { x = w.at.X, z = w.at.Z })
+		end
+	end
+	return out
+end
+
+-- one think's wait: what the bot is doing that could be waited out (engaging in the open, in its zone, on an open hold
+-- spot, at its squad's stop, stuck short of its goal), kept while that holds; a fresh wait spot when it has none (a
+-- trench or hidden spot near, else a step away from the crowd, else where it stands). Whether it waits, and the goal
+-- then (nil: it stands where it is).
+local function waitStep(
+	b: Bot,
+	now: number,
+	move: string,
+	goal: Vector3?,
+	zone: Vector3?,
+	radius: number,
+	open: boolean,
+	busy: boolean
+): (boolean, Vector3?)
+	local root = b.root :: BasePart
+	local p = root.Position
+	local kind: string?, key: Vector3? = nil, nil
+	if b.mode == "Normal" and not busy then
+		if move == "Strafe" and open then
+			kind = "fight"
+		elseif
+			move == "Objective"
+			and zone
+			and b.role ~= "Move"
+			and flat(p - zone :: Vector3).Magnitude < radius * MV.InZoneShare
+		then
+			kind, key = "zone", zone
+		elseif move == "Hold" then
+			kind, key = "hold", b.goal or b.post
+		elseif move == "Objective" and goal then
+			kind, key = "go", goal
+		end
+	end
+	local w = b.wait
+	if w then
+		local over = w.untilAt ~= nil and now >= w.untilAt :: number
+		-- (the same thing waited out: the same kind, the same goal or zone within `gain` studs)
+		local wk = w.key
+		local same = w.kind == kind
+			and (key ~= nil) == (wk ~= nil)
+			and not (key and wk and flat((key :: Vector3) - wk :: Vector3).Magnitude > WT.gain)
+		if over or not same then
+			if over then
+				b.prog = nil
+				b.nav.pathAt = -1 -- (a fresh path, to try again)
+			end
+			b.wait, w = nil, nil
+		end
+	end
+	if not w and kind and now >= (b.waitAt or 0) then
+		local anchor: Vector3?, reach, why = nil, 0, kind :: string
+		if kind == "fight" then
+			anchor, reach = p, WT.fight
+		elseif kind == "zone" then
+			anchor, reach = zone, radius * MV.WanderShare
+		elseif kind == "hold" and key and flat((key :: Vector3) - p).Magnitude <= WT.arrive then
+			-- (on an open spot: spread out round it; fire steps, windows and dugouts are places of their own)
+			if b.postKind == "open" or b.postKind == nil then
+				anchor, reach = key, WT.stop
+			end
+		elseif key then
+			-- (on its way to its goal or post: one it gets no nearer, it waits near where it got to)
+			local k = key :: Vector3
+			local dist = flat(k - p).Magnitude
+			if kind == "go" and dist <= WT.arrive and k == b.goal then
+				anchor, reach, why = k, WT.stop, "stop"
+			elseif dist > WT.arrive then
+				local pr = b.prog or { key = nil, best = 0, at = now }
+				b.prog = pr
+				if BotWait.stalled(pr, { x = k.X, z = k.Z }, dist, now, WT) then
+					anchor, reach, why = p, WT.stalled, "stalled"
+				end
+			end
+		end
+		if anchor then
+			local a = anchor :: Vector3
+			b.waitAt = now + WT.every
+			local spots, points = waitSpots(b, a.X, a.Z, reach)
+			local others = waitOthers(b, a.X, a.Z, reach + WT.gap + WT.step)
+			local ex, ez = nil, nil
+			if b.sector and b.side then
+				ex, ez = BotBuild.toward(Map.sectors, b.sector :: number, b.side :: string)
+			end
+			local i = BotWait.pick(spots, a.X, a.Z, reach, p.X, p.Z, ex, ez, others, WT)
+			local at: Vector3, face: Vector3? = p, nil
+			if i then
+				local s = spots[i]
+				at = points[i]
+				face = if s.fx and s.fz then Vector3.new(s.fx, 0, s.fz) else nil
+				if s.kind == "cover" then
+					stats.waitCover += 1
+				else
+					stats.waitTrench += 1
+				end
+			else
+				local x, z = BotWait.spread(p.X, p.Z, a.X, a.Z, reach, others, WT.gap, WT.step, random:NextNumber())
+				if x and z then
+					at = Routes.ground(x, z)
+					stats.waitSpread += 1
+				else
+					stats.waitHere += 1
+				end
+			end
+			if not face and ex and ez then
+				face = Vector3.new(ex, 0, ez)
+			end
+			local nw = {
+				kind = kind :: string,
+				why = why,
+				key = key,
+				at = at,
+				face = face,
+				untilAt = if why == "stalled" then now + WT.hold else nil,
+			}
+			b.wait, w = nw, nw
+		end
+	end
+	if not w then
+		return false, nil
+	end
+	local spot = w.at
+	b.nav.direct = nil
+	if flat(spot - p).Magnitude <= MV.Arrive then
+		b.nav.goal, b.nav.waypoints = nil, {}
+		return true, nil
+	end
+	return true, spot
 end
 
 local function think(b: Bot, now: number, d: Rules.Difficulty)
@@ -950,6 +1141,13 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		-- Strafe (and anything with nowhere to go): never standing still
 		strafeStep(b, aimAt or zone, now)
 	end
+	-- nothing to do where it is (engaging in the open, in its zone, at its stop, stuck short of its goal): a wait spot
+	-- in a trench or cover near, spread out from the rest, held, firing at what it sees (Rules/BotWait)
+	local waits, waitGoal =
+		waitStep(b, now, move, goal, zone, radius, coverState ~= "at", toWork or b.guard ~= nil or b.devHouse ~= nil)
+	if waits then
+		goal = waitGoal
+	end
 	-- sent off by the idle watchdog: its stand point or zone a while, unless in a fight (Config/Bots.Move.Idle)
 	local us = b.unstick
 	if us and (now >= us.untilAt or flat(us.to - root.Position).Magnitude <= MV.Arrive * 2) then
@@ -990,6 +1188,8 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	end
 	if goal then
 		setGoal(b, goal, now)
+	elseif waits then
+		b.nav.goal, b.nav.waypoints = nil, {}
 	elseif move ~= "Strafe" and move ~= "Peek" and move ~= "Hold" then
 		b.nav.goal = nil
 	end
@@ -1031,6 +1231,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		-- at its window or doorway with nothing to aim at: looking out of it
 		humanoid.AutoRotate = false
 		turn.CFrame = CFrame.lookAt(Vector3.zero, b.postFace :: Vector3)
+		turn.Enabled = true
+	elseif b.wait and b.wait.face and flat(b.wait.at - root.Position).Magnitude < MV.Arrive then
+		-- at its wait spot with nothing to aim at: looking out toward the enemy
+		humanoid.AutoRotate = false
+		turn.CFrame = CFrame.lookAt(Vector3.zero, b.wait.face :: Vector3)
 		turn.Enabled = true
 	else
 		humanoid.AutoRotate = true

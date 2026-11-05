@@ -920,6 +920,35 @@ local Bots = {
 		-- (`seconds` 25, not 20: a squad waits up to Squads.waitMax 20 s at a waypoint for its members)
 		-- (a reset bot down inside a dugout that isn't its post walks straight up its steps first)
 		Idle = { seconds = 25, studs = 3, post = 4, push = 15 },
+		-- waiting instead of milling (Rules/BotWait; user 2026-11-05 hand test: "instead of standing idly, they just move
+		-- in the same spot. if they're going to think, at least have them do it in a trench or while they're providing
+		-- fire"): a Normal bot engaging in the open (no cover), inside its zone, at its squad's stop, or `stall` s no
+		-- `gain` studs nearer its goal goes to a wait spot near where it should be and holds there, firing at what it
+		-- sees:
+		-- - its side's fire steps, support line, dug trench squares and hidden spots, the best by `weights` (a fire
+		--   step facing the enemy best; `distance` a stud off), none within `gap` studs of another soldier or wait spot;
+		-- - none free: `step` studs away from the teammates crowding it (none crowding: it stands where it is);
+		-- - within `fight` studs of where it stands while engaging, the zone's wander circle in the zone, `stop` of its
+		--   squad's stop (a squad counts its members within Squads.arrive * 3 of a waypoint, Trenches.Jump.at of its
+		--   jump-off), `stalled` of where it got stuck (for `hold` s, then a fresh path);
+		-- - `arrive`: studs from its goal that count as there; a bot with none looks again every `every` s.
+		-- The stuck readout lists bots `mill.seconds` s inside `mill.radius` studs off post (shuffling, not standing
+		-- still), and how many stand in a clump (`clump.count` others within `clump.within` studs).
+		Wait = {
+			gap = 5,
+			step = 6,
+			fight = 30,
+			stop = 8,
+			stalled = 25,
+			arrive = 4,
+			stall = 10,
+			gain = 4,
+			hold = 12,
+			every = 1,
+			weights = { step = 30, reserve = 22, square = 15, cover = 10, distance = 0.5, facing = 10 },
+			mill = { radius = 8, seconds = 20 },
+			clump = { within = 4, count = 3 },
+		},
 		InZoneShare = 0.9, -- within this share of the zone's radius it counts as in the zone (and wanders there)
 		SprintFrom = 60, -- studs to the goal over which an advancing bot sprints
 		-- inside the zone: a new spot to stand on every this many seconds, within this share of the radius
