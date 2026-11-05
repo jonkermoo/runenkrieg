@@ -235,7 +235,9 @@ local function crewSpot(s: State, character: Model): CFrame?
 	local at = Vector3.new(above.X, y, above.Z)
 	-- (upright, along the gun's flat look: a gun laid tilted on a slope, Config/Build.Slope, doesn't lean its gunner)
 	local look = Vector3.new(pivot.LookVector.X, 0, pivot.LookVector.Z)
-	return CFrame.lookAt(at, at + (if look.Magnitude > 1e-3 then look.Unit else Vector3.new(0, 0, -1)))
+	local face = CFrame.lookAt(at, at + (if look.Magnitude > 1e-3 then look.Unit else Vector3.new(0, 0, -1)))
+	-- (turned to the breech: Config/Artillery `crewYaw`, + right)
+	return face * CFrame.Angles(0, -math.rad(s.gun.crewYaw or 0), 0)
 end
 
 -- A machine gun's box reload: unable to fire for the gun's `reload`, then full again
