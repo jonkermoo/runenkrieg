@@ -6,13 +6,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Net = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Net"))
 Net.init()
 
+-- The soldiers' groups: a team's soldiers pass through each other (src/server/SoldierGroups, Config/Collision).
+local SoldierGroups = require(script.SoldierGroups)
 -- Client debris must never collide with characters.
 PhysicsService:RegisterCollisionGroup("Debris")
-PhysicsService:RegisterCollisionGroup("Characters")
-PhysicsService:CollisionGroupSetCollidable("Debris", "Characters", false)
 -- The first-person viewmodel (src/client/Viewmodel) collides with nothing: its Humanoid forces the "Torso" part
 -- collidable every frame, and that torso sits inside the player's own head (it shoved the character around).
 PhysicsService:RegisterCollisionGroup("Viewmodel")
+SoldierGroups.register() -- (after Debris and Viewmodel: the camera's sweep passes through them)
+SoldierGroups.setWith("Debris", false)
 for _, g in PhysicsService:GetRegisteredCollisionGroups() do
 	PhysicsService:CollisionGroupSetCollidable("Viewmodel", g.name, false)
 end
@@ -23,21 +25,12 @@ do
 		PhysicsService:RegisterCollisionGroup(B.CollisionGroup)
 	end
 	for _, g in PhysicsService:GetRegisteredCollisionGroups() do
-		PhysicsService:CollisionGroupSetCollidable(B.CollisionGroup, g.name, table.find(B.Blocks, g.name) ~= nil)
+		local blocks = table.find(B.Blocks, g.name) ~= nil
+			or (table.find(B.Blocks, "Characters") ~= nil and SoldierGroups.isSoldier(g.name))
+		PhysicsService:CollisionGroupSetCollidable(B.CollisionGroup, g.name, blocks)
 	end
 end
-local function assign(character: Model)
-	for _, d in character:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.CollisionGroup = "Characters"
-		end
-	end
-	character.DescendantAdded:Connect(function(d)
-		if d:IsA("BasePart") then
-			d.CollisionGroup = "Characters"
-		end
-	end)
-end
+local assign = SoldierGroups.track
 Players.PlayerAdded:Connect(function(p)
 	p.CharacterAdded:Connect(assign)
 end)

@@ -101,6 +101,22 @@ function MapCheck.grid(
 			end
 		end
 	end
+	-- a walkable bridge's deck (river.bridges with `deck`): open over the water, at the deck's height
+	for _, br in if river then river.bridges or {} else {} do
+		if br.deck then
+			local f = MT.bridgeFrame(map, br)
+			for i = 1, nx * nz do
+				local x, z = MapCheck.position(g, i)
+				local s, side = MT.onBridge(f, x, z)
+				if s >= 0 and s <= f.length and math.abs(side) <= br.width / 2 then
+					local y = MT.deckHeight(map, br, f, s)
+					g.open[i] = true
+					g.height[i] = math.max(g.height[i], y)
+					g.top[i] = g.height[i]
+				end
+			end
+		end
+	end
 	for _, t in trees do
 		local x, z = t.x, t.z
 		if not t.far and x >= b.minX and x <= b.maxX and z >= b.minZ and z <= b.maxZ then

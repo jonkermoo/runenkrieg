@@ -34,6 +34,8 @@ local ArtilleryCfg = require(Shared.Config.Artillery)
 local ArtilleryRules = require(Shared.Rules.Artillery)
 local Classes = require(Shared.Config.Classes)
 local DevCfg = require(Shared.Config.DevTools)
+local FrontCfg = require(Shared.Config.Frontline)
+local FrontRules = require(Shared.Rules.Frontline)
 local ClassRules = require(Shared.Rules.Classes)
 local Survey = require(Shared.BuildSurvey)
 local Net = require(Shared.Net)
@@ -93,6 +95,30 @@ end
 local function piece(): Rules.Piece
 	local list = pieces()
 	return list[math.clamp(index, 1, #list)]
+end
+
+-- why your side can't build gun `key` yet in a Normal match (the Frontline folder's sectors held, as src/server/Build
+-- reads them: Rules/Frontline.gunLocked), nil when it can, outside one or with the admin panel's build anything
+local function gunLocked(key: string): string?
+	local player = Players.LocalPlayer
+	if player:GetAttribute(DevCfg.Admin.BuildAllAttribute) == true then
+		return nil
+	end
+	local front = workspace:FindFirstChild(FrontCfg.FolderName)
+	local character = player.Character
+	local team = character and character:GetAttribute("Kit")
+	if not front or type(team) ~= "string" then
+		return nil
+	end
+	local side = if front:GetAttribute("West") == team
+		then "West"
+		elseif front:GetAttribute("East") == team then "East"
+		else nil
+	local held = side and front:GetAttribute(side .. FrontCfg.HeldAttribute)
+	if type(held) ~= "number" then
+		return nil
+	end
+	return FrontRules.gunLocked(FrontCfg.Artillery, key, held)
 end
 
 -- the trench planner's ghost: its model and the pieces drawn each frame
@@ -538,6 +564,7 @@ local function surveyPiece(character: Model, root: BasePart)
 		overTrench = Survey.overTrench(p, box, f),
 		gunGap = gun and Survey.gunGap(p, at, f),
 		nearTrench = Survey.nearTrench(p, box, f),
+		locked = if gun then gunLocked(p.key) else nil,
 		mine = 0, -- (the caps are the server's to check)
 		team = 0,
 		perPlayer = C.PerPlayer,
@@ -996,7 +1023,15 @@ function Build.start()
 						else { { fire, "lay" }, { keyName("Key_BuildTurn"), "turn" }, { exit, "exit" } },
 				}
 			end
-			if view and current and not current.ok and current.reason then
+			-- a gun your side can't build yet: "<NAME>: UNAVAILABLE" in the bad colour, the short why under it, wherever
+			-- the cursor is (Config/Frontline.Artillery; user 2026-11-04)
+			local locked = if view and view.mode == "Place" and p.kind == "Gun" then gunLocked(p.key) else nil
+			if view and locked then
+				view.edge = "bad"
+				view.titleBad = true
+				view.title = `{p.name}: {FrontCfg.Artillery.unavailable}`
+				view.stat = { icon = "bad", tone = "bad", text = locked }
+			elseif view and current and not current.ok and current.reason then
 				local head, rest = split(current.reason)
 				view.edge = "bad"
 				view.titleBad = view.mode == "Place"

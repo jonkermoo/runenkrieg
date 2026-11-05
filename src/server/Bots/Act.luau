@@ -302,8 +302,57 @@ local function skipJob(b: Bot, r: BuildJob, seconds: number, now: number)
 	b.skipJobs = skip
 end
 
+-- job `r` left by `b` for good reason (no way there, no swing, flapping): left to others for Work.lost s; once
+-- Work.giveUpAfter bots have left it, refused for its side (its spot nudged, or dropped a while: the planner)
+local refused: (r: BuildJob, now: number, why: string?) -> ()
+local function lose(b: Bot, r: BuildJob, why: string, now: number)
+	skipJob(b, r, BD.Work.lost, now)
+	local n = b.jobNote
+	if n and n.job == r then
+		n.stops += 1
+		n.why = why
+	end
+	b.work, b.workState = nil, nil
+	local by = r.lostBy or {}
+	r.lostBy = by
+	by[b.id] = true
+	local count = 0
+	for _ in by do
+		count += 1
+	end
+	-- (a piece laid already stays on the list while it wants swings: each bot leaves it, nothing more)
+	if count >= BD.Work.giveUpAfter and not r.model then
+		r.lostBy = nil
+		stats.workOutOfReach += 1
+		refused(r, now, `out of reach ({why})`)
+	end
+end
+
+-- whether `b` has held job `r` too long for nothing (Config/Bots.Build.Work): no swing landed for noSwing s on the
+-- job's own clock (b.jobNote: kept while it takes the same job again), or begun and broken off at once flapMax times;
+-- if so it is left (lose) and true
+local function idleJob(b: Bot, r: BuildJob, now: number): boolean
+	local n = b.jobNote
+	if not n or n.job ~= r then
+		return false
+	end
+	n.heldAt = now
+	if now - n.landed >= BD.Work.noSwing then
+		stats.workNoSwing += 1
+		lose(b, r, "no swing", now)
+		return true
+	end
+	if n.flaps >= BD.Work.flapMax then
+		stats.workFlapped += 1
+		lose(b, r, "begun and broken off", now)
+		return true
+	end
+	return false
+end
+
 -- a build job taken (or gone back to): worked now if it is there and safe, else walked to with the gun out, fighting on
--- the way (b.work: think's goal; Config/Bots.Build.Work); left to others when it gets no nearer (Work.stall)
+-- the way (b.work: think's goal; Config/Bots.Build.Work); left to others when it gets no nearer (Work.stall), or when
+-- it has held it too long for nothing (idleJob)
 local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
 	local at, reach = workAt(r)
 	local w = b.work
@@ -311,12 +360,26 @@ local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
 		w = { job = r, at = at, since = now, brave = brave == true, bestAt = now }
 		b.work = w
 		stats.workTaken += 1
+		-- (the same job again soon after: its clock goes on; held by it no more for Work.keep s: a fresh one)
 		local n = b.jobNote
-		if not n or n.job ~= r then
-			b.jobNote = { job = r, since = now, landed = now, starts = 0, stops = 0, swings = 0, why = "taken" }
+		if not n or n.job ~= r or now - n.heldAt > BD.Work.keep then
+			b.jobNote = {
+				job = r,
+				since = now,
+				landed = now,
+				heldAt = now,
+				starts = 0,
+				stops = 0,
+				swings = 0,
+				flaps = 0,
+				why = "taken",
+			}
 		end
 	else
 		w.at = at
+	end
+	if idleJob(b, r, now) then
+		return
 	end
 	local near = flat(at - (b.root :: BasePart).Position).Magnitude <= reach + BD.Work.near
 	if near and safeHere(b, r, (w :: any).brave, now) then
@@ -337,13 +400,7 @@ local function takeJob(b: Bot, r: BuildJob, now: number, brave: boolean?)
 		w.best, w.bestAt, gave = BotBuild.stalled(dist, w.best, w.bestAt, now, fighting, BD.Work)
 		if gave then
 			stats.workStalled += 1
-			skipJob(b, r, BD.Work.lost, now)
-			local n = b.jobNote
-			if n then
-				n.stops += 1
-				n.why = "no way there"
-			end
-			b.work, b.workState = nil, nil
+			lose(b, r, "no way there", now)
 		end
 	end
 end
@@ -786,7 +843,7 @@ end
 local TREE = "A tree is in the way"
 
 -- a refused lay: its spot moved across (Rules/BotBuild.nudge), after Build.tries the planned spot again a while later
-local function refused(r: BuildJob, now: number, why: string?)
+refused = function(r: BuildJob, now: number, why: string?)
 	stats.refused += 1
 	-- (a tree in a trench run's way: it waits for the tree to be felled, Config/Bots.Trenches.Tree)
 	local TT = Cfg.Trenches.Tree
@@ -848,17 +905,21 @@ end
 -- a build, one think of it: to the job, the piece laid (once), then Build swings at it until it wants none, the
 -- shovel in hand; given up when it's shot at, sees an enemy, the job leaves the list or takes too long
 -- why `b` broke off its build job (the job readout, b.jobNote)
-local function stopped(b: Bot, why: string)
+-- (`act`: the work broken off; begun and broken off within Work.flapWithin s with no swing counts a flap)
+local function stopped(b: Bot, why: string, act: Act?, now: number?)
 	local n = b.jobNote
 	if n then
 		n.stops += 1
 		n.why = why
+		if act and now and now - act.started <= BD.Work.flapWithin and n.landed < act.started then
+			n.flaps += 1
+		end
 	end
 end
 
 -- the job over (done, refused, gone): nothing to go back to
-local function quit(b: Bot, why: string)
-	stopped(b, why)
+local function quit(b: Bot, why: string, act: Act?, now: number?)
+	stopped(b, why, act, now)
 	b.work, b.workState = nil, nil
 	finish(b)
 end
@@ -876,12 +937,17 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		quit(b, if r.open then "too long" else "off the list")
 		return false
 	end
+	-- (held too long for nothing: walking up to it in reach, or never swinging there; Config/Bots.Build.Work)
+	if idleJob(b, r, now) then
+		finish(b)
+		return false
+	end
 	-- danger mid-work: the tool dropped, the gun out, the job kept to go back to once safe (Config/Bots.Build.Work)
 	local work = b.work
 	local hurt = b.hurtAt ~= nil and (b.hurtAt :: number) > act.started
 	if hurt or not safeHere(b, r, work ~= nil and work.brave, now) then
 		stats.workStopped += 1
-		stopped(b, if hurt then "hurt" else "not safe")
+		stopped(b, if hurt then "hurt" else "not safe", act, now)
 		finish(b)
 		if work then
 			work.since = math.max(work.since, now - BD.Work.keep / 2) -- (a while yet to get back to it)
@@ -916,7 +982,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		end
 		if work and flat(from - root.Position).Magnitude > fromReach + BD.Work.near * 2 then
 			-- (far off still: walked to with the gun out, fighting on the way)
-			stopped(b, "far off")
+			stopped(b, "far off", act, now)
 			finish(b)
 			b.workState = "going"
 			return false
@@ -1012,7 +1078,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		end
 		local w = laidFor(b, job)
 		if not w then
-			quit(b, "laid, not listed yet") -- (it is on the next tick's list)
+			quit(b, "laid, not listed yet", act, now) -- (it is on the next tick's list)
 			return false
 		end
 		r.model, r.at, r.left = w.model, w.at, w.left
@@ -1380,4 +1446,12 @@ return {
 	staffFire = staffFire,
 	bombOut = bombOut,
 	takeJob = takeJob,
+	lose = lose,
+	-- (each think: its job left if held too long for nothing)
+	checkJob = function(b: Bot, now: number)
+		local w = b.work
+		if w then
+			idleJob(b, w.job, now)
+		end
+	end,
 }

@@ -203,6 +203,11 @@ local Camera = {
 	-- the ground starts `lift` studs over the surface found by a ray from `probe` studs above it (not further: a roof over
 	-- the body); `lift` is more than `radius`, so the sweep never starts inside the ground.
 	Down = { radius = 0.3, gap = 0.1, lift = 0.4, probe = 1 },
+	-- Roblox's own camera (empty hands, the shovel) through soldiers (user 2026-11-04: "sometimes cameras gets stuck in
+	-- a teammates head in third person"; src/client/FreeCamera): Roblox already looks past players, but not bots. When
+	-- a soldier is what pulled it in, it goes back out to the chosen zoom, stopped by a sphere this big (studs) swept
+	-- through everything but soldiers, `gap` short of what it hits. Pulled in by less than `slack` studs: left alone.
+	Through = { radius = 0.4, gap = 0.1, slack = 0.2 },
 }
 
 return table.freeze(Camera)

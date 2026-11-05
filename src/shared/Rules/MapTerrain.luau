@@ -121,6 +121,34 @@ function MapTerrain.riverDistance(map: any, x: number, z: number): number
 	return (MapTerrain.riverNearest(map, x, z))
 end
 
+-- A bridge over the river (a map's `river.bridges`): its west (or south) end and the unit way across, square to the
+-- river where its centre (b.x, b.z) stands on the river's line.
+export type BridgeFrame = { ax: number, az: number, ux: number, uz: number, length: number }
+
+function MapTerrain.bridgeFrame(map: any, b: any): BridgeFrame
+	-- the way across: from the river's line out to a probe east of the centre
+	local _, qx, qz = MapTerrain.riverNearest(map, b.x + 20, b.z)
+	local ux, uz = b.x + 20 - qx, b.z - qz
+	local l = math.sqrt(ux * ux + uz * uz)
+	ux, uz = ux / l, uz / l
+	return { ax = b.x - ux * b.length / 2, az = b.z - uz * b.length / 2, ux = ux, uz = uz, length = b.length }
+end
+
+-- A walkable bridge's deck top at `s` studs from its west end: a straight line from the ground at one end to the
+-- ground at the other, raised `b.hump` in the middle (a footbridge's gentle arch).
+function MapTerrain.deckHeight(map: any, b: any, f: BridgeFrame, s: number): number
+	local ya = MapTerrain.heightAt(map, f.ax, f.az)
+	local yb = MapTerrain.heightAt(map, f.ax + f.ux * f.length, f.az + f.uz * f.length)
+	local t = math.clamp(s / f.length, 0, 1)
+	return ya + (yb - ya) * t + (b.hump or 0) * math.sin(math.pi * t)
+end
+
+-- Where (x, z) is on a bridge's deck: its distance along from the west end and to the side of the middle line.
+function MapTerrain.onBridge(f: BridgeFrame, x: number, z: number): (number, number)
+	local dx, dz = x - f.ax, z - f.az
+	return dx * f.ux + dz * f.uz, dz * f.ux - dx * f.uz
+end
+
 local function ridgeHeight(map: any, x: number): number
 	local r = map.ridge
 	if not r or x <= r.upStart or x >= r.downEnd then

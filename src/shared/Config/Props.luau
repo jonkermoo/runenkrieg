@@ -20,6 +20,24 @@ local Props = {
 	-- across the sleepers' width; Rules/Village.railBed: the ground never rises over a rail), `beyond` past the bounds
 	Railway = { gauge = 4.7, height = 0.45, segment = 4, sleepers = 2, samples = 3, beyond = 150 },
 
+	-- River bridges (a map's river.bridges, src/dev/Greybox/Bridges). A footbridge: `plank`-thick deck laid in `step`
+	-- lengths, posts every `postEvery` with a top rail `railHeight` over the deck, trestle legs `leg` thick at `legsAt`
+	-- of the way across, down to the river bed. A broken bridge: stone stumps `stoneHeight` over their bank end's ground,
+	-- the fallen span `drop` degrees down off each into the water, and `rubble` blocks in the river between.
+	Bridge = {
+		plank = 0.6,
+		step = 4,
+		postEvery = 8,
+		post = 0.5,
+		railHeight = 3,
+		leg = 0.8,
+		legsAt = { 0.3, 0.5, 0.7 },
+		stoneHeight = 5,
+		span = 9,
+		drop = 24,
+		rubble = 3,
+	},
+
 	-- Kinds a village plot boundary can use, picked by hash per plot.
 	BoundaryKinds = { "StoneWall", "StoneWall", "PicketFence", "RailFence", "Hedge" },
 

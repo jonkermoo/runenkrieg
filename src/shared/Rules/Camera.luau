@@ -119,4 +119,15 @@ function Camera.downReach(want: number, hit: number?, gap: number): number
 	return math.clamp(hit - gap, 0, want)
 end
 
+-- How far out Roblox's camera should sit (Config/Camera.Through): `at` studs out now, the zoom chosen `want`, nothing
+-- but soldiers in the way for `free` studs (nil: nothing), and whether a soldier is the first thing in the way
+-- (`soldier`). Nil: leave it where Roblox put it (no soldier in the way, or no farther than it is now).
+function Camera.through(at: number, want: number, free: number?, soldier: boolean, gap: number, slack: number): number?
+	if not soldier then
+		return nil
+	end
+	local out = if free == nil then want else math.clamp(free - gap, 0, want)
+	return if out > at + slack then out else nil
+end
+
 return Camera

@@ -6,6 +6,18 @@ local Camera = require("../src/shared/Rules/Camera")
 local S = Cfg.Staff
 
 return {
+	["Roblox's camera goes back out past a soldier, never past a wall"] = function()
+		local T = Cfg.Through
+		assert(Camera.through(1, 9, nil, false, T.gap, T.slack) == nil, "no soldier: Roblox's own")
+		assert(Camera.through(1, 9, nil, true, T.gap, T.slack) == 9, "a soldier, nothing else: the chosen zoom")
+		assert(
+			math.abs((Camera.through(1, 9, 5, true, T.gap, T.slack) :: number) - (5 - T.gap)) < 1e-9,
+			"a wall behind"
+		)
+		assert(Camera.through(4.85, 9, 5, true, T.gap, T.slack) == nil, "already at the wall")
+		assert(Camera.through(1, 9, 0.5, true, T.gap, T.slack) == nil, "never nearer than Roblox put it")
+		assert(Camera.through(8.9, 9, nil, true, T.gap, T.slack) == nil, "within the slack")
+	end,
 	["knocked down, the camera stops short of the ground and walls"] = function()
 		local D = Cfg.Down
 		assert(Camera.downReach(0.5, nil, D.gap) == 0.5, "nothing in the way: where it was")

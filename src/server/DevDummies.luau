@@ -24,6 +24,7 @@ local Net = require(Shared.Net)
 local Helmets = require(script.Parent.Helmets)
 local Ragdoll = require(script.Parent.Ragdoll)
 local Showcase = require(script.Parent.Showcase)
+local SoldierGroups = require(script.Parent.SoldierGroups)
 
 local DevDummies = {}
 
@@ -304,15 +305,7 @@ function DevDummies.spawn(spec: Spec): Model?
 		Helmets.dress(m, nil)
 	end
 	m:SetAttribute("Muted", nil)
-	local function group(d: Instance)
-		if d:IsA("BasePart") then
-			d.CollisionGroup = "Characters" -- (client debris passes through, as with players)
-		end
-	end
-	for _, d in m:GetDescendants() do
-		group(d)
-	end
-	m.DescendantAdded:Connect(group)
+	SoldierGroups.track(m) -- (its team's group, as with players: client debris passes through)
 	local humanoid = m:FindFirstChildOfClass("Humanoid") :: Humanoid
 	humanoid.BreakJointsOnDeath = false
 	humanoid.MaxHealth = DamageCfg.Health
