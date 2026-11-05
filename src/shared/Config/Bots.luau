@@ -671,7 +671,7 @@ local Bots = {
 	Callouts = {
 		near = 70,
 		hear = 90,
-		-- about 40% less chatter (user 2026-11-04: "reduce how much the ai's chat by 40% ish"): botEvery was 8,
+		-- about 40% less chatter (user 2026-11-04: the bots should chat about 40% less): botEvery was 8,
 		-- sideEvery 2.5, and the chatter chances (Spotted to Reload) x 0.6 of 0.6 / 0.35; the calls that matter stay at 1
 		botEvery = 13,
 		sideEvery = 4.2,
