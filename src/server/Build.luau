@@ -900,6 +900,14 @@ local function layoutDugout(r: Rec): boolean
 		)
 	end
 	plate("Wall", Vector3.new(w, h, t), CFrame.new(0, floor + h / 2, back + t / 2), 2)
+	-- 1 (the ground is cut from then on): the cut round them filled, past their plates (Rules.dugoutSeals); a bullet
+	-- meeting one is shot into the ground (Build.shot: colliding, a part is queried whatever its CanQuery)
+	local face = Rules.trenchTop(C.Trench) - C.Trench.floor
+	for _, s in Rules.dugoutSeals(p, G, face, top) do
+		local size = Vector3.new(s.x1 - s.x0, s.y1 - s.y0, s.z1 - s.z0)
+		plate(s.name, size, CFrame.new((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, (s.z0 + s.z1) / 2), 1)
+		plates[#plates]:SetAttribute("Seal", true)
+	end
 	r.meshes, r.plates = meshes, plates
 	return true
 end
@@ -2250,6 +2258,11 @@ end
 -- A bullet meeting `part` at `point` (src/server/Firing): a trench square (a piece, or the ground in it) or a sandbag
 -- pile loses Structures.bullet
 function Build.shot(part: Instance, point: Vector3)
+	-- (a dugout's seal is the ground it fills: shot as the ground; a colliding part is always met, CanQuery or not)
+	if part:GetAttribute("Seal") then
+		Trenches.shot(workspace.Terrain, point)
+		return
+	end
 	if Trenches.shot(part, point) then
 		return
 	end
