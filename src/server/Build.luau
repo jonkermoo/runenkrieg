@@ -2075,11 +2075,16 @@ end
 -- One shovel swing at `target` (a piece's model, a trench square's model or a tree's part) in `mode` ("Build" or
 -- "Destroy"), no sooner than Config/Build.SwingSlack of the shortest strike gap after its last (it swings on
 -- Build.nextSwing); within Config/Build.SwingReach of a piece
--- (Trench.swingReach of a square). Nil when the swing landed.
-function Build.workAs(model: Model, target: Instance, mode: string): string?
+-- (Trench.swingReach of a square). Nil when the swing landed. A Build swing at a square at its max adds extra HP
+-- (reinforces it) only when `reinforce` is set (a bot's reinforce job): "Whole" otherwise.
+function Build.workAs(model: Model, target: Instance, mode: string, reinforce: boolean?): string?
 	local b = bot(model)
 	if not b then
 		return "Not a live bot"
+	end
+	local blk = if mode == "Build" then Trenches.blockOf(target) else nil
+	if blk and blk.hp >= C.Trench.hp.max and not reinforce then
+		return "Whole"
 	end
 	local before = lastSwing[model]
 	if Rules.tooSoon(os.clock(), before, GAP, C.SwingSlack) then

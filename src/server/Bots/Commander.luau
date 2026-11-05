@@ -2195,6 +2195,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			local rr = r :: BuildJob
 			rr.at, rr.left, rr.open, rr.fix = w.at, reinforce[i] or w.left, true, fix[i] == true
 			rr.buried = square and w.built
+			rr.reinforce = reinforce[i] ~= nil -- (a plain dig job at a full square swings no more: Act.doBuild)
 			keep[w.model] = rr
 			table.insert(sbs.open, rr)
 		end
