@@ -139,12 +139,12 @@ local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
 end
 
--- one low-poly rock: a tilted main block with two smaller blocks set into it at other angles, so it reads faceted like
--- the map's low-poly trees. `top` is its highest point, `bottom` buried in the bed.
+-- one low-poly rock from the RockKit (a faceted mesh: a stepping stone or a boulder), `size` across its longest side,
+-- standing from `bottom` (buried in the bed) to `top`, turned and tilted by `seed`
 local function rock(
-	Parts: any,
 	folder: Instance,
 	name: string,
+	mesh: MeshPart,
 	at: Vector3,
 	size: number,
 	top: number,
@@ -153,35 +153,28 @@ local function rock(
 	seed: number,
 	C: any
 )
-	local h = top - bottom
 	local tilt = math.rad(C.rockTilt)
-	local function angles(k: number): CFrame
-		return CFrame.Angles(
-			(hash(seed, k, 1) - 0.5) * 2 * tilt,
-			hash(seed, k, 2) * math.pi * 2,
-			(hash(seed, k, 3) - 0.5) * 2 * tilt
+	local p = mesh:Clone()
+	local s0 = mesh.Size
+	local k = size / math.max(s0.X, s0.Z)
+	local h = math.max(top - bottom, 0.4)
+	p.Name = name
+	p.Size = Vector3.new(s0.X * k, h, s0.Z * k)
+	p.CFrame = CFrame.new(at.X, bottom + h / 2, at.Z)
+		* CFrame.Angles(
+			(hash(seed, 0, 1) - 0.5) * 2 * tilt,
+			hash(seed, 0, 2) * math.pi * 2,
+			(hash(seed, 0, 3) - 0.5) * 2 * tilt
 		)
-	end
-	local w, d = size * lerp(0.8, 1.15, hash(seed, 0, 4)), size * lerp(0.6, 0.95, hash(seed, 0, 5))
-	Parts.box(folder, name, CFrame.new(at.X, bottom + h / 2 - 0.2, at.Z) * angles(0), Vector3.new(w, h, d), color)
-	for k = 1, 2 do
-		local a = hash(seed, k, 6) * math.pi * 2
-		local off = Vector3.new(math.cos(a), 0, math.sin(a)) * size * 0.28
-		local kh = h * lerp(0.55, 0.85, hash(seed, k, 7))
-		local ks = size * lerp(0.45, 0.65, hash(seed, k, 8))
-		Parts.box(
-			folder,
-			name,
-			CFrame.new(at.X + off.X, bottom + kh / 2, at.Z + off.Z) * angles(k),
-			Vector3.new(ks, kh, ks * lerp(0.7, 1, hash(seed, k, 9))),
-			color:Lerp(Color3.new(0, 0, 0), 0.06 * k)
-		)
-	end
+	p.Anchored = true
+	p.Material = Enum.Material.SmoothPlastic
+	p.Color = color
+	p.Parent = folder
 end
 
 -- a ford's rocks (a ford with `rocks`): flat-topped stepping stones winding across the water square to the river, at
 -- uneven steps and sizes, a few half-sunk pebbles strewn round them and boulders at the water's edge on each bank
-local function rockPath(Parts: any, folder: Instance, map: any, MT: any, ford: any, C: any, palette: any)
+local function rockPath(folder: Instance, map: any, MT: any, ford: any, C: any, palette: any, kit: Model, entry: any)
 	local r = map.river
 	local f = MT.bridgeFrame(map, { x = ford.x, z = ford.z, length = r.width + 2 * r.bankWidth })
 	local shades = { rgb(palette.Props.Stone), rgb(palette.Props.StoneDark), rgb(palette.Terrain.Rock) }
@@ -191,6 +184,12 @@ local function rockPath(Parts: any, folder: Instance, map: any, MT: any, ford: a
 	end
 	local side = Vector3.new(-f.uz, 0, f.ux)
 	local seed0 = ford.z * 0.37
+	local function variant(kind: string, seed: number): MeshPart
+		local names = entry.variants[kind]
+		local m = kit:FindFirstChild(names[1 + math.floor(hash(seed, 7, 7) * #names)], true)
+		assert(m and m:IsA("MeshPart"), "rock kit missing " .. kind)
+		return m
+	end
 	-- the ground as built (the terrain's voxels, not heightAt: they sit a little over it on the banks)
 	local only = RaycastParams.new()
 	only.FilterType = Enum.RaycastFilterType.Include
@@ -216,9 +215,9 @@ local function rockPath(Parts: any, folder: Instance, map: any, MT: any, ford: a
 			local seed = seed0 + i
 			local top = r.waterY + lerp(C.rockTop[1], C.rockTop[2], hash(seed, 0, 13))
 			rock(
-				Parts,
 				folder,
 				"Rock",
+				variant("Step", seed),
 				p,
 				lerp(C.rock[1], C.rock[2], hash(seed, 0, 14)),
 				top,
@@ -241,9 +240,9 @@ local function rockPath(Parts: any, folder: Instance, map: any, MT: any, ford: a
 			if ground < r.waterY and math.abs(off) > 2.2 then
 				local top = r.waterY + lerp(-0.3, 0.4, hash(seed, 0, 17))
 				rock(
-					Parts,
 					folder,
 					"Pebble",
+					variant("Boulder", seed),
 					p,
 					lerp(C.pebble[1], C.pebble[2], hash(seed, 0, 18)),
 					top,
@@ -263,9 +262,9 @@ local function rockPath(Parts: any, folder: Instance, map: any, MT: any, ford: a
 				local ground = groundAt(p.X, p.Z)
 				local size = lerp(C.rock[2], C.rock[2] * 1.4, hash(seed, 0, 20))
 				rock(
-					Parts,
 					folder,
 					"Boulder",
+					variant("Boulder", seed),
 					p,
 					size,
 					math.max(ground, r.waterY) + size * 0.5,
@@ -281,13 +280,23 @@ end
 
 -- builds every bridge of the map's river into `folder`, and the rock path of each ford with `rocks`; returns how many
 -- bridges
-function Bridges.build(folder: Instance, map: any, MT: any, Parts: any, C: any, palette: any): number
+-- rockKit = the RockKit library model (src/dev/Library.ensure("RockKit")), rockEntry its Config/Assets entry
+function Bridges.build(
+	folder: Instance,
+	map: any,
+	MT: any,
+	Parts: any,
+	C: any,
+	palette: any,
+	rockKit: Model,
+	rockEntry: any
+): number
 	for _, ford in map.river and map.river.fords or {} do
 		if ford.rocks then
 			local m = Instance.new("Model")
 			m.Name = "RockFord"
 			m.Parent = folder
-			rockPath(Parts, m, map, MT, ford, C, palette)
+			rockPath(m, map, MT, ford, C, palette, rockKit, rockEntry)
 		end
 	end
 	local list = map.river and map.river.bridges or {}

@@ -40,7 +40,7 @@ local Props = {
 		-- every `rockStep` (min, max) along a line winding `rockWobble` either side of the square crossing (plus
 		-- `rockJitter`), each topped `rockTop` (min, max) over the water and tilted up to `rockTilt` degrees; `pebbles`
 		-- half-sunk stones `pebble` across strewn up to `pebbleSpread` off the path; `bankRocks` boulders at each end
-		rock = { 2.2, 3.6 },
+		rock = { 2.8, 4.4 },
 		rockStep = { 2.8, 4.0 },
 		rockWobble = 2.2,
 		rockJitter = 0.8,
