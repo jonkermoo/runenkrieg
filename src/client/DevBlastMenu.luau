@@ -180,6 +180,21 @@ local function build(player: Player): ScreenGui
 			end
 		end)
 	end
+	-- the trench square nearest the aim point reinforced to 100 + x, or stripped back to 100 (src/server/DevTools)
+	for _, x in B.TrenchExtra do
+		order += 1
+		local key = `TrenchExtra{x}`
+		local label = if x > 0 then `Trench at aim to 100 + {x}` else "Trench at aim: strip to 100"
+		local button = DevPanel.button(p.panel, key, label, order)
+		pieceButtons[key] = button
+		pieceNames[key] = label
+		button.Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer("TrenchExtra", x, aim)
+			end
+		end)
+	end
 	-- the bots at the aim point (Normal; src/server/Bots.dev): the nearest squad pushes there, the nearest bot
 	-- butt-strokes toward it, the nearest free gun goes to the nearest bot, the nearest bot digs a foxhole there (gun out
 	-- until it is safe to dig: the bot labels show "going", "waiting" or "Build"), the nearest bot knocked down there (its

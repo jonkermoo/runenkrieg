@@ -647,6 +647,14 @@ local Bots = {
 		clearWithin = 8,
 		clear = 1.5,
 		tear = { SandbagPile = true, Hesco = true, Wire = true },
+		-- reinforcing its dug squares past 100 (Config/Build.Trench.hp.extra; Rules/BotBuild.reinforceSlots; user
+		-- 2026-11-04: "bots shouldnt prioritize protection if they are just trying to push forward. or if theres a lot of
+		-- troops, some can work on reinforcing if its safe"): only once no square on its list wants digging, never
+		-- while its side is standing to; defending (the other side holds the initiative) up to `defend` squares at a
+		-- time; holding the initiative with no offensive running and at least `crowd` bots, `crowded`; none while its
+		-- offensive runs or before anyone holds the initiative. Its dug squares within `reach` of its front zone's
+		-- edge, nearest first; each bot still builds only when calm (Build.calm).
+		Reinforce = { defend = 3, crowd = 10, crowded = 1, reach = 120 },
 	},
 
 	-- Normal: moving by trench (Rules/BotTrenches.danger; user 2026-11-02: "most pvp should be trench based. if bots can,

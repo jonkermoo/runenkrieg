@@ -70,7 +70,15 @@ export type Sap = {
 	dugAt: number, -- when it began, or its last run was dug (Config/Bots.Sap.dig)
 	began: number?, -- when it began (Config/Bots.Sap.maxSeconds)
 }
-export type TrenchSquare = { x: number, z: number, at: Vector3, model: Model, left: number, built: boolean }
+export type TrenchSquare = {
+	x: number,
+	z: number,
+	at: Vector3,
+	model: Model,
+	left: number,
+	built: boolean,
+	extra: number,
+}
 
 -- Normal: what a bot does instead of fighting for a while (Rules/BotActions): a drag of `who` to `to` (cover from the
 -- enemy spot `from`), a heal of `who`, a grenade at `at`
