@@ -243,6 +243,29 @@ return {
 			assert(near < 40, string.format("lane %d meets the river %.0f studs from a crossing", k, near))
 		end
 	end,
+	["the rock ford: wide shallow water you can see (not a dry bar), wadeable, with its rock path"] = function()
+		local r = Map.river
+		local n = 0
+		for _, f in r.fords do
+			if f.rocks then
+				n += 1
+				assert(f.width >= 24, "the rock ford is narrow")
+				for _, dz in { -f.width / 2 + 2, 0, f.width / 2 - 2 } do
+					local _, cx, cz = MT.riverNearest(Map, f.x, f.z + dz)
+					local depth = r.waterY - MT.heightAt(Map, cx, cz)
+					assert(depth > 1.5 and depth < Cfg.WadeDepth, `the rock ford is {depth} deep at {dz}`)
+				end
+			end
+		end
+		assert(n == 1, "one rock ford")
+		-- its voxels sunk so the water shows: the whole sink on the ford's bed, none off it or at the other fords
+		for _, f in r.fords do
+			local _, cx, cz = MT.riverNearest(Map, f.x, f.z)
+			local want = f.sink or 0
+			assert(math.abs(MT.fordSink(Map, cx, cz) - want) < 1e-6, `ford at {f.z} sinks {MT.fordSink(Map, cx, cz)}`)
+		end
+		assert(MT.fordSink(Map, 1600, Map.sectors[4].z) == 0, "sinks dry land")
+	end,
 	["the Aurel's bridges: on the river, ends on dry banks, a walkable deck over the water"] = function()
 		local r = Map.river
 		local maxRise = math.tan(math.rad(M.Movement.MaxSlopeAngle))

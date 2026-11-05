@@ -1,7 +1,7 @@
 --!strict
 -- River crossings (a map's `river.bridges`, Config/Props.Bridge): a wooden footbridge whose deck is walked over deep
 -- water (Rules/MapTerrain.deckHeight, the same surface the walk grid uses), or an old stone bridge's two stumps over a
--- ford, its span fallen into the river. Not destructible: a crossing stays a crossing.
+-- ford, its span fallen into the river; and a ford's path of flat rocks. Not destructible: a crossing stays a crossing.
 
 local Bridges = {}
 
@@ -129,8 +129,44 @@ local function brokenBridge(Parts: any, folder: Instance, map: any, MT: any, br:
 	end
 end
 
--- builds every bridge of the map's river into `folder`; returns how many
+-- a path of flat rocks across a shallow ford, on the line square to the river through the ford's point; a rock only
+-- where the ground is under water
+local function rockPath(Parts: any, folder: Instance, map: any, MT: any, ford: any, C: any, palette: any)
+	local r = map.river
+	local f = MT.bridgeFrame(map, { x = ford.x, z = ford.z, length = r.width + 2 * r.bankWidth })
+	local stone, darkStone = rgb(palette.Props.Stone), rgb(palette.Props.StoneDark)
+	local side = Vector3.new(-f.uz, 0, f.ux)
+	local i = 0
+	for s = C.rockStep / 2, f.length, C.rockStep do
+		local x, z = f.ax + f.ux * s, f.az + f.uz * s
+		local ground = MT.heightAt(map, x, z)
+		if ground < r.waterY then
+			i += 1
+			local h = 0.5 + 0.5 * math.sin(i * 12.9898 + ford.z * 0.37)
+			local top = r.waterY + C.rockTop + (h - 0.5) * 0.3
+			local c = Vector3.new(x, (top + ground - 0.5) / 2, z) + side * (h - 0.5) * 2 * C.rockJitter
+			Parts.box(
+				folder,
+				"Rock",
+				CFrame.new(c) * CFrame.Angles(0, math.rad(h * 70), 0),
+				Vector3.new(C.rock * (0.85 + 0.3 * h), top - ground + 0.5, C.rock * (1.15 - 0.3 * h)),
+				if i % 3 == 0 then darkStone else stone
+			)
+		end
+	end
+end
+
+-- builds every bridge of the map's river into `folder`, and the rock path of each ford with `rocks`; returns how many
+-- bridges
 function Bridges.build(folder: Instance, map: any, MT: any, Parts: any, C: any, palette: any): number
+	for _, ford in map.river and map.river.fords or {} do
+		if ford.rocks then
+			local m = Instance.new("Model")
+			m.Name = "RockFord"
+			m.Parent = folder
+			rockPath(Parts, m, map, MT, ford, C, palette)
+		end
+	end
 	local list = map.river and map.river.bridges or {}
 	for _, br in list do
 		local m = Instance.new("Model")

@@ -41,7 +41,7 @@ for _, q in { { 1220, 74 }, { 1260, 74 }, { 1307, -45 }, { 1335, -34 }, { 1362, 
 	table.insert(lanterns, { kind = "LanternPole", x = q[1], z = CZ + q[2] })
 end
 -- cover by the two new crossings, the same on each bank: a cart by each end of the footbridge (turned about its middle)
--- and barrels by the old bridge's stumps (mirrored over the river)
+-- and barrels by the rock ford (mirrored over the river)
 for _, q in { { 1410, 103, 80 }, { 1488, 127, 260 } } do
 	table.insert(lanterns, { kind = "Cart", x = q[1], z = CZ + q[2], yaw = q[3] })
 end
@@ -194,17 +194,19 @@ local LanternMeadows = {
 			{ x = 1444, z = CZ + 0, width = 30, bedY = -3.6 }, -- the festival ford: wide and shallow, by the landing
 			{ x = 1447, z = CZ + 200, width = 9, bedY = -3.8 }, -- a narrow ford upstream
 			{ x = 1470, z = CZ - 145, width = 8, bedY = -3.8 }, -- stepping stones at the bend
-			-- the old bridge's ford: its span long fallen, the river wadeable under it (user 2026-11-04)
-			{ x = 1458, z = CZ - 114, width = 18, bedY = -3.6 },
+			-- the rock ford: a wide stretch of shallow water, a path of flat rocks across it (user 2026-11-04: "replace the
+			-- broken bridge with just more shallow water ... a pathway of rocks on it"; src/dev/Greybox/Bridges). Its
+			-- voxels sunk `sink` so its water shows (Rules/MapTerrain.fordSink), ~1.9 deep: still wadeable
+			{ x = 1455, z = CZ - 100, width = 32, bedY = -4.4, rocks = true, sink = 2 },
 		},
 		-- Crossings built over the river (src/dev/Greybox/Bridges; user 2026-11-04 approved the spots), ~115 either side
 		-- of the festival ford so each bot lane (Config/Bots.Routes) has its own way over. (x, z) on the river's line;
 		-- `length` across it, `width` along it. `deck`: walkable over deep water (the walk grid opens it,
 		-- Rules/MapCheck), a straight run from bank to bank raised `hump` in the middle; else stone stumps either end
-		-- over a ford (the cover stays, the span is gone).
+		-- over a ford (the cover stays, the span is gone). The footbridge widened (user 2026-11-04: "make the wood
+		-- bridge wider"); the south crossing is now the rock ford above.
 		bridges = {
-			{ id = "Footbridge", x = 1449, z = CZ + 115, length = 64, width = 8, deck = true, hump = 2 },
-			{ id = "OldBridge", x = 1454, z = CZ - 94, length = 64, width = 7, stump = 11 },
+			{ id = "Footbridge", x = 1449, z = CZ + 115, length = 64, width = 14, deck = true, hump = 2 },
 		},
 	},
 	-- tree-free ground: the festival ground behind S3 (its stage, later its lantern-makers' hall)
@@ -212,7 +214,7 @@ local LanternMeadows = {
 		{ id = "Festival", minX = 1180, maxX = 1300, minZ = CZ + 60, maxZ = CZ + 170 },
 		-- the two crossings' banks (no trees on the bridges or their approaches)
 		{ id = "Footbridge", minX = 1395, maxX = 1505, minZ = CZ + 85, maxZ = CZ + 145 },
-		{ id = "OldBridge", minX = 1400, maxX = 1515, minZ = CZ - 140, maxZ = CZ - 78 },
+		{ id = "RockFord", minX = 1400, maxX = 1515, minZ = CZ - 140, maxZ = CZ - 78 },
 	},
 
 	-- The festival road through the meadows and over the ford, its landmarks and the fields' hedgerows
@@ -280,6 +282,16 @@ local LanternMeadows = {
 			-- the ferry house on the east bank just north of the festival ford, its landing and boat on the river (west)
 			{ id = "Ferry", style = "FerryHouse", x = 1483, z = CZ + 55, front = { -1, 0 } },
 		},
+		-- hand-placed ordinary houses (Rules/Village: gardens and yards like the road's, not landmarks; `road` if it fronts one). The riverside
+		-- houses between S4 and the river (user 2026-11-04: "add a few more houses here"): one each side of the road
+		-- facing it, two behind them above the rock ford; clear of S4's square and of East's wave line at S3 (x ~1500-1530
+		-- just south of the road)
+		houses = {
+			{ id = "River_1", style = "SelvaCasetta", x = 1545, z = CZ + 26, front = { 0, -1 }, road = "Main" },
+			{ id = "River_2", style = "SelvaStairHouse", x = 1572, z = CZ - 9, front = { 0, 1 }, road = "Main" },
+			{ id = "River_3", style = "SelvaLongHouse", x = 1530, z = CZ - 62, front = { 0, 1 } },
+			{ id = "River_4", style = "SelvaCasetta", x = 1590, z = CZ - 60, front = { 0, 1 } },
+		},
 		-- the hedgerow fields round S2, the same either side of its x (the point stays fair), with gaps to pass
 		hedgerows = (function()
 			local out = {}
@@ -294,7 +306,7 @@ local LanternMeadows = {
 				end
 			end
 			-- by the crossings: a hedge on each bank of the footbridge (turned about its middle) and a low rubble wall on
-			-- each bank of the old bridge (mirrored), all along the river to face across it
+			-- each bank of the rock ford (mirrored), all along the river to face across it
 			table.insert(out, { a = p(1404, 122), b = p(1404, 142) })
 			table.insert(out, { a = p(1494, 88), b = p(1494, 108) })
 			table.insert(out, { kind = "StoneWall", a = p(1418, -128), b = p(1418, -114) })

@@ -62,9 +62,36 @@ return Maps.each(function(map: any, name: string)
 				assert(not MT.isRiver(map, l.x, l.z) or B.Templates[l.style].waterside, `{l.id} in the river`)
 			end
 		end,
+		["no building on a wave line (where a side's soldiers stand when they hold a point; Rules/Frontline)"] = function()
+			local FR = require("../src/shared/Rules/Frontline")
+			local Line = require("../src/shared/Config/Frontline").Line
+			local S = map.sectors
+			for i = 2, #S - 1 do
+				for _, side in { "West", "East" } do
+					local cx, cz = FR.lineCentre(S, i, side, Line)
+					local aim = S[if side == "West" then i + 1 else i - 1]
+					local fx, fz = aim.x - cx, aim.z - cz
+					local l = math.sqrt(fx * fx + fz * fz)
+					fx, fz = fx / l, fz / l
+					for k = 1, Line.tries do
+						local r, bk = FR.slot(k, Line)
+						local x, z = cx - fz * r - fx * bk, cz + fx * r - fz * bk
+						local h = Line.clear[1] / 2
+						local q = { { x - h, z - h }, { x + h, z - h }, { x + h, z + h }, { x - h, z + h } }
+						for _, lot in lots do
+							-- (the lot with its eaves and a garden wall's width round it)
+							assert(
+								not V.quadsOverlap(V.corners(lot, pad + 3), q),
+								`{lot.id} on {S[i].id} {side}'s wave line`
+							)
+						end
+					end
+				end
+			end
+		end,
 		["every road-side house faces its road (door within reach of the road)"] = function()
 			for _, l in lots do
-				if not l.special then
+				if not l.special and l.road then -- (a hand-placed house off the road has none)
 					local dx, dz = l.x + l.fx * (l.depth / 2 + 1), l.z + l.fz * (l.depth / 2 + 1)
 					assert(MT.roadDistance(map, dx, dz) < cfg.setback + 6, `{l.id} door far from road`)
 				end
