@@ -1333,18 +1333,11 @@ local function sited(make: (number, number) -> { BotTrenches.Run }): { BotTrench
 	return best :: { BotTrenches.Run }
 end
 
--- a system's fire trench planned (or refused everywhere: its breastwork stands in) up to its middle bay, where the next
--- line's communication trench leaves it (BotTrenches.fireMid; the far bays go on alongside, 2026-11-04 throughput)
+-- a system's fire trench planned (or refused everywhere: its breastwork stands in), every bay of it
 local function fireLaid(sys: TrenchSystem, squares: { TrenchSquare }): boolean
-	local fires = 0
-	for _, r in sys.runs do
-		fires += if (r.run :: BotTrenches.Run).kind == "Fire" then 1 else 0
-	end
-	local need, seen = math.ceil(fires / 2), 0
 	for _, r in sys.runs do
 		local run = r.run :: BotTrenches.Run
-		seen += if run.kind == "Fire" then 1 else 0
-		if run.kind == "Fire" and seen <= need and not r.gaveUp then
+		if run.kind == "Fire" and not r.gaveUp then
 			local j = r.job
 			local at = { kind = run.kind, ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number }
 			if not BotTrenches.laid(at, squares, TR.on, TR.ends) then

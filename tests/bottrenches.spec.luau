@@ -96,18 +96,6 @@ return {
 		local support = table.find(kinds, "Support") :: number
 		assert(R.ready({}, support, kinds), "the support line alongside the fire trench")
 		assert(not R.ready({}, support + 1, kinds), "the communication trench still last")
-		-- (the communication trench once the support line and the bays up to the middle one are planned)
-		local mid = math.ceil(T.Fire.bays / 2)
-		local some = {}
-		for k = 1, mid do
-			some[k] = true
-		end
-		assert(not R.ready(some, support + 1, kinds), "not before the support line")
-		some[support] = true
-		assert(R.ready(some, support + 1, kinds), "alongside the far bays")
-		assert(not R.ready(some, support + 2, kinds), "its own legs in order")
-		some[mid] = false
-		assert(not R.ready(some, support + 1, kinds), "not before the middle bay it tees into")
 	end,
 	["swing: the far end steps aside, one way then the other; the start stays"] = function()
 		local x1, z1 = R.swing(0, 0, 0, 16, 1, 6)
