@@ -36,12 +36,20 @@ local Props = {
 		span = 9,
 		drop = 24,
 		rubble = 3,
-		-- a ford's rock path (a ford with `rocks`): flat rocks `rock` across, one every `rockStep` along the ford's middle
-		-- line, each `rockTop` over the water, turned and set off the line a little by hash so the path looks laid by hand
-		rock = 2.8,
-		rockStep = 3.4,
-		rockTop = 0.4,
-		rockJitter = 0.7,
+		-- a ford's rocks (a ford with `rocks`, src/dev/Greybox/Bridges): stepping stones `rock` across (min, max), one
+		-- every `rockStep` (min, max) along a line winding `rockWobble` either side of the square crossing (plus
+		-- `rockJitter`), each topped `rockTop` (min, max) over the water and tilted up to `rockTilt` degrees; `pebbles`
+		-- half-sunk stones `pebble` across strewn up to `pebbleSpread` off the path; `bankRocks` boulders at each end
+		rock = { 2.2, 3.6 },
+		rockStep = { 2.8, 4.0 },
+		rockWobble = 2.2,
+		rockJitter = 0.8,
+		rockTop = { 0.4, 0.9 },
+		rockTilt = 9,
+		pebbles = 18,
+		pebble = { 0.8, 1.6 },
+		pebbleSpread = 9,
+		bankRocks = 2,
 	},
 
 	-- Kinds a village plot boundary can use, picked by hash per plot.

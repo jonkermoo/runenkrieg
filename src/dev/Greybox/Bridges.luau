@@ -129,29 +129,152 @@ local function brokenBridge(Parts: any, folder: Instance, map: any, MT: any, br:
 	end
 end
 
--- a path of flat rocks across a shallow ford, on the line square to the river through the ford's point; a rock only
--- where the ground is under water
+-- a stable 0..1 from a few numbers (the same rocks every build)
+local function hash(a: number, b: number, c: number): number
+	local v = math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453
+	return v - math.floor(v)
+end
+
+local function lerp(a: number, b: number, t: number): number
+	return a + (b - a) * t
+end
+
+-- one low-poly rock: a tilted main block with two smaller blocks set into it at other angles, so it reads faceted like
+-- the map's low-poly trees. `top` is its highest point, `bottom` buried in the bed.
+local function rock(
+	Parts: any,
+	folder: Instance,
+	name: string,
+	at: Vector3,
+	size: number,
+	top: number,
+	bottom: number,
+	color: Color3,
+	seed: number,
+	C: any
+)
+	local h = top - bottom
+	local tilt = math.rad(C.rockTilt)
+	local function angles(k: number): CFrame
+		return CFrame.Angles(
+			(hash(seed, k, 1) - 0.5) * 2 * tilt,
+			hash(seed, k, 2) * math.pi * 2,
+			(hash(seed, k, 3) - 0.5) * 2 * tilt
+		)
+	end
+	local w, d = size * lerp(0.8, 1.15, hash(seed, 0, 4)), size * lerp(0.6, 0.95, hash(seed, 0, 5))
+	Parts.box(folder, name, CFrame.new(at.X, bottom + h / 2 - 0.2, at.Z) * angles(0), Vector3.new(w, h, d), color)
+	for k = 1, 2 do
+		local a = hash(seed, k, 6) * math.pi * 2
+		local off = Vector3.new(math.cos(a), 0, math.sin(a)) * size * 0.28
+		local kh = h * lerp(0.55, 0.85, hash(seed, k, 7))
+		local ks = size * lerp(0.45, 0.65, hash(seed, k, 8))
+		Parts.box(
+			folder,
+			name,
+			CFrame.new(at.X + off.X, bottom + kh / 2, at.Z + off.Z) * angles(k),
+			Vector3.new(ks, kh, ks * lerp(0.7, 1, hash(seed, k, 9))),
+			color:Lerp(Color3.new(0, 0, 0), 0.06 * k)
+		)
+	end
+end
+
+-- a ford's rocks (a ford with `rocks`): flat-topped stepping stones winding across the water square to the river, at
+-- uneven steps and sizes, a few half-sunk pebbles strewn round them and boulders at the water's edge on each bank
 local function rockPath(Parts: any, folder: Instance, map: any, MT: any, ford: any, C: any, palette: any)
 	local r = map.river
 	local f = MT.bridgeFrame(map, { x = ford.x, z = ford.z, length = r.width + 2 * r.bankWidth })
-	local stone, darkStone = rgb(palette.Props.Stone), rgb(palette.Props.StoneDark)
+	local shades = { rgb(palette.Props.Stone), rgb(palette.Props.StoneDark), rgb(palette.Terrain.Rock) }
+	local function shade(seed: number): Color3
+		local a = shades[1 + math.floor(hash(seed, 9, 1) * #shades)]
+		return a:Lerp(shades[1], hash(seed, 9, 2) * 0.4)
+	end
 	local side = Vector3.new(-f.uz, 0, f.ux)
-	local i = 0
-	for s = C.rockStep / 2, f.length, C.rockStep do
-		local x, z = f.ax + f.ux * s, f.az + f.uz * s
-		local ground = MT.heightAt(map, x, z)
+	local seed0 = ford.z * 0.37
+	-- the ground as built (the terrain's voxels, not heightAt: they sit a little over it on the banks)
+	local only = RaycastParams.new()
+	only.FilterType = Enum.RaycastFilterType.Include
+	only.FilterDescendantsInstances = { workspace.Terrain }
+	only.IgnoreWater = true
+	local function groundAt(x: number, z: number): number
+		local hit = workspace:Raycast(Vector3.new(x, 200, z), Vector3.new(0, -400, 0), only)
+		return if hit then hit.Position.Y else MT.heightAt(map, x, z)
+	end
+	local phase = hash(seed0, 1, 1) * math.pi * 2
+	-- the stepping stones
+	local s, i = 0, 0
+	local wet: { number } = {}
+	while s < f.length do
+		s += lerp(C.rockStep[1], C.rockStep[2], hash(seed0, i, 11))
+		local wob = math.sin(s / f.length * math.pi * 2 + phase) * C.rockWobble
+			+ (hash(seed0, i, 12) - 0.5) * 2 * C.rockJitter
+		local p = Vector3.new(f.ax + f.ux * s, 0, f.az + f.uz * s) + side * wob
+		local ground = groundAt(p.X, p.Z)
 		if ground < r.waterY then
 			i += 1
-			local h = 0.5 + 0.5 * math.sin(i * 12.9898 + ford.z * 0.37)
-			local top = r.waterY + C.rockTop + (h - 0.5) * 0.3
-			local c = Vector3.new(x, (top + ground - 0.5) / 2, z) + side * (h - 0.5) * 2 * C.rockJitter
-			Parts.box(
+			table.insert(wet, s)
+			local seed = seed0 + i
+			local top = r.waterY + lerp(C.rockTop[1], C.rockTop[2], hash(seed, 0, 13))
+			rock(
+				Parts,
 				folder,
 				"Rock",
-				CFrame.new(c) * CFrame.Angles(0, math.rad(h * 70), 0),
-				Vector3.new(C.rock * (0.85 + 0.3 * h), top - ground + 0.5, C.rock * (1.15 - 0.3 * h)),
-				if i % 3 == 0 then darkStone else stone
+				p,
+				lerp(C.rock[1], C.rock[2], hash(seed, 0, 14)),
+				top,
+				ground - 0.5,
+				shade(seed),
+				seed,
+				C
 			)
+		end
+	end
+	-- pebbles round the path, most under the water line
+	if #wet > 0 then
+		local s0, s1 = wet[1], wet[#wet]
+		for k = 1, C.pebbles do
+			local seed = seed0 + 100 + k
+			local ps = lerp(s0, s1, hash(seed, 0, 15))
+			local off = (hash(seed, 0, 16) - 0.5) * 2 * C.pebbleSpread
+			local p = Vector3.new(f.ax + f.ux * ps, 0, f.az + f.uz * ps) + side * off
+			local ground = groundAt(p.X, p.Z)
+			if ground < r.waterY and math.abs(off) > 2.2 then
+				local top = r.waterY + lerp(-0.3, 0.4, hash(seed, 0, 17))
+				rock(
+					Parts,
+					folder,
+					"Pebble",
+					p,
+					lerp(C.pebble[1], C.pebble[2], hash(seed, 0, 18)),
+					top,
+					ground - 0.3,
+					shade(seed),
+					seed,
+					C
+				)
+			end
+		end
+		-- boulders at the water's edge on each bank, beside the path's ends
+		for e, edge in { s0 - 1.5, s1 + 1.5 } do
+			for k = 1, C.bankRocks do
+				local seed = seed0 + 200 + e * 10 + k
+				local off = (if k % 2 == 0 then 1 else -1) * lerp(3, 7, hash(seed, 0, 19))
+				local p = Vector3.new(f.ax + f.ux * edge, 0, f.az + f.uz * edge) + side * off
+				local ground = groundAt(p.X, p.Z)
+				local size = lerp(C.rock[2], C.rock[2] * 1.4, hash(seed, 0, 20))
+				rock(
+					Parts,
+					folder,
+					"Boulder",
+					p,
+					size,
+					math.max(ground, r.waterY) + size * 0.5,
+					ground - 0.6,
+					shade(seed),
+					seed,
+					C
+				)
+			end
 		end
 	end
 end
