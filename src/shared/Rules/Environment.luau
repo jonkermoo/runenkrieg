@@ -133,6 +133,11 @@ function Environment.look(daylight: number, kind: string, w: number, base: Haze,
 		sun, cover = mix(1, ev.brightness, s), mix(cover, ev.clouds, s)
 		wet = if ev.wet then mix(1, ev.wet, s) else 1
 	end
+	-- the night thickens the haze (user 2026-11-05: "you can still see, but you have to be a little bit closer to see
+	-- people better"): soldiers close by stay lit, far ones fade; never thinner than the weather's own
+	local NH = L.nightHaze
+	density = mix(density, math.max(density, NH.density), night)
+	haze = mix(haze, math.max(haze, NH.haze), night)
 	local rain = if kind == "Rain" then s else 0
 	local cloud = mixColor(W.clouds.color, W.clouds.rainColor, rain)
 	local glow = 4 * d * night * L.dusk.strength * (1 - s) -- (none under fog or rain)

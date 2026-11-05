@@ -160,6 +160,8 @@ local DevTools = {
 		DownHealth = 0.4, -- "Nearest bot knocked down here": its health share after (src/server/Bots.dev "Down")
 		-- the admin panel's readout of each side's bot classes (src/server/Bots, every commander tick in Normal)
 		BotClassesAttribute = "DevBotClasses",
+		-- the admin panel's readout of how far bots see now (Config/Bots.Seeing: weather and daylight; src/server/Bots)
+		BotSightAttribute = "DevBotSight",
 		-- the admin panel's readout of each side's Engineer bots: each one's build job, or why it has none
 		-- (src/server/Bots, every commander tick)
 		BotEngineersAttribute = "DevBotEngineers",

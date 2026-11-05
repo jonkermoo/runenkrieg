@@ -245,6 +245,12 @@ local Bots = {
 	-- looks it is not re-checked); a covering-fire spot whose line was blocked is not fired at, nor aimed at, for
 	-- `blockedFor` seconds.
 	Sight = { near = 6, stale = 0.15, blockedFor = 3 },
+	-- How far a bot can make a soldier out (Rules/Bots.sightRange; user 2026-11-05: "are bot visibility range accurate
+	-- with fog?"), as far as a player can on screen (Config/Environment's haze, Studio stills): `clear` studs on a clear
+	-- day, times the weather's share at its full strength (Fog, Rain; eased over its fades) and `night` at full night
+	-- (eased over the twilight). Its difficulty's spotRange caps it too. A soldier who fired within `flashFor` seconds is
+	-- seen out to `flash` x the weather's range, night or not (the muzzle flash). Rechecked every `every` seconds.
+	Seeing = { clear = 600, Fog = 0.3, Rain = 0.55, night = 0.4, flash = 0.9, flashFor = 0.6, every = 1 },
 	-- Butt strokes (Rules/BotBuild.strikes, src/server/Melee.strikeAs; user 2026-11-02 hand test: "also allow AI to melee
 	-- (dont force them to just because are withing range)"; "Sometimes"): with its target within Config/Melee.Hit.reach
 	-- less `margin`, a bot strikes on a roll under `chance` (`empty` with its gun empty or loading), rolled at most every
