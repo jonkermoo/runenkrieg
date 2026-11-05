@@ -451,8 +451,59 @@ local Bots = {
 	-- squads take a lane off to one side (alternating), walking by a point `offset` studs across from the straight
 	-- way; every `every`-th MG nest goes at the hold spot farthest across, every `every`-th gun spot at least `gunFrom`
 	-- studs across (shelling the enemy's front from an angle).
+	-- Offensives and the initiative (Rules/BotOrders.initiative, offensive; user 2026-11-04: fights stale at the zone
+	-- edge, "an intense fight should be exciting and engaging, not boring"). Bots only: the game's rules are the
+	-- players'. At match start both sides race for the middle; from the first capture one side holds the initiative and
+	-- runs an offensive on its target sector, while the other defends at its front with `screen` squads still attacking.
+	-- The initiative passes when the offensive captures (the loser counter-attacks), when the defender captures, or when
+	-- the offensive is spent.
+	-- - Gather: the attack squads go to their jump-off (a dug trench by the zone, else their approach spot) and wait,
+	--   no push; at least `gatherWaves` respawn waves (Config/Frontline.Waves.every) and until `ready` of them are
+	--   there, at most `gatherSeconds` (a counter-attack into a sector lost under `counterWithin` s ago: all of
+	--   `counterGather`, while the side that took it digs in, `dig`).
+	-- - Barrage: `barrageSeconds` of every crewed gun on the target: known MG nests and guns first, then
+	--   `barragePoints` spots within `barrageSpread` studs of the zone's middle, then its dug squares.
+	-- - Go: every attack squad goes in together (Assault, no ready check).
+	-- - Exploit: `exploitAt` heads of the side in the zone and more than the enemy's: `exploitHold` of the squads hold
+	--   the zone, the rest stand on the defenders' approach spots. Back to Go once nobody of it is in the zone.
+	-- - Spent (the initiative passes): `spentShare` of the lives that went in since Go lost, or `maxSeconds` from Go
+	--   (`exploitMore` s more while exploiting).
+	-- `hold`: the share of the attacking side's bots holding its front meanwhile (Trenches.hold stays for the side
+	-- without the initiative). An Assault squad out of the zone whose middle hasn't moved Squads.Open.moved studs in
+	-- `stuckFor` s finds its way in again. Strongpoints (`strong`): an enemy-manned gun or MG nest on enemy ground is
+	-- known once a squad of the side knew an enemy within `seen` studs of it, for `forget` s; within `within` studs of the
+	-- target it is the barrage's first target; within `reach` studs of a gathering squad its Grenadier throws at it and,
+	-- with a Grenadier or Mage in it, the squad bounds at it.
+	Offensive = {
+		screen = 1,
+		hold = 0.2,
+		gatherSeconds = 60,
+		gatherWaves = 2,
+		ready = 0.6,
+		counterWithin = 60,
+		-- (20 to 50, user 2026-11-04: every counter-attack retook S4 within a minute or two, so the front only swung there)
+		counterGather = 50,
+		barrageSeconds = 20,
+		barragePoints = 3,
+		barrageSpread = 25,
+		-- (90 to 75 and spentShare 0.6 to 0.45, user 2026-11-04: "it's fine if it takes like half an hour to get a
+		-- sector. this is meant to be a pretty slow paced game": a held, dug-in sector should usually survive a push)
+		maxSeconds = 75,
+		exploitMore = 60,
+		spentShare = 0.45,
+		exploitAt = 2,
+		exploitHold = 0.5,
+		stuckFor = 25,
+		strong = { seen = 15, forget = 90, within = 220, reach = 90 },
+		-- digging in where it just took a sector (user 2026-11-04: "dig in, slower counter"): for `hold` s every `every`th
+		-- holder there holds a spot inside the zone (the flag itself), the rest the fire steps on its own lines and the
+		-- enemy's squares it took over (Trenches.takeOver), the support line and hold spots as before
+		dig = { hold = 240, every = 2 },
+	},
+
 	Front = {
-		sapFrom = 150,
+		-- (150 to 90, user 2026-11-04: the 60-150-stud band was where the attackers died sapping)
+		sapFrom = 90,
 		parallel = { at = 40, width = 24 },
 		Flank = { share = 1 / 3, offset = 90, every = 3, gunFrom = 120 },
 	},
@@ -461,7 +512,14 @@ local Bots = {
 	-- refused run after run): a run refused `Build.tries` times, a run through water (looked at every `waterStep` studs
 	-- along it), or no run dug in `dig` s; the squad then presses on (Squads.Open.press) and starts no sap for `rest` s
 	-- (Rules/BotSap.failed).
+	-- A sap has a deadline (Rules/BotSap.deadline; the stale-fights plan 2026-11-04): it is for reaching the jump-off,
+	-- so with the initiative it starts only while gathering, and it ends after `maxRuns` runs or `maxSeconds`, whichever
+	-- comes first; the squad then goes with the offensive. A run that would cross water bends to the nearest ford
+	-- (Map.river.fords, Rules/BotSap.ford); within `fordEnd` studs of the ford the sap is over and the squad wades on.
 	Sap = {
+		maxRuns = 4,
+		maxSeconds = 90,
+		fordEnd = 25,
 		dig = 60,
 		rest = 120,
 		waterStep = 4,

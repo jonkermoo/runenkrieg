@@ -144,4 +144,34 @@ return {
 		assert(R.confident(3, 2, P) and not R.confident(2, 2, P), "3 on 2, not 2 on 2")
 		assert(not R.confident(5, 0, P), "nobody to push at")
 	end,
+	["step: an offensive holds the squad back while waiting, then all in"] = function()
+		local sq = R.new()
+		local f = {
+			now = 0,
+			defend = false,
+			contact = false,
+			ready = 1,
+			inZone = 0,
+			ours = 0,
+			theirs = 0,
+			size = 4,
+			moversThere = true,
+			wait = true,
+		}
+		R.step(sq, f, SQ)
+		assert(sq.phase == "Move", "ready, but held back")
+		sq.phase = "Assault"
+		R.step(sq, f, SQ)
+		assert(sq.phase == "Move", "back out of an assault")
+		f.wait, f.go, f.ready = false, true, 0
+		R.step(sq, f, SQ)
+		assert(sq.phase == "Assault", "go: in, no ready check")
+	end,
+	["restart: an Assault squad stuck out of the zone"] = function()
+		local O = Cfg.Offensive
+		assert(R.restart("Assault", O.stuckFor, 0, O.stuckFor))
+		assert(not R.restart("Assault", O.stuckFor - 1, 0, O.stuckFor), "not long enough")
+		assert(not R.restart("Assault", O.stuckFor, 0.5, O.stuckFor), "in the zone")
+		assert(not R.restart("Bound", O.stuckFor, 0, O.stuckFor), "not assaulting")
+	end,
 }

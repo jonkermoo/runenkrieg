@@ -37,4 +37,16 @@ return {
 		assert(R.over(100, 20, S.quiet, S.quiet))
 		assert(not R.over(100, 20, S.quiet - 1, S.quiet))
 	end,
+	["deadline: so many runs or so many seconds"] = function()
+		assert(not R.deadline(0, 0, S) and not R.deadline(S.maxRuns - 1, S.maxSeconds - 1, S))
+		assert(R.deadline(S.maxRuns, 0, S), "runs")
+		assert(R.deadline(0, S.maxSeconds, S), "seconds")
+	end,
+	["ford: the one with the shortest way there and on"] = function()
+		local fords = { { x = 50, z = 100 }, { x = 50, z = -10 }, { x = 50, z = -200 } }
+		local x, z = R.ford(0, 0, 100, 0, fords)
+		assert(x == 50 and z == -10)
+		local nx, nz = R.ford(0, 0, 100, 0, nil)
+		assert(nx == nil and nz == nil, "no fords")
+	end,
 }

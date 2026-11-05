@@ -41,4 +41,10 @@ return {
 		assert(R.flank(3, 1, 0, s) == nil, "one is enough for three")
 		assert(R.flank(6, 1, 0, s) == 1, "the other side next")
 	end,
+	["plan: assault once the offensive has gone; sapNow off when not allowed"] = function()
+		assert(R.plan(1, nil, true) == "assault" and R.plan(1, "flank", true) == "flank")
+		assert(R.plan(1, nil, false) == "trench" and R.plan(nil, nil, nil) == "open")
+		assert(R.sapNow("trench", true, 0, F) and not R.sapNow("trench", true, 0, F, false))
+		assert(R.sapNow("trench", false, F.sapFrom, F, true) and not R.sapNow("trench", false, F.sapFrom + 1, F))
+	end,
 }

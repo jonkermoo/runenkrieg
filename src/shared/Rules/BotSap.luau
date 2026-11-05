@@ -55,4 +55,30 @@ function BotSap.failed(sinceDug: number, gaveUp: boolean, water: boolean, cfg: {
 	return gaveUp or water or sinceDug >= cfg.dig
 end
 
+-- Whether a sap is past its deadline (Config/Bots.Sap; the stale-fights plan 2026-11-04: a sap is for reaching the
+-- jump-off, not a way of life): `runs` runs begun and `cfg.maxRuns` reached, or `since` seconds since it began and
+-- `cfg.maxSeconds` reached.
+function BotSap.deadline(runs: number, since: number, cfg: { maxRuns: number, maxSeconds: number }): boolean
+	return runs >= cfg.maxRuns or since >= cfg.maxSeconds
+end
+
+-- The ford a sap from (hx, hz) toward the objective (ox, oz) bends to rather than cross water (Map.river.fords): the
+-- one with the shortest way head -> ford -> objective; its x, z. Nil when there are none.
+function BotSap.ford(
+	hx: number,
+	hz: number,
+	ox: number,
+	oz: number,
+	fords: { { x: number, z: number } }?
+): (number?, number?)
+	local best, bx, bz = math.huge, nil, nil
+	for _, f in fords or {} do
+		local d = math.sqrt((f.x - hx) ^ 2 + (f.z - hz) ^ 2) + math.sqrt((ox - f.x) ^ 2 + (oz - f.z) ^ 2)
+		if d < best then
+			best, bx, bz = d, f.x, f.z
+		end
+	end
+	return bx, bz
+end
+
 return BotSap
