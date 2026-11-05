@@ -6,24 +6,35 @@
 
 local BotTrenches = {}
 
--- A straight run to plan (Build.planAs from A to B): "Fire", "Support" or "Comm"
-export type Run = { kind: string, ax: number, az: number, bx: number, bz: number }
+-- A straight run to plan (Build.planAs from A to B): "Fire", "Support", "Rear" or "Comm"; `route`: which of a
+-- system's communication trenches a "Comm" run is part of
+export type Run = { kind: string, ax: number, az: number, bx: number, bz: number, route: number? }
 
 export type Zone = { x: number, z: number, radius: number }
 
--- The system at `zone`, the enemy's way in along (tx, tz) (a flat unit), in the order it is dug:
+-- The fire bays (0-based) a system's two communication trenches come up to: one each side of its middle
+local function routeBays(bays: number): (number, number)
+	local l = math.max(math.floor(bays / 2) - 1, 0)
+	return l, bays - 1 - l
+end
+
+-- The system at `zone`, the enemy's way in along (tx, tz) (a flat unit), in the order it is planned (user 2026-11-05:
+-- "start, build, reinforce, then keep going. if the base of the trench gets destroyed, theres nothing left"):
+-- - Support: its base, a straight line `Support.back` studs behind the fire trench's rear joints, `Support.width`
+--   wide;
+-- - Rear: the way back from the support line's middle to safe ground, `Care.Rear.back` studs toward its own side;
 -- - Fire: across the zone's enemy-facing edge (`Fire.edge` of its radius out), `Fire.width` wide in `Fire.bays` runs
 --   joined end to end, every other joint `Fire.traverse` studs toward the enemy: bays and traverses, so no shell burst
 --   or gunner in it sweeps the whole line;
--- - Support: a straight line `Support.back` studs behind the fire trench's rear joints, `Support.width` wide;
--- - Comm: a communication trench from the support line's middle up to the fire trench's, in two runs jogging
---   `Comm.jog` studs across at half way (a zig-zag, no straight line of sight down it).
+-- - Comm: two communication trenches (`route` 1 and 2) from the support line up to the fire bays either side of the
+--   middle, each in two runs jogging `Comm.jog` studs outward at half way (a zig-zag, no straight line of sight down
+--   it; two ways up, so one cut leaves the other).
 -- `fireOnly`: the fire trench alone.
 function BotTrenches.layout(zone: Zone, tx: number, tz: number, cfg: any, fireOnly: boolean?): { Run }
 	local ax, az = -tz, tx -- (across: right angles to the way in)
 	local F = cfg.Fire
 	local ex, ez = zone.x + tx * zone.radius * F.edge, zone.z + tz * zone.radius * F.edge
-	local runs: { Run } = {}
+	local fire: { Run } = {}
 	local seg = F.width / F.bays
 	local function at(i: number): (number, number)
 		local along = -F.width / 2 + i * seg
@@ -33,39 +44,52 @@ function BotTrenches.layout(zone: Zone, tx: number, tz: number, cfg: any, fireOn
 	for i = 0, F.bays - 1 do
 		local x1, z1 = at(i)
 		local x2, z2 = at(i + 1)
-		table.insert(runs, { kind = "Fire", ax = x1, az = z1, bx = x2, bz = z2 })
+		table.insert(fire, { kind = "Fire", ax = x1, az = z1, bx = x2, bz = z2 })
 	end
 	if fireOnly then
-		return runs
+		return fire
 	end
+	local runs: { Run } = {}
 	local S = cfg.Support
 	local sx, sz = ex - tx * S.back, ez - tz * S.back
-	table.insert(runs, {
-		kind = "Support",
-		ax = sx - ax * S.width / 2,
-		az = sz - az * S.width / 2,
-		bx = sx + ax * S.width / 2,
-		bz = sz + az * S.width / 2,
-	})
-	-- (the fire trench's middle: on the run across `along` 0)
-	local mid = F.width / 2 / seg
-	local i = math.floor(mid)
-	local x1, z1 = at(i)
-	local x2, z2 = at(math.min(i + 1, F.bays))
-	local t = mid - i
-	local fx, fz = x1 + (x2 - x1) * t, z1 + (z2 - z1) * t
+	local half = S.width / 2
+	table.insert(
+		runs,
+		{ kind = "Support", ax = sx - ax * half, az = sz - az * half, bx = sx + ax * half, bz = sz + az * half }
+	)
 	local C = cfg.Comm
-	local jx, jz = (sx + fx) / 2 + ax * C.jog, (sz + fz) / 2 + az * C.jog
+	local back = cfg.Care.Rear.back
+	table.insert(runs, {
+		kind = "Rear",
+		ax = sx - tx * C.short,
+		az = sz - tz * C.short,
+		bx = sx - tx * (C.short + back),
+		bz = sz - tz * (C.short + back),
+	})
+	for _, r in fire do
+		table.insert(runs, r)
+	end
 	-- (it stops `C.short` studs off each line: the planner tees it into their sides)
 	local function toward(px: number, pz: number, qx: number, qz: number, by: number): (number, number)
 		local dx, dz = qx - px, qz - pz
 		local len = math.sqrt(dx * dx + dz * dz)
 		return px + dx / len * by, pz + dz / len * by
 	end
-	local s0x, s0z = toward(sx, sz, jx, jz, C.short)
-	local f0x, f0z = toward(fx, fz, jx, jz, C.short)
-	table.insert(runs, { kind = "Comm", ax = s0x, az = s0z, bx = jx, bz = jz })
-	table.insert(runs, { kind = "Comm", ax = jx, az = jz, bx = f0x, bz = f0z })
+	local l, r = routeBays(F.bays)
+	for route, i in { l, r } do
+		local along = -F.width / 2 + (i + 0.5) * seg
+		local x1, z1 = at(i)
+		local x2, z2 = at(i + 1)
+		local fx, fz = (x1 + x2) / 2, (z1 + z2) / 2
+		local cross = math.clamp(along, -half, half)
+		local px, pz = sx + ax * cross, sz + az * cross
+		local out = if along < 0 then -1 else 1
+		local jx, jz = (px + fx) / 2 + ax * C.jog * out, (pz + fz) / 2 + az * C.jog * out
+		local s0x, s0z = toward(px, pz, jx, jz, C.short)
+		local f0x, f0z = toward(fx, fz, jx, jz, C.short)
+		table.insert(runs, { kind = "Comm", ax = s0x, az = s0z, bx = jx, bz = jz, route = route })
+		table.insert(runs, { kind = "Comm", ax = jx, az = jz, bx = f0x, bz = f0z, route = route })
+	end
 	return runs
 end
 
@@ -84,23 +108,65 @@ function BotTrenches.fireMid(runs: { Run }): { x: number, z: number }
 	return { x = (r.ax + r.bx) / 2, z = (r.az + r.bz) / 2 }
 end
 
+-- Where a system's communication trenches meet its fire trench (its runs from layout or forward): the middles of the
+-- bays either side of its middle (layout's routes), from left to right; its fire trench's middle if it has one bay
+function BotTrenches.routeEnds(runs: { Run }): { { x: number, z: number } }
+	local fire = {}
+	for _, r in runs do
+		if r.kind == "Fire" then
+			table.insert(fire, r)
+		end
+	end
+	if #fire < 3 then
+		return { BotTrenches.fireMid(runs) }
+	end
+	local l, r = routeBays(#fire)
+	local out = {}
+	for _, i in { l, r } do
+		local b = fire[i + 1]
+		table.insert(out, { x = (b.ax + b.bx) / 2, z = (b.az + b.bz) / 2 })
+	end
+	return out
+end
+
 -- A forward line (Config/Bots.Trenches.Forward): a fire trench across (ux, uz) at `at`, as layout's (`Fire` bays and
--- traverses), then a communication trench from the last line's fire trench middle `from` up to its middle, stopping
--- `Comm.short` studs off each (the planner tees it into their sides)
+-- traverses), then a communication trench from each of the last line's route ends `from` (routeEnds) up to this line's
+-- (the nearest of its own route ends across), stopping `Comm.short` studs off each (the planner tees it into their
+-- sides): two ways up where the last line has two
 function BotTrenches.forward(
-	from: { x: number, z: number },
+	from: { { x: number, z: number } },
 	at: { x: number, z: number },
 	ux: number,
 	uz: number,
 	cfg: any
 ): { Run }
 	local runs = BotTrenches.layout({ x = at.x, z = at.z, radius = 0 }, ux, uz, cfg, true)
-	local mid = BotTrenches.fireMid(runs)
-	local dx, dz = mid.x - from.x, mid.z - from.z
-	local len = math.sqrt(dx * dx + dz * dz)
-	if len > 2 * cfg.Comm.short then
-		local sx, sz = dx / len * cfg.Comm.short, dz / len * cfg.Comm.short
-		table.insert(runs, { kind = "Comm", ax = from.x + sx, az = from.z + sz, bx = mid.x - sx, bz = mid.z - sz })
+	local ends = BotTrenches.routeEnds(runs)
+	-- (each from end to the new end on its side: across is (-uz, ux))
+	local function across(p: { x: number, z: number }): number
+		return -p.x * uz + p.z * ux
+	end
+	table.sort(ends, function(a, b)
+		return across(a) < across(b)
+	end)
+	local froms = table.clone(from)
+	table.sort(froms, function(a, b)
+		return across(a) < across(b)
+	end)
+	for route, f in froms do
+		local to = ends[math.min(route, #ends)]
+		if #froms == 1 then
+			to = BotTrenches.fireMid(runs)
+		end
+		local dx, dz = to.x - f.x, to.z - f.z
+		local len = math.sqrt(dx * dx + dz * dz)
+		if len > 2 * cfg.Comm.short then
+			local sx, sz = dx / len * cfg.Comm.short, dz / len * cfg.Comm.short
+			table.insert(
+				runs,
+				{ kind = "Comm", ax = f.x + sx, az = f.z + sz, bx = to.x - sx, bz = to.z - sz, route = route }
+			)
+		end
 	end
 	return runs
 end
@@ -159,13 +225,25 @@ end
 -- run that joins nothing must keep Config/Build.Trench.spacing from every other trench, and the bays lie closer):
 -- the fire trench bay by bay, then the support line, then the communication trench. The support line joins nothing and
 -- lies `Support.back` behind, so it may be planned at once alongside the fire trench (`kinds`: each run's kind; user
--- 2026-11-04, the trench priority: one run open at a time left a side's diggers idle).
-function BotTrenches.ready(laid: { [number]: boolean }, k: number, kinds: { string }?): boolean
+-- 2026-11-04, the trench priority: one run open at a time left a side's diggers idle). A communication trench's run
+-- (`routes`: each run's route) waits on the runs before it but another route's: a system's two ways up are dug side
+-- by side. A fire bay waits only on the bays before it (it joins no base run: a support line refused for a gun or a
+-- wall must not hold the fire trench up; the base's squares are still dug first).
+function BotTrenches.ready(
+	laid: { [number]: boolean },
+	k: number,
+	kinds: { string }?,
+	routes: { [number]: number }?
+): boolean
 	if kinds and kinds[k] == "Support" then
 		return true
 	end
+	local mine = routes and routes[k]
+	local fire = kinds ~= nil and kinds[k] == "Fire"
 	for i = 1, k - 1 do
-		if not laid[i] then
+		local other = mine ~= nil and kinds ~= nil and kinds[i] == "Comm" and (routes :: any)[i] ~= mine
+		local base = fire and (kinds :: any)[i] ~= "Fire"
+		if not laid[i] and not other and not base then
 			return false
 		end
 	end
@@ -658,11 +736,11 @@ function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	while d - done > fwd + 1e-6 do
 		local nx = px + ux * fwd + cx * side * sign
 		local nz = pz + uz * fwd + cz * side * sign
-		table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = nx, bz = nz })
+		table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = nx, bz = nz, route = run.route })
 		px, pz, done = nx, nz, done + fwd
 		sign = -sign
 	end
-	table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = run.bx, bz = run.bz })
+	table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = run.bx, bz = run.bz, route = run.route })
 	return legs
 end
 

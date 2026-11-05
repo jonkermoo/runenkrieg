@@ -644,6 +644,30 @@ local function trenchStats()
 				"redug"
 			)} buried squares planned again`
 		)
+		-- (looking after them, Config/Bots.Trenches.Care: each dug square's decision now, new squares held off shelled
+		-- ground, ways up dug whole, its base standing, the squares lost and how long they stood, joins, the gates)
+		local c = (if sb then sb.care else nil) or {}
+		local lives = table.clone(State.ByTrench.lives[side] or {})
+		table.sort(lives)
+		local median = if #lives > 0 then lives[math.ceil(#lives / 2)] else 0
+		local gates = {}
+		for key, sys in (if sb then sb.systems else {}) do
+			if sys.gate then
+				table.insert(gates, `{key} {sys.gate}`)
+			end
+		end
+		table.sort(gates)
+		local function k(what: string): number
+			return c[what] or 0
+		end
+		table.insert(
+			lines,
+			`  care: {k("reinforce")} reinforce, {k("fix")} fix, {k("patch")} patch, {k("ignore")} ignore, {k("wait")} wait; {k(
+				"hotSkips"
+			)} held off shelled ground; {k("routes")} ways up dug; base {k("baseUp")}/{k("baseAll")} standing; {#lives} lost (median {math.floor(
+				median + 0.5
+			)} s), {k("lost")} left; {n("joins")} joins; gates {if #gates > 0 then table.concat(gates, ", ") else "-"}`
+		)
 	end
 	-- (minutes since a sector last changed hands, or since the match began: how stale the fighting is)
 	local owners = fronts.owners

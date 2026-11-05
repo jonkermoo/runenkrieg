@@ -9,6 +9,7 @@ local IndoorCfg = require(Shared.Config.Indoors)
 local BuildCfg = require(Shared.Config.Build)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
+local BotTrenchCare = require(Shared.Rules.BotTrenchCare)
 local BotOrders = require(Shared.Rules.BotOrders)
 local Build = require(script.Parent.Parent.Build)
 
@@ -64,6 +65,8 @@ local ByTrench = {
 	-- chained (started at the real free end of the run before, Config/Bots.Trenches.Chain), redug (buried squares
 	-- planned again); the admin trench stats
 	runs = {} :: { [string]: number },
+	-- how long each side's lost trench squares stood, seconds (dug to buried under Trenches.standHp or gone; Care)
+	lives = {} :: { [string]: { number } },
 }
 for _, name in TM.materials do
 	ByTrench.costs[name] = TM.open
@@ -92,8 +95,11 @@ Tactics.dug = {
 	tried = {} :: { [number]: number },
 	heat = {} :: { BotTrenches.HeatEvent },
 	use = {} :: { [Model]: { count: number, why: string, who: string } },
+	-- the shell map (Rules/BotTrenchCare; Config/Bots.Trenches.Care.Map): the shells' over the whole match, and each
+	-- side's own deaths'
+	map = { shell = {}, West = {}, East = {} } :: { [string]: BotTrenchCare.ShellMap },
 }
--- a shell or an own death remembered for the trenches' heat; the old ones forgotten
+-- a shell or an own death remembered for the trenches' heat, and on the shell map; the old ones forgotten
 function Tactics.dug.note(kind: string, x: number, z: number, now: number, side: string?)
 	local H = Cfg.Dugouts.Heat
 	local list = Tactics.dug.heat
@@ -101,6 +107,17 @@ function Tactics.dug.note(kind: string, x: number, z: number, now: number, side:
 	while #list > 0 and now - list[1].at > H.keep do
 		table.remove(list, 1)
 	end
+	local M = Cfg.Trenches.Care.Map
+	local map = Tactics.dug.map[if kind == "shell" then "shell" else side or ""]
+	if map then
+		BotTrenchCare.note(map, x, z, if kind == "shell" then M.shell else M.death, now, M)
+	end
+end
+-- how hot the ground at (x, z) is for `side` on the shell map: the shells' and its own deaths'
+function Tactics.dug.mapHeat(side: string, x: number, z: number, now: number): number
+	local M = Cfg.Trenches.Care.Map
+	local maps = Tactics.dug.map
+	return BotTrenchCare.heatAt(maps.shell, x, z, now, M) + BotTrenchCare.heatAt(maps[side] or {}, x, z, now, M)
 end
 -- a dugout's foot: where its steps start, on the trench floor at the foot of its wall (where a bot swings at it), from
 -- its "Frame" (the middle of its steps and room, +Z back into the wall) and "Size"

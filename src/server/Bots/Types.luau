@@ -53,10 +53,22 @@ export type BuildJob = {
 	redig: number?, -- a buried-to-nothing square planned again where it lay: kept on the list until then (Trenches.Redig)
 	lostBy: { [number]: boolean }?, -- bots (by id) that left it with no way there, no swing or flapping (Build.Work)
 	sys: string?, -- a trench run's system: "S<sector>", or "S<sector>F<k>" a forward line (Config/Bots.Trenches.Forward)
+	-- a dug square's repair: its decision and score (Rules/BotTrenchCare.decide; the repairers take the best first)
+	care: number?,
+	decision: string?,
 }
 -- a side's trench system at a sector (its runs as jobs, kept while the side holds the sector) or a forward line out from
--- it, and the middle of its fire trench (where the next line's communication trench joins it)
-export type TrenchSystem = { sector: number, runs: { BuildJob }, mid: { x: number, z: number } }
+-- it, the middle of its fire trench, and where its ways up meet it (where the next line's communication trenches join
+-- it: Rules/BotTrenches.routeEnds); when its fire trench was first all planned, and its gate's state (Config/Bots
+-- .Trenches.Care.Gate)
+export type TrenchSystem = {
+	sector: number,
+	runs: { BuildJob },
+	mid: { x: number, z: number },
+	ends: { { x: number, z: number } },
+	firedAt: number?,
+	gate: string?,
+}
 
 -- a squad's sap forward (Rules/BotSap): its head (where the next run starts), the run being planned or dug, the jobs
 -- open on it, its squares' jobs by model
@@ -80,6 +92,8 @@ export type TrenchSquare = {
 	left: number,
 	built: boolean,
 	extra: number,
+	hp: number,
+	max: number,
 }
 
 -- Normal: what a bot does instead of fighting for a while (Rules/BotActions): a drag of `who` to `to` (cover from the
@@ -205,6 +219,7 @@ export type Bot = {
 	cast: Cast?, -- a Mage's circle open
 	digger: boolean?, -- Normal: one of its holding squad's diggers (Config/Bots.Trenches.share)
 	pioneer: boolean?, -- Normal: on its side's trench duty (Config/Bots.Trenches.pioneers)
+	repairer: boolean?, -- a pioneer taking its side's best repair first (Config/Bots.Trenches.Care.repairers)
 	crew: boolean?, -- Normal: an Engineer on gun duty this life (Config/Bots.Build.Crews): gun jobs first
 	dugouts: boolean?, -- Normal: an Engineer on dugout duty this life (Config/Bots.Dugouts.engineers): dugout jobs first
 	sapper: boolean?, -- Normal: one of its squad's sappers (Config/Bots.Sap.share)
@@ -304,6 +319,14 @@ export type SideBuild = {
 	-- (Config/Bots.Trenches.Redig)
 	had: { [Model]: { a: Vector3, b: Vector3 } }?,
 	redigs: { BuildJob }?,
+	-- looking after its trenches (Config/Bots.Trenches.Care): each square's bots lately (`v` fading from `t`); when
+	-- each of its squares last stood (dug, at Trenches.standHp or more) and the lives of those lost since; the ends
+	-- its joins were tried from, when it last looked for one; the admin readout's counts this tick
+	traffic: { [Model]: { v: number, t: number } }?,
+	trafficAt: number?,
+	born: { [Model]: number }?,
+	joins: { skip: { [string]: boolean }, at: number, n: number }?,
+	care: { [string]: number }?,
 }
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
 export type Soldier = {

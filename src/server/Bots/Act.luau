@@ -223,6 +223,23 @@ local function pickTrench(b: Bot): BuildJob?
 		end
 	end
 	local take = Cfg.Trenches.pioneerTake
+	-- (a repairer: the best repair on its side's list, the nearest of the best, Config/Bots.Trenches.Care.repairers)
+	if b.repairer then
+		local best = -math.huge
+		for _, r in trench do
+			best = math.max(best, r.care or -math.huge)
+		end
+		local top = {}
+		for _, r in trench do
+			if r.care and r.care >= best - 0.5 then
+				table.insert(top, r)
+			end
+		end
+		local r = if #top > 0 then pickFrom(b, top, true, false, take, true) else nil
+		if r then
+			return r
+		end
+	end
 	return (if #buried > 0 then pickFrom(b, buried, true, false, take, true) else nil)
 		or (if #trench > 0 then pickFrom(b, trench, true, false, take, true) else nil)
 end

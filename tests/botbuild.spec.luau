@@ -321,26 +321,4 @@ return {
 		assert(R.strikes(false, Me.chance - 0.01, Me) and not R.strikes(false, Me.chance + 0.01, Me))
 		assert(R.strikes(true, Me.empty - 0.01, Me) and not R.strikes(true, Me.empty + 0.01, Me))
 	end,
-	["reinforcing: the defenders do it, attackers only between pushes with plenty of troops, never on alarm"] = function()
-		local RC = Cfg.Trenches.Reinforce
-		local function slots(over: { [string]: any }): number
-			local st: any = { side = "West", holder = "East", pushing = false, standTo = false, troops = 6, wanted = 0 }
-			for k, v in over do
-				st[k] = v
-			end
-			return R.reinforceSlots(st, RC)
-		end
-		assert(slots({}) == RC.defend and RC.defend > 0, "defending: some squares")
-		assert(slots({ wanted = 1 }) == 0, "a square still to dig comes first")
-		assert(slots({ standTo = true }) == 0, "never while standing to")
-		local race: any = { side = "West", pushing = false, standTo = false, troops = 40, wanted = 0 }
-		assert(R.reinforceSlots(race, RC) == 0, "not in the race for the middle")
-		assert(slots({ holder = "West", pushing = true, troops = 40 }) == 0, "never while its offensive runs")
-		assert(slots({ holder = "West", troops = RC.crowd - 1 }) == 0, "attacking, few troops: none")
-		assert(
-			slots({ holder = "West", troops = RC.crowd }) == RC.crowded,
-			"attacking, many troops, between pushes: a few"
-		)
-		assert(RC.crowded < RC.defend)
-	end,
 }
