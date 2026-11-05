@@ -95,8 +95,10 @@ local Sway = {
 	-- Landing: a dip proportional to the fall speed (studs/s), capped.
 	Landing = { pitch = 0.12, drop = 0.006, max = 4, stiffness = 120, damping = 12 },
 
-	-- Aiming down the sights: shares of each source (reference: side sway about a quarter, the step dip stays).
-	Aim = { side = 0.25, down = 1, roll = 0.25, breath = 1, lag = 0.4, strafe = 0.3, jump = 1, landing = 1 },
+	-- Aiming down the sights: shares of each source (reference: side sway about a quarter, the step dip stays). The
+	-- sights bob more off the ground than at the hip (user 2026-11-05, jump shooting: "perhaps more sway while
+	-- jumping?"; the shot's own stray is Config/Firing.Airborne).
+	Aim = { side = 0.25, down = 1, roll = 0.25, breath = 1, lag = 0.4, strafe = 0.3, jump = 2, landing = 2 },
 
 	-- The camera's own small share (reference: walk pitch bob 0.19 deg p-p, roll 0.08; sprint ~0.15; aiming walk
 	-- ~0.27 deg p-p), as amplitudes at the step, scaled by view.

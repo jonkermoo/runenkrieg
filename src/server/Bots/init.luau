@@ -52,6 +52,7 @@ local Cfg = require(Shared.Config.Bots)
 local Classes = require(Shared.Config.Classes)
 local DamageCfg = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
+local FireCfg = require(Shared.Config.Firing)
 local FrontCfg = require(Shared.Config.Frontline)
 local BuildCfg = require(Shared.Config.Build)
 local W = require(Shared.Config.Weapons)
@@ -63,6 +64,7 @@ local SupCfg = require(Shared.Config.Suppression)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local U = require(Shared.Config.Uniforms)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
+local FireRules = require(Shared.Rules.Firing)
 local FrontRules = require(Shared.Rules.Frontline)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
@@ -459,6 +461,12 @@ spawnBody = function(b: Bot)
 	humanoid.MoveToFinished:Connect(function(reached)
 		Move.arrived(b, reached)
 	end)
+	-- (a landing: its shots stray for a moment, as a player's: Config/Firing.Airborne)
+	humanoid.StateChanged:Connect(function(old, new)
+		if new == Enum.HumanoidStateType.Landed or (old == Enum.HumanoidStateType.Freefall and new ~= old) then
+			b.landedAt = os.clock()
+		end
+	end)
 	humanoid.Died:Connect(function()
 		stats.deaths += 1
 		b.deadAt = os.clock()
@@ -589,6 +597,15 @@ end
 
 -- where a bot guarding a teammate stands (Config/Bots.Actions.Guard): by them, nil while near enough; a teammate with
 -- no body left to stand by is guarded no more (never its own spot as a goal: 2026-11-04 match test, "goal 0 studs")
+-- Jump shooting (Config/Firing.Airborne): the degrees a bot's shot strays off the ground or just after landing, as a
+-- player's (bots never aim down the sights)
+local function airSpread(b: Bot, humanoid: Humanoid, now: number): number
+	local airborne = humanoid.FloorMaterial == Enum.Material.Air
+		and humanoid:GetState() ~= Enum.HumanoidStateType.Climbing
+		and humanoid:GetState() ~= Enum.HumanoidStateType.Seated
+	return FireRules.airSpread(FireCfg.Airborne, airborne, if b.landedAt then now - b.landedAt else nil, false)
+end
+
 local function guardSpot(b: Bot): Vector3?
 	local g = b.guard
 	local part = g and g.who:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -1101,7 +1118,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 				Rules.aimError(d, now - b.brain.seenAt - d.reaction, cross),
 				shakenNow(b, now),
 				brainCfg.SuppressedAim
-			)
+			) + airSpread(b, humanoid, now)
 			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
 			-- only with a clear line from the muzzle (the eye's look can be stale, or over a lip the muzzle is under)
@@ -1122,6 +1139,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			local origin = muzzle.WorldPosition
 			local line = (suppressAt :: Vector3) - origin
 			local err = Rules.shakenAim(d.aimFloor + brainCfg.SuppressSpread, shakenNow(b, now), brainCfg.SuppressedAim)
+				+ airSpread(b, humanoid, now)
 			local right, up = Rules.scatter(err, random:NextNumber(), random:NextNumber())
 			local dir = (CFrame.lookAt(Vector3.zero, line.Unit) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
 			-- only with a clear line to near the spot (no covering fire into a hill or a wall: Config/Bots.Sight)

@@ -22,6 +22,12 @@ local Firing = {
 	-- and carries on, through at most `panes` of them (user 2026-10-22: "bullets currently dont break glass"). The
 	-- shards are thrown from `behind` studs back along the bullet, so they fly on the way it went.
 	Shatter = { classes = { Glass = true }, panes = 3, behind = 1.5 },
+	-- Jump shooting (user 2026-11-05: "we need to nerf jump shooting. players can easily stop players pushing by just
+	-- jumping and shooting and landing in cover. perhaps more sway while jumping?"): a shot fired off the ground, or
+	-- just after landing, strays off the barrel's line by up to this many degrees (evenly over a disc; Rules/Firing
+	-- .airSpread, .stray). In the air: `air` (`aimed` while aiming down the sights); landing: `landed`, easing to 0 over
+	-- `settle` seconds. Players and bots alike (bots add it to their aim error). At 50 studs, 6 degrees is ~5 studs off.
+	Airborne = { air = 7, aimed = 6, landed = 4, settle = 0.6 },
 
 	-- Rifles (class BoltRifle) load clips of this many rounds and hold one more in the chamber: 5 + 1 (user 2026-10-12,
 	-- for balance). An en-bloc rifle (the Carcano) takes one round more, 6 + 1, because it reloads only once its

@@ -35,6 +35,7 @@ local GunFx = require(script.Parent.GunFx)
 local Held = require(script.Parent.Held)
 local Settings = require(script.Parent.Settings)
 local ShotAudio = require(script.Parent.ShotAudio)
+local ShotSpread = require(script.Parent.ShotSpread)
 local Sway = require(script.Parent.Sway)
 
 local Firing = {}
@@ -272,10 +273,12 @@ function Firing.start()
 			stopLoad(character, l, now)
 			return
 		elseif next == "Fire" then
-			local origin, dir = shotRay(character)
-			if not origin or not dir then
+			local origin, barrel = shotRay(character)
+			if not origin or not barrel then
 				return
 			end
+			-- off the ground or just landed, the shot strays off the barrel (Config/Firing.Airborne)
+			local dir = ShotSpread.apply(barrel)
 			local _, _, out = F.fire(l.state, l.gun, now)
 			l.sent += 1
 			local seed = math.random(1, 2147483646)
