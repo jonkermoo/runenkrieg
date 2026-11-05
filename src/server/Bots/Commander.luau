@@ -89,6 +89,8 @@ local Report = require(script.Parent.Report)
 local label = Report.label
 
 local commandTick = 0
+-- support-line squares a dugout was refused in (Build.dugoutFor: no ground round its room), until when (os.clock)
+local noDugout: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 
 -- Normal: a stand point in sector `i`'s zone, on the ground (a ray on terrain)
 local function standPoint(i: number): Vector3
@@ -1634,6 +1636,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			front = nil,
 			held = -1,
 			holds = false,
+			latched = false,
 			lay = {},
 			works = {},
 			open = {},
@@ -1675,14 +1678,16 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local zone = { x = s.x, z = s.z, radius = s.radius }
 	local tx, tz = BotBuild.toward(Map.sectors, front :: number, side) -- (the enemy's way, from the live map's chain)
 	local spots = Routes.spots(front :: number, side, true)
-	if front ~= sbs.front or fromEnd ~= sbs.held or (not sbs.holds and spots ~= nil) then
+	local fl = workspace:FindFirstChild(FrontCfg.FolderName)
+	local latched = fl ~= nil and fl:GetAttribute(side .. FrontCfg.LatchAttribute) == true
+	if front ~= sbs.front or fromEnd ~= sbs.held or latched ~= sbs.latched or (not sbs.holds and spots ~= nil) then
 		local holds = {}
 		for _, sp in spots or {} do
 			table.insert(holds, { x = sp.pos.X, z = sp.pos.Z, hidden = sp.hidden })
 		end
 		local guns = {}
 		for _, key in Guns.list do
-			if FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd) == nil then
+			if FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd, latched) == nil then
 				table.insert(guns, key)
 			end
 		end
@@ -1700,7 +1705,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			for _, j in spotted do
 				placed += if j.key == key then 1 else 0
 			end
-			local locked = FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd)
+			local locked = FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd, latched)
 			if locked then
 				table.insert(notes, `{key} locked ({locked})`)
 			elseif (BD.caps[key] or 0) <= 0 then
@@ -1787,7 +1792,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		if front ~= sbs.front then
 			sbs.shelledOnce = false
 		end
-		sbs.front, sbs.held, sbs.holds = front, fromEnd, spots ~= nil
+		sbs.front, sbs.held, sbs.holds, sbs.latched = front, fromEnd, spots ~= nil, latched
 	end
 	local works, roomOf = Tactics.dug.works(kit, BD.builder)
 	-- what lost HP lately (Rules/BotBuild.mayRepair): no swings at it until BD.repairWait after
@@ -2274,8 +2279,16 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local want = BotTrenches.dugoutsWanted(sbs.shelledOnce, holders, sbs.bays, DG) - #have
 	-- (a square long enough on the flat for one: its doorway and its spare less the slack, Config/Build)
 	local long = BuildCfg.Dugout.door + BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
-	for _, i in BotTrenches.dugoutSquares(sites, have, want, DG, long) do
-		local w = sites[i].w
+	-- (squares a dugout can't go in are left out: no ground round its room, Build.dugoutFor; read again after a while)
+	local open = {}
+	for _, site in sites do
+		local no = noDugout[site.w.model]
+		if not (no and now < no) then
+			table.insert(open, site)
+		end
+	end
+	for _, i in BotTrenches.dugoutSquares(open, have, want, DG, long) do
+		local w = open[i].w
 		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
 		if typeof(a) == "Vector3" and typeof(c) == "Vector3" then
 			-- its rear wall (away from the enemy), the dugout facing out of it into the trench
@@ -2285,9 +2298,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				out = -out
 			end
 			local at = w.at + out * (BuildCfg.Trench.floor + 0.5)
-			local job = { key = "Dugout", x = at.X, z = at.Z, fx = -out.X, fz = -out.Z }
-			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
-			stats.dugouts += 1
+			if Build.dugoutFor(at) then
+				noDugout[w.model] = now + DG.recheck
+				stats.dugoutsRefused += 1
+			else
+				local job = { key = "Dugout", x = at.X, z = at.Z, fx = -out.X, fz = -out.Z }
+				table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+				stats.dugouts += 1
+			end
 		end
 	end
 	sbs.digging = 0

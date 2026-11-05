@@ -1019,6 +1019,31 @@ return {
 		assert(string.find(spot({ nearest = d.spacing - 1 }) or "", "Too close to another dugout") ~= nil)
 		assert(spot({ nearest = d.spacing }) == nil)
 		assert(spot({ clash = true }) ~= nil, "its room against another's")
+		-- ground over and round its room (user 2026-11-04: one on a downhill trench poked out of the slope)
+		local noGround = "Not enough ground here: a dugout must be dug into a bank or level ground"
+		assert(spot({ cover = C.Trench.depth }) == nil, "level ground: the trench's depth over its floor")
+		assert(spot({ cover = d.cover.over }) == nil and spot({ cover = d.cover.over - 0.1 }) == noGround)
+		assert(spot({ cover = -math.huge }) == noGround, "no ground found at all")
+		-- the grid reaches its dig's edge: past its sides and back by the cut, over its room's front
+		local pts = B.dugoutCoverAt(piece, d)
+		assert(#pts == d.cover.cols * d.cover.rows)
+		local x0, x1, z0, z1 = math.huge, -math.huge, math.huge, -math.huge
+		for _, q in pts do
+			x0, x1, z0, z1 = math.min(x0, q.x), math.max(x1, q.x), math.min(z0, q.z), math.max(z1, q.z)
+		end
+		assert(near(x0, -(piece.width / 2 + d.cut)) and near(x1, piece.width / 2 + d.cut), "to its dig's sides")
+		assert(near(z0, d.stair) and near(z1, d.stair + piece.depth + d.cut), "from its room's front to its dig's back")
+		-- on ground falling along the trench (the trench's floor level with its middle): a gentle slope keeps it, a steep
+		-- one (the screenshot's) refuses it
+		local function along(grade: number): string?
+			local low = math.huge
+			for _, q in pts do
+				low = math.min(low, C.Trench.depth - grade * math.abs(q.x))
+			end
+			return spot({ cover = low })
+		end
+		assert(along(0.25) == nil, "a gentle slope")
+		assert(along(0.5) == noGround, "a steep slope")
 	end,
 	["dugouts: room for three, no two rooms within apart of each other in 3D (user 2026-11-03)"] = function()
 		local d = C.Dugout

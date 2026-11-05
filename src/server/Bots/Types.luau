@@ -258,6 +258,7 @@ export type SideBuild = {
 	front: number?,
 	held: number, -- its sectors held from its end when planned (Rules/Frontline.held)
 	holds: boolean,
+	latched: boolean, -- its lastStand guns open for the match (the Frontline folder's, Rules/Frontline.latched)
 	lay: { BuildJob },
 	works: { [Model]: BuildJob },
 	open: { BuildJob },

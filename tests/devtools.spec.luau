@@ -206,6 +206,9 @@ return {
 			not A.valid(Cfg, "FrontCapture", { side = "Neutral", index = 2 }) and not A.valid(Cfg, "FrontCapture", 2)
 		)
 		assert(not A.Aimed.BotShell and not A.Aimed.FrontPush)
+		assert(A.valid(Cfg, "FrontLatch", { side = "West", on = true }))
+		assert(not A.valid(Cfg, "FrontLatch", { side = "West", on = 1 }) and not A.valid(Cfg, "FrontLatch", true))
+		assert(not A.valid(Cfg, "FrontLatch", { side = "Neutral", on = false }))
 		assert(Map1.sectors and #Map1.sectors <= Cfg.Admin.MaxSectors, "every Map1 sector can be captured")
 	end,
 	["a bot's state label leaves out what it hasn't got"] = function()

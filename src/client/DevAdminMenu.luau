@@ -272,6 +272,20 @@ local function build(player: Player): DevPanel.Panel
 			)
 		end
 	end
+	-- each side's howitzer latch (Config/Frontline.Artillery: open for the match once pushed back to its last two):
+	-- shown, and forced on or off (src/server/Frontline.setLatch)
+	local latchRows: { [string]: TextButton } = {}
+	for _, side in A.Sides do
+		order += 1
+		local b = DevPanel.button(p.panel, "FrontLatch" .. side, "", order)
+		b.Activated:Connect(function()
+			local f = workspace:FindFirstChild(FrontCfg.FolderName)
+			local on = f ~= nil and f:GetAttribute(side .. FrontCfg.LatchAttribute) == true
+			Net.event("DevAction"):FireServer("FrontLatch", { side = side, on = not on })
+		end)
+		latchRows[side] = b
+		table.insert(front, b)
+	end
 	-- the capture readout (Config/Frontline.BotWeight: a player 1, a bot half): each sector's weights in its zone, its
 	-- control, its speed (control per second, momentum in) and the seconds left to the capture
 	local readout: { TextLabel } = {}
@@ -285,6 +299,11 @@ local function build(player: Player): DevPanel.Panel
 	task.spawn(function()
 		while p.gui.Parent do
 			local f = workspace:FindFirstChild(FrontCfg.FolderName)
+			for side, b in latchRows do
+				local on = f ~= nil and f:GetAttribute(side .. FrontCfg.LatchAttribute) == true
+				b.Text = `{side} howitzer kept for the match: {if on then "on" else "off"}`
+				paint(b, on)
+			end
 			for i, label in readout do
 				local s = f and f:FindFirstChild(LiveMap.map.sectors[i] and LiveMap.map.sectors[i].id or "")
 				if s then

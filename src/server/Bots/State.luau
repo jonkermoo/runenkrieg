@@ -208,6 +208,7 @@ local stats = {
 	intoTrench = 0, -- shot at in the open, down into a trench nearby
 	overTop = 0, -- squads over the top from their jump-off trench
 	dugouts = 0, -- dugouts put on the build list
+	dugoutsRefused = 0, -- support-line squares left out of the dugout list: no ground round a room (Build.dugoutFor)
 	sheltered = 0, -- holders down into a dugout under shelling
 	cameUp = 0, -- holders up from a dugout to their posts
 	bombed = 0, -- grenades down an enemy dugout's steps

@@ -1313,7 +1313,12 @@ local function gunLocked(key: string, team: string?): string?
 	if type(held) ~= "number" then
 		return nil
 	end
-	return FrontRules.gunLocked(FrontCfg.Artillery, key, held)
+	return FrontRules.gunLocked(
+		FrontCfg.Artillery,
+		key,
+		held,
+		front:GetAttribute(side .. FrontCfg.LatchAttribute) == true
+	)
 end
 
 -- who builds: a player's character or a bot soldier (Config/Bots.Tag), its id (a UserId or a bot's negative
@@ -1970,6 +1975,14 @@ function Build.placeAs(model: Model, key: string, at: Vector3 | CFrame, look: Ve
 		cf = CFrame.lookAt(cf.Position, cf.Position + flat)
 	end
 	return place(b, key, cf)
+end
+
+-- Why a dugout can't go in the trench square wall by `at` (Survey.dugoutSpot, Rules.dugoutSpot: a dug square, room for
+-- it, no other dugout near, ground over and round its room), none of the caps or reach; nil when it can (the bots'
+-- dugout spots, src/server/Bots/Commander)
+function Build.dugoutFor(at: Vector3): string?
+	local s = Survey.dugoutSpot(folder(), at)
+	return Rules.dugoutSpot(s, C.Dugout)
 end
 
 -- Why gun `key` (a Config/Build.Pieces key of kind "Gun") can't stand at `at` (its spot, facing its way): the ground
