@@ -25,6 +25,7 @@ local Net = require(Shared.Net)
 local Armory = require(script.Parent.Armory)
 local Damage = require(script.Parent.Damage)
 local Flight = require(script.Parent.GrenadeFlight)
+local SoldierGroups = require(script.Parent.SoldierGroups)
 
 local Grenades = {}
 
@@ -170,11 +171,12 @@ function Grenades.start()
 	if not PhysicsService:IsCollisionGroupRegistered(GROUP) then
 		PhysicsService:RegisterCollisionGroup(GROUP)
 	end
-	for _, other in { GROUP, "Characters", "Debris", "Viewmodel" } do
+	for _, other in { GROUP, "Debris", "Viewmodel" } do
 		if PhysicsService:IsCollisionGroupRegistered(other) then
 			PhysicsService:CollisionGroupSetCollidable(GROUP, other, false)
 		end
 	end
+	SoldierGroups.setWith(GROUP, false) -- (every soldier group)
 
 	Net.event("GrenadeThrow").OnServerEvent:Connect(function(player: Player, direction: any)
 		if player.Character then

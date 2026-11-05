@@ -32,6 +32,7 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Camera)
+local CollisionCfg = require(Shared.Config.Collision)
 local W = require(Shared.Config.Weapons)
 local Rules = require(Shared.Rules.Camera)
 local SettingsRules = require(Shared.Rules.Settings)
@@ -121,6 +122,9 @@ function WeaponCamera.start()
 	local sweep = RaycastParams.new()
 	sweep.FilterType = Enum.RaycastFilterType.Exclude
 	sweep.RespectCanCollide = true
+	-- through every soldier (Config/Collision.Camera, user 2026-11-04: "sometimes cameras gets stuck in a teammates
+	-- head in third person"), walls and the ground as before
+	sweep.CollisionGroup = CollisionCfg.Camera
 
 	local function parts(): (Model?, Humanoid?, BasePart?)
 		local character = player.Character

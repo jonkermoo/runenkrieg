@@ -29,6 +29,7 @@ local Net = require(Shared.Net)
 local Rules = require(Shared.Rules.Trees)
 local BlastRules = require(Shared.Rules.Blast)
 local Ground = require(script.Parent.Ground)
+local SoldierGroups = require(script.Parent.SoldierGroups)
 
 local Trees = {}
 
@@ -40,8 +41,7 @@ local crush: ((Vector3, Vector3, number, number, string) -> ())? = nil -- src/se
 -- a landing trunk lets characters through for a moment (Fall.Crush.ghost), so nobody is pushed into the ground or flung
 local GHOST = "LandingTree"
 PhysicsService:RegisterCollisionGroup(GHOST)
-PhysicsService:RegisterCollisionGroup("Characters")
-PhysicsService:CollisionGroupSetCollidable(GHOST, "Characters", false)
+SoldierGroups.setWith(GHOST, false) -- (every soldier group)
 
 -- what hurts soldiers a tree lands on (Damage registers itself; Trees can't require Damage, which requires Trees)
 function Trees.onCrush(fn: (Vector3, Vector3, number, number, string) -> ())
@@ -208,7 +208,7 @@ local function ghostWhileInside(trunk: BasePart)
 		while trunk.Parent and waited < C.ghostMax do
 			local inside = false
 			for _, p in workspace:GetPartsInPart(trunk) do
-				if p.CollisionGroup == "Characters" then
+				if SoldierGroups.isSoldier(p.CollisionGroup) then
 					inside = true
 					break
 				end
