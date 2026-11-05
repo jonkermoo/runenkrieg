@@ -512,6 +512,10 @@ function BotTrenches.shelter(
 		if stayed >= cfg.stay then
 			return false, "stay"
 		end
+		-- (down `least` s at the least: one tick's heat never sends it straight back up the steps it just went down)
+		if stayed < cfg.least then
+			return true, "settling"
+		end
 		return heat >= cfg.leave, if heat >= cfg.leave then "hot" else "calm"
 	end
 	if resting then
@@ -603,11 +607,39 @@ end
 
 -- The dugout a holder shelters in: of `rooms` (each with `free` places left), the nearest to (px, pz) with a place;
 -- nil if none.
-function BotTrenches.seat(rooms: { { x: number, z: number, free: number } }, px: number, pz: number): number?
-	local best, bestD = nil, math.huge
+-- The places left in a dugout of `room` places (user 2026-11-04: "a crazy amount of bots are stuck in dugouts"): its
+-- holders sent down into it, and any other body down in its steps or room (coming up, or wandered in), each take one
+function BotTrenches.placesLeft(room: number, bodies: { { sent: boolean, inside: boolean } }): number
+	local n = room
+	for _, b in bodies do
+		if b.sent or b.inside then
+			n -= 1
+		end
+	end
+	return math.max(n, 0)
+end
+
+-- What a bot down in a dugout's steps or room that isn't sheltering there does (Config/Bots.Dugouts.Free): nothing
+-- outside one, or sheltering; walks straight up to its foot; still in after `cfg.after` s, lifted out to its foot
+function BotTrenches.freeStuck(inside: boolean, sheltering: boolean, inFor: number, cfg: { after: number }): string?
+	if not inside or sheltering then
+		return nil
+	end
+	return if inFor >= cfg.after then "lift" else "walk"
+end
+
+-- The nearest dugout with a place to a holder at (px, pz), within `reach` studs (2026-11-04 test: holders were sent to
+-- a side's only dugout 300+ studs off, leaving their posts and crowding its steps), or nil
+function BotTrenches.seat(
+	rooms: { { x: number, z: number, free: number } },
+	px: number,
+	pz: number,
+	reach: number
+): number?
+	local best, bestD = nil, reach * reach
 	for i, r in rooms do
 		local d = (r.x - px) ^ 2 + (r.z - pz) ^ 2
-		if r.free > 0 and d < bestD then
+		if r.free > 0 and d <= bestD then
 			best, bestD = i, d
 		end
 	end

@@ -5,7 +5,8 @@
 -- src/server/Modes starts and stops it. Each match draws two teams (Workspace's MatchTeams attribute,
 -- Rules/Frontline.pair), one on each side; a soldier's side is their team's (the character's "Kit"). A match waits
 -- until each side has its players, counts down, then plays: every Tick the soldiers alive and on their feet in each
--- sector's zone push its control, faster the longer the front has stood still (momentum). Captures and
+-- sector's zone push its control by their lead, in soldiers' worths for the server's size (Rules/Frontline.unit; each
+-- capture's time from the first push off the holder's end is published for the admin readout). Captures and
 -- neutralisations pay each soldier of that side in the zone, a kill near your side's attacked sector pays a Defend,
 -- and taking the enemy HQ wins (everyone on the winning side paid); then the post-match cutscene (Finale), the results
 -- and the map vote (src/server/MapVote; the map put back behind it: built pieces cleared, buildings, trees and ground
@@ -94,11 +95,18 @@ local stillLoading: { [Player]: boolean } = {}
 -- the flight toured by each player under the black before it (Net "MapTour"): the map, and who hasn't said so yet
 local touring: string? = nil
 local stillTouring: { [Player]: boolean } = {}
+-- the war room's set built and preloaded by each player behind the victory screen (Net "SceneReady")
+local readyScene: string? = nil
+local stillReady: { [Player]: boolean } = {}
+-- the admin's skip (Frontline.skipTo): every stage before this one cut short
+local skipTo: string? = nil
+local ORDER = { Fade = 1, Table = 2, Vote = 3, Loading = 4, Countdown = 5, Playing = 6 }
 local ending = false
 -- the admin's end into a map (Frontline.endInto): the winner it plays (nil: none) and the map the vote picks
 local forced: { winner: Rules.Side?, map: string }? = nil
 local starting = false -- set by the admin to skip the wait for players
-local still = 0 -- seconds since the last capture (the momentum)
+-- each sector's first push off its holder's end (os.clock) while a capture is under way (the admin's capture time)
+local pushedAt: { [number]: number } = {}
 local captured = false -- any capture this match (spawns leave the HQs)
 local latest: { { West: number, East: number } } = {} -- the last tick's soldiers in each zone
 -- each side's lastStand guns open for the match (Rules/Frontline.latched) and the sectors it held at the last publish
@@ -153,6 +161,33 @@ local function bots(): { Model }
 	return out
 end
 
+-- the admin skips past `stage`
+local function skipping(stage: string): boolean
+	return skipTo ~= nil and (ORDER[skipTo :: string] or 0) > (ORDER[stage] or 0)
+end
+
+-- `seconds` of stage `stage` (cut short by the admin's skip past it)
+local function holdStage(stage: string, seconds: number)
+	local untilAt = os.clock() + seconds
+	while os.clock() < untilAt and not skipping(stage) do
+		task.wait(0.1)
+	end
+end
+
+-- the players still loading in `list` (their names on the folder for the admin's load readout: WaitingAttribute)
+local function pendingOf(list: { [Player]: boolean }): number
+	local n, names = 0, {}
+	for p in list do
+		if p.Parent then
+			n += 1
+			table.insert(names, p.Name)
+		end
+	end
+	table.sort(names)
+	folder:SetAttribute(Cfg.WaitingAttribute, if n > 0 then table.concat(names, ", ") else nil)
+	return n
+end
+
 local function phase(name: string, seconds: number?)
 	local now = workspace:GetServerTimeNow()
 	folder:SetAttribute("Phase", name)
@@ -186,16 +221,14 @@ local function tourFlight()
 	local from = os.clock()
 	while true do
 		folder:SetAttribute(Cfg.DipAttribute, workspace:GetServerTimeNow()) -- (the black kept)
-		local pending = 0
-		for p in stillTouring do
-			pending += if p.Parent then 1 else 0
-		end
-		if CutRules.loadOver(os.clock() - from, 0, Cfg.Loading.tour, pending) then
+		local pending = pendingOf(stillTouring)
+		if CutRules.loadOver(os.clock() - from, 0, Cfg.Loading.tour, pending) or skipping("Countdown") then
 			break
 		end
 		task.wait(0.1)
 	end
 	touring = nil
+	folder:SetAttribute(Cfg.WaitingAttribute, nil)
 end
 
 -- Every mesh and texture of map `key`'s model (content ids): each client preloads them all in the armory, the parts
@@ -573,10 +606,10 @@ end
 
 local function publish(
 	counts: { { West: number, East: number } },
-	rate: number?,
+	unit: number?,
 	heads: { { West: number, East: number } }?
 )
-	local rates = Rules.rates(state, Cfg, counts, rate)
+	local rates = Rules.rates(state, Cfg, counts, unit)
 	for i, s in sectors do
 		local f = folder:FindFirstChild(s.id)
 		if f then
@@ -670,6 +703,25 @@ local function heads(withBots: boolean?): (number, number)
 	return w, e
 end
 
+-- each side's strength, weighed as in a zone (Rules/Frontline.weight: a player 1, a bot BotWeight), living or not:
+-- the server's size for the capture speed (Rules/Frontline.unit)
+local function strength(): (number, number)
+	local s = { West = 0, East = 0 }
+	for _, p in Players:GetPlayers() do
+		local side = Rules.sideOf(pair, Kits.next(p))
+		if side then
+			s[side] += Rules.weight(Cfg, false)
+		end
+	end
+	for _, m in bots() do
+		local side = sideOfModel(m)
+		if side then
+			s[side] += Rules.weight(Cfg, true)
+		end
+	end
+	return s.West, s.East
+end
+
 local function setWave(at: number?)
 	table.clear(waveSector)
 	waveAt = at
@@ -730,7 +782,8 @@ local function newMatch(reset: boolean?)
 	folder:SetAttribute("West", pair.West)
 	folder:SetAttribute("East", pair.East)
 	folder:SetAttribute("Winner", nil)
-	folder:SetAttribute("Momentum", 1)
+	folder:SetAttribute(Cfg.LastCaptureAttribute, nil)
+	folder:SetAttribute(Cfg.UnitAttribute, nil)
 	folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
 	publish(empty())
 end
@@ -787,10 +840,11 @@ local function run()
 				end
 			end
 			-- (the admin's "Start now" cuts it short: Frontline.begin)
-			while not starting and not ending and workspace:GetServerTimeNow() < start do
+			while not starting and not ending and workspace:GetServerTimeNow() < start and not skipping("Countdown") do
 				task.wait(0.1)
 			end
 			starting = false
+			skipTo = nil
 			release()
 			folder:SetAttribute(Cfg.SpeechAttribute, nil) -- (the narrator has spoken)
 			setWave(Rules.nextWave(start, Cfg.Waves.every, workspace:GetServerTimeNow() + 0.05))
@@ -799,14 +853,11 @@ local function run()
 		end
 		local winner: Rules.Side? = nil
 		local last = os.clock()
-		still = 0
+		table.clear(pushedAt)
 		while not winner and not ending do
 			task.wait(Cfg.Tick)
 			local dt = os.clock() - last
 			last = os.clock()
-			still += dt
-			local rate = Rules.momentum(Cfg, still)
-			folder:SetAttribute("Momentum", rate)
 			if waveAt and workspace:GetServerTimeNow() >= (waveAt :: number) then
 				release()
 				setWave((waveAt :: number) + Cfg.Waves.every)
@@ -815,9 +866,14 @@ local function run()
 			folder:SetAttribute(Cfg.ReinforcedAttribute, Rules.reinforced(Cfg.Reinforcements, w, e))
 			local counts, inside, inZone = occupancy()
 			latest = inZone -- (the spawn choice by head, as before; the weights are the capture's)
-			for _, ev in Rules.step(state, Cfg, counts, dt, rate) do
+			local unit = Rules.unit(Cfg, strength())
+			folder:SetAttribute(Cfg.UnitAttribute, unit)
+			for _, ev in Rules.step(state, Cfg, counts, dt, unit) do
 				if ev.kind == "Captured" then
-					still = 0
+					local from = pushedAt[ev.index]
+					if from then
+						folder:SetAttribute(Cfg.LastCaptureAttribute, math.round((last - from) * 10) / 10)
+					end
 					captured = true
 					table.insert(log, { t = os.clock() - playedAt, index = ev.index, side = ev.side })
 				end
@@ -829,7 +885,19 @@ local function run()
 					end
 				end
 			end
-			publish(counts, rate, inZone)
+			-- a capture under way: from the first push off the holder's end until it is taken or back at that end
+			-- (a sector just neutralised sits at its neutral rest while the push goes on: it starts over only once nobody
+			-- leads there)
+			for i in sectors do
+				if state.control[i] == Rules.rest(state.owner[i]) then
+					if state.owner[i] ~= "Neutral" or counts[i].West == counts[i].East then
+						pushedAt[i] = nil
+					end
+				elseif not pushedAt[i] then
+					pushedAt[i] = last - dt -- (the tick that moved it)
+				end
+			end
+			publish(counts, unit, inZone)
 			winner = Rules.winner(state)
 		end
 		local force = forced
@@ -867,7 +935,15 @@ local function run()
 			local kit = Kits.next(p)
 			p:SetAttribute(Cfg.MatchKitAttribute, if Rules.sideOf(pair, kit) then kit else nil)
 		end
-		phase("Fade", Cfg.FadeSeconds)
+		-- the victory screen (user 2026-11-04: "play the victory screen for a lot longer. use that victory screen to load
+		-- the summary war room scene"): Victory.least at the least, and until every player's war room set is built and
+		-- preloaded behind it (Net "SceneReady"), Victory.max at the most
+		phase("Fade", Cfg.Victory.least)
+		table.clear(stillReady)
+		for _, p in Players:GetPlayers() do
+			stillReady[p] = true
+		end
+		readyScene = "Table"
 		-- the table until its replay and report are done (Rules/Cutscenes.tableSeconds: every client draws the same)
 		local tableSeconds = CutRules.tableSeconds(
 			CutCfg.Table,
@@ -882,13 +958,21 @@ local function run()
 			length = os.clock() - playedAt,
 			map = played,
 			top = CutCfg.Table.top3,
-			endsAt = workspace:GetServerTimeNow() + Cfg.FadeSeconds + CutCfg.Dip.out + tableSeconds,
+			endsAt = workspace:GetServerTimeNow() + Cfg.Victory.least + CutCfg.Dip.out + tableSeconds,
 		}, function(p: Player): string?
 			return Kits.next(p)
 		end)
-		task.wait(Cfg.FadeSeconds)
+		local victoryFrom = os.clock()
+		while
+			not CutRules.loadOver(os.clock() - victoryFrom, Cfg.Victory.least, Cfg.Victory.max, pendingOf(stillReady))
+			and not skipping("Fade")
+		do
+			task.wait(0.1)
+		end
+		readyScene = nil
+		folder:SetAttribute(Cfg.WaitingAttribute, nil)
 		dipTo("Table", tableSeconds)
-		task.wait(tableSeconds)
+		holdStage("Table", tableSeconds)
 		local pick = if force then force.map else played
 		local offer = MapVote.offer()
 		if force and not table.find(offer, force.map) then
@@ -903,9 +987,9 @@ local function run()
 			MapVote.open(folder, offer, function(p: Player): boolean
 				return CutRules.maySign(Rules.sideOf(pair, Kits.next(p)), winner, winners)
 			end)
-			task.wait(Cfg.VoteSeconds)
+			holdStage("Vote", Cfg.VoteSeconds)
 			pick = MapVote.close(folder, math.random(), if force then force.map else nil) or played
-			task.wait(CutCfg.Vote.pick.hold) -- (the arm stamps NEXT on every screen)
+			holdStage("Vote", CutCfg.Vote.pick.hold) -- (the arm stamps NEXT on every screen)
 		end
 		-- the armory lasts the longer of the two sides' scripts
 		local nations: { [string]: string } = {}
@@ -933,16 +1017,14 @@ local function run()
 		loadingMap = pick
 		Net.event("MapLoad"):FireAllClients(pick, assetsOf(pick))
 		while true do
-			local pending = 0
-			for p in stillLoading do
-				pending += if p.Parent then 1 else 0
-			end
-			if CutRules.loadOver(os.clock() - loading, least, Cfg.Loading.max, pending) then
+			local pending = pendingOf(stillLoading)
+			if CutRules.loadOver(os.clock() - loading, least, Cfg.Loading.max, pending) or skipping("Loading") then
 				break
 			end
 			task.wait(0.1)
 		end
 		loadingMap = nil
+		folder:SetAttribute(Cfg.WaitingAttribute, nil)
 		freeze(false)
 		task.wait() -- (src/server/Deploy splits everyone over the new pair first)
 		for _, p in Players:GetPlayers() do
@@ -1037,6 +1119,14 @@ function Frontline.start(): boolean
 	)
 	table.insert(
 		conns,
+		Net.event("SceneReady").OnServerEvent:Connect(function(p: Player, scene: unknown)
+			if readyScene ~= nil and scene == readyScene then
+				stillReady[p] = nil
+			end
+		end)
+	)
+	table.insert(
+		conns,
 		Net.event("MapTour").OnServerEvent:Connect(function(p: Player, key: unknown)
 			if touring ~= nil and key == touring then
 				stillTouring[p] = nil
@@ -1072,6 +1162,7 @@ end
 
 -- Admin: a fresh match now (sides reset, a new pair, waiting again; nobody respawns until they die).
 function Frontline.restart()
+	skipTo, readyScene = nil, nil
 	if thread then
 		task.cancel(thread :: thread)
 		freeze(false)
@@ -1138,7 +1229,31 @@ function Frontline.finish()
 	end
 end
 
--- Admin: `side` takes sector `index` now (counts as a capture: the momentum starts over; no points paid). False
+-- Admin: on to `stage` of the match's loop now (a key of ORDER: "Fade" the victory screen, "Table" the war room,
+-- "Vote", "Loading" the armory, "Countdown" the flight, "Playing"): every stage before it cut short; from play into
+-- the end's stages the match ends first (no winner). False when the stage is unknown or already behind.
+function Frontline.skipTo(stage: string): boolean
+	local ph = if thread then folder:GetAttribute("Phase") else nil
+	if not thread or not ORDER[stage] or type(ph) ~= "string" then
+		return false
+	end
+	if stage == "Playing" and (ph == "Waiting" or ph == "Countdown") then
+		starting = true
+		return true
+	end
+	if ph == "Playing" or ph == "Waiting" then
+		if stage == "Playing" then
+			return false
+		end
+		ending = true
+	elseif (ORDER[ph] or 0) >= ORDER[stage] then
+		return false
+	end
+	skipTo = if stage == "Fade" then nil else stage
+	return true
+end
+
+-- Admin: `side` takes sector `index` now (counts as a capture; no points paid). False
 -- outside play or with no such sector.
 function Frontline.capture(side: Rules.Side, index: number): boolean
 	if not thread or folder:GetAttribute("Phase") ~= "Playing" or not sectors[index] or state.owner[index] == side then
@@ -1146,7 +1261,6 @@ function Frontline.capture(side: Rules.Side, index: number): boolean
 	end
 	state.owner[index] = side
 	state.control[index] = Rules.rest(side)
-	still = 0
 	captured = true
 	table.insert(log, { t = os.clock() - playedAt, index = index, side = side })
 	return true

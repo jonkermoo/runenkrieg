@@ -101,6 +101,15 @@ return {
 		local half = E.look(1, "Rain", 0.5, base, Cfg)
 		assert(half.density > base.density and half.density < rain.density)
 	end,
+	["night thickens the haze (closer to see people), never thinner than fog"] = function()
+		local NH = Cfg.Light.nightHaze
+		local night = E.look(0, "Clear", 0, base, Cfg)
+		assert(night.density == math.max(base.density, NH.density) and night.haze >= base.haze)
+		local dusk = E.look(0.5, "Clear", 0, base, Cfg)
+		assert(dusk.density > base.density and dusk.density < night.density, "eases over the twilight")
+		local fogNight = E.look(0, "Fog", 1, base, Cfg)
+		assert(fogNight.density >= Cfg.Weather.Fog.density, "fog at night stays at least as thick")
+	end,
 	["setting the clock reads that time, now and while paused"] = function()
 		for _, h in { 0, 6, 12, 18, 21.5 } do
 			local start = E.startFor(h, 500, Day)

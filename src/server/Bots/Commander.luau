@@ -452,6 +452,9 @@ local function sapTick(
 		if not b.sapper then
 			b.role, b.roleWas, b.post = "Support", "Support", b.goal
 		end
+		if b.postKind == "dugout" then
+			b.postKind, b.dugFrom = nil, nil
+		end
 	end
 end
 
@@ -545,14 +548,26 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	-- under shelling (Config/Bots.Dugouts): the places left in each dugout, the sentries kept up so far
 	local free: { { x: number, z: number, free: number } } = {}
 	local up = 0
-	for _, rm in (if sb then sb.rooms else {}) do
-		local n = Cfg.Dugouts.room
-		for _, o in bots do
-			if o.side == side and o.postKind == "dugout" and o.post == rm.room then
-				n -= 1
+	-- (every body down in it takes a place, not only the holders sent there: Rules/BotTrenches.placesLeft)
+	local downIn: { [Bot]: Model } = {}
+	for _, o in bots do
+		if o.side == side and o.root and not o.deadAt then
+			local m = Tactics.dug.inside((o.root :: BasePart).Position)
+			if m then
+				downIn[o] = m
 			end
 		end
-		table.insert(free, { x = rm.x, z = rm.z, free = n })
+	end
+	for _, rm in (if sb then sb.rooms else {}) do
+		local bodies = {}
+		for _, o in bots do
+			local sent = o.side == side and o.postKind == "dugout" and o.post == rm.room
+			local inside = downIn[o] == rm.model
+			if sent or inside then
+				table.insert(bodies, { sent = sent, inside = inside })
+			end
+		end
+		table.insert(free, { x = rm.x, z = rm.z, free = BotTrenches.placesLeft(Cfg.Dugouts.room, bodies) })
 	end
 	-- (exploiting: its first Offensive.exploitHold of the squads hold the zone, the rest cut the defenders' approach)
 	local offSquads, offIndex = 0, 0
@@ -980,13 +995,17 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 							and b.postSector == sector
 							and Tactics.dug.standing(s2, b.post)
 						if want and not fallback and not s2.standTo then
-							-- (heat at its dugout, else at its post here, else where it is)
-							local pos = if b.post and b.postSector == sector then b.post :: Vector3 else p
+							-- (heat where it went down from while down, else at its post here, else where it is: never at
+							-- the dugout, which may be cold while its post is shelled, sending it straight back up)
+							local pos = if inside and b.dugFrom
+								then b.dugFrom :: Vector3
+								elseif b.post and b.postSector == sector then b.post :: Vector3
+								else p
 							local h, hs, hd, he =
 								BotTrenches.heat(now, pos.X, pos.Z, side, Tactics.dug.heat, s2.enemies, DH)
-							local down, why =
+							local down =
 								BotTrenches.shelter(inside, h, now - (b.dugSince or now), now < (b.dugRest or 0), DH)
-							if inside and not down and why == "stay" then
+							if inside and not down then
 								b.dugRest = now + DH.rest
 							end
 							if inside and down then
@@ -994,11 +1013,12 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 							elseif down and want == "step" and up < s2.bays then
 								up += 1
 							elseif down then
-								local i = BotTrenches.seat(free, p.X, p.Z)
+								local i = BotTrenches.seat(free, p.X, p.Z, Cfg.Dugouts.reach)
 								if i then
 									free[i].free -= 1
 									want = "dugout"
 									local rm = s2.rooms[i]
+									b.dugFrom = pos
 									b.post, b.postFace, b.postKind, b.postFloor = rm.room, nil, "dugout", rm.room
 									b.postFoot = rm.foot
 									b.postSector = sector
@@ -1069,6 +1089,11 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						b.stop = nil
 						b.goal = slot
 					end
+				end
+				if role ~= "Hold" and b.postKind == "dugout" then
+					-- (sent off to attack or move: out of its dugout, up its steps first (think), its place freed)
+					b.postKind, b.dugFrom = nil, nil
+					stats.cameUp += 1
 				end
 				if role ~= b.roleWas then
 					if role == "Support" then
@@ -2466,6 +2491,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local swings: { [number]: number } = {}
 	local decided: { [number]: string } = {}
 	local scoreOf: { [number]: number } = {}
+	local reinforcing: { [number]: boolean } = {}
 	for i, w in works do
 		local inReach = false
 		for _, z in digZones do
@@ -2492,6 +2518,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			elseif not lull and not sbs.standTo and w.hp >= w.max and x < xT then
 				table.insert(wanted, { i = i, score = score, hp = false })
 				swings[i] = BuildRules.workLeft(x, xT, math.max(w.swing / TH.swing * TH.extraSwing, 1e-3))
+				reinforcing[i] = true
 				decided[i] = d
 			end
 			scoreOf[i] = score
@@ -2550,6 +2577,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			local rr = r :: BuildJob
 			rr.at, rr.left, rr.open, rr.fix = w.at, swings[i] or w.left, true, fix[i] == true
 			rr.buried = square and w.built and w.hp < w.max
+			rr.reinforce = reinforcing[i] == true -- (a plain dig job at a full square swings no more: Act.doBuild)
 			rr.decision = decided[i]
 			rr.care = if decided[i] then scoreOf[i] else nil
 			keep[w.model] = rr

@@ -173,6 +173,10 @@ local Remotes: { string } = {
 	-- server -> client: (key: string) tour the flight over this map; client -> server: (key: string) done. The black
 	-- holds for every player asked (Config/Frontline.Loading.tour at the most)
 	"MapTour",
+	-- The war room's set ready behind the victory screen (src/client/EndScenes builds it and preloads its meshes,
+	-- src/server/Frontline waits): client -> server: ("Table") ready. The victory screen holds until every player said
+	-- so (Config/Frontline.Victory)
+	"SceneReady",
 }
 local Functions: { string } = {}
 

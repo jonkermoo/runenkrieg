@@ -18,6 +18,7 @@ return {
 		assert(props.CameraMaxZoomDistance == Camera.FreeMaxZoom, "CameraMaxZoomDistance drifted from Config/Camera")
 	end,
 	["Rojo never manages Workspace"] = function()
+		-- (Workspace.StreamingMinRadius, Config/JoinLoading.MinRadius, is set in the place by hand: user 2026-11-05)
 		assert(project.tree.Workspace == nil, "Workspace holds maps; Rojo must not own it")
 	end,
 }

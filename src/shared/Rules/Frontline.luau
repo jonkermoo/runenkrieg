@@ -224,15 +224,23 @@ function Frontline.weight(cfg: any, bot: boolean): number
 	return if bot then cfg.BotWeight else 1
 end
 
--- How far control moves in `dt` seconds with soldiers `west` and `east` in the zone: by the lead (at most
--- MaxAdvantage) at one soldier's rate times `rate` (momentum), toward the side ahead; nil when nobody leads (empty,
--- or even: contested).
-function Frontline.push(cfg: any, west: number, east: number, dt: number, rate: number?): number?
+-- The lead that counts as one soldier's worth on a server whose sides are `west` and `east` strong (Config/Frontline
+-- .Unit; each side's soldiers weighed as in a zone: players 1, bots BotWeight): `perSoldier` of the sides' mean
+-- strength, at least `min`. On a bigger server more soldiers stand on a point, so a lead takes more of them.
+function Frontline.unit(cfg: any, west: number, east: number): number
+	local u = cfg.Unit
+	return math.max(u.min, u.perSoldier * (west + east) / 2)
+end
+
+-- How far control moves in `dt` seconds with soldiers `west` and `east` in the zone: by the lead in soldiers' worths
+-- (`unit`, Frontline.unit; at most MaxAdvantage of them) at CaptureSeconds per enemy sector for one, toward the side
+-- ahead; nil when nobody leads (empty, or even: contested).
+function Frontline.push(cfg: any, west: number, east: number, dt: number, unit: number?): number?
 	local lead = west - east
 	if lead == 0 then
 		return nil
 	end
-	local by = math.min(math.abs(lead), cfg.MaxAdvantage) * 2 / cfg.CaptureSeconds * dt * (rate or 1)
+	local by = math.min(math.abs(lead) / (unit or 1), cfg.MaxAdvantage) * 2 / cfg.CaptureSeconds * dt
 	return if lead > 0 then by else -by
 end
 
@@ -257,14 +265,14 @@ local function move(state: State, i: number, to: number, by: Side?): Event?
 end
 
 -- One tick of `dt` seconds. `counts[i]` = { West = n, East = n }: the soldiers in sector i's zone. The sectors either
--- side may attack move by the lead in their zone (times `rate`, the momentum); contested (even, not empty) ones hold;
+-- side may attack move by the lead in their zone (in soldiers' worths, `unit`); contested (even, not empty) ones hold;
 -- the rest drift back to their holder's end. Returns the captures and neutralisations, in sector order.
 function Frontline.step(
 	state: State,
 	cfg: any,
 	counts: { { West: number, East: number } },
 	dt: number,
-	rate: number?
+	unit: number?
 ): { Event }
 	local live: { [number]: boolean } = {}
 	for _, side in { "West", "East" } do
@@ -277,7 +285,7 @@ function Frontline.step(
 	for i in state.owner do
 		local c = counts[i] or { West = 0, East = 0 }
 		local w, e = c.West or 0, c.East or 0
-		local d = if live[i] then Frontline.push(cfg, w, e, dt, rate) else nil
+		local d = if live[i] then Frontline.push(cfg, w, e, dt, unit) else nil
 		local event: Event? = nil
 		if d then
 			-- a side neutralises the other's sector at 0, then needs to keep pushing to take it
@@ -297,7 +305,7 @@ end
 -- Each sector's control per second now (+ toward West, - toward East): the lead's push in the sectors either side may
 -- attack, 0 where nothing moves it (contested, empty or out of reach; the drift back isn't counted). For the admin
 -- readout.
-function Frontline.rates(state: State, cfg: any, counts: { { West: number, East: number } }, rate: number?): { number }
+function Frontline.rates(state: State, cfg: any, counts: { { West: number, East: number } }, unit: number?): { number }
 	local live: { [number]: boolean } = {}
 	for _, side in { "West", "East" } do
 		local t = Frontline.target(state, side)
@@ -308,7 +316,7 @@ function Frontline.rates(state: State, cfg: any, counts: { { West: number, East:
 	local out = {}
 	for i in state.owner do
 		local c = counts[i] or { West = 0, East = 0 }
-		out[i] = if live[i] then Frontline.push(cfg, c.West or 0, c.East or 0, 1, rate) or 0 else 0
+		out[i] = if live[i] then Frontline.push(cfg, c.West or 0, c.East or 0, 1, unit) or 0 else 0
 	end
 	return out
 end
@@ -321,13 +329,6 @@ function Frontline.eta(control: number, perSecond: number): number?
 	end
 	local to = if perSecond > 0 then 1 else -1
 	return math.abs(to - control) / math.abs(perSecond)
-end
-
--- The capture speed's multiplier after `still` seconds without a capture (Config/Frontline.Momentum): 1 until
--- `after`, then `perMinute` more per minute, at most `max`.
-function Frontline.momentum(cfg: any, still: number): number
-	local m = cfg.Momentum
-	return math.min(1 + math.max(still - m.after, 0) / 60 * m.perMinute, m.max)
 end
 
 -- Whether a match can start: each side has at least `least` players.

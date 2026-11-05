@@ -132,6 +132,17 @@ local DevTools = {
 		-- Match (Normal): each sector's capture readout (the sides' weights, its control, its speed and the seconds to
 		-- the capture), refreshed every `CaptureReadout` seconds
 		CaptureReadout = 0.25,
+		-- the Loading section (src/client/DevAdminMenu): the match's loop skipped on to each stage (src/server/
+		-- Frontline.skipTo: its Phase, the row's words) and the load readout refreshed every `LoadReadout` seconds
+		LoadStages = {
+			{ "Fade", "Victory" },
+			{ "Table", "War room" },
+			{ "Vote", "Vote" },
+			{ "Loading", "Armory" },
+			{ "Countdown", "Flight" },
+			{ "Playing", "Playing" },
+		},
+		LoadReadout = 0.25,
 		FlyUpKeys = { "Space", "E" },
 		FlyDownKeys = { "Q", "LeftControl" },
 		Attribute = "DevSpeed", -- the chosen multiplier, on the Player (read by src/client/Stance)
@@ -160,6 +171,8 @@ local DevTools = {
 		DownHealth = 0.4, -- "Nearest bot knocked down here": its health share after (src/server/Bots.dev "Down")
 		-- the admin panel's readout of each side's bot classes (src/server/Bots, every commander tick in Normal)
 		BotClassesAttribute = "DevBotClasses",
+		-- the admin panel's readout of how far bots see now (Config/Bots.Seeing: weather and daylight; src/server/Bots)
+		BotSightAttribute = "DevBotSight",
 		-- the admin panel's readout of each side's Engineer bots: each one's build job, or why it has none
 		-- (src/server/Bots, every commander tick)
 		BotEngineersAttribute = "DevBotEngineers",

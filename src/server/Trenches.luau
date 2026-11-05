@@ -72,7 +72,7 @@ export type Block = {
 	-- the ground's rise per stud across it, to `across` (Rules.crossTilt): its hole, walls and pieces turned with it
 	tilt: number,
 	hp: number, -- its depth: hp / Trench.hp.max of the full depth; past the max, reinforced (up to hp.max + hp.extra)
-	-- its sheets standing (Trench.sheets; 1-2 the lower and upper on side 1, 3-4 on side 2): when each went up
+	-- its sheets standing (Trench.sheets; slots 1..perWall on side 1, then side 2's): when each went up
 	sheets: { [number]: number },
 	rustSig: string, -- its sheets' rust when its pieces were last laid
 	falling: boolean, -- lost HP since it was last full
@@ -698,7 +698,7 @@ local SHEETS = T.sheets
 local function syncSheets(blk: Block)
 	local up = Rules.sheetsUp(blk.hp - T.hp.max, SHEETS.at)
 	local now = os.clock()
-	for k, slot in Rules.sheetOrder(blk.seed, #SHEETS.at) do
+	for k, slot in Rules.sheetOrder(blk.seed, #SHEETS.at, SHEETS.perWall) do
 		if k <= up then
 			blk.sheets[slot] = blk.sheets[slot] or now
 		else
@@ -868,8 +868,8 @@ local function piecesNow(blk: Block)
 	local B = Palette.Build
 	local function sheets(side: number, n: number, cf: CFrame, st: number)
 		local now = os.clock()
-		for s = 1, 2 do
-			local t = blk.sheets[(side - 1) * 2 + s]
+		for s = 1, SHEETS.perWall do
+			local t = blk.sheets[(side - 1) * SHEETS.perWall + s]
 			if t then
 				local age = Rules.sheetAge(now - t, SHEETS.rustAt)
 				local tones = SHEETS.tones[`Wall{n}Sheet{s}`] or { 1, 1 }

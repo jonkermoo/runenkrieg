@@ -128,6 +128,38 @@ function Tactics.dug.foot(model: Model): Vector3?
 	end
 	return nil
 end
+-- the dugout (any side's, as of the last commander tick: Clear.every) whose steps or room `p` (a root) is down in:
+-- lower than one standing on the trench floor at its foot (its root 3 up; a root on the top steps is about -1, 2026-11-04
+-- test), over its room's floor (`drop` under the trench floor), inside its "Frame" box along and across (the frame is at
+-- the trench floor's height, so its own height box misses a bot standing in the room); with its foot; nil outside
+local dugCache: { at: number, list: { Model } } = { at = -2, list = {} }
+function Tactics.dug.inside(p: Vector3): (Model?, Vector3?)
+	if dugCache.at ~= Clear.everyAt then
+		dugCache.at, dugCache.list = Clear.everyAt, {}
+		for _, w in Clear.every do
+			if w.key == "Dugout" then
+				table.insert(dugCache.list, w.model)
+			end
+		end
+	end
+	for _, m in dugCache.list do
+		local foot = m.Parent and Tactics.dug.foot(m)
+		local frame, size = m:GetAttribute("Frame"), m:GetAttribute("Size")
+		if
+			foot
+			and typeof(frame) == "CFrame"
+			and typeof(size) == "Vector3"
+			and p.Y < foot.Y + 1
+			and p.Y > foot.Y - BuildCfg.Dugout.drop - 1
+		then
+			local o = frame:PointToObjectSpace(p)
+			if math.abs(o.X) <= size.X / 2 and math.abs(o.Z) <= size.Z / 2 then
+				return m, foot
+			end
+		end
+	end
+	return nil, nil
+end
 -- `team`'s works (Build.worksOf, its swings a `class` builder's) with a dugout's `at` its foot; and each dugout's room
 -- (the middle of its floor)
 function Tactics.dug.works(team: string?, class: string?): ({ Build.Work }, { [Model]: Vector3 })
@@ -228,6 +260,7 @@ local stats = {
 	dugoutsRefused = 0, -- support-line squares left out of the dugout list: no ground round a room (Build.dugoutFor)
 	sheltered = 0, -- holders down into a dugout under shelling
 	cameUp = 0, -- holders up from a dugout to their posts
+	dugLifted = 0, -- bots jammed down in a dugout they weren't sheltering in, lifted out (Config/Bots.Dugouts.Free)
 	bombed = 0, -- grenades down an enemy dugout's steps
 	holes = 0, -- foxholes dug
 	pinnedHoles = 0, -- foxholes begun pinned down in the open

@@ -18,6 +18,7 @@
 -- CanvasGroup: every element sets its own transparency.
 
 local GuiService = game:GetService("GuiService")
+local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -39,7 +40,7 @@ local LoadoutSpec = require(Shared.ui.LoadoutMenu) :: any
 local JoinSpec = require(Shared.ui.JoinLoading) :: any
 local JoinCfg = require(Shared.Config.JoinLoading)
 local JoinRules = require(Shared.Rules.JoinLoading)
-local JoinLoad = require(script.Parent.JoinLoad)
+local MapLoader = require(script.Parent.MapLoader)
 local SketchCfg = require(Shared.Config.SketchMap) :: any
 local Ink = require(script.Parent.Ink)
 local MatchCam = require(script.Parent.MatchCam)
@@ -51,6 +52,15 @@ local Playtest = require(Shared.Config.Maps.Playtest)
 local LiveMap = require(Shared.LiveMap)
 
 local Menus = {}
+-- set by src/client/EndScenes: the armory's cinematic behind the join's loading screen on (yields until its set
+-- stands) or off
+Menus.joinScene = nil :: ((boolean) -> ())?
+
+-- (set by Menus.start: the title screen and the screen switch, for the join's loading screen)
+local titleScreen: any = nil
+local openScreen: (any) -> () = function(_: any) end
+local joinGui: Instance? = nil
+local localPlayer = Players.LocalPlayer
 
 local C = Palette.UI.Settings :: any
 local GR = (Palette.UI :: any).Grimoire
@@ -324,6 +334,7 @@ Menus.build = build
 function Menus.start()
 	local player = Players.LocalPlayer
 	local playerGui = player:WaitForChild("PlayerGui")
+	joinGui = playerGui
 	local title = build(TitleSpec, "TitleScreen", playerGui)
 	local loadout = build(LoadoutSpec, "LoadoutMenu", playerGui)
 	-- a match cutscene or an end scene over the menus (src/client/MatchCutscene, src/client/EndScenes): their contents
@@ -699,6 +710,7 @@ function Menus.start()
 		end
 		refresh()
 	end
+	titleScreen, openScreen = title, open
 
 	for key, r in rows do
 		r.button.Activated:Connect(function()
@@ -914,52 +926,98 @@ function Menus.start()
 		end
 	end)
 
-	-- the join: a loading screen until the match's map is loaded (src/client/JoinLoad; user 2026-11-04: "the main menu
-	-- should not even be visible until the current map is done loading"; Skip goes straight on), then the title screen
-	-- (unless a soldier is already out, e.g. a respawn from the dev tools). Between matches there is none.
+	-- the join (user 2026-11-04: "require all players to go through the runenkrieg loading screen while the cinematic
+	-- loading screen loads ... keep the runenkrieg words over [it]"): the RUNENKRIEG words and the load's progress over
+	-- the armory's cinematic (src/client/EndScenes, Menus.joinScene) while the whole current map loads (src/client/
+	-- MapLoader). No skip: only once it's loaded does the title screen open (its Play and Settings appear under the same
+	-- words), the cinematic still behind it until the title closes (unless a soldier is already out, e.g. a respawn from
+	-- the dev tools). Between matches there is none (the armory loads the next map, src/client/MatchCutscene).
 	if player.Character then
 		state = { alive = true }
 	else
 		Net.event("Loadout"):FireServer("Ask") -- (the team line and the preview get ready meanwhile)
-		local loading = build(JoinSpec, "JoinLoading", playerGui)
-		loading.gui.DisplayOrder = DISPLAY_ORDER + 1
-		loading.gui.Enabled = true
-		loading.relayout()
-		local status = loading.node.Status :: TextLabel
-		status.Text = JoinRules.status(0)
-		MatchCam.start() -- (the menus' camera already out, its ground streaming in with the rest)
-		local finished = false
-		local function finish()
-			if finished then
-				return
+		Menus.replayJoin(true)
+	end
+end
+
+-- The join's loading screen (above; the admin's "Replay the join load" too: `first` false, the map loaded again from
+-- the start and the title screen only if no soldier is out).
+local joinOpen = false
+-- The join's loading screen is up (src/client/EndScenes: the end scenes wait for it, not for the title screen).
+function Menus.joinLoading(): boolean
+	return joinOpen
+end
+
+function Menus.replayJoin(first: boolean?)
+	if joinOpen then
+		return
+	end
+	joinOpen = true
+	local loading = build(JoinSpec, "JoinLoading", joinGui :: Instance)
+	loading.gui.DisplayOrder = DISPLAY_ORDER + 1
+	loading.gui.Enabled = true
+	loading.relayout()
+	local status = loading.node.Status :: TextLabel
+	status.Text = JoinRules.status(0)
+	-- black until the cinematic's set stands, then it fades to the shade under the words
+	local curtain = Instance.new("Frame")
+	curtain.Name = "Curtain"
+	curtain.BackgroundColor3 = Color3.new(0, 0, 0)
+	curtain.BorderSizePixel = 0
+	curtain.Position = UDim2.fromOffset(0, -GuiService:GetGuiInset().Y)
+	curtain.Size = UDim2.new(1, 0, 1, GuiService:GetGuiInset().Y)
+	curtain.ZIndex = 0
+	curtain.Parent = loading.gui
+	if first then
+		MatchCam.start() -- (the menus' camera out, until the cinematic takes the camera)
+	end
+	task.spawn(function()
+		while not Menus.joinScene do -- (set by src/client/EndScenes once it has started)
+			task.wait()
+		end
+		Menus.joinScene(true) -- (yields until its set stands and is preloaded)
+		TweenService:Create(curtain, TweenInfo.new(JoinCfg.Reveal), { BackgroundTransparency = 1 }):Play()
+	end)
+	local key = LiveMap.key()
+	local load = MapLoader.load(key)
+	if not first and load.finished then
+		MapLoader.forget()
+		load = MapLoader.load(key)
+	end
+	local conn = MapLoader.changed:Connect(function()
+		status.Text = JoinRules.status(MapLoader.progress())
+	end)
+	task.spawn(function()
+		while not load.finished do
+			if MapLoader.state() ~= load then -- (another map asked for meanwhile: load what's live now)
+				load = MapLoader.load(LiveMap.key())
 			end
-			finished = true
-			loading.gui:Destroy()
-			if not player.Character then
-				open(title)
+			task.wait(0.1)
+		end
+		conn:Disconnect()
+		status.Text = JoinRules.status(1)
+		task.wait(JoinCfg.Hold)
+		loading.gui:Destroy()
+		joinOpen = false
+		local function done()
+			if Menus.joinScene then
+				Menus.joinScene(false)
 			end
 		end
-		local skip = loading.node.Skip :: TextButton
-		skip.Activated:Connect(finish)
-		skip.MouseEnter:Connect(function()
-			skip.TextTransparency = 0
-		end)
-		skip.MouseLeave:Connect(function()
-			skip.TextTransparency = loading.spec.Skip.fade or 0
-		end)
-		task.spawn(function()
-			JoinLoad.run(function(progress: number)
-				if not finished then
-					status.Text = JoinRules.status(progress)
-				end
-			end)
-			if not finished then
-				status.Text = JoinRules.status(1)
-				task.wait(JoinCfg.Hold)
-				finish()
+		if localPlayer.Character or not titleScreen then
+			done()
+			return
+		end
+		openScreen(titleScreen)
+		-- the cinematic stays behind the title screen until it closes (Play opens the loadout over the live match)
+		local c: RBXScriptConnection
+		c = titleScreen.gui:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if not titleScreen.gui.Enabled then
+				c:Disconnect()
+				done()
 			end
 		end)
-	end
+	end)
 end
 
 return Menus

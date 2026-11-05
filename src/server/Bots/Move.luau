@@ -10,6 +10,9 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
 local Hitches = require(Shared.Hitches)
 local DamageCfg = require(Shared.Config.Damage)
+local DevCfg = require(Shared.Config.DevTools)
+local EnvCfg = require(Shared.Config.Environment)
+local EnvRules = require(Shared.Rules.Environment)
 local FrontCfg = require(Shared.Config.Frontline)
 local IndoorCfg = require(Shared.Config.Indoors)
 local Net = require(Shared.Net)
@@ -207,6 +210,58 @@ local function friendly(m: Model, kit: any, other: Soldier): boolean
 	)
 end
 
+-- how far bots see now (Config/Bots.Seeing): by the weather and the daylight, rechecked every `every` seconds; and who
+-- fired lately (their muzzle flash)
+local SE = Cfg.Seeing
+local seeing = { at = -math.huge, range = SE.clear, flash = SE.clear * SE.flash }
+local flashAt: { [Model]: number } = {}
+
+local function seeRange(now: number): (number, number)
+	if now - seeing.at < SE.every then
+		return seeing.range, seeing.flash
+	end
+	seeing.at = now
+	local A = EnvCfg.Attributes
+	local t = workspace:GetServerTimeNow()
+	local start, paused = workspace:GetAttribute(A.dayStart), workspace:GetAttribute(A.paused)
+	local clock = EnvRules.clockNow(
+		t,
+		if typeof(start) == "number" then start else t,
+		if typeof(paused) == "number" then paused else nil,
+		EnvCfg.Day
+	)
+	local kind, from, to =
+		workspace:GetAttribute(A.weather), workspace:GetAttribute(A.from), workspace:GetAttribute(A.to)
+	local w = EnvRules.strength(
+		t,
+		if typeof(from) == "number" then from else 0,
+		if typeof(to) == "number" then to else 0,
+		EnvCfg.Weather.fade
+	)
+	local k = if typeof(kind) == "string" then kind else "Clear"
+	local daylight = EnvRules.daylight(clock, EnvCfg.Day)
+	seeing.range = Rules.sightRange(k, w, daylight, false, SE)
+	seeing.flash = Rules.sightRange(k, w, daylight, true, SE)
+	-- the admin panel's readout (Config/DevTools.Admin.BotSightAttribute)
+	workspace:SetAttribute(
+		DevCfg.Admin.BotSightAttribute,
+		string.format(
+			"%d studs (flash %d) · %s %d%% · daylight %d%%",
+			seeing.range,
+			seeing.flash,
+			k,
+			math.floor(w * 100 + 0.5),
+			math.floor(daylight * 100 + 0.5)
+		)
+	)
+	for m, at in flashAt do
+		if now - at > SE.flashFor or not m.Parent then
+			flashAt[m] = nil
+		end
+	end
+	return seeing.range, seeing.flash
+end
+
 -- the bot's sight now; false when the frame's rays are spent (it looks again next think)
 local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 	local m, root = b.m :: Model, b.root :: BasePart
@@ -220,6 +275,9 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 	local all, n = soldiersNow()
 	local kit = m:GetAttribute("Kit")
 	local near = math.huge
+	-- (no further than a player could make them out: the weather, the night; a muzzle flash further)
+	local plain, lit = seeRange(now)
+	plain, lit = math.min(plain, d.spotRange), math.min(lit, d.spotRange)
 	for k = 1, n do
 		local other = all[k]
 		if other.model == m or friendly(m, kit, other) then
@@ -228,7 +286,9 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 		local off = other.pos - from
 		local dist = off.Magnitude
 		near = math.min(near, dist)
-		if Rules.inSight(off.X, off.Z, dist, facing.X, facing.Z, d.spotRange, d.fov, alert) then
+		local fired = flashAt[other.model]
+		local range = if fired and now - fired <= SE.flashFor then math.max(plain, lit) else plain
+		if Rules.inSight(off.X, off.Z, dist, facing.X, facing.Z, range, d.fov, alert) then
 			table.insert(seen, { model = other.model, distance = dist, visible = false })
 			parts[other.model] = other
 		end
@@ -618,6 +678,7 @@ local function shotPassed(shooter: Model, origin: Vector3, hit: Vector3)
 	end
 	local l = line / len
 	local now = os.clock()
+	flashAt[shooter] = now -- (its muzzle flash: seen further in the dark, Config/Bots.Seeing)
 	for _, b in bots do
 		if b.m == shooter or not alive(b) or Damage.spares(shooter, b.m) then
 			continue

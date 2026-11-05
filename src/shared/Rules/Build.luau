@@ -680,17 +680,23 @@ function Build.sheetsUp(extra: number, at: { number }): number
 	return n
 end
 
--- The order a square's `count` sheets go up in, from its seed: a shuffle of 1..count
-function Build.sheetOrder(seed: number, count: number): { number }
-	local order = {}
+-- The order a square's `count` sheets go up in, from its seed, as slots (side - 1) * `perWall` + s: the two walls'
+-- turns shuffled, each wall's own sheets in slot order (a sheet rests on the ones laid before it on its wall)
+function Build.sheetOrder(seed: number, count: number, perWall: number): { number }
+	local sides = {}
 	for i = 1, count do
-		order[i] = i
+		sides[i] = math.ceil(i / perWall)
 	end
 	local x = math.floor(math.abs(seed)) % 2147483647
 	for i = count, 2, -1 do
 		x = (x * 48271 + 11) % 2147483647
 		local j = x % i + 1
-		order[i], order[j] = order[j], order[i]
+		sides[i], sides[j] = sides[j], sides[i]
+	end
+	local laid, order = {}, {}
+	for i, side in sides do
+		laid[side] = (laid[side] or 0) + 1
+		order[i] = (side - 1) * perWall + laid[side]
 	end
 	return order
 end

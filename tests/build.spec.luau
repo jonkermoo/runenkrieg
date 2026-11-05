@@ -493,29 +493,34 @@ return {
 		assert(B.trenchHPText(100, 100, 40, 75) == "HP 100 + 40 / 100 + 75")
 		assert(B.trenchHPText(42.2, 100, nil, nil) == "HP 43 / 100")
 	end,
-	["reinforced trenches: a sheet or two at +25, +50, +75; rust by age; a rebuilt sheet starts new"] = function()
+	["reinforced trenches: two sheets at +25, +50, +75 (three a wall, each wall's in order); rust by age; a rebuilt sheet starts new"] = function()
 		local Sh = C.Trench.sheets
-		assert(#Sh.at == 4, "four sheets a square, two a side")
+		local per = Sh.perWall
+		assert(per == 3 and #Sh.at == 2 * per, "three sheets a wall, both walls")
 		assert(B.sheetsUp(0, Sh.at) == 0 and B.sheetsUp(24.9, Sh.at) == 0)
-		assert(B.sheetsUp(25, Sh.at) == 1 and B.sheetsUp(49, Sh.at) == 1, "+25: one")
-		assert(B.sheetsUp(50, Sh.at) == 3 and B.sheetsUp(74, Sh.at) == 3, "+50: two more")
-		assert(B.sheetsUp(75, Sh.at) == 4, "+75: the last")
+		assert(B.sheetsUp(25, Sh.at) == 2 and B.sheetsUp(49, Sh.at) == 2, "+25: two")
+		assert(B.sheetsUp(50, Sh.at) == 4 and B.sheetsUp(74, Sh.at) == 4, "+50: two more")
+		assert(B.sheetsUp(75, Sh.at) == 6, "+75: the last two")
 		for seed = 1, 50 do
-			local o = B.sheetOrder(seed * 7919, 4)
-			local seen = {}
+			local o = B.sheetOrder(seed * 7919, #Sh.at, per)
+			local seen, last = {}, {}
 			for _, i in o do
-				assert(i >= 1 and i <= 4 and not seen[i], "a shuffle of 1..4")
+				assert(i >= 1 and i <= #Sh.at and not seen[i], "a shuffle of the slots")
 				seen[i] = true
+				local side, s = math.ceil(i / per), (i - 1) % per + 1
+				assert(s == (last[side] or 0) + 1, "a wall's sheets in slot order (each rests on the ones before)")
+				last[side] = s
 			end
 		end
-		local same = B.sheetOrder(1234, 4)
-		assert(table.concat(same, ",") == table.concat(B.sheetOrder(1234, 4), ","), "the same seed, the same order")
+		local same = B.sheetOrder(1234, #Sh.at, per)
+		local again = B.sheetOrder(1234, #Sh.at, per)
+		assert(table.concat(same, ",") == table.concat(again, ","), "the same seed, the same order")
 		assert(B.sheetAge(0, Sh.rustAt) == 0, "new: no rust")
 		assert(B.sheetAge(Sh.rustAt[1], Sh.rustAt) == 1 and B.sheetAge(Sh.rustAt[3] + 1, Sh.rustAt) == 3)
 		assert(B.sheetTone(0, 3) == 1 and B.sheetTone(1, 3) == 1, "new metal while new or lightly rusted")
 		assert(B.sheetTone(2, 3) == 2 and B.sheetTone(3, 3) == 3 and B.sheetTone(3, 1) == 1)
 		for i = 1, 8 do
-			for s = 1, 2 do
+			for s = 1, per do
 				local t = Sh.tones[`Wall{i}Sheet{s}`]
 				assert(t and t[1] >= 1 and t[1] <= 3 and t[2] >= 1 and t[2] <= 3, `Wall{i}Sheet{s}'s tones`)
 			end

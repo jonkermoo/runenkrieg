@@ -47,6 +47,8 @@ export type BuildJob = {
 	fix: boolean?, -- a gun of its side out of service (Rules/BotCrew.repairOrder): fixed first, wherever it stands
 	why: string?, -- why it was last refused (Build.placeAs; the Engineer readout)
 	from: { x: number, z: number }?, -- a trench run planned part way: where it began (its job goes on from the part's end)
+	reinforce: boolean?, -- a dug square's job past its max (Commander's reinforce list): only such a job swings HP into a
+	-- full square's extra (Build.workAs)
 	buried: boolean?, -- a trench square dug full once and buried since (pioneers dig it first, Config/Bots.Trenches.Redig)
 	redig: number?, -- a buried-to-nothing square planned again where it lay: kept on the list until then (Trenches.Redig)
 	lostBy: { [number]: boolean }?, -- bots (by id) that left it with no way there, no swing or flapping (Build.Work)
@@ -227,6 +229,8 @@ export type Bot = {
 	postKind: string?, -- "step", "reserve" (the support line), "dugout" (sheltering), "window" or "open"
 	postFoot: Vector3?, -- its dugout's foot (where the steps start): walked straight down from there, and up to it
 	dugSince: number?, -- when it went down into its dugout (Config/Bots.Dugouts.Heat.stay)
+	dugFrom: Vector3?, -- where it went down from: the heat there brings it up (Dugouts.Heat.leave)
+	dugStuck: number?, -- since when it has been down in a dugout it isn't sheltering in (Config/Bots.Dugouts.Free)
 	dugRest: number?, -- up to fight till then, after a stay (Dugouts.Heat.rest)
 	gun: Model?, -- Normal: the gun its commander gave it (src/server/Bots/Crew): it walks there, mans and fires it
 	gunWait: number?, -- not given a gun again before this (taken over by a teammate, or gave up the walk)

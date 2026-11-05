@@ -18,11 +18,11 @@ local function at(i: number, w: number, e: number): { { West: number, East: numb
 	return out
 end
 
--- runs `seconds` of ticks with the same counts (and momentum `rate`); every event in order
-local function hold(state: R.State, counts: any, seconds: number, rate: number?): { R.Event }
+-- runs `seconds` of ticks with the same counts (and one soldier's worth `unit`); every event in order
+local function hold(state: R.State, counts: any, seconds: number, unit: number?): { R.Event }
 	local events = {}
 	for _ = 1, math.round(seconds / Cfg.Tick) do
-		for _, ev in R.step(state, Cfg, counts, Cfg.Tick, rate) do
+		for _, ev in R.step(state, Cfg, counts, Cfg.Tick, unit) do
 			table.insert(events, ev)
 		end
 	end
@@ -86,7 +86,7 @@ return {
 		local r = R.rates(s, Cfg, c, 1)
 		assert(near(r[3], 2 * 2 / Cfg.CaptureSeconds), "S3: two soldiers' lead, per second")
 		assert(r[1] == 0 and r[2] == 0, "out of reach / empty")
-		assert(near(R.rates(s, Cfg, c, 2)[3], 2 * r[3]), "times the momentum")
+		assert(near(R.rates(s, Cfg, c, 2)[3], r[3] / 2), "a soldier's worth twice as big: half as fast")
 		c[3].East = 2
 		assert(R.rates(s, Cfg, c, 1)[3] == 0, "contested")
 		assert(near(R.eta(0, 0.1) :: number, 10) and near(R.eta(0.5, -0.1) :: number, 15) and R.eta(0.3, 0) == nil)
@@ -95,7 +95,7 @@ return {
 		local s = R.new(Map1.sectors)
 		hold(s, at(3, 1, 0), Cfg.CaptureSeconds / 2) -- West takes S3
 		assert(R.target(s, "West") == 4 and R.target(s, "East") == 3, "the front moved: East now attacks S3")
-		local ev = hold(s, at(4, 1, 0), Cfg.CaptureSeconds)
+		local ev = hold(s, at(4, 1, 0), Cfg.CaptureSeconds + Cfg.Tick)
 		assert(#ev == 2, `{#ev} events`)
 		assert(ev[1].kind == "Neutral" and ev[1].index == 4 and ev[1].side == "West")
 		assert(ev[2].kind == "Captured" and ev[2].index == 4 and ev[2].side == "West")
@@ -119,7 +119,7 @@ return {
 	["defenders in their own attacked sector push it back"] = function()
 		local s = R.new(Map1.sectors)
 		hold(s, at(3, 1, 0), Cfg.CaptureSeconds / 2)
-		hold(s, at(4, 2, 0), 3)
+		hold(s, at(4, 2, 0), Cfg.CaptureSeconds / 8) -- (partway: still East's)
 		local c = s.control[4]
 		hold(s, at(4, 1, 3), 2)
 		assert(s.control[4] < c and s.owner[4] == "East")
@@ -146,15 +146,38 @@ return {
 		end
 		assert(R.winner(e) == "East")
 	end,
-	["momentum: none until the front has stood still a while, then faster, capped"] = function()
-		local M = Cfg.Momentum
-		assert(R.momentum(Cfg, 0) == 1 and R.momentum(Cfg, M.after) == 1)
-		assert(near(R.momentum(Cfg, M.after + 60), 1 + M.perMinute))
-		assert(R.momentum(Cfg, M.after + 60 * 1000) == M.max)
-		-- at x2 a capture takes half the time
-		local s = R.new(Map1.sectors)
-		local ev = hold(s, at(3, 1, 0), Cfg.CaptureSeconds / 4, 2)
-		assert(#ev == 1 and ev[1].kind == "Captured")
+	["no momentum: a capture's speed is the soldiers in the zone only (user 2026-11-04)"] = function()
+		assert(Cfg.Momentum == nil and (R :: any).momentum == nil)
+	end,
+	["a soldier's worth grows with the server, never under the minimum"] = function()
+		local U = Cfg.Unit
+		assert(R.unit(Cfg, 0, 0) == U.min and R.unit(Cfg, 1, 1) == math.max(U.min, U.perSoldier))
+		assert(near(R.unit(Cfg, 40, 40), math.max(U.min, 40 * U.perSoldier)), "the sides' mean strength")
+		assert(near(R.unit(Cfg, 30, 10), R.unit(Cfg, 20, 20)), "uneven sides: their mean")
+		assert(R.unit(Cfg, 40, 40) >= R.unit(Cfg, 20, 20), "bigger servers: more soldiers to a soldier's worth")
+	end,
+	["20v20, 30v30, 40v40 bots: a typical lead takes an enemy sector in 8-10 s (user 2026-11-04)"] = function()
+		assert(Cfg.CaptureSeconds >= 8 and Cfg.CaptureSeconds <= 10)
+		for _, n in { 20, 30, 40 } do
+			local side = n * R.weight(Cfg, true) -- (n bots a side)
+			local unit = R.unit(Cfg, side, side)
+			-- West holds S3 (taken first), East pushes it with a lead of one soldier's worth: neutral, then East's
+			local s = R.new(Map1.sectors)
+			hold(s, at(3, 1, 0), Cfg.CaptureSeconds)
+			assert(s.owner[3] == "West", `{n}v{n}: set up`)
+			local c = at(3, 0, unit)
+			local took = 0
+			while s.owner[3] ~= "East" and took < 60 do
+				R.step(s, Cfg, c, Cfg.Tick, unit)
+				took += Cfg.Tick
+			end
+			assert(took >= 8 - Cfg.Tick and took <= 10 + Cfg.Tick, `{n}v{n}: {took} s`)
+			-- twice the lead: twice as fast; a lead of one bot alone still moves it
+			assert(near(R.push(Cfg, 2 * unit, 0, 1, unit) :: number, 2 * (R.push(Cfg, unit, 0, 1, unit) :: number)))
+			assert((R.push(Cfg, R.weight(Cfg, true), 0, 1, unit) :: number) > 0)
+		end
+		-- the bigger the server, the more soldiers a soldier's worth
+		assert(R.unit(Cfg, 10, 10) < R.unit(Cfg, 15, 15) and R.unit(Cfg, 15, 15) < R.unit(Cfg, 20, 20))
 	end,
 	["a match starts once each side has its players"] = function()
 		assert(R.ready(1, 1, Cfg.MinPerSide))

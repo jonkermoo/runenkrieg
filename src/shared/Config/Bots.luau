@@ -245,6 +245,12 @@ local Bots = {
 	-- looks it is not re-checked); a covering-fire spot whose line was blocked is not fired at, nor aimed at, for
 	-- `blockedFor` seconds.
 	Sight = { near = 6, stale = 0.15, blockedFor = 3 },
+	-- How far a bot can make a soldier out (Rules/Bots.sightRange; user 2026-11-05: "are bot visibility range accurate
+	-- with fog?"), as far as a player can on screen (Config/Environment's haze, Studio stills): `clear` studs on a clear
+	-- day, times the weather's share at its full strength (Fog, Rain; eased over its fades) and `night` at full night
+	-- (eased over the twilight). Its difficulty's spotRange caps it too. A soldier who fired within `flashFor` seconds is
+	-- seen out to `flash` x the weather's range, night or not (the muzzle flash). Rechecked every `every` seconds.
+	Seeing = { clear = 600, Fog = 0.3, Rain = 0.55, night = 0.4, flash = 0.9, flashFor = 0.6, every = 1 },
 	-- Butt strokes (Rules/BotBuild.strikes, src/server/Melee.strikeAs; user 2026-11-02 hand test: "also allow AI to melee
 	-- (dont force them to just because are withing range)"; "Sometimes"): with its target within Config/Melee.Hit.reach
 	-- less `margin`, a bot strikes on a roll under `chance` (`empty` with its gun empty or loading), rolled at most every
@@ -676,7 +682,7 @@ local Bots = {
 		Care = {
 			Map = { cell = 20, half = 180, shell = 1, death = 0.6 },
 			Site = { heat = 1, sample = 8, seen = 1, seenEvery = 2, eye = 6, head = 3 },
-			Hot = { radius = 20, seconds = 45, lull = 15 },
+			Hot = { radius = 20, seconds = 120, lull = 15 },
 			Rear = { back = 32 },
 			Score = {
 				busy = 30,
@@ -753,10 +759,13 @@ local Bots = {
 	-- - Sheltering (user 2026-11-03: "make bots utilize dug outs more often, especially in trenches highly contested or
 	--   often shelled"): by how hot its post is (Rules/BotTrenches.heat, `Heat`): shells landing within `Heat.radius`,
 	--   the side's own dead there and enemies known within `Heat.enemyNear`, each fading by e every `Heat.fade` s. At
-	--   `Heat.enter` (and not standing to, not falling back) a holder goes down into the nearest standing dugout with a
+	--   `Heat.enter` (and not standing to, not falling back) a holder goes down into the nearest standing dugout within `reach` studs with a
 	--   place, one per fire bay staying on the fire step as a sentry ("1 per fire bay"); it comes up to its post once
-	--   its dugout cools under `Heat.leave`, the side stands to, or after `Heat.stay` s down, then fights `Heat.rest` s
-	--   before it may go down again ("They still need to come back out and fight").
+	--   its post cools under `Heat.leave` (the heat where it sheltered from, not at the dugout: user 2026-11-04, "a
+	--   crazy amount of bots are stuck in dugouts", holders went down hot and came straight up cold, over and over),
+	--   but never before `Heat.least` s down; the side stands to, or after `Heat.stay` s down; then fights `Heat.rest`
+	--   s before it may go down again ("They still need to come back out and fight"). A dugout's `room` places count
+	--   every body down in it, not only the holders sent there; a holder sent off to attack leaves it.
 	-- - Bombing out ("Yes"): a Grenadier of a pushing squad throws a grenade down the steps of an enemy dugout its squad
 	--   knows someone is in (a known enemy within `Bomb.inside` studs of its room, under the trench floor), from `min`-`max`
 	--   studs, no teammate within Actions.Grenade.safe of the steps.
@@ -770,12 +779,16 @@ local Bots = {
 		near = 40,
 		recent = 8,
 		room = 3,
+		reach = 50, -- (a holder only goes down into a dugout this near: never across the front to another's)
 		dug = 0.95,
 		spacing = 16, -- (as Config/Build.Dugout.spacing: a dugout there is refused nearer)
 		recheck = 60, -- (a square refused one, Build.dugoutFor: no ground round its room, left out this many seconds)
 		engineers = 1,
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },
+		-- (a bot down in a dugout's steps or room that isn't sheltering there walks straight up to its foot; still
+		-- down after `after` s, it is lifted out onto the trench floor `out` studs in front of the foot)
+		Free = { after = 12, out = 2 },
 		-- (`weight`: a shell, an own death, an enemy known near; `edge`: a shell's or death's share at `radius`;
 		-- `keep`: the seconds a shell or death is remembered; `enemyMost`: the most heat its known enemies add)
 		Heat = {
@@ -789,6 +802,7 @@ local Bots = {
 			enemyMost = 0.5,
 			enter = 0.8,
 			leave = 0.35,
+			least = 10,
 			stay = 40,
 			rest = 12,
 			build = 1.5,

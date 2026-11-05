@@ -45,6 +45,9 @@ local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
 local DevSights = require(script.Parent.DevSights)
 local Settings = require(script.Parent.Settings)
+local Menus = require(script.Parent.Menus) :: any
+local MapLoader = require(script.Parent.MapLoader)
+local LoadCfg = require(Shared.Config.JoinLoading)
 
 local DevAdminMenu = {}
 
@@ -287,7 +290,10 @@ local function build(player: Player): DevPanel.Panel
 		table.insert(front, b)
 	end
 	-- the capture readout (Config/Frontline.BotWeight: a player 1, a bot half): each sector's weights in its zone, its
-	-- control, its speed (control per second, momentum in) and the seconds left to the capture
+	-- control, its speed (control per second) and the seconds left to the capture; above them one soldier's worth of
+	-- lead on this server and how long the last capture took from its first push (Config/Frontline.Unit)
+	order += 1
+	local lastCapture = DevPanel.heading(p.panel, "Last capture: none yet", order)
 	local readout: { TextLabel } = {}
 	for i = 1, #LiveMap.map.sectors do
 		order += 1
@@ -304,6 +310,10 @@ local function build(player: Player): DevPanel.Panel
 				b.Text = `{side} howitzer kept for the match: {if on then "on" else "off"}`
 				paint(b, on)
 			end
+			local unit, took =
+				f and f:GetAttribute(FrontCfg.UnitAttribute), f and f:GetAttribute(FrontCfg.LastCaptureAttribute)
+			lastCapture.Text = `Last capture took {if type(took) == "number" then num(took) .. " s" else "(none yet)"}`
+				.. ` · a soldier's worth: {if type(unit) == "number" then num(unit) else "?"}`
 			for i, label in readout do
 				local s = f and f:FindFirstChild(LiveMap.map.sectors[i] and LiveMap.map.sectors[i].id or "")
 				if s then
@@ -320,6 +330,62 @@ local function build(player: Player): DevPanel.Panel
 				end
 			end
 			task.wait(A.CaptureReadout)
+		end
+	end)
+	-- Loading (Normal; Config/JoinLoading, src/client/MapLoader, src/server/Frontline's waits): this client's load of a
+	-- whole map (its stage, share, the map's parts held here of the server's count) and who the server waits for; a slow
+	-- load of your own (seconds added to each of its steps); the match's loop skipped on to a stage; the join's loading
+	-- screen replayed (the live map loaded again from the start)
+	heading("Loading")
+	order += 1
+	local loadLine = DevPanel.heading(p.panel, "Load: none yet", order)
+	order += 1
+	local waitLine = DevPanel.heading(p.panel, "Server waits for: nobody", order)
+	local slowRows: { [number]: TextButton } = {}
+	local function showSlow()
+		local now = player:GetAttribute(LoadCfg.SlowAttribute)
+		for s, b in slowRows do
+			paint(b, (now or 0) == s)
+		end
+	end
+	for _, s in LoadCfg.SlowSteps do
+		order += 1
+		local b = DevPanel.button(
+			p.panel,
+			`SlowLoad{s}`,
+			if s == 0 then "Slow load: off" else `Slow load: +{s} s a step`,
+			order
+		)
+		b.Activated:Connect(function()
+			player:SetAttribute(LoadCfg.SlowAttribute, if s > 0 then s else nil)
+			showSlow()
+		end)
+		slowRows[s] = b
+	end
+	showSlow()
+	for _, st in A.LoadStages do
+		table.insert(front, row(`SkipTo{st[1]}`, `Skip to: {st[2]}`, "SkipTo", st[1]))
+	end
+	order += 1
+	local replay = DevPanel.button(p.panel, "ReplayJoin", "Replay the join load", order)
+	replay.Activated:Connect(function()
+		Menus.replayJoin(false)
+	end)
+	task.spawn(function()
+		while p.panel.Parent do
+			local st = MapLoader.state()
+			if st then
+				local share = math.floor(MapLoader.progress() * 100)
+				local parts = if st.parts then `{st.held}/{st.parts}` else `{st.held}/?`
+				loadLine.Text =
+					`Load {st.key}: {st.stage} {share}% · parts {parts} · {math.floor(os.clock() - st.startedAt)} s`
+			else
+				loadLine.Text = "Load: none running"
+			end
+			local f = workspace:FindFirstChild(FrontCfg.FolderName)
+			local who = f and f:GetAttribute(FrontCfg.WaitingAttribute)
+			waitLine.Text = `Server waits for: {if type(who) == "string" then who else "nobody"}`
+			task.wait(A.LoadReadout)
 		end
 	end)
 	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes
@@ -519,6 +585,17 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotClassesAttribute):Connect(showMix)
 	showMix()
+	-- how far bots see now (the weather and the night: Config/Bots.Seeing)
+	order += 1
+	local sight = DevPanel.heading(p.panel, "", order)
+	sight.Size = UDim2.new(1, -8, 0, 40)
+	sight.TextWrapped = true
+	local function showSight()
+		local s = workspace:GetAttribute(A.BotSightAttribute)
+		sight.Text = `Bot sight:\n{if type(s) == "string" then s else "no bots yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotSightAttribute):Connect(showSight)
+	showSight()
 	-- each side's Engineer bots: what each builds, or why nothing
 	order += 1
 	local engineers = DevPanel.heading(p.panel, "", order)

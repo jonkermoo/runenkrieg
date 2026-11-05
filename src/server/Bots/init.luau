@@ -603,6 +603,7 @@ end
 -- the idle watchdog (Config/Bots.Move.Idle), one think: a bot off its post and out of its zone, not fighting, that has
 -- moved no `studs` in `seconds` s drops its job and guard and walks to its stand point (else its zone) for `push` s
 local IDLE = MV.Idle
+local DGF = Cfg.Dugouts.Free
 local function watchdog(b: Bot, now: number, fighting: boolean, zone: Vector3?, radius: number)
 	local root = b.root :: BasePart
 	local p = root.Position
@@ -636,22 +637,8 @@ local function watchdog(b: Bot, now: number, fighting: boolean, zone: Vector3?, 
 	end
 	b.unstick = if to then { to = to :: Vector3, untilAt = now + IDLE.push } else nil
 	b.nav.waypoints, b.nav.pathAt, b.nav.direct = {}, -1, nil
-	-- down in a dugout's steps or room that isn't its post (an enemy's, or wandered in): paths don't go up its steps,
-	-- so straight up to its foot first (think's dugout walk; 2026-11-04 test: an assault squad stood 2 minutes in one)
-	if b.postKind ~= "dugout" then
-		-- (inside its steps and room only: a bot fallen in the dug ground beside its walls can't walk out that way)
-		for _, w in State.Clear.every do
-			local foot = w.key == "Dugout" and Tactics.dug.foot(w.model)
-			local frame, size = w.model:GetAttribute("Frame"), w.model:GetAttribute("Size")
-			if foot and typeof(frame) == "CFrame" and typeof(size) == "Vector3" and p.Y < foot.Y - 1 then
-				local o = frame:PointToObjectSpace(p)
-				if math.abs(o.X) <= size.X / 2 and math.abs(o.Z) <= size.Z / 2 and math.abs(o.Y) <= size.Y / 2 + 1 then
-					b.postFoot = foot
-					break
-				end
-			end
-		end
-	end
+	-- (one down in a dugout's steps or room that isn't sheltering there is walked up its steps, then lifted out, by
+	-- think: freeStuck)
 end
 
 local function think(b: Bot, now: number, d: Rules.Difficulty)
@@ -702,6 +689,35 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		stats.stoodUp += 1
 		b.sight, b.idleAt = nil, nil
 		return
+	end
+	-- down in a dugout's steps or room it isn't sheltering in (come up, sent off, an enemy's, wandered in; acting or
+	-- not): paths don't go up its steps, so straight up to its foot; still down after Dugouts.Free.after s (jammed),
+	-- lifted out in front of the foot (Rules/BotTrenches.freeStuck; 2026-11-04 test: an assault squad stood 2 minutes
+	-- in one; user 2026-11-04: "a crazy amount of bots are stuck in dugouts")
+	do
+		local dm, dfoot = Tactics.dug.inside(root.Position)
+		local mine = dfoot ~= nil
+			and b.postKind == "dugout"
+			and b.postFoot ~= nil
+			and flat((b.postFoot :: Vector3) - dfoot).Magnitude < 1
+		local how = BotTrenches.freeStuck(dm ~= nil, mine, if b.dugStuck then now - b.dugStuck else 0, DGF)
+		if not how then
+			b.dugStuck = nil
+		else
+			b.dugStuck = b.dugStuck or now
+			b.postFoot = dfoot
+			local frame = dm and dm:GetAttribute("Frame")
+			if how == "lift" and dfoot and typeof(frame) == "CFrame" then
+				local out = flat(frame.LookVector)
+				out = if out.Magnitude > 1e-3 then out.Unit else Vector3.xAxis
+				local at = dfoot + out * DGF.out + Vector3.yAxis * (root.Size.Y / 2 + humanoid.HipHeight)
+				m:PivotTo(CFrame.lookAt(at, at + out))
+				root.AssemblyLinearVelocity = Vector3.zero
+				b.dugStuck, b.postFoot = nil, nil
+				b.nav.waypoints, b.nav.pathAt, b.nav.direct = {}, -1, nil
+				stats.dugLifted += 1
+			end
+		end
 	end
 	-- how often it thinks and looks, by the nearest player's distance (Rules/Bots.lod)
 	local nearest = math.huge
