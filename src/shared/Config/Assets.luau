@@ -210,6 +210,9 @@ local Assets = {
 		-- by every team, painted per team (Config/Palette.Artillery). Moving parts are their own meshes; firing is
 		-- later game code.
 		artillery_qf18 = {
+			-- v7 (user 2026-11-05, "clipping on the actual cannon wheel model"): the wheel's gold joint plates laid on the
+			-- rim's iron band instead of filling its slab (they flickered with it and poked into the tyre), and the shield's
+			-- edge strips and the hand wheel's hub no longer flush with the faces under them; v6 72922666832863
 			-- v6 the Italian 75/27 mod. 1911 Deport (user 2026-11-03: rebuilt from it so the barrel lays up to 70: split
 			-- trail, a plain plate shield slotted for the cradle, the barrel on its recoil cylinder between guide rails, the
 			-- trunnions back near the breech; a first take 120139327967900 had a messier hooded shield; v5 117442240826066)
@@ -219,7 +222,7 @@ local Assets = {
 			-- v4 (user 2026-10-26: round rivets, the handspike "tail" gone; v3 114781083776162: the shield's top flap flat,
 			-- was tilted forward; team accent pieces <part>Trim / Fittings / Kit / Marking, Config/Palette.Artillery.Team;
 			-- before it 123043192837733)
-			id = 72922666832863,
+			id = 70380437173679,
 			category = "Weapons",
 			folder = "Shared/Artillery",
 			source = "assets/weapons/shared/artillery_qf18.fbx",
