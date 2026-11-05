@@ -774,6 +774,12 @@ local Build = {
 		cut = 4,
 		cutTop = 1,
 		slotCut = 2,
+		-- the cut round its steps and room filled with unseen solid seals (Rules.dugoutSeals) from their plates out to
+		-- `seal` past the cut (a 4-stud voxel whose middle is in the cut reaches half a voxel past it, 2.83 on a diagonal:
+		-- the voxel grid isn't turned with the dugout), behind the wall's face in `faceStep`-deep slices (Studio
+		-- 2026-11-04: bots fell into the cut beside, behind and under bot-built dugouts and stood there up to 586 s)
+		seal = 3,
+		faceStep = 0.5,
 		ground = 2,
 		eject = 3,
 		ejectRay = { 40, 80 }, -- (the ground over its room found from this high over its floor, this far down)

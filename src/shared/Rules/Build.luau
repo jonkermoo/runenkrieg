@@ -797,6 +797,56 @@ function Build.dugoutRoof(z: number, d: any, height: number, run: number, depth:
 	return d.lintel + (height - d.drop - d.lintel) * t
 end
 
+-- A dugout's seals: unseen solid boxes in its own frame (as Build.inDugout: x along the trench, y up from the trench
+-- floor, z back into the wall) filling the ground cut round its steps and room past their plates (src/server/Trenches:
+-- `cut`, `slotCut` and `cutTop` past them, rounded to 4-stud voxels; Config/Build.Dugout `seal` past that), so nobody
+-- falls into the cut beside, behind or under it, or in front of its doorway, and can't climb out (Studio 2026-11-04:
+-- bots stood in it up to 586 s). Each box { name, x0, x1, y0, y1, z0, z1 }; the floor and walls of the room and steps
+-- stay their plates' (`d.walk` thick), the trench floor (y 0) and the wall's face (`run` back at its top, `depth` over
+-- the floor) are never crossed. Built from the steps' side plates out, behind the face in `faceStep`-deep slices.
+export type Seal = { name: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number }
+function Build.dugoutSeals(piece: Piece, d: any, run: number, depth: number): { Seal }
+	local w, h, len = piece.width, piece.height, piece.depth
+	local t, e = d.walk, d.seal
+	local floor = -d.drop
+	local back = d.stair + len
+	local side = d.slot / 2 + d.slotCut + e -- (the steps' cut, sideways)
+	local room = d.cut + e -- (the room's cut, past its walls and floor)
+	local deep = floor - d.cut - e -- (the steps' cut under their foot)
+	local out: { Seal } = {}
+	local function box(name: string, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number)
+		if x1 > x0 and y1 > y0 and z1 > z0 then
+			table.insert(out, { name = name, x0 = x0, x1 = x1, y0 = y0, y1 = y1, z0 = z0, z1 = z1 })
+		end
+	end
+	-- in front of the doorway, under the trench floor
+	box("SealSill", -side, side, -d.cut - e, 0, -d.slotCut - e, 0)
+	for _, s in { -1, 1 } do
+		local function xs(a: number, b: number): (number, number)
+			return math.min(s * a, s * b), math.max(s * a, s * b)
+		end
+		-- beside the steps: under the trench floor, then up to their roof's cut behind the wall's face
+		local x0, x1 = xs(d.slot / 2 + t, side)
+		box("SealSide", x0, x1, deep, 0, 0, d.stair)
+		local n = math.ceil(d.stair / d.faceStep - 1e-9)
+		for i = 1, n do
+			local z0, z1 = (i - 1) * d.faceStep, math.min(i * d.faceStep, d.stair)
+			local face = if z0 < run then depth * z0 / run else math.huge
+			local roof = Build.dugoutRoof(z0, d, h, run, depth) + d.cutTop + e
+			box("SealSide", x0, x1, 0, math.min(face, roof), z0, z1)
+		end
+		-- beside the room, and its front either side of the steps, up to the trench floor
+		local r0, r1 = xs(w / 2 + t, w / 2 + room)
+		box("SealRoom", r0, r1, floor, 0, d.stair - room, back + room)
+		local f0, f1 = xs(d.slot / 2 + t, w / 2 + t)
+		box("SealRoom", f0, f1, floor, 0, d.stair - room, d.stair - t)
+	end
+	-- behind the room, and under it all
+	box("SealRoom", -w / 2 - room, w / 2 + room, floor, 0, back + t, back + room)
+	box("SealFloor", -w / 2 - room, w / 2 + room, floor - room, floor, d.stair - room, back + room)
+	return out
+end
+
 -- Whether a dugout shelters the soldiers in its room: it has stood once and has HP left (user 2026-11-02: "anything
 -- above them should not hurt them")
 function Build.dugoutShelters(hp: number, built: boolean): boolean

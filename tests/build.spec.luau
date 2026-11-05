@@ -1114,6 +1114,63 @@ return {
 		local howitzer = C.Structures.howitzer.hit * d.soak
 		assert(howitzer > 5 and howitzer < 12)
 	end,
+	-- (Studio 2026-11-04: bots fell into the ground cut round bot-built dugouts and stood there up to 586 s)
+	["dugouts: seals fill the cut round its steps and room, and never its walkable space or the trench"] = function()
+		local d = C.Dugout
+		local T = C.Trench
+		local piece = assert(B.piece("Dugout", C.Pieces))
+		local run = T.depth / math.tan(math.rad(T.wallAngle))
+		local seals = B.dugoutSeals(piece, d, run, T.depth)
+		local function sealed(x: number, y: number, z: number): boolean
+			for _, s in seals do
+				if x > s.x0 and x < s.x1 and y > s.y0 and y < s.y1 and z > s.z0 and z < s.z1 then
+					return true
+				end
+			end
+			return false
+		end
+		local w, h, len, t = piece.width, piece.height, piece.depth, d.walk
+		local floor, back = -d.drop, d.stair + piece.depth
+		local e = d.seal - 0.1 -- (just inside the seals' outer edge)
+		-- the cut where bots stood (in the dugout's frame): behind its back, beside and under its room, in front of
+		-- its doorway, beside its steps
+		for _, p in
+			{
+				{ 0, floor + 2, back + 1 },
+				{ 0, floor + 2, back + d.cut + e },
+				{ w / 2 + 1, floor + 3, d.stair + len / 2 },
+				{ -(w / 2 + d.cut + e), floor + 0.5, back },
+				{ 0, floor - 1, d.stair + len / 2 },
+				{ w / 2 + d.cut, floor - d.cut - e, back + d.cut },
+				{ 0, -1, -1 },
+				{ d.slot / 2 + d.slotCut, -d.cut - e, -d.slotCut - e },
+				{ d.slot / 2 + 1, -1, 1 },
+				{ -(d.slot / 2 + 1), 2, 4.2 },
+				{ d.slot / 2 + d.slotCut + e, floor - 1, d.stair - 0.5 },
+			}
+		do
+			assert(sealed(p[1], p[2], p[3]), `sealed at {p[1]}, {p[2]}, {p[3]}`)
+		end
+		-- never in its room, on its steps (over their ramp, under their roof), its plates, or the trench's open air
+		for ix = -24, 24 do
+			for iy = -32, 16 do
+				for iz = -16, 48 do
+					local x, y, z = ix / 2, iy / 2, iz / 2
+					local inRoom = math.abs(x) < w / 2 + t
+						and y > floor
+						and y < floor + h + t
+						and z > d.stair - t
+						and z < back + t
+					local ramp = floor * math.clamp(z / d.stair, 0, 1)
+					local onSteps = math.abs(x) < d.slot / 2 + t and z >= 0 and z <= d.stair and y > ramp - t
+					local trench = (z < 0 and y > 0) or (z < run and y > T.depth * math.max(z, 0) / run)
+					local over = y > 0 and z >= d.stair -- (the ground over its room: earth under the ground's top)
+					assert(not (inRoom or onSteps or trench) or not sealed(x, y, z), `seal in the way at {x}, {y}, {z}`)
+					assert(not (over and sealed(x, y, z)), `seal over the trench floor at {x}, {y}, {z}`)
+				end
+			end
+		end
+	end,
 	-- (user 2026-11-02: "create constructtion statuses and destruction statuses")
 	-- (user 2026-11-02: "the flag just stays and we dig physical terrain deeper and deeper until 100HP and a trench
 	-- appears. then it plays the trench destruction sequence as it takes damage")
