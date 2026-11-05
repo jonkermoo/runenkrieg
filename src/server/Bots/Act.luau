@@ -1089,7 +1089,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 	if swingDue(b, act, r.model :: Model, mode, now) then
 		local reason = if job.key == "Tree"
 			then Tactics.fell.chop(m, b.id, b.side :: string, r)
-			else Build.workAs(m, r.model :: Model, mode)
+			else Build.workAs(m, r.model :: Model, mode, r.reinforce == true)
 		if reason == nil and job.key == "Foxhole" then
 			-- one swing digs it: into it (pinned: its cover; holding: its post, facing the enemy)
 			stats.swings += 1
@@ -1110,6 +1110,10 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 				n.swings += 1
 				n.landed = now
 			end
+		elseif reason == "Whole" then
+			-- (a plain dig job at a square dug full: its extra HP is a reinforce job's, Commander's list)
+			quit(b, "whole", act, now)
+			return false
 		elseif reason ~= "Too soon" then
 			giveUp(b, r, `swing: {reason}`, now) -- (whole now, or gone; or it can't be worked from here)
 			return false

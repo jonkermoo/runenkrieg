@@ -572,11 +572,17 @@ local function trenchStats()
 	for _, side in { "West", "East" } do
 		local sb = buildLists[side]
 		local dug, planned, pioneers, kit = 0, 0, 0, nil
+		-- (reinforced past 100, and their extra on average: Config/Build.Trench.hp.extra)
+		local reinforced, extra = 0, 0
 		for _, t in (if sb then sb.trench else {}) do
 			if t.built then
 				dug += 1
 			else
 				planned += 1
+			end
+			if t.extra > 0 then
+				reinforced += 1
+				extra += t.extra
 			end
 		end
 		-- (manned: its listed fire steps with a living bot posted to them; a bot posted to a step the list has dropped
@@ -605,7 +611,9 @@ local function trenchStats()
 		end
 		table.insert(
 			lines,
-			`{side}: {dug} dug ({planned} planned), {if kit then Trenches.buried(kit) else 0} buried by fire; fire steps {onStep} manned of {if sb
+			`{side}: {dug} dug ({planned} planned, {reinforced} reinforced{if reinforced > 0
+				then ` +{math.floor(extra / reinforced + 0.5)} avg`
+				else ""}), {if kit then Trenches.buried(kit) else 0} buried by fire; fire steps {onStep} manned of {if sb
 				then #sb.steps
 				else 0}; {pioneers} pioneers; deaths {d.all}: {d.trench} in a trench ({pct(d.trench)}), {d.all - d.trench} in the open, {d.shell} by shells ({pct(
 				d.shell

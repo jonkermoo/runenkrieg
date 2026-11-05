@@ -142,7 +142,54 @@ local Build = {
 		-- (user 2026-11-01: "always be slowly filled up and dug in as HP drops and only breaks at HP 0": its pieces stay
 		-- to the end, the floor riding up on the fill and the dirt heaps sinking `heapSink` studs by 0 HP, so about 20 HP
 		-- is barely any cover; the 75% cut-off where the pieces went is gone)
-		hp = { max = 100, swing = 20, destroy = 4, hold = 95 },
+		-- (reinforced, user 2026-11-04: "trenches now can be built past 100 ... 100 + x. the x is carried over HP for the
+		-- extra protection. let's cap it at 100 + 75"): Build swings at a full square add `extraSwing` each, up to
+		-- `extra` over `max`; every blast and bullet takes its share of `max` as before, so the extra goes first (a
+		-- +75 square takes seven field gun hits to bury, not four), and at `max` or less it is the plain square again
+		hp = { max = 100, swing = 20, destroy = 4, hold = 95, extra = 75, extraSwing = 10 },
+		-- a reinforced square's corrugated iron sheets (Config/Assets trench_pieces v16, Wall<i>Sheet<s>: `perWall` on each
+		-- side wall, user 2026-11-04 "each segment should have 4 (2 on each side) ... make each stage be a sheet metal or
+		-- two (25, 50, 75)", then "can we make the sheets cover essentially the whole segment? it can leave some gaps":
+		-- three tall sheets side by side a wall): its six go up as the extra reaches each `at` (two at +25, two more at
+		-- +50, the last two at +75), the walls taken in an order rolled from its seed and each wall's own in slot order
+		-- (Rules.sheetOrder: a sheet rests on the ones laid before it), and come off again in reverse as the extra falls;
+		-- none on a wall with a dugout in it (its door) or one broken by a join. Each rusts as it stands (user: "make the
+		-- rust appear over time ... a new sheet won't be rusty"): light, medium, old after `rustAt` seconds
+		-- (Wall<i>Sheet<s>Rust1-3), its metal dulling from new to its own old tone (`tones`: [metal, rust], indices into
+		-- Palette.Build.Sheet and SheetRust, from tools/blender/trench/trench_sheets.py); a rebuilt sheet starts new. The
+		-- rust is looked at every `refresh` s.
+		sheets = {
+			perWall = 3,
+			at = { 25, 25, 50, 50, 75, 75 },
+			rustAt = { 300, 720, 1200 },
+			refresh = 10,
+			tones = {
+				Wall1Sheet1 = { 1, 3 },
+				Wall1Sheet2 = { 2, 1 },
+				Wall1Sheet3 = { 3, 3 },
+				Wall2Sheet1 = { 2, 1 },
+				Wall2Sheet2 = { 3, 1 },
+				Wall2Sheet3 = { 3, 1 },
+				Wall3Sheet1 = { 2, 2 },
+				Wall3Sheet2 = { 2, 1 },
+				Wall3Sheet3 = { 2, 3 },
+				Wall4Sheet1 = { 2, 2 },
+				Wall4Sheet2 = { 3, 2 },
+				Wall4Sheet3 = { 3, 1 },
+				Wall5Sheet1 = { 2, 1 },
+				Wall5Sheet2 = { 1, 3 },
+				Wall5Sheet3 = { 2, 3 },
+				Wall6Sheet1 = { 3, 1 },
+				Wall6Sheet2 = { 3, 3 },
+				Wall6Sheet3 = { 2, 1 },
+				Wall7Sheet1 = { 3, 1 },
+				Wall7Sheet2 = { 2, 2 },
+				Wall7Sheet3 = { 3, 3 },
+				Wall8Sheet1 = { 2, 2 },
+				Wall8Sheet2 = { 2, 2 },
+				Wall8Sheet3 = { 2, 3 },
+			},
+		},
 		-- shells at a trench square (user 2026-11-04, the trench priority: "bots just destroy incoming trenches"; a measured
 		-- match's shells buried a side's fresh lines): these in place of Structures' own for a square (soldiers, pieces
 		-- and buildings as there); a dug square takes four direct field hits, a near miss little

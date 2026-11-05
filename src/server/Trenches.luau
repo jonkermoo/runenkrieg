@@ -71,7 +71,10 @@ export type Block = {
 	length: number,
 	-- the ground's rise per stud across it, to `across` (Rules.crossTilt): its hole, walls and pieces turned with it
 	tilt: number,
-	hp: number, -- its depth: hp / Trench.hp.max of the full depth
+	hp: number, -- its depth: hp / Trench.hp.max of the full depth; past the max, reinforced (up to hp.max + hp.extra)
+	-- its sheets standing (Trench.sheets; slots 1..perWall on side 1, then side 2's): when each went up
+	sheets: { [number]: number },
+	rustSig: string, -- its sheets' rust when its pieces were last laid
 	falling: boolean, -- lost HP since it was last full
 	built: boolean, -- dug full once: from then on it is buried by the HP it loses (Rules.trenchDepth)
 	scar: boolean,
@@ -236,8 +239,10 @@ local function publish(blk: Block)
 	if not m then
 		return
 	end
-	m:SetAttribute("HP", Rules.trenchShownHP(blk.hp, T.hp.max))
+	m:SetAttribute("HP", Rules.trenchShownHP(math.min(blk.hp, T.hp.max), T.hp.max))
 	m:SetAttribute("MaxHP", T.hp.max)
+	m:SetAttribute("Extra", Rules.trenchShownExtra(blk.hp, T.hp.max, T.hp.extra))
+	m:SetAttribute("ExtraMax", T.hp.extra)
 	m:SetAttribute("Falling", blk.falling)
 	local function linkName(l: Link?): string
 		return if l and live(l.other) then l.kind else ""
@@ -687,6 +692,42 @@ local function sideSpans(blk: Block, sign: number, probes: { { number } }, ext: 
 	return out
 end
 
+-- a square's sheets as its extra HP stands (Trench.sheets): each of its order up once the extra reaches its `at` (put up
+-- now if it was down), the rest down (a sheet put up again later starts new)
+local SHEETS = T.sheets
+local function syncSheets(blk: Block)
+	local up = Rules.sheetsUp(blk.hp - T.hp.max, SHEETS.at)
+	local now = os.clock()
+	for k, slot in Rules.sheetOrder(blk.seed, #SHEETS.at, SHEETS.perWall) do
+		if k <= up then
+			blk.sheets[slot] = blk.sheets[slot] or now
+		else
+			blk.sheets[slot] = nil
+		end
+	end
+end
+
+-- each of a square's sheets' rust now (Rules.sheetAge, "-" for one not up)
+local function rustSig(blk: Block): string
+	local now = os.clock()
+	local out = ""
+	for slot = 1, #SHEETS.at do
+		local t = blk.sheets[slot]
+		out ..= if t then tostring(Rules.sheetAge(now - t, SHEETS.rustAt)) else "-"
+	end
+	return out
+end
+
+-- whether a dugout is dug into side `sign` of a square's walls (Trenches.pocket: its frame's +Z back into the wall)
+local function dugoutIn(blk: Block, sign: number): boolean
+	for _, pk in pockets do
+		if pk.blk == blk and pk.frame.ZVector:Dot(blk.across * sign) > 0.5 then
+			return true
+		end
+	end
+	return false
+end
+
 -- A square's dirt pieces: a wall each side and a floor (Rules.trenchPieces), a plain wall across each dead end, laid in
 -- piece space (x along, y up from the floor, z out of the trench) on the square's floor, stretched along a short one.
 -- Rebuilt only when its ends or tees change.
@@ -730,13 +771,14 @@ local function piecesNow(blk: Block)
 	-- lay over it as loose slabs)
 	local stage, stageN = Rules.trenchStage(blk.hp, blk.built, T.hp, T.stages)
 	local soil = soilOf(blk)
-	local sig = `{stage}{stageN}{closeA}{closeB}`
+	blk.rustSig = rustSig(blk)
+	local sig = `{stage}{stageN}{closeA}{closeB}{blk.rustSig}`
 	for side, sign in { 1, -1 } do
 		walls[side] = sideSpans(blk, sign, WALL_PROBES, wallExt, true)
 		for _, s in walls[side] do
 			sig ..= `|{s.u0},{s.u1},{s.gap0},{s.gap1}`
 		end
-		sig ..= ";"
+		sig ..= if dugoutIn(blk, sign) then "D;" else ";"
 	end
 	local old = m:FindFirstChild("Pieces")
 	if old and old:GetAttribute("Sig") == sig then
@@ -780,22 +822,23 @@ local function piecesNow(blk: Block)
 		local y = out:Cross(x).Unit
 		return CFrame.fromMatrix(origin, x, y, x:Cross(y).Unit)
 	end
-	local function place(name: string, cf: CFrame, stretch: number, tone: string?)
+	local function place(name: string, cf: CFrame, stretch: number, tone: string?): BasePart?
 		local src = k:FindFirstChild(name)
 		local off = offsets[name]
 		if not (src and src:IsA("BasePart") and off) then
-			return
+			return nil
 		end
 		local p = src:Clone()
 		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
 		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
 		p.Color = pieceColor(tone or name, soil)
-		local base = not string.find(name, "Planks")
+		local base = not string.find(name, "Planks") and not string.find(name, "Sheet")
 		p.Anchored = true
 		p.CanCollide = base
 		p.CanQuery = base
 		p.CanTouch = false
 		p.Parent = holder
+		return p
 	end
 	-- the stage's pieces (Config/Assets trench_pieces v12, tools/blender/trench/trench_wood.py): finished, wall
 	-- variant `n`'s; damaged, destruction stage Hit<k>'s
@@ -820,12 +863,39 @@ local function piecesNow(blk: Block)
 	-- side walls (side 1 toward `across`, 2 away from it) along their clear stretches, a corner piece where one stops
 	-- short of another trench (on the wall's slope, from where its top stops down to where its foot could have gone),
 	-- the floor on the centre line turned either way
+	-- a reinforced square's sheets (Trench.sheets) on a whole wall, laid like it: none on one broken by a join or laid as
+	-- several pieces, nor on one with a dugout in it (they'd cover its door)
+	local B = Palette.Build
+	local function sheets(side: number, n: number, cf: CFrame, st: number)
+		local now = os.clock()
+		for s = 1, SHEETS.perWall do
+			local t = blk.sheets[(side - 1) * SHEETS.perWall + s]
+			if t then
+				local age = Rules.sheetAge(now - t, SHEETS.rustAt)
+				local tones = SHEETS.tones[`Wall{n}Sheet{s}`] or { 1, 1 }
+				local metal = place(`Wall{n}Sheet{s}`, cf, st)
+				if metal then
+					metal.Color = rgb(B.Sheet[Rules.sheetTone(age, tones[1])])
+				end
+				local rust = if age > 0 then place(`Wall{n}Sheet{s}Rust{age}`, cf, st) else nil
+				if rust then
+					rust.Color = rgb(B.SheetRust[tones[2]])
+				end
+			end
+		end
+	end
 	for side, sign in { 1, -1 } do
 		local n = roll.walls[side]
 		local out = blk.across * sign
+		local whole = stage == "Full" and #walls[side] == 1 and not dugoutIn(blk, sign)
 		for _, s in walls[side] do
-			for _, c in pieceRuns(s.u0, s.u1) do
-				wall(n, frame(out, false, false, c[1], c[2]), (c[2] - c[1]) / P.segment)
+			local runs = pieceRuns(s.u0, s.u1)
+			for _, c in runs do
+				local cf, st = frame(out, false, false, c[1], c[2]), (c[2] - c[1]) / P.segment
+				wall(n, cf, st)
+				if whole and #runs == 1 then
+					sheets(side, n, cf, st)
+				end
 			end
 			for _, e in { { s.u0, s.gap0 }, { s.u1, s.gap1 } } do
 				if e[2] > 0.3 then
@@ -1190,6 +1260,8 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 			length = span.to - span.from,
 			tilt = tilts[i],
 			hp = 0,
+			sheets = {},
+			rustSig = "",
 			falling = false,
 			built = false,
 			scar = false,
@@ -1278,17 +1350,38 @@ end
 
 -- every live square of `team` (nil: every team's): its model, team, middle, HP and whether it was dug full once
 -- (src/server/Build.worksOf)
-function Trenches.squares(team: string?): { { model: Model, team: string, at: Vector3, hp: number, built: boolean } }
+-- (`hp` up to its max; a reinforced square's HP past it is `extra`)
+function Trenches.squares(
+	team: string?
+): { { model: Model, team: string, at: Vector3, hp: number, extra: number, built: boolean } }
 	local out = {}
 	for _, blk in blocks do
 		if live(blk) and blk.model and (team == nil or blk.team == team) then
-			table.insert(
-				out,
-				{ model = blk.model, team = blk.team, at = (blk.a + blk.b) / 2, hp = blk.hp, built = blk.built }
-			)
+			table.insert(out, {
+				model = blk.model,
+				team = blk.team,
+				at = (blk.a + blk.b) / 2,
+				hp = math.min(blk.hp, T.hp.max),
+				extra = math.max(blk.hp - T.hp.max, 0),
+				built = blk.built,
+			})
 		end
 	end
 	return out
+end
+
+-- A dug square's extra HP set to `extra` (0..Trench.hp.extra; the admin panel's reinforce and strip), its sheets with
+-- it. False for one never dug full.
+function Trenches.reinforce(blk: Block, extra: number): boolean
+	if not live(blk) or not blk.built or blk.hp <= 0 then
+		return false
+	end
+	blk.hp = T.hp.max + math.clamp(extra, 0, T.hp.extra)
+	blk.falling = false
+	syncSheets(blk)
+	refit(blk)
+	apply(blk, true)
+	return true
 end
 
 -- how far `p` is from a block's line (flat)
@@ -1307,12 +1400,20 @@ function Trenches.work(blk: Block, _team: string, mode: string, power: number, s
 	end
 	local H = T.hp
 	if mode == "Build" then
-		if blk.hp >= H.max then
+		-- dug to full, then reinforced past it (Trench.hp.extra)
+		local nextHp = Rules.trenchBuild(
+			blk.hp,
+			H,
+			Rules.digAmount(H.swing * power, H.max, share),
+			Rules.digAmount(H.extraSwing * power, H.extra, share)
+		)
+		if not nextHp then
 			return false, 0
 		end
 		local first = not blk.built
 		local before = blk.hp
-		blk.hp = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.swing * power, H.max, share), true)
+		blk.hp = nextHp
+		syncSheets(blk)
 		blk.worked = os.clock()
 		for _, o in blk.run do
 			o.worked = blk.worked -- (the plan stays while it's being dug)
@@ -1332,6 +1433,7 @@ function Trenches.work(blk: Block, _team: string, mode: string, power: number, s
 	end
 	local left, gone = Rules.trenchSwing(blk.hp, H.max, Rules.digAmount(H.destroy * power, H.max, share), false)
 	blk.hp = left
+	syncSheets(blk)
 	blk.worked = os.clock()
 	blk.falling = true
 	if gone then
@@ -1365,14 +1467,20 @@ local function harm(blk: Block, amount: number)
 		return
 	end
 	local before = shareOf(blk)
+	local had = blk.hp
 	blk.hp = math.max(blk.hp - amount, 0)
 	blk.falling = true
+	syncSheets(blk)
 	if blk.hp <= 0 then
 		if blk.built then
 			buried[blk.team] = (buried[blk.team] or 0) + 1
 		end
 		finish(blk, true)
 	else
+		-- (its sheets coming down are a change of pieces too)
+		if Rules.sheetsUp(had - T.hp.max, SHEETS.at) ~= Rules.sheetsUp(blk.hp - T.hp.max, SHEETS.at) then
+			refit(blk)
+		end
 		apply(blk, math.abs(shareOf(blk) - before) > 0.005)
 	end
 end
@@ -1530,6 +1638,17 @@ function Trenches.start()
 			end
 		end
 		Hitches.since("Trench frame", t0)
+	end)
+	-- reinforced squares' sheets rusting as they stand (Trench.sheets): laid again when one's rust moves on
+	task.spawn(function()
+		while true do
+			task.wait(SHEETS.refresh)
+			for _, blk in blocks do
+				if live(blk) and blk.model and next(blk.sheets) ~= nil and rustSig(blk) ~= blk.rustSig then
+					refit(blk)
+				end
+			end
+		end
 	end)
 	-- plans nobody digs go after Trench.planLife (a bot's after botPlanLife)
 	task.spawn(function()

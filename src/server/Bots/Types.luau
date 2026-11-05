@@ -47,6 +47,8 @@ export type BuildJob = {
 	fix: boolean?, -- a gun of its side out of service (Rules/BotCrew.repairOrder): fixed first, wherever it stands
 	why: string?, -- why it was last refused (Build.placeAs; the Engineer readout)
 	from: { x: number, z: number }?, -- a trench run planned part way: where it began (its job goes on from the part's end)
+	reinforce: boolean?, -- a dug square's job past its max (Commander's reinforce list): only such a job swings HP into a
+	-- full square's extra (Build.workAs)
 	buried: boolean?, -- a trench square dug full once and buried since (pioneers dig it first, Config/Bots.Trenches.Redig)
 	redig: number?, -- a buried-to-nothing square planned again where it lay: kept on the list until then (Trenches.Redig)
 	lostBy: { [number]: boolean }?, -- bots (by id) that left it with no way there, no swing or flapping (Build.Work)
@@ -70,7 +72,15 @@ export type Sap = {
 	dugAt: number, -- when it began, or its last run was dug (Config/Bots.Sap.dig)
 	began: number?, -- when it began (Config/Bots.Sap.maxSeconds)
 }
-export type TrenchSquare = { x: number, z: number, at: Vector3, model: Model, left: number, built: boolean }
+export type TrenchSquare = {
+	x: number,
+	z: number,
+	at: Vector3,
+	model: Model,
+	left: number,
+	built: boolean,
+	extra: number,
+}
 
 -- Normal: what a bot does instead of fighting for a while (Rules/BotActions): a drag of `who` to `to` (cover from the
 -- enemy spot `from`), a heal of `who`, a grenade at `at`

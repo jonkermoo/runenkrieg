@@ -361,14 +361,19 @@ local Assets = {
 			-- 2026-11-02: "can you thin the squares between the planks a little bit?", "round the dug out peek thing
 			-- outside the trenches so it looks more natural and not like bricks? just do a little bit", "the flag just stays
 			-- and we dig physical terrain deeper and deeper"): the wall slabs 0.6 as thick, the heaps' corners softened, no
-			-- digging stages (v12 98476936950166)
-			id = 133361526038841,
+			-- digging stages (v12 98476936950166); v14 (trench_sheets.py; user 2026-11-04, reinforced squares): two
+			-- corrugated iron sheets on each wall variant, laid on its planks, and each sheet's rust at three ages (v13
+			-- 133361526038841); v15: the rust's faces turned out of the wall (v14 126952100757357 drew them facing it,
+			-- unseen); v16 (user 2026-11-04: "can we make the sheets cover essentially the whole segment? it can leave
+			-- some gaps"): three tall sheets a wall side by side, floor to top, over its slabs and planks, each resting on
+			-- what is behind it and the sheets laid before it (v15 136110999550725)
+			id = 133339144100923,
 			category = "Props",
 			folder = "Trench",
 			source = "assets/props/trench_pieces.fbx",
-			generator = "tools/blender/trench/trench_wood.py",
+			generator = "tools/blender/trench/trench_sheets.py",
 			fidelity = "Hull",
-			description = "A trench square's pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks earth slabs on it either side of a bare stretch, Wall<i>Planks + Wall<i>PlanksDark plank steps laid on that stretch, each variant's placed and spread its own way) and Wall<i>Parapet (a heap of earth slabs), floors Floor1-4 (+ Floor<i>Chunks), Corner, and destruction stages Hit1-3 (Hit<k>Wall + Chunks, Planks, PlanksDark: slabs sagging then gone, boards loose then few; Hit<k>Fall + FallPlanks, FallPlanksDark: earth and boards slumped on the floor).",
+			description = "A trench square's pieces, 8 studs long, in piece space (x along from the square's start, y up from the floor, z out of the trench, Origin at 0): walls Wall1-8 (a smooth base slab that collides, Wall<i>Chunks earth slabs on it either side of a bare stretch, Wall<i>Planks + Wall<i>PlanksDark plank steps laid on that stretch, each variant's placed and spread its own way) and Wall<i>Parapet (a heap of earth slabs), floors Floor1-4 (+ Floor<i>Chunks), Corner, and destruction stages Hit1-3 (Hit<k>Wall + Chunks, Planks, PlanksDark: slabs sagging then gone, boards loose then few; Hit<k>Fall + FallPlanks, FallPlanksDark: earth and boards slumped on the floor), and a reinforced square's corrugated iron sheets Wall<i>Sheet1-3 (three tall ones side by side, in the order they go up) with their rust Wall<i>Sheet<s>Rust1-3 (light, medium, old).",
 		},
 		-- the command post the end of a Normal match plays in (user 2026-11-03, the approved render, first person: the
 		-- war table, the board on the wall behind it; src/client/CommandPost): one model, flat colours by mesh name

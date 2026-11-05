@@ -639,6 +639,90 @@ function Build.trenchSwing(hp: number, max: number, swing: number, build: boolea
 	return math.max(left, 0), left <= 0
 end
 
+-- A trench square's HP after a Build swing (Config/Build.Trench.hp `h`): `amount` up to `h.max` while it is dug (a swing
+-- that fills it stops at full), then `extraAmount` up to `h.max + h.extra` (reinforced, user 2026-11-04). Nil when it
+-- is already as reinforced as it goes.
+function Build.trenchBuild(hp: number, h: any, amount: number, extraAmount: number): number?
+	local cap = h.max + h.extra
+	if hp >= cap then
+		return nil
+	elseif hp < h.max then
+		return math.min(hp + amount, h.max)
+	end
+	return math.min(hp + extraAmount, cap)
+end
+
+-- A square's extra HP over `max` as its panel shows it (whole numbers, 0..`extra`): full only once it is
+function Build.trenchShownExtra(hp: number, max: number, extra: number): number
+	local x = hp - max
+	if x <= 0 then
+		return 0
+	end
+	return if x >= extra then extra else math.min(math.floor(x + 0.5), extra - 1)
+end
+
+-- A trench square's HP line on the shovel panel: "HP 80 / 100", or reinforced "HP 100 + 40 / 100 + 75"
+function Build.trenchHPText(hp: number, max: number, extra: number?, extraMax: number?): string
+	if type(extra) == "number" and type(extraMax) == "number" and extra > 0 then
+		return `HP {max} + {extra} / {max} + {extraMax}`
+	end
+	return `HP {math.ceil(hp)} / {max}`
+end
+
+-- How many of a square's sheets stand at `extra` HP over its max: each of `at` (in its order) once the extra reaches it
+function Build.sheetsUp(extra: number, at: { number }): number
+	local n = 0
+	for _, a in at do
+		if extra >= a - 1e-9 then
+			n += 1
+		end
+	end
+	return n
+end
+
+-- The order a square's `count` sheets go up in, from its seed, as slots (side - 1) * `perWall` + s: the two walls'
+-- turns shuffled, each wall's own sheets in slot order (a sheet rests on the ones laid before it on its wall)
+function Build.sheetOrder(seed: number, count: number, perWall: number): { number }
+	local sides = {}
+	for i = 1, count do
+		sides[i] = math.ceil(i / perWall)
+	end
+	local x = math.floor(math.abs(seed)) % 2147483647
+	for i = count, 2, -1 do
+		x = (x * 48271 + 11) % 2147483647
+		local j = x % i + 1
+		sides[i], sides[j] = sides[j], sides[i]
+	end
+	local laid, order = {}, {}
+	for i, side in sides do
+		laid[side] = (laid[side] or 0) + 1
+		order[i] = (side - 1) * perWall + laid[side]
+	end
+	return order
+end
+
+-- A sheet's rust after standing `seconds`: 0 new, then 1 light, 2 medium, 3 old past each of `rustAt`
+function Build.sheetAge(seconds: number, rustAt: { number }): number
+	local age = 0
+	for i, at in rustAt do
+		if seconds >= at then
+			age = i
+		end
+	end
+	return age
+end
+
+-- A sheet's metal tone at `age` (Palette.Build.Sheet index): new galvanised while new or lightly rusted, its own old
+-- tone `old` once old, between the two at medium
+function Build.sheetTone(age: number, old: number): number
+	if age < 2 then
+		return 1
+	elseif age == 2 then
+		return math.min(old, 2)
+	end
+	return old
+end
+
 -- A bridge's stage at `hp` of `max` (Config/Build.Bridge.hp): 1 its frame and some of its boards, crossable, from the
 -- moment it is laid at 0 HP; 2 every board, while it keeps over half (user 2026-10-27: "stage 2 is 50+ where the bridge
 -- has just as many planks. stage 1 will be less planks but still usable"). (At 0 after a hit or a Destroy swing it is

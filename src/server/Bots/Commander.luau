@@ -15,6 +15,7 @@ local FrontRules = require(Shared.Rules.Frontline)
 local Orders = require(Shared.Rules.BotOrders)
 local Buildings = require(Shared.Rules.BotBuildings)
 local BotBuild = require(Shared.Rules.BotBuild)
+local BuildRules = require(Shared.Rules.Build)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotSap = require(Shared.Rules.BotSap)
 local BotCrew = require(Shared.Rules.BotCrew)
@@ -1882,10 +1883,15 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	for _, w in works do
 		if w.key == "Trench" then
 			dug += 1
-			table.insert(
-				squares,
-				{ x = w.at.X, z = w.at.Z, at = w.at, model = w.model, left = w.left, built = w.built }
-			)
+			table.insert(squares, {
+				x = w.at.X,
+				z = w.at.Z,
+				at = w.at,
+				model = w.model,
+				left = w.left,
+				built = w.built,
+				extra = w.extra or 0,
+			})
 		end
 	end
 	sbs.trench = squares
@@ -2158,6 +2164,47 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	for k = #near, before + TR.digs + 1, -1 do
 		table.remove(near, k)
 	end
+	-- then its dug squares reinforced past 100, when it's safe and its side isn't pushing (Config/Bots.Trenches
+	-- .Reinforce, Rules/BotBuild.reinforceSlots): the swings each wants to 100 + extra
+	local reinforce: { [number]: number } = {}
+	local troops = 0
+	for _, b in bots do
+		if b.side == side and not b.deadAt then
+			troops += 1
+		end
+	end
+	local slots = BotBuild.reinforceSlots({
+		side = side,
+		holder = fronts.initiative,
+		pushing = (fronts.sides[side] or {} :: any).off ~= nil,
+		standTo = sbs.standTo == true,
+		troops = troops,
+		wanted = #near - before,
+	}, TR.Reinforce)
+	if slots > 0 then
+		local TH = BuildCfg.Trench.hp
+		local rlist = {}
+		for i, p in pieces do
+			local w = works[i]
+			local x = w.extra or 0
+			local want = w.key == "Trench" and w.built and w.hp >= w.max and x < TH.extra
+			rlist[i] = {
+				key = p.key,
+				x = p.x,
+				z = p.z,
+				left = if want
+					then BuildRules.workLeft(x, TH.extra, math.max(w.swing / TH.swing * TH.extraSwing, 1e-3))
+					else 0,
+			}
+		end
+		for _, i in BotBuild.repairs(rlist, zone, TR.Reinforce.reach, slots) do
+			if not listed[i] then
+				listed[i] = true
+				table.insert(near, i)
+				reinforce[i] = rlist[i].left
+			end
+		end
+	end
 	local order, fix = BotCrew.repairOrder(fixable, near, ArtCfg.Man.keep)
 	for _, i in order do
 		local w = works[i]
@@ -2178,8 +2225,9 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				r = { job = job, base = job, model = w.model, tries = 0, waitUntil = 0, left = 0, open = true }
 			end
 			local rr = r :: BuildJob
-			rr.at, rr.left, rr.open, rr.fix = w.at, w.left, true, fix[i] == true
+			rr.at, rr.left, rr.open, rr.fix = w.at, reinforce[i] or w.left, true, fix[i] == true
 			rr.buried = square and w.built
+			rr.reinforce = reinforce[i] ~= nil -- (a plain dig job at a full square swings no more: Act.doBuild)
 			keep[w.model] = rr
 			table.insert(sbs.open, rr)
 		end

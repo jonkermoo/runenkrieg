@@ -23,6 +23,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Armory = require(script.Parent.Armory)
 local Artillery = require(script.Parent.Artillery)
+local Trenches = require(script.Parent.Trenches)
 local Bots = require(script.Parent.Bots)
 local Damage = require(script.Parent.Damage)
 local DevDummies = require(script.Parent.DevDummies)
@@ -198,6 +199,22 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			Net.event("DevAction"):FireClient(player, "Done", key, `{best.key} at {value}%`)
 		else
 			Net.event("DevAction"):FireClient(player, "Refused", key, "no gun near")
+		end
+	elseif action == "TrenchExtra" and aim then
+		-- the dug square nearest the aim point to 100 + `value` (Trenches.reinforce; shown on the button)
+		local best, bestD = nil, Cfg.Blasts.TrenchReach
+		for _, sq in Trenches.squares() do
+			local d = (sq.at - aim).Magnitude
+			if sq.built and d < bestD then
+				best, bestD = sq, d
+			end
+		end
+		local key = `TrenchExtra{value}`
+		local blk = best and Trenches.blockOf(best.model)
+		if blk and Trenches.reinforce(blk, value) then
+			Net.event("DevAction"):FireClient(player, "Done", key, `trench at 100 + {value}`)
+		else
+			Net.event("DevAction"):FireClient(player, "Refused", key, "no dug trench near")
 		end
 	elseif action == "ClearGuns" then
 		Artillery.clear()
