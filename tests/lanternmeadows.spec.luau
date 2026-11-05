@@ -205,9 +205,65 @@ return {
 			assert(depth > 0 and depth < Cfg.WadeDepth, `the ford at {f.x}, {f.z} is {depth} deep`)
 		end
 		assert(wide >= 1 and narrow >= 2, "need 1+ wide ford and 2+ narrow fords")
-		for _, q in { { 1444, Map.bounds.minZ + 380 }, { 1445, Map.bounds.minZ + 180 }, { 2000, Map.bounds.minZ + 28 } } do
+		for _, q in { { 1444, Map.bounds.minZ + 380 }, { 1446, Map.bounds.minZ + 220 }, { 2000, Map.bounds.minZ + 28 } } do
 			local _, cx, cz = MT.riverNearest(Map, q[1], q[2])
 			assert(r.waterY - MT.heightAt(Map, cx, cz) > 4, `the river is shallow at {cx}, {cz}`)
+		end
+	end,
+	["the Aurel's crossings: one near each bot lane over it, S3 to S4 (Config/Bots.Routes)"] = function()
+		local RT = require("../src/shared/Config/Bots").Routes
+		local a, b = sectors[3], sectors[4]
+		local wx, wz = b.x - a.x, b.z - a.z
+		local len = math.sqrt(wx * wx + wz * wz)
+		local crossings = {}
+		for _, f in Map.river.fords do
+			table.insert(crossings, f)
+		end
+		for _, br in Map.river.bridges do
+			table.insert(crossings, br)
+		end
+		for _, k in { -1, 0, 1 } do
+			-- the lane: from S3 through its waypoint (Bots/Commander) to S4; where it meets the river
+			local mx = a.x + wx * RT.midShare - wz / len * k * len * RT.laneOffset
+			local mz = a.z + wz * RT.midShare + wx / len * k * len * RT.laneOffset
+			local hit
+			for _, leg in { { a.x, a.z, mx, mz }, { mx, mz, b.x, b.z } } do
+				for t = 0, 1, 0.002 do
+					local x, z = leg[1] + (leg[3] - leg[1]) * t, leg[2] + (leg[4] - leg[2]) * t
+					if not hit and MT.riverDistance(Map, x, z) < 2 then
+						hit = { x, z }
+					end
+				end
+			end
+			assert(hit, `lane {k} never meets the river`)
+			local near = math.huge
+			for _, c in crossings do
+				near = math.min(near, math.sqrt((c.x - hit[1]) ^ 2 + (c.z - hit[2]) ^ 2))
+			end
+			assert(near < 40, string.format("lane %d meets the river %.0f studs from a crossing", k, near))
+		end
+	end,
+	["the Aurel's bridges: on the river, ends on dry banks, a walkable deck over the water"] = function()
+		local r = Map.river
+		local maxRise = math.tan(math.rad(M.Movement.MaxSlopeAngle))
+		for _, br in r.bridges do
+			assert(MT.riverDistance(Map, br.x, br.z) < 3, `{br.id} is off the river`)
+			assert(br.width > M.Character.Width + 2, `{br.id} too narrow`)
+			local f = MT.bridgeFrame(Map, br)
+			for _, s in { 0, f.length } do
+				local x, z = f.ax + f.ux * s, f.az + f.uz * s
+				assert(MT.riverDistance(Map, x, z) > r.width / 2 + r.bankWidth, `{br.id}'s end is on the bank`)
+				assert(MT.heightAt(Map, x, z) > r.waterY, `{br.id}'s end is under water`)
+			end
+			if br.deck then
+				local prev = MT.deckHeight(Map, br, f, 0)
+				for s = 1, f.length do
+					local y = MT.deckHeight(Map, br, f, s)
+					assert(y > r.waterY + 1, `{br.id}'s deck in the water at {s}`)
+					assert(math.abs(y - prev) < maxRise, `{br.id}'s deck too steep at {s}`)
+					prev = y
+				end
+			end
 		end
 	end,
 	["a house built of blocks has its gates at its blocks' doors (the long house's, under its portico and beside it)"] = function()
@@ -228,7 +284,9 @@ return {
 		local x0 = sectors[2].x
 		local runs = {}
 		for _, h in Map.village.hedgerows do
-			table.insert(runs, h)
+			if math.abs(h.a[1] - x0) < 300 then -- (the fields round S2; the river crossings' cover is its own)
+				table.insert(runs, h)
+			end
 		end
 		for _, h in runs do
 			local found = false

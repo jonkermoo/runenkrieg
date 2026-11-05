@@ -27,7 +27,7 @@ local tests = Maps.each(function(map: any)
 				assert(#cells > 10, `{team} spawn has {#cells} open cells`)
 			end
 		end,
-		["reach: every sector and every ford can be walked to from both spawns"] = function()
+		["reach: every sector, ford and bridge can be walked to from both spawns"] = function()
 			for team in S.spawns do
 				for _, s in map.sectors do
 					assert(toSector(team, s), `{team} can't walk to {s.id}`)
@@ -36,6 +36,13 @@ local tests = Maps.each(function(map: any)
 					local x = f.x or map.river.x
 					local i = Check.nearest(g, S.walks[team], x, f.z, map.river.width + map.river.bankWidth)
 					assert(i, `{team} can't reach the ford at z={f.z}`)
+				end
+				-- and over each bridge deck: its middle walked to
+				for _, br in map.river.bridges or {} do
+					if br.deck then
+						local i = Check.nearest(g, S.walks[team], br.x, br.z, g.cell)
+						assert(i, `{team} can't walk onto {br.id}`)
+					end
 				end
 			end
 		end,

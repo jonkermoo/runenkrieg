@@ -18,6 +18,7 @@ local Trees = require(script.Trees)
 local Features = require(script.Features)
 local VillageBuild = require(script.VillageBuild)
 local Sectors = require(script.Sectors)
+local Bridges = require(script.Bridges)
 
 local Greybox = {}
 
@@ -99,6 +100,8 @@ function Greybox.build(mapName: string): string
 			if fixed then 0 else #layout.trees
 		)
 	end
+	-- the river's built crossings (river.bridges)
+	local bridges = Bridges.build(Parts.folder(root, "Bridges"), map, MT, Parts, P.Bridge, palette)
 	local panels = Features.bounds(root, map, boundaryCfg)
 	local dividers, points = 0, 0
 	if map.dividers then
@@ -111,11 +114,12 @@ function Greybox.build(mapName: string): string
 	Features.wind(fresh(Shared.Config.TreeSway))
 
 	return string.format(
-		"Built %s: terrain %d chunks (%.1fs), %d trees, %d boundary panels, %d divider blocks, %d points, %d parts, %.1fs total.%s",
+		"Built %s: terrain %d chunks (%.1fs), %d trees, %d bridges, %d boundary panels, %d divider blocks, %d points, %d parts, %.1fs total.%s",
 		mapName,
 		chunks,
 		tTerrain,
 		trees,
+		bridges,
 		panels,
 		dividers,
 		points,
