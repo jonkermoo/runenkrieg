@@ -279,6 +279,14 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 		table.insert(lots, lot)
 	end
 
+	-- 1b. Hand-placed houses (village.houses): ordinary houses (their garden boundaries and yards like any road
+	-- house's), set where the map wants them rather than along a road; not landmarks
+	for i, h in cfg.houses or {} do
+		local lot = makeLot(hash01, h.id, h.style, B, M, 950 + i, 1, h.x, h.z, h.front[1], h.front[2])
+		lot.road = h.road
+		table.insert(lots, lot)
+	end
+
 	-- 2. Lots along roads, candidates in hash order so the chosen ones scatter naturally
 	local a = cfg.area
 	for ri, road in cfg.roads do

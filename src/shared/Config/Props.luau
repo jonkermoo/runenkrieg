@@ -36,6 +36,12 @@ local Props = {
 		span = 9,
 		drop = 24,
 		rubble = 3,
+		-- a ford's rock path (a ford with `rocks`): flat rocks `rock` across, one every `rockStep` along the ford's middle
+		-- line, each `rockTop` over the water, turned and set off the line a little by hash so the path looks laid by hand
+		rock = 2.8,
+		rockStep = 3.4,
+		rockTop = 0.4,
+		rockJitter = 0.7,
 	},
 
 	-- Kinds a village plot boundary can use, picked by hash per plot.

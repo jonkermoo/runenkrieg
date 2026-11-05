@@ -88,7 +88,7 @@ function Ground.build(map: any, MT: any, palette: any): number
 				local x = (cx + ix - 0.5) * RES
 				for iz = 1, nz do
 					local z = (cz + iz - 0.5) * RES
-					local h = MT.heightAt(map, x, z)
+					local h = MT.heightAt(map, x, z) - MT.fordSink(map, x, z)
 					local surface = (Enum.Material :: any)[MT.materialAt(map, x, z)]
 					local inRiver = river ~= nil and MT.isRiver(map, x, z)
 					for iy = 1, ny do

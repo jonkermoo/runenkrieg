@@ -285,6 +285,32 @@ function MapTerrain.heightAt(map: any, x: number, z: number): number
 	return land
 end
 
+-- How much lower the terrain voxels lay a ford with `sink` than heightAt (0 elsewhere): the voxel writer
+-- (Greybox/Ground) lays ground about 2 studs over heightAt, which leaves a shallow ford's bed over the water line, a dry
+-- bar; a ford that should show its water sinks its voxels so they sit at its bed. Full across the bed and along the
+-- ford, fading over the banks and the ford's ends the way the ford's own bed does.
+function MapTerrain.fordSink(map: any, x: number, z: number): number
+	local r = map.river
+	if not r then
+		return 0
+	end
+	local d, qx, qz = MapTerrain.riverNearest(map, x, z)
+	local bedHalf = r.width / 2 - 2
+	if d > bedHalf + r.bankWidth then
+		return 0
+	end
+	local across = if d <= bedHalf then 1 else 1 - smooth((d - bedHalf) / r.bankWidth)
+	local sink = 0
+	for _, f in r.fords do
+		if f.sink then
+			local fz = math.sqrt((qx - (f.x or qx)) ^ 2 + (qz - f.z) ^ 2)
+			local along = if fz <= f.width / 2 then 1 else 1 - smooth((fz - f.width / 2) / 6)
+			sink = math.max(sink, f.sink * across * math.max(along, 0))
+		end
+	end
+	return sink
+end
+
 -- Slope in degrees by central differences.
 function MapTerrain.slopeAt(map: any, x: number, z: number): number
 	local e = 2
