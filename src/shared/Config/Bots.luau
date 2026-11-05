@@ -779,8 +779,8 @@ local Bots = {
 		-- to its stand point (else the zone) for up to `push` s; counted in the [Bots] line ("idle resets"). (2026-11-04
 		-- match test: bots stood 2-23 minutes "going to Trench, no goal" or at "goal 0 studs" far from their post.)
 		-- (`seconds` 25, not 20: a squad waits up to Squads.waitMax 20 s at a waypoint for its members)
-		-- (`dugout`: a reset bot down in a dugout within this many studs of its foot walks straight up its steps first)
-		Idle = { seconds = 25, studs = 3, post = 4, push = 15, dugout = 16 },
+		-- (a reset bot down inside a dugout that isn't its post walks straight up its steps first)
+		Idle = { seconds = 25, studs = 3, post = 4, push = 15 },
 		InZoneShare = 0.9, -- within this share of the zone's radius it counts as in the zone (and wanders there)
 		SprintFrom = 60, -- studs to the goal over which an advancing bot sprints
 		-- inside the zone: a new spot to stand on every this many seconds, within this share of the radius

@@ -642,11 +642,16 @@ local function watchdog(b: Bot, now: number, fighting: boolean, zone: Vector3?, 
 	-- down in a dugout's steps or room that isn't its post (an enemy's, or wandered in): paths don't go up its steps,
 	-- so straight up to its foot first (think's dugout walk; 2026-11-04 test: an assault squad stood 2 minutes in one)
 	if b.postKind ~= "dugout" then
+		-- (inside its steps and room only: a bot fallen in the dug ground beside its walls can't walk out that way)
 		for _, w in State.Clear.every do
 			local foot = w.key == "Dugout" and Tactics.dug.foot(w.model)
-			if foot and p.Y < foot.Y - 1 and flat(foot - p).Magnitude <= IDLE.dugout then
-				b.postFoot = foot
-				break
+			local frame, size = w.model:GetAttribute("Frame"), w.model:GetAttribute("Size")
+			if foot and typeof(frame) == "CFrame" and typeof(size) == "Vector3" and p.Y < foot.Y - 1 then
+				local o = frame:PointToObjectSpace(p)
+				if math.abs(o.X) <= size.X / 2 and math.abs(o.Z) <= size.Z / 2 and math.abs(o.Y) <= size.Y / 2 + 1 then
+					b.postFoot = foot
+					break
+				end
 			end
 		end
 	end
