@@ -470,8 +470,8 @@ local Bots = {
 	--   (`exploitMore` s more while exploiting).
 	-- `hold`: the share of the attacking side's bots holding its front meanwhile (Trenches.hold stays for the side
 	-- without the initiative). An Assault squad out of the zone whose middle hasn't moved Squads.Open.moved studs in
-	-- `stuckFor` s finds its way in again. Strongpoints (`strong`): an enemy-manned gun or MG nest on enemy ground is
-	-- known once a squad of the side knew an enemy within `seen` studs of it, for `forget` s; within `within` studs of the
+	-- `stuckFor` s finds its way in again (holders standing to as well, counted from when they stood to).
+	-- Strongpoints (`strong`): an enemy-manned gun or MG nest on enemy ground is known once a squad of the side knew an enemy within `seen` studs of it, for `forget` s; within `within` studs of the
 	-- target it is the barrage's first target; within `reach` studs of a gathering squad its Grenadier throws at it and,
 	-- with a Grenadier or Mage in it, the squad bounds at it.
 	Offensive = {
