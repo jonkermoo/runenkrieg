@@ -639,6 +639,17 @@ local function watchdog(b: Bot, now: number, fighting: boolean, zone: Vector3?, 
 	end
 	b.unstick = if to then { to = to :: Vector3, untilAt = now + IDLE.push } else nil
 	b.nav.waypoints, b.nav.pathAt, b.nav.direct = {}, -1, nil
+	-- down in a dugout's steps or room that isn't its post (an enemy's, or wandered in): paths don't go up its steps,
+	-- so straight up to its foot first (think's dugout walk; 2026-11-04 test: an assault squad stood 2 minutes in one)
+	if b.postKind ~= "dugout" then
+		for _, w in State.Clear.every do
+			local foot = w.key == "Dugout" and Tactics.dug.foot(w.model)
+			if foot and p.Y < foot.Y - 1 and flat(foot - p).Magnitude <= IDLE.dugout then
+				b.postFoot = foot
+				break
+			end
+		end
+	end
 end
 
 local function think(b: Bot, now: number, d: Rules.Difficulty)
@@ -671,6 +682,11 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	end
 	if b.stowed then
 		draw(b)
+	end
+	-- a build job held too long for nothing is left, whatever it does meanwhile (crewing, acting, fighting: those
+	-- return before the job is weighed; Config/Bots.Build.Work)
+	if b.work then
+		Act.checkJob(b, now)
 	end
 	-- the body's physics stays the server's: any joint made or broken (a helmet knocked off, the gun drawn) hands it to
 	-- the nearest player, and a body a player owns ignores the server's get-up and lies there in Physics

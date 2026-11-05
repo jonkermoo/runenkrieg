@@ -1426,4 +1426,11 @@ return {
 	bombOut = bombOut,
 	takeJob = takeJob,
 	lose = lose,
+	-- (each think: its job left if held too long for nothing)
+	checkJob = function(b: Bot, now: number)
+		local w = b.work
+		if w then
+			idleJob(b, w.job, now)
+		end
+	end,
 }
