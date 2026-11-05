@@ -45,6 +45,9 @@ local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
 local DevSights = require(script.Parent.DevSights)
 local Settings = require(script.Parent.Settings)
+local Menus = require(script.Parent.Menus) :: any
+local MapLoader = require(script.Parent.MapLoader)
+local LoadCfg = require(Shared.Config.JoinLoading)
 
 local DevAdminMenu = {}
 
@@ -327,6 +330,62 @@ local function build(player: Player): DevPanel.Panel
 				end
 			end
 			task.wait(A.CaptureReadout)
+		end
+	end)
+	-- Loading (Normal; Config/JoinLoading, src/client/MapLoader, src/server/Frontline's waits): this client's load of a
+	-- whole map (its stage, share, the map's parts held here of the server's count) and who the server waits for; a slow
+	-- load of your own (seconds added to each of its steps); the match's loop skipped on to a stage; the join's loading
+	-- screen replayed (the live map loaded again from the start)
+	heading("Loading")
+	order += 1
+	local loadLine = DevPanel.heading(p.panel, "Load: none yet", order)
+	order += 1
+	local waitLine = DevPanel.heading(p.panel, "Server waits for: nobody", order)
+	local slowRows: { [number]: TextButton } = {}
+	local function showSlow()
+		local now = player:GetAttribute(LoadCfg.SlowAttribute)
+		for s, b in slowRows do
+			paint(b, (now or 0) == s)
+		end
+	end
+	for _, s in LoadCfg.SlowSteps do
+		order += 1
+		local b = DevPanel.button(
+			p.panel,
+			`SlowLoad{s}`,
+			if s == 0 then "Slow load: off" else `Slow load: +{s} s a step`,
+			order
+		)
+		b.Activated:Connect(function()
+			player:SetAttribute(LoadCfg.SlowAttribute, if s > 0 then s else nil)
+			showSlow()
+		end)
+		slowRows[s] = b
+	end
+	showSlow()
+	for _, st in A.LoadStages do
+		table.insert(front, row(`SkipTo{st[1]}`, `Skip to: {st[2]}`, "SkipTo", st[1]))
+	end
+	order += 1
+	local replay = DevPanel.button(p.panel, "ReplayJoin", "Replay the join load", order)
+	replay.Activated:Connect(function()
+		Menus.replayJoin(false)
+	end)
+	task.spawn(function()
+		while p.panel.Parent do
+			local st = MapLoader.state()
+			if st then
+				local share = math.floor(MapLoader.progress() * 100)
+				local parts = if st.parts then `{st.held}/{st.parts}` else `{st.held}/?`
+				loadLine.Text =
+					`Load {st.key}: {st.stage} {share}% · parts {parts} · {math.floor(os.clock() - st.startedAt)} s`
+			else
+				loadLine.Text = "Load: none running"
+			end
+			local f = workspace:FindFirstChild(FrontCfg.FolderName)
+			local who = f and f:GetAttribute(FrontCfg.WaitingAttribute)
+			waitLine.Text = `Server waits for: {if type(who) == "string" then who else "nobody"}`
+			task.wait(A.LoadReadout)
 		end
 	end)
 	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes

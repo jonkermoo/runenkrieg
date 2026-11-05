@@ -44,10 +44,7 @@ local Cutscenes = {
 	-- the armory streams in every spot the next flight looks at before it plays (Net "MapLoad"): spots this many studs
 	-- apart (closer ones are asked for once)
 	LoadSpacing = 60,
-	-- then the map's meshes, textures and decals preloaded (ContentProvider), this many instances at a time, before the
-	-- client says it's loaded: nothing pops in during the flight (user 2026-11-03: "make sure the map is FULLY loaded")
-	PreloadBatch = 40,
-	PreloadDrain = 10, -- then at most this many seconds for the download queue to empty
+	-- (the whole map with them, its meshes, textures and decals preloaded: src/client/MapLoader, Config/JoinLoading)
 	-- and under the black before the flight the camera tours it unseen (Rules/Cutscenes.tourAt: each shot's start,
 	-- middle and end), held at each view `frames` frames and then till nothing is left to download (`each` seconds at
 	-- most), `max` seconds in all: a map's textures and mesh detail load only once a camera looks at them (user

@@ -42,15 +42,24 @@ local Frontline = {
 	-- least as long as the narrator's first part (its words at Cutscenes.Speech.wordsPerSecond) and until every
 	-- player has streamed in the next map (Net "MapLoad"), at most `max`
 	-- (the table's own length: Rules/Cutscenes.tableSeconds, until its replay and report are done)
-	FadeSeconds = 3,
+	FadeSeconds = 3, -- (the fade's own drain and cover; the victory screen then holds: Victory)
+	-- the victory screen (user 2026-11-04: much longer, and the war room loads behind it): `least` seconds, then until
+	-- every player's war room set is ready (Net "SceneReady"), `most` at the most
+	Victory = { least = 6, max = 30 },
 	VoteSeconds = 30, -- (the approved demo, user 2026-11-03: the countdown from 0:30; was 15)
 	-- (`tour`: the black before the flight held at most this long while every player's camera tours it unseen, Net
 	-- "MapTour")
-	Loading = { least = 8, max = 60, tour = 15 },
+	-- (`max`: one stuck player never holds the whole server; a player still loading then keeps their own armory until
+	-- their map is in, src/client/EndScenes; user 2026-11-04: "once the map is fully [loaded], it is prepared for the
+	-- next part of the TTS speech")
+	Loading = { least = 8, max = 120, tour = 15 },
 	-- on the Frontline folder from a match's end to the next countdown's end: what the narrator speaks of, "<winner
 	-- kit or none>,<the map just played>" (src/client/MatchCutscene)
 	-- (its third part: the losing kit or none; user 2026-11-04, each side hears its own script)
 	SpeechAttribute = "Speech",
+	-- on the Frontline folder while the server waits for players' loads (the victory screen, the armory, the flight's
+	-- tour): their names (the admin's load readout)
+	WaitingAttribute = "LoadWaiting",
 	-- on each Player at a match's end: the kit they fought in (none: not in the match), whose script they hear
 	MatchKitAttribute = "MatchKit",
 	-- on the Frontline folder: the server time of the latest dip to black between scenes (Config/Cutscenes.Dip: the
