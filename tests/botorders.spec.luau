@@ -145,6 +145,14 @@ return {
 		assert(p.keep == 0, "no target, no screen")
 		assert(R.defendersFor({ attack = 3, defend = 2, share = 0.5 }, 20) == 10, "no keep: as before")
 	end,
+	["standTo: the holders of the sector the enemy's offensive goes into"] = function()
+		local o = R.newOffensive(3, 0, false)
+		assert(not R.standTo(true, o, 3), "still gathering")
+		o.phase = "Go"
+		assert(R.standTo(true, o, 3) and not R.standTo(true, o, 2) and not R.standTo(false, o, 3))
+		o.phase = "Exploit"
+		assert(R.standTo(true, o, 3) and not R.standTo(true, nil, 3))
+	end,
 	["digIn: every other holder in the zone for a while after taking it"] = function()
 		local D = Cfg.Offensive.dig
 		assert(R.digIn(1, 0, D) and not R.digIn(2, 0, D) and R.digIn(1 + D.every, 0, D))

@@ -230,6 +230,12 @@ function BotOrders.defendersFor(p: Plan, bots: number): number
 	return BotOrders.defenders(bots, p.share, p.attack ~= nil)
 end
 
+-- Whether a squad defending `sector` stands to, into its own zone as Assault (fighting on the move, not in cover):
+-- the enemy's offensive (`enemyOff`) is going into that sector.
+function BotOrders.standTo(defending: boolean, enemyOff: Offensive?, sector: number): boolean
+	return defending and enemyOff ~= nil and enemyOff.sector == sector and BotOrders.going(enemyOff)
+end
+
 -- Whether a squad's `holdN`th holder (1-based) of a sector its side took `since` seconds ago holds a spot inside the
 -- zone rather than a fire step (Config/Bots.Offensive.dig: for `dig.hold` s, every `dig.every`th holder, the first
 -- among them): the flag itself held against the counter-attack, not only the trenches round it.

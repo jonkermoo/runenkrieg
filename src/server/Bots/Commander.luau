@@ -504,6 +504,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	-- its offensive (Config/Bots.Offensive): its attack squads held back while it gathers and shells, then all in; saps
 	-- only before the initiative is first taken, or while gathering
 	local offence = front.off
+	local enemyOff = (fronts.sides[enemy] or {} :: any).off
 	local mayDig = fronts.initiative == nil or (offence ~= nil and offence.phase == "Gather")
 	local strong = fronts.strong[side] or {}
 	front.gathered, front.attackers = 0, 0
@@ -775,6 +776,11 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				wait = waitHere,
 				go = goHere,
 			}, SQ)
+			-- holding a sector the enemy's offensive is going into: it stands to, into its own zone, fighting on the
+			-- move (counter-attackers at its own front, Config/Bots.Offensive; under the barrage they kept to cover)
+			if Orders.standTo(defend, enemyOff, sector) then
+				sqs.sq.phase = "Assault"
+			end
 			if sqs.sq.phase == "Assault" and was ~= "Assault" then
 				stats.assaults += 1
 				if sqs.jump then
