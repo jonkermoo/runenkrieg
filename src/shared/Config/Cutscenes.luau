@@ -776,7 +776,7 @@ local Cutscenes = {
 				"Then bring down the church tower.",
 			},
 			LanternMeadows = {
-				"Orders for the Aurel.",
+				"Orders for the river Aurel.",
 				"From the watchtower, look east.",
 				"Through the hedgerows by the barn.",
 				"Take the festival ground under the lanterns.",
