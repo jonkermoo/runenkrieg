@@ -116,6 +116,9 @@ return {
 			base[k] = r.kind ~= "Comm"
 		end
 		assert(R.ready(base, first2, kinds, routes), "beside the first way up, not after it")
+		local firstFire = table.find(kinds, "Fire") :: number
+		assert(R.ready({}, firstFire, kinds, routes), "the fire trench beside the base, not held up by it")
+		assert(not R.ready({}, firstFire + 1, kinds, routes), "bay by bay")
 		assert(not R.ready(base, first2 + 1, kinds, routes), "its own first run first")
 	end,
 	["swing: the far end steps aside, one way then the other; the start stays"] = function()

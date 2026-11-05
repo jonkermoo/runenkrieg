@@ -227,7 +227,8 @@ end
 -- lies `Support.back` behind, so it may be planned at once alongside the fire trench (`kinds`: each run's kind; user
 -- 2026-11-04, the trench priority: one run open at a time left a side's diggers idle). A communication trench's run
 -- (`routes`: each run's route) waits on the runs before it but another route's: a system's two ways up are dug side
--- by side.
+-- by side. A fire bay waits only on the bays before it (it joins no base run: a support line refused for a gun or a
+-- wall must not hold the fire trench up; the base's squares are still dug first).
 function BotTrenches.ready(
 	laid: { [number]: boolean },
 	k: number,
@@ -238,9 +239,11 @@ function BotTrenches.ready(
 		return true
 	end
 	local mine = routes and routes[k]
+	local fire = kinds ~= nil and kinds[k] == "Fire"
 	for i = 1, k - 1 do
 		local other = mine ~= nil and kinds ~= nil and kinds[i] == "Comm" and (routes :: any)[i] ~= mine
-		if not laid[i] and not other then
+		local base = fire and (kinds :: any)[i] ~= "Fire"
+		if not laid[i] and not other and not base then
 			return false
 		end
 	end

@@ -1485,14 +1485,11 @@ local function treesOn(runs: { BotTrenches.Run }): number
 	return n
 end
 
--- (a sight line from the enemy: everything but soldiers)
-local sightParams = RaycastParams.new()
-sightParams.FilterType = Enum.RaycastFilterType.Exclude
-
 -- what a system's ground costs it (Config/Bots.Trenches.Care.Site; user 2026-11-05: "most soldiers trench in the open
 -- or already highly conflicted areas, whhich ends up with them getting bombared severely by all artilleries"): the
 -- shell map's heat at each spot along its runs, and each spot the enemy's `eye` (its next sector, over the ground)
--- sees over the terrain, trees and buildings (a reverse slope, a tree line, a house hides it)
+-- sees over the terrain (a reverse slope hides it; trees and walls don't count: they hide a line only where they
+-- stand in its way, and the planner refuses it there)
 local function exposedCost(side: string, runs: { BotTrenches.Run }, eye: Vector3?): number
 	local S, now = CA.Site, os.clock()
 	local cost, k = 0, 0
@@ -1504,7 +1501,7 @@ local function exposedCost(side: string, runs: { BotTrenches.Run }, eye: Vector3
 				local g = Routes.ground(p.x, p.z)
 				local to = g + Vector3.yAxis * S.head - eye
 				if to.Magnitude <= TR.Zigzag.range then
-					local hit = workspace:Raycast(eye, to, sightParams)
+					local hit = workspace:Raycast(eye, to, terrainOnly)
 					if not hit or hit.Distance >= to.Magnitude - 1 then
 						cost += S.seen
 					end
@@ -1519,18 +1516,6 @@ end
 -- layouts, each fire line `edge` of the zone's radius out and `shift` studs across, the one with the fewest trees on
 -- its runs and the least shelled and seen ground (`side`; `eye`: where the enemy looks from)
 local function sited(make: (number, number) -> { BotTrenches.Run }, side: string, eye: Vector3?): { BotTrenches.Run }
-	local skip = {}
-	for _, b in bots do
-		if b.m then
-			table.insert(skip, b.m)
-		end
-	end
-	for _, p in game:GetService("Players"):GetPlayers() do
-		if p.Character then
-			table.insert(skip, p.Character)
-		end
-	end
-	sightParams.FilterDescendantsInstances = skip
 	local best, fewest = nil, math.huge
 	for _, edge in TR.Site.edges do
 		for _, shift in TR.Site.shifts do
@@ -1940,7 +1925,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- (no new square while its own offensive shells and goes in, nor on freshly shelled ground: Care.Hot; user
 	-- 2026-11-05: "most soldiers trench in the open or already highly conflicted areas")
 	local myOff = (fronts.sides[side] or {} :: any).off :: Orders.Offensive?
-	local pushNow = myOff ~= nil and myOff.phase ~= "Gather"
+	local pushNow = myOff ~= nil and (myOff.phase == "Barrage" or myOff.phase == "Go")
 	local care: { [string]: number } = {}
 	sbs.care = care
 	local function hotAt(x: number, z: number): boolean
@@ -2060,11 +2045,17 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 						x, z = e.x, e.z
 					end
 				elseif last then
+					-- (only once the run before is planned: before that its "end" is whatever trench lies at its
+					-- start, a support line's end where a way up begins)
 					local lj = last.job
 					local from = last.from or { x = lj.x, z = lj.z }
-					local e =
-						BotTrenches.lastEnd(ends, from.x, from.z, lj.ex :: number, lj.ez :: number, CH.off, CH.past)
-					x, z = if e then e.x else lj.ex :: number, if e then e.z else lj.ez :: number
+					local lastRun =
+						{ kind = run.kind, ax = from.x, az = from.z, bx = lj.ex :: number, bz = lj.ez :: number }
+					if last.gaveUp or BotTrenches.laid(lastRun, squares, TR.on, TR.ends) then
+						local e =
+							BotTrenches.lastEnd(ends, from.x, from.z, lj.ex :: number, lj.ez :: number, CH.off, CH.past)
+						x, z = if e then e.x else lj.ex :: number, if e then e.z else lj.ez :: number
+					end
 				end
 				if x ~= j.x or z ~= j.z then
 					local k = `{side} chained`
@@ -2142,7 +2133,6 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				and dug < TR.cap
 				and not pushNow
 				and BotTrenches.ready(sysLaid[sys], sysAt[ri], sysKinds[sys], sysRoutes[sys])
-				and not hotAt(r.job.x, r.job.z)
 		elseif i then
 			local w = works[i]
 			r.model, r.at, r.left = w.model, w.at, w.left
@@ -2439,7 +2429,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		local square = p.key == "Trench"
 		local none = { key = p.key, x = p.x, z = p.z, left = 0 }
 		local w = works[i]
-		local new = square and not w.built and not pushNow
+		local new = square and not w.built and not pushNow and not hotAt(p.x, p.z)
 		local line = if new then onLine[w.model] else nil
 		local base = line ~= nil and (line.kind == "Support" or line.kind == "Rear")
 		others[i] = if square or p.key == "Dugout" then none else p
@@ -2513,13 +2503,28 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 		return a.score > b.score
 	end)
-	for k = 1, math.min(#wanted, SC.repairs) do
-		local i = wanted[k].i
-		listed[i] = true
-		table.insert(near, i)
+	-- (start, build, reinforce, then keep going: the repairs first, then the squares not dug yet, the extra only once
+	-- none of those waits)
+	local fixes = 0
+	for _, wt in wanted do
+		if wt.hp and fixes < SC.repairs then
+			fixes += 1
+			listed[wt.i] = true
+			table.insert(near, wt.i)
+		end
 	end
 	dig(baseOnly)
 	dig(squaresOnly)
+	if #near == before + fixes then
+		local extra = 0
+		for _, wt in wanted do
+			if not wt.hp and extra < SC.repairs then
+				extra += 1
+				listed[wt.i] = true
+				table.insert(near, wt.i)
+			end
+		end
+	end
 	for k = #near, before + TR.digs + 1, -1 do
 		table.remove(near, k)
 	end
@@ -2544,7 +2549,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 			local rr = r :: BuildJob
 			rr.at, rr.left, rr.open, rr.fix = w.at, swings[i] or w.left, true, fix[i] == true
-			rr.buried = square and w.built
+			rr.buried = square and w.built and w.hp < w.max
 			rr.decision = decided[i]
 			rr.care = if decided[i] then scoreOf[i] else nil
 			keep[w.model] = rr

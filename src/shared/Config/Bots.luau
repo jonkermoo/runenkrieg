@@ -654,10 +654,13 @@ local Bots = {
 		-- - Map: the shell map, each shell (`shell`) and own death (`death`) counted in its `cell`-stud cell, fading by half
 		--   every `half` s. Site: a system or forward line is sited (Trenches.Site) with `heat` for each unit of the map's
 		--   heat (at most Score.heatMost) at each spot every `sample` studs along its runs, and `seen` for each such spot
-		--   (`seenEvery`th) the enemy's next sector sees from `eye` studs over its ground to `head` over the run's (a
-		--   reverse slope, a tree line, a building hides it), within Zigzag.range.
-		-- - Hot: no new square started within `radius` studs of a shell in the last `seconds` (its diggers go to a cooler
-		--   job); a critical square (a dugout's, the base) is still repaired there, though not within `lull` s of a shell.
+		--   (`seenEvery`th) the enemy's next sector sees from `eye` studs over its ground to `head` over the run's over
+		--   the terrain (a reverse slope hides it; a tree line hides only where the planner refuses it), within
+		--   Zigzag.range.
+		-- - Hot: no new square dug within `radius` studs of a shell in the last `seconds` (its diggers go to a cooler
+		--   job; the run is still planned: a front line is shelled most of the time, and a measured match with runs held
+		--   off for 120 s never planned its fire trench); a critical square (a dugout's, the base) is still repaired
+		--   there, though not within `lull` s of a shell.
 		-- - Rear: the way back from a system's support line to safe ground, `back` studs: with the support line its base,
 		--   planned before the fire trench (Rules/BotTrenches.layout).
 		-- - Score: each dug square's decision (Rules/BotTrenchCare.decide): busy at `busy` (its bots' seconds in it lately,
@@ -672,8 +675,8 @@ local Bots = {
 		--   looked at every `every` s, `touch`: two squares this near are joined already.
 		Care = {
 			Map = { cell = 20, half = 180, shell = 1, death = 0.6 },
-			Site = { heat = 1, sample = 8, seen = 2, seenEvery = 2, eye = 6, head = 3 },
-			Hot = { radius = 25, seconds = 120, lull = 20 },
+			Site = { heat = 1, sample = 8, seen = 1, seenEvery = 2, eye = 6, head = 3 },
+			Hot = { radius = 20, seconds = 45, lull = 15 },
 			Rear = { back = 32 },
 			Score = {
 				busy = 30,
