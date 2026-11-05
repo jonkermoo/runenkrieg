@@ -149,8 +149,9 @@ local Frontline = {
 	},
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
 	-- of mis match"): while the bigger side has at least `gap` more players AND `share` more, the smaller side's points
-	-- are paid `times` over (src/server/Loadouts)
-	Reinforcements = { gap = 3, share = 0.25, times = 1.5 },
+	-- are paid `times` over (src/server/Loadouts). Off since the marks rebalance (user 2026-11-05: no comeback boost):
+	-- `times` 1, the side still marked for the readouts
+	Reinforcements = { gap = 3, share = 0.25, times = 1 },
 	-- on the Frontline folder: the next wave's server time; the side reinforced (or nil); each side's sectors held from
 	-- its end ("<Side>Held", Artillery above), spawn sector (an index, "<Side>Spawn") and its wave line's centre (a
 	-- Vector3, "<Side>Line": no shells there, Config/Artillery.SpawnGuard). On a character: while it stands in the wave

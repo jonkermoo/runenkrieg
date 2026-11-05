@@ -1787,6 +1787,9 @@ local function work(b: Builder, target: any, mode: any)
 		end
 		lastSwing[b.key] = now
 		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair * k, g.hp, shareOf(b)))
+		if what == "usable" then
+			award(b, "Repair") -- a wreck back in service (Config/Classes.Earn.Repair)
+		end
 		if what then
 			-- back in service or whole: a fresh gun in its place, the howitzer's pit dug out again from the ground as
 			-- it was (the field gun levels its own ground as it stands), damaged to what it has

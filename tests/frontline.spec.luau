@@ -328,7 +328,7 @@ return {
 	end,
 	["reinforcements only on a big mismatch (user 2026-10-29)"] = function()
 		local C = Cfg.Reinforcements
-		assert(C.gap == 3 and C.share == 0.25 and C.times > 1)
+		assert(C.gap == 3 and C.share == 0.25 and C.times == 1, "no comeback pay since the marks rebalance")
 		assert(R.reinforced(C, 10, 10) == nil and R.reinforced(C, 12, 10) == nil, "near enough")
 		assert(R.reinforced(C, 13, 10) == "East", "3 more and 30% more")
 		assert(R.reinforced(C, 20, 17) == nil, "3 more but under 25%")

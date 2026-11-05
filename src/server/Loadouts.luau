@@ -7,7 +7,8 @@
 -- player's character (showcase and dev dummies) is its "Class" attribute or the default, and pays nothing.
 -- Points: Loadouts.hurt (src/server/Damage) notes who hurt whom; on a death the killer and the assists are paid
 -- (Rules/Classes.credit). Loadouts.award pays the rest (src/server/Build: pieces and trench squares built; the zone
--- capture: "Capture"). Each death sets the pick back to the default. Loadouts.resetMatch starts a new match: everyone's points back to Config/Classes.Start and the
+-- capture: "Capture"; heals and drags: src/server/init). A class is unlocked once a match, then pays its fee each life
+-- (Rules/Classes.price). Each death sets the pick back to the default. Loadouts.resetMatch starts a new match: everyone's points back to Config/Classes.Start and the
 -- picks back to the default. Until there are matches, a server is one match.
 -- Net "Loadout": client -> server ("Pick", class) | ("Ask") | ("Deploy") | ("Team", kit: a team change where teams are
 -- kept, Config/Teams: src/server/Deploy checks the balance again and moves them, and their points go back to
@@ -37,6 +38,9 @@ local points: { [Player]: number } = {}
 -- like players (user 2026-10-30: "they have their own points that they can use to upgrade")
 local botPoints: { [number]: number } = {}
 local picks: { [Player]: string } = {}
+-- the classes each player and bot unlocked this match (Config/Classes `unlock`, paid once; each life then pays the `fee`)
+local unlocks: { [Player]: { [string]: boolean } } = {}
+local botUnlocks: { [number]: { [string]: boolean } } = {}
 -- the hits each soldier took this life, by players (Rules/Classes.credit)
 local hits: { [Model]: { Rules.Hit } } = setmetatable({}, { __mode = "k" }) :: any
 
@@ -59,9 +63,15 @@ function Loadouts.classOf(character: Model): string
 			Loadouts.points(player),
 			C.Defs,
 			C.Default,
-			player:GetAttribute(DevCfg.Admin.ClassAttribute)
+			player:GetAttribute(DevCfg.Admin.ClassAttribute),
+			unlocks[player]
 		)
 		points[player] = Loadouts.points(player) - cost
+		if cost > 0 then
+			local own = unlocks[player] or {}
+			unlocks[player] = own
+			own[key] = true
+		end
 	end
 	character:SetAttribute("Class", key)
 	return key
@@ -104,7 +114,8 @@ local function state(player: Player): Rules.State
 		picks[player] or C.Default,
 		if type(current) == "string" then current else nil,
 		C.List,
-		C.Defs
+		C.Defs,
+		unlocks[player]
 	)
 end
 
@@ -173,9 +184,20 @@ function Loadouts.botPoints(id: number): number
 	return botPoints[id] or C.Start
 end
 
--- Takes `cost` of bot `id`'s points (its class this life, src/server/Bots).
-function Loadouts.botPay(id: number, cost: number)
+-- What a life as class `key` costs bot `id` now (Rules/Classes.price: the unlock until it is unlocked this match).
+function Loadouts.botPrice(id: number, key: string): number
+	local own = botUnlocks[id]
+	return Rules.price(C.Defs[key], own ~= nil and own[key] == true)
+end
+
+-- Takes `cost` of bot `id`'s points for class `key` this life (src/server/Bots); the class is unlocked for the match.
+function Loadouts.botPay(id: number, cost: number, key: string?)
 	botPoints[id] = math.max(0, Loadouts.botPoints(id) - cost)
+	if key then
+		local own = botUnlocks[id] or {}
+		botUnlocks[id] = own
+		own[key] = true
+	end
 end
 
 -- Pays bot `id` as Loadouts.award pays a player.
@@ -189,6 +211,7 @@ end
 -- (a bot that leaves for good: its points go)
 function Loadouts.forgetBot(id: number)
 	botPoints[id] = nil
+	botUnlocks[id] = nil
 end
 
 -- A soldier hurt by `by` (src/server/Damage): `amount` health off, `zone` where (nil: a blast or a staff shot).
@@ -275,6 +298,8 @@ function Loadouts.resetMatch()
 	table.clear(points)
 	table.clear(picks)
 	table.clear(botPoints)
+	table.clear(unlocks)
+	table.clear(botUnlocks)
 end
 
 Loadouts.send = send
@@ -301,6 +326,7 @@ function Loadouts.start()
 	Players.PlayerRemoving:Connect(function(p)
 		points[p] = nil
 		picks[p] = nil
+		unlocks[p] = nil
 	end)
 	Net.event("Loadout").OnServerEvent:Connect(function(player: Player, action: any, key: any)
 		if action == "Pick" and Rules.pickable(key, C.Defs) then
@@ -311,6 +337,7 @@ function Loadouts.start()
 		elseif action == "Team" then
 			if deployer and deployer.team(player, key) then
 				points[player] = C.Start
+				unlocks[player] = nil -- (a team change starts their match over)
 				deployer.changed(player, "Team")
 			end
 		elseif action == "Deploy" then

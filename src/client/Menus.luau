@@ -496,7 +496,12 @@ function Menus.start()
 				for _, l in { r.name, r.blurb, r.cost } do
 					l.TextTransparency = fade
 				end
-				r.cost.Text = if card.locked then "Soon" elseif card.cost == 0 then "Free" else tostring(card.cost)
+				-- (the marks rebalance, user 2026-11-05: its unlock + fee until unlocked this match, then the fee alone)
+				r.cost.Text = if card.locked
+					then "Soon"
+					elseif card.cost == 0 then "Free"
+					elseif card.unlocked then tostring(card.fee)
+					else `{card.unlock}+{card.fee}`
 				local runeName = Cards.runes[card.key]
 				local canvas = r.rune
 				if canvas and runeName then

@@ -218,7 +218,10 @@ local function chooseClass(b: Bot): (string, number?)
 	for _, c in Cfg.Classes do
 		local def = Classes.Defs[c.key]
 		if def and not def.locked then
-			table.insert(options, { key = c.key, cost = if normal or (gratis :: any)[c.key] then 0 else def.cost })
+			table.insert(
+				options,
+				{ key = c.key, cost = if normal or (gratis :: any)[c.key] then 0 else Loadouts.botPrice(b.id, c.key) }
+			)
 			table.insert(weights, { key = c.key, weight = c.weight or 0 })
 			push[c.key] = c.push
 		end
@@ -232,7 +235,7 @@ local function chooseClass(b: Bot): (string, number?)
 	b.crew = nil
 	local sb = b.side and buildLists[b.side :: string]
 	local eng = Classes.Defs.Engineer
-	local engCost = if free then 0 elseif eng then eng.cost else math.huge
+	local engCost = if free then 0 elseif eng then Loadouts.botPrice(b.id, "Engineer") else math.huge
 	if sb and sb.front and eng and not eng.locked and engCost <= Loadouts.botPoints(b.id) then
 		local crews = 0
 		for _, o in bots do
@@ -258,7 +261,7 @@ local function chooseClass(b: Bot): (string, number?)
 		end
 	end
 	if cost > 0 then
-		Loadouts.botPay(b.id, cost)
+		Loadouts.botPay(b.id, cost, key)
 		stats.upgrades += 1
 	end
 	return key, push[key]

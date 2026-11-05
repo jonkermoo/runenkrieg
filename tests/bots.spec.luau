@@ -386,7 +386,7 @@ return {
 		for _, c in Cfg.Classes do
 			assert(Classes.Defs[c.key], c.key)
 		end
-		assert(Classes.Defs[Cfg.Classes[1].key].cost == 0)
+		assert(Classes.Defs[Cfg.Classes[1].key].unlock == 0 and Classes.Defs[Cfg.Classes[1].key].fee == 0)
 		for mode, max in Cfg.Max do
 			assert(#Cfg.Names >= max, `a name for every bot ({mode})`)
 		end

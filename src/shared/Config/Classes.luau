@@ -1,14 +1,15 @@
 --!strict
 -- Classes and the match currency (user 2026-10-27: "a type of temporary currency that resets every match that allows
--- players to spawn with a certain loadout"). Every player starts a match with `Start` points, earns `Earn` for kills,
--- assists, captures and building, and pays a class's `cost` each life it spawns as that class (src/server/Loadouts,
--- Rules/Classes). The points are invisible to the player except in the loadout menu while respawning (user: "they only
+-- players to spawn with a certain loadout"). Every player starts a match with `Start` points and earns `Earn`. A class
+-- is unlocked once a match for its `unlock` and then costs its `fee` each life it is played (user 2026-11-05, the marks
+-- rebalance: "you pay for a class, then smaller fees to use it"; src/server/Loadouts, Rules/Classes.price). The points are invisible to the player except in the loadout menu while respawning (user: "they only
 -- see their match currency in the loadout menu when they are respawning"). A pick it can't pay for spawns the
 -- `Default` class and stays picked.
 
 export type Def = {
 	name: string,
-	cost: number,
+	unlock: number, -- paid once a match, at the first spawn as the class
+	fee: number, -- paid every life as the class (the first one too)
 	-- the primary: "weapon" (the kit's bolt rifle, Config/Uniforms.Kits) or a key of the kit's `Gear` below
 	primary: string,
 	grenades: boolean, -- carries the kit's grenades
@@ -68,7 +69,9 @@ local Classes = {
 		Fov = 28,
 		Turn = 0.35,
 	},
-	Start = 0, -- points at the start of every match
+	-- points at the start of every match: enough to unlock and play the Grenadier or the Engineer (user 2026-11-05:
+	-- "give all soldiers a starting fee enough to pay for engineer or to pay for grenadier")
+	Start = 30,
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
 	List = { "Rifleman", "Grenadier", "AutoRifler", "Shotgunner", "Engineer", "Mage" },
@@ -77,7 +80,8 @@ local Classes = {
 		Rifleman = {
 			name = "Rifleman",
 			blurb = "Bolt-action rifle",
-			cost = 0,
+			unlock = 0,
+			fee = 0,
 			primary = "weapon",
 			grenades = false,
 			builds = SMALL,
@@ -85,7 +89,8 @@ local Classes = {
 		Grenadier = {
 			name = "Grenadier",
 			blurb = "Rifle and five grenades",
-			cost = 50,
+			unlock = 25,
+			fee = 5,
 			primary = "weapon",
 			grenades = true,
 			builds = SMALL,
@@ -94,7 +99,8 @@ local Classes = {
 		AutoRifler = {
 			name = "Auto rifler",
 			blurb = "Semi-automatic rifle, plate helmet",
-			cost = 100,
+			unlock = 100,
+			fee = 20,
 			primary = "semi",
 			grenades = false,
 			helmet = "altHelmet",
@@ -105,18 +111,20 @@ local Classes = {
 		Shotgunner = {
 			name = "Shotgunner",
 			blurb = "Pump shotgun, shell-band helmet",
-			cost = 150,
+			unlock = 100,
+			fee = 20,
 			primary = "shotgun",
 			grenades = false,
 			helmet = "shellHelmet",
 			builds = SMALL,
 		},
-		-- the only class that builds artillery (user: "only they can build artilleries"); open to players at 150 (user
+		-- the only class that builds artillery (user: "only they can build artilleries"); open to players (user
 		-- 2026-11-01), not yet to bots (Config/Bots.Classes)
 		Engineer = {
 			name = "Engineer",
 			blurb = "Builds artillery",
-			cost = 150,
+			unlock = 25,
+			fee = 5,
 			-- the kit's pistol (user 2026-10-28: the Engineer's own sidearm; the C96, the Nagant, the Webley)
 			primary = "pistol",
 			grenades = false,
@@ -129,7 +137,8 @@ local Classes = {
 		Mage = {
 			name = "Mage",
 			blurb = "Rune staff",
-			cost = 200,
+			unlock = 150,
+			fee = 50,
 			primary = "staff",
 			grenades = false,
 			helmet = "goggles",
@@ -170,23 +179,29 @@ local Classes = {
 			engineerCap = "cap_trench",
 		},
 	} :: { [string]: { [string]: string } },
-	-- every award below paid this many times over, in every mode (user 2026-11-02: "1.5x the marks earned in both
-	-- modes"); the points may then hold halves, shown rounded down (src/client/Menus)
-	Pay = 1.5,
-	-- points earned (user: kills, assists, captures, building; prices scaled down, so these are too)
+	-- every award below paid this many times over, in every mode (user 2026-11-02 set 1.5; the marks rebalance,
+	-- 2026-11-05, folded it into the numbers below, which are what gets paid); the points may hold fractions, shown
+	-- rounded down (src/client/Menus)
+	Pay = 1,
+	-- points earned (the marks rebalance, user 2026-11-05: kills, objectives, building, support and gun crews all rated
+	-- the same, so each style earns about 6 a minute; no Win award, "drop")
 	Earn = {
-		Kill = 10,
-		Headshot = 2, -- on top of the kill, when the killing hit was to the head
-		Assist = 5,
-		Capture = 15, -- a zone captured (src/server/Loadouts.award; the zone capture calls it)
+		Kill = 20,
+		Headshot = 4, -- on top of the kill, when the killing hit was to the head
+		Assist = 8,
+		Capture = 30, -- a zone captured (src/server/Loadouts.award; the zone capture calls it)
 		-- Normal mode (src/server/Frontline, user 2026-10-27): each soldier in the zone when an enemy sector goes neutral;
-		-- a kill in or near your side's sector while the enemy is attacking it; everyone on the winning side
-		Neutralise = 5,
-		Defend = 5,
-		Win = 25,
-		Piece = 2, -- a sandbag wall, wire or gun built to full (the finishing swing)
-		Trench = 1, -- a trench square dug to full (the finishing swing)
+		-- a kill in or near your side's sector while the enemy is attacking it
+		Neutralise = 15,
+		Defend = 10,
+		Piece = 4, -- a sandbag wall, wire or gun built to full (the finishing swing)
+		Trench = 2, -- a trench square dug to full (the finishing swing)
+		Repair = 4, -- a wrecked gun made usable again (the swing that does it; src/server/Artillery)
+		Drag = 5, -- a downed teammate dragged at least `DragPay.least` studs (once per knock-down; src/server/Dragging)
+		Heal = 8, -- per `HealPer` health healed on a teammate (src/server/Healing)
 	},
+	HealPer = 100,
+	DragPay = { least = 10 },
 	-- who gets the kill and the assists: the last enemy to hurt the soldier within `window` seconds before the death
 	-- gets the kill; every other one who took at least `least` health off them in that time an assist
 	Assist = { window = 15, least = 20 },
