@@ -113,18 +113,22 @@ local Frontline = {
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },
 	-- Artillery locks (user 2026-11-02: "only unlock the rune for the team that gets pushed back to their last sector
 	-- (all artys still only for engineers)"): a gun in `lastStand` is built only by a side holding `unlockAt` sectors or
-	-- fewer (Rules/Frontline.held: the run from its end; it locks again once the side pushes out past that), and is told
-	-- `why` otherwise; every other gun from a match's start, under its caps (Config/Build.Pieces `sectorCap`).
+	-- fewer (Rules/Frontline.held: the run from its end; it locks again on pushing out past that unless latched, below),
+	-- and is told `why` otherwise; every other gun from a match's start, under its caps (Config/Build.Pieces `sectorCap`).
 	-- `unlockAt` 2 (user 2026-11-03: "make field mortars unlock at the second to last sector, not the last sector"; its
 	-- HQ and the one before, so on Map 1 and Lantern Meadows from the start, user: "Yes, from the start"); was 1. Was a
 	-- level per sector lost (2026-10-31), then no locks (earlier 2026-11-02). Each side's held count is the Frontline
 	-- folder's "<Side>" .. `HeldAttribute` (src/server/Build reads it; the bots count it from the sectors' owners).
+	-- Once a side is pushed back to `unlockAt` or fewer, they stay open for the rest of the match (user 2026-11-04: "also
+	-- the rune howitzer can be built any time once you only have 2 sectors left. once you did and gain sectors back, you
+	-- will still have access to the howitzer"; Rules/Frontline.latched, the Frontline folder's "<Side>" ..
+	-- `LatchAttribute`, reset at a new match). Holding that few from the start isn't a push back.
 	-- While locked, the build panel's title reads "<GUN NAME>: " .. `unavailable` in the bad colour, `why` under it (src/client/Build;
 	-- user 2026-11-04: "clearly make it state in the title card that 'Unavailable'").
 	Artillery = {
 		lastStand = { Howitzer = true },
 		unlockAt = 2,
-		why = "Unlocks while you hold only your last two sectors",
+		why = "Unlocks once you're pushed back to your last two sectors, then stays for the match",
 		unavailable = "Unavailable",
 	},
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
@@ -137,6 +141,7 @@ local Frontline = {
 	-- line.
 	WaveAttribute = "WaveAt",
 	HeldAttribute = "Held",
+	LatchAttribute = "HowitzerUnlocked", -- "<Side>HowitzerUnlocked": its lastStand guns open for the match (Artillery)
 	RateAttribute = "Rate", -- each sector's: its control per second now (Rules/Frontline.rates; the admin readout)
 	-- each sector's "<Side>" .. this: the side's soldiers in its zone by head, unweighed (the bots' planning reads it;
 	-- "West" / "East" are weighed by BotWeight)

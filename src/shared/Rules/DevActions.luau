@@ -129,6 +129,9 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return type(value) == "table"
 			and table.find(cfg.Admin.Sides, value.side) ~= nil
 			and (value.plan == "auto" or table.find(cfg.Admin.BotPlans, value.plan) ~= nil)
+	elseif action == "FrontLatch" then
+		-- (a side's howitzer latch forced, src/server/Frontline.setLatch)
+		return type(value) == "table" and table.find(cfg.Admin.Sides, value.side) ~= nil and type(value.on) == "boolean"
 	elseif action == "FrontCapture" then
 		return type(value) == "table"
 			and table.find(cfg.Admin.Sides, value.side) ~= nil

@@ -1313,7 +1313,12 @@ local function gunLocked(key: string, team: string?): string?
 	if type(held) ~= "number" then
 		return nil
 	end
-	return FrontRules.gunLocked(FrontCfg.Artillery, key, held)
+	return FrontRules.gunLocked(
+		FrontCfg.Artillery,
+		key,
+		held,
+		front:GetAttribute(side .. FrontCfg.LatchAttribute) == true
+	)
 end
 
 -- who builds: a player's character or a bot soldier (Config/Bots.Tag), its id (a UserId or a bot's negative

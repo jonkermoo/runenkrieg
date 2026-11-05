@@ -276,6 +276,16 @@ return {
 		assert(R.held(s, "West") == 1 and R.gunLocked(A, "Howitzer", R.held(s, "West")) == nil)
 		assert(R.held(s, "East") == 3 and R.gunLocked(A, "Howitzer", R.held(s, "East")) ~= nil)
 	end,
+	["pushed back to the last two, the howitzer stays for the match (user 2026-11-04)"] = function()
+		local A = Cfg.Artillery
+		assert(not R.latched(A, false, 2, 2), "holding two from the start: not a push back")
+		assert(not R.latched(A, false, 2, 3) and not R.latched(A, false, 4, 3), "out past it, or back to three")
+		assert(R.latched(A, false, 3, 2) and R.latched(A, false, 2, 1), "pushed back to two, or one")
+		assert(R.latched(A, true, 2, 4), "kept once latched")
+		assert(R.gunLocked(A, "Howitzer", 4, true) == nil, "latched: open at any count")
+		assert(R.gunLocked(A, "Howitzer", 4, false) == A.why and R.gunLocked(A, "Howitzer", 4) == A.why)
+		assert(R.gunLocked(A, "Trench", 4, false) == nil)
+	end,
 	["reinforcements only on a big mismatch (user 2026-10-29)"] = function()
 		local C = Cfg.Reinforcements
 		assert(C.gap == 3 and C.share == 0.25 and C.times > 1)
