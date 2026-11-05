@@ -248,6 +248,7 @@ export type SquadState = {
 	inCover: number?, -- its members in cover at the last commander tick
 	pressUntil: number?, -- pinned in the open (Rules/BotSquads.pinned), or a sap given up: pressing on until then
 	cut: Vector3?, -- exploiting an offensive: the defenders' approach spot it stands on (Config/Bots.Offensive)
+	stoodTo: boolean?, -- defending: standing to against the enemy's offensive at the last tick (Rules/BotOrders.standTo)
 }
 -- Normal: each side's build list at its front (Rules/BotBuild), kept each commander tick: the lay jobs (planned again
 -- when the front or the side's sectors held change, which sets the guns it may build, or once the hold spots are

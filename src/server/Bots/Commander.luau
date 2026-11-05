@@ -780,9 +780,15 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			}, SQ)
 			-- holding a sector the enemy's offensive is going into: it stands to, into its own zone, fighting on the
 			-- move (counter-attackers at its own front, Config/Bots.Offensive; under the barrage they kept to cover)
-			if Orders.standTo(defend, enemyOff, sector) then
+			local standTo = Orders.standTo(defend, enemyOff, sector)
+			if standTo then
 				sqs.sq.phase = "Assault"
+				if not sqs.stoodTo then
+					-- (its stillness counted from standing to, not from its time on the posts)
+					sqs.stillMid, sqs.stillAt = mid, now
+				end
 			end
+			sqs.stoodTo = standTo
 			if sqs.sq.phase == "Assault" and was ~= "Assault" then
 				stats.assaults += 1
 				if sqs.jump then
@@ -1107,8 +1113,9 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			-- an Assault squad stuck out of the zone finds its way in again: fresh stand points, fresh paths
 			-- (Config/Bots.Offensive.stuckFor)
 			local share = if living > 0 then inZone / living else 0
+			-- (holders standing to as well: Rules/BotOrders.standTo)
 			if
-				not defend
+				(not defend or standTo)
 				and not sqs.cut
 				and Squads.restart(sqs.sq.phase, now - (sqs.stillAt :: number), share, OF.stuckFor)
 			then
