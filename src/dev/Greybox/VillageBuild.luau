@@ -8,7 +8,14 @@ local VillageBuild = {}
 -- deps: { MT, B, P, D, palette, RulesD, Props, Buildings, Library, VillageRules }
 function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): { [string]: number }
 	local MT, B, palette = deps.MT, deps.B, deps.palette
-	local propDeps = { P = deps.P, D = deps.D }
+	-- the props' meshes (Config/Assets.Entries.PropKit); every point prop's library model rebuilt from them first,
+	-- so a place whose library still holds older (box) props builds the current ones
+	local propDeps = { P = deps.P, D = deps.D, Kit = deps.Library.ensure("PropKit") }
+	for _, kind in deps.P.Kinds do
+		if not deps.Props.isLinear(kind) then
+			deps.Library.ensure(kind)
+		end
+	end
 	-- The rendered smooth-terrain surface can sit ~1 stud off the analytic heightAt, so place everything on
 	-- the real surface (raycast against terrain only); fall back to heightAt if the ray misses.
 	local params = RaycastParams.new()

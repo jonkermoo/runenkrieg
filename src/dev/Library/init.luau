@@ -108,7 +108,11 @@ function Library.ensure(entryName: string): Model
 			existing:Destroy()
 		end
 		local Props = fresh(ServerStorage:WaitForChild("Dev"):WaitForChild("Props"))
-		local model = Props.build(e.prop, { P = fresh(shared().Config.Props), D = fresh(shared().Config.Destruction) })
+		local model = Props.build(e.prop, {
+			P = fresh(shared().Config.Props),
+			D = fresh(shared().Config.Destruction),
+			Kit = Library.ensure("PropKit"),
+		})
 		Props.paint(model, fresh(shared().Config.Palette))
 		model.Name = entryName
 		model:SetAttribute("Procedural", true)
