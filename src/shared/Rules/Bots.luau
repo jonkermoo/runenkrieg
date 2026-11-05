@@ -249,6 +249,19 @@ function Bots.sightWord(visible: boolean, sighted: boolean, calm: boolean): stri
 	return if visible then "sees" elseif sighted then "remembers" elseif calm then "calm" else "alert"
 end
 
+-- Studs a bot can make a soldier out to (Config/Bots.Seeing, `cfg`): the clear range shortened by weather `kind`
+-- ("Fog", "Rain", "Clear") at `strength` (0-1, its fades) and by the night as `daylight` (0-1, Rules/Environment)
+-- falls. `flash`: a soldier just seen firing (the muzzle flash shows through the dark, not through fog).
+function Bots.sightRange(kind: string, strength: number, daylight: number, flash: boolean, cfg: any): number
+	local share = cfg[kind]
+	local weather = if type(share) == "number" then 1 + (share - 1) * math.clamp(strength, 0, 1) else 1
+	if flash then
+		return cfg.clear * weather * cfg.flash
+	end
+	local dark = cfg.night + (1 - cfg.night) * math.clamp(daylight, 0, 1)
+	return cfg.clear * weather * dark
+end
+
 -- Rounds in the rifle (the magazine and a live one chambered).
 function Bots.rounds(s: Senses): number
 	return s.magazine + (if s.chambered then 1 else 0)

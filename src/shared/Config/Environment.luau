@@ -51,7 +51,9 @@ local Environment = {
 		-- the haze warms around sunrise and sunset, most halfway between day and night
 		dusk = { color = { 236, 176, 138 }, decay = { 170, 104, 92 }, strength = 0.8 },
 		-- the map's haze (Greybox/Features.atmosphere: Config/Palette.Atmosphere) darkens to these at night
-		nightHaze = { color = { 48, 56, 78 }, decay = { 30, 36, 54 } },
+		-- and thickens to `density` / `haze` (user 2026-11-05: night "a little darker in the aspect that you can still see,
+		-- but you have to be a little bit closer to see people better"; Config/Bots.Seeing.night is what bots see then)
+		nightHaze = { color = { 48, 56, 78 }, decay = { 30, 36, 54 }, density = 0.5, haze = 1.6 },
 	},
 
 	-- Rare weather (user 2026-10-22): a roll every 8-15 min of clear sky; each event lasts 3-6 min, fading in and out.

@@ -526,6 +526,17 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotClassesAttribute):Connect(showMix)
 	showMix()
+	-- how far bots see now (the weather and the night: Config/Bots.Seeing)
+	order += 1
+	local sight = DevPanel.heading(p.panel, "", order)
+	sight.Size = UDim2.new(1, -8, 0, 40)
+	sight.TextWrapped = true
+	local function showSight()
+		local s = workspace:GetAttribute(A.BotSightAttribute)
+		sight.Text = `Bot sight:\n{if type(s) == "string" then s else "no bots yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotSightAttribute):Connect(showSight)
+	showSight()
 	-- each side's Engineer bots: what each builds, or why nothing
 	order += 1
 	local engineers = DevPanel.heading(p.panel, "", order)

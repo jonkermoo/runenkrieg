@@ -222,6 +222,23 @@ return {
 		assert(not R.calm(b, senses({ now = 100 + C.after - 0.1 }), math.huge, math.huge, C), "seen lately")
 		assert(R.calm(b, senses({ now = 100 + C.after + 0.1 }), math.huge, math.huge, C))
 	end,
+	["sight range: shorter in fog, rain and the night; a muzzle flash shows through the dark"] = function()
+		local S = Cfg.Seeing
+		local clear = R.sightRange("Clear", 0, 1, false, S)
+		assert(clear == S.clear)
+		assert(R.sightRange("Clear", 1, 1, false, S) == S.clear, "no weather share for a clear sky")
+		local fog, rain = R.sightRange("Fog", 1, 1, false, S), R.sightRange("Rain", 1, 1, false, S)
+		assert(fog < rain and rain < clear)
+		local half = R.sightRange("Fog", 0.5, 1, false, S)
+		assert(half > fog and half < clear, "eases with the fog's fade")
+		local night = R.sightRange("Clear", 0, 0, false, S)
+		assert(night == S.clear * S.night)
+		local dusk = R.sightRange("Clear", 0, 0.5, false, S)
+		assert(dusk > night and dusk < clear, "eases over the twilight")
+		assert(R.sightRange("Fog", 1, 0, false, S) < fog, "fog at night: shorter still")
+		assert(R.sightRange("Clear", 0, 0, true, S) > night, "a flash at night shows further")
+		assert(R.sightRange("Fog", 1, 0, true, S) <= fog, "not through fog")
+	end,
 	["sight words for the admin label"] = function()
 		assert(R.sightWord(true, true, false) == "sees")
 		assert(R.sightWord(false, true, false) == "remembers")
