@@ -300,9 +300,13 @@ return {
 		assert(not R.shelter(false, H.enter - 0.01, 0, false, H), "not hot enough")
 		local down, why = R.shelter(false, 5, 0, true, H)
 		assert(not down and why == "resting", "resting: up, fighting")
-		assert(R.shelter(true, H.leave, 1, false, H), "still warm: stays")
-		down, why = R.shelter(true, H.leave - 0.01, 1, false, H)
+		assert(R.shelter(true, H.leave, H.least, false, H), "still warm: stays")
+		down, why = R.shelter(true, H.leave - 0.01, H.least, false, H)
 		assert(not down and why == "calm", "cooled: up")
+		-- (2026-11-04: down hot, the next tick cold, straight back up the steps: never before `least`)
+		down, why = R.shelter(true, 0, H.least - 0.1, false, H)
+		assert(down and why == "settling", "just down: stays a while even if cold")
+		assert(H.least < H.stay, "the least before the most")
 		down, why = R.shelter(true, 5, H.stay, false, H)
 		assert(not down and why == "stay", "down long enough: up to fight")
 		-- one shell near a trench is enough, and they stay down longer than the old 8 s
@@ -352,10 +356,38 @@ return {
 		assert(#R.dugoutSquares(squares, {}, 2, D, 8.1) == 0, "too short on the flat")
 	end,
 	["seat: the nearest dugout with a place"] = function()
+		local reach = Cfg.Dugouts.reach
 		local rooms = { { x = 0, z = 0, free = 0 }, { x = 20, z = 0, free = 1 }, { x = 50, z = 0, free = 2 } }
-		assert(R.seat(rooms, 1, 0) == 2, "the full one skipped")
-		assert(R.seat(rooms, 48, 0) == 3)
-		assert(R.seat({ { x = 0, z = 0, free = 0 } }, 0, 0) == nil, "all full")
+		assert(R.seat(rooms, 1, 0, reach) == 2, "the full one skipped")
+		assert(R.seat(rooms, 48, 0, reach) == 3)
+		assert(R.seat({ { x = 0, z = 0, free = 0 } }, 0, 0, reach) == nil, "all full")
+		-- (2026-11-04 test: sent to the side's only dugout 300+ studs off)
+		assert(R.seat({ { x = reach, z = 0, free = 3 } }, 0, 0, reach) == 1, "at the reach")
+		assert(R.seat({ { x = reach + 1, z = 0, free = 3 } }, 0, 0, reach) == nil, "too far: stays at its post")
+		assert(R.seat({ { x = 300, z = 0, free = 3 } }, 0, 0, reach) == nil)
+	end,
+	["placesLeft: every body down in a dugout takes a place, sent there or not"] = function()
+		local D = Cfg.Dugouts
+		assert(R.placesLeft(D.room, {}) == D.room, "empty")
+		local one = { sent = true, inside = true }
+		assert(R.placesLeft(D.room, { one }) == D.room - 1, "a holder down in it: once, not twice")
+		assert(R.placesLeft(D.room, { { sent = true, inside = false } }) == D.room - 1, "sent, on its way down")
+		assert(R.placesLeft(D.room, { { sent = false, inside = true } }) == D.room - 1, "coming up, or wandered in")
+		assert(R.placesLeft(D.room, { { sent = false, inside = false } }) == D.room, "neither")
+		local crowd = {}
+		for _ = 1, D.room + 5 do
+			table.insert(crowd, { sent = false, inside = true })
+		end
+		assert(R.placesLeft(D.room, crowd) == 0, "a crowd in it: none left, never under 0")
+	end,
+	["freeStuck: a bot down in a dugout it isn't sheltering in walks up, then is lifted out"] = function()
+		local F = Cfg.Dugouts.Free
+		assert(R.freeStuck(false, false, 100, F) == nil, "not in one")
+		assert(R.freeStuck(true, true, 100, F) == nil, "sheltering there: stays")
+		assert(R.freeStuck(true, false, 0, F) == "walk", "walks up first")
+		assert(R.freeStuck(true, false, F.after - 0.1, F) == "walk")
+		assert(R.freeStuck(true, false, F.after, F) == "lift", "still in: lifted out")
+		assert(F.after < Cfg.Move.Idle.seconds, "sooner than the idle watchdog")
 	end,
 	["foxholeWanted: an open post with no trench near and no foxhole there"] = function()
 		local F = Cfg.Dugouts.Fox
