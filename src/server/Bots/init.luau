@@ -78,6 +78,7 @@ local Firing = require(script.Parent.Firing)
 local Frontline = require(script.Parent.Frontline)
 local Healing = require(script.Parent.Healing)
 local Kits = require(script.Parent.Kits)
+local SoldierGroups = require(script.Parent.SoldierGroups)
 local Loadouts = require(script.Parent.Loadouts)
 local MatchStats = require(script.Parent.MatchStats)
 local Ragdoll = require(script.Parent.Ragdoll)
@@ -331,15 +332,7 @@ spawnBody = function(b: Bot)
 	m:SetAttribute(Cfg.IdAttribute, b.id)
 	CollectionService:AddTag(m, DevCfg.Dummies.Tag)
 	CollectionService:AddTag(m, Cfg.Tag)
-	local function group(d: Instance)
-		if d:IsA("BasePart") then
-			d.CollisionGroup = "Characters"
-		end
-	end
-	for _, d in m:GetDescendants() do
-		group(d)
-	end
-	m.DescendantAdded:Connect(group)
+	SoldierGroups.track(m) -- (its team's group: teammates pass through each other)
 	local humanoid = m:FindFirstChildOfClass("Humanoid") :: Humanoid
 	humanoid.DisplayName = if b.mode == "Normal" then NV.nameTag .. b.name else b.name
 	humanoid.BreakJointsOnDeath = false
