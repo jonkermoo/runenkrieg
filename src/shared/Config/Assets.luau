@@ -1191,6 +1191,16 @@ local Assets = {
 				Birch = { "BirchA", "BirchB" },
 			},
 		},
+		RockKit = {
+			id = 107027681507444,
+			category = "Foliage",
+			folder = "Rocks",
+			source = "assets/foliage/rocks/rock_kit.fbx",
+			generator = "tools/blender/rocks.py",
+			description = "Low-poly faceted rocks: 3 flat-topped stepping stones (StepA-C), 3 boulders (BoulderA-C), "
+				.. "one mesh each, base at the bottom; the game sets Size and colour.",
+			variants = { Step = { "StepA", "StepB", "StepC" }, Boulder = { "BoulderA", "BoulderB", "BoulderC" } },
+		},
 		GrassKit = {
 			id = 84469552965997,
 			category = "Foliage",

@@ -25,7 +25,16 @@ export type Ctx = {
 
 export type Opening = { kind: string, w: number, bottom: number, top: number }
 
-local TONED = { Wall = true, Roof = true, Door = true, DoorDark = true, Quoin = true, Foundation = true }
+local TONED = {
+	Wall = true,
+	Roof = true,
+	Door = true,
+	DoorDark = true,
+	Quoin = true,
+	Foundation = true,
+	Cloth = true,
+	Hay = true,
+}
 
 -- Deterministic pseudo-random in [-1, 1] from the part counter.
 local function jitter(ctx: Ctx, salt: number): number

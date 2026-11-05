@@ -193,12 +193,11 @@ local Map1 = {
 		setback = 5, -- front wall distance from the road edge
 		buildingGap = 6, -- minimum clear gap between buildings (players pass between)
 
-		-- Open ground kept clear of buildings: the bridge-head and church squares, the S4 and S5 zones, the East HQ spawn
+		-- Open ground kept clear of buildings: the bridge-head and church squares, the S5 zone (S4's is the inn's yard), the East HQ spawn
 		-- and its approach.
 		keepClear = {
 			{ x = 1800, z = 0, r = 30 },
 			{ x = 2100, z = -30, r = 34 },
-			{ x = 1660, z = -40, r = 60 },
 			{ x = 2080, z = 40, r = 60 },
 			{ x = 2455, z = 165, r = 58 }, -- the East spawn zone (its corners 57 out)
 			{ x = 1943, z = 12, r = 27 }, -- East's wave line while S4 is its front (Config/Frontline.Line.back)
@@ -210,8 +209,8 @@ local Map1 = {
 		-- time. front = direction the door faces. The church south of the church square, facing it.
 		specials = {
 			{ id = "Church", style = "Church", x = 2100, z = -90, front = { 0, 1 } },
-			-- the coaching inn north of the bridge-head square, facing it across the main road
-			{ id = "Inn", style = "CoachingInn", x = 1800, z = 42, front = { 0, -1 } },
+			-- the coaching inn round S4: its yard is the point, open to the main road on the north (user 2026-11-04)
+			{ id = "Inn", style = "CoachingInn", x = 1660, z = -50, front = { 0, 1 } },
 			-- the farm north of S3, on the point's x: the oast house facing the point, its yard behind
 			{ id = "Oast", style = "OastHouse", x = 1240, z = 72, front = { 0, -1 } },
 			{ id = "FarmYard", style = "HayBarn", x = 1240, z = 118, front = { 0, -1 } },

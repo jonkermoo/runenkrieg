@@ -33,7 +33,9 @@ end
 local function grid()
 	local lots = {}
 	for _, l in layout.lots do
-		table.insert(lots, { corners = V.corners(l, 0), stories = l.stories, storyHeight = l.storyHeight })
+		for _, f in V.footprints(l, B, 0) do
+			table.insert(lots, f)
+		end
 	end
 	return Check.grid(Map, MT, CheckCfg, layout.trees, lots, Assets.TreeTargetHeight, M.Movement.MaxSlopeAngle)
 end

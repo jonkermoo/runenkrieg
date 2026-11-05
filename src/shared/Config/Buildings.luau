@@ -75,6 +75,27 @@ local Buildings = {
 	-- may not stand over a floor, how far out from each door to walk, the slack on each test
 	Audit = { step = 1, wallReach = 3, walkOut = 24, slack = 0.2 },
 	WallThickness = 1,
+	-- Furniture inside a building (a template's or block's `interior`, Rules/Interior; built by src/dev/Buildings/Interior
+	-- from shaped pieces: legs, tops, rails, posts, hoops). Sizes in studs: w along x, d along z before the piece's yaw;
+	-- heights by Metrics.Cover (a bench hops, a table or counter is low cover, a shelf or hay stack hides a soldier).
+	Furniture = {
+		Table = { w = 6, d = 3.2, h = 2.8, top = 0.35, leg = 0.4 },
+		Bench = { w = 6, d = 1.3, h = 1.6, top = 0.3, leg = 0.35 },
+		Counter = { d = 2.2, h = 3.6, top = 0.4 }, -- a bar or work counter, linear (a to b)
+		Bed = { w = 3.8, d = 7, h = 1.9, head = 3.6, post = 0.4 },
+		Shelf = { d = 1.4, h = 7, boards = 4, post = 0.4 }, -- linear, against a wall
+		Hearth = { w = 9, d = 3, h = 8, mouth = 5, mouthH = 4.6 }, -- its back to a wall (+z before its yaw)
+		Pillar = { base = 2.4, shaft = 1.6, cap = 0.7 }, -- floor to ceiling
+		Stall = { d = 0.5, h = 4.6, post = 0.6 }, -- a stable stall's boarded side, linear
+		Partition = { d = 0.6, h = 4.2 }, -- a half-height boarded wall, linear (`h` up to the ceiling for a room wall)
+		HayBales = { w = 4.4, d = 2.6, h = 2.2, levels = 2 },
+		Pew = { w = 10, d = 2.4, h = 3.2, seat = 1.6 },
+		Barrels = { r = 1.2, h = 3.0, gap = 0.2, count = 3 },
+	},
+	-- the interior check (Rules/Interior, tests/interior.spec): a walk grid `grid` across, a soldier needing `clearance`
+	-- from anything too high to hop; kept clear `doorClear` deep inside each door (and `doorSide` past its jambs), a
+	-- `landing` at each end of a flight; at least `reach` of a floor's open cells walked to from its doors and stairs
+	InteriorCheck = { grid = 0.5, clearance = 1.6, doorClear = 4, doorSide = 0.5, landing = 4, reach = 0.85 },
 	-- landmark pieces (Template `blocks` / `features`)
 	Battlement = { wall = 1.6, height = 1.8, merlon = 2.2 }, -- parapet height, merlons on it, a merlon's length
 	Graves = { width = 2, height = 2.8, thick = 0.5, sink = 0.6 }, -- a headstone, sunk into the ground
@@ -358,9 +379,12 @@ local Buildings = {
 		-- whitewashed inn with a cart arch through to its yard (coach doors front and back), a gable chimney and a roof
 		-- one, a tarred-board stable wing with its own wide door, and a hanging sign by the road.
 		CoachingInn = {
+			-- (user 2026-11-04: point buildings bigger, furnished, fought through) The coaching inn round its yard: the
+			-- yard is S4's point (Map 1), open to the main road at the front (-Z); the two-storey inn along the back,
+			-- the stable wing west and the coach house east, every block with a door on the yard and one out the back.
 			folder = "Landmarks",
-			width = 46,
-			depth = 22,
+			width = 76,
+			depth = 60,
 			stories = 2,
 			roofPitch = 40,
 			class = "Plaster",
@@ -370,25 +394,54 @@ local Buildings = {
 			blocks = {
 				{
 					name = "Inn",
-					x = -8,
-					z = -1,
-					width = 30,
-					depth = 16,
+					x = 0,
+					z = 20,
+					width = 60,
+					depth = 20,
 					stories = 2,
 					roofPitch = 40,
 					roofStyle = "Tile",
 					quoins = true,
-					gableChimney = -1,
-					chimneys = { 0.5 },
-					doors = { { center = -10 }, { center = 2, w = 6, h = 8.5 } }, -- the front door, the cart arch
-					backDoor = { { center = 2, w = 6, h = 8.5 } },
+					gableChimney = 1,
+					chimneys = { -0.4, 0.3 },
+					windows = 4,
+					doors = { { center = -14 }, { center = 18 } }, -- the hall door and the taproom door, on the yard
+					backDoor = { { center = 0 } },
+					interior = {
+						-- the stair hall and kitchen (west): a dresser on the gable, a work table, barrels by the stairs
+						{ kind = "Shelf", a = { -27.9, -8 }, b = { -27.9, -1.5 } },
+						{ kind = "Table", x = -16, z = -1.5 },
+						{ kind = "Barrels", x = -6.7, z = 6.5 },
+						-- the taproom (east): the bar and its shelves, two tables with benches, the inglenook
+						{ kind = "Counter", a = { 4, 5 }, b = { 16, 5 } },
+						{ kind = "Shelf", a = { 4, 7.9 }, b = { 16, 7.9 } },
+						{ kind = "Table", x = 8, z = -2 },
+						{ kind = "Bench", x = 8, z = -4.5 },
+						{ kind = "Bench", x = 8, z = 0.5 },
+						{ kind = "Table", x = 19, z = 0 },
+						{ kind = "Bench", x = 19, z = -2.5 },
+						{ kind = "Bench", x = 19, z = 2.5 },
+						{ kind = "Hearth", x = 27.1, z = 0, yaw = 90 },
+						-- upstairs: three beds along the back between half walls, a chest of drawers, a table at the
+						-- front windows over the yard
+						{ kind = "Bed", x = 4, z = 5.1, story = 1 },
+						{ kind = "Partition", a = { 8, 1.6 }, b = { 8, 8.6 }, story = 1 },
+						{ kind = "Bed", x = 12, z = 5.1, story = 1 },
+						{ kind = "Partition", a = { 16, 1.6 }, b = { 16, 8.6 }, story = 1 },
+						{ kind = "Bed", x = 20, z = 5.1, story = 1 },
+						{ kind = "Partition", a = { 24, 1.6 }, b = { 24, 8.6 }, story = 1 },
+						{ kind = "Shelf", a = { 24.8, 7.9 }, b = { 28.6, 7.9 }, story = 1 },
+						{ kind = "Table", x = -14, z = -4, story = 1 },
+						{ kind = "Bench", x = -14, z = -1.5, story = 1 },
+					},
 				},
 				{
 					name = "Stable",
-					x = 14,
-					z = 1,
-					width = 14,
-					depth = 12,
+					x = -30,
+					z = -12,
+					yaw = -90, -- its front on the yard (+X)
+					width = 36,
+					depth = 16,
 					stories = 1,
 					storyHeight = 10,
 					roofPitch = 35,
@@ -398,12 +451,52 @@ local Buildings = {
 					wall = "TarBoard",
 					roof = "Slate",
 					doors = { { center = 0, w = 6, h = 8 } },
+					backDoor = { { center = 0 } },
+					interior = {
+						-- stalls along the back, hay in two of them, hay and barrels by the gables
+						{ kind = "Stall", a = { -12, 0 }, b = { -12, 6.8 } },
+						{ kind = "Stall", a = { -6, 0 }, b = { -6, 6.8 } },
+						{ kind = "Stall", a = { 6, 0 }, b = { 6, 6.8 } },
+						{ kind = "Stall", a = { 12, 0 }, b = { 12, 6.8 } },
+						{ kind = "HayBales", x = -9, z = 5 },
+						{ kind = "HayBales", x = 9, z = 5, levels = 1 },
+						{ kind = "HayBales", x = -15, z = -3, yaw = 90 },
+						{ kind = "Barrels", x = 14.5, z = -4, yaw = 90, count = 2 },
+					},
+				},
+				{
+					name = "CoachHouse",
+					x = 30,
+					z = -12,
+					yaw = 90, -- its front on the yard (-X)
+					width = 36,
+					depth = 16,
+					stories = 1,
+					storyHeight = 10,
+					roofPitch = 35,
+					roofStyle = "Tile",
+					class = "Wood",
+					wallThickness = 1.2,
+					wall = "TarBoard",
+					roof = "Slate",
+					doors = { { center = -9, w = 8, h = 8.5 }, { center = 9, w = 8, h = 8.5 } }, -- two cart bays
+					backDoor = { { center = 0 } },
+					interior = {
+						{ kind = "Pillar", x = 0, z = -1 },
+						{ kind = "Table", x = 12, z = 5 }, -- the wheelwright's bench
+						{ kind = "Barrels", x = -8, z = 5.5 },
+						{ kind = "HayBales", x = -14.4, z = 4.5 },
+					},
 				},
 			},
 			features = {
-				{ kind = "Sign", x = -20, z = -10.5, yaw = 180, height = 9 }, -- by the corner, its arm out over the road
+				-- the hanging sign at the yard's mouth by the road, crates in the yard for cover
+				{ kind = "Sign", x = -18, z = -27, yaw = 180, height = 9 },
+				{ kind = "Crates", x = -12, z = -16, yaw = 20, count = 2 },
+				{ kind = "Crates", x = 13, z = -4, yaw = -15, count = 3 },
 			},
-			description = "The coaching inn: two-storey whitewashed inn with a cart arch, chimneys, a tarred-board stable wing and a hanging sign.",
+			description = "The coaching inn round its yard: a two-storey whitewashed inn (taproom, kitchen, rooms upstairs), a "
+				.. "tarred-board stable wing and coach house, the yard open to the road, a hanging sign.",
 		},
 		-- The farm by S3 (the farm reserve, centred on the point's x so neither approach gets more cover): an oast house,
 		-- two round brick hop kilns with red cones and white cowls at the ends of a two-storey weatherboard store.

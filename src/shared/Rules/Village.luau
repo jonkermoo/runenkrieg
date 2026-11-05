@@ -35,6 +35,32 @@ function Village.corners(l: Lot, pad: number): { { number } }
 	return out
 end
 
+-- What a lot's building stands on, for the walk and sight grid (Rules/MapCheck): its footprint, or for a landmark
+-- built of blocks (Config/Buildings `blocks`) each block's own, so a yard between them stays open ground (the coaching
+-- inn's yard is S4's point on Map 1). Each { corners, stories, storyHeight }, `pad` grown all round.
+function Village.footprints(l: Lot, B: any, pad: number): { any }
+	local t = B.Templates[l.style]
+	if not (t and t.blocks) then
+		return { { corners = Village.corners(l, pad), stories = l.stories, storyHeight = l.storyHeight } }
+	end
+	local rx, rz = -l.fz, l.fx
+	local out = {}
+	for _, b in t.blocks do
+		local yaw = math.rad(b.yaw or 0)
+		local c, s = math.cos(yaw), math.sin(yaw)
+		local hw, hd = b.width / 2 + pad, b.depth / 2 + pad
+		local q = {}
+		for _, k in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
+			local x, z = k[1] * hw, k[2] * hd
+			-- the block's own frame turned by its yaw into the template's, then the template's into the world
+			local u, v = b.x + x * c + z * s, b.z - x * s + z * c
+			table.insert(q, { l.x + rx * u - l.fx * v, l.z + rz * u - l.fz * v })
+		end
+		table.insert(out, { corners = q, stories = b.stories, storyHeight = b.storyHeight or l.storyHeight })
+	end
+	return out
+end
+
 -- Points over a lot's footprint grown by `pad` all round, no more than `step` apart along each side (corners and edges
 -- included): where the ground is sampled to stand the building on (user 2026-11-01: "make sure no buildings are
 -- submerged"; seven samples missed a rise under a 54-wide church).
