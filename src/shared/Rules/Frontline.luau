@@ -172,8 +172,32 @@ function Frontline.latched(cfg: any, was: boolean, before: number, held: number)
 	return was or (held < before and held <= cfg.unlockAt)
 end
 
+-- The center of a chain of `n` sectors: its middle one, or the two middle ones of an even chain.
+function Frontline.center(n: number): { number }
+	if n <= 0 then
+		return {}
+	end
+	if n % 2 == 1 then
+		return { (n + 1) // 2 }
+	end
+	return { n // 2, n // 2 + 1 }
+end
+
+-- Whether the center has fallen this match (Config/Frontline.Artillery): a center sector held by a side that didn't
+-- hold it at the start (`start`: each sector's owner at the start, `owner`: now). Neutralised isn't taken.
+function Frontline.centerTaken(start: { string }, owner: { string }): boolean
+	for _, i in Frontline.center(#owner) do
+		local now = owner[i]
+		if SIGN[now] ~= nil and now ~= start[i] then
+			return true
+		end
+	end
+	return false
+end
+
 -- Why `side` can't build gun `key` while it holds `held` sectors from its end (Config/Frontline.Artillery: a
--- `lastStand` gun only while it holds `unlockAt` or fewer, or once `latched` for the match); nil: it can, and keys not
+-- `lastStand` gun only while it holds `unlockAt` or fewer, or once `latched` for the match: pushed back that far, or
+-- the center taken); nil: it can, and keys not
 -- listed never wait.
 function Frontline.gunLocked(cfg: any, key: string, held: number, latched: boolean?): string?
 	if cfg.lastStand[key] and not latched and held > cfg.unlockAt then

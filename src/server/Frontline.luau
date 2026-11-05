@@ -104,6 +104,8 @@ local latest: { { West: number, East: number } } = {} -- the last tick's soldier
 -- each side's lastStand guns open for the match (Rules/Frontline.latched) and the sectors it held at the last publish
 local latch: { [string]: boolean } = { West = false, East = false }
 local heldBefore: { [string]: number } = { West = 0, East = 0 }
+local startOwners: { string } = {} -- each sector's owner at the match's start (Rules/Frontline.centerTaken)
+local centerFell = false -- the center has fallen this match (both latches set once, then the admin's to change)
 local waveAt: number? = nil -- the next wave's server time while the line holds (countdown and play)
 local slots: { [string]: number } = { West = 0, East = 0 } -- the wave line's slots taken since the last wave
 local holding: { [Model]: boolean } = {} -- the soldiers standing in a wave line
@@ -587,9 +589,12 @@ local function publish(
 			f:SetAttribute("East" .. Cfg.HeadsSuffix, (heads or counts)[i].East)
 		end
 	end
+	-- (once the center falls, both sides keep the lastStand guns: Config/Frontline.Artillery)
+	local falls = not centerFell and Rules.centerTaken(startOwners, state.owner)
+	centerFell = centerFell or falls
 	for _, side in { "West", "East" } do
 		local held = Rules.held(state, side)
-		latch[side] = Rules.latched(Cfg.Artillery, latch[side], heldBefore[side], held)
+		latch[side] = Rules.latched(Cfg.Artillery, latch[side], heldBefore[side], held) or falls
 		heldBefore[side] = held
 		folder:SetAttribute(side .. Cfg.HeldAttribute, held)
 		folder:SetAttribute(side .. Cfg.LatchAttribute, latch[side])
@@ -720,6 +725,7 @@ local function newMatch(reset: boolean?)
 	for _, side in { "West", "East" } do
 		latch[side], heldBefore[side] = false, Rules.held(state, side)
 	end
+	startOwners, centerFell = table.clone(state.owner), false
 	setWave(nil)
 	folder:SetAttribute("West", pair.West)
 	folder:SetAttribute("East", pair.East)
