@@ -165,10 +165,18 @@ function Frontline.held(state: State, side: Side): number
 	return run(state, side)
 end
 
+-- Whether a side's `lastStand` guns stay open for the rest of the match (Config/Frontline.Artillery): already
+-- (`was`), or pushed back now from `before` sectors held to `held`, `unlockAt` or fewer. Holding that few from the start
+-- isn't a push back.
+function Frontline.latched(cfg: any, was: boolean, before: number, held: number): boolean
+	return was or (held < before and held <= cfg.unlockAt)
+end
+
 -- Why `side` can't build gun `key` while it holds `held` sectors from its end (Config/Frontline.Artillery: a
--- `lastStand` gun only while it holds `unlockAt` or fewer); nil: it can, and keys not listed never wait.
-function Frontline.gunLocked(cfg: any, key: string, held: number): string?
-	if cfg.lastStand[key] and held > cfg.unlockAt then
+-- `lastStand` gun only while it holds `unlockAt` or fewer, or once `latched` for the match); nil: it can, and keys not
+-- listed never wait.
+function Frontline.gunLocked(cfg: any, key: string, held: number, latched: boolean?): string?
+	if cfg.lastStand[key] and not latched and held > cfg.unlockAt then
 		return cfg.why
 	end
 	return nil

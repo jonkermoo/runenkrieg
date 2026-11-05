@@ -322,6 +322,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		Frontline.push(value)
 	elseif action == "FrontCapture" then
 		Frontline.capture(value.side, value.index)
+	elseif action == "FrontLatch" then
+		Frontline.setLatch(value.side, value.on)
 	elseif action == "BotPlan" then
 		Bots.dev("Plan", value)
 	elseif action == "Points" then

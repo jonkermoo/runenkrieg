@@ -118,7 +118,12 @@ local function gunLocked(key: string): string?
 	if type(held) ~= "number" then
 		return nil
 	end
-	return FrontRules.gunLocked(FrontCfg.Artillery, key, held)
+	return FrontRules.gunLocked(
+		FrontCfg.Artillery,
+		key,
+		held,
+		front:GetAttribute(side .. FrontCfg.LatchAttribute) == true
+	)
 end
 
 -- the trench planner's ghost: its model and the pieces drawn each frame

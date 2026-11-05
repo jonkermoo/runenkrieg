@@ -1634,6 +1634,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			front = nil,
 			held = -1,
 			holds = false,
+			latched = false,
 			lay = {},
 			works = {},
 			open = {},
@@ -1675,14 +1676,16 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local zone = { x = s.x, z = s.z, radius = s.radius }
 	local tx, tz = BotBuild.toward(Map.sectors, front :: number, side) -- (the enemy's way, from the live map's chain)
 	local spots = Routes.spots(front :: number, side, true)
-	if front ~= sbs.front or fromEnd ~= sbs.held or (not sbs.holds and spots ~= nil) then
+	local fl = workspace:FindFirstChild(FrontCfg.FolderName)
+	local latched = fl ~= nil and fl:GetAttribute(side .. FrontCfg.LatchAttribute) == true
+	if front ~= sbs.front or fromEnd ~= sbs.held or latched ~= sbs.latched or (not sbs.holds and spots ~= nil) then
 		local holds = {}
 		for _, sp in spots or {} do
 			table.insert(holds, { x = sp.pos.X, z = sp.pos.Z, hidden = sp.hidden })
 		end
 		local guns = {}
 		for _, key in Guns.list do
-			if FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd) == nil then
+			if FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd, latched) == nil then
 				table.insert(guns, key)
 			end
 		end
@@ -1700,7 +1703,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			for _, j in spotted do
 				placed += if j.key == key then 1 else 0
 			end
-			local locked = FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd)
+			local locked = FrontRules.gunLocked(FrontCfg.Artillery, key, fromEnd, latched)
 			if locked then
 				table.insert(notes, `{key} locked ({locked})`)
 			elseif (BD.caps[key] or 0) <= 0 then
@@ -1787,7 +1790,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		if front ~= sbs.front then
 			sbs.shelledOnce = false
 		end
-		sbs.front, sbs.held, sbs.holds = front, fromEnd, spots ~= nil
+		sbs.front, sbs.held, sbs.holds, sbs.latched = front, fromEnd, spots ~= nil, latched
 	end
 	local works, roomOf = Tactics.dug.works(kit, BD.builder)
 	-- what lost HP lately (Rules/BotBuild.mayRepair): no swings at it until BD.repairWait after
