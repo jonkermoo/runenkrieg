@@ -17,6 +17,7 @@ local Buildings = require(Shared.Rules.BotBuildings)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BuildRules = require(Shared.Rules.Build)
 local BotTrenches = require(Shared.Rules.BotTrenches)
+local BotTrenchCare = require(Shared.Rules.BotTrenchCare)
 local BotSap = require(Shared.Rules.BotSap)
 local BotCrew = require(Shared.Rules.BotCrew)
 local BotFront = require(Shared.Rules.BotFront)
@@ -36,6 +37,7 @@ local brainCfg = Cfg.Brain :: any
 local IN = Cfg.Indoors
 local BD = Cfg.Build
 local TR = Cfg.Trenches
+local CA = TR.Care
 local TM = Cfg.TrenchMove
 local SP = Cfg.Sap
 local CV = Cfg.Move.Cover
@@ -1483,23 +1485,69 @@ local function treesOn(runs: { BotTrenches.Run }): number
 	return n
 end
 
--- a system sited on the clearest ground (Config/Bots.Trenches.Site): of `make(edge, shift)`'s layouts, each fire line
--- `edge` of the zone's radius out and `shift` studs across, the first with the fewest trees on its runs
-local function sited(make: (number, number) -> { BotTrenches.Run }): { BotTrenches.Run }
+-- (a sight line from the enemy: everything but soldiers)
+local sightParams = RaycastParams.new()
+sightParams.FilterType = Enum.RaycastFilterType.Exclude
+
+-- what a system's ground costs it (Config/Bots.Trenches.Care.Site; user 2026-11-05: "most soldiers trench in the open
+-- or already highly conflicted areas, whhich ends up with them getting bombared severely by all artilleries"): the
+-- shell map's heat at each spot along its runs, and each spot the enemy's `eye` (its next sector, over the ground)
+-- sees over the terrain, trees and buildings (a reverse slope, a tree line, a house hides it)
+local function exposedCost(side: string, runs: { BotTrenches.Run }, eye: Vector3?): number
+	local S, now = CA.Site, os.clock()
+	local cost, k = 0, 0
+	for _, r in runs do
+		for _, p in BotTrenchCare.along(r.ax, r.az, r.bx, r.bz, S.sample) do
+			cost += S.heat * math.min(Tactics.dug.mapHeat(side, p.x, p.z, now), CA.Score.heatMost)
+			k += 1
+			if eye and k % S.seenEvery == 0 then
+				local g = Routes.ground(p.x, p.z)
+				local to = g + Vector3.yAxis * S.head - eye
+				if to.Magnitude <= TR.Zigzag.range then
+					local hit = workspace:Raycast(eye, to, sightParams)
+					if not hit or hit.Distance >= to.Magnitude - 1 then
+						cost += S.seen
+					end
+				end
+			end
+		end
+	end
+	return cost
+end
+
+-- a system sited on the clearest, safest ground (Config/Bots.Trenches.Site, Care.Site): of `make(edge, shift)`'s
+-- layouts, each fire line `edge` of the zone's radius out and `shift` studs across, the one with the fewest trees on
+-- its runs and the least shelled and seen ground (`side`; `eye`: where the enemy looks from)
+local function sited(make: (number, number) -> { BotTrenches.Run }, side: string, eye: Vector3?): { BotTrenches.Run }
+	local skip = {}
+	for _, b in bots do
+		if b.m then
+			table.insert(skip, b.m)
+		end
+	end
+	for _, p in game:GetService("Players"):GetPlayers() do
+		if p.Character then
+			table.insert(skip, p.Character)
+		end
+	end
+	sightParams.FilterDescendantsInstances = skip
 	local best, fewest = nil, math.huge
 	for _, edge in TR.Site.edges do
 		for _, shift in TR.Site.shifts do
 			local runs = make(edge, shift)
-			local n = treesOn(runs)
+			local n = treesOn(runs) + exposedCost(side, runs, eye)
 			if n < fewest then
 				best, fewest = runs, n
-			end
-			if n == 0 then
-				return runs
 			end
 		end
 	end
 	return best :: { BotTrenches.Run }
+end
+
+-- where the enemy looks from at sector `i` (Care.Site): its middle, `eye` studs over the ground
+local function eyeAt(i: number?): Vector3?
+	local sec = if i then Map.sectors[i] else nil
+	return if sec then Routes.ground(sec.x, sec.z) + Vector3.yAxis * CA.Site.eye else nil
 end
 
 -- a system's fire trench planned (or refused everywhere: its breastwork stands in), every bay of it
@@ -1517,6 +1565,65 @@ local function fireLaid(sys: TrenchSystem, squares: { TrenchSquare }): boolean
 	return true
 end
 
+-- a system's squares (of `squares`, by its runs' lines): all of them, and its base's (a sector's support line and way
+-- back; a forward line has none)
+local function squaresOf(sys: TrenchSystem, squares: { TrenchSquare }): ({ TrenchSquare }, { TrenchSquare })
+	local all, base = {}, {}
+	for _, sq in squares do
+		for _, r in sys.runs do
+			local run = r.run :: BotTrenches.Run
+			local j = r.job
+			local from = r.from or { x = r.base.x, z = r.base.z }
+			local d, t = BotTrenches.offRun(sq.x, sq.z, from.x, from.z, j.ex :: number, j.ez :: number)
+			if d <= TR.on + 1 and t >= -0.05 and t <= 1.05 then
+				table.insert(all, sq)
+				if run.kind == "Support" or run.kind == "Rear" then
+					table.insert(base, sq)
+				end
+				break
+			end
+		end
+	end
+	return all, base
+end
+
+-- whether a system's next forward line may be planned (Rules/BotTrenchCare.gate; Config/Bots.Trenches.Care.Gate), and
+-- why not: its fire trench planned, its squares dug, a dugout (`dugouts`: each one's foot) by them, its base reinforced
+local function gateOf(
+	sys: TrenchSystem,
+	squares: { TrenchSquare },
+	dugouts: { Vector3 },
+	now: number
+): (boolean, string)
+	local G = CA.Gate
+	local laid = fireLaid(sys, squares)
+	if laid and not sys.firedAt then
+		sys.firedAt = now
+	end
+	local all, base = squaresOf(sys, squares)
+	local dug, reinforced, dugout = 0, 0, false
+	for _, sq in all do
+		dug += if sq.built and sq.hp >= TR.standHp then 1 else 0
+		for _, f in dugouts do
+			if not dugout and flat(f - sq.at).Magnitude <= G.dugout then
+				dugout = true
+			end
+		end
+	end
+	for _, sq in base do
+		reinforced += if sq.built and sq.extra >= G.extra then 1 else 0
+	end
+	return BotTrenchCare.gate({
+		fireLaid = laid,
+		squares = #all,
+		dug = dug,
+		base = #base,
+		reinforced = reinforced,
+		dugout = dugout,
+		since = if sys.firedAt then now - sys.firedAt else 0,
+	}, G)
+end
+
 -- the forward fire lines out from a side's front toward the enemy's next sector (Config/Bots.Trenches.Forward; user
 -- 2026-11-04: "we can see whole maps being filled with trenches"): once a system's fire trench is planned, the next
 -- line `step` of the way on, joined back by a communication trench; `lines` of them, none within `keep` studs of the
@@ -1527,6 +1634,7 @@ local function forwardLines(
 	owner: { string },
 	front: number,
 	squares: { TrenchSquare },
+	dugouts: { Vector3 },
 	now: number
 )
 	local F = TR.Forward
@@ -1551,7 +1659,12 @@ local function forwardLines(
 		local key = `S{front}F{k}`
 		local sys = sbs.systems[key]
 		if not sys then
-			if not fireLaid(last :: TrenchSystem, squares) then
+			-- (the gate: the last line dug, a dugout in it, its base reinforced: "start, build, reinforce, then keep
+			-- going", Care.Gate)
+			local lastSys = last :: TrenchSystem
+			local ok, why = gateOf(lastSys, squares, dugouts, now)
+			lastSys.gate = why
+			if not ok then
 				return
 			end
 			local px, pz = s.x + (e.x - s.x) * F.step * k, s.z + (e.z - s.z) * F.step * k
@@ -1565,10 +1678,11 @@ local function forwardLines(
 				-- (nearer or further along the way, across it: Trenches.Site)
 				local along = (edge - TR.Fire.edge) * len * F.step
 				local at = { x = px + ux * along - uz * shift, z = pz + uz * along + ux * shift }
-				return BotTrenches.forward((last :: TrenchSystem).mid, at, ux, uz, TR)
-			end)
+				return BotTrenches.forward((last :: TrenchSystem).ends, at, ux, uz, TR)
+			end, side, eyeAt(nextS))
 			local made = systemJobs(sbs, runs, threatsOf(side, front, now), ux, uz, key)
-			sbs.systems[key] = { sector = front, runs = made, mid = BotTrenches.fireMid(runs) }
+			sbs.systems[key] =
+				{ sector = front, runs = made, mid = BotTrenches.fireMid(runs), ends = BotTrenches.routeEnds(runs) }
 			for _, r in made do
 				table.insert(sbs.lay, r)
 			end
@@ -1627,6 +1741,21 @@ local function pioneers(side: string)
 	for i = 1, math.min(most - on, #free) do
 		free[i].b.pioneer = true
 		stats.pioneers += 1
+	end
+	-- (`Care.repairers` of them take its best repair first while it has one: Act.pickTrench)
+	local repairs = false
+	for _, r in (if sb and sb.front then sb.open else {}) do
+		repairs = repairs or r.care ~= nil
+	end
+	local n = 0
+	for _, b in bots do
+		if b.side == side then
+			b.repairer = nil
+			if repairs and b.pioneer and n < CA.repairers then
+				b.repairer = true
+				n += 1
+			end
+		end
 	end
 end
 local function buildList(side: string, owner: { string }, fromEnd: number)
@@ -1786,9 +1915,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				cfg.Fire.edge = edge
 				local at = { x = zone.x - tz * shift, z = zone.z + tx * shift, radius = zone.radius }
 				return BotTrenches.layout(at, tx, tz, cfg)
-			end)
+			end, side, eyeAt(nextS))
 			local made = systemJobs(sbs, runs, threatsOf(side, front :: number, now), tx, tz, key)
-			sbs.systems[key] = { sector = front :: number, runs = made, mid = BotTrenches.fireMid(runs) }
+			sbs.systems[key] = {
+				sector = front :: number,
+				runs = made,
+				mid = BotTrenches.fireMid(runs),
+				ends = BotTrenches.routeEnds(runs),
+			}
 		end
 		for _, sys in sbs.systems do
 			if owner[sys.sector] == side then
@@ -1803,6 +1937,19 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		sbs.front, sbs.held, sbs.holds, sbs.latched = front, fromEnd, spots ~= nil, latched
 	end
 	local works, roomOf = Tactics.dug.works(kit, BD.builder)
+	-- (no new square while its own offensive shells and goes in, nor on freshly shelled ground: Care.Hot; user
+	-- 2026-11-05: "most soldiers trench in the open or already highly conflicted areas")
+	local myOff = (fronts.sides[side] or {} :: any).off :: Orders.Offensive?
+	local pushNow = myOff ~= nil and myOff.phase ~= "Gather"
+	local care: { [string]: number } = {}
+	sbs.care = care
+	local function hotAt(x: number, z: number): boolean
+		local hot = BotTrenchCare.shelledNear(Tactics.dug.heat, x, z, now, CA.Hot.radius, CA.Hot.seconds)
+		if hot then
+			care.hotSkips = (care.hotSkips or 0) + 1
+		end
+		return hot
+	end
 	-- what lost HP lately (Rules/BotBuild.mayRepair): no swings at it until BD.repairWait after
 	local hurt = sbs.hurt
 	local present: { [Model]: boolean } = {}
@@ -1852,6 +1999,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- (a trench run is matched by its squares, Rules/BotTrenches.laid; the rest by BotBuild.match)
 	local jobs = {}
 	local runs: { BotTrenches.Run } = {}
+	local runMeta: { { kind: string, sys: string, route: number? } } = {}
 	local runLaid: { [number]: boolean } = {}
 	local squares: { TrenchSquare } = {}
 	local dug = 0
@@ -1866,11 +2014,20 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				left = w.left,
 				built = w.built,
 				extra = w.extra or 0,
+				hp = w.hp,
+				max = w.max,
 			})
 		end
 	end
 	sbs.trench = squares
-	forwardLines(sbs, side, owner, front :: number, squares, now)
+	-- (its dugouts' feet: the forward lines' gate, Care.Gate)
+	local feet: { Vector3 } = {}
+	for _, w in works do
+		if w.key == "Dugout" and w.built then
+			table.insert(feet, w.at)
+		end
+	end
+	forwardLines(sbs, side, owner, front :: number, squares, feet, now)
 	if Clear.everyAt ~= commandTick then
 		Clear.everyAt, Clear.every = commandTick, Build.worksOf(nil)
 	end
@@ -1891,7 +2048,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	for _, r in sbs.lay do
 		local run = r.run
 		if run and run.kind ~= "Support" then
-			local last = chain[(r.sys or "") .. run.kind]
+			local ck = `{r.sys or ""}{run.kind}{run.route or ""}`
+			local last = chain[ck]
 			local j = r.job
 			local rest = { kind = run.kind, ax = j.x, az = j.z, bx = j.ex :: number, bz = j.ez :: number }
 			if not r.gaveUp and not BotTrenches.laid(rest, squares, TR.on, TR.ends) then
@@ -1914,12 +2072,13 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 					r.job = { key = j.key, x = x, z = z, ex = j.ex, ez = j.ez, fx = j.fx, fz = j.fz }
 				end
 			end
-			chain[(r.sys or "") .. run.kind] = r
+			chain[ck] = r
 		end
 	end
 	-- (each system's runs in order, for Rules/BotTrenches.ready: its own runs before it, not another system's)
 	local sysLaid: { [string]: { boolean } } = {}
 	local sysKinds: { [string]: { string } } = {}
+	local sysRoutes: { [string]: { [number]: number } } = {}
 	local sysAt: { [number]: number } = {}
 	for k, r in sbs.lay do
 		local j = r.job
@@ -1932,14 +2091,17 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			local short = r.from ~= nil
 				and math.sqrt((rest.bx - rest.ax) ^ 2 + (rest.bz - rest.az) ^ 2) < BuildCfg.Trench.block
 			table.insert(runs, run)
+			runMeta[#runs] = { kind = kind, sys = r.sys or "", route = (r.run :: BotTrenches.Run).route }
 			-- (a run refused everywhere counts as done: a breastwork stands in for it, the next run goes on)
 			runLaid[#runs] = r.gaveUp == true or short or BotTrenches.laid(rest, squares, TR.on, TR.ends) ~= nil
 			local sys = r.sys or ""
 			sysLaid[sys] = sysLaid[sys] or {}
 			sysKinds[sys] = sysKinds[sys] or {}
+			sysRoutes[sys] = sysRoutes[sys] or {}
 			table.insert(sysLaid[sys], runLaid[#runs])
 			table.insert(sysKinds[sys], run.kind)
 			sysAt[#runs] = #sysLaid[sys]
+			sysRoutes[sys][#sysLaid[sys]] = (r.run :: BotTrenches.Run).route :: number
 			jobs[k] = { key = "", x = 0, z = 0, fx = 0, fz = 0 }
 		else
 			jobs[k] = j
@@ -1952,7 +2114,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local WL = BD.Walls
 	for k, r in sbs.lay do
 		local i = matched[k]
-		if r.run and r.gaveUp and not r.done and r.run.kind ~= "Comm" then
+		if r.run and r.gaveUp and not r.done and r.run.kind ~= "Comm" and r.run.kind ~= "Rear" then
 			-- a breastwork where the ground refused the trench (user 2026-11-02: "Breastworks")
 			r.done = true
 			stats.breastworks += 1
@@ -1974,10 +2136,13 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		if r.run then
 			ri += 1
 			r.model, r.at, r.left = nil, nil, 0
+			local sys = r.sys or ""
 			r.open = not runLaid[ri]
 				and now >= r.waitUntil
 				and dug < TR.cap
-				and BotTrenches.ready(sysLaid[r.sys or ""], sysAt[ri], sysKinds[r.sys or ""])
+				and not pushNow
+				and BotTrenches.ready(sysLaid[sys], sysAt[ri], sysKinds[sys], sysRoutes[sys])
+				and not hotAt(r.job.x, r.job.z)
 		elseif i then
 			local w = works[i]
 			r.model, r.at, r.left = w.model, w.at, w.left
@@ -1996,8 +2161,119 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	for _, job in more do
 		table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
 	end
+	-- what each of its squares is worth looking after (Rules/BotTrenchCare; Config/Bots.Trenches.Care.Score; user
+	-- 2026-11-05: "have some logical thinking for whether a trench should be repaired")
+	-- (its bots in each square lately: one second of one bot is one, fading by e every Score.fade s)
+	local SC = CA.Score
+	local traffic = sbs.traffic or {}
+	sbs.traffic = traffic
+	for model, t in traffic do
+		t.v, t.t = t.v * math.exp(-(now - t.t) / SC.fade), now
+		if t.v < 0.01 then
+			traffic[model] = nil
+		end
+	end
+	local tick = now - (sbs.trafficAt or now)
+	sbs.trafficAt = now
+	for _, b in bots do
+		if b.side == side and alive(b) and b.root then
+			local p = (b.root :: BasePart).Position
+			local i = BotTrenches.inSquare(p.X, p.Z, squares, TR.Stats.floor)
+			if i then
+				local m = squares[i].model
+				local t = traffic[m] or { v = 0, t = now }
+				t.v += math.min(tick, 2)
+				traffic[m] = t
+			end
+		end
+	end
+	-- (the line each square lies on, and each system's ways up dug whole)
+	local function lineOf(x: number, z: number): { kind: string, sys: string, route: number? }?
+		for k, run in runs do
+			local d, t = BotTrenches.offRun(x, z, run.ax, run.az, run.bx, run.bz)
+			if d <= TR.on + 1 and t >= -0.05 and t <= 1.05 then
+				return runMeta[k]
+			end
+		end
+		return nil
+	end
+	local onLine: { [Model]: { kind: string, sys: string, route: number? }? } = {}
+	local routeAll, routeUp = {}, {}
+	for _, sq in squares do
+		local m = lineOf(sq.x, sq.z)
+		onLine[sq.model] = m
+		if m and m.kind == "Comm" and m.route then
+			local rk = `{m.sys} {m.route}`
+			routeAll[rk] = (routeAll[rk] or 0) + 1
+			routeUp[rk] = (routeUp[rk] or 0) + (if sq.built and sq.hp >= TR.standHp then 1 else 0)
+		end
+	end
+	local routesDug: { [string]: number } = {}
+	for rk, all in routeAll do
+		if routeUp[rk] == all then
+			local sys = string.match(rk, "^(%S+)") :: string
+			routesDug[sys] = (routesDug[sys] or 0) + 1
+			care.routes = (care.routes or 0) + 1
+		end
+	end
+	-- (how long its squares stand: from dug, or dug again, to buried under Trenches.standHp or gone; the admin trench
+	-- stats, Care; and its base's squares standing)
+	local born = sbs.born or {}
+	sbs.born = born
+	local up: { [Model]: boolean } = {}
+	for _, sq in squares do
+		local standing = sq.built and sq.hp >= TR.standHp
+		up[sq.model] = standing or nil
+		if standing and not born[sq.model] then
+			born[sq.model] = now
+		end
+		local line = onLine[sq.model]
+		if line and (line.kind == "Support" or line.kind == "Rear") then
+			care.baseAll = (care.baseAll or 0) + 1
+			care.baseUp = (care.baseUp or 0) + (if standing then 1 else 0)
+		end
+	end
+	for model, at in born do
+		if not up[model] then
+			born[model] = nil
+			local lives = ByTrench.lives[side] or {}
+			ByTrench.lives[side] = lives
+			table.insert(lives, now - at)
+		end
+	end
+	-- (safe ground: its front system's support line, and behind it)
+	local baseAt = { x = zone.x - tx * TR.Support.back, z = zone.z - tz * TR.Support.back }
+	for _, r in (sbs.systems[`S{front}`] or { runs = {} } :: any).runs do
+		if r.run and r.run.kind == "Support" then
+			baseAt = { x = (r.base.x + (r.base.ex :: number)) / 2, z = (r.base.z + (r.base.ez :: number)) / 2 }
+		end
+	end
+	local function careFor(
+		x: number,
+		z: number,
+		model: Model?,
+		line: { kind: string, sys: string, route: number? }?
+	): BotTrenchCare.SquareCare
+		local ahead = (x - baseAt.x) * tx + (z - baseAt.z) * tz
+		local t = if model then traffic[model] else nil
+		local dugout = false
+		for _, f in feet do
+			dugout = dugout or (f.X - x) ^ 2 + (f.Z - z) ^ 2 <= CA.Gate.dugout ^ 2
+		end
+		local kind = if line then line.kind else ""
+		return {
+			used = if t then t.v / SC.busy else 0,
+			safe = math.clamp(1 - ahead / SC.far, 0, 1),
+			dugout = dugout,
+			base = kind == "Support" or kind == "Rear",
+			link = kind == "Comm" and (routesDug[(line :: any).sys] or 0) < 2,
+			heat = Tactics.dug.mapHeat(side, x, z, now),
+			hot = BotTrenchCare.shelledNear(Tactics.dug.heat, x, z, now, CA.Hot.radius, CA.Hot.seconds),
+		}
+	end
 	-- a square dug full and buried to nothing (gone from its works) is planned again where it lay, if not at a sector
-	-- the enemy holds, for Trenches.Redig.keep s; open within Trenches.digReach of its front zone (Trenches.Redig)
+	-- the enemy holds and worth it (Care.Score: not "ignore"), for Trenches.Redig.keep s; open within Trenches.digReach
+	-- of its front zone, not while its offensive goes in nor on freshly shelled ground (Trenches.Redig, Care.Hot)
 	local had = sbs.had or {}
 	sbs.had = had
 	local redigs = sbs.redigs or {}
@@ -2017,8 +2293,13 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	for model, line in had do
 		if not stillDug[model] then
 			had[model] = nil
-			local at = BotCrew.sectorAt((line.a.X + line.b.X) / 2, (line.a.Z + line.b.Z) / 2, Map.sectors)
-			if at == nil or owner[at] == side then
+			local mx, mz = (line.a.X + line.b.X) / 2, (line.a.Z + line.b.Z) / 2
+			local at = BotCrew.sectorAt(mx, mz, Map.sectors)
+			local worth = BotTrenchCare.decide(careFor(mx, mz, model, lineOf(mx, mz)), SC) ~= "ignore"
+			if not worth then
+				care.lost = (care.lost or 0) + 1
+			end
+			if worth and (at == nil or owner[at] == side) then
 				local job =
 					{ key = "Trench", x = line.a.X, z = line.a.Z, ex = line.b.X, ez = line.b.Z, fx = tx, fz = tz }
 				table.insert(redigs, {
@@ -2048,9 +2329,57 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		else
 			local mx, mz = (j.x + (j.ex :: number)) / 2, (j.z + (j.ez :: number)) / 2
-			r.open = now >= r.waitUntil and dug < TR.cap and (mx - zone.x) ^ 2 + (mz - zone.z) ^ 2 <= reach * reach
+			r.open = now >= r.waitUntil
+				and dug < TR.cap
+				and not pushNow
+				and (mx - zone.x) ^ 2 + (mz - zone.z) ^ 2 <= reach * reach
+				and not hotAt(mx, mz)
 			if r.open then
 				table.insert(sbs.open, r)
+			end
+		end
+	end
+	-- another network of its trenches joined to its main one (Config/Bots.Trenches.Care.Join; the user, 2026-11-05: "do
+	-- bots connect their trench to an existing one when it helps?"): its squares (players' too) in networks, the main
+	-- one its front system's base is in; the nearest end of another of `min` squares or more within `reach` gets a
+	-- communication run to it, one at a time, not on freshly shelled ground nor while its offensive goes in
+	local joins = sbs.joins or { skip = {}, at = -math.huge, n = 0 }
+	sbs.joins = joins
+	local pending = false
+	for _, r in sbs.lay do
+		pending = pending or (r.sys ~= nil and string.sub(r.sys, 1, 1) == "J" and r.open)
+	end
+	if not pending and not pushNow and now - joins.at >= CA.Join.every then
+		joins.at = now
+		local segs: { BotTrenchCare.Seg } = {}
+		local mainAt, mainD = nil, math.huge
+		for _, w in Clear.every do
+			if w.key == "Trench" and w.team == kit then
+				local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
+				if typeof(a) == "Vector3" and typeof(c) == "Vector3" then
+					table.insert(segs, { ax = a.X, az = a.Z, bx = c.X, bz = c.Z })
+					local d = (w.at.X - baseAt.x) ^ 2 + (w.at.Z - baseAt.z) ^ 2
+					if d < mainD then
+						mainAt, mainD = #segs, d
+					end
+				end
+			end
+		end
+		if mainAt then
+			local net = BotTrenchCare.networks(segs, CA.Join.touch)
+			local run = BotTrenchCare.linkRun(segs, net, net[mainAt], joins.skip, CA.Join)
+			if run then
+				joins.skip[BotTrenchCare.endKey(run.ax, run.az)] = true
+				local mx, mz = (run.ax + run.bx) / 2, (run.az + run.bz) / 2
+				if not hotAt(mx, mz) then
+					joins.n += 1
+					local leg = { kind = "Comm", ax = run.ax, az = run.az, bx = run.bx, bz = run.bz }
+					for _, r in systemJobs(sbs, { leg }, threatsOf(side, front :: number, now), tx, tz, `J{joins.n}`) do
+						table.insert(sbs.lay, r)
+					end
+					local k = `{side} joins`
+					ByTrench.runs[k] = (ByTrench.runs[k] or 0) + 1
+				end
 			end
 		end
 	end
@@ -2103,14 +2432,19 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		}
 	end
 	-- (its trench squares from further off: its lines at the sectors it holds and its forward lines, Trenches.digReach)
-	-- (the squares shells have buried, dug full once, before the ones not dug yet: Trenches.Redig)
-	local others, squaresOnly, buriedOnly = {}, {}, {}
+	-- (its dug squares by what each is worth, Care.Score: those wanting repair first, the best first, then the base's
+	-- squares not dug yet, then the rest; its dugouts with them, kept healthy as its trenches' critical points)
+	local others, squaresOnly, baseOnly = {}, {}, {}
 	for i, p in pieces do
 		local square = p.key == "Trench"
 		local none = { key = p.key, x = p.x, z = p.z, left = 0 }
-		others[i] = if square then none else p
-		squaresOnly[i] = if square and not works[i].built then p else none
-		buriedOnly[i] = if square and works[i].built then p else none
+		local w = works[i]
+		local new = square and not w.built and not pushNow
+		local line = if new then onLine[w.model] else nil
+		local base = line ~= nil and (line.kind == "Support" or line.kind == "Rear")
+		others[i] = if square or p.key == "Dugout" then none else p
+		squaresOnly[i] = if new and not base then p else none
+		baseOnly[i] = if new and base then p else none
 	end
 	local near = BotBuild.repairs(others, zone, BD.repair, #pieces)
 	-- (near its front zone first, then near each other sector it holds with a trench system: lines left behind as the
@@ -2134,51 +2468,60 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	local before = #near
-	dig(buriedOnly)
+	-- (each dug square's decision and the swings it wants to its target: patched to Trenches.standHp, fixed to full,
+	-- reinforced past it, Rules/BotTrenchCare.target; extra only while its holders don't stand to)
+	local TH = BuildCfg.Trench.hp
+	local reach2 = (zone.radius + TR.digReach) ^ 2
+	local wanted: { { i: number, score: number, hp: boolean } } = {}
+	local swings: { [number]: number } = {}
+	local decided: { [number]: string } = {}
+	local scoreOf: { [number]: number } = {}
+	for i, w in works do
+		local inReach = false
+		for _, z in digZones do
+			inReach = inReach or (w.at.X - z.x) ^ 2 + (w.at.Z - z.z) ^ 2 <= reach2
+		end
+		if inReach and w.key == "Dugout" and w.built and w.left > 0 then
+			table.insert(wanted, { i = i, score = math.huge, hp = true })
+			swings[i] = w.left
+		elseif inReach and w.key == "Trench" and w.built then
+			local sc = careFor(w.at.X, w.at.Z, w.model, onLine[w.model])
+			local d, score = BotTrenchCare.decide(sc, SC)
+			care[d] = (care[d] or 0) + 1
+			local hpT, xT = BotTrenchCare.target(d, score, sc, w.max, TR.standHp, TH.extra, SC)
+			local critical = sc.dugout or sc.base
+			local lull = critical
+				and sc.hot
+				and BotTrenchCare.shelledNear(Tactics.dug.heat, w.at.X, w.at.Z, now, CA.Hot.radius, CA.Hot.lull)
+			local x = w.extra or 0
+			if not lull and w.hp < hpT then
+				table.insert(wanted, { i = i, score = score, hp = true })
+				local share = (hpT - w.hp) / math.max(w.max - w.hp, 1e-3)
+				swings[i] = math.max(math.ceil(w.left * share), 1)
+				decided[i] = d
+			elseif not lull and not sbs.standTo and w.hp >= w.max and x < xT then
+				table.insert(wanted, { i = i, score = score, hp = false })
+				swings[i] = BuildRules.workLeft(x, xT, math.max(w.swing / TH.swing * TH.extraSwing, 1e-3))
+				decided[i] = d
+			end
+			scoreOf[i] = score
+		end
+	end
+	table.sort(wanted, function(a, b)
+		if a.hp ~= b.hp then
+			return a.hp
+		end
+		return a.score > b.score
+	end)
+	for k = 1, math.min(#wanted, SC.repairs) do
+		local i = wanted[k].i
+		listed[i] = true
+		table.insert(near, i)
+	end
+	dig(baseOnly)
 	dig(squaresOnly)
 	for k = #near, before + TR.digs + 1, -1 do
 		table.remove(near, k)
-	end
-	-- then its dug squares reinforced past 100, when it's safe and its side isn't pushing (Config/Bots.Trenches
-	-- .Reinforce, Rules/BotBuild.reinforceSlots): the swings each wants to 100 + extra
-	local reinforce: { [number]: number } = {}
-	local troops = 0
-	for _, b in bots do
-		if b.side == side and not b.deadAt then
-			troops += 1
-		end
-	end
-	local slots = BotBuild.reinforceSlots({
-		side = side,
-		holder = fronts.initiative,
-		pushing = (fronts.sides[side] or {} :: any).off ~= nil,
-		standTo = sbs.standTo == true,
-		troops = troops,
-		wanted = #near - before,
-	}, TR.Reinforce)
-	if slots > 0 then
-		local TH = BuildCfg.Trench.hp
-		local rlist = {}
-		for i, p in pieces do
-			local w = works[i]
-			local x = w.extra or 0
-			local want = w.key == "Trench" and w.built and w.hp >= w.max and x < TH.extra
-			rlist[i] = {
-				key = p.key,
-				x = p.x,
-				z = p.z,
-				left = if want
-					then BuildRules.workLeft(x, TH.extra, math.max(w.swing / TH.swing * TH.extraSwing, 1e-3))
-					else 0,
-			}
-		end
-		for _, i in BotBuild.repairs(rlist, zone, TR.Reinforce.reach, slots) do
-			if not listed[i] then
-				listed[i] = true
-				table.insert(near, i)
-				reinforce[i] = rlist[i].left
-			end
-		end
 	end
 	local order, fix = BotCrew.repairOrder(fixable, near, ArtCfg.Man.keep)
 	for _, i in order do
@@ -2200,8 +2543,10 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				r = { job = job, base = job, model = w.model, tries = 0, waitUntil = 0, left = 0, open = true }
 			end
 			local rr = r :: BuildJob
-			rr.at, rr.left, rr.open, rr.fix = w.at, reinforce[i] or w.left, true, fix[i] == true
+			rr.at, rr.left, rr.open, rr.fix = w.at, swings[i] or w.left, true, fix[i] == true
 			rr.buried = square and w.built
+			rr.decision = decided[i]
+			rr.care = if decided[i] then scoreOf[i] else nil
 			keep[w.model] = rr
 			table.insert(sbs.open, rr)
 		end
@@ -2341,24 +2686,64 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			table.insert(open, site)
 		end
 	end
+	-- (a dugout in a square's rear wall (away from the enemy), facing out of it into the trench; false where the ground
+	-- refuses one, Build.dugoutFor)
+	local function dugoutIn(model: Model, at: Vector3): boolean
+		local a, c = model:GetAttribute("BlockA"), model:GetAttribute("BlockB")
+		if typeof(a) ~= "Vector3" or typeof(c) ~= "Vector3" then
+			return false
+		end
+		local along = flat(c - a)
+		local out = if along.Magnitude > 1e-3 then along.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
+		if out.X * tx + out.Z * tz > 0 then
+			out = -out
+		end
+		local p = at + out * (BuildCfg.Trench.floor + 0.5)
+		if Build.dugoutFor(p) then
+			noDugout[model] = now + DG.recheck
+			stats.dugoutsRefused += 1
+			return false
+		end
+		local job = { key = "Dugout", x = p.X, z = p.Z, fx = -out.X, fz = -out.Z }
+		table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+		table.insert(have, { x = p.X, z = p.Z })
+		stats.dugouts += 1
+		return true
+	end
 	for _, i in BotTrenches.dugoutSquares(open, have, want, DG, long) do
 		local w = open[i].w
-		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
-		if typeof(a) == "Vector3" and typeof(c) == "Vector3" then
-			-- its rear wall (away from the enemy), the dugout facing out of it into the trench
-			local along = flat(c - a)
-			local out = if along.Magnitude > 1e-3 then along.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
-			if out.X * tx + out.Z * tz > 0 then
-				out = -out
+		dugoutIn(w.model, w.at)
+	end
+	-- one dugout in every system it holds, shelled or not (user 2026-11-05: "dugouts should be utilized as safety and
+	-- should be kept healthy as critical points of trenches"; the forward lines' gate, Care.Gate): a sector's in its
+	-- support line nearest the middle, a forward line's in its fire trench nearest the middle, once dug there
+	for _, sys in sbs.systems do
+		if owner[sys.sector] == side then
+			local all, base = squaresOf(sys, squares)
+			local forward = #base == 0
+			local mid = if forward then sys.mid else baseAt
+			local best, bestD, inIt = nil, math.huge, false
+			for _, sq in all do
+				for _, h in have do
+					inIt = inIt or (h.x - sq.x) ^ 2 + (h.z - sq.z) ^ 2 <= (2 * CA.Gate.dugout) ^ 2
+				end
+				local line = onLine[sq.model]
+				local kind = if line then line.kind else ""
+				local no = noDugout[sq.model]
+				if
+					sq.built
+					and sq.hp >= TR.standHp
+					and kind == (if forward then "Fire" else "Support")
+					and not (no and now < no)
+				then
+					local d = (sq.x - mid.x) ^ 2 + (sq.z - mid.z) ^ 2
+					if d < bestD then
+						best, bestD = sq, d
+					end
+				end
 			end
-			local at = w.at + out * (BuildCfg.Trench.floor + 0.5)
-			if Build.dugoutFor(at) then
-				noDugout[w.model] = now + DG.recheck
-				stats.dugoutsRefused += 1
-			else
-				local job = { key = "Dugout", x = at.X, z = at.Z, fx = -out.X, fz = -out.Z }
-				table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
-				stats.dugouts += 1
+			if best and not inIt then
+				dugoutIn(best.model, best.at)
 			end
 		end
 	end

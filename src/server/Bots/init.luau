@@ -1291,9 +1291,13 @@ function Bots.forgetMap()
 	table.clear(Tactics.dug.tried)
 	table.clear(Tactics.dug.heat)
 	table.clear(Tactics.dug.use)
+	for _, map in Tactics.dug.map do
+		table.clear(map)
+	end
 	table.clear(ByTrench.blasts)
 	table.clear(ByTrench.deaths)
 	table.clear(ByTrench.runs)
+	table.clear(ByTrench.lives)
 	ByTrench.counts = {}
 	table.clear(sharedPaths)
 	-- (each side back to walking until its first contact there: Config/Bots.Front)

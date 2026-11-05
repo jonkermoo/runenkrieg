@@ -40,18 +40,28 @@ return {
 		assert(near(fire[1].ax, edge) and near(fire[1].bx, edge + T.Fire.traverse), "every other joint forward")
 		assert(near(math.abs(fire[#fire].bz - fire[1].az), T.Fire.width), "its width across")
 	end,
-	["layout: the support line behind, the communication trench between, in two jogging runs"] = function()
+	["layout: the base first (support line, the way back), then the fire trench, then two ways up"] = function()
 		local runs = R.layout({ x = 100, z = 0, radius = 50 }, -1, 0, T) -- (East: the enemy to the west)
 		local support = of(runs, "Support")
+		local rear = of(runs, "Rear")
 		local comm = of(runs, "Comm")
-		assert(#support == 1 and #comm == 2)
+		assert(#support == 1 and #rear == 1 and #comm == 4)
 		local edge = 100 - 50 * T.Fire.edge
 		assert(near(support[1].ax, edge + T.Support.back), "behind the fire trench (east of it)")
 		assert(T.Support.back >= Build.Trench.spacing, "far enough from the fire trench for the planner")
-		assert(near(comm[1].bx, comm[2].ax) and near(comm[1].bz, comm[2].az), "the two runs joined")
-		assert(not near(comm[1].bz, comm[1].az, 1), "it jogs across")
-		assert(comm[1].ax < edge + T.Support.back and comm[2].bx > edge - T.Fire.traverse, "between the two lines")
-		assert(runs[1].kind == "Fire" and runs[#runs].kind == "Comm", "dug in order")
+		assert(rear[1].bx > rear[1].ax and near(len(rear[1]), T.Care.Rear.back), "the way back runs east, home")
+		assert(runs[1].kind == "Support" and runs[2].kind == "Rear" and runs[3].kind == "Fire", "the base first")
+		assert(runs[#runs].kind == "Comm", "the ways up last")
+		local r1, r2 = {}, {}
+		for _, c in comm do
+			table.insert(if c.route == 1 then r1 else r2, c)
+		end
+		assert(#r1 == 2 and #r2 == 2, "two routes, two runs each")
+		for _, r in { r1, r2 } do
+			assert(near(r[1].bx, r[2].ax) and near(r[1].bz, r[2].az), "the two runs joined")
+			assert(r[1].ax < edge + T.Support.back and r[2].bx > edge - T.Fire.traverse, "between the two lines")
+		end
+		assert(math.abs(r1[2].bz - r2[2].bz) >= Build.Trench.spacing, "the two ways up apart")
 		assert(#R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T, true) == T.Fire.bays, "the fire trench alone")
 	end,
 	["laid: a square on the run's line, in its middle part"] = function()
@@ -78,24 +88,35 @@ return {
 		assert(R.pioneersWanted(T.pioneers, 1000, M) == M.max)
 		assert(M.max > T.pioneers, "rises above the base once lines are planned")
 	end,
-	["ready: each run once every run before it is planned"] = function()
+	["ready: each run once every run before it is planned; the two ways up side by side"] = function()
 		local runs = R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T)
-		assert(R.ready({}, 1) and not R.ready({}, 2), "the first bay first")
+		assert(R.ready({}, 1) and not R.ready({}, 2), "the first run first")
 		assert(R.ready({ true }, 2) and not R.ready({ true }, 3))
+		local kinds, routes = {}, {}
+		for k, r in runs do
+			kinds[k] = r.kind
+			routes[k] = r.route
+		end
 		local all = {}
 		for k = 1, #runs - 1 do
 			all[k] = true
 		end
-		assert(R.ready(all, #runs), "the communication trench last")
-		all[2] = false
-		assert(not R.ready(all, #runs), "a bay missing")
-		local kinds = {}
+		assert(R.ready(all, #runs, kinds, routes), "the last way up last")
+		all[3] = false
+		assert(not R.ready(all, #runs, kinds, routes), "a bay missing")
+		-- (the second route's first run, with the first route not planned yet)
+		local first2 = 0
 		for k, r in runs do
-			kinds[k] = r.kind
+			if r.route == 2 and first2 == 0 then
+				first2 = k
+			end
 		end
-		local support = table.find(kinds, "Support") :: number
-		assert(R.ready({}, support, kinds), "the support line alongside the fire trench")
-		assert(not R.ready({}, support + 1, kinds), "the communication trench still last")
+		local base = {}
+		for k, r in runs do
+			base[k] = r.kind ~= "Comm"
+		end
+		assert(R.ready(base, first2, kinds, routes), "beside the first way up, not after it")
+		assert(not R.ready(base, first2 + 1, kinds, routes), "its own first run first")
 	end,
 	["swing: the far end steps aside, one way then the other; the start stays"] = function()
 		local x1, z1 = R.swing(0, 0, 0, 16, 1, 6)
@@ -164,14 +185,21 @@ return {
 		assert(R.digs(1, 3, 0.5) and R.digs(2, 3, 0.5) and not R.digs(3, 3, 0.5))
 		assert(R.digs(4, 4, T.share) and R.digs(3, 3, T.share), "every calm holder digs (Trenches.share 1)")
 	end,
-	["forward: a fire trench across the way at the point, joined back to the last line's middle"] = function()
-		local runs = R.forward({ x = 0, z = 0 }, { x = 140, z = 0 }, 1, 0, T)
+	["forward: a fire trench across the way at the point, joined back by a way up from each of the last's"] = function()
+		local one = R.forward({ { x = 0, z = 0 } }, { x = 140, z = 0 }, 1, 0, T)
+		assert(#of(one, "Comm") == 1, "one way back to a line with one")
+		local c1 = of(one, "Comm")[1]
+		assert(near(c1.ax, T.Comm.short) and near(c1.az, 0), "off the last line's middle")
+		local from = R.routeEnds(R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T))
+		assert(#from == 2 and math.abs(from[1].z - from[2].z) >= Build.Trench.spacing)
+		local runs = R.forward(from, { x = 140, z = 0 }, 1, 0, T)
 		local fire = of(runs, "Fire")
 		local comm = of(runs, "Comm")
-		assert(#fire == T.Fire.bays and #comm == 1)
+		assert(#fire == T.Fire.bays and #comm == 2)
 		local mid = R.fireMid(runs)
 		assert(math.abs(mid.x - 140) <= T.Fire.traverse and math.abs(mid.z) <= T.Fire.width / T.Fire.bays)
-		assert(near(comm[1].ax, T.Comm.short) and near(comm[1].az, 0), "off the last line's middle")
+		assert(comm[1].route ~= comm[2].route, "two routes")
+		assert(math.abs(comm[1].bz - comm[2].bz) >= Build.Trench.spacing, "apart all the way")
 		local main = R.layout({ x = 0, z = 0, radius = 50 }, 1, 0, T)
 		local m = R.fireMid(main)
 		assert(m.x > 0 and m.x <= 50, "the main system's fire trench lies forward of the zone's middle")

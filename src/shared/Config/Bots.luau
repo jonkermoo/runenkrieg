@@ -647,14 +647,50 @@ local Bots = {
 		clearWithin = 8,
 		clear = 1.5,
 		tear = { SandbagPile = true, Hesco = true, Wire = true },
-		-- reinforcing its dug squares past 100 (Config/Build.Trench.hp.extra; Rules/BotBuild.reinforceSlots; user
-		-- 2026-11-04: "bots shouldnt prioritize protection if they are just trying to push forward. or if theres a lot of
-		-- troops, some can work on reinforcing if its safe"): only once no square on its list wants digging, never
-		-- while its side is standing to; defending (the other side holds the initiative) up to `defend` squares at a
-		-- time; holding the initiative with no offensive running and at least `crowd` bots, `crowded`; none while its
-		-- offensive runs or before anyone holds the initiative. Its dug squares within `reach` of its front zone's
-		-- edge, nearest first; each bot still builds only when calm (Build.calm).
-		Reinforce = { defend = 3, crowd = 10, crowded = 1, reach = 120 },
+		-- Looking after its trenches (Rules/BotTrenchCare; user 2026-11-05: "trenches still end up getting destroyed
+		-- before they get anywhere ... most soldiers trench in the open or already highly conflicted areas ... start, build,
+		-- reinforce, then keep going. if the base of the trench gets destroyed, theres nothing left for the trench"; the
+		-- plan's four choices as recommended):
+		-- - Map: the shell map, each shell (`shell`) and own death (`death`) counted in its `cell`-stud cell, fading by half
+		--   every `half` s. Site: a system or forward line is sited (Trenches.Site) with `heat` for each unit of the map's
+		--   heat (at most Score.heatMost) at each spot every `sample` studs along its runs, and `seen` for each such spot
+		--   (`seenEvery`th) the enemy's next sector sees from `eye` studs over its ground to `head` over the run's (a
+		--   reverse slope, a tree line, a building hides it), within Zigzag.range.
+		-- - Hot: no new square started within `radius` studs of a shell in the last `seconds` (its diggers go to a cooler
+		--   job); a critical square (a dugout's, the base) is still repaired there, though not within `lull` s of a shell.
+		-- - Rear: the way back from a system's support line to safe ground, `back` studs: with the support line its base,
+		--   planned before the fire trench (Rules/BotTrenches.layout).
+		-- - Score: each dug square's decision (Rules/BotTrenchCare.decide): busy at `busy` (its bots' seconds in it lately,
+		--   fading by e every `fade` s), safe 1 at its base line to 0 `far` studs ahead; the weights `w`; ignore under
+		--   `patch`, patch, fix from `fix`, reinforce from `reinforce`, its extra a step (25) for each of `steps` reached.
+		--   `repairs` of its squares wanting repair listed first, the best first; `repairers` of its pioneers take the
+		--   best one before any other trench job.
+		-- - Gate: before a system's next forward line (Rules/BotTrenchCare.gate); a dugout whose foot is within `dugout`
+		--   studs of one of its squares is in it.
+		-- - Join: another network of its trenches (players' too) of `min` squares or more, an end within `reach` studs of
+		--   its main one (its front system's), gets a communication run to it unless that ground is hot; one at a time,
+		--   looked at every `every` s, `touch`: two squares this near are joined already.
+		Care = {
+			Map = { cell = 20, half = 180, shell = 1, death = 0.6 },
+			Site = { heat = 1, sample = 8, seen = 2, seenEvery = 2, eye = 6, head = 3 },
+			Hot = { radius = 25, seconds = 120, lull = 20 },
+			Rear = { back = 32 },
+			Score = {
+				busy = 30,
+				fade = 60,
+				far = 150,
+				heatMost = 3,
+				w = { used = 2, safe = 1.5, dugout = 3, base = 3, link = 1.5, heat = 0.75 },
+				patch = 0.5,
+				fix = 1.5,
+				reinforce = 3,
+				steps = { 3, 4.5, 6 },
+				repairs = 6,
+			},
+			repairers = 2,
+			Gate = { dug = 0.8, extra = 25, share = 0.8, wait = 240, dugout = 12 },
+			Join = { touch = 5, reach = 60, min = 3, every = 5, short = 1 },
+		},
 	},
 
 	-- Normal: moving by trench (Rules/BotTrenches.danger; user 2026-11-02: "most pvp should be trench based. if bots can,
