@@ -59,6 +59,14 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 		for _, d in t.doors or { { center = 0 } } do
 			table.insert(frontDoors, { center = d.center, w = d.w or Bm.DoorWidth, h = d.h or Bm.DoorHeight })
 		end
+		-- (a list of back doors takes the usual door size wherever it gives none, as the front and upper doors do)
+		local backDoors = nil
+		if type(t.backDoor) == "table" then
+			backDoors = {}
+			for _, d in t.backDoor do
+				table.insert(backDoors, { center = d.center, w = d.w or Bm.DoorWidth, h = d.h or Bm.DoorHeight })
+			end
+		end
 		local upperDoors = nil
 		if t.upperDoors then
 			upperDoors = {}
@@ -84,9 +92,7 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 				-- a back door (a church porch's, opening on the nave's front door behind it), or a list of them (an inn's
 				-- cart arch through to the yard)
 				if story == 0 and t.backDoor
-					then (if type(t.backDoor) == "table"
-						then t.backDoor
-						else { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } })
+					then (if backDoors then backDoors else { { center = 0, w = Bm.DoorWidth, h = Bm.DoorHeight } })
 					else nil,
 				t.windows or 2,
 			},
