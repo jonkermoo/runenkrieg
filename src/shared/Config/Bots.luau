@@ -470,9 +470,11 @@ local Bots = {
 		barrageSeconds = 20,
 		barragePoints = 3,
 		barrageSpread = 25,
-		maxSeconds = 90,
+		-- (90 to 75 and spentShare 0.6 to 0.45, user 2026-11-04: "it's fine if it takes like half an hour to get a
+		-- sector. this is meant to be a pretty slow paced game": a held, dug-in sector should usually survive a push)
+		maxSeconds = 75,
 		exploitMore = 60,
-		spentShare = 0.6,
+		spentShare = 0.45,
 		exploitAt = 2,
 		exploitHold = 0.5,
 		stuckFor = 25,
