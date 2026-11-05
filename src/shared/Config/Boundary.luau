@@ -7,8 +7,10 @@ local Boundary = {
 	MaxPieceLength = 2000,
 	BottomY = -40,
 	TopY = 90,
-	FadeFar = 90, -- invisible beyond this distance
-	FadeNear = 8, -- fully visible at or within this distance
+	-- Shown only right at the edge (user 2026-11-05, "broken sky box? what is this": in the Lantern Meadows river, ~30
+	-- from the south edge, the 130-tall wall stood over the water as flat grey slabs against the sky; was 90 / 8)
+	FadeFar = 15, -- invisible beyond this distance
+	FadeNear = 3, -- fully visible at or within this distance
 	-- Flat colour (user 2026-10-18): ForceField's shimmer didn't show on one long wall (Studio: invisible head-on).
 	Material = "SmoothPlastic",
 	MaxOpacity = 0.45,

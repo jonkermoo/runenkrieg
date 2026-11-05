@@ -293,8 +293,9 @@ local function body(s: State): Model?
 	return s.bot or (s.gunner and s.gunner.Character)
 end
 
--- the gun off its gunner (a bot's: told why, Artillery.onBotLeft; "Kicked": set down beside the gun)
-local function leave(s: State, why: string?)
+-- the gun off its gunner (a bot's: told why, Artillery.onBotLeft; "Kicked": set down beside the gun); `putOff`: the gun
+-- broke or went under them, so a player is set down beside it too (Config/Artillery.PutOff)
+local function leave(s: State, why: string?, putOff: boolean?)
 	local player = s.gunner
 	local bot = s.bot
 	s.trigger, s.pull = false, false
@@ -323,6 +324,20 @@ local function leave(s: State, why: string?)
 			local spot = crewSpot(s, bot)
 			if spot then
 				root.CFrame = spot * CFrame.new(-Cfg.Bot.aside, 0, 0)
+			end
+		elseif putOff and character then
+			-- (a moment later: set at once, the player's own client, taking its body back from the weld, put it straight
+			-- back where it stood; Studio 2026-11-05)
+			local spot = crewSpot(s, character)
+			if spot then
+				local to = spot * CFrame.new(-Cfg.PutOff.aside, Cfg.PutOff.up, 0)
+				local held = root :: BasePart
+				task.delay(Cfg.PutOff.after, function()
+					if held.Parent and not held.Anchored then
+						held.CFrame = to
+						held.AssemblyLinearVelocity = Vector3.zero
+					end
+				end)
 			end
 		end
 	end
@@ -1197,7 +1212,7 @@ function Artillery.place(
 	end)
 	model.Destroying:Connect(function()
 		if s.gunner or s.bot then
-			leave(s, "Gone")
+			leave(s, "Gone", true)
 		end
 		if s.pit then
 			s.pit:Destroy()
@@ -1430,7 +1445,7 @@ local function service(s: State)
 	s.broken = true
 	s.model:SetAttribute("Broken", true)
 	if s.gunner or s.bot then
-		leave(s, "Broken")
+		leave(s, "Broken", true)
 	end
 	s.prompt.Enabled = false
 	s.prompt:SetAttribute(PromptCfg.BlockedAttr, "Broken")

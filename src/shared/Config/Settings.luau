@@ -61,7 +61,8 @@ local Settings = {
 			format = "%d%%",
 		},
 		-- the kit list and the gun's cut-away, this many times their size (src/client/HudKit; user 2026-10-27: "add an
-		-- option in graphics to adjust hud size (inventory and the reloading diagram)")
+		-- option in graphics to adjust hud size (inventory and the reloading diagram)"), and the held map (src/client/
+		-- ModeHud; user 2026-11-05)
 		HudSize = {
 			kind = "slider",
 			label = "HUD size",

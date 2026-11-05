@@ -1099,7 +1099,6 @@ function Artillery.start()
 	local wantYaw, wantElevation = 0, 0
 	local sentAt, sentYaw, sentElevation = 0, math.huge, math.huge
 	local snap = true
-	local fov = camera.FieldOfView
 	local arcAt = 0
 	-- the field gun's framing stretch (Config/Artillery camera `frame`): wanted, eased, and when last worked out
 	local frameK, frameWant, frameAt = 1, 1, 0
@@ -1113,6 +1112,7 @@ function Artillery.start()
 	local onMg = false
 	local mgDist, mgCur, mgSpeed = 0, 0, 0
 	local mgAimed, aimT = false, 0
+	local offZoom, offMax = 0, 1 -- the view I had before getting on a gun (WeaponCamera.view), handed back when I get off
 	local heat = 0 -- my gun's heat as the server keeps it (Rules.mgHeat), from my own shots: the crosshair's size
 	local bodyHidden: boolean? = nil
 	local sweep = RaycastParams.new()
@@ -1171,17 +1171,16 @@ function Artillery.start()
 		if humanoid then
 			camera.CameraSubject = humanoid
 		end
+		WeaponCamera.manning(false)
 		if onMg then
 			-- Roblox's camera back at the view I had on the gun
 			onMg, mgAimed = false, false
 			Crosshair.point(false, nil)
-			WeaponCamera.manning(false)
 			WeaponCamera.handBack(mgDist, G.MaxZoom)
 			return
 		end
-		camera.CameraType = Enum.CameraType.Custom
-		camera.FieldOfView = fov
-		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		-- (Roblox's camera back at the zoom I had before getting on, at the hip field of view)
+		WeaponCamera.handBack(offZoom, offMax)
 	end
 
 	local function getOn(model: Model, p: Pose)
@@ -1190,14 +1189,17 @@ function Artillery.start()
 		wantYaw = math.deg(yaw) + p.traverse
 		wantElevation = p.elevation
 		snap = true
-		fov = camera.FieldOfView
+		-- the view I had (a rifle's, or Roblox's camera): handed back as it was when I get off; till then the gun's
+		-- camera alone moves the view (every gun: the rifle's camera gliding out after the gun put it away handed the
+		-- camera back to Roblox mid-lay, user 2026-11-05)
+		local zoom, first, max = WeaponCamera.view()
+		offZoom, offMax = zoom, max
+		WeaponCamera.manning(true)
 		if p.gun.mg then
-			-- the view I had (a rifle's, or Roblox's camera), at the same share of the way out
-			local zoom, first, max = WeaponCamera.view()
+			-- at the same share of the way out
 			mgDist = CameraRules.carried(G, zoom, first, max)
 			mgCur, mgSpeed, mgAimed, aimT, heat = mgDist, 0, false, 0, 0
 			onMg = true
-			WeaponCamera.manning(true)
 			-- standing ready at the grips (Config/Artillery.Guns `mg.stand`), till I get off: its three stances
 			-- weighted by the lay as it is drawn
 			local character = player.Character
@@ -1292,7 +1294,8 @@ function Artillery.start()
 				continue
 			end
 			pose(model, p, dt)
-			local me = model:GetAttribute("Gunner") == player.UserId
+			-- (a broken gun is no one's, whatever reached me first: off its camera at once, user 2026-11-05)
+			local me = model:GetAttribute("Gunner") == player.UserId and model:GetAttribute("Broken") ~= true
 			if me then
 				found = model
 			end
@@ -1517,6 +1520,9 @@ function Artillery.start()
 			goal = CFrame.new(at)
 				* CFrame.Angles(0, math.rad(wantYaw - c.yaw), 0)
 				* CFrame.Angles(math.rad(c.pitch + up * c.follow), 0, 0)
+		end
+		if camera.CameraType ~= Enum.CameraType.Scriptable then
+			camera.CameraType = Enum.CameraType.Scriptable -- (as the machine gun's: nothing else may take it while manned)
 		end
 		camera.CFrame = if snap then goal else camera.CFrame:Lerp(goal, math.min(1, dt * Cfg.CameraEase))
 		snap = false
