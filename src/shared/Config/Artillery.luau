@@ -63,6 +63,9 @@ export type Gun = {
 	-- moving parts, so it can't cast onto them); `crewTurns`: on the mount, turning with its traverse (the howitzer's step)
 	crew: { number },
 	crewY: number?,
+	-- the gunner turned this many degrees off the gun's line (+ toward its right; nil 0): the loading, brace and hand
+	-- wheel animations reach ahead and to the right, so a gunner beside the breech turns to it
+	crewYaw: number?,
 	crewTurns: boolean,
 	-- the traverse turns about the vertical line through this gun-space (x, z) (nil: the origin): the MG's tripod
 	-- pintle, so it spins on its mount (user 2026-11-03: "make it spin from the mount")
@@ -853,7 +856,14 @@ local Artillery = {
 			level = { pad = 2, blend = 8, material = "Ground" },
 			wreckParts = { "Carriage", "Wheels", "Mount" }, -- (the mount turns at most 4.5 degrees)
 			holeSize = { 0.3, 0.6 },
-			crew = { -2.4, 2.8 }, -- left of the breech, behind it (the loading reaches it), outside the left trail leg
+			-- left of the breech, behind it, outside the left trail leg, turned 30 degrees to it (user 2026-11-05:
+			-- "clipping/collision issues on the field cannon": at (-2.4, 2.8), facing along the gun, the gunner's arms went
+			-- through the left wheel and the shield and the hands came down on the trail leg, the push missing the breech by
+			-- ~1.2; the loading, brace and hand wheel were made for the 18-pounder's breech, 41 degrees to the right, ahead
+			-- of its gunner). Checked in Studio at the rest lay over every frame of the three (a little clear of the wheel,
+			-- the trail leg and the shield; the push ends ~0.5 from the breech).
+			crew = { -2.8, 3.4 },
+			crewYaw = 30,
 			crewTurns = false,
 			prompt = 8,
 			vfx = { scheme = "Ember", magic = false },
