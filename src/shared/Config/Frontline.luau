@@ -7,8 +7,13 @@
 local Frontline = {
 	-- A sector's control runs from 1 (West holds it) to -1 (East holds it). The holder loses it at 0 (it goes neutral);
 	-- the other side takes it at its own end. Soldiers in the zone push it by their lead over the other side's.
-	-- seconds for one soldier to take an enemy sector all the way (neutral at the half)
-	CaptureSeconds = 20,
+	-- seconds for a lead of one soldier's worth (Unit) to take an enemy sector all the way (neutral at the half). User
+	-- 2026-11-04: "if a sector is being captured (soldiers standing on it). the average capture time should be 8-10
+	-- seconds. this time changes depending on how many soldiers are on it depending on server size"
+	CaptureSeconds = 9,
+	-- one soldier's worth of lead on this server (Rules/Frontline.unit): `perSoldier` of the sides' mean strength
+	-- (players 1, bots BotWeight), at least `min`; bigger servers put more soldiers on a point, so a lead needs more
+	Unit = { perSoldier = 0.08, min = 0.8 },
 	-- a bigger lead pushes faster, up to this many soldiers' worth (user's GDD: "rate scales with the player advantage")
 	MaxAdvantage = 3,
 	-- what a soldier in the zone counts for (user 2026-11-03: "make flag capture speed be scale to how many on the
@@ -16,9 +21,7 @@ local Frontline = {
 	BotWeight = 0.5,
 	-- seconds for a sector left empty (or out of reach) to drift from neutral back to its holder's end
 	DrainSeconds = 20,
-	-- Momentum (user 2026-10-27: "momentum, but there is a reasonable cap"): once the front has gone `after` seconds
-	-- without a capture, captures go `perMinute` faster for each minute more, up to `max` times; any capture resets it
-	Momentum = { after = 180, perMinute = 0.25, max = 2 },
+	-- (no momentum: user 2026-11-04, "no let's drop this etirely. capture time never changes rules")
 	-- the match's start: waiting until each side has this many players, then the countdown (captures don't count yet)
 	MinPerSide = 1,
 	-- (the pre-match cutscene and the spoken plan play over it: Config/Cutscenes.Pre's length, user 2026-11-02; was 10)
@@ -61,8 +64,9 @@ local Frontline = {
 	GroundRay = { top = 300, depth = 600 }, -- the ground found by a ray this high, this long, down on terrain only
 	-- replicated state (read by src/client/ModeHud): a Folder in Workspace with the match's attributes (Phase "Waiting"
 	-- / "Countdown" / "Playing" / "Fade" / "Table" / "Vote" / "Loading", PhaseEndsAt (server time), Winner (a
-	-- side), Momentum (the capture speed's multiplier), West and East (each side's team, Config/Uniforms.Teams)) and one
-	-- child Folder per sector (Index, Owner, Control, the West / East soldiers in its zone weighed by BotWeight, Rate)
+	-- side), Unit (one soldier's worth of lead), LastCapture (its seconds), West and East (each side's team,
+	-- Config/Uniforms.Teams)) and one child Folder per sector (Index, Owner, Control, the West / East soldiers in its
+	-- zone weighed by BotWeight, Rate)
 	FolderName = "Frontline",
 	-- the map's key in Config/Maps: the built map's model in Workspace has this name (src/dev/Greybox), not its `name`
 	MapKey = "Map1",
@@ -145,6 +149,8 @@ local Frontline = {
 	WaveAttribute = "WaveAt",
 	HeldAttribute = "Held",
 	LatchAttribute = "HowitzerUnlocked", -- "<Side>HowitzerUnlocked": its lastStand guns open for the match (Artillery)
+	UnitAttribute = "Unit", -- the folder's: one soldier's worth of lead now (Rules/Frontline.unit; the admin readout)
+	LastCaptureAttribute = "LastCapture", -- the folder's: the last capture's seconds from its first push (admin)
 	RateAttribute = "Rate", -- each sector's: its control per second now (Rules/Frontline.rates; the admin readout)
 	-- each sector's "<Side>" .. this: the side's soldiers in its zone by head, unweighed (the bots' planning reads it;
 	-- "West" / "East" are weighed by BotWeight)

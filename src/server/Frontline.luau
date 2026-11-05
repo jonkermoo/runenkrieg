@@ -5,7 +5,8 @@
 -- src/server/Modes starts and stops it. Each match draws two teams (Workspace's MatchTeams attribute,
 -- Rules/Frontline.pair), one on each side; a soldier's side is their team's (the character's "Kit"). A match waits
 -- until each side has its players, counts down, then plays: every Tick the soldiers alive and on their feet in each
--- sector's zone push its control, faster the longer the front has stood still (momentum). Captures and
+-- sector's zone push its control by their lead, in soldiers' worths for the server's size (Rules/Frontline.unit; each
+-- capture's time from the first push off the holder's end is published for the admin readout). Captures and
 -- neutralisations pay each soldier of that side in the zone, a kill near your side's attacked sector pays a Defend,
 -- and taking the enemy HQ wins (everyone on the winning side paid); then the post-match cutscene (Finale), the results
 -- and the map vote (src/server/MapVote; the map put back behind it: built pieces cleared, buildings, trees and ground
@@ -98,7 +99,8 @@ local ending = false
 -- the admin's end into a map (Frontline.endInto): the winner it plays (nil: none) and the map the vote picks
 local forced: { winner: Rules.Side?, map: string }? = nil
 local starting = false -- set by the admin to skip the wait for players
-local still = 0 -- seconds since the last capture (the momentum)
+-- each sector's first push off its holder's end (os.clock) while a capture is under way (the admin's capture time)
+local pushedAt: { [number]: number } = {}
 local captured = false -- any capture this match (spawns leave the HQs)
 local latest: { { West: number, East: number } } = {} -- the last tick's soldiers in each zone
 -- each side's lastStand guns open for the match (Rules/Frontline.latched) and the sectors it held at the last publish
@@ -573,10 +575,10 @@ end
 
 local function publish(
 	counts: { { West: number, East: number } },
-	rate: number?,
+	unit: number?,
 	heads: { { West: number, East: number } }?
 )
-	local rates = Rules.rates(state, Cfg, counts, rate)
+	local rates = Rules.rates(state, Cfg, counts, unit)
 	for i, s in sectors do
 		local f = folder:FindFirstChild(s.id)
 		if f then
@@ -670,6 +672,25 @@ local function heads(withBots: boolean?): (number, number)
 	return w, e
 end
 
+-- each side's strength, weighed as in a zone (Rules/Frontline.weight: a player 1, a bot BotWeight), living or not:
+-- the server's size for the capture speed (Rules/Frontline.unit)
+local function strength(): (number, number)
+	local s = { West = 0, East = 0 }
+	for _, p in Players:GetPlayers() do
+		local side = Rules.sideOf(pair, Kits.next(p))
+		if side then
+			s[side] += Rules.weight(Cfg, false)
+		end
+	end
+	for _, m in bots() do
+		local side = sideOfModel(m)
+		if side then
+			s[side] += Rules.weight(Cfg, true)
+		end
+	end
+	return s.West, s.East
+end
+
 local function setWave(at: number?)
 	table.clear(waveSector)
 	waveAt = at
@@ -730,7 +751,7 @@ local function newMatch(reset: boolean?)
 	folder:SetAttribute("West", pair.West)
 	folder:SetAttribute("East", pair.East)
 	folder:SetAttribute("Winner", nil)
-	folder:SetAttribute("Momentum", 1)
+	folder:SetAttribute(Cfg.LastCaptureAttribute, nil)
 	folder:SetAttribute(Cfg.ReinforcedAttribute, nil)
 	publish(empty())
 end
@@ -799,14 +820,11 @@ local function run()
 		end
 		local winner: Rules.Side? = nil
 		local last = os.clock()
-		still = 0
+		table.clear(pushedAt)
 		while not winner and not ending do
 			task.wait(Cfg.Tick)
 			local dt = os.clock() - last
 			last = os.clock()
-			still += dt
-			local rate = Rules.momentum(Cfg, still)
-			folder:SetAttribute("Momentum", rate)
 			if waveAt and workspace:GetServerTimeNow() >= (waveAt :: number) then
 				release()
 				setWave((waveAt :: number) + Cfg.Waves.every)
@@ -815,9 +833,14 @@ local function run()
 			folder:SetAttribute(Cfg.ReinforcedAttribute, Rules.reinforced(Cfg.Reinforcements, w, e))
 			local counts, inside, inZone = occupancy()
 			latest = inZone -- (the spawn choice by head, as before; the weights are the capture's)
-			for _, ev in Rules.step(state, Cfg, counts, dt, rate) do
+			local unit = Rules.unit(Cfg, strength())
+			folder:SetAttribute(Cfg.UnitAttribute, unit)
+			for _, ev in Rules.step(state, Cfg, counts, dt, unit) do
 				if ev.kind == "Captured" then
-					still = 0
+					local from = pushedAt[ev.index]
+					if from then
+						folder:SetAttribute(Cfg.LastCaptureAttribute, math.round((last - from) * 10) / 10)
+					end
 					captured = true
 					table.insert(log, { t = os.clock() - playedAt, index = ev.index, side = ev.side })
 				end
@@ -829,7 +852,18 @@ local function run()
 					end
 				end
 			end
-			publish(counts, rate, inZone)
+			-- a capture under way: from the first push off the holder's end until it is taken or back at that end
+			-- (a sector just neutralised sits at its neutral rest while the push goes on: it starts over only once nobody
+			-- leads there)
+			for i in sectors do
+				local held = state.owner[i] ~= "Neutral" or counts[i].West == counts[i].East
+				if state.control[i] == Rules.rest(state.owner[i]) and held then
+					pushedAt[i] = nil
+				elseif not pushedAt[i] then
+					pushedAt[i] = last
+				end
+			end
+			publish(counts, unit, inZone)
 			winner = Rules.winner(state)
 		end
 		local force = forced
@@ -1138,7 +1172,7 @@ function Frontline.finish()
 	end
 end
 
--- Admin: `side` takes sector `index` now (counts as a capture: the momentum starts over; no points paid). False
+-- Admin: `side` takes sector `index` now (counts as a capture; no points paid). False
 -- outside play or with no such sector.
 function Frontline.capture(side: Rules.Side, index: number): boolean
 	if not thread or folder:GetAttribute("Phase") ~= "Playing" or not sectors[index] or state.owner[index] == side then
@@ -1146,7 +1180,6 @@ function Frontline.capture(side: Rules.Side, index: number): boolean
 	end
 	state.owner[index] = side
 	state.control[index] = Rules.rest(side)
-	still = 0
 	captured = true
 	table.insert(log, { t = os.clock() - playedAt, index = index, side = side })
 	return true
