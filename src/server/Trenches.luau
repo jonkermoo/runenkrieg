@@ -1400,13 +1400,8 @@ function Trenches.work(blk: Block, _team: string, mode: string, power: number, s
 	end
 	local H = T.hp
 	if mode == "Build" then
-		-- dug to full, then reinforced past it (Trench.hp.extra)
-		local nextHp = Rules.trenchBuild(
-			blk.hp,
-			H,
-			Rules.digAmount(H.swing * power, H.max, share),
-			Rules.digAmount(H.extraSwing * power, H.extra, share)
-		)
+		-- dug to full and on past it, reinforced (one bar to Trench.hp.max + hp.extra)
+		local nextHp = Rules.trenchBuild(blk.hp, H, Rules.digAmount(H.swing * power, H.max, share))
 		if not nextHp then
 			return false, 0
 		end
