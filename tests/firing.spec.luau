@@ -562,4 +562,32 @@ return {
 		F.topUp(p, WEBLEY)
 		assert(F.rounds(p) == 6, "the admin's unlimited ammo fills every chamber")
 	end,
+	["airSpread: wide in the air, easing off after landing, none on the ground"] = function()
+		local A = Cfg.Airborne
+		assert(F.airSpread(A, true, nil, false) == A.air, "in the air")
+		assert(F.airSpread(A, true, 0.1, true) == A.aimed, "aimed in the air")
+		assert(A.air >= 4 and A.aimed >= 4, "much less accurate: degrees, not a nudge")
+		assert(F.airSpread(A, false, 0, false) == A.landed, "just landed")
+		local half = F.airSpread(A, false, A.settle / 2, true)
+		assert(math.abs(half - A.landed / 2) < 1e-9, "halfway through the settle")
+		assert(F.airSpread(A, false, A.settle, false) == 0, "settled")
+		assert(F.airSpread(A, false, A.settle * 10, false) == 0, "long since")
+		assert(F.airSpread(A, false, nil, false) == 0, "never jumped")
+		assert(F.airSpread(A, false, -1, false) == 0, "clock odd")
+		assert(F.airSpread(A, false, 0 / 0, false) == 0, "NaN")
+	end,
+	["stray: within the spread, over the whole disc"] = function()
+		local x, y = F.stray(5, 1, 0)
+		assert(math.abs(x - 5) < 1e-9 and math.abs(y) < 1e-9, "the rim")
+		x, y = F.stray(5, 0, 0.3)
+		assert(x == 0 and y == 0, "the middle")
+		x, y = F.stray(0, 0.7, 0.4)
+		assert(x == 0 and y == 0, "no spread")
+		for i = 1, 50 do
+			local a, b = F.stray(6, (i % 7) / 7, (i % 11) / 11)
+			assert(math.sqrt(a * a + b * b) <= 6 + 1e-9)
+		end
+		x, y = F.stray(-3, 1, 0)
+		assert(x == 0 and y == 0, "a negative spread is none")
+	end,
 }

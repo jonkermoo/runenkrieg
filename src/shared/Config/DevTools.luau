@@ -143,6 +143,9 @@ local DevTools = {
 			{ "Playing", "Playing" },
 		},
 		LoadReadout = 0.25,
+		-- Shooting: the jump-shot spread now and the last shot's (Config/Firing.Airborne, src/client/ShotSpread), refreshed
+		-- every `SpreadReadout` seconds
+		SpreadReadout = 0.1,
 		FlyUpKeys = { "Space", "E" },
 		FlyDownKeys = { "Q", "LeftControl" },
 		Attribute = "DevSpeed", -- the chosen multiplier, on the Player (read by src/client/Stance)

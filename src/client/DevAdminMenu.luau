@@ -45,6 +45,7 @@ local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
 local DevSights = require(script.Parent.DevSights)
 local Settings = require(script.Parent.Settings)
+local ShotSpread = require(script.Parent.ShotSpread)
 local Menus = require(script.Parent.Menus) :: any
 local MapLoader = require(script.Parent.MapLoader)
 local LoadCfg = require(Shared.Config.JoinLoading)
@@ -386,6 +387,21 @@ local function build(player: Player): DevPanel.Panel
 			local who = f and f:GetAttribute(FrontCfg.WaitingAttribute)
 			waitLine.Text = `Server waits for: {if type(who) == "string" then who else "nobody"}`
 			task.wait(A.LoadReadout)
+		end
+	end)
+	-- Shooting: the jump-shot spread (Config/Firing.Airborne, src/client/ShotSpread): now, and the last shot's
+	heading("Shooting")
+	order += 1
+	local spreadLine = DevPanel.heading(p.panel, "Shot spread: 0.0°", order)
+	task.spawn(function()
+		while p.panel.Parent do
+			if p.panel.Visible then
+				local now, why = ShotSpread.now()
+				local last, lastWhy = ShotSpread.last()
+				spreadLine.Text =
+					string.format("Shot spread now %.1f° (%s) · last shot %.1f° (%s)", now, why, last, lastWhy)
+			end
+			task.wait(A.SpreadReadout)
 		end
 	end)
 	-- Match (FFA, src/server/ZoneMatch): end it, a fresh one, the zone on, the clock, your zone score; dim in other modes

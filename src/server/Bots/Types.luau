@@ -151,6 +151,7 @@ export type Bot = {
 	spawnedAt: number,
 	reachedZone: boolean,
 	deadAt: number?,
+	landedAt: number?, -- the last landing (os.clock), for the jump-shot spread (Config/Firing.Airborne)
 	respawnAt: number?,
 	retiring: boolean?, -- over the count: leaves at its death instead of coming back (Config/Bots.RetiringAttribute)
 	spawning: boolean, -- a body being built (it yields): never two at once

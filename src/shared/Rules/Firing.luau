@@ -411,4 +411,25 @@ function Firing.shatters(
 	return class ~= nil and shatter.classes[class] == true and panes < shatter.panes
 end
 
+-- Jump shooting (Config/Firing.Airborne): how far (degrees) a shot may stray off the barrel's line. `airborne` while off
+-- the ground; else `sinceLanded` seconds since the last landing (nil: none lately). Aiming down the sights in the air
+-- uses `aimed`.
+export type Airborne = { air: number, aimed: number, landed: number, settle: number }
+function Firing.airSpread(cfg: Airborne, airborne: boolean, sinceLanded: number?, aiming: boolean): number
+	if airborne then
+		return if aiming then cfg.aimed else cfg.air
+	elseif sinceLanded == nil or sinceLanded ~= sinceLanded or sinceLanded < 0 or cfg.settle <= 0 then
+		return 0
+	end
+	return cfg.landed * math.max(0, 1 - sinceLanded / cfg.settle)
+end
+
+-- A shot's stray (degrees: right, up) within `spread` degrees of its line, from two random numbers in 0..1, evenly over
+-- the disc (so the middle isn't crowded).
+function Firing.stray(spread: number, r1: number, r2: number): (number, number)
+	local d = math.max(spread, 0) * math.sqrt(math.clamp(r1, 0, 1))
+	local a = 2 * math.pi * r2
+	return d * math.cos(a), d * math.sin(a)
+end
+
 return Firing
