@@ -473,11 +473,18 @@ spawnBody = function(b: Bot)
 			local p = root.Position
 			local inT, byShell =
 				BotTrenches.deathKind(p.X, p.Z, b.deadAt, squares, ByTrench.blasts, Cfg.Dugouts.shell, TR.Stats)
-			local d = ByTrench.deaths[b.side :: string] or { all = 0, trench = 0, shell = 0 }
+			local d = ByTrench.deaths[b.side :: string] or { all = 0, trench = 0, shell = 0, zone = 0 }
 			ByTrench.deaths[b.side :: string] = d
 			d.all += 1
 			d.trench += if inT then 1 else 0
 			d.shell += if byShell then 1 else 0
+			-- (in a sector's capture zone: the admin trench stats, how much of the fighting reaches the points)
+			for i, sec in Map.sectors do
+				if flat(sectorPoint(i) - p).Magnitude <= sec.radius then
+					d.zone += 1
+					break
+				end
+			end
 		end
 		-- a teammate close by calls it
 		for _, o in bots do
@@ -576,15 +583,71 @@ end
 
 -- sensing ------------------------------------------------------------------------------------------------------------
 
--- where a bot guarding a teammate stands (Config/Bots.Actions.Guard): by them, nil while near enough or none
+-- where a bot guarding a teammate stands (Config/Bots.Actions.Guard): by them, nil while near enough; a teammate with
+-- no body left to stand by is guarded no more (never its own spot as a goal: 2026-11-04 match test, "goal 0 studs")
 local function guardSpot(b: Bot): Vector3?
 	local g = b.guard
 	local part = g and g.who:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not part or not b.root then
+		b.guard = nil
 		return nil
 	end
 	local at = (part :: BasePart).Position
 	return if flat(at - (b.root :: BasePart).Position).Magnitude > Cfg.Actions.Guard.near then at else nil
+end
+
+-- the idle watchdog (Config/Bots.Move.Idle), one think: a bot off its post and out of its zone, not fighting, that has
+-- moved no `studs` in `seconds` s drops its job and guard and walks to its stand point (else its zone) for `push` s
+local IDLE = MV.Idle
+local function watchdog(b: Bot, now: number, fighting: boolean, zone: Vector3?, radius: number)
+	local root = b.root :: BasePart
+	local p = root.Position
+	local post = b.post
+	local free = b.mode == "Normal"
+		and not fighting
+		and not b.cast
+		and not b.devHouse
+		and not Healing.busy(b.m :: Model)
+		and not (post and flat((post :: Vector3) - p).Magnitude <= IDLE.post)
+		and not (zone and flat(p - zone :: Vector3).Magnitude < radius * MV.InZoneShare)
+	if not free or not b.idleAt or flat(p - b.idleAt :: Vector3).Magnitude > IDLE.studs then
+		b.idleAt, b.idleSince = p, now
+		return
+	end
+	if now - (b.idleSince :: number) < IDLE.seconds then
+		return
+	end
+	b.idleAt, b.idleSince = p, now
+	stats.idleResets += 1
+	if b.work then
+		Act.lose(b, b.work.job, "stood idle", now)
+	end
+	b.guard = nil
+	local to: Vector3? = nil
+	for _, v in { b.stand, zone } do
+		if v and flat((v :: Vector3) - p).Magnitude > IDLE.post * 2 then
+			to = v
+			break
+		end
+	end
+	b.unstick = if to then { to = to :: Vector3, untilAt = now + IDLE.push } else nil
+	b.nav.waypoints, b.nav.pathAt, b.nav.direct = {}, -1, nil
+	-- down in a dugout's steps or room that isn't its post (an enemy's, or wandered in): paths don't go up its steps,
+	-- so straight up to its foot first (think's dugout walk; 2026-11-04 test: an assault squad stood 2 minutes in one)
+	if b.postKind ~= "dugout" then
+		-- (inside its steps and room only: a bot fallen in the dug ground beside its walls can't walk out that way)
+		for _, w in State.Clear.every do
+			local foot = w.key == "Dugout" and Tactics.dug.foot(w.model)
+			local frame, size = w.model:GetAttribute("Frame"), w.model:GetAttribute("Size")
+			if foot and typeof(frame) == "CFrame" and typeof(size) == "Vector3" and p.Y < foot.Y - 1 then
+				local o = frame:PointToObjectSpace(p)
+				if math.abs(o.X) <= size.X / 2 and math.abs(o.Z) <= size.Z / 2 and math.abs(o.Y) <= size.Y / 2 + 1 then
+					b.postFoot = foot
+					break
+				end
+			end
+		end
+	end
 end
 
 local function think(b: Bot, now: number, d: Rules.Difficulty)
@@ -602,6 +665,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			humanoid:MoveTo(root.Position) -- getting up (src/server/DevDummies.getUp): standing still meanwhile
 		end
 		finish(b)
+		b.sight, b.idleAt = nil, nil
 		return -- (down: nothing until it is up again)
 	end
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
@@ -611,10 +675,16 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		if not b.stowed then
 			stow(b)
 		end
+		b.sight, b.idleAt = nil, nil
 		return
 	end
 	if b.stowed then
 		draw(b)
+	end
+	-- a build job held too long for nothing is left, whatever it does meanwhile (crewing, acting, fighting: those
+	-- return before the job is weighed; Config/Bots.Build.Work)
+	if b.work then
+		Act.checkJob(b, now)
 	end
 	-- the body's physics stays the server's: any joint made or broken (a helmet knocked off, the gun drawn) hands it to
 	-- the nearest player, and a body a player owns ignores the server's get-up and lies there in Physics
@@ -626,6 +696,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	if humanoid:GetState() == Enum.HumanoidStateType.Physics then
 		DevDummies.getUp(m, humanoid) -- (left lying after a knock)
 		stats.stoodUp += 1
+		b.sight, b.idleAt = nil, nil
 		return
 	end
 	-- how often it thinks and looks, by the nearest player's distance (Rules/Bots.lod)
@@ -662,6 +733,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	debug.profileend()
 	-- Normal: on a gun, or walking to the one it was given (src/server/Bots/Crew), instead of all the rest
 	if b.mode == "Normal" and (b.gun or Artillery.gunOf(m)) and Tactics.crew.think(b, now) then
+		b.sight, b.idleAt = nil, nil -- (the readout's "sees" is the gun's business there)
 		return
 	end
 	-- Normal: a drag, a heal or a grenade instead of fighting for a while (Rules/BotActions)
@@ -674,6 +746,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		debug.profileend()
 		if acting then
 			dropCast(b)
+			b.sight, b.idleAt = nil, nil
 			return
 		end
 	end
@@ -767,7 +840,18 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			move = "Objective"
 		end
 	end
-	if move == "Objective" and zone then
+	watchdog(b, now, fighting, zone, radius)
+	-- a build job it took, with no enemy in sight or shooting at it: walked to whatever the fight mode says (in Strafe
+	-- and Peek, or with no zone, it would stand "going" with no goal: 2026-11-04 match test)
+	local toWork = b.work ~= nil
+		and not b.guard
+		and not seeing
+		and not threatened
+		and (move == "Strafe" or move == "Peek" or (move == "Objective" and not zone))
+	if toWork then
+		goal = (b.work :: any).at
+		b.nav.direct = nil
+	elseif move == "Objective" and zone then
 		local z = zone :: Vector3
 		if b.flank and flat((b.flank :: Vector3) - root.Position).Magnitude < MV.Arrive * 3 then
 			b.flank = nil
@@ -797,8 +881,12 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			else (b.goal or b.stand or z)
 		-- (a teammate it guards: by them; a build job it took: there; fighting on the way: Config/Bots.Actions.Guard,
 		-- Build.Work)
+		local by = if b.guard then guardSpot(b) else nil -- (no body to guard: the guard dropped)
 		if b.guard then
-			goal = guardSpot(b) or root.Position -- (by them: it stays)
+			goal = by -- (nil: by them, it stands)
+			if not by then
+				b.nav.goal, b.nav.waypoints = nil, {}
+			end
 		elseif b.work then
 			goal = b.work.at
 		end
@@ -806,6 +894,9 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	elseif move == "Hold" then
 		-- on its spot (covering fire, or a hold spot in the zone); there, it stands
 		local post = if b.guard then guardSpot(b) elseif b.work then b.work.at else (b.goal or b.post)
+		if not post and not b.guard then
+			post = if b.work then b.work.at else (b.goal or b.post) -- (its guard dropped: no body)
+		end
 		if post and flat((post :: Vector3) - root.Position).Magnitude > MV.Arrive then
 			goal = post
 		else
@@ -838,6 +929,14 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	else
 		-- Strafe (and anything with nowhere to go): never standing still
 		strafeStep(b, aimAt or zone, now)
+	end
+	-- sent off by the idle watchdog: its stand point or zone a while, unless in a fight (Config/Bots.Move.Idle)
+	local us = b.unstick
+	if us and (now >= us.untilAt or flat(us.to - root.Position).Magnitude <= MV.Arrive * 2) then
+		b.unstick, us = nil, nil
+	end
+	if us and not seeing and not threatened and move ~= "Cover" and move ~= "Away" then
+		goal, b.nav.direct = us.to, nil
 	end
 	-- a dugout (Config/Bots.Dugouts): paths don't go down its steps, so a path to its foot, then straight down them to
 	-- the room, crouched under its low doorway; out of it, straight up to the foot first
@@ -1165,7 +1264,9 @@ local function direct(now: number)
 			botFolder():SetAttribute(Cfg.SideAttribute .. side, n)
 		end
 	end
-	for _, side in { "West", "East", "" } do
+	-- (the side with fewer bots first, so a match fills both alternately: 2026-11-04 match test began "W 25, E 0")
+	local order = if onSide.East < onSide.West then { "East", "West", "" } else { "West", "East", "" }
+	for _, side in order do
 		local want = wants[side]
 		if want and balance(mode :: string, if side == "" then nil else side, want, now) then
 			return

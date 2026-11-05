@@ -45,6 +45,7 @@ export type BuildJob = {
 	fix: boolean?, -- a gun of its side out of service (Rules/BotCrew.repairOrder): fixed first, wherever it stands
 	why: string?, -- why it was last refused (Build.placeAs; the Engineer readout)
 	from: { x: number, z: number }?, -- a trench run planned part way: where it began (its job goes on from the part's end)
+	lostBy: { [number]: boolean }?, -- bots (by id) that left it with no way there, no swing or flapping (Build.Work)
 	sys: string?, -- a trench run's system: "S<sector>", or "S<sector>F<k>" a forward line (Config/Bots.Trenches.Forward)
 }
 -- a side's trench system at a sector (its runs as jobs, kept while the side holds the sector) or a forward line out from
@@ -159,7 +160,24 @@ export type Bot = {
 	-- its build job as the admin panel's job readout shows it (Config/DevTools.Admin.BotJobsAttribute): since when, the
 	-- last swing that landed, how often it began and broke off work there, the swings landed and the last why it stopped
 	-- (kept while it takes the same job again)
-	jobNote: { job: BuildJob, since: number, landed: number, starts: number, stops: number, swings: number, why: string }?,
+	-- (`flaps`: begun and broken off within Work.flapWithin s, Config/Bots.Build.Work; a fresh note once not held for
+	-- Work.keep s)
+	jobNote: {
+		job: BuildJob,
+		since: number,
+		landed: number,
+		heldAt: number, -- (last think it held it)
+		starts: number,
+		stops: number,
+		swings: number,
+		flaps: number,
+		why: string,
+	}?,
+	-- the idle watchdog (Config/Bots.Move.Idle): where it last moved from and when; and the walk it was sent on after a
+	-- reset (its stand point or zone) until then
+	idleAt: Vector3?,
+	idleSince: number?,
+	unstick: { to: Vector3, untilAt: number }?,
 	-- Normal: a downed or hurt teammate it guards, gun out, until it may drag or heal them (Config/Bots.Actions.Guard)
 	guard: { who: Model, since: number }?,
 	buildWhy: string?, -- Normal, an Engineer: its build job's key, or why it has none (the admin panel's readout)

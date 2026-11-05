@@ -95,7 +95,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts (%.1f/min); %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug, %d given up; %d squads pressed on out of the open; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d left with no way there, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened (%d walked into, %d paths again after a swing, %d doorway spots behind a door, %d steps along a flight), %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts (%.1f/min); %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug, %d given up; %d squads pressed on out of the open; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d left with no way there, %d with no swing, %d begun and broken off, %d out of reach for the side, %d idle resets, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned, %d sheltered, %d came up, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened (%d walked into, %d paths again after a swing, %d doorway spots behind a door, %d steps along a flight), %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -151,6 +151,10 @@ local function report(now: number, governor: { cap: number })
 			stats.workStarted,
 			stats.workStopped,
 			stats.workStalled,
+			stats.workNoSwing,
+			stats.workFlapped,
+			stats.workOutOfReach,
+			stats.idleResets,
 			stats.guarded,
 			stats.rescues,
 			stats.rescuesLet,
@@ -556,11 +560,12 @@ end
 -- each side's trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute): its squares dug (and only planned), the
 -- dug ones blasts and bullets buried this match, its fire steps and the bots on them, its pioneers, and its bots'
 -- deaths: in a trench, in the open, by a shell (Rules/BotTrenches.deathKind)
+local captures = { key = nil :: string?, at = 0, what = "" }
 local function trenchStats()
 	local lines = {}
 	for _, side in { "West", "East" } do
 		local sb = buildLists[side]
-		local dug, planned, onStep, pioneers, kit = 0, 0, 0, 0, nil
+		local dug, planned, pioneers, kit = 0, 0, 0, nil
 		for _, t in (if sb then sb.trench else {}) do
 			if t.built then
 				dug += 1
@@ -568,14 +573,27 @@ local function trenchStats()
 				planned += 1
 			end
 		end
+		-- (manned: its listed fire steps with a living bot posted to them; a bot posted to a step the list has dropped
+		-- since, its trench lost or the front moved on, counted no more: "3 manned of 2", 2026-11-04 match test)
+		local listed: { [Vector3]: boolean } = {}
+		for _, tp in (if sb then sb.steps else {}) do
+			listed[tp.pos] = true
+		end
+		local manned: { [Vector3]: boolean } = {}
 		for _, b in bots do
 			if b.side == side then
 				kit = kit or b.kit
-				onStep += if b.postKind == "step" and not b.deadAt then 1 else 0
+				if b.postKind == "step" and not b.deadAt and b.post and listed[b.post :: Vector3] then
+					manned[b.post :: Vector3] = true
+				end
 				pioneers += if b.pioneer then 1 else 0
 			end
 		end
-		local d = State.ByTrench.deaths[side] or { all = 0, trench = 0, shell = 0 }
+		local onStep = 0
+		for _ in manned do
+			onStep += 1
+		end
+		local d = State.ByTrench.deaths[side] or { all = 0, trench = 0, shell = 0, zone = 0 }
 		local function pct(n: number): string
 			return if d.all > 0 then `{math.floor(n / d.all * 100 + 0.5)}%` else "-"
 		end
@@ -585,8 +603,19 @@ local function trenchStats()
 				then #sb.steps
 				else 0}; {pioneers} pioneers; deaths {d.all}: {d.trench} in a trench ({pct(d.trench)}), {d.all - d.trench} in the open, {d.shell} by shells ({pct(
 				d.shell
-			)})`
+			)}), {d.zone} in a zone ({pct(d.zone)})`
 		)
+	end
+	-- (minutes since a sector last changed hands, or since the match began: how stale the fighting is)
+	local owners = fronts.owners
+	local key = if owners then table.concat(owners, ",") else nil
+	if key ~= captures.key then
+		captures.at = os.clock()
+		captures.what = if key == nil or captures.key == nil then "the match began" else "the last capture"
+		captures.key = key
+	end
+	if key then
+		table.insert(lines, string.format("%.1f min since %s", (os.clock() - captures.at) / 60, captures.what))
 	end
 	workspace:SetAttribute(DevCfg.Admin.BotTrenchStatsAttribute, table.concat(lines, "\n"))
 end
