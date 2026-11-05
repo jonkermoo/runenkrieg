@@ -443,8 +443,8 @@ local Bots = {
 	-- the offensive is spent.
 	-- - Gather: the attack squads go to their jump-off (a dug trench by the zone, else their approach spot) and wait,
 	--   no push; at least `gatherWaves` respawn waves (Config/Frontline.Waves.every) and until `ready` of them are
-	--   there, at most `gatherSeconds` (a counter-attack into a sector lost under `counterWithin` s ago: at most
-	--   `counterGather`).
+	--   there, at most `gatherSeconds` (a counter-attack into a sector lost under `counterWithin` s ago: all of
+	--   `counterGather`, while the side that took it digs in, `dig`).
 	-- - Barrage: `barrageSeconds` of every crewed gun on the target: known MG nests and guns first, then
 	--   `barragePoints` spots within `barrageSpread` studs of the zone's middle, then its dug squares.
 	-- - Go: every attack squad goes in together (Assault, no ready check).
@@ -465,7 +465,8 @@ local Bots = {
 		gatherWaves = 2,
 		ready = 0.6,
 		counterWithin = 60,
-		counterGather = 20,
+		-- (20 to 50, user 2026-11-04: every counter-attack retook S4 within a minute or two, so the front only swung there)
+		counterGather = 50,
 		barrageSeconds = 20,
 		barragePoints = 3,
 		barrageSpread = 25,
@@ -476,6 +477,10 @@ local Bots = {
 		exploitHold = 0.5,
 		stuckFor = 25,
 		strong = { seen = 15, forget = 90, within = 220, reach = 90 },
+		-- digging in where it just took a sector (user 2026-11-04: "dig in, slower counter"): for `hold` s every `every`th
+		-- holder there holds a spot inside the zone (the flag itself), the rest the fire steps on its own lines and the
+		-- enemy's squares it took over (Trenches.takeOver), the support line and hold spots as before
+		dig = { hold = 240, every = 2 },
 	},
 
 	Front = {

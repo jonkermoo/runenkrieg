@@ -940,7 +940,15 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					-- in its trenches: every other holder in the support line until it stands to, the rest on the fire
 					-- step; all back to the support line once the fire trench is lost
 					local want: string? = nil
-					if lines then
+					-- (a sector it just took: a share of its holders on hold spots inside the zone, holding the flag
+					-- itself against the counter-attack: Config/Bots.Offensive.dig)
+					local took = fronts.took[side]
+					local inZoneHold = took ~= nil
+						and took.sector == sector
+						and Orders.digIn(holdN, now - took.at, OF.dig)
+					if inZoneHold then
+						want = "zone"
+					elseif lines then
 						local s2 = sb :: SideBuild
 						if fallback then
 							want = if #s2.reserve > 0 then "reserve" else nil
@@ -988,6 +996,9 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						end
 					end
 					local again = not b.post or b.postSector ~= sector or b.roleWas ~= "Hold"
+					if want == "zone" and b.postKind ~= "open" then
+						again = true
+					end
 					if b.postKind == "dugout" and want ~= "dugout" then
 						-- (up to its post again: shelling over, standing to, or the dugout gone)
 						stats.cameUp += 1
@@ -995,6 +1006,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 					local tp = if want
 							and want ~= "dugout"
+							and want ~= "zone"
 							and (again or b.postKind ~= want)
 						then trenchPost(sb :: SideBuild, want :: string, taken, p)
 						else nil
@@ -1004,7 +1016,9 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						b.postSector = sector
 					elseif again and want ~= "dugout" then
 						-- a few at windows and doorways (Config/Bots.Indoors.perSquad), the rest outside
-						local sp = if indoorHeld < IN.perSquad then indoorHold(side, sector, taken) else nil
+						local sp = if indoorHeld < IN.perSquad and want ~= "zone"
+							then indoorHold(side, sector, taken)
+							else nil
 						if sp then
 							indoorHeld += 1
 							b.post, b.postFace, b.postKind = sp.at, sp.face, "window"
@@ -2319,6 +2333,14 @@ local function initiativeTick(owner: { string }, counts: { { West: number, East:
 	if by and holder == by then
 		fronts.tally[`took{by}`] = (fronts.tally[`took{by}`] or 0) + 1
 	end
+	if by and was then
+		-- (the sector it took: its holders dig in there, Config/Bots.Offensive.dig)
+		for i, o in owner do
+			if o == by and (was :: { string })[i] ~= by then
+				fronts.took[by] = { sector = i, at = now }
+			end
+		end
+	end
 	local now1 = Orders.initiative(holder, by, spent)
 	if now1 ~= holder then
 		for _, side in { "West", "East" } do
@@ -2406,6 +2428,7 @@ local function command()
 		table.clear(fronts.lostAt)
 		table.clear(fronts.strong)
 		table.clear(fronts.tally)
+		table.clear(fronts.took)
 		table.clear(lives)
 	end
 	-- (a capture is contact for both sides; each side's plan: Rules/BotFront)

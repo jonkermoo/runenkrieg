@@ -96,8 +96,10 @@ return {
 		R.offensive(late, { now = O.gatherSeconds, ready = 0, ours = 0, theirs = 0, waveEvery = 15 }, O)
 		assert(late.phase == "Barrage", "out of time")
 		local counter = R.newOffensive(4, 0, true)
+		R.offensive(counter, { now = O.counterGather - 1, ready = 1, ours = 0, theirs = 0, waveEvery = 15 }, O)
+		assert(counter.phase == "Gather", "a counter-attack waits its whole gather, ready or not")
 		R.offensive(counter, { now = O.counterGather, ready = 0, ours = 0, theirs = 0, waveEvery = 15 }, O)
-		assert(counter.phase == "Barrage", "a counter-attack gathers briefly")
+		assert(counter.phase == "Barrage", "then goes")
 	end,
 	["offensive: barrage, go, exploit and back, spent by losses or time"] = function()
 		local O = Cfg.Offensive
@@ -142,6 +144,11 @@ return {
 		p = R.holdBack({ attack = nil, defend = 1, share = 1 }, 1, O, 4)
 		assert(p.keep == 0, "no target, no screen")
 		assert(R.defendersFor({ attack = 3, defend = 2, share = 0.5 }, 20) == 10, "no keep: as before")
+	end,
+	["digIn: every other holder in the zone for a while after taking it"] = function()
+		local D = Cfg.Offensive.dig
+		assert(R.digIn(1, 0, D) and not R.digIn(2, 0, D) and R.digIn(1 + D.every, 0, D))
+		assert(not R.digIn(1, D.hold, D), "over")
 	end,
 	["holdsZone: the first share of the squads, at least one"] = function()
 		assert(R.holdsZone(1, 4, 0.5) and R.holdsZone(2, 4, 0.5) and not R.holdsZone(3, 4, 0.5))

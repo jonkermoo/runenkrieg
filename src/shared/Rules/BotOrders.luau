@@ -178,7 +178,8 @@ function BotOrders.offensive(o: Offensive, f: OffFacts, cfg: any): boolean
 	local t = f.now - o.since
 	if o.phase == "Gather" then
 		local most = if o.counter then cfg.counterGather else cfg.gatherSeconds
-		local least = math.min(cfg.gatherWaves * f.waveEvery, most)
+		-- (a counter-attack waits its whole gather: the side that just took the sector digs in meanwhile)
+		local least = if o.counter then most else math.min(cfg.gatherWaves * f.waveEvery, most)
 		if t >= most or (t >= least and f.ready >= cfg.ready) then
 			enter(o, "Barrage", f.now)
 		end
@@ -227,6 +228,13 @@ function BotOrders.defendersFor(p: Plan, bots: number): number
 		return math.max(0, bots - keep)
 	end
 	return BotOrders.defenders(bots, p.share, p.attack ~= nil)
+end
+
+-- Whether a squad's `holdN`th holder (1-based) of a sector its side took `since` seconds ago holds a spot inside the
+-- zone rather than a fire step (Config/Bots.Offensive.dig: for `dig.hold` s, every `dig.every`th holder, the first
+-- among them): the flag itself held against the counter-attack, not only the trenches round it.
+function BotOrders.digIn(holdN: number, since: number, dig: { hold: number, every: number }): boolean
+	return since < dig.hold and (holdN - 1) % dig.every == 0
 end
 
 -- The squads (in a steady order, `n` of them) that hold the zone while exploiting: the first `share` of them (at

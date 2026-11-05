@@ -268,6 +268,7 @@ local fronts = {
 	lostAt = {} :: { [string]: { [number]: number } },
 	strong = {} :: { [string]: { [Model]: { at: Vector3, seen: number } } },
 	tally = {} :: { [string]: number },
+	took = {} :: { [string]: { sector: number, at: number } }, -- the sector each side took last, and when
 	summary = nil :: string?, -- the [Bots] line's offensives part
 }
 -- the build job a bot takes on its side's list (Rules/BotBuild.pick): an Engineer any within Build.take; a digger (half
