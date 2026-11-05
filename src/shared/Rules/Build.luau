@@ -639,17 +639,15 @@ function Build.trenchSwing(hp: number, max: number, swing: number, build: boolea
 	return math.max(left, 0), left <= 0
 end
 
--- A trench square's HP after a Build swing (Config/Build.Trench.hp `h`): `amount` up to `h.max` while it is dug (a swing
--- that fills it stops at full), then `extraAmount` up to `h.max + h.extra` (reinforced, user 2026-11-04). Nil when it
+-- A trench square's HP after a Build swing (Config/Build.Trench.hp `h`): `amount` added on one bar up to `h.max` +
+-- `h.extra`, the swing that fills it carrying on past `h.max` (reinforced: 97 + 10 is 107, user 2026-11-05). Nil when it
 -- is already as reinforced as it goes.
-function Build.trenchBuild(hp: number, h: any, amount: number, extraAmount: number): number?
+function Build.trenchBuild(hp: number, h: any, amount: number): number?
 	local cap = h.max + h.extra
 	if hp >= cap then
 		return nil
-	elseif hp < h.max then
-		return math.min(hp + amount, h.max)
 	end
-	return math.min(hp + extraAmount, cap)
+	return math.min(hp + amount, cap)
 end
 
 -- A square's extra HP over `max` as its panel shows it (whole numbers, 0..`extra`): full only once it is

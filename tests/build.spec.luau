@@ -448,24 +448,24 @@ return {
 		assert(B.trenchShownHP(99.6, max) == max - 1, "a blast's fraction short isn't shown full")
 		assert(B.trenchShownHP(max, max) == max and B.trenchShownHP(42.4, max) == 42 and B.trenchShownHP(0, max) == 0)
 	end,
-	["reinforced trenches: Build swings past 100 add the extra up to 100 + 75, the extra soaks blasts first"] = function()
+	["reinforced trenches: one bar to 100 + 75, the swing that fills a square carrying on past 100"] = function()
 		local H = C.Trench.hp
-		assert(H.extra == 75 and H.extraSwing > 0 and H.extraSwing <= H.swing)
-		assert(B.trenchBuild(90, H, H.swing, H.extraSwing) == H.max, "the swing that fills it stops at full")
-		local hp: number? = H.max
-		local swings = 0
-		while hp do
-			local nxt = B.trenchBuild(hp, H, H.swing, H.extraSwing)
-			if nxt then
-				swings += 1
+		assert(H.extra == 75 and H.extraSwing == nil, "no separate reinforcing swing")
+		assert(B.trenchBuild(97, H, 10) == 107, "97 + 10 is 107, not 100")
+		assert(B.trenchBuild(90, H, 10) == 100 and B.trenchBuild(170, H, 10) == H.max + H.extra)
+		-- a soldier's swing (Config/Build.Power) adds the same past 100 as below it: as many swings a 10 as from 0
+		local amount = H.swing * B.swingPower("Build", "Rifleman", C.Power)
+		local function swingsBetween(from: number, to: number): number
+			local hp, n = from, 0
+			while hp < to do
+				hp = assert(B.trenchBuild(hp, H, amount))
+				n += 1
 			end
-			hp = nxt or nil
-			if hp then
-				assert(hp <= H.max + H.extra)
-			end
+			return n
 		end
-		assert(swings == math.ceil(H.extra / H.extraSwing), `{swings} swings reinforce it fully`)
-		assert(B.trenchBuild(H.max + H.extra, H, H.swing, H.extraSwing) == nil, "nothing past 100 + 75")
+		assert(swingsBetween(H.max, H.max + 30) == swingsBetween(0, 30), "protection takes no more digging")
+		assert(swingsBetween(0, H.max + H.extra) == math.ceil((H.max + H.extra) / amount), "one bar from 0 to 175")
+		assert(B.trenchBuild(H.max + H.extra, H, amount) == nil, "nothing past 100 + 75")
 		-- blasts take a share of the base max: the extra goes first, depth and stage untouched until back at 100
 		local field = H.max * C.Trench.blast.field.hit / 100
 		local reinforced, plain = H.max + H.extra, H.max

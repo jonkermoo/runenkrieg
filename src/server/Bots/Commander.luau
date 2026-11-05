@@ -2538,7 +2538,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				decided[i] = d
 			elseif not lull and not sbs.standTo and w.hp >= w.max and x < xT then
 				table.insert(wanted, { i = i, score = score, hp = false })
-				swings[i] = BuildRules.workLeft(x, xT, math.max(w.swing / TH.swing * TH.extraSwing, 1e-3))
+				swings[i] = BuildRules.workLeft(x, xT, math.max(w.swing, 1e-3))
 				reinforcing[i] = true
 				decided[i] = d
 			end

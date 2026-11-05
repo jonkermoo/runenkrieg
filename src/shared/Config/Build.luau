@@ -143,10 +143,13 @@ local Build = {
 		-- to the end, the floor riding up on the fill and the dirt heaps sinking `heapSink` studs by 0 HP, so about 20 HP
 		-- is barely any cover; the 75% cut-off where the pieces went is gone)
 		-- (reinforced, user 2026-11-04: "trenches now can be built past 100 ... 100 + x. the x is carried over HP for the
-		-- extra protection. let's cap it at 100 + 75"): Build swings at a full square add `extraSwing` each, up to
-		-- `extra` over `max`; every blast and bullet takes its share of `max` as before, so the extra goes first (a
-		-- +75 square takes seven field gun hits to bury, not four), and at `max` or less it is the plain square again
-		hp = { max = 100, swing = 20, destroy = 4, hold = 95, extra = 75, extraSwing = 10 },
+		-- extra protection. let's cap it at 100 + 75"): one bar from 0 to `max` + `extra`, every Build swing adding its
+		-- `swing` share past `max` as below it, the swing that fills a square carrying on past it (user 2026-11-05:
+		-- "if trenches at 97 and you dig with a shovel for 10, it will do go 107. dont make protection take more
+		-- digging, it should take 10 just like the normal trench"); every blast and bullet takes its share of `max` as
+		-- before, so the extra goes first (a +75 square takes seven field gun hits to bury, not four), and at `max` or
+		-- less it is the plain square again
+		hp = { max = 100, swing = 20, destroy = 4, hold = 95, extra = 75 },
 		-- a reinforced square's corrugated iron sheets (Config/Assets trench_pieces v16, Wall<i>Sheet<s>: `perWall` on each
 		-- side wall, user 2026-11-04 "each segment should have 4 (2 on each side) ... make each stage be a sheet metal or
 		-- two (25, 50, 75)", then "can we make the sheets cover essentially the whole segment? it can leave some gaps":
