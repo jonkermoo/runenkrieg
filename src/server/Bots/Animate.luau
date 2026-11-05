@@ -91,11 +91,13 @@ function Animate.attach(m: Model, weapon: string): Handle
 		current, held = nil, nil
 	end)
 
-	local function update(speed: number, hold: string, pitch: number)
-		if not RagdollRules.animates(humanoid.Health) then
-			return
-		end
-		-- the ground cycle by speed, at its game pace
+	local asked = "ready" -- (the hold its last think asked for)
+	local rate = 1
+
+	-- the ground cycle by speed, at its game pace; and its weapon hold. Both each think, and the ground cycle also as
+	-- soon as its speed changes (Humanoid.Running): a bot thinks 2 to 10 times a second, and a cycle set only then
+	-- played the idle while it ran and the run while it stood (user 2026-11-04: bots "lose leg animation")
+	local function ground(speed: number)
 		local name = if speed < Loco.IdleBelow then "idle" elseif speed > Loco.SprintAbove then "sprint" else "walk"
 		if crouched and base.crouchIdle and base.crouchWalk then
 			name = if name == "idle" then "crouchIdle" else "crouchWalk"
@@ -107,14 +109,19 @@ function Animate.attach(m: Model, weapon: string): Handle
 			base[name]:Play(Loco.Fade)
 			current = name
 		end
-		local rate = 1
+		rate = 1
 		local c = (Anims :: any)[name]
 		if c.speed and c.keyed and c.cycle then
 			rate = math.clamp(speed / c.speed, Loco.PlaybackMin, Loco.PlaybackMax) * c.keyed / c.cycle
 			base[name]:AdjustSpeed(rate)
 		end
-		-- the weapon's hold over it (the walk and carry kept in step with the legs); "none": nothing in the hands
-		local want: string? = if hold == "none" then nil elseif holds[hold] then hold else "ready"
+	end
+
+	-- the weapon's hold over the ground cycle (the walk and carry kept in step with the legs); "none": nothing in the
+	-- hands; a stepping hold standing still is "ready" (Rules/Bots.hold)
+	local function wield(hold: string, speed: number)
+		local h = if (hold == "walk" or hold == "carry") and speed < Loco.IdleBelow then "ready" else hold
+		local want: string? = if h == "none" then nil elseif holds[h] then h else "ready"
 		if want ~= held then
 			if held and holds[held] then
 				holds[held]:Stop(Loco.HoldFade)
@@ -128,6 +135,23 @@ function Animate.attach(m: Model, weapon: string): Handle
 		if (want == "walk" or want == "carry") and holds[want :: string] then
 			holds[want :: string]:AdjustSpeed(rate)
 		end
+		return want
+	end
+
+	humanoid.Running:Connect(function(speed: number)
+		if current and RagdollRules.animates(humanoid.Health) then
+			ground(speed)
+			wield(asked, speed)
+		end
+	end)
+
+	local function update(speed: number, hold: string, pitch: number)
+		if not RagdollRules.animates(humanoid.Health) then
+			return
+		end
+		asked = hold
+		ground(speed)
+		local want = wield(hold, speed)
 		-- the look tilt, to everyone (as src/server/LookTilt relays a player's), when it changed enough
 		local follow = if want then (CameraCfg.Follow :: any)[want] or 0 else 0
 		local p = math.floor(pitch / Send.Step + 0.5) * Send.Step

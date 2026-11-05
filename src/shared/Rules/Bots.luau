@@ -533,6 +533,32 @@ end
 -- How often a bot thinks and looks (per second) by how far the nearest player is (Config/Bots.Budget.lod): full rate
 -- near a player or in a fight (`fighting`: shot at lately, or a target), less at `mid`, least past `far` (the long walks
 -- nobody watches).
+-- The weapon hold a bot wants (Config/Locomotion holds): "aim" aiming; at ease (Config/Bots.Calm) its calm holds;
+-- else by its flat `speed`, "carry" sprinting, "walk" walking, "ready" standing. A walking or carrying hold is a
+-- stepping cycle, so standing still it is always "ready" (user 2026-11-04: bots "shake their gun as if they are
+-- running, but even while standing still").
+function Bots.hold(
+	aim: boolean,
+	calm: boolean,
+	speed: number,
+	calmCfg: { move: string, stand: string },
+	loco: { IdleBelow: number, SprintAbove: number }
+): string
+	if aim then
+		return "aim"
+	end
+	local moving = speed > loco.IdleBelow
+	local h = if calm
+		then (if moving then calmCfg.move else calmCfg.stand)
+		elseif speed > loco.SprintAbove then "carry"
+		elseif moving then "walk"
+		else "ready"
+	if not moving and (h == "walk" or h == "carry") then
+		return "ready"
+	end
+	return h
+end
+
 function Bots.lod(distance: number, fighting: boolean, cfg: any): (number, number)
 	local r = if fighting or distance < cfg.mid then cfg.near elseif distance < cfg.far then cfg.middle else cfg.distant
 	return r.think, r.sense

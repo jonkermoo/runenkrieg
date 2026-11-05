@@ -455,6 +455,10 @@ spawnBody = function(b: Bot)
 			DevDummies.own(m)
 		end
 	end)
+	-- a waypoint reached between thinks: on to the next at once (Move.arrived)
+	humanoid.MoveToFinished:Connect(function(reached)
+		Move.arrived(b, reached)
+	end)
 	humanoid.Died:Connect(function()
 		stats.deaths += 1
 		b.deadAt = os.clock()
@@ -977,6 +981,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		-- being healed: it stands for it (the heal breaks off once the two are Break studs apart); charging a mega shot
 		b.nav.goal, b.nav.direct = nil, nil
 	end
+	b.nav.walkedAt = now -- (this think walked it: Move.arrived may take it on between thinks)
 	follow(b, now)
 	debug.profileend()
 
@@ -1019,12 +1024,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	-- at ease: no enemy near that it knows of, the gun carried low (Config/Bots.Calm; looks only)
 	local calm = not intent.aim and Rules.calm(b.brain, senses, knownNear(b, now), b.enemyNear, Cfg.Calm)
 	b.sight = Rules.sightWord(seeing, Rules.sighted(b.brain, now, brainCfg), calm)
-	local hold = if intent.aim
-		then "aim"
-		elseif calm then (if speed > Loco.IdleBelow then Cfg.Calm.move else Cfg.Calm.stand)
-		elseif speed > Loco.SprintAbove then "carry"
-		elseif speed > Loco.IdleBelow then "walk"
-		else "ready"
+	local hold = Rules.hold(intent.aim == true, calm, speed, Cfg.Calm, Loco)
 	if b.anim then
 		(b.anim :: Animate.Handle).update(speed, hold, pitch)
 	end
